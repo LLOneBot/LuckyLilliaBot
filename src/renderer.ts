@@ -1,26 +1,41 @@
-/// <reference path="./llapi.d.ts" />
+/// <reference path="./renderer.d.ts" />
 
 // import express from "express";
+// const { ipcRenderer } = require('electron');
 
 const host = "http://localhost:5000"
+
+let groups: Group[] = []
+let friends: User[] = []
+
+function getFriend(qq: string){
+    return friends.find(friend => friend.uid == qq)
+}
+
+function getGroup(qq: string) {
+    return groups.find(group => group.uid == qq)
+}
 
 let self_qq: string = ""
 
 let uid_maps: Record<string, string> = {}  // 一串加密的字符串 -> qq号
 
 function onLoad(){
-    LLAPI.getAccountInfo().then(accountInfo => {
+    llonebot.startExpress();
+    window.LLAPI.getAccountInfo().then(accountInfo => {
         self_qq = accountInfo.uid
     })
 
-    LLAPI.getGroupsList(false).then(groupsList => {
+    window.LLAPI.getGroupsList(false).then(groupsList => {
         groups = groupsList
     })
-
-
-
-    LLAPI.on("new-messages", (messages) => {
-        console.log("收到新消息", messages)
+    window.LLAPI.on("new-messages", (messages) => {
+        try{
+            llonebot.listenSendMessage(console.log);
+            console.log("ipc监听成功")
+        } catch (e){
+            console.log("ipc监听失败", e)
+        }
         messages.forEach(message => {
             let onebot_message_data: any = {
                 self: {

@@ -78,3 +78,8 @@ declare var LLAPI: {
     getGroupsList(forced: boolean): Promise<Group[]>
     getFriendsList(forced: boolean): Promise<User[]>
 };
+
+declare var llonebot: {
+    listenSendMessage: (handle: (msg: any)=>void)=>void
+    startExpress: ()=>void
+};
