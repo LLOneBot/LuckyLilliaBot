@@ -9,9 +9,9 @@ declare type Peer = {
     uid: string  // qq号
 }
 
-interface MessageElement{
+interface MessageElement {
     raw: {
-        elements:{
+        elements: {
             raw: {
                 replyElement: {
                     senderUid: string,  // 原消息发送者QQ号
@@ -79,7 +79,16 @@ declare var LLAPI: {
     getFriendsList(forced: boolean): Promise<User[]>
 };
 
+declare type PostDataSendMsg = {
+    action: "send_private_msg" | "send_group_msg" | "get_group_list",
+    params: {
+        user_id: string,
+        group_id: string,
+        message: SendMessage[];
+    }
+}
+
 declare var llonebot: {
-    listenSendMessage: (handle: (msg: any)=>void)=>void
-    startExpress: ()=>void
+    listenSendMessage: (handle: (msg: PostDataSendMsg) => void) => void
+    startExpress: () => void
 };
