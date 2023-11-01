@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "tsc"
+    "build-mac": "tsc && npm run deploy-mac",
+    "deploy-mac": "cp dist/* ~/Library/Containers/com.tencent.qq/Data/Documents/LiteLoaderQQNT/plugins/LLOnebot/"
   },
   "author": "",
   "license": "ISC",

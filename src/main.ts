@@ -1,5 +1,7 @@
 // 运行在 Electron 主进程 下的插件入口
 
+import {Group, PostDataSendMsg, User} from "./types";
+
 const express = require("express")
 const {ipcMain, webContents} = require('electron');
 const fs = require('fs');
@@ -24,8 +26,9 @@ function sendIPCCallSendQQMsg(postData: PostDataSendMsg) {
     sendIPCMsg(CHANNEL_SEND_MSG, postData);
 }
 
-function log(msg: string){
-    fs.appendFile("d:\\llonebot.log", msg + "\n", (err: any) => {
+function log(msg: any){
+    let currentDateTime = new Date().toLocaleString();
+    fs.appendFile("./llonebot.log", currentDateTime + ":" + msg + "\n", (err: any) => {
 
     })
 }
@@ -142,6 +145,10 @@ function onLoad(plugin: any) {
         }catch (e: any){
             log(e.toString())
         }
+    })
+
+    ipcMain.on("llonebot_log", (event: any, arg: any) => {
+        log(arg)
     })
 }
 

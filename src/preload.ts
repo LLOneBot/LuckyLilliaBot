@@ -1,5 +1,7 @@
 // Electron 主进程 与 渲染进程 交互的桥梁
 
+import {Group, PostDataSendMsg, User} from "./types";
+
 const {contextBridge} = require("electron");
 const {ipcRenderer} = require('electron');
 
@@ -24,6 +26,9 @@ contextBridge.exposeInMainWorld("llonebot", {
     },
     startExpress: () => {
         ipcRenderer.send("startExpress");
+    },
+    log: (data: any) => {
+        ipcRenderer.send("log", data);
     }
     // startExpress,
 });
