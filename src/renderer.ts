@@ -108,7 +108,8 @@ async function forwardMessage(message: MessageElement) {
         }
         for (let element of message.raw.elements) {
             let message_data: any = {
-                data: {"type": "unknown"}
+                data: {},
+                type: "unknown"
             }
 
             if (element.textElement?.atType == 2) {
