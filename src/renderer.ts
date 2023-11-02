@@ -203,9 +203,21 @@ function onLoad() {
     }
 
     window.LLAPI.on("new-messages", onNewMessages);
+    function test(){
+        console.log("test")
+    }
+    try {
+        window.LLAPI.add_qmenu((qContextMenu: { insertAdjacentHTML: (location: string, ele: string) => void }) => {
+            qContextMenu.insertAdjacentHTML("beforeend", `<a class="q-context-menu-item q-context-menu-item--normal vue-component" aria-disabled="false" role="menuitem" tabindex="-1" onclick="test">获取群成员列表</a>`)
+        })
+    }catch (e){
+        log(e)
+    }
 
     window.LLAPI.on("context-msg-menu", (event, target, msgIds) => {
-        console.log(event);
+        console.log("msg menu", event, target, msgIds);
+        // 消息右键菜单添加一个获取群成员列表的按钮
+
         window.LLAPI.getPeer().then(peer => {
             // console.log("current peer", peer)
             if (peer && peer.chatType == "group") {
@@ -251,7 +263,7 @@ function onLoad() {
         }
     }
 
-    getChatListEle();
+    // getChatListEle();
 }
 
 // 打开设置界面时触发

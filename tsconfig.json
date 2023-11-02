@@ -3,7 +3,7 @@
     "target": "es6",
     "module": "es6",
     "outDir": "./dist",
-    "strict": true,
+    "strict": false,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "moduleResolution": "node",

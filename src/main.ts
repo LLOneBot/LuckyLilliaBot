@@ -1,6 +1,10 @@
 // 运行在 Electron 主进程 下的插件入口
 
-import {Group, PostDataSendMsg, User} from "./types";
+// import {Group, PostDataSendMsg, User} from "./types";
+// type {Group, PostDataSendMsg, User} = import( "./types");
+type Group = import( "./types").Group;
+type PostDataSendMsg = import( "./types").PostDataSendMsg;
+type User = import( "./types").User;
 
 const express = require("express")
 const {ipcMain, webContents} = require('electron');

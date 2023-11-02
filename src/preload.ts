@@ -1,6 +1,9 @@
 // Electron 主进程 与 渲染进程 交互的桥梁
 
-import {Group, PostDataSendMsg, User} from "./types";
+// import {Group, PostDataSendMsg, User} from "./types";
+// type Group = import( "./types").Group;
+// type PostDataSendMsg = import( "./types").PostDataSendMsg;
+// type User = import( "./types").User;
 
 const {contextBridge} = require("electron");
 const {ipcRenderer} = require('electron');
