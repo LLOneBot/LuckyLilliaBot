@@ -108,7 +108,7 @@ async function forwardMessage(message: MessageElement) {
         }
         for (let element of message.raw.elements) {
             let message_data: any = {
-                data: {}
+                data: {"type": "unknown"}
             }
 
             if (element.textElement?.atType == 2) {
@@ -203,27 +203,40 @@ function onLoad() {
     }
 
     window.LLAPI.on("new-messages", onNewMessages);
-    function test(){
-        console.log("test")
-    }
+
     try {
-        window.LLAPI.add_qmenu((qContextMenu: { insertAdjacentHTML: (location: string, ele: string) => void }) => {
-            qContextMenu.insertAdjacentHTML("beforeend", `<a class="q-context-menu-item q-context-menu-item--normal vue-component" aria-disabled="false" role="menuitem" tabindex="-1" onclick="test">获取群成员列表</a>`)
+        window.LLAPI.add_qmenu((qContextMenu: Node) => {
+            let btn = document.createElement("a")
+            btn.className = "q-context-menu-item q-context-menu-item--normal vue-component"
+            btn.setAttribute("aria-disabled", "false")
+            btn.setAttribute("role", "menuitem")
+            btn.setAttribute("tabindex", "-1")
+            btn.onclick = ()=>{
+                // window.LLAPI.getPeer().then(peer => {
+                //     // console.log("current peer", peer)
+                //     if (peer && peer.chatType == "group") {
+                //         getGroupMembers(peer.uid, true).then(()=> {
+                //             console.log("获取群成员列表成功", groups);
+                //             alert("获取群成员列表成功")
+                //         })
+                //     }
+                // })
+                window.LLAPI.getGroupMemberList("164461995", 5000).then(res =>{
+                    console.log("获取群成员列表结果", res)
+                })
+            }
+            btn.innerText = "获取群成员列表"
+            console.log(qContextMenu)
+            // qContextMenu.appendChild(btn)
+            // qContextMenu.insertAdjacentHTML("beforeend", btn)
         })
     }catch (e){
-        log(e)
+        console.log(e)
     }
 
     window.LLAPI.on("context-msg-menu", (event, target, msgIds) => {
-        console.log("msg menu", event, target, msgIds);
+        // console.log("msg menu", event, target, msgIds);
         // 消息右键菜单添加一个获取群成员列表的按钮
-
-        window.LLAPI.getPeer().then(peer => {
-            // console.log("current peer", peer)
-            if (peer && peer.chatType == "group") {
-                getGroupMembers(peer.uid, false).then()
-            }
-        })
     })
 
     // console.log("getAccountInfo", LLAPI.getAccountInfo());

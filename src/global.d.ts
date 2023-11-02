@@ -17,7 +17,7 @@ declare var LLAPI: {
     getFriendsList(forced: boolean): Promise<User[]>
     getGroupMemberList(group_id: string, num: number): Promise<{result: { infos: Map<string, GroupMemberInfo> }}>
     getPeer(): Promise<Peer>
-    add_qmenu(func: (qContextMenu: {insertAdjacentHTML: (location: string, ele: string)=>void})=>void): void
+    add_qmenu(func: (qContextMenu: Node)=>void): void
 };
 
 
