@@ -74,19 +74,35 @@ export type MessageElement = {
 export type SendMessage = {
     type: "text",
     content: string,
-    atType?: AtType,
-    atUid?: string,
-    atNtUid?: string
+    data?: {
+        text: string, // 纯文本
+    }
 } | {
     type: "image",
     file: string, // 本地路径
+    data?: {
+        file: string // 本地路径
+    }
+} | {
+    type: "at",
+    atType?: AtType,
+    content?: string,
+    atUid?: string,
+    atNtUid?: string,
+    data?: {
+        qq: string // at的qq号
+    }
 }
 
 export type PostDataSendMsg = {
     action: "send_private_msg" | "send_group_msg" | "get_group_list",
-    params: {
+    message_type?: "private" | "group"
+    params?: {
         user_id: string,
         group_id: string,
         message: SendMessage[];
-    }
+    },
+    user_id: string,
+    group_id: string,
+    message: SendMessage[];
 }

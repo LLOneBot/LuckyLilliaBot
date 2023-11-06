@@ -124,6 +124,7 @@ async function forwardMessage(message: MessageElement) {
                         let uid = element.textElement.atNtUid
                         let atMember = await getGroupMember(message.peer.uid, uid)
                         message_data["data"]["mention"] = atMember!.uin
+                        message_data["data"]["qq"] = atMember!.uin
                     }
                 } else if (element.textElement) {
                     message_data["type"] = "text"
@@ -132,6 +133,7 @@ async function forwardMessage(message: MessageElement) {
                     message_data["type"] = "image"
                     message_data["data"]["file_id"] = element.picElement.fileUuid
                     message_data["data"]["path"] = element.picElement.sourcePath
+                    message_data["data"]["file"] = element.picElement.sourcePath
                 } else if (element.replyElement) {
                     message_data["type"] = "reply"
                     message_data["data"]["reply"] = element.replyElement.sourceMsgIdInRecords
@@ -156,6 +158,13 @@ async function handleNewMessage(messages: MessageElement[]) {
 async function listenSendMessage(postData: PostDataSendMsg) {
     if (postData.action == "send_private_msg" || postData.action == "send_group_msg") {
         let peer: Peer | null = null;
+        if (!postData.params){
+            postData.params = {
+                message: postData.message,
+                user_id: postData.user_id,
+                group_id: postData.group_id
+            }
+        }
         if (postData.action == "send_private_msg") {
             let friend = getFriend(postData.params.user_id)
             if (friend) {
@@ -173,19 +182,31 @@ async function listenSendMessage(postData: PostDataSendMsg) {
                     name: group.name,
                     uid: group.uid
                 }
-                for (let message of postData.params.message){
-                    if (message.type == "text" && message.atType == 2){
-                        let atUid = message.atUid
-                        let group = await getGroup(postData.params.group_id)
-                        let atMember = group.members.find(member => member.uin == atUid)
-                        message.atNtUid = atMember.uid
-                    }
-                }
+
             } else {
                 console.log("未找到群, 发送群消息失败", postData)
             }
         }
         if (peer) {
+            for (let message of postData.params.message){
+                if (message.type == "at"){
+                    // @ts-ignore
+                    message.type = "text"
+                    message.atType = 2
+                    let atUid = message.data?.qq || message.atUid
+                    let group = await getGroup(postData.params.group_id)
+                    let atMember = group.members.find(member => member.uin == atUid)
+                    message.atNtUid = atMember.uid
+                    message.atUid = atUid
+                    message.content = `@${atMember.cardName || atMember.nick}`
+                }
+                else if (message.type == "text"){
+                    message.content = message.data?.text || message.content
+                }
+                else if (message.type == "image"){
+                    message.file = message.data?.file || message.file
+                }
+            }
             console.log("发送消息", postData)
             window.LLAPI.sendMessage(peer, postData.params.message).then(res => console.log("消息发送成功:", res),
                 err => console.log("消息发送失败", postData, err))

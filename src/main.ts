@@ -50,9 +50,8 @@ function startExpress(event: any) {
     app.get('/', (req: any, res: any) => {
         res.send('llonebot已启动');
     })
-    // 处理POST请求的路由
-    app.post('/', (req: any, res: any) => {
-        let jsonData: PostDataSendMsg = req.body;
+
+    function handlePost(jsonData: any){
         let resData = {
             status: 0,
             retcode: 0,
@@ -120,8 +119,45 @@ function startExpress(event: any) {
                 }
             })
         }
+        return resData
+    }
+    // 处理POST请求的路由
+    app.post('/', (req: any, res: any) => {
+        let jsonData: PostDataSendMsg = req.body;
+        let resData = handlePost(jsonData)
         res.send(resData)
     });
+    app.post('/send_private_msg', (req: any, res: any) => {
+        let jsonData: PostDataSendMsg = req.body;
+        jsonData.action = "send_private_msg"
+        let resData = handlePost(jsonData)
+        res.send(resData)
+    })
+    app.post('/send_group_msg', (req: any, res: any) => {
+        let jsonData: PostDataSendMsg = req.body;
+        jsonData.action = "send_group_msg"
+        let resData = handlePost(jsonData)
+        res.send(resData)
+    })
+    app.post('/send_msg', (req: any, res: any) => {
+        let jsonData: PostDataSendMsg = req.body;
+        if (jsonData.message_type == "private"){
+            jsonData.action = "send_private_msg"
+        }
+        else if (jsonData.message_type == "group"){
+            jsonData.action = "send_group_msg"
+        }
+        else {
+            if (jsonData.params.group_id){
+                jsonData.action = "send_group_msg"
+            }
+            else{
+                jsonData.action = "send_private_msg"
+            }
+        }
+        let resData = handlePost(jsonData)
+        res.send(resData)
+    })
     app.listen(port,"0.0.0.0", () => {
         console.log(`服务器已启动，监听端口 ${port}`);
     });
