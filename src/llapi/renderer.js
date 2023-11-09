@@ -7,7 +7,6 @@
  * 
  * Copyright (c) 2023 by Night-stars-1, All Rights Reserved. 
  */
-import path from "node:path";
 
 const plugin_path = LiteLoader.plugins.LLAPI.path.plugin;
 const ipcRenderer = LLAPI_PRE.ipcRenderer_LL;
@@ -823,9 +822,10 @@ const destructor = new Destructor();
 
 class Media {
     async prepareVoiceElement(file) {
-        const type = await ntCall("ns-fsApi", "getFileType", [file]);
+        // const type = await ntCall("ns-fsApi", "getFileType", [file]);
+        const ext = file.split(".").pop();  // 支持amr
         const md5 = await ntCall("ns-fsApi", "getFileMd5", [file]);
-        const fileName = `${md5}.${type.ext}`;
+        const fileName = `${md5}.${ext}`;
         const filePath = await ntCall("ns-ntApi", "nodeIKernelMsgService/getRichMediaFilePath", [
             {
                 md5HexStr: md5,
@@ -837,6 +837,7 @@ class Media {
                 fileType: 1,  // 这个未知
             },
         ]);
+        await ntCall("ns-fsApi", "copyFile", [{ fromPath: file, toPath: filePath }]);
         const fileSize = await ntCall("ns-fsApi", "getFileSize", [file]);
         return {
             canConvert2Text: true,
