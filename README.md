@@ -18,7 +18,7 @@
 
 ## 支持的API
 
-目前只支持http协议，不支持websocket，事件上报也是http协议
+目前只支持http协议POST方法，不支持websocket，事件上报也是http协议
 
 - [x] 获取群列表
 - [x] 获取群成员列表
