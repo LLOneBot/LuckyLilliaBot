@@ -44,6 +44,7 @@ declare var llonebot: {
     getConfig():Promise<Config>;
     setSelfInfo(selfInfo: SelfInfo):void;
     downloadFile(arg: {uri: string, localFilePath: string}):Promise<string>;
+    deleteFile(path: string[]):Promise<void>;
 };
 
 declare global {

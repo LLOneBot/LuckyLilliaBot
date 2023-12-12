@@ -20,7 +20,7 @@ async function getUserInfo(uid: string): Promise<User> {
     return user
 }
 
-async function getFriends(){
+async function getFriends() {
     let _friends = await window.LLAPI.getFriendsList(false)
     for (let friend of _friends) {
         let existFriend = friends.find(f => f.uin == friend.uin)
@@ -210,6 +210,7 @@ async function listenSendMessage(postData: PostDataSendMsg) {
             }
         }
         if (peer) {
+            let sendFiles: string[] = [];
             for (let message of postData.params.message) {
                 if (message.type == "at") {
                     // @ts-ignore
@@ -242,6 +243,7 @@ async function listenSendMessage(postData: PostDataSendMsg) {
                         await window.llonebot.downloadFile({uri: url, localFilePath: localFilePath})
                     }
                     message.file = localFilePath
+                    sendFiles.push(localFilePath);
                 } else if (message.type == "reply") {
                     let msgId = message.data?.id || message.msgId
                     let replyMessage = msgHistory.find(msg => msg.raw.msgId == msgId)
@@ -249,9 +251,11 @@ async function listenSendMessage(postData: PostDataSendMsg) {
                     message.msgSeq = replyMessage?.raw.msgSeq || ""
                 }
             }
-            // 发送完之后要删除下载的文件
             console.log("发送消息", postData)
-            window.LLAPI.sendMessage(peer, postData.params.message).then(res => console.log("消息发送成功:", peer, postData.params.message),
+            window.LLAPI.sendMessage(peer, postData.params.message).then(res => {
+                    console.log("消息发送成功:", peer, postData.params.message)
+                    window.llonebot.deleteFile(sendFiles);
+                },
                 err => console.log("消息发送失败", postData, err))
         }
     }
@@ -305,6 +309,7 @@ function onLoad() {
         })
         console.log("chatListEle", chatListEle)
     }
+
     getFriends().then();
     getGroups().then(() => {
         getGroupsMembers(groups).then(() => {

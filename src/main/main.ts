@@ -13,7 +13,7 @@ import {
     CHANNEL_SET_CONFIG,
     CHANNEL_START_HTTP_SERVER,
     CHANNEL_UPDATE_FRIENDS,
-    CHANNEL_UPDATE_GROUPS
+    CHANNEL_UPDATE_GROUPS, CHANNEL_DELETE_FILE
 } from "../common/IPCChannel";
 import {ConfigUtil} from "./config";
 import {startExpress} from "./HttpServer";
@@ -122,6 +122,12 @@ function onLoad(plugin: any) {
     ipcMain.handle(CHANNEL_SET_SELF_INFO, (event: any, arg: SelfInfo) => {
         selfInfo.user_id = arg.user_id;
         selfInfo.nickname = arg.nickname;
+    })
+
+    ipcMain.on(CHANNEL_DELETE_FILE, (event: any, arg: string[]) => {
+        for (const path of arg) {
+            fs.unlinkSync(path);
+        }
     })
 }
 
