@@ -56,3 +56,6 @@
 ![](doc/image/example.jpg)
 
 *暂时不支持`"message": "hello"`这种message为字符串的形式*
+
+## onebot11文档
+<https://11.onebot.dev/>
