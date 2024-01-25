@@ -1,3 +1,5 @@
+import {log} from "./utils";
+
 const express = require("express");
 const bodyParser = require('body-parser');
 import {sendIPCRecallQQMsg, sendIPCSendQQMsg} from "./IPCSend";
@@ -45,9 +47,10 @@ function checkSendMessage(sendMsgList: SendMessage[]) {
 // ==end==
 
 function handlePost(jsonData: any) {
+    log("API receive post:" + JSON.stringify(jsonData))
     if (!jsonData.params) {
-        jsonData.params = jsonData
-
+        jsonData.params = JSON.parse(JSON.stringify(jsonData));
+        delete jsonData.params.params;
     }
     let resData = {
         status: 0,

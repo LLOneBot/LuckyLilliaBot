@@ -179,6 +179,7 @@ async function handleNewMessage(messages: MessageElement[]) {
 }
 
 async function listenSendMessage(postData: PostDataSendMsg) {
+    console.log("收到发送消息请求", postData);
     if (postData.action == "send_private_msg" || postData.action == "send_group_msg") {
         let peer: Peer | null = null;
         if (!postData.params) {
@@ -308,7 +309,7 @@ async function initAccountInfo(){
     let accountInfo = await window.LLAPI.getAccountInfo();
     window.llonebot.log("getAccountInfo " + JSON.stringify(accountInfo));
     if (!accountInfo.uid) {
-        return;
+        return false;
     }
     let selfInfo = await window.LLAPI.getUserInfo(accountInfo.uid);
     window.llonebot.setSelfInfo({
@@ -316,6 +317,7 @@ async function initAccountInfo(){
         nickname: selfInfo.nickName
     });
     window.llonebot.log("selfInfo " + JSON.stringify(selfInfo));
+    return true;
 }
 
 function onLoad() {
@@ -325,7 +327,10 @@ function onLoad() {
             return;
         }
         initAccountInfo().then(
-            ()=>{
+            (initSuccess)=>{
+                if (!initSuccess) {
+                    return;
+                }
                 if (friends.length == 0) {
                     getFriends().then(()=>{});
                 }
@@ -346,104 +351,104 @@ function onLoad() {
                     recallMessage(arg.message_id)
                 })
                 window.llonebot.log("llonebot loaded");
-                window.LLAPI.add_qmenu((qContextMenu: Node) => {
-                    let btn = document.createElement("a")
-                    btn.className = "q-context-menu-item q-context-menu-item--normal vue-component"
-                    btn.setAttribute("aria-disabled", "false")
-                    btn.setAttribute("role", "menuitem")
-                    btn.setAttribute("tabindex", "-1")
-                    btn.onclick = () => {
-                        // window.LLAPI.getPeer().then(peer => {
-                        //     // console.log("current peer", peer)
-                        //     if (peer && peer.chatType == "group") {
-                        //         getGroupMembers(peer.uid, true).then(()=> {
-                        //             console.log("获取群成员列表成功", groups);
-                        //             alert("获取群成员列表成功")
-                        //         })
-                        //     }
-                        // })
-                        async function func() {
-                            for (const group of groups) {
-                                await getGroupMembers(group.uid, true)
-                            }
-                        }
-
-                        func().then(() => {
-                            console.log("获取群成员列表结果", groups);
-                            // 找到members数量为空的群
-                            groups.map(group => {
-                                if (group.members.length == 0) {
-                                    console.log(`${group.name}群成员为空`)
-                                }
-                            })
-                            window.llonebot.updateGroups(groups)
-                        })
-                    }
-                    btn.innerText = "获取群成员列表"
-                    console.log(qContextMenu)
-                    // qContextMenu.appendChild(btn)
-                })
-
-                window.LLAPI.on("context-msg-menu", (event, target, msgIds) => {
-                    console.log("msg menu", event, target, msgIds);
-                })
-
-                // console.log("getAccountInfo", LLAPI.getAccountInfo());
-                function getChatListEle() {
-                    chatListEle = document.getElementsByClassName("viewport-list__inner")
-                    console.log("chatListEle", chatListEle)
-                    if (chatListEle.length == 0) {
-                        setTimeout(getChatListEle, 500)
-                    } else {
-                        try {
-                            // 选择要观察的目标节点
-                            const targetNode = chatListEle[0];
-
-                            // 创建一个观察器实例并传入回调函数
-                            const observer = new MutationObserver(function (mutations) {
-                                mutations.forEach(function (mutation) {
-                                    // console.log("chat list changed", mutation.type); // 输出 mutation 的类型
-                                    // 获得当前聊天窗口
-                                    window.LLAPI.getPeer().then(peer => {
-                                        // console.log("current peer", peer)
-                                        if (peer && peer.chatType == "group") {
-                                            getGroupMembers(peer.uid, false).then()
-                                        }
-                                    })
-                                });
-                            });
-
-                            // 配置观察选项
-                            const config = {attributes: true, childList: true, subtree: true};
-
-                            // 传入目标节点和观察选项
-                            observer.observe(targetNode, config);
-
-                        } catch (e) {
-                            window.llonebot.log(e)
-                        }
-                    }
-                }
-
-                // getChatListEle();
+            //     window.LLAPI.add_qmenu((qContextMenu: Node) => {
+            //         let btn = document.createElement("a")
+            //         btn.className = "q-context-menu-item q-context-menu-item--normal vue-component"
+            //         btn.setAttribute("aria-disabled", "false")
+            //         btn.setAttribute("role", "menuitem")
+            //         btn.setAttribute("tabindex", "-1")
+            //         btn.onclick = () => {
+            //             // window.LLAPI.getPeer().then(peer => {
+            //             //     // console.log("current peer", peer)
+            //             //     if (peer && peer.chatType == "group") {
+            //             //         getGroupMembers(peer.uid, true).then(()=> {
+            //             //             console.log("获取群成员列表成功", groups);
+            //             //             alert("获取群成员列表成功")
+            //             //         })
+            //             //     }
+            //             // })
+            //             async function func() {
+            //                 for (const group of groups) {
+            //                     await getGroupMembers(group.uid, true)
+            //                 }
+            //             }
+            //
+            //             func().then(() => {
+            //                 console.log("获取群成员列表结果", groups);
+            //                 // 找到members数量为空的群
+            //                 groups.map(group => {
+            //                     if (group.members.length == 0) {
+            //                         console.log(`${group.name}群成员为空`)
+            //                     }
+            //                 })
+            //                 window.llonebot.updateGroups(groups)
+            //             })
+            //         }
+            //         btn.innerText = "获取群成员列表"
+            //         console.log(qContextMenu)
+            //         // qContextMenu.appendChild(btn)
+            //     })
+            //
+            //     window.LLAPI.on("context-msg-menu", (event, target, msgIds) => {
+            //         console.log("msg menu", event, target, msgIds);
+            //     })
+            //
+            //     // console.log("getAccountInfo", LLAPI.getAccountInfo());
+            //     function getChatListEle() {
+            //         chatListEle = document.getElementsByClassName("viewport-list__inner")
+            //         console.log("chatListEle", chatListEle)
+            //         if (chatListEle.length == 0) {
+            //             setTimeout(getChatListEle, 500)
+            //         } else {
+            //             try {
+            //                 // 选择要观察的目标节点
+            //                 const targetNode = chatListEle[0];
+            //
+            //                 // 创建一个观察器实例并传入回调函数
+            //                 const observer = new MutationObserver(function (mutations) {
+            //                     mutations.forEach(function (mutation) {
+            //                         // console.log("chat list changed", mutation.type); // 输出 mutation 的类型
+            //                         // 获得当前聊天窗口
+            //                         window.LLAPI.getPeer().then(peer => {
+            //                             // console.log("current peer", peer)
+            //                             if (peer && peer.chatType == "group") {
+            //                                 getGroupMembers(peer.uid, false).then()
+            //                             }
+            //                         })
+            //                     });
+            //                 });
+            //
+            //                 // 配置观察选项
+            //                 const config = {attributes: true, childList: true, subtree: true};
+            //
+            //                 // 传入目标节点和观察选项
+            //                 observer.observe(targetNode, config);
+            //
+            //             } catch (e) {
+            //                 window.llonebot.log(e)
+            //             }
+            //         }
+            //     }
+            //
+            //     // getChatListEle();
             }
         );
     });
 }
 
 // 打开设置界面时触发
-async function onSettingWindowCreated (view: any) {
+async function onSettingWindowCreated (view: Element) {
     window.llonebot.log("setting window created");
     const {port, hosts} = await window.llonebot.getConfig()
 
     function creatHostEleStr(host: string) {
         let eleStr = `
-            <div class="hostItem vertical-list-item">
+            <setting-item data-direction="row" class="hostItem vertical-list-item">
                 <h2>事件上报地址(http)</h2>
-                <input class="host" type="text" value="${host}" 
+                <input class="host input-text" type="text" value="${host}" 
                 style="width:60%;padding: 5px"
-                placeholder="不支持localhost,如果是本机请填写局域网ip"/>
-            </div>
+                placeholder="如果localhost上报失败试试局域网ip"/>
+            </setting-item>
             `
         return eleStr
     }
@@ -452,20 +457,26 @@ async function onSettingWindowCreated (view: any) {
     for (const host of hosts) {
         hostsEleStr += creatHostEleStr(host);
     }
-    const html = `
-    <section class="wrap">
-        <div class="vertical-list-item">
-            <h2>监听端口</h2>
-            <input id="port" type="number" value="${port}"/>
-        </div>
-        <div>
-            <button id="addHost" class="q-button">添加上报地址</button>
-        </div>
-        <div id="hostItems">
-            ${hostsEleStr}
-        </div>
-        <button id="save" class="q-button">保存(监听端口重启QQ后生效)</button>
-    </section>
+    let html = `
+    <div class="config_view">
+        <setting-section>
+            <setting-panel style="padding: 10px">
+                <setting-list class="wrap">
+                    <setting-item class="vertical-list-item" data-direction="row">
+                        <setting-text>监听端口</setting-text>
+                        <input id="port" type="number" value="${port}"/>
+                    </setting-item>
+                    <div>
+                        <button id="addHost" class="q-button">添加上报地址</button>
+                    </div>
+                    <div id="hostItems">
+                        ${hostsEleStr}
+                    </div>
+                    <button id="save" class="q-button">保存(监听端口重启QQ后生效)</button>
+                </setting-list>
+            </setting-panel>
+        </setting-section>
+    </div>
     `
 
     const parser = new DOMParser();
@@ -474,7 +485,7 @@ async function onSettingWindowCreated (view: any) {
 
     function addHostEle(initValue: string = "") {
         let addressDoc = parser.parseFromString(creatHostEleStr(initValue), "text/html");
-        let addressEle = addressDoc.querySelector("div")
+        let addressEle = addressDoc.querySelector("setting-item")
         let hostItemsEle = document.getElementById("hostItems");
         hostItemsEle.appendChild(addressEle);
     }
@@ -502,15 +513,14 @@ async function onSettingWindowCreated (view: any) {
             })
             alert("保存成功");
         })
-    doc.querySelectorAll("section").forEach((node) => view.appendChild(node));
+    doc.body.childNodes.forEach(node => {
+        view.appendChild(node);
+    });
 
 
 }
 
-
-
-
-onLoad()
+setTimeout(onLoad, 2000)
 
 export {
     onSettingWindowCreated

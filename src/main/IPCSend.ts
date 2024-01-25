@@ -8,6 +8,7 @@ function sendIPCMsg(channel: string, data: any) {
         try {
             content.send(channel, data)
         } catch (e) {
+            console.log("llonebot send ipc msg to render error:", e)
         }
     }
 }

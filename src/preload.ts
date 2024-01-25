@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld("llonebot", {
         ipcRenderer.send(CHANNEL_UPDATE_FRIENDS, friends);
     },
     listenSendMessage: (handle: (jsonData: PostDataSendMsg) => void) => {
+        ipcRenderer.send(CHANNEL_LOG, "发送消息API已注册");
         ipcRenderer.on(CHANNEL_SEND_MSG, (event: any, args: PostDataSendMsg) => {
             handle(args)
         })
