@@ -1,0 +1,38 @@
+name: "publish"
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+    - name: checkout
+      uses: actions/checkout@v3
+
+    - name: setup node
+      uses: actions/setup-node@v2
+      with:
+        node-version: 18
+
+    - name: install dependenies
+      run: npm install
+
+    - name: build
+      run: npm run build
+
+    - name: zip
+      run: |
+        sudo apt install zip -y
+        cp manifest.json ./dist/manifest.json
+        zip LLOneBot.zip ./dist/* -j
+    
+    - name: publish
+      uses: ncipollo/release-action@v1
+      with:
+        artifacts: "LLOneBot.zip"
+        draft: true
+        token: ${{ secrets.GITHUB_TOKEN }}
