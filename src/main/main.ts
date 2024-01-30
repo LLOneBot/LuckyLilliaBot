@@ -17,7 +17,7 @@ import {
 } from "../common/IPCChannel";
 import {ConfigUtil} from "./config";
 import {startExpress} from "./HttpServer";
-import {isGIF, log} from "./utils";
+import {CONFIG_DIR, isGIF, log} from "./utils";
 import {friends, groups, selfInfo} from "./data";
 import {} from "../global";
 
@@ -30,39 +30,39 @@ let running = false;
 function onLoad() {
     log("main onLoaded");
     // const config_dir = browserWindow.LiteLoader.plugins["LLOneBot"].path.data;
-    const config_dir = global.LiteLoader.plugins["LLOneBot"].path.data;
     function getConfigUtil() {
-        const configFilePath = path.join(config_dir, `config_${selfInfo.user_id}.json`)
+        const configFilePath = path.join(CONFIG_DIR, `config_${selfInfo.user_id}.json`)
         return new ConfigUtil(configFilePath)
     }
 
-    if (!fs.existsSync(config_dir)) {
-        fs.mkdirSync(config_dir, {recursive: true});
+    if (!fs.existsSync(CONFIG_DIR)) {
+        fs.mkdirSync(CONFIG_DIR, {recursive: true});
     }
     ipcMain.handle(CHANNEL_GET_CONFIG, (event: any, arg: any) => {
         return getConfigUtil().getConfig()
     })
-    ipcMain.handle(CHANNEL_DOWNLOAD_FILE, async (event: any, arg: {uri: string, localFilePath: string}) => {
+    ipcMain.handle(CHANNEL_DOWNLOAD_FILE, async (event: any, arg: {uri: string, fileName: string}) => {
+        let filePath = path.join(CONFIG_DIR, arg.fileName)
         let url = new URL(arg.uri);
         if (url.protocol == "base64:"){
             // base64转成文件
             let base64Data = arg.uri.split("base64://")[1]
             const buffer = Buffer.from(base64Data, 'base64');
 
-            fs.writeFileSync(arg.localFilePath, buffer);
+            fs.writeFileSync(filePath, buffer);
         }
         else if (url.protocol == "http:" || url.protocol == "https:") {
             // 下载文件
             let res = await fetch(url)
             let blob = await res.blob();
             let buffer = await blob.arrayBuffer();
-            fs.writeFileSync(arg.localFilePath, Buffer.from(buffer));
+            fs.writeFileSync(filePath, Buffer.from(buffer));
         }
-        if (isGIF(arg.localFilePath)) {
-            fs.renameSync(arg.localFilePath, arg.localFilePath + ".gif");
-            arg.localFilePath += ".gif";
+        if (isGIF(filePath)) {
+            fs.renameSync(filePath, filePath + ".gif");
+            filePath += ".gif";
         }
-        return arg.localFilePath;
+        return filePath;
     })
     ipcMain.on(CHANNEL_SET_CONFIG, (event: any, arg: Config) => {
         getConfigUtil().setConfig(arg)
@@ -113,7 +113,7 @@ function onLoad() {
                     },
                     body: JSON.stringify(arg)
                 }).then((res: any) => {
-                    log("新消息事件上传");
+                    log("新消息事件上传成功:" + JSON.stringify(arg));
                 }, (err: any) => {
                     log("新消息事件上传失败:" + err + JSON.stringify(arg));
                 });

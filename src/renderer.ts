@@ -245,7 +245,7 @@ async function listenSendMessage(postData: PostDataSendMsg) {
                     if (uri.protocol == "file:") {
                         localFilePath = url.split("file://")[1]
                     } else {
-                        localFilePath = await window.llonebot.downloadFile({uri: url, localFilePath: localFilePath})
+                        localFilePath = await window.llonebot.downloadFile({uri: url, fileName: localFilePath})
                     }
                     message.file = localFilePath
                     sendFiles.push(localFilePath);

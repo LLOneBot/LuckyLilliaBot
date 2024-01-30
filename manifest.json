@@ -11,13 +11,13 @@
         "link": "https://github.com/linyuchen"
     }],
     "repository": {
-        "repo": "linyuchen/LiteLoaderQQNT-OneBotApi",
-        "branch": "main",
-        "release": {
-            "tag": "latest",
-            "name": "LLOneBot.zip"
-        }
-    },
+    "repo": "linyuchen/LiteLoaderQQNT-OneBotApi",
+    "branch": "main",
+    "release": {
+        "tag": "latest",
+        "name": "LLOneBot.zip"
+    }
+},
     "platform": [
         "win32",
         "linux",

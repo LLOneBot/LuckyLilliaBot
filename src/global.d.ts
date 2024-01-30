@@ -43,7 +43,7 @@ declare var llonebot: {
     setConfig(config: Config):void;
     getConfig():Promise<Config>;
     setSelfInfo(selfInfo: SelfInfo):void;
-    downloadFile(arg: {uri: string, localFilePath: string}):Promise<string>;
+    downloadFile(arg: {uri: string, fileName: string}):Promise<string>;
     deleteFile(path: string[]):Promise<void>;
     getRunningStatus(): Promise<boolean>;
 };
