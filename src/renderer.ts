@@ -432,10 +432,11 @@ function onLoad() {
                     getGroups().then(() => {
                         getGroupsMembers(groups).then(() => {
                         });
-                    });
+                    })
                 }
                 window.LLAPI.on("new-messages", onNewMessages);
                 window.LLAPI.on("new-send-messages", onNewMessages);
+
                 window.llonebot.log("llonebot render start");
                 window.llonebot.startExpress();
 
@@ -615,7 +616,7 @@ async function onSettingWindowCreated(view: Element) {
 
 }
 
-setTimeout(onLoad, 2000)
+setTimeout(onLoad, 5000);
 
 export {
     onSettingWindowCreated

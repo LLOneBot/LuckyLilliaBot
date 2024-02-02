@@ -1,5 +1,6 @@
 export enum AtType {
     notAt = 0,
+    atAll = 1,
     atUser = 2
 }
 
