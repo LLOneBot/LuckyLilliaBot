@@ -106,13 +106,6 @@
 <br/>
 
 <details>
-    <summary>撤回消息无效</summary>
-<br/>
-    如果接口调用的传的`message`是number类型会导致精度丢失，使用string类型可解决，详情见<a href="https://github.com/linyuchen/LiteLoaderQQNT-OneBotApi/issues/17">issue#17</a>
-</details>
-<br/>
-
-<details>
     <summary>如何查看日志</summary>
 <br/>
     LiteLoaderQQNT/data/LLOneBot/*.log
