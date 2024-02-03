@@ -185,6 +185,7 @@ export interface Config {
     hosts: string[]
     enableBase64?: boolean
     debug?: boolean
+    reportSelfMessage?: boolean
     log?: boolean
 }
 

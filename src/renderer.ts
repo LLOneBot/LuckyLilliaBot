@@ -125,7 +125,7 @@ async function getGroupMember(group_qq: string, member_uid: string) {
 
 async function handleNewMessage(messages: MessageElement[]) {
     console.log("llonebot 收到消息:", messages);
-    const {debug, enableBase64} = await window.llonebot.getConfig();
+    const {debug, enableBase64, reportSelfMessage} = await window.llonebot.getConfig();
     for (let message of messages) {
         let onebot_message_data: any = {
             self: {
@@ -244,8 +244,12 @@ async function handleNewMessage(messages: MessageElement[]) {
             msgHistory.splice(0, 100)
         }
         msgHistory.push(message)
-        console.log("发送上传消息给ipc main", onebot_message_data)
-        window.llonebot.postData(onebot_message_data);
+        if (reportSelfMessage || (onebot_message_data["user_id"] != (await window.LLAPI.getAccountInfo()).uin)){
+            console.log("发送上传消息给ipc main", onebot_message_data);
+            window.llonebot.postData(onebot_message_data);
+        } else {
+            console.log("没上传自己的消息给ipc main", onebot_message_data);
+        }
     }
 }
 
@@ -626,6 +630,13 @@ async function onSettingWindowCreated(view: Element) {
                 </setting-item>
                 <setting-item data-direction="row" class="hostItem vertical-list-item">
                     <div>
+                        <div>是否上报自身消息</div>
+                        <div class="tips">开启后不再上报自己发出的消息</div>
+                    </div>
+                    <setting-switch id="reportSelfMessage" ${config.reportSelfMessage ? "is-active" : ""}></setting-switch>
+                </setting-item>
+                <setting-item data-direction="row" class="hostItem vertical-list-item">
+                    <div>
                         <div>日志</div>
                         <div class="tips">日志目录:${window.LiteLoader.plugins["LLOneBot"].path.data}</div>
                     </div>
@@ -679,6 +690,7 @@ async function onSettingWindowCreated(view: Element) {
 
     switchClick("debug", "debug");
     switchClick("switchBase64", "enableBase64");
+    switchClick("reportSelfMessage", "reportSelfMessage");
     switchClick("log", "log");
 
     doc.getElementById("save")?.addEventListener("click",
