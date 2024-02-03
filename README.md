@@ -105,17 +105,11 @@
 </details>
 <br/>
 
-<details>
-    <summary>如何查看日志</summary>
-<br/>
-    LiteLoaderQQNT/data/LLOneBot/*.log
-</details>
-<br/>
 
 ## TODO
 
-- [x] 接口返回更详细的错误信息，目前消息发不出去也会返回发送成功(这河里吗)
 - [ ] 转发消息记录 
+- [ ] 好友点赞api
 - [ ] 支持websocket，等个有缘人提PR实现
 - [ ] 重构摆脱LLAPI，目前调用LLAPI只能在renderer进程调用，需重构成在main进程调用
 
