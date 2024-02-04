@@ -1,6 +1,5 @@
 # LLOneBot API
 
-
 将NTQQLiteLoaderAPI封装成OneBot11/12标准的API, V12没有完整测试
 
 *注意：本文档对应的是 LiteLoader 1.0.0及以上版本，如果你使用的是旧版本请切换到本项目v1分支查看文档*
