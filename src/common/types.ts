@@ -186,6 +186,7 @@ export interface Config {
     enableBase64?: boolean
     debug?: boolean
     log?: boolean
+    reportSelfMessage?: boolean
 }
 
 export interface SendMsgResult {

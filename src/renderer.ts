@@ -124,6 +124,7 @@ async function getGroupMember(group_qq: string, member_uid: string) {
 }
 
 async function handleNewMessage(messages: MessageElement[]) {
+    const {reportSelfMessage} = await window.llonebot.getConfig();
     console.log("llonebot 收到消息:", messages);
     const {debug, enableBase64} = await window.llonebot.getConfig();
     for (let message of messages) {
@@ -144,6 +145,7 @@ async function handleNewMessage(messages: MessageElement[]) {
             raw_message: "",
             font: 14
         }
+
         if (debug) {
             onebot_message_data.raw = JSON.parse(JSON.stringify(message))
         }
@@ -244,6 +246,9 @@ async function handleNewMessage(messages: MessageElement[]) {
             msgHistory.splice(0, 100)
         }
         msgHistory.push(message)
+        if (!reportSelfMessage && onebot_message_data?.user_id == self_qq) {
+            continue;
+        }
         console.log("发送上传消息给ipc main", onebot_message_data)
         window.llonebot.postData(onebot_message_data);
     }
@@ -626,11 +631,18 @@ async function onSettingWindowCreated(view: Element) {
                 </setting-item>
                 <setting-item data-direction="row" class="hostItem vertical-list-item">
                     <div>
+                        <div>上报自己发送的消息</div>
+                    </div>
+                    <setting-switch id="sendSelf" ${config.reportSelfMessage ? "is-active" : ""}></setting-switch>
+                </setting-item>
+                <setting-item data-direction="row" class="hostItem vertical-list-item">
+                    <div>
                         <div>日志</div>
                         <div class="tips">日志目录:${window.LiteLoader.plugins["LLOneBot"].path.data}</div>
                     </div>
                     <setting-switch id="log" ${config.log ? "is-active" : ""}></setting-switch>
                 </setting-item>
+
             </setting-panel>
         </setting-section>
     </div>
@@ -680,6 +692,7 @@ async function onSettingWindowCreated(view: Element) {
     switchClick("debug", "debug");
     switchClick("switchBase64", "enableBase64");
     switchClick("log", "log");
+    switchClick("sendSelf", "sendSelf");
 
     doc.getElementById("save")?.addEventListener("click",
         () => {
