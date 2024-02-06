@@ -1,24 +1,14 @@
 /// <reference path="./global.d.ts" />
 
-// import express from "express";
-// const { ipcRenderer } = require('electron');
-import {
-    AtType,
-    ChatType,
-    Group,
-    MessageElement, MessageType,
-    OnebotGroupMemberRole,
-    Peer,
-    PostDataSendMsg,
-    SendMsgResult,
-    User
-} from "./common/types";
-import {checkFileReceived} from "./main/utils";
+import {AtType, ChatType, Group, MessageElement, Peer, PostDataSendMsg, RawMessage, User} from "./common/types";
 
-let self_qq: string = ""
+
+import {OB11SendMsgReturn} from "./onebot11/types";
+import {ipcRenderer} from "electron";
+import {CHANNEL_GET_HISTORY_MSG} from "./common/channels";
+
 let groups: Group[] = []
 let friends: User[] = []
-let msgHistory: MessageElement[] = []
 let uid_maps: Record<string, User> = {}  // 一串加密的字符串 -> qq号
 
 function getStrangerByUin(uin: string) {
@@ -27,6 +17,10 @@ function getStrangerByUin(uin: string) {
             return uid_maps[key];
         }
     }
+}
+
+async function getHistoryMsg(msgId: string) {
+    return await window.llonebot.getHistoryMsg(msgId);
 }
 
 async function getUserInfo(uid: string): Promise<User> {
@@ -123,142 +117,15 @@ async function getGroupMember(group_qq: string, member_uid: string) {
     }
 }
 
-async function handleNewMessage(messages: MessageElement[]) {
-    console.log("llonebot 收到消息:", messages);
-    const {debug, enableBase64, reportSelfMessage} = await window.llonebot.getConfig();
-    for (let message of messages) {
-        let onebot_message_data: any = {
-            self: {
-                platform: "qq",
-                user_id: self_qq
-            },
-            self_id: self_qq,
-            time: parseInt(message.raw.msgTime || "0"),
-            type: "message",
-            post_type: "message",
-            message_type: message.peer.chatType,
-            detail_type: message.peer.chatType,
-            message_id: message.raw.msgId,
-            sub_type: "",
-            message: [],
-            raw_message: "",
-            font: 14
-        }
-        if (debug) {
-            onebot_message_data.raw = JSON.parse(JSON.stringify(message))
-        }
-        if (message.raw.chatType == ChatType.group) {
-            let group_id = message.peer.uid
-            let group = (await getGroup(group_id))!
-            onebot_message_data.detail_type = onebot_message_data.message_type = onebot_message_data.sub_type = "group"
-            onebot_message_data["group_id"] = message.peer.uid
-            let groupMember = await getGroupMember(group_id, message.sender.uid)
-            onebot_message_data["user_id"] = groupMember!.uin
-            onebot_message_data.sender = {
-                user_id: groupMember!.uin,
-                nickname: groupMember!.nick,
-                card: groupMember!.cardName,
-                role: OnebotGroupMemberRole[groupMember!.role]
-            }
-            // console.log("收到群消息", onebot_message_data)
-        } else if (message.raw.chatType == ChatType.friend) {
-            onebot_message_data["user_id"] = message.raw.senderUin;
-            onebot_message_data.detail_type = onebot_message_data.message_type = "private"
-            onebot_message_data.sub_type = "friend"
-            let friend = await getFriend(message.raw.senderUin);
-            onebot_message_data.sender = {
-                user_id: friend!.uin,
-                nickname: friend!.nickName
-            }
-        } else if (message.raw.chatType == ChatType.temp) {
-            let senderQQ = message.raw.senderUin;
-            let senderUid = message.sender.uid;
-            let sender = await getUserInfo(senderUid);
-            onebot_message_data["user_id"] = senderQQ;
-            onebot_message_data.detail_type = onebot_message_data.message_type = "private"
-            onebot_message_data.sub_type = "group";
-            onebot_message_data.sender = {
-                user_id: senderQQ,
-                nickname: sender.nickName
-            }
-        }
-        for (let element of message.raw.elements) {
-            let message_data: any = {
-                data: {},
-                type: "unknown"
-            }
-            if (element.textElement && element.textElement?.atType !== AtType.notAt) {
-                message_data["type"] = "at"
-                if (element.textElement.atType == AtType.atAll) {
-                    message_data["data"]["mention"] = "all"
-                    message_data["data"]["qq"] = "all"
-                } else {
-                    let uid = element.textElement.atNtUid
-                    let atMember = await getGroupMember(message.peer.uid, uid)
-                    message_data["data"]["mention"] = atMember!.uin
-                    message_data["data"]["qq"] = atMember!.uin
-                }
-            } else if (element.textElement) {
-                message_data["type"] = "text"
-                message_data["data"]["text"] = element.textElement.content
-            } else if (element.picElement) {
-                message_data["type"] = "image"
-                message_data["data"]["file_id"] = element.picElement.fileUuid
-                message_data["data"]["path"] = element.picElement.sourcePath
-                message_data["data"]["file"] = element.picElement.sourcePath
-            } else if (element.replyElement) {
-                message_data["type"] = "reply"
-                message_data["data"]["id"] = msgHistory.find(msg => msg.raw.msgSeq == element.replyElement.replayMsgSeq)?.raw.msgId
-            } else if (element.pttElement) {
-                message_data["type"] = MessageType.voice;
-                message_data["data"]["file"] = element.pttElement.filePath
-                message_data["data"]["file_id"] = element.pttElement.fileUuid
-                // console.log("收到语音消息", message.raw.msgId, message.peer, element.pttElement)
-                // window.LLAPI.Ptt2Text(message.raw.msgId, message.peer, messages).then(text => {
-                //     console.log("语音转文字结果", text);
-                // }).catch(err => {
-                //     console.log("语音转文字失败", err);
-                // })
-            } else if (element.arkElement) {
-                message_data["type"] = MessageType.json;
-                message_data["data"]["data"] = element.arkElement.bytesData;
-            }
-            if (message_data.data.file) {
-                let filePath: string = message_data.data.file;
-                message_data.data.file = "file://" + filePath
-                if (enableBase64) {
-                    // filePath = filePath.replace("\\Ori\\", "\\Thumb\\")
-                    let {err, data} = await window.llonebot.file2base64(filePath);
-                    if (err) {
-                        console.log("文件转base64失败", err)
-                    } else {
-                        message_data.data.file = "base64://" + data
-                    }
-                }
-            }
-            if (message_data.type !== "unknown"){
-                onebot_message_data.message.push(message_data);
-            }
-        }
-        if (msgHistory.length > 10000) {
-            msgHistory.splice(0, 100)
-        }
-        msgHistory.push(message)
-        if (!reportSelfMessage && onebot_message_data["user_id"] == self_qq){
-            console.log("开启了不上传自己发送的消息，进行拦截 ", onebot_message_data);
-        } else {
-            console.log("发送上传消息给ipc main", onebot_message_data);
-            window.llonebot.postData(onebot_message_data);
-        }
-    }
-}
 
 async function listenSendMessage(postData: PostDataSendMsg) {
     console.log("收到发送消息请求", postData);
-    let sendMsgResult: SendMsgResult = {
+    let sendMsgResult: OB11SendMsgReturn = {
         retcode: 0,
         status: 0,
-        data: {},
+        data: {
+            message_id: ""
+        },
         message: "发送成功"
     }
     if (postData.action == "send_private_msg" || postData.action == "send_group_msg") {
@@ -303,7 +170,6 @@ async function listenSendMessage(postData: PostDataSendMsg) {
                     name: group.name,
                     uid: group.uid
                 }
-
             } else {
                 sendMsgResult.status = -1;
                 sendMsgResult.retcode = -1;
@@ -323,8 +189,7 @@ async function listenSendMessage(postData: PostDataSendMsg) {
                         message.atType = AtType.atAll
                         atUid = "0";
                         message.content = `@全体成员`
-                    }
-                    else {
+                    } else {
                         let group = await getGroup(postData.params.group_id)
                         let atMember = group.members.find(member => member.uin == atUid)
                         message.atNtUid = atMember.uid
@@ -363,14 +228,16 @@ async function listenSendMessage(postData: PostDataSendMsg) {
                         } else {
                             localFilePath = path;
                         }
+                        sendFiles.push(localFilePath);
                     }
                     message.file = localFilePath
-                    sendFiles.push(localFilePath);
                 } else if (message.type == "reply") {
                     let msgId = message.data?.id || message.msgId
-                    let replyMessage = msgHistory.find(msg => msg.raw.msgId == msgId)
-                    message.msgId = msgId
-                    message.msgSeq = replyMessage?.raw.msgSeq || ""
+                    const rawMsg: RawMessage = await getHistoryMsg(msgId)
+                    if (rawMsg){
+                        message.msgId = msgId
+                        message.msgSeq = rawMsg.msgSeq
+                    }
                 }
             }
             console.log("发送消息", postData)
@@ -378,11 +245,13 @@ async function listenSendMessage(postData: PostDataSendMsg) {
                 window.llonebot.sendSendMsgResult(postData.ipc_uuid, sendMsgResult)
                 return;
             }
-            window.LLAPI.sendMessage(peer, postData.params.message).then(res => {
-                    console.log("消息发送成功:", peer, postData.params.message)
+            window.LLAPI.sendMessage(peer, postData.params.message).then(
+                (res: MessageElement) => {
+                    console.log("消息发送成功:", res, peer, postData.params.message)
                     if (sendFiles.length) {
                         window.llonebot.deleteFile(sendFiles);
                     }
+                    sendMsgResult.data.message_id = res.raw.msgId;
                     window.llonebot.sendSendMsgResult(postData.ipc_uuid, sendMsgResult)
                 },
                 err => {
@@ -400,8 +269,15 @@ async function listenSendMessage(postData: PostDataSendMsg) {
 }
 
 function recallMessage(msgId: string) {
-    let msg = msgHistory.find(msg => msg.raw.msgId == msgId)
-    window.LLAPI.recallMessage(msg.peer, [msgId]).then()
+    getHistoryMsg(msgId).then((msg: RawMessage)=>{
+        const peer: Peer ={
+            chatType: msg.chatType,
+            name: "",
+            uid: msg.peerUin
+        }
+        window.LLAPI.recallMessage(peer, [msgId]).then()
+    })
+
 }
 
 let chatListEle: HTMLCollectionOf<Element>
@@ -425,19 +301,6 @@ async function getGroupsMembers(groupsArg: Group[]) {
     }
 }
 
-function onNewMessages(messages: MessageElement[]) {
-    async function func(messages: MessageElement[]) {
-        console.log("收到新消息", messages)
-        if (!self_qq) {
-            self_qq = (await window.LLAPI.getAccountInfo()).uin
-        }
-        await handleNewMessage(messages);
-    }
-
-    func(messages).then(() => {
-    })
-    // console.log("chatListEle", chatListEle)
-}
 
 async function initAccountInfo() {
     let accountInfo = await window.LLAPI.getAccountInfo();
@@ -475,8 +338,6 @@ function onLoad() {
                         });
                     });
                 }
-                window.LLAPI.on("new-messages", onNewMessages);
-                window.LLAPI.on("new-send-messages", onNewMessages);
                 window.llonebot.log("llonebot render start");
                 window.llonebot.startExpress();
 

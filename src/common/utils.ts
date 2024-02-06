@@ -2,6 +2,7 @@ import * as path from "path";
 import {json} from "express";
 import {selfInfo} from "./data";
 import {ConfigUtil} from "./config";
+import util from "util";
 
 const fs = require('fs');
 
@@ -12,7 +13,7 @@ export function getConfigUtil() {
     return new ConfigUtil(configFilePath)
 }
 
-export function log(msg: any) {
+export function log(...msg: any[]) {
     if (!getConfigUtil().getConfig().log){
         return
     }
@@ -23,7 +24,17 @@ export function log(msg: any) {
     const day = date.getDate();
     const currentDate = `${year}-${month}-${day}`;
     const userInfo = selfInfo.user_id ? `${selfInfo.nickname}(${selfInfo.user_id})` : ""
-    fs.appendFile(path.join(CONFIG_DIR , `llonebot-${currentDate}.log`), currentDateTime + ` ${userInfo}:` + JSON.stringify(msg) + "\n", (err: any) => {
+    let logMsg = "";
+    for (let msgItem of msg){
+        // 判断是否是对象
+        if (typeof msgItem === "object"){
+            logMsg += JSON.stringify(msgItem) + " ";
+            continue;
+        }
+        logMsg += msgItem + " ";
+    }
+    logMsg = `${currentDateTime} ${userInfo}: ${logMsg}\n`
+    fs.appendFile(path.join(CONFIG_DIR , `llonebot-${currentDate}.log`), logMsg, (err: any) => {
 
     })
 }
@@ -54,4 +65,30 @@ export function checkFileReceived(path: string, timeout: number=3000): Promise<v
 
         check();
     });
+}
+
+export async function file2base64(path: string){
+    const readFile = util.promisify(fs.readFile);
+    let result = {
+        err: "",
+        data: ""
+    }
+    try {
+        // 读取文件内容
+        // if (!fs.existsSync(path)){
+        //     path = path.replace("\\Ori\\", "\\Thumb\\");
+        // }
+        try {
+            await checkFileReceived(path, 5000);
+        } catch (e: any) {
+            result.err = e.toString();
+            return result;
+        }
+        const data = await readFile(path);
+        // 转换为Base64编码
+        result.data = data.toString('base64');
+    } catch (err) {
+        result.err = err.toString();
+    }
+    return result;
 }

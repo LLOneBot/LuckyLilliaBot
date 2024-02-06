@@ -1,13 +1,20 @@
-import {log} from "./utils";
+import {getConfigUtil, log} from "../common/utils";
 
-const express = require("express");
+// const express = require("express");
+import express from "express";
+import {Request} from 'express';
+import {Response} from 'express';
+
 const JSONbig = require('json-bigint');
-import {sendIPCRecallQQMsg, sendIPCSendQQMsg} from "./IPCSend";
-import {OnebotGroupMemberRole, PostDataAction, PostDataSendMsg, SendMessage, SendMsgResult} from "../common/types";
-import {friends, groups, selfInfo} from "./data";
+import {sendIPCRecallQQMsg, sendIPCSendQQMsg} from "../main/ipcsend";
+import {PostDataSendMsg} from "../common/types";
+import {friends, groups, msgHistory, selfInfo} from "../common/data";
+import {OB11ApiName, OB11Message, OB11Return, OB11MessageData} from "../onebot11/types";
+import {OB11Construct} from "../onebot11/construct";
+
 
 // @SiberianHusky 2021-08-15
-function checkSendMessage(sendMsgList: SendMessage[]) {
+function checkSendMessage(sendMsgList: OB11MessageData[]) {
     function checkUri(uri: string): boolean {
         const pattern = /^(file:\/\/|http:\/\/|https:\/\/|base64:\/\/)/;
         return pattern.test(uri);
@@ -44,7 +51,17 @@ function checkSendMessage(sendMsgList: SendMessage[]) {
 
 // ==end==
 
-function handlePost(jsonData: any, handleSendResult: (data: SendMsgResult) => void) {
+function constructReturnData(status: number, data: any = {}, message: string = "") {
+    return {
+        status: status,
+        retcode: status,
+        data: data,
+        message: message
+    }
+
+}
+
+function handlePost(jsonData: any, handleSendResult: (data: OB11Return<any>) => void) {
     log("API receive post:" + JSON.stringify(jsonData))
     if (!jsonData.params) {
         jsonData.params = JSON.parse(JSON.stringify(jsonData));
@@ -109,7 +126,7 @@ function handlePost(jsonData: any, handleSendResult: (data: SendMsgResult) => vo
             user_display_name: member.cardName || member.nick,
             nickname: member.nick,
             card: member.cardName,
-            role: OnebotGroupMemberRole[member.role],
+            role: OB11Construct.constructGroupMemberRole(member.role),
         }
     } else if (jsonData.action == "get_group_member_list") {
         let group = groups.find(group => group.uid == jsonData.params.group_id)
@@ -121,7 +138,7 @@ function handlePost(jsonData: any, handleSendResult: (data: SendMsgResult) => vo
                     user_display_name: member.cardName || member.nick,
                     nickname: member.nick,
                     card: member.cardName,
-                    role: OnebotGroupMemberRole[member.role],
+                    role: OB11Construct.constructGroupMemberRole(member.role),
                 }
 
             }) || []
@@ -136,7 +153,7 @@ function handlePost(jsonData: any, handleSendResult: (data: SendMsgResult) => vo
             }
         })
     } else if (jsonData.action == "delete_msg") {
-        sendIPCRecallQQMsg(String(jsonData.message_id))
+        sendIPCRecallQQMsg(jsonData.message_id)
     }
     return resData
 }
@@ -162,11 +179,24 @@ export function startExpress(port: number) {
         }
     });
 
-    function parseToOnebot12(action: PostDataAction) {
-        app.post('/' + action, (req: any, res: any) => {
+    async function registerRouter<PayloadType, ReturnDataType>(action: OB11ApiName, handle: (payload: PayloadType) => Promise<OB11Return<ReturnDataType>>) {
+        async function _handle(res: Response, payload: PayloadType) {
+            res.send(await handle(payload))
+        }
+
+        app.post('/' + action, (req: Request, res: Response) => {
+            _handle(res, req.body).then()
+        });
+        app.get('/' + action, (req: Request, res: Response) => {
+            _handle(res, req.query as any).then()
+        });
+    }
+
+    function parseToOnebot12(action: OB11ApiName) {
+        app.post('/' + action, (req: Request, res: Response) => {
             let jsonData: PostDataSendMsg = req.body;
             jsonData.action = action
-            let resData = handlePost(jsonData, (data: SendMsgResult) => {
+            let resData = handlePost(jsonData, (data: OB11Return<any>) => {
                 res.send(data)
             })
             if (resData) {
@@ -175,29 +205,29 @@ export function startExpress(port: number) {
         });
     }
 
-    const actionList: PostDataAction[] = ["get_login_info", "send_private_msg", "send_group_msg",
+    const actionList: OB11ApiName[] = ["get_login_info", "send_private_msg", "send_group_msg",
         "get_group_list", "get_friend_list", "delete_msg", "get_group_member_list", "get_group_member_info"]
 
     for (const action of actionList) {
-        parseToOnebot12(action as PostDataAction)
+        parseToOnebot12(action as OB11ApiName)
     }
 
-    app.get('/', (req: any, res: any) => {
+    app.get('/', (req: Request, res: Response) => {
         res.send('llonebot已启动');
     })
 
 
     // 处理POST请求的路由
-    app.post('/', (req: any, res: any) => {
+    app.post('/', (req: Request, res: Response) => {
         let jsonData: PostDataSendMsg = req.body;
-        let resData = handlePost(jsonData, (data: SendMsgResult) => {
+        let resData = handlePost(jsonData, (data: OB11Return<any>) => {
             res.send(data)
         })
         if (resData) {
             res.send(resData)
         }
     });
-    app.post('/send_msg', (req: any, res: any) => {
+    app.post('/send_msg', (req: Request, res: Response) => {
         let jsonData: PostDataSendMsg = req.body;
         if (jsonData.message_type == "private") {
             jsonData.action = "send_private_msg"
@@ -210,7 +240,7 @@ export function startExpress(port: number) {
                 jsonData.action = "send_private_msg"
             }
         }
-        let resData = handlePost(jsonData, (data: SendMsgResult) => {
+        let resData = handlePost(jsonData, (data: OB11Return<any>) => {
             res.send(data)
         })
         if (resData) {
@@ -218,7 +248,43 @@ export function startExpress(port: number) {
         }
     })
 
+    registerRouter<{ message_id: string }, OB11Message>("get_msg", async (payload) => {
+        const msg = msgHistory[payload.message_id.toString()]
+        if (msg) {
+            const msgData = await OB11Construct.constructMessage(msg);
+            return constructReturnData(0, msgData)
+        } else {
+            return constructReturnData(1, {}, "消息不存在")
+        }
+    }).then(()=>{
+
+    })
+
     app.listen(port, "0.0.0.0", () => {
         console.log(`llonebot started 0.0.0.0:${port}`);
     });
+}
+
+
+export function postMsg(msg: OB11Message) {
+    const {reportSelfMessage} = getConfigUtil().getConfig()
+    if (!reportSelfMessage) {
+        if (msg.user_id == selfInfo.user_id) {
+            return
+        }
+    }
+    for (const host of getConfigUtil().getConfig().hosts) {
+        fetch(host, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-self-id": selfInfo.user_id
+            },
+            body: JSON.stringify(msg)
+        }).then((res: any) => {
+            log(`新消息事件上报成功: ${host} ` + JSON.stringify(msg));
+        }, (err: any) => {
+            log(`新消息事件上报失败: ${host} ` + err + JSON.stringify(msg));
+        });
+    }
 }

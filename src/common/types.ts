@@ -1,3 +1,5 @@
+import {OB11ApiName, OB11MessageData} from "../onebot11/types";
+
 export enum AtType {
     notAt = 0,
     atAll = 1,
@@ -22,12 +24,6 @@ export interface GroupMemberInfo {
     shutUpTime: number;  // 禁言时间，单位是什么暂时不清楚
     uid: string; // 加密的字符串
     uin: string; // QQ号
-}
-
-export const OnebotGroupMemberRole = {
-    4: 'owner',
-    3: 'admin',
-    2: 'member'
 }
 
 
@@ -79,42 +75,48 @@ export interface PttElement {
     waveAmplitudes: number[]
 }
 
-export interface ArkElement{
+export interface ArkElement {
     bytesData: string
 }
 
+export interface RawMessage {
+    msgId: string,
+    msgTime: string,
+    msgSeq: string,
+    senderUin: string; // 发送者QQ号
+    peerUid: string; // 群号 或者 QQ uid
+    peerUin: string; // 群号 或者 发送者QQ号
+    sendNickName: string;
+    sendMemberName?: string;  // 发送者群名片
+    chatType: ChatType,
+    elements: {
+        replyElement: {
+            senderUid: string,  // 原消息发送者QQ号
+            sourceMsgIsIncPic: boolean;  // 原消息是否有图片
+            sourceMsgText: string;
+            replayMsgSeq: string;  // 源消息的msgSeq，可以通过这个找到源消息的msgId
+        },
+        textElement: {
+            atType: AtType
+            atUid: string,
+            content: string,
+            atNtUid: string
+        },
+        picElement: {
+            sourcePath: string // 图片本地路径
+            picWidth: number
+            picHeight: number
+            fileSize: number
+            fileName: string
+            fileUuid: string
+        },
+        pttElement: PttElement,
+        arkElement: ArkElement
+    }[]
+}
+
 export interface MessageElement {
-    raw: {
-        msgId: string,
-        msgTime: string,
-        msgSeq: string,
-        senderUin: string; // 发送者QQ号
-        chatType: ChatType,
-        elements: {
-            replyElement: {
-                senderUid: string,  // 原消息发送者QQ号
-                sourceMsgIsIncPic: boolean;  // 原消息是否有图片
-                sourceMsgText: string;
-                replayMsgSeq: string;  // 源消息的msgSeq，可以通过这个找到源消息的msgId
-            },
-            textElement: {
-                atType: AtType
-                atUid: string,
-                content: string,
-                atNtUid: string
-            },
-            picElement: {
-                sourcePath: string // 图片本地路径
-                picWidth: number
-                picHeight: number
-                fileSize: number
-                fileName: string
-                fileUuid: string
-            },
-            pttElement: PttElement,
-            arkElement: ArkElement
-        }[]
-    }
+    raw: RawMessage
     peer: Peer,
     sender: {
         uid: string  // 一串加密的字符串
@@ -123,60 +125,17 @@ export interface MessageElement {
     }
 }
 
-export enum MessageType {
-    text = "text",
-    image = "image",
-    voice = "record",
-    at = "at",
-    reply = "reply",
-    json = "json"
-}
-
-export type SendMessage = {
-    type: MessageType.text,
-    content: string,
-    data?: {
-        text: string, // 纯文本
-    }
-} | {
-    type: "image" | "voice" | "record",
-    file: string, // 本地路径
-    data?: {
-        file: string // 本地路径
-    }
-} | {
-    type: MessageType.at,
-    atType?: AtType,
-    content?: string,
-    atUid?: string,
-    atNtUid?: string,
-    data?: {
-        qq: string // at的qq号
-    }
-} | {
-    type: MessageType.reply,
-    msgId: string,
-    msgSeq: string,
-    senderUin: string,
-    data: {
-        id: string,
-    }
-}
-
-export type PostDataAction = "send_private_msg" | "send_group_msg" | "get_group_list"
-    | "get_friend_list" | "delete_msg" | "get_login_info" | "get_group_member_list" | "get_group_member_info"
-
 export interface PostDataSendMsg {
-    action: PostDataAction
+    action: OB11ApiName
     message_type?: "private" | "group"
     params?: {
         user_id: string,
         group_id: string,
-        message: SendMessage[];
+        message: OB11MessageData[];
     },
     user_id: string,
     group_id: string,
-    message: SendMessage[];
+    message?: OB11MessageData[];
     ipc_uuid?: string
 }
 
@@ -189,9 +148,3 @@ export interface Config {
     log?: boolean
 }
 
-export interface SendMsgResult {
-    status: number
-    retcode: number
-    data: any
-    message: string
-}

@@ -1,4 +1,4 @@
-import {Config} from "../common/types";
+import {Config} from "./types";
 
 const fs = require("fs")
 

@@ -1,6 +1,6 @@
 # LLOneBot API
 
-将NTQQLiteLoaderAPI封装成OneBot11/12标准的API, V12没有完整测试
+将NTQQLiteLoaderAPI封装成OneBot11标准的API
 
 *注意：本文档对应的是 LiteLoader 1.0.0及以上版本，如果你使用的是旧版本请切换到本项目v1分支查看文档*
 
@@ -51,8 +51,7 @@
 - [x] get_group_member_list
 - [x] get_group_member_info
 - [x] get_friend_list
-
-**自己发送成功的消息也会上报，可以用于获取需要撤回消息的id**
+- [x] get_msg
 
 ## 示例
 
@@ -87,13 +86,6 @@
     <summary>不支持cq码</summary>
 <br/>
     cq码已经过时了，没有支持的打算(主要是我不用这玩意儿，加上我懒)
-</details>
-<br/>
-
-<details>
-    <summary>onebot 12对接不了</summary>
-<br/>
-    onebot 12只写了部分兼容，没有完整测试，不保证能用，慎用
 </details>
 <br/>
 
