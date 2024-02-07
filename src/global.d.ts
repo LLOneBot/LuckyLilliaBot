@@ -8,6 +8,7 @@ import {
     SelfInfo,
     User
 } from "./common/types";
+import { SendIPCMsgSession } from "./main/ipcsend";
 
 
 import {OB11Return, OB11MessageData, OB11SendMsgReturn} from "./onebot11/types";
@@ -36,7 +37,7 @@ declare var LLAPI: {
 
 declare var llonebot: {
     postData: (data: any) => void
-    listenSendMessage: (handle: (msg: PostDataSendMsg) => void) => void
+    listenSendMessage: (handle: (msg: SendIPCMsgSession<PostDataSendMsg>) => void) => void
     listenRecallMessage: (handle: (msg: {message_id: string}) => void) => void
     updateGroups: (groups: Group[]) => void
     updateFriends: (friends: User[]) => void

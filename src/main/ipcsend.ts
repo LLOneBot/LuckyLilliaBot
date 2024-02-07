@@ -1,6 +1,6 @@
 import {ipcMain, webContents} from 'electron';
 import {PostDataSendMsg} from "../common/types";
-import {CHANNEL_RECALL_MSG, CHANNEL_SEND_MSG} from "../common/channels";
+import {CHANNEL_RECALL_MSG, CHANNEL_SEND_MSG,CHANNEL_SEND_BACK_MSG} from "../common/channels";
 import {v4 as uuid4} from "uuid";
 import {log} from "../common/utils";
 
@@ -18,21 +18,33 @@ function sendIPCMsg(channel: string, data: any) {
     }
 }
 
+export interface SendIPCMsgSession<T> {
+    id: string
+    data: T
+}
 
 export function sendIPCSendQQMsg(postData: PostDataSendMsg, handleSendResult: (data: OB11Return<any>) => void) {
-    const onceSessionId = "llonebot_send_msg_" + uuid4();
-    postData.ipc_uuid = onceSessionId;
-    ipcMain.once(onceSessionId, (event: any, sendResult: OB11Return<any>) => {
+    const onceSessionId = uuid4();
+    const handler = (event: any, session: SendIPCMsgSession<OB11Return<any>>) => {
         // log("llonebot send msg ipcMain.once:" + JSON.stringify(sendResult));
-        try {
-            handleSendResult(sendResult)
-        } catch (e) {
-            log("llonebot send msg ipcMain.once error:" + JSON.stringify(e))
+        if (session?.id !== onceSessionId) {
+            return
         }
-    })
-    sendIPCMsg(CHANNEL_SEND_MSG, postData);
+        try {
+            handleSendResult(session.data)
+            ipcMain.off(CHANNEL_SEND_BACK_MSG, handler)
+            return
+        } catch (e) {
+            log("llonebot send msg sendIPCSendQQMsg handler error:" + JSON.stringify(e))
+        }
+    }
+    ipcMain.on(CHANNEL_SEND_BACK_MSG, handler)
+    sendIPCMsg(CHANNEL_SEND_MSG, {
+        id: onceSessionId,
+        data: postData,
+    });
 }
 
 export function sendIPCRecallQQMsg(message_id: string) {
-    sendIPCMsg(CHANNEL_RECALL_MSG, {message_id: message_id});
+    sendIPCMsg(CHANNEL_RECALL_MSG, { message_id: message_id });
 }

@@ -1,4 +1,5 @@
 export const CHANNEL_SEND_MSG = "llonebot_send_msg"
+export const CHANNEL_SEND_BACK_MSG = "llonebot_send_back_msg"
 export const CHANNEL_RECALL_MSG = "llonebot_recall_msg"
 export const CHANNEL_GET_CONFIG = "llonebot_get_config"
 export const CHANNEL_SET_CONFIG = "llonebot_set_config"

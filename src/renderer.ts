@@ -6,6 +6,7 @@ import {AtType, ChatType, Group, MessageElement, Peer, PostDataSendMsg, RawMessa
 import {OB11SendMsgReturn} from "./onebot11/types";
 import {ipcRenderer} from "electron";
 import {CHANNEL_GET_HISTORY_MSG} from "./common/channels";
+import { SendIPCMsgSession } from "./main/ipcsend";
 
 let groups: Group[] = []
 let friends: User[] = []
@@ -118,7 +119,8 @@ async function getGroupMember(group_qq: string, member_uid: string) {
 }
 
 
-async function listenSendMessage(postData: PostDataSendMsg) {
+async function listenSendMessage(session: SendIPCMsgSession<PostDataSendMsg>) {
+    const postData = session.data
     console.log("收到发送消息请求", postData);
     let sendMsgResult: OB11SendMsgReturn = {
         retcode: 0,
@@ -242,7 +244,7 @@ async function listenSendMessage(postData: PostDataSendMsg) {
             }
             console.log("发送消息", postData)
             if (sendMsgResult.status !== 0) {
-                window.llonebot.sendSendMsgResult(postData.ipc_uuid, sendMsgResult)
+                window.llonebot.sendSendMsgResult(session.id, sendMsgResult)
                 return;
             }
             window.LLAPI.sendMessage(peer, postData.params.message).then(
@@ -252,18 +254,18 @@ async function listenSendMessage(postData: PostDataSendMsg) {
                         window.llonebot.deleteFile(sendFiles);
                     }
                     sendMsgResult.data.message_id = res.raw.msgId;
-                    window.llonebot.sendSendMsgResult(postData.ipc_uuid, sendMsgResult)
+                    window.llonebot.sendSendMsgResult(session.id, sendMsgResult)
                 },
                 err => {
                     sendMsgResult.status = -1;
                     sendMsgResult.retcode = -1;
                     sendMsgResult.message = `发送失败，${err}`;
-                    window.llonebot.sendSendMsgResult(postData.ipc_uuid, sendMsgResult)
+                    window.llonebot.sendSendMsgResult(session.id, sendMsgResult)
                     console.log("消息发送失败", postData, err)
                 })
         } else {
             console.log(sendMsgResult, postData);
-            window.llonebot.sendSendMsgResult(postData.ipc_uuid, sendMsgResult)
+            window.llonebot.sendSendMsgResult(session.id, sendMsgResult)
         }
     }
 }
@@ -341,8 +343,8 @@ function onLoad() {
                 window.llonebot.log("llonebot render start");
                 window.llonebot.startExpress();
 
-                window.llonebot.listenSendMessage((postData: PostDataSendMsg) => {
-                    listenSendMessage(postData).then().catch(err => console.log("listenSendMessage err", err))
+                window.llonebot.listenSendMessage((session: SendIPCMsgSession<PostDataSendMsg>) => {
+                    listenSendMessage(session).then().catch(err => console.log("listenSendMessage err", err))
                 })
                 window.llonebot.listenRecallMessage((arg: { message_id: string }) => {
                     // console.log("listenRecallMessage", arg)

@@ -136,7 +136,6 @@ export interface PostDataSendMsg {
     user_id: string,
     group_id: string,
     message?: OB11MessageData[];
-    ipc_uuid?: string
 }
 
 export interface Config {

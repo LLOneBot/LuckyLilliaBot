@@ -14,11 +14,15 @@ import {
     CHANNEL_UPDATE_FRIENDS,
     CHANNEL_UPDATE_GROUPS,
     CHANNEL_DELETE_FILE,
-    CHANNEL_GET_RUNNING_STATUS, CHANNEL_FILE2BASE64, CHANNEL_GET_HISTORY_MSG
+    CHANNEL_GET_RUNNING_STATUS,
+    CHANNEL_FILE2BASE64,
+    CHANNEL_GET_HISTORY_MSG,
+    CHANNEL_SEND_BACK_MSG,
 } from "./common/channels";
 
 
 import {OB11Return, OB11SendMsgReturn} from "./onebot11/types";
+import { SendIPCMsgSession } from "./main/ipcsend";
 
 
 const {contextBridge} = require("electron");
@@ -37,11 +41,14 @@ contextBridge.exposeInMainWorld("llonebot", {
         ipcRenderer.send(CHANNEL_UPDATE_FRIENDS, friends);
     },
     sendSendMsgResult: (sessionId: string, msgResult: OB11SendMsgReturn)=>{
-        ipcRenderer.send(sessionId, msgResult);
+        ipcRenderer.send(CHANNEL_SEND_BACK_MSG, {
+            id: sessionId, 
+            data: msgResult,
+        });
     },
-    listenSendMessage: (handle: (jsonData: PostDataSendMsg) => void) => {
+    listenSendMessage: (handle: (jsonData: SendIPCMsgSession<PostDataSendMsg>) => void) => {
         ipcRenderer.send(CHANNEL_LOG, "发送消息API已注册");
-        ipcRenderer.on(CHANNEL_SEND_MSG, (event: any, args: PostDataSendMsg) => {
+        ipcRenderer.on(CHANNEL_SEND_MSG, (event: any, args: SendIPCMsgSession<PostDataSendMsg>) => {
             handle(args)
         })
     },
