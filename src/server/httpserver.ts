@@ -1,7 +1,7 @@
 import {getConfigUtil, log} from "../common/utils";
 
 // const express = require("express");
-import express from "express";
+import express = require("express");
 import {Request} from 'express';
 import {Response} from 'express';
 
@@ -180,14 +180,18 @@ export function startExpress(port: number) {
     });
 
     async function registerRouter<PayloadType, ReturnDataType>(action: OB11ApiName, handle: (payload: PayloadType) => Promise<OB11Return<ReturnDataType>>) {
+        let url = action.toString()
+        if (!action.startsWith("/")){
+            url = "/" + action
+        }
         async function _handle(res: Response, payload: PayloadType) {
             res.send(await handle(payload))
         }
 
-        app.post('/' + action, (req: Request, res: Response) => {
+        app.post(url, (req: Request, res: Response) => {
             _handle(res, req.body).then()
         });
-        app.get('/' + action, (req: Request, res: Response) => {
+        app.get(url, (req: Request, res: Response) => {
             _handle(res, req.query as any).then()
         });
     }
