@@ -1,4 +1,11 @@
-import {AtType, RawMessage} from "../common/types";
+import {SelfInfo} from "../common/types";
+import { AtType } from "../ntqqapi/types";
+import { RawMessage } from "../ntqqapi/types";
+import { User } from "../ntqqapi/types";
+
+export interface Friend extends SelfInfo{
+    remark?: string
+}
 
 export enum OB11UserSex{
     male = "male",
@@ -10,6 +17,27 @@ export enum OB11GroupMemberRole{
     owner = "owner",
     admin = "admin",
     member = "member",
+}
+
+export interface OB11GroupMember {
+    group_id: string
+    user_id: string
+    nickname: string
+    card?: string
+    sex?: OB11UserSex
+    age?: number
+    join_time?: number
+    last_sent_time?: number
+    level?: number
+    role?: OB11GroupMemberRole
+    title?: string
+}
+
+export interface OB11Group{
+    group_id: string
+    group_name: string
+    member_count?: number
+    max_member_count?: number
 }
 
 interface OB11Sender {
@@ -45,9 +73,11 @@ export interface OB11Message {
 }
 
 export type OB11ApiName =
-    "send_private_msg"
+    "send_msg"
+    | "send_private_msg"
     | "send_group_msg"
     | "get_group_list"
+    | "get_group_info"
     | "get_friend_list"
     | "delete_msg"
     | "get_login_info"
@@ -102,4 +132,11 @@ export type OB11MessageData = {
     data: {
         id: string,
     }
+}
+
+export interface OB11PostSendMsg {
+    message_type?: "private" | "group"
+    user_id: string,
+    group_id?: string,
+    message: OB11MessageData[] | string | OB11MessageData;
 }

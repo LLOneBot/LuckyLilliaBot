@@ -2,7 +2,11 @@ import {ipcMain} from "electron";
 import {v4 as uuidv4} from "uuid";
 import {hookApiCallbacks} from "./hook";
 import {log} from "../common/utils";
-import {ChatType, Group, GroupMember, User} from "../common/types";
+import { ChatType } from "./types";
+import { Group } from "./types";
+import { GroupMember } from "./types";
+import { RawMessage } from "./types";
+import { User } from "./types";
 import {SendMessageElement} from "./types";
 
 interface IPCReceiveEvent {
@@ -48,9 +52,9 @@ enum NTQQApiChannel {
     IPC_UP_1 = "IPC_UP_1",
 }
 
-interface Peer {
+export interface Peer {
     chatType: ChatType
-    peerUid: string  // 是uid还是QQ号
+    peerUid: string  // 如果是群聊uid为群号，私聊uid就是加密的字符串
     guildId?: ""
 }
 
@@ -68,6 +72,13 @@ function callNTQQApi<ReturnType>(channel: NTQQApiChannel, className: NTQQApiClas
             [methodName, ...args],
         )
     })
+}
+
+export let sendMessagePool: Record<string, ((sendSuccessMsg: RawMessage)=>void) | null>  = {}// peerUid: callbackFunnc
+
+interface GeneralCallResult{
+    result:0,
+    errMsg: string
 }
 
 
@@ -91,14 +102,14 @@ export class NTQQApi {
     }
 
     static getFriends(forced = false) {
-        return callNTQQApi(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.FRIENDS, [{force_update: forced}, undefined])
+        return callNTQQApi<GeneralCallResult>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.FRIENDS, [{force_update: forced}, undefined])
     }
 
     static getGroups(forced = false) {
-        return callNTQQApi<Group[]>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.GROUPS, [{force_update: forced}, undefined])
+        return callNTQQApi<GeneralCallResult>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.GROUPS, [{force_update: forced}, undefined])
     }
 
-    static async getGroupMembers(groupQQ: string, num = 3000) {
+    static async getGroupMembers(groupQQ: string, num = 5000) {
         const sceneId = callNTQQApi(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.GROUP_MEMBER_SCENE, [{
                 groupCode: groupQQ,
                 scene: "groupMemberList_MainWindow"
@@ -114,13 +125,11 @@ export class NTQQApi {
     }
 
     static async getUserInfo(uid: string) {
-        const result = await callNTQQApi<[{
-            payload: { profiles: Map<string, User> }
-        }]>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.USER_INFO,
+        const result = await callNTQQApi<GeneralCallResult>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.USER_INFO,
             [{force: true, uids: [uid]}, undefined])
-        return new Promise<User>(resolve => {
-            resolve(result[0].payload.profiles.get(uid))
-        })
+        log("get user info result", result);
+        return result[0].payload.profiles.get(uid);
+        
     }
 
     static getFileType(filePath: string) {
@@ -134,7 +143,7 @@ export class NTQQApi {
     }
 
     static copyFile(filePath: string, destPath: string) {
-        return callNTQQApi<string>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.FS_API, NTQQApiMethod.FILE_COPY, [filePath, destPath])
+        return callNTQQApi<string>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.FS_API, NTQQApiMethod.FILE_COPY, [{ fromPath: filePath, toPath: destPath }])
     }
 
     static getImageSize(filePath: string) {
@@ -152,7 +161,7 @@ export class NTQQApi {
     static async uploadFile(filePath: string) {
         const md5 = await NTQQApi.getFileMd5(filePath);
         const fileName = `${md5}.${(await NTQQApi.getFileType(filePath)).ext}`;
-        const mediaPath = await callNTQQApi<string>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.FS_API, NTQQApiMethod.MEDIA_FILE_PATH, [{
+        const mediaPath = await callNTQQApi<string>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.MEDIA_FILE_PATH, [{
             path_info: {
                 md5HexStr: md5,
                 fileName: fileName,
@@ -164,6 +173,7 @@ export class NTQQApi {
                 file_uuid: ""
             }
         }])
+        log("media path", mediaPath)
         await NTQQApi.copyFile(filePath, mediaPath);
         const fileSize = await NTQQApi.getFileSize(filePath);
         return {
@@ -178,11 +188,49 @@ export class NTQQApi {
         return callNTQQApi(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.RECALL_MSG, [{peer, msgIds}, null])
     }
 
-    static sendMsg(peer: Peer, msgElements: SendMessageElement){
-        return callNTQQApi(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.SEND_MSG, [{
-            msgId: "0",
-            peer, msgElements,
-            msgAttributeInfos: new Map(),
-        }, null])
+    static sendMsg(peer: Peer, msgElements: SendMessageElement[]){
+        const sendTimeout = 10 * 1000
+
+        return new Promise<RawMessage>((resolve, reject)=>{
+            const peerUid = peer.peerUid;
+            let usingTime = 0;
+            let success = false;
+
+            const checkSuccess = ()=>{
+                if (!success){
+                    sendMessagePool[peerUid] = null;
+                    reject("发送超时")
+                }
+            }
+            setTimeout(checkSuccess, sendTimeout);
+
+            const checkLastSend = ()=>{
+                let lastSending = sendMessagePool[peerUid]
+                if (sendTimeout < usingTime){
+                    sendMessagePool[peerUid] = null;
+                    reject("发送超时")
+                }
+                if (!!lastSending){
+                    // log("有正在发送的消息，等待中...")
+                    usingTime += 100;
+                    setTimeout(checkLastSend, 100);
+                }
+                else{
+                    log("可以进行发送消息，设置发送成功回调", sendMessagePool)
+                    sendMessagePool[peerUid] = (rawMessage: RawMessage)=>{
+                        success = true;
+                        sendMessagePool[peerUid] = null;
+                        resolve(rawMessage);
+                    }
+                }
+            }
+            checkLastSend()
+            callNTQQApi(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.SEND_MSG, [{
+                msgId: "0",
+                peer, msgElements,
+                msgAttributeInfos: new Map(),
+            }, null]).then()
+        })
+
     }
 }

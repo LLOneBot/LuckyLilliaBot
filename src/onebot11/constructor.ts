@@ -1,5 +1,5 @@
-import {OB11MessageDataType, OB11GroupMemberRole, OB11Message, OB11MessageData} from "./types";
-import {AtType, ChatType, RawMessage} from "../common/types";
+import {OB11MessageDataType, OB11GroupMemberRole, OB11Message, OB11MessageData, OB11Group, OB11GroupMember, Friend} from "./types";
+import { AtType, ChatType, Group, GroupMember, RawMessage, User } from '../ntqqapi/types';
 import {getFriend, getGroupMember, getHistoryMsgBySeq, msgHistory, selfInfo} from "../common/data";
 import {file2base64, getConfigUtil} from "../common/utils";
 
@@ -28,13 +28,13 @@ export class OB11Constructor {
         }
         if (msg.chatType == ChatType.group) {
             resMsg.group_id = msg.peerUin
-            const member = getGroupMember(msg.peerUin, msg.senderUin);
+            const member = await getGroupMember(msg.peerUin, msg.senderUin);
             if (member) {
                 resMsg.sender.role = OB11Constructor.groupMemberRole(member.role);
             }
         } else if (msg.chatType == ChatType.friend) {
             resMsg.sub_type = "friend"
-            const friend = getFriend(msg.senderUin);
+            const friend = await getFriend(msg.senderUin);
             if (friend) {
                 resMsg.sender.nickname = friend.nickName;
             }
@@ -54,7 +54,7 @@ export class OB11Constructor {
                     message_data["data"]["qq"] = "all"
                 } else {
                     let uid = element.textElement.atUid
-                    let atMember = getGroupMember(msg.peerUin, uid)
+                    let atMember = await getGroupMember(msg.peerUin, uid)
                     message_data["data"]["mention"] = atMember?.uin
                     message_data["data"]["qq"] = atMember?.uin
                 }
@@ -118,12 +118,49 @@ export class OB11Constructor {
         // }
         return resMsg;
     }
+    
+    static friend(friend: User): Friend{
+        return {
+            user_id: friend.uin,
+            nickname: friend.nickName,
+            remark: friend.raw.remark
+        }
+        
+    }
 
-    static groupMemberRole(role: number): OB11GroupMemberRole {
+    static friends(friends: User[]): Friend[]{
+        return friends.map(OB11Constructor.friend)
+    }
+
+    static groupMemberRole(role: number): OB11GroupMemberRole | undefined {
         return {
             4: OB11GroupMemberRole.owner,
             3: OB11GroupMemberRole.admin,
             2: OB11GroupMemberRole.member
         }[role]
+    }
+
+    static groupMember(group_id: string, member: GroupMember): OB11GroupMember{
+        return {
+            group_id,
+            user_id: member.uin,
+            nickname: member.nick,
+            card: member.cardName
+        }
+    }
+
+    static groupMembers(group: Group): OB11GroupMember[]{
+        return group.members.map(m=>OB11Constructor.groupMember(group.groupCode, m))
+    }
+
+    static group(group: Group): OB11Group{
+        return {
+            group_id: group.groupCode,
+            group_name: group.groupName
+        }
+    }
+
+    static groups(groups: Group[]): OB11Group[]{
+        return groups.map(OB11Constructor.group)
     }
 }

@@ -32,7 +32,7 @@ export class SendMsgElementConstructor {
         };
     }
 
-    reply(msgSeq: string, msgId: string, senderUin: string, senderUinStr: string): SendReplyElement {
+    static reply(msgSeq: string, msgId: string, senderUin: string, senderUinStr: string): SendReplyElement {
         return {
             elementType: ElementType.REPLY,
             elementId: "",
@@ -45,7 +45,7 @@ export class SendMsgElementConstructor {
         }
     }
 
-    async pic(picPath: string): Promise<SendPicElement>{
+    static async pic(picPath: string): Promise<SendPicElement>{
         const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(picPath);
         const imageSize = await NTQQApi.getImageSize(picPath);
         const picElement = {
@@ -71,7 +71,7 @@ export class SendMsgElementConstructor {
         };
     }
 
-    async ptt(pttPath: string):Promise<SendPttElement> {
+    static async ptt(pttPath: string):Promise<SendPttElement> {
         const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(pttPath);
         return {
             elementType: ElementType.PTT,

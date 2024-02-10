@@ -1,13 +1,12 @@
 import {
     Config,
-    Group,
-    GroupMember,
-    MessageElement,
     Peer,
-    PostDataSendMsg, PttElement, RawMessage,
-    SelfInfo,
-    User
-} from "./common/types";
+    PostDataSendMsg, 
+    SelfInfo} from "./common/types";
+import { Group } from "./ntqqapi/types";
+import { GroupMember } from "./ntqqapi/types";
+import { MessageElement, PttElement, RawMessage } from "./ntqqapi/types";
+import { User } from "./ntqqapi/types";
 import { SendIPCMsgSession } from "./main/ipcsend";
 
 

@@ -1,5 +1,5 @@
 import {ipcMain, webContents} from 'electron';
-import {PostDataSendMsg} from "../common/types";
+import {OB11PostSendMsg} from "../onebot11/types"
 import {CHANNEL_RECALL_MSG, CHANNEL_SEND_MSG,CHANNEL_SEND_BACK_MSG} from "../common/channels";
 import {v4 as uuid4} from "uuid";
 import {log} from "../common/utils";
@@ -23,7 +23,7 @@ export interface SendIPCMsgSession<T> {
     data: T
 }
 
-export function sendIPCSendQQMsg(postData: PostDataSendMsg, handleSendResult: (data: OB11Return<any>) => void) {
+export function sendIPCSendQQMsg(postData: OB11PostSendMsg, handleSendResult: (data: OB11Return<any>) => void) {
     const onceSessionId = uuid4();
     const handler = (event: any, session: SendIPCMsgSession<OB11Return<any>>) => {
         // log("llonebot send msg ipcMain.once:" + JSON.stringify(sendResult));

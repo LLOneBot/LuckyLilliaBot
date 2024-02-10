@@ -1,6 +1,9 @@
 // Electron 主进程 与 渲染进程 交互的桥梁
 
-import {Config, Group, PostDataSendMsg, RawMessage, SelfInfo, User} from "./common/types";
+import {Config, SelfInfo} from "./common/types";
+import { Group } from "./ntqqapi/types";
+import { RawMessage } from "./ntqqapi/types";
+import { User } from "./ntqqapi/types";
 import {
     CHANNEL_DOWNLOAD_FILE,
     CHANNEL_GET_CONFIG,
@@ -46,12 +49,7 @@ contextBridge.exposeInMainWorld("llonebot", {
             data: msgResult,
         });
     },
-    listenSendMessage: (handle: (jsonData: SendIPCMsgSession<PostDataSendMsg>) => void) => {
-        ipcRenderer.send(CHANNEL_LOG, "发送消息API已注册");
-        ipcRenderer.on(CHANNEL_SEND_MSG, (event: any, args: SendIPCMsgSession<PostDataSendMsg>) => {
-            handle(args)
-        })
-    },
+
     listenRecallMessage: (handle: (jsonData: {message_id: string}) => void) => {
         ipcRenderer.on(CHANNEL_RECALL_MSG, (event: any, args: {message_id: string}) => {
             handle(args)

@@ -1,16 +1,21 @@
 import {getConfigUtil, log} from "../common/utils";
 
-// const express = require("express");
-import express = require("express");
-import {Request} from 'express';
+const express = require("express");
+import {Request, text} from 'express';
 import {Response} from 'express';
 
-const JSONbig = require('json-bigint');
+const JSONbig = require('json-bigint')({storeAsString: true});
 import {sendIPCRecallQQMsg, sendIPCSendQQMsg} from "../main/ipcsend";
-import {PostDataSendMsg} from "../common/types";
-import {friends, groups, msgHistory, selfInfo} from "../common/data";
-import {OB11ApiName, OB11Message, OB11Return, OB11MessageData} from "../onebot11/types";
+import {AtType, ChatType, Group, SelfInfo} from "../common/types";
+import {friends, getGroup, getGroupMember, getStrangerByUin, groups, msgHistory, selfInfo} from "../common/data";
+import { OB11ApiName, OB11Message, OB11Return, OB11MessageData, OB11Group, OB11GroupMember, OB11PostSendMsg, OB11MessageDataType, Friend } from '../onebot11/types';
 import {OB11Constructor} from "../onebot11/constructor";
+import { NTQQApi } from "../ntqqapi/ntcall";
+import { Peer } from "../ntqqapi/ntcall";
+import { ElementType, SendMessageElement } from "../ntqqapi/types";
+import { SendMsgElementConstructor } from "../ntqqapi/constructor";
+import { uri2local } from "../onebot11/utils";
+import { v4 as uuid4 } from 'uuid';
 
 
 // @SiberianHusky 2021-08-15
@@ -51,15 +56,19 @@ function checkSendMessage(sendMsgList: OB11MessageData[]) {
 
 // ==end==
 
-function constructReturnData(status: number, data: any = {}, message: string = "") {
+function constructReturnData<T>(data: T, status: number=0, message: string = ""): OB11Return<T> {
     return {
         status: status,
         retcode: status,
         data: data,
         message: message
     }
-
 }
+
+function constructErrorReturn(err: string){
+    return constructReturnData(null, -1, err);
+}
+
 
 function handlePost(jsonData: any, handleSendResult: (data: OB11Return<any>) => void) {
     log("API receive post:" + JSON.stringify(jsonData))
@@ -74,9 +83,7 @@ function handlePost(jsonData: any, handleSendResult: (data: OB11Return<any>) => 
         message: ''
     }
 
-    if (jsonData.action == "get_login_info") {
-        resData["data"] = selfInfo
-    } else if (jsonData.action == "send_private_msg" || jsonData.action == "send_group_msg") {
+    if (jsonData.action == "send_private_msg" || jsonData.action == "send_group_msg") {
         if (jsonData.action == "send_private_msg") {
             jsonData.message_type = "private"
         } else {
@@ -99,8 +106,8 @@ function handlePost(jsonData: any, handleSendResult: (data: OB11Return<any>) => 
             return {
                 group_id: group.uid,
                 group_name: group.name,
-                member_count: group.members.length,
-                group_members: group.members.map(member => {
+                member_count: group.members?.length,
+                group_members: group.members?.map(member => {
                     return {
                         user_id: member.uin,
                         user_name: member.cardName || member.nick,
@@ -115,18 +122,18 @@ function handlePost(jsonData: any, handleSendResult: (data: OB11Return<any>) => 
             resData["data"] = {
                 group_id: group.uid,
                 group_name: group.name,
-                member_count: group.members.length,
+                member_count: group.members?.length,
             }
         }
     } else if (jsonData.action == "get_group_member_info") {
         let member = groups.find(group => group.uid == jsonData.params.group_id)?.members?.find(member => member.uin == jsonData.params.user_id)
         resData["data"] = {
-            user_id: member.uin,
-            user_name: member.nick,
-            user_display_name: member.cardName || member.nick,
-            nickname: member.nick,
-            card: member.cardName,
-            role: OB11Constructor.groupMemberRole(member.role),
+            user_id: member?.uin,
+            user_name: member?.nick,
+            user_display_name: member?.cardName || member?.nick,
+            nickname: member?.nick,
+            card: member?.cardName,
+            role: member && OB11Constructor.groupMemberRole(member.role),
         }
     } else if (jsonData.action == "get_group_member_list") {
         let group = groups.find(group => group.uid == jsonData.params.group_id)
@@ -159,112 +166,93 @@ function handlePost(jsonData: any, handleSendResult: (data: OB11Return<any>) => 
 }
 
 
-export function startExpress(port: number) {
-    const app = express();
-    // 中间件，用于解析POST请求的请求体
-    app.use(express.urlencoded({extended: true, limit: "500mb"}));
-    app.use(express.json({
-        limit: '500mb',
-        verify: (req: any, res: any, buf: any, encoding: any) => {
-            req.rawBody = buf;
-        }
-    }));
-    app.use((req: any, res: any, next: any) => {
-        try {
-            req.body = JSONbig.parse(req.rawBody.toString());
-            next();
-        } catch (error) {
-            // next(error);
-            next();
-        }
+const expressAPP = express();
+expressAPP.use(express.urlencoded({extended: true, limit: "500mb"}));
+
+expressAPP.use((req, res, next) => {
+    let data = '';
+    req.on('data', chunk => {
+      data += chunk.toString();
     });
-
-    async function registerRouter<PayloadType, ReturnDataType>(action: OB11ApiName, handle: (payload: PayloadType) => Promise<OB11Return<ReturnDataType>>) {
-        let url = action.toString()
-        if (!action.startsWith("/")){
-            url = "/" + action
+    req.on('end', () => {
+      if (data) {
+        try {
+            // log("receive raw", data)
+          req.body = JSONbig.parse(data);
+        } catch (e) {
+          return next(e);
         }
-        async function _handle(res: Response, payload: PayloadType) {
-            res.send(await handle(payload))
-        }
+      }
+      next();
+    });
+  });
+// expressAPP.use(express.json({
+//     limit: '500mb',
+//     verify: (req: any, res: any, buf: any, encoding: any) => {
+//         req.rawBody = buf;
+//     }
+// }));
 
-        app.post(url, (req: Request, res: Response) => {
-            _handle(res, req.body).then()
-        });
-        app.get(url, (req: Request, res: Response) => {
-            _handle(res, req.query as any).then()
-        });
-    }
+export function startExpress(port: number) {
 
-    function parseToOnebot12(action: OB11ApiName) {
-        app.post('/' + action, (req: Request, res: Response) => {
-            let jsonData: PostDataSendMsg = req.body;
-            jsonData.action = action
-            let resData = handlePost(jsonData, (data: OB11Return<any>) => {
-                res.send(data)
-            })
-            if (resData) {
-                res.send(resData)
-            }
-        });
-    }
+
+    // function parseToOnebot12(action: OB11ApiName) {
+    //     expressAPP.post('/' + action, (req: Request, res: Response) => {
+    //         let jsonData: PostDataSendMsg = req.body;
+    //         jsonData.action = action
+    //         let resData = handlePost(jsonData, (data: OB11Return<any>) => {
+    //             res.send(data)
+    //         })
+    //         if (resData) {
+    //             res.send(resData)
+    //         }
+    //     });
+    // }
 
     const actionList: OB11ApiName[] = ["get_login_info", "send_private_msg", "send_group_msg",
         "get_group_list", "get_friend_list", "delete_msg", "get_group_member_list", "get_group_member_info"]
 
-    for (const action of actionList) {
-        parseToOnebot12(action as OB11ApiName)
-    }
+    // for (const action of actionList) {
+    //     parseToOnebot12(action as OB11ApiName)
+    // }
 
-    app.get('/', (req: Request, res: Response) => {
+    expressAPP.get('/', (req: Request, res: Response) => {
         res.send('llonebot已启动');
     })
 
 
     // 处理POST请求的路由
-    app.post('/', (req: Request, res: Response) => {
-        let jsonData: PostDataSendMsg = req.body;
-        let resData = handlePost(jsonData, (data: OB11Return<any>) => {
-            res.send(data)
-        })
-        if (resData) {
-            res.send(resData)
-        }
-    });
-    app.post('/send_msg', (req: Request, res: Response) => {
-        let jsonData: PostDataSendMsg = req.body;
-        if (jsonData.message_type == "private") {
-            jsonData.action = "send_private_msg"
-        } else if (jsonData.message_type == "group") {
-            jsonData.action = "send_group_msg"
-        } else {
-            if (jsonData.params.group_id) {
-                jsonData.action = "send_group_msg"
-            } else {
-                jsonData.action = "send_private_msg"
-            }
-        }
-        let resData = handlePost(jsonData, (data: OB11Return<any>) => {
-            res.send(data)
-        })
-        if (resData) {
-            res.send(resData)
-        }
-    })
+    // expressAPP.post('/', (req: Request, res: Response) => {
+    //     let jsonData: PostDataSendMsg = req.body;
+    //     let resData = handlePost(jsonData, (data: OB11Return<any>) => {
+    //         res.send(data)
+    //     })
+    //     if (resData) {
+    //         res.send(resData)
+    //     }
+    // });
+    // expressAPP.post('/send_msg', (req: Request, res: Response) => {
+    //     let jsonData: PostDataSendMsg = req.body;
+    //     if (jsonData.message_type == "private") {
+    //         jsonData.action = "send_private_msg"
+    //     } else if (jsonData.message_type == "group") {
+    //         jsonData.action = "send_group_msg"
+    //     } else {
+    //         if (jsonData.params?.group_id) {
+    //             jsonData.action = "send_group_msg"
+    //         } else {
+    //             jsonData.action = "send_private_msg"
+    //         }
+    //     }
+    //     let resData = handlePost(jsonData, (data: OB11Return<any>) => {
+    //         res.send(data)
+    //     })
+    //     if (resData) {
+    //         res.send(resData)
+    //     }
+    // })
 
-    registerRouter<{ message_id: string }, OB11Message>("get_msg", async (payload) => {
-        const msg = msgHistory[payload.message_id.toString()]
-        if (msg) {
-            const msgData = await OB11Constructor.message(msg);
-            return constructReturnData(0, msgData)
-        } else {
-            return constructReturnData(1, {}, "消息不存在")
-        }
-    }).then(()=>{
-
-    })
-
-    app.listen(port, "0.0.0.0", () => {
+    expressAPP.listen(port, "0.0.0.0", () => {
         console.log(`llonebot started 0.0.0.0:${port}`);
     });
 }
@@ -292,3 +280,195 @@ export function postMsg(msg: OB11Message) {
         });
     }
 }
+
+let routers: Record<string, (payload: any)=>Promise<OB11Return<any>>> = {};
+
+function registerRouter<PayloadType, ReturnDataType>(action: OB11ApiName, handle: (payload: PayloadType) => Promise<OB11Return<ReturnDataType | null>>) {
+    let url = action.toString()
+    if (!action.startsWith("/")){
+        url = "/" + action
+    }
+    async function _handle(res: Response, payload: PayloadType) {
+        log("receive post data", url, payload)
+        try{
+            const result = await handle(payload)
+            res.send(result)
+        }
+        catch(e){
+            log(e.stack);
+            res.send(constructErrorReturn(e.stack.toString()))
+        }
+    }
+
+    expressAPP.post(url, (req: Request, res: Response) => {
+        _handle(res, req.body).then()
+    });
+    expressAPP.get(url, (req: Request, res: Response) => {
+        _handle(res, req.query as any).then()
+    });
+    routers[url] = handle
+}
+
+registerRouter<{ message_id: string }, OB11Message>("get_msg", async (payload) => {
+    log("history msg ids", Object.keys(msgHistory));
+    const msg = msgHistory[payload.message_id.toString()]
+    if (msg) {
+        const msgData = await OB11Constructor.message(msg);
+        return constructReturnData(msgData)
+    } else {
+        return constructErrorReturn("消息不存在")
+    }
+})
+
+registerRouter<{}, SelfInfo>("get_login_info", async (payload)=>{
+    return constructReturnData(selfInfo);
+})
+
+registerRouter<{}, Friend[]>("get_friend_list", async (payload)=>{
+    return constructReturnData(OB11Constructor.friends(friends));
+})
+
+registerRouter<{}, OB11Group[]>("get_group_list", async (payload)=>{
+    return constructReturnData(OB11Constructor.groups(groups));
+})
+
+
+registerRouter<{group_id: number}, OB11Group[]>("get_group_info", async (payload)=>{
+    const group = await getGroup(payload.group_id.toString())
+    if (group){
+        return constructReturnData(OB11Constructor.groups(groups));
+    }
+    else{
+        return constructErrorReturn(`群${payload.group_id}不存在`)
+    }
+})
+
+registerRouter<{group_id: number}, OB11GroupMember[]>("get_group_member_list", async (payload)=>{
+
+    const group = await getGroup(payload.group_id.toString());
+    if (group){
+        return constructReturnData(OB11Constructor.groupMembers(group));
+    }
+    else{
+        return constructErrorReturn(`群${payload.group_id}不存在`)
+    }
+})
+
+registerRouter<{group_id: number, user_id: number}, OB11GroupMember>("get_group_member_info", async (payload)=>{
+    const member = await getGroupMember(payload.group_id.toString(), payload.user_id.toString())
+    if (member){
+        return constructReturnData(OB11Constructor.groupMember(payload.group_id.toString(), member))
+    }
+    else{
+        return constructErrorReturn(`群成员${payload.user_id}不存在`)
+    }
+})
+
+const handleSendMsg = async (payload)=>{
+    const peer: Peer = {
+        chatType: ChatType.friend,
+        peerUid: ""
+    }
+    let group: Group | undefined = undefined;
+    if(payload?.group_id){
+        group = groups.find(g=>g.uid == payload.group_id?.toString())
+        if (!group){
+            return constructErrorReturn(`群${payload.group_id}不存在`)
+        }
+        peer.chatType = ChatType.group
+        // peer.name = group.name
+        peer.peerUid = group.uid
+    }
+    else if (payload?.user_id){
+        const friend = friends.find(f=>f.uin == payload.user_id.toString())
+        if (friend){
+            // peer.name = friend.nickName
+            peer.peerUid = friend.uid
+        }
+        else{
+            peer.chatType = ChatType.temp
+            const tempUser = getStrangerByUin(payload.user_id.toString())
+            if (!tempUser){
+                return constructErrorReturn(`找不到私聊对象${payload.user_id}`)
+            }
+            // peer.name = tempUser.nickName
+            peer.peerUid = tempUser.uid
+        }
+    }
+    if (typeof payload.message === "string"){
+        payload.message = [{
+            type: OB11MessageDataType.text,
+            data: {
+                text: payload.message
+            }
+        }] as OB11MessageData[]
+    }
+    else if (!Array.isArray(payload.message)){
+        payload.message = [payload.message]
+    }
+    const sendElements: SendMessageElement[] = []
+    for (let sendMsg of payload.message){
+        switch(sendMsg.type){
+            case OB11MessageDataType.text: {
+                const text = sendMsg.data?.text;
+                if (text){
+                    sendElements.push(SendMsgElementConstructor.text(sendMsg.data!.text))
+                }
+            }break;
+            case OB11MessageDataType.at: {
+                let atQQ = sendMsg.data?.qq;
+                if (atQQ){
+                    atQQ = atQQ.toString()
+                    if (atQQ === "all"){
+                        sendElements.push(SendMsgElementConstructor.at(atQQ, atQQ, AtType.atAll, "全体成员"))
+                    }
+                    else{
+                        const atMember = group?.members.find(m=>m.uin == atQQ)
+                        if (atMember){
+                            sendElements.push(SendMsgElementConstructor.at(atQQ, atMember.uid, AtType.atUser, atMember.cardName || atMember.nick))
+                        }
+                    }
+                }
+            }break;
+            case OB11MessageDataType.reply: {
+                let replyMsgId = sendMsg.data.id;
+                if (replyMsgId){
+                    replyMsgId = replyMsgId.toString()
+                    const replyMsg = msgHistory[replyMsgId]
+                    if (replyMsg){
+                        sendElements.push(SendMsgElementConstructor.reply(replyMsg.msgSeq, replyMsgId, replyMsg.senderUin, replyMsg.senderUin))
+                    }
+                }
+            }break;
+            case OB11MessageDataType.image: {
+                const file = sendMsg.data?.file
+                if (file){
+                    const picPath = await (await uri2local(uuid4(), file)).path
+                    if (picPath){
+                        sendElements.push(await SendMsgElementConstructor.pic(picPath))
+                    }
+                }
+            }break;
+            case OB11MessageDataType.voice: {
+                const file = sendMsg.data?.file
+                if (file){
+                    const voicePath = await (await uri2local(uuid4(), file)).path
+                    if (voicePath){
+                        sendElements.push(await SendMsgElementConstructor.ptt(voicePath))
+                    }
+                }
+            }
+        }
+    }
+    log("send msg:", peer, sendElements)
+    try{
+        const returnMsg = await NTQQApi.sendMsg(peer, sendElements)
+        return constructReturnData({message_id: returnMsg.msgId})
+    }catch(e){
+        return constructErrorReturn(e.toString())
+    }
+}
+
+registerRouter<OB11PostSendMsg, {message_id: string}>("send_msg", handleSendMsg)
+registerRouter<OB11PostSendMsg, {message_id: string}>("send_private_msg", handleSendMsg)
+registerRouter<OB11PostSendMsg, {message_id: string}>("send_group_msg", handleSendMsg)
