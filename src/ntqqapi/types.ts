@@ -1,14 +1,17 @@
-
 export interface User {
     uid: string; // 加密的字符串
     uin: string; // QQ号
     nick: string;
     avatarUrl?: string;
-    longNick: string; // 签名
-    raw: {
-        remark: string;
-    };
+    longNick?: string; // 签名
+    remark?: string
 }
+
+export interface SelfInfo extends User{
+
+}
+
+export interface Friend extends User{}
 
 export interface Group{
     groupCode: string,

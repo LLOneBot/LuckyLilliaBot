@@ -1,15 +1,15 @@
 import * as path from "path";
-import {json} from "express";
 import {selfInfo} from "./data";
 import {ConfigUtil} from "./config";
 import util from "util";
+import { sendLog } from '../main/ipcsend';
 
 const fs = require('fs');
 
 export const CONFIG_DIR = global.LiteLoader.plugins["LLOneBot"].path.data;
 
 export function getConfigUtil() {
-    const configFilePath = path.join(CONFIG_DIR, `config_${selfInfo.user_id}.json`)
+    const configFilePath = path.join(CONFIG_DIR, `config_${selfInfo.uin}.json`)
     return new ConfigUtil(configFilePath)
 }
 
@@ -23,7 +23,7 @@ export function log(...msg: any[]) {
     const month = date.getMonth() + 1;
     const day = date.getDate();
     const currentDate = `${year}-${month}-${day}`;
-    const userInfo = selfInfo.user_id ? `${selfInfo.nickname}(${selfInfo.user_id})` : ""
+    const userInfo = selfInfo.uin ? `${selfInfo.nick}(${selfInfo.uin})` : ""
     let logMsg = "";
     for (let msgItem of msg){
         // 判断是否是对象
@@ -34,6 +34,8 @@ export function log(...msg: any[]) {
         logMsg += msgItem + " ";
     }
     logMsg = `${currentDateTime} ${userInfo}: ${logMsg}\n`
+    // sendLog(...msg);
+    // console.log(msg)
     fs.appendFile(path.join(CONFIG_DIR , `llonebot-${currentDate}.log`), logMsg, (err: any) => {
 
     })

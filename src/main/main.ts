@@ -1,29 +1,23 @@
 // 运行在 Electron 主进程 下的插件入口
 
 import * as path from "path";
-import {BrowserWindow, ipcMain} from 'electron';
+import { BrowserWindow, ipcMain } from 'electron';
 import * as util from 'util';
 
-import {Config, Group, RawMessage, SelfInfo, User} from "../common/types";
+import { Config } from "../common/types";
 import {
-    CHANNEL_DOWNLOAD_FILE,
     CHANNEL_GET_CONFIG,
-    CHANNEL_SET_SELF_INFO,
     CHANNEL_LOG,
-    CHANNEL_POST_ONEBOT_DATA,
     CHANNEL_SET_CONFIG,
-    CHANNEL_START_HTTP_SERVER,
-    CHANNEL_UPDATE_FRIENDS,
-    CHANNEL_UPDATE_GROUPS, CHANNEL_DELETE_FILE, CHANNEL_GET_RUNNING_STATUS, CHANNEL_FILE2BASE64, CHANNEL_GET_HISTORY_MSG
 } from "../common/channels";
-import {ConfigUtil} from "../common/config";
-import {postMsg, startExpress} from "../server/httpserver";
-import {checkFileReceived, CONFIG_DIR, file2base64, getConfigUtil, isGIF, log} from "../common/utils";
-import {friends, groups, msgHistory, selfInfo} from "../common/data";
-import {} from "../global";
-import {hookNTQQApiReceive, ReceiveCmd, registerReceiveHook} from "../ntqqapi/hook";
-import {OB11Constructor} from "../onebot11/constructor";
-import {NTQQApi} from "../ntqqapi/ntcall";
+import { ConfigUtil } from "../common/config";
+import { postMsg, startExpress } from "../onebot11/server";
+import { CONFIG_DIR, getConfigUtil, log } from "../common/utils";
+import { friends, groups, msgHistory, selfInfo } from "../common/data";
+import { hookNTQQApiReceive, ReceiveCmd, registerReceiveHook } from "../ntqqapi/hook";
+import { OB11Constructor } from "../onebot11/constructor";
+import { NTQQApi } from "../ntqqapi/ntcall";
+import { Group, RawMessage, SelfInfo } from "../ntqqapi/types";
 
 const fs = require('fs');
 
@@ -38,7 +32,7 @@ function onLoad() {
 
 
     if (!fs.existsSync(CONFIG_DIR)) {
-        fs.mkdirSync(CONFIG_DIR, {recursive: true});
+        fs.mkdirSync(CONFIG_DIR, { recursive: true });
     }
     ipcMain.handle(CHANNEL_GET_CONFIG, (event: any, arg: any) => {
         return getConfigUtil().getConfig()
@@ -52,18 +46,18 @@ function onLoad() {
     })
 
 
-    function postRawMsg(msgList:RawMessage[]) {
-        const {debug, reportSelfMessage} = getConfigUtil().getConfig();
+    function postRawMsg(msgList: RawMessage[]) {
+        const { debug, reportSelfMessage } = getConfigUtil().getConfig();
         for (const message of msgList) {
             OB11Constructor.message(message).then((msg) => {
                 if (debug) {
                     msg.raw = message;
                 }
-                if (msg.user_id == selfInfo.user_id && !reportSelfMessage) {
+                if (msg.user_id == selfInfo.uin && !reportSelfMessage) {
                     return
                 }
                 postMsg(msg);
-            }).catch(e=>log("constructMessage error: ", e.toString()));
+            }).catch(e => log("constructMessage error: ", e.toString()));
         }
     }
 
@@ -76,7 +70,7 @@ function onLoad() {
     })
 
     registerReceiveHook<{ msgRecord: RawMessage }>(ReceiveCmd.SELF_SEND_MSG, (payload) => {
-        const {reportSelfMessage} = getConfigUtil().getConfig()
+        const { reportSelfMessage } = getConfigUtil().getConfig()
         if (!reportSelfMessage) {
             return
         }
@@ -87,45 +81,55 @@ function onLoad() {
             log("report self message error: ", e.toString())
         }
     })
-    
-    async function getSelfInfo(){
-        if (!selfInfo.user_id){
-            setTimeout(()=>{
-                getSelfInfo().then()
-            })
+
+    async function getSelfInfo() {
+        try{
+            const _ = await NTQQApi.getSelfInfo()
+            Object.assign(selfInfo, _)
+            selfInfo.nick = selfInfo.uin
+            log("get self simple info", _)
+        }catch(e){
+            log("retry get self info")
+
         }
-        const _ = await NTQQApi.getSelfInfo()
-        if (_.uin){
-            log("get self info success", _)
-            selfInfo.user_id = _.uin
-            let nickName = _.uin
-            try{
-                const userInfo = (await NTQQApi.getUserInfo(_.uid))
-                if (userInfo){
-                    nickName = userInfo.nickName
+        if (selfInfo.uin) {
+            try {
+                const userInfo = (await NTQQApi.getUserInfo(selfInfo.uid))
+                if (userInfo) {
+                    selfInfo.nick = userInfo.nick
                 }
             }
-            catch(e){
+            catch (e) {
                 log("get self nickname failed", e.toString())
             }
-            selfInfo.nickname = nickName
-            try{
-                // let _friends = await NTQQApi.getFriends(true)
-                // log("friends api:", _friends)
-                // for (let f of _friends){
-                //     friends.push(f)
-                // }
-                let _groups = await NTQQApi.getGroups(true)
-                log("groups api:", _groups)
-                for (let g of _groups){
-                    g.members = (await NTQQApi.getGroupMembers(g.uid))
-                    groups.push(g)
-                }
+            // try {
+            //     friends.push(...(await NTQQApi.getFriends(true)))
+            //     log("get friends", friends)
+            //     let _groups: Group[] = []
+            //     for(let i=0; i++; i<3){
+            //         try{
+            //             _groups = await NTQQApi.getGroups(true)
+            //             log("get groups sucess", _groups)
+            //             break
+            //         } catch(e) {
+            //             log("get groups failed", e)
+            //         }
+            //     }
+            //     for (let g of _groups) {
+            //         g.members = (await NTQQApi.getGroupMembers(g.groupCode))
+            //         log("group members", g.members)
+            //         groups.push(g)
+            //     }
 
-            }catch(e){
-                log("!!!初始化失败", e.stack.toString())
-            }
+            // } catch (e) {
+            //     log("!!!初始化失败", e.stack.toString())
+            // }
             startExpress(getConfigUtil().getConfig().port)
+        }
+        else{
+            setTimeout(() => {
+                getSelfInfo().then()
+            }, 100)
         }
     }
     getSelfInfo().then()
@@ -136,7 +140,7 @@ function onLoad() {
 function onBrowserWindowCreated(window: BrowserWindow) {
     try {
         hookNTQQApiReceive(window);
-    } catch (e){
+    } catch (e) {
         log("llonebot hook error: ", e.toString())
     }
 }

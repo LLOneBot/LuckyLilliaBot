@@ -1,9 +1,9 @@
-import {SelfInfo} from "../common/types";
 import { AtType } from "../ntqqapi/types";
 import { RawMessage } from "../ntqqapi/types";
-import { User } from "../ntqqapi/types";
 
-export interface Friend extends SelfInfo{
+export interface OB11User{
+    user_id: string;
+    nickname: string;
     remark?: string
 }
 

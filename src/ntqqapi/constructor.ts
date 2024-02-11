@@ -1,5 +1,4 @@
-import {AtType} from "../common/types";
-import {ElementType, SendPicElement, SendPttElement, SendReplyElement, SendTextElement} from "./types";
+import {ElementType, SendPicElement, SendPttElement, SendReplyElement, SendTextElement, AtType} from "./types";
 import {NTQQApi} from "./ntcall";
 
 
