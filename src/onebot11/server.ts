@@ -5,16 +5,9 @@ import { Request } from 'express';
 import { Response } from 'express';
 
 const JSONbig = require('json-bigint')({ storeAsString: true });
-import { AtType, ChatType, Group, SelfInfo } from "../ntqqapi/types";
-import { friends, getGroup, getGroupMember, getStrangerByUin, groups, msgHistory, selfInfo } from "../common/data";
-import { OB11ApiName, OB11Message, OB11Return, OB11MessageData, OB11Group, OB11GroupMember, OB11PostSendMsg, OB11MessageDataType, OB11User } from './types';
-import { OB11Constructor } from "./constructor";
-import { NTQQApi } from "../ntqqapi/ntcall";
-import { Peer } from "../ntqqapi/ntcall";
-import { SendMessageElement } from "../ntqqapi/types";
-import { SendMsgElementConstructor } from "../ntqqapi/constructor";
-import { uri2local } from "./utils";
-import { v4 as uuid4 } from 'uuid';
+import { selfInfo } from "../common/data";
+import { OB11Message, OB11Return, OB11MessageData } from './types';
+import { actionHandles } from "./actions";
 
 
 // @SiberianHusky 2021-08-15
@@ -137,12 +130,12 @@ export function postMsg(msg: OB11Message) {
 
 let routers: Record<string, (payload: any) => Promise<OB11Return<any>>> = {};
 
-function registerRouter<PayloadType, ReturnDataType>(action: OB11ApiName, handle: (payload: PayloadType) => Promise<OB11Return<ReturnDataType | null>>) {
+function registerRouter(action: string, handle: (payload: any) => Promise<any>) {
     let url = action.toString()
     if (!action.startsWith("/")) {
         url = "/" + action
     }
-    async function _handle(res: Response, payload: PayloadType) {
+    async function _handle(res: Response, payload: any) {
         log("receive post data", url, payload)
         try {
             const result = await handle(payload)
@@ -163,169 +156,6 @@ function registerRouter<PayloadType, ReturnDataType>(action: OB11ApiName, handle
     routers[url] = handle
 }
 
-registerRouter<{ message_id: string }, OB11Message>("get_msg", async (payload) => {
-    log("history msg ids", Object.keys(msgHistory));
-    const msg = msgHistory[payload.message_id.toString()]
-    if (msg) {
-        const msgData = await OB11Constructor.message(msg);
-        return OB11Response.ok(msgData)
-    } else {
-        return OB11Response.error("消息不存在")
-    }
-})
-
-registerRouter<{}, OB11User>("get_login_info", async (payload) => {
-    return OB11Response.ok(OB11Constructor.selfInfo(selfInfo));
-})
-
-registerRouter<{}, OB11User[]>("get_friend_list", async (payload) => {
-    return OB11Response.ok(OB11Constructor.friends(friends));
-})
-
-registerRouter<{}, OB11Group[]>("get_group_list", async (payload) => {
-    return OB11Response.ok(OB11Constructor.groups(groups));
-})
-
-
-registerRouter<{ group_id: number }, OB11Group[]>("get_group_info", async (payload) => {
-    const group = await getGroup(payload.group_id.toString())
-    if (group) {
-        return OB11Response.ok(OB11Constructor.groups(groups));
-    }
-    else {
-        return OB11Response.error(`群${payload.group_id}不存在`)
-    }
-})
-
-registerRouter<{ group_id: number }, OB11GroupMember[]>("get_group_member_list", async (payload) => {
-
-    const group = await getGroup(payload.group_id.toString());
-    if (group) {
-        if (!group.members?.length){
-            group.members = await NTQQApi.getGroupMembers(payload.group_id.toString())
-        }
-        return OB11Response.ok(OB11Constructor.groupMembers(group));
-    }
-    else {
-        return OB11Response.error(`群${payload.group_id}不存在`)
-    }
-})
-
-registerRouter<{ group_id: number, user_id: number }, OB11GroupMember>("get_group_member_info", async (payload) => {
-    const member = await getGroupMember(payload.group_id.toString(), payload.user_id.toString())
-    if (member) {
-        return OB11Response.ok(OB11Constructor.groupMember(payload.group_id.toString(), member))
-    }
-    else {
-        return OB11Response.error(`群成员${payload.user_id}不存在`)
-    }
-})
-
-const handleSendMsg = async (payload) => {
-    const peer: Peer = {
-        chatType: ChatType.friend,
-        peerUid: ""
-    }
-    let group: Group | undefined = undefined;
-    if (payload?.group_id) {
-        group = await getGroup(payload.group_id.toString())
-        if (!group) {
-            return OB11Response.error(`群${payload.group_id}不存在`)
-        }
-        peer.chatType = ChatType.group
-        // peer.name = group.name
-        peer.peerUid = group.groupCode
-    }
-    else if (payload?.user_id) {
-        const friend = friends.find(f => f.uin == payload.user_id.toString())
-        if (friend) {
-            // peer.name = friend.nickName
-            peer.peerUid = friend.uid
-        }
-        else {
-            peer.chatType = ChatType.temp
-            const tempUser = getStrangerByUin(payload.user_id.toString())
-            if (!tempUser) {
-                return OB11Response.error(`找不到私聊对象${payload.user_id}`)
-            }
-            // peer.name = tempUser.nickName
-            peer.peerUid = tempUser.uid
-        }
-    }
-    if (typeof payload.message === "string") {
-        payload.message = [{
-            type: OB11MessageDataType.text,
-            data: {
-                text: payload.message
-            }
-        }] as OB11MessageData[]
-    }
-    else if (!Array.isArray(payload.message)) {
-        payload.message = [payload.message]
-    }
-    const sendElements: SendMessageElement[] = []
-    for (let sendMsg of payload.message) {
-        switch (sendMsg.type) {
-            case OB11MessageDataType.text: {
-                const text = sendMsg.data?.text;
-                if (text) {
-                    sendElements.push(SendMsgElementConstructor.text(sendMsg.data!.text))
-                }
-            } break;
-            case OB11MessageDataType.at: {
-                let atQQ = sendMsg.data?.qq;
-                if (atQQ) {
-                    atQQ = atQQ.toString()
-                    if (atQQ === "all") {
-                        sendElements.push(SendMsgElementConstructor.at(atQQ, atQQ, AtType.atAll, "全体成员"))
-                    }
-                    else {
-                        const atMember = group?.members.find(m => m.uin == atQQ)
-                        if (atMember) {
-                            sendElements.push(SendMsgElementConstructor.at(atQQ, atMember.uid, AtType.atUser, atMember.cardName || atMember.nick))
-                        }
-                    }
-                }
-            } break;
-            case OB11MessageDataType.reply: {
-                let replyMsgId = sendMsg.data.id;
-                if (replyMsgId) {
-                    replyMsgId = replyMsgId.toString()
-                    const replyMsg = msgHistory[replyMsgId]
-                    if (replyMsg) {
-                        sendElements.push(SendMsgElementConstructor.reply(replyMsg.msgSeq, replyMsgId, replyMsg.senderUin, replyMsg.senderUin))
-                    }
-                }
-            } break;
-            case OB11MessageDataType.image: {
-                const file = sendMsg.data?.file
-                if (file) {
-                    const picPath = await (await uri2local(uuid4(), file)).path
-                    if (picPath) {
-                        sendElements.push(await SendMsgElementConstructor.pic(picPath))
-                    }
-                }
-            } break;
-            case OB11MessageDataType.voice: {
-                const file = sendMsg.data?.file
-                if (file) {
-                    const voicePath = await (await uri2local(uuid4(), file)).path
-                    if (voicePath) {
-                        sendElements.push(await SendMsgElementConstructor.ptt(voicePath))
-                    }
-                }
-            }
-        }
-    }
-    log("send msg:", peer, sendElements)
-    try {
-        const returnMsg = await NTQQApi.sendMsg(peer, sendElements)
-        return OB11Response.ok({ message_id: returnMsg.msgId })
-    } catch (e) {
-        return OB11Response.error(e.toString())
-    }
+for (const [action, handler] of Object.entries(actionHandles)) {
+    registerRouter(action, (payload) => handler.handle(payload))
 }
-
-registerRouter<OB11PostSendMsg, { message_id: string }>("send_msg", handleSendMsg)
-registerRouter<OB11PostSendMsg, { message_id: string }>("send_private_msg", handleSendMsg)
-registerRouter<OB11PostSendMsg, { message_id: string }>("send_group_msg", handleSendMsg)
