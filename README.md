@@ -8,11 +8,9 @@
 
 1.安装[LiteLoaderQQNT](https://liteloaderqqnt.github.io/guide/install.html)
 
-2.安装修改后的[LiteLoaderQQNT-Plugin-LLAPI](https://github.com/linyuchen/LiteLoaderQQNT-Plugin-LLAPI/releases)，原版的功能有缺陷
+2.安装本项目插件[OneBotApi](https://github.com/linyuchen/LiteLoaderQQNT-OneBotApi/releases/), 注意本插件2.0以下的版本不支持LiteLoader 1.0.0及以上版本
 
-3.安装本项目插件[OneBotApi](https://github.com/linyuchen/LiteLoaderQQNT-OneBotApi/releases/), 注意本插件2.0以下的版本不支持LiteLoader 1.0.0及以上版本
-
-*关于插件的安装方法: 上述的两个插件都没有上架NTQQLiteLoader插件市场，需要自己下载复制到插件目录*
+*关于插件的安装方法: 下载后解压复制到插件目录*
 
 *插件目录:`LiteLoaderQQNT/plugins`*
 
@@ -57,8 +55,6 @@
 
 ![](doc/image/example.jpg)
 
-*暂时不支持`"message": "hello"`这种message为字符串的形式*
-
 ## 一些坑
 
 <details>
@@ -102,7 +98,7 @@
 - [ ] 转发消息记录 
 - [ ] 好友点赞api
 - [ ] 支持websocket，等个有缘人提PR实现
-- [ ] 重构摆脱LLAPI，目前调用LLAPI只能在renderer进程调用，需重构成在main进程调用
+- [x] 重构摆脱LLAPI，目前调用LLAPI只能在renderer进程调用，需重构成在main进程调用
 
 ## onebot11文档
 <https://11.onebot.dev/>
