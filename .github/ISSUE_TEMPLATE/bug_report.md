@@ -11,7 +11,7 @@ QQ版本：
 
 LLOneBot版本：
 
-调用LLoneBot的方式或者应用端(如postman直接调用，或NoneBot2、Koishi)：
+调用LLOneBot的方式或者应用端(如postman直接调用，或NoneBot2、Koishi)：
 
 BUG描述：
 
