@@ -1,5 +1,3 @@
-import { ipcRenderer } from 'electron';
-import { CHANNEL_LOG } from './common/channels';
 /// <reference path="./global.d.ts" />
 
 
