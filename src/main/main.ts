@@ -56,7 +56,7 @@ function onLoad() {
                     return
                 }
                 postMsg(msg);
-                log("post msg", msg)
+                // log("post msg", msg)
             }).catch(e => log("constructMessage error: ", e.toString()));
         }
     }
@@ -66,7 +66,7 @@ function onLoad() {
         log("llonebot start")
         registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload) => {
             try {
-                log("received msg length", payload.msgList.length);
+                // log("received msg length", payload.msgList.length);
                 postRawMsg(payload.msgList);
             } catch (e) {
                 log("report message error: ", e.toString())

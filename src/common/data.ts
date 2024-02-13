@@ -21,7 +21,7 @@ export function addHistoryMsg(msg: RawMessage): boolean{
 }
 
 export function getHistoryMsgByShortId(shortId: number | string){
-    log("getHistoryMsgByShortId", shortId, Object.values(msgHistory).map(m=>m.msgShortId))
+    // log("getHistoryMsgByShortId", shortId, Object.values(msgHistory).map(m=>m.msgShortId))
     return Object.values(msgHistory).find(msg => msg.msgShortId.toString() == shortId.toString())
 }
 
