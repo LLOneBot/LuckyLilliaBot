@@ -98,7 +98,7 @@ class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                         replyMsgId = replyMsgId.toString()
                         const replyMsg = getHistoryMsgByShortId(replyMsgId)
                         if (replyMsg) {
-                            sendElements.push(SendMsgElementConstructor.reply(replyMsg.msgSeq, replyMsgId, "", ""))
+                            sendElements.push(SendMsgElementConstructor.reply(replyMsg.msgSeq, replyMsg.msgId, replyMsg.senderUin, replyMsg.senderUin))
                         }
                     }
                 } break;
