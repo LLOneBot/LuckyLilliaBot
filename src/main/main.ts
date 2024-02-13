@@ -48,7 +48,6 @@ function onLoad() {
     function postRawMsg(msgList: RawMessage[]) {
         const {debug, reportSelfMessage} = getConfigUtil().getConfig();
         for (let message of msgList) {
-            addHistoryMsg(message)
             OB11Constructor.message(message).then((msg) => {
                 if (debug) {
                     msg.raw = message;
@@ -57,14 +56,17 @@ function onLoad() {
                     return
                 }
                 postMsg(msg);
+                log("post msg", msg)
             }).catch(e => log("constructMessage error: ", e.toString()));
         }
     }
 
 
     function start() {
+        log("llonebot start")
         registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload) => {
             try {
+                log("received msg length", payload.msgList.length);
                 postRawMsg(payload.msgList);
             } catch (e) {
                 log("report message error: ", e.toString())
@@ -86,7 +88,8 @@ function onLoad() {
         NTQQApi.getGroups(true).then()
         startExpress(getConfigUtil().getConfig().port)
     }
-    const initLoop = setInterval(async ()=>{
+
+    const init = async () => {
         try {
             const _ = await NTQQApi.getSelfInfo()
             Object.assign(selfInfo, _)
@@ -102,20 +105,19 @@ function onLoad() {
                 if (userInfo) {
                     selfInfo.nick = userInfo.nick
                 } else {
-                    return
+                    return setTimeout(init, 1000)
                 }
             } catch (e) {
-                return log("get self nickname failed", e.toString())
+                log("get self nickname failed", e.toString())
+                return setTimeout(init, 1000)
             }
-            clearInterval(initLoop);
             start();
         }
-    }, 1000)
-    async function getSelfInfo() {
-
+        else{
+            setTimeout(init, 1000)
+        }
     }
-
-    getSelfInfo().then()
+    setTimeout(init, 1000)
 }
 
 

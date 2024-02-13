@@ -1,8 +1,10 @@
 # LLOneBot API
 
-将NTQQLiteLoaderAPI封装成OneBot11标准的API
+LiteLoaderQQNT的OneBot11协议插件
 
 *注意：本文档对应的是 LiteLoader 1.0.0及以上版本，如果你使用的是旧版本请切换到本项目v1分支查看文档*
+
+*V3之后不再需要LLAPI*
 
 ## 安装方法
 
@@ -16,7 +18,7 @@
 
 ## 支持的API
 
-目前只支持http协议POST方法，不支持websocket，事件上报也是http协议
+目前只支持http协议，不支持websocket，事件上报也是http协议
 
 主要功能:
 - [x] 发送好友消息
@@ -46,6 +48,7 @@
 - [x] send_private_msg
 - [x] delete_msg
 - [x] get_group_list
+- [x] get_group_info
 - [x] get_group_member_list
 - [x] get_group_member_info
 - [x] get_friend_list
@@ -94,11 +97,10 @@
 
 
 ## TODO
-
+- [x] 重构摆脱LLAPI，目前调用LLAPI只能在renderer进程调用，需重构成在main进程调用
 - [ ] 转发消息记录 
 - [ ] 好友点赞api
 - [ ] 支持websocket，等个有缘人提PR实现
-- [x] 重构摆脱LLAPI，目前调用LLAPI只能在renderer进程调用，需重构成在main进程调用
 
 ## onebot11文档
 <https://11.onebot.dev/>

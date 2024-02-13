@@ -5,7 +5,6 @@ import {
     getGroup,
     getHistoryMsgByShortId,
     getStrangerByUin,
-    msgHistory
 } from "../../common/data";
 import { OB11MessageData, OB11MessageDataType, OB11PostSendMsg } from '../types';
 import { NTQQApi } from "../../ntqqapi/ntcall";
@@ -99,7 +98,7 @@ class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                         replyMsgId = replyMsgId.toString()
                         const replyMsg = getHistoryMsgByShortId(replyMsgId)
                         if (replyMsg) {
-                            sendElements.push(SendMsgElementConstructor.reply(replyMsg.msgSeq, replyMsgId, replyMsg.senderUin, replyMsg.senderUin))
+                            sendElements.push(SendMsgElementConstructor.reply(replyMsg.msgSeq, replyMsgId, "", ""))
                         }
                     }
                 } break;

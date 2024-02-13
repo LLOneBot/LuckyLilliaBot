@@ -8,15 +8,16 @@ export let msgHistory: Record<string, RawMessage> = {}  // msgId: RawMessage
 
 let globalMsgId = Date.now()
 
-export function addHistoryMsg(msg: RawMessage){
+export function addHistoryMsg(msg: RawMessage): boolean{
     let existMsg = msgHistory[msg.msgId]
     if (existMsg){
         Object.assign(existMsg, msg)
         msg.msgShortId = existMsg.msgShortId;
-        return
+        return false
     }
     msg.msgShortId = ++globalMsgId
     msgHistory[msg.msgId] = msg
+    return true
 }
 
 export function getHistoryMsgByShortId(shortId: number | string){
