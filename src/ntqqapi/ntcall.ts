@@ -78,8 +78,7 @@ function callNTQQApi<ReturnType>(channel: NTQQApiChannel, className: NTQQApiClas
                 success = true
                 resolve(r)
             };
-        }
-        else {
+        } else {
             // 这里的callback比较特殊，QQ后端先返回是否调用成功，再返回一条结果数据
             hookApiCallbacks[uuid] = (result: GeneralCallResult) => {
                 log(`${methodName} callback`, result)
@@ -90,8 +89,7 @@ function callNTQQApi<ReturnType>(channel: NTQQApiChannel, className: NTQQApiClas
                         success = true
                         resolve(payload);
                     })
-                }
-                else {
+                } else {
                     success = true
                     reject(`ntqq api call failed, ${result.errMsg}`);
                 }
@@ -108,7 +106,7 @@ function callNTQQApi<ReturnType>(channel: NTQQApiChannel, className: NTQQApiClas
         ipcMain.emit(
             channel,
             {},
-            { type: 'request', callbackId: uuid, eventName: className + "-" + channel[channel.length - 1] },
+            {type: 'request', callbackId: uuid, eventName: className + "-" + channel[channel.length - 1]},
             [methodName, ...args],
         )
     })
@@ -142,13 +140,17 @@ export class NTQQApi {
     }
 
     static async getUserInfo(uid: string) {
-        const result = await callNTQQApi<{ profiles: Map<string, User> }>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.USER_INFO,
-            [{ force: true, uids: [uid] }, undefined], ReceiveCmd.USER_INFO)
+        const result = await callNTQQApi<{
+            profiles: Map<string, User>
+        }>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.USER_INFO,
+            [{force: true, uids: [uid]}, undefined], ReceiveCmd.USER_INFO)
         return result.profiles.get(uid)
     }
 
     static async getFriends(forced = false) {
-        const data = await callNTQQApi<{ data: { categoryId: number, categroyName: string, categroyMbCount: number, buddyList: Friend[] }[] }>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.FRIENDS, [{ force_update: forced }, undefined], ReceiveCmd.FRIENDS)
+        const data = await callNTQQApi<{
+            data: { categoryId: number, categroyName: string, categroyMbCount: number, buddyList: Friend[] }[]
+        }>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.FRIENDS, [{force_update: forced}, undefined], ReceiveCmd.FRIENDS)
         let _friends: Friend[] = [];
         for (const fData of data.data) {
             _friends.push(...fData.buddyList)
@@ -161,7 +163,10 @@ export class NTQQApi {
         if (process.platform != "win32") {
             cbCmd = ReceiveCmd.GROUPS_UNIX
         }
-        const result = await callNTQQApi<{ updateType: number, groupList: Group[] }>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.GROUPS, [{ force_update: forced }, undefined], cbCmd)
+        const result = await callNTQQApi<{
+            updateType: number,
+            groupList: Group[]
+        }>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.GROUPS, [{force_update: forced}, undefined], cbCmd)
         return result.groupList
     }
 
@@ -172,7 +177,9 @@ export class NTQQApi {
         }])
         // log("get group member sceneId", sceneId);
         try {
-            const result = await callNTQQApi<{result:{infos: any}}>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.GROUP_MEMBERS,
+            const result = await callNTQQApi<{
+                result: { infos: any }
+            }>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.GROUP_MEMBERS,
                 [{
                     sceneId: sceneId,
                     num: num
@@ -182,7 +189,7 @@ export class NTQQApi {
             // log("members info", typeof result.result.infos, Object.keys(result.result.infos))
             let values = result.result.infos.values()
 
-            values =  Array.from(values) as GroupMember[]
+            values = Array.from(values) as GroupMember[]
             // log("members info", values);
             return values
         } catch (e) {
@@ -190,7 +197,6 @@ export class NTQQApi {
             return []
         }
     }
-
 
 
     static getFileType(filePath: string) {
@@ -204,7 +210,10 @@ export class NTQQApi {
     }
 
     static copyFile(filePath: string, destPath: string) {
-        return callNTQQApi<string>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.FS_API, NTQQApiMethod.FILE_COPY, [{ fromPath: filePath, toPath: destPath }])
+        return callNTQQApi<string>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.FS_API, NTQQApiMethod.FILE_COPY, [{
+            fromPath: filePath,
+            toPath: destPath
+        }])
     }
 
     static getImageSize(filePath: string) {
@@ -221,7 +230,14 @@ export class NTQQApi {
     // 上传文件到QQ的文件夹
     static async uploadFile(filePath: string) {
         const md5 = await NTQQApi.getFileMd5(filePath);
-        const fileName = `${md5}.${(await NTQQApi.getFileType(filePath)).ext}`;
+        let ext = (await NTQQApi.getFileType(filePath))?.ext
+        if (ext) {
+            ext = "." + ext
+        }
+        else{
+            ext = ""
+        }
+        const fileName = `${md5}${ext}`;
         const mediaPath = await callNTQQApi<string>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.MEDIA_FILE_PATH, [{
             path_info: {
                 md5HexStr: md5,
@@ -245,9 +261,9 @@ export class NTQQApi {
         }
     }
 
-    static async downloadMedia(msgId: string, chatType: ChatType, peerUid: string, elementId: string, thumbPath: string, sourcePath: string){
+    static async downloadMedia(msgId: string, chatType: ChatType, peerUid: string, elementId: string, thumbPath: string, sourcePath: string) {
         // 用于下载收到的消息中的图片等
-        if (fs.existsSync(sourcePath)){
+        if (fs.existsSync(sourcePath)) {
             return sourcePath
         }
         const apiParams = [
@@ -267,8 +283,12 @@ export class NTQQApi {
         await callNTQQApi(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.DOWNLOAD_MEDIA, apiParams)
         return sourcePath
     }
+
     static recallMsg(peer: Peer, msgIds: string[]) {
-        return callNTQQApi(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.RECALL_MSG, [{ peer, msgIds }, null])
+        return callNTQQApi(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.RECALL_MSG, [{
+            peer,
+            msgIds
+        }, null])
     }
 
     static sendMsg(peer: Peer, msgElements: SendMessageElement[]) {
@@ -297,8 +317,7 @@ export class NTQQApi {
                     // log("有正在发送的消息，等待中...")
                     usingTime += 100;
                     setTimeout(checkLastSend, 100);
-                }
-                else {
+                } else {
                     log("可以进行发送消息，设置发送成功回调", sendMessagePool)
                     sendMessagePool[peerUid] = (rawMessage: RawMessage) => {
                         success = true;
