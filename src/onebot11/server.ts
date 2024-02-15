@@ -73,7 +73,7 @@ export function startWSServer(port: number) {
         const url = req.url;
         ws.send('Welcome to the LLOneBot WebSocket server! url:' + url);
 
-        if (url == "/api" || url == "/api/") {
+        if (url == "/api" || url == "/api/" || url == "/") {
             ws.on("message", async (msg) => {
 
                 let receiveData: { action: ActionName, params: any } = {action: null, params: {}}
@@ -94,7 +94,8 @@ export function startWSServer(port: number) {
                     wsReply(ws, OB11Response.error(`api处理出错:${e}`))
                 }
             })
-        } else if (url == "/event" || url == "/event/") {
+        }
+        if (url == "/event" || url == "/event/" || url == "/") {
             log("event上报ws客户端已连接")
             wsEventClients.push(ws)
             ws.on("close", () => {
