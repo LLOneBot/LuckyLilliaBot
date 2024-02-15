@@ -10,7 +10,7 @@ import {
     CHANNEL_LOG,
     CHANNEL_SET_CONFIG,
 } from "../common/channels";
-import { postMsg, startExpress } from "../onebot11/server";
+import { postMsg, startHTTPServer, startWSServer } from "../onebot11/server";
 import { CONFIG_DIR, getConfigUtil, log } from "../common/utils";
 import { addHistoryMsg, msgHistory, selfInfo } from "../common/data";
 import { hookNTQQApiReceive, ReceiveCmd, registerReceiveHook } from "../ntqqapi/hook";
@@ -37,7 +37,14 @@ function onLoad() {
         return getConfigUtil().getConfig()
     })
     ipcMain.on(CHANNEL_SET_CONFIG, (event: any, arg: Config) => {
+        let oldConfig = getConfigUtil().getConfig();
         getConfigUtil().setConfig(arg)
+        if (arg.port != oldConfig.port){
+            startHTTPServer(arg.port)
+        }
+        if (arg.wsPort != oldConfig.wsPort){
+            startWSServer(arg.wsPort)
+        }
     })
 
     ipcMain.on(CHANNEL_LOG, (event: any, arg: any) => {
@@ -67,7 +74,6 @@ function onLoad() {
 
 
     function start() {
-        log("llonebot start")
         registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload) => {
             try {
                 // log("received msg length", payload.msgList.length);
@@ -90,7 +96,10 @@ function onLoad() {
             }
         })
         NTQQApi.getGroups(true).then()
-        startExpress(getConfigUtil().getConfig().port)
+        const config = getConfigUtil().getConfig()
+        startHTTPServer(config.port)
+        startWSServer(config.wsPort)
+        log("LLOneBot start")
     }
 
     const init = async () => {
@@ -130,7 +139,7 @@ function onBrowserWindowCreated(window: BrowserWindow) {
     try {
         hookNTQQApiReceive(window);
     } catch (e) {
-        log("llonebot hook error: ", e.toString())
+        log("LLOneBot hook error: ", e.toString())
     }
 }
 

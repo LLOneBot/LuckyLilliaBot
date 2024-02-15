@@ -4,7 +4,7 @@
     "name": "LLOneBot",
     "slug": "LLOneBot",
     "description": "LiteLoaderQQNT的OneBotApi",
-    "version": "3.0.8",
+    "version": "3.1.0",
     "thumbnail": "./icon.png",
     "authors": [{
         "name": "linyuchen",

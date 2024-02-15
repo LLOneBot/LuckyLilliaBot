@@ -1,6 +1,7 @@
 import { CONFIG_DIR, isGIF } from "../common/utils";
 import * as path from 'path';
 import { NTQQApi } from '../ntqqapi/ntcall';
+import { OB11MessageData } from "./types";
 const fs = require("fs").promises;
 
 export async function uri2local(fileName: string, uri: string){
@@ -59,4 +60,40 @@ export async function uri2local(fileName: string, uri: string){
     res.success = true
     res.path = filePath
     return res
+}
+
+
+function checkSendMessage(sendMsgList: OB11MessageData[]) {
+    function checkUri(uri: string): boolean {
+        const pattern = /^(file:\/\/|http:\/\/|https:\/\/|base64:\/\/)/;
+        return pattern.test(uri);
+    }
+
+    for (let msg of sendMsgList) {
+        if (msg["type"] && msg["data"]) {
+            let type = msg["type"];
+            let data = msg["data"];
+            if (type === "text" && !data["text"]) {
+                return 400;
+            } else if (["image", "voice", "record"].includes(type)) {
+                if (!data["file"]) {
+                    return 400;
+                } else {
+                    if (checkUri(data["file"])) {
+                        return 200;
+                    } else {
+                        return 400;
+                    }
+                }
+
+            } else if (type === "at" && !data["qq"]) {
+                return 400;
+            } else if (type === "reply" && !data["id"]) {
+                return 400;
+            }
+        } else {
+            return 400
+        }
+    }
+    return 200;
 }

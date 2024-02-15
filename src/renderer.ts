@@ -29,16 +29,20 @@ async function onSettingWindowCreated(view: Element) {
             <setting-panel>
                 <setting-list class="wrap">
                     <setting-item class="vertical-list-item" data-direction="row">
-                        <setting-text>监听端口</setting-text>
+                        <setting-text>HTTP监听端口</setting-text>
                         <input id="port" type="number" value="${config.port}"/>
                     </setting-item>
+                    <setting-item class="vertical-list-item" data-direction="row">
+                        <setting-text>正向ws监听端口</setting-text>
+                        <input id="wsPort" type="number" value="${config.wsPort}"/>
+                    </setting-item>
                     <div>
-                        <button id="addHost" class="q-button">添加上报地址</button>
+                        <button id="addHost" class="q-button">添加HTTP上报地址</button>
                     </div>
                     <div id="hostItems">
                         ${hostsEleStr}
                     </div>
-                    <button id="save" class="q-button">保存(监听端口重启QQ后生效)</button>
+                    <button id="save" class="q-button">保存</button>
                 </setting-list>
             </setting-panel>
             <setting-panel>
@@ -124,11 +128,13 @@ async function onSettingWindowCreated(view: Element) {
     doc.getElementById("save")?.addEventListener("click",
         () => {
             const portEle: HTMLInputElement = document.getElementById("port") as HTMLInputElement
+            const wsPortEle: HTMLInputElement = document.getElementById("wsPort") as HTMLInputElement
             const hostEles: HTMLCollectionOf<HTMLInputElement> = document.getElementsByClassName("host") as HTMLCollectionOf<HTMLInputElement>;
             // const port = doc.querySelector("input[type=number]")?.value
             // const host = doc.querySelector("input[type=text]")?.value
             // 获取端口和host
             const port = portEle.value
+            const wsPort = wsPortEle.value
             let hosts: string[] = [];
             for (const hostEle of hostEles) {
                 if (hostEle.value) {
@@ -136,6 +142,7 @@ async function onSettingWindowCreated(view: Element) {
                 }
             }
             config.port = parseInt(port);
+            config.wsPort = parseInt(wsPort);
             config.hosts = hosts;
             window.llonebot.setConfig(config);
             alert("保存成功");

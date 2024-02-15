@@ -1,73 +1,22 @@
-import { getConfigUtil, log } from "../common/utils";
-
-const express = require("express");
+import * as http from "http";
+import * as websocket from "ws";
+import express from "express";
 import { Request } from 'express';
 import { Response } from 'express';
-
-const JSONbig = require('json-bigint')({ storeAsString: true });
+import { getConfigUtil, log } from "../common/utils";
 import { selfInfo } from "../common/data";
 import { OB11Message, OB11Return, OB11MessageData } from './types';
 import { actionHandlers } from "./actions";
+import { OB11Response } from "./actions/utils";
+import { ActionName } from "./actions/types";
+import BaseAction from "./actions/BaseAction";
 
+let wsServer: websocket.Server = null;
 
-// @SiberianHusky 2021-08-15
-function checkSendMessage(sendMsgList: OB11MessageData[]) {
-    function checkUri(uri: string): boolean {
-        const pattern = /^(file:\/\/|http:\/\/|https:\/\/|base64:\/\/)/;
-        return pattern.test(uri);
-    }
-
-    for (let msg of sendMsgList) {
-        if (msg["type"] && msg["data"]) {
-            let type = msg["type"];
-            let data = msg["data"];
-            if (type === "text" && !data["text"]) {
-                return 400;
-            } else if (["image", "voice", "record"].includes(type)) {
-                if (!data["file"]) {
-                    return 400;
-                } else {
-                    if (checkUri(data["file"])) {
-                        return 200;
-                    } else {
-                        return 400;
-                    }
-                }
-
-            } else if (type === "at" && !data["qq"]) {
-                return 400;
-            } else if (type === "reply" && !data["id"]) {
-                return 400;
-            }
-        } else {
-            return 400
-        }
-    }
-    return 200;
-}
-
-// ==end==
-
-
-class OB11Response {
-    static res<T>(data: T, status: number = 0, message: string = ""): OB11Return<T> {
-        return {
-            status: status,
-            retcode: status,
-            data: data,
-            message: message
-        }
-    }
-    static ok<T>(data: T) {
-        return OB11Response.res<T>(data)
-    }
-    static error(err: string) {
-        return OB11Response.res(null, -1, err)
-    }
-}
-
+const JSONbig = require('json-bigint')({storeAsString: true});
 const expressAPP = express();
-expressAPP.use(express.urlencoded({ extended: true, limit: "500mb" }));
+let httpServer: http.Server = null;
+expressAPP.use(express.urlencoded({extended: true, limit: "500mb"}));
 
 expressAPP.use((req, res, next) => {
     let data = '';
@@ -86,27 +35,79 @@ expressAPP.use((req, res, next) => {
         next();
     });
 });
-// expressAPP.use(express.json({
-//     limit: '500mb',
-//     verify: (req: any, res: any, buf: any, encoding: any) => {
-//         req.rawBody = buf;
-//     }
-// }));
 
-export function startExpress(port: number) {
 
+export function startHTTPServer(port: number) {
+    if (httpServer) {
+        httpServer.close();
+    }
     expressAPP.get('/', (req: Request, res: Response) => {
-        res.send('llonebot已启动');
+        res.send('LLOneBot已启动');
     })
 
-    expressAPP.listen(port, "0.0.0.0", () => {
-        console.log(`llonebot started 0.0.0.0:${port}`);
+    httpServer = expressAPP.listen(port, "0.0.0.0", () => {
+        console.log(`LLOneBot http server started 0.0.0.0:${port}`);
     });
+}
+
+let wsEventClients: websocket.WebSocket[] = [];
+type RouterHandler = (payload: any) => Promise<OB11Return<any>>
+let routers: Record<string, RouterHandler> = {};
+
+function wsReply(wsClient: websocket.WebSocket, data: OB11Return<any> | OB11Message) {
+    try {
+        wsClient.send(JSON.stringify(data))
+    } catch (e) {
+        log("websocket 回复失败", e)
+    }
+}
+
+export function startWSServer(port: number) {
+    if (wsServer) {
+        wsServer.close((err)=>{
+            log("ws server close failed!", err)
+        })
+    }
+    wsServer = new websocket.Server({port})
+    wsServer.on("connection", (ws, req) => {
+        const url = req.url;
+        ws.send('Welcome to the LLOneBot WebSocket server! url:' + url);
+
+        if (url == "/api" || url == "/api/") {
+            ws.on("message", async (msg) => {
+
+                let receiveData: { action: ActionName, params: any } = {action: null, params: {}}
+                log("收到ws消息", msg.toString())
+                try {
+                    receiveData = JSON.parse(msg.toString())
+                } catch (e) {
+                    return wsReply(ws, OB11Response.error("json解析失败，请检查数据格式"))
+                }
+                const handle: RouterHandler | undefined = routers[receiveData.action]
+                if (!handle) {
+                    return wsReply(ws, OB11Response.error("不支持的api " + receiveData.action))
+                }
+                try {
+                    const handleResult = await handle(receiveData.params)
+                    wsReply(ws, handleResult)
+                } catch (e) {
+                    wsReply(ws, OB11Response.error(`api处理出错:${e}`))
+                }
+            })
+        } else if (url == "/event" || url == "/event/") {
+            log("event上报ws客户端已连接")
+            wsEventClients.push(ws)
+            ws.on("close", () => {
+                log("event上报ws客户端已断开")
+                wsEventClients = wsEventClients.filter((c) => c != ws)
+            })
+        }
+    })
 }
 
 
 export function postMsg(msg: OB11Message) {
-    const { reportSelfMessage } = getConfigUtil().getConfig()
+    const {reportSelfMessage} = getConfigUtil().getConfig()
     if (!reportSelfMessage) {
         if (msg.user_id == selfInfo.uin) {
             return
@@ -121,27 +122,32 @@ export function postMsg(msg: OB11Message) {
             },
             body: JSON.stringify(msg)
         }).then((res: any) => {
-            log(`新消息事件上报成功: ${host} ` + JSON.stringify(msg));
+            log(`新消息事件HTTP上报成功: ${host} ` + JSON.stringify(msg));
         }, (err: any) => {
-            log(`新消息事件上报失败: ${host} ` + err + JSON.stringify(msg));
+            log(`新消息事件HTTP上报失败: ${host} ` + err + JSON.stringify(msg));
         });
+    }
+    for (const wsClient of wsEventClients) {
+        log("新消息事件ws上报", msg)
+        new Promise((resolve, reject) => {
+            wsReply(wsClient, msg);
+        }).then();
     }
 }
 
-let routers: Record<string, (payload: any) => Promise<OB11Return<any>>> = {};
 
 function registerRouter(action: string, handle: (payload: any) => Promise<any>) {
     let url = action.toString()
     if (!action.startsWith("/")) {
         url = "/" + action
     }
+
     async function _handle(res: Response, payload: any) {
         log("receive post data", url, payload)
         try {
             const result = await handle(payload)
             res.send(result)
-        }
-        catch (e) {
+        } catch (e) {
             log(e.stack);
             res.send(OB11Response.error(e.stack.toString()))
         }
@@ -153,9 +159,9 @@ function registerRouter(action: string, handle: (payload: any) => Promise<any>) 
     expressAPP.get(url, (req: Request, res: Response) => {
         _handle(res, req.query as any).then()
     });
-    routers[url] = handle
+    routers[action] = handle
 }
 
-for (const action  of actionHandlers) {
+for (const action of actionHandlers) {
     registerRouter(action.actionName, (payload) => action.handle(payload))
 }
