@@ -89,7 +89,8 @@ export interface OB11Return<DataType> {
     status: number
     retcode: number
     data: DataType
-    message: string
+    message: string,
+    echo?: string
 }
 
 export interface OB11SendMsgReturn extends OB11Return<{message_id: string}>{}
@@ -139,4 +140,34 @@ export interface OB11PostSendMsg {
     user_id: string,
     group_id?: string,
     message: OB11MessageData[] | string | OB11MessageData;
+}
+
+export interface OB11Version {
+    app_name: "LLOneBot"
+    app_version: string
+    protocol_version: "v11"
+}
+
+
+export interface OB11MetaEvent {
+    time: number
+    self_id: number
+    post_type: "meta_event"
+    meta_event_type: "lifecycle" | "heartbeat"
+}
+
+export interface OB11LifeCycleEvent extends OB11MetaEvent{
+    meta_event_type: "lifecycle"
+    sub_type: "enable" | "disable" | "connect"
+}
+
+export interface OB11Status {
+    online: boolean | null,
+    good: boolean
+}
+
+export interface OB11HeartEvent extends OB11MetaEvent{
+    meta_event_type: "heartbeat"
+    status: OB11Status
+    interval: number
 }

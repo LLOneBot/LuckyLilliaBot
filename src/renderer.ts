@@ -36,6 +36,10 @@ async function onSettingWindowCreated(view: Element) {
                         <setting-text>正向ws监听端口</setting-text>
                         <input id="wsPort" type="number" value="${config.wsPort}"/>
                     </setting-item>
+                    <setting-item class="vertical-list-item" data-direction="row">
+                        <setting-text>Access Token</setting-text>
+                        <input id="token" type="text" placeholder="可为空" value="${config.token}"/>
+                    </setting-item>
                     <div>
                         <button id="addHost" class="q-button">添加HTTP上报地址</button>
                     </div>
@@ -130,20 +134,24 @@ async function onSettingWindowCreated(view: Element) {
             const portEle: HTMLInputElement = document.getElementById("port") as HTMLInputElement
             const wsPortEle: HTMLInputElement = document.getElementById("wsPort") as HTMLInputElement
             const hostEles: HTMLCollectionOf<HTMLInputElement> = document.getElementsByClassName("host") as HTMLCollectionOf<HTMLInputElement>;
+            const tokenEle = document.getElementById("token") as HTMLInputElement;
             // const port = doc.querySelector("input[type=number]")?.value
             // const host = doc.querySelector("input[type=text]")?.value
             // 获取端口和host
             const port = portEle.value
             const wsPort = wsPortEle.value
+            const token = tokenEle.value
+
             let hosts: string[] = [];
             for (const hostEle of hostEles) {
                 if (hostEle.value) {
-                    hosts.push(hostEle.value);
+                    hosts.push(hostEle.value.trim());
                 }
             }
             config.port = parseInt(port);
             config.wsPort = parseInt(wsPort);
             config.hosts = hosts;
+            config.token = token.trim();
             window.llonebot.setConfig(config);
             alert("保存成功");
         })

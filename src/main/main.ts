@@ -10,7 +10,7 @@ import {
     CHANNEL_LOG,
     CHANNEL_SET_CONFIG,
 } from "../common/channels";
-import { postMsg, startHTTPServer, startWSServer } from "../onebot11/server";
+import { postMsg, setToken, startHTTPServer, startWSServer } from "../onebot11/server";
 import { CONFIG_DIR, getConfigUtil, log } from "../common/utils";
 import { addHistoryMsg, msgHistory, selfInfo } from "../common/data";
 import { hookNTQQApiReceive, ReceiveCmd, registerReceiveHook } from "../ntqqapi/hook";
@@ -44,6 +44,9 @@ function onLoad() {
         }
         if (arg.wsPort != oldConfig.wsPort){
             startWSServer(arg.wsPort)
+        }
+        if (arg.token != oldConfig.token){
+            setToken(arg.token);
         }
     })
 
@@ -99,6 +102,7 @@ function onLoad() {
         const config = getConfigUtil().getConfig()
         startHTTPServer(config.port)
         startWSServer(config.wsPort)
+        setToken(config.token)
         log("LLOneBot start")
     }
 

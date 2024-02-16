@@ -57,6 +57,9 @@ LiteLoaderQQNT的OneBot11协议插件
 - [x] get_group_member_info
 - [x] get_friend_list
 - [x] get_msg
+- [x] get_version_info
+- [x] can_send_image
+- [x] can_send_record
 
 ## 示例
 
