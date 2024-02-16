@@ -33,7 +33,7 @@ export function log(...msg: any[]) {
         }
         logMsg += msgItem + " ";
     }
-    logMsg = `${currentDateTime} ${userInfo}: ${logMsg}\n`
+    logMsg = `${currentDateTime} ${userInfo}: ${logMsg}\n\n`
     // sendLog(...msg);
     // console.log(msg)
     fs.appendFile(path.join(CONFIG_DIR , `llonebot-${currentDate}.log`), logMsg, (err: any) => {

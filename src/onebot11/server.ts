@@ -103,7 +103,7 @@ export function startWSServer(port: number) {
     }
     wsServer = new websocket.Server({port})
     wsServer.on("connection", (ws, req) => {
-        const url = req.url;
+        const url = req.url.split("?").shift();
         log("received ws connect", url)
         let token: string = ""
         const authHeader = req.headers['authorization'];
@@ -111,7 +111,7 @@ export function startWSServer(port: number) {
             token = authHeader.split("Bearer ").pop()
             log("receive ws header token", token);
         } else {
-            const parsedUrl = urlParse.parse(url, true);
+            const parsedUrl = urlParse.parse(req.url, true);
             const urlToken = parsedUrl.query.access_token;
             if (urlToken) {
                 if (Array.isArray(urlToken)) {
