@@ -11,10 +11,17 @@ import { selfInfo } from "../common/data";
 import { OB11Message, OB11Return, OB11MessageData } from './types';
 import {actionHandlers, actionMap} from "./actions";
 import {OB11Response, OB11WebsocketResponse} from "./actions/utils";
-import {registerEventSender, unregisterEventSender} from "./event";
+import {registerEventSender, unregisterEventSender} from "./event/manager";
+import ReconnectingWebsocket from "./ReconnectingWebsocket";
 
 
 // @SiberianHusky 2021-08-15
+enum WebsocketType {
+    API,
+    EVENT,
+    ALL
+}
+
 function checkSendMessage(sendMsgList: OB11MessageData[]) {
     function checkUri(uri: string): boolean {
         const pattern = /^(file:\/\/|http:\/\/|https:\/\/|base64:\/\/)/;
@@ -92,17 +99,29 @@ export function startExpress(port: number) {
 export function startWebsocketServer(port: number) {
     const config = getConfigUtil().getConfig();
     if (config.enableWs) {
-        expressWs(expressWsApp)
-        expressWsApp.listen(getConfigUtil().getConfig().wsPort, function () {
-            console.log(`llonebot websocket service started 0.0.0.0:${port}`);
-        });
+        try {
+            expressWs(expressWsApp)
+            expressWsApp.listen(getConfigUtil().getConfig().wsPort, function () {
+                console.log(`llonebot websocket service started 0.0.0.0:${port}`);
+            });
+        }
+        catch (e) {
+            console.log(e);
+        }
     }
 }
 
 export function initWebsocket() {
     if (getConfigUtil().getConfig().enableWs) {
-        expressWsApp.ws("/api", initWebsocketServer);
-        expressWsApp.ws("/", initWebsocketServer);
+        expressWsApp.ws("/api", (ws, req) => {
+            initWebsocketServer(ws, req, WebsocketType.API);
+        });
+        expressWsApp.ws("/event", (ws, req) => {
+            initWebsocketServer(ws, req, WebsocketType.EVENT);
+        });
+        expressWsApp.ws("/", (ws, req) => {
+            initWebsocketServer(ws, req, WebsocketType.ALL);
+        });
     }
 
     initReverseWebsocket();
@@ -113,11 +132,12 @@ function initReverseWebsocket() {
     if (config.enableWsReverse) {
         for (const url of config.wsHosts) {
             try {
-                const wsClient = new WebSocket(url);
+                let wsClient = new ReconnectingWebsocket(url);
                 websocketClientConnections.push(wsClient);
                 registerEventSender(wsClient);
 
-                wsClient.onclose = function (ev) {
+                wsClient.onclose = function () {
+                    console.log("The websocket connection: " + url + " closed, trying reconnecting...");
                     unregisterEventSender(wsClient);
                     let index = websocketClientConnections.indexOf(wsClient);
                     if (index !== -1) {
@@ -125,8 +145,8 @@ function initReverseWebsocket() {
                     }
                 }
 
-                wsClient.onmessage = async function (ev) {
-                    let message = ev.data;
+                wsClient.onmessage = async function (message) {
+                    console.log(message);
                     if (typeof message === "string") {
                         try {
                             let recv = JSON.parse(message);
@@ -147,35 +167,43 @@ function initReverseWebsocket() {
                     }
                 }
             }
-            catch (e) {}
+            catch (e) {
+                console.log(e);
+            }
         }
     }
 }
 
-function initWebsocketServer(ws, req) {
-    registerEventSender(ws);
+function initWebsocketServer(ws, req, type: WebsocketType) {
+    if (type == WebsocketType.EVENT || type == WebsocketType.ALL) {
+        registerEventSender(ws);
+    }
 
     ws.on("message", async function (message) {
-        try {
-            let recv = JSON.parse(message);
-            let echo = recv.echo ?? "";
+        if (type == WebsocketType.API || type == WebsocketType.ALL) {
+            try {
+                let recv = JSON.parse(message);
+                let echo = recv.echo ?? "";
 
-            if (actionMap.has(recv.action)) {
-                let action = actionMap.get(recv.action)
-                const result = await action.websocketHandle(recv.params, echo);
-                ws.send(JSON.stringify(result));
+                if (actionMap.has(recv.action)) {
+                    let action = actionMap.get(recv.action)
+                    const result = await action.websocketHandle(recv.params, echo);
+                    ws.send(JSON.stringify(result));
+                }
+                else {
+                    ws.send(JSON.stringify(OB11WebsocketResponse.error("Bad Request", 1400, echo)));
+                }
+            } catch (e) {
+                log(e.stack);
+                ws.send(JSON.stringify(OB11WebsocketResponse.error(e.stack.toString(), 1200)));
             }
-            else {
-                ws.send(JSON.stringify(OB11WebsocketResponse.error("Bad Request", 1400, echo)));
-            }
-        } catch (e) {
-            log(e.stack);
-            ws.send(JSON.stringify(OB11WebsocketResponse.error(e.stack.toString(), 1200)));
         }
     });
 
     ws.on("close", function (ev) {
-        unregisterEventSender(ws);
+        if (type == WebsocketType.EVENT || type == WebsocketType.ALL) {
+            unregisterEventSender(ws);
+        }
     });
 }
 

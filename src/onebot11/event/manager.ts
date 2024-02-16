@@ -1,4 +1,5 @@
-import {selfInfo} from "../common/data";
+import {selfInfo} from "../../common/data";
+import BaseEvent from "./BaseEvent";
 
 const websocketList = [];
 
@@ -20,19 +21,12 @@ export function unregisterEventSender(ws) {
     }
 }
 
-export function callEvent<DataType>(type: EventType, data: DataType) {
-    const basicEvent = {
-        time: new Date().getTime(),
-        self_id: selfInfo.uin,
-        post_type: type
-    }
+export function callEvent<DataType>(event: BaseEvent, data: DataType = null) {
 
-
+    const assignedEvent = (data == null ? event : Object.assign(event, data));
     for (const ws of websocketList) {
         ws.send(
-            JSON.stringify(
-                Object.assign(basicEvent, data)
-            )
+            JSON.stringify(assignedEvent)
         );
     }
 }

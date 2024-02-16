@@ -49,6 +49,10 @@ export function isGIF(path: string) {
     return buffer.toString() === 'GIF8'
 }
 
+export function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 
 // 定义一个异步函数来检查文件是否存在
 export function checkFileReceived(path: string, timeout: number=3000): Promise<void> {

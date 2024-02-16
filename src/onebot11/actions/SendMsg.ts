@@ -13,7 +13,6 @@ import { SendMessageElement } from "../../ntqqapi/types";
 import { SendMsgElementConstructor } from "../../ntqqapi/constructor";
 import { uri2local } from "../utils";
 import { v4 as uuid4 } from 'uuid';
-import { log } from "../../common/utils";
 import BaseAction from "./BaseAction";
 import { ActionName } from "./types";
 import * as fs from "fs";

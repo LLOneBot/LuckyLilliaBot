@@ -1,12 +1,15 @@
 import {BrowserWindow} from 'electron';
-import {log} from "../common/utils";
+import {log, sleep} from "../common/utils";
 import {NTQQApi, NTQQApiClass, sendMessagePool} from "./ntcall";
 import {Group, GroupMember, RawMessage, User} from "./types";
 import {addHistoryMsg, friends, groups, msgHistory} from "../common/data";
 import {v4 as uuidv4} from 'uuid';
-import {callEvent, EventType} from "../onebot11/event";
+import {callEvent, EventType} from "../onebot11/event/manager";
 import {OB11Message} from "../onebot11/types";
 import {OB11Constructor} from "../onebot11/constructor";
+import BaseMessageEvent from "../onebot11/event/BaseMessageEvent";
+import GroupDecreaseEvent from "../onebot11/event/GroupDecreaseEvent";
+import GroupIncreaseEvent from "../onebot11/event/GroupIncreaseEvent";
 
 export let hookApiCallbacks: Record<string, (apiReturn: any) => void> = {}
 
@@ -120,18 +123,10 @@ async function processGroupEvent(payload) {
             let existGroup = groups.find(g => g.groupCode == group.groupCode);
             if (existGroup) {
                 if (existGroup.memberCount > group.memberCount) {
-                    console.log("群人数减少力!");
                     const oldMembers = existGroup.members;
-                    console.log("旧群人员：");
-                    for (const member of oldMembers) {
-                        console.log(member.nick);
-                    }
 
+                    await sleep(200);  // 如果请求QQ API的速度过快，通常无法正确拉取到最新的群信息，因此这里人为引入一个延时
                     const newMembers = await NTQQApi.getGroupMembers(group.groupCode);
-                    console.log("新群人员：");
-                    for (const member of newMembers) {
-                        console.log(member.nick);
-                    }
 
                     group.members = newMembers;
                     const newMembersSet = new Set<string>();  // 建立索引降低时间复杂度
@@ -142,35 +137,26 @@ async function processGroupEvent(payload) {
 
                     for (const member of oldMembers) {
                         if (!newMembersSet.has(member.uin)) {
-                            console.log("减少的群员是:" + member.uin);
+                            callEvent(new GroupDecreaseEvent(group.groupCode, parseInt(member.uin)));
                             break;
                         }
                     }
 
                 }
                 else if (existGroup.memberCount < group.memberCount) {
-                    console.log("群人数增加力!");
-                    console.log("旧群人员：");
-                    for (const member of existGroup.members) {
-                        console.log(member.nick);
-                    }
-
+                    const oldMembers = existGroup.members;
                     const oldMembersSet = new Set<string>();
-                    for (const member of existGroup.members) {
+                    for (const member of oldMembers) {
                         oldMembersSet.add(member.uin);
                     }
 
+                    await sleep(200);
                     const newMembers = await NTQQApi.getGroupMembers(group.groupCode);
-
-                    console.log("新群人员：");
-                    for (const member of newMembers) {
-                        console.log(member.nick);
-                    }
 
                     group.members = newMembers;
                     for (const member of newMembers) {
                         if (!oldMembersSet.has(member.uin)) {
-                            console.log("增加的群员是:" + member.uin);
+                            callEvent(new GroupIncreaseEvent(group.groupCode, parseInt(member.uin)));
                             break;
                         }
                     }
@@ -231,13 +217,13 @@ registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.UPDATE_MSG, (payl
 registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload) => {
     for (const message of payload.msgList) {
         // log("收到新消息，push到历史记录", message)
+        addHistoryMsg(message)
+
         OB11Constructor.message(message).then(
             function (message) {
-                callEvent<OB11Message>(EventType.MESSAGE, message);
+                callEvent<OB11Message>(new BaseMessageEvent(), message);
             }
         );
-
-        addHistoryMsg(message)
     }
     const msgIds = Object.keys(msgHistory);
     if (msgIds.length > 30000) {
