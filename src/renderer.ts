@@ -62,13 +62,17 @@ async function onSettingWindowCreated(view: Element) {
                         <setting-text>正向Websocket监听端口</setting-text>
                         <input id="wsPort" type="number" value="${config.wsPort}"/>
                     </setting-item>
+                    <setting-item class="vertical-list-item" data-direction="row">
+                        <setting-text>Access Token</setting-text>
+                        <input id="token" type="text" placeholder="可为空" value="${config.token}"/>
+                    </setting-item>
                     <div>
                         <button id="addWsHost" class="q-button">添加反向Websocket上报地址</button>
                     </div>
                     <div id="wsHostItems">
                         ${wsHostsEleStr}
                     </div>
-                    <button id="save" class="q-button">保存(监听端口重启QQ后生效)</button>
+                    <button id="save" class="q-button">保存</button>
                 </setting-list>
             </setting-panel>
             <setting-panel>
@@ -197,6 +201,7 @@ async function onSettingWindowCreated(view: Element) {
             const httpHostEles: HTMLCollectionOf<HTMLInputElement> = document.getElementsByClassName("httpHost") as HTMLCollectionOf<HTMLInputElement>;
             const wsPortEle: HTMLInputElement = document.getElementById("wsPort") as HTMLInputElement;
             const wsHostEles: HTMLCollectionOf<HTMLInputElement> = document.getElementsByClassName("wsHost") as HTMLCollectionOf<HTMLInputElement>;
+            const tokenEle = document.getElementById("token") as HTMLInputElement;
 
             // 获取端口和host
             const httpPort = httpPortEle.value
@@ -209,6 +214,7 @@ async function onSettingWindowCreated(view: Element) {
             }
 
             const wsPort = wsPortEle.value
+            const token = tokenEle.value
             let wsHosts: string[] = [];
 
             for (const hostEle of wsHostEles) {
@@ -222,6 +228,7 @@ async function onSettingWindowCreated(view: Element) {
             config.httpHosts = httpHosts;
             config.wsPort = parseInt(wsPort);
             config.wsHosts = wsHosts;
+            config.token = token.trim();
             window.llonebot.setConfig(config);
             alert("保存成功");
         })

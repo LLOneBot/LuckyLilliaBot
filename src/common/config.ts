@@ -1,8 +1,8 @@
-import {Config} from "./types";
+import { Config } from "./types";
 
 const fs = require("fs");
 
-export class ConfigUtil{
+export class ConfigUtil {
     configPath: string;
 
     constructor(configPath: string) {
@@ -10,24 +10,42 @@ export class ConfigUtil{
     }
 
     getConfig(): Config {
+        let defaultConfig: Config = {
+            httpPort: 3000,
+            httpHosts: [],
+            wsPort: 3001,
+            wsHosts: []
+            token: "",
+            enableBase64: false,
+            debug: false,
+            log: false,
+            reportSelfMessage: false
+        }
         if (!fs.existsSync(this.configPath)) {
-            return {
-                httpPort: 3000,
-                httpHosts: ["http://127.0.0.1:5000/"],
-                wsPort: 3001,
-                wsHosts: ["ws://127.0.0.1:3002/"]
-            }
+            return defaultConfig
         } else {
             const data = fs.readFileSync(this.configPath, "utf-8");
-            let jsonData = JSON.parse(data);
+            let jsonData: Config = defaultConfig;
+            try {
+                jsonData = JSON.parse(data)
+            }
+            catch (e){
+
+            }
             if (!jsonData.hosts) {
-                jsonData.hosts = [];
+                jsonData.hosts = []
+            }
+            if (!jsonData.wsPort){
+                jsonData.wsPort = 3001
+            }
+            if (!jsonData.token){
+                jsonData.token = ""
             }
             return jsonData;
         }
     }
-
-    setConfig(config: Config){
-        fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), "utf-8");
+  
+    setConfig(config: Config) {
+        fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), "utf-8")
     }
 }
