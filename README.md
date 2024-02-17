@@ -33,6 +33,7 @@ LiteLoaderQQNT的OneBot11协议插件
 - [x] 撤回消息
 - [x] 上报好友消息
 - [x] 上报群消息
+- [x] 上报好友、群消息撤回
 
 消息格式支持:
 - [x] 文字
@@ -59,6 +60,7 @@ LiteLoaderQQNT的OneBot11协议插件
 - [x] get_friend_list
 - [x] get_msg
 - [x] get_version_info
+- [x] get_status
 - [x] can_send_image
 - [x] can_send_record
 
