@@ -183,7 +183,9 @@ export class OB11Constructor extends OB11EventConstructor{
     static group(group: Group): OB11Group {
         return {
             group_id: parseInt(group.groupCode),
-            group_name: group.groupName
+            group_name: group.groupName,
+            member_count: group.memberCount,
+            max_member_count: group.maxMember
         }
     }
 
