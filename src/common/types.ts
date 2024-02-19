@@ -1,11 +1,15 @@
 export interface Config {
-    port: number
+    httpPort: number
+    httpHosts: string[]
     wsPort: number
-    hosts: string[]
+    wsHosts: string[]
+    enableHttp?: boolean
+    enableHttpPost?: boolean
+    enableWs?: boolean
+    enableWsReverse?: boolean
     token?: string
     enableBase64?: boolean
     debug?: boolean
     reportSelfMessage?: boolean
     log?: boolean
 }
-

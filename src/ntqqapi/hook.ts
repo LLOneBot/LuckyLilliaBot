@@ -1,10 +1,12 @@
-import { BrowserWindow } from 'electron';
-import { getConfigUtil, log } from "../common/utils";
-import { NTQQApi, NTQQApiClass, sendMessagePool } from "./ntcall";
-import { Group, User } from "./types";
-import { RawMessage } from "./types";
-import { addHistoryMsg, friends, groups, msgHistory } from "../common/data";
-import { v4 as uuidv4 } from 'uuid';
+import {BrowserWindow} from 'electron';
+import {log, sleep} from "../common/utils";
+import {NTQQApi, NTQQApiClass, sendMessagePool} from "./ntcall";
+import {Group, RawMessage, User} from "./types";
+import {addHistoryMsg, friends, groups, msgHistory} from "../common/data";
+import {v4 as uuidv4} from 'uuid';
+import {OB11GroupDecreaseEvent} from "../onebot11/event/notice/OB11GroupDecreaseEvent";
+import {OB11GroupIncreaseEvent} from "../onebot11/event/notice/OB11GroupIncreaseEvent";
+import {postMsg} from "../onebot11/server";
 
 export let hookApiCallbacks: Record<string, (apiReturn: any) => void> = {}
 
@@ -41,7 +43,7 @@ let receiveHooks: Array<{
 export function hookNTQQApiReceive(window: BrowserWindow) {
     const originalSend = window.webContents.send;
     const patchSend = (channel: string, ...args: NTQQApiReturnData) => {
-        // log(`received ntqq api message: ${channel}`, JSON.stringify(args))
+        // console.log(`received ntqq api message: ${channel}`, JSON.stringify(args))
         if (args?.[1] instanceof Array) {
             for (let receiveData of args?.[1]) {
                 const ntQQApiMethodName = receiveData.cmdName;
@@ -93,25 +95,103 @@ export function removeReceiveHook(id: string) {
     receiveHooks.splice(index, 1);
 }
 
-async function updateGroups(_groups: Group[]) {
+async function updateGroups(_groups: Group[], needUpdate: boolean = true) {
     for (let group of _groups) {
-        let existGroup = groups.find(g => g.groupCode == group.groupCode)
-        if (!existGroup) {
-            NTQQApi.getGroupMembers(group.groupCode).then(members => {
-                if (members) {
-                    group.members = members
-                }
-            })
-            groups.push(group)
-            log("update group members", group.members)
-        } else {
-            Object.assign(existGroup, group)
+        let existGroup = groups.find(g => g.groupCode == group.groupCode);
+        if (existGroup) {
+            Object.assign(existGroup, group);
+        }
+        else {
+            groups.push(group);
+            existGroup = group;
+        }
+
+        if (needUpdate) {
+            const members = await NTQQApi.getGroupMembers(group.groupCode);
+
+            if (members) {
+                existGroup.members = members;
+            }
         }
     }
 }
 
-registerReceiveHook<{ groupList: Group[] }>(ReceiveCmd.GROUPS, (payload) => updateGroups(payload.groupList).then())
-registerReceiveHook<{ groupList: Group[] }>(ReceiveCmd.GROUPS_UNIX, (payload) => updateGroups(payload.groupList).then())
+async function processGroupEvent(payload) {
+    try {
+        const newGroupList = payload.groupList;
+        for (const group of newGroupList) {
+            let existGroup = groups.find(g => g.groupCode == group.groupCode);
+            if (existGroup) {
+                if (existGroup.memberCount > group.memberCount) {
+                    const oldMembers = existGroup.members;
+
+                    await sleep(200);  // 如果请求QQ API的速度过快，通常无法正确拉取到最新的群信息，因此这里人为引入一个延时
+                    const newMembers = await NTQQApi.getGroupMembers(group.groupCode);
+
+                    group.members = newMembers;
+                    const newMembersSet = new Set<string>();  // 建立索引降低时间复杂度
+
+                    for (const member of newMembers) {
+                        newMembersSet.add(member.uin);
+                    }
+
+                    for (const member of oldMembers) {
+                        if (!newMembersSet.has(member.uin)) {
+                            postMsg(new OB11GroupDecreaseEvent(group.groupCode, parseInt(member.uin)));
+                            break;
+                        }
+                    }
+
+                }
+                else if (existGroup.memberCount < group.memberCount) {
+                    const oldMembers = existGroup.members;
+                    const oldMembersSet = new Set<string>();
+                    for (const member of oldMembers) {
+                        oldMembersSet.add(member.uin);
+                    }
+
+                    await sleep(200);
+                    const newMembers = await NTQQApi.getGroupMembers(group.groupCode);
+
+                    group.members = newMembers;
+                    for (const member of newMembers) {
+                        if (!oldMembersSet.has(member.uin)) {
+                            postMsg(new OB11GroupIncreaseEvent(group.groupCode, parseInt(member.uin)));
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        updateGroups(newGroupList, false).then();
+    }
+    catch (e) {
+        updateGroups(payload.groupList).then();
+        console.log(e);
+    }
+}
+
+registerReceiveHook<{ groupList: Group[], updateType: number }>(ReceiveCmd.GROUPS, (payload) => {
+    if (payload.updateType != 2) {
+        updateGroups(payload.groupList).then();
+    }
+    else {
+        if (process.platform == "win32") {
+            processGroupEvent(payload).then();
+        }
+    }
+})
+registerReceiveHook<{ groupList: Group[], updateType: number }>(ReceiveCmd.GROUPS_UNIX, (payload) => {
+    if (payload.updateType != 2) {
+        updateGroups(payload.groupList).then();
+    }
+    else {
+        if (process.platform != "win32") {
+            processGroupEvent(payload).then();
+        }
+    }
+})
 registerReceiveHook<{
     data: { categoryId: number, categroyName: string, categroyMbCount: number, buddyList: User[] }[]
 }>(ReceiveCmd.FRIENDS, payload => {
@@ -127,12 +207,6 @@ registerReceiveHook<{
         }
     }
 })
-
-// registerReceiveHook<any>(ReceiveCmd.USER_INFO, (payload)=>{
-//     log("user info", payload);
-// })
-
-
 
 registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload) => {
     for (const message of payload.msgList) {

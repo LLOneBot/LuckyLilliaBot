@@ -1,4 +1,4 @@
-import { ActionName } from "./types";
+import {ActionName} from "./types";
 import CanSendRecord from "./CanSendRecord";
 
 interface ReturnType{

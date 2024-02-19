@@ -6,11 +6,11 @@ async function onSettingWindowCreated(view: Element) {
     window.llonebot.log("setting window created");
     let config = await window.llonebot.getConfig()
 
-    function creatHostEleStr(host: string) {
+    function createHttpHostEleStr(host: string) {
         let eleStr = `
             <setting-item data-direction="row" class="hostItem vertical-list-item">
                 <h2>事件上报地址(http)</h2>
-                <input class="host input-text" type="text" value="${host}" 
+                <input class="httpHost input-text" type="text" value="${host}" 
                 style="width:60%;padding: 5px"
                 placeholder="如果localhost上报失败试试局域网ip"/>
             </setting-item>
@@ -19,10 +19,29 @@ async function onSettingWindowCreated(view: Element) {
         return eleStr
     }
 
-    let hostsEleStr = ""
-    for (const host of config.hosts) {
-        hostsEleStr += creatHostEleStr(host);
+    function createWsHostEleStr(host: string) {
+        let eleStr = `
+            <setting-item data-direction="row" class="hostItem vertical-list-item">
+                <h2>事件上报地址(反向websocket)</h2>
+                <input class="wsHost input-text" type="text" value="${host}" 
+                style="width:60%;padding: 5px"
+                placeholder="如果localhost上报失败试试局域网ip"/>
+            </setting-item>
+
+            `
+        return eleStr
     }
+
+    let httpHostsEleStr = ""
+    for (const host of config.httpHosts) {
+        httpHostsEleStr += createHttpHostEleStr(host);
+    }
+
+    let wsHostsEleStr = ""
+    for (const host of config.wsHosts) {
+        wsHostsEleStr += createWsHostEleStr(host);
+    }
+
     let html = `
     <div class="config_view llonebot">
         <setting-section>
@@ -30,10 +49,17 @@ async function onSettingWindowCreated(view: Element) {
                 <setting-list class="wrap">
                     <setting-item class="vertical-list-item" data-direction="row">
                         <setting-text>HTTP监听端口</setting-text>
-                        <input id="port" type="number" value="${config.port}"/>
+                        <input id="httpPort" type="number" value="${config.httpPort}"/>
                     </setting-item>
+                    <div>
+                        <button id="addHttpHost" class="q-button">添加HTTP POST上报地址</button>
+                    </div>
+                    <div id="httpHostItems">
+                        ${httpHostsEleStr}
+                    </div>
+                    
                     <setting-item class="vertical-list-item" data-direction="row">
-                        <setting-text>正向ws监听端口</setting-text>
+                        <setting-text>正向Websocket监听端口</setting-text>
                         <input id="wsPort" type="number" value="${config.wsPort}"/>
                     </setting-item>
                     <setting-item class="vertical-list-item" data-direction="row">
@@ -41,15 +67,43 @@ async function onSettingWindowCreated(view: Element) {
                         <input id="token" type="text" placeholder="可为空" value="${config.token}"/>
                     </setting-item>
                     <div>
-                        <button id="addHost" class="q-button">添加HTTP上报地址</button>
+                        <button id="addWsHost" class="q-button">添加反向Websocket上报地址</button>
                     </div>
-                    <div id="hostItems">
-                        ${hostsEleStr}
+                    <div id="wsHostItems">
+                        ${wsHostsEleStr}
                     </div>
                     <button id="save" class="q-button">保存</button>
                 </setting-list>
             </setting-panel>
             <setting-panel>
+                <setting-item data-direction="row" class="hostItem vertical-list-item">
+                    <div>
+                        <div>启用HTTP支持</div>
+                        <div class="tips">修改后须重启QQ生效</div>
+                    </div>
+                    <setting-switch id="http" ${config.enableHttp ? "is-active" : ""}></setting-switch>
+                </setting-item>
+                <setting-item data-direction="row" class="hostItem vertical-list-item">
+                    <div>
+                        <div>启用HTTP POST支持</div>
+                        <div class="tips">修改后须重启QQ生效</div>
+                    </div>
+                    <setting-switch id="httpPost" ${config.enableHttpPost ? "is-active" : ""}></setting-switch>
+                </setting-item>
+                <setting-item data-direction="row" class="hostItem vertical-list-item">
+                    <div>
+                        <div>启用正向Websocket支持</div>
+                        <div class="tips">修改后须重启QQ生效</div>
+                    </div>
+                    <setting-switch id="websocket" ${config.enableWs ? "is-active" : ""}></setting-switch>
+                </setting-item>
+                <setting-item data-direction="row" class="hostItem vertical-list-item">
+                    <div>
+                        <div>启用反向Websocket支持</div>
+                        <div class="tips">修改后须重启QQ生效</div>
+                    </div>
+                    <setting-switch id="websocketReverse" ${config.enableWsReverse ? "is-active" : ""}></setting-switch>
+                </setting-item>
                 <setting-item data-direction="row" class="hostItem vertical-list-item">
                     <div>
                         <div>上报文件进行base64编码</div>
@@ -100,15 +154,25 @@ async function onSettingWindowCreated(view: Element) {
     const doc = parser.parseFromString(html, "text/html");
 
 
-    function addHostEle(initValue: string = "") {
-        let addressDoc = parser.parseFromString(creatHostEleStr(initValue), "text/html");
-        let addressEle = addressDoc.querySelector("setting-item")
-        let hostItemsEle = document.getElementById("hostItems");
+    function addHostEle(type: string, initValue: string = "") {
+        let addressEle, hostItemsEle;
+        if (type === "ws") {
+            let addressDoc = parser.parseFromString(createWsHostEleStr(initValue), "text/html");
+            addressEle = addressDoc.querySelector("setting-item")
+            hostItemsEle = document.getElementById("wsHostItems");
+        }
+        else {
+            let addressDoc = parser.parseFromString(createHttpHostEleStr(initValue), "text/html");
+            addressEle = addressDoc.querySelector("setting-item")
+            hostItemsEle = document.getElementById("httpHostItems");
+        }
+
         hostItemsEle.appendChild(addressEle);
     }
 
 
-    doc.getElementById("addHost").addEventListener("click", () => addHostEle())
+    doc.getElementById("addHttpHost").addEventListener("click", () => addHostEle("http"))
+    doc.getElementById("addWsHost").addEventListener("click", () => addHostEle("ws"))
 
     function switchClick(eleId: string, configKey: string) {
         doc.getElementById(eleId)?.addEventListener("click", (e) => {
@@ -124,6 +188,10 @@ async function onSettingWindowCreated(view: Element) {
         })
     }
 
+    switchClick("http", "enableHttp");
+    switchClick("httpPost", "enableHttpPost");
+    switchClick("websocket", "enableWs");
+    switchClick("websocketReverse", "enableWsReverse");
     switchClick("debug", "debug");
     switchClick("switchBase64", "enableBase64");
     switchClick("reportSelfMessage", "reportSelfMessage");
@@ -131,26 +199,37 @@ async function onSettingWindowCreated(view: Element) {
 
     doc.getElementById("save")?.addEventListener("click",
         () => {
-            const portEle: HTMLInputElement = document.getElementById("port") as HTMLInputElement
-            const wsPortEle: HTMLInputElement = document.getElementById("wsPort") as HTMLInputElement
-            const hostEles: HTMLCollectionOf<HTMLInputElement> = document.getElementsByClassName("host") as HTMLCollectionOf<HTMLInputElement>;
+            const httpPortEle: HTMLInputElement = document.getElementById("httpPort") as HTMLInputElement;
+            const httpHostEles: HTMLCollectionOf<HTMLInputElement> = document.getElementsByClassName("httpHost") as HTMLCollectionOf<HTMLInputElement>;
+            const wsPortEle: HTMLInputElement = document.getElementById("wsPort") as HTMLInputElement;
+            const wsHostEles: HTMLCollectionOf<HTMLInputElement> = document.getElementsByClassName("wsHost") as HTMLCollectionOf<HTMLInputElement>;
             const tokenEle = document.getElementById("token") as HTMLInputElement;
-            // const port = doc.querySelector("input[type=number]")?.value
-            // const host = doc.querySelector("input[type=text]")?.value
-            // 获取端口和host
-            const port = portEle.value
-            const wsPort = wsPortEle.value
-            const token = tokenEle.value
 
-            let hosts: string[] = [];
-            for (const hostEle of hostEles) {
+            // 获取端口和host
+            const httpPort = httpPortEle.value
+            let httpHosts: string[] = [];
+
+            for (const hostEle of httpHostEles) {
                 if (hostEle.value) {
-                    hosts.push(hostEle.value.trim());
+                    httpHosts.push(hostEle.value);
                 }
             }
-            config.port = parseInt(port);
+
+            const wsPort = wsPortEle.value
+            const token = tokenEle.value
+            let wsHosts: string[] = [];
+
+            for (const hostEle of wsHostEles) {
+                if (hostEle.value) {
+                    wsHosts.push(hostEle.value);
+                }
+            }
+
+
+            config.httpPort = parseInt(httpPort);
+            config.httpHosts = httpHosts;
             config.wsPort = parseInt(wsPort);
-            config.hosts = hosts;
+            config.wsHosts = wsHosts;
             config.token = token.trim();
             window.llonebot.setConfig(config);
             alert("保存成功");
@@ -160,7 +239,6 @@ async function onSettingWindowCreated(view: Element) {
     doc.body.childNodes.forEach(node => {
         view.appendChild(node);
     });
-
 
 }
 

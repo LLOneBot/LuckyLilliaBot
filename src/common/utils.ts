@@ -2,7 +2,6 @@ import * as path from "path";
 import {selfInfo} from "./data";
 import {ConfigUtil} from "./config";
 import util from "util";
-import { sendLog } from '../main/ipcsend';
 
 const fs = require('fs');
 
@@ -47,6 +46,10 @@ export function isGIF(path: string) {
     fs.readSync(fd, buffer, 0, 4, 0);
     fs.closeSync(fd);
     return buffer.toString() === 'GIF8'
+}
+
+export function sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 

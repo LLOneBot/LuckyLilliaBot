@@ -1,5 +1,5 @@
 import {webContents} from 'electron';
-import { CHANNEL_LOG } from '../common/channels';
+import {CHANNEL_LOG} from '../common/channels';
 
 
 function sendIPCMsg(channel: string, ...data: any) {

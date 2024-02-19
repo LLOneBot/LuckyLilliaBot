@@ -1,12 +1,12 @@
-import { AtType, ChatType, Group, SendMessageElement } from "../../ntqqapi/types";
-import { addHistoryMsg, friends, getGroup, getHistoryMsgByShortId, getStrangerByUin, } from "../../common/data";
-import { OB11MessageData, OB11MessageDataType, OB11PostSendMsg } from '../types';
-import { NTQQApi, Peer } from "../../ntqqapi/ntcall";
-import { SendMsgElementConstructor } from "../../ntqqapi/constructor";
-import { uri2local } from "../utils";
-import { v4 as uuid4 } from 'uuid';
+import {AtType, ChatType, Group, SendMessageElement} from "../../ntqqapi/types";
+import {addHistoryMsg, friends, getGroup, getHistoryMsgByShortId, getStrangerByUin,} from "../../common/data";
+import {OB11MessageData, OB11MessageDataType, OB11PostSendMsg} from '../types';
+import {NTQQApi, Peer} from "../../ntqqapi/ntcall";
+import {SendMsgElementConstructor} from "../../ntqqapi/constructor";
+import {uri2local} from "../utils";
+import {v4 as uuid4} from 'uuid';
 import BaseAction from "./BaseAction";
-import { ActionName } from "./types";
+import {ActionName} from "./types";
 import * as fs from "fs";
 
 export interface ReturnDataType {

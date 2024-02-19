@@ -5,7 +5,7 @@
   "main": "dist/main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "postinstall": "ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install electron --no-save",
+    "postinstall": "set ELECTRON_SKIP_BINARY_DOWNLOAD=1 && npm install electron --no-save",
     "build": "npm run build-main && npm run build-preload && npm run build-renderer",
     "build-main": "webpack --config webpack.main.config.js",
     "build-preload": "webpack --config webpack.preload.config.js",
@@ -19,8 +19,10 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.18.2",
+    "express-ws": "^5.0.2",
     "json-bigint": "^1.0.0",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "ws": "^8.16.0"
   },
   "devDependencies": {
     "@babel/preset-env": "^7.23.2",

@@ -1,19 +1,11 @@
-import {
-    OB11MessageDataType,
-    OB11GroupMemberRole,
-    OB11Message,
-    OB11Group,
-    OB11GroupMember,
-    OB11User
-} from "./types";
-import { AtType, ChatType, Group, GroupMember, IMAGE_HTTP_HOST, RawMessage, SelfInfo, User } from '../ntqqapi/types';
-import { getFriend, getGroupMember, getHistoryMsgBySeq, heartInterval, msgHistory, selfInfo } from '../common/data';
-import { file2base64, getConfigUtil, log } from "../common/utils";
-import { NTQQApi } from "../ntqqapi/ntcall";
-import {OB11EventConstructor} from "./events/constructor";
+import {OB11Group, OB11GroupMember, OB11GroupMemberRole, OB11Message, OB11MessageDataType, OB11User} from "./types";
+import {AtType, ChatType, Group, GroupMember, IMAGE_HTTP_HOST, RawMessage, SelfInfo, User} from '../ntqqapi/types';
+import {getFriend, getGroupMember, getHistoryMsgBySeq, selfInfo} from '../common/data';
+import {file2base64, getConfigUtil, log} from "../common/utils";
+import {NTQQApi} from "../ntqqapi/ntcall";
 
 
-export class OB11Constructor extends OB11EventConstructor{
+export class OB11Constructor {
     static async message(msg: RawMessage): Promise<OB11Message> {
 
         const {enableBase64} = getConfigUtil().getConfig()

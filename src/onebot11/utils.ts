@@ -1,7 +1,7 @@
-import { CONFIG_DIR, isGIF } from "../common/utils";
+import {CONFIG_DIR, isGIF} from "../common/utils";
 import * as path from 'path';
-import { NTQQApi } from '../ntqqapi/ntcall';
-import { OB11MessageData } from "./types";
+import {OB11MessageData} from "./types";
+
 const fs = require("fs").promises;
 
 export async function uri2local(fileName: string, uri: string){

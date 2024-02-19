@@ -1,8 +1,8 @@
-import { OB11Group } from '../types';
-import { getGroup } from "../../common/data";
-import { OB11Constructor } from "../constructor";
+import {OB11Group} from '../types';
+import {getGroup} from "../../common/data";
+import {OB11Constructor} from "../constructor";
 import BaseAction from "./BaseAction";
-import { ActionName } from "./types";
+import {ActionName} from "./types";
 
 interface PayloadType {
     group_id: number

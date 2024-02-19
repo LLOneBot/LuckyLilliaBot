@@ -1,9 +1,8 @@
-import { getHistoryMsgByShortId, msgHistory } from "../../common/data";
-import { OB11Message } from '../types';
-import { OB11Constructor } from "../constructor";
-import { log } from "../../common/utils";
+import {getHistoryMsgByShortId} from "../../common/data";
+import {OB11Message} from '../types';
+import {OB11Constructor} from "../constructor";
 import BaseAction from "./BaseAction";
-import { ActionName } from "./types";
+import {ActionName} from "./types";
 
 
 export interface PayloadType {

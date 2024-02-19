@@ -1,5 +1,3 @@
-import GetVersionInfo from "./GetVersionInfo";
-
 export type BaseCheckResult = ValidCheckResult | InvalidCheckResult
 
 export interface ValidCheckResult {
@@ -13,7 +11,7 @@ export interface InvalidCheckResult {
     [k: string | number]: any
 }
 
-export enum ActionName{
+export enum ActionName {
     GetLoginInfo = "get_login_info",
     GetFriendList = "get_friend_list",
     GetGroupInfo = "get_group_info",

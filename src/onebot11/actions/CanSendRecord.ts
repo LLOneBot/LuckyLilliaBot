@@ -1,5 +1,5 @@
 import BaseAction from "./BaseAction";
-import { ActionName } from "./types";
+import {ActionName} from "./types";
 
 interface ReturnType{
     yes: boolean

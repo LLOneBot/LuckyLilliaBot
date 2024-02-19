@@ -1,13 +1,13 @@
 import {
+    AtType,
     ElementType,
+    SendFaceElement,
     SendPicElement,
     SendPttElement,
     SendReplyElement,
-    SendTextElement,
-    AtType,
-    SendFaceElement
+    SendTextElement
 } from "./types";
-import { NTQQApi } from "./ntcall";
+import {NTQQApi} from "./ntcall";
 
 
 export class SendMsgElementConstructor {
