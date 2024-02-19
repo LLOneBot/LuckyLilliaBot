@@ -8,7 +8,7 @@ import {OB11Message, OB11MessageData, OB11Return} from './types';
 import {actionHandlers, actionMap} from "./actions";
 import {OB11Response, OB11WebsocketResponse} from "./actions/utils";
 import {callEvent, registerEventSender, unregisterEventSender} from "./event/manager";
-import ReconnectingWebsocket from "./ReconnectingWebsocket";
+import {ReconnectingWebsocket} from "./ReconnectingWebsocket";
 import {ActionName} from "./actions/types";
 import {OB11BaseMetaEvent} from "./event/meta/OB11BaseMetaEvent";
 import {OB11BaseNoticeEvent} from "./event/notice/OB11BaseNoticeEvent";
@@ -216,49 +216,52 @@ export function initWebsocket(port: number) {
         })
     }
 
-    initReverseWebsocket().then();
+    initReverseWebsocket();
 }
-async function initReverseWebsocket() {
+function initReverseWebsocket() {
     const config = getConfigUtil().getConfig();
     if (config.enableWsReverse) {
+        console.log("Prepare to connect all reverse websockets...");
         for (const url of config.wsHosts) {
-            try {
-                let wsClient = new ReconnectingWebsocket(url);
-                registerEventSender(wsClient);
+            new Promise(() => {
+                try {
+                    let wsClient = new ReconnectingWebsocket(url);
+                    registerEventSender(wsClient);
 
-                wsClient.onopen = function () {
-                    wsReply(wsClient, new OB11LifeCycleEvent(LifeCycleSubType.CONNECT));
-                }
+                    wsClient.onopen = function () {
+                        wsReply(wsClient, new OB11LifeCycleEvent(LifeCycleSubType.CONNECT));
+                    }
 
-                wsClient.onclose = function () {
-                    unregisterEventSender(wsClient);
-                }
+                    wsClient.onclose = function () {
+                        unregisterEventSender(wsClient);
+                    }
 
-                wsClient.onmessage = async function (msg) {
-                    let receiveData: { action: ActionName, params: any, echo?: string } = {action: null, params: {}}
-                    let echo = ""
-                    log("收到正向Websocket消息", msg.toString())
-                    try {
-                        receiveData = JSON.parse(msg.toString())
-                        echo = receiveData.echo
-                    } catch (e) {
-                        return wsReply(wsClient, OB11WebsocketResponse.error("json解析失败，请检查数据格式", 1400, echo))
-                    }
-                    const action: BaseAction<any, any> = actionMap.get(receiveData.action);
-                    if (!action) {
-                        return wsReply(wsClient, OB11WebsocketResponse.error("不支持的api " + receiveData.action, 1404, echo))
-                    }
-                    try {
-                        let handleResult = await action.websocketHandle(receiveData.params, echo);
-                        wsReply(wsClient, handleResult)
-                    } catch (e) {
-                        wsReply(wsClient, OB11WebsocketResponse.error(`api处理出错:${e}`, 1200, echo))
+                    wsClient.onmessage = async function (msg) {
+                        let receiveData: { action: ActionName, params: any, echo?: string } = {action: null, params: {}}
+                        let echo = ""
+                        log("收到正向Websocket消息", msg.toString())
+                        try {
+                            receiveData = JSON.parse(msg.toString())
+                            echo = receiveData.echo
+                        } catch (e) {
+                            return wsReply(wsClient, OB11WebsocketResponse.error("json解析失败，请检查数据格式", 1400, echo))
+                        }
+                        const action: BaseAction<any, any> = actionMap.get(receiveData.action);
+                        if (!action) {
+                            return wsReply(wsClient, OB11WebsocketResponse.error("不支持的api " + receiveData.action, 1404, echo))
+                        }
+                        try {
+                            let handleResult = await action.websocketHandle(receiveData.params, echo);
+                            wsReply(wsClient, handleResult)
+                        } catch (e) {
+                            wsReply(wsClient, OB11WebsocketResponse.error(`api处理出错:${e}`, 1200, echo))
+                        }
                     }
                 }
-            }
-            catch (e) {
-                console.log(e);
-            }
+                catch (e) {
+                    log(e.stack);
+                }
+            }).then();
         }
     }
 }
@@ -298,7 +301,6 @@ export function postMsg(msg: PostMsgType) {
     }
 
     log("新消息事件ws上报", msg);
-    console.log("新消息事件ws上报", msg);
     callEvent(msg);
 }
 

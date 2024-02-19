@@ -1,6 +1,6 @@
 import * as websocket from "ws";
 import {PostMsgType, wsReply} from "../server";
-import ReconnectingWebsocket from "../ReconnectingWebsocket";
+import {ReconnectingWebsocket} from "../ReconnectingWebsocket";
 
 const websocketList = [];
 

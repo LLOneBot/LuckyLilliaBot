@@ -155,13 +155,15 @@ async function onSettingWindowCreated(view: Element) {
 
 
     function addHostEle(type: string, initValue: string = "") {
-        let addressDoc = parser.parseFromString(createHttpHostEleStr(initValue), "text/html");
-        let addressEle = addressDoc.querySelector("setting-item")
-        let hostItemsEle;
+        let addressEle, hostItemsEle;
         if (type === "ws") {
+            let addressDoc = parser.parseFromString(createWsHostEleStr(initValue), "text/html");
+            addressEle = addressDoc.querySelector("setting-item")
             hostItemsEle = document.getElementById("wsHostItems");
         }
         else {
+            let addressDoc = parser.parseFromString(createHttpHostEleStr(initValue), "text/html");
+            addressEle = addressDoc.querySelector("setting-item")
             hostItemsEle = document.getElementById("httpHostItems");
         }
 
