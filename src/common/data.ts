@@ -1,6 +1,5 @@
-import { NTQQApi } from '../ntqqapi/ntcall';
-import { Friend, Group, GroupMember, RawMessage, SelfInfo } from "../ntqqapi/types";
-import { log } from "./utils";
+import {NTQQApi} from '../ntqqapi/ntcall';
+import {Friend, Group, GroupMember, RawMessage, SelfInfo} from "../ntqqapi/types";
 
 export let groups: Group[] = []
 export let friends: Friend[] = []
@@ -87,3 +86,6 @@ export function getStrangerByUin(uin: string) {
         }
     }
 }
+
+export const version = "v3.4.0"
+export const heartInterval = 15000 // 毫秒

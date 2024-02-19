@@ -1,26 +1,25 @@
-import { getConfigUtil, log } from "../common/utils";
-
-const express = require("express");
-const expressWs = require("express-ws");
-
-import { Request } from 'express';
-import { Response } from 'express';
-
-const JSONbig = require('json-bigint')({ storeAsString: true });
-import { selfInfo } from "../common/data";
-import { OB11Message, OB11Return, OB11MessageData } from './types';
+import * as http from "http";
+import * as websocket from "ws";
+import urlParse from "url";
+import express, {Request, Response} from "express";
+import {getConfigUtil, log} from "../common/utils";
+import {heartInterval, selfInfo} from "../common/data";
+import {OB11Message, OB11MessageData, OB11Return} from './types';
 import {actionHandlers, actionMap} from "./actions";
 import {OB11Response, OB11WebsocketResponse} from "./actions/utils";
-import {registerEventSender, unregisterEventSender} from "./event/manager";
-import ReconnectingWebsocket from "./ReconnectingWebsocket";
+import {callEvent, registerEventSender, unregisterEventSender} from "./event/manager";
+import {ReconnectingWebsocket} from "./ReconnectingWebsocket";
+import {ActionName} from "./actions/types";
+import {OB11BaseMetaEvent} from "./event/meta/OB11BaseMetaEvent";
+import {OB11BaseNoticeEvent} from "./event/notice/OB11BaseNoticeEvent";
+import BaseAction from "./actions/BaseAction";
+import {LifeCycleSubType, OB11LifeCycleEvent} from "./event/meta/OB11LifeCycleEvent";
+import {OB11HeartbeatEvent} from "./event/meta/OB11HeartbeatEvent";
 
+let accessToken = "";
+let heartbeatRunning = false;
 
 // @SiberianHusky 2021-08-15
-enum WebsocketType {
-    API,
-    EVENT,
-    ALL
-}
 
 function checkSendMessage(sendMsgList: OB11MessageData[]) {
     function checkUri(uri: string): boolean {
@@ -59,11 +58,14 @@ function checkSendMessage(sendMsgList: OB11MessageData[]) {
 
 // ==end==
 
-const expressAPP = express();
-expressAPP.use(express.urlencoded({ extended: true, limit: "500mb" }));
+const JSONbig = require('json-bigint')({storeAsString: true});
 
-const expressWsApp = express();
-const websocketClientConnections = [];
+const expressAPP = express();
+expressAPP.use(express.urlencoded({extended: true, limit: "500mb"}));
+
+let httpServer: http.Server = null;
+
+let websocketServer = null;
 
 expressAPP.use((req, res, next) => {
     let data = '';
@@ -83,185 +85,258 @@ expressAPP.use((req, res, next) => {
     });
 });
 
-export function startExpress(port: number) {
+const expressAuthorize = (req: Request, res: Response, next: () => void) => {
+    let token = ""
+    const authHeader = req.get("authorization")
+    if (authHeader) {
+        token = authHeader.split("Bearer ").pop()
+        log("receive http header token", token)
+    } else if (req.query.access_token) {
+        if (Array.isArray(req.query.access_token)) {
+            token = req.query.access_token[0].toString();
+        } else {
+            token = req.query.access_token.toString();
+        }
+        log("receive http url token", token)
+    }
 
+    if (accessToken) {
+        if (token != accessToken) {
+            return res.status(403).send(JSON.stringify({message: 'token verify failed!'}));
+        }
+    }
+    next();
+
+};
+
+export function setToken(token: string) {
+    accessToken = token
+}
+
+export function startHTTPServer(port: number) {
+    if (httpServer) {
+        httpServer.close();
+    }
     expressAPP.get('/', (req: Request, res: Response) => {
-        res.send('llonebot已启动');
+        res.send('LLOneBot已启动');
     })
 
     if (getConfigUtil().getConfig().enableHttp) {
-        expressAPP.listen(port, "0.0.0.0", () => {
+        httpServer = expressAPP.listen(port, "0.0.0.0", () => {
             console.log(`llonebot http service started 0.0.0.0:${port}`);
         });
     }
 }
 
-export function startWebsocketServer(port: number) {
-    const config = getConfigUtil().getConfig();
-    if (config.enableWs) {
-        try {
-            expressWs(expressWsApp)
-            expressWsApp.listen(getConfigUtil().getConfig().wsPort, function () {
-                console.log(`llonebot websocket service started 0.0.0.0:${port}`);
-            });
-        }
-        catch (e) {
-            console.log(e);
-        }
-    }
-}
+export function initWebsocket(port: number) {
+    if (!heartbeatRunning) {
+        setInterval(() => {
+            callEvent(new OB11HeartbeatEvent(true, true, heartInterval));
+        }, heartInterval);  // 心跳包
 
-export function initWebsocket() {
+        heartbeatRunning = true;
+    }
+
     if (getConfigUtil().getConfig().enableWs) {
-        expressWsApp.ws("/api", (ws, req) => {
-            initWebsocketServer(ws, req, WebsocketType.API);
-        });
-        expressWsApp.ws("/event", (ws, req) => {
-            initWebsocketServer(ws, req, WebsocketType.EVENT);
-        });
-        expressWsApp.ws("/", (ws, req) => {
-            initWebsocketServer(ws, req, WebsocketType.ALL);
-        });
+        if (websocketServer) {
+            websocketServer.close((err) => {
+                log("ws server close failed!", err)
+            })
+        }
+
+        websocketServer = new websocket.Server({port});
+        console.log(`llonebot websocket service started 0.0.0.0:${port}`);
+
+        websocketServer.on("connection", (ws, req) => {
+            const url = req.url.split("?").shift();
+            log("receive ws connect", url)
+            let token: string = ""
+            const authHeader = req.headers['authorization'];
+            if (authHeader) {
+                token = authHeader.split("Bearer ").pop()
+                log("receive ws header token", token);
+            } else {
+                const parsedUrl = urlParse.parse(req.url, true);
+                const urlToken = parsedUrl.query.access_token;
+                if (urlToken) {
+                    if (Array.isArray(urlToken)) {
+                        token = urlToken[0]
+                    } else {
+                        token = urlToken
+                    }
+                    log("receive ws url token", token);
+                }
+            }
+            if (accessToken) {
+                if (token != accessToken) {
+                    ws.send(JSON.stringify(OB11WebsocketResponse.res(null, "failed", 1403, "token验证失败")))
+                    return ws.close()
+                }
+            }
+
+            if (url == "/api" || url == "/api/" || url == "/") {
+                ws.on("message", async (msg) => {
+                    let receiveData: { action: ActionName, params: any, echo?: string } = {action: null, params: {}}
+                    let echo = ""
+                    log("收到正向Websocket消息", msg.toString())
+                    try {
+                        receiveData = JSON.parse(msg.toString())
+                        echo = receiveData.echo
+                    } catch (e) {
+                        return wsReply(ws, OB11WebsocketResponse.error("json解析失败，请检查数据格式", 1400, echo))
+                    }
+                    const action: BaseAction<any, any> = actionMap.get(receiveData.action);
+                    if (!action) {
+                        return wsReply(ws, OB11WebsocketResponse.error("不支持的api " + receiveData.action, 1404, echo))
+                    }
+                    try {
+                        let handleResult = await action.websocketHandle(receiveData.params, echo);
+                        wsReply(ws, handleResult)
+                    } catch (e) {
+                        wsReply(ws, OB11WebsocketResponse.error(`api处理出错:${e}`, 1200, echo))
+                    }
+                })
+            }
+            if (url == "/event" || url == "/event/" || url == "/") {
+                registerEventSender(ws);
+
+                log("event上报ws客户端已连接")
+
+                try {
+                    wsReply(ws, new OB11LifeCycleEvent(LifeCycleSubType.CONNECT))
+                } catch (e){
+                    log("发送生命周期失败", e)
+                }
+
+                ws.on("close", () => {
+                    log("event上报ws客户端已断开")
+                    unregisterEventSender(ws);
+                })
+            }
+        })
     }
 
     initReverseWebsocket();
 }
-
 function initReverseWebsocket() {
     const config = getConfigUtil().getConfig();
     if (config.enableWsReverse) {
+        console.log("Prepare to connect all reverse websockets...");
         for (const url of config.wsHosts) {
-            try {
-                let wsClient = new ReconnectingWebsocket(url);
-                websocketClientConnections.push(wsClient);
-                registerEventSender(wsClient);
+            new Promise(() => {
+                try {
+                    let wsClient = new ReconnectingWebsocket(url);
+                    registerEventSender(wsClient);
 
-                wsClient.onclose = function () {
-                    console.log("The websocket connection: " + url + " closed, trying reconnecting...");
-                    unregisterEventSender(wsClient);
-                    let index = websocketClientConnections.indexOf(wsClient);
-                    if (index !== -1) {
-                        websocketClientConnections.splice(index, 1);
+                    wsClient.onopen = function () {
+                        wsReply(wsClient, new OB11LifeCycleEvent(LifeCycleSubType.CONNECT));
                     }
-                }
 
-                wsClient.onmessage = async function (message) {
-                    console.log(message);
-                    if (typeof message === "string") {
+                    wsClient.onclose = function () {
+                        unregisterEventSender(wsClient);
+                    }
+
+                    wsClient.onmessage = async function (msg) {
+                        let receiveData: { action: ActionName, params: any, echo?: string } = {action: null, params: {}}
+                        let echo = ""
+                        log("收到正向Websocket消息", msg.toString())
                         try {
-                            let recv = JSON.parse(message);
-                            let echo = recv.echo ?? "";
-
-                            if (actionMap.has(recv.action)) {
-                                let action = actionMap.get(recv.action);
-                                const result = await action.websocketHandle(recv.params, echo);
-                                wsClient.send(JSON.stringify(result));
-                            }
-                            else {
-                                wsClient.send(JSON.stringify(OB11WebsocketResponse.error("Bad Request", 1400, echo)));
-                            }
+                            receiveData = JSON.parse(msg.toString())
+                            echo = receiveData.echo
                         } catch (e) {
-                            log(e.stack);
-                            wsClient.send(JSON.stringify(OB11WebsocketResponse.error(e.stack.toString(), 1200)));
+                            return wsReply(wsClient, OB11WebsocketResponse.error("json解析失败，请检查数据格式", 1400, echo))
+                        }
+                        const action: BaseAction<any, any> = actionMap.get(receiveData.action);
+                        if (!action) {
+                            return wsReply(wsClient, OB11WebsocketResponse.error("不支持的api " + receiveData.action, 1404, echo))
+                        }
+                        try {
+                            let handleResult = await action.websocketHandle(receiveData.params, echo);
+                            wsReply(wsClient, handleResult)
+                        } catch (e) {
+                            wsReply(wsClient, OB11WebsocketResponse.error(`api处理出错:${e}`, 1200, echo))
                         }
                     }
                 }
-            }
-            catch (e) {
-                console.log(e);
-            }
+                catch (e) {
+                    log(e.stack);
+                }
+            }).then();
         }
     }
 }
 
-function initWebsocketServer(ws, req, type: WebsocketType) {
-    if (type == WebsocketType.EVENT || type == WebsocketType.ALL) {
-        registerEventSender(ws);
+export function wsReply(wsClient: websocket.WebSocket | ReconnectingWebsocket, data: OB11WebsocketResponse | PostMsgType) {
+    try {
+        let packet = Object.assign({
+            echo: ""
+        }, data);
+        if (!packet.echo) {
+            packet.echo = "";
+        }
+
+        wsClient.send(JSON.stringify(packet))
+        log("ws 消息上报", data)
+    } catch (e) {
+        log("websocket 回复失败", e)
     }
-
-    ws.on("message", async function (message) {
-        if (type == WebsocketType.API || type == WebsocketType.ALL) {
-            try {
-                let recv = JSON.parse(message);
-                let echo = recv.echo ?? "";
-
-                if (actionMap.has(recv.action)) {
-                    let action = actionMap.get(recv.action)
-                    const result = await action.websocketHandle(recv.params, echo);
-                    ws.send(JSON.stringify(result));
-                }
-                else {
-                    ws.send(JSON.stringify(OB11WebsocketResponse.error("Bad Request", 1400, echo)));
-                }
-            } catch (e) {
-                log(e.stack);
-                ws.send(JSON.stringify(OB11WebsocketResponse.error(e.stack.toString(), 1200)));
-            }
-        }
-    });
-
-    ws.on("close", function (ev) {
-        if (type == WebsocketType.EVENT || type == WebsocketType.ALL) {
-            unregisterEventSender(ws);
-        }
-    });
 }
 
+export type PostMsgType = OB11Message | OB11BaseMetaEvent | OB11BaseNoticeEvent
 
-export function postMsg(msg: OB11Message) {
+export function postMsg(msg: PostMsgType) {
     const config = getConfigUtil().getConfig();
-    if (config.enableHttpPost) {
-        if (!config.reportSelfMessage) {
-            if (msg.user_id == selfInfo.uin) {
-                return
-            }
-        }
-        for (const host of config.httpHosts) {
-            fetch(host, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "x-self-id": selfInfo.uin
-                },
-                body: JSON.stringify(msg)
-            }).then((res: any) => {
-                log(`新消息事件上报成功: ${host} ` + JSON.stringify(msg));
-            }, (err: any) => {
-                log(`新消息事件上报失败: ${host} ` + err + JSON.stringify(msg));
-            });
+    // 判断msg是否是event
+    if (!config.reportSelfMessage) {
+        if ((msg as OB11Message).user_id.toString() == selfInfo.uin) {
+            return
         }
     }
+    for (const host of config.httpHosts) {
+        fetch(host, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-self-id": selfInfo.uin
+            },
+            body: JSON.stringify(msg)
+        }).then((res: any) => {
+            log(`新消息事件HTTP上报成功: ${host} ` + JSON.stringify(msg));
+        }, (err: any) => {
+            log(`新消息事件HTTP上报失败: ${host} ` + err + JSON.stringify(msg));
+        });
+    }
 
+    log("新消息事件ws上报", msg);
+    callEvent(msg);
 }
 
-let routers: Record<string, (payload: any) => Promise<OB11Return<any>>> = {};
 
 function registerRouter(action: string, handle: (payload: any) => Promise<any>) {
     let url = action.toString()
     if (!action.startsWith("/")) {
         url = "/" + action
     }
+
     async function _handle(res: Response, payload: any) {
         log("receive post data", url, payload)
         try {
             const result = await handle(payload)
             res.send(result)
-        }
-        catch (e) {
+        } catch (e) {
             log(e.stack);
             res.send(OB11Response.error(e.stack.toString(), 200))
         }
     }
 
-    expressAPP.post(url, (req: Request, res: Response) => {
-        _handle(res, req.body).then()
+    expressAPP.post(url, expressAuthorize, (req: Request, res: Response) => {
+        _handle(res, req.body || {}).then()
     });
-    expressAPP.get(url, (req: Request, res: Response) => {
-        _handle(res, req.query as any).then()
+    expressAPP.get(url, expressAuthorize, (req: Request, res: Response) => {
+        _handle(res, req.query as any || {}).then()
     });
-    routers[url] = handle
 }
 
-for (const action  of actionHandlers) {
+for (const action of actionHandlers) {
     registerRouter(action.actionName, (payload) => action.handle(payload))
 }

@@ -1,15 +1,12 @@
 import {BrowserWindow} from 'electron';
 import {log, sleep} from "../common/utils";
 import {NTQQApi, NTQQApiClass, sendMessagePool} from "./ntcall";
-import {Group, GroupMember, RawMessage, User} from "./types";
+import {Group, RawMessage, User} from "./types";
 import {addHistoryMsg, friends, groups, msgHistory} from "../common/data";
 import {v4 as uuidv4} from 'uuid';
-import {callEvent, EventType} from "../onebot11/event/manager";
-import {OB11Message} from "../onebot11/types";
-import {OB11Constructor} from "../onebot11/constructor";
-import BaseMessageEvent from "../onebot11/event/BaseMessageEvent";
-import GroupDecreaseEvent from "../onebot11/event/GroupDecreaseEvent";
-import GroupIncreaseEvent from "../onebot11/event/GroupIncreaseEvent";
+import {OB11GroupDecreaseEvent} from "../onebot11/event/notice/OB11GroupDecreaseEvent";
+import {OB11GroupIncreaseEvent} from "../onebot11/event/notice/OB11GroupIncreaseEvent";
+import {postMsg} from "../onebot11/server";
 
 export let hookApiCallbacks: Record<string, (apiReturn: any) => void> = {}
 
@@ -39,7 +36,7 @@ interface NTQQApiReturnData<PayloadType = unknown> extends Array<any> {
 
 let receiveHooks: Array<{
     method: ReceiveCmd,
-    hookFunc: (payload: any) => void,
+    hookFunc: ((payload: any) => void | Promise<void>)
     id: string
 }> = []
 
@@ -55,7 +52,10 @@ export function hookNTQQApiReceive(window: BrowserWindow) {
                     if (hook.method === ntQQApiMethodName) {
                         new Promise((resolve, reject) => {
                             try {
-                                hook.hookFunc(receiveData.payload);
+                                let _ = hook.hookFunc(receiveData.payload)
+                                if (hook.hookFunc.constructor.name === "AsyncFunction"){
+                                    (_ as Promise<void>).then()
+                                }
                             } catch (e) {
                                 log("hook error", e, receiveData.payload)
                             }
@@ -137,7 +137,7 @@ async function processGroupEvent(payload) {
 
                     for (const member of oldMembers) {
                         if (!newMembersSet.has(member.uin)) {
-                            callEvent(new GroupDecreaseEvent(group.groupCode, parseInt(member.uin)));
+                            postMsg(new OB11GroupDecreaseEvent(group.groupCode, parseInt(member.uin)));
                             break;
                         }
                     }
@@ -156,7 +156,7 @@ async function processGroupEvent(payload) {
                     group.members = newMembers;
                     for (const member of newMembers) {
                         if (!oldMembersSet.has(member.uin)) {
-                            callEvent(new GroupIncreaseEvent(group.groupCode, parseInt(member.uin)));
+                            postMsg(new OB11GroupIncreaseEvent(group.groupCode, parseInt(member.uin)));
                             break;
                         }
                     }
@@ -208,22 +208,10 @@ registerReceiveHook<{
     }
 })
 
-registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.UPDATE_MSG, (payload) => {
-    for (const message of payload.msgList) {
-        addHistoryMsg(message)
-    }
-})
-
 registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload) => {
     for (const message of payload.msgList) {
         // log("收到新消息，push到历史记录", message)
         addHistoryMsg(message)
-
-        OB11Constructor.message(message).then(
-            function (message) {
-                callEvent<OB11Message>(new BaseMessageEvent(), message);
-            }
-        );
     }
     const msgIds = Object.keys(msgHistory);
     if (msgIds.length > 30000) {

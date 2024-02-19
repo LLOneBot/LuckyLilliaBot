@@ -1,13 +1,9 @@
-import BaseEvent from "./BaseEvent";
-import {EventType} from "./manager";
+import {OB11GroupNoticeEvent} from "./OB11GroupNoticeEvent";
 
-class GroupDecreaseEvent extends BaseEvent {
-    post_type = EventType.NOTICE;
+export class OB11GroupDecreaseEvent extends OB11GroupNoticeEvent {
     notice_type = "group_decrease";
-    subtype = "leave";  // TODO: 实现其他几种子类型的识别
-    group_id: number;
+    sub_type = "leave";  // TODO: 实现其他几种子类型的识别 ("leave" | "kick" | "kick_me")
     operate_id: number;
-    user_id: number;
 
     constructor(groupId: number, userId: number) {
         super();
@@ -16,5 +12,3 @@ class GroupDecreaseEvent extends BaseEvent {
         this.user_id = userId;
     }
 }
-
-export default GroupDecreaseEvent

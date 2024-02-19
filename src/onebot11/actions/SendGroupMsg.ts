@@ -1,5 +1,5 @@
 import SendMsg from "./SendMsg";
-import { ActionName } from "./types";
+import {ActionName} from "./types";
 
 
 class SendGroupMsg extends SendMsg{

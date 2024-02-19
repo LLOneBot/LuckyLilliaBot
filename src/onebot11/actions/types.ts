@@ -11,7 +11,7 @@ export interface InvalidCheckResult {
     [k: string | number]: any
 }
 
-export enum ActionName{
+export enum ActionName {
     GetLoginInfo = "get_login_info",
     GetFriendList = "get_friend_list",
     GetGroupInfo = "get_group_info",
@@ -22,5 +22,9 @@ export enum ActionName{
     SendMsg = "send_msg",
     SendGroupMsg = "send_group_msg",
     SendPrivateMsg = "send_private_msg",
-    DeleteMsg = "delete_msg"
+    DeleteMsg = "delete_msg",
+    GetVersionInfo = "get_version_info",
+    GetStatus = "get_status",
+    CanSendRecord = "can_send_record",
+    CanSendImage = "can_send_image",
 }

@@ -7,6 +7,7 @@ export interface Config {
     enableHttpPost?: boolean
     enableWs?: boolean
     enableWsReverse?: boolean
+    token?: string
     enableBase64?: boolean
     debug?: boolean
     reportSelfMessage?: boolean

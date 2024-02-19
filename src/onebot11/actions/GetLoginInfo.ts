@@ -1,8 +1,8 @@
-import { OB11User } from '../types';
-import { OB11Constructor } from "../constructor";
-import { selfInfo } from "../../common/data";
+import {OB11User} from '../types';
+import {OB11Constructor} from "../constructor";
+import {selfInfo} from "../../common/data";
 import BaseAction from "./BaseAction";
-import { ActionName } from "./types";
+import {ActionName} from "./types";
 
 
 class GetLoginInfo extends BaseAction<null, OB11User> {

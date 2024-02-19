@@ -1,4 +1,4 @@
-import { Config } from "./common/types";
+import {Config} from "./common/types";
 
 
 declare var llonebot: {

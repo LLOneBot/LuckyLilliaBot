@@ -1,6 +1,8 @@
+import {log} from "../common/utils";
+
 const WebSocket = require("ws");
 
-class ReconnectingWebsocket {
+export class ReconnectingWebsocket {
     private websocket;
     private readonly url: string;
 
@@ -14,14 +16,6 @@ class ReconnectingWebsocket {
     public onmessage = function (msg){}
 
     public onclose = function () {}
-
-    private heartbeat() {
-        clearTimeout(this.websocket.pingTimeout);
-
-        this.websocket.pingTimeout = setTimeout(() => {
-            this.websocket.terminate();
-        }, 3000);
-    }
 
     public send(msg) {
         if (this.websocket && this.websocket.readyState == WebSocket.OPEN) {
@@ -50,15 +44,13 @@ class ReconnectingWebsocket {
 
         this.websocket.on("error", console.error);
 
-        this.websocket.on("ping", this.heartbeat);
-
         this.websocket.on("close", function close() {
             console.log("The websocket connection: " + instance.url + " closed, trying reconnecting...");
             instance.onclose();
 
-            setTimeout(instance.reconnect, 3000);
+            setTimeout(() => {
+                instance.reconnect();
+            }, 3000);  // TODO: 重连间隔在配置文件中实现
         });
     }
 }
-
-export default ReconnectingWebsocket;

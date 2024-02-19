@@ -1,4 +1,12 @@
-import {ElementType, SendPicElement, SendPttElement, SendReplyElement, SendTextElement, AtType} from "./types";
+import {
+    AtType,
+    ElementType,
+    SendFaceElement,
+    SendPicElement,
+    SendPttElement,
+    SendReplyElement,
+    SendTextElement
+} from "./types";
 import {NTQQApi} from "./ntcall";
 
 
@@ -44,7 +52,7 @@ export class SendMsgElementConstructor {
         }
     }
 
-    static async pic(picPath: string): Promise<SendPicElement>{
+    static async pic(picPath: string): Promise<SendPicElement> {
         const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(picPath);
         const imageSize = await NTQQApi.getImageSize(picPath);
         const picElement = {
@@ -70,7 +78,7 @@ export class SendMsgElementConstructor {
         };
     }
 
-    static async ptt(pttPath: string):Promise<SendPttElement> {
+    static async ptt(pttPath: string): Promise<SendPttElement> {
         const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(pttPath);
         return {
             elementType: ElementType.PTT,
@@ -93,5 +101,16 @@ export class SendMsgElementConstructor {
                 autoConvertText: 0,
             }
         };
+    }
+
+    static face(faceId: number): SendFaceElement {
+        return {
+            elementType: ElementType.FACE,
+            elementId: "",
+            faceElement: {
+                faceIndex: faceId,
+                faceType: 1
+            }
+        }
     }
 }

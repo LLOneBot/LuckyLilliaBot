@@ -7,13 +7,14 @@ export interface User {
     remark?: string
 }
 
-export interface SelfInfo extends User{
+export interface SelfInfo extends User {
 
 }
 
-export interface Friend extends User{}
+export interface Friend extends User {
+}
 
-export interface Group{
+export interface Group {
     groupCode: string,
     maxMember: number,
     memberCount: number,
@@ -62,6 +63,7 @@ export enum ElementType {
     TEXT = 1,
     PIC = 2,
     PTT = 4,
+    FACE = 6,
     REPLY = 7,
 }
 
@@ -76,6 +78,7 @@ export interface SendTextElement {
         atNtUid: string,
     }
 }
+
 export interface SendPttElement {
     elementType: ElementType.PTT,
     elementId: "",
@@ -127,7 +130,13 @@ export interface SendReplyElement {
     }
 }
 
-export type SendMessageElement = SendTextElement | SendPttElement | SendPicElement | SendReplyElement
+export interface SendFaceElement {
+    elementType: ElementType.FACE,
+    elementId: "",
+    faceElement: FaceElement
+}
+
+export type SendMessageElement = SendTextElement | SendPttElement | SendPicElement | SendReplyElement | SendFaceElement
 
 export enum AtType {
     notAt = 0,
@@ -140,6 +149,7 @@ export enum ChatType {
     group = 2,
     temp = 100
 }
+
 export interface PttElement {
     canConvert2Text: boolean;
     duration: number; // 秒数
@@ -180,6 +190,22 @@ export interface PicElement {
     fileUuid: string;
 }
 
+export interface GrayTipElement {
+    revokeElement: {
+        operatorRole: string;
+        operatorUid: string;
+        operatorNick: string;
+        operatorRemark: string;
+        operatorMemRemark?: string;
+        wording: string;  // 自定义的撤回提示语
+    }
+}
+
+export interface FaceElement {
+    faceIndex: number,
+    faceType: 1
+}
+
 export interface RawMessage {
     msgId: string;
     msgShortId?: number;  // 自己维护的消息id
@@ -191,6 +217,7 @@ export interface RawMessage {
     sendNickName: string;
     sendMemberName?: string; // 发送者群名片
     chatType: ChatType;
+    sendStatus?: number;  // 消息状态，2是已撤回
     elements: {
         elementId: string,
         replyElement: {
@@ -208,17 +235,7 @@ export interface RawMessage {
         picElement: PicElement;
         pttElement: PttElement;
         arkElement: ArkElement;
+        grayTipElement: GrayTipElement;
+        faceElement: FaceElement;
     }[];
 }
-
-export interface MessageElement {
-    raw: RawMessage;
-    peer: any;
-    sender: {
-        uid: string; // 一串加密的字符串
-        memberName: string;
-        nickname: string;
-    };
-}
-
-

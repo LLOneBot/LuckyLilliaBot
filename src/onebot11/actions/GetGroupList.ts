@@ -1,9 +1,8 @@
-import { OB11Group } from '../types';
-import { OB11Constructor } from "../constructor";
-import { groups } from "../../common/data";
+import {OB11Group} from '../types';
+import {OB11Constructor} from "../constructor";
+import {groups} from "../../common/data";
 import BaseAction from "./BaseAction";
-import { ActionName } from "./types";
-
+import {ActionName} from "./types";
 
 
 class GetGroupList extends BaseAction<null, OB11Group[]> {

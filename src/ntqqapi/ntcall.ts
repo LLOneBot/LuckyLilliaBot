@@ -1,12 +1,8 @@
-import { ipcMain } from "electron";
-import { v4 as uuidv4 } from "uuid";
-import { ReceiveCmd, hookApiCallbacks, registerReceiveHook, removeReceiveHook } from "./hook";
-import { log } from "../common/utils";
-import { ChatType, Friend, PicElement, SelfInfo, User } from "./types";
-import { Group } from "./types";
-import { GroupMember } from "./types";
-import { RawMessage } from "./types";
-import { SendMessageElement } from "./types";
+import {ipcMain} from "electron";
+import {v4 as uuidv4} from "uuid";
+import {hookApiCallbacks, ReceiveCmd, registerReceiveHook, removeReceiveHook} from "./hook";
+import {log} from "../common/utils";
+import {ChatType, Friend, Group, GroupMember, RawMessage, SelfInfo, SendMessageElement, User} from "./types";
 import * as fs from "fs";
 
 interface IPCReceiveEvent {

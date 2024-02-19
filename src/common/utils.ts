@@ -2,7 +2,6 @@ import * as path from "path";
 import {selfInfo} from "./data";
 import {ConfigUtil} from "./config";
 import util from "util";
-import { sendLog } from '../main/ipcsend';
 
 const fs = require('fs');
 
@@ -33,7 +32,7 @@ export function log(...msg: any[]) {
         }
         logMsg += msgItem + " ";
     }
-    logMsg = `${currentDateTime} ${userInfo}: ${logMsg}\n`
+    logMsg = `${currentDateTime} ${userInfo}: ${logMsg}\n\n`
     // sendLog(...msg);
     // console.log(msg)
     fs.appendFile(path.join(CONFIG_DIR , `llonebot-${currentDate}.log`), logMsg, (err: any) => {

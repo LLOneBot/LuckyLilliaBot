@@ -1,8 +1,7 @@
-import { AtType } from "../ntqqapi/types";
-import { RawMessage } from "../ntqqapi/types";
+import {AtType, RawMessage} from "../ntqqapi/types";
 
 export interface OB11User {
-    user_id: string;
+    user_id: number;
     nickname: string;
     remark?: string
 }
@@ -20,8 +19,8 @@ export enum OB11GroupMemberRole {
 }
 
 export interface OB11GroupMember {
-    group_id: string
-    user_id: string
+    group_id: number
+    user_id: number
     nickname: string
     card?: string
     sex?: OB11UserSex
@@ -34,14 +33,14 @@ export interface OB11GroupMember {
 }
 
 export interface OB11Group {
-    group_id: string
+    group_id: number
     group_name: string
     member_count?: number
     max_member_count?: number
 }
 
 interface OB11Sender {
-    user_id: string,
+    user_id: number,
     nickname: string,
     sex?: OB11UserSex,
     age?: number,
@@ -56,12 +55,12 @@ export enum OB11MessageType {
 }
 
 export interface OB11Message {
-    self_id?: string,
+    self_id?: number,
     time: number,
     message_id: number,
     real_id: string,
-    user_id: string,
-    group_id?: string,
+    user_id: number,
+    group_id?: number,
     message_type: "private" | "group",
     sub_type?: "friend" | "group" | "normal",
     sender: OB11Sender,
@@ -89,18 +88,12 @@ export interface OB11Return<DataType> {
     status: string
     retcode: number
     data: DataType
-    message: string
+    message: string,
 }
 
-export interface OB11WebsocketReturn<DataType> {
-    status: string
-    retcode: number
-    data: DataType
+export interface OB11WebsocketReturn<DataType> extends OB11Return<DataType>{
     echo: string
-    message: string
 }
-
-export interface OB11SendMsgReturn extends OB11Return<{message_id: string}>{}
 
 export enum OB11MessageDataType {
     text = "text",
@@ -108,7 +101,8 @@ export enum OB11MessageDataType {
     voice = "record",
     at = "at",
     reply = "reply",
-    json = "json"
+    json = "json",
+    face = "face"
 }
 
 export type OB11MessageData = {
@@ -140,6 +134,11 @@ export type OB11MessageData = {
     data: {
         id: string,
     }
+} | {
+    type: OB11MessageDataType.face,
+    data: {
+        id: string
+    }
 }
 
 export interface OB11PostSendMsg {
@@ -148,3 +147,16 @@ export interface OB11PostSendMsg {
     group_id?: string,
     message: OB11MessageData[] | string | OB11MessageData;
 }
+
+export interface OB11Version {
+    app_name: "LLOneBot"
+    app_version: string
+    protocol_version: "v11"
+}
+
+
+export interface OB11Status {
+    online: boolean | null,
+    good: boolean
+}
+

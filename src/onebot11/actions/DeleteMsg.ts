@@ -1,7 +1,7 @@
-import { ActionName } from "./types";
+import {ActionName} from "./types";
 import BaseAction from "./BaseAction";
-import { NTQQApi } from "../../ntqqapi/ntcall";
-import { getHistoryMsgByShortId, msgHistory } from "../../common/data";
+import {NTQQApi} from "../../ntqqapi/ntcall";
+import {getHistoryMsgByShortId} from "../../common/data";
 
 interface Payload {
     message_id: number

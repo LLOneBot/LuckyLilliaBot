@@ -1,13 +1,9 @@
-import BaseEvent from "./BaseEvent";
-import {EventType} from "./manager";
+import {OB11GroupNoticeEvent} from "./OB11GroupNoticeEvent";
 
-class GroupIncreaseEvent extends BaseEvent {
-    post_type = EventType.NOTICE;
+export class OB11GroupIncreaseEvent extends OB11GroupNoticeEvent {
     notice_type = "group_increase";
-    subtype = "approve";  // TODO: 实现其他几种子类型的识别
-    group_id: number;
+    sub_type = "approve";  // TODO: 实现其他几种子类型的识别 ("approve" | "invite")
     operate_id: number;
-    user_id: number;
 
     constructor(groupId: number, userId: number) {
         super();
@@ -16,6 +12,3 @@ class GroupIncreaseEvent extends BaseEvent {
         this.user_id = userId;
     }
 }
-
-
-export default GroupIncreaseEvent

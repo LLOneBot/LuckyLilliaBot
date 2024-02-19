@@ -18,7 +18,11 @@ LiteLoaderQQNT的OneBot11协议插件
 
 ## 支持的API
 
-目前只支持http协议，不支持websocket，事件上报也是http协议
+目前支持的协议
+- [x] http调用api
+- [x] http事件上报
+- [x] 正向websocket
+- [ ] 反向websocket
 
 主要功能:
 - [x] 发送好友消息
@@ -29,9 +33,11 @@ LiteLoaderQQNT的OneBot11协议插件
 - [x] 撤回消息
 - [x] 上报好友消息
 - [x] 上报群消息
+- [x] 上报好友、群消息撤回
 
 消息格式支持:
 - [x] 文字
+- [x] 表情
 - [x] 图片
 - [x] 引用消息
 - [x] @群成员
@@ -53,6 +59,10 @@ LiteLoaderQQNT的OneBot11协议插件
 - [x] get_group_member_info
 - [x] get_friend_list
 - [x] get_msg
+- [x] get_version_info
+- [x] get_status
+- [x] can_send_image
+- [x] can_send_record
 
 ## 示例
 
@@ -98,9 +108,9 @@ LiteLoaderQQNT的OneBot11协议插件
 
 ## TODO
 - [x] 重构摆脱LLAPI，目前调用LLAPI只能在renderer进程调用，需重构成在main进程调用
+- [x] 支持正向websocket
 - [ ] 转发消息记录 
 - [ ] 好友点赞api
-- [ ] 支持websocket，等个有缘人提PR实现
 
 ## onebot11文档
 <https://11.onebot.dev/>
