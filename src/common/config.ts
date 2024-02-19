@@ -16,6 +16,7 @@ export class ConfigUtil {
         }
 
         this.reloadConfig();
+        return this.config;
     }
   
     setConfig(config: Config) {
@@ -37,7 +38,8 @@ export class ConfigUtil {
         };
 
         if (!fs.existsSync(this.configPath)) {
-            return defaultConfig
+            this.config = defaultConfig;
+            return;
         } else {
             const data = fs.readFileSync(this.configPath, "utf-8");
             let jsonData: Config = defaultConfig;
@@ -62,7 +64,7 @@ export class ConfigUtil {
                 jsonData.token = "";
             }
 
-            return jsonData;
+            this.config = jsonData;
         }
     }
 }

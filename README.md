@@ -22,7 +22,7 @@ LiteLoaderQQNT的OneBot11协议插件
 - [x] http调用api
 - [x] http事件上报
 - [x] 正向websocket
-- [ ] 反向websocket
+- [x] 反向websocket
 
 主要功能:
 - [x] 发送好友消息
@@ -108,7 +108,7 @@ LiteLoaderQQNT的OneBot11协议插件
 
 ## TODO
 - [x] 重构摆脱LLAPI，目前调用LLAPI只能在renderer进程调用，需重构成在main进程调用
-- [x] 支持正向websocket
+- [x] 支持正、反向websocket（感谢@disymayufei的PR）
 - [ ] 转发消息记录 
 - [ ] 好友点赞api
 
