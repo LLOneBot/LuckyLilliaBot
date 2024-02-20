@@ -1,7 +1,6 @@
+import fs from "fs";
 import {Config, OB11Config} from "./types";
 import {mergeNewProperties} from "./utils";
-
-const fs = require("fs");
 
 export class ConfigUtil {
     private readonly configPath: string;
@@ -11,14 +10,14 @@ export class ConfigUtil {
         this.configPath = configPath;
     }
 
-    getConfig(): Config {
-        if (this.config) {
+    getConfig(cache=true) {
+        if (this.config && cache) {
             return this.config;
         }
 
-        this.reloadConfig();
-        return this.config;
+        return this.reloadConfig();
     }
+
     reloadConfig(): Config {
         let ob11Default: OB11Config = {
             httpPort: 3000,
@@ -42,20 +41,23 @@ export class ConfigUtil {
 
         if (!fs.existsSync(this.configPath)) {
             this.config = defaultConfig;
-            return;
+            return this.config;
         } else {
             const data = fs.readFileSync(this.configPath, "utf-8");
             let jsonData: Config = defaultConfig;
             try {
                 jsonData = JSON.parse(data)
             } catch (e) {
+                this.config = defaultConfig;
+                return this.config;
             }
             mergeNewProperties(defaultConfig, jsonData);
             this.checkOldConfig(jsonData.ob11, jsonData, "httpPort", "port");
             this.checkOldConfig(jsonData.ob11, jsonData, "httpHosts", "hosts");
             this.checkOldConfig(jsonData.ob11, jsonData, "wsPort", "wsPort");
-            console.log("get config", jsonData);
-            return jsonData;
+            // console.log("get config", jsonData);
+            this.config = jsonData;
+            return this.config;
         }
     }
 
