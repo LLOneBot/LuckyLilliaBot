@@ -26,7 +26,8 @@ jobs:
       run: |
         sudo apt install zip -y
         cp manifest.json ./dist/manifest.json
-        zip LLOneBot.zip ./dist/* -j
+        cd ./dist/
+        zip -r LLOneBot.zip ./* 
     
     - name: publish
       uses: ncipollo/release-action@v1
