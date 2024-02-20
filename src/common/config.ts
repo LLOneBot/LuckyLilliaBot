@@ -10,12 +10,13 @@ export class ConfigUtil {
     constructor(configPath: string) {
         this.configPath = configPath;
     }
-    getConfig(){
+
+    getConfig(): Config {
         if (this.config) {
             return this.config;
         }
 
-        this.config = this.reloadConfig();
+        this.reloadConfig();
         return this.config;
     }
     reloadConfig(): Config {
@@ -37,9 +38,11 @@ export class ConfigUtil {
             debug: false,
             log: false,
             reportSelfMessage: false
-        }
+        };
+
         if (!fs.existsSync(this.configPath)) {
-            return defaultConfig
+            this.config = defaultConfig;
+            return;
         } else {
             const data = fs.readFileSync(this.configPath, "utf-8");
             let jsonData: Config = defaultConfig;
