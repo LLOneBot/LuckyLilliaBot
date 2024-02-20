@@ -76,18 +76,21 @@ export abstract class HttpServerBase {
 
     abstract handleFailed(res: Response, payload: any, err: any): void
 
-    registerRouter(method: string, url: string, handler: RegisterHandler) {
+    registerRouter(method: "post" | "get" | string, url: string, handler: RegisterHandler) {
         if (!url.startsWith("/")) {
             url = "/" + url
         }
-        const methodFunc = this.expressAPP[method]
-        if (!methodFunc){
+
+        if (!this.expressAPP[method]){
             const err = `${this.name} register router failed，${method} not exist`;
             log(err);
             throw err;
         }
         this.expressAPP[method](url, this.authorize, async (req: Request, res: Response) => {
-            const payload = req.body || req.query || {}
+            let payload = req.body;
+            if (method == "get"){
+                payload = req.query
+            }
             try{
                 res.send(await handler(res, payload))
             }catch (e) {
