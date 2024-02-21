@@ -36,10 +36,10 @@ class OB11WebsocketServer extends WebsocketServerBase {
             wsClient.on("message", async (msg) => {
                 let receiveData: { action: ActionName, params: any, echo?: string } = {action: null, params: {}}
                 let echo = ""
-                log("收到正向Websocket消息", msg)
                 try {
                     receiveData = JSON.parse(msg.toString())
                     echo = receiveData.echo
+                    log("收到正向Websocket消息", receiveData);
                 } catch (e) {
                     return wsReply(wsClient, OB11Response.error("json解析失败，请检查数据格式", 1400, echo))
                 }

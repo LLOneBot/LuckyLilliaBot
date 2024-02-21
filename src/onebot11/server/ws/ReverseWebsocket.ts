@@ -35,10 +35,10 @@ export class ReverseWebsocket {
     public async onmessage(msg: string) {
         let receiveData: { action: ActionName, params: any, echo?: string } = {action: null, params: {}}
         let echo = ""
-        log("收到反向Websocket消息", msg)
         try {
             receiveData = JSON.parse(msg.toString())
             echo = receiveData.echo
+            log("收到反向Websocket消息", receiveData)
         } catch (e) {
             return wsReply(this.websocket, OB11Response.error("json解析失败，请检查数据格式", 1400, echo))
         }
@@ -89,18 +89,18 @@ export class ReverseWebsocket {
         log("Trying to connect to the websocket server: " + this.url);
 
 
-        this.websocket.on("open", ()=> {
+        this.websocket.on("open", () => {
             log("Connected to the websocket server: " + this.url);
             this.onopen();
         });
 
-        this.websocket.on("message", async (data)=>{
+        this.websocket.on("message", async (data) => {
             await this.onmessage(data.toString());
         });
 
         this.websocket.on("error", log);
 
-        this.websocket.on("close", ()=> {
+        this.websocket.on("close", () => {
             log("The websocket connection: " + this.url + " closed, trying reconnecting...");
             this.onclose();
         });
