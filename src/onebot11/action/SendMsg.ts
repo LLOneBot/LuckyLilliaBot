@@ -150,7 +150,10 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
             let nodeId = messageNode.data.id;
             // 有nodeId表示一个子转发消息卡片
             if (nodeId) {
-                nodeIds.push(nodeId)
+                let nodeMsg = getHistoryMsgByShortId(nodeId);
+                if (nodeMsg){
+                    nodeIds.push(nodeMsg.msgId);
+                }
             } else {
                 // 自定义的消息
                 // 提取消息段，发给自己生成消息id

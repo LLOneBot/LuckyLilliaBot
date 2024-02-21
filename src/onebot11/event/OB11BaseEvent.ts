@@ -4,7 +4,8 @@ export enum EventType {
     META = "meta_event",
     REQUEST = "request",
     NOTICE = "notice",
-    MESSAGE = "message"
+    MESSAGE = "message",
+    MESSAGE_SENT = "message_sent",
 }
 
 

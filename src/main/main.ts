@@ -16,6 +16,7 @@ import {OB11FriendRecallNoticeEvent} from "../onebot11/event/notice/OB11FriendRe
 import {OB11GroupRecallNoticeEvent} from "../onebot11/event/notice/OB11GroupRecallNoticeEvent";
 import {postEvent} from "../onebot11/server/postevent";
 import {ob11ReverseWebsockets} from "../onebot11/server/ws/ReverseWebsocket";
+import {EventType} from "../onebot11/event/OB11BaseEvent";
 
 
 let running = false;
@@ -94,7 +95,8 @@ function onLoad() {
                 if (debug) {
                     msg.raw = message;
                 }
-                if (msg.user_id.toString() == selfInfo.uin && !reportSelfMessage) {
+                const isSelfMsg = msg.user_id.toString() == selfInfo.uin
+                if (isSelfMsg && !reportSelfMessage) {
                     return
                 }
                 postEvent(msg);

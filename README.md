@@ -36,6 +36,7 @@ LiteLoaderQQNT的OneBot11协议插件
 - [x] 上报好友、群消息撤回
 
 消息格式支持:
+- [x] cq码
 - [x] 文字
 - [x] 表情
 - [x] 图片
@@ -64,6 +65,10 @@ LiteLoaderQQNT的OneBot11协议插件
 - [x] can_send_image
 - [x] can_send_record
 
+支持的go-cqhtp api:
+- [x] send_private_forward_msg
+- [x] send_group_forward_msg
+
 ## 示例
 
 ![](doc/image/example.jpg)
@@ -88,13 +93,6 @@ LiteLoaderQQNT的OneBot11协议插件
     <summary>发送不了图片和语音</summary>
 <br/>
     检查当前操作用户是否有LiteLoaderQQNT/data/LLOneBot的写入权限，如Windows把QQ上安装到C盘有可能会出现无权限导致发送失败
-</details>
-<br/>
-
-<details>
-    <summary>不支持cq码</summary>
-<br/>
-    cq码已经过时了，没有支持的打算(主要是我不用这玩意儿，加上我懒)
 </details>
 <br/>
 

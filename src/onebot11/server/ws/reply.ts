@@ -11,7 +11,7 @@ export function wsReply(wsClient: websocket.WebSocket, data: OB11Response | Post
             delete packet["echo"];
         }
         wsClient.send(JSON.stringify(packet))
-        log("ws 消息上报", wsClient.url, data)
+        log("ws 消息上报", wsClient.url || "", data)
     } catch (e) {
         log("websocket 回复失败", e)
     }

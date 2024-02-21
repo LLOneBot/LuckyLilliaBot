@@ -87,4 +87,4 @@ export function getUidByUin(uin: string) {
     }
 }
 
-export const version = "v3.4.0"
+export const version = "v3.5.0"

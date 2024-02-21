@@ -1,4 +1,5 @@
 import {AtType, RawMessage} from "../ntqqapi/types";
+import {EventType} from "./event/OB11BaseEvent";
 
 export interface OB11User {
     user_id: number;
@@ -67,7 +68,7 @@ export interface OB11Message {
     message: OB11MessageData[],
     raw_message: string,
     font: number,
-    post_type?: "message",
+    post_type?: EventType,
     raw?: RawMessage
 }
 

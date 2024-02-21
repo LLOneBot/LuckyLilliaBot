@@ -11,6 +11,7 @@ import {AtType, ChatType, Group, GroupMember, IMAGE_HTTP_HOST, RawMessage, SelfI
 import {getFriend, getGroupMember, getHistoryMsgBySeq, selfInfo} from '../common/data';
 import {file2base64, getConfigUtil, log} from "../common/utils";
 import {NTQQApi} from "../ntqqapi/ntcall";
+import {EventType} from "./event/OB11BaseEvent";
 
 
 export class OB11Constructor {
@@ -34,10 +35,10 @@ export class OB11Constructor {
             font: 14,
             sub_type: "friend",
             message: [],
-            post_type: "message",
+            post_type: selfInfo.uin == msg.senderUin ? EventType.MESSAGE_SENT : EventType.MESSAGE,
         }
         if (msg.chatType == ChatType.group) {
-            resMsg.sub_type = "normal"
+            resMsg.sub_type = "normal" // 这里go-cqhttp是group，而onebot11标准是normal, 蛋疼
             resMsg.group_id = parseInt(msg.peerUin)
             const member = await getGroupMember(msg.peerUin, msg.senderUin);
             if (member) {
@@ -80,7 +81,14 @@ export class OB11Constructor {
                 }
             } else if (element.textElement) {
                 message_data["type"] = "text"
-                resMsg.raw_message += message_data["data"]["text"] = element.textElement.content
+                let text= element.textElement.content
+                if (!text.trim()){
+                    continue;
+                }
+                message_data["data"]["text"] = text
+                if (text){
+                    resMsg.raw_message += text
+                }
             } else if (element.picElement) {
                 message_data["type"] = "image"
                 message_data["data"]["file_id"] = element.picElement.fileUuid
@@ -139,6 +147,7 @@ export class OB11Constructor {
                 resMsg.message.push(message_data);
             }
         }
+        resMsg.raw_message = resMsg.raw_message.trim();
         return resMsg;
     }
 
