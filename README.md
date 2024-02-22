@@ -1,6 +1,8 @@
-# LLOneBot API
 
+# LLOneBot API
 LiteLoaderQQNT的OneBot11协议插件
+
+TG群：<https://t.me/+nLZEnpne-pQ1OWFl>
 
 *注意：本文档对应的是 LiteLoader 1.0.0及以上版本，如果你使用的是旧版本请切换到本项目v1分支查看文档*
 
