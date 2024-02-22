@@ -2,6 +2,8 @@ import fs from "fs";
 import {Config, OB11Config} from "./types";
 import {mergeNewProperties} from "./utils";
 
+export const HOOK_LOG = false;
+
 export class ConfigUtil {
     private readonly configPath: string;
     private config: Config | null = null;

@@ -241,3 +241,30 @@ export interface RawMessage {
         faceElement: FaceElement;
     }[];
 }
+
+export enum GroupNotifyTypes{
+    ADMIN_SET = 8,
+    ADMIN_UNSET = 12
+}
+
+export interface GroupNotify {
+    doubt: boolean,
+    nextStartSeq: string,
+    notifies: [{
+        seq: string, // 转成数字，再除以1000应该就是时间戳？
+        type: GroupNotifyTypes,
+        status: 0,  // 未知
+        group: { groupCode: string, groupName: string },
+        user1: { uid: string, nickName: string }, // 被设置管理员的人
+        user2: { uid: string, nickName: string },  // 操作者
+        actionUser: { uid: string, nickName: string }, //未知
+        actionTime: string,
+        invitationExt: {
+            srcType: number,  // 0?未知
+            groupCode: string, waitStatus: number
+        },
+        postscript: string,
+        repeatSeqs: [],
+        warningTips: string
+    }]
+}

@@ -114,7 +114,7 @@ export class OB11Constructor {
                 message_data["type"] = "reply"
                 const replyMsg = getHistoryMsgBySeq(element.replyElement.replayMsgSeq)
                 if (replyMsg) {
-                    message_data["data"]["id"] = replyMsg.msgShortId
+                    message_data["data"]["id"] = replyMsg.msgShortId.toString()
                 } else {
                     continue
                 }

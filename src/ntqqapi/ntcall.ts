@@ -1,7 +1,17 @@
 import {ipcMain} from "electron";
 import {hookApiCallbacks, ReceiveCmd, registerReceiveHook, removeReceiveHook} from "./hook";
 import {log} from "../common/utils";
-import {ChatType, Friend, Group, GroupMember, RawMessage, SelfInfo, SendMessageElement, User} from "./types";
+import {
+    ChatType,
+    Friend,
+    Group,
+    GroupMember,
+    GroupNotify,
+    RawMessage,
+    SelfInfo,
+    SendMessageElement,
+    User
+} from "./types";
 import * as fs from "fs";
 import {addHistoryMsg, msgHistory, selfInfo} from "../common/data";
 import {v4 as uuidv4} from "uuid"
@@ -42,7 +52,7 @@ export enum NTQQApiMethod {
     SEND_MSG = "nodeIKernelMsgService/sendMsg",
     DOWNLOAD_MEDIA = "nodeIKernelMsgService/downloadRichMedia",
     MULTI_FORWARD_MSG = "nodeIKernelMsgService/multiForwardMsgWithComment", // 合并转发
-    GET_GROUP_NOTICE = "nodeIKernelGroupListener/onGroupSingleScreenNotifies",
+    GET_GROUP_NOTICE = "nodeIKernelGroupService/getSingleScreenNotifies",
 }
 
 enum NTQQApiChannel {
@@ -63,7 +73,7 @@ enum CallBackType {
 }
 
 interface NTQQApiParams {
-    methodName: NTQQApiMethod,
+    methodName: NTQQApiMethod | string,
     className?: NTQQApiClass,
     channel?: NTQQApiChannel,
     classNameIsRegister?: boolean
@@ -77,7 +87,7 @@ function callNTQQApi<ReturnType>(params: NTQQApiParams) {
     let {
         className, methodName, channel, args,
         cbCmd, timeoutSecond: timeout,
-        cmdCB
+        classNameIsRegister, cmdCB
     } = params;
     className = className ?? NTQQApiClass.NT_API;
     channel = channel ?? NTQQApiChannel.IPC_UP_2;
@@ -89,6 +99,11 @@ function callNTQQApi<ReturnType>(params: NTQQApiParams) {
         // log("callNTQQApiPromise", channel, className, methodName, args, uuid)
         const _timeout = timeout * 1000
         let success = false
+        let eventName = className + "-" + channel[channel.length - 1];
+        if (classNameIsRegister) {
+            eventName += "-register";
+        }
+        const apiArgs = [methodName, ...args]
         if (!cbCmd) {
             // QQ后端会返回结果，并且可以插根据uuid识别
             hookApiCallbacks[uuid] = (r: ReturnType) => {
@@ -123,12 +138,11 @@ function callNTQQApi<ReturnType>(params: NTQQApiParams) {
         setTimeout(() => {
             // log("ntqq api timeout", success, channel, className, methodName)
             if (!success) {
-                log(`ntqq api timeout ${channel}, ${className}, ${methodName}`)
-                reject(`ntqq api timeout ${channel}, ${className}, ${methodName}`)
+                log(`ntqq api timeout ${channel}, ${eventName}, ${methodName}`, apiArgs);
+                reject(`ntqq api timeout ${channel}, ${eventName}, ${methodName}, ${apiArgs}`)
             }
         }, _timeout)
-        const eventName = className + "-" + channel[channel.length - 1];
-        const apiArgs = [methodName, ...args]
+
         ipcMain.emit(
             channel,
             {},
@@ -242,6 +256,7 @@ export class NTQQApi {
             }
             // log(uidMaps);
             // log("members info", values);
+            log(`get group ${groupQQ} members success`)
             return members
         } catch (e) {
             log(`get group ${groupQQ} members failed`, e)
@@ -480,5 +495,22 @@ export class NTQQApi {
                 }
             })
         })
+    }
+
+    static async getGroupNotifies() {
+        // 获取管理员变更
+        // 加群通知，退出通知，需要管理员权限
+        await callNTQQApi<GeneralCallResult>({
+            methodName: ReceiveCmd.GROUP_NOTIFY,
+            classNameIsRegister: true,
+        })
+        return await callNTQQApi<GroupNotify>({
+            methodName: NTQQApiMethod.GET_GROUP_NOTICE,
+            cbCmd: ReceiveCmd.GROUP_NOTIFY,
+            args:[
+                {"doubt":false,"startSeq":"","number":14},
+                null
+            ]
+        });
     }
 }

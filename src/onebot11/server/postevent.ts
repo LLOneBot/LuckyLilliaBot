@@ -29,10 +29,10 @@ export function postWsEvent(event: PostEventType) {
     }
 }
 
-export function postEvent(msg: PostEventType) {
+export function postEvent(msg: PostEventType, reportSelf=false) {
     const config = getConfigUtil().getConfig();
     // 判断msg是否是event
-    if (!config.reportSelfMessage) {
+    if (!config.reportSelfMessage && !reportSelf) {
         if ((msg as OB11Message).user_id.toString() == selfInfo.uin) {
             return
         }

@@ -7,6 +7,7 @@ import {OB11GroupDecreaseEvent} from "../onebot11/event/notice/OB11GroupDecrease
 import {OB11GroupIncreaseEvent} from "../onebot11/event/notice/OB11GroupIncreaseEvent";
 import {v4 as uuidv4} from "uuid"
 import {postEvent} from "../onebot11/server/postevent";
+import {HOOK_LOG} from "../common/config";
 
 export let hookApiCallbacks: Record<string, (apiReturn: any) => void> = {}
 
@@ -19,7 +20,8 @@ export enum ReceiveCmd {
     GROUPS_UNIX = "onGroupListUpdate",
     FRIENDS = "onBuddyListChange",
     MEDIA_DOWNLOAD_COMPLETE = "nodeIKernelMsgListener/onRichMediaDownloadComplete",
-    UNREAD_GROUP_NOTICE = "nodeIKernelGroupListener/onGroupNotifiesUnreadCountUpdated"
+    UNREAD_GROUP_NOTIFY = "nodeIKernelGroupListener/onGroupNotifiesUnreadCountUpdated",
+    GROUP_NOTIFY = "nodeIKernelGroupListener/onGroupSingleScreenNotifies"
 }
 
 interface NTQQApiReturnData<PayloadType = unknown> extends Array<any> {
@@ -45,7 +47,7 @@ let receiveHooks: Array<{
 export function hookNTQQApiReceive(window: BrowserWindow) {
     const originalSend = window.webContents.send;
     const patchSend = (channel: string, ...args: NTQQApiReturnData) => {
-        // log(`received ntqq api message: ${channel}`, JSON.stringify(args))
+        HOOK_LOG && log(`received ntqq api message: ${channel}`, JSON.stringify(args))
         if (args?.[1] instanceof Array) {
             for (let receiveData of args?.[1]) {
                 const ntQQApiMethodName = receiveData.cmdName;
@@ -89,15 +91,15 @@ export function hookNTQQApiCall(window: BrowserWindow) {
 
     const proxyIpcMsg = new Proxy(ipc_message_proxy, {
         apply(target, thisArg, args) {
-            log("call NTQQ api", thisArg, args);
+            HOOK_LOG && log("call NTQQ api", thisArg, args);
             return target.apply(thisArg, args);
         },
     });
-    // if (webContents._events["-ipc-message"]?.[0]) {
-    //     webContents._events["-ipc-message"][0] = proxyIpcMsg;
-    // } else {
-    //     webContents._events["-ipc-message"] = proxyIpcMsg;
-    // }
+    if (webContents._events["-ipc-message"]?.[0]) {
+        webContents._events["-ipc-message"][0] = proxyIpcMsg;
+    } else {
+        webContents._events["-ipc-message"] = proxyIpcMsg;
+    }
 }
 
 export function registerReceiveHook<PayloadType>(method: ReceiveCmd, hookFunc: (payload: PayloadType) => void): string {
@@ -253,9 +255,3 @@ registerReceiveHook<{ msgRecord: RawMessage }>(ReceiveCmd.SELF_SEND_MSG, ({msgRe
     }
 })
 
-registerReceiveHook<{"doubt": boolean,"oldestUnreadSeq": string,"unreadCount": number}>(ReceiveCmd.UNREAD_GROUP_NOTICE, (payload)=>{
-    log("收到群通知", payload);
-    if (payload.unreadCount){
-
-    }
-})

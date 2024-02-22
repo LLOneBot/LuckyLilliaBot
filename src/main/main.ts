@@ -6,17 +6,17 @@ import {Config} from "../common/types";
 import {CHANNEL_GET_CONFIG, CHANNEL_LOG, CHANNEL_SET_CONFIG,} from "../common/channels";
 import {ob11WebsocketServer} from "../onebot11/server/ws/WebsocketServer";
 import {CONFIG_DIR, getConfigUtil, log} from "../common/utils";
-import {addHistoryMsg, getGroupMember, msgHistory, selfInfo} from "../common/data";
+import {addHistoryMsg, getGroup, getGroupMember, msgHistory, selfInfo} from "../common/data";
 import {hookNTQQApiCall, hookNTQQApiReceive, ReceiveCmd, registerReceiveHook} from "../ntqqapi/hook";
 import {OB11Constructor} from "../onebot11/constructor";
 import {NTQQApi} from "../ntqqapi/ntcall";
-import {ChatType, RawMessage} from "../ntqqapi/types";
+import {ChatType, GroupNotify, GroupNotifyTypes, RawMessage} from "../ntqqapi/types";
 import {ob11HTTPServer} from "../onebot11/server/http";
 import {OB11FriendRecallNoticeEvent} from "../onebot11/event/notice/OB11FriendRecallNoticeEvent";
 import {OB11GroupRecallNoticeEvent} from "../onebot11/event/notice/OB11GroupRecallNoticeEvent";
 import {postEvent} from "../onebot11/server/postevent";
 import {ob11ReverseWebsockets} from "../onebot11/server/ws/ReverseWebsocket";
-import {EventType} from "../onebot11/event/OB11BaseEvent";
+import {OB11GroupAdminNoticeEvent} from "../onebot11/event/notice/OB11GroupAdminNoticeEvent";
 
 
 let running = false;
@@ -105,8 +105,7 @@ function onLoad() {
         }
     }
 
-
-    async function start() {
+    async function startReceiveHook() {
         registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload) => {
             try {
                 postReceiveMsg(payload.msgList);
@@ -159,6 +158,55 @@ function onLoad() {
                 log("report self message error: ", e.toString());
             }
         })
+        registerReceiveHook<{
+            "doubt": boolean,
+            "oldestUnreadSeq": string,
+            "unreadCount": number
+        }>(ReceiveCmd.UNREAD_GROUP_NOTIFY, async (payload) => {
+            if (payload.unreadCount) {
+                log("开始获取群通知详情")
+                let notify: GroupNotify;
+                try {
+                    notify = await NTQQApi.getGroupNotifies();
+                }catch (e) {
+                    // log("获取群通知详情失败", e);
+                    return
+                }
+
+                const notifies = notify.notifies.slice(0, payload.unreadCount)
+                log("获取群通知详情完成", notifies, payload);
+                try {
+                    for (const notify of notifies) {
+                        if (parseInt(notify.seq) / 1000 < startTime){
+                            continue;
+                        }
+                        if ([GroupNotifyTypes.ADMIN_SET, GroupNotifyTypes.ADMIN_UNSET].includes(notify.type)) {
+                            log("有管理员变动通知");
+                            let groupAdminNoticeEvent = new OB11GroupAdminNoticeEvent()
+                            groupAdminNoticeEvent.group_id = parseInt(notify.group.groupCode);
+                            log("开始获取变动的管理员")
+                            const member = await getGroupMember(notify.group.groupCode, null, notify.user1.uid);
+                            if(member){
+                                log("变动管理员获取成功")
+                                groupAdminNoticeEvent.user_id = parseInt(member.uin);
+                                groupAdminNoticeEvent.sub_type = notify.type == GroupNotifyTypes.ADMIN_UNSET ? "unset" : "set";
+                                postEvent(groupAdminNoticeEvent, true);
+                            }
+                            else{
+                                log("获取群通知的成员信息失败", notify, getGroup(notify.group.groupCode));
+                            }
+                        }
+                    }
+                }catch (e) {
+                    log("解析群通知失败", e.stack);
+                }
+            }
+        })
+    }
+    let startTime = 0;
+    async function start() {
+        startTime = Date.now();
+        startReceiveHook().then();
         NTQQApi.getGroups(true).then()
         const config = getConfigUtil().getConfig()
         if (config.ob11.enableHttp) {
@@ -168,16 +216,17 @@ function onLoad() {
                 log("http server start failed", e);
             }
         }
-        if (config.ob11.enableWs){
+        if (config.ob11.enableWs) {
             ob11WebsocketServer.start(config.ob11.wsPort);
         }
-        if (config.ob11.enableWsReverse){
+        if (config.ob11.enableWsReverse) {
             ob11ReverseWebsockets.start();
         }
 
         log("LLOneBot start")
     }
 
+    let getSelfNickCount = 0;
     const init = async () => {
         try {
             const _ = await NTQQApi.getSelfInfo();
@@ -194,7 +243,10 @@ function onLoad() {
                 if (userInfo) {
                     selfInfo.nick = userInfo.nick;
                 } else {
-                    return setTimeout(init, 1000);
+                    getSelfNickCount++;
+                    if (getSelfNickCount < 10){
+                        return setTimeout(init, 1000);
+                    }
                 }
             } catch (e) {
                 log("get self nickname failed", e.toString());

@@ -43,7 +43,7 @@ export async function getGroup(qq: string): Promise<Group | undefined> {
     return group
 }
 
-export async function getGroupMember(groupQQ: string, memberQQ: string=null, memberUid: string=null) {
+export async function getGroupMember(groupQQ: string, memberQQ: string, memberUid: string=null) {
     const group = await getGroup(groupQQ)
     if (group) {
         let filterFunc: (member: GroupMember) => boolean
