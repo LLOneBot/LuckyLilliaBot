@@ -1,4 +1,5 @@
 import {OB11Return} from '../types';
+import {isNull} from '../../common/utils';
 
 export class OB11Response {
     static res<T>(data: T, status: string, retcode: number, message: string = ""): OB11Return<T> {
@@ -8,21 +9,21 @@ export class OB11Response {
             data: data,
             message: message,
             wording: message,
-            echo: ""
+            echo: null
         }
     }
 
-    static ok<T>(data: T, echo: string = "") {
+    static ok<T>(data: T, echo: any = null) {
         let res = OB11Response.res<T>(data, "ok", 0)
-        if (echo) {
+        if (!isNull(echo)) {
             res.echo = echo;
         }
         return res;
     }
 
-    static error(err: string, retcode: number, echo: string = "") {
+    static error(err: string, retcode: number, echo: any = null) {
         let res = OB11Response.res(null, "failed", retcode, err)
-        if (echo) {
+        if (!isNull(echo)) {
             res.echo = echo;
         }
         return res;

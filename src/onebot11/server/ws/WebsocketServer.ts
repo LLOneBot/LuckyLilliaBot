@@ -18,7 +18,7 @@ class OB11WebsocketServer extends WebsocketServerBase {
         wsClient.send(JSON.stringify(OB11Response.res(null, "failed", 1403, "token验证失败")))
     }
 
-    async handleAction(wsClient: WebSocket, actionName: string, params: any, echo?: string) {
+    async handleAction(wsClient: WebSocket, actionName: string, params: any, echo?: any) {
         const action: BaseAction<any, any> = actionMap.get(actionName);
         if (!action) {
             return wsReply(wsClient, OB11Response.error("不支持的api " + actionName, 1404, echo))
@@ -34,8 +34,8 @@ class OB11WebsocketServer extends WebsocketServerBase {
     onConnect(wsClient: WebSocket, url: string, req: IncomingMessage) {
         if (url == "/api" || url == "/api/" || url == "/") {
             wsClient.on("message", async (msg) => {
-                let receiveData: { action: ActionName, params: any, echo?: string } = {action: null, params: {}}
-                let echo = ""
+                let receiveData: { action: ActionName, params: any, echo?: any } = {action: null, params: {}}
+                let echo = null
                 try {
                     receiveData = JSON.parse(msg.toString())
                     echo = receiveData.echo

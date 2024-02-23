@@ -33,8 +33,8 @@ export class ReverseWebsocket {
     }
 
     public async onmessage(msg: string) {
-        let receiveData: { action: ActionName, params: any, echo?: string } = {action: null, params: {}}
-        let echo = ""
+        let receiveData: { action: ActionName, params: any, echo?: any } = {action: null, params: {}}
+        let echo = null
         try {
             receiveData = JSON.parse(msg.toString())
             echo = receiveData.echo

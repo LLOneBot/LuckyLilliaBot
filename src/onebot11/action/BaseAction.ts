@@ -23,7 +23,7 @@ class BaseAction<PayloadType, ReturnDataType> {
         }
     }
 
-    public async websocketHandle(payload: PayloadType, echo: string): Promise<OB11Return<ReturnDataType | null>> {
+    public async websocketHandle(payload: PayloadType, echo: any): Promise<OB11Return<ReturnDataType | null>> {
         const result = await this.check(payload)
         if (!result.valid) {
             return OB11Response.error(result.message, 1400)
