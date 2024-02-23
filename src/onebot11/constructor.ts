@@ -45,6 +45,7 @@ export class OB11Constructor {
             font: 14,
             sub_type: "friend",
             message: [],
+            message_format: 'array',
             post_type: selfInfo.uin == msg.senderUin ? EventType.MESSAGE_SENT : EventType.MESSAGE,
         }
         if (msg.chatType == ChatType.group) {
