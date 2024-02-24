@@ -355,3 +355,22 @@ export interface FriendRequestNotify {
         buddyReqs: FriendRequest[]
     }
 }
+export interface ChatCacheList {
+    pageCount: number,
+    infos: ChatCacheListItem[]
+}
+
+export interface ChatCacheListItem {
+    chatType: 1 | 2,
+    basicChatCacheInfo: ChatCacheListItemBasic,
+    guildChatCacheInfo: unknown[] // TODO: 没用过频道所以不知道这里边的详细内容
+}
+
+export interface ChatCacheListItemBasic {
+    chatSize: string,
+    chatTime: string,
+    uid: string,
+    uin: string,
+    remarkName: string,
+    nickName: string
+}

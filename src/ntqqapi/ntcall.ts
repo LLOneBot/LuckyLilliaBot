@@ -15,7 +15,9 @@ import {
     RawMessage,
     SelfInfo,
     SendMessageElement,
-    User
+    User,
+    ChatCacheList,
+    ChatCacheListItemBasic
 } from "./types";
 import * as fs from "fs";
 import {addHistoryMsg, friendRequests, groupNotifies, msgHistory, selfInfo} from "../common/data";
@@ -71,6 +73,17 @@ export enum NTQQApiMethod {
     SET_MEMBER_ROLE = "nodeIKernelGroupService/modifyMemberRole",
     PUBLISH_GROUP_BULLETIN = "nodeIKernelGroupService/publishGroupBulletinBulletin",
     SET_GROUP_NAME = "nodeIKernelGroupService/modifyGroupName",
+
+    CACHE_SET_SILENCE = 'nodeIKernelStorageCleanService/setSilentScan',
+    CACHE_ADD_SCANNED_PATH = 'nodeIKernelStorageCleanService/addCacheScanedPaths', // TODO: Unused method
+    CACHE_PATH_HOT_UPDATE = 'getHotUpdateCachePath', // TODO: Unused method
+    CACHE_PATH_DESKTOP_TEMP = 'getDesktopTmpPath', // TODO: Unused method
+    CACHE_PATH_SESSION = 'getCleanableAppSessionPathList', // TODO: Unused method
+    CACHE_SCAN = 'nodeIKernelStorageCleanService/scanCache', 
+    CACHE_CLEAR = '', // TODO
+
+    CACHE_CHAT_SCAN = 'nodeIKernelStorageCleanService/getChatCacheInfo',
+    CACHE_CHAT_CLEAR = 'nodeIKernelStorageCleanService/clearChatCacheInfo',
 }
 
 enum NTQQApiChannel {
@@ -683,5 +696,39 @@ export class NTQQApi {
 
     static publishGroupBulletin(groupQQ: string, title: string, content: string) {
 
+    }
+
+    static async setCacheSilentScan(isSilent: boolean = true) {
+        return await callNTQQApi({
+            methodName: NTQQApiMethod.CACHE_SET_SILENCE,
+            args: [{
+                isSilent
+            }, null]
+        });
+    }
+
+    static getChatCacheList(type: 1 | 2, pageSize: number = 80, pageIndex: number = 0) {
+        return new Promise<ChatCacheList>((res, rej) => {
+            callNTQQApi<ChatCacheList>({
+                methodName: NTQQApiMethod.CACHE_CHAT_SCAN,
+                args: [{
+                    ChatType: type,
+                    pageSize,
+                    order: 1,
+                    pageIndex
+                }, null]
+            }).then(list => res(list))
+            .catch(e => rej(e));
+        });
+    }
+
+    static async clearChatCache(chats: ChatCacheListItemBasic[] = [], fileKeys: unknown[] = []) {
+        return await callNTQQApi<GeneralCallResult>({
+            methodName: NTQQApiMethod.CACHE_CHAT_CLEAR,
+            args: [{
+                chats,
+                fileKeys
+            }, null]
+        });
     }
 }
