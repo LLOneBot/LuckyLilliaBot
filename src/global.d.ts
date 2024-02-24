@@ -7,4 +7,11 @@ declare global {
         llonebot: typeof llonebot;
         LiteLoader: any;
     }
+
+    interface Event {
+        detail?: {
+            name: string;
+            value: string;
+        }
+    }
 }

@@ -4,6 +4,7 @@
 // 打开设置界面时触发
 async function onSettingWindowCreated(view: Element) {
     window.llonebot.log("setting window created");
+    const isEmpty = (value: any) => value === undefined || value === null || value === '';
     let config = await window.llonebot.getConfig()
     const httpClass = "http";
     const httpPostClass = "http-post";
@@ -108,6 +109,16 @@ async function onSettingWindowCreated(view: Element) {
             <setting-panel>
                 <setting-item data-direction="row" class="hostItem vertical-list-item">
                     <div>
+                        <setting-text>消息上报数据类型</setting-text>
+                        <setting-text data-type="secondary">如客户端无特殊需求推荐保持默认设置，两者的详细差异可参考 <a href="javascript:LiteLoader.api.openExternal('https://github.com/botuniverse/onebot-11/tree/master/message#readme');">OneBot v11 文档</a></setting-text>
+                    </div>
+                    <setting-select id="messagePostFormat">
+                        <setting-option data-value="array" ${config.messagePostFormat !== "string" ? "is-selected" : ""}>Array</setting-option>
+                        <setting-option data-value="string" ${config.messagePostFormat === "string" ? "is-selected" : ""}>String</setting-option>
+                    </setting-select>
+                </setting-item>
+                <setting-item data-direction="row" class="hostItem vertical-list-item">
+                    <div>
                         <div>上报文件不采用本地路径</div>
                         <div class="tips">开启后，上报文件(图片语音等)为http链接或base64编码</div>
                     </div>
@@ -174,6 +185,11 @@ async function onSettingWindowCreated(view: Element) {
 
     doc.getElementById("addHttpHost").addEventListener("click", () => addHostEle("http"))
     doc.getElementById("addWsHost").addEventListener("click", () => addHostEle("ws"))
+    doc.getElementById("messagePostFormat").addEventListener("selected", (e) => {
+        const _config = config || {};
+        _config.messagePostFormat = e.detail && !isEmpty(e.detail.value) ? e.detail.value : 'array';
+        window.llonebot.setConfig(_config);
+    })
 
     function switchClick(eleId: string, configKey: string, _config=null) {
         if (!_config){

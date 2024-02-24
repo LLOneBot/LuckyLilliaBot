@@ -27,7 +27,7 @@ import {EventType} from "./event/OB11BaseEvent";
 export class OB11Constructor {
     static async message(msg: RawMessage): Promise<OB11Message> {
 
-        const {enableLocalFile2Url} = getConfigUtil().getConfig()
+        const {enableLocalFile2Url, messagePostFormat} = getConfigUtil().getConfig()
         const message_type = msg.chatType == ChatType.group ? "group" : "private";
         const resMsg: OB11Message = {
             self_id: parseInt(selfInfo.uin),
@@ -44,7 +44,8 @@ export class OB11Constructor {
             raw_message: "",
             font: 14,
             sub_type: "friend",
-            message: [],
+            message: messagePostFormat === 'string' ? '' : [],
+            message_format: messagePostFormat === 'string' ? 'string' : 'array',
             post_type: selfInfo.uin == msg.senderUin ? EventType.MESSAGE_SENT : EventType.MESSAGE,
         }
         if (msg.chatType == ChatType.group) {
@@ -153,8 +154,10 @@ export class OB11Constructor {
                     }
                 }
             }
+
             if (message_data.type !== "unknown" && message_data.data) {
-                resMsg.message.push(message_data);
+                if (messagePostFormat === 'string') (resMsg.message as string) += CQCodeBuilder(message_data);
+                else (resMsg.message as OB11MessageData[]).push(message_data);
             }
         }
         resMsg.raw_message = resMsg.raw_message.trim();
@@ -216,4 +219,25 @@ export class OB11Constructor {
     static groups(groups: Group[]): OB11Group[] {
         return groups.map(OB11Constructor.group)
     }
+}
+
+function CQCodeBuilder(data: OB11MessageData) {
+    const CQCodeEscape = (text: string) => {
+        return text.replace(/\[/g, '&#91;')
+            .replace(/\]/g, '&#93;')
+            .replace(/\&/g, '&amp;')
+            .replace(/,/g, '&#44;');
+    };
+
+    if (data.type === 'text') {
+        return CQCodeEscape(data.data.text);
+    }
+
+    let result = '[CQ:' + data.type;
+    for (const name in data.data) {
+        const value = data.data[name];
+        result += `,${name}=${CQCodeEscape(value)}`;
+    }
+    result += ']';
+    return result;
 }

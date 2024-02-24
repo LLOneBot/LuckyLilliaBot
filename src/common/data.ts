@@ -86,6 +86,6 @@ export function getUidByUin(uin: string) {
     }
 }
 
-export const version = "3.6.0"
+export const version = "3.7.0"
 
 export let groupNotifies: Map<string, GroupNotify> = new Map();

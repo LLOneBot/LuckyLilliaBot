@@ -35,6 +35,7 @@ export class ConfigUtil {
             ob11: ob11Default,
             heartInterval: 60000,
             token: "",
+            messagePostFormat: "array",
             enableLocalFile2Url: false,
             debug: false,
             log: false,
