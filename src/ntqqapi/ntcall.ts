@@ -443,7 +443,7 @@ export class NTQQApi {
 
     static multiForwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
         let msgInfos = msgIds.map(id => {
-            return {msgId: id, senderShowName: "LLOneBot"}
+            return {msgId: id, senderShowName: selfInfo.nick}
         })
         const apiArgs = [
             {
