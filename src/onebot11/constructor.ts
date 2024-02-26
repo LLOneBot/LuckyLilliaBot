@@ -141,15 +141,20 @@ export class OB11Constructor {
                 if (!enableLocalFile2Url) {
                     message_data.data.file = "file://" + filePath
                 } else { // 不使用本地路径
-                    if (message_data.data.url && !message_data.data.url.startsWith(IMAGE_HTTP_HOST + "/download")) {
-                        message_data.data.file = message_data.data.url
-                    } else {
-                        let {err, data} = await file2base64(filePath);
-                        if (err) {
-                            log("文件转base64失败", filePath, err)
+                    const ignoreTypes = [OB11MessageDataType.file, OB11MessageDataType.video]
+                    if (!ignoreTypes.includes(message_data.type)) {
+                        if (message_data.data.url && !message_data.data.url.startsWith(IMAGE_HTTP_HOST + "/download")) {
+                            message_data.data.file = message_data.data.url
                         } else {
-                            message_data.data.file = "base64://" + data
+                            let {err, data} = await file2base64(filePath);
+                            if (err) {
+                                log("文件转base64失败", filePath, err)
+                            } else {
+                                message_data.data.file = "base64://" + data
+                            }
                         }
+                    }else{
+                        message_data.data.file = "file://" + filePath
                     }
                 }
             }
