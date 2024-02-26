@@ -5,7 +5,7 @@ import {LLOneBotError} from "./types";
 export let groups: Group[] = []
 export let friends: Friend[] = []
 export let msgHistory: Record<string, RawMessage> = {}  // msgId: RawMessage
-export const version = "3.8.0"
+export const version = "3.9.0"
 export let groupNotifies: Map<string, GroupNotify> = new Map<string, GroupNotify>();
 export let friendRequests: Map<number, FriendRequest> = new Map<number, FriendRequest>();
 export let llonebotError: LLOneBotError = {
