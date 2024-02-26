@@ -69,8 +69,16 @@ TG群：<https://t.me/+nLZEnpne-pQ1OWFl>
 - [x] 语音(支持mp3、wav等多种音频格式直接发送)
 - [x] json消息(只上报)
 - [x] 转发消息记录(目前只能发不能收)
-- [x] 视频(只能上报本地路径)
-- [x] 文件(只能上报本地路径)
+- [x] 视频(上报时暂时只有个空的file)
+- [x] 文件(上报时暂时只有个空的file), type为file, data为{file: uri}, 发送时uri支持http://, file://, base64://
+    ```
+    {
+        "type": "file",
+        "data": {
+            "file": "file:///D:/1.txt"
+        }
+    }
+    ```
 - [ ] 发送音乐卡片
 - [ ] 红包（没有计划支持）
 - [ ] xml (没有计划支持)
