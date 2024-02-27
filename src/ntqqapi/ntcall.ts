@@ -704,7 +704,7 @@ export class NTQQApi {
     }
 
     static async setCacheSilentScan(isSilent: boolean = true) {
-        return await callNTQQApi({
+        return await callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.CACHE_SET_SILENCE,
             args: [{
                 isSilent
@@ -713,7 +713,7 @@ export class NTQQApi {
     }
 
     static addCacheScannedPaths(pathMap: object = {}) {
-        return callNTQQApi({
+        return callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.CACHE_ADD_SCANNED_PATH,
             args: [{
                 pathMap: {...pathMap},
@@ -758,8 +758,7 @@ export class NTQQApi {
     }
 
     static clearCache(cacheKeys: Array<string> = [ 'tmp', 'hotUpdate' ]) {
-        console.log(cacheKeys);
-        return callNTQQApi<any>({
+        return callNTQQApi<any>({ // TODO: 目前还不知道真正的返回值是什么
             methodName: NTQQApiMethod.CACHE_CLEAR,
             args: [{
                 keys: cacheKeys
@@ -797,7 +796,7 @@ export class NTQQApi {
         })
     }
 
-    static async clearChatCache(chats: ChatCacheListItemBasic[] = [], fileKeys: unknown[] = []) {
+    static async clearChatCache(chats: ChatCacheListItemBasic[] = [], fileKeys: string[] = []) {
         return await callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.CACHE_CHAT_CLEAR,
             args: [{
