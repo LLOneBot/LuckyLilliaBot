@@ -83,7 +83,7 @@ export enum NTQQApiMethod {
     CACHE_SCAN = 'nodeIKernelStorageCleanService/scanCache',
     CACHE_CLEAR = '', // TODO
 
-    CACHE_CHAT_SCAN = 'nodeIKernelStorageCleanService/getChatCacheInfo',
+    CACHE_CHAT_GET = 'nodeIKernelStorageCleanService/getChatCacheInfo',
     CACHE_CHAT_CLEAR = 'nodeIKernelStorageCleanService/clearChatCacheInfo',
 }
 
@@ -725,7 +725,7 @@ export class NTQQApi {
     static getChatCacheList(type: 1 | 2, pageSize: number = 80, pageIndex: number = 0) {
         return new Promise<ChatCacheList>((res, rej) => {
             callNTQQApi<ChatCacheList>({
-                methodName: NTQQApiMethod.CACHE_CHAT_SCAN,
+                methodName: NTQQApiMethod.CACHE_CHAT_GET,
                 args: [{
                     ChatType: type,
                     pageSize,
