@@ -79,9 +79,9 @@ export enum NTQQApiMethod {
     SET_GROUP_NAME = "nodeIKernelGroupService/modifyGroupName",
 
     CACHE_SET_SILENCE = 'nodeIKernelStorageCleanService/setSilentScan',
-    CACHE_ADD_SCANNED_PATH = 'nodeIKernelStorageCleanService/addCacheScanedPaths', // TODO: Unused method
-    CACHE_PATH_HOT_UPDATE = 'getHotUpdateCachePath', // TODO: Unused method
-    CACHE_PATH_DESKTOP_TEMP = 'getDesktopTmpPath', // TODO: Unused method
+    CACHE_ADD_SCANNED_PATH = 'nodeIKernelStorageCleanService/addCacheScanedPaths',
+    CACHE_PATH_HOT_UPDATE = 'getHotUpdateCachePath',
+    CACHE_PATH_DESKTOP_TEMP = 'getDesktopTmpPath',
     CACHE_PATH_SESSION = 'getCleanableAppSessionPathList',
     CACHE_SCAN = 'nodeIKernelStorageCleanService/scanCache',
     CACHE_CLEAR = 'nodeIKernelStorageCleanService/clearCacheDataByKeys',
@@ -708,6 +708,15 @@ export class NTQQApi {
             methodName: NTQQApiMethod.CACHE_SET_SILENCE,
             args: [{
                 isSilent
+            }, null]
+        });
+    }
+
+    static addCacheScannedPaths(pathMap: object = {}) {
+        return callNTQQApi({
+            methodName: NTQQApiMethod.CACHE_ADD_SCANNED_PATH,
+            args: [{
+                pathMap: {...pathMap},
             }, null]
         });
     }
