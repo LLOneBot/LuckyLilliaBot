@@ -80,9 +80,9 @@ export enum NTQQApiMethod {
     CACHE_ADD_SCANNED_PATH = 'nodeIKernelStorageCleanService/addCacheScanedPaths', // TODO: Unused method
     CACHE_PATH_HOT_UPDATE = 'getHotUpdateCachePath', // TODO: Unused method
     CACHE_PATH_DESKTOP_TEMP = 'getDesktopTmpPath', // TODO: Unused method
-    CACHE_PATH_SESSION = 'getCleanableAppSessionPathList', // TODO: Unused method
+    CACHE_PATH_SESSION = 'getCleanableAppSessionPathList',
     CACHE_SCAN = 'nodeIKernelStorageCleanService/scanCache',
-    CACHE_CLEAR = '', // TODO
+    CACHE_CLEAR = 'nodeIKernelStorageCleanService/clearCacheDataByKeys',
 
     CACHE_CHAT_GET = 'nodeIKernelStorageCleanService/getChatCacheInfo',
     CACHE_CHAT_CLEAR = 'nodeIKernelStorageCleanService/clearChatCacheInfo',
@@ -732,6 +732,17 @@ export class NTQQApi {
             channel: NTQQApiChannel.IPC_UP_3,
             className: NTQQApiClass.OS_API,
             methodName: NTQQApiMethod.CACHE_PATH_SESSION,
+        });
+    }
+
+    static clearCache(cacheKeys: Array<string> = [ 'tmp', 'hotUpdate' ]) {
+        console.log(cacheKeys);
+        return callNTQQApi<any>({
+            channel: NTQQApiChannel.IPC_UP_3,
+            methodName: NTQQApiMethod.CACHE_CLEAR,
+            args: [{
+                keys: cacheKeys
+            }, null]
         });
     }
 
