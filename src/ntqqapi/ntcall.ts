@@ -40,6 +40,7 @@ export type IPCReceiveDetail = [
 export enum NTQQApiClass {
     NT_API = "ns-ntApi",
     FS_API = "ns-FsApi",
+    OS_API = "ns-OsApi",
     GLOBAL_DATA = "ns-GlobalDataApi"
 }
 
@@ -719,6 +720,16 @@ export class NTQQApi {
             methodName: NTQQApiMethod.CACHE_SCAN,
             args: [null, null],
             timeoutSecond: 300,
+        });
+    }
+
+    static getCacheSessionPathList() {
+        return callNTQQApi<{
+            key: string,
+            value: string
+        }[]>({
+            className: NTQQApiClass.OS_API,
+            methodName: NTQQApiMethod.CACHE_PATH_SESSION,
         });
     }
 
