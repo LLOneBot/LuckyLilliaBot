@@ -16,6 +16,7 @@ import {
     SelfInfo,
     SendMessageElement,
     User,
+    CacheScanResult,
     ChatCacheList,
     ChatCacheListItemBasic
 } from "./types";
@@ -79,7 +80,7 @@ export enum NTQQApiMethod {
     CACHE_PATH_HOT_UPDATE = 'getHotUpdateCachePath', // TODO: Unused method
     CACHE_PATH_DESKTOP_TEMP = 'getDesktopTmpPath', // TODO: Unused method
     CACHE_PATH_SESSION = 'getCleanableAppSessionPathList', // TODO: Unused method
-    CACHE_SCAN = 'nodeIKernelStorageCleanService/scanCache', 
+    CACHE_SCAN = 'nodeIKernelStorageCleanService/scanCache',
     CACHE_CLEAR = '', // TODO
 
     CACHE_CHAT_SCAN = 'nodeIKernelStorageCleanService/getChatCacheInfo',
@@ -704,6 +705,20 @@ export class NTQQApi {
             args: [{
                 isSilent
             }, null]
+        });
+    }
+
+    static scanCache() {
+        callNTQQApi<GeneralCallResult>({
+            channel: NTQQApiChannel.IPC_UP_3,
+            methodName: ReceiveCmd.CACHE_SCAN_FINISH,
+            classNameIsRegister: true,
+        }).then();
+        return callNTQQApi<CacheScanResult>({
+            channel: NTQQApiChannel.IPC_UP_3,
+            methodName: NTQQApiMethod.CACHE_SCAN,
+            args: [null, null],
+            timeoutSecond: 300,
         });
     }
 

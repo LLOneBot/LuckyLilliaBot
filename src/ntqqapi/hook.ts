@@ -24,7 +24,8 @@ export enum ReceiveCmd {
     MEDIA_DOWNLOAD_COMPLETE = "nodeIKernelMsgListener/onRichMediaDownloadComplete",
     UNREAD_GROUP_NOTIFY = "nodeIKernelGroupListener/onGroupNotifiesUnreadCountUpdated",
     GROUP_NOTIFY = "nodeIKernelGroupListener/onGroupSingleScreenNotifies",
-    FRIEND_REQUEST = "nodeIKernelBuddyListener/onBuddyReqChange"
+    FRIEND_REQUEST = "nodeIKernelBuddyListener/onBuddyReqChange",
+    CACHE_SCAN_FINISH = "nodeIKernelStorageCleanListener/onFinishScan",
 }
 
 interface NTQQApiReturnData<PayloadType = unknown> extends Array<any> {

@@ -355,6 +355,22 @@ export interface FriendRequestNotify {
         buddyReqs: FriendRequest[]
     }
 }
+
+export interface CacheScanResult {
+    result: number,
+    size: [ // 单位为字节
+        string, // 系统总存储空间
+        string, // 系统可用存储空间
+        string, // 系统已用存储空间
+        string, // QQ总大小
+        string, // 「聊天与文件」大小
+        string, // 未知
+        string, // 「缓存数据」大小
+        string, // 「其他数据」大小
+        string, // 未知
+    ]
+}
+
 export interface ChatCacheList {
     pageCount: number,
     infos: ChatCacheListItem[]
@@ -372,5 +388,7 @@ export interface ChatCacheListItemBasic {
     uid: string,
     uin: string,
     remarkName: string,
-    nickName: string
+    nickName: string,
+    chatType?: 1 | 2,
+    isChecked?: boolean
 }
