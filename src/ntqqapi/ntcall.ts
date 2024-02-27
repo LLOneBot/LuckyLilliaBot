@@ -771,7 +771,7 @@ export class NTQQApi {
             callNTQQApi<ChatCacheList>({
                 methodName: NTQQApiMethod.CACHE_CHAT_GET,
                 args: [{
-                    ChatType: type,
+                    chatType: type,
                     pageSize,
                     order: 1,
                     pageIndex
