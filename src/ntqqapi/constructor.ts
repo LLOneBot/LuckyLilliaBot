@@ -9,7 +9,7 @@ import {
     SendTextElement
 } from "./types";
 import {NTQQApi} from "./ntcall";
-import {encodeSilk, log} from "../common/utils";
+import {encodeSilk} from "../common/utils";
 import fs from "fs";
 
 
@@ -56,7 +56,7 @@ export class SendMsgElementConstructor {
     }
 
     static async pic(picPath: string): Promise<SendPicElement> {
-        const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(picPath);
+        const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(picPath, ElementType.PIC);
         const imageSize = await NTQQApi.getImageSize(picPath);
         const picElement = {
             md5HexStr: md5,
@@ -81,8 +81,14 @@ export class SendMsgElementConstructor {
         };
     }
 
-    static async file(filePath: string, isVideo:boolean = false): Promise<SendFileElement> {
-        const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(filePath);
+    static async file(filePath: string, isVideo: boolean = false): Promise<SendFileElement> {
+        let picHeight = 0;
+        let picWidth = 0;
+        if (isVideo) {
+            picHeight = 1024;
+            picWidth = 768;
+        }
+        const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(filePath, ElementType.FILE);
         let element: SendFileElement = {
             elementType: ElementType.FILE,
             elementId: "",
@@ -90,18 +96,18 @@ export class SendMsgElementConstructor {
                 fileName,
                 "filePath": path,
                 "fileSize": (fileSize).toString(),
+                picHeight,
+                picWidth
             }
         }
-        if (isVideo){
-            element.fileElement.picHeight = 1024;
-            element.fileElement.picWidth = 768;
-        }
+
         return element;
     }
 
     static video(filePath: string): Promise<SendFileElement> {
         return SendMsgElementConstructor.file(filePath, true);
     }
+
     static async ptt(pttPath: string): Promise<SendPttElement> {
         const {converted, path: silkPath, duration} = await encodeSilk(pttPath);
         // log("生成语音", silkPath, duration);

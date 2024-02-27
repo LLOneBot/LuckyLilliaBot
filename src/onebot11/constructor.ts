@@ -23,7 +23,7 @@ export class OB11Constructor {
         const resMsg: OB11Message = {
             self_id: parseInt(selfInfo.uin),
             user_id: parseInt(msg.senderUin),
-            time: parseInt(msg.msgTime) || 0,
+            time: parseInt(msg.msgTime) * 1000 || Date.now(), // 13位时间戳，毫秒
             message_id: msg.msgShortId,
             real_id: msg.msgId,
             message_type: msg.chatType == ChatType.group ? "group" : "private",

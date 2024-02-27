@@ -236,7 +236,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                 case OB11MessageDataType.voice: {
                     const file = sendMsg.data?.file
                     if (file) {
-                        const {path, isLocal} = (await uri2local(uuidv4(), file))
+                        const {path, isLocal} = (await uri2local(file))
                         if (path) {
                             if (!isLocal) { // 只删除http和base64转过来的文件
                                 deleteAfterSentFiles.push(path)

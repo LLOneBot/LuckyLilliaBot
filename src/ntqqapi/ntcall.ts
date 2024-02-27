@@ -1,13 +1,14 @@
 import {ipcMain} from "electron";
 import {hookApiCallbacks, ReceiveCmd, registerReceiveHook, removeReceiveHook} from "./hook";
-import {log} from "../common/utils";
+import {log, sleep} from "../common/utils";
 import {
     ChatType,
     ElementType,
     Friend,
     FriendRequest,
     Group,
-    GroupMember, GroupMemberRole,
+    GroupMember,
+    GroupMemberRole,
     GroupNotifies,
     GroupNotify,
     GroupRequestOperateTypes,
@@ -19,6 +20,7 @@ import {
 import * as fs from "fs";
 import {addHistoryMsg, friendRequests, groupNotifies, msgHistory, selfInfo} from "../common/data";
 import {v4 as uuidv4} from "uuid"
+import path from "path";
 
 interface IPCReceiveEvent {
     eventName: string
@@ -346,7 +348,10 @@ export class NTQQApi {
         } else {
             ext = ""
         }
-        const fileName = `${md5}${ext}`;
+        let fileName = `${path.basename(filePath)}`;
+        if (fileName.indexOf(".") === -1) {
+            fileName += ext;
+        }
         const mediaPath = await callNTQQApi<string>({
             methodName: NTQQApiMethod.MEDIA_FILE_PATH,
             args: [{
@@ -414,71 +419,57 @@ export class NTQQApi {
         })
     }
 
-    static sendMsg(peer: Peer, msgElements: SendMessageElement[], waitComplete = false, timeout = 10000) {
-        const sendTimeout = timeout
+    static async sendMsg(peer: Peer, msgElements: SendMessageElement[], waitComplete = false, timeout = 10000) {
+        const peerUid = peer.peerUid;
 
-        return new Promise<RawMessage>((resolve, reject) => {
-            const peerUid = peer.peerUid;
-            let usingTime = 0;
-            let success = false;
-            let isTimeout = false;
-
-            const checkSuccess = () => {
-                if (!success) {
-                    sendMessagePool[peerUid] = null;
-                    isTimeout = true;
-                    reject("发送超时")
-                }
+        // 等待上一个相同的peer发送完
+        let checkLastSendUsingTime = 0;
+        const waitLastSend = async () => {
+            if (checkLastSendUsingTime > timeout) {
+                throw ("发送超时")
             }
-            setTimeout(checkSuccess, sendTimeout);
-
-            const checkLastSend = () => {
-                let lastSending = sendMessagePool[peerUid]
-                if (sendTimeout < usingTime) {
-                    sendMessagePool[peerUid] = null;
-                    isTimeout = true;
-                    reject("发送超时")
-                }
-                if (!!lastSending) {
-                    // log("有正在发送的消息，等待中...")
-                    usingTime += 500;
-                    setTimeout(checkLastSend, 500);
-                } else {
-                    log("可以进行发送消息，设置发送成功回调", sendMessagePool)
-                    sendMessagePool[peerUid] = (rawMessage: RawMessage) => {
-                        sendMessagePool[peerUid] = null;
-                        const checkSendComplete = () => {
-                            if (isTimeout) {
-                                return reject("发送超时")
-                            }
-                            if (msgHistory[rawMessage.msgId]?.sendStatus == 2) {
-                                log(`给${peerUid}发送消息成功`)
-                                success = true;
-                                resolve(rawMessage);
-                            } else {
-                                setTimeout(checkSendComplete, 500)
-                            }
-                        }
-                        if (waitComplete) {
-                            checkSendComplete();
-                        } else {
-                            success = true;
-                            log(`给${peerUid}发送消息成功`)
-                            resolve(rawMessage);
-                        }
-                    }
-                }
+            let lastSending = sendMessagePool[peer.peerUid]
+            if (lastSending) {
+                // log("有正在发送的消息，等待中...")
+                await sleep(500);
+                checkLastSendUsingTime += 500;
+                return await waitLastSend();
+            } else {
+                return;
             }
-            checkLastSend()
-            callNTQQApi({
-                methodName: NTQQApiMethod.SEND_MSG,
-                args: [{
-                    msgId: "0",
-                    peer, msgElements,
-                    msgAttributeInfos: new Map(),
-                }, null]
-            }).then()
-        })
+        }
+        await waitLastSend();
+
+        let sentMessage: RawMessage = null;
+        sendMessagePool[peerUid] = async (rawMessage: RawMessage) => {
+            delete sendMessagePool[peerUid];
+            sentMessage = rawMessage;
+        }
+
+        let checkSendCompleteUsingTime = 0;
+        const checkSendComplete = async (): Promise<RawMessage> => {
+            if (sentMessage && msgHistory[sentMessage.msgId]?.sendStatus == 2) {
+                // log(`给${peerUid}发送消息成功`)
+                return sentMessage;
+            } else {
+                checkSendCompleteUsingTime += 500;
+                if (checkSendCompleteUsingTime > timeout) {
+                    throw ("发送超时")
+                }
+                await sleep(500);
+                return await checkSendComplete()
+            }
+        }
+
+        callNTQQApi({
+            methodName: NTQQApiMethod.SEND_MSG,
+            args: [{
+                msgId: "0",
+                peer, msgElements,
+                msgAttributeInfos: new Map(),
+            }, null]
+        }).then()
+        return checkSendComplete();
     }
 
     static multiForwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
@@ -638,7 +629,8 @@ export class NTQQApi {
             }
         )
     }
-    static banGroup(groupQQ: string, shutUp: boolean){
+
+    static banGroup(groupQQ: string, shutUp: boolean) {
         return callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.MUTE_GROUP,
             args: [
@@ -676,14 +668,14 @@ export class NTQQApi {
         })
     }
 
-    static setGroupName(groupQQ: string, groupName: string){
+    static setGroupName(groupQQ: string, groupName: string) {
         return callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.SET_GROUP_NAME,
-            args:[
+            args: [
                 {
                     groupCode: groupQQ,
                     groupName
-                },null
+                }, null
             ]
         })
     }
