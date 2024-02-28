@@ -7,23 +7,23 @@ import {
     OB11MessageDataType,
     OB11User
 } from "./types";
-import {AtType, ChatType, Group, GroupMember, IMAGE_HTTP_HOST, RawMessage, SelfInfo, User} from '../ntqqapi/types';
-import {getFriend, getGroupMember, getHistoryMsgBySeq, selfInfo} from '../common/data';
-import {file2base64, getConfigUtil, log} from "../common/utils";
-import {NTQQApi} from "../ntqqapi/ntcall";
-import {EventType} from "./event/OB11BaseEvent";
-import {encodeCQCode} from "./cqcode";
+import { AtType, ChatType, Group, GroupMember, IMAGE_HTTP_HOST, RawMessage, SelfInfo, User } from '../ntqqapi/types';
+import { getFriend, getGroupMember, getHistoryMsgBySeq, selfInfo } from '../common/data';
+import { file2base64, getConfigUtil, log } from "../common/utils";
+import { NTQQApi } from "../ntqqapi/ntcall";
+import { EventType } from "./event/OB11BaseEvent";
+import { encodeCQCode } from "./cqcode";
 
 
 export class OB11Constructor {
     static async message(msg: RawMessage): Promise<OB11Message> {
 
-        const {enableLocalFile2Url, ob11: {messagePostFormat}} = getConfigUtil().getConfig()
+        const { enableLocalFile2Url, ob11: { messagePostFormat } } = getConfigUtil().getConfig()
         const message_type = msg.chatType == ChatType.group ? "group" : "private";
         const resMsg: OB11Message = {
             self_id: parseInt(selfInfo.uin),
             user_id: parseInt(msg.senderUin),
-            time: parseInt(msg.msgTime) * 1000 || Date.now(), // 13位时间戳，毫秒
+            time: parseInt(msg.msgTime) || Date.now(),
             message_id: msg.msgShortId,
             real_id: msg.msgId,
             message_type: msg.chatType == ChatType.group ? "group" : "private",
@@ -148,14 +148,14 @@ export class OB11Constructor {
                         if (message_data.data.url && !message_data.data.url.startsWith(IMAGE_HTTP_HOST + "/download")) {
                             message_data.data.file = message_data.data.url
                         } else {
-                            let {err, data} = await file2base64(filePath);
+                            let { err, data } = await file2base64(filePath);
                             if (err) {
                                 log("文件转base64失败", filePath, err)
                             } else {
                                 message_data.data.file = "base64://" + data
                             }
                         }
-                    }else{
+                    } else {
                         message_data.data.file = "file://" + filePath
                     }
                 }
