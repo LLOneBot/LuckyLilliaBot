@@ -1,7 +1,7 @@
 // 运行在 Electron 主进程 下的插件入口
 
 import {BrowserWindow, dialog, ipcMain} from 'electron';
-import fs from 'fs';
+import * as fs from 'fs';
 import {Config} from "../common/types";
 import {
     CHANNEL_ERROR,
@@ -11,7 +11,7 @@ import {
     CHANNEL_SET_CONFIG,
 } from "../common/channels";
 import {ob11WebsocketServer} from "../onebot11/server/ws/WebsocketServer";
-import {checkFFMPEG, CONFIG_DIR, getConfigUtil, log} from "../common/utils";
+import {checkFfmpeg, CONFIG_DIR, getConfigUtil, log} from "../common/utils";
 import {
     addHistoryMsg,
     friendRequests,
@@ -140,8 +140,10 @@ function onLoad() {
 
         // 检查ffmpeg
         if (arg.ffmpeg) {
-            checkFFMPEG(arg.ffmpeg).then(success => {
-                llonebotError.ffmpegError = ''
+            checkFfmpeg(arg.ffmpeg).then(success => {
+                if (success){
+                    llonebotError.ffmpegError = ''
+                }
             })
         }
 
@@ -341,7 +343,7 @@ function onLoad() {
         NTQQApi.getGroups(true).then()
         const config = getConfigUtil().getConfig()
         // 检查ffmpeg
-        checkFFMPEG(config.ffmpeg).then(exist => {
+        checkFfmpeg(config.ffmpeg).then(exist => {
             if (!exist) {
                 llonebotError.ffmpegError = `没有找到ffmpeg,音频只能发送wav和silk`
             }

@@ -1,4 +1,4 @@
-import {AtType, ChatType, Group, SendMessageElement} from "../../ntqqapi/types";
+import {AtType, ChatType, Group, RawMessage, SendMessageElement} from "../../ntqqapi/types";
 import {addHistoryMsg, friends, getGroup, getHistoryMsgByShortId, getUidByUin, selfInfo,} from "../../common/data";
 import {OB11MessageData, OB11MessageDataType, OB11MessageMixType, OB11MessageNode, OB11PostSendMsg} from '../types';
 import {NTQQApi, Peer} from "../../ntqqapi/ntcall";
@@ -8,9 +8,7 @@ import BaseAction from "./BaseAction";
 import {ActionName, BaseCheckResult} from "./types";
 import * as fs from "fs";
 import {log} from "../../common/utils";
-import {v4 as uuidv4} from "uuid"
 import {decodeCQCode} from "../cqcode";
-import {Send} from "express";
 
 function checkSendMessage(sendMsgList: OB11MessageData[]) {
     function checkUri(uri: string): boolean {
@@ -145,7 +143,8 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
             chatType: ChatType.friend,
             peerUid: selfInfo.uid
         }
-        let nodeIds: string[] = []
+        let selfNodeMsgList: RawMessage[] = [];
+        let originalNodeMsgList: RawMessage[] = [];
         for (const messageNode of messageNodes) {
             // 一个node表示一个人的消息
             let nodeId = messageNode.data.id;
@@ -153,7 +152,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
             if (nodeId) {
                 let nodeMsg = getHistoryMsgByShortId(nodeId);
                 if (nodeMsg) {
-                    nodeIds.push(nodeMsg.msgId);
+                    originalNodeMsgList.push(nodeMsg);
                 }
             } else {
                 // 自定义的消息
@@ -165,7 +164,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                     } = await this.createSendElements(this.convertMessage2List(messageNode.data.content), group);
                     log("开始生成转发节点", sendElements);
                     const nodeMsg = await this.send(selfPeer, sendElements, deleteAfterSentFiles, true);
-                    nodeIds.push(nodeMsg.msgId)
+                    selfNodeMsgList.push(nodeMsg);
                     log("转发节点生成成功", nodeMsg.msgId);
                 } catch (e) {
                     log("生效转发消息节点失败", e)
@@ -173,9 +172,49 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
             }
         }
 
+        let nodeIds: string[] = []
+        // 检查是否需要克隆直接引用消息id的节点
+        let needSendSelf = false;
+        if (selfNodeMsgList.length) {
+            needSendSelf = true
+        } else {
+            needSendSelf = !originalNodeMsgList.every((msg, index) => msg.peerUid === originalNodeMsgList[0].peerUid)
+        }
+        if (needSendSelf) {
+            nodeIds = selfNodeMsgList.map(msg => msg.msgId);
+            for (const originalNodeMsg of originalNodeMsgList) {
+                if (originalNodeMsg.peerUid === selfInfo.uid) {
+                    nodeIds.push(originalNodeMsg.msgId)
+                } else { // 需要进行克隆
+                    let sendElements: SendMessageElement[] = []
+                    Object.keys(originalNodeMsg.elements).forEach((eleKey) => {
+                        if (eleKey !== "elementId") {
+                            sendElements.push(originalNodeMsg.elements[eleKey])
+                        }
+                    })
+                    try {
+                        const nodeMsg = await NTQQApi.sendMsg(selfPeer, sendElements, true);
+                        nodeIds.push(nodeMsg.msgId)
+                        log("克隆转发消息成功")
+                    } catch (e) {
+                        log("克隆转发消息失败", e)
+                    }
+                }
+            }
+        } else {
+            nodeIds = originalNodeMsgList.map(msg => msg.msgId)
+        }
+
+        let srcPeer = selfPeer;
+        if (!needSendSelf) {
+            srcPeer = {
+                chatType: originalNodeMsgList[0].chatType === ChatType.group ? ChatType.group : ChatType.friend,
+                peerUid: originalNodeMsgList[0].peerUid
+            }
+        }
         // 开发转发
         try {
-            return await NTQQApi.multiForwardMsg(selfPeer, destPeer, nodeIds)
+            return await NTQQApi.multiForwardMsg(srcPeer, destPeer, nodeIds)
         } catch (e) {
             log("forward failed", e)
             return null;

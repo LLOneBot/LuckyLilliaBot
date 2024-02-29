@@ -277,6 +277,7 @@ export interface RawMessage {
     recallTime: string; // 撤回时间, "0"是没有撤回
     elements: {
         elementId: string,
+        elementType: ElementType;
         replyElement: {
             senderUid: string; // 原消息发送者QQ号
             sourceMsgIsIncPic: boolean; // 原消息是否有图片
