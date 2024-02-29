@@ -1,19 +1,47 @@
-import {AtType, RawMessage} from "../common/types";
+import {RawMessage} from "../ntqqapi/types";
+import {EventType} from "./event/OB11BaseEvent";
 
-export enum OB11UserSex{
+export interface OB11User {
+    user_id: number;
+    nickname: string;
+    remark?: string
+}
+
+export enum OB11UserSex {
     male = "male",
     female = "female",
     unknown = "unknown"
 }
 
-export enum OB11GroupMemberRole{
+export enum OB11GroupMemberRole {
     owner = "owner",
     admin = "admin",
     member = "member",
 }
 
+export interface OB11GroupMember {
+    group_id: number
+    user_id: number
+    nickname: string
+    card?: string
+    sex?: OB11UserSex
+    age?: number
+    join_time?: number
+    last_sent_time?: number
+    level?: number
+    role?: OB11GroupMemberRole
+    title?: string
+}
+
+export interface OB11Group {
+    group_id: number
+    group_name: string
+    member_count?: number
+    max_member_count?: number
+}
+
 interface OB11Sender {
-    user_id: string,
+    user_id: number,
     nickname: string,
     sex?: OB11UserSex,
     age?: number,
@@ -28,78 +56,132 @@ export enum OB11MessageType {
 }
 
 export interface OB11Message {
-    self_id?: string,
+    self_id?: number,
     time: number,
-    message_id: string,
+    message_id: number,
     real_id: string,
-    user_id: string,
-    group_id?: string,
+    user_id: number,
+    group_id?: number,
     message_type: "private" | "group",
-    sub_type?: "friend" | "group" | "other",
+    sub_type?: "friend" | "group" | "normal",
     sender: OB11Sender,
-    message: OB11MessageData[],
+    message: OB11MessageData[] | string,
+    message_format: 'array' | 'string',
     raw_message: string,
     font: number,
-    post_type?: "message",
+    post_type?: EventType,
     raw?: RawMessage
 }
 
-export type OB11ApiName =
-    "send_private_msg"
-    | "send_group_msg"
-    | "get_group_list"
-    | "get_friend_list"
-    | "delete_msg"
-    | "get_login_info"
-    | "get_group_member_list"
-    | "get_group_member_info"
-    | "get_msg"
-
 export interface OB11Return<DataType> {
-    status: number
+    status: string
     retcode: number
     data: DataType
-    message: string
+    message: string,
+    echo?: any, // ws调用api才有此字段
+    wording?: string,  // go-cqhttp字段，错误信息
 }
-
-export interface OB11SendMsgReturn extends OB11Return<{message_id: string}>{}
 
 export enum OB11MessageDataType {
     text = "text",
     image = "image",
+    video = "video",
     voice = "record",
+    file = "file",
     at = "at",
     reply = "reply",
-    json = "json"
+    json = "json",
+    face = "face",
+    node = "node"  // 合并转发消息
 }
 
-export type OB11MessageData = {
+export interface OB11MessageText {
     type: OB11MessageDataType.text,
-    content: string,
-    data?: {
+    data: {
         text: string, // 纯文本
     }
-} | {
-    type: "image" | "voice" | "record",
-    file: string, // 本地路径
-    data?: {
-        file: string // 本地路径
-    }
-} | {
-    type: OB11MessageDataType.at,
-    atType?: AtType,
-    content?: string,
-    atUid?: string,
-    atNtUid?: string,
-    data?: {
-        qq: string // at的qq号
-    }
-} | {
-    type: OB11MessageDataType.reply,
-    msgId: string,
-    msgSeq: string,
-    senderUin: string,
+}
+
+interface OB11MessageFileBase {
     data: {
-        id: string,
+        file: string,
+        url?: string;
     }
 }
+
+export interface OB11MessageImage extends OB11MessageFileBase {
+    type: OB11MessageDataType.image
+}
+
+export interface OB11MessageRecord extends OB11MessageFileBase {
+    type: OB11MessageDataType.voice
+}
+
+export interface OB11MessageFile extends OB11MessageFileBase {
+    type: OB11MessageDataType.file
+}
+
+export interface OB11MessageVideo extends OB11MessageFileBase {
+    type: OB11MessageDataType.video
+}
+
+export interface OB11MessageAt {
+    type: OB11MessageDataType.at
+    data: {
+        qq: string | "all"
+    }
+}
+
+export interface OB11MessageReply {
+    type: OB11MessageDataType.reply
+    data: {
+        id: string
+    }
+}
+
+export interface OB11MessageFace {
+    type: OB11MessageDataType.face
+    data: {
+        id: string
+    }
+}
+
+export type OB11MessageMixType = OB11MessageData[] | string | OB11MessageData;
+
+export interface OB11MessageNode {
+    type: OB11MessageDataType.node
+    data: {
+        id?: string
+        user_id?: number
+        nickname: string
+        content: OB11MessageMixType
+    }
+}
+
+export type OB11MessageData =
+    OB11MessageText |
+    OB11MessageFace |
+    OB11MessageAt | OB11MessageReply |
+    OB11MessageImage | OB11MessageRecord | OB11MessageFile | OB11MessageVideo |
+    OB11MessageNode
+
+export interface OB11PostSendMsg {
+    message_type?: "private" | "group"
+    user_id: string,
+    group_id?: string,
+    message: OB11MessageMixType;
+    messages?: OB11MessageMixType;  // 兼容 go-cqhttp
+}
+
+export interface OB11Version {
+    app_name: "LLOneBot"
+    app_version: string
+    protocol_version: "v11"
+}
+
+
+export interface OB11Status {
+    online: boolean | null,
+    good: boolean
+}
+

@@ -1,24 +1,53 @@
-# LLOneBot API
 
-将NTQQLiteLoaderAPI封装成OneBot11标准的API
+# LLOneBot API
+LiteLoaderQQNT的OneBot11协议插件
+
+TG群：<https://t.me/+nLZEnpne-pQ1OWFl>
 
 *注意：本文档对应的是 LiteLoader 1.0.0及以上版本，如果你使用的是旧版本请切换到本项目v1分支查看文档*
 
+*V3之后不再需要LLAPI*
+
 ## 安装方法
+### Linux 容器化快速安装
+
+执行以下任意脚本，按照提示设置NoVnc密码，即可运行，脚本问题与异常参考 [llonebot-docker](https://github.com/MliKiowa/llonebot-docker) 项目。
+
+ ```bash
+curl https://cdn.jsdelivr.net/gh/MliKiowa/llonebot-docker/fastboot.sh -o fastboot.sh & chmod +x fastboot.sh & sudo sh fastboot.sh
+ ```
+ ```bash
+wget -O fastboot.sh https://cdn.jsdelivr.net/gh/MliKiowa/llonebot-docker/fastboot.sh & chmod +x fastboot.sh & sudo sh fastboot.sh
+ ```
+
+### 通用手动安装方法
 
 1.安装[LiteLoaderQQNT](https://liteloaderqqnt.github.io/guide/install.html)
 
-2.安装修改后的[LiteLoaderQQNT-Plugin-LLAPI](https://github.com/linyuchen/LiteLoaderQQNT-Plugin-LLAPI/releases)，原版的功能有缺陷
+2.安装本项目插件[OneBotApi](https://github.com/linyuchen/LiteLoaderQQNT-OneBotApi/releases/), 注意本插件2.0以下的版本不支持LiteLoader 1.0.0及以上版本
 
-3.安装本项目插件[OneBotApi](https://github.com/linyuchen/LiteLoaderQQNT-OneBotApi/releases/), 注意本插件2.0以下的版本不支持LiteLoader 1.0.0及以上版本
-
-*关于插件的安装方法: 上述的两个插件都没有上架NTQQLiteLoader插件市场，需要自己下载复制到插件目录*
+*关于插件的安装方法: 下载后解压复制到插件目录*
 
 *插件目录:`LiteLoaderQQNT/plugins`*
 
+安装后的目录结构如下
+```
+├── plugins
+│   ├── LLOneBot
+│   │   └── main.js
+│   │   └── preload.js
+│   │   └── renderer.js
+│   │   └── manifest.json
+│   │   └── node_modules/...
+```
+
 ## 支持的API
 
-目前只支持http协议POST方法，不支持websocket，事件上报也是http协议
+目前支持的协议
+- [x] http调用api
+- [x] http事件上报
+- [x] 正向websocket
+- [x] 反向websocket
 
 主要功能:
 - [x] 发送好友消息
@@ -27,37 +56,48 @@
 - [x] 获取群列表
 - [x] 获取群成员列表
 - [x] 撤回消息
+- [x] 处理添加好友请求
+- [x] 处理加群请求
+- [x] 退群
 - [x] 上报好友消息
+- [x] 上报添加好友请求
 - [x] 上报群消息
+- [x] 上报好友、群消息撤回
+- [x] 上报加群请求
+- [x] 上报群员人数变动（尚不支持识别群员人数变动原因）
+- [x] 设置群管理员
+- [x] 群禁言/全体禁言
+- [x] 群踢人
+- [x] 群改群成员名片
+- [x] 修改群名
 
 消息格式支持:
+- [x] cq码
 - [x] 文字
+- [x] 表情
 - [x] 图片
 - [x] 引用消息
 - [x] @群成员
-- [x] 语音
+- [x] 语音(支持mp3、wav等多种音频格式直接发送)
 - [x] json消息(只上报)
-- [ ] 红包
-- [ ] 转发消息记录
-- [ ] xml
-
-支持的api:
-- [x] get_login_info
-- [x] send_msg
-- [x] send_group_msg
-- [x] send_private_msg
-- [x] delete_msg
-- [x] get_group_list
-- [x] get_group_member_list
-- [x] get_group_member_info
-- [x] get_friend_list
-- [x] get_msg
+- [x] 转发消息记录(目前只能发不能收)
+- [x] 视频(上报时暂时只有个空的file)
+- [x] 文件(上报时暂时只有个空的file), type为file, data为{file: uri}, 发送时uri支持http://, file://, base64://
+    ```
+    {
+        "type": "file",
+        "data": {
+            "file": "file:///D:/1.txt"
+        }
+    }
+    ```
+- [ ] 发送音乐卡片
+- [ ] 红包（没有计划支持）
+- [ ] xml (没有计划支持)
 
 ## 示例
 
 ![](doc/image/example.jpg)
-
-*暂时不支持`"message": "hello"`这种message为字符串的形式*
 
 ## 一些坑
 
@@ -71,7 +111,8 @@
 <details>
     <summary>调用接口报404</summary>
 <br/>
-    目前没有支持全部的onebot规范接口，请检查是否调用了不支持的接口，并且所有接口都只支持POST方法，调用GET方法会报404
+    目前没有支持全部的onebot规范接口，请检查是否调用了不支持的接口
+- 
 </details>
 <br/>
 
@@ -83,26 +124,61 @@
 <br/>
 
 <details>
-    <summary>不支持cq码</summary>
-<br/>
-    cq码已经过时了，没有支持的打算(主要是我不用这玩意儿，加上我懒)
-</details>
-<br/>
-
-<details>
     <summary>QQ变得很卡</summary>
 <br/>
     这是你的群特别多导致的，因为启动后会批量获取群成员列表，获取完之后就正常了
 </details>
 <br/>
 
+## 支持的onebot v11 api:
+- [x] get_login_info
+- [x] send_msg
+- [x] send_group_msg
+- [x] send_private_msg
+- [x] delete_msg
+- [x] get_group_list
+- [x] get_group_info
+- [x] get_group_member_list
+- [x] get_group_member_info
+- [x] get_friend_list
+- [x] set_friend_add_request
+- [x] get_msg
+- [x] send_like
+- [x] set_group_add_request
+- [x] set_group_leave
+- [x] set_group_kick
+- [x] set_group_ban
+- [x] set_group_whole_ban
+- [x] set_group_kick
+- [x] set_group_admin
+- [x] set_group_card
+- [x] set_group_name
+- [x] get_version_info
+- [x] get_status
+- [x] can_send_image
+- [x] can_send_record
+
+### 支持的go-cqhtp api:
+- [x] send_private_forward_msg
+- [x] send_group_forward_msg
+- [x] get_stranger_info
 
 ## TODO
-
-- [ ] 转发消息记录 
-- [ ] 好友点赞api
-- [ ] 支持websocket，等个有缘人提PR实现
-- [ ] 重构摆脱LLAPI，目前调用LLAPI只能在renderer进程调用，需重构成在main进程调用
+- [x] 重构摆脱LLAPI，目前调用LLAPI只能在renderer进程调用，需重构成在main进程调用
+- [x] 支持正、反向websocket（感谢@disymayufei的PR）
+- [x] 转发消息记录 
+- [x] 好友点赞api
+- [x] 群管理功能，禁言、踢人，改群名片等
+- [x] 视频消息
+- [x] 文件消息
+- [ ] 音乐卡片
+- [ ] 无头模式
 
 ## onebot11文档
 <https://11.onebot.dev/>
+
+## 鸣谢
+* [LiteLoaderQQNT](https://liteloaderqqnt.github.io/guide/install.html)
+* [LLAPI](https://github.com/Night-stars-1/LiteLoaderQQNT-Plugin-LLAPI)
+* chronocat
+* [koishi-plugin-adapter-onebot](https://github.com/koishijs/koishi-plugin-adapter-onebot)
