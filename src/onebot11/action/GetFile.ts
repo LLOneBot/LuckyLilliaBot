@@ -19,6 +19,7 @@ export interface GetFileResponse{
 export class GetFileBase extends BaseAction<GetFilePayload, GetFileResponse>{
     protected async _handle(payload: GetFilePayload): Promise<GetFileResponse> {
         const cache = fileCache.get(payload.file)
+        const {autoDeleteFile, enableLocalFile2Url, autoDeleteFileSecond} = getConfigUtil().getConfig()
         if (!cache) {
             throw new Error('file not found')
         }
@@ -31,10 +32,15 @@ export class GetFileBase extends BaseAction<GetFilePayload, GetFileResponse>{
             file_size: cache.fileSize,
             file_name: cache.fileName
         }
-        if (getConfigUtil().getConfig().enableLocalFile2Url) {
+        if (enableLocalFile2Url) {
             if (!cache.url) {
                 res.base64 = await fs.readFile(cache.filePath, 'base64')
             }
+        }
+        if (autoDeleteFile) {
+            setTimeout(() => {
+                fs.unlink(cache.filePath)
+            }, autoDeleteFileSecond * 1000)
         }
         return res
     }
