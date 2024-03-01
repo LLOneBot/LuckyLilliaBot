@@ -1,4 +1,6 @@
 node_modules/
+package-lock.json
 dist/
+out/
 .idea/
 .DS_Store

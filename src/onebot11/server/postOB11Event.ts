@@ -3,18 +3,18 @@ import {OB11Message} from "../types";
 import {selfInfo} from "../../common/data";
 import {OB11BaseMetaEvent} from "../event/meta/OB11BaseMetaEvent";
 import {OB11BaseNoticeEvent} from "../event/notice/OB11BaseNoticeEvent";
-import * as websocket from "ws";
+import { WebSocket as WebSocketClass } from "ws";
 import {wsReply} from "./ws/reply";
 
 export type PostEventType = OB11Message | OB11BaseMetaEvent | OB11BaseNoticeEvent
 
-const eventWSList: websocket.WebSocket[] = [];
+const eventWSList: WebSocketClass[] = [];
 
-export function registerWsEventSender(ws: websocket.WebSocket) {
+export function registerWsEventSender(ws: WebSocketClass) {
     eventWSList.push(ws);
 }
 
-export function unregisterWsEventSender(ws: websocket.WebSocket) {
+export function unregisterWsEventSender(ws: WebSocketClass) {
     let index = eventWSList.indexOf(ws);
     if (index !== -1) {
         eventWSList.splice(index, 1);

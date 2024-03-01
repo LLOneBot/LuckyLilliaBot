@@ -1,7 +1,7 @@
 // 运行在 Electron 主进程 下的插件入口
 
 import {BrowserWindow, dialog, ipcMain} from 'electron';
-import * as fs from 'fs';
+import * as fs from 'node:fs';
 import {Config} from "../common/types";
 import {
     CHANNEL_ERROR,
