@@ -10,7 +10,7 @@ import {
 } from "./types";
 import {NTQQApi} from "./ntcall";
 import {encodeSilk} from "../common/utils";
-import * as fs from "fs";
+import * as fs from "node:fs";
 
 
 export class SendMsgElementConstructor {

@@ -14,7 +14,7 @@ import {SendMsgElementConstructor} from "../../ntqqapi/constructor";
 import {uri2local} from "../utils";
 import BaseAction from "./BaseAction";
 import {ActionName, BaseCheckResult} from "./types";
-import * as fs from "fs";
+import * as fs from "node:fs";
 import {log} from "../../common/utils";
 import {decodeCQCode} from "../cqcode";
 

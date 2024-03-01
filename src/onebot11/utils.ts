@@ -1,6 +1,6 @@
 import {CONFIG_DIR, isGIF} from "../common/utils";
 import {v4 as uuidv4} from "uuid";
-import * as path from 'path';
+import * as path from 'node:path';
 import {fileCache} from "../common/data";
 
 const fs = require("fs").promises;

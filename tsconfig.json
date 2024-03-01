@@ -8,9 +8,11 @@
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
     "moduleResolution": "node",
-//    "sourceMap": true
+    //    "sourceMap": true
   },
-  "include": ["src/*"],
+  "include": [
+    "src/*"
+  ],
   "exclude": [
     "node_modules",
     "src/common/types.ts"

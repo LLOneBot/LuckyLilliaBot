@@ -1,4 +1,4 @@
-import * as path from "path";
+import * as path from "node:path";
 import {selfInfo} from "./data";
 import {ConfigUtil} from "./config";
 import util from "util";

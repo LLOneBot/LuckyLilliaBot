@@ -1,6 +1,6 @@
 import {getConfigUtil, log} from "../../../common/utils";
 
-import * as WebSocket from "ws";
+
 import {selfInfo} from "../../../common/data";
 import {LifeCycleSubType, OB11LifeCycleEvent} from "../../event/meta/OB11LifeCycleEvent";
 import {ActionName} from "../../action/types";
@@ -9,11 +9,12 @@ import BaseAction from "../../action/BaseAction";
 import {actionMap} from "../../action";
 import {registerWsEventSender, unregisterWsEventSender} from "../postOB11Event";
 import {wsReply} from "./reply";
+import { WebSocket as WebSocketClass } from "ws";
 
 export let rwsList: ReverseWebsocket[] = [];
 
 export class ReverseWebsocket {
-    public websocket: WebSocket.WebSocket;
+    public websocket: WebSocketClass;
     public url: string;
     private running: boolean = false;
 
@@ -76,7 +77,7 @@ export class ReverseWebsocket {
 
     private connect() {
         const {token} = getConfigUtil().getConfig()
-        this.websocket = new WebSocket.WebSocket(this.url, {
+        this.websocket = new WebSocketClass(this.url, {
             handshakeTimeout: 2000,
             perMessageDeflate: false,
             headers: {

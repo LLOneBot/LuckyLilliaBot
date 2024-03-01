@@ -17,7 +17,7 @@ import {
     SendMessageElement,
     User
 } from "./types";
-import * as fs from "fs";
+import * as fs from "node:fs";
 import {addHistoryMsg, friendRequests, groupNotifies, msgHistory, selfInfo} from "../common/data";
 import {v4 as uuidv4} from "uuid"
 import path from "path";
