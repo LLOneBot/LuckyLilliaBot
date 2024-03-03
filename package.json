@@ -16,7 +16,6 @@
   "dependencies": {
     "express": "^4.18.2",
     "fluent-ffmpeg": "^2.1.2",
-    "music-metadata": "^8.1.4",
     "silk-wasm": "^3.2.3",
     "utf-8-validate": "^6.0.3",
     "uuid": "^9.0.1",

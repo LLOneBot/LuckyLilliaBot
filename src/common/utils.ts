@@ -178,17 +178,17 @@ export async function encodeSilk(filePath: string) {
         return isWav(fs.readFileSync(filePath));
     }
 
-    async function getAudioSampleRate(filePath: string) {
-        try {
-            const mm = await import('music-metadata');
-            const metadata = await mm.parseFile(filePath);
-            log(`${filePath}采样率`, metadata.format.sampleRate);
-            return metadata.format.sampleRate;
-        } catch (error) {
-            log(`${filePath}采样率获取失败`, error.stack);
-            // console.error(error);
-        }
-    }
+    // async function getAudioSampleRate(filePath: string) {
+    //     try {
+    //         const mm = await import('music-metadata');
+    //         const metadata = await mm.parseFile(filePath);
+    //         log(`${filePath}采样率`, metadata.format.sampleRate);
+    //         return metadata.format.sampleRate;
+    //     } catch (error) {
+    //         log(`${filePath}采样率获取失败`, error.stack);
+    //         // console.error(error);
+    //     }
+    // }
 
     try {
         const fileName = path.basename(filePath);
@@ -219,9 +219,9 @@ export async function encodeSilk(filePath: string) {
                         });
                 })
             }
-            const sampleRate = await getAudioSampleRate(filePath) || 44100;
+            // const sampleRate = await getAudioSampleRate(filePath) || 0;
             const pcm = fs.readFileSync(filePath);
-            const silk = await encode(pcm, sampleRate);
+            const silk = await encode(pcm, 0);
             fs.writeFileSync(pttPath, silk.data);
             fs.unlink(wavPath, (err) => {
             });
