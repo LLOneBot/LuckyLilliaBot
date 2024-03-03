@@ -63,6 +63,7 @@ export interface GroupMember {
     shutUpTime: number; // 禁言时间，单位是什么暂时不清楚
     uid: string; // 加密的字符串
     uin: string; // QQ号
+    isRobot: boolean;
 }
 
 export enum ElementType {

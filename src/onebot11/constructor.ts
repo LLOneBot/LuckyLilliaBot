@@ -5,7 +5,8 @@ import {
     OB11Message,
     OB11MessageData,
     OB11MessageDataType,
-    OB11User
+    OB11User,
+    OB11UserSex
 } from "./types";
 import {AtType, ChatType, Group, GroupMember, IMAGE_HTTP_HOST, RawMessage, SelfInfo, User} from '../ntqqapi/types';
 import {fileCache, getFriend, getGroupMember, getHistoryMsgBySeq, selfInfo} from '../common/data';
@@ -244,6 +245,17 @@ export class OB11Constructor {
             user_id: parseInt(member.uin),
             nickname: member.nick,
             card: member.cardName,
+            sex: OB11UserSex.unknown,
+            age: 0,
+            area: "",
+            level: 0,
+            join_time: 0,  // 暂时没法获取
+            last_sent_time: 0,  // 暂时没法获取
+            title_expire_time: 0,
+            unfriendly: false,
+            card_changeable: true,
+            is_robot: member.isRobot,
+            shut_up_timestamp: member.shutUpTime,
             role: OB11Constructor.groupMemberRole(member.role),
         }
     }

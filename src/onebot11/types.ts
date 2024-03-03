@@ -31,6 +31,14 @@ export interface OB11GroupMember {
     level?: number
     role?: OB11GroupMemberRole
     title?: string
+    area?: string
+    unfriendly?: boolean
+    title_expire_time?: number
+    card_changeable?: boolean
+    // 以下为gocq字段
+    shut_up_timestamp?: number
+    // 以下为扩展字段
+    is_robot?: boolean
 }
 
 export interface OB11Group {
