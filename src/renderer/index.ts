@@ -14,15 +14,21 @@ async function onSettingWindowCreated(view: Element) {
     window.llonebot.log("setting window created");
     const isEmpty = (value: any) => value === undefined || value === null || value === '';
     let config = await window.llonebot.getConfig();
+    let ob11Config = { ...config.ob11 };
     const setConfig = (key: string, value: any) => {
         const configKey = key.split('.');
 
-        if (configKey.length === 2) config[configKey[0]][configKey[1]] = value;
-        else config[key] = value;
+        if (key.indexOf('ob11') === 0) {
+            if (configKey.length === 2) ob11Config[configKey[1]] = value;
+            else ob11Config[key] = value;
+        } else {
+            if (configKey.length === 2) config[configKey[0]][configKey[1]] = value;
+            else config[key] = value;
 
-        if (key.indexOf('ob11') === -1) window.llonebot.setConfig(config);
+            window.llonebot.setConfig(config);
+        }
 
-        console.log(config);
+        console.log(config, ob11Config);
     };
 
     const parser = new DOMParser();
@@ -54,6 +60,10 @@ async function onSettingWindowCreated(view: Element) {
             SettingItem('启用反向 WebSocket 服务', null,
                 SettingSwitch('ob11.enableWsReverse', config.ob11.enableWsReverse, { 'control-display-id': 'config-ob11-wsHosts' }),
             ),
+            SettingItem('反向 WebSocket 服务心跳间隔',
+                '控制每隔多久发送一个心跳包，单位为毫秒',
+                `<div class="q-input"><input class="q-input__inner" data-config-key="heartInterval" type="number" min="1000" value="${config.heartInterval}" placeholder="${config.heartInterval}" /></div>`,
+            ),
             SettingItem('反向 WebSocket 监听地址', null,
                 '<div></div>',
                 'config-ob11-wsHosts', config.ob11.enableWsReverse
@@ -70,7 +80,7 @@ async function onSettingWindowCreated(view: Element) {
                 ], 'ob11.messagePostFormat', config.ob11.messagePostFormat),
             ),
             SettingItem(
-                'ffmpeg 路径', `${!isEmpty(config.ffmpeg) ? config.ffmpeg : '未指定'}`,
+                'ffmpeg 路径', `<span id="config-ffmpeg-path">${!isEmpty(config.ffmpeg) ? config.ffmpeg : '未指定'}</span>`,
                 SettingButton('选择', 'config-ffmpeg-select'),
                 'config-ffmpeg-path',
             ),
@@ -161,7 +171,9 @@ async function onSettingWindowCreated(view: Element) {
 
     // 保存按钮
     doc.querySelector('#config-ob11-save').addEventListener('click', () => {
-        window.llonebot.setConfig(config)
+        config.ob11 = ob11Config;
+
+        window.llonebot.setConfig(config);
         alert('保存成功');
     });
 
