@@ -34,9 +34,9 @@ wget -O fastboot.sh https://cdn.jsdelivr.net/gh/MliKiowa/llonebot-docker/fastboo
 ```
 ├── plugins
 │   ├── LLOneBot
-│   │   └── main.js
-│   │   └── preload.js
-│   │   └── renderer.js
+│   │   └── main/
+│   │   └── preload/
+│   │   └── renderer/
 │   │   └── manifest.json
 │   │   └── node_modules/...
 ```
