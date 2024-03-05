@@ -24,7 +24,7 @@ wget -O fastboot.sh https://cdn.jsdelivr.net/gh/MliKiowa/llonebot-docker/fastboo
 
 1.安装[LiteLoaderQQNT](https://liteloaderqqnt.github.io/guide/install.html)
 
-2.安装本项目插件[OneBotApi](https://github.com/linyuchen/LiteLoaderQQNT-OneBotApi/releases/), 注意本插件2.0以下的版本不支持LiteLoader 1.0.0及以上版本
+2.安装本项目插件[LLOneBot](https://github.com/linyuchen/LiteLoaderQQNT-OneBotApi/releases/), 注意本插件2.0以下的版本不支持LiteLoader 1.0.0及以上版本
 
 *关于插件的安装方法: 下载后解压复制到插件目录*
 
@@ -45,11 +45,11 @@ wget -O fastboot.sh https://cdn.jsdelivr.net/gh/MliKiowa/llonebot-docker/fastboo
 
 见<https://github.com/LLOneBot/llonebot-termux>
 
-## 支持的API
+## 支持的功能
 
 目前支持的协议
 - [x] http调用api
-- [x] http事件上报
+- [x] http事件上报，不支持快捷回复等快捷操作
 - [x] 正向websocket
 - [x] 反向websocket
 
