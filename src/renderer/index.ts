@@ -111,7 +111,7 @@ async function onSettingWindowCreated(view: Element) {
             ),
             SettingItem(
                 '上报 Bot 自身发送的消息',
-                '上报event为message_sent',
+                '上报 event 为 message_sent',
                 SettingSwitch('reportSelfMessage', config.reportSelfMessage),
             ),
             SettingItem(
