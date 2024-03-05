@@ -44,7 +44,7 @@ wget -O fastboot.sh https://cdn.jsdelivr.net/gh/LLOneBot/llonebot-docker/fastboo
 
 ### 使用termux安装
 
-具体安装过程与教程,参考 [https://github.com/MliKiowa/llonebot-docker](https://github.com/LLOneBot/llonebot-termux) 项目。
+具体安装过程与教程,参考 [llonebot-termux](https://github.com/LLOneBot/llonebot-termux) 项目。
 
 ## 支持的功能
 
