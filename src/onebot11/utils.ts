@@ -40,7 +40,7 @@ export async function uri2local(uri: string, fileName: string = null) {
         let buffer = await blob.arrayBuffer();
         try {
             fileName = path.parse(url.pathname).name || fileName
-            filePath = path.join(CONFIG_DIR, fileName)
+            filePath = path.join(CONFIG_DIR, uuidv4() + fileName)
             await fs.writeFile(filePath, Buffer.from(buffer));
         } catch (e: any) {
             res.errMsg = `${url}下载失败,` + e.toString()
