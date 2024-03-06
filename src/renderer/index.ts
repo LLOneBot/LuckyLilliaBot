@@ -136,9 +136,36 @@ async function onSettingWindowCreated(view: Element) {
                 SettingButton('打开', 'config-open-log-path'),
             ),
         ]),
+        SettingList([
+            SettingItem(
+                'GitHub',
+                `https://github.com/LLOneBot/LLOneBot`,
+                SettingButton('点个Star', 'open-github'),
+            ),
+            SettingItem(
+                'Telegram 群',
+                `https://t.me/+nLZEnpne-pQ1OWFl`,
+                SettingButton('进去逛逛', 'open-telegram'),
+            ),
+            SettingItem(
+                'QQ 群',
+                `545402644`,
+                SettingButton('我要进去', 'open-qq-group'),
+            ),
+        ]),
         '</div>',
     ].join(''), "text/html");
 
+    // 外链按钮
+    doc.querySelector('#open-github').addEventListener('click', () => {
+        window.LiteLoader.api.openExternal('https://github.com/LLOneBot/LLOneBot')
+    })
+    doc.querySelector('#open-telegram').addEventListener('click', () => {
+        window.LiteLoader.api.openExternal('https://t.me/+nLZEnpne-pQ1OWFl')
+    })
+    doc.querySelector('#open-qq-group').addEventListener('click', () => {
+        window.LiteLoader.api.openExternal('https://qm.qq.com/q/bDnHRG38aI')
+    })
     // 生成反向地址列表
     const buildHostListItem = (type: string, host: string, index: number) => {
         const dom = {
