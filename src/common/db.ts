@@ -1,7 +1,7 @@
 // import {DATA_DIR} from "./utils";
 import {Level} from "level";
 import {RawMessage} from "../ntqqapi/types";
-import {DATA_DIR} from "./utils";
+import {DATA_DIR, log} from "./utils";
 import {selfInfo} from "./data";
 
 
@@ -93,14 +93,14 @@ class DBUtil {
         // 有则更新，无则添加
         const longIdKey = this.DB_KEY_PREFIX_MSG_ID + msg.msgId
         let existMsg = this.cache[longIdKey]
-        if (!existMsg){
+        if (!existMsg) {
             try {
                 existMsg = await this.getMsgByLongId(msg.msgId)
-            }catch (e) {
+            } catch (e) {
 
             }
         }
-        if (existMsg){
+        if (existMsg) {
             this.updateMsg(msg).then()
             return existMsg.msgShortId
         }
@@ -108,10 +108,15 @@ class DBUtil {
         const shortMsgId = await this.genMsgShortId();
         const shortIdKey = this.DB_KEY_PREFIX_MSG_SHORT_ID + shortMsgId;
         const seqIdKey = this.DB_KEY_PREFIX_MSG_SEQ_ID + msg.msgSeq;
-        await this.db.put(shortIdKey, msg.msgId);
         msg.msgShortId = shortMsgId;
-        await this.db.put(longIdKey, JSON.stringify(msg));
-        await this.db.put(seqIdKey, msg.msgId);
+        try {
+            await this.db.put(shortIdKey, msg.msgId);
+            await this.db.put(longIdKey, JSON.stringify(msg));
+            await this.db.put(seqIdKey, msg.msgId);
+
+        } catch (e) {
+            log("addMsg db error", e.stack.toString());
+        }
         this.cache[seqIdKey] = this.cache[shortIdKey] = this.cache[longIdKey] = msg;
         return shortMsgId
     }

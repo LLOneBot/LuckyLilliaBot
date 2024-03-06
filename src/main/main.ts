@@ -177,7 +177,7 @@ function onLoad() {
             try {
                 await postReceiveMsg(payload.msgList);
             } catch (e) {
-                log("report message error: ", e.toString());
+                log("report message error: ", e.stack.toString());
             }
         })
         registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.UPDATE_MSG, async (payload) => {
