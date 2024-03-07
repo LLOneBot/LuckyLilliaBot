@@ -305,7 +305,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                 case OB11MessageDataType.reply: {
                     let replyMsgId = sendMsg.data.id;
                     if (replyMsgId) {
-                        const replyMsg = await dbUtil.getMsgBySeqId(replyMsgId)
+                        const replyMsg = await dbUtil.getMsgByShortId(parseInt(replyMsgId))
                         if (replyMsg) {
                             sendElements.push(SendMsgElementConstructor.reply(replyMsg.msgSeq, replyMsg.msgId, replyMsg.senderUin, replyMsg.senderUin))
                         }
