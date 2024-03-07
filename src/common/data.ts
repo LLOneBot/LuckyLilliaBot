@@ -35,14 +35,14 @@ export async function getFriend(qq: string, uid: string = ""): Promise<Friend | 
     let filterKey = uid ? "uid" : "uin"
     let filterValue = uid ? uid : qq
     let friend = friends.find(friend => friend[filterKey] === filterValue.toString())
-    if (!friend) {
-        try {
-            friends = (await NTQQApi.getFriends(true))
-            friend = friends.find(friend => friend[filterKey] === filterValue.toString())
-        } catch (e) {
-            // log("刷新好友列表失败", e.stack.toString())
-        }
-    }
+    // if (!friend) {
+    //     try {
+    //         friends = (await NTQQApi.getFriends(true))
+    //         friend = friends.find(friend => friend[filterKey] === filterValue.toString())
+    //     } catch (e) {
+    //         // log("刷新好友列表失败", e.stack.toString())
+    //     }
+    // }
     return friend
 }
 

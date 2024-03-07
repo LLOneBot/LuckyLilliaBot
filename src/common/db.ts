@@ -3,6 +3,7 @@ import {Level} from "level";
 import {RawMessage} from "../ntqqapi/types";
 import {DATA_DIR, log} from "./utils";
 import {selfInfo} from "./data";
+import * as wasi from "wasi";
 
 
 class DBUtil {
@@ -54,7 +55,7 @@ class DBUtil {
         const longIdKey = this.DB_KEY_PREFIX_MSG_ID + msg.msgId
         const shortIdKey = this.DB_KEY_PREFIX_MSG_SHORT_ID + msg.msgShortId
         const seqIdKey = this.DB_KEY_PREFIX_MSG_SEQ_ID + msg.msgSeq
-        this.cache[longIdKey] = this.cache[shortIdKey] = this.cache[seqIdKey] = msg
+        this.cache[longIdKey] = this.cache[shortIdKey] = msg
     }
 
     async getMsgByShortId(shortMsgId: number): Promise<RawMessage> {
@@ -92,6 +93,7 @@ class DBUtil {
 
     async addMsg(msg: RawMessage) {
         // 有则更新，无则添加
+        // log("addMsg", msg.msgId, msg.msgSeq, msg.msgShortId);
         const longIdKey = this.DB_KEY_PREFIX_MSG_ID + msg.msgId
         let existMsg = this.cache[longIdKey]
         if (!existMsg) {
@@ -102,6 +104,7 @@ class DBUtil {
             }
         }
         if (existMsg) {
+            // log("消息已存在", existMsg.msgSeq, existMsg.msgShortId, existMsg.msgId)
             this.updateMsg(msg).then()
             return existMsg.msgShortId
         }
@@ -113,12 +116,21 @@ class DBUtil {
         try {
             this.db.put(shortIdKey, msg.msgId).then();
             this.db.put(longIdKey, JSON.stringify(msg)).then();
-            this.db.put(seqIdKey, msg.msgId).then();
-            log(`消息入库 ${seqIdKey}: ${msg.msgId}, ${shortMsgId}: ${msg.msgId}`);
+            try {
+                if (!(await this.db.get(seqIdKey))) {
+                    this.db.put(seqIdKey, msg.msgId).then();
+                }
+            } catch (e) {
+
+            }
+            this.cache[shortIdKey] = this.cache[longIdKey] = msg;
+            if (!this.cache[seqIdKey]) {
+                this.cache[seqIdKey] = msg;
+            }
+            // log(`消息入库 ${seqIdKey}: ${msg.msgId}, ${shortMsgId}: ${msg.msgId}`);
         } catch (e) {
-            log("addMsg db error", e.stack.toString());
+            // log("addMsg db error", e.stack.toString());
         }
-        this.cache[seqIdKey] = this.cache[shortIdKey] = this.cache[longIdKey] = msg;
         return shortMsgId
     }
 
@@ -137,13 +149,24 @@ class DBUtil {
         this.db.put(longIdKey, JSON.stringify(existMsg)).then();
         const shortIdKey = this.DB_KEY_PREFIX_MSG_SHORT_ID + existMsg.msgShortId;
         const seqIdKey = this.DB_KEY_PREFIX_MSG_SEQ_ID + msg.msgSeq;
+        if (!this.cache[seqIdKey]) {
+            this.cache[seqIdKey] = existMsg;
+        }
         this.db.put(shortIdKey, msg.msgId).then();
-        this.db.put(seqIdKey, msg.msgId).then();
+        try {
+            if (!(await this.db.get(seqIdKey))) {
+                this.db.put(seqIdKey, msg.msgId).then();
+            }
+        } catch (e) {
+
+        }
+        // log("更新消息", existMsg.msgSeq, existMsg.msgShortId, existMsg.msgId);
     }
+
 
     private async genMsgShortId(): Promise<number> {
         const key = "msg_current_short_id";
-        if (this.currentShortId === undefined){
+        if (this.currentShortId === undefined) {
             try {
                 let id: string = await this.db.get(key);
                 this.currentShortId = parseInt(id);

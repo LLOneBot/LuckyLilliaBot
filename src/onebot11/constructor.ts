@@ -96,9 +96,10 @@ export class OB11Constructor {
                 message_data["data"]["text"] = text
             } else if (element.replyElement) {
                 message_data["type"] = "reply"
-                log("收到回复消息", element.replyElement.replayMsgSeq)
+                // log("收到回复消息", element.replyElement.replayMsgSeq)
                 try{
                     const replyMsg = await dbUtil.getMsgBySeqId(element.replyElement.replayMsgSeq)
+                    // log("找到回复消息", replyMsg.msgShortId, replyMsg.msgId)
                     if (replyMsg) {
                         message_data["data"]["id"] = replyMsg.msgShortId.toString()
                     } else {
@@ -123,7 +124,7 @@ export class OB11Constructor {
                     url: IMAGE_HTTP_HOST + element.picElement.originImageUrl,
                     downloadFunc: async () => {
                         await NTQQApi.downloadMedia(msg.msgId, msg.chatType, msg.peerUid,
-                            element.elementId, element.picElement.thumbPath.get(0), element.picElement.sourcePath)
+                            element.elementId, element.picElement.thumbPath?.get(0) || "", element.picElement.sourcePath)
                     }
                 })
                 // 不在自动下载图片

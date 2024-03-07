@@ -422,7 +422,7 @@ export class NTQQApi {
         })
     }
 
-    static async sendMsg(peer: Peer, msgElements: SendMessageElement[], waitComplete = false, timeout = 10000) {
+    static async sendMsg(peer: Peer, msgElements: SendMessageElement[], waitComplete = true, timeout = 10000) {
         const peerUid = peer.peerUid
 
         // 等待上一个相同的peer发送完

@@ -155,7 +155,7 @@ function onLoad() {
     async function postReceiveMsg(msgList: RawMessage[]) {
         const {debug, reportSelfMessage} = getConfigUtil().getConfig();
         for (let message of msgList) {
-            // log("收到新消息", message)
+            // log("收到新消息", message.msgSeq)
             message.msgShortId = await dbUtil.addMsg(message)
 
             OB11Constructor.message(message).then((msg) => {
@@ -213,7 +213,7 @@ function onLoad() {
                     // 不让入库覆盖原来消息，不然就获取不到撤回的消息内容了
                     continue
                 }
-                dbUtil.addMsg(message).then();
+                dbUtil.updateMsg(message).then();
             }
         })
         registerReceiveHook<{ msgRecord: RawMessage }>(ReceiveCmd.SELF_SEND_MSG, async (payload) => {

@@ -21,7 +21,7 @@ class BaseAction<PayloadType, ReturnDataType> {
             const resData = await this._handle(payload);
             return OB11Response.ok(resData);
         } catch (e) {
-            log("发送错误", e.stack)
+            log("发生错误", e.stack)
             return OB11Response.error(e.toString(), 200);
         }
     }
