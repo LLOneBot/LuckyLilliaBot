@@ -287,6 +287,9 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                 }
                     break;
                 case OB11MessageDataType.at: {
+                    if (!group){
+                        continue
+                    }
                     let atQQ = sendMsg.data?.qq;
                     if (atQQ) {
                         atQQ = atQQ.toString()
