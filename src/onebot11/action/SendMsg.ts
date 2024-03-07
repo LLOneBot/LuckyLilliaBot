@@ -330,7 +330,10 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                     const file = sendMsg.data?.file
                     const payloadFileName = sendMsg.data?.name
                     if (file) {
-                        const {path, isLocal, fileName} = (await uri2local(file))
+                        const {path, isLocal, fileName, errMsg} = (await uri2local(file))
+                        if (errMsg){
+                            throw errMsg
+                        }
                         if (path) {
                             if (!isLocal) { // 只删除http和base64转过来的文件
                                 deleteAfterSentFiles.push(path)

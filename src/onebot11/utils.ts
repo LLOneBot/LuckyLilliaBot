@@ -33,7 +33,13 @@ export async function uri2local(uri: string, fileName: string = null) {
         }
     } else if (url.protocol == "http:" || url.protocol == "https:") {
         // 下载文件
-        let fetchRes = await fetch(url)
+        let fetchRes: Response;
+        try{
+            fetchRes = await fetch(url)
+        }catch (e) {
+            res.errMsg = `${url}下载失败`
+            return res
+        }
         if (!fetchRes.ok) {
             res.errMsg = `${url}下载失败,` + fetchRes.statusText
             return res
@@ -46,7 +52,7 @@ export async function uri2local(uri: string, fileName: string = null) {
                 fileName = pathInfo.name
                 if (pathInfo.ext){
                     fileName += pathInfo.ext
-                    res.ext = pathInfo.ext
+                    // res.ext = pathInfo.ext
                 }
             }
             res.fileName = fileName
