@@ -57,6 +57,9 @@ export class SendMsgElementConstructor {
 
     static async pic(picPath: string): Promise<SendPicElement> {
         const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(picPath, ElementType.PIC);
+        if (fileSize === 0){
+            throw "文件异常，大小为0";
+        }
         const imageSize = await NTQQApi.getImageSize(picPath);
         const picElement = {
             md5HexStr: md5,
@@ -115,6 +118,9 @@ export class SendMsgElementConstructor {
         const {converted, path: silkPath, duration} = await encodeSilk(pttPath);
         // log("生成语音", silkPath, duration);
         const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(silkPath, ElementType.PTT);
+        if (fileSize === 0){
+            throw "文件异常，大小为0";
+        }
         if (converted) {
             fs.unlink(silkPath, () => {
             });
