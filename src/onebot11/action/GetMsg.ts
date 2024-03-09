@@ -21,8 +21,7 @@ class GetMsg extends BaseAction<PayloadType, OB11Message> {
         }
         const msg = await dbUtil.getMsgByShortId(payload.message_id)
         if (msg) {
-            const msgData = await OB11Constructor.message(msg);
-            return msgData
+            return await OB11Constructor.message(msg)
         } else {
             throw ("消息不存在")
         }

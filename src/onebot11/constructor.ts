@@ -27,7 +27,7 @@ export class OB11Constructor {
             user_id: parseInt(msg.senderUin),
             time: parseInt(msg.msgTime) || Date.now(),
             message_id: msg.msgShortId,
-            real_id: msg.msgId,
+            real_id: msg.msgShortId,
             message_type: msg.chatType == ChatType.group ? "group" : "private",
             sender: {
                 user_id: parseInt(msg.senderUin),

@@ -67,7 +67,7 @@ export interface OB11Message {
     self_id?: number,
     time: number,
     message_id: number,
-    real_id: string,
+    real_id: number,
     user_id: number,
     group_id?: number,
     message_type: "private" | "group",
