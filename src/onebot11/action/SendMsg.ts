@@ -215,7 +215,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                         deleteAfterSentFiles
                     } = await this.createSendElements(this.convertMessage2List(messageNode.data.content), group);
                     log("开始生成转发节点", sendElements);
-                    const nodeMsg = await this.send(selfPeer, sendElements, deleteAfterSentFiles, false);
+                    const nodeMsg = await this.send(selfPeer, sendElements, deleteAfterSentFiles, true);
                     selfNodeMsgList.push(nodeMsg);
                     log("转发节点生成成功", nodeMsg.msgId);
                 } catch (e) {
