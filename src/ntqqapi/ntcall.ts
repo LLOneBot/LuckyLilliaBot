@@ -1,25 +1,29 @@
-import {ipcMain} from 'electron'
-import {hookApiCallbacks, ReceiveCmd, registerReceiveHook, removeReceiveHook} from './hook'
-import {log, sleep} from '../common/utils'
+import {ipcMain} from "electron";
+import {hookApiCallbacks, ReceiveCmd, registerReceiveHook, removeReceiveHook} from "./hook";
+import {log, sleep} from "../common/utils";
 import {
-    type ChatType,
+    ChatType,
     ElementType,
-    type Friend,
-    type FriendRequest,
-    type Group, GroupMember,
-    type GroupMemberRole,
-    type GroupNotifies,
-    type GroupNotify,
-    type GroupRequestOperateTypes,
-    type RawMessage,
-    type SelfInfo,
-    type SendMessageElement,
-    type User
-} from './types'
-import * as fs from 'node:fs'
-import {friendRequests, groupNotifies, selfInfo, uidMaps} from '../common/data'
-import {v4 as uuidv4} from 'uuid'
-import path from 'path'
+    Friend,
+    FriendRequest,
+    Group,
+    GroupMember,
+    GroupMemberRole,
+    GroupNotifies,
+    GroupNotify,
+    GroupRequestOperateTypes,
+    RawMessage,
+    SelfInfo,
+    SendMessageElement,
+    User,
+    CacheScanResult,
+    ChatCacheList, ChatCacheListItemBasic,
+    CacheFileList, CacheFileListItem, CacheFileType,
+} from "./types";
+import * as fs from "fs";
+import {friendRequests, groupNotifies, selfInfo, uidMaps} from "../common/data";
+import {v4 as uuidv4} from "uuid"
+import path from "path";
 import {dbUtil} from "../common/db";
 
 interface IPCReceiveEvent {
@@ -35,89 +39,104 @@ export type IPCReceiveDetail = [
 ]
 
 export enum NTQQApiClass {
-    NT_API = 'ns-ntApi',
-    FS_API = 'ns-FsApi',
-    GLOBAL_DATA = 'ns-GlobalDataApi'
+    NT_API = "ns-ntApi",
+    FS_API = "ns-FsApi",
+    OS_API = "ns-OsApi",
+    HOTUPDATE_API = "ns-HotUpdateApi",
+    BUSINESS_API = "ns-BusinessApi",
+    GLOBAL_DATA = "ns-GlobalDataApi"
 }
 
 export enum NTQQApiMethod {
-    LIKE_FRIEND = 'nodeIKernelProfileLikeService/setBuddyProfileLike',
-    SELF_INFO = 'fetchAuthData',
-    FRIENDS = 'nodeIKernelBuddyService/getBuddyList',
-    GROUPS = 'nodeIKernelGroupService/getGroupList',
-    GROUP_MEMBER_SCENE = 'nodeIKernelGroupService/createMemberListScene',
-    GROUP_MEMBERS = 'nodeIKernelGroupService/getNextMemberList',
-    USER_INFO = 'nodeIKernelProfileService/getUserSimpleInfo',
-    USER_DETAIL_INFO = 'nodeIKernelProfileService/getUserDetailInfo',
-    FILE_TYPE = 'getFileType',
-    FILE_MD5 = 'getFileMd5',
-    FILE_COPY = 'copyFile',
-    IMAGE_SIZE = 'getImageSizeFromPath',
-    FILE_SIZE = 'getFileSize',
-    MEDIA_FILE_PATH = 'nodeIKernelMsgService/getRichMediaFilePathForGuild',
-    RECALL_MSG = 'nodeIKernelMsgService/recallMsg',
-    SEND_MSG = 'nodeIKernelMsgService/sendMsg',
-    DOWNLOAD_MEDIA = 'nodeIKernelMsgService/downloadRichMedia',
-    FORWARD_MSG = "nodeIKernelMsgService/forwardMsgWithComment",  // 逐条转发
-    MULTI_FORWARD_MSG = 'nodeIKernelMsgService/multiForwardMsgWithComment', // 合并转发
-    GET_GROUP_NOTICE = 'nodeIKernelGroupService/getSingleScreenNotifies',
-    HANDLE_GROUP_REQUEST = 'nodeIKernelGroupService/operateSysNotify',
-    QUIT_GROUP = 'nodeIKernelGroupService/quitGroup',
+    LIKE_FRIEND = "nodeIKernelProfileLikeService/setBuddyProfileLike",
+    SELF_INFO = "fetchAuthData",
+    FRIENDS = "nodeIKernelBuddyService/getBuddyList",
+    GROUPS = "nodeIKernelGroupService/getGroupList",
+    GROUP_MEMBER_SCENE = "nodeIKernelGroupService/createMemberListScene",
+    GROUP_MEMBERS = "nodeIKernelGroupService/getNextMemberList",
+    USER_INFO = "nodeIKernelProfileService/getUserSimpleInfo",
+    USER_DETAIL_INFO = "nodeIKernelProfileService/getUserDetailInfo",
+    FILE_TYPE = "getFileType",
+    FILE_MD5 = "getFileMd5",
+    FILE_COPY = "copyFile",
+    IMAGE_SIZE = "getImageSizeFromPath",
+    FILE_SIZE = "getFileSize",
+    MEDIA_FILE_PATH = "nodeIKernelMsgService/getRichMediaFilePathForGuild",
+    RECALL_MSG = "nodeIKernelMsgService/recallMsg",
+    SEND_MSG = "nodeIKernelMsgService/sendMsg",
+    DOWNLOAD_MEDIA = "nodeIKernelMsgService/downloadRichMedia",
+    FORWARD_MSG = "nodeIKernelMsgService/forwardMsgWithComment",
+    MULTI_FORWARD_MSG = "nodeIKernelMsgService/multiForwardMsgWithComment", // 合并转发
+    GET_GROUP_NOTICE = "nodeIKernelGroupService/getSingleScreenNotifies",
+    HANDLE_GROUP_REQUEST = "nodeIKernelGroupService/operateSysNotify",
+    QUIT_GROUP = "nodeIKernelGroupService/quitGroup",
     // READ_FRIEND_REQUEST = "nodeIKernelBuddyListener/onDoubtBuddyReqUnreadNumChange"
-    HANDLE_FRIEND_REQUEST = 'nodeIKernelBuddyService/approvalFriendRequest',
-    KICK_MEMBER = 'nodeIKernelGroupService/kickMember',
-    MUTE_MEMBER = 'nodeIKernelGroupService/setMemberShutUp',
-    MUTE_GROUP = 'nodeIKernelGroupService/setGroupShutUp',
-    SET_MEMBER_CARD = 'nodeIKernelGroupService/modifyMemberCardName',
-    SET_MEMBER_ROLE = 'nodeIKernelGroupService/modifyMemberRole',
-    PUBLISH_GROUP_BULLETIN = 'nodeIKernelGroupService/publishGroupBulletinBulletin',
-    SET_GROUP_NAME = 'nodeIKernelGroupService/modifyGroupName',
+    HANDLE_FRIEND_REQUEST = "nodeIKernelBuddyService/approvalFriendRequest",
+    KICK_MEMBER = "nodeIKernelGroupService/kickMember",
+    MUTE_MEMBER = "nodeIKernelGroupService/setMemberShutUp",
+    MUTE_GROUP = "nodeIKernelGroupService/setGroupShutUp",
+    SET_MEMBER_CARD = "nodeIKernelGroupService/modifyMemberCardName",
+    SET_MEMBER_ROLE = "nodeIKernelGroupService/modifyMemberRole",
+    PUBLISH_GROUP_BULLETIN = "nodeIKernelGroupService/publishGroupBulletinBulletin",
+    SET_GROUP_NAME = "nodeIKernelGroupService/modifyGroupName",
+
+    CACHE_SET_SILENCE = 'nodeIKernelStorageCleanService/setSilentScan',
+    CACHE_ADD_SCANNED_PATH = 'nodeIKernelStorageCleanService/addCacheScanedPaths',
+    CACHE_PATH_HOT_UPDATE = 'getHotUpdateCachePath',
+    CACHE_PATH_DESKTOP_TEMP = 'getDesktopTmpPath',
+    CACHE_PATH_SESSION = 'getCleanableAppSessionPathList',
+    CACHE_SCAN = 'nodeIKernelStorageCleanService/scanCache',
+    CACHE_CLEAR = 'nodeIKernelStorageCleanService/clearCacheDataByKeys',
+
+    CACHE_CHAT_GET = 'nodeIKernelStorageCleanService/getChatCacheInfo',
+    CACHE_FILE_GET = 'nodeIKernelStorageCleanService/getFileCacheInfo',
+    CACHE_CHAT_CLEAR = 'nodeIKernelStorageCleanService/clearChatCacheInfo',
 }
 
 enum NTQQApiChannel {
-    IPC_UP_2 = 'IPC_UP_2',
-    IPC_UP_3 = 'IPC_UP_3',
-    IPC_UP_1 = 'IPC_UP_1',
+    IPC_UP_2 = "IPC_UP_2",
+    IPC_UP_3 = "IPC_UP_3",
+    IPC_UP_1 = "IPC_UP_1",
 }
 
 export interface Peer {
     chatType: ChatType
-    peerUid: string // 如果是群聊uid为群号，私聊uid就是加密的字符串
-    guildId?: ''
+    peerUid: string  // 如果是群聊uid为群号，私聊uid就是加密的字符串
+    guildId?: ""
 }
 
 interface NTQQApiParams {
-    methodName: NTQQApiMethod | string
-    className?: NTQQApiClass
-    channel?: NTQQApiChannel
+    methodName: NTQQApiMethod | string,
+    className?: NTQQApiClass,
+    channel?: NTQQApiChannel,
     classNameIsRegister?: boolean
-    args?: unknown[]
-    cbCmd?: ReceiveCmd | null
-    cmdCB?: (payload: any) => boolean
-    afterFirstCmd?: boolean // 是否在methodName调用完之后再去hook cbCmd
-    timeoutSecond?: number
+    args?: unknown[],
+    cbCmd?: ReceiveCmd | null,
+    cmdCB?: (payload: any) => boolean;
+    afterFirstCmd?: boolean,  // 是否在methodName调用完之后再去hook cbCmd
+    timeoutSecond?: number,
 }
 
-async function callNTQQApi<ReturnType>(params: NTQQApiParams) {
+function callNTQQApi<ReturnType>(params: NTQQApiParams) {
     let {
         className, methodName, channel, args,
         cbCmd, timeoutSecond: timeout,
         classNameIsRegister, cmdCB, afterFirstCmd
-    } = params
-    className = className ?? NTQQApiClass.NT_API
-    channel = channel ?? NTQQApiChannel.IPC_UP_2
-    args = args ?? []
-    timeout = timeout ?? 5
-    afterFirstCmd = afterFirstCmd ?? true
-    const uuid = uuidv4()
+    } = params;
+    className = className ?? NTQQApiClass.NT_API;
+    channel = channel ?? NTQQApiChannel.IPC_UP_2;
+    args = args ?? [];
+    timeout = timeout ?? 5;
+    afterFirstCmd = afterFirstCmd ?? true;
+    const uuid = uuidv4();
     // log("callNTQQApi", channel, className, methodName, args, uuid)
-    return await new Promise((resolve: (data: ReturnType) => void, reject) => {
+    return new Promise((resolve: (data: ReturnType) => void, reject) => {
         // log("callNTQQApiPromise", channel, className, methodName, args, uuid)
         const _timeout = timeout * 1000
         let success = false
-        let eventName = className + '-' + channel[channel.length - 1]
+        let eventName = className + "-" + channel[channel.length - 1];
         if (classNameIsRegister) {
-            eventName += '-register'
+            eventName += "-register";
         }
         const apiArgs = [methodName, ...args]
         if (!cbCmd) {
@@ -125,40 +144,40 @@ async function callNTQQApi<ReturnType>(params: NTQQApiParams) {
             hookApiCallbacks[uuid] = (r: ReturnType) => {
                 success = true
                 resolve(r)
-            }
+            };
         } else {
             // 这里的callback比较特殊，QQ后端先返回是否调用成功，再返回一条结果数据
             const secondCallback = () => {
                 const hookId = registerReceiveHook<ReturnType>(cbCmd, (payload) => {
                     // log(methodName, "second callback", cbCmd, payload, cmdCB);
-                    if (cmdCB) {
+                    if (!!cmdCB) {
                         if (cmdCB(payload)) {
-                            removeReceiveHook(hookId)
+                            removeReceiveHook(hookId);
                             success = true
-                            resolve(payload)
+                            resolve(payload);
                         }
                     } else {
-                        removeReceiveHook(hookId)
+                        removeReceiveHook(hookId);
                         success = true
-                        resolve(payload)
+                        resolve(payload);
                     }
                 })
             }
-            !afterFirstCmd && secondCallback()
+            !afterFirstCmd && secondCallback();
             hookApiCallbacks[uuid] = (result: GeneralCallResult) => {
                 log(`${methodName} callback`, result)
                 if (result?.result == 0 || result === undefined) {
-                    afterFirstCmd && secondCallback()
+                    afterFirstCmd && secondCallback();
                 } else {
                     success = true
-                    reject(`ntqq api call failed, ${result.errMsg}`)
+                    reject(`ntqq api call failed, ${result.errMsg}`);
                 }
             }
         }
         setTimeout(() => {
             // log("ntqq api timeout", success, channel, className, methodName)
             if (!success) {
-                log(`ntqq api timeout ${channel}, ${eventName}, ${methodName}`, apiArgs)
+                log(`ntqq api timeout ${channel}, ${eventName}, ${methodName}`, apiArgs);
                 reject(`ntqq api timeout ${channel}, ${eventName}, ${methodName}, ${apiArgs}`)
             }
         }, _timeout)
@@ -172,12 +191,14 @@ async function callNTQQApi<ReturnType>(params: NTQQApiParams) {
     })
 }
 
-export const sendMessagePool: Record<string, ((sendSuccessMsg: RawMessage) => void) | null> = {}// peerUid: callbackFunnc
+
+export let sendMessagePool: Record<string, ((sendSuccessMsg: RawMessage) => void) | null> = {}// peerUid: callbackFunnc
 
 interface GeneralCallResult {
-    result: number // 0: success
+    result: number,  // 0: success
     errMsg: string
 }
+
 
 export class NTQQApi {
     // static likeFriend = defineNTQQApi<void>(NTQQApiChannel.IPC_UP_2, NTQQApiClass.NT_API, NTQQApiMethod.LIKE_FRIEND)
@@ -198,9 +219,7 @@ export class NTQQApi {
     static async getSelfInfo() {
         return await callNTQQApi<SelfInfo>({
             className: NTQQApiClass.GLOBAL_DATA,
-            // channel: NTQQApiChannel.IPC_UP_3,
-            methodName: NTQQApiMethod.SELF_INFO,
-            timeoutSecond: 2
+            methodName: NTQQApiMethod.SELF_INFO, timeoutSecond: 2
         })
     }
 
@@ -235,19 +254,19 @@ export class NTQQApi {
 
     static async getFriends(forced = false) {
         const data = await callNTQQApi<{
-            data: Array<{
-                categoryId: number
-                categroyName: string
-                categroyMbCount: number
+            data: {
+                categoryId: number,
+                categroyName: string,
+                categroyMbCount: number,
                 buddyList: Friend[]
-            }>
+            }[]
         }>(
             {
                 methodName: NTQQApiMethod.FRIENDS,
                 args: [{force_update: forced}, undefined],
                 cbCmd: ReceiveCmd.FRIENDS
             })
-        const _friends: Friend[] = []
+        let _friends: Friend[] = [];
         for (const fData of data.data) {
             _friends.push(...fData.buddyList)
         }
@@ -256,11 +275,11 @@ export class NTQQApi {
 
     static async getGroups(forced = false) {
         let cbCmd = ReceiveCmd.GROUPS
-        if (process.platform != 'win32') {
+        if (process.platform != "win32") {
             cbCmd = ReceiveCmd.GROUPS_UNIX
         }
         const result = await callNTQQApi<{
-            updateType: number
+            updateType: number,
             groupList: Group[]
         }>({methodName: NTQQApiMethod.GROUPS, args: [{force_update: forced}, undefined], cbCmd})
         return result.groupList
@@ -271,7 +290,7 @@ export class NTQQApi {
             methodName: NTQQApiMethod.GROUP_MEMBER_SCENE,
             args: [{
                 groupCode: groupQQ,
-                scene: 'groupMemberList_MainWindow'
+                scene: "groupMemberList_MainWindow"
             }]
         })
         // log("get group member sceneId", sceneId);
@@ -281,8 +300,8 @@ export class NTQQApi {
             }>({
                 methodName: NTQQApiMethod.GROUP_MEMBERS,
                 args: [{
-                    sceneId,
-                    num
+                    sceneId: sceneId,
+                    num: num
                 },
                     null
                 ]
@@ -343,35 +362,35 @@ export class NTQQApi {
 
     // 上传文件到QQ的文件夹
     static async uploadFile(filePath: string, elementType: ElementType = ElementType.PIC) {
-        const md5 = await NTQQApi.getFileMd5(filePath)
+        const md5 = await NTQQApi.getFileMd5(filePath);
         let ext = (await NTQQApi.getFileType(filePath))?.ext
         if (ext) {
-            ext = '.' + ext
+            ext = "." + ext
         } else {
-            ext = ''
+            ext = ""
         }
-        let fileName = `${path.basename(filePath)}`
-        if (!fileName.includes('.')) {
-            fileName += ext
+        let fileName = `${path.basename(filePath)}`;
+        if (fileName.indexOf(".") === -1) {
+            fileName += ext;
         }
         const mediaPath = await callNTQQApi<string>({
             methodName: NTQQApiMethod.MEDIA_FILE_PATH,
             args: [{
                 path_info: {
                     md5HexStr: md5,
-                    fileName,
-                    elementType,
+                    fileName: fileName,
+                    elementType: elementType,
                     elementSubType: 0,
                     thumbSize: 0,
                     needCreate: true,
                     downloadType: 1,
-                    file_uuid: ''
+                    file_uuid: ""
                 }
             }]
         })
-        log('media path', mediaPath)
-        await NTQQApi.copyFile(filePath, mediaPath)
-        const fileSize = await NTQQApi.getFileSize(filePath)
+        log("media path", mediaPath)
+        await NTQQApi.copyFile(filePath, mediaPath);
+        const fileSize = await NTQQApi.getFileSize(filePath);
         return {
             md5,
             fileName,
@@ -388,16 +407,16 @@ export class NTQQApi {
         const apiParams = [
             {
                 getReq: {
-                    msgId,
-                    chatType,
-                    peerUid,
-                    elementId,
+                    msgId: msgId,
+                    chatType: chatType,
+                    peerUid: peerUid,
+                    elementId: elementId,
                     thumbSize: 0,
                     downloadType: 1,
-                    filePath: thumbPath
-                }
+                    filePath: thumbPath,
+                },
             },
-            undefined
+            undefined,
         ]
         // log("需要下载media", sourcePath);
         await callNTQQApi({
@@ -406,7 +425,7 @@ export class NTQQApi {
             cbCmd: ReceiveCmd.MEDIA_DOWNLOAD_COMPLETE,
             cmdCB: (payload: { notifyInfo: { filePath: string } }) => {
                 // log("media 下载完成判断", payload.notifyInfo.filePath, sourcePath);
-                return payload.notifyInfo.filePath == sourcePath
+                return payload.notifyInfo.filePath == sourcePath;
             }
         })
         return sourcePath
@@ -426,30 +445,30 @@ export class NTQQApi {
         const peerUid = peer.peerUid
 
         // 等待上一个相同的peer发送完
-        let checkLastSendUsingTime = 0
+        let checkLastSendUsingTime = 0;
         const waitLastSend = async () => {
             if (checkLastSendUsingTime > timeout) {
-                throw ('发送超时')
+                throw ("发送超时")
             }
-            const lastSending = sendMessagePool[peer.peerUid]
+            let lastSending = sendMessagePool[peer.peerUid]
             if (lastSending) {
                 // log("有正在发送的消息，等待中...")
-                await sleep(500)
-                checkLastSendUsingTime += 500
-                return await waitLastSend()
+                await sleep(500);
+                checkLastSendUsingTime += 500;
+                return await waitLastSend();
             } else {
-
+                return;
             }
         }
-        await waitLastSend()
+        await waitLastSend();
 
-        let sentMessage: RawMessage = null
+        let sentMessage: RawMessage = null;
         sendMessagePool[peerUid] = async (rawMessage: RawMessage) => {
-            delete sendMessagePool[peerUid]
-            sentMessage = rawMessage
+            delete sendMessagePool[peerUid];
+            sentMessage = rawMessage;
         }
 
-        let checkSendCompleteUsingTime = 0
+        let checkSendCompleteUsingTime = 0;
         const checkSendComplete = async (): Promise<RawMessage> => {
             if (sentMessage) {
                 if (waitComplete) {
@@ -469,14 +488,13 @@ export class NTQQApi {
             await sleep(500)
             return await checkSendComplete()
         }
-        log("开始发送消息", peer, msgElements)
+
         callNTQQApi({
             methodName: NTQQApiMethod.SEND_MSG,
             args: [{
-                msgId: '0',
-                peer,
-                msgElements,
-                msgAttributeInfos: new Map()
+                msgId: "0",
+                peer, msgElements,
+                msgAttributeInfos: new Map(),
             }, null]
         }).then()
         return await checkSendComplete()
@@ -512,13 +530,13 @@ export class NTQQApi {
                 commentElements: [],
                 msgAttributeInfos: new Map()
             },
-            null
+            null,
         ]
         return await new Promise<RawMessage>((resolve, reject) => {
             let complete = false
             setTimeout(() => {
                 if (!complete) {
-                    reject('转发消息超时')
+                    reject("转发消息超时");
                 }
             }, 5000)
             registerReceiveHook(ReceiveCmd.SELF_SEND_MSG, async (payload: { msgRecord: RawMessage }) => {
@@ -544,10 +562,10 @@ export class NTQQApi {
                 methodName: NTQQApiMethod.MULTI_FORWARD_MSG,
                 args: apiArgs
             }).then(result => {
-                log('转发消息结果:', result, apiArgs)
+                log("转发消息结果:", result, apiArgs)
                 if (result.result !== 0) {
-                    complete = true
-                    reject('转发消息失败,' + JSON.stringify(result))
+                    complete = true;
+                    reject("转发消息失败," + JSON.stringify(result));
                 }
             })
         })
@@ -558,56 +576,56 @@ export class NTQQApi {
         // 加群通知，退出通知，需要管理员权限
         callNTQQApi<GeneralCallResult>({
             methodName: ReceiveCmd.GROUP_NOTIFY,
-            classNameIsRegister: true
+            classNameIsRegister: true,
         }).then()
         return await callNTQQApi<GroupNotifies>({
             methodName: NTQQApiMethod.GET_GROUP_NOTICE,
             cbCmd: ReceiveCmd.GROUP_NOTIFY,
             afterFirstCmd: false,
             args: [
-                {doubt: false, startSeq: '', number: 14},
+                {"doubt": false, "startSeq": "", "number": 14},
                 null
             ]
-        })
+        });
     }
 
     static async handleGroupRequest(seq: string, operateType: GroupRequestOperateTypes, reason?: string) {
-        const notify: GroupNotify = groupNotifies[seq]
+        const notify: GroupNotify = groupNotifies[seq];
         if (!notify) {
             throw `${seq}对应的加群通知不存在`
         }
-        delete groupNotifies[seq]
+        delete groupNotifies[seq];
         return await callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.HANDLE_GROUP_REQUEST,
             args: [
                 {
-                    doubt: false,
-                    operateMsg: {
-                        operateType, // 2 拒绝
-                        targetMsg: {
-                            seq, // 通知序列号
-                            type: notify.type,
-                            groupCode: notify.group.groupCode,
-                            postscript: reason
+                    "doubt": false,
+                    "operateMsg": {
+                        "operateType": operateType, // 2 拒绝
+                        "targetMsg": {
+                            "seq": seq,  // 通知序列号
+                            "type": notify.type,
+                            "groupCode": notify.group.groupCode,
+                            "postscript": reason
                         }
                     }
                 },
                 null
             ]
-        })
+        });
     }
 
     static async quitGroup(groupQQ: string) {
         await callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.QUIT_GROUP,
             args: [
-                {groupCode: groupQQ},
+                {"groupCode": groupQQ},
                 null
             ]
         })
     }
 
-    static async handleFriendRequest(sourceId: number, accept: boolean) {
+    static async handleFriendRequest(sourceId: number, accept: boolean,) {
         const request: FriendRequest = friendRequests[sourceId]
         if (!request) {
             throw `sourceId ${sourceId}, 对应的好友请求不存在`
@@ -616,16 +634,16 @@ export class NTQQApi {
             methodName: NTQQApiMethod.HANDLE_FRIEND_REQUEST,
             args: [
                 {
-                    approvalInfo: {
-                        friendUid: request.friendUid,
-                        reqTime: request.reqTime,
+                    "approvalInfo": {
+                        "friendUid": request.friendUid,
+                        "reqTime": request.reqTime,
                         accept
                     }
                 }
             ]
         })
-        delete friendRequests[sourceId]
-        return result
+        delete friendRequests[sourceId];
+        return result;
     }
 
     static async kickMember(groupQQ: string, kickUids: string[], refuseForever: boolean = false, kickReason: string = '') {
@@ -637,7 +655,7 @@ export class NTQQApi {
                         groupCode: groupQQ,
                         kickUids,
                         refuseForever,
-                        kickReason
+                        kickReason,
                     }
                 ]
             }
@@ -652,7 +670,7 @@ export class NTQQApi {
                 args: [
                     {
                         groupCode: groupQQ,
-                        memList
+                        memList,
                     }
                 ]
             }
@@ -711,5 +729,108 @@ export class NTQQApi {
 
     static publishGroupBulletin(groupQQ: string, title: string, content: string) {
 
+    }
+
+    static async setCacheSilentScan(isSilent: boolean = true) {
+        return await callNTQQApi<GeneralCallResult>({
+            methodName: NTQQApiMethod.CACHE_SET_SILENCE,
+            args: [{
+                isSilent
+            }, null]
+        });
+    }
+
+    static addCacheScannedPaths(pathMap: object = {}) {
+        return callNTQQApi<GeneralCallResult>({
+            methodName: NTQQApiMethod.CACHE_ADD_SCANNED_PATH,
+            args: [{
+                pathMap: {...pathMap},
+            }, null]
+        });
+    }
+
+    static scanCache() {
+        callNTQQApi<GeneralCallResult>({
+            methodName: ReceiveCmd.CACHE_SCAN_FINISH,
+            classNameIsRegister: true,
+        }).then();
+        return callNTQQApi<CacheScanResult>({
+            methodName: NTQQApiMethod.CACHE_SCAN,
+            args: [null, null],
+            timeoutSecond: 300,
+        });
+    }
+
+    static getHotUpdateCachePath() {
+        return callNTQQApi<string>({
+            className: NTQQApiClass.HOTUPDATE_API,
+            methodName: NTQQApiMethod.CACHE_PATH_HOT_UPDATE
+        });
+    }
+
+    static getDesktopTmpPath() {
+        return callNTQQApi<string>({
+            className: NTQQApiClass.BUSINESS_API,
+            methodName: NTQQApiMethod.CACHE_PATH_DESKTOP_TEMP
+        });
+    }
+
+    static getCacheSessionPathList() {
+        return callNTQQApi<{
+            key: string,
+            value: string
+        }[]>({
+            className: NTQQApiClass.OS_API,
+            methodName: NTQQApiMethod.CACHE_PATH_SESSION,
+        });
+    }
+
+    static clearCache(cacheKeys: Array<string> = [ 'tmp', 'hotUpdate' ]) {
+        return callNTQQApi<any>({ // TODO: 目前还不知道真正的返回值是什么
+            methodName: NTQQApiMethod.CACHE_CLEAR,
+            args: [{
+                keys: cacheKeys
+            }, null]
+        });
+    }
+
+    static getChatCacheList(type: ChatType, pageSize: number = 1000, pageIndex: number = 0) {
+        return new Promise<ChatCacheList>((res, rej) => {
+            callNTQQApi<ChatCacheList>({
+                methodName: NTQQApiMethod.CACHE_CHAT_GET,
+                args: [{
+                    chatType: type,
+                    pageSize,
+                    order: 1,
+                    pageIndex
+                }, null]
+            }).then(list => res(list))
+            .catch(e => rej(e));
+        });
+    }
+
+    static getFileCacheInfo(fileType: CacheFileType, pageSize: number = 1000, lastRecord?: CacheFileListItem) {
+        const _lastRecord = lastRecord ? lastRecord : { fileType: fileType };
+
+        return callNTQQApi<CacheFileList>({
+            methodName: NTQQApiMethod.CACHE_FILE_GET,
+            args: [{
+                fileType: fileType,
+                restart: true,
+                pageSize: pageSize,
+                order: 1,
+                lastRecord: _lastRecord,
+            }, null]
+        })
+    }
+
+    static async clearChatCache(chats: ChatCacheListItemBasic[] = [], fileKeys: string[] = []) {
+        return await callNTQQApi<GeneralCallResult>({
+            methodName: NTQQApiMethod.CACHE_CHAT_CLEAR,
+            args: [{
+                chats,
+                fileKeys
+            }, null]
+        });
     }
 }

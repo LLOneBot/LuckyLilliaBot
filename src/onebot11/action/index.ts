@@ -31,6 +31,7 @@ import SetGroupCard from "./SetGroupCard";
 import GetImage from "./GetImage";
 import GetRecord from "./GetRecord";
 import GoCQHTTPMarkMsgAsRead from "./MarkMsgAsRead";
+import CleanCache from "./CleanCache";
 
 export const actionHandlers = [
     new Debug(),
@@ -56,6 +57,7 @@ export const actionHandlers = [
     new SetGroupCard(),
     new GetImage(),
     new GetRecord(),
+    new CleanCache(),
 
     //以下为go-cqhttp api
     new GoCQHTTPSendGroupForwardMsg(),
