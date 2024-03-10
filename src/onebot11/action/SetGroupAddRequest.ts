@@ -1,6 +1,5 @@
 import BaseAction from "./BaseAction";
-import {groupNotifies} from "../../common/data";
-import {GroupNotify, GroupRequestOperateTypes} from "../../ntqqapi/types";
+import {GroupRequestOperateTypes} from "../../ntqqapi/types";
 import {NTQQApi} from "../../ntqqapi/ntcall";
 import {ActionName} from "./types";
 
@@ -17,15 +16,10 @@ export default class SetGroupAddRequest extends BaseAction<Payload, null> {
 
     protected async _handle(payload: Payload): Promise<null> {
         const seq = payload.flag.toString();
-        const notify: GroupNotify = groupNotifies[seq]
-        try {
-            await NTQQApi.handleGroupRequest(seq,
-                payload.approve ? GroupRequestOperateTypes.approve : GroupRequestOperateTypes.reject,
-                payload.reason
-            )
-        } catch (e) {
-            throw e
-        }
+        await NTQQApi.handleGroupRequest(seq,
+            payload.approve ? GroupRequestOperateTypes.approve : GroupRequestOperateTypes.reject,
+            payload.reason
+        )
         return null
     }
 }

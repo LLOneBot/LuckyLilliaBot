@@ -1,17 +1,18 @@
 import {Level} from "level";
-import {RawMessage} from "../ntqqapi/types";
+import {type GroupNotify, RawMessage} from "../ntqqapi/types";
 import {DATA_DIR, log} from "./utils";
 import {selfInfo} from "./data";
 import {FileCache} from "./types";
 
 
 class DBUtil {
-    private readonly DB_KEY_PREFIX_MSG_ID = "msg_id_";
-    private readonly DB_KEY_PREFIX_MSG_SHORT_ID = "msg_short_id_";
-    private readonly DB_KEY_PREFIX_MSG_SEQ_ID = "msg_seq_id_";
-    private readonly DB_KEY_PREFIX_FILE = "file_";
-    private db: Level;
-    public cache: Record<string, RawMessage | string | FileCache> = {}  // <msg_id_ | msg_short_id_ | msg_seq_id_><id>: RawMessage
+    public readonly DB_KEY_PREFIX_MSG_ID = "msg_id_";
+    public readonly DB_KEY_PREFIX_MSG_SHORT_ID = "msg_short_id_";
+    public readonly DB_KEY_PREFIX_MSG_SEQ_ID = "msg_seq_id_";
+    public readonly DB_KEY_PREFIX_FILE = "file_";
+    public readonly DB_KEY_PREFIX_GROUP_NOTIFY = "group_notify_";
+    public db: Level;
+    public cache: Record<string, RawMessage | string | FileCache | GroupNotify> = {}  // <msg_id_ | msg_short_id_ | msg_seq_id_><id>: RawMessage
     private currentShortId: number;
 
     /*
@@ -197,6 +198,29 @@ class DBUtil {
         }
         try {
 
+            let data = await this.db.get(key);
+            return JSON.parse(data);
+        } catch (e) {
+
+        }
+    }
+
+    async addGroupNotify(notify: GroupNotify) {
+        const key = this.DB_KEY_PREFIX_GROUP_NOTIFY + notify.seq;
+        let existNotify = this.cache[key] as GroupNotify
+        if (existNotify){
+            return
+        }
+        this.cache[key] = notify;
+        this.db.put(key, JSON.stringify(notify)).then();
+    }
+
+    async getGroupNotify(seq: string): Promise<GroupNotify | undefined> {
+        const key = this.DB_KEY_PREFIX_GROUP_NOTIFY + seq;
+        if (this.cache[key]) {
+            return this.cache[key] as GroupNotify
+        }
+        try {
             let data = await this.db.get(key);
             return JSON.parse(data);
         } catch (e) {

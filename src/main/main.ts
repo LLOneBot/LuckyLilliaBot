@@ -16,7 +16,6 @@ import {
     friendRequests, getFriend,
     getGroup,
     getGroupMember,
-    groupNotifies,
     llonebotError, refreshGroupMembers,
     selfInfo
 } from "../common/data";
@@ -251,19 +250,17 @@ function onLoad() {
                 for (const notify of notifies) {
                     try {
                         notify.time = Date.now();
-                        const notifyTime = parseInt(notify.seq) / 1000
+                        // const notifyTime = parseInt(notify.seq) / 1000
                         // log(`加群通知时间${notifyTime}`, `LLOneBot启动时间${startTime}`);
                         // if (notifyTime < startTime) {
                         //     continue;
                         // }
-                        let existNotify = groupNotifies[notify.seq];
+                        let existNotify = await dbUtil.getGroupNotify(notify.seq);
                         if (existNotify) {
-                            if (Date.now() - existNotify.time < 3000) {
-                                continue
-                            }
+                            continue
                         }
                         log("收到群通知", notify);
-                        groupNotifies[notify.seq] = notify;
+                        await dbUtil.addGroupNotify(notify);
                         // let member2: GroupMember;
                         // if (notify.user2.uid) {
                         //     member2 = await getGroupMember(notify.group.groupCode, null, notify.user2.uid);

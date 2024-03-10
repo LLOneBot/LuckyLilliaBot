@@ -21,7 +21,7 @@ import {
     CacheFileList, CacheFileListItem, CacheFileType,
 } from "./types";
 import * as fs from "fs";
-import {friendRequests, groupNotifies, selfInfo, uidMaps} from "../common/data";
+import {friendRequests, selfInfo, uidMaps} from "../common/data";
 import {v4 as uuidv4} from "uuid"
 import path from "path";
 import {dbUtil} from "../common/db";
@@ -590,11 +590,11 @@ export class NTQQApi {
     }
 
     static async handleGroupRequest(seq: string, operateType: GroupRequestOperateTypes, reason?: string) {
-        const notify: GroupNotify = groupNotifies[seq];
+        const notify: GroupNotify = await dbUtil.getGroupNotify(seq)
         if (!notify) {
             throw `${seq}对应的加群通知不存在`
         }
-        delete groupNotifies[seq];
+        // delete groupNotifies[seq];
         return await callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.HANDLE_GROUP_REQUEST,
             args: [
