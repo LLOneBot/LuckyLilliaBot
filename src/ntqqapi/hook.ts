@@ -224,6 +224,10 @@ registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload
             continue
         }
         for (const msgElement of message.elements) {
+            if (msgElement.videoElement) {
+                log("收到视频消息", msgElement.videoElement)
+                log("視頻缩略图", msgElement.videoElement.thumbPath.get(0));
+            }
             setTimeout(() => {
                 const picPath = msgElement.picElement?.sourcePath
                 const pttPath = msgElement.pttElement?.filePath
@@ -235,6 +239,7 @@ registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload
                 if (aioOpGrayTipElement){
                     tempGroupCodeMap[aioOpGrayTipElement.peerUid] = aioOpGrayTipElement.fromGrpCodeOfTmpChat;
                 }
+
                 // log("需要清理的文件", pathList);
                 for (const path of pathList) {
                     if (path) {

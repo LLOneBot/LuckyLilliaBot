@@ -372,7 +372,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                             }
                             if (sendMsg.type === OB11MessageDataType.file) {
                                 log("发送文件", path, payloadFileName || fileName)
-                                sendElements.push(await SendMsgElementConstructor.file(path, false, payloadFileName || fileName));
+                                sendElements.push(await SendMsgElementConstructor.file(path, payloadFileName || fileName));
                             } else if (sendMsg.type === OB11MessageDataType.video) {
                                 log("发送视频", path, payloadFileName || fileName)
                                 sendElements.push(await SendMsgElementConstructor.video(path, payloadFileName || fileName));
