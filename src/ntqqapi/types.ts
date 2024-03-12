@@ -283,7 +283,7 @@ export interface VideoElement {
     "fileBizId"?: null,
     "originVideoMd5"?: "",
     "import_rich_media_context"?: null,
-    "sourceVideoCodecFormat"?: 0
+    "sourceVideoCodecFormat"?: number
 }
 
 export interface TipAioOpGrayTipElement {  // 这是什么提示来着？

@@ -28,6 +28,7 @@ export enum ReceiveCmd {
     FRIEND_REQUEST = "nodeIKernelBuddyListener/onBuddyReqChange",
     SELF_STATUS = 'nodeIKernelProfileListener/onSelfStatusChanged',
     CACHE_SCAN_FINISH = "nodeIKernelStorageCleanListener/onFinishScan",
+    MEDIA_UPLOAD_COMPLETE = "nodeIKernelMsgListener/onRichMediaUploadComplete",
 }
 
 interface NTQQApiReturnData<PayloadType = unknown> extends Array<any> {

@@ -12,8 +12,9 @@ import {
     SendVideoElement
 } from "./types";
 import {NTQQApi} from "./ntcall";
-import {encodeSilk, isGIF, log} from "../common/utils";
-import * as fs from "node:fs";
+import {calculateFileMD5, encodeSilk, getVideoInfo, isGIF, log, sleep} from "../common/utils";
+import {promises as fs} from "node:fs";
+import ffmpeg from "fluent-ffmpeg"
 
 
 export class SendMsgElementConstructor {
@@ -88,8 +89,6 @@ export class SendMsgElementConstructor {
     }
 
     static async file(filePath: string, fileName: string = ""): Promise<SendFileElement> {
-        let picHeight = 0;
-        let picWidth = 0;
         const {md5, fileName: _fileName, path, fileSize} = await NTQQApi.uploadFile(filePath, ElementType.FILE);
         if (fileSize === 0) {
             throw "文件异常，大小为0";
@@ -108,13 +107,44 @@ export class SendMsgElementConstructor {
     }
 
     static async video(filePath: string, fileName: string = ""): Promise<SendVideoElement> {
-        const {md5, fileName: _fileName, path, fileSize} = await NTQQApi.uploadFile(filePath, ElementType.VIDEO);
+        let {fileName: _fileName, path, fileSize, md5} = await NTQQApi.uploadFile(filePath, ElementType.VIDEO);
         if (fileSize === 0) {
             throw "文件异常，大小为0";
         }
-        log("上传视频", md5, path, fileSize, fileName || _fileName)
+        // const videoInfo = await encodeMp4(path);
+        // path = videoInfo.filePath
+        // md5 = videoInfo.md5;
+        // fileSize = videoInfo.size;
+        // log("上传视频", md5, path, fileSize, fileName || _fileName)
+        const pathLib = require("path");
+        let thumb = path.replace(`${pathLib.sep}Ori${pathLib.sep}`, `${pathLib.sep}Thumb${pathLib.sep}`)
+        thumb = pathLib.dirname(thumb)
+        // log("thumb 目录", thumb)
+        const videoInfo = await getVideoInfo(path);
+        // log("视频信息", videoInfo)
+        const createThumb = new Promise<string>((resolve, reject) => {
+            const thumbFileName = `${md5}_0.png`
+            ffmpeg(filePath)
+                .on("end", () => {
+                })
+                .on("error", (err) => {
+                    reject(err);
+                })
+                .screenshots({
+                    timestamps: [0],
+                    filename: thumbFileName,
+                    folder: thumb,
+                    size: videoInfo.width + "x" + videoInfo.height
+                }).on("end", () => {
+                    resolve(pathLib.join(thumb, thumbFileName));
+            });
+        })
         let thumbPath = new Map()
-        thumbPath.set(0, "E:\\SystemDocuments\\QQ\\721011692\\nt_qq\\nt_data\\Video\\2024-03\\Thumb\\8950eb327e26c01e69d4a0fab7e2b159_0.png")
+        const _thumbPath = await createThumb;
+        const thumbSize = (await fs.stat(_thumbPath)).size;
+        // log("生成缩略图", _thumbPath)
+        thumbPath.set(0, _thumbPath)
+        const thumbMd5 = await calculateFileMD5(_thumbPath);
         let element: SendVideoElement = {
             elementType: ElementType.VIDEO,
             elementId: "",
@@ -122,59 +152,26 @@ export class SendMsgElementConstructor {
                 fileName: fileName || _fileName,
                 filePath: path,
                 videoMd5: md5,
-                "thumbMd5": "9eee9e9a07b193cbaf4846522b0197b4",
-                fileTime: 15,
+                thumbMd5,
+                fileTime: videoInfo.time,
                 thumbPath: thumbPath,
-                "thumbSize": 368286,
-                "fileFormat": 2,
-                "thumbWidth": 540,
-                "thumbHeight": 960,
-                // "busiType": 0,
-                // "subBusiType": 0,
-                // fileUuid: md5,
+                thumbSize,
+                thumbWidth: videoInfo.width,
+                thumbHeight: videoInfo.height,
                 fileSize: "" + fileSize,
-                "transferStatus": 0,
-                "progress": 0,
-                "invalidState": 0,
-                // "fileUuid": "3051020100043630340201000204169df3d602037a1afd020440f165b4020465f02cb304108950eb327e26c01e69d4a0fab7e2b15802037a1db902010004140000000866696c65747970650000000431303031",
-                "fileSubId": "",
-                "fileBizId": null,
-                "originVideoMd5": "",
-                "import_rich_media_context": null,
-                "sourceVideoCodecFormat": 0
+                // fileUuid: "",
+                // transferStatus: 0,
+                // progress: 0,
+                // invalidState: 0,
+                // fileSubId: "",
+                // fileBizId: null,
+                // originVideoMd5: "",
+                // fileFormat: 2,
+                // import_rich_media_context: null,
+                // sourceVideoCodecFormat: 2
             }
         }
         return element;
-        log("video element", element)
-        let e = {
-            "elementType": 5,
-            "elementId": "",
-            "videoElement": {
-                "filePath": "E:\\SystemDocuments\\QQ\\721011692\\nt_qq\\nt_data\\Video\\2024-03\\Ori\\8950eb327e26c01e69d4a0fab7e2b158.mp4",
-                "fileName": "8950eb327e26c01e69d4a0fab7e2b158.mp4",
-                "videoMd5": "8950eb327e26c01e69d4a0fab7e2b158",
-                "thumbMd5": "9eee9e9a07b193cbaf4846522b0197b4",
-                "fileTime": 15,
-                "thumbSize": 368286,
-                "fileFormat": 2,
-                "fileSize": "2084867",
-                "thumbWidth": 540,
-                "thumbHeight": 960,
-                "busiType": 0,
-                "subBusiType": 0,
-                "thumbPath": thumbPath,
-                "transferStatus": 0,
-                "progress": 0,
-                "invalidState": 0,
-                "fileUuid": "3051020100043630340201000204169df3d602037a1afd020440f165b4020465f02cb304108950eb327e26c01e69d4a0fab7e2b15802037a1db902010004140000000866696c65747970650000000431303031",
-                "fileSubId": "",
-                "fileBizId": null,
-                "originVideoMd5": "",
-                "import_rich_media_context": null,
-                "sourceVideoCodecFormat": 0
-            }
-        }
-        return e as SendVideoElement
     }
 
     static async ptt(pttPath: string): Promise<SendPttElement> {
@@ -185,8 +182,7 @@ export class SendMsgElementConstructor {
             throw "文件异常，大小为0";
         }
         if (converted) {
-            fs.unlink(silkPath, () => {
-            });
+            fs.unlink(silkPath).then();
         }
         return {
             elementType: ElementType.PTT,
