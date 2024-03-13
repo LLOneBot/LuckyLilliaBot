@@ -20,8 +20,10 @@ class OB11HTTPServer extends HttpServerBase {
 
 export const ob11HTTPServer = new OB11HTTPServer();
 
-for (const action of actionHandlers) {
-    for (const method of ["post", "get"]) {
-        ob11HTTPServer.registerRouter(method, action.actionName, (res, payload) => action.handle(payload))
+setTimeout(() => {
+    for (const action of actionHandlers) {
+        for (const method of ["post", "get"]) {
+            ob11HTTPServer.registerRouter(method, action.actionName, (res, payload) => action.handle(payload))
+        }
     }
-}
+}, 0)

@@ -13,34 +13,29 @@ import {
 import {ob11WebsocketServer} from "../onebot11/server/ws/WebsocketServer";
 import {checkFfmpeg, DATA_DIR, getConfigUtil, log} from "../common/utils";
 import {
-    friendRequests, getFriend,
+    friendRequests,
+    getFriend,
     getGroup,
     getGroupMember,
-    llonebotError, refreshGroupMembers,
+    llonebotError,
+    refreshGroupMembers,
     selfInfo
 } from "../common/data";
 import {hookNTQQApiCall, hookNTQQApiReceive, ReceiveCmd, registerReceiveHook} from "../ntqqapi/hook";
 import {OB11Constructor} from "../onebot11/constructor";
 import {NTQQApi} from "../ntqqapi/ntcall";
-import {
-    ChatType,
-    FriendRequestNotify,
-    GroupMember,
-    GroupNotifies,
-    GroupNotifyTypes,
-    RawMessage
-} from "../ntqqapi/types";
+import {ChatType, FriendRequestNotify, GroupNotifies, GroupNotifyTypes, RawMessage} from "../ntqqapi/types";
 import {ob11HTTPServer} from "../onebot11/server/http";
 import {OB11FriendRecallNoticeEvent} from "../onebot11/event/notice/OB11FriendRecallNoticeEvent";
 import {OB11GroupRecallNoticeEvent} from "../onebot11/event/notice/OB11GroupRecallNoticeEvent";
 import {postOB11Event} from "../onebot11/server/postOB11Event";
 import {ob11ReverseWebsockets} from "../onebot11/server/ws/ReverseWebsocket";
 import {OB11GroupAdminNoticeEvent} from "../onebot11/event/notice/OB11GroupAdminNoticeEvent";
-import {OB11GroupDecreaseEvent} from "../onebot11/event/notice/OB11GroupDecreaseEvent";
 import {OB11GroupRequestEvent} from "../onebot11/event/request/OB11GroupRequest";
 import {OB11FriendRequestEvent} from "../onebot11/event/request/OB11FriendRequest";
 import * as path from "node:path";
 import {dbUtil} from "../common/db";
+import {setConfig} from "./setConfig";
 
 
 let running = false;
@@ -90,61 +85,8 @@ function onLoad() {
         const config = getConfigUtil().getConfig()
         return config;
     })
-    ipcMain.on(CHANNEL_SET_CONFIG, (event, arg: Config) => {
-        let oldConfig = getConfigUtil().getConfig();
-        getConfigUtil().setConfig(arg)
-        if (arg.ob11.httpPort != oldConfig.ob11.httpPort && arg.ob11.enableHttp) {
-            ob11HTTPServer.restart(arg.ob11.httpPort);
-        }
-        // 判断是否启用或关闭HTTP服务
-        if (!arg.ob11.enableHttp) {
-            ob11HTTPServer.stop();
-        } else {
-            ob11HTTPServer.start(arg.ob11.httpPort);
-        }
-        // 正向ws端口变化，重启服务
-        if (arg.ob11.wsPort != oldConfig.ob11.wsPort) {
-            ob11WebsocketServer.restart(arg.ob11.wsPort);
-        }
-        // 判断是否启用或关闭正向ws
-        if (arg.ob11.enableWs != oldConfig.ob11.enableWs) {
-            if (arg.ob11.enableWs) {
-                ob11WebsocketServer.start(arg.ob11.wsPort);
-            } else {
-                ob11WebsocketServer.stop();
-            }
-        }
-        // 判断是否启用或关闭反向ws
-        if (arg.ob11.enableWsReverse != oldConfig.ob11.enableWsReverse) {
-            if (arg.ob11.enableWsReverse) {
-                ob11ReverseWebsockets.start();
-            } else {
-                ob11ReverseWebsockets.stop();
-            }
-        }
-        if (arg.ob11.enableWsReverse) {
-            // 判断反向ws地址有变化
-            if (arg.ob11.wsHosts.length != oldConfig.ob11.wsHosts.length) {
-                ob11ReverseWebsockets.restart();
-            } else {
-                for (const newHost of arg.ob11.wsHosts) {
-                    if (!oldConfig.ob11.wsHosts.includes(newHost)) {
-                        ob11ReverseWebsockets.restart();
-                        break;
-                    }
-                }
-            }
-        }
-
-        // 检查ffmpeg
-        if (arg.ffmpeg) {
-            checkFfmpeg(arg.ffmpeg).then(success => {
-                if (success) {
-                    llonebotError.ffmpegError = ''
-                }
-            })
-        }
-
+    ipcMain.on(CHANNEL_SET_CONFIG, (event, config: Config) => {
+        setConfig(config).then();
     })
 
     ipcMain.on(CHANNEL_LOG, (event, arg) => {

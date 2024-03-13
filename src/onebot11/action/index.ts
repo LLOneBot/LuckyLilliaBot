@@ -32,9 +32,13 @@ import GetImage from "./GetImage";
 import GetRecord from "./GetRecord";
 import GoCQHTTPMarkMsgAsRead from "./MarkMsgAsRead";
 import CleanCache from "./CleanCache";
+import {GetConfigAction, SetConfigAction} from "./llonebot/Config";
 
 export const actionHandlers = [
     new Debug(),
+    new GetConfigAction(),
+    new SetConfigAction(),
+    // onebot11
     new SendLike(),
     new GetMsg(),
     new GetLoginInfo(),

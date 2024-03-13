@@ -14,6 +14,8 @@ export interface InvalidCheckResult {
 }
 
 export enum ActionName {
+    GetConfig = "get_config",
+    SetConfig = "set_config",
     Debug = "llonebot_debug",
     SendLike = "send_like",
     GetLoginInfo = "get_login_info",
