@@ -22,7 +22,7 @@ class BaseAction<PayloadType, ReturnDataType> {
             return OB11Response.ok(resData);
         } catch (e) {
             log("发生错误", e)
-            return OB11Response.error(e.toString(), 200);
+            return OB11Response.error(e?.toString() || e?.stack?.toString() || "未知错误，可能操作超时", 200);
         }
     }
 
@@ -36,7 +36,7 @@ class BaseAction<PayloadType, ReturnDataType> {
             return OB11Response.ok(resData, echo);
         } catch (e) {
             log("发生错误", e)
-            return OB11Response.error(e.toString(), 1200, echo)
+            return OB11Response.error(e.stack?.toString() || e.toString(), 1200, echo)
         }
     }
 

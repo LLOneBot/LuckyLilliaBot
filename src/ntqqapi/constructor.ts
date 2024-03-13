@@ -1,16 +1,20 @@
 import {
     AtType,
-    ElementType, PicType, SendArkElement,
+    ElementType,
+    PicType,
+    SendArkElement,
     SendFaceElement,
     SendFileElement,
     SendPicElement,
     SendPttElement,
     SendReplyElement,
-    SendTextElement
+    SendTextElement,
+    SendVideoElement
 } from "./types";
 import {NTQQApi} from "./ntcall";
-import {encodeSilk, isGIF} from "../common/utils";
-import * as fs from "node:fs";
+import {calculateFileMD5, encodeSilk, getVideoInfo, isGIF, log, sleep} from "../common/utils";
+import {promises as fs} from "node:fs";
+import ffmpeg from "fluent-ffmpeg"
 
 
 export class SendMsgElementConstructor {
@@ -57,7 +61,7 @@ export class SendMsgElementConstructor {
 
     static async pic(picPath: string): Promise<SendPicElement> {
         const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(picPath, ElementType.PIC);
-        if (fileSize === 0){
+        if (fileSize === 0) {
             throw "文件异常，大小为0";
         }
         const imageSize = await NTQQApi.getImageSize(picPath);
@@ -84,15 +88,9 @@ export class SendMsgElementConstructor {
         };
     }
 
-    static async file(filePath: string, showPreview: boolean = false, fileName: string = ""): Promise<SendFileElement> {
-        let picHeight = 0;
-        let picWidth = 0;
-        if (showPreview) {
-            picHeight = 1024;
-            picWidth = 768;
-        }
+    static async file(filePath: string, fileName: string = ""): Promise<SendFileElement> {
         const {md5, fileName: _fileName, path, fileSize} = await NTQQApi.uploadFile(filePath, ElementType.FILE);
-        if (fileSize === 0){
+        if (fileSize === 0) {
             throw "文件异常，大小为0";
         }
         let element: SendFileElement = {
@@ -102,28 +100,89 @@ export class SendMsgElementConstructor {
                 fileName: fileName || _fileName,
                 "filePath": path,
                 "fileSize": (fileSize).toString(),
-                picHeight,
-                picWidth
             }
         }
 
         return element;
     }
 
-    static video(filePath: string, fileName: string=""): Promise<SendFileElement> {
-        return SendMsgElementConstructor.file(filePath, true, fileName);
+    static async video(filePath: string, fileName: string = ""): Promise<SendVideoElement> {
+        let {fileName: _fileName, path, fileSize, md5} = await NTQQApi.uploadFile(filePath, ElementType.VIDEO);
+        if (fileSize === 0) {
+            throw "文件异常，大小为0";
+        }
+        // const videoInfo = await encodeMp4(path);
+        // path = videoInfo.filePath
+        // md5 = videoInfo.md5;
+        // fileSize = videoInfo.size;
+        // log("上传视频", md5, path, fileSize, fileName || _fileName)
+        const pathLib = require("path");
+        let thumb = path.replace(`${pathLib.sep}Ori${pathLib.sep}`, `${pathLib.sep}Thumb${pathLib.sep}`)
+        thumb = pathLib.dirname(thumb)
+        // log("thumb 目录", thumb)
+        const videoInfo = await getVideoInfo(path);
+        // log("视频信息", videoInfo)
+        const createThumb = new Promise<string>((resolve, reject) => {
+            const thumbFileName = `${md5}_0.png`
+            ffmpeg(filePath)
+                .on("end", () => {
+                })
+                .on("error", (err) => {
+                    reject(err);
+                })
+                .screenshots({
+                    timestamps: [0],
+                    filename: thumbFileName,
+                    folder: thumb,
+                    size: videoInfo.width + "x" + videoInfo.height
+                }).on("end", () => {
+                    resolve(pathLib.join(thumb, thumbFileName));
+            });
+        })
+        let thumbPath = new Map()
+        const _thumbPath = await createThumb;
+        const thumbSize = (await fs.stat(_thumbPath)).size;
+        // log("生成缩略图", _thumbPath)
+        thumbPath.set(0, _thumbPath)
+        const thumbMd5 = await calculateFileMD5(_thumbPath);
+        let element: SendVideoElement = {
+            elementType: ElementType.VIDEO,
+            elementId: "",
+            videoElement: {
+                fileName: fileName || _fileName,
+                filePath: path,
+                videoMd5: md5,
+                thumbMd5,
+                fileTime: videoInfo.time,
+                thumbPath: thumbPath,
+                thumbSize,
+                thumbWidth: videoInfo.width,
+                thumbHeight: videoInfo.height,
+                fileSize: "" + fileSize,
+                // fileUuid: "",
+                // transferStatus: 0,
+                // progress: 0,
+                // invalidState: 0,
+                // fileSubId: "",
+                // fileBizId: null,
+                // originVideoMd5: "",
+                // fileFormat: 2,
+                // import_rich_media_context: null,
+                // sourceVideoCodecFormat: 2
+            }
+        }
+        return element;
     }
 
     static async ptt(pttPath: string): Promise<SendPttElement> {
         const {converted, path: silkPath, duration} = await encodeSilk(pttPath);
         // log("生成语音", silkPath, duration);
         const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(silkPath, ElementType.PTT);
-        if (fileSize === 0){
+        if (fileSize === 0) {
             throw "文件异常，大小为0";
         }
         if (converted) {
-            fs.unlink(silkPath, () => {
-            });
+            fs.unlink(silkPath).then();
         }
         return {
             elementType: ElementType.PTT,

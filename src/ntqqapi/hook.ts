@@ -28,6 +28,7 @@ export enum ReceiveCmd {
     FRIEND_REQUEST = "nodeIKernelBuddyListener/onBuddyReqChange",
     SELF_STATUS = 'nodeIKernelProfileListener/onSelfStatusChanged',
     CACHE_SCAN_FINISH = "nodeIKernelStorageCleanListener/onFinishScan",
+    MEDIA_UPLOAD_COMPLETE = "nodeIKernelMsgListener/onRichMediaUploadComplete",
 }
 
 interface NTQQApiReturnData<PayloadType = unknown> extends Array<any> {
@@ -224,6 +225,10 @@ registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload
             continue
         }
         for (const msgElement of message.elements) {
+            if (msgElement.videoElement) {
+                log("收到视频消息", msgElement.videoElement)
+                log("視頻缩略图", msgElement.videoElement.thumbPath.get(0));
+            }
             setTimeout(() => {
                 const picPath = msgElement.picElement?.sourcePath
                 const pttPath = msgElement.pttElement?.filePath
@@ -235,6 +240,7 @@ registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload
                 if (aioOpGrayTipElement){
                     tempGroupCodeMap[aioOpGrayTipElement.peerUid] = aioOpGrayTipElement.fromGrpCodeOfTmpChat;
                 }
+
                 // log("需要清理的文件", pathList);
                 for (const path of pathList) {
                     if (path) {

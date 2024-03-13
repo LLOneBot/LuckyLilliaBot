@@ -29,19 +29,23 @@ TG群：<https://t.me/+nLZEnpne-pQ1OWFl>
 - [x] 群管理功能，禁言、踢人，改群名片等
 - [x] 视频消息
 - [x] 文件消息
+- [x] 群禁言事件上报
+- [x] 优化加群成功事件上报
+- [x] 清理缓存api
 - [ ] 无头模式
-- [ ] 群禁言事件上报
-- [ ] 优化加群成功事件上报
-- [ ] 清理缓存api
 - [ ] 框架对接文档
 
 ## onebot11文档
 <https://11.onebot.dev/>
 
+## Stargazers over time
+[![Stargazers over time](https://starchart.cc/LLOneBot/LLOneBot.svg?variant=adaptive)](https://starchart.cc/LLOneBot/LLOneBot)
+
+
 ## 鸣谢
 * [LiteLoaderQQNT](https://liteloaderqqnt.github.io/guide/install.html)
 * [LLAPI](https://github.com/Night-stars-1/LiteLoaderQQNT-Plugin-LLAPI)
-* chronocat
+* [chronocat](https://github.com/chrononeko/chronocat/)
 * [koishi-plugin-adapter-onebot](https://github.com/koishijs/koishi-plugin-adapter-onebot)
 
 ## 友链

@@ -4,6 +4,7 @@ import {ConfigUtil} from "./config";
 import util from "util";
 import {encode, getDuration, isWav} from "silk-wasm";
 import fs from 'fs';
+import * as crypto from 'crypto';
 import {v4 as uuidv4} from "uuid";
 import ffmpeg from "fluent-ffmpeg"
 
@@ -234,9 +235,9 @@ export async function encodeSilk(filePath: string) {
         } else {
             const pcm = fs.readFileSync(filePath);
             let duration = 0;
-            try{
+            try {
                 duration = getDuration(pcm);
-            }catch (e) {
+            } catch (e) {
                 log("获取语音文件时长失败", filePath, e.stack)
                 duration = fs.statSync(filePath).size / 1024 / 3  // 每3kb大约1s
                 duration = Math.floor(duration)
@@ -256,6 +257,80 @@ export async function encodeSilk(filePath: string) {
     }
 }
 
+export async function getVideoInfo(filePath: string) {
+    const size = fs.statSync(filePath).size;
+    return new Promise<{ width: number, height: number, time: number, format: string, size: number, filePath: string }>((resolve, reject) => {
+        ffmpeg.ffprobe(filePath, (err, metadata) => {
+            if (err) {
+                reject(err);
+            } else {
+                const videoStream = metadata.streams.find(s => s.codec_type === 'video');
+                if (videoStream) {
+                    console.log(`视频尺寸: ${videoStream.width}x${videoStream.height}`);
+                } else {
+                    console.log('未找到视频流信息。');
+                }
+                resolve({
+                    width: videoStream.width, height: videoStream.height,
+                    time: parseInt(videoStream.duration),
+                    format: metadata.format.format_name,
+                    size,
+                    filePath
+                });
+            }
+        });
+    })
+}
+
+export async function encodeMp4(filePath: string) {
+    let videoInfo = await getVideoInfo(filePath);
+    log("视频信息", videoInfo)
+    if (videoInfo.format.indexOf("mp4") === -1) {
+        log("视频需要转换为MP4格式", filePath)
+        // 转成mp4
+        const newPath: string = await new Promise<string>((resolve, reject) => {
+            const newPath = filePath + ".mp4"
+            ffmpeg(filePath)
+                .toFormat('mp4')
+                .on('error', (err) => {
+                    reject(`转换视频格式失败: ${err.message}`);
+                })
+                .on('end', () => {
+                    log('视频转换为MP4格式完成');
+                    resolve(newPath); // 返回转换后的文件路径
+                })
+                .save(newPath);
+        });
+        return await getVideoInfo(newPath)
+    }
+    return videoInfo
+}
+
 export function isNull(value: any) {
     return value === undefined || value === null;
+}
+
+
+export function calculateFileMD5(filePath: string): Promise<string> {
+    return new Promise((resolve, reject) => {
+        // 创建一个流式读取器
+        const stream = fs.createReadStream(filePath);
+        const hash = crypto.createHash('md5');
+
+        stream.on('data', (data: Buffer) => {
+            // 当读取到数据时，更新哈希对象的状态
+            hash.update(data);
+        });
+
+        stream.on('end', () => {
+            // 文件读取完成，计算哈希
+            const md5 = hash.digest('hex');
+            resolve(md5);
+        });
+
+        stream.on('error', (err: Error) => {
+            // 处理可能的读取错误
+            reject(err);
+        });
+    });
 }

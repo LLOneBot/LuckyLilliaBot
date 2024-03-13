@@ -151,9 +151,19 @@ function onLoad() {
         log(arg);
     })
 
+    let postedMsgIds: Record<string, any> = {}
     async function postReceiveMsg(msgList: RawMessage[]) {
         const {debug, reportSelfMessage} = getConfigUtil().getConfig();
         for (let message of msgList) {
+            if (postedMsgIds[message.msgId]) { // 如果QQ开启了独立窗口，会导致消息重复上报，这里加个记录避免重复上报
+                continue
+            }
+            postedMsgIds[message.msgId] = true
+            // 超过容量清空
+            if (Object.keys(postedMsgIds).length > 10000) {
+                postedMsgIds = {}
+            }
+
             // log("收到新消息", message.msgId, message.msgSeq)
             // if (message.senderUin !== selfInfo.uin){
                 message.msgShortId = await dbUtil.addMsg(message);

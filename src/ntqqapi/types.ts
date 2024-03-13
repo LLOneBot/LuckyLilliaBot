@@ -71,6 +71,7 @@ export enum ElementType {
     PIC = 2,
     FILE = 3,
     PTT = 4,
+    VIDEO = 5,
     FACE = 6,
     REPLY = 7,
     ARK = 10,
@@ -167,11 +168,16 @@ export interface FileElement {
 }
 
 export interface SendFileElement {
-    elementType: ElementType.FILE,
+    elementType: ElementType.FILE
     elementId: "",
     fileElement: FileElement
 }
 
+export interface SendVideoElement {
+    elementType: ElementType.VIDEO
+    elementId: "",
+    videoElement: VideoElement
+}
 export interface SendArkElement {
     elementType: ElementType.ARK,
     elementId: "",
@@ -180,7 +186,7 @@ export interface SendArkElement {
 }
 
 export type SendMessageElement = SendTextElement | SendPttElement |
-    SendPicElement | SendReplyElement | SendFaceElement | SendFileElement | SendArkElement
+    SendPicElement | SendReplyElement | SendFaceElement | SendFileElement | SendVideoElement | SendArkElement
 
 export enum AtType {
     notAt = 0,
@@ -258,26 +264,26 @@ export interface FaceElement {
 export interface VideoElement {
     "filePath": string,
     "fileName": string,
-    "videoMd5": string,
-    "thumbMd5": string
-    "fileTime": 87, // second
-    "thumbSize": 314235, // byte
-    "fileFormat": 2,  // 2表示mp4？
-    "fileSize": string,  // byte
-    "thumbWidth": number,
-    "thumbHeight": number,
-    "busiType": 0, // 未知
-    "subBusiType": 0, // 未知
-    "thumbPath": Map<number, any>,
-    "transferStatus": 0, // 未知
-    "progress": 0,  // 下载进度？
-    "invalidState": 0, // 未知
-    "fileUuid": string,  // 可以用于下载链接？
-    "fileSubId": "",
-    "fileBizId": null,
-    "originVideoMd5": "",
-    "import_rich_media_context": null,
-    "sourceVideoCodecFormat": 0
+    "videoMd5"?: string,
+    "thumbMd5"?: string
+    "fileTime"?: number, // second
+    "thumbSize"?: number, // byte
+    "fileFormat"?: number,  // 2表示mp4？
+    "fileSize"?: string,  // byte
+    "thumbWidth"?: number,
+    "thumbHeight"?: number,
+    "busiType"?: 0, // 未知
+    "subBusiType"?: 0, // 未知
+    "thumbPath"?: Map<number, any>,
+    "transferStatus"?: 0, // 未知
+    "progress"?: 0,  // 下载进度？
+    "invalidState"?: 0, // 未知
+    "fileUuid"?: string,  // 可以用于下载链接？
+    "fileSubId"?: "",
+    "fileBizId"?: null,
+    "originVideoMd5"?: "",
+    "import_rich_media_context"?: null,
+    "sourceVideoCodecFormat"?: number
 }
 
 export interface TipAioOpGrayTipElement {  // 这是什么提示来着？

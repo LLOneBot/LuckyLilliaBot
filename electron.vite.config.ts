@@ -28,7 +28,9 @@ let config = {
                 './lib-cov/fluent-ffmpeg': './lib/fluent-ffmpeg'
             },
         },
-        plugins: [cp({ targets: [...external.map(genCpModule), { src: './manifest.json', dest: 'dist' }] })]
+        plugins: [cp({ targets: [...external.map(genCpModule),
+                { src: './manifest.json', dest: 'dist' }, {src: './icon.jpg', dest: 'dist' }]
+        })]
     },
     preload: {
         // vite config options

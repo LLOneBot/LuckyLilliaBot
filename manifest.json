@@ -1,11 +1,11 @@
 {
   "manifest_version": 4,
   "type": "extension",
-  "name": "LLOneBot v3.14.1",
+  "name": "LLOneBot v3.14.0",
   "slug": "LLOneBot",
   "description": "LiteLoaderQQNT的OneBotApi",
-  "version": "3.14.1",
-  "icon": "./icon.png",
+  "version": "3.14.0",
+  "icon": "./icon.jpg",
   "authors": [
     {
       "name": "linyuchen",
