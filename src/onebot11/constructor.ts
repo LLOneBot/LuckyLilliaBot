@@ -91,7 +91,7 @@ export class OB11Constructor {
                     let atUid = element.textElement.atNtUid
                     let atQQ = element.textElement.atUid
                     if (!atQQ || atQQ === "0") {
-                        const atMember = await getGroupMember(msg.peerUin, null, atUid)
+                        const atMember = await getGroupMember(msg.peerUin, atUid)
                         if (atMember) {
                             atQQ = atMember.uin
                         }
@@ -257,13 +257,13 @@ export class OB11Constructor {
                 if (groupElement.type == TipGroupElementType.memberIncrease) {
                     log("收到群成员增加消息", groupElement)
                     await sleep(1000);
-                    const member = await getGroupMember(msg.peerUid, null, groupElement.memberUid);
+                    const member = await getGroupMember(msg.peerUid, groupElement.memberUid);
                     let memberUin = member?.uin;
                     if (!memberUin) {
                         memberUin = (await NTQQApi.getUserDetailInfo(groupElement.memberUid)).uin
                     }
                     // log("获取新群成员QQ", memberUin)
-                    const adminMember = await getGroupMember(msg.peerUid, null, groupElement.adminUid);
+                    const adminMember = await getGroupMember(msg.peerUid, groupElement.adminUid);
                     // log("获取同意新成员入群的管理员", adminMember)
                     if (memberUin) {
                         const operatorUin = adminMember?.uin || memberUin
@@ -280,7 +280,7 @@ export class OB11Constructor {
                     let duration = parseInt(groupElement.shutUp.duration)
                     let sub_type: "ban" | "lift_ban" = duration > 0 ? "ban" : "lift_ban"
                     if (memberUid){
-                        memberUin = (await getGroupMember(msg.peerUid, null, memberUid))?.uin || (await NTQQApi.getUserDetailInfo(memberUid))?.uin
+                        memberUin = (await getGroupMember(msg.peerUid, memberUid))?.uin || (await NTQQApi.getUserDetailInfo(memberUid))?.uin
                     }
                     else {
                         memberUin = "0";  // 0表示全员禁言
@@ -288,7 +288,7 @@ export class OB11Constructor {
                             duration = -1
                         }
                     }
-                    const adminUin = (await getGroupMember(msg.peerUid, null, adminUid))?.uin || (await NTQQApi.getUserDetailInfo(adminUid))?.uin
+                    const adminUin = (await getGroupMember(msg.peerUid, adminUid))?.uin || (await NTQQApi.getUserDetailInfo(adminUid))?.uin
                     if (memberUin && adminUin) {
                         return new OB11GroupBanEvent(parseInt(msg.peerUid), parseInt(memberUin), parseInt(adminUin), duration, sub_type);
                     }
