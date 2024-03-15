@@ -96,6 +96,8 @@ export enum NTQQApiMethod {
     CACHE_CHAT_CLEAR = 'nodeIKernelStorageCleanService/clearChatCacheInfo',
 
     OPEN_EXTRA_WINDOW = 'openExternalWindow',
+
+    SET_QQ_AVATAR = 'nodeIKernelProfileService/setHeader'
 }
 
 enum NTQQApiChannel {
@@ -892,6 +894,16 @@ export class NTQQApi {
                 chats,
                 fileKeys
             }, null]
+        });
+    }
+
+    static async setQQAvatar(filePath: string) {
+        return await callNTQQApi<GeneralCallResult>({
+            methodName: NTQQApiMethod.SET_QQ_AVATAR,
+            args: [{
+                path:filePath
+            }, null],
+            timeoutSecond: 10 // 10秒不一定够
         });
     }
 }
