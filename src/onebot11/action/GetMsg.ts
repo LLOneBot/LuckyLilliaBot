@@ -19,12 +19,14 @@ class GetMsg extends BaseAction<PayloadType, OB11Message> {
         if (!payload.message_id) {
             throw ("参数message_id不能为空")
         }
-        const msg = await dbUtil.getMsgByShortId(payload.message_id)
-        if (msg) {
-            return await OB11Constructor.message(msg)
-        } else {
+        let msg = await dbUtil.getMsgByShortId(payload.message_id)
+        if(!msg) {
+            msg = await dbUtil.getMsgByLongId(payload.message_id.toString())
+        }
+        if (!msg){
             throw ("消息不存在")
         }
+        return await OB11Constructor.message(msg)
     }
 }
 

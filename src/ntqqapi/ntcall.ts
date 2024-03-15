@@ -79,6 +79,7 @@ export enum NTQQApiMethod {
     SET_MEMBER_ROLE = "nodeIKernelGroupService/modifyMemberRole",
     PUBLISH_GROUP_BULLETIN = "nodeIKernelGroupService/publishGroupBulletinBulletin",
     SET_GROUP_NAME = "nodeIKernelGroupService/modifyGroupName",
+    SET_GROUP_TITLE = "nodeIKernelGroupService/modifyMemberSpecialTitle",
 
     CACHE_SET_SILENCE = 'nodeIKernelStorageCleanService/setSilentScan',
     CACHE_ADD_SCANNED_PATH = 'nodeIKernelStorageCleanService/addCacheScanedPaths',
@@ -722,6 +723,28 @@ export class NTQQApi {
                 {
                     groupCode: groupQQ,
                     groupName
+                }, null
+            ]
+        })
+    }
+
+    static async call(cmdName: string, args: any[],) {
+        return await callNTQQApi<GeneralCallResult>({
+            methodName: cmdName,
+            args: [
+                ...args,
+            ]
+        })
+    }
+
+    static async setGroupTitle(groupQQ: string, uid: string, title: string) {
+        return await callNTQQApi<GeneralCallResult>({
+            methodName: NTQQApiMethod.SET_GROUP_TITLE,
+            args: [
+                {
+                    groupCode: groupQQ,
+                    uid,
+                    title
                 }, null
             ]
         })

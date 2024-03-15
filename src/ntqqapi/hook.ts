@@ -220,24 +220,23 @@ registerReceiveHook<{
 // 新消息
 registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload) => {
     const {autoDeleteFile} = getConfigUtil().getConfig();
+    if (!autoDeleteFile) {
+        return
+    }
     for (const message of payload.msgList) {
         // log("收到新消息，push到历史记录", message.msgId)
         // dbUtil.addMsg(message).then()
         // 清理文件
-        if (!autoDeleteFile) {
-            continue
-        }
+
         for (const msgElement of message.elements) {
-            if (msgElement.videoElement) {
-                log("收到视频消息", msgElement.videoElement)
-                log("視頻缩略图", msgElement.videoElement.thumbPath.get(0));
-            }
             setTimeout(() => {
                 const picPath = msgElement.picElement?.sourcePath
+                const picThumbPath = [...msgElement.picElement?.thumbPath.values()]
                 const pttPath = msgElement.pttElement?.filePath
                 const filePath = msgElement.fileElement?.filePath
                 const videoPath = msgElement.videoElement?.filePath
-                const pathList = [picPath, pttPath, filePath, videoPath]
+                const videoThumbPath: string[] = [...msgElement.videoElement?.thumbPath.values()]
+                const pathList = [picPath, ...picThumbPath, pttPath, filePath, videoPath, ...videoThumbPath]
                 if (msgElement.picElement) {
                     pathList.push(...Object.values(msgElement.picElement.thumbPath))
                 }
