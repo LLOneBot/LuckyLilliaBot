@@ -151,22 +151,13 @@ function onLoad() {
         log(arg);
     })
 
-    let postedMsgIds: Record<string, any> = {}
     async function postReceiveMsg(msgList: RawMessage[]) {
         const {debug, reportSelfMessage} = getConfigUtil().getConfig();
         for (let message of msgList) {
-            if (postedMsgIds[message.msgId]) { // 如果QQ开启了独立窗口，会导致消息重复上报，这里加个记录避免重复上报
-                continue
-            }
-            postedMsgIds[message.msgId] = true
-            // 超过容量清空
-            if (Object.keys(postedMsgIds).length > 10000) {
-                postedMsgIds = {}
-            }
 
             // log("收到新消息", message.msgId, message.msgSeq)
             // if (message.senderUin !== selfInfo.uin){
-                message.msgShortId = await dbUtil.addMsg(message);
+            message.msgShortId = await dbUtil.addMsg(message);
             // }
 
             OB11Constructor.message(message).then((msg) => {
@@ -180,8 +171,8 @@ function onLoad() {
                 postOB11Event(msg);
                 // log("post msg", msg)
             }).catch(e => log("constructMessage error: ", e.stack.toString()));
-            OB11Constructor.GroupEvent(message).then(groupEvent=>{
-                if (groupEvent){
+            OB11Constructor.GroupEvent(message).then(groupEvent => {
+                if (groupEvent) {
                     // log("post group event", groupEvent);
                     postOB11Event(groupEvent);
                 }
@@ -200,7 +191,7 @@ function onLoad() {
         registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.UPDATE_MSG, async (payload) => {
             for (const message of payload.msgList) {
                 // log("message update", message.sendStatus, message.msgId, message.msgSeq)
-                if (message.recallTime != "0") {
+                if (message.recallTime != "0") { //todo: 这个判断方法不太好，应该使用灰色消息元素来判断
                     // 撤回消息上报
                     const oriMessage = await dbUtil.getMsgByLongId(message.msgId)
                     if (!oriMessage) {
@@ -321,7 +312,7 @@ function onLoad() {
                             let groupInviteEvent = new OB11GroupRequestEvent();
                             groupInviteEvent.group_id = parseInt(notify.group.groupCode);
                             let user_id = (await getFriend("", notify.user2.uid))?.uin
-                            if (!user_id){
+                            if (!user_id) {
                                 user_id = (await NTQQApi.getUserDetailInfo(notify.user2.uid))?.uin
                             }
                             groupInviteEvent.user_id = parseInt(user_id);
@@ -362,6 +353,7 @@ function onLoad() {
     let startTime = 0;
 
     async function start() {
+        log("llonebot pid", process.pid)
         startTime = Date.now();
         startReceiveHook().then();
         NTQQApi.getGroups(true).then()
@@ -428,6 +420,10 @@ function onLoad() {
 
 // 创建窗口时触发
 function onBrowserWindowCreated(window: BrowserWindow) {
+    if (selfInfo.uid) {
+        return
+    }
+    log("window create", window.webContents.getURL().toString())
     try {
         hookNTQQApiCall(window);
         hookNTQQApiReceive(window);
