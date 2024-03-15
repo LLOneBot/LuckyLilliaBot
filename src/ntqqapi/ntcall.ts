@@ -1,4 +1,4 @@
-import {ipcMain} from "electron";
+import {BrowserWindow, ipcMain} from "electron";
 import {hookApiCallbacks, ReceiveCmd, registerReceiveHook, removeReceiveHook} from "./hook";
 import {log, sleep} from "../common/utils";
 import {
@@ -42,6 +42,7 @@ export enum NTQQApiClass {
     NT_API = "ns-ntApi",
     FS_API = "ns-FsApi",
     OS_API = "ns-OsApi",
+    WINDOW_API = "ns-WindowApi",
     HOTUPDATE_API = "ns-HotUpdateApi",
     BUSINESS_API = "ns-BusinessApi",
     GLOBAL_DATA = "ns-GlobalDataApi"
@@ -93,6 +94,8 @@ export enum NTQQApiMethod {
     CACHE_CHAT_GET = 'nodeIKernelStorageCleanService/getChatCacheInfo',
     CACHE_FILE_GET = 'nodeIKernelStorageCleanService/getFileCacheInfo',
     CACHE_CHAT_CLEAR = 'nodeIKernelStorageCleanService/clearChatCacheInfo',
+
+    OPEN_EXTRA_WINDOW = 'openExternalWindow',
 }
 
 enum NTQQApiChannel {
@@ -203,12 +206,13 @@ interface GeneralCallResult {
 
 
 export class NTQQApi {
-    static async setHeader(path: string){
+    static async setHeader(path: string) {
         return await callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.SET_HEADER,
             args: [path]
         })
     }
+
     static async likeFriend(uid: string, count = 1) {
         return await callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.LIKE_FRIEND,
@@ -256,7 +260,11 @@ export class NTQQApi {
                 null
             ]
         })
-        return result.info
+        const info = result.info
+        if (info?.uin) {
+            uidMaps[info.uid] = info.uin
+        }
+        return info
     }
 
     static async getFriends(forced = false) {
@@ -482,8 +490,7 @@ export class NTQQApi {
                     if ((await dbUtil.getMsgByLongId(sentMessage.msgId)).sendStatus == 2) {
                         return sentMessage
                     }
-                }
-                else{
+                } else {
                     return sentMessage
                 }
                 // log(`给${peerUid}发送消息成功`)
@@ -510,7 +517,7 @@ export class NTQQApi {
     static async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
         return await callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.FORWARD_MSG,
-            args:[
+            args: [
                 {
                     msgIds: msgIds,
                     srcContact: srcPeer,
@@ -525,6 +532,7 @@ export class NTQQApi {
         })
 
     }
+
     static async multiForwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
         const msgInfos = msgIds.map(id => {
             return {msgId: id, senderShowName: selfInfo.nick}
@@ -594,6 +602,29 @@ export class NTQQApi {
                 null
             ]
         });
+    }
+
+    static async getGroupIgnoreNotifies() {
+        await NTQQApi.getGroupNotifies();
+        const result = callNTQQApi<GroupNotifies>({
+            className: NTQQApiClass.WINDOW_API,
+            methodName: NTQQApiMethod.OPEN_EXTRA_WINDOW,
+            cbCmd: ReceiveCmd.GROUP_NOTIFY,
+            afterFirstCmd: false,
+            args: [
+                "GroupNotifyFilterWindow"
+            ]
+        })
+        // 关闭窗口
+        setTimeout(() => {
+            for (const w of BrowserWindow.getAllWindows()) {
+                // log("close window", w.webContents.getURL())
+                if (w.webContents.getURL().indexOf("#/notify-filter/") != -1) {
+                    w.close();
+                }
+            }
+        }, 2000);
+        return result;
     }
 
     static async handleGroupRequest(seq: string, operateType: GroupRequestOperateTypes, reason?: string) {
@@ -815,7 +846,7 @@ export class NTQQApi {
         });
     }
 
-    static clearCache(cacheKeys: Array<string> = [ 'tmp', 'hotUpdate' ]) {
+    static clearCache(cacheKeys: Array<string> = ['tmp', 'hotUpdate']) {
         return callNTQQApi<any>({ // TODO: 目前还不知道真正的返回值是什么
             methodName: NTQQApiMethod.CACHE_CLEAR,
             args: [{
@@ -835,12 +866,12 @@ export class NTQQApi {
                     pageIndex
                 }, null]
             }).then(list => res(list))
-            .catch(e => rej(e));
+                .catch(e => rej(e));
         });
     }
 
     static getFileCacheInfo(fileType: CacheFileType, pageSize: number = 1000, lastRecord?: CacheFileListItem) {
-        const _lastRecord = lastRecord ? lastRecord : { fileType: fileType };
+        const _lastRecord = lastRecord ? lastRecord : {fileType: fileType};
 
         return callNTQQApi<CacheFileList>({
             methodName: NTQQApiMethod.CACHE_FILE_GET,

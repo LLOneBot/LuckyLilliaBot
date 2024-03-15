@@ -148,7 +148,7 @@ function onLoad() {
                         let operatorId = message.senderUin
                         for (const element of message.elements) {
                             const operatorUid = element.grayTipElement?.revokeElement.operatorUid
-                            const operator = await getGroupMember(message.peerUin, null, operatorUid)
+                            const operator = await getGroupMember(message.peerUin, operatorUid)
                             operatorId = operator.uin
                         }
                         const groupRecallEvent = new OB11GroupRecallNoticeEvent(
@@ -215,7 +215,7 @@ function onLoad() {
                         //     member2 = await getGroupMember(notify.group.groupCode, null, notify.user2.uid);
                         // }
                         if ([GroupNotifyTypes.ADMIN_SET, GroupNotifyTypes.ADMIN_UNSET].includes(notify.type)) {
-                            const member1 = await getGroupMember(notify.group.groupCode, null, notify.user1.uid);
+                            const member1 = await getGroupMember(notify.group.groupCode, notify.user1.uid);
                             log("有管理员变动通知");
                             refreshGroupMembers(notify.group.groupCode).then()
                             let groupAdminNoticeEvent = new OB11GroupAdminNoticeEvent()
@@ -253,7 +253,7 @@ function onLoad() {
                             log("收到邀请我加群通知")
                             let groupInviteEvent = new OB11GroupRequestEvent();
                             groupInviteEvent.group_id = parseInt(notify.group.groupCode);
-                            let user_id = (await getFriend("", notify.user2.uid))?.uin
+                            let user_id = (await getFriend(notify.user2.uid))?.uin
                             if (!user_id) {
                                 user_id = (await NTQQApi.getUserDetailInfo(notify.user2.uid))?.uin
                             }

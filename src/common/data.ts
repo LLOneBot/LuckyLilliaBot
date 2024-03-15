@@ -11,7 +11,7 @@ import {
 import {type FileCache, type LLOneBotError} from './types'
 import {dbUtil} from "./db";
 import {raw} from "express";
-import {log} from "./utils";
+import {isNumeric, log} from "./utils";
 
 export const selfInfo: SelfInfo = {
     uid: '',
@@ -28,9 +28,9 @@ export const llonebotError: LLOneBotError = {
 }
 
 
-export async function getFriend(qq: string, uid: string = ""): Promise<Friend | undefined> {
-    let filterKey = uid ? "uid" : "uin"
-    let filterValue = uid ? uid : qq
+export async function getFriend(uinOrUid: string): Promise<Friend | undefined> {
+    let filterKey = isNumeric(uinOrUid) ? "uin" : "uid"
+    let filterValue = uinOrUid
     let friend = friends.find(friend => friend[filterKey] === filterValue.toString())
     // if (!friend) {
     //     try {
@@ -59,15 +59,13 @@ export async function getGroup(qq: string): Promise<Group | undefined> {
     return group
 }
 
-export async function getGroupMember(groupQQ: string | number, memberQQ: string | number, memberUid: string = null) {
+export async function getGroupMember(groupQQ: string | number, memberUinOrUid: string | number) {
     groupQQ = groupQQ.toString()
-    if (memberQQ) {
-        memberQQ = memberQQ.toString()
-    }
+    memberUinOrUid = memberUinOrUid.toString()
     const group = await getGroup(groupQQ)
     if (group) {
-        const filterKey = memberQQ ? "uin" : "uid"
-        const filterValue = memberQQ ? memberQQ : memberUid
+        const filterKey = isNumeric(memberUinOrUid) ? "uin" : "uid"
+        const filterValue = memberUinOrUid
         let filterFunc: (member: GroupMember) => boolean = member => member[filterKey] === filterValue
         let member = group.members?.find(filterFunc)
         if (!member) {

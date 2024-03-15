@@ -14,6 +14,7 @@ export interface InvalidCheckResult {
 }
 
 export enum ActionName {
+    GetGroupIgnoreAddRequest = "get_group_ignore_add_request",
     GetConfig = "get_config",
     SetConfig = "set_config",
     Debug = "llonebot_debug",

@@ -32,6 +32,11 @@ function truncateString(obj: any, maxLength = 500) {
     return obj;
 }
 
+export function isNumeric(str: string) {
+    return /^\d+$/.test(str);
+}
+
+
 export function log(...msg: any[]) {
     if (!getConfigUtil().getConfig().log) {
         return //console.log(...msg);
@@ -225,8 +230,7 @@ export async function encodeSilk(filePath: string) {
             const pcm = fs.readFileSync(filePath);
             const silk = await encode(pcm, 0);
             fs.writeFileSync(pttPath, silk.data);
-            // fs.unlink(wavPath, (err) => {
-            // });
+            fs.unlink(wavPath, (err) => { });
             log(`语音文件${filePath}转换成功!`, pttPath)
             return {
                 converted: true,
