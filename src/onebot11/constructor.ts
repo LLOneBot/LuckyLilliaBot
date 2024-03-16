@@ -270,7 +270,7 @@ export class OB11Constructor {
                 }
             }
             else if (element.fileElement){
-                return new OB11GroupUploadNoticeEvent(parseInt(msg.peerUid), parseInt(msg.senderUin), {id: element.fileElement.fileName, name: element.fileElement.fileName, size: parseInt(element.fileElement.fileSize)})
+                return new OB11GroupUploadNoticeEvent(parseInt(msg.peerUid), parseInt(msg.senderUin), {id: element.fileElement.fileUuid, name: element.fileElement.fileName, size: parseInt(element.fileElement.fileSize)})
             }
 
             if (grayTipElement) {

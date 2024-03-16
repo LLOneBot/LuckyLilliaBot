@@ -2,7 +2,7 @@ import fs from "fs";
 import {Config, OB11Config} from './types';
 import {mergeNewProperties} from "./utils";
 
-export const HOOK_LOG = false;
+export const HOOK_LOG = true;
 
 export const ALLOW_SEND_TEMP_MSG = false;
 

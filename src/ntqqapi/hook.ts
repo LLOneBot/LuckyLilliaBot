@@ -54,7 +54,13 @@ let receiveHooks: Array<{
 export function hookNTQQApiReceive(window: BrowserWindow) {
     const originalSend = window.webContents.send;
     const patchSend = (channel: string, ...args: NTQQApiReturnData) => {
-        HOOK_LOG && log(`received ntqq api message: ${channel}`, JSON.stringify(args))
+        try {
+            if (!args[0]?.eventName?.startsWith("ns-LoggerApi")) {
+                HOOK_LOG && log(`received ntqq api message: ${channel}`, JSON.stringify(args))
+            }
+        } catch (e) {
+
+        }
         if (args?.[1] instanceof Array) {
             for (let receiveData of args?.[1]) {
                 const ntQQApiMethodName = receiveData.cmdName;
@@ -98,7 +104,13 @@ export function hookNTQQApiCall(window: BrowserWindow) {
 
     const proxyIpcMsg = new Proxy(ipc_message_proxy, {
         apply(target, thisArg, args) {
-            HOOK_LOG && log("call NTQQ api", thisArg, args);
+            try {
+                if (args[3][1][0] !== "info") {
+                    HOOK_LOG && log("call NTQQ api", thisArg, args);
+                }
+            } catch (e) {
+
+            }
             return target.apply(thisArg, args);
         },
     });
@@ -241,7 +253,7 @@ registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload
                     pathList.push(...Object.values(msgElement.picElement.thumbPath))
                 }
                 const aioOpGrayTipElement = msgElement.grayTipElement?.aioOpGrayTipElement
-                if (aioOpGrayTipElement){
+                if (aioOpGrayTipElement) {
                     tempGroupCodeMap[aioOpGrayTipElement.peerUid] = aioOpGrayTipElement.fromGrpCodeOfTmpChat;
                 }
 
