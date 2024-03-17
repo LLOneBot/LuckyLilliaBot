@@ -22,7 +22,6 @@ import {
 } from '../ntqqapi/types';
 import {getFriend, getGroupMember, selfInfo, tempGroupCodeMap} from '../common/data';
 import {getConfigUtil, log, sleep} from "../common/utils";
-import {NTQQApi} from "../ntqqapi/ntcall";
 import {EventType} from "./event/OB11BaseEvent";
 import {encodeCQCode} from "./cqcode";
 import {dbUtil} from "../common/db";
@@ -30,6 +29,8 @@ import {OB11GroupIncreaseEvent} from "./event/notice/OB11GroupIncreaseEvent";
 import {OB11GroupBanEvent} from "./event/notice/OB11GroupBanEvent";
 import {OB11GroupUploadNoticeEvent} from "./event/notice/OB11GroupUploadNoticeEvent";
 import {OB11GroupNoticeEvent} from "./event/notice/OB11GroupNoticeEvent";
+import {NTQQUserApi} from "../ntqqapi/api/user";
+import {NTQQFileApi} from "../ntqqapi/api/file";
 
 
 export class OB11Constructor {
@@ -144,7 +145,7 @@ export class OB11Constructor {
                     fileSize: element.picElement.fileSize.toString(),
                     url: message_data["data"]["url"],
                     downloadFunc: async () => {
-                        await NTQQApi.downloadMedia(msg.msgId, msg.chatType, msg.peerUid,
+                        await NTQQFileApi.downloadMedia(msg.msgId, msg.chatType, msg.peerUid,
                             element.elementId, element.picElement.thumbPath?.get(0) || "", element.picElement.sourcePath)
                     }
                 }).then()
@@ -161,7 +162,7 @@ export class OB11Constructor {
                     filePath: element.videoElement.filePath,
                     fileSize: element.videoElement.fileSize,
                     downloadFunc: async () => {
-                        await NTQQApi.downloadMedia(msg.msgId, msg.chatType, msg.peerUid,
+                        await NTQQFileApi.downloadMedia(msg.msgId, msg.chatType, msg.peerUid,
                             element.elementId, element.videoElement.thumbPath.get(0), element.videoElement.filePath)
                     }
                 }).then()
@@ -177,7 +178,7 @@ export class OB11Constructor {
                     filePath: element.fileElement.filePath,
                     fileSize: element.fileElement.fileSize,
                     downloadFunc: async () => {
-                        await NTQQApi.downloadMedia(msg.msgId, msg.chatType, msg.peerUid,
+                        await NTQQFileApi.downloadMedia(msg.msgId, msg.chatType, msg.peerUid,
                             element.elementId, null, element.fileElement.filePath)
                     }
                 }).then()
@@ -235,7 +236,7 @@ export class OB11Constructor {
                     const member = await getGroupMember(msg.peerUid, groupElement.memberUid);
                     let memberUin = member?.uin;
                     if (!memberUin) {
-                        memberUin = (await NTQQApi.getUserDetailInfo(groupElement.memberUid)).uin
+                        memberUin = (await NTQQUserApi.getUserDetailInfo(groupElement.memberUid)).uin
                     }
                     // log("获取新群成员QQ", memberUin)
                     const adminMember = await getGroupMember(msg.peerUid, groupElement.adminUid);
@@ -255,7 +256,7 @@ export class OB11Constructor {
                     let duration = parseInt(groupElement.shutUp.duration)
                     let sub_type: "ban" | "lift_ban" = duration > 0 ? "ban" : "lift_ban"
                     if (memberUid){
-                        memberUin = (await getGroupMember(msg.peerUid, memberUid))?.uin || (await NTQQApi.getUserDetailInfo(memberUid))?.uin
+                        memberUin = (await getGroupMember(msg.peerUid, memberUid))?.uin || (await NTQQUserApi.getUserDetailInfo(memberUid))?.uin
                     }
                     else {
                         memberUin = "0";  // 0表示全员禁言
@@ -263,7 +264,7 @@ export class OB11Constructor {
                             duration = -1
                         }
                     }
-                    const adminUin = (await getGroupMember(msg.peerUid, adminUid))?.uin || (await NTQQApi.getUserDetailInfo(adminUid))?.uin
+                    const adminUin = (await getGroupMember(msg.peerUid, adminUid))?.uin || (await NTQQUserApi.getUserDetailInfo(adminUid))?.uin
                     if (memberUin && adminUin) {
                         return new OB11GroupBanEvent(parseInt(msg.peerUid), parseInt(memberUin), parseInt(adminUin), duration, sub_type);
                     }

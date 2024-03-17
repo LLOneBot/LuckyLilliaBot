@@ -16,7 +16,7 @@ import {
     OB11MessageNode,
     OB11PostSendMsg
 } from '../types';
-import {NTQQApi, Peer} from "../../ntqqapi/ntcall";
+import {Peer} from "../../ntqqapi/api/msg";
 import {SendMsgElementConstructor} from "../../ntqqapi/constructor";
 import {uri2local} from "../utils";
 import BaseAction from "./BaseAction";
@@ -26,6 +26,7 @@ import {log, sleep} from "../../common/utils";
 import {decodeCQCode} from "../cqcode";
 import {dbUtil} from "../../common/db";
 import {ALLOW_SEND_TEMP_MSG} from "../../common/config";
+import {NTQQMsgApi} from "../../ntqqapi/api/msg";
 
 function checkSendMessage(sendMsgList: OB11MessageData[]) {
     function checkUri(uri: string): boolean {
@@ -208,7 +209,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
         }
         log("克隆消息", sendElements)
         try {
-            const nodeMsg = await NTQQApi.sendMsg({
+            const nodeMsg = await NTQQMsgApi.sendMsg({
                 chatType: ChatType.friend,
                 peerUid: selfInfo.uid
             }, sendElements, true);
@@ -330,7 +331,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
         // 开发转发
         try {
             log("开发转发", nodeMsgIds)
-            return await NTQQApi.multiForwardMsg(srcPeer, destPeer, nodeMsgIds)
+            return await NTQQMsgApi.multiForwardMsg(srcPeer, destPeer, nodeMsgIds)
         } catch (e) {
             log("forward failed", e)
             return null;
@@ -449,7 +450,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
         if (!sendElements.length) {
             throw ("消息体无法解析")
         }
-        const returnMsg = await NTQQApi.sendMsg(peer, sendElements, waitComplete, 20000);
+        const returnMsg = await NTQQMsgApi.sendMsg(peer, sendElements, waitComplete, 20000);
         log("消息发送结果", returnMsg)
         returnMsg.msgShortId = await dbUtil.addMsg(returnMsg)
         deleteAfterSentFiles.map(f => fs.unlink(f, () => {

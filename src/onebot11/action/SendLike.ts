@@ -1,8 +1,8 @@
 import BaseAction from "./BaseAction";
 import {getFriend, getUidByUin, uidMaps} from "../../common/data";
-import {NTQQApi} from "../../ntqqapi/ntcall";
 import {ActionName} from "./types";
 import {log} from "../../common/utils";
+import {NTQQFriendApi} from "../../ntqqapi/api/friend";
 
 interface Payload {
     user_id: number,
@@ -23,7 +23,7 @@ export default class SendLike extends BaseAction<Payload, null> {
             } else {
                 uid = friend.uid
             }
-            let result = await NTQQApi.likeFriend(uid, parseInt(payload.times?.toString()) || 1);
+            let result = await NTQQFriendApi.likeFriend(uid, parseInt(payload.times?.toString()) || 1);
             if (result.result !== 0) {
                 throw result.errMsg
             }

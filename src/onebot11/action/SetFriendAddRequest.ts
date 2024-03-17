@@ -1,6 +1,6 @@
 import BaseAction from "./BaseAction";
-import {NTQQApi} from "../../ntqqapi/ntcall";
 import {ActionName} from "./types";
+import {NTQQFriendApi} from "../../ntqqapi/api/friend";
 
 interface Payload {
     flag: string,
@@ -12,7 +12,7 @@ export default class SetFriendAddRequest extends BaseAction<Payload, null> {
     actionName = ActionName.SetFriendAddRequest;
 
     protected async _handle(payload: Payload): Promise<null> {
-        await NTQQApi.handleFriendRequest(parseInt(payload.flag), payload.approve)
+        await NTQQFriendApi.handleFriendRequest(parseInt(payload.flag), payload.approve)
         return null;
     }
 }

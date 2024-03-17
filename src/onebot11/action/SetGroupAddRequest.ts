@@ -1,7 +1,7 @@
 import BaseAction from "./BaseAction";
 import {GroupRequestOperateTypes} from "../../ntqqapi/types";
-import {NTQQApi} from "../../ntqqapi/ntcall";
 import {ActionName} from "./types";
+import {NTQQGroupApi} from "../../ntqqapi/api/group";
 
 interface Payload {
     flag: string,
@@ -16,7 +16,7 @@ export default class SetGroupAddRequest extends BaseAction<Payload, null> {
 
     protected async _handle(payload: Payload): Promise<null> {
         const seq = payload.flag.toString();
-        await NTQQApi.handleGroupRequest(seq,
+        await NTQQGroupApi.handleGroupRequest(seq,
             payload.approve ? GroupRequestOperateTypes.approve : GroupRequestOperateTypes.reject,
             payload.reason
         )

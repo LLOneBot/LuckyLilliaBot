@@ -1,35 +1,40 @@
 import {BrowserWindow} from 'electron';
 import {getConfigUtil, log, sleep} from "../common/utils";
-import {NTQQApi, NTQQApiClass, sendMessagePool} from "./ntcall";
+import {NTQQApiClass} from "./ntcall";
+import {sendMessagePool} from "./api/msg"
 import {Group, RawMessage, User} from "./types";
 import {friends, groups, selfInfo, tempGroupCodeMap} from "../common/data";
 import {OB11GroupDecreaseEvent} from "../onebot11/event/notice/OB11GroupDecreaseEvent";
-import {OB11GroupIncreaseEvent} from "../onebot11/event/notice/OB11GroupIncreaseEvent";
 import {v4 as uuidv4} from "uuid"
 import {postOB11Event} from "../onebot11/server/postOB11Event";
 import {HOOK_LOG} from "../common/config";
 import fs from "fs";
 import {dbUtil} from "../common/db";
+import {NTQQGroupApi} from "./api/group";
 
 export let hookApiCallbacks: Record<string, (apiReturn: any) => void> = {}
 
-export enum ReceiveCmd {
-    UPDATE_MSG = "nodeIKernelMsgListener/onMsgInfoListUpdate",
-    NEW_MSG = "nodeIKernelMsgListener/onRecvMsg",
-    SELF_SEND_MSG = "nodeIKernelMsgListener/onAddSendMsg",
-    USER_INFO = "nodeIKernelProfileListener/onProfileSimpleChanged",
-    USER_DETAIL_INFO = "nodeIKernelProfileListener/onProfileDetailInfoChanged",
-    GROUPS = "nodeIKernelGroupListener/onGroupListUpdate",
-    GROUPS_UNIX = "onGroupListUpdate",
-    FRIENDS = "onBuddyListChange",
-    MEDIA_DOWNLOAD_COMPLETE = "nodeIKernelMsgListener/onRichMediaDownloadComplete",
-    UNREAD_GROUP_NOTIFY = "nodeIKernelGroupListener/onGroupNotifiesUnreadCountUpdated",
-    GROUP_NOTIFY = "nodeIKernelGroupListener/onGroupSingleScreenNotifies",
-    FRIEND_REQUEST = "nodeIKernelBuddyListener/onBuddyReqChange",
-    SELF_STATUS = 'nodeIKernelProfileListener/onSelfStatusChanged',
-    CACHE_SCAN_FINISH = "nodeIKernelStorageCleanListener/onFinishScan",
-    MEDIA_UPLOAD_COMPLETE = "nodeIKernelMsgListener/onRichMediaUploadComplete",
+export let ReceiveCmdS = {
+    UPDATE_MSG: "nodeIKernelMsgListener/onMsgInfoListUpdate",
+    UPDATE_ACTIVE_MSG: "nodeIKernelMsgListener/onActiveMsgInfoUpdate",
+    NEW_MSG: `nodeIKernelMsgListener/onRecvMsg`,
+    NEW_ACTIVE_MSG: `nodeIKernelMsgListener/onRecvActiveMsg`,
+    SELF_SEND_MSG: "nodeIKernelMsgListener/onAddSendMsg",
+    USER_INFO: "nodeIKernelProfileListener/onProfileSimpleChanged",
+    USER_DETAIL_INFO: "nodeIKernelProfileListener/onProfileDetailInfoChanged",
+    GROUPS: "nodeIKernelGroupListener/onGroupListUpdate",
+    GROUPS_UNIX: "onGroupListUpdate",
+    FRIENDS: "onBuddyListChange",
+    MEDIA_DOWNLOAD_COMPLETE: "nodeIKernelMsgListener/onRichMediaDownloadComplete",
+    UNREAD_GROUP_NOTIFY: "nodeIKernelGroupListener/onGroupNotifiesUnreadCountUpdated",
+    GROUP_NOTIFY: "nodeIKernelGroupListener/onGroupSingleScreenNotifies",
+    FRIEND_REQUEST: "nodeIKernelBuddyListener/onBuddyReqChange",
+    SELF_STATUS: 'nodeIKernelProfileListener/onSelfStatusChanged',
+    CACHE_SCAN_FINISH: "nodeIKernelStorageCleanListener/onFinishScan",
+    MEDIA_UPLOAD_COMPLETE: "nodeIKernelMsgListener/onRichMediaUploadComplete",
 }
+
+export type ReceiveCmd = typeof ReceiveCmdS[keyof typeof ReceiveCmdS]
 
 interface NTQQApiReturnData<PayloadType = unknown> extends Array<any> {
     0: {
@@ -46,7 +51,7 @@ interface NTQQApiReturnData<PayloadType = unknown> extends Array<any> {
 }
 
 let receiveHooks: Array<{
-    method: ReceiveCmd,
+    method: ReceiveCmd[],
     hookFunc: ((payload: any) => void | Promise<void>)
     id: string
 }> = []
@@ -66,7 +71,7 @@ export function hookNTQQApiReceive(window: BrowserWindow) {
                 const ntQQApiMethodName = receiveData.cmdName;
                 // log(`received ntqq api message: ${channel} ${ntQQApiMethodName}`, JSON.stringify(receiveData))
                 for (let hook of receiveHooks) {
-                    if (hook.method === ntQQApiMethodName) {
+                    if (hook.method.includes(ntQQApiMethodName)) {
                         new Promise((resolve, reject) => {
                             try {
                                 let _ = hook.hookFunc(receiveData.payload)
@@ -121,8 +126,11 @@ export function hookNTQQApiCall(window: BrowserWindow) {
     }
 }
 
-export function registerReceiveHook<PayloadType>(method: ReceiveCmd, hookFunc: (payload: PayloadType) => void): string {
+export function registerReceiveHook<PayloadType>(method: ReceiveCmd | ReceiveCmd[], hookFunc: (payload: PayloadType) => void): string {
     const id = uuidv4()
+    if (!Array.isArray(method)) {
+        method = [method]
+    }
     receiveHooks.push({
         method,
         hookFunc,
@@ -147,7 +155,7 @@ async function updateGroups(_groups: Group[], needUpdate: boolean = true) {
         }
 
         if (needUpdate) {
-            const members = await NTQQApi.getGroupMembers(group.groupCode);
+            const members = await NTQQGroupApi.getGroupMembers(group.groupCode);
 
             if (members) {
                 existGroup.members = members;
@@ -166,7 +174,7 @@ async function processGroupEvent(payload) {
                     const oldMembers = existGroup.members;
 
                     await sleep(200);  // 如果请求QQ API的速度过快，通常无法正确拉取到最新的群信息，因此这里人为引入一个延时
-                    const newMembers = await NTQQApi.getGroupMembers(group.groupCode);
+                    const newMembers = await NTQQGroupApi.getGroupMembers(group.groupCode);
 
                     group.members = newMembers;
                     const newMembersSet = new Set<string>();  // 建立索引降低时间复杂度
@@ -193,7 +201,7 @@ async function processGroupEvent(payload) {
 }
 
 // 群列表变动
-registerReceiveHook<{ groupList: Group[], updateType: number }>(ReceiveCmd.GROUPS, (payload) => {
+registerReceiveHook<{ groupList: Group[], updateType: number }>(ReceiveCmdS.GROUPS, (payload) => {
     if (payload.updateType != 2) {
         updateGroups(payload.groupList).then();
     } else {
@@ -202,7 +210,7 @@ registerReceiveHook<{ groupList: Group[], updateType: number }>(ReceiveCmd.GROUP
         }
     }
 })
-registerReceiveHook<{ groupList: Group[], updateType: number }>(ReceiveCmd.GROUPS_UNIX, (payload) => {
+registerReceiveHook<{ groupList: Group[], updateType: number }>(ReceiveCmdS.GROUPS_UNIX, (payload) => {
     if (payload.updateType != 2) {
         updateGroups(payload.groupList).then();
     } else {
@@ -215,7 +223,7 @@ registerReceiveHook<{ groupList: Group[], updateType: number }>(ReceiveCmd.GROUP
 // 好友列表变动
 registerReceiveHook<{
     data: { categoryId: number, categroyName: string, categroyMbCount: number, buddyList: User[] }[]
-}>(ReceiveCmd.FRIENDS, payload => {
+}>(ReceiveCmdS.FRIENDS, payload => {
     for (const fData of payload.data) {
         const _friends = fData.buddyList;
         for (let friend of _friends) {
@@ -230,7 +238,7 @@ registerReceiveHook<{
 })
 
 // 新消息
-registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload) => {
+registerReceiveHook<{ msgList: Array<RawMessage> }>([ReceiveCmdS.NEW_MSG, ReceiveCmdS.NEW_ACTIVE_MSG], (payload) => {
     const {autoDeleteFile} = getConfigUtil().getConfig();
     if (!autoDeleteFile) {
         return
@@ -270,7 +278,7 @@ registerReceiveHook<{ msgList: Array<RawMessage> }>(ReceiveCmd.NEW_MSG, (payload
     }
 })
 
-registerReceiveHook<{ msgRecord: RawMessage }>(ReceiveCmd.SELF_SEND_MSG, ({msgRecord}) => {
+registerReceiveHook<{ msgRecord: RawMessage }>(ReceiveCmdS.SELF_SEND_MSG, ({msgRecord}) => {
     const message = msgRecord;
     const peerUid = message.peerUid;
     // log("收到自己发送成功的消息", Object.keys(sendMessagePool), message);
@@ -286,6 +294,6 @@ registerReceiveHook<{ msgRecord: RawMessage }>(ReceiveCmd.SELF_SEND_MSG, ({msgRe
     }
 })
 
-registerReceiveHook<{ info: { status: number } }>(ReceiveCmd.SELF_STATUS, (info) => {
+registerReceiveHook<{ info: { status: number } }>(ReceiveCmdS.SELF_STATUS, (info) => {
     selfInfo.online = info.info.status !== 20
 })

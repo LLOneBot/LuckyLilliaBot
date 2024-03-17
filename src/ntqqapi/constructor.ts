@@ -11,10 +11,10 @@ import {
     SendTextElement,
     SendVideoElement
 } from "./types";
-import {NTQQApi} from "./ntcall";
 import {calculateFileMD5, encodeSilk, getVideoInfo, isGIF, log, sleep} from "../common/utils";
 import {promises as fs} from "node:fs";
 import ffmpeg from "fluent-ffmpeg"
+import {NTQQFileApi} from "./api/file";
 
 
 export class SendMsgElementConstructor {
@@ -60,11 +60,11 @@ export class SendMsgElementConstructor {
     }
 
     static async pic(picPath: string): Promise<SendPicElement> {
-        const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(picPath, ElementType.PIC);
+        const {md5, fileName, path, fileSize} = await NTQQFileApi.uploadFile(picPath, ElementType.PIC);
         if (fileSize === 0) {
             throw "文件异常，大小为0";
         }
-        const imageSize = await NTQQApi.getImageSize(picPath);
+        const imageSize = await NTQQFileApi.getImageSize(picPath);
         const picElement = {
             md5HexStr: md5,
             fileSize: fileSize,
@@ -89,7 +89,7 @@ export class SendMsgElementConstructor {
     }
 
     static async file(filePath: string, fileName: string = ""): Promise<SendFileElement> {
-        const {md5, fileName: _fileName, path, fileSize} = await NTQQApi.uploadFile(filePath, ElementType.FILE);
+        const {md5, fileName: _fileName, path, fileSize} = await NTQQFileApi.uploadFile(filePath, ElementType.FILE);
         if (fileSize === 0) {
             throw "文件异常，大小为0";
         }
@@ -107,7 +107,7 @@ export class SendMsgElementConstructor {
     }
 
     static async video(filePath: string, fileName: string = ""): Promise<SendVideoElement> {
-        let {fileName: _fileName, path, fileSize, md5} = await NTQQApi.uploadFile(filePath, ElementType.VIDEO);
+        let {fileName: _fileName, path, fileSize, md5} = await NTQQFileApi.uploadFile(filePath, ElementType.VIDEO);
         if (fileSize === 0) {
             throw "文件异常，大小为0";
         }
@@ -177,7 +177,7 @@ export class SendMsgElementConstructor {
     static async ptt(pttPath: string): Promise<SendPttElement> {
         const {converted, path: silkPath, duration} = await encodeSilk(pttPath);
         // log("生成语音", silkPath, duration);
-        const {md5, fileName, path, fileSize} = await NTQQApi.uploadFile(silkPath, ElementType.PTT);
+        const {md5, fileName, path, fileSize} = await NTQQFileApi.uploadFile(silkPath, ElementType.PTT);
         if (fileSize === 0) {
             throw "文件异常，大小为0";
         }

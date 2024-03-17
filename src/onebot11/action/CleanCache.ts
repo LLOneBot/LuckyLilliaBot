@@ -1,6 +1,5 @@
 import BaseAction from "./BaseAction";
 import {ActionName} from "./types";
-import {NTQQApi} from "../../ntqqapi/ntcall";
 import fs from "fs";
 import Path from "path";
 import {
@@ -9,6 +8,7 @@ import {
     CacheFileType
 } from '../../ntqqapi/types';
 import {dbUtil} from "../../common/db";
+import {NTQQFileApi, NTQQFileCacheApi} from "../../ntqqapi/api/file";
 
 export default class CleanCache extends BaseAction<void, void> {
     actionName = ActionName.CleanCache
@@ -19,21 +19,21 @@ export default class CleanCache extends BaseAction<void, void> {
                 // dbUtil.clearCache();
                 const cacheFilePaths: string[] = [];
 
-                await NTQQApi.setCacheSilentScan(false);
+                await NTQQFileCacheApi.setCacheSilentScan(false);
 
-                cacheFilePaths.push((await NTQQApi.getHotUpdateCachePath()));
-                cacheFilePaths.push((await NTQQApi.getDesktopTmpPath()));
-                (await NTQQApi.getCacheSessionPathList()).forEach(e => cacheFilePaths.push(e.value));
+                cacheFilePaths.push((await NTQQFileCacheApi.getHotUpdateCachePath()));
+                cacheFilePaths.push((await NTQQFileCacheApi.getDesktopTmpPath()));
+                (await NTQQFileCacheApi.getCacheSessionPathList()).forEach(e => cacheFilePaths.push(e.value));
 
                 // await NTQQApi.addCacheScannedPaths(); // XXX: 调用就崩溃，原因目前还未知
-                const cacheScanResult = await NTQQApi.scanCache();
+                const cacheScanResult = await NTQQFileCacheApi.scanCache();
                 const cacheSize = parseInt(cacheScanResult.size[6]);
 
                 if (cacheScanResult.result !== 0) {
                     throw('Something went wrong while scanning cache. Code: ' + cacheScanResult.result);
                 }
 
-                await NTQQApi.setCacheSilentScan(true);
+                await NTQQFileCacheApi.setCacheSilentScan(true);
                 if (cacheSize > 0 && cacheFilePaths.length > 2) { // 存在缓存文件且大小不为 0 时执行清理动作
                     // await NTQQApi.clearCache([ 'tmp', 'hotUpdate', ...cacheScanResult ]) // XXX: 也是调用就崩溃，调用 fs 删除得了
                     deleteCachePath(cacheFilePaths);
@@ -55,11 +55,11 @@ export default class CleanCache extends BaseAction<void, void> {
                     const fileTypeAny: any = CacheFileType[name];
                     const fileType: CacheFileType = fileTypeAny;
 
-                    cacheFileList.push(...(await NTQQApi.getFileCacheInfo(fileType)).infos.map(file => file.fileKey));
+                    cacheFileList.push(...(await NTQQFileCacheApi.getFileCacheInfo(fileType)).infos.map(file => file.fileKey));
                 }
 
                 // 一并清除
-                await NTQQApi.clearChatCache(chatCacheList, cacheFileList);
+                await NTQQFileCacheApi.clearChatCache(chatCacheList, cacheFileList);
                 res();
             } catch(e) {
                 console.error('清理缓存时发生了错误');
@@ -89,7 +89,7 @@ function deleteCachePath(pathList: string[]) {
 
 function getCacheList(type: ChatType) { // NOTE: 做这个方法主要是因为目前还不支持针对频道消息的清理
     return new Promise<Array<ChatCacheListItemBasic>>((res, rej) => {
-        NTQQApi.getChatCacheList(type, 1000, 0)
+        NTQQFileCacheApi.getChatCacheList(type, 1000, 0)
             .then(data => {
                 const list = data.infos.filter(e => e.chatType === type && parseInt(e.basicChatCacheInfo.chatSize) > 0);
                 const result = list.map(e => {

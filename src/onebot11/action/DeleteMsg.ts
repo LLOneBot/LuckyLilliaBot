@@ -1,7 +1,7 @@
 import {ActionName} from "./types";
 import BaseAction from "./BaseAction";
-import {NTQQApi} from "../../ntqqapi/ntcall";
 import {dbUtil} from "../../common/db";
+import {NTQQMsgApi} from "../../ntqqapi/api/msg";
 
 interface Payload {
     message_id: number
@@ -12,7 +12,7 @@ class DeleteMsg extends BaseAction<Payload, void> {
 
     protected async _handle(payload: Payload) {
         let msg = await dbUtil.getMsgByShortId(payload.message_id)
-        await NTQQApi.recallMsg({
+        await NTQQMsgApi.recallMsg({
             chatType: msg.chatType,
             peerUid: msg.peerUid
         }, [msg.msgId])

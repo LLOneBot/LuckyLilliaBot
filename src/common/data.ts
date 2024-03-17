@@ -1,17 +1,13 @@
-import {NTQQApi} from '../ntqqapi/ntcall'
 import {
     type Friend,
     type FriendRequest,
     type Group,
     type GroupMember,
-    type GroupNotify,
-    type RawMessage,
     type SelfInfo
 } from '../ntqqapi/types'
 import {type FileCache, type LLOneBotError} from './types'
-import {dbUtil} from "./db";
-import {raw} from "express";
 import {isNumeric, log} from "./utils";
+import {NTQQGroupApi} from "../ntqqapi/api/group";
 
 export const selfInfo: SelfInfo = {
     uid: '',
@@ -47,7 +43,7 @@ export async function getGroup(qq: string): Promise<Group | undefined> {
     let group = groups.find(group => group.groupCode === qq.toString())
     if (!group) {
         try {
-            const _groups = await NTQQApi.getGroups(true);
+            const _groups = await NTQQGroupApi.getGroups(true);
             group = _groups.find(group => group.groupCode === qq.toString())
             if (group) {
                 groups.push(group)
@@ -70,7 +66,7 @@ export async function getGroupMember(groupQQ: string | number, memberUinOrUid: s
         let member = group.members?.find(filterFunc)
         if (!member) {
             try {
-                const _members = await NTQQApi.getGroupMembers(groupQQ)
+                const _members = await NTQQGroupApi.getGroupMembers(groupQQ)
                 if (_members.length > 0) {
                     group.members = _members
                 }
@@ -88,7 +84,7 @@ export async function getGroupMember(groupQQ: string | number, memberUinOrUid: s
 export async function refreshGroupMembers(groupQQ: string) {
     const group = groups.find(group => group.groupCode === groupQQ)
     if (group) {
-        group.members = await NTQQApi.getGroupMembers(groupQQ)
+        group.members = await NTQQGroupApi.getGroupMembers(groupQQ)
     }
 }
 

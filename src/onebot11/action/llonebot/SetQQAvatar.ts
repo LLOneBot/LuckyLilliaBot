@@ -1,9 +1,9 @@
 import BaseAction from "../BaseAction";
-import {NTQQApi} from "../../../ntqqapi/ntcall";
 import {ActionName} from "../types";
 import { uri2local } from "../../utils";
 import * as fs from "node:fs";
 import { checkFileReceived } from "../../../common/utils";
+import {NTQQUserApi} from "../../../ntqqapi/api/user";
 // import { log } from "../../../common/utils";
 
 interface Payload {
@@ -20,7 +20,7 @@ export default class SetAvatar extends BaseAction<Payload, null> {
         }
         if (path) {
             await checkFileReceived(path, 5000); // 文件不存在QQ会崩溃，需要提前判断
-            const ret = await NTQQApi.setQQAvatar(path)
+            const ret = await NTQQUserApi.setQQAvatar(path)
             if (!isLocal){
                 fs.unlink(path, () => {})
             }

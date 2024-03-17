@@ -3,9 +3,9 @@ import {getGroup} from "../../../common/data";
 import {ActionName} from "../types";
 import {SendMsgElementConstructor} from "../../../ntqqapi/constructor";
 import {ChatType, SendFileElement} from "../../../ntqqapi/types";
-import {NTQQApi} from "../../../ntqqapi/ntcall";
 import {uri2local} from "../../utils";
 import fs from "fs";
+import {NTQQMsgApi} from "../../../ntqqapi/api/msg";
 
 interface Payload{
     group_id: number
@@ -31,7 +31,7 @@ export default class GoCQHTTPUploadGroupFile extends BaseAction<Payload, null> {
             throw new Error(downloadResult.errMsg)
         }
         let sendFileEle: SendFileElement = await SendMsgElementConstructor.file(downloadResult.path, payload.name);
-        await NTQQApi.sendMsg({chatType: ChatType.group, peerUid: group.groupCode}, [sendFileEle]);
+        await NTQQMsgApi.sendMsg({chatType: ChatType.group, peerUid: group.groupCode}, [sendFileEle]);
         return null
     }
 }
