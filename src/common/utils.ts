@@ -44,7 +44,7 @@ export async function checkVersion() {
     const currentVersion = version.split(".");
     for (let k in [0, 1, 2]) {
         if (latestVersion[k] > currentVersion[k]) {
-            return { result: true, version: latestVersion };
+            return { result: true, version: latestVersionText };
         }
     }
     return { result: true, version: version };
