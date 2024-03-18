@@ -4,7 +4,9 @@ import {EventType} from "./event/OB11BaseEvent";
 export interface OB11User {
     user_id: number;
     nickname: string;
-    remark?: string
+    remark?: string;
+    sex?: OB11UserSex;
+    qq_level?: number;
 }
 
 export enum OB11UserSex {
