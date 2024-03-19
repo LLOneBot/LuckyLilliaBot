@@ -44,3 +44,25 @@ export function mergeNewProperties(newObj: any, oldObj: any) {
 export function isNull(value: any) {
     return value === undefined || value === null;
 }
+
+/**
+ * 将字符串按最大长度分割并添加换行符
+ * @param str 原始字符串
+ * @param maxLength 每行的最大字符数
+ * @returns 处理后的字符串，超过长度的地方将会换行
+ */
+export function wrapText(str: string, maxLength: number): string {
+    // 初始化一个空字符串用于存放结果
+    let result: string = '';
+
+    // 循环遍历字符串，每次步进maxLength个字符
+    for (let i = 0; i < str.length; i += maxLength) {
+        // 从i开始，截取长度为maxLength的字符串段，并添加到结果字符串
+        // 如果不是第一段，先添加一个换行符
+        if (i > 0) result += '\n';
+        result += str.substring(i, i + maxLength);
+    }
+
+    return result;
+}
+

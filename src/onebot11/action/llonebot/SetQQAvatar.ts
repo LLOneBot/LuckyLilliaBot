@@ -1,9 +1,8 @@
 import BaseAction from "../BaseAction";
 import {ActionName} from "../types";
-import { uri2local } from "../../utils";
 import * as fs from "node:fs";
 import {NTQQUserApi} from "../../../ntqqapi/api/user";
-import {checkFileReceived} from "../../../common/utils/file";
+import {checkFileReceived, uri2local} from "../../../common/utils/file";
 // import { log } from "../../../common/utils";
 
 interface Payload {

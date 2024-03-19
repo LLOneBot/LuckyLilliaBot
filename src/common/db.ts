@@ -222,14 +222,14 @@ class DBUtil {
         return this.currentShortId;
     }
 
-    async addFileCache(fileName: string, data: FileCache) {
-        const key = this.DB_KEY_PREFIX_FILE + fileName;
+    async addFileCache(fileNameOrUuid: string, data: FileCache) {
+        const key = this.DB_KEY_PREFIX_FILE + fileNameOrUuid;
         if (this.cache[key]) {
             return
         }
         let cacheDBData = {...data}
         delete cacheDBData['downloadFunc']
-        this.cache[fileName] = data;
+        this.cache[fileNameOrUuid] = data;
         try {
             await this.db.put(key, JSON.stringify(cacheDBData));
         } catch (e) {
@@ -237,8 +237,8 @@ class DBUtil {
         }
     }
 
-    async getFileCache(fileName: string): Promise<FileCache | undefined> {
-        const key = this.DB_KEY_PREFIX_FILE + fileName;
+    async getFileCache(fileNameOrUuid: string): Promise<FileCache | undefined> {
+        const key = this.DB_KEY_PREFIX_FILE + (fileNameOrUuid);
         if (this.cache[key]) {
             return this.cache[key] as FileCache
         }

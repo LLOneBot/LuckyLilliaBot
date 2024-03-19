@@ -25,7 +25,6 @@ import {
 } from '../types';
 import {Peer} from "../../ntqqapi/api/msg";
 import {SendMsgElementConstructor} from "../../ntqqapi/constructor";
-import {uri2local} from "../utils";
 import BaseAction from "./BaseAction";
 import {ActionName, BaseCheckResult} from "./types";
 import * as fs from "node:fs";
@@ -35,6 +34,7 @@ import {ALLOW_SEND_TEMP_MSG} from "../../common/config";
 import {NTQQMsgApi} from "../../ntqqapi/api/msg";
 import {log} from "../../common/utils/log";
 import {sleep} from "../../common/utils/helper";
+import {uri2local} from "../../common/utils";
 
 function checkSendMessage(sendMsgList: OB11MessageData[]) {
     function checkUri(uri: string): boolean {
@@ -430,7 +430,14 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                                 sendElements.push(await SendMsgElementConstructor.file(path, payloadFileName || fileName));
                             } else if (sendMsg.type === OB11MessageDataType.video) {
                                 log("发送视频", path, payloadFileName || fileName)
-                                sendElements.push(await SendMsgElementConstructor.video(path, payloadFileName || fileName));
+                                let thumb = sendMsg.data?.thumb;
+                                if (thumb){
+                                    let uri2LocalRes = await uri2local(thumb)
+                                    if (uri2LocalRes.success){
+                                        thumb = uri2LocalRes.path;
+                                    }
+                                }
+                                sendElements.push(await SendMsgElementConstructor.video(path, payloadFileName || fileName, thumb));
                             } else if (sendMsg.type === OB11MessageDataType.voice) {
                                 sendElements.push(await SendMsgElementConstructor.ptt(path));
                             }else if (sendMsg.type === OB11MessageDataType.image) {
@@ -438,8 +445,10 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                             }
                         }
                     }
-                }
-                    break;
+                } break;
+                case OB11MessageDataType.json: {
+                    sendElements.push(SendMsgElementConstructor.ark(sendMsg.data.data))
+                }break
             }
 
         }

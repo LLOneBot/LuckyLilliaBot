@@ -23,6 +23,17 @@ export class NTQQMsgApi {
             args: [{peer:{peerUid: groupCode, chatType: ChatType.group}, cnt: 20}, null]
         })
     }
+    static async getMsgHistory(peer: Peer, msgId: string, count: number) {
+        return await callNTQQApi<GeneralCallResult & {msgList: RawMessage[]}>({
+            methodName: NTQQApiMethod.HISTORY_MSG,
+            args: [{
+                peer,
+                msgId,
+                cnt: count,
+                queryOrder: true,
+            }, null]
+        })
+    }
     static async fetchRecentContact(){
         await callNTQQApi({
             methodName: NTQQApiMethod.RECENT_CONTACT,

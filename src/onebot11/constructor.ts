@@ -16,7 +16,8 @@ import {
     GroupMember,
     IMAGE_HTTP_HOST,
     RawMessage,
-    SelfInfo, Sex,
+    SelfInfo,
+    Sex,
     TipGroupElementType,
     User
 } from '../ntqqapi/types';
@@ -174,10 +175,12 @@ export class OB11Constructor {
                 message_data["type"] = OB11MessageDataType.file;
                 message_data["data"]["file"] = element.fileElement.fileName
                 // message_data["data"]["path"] = element.fileElement.filePath
-                // message_data["data"]["file_id"] = element.fileElement.fileUuid
+                message_data["data"]["file_id"] = element.fileElement.fileUuid
                 message_data["data"]["file_size"] = element.fileElement.fileSize
-                dbUtil.addFileCache(element.fileElement.fileName, {
+                dbUtil.addFileCache(element.fileElement.fileUuid, {
+                    msgId: msg.msgId,
                     fileName: element.fileElement.fileName,
+                    fileUuid: element.fileElement.fileUuid,
                     filePath: element.fileElement.filePath,
                     fileSize: element.fileElement.fileSize,
                     downloadFunc: async () => {
@@ -251,18 +254,16 @@ export class OB11Constructor {
                         // log("构造群增加事件", event)
                         return event;
                     }
-                }
-                else if (groupElement.type === TipGroupElementType.ban) {
+                } else if (groupElement.type === TipGroupElementType.ban) {
                     log("收到群群员禁言提示", groupElement)
                     const memberUid = groupElement.shutUp.member.uid
                     const adminUid = groupElement.shutUp.admin.uid
                     let memberUin: string = ""
                     let duration = parseInt(groupElement.shutUp.duration)
                     let sub_type: "ban" | "lift_ban" = duration > 0 ? "ban" : "lift_ban"
-                    if (memberUid){
+                    if (memberUid) {
                         memberUin = (await getGroupMember(msg.peerUid, memberUid))?.uin || (await NTQQUserApi.getUserDetailInfo(memberUid))?.uin
-                    }
-                    else {
+                    } else {
                         memberUin = "0";  // 0表示全员禁言
                         if (duration > 0) {
                             duration = -1
@@ -273,16 +274,19 @@ export class OB11Constructor {
                         return new OB11GroupBanEvent(parseInt(msg.peerUid), parseInt(memberUin), parseInt(adminUin), duration, sub_type);
                     }
                 }
-            }
-            else if (element.fileElement){
-                return new OB11GroupUploadNoticeEvent(parseInt(msg.peerUid), parseInt(msg.senderUin), {id: element.fileElement.fileUuid, name: element.fileElement.fileName, size: parseInt(element.fileElement.fileSize)})
+            } else if (element.fileElement) {
+                return new OB11GroupUploadNoticeEvent(parseInt(msg.peerUid), parseInt(msg.senderUin), {
+                    id: element.fileElement.fileUuid,
+                    name: element.fileElement.fileName,
+                    size: parseInt(element.fileElement.fileSize)
+                })
             }
 
             if (grayTipElement) {
-                if (grayTipElement.subElementType == GrayTipElementSubType.INVITE_NEW_MEMBER){
+                if (grayTipElement.subElementType == GrayTipElementSubType.INVITE_NEW_MEMBER) {
                     log("收到新人被邀请进群消息", grayTipElement)
                     const xmlElement = grayTipElement.xmlElement
-                    if (xmlElement?.content){
+                    if (xmlElement?.content) {
                         const regex = /jp="(\d+)"/g;
 
                         let matches = [];
@@ -291,7 +295,7 @@ export class OB11Constructor {
                         while ((match = regex.exec(xmlElement.content)) !== null) {
                             matches.push(match[1]);
                         }
-                        if (matches.length === 2){
+                        if (matches.length === 2) {
                             const [inviter, invitee] = matches;
                             return new OB11GroupIncreaseEvent(parseInt(msg.peerUid), parseInt(invitee), parseInt(inviter), "invite");
                         }
@@ -305,9 +309,10 @@ export class OB11Constructor {
         return {
             user_id: parseInt(friend.uin),
             nickname: friend.nick,
-            remark: friend.remark
+            remark: friend.remark,
+            sex: OB11Constructor.sex(friend.sex),
+            qq_level: friend.qqLevel && calcQQLevel(friend.qqLevel) || 0
         }
-
     }
 
     static selfInfo(selfInfo: SelfInfo): OB11User {
@@ -329,7 +334,7 @@ export class OB11Constructor {
         }[role]
     }
 
-    static sex(sex: Sex): OB11UserSex{
+    static sex(sex: Sex): OB11UserSex {
         const sexMap = {
             [Sex.male]: OB11UserSex.male,
             [Sex.female]: OB11UserSex.female,
@@ -337,6 +342,7 @@ export class OB11Constructor {
         }
         return sexMap[sex] || OB11UserSex.unknown
     }
+
     static groupMember(group_id: string, member: GroupMember): OB11GroupMember {
         return {
             group_id: parseInt(group_id),

@@ -125,6 +125,27 @@ export function hookNTQQApiCall(window: BrowserWindow) {
     } else {
         webContents._events["-ipc-message"] = proxyIpcMsg;
     }
+
+    const ipc_invoke_proxy = webContents._events["-ipc-invoke"]?.[0] || webContents._events["-ipc-invoke"];
+    const proxyIpcInvoke = new Proxy(ipc_invoke_proxy, {
+        apply(target, thisArg, args) {
+            // console.log(args);
+            HOOK_LOG && log("call NTQQ invoke api", thisArg, args)
+            args[0]["_replyChannel"]["sendReply"] = new Proxy(args[0]["_replyChannel"]["sendReply"], {
+                apply(sendtarget, sendthisArg, sendargs) {
+                    sendtarget.apply(sendthisArg, sendargs);
+                }
+            });
+            let ret = target.apply(thisArg, args);
+            HOOK_LOG && log("call NTQQ invoke api return", ret)
+            return ret;
+        }
+    });
+    if (webContents._events["-ipc-invoke"]?.[0]) {
+        webContents._events["-ipc-invoke"][0] = proxyIpcInvoke;
+    } else {
+        webContents._events["-ipc-invoke"] = proxyIpcInvoke;
+    }
 }
 
 export function registerReceiveHook<PayloadType>(method: ReceiveCmd | ReceiveCmd[], hookFunc: (payload: PayloadType) => void): string {

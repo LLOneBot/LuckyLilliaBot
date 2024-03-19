@@ -4,7 +4,9 @@ import {EventType} from "./event/OB11BaseEvent";
 export interface OB11User {
     user_id: number;
     nickname: string;
-    remark?: string
+    remark?: string;
+    sex?: OB11UserSex;
+    qq_level?: number;
 }
 
 export enum OB11UserSex {
@@ -115,6 +117,7 @@ export interface OB11MessageText {
 
 interface OB11MessageFileBase {
     data: {
+        thumb?: string;
         name?: string;
         file: string,
         url?: string;
@@ -185,12 +188,17 @@ export interface OB11MessageCustomMusic{
     }
 }
 
+export interface OB11MessageJson {
+    type: OB11MessageDataType.json
+    data: {config: {token: string}} & any
+}
+
 export type OB11MessageData =
     OB11MessageText |
     OB11MessageFace |
     OB11MessageAt | OB11MessageReply |
     OB11MessageImage | OB11MessageRecord | OB11MessageFile | OB11MessageVideo |
-    OB11MessageNode | OB11MessageCustomMusic
+    OB11MessageNode | OB11MessageCustomMusic | OB11MessageJson
 
 export interface OB11PostSendMsg {
     message_type?: "private" | "group"

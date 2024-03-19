@@ -3,9 +3,9 @@ import {getGroup} from "../../../common/data";
 import {ActionName} from "../types";
 import {SendMsgElementConstructor} from "../../../ntqqapi/constructor";
 import {ChatType, SendFileElement} from "../../../ntqqapi/types";
-import {uri2local} from "../../utils";
 import fs from "fs";
 import {NTQQMsgApi} from "../../../ntqqapi/api/msg";
+import {uri2local} from "../../../common/utils";
 
 interface Payload{
     group_id: number

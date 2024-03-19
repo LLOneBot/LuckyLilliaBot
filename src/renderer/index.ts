@@ -1,11 +1,6 @@
 /// <reference path="../global.d.ts" />
-import {
-    SettingButton,
-    SettingItem,
-    SettingList,
-    SettingSelect,
-    SettingSwitch
-} from './components';
+import { CheckVersion } from '../common/types';
+import {SettingButton, SettingItem, SettingList, SettingSwitch, SettingSelect} from './components';
 import StyleRaw from './style.css?raw';
 
 // 打开设置界面时触发
@@ -14,7 +9,7 @@ async function onSettingWindowCreated(view: Element) {
     window.llonebot.log("setting window created");
     const isEmpty = (value: any) => value === undefined || value === null || value === '';
     let config = await window.llonebot.getConfig();
-    let ob11Config = { ...config.ob11 };
+    let ob11Config = {...config.ob11};
     const setConfig = (key: string, value: any) => {
         const configKey = key.split('.');
 
@@ -25,7 +20,7 @@ async function onSettingWindowCreated(view: Element) {
             if (configKey.length === 2) config[configKey[0]][configKey[1]] = value;
             else config[key] = value;
 
-            if (!['heartInterval', 'token', 'ffmpeg'].includes(key)){
+            if (!['heartInterval', 'token', 'ffmpeg'].includes(key)) {
                 window.llonebot.setConfig(config);
             }
         }
@@ -35,16 +30,29 @@ async function onSettingWindowCreated(view: Element) {
     const doc = parser.parseFromString([
         '<div>',
         `<style>${StyleRaw}</style>`,
+        `<setting-section>
+            <setting-panel>
+                <setting-list data-direction="column" class="new">
+                    <setting-item data-direction="row">
+                        <setting-text class="llonebot-update-title">正在检查LLOneBot版本中</setting-text>
+                        <setting-button data-type="secondary" class="llonebot-update-button">请稍后</setting-button>
+                    </setting-item>
+                </setting-list>
+             </setting-panel>
+        <setting-section>`,
+        SettingList([
+           '<div id="llonebot-error" class="llonebot-error"></div>',
+        ]),
         SettingList([
             SettingItem('启用 HTTP 服务', null,
-                SettingSwitch('ob11.enableHttp', config.ob11.enableHttp, { 'control-display-id': 'config-ob11-httpPort' }),
+                SettingSwitch('ob11.enableHttp', config.ob11.enableHttp, {'control-display-id': 'config-ob11-httpPort'}),
             ),
             SettingItem('HTTP 服务监听端口', null,
                 `<div class="q-input"><input class="q-input__inner" data-config-key="ob11.httpPort" type="number" min="1" max="65534" value="${config.ob11.httpPort}" placeholder="${config.ob11.httpPort}" /></div>`,
                 'config-ob11-httpPort', config.ob11.enableHttp
             ),
             SettingItem('启用 HTTP 事件上报', null,
-                SettingSwitch('ob11.enableHttpPost', config.ob11.enableHttpPost, { 'control-display-id': 'config-ob11-httpHosts' }),
+                SettingSwitch('ob11.enableHttpPost', config.ob11.enableHttpPost, {'control-display-id': 'config-ob11-httpHosts'}),
             ),
             `<div class="config-host-list" id="config-ob11-httpHosts" ${config.ob11.enableHttpPost ? '' : 'is-hidden'}>
                 <setting-item data-direction="row">
@@ -56,14 +64,14 @@ async function onSettingWindowCreated(view: Element) {
                 <div id="config-ob11-httpHosts-list"></div>
             </div>`,
             SettingItem('启用正向 WebSocket 服务', null,
-                SettingSwitch('ob11.enableWs', config.ob11.enableWs, { 'control-display-id': 'config-ob11-wsPort' }),
+                SettingSwitch('ob11.enableWs', config.ob11.enableWs, {'control-display-id': 'config-ob11-wsPort'}),
             ),
             SettingItem('正向 WebSocket 服务监听端口', null,
                 `<div class="q-input"><input class="q-input__inner" data-config-key="ob11.wsPort" type="number" min="1" max="65534" value="${config.ob11.wsPort}" placeholder="${config.ob11.wsPort}" /></div>`,
                 'config-ob11-wsPort', config.ob11.enableWs
             ),
             SettingItem('启用反向 WebSocket 服务', null,
-                SettingSwitch('ob11.enableWsReverse', config.ob11.enableWsReverse, { 'control-display-id': 'config-ob11-wsHosts' }),
+                SettingSwitch('ob11.enableWsReverse', config.ob11.enableWsReverse, {'control-display-id': 'config-ob11-wsHosts'}),
             ),
             `<div class="config-host-list" id="config-ob11-wsHosts" ${config.ob11.enableWsReverse ? '' : 'is-hidden'}>
                 <setting-item data-direction="row">
@@ -82,11 +90,11 @@ async function onSettingWindowCreated(view: Element) {
                 `<div class="q-input" style="width:210px;"><input class="q-input__inner" data-config-key="token" type="text" value="${config.token}" placeholder="未设置" /></div>`,
             ),
             SettingItem(
-                '消息上报格式类型',
+                '启用CQ码上报格式，不启用则为消息段格式',
                 '如客户端无特殊需求推荐保持默认设置，两者的详细差异可参考 <a href="javascript:LiteLoader.api.openExternal(\'https://github.com/botuniverse/onebot-11/tree/master/message#readme\');">OneBot v11 文档</a>',
                 SettingSelect([
-                    { text: '消息段', value: 'array' },
-                    { text: 'CQ码', value: 'string' },
+                    {text: '消息段', value: 'array'},
+                    {text: 'CQ码', value: 'string'},
                 ], 'ob11.messagePostFormat', config.ob11.messagePostFormat),
             ),
             SettingItem(
@@ -122,7 +130,7 @@ async function onSettingWindowCreated(view: Element) {
             SettingItem(
                 '自动删除收到的文件',
                 '在收到文件后的指定时间内删除该文件',
-                SettingSwitch('autoDeleteFile', config.autoDeleteFile, { 'control-display-id': 'config-auto-delete-file-second' }),
+                SettingSwitch('autoDeleteFile', config.autoDeleteFile, {'control-display-id': 'config-auto-delete-file-second'}),
             ),
             SettingItem(
                 '自动删除文件时间',
@@ -166,6 +174,18 @@ async function onSettingWindowCreated(view: Element) {
         '</div>',
     ].join(''), "text/html");
 
+    let errorEle = <HTMLElement>doc.querySelector("#llonebot-error");
+    errorEle.style.display = 'none';
+    const showError = async () => {
+        setTimeout(async () => {
+            let errMessage = await window.llonebot.getError();
+            console.log(errMessage)
+            errMessage = errMessage.replace(/\n/g, '<br>')
+            errorEle.innerHTML = errMessage;
+            errorEle.style.display = errMessage ? 'flex' : 'none';
+        }, 1000)
+    }
+    showError().then()
     // 外链按钮
     doc.querySelector('#open-github').addEventListener('click', () => {
         window.LiteLoader.api.openExternal('https://github.com/LLOneBot/LLOneBot')
@@ -180,7 +200,7 @@ async function onSettingWindowCreated(view: Element) {
         window.LiteLoader.api.openExternal('https://llonebot.github.io/')
     })
     // 生成反向地址列表
-    const buildHostListItem = (type: string, host: string, index: number, inputAttrs: any={}) => {
+    const buildHostListItem = (type: string, host: string, index: number, inputAttrs: any = {}) => {
         const dom = {
             container: document.createElement('setting-item'),
             input: document.createElement('input'),
@@ -212,23 +232,23 @@ async function onSettingWindowCreated(view: Element) {
 
         return dom.container;
     };
-    const buildHostList = (hosts: string[], type: string, inputAttr: any={}) => {
+    const buildHostList = (hosts: string[], type: string, inputAttr: any = {}) => {
         const result: HTMLElement[] = [];
-    
+
         hosts.forEach((host, index) => {
             result.push(buildHostListItem(type, host, index, inputAttr));
         });
-    
+
         return result;
     };
-    const addReverseHost = (type: string, doc: Document = document, inputAttr: any={}) => {
+    const addReverseHost = (type: string, doc: Document = document, inputAttr: any = {}) => {
         const hostContainerDom = doc.body.querySelector(`#config-ob11-${type}-list`);
         hostContainerDom.appendChild(buildHostListItem(type, '', ob11Config[type].length, inputAttr));
         ob11Config[type].push('');
     };
     const initReverseHost = (type: string, doc: Document = document) => {
         const hostContainerDom = doc.body.querySelector(`#config-ob11-${type}-list`);
-        [ ...hostContainerDom.childNodes ].forEach(dom => dom.remove());
+        [...hostContainerDom.childNodes].forEach(dom => dom.remove());
         buildHostList(ob11Config[type], type).forEach(dom => {
             hostContainerDom.appendChild(dom);
         });
@@ -236,8 +256,8 @@ async function onSettingWindowCreated(view: Element) {
     initReverseHost('httpHosts', doc);
     initReverseHost('wsHosts', doc);
 
-    doc.querySelector('#config-ob11-httpHosts-add').addEventListener('click', () => addReverseHost('httpHosts', document, {'placeholder': '如：http://127.0.0.1:5140/onebot' }));
-    doc.querySelector('#config-ob11-wsHosts-add').addEventListener('click', () => addReverseHost('wsHosts', document, {'placeholder': '如：ws://127.0.0.1:5140/onebot' }));
+    doc.querySelector('#config-ob11-httpHosts-add').addEventListener('click', () => addReverseHost('httpHosts', document, {'placeholder': '如：http://127.0.0.1:5140/onebot'}));
+    doc.querySelector('#config-ob11-wsHosts-add').addEventListener('click', () => addReverseHost('wsHosts', document, {'placeholder': '如：ws://127.0.0.1:5140/onebot'}));
 
     doc.querySelector('#config-ffmpeg-select').addEventListener('click', () => {
         window.llonebot.selectFile()
@@ -283,7 +303,7 @@ async function onSettingWindowCreated(view: Element) {
     });
 
     // 下拉框
-    doc.querySelectorAll('setting-select').forEach((dom: HTMLElement) => {
+    doc.querySelectorAll('ob-setting-select[data-config-key]').forEach((dom: HTMLElement) => {
         dom.addEventListener('selected', (e: CustomEvent) => {
             const configKey = dom.dataset.configKey;
             const configValue = e.detail.value;
@@ -297,27 +317,62 @@ async function onSettingWindowCreated(view: Element) {
         config.ob11 = ob11Config;
 
         window.llonebot.setConfig(config);
+        // window.location.reload();
+        showError().then()
         alert('保存成功');
     });
 
     doc.body.childNodes.forEach(node => {
         view.appendChild(node);
     });
+    // 更新逻辑
+    async function checkVersionFunc(ResultVersion: CheckVersion) {
+        console.log(ResultVersion);
+        if (ResultVersion.version === "") {
+            view.querySelector(".llonebot-update-title").innerHTML = "检查更新失败";
+            view.querySelector(".llonebot-update-button").innerHTML = "点击重试";
+            view.querySelector(".llonebot-update-button").addEventListener("click", async () => {
+                window.llonebot.checkVersion().then(checkVersionFunc);
+            });
+            return;
+        }
+        if (ResultVersion.result) {
+            view.querySelector(".llonebot-update-title").innerHTML = "当前已是最新版本 V" + ResultVersion.version;
+            view.querySelector(".llonebot-update-button").innerHTML = "无需更新";
+        } else {
+            view.querySelector(".llonebot-update-title").innerHTML = "已检测到最新版本 V" + ResultVersion.version;
+            view.querySelector(".llonebot-update-button").innerHTML = "点击更新";
+            const update = async () => {
+                view.querySelector(".llonebot-update-button").innerHTML = "正在更新中...";
+                const result = await window.llonebot.updateLLOneBot();
+                if (result) {
+                    view.querySelector(".llonebot-update-button").innerHTML = "更新完成请重启";
+                    view.querySelector(".llonebot-update-button").removeEventListener("click", update);
+                } else {
+                    view.querySelector(".llonebot-update-button").innerHTML = "更新失败前往仓库下载";
+                    view.querySelector(".llonebot-update-button").removeEventListener("click", update);
+                }
+            }
+            view.querySelector(".llonebot-update-button").addEventListener("click", update);
+        }
+    };
+    window.llonebot.checkVersion().then(checkVersionFunc);
+
 }
 
-function init () {
-  const hash = location.hash
-  if (hash === '#/blank') {
+function init() {
+    const hash = location.hash
+    if (hash === '#/blank') {
 
-  }
+    }
 }
 
 if (location.hash === '#/blank') {
-  (window as any).navigation.addEventListener('navigatesuccess', init, { once: true })
+    (window as any).navigation.addEventListener('navigatesuccess', init, {once: true})
 } else {
-  init()
+    init()
 }
 
 export {
-  onSettingWindowCreated
+    onSettingWindowCreated
 }

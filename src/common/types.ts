@@ -28,6 +28,8 @@ export interface Config {
 }
 
 export interface LLOneBotError {
+  httpServerError?: string
+  wsServerError?: string
   ffmpegError?: string
   otherError?: string
 }
@@ -36,6 +38,8 @@ export interface FileCache {
   fileName: string
   filePath: string
   fileSize: string
+  fileUuid?: string
   url?: string
+  msgId?: string
   downloadFunc?: () => Promise<void>
 }

@@ -3,6 +3,7 @@ import urlParse from "url";
 import {IncomingMessage} from "node:http";
 import {log} from "../utils/log";
 import {getConfigUtil} from "../config";
+import {llonebotError} from "../data";
 
 class WebsocketClientBase {
     private wsClient: WebSocket
@@ -29,7 +30,12 @@ export class WebsocketServerBase {
     }
 
     start(port: number) {
-        this.ws = new WebSocketServer({port});
+        try {
+            this.ws = new WebSocketServer({port});
+            llonebotError.wsServerError = ''
+        }catch (e) {
+            llonebotError.wsServerError = "正向ws服务启动失败, " + e.toString()
+        }
         this.ws.on("connection", (wsClient, req) => {
             const url = req.url.split("?").shift()
             this.authorize(wsClient, req);
@@ -41,6 +47,7 @@ export class WebsocketServerBase {
     }
 
     stop() {
+        llonebotError.wsServerError = ''
         this.ws.close((err) => {
             log("ws server close failed!", err)
         });

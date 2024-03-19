@@ -14,11 +14,14 @@ export interface InvalidCheckResult {
 }
 
 export enum ActionName {
+    // llonebot
     GetGroupIgnoreAddRequest = "get_group_ignore_add_request",
     SetQQAvatar = "set_qq_avatar",
     GetConfig = "get_config",
     SetConfig = "set_config",
     Debug = "llonebot_debug",
+    GetFile = "get_file",
+    // onebot 11
     SendLike = "send_like",
     GetLoginInfo = "get_login_info",
     GetFriendList = "get_friend_list",
@@ -54,4 +57,6 @@ export enum ActionName {
     GetGuildList = "get_guild_list",
     GoCQHTTP_MarkMsgAsRead = "mark_msg_as_read",
     GoCQHTTP_UploadGroupFile = "upload_group_file",
+    GoCQHTTP_DownloadFile = "download_file",
+    GoCQHTTP_GetGroupMsgHistory = "get_group_msg_history",
 }

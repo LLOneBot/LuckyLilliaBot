@@ -30,7 +30,7 @@ const llonebot = {
     getConfig: async (): Promise<Config> => {
         return ipcRenderer.invoke(CHANNEL_GET_CONFIG);
     },
-    getError: async (): Promise<LLOneBotError> => {
+    getError: async (): Promise<string> => {
         return ipcRenderer.invoke(CHANNEL_ERROR);
     },
     selectFile: (): Promise<string> => {
