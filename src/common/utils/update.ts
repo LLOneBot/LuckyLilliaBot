@@ -1,7 +1,9 @@
 import { version } from "../../version";
 import https from "node:https";
 //import http from "node:http";
+import * as path from "node:path";
 import * as fs from "node:fs";
+import { TEMP_DIR } from ".";
 export async function checkVersion() {
     const latestVersionText = await getRemoteVersion();
     const latestVersion = latestVersionText.split(".");
@@ -19,11 +21,11 @@ export async function updateLLOneBot() {
     if (latestVersion && latestVersion != "") {
         const downloadUrl = "https://github.com/LLOneBot/LLOneBot/releases/download/v" + latestVersion + "/LLOneBot.zip";
         const realUrl = mirrorGithubList[0] + downloadUrl;
-        /**const fileStream = fs.createWriteStream("F:\\TOOLS\\test.zip");
+        const filePath = path.join(TEMP_DIR, "./update-" + latestVersion + ".zip");
+        const fileStream = fs.createWriteStream(filePath);
         https.get(realUrl, (res) => {
             res.pipe(fileStream);
         })
-        */
     }
     return false;
 }
