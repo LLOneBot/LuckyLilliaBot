@@ -1,4 +1,5 @@
 /// <reference path="../global.d.ts" />
+import { CheckVersion } from '../common/types';
 import {SettingButton, SettingItem, SettingList, SettingSwitch} from './components';
 import StyleRaw from './style.css?raw';
 
@@ -32,6 +33,16 @@ async function onSettingWindowCreated(view: Element) {
     const doc = parser.parseFromString([
         '<div>',
         `<style>${StyleRaw}</style>`,
+        `<setting-section>
+            <setting-panel>
+                <setting-list data-direction="column" class="new">
+                    <setting-item data-direction="row">
+                        <setting-text class="llonebot-update-title">正在检查LLOneBot版本中</setting-text>
+                        <setting-button data-type="secondary" class="llonebot-update-button">请稍后</setting-button>
+                    </setting-item>
+                </setting-list>
+             </setting-panel>
+        <setting-section>`,
         SettingList([
            '<div id="llonebot-error" class="llonebot-error"></div>',
         ]),
@@ -318,6 +329,39 @@ async function onSettingWindowCreated(view: Element) {
     doc.body.childNodes.forEach(node => {
         view.appendChild(node);
     });
+    // 更新逻辑
+    async function checkVersionFunc(ResultVersion: CheckVersion) {
+        console.log(ResultVersion);
+        if (ResultVersion.version === "") {
+            view.querySelector(".llonebot-update-title").innerHTML = "检查更新失败";
+            view.querySelector(".llonebot-update-button").innerHTML = "点击重试";
+            view.querySelector(".llonebot-update-button").addEventListener("click", async () => {
+                window.llonebot.checkVersion().then(checkVersionFunc);
+            });
+            return;
+        }
+        if (ResultVersion.result) {
+            view.querySelector(".llonebot-update-title").innerHTML = "当前已是最新版本 V" + ResultVersion.version;
+            view.querySelector(".llonebot-update-button").innerHTML = "无需更新";
+        } else {
+            view.querySelector(".llonebot-update-title").innerHTML = "已检测到最新版本 V" + ResultVersion.version;
+            view.querySelector(".llonebot-update-button").innerHTML = "点击更新";
+            const update = async () => {
+                view.querySelector(".llonebot-update-button").innerHTML = "正在更新中...";
+                const result = await window.llonebot.updateLLOneBot();
+                if (result) {
+                    view.querySelector(".llonebot-update-button").innerHTML = "更新完成请重启";
+                    view.querySelector(".llonebot-update-button").removeEventListener("click", update);
+                } else {
+                    view.querySelector(".llonebot-update-button").innerHTML = "更新失败前往仓库下载";
+                    view.querySelector(".llonebot-update-button").removeEventListener("click", update);
+                }
+            }
+            view.querySelector(".llonebot-update-button").addEventListener("click", update);
+        }
+    };
+    window.llonebot.checkVersion().then(checkVersionFunc);
+
 }
 
 function init() {
