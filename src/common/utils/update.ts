@@ -3,7 +3,8 @@ import https from "node:https";
 //import http from "node:http";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { TEMP_DIR } from ".";
+import { PLUGIN_DIR, TEMP_DIR } from ".";
+import compressing from "compressing";
 export async function checkVersion() {
     const latestVersionText = await getRemoteVersion();
     const latestVersion = latestVersionText.split(".");
@@ -23,9 +24,37 @@ export async function updateLLOneBot() {
         const realUrl = mirrorGithubList[0] + downloadUrl;
         const filePath = path.join(TEMP_DIR, "./update-" + latestVersion + ".zip");
         const fileStream = fs.createWriteStream(filePath);
-        https.get(realUrl, (res) => {
-            res.pipe(fileStream);
-        })
+        let downloadPromise = async function (filePath): Promise<boolean> {
+            return new Promise((resolve, reject) => {
+                https.get(filePath, res => {
+                    res.pipe(fileStream);
+                    res.on('end', () => {
+                        resolve(true);
+                    });
+                }).on('error', err => {
+                    resolve(false);
+                });
+            });
+        }
+        if (!(await downloadPromise(realUrl))) {
+            // 下载异常
+            return false;
+        }
+        let uncompressPromise = async function () {
+            return new Promise<boolean>((resolve, reject) => {
+                compressing.zip.uncompress(filePath, PLUGIN_DIR).then(() => {
+                    resolve(true);
+                }).catch((reason: any) => {
+                    console.log(reason);
+                    if (reason?.errno == -4082) {
+                        resolve(true);
+                    }
+                    resolve(false);
+                });
+            });
+        }
+        const uncompressResult = await uncompressPromise();
+        return uncompressResult;
     }
     return false;
 }
