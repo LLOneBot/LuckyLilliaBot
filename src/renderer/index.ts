@@ -1,6 +1,6 @@
 /// <reference path="../global.d.ts" />
 import { CheckVersion } from '../common/types';
-import {SettingButton, SettingItem, SettingList, SettingSwitch} from './components';
+import {SettingButton, SettingItem, SettingList, SettingSwitch, SettingSelect} from './components';
 import StyleRaw from './style.css?raw';
 
 // 打开设置界面时触发
