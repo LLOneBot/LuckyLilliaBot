@@ -314,15 +314,37 @@ async function onSettingWindowCreated(view: Element) {
     doc.body.childNodes.forEach(node => {
         view.appendChild(node);
     });
-    window.llonebot.checkVersion().then((ResultVersion: CheckVersion) => {
+    // 更新逻辑
+    const checkVersionFunc = (ResultVersion: CheckVersion) => {
+        if (ResultVersion.version === "") {
+            view.querySelector(".llonebot-update-title").innerHTML = "检查更新失败";
+            view.querySelector(".llonebot-update-button").innerHTML = "点击重试";
+            view.querySelector(".llonebot-update-button").addEventListener("click", async () => {
+                window.llonebot.checkVersion().then(checkVersionFunc);
+            });
+            return;
+        }
         if (ResultVersion.result) {
             view.querySelector(".llonebot-update-title").innerHTML = "当前已是最新版本 V" + ResultVersion.version;
             view.querySelector(".llonebot-update-button").innerHTML = "无需更新";
         } else {
             view.querySelector(".llonebot-update-title").innerHTML = "已监测到最新版本 V" + ResultVersion.version;
             view.querySelector(".llonebot-update-button").innerHTML = "点击更新";
+            const update = async () => {
+                view.querySelector(".llonebot-update-button").innerHTML = "正在更新中...";
+                const result = await window.llonebot.updateLLOneBot();
+                if (result) {
+                    view.querySelector(".llonebot-update-button").innerHTML = "更新完成请重启";
+                    view.querySelector(".llonebot-update-button").removeEventListener("click", update);
+                } else {
+                    view.querySelector(".llonebot-update-button").innerHTML = "更新失败前往仓库下载";
+                    view.querySelector(".llonebot-update-button").removeEventListener("click", update);
+                }
+            }
+            view.querySelector(".llonebot-update-button").addEventListener("click", update);
         }
-    });
+    };
+    window.llonebot.checkVersion().then(checkVersionFunc);
 
 }
 
