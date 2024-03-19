@@ -4,7 +4,8 @@ import {
     CacheFileListItem,
     CacheFileType,
     CacheScanResult,
-    ChatCacheList, ChatCacheListItemBasic,
+    ChatCacheList,
+    ChatCacheListItemBasic,
     ChatType,
     ElementType
 } from "../types";
@@ -13,12 +14,13 @@ import fs from "fs";
 import {ReceiveCmdS} from "../hook";
 import {log} from "../../common/utils/log";
 
-export class NTQQFileApi{
+export class NTQQFileApi {
     static async getFileType(filePath: string) {
         return await callNTQQApi<{ ext: string }>({
             className: NTQQApiClass.FS_API, methodName: NTQQApiMethod.FILE_TYPE, args: [filePath]
         })
     }
+
     static async getFileMd5(filePath: string) {
         return await callNTQQApi<string>({
             className: NTQQApiClass.FS_API,
@@ -26,6 +28,7 @@ export class NTQQFileApi{
             args: [filePath]
         })
     }
+
     static async copyFile(filePath: string, destPath: string) {
         return await callNTQQApi<string>({
             className: NTQQApiClass.FS_API,
@@ -36,11 +39,13 @@ export class NTQQFileApi{
             }]
         })
     }
+
     static async getFileSize(filePath: string) {
         return await callNTQQApi<number>({
             className: NTQQApiClass.FS_API, methodName: NTQQApiMethod.FILE_SIZE, args: [filePath]
         })
     }
+
     // 上传文件到QQ的文件夹
     static async uploadFile(filePath: string, elementType: ElementType = ElementType.PIC) {
         const md5 = await NTQQFileApi.getFileMd5(filePath);
@@ -79,14 +84,18 @@ export class NTQQFileApi{
             fileSize
         }
     }
-    static async downloadMedia(msgId: string, chatType: ChatType, peerUid: string, elementId: string, thumbPath: string, sourcePath: string) {
+
+    static async downloadMedia(msgId: string, chatType: ChatType, peerUid: string, elementId: string, thumbPath: string, sourcePath: string, isFile: boolean = false) {
         // 用于下载收到的消息中的图片等
-        if (fs.existsSync(sourcePath)) {
+        if (sourcePath && fs.existsSync(sourcePath)) {
             return sourcePath
         }
         const apiParams = [
             {
                 getReq: {
+                    fileModelId: "0",
+                    downloadSourceType: 0,
+                    triggerType: 1,
                     msgId: msgId,
                     chatType: chatType,
                     peerUid: peerUid,
@@ -96,20 +105,21 @@ export class NTQQFileApi{
                     filePath: thumbPath,
                 },
             },
-            undefined,
+            null,
         ]
         // log("需要下载media", sourcePath);
         await callNTQQApi({
             methodName: NTQQApiMethod.DOWNLOAD_MEDIA,
             args: apiParams,
             cbCmd: ReceiveCmdS.MEDIA_DOWNLOAD_COMPLETE,
-            cmdCB: (payload: { notifyInfo: { filePath: string } }) => {
-                // log("media 下载完成判断", payload.notifyInfo.filePath, sourcePath);
-                return payload.notifyInfo.filePath == sourcePath;
+            cmdCB: (payload: { notifyInfo: { filePath: string, msgId: string } }) => {
+                log("media 下载完成判断", payload.notifyInfo.msgId, msgId);
+                return payload.notifyInfo.msgId == msgId;
             }
         })
         return sourcePath
     }
+
     static async getImageSize(filePath: string) {
         return await callNTQQApi<{ width: number, height: number }>({
             className: NTQQApiClass.FS_API, methodName: NTQQApiMethod.IMAGE_SIZE, args: [filePath]
@@ -118,7 +128,7 @@ export class NTQQFileApi{
 
 }
 
-export class NTQQFileCacheApi{
+export class NTQQFileCacheApi {
     static async setCacheSilentScan(isSilent: boolean = true) {
         return await callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.CACHE_SET_SILENCE,
@@ -127,6 +137,7 @@ export class NTQQFileCacheApi{
             }, null]
         });
     }
+
     static getCacheSessionPathList() {
         return callNTQQApi<{
             key: string,
@@ -136,6 +147,7 @@ export class NTQQFileCacheApi{
             methodName: NTQQApiMethod.CACHE_PATH_SESSION,
         });
     }
+
     static clearCache(cacheKeys: Array<string> = ['tmp', 'hotUpdate']) {
         return callNTQQApi<any>({ // TODO: 目前还不知道真正的返回值是什么
             methodName: NTQQApiMethod.CACHE_CLEAR,
@@ -144,6 +156,7 @@ export class NTQQFileCacheApi{
             }, null]
         });
     }
+
     static addCacheScannedPaths(pathMap: object = {}) {
         return callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.CACHE_ADD_SCANNED_PATH,
@@ -152,6 +165,7 @@ export class NTQQFileCacheApi{
             }, null]
         });
     }
+
     static scanCache() {
         callNTQQApi<GeneralCallResult>({
             methodName: ReceiveCmdS.CACHE_SCAN_FINISH,
@@ -163,6 +177,7 @@ export class NTQQFileCacheApi{
             timeoutSecond: 300,
         });
     }
+
     static getHotUpdateCachePath() {
         return callNTQQApi<string>({
             className: NTQQApiClass.HOTUPDATE_API,
@@ -176,6 +191,7 @@ export class NTQQFileCacheApi{
             methodName: NTQQApiMethod.CACHE_PATH_DESKTOP_TEMP
         });
     }
+
     static getChatCacheList(type: ChatType, pageSize: number = 1000, pageIndex: number = 0) {
         return new Promise<ChatCacheList>((res, rej) => {
             callNTQQApi<ChatCacheList>({
@@ -190,6 +206,7 @@ export class NTQQFileCacheApi{
                 .catch(e => rej(e));
         });
     }
+
     static getFileCacheInfo(fileType: CacheFileType, pageSize: number = 1000, lastRecord?: CacheFileListItem) {
         const _lastRecord = lastRecord ? lastRecord : {fileType: fileType};
 
@@ -204,6 +221,7 @@ export class NTQQFileCacheApi{
             }, null]
         })
     }
+
     static async clearChatCache(chats: ChatCacheListItemBasic[] = [], fileKeys: string[] = []) {
         return await callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.CACHE_CHAT_CLEAR,

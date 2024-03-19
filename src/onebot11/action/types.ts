@@ -14,11 +14,14 @@ export interface InvalidCheckResult {
 }
 
 export enum ActionName {
+    // llonebot
     GetGroupIgnoreAddRequest = "get_group_ignore_add_request",
     SetQQAvatar = "set_qq_avatar",
     GetConfig = "get_config",
     SetConfig = "set_config",
     Debug = "llonebot_debug",
+    GetFile = "get_file",
+    // onebot 11
     SendLike = "send_like",
     GetLoginInfo = "get_login_info",
     GetFriendList = "get_friend_list",

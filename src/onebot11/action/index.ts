@@ -38,8 +38,10 @@ import GetGroupAddRequest from "./llonebot/GetGroupAddRequest";
 import SetQQAvatar from './llonebot/SetQQAvatar'
 import GoCQHTTPDownloadFile from "./go-cqhttp/DownloadFile";
 import GoCQHTTPGetGroupMsgHistory from "./go-cqhttp/GetGroupMsgHistory";
+import GetFile from "./GetFile";
 
 export const actionHandlers = [
+    new GetFile(),
     new Debug(),
     new GetConfigAction(),
     new SetConfigAction(),
