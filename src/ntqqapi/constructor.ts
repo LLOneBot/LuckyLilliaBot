@@ -14,10 +14,9 @@ import {
 import {promises as fs} from "node:fs";
 import ffmpeg from "fluent-ffmpeg"
 import {NTQQFileApi} from "./api/file";
-import {calculateFileMD5, encodeSilk, getVideoInfo, isGIF} from "../common/utils/file";
+import {calculateFileMD5, encodeSilk, isGIF} from "../common/utils/file";
 import {log} from "../common/utils/log";
-import {sleep} from "../common/utils/helper";
-import pathLib from "path";
+import {defaultVideoThumb, getVideoInfo} from "../common/utils/video";
 
 
 export class SendMsgElementConstructor {
@@ -109,36 +108,45 @@ export class SendMsgElementConstructor {
         return element;
     }
 
-    static async video(filePath: string, fileName: string = "", diyThumbPath: string=""): Promise<SendVideoElement> {
+    static async video(filePath: string, fileName: string = "", diyThumbPath: string = ""): Promise<SendVideoElement> {
         let {fileName: _fileName, path, fileSize, md5} = await NTQQFileApi.uploadFile(filePath, ElementType.VIDEO);
         if (fileSize === 0) {
             throw "文件异常，大小为0";
         }
-        // const videoInfo = await encodeMp4(path);
-        // path = videoInfo.filePath
-        // md5 = videoInfo.md5;
-        // fileSize = videoInfo.size;
-        // log("上传视频", md5, path, fileSize, fileName || _fileName)
         const pathLib = require("path");
         let thumb = path.replace(`${pathLib.sep}Ori${pathLib.sep}`, `${pathLib.sep}Thumb${pathLib.sep}`)
         thumb = pathLib.dirname(thumb)
         // log("thumb 目录", thumb)
-        const videoInfo = await getVideoInfo(path);
-        log("视频信息", videoInfo)
+        let videoInfo ={
+            width: 1920, height: 1080,
+            time: 15,
+            format: "mp4",
+            size: fileSize,
+            filePath
+        };
+        try {
+            videoInfo = await getVideoInfo(path);
+            log("视频信息", videoInfo)
+        }catch (e) {
+            log("获取视频信息失败", e)
+        }
         const createThumb = new Promise<string>((resolve, reject) => {
             const thumbFileName = `${md5}_0.png`
             const thumbPath = pathLib.join(thumb, thumbFileName)
-            if (diyThumbPath) {
-                fs.copyFile(diyThumbPath, pathLib.join(thumb, thumbFileName)).then(() => {
-                    resolve(thumbPath);
-                })
-                return;
-            }
             ffmpeg(filePath)
                 .on("end", () => {
                 })
                 .on("error", (err) => {
-                    reject(err);
+                    log("获取视频封面失败，使用默认封面", err)
+                    if (diyThumbPath) {
+                        fs.copyFile(diyThumbPath, thumbPath).then(() => {
+                            resolve(thumbPath);
+                        }).catch(reject)
+                    } else {
+                        fs.writeFile(thumbPath, defaultVideoThumb).then(() => {
+                            resolve(thumbPath);
+                        }).catch(reject)
+                    }
                 })
                 .screenshots({
                     timestamps: [0],

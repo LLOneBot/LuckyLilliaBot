@@ -157,8 +157,8 @@ ob-setting-select::part(option-list) {
 }
 
 #llonebot-error {
-  color: red;
-  height: 100px;
+  padding-top: 10px;
+  padding-bottom: 10px;
   overflow: visible;
   display: flex;
   align-items: center;

@@ -94,7 +94,7 @@ function onLoad() {
     }
     ipcMain.handle(CHANNEL_ERROR, async (event, arg) => {
         const ffmpegOk = await checkFfmpeg(getConfigUtil().getConfig().ffmpeg)
-        llonebotError.ffmpegError = ffmpegOk ? "" : "没有找到ffmpeg,音频只能发送wav和silk,视频无法发送"
+        llonebotError.ffmpegError = ffmpegOk ? "" : "没有找到ffmpeg,音频只能发送wav和silk,视频尺寸可能异常"
         let {httpServerError, wsServerError, otherError, ffmpegError} = llonebotError;
         let error = `${otherError}\n${httpServerError}\n${wsServerError}\n${ffmpegError}`
         error = error.replace("\n\n", "\n")

@@ -13,3 +13,4 @@ export const PLUGIN_DIR = global.LiteLoader.plugins["LLOneBot"].path.plugin;
 if (!fs.existsSync(TEMP_DIR)) {
     fs.mkdirSync(TEMP_DIR);
 }
+export {getVideoInfo} from "./video";
