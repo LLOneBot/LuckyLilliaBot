@@ -1,46 +1,50 @@
-import { version } from "../../version";
-import https from "node:https";
-//import http from "node:http";
+import {version} from "../../version";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { PLUGIN_DIR, TEMP_DIR } from ".";
+import {httpDownload, log, PLUGIN_DIR, TEMP_DIR} from ".";
 import compressing from "compressing";
+
+
+const downloadMirrorHosts = ["https://mirror.ghproxy.com/"];
+const checkVersionMirrorHosts = ["https://521github.com"];
+
 export async function checkVersion() {
     const latestVersionText = await getRemoteVersion();
     const latestVersion = latestVersionText.split(".");
+    log("llonebot last version", latestVersion);
     const currentVersion = version.split(".");
     for (let k in [0, 1, 2]) {
         if (latestVersion[k] > currentVersion[k]) {
-            return { result: false, version: latestVersionText };
+            return {result: false, version: latestVersionText};
         }
     }
-    return { result: true, version: version };
+    return {result: true, version: version};
 }
-export async function updateLLOneBot() {
-    let mirrorGithubList = ["https://mirror.ghproxy.com/"];
+
+export async function upgradeLLOneBot() {
     const latestVersion = await getRemoteVersion();
     if (latestVersion && latestVersion != "") {
         const downloadUrl = "https://github.com/LLOneBot/LLOneBot/releases/download/v" + latestVersion + "/LLOneBot.zip";
-        const realUrl = mirrorGithubList[0] + downloadUrl;
+        const mirrorUrl = downloadMirrorHosts[0] + downloadUrl;
         const filePath = path.join(TEMP_DIR, "./update-" + latestVersion + ".zip");
         const fileStream = fs.createWriteStream(filePath);
-        let downloadPromise = async function (filePath): Promise<boolean> {
-            return new Promise((resolve, reject) => {
-                https.get(filePath, res => {
-                    res.pipe(fileStream);
-                    res.on('end', () => {
-                        resolve(true);
-                    });
-                }).on('error', err => {
-                    resolve(false);
-                });
-            });
+        let downloadSuccess = false;
+        // 多镜像下载
+        for(const mirrorGithub of downloadMirrorHosts){
+            try{
+                const buffer = await httpDownload(mirrorGithub + downloadUrl);
+                fs.writeFileSync(filePath, buffer)
+                downloadSuccess = true;
+                break;
+            }catch (e) {
+                log("llonebot upgrade error", e);
+            }
         }
-        if (!(await downloadPromise(realUrl))) {
-            // 下载异常
+        if (!downloadSuccess){
+            log("llonebot upgrade error", "download failed");
             return false;
         }
-        let uncompressPromise = async function () {
+        let uncompressedPromise = async function () {
             return new Promise<boolean>((resolve, reject) => {
                 compressing.zip.uncompress(filePath, PLUGIN_DIR).then(() => {
                     resolve(true);
@@ -53,16 +57,16 @@ export async function updateLLOneBot() {
                 });
             });
         }
-        const uncompressResult = await uncompressPromise();
+        const uncompressResult = await uncompressedPromise();
         return uncompressResult;
     }
     return false;
 }
+
 export async function getRemoteVersion() {
-    let mirrorGithubList = ["https://521github.com"];
     let Version = "";
-    for (let i = 0; i < mirrorGithubList.length; i++) {
-        let mirrorGithub = mirrorGithubList[i];
+    for (let i = 0; i < checkVersionMirrorHosts.length; i++) {
+        let mirrorGithub = checkVersionMirrorHosts[i];
         let tVersion = await getRemoteVersionByMirror(mirrorGithub);
         if (tVersion && tVersion != "") {
             Version = tVersion;
@@ -71,29 +75,17 @@ export async function getRemoteVersion() {
     }
     return Version;
 }
+
 export async function getRemoteVersionByMirror(mirrorGithub: string) {
     let releasePage = "error";
-    let reqPromise = async function (): Promise<string> {
-        return new Promise((resolve, reject) => {
-            https.get(mirrorGithub + "/LLOneBot/LLOneBot/releases", res => {
-                let list = [];
-                res.on('data', chunk => {
-                    list.push(chunk);
-                });
-                res.on('end', () => {
-                    resolve(Buffer.concat(list).toString());
-                });
-            }).on('error', err => {
-                reject();
-            });
-        });
-    }
+
     try {
-        releasePage = await reqPromise();
+        releasePage = (await httpDownload(mirrorGithub + "/LLOneBot/LLOneBot/releases")).toString();
+        log("releasePage", releasePage);
         if (releasePage === "error") return "";
         return releasePage.match(new RegExp('(?<=(tag/v)).*?(?=("))'))[0];
+    } catch {
     }
-    catch { }
     return "";
 
 }

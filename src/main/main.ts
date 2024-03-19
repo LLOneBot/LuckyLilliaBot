@@ -41,7 +41,7 @@ import {NTQQUserApi} from "../ntqqapi/api/user";
 import {NTQQGroupApi} from "../ntqqapi/api/group";
 import {registerPokeHandler} from "../ntqqapi/external/ccpoke";
 import {OB11FriendPokeEvent, OB11GroupPokeEvent} from "../onebot11/event/notice/OB11PokeEvent";
-import {checkVersion, updateLLOneBot} from "../common/utils/update";
+import {checkVersion, upgradeLLOneBot} from "../common/utils/upgrade";
 import {checkFfmpeg} from "../common/utils/file";
 import {log} from "../common/utils/log";
 import {getConfigUtil} from "../common/config";
@@ -57,7 +57,7 @@ function onLoad() {
         return checkVersion();
     });
     ipcMain.handle(CHANNEL_UPDATE, async (event, arg) => {
-        return updateLLOneBot();
+        return upgradeLLOneBot();
     });
     ipcMain.handle(CHANNEL_SELECT_FILE, async (event, arg) => {
         const selectPath = new Promise<string>((resolve, reject) => {

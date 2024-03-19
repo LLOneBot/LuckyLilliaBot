@@ -9,6 +9,8 @@ import {DATA_DIR, log, TEMP_DIR} from "./index";
 import {getConfigUtil} from "../config";
 import {dbUtil} from "../db";
 import * as fileType from "file-type";
+import {net} from "electron";
+import ClientRequestConstructorOptions = Electron.ClientRequestConstructorOptions;
 
 export function isGIF(path: string) {
     const buffer = Buffer.alloc(4);
@@ -79,7 +81,7 @@ export function checkFfmpeg(newPath: string = null): Promise<boolean> {
                     resolve(true);
                 }
             })
-        }catch (e) {
+        } catch (e) {
             resolve(false);
         }
     });
@@ -266,6 +268,26 @@ export function calculateFileMD5(filePath: string): Promise<string> {
             reject(err);
         });
     });
+}
+
+export function httpDownload(options: ClientRequestConstructorOptions | string): Promise<Buffer> {
+    let chunks: Buffer[] = [];
+    let netRequest = net.request(options)
+    return new Promise((resolve, reject) => {
+        netRequest.on("response", (response) => {
+            if (!(response.statusCode >= 200 && response.statusCode < 300)) {
+                return reject(new Error(`下载失败,状态码${response.statusCode}`))
+            }
+            response.on("data", (chunk) => {
+                chunks.push(chunk);
+            }).on("end", () => {
+                resolve(Buffer.concat(chunks));
+            })
+        }).on("error", (err) => {
+            reject(err);
+        })
+        netRequest.end()
+    })
 }
 
 type Uri2LocalRes = {
