@@ -115,6 +115,7 @@ export interface OB11MessageText {
 
 interface OB11MessageFileBase {
     data: {
+        thumb?: string;
         name?: string;
         file: string,
         url?: string;

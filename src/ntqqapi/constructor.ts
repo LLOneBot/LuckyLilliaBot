@@ -17,6 +17,7 @@ import {NTQQFileApi} from "./api/file";
 import {calculateFileMD5, encodeSilk, getVideoInfo, isGIF} from "../common/utils/file";
 import {log} from "../common/utils/log";
 import {sleep} from "../common/utils/helper";
+import pathLib from "path";
 
 
 export class SendMsgElementConstructor {
@@ -108,7 +109,7 @@ export class SendMsgElementConstructor {
         return element;
     }
 
-    static async video(filePath: string, fileName: string = ""): Promise<SendVideoElement> {
+    static async video(filePath: string, fileName: string = "", diyThumbPath: string=""): Promise<SendVideoElement> {
         let {fileName: _fileName, path, fileSize, md5} = await NTQQFileApi.uploadFile(filePath, ElementType.VIDEO);
         if (fileSize === 0) {
             throw "文件异常，大小为0";
@@ -126,6 +127,13 @@ export class SendMsgElementConstructor {
         log("视频信息", videoInfo)
         const createThumb = new Promise<string>((resolve, reject) => {
             const thumbFileName = `${md5}_0.png`
+            const thumbPath = pathLib.join(thumb, thumbFileName)
+            if (diyThumbPath) {
+                fs.copyFile(diyThumbPath, pathLib.join(thumb, thumbFileName)).then(() => {
+                    resolve(thumbPath);
+                })
+                return;
+            }
             ffmpeg(filePath)
                 .on("end", () => {
                 })
@@ -138,7 +146,7 @@ export class SendMsgElementConstructor {
                     folder: thumb,
                     size: videoInfo.width + "x" + videoInfo.height
                 }).on("end", () => {
-                resolve(pathLib.join(thumb, thumbFileName));
+                resolve(thumbPath);
             });
         })
         let thumbPath = new Map()

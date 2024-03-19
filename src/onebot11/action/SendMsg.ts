@@ -430,7 +430,14 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                                 sendElements.push(await SendMsgElementConstructor.file(path, payloadFileName || fileName));
                             } else if (sendMsg.type === OB11MessageDataType.video) {
                                 log("发送视频", path, payloadFileName || fileName)
-                                sendElements.push(await SendMsgElementConstructor.video(path, payloadFileName || fileName));
+                                let thumb = sendMsg.data?.thumb;
+                                if (thumb){
+                                    let uri2LocalRes = await uri2local(thumb)
+                                    if (uri2LocalRes.success){
+                                        thumb = uri2LocalRes.path;
+                                    }
+                                }
+                                sendElements.push(await SendMsgElementConstructor.video(path, payloadFileName || fileName, thumb));
                             } else if (sendMsg.type === OB11MessageDataType.voice) {
                                 sendElements.push(await SendMsgElementConstructor.ptt(path));
                             }else if (sendMsg.type === OB11MessageDataType.image) {
