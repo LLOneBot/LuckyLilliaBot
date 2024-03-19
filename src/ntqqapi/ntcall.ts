@@ -17,7 +17,7 @@ export enum NTQQApiClass {
 export enum NTQQApiMethod {
     RECENT_CONTACT = "nodeIKernelRecentContactService/fetchAndSubscribeABatchOfRecentContact",
     ADD_ACTIVE_CHAT = "nodeIKernelMsgService/getAioFirstViewLatestMsgsAndAddActiveChat",  // 激活群助手内的聊天窗口，这样才能收到消息
-    ADD_ACTIVE_CHAT_2 = "nodeIKernelMsgService/getMsgsIncludeSelfAndAddActiveChat",
+    HISTORY_MSG = "nodeIKernelMsgService/getMsgsIncludeSelfAndAddActiveChat",
     LIKE_FRIEND = "nodeIKernelProfileLikeService/setBuddyProfileLike",
     SELF_INFO = "fetchAuthData",
     FRIENDS = "nodeIKernelBuddyService/getBuddyList",

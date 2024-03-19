@@ -21,7 +21,9 @@ export let friends: Friend[] = []
 export let friendRequests: Map<number, FriendRequest> = new Map<number, FriendRequest>()
 export const llonebotError: LLOneBotError = {
     ffmpegError: '',
-    otherError: ''
+    httpServerError: '',
+    wsServerError: '',
+    otherError: 'LLOnebot未能正常启动，请检查日志查看错误'
 }
 
 

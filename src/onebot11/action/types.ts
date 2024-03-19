@@ -54,4 +54,6 @@ export enum ActionName {
     GetGuildList = "get_guild_list",
     GoCQHTTP_MarkMsgAsRead = "mark_msg_as_read",
     GoCQHTTP_UploadGroupFile = "upload_group_file",
+    GoCQHTTP_DownloadFile = "download_file",
+    GoCQHTTP_GetGroupMsgHistory = "get_group_msg_history",
 }

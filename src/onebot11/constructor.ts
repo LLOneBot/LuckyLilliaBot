@@ -305,9 +305,10 @@ export class OB11Constructor {
         return {
             user_id: parseInt(friend.uin),
             nickname: friend.nick,
-            remark: friend.remark
+            remark: friend.remark,
+            sex: OB11Constructor.sex(friend.sex),
+            qq_level: friend.qqLevel && calcQQLevel(friend.qqLevel) || 0
         }
-
     }
 
     static selfInfo(selfInfo: SelfInfo): OB11User {

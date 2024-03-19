@@ -25,7 +25,6 @@ import {
 } from '../types';
 import {Peer} from "../../ntqqapi/api/msg";
 import {SendMsgElementConstructor} from "../../ntqqapi/constructor";
-import {uri2local} from "../utils";
 import BaseAction from "./BaseAction";
 import {ActionName, BaseCheckResult} from "./types";
 import * as fs from "node:fs";
@@ -35,6 +34,7 @@ import {ALLOW_SEND_TEMP_MSG} from "../../common/config";
 import {NTQQMsgApi} from "../../ntqqapi/api/msg";
 import {log} from "../../common/utils/log";
 import {sleep} from "../../common/utils/helper";
+import {uri2local} from "../../common/utils";
 
 function checkSendMessage(sendMsgList: OB11MessageData[]) {
     function checkUri(uri: string): boolean {

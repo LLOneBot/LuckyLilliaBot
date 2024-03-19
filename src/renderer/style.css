@@ -154,4 +154,10 @@ ob-setting-select::part(option-list) {
   flex-wrap: nowrap;
   justify-content: flex-start;
   gap: 4px;
-}
+
+#llonebot-error{
+  color: red;
+  height: 100px;
+  overflow: visible;
+  display: flex;
+  align-items: center;

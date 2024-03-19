@@ -1,7 +1,8 @@
-import express, {Express, json, Request, Response} from "express";
+import express, {Express, Request, Response} from "express";
 import http from "http";
 import {log} from "../utils/log";
 import {getConfigUtil} from "../config";
+import {llonebotError} from "../data";
 
 type RegisterHandler = (res: Response, payload: any) => Promise<any>
 
@@ -52,13 +53,20 @@ export abstract class HttpServerBase {
     };
 
     start(port: number) {
-        this.expressAPP.get('/', (req: Request, res: Response) => {
-            res.send(`${this.name}已启动`);
-        })
-        this.listen(port);
+        try {
+            this.expressAPP.get('/', (req: Request, res: Response) => {
+                res.send(`${this.name}已启动`);
+            })
+            this.listen(port);
+            llonebotError.httpServerError = ""
+        } catch (e) {
+            log("HTTP服务启动失败", e.toString())
+            llonebotError.httpServerError = "HTTP服务启动失败, " + e.toString()
+        }
     }
 
     stop() {
+        llonebotError.httpServerError = ""
         if (this.server) {
             this.server.close()
             this.server = null;

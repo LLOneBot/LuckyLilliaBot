@@ -28,6 +28,8 @@ export interface Config {
 }
 
 export interface LLOneBotError {
+  httpServerError?: string
+  wsServerError?: string
   ffmpegError?: string
   otherError?: string
 }

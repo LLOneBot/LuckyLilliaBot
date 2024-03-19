@@ -2,6 +2,7 @@ import BaseAction from "./BaseAction";
 import fs from "fs/promises";
 import {dbUtil} from "../../common/db";
 import {getConfigUtil} from "../../common/config";
+import {log, uri2local} from "../../common/utils";
 
 export interface GetFilePayload {
     file: string // 文件名
@@ -26,6 +27,18 @@ export class GetFileBase extends BaseAction<GetFilePayload, GetFileResponse> {
         if (cache.downloadFunc) {
             await cache.downloadFunc()
         }
+        try {
+            await fs.access(cache.filePath, fs.constants.F_OK)
+        } catch (e) {
+            log("file not found", e)
+            const downloadResult = await uri2local(cache.url)
+            if (downloadResult.success) {
+                cache.filePath = downloadResult.path
+                dbUtil.addFileCache(payload.file, cache).then()
+            } else {
+                throw new Error("file download failed. " + downloadResult.errMsg)
+            }
+        }
         let res: GetFileResponse = {
             file: cache.filePath,
             url: cache.url,
@@ -37,11 +50,11 @@ export class GetFileBase extends BaseAction<GetFilePayload, GetFileResponse> {
                 res.base64 = await fs.readFile(cache.filePath, 'base64')
             }
         }
-        if (autoDeleteFile) {
-            setTimeout(() => {
-                fs.unlink(cache.filePath)
-            }, autoDeleteFileSecond * 1000)
-        }
+        // if (autoDeleteFile) {
+        //     setTimeout(() => {
+        //         fs.unlink(cache.filePath)
+        //     }, autoDeleteFileSecond * 1000)
+        // }
         return res
     }
 }
