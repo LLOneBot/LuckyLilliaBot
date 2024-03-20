@@ -1,7 +1,7 @@
-import {version} from "../../version";
+import { version } from "../../version";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import {copyFolder, httpDownload, log, PLUGIN_DIR, TEMP_DIR} from ".";
+import { copyFolder, httpDownload, log, PLUGIN_DIR, TEMP_DIR } from ".";
 import compressing from "compressing";
 
 
@@ -12,13 +12,13 @@ export async function checkVersion() {
     const latestVersionText = await getRemoteVersion();
     const latestVersion = latestVersionText.split(".");
     log("llonebot last version", latestVersion);
-    const currentVersion = version.split(".");
-    for (let k in [0, 1, 2]) {
-        if (latestVersion[k] > currentVersion[k]) {
-            return {result: false, version: latestVersionText};
+    const currentVersion: string[] = version.split(".");
+    for (let k of [0, 1, 2]) {
+        if (parseInt(latestVersion[k]) > parseInt(currentVersion[k])) {
+            return { result: false, version: latestVersionText };
         }
     }
-    return {result: true, version: version};
+    return { result: true, version: version };
 }
 
 export async function upgradeLLOneBot() {
@@ -28,17 +28,17 @@ export async function upgradeLLOneBot() {
         const filePath = path.join(TEMP_DIR, "./update-" + latestVersion + ".zip");
         let downloadSuccess = false;
         // 多镜像下载
-        for(const mirrorGithub of downloadMirrorHosts){
-            try{
+        for (const mirrorGithub of downloadMirrorHosts) {
+            try {
                 const buffer = await httpDownload(mirrorGithub + downloadUrl);
                 fs.writeFileSync(filePath, buffer)
                 downloadSuccess = true;
                 break;
-            }catch (e) {
+            } catch (e) {
                 log("llonebot upgrade error", e);
             }
         }
-        if (!downloadSuccess){
+        if (!downloadSuccess) {
             log("llonebot upgrade error", "download failed");
             return false;
         }
