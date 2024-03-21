@@ -68,8 +68,6 @@ export async function file2base64(path: string) {
 }
 
 export async function encodeSilk(filePath: string) {
-    const fsp = require("fs").promises
-
     function getFileHeader(filePath: string) {
         // 定义要读取的字节数
         const bytesToRead = 7;
@@ -104,7 +102,6 @@ export async function encodeSilk(filePath: string) {
     // }
 
     try {
-        const fileName = path.basename(filePath);
         const pttPath = path.join(DATA_DIR, uuidv4());
         if (getFileHeader(filePath) !== "02232153494c4b") {
             log(`语音文件${filePath}需要转换成silk`)
@@ -118,7 +115,7 @@ export async function encodeSilk(filePath: string) {
                     if (ffmpegPath) {
                         ffmpeg.setFfmpegPath(ffmpegPath);
                     }
-                    ffmpeg(filePath).toFormat("wav").audioChannels(2).on('end', function () {
+                    ffmpeg(filePath).toFormat("wav").audioChannels(1).audioFrequency(24000).on('end', function () {
                         log('wav转换完成');
                     })
                         .on('error', function (err) {
@@ -146,10 +143,10 @@ export async function encodeSilk(filePath: string) {
                 duration: silk.duration,
             };
         } else {
-            const pcm = fs.readFileSync(filePath);
+            const silk = fs.readFileSync(filePath);
             let duration = 0;
             try {
-                duration = getDuration(pcm);
+                duration = getDuration(silk);
             } catch (e) {
                 log("获取语音文件时长失败", filePath, e.stack)
                 duration = fs.statSync(filePath).size / 1024 / 3  // 每3kb大约1s
