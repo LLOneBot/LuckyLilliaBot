@@ -211,7 +211,7 @@ export class SendMsgElementConstructor {
                 md5HexStr: md5,
                 fileSize: fileSize,
                 // duration: Math.max(1, Math.round(fileSize / 1024 / 3)), // 一秒钟大概是3kb大小, 小于1秒的按1秒算
-                duration: duration / 1000,
+                duration: duration,
                 formatType: 1,
                 voiceType: 1,
                 voiceChangeType: 0,

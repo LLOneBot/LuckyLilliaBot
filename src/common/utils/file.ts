@@ -96,14 +96,16 @@ export async function encodeSilk(filePath: string) {
         let duration = pttFileInfo.size / 1024 / 3  // 3kb/s
         duration = Math.floor(duration)
         duration = Math.max(1, duration)
-        log(`语音文件${filePath}转换成功!`, pttPath, `通过文件大小估算的时长:`, duration)
+        log(`通过文件大小估算语音的时长:`, duration)
         return duration
     }
 
     function verifyDuration(oriDuration: number, guessDuration: number){
+        // 单位都是秒
         if (oriDuration - guessDuration > 10){
             return guessDuration
         }
+        oriDuration = Math.max(1, oriDuration)
         return oriDuration
     }
     // async function getAudioSampleRate(filePath: string) {
@@ -153,19 +155,19 @@ export async function encodeSilk(filePath: string) {
             fs.writeFileSync(pttPath, silk.data);
             fs.unlink(wavPath, (err) => {
             });
+            const gDuration = await guessDuration(filePath)
             log(`语音文件${filePath}转换成功!`, pttPath, `时长:`, silk.duration)
             return {
                 converted: true,
                 path: pttPath,
-                duration: silk.duration,
+                duration: verifyDuration(silk.duration / 1000, gDuration),
             };
         } else {
             const silk = fs.readFileSync(filePath);
             let duration = 0;
             const gDuration = await guessDuration(filePath)
             try {
-                duration = getDuration(silk);
-                duration = verifyDuration(getDuration(pcm), gDuration);
+                duration = verifyDuration(getDuration(silk) / 1000, gDuration);
             } catch (e) {
                 log("获取语音文件时长失败, 使用文件大小推测时长", filePath, e.stack)
                 duration = gDuration;
