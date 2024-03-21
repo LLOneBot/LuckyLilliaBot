@@ -6,7 +6,9 @@ export class GoCQHTTPSendGroupForwardMsg extends SendMsg {
     actionName = ActionName.GoCQHTTP_SendGroupForwardMsg;
 
     protected async check(payload: OB11PostSendMsg) {
-        payload.message = this.convertMessage2List(payload.messages);
+        if (payload.messages){
+            payload.message = this.convertMessage2List(payload.messages);
+        }
         return super.check(payload);
     }
 }
