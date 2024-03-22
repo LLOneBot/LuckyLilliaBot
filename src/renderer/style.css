@@ -157,9 +157,24 @@ ob-setting-select::part(option-list) {
 }
 
 #llonebot-error {
-  padding-top: 10px;
-  padding-bottom: 10px;
-  overflow: visible;
-  display: flex;
-  align-items: center;
+  display: none;
+}
+
+#llonebot-error setting-panel {
+  background: rgba(255, 0, 0, 0.5);
+  color: white;
+}
+
+#llonebot-error setting-panel pre {
+  margin: 0;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+#llonebot-error setting-panel pre code {
+  font-family: 'FiraCode Nerd Font', 'Fira Code', 'Cascadia Code', Consolas, 'Courier New', monospace;
+}
+
+#llonebot-error.show {
+  display: block;
 }
