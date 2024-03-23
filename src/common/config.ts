@@ -6,7 +6,7 @@ import path from "node:path";
 import {selfInfo} from "./data";
 import {DATA_DIR} from "./utils";
 
-export const HOOK_LOG = true;
+export const HOOK_LOG = false;
 
 export const ALLOW_SEND_TEMP_MSG = false;
 

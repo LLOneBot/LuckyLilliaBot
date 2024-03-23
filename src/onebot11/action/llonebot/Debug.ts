@@ -1,5 +1,14 @@
 import BaseAction from "../BaseAction";
-import * as ntqqApi from "../../../ntqqapi/api";
+// import * as ntqqApi from "../../../ntqqapi/api";
+import {
+    NTQQMsgApi,
+    NTQQFriendApi,
+    NTQQGroupApi,
+    NTQQUserApi,
+    NTQQFileApi,
+    NTQQFileCacheApi,
+    NTQQWindowApi,
+} from "../../../ntqqapi/api";
 import {ActionName} from "../types";
 import {log} from "../../../common/utils/log";
 
@@ -13,8 +22,10 @@ export default class Debug extends BaseAction<Payload, any> {
 
     protected async _handle(payload: Payload): Promise<any> {
         log("debug call ntqq api", payload);
-        for (const ntqqApiClass in ntqqApi) {
-            const method = ntqqApi[ntqqApiClass][payload.method]
+        const ntqqApi = [NTQQMsgApi, NTQQFriendApi, NTQQGroupApi, NTQQUserApi, NTQQFileApi, NTQQFileCacheApi, NTQQWindowApi]
+        for (const ntqqApiClass of ntqqApi) {
+            log("ntqqApiClass", ntqqApiClass)
+            const method = ntqqApiClass[payload.method]
             if (method) {
                 const result = method(...payload.args);
                 if (method.constructor.name === "AsyncFunction") {

@@ -2,7 +2,6 @@ import {ReceiveCmdS} from "../hook";
 import {Group, GroupMember, GroupMemberRole, GroupNotifies, GroupNotify, GroupRequestOperateTypes} from "../types";
 import {callNTQQApi, GeneralCallResult, NTQQApiClass, NTQQApiMethod} from "../ntcall";
 import {uidMaps} from "../../common/data";
-import {BrowserWindow} from "electron";
 import {dbUtil} from "../../common/db";
 import {log} from "../../common/utils/log";
 import {NTQQWindowApi, NTQQWindows} from "./window";

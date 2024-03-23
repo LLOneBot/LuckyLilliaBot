@@ -75,11 +75,156 @@ export interface ReturnDataType {
     message_id: number
 }
 
+export function convertMessage2List(message: OB11MessageMixType, autoEscape = false) {
+    if (typeof message === "string") {
+        if (!autoEscape) {
+            message = decodeCQCode(message.toString())
+        } else {
+            message = [{
+                type: OB11MessageDataType.text,
+                data: {
+                    text: message
+                }
+            }]
+        }
+    } else if (!Array.isArray(message)) {
+        message = [message]
+    }
+    return message;
+}
+
+export async function createSendElements(messageData: OB11MessageData[], group: Group | undefined, ignoreTypes: OB11MessageDataType[] = []) {
+    let sendElements: SendMessageElement[] = []
+    let deleteAfterSentFiles: string[] = []
+    for (let sendMsg of messageData) {
+        if (ignoreTypes.includes(sendMsg.type)) {
+            continue
+        }
+        switch (sendMsg.type) {
+            case OB11MessageDataType.text: {
+                const text = sendMsg.data?.text;
+                if (text) {
+                    sendElements.push(SendMsgElementConstructor.text(sendMsg.data!.text))
+                }
+            }
+                break;
+            case OB11MessageDataType.at: {
+                if (!group) {
+                    continue
+                }
+                let atQQ = sendMsg.data?.qq;
+                if (atQQ) {
+                    atQQ = atQQ.toString()
+                    if (atQQ === "all") {
+                        sendElements.push(SendMsgElementConstructor.at(atQQ, atQQ, AtType.atAll, "全体成员"))
+                    } else {
+                        // const atMember = group?.members.find(m => m.uin == atQQ)
+                        const atMember = await getGroupMember(group?.groupCode, atQQ);
+                        if (atMember) {
+                            sendElements.push(SendMsgElementConstructor.at(atQQ, atMember.uid, AtType.atUser, atMember.cardName || atMember.nick))
+                        }
+                    }
+                }
+            }
+                break;
+            case OB11MessageDataType.reply: {
+                let replyMsgId = sendMsg.data.id;
+                if (replyMsgId) {
+                    const replyMsg = await dbUtil.getMsgByShortId(parseInt(replyMsgId))
+                    if (replyMsg) {
+                        sendElements.push(SendMsgElementConstructor.reply(replyMsg.msgSeq, replyMsg.msgId, replyMsg.senderUin, replyMsg.senderUin))
+                    }
+                }
+            }
+                break;
+            case OB11MessageDataType.face: {
+                const faceId = sendMsg.data?.id
+                if (faceId) {
+                    sendElements.push(SendMsgElementConstructor.face(parseInt(faceId)))
+                }
+            }
+                break;
+
+            case OB11MessageDataType.image:
+            case OB11MessageDataType.file:
+            case OB11MessageDataType.video:
+            case OB11MessageDataType.voice: {
+                let file = sendMsg.data?.file
+                const payloadFileName = sendMsg.data?.name
+                if (file) {
+                    const cache = await dbUtil.getFileCache(file)
+                    if (cache) {
+                        if (fs.existsSync(cache.filePath)) {
+                            file = "file://" + cache.filePath
+                        } else if (cache.downloadFunc) {
+                            await cache.downloadFunc()
+                            file = cache.filePath;
+                        } else if (cache.url) {
+                            file = cache.url
+                        }
+                        log("找到文件缓存", file);
+                    }
+                    const {path, isLocal, fileName, errMsg} = (await uri2local(file))
+                    if (errMsg) {
+                        throw errMsg
+                    }
+                    if (path) {
+                        if (!isLocal) { // 只删除http和base64转过来的文件
+                            deleteAfterSentFiles.push(path)
+                        }
+                        if (sendMsg.type === OB11MessageDataType.file) {
+                            log("发送文件", path, payloadFileName || fileName)
+                            sendElements.push(await SendMsgElementConstructor.file(path, payloadFileName || fileName));
+                        } else if (sendMsg.type === OB11MessageDataType.video) {
+                            log("发送视频", path, payloadFileName || fileName)
+                            let thumb = sendMsg.data?.thumb;
+                            if (thumb) {
+                                let uri2LocalRes = await uri2local(thumb)
+                                if (uri2LocalRes.success) {
+                                    thumb = uri2LocalRes.path;
+                                }
+                            }
+                            sendElements.push(await SendMsgElementConstructor.video(path, payloadFileName || fileName, thumb));
+                        } else if (sendMsg.type === OB11MessageDataType.voice) {
+                            sendElements.push(await SendMsgElementConstructor.ptt(path));
+                        } else if (sendMsg.type === OB11MessageDataType.image) {
+                            sendElements.push(await SendMsgElementConstructor.pic(path, sendMsg.data.summary || ""));
+                        }
+                    }
+                }
+            }
+                break;
+            case OB11MessageDataType.json: {
+                sendElements.push(SendMsgElementConstructor.ark(sendMsg.data.data))
+            }
+                break
+        }
+
+    }
+
+    return {
+        sendElements,
+        deleteAfterSentFiles
+    }
+}
+
+export async function sendMsg(peer: Peer, sendElements: SendMessageElement[], deleteAfterSentFiles: string[], waitComplete = true) {
+    if (!sendElements.length) {
+        throw ("消息体无法解析")
+    }
+    const returnMsg = await NTQQMsgApi.sendMsg(peer, sendElements, waitComplete, 20000);
+    log("消息发送结果", returnMsg)
+    returnMsg.msgShortId = await dbUtil.addMsg(returnMsg)
+    deleteAfterSentFiles.map(f => fs.unlink(f, () => {
+    }))
+    return returnMsg
+}
+
 export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
     actionName = ActionName.SendMsg
 
     protected async check(payload: OB11PostSendMsg): Promise<BaseCheckResult> {
-        const messages = this.convertMessage2List(payload.message);
+        const messages = convertMessage2List(payload.message);
         const fmNum = this.getSpecialMsgNum(payload, OB11MessageDataType.node)
         if (fmNum && fmNum != messages.length) {
             return {
@@ -149,7 +294,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
         } else {
             throw ("发送消息参数错误, 请指定group_id或user_id")
         }
-        const messages = this.convertMessage2List(payload.message);
+        const messages = convertMessage2List(payload.message);
         if (this.getSpecialMsgNum(payload, OB11MessageDataType.node)) {
             try {
                 const returnMsg = await this.handleForwardNode(peer, messages as OB11MessageNode[], group)
@@ -173,27 +318,13 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
             }
         }
         // log("send msg:", peer, sendElements)
-        const {sendElements, deleteAfterSentFiles} = await this.createSendElements(messages, group)
-        const returnMsg = await this.send(peer, sendElements, deleteAfterSentFiles)
+        const {sendElements, deleteAfterSentFiles} = await createSendElements(messages, group)
+        const returnMsg = await sendMsg(peer, sendElements, deleteAfterSentFiles)
         deleteAfterSentFiles.map(f => fs.unlink(f, () => {
         }));
         return {message_id: returnMsg.msgShortId}
     }
 
-    protected convertMessage2List(message: OB11MessageMixType) {
-        if (typeof message === "string") {
-            // message = [{
-            //     type: OB11MessageDataType.text,
-            //     data: {
-            //         text: message
-            //     }
-            // }] as OB11MessageData[]
-            message = decodeCQCode(message.toString())
-        } else if (!Array.isArray(message)) {
-            message = [message]
-        }
-        return message;
-    }
 
     private getSpecialMsgNum(payload: OB11PostSendMsg, msgType: OB11MessageDataType): number {
         if (Array.isArray(payload.message)) {
@@ -262,7 +393,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                     const {
                         sendElements,
                         deleteAfterSentFiles
-                    } = await this.createSendElements(this.convertMessage2List(messageNode.data.content), group);
+                    } = await createSendElements(convertMessage2List(messageNode.data.content), group);
                     log("开始生成转发节点", sendElements);
                     let sendElementsSplit: SendMessageElement[][] = []
                     let splitIndex = 0;
@@ -284,7 +415,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                     }
                     // log("分割后的转发节点", sendElementsSplit)
                     for (const eles of sendElementsSplit) {
-                        const nodeMsg = await this.send(selfPeer, eles, [], true);
+                        const nodeMsg = await sendMsg(selfPeer, eles, [], true);
                         nodeMsgIds.push(nodeMsg.msgId)
                         await sleep(500);
                         log("转发节点生成成功", nodeMsg.msgId);
@@ -346,130 +477,8 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
         }
     }
 
-    private async createSendElements(messageData: OB11MessageData[], group: Group | undefined, ignoreTypes: OB11MessageDataType[] = []) {
-        let sendElements: SendMessageElement[] = []
-        let deleteAfterSentFiles: string[] = []
-        for (let sendMsg of messageData) {
-            if (ignoreTypes.includes(sendMsg.type)) {
-                continue
-            }
-            switch (sendMsg.type) {
-                case OB11MessageDataType.text: {
-                    const text = sendMsg.data?.text;
-                    if (text) {
-                        sendElements.push(SendMsgElementConstructor.text(sendMsg.data!.text))
-                    }
-                }
-                    break;
-                case OB11MessageDataType.at: {
-                    if (!group) {
-                        continue
-                    }
-                    let atQQ = sendMsg.data?.qq;
-                    if (atQQ) {
-                        atQQ = atQQ.toString()
-                        if (atQQ === "all") {
-                            sendElements.push(SendMsgElementConstructor.at(atQQ, atQQ, AtType.atAll, "全体成员"))
-                        } else {
-                            // const atMember = group?.members.find(m => m.uin == atQQ)
-                            const atMember = await getGroupMember(group?.groupCode, atQQ);
-                            if (atMember) {
-                                sendElements.push(SendMsgElementConstructor.at(atQQ, atMember.uid, AtType.atUser, atMember.cardName || atMember.nick))
-                            }
-                        }
-                    }
-                }
-                    break;
-                case OB11MessageDataType.reply: {
-                    let replyMsgId = sendMsg.data.id;
-                    if (replyMsgId) {
-                        const replyMsg = await dbUtil.getMsgByShortId(parseInt(replyMsgId))
-                        if (replyMsg) {
-                            sendElements.push(SendMsgElementConstructor.reply(replyMsg.msgSeq, replyMsg.msgId, replyMsg.senderUin, replyMsg.senderUin))
-                        }
-                    }
-                }
-                    break;
-                case OB11MessageDataType.face: {
-                    const faceId = sendMsg.data?.id
-                    if (faceId) {
-                        sendElements.push(SendMsgElementConstructor.face(parseInt(faceId)))
-                    }
-                }
-                    break;
 
-                case OB11MessageDataType.image:
-                case OB11MessageDataType.file:
-                case OB11MessageDataType.video:
-                case OB11MessageDataType.voice: {
-                    let file = sendMsg.data?.file
-                    const payloadFileName = sendMsg.data?.name
-                    if (file) {
-                        const cache = await dbUtil.getFileCache(file)
-                        if (cache) {
-                            if (fs.existsSync(cache.filePath)) {
-                                file = "file://" + cache.filePath
-                            } else if (cache.downloadFunc) {
-                                await cache.downloadFunc()
-                                file = cache.filePath;
-                            } else if (cache.url) {
-                                file = cache.url
-                            }
-                            log("找到文件缓存", file);
-                        }
-                        const {path, isLocal, fileName, errMsg} = (await uri2local(file))
-                        if (errMsg) {
-                            throw errMsg
-                        }
-                        if (path) {
-                            if (!isLocal) { // 只删除http和base64转过来的文件
-                                deleteAfterSentFiles.push(path)
-                            }
-                            if (sendMsg.type === OB11MessageDataType.file) {
-                                log("发送文件", path, payloadFileName || fileName)
-                                sendElements.push(await SendMsgElementConstructor.file(path, payloadFileName || fileName));
-                            } else if (sendMsg.type === OB11MessageDataType.video) {
-                                log("发送视频", path, payloadFileName || fileName)
-                                let thumb = sendMsg.data?.thumb;
-                                if (thumb){
-                                    let uri2LocalRes = await uri2local(thumb)
-                                    if (uri2LocalRes.success){
-                                        thumb = uri2LocalRes.path;
-                                    }
-                                }
-                                sendElements.push(await SendMsgElementConstructor.video(path, payloadFileName || fileName, thumb));
-                            } else if (sendMsg.type === OB11MessageDataType.voice) {
-                                sendElements.push(await SendMsgElementConstructor.ptt(path));
-                            }else if (sendMsg.type === OB11MessageDataType.image) {
-                                sendElements.push(await SendMsgElementConstructor.pic(path, sendMsg.data.summary || ""));
-                            }
-                        }
-                    }
-                } break;
-                case OB11MessageDataType.json: {
-                    sendElements.push(SendMsgElementConstructor.ark(sendMsg.data.data))
-                }break
-            }
 
-        }
-
-        return {
-            sendElements,
-            deleteAfterSentFiles
-        }
-    }
-
-    private async send(peer: Peer, sendElements: SendMessageElement[], deleteAfterSentFiles: string[], waitComplete = true) {
-        if (!sendElements.length) {
-            throw ("消息体无法解析")
-        }
-        const returnMsg = await NTQQMsgApi.sendMsg(peer, sendElements, waitComplete, 20000);
-        log("消息发送结果", returnMsg)
-        returnMsg.msgShortId = await dbUtil.addMsg(returnMsg)
-        deleteAfterSentFiles.map(f => fs.unlink(f, () => {
-        }))
-        return returnMsg
-    }
 
     private genMusicElement(url: string, audio: string, title: string, content: string, image: string): SendArkElement {
         const musicJson = {
