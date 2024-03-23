@@ -4,16 +4,18 @@ import path from "node:path";
 import {DATA_DIR, truncateString} from "./index";
 import {getConfigUtil} from "../config";
 
+const date = new Date();
+const logFileName = `llonebot-${date.toLocaleString("zh-CN")}.log`.replace(/\//g, "-").replace(/:/g, "-");
+const logDir = path.join(DATA_DIR, "logs");
+if (!fs.existsSync(logDir)) {
+    fs.mkdirSync(logDir, {recursive: true});
+}
+
 export function log(...msg: any[]) {
     if (!getConfigUtil().getConfig().log) {
         return //console.log(...msg);
     }
-    let currentDateTime = new Date().toLocaleString();
-    const date = new Date();
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    const day = date.getDate();
-    const currentDate = `${year}-${month}-${day}`;
+
     const userInfo = selfInfo.uin ? `${selfInfo.nick}(${selfInfo.uin})` : ""
     let logMsg = "";
     for (let msgItem of msg) {
@@ -25,10 +27,11 @@ export function log(...msg: any[]) {
         }
         logMsg += msgItem + " ";
     }
+    let currentDateTime = new Date().toLocaleString();
     logMsg = `${currentDateTime} ${userInfo}: ${logMsg}\n\n`
     // sendLog(...msg);
     // console.log(msg)
-    fs.appendFile(path.join(DATA_DIR, `llonebot-${currentDate}.log`), logMsg, (err: any) => {
+    fs.appendFile(path.join(logDir, logFileName), logMsg, (err: any) => {
 
     })
 }

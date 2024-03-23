@@ -389,24 +389,29 @@ function onLoad() {
             selfInfo.nick = selfInfo.uin;
         } catch (e) {
             log("retry get self info", e);
+            selfInfo.uin = globalThis.authData?.uin;
+            selfInfo.uid = globalThis.authData?.uid;
+            selfInfo.nick = selfInfo.uin;
         }
-        log("self info", selfInfo);
+        log("self info", selfInfo, globalThis.authData);
         if (selfInfo.uin) {
-            try {
-                const userInfo = (await NTQQUserApi.getUserDetailInfo(selfInfo.uid));
-                log("self info", userInfo);
-                if (userInfo) {
-                    selfInfo.nick = userInfo.nick;
-                } else {
+            async function getUserNick(){
+                try {
                     getSelfNickCount++;
-                    if (getSelfNickCount < 10) {
-                        return setTimeout(init, 1000);
+                    const userInfo = (await NTQQUserApi.getUserDetailInfo(selfInfo.uid));
+                    log("self info", userInfo);
+                    if (userInfo) {
+                        selfInfo.nick = userInfo.nick;
+                        return
                     }
+                } catch (e) {
+                    log("get self nickname failed", e.stack);
                 }
-            } catch (e) {
-                log("get self nickname failed", e.toString());
-                return setTimeout(init, 1000);
+                if (getSelfNickCount < 10) {
+                    return setTimeout(getUserNick, 1000);
+                }
             }
+            getUserNick().then()
             start().then();
         } else {
             setTimeout(init, 1000)
