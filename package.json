@@ -19,7 +19,7 @@
     "file-type": "^19.0.0",
     "fluent-ffmpeg": "^2.1.2",
     "level": "^8.0.1",
-    "silk-wasm": "^3.3.2",
+    "silk-wasm": "^3.3.3",
     "utf-8-validate": "^6.0.3",
     "uuid": "^9.0.1",
     "ws": "^8.16.0"
