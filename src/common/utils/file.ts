@@ -3,7 +3,7 @@ import fsPromise from "fs/promises";
 import crypto from "crypto";
 import ffmpeg from "fluent-ffmpeg";
 import util from "util";
-import {encode, getDuration, isWav} from "silk-wasm";
+import {encode, getDuration, isWav, getWavFileInfo} from "silk-wasm";
 import path from "node:path";
 import {v4 as uuidv4} from "uuid";
 import {checkFfmpeg, DATA_DIR, log, TEMP_DIR} from "./index";
@@ -91,7 +91,7 @@ export async function encodeSilk(filePath: string) {
         return isWav(fs.readFileSync(filePath));
     }
 
-    async function guessDuration(pttPath: string){
+    async function guessDuration(pttPath: string) {
         const pttFileInfo = await fsPromise.stat(pttPath)
         let duration = pttFileInfo.size / 1024 / 3  // 3kb/s
         duration = Math.floor(duration)
@@ -100,9 +100,9 @@ export async function encodeSilk(filePath: string) {
         return duration
     }
 
-    function verifyDuration(oriDuration: number, guessDuration: number){
+    function verifyDuration(oriDuration: number, guessDuration: number) {
         // 单位都是秒
-        if (oriDuration - guessDuration > 10){
+        if (oriDuration - guessDuration > 10) {
             return guessDuration
         }
         oriDuration = Math.max(1, oriDuration)
@@ -126,10 +126,8 @@ export async function encodeSilk(filePath: string) {
             log(`语音文件${filePath}需要转换成silk`)
             const _isWav = await isWavFile(filePath);
             const wavPath = pttPath + ".wav"
-            if (!_isWav) {
-                log(`语音文件${filePath}正在转换成wav`)
-                // let voiceData = await fsp.readFile(filePath)
-                await new Promise((resolve, reject) => {
+            const convert = async () => {
+                return await new Promise((resolve, reject) => {
                     const ffmpegPath = getConfigUtil().getConfig().ffmpeg;
                     if (ffmpegPath) {
                         ffmpeg.setFfmpegPath(ffmpegPath);
@@ -148,10 +146,21 @@ export async function encodeSilk(filePath: string) {
                         });
                 })
             }
-            // const sampleRate = await getAudioSampleRate(filePath) || 0;
-            // log("音频采样率", sampleRate)
-            const pcm = fs.readFileSync(filePath);
-            const silk = await encode(pcm, 0);
+            let wav: Buffer
+            if (!_isWav) {
+                log(`语音文件${filePath}正在转换成wav`)
+                await convert()
+            } else {
+                wav = fs.readFileSync(filePath)
+                const allowSampleRate = [8000, 12000, 16000, 24000, 32000, 44100, 48000]
+                const { fmt } = getWavFileInfo(wav)
+                if (!allowSampleRate.includes(fmt.sampleRate)) {
+                    wav = undefined
+                    await convert()
+                }
+            }
+            wav ||= fs.readFileSync(filePath);
+            const silk = await encode(wav, 0);
             fs.writeFileSync(pttPath, silk.data);
             fs.unlink(wavPath, (err) => {
             });
@@ -286,9 +295,9 @@ export async function uri2local(uri: string, fileName: string = null): Promise<U
     } else if (url.protocol == "http:" || url.protocol == "https:") {
         // 下载文件
         let buffer: Buffer = null;
-        try{
+        try {
             buffer = await httpDownload(uri);
-        }catch (e) {
+        } catch (e) {
             res.errMsg = `${url}下载失败,` + e.toString()
             return res
         }
