@@ -11,7 +11,6 @@ import {getConfigUtil} from "../config";
 import {dbUtil} from "../db";
 import * as fileType from "file-type";
 import {net} from "electron";
-import config from "../../../electron.vite.config";
 
 
 export function isGIF(path: string) {
@@ -100,14 +99,14 @@ export async function encodeSilk(filePath: string) {
         return duration
     }
 
-    function verifyDuration(oriDuration: number, guessDuration: number) {
-        // 单位都是秒
-        if (oriDuration - guessDuration > 10) {
-            return guessDuration
-        }
-        oriDuration = Math.max(1, oriDuration)
-        return oriDuration
-    }
+    // function verifyDuration(oriDuration: number, guessDuration: number) {
+    //     // 单位都是秒
+    //     if (oriDuration - guessDuration > 10) {
+    //         return guessDuration
+    //     }
+    //     oriDuration = Math.max(1, oriDuration)
+    //     return oriDuration
+    // }
     // async function getAudioSampleRate(filePath: string) {
     //     try {
     //         const mm = await import('music-metadata');
@@ -169,14 +168,14 @@ export async function encodeSilk(filePath: string) {
             return {
                 converted: true,
                 path: pttPath,
-                duration: verifyDuration(silk.duration / 1000, gDuration),
+                duration: silk.duration / 1000
             };
         } else {
             const silk = fs.readFileSync(filePath);
             let duration = 0;
             const gDuration = await guessDuration(filePath)
             try {
-                duration = verifyDuration(getDuration(silk) / 1000, gDuration);
+                duration = getDuration(silk) / 1000
             } catch (e) {
                 log("获取语音文件时长失败, 使用文件大小推测时长", filePath, e.stack)
                 duration = gDuration;
