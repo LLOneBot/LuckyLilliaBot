@@ -73,7 +73,7 @@ export async function encodeSilk(filePath: string) {
                     }
                     ffmpeg(filePath).toFormat("wav")
                         .audioChannels(1)
-                        .audioFrequency(16000)
+                        .audioFrequency(24000)
                         .on('end', function () {
                         log('wav转换完成');
                     })
