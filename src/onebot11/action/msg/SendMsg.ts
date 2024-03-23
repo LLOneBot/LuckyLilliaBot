@@ -232,7 +232,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
                 message: "转发消息不能和普通消息混在一起发送,转发需要保证message只有type为node的元素"
             }
         }
-        if (payload.group_id && !(await getGroup(payload.group_id))) {
+        if (payload.message_type !== "private" && payload.group_id &&!(await getGroup(payload.group_id))) {
             return {
                 valid: false,
                 message: `群${payload.group_id}不存在`
