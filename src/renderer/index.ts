@@ -150,7 +150,7 @@ async function onSettingWindowCreated(view: Element) {
             ),
             SettingItem(
                 '日志文件目录',
-                `${window.LiteLoader.plugins['LLOneBot'].path.data}`,
+                `${window.LiteLoader.plugins['LLOneBot'].path.data}/logs`,
                 SettingButton('打开', 'config-open-log-path'),
             ),
         ]),

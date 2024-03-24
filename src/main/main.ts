@@ -18,7 +18,7 @@ import {
     friendRequests,
     getFriend,
     getGroup,
-    getGroupMember,
+    getGroupMember, groups,
     llonebotError,
     refreshGroupMembers,
     selfInfo, uidMaps
@@ -107,8 +107,8 @@ function onLoad() {
         const config = getConfigUtil().getConfig()
         return config;
     })
-    ipcMain.on(CHANNEL_SET_CONFIG, (event, ask:boolean, config: Config) => {
-        if (!ask){
+    ipcMain.on(CHANNEL_SET_CONFIG, (event, ask: boolean, config: Config) => {
+        if (!ask) {
             setConfig(config).then();
             return
         }
@@ -358,13 +358,19 @@ function onLoad() {
         log("llonebot pid", process.pid)
         llonebotError.otherError = "";
         startTime = Date.now();
-        dbUtil.getReceivedTempUinMap().then(m=>{
+        dbUtil.getReceivedTempUinMap().then(m => {
             for (const [key, value] of Object.entries(m)) {
                 uidMaps[value] = key;
             }
         })
         startReceiveHook().then();
-        NTQQGroupApi.getGroups(true).then()
+        // NTQQGroupApi.getGroups(true).then(_groups => {
+        //     _groups.map(group => {
+        //         if (!groups.find(g => g.groupCode == group.groupCode)) {
+        //             groups.push(group)
+        //         }
+        //     })
+        // })
         const config = getConfigUtil().getConfig()
         if (config.ob11.enableHttp) {
             ob11HTTPServer.start(config.ob11.httpPort)
@@ -397,7 +403,7 @@ function onLoad() {
         }
         log("self info", selfInfo, globalThis.authData);
         if (selfInfo.uin) {
-            async function getUserNick(){
+            async function getUserNick() {
                 try {
                     getSelfNickCount++;
                     const userInfo = (await NTQQUserApi.getUserDetailInfo(selfInfo.uid));
@@ -413,6 +419,7 @@ function onLoad() {
                     return setTimeout(getUserNick, 1000);
                 }
             }
+
             getUserNick().then()
             start().then();
         } else {

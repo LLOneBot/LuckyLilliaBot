@@ -10,7 +10,7 @@ export class NTQQGroupApi{
     static async getGroups(forced = false) {
         let cbCmd = ReceiveCmdS.GROUPS
         if (process.platform != "win32") {
-            cbCmd = ReceiveCmdS.GROUPS_UNIX
+            cbCmd = ReceiveCmdS.GROUPS_STORE
         }
         const result = await callNTQQApi<{
             updateType: number,

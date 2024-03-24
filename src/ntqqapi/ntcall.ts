@@ -162,7 +162,12 @@ export function callNTQQApi<ReturnType>(params: NTQQApiParams) {
 
         ipcMain.emit(
             channel,
-            {},
+            {
+                sender: {
+                    send: (..._args: unknown[]) => {
+                    },
+                },
+            },
             {type: 'request', callbackId: uuid, eventName},
             apiArgs
         )
