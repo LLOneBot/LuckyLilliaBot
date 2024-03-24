@@ -1,4 +1,5 @@
 import {GroupMemberRole} from "./group";
+import exp from "constants";
 
 export enum ElementType {
     TEXT = 1,
@@ -209,6 +210,44 @@ export interface FaceElement {
     faceType: 1
 }
 
+export interface MarketFaceElement {
+    "itemType": 6,
+    "faceInfo": 1,
+    "emojiPackageId": 203875,
+    "subType": 3,
+    "mediaType": 0,
+    "imageWidth": 200,
+    "imageHeight": 200,
+    "faceName": string,
+    "emojiId": "094d53bd1c9ac5d35d04b08e8a6c992c",
+    "key": "a8b1dd0aebc8d910",
+    "param": null,
+    "mobileParam": null,
+    "sourceType": null,
+    "startTime": null,
+    "endTime": null,
+    "emojiType": 1,
+    "hasIpProduct": null,
+    "voiceItemHeightArr": null,
+    "sourceName": null,
+    "sourceJumpUrl": null,
+    "sourceTypeName": null,
+    "backColor": null,
+    "volumeColor": null,
+    "staticFacePath": "E:\\SystemDocuments\\QQ\\721011692\\nt_qq\\nt_data\\Emoji\\marketface\\203875\\094d53bd1c9ac5d35d04b08e8a6c992c_aio.png",
+    "dynamicFacePath": "E:\\SystemDocuments\\QQ\\721011692\\nt_qq\\nt_data\\Emoji\\marketface\\203875\\094d53bd1c9ac5d35d04b08e8a6c992c",
+    "supportSize": [
+        {
+            "width": 300,
+            "height": 300
+        },
+        {
+            "width": 200,
+            "height": 200
+        }
+    ],
+    "apngSupportSize": null
+}
 export interface VideoElement {
     "filePath": string,
     "fileName": string,
@@ -321,5 +360,6 @@ export interface RawMessage {
         faceElement: FaceElement;
         videoElement: VideoElement;
         fileElement: FileElement;
+        marketFaceElement: MarketFaceElement;
     }[];
 }

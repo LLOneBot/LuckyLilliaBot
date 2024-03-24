@@ -284,7 +284,7 @@ registerReceiveHook<{ groupList: Group[], updateType: number }>(ReceiveCmdS.GROU
 registerReceiveHook<{groupCode: string, dataSource: number, members: Set<GroupMember>}>(ReceiveCmdS.GROUP_MEMBER_INFO_UPDATE, async (payload) => {
     const groupCode = payload.groupCode;
     const members = Array.from(payload.members.values());
-    log("群成员信息变动", groupCode, members)
+    // log("群成员信息变动", groupCode, members)
     for(const member of members) {
         const existMember = await getGroupMember(groupCode, member.uin);
         if (existMember){

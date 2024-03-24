@@ -203,6 +203,9 @@ export class OB11Constructor {
             } else if (element.faceElement) {
                 message_data["type"] = OB11MessageDataType.face;
                 message_data["data"]["id"] = element.faceElement.faceIndex.toString();
+            } else if (element.marketFaceElement) {
+                message_data["type"] = OB11MessageDataType.mface;
+                message_data["data"]["text"] = element.marketFaceElement.faceName;
             }
             if (message_data.type !== "unknown" && message_data.data) {
                 const cqCode = encodeCQCode(message_data);

@@ -108,10 +108,16 @@ export enum OB11MessageDataType {
     reply = "reply",
     json = "json",
     face = "face",
-    mface = "face", // 商城表情
+    mface = "mface", // 商城表情
     node = "node",  // 合并转发消息
 }
 
+export interface OB11MessageMFace{
+    type: OB11MessageDataType.mface,
+    data: {
+        text: string
+    }
+}
 export interface OB11MessageText {
     type: OB11MessageDataType.text,
     data: {
@@ -199,7 +205,7 @@ export interface OB11MessageJson {
 
 export type OB11MessageData =
     OB11MessageText |
-    OB11MessageFace |
+    OB11MessageFace | OB11MessageMFace |
     OB11MessageAt | OB11MessageReply |
     OB11MessageImage | OB11MessageRecord | OB11MessageFile | OB11MessageVideo |
     OB11MessageNode | OB11MessageCustomMusic | OB11MessageJson
