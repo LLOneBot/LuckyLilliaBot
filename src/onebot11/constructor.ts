@@ -227,8 +227,9 @@ export class OB11Constructor {
         if (msg.senderUin){
             let member = await getGroupMember(msg.peerUid, msg.senderUin);
             if (member && member.cardName !== msg.sendMemberName) {
+                const event = new OB11GroupCardEvent(parseInt(msg.peerUid), parseInt(msg.senderUin), msg.sendMemberName, member.cardName)
                 member.cardName = msg.sendMemberName;
-                return new OB11GroupCardEvent(parseInt(msg.peerUid), parseInt(msg.senderUin), msg.sendMemberName, member.cardName)
+                return event
             }
         }
         // log("group msg", msg);
