@@ -2,7 +2,7 @@ import {
     AtType,
     ChatType,
     ElementType,
-    Group,
+    Group, PicSubType,
     RawMessage,
     SendArkElement,
     SendMessageElement
@@ -188,7 +188,7 @@ export async function createSendElements(messageData: OB11MessageData[], group: 
                         } else if (sendMsg.type === OB11MessageDataType.voice) {
                             sendElements.push(await SendMsgElementConstructor.ptt(path));
                         } else if (sendMsg.type === OB11MessageDataType.image) {
-                            sendElements.push(await SendMsgElementConstructor.pic(path, sendMsg.data.summary || ""));
+                            sendElements.push(await SendMsgElementConstructor.pic(path, sendMsg.data.summary || "", <PicSubType>parseInt(sendMsg.data?.subType?.toString()) || 0));
                         }
                     }
                 }

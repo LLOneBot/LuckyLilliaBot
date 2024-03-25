@@ -49,24 +49,29 @@ export enum PicType {
     jpg = 1000
 }
 
+export enum PicSubType {
+    normal = 0, // 普通图片，大图
+    face = 1  // 表情包小图
+}
+
 export interface SendPicElement {
     elementType: ElementType.PIC,
     elementId: "",
     picElement: {
         md5HexStr: string,
-        fileSize: number,
+        fileSize: number | string,
         picWidth: number,
         picHeight: number,
         fileName: string,
         sourcePath: string,
         original: boolean,
         picType: PicType,
-        picSubType: number,
+        picSubType: PicSubType,
         fileUuid: string,
         fileSubId: string,
         thumbFileSize: number,
         summary: string,
-    }
+    },
 }
 
 export interface SendReplyElement {
@@ -200,7 +205,7 @@ export interface GrayTipElement {
     xmlElement: {
         content: string;
     },
-    jsonGrayTipElement:{
+    jsonGrayTipElement: {
         jsonStr: string;
     }
 }
@@ -248,6 +253,7 @@ export interface MarketFaceElement {
     ],
     "apngSupportSize": null
 }
+
 export interface VideoElement {
     "filePath": string,
     "fileName": string,

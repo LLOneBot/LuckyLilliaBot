@@ -47,7 +47,7 @@ export class NTQQFileApi {
     }
 
     // 上传文件到QQ的文件夹
-    static async uploadFile(filePath: string, elementType: ElementType = ElementType.PIC) {
+    static async uploadFile(filePath: string, elementType: ElementType = ElementType.PIC, elementSubType: number = 0) {
         const md5 = await NTQQFileApi.getFileMd5(filePath);
         let ext = (await NTQQFileApi.getFileType(filePath))?.ext
         if (ext) {
@@ -66,7 +66,7 @@ export class NTQQFileApi {
                     md5HexStr: md5,
                     fileName: fileName,
                     elementType: elementType,
-                    elementSubType: 0,
+                    elementSubType,
                     thumbSize: 0,
                     needCreate: true,
                     downloadType: 1,
@@ -81,7 +81,8 @@ export class NTQQFileApi {
             md5,
             fileName,
             path: mediaPath,
-            fileSize
+            fileSize,
+            ext
         }
     }
 

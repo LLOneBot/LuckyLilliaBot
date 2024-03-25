@@ -1,4 +1,4 @@
-import {RawMessage} from "../ntqqapi/types";
+import {PicSubType, RawMessage} from "../ntqqapi/types";
 import {EventType} from "./event/OB11BaseEvent";
 
 export interface OB11User {
@@ -134,11 +134,13 @@ interface OB11MessageFileBase {
     }
 }
 
+
 export interface OB11MessageImage extends OB11MessageFileBase {
     type: OB11MessageDataType.image
     data: OB11MessageFileBase['data'] & {
         summary ? : string; // 图片摘要
-    }
+        subType?: PicSubType
+    },
 }
 
 export interface OB11MessageRecord extends OB11MessageFileBase {

@@ -62,32 +62,32 @@ export class SendMsgElementConstructor {
         }
     }
 
-    static async pic(picPath: string, summary: string = ""): Promise<SendPicElement> {
-        const {md5, fileName, path, fileSize} = await NTQQFileApi.uploadFile(picPath, ElementType.PIC);
+    static async pic(picPath: string, summary: string = "", subType: 0|1=0): Promise<SendPicElement> {
+        const {md5, fileName, path, fileSize, ext} = await NTQQFileApi.uploadFile(picPath, ElementType.PIC, subType);
         if (fileSize === 0) {
             throw "文件异常，大小为0";
         }
         const imageSize = await NTQQFileApi.getImageSize(picPath);
         const picElement = {
             md5HexStr: md5,
-            fileSize: fileSize,
+            fileSize: fileSize.toString(),
             picWidth: imageSize.width,
             picHeight: imageSize.height,
-            fileName: fileName,
+            fileName: md5 + ext,
             sourcePath: path,
             original: true,
             picType: isGIF(picPath) ? PicType.gif : PicType.jpg,
-            picSubType: 0,
+            picSubType: subType,
             fileUuid: "",
             fileSubId: "",
             thumbFileSize: 0,
-            summary,
+            summary
         };
-
+        log("图片信息", picElement)
         return {
             elementType: ElementType.PIC,
             elementId: "",
-            picElement
+            picElement,
         };
     }
 
@@ -118,7 +118,7 @@ export class SendMsgElementConstructor {
         let thumb = path.replace(`${pathLib.sep}Ori${pathLib.sep}`, `${pathLib.sep}Thumb${pathLib.sep}`)
         thumb = pathLib.dirname(thumb)
         // log("thumb 目录", thumb)
-        let videoInfo ={
+        let videoInfo = {
             width: 1920, height: 1080,
             time: 15,
             format: "mp4",
@@ -128,7 +128,7 @@ export class SendMsgElementConstructor {
         try {
             videoInfo = await getVideoInfo(path);
             log("视频信息", videoInfo)
-        }catch (e) {
+        } catch (e) {
             log("获取视频信息失败", e)
         }
         const createThumb = new Promise<string>((resolve, reject) => {
