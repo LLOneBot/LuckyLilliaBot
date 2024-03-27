@@ -315,6 +315,7 @@ export interface TipAioOpGrayTipElement {  // 这是什么提示来着？
 
 export enum TipGroupElementType {
     memberIncrease = 1,
+    kicked = 3, // 被移出群
     ban = 8
 }
 
@@ -325,7 +326,7 @@ export interface TipGroupElement {
     "memberUid": string,
     "memberNick": string,
     "memberRemark": string,
-    "adminUid": string,  // 同意加群的管理员uid
+    "adminUid": string,
     "adminNick": string,
     "adminRemark": string,
     "createGroup": null,

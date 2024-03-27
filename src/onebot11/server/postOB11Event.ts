@@ -73,7 +73,7 @@ export function postOB11Event(msg: PostEventType, reportSelf = false) {
     const config = getConfigUtil().getConfig();
     // 判断msg是否是event
     if (!config.reportSelfMessage && !reportSelf) {
-        if ((msg as OB11Message).user_id.toString() == selfInfo.uin) {
+        if (msg.post_type === "message" && (msg as OB11Message).user_id.toString() == selfInfo.uin) {
             return
         }
     }

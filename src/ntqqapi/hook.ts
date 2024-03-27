@@ -244,8 +244,8 @@ async function processGroupEvent(payload: {groupList: Group[]}) {
                     }
 
                     for (const member of oldMembers) {
-                        if (!newMembersSet.has(member.uin)) {
-                            postOB11Event(new OB11GroupDecreaseEvent(parseInt(group.groupCode), parseInt(member.uin)));
+                        if (!newMembersSet.has(member.uin) && member.uin != selfInfo.uin) {
+                            postOB11Event(new OB11GroupDecreaseEvent(parseInt(group.groupCode), parseInt(member.uin), parseInt(member.uin), "leave"));
                             break;
                         }
                     }
@@ -263,6 +263,8 @@ async function processGroupEvent(payload: {groupList: Group[]}) {
 
 // 群列表变动
 registerReceiveHook<{ groupList: Group[], updateType: number }>(ReceiveCmdS.GROUPS, (payload) => {
+    // updateType 3是群列表变动，2是群成员变动
+    log("群列表变动", payload.updateType, payload.groupList)
     if (payload.updateType != 2) {
         updateGroups(payload.groupList).then();
     } else {
@@ -272,6 +274,8 @@ registerReceiveHook<{ groupList: Group[], updateType: number }>(ReceiveCmdS.GROU
     }
 })
 registerReceiveHook<{ groupList: Group[], updateType: number }>(ReceiveCmdS.GROUPS_STORE, (payload) => {
+    // updateType 3是群列表变动，2是群成员变动
+    log("群列表变动", payload.updateType, payload.groupList)
     if (payload.updateType != 2) {
         updateGroups(payload.groupList).then();
     } else {

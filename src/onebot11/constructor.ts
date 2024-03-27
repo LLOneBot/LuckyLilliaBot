@@ -19,7 +19,8 @@ import {
     SelfInfo,
     Sex,
     TipGroupElementType,
-    User, VideoElement
+    User,
+    VideoElement
 } from '../ntqqapi/types';
 import {getFriend, getGroupMember, selfInfo, tempGroupCodeMap} from '../common/data';
 import {EventType} from "./event/OB11BaseEvent";
@@ -37,6 +38,7 @@ import {sleep} from "../common/utils/helper";
 import {getConfigUtil} from "../common/config";
 import {OB11GroupTitleEvent} from "./event/notice/OB11GroupTitleEvent";
 import {OB11GroupCardEvent} from "./event/notice/OB11GroupCardEvent";
+import {OB11GroupDecreaseEvent} from "./event/notice/OB11GroupDecreaseEvent";
 
 
 export class OB11Constructor {
@@ -281,6 +283,13 @@ export class OB11Constructor {
                         return new OB11GroupBanEvent(parseInt(msg.peerUid), parseInt(memberUin), parseInt(adminUin), duration, sub_type);
                     }
                 }
+                else if (groupElement.type == TipGroupElementType.kicked){
+                    log("收到我被踢出提示", groupElement)
+                    const adminUin = (await getGroupMember(msg.peerUid, groupElement.adminUid))?.uin || (await NTQQUserApi.getUserDetailInfo(groupElement.adminUid))?.uin
+                    if (adminUin) {
+                        return new OB11GroupDecreaseEvent(parseInt(msg.peerUid), parseInt(selfInfo.uin), parseInt(adminUin), "kick_me");
+                    }
+                }
             } else if (element.fileElement) {
                 return new OB11GroupUploadNoticeEvent(parseInt(msg.peerUid), parseInt(msg.senderUin), {
                     id: element.fileElement.fileUuid,
@@ -303,6 +312,7 @@ export class OB11Constructor {
                         while ((match = regex.exec(xmlElement.content)) !== null) {
                             matches.push(match[1]);
                         }
+                        // log("新人进群匹配到的QQ号", matches)
                         if (matches.length === 2) {
                             const [inviter, invitee] = matches;
                             return new OB11GroupIncreaseEvent(parseInt(msg.peerUid), parseInt(invitee), parseInt(inviter), "invite");
