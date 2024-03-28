@@ -45,7 +45,7 @@ let lastRKeyUpdateTime = 0;
 export class OB11Constructor {
     static async message(msg: RawMessage): Promise<OB11Message> {
         let config = getConfigUtil().getConfig();
-        const {enableLocalFile2Url, ob11: {messagePostFormat}} = getConfigUtil().getConfig()
+        const {enableLocalFile2Url, ob11: {messagePostFormat}} = config;
         const message_type = msg.chatType == ChatType.group ? "group" : "private";
         const resMsg: OB11Message = {
             self_id: parseInt(selfInfo.uin),
