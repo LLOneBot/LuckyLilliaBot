@@ -141,7 +141,11 @@ export class OB11Constructor {
                 const url = element.picElement.originImageUrl
                 const fileMd5 = element.picElement.md5HexStr
                 if (url) {
-                    message_data["data"]["url"] = IMAGE_HTTP_HOST + url
+                    if (url.startsWith("/download")) {
+                        message_data["data"]["url"] = IMAGE_HTTP_HOST + url + "&rkey=CAQSKAB6JWENi5LMk0kc62l8Pm3Jn1dsLZHyRLAnNmHGoZ3y_gDZPqZt-64"
+                    } else {
+                        message_data["data"]["url"] = IMAGE_HTTP_HOST + url
+                    }
                 } else if (fileMd5 && element.picElement.fileUuid.indexOf("_") === -1) { // fileuuid有下划线的是Linux发送的，这个url是另外的格式，目前尚未得知如何组装
                     message_data["data"]["url"] = `${IMAGE_HTTP_HOST}/gchatpic_new/0/0-0-${fileMd5.toUpperCase()}/0`
                 }
