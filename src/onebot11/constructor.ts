@@ -141,20 +141,21 @@ export class OB11Constructor {
                 // message_data["data"]["path"] = element.picElement.sourcePath
                 const url = element.picElement.originImageUrl
                 const fileMd5 = element.picElement.md5HexStr
-                let currentRKey = config.imageRKey || "CAQSKAB6JWENi5LMk0kc62l8Pm3Jn1dsLZHyRLAnNmHGoZ3y_gDZPqZt-64"
+                // let currentRKey = config.imageRKey || "CAQSKAB6JWENi5LMk0kc62l8Pm3Jn1dsLZHyRLAnNmHGoZ3y_gDZPqZt-64"
+                let currentRKey = "CAQSKAB6JWENi5LMk0kc62l8Pm3Jn1dsLZHyRLAnNmHGoZ3y_gDZPqZt-64"
                 if (url) {
                     if (url.startsWith("/download")) {
                         if (url.includes("&rkey=")) {
                             // 正则提取rkey
-                            const rkey = url.match(/&rkey=([^&]+)/)[1]
-                            // log("图片url已有rkey", rkey)
-                            if (rkey != currentRKey){
-                                config.imageRKey = rkey
-                                if (Date.now() - lastRKeyUpdateTime > 1000 * 60) {
-                                    lastRKeyUpdateTime = Date.now()
-                                    getConfigUtil().setConfig(config)
-                                }
-                            }
+                            // const rkey = url.match(/&rkey=([^&]+)/)[1]
+                            // // log("图片url已有rkey", rkey)
+                            // if (rkey != currentRKey){
+                            //     config.imageRKey = rkey
+                            //     if (Date.now() - lastRKeyUpdateTime > 1000 * 60) {
+                            //         lastRKeyUpdateTime = Date.now()
+                            //         getConfigUtil().setConfig(config)
+                            //     }
+                            // }
                             message_data["data"]["url"] = IMAGE_HTTP_HOST_NT + url
                         }
                         else{
