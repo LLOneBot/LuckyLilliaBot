@@ -13,7 +13,7 @@ export default class SetFriendAddRequest extends BaseAction<Payload, null> {
 
     protected async _handle(payload: Payload): Promise<null> {
         const approve = payload.approve.toString() === "true";
-        await NTQQFriendApi.handleFriendRequest(parseInt(payload.flag), approve)
+        await NTQQFriendApi.handleFriendRequest(payload.flag, approve)
         return null;
     }
 }

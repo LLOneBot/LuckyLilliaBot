@@ -37,10 +37,10 @@ export class NTQQFriendApi{
             }, null]
         })
     }
-    static async handleFriendRequest(sourceId: number, accept: boolean,) {
-        const request: FriendRequest = friendRequests[sourceId]
+    static async handleFriendRequest(flag: string, accept: boolean,) {
+        const request: FriendRequest = friendRequests[flag]
         if (!request) {
-            throw `sourceId ${sourceId}, 对应的好友请求不存在`
+            throw `flat: ${flag}, 对应的好友请求不存在`
         }
         const result = await callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.HANDLE_FRIEND_REQUEST,
@@ -54,7 +54,7 @@ export class NTQQFriendApi{
                 }
             ]
         })
-        delete friendRequests[sourceId];
+        delete friendRequests[flag];
         return result;
     }
 
