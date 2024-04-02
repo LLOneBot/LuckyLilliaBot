@@ -32,7 +32,7 @@ let config = {
             targets: [
                 ...external.map(genCpModule),
                 {src: './manifest.json', dest: 'dist'}, {src: './icon.jpg', dest: 'dist'},
-                {src: './src/ntqqapi/external/ccpoke/poke-win32-x64.node', dest: 'dist/main/ccpoke/'},
+                {src: './src/ntqqapi/external/crychic/crychic-win32-x64.node', dest: 'dist/main/'},
             ]
         })]
     },

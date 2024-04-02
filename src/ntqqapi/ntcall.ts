@@ -77,7 +77,9 @@ export enum NTQQApiMethod {
 
     SET_QQ_AVATAR = 'nodeIKernelProfileService/setHeader',
     GET_SKEY = "nodeIKernelTipOffService/getPskey",
-    UPDATE_SKEY = "updatePskey"
+    UPDATE_SKEY = "updatePskey",
+
+    FETCH_UNITED_COMMEND_CONFIG = "nodeIKernelUnitedConfigService/fetchUnitedCommendConfig"  // 发包需要调用的
 }
 
 enum NTQQApiChannel {
@@ -191,6 +193,17 @@ export class NTQQApi {
             methodName: cmdName,
             args: [
                 ...args,
+            ]
+        })
+    }
+
+    static async fetchUnitedCommendConfig() {
+        return await callNTQQApi<GeneralCallResult>({
+            methodName: NTQQApiMethod.FETCH_UNITED_COMMEND_CONFIG,
+            args:[
+                {
+                    groups: ['100243']
+                }
             ]
         })
     }

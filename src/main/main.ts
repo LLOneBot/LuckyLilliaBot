@@ -47,7 +47,7 @@ import {dbUtil} from "../common/db";
 import {setConfig} from "./setConfig";
 import {NTQQUserApi} from "../ntqqapi/api/user";
 import {NTQQGroupApi} from "../ntqqapi/api/group";
-import {registerPokeHandler} from "../ntqqapi/external/ccpoke";
+import {crychic} from "../ntqqapi/external/crychic";
 import {OB11FriendPokeEvent, OB11GroupPokeEvent} from "../onebot11/event/notice/OB11PokeEvent";
 import {checkNewVersion, upgradeLLOneBot} from "../common/utils/upgrade";
 import {log} from "../common/utils/log";
@@ -183,7 +183,8 @@ function onLoad() {
 
     async function startReceiveHook() {
         if (getConfigUtil().getConfig().enablePoke) {
-            registerPokeHandler((id, isGroup) => {
+            crychic.loadNode()
+            crychic.registerPokeHandler((id, isGroup) => {
                 log(`收到戳一戳消息了！是否群聊：${isGroup}，id:${id}`)
                 let pokeEvent: OB11FriendPokeEvent | OB11GroupPokeEvent;
                 if (isGroup) {

@@ -116,7 +116,8 @@ export enum OB11MessageDataType {
     markdown = "markdown",
     node = "node",  // 合并转发消息节点
     forward = "forward",  // 合并转发消息，用于上报
-    xml = "xml"
+    xml = "xml",
+    poke = "poke"
 }
 
 export interface OB11MessageMFace{
@@ -129,6 +130,14 @@ export interface OB11MessageText {
     type: OB11MessageDataType.text,
     data: {
         text: string, // 纯文本
+    }
+}
+
+export interface OB11MessagePoke{
+    type: OB11MessageDataType.poke
+    data: {
+        qq?: number,
+        id?: number
     }
 }
 
@@ -217,7 +226,7 @@ export type OB11MessageData =
     OB11MessageFace | OB11MessageMFace |
     OB11MessageAt | OB11MessageReply |
     OB11MessageImage | OB11MessageRecord | OB11MessageFile | OB11MessageVideo |
-    OB11MessageNode | OB11MessageCustomMusic | OB11MessageJson
+    OB11MessageNode | OB11MessageCustomMusic | OB11MessageJson | OB11MessagePoke
 
 export interface OB11PostSendMsg {
     message_type?: "private" | "group"

@@ -21,6 +21,10 @@ import {encodeSilk} from "../common/utils/audio";
 
 
 export class SendMsgElementConstructor {
+
+    static poke(groupCode: string, uin: string){
+        return null
+    }
     static text(content: string): SendTextElement {
         return {
             elementType: ElementType.TEXT,
