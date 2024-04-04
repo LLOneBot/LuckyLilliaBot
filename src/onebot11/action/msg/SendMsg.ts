@@ -1,20 +1,16 @@
 import {
     AtType,
     ChatType,
-    ElementType, Friend,
-    Group, PicSubType,
+    ElementType,
+    Friend,
+    Group,
+    GroupMemberRole,
+    PicSubType,
     RawMessage,
     SendArkElement,
     SendMessageElement
 } from "../../../ntqqapi/types";
-import {
-    friends,
-    getFriend,
-    getGroup,
-    getGroupMember,
-    getUidByUin,
-    selfInfo,
-} from "../../../common/data";
+import {friends, getFriend, getGroup, getGroupMember, getUidByUin, selfInfo,} from "../../../common/data";
 import {
     OB11MessageCustomMusic,
     OB11MessageData,
@@ -23,7 +19,7 @@ import {
     OB11MessageNode,
     OB11PostSendMsg
 } from '../../types';
-import {Peer} from "../../../ntqqapi/api/msg";
+import {NTQQMsgApi, Peer} from "../../../ntqqapi/api/msg";
 import {SendMsgElementConstructor} from "../../../ntqqapi/constructor";
 import BaseAction from "../BaseAction";
 import {ActionName, BaseCheckResult} from "../types";
@@ -31,7 +27,6 @@ import * as fs from "node:fs";
 import {decodeCQCode} from "../../cqcode";
 import {dbUtil} from "../../../common/db";
 import {ALLOW_SEND_TEMP_MSG} from "../../../common/config";
-import {NTQQMsgApi} from "../../../ntqqapi/api/msg";
 import {log} from "../../../common/utils/log";
 import {sleep} from "../../../common/utils/helper";
 import {uri2local} from "../../../common/utils";
@@ -117,7 +112,12 @@ export async function createSendElements(messageData: OB11MessageData[], target:
                 if (atQQ) {
                     atQQ = atQQ.toString()
                     if (atQQ === "all") {
-                        sendElements.push(SendMsgElementConstructor.at(atQQ, atQQ, AtType.atAll, "全体成员"))
+                        // todo：查询剩余的at全体次数
+                        const self = await getGroupMember((target as Group)?.groupCode, selfInfo.uin);
+                        const isAdmin = self.role === GroupMemberRole.admin || self.role === GroupMemberRole.owner;
+                        if(!isAdmin) {
+                            sendElements.push(SendMsgElementConstructor.at(atQQ, atQQ, AtType.atAll, "全体成员"))
+                        }
                     } else {
                         // const atMember = group?.members.find(m => m.uin == atQQ)
                         const atMember = await getGroupMember((target as Group)?.groupCode, atQQ);

@@ -133,8 +133,8 @@ async function onSettingWindowCreated(view: Element) {
         ]),
         SettingList([
             SettingItem(
-                '接收戳一戳消息, 暂时只支持Windows版的LLOneBot',
-                `重启QQ后生效，如果导致QQ崩溃请勿开启此项`,
+                '戳一戳消息, 暂时只支持Windows版的LLOneBot',
+                `重启QQ后生效，如果导致QQ崩溃请勿开启此项, 群戳一戳只能收到群号`,
                 SettingSwitch('enablePoke', config.enablePoke),
             ),
             SettingItem(
