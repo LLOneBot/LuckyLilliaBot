@@ -6,7 +6,7 @@ import path from "node:path";
 import {DATA_DIR, TEMP_DIR} from "./index";
 import {v4 as uuidv4} from "uuid";
 import {getConfigUtil} from "../config";
-import ffmpeg from "fluent-ffmpeg";
+import {spawn} from "node:child_process"
 
 export async function encodeSilk(filePath: string) {
     function getFileHeader(filePath: string) {
@@ -66,30 +66,26 @@ export async function encodeSilk(filePath: string) {
             const _isWav = await isWavFile(filePath);
             const pcmPath = pttPath + ".pcm"
             let sampleRate = 0
-            const convert = async () => {
-                return await new Promise<Buffer>((resolve, reject) => {
-                    const ffmpegPath = getConfigUtil().getConfig().ffmpeg;
-                    if (ffmpegPath) {
-                        ffmpeg.setFfmpegPath(ffmpegPath);
-                    }
-                    ffmpeg(filePath)
-                        .outputOptions([
-                            "-ar 24000",
-                            "-ac 1",
-                            "-f s16le"
-                        ])
-                        .on("error", function (err) {
-                            log(`ffmpeg转换出错: `, err.message);
-                            reject(err);
-                        })
-                        .on("end", () => {
+            const convert = () => {
+                return new Promise<Buffer>((resolve, reject) => {
+                    const ffmpegPath = getConfigUtil().getConfig().ffmpeg || process.env.FFMPEG_PATH || "ffmpeg"
+                    const cp = spawn(ffmpegPath, ["-y", "-i", filePath, "-ar", "24000", "-ac", "1", "-f", "s16le", pcmPath])
+                    cp.on("error", err => {
+                        log(`FFmpeg处理转换出错: `, err.message)
+                        return reject(err)
+                    })
+                    cp.on("exit", (code, signal) => {
+                        const EXIT_CODES = [0, 255]
+                        if (code == null || EXIT_CODES.includes(code)) {
                             sampleRate = 24000
                             const data = fs.readFileSync(pcmPath)
                             fs.unlink(pcmPath, (err) => {
                             })
-                            resolve(data)
-                        })
-                        .save(pcmPath);
+                            return resolve(data)
+                        }
+                        log(`FFmpeg exit: code=${code ?? "unknown"} sig=${signal ?? "unknown"}`)
+                        reject(Error(`FFmpeg处理转换失败`))
+                    })
                 })
             }
             let input: Buffer
