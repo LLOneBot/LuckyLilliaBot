@@ -6,7 +6,7 @@ import path from "node:path";
 import {DATA_DIR, TEMP_DIR} from "./index";
 import {v4 as uuidv4} from "uuid";
 import {getConfigUtil} from "../config";
-import ffmpeg from "fluent-ffmpeg";
+import {spawn} from "node:child_process"
 
 export async function encodeSilk(filePath: string) {
     function getFileHeader(filePath: string) {
@@ -64,50 +64,44 @@ export async function encodeSilk(filePath: string) {
         if (getFileHeader(filePath) !== "02232153494c4b") {
             log(`语音文件${filePath}需要转换成silk`)
             const _isWav = await isWavFile(filePath);
-            const wavPath = pttPath + ".wav"
-            const convert = async () => {
-                return await new Promise((resolve, reject) => {
-                    const ffmpegPath = getConfigUtil().getConfig().ffmpeg;
-                    if (ffmpegPath) {
-                        ffmpeg.setFfmpegPath(ffmpegPath);
-                    }
-                    ffmpeg(filePath).toFormat("wav")
-                        .audioChannels(1)
-                        .audioFrequency(24000)
-                        .on('end', function () {
-                        log('wav转换完成');
+            const pcmPath = pttPath + ".pcm"
+            let sampleRate = 0
+            const convert = () => {
+                return new Promise<Buffer>((resolve, reject) => {
+                    const ffmpegPath = getConfigUtil().getConfig().ffmpeg || process.env.FFMPEG_PATH || "ffmpeg"
+                    const cp = spawn(ffmpegPath, ["-y", "-i", filePath, "-ar", "24000", "-ac", "1", "-f", "s16le", pcmPath])
+                    cp.on("error", err => {
+                        log(`FFmpeg处理转换出错: `, err.message)
+                        return reject(err)
                     })
-                        .on('error', function (err) {
-                            log(`wav转换出错: `, err.message,);
-                            reject(err);
-                        })
-                        .save(wavPath)
-                        .on("end", () => {
-                            filePath = wavPath
-                            resolve(wavPath);
-                        });
+                    cp.on("exit", (code, signal) => {
+                        const EXIT_CODES = [0, 255]
+                        if (code == null || EXIT_CODES.includes(code)) {
+                            sampleRate = 24000
+                            const data = fs.readFileSync(pcmPath)
+                            fs.unlink(pcmPath, (err) => {
+                            })
+                            return resolve(data)
+                        }
+                        log(`FFmpeg exit: code=${code ?? "unknown"} sig=${signal ?? "unknown"}`)
+                        reject(Error(`FFmpeg处理转换失败`))
+                    })
                 })
             }
-            let wav: Buffer
+            let input: Buffer
             if (!_isWav) {
-                log(`语音文件${filePath}正在转换成wav`)
-                await convert()
+                input = await convert()
             } else {
-                wav = fs.readFileSync(filePath)
+                input = fs.readFileSync(filePath)
                 const allowSampleRate = [8000, 12000, 16000, 24000, 32000, 44100, 48000]
-                const {fmt} = getWavFileInfo(wav)
+                const {fmt} = getWavFileInfo(input)
                 // log(`wav文件信息`, fmt)
                 if (!allowSampleRate.includes(fmt.sampleRate)) {
-                    wav = undefined
-                    await convert()
+                    input = await convert()
                 }
             }
-            wav ||= fs.readFileSync(filePath);
-            const silk = await encode(wav, 0);
+            const silk = await encode(input, sampleRate);
             fs.writeFileSync(pttPath, silk.data);
-            fs.unlink(wavPath, (err) => {
-            });
-            // const gDuration = await guessDuration(pttPath)
             log(`语音文件${filePath}转换成功!`, pttPath, `时长:`, silk.duration)
             return {
                 converted: true,
@@ -127,7 +121,7 @@ export async function encodeSilk(filePath: string) {
             return {
                 converted: false,
                 path: filePath,
-                duration: duration,
+                duration,
             };
         }
     } catch (error) {
