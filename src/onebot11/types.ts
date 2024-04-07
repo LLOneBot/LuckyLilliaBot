@@ -117,7 +117,9 @@ export enum OB11MessageDataType {
     node = "node",  // 合并转发消息节点
     forward = "forward",  // 合并转发消息，用于上报
     xml = "xml",
-    poke = "poke"
+    poke = "poke",
+    dice = "dice",
+    RPS = "rps"
 }
 
 export interface OB11MessageMFace{
@@ -126,6 +128,20 @@ export interface OB11MessageMFace{
         text: string
     }
 }
+
+export interface OB11MessageDice{
+    type: OB11MessageDataType.dice,
+    data: {
+        result: number
+    }
+}
+export interface OB11MessageRPS{
+    type: OB11MessageDataType.RPS,
+    data: {
+        result: number
+    }
+}
+
 export interface OB11MessageText {
     type: OB11MessageDataType.text,
     data: {
@@ -226,7 +242,8 @@ export type OB11MessageData =
     OB11MessageFace | OB11MessageMFace |
     OB11MessageAt | OB11MessageReply |
     OB11MessageImage | OB11MessageRecord | OB11MessageFile | OB11MessageVideo |
-    OB11MessageNode | OB11MessageCustomMusic | OB11MessageJson | OB11MessagePoke
+    OB11MessageNode | OB11MessageCustomMusic | OB11MessageJson | OB11MessagePoke |
+    OB11MessageDice | OB11MessageRPS
 
 export interface OB11PostSendMsg {
     message_type?: "private" | "group"

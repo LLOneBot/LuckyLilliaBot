@@ -1,6 +1,7 @@
 import {
     AtType,
     ElementType,
+    FaceType,
     PicType,
     SendArkElement,
     SendFaceElement,
@@ -18,6 +19,7 @@ import {calculateFileMD5, isGIF} from "../common/utils/file";
 import {log} from "../common/utils/log";
 import {defaultVideoThumb, getVideoInfo} from "../common/utils/video";
 import {encodeSilk} from "../common/utils/audio";
+import {isNull} from "../common/utils";
 
 
 export class SendMsgElementConstructor {
@@ -237,7 +239,52 @@ export class SendMsgElementConstructor {
             elementId: "",
             faceElement: {
                 faceIndex: faceId,
-                faceType: 1
+                faceType: FaceType.normal
+            }
+        }
+    }
+
+    static dice(resultId: number|null): SendFaceElement{
+        // 实际测试并不能控制结果
+
+        // 随机1到6
+        if (isNull(resultId)) resultId = Math.floor(Math.random() * 6) + 1;
+        return {
+            elementType: ElementType.FACE,
+            elementId: "",
+            faceElement: {
+                faceIndex: 358,
+                faceType: FaceType.dice,
+                "faceText": "[骰子]",
+                "packId": "1",
+                "stickerId": "33",
+                "sourceType": 1,
+                "stickerType": 2,
+                resultId: resultId.toString(),
+                "surpriseId": "",
+                // "randomType": 1,
+            }
+        }
+    }
+
+    // 猜拳(石头剪刀布)表情
+    static rps(resultId: number | null): SendFaceElement{
+        // 实际测试并不能控制结果
+        if (isNull(resultId)) resultId = Math.floor(Math.random() * 3) + 1;
+        return {
+            elementType: ElementType.FACE,
+            elementId: "",
+            faceElement: {
+                "faceIndex": 359,
+                "faceText": "[包剪锤]",
+                "faceType": 3,
+                "packId": "1",
+                "stickerId": "34",
+                "sourceType": 1,
+                "stickerType": 2,
+                "resultId": resultId.toString(),
+                "surpriseId": "",
+                // "randomType": 1,
             }
         }
     }
