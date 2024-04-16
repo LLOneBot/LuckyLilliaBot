@@ -39,6 +39,7 @@ export class ConfigUtil {
             enableWs: true,
             enableWsReverse: false,
             messagePostFormat: "array",
+            enableHttpHeart: false
         }
         let defaultConfig: Config = {
             ob11: ob11Default,

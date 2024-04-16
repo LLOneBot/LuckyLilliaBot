@@ -9,6 +9,7 @@ export interface OB11Config {
   enableWs?: boolean
   enableWsReverse?: boolean
   messagePostFormat?: 'array' | 'string'
+  enableHttpHeart?: boolean
 }
 export interface CheckVersion {
   result: boolean,

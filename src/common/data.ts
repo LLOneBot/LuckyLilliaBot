@@ -58,6 +58,15 @@ export async function getGroup(qq: string): Promise<Group | undefined> {
     return group
 }
 
+export function deleteGroup(groupCode: string) {
+    const groupIndex = groups.findIndex(group => group.groupCode === groupCode.toString())
+    // log(groups, groupCode, groupIndex);
+    if (groupIndex !== -1) {
+        log("删除群", groupCode);
+        groups.splice(groupIndex, 1)
+    }
+}
+
 export async function getGroupMember(groupQQ: string | number, memberUinOrUid: string | number) {
     groupQQ = groupQQ.toString()
     memberUinOrUid = memberUinOrUid.toString()

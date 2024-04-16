@@ -74,15 +74,15 @@ export interface ReturnDataType {
 
 export function convertMessage2List(message: OB11MessageMixType, autoEscape = false) {
     if (typeof message === "string") {
-        if (!autoEscape) {
-            message = decodeCQCode(message.toString())
-        } else {
+        if (autoEscape === true) {
             message = [{
                 type: OB11MessageDataType.text,
                 data: {
                     text: message
                 }
             }]
+        } else {
+            message = decodeCQCode(message.toString())
         }
     } else if (!Array.isArray(message)) {
         message = [message]
@@ -329,7 +329,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
         } else {
             throw ("发送消息参数错误, 请指定group_id或user_id")
         }
-        const messages = convertMessage2List(payload.message, !!payload.auto_escape);
+        const messages = convertMessage2List(payload.message, payload.auto_escape);
         if (this.getSpecialMsgNum(payload, OB11MessageDataType.node)) {
             try {
                 const returnMsg = await this.handleForwardNode(peer, messages as OB11MessageNode[], group)
@@ -508,6 +508,9 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
         // nodeIds.push(nodeMsg.msgId)
         // await sleep(500);
         // 开发转发
+        if (nodeMsgIds.length === 0) {
+            throw Error("转发消息失败，节点为空")
+        }
         try {
             log("开发转发", nodeMsgIds)
             return await NTQQMsgApi.multiForwardMsg(srcPeer, destPeer, nodeMsgIds)

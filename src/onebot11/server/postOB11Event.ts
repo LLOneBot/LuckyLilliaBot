@@ -69,7 +69,7 @@ export function postWsEvent(event: PostEventType) {
     }
 }
 
-export function postOB11Event(msg: PostEventType, reportSelf = false) {
+export function postOB11Event(msg: PostEventType, reportSelf = false, postWs = true) {
     const config = getConfigUtil().getConfig();
     // 判断msg是否是event
     if (!config.reportSelfMessage && !reportSelf) {
@@ -172,5 +172,7 @@ export function postOB11Event(msg: PostEventType, reportSelf = false) {
             });
         }
     }
-    postWsEvent(msg);
+    if (postWs){
+        postWsEvent(msg);
+    }
 }

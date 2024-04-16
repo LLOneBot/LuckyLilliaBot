@@ -1,7 +1,7 @@
 import {ReceiveCmdS} from "../hook";
 import {Group, GroupMember, GroupMemberRole, GroupNotifies, GroupNotify, GroupRequestOperateTypes} from "../types";
 import {callNTQQApi, GeneralCallResult, NTQQApiClass, NTQQApiMethod} from "../ntcall";
-import {uidMaps} from "../../common/data";
+import {deleteGroup, uidMaps} from "../../common/data";
 import {dbUtil} from "../../common/db";
 import {log} from "../../common/utils/log";
 import {NTQQWindowApi, NTQQWindows} from "./window";
@@ -102,13 +102,17 @@ export class NTQQGroupApi{
         });
     }
     static async quitGroup(groupQQ: string) {
-        await callNTQQApi<GeneralCallResult>({
+        const result = await callNTQQApi<GeneralCallResult>({
             methodName: NTQQApiMethod.QUIT_GROUP,
             args: [
                 {"groupCode": groupQQ},
                 null
             ]
         })
+        if (result.result === 0){
+            deleteGroup(groupQQ);
+        }
+        return result;
     }
     static async kickMember(groupQQ: string, kickUids: string[], refuseForever: boolean = false, kickReason: string = '') {
         return await callNTQQApi<GeneralCallResult>(

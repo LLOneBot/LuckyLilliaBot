@@ -1,5 +1,5 @@
 import {Config} from "../common/types";
-import {ob11HTTPServer} from "../onebot11/server/http";
+import {httpHeart, ob11HTTPServer} from "../onebot11/server/http";
 import {ob11WebsocketServer} from "../onebot11/server/ws/WebsocketServer";
 import {ob11ReverseWebsockets} from "../onebot11/server/ws/ReverseWebsocket";
 import {llonebotError} from "../common/data";
@@ -53,6 +53,14 @@ export async function setConfig(config: Config) {
                 }
             }
         }
+    }
+    if (config.ob11.enableHttpHeart){
+        // 启动http心跳
+        httpHeart.start();
+    }
+    else{
+        // 关闭http心跳
+        httpHeart.stop();
     }
     log("old config", oldConfig)
     log("配置已更新", config)

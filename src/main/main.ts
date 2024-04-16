@@ -34,7 +34,7 @@ import {
     GroupNotifyTypes,
     RawMessage
 } from "../ntqqapi/types";
-import {ob11HTTPServer} from "../onebot11/server/http";
+import {httpHeart, ob11HTTPServer} from "../onebot11/server/http";
 import {OB11FriendRecallNoticeEvent} from "../onebot11/event/notice/OB11FriendRecallNoticeEvent";
 import {OB11GroupRecallNoticeEvent} from "../onebot11/event/notice/OB11GroupRecallNoticeEvent";
 import {postOB11Event} from "../onebot11/server/postOB11Event";
@@ -148,7 +148,10 @@ function onLoad() {
     async function postReceiveMsg(msgList: RawMessage[]) {
         const {debug, reportSelfMessage} = getConfigUtil().getConfig();
         for (let message of msgList) {
-
+            // 过滤启动之前的消息
+            if (parseInt(message.msgTime) < startTime / 1000) {
+                continue;
+            }
             // log("收到新消息", message.msgId, message.msgSeq)
             // if (message.senderUin !== selfInfo.uin){
             message.msgShortId = await dbUtil.addMsg(message);
@@ -379,7 +382,7 @@ function onLoad() {
         })
     }
 
-    let startTime = 0;
+    let startTime = 0;  // 毫秒
 
     async function start() {
         log("llonebot pid", process.pid)
@@ -401,6 +404,9 @@ function onLoad() {
         }
         if (config.ob11.enableWsReverse) {
             ob11ReverseWebsockets.start();
+        }
+        if (config.ob11.enableHttpHeart){
+            httpHeart.start();
         }
 
         log("LLOneBot start")

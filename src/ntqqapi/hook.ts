@@ -2,7 +2,16 @@ import {BrowserWindow} from 'electron';
 import {NTQQApiClass, NTQQApiMethod} from "./ntcall";
 import {NTQQMsgApi, sendMessagePool} from "./api/msg"
 import {ChatType, Group, GroupMember, GroupMemberRole, RawMessage, User} from "./types";
-import {friends, getFriend, getGroupMember, groups, selfInfo, tempGroupCodeMap, uidMaps} from "../common/data";
+import {
+  deleteGroup,
+  friends,
+  getFriend,
+  getGroupMember,
+  groups,
+  selfInfo,
+  tempGroupCodeMap,
+  uidMaps
+} from "../common/data";
 import {OB11GroupDecreaseEvent} from "../onebot11/event/notice/OB11GroupDecreaseEvent";
 import {v4 as uuidv4} from "uuid"
 import {postOB11Event} from "../onebot11/server/postOB11Event";
@@ -233,6 +242,11 @@ let activatedGroups: string[] = [];
 
 async function updateGroups(_groups: Group[], needUpdate: boolean = true) {
   for (let group of _groups) {
+    log("update group", group);
+    if (group.privilegeFlag === 0){
+      deleteGroup(group.groupCode);
+      continue;
+    }
     log("update group", group)
     // if (!activatedGroups.includes(group.groupCode)) {
     NTQQMsgApi.activateChat({peerUid: group.groupCode, chatType: ChatType.group}).then((r) => {
@@ -294,7 +308,9 @@ async function processGroupEvent(payload: { groupList: Group[] }) {
             }
           }
         }
-
+        if (group.privilegeFlag === 0){
+          deleteGroup(group.groupCode);
+        }
       }
     }
 

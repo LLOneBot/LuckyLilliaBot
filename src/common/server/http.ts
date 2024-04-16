@@ -95,6 +95,9 @@ export abstract class HttpServerBase {
             if (method == "get") {
                 payload = req.query
             }
+            else if (req.query){
+                payload = {...req.query, ...req.body}
+            }
             log("收到http请求", url, payload);
             try {
                 res.send(await handler(res, payload))
