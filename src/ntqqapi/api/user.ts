@@ -1,9 +1,9 @@
 import {callNTQQApi, GeneralCallResult, NTQQApiClass, NTQQApiMethod} from "../ntcall";
-import {SelfInfo, User} from "../types";
+import {Group, SelfInfo, User} from "../types";
 import {ReceiveCmdS} from "../hook";
-import {uidMaps} from "../../common/data";
+import {selfInfo, uidMaps} from "../../common/data";
 import {NTQQWindowApi, NTQQWindows} from "./window";
-import {isQQ998, sleep} from "../../common/utils";
+import {isQQ998, log, sleep} from "../../common/utils";
 
 let userInfoCache: Record<string, User> = {};  // uid: User
 
@@ -68,7 +68,8 @@ export class NTQQUserApi{
         return userInfo
     }
 
-    static async getPSkey() {
+    // return 'p_uin=o0xxx; p_skey=orXDssiGF8axxxxxxxxxxxxxx_; skey='
+    static async getCookieWithoutSkey() {
         return await callNTQQApi<string>({
             className: NTQQApiClass.GROUP_HOME_WORK,
             methodName: NTQQApiMethod.UPDATE_SKEY,
@@ -114,4 +115,34 @@ export class NTQQUserApi{
         // })
     }
 
+    static async getCookie(group: Group){
+        let cookies = await this.getCookieWithoutSkey();
+        let skey = ""
+        for (let i = 0; i < 2; i++) {
+            skey = (await this.getSkey(group.groupName, group.groupCode)).data;
+            skey = skey.trim();
+            if (skey) {
+                break;
+            }
+            await sleep(1000);
+        }
+        if (!skey) {
+            throw new Error("获取skey失败");
+        }
+        const bkn = NTQQUserApi.genBkn(skey);
+        cookies = cookies.replace("skey=;", `skey=${skey};`);
+        return {cookies, bkn};
+    }
+
+    static genBkn(sKey: string){
+        sKey = sKey || "";
+        let hash = 5381;
+
+        for (let i = 0; i < sKey.length; i++) {
+            const code = sKey.charCodeAt(i);
+            hash = hash + (hash << 5) + code;
+        }
+
+        return (hash & 0x7FFFFFFF).toString();
+    }
 }

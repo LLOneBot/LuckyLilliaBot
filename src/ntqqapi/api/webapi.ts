@@ -29,22 +29,14 @@ export class WebApi{
     }
 
     private genBkn(sKey: string){
-        sKey = sKey || "";
-        let hash = 5381;
-
-        for (let i = 0; i < sKey.length; i++) {
-            const code = sKey.charCodeAt(i);
-            hash = hash + (hash << 5) + code;
-        }
-
-        return (hash & 0x7FFFFFFF).toString();
+        return NTQQUserApi.genBkn(sKey);
     }
     private async init(){
         if (!WebApi.bkn) {
             const group = groups[0];
             WebApi.skey = (await NTQQUserApi.getSkey(group.groupName, group.groupCode)).data;
             WebApi.bkn = this.genBkn(WebApi.skey);
-            let cookie = await NTQQUserApi.getPSkey();
+            let cookie = await NTQQUserApi.getCookieWithoutSkey();
             const pskeyRegex = /p_skey=([^;]+)/;
             const match = cookie.match(pskeyRegex);
             const pskeyValue = match ? match[1] : null;
