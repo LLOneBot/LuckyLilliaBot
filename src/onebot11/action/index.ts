@@ -14,7 +14,11 @@ import GetVersionInfo from "./system/GetVersionInfo";
 import CanSendRecord from "./system/CanSendRecord";
 import CanSendImage from "./system/CanSendImage";
 import GetStatus from "./system/GetStatus";
-import {GoCQHTTPSendForwardMsg, GoCQHTTPSendGroupForwardMsg, GoCQHTTPSendPrivateForwardMsg} from "./go-cqhttp/SendForwardMsg";
+import {
+  GoCQHTTPSendForwardMsg,
+  GoCQHTTPSendGroupForwardMsg,
+  GoCQHTTPSendPrivateForwardMsg
+} from "./go-cqhttp/SendForwardMsg";
 import GoCQHTTPGetStrangerInfo from "./go-cqhttp/GetStrangerInfo";
 import SendLike from "./user/SendLike";
 import SetGroupAddRequest from "./group/SetGroupAddRequest";
@@ -32,7 +36,7 @@ import GetImage from "./file/GetImage";
 import GetRecord from "./file/GetRecord";
 import GoCQHTTPMarkMsgAsRead from "./msg/MarkMsgAsRead";
 import CleanCache from "./system/CleanCache";
-import GoCQHTTPUploadGroupFile from "./go-cqhttp/UploadGroupFile";
+import {GoCQHTTPUploadGroupFile, GoCQHTTPUploadPrivateFile} from "./go-cqhttp/UploadGroupFile";
 import {GetConfigAction, SetConfigAction} from "./llonebot/Config";
 import GetGroupAddRequest from "./llonebot/GetGroupAddRequest";
 import SetQQAvatar from './llonebot/SetQQAvatar'
@@ -41,62 +45,67 @@ import GoCQHTTPGetGroupMsgHistory from "./go-cqhttp/GetGroupMsgHistory";
 import GetFile from "./file/GetFile";
 import {GoCQHTTGetForwardMsgAction} from "./go-cqhttp/GetForwardMsg";
 import {GetCookies} from "./user/GetCookie";
+import {SetMsgEmojiLike} from "./msg/SetMsgEmojiLike";
+import {ForwardFriendSingleMsg, ForwardSingleGroupMsg} from "./msg/ForwardSingleMsg";
 
 export const actionHandlers = [
-    new GetFile(),
-    new Debug(),
-    new GetConfigAction(),
-    new SetConfigAction(),
-    new GetGroupAddRequest(),
-    new SetQQAvatar(),
-    // onebot11
-    new SendLike(),
-    new GetMsg(),
-    new GetLoginInfo(),
-    new GetFriendList(),
-    new GetGroupList(), new GetGroupInfo(), new GetGroupMemberList(), new GetGroupMemberInfo(),
-    new SendGroupMsg(), new SendPrivateMsg(), new SendMsg(),
-    new DeleteMsg(),
-    new SetGroupAddRequest(),
-    new SetFriendAddRequest(),
-    new SetGroupLeave(),
-    new GetVersionInfo(),
-    new CanSendRecord(),
-    new CanSendImage(),
-    new GetStatus(),
-    new SetGroupWholeBan(),
-    new SetGroupBan(),
-    new SetGroupKick(),
-    new SetGroupAdmin(),
-    new SetGroupName(),
-    new SetGroupCard(),
-    new GetImage(),
-    new GetRecord(),
-    new CleanCache(),
-    new GetCookies(),
-    //以下为go-cqhttp api
-    new GoCQHTTPSendForwardMsg(),
-    new GoCQHTTPSendGroupForwardMsg(),
-    new GoCQHTTPSendPrivateForwardMsg(),
-    new GoCQHTTPGetStrangerInfo(),
-    new GoCQHTTPDownloadFile(),
-    new GetGuildList(),
-    new GoCQHTTPMarkMsgAsRead(),
-    new GoCQHTTPUploadGroupFile(),
-    new GoCQHTTPGetGroupMsgHistory(),
-    new GoCQHTTGetForwardMsgAction(),
-
+  new GetFile(),
+  new Debug(),
+  new GetConfigAction(),
+  new SetConfigAction(),
+  new GetGroupAddRequest(),
+  new SetQQAvatar(),
+  // onebot11
+  new SendLike(),
+  new GetMsg(),
+  new GetLoginInfo(),
+  new GetFriendList(),
+  new GetGroupList(), new GetGroupInfo(), new GetGroupMemberList(), new GetGroupMemberInfo(),
+  new SendGroupMsg(), new SendPrivateMsg(), new SendMsg(),
+  new DeleteMsg(),
+  new SetGroupAddRequest(),
+  new SetFriendAddRequest(),
+  new SetGroupLeave(),
+  new GetVersionInfo(),
+  new CanSendRecord(),
+  new CanSendImage(),
+  new GetStatus(),
+  new SetGroupWholeBan(),
+  new SetGroupBan(),
+  new SetGroupKick(),
+  new SetGroupAdmin(),
+  new SetGroupName(),
+  new SetGroupCard(),
+  new GetImage(),
+  new GetRecord(),
+  new CleanCache(),
+  new GetCookies(),
+  new SetMsgEmojiLike(),
+  new ForwardFriendSingleMsg(),
+  new ForwardSingleGroupMsg(),
+  //以下为go-cqhttp api
+  new GoCQHTTPSendForwardMsg(),
+  new GoCQHTTPSendGroupForwardMsg(),
+  new GoCQHTTPSendPrivateForwardMsg(),
+  new GoCQHTTPGetStrangerInfo(),
+  new GoCQHTTPDownloadFile(),
+  new GetGuildList(),
+  new GoCQHTTPMarkMsgAsRead(),
+  new GoCQHTTPUploadGroupFile(),
+  new GoCQHTTPUploadPrivateFile(),
+  new GoCQHTTPGetGroupMsgHistory(),
+  new GoCQHTTGetForwardMsgAction(),
 ]
 
 function initActionMap() {
-    const actionMap = new Map<string, BaseAction<any, any>>();
-    for (const action of actionHandlers) {
-        actionMap.set(action.actionName, action);
-        actionMap.set(action.actionName + '_async', action);
-        actionMap.set(action.actionName + '_rate_limited', action);
-    }
+  const actionMap = new Map<string, BaseAction<any, any>>();
+  for (const action of actionHandlers) {
+    actionMap.set(action.actionName, action);
+    actionMap.set(action.actionName + '_async', action);
+    actionMap.set(action.actionName + '_rate_limited', action);
+  }
 
-    return actionMap
+  return actionMap
 }
 
 export const actionMap = initActionMap();
