@@ -1,8 +1,9 @@
-import express, {Express, Request, Response} from "express";
+import express, { Express, Request, Response } from "express";
 import http from "http";
-import {log} from "../utils/log";
-import {getConfigUtil} from "../config";
-import {llonebotError} from "../data";
+import cors from 'cors';
+import { log } from "../utils/log";
+import { getConfigUtil } from "../config";
+import { llonebotError } from "../data";
 
 type RegisterHandler = (res: Response, payload: any) => Promise<any>
 
@@ -13,12 +14,14 @@ export abstract class HttpServerBase {
 
     constructor() {
         this.expressAPP = express();
-        this.expressAPP.use(express.urlencoded({extended: true, limit: "5000mb"}));
+        // 添加 CORS 中间件
+        this.expressAPP.use(cors());
+        this.expressAPP.use(express.urlencoded({ extended: true, limit: "5000mb" }));
         this.expressAPP.use((req, res, next) => {
             // 兼容处理没有带content-type的请求
             // log("req.headers['content-type']", req.headers['content-type'])
             req.headers['content-type'] = 'application/json';
-            const originalJson = express.json({limit: "5000mb"});
+            const originalJson = express.json({ limit: "5000mb" });
             // 调用原始的express.json()处理器
             originalJson(req, res, (err) => {
                 if (err) {
@@ -47,7 +50,7 @@ export abstract class HttpServerBase {
         }
 
         if (serverToken && clientToken != serverToken) {
-            return res.status(403).send(JSON.stringify({message: 'token verify failed!'}));
+            return res.status(403).send(JSON.stringify({ message: 'token verify failed!' }));
         }
         next();
     };
@@ -95,8 +98,8 @@ export abstract class HttpServerBase {
             if (method == "get") {
                 payload = req.query
             }
-            else if (req.query){
-                payload = {...req.query, ...req.body}
+            else if (req.query) {
+                payload = { ...req.query, ...req.body }
             }
             log("收到http请求", url, payload);
             try {

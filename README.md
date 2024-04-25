@@ -2,6 +2,9 @@
 # LLOneBot API
 LiteLoaderQQNT插件，使你的NTQQ支持OneBot11协议进行QQ机器人开发
 
+> [!CAUTION]\
+> **请不要在 QQ 官方群聊和任何影响力较大的简中互联网平台（包括但不限于:B站，微博，知乎，抖音等）发布和讨论*任何*与本插件存在相关性的信息**
+
 TG群：<https://t.me/+nLZEnpne-pQ1OWFl>
 
 ## 安装方法
