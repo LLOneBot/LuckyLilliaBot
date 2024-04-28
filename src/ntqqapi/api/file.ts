@@ -17,6 +17,9 @@ import http from "http";
 import {sleep} from "../../common/utils";
 import {hookApi} from "../external/moehook/hook";
 
+let privateImageRKey = '';
+let groupImageRKey = '';
+
 export class NTQQFileApi {
   static async getFileType(filePath: string) {
     return await callNTQQApi<{ ext: string }>({
@@ -156,14 +159,34 @@ export class NTQQFileApi {
             log('hookApi is not available');
             return '';
           }
-          let rkey = hookApi.getRKey();
+          let isPrivateImage = false;
+          if (url.indexOf('appid=1406') !== -1) {
+            // 私聊图片
+            isPrivateImage = true;
+          }
+          let rkey = '';
+          if (isPrivateImage) {
+            rkey = privateImageRKey;
+          }
+          else {
+            rkey = groupImageRKey;
+          }
+          rkey = rkey || hookApi.getRKey();
+          const saveRKey = ()=>{
+            if (isPrivateImage){
+              privateImageRKey = rkey;
+            }else {
+              groupImageRKey = rkey;
+            }
+          };
           const refreshRKey = async () => {
             log('正在获取图片rkey...');
             NTQQFileApi.downloadMedia(msg.msgId, msg.chatType, msg.peerUid, msgElement.elementId, '', msgElement.picElement.sourcePath, true).then().catch(() => {
             });
             await sleep(300);
-            rkey = hookApi.getRKey();
-            if (rkey) {
+            const _rkey = hookApi.getRKey();
+            if (_rkey) {
+              rkey = _rkey;
               log('图片rkey获取成功', rkey);
             }
           };
@@ -216,10 +239,12 @@ export class NTQQFileApi {
             const start = Date.now();
             await checkUrl;
             const end = Date.now();
-            console.log('Check rkey request time:', end - start);
+            log('Check rkey request time:', end - start);
+            saveRKey();
           } catch (e) {
             try {
               await refreshRKey();
+              saveRKey();
               imageUrl = IMAGE_HTTP_HOST_NT + url + `${rkey}`;
             } catch (e) {
               log('获取rkey失败', e);
