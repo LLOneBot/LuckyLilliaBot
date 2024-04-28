@@ -216,6 +216,9 @@ export class SendMsgElementConstructor {
 
   static async ptt(pttPath: string): Promise<SendPttElement> {
     const {converted, path: silkPath, duration} = await encodeSilk(pttPath);
+    if (!silkPath){
+      throw '语音转换失败, 请检查语音文件是否正常';
+    }
     // log("生成语音", silkPath, duration);
     const {md5, fileName, path, fileSize} = await NTQQFileApi.uploadFile(silkPath, ElementType.PTT);
     if (fileSize === 0) {
