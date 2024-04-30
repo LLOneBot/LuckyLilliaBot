@@ -34,7 +34,7 @@ import { sleep } from '../../../common/utils/helper'
 import { uri2local } from '../../../common/utils'
 import { crychic } from '../../../ntqqapi/external/crychic'
 import { NTQQGroupApi } from '../../../ntqqapi/api'
-import { CustomMusicSignPostData, MusicSign, MusicSignPostData } from '../../../common/utils/sign'
+import { CustomMusicSignPostData, IdMusicSignPostData, MusicSign, MusicSignPostData } from '../../../common/utils/sign'
 
 function checkSendMessage(sendMsgList: OB11MessageData[]) {
   function checkUri(uri: string): boolean {
@@ -402,8 +402,27 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
         }
         const postData: MusicSignPostData = { ...music.data }
         if (type === 'custom' && music.data.content) {
+
           ;(postData as CustomMusicSignPostData).singer = music.data.content
           delete (postData as OB11MessageCustomMusic['data']).content
+        }
+        if (type === 'custom'){
+          const customMusicData = music.data as CustomMusicSignPostData
+          if (!customMusicData.url){
+            throw ('自定义音卡缺少参数url');
+          }
+          if (!customMusicData.audio){
+            throw('自定义音卡缺少参数audio');
+          }
+          if (!customMusicData.title){
+            throw('自定义音卡缺少参数title');
+          }
+        }
+        if (type === 'qq' || type === '163') {
+          const idMusicData = music.data as IdMusicSignPostData;
+          if (!idMusicData.id) {
+            throw '音乐卡片缺少id参数'
+          }
         }
         let jsonContent: string
         try {
