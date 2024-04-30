@@ -1,10 +1,10 @@
-import {ActionName} from "../types";
-import CanSendRecord from "./CanSendRecord";
+import { ActionName } from '../types'
+import CanSendRecord from './CanSendRecord'
 
 interface ReturnType {
-    yes: boolean
+  yes: boolean
 }
 
 export default class CanSendImage extends CanSendRecord {
-    actionName = ActionName.CanSendImage
+  actionName = ActionName.CanSendImage
 }

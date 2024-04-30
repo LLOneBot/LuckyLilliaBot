@@ -42,8 +42,8 @@ setting-item .q-input .q-input__inner {
   padding: 0px 8px;
 }
 
-setting-item .q-input input[type=number].q-input__inner::-webkit-outer-spin-button,
-setting-item .q-input input[type=number].q-input__inner::-webkit-inner-spin-button {
+setting-item .q-input input[type='number'].q-input__inner::-webkit-outer-spin-button,
+setting-item .q-input input[type='number'].q-input__inner::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }

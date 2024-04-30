@@ -1,5 +1,5 @@
-
 # LLOneBot API
+
 LiteLoaderQQNT插件，使你的NTQQ支持OneBot11协议进行QQ机器人开发
 
 > [!CAUTION]\
@@ -23,11 +23,11 @@ TG群：<https://t.me/+nLZEnpne-pQ1OWFl>
 
 见 <https://llonebot.github.io/zh-CN/develop/api>
 
-
 ## TODO
+
 - [x] 重构摆脱LLAPI，目前调用LLAPI只能在renderer进程调用，需重构成在main进程调用
 - [x] 支持正、反向websocket（感谢@disymayufei的PR）
-- [x] 转发消息记录 
+- [x] 转发消息记录
 - [x] 好友点赞api
 - [x] 群管理功能，禁言、踢人，改群名片等
 - [x] 视频消息
@@ -39,18 +39,21 @@ TG群：<https://t.me/+nLZEnpne-pQ1OWFl>
 - [ ] 框架对接文档
 
 ## onebot11文档
+
 <https://11.onebot.dev/>
 
 ## Stargazers over time
+
 [![Stargazers over time](https://starchart.cc/LLOneBot/LLOneBot.svg?variant=adaptive)](https://starchart.cc/LLOneBot/LLOneBot)
 
-
 ## 鸣谢
-* [LiteLoaderQQNT](https://liteloaderqqnt.github.io/guide/install.html)
-* [LLAPI](https://github.com/Night-stars-1/LiteLoaderQQNT-Plugin-LLAPI)
-* [chronocat](https://github.com/chrononeko/chronocat/)
-* [koishi-plugin-adapter-onebot](https://github.com/koishijs/koishi-plugin-adapter-onebot)
-* [silk-wasm](https://github.com/idranme/silk-wasm)
+
+- [LiteLoaderQQNT](https://liteloaderqqnt.github.io/guide/install.html)
+- [LLAPI](https://github.com/Night-stars-1/LiteLoaderQQNT-Plugin-LLAPI)
+- [chronocat](https://github.com/chrononeko/chronocat/)
+- [koishi-plugin-adapter-onebot](https://github.com/koishijs/koishi-plugin-adapter-onebot)
+- [silk-wasm](https://github.com/idranme/silk-wasm)
 
 ## 友链
-* [Lagrange.Core](https://github.com/LagrangeDev/Lagrange.Core) 一款用C#实现的NTQQ纯协议跨平台QQ机器人框架
+
+- [Lagrange.Core](https://github.com/LagrangeDev/Lagrange.Core) 一款用C#实现的NTQQ纯协议跨平台QQ机器人框架

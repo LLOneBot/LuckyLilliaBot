@@ -20,11 +20,7 @@
       "name": "LLOneBot.zip"
     }
   },
-  "platform": [
-    "win32",
-    "linux",
-    "darwin"
-  ],
+  "platform": ["win32", "linux", "darwin"],
   "injects": {
     "renderer": "./renderer/index.js",
     "main": "./main/main.cjs",

@@ -7,15 +7,9 @@
     "esModuleInterop": true,
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
-    "moduleResolution": "node",
+    "moduleResolution": "node"
     //    "sourceMap": true
   },
-  "include": [
-    "src/*",
-    "src/**/*",
-    "scripts/*"
-  ],
-  "exclude": [
-    "node_modules",
-  ]
+  "include": ["src/*", "src/**/*", "scripts/*"],
+  "exclude": ["node_modules"]
 }
