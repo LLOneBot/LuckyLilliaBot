@@ -28,6 +28,7 @@ export interface Config {
   autoDeleteFileSecond?: number
   ffmpeg?: string // ffmpeg路径
   enablePoke?: boolean
+  musicSignUrl?: string
 }
 
 export interface LLOneBotError {

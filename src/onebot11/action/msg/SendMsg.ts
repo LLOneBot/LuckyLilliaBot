@@ -15,7 +15,9 @@ import {
   OB11MessageCustomMusic,
   OB11MessageData,
   OB11MessageDataType,
+  OB11MessageJson,
   OB11MessageMixType,
+  OB11MessageMusic,
   OB11MessageNode,
   OB11PostSendMsg,
 } from '../../types'
@@ -26,12 +28,13 @@ import { ActionName, BaseCheckResult } from '../types'
 import * as fs from 'node:fs'
 import { decodeCQCode } from '../../cqcode'
 import { dbUtil } from '../../../common/db'
-import { ALLOW_SEND_TEMP_MSG } from '../../../common/config'
+import { ALLOW_SEND_TEMP_MSG, getConfigUtil } from '../../../common/config'
 import { log } from '../../../common/utils/log'
 import { sleep } from '../../../common/utils/helper'
 import { uri2local } from '../../../common/utils'
 import { crychic } from '../../../ntqqapi/external/crychic'
 import { NTQQGroupApi } from '../../../ntqqapi/api'
+import { CustomMusicSignPostData, MusicSign, MusicSignPostData } from '../../../common/utils/sign'
 
 function checkSendMessage(sendMsgList: OB11MessageData[]) {
   function checkUri(uri: string): boolean {
@@ -306,6 +309,13 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
         message: '转发消息不能和普通消息混在一起发送,转发需要保证message只有type为node的元素',
       }
     }
+    const musicNum = this.getSpecialMsgNum(payload, OB11MessageDataType.music)
+    if (musicNum && messages.length > 1) {
+      return {
+        valid: false,
+        message: '音乐消息不可以和其他消息混在一起发送',
+      }
+    }
     if (payload.message_type !== 'private' && payload.group_id && !(await getGroup(payload.group_id))) {
       return {
         valid: false,
@@ -378,19 +388,32 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
       } catch (e) {
         throw '发送转发消息失败 ' + e.toString()
       }
-    } else {
-      if (this.getSpecialMsgNum(payload, OB11MessageDataType.music)) {
-        const music: OB11MessageCustomMusic = messages[0] as OB11MessageCustomMusic
-        if (music) {
-          const { url, audio, title, content, image } = music.data
-          const selfPeer: Peer = { peerUid: selfInfo.uid, chatType: ChatType.friend }
-          // 搞不定！
-          // const musicMsg = await this.send(selfPeer, [this.genMusicElement(url, audio, title, content, image)], [], false)
-          // 转发
-          // const res = await NTQQApi.forwardMsg(selfPeer, peer, [musicMsg.msgId])
-          // log("转发音乐消息成功", res);
-          // return {message_id: musicMsg.msgShortId}
+    } else if (this.getSpecialMsgNum(payload, OB11MessageDataType.music)) {
+      const music = messages[0] as OB11MessageMusic
+      if (music) {
+        const { musicSignUrl } = getConfigUtil().getConfig()
+        if (!musicSignUrl) {
+          throw '音乐签名地址未配置'
         }
+        const { type } = music.data
+        if (!['qq', '163', 'custom'].includes(type)) {
+          throw `不支持的音乐类型 ${type}`
+        }
+        const postData: MusicSignPostData = { ...music.data }
+        if (type === 'custom' && music.data.content) {
+          ;(postData as CustomMusicSignPostData).singer = music.data.content
+          delete (postData as OB11MessageCustomMusic['data']).content
+        }
+        let jsonContent: string
+        try {
+          jsonContent = await new MusicSign(musicSignUrl).sign(postData)
+        } catch (e) {
+          throw `签名音乐消息失败：${e}`
+        }
+        messages[0] = {
+          type: OB11MessageDataType.json,
+          data: { data: jsonContent },
+        } as OB11MessageJson
       }
     }
     // log("send msg:", peer, sendElements)
@@ -559,41 +582,41 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
     }
   }
 
-  private genMusicElement(url: string, audio: string, title: string, content: string, image: string): SendArkElement {
-    const musicJson = {
-      app: 'com.tencent.structmsg',
-      config: {
-        ctime: 1709689928,
-        forward: 1,
-        token: '5c1e4905f926dd3a64a4bd3841460351',
-        type: 'normal',
-      },
-      extra: { app_type: 1, appid: 100497308, uin: selfInfo.uin },
-      meta: {
-        news: {
-          action: '',
-          android_pkg_name: '',
-          app_type: 1,
-          appid: 100497308,
-          ctime: 1709689928,
-          desc: content || title,
-          jumpUrl: url,
-          musicUrl: audio,
-          preview: image,
-          source_icon: 'https://p.qpic.cn/qqconnect/0/app_100497308_1626060999/100?max-age=2592000&t=0',
-          source_url: '',
-          tag: 'QQ音乐',
-          title: title,
-          uin: selfInfo.uin,
-        },
-      },
-      prompt: content || title,
-      ver: '0.0.0.1',
-      view: 'news',
-    }
+  // private genMusicElement(url: string, audio: string, title: string, content: string, image: string): SendArkElement {
+  //   const musicJson = {
+  //     app: 'com.tencent.structmsg',
+  //     config: {
+  //       ctime: 1709689928,
+  //       forward: 1,
+  //       token: '5c1e4905f926dd3a64a4bd3841460351',
+  //       type: 'normal',
+  //     },
+  //     extra: { app_type: 1, appid: 100497308, uin: selfInfo.uin },
+  //     meta: {
+  //       news: {
+  //         action: '',
+  //         android_pkg_name: '',
+  //         app_type: 1,
+  //         appid: 100497308,
+  //         ctime: 1709689928,
+  //         desc: content || title,
+  //         jumpUrl: url,
+  //         musicUrl: audio,
+  //         preview: image,
+  //         source_icon: 'https://p.qpic.cn/qqconnect/0/app_100497308_1626060999/100?max-age=2592000&t=0',
+  //         source_url: '',
+  //         tag: 'QQ音乐',
+  //         title: title,
+  //         uin: selfInfo.uin,
+  //       },
+  //     },
+  //     prompt: content || title,
+  //     ver: '0.0.0.1',
+  //     view: 'news',
+  //   }
 
-    return SendMsgElementConstructor.ark(musicJson)
-  }
+  //   return SendMsgElementConstructor.ark(musicJson)
+  // }
 }
 
 export default SendMsg

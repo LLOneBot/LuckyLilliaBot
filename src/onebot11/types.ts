@@ -1,5 +1,6 @@
 import { PicSubType, RawMessage } from '../ntqqapi/types'
 import { EventType } from './event/OB11BaseEvent'
+import { IdMusicSignPostData, CustomMusicSignPostData } from '../common/utils/sign'
 
 export interface OB11User {
   user_id: number
@@ -221,21 +222,21 @@ export interface OB11MessageNode {
   }
 }
 
+export interface OB11MessageIdMusic {
+  type: OB11MessageDataType.music
+  data: IdMusicSignPostData
+}
+
 export interface OB11MessageCustomMusic {
   type: OB11MessageDataType.music
-  data: {
-    type: 'custom'
-    url: string
-    audio: string
-    title: string
-    content?: string
-    image?: string
-  }
+  data: Omit<CustomMusicSignPostData, 'singer'> & { content?: string }
 }
+
+export type OB11MessageMusic = OB11MessageIdMusic | OB11MessageCustomMusic
 
 export interface OB11MessageJson {
   type: OB11MessageDataType.json
-  data: { config: { token: string } } & any
+  data: { data: string /* , config: { token: string } */ }
 }
 
 export type OB11MessageData =
@@ -249,6 +250,7 @@ export type OB11MessageData =
   | OB11MessageFile
   | OB11MessageVideo
   | OB11MessageNode
+  | OB11MessageIdMusic
   | OB11MessageCustomMusic
   | OB11MessageJson
   | OB11MessagePoke

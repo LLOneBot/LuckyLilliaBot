@@ -95,7 +95,9 @@ async function onSettingWindowCreated(view: Element) {
                         <setting-text>HTTP 事件上报密钥</setting-text>
                     </div>
                     <div class="q-input">
-                        <input id="config-ob11-httpSecret" class="q-input__inner" data-config-key="ob11.httpSecret" type="text" value="${config.ob11.httpSecret}" placeholder="未设置" />
+                        <input id="config-ob11-httpSecret" class="q-input__inner" data-config-key="ob11.httpSecret" type="text" value="${
+                          config.ob11.httpSecret
+                        }" placeholder="未设置" />
                     </div>
                 </setting-item>
                 <setting-item data-direction="row">
@@ -158,8 +160,16 @@ async function onSettingWindowCreated(view: Element) {
         ),
         SettingItem(
           'ffmpeg 路径，发送语音、视频需要，同时保证ffprobe和ffmpeg在一起',
-          ` <a href="javascript:LiteLoader.api.openExternal(\'https://llonebot.github.io/zh-CN/guide/ffmpeg\');">下载地址</a> <span id="config-ffmpeg-path-text">, 路径:${!isEmpty(config.ffmpeg) ? config.ffmpeg : '未指定'}</span>`,
+          ` <a href="javascript:LiteLoader.api.openExternal(\'https://llonebot.github.io/zh-CN/guide/ffmpeg\');">下载地址</a> <span id="config-ffmpeg-path-text">, 路径:${
+            !isEmpty(config.ffmpeg) ? config.ffmpeg : '未指定'
+          }</span>`,
           SettingButton('选择ffmpeg', 'config-ffmpeg-select'),
+        ),
+        SettingItem(
+          '音乐卡片签名地址',
+          null,
+          `<div class="q-input" style="width:210px;"><input class="q-input__inner" data-config-key="musicSignUrl" type="text" value="${config.musicSignUrl}" placeholder="未设置" /></div>`,
+          'config-musicSignUrl',
         ),
         SettingItem('', null, SettingButton('保存', 'config-ob11-save', 'primary')),
       ]),

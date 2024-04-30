@@ -322,7 +322,7 @@ export class SendMsgElementConstructor {
     }
   }
 
-  static ark(data: any): SendArkElement {
+  static ark(data: string): SendArkElement {
     return {
       elementType: ElementType.ARK,
       elementId: '',
