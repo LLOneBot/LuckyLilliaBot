@@ -1,4 +1,5 @@
 import { log } from '../../../common/utils'
+import * as os from 'os'
 
 interface MoeHook {
   GetRkey: () => string // Return '&rkey=xxx'
@@ -10,7 +11,9 @@ class HookApi {
 
   constructor() {
     try {
-      this.moeHook = require('./MoeHook.node')
+      const systemPlatform = os.platform()
+      const cpuArch = os.arch()
+      this.moeHook = require(`./MoeHoo-${systemPlatform}-${cpuArch}.node`)
       console.log('hook rkey地址', this.moeHook!.HookRkey())
     } catch (e) {
       console.log('加载 moehoo 失败', e)

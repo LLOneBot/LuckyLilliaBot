@@ -285,7 +285,7 @@ export async function sendMsg(
   waitComplete = true,
 ) {
   if (!sendElements.length) {
-    throw '消息体无法解析'
+    throw '消息体无法解析，请检查是否发送了不支持的消息类型'
   }
   const returnMsg = await NTQQMsgApi.sendMsg(peer, sendElements, waitComplete, 20000)
   log('消息发送结果', returnMsg)

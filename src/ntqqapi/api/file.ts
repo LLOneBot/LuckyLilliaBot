@@ -15,10 +15,15 @@ import {
 import path from 'path'
 import fs from 'fs'
 import { ReceiveCmdS } from '../hook'
-import { log } from '../../common/utils/log'
+import { log } from '../../common/utils'
 import http from 'http'
 import { sleep } from '../../common/utils'
 import { hookApi } from '../external/moehook/hook'
+
+let privateImageRKey = ''
+let groupImageRKey = ''
+let lastGetRKeyTime = 0
+const rkeyExpireTime = 1000 * 60 * 30
 
 export class NTQQFileApi {
   static async getFileType(filePath: string) {
@@ -156,6 +161,7 @@ export class NTQQFileApi {
   }
 
   static async getImageUrl(msg: RawMessage) {
+    const isPrivateImage = msg.chatType !== ChatType.group
     const msgElement = msg.elements.find((e) => !!e.picElement)
     if (!msgElement) {
       return ''
@@ -164,106 +170,74 @@ export class NTQQFileApi {
     const md5HexStr = msgElement.picElement.md5HexStr
     const fileMd5 = msgElement.picElement.md5HexStr
     const fileUuid = msgElement.picElement.fileUuid
-    let imageUrl = ''
-    // let currentRKey = "CAQSKAB6JWENi5LMk0kc62l8Pm3Jn1dsLZHyRLAnNmHGoZ3y_gDZPqZt-64"
     if (url) {
       if (url.startsWith('/download')) {
         // console.log('rkey', rkey);
         if (url.includes('&rkey=')) {
-          imageUrl = IMAGE_HTTP_HOST_NT + url
-        } else {
-          if (!hookApi.isAvailable()) {
-            log('hookApi is not available')
-            return ''
-          }
-          let rkey = hookApi.getRKey()
-          const refreshRKey = async () => {
-            log('正在获取图片rkey...')
-            NTQQFileApi.downloadMedia(
-              msg.msgId,
-              msg.chatType,
-              msg.peerUid,
-              msgElement.elementId,
-              '',
-              msgElement.picElement.sourcePath,
-              true,
-            )
-              .then()
-              .catch(() => {})
-            await sleep(300)
-            rkey = hookApi.getRKey()
-            if (rkey) {
-              log('图片rkey获取成功', rkey)
-            }
-          }
-          if (!rkey) {
-            // 下载一次图片获取rkey
-            try {
-              await refreshRKey()
-            } catch (e) {
-              log('获取图片rkey失败', e)
-              return ''
-            }
-          }
-          imageUrl = IMAGE_HTTP_HOST_NT + url + `${rkey}`
-          // 调用head请求获取图片rkey是否正常
-          const checkUrl = new Promise((resolve, reject) => {
-            const uri = new URL(imageUrl)
-            const options = {
-              method: 'GET',
-              host: uri.host,
-              path: uri.pathname + uri.search,
-              headers: {
-                'User-Agent':
-                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36',
-                Accept: '*/*',
-                Range: 'bytes=0-0',
-              },
-            }
-            const req = http.request(options, (res) => {
-              console.log(`Check rkey status: ${res.statusCode}`)
-              console.log(`Check rkey headers: ${JSON.stringify(res.headers)}`)
-              if (res.statusCode == 200 || res.statusCode === 206) {
-                // console.log('The image URL is accessible.');
-                resolve('ok')
-              } else {
-                reject('The image URL is not accessible.')
-              }
-            })
+          return IMAGE_HTTP_HOST_NT + url
+        }
 
-            req.setTimeout(3000, () => {
-              req.destroy()
-              reject('Check rkey request timed out')
-            })
+        if (!hookApi.isAvailable()) {
+          log('hookApi is not available')
+          return ''
+        }
 
-            req.on('error', (e) => {
-              console.error(`Problem with rkey request: ${e.message}`)
-              reject(e.message)
-            })
-            req.end()
-          })
-          try {
-            const start = Date.now()
-            await checkUrl
-            const end = Date.now()
-            console.log('Check rkey request time:', end - start)
-          } catch (e) {
-            try {
-              await refreshRKey()
-              imageUrl = IMAGE_HTTP_HOST_NT + url + `${rkey}`
-            } catch (e) {
-              log('获取rkey失败', e)
-            }
+        const saveRKey = (rkey: string) => {
+          if (isPrivateImage) {
+            privateImageRKey = rkey
+          } else {
+            groupImageRKey = rkey
+          }
+          lastGetRKeyTime = Date.now()
+        }
+
+        const refreshRKey = async () => {
+          log('获取图片rkey...')
+          NTQQFileApi.downloadMedia(
+            msg.msgId,
+            msg.chatType,
+            msg.peerUid,
+            msgElement.elementId,
+            '',
+            msgElement.picElement.sourcePath,
+            true,
+          )
+            .then()
+            .catch(() => {})
+          await sleep(1000)
+          const _rkey = hookApi.getRKey()
+          if (_rkey) {
+            log('图片rkey获取成功', _rkey)
+            saveRKey(_rkey)
+            return _rkey
           }
         }
+
+        const existsRKey = isPrivateImage ? privateImageRKey : groupImageRKey
+        if (Date.now() - lastGetRKeyTime > rkeyExpireTime || !existsRKey) {
+          // rkey过期
+          const newRKey = await refreshRKey()
+          if (newRKey) {
+            return IMAGE_HTTP_HOST_NT + url + `${newRKey}`
+          } else {
+            log('图片rkey获取失败', url)
+            return ''
+          }
+        }
+        // 使用未过期的rkey
+        if (existsRKey) {
+          return IMAGE_HTTP_HOST_NT + url + `${existsRKey}`
+        }
       } else {
-        imageUrl = IMAGE_HTTP_HOST + url
+        // 老的图片url，不需要rkey
+        return IMAGE_HTTP_HOST + url
       }
     } else if (fileMd5 || md5HexStr) {
-      imageUrl = `${IMAGE_HTTP_HOST}/gchatpic_new/0/0-0-${(fileMd5 || md5HexStr)!.toUpperCase()}/0`
+      // 没有url，需要自己拼接
+      return `${IMAGE_HTTP_HOST}/gchatpic_new/0/0-0-${(fileMd5 || md5HexStr)!.toUpperCase()}/0`
     }
-
-    return imageUrl
+    log('图片url获取失败', msg)
+    return ''
   }
 }
 

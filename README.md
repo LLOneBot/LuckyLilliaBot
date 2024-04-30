@@ -52,6 +52,7 @@ TG群：<https://t.me/+nLZEnpne-pQ1OWFl>
 - [LLAPI](https://github.com/Night-stars-1/LiteLoaderQQNT-Plugin-LLAPI)
 - [chronocat](https://github.com/chrononeko/chronocat/)
 - [koishi-plugin-adapter-onebot](https://github.com/koishijs/koishi-plugin-adapter-onebot)
+- [silk-wasm](https://github.com/idranme/silk-wasm)
 
 ## 友链
 
