@@ -7,6 +7,7 @@ import {
   SendArkElement,
   SendFaceElement,
   SendFileElement,
+  SendMarketFaceElement,
   SendPicElement,
   SendPttElement,
   SendReplyElement,
@@ -261,6 +262,17 @@ export class SendMsgElementConstructor {
       faceElement: {
         faceIndex: faceId,
         faceType: faceId < 222 ? FaceType.normal : FaceType.normal2,
+      },
+    }
+  }
+
+  static mface(emojiPackageId: number, emojiId: string, key: string): SendMarketFaceElement {
+    return {
+      elementType: ElementType.MFACE,
+      marketFaceElement: {
+        emojiPackageId,
+        emojiId,
+        key,
       },
     }
   }
