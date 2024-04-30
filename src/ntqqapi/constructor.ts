@@ -266,13 +266,14 @@ export class SendMsgElementConstructor {
     }
   }
 
-  static mface(emojiPackageId: number, emojiId: string, key: string): SendMarketFaceElement {
+  static mface(emojiPackageId: number, emojiId: string, key: string, faceName: string): SendMarketFaceElement {
     return {
       elementType: ElementType.MFACE,
       marketFaceElement: {
         emojiPackageId,
         emojiId,
         key,
+        faceName
       },
     }
   }

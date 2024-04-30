@@ -252,7 +252,7 @@ export interface FaceElement {
 
 export interface MarketFaceElement {
   emojiPackageId: number
-  faceName: string
+  faceName?: string
   emojiId: string
   key: string
 }

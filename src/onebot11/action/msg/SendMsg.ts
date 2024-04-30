@@ -14,11 +14,11 @@ import { friends, getFriend, getGroup, getGroupMember, getUidByUin, selfInfo } f
 import {
   OB11MessageCustomMusic,
   OB11MessageData,
-  OB11MessageDataType,
+  OB11MessageDataType, OB11MessageFile,
   OB11MessageJson,
   OB11MessageMixType,
   OB11MessageMusic,
-  OB11MessageNode,
+  OB11MessageNode, OB11MessageVideo,
   OB11PostSendMsg,
 } from '../../types'
 import { NTQQMsgApi, Peer } from '../../../ntqqapi/api/msg'
@@ -179,7 +179,7 @@ export async function createSendElements(
         break
       case OB11MessageDataType.mface: {
         sendElements.push(
-          SendMsgElementConstructor.mface(sendMsg.data.emojiPackageId, sendMsg.data.emojiId, sendMsg.data.key),
+          SendMsgElementConstructor.mface(sendMsg.data.emoji_package_id, sendMsg.data.emoji_id, sendMsg.data.key),
         )
       }
       case OB11MessageDataType.image:
@@ -187,8 +187,9 @@ export async function createSendElements(
       case OB11MessageDataType.video:
       case OB11MessageDataType.voice:
         {
-          let file = sendMsg.data?.file
-          const payloadFileName = sendMsg.data?.name
+          const data = (sendMsg as OB11MessageFile).data
+          let file = data.file
+          const payloadFileName = data?.name
           if (file) {
             const cache = await dbUtil.getFileCache(file)
             if (cache) {

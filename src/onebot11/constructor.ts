@@ -236,7 +236,7 @@ export class OB11Constructor {
         }
       } else if (element.marketFaceElement) {
         message_data['type'] = OB11MessageDataType.mface
-        message_data['data']['text'] = element.marketFaceElement.faceName
+        message_data['data']['summary'] = element.marketFaceElement.faceName
         const md5 = element.marketFaceElement.emojiId
         // 取md5的前两位
         const dir = md5.substring(0, 2)
