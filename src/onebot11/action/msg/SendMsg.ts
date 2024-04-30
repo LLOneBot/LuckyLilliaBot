@@ -179,7 +179,7 @@ export async function createSendElements(
         break
       case OB11MessageDataType.mface: {
         sendElements.push(
-          SendMsgElementConstructor.mface(sendMsg.data.emoji_package_id, sendMsg.data.emoji_id, sendMsg.data.key),
+          SendMsgElementConstructor.mface(sendMsg.data.emoji_package_id, sendMsg.data.emoji_id, sendMsg.data.key, sendMsg.data.summary || ""),
         )
       }
       case OB11MessageDataType.image:

@@ -129,7 +129,7 @@ export interface OB11MessageMFace {
     emoji_package_id: number
     emoji_id: string
     key: string
-    summary?: string // 仅收
+    summary: string
   }
 }
 
