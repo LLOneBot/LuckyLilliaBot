@@ -7,8 +7,9 @@
     "esModuleInterop": true,
     "allowJs": true,
     "allowSyntheticDefaultImports": true,
-    "moduleResolution": "node"
-    //    "sourceMap": true
+    "moduleResolution": "node",
+    // "sourceMap": true,
+    "noEmit": true
   },
   "include": ["src/*", "src/**/*", "scripts/*"],
   "exclude": ["node_modules"]

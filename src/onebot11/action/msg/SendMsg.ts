@@ -14,11 +14,13 @@ import { friends, getFriend, getGroup, getGroupMember, getUidByUin, selfInfo } f
 import {
   OB11MessageCustomMusic,
   OB11MessageData,
-  OB11MessageDataType, OB11MessageFile,
+  OB11MessageDataType,
+  OB11MessageFile,
   OB11MessageJson,
   OB11MessageMixType,
   OB11MessageMusic,
-  OB11MessageNode, OB11MessageVideo,
+  OB11MessageNode,
+  OB11MessageVideo,
   OB11PostSendMsg,
 } from '../../types'
 import { NTQQMsgApi, Peer } from '../../../ntqqapi/api/msg'
@@ -177,11 +179,18 @@ export async function createSendElements(
           }
         }
         break
-      case OB11MessageDataType.mface: {
-        sendElements.push(
-          SendMsgElementConstructor.mface(sendMsg.data.emoji_package_id, sendMsg.data.emoji_id, sendMsg.data.key, sendMsg.data.summary),
-        )
-      }break;
+      case OB11MessageDataType.mface:
+        {
+          sendElements.push(
+            SendMsgElementConstructor.mface(
+              sendMsg.data.emoji_package_id,
+              sendMsg.data.emoji_id,
+              sendMsg.data.key,
+              sendMsg.data.summary,
+            ),
+          )
+        }
+        break
       case OB11MessageDataType.image:
       case OB11MessageDataType.file:
       case OB11MessageDataType.video:
@@ -303,14 +312,14 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
 
   protected async check(payload: OB11PostSendMsg): Promise<BaseCheckResult> {
     const messages = convertMessage2List(payload.message)
-    const fmNum = this.getSpecialMsgNum(payload, OB11MessageDataType.node)
+    const fmNum = this.getSpecialMsgNum(messages, OB11MessageDataType.node)
     if (fmNum && fmNum != messages.length) {
       return {
         valid: false,
         message: '转发消息不能和普通消息混在一起发送,转发需要保证message只有type为node的元素',
       }
     }
-    const musicNum = this.getSpecialMsgNum(payload, OB11MessageDataType.music)
+    const musicNum = this.getSpecialMsgNum(messages, OB11MessageDataType.music)
     if (musicNum && messages.length > 1) {
       return {
         valid: false,
@@ -382,14 +391,14 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
       payload.message,
       payload.auto_escape === true || payload.auto_escape === 'true',
     )
-    if (this.getSpecialMsgNum(payload, OB11MessageDataType.node)) {
+    if (this.getSpecialMsgNum(messages, OB11MessageDataType.node)) {
       try {
         const returnMsg = await this.handleForwardNode(peer, messages as OB11MessageNode[], group)
         return { message_id: returnMsg.msgShortId }
       } catch (e) {
         throw '发送转发消息失败 ' + e.toString()
       }
-    } else if (this.getSpecialMsgNum(payload, OB11MessageDataType.music)) {
+    } else if (this.getSpecialMsgNum(messages, OB11MessageDataType.music)) {
       const music = messages[0] as OB11MessageMusic
       if (music) {
         const { musicSignUrl } = getConfigUtil().getConfig()
@@ -402,24 +411,23 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
         }
         const postData: MusicSignPostData = { ...music.data }
         if (type === 'custom' && music.data.content) {
-
           ;(postData as CustomMusicSignPostData).singer = music.data.content
           delete (postData as OB11MessageCustomMusic['data']).content
         }
-        if (type === 'custom'){
+        if (type === 'custom') {
           const customMusicData = music.data as CustomMusicSignPostData
-          if (!customMusicData.url){
-            throw ('自定义音卡缺少参数url');
+          if (!customMusicData.url) {
+            throw '自定义音卡缺少参数url'
           }
-          if (!customMusicData.audio){
-            throw('自定义音卡缺少参数audio');
+          if (!customMusicData.audio) {
+            throw '自定义音卡缺少参数audio'
           }
-          if (!customMusicData.title){
-            throw('自定义音卡缺少参数title');
+          if (!customMusicData.title) {
+            throw '自定义音卡缺少参数title'
           }
         }
         if (type === 'qq' || type === '163') {
-          const idMusicData = music.data as IdMusicSignPostData;
+          const idMusicData = music.data as IdMusicSignPostData
           if (!idMusicData.id) {
             throw '音乐卡片缺少id参数'
           }
@@ -448,9 +456,9 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
     return { message_id: returnMsg.msgShortId }
   }
 
-  private getSpecialMsgNum(payload: OB11PostSendMsg, msgType: OB11MessageDataType): number {
-    if (Array.isArray(payload.message)) {
-      return payload.message.filter((msg) => msg.type == msgType).length
+  private getSpecialMsgNum(message: OB11MessageData[], msgType: OB11MessageDataType): number {
+    if (Array.isArray(message)) {
+      return message.filter((msg) => msg.type == msgType).length
     }
     return 0
   }

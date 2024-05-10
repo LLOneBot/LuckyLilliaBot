@@ -10,7 +10,8 @@
     "deploy-mac": "cp -r dist/* ~/Library/Containers/com.tencent.qq/Data/LiteLoaderQQNT/plugins/LLOneBot/",
     "build-win": "npm run build && npm run deploy-win",
     "deploy-win": "cmd /c \"xcopy /C /S /Y dist\\* %USERPROFILE%\\documents\\LiteLoaderQQNT\\plugins\\LLOneBot\\\"",
-    "format": "prettier -cw ."
+    "format": "prettier -cw .",
+    "check": "tsc"
   },
   "author": "",
   "license": "MIT",
