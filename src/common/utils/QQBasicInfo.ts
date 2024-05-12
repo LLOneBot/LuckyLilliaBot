@@ -8,6 +8,8 @@ export const exePath = process.execPath;
 export const pkgInfoPath = path.join(path.dirname(exePath), 'resources', 'app', 'package.json');
 let configVersionInfoPath;
 
+
+
 if (os.platform() !== 'linux') {
   configVersionInfoPath = path.join(path.dirname(exePath), 'resources', 'app', 'versions', 'config.json');
 } else {
