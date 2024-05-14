@@ -5,7 +5,7 @@ import { copyFolder, httpDownload, log, PLUGIN_DIR, TEMP_DIR } from '.'
 import compressing from 'compressing'
 
 const downloadMirrorHosts = ['https://mirror.ghproxy.com/']
-const checkVersionMirrorHosts = ['https://521github.com']
+const checkVersionMirrorHosts = ['https://kkgithub.com']
 
 export async function checkNewVersion() {
   const latestVersionText = await getRemoteVersion()
