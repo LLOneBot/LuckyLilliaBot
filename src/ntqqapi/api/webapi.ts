@@ -113,15 +113,8 @@ export interface GroupEssenceMsgRet {
   }
 }
 export class WebApi {
-  static async getGroupEssenceMsg(GroupCode: string, page_start: string) {
-    const _Pskey = (await NTQQUserApi.getPSkey(['qun.qq.com']))['qun.qq.com'];
-    const _Skey = await NTQQUserApi.getSkey();
-    const CookieValue = 'p_skey=' + _Pskey + '; skey=' + _Skey + '; p_uin=o' + selfInfo.uin + '; uin=o' + selfInfo.uin;
-    if (!_Skey || !_Pskey) {
-      //获取Cookies失败
-      return undefined;
-    }
-    const Bkn = WebApi.genBkn(_Skey);
+  static async getGroupEssenceMsg(GroupCode: string, page_start: string): Promise<GroupEssenceMsgRet> {
+    const {cookies: CookieValue, bkn: Bkn} = (await NTQQUserApi.getCookies('qun.qq.com'))
     const url = 'https://qun.qq.com/cgi-bin/group_digest/digest_list?bkn=' + Bkn + '&group_code=' + GroupCode + '&page_start=' + page_start + '&page_limit=20';
     let ret;
     try {
@@ -256,12 +249,6 @@ export class WebApi {
   }
   //实现未缓存 考虑2h缓存
   static async getGroupHonorInfo(groupCode: string, getType: WebHonorType) {
-    const _Pskey = (await NTQQUserApi.getPSkey(['qun.qq.com']))['qun.qq.com'];
-    const _Skey = await NTQQUserApi.getSkey();
-    if (!_Skey || !_Pskey) {
-      //获取Cookies失败
-      return undefined;
-    }
     async function getDataInternal(Internal_groupCode: string, Internal_type: number) {
       let url = 'https://qun.qq.com/interactive/honorlist?gc=' + Internal_groupCode + '&type=' + Internal_type.toString();
       let res = '';
@@ -284,7 +271,7 @@ export class WebApi {
     }
 
     let HonorInfo: any = { group_id: groupCode };
-    const CookieValue = 'p_skey=' + _Pskey + '; skey=' + _Skey + '; p_uin=o' + selfInfo.uin + '; uin=o' + selfInfo.uin;
+    const CookieValue = (await NTQQUserApi.getCookies('qun.qq.com')).cookies;
 
     if (getType === WebHonorType.TALKACTIVE || getType === WebHonorType.ALL) {
       try {
