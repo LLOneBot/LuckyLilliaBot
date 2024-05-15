@@ -482,9 +482,9 @@ function onLoad() {
 
 // 创建窗口时触发
 function onBrowserWindowCreated(window: BrowserWindow) {
-  // if (selfInfo.uid) {
-  //   return
-  // }
+  if (selfInfo.uid) {
+    return
+  }
   mainWindow = window
   log('window create', window.webContents.getURL().toString())
   try {
