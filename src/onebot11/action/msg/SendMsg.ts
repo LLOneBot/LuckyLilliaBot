@@ -327,7 +327,7 @@ export async function sendMsg(
     }
   }
   log('发送消息总大小', totalSize, 'bytes')
-  let timeout = ((totalSize / 1024 / 512) * 1000) || 5000  // 512kb/s
+  let timeout = ((totalSize / 1024 / 512) * 1000) + 5000  // 512kb/s
   log('设置消息超时时间', timeout)
   const returnMsg = await NTQQMsgApi.sendMsg(peer, sendElements, waitComplete, timeout)
   log('消息发送结果', returnMsg)
