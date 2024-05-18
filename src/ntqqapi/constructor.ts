@@ -76,8 +76,9 @@ export class SendMsgElementConstructor {
     if (fileSize === 0) {
       throw '文件异常，大小为0'
     }
-    if (fileSize > 1000 * 1000 * 7){  // todo: 没有采用1024计算，因为具体上限数值未知，大概是7MB
-      throw `图片过大，最大支持7MB，当前文件大小${fileSize}B`
+    const maxMB = 30;
+    if (fileSize > 1024 * 1024 * 30){
+      throw `图片过大，最大支持${maxMB}MB，当前文件大小${fileSize}B`
     }
     const imageSize = await NTQQFileApi.getImageSize(picPath)
     const picElement = {
@@ -134,8 +135,9 @@ export class SendMsgElementConstructor {
     if (fileSize === 0) {
       throw '文件异常，大小为0'
     }
-    if (fileSize > 1000 * 1000 * 100) {  // todo: 没有采用1024计算，因为具体上限数值未知，大概是100MB
-      throw `视频过大，最大支持100MB，当前文件大小${fileSize}B`
+    const maxMB = 100;
+    if (fileSize > 1024 * 1024 * maxMB) {
+      throw `视频过大，最大支持${maxMB}MB，当前文件大小${fileSize}B`
     }
     const pathLib = require('path')
     let thumbDir = path.replace(`${pathLib.sep}Ori${pathLib.sep}`, `${pathLib.sep}Thumb${pathLib.sep}`)
