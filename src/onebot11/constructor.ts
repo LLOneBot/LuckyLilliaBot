@@ -170,6 +170,7 @@ export class OB11Constructor {
         dbUtil
           .addFileCache(fileName, {
             fileName,
+            elementId: element.elementId,
             filePath: sourcePath,
             fileSize: element.picElement.fileSize.toString(),
             url: message_data['data']['url'],
@@ -198,6 +199,7 @@ export class OB11Constructor {
         dbUtil
           .addFileCache(videoOrFileElement.fileUuid, {
             msgId: msg.msgId,
+            elementId: element.elementId,
             fileName: videoOrFileElement.fileName,
             filePath: videoOrFileElement.filePath,
             fileSize: videoOrFileElement.fileSize,
@@ -225,6 +227,7 @@ export class OB11Constructor {
         message_data['data']['file_size'] = element.pttElement.fileSize
         dbUtil
           .addFileCache(element.pttElement.fileName, {
+            elementId: element.elementId,
             fileName: element.pttElement.fileName,
             filePath: element.pttElement.filePath,
             fileSize: element.pttElement.fileSize,

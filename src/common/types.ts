@@ -45,5 +45,6 @@ export interface FileCache {
   fileUuid?: string
   url?: string
   msgId?: string
+  elementId: string
   downloadFunc?: () => Promise<void>
 }

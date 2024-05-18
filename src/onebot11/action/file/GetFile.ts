@@ -21,13 +21,12 @@ export interface GetFileResponse {
 }
 
 export class GetFileBase extends BaseAction<GetFilePayload, GetFileResponse> {
-  private getElement(msg: RawMessage): { id: string; element: VideoElement | FileElement } {
-    let element = msg.elements.find((e) => e.fileElement)
+  private getElement(msg: RawMessage, elementId: string): VideoElement | FileElement {
+    let element = msg.elements.find((e) => e.elementId === elementId)
     if (!element) {
-      element = msg.elements.find((e) => e.videoElement)
-      return { id: element.elementId, element: element.videoElement }
+      throw new Error('element not found')
     }
-    return { id: element.elementId, element: element.fileElement }
+    return element.fileElement
   }
   private async download(cache: FileCache, file: string) {
     log('需要调用 NTQQ 下载文件api')
@@ -35,14 +34,14 @@ export class GetFileBase extends BaseAction<GetFilePayload, GetFileResponse> {
       let msg = await dbUtil.getMsgByLongId(cache.msgId)
       if (msg) {
         log('找到了文件 msg', msg)
-        let element = this.getElement(msg)
+        let element = this.getElement(msg, cache.elementId)
         log('找到了文件 element', element)
         // 构建下载函数
-        await NTQQFileApi.downloadMedia(msg.msgId, msg.chatType, msg.peerUid, element.id, '', '', true)
-        await sleep(1000)
+        await NTQQFileApi.downloadMedia(msg.msgId, msg.chatType, msg.peerUid, cache.elementId, '', '', true)
+        await sleep(1000)  // 这里延时是为何？
         msg = await dbUtil.getMsgByLongId(cache.msgId)
         log('下载完成后的msg', msg)
-        cache.filePath = this.getElement(msg).element.filePath
+        cache.filePath = this.getElement(msg, cache.elementId).filePath
         dbUtil.addFileCache(file, cache).then()
       }
     }
