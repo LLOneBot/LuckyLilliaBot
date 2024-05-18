@@ -1,6 +1,6 @@
 import { WebSocket as WebSocketClass } from 'ws'
 import { OB11Response } from '../../action/OB11Response'
-import { PostEventType } from '../postOB11Event'
+import { PostEventType } from '../post-ob11-event'
 import { log } from '../../../common/utils/log'
 import { isNull } from '../../../common/utils/helper'
 

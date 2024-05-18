@@ -14,7 +14,7 @@ import {
 } from '../common/data'
 import { OB11GroupDecreaseEvent } from '../onebot11/event/notice/OB11GroupDecreaseEvent'
 import { v4 as uuidv4 } from 'uuid'
-import { postOB11Event } from '../onebot11/server/postOB11Event'
+import { postOb11Event } from '../onebot11/server/post-ob11-event'
 import { getConfigUtil, HOOK_LOG } from '../common/config'
 import fs from 'fs'
 import { dbUtil } from '../common/db'
@@ -299,7 +299,7 @@ async function processGroupEvent(payload: { groupList: Group[] }) {
           }
           for (const member of oldMembers) {
             if (!newMembersSet.has(member.uin) && member.uin != selfInfo.uin) {
-              postOB11Event(
+              postOb11Event(
                 new OB11GroupDecreaseEvent(
                   parseInt(group.groupCode),
                   parseInt(member.uin),
@@ -497,7 +497,7 @@ registerReceiveHook<{
             let lastTempMsg = msgList.pop()
             log('激活窗口之前的第一条临时会话消息:', lastTempMsg)
             if (Date.now() / 1000 - parseInt(lastTempMsg.msgTime) < 5) {
-              OB11Constructor.message(lastTempMsg).then((r) => postOB11Event(r))
+              OB11Constructor.message(lastTempMsg).then((r) => postOb11Event(r))
             }
           })
         })

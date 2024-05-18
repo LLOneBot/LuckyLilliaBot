@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws'
 import { actionMap } from '../../action'
 import { OB11Response } from '../../action/OB11Response'
-import { postWsEvent, registerWsEventSender, unregisterWsEventSender } from '../postOB11Event'
+import { postWsEvent, registerWsEventSender, unregisterWsEventSender } from '../post-ob11-event'
 import { ActionName } from '../../action/types'
 import BaseAction from '../../action/BaseAction'
 import { LifeCycleSubType, OB11LifeCycleEvent } from '../../event/meta/OB11LifeCycleEvent'

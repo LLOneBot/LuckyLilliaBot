@@ -67,5 +67,6 @@ export enum ActionName {
   GoCQHTTP_GetGroupMsgHistory = 'get_group_msg_history',
   GoCQHTTP_GetForwardMsg = 'get_forward_msg',
   GoCQHTTP_GetEssenceMsg = "get_essence_msg_list",
+  GoCQHTTP_HandleQuickOperation = ".handle_quick_operation",
   GetGroupHonorInfo = "get_group_honor_info",
 }

@@ -3,7 +3,7 @@ import { OB11Response } from '../action/OB11Response'
 import { HttpServerBase } from '@/common/server/http'
 import { actionHandlers, actionMap } from '../action'
 import { getConfigUtil } from '@/common/config'
-import { postOB11Event } from './postOB11Event'
+import { postOb11Event } from './post-ob11-event'
 import { OB11HeartbeatEvent } from '../event/meta/OB11HeartbeatEvent'
 import { selfInfo } from '@/common/data'
 
@@ -40,7 +40,7 @@ class HTTPHeart {
     }
     this.intervalId = setInterval(() => {
       // ws的心跳是ws自己维护的
-      postOB11Event(new OB11HeartbeatEvent(selfInfo.online, true, heartInterval), false, false)
+      postOb11Event(new OB11HeartbeatEvent(selfInfo.online, true, heartInterval), false, false)
     }, heartInterval)
   }
 

@@ -49,6 +49,7 @@ import { SetMsgEmojiLike } from './msg/SetMsgEmojiLike'
 import { ForwardFriendSingleMsg, ForwardSingleGroupMsg } from './msg/ForwardSingleMsg'
 import { GetGroupEssence } from './group/GetGroupEssence'
 import { GetGroupHonorInfo } from './group/GetGroupHonorInfo'
+import { GoCQHTTHandleQuickOperation } from './go-cqhttp/QuickOperation'
 
 export const actionHandlers = [
   new GetFile(),
@@ -104,6 +105,7 @@ export const actionHandlers = [
   new GoCQHTTPUploadPrivateFile(),
   new GoCQHTTPGetGroupMsgHistory(),
   new GoCQHTTGetForwardMsgAction(),
+  new GoCQHTTHandleQuickOperation()
 ]
 
 function initActionMap() {

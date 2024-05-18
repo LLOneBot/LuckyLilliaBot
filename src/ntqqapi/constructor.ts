@@ -76,6 +76,9 @@ export class SendMsgElementConstructor {
     if (fileSize === 0) {
       throw '文件异常，大小为0'
     }
+    if (fileSize > 1000 * 1000 * 7){  // todo: 没有采用1024计算，因为具体上限数值未知，大概是7MB
+      throw `图片过大，最大支持7MB，当前文件大小${fileSize}B`
+    }
     const imageSize = await NTQQFileApi.getImageSize(picPath)
     const picElement = {
       md5HexStr: md5,
@@ -130,6 +133,9 @@ export class SendMsgElementConstructor {
     log('复制视频到QQ目录完成', path)
     if (fileSize === 0) {
       throw '文件异常，大小为0'
+    }
+    if (fileSize > 1000 * 1000 * 100) {  // todo: 没有采用1024计算，因为具体上限数值未知，大概是100MB
+      throw `视频过大，最大支持100MB，当前文件大小${fileSize}B`
     }
     const pathLib = require('path')
     let thumbDir = path.replace(`${pathLib.sep}Ori${pathLib.sep}`, `${pathLib.sep}Thumb${pathLib.sep}`)

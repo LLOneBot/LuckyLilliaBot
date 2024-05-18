@@ -38,7 +38,7 @@ import {
 import { httpHeart, ob11HTTPServer } from '../onebot11/server/http'
 import { OB11FriendRecallNoticeEvent } from '../onebot11/event/notice/OB11FriendRecallNoticeEvent'
 import { OB11GroupRecallNoticeEvent } from '../onebot11/event/notice/OB11GroupRecallNoticeEvent'
-import { postOB11Event } from '../onebot11/server/postOB11Event'
+import { postOb11Event } from '../onebot11/server/post-ob11-event'
 import { ob11ReverseWebsockets } from '../onebot11/server/ws/ReverseWebsocket'
 import { OB11GroupAdminNoticeEvent } from '../onebot11/event/notice/OB11GroupAdminNoticeEvent'
 import { OB11GroupRequestEvent } from '../onebot11/event/request/OB11GroupRequest'
@@ -183,20 +183,20 @@ function onLoad() {
           if (isSelfMsg) {
             msg.target_id = parseInt(message.peerUin)
           }
-          postOB11Event(msg)
+          postOb11Event(msg)
           // log("post msg", msg)
         })
         .catch((e) => log('constructMessage error: ', e.stack.toString()))
       OB11Constructor.GroupEvent(message).then((groupEvent) => {
         if (groupEvent) {
           // log("post group event", groupEvent);
-          postOB11Event(groupEvent)
+          postOb11Event(groupEvent)
         }
       })
       OB11Constructor.FriendAddEvent(message).then((friendAddEvent) => {
         if (friendAddEvent) {
           // log("post friend add event", friendAddEvent);
-          postOB11Event(friendAddEvent)
+          postOb11Event(friendAddEvent)
         }
       })
     }
@@ -213,7 +213,7 @@ function onLoad() {
         } else {
           pokeEvent = new OB11FriendPokeEvent(parseInt(id))
         }
-        postOB11Event(pokeEvent)
+        postOb11Event(pokeEvent)
       })
     }
     registerReceiveHook<{
@@ -244,7 +244,7 @@ function onLoad() {
           OB11Constructor.RecallEvent(message).then((recallEvent) => {
             if (recallEvent) {
               log('post recall event', recallEvent)
-              postOB11Event(recallEvent)
+              postOb11Event(recallEvent)
             }
           })
           // 不让入库覆盖原来消息，不然就获取不到撤回的消息内容了
@@ -322,7 +322,7 @@ function onLoad() {
                   ? 'unset'
                   : 'set'
                 // member1.role = notify.type == GroupNotifyTypes.ADMIN_SET ? GroupMemberRole.admin : GroupMemberRole.normal;
-                postOB11Event(groupAdminNoticeEvent, true)
+                postOb11Event(groupAdminNoticeEvent, true)
               } else {
                 log('获取群通知的成员信息失败', notify, getGroup(notify.group.groupCode))
               }
@@ -344,7 +344,7 @@ function onLoad() {
                   parseInt(operatorId),
                   subType,
                 )
-                postOB11Event(groupDecreaseEvent, true)
+                postOb11Event(groupDecreaseEvent, true)
               } catch (e) {
                 log('获取群通知的成员信息失败', notify, e.stack.toString())
               }
@@ -362,7 +362,7 @@ function onLoad() {
               groupRequestEvent.sub_type = 'add'
               groupRequestEvent.comment = notify.postscript
               groupRequestEvent.flag = notify.seq
-              postOB11Event(groupRequestEvent)
+              postOb11Event(groupRequestEvent)
             } else if (notify.type == GroupNotifyTypes.INVITE_ME) {
               log('收到邀请我加群通知')
               let groupInviteEvent = new OB11GroupRequestEvent()
@@ -374,7 +374,7 @@ function onLoad() {
               groupInviteEvent.user_id = parseInt(user_id)
               groupInviteEvent.sub_type = 'invite'
               groupInviteEvent.flag = notify.seq
-              postOB11Event(groupInviteEvent)
+              postOb11Event(groupInviteEvent)
             }
           } catch (e) {
             log('解析群通知失败', e.stack.toString())
@@ -400,7 +400,7 @@ function onLoad() {
           }
           friendRequestEvent.flag = flag
           friendRequestEvent.comment = req.extWords
-          postOB11Event(friendRequestEvent)
+          postOb11Event(friendRequestEvent)
         }
       }
     })
