@@ -1,4 +1,4 @@
-# LLOneBot API
+# LLOneBot
 
 LiteLoaderQQNT插件，使你的NTQQ支持OneBot11协议进行QQ机器人开发
 
