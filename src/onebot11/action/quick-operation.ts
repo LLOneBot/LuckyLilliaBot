@@ -1,14 +1,14 @@
 // handle quick action, create at 2024-5-18 10:54:39 by linyuchen
 
 
-import { OB11Message, OB11MessageAt, OB11MessageData } from '../types'
+import { OB11Message, OB11MessageAt, OB11MessageData, OB11MessageDataType } from '../types'
 import { OB11FriendRequestEvent } from '../event/request/OB11FriendRequest'
 import { OB11GroupRequestEvent } from '../event/request/OB11GroupRequest'
 import { dbUtil } from '@/common/db'
 import { NTQQFriendApi, NTQQGroupApi, NTQQMsgApi, Peer } from '@/ntqqapi/api'
 import { ChatType, Group, GroupRequestOperateTypes } from '@/ntqqapi/types'
 import { getGroup, getUidByUin } from '@/common/data'
-import { convertMessage2List, createSendElements, sendMsg } from '../action/msg/SendMsg'
+import { convertMessage2List, createSendElements, sendMsg } from './msg/SendMsg'
 import { isNull, log } from '@/common/utils'
 
 
@@ -80,7 +80,14 @@ async function handleMsg(msg: OB11Message, quickAction: QuickOperationPrivateMes
   }
   if (reply) {
     let group: Group = null
-    let replyMessage: OB11MessageData[] = []
+    let replyMessage: OB11MessageData[] = [
+      {
+        type: OB11MessageDataType.reply,
+        data: {
+          id: msg.message_id.toString(),
+        },
+      }
+    ]
 
     if (msg.message_type == 'group') {
       group = await getGroup(msg.group_id.toString())

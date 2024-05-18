@@ -7,7 +7,7 @@ import { wsReply } from './ws/reply'
 import { log } from '@/common/utils'
 import { getConfigUtil } from '@/common/config'
 import crypto from 'crypto'
-import { handleQuickOperation, QuickOperationEvent } from './quick-operation'
+import { handleQuickOperation, QuickOperationEvent } from '../action/quick-operation'
 
 export type PostEventType = OB11Message | OB11BaseMetaEvent | OB11BaseNoticeEvent
 

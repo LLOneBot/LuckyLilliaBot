@@ -1,5 +1,5 @@
 import BaseAction from '../BaseAction'
-import { handleQuickOperation, QuickOperation, QuickOperationEvent } from '../../server/quick-operation'
+import { handleQuickOperation, QuickOperation, QuickOperationEvent } from '../quick-operation'
 import { log } from '@/common/utils'
 import { ActionName } from '../types'
 
