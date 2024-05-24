@@ -15,6 +15,54 @@ export interface Peer {
   guildId?: ''
 }
 
+async function sendWaiter(peer: Peer, waitComplete = true, timeout: number = 10000) {
+  // 等待上一个相同的peer发送完
+  const peerUid = peer.peerUid
+  let checkLastSendUsingTime = 0
+  const waitLastSend = async () => {
+    if (checkLastSendUsingTime > timeout) {
+      throw '发送超时'
+    }
+    let lastSending = sendMessagePool[peer.peerUid]
+    if (lastSending) {
+      // log("有正在发送的消息，等待中...")
+      await sleep(500)
+      checkLastSendUsingTime += 500
+      return await waitLastSend()
+    } else {
+      return
+    }
+  }
+  await waitLastSend()
+
+  let sentMessage: RawMessage = null
+  sendMessagePool[peerUid] = async (rawMessage: RawMessage) => {
+    delete sendMessagePool[peerUid]
+    sentMessage = rawMessage
+  }
+
+  let checkSendCompleteUsingTime = 0
+  const checkSendComplete = async (): Promise<RawMessage> => {
+    if (sentMessage) {
+      if (waitComplete) {
+        if ((await dbUtil.getMsgByLongId(sentMessage.msgId)).sendStatus == 2) {
+          return sentMessage
+        }
+      } else {
+        return sentMessage
+      }
+      // log(`给${peerUid}发送消息成功`)
+    }
+    checkSendCompleteUsingTime += 500
+    if (checkSendCompleteUsingTime > timeout) {
+      throw '发送超时'
+    }
+    await sleep(500)
+    return await checkSendComplete()
+  }
+  return checkSendComplete();
+}
+
 export class NTQQMsgApi {
   static async setEmojiLike(peer: Peer, msgSeq: string, emojiId: string, set: boolean = true) {
     // nt_qq//global//nt_data//Emoji//emoji-resource//sysface_res/apng/ 下可以看到所有QQ表情预览
@@ -116,52 +164,7 @@ export class NTQQMsgApi {
   }
 
   static async sendMsg(peer: Peer, msgElements: SendMessageElement[], waitComplete = true, timeout = 10000) {
-    const peerUid = peer.peerUid
-
-    // 等待上一个相同的peer发送完
-    let checkLastSendUsingTime = 0
-    const waitLastSend = async () => {
-      if (checkLastSendUsingTime > timeout) {
-        throw '发送超时'
-      }
-      let lastSending = sendMessagePool[peer.peerUid]
-      if (lastSending) {
-        // log("有正在发送的消息，等待中...")
-        await sleep(500)
-        checkLastSendUsingTime += 500
-        return await waitLastSend()
-      } else {
-        return
-      }
-    }
-    await waitLastSend()
-
-    let sentMessage: RawMessage = null
-    sendMessagePool[peerUid] = async (rawMessage: RawMessage) => {
-      delete sendMessagePool[peerUid]
-      sentMessage = rawMessage
-    }
-
-    let checkSendCompleteUsingTime = 0
-    const checkSendComplete = async (): Promise<RawMessage> => {
-      if (sentMessage) {
-        if (waitComplete) {
-          if ((await dbUtil.getMsgByLongId(sentMessage.msgId)).sendStatus == 2) {
-            return sentMessage
-          }
-        } else {
-          return sentMessage
-        }
-        // log(`给${peerUid}发送消息成功`)
-      }
-      checkSendCompleteUsingTime += 500
-      if (checkSendCompleteUsingTime > timeout) {
-        throw '发送超时'
-      }
-      await sleep(500)
-      return await checkSendComplete()
-    }
-
+    const waiter = sendWaiter(peer, waitComplete, timeout);
     callNTQQApi({
       methodName: NTQQApiMethod.SEND_MSG,
       args: [
@@ -174,11 +177,12 @@ export class NTQQMsgApi {
         null,
       ],
     }).then()
-    return await checkSendComplete()
+    return await waiter;
   }
 
   static async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
-    return await callNTQQApi<GeneralCallResult>({
+    const waiter = sendWaiter(destPeer, true, 10000);
+    callNTQQApi<GeneralCallResult>({
       methodName: NTQQApiMethod.FORWARD_MSG,
       args: [
         {
@@ -190,7 +194,8 @@ export class NTQQMsgApi {
         },
         null,
       ],
-    })
+    }).then().catch(log)
+    return await waiter;
   }
 
   static async multiForwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
