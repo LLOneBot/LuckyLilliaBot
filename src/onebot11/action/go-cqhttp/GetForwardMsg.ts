@@ -6,7 +6,8 @@ import { OB11Constructor } from '../../constructor'
 import { ActionName } from '../types'
 
 interface Payload {
-  message_id: string // long msg id
+  message_id: string // long msg id，gocq
+  id?: string // long msg id, onebot11
 }
 
 interface Response {
@@ -16,7 +17,11 @@ interface Response {
 export class GoCQHTTGetForwardMsgAction extends BaseAction<Payload, any> {
   actionName = ActionName.GoCQHTTP_GetForwardMsg
   protected async _handle(payload: Payload): Promise<any> {
-    const rootMsg = await dbUtil.getMsgByLongId(payload.message_id)
+    const message_id = payload.id || payload.message_id
+    if (!message_id) {
+      throw Error('message_id不能为空')
+    }
+    const rootMsg = await dbUtil.getMsgByLongId(message_id)
     if (!rootMsg) {
       throw Error('msg not found')
     }
