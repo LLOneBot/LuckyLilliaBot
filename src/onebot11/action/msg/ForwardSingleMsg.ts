@@ -11,7 +11,11 @@ interface Payload {
   user_id?: number
 }
 
-class ForwardSingleMsg extends BaseAction<Payload, null> {
+interface Response {
+  message_id: number
+}
+
+class ForwardSingleMsg extends BaseAction<Payload, Response> {
   protected async getTargetPeer(payload: Payload): Promise<Peer> {
     if (payload.user_id) {
       return { chatType: ChatType.friend, peerUid: getUidByUin(payload.user_id.toString()) }
@@ -19,10 +23,10 @@ class ForwardSingleMsg extends BaseAction<Payload, null> {
     return { chatType: ChatType.group, peerUid: payload.group_id.toString() }
   }
 
-  protected async _handle(payload: Payload): Promise<null> {
+  protected async _handle(payload: Payload): Promise<Response> {
     const msg = await dbUtil.getMsgByShortId(payload.message_id)
     const peer = await this.getTargetPeer(payload)
-    await NTQQMsgApi.forwardMsg(
+    const sentMsg = await NTQQMsgApi.forwardMsg(
       {
         chatType: msg.chatType,
         peerUid: msg.peerUid,
@@ -30,7 +34,8 @@ class ForwardSingleMsg extends BaseAction<Payload, null> {
       peer,
       [msg.msgId],
     )
-    return null
+    const ob11MsgId = await dbUtil.addMsg(sentMsg)
+    return {message_id: ob11MsgId}
   }
 }
 

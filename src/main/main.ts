@@ -142,7 +142,8 @@ function onLoad() {
             .catch((e) => {
               log('保存设置失败', e.stack)
             })
-        } else {
+        }
+        else {
         }
       })
       .catch((err) => {
@@ -169,12 +170,8 @@ function onLoad() {
 
       OB11Constructor.message(message)
         .then((msg) => {
-          if (debug) {
-            msg.raw = message
-          } else {
-            if (msg.message.length === 0) {
-              return
-            }
+          if (!debug && msg.message.length === 0) {
+            return
           }
           const isSelfMsg = msg.user_id.toString() == selfInfo.uin
           if (isSelfMsg && !reportSelfMessage) {
@@ -210,7 +207,8 @@ function onLoad() {
         let pokeEvent: OB11FriendPokeEvent | OB11GroupPokeEvent
         if (isGroup) {
           pokeEvent = new OB11GroupPokeEvent(parseInt(id))
-        } else {
+        }
+        else {
           pokeEvent = new OB11FriendPokeEvent(parseInt(id))
         }
         postOb11Event(pokeEvent)
@@ -323,10 +321,12 @@ function onLoad() {
                   : 'set'
                 // member1.role = notify.type == GroupNotifyTypes.ADMIN_SET ? GroupMemberRole.admin : GroupMemberRole.normal;
                 postOb11Event(groupAdminNoticeEvent, true)
-              } else {
+              }
+              else {
                 log('获取群通知的成员信息失败', notify, getGroup(notify.group.groupCode))
               }
-            } else if (notify.type == GroupNotifyTypes.MEMBER_EXIT || notify.type == GroupNotifyTypes.KICK_MEMBER) {
+            }
+            else if (notify.type == GroupNotifyTypes.MEMBER_EXIT || notify.type == GroupNotifyTypes.KICK_MEMBER) {
               log('有成员退出通知', notify)
               try {
                 const member1 = await NTQQUserApi.getUserDetailInfo(notify.user1.uid)
@@ -348,7 +348,8 @@ function onLoad() {
               } catch (e) {
                 log('获取群通知的成员信息失败', notify, e.stack.toString())
               }
-            } else if ([GroupNotifyTypes.JOIN_REQUEST].includes(notify.type)) {
+            }
+            else if ([GroupNotifyTypes.JOIN_REQUEST].includes(notify.type)) {
               log('有加群请求')
               let groupRequestEvent = new OB11GroupRequestEvent()
               groupRequestEvent.group_id = parseInt(notify.group.groupCode)
@@ -363,7 +364,8 @@ function onLoad() {
               groupRequestEvent.comment = notify.postscript
               groupRequestEvent.flag = notify.seq
               postOb11Event(groupRequestEvent)
-            } else if (notify.type == GroupNotifyTypes.INVITE_ME) {
+            }
+            else if (notify.type == GroupNotifyTypes.INVITE_ME) {
               log('收到邀请我加群通知')
               let groupInviteEvent = new OB11GroupRequestEvent()
               groupInviteEvent.group_id = parseInt(notify.group.groupCode)
@@ -380,7 +382,8 @@ function onLoad() {
             log('解析群通知失败', e.stack.toString())
           }
         }
-      } else if (payload.doubt) {
+      }
+      else if (payload.doubt) {
         // 可能有群管理员变动
       }
     })
@@ -473,7 +476,8 @@ function onLoad() {
 
       getUserNick().then()
       start().then()
-    } else {
+    }
+    else {
       setTimeout(init, 1000)
     }
   }
