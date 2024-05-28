@@ -48,9 +48,12 @@ export class NTQQUserApi {
     return result.profiles.get(uid)
   }
 
-  static async getUserDetailInfo(uid: string, getLevel = false) {
+  static async getUserDetailInfo(uid: string, getLevel = false, withBizInfo = true) {
     // this.getUserInfo(uid);
     let methodName = !isQQ998 ? NTQQApiMethod.USER_DETAIL_INFO : NTQQApiMethod.USER_DETAIL_INFO_WITH_BIZ_INFO
+    if (!withBizInfo) {
+      methodName = NTQQApiMethod.USER_DETAIL_INFO
+    }
     const fetchInfo = async () => {
       const result = await callNTQQApi<{ info: User }>({
         methodName,

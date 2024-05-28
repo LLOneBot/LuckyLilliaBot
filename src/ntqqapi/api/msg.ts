@@ -29,7 +29,8 @@ async function sendWaiter(peer: Peer, waitComplete = true, timeout: number = 100
       await sleep(500)
       checkLastSendUsingTime += 500
       return await waitLastSend()
-    } else {
+    }
+    else {
       return
     }
   }
@@ -48,7 +49,8 @@ async function sendWaiter(peer: Peer, waitComplete = true, timeout: number = 100
         if ((await dbUtil.getMsgByLongId(sentMessage.msgId)).sendStatus == 2) {
           return sentMessage
         }
-      } else {
+      }
+      else {
         return sentMessage
       }
       // log(`给${peerUid}发送消息成功`)
@@ -60,10 +62,28 @@ async function sendWaiter(peer: Peer, waitComplete = true, timeout: number = 100
     await sleep(500)
     return await checkSendComplete()
   }
-  return checkSendComplete();
+  return checkSendComplete()
 }
 
 export class NTQQMsgApi {
+  static enterOrExitAIO(peer: Peer, enter: boolean) {
+    return callNTQQApi<GeneralCallResult>({
+      methodName: NTQQApiMethod.ENTER_OR_EXIT_AIO,
+      args: [
+        {
+          "info_list": [
+            {
+              peer,
+              "option": enter ? 1 : 2
+            }
+          ]
+        },
+        {
+          "send": true
+        },
+      ],
+    })
+  }
   static async setEmojiLike(peer: Peer, msgSeq: string, emojiId: string, set: boolean = true) {
     // nt_qq//global//nt_data//Emoji//emoji-resource//sysface_res/apng/ 下可以看到所有QQ表情预览
     // nt_qq\global\nt_data\Emoji\emoji-resource\face_config.json 里面有所有表情的id, 自带表情id是QSid, 标准emoji表情id是QCid
@@ -83,6 +103,7 @@ export class NTQQMsgApi {
       ],
     })
   }
+
   static async getMultiMsg(peer: Peer, rootMsgId: string, parentMsgId: string) {
     return await callNTQQApi<GeneralCallResult & { msgList: RawMessage[] }>({
       methodName: NTQQApiMethod.GET_MULTI_MSG,
@@ -97,6 +118,20 @@ export class NTQQMsgApi {
     })
   }
 
+  static async getMsgBoxInfo(peer: Peer) {
+    return await callNTQQApi<GeneralCallResult>({
+      methodName: NTQQApiMethod.GET_MSG_BOX_INFO,
+      args: [
+        {
+          contacts: [
+            peer
+          ],
+        },
+        null,
+      ],
+    })
+  }
+
   static async activateChat(peer: Peer) {
     // await this.fetchRecentContact();
     // await sleep(500);
@@ -105,6 +140,7 @@ export class NTQQMsgApi {
       args: [{ peer, cnt: 20 }, null],
     })
   }
+
   static async activateChatAndGetHistory(peer: Peer) {
     // await this.fetchRecentContact();
     // await sleep(500);
@@ -114,6 +150,7 @@ export class NTQQMsgApi {
       args: [{ peer, cnt: 20 }, null],
     })
   }
+
   static async getMsgHistory(peer: Peer, msgId: string, count: number) {
     // 消息时间从旧到新
     return await callNTQQApi<GeneralCallResult & { msgList: RawMessage[] }>({
@@ -129,6 +166,7 @@ export class NTQQMsgApi {
       ],
     })
   }
+
   static async fetchRecentContact() {
     await callNTQQApi({
       methodName: NTQQApiMethod.RECENT_CONTACT,
@@ -164,7 +202,7 @@ export class NTQQMsgApi {
   }
 
   static async sendMsg(peer: Peer, msgElements: SendMessageElement[], waitComplete = true, timeout = 10000) {
-    const waiter = sendWaiter(peer, waitComplete, timeout);
+    const waiter = sendWaiter(peer, waitComplete, timeout)
     callNTQQApi({
       methodName: NTQQApiMethod.SEND_MSG,
       args: [
@@ -177,11 +215,11 @@ export class NTQQMsgApi {
         null,
       ],
     }).then()
-    return await waiter;
+    return await waiter
   }
 
   static async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
-    const waiter = sendWaiter(destPeer, true, 10000);
+    const waiter = sendWaiter(destPeer, true, 10000)
     callNTQQApi<GeneralCallResult>({
       methodName: NTQQApiMethod.FORWARD_MSG,
       args: [
@@ -195,7 +233,7 @@ export class NTQQMsgApi {
         null,
       ],
     }).then().catch(log)
-    return await waiter;
+    return await waiter
   }
 
   static async multiForwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {

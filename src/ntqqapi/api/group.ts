@@ -7,6 +7,33 @@ import { log } from '../../common/utils/log'
 import { NTQQWindowApi, NTQQWindows } from './window'
 
 export class NTQQGroupApi {
+
+  static async activateMemberListChange(){
+    return await callNTQQApi<GeneralCallResult>({
+      methodName: NTQQApiMethod.ACTIVATE_MEMBER_LIST_CHANGE,
+      classNameIsRegister: true,
+      args: [],
+    })
+  }
+  static async activateMemberInfoChange(){
+    return await callNTQQApi<GeneralCallResult>({
+      methodName: NTQQApiMethod.ACTIVATE_MEMBER_INFO_CHANGE,
+      classNameIsRegister: true,
+      args: [],
+    })
+  }
+  static async getGroupAllInfo(groupCode: string, source: number=4){
+    return await callNTQQApi<GeneralCallResult & Group>({
+      methodName: NTQQApiMethod.GET_GROUP_ALL_INFO,
+      args: [
+        {
+          groupCode,
+          source
+        },
+        null,
+      ],
+    })
+  }
   static async getGroups(forced = false) {
     let cbCmd = ReceiveCmdS.GROUPS
     if (process.platform != 'win32') {
@@ -57,6 +84,19 @@ export class NTQQGroupApi {
       log(`get group ${groupQQ} members failed`, e)
       return []
     }
+  }
+  static async getGroupMembersInfo(groupCode: string, uids: string[], forceUpdate: boolean=false) {
+    return await callNTQQApi<GeneralCallResult>({
+      methodName: NTQQApiMethod.GROUP_MEMBERS_INFO,
+      args: [
+        {
+          forceUpdate,
+          groupCode,
+          uids
+        },
+        null,
+      ],
+    })
   }
   static async getGroupNotifies() {
     // 获取管理员变更
@@ -158,7 +198,8 @@ export class NTQQGroupApi {
     })
   }
   static async setMemberCard(groupQQ: string, memberUid: string, cardName: string) {
-    return await callNTQQApi<GeneralCallResult>({
+    NTQQGroupApi.activateMemberListChange().then().catch(log)
+    const res = await callNTQQApi<GeneralCallResult>({
       methodName: NTQQApiMethod.SET_MEMBER_CARD,
       args: [
         {
@@ -169,6 +210,8 @@ export class NTQQGroupApi {
         null,
       ],
     })
+    NTQQGroupApi.getGroupMembersInfo(groupQQ, [memberUid], true).then().catch(log)
+    return res;
   }
   static async setMemberRole(groupQQ: string, memberUid: string, role: GroupMemberRole) {
     return await callNTQQApi<GeneralCallResult>({

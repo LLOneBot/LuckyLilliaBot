@@ -5,6 +5,7 @@ export class OB11GroupRequestEvent extends OB11GroupNoticeEvent {
   post_type = EventType.REQUEST
   request_type: 'group' = 'group'
   sub_type: 'add' | 'invite' = 'add'
+  invitor_id: number | undefined = undefined
   comment: string
   flag: string
 }

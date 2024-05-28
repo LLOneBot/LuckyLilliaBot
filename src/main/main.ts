@@ -349,32 +349,48 @@ function onLoad() {
                 log('获取群通知的成员信息失败', notify, e.stack.toString())
               }
             }
-            else if ([GroupNotifyTypes.JOIN_REQUEST].includes(notify.type)) {
+            else if ([GroupNotifyTypes.JOIN_REQUEST, GroupNotifyTypes.JOIN_REQUEST_BY_INVITED].includes(notify.type)) {
               log('有加群请求')
               let groupRequestEvent = new OB11GroupRequestEvent()
               groupRequestEvent.group_id = parseInt(notify.group.groupCode)
-              let requestQQ = ''
-              try {
-                requestQQ = (await NTQQUserApi.getUserDetailInfo(notify.user1.uid)).uin
-              } catch (e) {
-                log('获取加群人QQ号失败', e)
+              let requestQQ = uidMaps[notify.user1.uid]
+              if (!requestQQ) {
+                try {
+                  requestQQ = (await NTQQUserApi.getUserDetailInfo(notify.user1.uid)).uin
+                } catch (e) {
+                  log('获取加群人QQ号失败', e)
+                }
               }
               groupRequestEvent.user_id = parseInt(requestQQ) || 0
               groupRequestEvent.sub_type = 'add'
               groupRequestEvent.comment = notify.postscript
               groupRequestEvent.flag = notify.seq
+              if (notify.type == GroupNotifyTypes.JOIN_REQUEST_BY_INVITED) {
+                // groupRequestEvent.sub_type = 'invite'
+                let invitorQQ = uidMaps[notify.user2.uid]
+                if (!invitorQQ) {
+                  try {
+                    let invitor = (await NTQQUserApi.getUserDetailInfo(notify.user2.uid))
+                    groupRequestEvent.invitor_id = parseInt(invitor.uin)
+                  } catch (e) {
+                    groupRequestEvent.invitor_id = 0
+                    log('获取邀请人QQ号失败', e)
+                  }
+                }
+              }
               postOb11Event(groupRequestEvent)
             }
             else if (notify.type == GroupNotifyTypes.INVITE_ME) {
               log('收到邀请我加群通知')
               let groupInviteEvent = new OB11GroupRequestEvent()
               groupInviteEvent.group_id = parseInt(notify.group.groupCode)
-              let user_id = (await getFriend(notify.user2.uid))?.uin
+              let user_id = uidMaps[notify.user2.uid]
               if (!user_id) {
                 user_id = (await NTQQUserApi.getUserDetailInfo(notify.user2.uid))?.uin
               }
               groupInviteEvent.user_id = parseInt(user_id)
               groupInviteEvent.sub_type = 'invite'
+              // groupInviteEvent.invitor_id = parseInt(user_id)
               groupInviteEvent.flag = notify.seq
               postOb11Event(groupInviteEvent)
             }
@@ -421,7 +437,13 @@ function onLoad() {
       }
     })
     startReceiveHook().then()
-    NTQQGroupApi.getGroups(true).then()
+    NTQQGroupApi.getGroups(true).then(groups=> {
+        for (let group of groups) {
+        }
+      }
+    ).catch(log)
+    NTQQGroupApi.activateMemberInfoChange().then().catch(log)
+    NTQQGroupApi.activateMemberListChange().then().catch(log)
     const config = getConfigUtil().getConfig()
     if (config.ob11.enableHttp) {
       ob11HTTPServer.start(config.ob11.httpPort)

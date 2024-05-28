@@ -27,13 +27,17 @@ export enum NTQQApiMethod {
   HISTORY_MSG = 'nodeIKernelMsgService/getMsgsIncludeSelf',
   GET_MULTI_MSG = 'nodeIKernelMsgService/getMultiMsg',
   DELETE_ACTIVE_CHAT = 'nodeIKernelMsgService/deleteActiveChatByUid',
+  ENTER_OR_EXIT_AIO = 'nodeIKernelMsgService/enterOrExitAio',
 
   LIKE_FRIEND = 'nodeIKernelProfileLikeService/setBuddyProfileLike',
   SELF_INFO = 'fetchAuthData',
   FRIENDS = 'nodeIKernelBuddyService/getBuddyList',
+
   GROUPS = 'nodeIKernelGroupService/getGroupList',
   GROUP_MEMBER_SCENE = 'nodeIKernelGroupService/createMemberListScene',
   GROUP_MEMBERS = 'nodeIKernelGroupService/getNextMemberList',
+  GROUP_MEMBERS_INFO = 'nodeIKernelGroupService/getMemberInfo',
+
   USER_INFO = 'nodeIKernelProfileService/getUserSimpleInfo',
   USER_DETAIL_INFO = 'nodeIKernelProfileService/getUserDetailInfo',
   USER_DETAIL_INFO_WITH_BIZ_INFO = 'nodeIKernelProfileService/getUserDetailInfoWithBizInfo',
@@ -65,6 +69,10 @@ export enum NTQQApiMethod {
   PUBLISH_GROUP_BULLETIN = 'nodeIKernelGroupService/publishGroupBulletinBulletin',
   SET_GROUP_NAME = 'nodeIKernelGroupService/modifyGroupName',
   SET_GROUP_TITLE = 'nodeIKernelGroupService/modifyMemberSpecialTitle',
+  ACTIVATE_MEMBER_LIST_CHANGE = 'nodeIKernelGroupListener/onMemberListChange',
+  ACTIVATE_MEMBER_INFO_CHANGE = 'nodeIKernelGroupListener/onMemberInfoChange',
+  GET_MSG_BOX_INFO = 'nodeIKernelMsgService/getABatchOfContactMsgBoxInfo',
+  GET_GROUP_ALL_INFO = 'nodeIKernelGroupService/getGroupAllInfo',
 
   CACHE_SET_SILENCE = 'nodeIKernelStorageCleanService/setSilentScan',
   CACHE_ADD_SCANNED_PATH = 'nodeIKernelStorageCleanService/addCacheScanedPaths',

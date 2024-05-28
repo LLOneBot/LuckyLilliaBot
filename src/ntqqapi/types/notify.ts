@@ -1,6 +1,7 @@
 export enum GroupNotifyTypes {
   INVITE_ME = 1,
   INVITED_JOIN = 4, // 有人接受了邀请入群
+  JOIN_REQUEST_BY_INVITED = 5,  // 有人邀请了别人入群
   JOIN_REQUEST = 7,
   ADMIN_SET = 8,
   KICK_MEMBER = 9,
