@@ -100,11 +100,12 @@ export class NTQQUserApi {
     })
   }
   static async getQzoneCookies() {
-    const requestUrl = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + selfInfo.uin + '&clientkey=' + this.getClientKey() + '&u1=https%3A%2F%2Fuser.qzone.qq.com%2F' + selfInfo.uin + '%2Finfocenter&keyindex=19%27'
+    const requestUrl = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + selfInfo.uin + '&clientkey=' + (await this.getClientKey()).clientKey + '&u1=https%3A%2F%2Fuser.qzone.qq.com%2F' + selfInfo.uin + '%2Finfocenter&keyindex=19%27'
     let cookies: { [key: string]: string; } = {};
     try {
       cookies = await RequestUtil.HttpsGetCookies(requestUrl);
     } catch (e: any) {
+      log('获取QZone Cookies失败', e)
       cookies = {}
     }
     return cookies;
