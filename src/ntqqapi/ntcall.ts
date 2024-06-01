@@ -107,7 +107,7 @@ interface NTQQApiParams {
   channel?: NTQQApiChannel
   classNameIsRegister?: boolean
   args?: unknown[]
-  cbCmd?: ReceiveCmd | null
+  cbCmd?: ReceiveCmd | ReceiveCmd[] | null
   cmdCB?: (payload: any) => boolean
   afterFirstCmd?: boolean // 是否在methodName调用完之后再去hook cbCmd
   timeoutSecond?: number
@@ -147,7 +147,8 @@ export function callNTQQApi<ReturnType>(params: NTQQApiParams) {
         success = true
         resolve(r)
       }
-    } else {
+    }
+    else {
       // 这里的callback比较特殊，QQ后端先返回是否调用成功，再返回一条结果数据
       const secondCallback = () => {
         const hookId = registerReceiveHook<ReturnType>(cbCmd, (payload) => {
@@ -158,7 +159,8 @@ export function callNTQQApi<ReturnType>(params: NTQQApiParams) {
               success = true
               resolve(payload)
             }
-          } else {
+          }
+          else {
             removeReceiveHook(hookId)
             success = true
             resolve(payload)
@@ -170,7 +172,8 @@ export function callNTQQApi<ReturnType>(params: NTQQApiParams) {
         log(`${methodName} callback`, result)
         if (result?.result == 0 || result === undefined) {
           afterFirstCmd && secondCallback()
-        } else {
+        }
+        else {
           success = true
           reject(`ntqq api call failed, ${result.errMsg}`)
         }
@@ -188,7 +191,8 @@ export function callNTQQApi<ReturnType>(params: NTQQApiParams) {
       channel,
       {
         sender: {
-          send: (..._args: unknown[]) => {},
+          send: (..._args: unknown[]) => {
+          },
         },
       },
       { type: 'request', callbackId: uuid, eventName },

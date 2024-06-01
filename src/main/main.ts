@@ -25,7 +25,7 @@ import {
   selfInfo,
   uidMaps,
 } from '../common/data'
-import { hookNTQQApiCall, hookNTQQApiReceive, ReceiveCmdS, registerReceiveHook } from '../ntqqapi/hook'
+import { hookNTQQApiCall, hookNTQQApiReceive, ReceiveCmdS, registerReceiveHook, startHook } from '../ntqqapi/hook'
 import { OB11Constructor } from '../onebot11/constructor'
 import {
   ChatType,
@@ -200,6 +200,7 @@ function onLoad() {
   }
 
   async function startReceiveHook() {
+    startHook().then()
     if (getConfigUtil().getConfig().enablePoke) {
       crychic.loadNode()
       crychic.registerPokeHandler((id, isGroup) => {
@@ -436,14 +437,33 @@ function onLoad() {
         uidMaps[value] = key
       }
     })
-    startReceiveHook().then()
-    NTQQGroupApi.getGroups(true).then(groups=> {
-        for (let group of groups) {
-        }
-      }
-    ).catch(log)
-    NTQQGroupApi.activateMemberInfoChange().then().catch(log)
-    NTQQGroupApi.activateMemberListChange().then().catch(log)
+    try{
+      log('start get groups')
+      const _groups = await NTQQGroupApi.getGroups()
+      log('_groups', _groups)
+      await Promise.all(
+        _groups.map(async (group) => {
+          try {
+            const members = await NTQQGroupApi.getGroupMembers(group.groupCode)
+            group.members = members
+            groups.push(group)
+          } catch (e) {
+            log('获取群成员失败', e)
+          }
+        })
+      )
+    }
+    catch (e) {
+      log('获取群列表失败', e)
+    }
+    finally {
+      log('start activate group member info')
+      NTQQGroupApi.activateMemberInfoChange().then().catch(log)
+      NTQQGroupApi.activateMemberListChange().then().catch(log)
+      startReceiveHook().then()
+    }
+
+
     const config = getConfigUtil().getConfig()
     if (config.ob11.enableHttp) {
       ob11HTTPServer.start(config.ob11.httpPort)

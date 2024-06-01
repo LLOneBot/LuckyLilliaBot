@@ -35,14 +35,20 @@ export class NTQQGroupApi {
     })
   }
   static async getGroups(forced = false) {
-    let cbCmd = ReceiveCmdS.GROUPS
-    if (process.platform != 'win32') {
-      cbCmd = ReceiveCmdS.GROUPS_STORE
-    }
+    // let cbCmd = ReceiveCmdS.GROUPS
+    // if (process.platform != 'win32') {
+    //   cbCmd = ReceiveCmdS.GROUPS_STORE
+    // }
     const result = await callNTQQApi<{
       updateType: number
       groupList: Group[]
-    }>({ methodName: NTQQApiMethod.GROUPS, args: [{ force_update: forced }, undefined], cbCmd })
+    }>({
+      methodName: NTQQApiMethod.GROUPS,
+      args: [{ force_update: forced }, undefined],
+      cbCmd: [ReceiveCmdS.GROUPS, ReceiveCmdS.GROUPS_STORE],
+      afterFirstCmd: false,
+    })
+    log('get groups result', result)
     return result.groupList
   }
   static async getGroupMembers(groupQQ: string, num = 3000): Promise<GroupMember[]> {

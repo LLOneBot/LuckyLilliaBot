@@ -22,6 +22,7 @@ import { NTQQGroupApi } from './api/group'
 import { log } from '@/common/utils'
 import { isNumeric, sleep } from '@/common/utils'
 import { OB11Constructor } from '../onebot11/constructor'
+import { OB11GroupCardEvent } from '../onebot11/event/notice/OB11GroupCardEvent'
 
 export let hookApiCallbacks: Record<string, (apiReturn: any) => void> = {}
 
@@ -324,207 +325,222 @@ async function processGroupEvent(payload: { groupList: Group[] }) {
   }
 }
 
-// 群列表变动
-registerReceiveHook<{ groupList: Group[]; updateType: number }>(ReceiveCmdS.GROUPS, (payload) => {
-  // updateType 3是群列表变动，2是群成员变动
-  // log("群列表变动", payload.updateType, payload.groupList)
-  if (payload.updateType != 2) {
-    updateGroups(payload.groupList).then()
-  } else {
-    if (process.platform == 'win32') {
-      processGroupEvent(payload).then()
-    }
-  }
-})
-registerReceiveHook<{ groupList: Group[]; updateType: number }>(ReceiveCmdS.GROUPS_STORE, (payload) => {
-  // updateType 3是群列表变动，2是群成员变动
-  // log("群列表变动", payload.updateType, payload.groupList)
-  if (payload.updateType != 2) {
-    updateGroups(payload.groupList).then()
-  } else {
-    if (process.platform != 'win32') {
-      processGroupEvent(payload).then()
-    }
-  }
-})
+export async function startHook() {
 
-registerReceiveHook<{
-  groupCode: string
-  dataSource: number
-  members: Set<GroupMember>
-}>(ReceiveCmdS.GROUP_MEMBER_INFO_UPDATE, async (payload) => {
-  const groupCode = payload.groupCode
-  const members = Array.from(payload.members.values())
-  // log("群成员信息变动", groupCode, members)
-  for (const member of members) {
-    const existMember = await getGroupMember(groupCode, member.uin)
-    if (existMember) {
-      Object.assign(existMember, member)
+// 群列表变动
+  registerReceiveHook<{ groupList: Group[]; updateType: number }>(ReceiveCmdS.GROUPS, (payload) => {
+    // updateType 3是群列表变动，2是群成员变动
+    // log("群列表变动", payload.updateType, payload.groupList)
+    if (payload.updateType != 2) {
+      updateGroups(payload.groupList).then()
     }
-  }
-  // const existGroup = groups.find(g => g.groupCode == groupCode);
-  // if (existGroup) {
-  //     log("对比群成员", existGroup.members, members)
-  //     for (const member of members) {
-  //         const existMember = existGroup.members.find(m => m.uin == member.uin);
-  //         if (existMember) {
-  //             log("对比群名片", existMember.cardName, member.cardName)
-  //             if (existMember.cardName != member.cardName) {
-  //                 postOB11Event(new OB11GroupCardEvent(parseInt(existGroup.groupCode), parseInt(member.uin), member.cardName, existMember.cardName));
-  //             }
-  //             Object.assign(existMember, member);
-  //         }
-  //     }
-  // }
-})
+    else {
+      if (process.platform == 'win32') {
+        processGroupEvent(payload).then()
+      }
+    }
+  })
+  registerReceiveHook<{ groupList: Group[]; updateType: number }>(ReceiveCmdS.GROUPS_STORE, (payload) => {
+    // updateType 3是群列表变动，2是群成员变动
+    // log("群列表变动", payload.updateType, payload.groupList)
+    if (payload.updateType != 2) {
+      updateGroups(payload.groupList).then()
+    }
+    else {
+      if (process.platform != 'win32') {
+        processGroupEvent(payload).then()
+      }
+    }
+  })
+
+  registerReceiveHook<{
+    groupCode: string
+    dataSource: number
+    members: Set<GroupMember>
+  }>(ReceiveCmdS.GROUP_MEMBER_INFO_UPDATE, async (payload) => {
+    const groupCode = payload.groupCode
+    const members = Array.from(payload.members.values())
+    // log("群成员信息变动", groupCode, members)
+    for (const member of members) {
+      const existMember = await getGroupMember(groupCode, member.uin)
+      if (existMember) {
+        if (member.cardName != existMember.cardName) {
+          log('群成员名片变动', `${groupCode}: ${existMember.uin}`, existMember.cardName, '->', member.cardName)
+          postOb11Event(
+            new OB11GroupCardEvent(parseInt(groupCode), parseInt(member.uin), member.cardName, existMember.cardName),
+          )
+        }
+        Object.assign(existMember, member)
+      }
+    }
+    // const existGroup = groups.find(g => g.groupCode == groupCode);
+    // if (existGroup) {
+    //     log("对比群成员", existGroup.members, members)
+    //     for (const member of members) {
+    //         const existMember = existGroup.members.find(m => m.uin == member.uin);
+    //         if (existMember) {
+    //             log("对比群名片", existMember.cardName, member.cardName)
+    //             if (existMember.cardName != member.cardName) {
+    //                 postOB11Event(new OB11GroupCardEvent(parseInt(existGroup.groupCode), parseInt(member.uin), member.cardName, existMember.cardName));
+    //             }
+    //             Object.assign(existMember, member);
+    //         }
+    //     }
+    // }
+  })
 
 // 好友列表变动
-registerReceiveHook<{
-  data:CategoryFriend[]
-}>(ReceiveCmdS.FRIENDS, (payload) => {
-  rawFriends.length = 0;
-  rawFriends.push(...payload.data);
-  for (const fData of payload.data) {
-    const _friends = fData.buddyList
-    for (let friend of _friends) {
-      NTQQMsgApi.activateChat({ peerUid: friend.uid, chatType: ChatType.friend }).then()
-      let existFriend = friends.find((f) => f.uin == friend.uin)
-      if (!existFriend) {
-        friends.push(friend)
-      } else {
-        Object.assign(existFriend, friend)
+  registerReceiveHook<{
+    data: CategoryFriend[]
+  }>(ReceiveCmdS.FRIENDS, (payload) => {
+    rawFriends.length = 0;
+    rawFriends.push(...payload.data);
+    for (const fData of payload.data) {
+      const _friends = fData.buddyList
+      for (let friend of _friends) {
+        NTQQMsgApi.activateChat({ peerUid: friend.uid, chatType: ChatType.friend }).then()
+        let existFriend = friends.find((f) => f.uin == friend.uin)
+        if (!existFriend) {
+          friends.push(friend)
+        }
+        else {
+          Object.assign(existFriend, friend)
+        }
       }
     }
-  }
-})
+  })
 
-registerReceiveHook<{ msgList: Array<RawMessage> }>([ReceiveCmdS.NEW_MSG, ReceiveCmdS.NEW_ACTIVE_MSG], (payload) => {
-  // 保存一下uid
-  for (const message of payload.msgList) {
-    const uid = message.senderUid
-    const uin = message.senderUin
-    if (uid && uin) {
-      if (message.chatType === ChatType.temp) {
-        dbUtil.getReceivedTempUinMap().then((receivedTempUinMap) => {
-          if (!receivedTempUinMap[uin]) {
-            receivedTempUinMap[uin] = uid
-            dbUtil.setReceivedTempUinMap(receivedTempUinMap)
-          }
-        })
-      }
-      uidMaps[uid] = uin
-    }
-  }
-
-  // 自动清理新消息文件
-  const { autoDeleteFile } = getConfigUtil().getConfig()
-  if (!autoDeleteFile) {
-    return
-  }
-  for (const message of payload.msgList) {
-    // log("收到新消息，push到历史记录", message.msgId)
-    // dbUtil.addMsg(message).then()
-    // 清理文件
-
-    for (const msgElement of message.elements) {
-      setTimeout(() => {
-        const picPath = msgElement.picElement?.sourcePath
-        const picThumbPath = [...msgElement.picElement?.thumbPath.values()]
-        const pttPath = msgElement.pttElement?.filePath
-        const filePath = msgElement.fileElement?.filePath
-        const videoPath = msgElement.videoElement?.filePath
-        const videoThumbPath: string[] = [...msgElement.videoElement?.thumbPath.values()]
-        const pathList = [picPath, ...picThumbPath, pttPath, filePath, videoPath, ...videoThumbPath]
-        if (msgElement.picElement) {
-          pathList.push(...Object.values(msgElement.picElement.thumbPath))
-        }
-        const aioOpGrayTipElement = msgElement.grayTipElement?.aioOpGrayTipElement
-        if (aioOpGrayTipElement) {
-          tempGroupCodeMap[aioOpGrayTipElement.peerUid] = aioOpGrayTipElement.fromGrpCodeOfTmpChat
-        }
-
-        // log("需要清理的文件", pathList);
-        for (const path of pathList) {
-          if (path) {
-            fs.unlink(picPath, () => {
-              log('删除文件成功', path)
-            })
-          }
-        }
-      }, getConfigUtil().getConfig().autoDeleteFileSecond * 1000)
-    }
-  }
-})
-
-registerReceiveHook<{ msgRecord: RawMessage }>(ReceiveCmdS.SELF_SEND_MSG, ({ msgRecord }) => {
-  const message = msgRecord
-  const peerUid = message.peerUid
-  // log("收到自己发送成功的消息", Object.keys(sendMessagePool), message);
-  // log("收到自己发送成功的消息", message.msgId, message.msgSeq);
-  dbUtil.addMsg(message).then()
-  const sendCallback = sendMessagePool[peerUid]
-  if (sendCallback) {
-    try {
-      sendCallback(message)
-    } catch (e) {
-      log('receive self msg error', e.stack)
-    }
-  }
-})
-
-registerReceiveHook<{ info: { status: number } }>(ReceiveCmdS.SELF_STATUS, (info) => {
-  selfInfo.online = info.info.status !== 20
-})
-
-let activatedPeerUids: string[] = []
-registerReceiveHook<{
-  changedRecentContactLists: {
-    listType: number
-    sortedContactList: string[]
-    changedList: {
-      id: string // peerUid
-      chatType: ChatType
-    }[]
-  }[]
-}>(ReceiveCmdS.RECENT_CONTACT, async (payload) => {
-  for (const recentContact of payload.changedRecentContactLists) {
-    for (const changedContact of recentContact.changedList) {
-      if (activatedPeerUids.includes(changedContact.id)) continue
-      activatedPeerUids.push(changedContact.id)
-      const peer = { peerUid: changedContact.id, chatType: changedContact.chatType }
-      if (changedContact.chatType === ChatType.temp) {
-        log('收到临时会话消息', peer)
-        NTQQMsgApi.activateChatAndGetHistory(peer).then(() => {
-          NTQQMsgApi.getMsgHistory(peer, '', 20).then(({ msgList }) => {
-            let lastTempMsg = msgList.pop()
-            log('激活窗口之前的第一条临时会话消息:', lastTempMsg)
-            if (Date.now() / 1000 - parseInt(lastTempMsg.msgTime) < 5) {
-              OB11Constructor.message(lastTempMsg).then((r) => postOb11Event(r))
+  registerReceiveHook<{ msgList: Array<RawMessage> }>([ReceiveCmdS.NEW_MSG, ReceiveCmdS.NEW_ACTIVE_MSG], (payload) => {
+    // 保存一下uid
+    for (const message of payload.msgList) {
+      const uid = message.senderUid
+      const uin = message.senderUin
+      if (uid && uin) {
+        if (message.chatType === ChatType.temp) {
+          dbUtil.getReceivedTempUinMap().then((receivedTempUinMap) => {
+            if (!receivedTempUinMap[uin]) {
+              receivedTempUinMap[uin] = uid
+              dbUtil.setReceivedTempUinMap(receivedTempUinMap)
             }
           })
-        })
-      } else {
-        NTQQMsgApi.activateChat(peer).then()
+        }
+        uidMaps[uid] = uin
       }
     }
-  }
-})
 
-registerCallHook(NTQQApiMethod.DELETE_ACTIVE_CHAT, async (payload) => {
-  const peerUid = payload[0] as string
-  log('激活的聊天窗口被删除，准备重新激活', peerUid)
-  let chatType = ChatType.friend
-  if (isNumeric(peerUid)) {
-    chatType = ChatType.group
-  } else {
-    // 检查是否好友
-    if (!(await getFriend(peerUid))) {
-      chatType = ChatType.temp
+    // 自动清理新消息文件
+    const { autoDeleteFile } = getConfigUtil().getConfig()
+    if (!autoDeleteFile) {
+      return
     }
-  }
-  const peer = { peerUid, chatType }
-  await sleep(1000)
-  NTQQMsgApi.activateChat(peer).then((r) => {
-    log('重新激活聊天窗口', peer, { result: r.result, errMsg: r.errMsg })
+    for (const message of payload.msgList) {
+      // log("收到新消息，push到历史记录", message.msgId)
+      // dbUtil.addMsg(message).then()
+      // 清理文件
+
+      for (const msgElement of message.elements) {
+        setTimeout(() => {
+          const picPath = msgElement.picElement?.sourcePath
+          const picThumbPath = [...msgElement.picElement?.thumbPath.values()]
+          const pttPath = msgElement.pttElement?.filePath
+          const filePath = msgElement.fileElement?.filePath
+          const videoPath = msgElement.videoElement?.filePath
+          const videoThumbPath: string[] = [...msgElement.videoElement?.thumbPath.values()]
+          const pathList = [picPath, ...picThumbPath, pttPath, filePath, videoPath, ...videoThumbPath]
+          if (msgElement.picElement) {
+            pathList.push(...Object.values(msgElement.picElement.thumbPath))
+          }
+          const aioOpGrayTipElement = msgElement.grayTipElement?.aioOpGrayTipElement
+          if (aioOpGrayTipElement) {
+            tempGroupCodeMap[aioOpGrayTipElement.peerUid] = aioOpGrayTipElement.fromGrpCodeOfTmpChat
+          }
+
+          // log("需要清理的文件", pathList);
+          for (const path of pathList) {
+            if (path) {
+              fs.unlink(picPath, () => {
+                log('删除文件成功', path)
+              })
+            }
+          }
+        }, getConfigUtil().getConfig().autoDeleteFileSecond * 1000)
+      }
+    }
   })
-})
+
+  registerReceiveHook<{ msgRecord: RawMessage }>(ReceiveCmdS.SELF_SEND_MSG, ({ msgRecord }) => {
+    const message = msgRecord
+    const peerUid = message.peerUid
+    // log("收到自己发送成功的消息", Object.keys(sendMessagePool), message);
+    // log("收到自己发送成功的消息", message.msgId, message.msgSeq);
+    dbUtil.addMsg(message).then()
+    const sendCallback = sendMessagePool[peerUid]
+    if (sendCallback) {
+      try {
+        sendCallback(message)
+      } catch (e) {
+        log('receive self msg error', e.stack)
+      }
+    }
+  })
+
+  registerReceiveHook<{ info: { status: number } }>(ReceiveCmdS.SELF_STATUS, (info) => {
+    selfInfo.online = info.info.status !== 20
+  })
+
+  let activatedPeerUids: string[] = []
+  registerReceiveHook<{
+    changedRecentContactLists: {
+      listType: number
+      sortedContactList: string[]
+      changedList: {
+        id: string // peerUid
+        chatType: ChatType
+      }[]
+    }[]
+  }>(ReceiveCmdS.RECENT_CONTACT, async (payload) => {
+    for (const recentContact of payload.changedRecentContactLists) {
+      for (const changedContact of recentContact.changedList) {
+        if (activatedPeerUids.includes(changedContact.id)) continue
+        activatedPeerUids.push(changedContact.id)
+        const peer = { peerUid: changedContact.id, chatType: changedContact.chatType }
+        if (changedContact.chatType === ChatType.temp) {
+          log('收到临时会话消息', peer)
+          NTQQMsgApi.activateChatAndGetHistory(peer).then(() => {
+            NTQQMsgApi.getMsgHistory(peer, '', 20).then(({ msgList }) => {
+              let lastTempMsg = msgList.pop()
+              log('激活窗口之前的第一条临时会话消息:', lastTempMsg)
+              if (Date.now() / 1000 - parseInt(lastTempMsg.msgTime) < 5) {
+                OB11Constructor.message(lastTempMsg).then((r) => postOb11Event(r))
+              }
+            })
+          })
+        }
+        else {
+          NTQQMsgApi.activateChat(peer).then()
+        }
+      }
+    }
+  })
+
+  registerCallHook(NTQQApiMethod.DELETE_ACTIVE_CHAT, async (payload) => {
+    const peerUid = payload[0] as string
+    log('激活的聊天窗口被删除，准备重新激活', peerUid)
+    let chatType = ChatType.friend
+    if (isNumeric(peerUid)) {
+      chatType = ChatType.group
+    }
+    else {
+      // 检查是否好友
+      if (!(await getFriend(peerUid))) {
+        chatType = ChatType.temp
+      }
+    }
+    const peer = { peerUid, chatType }
+    await sleep(1000)
+    NTQQMsgApi.activateChat(peer).then((r) => {
+      log('重新激活聊天窗口', peer, { result: r.result, errMsg: r.errMsg })
+    })
+  })
+
+}
