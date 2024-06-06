@@ -10,6 +10,7 @@ import { WebSocket as WebSocketClass } from 'ws'
 import { OB11HeartbeatEvent } from '../../event/meta/OB11HeartbeatEvent'
 import { log } from '../../../common/utils/log'
 import { getConfigUtil } from '../../../common/config'
+import { version } from '../../../version'
 
 export let rwsList: ReverseWebsocket[] = []
 
@@ -85,6 +86,7 @@ export class ReverseWebsocket {
         'X-Self-ID': selfInfo.uin,
         Authorization: `Bearer ${token}`,
         'x-client-role': 'Universal', // koishi-adapter-onebot 需要这个字段
+        'User-Agent': `LLOneBot/${version}`,
       },
     })
     registerWsEventSender(this.websocket)
