@@ -7,7 +7,9 @@ import { log } from '../../common/utils/log'
 import { sleep } from '../../common/utils/helper'
 import { isQQ998 } from '../../common/utils'
 
-export let sendMessagePool: Record<string, ((sendSuccessMsg: RawMessage) => void) | null> = {} // peerUid: callbackFunnc
+export let sendMessagePool: Record<string, ((sendSuccessMsg: RawMessage) => void) | null> = {} // peerUid: callbackFunc
+
+export let sentMessages: Record<string, RawMessage> = {}  // msgId: RawMessage
 
 export interface Peer {
   chatType: ChatType
@@ -40,17 +42,20 @@ async function sendWaiter(peer: Peer, waitComplete = true, timeout: number = 100
   sendMessagePool[peerUid] = async (rawMessage: RawMessage) => {
     delete sendMessagePool[peerUid]
     sentMessage = rawMessage
+    sentMessages[rawMessage.msgId] = rawMessage
   }
 
   let checkSendCompleteUsingTime = 0
   const checkSendComplete = async (): Promise<RawMessage> => {
     if (sentMessage) {
       if (waitComplete) {
-        if ((await dbUtil.getMsgByLongId(sentMessage.msgId)).sendStatus == 2) {
+        if (sentMessage.sendStatus == 2) {
+          delete sentMessages[sentMessage.msgId]
           return sentMessage
         }
       }
       else {
+        delete sentMessages[sentMessage.msgId]
         return sentMessage
       }
       // log(`给${peerUid}发送消息成功`)

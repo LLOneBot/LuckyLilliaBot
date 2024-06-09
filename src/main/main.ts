@@ -56,6 +56,7 @@ import { getConfigUtil } from '../common/config'
 import { checkFfmpeg } from '../common/utils/video'
 import { GroupDecreaseSubType, OB11GroupDecreaseEvent } from '../onebot11/event/notice/OB11GroupDecreaseEvent'
 import '../ntqqapi/native/wrapper'
+import { sentMessages } from '@/ntqqapi/api'
 
 let running = false
 
@@ -227,6 +228,10 @@ function onLoad() {
     const recallMsgIds: string[] = [] // 避免重复上报
     registerReceiveHook<{ msgList: Array<RawMessage> }>([ReceiveCmdS.UPDATE_MSG], async (payload) => {
       for (const message of payload.msgList) {
+        const sentMessage = sentMessages[message.msgId]
+        if (sentMessage){
+          Object.assign(sentMessage, message)
+        }
         log('message update', message.msgId, message)
         if (message.recallTime != '0') {
           if (recallMsgIds.includes(message.msgId)) {
