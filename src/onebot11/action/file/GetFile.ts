@@ -2,7 +2,7 @@ import BaseAction from '../BaseAction'
 import fs from 'fs/promises'
 import { dbUtil } from '@/common/db'
 import { getConfigUtil } from '@/common/config'
-import { log, sleep, uri2local } from '@/common/utils'
+import { checkFileReceived, log, sleep, uri2local } from '@/common/utils'
 import { NTQQFileApi } from '@/ntqqapi/api'
 import { ActionName } from '../types'
 import { FileElement, RawMessage, VideoElement } from '@/ntqqapi/types'
@@ -38,20 +38,21 @@ export class GetFileBase extends BaseAction<GetFilePayload, GetFileResponse> {
         log('找到了文件 element', element)
         // 构建下载函数
         await NTQQFileApi.downloadMedia(msg.msgId, msg.chatType, msg.peerUid, cache.elementId, '', '', true)
-        await sleep(1000)  // 这里延时是为何？
+        // 等待文件下载完成
         msg = await dbUtil.getMsgByLongId(cache.msgId)
         log('下载完成后的msg', msg)
         cache.filePath = this.getElement(msg, cache.elementId).filePath
+        await checkFileReceived(cache.filePath, 10 * 1000)
         dbUtil.addFileCache(file, cache).then()
       }
     }
   }
   protected async _handle(payload: GetFilePayload): Promise<GetFileResponse> {
-    const cache = await dbUtil.getFileCache(payload.file)
-    const { autoDeleteFile, enableLocalFile2Url, autoDeleteFileSecond } = getConfigUtil().getConfig()
+    let cache = await dbUtil.getFileCache(payload.file)
     if (!cache) {
       throw new Error('file not found')
     }
+    const { autoDeleteFile, enableLocalFile2Url, autoDeleteFileSecond } = getConfigUtil().getConfig()
     if (cache.downloadFunc) {
       await cache.downloadFunc()
     }
