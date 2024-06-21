@@ -1,5 +1,4 @@
 import fs from 'fs'
-import fsAsync from 'fs/promises'
 import fsPromise from 'fs/promises'
 import { decode, encode, getDuration, getWavFileInfo, isWav, isSilk } from 'silk-wasm'
 import { log } from './log'
@@ -133,12 +132,12 @@ export async function encodeSilk(filePath: string) {
 }
 
 export async function decodeSilk(inputFilePath: string, outFormat: 'mp3' | 'amr' | 'wma' | 'm4a' | 'spx' | 'ogg' | 'wav' | 'flac' = 'mp3') {
-  const silkArrayBuffer = await fsAsync.readFile(inputFilePath)
+  const silkArrayBuffer = await fsPromise.readFile(inputFilePath)
   const data = (await decode(silkArrayBuffer, 24000)).data
   const fileName = path.join(TEMP_DIR, path.basename(inputFilePath))
   const outPCMPath = fileName + '.pcm'
   const outFilePath = fileName + '.' + outFormat
-  await fsAsync.writeFile(outPCMPath, data)
+  await fsPromise.writeFile(outPCMPath, data)
   const convert = () => {
     return new Promise<string>((resolve, reject) => {
       const ffmpegPath = getConfigUtil().getConfig().ffmpeg || process.env.FFMPEG_PATH || 'ffmpeg'
