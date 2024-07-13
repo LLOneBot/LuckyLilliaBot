@@ -188,6 +188,7 @@ export const IMAGE_HTTP_HOST = 'https://gchat.qpic.cn'
 export const IMAGE_HTTP_HOST_NT = 'https://multimedia.nt.qq.com.cn'
 
 export interface PicElement {
+  picSubType: PicSubType
   picType: PicType  // 有这玩意儿吗
   originImageUrl: string // http url, 没有host，host是https://gchat.qpic.cn/, 带download参数的是https://multimedia.nt.qq.com.cn
   originImageMd5?: string

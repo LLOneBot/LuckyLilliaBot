@@ -50,6 +50,7 @@ export function encodeCQCode(data: OB11MessageData) {
   }
 
   const CQCodeEscape = (text: string) => {
+    text = text.toString()
     return text.replace(/\&/g, '&amp;').replace(/\[/g, '&#91;').replace(/\]/g, '&#93;').replace(/,/g, '&#44;')
   }
 

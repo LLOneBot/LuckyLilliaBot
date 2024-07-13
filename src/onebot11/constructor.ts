@@ -162,10 +162,12 @@ export class OB11Constructor {
         // message_data["data"]["file"] = element.picElement.sourcePath
         let fileName = element.picElement.fileName
         const sourcePath = element.picElement.sourcePath
-        if (element.picElement.picType === PicType.gif && !fileName.endsWith('.gif')) {
+        const isGif = element.picElement.picType === PicType.gif
+        if (isGif && !fileName.endsWith('.gif')) {
           fileName += '.gif'
         }
         message_data['data']['file'] = fileName
+        message_data['data']['subType'] = element.picElement.picSubType
         // message_data["data"]["path"] = element.picElement.sourcePath
         // let currentRKey = "CAQSKAB6JWENi5LMk0kc62l8Pm3Jn1dsLZHyRLAnNmHGoZ3y_gDZPqZt-64"
 
@@ -296,7 +298,7 @@ export class OB11Constructor {
       if (message_data.type !== 'unknown' && message_data.data) {
         const cqCode = encodeCQCode(message_data)
         if (messagePostFormat === 'string') {
-          ;(resMsg.message as string) += cqCode
+          (resMsg.message as string) += cqCode
         }
         else (resMsg.message as OB11MessageData[]).push(message_data)
 
