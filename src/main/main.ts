@@ -205,20 +205,21 @@ function onLoad() {
     if (getConfigUtil().getConfig().enablePoke) {
       if ( qqPkgInfo.buildVersion > '23873'){
         log(`当前版本${qqPkgInfo.buildVersion}不支持发送戳一戳模块`)
-        return
       }
-      crychic.loadNode()
-      crychic.registerPokeHandler((id, isGroup) => {
-        log(`收到戳一戳消息了！是否群聊：${isGroup}，id:${id}`)
-        let pokeEvent: OB11FriendPokeEvent | OB11GroupPokeEvent
-        if (isGroup) {
-          pokeEvent = new OB11GroupPokeEvent(parseInt(id))
-        }
-        else {
-          pokeEvent = new OB11FriendPokeEvent(parseInt(id))
-        }
-        postOb11Event(pokeEvent)
-      })
+      else {
+        crychic.loadNode()
+        crychic.registerPokeHandler((id, isGroup) => {
+          log(`收到戳一戳消息了！是否群聊：${isGroup}，id:${id}`)
+          let pokeEvent: OB11FriendPokeEvent | OB11GroupPokeEvent
+          if (isGroup) {
+            pokeEvent = new OB11GroupPokeEvent(parseInt(id))
+          }
+          else {
+            pokeEvent = new OB11FriendPokeEvent(parseInt(id))
+          }
+          postOb11Event(pokeEvent)
+        })
+      }
     }
     registerReceiveHook<{
       msgList: Array<RawMessage>
