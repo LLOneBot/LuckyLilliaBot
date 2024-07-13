@@ -226,6 +226,7 @@ export interface GrayTipElement {
     content: string
   }
   jsonGrayTipElement: {
+    busiId: number
     jsonStr: string
   }
 }

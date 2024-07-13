@@ -63,6 +63,13 @@ async function onSettingWindowCreated(view: Element) {
         ),
       ]),
       SettingList([
+          SettingItem(
+            '是否启用 LLOneBot, 重启QQ后生效',
+            null,
+            SettingSwitch('enableLLOB', config.enableLLOB, { 'control-display-id': 'config-enableLLOB' }),
+          )]
+      ),
+      SettingList([
         SettingItem(
           '启用 HTTP 服务',
           null,

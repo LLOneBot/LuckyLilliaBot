@@ -24,7 +24,7 @@ import {
   User,
   VideoElement,
 } from '../ntqqapi/types'
-import { deleteGroup, getFriend, getGroupMember, selfInfo, tempGroupCodeMap } from '../common/data'
+import { deleteGroup, getFriend, getGroupMember, selfInfo, tempGroupCodeMap, uidMaps } from '../common/data'
 import { EventType } from './event/OB11BaseEvent'
 import { encodeCQCode } from './cqcode'
 import { dbUtil } from '../common/db'
@@ -47,6 +47,7 @@ import { mFaceCache } from '../ntqqapi/constructor'
 import { OB11FriendAddNoticeEvent } from './event/notice/OB11FriendAddNoticeEvent'
 import { OB11FriendRecallNoticeEvent } from './event/notice/OB11FriendRecallNoticeEvent'
 import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNoticeEvent'
+import { OB11GroupPokeEvent } from './event/notice/OB11PokeEvent'
 
 let lastRKeyUpdateTime = 0
 
@@ -490,6 +491,16 @@ export class OB11Constructor {
           }
 
           * */
+          if (grayTipElement.jsonGrayTipElement.busiId == 1061) {
+            //判断业务类型
+            //Poke事件
+            let pokedetail: any[] = json.items;
+            //筛选item带有uid的元素
+            pokedetail = pokedetail.filter(item => item.uid);
+            if (pokedetail.length == 2) {
+              return new OB11GroupPokeEvent(parseInt(msg.peerUid), parseInt((uidMaps[pokedetail[0].uid])!), parseInt((uidMaps[pokedetail[1].uid])));
+            }
+          }
           const memberUin = json.items[1].param[0]
           const title = json.items[3].txt
           log('收到群成员新头衔消息', json)

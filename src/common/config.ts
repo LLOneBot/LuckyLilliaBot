@@ -43,6 +43,7 @@ export class ConfigUtil {
       enableQOAutoQuote: false
     }
     let defaultConfig: Config = {
+      enableLLOB: true,
       ob11: ob11Default,
       heartInterval: 60000,
       token: '',

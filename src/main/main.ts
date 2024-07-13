@@ -13,7 +13,7 @@ import {
   CHANNEL_UPDATE,
 } from '../common/channels'
 import { ob11WebsocketServer } from '../onebot11/server/ws/WebsocketServer'
-import { DATA_DIR } from '../common/utils'
+import { DATA_DIR, qqPkgInfo } from '../common/utils'
 import {
   friendRequests,
   getFriend,
@@ -203,6 +203,10 @@ function onLoad() {
   async function startReceiveHook() {
     startHook().then()
     if (getConfigUtil().getConfig().enablePoke) {
+      if ( qqPkgInfo.buildVersion > '23873'){
+        log(`当前版本${qqPkgInfo.buildVersion}不支持发送戳一戳模块`)
+        return
+      }
       crychic.loadNode()
       crychic.registerPokeHandler((id, isGroup) => {
         log(`收到戳一戳消息了！是否群聊：${isGroup}，id:${id}`)
@@ -435,6 +439,11 @@ function onLoad() {
 
   async function start() {
     log('llonebot pid', process.pid)
+    const config = getConfigUtil().getConfig()
+    if (!config.enableLLOB){
+      log('LLOneBot 开关设置为关闭，不启动LLOneBot')
+      return
+    }
     llonebotError.otherError = ''
     startTime = Date.now()
     dbUtil.getReceivedTempUinMap().then((m) => {
@@ -469,7 +478,6 @@ function onLoad() {
     }
 
 
-    const config = getConfigUtil().getConfig()
     if (config.ob11.enableHttp) {
       ob11HTTPServer.start(config.ob11.httpPort)
     }

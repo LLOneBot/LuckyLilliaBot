@@ -17,6 +17,7 @@ export interface CheckVersion {
   version: string
 }
 export interface Config {
+  enableLLOB: boolean
   ob11: OB11Config
   token?: string
   heartInterval?: number // ms
