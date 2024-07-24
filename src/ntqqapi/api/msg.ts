@@ -1,21 +1,16 @@
 import { callNTQQApi, GeneralCallResult, NTQQApiMethod } from '../ntcall'
-import { ChatType, RawMessage, SendMessageElement } from '../types'
+import { ChatType, RawMessage, SendMessageElement, Peer } from '../types'
 import { dbUtil } from '../../common/db'
 import { selfInfo } from '../../common/data'
 import { ReceiveCmdS, registerReceiveHook } from '../hook'
 import { log } from '../../common/utils/log'
 import { sleep } from '../../common/utils/helper'
 import { isQQ998 } from '../../common/utils'
+import { wrapperApi } from '@/ntqqapi/native/wrapper'
 
 export let sendMessagePool: Record<string, ((sendSuccessMsg: RawMessage) => void) | null> = {} // peerUid: callbackFunc
 
 export let sentMessages: Record<string, RawMessage> = {}  // msgId: RawMessage
-
-export interface Peer {
-  chatType: ChatType
-  peerUid: string // 如果是群聊uid为群号，私聊uid就是加密的字符串
-  guildId?: ''
-}
 
 async function sendWaiter(peer: Peer, waitComplete = true, timeout: number = 10000) {
   // 等待上一个相同的peer发送完
@@ -292,5 +287,8 @@ export class NTQQMsgApi {
         }
       })
     })
+  }
+  static async getMsgsBySeqAndCount(peer: Peer, seq: string, count: number, desc: boolean, z: boolean) {
+    return await wrapperApi.NodeIQQNTWrapperSession.getMsgService().getMsgsBySeqAndCount(peer, seq, count, desc, z);
   }
 }

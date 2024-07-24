@@ -5,6 +5,7 @@ import { deleteGroup, uidMaps } from '../../common/data'
 import { dbUtil } from '../../common/db'
 import { log } from '../../common/utils/log'
 import { NTQQWindowApi, NTQQWindows } from './window'
+import { wrapperApi } from '../native/wrapper'
 
 export class NTQQGroupApi {
 
@@ -282,4 +283,28 @@ export class NTQQGroupApi {
     })
   }
   static publishGroupBulletin(groupQQ: string, title: string, content: string) {}
+  static async removeGroupEssence(GroupCode: string, msgId: string) {
+    // 代码没测过
+    // 需要 ob11msgid->msgId + (peer) -> msgSeq + msgRandom
+    let MsgData = await wrapperApi.NodeIQQNTWrapperSession.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: GroupCode }, msgId, 1, false);
+    let param = {
+      groupCode: GroupCode,
+      msgRandom: parseInt(MsgData.msgList[0].msgRandom),
+      msgSeq: parseInt(MsgData.msgList[0].msgSeq)
+    };
+    // GetMsgByShoretID(ShoretID); -> MsgService.getMsgs(Peer,MsgId,1,false); -> 组出参数
+    return wrapperApi.NodeIQQNTWrapperSession.getGroupService().removeGroupEssence(param);
+  }
+  static async addGroupEssence(GroupCode: string, msgId: string) {
+    // 代码没测过
+    // 需要 ob11msgid->msgId + (peer) -> msgSeq + msgRandom
+    let MsgData = await wrapperApi.NodeIQQNTWrapperSession.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: GroupCode }, msgId, 1, false);
+    let param = {
+      groupCode: GroupCode,
+      msgRandom: parseInt(MsgData.msgList[0].msgRandom),
+      msgSeq: parseInt(MsgData.msgList[0].msgSeq)
+    };
+    // GetMsgByShoretID(ShoretID); -> MsgService.getMsgs(Peer,MsgId,1,false); -> 组出参数
+    return wrapperApi.NodeIQQNTWrapperSession.getGroupService().addGroupEssence(param);
+  }
 }

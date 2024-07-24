@@ -15,6 +15,7 @@ import {
   FaceIndex,
   GrayTipElementSubType,
   Group,
+  Peer,
   GroupMember,
   PicType,
   RawMessage,
@@ -34,6 +35,7 @@ import { OB11GroupUploadNoticeEvent } from './event/notice/OB11GroupUploadNotice
 import { OB11GroupNoticeEvent } from './event/notice/OB11GroupNoticeEvent'
 import { NTQQUserApi } from '../ntqqapi/api/user'
 import { NTQQFileApi } from '../ntqqapi/api/file'
+import { NTQQMsgApi } from '../ntqqapi/api/msg'
 import { calcQQLevel } from '../common/utils/qqlevel'
 import { log } from '../common/utils/log'
 import { sleep } from '../common/utils/helper'
@@ -49,6 +51,7 @@ import { OB11FriendRecallNoticeEvent } from './event/notice/OB11FriendRecallNoti
 import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNoticeEvent'
 import { OB11FriendPokeEvent, OB11GroupPokeEvent } from './event/notice/OB11PokeEvent'
 import { OB11BaseNoticeEvent } from './event/notice/OB11BaseNoticeEvent';
+import { OB11GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent';
 
 let lastRKeyUpdateTime = 0
 
@@ -533,13 +536,34 @@ export class OB11Constructor {
               return new OB11GroupPokeEvent(parseInt(msg.peerUid), parseInt((uidMaps[poke_uid[0].uid])!), parseInt((uidMaps[poke_uid[1].uid])), pokedetail);
             }
           }
-          const memberUin = json.items[1].param[0]
-          const title = json.items[3].txt
-          log('收到群成员新头衔消息', json)
-          getGroupMember(msg.peerUid, memberUin).then((member) => {
-            member.memberSpecialTitle = title
-          })
-          return new OB11GroupTitleEvent(parseInt(msg.peerUid), parseInt(memberUin), title)
+          if (grayTipElement.jsonGrayTipElement.busiId == 2401) {
+            log('收到群精华消息', json)
+            const searchParams = new URL(json.items[0].jp).searchParams;
+            const msgSeq = searchParams.get('msgSeq')!;
+            const Group = searchParams.get('groupCode');
+            const Businessid = searchParams.get('businessid');
+            const Peer: Peer = {
+              guildId: '',
+              chatType: ChatType.group,
+              peerUid: Group!
+            };
+            const msgList = (await NTQQMsgApi.getMsgsBySeqAndCount(Peer, msgSeq.toString(), 1, true, true)).msgList;
+            // （待解决） getMsgByLongId 拿到的 ShortId 经常跟实际 Msg 对不上（但msgId是一致的）。
+            // 不过引用消息拿到的 ShortId 是对的。
+            //console.log("原始消息: ", msgList);
+            //console.log("本地缓存: ", await dbUtil.getMsgByLongId(msgList[0].msgId));
+            return new OB11GroupEssenceEvent(parseInt(msg.peerUid), Number(((await dbUtil.getMsgByLongId(msgList[0].msgId)).msgShortId)!), parseInt(msgList[0].senderUin));
+            // 获取MsgSeq+Peer可获取具体消息
+          }
+          if (grayTipElement.jsonGrayTipElement.busiId == 2407) {
+            const memberUin = json.items[1].param[0]
+            const title = json.items[3].txt
+            log('收到群成员新头衔消息', json)
+            getGroupMember(msg.peerUid, memberUin).then((member) => {
+              member.memberSpecialTitle = title
+            })
+            return new OB11GroupTitleEvent(parseInt(msg.peerUid), parseInt(memberUin), title)
+          }
         }
       }
     }

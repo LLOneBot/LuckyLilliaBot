@@ -50,6 +50,8 @@ import { ForwardFriendSingleMsg, ForwardGroupSingleMsg } from './msg/ForwardSing
 import { GetGroupEssence } from './group/GetGroupEssence'
 import { GetGroupHonorInfo } from './group/GetGroupHonorInfo'
 import { GoCQHTTHandleQuickOperation } from './go-cqhttp/QuickOperation'
+import GoCQHTTPSetEssenceMsg from './go-cqhttp/SetEssenceMsg'
+import GoCQHTTPDelEssenceMsg from './go-cqhttp/DelEssenceMsg'
 
 export const actionHandlers = [
   new GetFile(),
@@ -106,7 +108,9 @@ export const actionHandlers = [
   new GoCQHTTPUploadPrivateFile(),
   new GoCQHTTPGetGroupMsgHistory(),
   new GoCQHTTGetForwardMsgAction(),
-  new GoCQHTTHandleQuickOperation()
+  new GoCQHTTHandleQuickOperation(),
+  new GoCQHTTPSetEssenceMsg(),
+  new GoCQHTTPDelEssenceMsg()
 ]
 
 function initActionMap() {
