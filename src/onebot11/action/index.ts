@@ -50,6 +50,7 @@ import { ForwardFriendSingleMsg, ForwardGroupSingleMsg } from './msg/ForwardSing
 import { GetGroupEssence } from './group/GetGroupEssence'
 import { GetGroupHonorInfo } from './group/GetGroupHonorInfo'
 import { GoCQHTTHandleQuickOperation } from './go-cqhttp/QuickOperation'
+import GetEvent from './llonebot/GetEvent'
 
 export const actionHandlers = [
   new GetFile(),
@@ -59,6 +60,7 @@ export const actionHandlers = [
   new GetGroupAddRequest(),
   new SetQQAvatar(),
   new GetFriendWithCategory(),
+  new GetEvent(),
   // onebot11
   new SendLike(),
   new GetMsg(),

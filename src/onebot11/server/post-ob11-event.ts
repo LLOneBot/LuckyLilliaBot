@@ -8,6 +8,7 @@ import { log } from '@/common/utils'
 import { getConfigUtil } from '@/common/config'
 import crypto from 'crypto'
 import { handleQuickOperation, QuickOperationEvent } from '../action/quick-operation'
+import { postHttpEvent } from './event-for-http'
 
 export type PostEventType = OB11Message | OB11BaseMetaEvent | OB11BaseNoticeEvent
 
@@ -78,4 +79,9 @@ export function postOb11Event(msg: PostEventType, reportSelf = false, postWs = t
   if (postWs) {
     postWsEvent(msg)
   }
+  if(!(msg.post_type == 'meta_event' && (msg as OB11BaseMetaEvent).meta_event_type == 'heartbeat')) {
+    // 不上报心跳
+    postHttpEvent(msg)
+  }
+  
 }
