@@ -4,9 +4,9 @@ import { decode, encode, getDuration, getWavFileInfo, isWav, isSilk } from 'silk
 import { log } from './log'
 import path from 'node:path'
 import { TEMP_DIR } from './index'
-import { v4 as uuidv4 } from 'uuid'
 import { getConfigUtil } from '../config'
 import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 
 export async function encodeSilk(filePath: string) {
   function getFileHeader(filePath: string) {
@@ -61,7 +61,7 @@ export async function encodeSilk(filePath: string) {
 
   try {
     const file = await fsPromise.readFile(filePath)
-    const pttPath = path.join(TEMP_DIR, uuidv4())
+    const pttPath = path.join(TEMP_DIR, randomUUID())
     if (!isSilk(file)) {
       log(`语音文件${filePath}需要转换成silk`)
       const _isWav = isWav(file)

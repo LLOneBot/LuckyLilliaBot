@@ -1,10 +1,9 @@
 import { ipcMain } from 'electron'
 import { hookApiCallbacks, ReceiveCmd, ReceiveCmdS, registerReceiveHook, removeReceiveHook } from './hook'
-
-import { v4 as uuidv4 } from 'uuid'
 import { log } from '../common/utils/log'
 import { NTQQWindow, NTQQWindowApi, NTQQWindows } from './api/window'
 import { HOOK_LOG } from '../common/config'
+import { randomUUID } from 'node:crypto'
 
 export enum NTQQApiClass {
   NT_API = 'ns-ntApi',
@@ -130,7 +129,7 @@ export function callNTQQApi<ReturnType>(params: NTQQApiParams) {
   args = args ?? []
   timeout = timeout ?? 5
   afterFirstCmd = afterFirstCmd ?? true
-  const uuid = uuidv4()
+  const uuid = randomUUID()
   HOOK_LOG && log('callNTQQApi', channel, className, methodName, args, uuid)
   return new Promise((resolve: (data: ReturnType) => void, reject) => {
     // log("callNTQQApiPromise", channel, className, methodName, args, uuid)

@@ -1,13 +1,12 @@
 import fs from 'fs'
 import fsPromise from 'fs/promises'
-import crypto from 'crypto'
 import util from 'util'
 import path from 'node:path'
-import { v4 as uuidv4 } from 'uuid'
 import { log, TEMP_DIR } from './index'
 import { dbUtil } from '../db'
 import * as fileType from 'file-type'
 import { net } from 'electron'
+import { randomUUID, createHash } from 'node:crypto'
 
 export function isGIF(path: string) {
   const buffer = Buffer.alloc(4)
@@ -66,7 +65,7 @@ export function calculateFileMD5(filePath: string): Promise<string> {
   return new Promise((resolve, reject) => {
     // 创建一个流式读取器
     const stream = fs.createReadStream(filePath)
-    const hash = crypto.createHash('md5')
+    const hash = createHash('md5')
 
     stream.on('data', (data: Buffer) => {
       // 当读取到数据时，更新哈希对象的状态
@@ -109,7 +108,7 @@ export async function httpDownload(options: string | HttpDownloadOptions): Promi
       }
     }
   }
-  const fetchRes = await net.fetch(url, {headers})
+  const fetchRes = await net.fetch(url, { headers })
   if (!fetchRes.ok) throw new Error(`下载文件失败: ${fetchRes.statusText}`)
 
   const blob = await fetchRes.blob()
@@ -136,7 +135,7 @@ export async function uri2local(uri: string, fileName: string = null): Promise<U
     isLocal: false,
   }
   if (!fileName) {
-    fileName = uuidv4()
+    fileName = randomUUID()
   }
   let filePath = path.join(TEMP_DIR, fileName)
   let url = null
@@ -178,7 +177,7 @@ export async function uri2local(uri: string, fileName: string = null): Promise<U
       }
       fileName = fileName.replace(/[/\\:*?"<>|]/g, '_')
       res.fileName = fileName
-      filePath = path.join(TEMP_DIR, uuidv4() + fileName)
+      filePath = path.join(TEMP_DIR, randomUUID() + fileName)
       fs.writeFileSync(filePath, buffer)
     } catch (e: any) {
       res.errMsg = `${url}下载失败,` + e.toString()

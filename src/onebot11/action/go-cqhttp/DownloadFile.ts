@@ -3,7 +3,7 @@ import { ActionName } from '../types'
 import fs from 'fs'
 import { join as joinPath } from 'node:path'
 import { calculateFileMD5, httpDownload, TEMP_DIR } from '../../../common/utils'
-import { v4 as uuid4 } from 'uuid'
+import { randomUUID } from 'node:crypto'
 
 interface Payload {
   thread_count?: number
@@ -22,7 +22,7 @@ export default class GoCQHTTPDownloadFile extends BaseAction<Payload, FileRespon
 
   protected async _handle(payload: Payload): Promise<FileResponse> {
     const isRandomName = !payload.name
-    let name = payload.name || uuid4()
+    let name = payload.name || randomUUID()
     const filePath = joinPath(TEMP_DIR, name)
 
     if (payload.base64) {

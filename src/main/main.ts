@@ -204,7 +204,7 @@ function onLoad() {
   async function startReceiveHook() {
     startHook().then()
     if (getConfigUtil().getConfig().enablePoke) {
-      if ( qqPkgInfo.buildVersion > '23873'){
+      if (qqPkgInfo.buildVersion > '23873') {
         log(`当前版本${qqPkgInfo.buildVersion}不支持发送戳一戳模块`)
       }
       else {
@@ -216,7 +216,7 @@ function onLoad() {
             pokeEvent = new OB11GroupPokeEvent(parseInt(id))
           }
           else {
-            pokeEvent = new OB11FriendPokeEvent(parseInt(id))
+            pokeEvent = new OB11FriendPokeEvent(parseInt(id), 0)
           }
           postOb11Event(pokeEvent)
         })
@@ -235,7 +235,7 @@ function onLoad() {
     registerReceiveHook<{ msgList: Array<RawMessage> }>([ReceiveCmdS.UPDATE_MSG], async (payload) => {
       for (const message of payload.msgList) {
         const sentMessage = sentMessages[message.msgId]
-        if (sentMessage){
+        if (sentMessage) {
           Object.assign(sentMessage, message)
         }
         log('message update', message.msgId, message)
@@ -442,7 +442,7 @@ function onLoad() {
   async function start() {
     log('llonebot pid', process.pid)
     const config = getConfigUtil().getConfig()
-    if (!config.enableLLOB){
+    if (!config.enableLLOB) {
       log('LLOneBot 开关设置为关闭，不启动LLOneBot')
       return
     }
@@ -453,7 +453,7 @@ function onLoad() {
         uidMaps[value] = key
       }
     })
-    try{
+    try {
       log('start get groups')
       const _groups = await NTQQGroupApi.getGroups()
       log('_groups', _groups)
