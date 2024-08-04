@@ -48,7 +48,6 @@ import { dbUtil } from '../common/db'
 import { setConfig } from './setConfig'
 import { NTQQUserApi } from '../ntqqapi/api/user'
 import { NTQQGroupApi } from '../ntqqapi/api/group'
-import { crychic } from '../ntqqapi/native/crychic'
 import { OB11FriendPokeEvent, OB11GroupPokeEvent } from '../onebot11/event/notice/OB11PokeEvent'
 import { checkNewVersion, upgradeLLOneBot } from '../common/utils/upgrade'
 import { log } from '../common/utils/log'
@@ -209,26 +208,7 @@ function onLoad() {
   }
 
   async function startReceiveHook() {
-    startHook().then()
-    if (getConfigUtil().getConfig().enablePoke) {
-      if (qqPkgInfo.buildVersion > '23873') {
-        log(`当前版本${qqPkgInfo.buildVersion}不支持发送戳一戳模块`)
-      }
-      else {
-        crychic.loadNode()
-        crychic.registerPokeHandler((id, isGroup) => {
-          log(`收到戳一戳消息了！是否群聊：${isGroup}，id:${id}`)
-          let pokeEvent: OB11FriendPokeEvent | OB11GroupPokeEvent
-          if (isGroup) {
-            pokeEvent = new OB11GroupPokeEvent(parseInt(id))
-          }
-          else {
-            pokeEvent = new OB11FriendPokeEvent(parseInt(selfInfo.uin), parseInt(id))
-          }
-          postOb11Event(pokeEvent)
-        })
-      }
-    }
+    startHook()
     registerReceiveHook<{
       msgList: Array<RawMessage>
     }>([ReceiveCmdS.NEW_MSG, ReceiveCmdS.NEW_ACTIVE_MSG], async (payload) => {

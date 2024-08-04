@@ -187,11 +187,6 @@ async function onSettingWindowCreated(view: Element) {
       ]),
       SettingList([
         SettingItem(
-          '戳一戳消息, 暂时只支持Windows版的LLOneBot',
-          `重启QQ后生效，如果导致QQ崩溃请勿开启此项, 群戳一戳只能收到群号`,
-          SettingSwitch('enablePoke', config.enablePoke),
-        ),
-        SettingItem(
           '使用 Base64 编码获取文件',
           '调用 /get_image、/get_record、/get_file 时，没有 url 时添加 Base64 字段',
           SettingSwitch('enableLocalFile2Url', config.enableLocalFile2Url),

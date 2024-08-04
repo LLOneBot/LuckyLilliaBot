@@ -28,7 +28,6 @@ export interface Config {
   autoDeleteFile?: boolean
   autoDeleteFileSecond?: number
   ffmpeg?: string // ffmpeg路径
-  enablePoke?: boolean
   musicSignUrl?: string
   ignoreBeforeLoginMsg?: boolean
 }

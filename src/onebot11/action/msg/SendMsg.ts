@@ -23,7 +23,7 @@ import {
   OB11MessageVideo,
   OB11PostSendMsg,
 } from '../../types'
-import { NTQQMsgApi, Peer } from '../../../ntqqapi/api/msg'
+import { NTQQMsgApi } from '../../../ntqqapi/api/msg'
 import { SendMsgElementConstructor } from '../../../ntqqapi/constructor'
 import BaseAction from '../BaseAction'
 import { ActionName, BaseCheckResult } from '../types'
@@ -37,6 +37,7 @@ import { uri2local } from '../../../common/utils'
 import { crychic } from '../../../ntqqapi/native/crychic'
 import { NTQQGroupApi } from '../../../ntqqapi/api'
 import { CustomMusicSignPostData, IdMusicSignPostData, MusicSign, MusicSignPostData } from '../../../common/utils/sign'
+import { Peer } from '../../../ntqqapi/types/msg'
 
 function checkSendMessage(sendMsgList: OB11MessageData[]) {
   function checkUri(uri: string): boolean {

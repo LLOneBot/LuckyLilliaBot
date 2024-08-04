@@ -53,7 +53,6 @@ export class ConfigUtil {
       reportSelfMessage: false,
       autoDeleteFile: false,
       autoDeleteFileSecond: 60,
-      enablePoke: false,
       musicSignUrl: '',
     }
 
