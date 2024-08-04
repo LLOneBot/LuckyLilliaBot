@@ -13,11 +13,11 @@ TG群：<https://t.me/+nLZEnpne-pQ1OWFl>
 
 ## 设置界面
 
-<img src="./doc/image/setting.png" width="500px" alt="图片名称"/>
+<img src="./doc/image/setting.png" width="400px" alt="设置界面"/>
 
 ## HTTP 调用示例
 
-![](doc/image/example.jpg)
+<img src="./doc/image/example.jpg" width="500px" alt="HTTP调用示例"/>
 
 ## 支持的 api 和功能详情
 
@@ -35,7 +35,6 @@ TG群：<https://t.me/+nLZEnpne-pQ1OWFl>
 - [x] 群禁言事件上报
 - [x] 优化加群成功事件上报
 - [x] 清理缓存api
-- [ ] 无头模式
 - [ ] 框架对接文档
 
 ## onebot11文档
