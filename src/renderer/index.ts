@@ -410,7 +410,7 @@ async function onSettingWindowCreated(view: Element) {
       return
     }
     if (!ResultVersion.result) {
-      titleDom.innerHTML = '当前已是最新版本 v' + ResultVersion.version
+      titleDom.innerHTML = '当前已是最新版本 v' + version
       buttonDom.innerHTML = '无需更新'
     } else {
       titleDom.innerHTML = `当前版本为 v${version}，最新版本为 v${ResultVersion.version}`
