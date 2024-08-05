@@ -222,3 +222,40 @@ export interface FriendV2 extends SimpleInfo {
   categoryId?: number
   categroyName?: string
 }
+
+interface CommonExt {
+  constellation: number
+  shengXiao: number
+  kBloodType: number
+  homeTown: string
+  makeFriendCareer: number
+  pos: string
+  college: string
+  country: string
+  province: string
+  city: string
+  postCode: string
+  address: string
+  regTime: number
+  interest: string
+  labels: any[]
+  qqLevel: QQLevel
+}
+
+interface Pic {
+  picId: string
+  picTime: number
+  picUrlMap: Record<string, string>
+}
+
+interface PhotoWall {
+  picList: Pic[]
+}
+
+export interface UserDetailInfoListenerArg {
+  uid: string
+  uin: string
+  simpleInfo: SimpleInfo
+  commonExt: CommonExt
+  photoWall: PhotoWall
+}

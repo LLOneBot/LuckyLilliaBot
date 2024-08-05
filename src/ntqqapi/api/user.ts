@@ -5,14 +5,18 @@ import { selfInfo, uidMaps } from '../../common/data'
 import { cacheFunc, isQQ998, log, sleep } from '../../common/utils'
 import { wrapperApi } from '@/ntqqapi/wrapper'
 import { RequestUtil } from '@/common/utils/request'
+import { NodeIKernelProfileService, UserDetailSource, ProfileBizType } from '../services'
+import { NodeIKernelProfileListener } from '../listeners'
+import { NTEventDispatch } from '@/common/utils/EventTask'
+import { qqPkgInfo } from '@/common/utils/QQBasicInfo'
 
 const userInfoCache: Record<string, User> = {} // uid: User
 
 export interface ClientKeyData extends GeneralCallResult {
-  url: string;
-  keyIndex: string;
-  clientKey: string;
-  expireTime: string;
+  url: string
+  keyIndex: string
+  clientKey: string
+  expireTime: string
 }
 
 export class NTQQUserApi {
@@ -46,8 +50,49 @@ export class NTQQUserApi {
     return result.profiles.get(uid)
   }
 
+  // 26702
+  static async fetchUserDetailInfo(uid: string) {
+    type EventService = NodeIKernelProfileService['fetchUserDetailInfo']
+    type EventListener = NodeIKernelProfileListener['onUserDetailInfoChanged']
+    const [_retData, profile] = await NTEventDispatch.CallNormalEvent
+      <EventService, EventListener>
+      (
+        'NodeIKernelProfileService/fetchUserDetailInfo',
+        'NodeIKernelProfileListener/onUserDetailInfoChanged',
+        1,
+        5000,
+        (profile) => {
+          if (profile.uid === uid) {
+            return true;
+          }
+          return false;
+        },
+        'BuddyProfileStore',
+        [
+          uid
+        ],
+        UserDetailSource.KSERVER,
+        [
+          ProfileBizType.KALL
+        ]
+      )
+    const RetUser: User = {
+      ...profile.simpleInfo.coreInfo,
+      ...profile.simpleInfo.status,
+      ...profile.simpleInfo.vasInfo,
+      ...profile.commonExt,
+      ...profile.simpleInfo.baseInfo,
+      qqLevel: profile.commonExt.qqLevel,
+      pendantId: ''
+    }
+    return RetUser
+  }
+
   static async getUserDetailInfo(uid: string, getLevel = false, withBizInfo = true) {
-    // this.getUserInfo(uid);
+    if (+qqPkgInfo.buildVersion >= 26702) {
+      return this.fetchUserDetailInfo(uid)
+    }
+    // this.getUserInfo(uid)
     let methodName = !isQQ998 ? NTQQApiMethod.USER_DETAIL_INFO : NTQQApiMethod.USER_DETAIL_INFO_WITH_BIZ_INFO
     if (!withBizInfo) {
       methodName = NTQQApiMethod.USER_DETAIL_INFO
@@ -80,7 +125,7 @@ export class NTQQUserApi {
       await fetchInfo()
       await sleep(1000)
     }
-    let userInfo = await fetchInfo()
+    const userInfo = await fetchInfo()
     userInfoCache[uid] = userInfo
     return userInfo
   }
@@ -97,16 +142,17 @@ export class NTQQUserApi {
       ],
     })
   }
+
   static async getQzoneCookies() {
     const requestUrl = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + selfInfo.uin + '&clientkey=' + (await this.getClientKey()).clientKey + '&u1=https%3A%2F%2Fuser.qzone.qq.com%2F' + selfInfo.uin + '%2Finfocenter&keyindex=19%27'
-    let cookies: { [key: string]: string; } = {};
+    let cookies: { [key: string]: string } = {}
     try {
-      cookies = await RequestUtil.HttpsGetCookies(requestUrl);
+      cookies = await RequestUtil.HttpsGetCookies(requestUrl)
     } catch (e: any) {
       log('获取QZone Cookies失败', e)
       cookies = {}
     }
-    return cookies;
+    return cookies
   }
   static async getSkey(): Promise<string> {
     const clientKeyData = await this.getClientKey()
@@ -115,24 +161,24 @@ export class NTQQUserApi {
     }
     const url = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + selfInfo.uin
       + '&clientkey=' + clientKeyData.clientKey
-      + '&u1=https%3A%2F%2Fh5.qzone.qq.com%2Fqqnt%2Fqzoneinpcqq%2Ffriend%3Frefresh%3D0%26clientuin%3D0%26darkMode%3D0&keyindex=' + clientKeyData.keyIndex;
-    return (await RequestUtil.HttpsGetCookies(url))?.skey;
+      + '&u1=https%3A%2F%2Fh5.qzone.qq.com%2Fqqnt%2Fqzoneinpcqq%2Ffriend%3Frefresh%3D0%26clientuin%3D0%26darkMode%3D0&keyindex=' + clientKeyData.keyIndex
+    return (await RequestUtil.HttpsGetCookies(url))?.skey
   }
 
   @cacheFunc(60 * 30 * 1000)
   static async getCookies(domain: string) {
     if (domain.endsWith("qzone.qq.com")) {
-      let data = (await NTQQUserApi.getQzoneCookies());
-      const CookieValue = 'p_skey=' + data.p_skey + '; skey=' + data.skey + '; p_uin=o' + selfInfo.uin + '; uin=o' + selfInfo.uin;
-      return { bkn: NTQQUserApi.genBkn(data.p_skey), cookies: CookieValue };
+      let data = (await NTQQUserApi.getQzoneCookies())
+      const CookieValue = 'p_skey=' + data.p_skey + '; skey=' + data.skey + '; p_uin=o' + selfInfo.uin + '; uin=o' + selfInfo.uin
+      return { bkn: NTQQUserApi.genBkn(data.p_skey), cookies: CookieValue }
     }
-    const skey = await this.getSkey();
-    const pskey = (await this.getPSkey([domain])).get(domain);
+    const skey = await this.getSkey()
+    const pskey = (await this.getPSkey([domain])).get(domain)
     if (!pskey || !skey) {
       throw new Error('获取Cookies失败')
     }
     const bkn = NTQQUserApi.genBkn(skey)
-    const cookies = `p_skey=${pskey}; skey=${skey}; p_uin=o${selfInfo.uin}; uin=o${selfInfo.uin}`;
+    const cookies = `p_skey=${pskey}; skey=${skey}; p_uin=o${selfInfo.uin}; uin=o${selfInfo.uin}`
     return { cookies, bkn }
   }
 
