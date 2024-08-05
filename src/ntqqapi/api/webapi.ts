@@ -1,7 +1,8 @@
-import { WebGroupData, groups, selfInfo } from '@/common/data';
-import { log } from '@/common/utils/log';
-import { NTQQUserApi } from './user';
-import { RequestUtil } from '@/common/utils/request';
+import { WebGroupData, groups, selfInfo } from '@/common/data'
+import { log } from '@/common/utils/log'
+import { NTQQUserApi } from './user'
+import { RequestUtil } from '@/common/utils/request'
+
 export enum WebHonorType {
   ALL = 'all',
   TALKACTIVE = 'talkative',
@@ -10,6 +11,7 @@ export enum WebHonorType {
   STORONGE_NEWBI = 'strong_newbie',
   EMOTION = 'emotion'
 }
+
 export interface WebApiGroupMember {
   uin: number
   role: number
@@ -27,6 +29,7 @@ export interface WebApiGroupMember {
   qage: number
   rm: number
 }
+
 interface WebApiGroupMemberRet {
   ec: number
   errcode: number
@@ -41,6 +44,7 @@ interface WebApiGroupMemberRet {
   search_count: number
   extmode: number
 }
+
 export interface WebApiGroupNoticeFeed {
   u: number//发送者
   fid: string//fid
@@ -69,6 +73,7 @@ export interface WebApiGroupNoticeFeed {
   is_read: number
   is_all_confirm: number
 }
+
 export interface WebApiGroupNoticeRet {
   ec: number
   em: string
@@ -89,6 +94,7 @@ export interface WebApiGroupNoticeRet {
   svrt: number
   ad: number
 }
+
 interface GroupEssenceMsg {
   group_code: string
   msg_seq: number
@@ -102,6 +108,7 @@ interface GroupEssenceMsg {
   msg_content: any[]
   can_be_removed: true
 }
+
 export interface GroupEssenceMsgRet {
   retcode: number
   retmsg: string
@@ -112,9 +119,10 @@ export interface GroupEssenceMsgRet {
     config_page_url: string
   }
 }
+
 export class WebApi {
   static async getGroupEssenceMsg(GroupCode: string, page_start: string): Promise<GroupEssenceMsgRet> {
-    const {cookies: CookieValue, bkn: Bkn} = (await NTQQUserApi.getCookies('qun.qq.com'))
+    const { cookies: CookieValue, bkn: Bkn } = (await NTQQUserApi.getCookies('qun.qq.com'))
     const url = 'https://qun.qq.com/cgi-bin/group_digest/digest_list?bkn=' + Bkn + '&group_code=' + GroupCode + '&page_start=' + page_start + '&page_limit=20';
     let ret;
     try {
@@ -128,6 +136,7 @@ export class WebApi {
     }
     return ret;
   }
+
   static async getGroupMembers(GroupCode: string, cached: boolean = true): Promise<WebApiGroupMember[]> {
     log('webapi 获取群成员', GroupCode);
     let MemberData: Array<WebApiGroupMember> = new Array<WebApiGroupMember>();
@@ -190,6 +199,7 @@ export class WebApi {
   //   const res = await this.request(url);
   //   return await res.json();
   // }
+
   static async setGroupNotice(GroupCode: string, Content: string = '') {
     //https://web.qun.qq.com/cgi-bin/announce/add_qun_notice?bkn=${bkn}
     //qid=${群号}&bkn=${bkn}&text=${内容}&pinned=0&type=1&settings={"is_show_edit_card":1,"tip_window_type":1,"confirm_required":1}
@@ -213,6 +223,7 @@ export class WebApi {
     }
     return undefined;
   }
+
   static async getGrouptNotice(GroupCode: string): Promise<undefined | WebApiGroupNoticeRet> {
     const _Pskey = (await NTQQUserApi.getPSkey(['qun.qq.com']))['qun.qq.com'];
     const _Skey = await NTQQUserApi.getSkey();
@@ -236,6 +247,7 @@ export class WebApi {
     }
     return undefined;
   }
+
   static genBkn(sKey: string) {
     sKey = sKey || '';
     let hash = 5381;
@@ -247,6 +259,7 @@ export class WebApi {
 
     return (hash & 0x7FFFFFFF).toString();
   }
+
   //实现未缓存 考虑2h缓存
   static async getGroupHonorInfo(groupCode: string, getType: WebHonorType) {
     async function getDataInternal(Internal_groupCode: string, Internal_type: number) {

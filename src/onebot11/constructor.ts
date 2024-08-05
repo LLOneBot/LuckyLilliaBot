@@ -24,6 +24,7 @@ import {
   TipGroupElementType,
   User,
   VideoElement,
+  FriendV2
 } from '../ntqqapi/types'
 import { deleteGroup, getFriend, getGroupMember, selfInfo, tempGroupCodeMap, uidMaps } from '../common/data'
 import { EventType } from './event/OB11BaseEvent'
@@ -50,8 +51,8 @@ import { OB11FriendAddNoticeEvent } from './event/notice/OB11FriendAddNoticeEven
 import { OB11FriendRecallNoticeEvent } from './event/notice/OB11FriendRecallNoticeEvent'
 import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNoticeEvent'
 import { OB11FriendPokeEvent, OB11GroupPokeEvent } from './event/notice/OB11PokeEvent'
-import { OB11BaseNoticeEvent } from './event/notice/OB11BaseNoticeEvent';
-import { OB11GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent';
+import { OB11BaseNoticeEvent } from './event/notice/OB11BaseNoticeEvent'
+import { OB11GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent'
 
 let lastRKeyUpdateTime = 0
 
@@ -259,9 +260,9 @@ export class OB11Constructor {
 
         // log("收到语音消息", msg)
         // window.LLAPI.Ptt2Text(message.raw.msgId, message.peer, messages).then(text => {
-        //     console.log("语音转文字结果", text);
+        //     console.log("语音转文字结果", text)
         // }).catch(err => {
-        //     console.log("语音转文字失败", err);
+        //     console.log("语音转文字失败", err)
         // })
       }
       else if (element.arkElement) {
@@ -322,20 +323,20 @@ export class OB11Constructor {
 
   static async PrivateEvent(msg: RawMessage): Promise<OB11BaseNoticeEvent> {
     if (msg.chatType !== ChatType.friend) {
-      return;
+      return
     }
     for (const element of msg.elements) {
       if (element.grayTipElement) {
         if (element.grayTipElement.subElementType == GrayTipElementSubType.MEMBER_NEW_TITLE) {
-          const json = JSON.parse(element.grayTipElement.jsonGrayTipElement.jsonStr);
+          const json = JSON.parse(element.grayTipElement.jsonGrayTipElement.jsonStr)
           if (element.grayTipElement.jsonGrayTipElement.busiId == 1061) {
             //判断业务类型
             //Poke事件
-            const pokedetail: any[] = json.items;
+            const pokedetail: any[] = json.items
             //筛选item带有uid的元素
-            const poke_uid = pokedetail.filter(item => item.uid);
+            const poke_uid = pokedetail.filter(item => item.uid)
             if (poke_uid.length == 2) {
-              return new OB11FriendPokeEvent(parseInt((uidMaps[poke_uid[0].uid])!), parseInt((uidMaps[poke_uid[1].uid])), pokedetail);
+              return new OB11FriendPokeEvent(parseInt((uidMaps[poke_uid[0].uid])!), parseInt((uidMaps[poke_uid[1].uid])), pokedetail)
             }
           }
           //下面得改 上面也是错的grayTipElement.subElementType == GrayTipElementSubType.MEMBER_NEW_TITLE
@@ -366,7 +367,7 @@ export class OB11Constructor {
         return event
       }
     }
-    // log("group msg", msg);
+    // log("group msg", msg)
     for (let element of msg.elements) {
       const grayTipElement = element.grayTipElement
       const groupElement = grayTipElement?.groupElement
@@ -536,32 +537,32 @@ export class OB11Constructor {
           if (grayTipElement.jsonGrayTipElement.busiId == 1061) {
             //判断业务类型
             //Poke事件
-            const pokedetail: any[] = json.items;
+            const pokedetail: any[] = json.items
             //筛选item带有uid的元素
-            const poke_uid = pokedetail.filter(item => item.uid);
+            const poke_uid = pokedetail.filter(item => item.uid)
             if (poke_uid.length == 2) {
-              return new OB11GroupPokeEvent(parseInt(msg.peerUid), parseInt((uidMaps[poke_uid[0].uid])!), parseInt((uidMaps[poke_uid[1].uid])), pokedetail);
+              return new OB11GroupPokeEvent(parseInt(msg.peerUid), parseInt((uidMaps[poke_uid[0].uid])!), parseInt((uidMaps[poke_uid[1].uid])), pokedetail)
             }
           }
           if (grayTipElement.jsonGrayTipElement.busiId == 2401) {
             log('收到群精华消息', json)
-            const searchParams = new URL(json.items[0].jp).searchParams;
-            const msgSeq = searchParams.get('msgSeq')!;
-            const Group = searchParams.get('groupCode');
-            const Businessid = searchParams.get('businessid');
+            const searchParams = new URL(json.items[0].jp).searchParams
+            const msgSeq = searchParams.get('msgSeq')!
+            const Group = searchParams.get('groupCode')
+            const Businessid = searchParams.get('businessid')
             const Peer: Peer = {
               guildId: '',
               chatType: ChatType.group,
               peerUid: Group!
-            };
-            let msgList = (await NTQQMsgApi.getMsgsBySeqAndCount(Peer, msgSeq.toString(), 1, true, true)).msgList;
-            const origMsg = await dbUtil.getMsgByLongId(msgList[0].msgId);
-            const postMsg = await dbUtil.getMsgBySeqId(origMsg.msgSeq) ?? origMsg;
+            }
+            let msgList = (await NTQQMsgApi.getMsgsBySeqAndCount(Peer, msgSeq.toString(), 1, true, true)).msgList
+            const origMsg = await dbUtil.getMsgByLongId(msgList[0].msgId)
+            const postMsg = await dbUtil.getMsgBySeqId(origMsg.msgSeq) ?? origMsg
             // 如果 senderUin 为 0，可能是 历史消息 或 自身消息
             if (msgList[0].senderUin === '0') {
-                msgList[0].senderUin = postMsg?.senderUin ?? selfInfo.uin;
+              msgList[0].senderUin = postMsg?.senderUin ?? selfInfo.uin
             }
-            return new OB11GroupEssenceEvent(parseInt(msg.peerUid), postMsg.msgShortId, parseInt(msgList[0].senderUin));
+            return new OB11GroupEssenceEvent(parseInt(msg.peerUid), postMsg.msgShortId, parseInt(msgList[0].senderUin))
             // 获取MsgSeq+Peer可获取具体消息
           }
           if (grayTipElement.jsonGrayTipElement.busiId == 2407) {
@@ -623,6 +624,25 @@ export class OB11Constructor {
 
   static friends(friends: User[]): OB11User[] {
     return friends.map(OB11Constructor.friend)
+  }
+
+  static friendsV2(friends: FriendV2[]): OB11User[] {
+    const data: OB11User[] = []
+    for (const friend of friends) {
+      const sexValue = this.sex(friend.baseInfo.sex!)
+      data.push({
+        ...friend.baseInfo,
+        ...friend.coreInfo,
+        user_id: parseInt(friend.coreInfo.uin),
+        nickname: friend.coreInfo.nick,
+        remark: friend.coreInfo.nick,
+        sex: sexValue,
+        level: 0,
+        categroyName: friend.categroyName,
+        categoryId: friend.categoryId
+      })
+    }
+    return data
   }
 
   static groupMemberRole(role: number): OB11GroupMemberRole | undefined {

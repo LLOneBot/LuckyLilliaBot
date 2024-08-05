@@ -2,13 +2,11 @@ import { callNTQQApi, GeneralCallResult, NTQQApiClass, NTQQApiMethod } from '../
 import { Group, SelfInfo, User } from '../types'
 import { ReceiveCmdS } from '../hook'
 import { selfInfo, uidMaps } from '../../common/data'
-import { NTQQWindowApi, NTQQWindows } from './window'
 import { cacheFunc, isQQ998, log, sleep } from '../../common/utils'
-import { wrapperApi } from '@/ntqqapi/native/wrapper'
-import * as https from 'https'
+import { wrapperApi } from '@/ntqqapi/wrapper'
 import { RequestUtil } from '@/common/utils/request'
 
-let userInfoCache: Record<string, User> = {} // uid: User
+const userInfoCache: Record<string, User> = {} // uid: User
 
 export interface ClientKeyData extends GeneralCallResult {
   url: string;
@@ -151,7 +149,8 @@ export class NTQQUserApi {
   }
 
   static async getPSkey(domains: string[]): Promise<Map<string, string>> {
-    const res = await wrapperApi.NodeIQQNTWrapperSession.getTipOffService().getPskey(domains, true)
+    const session = wrapperApi.NodeIQQNTWrapperSession
+    const res = await session.getTipOffService().getPskey(domains, true)
     if (res.result !== 0) {
       throw new Error(`获取Pskey失败: ${res.errMsg}`)
     }
@@ -159,7 +158,7 @@ export class NTQQUserApi {
   }
 
   static async getClientKey(): Promise<ClientKeyData> {
-    return await wrapperApi.NodeIQQNTWrapperSession.getTicketService().forceFetchClientKey('')
+    const session = wrapperApi.NodeIQQNTWrapperSession
+    return await session.getTicketService().forceFetchClientKey('')
   }
-
 }

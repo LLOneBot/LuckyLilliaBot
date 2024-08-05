@@ -11,22 +11,24 @@ import {
   IMAGE_HTTP_HOST,
   IMAGE_HTTP_HOST_NT, PicElement,
 } from '../types'
-import path from 'path'
-import fs from 'fs'
+import path from 'node:path'
+import fs from 'node:fs'
 import { ReceiveCmdS } from '../hook'
 import { log } from '@/common/utils'
 import { rkeyManager } from '@/ntqqapi/api/rkey'
-import { wrapperApi } from '@/ntqqapi/native/wrapper'
-import { Peer } from '@/ntqqapi/api/msg'
+import { wrapperApi } from '@/ntqqapi/wrapper'
+import { Peer } from '@/ntqqapi/types/msg'
 
 export class NTQQFileApi {
   static async getVideoUrl(peer: Peer, msgId: string, elementId: string): Promise<string> {
-    return (await wrapperApi.NodeIQQNTWrapperSession.getRichMediaService().getVideoPlayUrlV2(peer,
+    const session = wrapperApi.NodeIQQNTWrapperSession
+    return (await session.getRichMediaService().getVideoPlayUrlV2(peer,
       msgId,
       elementId,
       0,
       { downSourceType: 1, triggerType: 1 })).urlResult?.domainUrl[0]?.url;
   }
+
   static async getFileType(filePath: string) {
     return await callNTQQApi<{ ext: string }>({
       className: NTQQApiClass.FS_API,

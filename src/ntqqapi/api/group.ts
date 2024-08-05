@@ -5,25 +5,26 @@ import { deleteGroup, uidMaps } from '../../common/data'
 import { dbUtil } from '../../common/db'
 import { log } from '../../common/utils/log'
 import { NTQQWindowApi, NTQQWindows } from './window'
-import { wrapperApi } from '../native/wrapper'
+import { wrapperApi } from '../wrapper'
 
 export class NTQQGroupApi {
-
-  static async activateMemberListChange(){
+  static async activateMemberListChange() {
     return await callNTQQApi<GeneralCallResult>({
       methodName: NTQQApiMethod.ACTIVATE_MEMBER_LIST_CHANGE,
       classNameIsRegister: true,
       args: [],
     })
   }
-  static async activateMemberInfoChange(){
+
+  static async activateMemberInfoChange() {
     return await callNTQQApi<GeneralCallResult>({
       methodName: NTQQApiMethod.ACTIVATE_MEMBER_INFO_CHANGE,
       classNameIsRegister: true,
       args: [],
     })
   }
-  static async getGroupAllInfo(groupCode: string, source: number=4){
+
+  static async getGroupAllInfo(groupCode: string, source: number = 4) {
     return await callNTQQApi<GeneralCallResult & Group>({
       methodName: NTQQApiMethod.GET_GROUP_ALL_INFO,
       args: [
@@ -35,6 +36,7 @@ export class NTQQGroupApi {
       ],
     })
   }
+
   static async getGroups(forced = false) {
     // let cbCmd = ReceiveCmdS.GROUPS
     // if (process.platform != 'win32') {
@@ -52,6 +54,7 @@ export class NTQQGroupApi {
     log('get groups result', result)
     return result.groupList
   }
+
   static async getGroupMembers(groupQQ: string, num = 3000): Promise<GroupMember[]> {
     const sceneId = await callNTQQApi({
       methodName: NTQQApiMethod.GROUP_MEMBER_SCENE,
@@ -62,7 +65,7 @@ export class NTQQGroupApi {
         },
       ],
     })
-    // log("get group member sceneId", sceneId);
+    // log("get group member sceneId", sceneId)
     try {
       const result = await callNTQQApi<{
         result: { infos: any }
@@ -83,8 +86,8 @@ export class NTQQGroupApi {
       for (const member of members) {
         uidMaps[member.uid] = member.uin
       }
-      // log(uidMaps);
-      // log("members info", values);
+      // log(uidMaps)
+      // log("members info", values)
       log(`get group ${groupQQ} members success`)
       return members
     } catch (e) {
@@ -92,7 +95,8 @@ export class NTQQGroupApi {
       return []
     }
   }
-  static async getGroupMembersInfo(groupCode: string, uids: string[], forceUpdate: boolean=false) {
+
+  static async getGroupMembersInfo(groupCode: string, uids: string[], forceUpdate: boolean = false) {
     return await callNTQQApi<GeneralCallResult>({
       methodName: NTQQApiMethod.GROUP_MEMBERS_INFO,
       args: [
@@ -105,6 +109,7 @@ export class NTQQGroupApi {
       ],
     })
   }
+
   static async getGroupNotifies() {
     // 获取管理员变更
     // 加群通知，退出通知，需要管理员权限
@@ -119,6 +124,7 @@ export class NTQQGroupApi {
       args: [{ doubt: false, startSeq: '', number: 14 }, null],
     })
   }
+
   static async getGroupIgnoreNotifies() {
     await NTQQGroupApi.getGroupNotifies()
     return await NTQQWindowApi.openWindow<GeneralCallResult & GroupNotifies>(
@@ -127,12 +133,13 @@ export class NTQQGroupApi {
       ReceiveCmdS.GROUP_NOTIFY,
     )
   }
+
   static async handleGroupRequest(seq: string, operateType: GroupRequestOperateTypes, reason?: string) {
     const notify: GroupNotify = await dbUtil.getGroupNotify(seq)
     if (!notify) {
       throw `${seq}对应的加群通知不存在`
     }
-    // delete groupNotifies[seq];
+    // delete groupNotifies[seq]
     return await callNTQQApi<GeneralCallResult>({
       methodName: NTQQApiMethod.HANDLE_GROUP_REQUEST,
       args: [
@@ -152,6 +159,7 @@ export class NTQQGroupApi {
       ],
     })
   }
+
   static async quitGroup(groupQQ: string) {
     const result = await callNTQQApi<GeneralCallResult>({
       methodName: NTQQApiMethod.QUIT_GROUP,
@@ -162,6 +170,7 @@ export class NTQQGroupApi {
     }
     return result
   }
+
   static async kickMember(
     groupQQ: string,
     kickUids: string[],
@@ -180,7 +189,8 @@ export class NTQQGroupApi {
       ],
     })
   }
-  static async banMember(groupQQ: string, memList: Array<{ uid: string; timeStamp: number }>) {
+
+  static async banMember(groupQQ: string, memList: Array<{ uid: string, timeStamp: number }>) {
     // timeStamp为秒数, 0为解除禁言
     return await callNTQQApi<GeneralCallResult>({
       methodName: NTQQApiMethod.MUTE_MEMBER,
@@ -192,6 +202,7 @@ export class NTQQGroupApi {
       ],
     })
   }
+
   static async banGroup(groupQQ: string, shutUp: boolean) {
     return await callNTQQApi<GeneralCallResult>({
       methodName: NTQQApiMethod.MUTE_GROUP,
@@ -204,6 +215,7 @@ export class NTQQGroupApi {
       ],
     })
   }
+
   static async setMemberCard(groupQQ: string, memberUid: string, cardName: string) {
     NTQQGroupApi.activateMemberListChange().then().catch(log)
     const res = await callNTQQApi<GeneralCallResult>({
@@ -218,8 +230,9 @@ export class NTQQGroupApi {
       ],
     })
     NTQQGroupApi.getGroupMembersInfo(groupQQ, [memberUid], true).then().catch(log)
-    return res;
+    return res
   }
+
   static async setMemberRole(groupQQ: string, memberUid: string, role: GroupMemberRole) {
     return await callNTQQApi<GeneralCallResult>({
       methodName: NTQQApiMethod.SET_MEMBER_ROLE,
@@ -233,6 +246,7 @@ export class NTQQGroupApi {
       ],
     })
   }
+
   static async setGroupName(groupQQ: string, groupName: string) {
     return await callNTQQApi<GeneralCallResult>({
       methodName: NTQQApiMethod.SET_GROUP_NAME,
@@ -282,29 +296,34 @@ export class NTQQGroupApi {
       ],
     })
   }
-  static publishGroupBulletin(groupQQ: string, title: string, content: string) {}
+
+  static publishGroupBulletin(groupQQ: string, title: string, content: string) { }
+
   static async removeGroupEssence(GroupCode: string, msgId: string) {
+    const session = wrapperApi.NodeIQQNTWrapperSession
     // 代码没测过
     // 需要 ob11msgid->msgId + (peer) -> msgSeq + msgRandom
-    let MsgData = await wrapperApi.NodeIQQNTWrapperSession.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: GroupCode }, msgId, 1, false);
+    let MsgData = await session.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: GroupCode }, msgId, 1, false)
     let param = {
       groupCode: GroupCode,
       msgRandom: parseInt(MsgData.msgList[0].msgRandom),
       msgSeq: parseInt(MsgData.msgList[0].msgSeq)
-    };
-    // GetMsgByShoretID(ShoretID); -> MsgService.getMsgs(Peer,MsgId,1,false); -> 组出参数
-    return wrapperApi.NodeIQQNTWrapperSession.getGroupService().removeGroupEssence(param);
+    }
+    // GetMsgByShoretID(ShoretID) -> MsgService.getMsgs(Peer,MsgId,1,false) -> 组出参数
+    return session.getGroupService().removeGroupEssence(param)
   }
+
   static async addGroupEssence(GroupCode: string, msgId: string) {
+    const session = wrapperApi.NodeIQQNTWrapperSession
     // 代码没测过
     // 需要 ob11msgid->msgId + (peer) -> msgSeq + msgRandom
-    let MsgData = await wrapperApi.NodeIQQNTWrapperSession.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: GroupCode }, msgId, 1, false);
+    let MsgData = await session.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: GroupCode }, msgId, 1, false)
     let param = {
       groupCode: GroupCode,
       msgRandom: parseInt(MsgData.msgList[0].msgRandom),
       msgSeq: parseInt(MsgData.msgList[0].msgSeq)
-    };
-    // GetMsgByShoretID(ShoretID); -> MsgService.getMsgs(Peer,MsgId,1,false); -> 组出参数
-    return wrapperApi.NodeIQQNTWrapperSession.getGroupService().addGroupEssence(param);
+    }
+    // GetMsgByShoretID(ShoretID) -> MsgService.getMsgs(Peer,MsgId,1,false) -> 组出参数
+    return session.getGroupService().addGroupEssence(param)
   }
 }

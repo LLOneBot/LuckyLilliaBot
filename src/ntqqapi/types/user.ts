@@ -77,8 +77,148 @@ export interface Friend extends User {
 }
 
 export interface CategoryFriend {
-  categoryId: number;
-  categroyName: string;
-  categroyMbCount: number;
+  categoryId: number
+  categroyName: string
+  categroyMbCount: number
   buddyList: User[]
+}
+
+export interface CoreInfo {
+  uid: string
+  uin: string
+  nick: string
+  remark: string
+}
+
+export interface BaseInfo {
+  qid: string
+  longNick: string
+  birthday_year: number
+  birthday_month: number
+  birthday_day: number
+  age: number
+  sex: number
+  eMail: string
+  phoneNum: string
+  categoryId: number
+  richTime: number
+  richBuffer: string
+}
+
+interface MusicInfo {
+  buf: string
+}
+
+interface VideoBizInfo {
+  cid: string
+  tvUrl: string
+  synchType: string
+}
+
+interface VideoInfo {
+  name: string
+}
+
+interface ExtOnlineBusinessInfo {
+  buf: string
+  customStatus: any
+  videoBizInfo: VideoBizInfo
+  videoInfo: VideoInfo
+}
+
+interface ExtBuffer {
+  buf: string
+}
+
+interface UserStatus {
+  uid: string
+  uin: string
+  status: number
+  extStatus: number
+  batteryStatus: number
+  termType: number
+  netType: number
+  iconType: number
+  customStatus: any
+  setTime: string
+  specialFlag: number
+  abiFlag: number
+  eNetworkType: number
+  showName: string
+  termDesc: string
+  musicInfo: MusicInfo
+  extOnlineBusinessInfo: ExtOnlineBusinessInfo
+  extBuffer: ExtBuffer
+}
+
+interface PrivilegeIcon {
+  jumpUrl: string
+  openIconList: any[]
+  closeIconList: any[]
+}
+
+interface VasInfo {
+  vipFlag: boolean
+  yearVipFlag: boolean
+  svipFlag: boolean
+  vipLevel: number
+  bigClub: boolean
+  bigClubLevel: number
+  nameplateVipType: number
+  grayNameplateFlag: number
+  superVipTemplateId: number
+  diyFontId: number
+  pendantId: number
+  pendantDiyId: number
+  faceId: number
+  vipFont: number
+  vipFontType: number
+  magicFont: number
+  fontEffect: number
+  newLoverDiamondFlag: number
+  extendNameplateId: number
+  diyNameplateIDs: any[]
+  vipStartFlag: number
+  vipDataFlag: number
+  gameNameplateId: string
+  gameLastLoginTime: string
+  gameRank: number
+  gameIconShowFlag: boolean
+  gameCardId: string
+  vipNameColorId: string
+  privilegeIcon: PrivilegeIcon
+}
+
+export interface SimpleInfo {
+  uid?: string
+  uin?: string
+  coreInfo: CoreInfo
+  baseInfo: BaseInfo
+  status: UserStatus | null
+  vasInfo: VasInfo | null
+  relationFlags: RelationFlags | null
+  otherFlags: any | null
+  intimate: any | null
+}
+
+interface RelationFlags {
+  topTime: string
+  isBlock: boolean
+  isMsgDisturb: boolean
+  isSpecialCareOpen: boolean
+  isSpecialCareZone: boolean
+  ringId: string
+  isBlocked: boolean
+  recommendImgFlag: number
+  disableEmojiShortCuts: number
+  qidianMasterFlag: number
+  qidianCrewFlag: number
+  qidianCrewFlag2: number
+  isHideQQLevel: number
+  isHidePrivilegeIcon: number
+}
+
+export interface FriendV2 extends SimpleInfo {
+  categoryId?: number
+  categroyName?: string
 }

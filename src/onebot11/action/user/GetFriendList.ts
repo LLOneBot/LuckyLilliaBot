@@ -5,6 +5,7 @@ import BaseAction from '../BaseAction'
 import { ActionName } from '../types'
 import { NTQQFriendApi } from '@/ntqqapi/api'
 import { CategoryFriend } from '@/ntqqapi/types'
+import { qqPkgInfo } from '@/common/utils/QQBasicInfo'
 
 interface Payload {
   no_cache: boolean | string
@@ -14,6 +15,9 @@ export class GetFriendList extends BaseAction<Payload, OB11User[]> {
   actionName = ActionName.GetFriendList
 
   protected async _handle(payload: Payload) {
+    if (+qqPkgInfo.buildVersion >= 26702) {
+      return OB11Constructor.friendsV2(await NTQQFriendApi.getBuddyV2(payload?.no_cache === true || payload?.no_cache === 'true'))
+    }
     if (friends.length === 0 || payload?.no_cache === true || payload?.no_cache === 'true') {
       const _friends = await NTQQFriendApi.getFriends(true)
       // log('强制刷新好友列表，结果: ', _friends)

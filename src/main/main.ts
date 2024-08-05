@@ -36,11 +36,8 @@ import {
   RawMessage,
 } from '../ntqqapi/types'
 import { httpHeart, ob11HTTPServer } from '../onebot11/server/http'
-import { OB11FriendRecallNoticeEvent } from '../onebot11/event/notice/OB11FriendRecallNoticeEvent'
-import { OB11GroupRecallNoticeEvent } from '../onebot11/event/notice/OB11GroupRecallNoticeEvent'
 import { postOb11Event } from '../onebot11/server/post-ob11-event'
 import { ob11ReverseWebsockets } from '../onebot11/server/ws/ReverseWebsocket'
-import { OB11GroupAdminNoticeEvent } from '../onebot11/event/notice/OB11GroupAdminNoticeEvent'
 import { OB11GroupRequestEvent } from '../onebot11/event/request/OB11GroupRequest'
 import { OB11FriendRequestEvent } from '../onebot11/event/request/OB11FriendRequest'
 import * as path from 'node:path'
@@ -48,16 +45,15 @@ import { dbUtil } from '../common/db'
 import { setConfig } from './setConfig'
 import { NTQQUserApi } from '../ntqqapi/api/user'
 import { NTQQGroupApi } from '../ntqqapi/api/group'
-import { OB11FriendPokeEvent, OB11GroupPokeEvent } from '../onebot11/event/notice/OB11PokeEvent'
 import { checkNewVersion, upgradeLLOneBot } from '../common/utils/upgrade'
 import { log } from '../common/utils/log'
 import { getConfigUtil } from '../common/config'
 import { checkFfmpeg } from '../common/utils/video'
 import { GroupDecreaseSubType, OB11GroupDecreaseEvent } from '../onebot11/event/notice/OB11GroupDecreaseEvent'
-import '../ntqqapi/native/wrapper'
+import '../ntqqapi/wrapper'
 import { sentMessages } from '@/ntqqapi/api'
-
-let running = false
+import { NTEventDispatch } from '../common/utils/EventTask'
+import { wrapperApi, wrapperConstructor } from '../ntqqapi/wrapper'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -442,6 +438,7 @@ function onLoad() {
         uidMaps[value] = key
       }
     })
+    NTEventDispatch.init({ ListenerMap: wrapperConstructor, WrapperSession: wrapperApi.NodeIQQNTWrapperSession })
     try {
       log('start get groups')
       const _groups = await NTQQGroupApi.getGroups()
