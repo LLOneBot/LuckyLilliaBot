@@ -6,7 +6,7 @@ import { ReceiveCmdS, registerReceiveHook } from '../hook'
 import { log } from '../../common/utils/log'
 import { sleep } from '../../common/utils/helper'
 import { isQQ998 } from '../../common/utils'
-import { wrapperApi } from '@/ntqqapi/native/wrapper'
+import { wrapperApi } from '@/ntqqapi/wrapper'
 
 export let sendMessagePool: Record<string, ((sendSuccessMsg: RawMessage) => void) | null> = {} // peerUid: callbackFunc
 

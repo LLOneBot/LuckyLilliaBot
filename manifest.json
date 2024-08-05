@@ -3,7 +3,7 @@
   "type": "extension",
   "name": "LLOneBot",
   "slug": "LLOneBot",
-  "description": "实现 OneBot 11 协议，帮助进行 QQ 机器人开发",
+  "description": "实现 OneBot 11 协议，用以 QQ 机器人开发",
   "version": "3.27.4",
   "icon": "./icon.webp",
   "authors": [

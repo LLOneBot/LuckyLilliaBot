@@ -16,8 +16,8 @@ import fs from 'fs'
 import { ReceiveCmdS } from '../hook'
 import { log } from '@/common/utils'
 import { rkeyManager } from '@/ntqqapi/api/rkey'
-import { wrapperApi } from '@/ntqqapi/native/wrapper'
-import { Peer } from '@/ntqqapi/api/msg'
+import { wrapperApi } from '@/ntqqapi/wrapper'
+import { Peer } from '@/ntqqapi/types/msg'
 
 export class NTQQFileApi {
   static async getVideoUrl(peer: Peer, msgId: string, elementId: string): Promise<string> {

@@ -2,10 +2,8 @@ import { callNTQQApi, GeneralCallResult, NTQQApiClass, NTQQApiMethod } from '../
 import { Group, SelfInfo, User } from '../types'
 import { ReceiveCmdS } from '../hook'
 import { selfInfo, uidMaps } from '../../common/data'
-import { NTQQWindowApi, NTQQWindows } from './window'
 import { cacheFunc, isQQ998, log, sleep } from '../../common/utils'
-import { wrapperApi } from '@/ntqqapi/native/wrapper'
-import * as https from 'https'
+import { wrapperApi } from '@/ntqqapi/wrapper'
 import { RequestUtil } from '@/common/utils/request'
 
 let userInfoCache: Record<string, User> = {} // uid: User

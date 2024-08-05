@@ -1,5 +1,4 @@
 import { GroupMemberRole } from './group'
-import exp from 'constants'
 
 export enum ElementType {
   TEXT = 1,
@@ -417,7 +416,7 @@ export interface RawMessage {
 }
 
 export interface Peer {
-  chatType: ChatType;
-  peerUid: string;  // 如果是群聊uid为群号，私聊uid就是加密的字符串
-  guildId?: string;
+  chatType: ChatType
+  peerUid: string  // 如果是群聊uid为群号，私聊uid就是加密的字符串
+  guildId?: string
 }
