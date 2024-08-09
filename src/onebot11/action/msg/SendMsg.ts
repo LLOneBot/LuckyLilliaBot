@@ -109,15 +109,22 @@ export async function createSendElements(
               }
             }
             if (isAdmin && remainAtAllCount > 0) {
-              sendElements.push(SendMsgElementConstructor.at(atQQ, atQQ, AtType.atAll, '全体成员'))
+              sendElements.push(SendMsgElementConstructor.at(atQQ, atQQ, AtType.atAll, '@全体成员'))
             }
           }
           else if (peer.chatType === ChatType.group) {
-            // const atMember = group?.members.find(m => m.uin == atQQ)
             const atMember = await getGroupMember(peer.peerUid, atQQ)
             if (atMember) {
+              const display = `@${atMember.cardName || atMember.nick}`
               sendElements.push(
-                SendMsgElementConstructor.at(atQQ, atMember.uid, AtType.atUser, atMember.cardName || atMember.nick),
+                SendMsgElementConstructor.at(atQQ, atMember.uid, AtType.atUser, display),
+              )
+            } else {
+              const atNmae = sendMsg.data?.name
+              const uid = await NTQQUserApi.getUidByUin(atQQ) || ''
+              const display = atNmae ? `@${atNmae}` : ''
+              sendElements.push(
+                SendMsgElementConstructor.at(atQQ, uid, AtType.atUser, display),
               )
             }
           }

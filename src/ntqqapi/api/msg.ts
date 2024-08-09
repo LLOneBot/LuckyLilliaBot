@@ -358,8 +358,9 @@ export class NTQQMsgApi {
       })
     })
   }
+
   static async getMsgsBySeqAndCount(peer: Peer, seq: string, count: number, desc: boolean, z: boolean) {
     const session = getSession()
-    return await session?.getMsgService().getMsgsBySeqAndCount(peer, seq, count, desc, z);
+    return await session?.getMsgService().getMsgsBySeqAndCount(peer, seq, count, desc, z)!
   }
 }

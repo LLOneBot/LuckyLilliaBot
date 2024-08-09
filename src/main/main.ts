@@ -13,13 +13,10 @@ import {
   CHANNEL_UPDATE,
 } from '../common/channels'
 import { ob11WebsocketServer } from '../onebot11/server/ws/WebsocketServer'
-import { DATA_DIR, qqPkgInfo } from '../common/utils'
+import { DATA_DIR } from '../common/utils'
 import {
   friendRequests,
-  getFriend,
-  getGroup,
   getGroupMember,
-  groups,
   llonebotError,
   selfInfo,
   uidMaps,
@@ -27,9 +24,7 @@ import {
 import { hookNTQQApiCall, hookNTQQApiReceive, ReceiveCmdS, registerReceiveHook, startHook } from '../ntqqapi/hook'
 import { OB11Constructor } from '../onebot11/constructor'
 import {
-  ChatType,
   FriendRequestNotify,
-  GroupMemberRole,
   GroupNotifies,
   GroupNotifyTypes,
   RawMessage,

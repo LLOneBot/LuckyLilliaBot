@@ -554,7 +554,7 @@ export class OB11Constructor {
             if (msgList[0].senderUin === '0') {
               msgList[0].senderUin = postMsg?.senderUin ?? selfInfo.uin
             }
-            return new OB11GroupEssenceEvent(parseInt(msg.peerUid), postMsg?.msgShortId!, parseInt(msgList[0].senderUin))
+            return new OB11GroupEssenceEvent(parseInt(msg.peerUid), postMsg?.msgShortId!, parseInt(msgList[0].senderUin!))
             // 获取MsgSeq+Peer可获取具体消息
           }
           if (grayTipElement.jsonGrayTipElement.busiId == 2407) {

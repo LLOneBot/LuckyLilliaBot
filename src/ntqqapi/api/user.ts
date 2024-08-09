@@ -221,7 +221,7 @@ export class NTQQUserApi {
   static async getUidByUinV1(Uin: string) {
     const session = getSession()
     // 通用转换开始尝试
-    let uid = (await session?.getUixConvertService().getUid([Uin])!).uidInfo.get(Uin);
+    let uid = (await session?.getUixConvertService().getUid([Uin]))?.uidInfo.get(Uin)
     // Uid 好友转
     if (!uid) {
       friends.forEach((t) => {
@@ -251,11 +251,11 @@ export class NTQQUserApi {
 
   static async getUidByUinV2(Uin: string) {
     const session = getSession()
-    let uid = (await session?.getProfileService().getUidByUin('FriendsServiceImpl', [Uin])!).get(Uin)
+    let uid = (await session?.getProfileService().getUidByUin('FriendsServiceImpl', [Uin]))?.get(Uin)
     if (uid) return uid
-    uid = (await session?.getGroupService().getUidByUins([Uin])!).uids.get(Uin)
+    uid = (await session?.getGroupService().getUidByUins([Uin]))?.uids.get(Uin)
     if (uid) return uid
-    uid = (await session?.getUixConvertService().getUid([Uin])!).uidInfo.get(Uin)
+    uid = (await session?.getUixConvertService().getUid([Uin]))?.uidInfo.get(Uin)
     if (uid) return uid
     console.log((await NTQQFriendApi.getBuddyIdMapCache(true)))
     uid = (await NTQQFriendApi.getBuddyIdMapCache(true)).getValue(Uin)//从Buddy缓存获取Uid
@@ -263,7 +263,7 @@ export class NTQQUserApi {
     uid = (await NTQQFriendApi.getBuddyIdMap(true)).getValue(Uin)
     if (uid) return uid
     let unveifyUid = (await NTQQUserApi.getUserDetailInfoByUinV2(Uin)).detail.uid//从QQ Native 特殊转换
-    if (unveifyUid.indexOf("*") == -1) uid = unveifyUid
+    if (unveifyUid.indexOf('*') == -1) uid = unveifyUid
     //if (uid) return uid
     return uid
   }

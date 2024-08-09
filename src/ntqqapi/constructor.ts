@@ -44,12 +44,12 @@ export class SendMsgElementConstructor {
     }
   }
 
-  static at(atUid: string, atNtUid: string, atType: AtType, atName: string): SendTextElement {
+  static at(atUid: string, atNtUid: string, atType: AtType, display: string): SendTextElement {
     return {
       elementType: ElementType.TEXT,
       elementId: '',
       textElement: {
-        content: `@${atName}`,
+        content: display,
         atType,
         atUid,
         atTinyId: '',
