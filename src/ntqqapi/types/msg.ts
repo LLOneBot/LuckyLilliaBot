@@ -15,13 +15,7 @@ export enum ElementType {
 export interface SendTextElement {
   elementType: ElementType.TEXT
   elementId: ''
-  textElement: {
-    content: string
-    atType: number
-    atUid: string
-    atTinyId: string
-    atNtUid: string
-  }
+  textElement: TextElement
 }
 
 export interface SendPttElement {
@@ -77,12 +71,7 @@ export interface SendPicElement {
 export interface SendReplyElement {
   elementType: ElementType.REPLY
   elementId: ''
-  replyElement: {
-    replayMsgSeq: string
-    replayMsgId: string
-    senderUin: string
-    senderUinStr: string
-  }
+  replyElement: ReplyElement
 }
 
 export interface SendFaceElement {
@@ -94,6 +83,21 @@ export interface SendFaceElement {
 export interface SendMarketFaceElement {
   elementType: ElementType.MFACE
   marketFaceElement: MarketFaceElement
+}
+
+export interface TextElement {
+  content: string
+  atType: number
+  atUid: string
+  atTinyId: string
+  atNtUid: string
+}
+
+export interface ReplyElement {
+  replayMsgSeq: string
+  replayMsgId: string
+  senderUin: string
+  senderUinStr: string
 }
 
 export interface FileElement {
@@ -377,6 +381,7 @@ export interface RawMessage {
   msgShortId?: number // 自己维护的消息id
   msgTime: string // 时间戳，秒
   msgSeq: string
+  msgRandom: string
   senderUid: string
   senderUin?: string // 发送者QQ号
   peerUid: string // 群号 或者 QQ uid
@@ -419,4 +424,38 @@ export interface Peer {
   chatType: ChatType
   peerUid: string  // 如果是群聊uid为群号，私聊uid就是加密的字符串
   guildId?: string
+}
+
+export interface MessageElement {
+  elementType: ElementType
+  elementId: string
+  extBufForUI: string //"0x"
+  textElement?: TextElement
+  faceElement?: FaceElement
+  marketFaceElement?: MarkdownElement
+  replyElement?: ReplyElement
+  picElement?: PicElement
+  pttElement?: PttElement
+  videoElement?: VideoElement
+  grayTipElement?: GrayTipElement
+  arkElement?: ArkElement
+  fileElement?: FileElement
+  liveGiftElement?: null
+  markdownElement?: MarkdownElement
+  structLongMsgElement?: any
+  multiForwardMsgElement?: MultiForwardMsgElement
+  giphyElement?: any
+  walletElement?: null
+  inlineKeyboardElement?: InlineKeyboardElement
+  textGiftElement?: null //????
+  calendarElement?: any
+  yoloGameResultElement?: any
+  avRecordElement?: any
+  structMsgElement?: null
+  faceBubbleElement?: any
+  shareLocationElement?: any
+  tofuRecordElement?: any
+  taskTopMsgElement?: any
+  recommendedMsgElement?: any
+  actionBarElement?: any
 }

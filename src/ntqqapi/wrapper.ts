@@ -2,7 +2,10 @@ import {
   NodeIKernelBuddyService,
   NodeIKernelGroupService,
   NodeIKernelProfileService,
-  NodeIKernelProfileLikeService
+  NodeIKernelProfileLikeService,
+  NodeIKernelMSFService,
+  NodeIKernelMsgService,
+  NodeIKernelUixConvertService
 } from './services'
 import os from 'node:os'
 const Process = require('node:process')
@@ -13,6 +16,9 @@ export interface NodeIQQNTWrapperSession {
   getGroupService(): NodeIKernelGroupService
   getProfileService(): NodeIKernelProfileService
   getProfileLikeService(): NodeIKernelProfileLikeService
+  getMsgService(): NodeIKernelMsgService
+  getMSFService(): NodeIKernelMSFService
+  getUixConvertService(): NodeIKernelUixConvertService
 }
 
 export interface WrapperApi {

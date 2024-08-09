@@ -221,7 +221,7 @@ export class NTQQUserApi {
   static async getUidByUinV1(Uin: string) {
     const session = getSession()
     // 通用转换开始尝试
-    let uid = (await session?.getUixConvertService().getUid([Uin])).uidInfo.get(Uin);
+    let uid = (await session?.getUixConvertService().getUid([Uin])!).uidInfo.get(Uin);
     // Uid 好友转
     if (!uid) {
       friends.forEach((t) => {
@@ -255,7 +255,7 @@ export class NTQQUserApi {
     if (uid) return uid
     uid = (await session?.getGroupService().getUidByUins([Uin])!).uids.get(Uin)
     if (uid) return uid
-    uid = (await session?.getUixConvertService().getUid([Uin])).uidInfo.get(Uin)
+    uid = (await session?.getUixConvertService().getUid([Uin])!).uidInfo.get(Uin)
     if (uid) return uid
     console.log((await NTQQFriendApi.getBuddyIdMapCache(true)))
     uid = (await NTQQFriendApi.getBuddyIdMapCache(true)).getValue(Uin)//从Buddy缓存获取Uid

@@ -276,8 +276,8 @@ export class NTQQGroupApi {
     let MsgData = await session?.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: GroupCode }, msgId, 1, false)
     let param = {
       groupCode: GroupCode,
-      msgRandom: parseInt(MsgData.msgList[0].msgRandom),
-      msgSeq: parseInt(MsgData.msgList[0].msgSeq)
+      msgRandom: parseInt(MsgData?.msgList[0].msgRandom!),
+      msgSeq: parseInt(MsgData?.msgList[0].msgSeq!)
     }
     // GetMsgByShoretID(ShoretID) -> MsgService.getMsgs(Peer,MsgId,1,false) -> 组出参数
     return session?.getGroupService().removeGroupEssence(param)
@@ -290,8 +290,8 @@ export class NTQQGroupApi {
     let MsgData = await session?.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: GroupCode }, msgId, 1, false)
     let param = {
       groupCode: GroupCode,
-      msgRandom: parseInt(MsgData.msgList[0].msgRandom),
-      msgSeq: parseInt(MsgData.msgList[0].msgSeq)
+      msgRandom: parseInt(MsgData?.msgList[0].msgRandom!),
+      msgSeq: parseInt(MsgData?.msgList[0].msgSeq!)
     }
     // GetMsgByShoretID(ShoretID) -> MsgService.getMsgs(Peer,MsgId,1,false) -> 组出参数
     return session?.getGroupService().addGroupEssence(param)
