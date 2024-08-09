@@ -1,2 +1,7 @@
 export * from './NodeIKernelBuddyService'
 export * from './NodeIKernelProfileService'
+export * from './NodeIKernelGroupService'
+export * from './NodeIKernelProfileLikeService'
+export * from './NodeIKernelMsgService'
+export * from './NodeIKernelMSFService'
+export * from './NodeIKernelUixConvertService'

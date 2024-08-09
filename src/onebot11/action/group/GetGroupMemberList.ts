@@ -18,7 +18,8 @@ class GetGroupMemberList extends BaseAction<PayloadType, OB11GroupMember[]> {
     const group = await getGroup(payload.group_id.toString())
     if (group) {
       if (!group.members?.length || payload.no_cache === true || payload.no_cache === 'true') {
-        group.members = await NTQQGroupApi.getGroupMembers(payload.group_id.toString())
+        const members = await NTQQGroupApi.getGroupMembers(payload.group_id.toString())
+        group.members = Array.from(members.values())
         log('强制刷新群成员列表, 数量: ', group.members.length)
       }
       return OB11Constructor.groupMembers(group)

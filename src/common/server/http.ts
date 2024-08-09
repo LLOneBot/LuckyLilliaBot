@@ -58,7 +58,7 @@ export abstract class HttpServerBase {
   start(port: number) {
     try {
       this.expressAPP.get('/', (req: Request, res: Response) => {
-        res.send(`${this.name}已启动`)
+        res.send(`${this.name} 已启动`)
       })
       this.listen(port)
       llonebotError.httpServerError = ''

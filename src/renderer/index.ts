@@ -1,4 +1,3 @@
-/// <reference path="../global.d.ts" />
 import { CheckVersion } from '../common/types'
 import { SettingButton, SettingItem, SettingList, SettingSwitch, SettingSelect } from './components'
 // @ts-ignore
@@ -26,22 +25,24 @@ function initSideBar() {
   })
 }
 
+function isEmpty(value: unknown) {
+  return value === undefined || value === null || value === ''
+}
+
 async function onSettingWindowCreated(view: Element) {
   window.llonebot.log('setting window created')
   initSideBar()
-  const isEmpty = (value: any) => value === undefined || value === null || value === ''
   let config = await window.llonebot.getConfig()
   let ob11Config = { ...config.ob11 }
+
   const setConfig = (key: string, value: any) => {
     const configKey = key.split('.')
-
     if (key.indexOf('ob11') === 0) {
       if (configKey.length === 2) ob11Config[configKey[1]] = value
       else ob11Config[key] = value
     } else {
       if (configKey.length === 2) config[configKey[0]][configKey[1]] = value
       else config[key] = value
-
       if (!['heartInterval', 'token', 'ffmpeg'].includes(key)) {
         window.llonebot.setConfig(false, config)
       }
@@ -65,7 +66,7 @@ async function onSettingWindowCreated(view: Element) {
       ]),
       SettingList([
         SettingItem(
-          '是否启用 LLOneBot, 重启QQ后生效',
+          '是否启用 LLOneBot, 重启 QQ 后生效',
           null,
           SettingSwitch('enableLLOB', config.enableLLOB, { 'control-display-id': 'config-enableLLOB' }),
         )]
@@ -160,21 +161,21 @@ async function onSettingWindowCreated(view: Element) {
           SettingSelect(
             [
               { text: '消息段', value: 'array' },
-              { text: 'CQ码', value: 'string' },
+              { text: 'CQ 码', value: 'string' },
             ],
             'ob11.messagePostFormat',
             config.ob11.messagePostFormat,
           ),
         ),
         SettingItem(
-          'ffmpeg 路径，发送语音、视频需要，同时保证ffprobe和ffmpeg在一起',
-          ` <a href="javascript:LiteLoader.api.openExternal(\'https://llonebot.github.io/zh-CN/guide/ffmpeg\');">下载地址</a> <span id="config-ffmpeg-path-text">, 路径:${
+          'FFmpeg 路径，发送语音、视频需要',
+          `<a href="javascript:LiteLoader.api.openExternal(\'https://llonebot.github.io/zh-CN/guide/ffmpeg\');">可点此下载</a>, 路径: <span id="config-ffmpeg-path-text">${
             !isEmpty(config.ffmpeg) ? config.ffmpeg : '未指定'
-          }</span>`,
-          SettingButton('选择ffmpeg', 'config-ffmpeg-select'),
+          }</span>, 需保证 FFprobe 和 FFmpeg 在一起`,
+          SettingButton('选择 FFmpeg', 'config-ffmpeg-select'),
         ),
         SettingItem(
-          '音乐卡片签名地址',
+          '音乐卡片签名 URL 地址',
           null,
           `<div class="q-input" style="width:210px;"><input class="q-input__inner" data-config-key="musicSignUrl" type="text" value="${config.musicSignUrl}" placeholder="未设置" /></div>`,
           'config-musicSignUrl',

@@ -5,8 +5,9 @@ import { selfInfo } from '../../common/data'
 import { ReceiveCmdS, registerReceiveHook } from '../hook'
 import { log } from '../../common/utils/log'
 import { sleep } from '../../common/utils/helper'
-import { isQQ998 } from '../../common/utils'
-import { wrapperApi } from '@/ntqqapi/wrapper'
+import { isQQ998, getBuildVersion } from '../../common/utils'
+import { getSession } from '@/ntqqapi/wrapper'
+import { NTEventDispatch } from '@/common/utils/EventTask'
 
 export let sendMessagePool: Record<string, ((sendSuccessMsg: RawMessage) => void) | null> = {} // peerUid: callbackFunc
 
@@ -202,6 +203,9 @@ export class NTQQMsgApi {
   }
 
   static async sendMsg(peer: Peer, msgElements: SendMessageElement[], waitComplete = true, timeout = 10000) {
+    if (getBuildVersion() >= 26702) {
+      return NTQQMsgApi.sendMsgV2(peer, msgElements, waitComplete, timeout)
+    }
     const waiter = sendWaiter(peer, waitComplete, timeout)
     callNTQQApi({
       methodName: NTQQApiMethod.SEND_MSG,
@@ -216,6 +220,72 @@ export class NTQQMsgApi {
       ],
     }).then()
     return await waiter
+  }
+
+  static async sendMsgV2(peer: Peer, msgElements: SendMessageElement[], waitComplete = true, timeout = 10000) {
+    if (peer.chatType === ChatType.temp) {
+      //await NTQQMsgApi.PrepareTempChat().then().catch()
+    }
+    function generateMsgId() {
+      const timestamp = Math.floor(Date.now() / 1000)
+      const random = Math.floor(Math.random() * Math.pow(2, 32))
+      const buffer = Buffer.alloc(8)
+      buffer.writeUInt32BE(timestamp, 0)
+      buffer.writeUInt32BE(random, 4)
+      const msgId = BigInt('0x' + buffer.toString('hex')).toString()
+      return msgId
+    }
+    // 此处有采用Hack方法 利用数据返回正确得到对应消息
+    // 与之前 Peer队列 MsgSeq队列 真正的MsgId并发不同
+    // 谨慎采用 目前测试暂无问题  Developer.Mlikiowa
+    let msgId: string
+    try {
+      msgId = await NTQQMsgApi.getMsgUnique(peer.chatType, await NTQQMsgApi.getServerTime())
+    } catch (error) {
+      //if (!napCatCore.session.getMsgService()['generateMsgUniqueId'])
+      //兜底识别策略V2
+      msgId = generateMsgId().toString()
+    }
+    let data = await NTEventDispatch.CallNormalEvent<
+      (msgId: string, peer: Peer, msgElements: SendMessageElement[], map: Map<any, any>) => Promise<unknown>,
+      (msgList: RawMessage[]) => void
+    >(
+      'NodeIKernelMsgService/sendMsg',
+      'NodeIKernelMsgListener/onMsgInfoListUpdate',
+      1,
+      timeout,
+      (msgRecords: RawMessage[]) => {
+        for (let msgRecord of msgRecords) {
+          if (msgRecord.msgId === msgId && msgRecord.sendStatus === 2) {
+            return true
+          }
+        }
+        return false
+      },
+      msgId,
+      peer,
+      msgElements,
+      new Map()
+    )
+    const retMsg = data[1].find(msgRecord => {
+      if (msgRecord.msgId === msgId) {
+        return true
+      }
+    })
+    return retMsg!
+  }
+
+  static async getMsgUnique(chatType: number, time: string) {
+    const session = getSession()
+    if (getBuildVersion() >= 26702) {
+      return session?.getMsgService().generateMsgUniqueId(chatType, time)!
+    }
+    return session?.getMsgService().getMsgUniqueId(time)!
+  }
+
+  static async getServerTime() {
+    const session = getSession()
+    return session?.getMSFService().getServerTime()!
   }
 
   static async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
@@ -288,8 +358,9 @@ export class NTQQMsgApi {
       })
     })
   }
+
   static async getMsgsBySeqAndCount(peer: Peer, seq: string, count: number, desc: boolean, z: boolean) {
-    const session = wrapperApi.NodeIQQNTWrapperSession
-    return await session?.getMsgService().getMsgsBySeqAndCount(peer, seq, count, desc, z);
+    const session = getSession()
+    return await session?.getMsgService().getMsgsBySeqAndCount(peer, seq, count, desc, z)!
   }
 }

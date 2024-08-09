@@ -5,7 +5,7 @@ import { deleteGroup, uidMaps } from '../../common/data'
 import { dbUtil } from '../../common/db'
 import { log } from '../../common/utils/log'
 import { NTQQWindowApi, NTQQWindows } from './window'
-import { wrapperApi } from '../wrapper'
+import { getSession } from '../wrapper'
 
 export class NTQQGroupApi {
   static async activateMemberListChange() {
@@ -55,45 +55,15 @@ export class NTQQGroupApi {
     return result.groupList
   }
 
-  static async getGroupMembers(groupQQ: string, num = 3000): Promise<GroupMember[]> {
-    const sceneId = await callNTQQApi({
-      methodName: NTQQApiMethod.GROUP_MEMBER_SCENE,
-      args: [
-        {
-          groupCode: groupQQ,
-          scene: 'groupMemberList_MainWindow',
-        },
-      ],
-    })
-    // log("get group member sceneId", sceneId)
-    try {
-      const result = await callNTQQApi<{
-        result: { infos: any }
-      }>({
-        methodName: NTQQApiMethod.GROUP_MEMBERS,
-        args: [
-          {
-            sceneId: sceneId,
-            num: num,
-          },
-          null,
-        ],
-      })
-      // log("members info", typeof result.result.infos, Object.keys(result.result.infos))
-      const values = result.result.infos.values()
-
-      const members: GroupMember[] = Array.from(values)
-      for (const member of members) {
-        uidMaps[member.uid] = member.uin
-      }
-      // log(uidMaps)
-      // log("members info", values)
-      log(`get group ${groupQQ} members success`)
-      return members
-    } catch (e) {
-      log(`get group ${groupQQ} members failed`, e)
-      return []
+  static async getGroupMembers(groupQQ: string, num = 3000): Promise<Map<string, GroupMember>> {
+    const session = getSession()
+    const groupService = session?.getGroupService()
+    const sceneId = groupService?.createMemberListScene(groupQQ, 'groupMemberList_MainWindow')
+    const result = await groupService?.getNextMemberList(sceneId!, undefined, num)
+    if (result?.errCode !== 0) {
+      throw ('获取群成员列表出错,' + result?.errMsg)
     }
+    return result.result.infos
   }
 
   static async getGroupMembersInfo(groupCode: string, uids: string[], forceUpdate: boolean = false) {
@@ -300,28 +270,28 @@ export class NTQQGroupApi {
   static publishGroupBulletin(groupQQ: string, title: string, content: string) { }
 
   static async removeGroupEssence(GroupCode: string, msgId: string) {
-    const session = wrapperApi.NodeIQQNTWrapperSession
+    const session = getSession()
     // 代码没测过
     // 需要 ob11msgid->msgId + (peer) -> msgSeq + msgRandom
     let MsgData = await session?.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: GroupCode }, msgId, 1, false)
     let param = {
       groupCode: GroupCode,
-      msgRandom: parseInt(MsgData.msgList[0].msgRandom),
-      msgSeq: parseInt(MsgData.msgList[0].msgSeq)
+      msgRandom: parseInt(MsgData?.msgList[0].msgRandom!),
+      msgSeq: parseInt(MsgData?.msgList[0].msgSeq!)
     }
     // GetMsgByShoretID(ShoretID) -> MsgService.getMsgs(Peer,MsgId,1,false) -> 组出参数
     return session?.getGroupService().removeGroupEssence(param)
   }
 
   static async addGroupEssence(GroupCode: string, msgId: string) {
-    const session = wrapperApi.NodeIQQNTWrapperSession
+    const session = getSession()
     // 代码没测过
     // 需要 ob11msgid->msgId + (peer) -> msgSeq + msgRandom
     let MsgData = await session?.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: GroupCode }, msgId, 1, false)
     let param = {
       groupCode: GroupCode,
-      msgRandom: parseInt(MsgData.msgList[0].msgRandom),
-      msgSeq: parseInt(MsgData.msgList[0].msgSeq)
+      msgRandom: parseInt(MsgData?.msgList[0].msgRandom!),
+      msgSeq: parseInt(MsgData?.msgList[0].msgSeq!)
     }
     // GetMsgByShoretID(ShoretID) -> MsgService.getMsgs(Peer,MsgId,1,false) -> 组出参数
     return session?.getGroupService().addGroupEssence(param)

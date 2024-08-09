@@ -19,10 +19,10 @@ jobs:
       - name: install dependenies
         run: |
           export ELECTRON_SKIP_BINARY_DOWNLOAD=1
-          yarn install
+          npm install
 
       - name: build
-        run: yarn build
+        run: npm run build
 
       - name: zip
         run: |

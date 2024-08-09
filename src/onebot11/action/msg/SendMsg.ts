@@ -7,10 +7,9 @@ import {
   GroupMemberRole,
   PicSubType,
   RawMessage,
-  SendArkElement,
   SendMessageElement,
 } from '../../../ntqqapi/types'
-import { friends, getFriend, getGroup, getGroupMember, getUidByUin, selfInfo } from '../../../common/data'
+import { friends, getGroup, getGroupMember, getUidByUin, selfInfo } from '../../../common/data'
 import {
   OB11MessageCustomMusic,
   OB11MessageData,
@@ -20,66 +19,30 @@ import {
   OB11MessageMixType,
   OB11MessageMusic,
   OB11MessageNode,
-  OB11MessageVideo,
   OB11PostSendMsg,
 } from '../../types'
-import { NTQQMsgApi } from '../../../ntqqapi/api/msg'
 import { SendMsgElementConstructor } from '../../../ntqqapi/constructor'
 import BaseAction from '../BaseAction'
 import { ActionName, BaseCheckResult } from '../types'
-import * as fs from 'node:fs'
+import fs from 'node:fs'
 import { decodeCQCode } from '../../cqcode'
 import { dbUtil } from '../../../common/db'
 import { ALLOW_SEND_TEMP_MSG, getConfigUtil } from '../../../common/config'
 import { log } from '../../../common/utils/log'
 import { sleep } from '../../../common/utils/helper'
 import { uri2local } from '../../../common/utils'
-import { NTQQGroupApi } from '../../../ntqqapi/api'
-import { CustomMusicSignPostData, IdMusicSignPostData, MusicSign, MusicSignPostData } from '../../../common/utils/sign'
-import { Peer } from '../../../ntqqapi/types/msg'
-
-function checkSendMessage(sendMsgList: OB11MessageData[]) {
-  function checkUri(uri: string): boolean {
-    const pattern = /^(file:\/\/|http:\/\/|https:\/\/|base64:\/\/)/
-    return pattern.test(uri)
-  }
-
-  for (let msg of sendMsgList) {
-    if (msg['type'] && msg['data']) {
-      let type = msg['type']
-      let data = msg['data']
-      if (type === 'text' && !data['text']) {
-        return 400
-      }
-      else if (['image', 'voice', 'record'].includes(type)) {
-        if (!data['file']) {
-          return 400
-        }
-        else {
-          if (checkUri(data['file'])) {
-            return 200
-          }
-          else {
-            return 400
-          }
-        }
-      }
-      else if (type === 'at' && !data['qq']) {
-        return 400
-      }
-      else if (type === 'reply' && !data['id']) {
-        return 400
-      }
-    }
-    else {
-      return 400
-    }
-  }
-  return 200
-}
+import { NTQQGroupApi, NTQQMsgApi, NTQQUserApi, NTQQFriendApi } from '@/ntqqapi/api'
+import { CustomMusicSignPostData, IdMusicSignPostData, MusicSign, MusicSignPostData } from '@/common/utils/sign'
+import { Peer } from '@/ntqqapi/types/msg'
 
 export interface ReturnDataType {
   message_id: number
+}
+
+export enum ContextMode {
+  Normal = 0,
+  Private = 1,
+  Group = 2
 }
 
 export function convertMessage2List(message: OB11MessageMixType, autoEscape = false) {
@@ -106,7 +69,7 @@ export function convertMessage2List(message: OB11MessageMixType, autoEscape = fa
 
 export async function createSendElements(
   messageData: OB11MessageData[],
-  target: Group | Friend | undefined,
+  peer: Peer,
   ignoreTypes: OB11MessageDataType[] = [],
 ) {
   let sendElements: SendMessageElement[] = []
@@ -124,7 +87,7 @@ export async function createSendElements(
       }
         break
       case OB11MessageDataType.at: {
-        if (!target) {
+        if (!peer) {
           continue
         }
         let atQQ = sendMsg.data?.qq
@@ -132,7 +95,7 @@ export async function createSendElements(
           atQQ = atQQ.toString()
           if (atQQ === 'all') {
             // todo：查询剩余的at全体次数
-            const groupCode = (target as Group)?.groupCode
+            const groupCode = peer.peerUid
             let remainAtAllCount = 1
             let isAdmin: boolean = true
             if (groupCode) {
@@ -140,21 +103,28 @@ export async function createSendElements(
                 remainAtAllCount = (await NTQQGroupApi.getGroupAtAllRemainCount(groupCode)).atInfo
                   .RemainAtAllCountForUin
                 log(`群${groupCode}剩余at全体次数`, remainAtAllCount)
-                const self = await getGroupMember((target as Group)?.groupCode, selfInfo.uin)
+                const self = await getGroupMember(groupCode, selfInfo.uin)
                 isAdmin = self?.role === GroupMemberRole.admin || self?.role === GroupMemberRole.owner
               } catch (e) {
               }
             }
             if (isAdmin && remainAtAllCount > 0) {
-              sendElements.push(SendMsgElementConstructor.at(atQQ, atQQ, AtType.atAll, '全体成员'))
+              sendElements.push(SendMsgElementConstructor.at(atQQ, atQQ, AtType.atAll, '@全体成员'))
             }
           }
-          else {
-            // const atMember = group?.members.find(m => m.uin == atQQ)
-            const atMember = await getGroupMember((target as Group)?.groupCode, atQQ)
+          else if (peer.chatType === ChatType.group) {
+            const atMember = await getGroupMember(peer.peerUid, atQQ)
             if (atMember) {
+              const display = `@${atMember.cardName || atMember.nick}`
               sendElements.push(
-                SendMsgElementConstructor.at(atQQ, atMember.uid, AtType.atUser, atMember.cardName || atMember.nick),
+                SendMsgElementConstructor.at(atQQ, atMember.uid, AtType.atUser, display),
+              )
+            } else {
+              const atNmae = sendMsg.data?.name
+              const uid = await NTQQUserApi.getUidByUin(atQQ) || ''
+              const display = atNmae ? `@${atNmae}` : ''
+              sendElements.push(
+                SendMsgElementConstructor.at(atQQ, uid, AtType.atUser, display),
               )
             }
           }
@@ -325,6 +295,31 @@ export async function sendMsg(
   return returnMsg
 }
 
+async function createContext(payload: OB11PostSendMsg, contextMode: ContextMode): Promise<Peer> {
+  // This function determines the type of message by the existence of user_id / group_id,
+  // not message_type.
+  // This redundant design of Ob11 here should be blamed.
+
+  if ((contextMode === ContextMode.Group || contextMode === ContextMode.Normal) && payload.group_id) {
+    const group = (await getGroup(payload.group_id))! // checked before
+    return {
+      chatType: ChatType.group,
+      peerUid: group.groupCode
+    }
+  }
+  if ((contextMode === ContextMode.Private || contextMode === ContextMode.Normal) && payload.user_id) {
+    const Uid = await NTQQUserApi.getUidByUin(payload.user_id.toString())
+    const isBuddy = await NTQQFriendApi.isBuddy(Uid!)
+    //console.log("[调试代码] UIN:", payload.user_id, " UID:", Uid, " IsBuddy:", isBuddy)
+    return {
+      chatType: isBuddy ? ChatType.friend : ChatType.temp,
+      peerUid: Uid!,
+      guildId: payload.group_id || ''//临时主动发起时需要传入群号
+    }
+  }
+  throw '请指定 group_id 或 user_id'
+}
+
 export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
   actionName = ActionName.SendMsg
 
@@ -351,13 +346,11 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
       }
     }
     if (payload.user_id && payload.message_type !== 'group') {
-      if (!(await getFriend(payload.user_id))) {
-        if (!ALLOW_SEND_TEMP_MSG && !(await dbUtil.getReceivedTempUinMap())[payload.user_id.toString()]) {
-          return {
-            valid: false,
-            message: `不能发送临时消息`,
-          }
-        }
+      const uid = await NTQQUserApi.getUidByUin(payload.user_id.toString())
+      const isBuddy = await NTQQFriendApi.isBuddy(uid!)
+      // 此处有问题
+      if (!isBuddy) {
+        //return { valid: false, message: '异常消息' }
       }
     }
     return {
@@ -366,56 +359,14 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
   }
 
   protected async _handle(payload: OB11PostSendMsg) {
-    const peer: Peer = {
-      chatType: ChatType.friend,
-      peerUid: '',
-    }
-    let isTempMsg = false
-    let group: Group | undefined = undefined
-    let friend: Friend | undefined = undefined
-    const genGroupPeer = async () => {
-      group = await getGroup(payload.group_id?.toString()!)
-      peer.chatType = ChatType.group
-      // peer.name = group.name
-      peer.peerUid = group?.groupCode!
-    }
-
-    const genFriendPeer = () => {
-      friend = friends.find((f) => f.uin == payload.user_id.toString())
-      if (friend) {
-        // peer.name = friend.nickName
-        peer.peerUid = friend.uid
-      }
-      else {
-        peer.chatType = ChatType.temp
-        const tempUserUid = getUidByUin(payload.user_id.toString())
-        if (!tempUserUid) {
-          throw `找不到私聊对象${payload.user_id}`
-        }
-        // peer.name = tempUser.nickName
-        isTempMsg = true
-        peer.peerUid = tempUserUid
-      }
-    }
-    if (payload?.group_id && payload.message_type === 'group') {
-      await genGroupPeer()
-    }
-    else if (payload?.user_id) {
-      genFriendPeer()
-    }
-    else if (payload.group_id) {
-      await genGroupPeer()
-    }
-    else {
-      throw '发送消息参数错误, 请指定group_id或user_id'
-    }
+    const peer = await createContext(payload, ContextMode.Normal)
     const messages = convertMessage2List(
       payload.message,
       payload.auto_escape === true || payload.auto_escape === 'true',
     )
     if (this.getSpecialMsgNum(messages, OB11MessageDataType.node)) {
       try {
-        const returnMsg = await this.handleForwardNode(peer, messages as OB11MessageNode[], group)
+        const returnMsg = await this.handleForwardNode(peer, messages as OB11MessageNode[])
         return { message_id: returnMsg?.msgShortId! }
       } catch (e: any) {
         throw '发送转发消息失败 ' + e.toString()
@@ -472,7 +423,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
       }
     }
     // log("send msg:", peer, sendElements)
-    const { sendElements, deleteAfterSentFiles } = await createSendElements(messages, group || friend)
+    const { sendElements, deleteAfterSentFiles } = await createSendElements(messages, peer)
     if (sendElements.length === 1) {
       if (sendElements[0] === null) {
         return { message_id: 0 }
@@ -521,7 +472,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
   }
 
   // 返回一个合并转发的消息id
-  private async handleForwardNode(destPeer: Peer, messageNodes: OB11MessageNode[], group: Group | undefined) {
+  private async handleForwardNode(destPeer: Peer, messageNodes: OB11MessageNode[]) {
     const selfPeer = {
       chatType: ChatType.friend,
       peerUid: selfInfo.uid,
@@ -554,7 +505,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
         try {
           const { sendElements, deleteAfterSentFiles } = await createSendElements(
             convertMessage2List(messageNode.data.content),
-            group,
+            destPeer
           )
           log('开始生成转发节点', sendElements)
           let sendElementsSplit: SendMessageElement[][] = []
@@ -642,42 +593,6 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
       return null
     }
   }
-
-  // private genMusicElement(url: string, audio: string, title: string, content: string, image: string): SendArkElement {
-  //   const musicJson = {
-  //     app: 'com.tencent.structmsg',
-  //     config: {
-  //       ctime: 1709689928,
-  //       forward: 1,
-  //       token: '5c1e4905f926dd3a64a4bd3841460351',
-  //       type: 'normal',
-  //     },
-  //     extra: { app_type: 1, appid: 100497308, uin: selfInfo.uin },
-  //     meta: {
-  //       news: {
-  //         action: '',
-  //         android_pkg_name: '',
-  //         app_type: 1,
-  //         appid: 100497308,
-  //         ctime: 1709689928,
-  //         desc: content || title,
-  //         jumpUrl: url,
-  //         musicUrl: audio,
-  //         preview: image,
-  //         source_icon: 'https://p.qpic.cn/qqconnect/0/app_100497308_1626060999/100?max-age=2592000&t=0',
-  //         source_url: '',
-  //         tag: 'QQ音乐',
-  //         title: title,
-  //         uin: selfInfo.uin,
-  //       },
-  //     },
-  //     prompt: content || title,
-  //     ver: '0.0.0.1',
-  //     view: 'news',
-  //   }
-
-  //   return SendMsgElementConstructor.ark(musicJson)
-  // }
 }
 
 export default SendMsg

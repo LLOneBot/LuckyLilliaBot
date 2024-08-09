@@ -13,24 +13,18 @@ import {
   CHANNEL_UPDATE,
 } from '../common/channels'
 import { ob11WebsocketServer } from '../onebot11/server/ws/WebsocketServer'
-import { DATA_DIR, qqPkgInfo } from '../common/utils'
+import { DATA_DIR } from '../common/utils'
 import {
   friendRequests,
-  getFriend,
-  getGroup,
   getGroupMember,
-  groups,
   llonebotError,
-  refreshGroupMembers,
   selfInfo,
   uidMaps,
 } from '../common/data'
 import { hookNTQQApiCall, hookNTQQApiReceive, ReceiveCmdS, registerReceiveHook, startHook } from '../ntqqapi/hook'
 import { OB11Constructor } from '../onebot11/constructor'
 import {
-  ChatType,
   FriendRequestNotify,
-  GroupMemberRole,
   GroupNotifies,
   GroupNotifyTypes,
   RawMessage,
@@ -53,7 +47,7 @@ import { GroupDecreaseSubType, OB11GroupDecreaseEvent } from '../onebot11/event/
 import '../ntqqapi/wrapper'
 import { sentMessages } from '@/ntqqapi/api'
 import { NTEventDispatch } from '../common/utils/EventTask'
-import { wrapperApi, wrapperConstructor } from '../ntqqapi/wrapper'
+import { wrapperConstructor, getSession } from '../ntqqapi/wrapper'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -442,33 +436,11 @@ function onLoad() {
         uidMaps[value] = key
       }
     })
-    NTEventDispatch.init({ ListenerMap: wrapperConstructor, WrapperSession: wrapperApi.NodeIQQNTWrapperSession! })
-    try {
-      log('start get groups')
-      const _groups = await NTQQGroupApi.getGroups()
-      log('_groups', _groups)
-      await Promise.all(
-        _groups.map(async (group) => {
-          try {
-            const members = await NTQQGroupApi.getGroupMembers(group.groupCode)
-            group.members = members
-            groups.push(group)
-          } catch (e) {
-            log('获取群成员失败', e)
-          }
-        })
-      )
-    }
-    catch (e) {
-      log('获取群列表失败', e)
-    }
-    finally {
-      log('start activate group member info')
-      NTQQGroupApi.activateMemberInfoChange().then().catch(log)
-      NTQQGroupApi.activateMemberListChange().then().catch(log)
-      startReceiveHook().then()
-    }
-
+    NTEventDispatch.init({ ListenerMap: wrapperConstructor, WrapperSession: getSession()! })
+    log('start activate group member info')
+    NTQQGroupApi.activateMemberInfoChange().then().catch(log)
+    NTQQGroupApi.activateMemberListChange().then().catch(log)
+    startReceiveHook().then()
 
     if (config.ob11.enableHttp) {
       ob11HTTPServer.start(config.ob11.httpPort)

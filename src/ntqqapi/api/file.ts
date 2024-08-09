@@ -16,12 +16,12 @@ import fs from 'node:fs'
 import { ReceiveCmdS } from '../hook'
 import { log } from '@/common/utils'
 import { rkeyManager } from '@/ntqqapi/api/rkey'
-import { wrapperApi } from '@/ntqqapi/wrapper'
+import { getSession } from '@/ntqqapi/wrapper'
 import { Peer } from '@/ntqqapi/types/msg'
 
 export class NTQQFileApi {
   static async getVideoUrl(peer: Peer, msgId: string, elementId: string): Promise<string> {
-    const session = wrapperApi.NodeIQQNTWrapperSession
+    const session = getSession()
     return (await session?.getRichMediaService().getVideoPlayUrlV2(peer,
       msgId,
       elementId,

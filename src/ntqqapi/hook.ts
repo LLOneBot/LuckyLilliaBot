@@ -268,7 +268,7 @@ async function updateGroups(_groups: Group[], needUpdate: boolean = true) {
       const members = await NTQQGroupApi.getGroupMembers(group.groupCode)
 
       if (members) {
-        existGroup.members = members
+        existGroup.members = Array.from(members.values())
       }
     }
   }
@@ -287,11 +287,11 @@ async function processGroupEvent(payload: { groupList: Group[] }) {
           await sleep(200) // 如果请求QQ API的速度过快，通常无法正确拉取到最新的群信息，因此这里人为引入一个延时
           const newMembers = await NTQQGroupApi.getGroupMembers(group.groupCode)
 
-          group.members = newMembers
+          group.members = Array.from(newMembers.values())
           const newMembersSet = new Set<string>() // 建立索引降低时间复杂度
 
           for (const member of newMembers) {
-            newMembersSet.add(member.uin)
+            newMembersSet.add(member[1].uin)
           }
 
           // 判断bot是否是管理员，如果是管理员不需要从这里得知有人退群，这里的退群无法得知是主动退群还是被踢

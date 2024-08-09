@@ -21,7 +21,7 @@ import { log } from '../common/utils/log'
 import { defaultVideoThumb, getVideoInfo } from '../common/utils/video'
 import { encodeSilk } from '../common/utils/audio'
 import { isNull } from '../common/utils'
-import faceConfig from './face_config.json';
+import faceConfig from './face_config.json'
 
 export const mFaceCache = new Map<string, string>() // emojiId -> faceName
 
@@ -44,12 +44,12 @@ export class SendMsgElementConstructor {
     }
   }
 
-  static at(atUid: string, atNtUid: string, atType: AtType, atName: string): SendTextElement {
+  static at(atUid: string, atNtUid: string, atType: AtType, display: string): SendTextElement {
     return {
       elementType: ElementType.TEXT,
       elementId: '',
       textElement: {
-        content: `@${atName}`,
+        content: display,
         atType,
         atUid,
         atTinyId: '',

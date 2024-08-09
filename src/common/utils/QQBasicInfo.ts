@@ -33,17 +33,17 @@ if (typeof configVersionInfoPath !== 'string') {
 export { configVersionInfoPath }
 
 type QQPkgInfo = {
-  version: string;
-  buildVersion: string;
-  platform: string;
-  eleArch: string;
+  version: string
+  buildVersion: string
+  platform: string
+  eleArch: string
 }
 type QQVersionConfigInfo = {
-  baseVersion: string;
-  curVersion: string;
-  prevVersion: string;
-  onErrorVersions: Array<any>;
-  buildId: string;
+  baseVersion: string
+  curVersion: string
+  prevVersion: string
+  onErrorVersions: Array<any>
+  buildId: string
 }
 
 let _qqVersionConfigInfo: QQVersionConfigInfo = {
@@ -81,3 +81,7 @@ if (systemPlatform === 'linux') {
 // todo: mac 平台的 appid
 export const appid = _appid
 export const isQQ998: boolean = qqPkgInfo.buildVersion >= '22106'
+
+export function getBuildVersion(): number {
+  return +qqPkgInfo.buildVersion
+}

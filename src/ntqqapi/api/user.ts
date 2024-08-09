@@ -1,14 +1,14 @@
 import { callNTQQApi, GeneralCallResult, NTQQApiClass, NTQQApiMethod } from '../ntcall'
-import { Group, SelfInfo, User } from '../types'
+import { SelfInfo, User, UserDetailInfoByUin, UserDetailInfoByUinV2 } from '../types'
 import { ReceiveCmdS } from '../hook'
-import { selfInfo, uidMaps } from '../../common/data'
-import { cacheFunc, isQQ998, log, sleep } from '../../common/utils'
-import { wrapperApi } from '@/ntqqapi/wrapper'
+import { selfInfo, uidMaps, friends, groupMembers } from '@/common/data'
+import { cacheFunc, isQQ998, log, sleep, getBuildVersion } from '@/common/utils'
+import { getSession } from '@/ntqqapi/wrapper'
 import { RequestUtil } from '@/common/utils/request'
 import { NodeIKernelProfileService, UserDetailSource, ProfileBizType } from '../services'
 import { NodeIKernelProfileListener } from '../listeners'
 import { NTEventDispatch } from '@/common/utils/EventTask'
-import { qqPkgInfo } from '@/common/utils/QQBasicInfo'
+import { NTQQFriendApi } from './friend'
 
 const userInfoCache: Record<string, User> = {} // uid: User
 
@@ -50,7 +50,7 @@ export class NTQQUserApi {
     return result.profiles.get(uid)
   }
 
-  // 26702
+  /** 26702 */
   static async fetchUserDetailInfo(uid: string) {
     type EventService = NodeIKernelProfileService['fetchUserDetailInfo']
     type EventListener = NodeIKernelProfileListener['onUserDetailInfoChanged']
@@ -63,9 +63,9 @@ export class NTQQUserApi {
         5000,
         (profile) => {
           if (profile.uid === uid) {
-            return true;
+            return true
           }
-          return false;
+          return false
         },
         'BuddyProfileStore',
         [
@@ -89,7 +89,7 @@ export class NTQQUserApi {
   }
 
   static async getUserDetailInfo(uid: string, getLevel = false, withBizInfo = true) {
-    if (+qqPkgInfo.buildVersion >= 26702) {
+    if (getBuildVersion() >= 26702) {
       return this.fetchUserDetailInfo(uid)
     }
     // this.getUserInfo(uid)
@@ -195,7 +195,7 @@ export class NTQQUserApi {
   }
 
   static async getPSkey(domains: string[]): Promise<Map<string, string>> {
-    const session = wrapperApi.NodeIQQNTWrapperSession
+    const session = getSession()
     const res = await session?.getTipOffService().getPskey(domains, true)
     if (res.result !== 0) {
       throw new Error(`获取Pskey失败: ${res.errMsg}`)
@@ -204,7 +204,91 @@ export class NTQQUserApi {
   }
 
   static async getClientKey(): Promise<ClientKeyData> {
-    const session = wrapperApi.NodeIQQNTWrapperSession
+    const session = getSession()
     return await session?.getTicketService().forceFetchClientKey('')
+  }
+
+  static async like(uid: string, count = 1): Promise<{ result: number, errMsg: string, succCounts: number }> {
+    const session = getSession()
+    return session?.getProfileLikeService().setBuddyProfileLike({
+      friendUid: uid,
+      sourceId: 71,
+      doLikeCount: count,
+      doLikeTollCount: 0
+    })!
+  }
+
+  static async getUidByUinV1(Uin: string) {
+    const session = getSession()
+    // 通用转换开始尝试
+    let uid = (await session?.getUixConvertService().getUid([Uin]))?.uidInfo.get(Uin)
+    // Uid 好友转
+    if (!uid) {
+      friends.forEach((t) => {
+        if (t.uin == Uin) {
+          uid = t.uid
+        }
+      })
+    }
+    //Uid 群友列表转
+    if (!uid) {
+      for (let groupMembersList of groupMembers.values()) {
+        for (let GroupMember of groupMembersList.values()) {
+          if (GroupMember.uin == Uin) {
+            uid = GroupMember.uid
+          }
+        }
+      }
+    }
+    if (!uid) {
+      let unveifyUid = (await NTQQUserApi.getUserDetailInfoByUin(Uin)).info.uid;//从QQ Native 特殊转换 方法三
+      if (unveifyUid.indexOf('*') == -1) {
+        uid = unveifyUid
+      }
+    }
+    return uid
+  }
+
+  static async getUidByUinV2(Uin: string) {
+    const session = getSession()
+    let uid = (await session?.getProfileService().getUidByUin('FriendsServiceImpl', [Uin]))?.get(Uin)
+    if (uid) return uid
+    uid = (await session?.getGroupService().getUidByUins([Uin]))?.uids.get(Uin)
+    if (uid) return uid
+    uid = (await session?.getUixConvertService().getUid([Uin]))?.uidInfo.get(Uin)
+    if (uid) return uid
+    console.log((await NTQQFriendApi.getBuddyIdMapCache(true)))
+    uid = (await NTQQFriendApi.getBuddyIdMapCache(true)).getValue(Uin)//从Buddy缓存获取Uid
+    if (uid) return uid
+    uid = (await NTQQFriendApi.getBuddyIdMap(true)).getValue(Uin)
+    if (uid) return uid
+    let unveifyUid = (await NTQQUserApi.getUserDetailInfoByUinV2(Uin)).detail.uid//从QQ Native 特殊转换
+    if (unveifyUid.indexOf('*') == -1) uid = unveifyUid
+    //if (uid) return uid
+    return uid
+  }
+
+  static async getUidByUin(Uin: string) {
+    if (getBuildVersion() >= 26702) {
+      return await NTQQUserApi.getUidByUinV2(Uin)
+    }
+    return await NTQQUserApi.getUidByUinV1(Uin)
+  }
+
+  static async getUserDetailInfoByUinV2(Uin: string) {
+    return await NTEventDispatch.CallNoListenerEvent
+      <(Uin: string) => Promise<UserDetailInfoByUinV2>>(
+        'NodeIKernelProfileService/getUserDetailInfoByUin',
+        5000,
+        Uin
+      )
+  }
+  static async getUserDetailInfoByUin(Uin: string) {
+    return NTEventDispatch.CallNoListenerEvent
+      <(Uin: string) => Promise<UserDetailInfoByUin>>(
+        'NodeIKernelProfileService/getUserDetailInfoByUin',
+        5000,
+        Uin
+      )
   }
 }

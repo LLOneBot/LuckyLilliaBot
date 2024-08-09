@@ -105,8 +105,11 @@ type OutFormat = 'mp3' | 'amr' | 'wma' | 'm4a' | 'spx' | 'ogg' | 'wav' | 'flac'
 export async function decodeSilk(inputFilePath: string, outFormat: OutFormat = 'mp3') {
   const silk = await fsPromise.readFile(inputFilePath)
   const { data } = await decode(silk, 24000)
-  const outFilePath = path.join(TEMP_DIR, path.basename(inputFilePath)) + `.${outFormat}`
-  return convert(Readable.from(data), {
+  const tmpPath = path.join(TEMP_DIR, path.basename(inputFilePath))
+  const outFilePath = tmpPath + `.${outFormat}`
+  const pcmFilePath = tmpPath + '.pcm'
+  await fsPromise.writeFile(pcmFilePath, data)
+  return convert(pcmFilePath, {
     input: [
       '-f s16le',
       '-ar 24000',

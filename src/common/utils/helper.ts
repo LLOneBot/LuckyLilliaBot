@@ -41,7 +41,7 @@ export function mergeNewProperties(newObj: any, oldObj: any) {
   })
 }
 
-export function isNull(value: any): value is null | undefined | void {
+export function isNull(value: unknown) {
   return value === undefined || value === null
 }
 
@@ -74,24 +74,50 @@ export function wrapText(str: string, maxLength: number): string {
  * @returns 处理后缓存或调用原方法的结果
  */
 export function cacheFunc(ttl: number, customKey: string = '') {
-  const cache = new Map<string, { expiry: number; value: any }>();
+  const cache = new Map<string, { expiry: number; value: any }>()
 
   return function (target: any, propertyKey: string, descriptor: PropertyDescriptor): PropertyDescriptor {
-    const originalMethod = descriptor.value;
-    const className = target.constructor.name;  // 获取类名
-    const methodName = propertyKey;             // 获取方法名
+    const originalMethod = descriptor.value
+    const className = target.constructor.name  // 获取类名
+    const methodName = propertyKey             // 获取方法名
     descriptor.value = async function (...args: any[]) {
-      const cacheKey = `${customKey}${className}.${methodName}:${JSON.stringify(args)}`;
-      const cached = cache.get(cacheKey);
+      const cacheKey = `${customKey}${className}.${methodName}:${JSON.stringify(args)}`
+      const cached = cache.get(cacheKey)
       if (cached && cached.expiry > Date.now()) {
-        return cached.value;
+        return cached.value
       } else {
-        const result = await originalMethod.apply(this, args);
-        cache.set(cacheKey, { value: result, expiry: Date.now() + ttl });
-        return result;
+        const result = await originalMethod.apply(this, args)
+        cache.set(cacheKey, { value: result, expiry: Date.now() + ttl })
+        return result
       }
-    };
+    }
 
-    return descriptor;
-  };
+    return descriptor
+  }
+}
+
+export function CacheClassFuncAsyncExtend(ttl: number = 3600 * 1000, customKey: string = '', checker: any = (...data: any[]) => { return true }) {
+  function logExecutionTime(target: any, methodName: string, descriptor: PropertyDescriptor) {
+    const cache = new Map<string, { expiry: number; value: any }>()
+    const originalMethod = descriptor.value
+    descriptor.value = async function (...args: any[]) {
+      const key = `${customKey}${String(methodName)}.(${args.map(arg => JSON.stringify(arg)).join(', ')})`
+      cache.forEach((value, key) => {
+        if (value.expiry < Date.now()) {
+          cache.delete(key)
+        }
+      })
+      const cachedValue = cache.get(key)
+      if (cachedValue && cachedValue.expiry > Date.now()) {
+        return cachedValue.value
+      }
+      const result = await originalMethod.apply(this, args)
+      if (!checker(...args, result)) {
+        return result //丢弃缓存
+      }
+      cache.set(key, { expiry: Date.now() + ttl, value: result })
+      return result
+    }
+  }
+  return logExecutionTime
 }

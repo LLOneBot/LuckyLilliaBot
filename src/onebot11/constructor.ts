@@ -26,7 +26,7 @@ import {
   VideoElement,
   FriendV2
 } from '../ntqqapi/types'
-import { deleteGroup, getFriend, getGroupMember, selfInfo, tempGroupCodeMap, uidMaps } from '../common/data'
+import { deleteGroup, getGroupMember, selfInfo, tempGroupCodeMap, uidMaps } from '../common/data'
 import { EventType } from './event/OB11BaseEvent'
 import { encodeCQCode } from './cqcode'
 import { dbUtil } from '../common/db'
@@ -34,9 +34,6 @@ import { OB11GroupIncreaseEvent } from './event/notice/OB11GroupIncreaseEvent'
 import { OB11GroupBanEvent } from './event/notice/OB11GroupBanEvent'
 import { OB11GroupUploadNoticeEvent } from './event/notice/OB11GroupUploadNoticeEvent'
 import { OB11GroupNoticeEvent } from './event/notice/OB11GroupNoticeEvent'
-import { NTQQUserApi } from '../ntqqapi/api/user'
-import { NTQQFileApi } from '../ntqqapi/api/file'
-import { NTQQMsgApi } from '../ntqqapi/api/msg'
 import { calcQQLevel } from '../common/utils/qqlevel'
 import { log } from '../common/utils/log'
 import { isNull, sleep } from '../common/utils/helper'
@@ -44,7 +41,7 @@ import { getConfigUtil } from '../common/config'
 import { OB11GroupTitleEvent } from './event/notice/OB11GroupTitleEvent'
 import { OB11GroupCardEvent } from './event/notice/OB11GroupCardEvent'
 import { OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
-import { NTQQGroupApi } from '../ntqqapi/api'
+import { NTQQGroupApi, NTQQUserApi, NTQQFileApi, NTQQMsgApi } from '../ntqqapi/api'
 import { OB11GroupMsgEmojiLikeEvent } from './event/notice/OB11MsgEmojiLikeEvent'
 import { mFaceCache } from '../ntqqapi/constructor'
 import { OB11FriendAddNoticeEvent } from './event/notice/OB11FriendAddNoticeEvent'
@@ -53,8 +50,6 @@ import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNotice
 import { OB11FriendPokeEvent, OB11GroupPokeEvent } from './event/notice/OB11PokeEvent'
 import { OB11BaseNoticeEvent } from './event/notice/OB11BaseNoticeEvent'
 import { OB11GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent'
-
-let lastRKeyUpdateTime = 0
 
 export class OB11Constructor {
   static async message(msg: RawMessage): Promise<OB11Message> {
@@ -99,10 +94,7 @@ export class OB11Constructor {
     }
     else if (msg.chatType == ChatType.friend) {
       resMsg.sub_type = 'friend'
-      const friend = await getFriend(msg.senderUin!)
-      if (friend) {
-        resMsg.sender.nickname = friend.nick
-      }
+      resMsg.sender.nickname = (await NTQQUserApi.getUserDetailInfo(msg.senderUid)).nick
     }
     else if (msg.chatType == ChatType.temp) {
       resMsg.sub_type = 'group'
@@ -562,7 +554,7 @@ export class OB11Constructor {
             if (msgList[0].senderUin === '0') {
               msgList[0].senderUin = postMsg?.senderUin ?? selfInfo.uin
             }
-            return new OB11GroupEssenceEvent(parseInt(msg.peerUid), postMsg?.msgShortId!, parseInt(msgList[0].senderUin))
+            return new OB11GroupEssenceEvent(parseInt(msg.peerUid), postMsg?.msgShortId!, parseInt(msgList[0].senderUin!))
             // 获取MsgSeq+Peer可获取具体消息
           }
           if (grayTipElement.jsonGrayTipElement.busiId == 2407) {
