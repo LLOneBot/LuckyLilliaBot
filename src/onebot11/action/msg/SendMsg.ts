@@ -112,7 +112,7 @@ export async function createSendElements(
               sendElements.push(SendMsgElementConstructor.at(atQQ, atQQ, AtType.atAll, '全体成员'))
             }
           }
-          else {
+          else if (peer.chatType === ChatType.group) {
             // const atMember = group?.members.find(m => m.uin == atQQ)
             const atMember = await getGroupMember(peer.peerUid, atQQ)
             if (atMember) {
