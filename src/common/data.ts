@@ -1,7 +1,5 @@
 import {
-  CategoryFriend,
   type Friend,
-  type FriendRequest,
   type Group,
   type GroupMember,
   type SelfInfo,
@@ -11,17 +9,12 @@ import { NTQQGroupApi } from '../ntqqapi/api/group'
 import { log } from './utils/log'
 import { isNumeric } from './utils/helper'
 import { NTQQFriendApi } from '../ntqqapi/api'
-import { WebApiGroupMember } from '@/ntqqapi/api/webapi'
 
 export const selfInfo: SelfInfo = {
   uid: '',
   uin: '',
   nick: '',
   online: true,
-}
-export const WebGroupData = {
-  GroupData: new Map<string, Array<WebApiGroupMember>>(),
-  GroupTime: new Map<string, number>(),
 }
 export let groups: Group[] = []
 export let friends: Friend[] = []
@@ -116,7 +109,3 @@ export function getUidByUin(uin: string) {
     }
   }
 }
-
-export let tempGroupCodeMap: Record<string, string> = {} // peerUid => 群号
-
-export let rawFriends: CategoryFriend[] = []

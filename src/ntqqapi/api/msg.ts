@@ -1,5 +1,5 @@
 import { callNTQQApi, GeneralCallResult, NTQQApiMethod } from '../ntcall'
-import { ChatType, RawMessage, SendMessageElement, Peer } from '../types'
+import { ChatType, RawMessage, SendMessageElement, Peer, ChatType2 } from '../types'
 import { dbUtil } from '../../common/db'
 import { selfInfo } from '../../common/data'
 import { ReceiveCmdS, registerReceiveHook } from '../hook'
@@ -67,6 +67,11 @@ async function sendWaiter(peer: Peer, waitComplete = true, timeout: number = 100
 }
 
 export class NTQQMsgApi {
+  static async getTempChatInfo(chatType: ChatType2, peerUid: string) {
+    const session = getSession()
+    return session?.getMsgService().getTempChatInfo(chatType, peerUid)!
+  }
+
   static enterOrExitAIO(peer: Peer, enter: boolean) {
     return callNTQQApi<GeneralCallResult>({
       methodName: NTQQApiMethod.ENTER_OR_EXIT_AIO,
@@ -85,6 +90,7 @@ export class NTQQMsgApi {
       ],
     })
   }
+
   static async setEmojiLike(peer: Peer, msgSeq: string, emojiId: string, set: boolean = true) {
     // nt_qq//global//nt_data//Emoji//emoji-resource//sysface_res/apng/ 下可以看到所有QQ表情预览
     // nt_qq\global\nt_data\Emoji\emoji-resource\face_config.json 里面有所有表情的id, 自带表情id是QSid, 标准emoji表情id是QCid

@@ -1,16 +1,14 @@
 import type { BrowserWindow } from 'electron'
 import { NTQQApiClass, NTQQApiMethod } from './ntcall'
 import { NTQQMsgApi, sendMessagePool } from './api/msg'
-import { CategoryFriend, ChatType, Group, GroupMember, GroupMemberRole, RawMessage, User } from './types'
+import { CategoryFriend, ChatType, Group, GroupMember, GroupMemberRole, RawMessage } from './types'
 import {
   deleteGroup,
   friends,
   getFriend,
   getGroupMember,
-  groups, rawFriends,
+  groups,
   selfInfo,
-  tempGroupCodeMap,
-  uidMaps,
 } from '@/common/data'
 import { OB11GroupDecreaseEvent } from '../onebot11/event/notice/OB11GroupDecreaseEvent'
 import { postOb11Event } from '../onebot11/server/post-ob11-event'
@@ -402,8 +400,6 @@ export async function startHook() {
   registerReceiveHook<{
     data: CategoryFriend[]
   }>(ReceiveCmdS.FRIENDS, (payload) => {
-    rawFriends.length = 0;
-    rawFriends.push(...payload.data);
     for (const fData of payload.data) {
       const _friends = fData.buddyList
       for (let friend of _friends) {
@@ -420,23 +416,6 @@ export async function startHook() {
   })
 
   registerReceiveHook<{ msgList: Array<RawMessage> }>([ReceiveCmdS.NEW_MSG, ReceiveCmdS.NEW_ACTIVE_MSG], (payload) => {
-    // 保存一下uid
-    for (const message of payload.msgList) {
-      const uid = message.senderUid
-      const uin = message.senderUin
-      if (uid && uin) {
-        if (message.chatType === ChatType.temp) {
-          dbUtil.getReceivedTempUinMap().then((receivedTempUinMap) => {
-            if (!receivedTempUinMap[uin]) {
-              receivedTempUinMap[uin] = uid
-              dbUtil.setReceivedTempUinMap(receivedTempUinMap)
-            }
-          })
-        }
-        uidMaps[uid] = uin
-      }
-    }
-
     // 自动清理新消息文件
     const { autoDeleteFile } = getConfigUtil().getConfig()
     if (!autoDeleteFile) {
@@ -458,10 +437,6 @@ export async function startHook() {
           const pathList = [picPath, ...picThumbPath, pttPath, filePath, videoPath, ...videoThumbPath]
           if (msgElement.picElement) {
             pathList.push(...Object.values(msgElement.picElement.thumbPath))
-          }
-          const aioOpGrayTipElement = msgElement.grayTipElement?.aioOpGrayTipElement
-          if (aioOpGrayTipElement) {
-            tempGroupCodeMap[aioOpGrayTipElement.peerUid] = aioOpGrayTipElement.fromGrpCodeOfTmpChat
           }
 
           // log("需要清理的文件", pathList);

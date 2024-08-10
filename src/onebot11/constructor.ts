@@ -24,9 +24,10 @@ import {
   TipGroupElementType,
   User,
   VideoElement,
-  FriendV2
+  FriendV2,
+  ChatType2
 } from '../ntqqapi/types'
-import { deleteGroup, getGroupMember, selfInfo, tempGroupCodeMap, uidMaps } from '../common/data'
+import { deleteGroup, getGroupMember, selfInfo, uidMaps } from '../common/data'
 import { EventType } from './event/OB11BaseEvent'
 import { encodeCQCode } from './cqcode'
 import { dbUtil } from '../common/db'
@@ -95,11 +96,15 @@ export class OB11Constructor {
       resMsg.sub_type = 'friend'
       resMsg.sender.nickname = (await NTQQUserApi.getUserDetailInfo(msg.senderUid)).nick
     }
-    else if (msg.chatType == ChatType.temp) {
+    else if (msg.chatType as unknown as ChatType2 == ChatType2.KCHATTYPETEMPC2CFROMGROUP) {
       resMsg.sub_type = 'group'
-      const tempGroupCode = tempGroupCodeMap[msg.peerUin]
-      if (tempGroupCode) {
-        resMsg.group_id = parseInt(tempGroupCode)
+      const ret = await NTQQMsgApi.getTempChatInfo(ChatType2.KCHATTYPETEMPC2CFROMGROUP, msg.senderUid)
+      if (ret.result === 0) {
+        resMsg.group_id = parseInt(ret.tmpChatInfo!.groupCode)
+        resMsg.sender.nickname = ret.tmpChatInfo!.fromNick
+      } else {
+        resMsg.group_id = 284840486 //兜底数据
+        resMsg.sender.nickname = '临时会话'
       }
     }
 

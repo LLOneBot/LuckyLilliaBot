@@ -96,6 +96,28 @@ export class NTQQFriendApi {
     return retMap
   }
 
+  static async getBuddyV2ExWithCate(refresh = false) {
+    const uids: string[] = []
+    const categoryMap: Map<string, any> = new Map()
+    const session = getSession()
+    const buddyService = session?.getBuddyService()
+    const buddyListV2 = refresh ? (await buddyService?.getBuddyListV2('0', BuddyListReqType.KNOMAL))?.data : (await buddyService?.getBuddyListV2('0', BuddyListReqType.KNOMAL))?.data
+    uids.push(
+      ...buddyListV2?.flatMap(item => {
+        item.buddyUids.forEach(uid => {
+          categoryMap.set(uid, { categoryId: item.categoryId, categroyName: item.categroyName })
+        })
+        return item.buddyUids
+      })!)
+    const data = await NTEventDispatch.CallNoListenerEvent<NodeIKernelProfileService['getCoreAndBaseInfo']>(
+      'NodeIKernelProfileService/getCoreAndBaseInfo', 5000, 'nodeStore', uids
+    )
+    return Array.from(data).map(([key, value]) => {
+      const category = categoryMap.get(key)
+      return category ? { ...value, categoryId: category.categoryId, categroyName: category.categroyName } : value
+    })
+  }
+
   static async isBuddy(uid: string): Promise<boolean> {
     const session = getSession()
     return session?.getBuddyService().isBuddy(uid)!

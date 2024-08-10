@@ -6,7 +6,9 @@ import {
   NodeIKernelMSFService,
   NodeIKernelMsgService,
   NodeIKernelUixConvertService,
-  NodeIKernelRichMediaService
+  NodeIKernelRichMediaService,
+  NodeIKernelTicketService,
+  NodeIKernelTipOffService
 } from './services'
 import os from 'node:os'
 const Process = require('node:process')
@@ -21,6 +23,8 @@ export interface NodeIQQNTWrapperSession {
   getMSFService(): NodeIKernelMSFService
   getUixConvertService(): NodeIKernelUixConvertService
   getRichMediaService(): NodeIKernelRichMediaService
+  getTicketService(): NodeIKernelTicketService
+  getTipOffService(): NodeIKernelTipOffService
 }
 
 export interface WrapperApi {

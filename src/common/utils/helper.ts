@@ -96,6 +96,29 @@ export function cacheFunc(ttl: number, customKey: string = '') {
   }
 }
 
+export function CacheClassFuncAsync(ttl = 3600 * 1000, customKey = '') {
+  function logExecutionTime(target: any, methodName: string, descriptor: PropertyDescriptor) {
+    const cache = new Map<string, { expiry: number; value: any }>()
+    const originalMethod = descriptor.value
+    descriptor.value = async function (...args: any[]) {
+      const key = `${customKey}${String(methodName)}.(${args.map(arg => JSON.stringify(arg)).join(', ')})`
+      cache.forEach((value, key) => {
+        if (value.expiry < Date.now()) {
+          cache.delete(key)
+        }
+      })
+      const cachedValue = cache.get(key)
+      if (cachedValue && cachedValue.expiry > Date.now()) {
+        return cachedValue.value
+      }
+      const result = await originalMethod.apply(this, args)
+      cache.set(key, { expiry: Date.now() + ttl, value: result })
+      return result
+    }
+  }
+  return logExecutionTime
+}
+
 export function CacheClassFuncAsyncExtend(ttl: number = 3600 * 1000, customKey: string = '', checker: any = (...data: any[]) => { return true }) {
   function logExecutionTime(target: any, methodName: string, descriptor: PropertyDescriptor) {
     const cache = new Map<string, { expiry: number; value: any }>()

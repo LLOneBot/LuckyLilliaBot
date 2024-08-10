@@ -1,8 +1,8 @@
 import { callNTQQApi, GeneralCallResult, NTQQApiClass, NTQQApiMethod } from '../ntcall'
 import { SelfInfo, User, UserDetailInfoByUin, UserDetailInfoByUinV2 } from '../types'
 import { ReceiveCmdS } from '../hook'
-import { selfInfo, uidMaps, friends, groupMembers } from '@/common/data'
-import { cacheFunc, isQQ998, log, sleep, getBuildVersion } from '@/common/utils'
+import { selfInfo, friends, groupMembers } from '@/common/data'
+import { CacheClassFuncAsync, isQQ998, log, sleep, getBuildVersion } from '@/common/utils'
 import { getSession } from '@/ntqqapi/wrapper'
 import { RequestUtil } from '@/common/utils/request'
 import { NodeIKernelProfileService, UserDetailSource, ProfileBizType } from '../services'
@@ -11,13 +11,6 @@ import { NTEventDispatch } from '@/common/utils/EventTask'
 import { NTQQFriendApi } from './friend'
 
 const userInfoCache: Record<string, User> = {} // uid: User
-
-export interface ClientKeyData extends GeneralCallResult {
-  url: string
-  keyIndex: string
-  clientKey: string
-  expireTime: string
-}
 
 export class NTQQUserApi {
   static async setQQAvatar(filePath: string) {
@@ -115,9 +108,6 @@ export class NTQQUserApi {
         ],
       })
       const info = result.info
-      if (info?.uin) {
-        uidMaps[info.uid] = info.uin
-      }
       return info
     }
     // 首次请求两次才能拿到的等级信息
@@ -165,21 +155,12 @@ export class NTQQUserApi {
     return (await RequestUtil.HttpsGetCookies(url))?.skey
   }
 
-  @cacheFunc(60 * 30 * 1000)
+  @CacheClassFuncAsync(1800 * 1000)
   static async getCookies(domain: string) {
-    if (domain.endsWith("qzone.qq.com")) {
-      let data = (await NTQQUserApi.getQzoneCookies())
-      const CookieValue = 'p_skey=' + data.p_skey + '; skey=' + data.skey + '; p_uin=o' + selfInfo.uin + '; uin=o' + selfInfo.uin
-      return { bkn: NTQQUserApi.genBkn(data.p_skey), cookies: CookieValue }
-    }
-    const skey = await this.getSkey()
-    const pskey = (await this.getPSkey([domain])).get(domain)
-    if (!pskey || !skey) {
-      throw new Error('获取Cookies失败')
-    }
-    const bkn = NTQQUserApi.genBkn(skey)
-    const cookies = `p_skey=${pskey}; skey=${skey}; p_uin=o${selfInfo.uin}; uin=o${selfInfo.uin}`
-    return { cookies, bkn }
+    const ClientKeyData = await NTQQUserApi.forceFetchClientKey()
+    const requestUrl = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + selfInfo.uin + '&clientkey=' + ClientKeyData.clientKey + '&u1=https%3A%2F%2F' + domain + '%2F' + selfInfo.uin + '%2Finfocenter&keyindex=19%27'
+    const cookies: { [key: string]: string; } = await RequestUtil.HttpsGetCookies(requestUrl)
+    return cookies
   }
 
   static genBkn(sKey: string) {
@@ -197,15 +178,15 @@ export class NTQQUserApi {
   static async getPSkey(domains: string[]): Promise<Map<string, string>> {
     const session = getSession()
     const res = await session?.getTipOffService().getPskey(domains, true)
-    if (res.result !== 0) {
-      throw new Error(`获取Pskey失败: ${res.errMsg}`)
+    if (res?.result !== 0) {
+      throw new Error(`获取Pskey失败: ${res?.errMsg}`)
     }
     return res.domainPskeyMap
   }
 
-  static async getClientKey(): Promise<ClientKeyData> {
+  static async getClientKey() {
     const session = getSession()
-    return await session?.getTicketService().forceFetchClientKey('')
+    return await session?.getTicketService().forceFetchClientKey('')!
   }
 
   static async like(uid: string, count = 1): Promise<{ result: number, errMsg: string, succCounts: number }> {
@@ -335,5 +316,11 @@ export class NTQQUserApi {
       return await NTQQUserApi.getUinByUidV2(Uid)
     }
     return await NTQQUserApi.getUinByUidV1(Uid)
+  }
+
+  @CacheClassFuncAsync(3600 * 1000, 'ClientKey')
+  static async forceFetchClientKey() {
+    const session = getSession()
+    return await session?.getTicketService().forceFetchClientKey('')!
   }
 }

@@ -18,7 +18,6 @@ import {
   getGroupMember,
   llonebotError,
   selfInfo,
-  uidMaps,
 } from '../common/data'
 import { hookNTQQApiCall, hookNTQQApiReceive, ReceiveCmdS, registerReceiveHook, startHook } from '../ntqqapi/hook'
 import { OB11Constructor } from '../onebot11/constructor'
@@ -433,11 +432,6 @@ function onLoad() {
     }
     llonebotError.otherError = ''
     startTime = Date.now()
-    dbUtil.getReceivedTempUinMap().then((m) => {
-      for (const [key, value] of Object.entries(m)) {
-        uidMaps[value] = key
-      }
-    })
     NTEventDispatch.init({ ListenerMap: wrapperConstructor, WrapperSession: getSession()! })
     log('start activate group member info')
     NTQQGroupApi.activateMemberInfoChange().then().catch(log)
