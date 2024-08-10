@@ -27,7 +27,7 @@ import {
   FriendV2,
   ChatType2
 } from '../ntqqapi/types'
-import { deleteGroup, getGroupMember, selfInfo, uidMaps } from '../common/data'
+import { deleteGroup, getGroupMember, selfInfo } from '../common/data'
 import { EventType } from './event/OB11BaseEvent'
 import { encodeCQCode } from './cqcode'
 import { dbUtil } from '../common/db'
@@ -332,7 +332,11 @@ export class OB11Constructor {
             //筛选item带有uid的元素
             const poke_uid = pokedetail.filter(item => item.uid)
             if (poke_uid.length == 2) {
-              return new OB11FriendPokeEvent(parseInt((uidMaps[poke_uid[0].uid])!), parseInt((uidMaps[poke_uid[1].uid])), pokedetail)
+              return new OB11FriendPokeEvent(
+                parseInt(await NTQQUserApi.getUinByUid(poke_uid[0].uid)),
+                parseInt(await NTQQUserApi.getUinByUid(poke_uid[1].uid)),
+                pokedetail
+              )
             }
           }
           //下面得改 上面也是错的grayTipElement.subElementType == GrayTipElementSubType.MEMBER_NEW_TITLE
@@ -537,7 +541,12 @@ export class OB11Constructor {
             //筛选item带有uid的元素
             const poke_uid = pokedetail.filter(item => item.uid)
             if (poke_uid.length == 2) {
-              return new OB11GroupPokeEvent(parseInt(msg.peerUid), parseInt((uidMaps[poke_uid[0].uid])!), parseInt((uidMaps[poke_uid[1].uid])), pokedetail)
+              return new OB11GroupPokeEvent(
+                parseInt(msg.peerUid),
+                parseInt(await NTQQUserApi.getUinByUid(poke_uid[0].uid)),
+                parseInt(await NTQQUserApi.getUinByUid(poke_uid[1].uid)),
+                pokedetail
+              )
             }
           }
           if (grayTipElement.jsonGrayTipElement.busiId == 2401) {
