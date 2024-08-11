@@ -1,5 +1,4 @@
 import path from 'node:path'
-import fs from 'node:fs'
 import os from 'node:os'
 import { systemPlatform } from './system'
 
@@ -38,32 +37,6 @@ type QQPkgInfo = {
   platform: string
   eleArch: string
 }
-type QQVersionConfigInfo = {
-  baseVersion: string
-  curVersion: string
-  prevVersion: string
-  onErrorVersions: Array<any>
-  buildId: string
-}
-
-let _qqVersionConfigInfo: QQVersionConfigInfo = {
-  'baseVersion': '9.9.9-23361',
-  'curVersion': '9.9.9-23361',
-  'prevVersion': '',
-  'onErrorVersions': [],
-  'buildId': '23361',
-}
-
-if (fs.existsSync(configVersionInfoPath)) {
-  try {
-    const _ = JSON.parse(fs.readFileSync(configVersionInfoPath).toString())
-    _qqVersionConfigInfo = Object.assign(_qqVersionConfigInfo, _)
-  } catch (e) {
-    console.error('Load QQ version config info failed, Use default version', e)
-  }
-}
-
-export const qqVersionConfigInfo: QQVersionConfigInfo = _qqVersionConfigInfo
 
 export const qqPkgInfo: QQPkgInfo = require(pkgInfoPath)
 // platform_type: 3,
@@ -73,14 +46,6 @@ export const qqPkgInfo: QQPkgInfo = require(pkgInfoPath)
 // appid: '537213764',
 // platVer: '10.0.26100',
 // clientVer: '9.9.9-23159',
-
-let _appid: string = '537213803'  // 默认为 Windows 平台的 appid
-if (systemPlatform === 'linux') {
-  _appid = '537213827'
-}
-// todo: mac 平台的 appid
-export const appid = _appid
-export const isQQ998: boolean = qqPkgInfo.buildVersion >= '22106'
 
 export function getBuildVersion(): number {
   return +qqPkgInfo.buildVersion

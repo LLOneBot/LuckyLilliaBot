@@ -1,6 +1,6 @@
 import type { BrowserWindow } from 'electron'
 import { NTQQApiClass, NTQQApiMethod } from './ntcall'
-import { NTQQMsgApi, sendMessagePool } from './api/msg'
+import { NTQQMsgApi } from './api/msg'
 import { CategoryFriend, ChatType, Group, GroupMember, GroupMemberRole, RawMessage } from './types'
 import {
   deleteGroup,
@@ -454,18 +454,7 @@ export async function startHook() {
 
   registerReceiveHook<{ msgRecord: RawMessage }>(ReceiveCmdS.SELF_SEND_MSG, ({ msgRecord }) => {
     const message = msgRecord
-    const peerUid = message.peerUid
-    // log("收到自己发送成功的消息", Object.keys(sendMessagePool), message);
-    // log("收到自己发送成功的消息", message.msgId, message.msgSeq);
     dbUtil.addMsg(message).then()
-    const sendCallback = sendMessagePool[peerUid]
-    if (sendCallback) {
-      try {
-        sendCallback(message)
-      } catch (e: any) {
-        log('receive self msg error', e.stack)
-      }
-    }
   })
 
   registerReceiveHook<{ info: { status: number } }>(ReceiveCmdS.SELF_STATUS, (info) => {

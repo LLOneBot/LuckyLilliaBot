@@ -583,13 +583,9 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
     if (nodeMsgIds.length === 0) {
       throw Error('转发消息失败，节点为空')
     }
-    try {
-      log('开发转发', nodeMsgIds)
-      return await NTQQMsgApi.multiForwardMsg(srcPeer!, destPeer, nodeMsgIds)
-    } catch (e) {
-      log('forward failed', e)
-      return null
-    }
+    const returnMsg = await NTQQMsgApi.multiForwardMsg(srcPeer!, destPeer, nodeMsgIds)
+    returnMsg.msgShortId = await dbUtil.addMsg(returnMsg)
+    return returnMsg
   }
 }
 

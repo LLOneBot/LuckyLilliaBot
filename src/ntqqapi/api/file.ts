@@ -9,15 +9,21 @@ import {
   ChatType,
   ElementType,
   IMAGE_HTTP_HOST,
-  IMAGE_HTTP_HOST_NT, PicElement,
+  IMAGE_HTTP_HOST_NT,
+  PicElement,
 } from '../types'
 import path from 'node:path'
 import fs from 'node:fs'
 import { ReceiveCmdS } from '../hook'
-import { log } from '@/common/utils'
+import { log, TEMP_DIR } from '@/common/utils'
 import { rkeyManager } from '@/ntqqapi/api/rkey'
 import { getSession } from '@/ntqqapi/wrapper'
 import { Peer } from '@/ntqqapi/types/msg'
+import { calculateFileMD5 } from '@/common/utils/file'
+import { fileTypeFromFile } from 'file-type'
+import fsPromise from 'node:fs/promises'
+import { NTEventDispatch } from '@/common/utils/EventTask'
+import { OnRichMediaDownloadCompleteParams } from '@/ntqqapi/listeners'
 
 export class NTQQFileApi {
   static async getVideoUrl(peer: Peer, msgId: string, elementId: string): Promise<string> {
@@ -30,19 +36,7 @@ export class NTQQFileApi {
   }
 
   static async getFileType(filePath: string) {
-    return await callNTQQApi<{ ext: string }>({
-      className: NTQQApiClass.FS_API,
-      methodName: NTQQApiMethod.FILE_TYPE,
-      args: [filePath],
-    })
-  }
-
-  static async getFileMd5(filePath: string) {
-    return await callNTQQApi<string>({
-      className: NTQQApiClass.FS_API,
-      methodName: NTQQApiMethod.FILE_MD5,
-      args: [filePath],
-    })
+    return fileTypeFromFile(filePath)
   }
 
   static async copyFile(filePath: string, destPath: string) {
@@ -67,44 +61,35 @@ export class NTQQFileApi {
   }
 
   // 上传文件到QQ的文件夹
-  static async uploadFile(filePath: string, elementType: ElementType = ElementType.PIC, elementSubType: number = 0) {
-    const md5 = await NTQQFileApi.getFileMd5(filePath)
-    let ext = (await NTQQFileApi.getFileType(filePath))?.ext
+  static async uploadFile(filePath: string, elementType: ElementType = ElementType.PIC, elementSubType = 0) {
+    const fileMd5 = await calculateFileMD5(filePath)
+    let ext = (await NTQQFileApi.getFileType(filePath))?.ext || ''
     if (ext) {
       ext = '.' + ext
-    } else {
-      ext = ''
     }
     let fileName = `${path.basename(filePath)}`
     if (fileName.indexOf('.') === -1) {
       fileName += ext
     }
-    const mediaPath = await callNTQQApi<string>({
-      methodName: NTQQApiMethod.MEDIA_FILE_PATH,
-      args: [
-        {
-          path_info: {
-            md5HexStr: md5,
-            fileName: fileName,
-            elementType: elementType,
-            elementSubType,
-            thumbSize: 0,
-            needCreate: true,
-            downloadType: 1,
-            file_uuid: '',
-          },
-        },
-      ],
+    const session = getSession()
+    const mediaPath = session?.getMsgService().getRichMediaFilePathForGuild({
+      md5HexStr: fileMd5,
+      fileName: fileName,
+      elementType: elementType,
+      elementSubType,
+      thumbSize: 0,
+      needCreate: true,
+      downloadType: 1,
+      file_uuid: ''
     })
-    log('media path', mediaPath)
-    await NTQQFileApi.copyFile(filePath, mediaPath)
-    const fileSize = await NTQQFileApi.getFileSize(filePath)
+    await fsPromise.copyFile(filePath, mediaPath!)
+    const fileSize = (await fsPromise.stat(filePath)).size
     return {
-      md5,
+      md5: fileMd5,
       fileName,
-      path: mediaPath,
+      path: mediaPath!,
       fileSize,
-      ext,
+      ext
     }
   }
 
@@ -115,44 +100,67 @@ export class NTQQFileApi {
     elementId: string,
     thumbPath: string,
     sourcePath: string,
-    force: boolean = false,
+    timeout = 1000 * 60 * 2,
+    force = false
   ) {
     // 用于下载收到的消息中的图片等
     if (sourcePath && fs.existsSync(sourcePath)) {
       if (force) {
-        fs.unlinkSync(sourcePath)
+        try {
+          await fsPromise.unlink(sourcePath)
+        } catch (e) {
+          //
+        }
       } else {
         return sourcePath
       }
     }
-    const apiParams = [
+    const data = await NTEventDispatch.CallNormalEvent<
+      (
+        params: {
+          fileModelId: string,
+          downloadSourceType: number,
+          triggerType: number,
+          msgId: string,
+          chatType: ChatType,
+          peerUid: string,
+          elementId: string,
+          thumbSize: number,
+          downloadType: number,
+          filePath: string
+        }) => Promise<unknown>,
+      (fileTransNotifyInfo: OnRichMediaDownloadCompleteParams) => void
+    >(
+      'NodeIKernelMsgService/downloadRichMedia',
+      'NodeIKernelMsgListener/onRichMediaDownloadComplete',
+      1,
+      timeout,
+      (arg: OnRichMediaDownloadCompleteParams) => {
+        if (arg.msgId === msgId) {
+          return true
+        }
+        return false
+      },
       {
-        getReq: {
-          fileModelId: '0',
-          downloadSourceType: 0,
-          triggerType: 1,
-          msgId: msgId,
-          chatType: chatType,
-          peerUid: peerUid,
-          elementId: elementId,
-          thumbSize: 0,
-          downloadType: 1,
-          filePath: thumbPath,
-        },
-      },
-      null,
-    ]
-    // log("需要下载media", sourcePath);
-    await callNTQQApi({
-      methodName: NTQQApiMethod.DOWNLOAD_MEDIA,
-      args: apiParams,
-      cbCmd: ReceiveCmdS.MEDIA_DOWNLOAD_COMPLETE,
-      cmdCB: (payload: { notifyInfo: { filePath: string; msgId: string } }) => {
-        log('media 下载完成判断', payload.notifyInfo.msgId, msgId)
-        return payload.notifyInfo.msgId == msgId
-      },
-    })
-    return sourcePath
+        fileModelId: '0',
+        downloadSourceType: 0,
+        triggerType: 1,
+        msgId: msgId,
+        chatType: chatType,
+        peerUid: peerUid,
+        elementId: elementId,
+        thumbSize: 0,
+        downloadType: 1,
+        filePath: thumbPath
+      }
+    )
+    let filePath = data[1].filePath
+    if (filePath.startsWith('\\')) {
+      const downloadPath = TEMP_DIR
+      filePath = path.join(downloadPath, filePath)
+      // 下载路径是下载文件夹的相对路径
+    }
+    return filePath
   }
 
   static async getImageSize(filePath: string) {
@@ -163,22 +171,27 @@ export class NTQQFileApi {
     })
   }
 
-  static async getImageUrl(picElement: PicElement, chatType: ChatType) {
-    const isPrivateImage = chatType !== ChatType.group
-    const url = picElement.originImageUrl // 没有域名
-    const md5HexStr = picElement.md5HexStr
-    const fileMd5 = picElement.md5HexStr
-    const fileUuid = picElement.fileUuid
+  static async getImageUrl(element: PicElement) {
+    if (!element) {
+      return ''
+    }
+    const url: string = element.originImageUrl!  // 没有域名
+    const md5HexStr = element.md5HexStr
+    const fileMd5 = element.md5HexStr
+    const fileUuid = element.fileUuid
+
     if (url) {
-      if (url.startsWith('/download')) {
-        // console.log('rkey', rkey);
-        if (url.includes('&rkey=')) {
+      const UrlParse = new URL(IMAGE_HTTP_HOST + url) //临时解析拼接
+      const imageAppid = UrlParse.searchParams.get('appid')
+      const isNewPic = imageAppid && ['1406', '1407'].includes(imageAppid)
+      if (isNewPic) {
+        let UrlRkey = UrlParse.searchParams.get('rkey')
+        if (UrlRkey) {
           return IMAGE_HTTP_HOST_NT + url
         }
-
-        const rkeyData = await rkeyManager.getRkey();
-        const existsRKey = isPrivateImage ? rkeyData.private_rkey : rkeyData.group_rkey;
-        return IMAGE_HTTP_HOST_NT + url + `${existsRKey}`
+        const rkeyData = await rkeyManager.getRkey()
+        UrlRkey = imageAppid === '1406' ? rkeyData.private_rkey : rkeyData.group_rkey
+        return IMAGE_HTTP_HOST_NT + url + `${UrlRkey}`
       } else {
         // 老的图片url，不需要rkey
         return IMAGE_HTTP_HOST + url
@@ -187,7 +200,7 @@ export class NTQQFileApi {
       // 没有url，需要自己拼接
       return `${IMAGE_HTTP_HOST}/gchatpic_new/0/0-0-${(fileMd5 || md5HexStr)!.toUpperCase()}/0`
     }
-    log('图片url获取失败', picElement)
+    log('图片url获取失败', element)
     return ''
   }
 }

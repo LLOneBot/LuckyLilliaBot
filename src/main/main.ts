@@ -36,7 +36,7 @@ import { OB11FriendRequestEvent } from '../onebot11/event/request/OB11FriendRequ
 import path from 'node:path'
 import { dbUtil } from '../common/db'
 import { setConfig } from './setConfig'
-import { NTQQUserApi, NTQQGroupApi, sentMessages } from '../ntqqapi/api'
+import { NTQQUserApi, NTQQGroupApi } from '../ntqqapi/api'
 import { checkNewVersion, upgradeLLOneBot } from '../common/utils/upgrade'
 import { log } from '../common/utils/log'
 import { getConfigUtil } from '../common/config'
@@ -208,10 +208,6 @@ function onLoad() {
     const recallMsgIds: string[] = [] // 避免重复上报
     registerReceiveHook<{ msgList: Array<RawMessage> }>([ReceiveCmdS.UPDATE_MSG], async (payload) => {
       for (const message of payload.msgList) {
-        const sentMessage = sentMessages[message.msgId]
-        if (sentMessage) {
-          Object.assign(sentMessage, message)
-        }
         log('message update', message.msgId, message)
         if (message.recallTime != '0') {
           if (recallMsgIds.includes(message.msgId)) {

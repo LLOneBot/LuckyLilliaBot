@@ -16,7 +16,7 @@ const manifest = {
     }
   ],
   repository: {
-    repo: 'linyuchen/LiteLoaderQQNT-OneBotApi',
+    repo: 'LLOneBot/LLOneBot',
     branch: 'main',
     release: {
       tag: 'latest',

@@ -179,7 +179,7 @@ export class OB11Constructor {
         // message_data["data"]["path"] = element.picElement.sourcePath
         // let currentRKey = "CAQSKAB6JWENi5LMk0kc62l8Pm3Jn1dsLZHyRLAnNmHGoZ3y_gDZPqZt-64"
 
-        message_data['data']['url'] = await NTQQFileApi.getImageUrl(element.picElement, msg.chatType)
+        message_data['data']['url'] = await NTQQFileApi.getImageUrl(element.picElement)
         // message_data["data"]["file_id"] = element.picElement.fileUuid
         message_data['data']['file_size'] = element.picElement.fileSize
         dbUtil

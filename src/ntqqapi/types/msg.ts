@@ -462,6 +462,7 @@ export interface RawMessage {
   senderUin?: string // 发送者QQ号
   peerUid: string // 群号 或者 QQ uid
   peerUin: string // 群号 或者 发送者QQ号
+  guildId: string
   sendNickName: string
   sendMemberName?: string // 发送者群名片
   chatType: ChatType

@@ -37,7 +37,7 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
         let element = this.getElement(msg, cache.elementId)
         log('找到了文件 element', element)
         // 构建下载函数
-        await NTQQFileApi.downloadMedia(msg.msgId, msg.chatType, msg.peerUid, cache.elementId, '', '', true)
+        await NTQQFileApi.downloadMedia(msg.msgId, msg.chatType, msg.peerUid, cache.elementId, '', '')
         // 等待文件下载完成
         msg = await dbUtil.getMsgByLongId(cache.msgId)
         log('下载完成后的msg', msg)

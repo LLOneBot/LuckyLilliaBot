@@ -2,7 +2,7 @@ import { callNTQQApi, GeneralCallResult, NTQQApiClass, NTQQApiMethod } from '../
 import { SelfInfo, User, UserDetailInfoByUin, UserDetailInfoByUinV2 } from '../types'
 import { ReceiveCmdS } from '../hook'
 import { selfInfo, friends, groupMembers } from '@/common/data'
-import { CacheClassFuncAsync, isQQ998, log, sleep, getBuildVersion } from '@/common/utils'
+import { CacheClassFuncAsync, log, getBuildVersion } from '@/common/utils'
 import { getSession } from '@/ntqqapi/wrapper'
 import { RequestUtil } from '@/common/utils/request'
 import { NodeIKernelProfileService, UserDetailSource, ProfileBizType } from '../services'
@@ -85,39 +85,25 @@ export class NTQQUserApi {
     if (getBuildVersion() >= 26702) {
       return this.fetchUserDetailInfo(uid)
     }
-    // this.getUserInfo(uid)
-    let methodName = !isQQ998 ? NTQQApiMethod.USER_DETAIL_INFO : NTQQApiMethod.USER_DETAIL_INFO_WITH_BIZ_INFO
-    if (!withBizInfo) {
-      methodName = NTQQApiMethod.USER_DETAIL_INFO
-    }
-    const fetchInfo = async () => {
-      const result = await callNTQQApi<{ info: User }>({
-        methodName,
-        cbCmd: ReceiveCmdS.USER_DETAIL_INFO,
-        afterFirstCmd: false,
-        cmdCB: (payload) => {
-          const success = payload.info.uid == uid
-          // log("get user detail info", success, uid, payload)
-          return success
+    type EventService = NodeIKernelProfileService['getUserDetailInfoWithBizInfo']
+    type EventListener = NodeIKernelProfileListener['onProfileDetailInfoChanged']
+    const [_retData, profile] = await NTEventDispatch.CallNormalEvent
+      <EventService, EventListener>
+      (
+        'NodeIKernelProfileService/getUserDetailInfoWithBizInfo',
+        'NodeIKernelProfileListener/onProfileDetailInfoChanged',
+        2,
+        5000,
+        (profile: User) => {
+          if (profile.uid === uid) {
+            return true
+          }
+          return false
         },
-        args: [
-          {
-            uid,
-          },
-          null,
-        ],
-      })
-      const info = result.info
-      return info
-    }
-    // 首次请求两次才能拿到的等级信息
-    if (!userInfoCache[uid] && getLevel) {
-      await fetchInfo()
-      await sleep(1000)
-    }
-    const userInfo = await fetchInfo()
-    userInfoCache[uid] = userInfo
-    return userInfo
+        uid,
+        [0]
+      )
+    return profile
   }
 
   // return 'p_uin=o0xxx; p_skey=orXDssiGF8axxxxxxxxxxxxxx_; skey='
