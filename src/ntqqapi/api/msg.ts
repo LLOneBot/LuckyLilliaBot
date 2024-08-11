@@ -208,8 +208,9 @@ export class NTQQMsgApi {
   }
 
   static async multiForwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]): Promise<RawMessage> {
-    const msgInfos = msgIds.map(async id => {
-      return { msgId: id, senderShowName: await getSelfNick() }
+    const senderShowName = await getSelfNick()
+    const msgInfos = msgIds.map(id => {
+      return { msgId: id, senderShowName }
     })
     const selfUid = getSelfUid()
     let data = await NTEventDispatch.CallNormalEvent<
