@@ -45,12 +45,12 @@ import { GroupDecreaseSubType, OB11GroupDecreaseEvent } from '../onebot11/event/
 import '../ntqqapi/wrapper'
 import { NTEventDispatch } from '../common/utils/EventTask'
 import { wrapperConstructor, getSession } from '../ntqqapi/wrapper'
+import { sleep } from '../common/utils/helper'
 
 let mainWindow: BrowserWindow | null = null
 
 // 加载插件时触发
 function onLoad() {
-  log('llonebot main onLoad')
   ipcMain.handle(CHANNEL_CHECK_VERSION, async (event, arg) => {
     return checkNewVersion()
   })
@@ -428,6 +428,7 @@ function onLoad() {
     }
     llonebotError.otherError = ''
     startTime = Date.now()
+    dbUtil.init(selfInfo.uin)
     NTEventDispatch.init({ ListenerMap: wrapperConstructor, WrapperSession: getSession()! })
     log('start activate group member info')
     NTQQGroupApi.activateMemberInfoChange().then().catch(log)
@@ -452,21 +453,12 @@ function onLoad() {
 
   let getSelfNickCount = 0
   const init = async () => {
-    try {
-      log('start get self info')
-      const _ = await NTQQUserApi.getSelfInfo()
-      log('get self info api result:', _)
-      Object.assign(selfInfo, _)
-      selfInfo.nick = selfInfo.uin
-    } catch (e) {
-      log('retry get self info', e)
-    }
     if (!selfInfo.uin) {
       selfInfo.uin = globalThis.authData?.uin
       selfInfo.uid = globalThis.authData?.uid
       selfInfo.nick = selfInfo.uin
     }
-    log('self info', selfInfo, globalThis.authData)
+    //log('self info', selfInfo, globalThis.authData)
     if (selfInfo.uin) {
       async function getUserNick() {
         try {
@@ -481,18 +473,19 @@ function onLoad() {
           log('get self nickname failed', e.stack)
         }
         if (getSelfNickCount < 10) {
-          return setTimeout(getUserNick, 1000)
+          await sleep(1000)
+          return await getUserNick()
         }
       }
 
-      getUserNick().then()
-      start().then()
+      await getUserNick()
+      start()
     }
     else {
       setTimeout(init, 1000)
     }
   }
-  setTimeout(init, 1000)
+  init()
 }
 
 // 创建窗口时触发

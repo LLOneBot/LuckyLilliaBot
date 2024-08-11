@@ -175,7 +175,6 @@ export class SendMsgElementConstructor {
 
       setTimeout(useDefaultThumb, 5000)
       ffmpeg(filePath)
-        .on('end', () => { })
         .on('error', (err) => {
           if (diyThumbPath) {
             fs.copyFile(diyThumbPath, thumbPath)

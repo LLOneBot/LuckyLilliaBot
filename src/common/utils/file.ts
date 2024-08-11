@@ -25,7 +25,7 @@ export function checkFileReceived(path: string, timeout: number = 3000): Promise
       } else if (Date.now() - startTime > timeout) {
         reject(new Error(`文件不存在: ${path}`))
       } else {
-        setTimeout(check, 100)
+        setTimeout(check, 200)
       }
     }
 

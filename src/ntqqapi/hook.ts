@@ -242,18 +242,7 @@ async function updateGroups(_groups: Group[], needUpdate: boolean = true) {
       continue
     }
     log('update group', group)
-    // if (!activatedGroups.includes(group.groupCode)) {
-    NTQQMsgApi.activateChat({ peerUid: group.groupCode, chatType: ChatType.group })
-      .then((r) => {
-        // activatedGroups.push(group.groupCode);
-        // log(`激活群聊天窗口${group.groupName}(${group.groupCode})`, r)
-        // if (r.result !== 0) {
-        //     setTimeout(() => NTQQMsgApi.activateGroupChat(group.groupCode).then(r => log(`再次激活群聊天窗口${group.groupName}(${group.groupCode})`, r)), 500);
-        // }else {
-        // }
-      })
-      .catch(log)
-    // }
+    NTQQMsgApi.activateChat({ peerUid: group.groupCode, chatType: ChatType.group }).then().catch(log)
     let existGroup = groups.find((g) => g.groupCode == group.groupCode)
     if (existGroup) {
       Object.assign(existGroup, group)

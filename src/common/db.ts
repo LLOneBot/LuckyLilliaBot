@@ -27,33 +27,12 @@ class DBUtil {
    * */
 
   constructor() {
-    let initCount = 0
-    new Promise((resolve, reject) => {
-      const initDB = () => {
-        initCount++
-        // if (initCount > 50) {
-        //     return reject("init db fail")
-        // }
+  }
 
-        try {
-          if (!selfInfo.uin) {
-            setTimeout(initDB, 300)
-            return
-          }
-          const DB_PATH = DATA_DIR + `/msg_${selfInfo.uin}`
-          this.db = new Level(DB_PATH, { valueEncoding: 'json' })
-          console.log('llonebot init db success')
-          resolve(null)
-        } catch (e: any) {
-          console.log('init db fail', e.stack.toString())
-          setTimeout(initDB, 300)
-        }
-      }
-      setTimeout(initDB)
-    }).then()
-
+  init(uin: string) {
+    const DB_PATH = DATA_DIR + `/msg_${uin}`
+    this.db = new Level(DB_PATH, { valueEncoding: 'json' })
     const expiredMilliSecond = 1000 * 60 * 60
-
     setInterval(() => {
       // this.cache = {}
       // 清理时间较久的缓存
