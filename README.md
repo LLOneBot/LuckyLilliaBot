@@ -29,6 +29,7 @@ TG群：<https://t.me/+nLZEnpne-pQ1OWFl>
 
 ## 鸣谢
 
+- [NapCatQQ](https://github.com/NapNeko/NapCatQQ)
 - [LiteLoaderQQNT](https://liteloaderqqnt.github.io/guide/install.html)
 - [chronocat](https://github.com/chrononeko/chronocat)
 - [koishi-plugin-adapter-onebot](https://github.com/koishijs/koishi-plugin-adapter-onebot)
