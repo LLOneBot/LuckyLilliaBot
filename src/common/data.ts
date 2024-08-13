@@ -16,7 +16,7 @@ export const llonebotError: LLOneBotError = {
   ffmpegError: '',
   httpServerError: '',
   wsServerError: '',
-  otherError: 'LLOnebot 未能正常启动，请检查日志查看错误',
+  otherError: 'LLOneBot 未能正常启动，请检查日志查看错误',
 }
 // 群号 -> 群成员map(uid=>GroupMember)
 export const groupMembers: Map<string, Map<string, GroupMember>> = new Map<string, Map<string, GroupMember>>()

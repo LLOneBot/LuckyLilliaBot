@@ -24,7 +24,7 @@ export default class Debug extends BaseAction<Payload, any> {
     log('debug call ntqq api', payload)
     const ntqqApi = [NTQQMsgApi, NTQQFriendApi, NTQQGroupApi, NTQQUserApi, NTQQFileApi, NTQQFileCacheApi, NTQQWindowApi]
     for (const ntqqApiClass of ntqqApi) {
-      log('ntqqApiClass', ntqqApiClass)
+      //log('ntqqApiClass', ntqqApiClass)
       const method = ntqqApiClass[payload.method]
       if (method) {
         const result = method(...payload.args)

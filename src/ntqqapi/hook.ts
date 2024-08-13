@@ -246,12 +246,12 @@ let activatedGroups: string[] = []
 
 async function updateGroups(_groups: Group[], needUpdate: boolean = true) {
   for (let group of _groups) {
-    log('update group', group)
+    log('update group', group.groupCode)
     if (group.privilegeFlag === 0) {
       deleteGroup(group.groupCode)
       continue
     }
-    log('update group', group)
+    //log('update group', group)
     NTQQMsgApi.activateChat({ peerUid: group.groupCode, chatType: ChatType.group }).then().catch(log)
     let existGroup = groups.find((g) => g.groupCode == group.groupCode)
     if (existGroup) {

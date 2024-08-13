@@ -382,7 +382,7 @@ function onLoad() {
     log('llonebot pid', process.pid)
     const config = getConfigUtil().getConfig()
     if (!config.enableLLOB) {
-      llonebotError.otherError = 'LLOnebot 未启动'
+      llonebotError.otherError = 'LLOneBot 未启动'
       log('LLOneBot 开关设置为关闭，不启动LLOneBot')
       return
     }

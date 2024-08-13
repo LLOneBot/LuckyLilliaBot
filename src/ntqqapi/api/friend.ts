@@ -8,6 +8,7 @@ import { CacheClassFuncAsyncExtend } from '@/common/utils/helper'
 import { LimitedHashTable } from '@/common/utils/table'
 
 export class NTQQFriendApi {
+  /** >=26702 应使用 getBuddyV2 */
   static async getFriends(forced = false) {
     const data = await callNTQQApi<{
       data: {

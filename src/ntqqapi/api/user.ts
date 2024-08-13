@@ -52,20 +52,11 @@ export class NTQQUserApi {
         'NodeIKernelProfileListener/onUserDetailInfoChanged',
         1,
         5000,
-        (profile) => {
-          if (profile.uid === uid) {
-            return true
-          }
-          return false
-        },
+        (profile) => profile.uid === uid,
         'BuddyProfileStore',
-        [
-          uid
-        ],
+        [uid],
         UserDetailSource.KSERVER,
-        [
-          ProfileBizType.KALL
-        ]
+        [ProfileBizType.KALL]
       )
     const RetUser: User = {
       ...profile.simpleInfo.coreInfo,
@@ -81,7 +72,7 @@ export class NTQQUserApi {
 
   static async getUserDetailInfo(uid: string, getLevel = false, withBizInfo = true) {
     if (getBuildVersion() >= 26702) {
-      return this.fetchUserDetailInfo(uid)
+      return NTQQUserApi.fetchUserDetailInfo(uid)
     }
     type EventService = NodeIKernelProfileService['getUserDetailInfoWithBizInfo']
     type EventListener = NodeIKernelProfileListener['onProfileDetailInfoChanged']
@@ -92,12 +83,7 @@ export class NTQQUserApi {
         'NodeIKernelProfileListener/onProfileDetailInfoChanged',
         2,
         5000,
-        (profile: User) => {
-          if (profile.uid === uid) {
-            return true
-          }
-          return false
-        },
+        (profile) => profile.uid === uid,
         uid,
         [0]
       )
@@ -119,7 +105,7 @@ export class NTQQUserApi {
 
   static async getQzoneCookies() {
     const uin = getSelfUin()
-    const requestUrl = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + uin + '&clientkey=' + (await this.getClientKey()).clientKey + '&u1=https%3A%2F%2Fuser.qzone.qq.com%2F' + uin + '%2Finfocenter&keyindex=19%27'
+    const requestUrl = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + uin + '&clientkey=' + (await NTQQUserApi.getClientKey()).clientKey + '&u1=https%3A%2F%2Fuser.qzone.qq.com%2F' + uin + '%2Finfocenter&keyindex=19%27'
     let cookies: { [key: string]: string } = {}
     try {
       cookies = await RequestUtil.HttpsGetCookies(requestUrl)
@@ -129,8 +115,9 @@ export class NTQQUserApi {
     }
     return cookies
   }
+  
   static async getSkey(): Promise<string> {
-    const clientKeyData = await this.getClientKey()
+    const clientKeyData = await NTQQUserApi.getClientKey()
     if (clientKeyData.result !== 0) {
       throw new Error('获取clientKey失败')
     }
