@@ -4,6 +4,7 @@ import BaseAction from '../BaseAction'
 import { ActionName } from '../types'
 import { NTQQMsgApi } from '@/ntqqapi/api'
 import { MessageUnique } from '@/common/utils/MessageUnique'
+import { getMsgCache } from '@/common/data'
 
 export interface PayloadType {
   message_id: number | string
@@ -29,12 +30,9 @@ class GetMsg extends BaseAction<PayloadType, OB11Message> {
       peerUid: msgIdWithPeer.Peer.peerUid,
       chatType: msgIdWithPeer.Peer.chatType
     }
-    const msg = await NTQQMsgApi.getMsgsByMsgId(
-      peer,
-      [msgIdWithPeer?.MsgId || payload.message_id.toString()]
-    )
-    const retMsg = await OB11Constructor.message(msg.msgList[0])
-    retMsg.message_id = MessageUnique.createMsg(peer, msg.msgList[0].msgId)!
+    const msg = getMsgCache(msgIdWithPeer.MsgId) ?? (await NTQQMsgApi.getMsgsByMsgId(peer, [msgIdWithPeer.MsgId])).msgList[0]
+    const retMsg = await OB11Constructor.message(msg)
+    retMsg.message_id = MessageUnique.createMsg(peer, msg.msgId)!
     retMsg.message_seq = retMsg.message_id
     retMsg.real_id = retMsg.message_id
     return retMsg

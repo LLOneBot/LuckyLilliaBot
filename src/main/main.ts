@@ -21,7 +21,8 @@ import {
   setSelfInfo,
   getSelfInfo,
   getSelfUid,
-  getSelfUin
+  getSelfUin,
+  addMsgCache
 } from '../common/data'
 import { hookNTQQApiCall, hookNTQQApiReceive, ReceiveCmdS, registerReceiveHook, startHook } from '../ntqqapi/hook'
 import { OB11Constructor } from '../onebot11/constructor'
@@ -95,7 +96,7 @@ function onLoad() {
   }
   ipcMain.handle(CHANNEL_ERROR, async (event, arg) => {
     const ffmpegOk = await checkFfmpeg(getConfigUtil().getConfig().ffmpeg)
-    llonebotError.ffmpegError = ffmpegOk ? '' : '没有找到ffmpeg,音频只能发送wav和silk,视频尺寸可能异常'
+    llonebotError.ffmpegError = ffmpegOk ? '' : '没有找到 FFmpeg, 音频只能发送 WAV 和 SILK, 视频尺寸可能异常'
     let { httpServerError, wsServerError, otherError, ffmpegError } = llonebotError
     let error = `${otherError}\n${httpServerError}\n${wsServerError}\n${ffmpegError}`
     error = error.replace('\n\n', '\n')
@@ -159,6 +160,7 @@ function onLoad() {
         peerUid: message.peerUid
       }
       message.msgShortId = MessageUnique.createMsg(peer, message.msgId)
+      addMsgCache(message)
 
       OB11Constructor.message(message)
         .then((msg) => {
@@ -183,7 +185,7 @@ function onLoad() {
         }
       })
       OB11Constructor.PrivateEvent(message).then((privateEvent) => {
-        log(message)
+        //log(message)
         if (privateEvent) {
           // log("post private event", privateEvent);
           postOb11Event(privateEvent)

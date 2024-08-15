@@ -9,6 +9,8 @@ import { NTQQGroupApi } from '../ntqqapi/api/group'
 import { log } from './utils/log'
 import { isNumeric } from './utils/helper'
 import { NTQQFriendApi, NTQQUserApi } from '../ntqqapi/api'
+import { RawMessage } from '../ntqqapi/types'
+import { getConfigUtil } from './config'
 
 export let groups: Group[] = []
 export let friends: Friend[] = []
@@ -127,4 +129,25 @@ export function getSelfUid() {
 
 export function getSelfUin() {
   return selfInfo['uin']
+}
+
+const messages: Map<string, RawMessage> = new Map()
+let expire: number
+
+/** 缓存近期消息内容 */
+export async function addMsgCache(msg: RawMessage) {
+  expire ??= getConfigUtil().getConfig().msgCacheExpire! * 1000
+  if (expire === 0) {
+    return
+  }
+  const id = msg.msgId
+  messages.set(id, msg)
+  setTimeout(() => {
+    messages.delete(id)
+  }, expire)
+}
+
+/** 获取近期消息内容 */
+export function getMsgCache(msgId: string) {
+  return messages.get(msgId)
 }

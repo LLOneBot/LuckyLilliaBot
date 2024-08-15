@@ -119,9 +119,8 @@ export async function createSendElements(
         if (!peer) {
           continue
         }
-        let atQQ = sendMsg.data?.qq
-        if (atQQ) {
-          atQQ = atQQ.toString()
+        if (sendMsg.data?.qq) {
+          const atQQ = String(sendMsg.data.qq)
           if (atQQ === 'all') {
             // todo：查询剩余的at全体次数
             const groupCode = peer.peerUid
@@ -161,7 +160,7 @@ export async function createSendElements(
       }
         break
       case OB11MessageDataType.reply: {
-        if (sendMsg.data.id) {
+        if (sendMsg.data?.id) {
           const replyMsgId = await MessageUnique.getMsgIdAndPeerByShortId(+sendMsg.data.id)
           if (!replyMsgId) {
             log('回复消息不存在', replyMsgId)

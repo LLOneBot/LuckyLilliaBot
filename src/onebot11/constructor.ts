@@ -590,21 +590,19 @@ export class OB11Constructor {
     msg: RawMessage,
     shortId: number
   ): Promise<OB11FriendRecallNoticeEvent | OB11GroupRecallNoticeEvent | undefined> {
-    let msgElement = msg.elements.find(
+    const msgElement = msg.elements.find(
       (element) => element.grayTipElement?.subElementType === GrayTipElementSubType.RECALL,
     )
     if (!msgElement) {
       return
     }
-    const isGroup = msg.chatType === ChatType.group
     const revokeElement = msgElement.grayTipElement.revokeElement
-    if (isGroup) {
+    if (msg.chatType === ChatType.group) {
       const operator = await getGroupMember(msg.peerUid, revokeElement.operatorUid)
-      const sender = await getGroupMember(msg.peerUid, revokeElement.origMsgSenderUid!)
       return new OB11GroupRecallNoticeEvent(
         parseInt(msg.peerUid),
-        parseInt(sender?.uin!),
-        parseInt(operator?.uin!),
+        parseInt(msg.senderUin!),
+        parseInt(operator?.uin || msg.senderUin!),
         shortId,
       )
     }
