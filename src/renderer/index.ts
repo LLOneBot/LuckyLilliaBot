@@ -220,8 +220,8 @@ async function onSettingWindowCreated(view: Element) {
           SettingButton('打开', 'config-open-log-path'),
         ),
         SettingItem(
-          '已撤回消息内容缓存时长',
-          '单位为毫秒',
+          '消息内容缓存时长',
+          '单位为秒',
           `<div class="q-input"><input class="q-input__inner" data-config-key="msgCacheExpire" type="number" min="1" value="${config.msgCacheExpire}" placeholder="${config.msgCacheExpire}" /></div>`,
         ),
       ]),

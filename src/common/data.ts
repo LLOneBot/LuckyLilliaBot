@@ -134,9 +134,12 @@ export function getSelfUin() {
 const messages: Map<string, RawMessage> = new Map()
 let expire: number
 
-/** 缓存已撤回消息内容 */
-export function addMsgCache(msg: RawMessage) {
-  expire ??= getConfigUtil().getConfig().msgCacheExpire!
+/** 缓存近期消息内容 */
+export async function addMsgCache(msg: RawMessage) {
+  expire ??= getConfigUtil().getConfig().msgCacheExpire! * 1000
+  if (expire === 0) {
+    return
+  }
   const id = msg.msgId
   messages.set(id, msg)
   setTimeout(() => {
@@ -144,7 +147,7 @@ export function addMsgCache(msg: RawMessage) {
   }, expire)
 }
 
-/** 获取已撤回消息内容 */
+/** 获取近期消息内容 */
 export function getMsgCache(msgId: string) {
   return messages.get(msgId)
 }
