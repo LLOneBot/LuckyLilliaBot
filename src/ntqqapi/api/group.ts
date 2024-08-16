@@ -1,10 +1,11 @@
 import { ReceiveCmdS } from '../hook'
-import { Group, GroupMember, GroupMemberRole, GroupNotifies, GroupRequestOperateTypes } from '../types'
+import { Group, GroupMember, GroupMemberRole, GroupNotifies, GroupRequestOperateTypes, GroupNotify } from '../types'
 import { callNTQQApi, GeneralCallResult, NTQQApiMethod } from '../ntcall'
 import { NTQQWindowApi, NTQQWindows } from './window'
 import { getSession } from '../wrapper'
 import { NTEventDispatch } from '@/common/utils/EventTask'
 import { NodeIKernelGroupListener } from '../listeners'
+import { NodeIKernelGroupService } from '../services'
 
 export class NTQQGroupApi {
   static async activateMemberListChange() {
@@ -45,10 +46,27 @@ export class NTQQGroupApi {
         'NodeIKernelGroupListener/onGroupListUpdate',
         1,
         5000,
-        (updateType) => true,
+        () => true,
         forced
       )
     return groupList
+  }
+
+  static async getGroupMemberV2(GroupCode: string, uid: string, forced = false) {
+    type ListenerType = NodeIKernelGroupListener['onMemberInfoChange']
+    type EventType = NodeIKernelGroupService['getMemberInfo']
+    const [, , , _members] = await NTEventDispatch.CallNormalEvent<EventType, ListenerType>
+      (
+        'NodeIKernelGroupService/getMemberInfo',
+        'NodeIKernelGroupListener/onMemberInfoChange',
+        1,
+        5000,
+        (groupCode: string, changeType: number, members: Map<string, GroupMember>) => {
+          return groupCode == GroupCode && members.has(uid)
+        },
+        GroupCode, [uid], forced,
+      )
+    return _members.get(uid)
   }
 
   static async getGroupMembers(groupQQ: string, num = 3000): Promise<Map<string, GroupMember>> {
@@ -99,6 +117,36 @@ export class NTQQGroupApi {
       ReceiveCmdS.GROUP_NOTIFY,
     )
   }
+
+  static async getSingleScreenNotifies(num: number) {
+    const [_retData, _doubt, _seq, notifies] = await NTEventDispatch.CallNormalEvent
+      <(arg1: boolean, arg2: string, arg3: number) => Promise<any>, (doubt: boolean, seq: string, notifies: GroupNotify[]) => void>
+      (
+        'NodeIKernelGroupService/getSingleScreenNotifies',
+        'NodeIKernelGroupListener/onGroupSingleScreenNotifies',
+        1,
+        5000,
+        () => true,
+        false,
+        '',
+        num,
+      )
+    return notifies
+  }
+
+  static async delGroupFile(groupCode: string, files: string[]) {
+    const session = getSession()
+    return session?.getRichMediaService().deleteGroupFile(groupCode, [102], files)!
+  }
+
+  static DelGroupFile = NTQQGroupApi.delGroupFile
+
+  static async delGroupFileFolder(groupCode: string, folderId: string) {
+    const session = getSession()
+    return session?.getRichMediaService().deleteGroupFolder(groupCode, folderId)!
+  }
+
+  static DelGroupFileFolder = NTQQGroupApi.delGroupFileFolder
 
   static async handleGroupRequest(flag: string, operateType: GroupRequestOperateTypes, reason?: string) {
     const flagitem = flag.split('|')

@@ -23,66 +23,12 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
   // forked from https://github.com/NapNeko/NapCatQQ/blob/6f6b258f22d7563f15d84e7172c4d4cbb547f47e/src/onebot11/action/file/GetFile.ts#L44
   protected async _handle(payload: GetFilePayload): Promise<GetFileResponse> {
     const { enableLocalFile2Url } = getConfigUtil().getConfig()
-    let UuidData: {
-      high: string
-      low: string
-    } | undefined
-    try {
-      UuidData = UUIDConverter.decode(payload.file)
-      if (UuidData) {
-        const peerUin = UuidData.high
-        const msgId = UuidData.low
-        const isGroup: boolean = !!(await NTQQGroupApi.getGroups(false)).find(e => e.groupCode == peerUin)
-        let peer: Peer | undefined
-        //识别Peer
-        if (isGroup) {
-          peer = { chatType: ChatType.group, peerUid: peerUin }
-        }
-        const PeerUid = await NTQQUserApi.getUidByUinV2(peerUin)
-        if (PeerUid) {
-          const isBuddy = await NTQQFriendApi.isBuddy(PeerUid)
-          if (isBuddy) {
-            peer = { chatType: ChatType.friend, peerUid: PeerUid }
-          } else {
-            peer = { chatType: ChatType.temp, peerUid: PeerUid }
-          }
-        }
-        if (!peer) {
-          throw new Error('chattype not support')
-        }
-        const msgList = await NTQQMsgApi.getMsgsByMsgId(peer, [msgId])
-        if (msgList.msgList.length === 0) {
-          throw new Error('msg not found')
-        }
-        const msg = msgList.msgList[0]
-        const findEle = msg.elements.find(e => e.elementType == ElementType.VIDEO || e.elementType == ElementType.FILE || e.elementType == ElementType.PTT)
-        if (!findEle) {
-          throw new Error('element not found')
-        }
-        const downloadPath = await NTQQFileApi.downloadMedia(msgId, msg.chatType, msg.peerUid, findEle.elementId, '', '')
-        const fileSize = findEle?.videoElement?.fileSize || findEle?.fileElement?.fileSize || findEle?.pttElement?.fileSize || '0'
-        const fileName = findEle?.videoElement?.fileName || findEle?.fileElement?.fileName || findEle?.pttElement?.fileName || ''
-        const res: GetFileResponse = {
-          file: downloadPath,
-          url: downloadPath,
-          file_size: fileSize,
-          file_name: fileName,
-        }
-        if (enableLocalFile2Url && downloadPath) {
-          try {
-            res.base64 = await fsPromise.readFile(downloadPath, 'base64')
-          } catch (e) {
-            throw new Error('文件下载失败. ' + e)
-          }
-        }
-        //不手动删除？文件持久化了
-        return res
-      }
-    } catch {
 
+    let fileCache = await MessageUnique.getFileCacheById(String(payload.file))
+    if (!fileCache?.length) {
+      fileCache = await MessageUnique.getFileCacheByName(String(payload.file))
     }
 
-    const fileCache = await MessageUnique.getFileCache(String(payload.file))
     if (fileCache?.length) {
       const downloadPath = await NTQQFileApi.downloadMedia(
         fileCache[0].msgId,

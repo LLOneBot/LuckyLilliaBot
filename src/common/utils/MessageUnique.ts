@@ -7,7 +7,7 @@ import SQLite from '@minatojs/driver-sqlite'
 import fsPromise from 'node:fs/promises'
 import fs from 'node:fs'
 import path from 'node:path'
-import { FileCache } from '../types'
+import { FileCacheV2 } from '../types'
 
 interface SQLiteTables extends Tables {
     message: {
@@ -16,7 +16,7 @@ interface SQLiteTables extends Tables {
         chatType: number
         peerUid: string
     }
-    file: FileCache
+    file_v2: FileCacheV2
 }
 
 interface MsgIdAndPeerByShortId {
@@ -52,16 +52,19 @@ class MessageUniqueWrapper {
         }, {
             primary: 'shortId'
         })
-        database.extend('file', {
+        database.extend('file_v2', {
             fileName: 'string',
             fileSize: 'string',
+            fileUuid: 'string(128)',
             msgId: 'string(24)',
+            msgTime: 'unsigned(10)',
             peerUid: 'string(24)',
             chatType: 'unsigned',
             elementId: 'string(24)',
             elementType: 'unsigned',
         }, {
-            primary: 'fileName'
+            primary: 'fileUuid',
+            indexes: ['fileName']
         })
         this.db = database
     }
@@ -142,12 +145,18 @@ class MessageUniqueWrapper {
         this.msgDataMap.resize(maxSize)
     }
 
-    addFileCache(data: FileCache) {
-        return this.db?.upsert('file', [data], 'fileName')
+    addFileCache(data: FileCacheV2) {
+        return this.db?.upsert('file_v2', [data], 'fileUuid')
     }
 
-    getFileCache(fileName: string) {
-        return this.db?.get('file', { fileName })
+    getFileCacheByName(fileName: string) {
+        return this.db?.get('file_v2', { fileName }, {
+            sort: { msgTime: 'desc' }
+        })
+    }
+
+    getFileCacheById(fileUuid: string) {
+        return this.db?.get('file_v2', { fileUuid })
     }
 }
 

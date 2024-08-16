@@ -1,18 +1,18 @@
 import { OB11Group } from '../../types'
-import { getGroup } from '../../../common/data'
 import { OB11Constructor } from '../../constructor'
 import BaseAction from '../BaseAction'
 import { ActionName } from '../types'
+import { NTQQGroupApi } from '@/ntqqapi/api'
 
-interface PayloadType {
-  group_id: number
+interface Payload {
+  group_id: number | string
 }
 
-class GetGroupInfo extends BaseAction<PayloadType, OB11Group> {
+class GetGroupInfo extends BaseAction<Payload, OB11Group> {
   actionName = ActionName.GetGroupInfo
 
-  protected async _handle(payload: PayloadType) {
-    const group = await getGroup(payload.group_id.toString())
+  protected async _handle(payload: Payload) {
+    const group = (await NTQQGroupApi.getGroups()).find(e => e.groupCode == payload.group_id.toString())
     if (group) {
       return OB11Constructor.group(group)
     } else {

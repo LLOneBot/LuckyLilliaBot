@@ -1,6 +1,5 @@
 import fs from 'node:fs'
 import BaseAction from '../BaseAction'
-import { getGroup } from '@/common/data'
 import { ActionName } from '../types'
 import { SendMsgElementConstructor } from '@/ntqqapi/constructor'
 import { ChatType, SendFileElement } from '@/ntqqapi/types'
@@ -22,10 +21,6 @@ export class GoCQHTTPUploadGroupFile extends BaseAction<Payload, null> {
   actionName = ActionName.GoCQHTTP_UploadGroupFile
 
   protected async _handle(payload: Payload): Promise<null> {
-    const group = await getGroup(payload.group_id?.toString()!)
-    if (!group) {
-      throw new Error(`群组${payload.group_id}不存在`)
-    }
     let file = payload.file
     if (fs.existsSync(file)) {
       file = `file://${file}`
@@ -34,8 +29,11 @@ export class GoCQHTTPUploadGroupFile extends BaseAction<Payload, null> {
     if (!downloadResult.success) {
       throw new Error(downloadResult.errMsg)
     }
-    const sendFileEle: SendFileElement = await SendMsgElementConstructor.file(downloadResult.path, payload.name, payload.folder_id)
-    await sendMsg({ chatType: ChatType.group, peerUid: group.groupCode }, [sendFileEle], [], true)
+    const sendFileEle = await SendMsgElementConstructor.file(downloadResult.path, payload.name, payload.folder_id)
+    await sendMsg({
+      chatType: ChatType.group,
+      peerUid: payload.group_id?.toString()!,
+    }, [sendFileEle], [], true)
     return null
   }
 }

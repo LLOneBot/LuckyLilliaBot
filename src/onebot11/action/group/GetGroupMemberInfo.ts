@@ -24,7 +24,11 @@ class GetGroupMemberInfo extends BaseAction<PayloadType, OB11GroupMember> {
         log('群成员详细信息结果', info)
         Object.assign(member, info)
       }
-      return OB11Constructor.groupMember(payload.group_id.toString(), member)
+      const ret = OB11Constructor.groupMember(payload.group_id.toString(), member)
+      const date = Math.round(Date.now() / 1000)
+      ret.last_sent_time = Number(member.lastSpeakTime || date)
+      ret.join_time = Number(member.joinTime || date)
+      return ret
     } else {
       throw `群成员${payload.user_id}不存在`
     }

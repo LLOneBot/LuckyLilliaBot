@@ -73,4 +73,5 @@ export enum ActionName {
   GetGroupHonorInfo = "get_group_honor_info",
   GoCQHTTP_SetEssenceMsg = 'set_essence_msg',
   GoCQHTTP_DelEssenceMsg = 'delete_essence_msg',
+  GoCQHTTP_DelGroupFile = 'delete_group_file',
 }

@@ -1,6 +1,6 @@
 import GetMsg from './msg/GetMsg'
 import GetLoginInfo from './system/GetLoginInfo'
-import { GetFriendList, GetFriendWithCategory} from './user/GetFriendList'
+import { GetFriendList, GetFriendWithCategory } from './user/GetFriendList'
 import GetGroupList from './group/GetGroupList'
 import GetGroupInfo from './group/GetGroupInfo'
 import GetGroupMemberList from './group/GetGroupMemberList'
@@ -53,6 +53,7 @@ import { GoCQHTTHandleQuickOperation } from './go-cqhttp/QuickOperation'
 import GoCQHTTPSetEssenceMsg from './go-cqhttp/SetEssenceMsg'
 import GoCQHTTPDelEssenceMsg from './go-cqhttp/DelEssenceMsg'
 import GetEvent from './llonebot/GetEvent'
+import { GoCQHTTPDelGroupFile } from './go-cqhttp/DelGroupFile'
 
 
 export const actionHandlers = [
@@ -113,7 +114,8 @@ export const actionHandlers = [
   new GoCQHTTGetForwardMsgAction(),
   new GoCQHTTHandleQuickOperation(),
   new GoCQHTTPSetEssenceMsg(),
-  new GoCQHTTPDelEssenceMsg()
+  new GoCQHTTPDelEssenceMsg(),
+  new GoCQHTTPDelGroupFile()
 ]
 
 function initActionMap() {

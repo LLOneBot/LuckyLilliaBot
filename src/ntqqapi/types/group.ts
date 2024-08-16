@@ -45,7 +45,7 @@ export enum GroupMemberRole {
 }
 
 export interface GroupMember {
-  memberSpecialTitle: string
+  memberSpecialTitle?: string
   avatarPath: string
   cardName: string
   cardType: number
@@ -60,4 +60,7 @@ export interface GroupMember {
   isRobot: boolean
   sex?: Sex
   qqLevel?: QQLevel
+  isChangeRole: boolean
+  joinTime: string
+  lastSpeakTime: string
 }

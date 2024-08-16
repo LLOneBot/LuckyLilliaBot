@@ -16,7 +16,6 @@ import {
 import { ob11WebsocketServer } from '../onebot11/server/ws/WebsocketServer'
 import { DATA_DIR, TEMP_DIR } from '../common/utils'
 import {
-  getGroupMember,
   llonebotError,
   setSelfInfo,
   getSelfInfo,
@@ -28,7 +27,7 @@ import { hookNTQQApiCall, hookNTQQApiReceive, ReceiveCmdS, registerReceiveHook, 
 import { OB11Constructor } from '../onebot11/constructor'
 import {
   FriendRequestNotify,
-  GroupNotifies,
+  GroupNotify,
   GroupNotifyTypes,
   RawMessage,
   BuddyReqType,
@@ -245,6 +244,7 @@ function onLoad() {
         log('report self message error: ', e.stack.toString())
       }
     })
+    const processedGroupNotify: string[] = []
     registerReceiveHook<{
       doubt: boolean
       oldestUnreadSeq: string
@@ -252,48 +252,43 @@ function onLoad() {
     }>(ReceiveCmdS.UNREAD_GROUP_NOTIFY, async (payload) => {
       if (payload.unreadCount) {
         // log("开始获取群通知详情")
-        let notify: GroupNotifies
+        let notifies: GroupNotify[]
         try {
-          notify = await NTQQGroupApi.getGroupNotifies()
+          notifies = (await NTQQGroupApi.getSingleScreenNotifies(14)).slice(0, payload.unreadCount)
         } catch (e) {
           // log("获取群通知详情失败", e);
           return
         }
 
-        const notifies = notify.notifies.slice(0, payload.unreadCount)
-        // log("获取群通知详情完成", notifies, payload);
-
         for (const notify of notifies) {
           try {
             notify.time = Date.now()
             const notifyTime = parseInt(notify.seq) / 1000
-            if (notifyTime < startTime) {
+            const flag = notify.group.groupCode + '|' + notify.seq + '|' + notify.type
+            if (notifyTime < startTime || processedGroupNotify.includes(flag)) {
               continue
             }
-            log('收到群通知', notify)
-            const flag = notify.group.groupCode + '|' + notify.seq + '|' + notify.type
+            processedGroupNotify.push(flag)
             if (notify.type == GroupNotifyTypes.MEMBER_EXIT || notify.type == GroupNotifyTypes.KICK_MEMBER) {
               log('有成员退出通知', notify)
-              try {
-                const member1 = await NTQQUserApi.getUserDetailInfo(notify.user1.uid)
-                let operatorId = member1.uin
-                let subType: GroupDecreaseSubType = 'leave'
-                if (notify.user2.uid) {
-                  // 是被踢的
-                  const member2 = await getGroupMember(notify.group.groupCode, notify.user2.uid)
-                  operatorId = member2?.uin!
-                  subType = 'kick'
+              const member1Uin = (await NTQQUserApi.getUinByUid(notify.user1.uid))!
+              let operatorId = member1Uin
+              let subType: GroupDecreaseSubType = 'leave'
+              if (notify.user2.uid) {
+                // 是被踢的
+                const member2Uin = await NTQQUserApi.getUinByUid(notify.user2.uid)
+                if (member2Uin) {
+                  operatorId = member2Uin
                 }
-                let groupDecreaseEvent = new OB11GroupDecreaseEvent(
-                  parseInt(notify.group.groupCode),
-                  parseInt(member1.uin),
-                  parseInt(operatorId),
-                  subType,
-                )
-                postOb11Event(groupDecreaseEvent, true)
-              } catch (e: any) {
-                log('获取群通知的成员信息失败', notify, e.stack.toString())
+                subType = 'kick'
               }
+              const groupDecreaseEvent = new OB11GroupDecreaseEvent(
+                parseInt(notify.group.groupCode),
+                parseInt(member1Uin),
+                parseInt(operatorId),
+                subType,
+              )
+              postOb11Event(groupDecreaseEvent, true)
             }
             else if ([GroupNotifyTypes.JOIN_REQUEST, GroupNotifyTypes.JOIN_REQUEST_BY_INVITED].includes(notify.type)) {
               log('有加群请求')
