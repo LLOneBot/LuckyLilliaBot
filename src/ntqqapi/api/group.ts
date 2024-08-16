@@ -5,6 +5,7 @@ import { NTQQWindowApi, NTQQWindows } from './window'
 import { getSession } from '../wrapper'
 import { NTEventDispatch } from '@/common/utils/EventTask'
 import { NodeIKernelGroupListener } from '../listeners'
+import { NodeIKernelGroupService } from '../services'
 
 export class NTQQGroupApi {
   static async activateMemberListChange() {
@@ -45,10 +46,27 @@ export class NTQQGroupApi {
         'NodeIKernelGroupListener/onGroupListUpdate',
         1,
         5000,
-        (updateType) => true,
+        () => true,
         forced
       )
     return groupList
+  }
+
+  async getGroupMemberV2(GroupCode: string, uid: string, forced = false) {
+    type ListenerType = NodeIKernelGroupListener['onMemberInfoChange']
+    type EventType = NodeIKernelGroupService['getMemberInfo']
+    const [, , , _members] = await NTEventDispatch.CallNormalEvent<EventType, ListenerType>
+      (
+        'NodeIKernelGroupService/getMemberInfo',
+        'NodeIKernelGroupListener/onMemberInfoChange',
+        1,
+        5000,
+        (groupCode: string, changeType: number, members: Map<string, GroupMember>) => {
+          return groupCode == GroupCode && members.has(uid)
+        },
+        GroupCode, [uid], forced,
+      )
+    return _members.get(uid)
   }
 
   static async getGroupMembers(groupQQ: string, num = 3000): Promise<Map<string, GroupMember>> {

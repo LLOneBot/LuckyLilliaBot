@@ -4,27 +4,20 @@ import { NTQQMsgApi } from './api/msg'
 import {
   CategoryFriend,
   ChatType,
-  FriendV2,
-  Group,
   GroupMember,
   GroupMemberRole,
   RawMessage,
   SimpleInfo, User,
 } from './types'
 import {
-  deleteGroup,
   friends,
   getFriend,
   getGroupMember,
-  groups,
-  getSelfUin,
   setSelfInfo
 } from '@/common/data'
-import { OB11GroupDecreaseEvent } from '../onebot11/event/notice/OB11GroupDecreaseEvent'
 import { postOb11Event } from '../onebot11/server/post-ob11-event'
 import { getConfigUtil, HOOK_LOG } from '@/common/config'
 import fs from 'node:fs'
-import { NTQQGroupApi } from './api/group'
 import { log } from '@/common/utils'
 import { randomUUID } from 'node:crypto'
 import { MessageUnique } from '../common/utils/MessageUnique'
@@ -242,9 +235,9 @@ export function removeReceiveHook(id: string) {
   receiveHooks.splice(index, 1)
 }
 
-let activatedGroups: string[] = []
+//let activatedGroups: string[] = []
 
-async function updateGroups(_groups: Group[], needUpdate: boolean = true) {
+/*async function updateGroups(_groups: Group[], needUpdate: boolean = true) {
   for (let group of _groups) {
     log('update group', group.groupCode)
     if (group.privilegeFlag === 0) {
@@ -269,9 +262,9 @@ async function updateGroups(_groups: Group[], needUpdate: boolean = true) {
       }
     }
   }
-}
+}*/
 
-async function processGroupEvent(payload: { groupList: Group[] }) {
+/*async function processGroupEvent(payload: { groupList: Group[] }) {
   try {
     const newGroupList = payload.groupList
     for (const group of newGroupList) {
@@ -322,12 +315,12 @@ async function processGroupEvent(payload: { groupList: Group[] }) {
     updateGroups(payload.groupList).then()
     log('更新群信息错误', e.stack.toString())
   }
-}
+}*/
 
 export async function startHook() {
 
   // 群列表变动
-  registerReceiveHook<{ groupList: Group[]; updateType: number }>(ReceiveCmdS.GROUPS, (payload) => {
+  /*registerReceiveHook<{ groupList: Group[]; updateType: number }>(ReceiveCmdS.GROUPS, (payload) => {
     // updateType 3是群列表变动，2是群成员变动
     // log("群列表变动", payload.updateType, payload.groupList)
     if (payload.updateType != 2) {
@@ -350,7 +343,7 @@ export async function startHook() {
         processGroupEvent(payload).then()
       }
     }
-  })
+  })*/
 
   registerReceiveHook<{
     groupCode: string

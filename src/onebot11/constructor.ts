@@ -17,7 +17,6 @@ import {
   Group,
   Peer,
   GroupMember,
-  PicType,
   RawMessage,
   SelfInfo,
   Sex,
@@ -26,7 +25,7 @@ import {
   FriendV2,
   ChatType2
 } from '../ntqqapi/types'
-import { deleteGroup, getGroupMember, getSelfUin } from '../common/data'
+import { getGroupMember, getSelfUin } from '../common/data'
 import { EventType } from './event/OB11BaseEvent'
 import { encodeCQCode } from './cqcode'
 import { MessageUnique } from '../common/utils/MessageUnique'
@@ -358,7 +357,7 @@ export class OB11Constructor {
       const groupElement = grayTipElement?.groupElement
       if (groupElement) {
         // log("收到群提示消息", groupElement)
-        if (groupElement.type == TipGroupElementType.memberIncrease) {
+        if (groupElement.type === TipGroupElementType.memberIncrease) {
           log('收到群成员增加消息', groupElement)
           await sleep(1000)
           const member = await getGroupMember(msg.peerUid, groupElement.memberUid)
@@ -406,25 +405,26 @@ export class OB11Constructor {
             )
           }
         }
-        else if (groupElement.type == TipGroupElementType.kicked) {
+        else if (groupElement.type === TipGroupElementType.kicked) {
           log(`收到我被踢出或退群提示, 群${msg.peerUid}`, groupElement)
-          deleteGroup(msg.peerUid)
           NTQQGroupApi.quitGroup(msg.peerUid).then()
-          const selfUin = getSelfUin()
           try {
-            const adminUin =
-              (await getGroupMember(msg.peerUid, groupElement.adminUid))?.uin ||
-              (await NTQQUserApi.getUserDetailInfo(groupElement.adminUid))?.uin
+            const adminUin = (await getGroupMember(msg.peerUid, groupElement.adminUid))?.uin || (await NTQQUserApi.getUidByUin(groupElement.adminUid))
             if (adminUin) {
               return new OB11GroupDecreaseEvent(
                 parseInt(msg.peerUid),
-                parseInt(selfUin),
+                parseInt(getSelfUin()),
                 parseInt(adminUin),
-                'kick_me',
+                'kick_me'
               )
             }
           } catch (e) {
-            return new OB11GroupDecreaseEvent(parseInt(msg.peerUid), parseInt(selfUin), 0, 'leave')
+            return new OB11GroupDecreaseEvent(
+              parseInt(msg.peerUid),
+              parseInt(getSelfUin()),
+              0,
+              'leave'
+            )
           }
         }
       }
@@ -677,7 +677,7 @@ export class OB11Constructor {
       sex: OB11Constructor.sex(member.sex!),
       age: 0,
       area: '',
-      level: 0,
+      level: '0',
       qq_level: (member.qqLevel && calcQQLevel(member.qqLevel)) || 0,
       join_time: 0, // 暂时没法获取
       last_sent_time: 0, // 暂时没法获取

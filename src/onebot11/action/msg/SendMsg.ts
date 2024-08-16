@@ -6,7 +6,7 @@ import {
   RawMessage,
   SendMessageElement,
 } from '@/ntqqapi/types'
-import { getGroup, getGroupMember, getSelfUid, getSelfUin } from '@/common/data'
+import { getGroupMember, getSelfUid, getSelfUin } from '@/common/data'
 import {
   OB11MessageCustomMusic,
   OB11MessageData,
@@ -305,10 +305,9 @@ async function createContext(payload: OB11PostSendMsg, contextMode: ContextMode)
   // This redundant design of Ob11 here should be blamed.
 
   if ((contextMode === ContextMode.Group || contextMode === ContextMode.Normal) && payload.group_id) {
-    const group = (await getGroup(payload.group_id))! // checked before
     return {
       chatType: ChatType.group,
-      peerUid: group.groupCode
+      peerUid: payload.group_id.toString(),
     }
   }
   if ((contextMode === ContextMode.Private || contextMode === ContextMode.Normal) && payload.user_id) {
@@ -318,7 +317,7 @@ async function createContext(payload: OB11PostSendMsg, contextMode: ContextMode)
     return {
       chatType: isBuddy ? ChatType.friend : ChatType.temp,
       peerUid: Uid!,
-      guildId: payload.group_id || ''//临时主动发起时需要传入群号
+      guildId: payload.group_id?.toString() || '' //临时主动发起时需要传入群号
     }
   }
   throw '请指定 group_id 或 user_id'
@@ -341,12 +340,6 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
       return {
         valid: false,
         message: '音乐消息不可以和其他消息混在一起发送',
-      }
-    }
-    if (payload.message_type !== 'private' && payload.group_id && !(await getGroup(payload.group_id))) {
-      return {
-        valid: false,
-        message: `群${payload.group_id}不存在`,
       }
     }
     if (payload.user_id && payload.message_type !== 'group') {
