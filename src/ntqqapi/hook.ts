@@ -80,52 +80,41 @@ let callHooks: Array<{
 export function hookNTQQApiReceive(window: BrowserWindow) {
   const originalSend = window.webContents.send
   const patchSend = (channel: string, ...args: NTQQApiReturnData) => {
-    // console.log("hookNTQQApiReceive", channel, args)
-    /*let isLogger = false
-    try {
-      isLogger = args[0]?.eventName?.startsWith('ns-LoggerApi')
-    } catch (e) { }
-    if (!isLogger) {
-      try {
-        HOOK_LOG && log(`received ntqq api message: ${channel}`, args)
-      } catch (e) {
-        log('hook log error', e, args)
+    /*try {
+      const isLogger = args[0]?.eventName?.startsWith('ns-LoggerApi')
+      if (!isLogger) {
+        log(`received ntqq api message: ${channel}`, args)
       }
-    }*/
-    try {
-      if (args?.[1] instanceof Array) {
-        for (let receiveData of args?.[1]) {
-          const ntQQApiMethodName = receiveData.cmdName
-          // log(`received ntqq api message: ${channel} ${ntQQApiMethodName}`, JSON.stringify(receiveData))
-          for (let hook of receiveHooks) {
-            if (hook.method.includes(ntQQApiMethodName)) {
-              new Promise((resolve, reject) => {
-                try {
-                  let _ = hook.hookFunc(receiveData.payload)
-                  if (hook.hookFunc.constructor.name === 'AsyncFunction') {
-                    ; (_ as Promise<void>).then()
-                  }
-                } catch (e: any) {
-                  log('hook error', ntQQApiMethodName, e.stack.toString())
-                }
-              }).then()
-            }
+    } catch { }*/
+    if (args?.[1] instanceof Array) {
+      for (const receiveData of args?.[1]) {
+        const ntQQApiMethodName = receiveData.cmdName
+        // log(`received ntqq api message: ${channel} ${ntQQApiMethodName}`, JSON.stringify(receiveData))
+        for (const hook of receiveHooks) {
+          if (hook.method.includes(ntQQApiMethodName)) {
+            new Promise((resolve, reject) => {
+              try {
+                hook.hookFunc(receiveData.payload)
+              } catch (e: any) {
+                log('hook error', ntQQApiMethodName, e.stack.toString())
+              }
+              resolve(undefined)
+            }).then()
           }
         }
       }
-      if (args[0]?.callbackId) {
-        // log("hookApiCallback", hookApiCallbacks, args)
-        const callbackId = args[0].callbackId
-        if (hookApiCallbacks[callbackId]) {
-          // log("callback found")
-          new Promise((resolve, reject) => {
-            hookApiCallbacks[callbackId](args[1])
-          }).then()
-          delete hookApiCallbacks[callbackId]
-        }
+    }
+    if (args[0]?.callbackId) {
+      // log("hookApiCallback", hookApiCallbacks, args)
+      const callbackId = args[0].callbackId
+      if (hookApiCallbacks[callbackId]) {
+        // log("callback found")
+        new Promise((resolve, reject) => {
+          hookApiCallbacks[callbackId](args[1])
+          resolve(undefined)
+        }).then()
+        delete hookApiCallbacks[callbackId]
       }
-    } catch (e: any) {
-      log('hookNTQQApiReceive error', e.stack.toString(), args)
     }
     originalSend.call(window.webContents, channel, ...args)
   }
@@ -395,7 +384,7 @@ export async function startHook() {
   }>(ReceiveCmdS.FRIENDS, (payload) => {
     // log("onBuddyListChange", payload)
     // let friendListV2: {userSimpleInfos: Map<string, SimpleInfo>} = []
-    type V2data = {userSimpleInfos: Map<string, SimpleInfo>}
+    type V2data = { userSimpleInfos: Map<string, SimpleInfo> }
     let friendList: User[] = [];
     if ((payload as any).userSimpleInfos) {
       // friendListV2 = payload as any
@@ -405,7 +394,7 @@ export async function startHook() {
         }
       })
     }
-    else{
+    else {
       for (const fData of payload.data) {
         friendList.push(...fData.buddyList)
       }

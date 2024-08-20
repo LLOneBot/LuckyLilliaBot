@@ -149,7 +149,6 @@ function onLoad() {
     const { debug, reportSelfMessage } = getConfigUtil().getConfig()
     for (let message of msgList) {
       // 过滤启动之前的消息
-      // log('收到新消息', message);
       if (parseInt(message.msgTime) < startTime / 1000) {
         continue
       }
@@ -190,13 +189,6 @@ function onLoad() {
           postOb11Event(privateEvent)
         }
       })
-      // OB11Constructor.FriendAddEvent(message).then((friendAddEvent) => {
-      //   log(message)
-      //   if (friendAddEvent) {
-      //     // log("post friend add event", friendAddEvent);
-      //     postOb11Event(friendAddEvent)
-      //   }
-      // })
     }
   }
 
@@ -376,7 +368,7 @@ function onLoad() {
   let startTime = 0 // 毫秒
 
   async function start(uid: string, uin: string) {
-    log('llonebot pid', process.pid)
+    log('process pid', process.pid)
     const config = getConfigUtil().getConfig()
     if (!config.enableLLOB) {
       llonebotError.otherError = 'LLOneBot 未启动'
@@ -391,7 +383,7 @@ function onLoad() {
     NTEventDispatch.init({ ListenerMap: wrapperConstructor, WrapperSession: getSession()! })
     MessageUnique.init(uin)
 
-    log('start activate group member info')
+    //log('start activate group member info')
     // 下面两个会导致CPU占用过高，QQ卡死
     // NTQQGroupApi.activateMemberInfoChange().then().catch(log)
     // NTQQGroupApi.activateMemberListChange().then().catch(log)

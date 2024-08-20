@@ -108,11 +108,10 @@ export function getSelfUin() {
 }
 
 const messages: Map<string, RawMessage> = new Map()
-let expire: number
 
 /** 缓存近期消息内容 */
 export async function addMsgCache(msg: RawMessage) {
-  expire ??= getConfigUtil().getConfig().msgCacheExpire! * 1000
+  const expire = getConfigUtil().getConfig().msgCacheExpire! * 1000
   if (expire === 0) {
     return
   }

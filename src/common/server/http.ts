@@ -100,7 +100,7 @@ export abstract class HttpServerBase {
       } else if (req.query) {
         payload = { ...req.query, ...req.body }
       }
-      log('收到http请求', url, payload)
+      log('收到 HTTP 请求', url, payload)
       try {
         res.send(await handler(res, payload))
       } catch (e: any) {

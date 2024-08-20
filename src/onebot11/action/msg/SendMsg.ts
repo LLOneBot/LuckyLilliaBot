@@ -356,7 +356,13 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
   }
 
   protected async _handle(payload: OB11PostSendMsg) {
-    const peer = await createContext(payload, ContextMode.Normal)
+    let contextMode = ContextMode.Normal
+    if (payload.message_type === 'group') {
+      contextMode = ContextMode.Group
+    } else if (payload.message_type === 'private') {
+      contextMode = ContextMode.Private
+    }
+    const peer = await createContext(payload, contextMode)
     const messages = convertMessage2List(
       payload.message,
       payload.auto_escape === true || payload.auto_escape === 'true',
