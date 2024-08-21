@@ -346,6 +346,9 @@ function onLoad() {
         if (!!req.isInitiator || (req.isDecide && req.reqType !== BuddyReqType.KMEINITIATORWAITPEERCONFIRM)) {
           continue
         }
+        if (+req.reqTime < startTime / 1000) {
+          continue
+        }
         let userId = 0
         try {
           const requesterUin = await NTQQUserApi.getUinByUid(req.friendUid)
