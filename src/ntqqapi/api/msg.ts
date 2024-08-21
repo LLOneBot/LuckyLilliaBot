@@ -11,7 +11,7 @@ function generateMsgId() {
   const buffer = Buffer.alloc(8)
   buffer.writeUInt32BE(timestamp, 0)
   buffer.writeUInt32BE(random, 4)
-  const msgId = BigInt("0x" + buffer.toString('hex')).toString()
+  const msgId = BigInt('0x' + buffer.toString('hex')).toString()
   return msgId
 }
 

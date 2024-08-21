@@ -341,7 +341,7 @@ function onLoad() {
       }
     })
 
-    /*registerReceiveHook<FriendRequestNotify>(ReceiveCmdS.FRIEND_REQUEST, async (payload) => {
+    registerReceiveHook<FriendRequestNotify>(ReceiveCmdS.FRIEND_REQUEST, async (payload) => {
       for (const req of payload.data.buddyReqs) {
         if (!!req.isInitiator || (req.isDecide && req.reqType !== BuddyReqType.KMEINITIATORWAITPEERCONFIRM)) {
           continue
@@ -349,7 +349,7 @@ function onLoad() {
         let userId = 0
         try {
           const requesterUin = await NTQQUserApi.getUinByUid(req.friendUid)
-          userId = parseInt(requesterUin!)
+          userId = parseInt(requesterUin)
         } catch (e) {
           log('获取加好友者QQ号失败', e)
         }
@@ -362,7 +362,7 @@ function onLoad() {
         )
         postOb11Event(friendRequestEvent)
       }
-    })*/
+    })
   }
 
   let startTime = 0 // 毫秒
