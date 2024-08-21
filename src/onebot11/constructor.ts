@@ -170,8 +170,7 @@ export class OB11Constructor {
           if ((!replyMsg || records.msgRandom !== replyMsg.msgRandom) && msg.peerUin !== '284840486') {
             throw new Error('回复消息消息验证失败')
           }
-          if (!replyMsg) throw new Error('找不到回复消息')
-          message_data['data']['id'] = MessageUnique.createMsg({
+          message_data['data']['id'] = replyMsg && MessageUnique.createMsg({
             peerUid: msg.peerUid,
             guildId: '',
             chatType: msg.chatType,

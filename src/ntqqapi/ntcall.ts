@@ -118,57 +118,63 @@ export function invoke<ReturnType>(params: InvokeParams<ReturnType>) {
   }
   const apiArgs = [params.methodName, ...(params.args ?? [])]
   //log('callNTQQApi', channel, eventName, apiArgs, uuid)
-  return Promise.race([
-    new Promise<ReturnType>((_, reject) => setTimeout(() => {
-      log(`ntqq api timeout ${channel}, ${eventName}, ${params.methodName}`, apiArgs)
-      reject(`ntqq api timeout ${channel}, ${eventName}, ${params.methodName}, ${apiArgs}`)
-    }, timeout)),
-    new Promise<ReturnType>((resolve: (data: ReturnType) => void, reject) => {
-      if (!params.cbCmd) {
-        // QQ后端会返回结果，并且可以根据uuid识别
-        hookApiCallbacks[uuid] = (r: ReturnType) => {
-          resolve(r)
-        }
+  return new Promise((resolve: (data: ReturnType) => void, reject) => {
+    let success = false
+    if (!params.cbCmd) {
+      // QQ后端会返回结果，并且可以根据uuid识别
+      hookApiCallbacks[uuid] = (r: ReturnType) => {
+        success = true
+        resolve(r)
       }
-      else {
-        // 这里的callback比较特殊，QQ后端先返回是否调用成功，再返回一条结果数据
-        const secondCallback = () => {
-          const hookId = registerReceiveHook<ReturnType>(params.cbCmd!, (payload) => {
-            // log(methodName, "second callback", cbCmd, payload, cmdCB);
-            if (!!params.cmdCB) {
-              if (params.cmdCB(payload)) {
-                removeReceiveHook(hookId)
-                resolve(payload)
-              }
-            }
-            else {
+    }
+    else {
+      // 这里的callback比较特殊，QQ后端先返回是否调用成功，再返回一条结果数据
+      const secondCallback = () => {
+        const hookId = registerReceiveHook<ReturnType>(params.cbCmd!, (payload) => {
+          // log(methodName, "second callback", cbCmd, payload, cmdCB);
+          if (!!params.cmdCB) {
+            if (params.cmdCB(payload)) {
               removeReceiveHook(hookId)
+              success = true
               resolve(payload)
             }
-          })
-        }
-        !afterFirstCmd && secondCallback()
-        hookApiCallbacks[uuid] = (result: GeneralCallResult) => {
-          log(`${params.methodName} callback`, result)
-          if (result?.result === 0 || result === undefined) {
-            afterFirstCmd && secondCallback()
           }
           else {
-            reject(`ntqq api call failed, ${result.errMsg}`)
+            removeReceiveHook(hookId)
+            success = true
+            resolve(payload)
           }
+        })
+      }
+      !afterFirstCmd && secondCallback()
+      hookApiCallbacks[uuid] = (result: GeneralCallResult) => {
+        if (result?.result === 0 || result === undefined) {
+          log(`${params.methodName} callback`, result)
+          afterFirstCmd && secondCallback()
+        }
+        else {
+          log('ntqq api call failed', result)
+          reject(`ntqq api call failed, ${result.errMsg}`)
         }
       }
-      ipcMain.emit(
-        channel,
-        {
-          sender: {
-            send: (..._args: unknown[]) => {
-            },
+    }
+    setTimeout(() => {
+      if (!success) {
+        log(`ntqq api timeout ${channel}, ${eventName}, ${params.methodName}`, apiArgs)
+        reject(`ntqq api timeout ${channel}, ${eventName}, ${params.methodName}, ${apiArgs}`)
+      }
+    }, timeout)
+
+    ipcMain.emit(
+      channel,
+      {
+        sender: {
+          send: (..._args: unknown[]) => {
           },
         },
-        { type: 'request', callbackId: uuid, eventName },
-        apiArgs,
-      )
-    })
-  ])
+      },
+      { type: 'request', callbackId: uuid, eventName },
+      apiArgs,
+    )
+  })
 }

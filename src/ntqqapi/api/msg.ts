@@ -298,10 +298,26 @@ export class NTQQMsgApi {
     throw new Error('转发消息超时')
   }
 
-  /** 27187 TODO */
   static async getMsgsBySeqAndCount(peer: Peer, seq: string, count: number, desc: boolean, z: boolean) {
     const session = getSession()
-    return await session?.getMsgService().getMsgsBySeqAndCount(peer, seq, count, desc, z)
+    if (session) {
+      return await session.getMsgService().getMsgsBySeqAndCount(peer, seq, count, desc, z)
+    } else {
+      return await invoke<GeneralCallResult & {
+        msgList: RawMessage[]
+      }>({
+        methodName: 'nodeIKernelMsgService/getMsgsBySeqAndCount',
+        args: [
+          {
+            peer,
+            cnt: count,
+            msgSeq: seq,
+            queryOrder: desc
+          },
+          null,
+        ],
+      })
+    }
   }
 
   /** 27187 TODO */
@@ -320,9 +336,23 @@ export class NTQQMsgApi {
     return ret
   }
 
-  /** 27187 TODO */
   static async getSingleMsg(peer: Peer, seq: string) {
     const session = getSession()
-    return await session?.getMsgService().getSingleMsg(peer, seq)
+    if (session) {
+      return await session.getMsgService().getSingleMsg(peer, seq)
+    } else {
+      return await invoke<GeneralCallResult & {
+        msgList: RawMessage[]
+      }>({
+        methodName: 'nodeIKernelMsgService/getSingleMsg',
+        args: [
+          {
+            peer,
+            msgSeq: seq,
+          },
+          null,
+        ],
+      })
+    }
   }
 }
