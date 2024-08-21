@@ -28,13 +28,13 @@ import { OnRichMediaDownloadCompleteParams } from '@/ntqqapi/listeners'
 import { Time } from 'cosmokit'
 
 export class NTQQFileApi {
-  static async getVideoUrl(peer: Peer, msgId: string, elementId: string): Promise<string> {
+  static async getVideoUrl(peer: Peer, msgId: string, elementId: string) {
     const session = getSession()
     return (await session?.getRichMediaService().getVideoPlayUrlV2(peer,
       msgId,
       elementId,
       0,
-      { downSourceType: 1, triggerType: 1 }))?.urlResult?.domainUrl[0]?.url!
+      { downSourceType: 1, triggerType: 1 }))?.urlResult.domainUrl[0].url
   }
 
   static async getFileType(filePath: string) {
@@ -53,22 +53,43 @@ export class NTQQFileApi {
       fileName += ext
     }
     const session = getSession()
-    const mediaPath = session?.getMsgService().getRichMediaFilePathForGuild({
-      md5HexStr: fileMd5,
-      fileName: fileName,
-      elementType: elementType,
-      elementSubType,
-      thumbSize: 0,
-      needCreate: true,
-      downloadType: 1,
-      file_uuid: ''
-    })
-    await fsPromise.copyFile(filePath, mediaPath!)
+    let mediaPath: string
+    if (session) {
+      mediaPath = session?.getMsgService().getRichMediaFilePathForGuild({
+        md5HexStr: fileMd5,
+        fileName: fileName,
+        elementType: elementType,
+        elementSubType,
+        thumbSize: 0,
+        needCreate: true,
+        downloadType: 1,
+        file_uuid: ''
+      })
+    } else {
+      mediaPath = await invoke<string>({
+        methodName: NTMethod.MEDIA_FILE_PATH,
+        args: [
+          {
+            path_info: {
+              md5HexStr: fileMd5,
+              fileName: fileName,
+              elementType: elementType,
+              elementSubType,
+              thumbSize: 0,
+              needCreate: true,
+              downloadType: 1,
+              file_uuid: '',
+            },
+          },
+        ],
+      })
+    }
+    await fsPromise.copyFile(filePath, mediaPath)
     const fileSize = (await fsPromise.stat(filePath)).size
     return {
       md5: fileMd5,
       fileName,
-      path: mediaPath!,
+      path: mediaPath,
       fileSize,
       ext
     }
@@ -89,53 +110,79 @@ export class NTQQFileApi {
       if (force) {
         try {
           await fsPromise.unlink(sourcePath)
-        } catch (e) {
-          //
-        }
+        } catch { }
       } else {
         return sourcePath
       }
     }
-    const data = await NTEventDispatch.CallNormalEvent<
-      (
-        params: {
-          fileModelId: string,
-          downloadSourceType: number,
-          triggerType: number,
-          msgId: string,
-          chatType: ChatType,
-          peerUid: string,
-          elementId: string,
-          thumbSize: number,
-          downloadType: number,
-          filePath: string
-        }) => Promise<unknown>,
-      (fileTransNotifyInfo: OnRichMediaDownloadCompleteParams) => void
-    >(
-      'NodeIKernelMsgService/downloadRichMedia',
-      'NodeIKernelMsgListener/onRichMediaDownloadComplete',
-      1,
-      timeout,
-      (arg: OnRichMediaDownloadCompleteParams) => {
-        if (arg.msgId === msgId) {
-          return true
+    let filePath: string
+    if (NTEventDispatch.initialised) {
+      const data = await NTEventDispatch.CallNormalEvent<
+        (
+          params: {
+            fileModelId: string,
+            downloadSourceType: number,
+            triggerType: number,
+            msgId: string,
+            chatType: ChatType,
+            peerUid: string,
+            elementId: string,
+            thumbSize: number,
+            downloadType: number,
+            filePath: string
+          }) => Promise<unknown>,
+        (fileTransNotifyInfo: OnRichMediaDownloadCompleteParams) => void
+      >(
+        'NodeIKernelMsgService/downloadRichMedia',
+        'NodeIKernelMsgListener/onRichMediaDownloadComplete',
+        1,
+        timeout,
+        (arg: OnRichMediaDownloadCompleteParams) => {
+          if (arg.msgId === msgId) {
+            return true
+          }
+          return false
+        },
+        {
+          fileModelId: '0',
+          downloadSourceType: 0,
+          triggerType: 1,
+          msgId: msgId,
+          chatType: chatType,
+          peerUid: peerUid,
+          elementId: elementId,
+          thumbSize: 0,
+          downloadType: 1,
+          filePath: thumbPath
         }
-        return false
-      },
-      {
-        fileModelId: '0',
-        downloadSourceType: 0,
-        triggerType: 1,
-        msgId: msgId,
-        chatType: chatType,
-        peerUid: peerUid,
-        elementId: elementId,
-        thumbSize: 0,
-        downloadType: 1,
-        filePath: thumbPath
-      }
-    )
-    let filePath = data[1].filePath
+      )
+      filePath = data[1].filePath
+    } else {
+      const data = await invoke<{ notifyInfo: OnRichMediaDownloadCompleteParams }>({
+        methodName: NTMethod.DOWNLOAD_MEDIA,
+        args: [
+          {
+            getReq: {
+              fileModelId: '0',
+              downloadSourceType: 0,
+              triggerType: 1,
+              msgId: msgId,
+              chatType: chatType,
+              peerUid: peerUid,
+              elementId: elementId,
+              thumbSize: 0,
+              downloadType: 1,
+              filePath: thumbPath,
+            },
+          },
+          null,
+        ],
+        cbCmd: ReceiveCmdS.MEDIA_DOWNLOAD_COMPLETE,
+        cmdCB: payload => payload.notifyInfo.msgId === msgId,
+        timeout
+      })
+      filePath = data.notifyInfo.filePath
+    }
     if (filePath.startsWith('\\')) {
       const downloadPath = TEMP_DIR
       filePath = path.join(downloadPath, filePath)

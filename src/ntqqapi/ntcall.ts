@@ -1,5 +1,5 @@
 import { ipcMain } from 'electron'
-import { hookApiCallbacks, ReceiveCmd, registerReceiveHook, removeReceiveHook } from './hook'
+import { hookApiCallbacks, registerReceiveHook, removeReceiveHook } from './hook'
 import { log } from '../common/utils/log'
 import { randomUUID } from 'node:crypto'
 import { GeneralCallResult } from './services'
@@ -57,7 +57,6 @@ export enum NTMethod {
   HANDLE_GROUP_REQUEST = 'nodeIKernelGroupService/operateSysNotify',
   QUIT_GROUP = 'nodeIKernelGroupService/quitGroup',
   GROUP_AT_ALL_REMAIN_COUNT = 'nodeIKernelGroupService/getGroupRemainAtTimes',
-  // READ_FRIEND_REQUEST = "nodeIKernelBuddyListener/onDoubtBuddyReqUnreadNumChange"
   HANDLE_FRIEND_REQUEST = 'nodeIKernelBuddyService/approvalFriendRequest',
   KICK_MEMBER = 'nodeIKernelGroupService/kickMember',
   MUTE_MEMBER = 'nodeIKernelGroupService/setMemberShutUp',
@@ -87,10 +86,6 @@ export enum NTMethod {
   OPEN_EXTRA_WINDOW = 'openExternalWindow',
 
   SET_QQ_AVATAR = 'nodeIKernelProfileService/setHeader',
-  GET_PSKEY = 'nodeIKernelTipOffService/getPskey',
-  UPDATE_SKEY = 'updatePskey',
-
-  FETCH_UNITED_COMMEND_CONFIG = 'nodeIKernelUnitedConfigService/fetchUnitedCommendConfig', // 发包需要调用的
 }
 
 export enum NTChannel {
@@ -99,19 +94,19 @@ export enum NTChannel {
   IPC_UP_1 = 'IPC_UP_1',
 }
 
-interface InvokeParams {
+interface InvokeParams<ReturnType> {
   methodName: string
   className?: NTClass
   channel?: NTChannel
   classNameIsRegister?: boolean
   args?: unknown[]
   cbCmd?: string | string[]
-  cmdCB?: (payload: any) => boolean
+  cmdCB?: (payload: ReturnType) => boolean
   afterFirstCmd?: boolean // 是否在methodName调用完之后再去hook cbCmd
   timeout?: number
 }
 
-export function invoke<ReturnType>(params: InvokeParams) {
+export function invoke<ReturnType>(params: InvokeParams<ReturnType>) {
   const className = params.className ?? NTClass.NT_API
   const channel = params.channel ?? NTChannel.IPC_UP_2
   const timeout = params.timeout ?? 5000
@@ -164,7 +159,6 @@ export function invoke<ReturnType>(params: InvokeParams) {
       }
     }
     setTimeout(() => {
-      // log("ntqq api timeout", success, channel, className, methodName)
       if (!success) {
         log(`ntqq api timeout ${channel}, ${eventName}, ${params.methodName}`, apiArgs)
         reject(`ntqq api timeout ${channel}, ${eventName}, ${params.methodName}, ${apiArgs}`)

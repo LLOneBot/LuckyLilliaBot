@@ -2,9 +2,18 @@ import { invoke, NTMethod } from '../ntcall'
 import { GeneralCallResult } from '../services'
 import { RawMessage, SendMessageElement, Peer, ChatType2 } from '../types'
 import { getSelfNick, getSelfUid } from '../../common/data'
-import { getBuildVersion } from '../../common/utils'
 import { getSession } from '@/ntqqapi/wrapper'
 import { NTEventDispatch } from '@/common/utils/EventTask'
+
+function generateMsgId() {
+  const timestamp = Math.floor(Date.now() / 1000)
+  const random = Math.floor(Math.random() * Math.pow(2, 32))
+  const buffer = Buffer.alloc(8)
+  buffer.writeUInt32BE(timestamp, 0)
+  buffer.writeUInt32BE(random, 4)
+  const msgId = BigInt("0x" + buffer.toString('hex')).toString()
+  return msgId
+}
 
 export class NTQQMsgApi {
   static async getTempChatInfo(chatType: ChatType2, peerUid: string) {
@@ -68,67 +77,63 @@ export class NTQQMsgApi {
   }
 
   static async sendMsg(peer: Peer, msgElements: SendMessageElement[], waitComplete = true, timeout = 10000) {
-    function generateMsgId() {
-      const timestamp = Math.floor(Date.now() / 1000)
-      const random = Math.floor(Math.random() * Math.pow(2, 32))
-      const buffer = Buffer.alloc(8)
-      buffer.writeUInt32BE(timestamp, 0)
-      buffer.writeUInt32BE(random, 4)
-      const msgId = BigInt("0x" + buffer.toString('hex')).toString()
-      return msgId
-    }
-    // 此处有采用Hack方法 利用数据返回正确得到对应消息
-    // 与之前 Peer队列 MsgSeq队列 真正的MsgId并发不同
-    // 谨慎采用 目前测试暂无问题  Developer.Mlikiowa
-    let msgId: string
-    try {
-      msgId = await NTQQMsgApi.getMsgUnique(peer.chatType, await NTQQMsgApi.getServerTime())
-    } catch (error) {
-      //if (!napCatCore.session.getMsgService()['generateMsgUniqueId'])
-      //兜底识别策略V2
-      msgId = generateMsgId()
-    }
+    const msgId = generateMsgId()
     peer.guildId = msgId
-    const data = await NTEventDispatch.CallNormalEvent<
-      (msgId: string, peer: Peer, msgElements: SendMessageElement[], map: Map<any, any>) => Promise<unknown>,
-      (msgList: RawMessage[]) => void
-    >(
-      'NodeIKernelMsgService/sendMsg',
-      'NodeIKernelMsgListener/onMsgInfoListUpdate',
-      1,
-      timeout,
-      (msgRecords: RawMessage[]) => {
-        for (let msgRecord of msgRecords) {
-          if (msgRecord.guildId === msgId && msgRecord.sendStatus === 2) {
-            return true
+    let msgList: RawMessage[]
+    if (NTEventDispatch.initialised) {
+      const data = await NTEventDispatch.CallNormalEvent<
+        (msgId: string, peer: Peer, msgElements: SendMessageElement[], map: Map<any, any>) => Promise<unknown>,
+        (msgList: RawMessage[]) => void
+      >(
+        'NodeIKernelMsgService/sendMsg',
+        'NodeIKernelMsgListener/onMsgInfoListUpdate',
+        1,
+        timeout,
+        (msgRecords: RawMessage[]) => {
+          for (const msgRecord of msgRecords) {
+            if (msgRecord.guildId === msgId && msgRecord.sendStatus === 2) {
+              return true
+            }
           }
-        }
-        return false
-      },
-      '0',
-      peer,
-      msgElements,
-      new Map()
-    )
-    const retMsg = data[1].find(msgRecord => {
+          return false
+        },
+        '0',
+        peer,
+        msgElements,
+        new Map()
+      )
+      msgList = data[1]
+    } else {
+      const data = await invoke<{ msgList: RawMessage[] }>({
+        methodName: 'nodeIKernelMsgService/sendMsg',
+        cbCmd: 'nodeIKernelMsgListener/onMsgInfoListUpdate',
+        afterFirstCmd: false,
+        cmdCB: payload => {
+          for (const msgRecord of payload.msgList) {
+            if (msgRecord.guildId === msgId && msgRecord.sendStatus === 2) {
+              return true
+            }
+          }
+          return false
+        },
+        args: [
+          {
+            msgId: '0',
+            peer,
+            msgElements,
+            msgAttributeInfos: new Map()
+          },
+          null
+        ],
+      })
+      msgList = data.msgList
+    }
+    const retMsg = msgList.find(msgRecord => {
       if (msgRecord.guildId === msgId) {
         return true
       }
     })
     return retMsg!
-  }
-
-  static async getMsgUnique(chatType: number, time: string) {
-    const session = getSession()
-    if (getBuildVersion() >= 26702) {
-      return session?.getMsgService().generateMsgUniqueId(chatType, time)!
-    }
-    return session?.getMsgService().getMsgUniqueId(time)!
-  }
-
-  static async getServerTime() {
-    const session = getSession()
-    return session?.getMSFService().getServerTime()!
   }
 
   static async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {

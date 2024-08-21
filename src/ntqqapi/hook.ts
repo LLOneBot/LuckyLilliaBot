@@ -49,9 +49,9 @@ export let ReceiveCmdS = {
   CACHE_SCAN_FINISH: 'nodeIKernelStorageCleanListener/onFinishScan',
   MEDIA_UPLOAD_COMPLETE: 'nodeIKernelMsgListener/onRichMediaUploadComplete',
   SKEY_UPDATE: 'onSkeyUpdate',
-}
+} as const
 
-export type ReceiveCmd = (typeof ReceiveCmdS)[keyof typeof ReceiveCmdS]
+export type ReceiveCmd = string
 
 interface NTQQApiReturnData<Payload = unknown> extends Array<any> {
   0: {
@@ -66,18 +66,18 @@ interface NTQQApiReturnData<Payload = unknown> extends Array<any> {
   }[]
 }
 
-let receiveHooks: Array<{
+const logHook = false
+
+const receiveHooks: Array<{
   method: ReceiveCmd[]
   hookFunc: (payload: any) => void | Promise<void>
   id: string
 }> = []
 
-let callHooks: Array<{
+const callHooks: Array<{
   method: NTMethod[]
   hookFunc: (callParams: unknown[]) => void | Promise<void>
 }> = []
-
-const logHook = false
 
 export function hookNTQQApiReceive(window: BrowserWindow) {
   const originalSend = window.webContents.send
