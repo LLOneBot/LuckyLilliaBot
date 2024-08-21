@@ -1,5 +1,5 @@
 import { callNTQQApi, GeneralCallResult, NTQQApiClass, NTQQApiMethod } from '../ntcall'
-import { SelfInfo, User, UserDetailInfoByUin, UserDetailInfoByUinV2 } from '../types'
+import { SelfInfo, User, UserDetailInfoByUin, UserDetailInfoByUinV2, UserDetailInfoListenerArg } from '../types'
 import { ReceiveCmdS } from '../hook'
 import { friends, groupMembers, getSelfUin } from '@/common/data'
 import { CacheClassFuncAsync, log, getBuildVersion } from '@/common/utils'
@@ -9,6 +9,7 @@ import { NodeIKernelProfileService, UserDetailSource, ProfileBizType } from '../
 import { NodeIKernelProfileListener } from '../listeners'
 import { NTEventDispatch } from '@/common/utils/EventTask'
 import { NTQQFriendApi } from './friend'
+import { Time } from 'cosmokit'
 
 export class NTQQUserApi {
   static async setQQAvatar(filePath: string) {
@@ -20,7 +21,7 @@ export class NTQQUserApi {
         },
         null,
       ],
-      timeoutSecond: 10, // 10秒不一定够
+      timeout: 10 * Time.second, // 10秒不一定够
     })
   }
 
@@ -28,7 +29,7 @@ export class NTQQUserApi {
     return await callNTQQApi<SelfInfo>({
       className: NTQQApiClass.GLOBAL_DATA,
       methodName: NTQQApiMethod.SELF_INFO,
-      timeoutSecond: 2,
+      timeout: 2 * Time.second,
     })
   }
 
@@ -41,33 +42,53 @@ export class NTQQUserApi {
     return result.profiles.get(uid)
   }
 
-  /** 26702 */
   static async fetchUserDetailInfo(uid: string) {
-    type EventService = NodeIKernelProfileService['fetchUserDetailInfo']
-    type EventListener = NodeIKernelProfileListener['onUserDetailInfoChanged']
-    const [_retData, profile] = await NTEventDispatch.CallNormalEvent
-      <EventService, EventListener>
-      (
-        'NodeIKernelProfileService/fetchUserDetailInfo',
-        'NodeIKernelProfileListener/onUserDetailInfoChanged',
-        1,
-        5000,
-        (profile) => profile.uid === uid,
-        'BuddyProfileStore',
-        [uid],
-        UserDetailSource.KSERVER,
-        [ProfileBizType.KALL]
-      )
-    const RetUser: User = {
-      ...profile.simpleInfo.coreInfo,
-      ...profile.simpleInfo.status,
-      ...profile.simpleInfo.vasInfo,
-      ...profile.commonExt,
-      ...profile.simpleInfo.baseInfo,
-      qqLevel: profile.commonExt.qqLevel,
+    let info: UserDetailInfoListenerArg
+    if (NTEventDispatch.initialised) {
+      type EventService = NodeIKernelProfileService['fetchUserDetailInfo']
+      type EventListener = NodeIKernelProfileListener['onUserDetailInfoChanged']
+      const [_retData, profile] = await NTEventDispatch.CallNormalEvent
+        <EventService, EventListener>
+        (
+          'NodeIKernelProfileService/fetchUserDetailInfo',
+          'NodeIKernelProfileListener/onUserDetailInfoChanged',
+          1,
+          5000,
+          (profile) => profile.uid === uid,
+          'BuddyProfileStore',
+          [uid],
+          UserDetailSource.KSERVER,
+          [ProfileBizType.KALL]
+        )
+      info = profile
+    } else {
+      const result = await callNTQQApi<{ info: UserDetailInfoListenerArg }>({
+        methodName: 'nodeIKernelProfileService/fetchUserDetailInfo',
+        cbCmd: 'nodeIKernelProfileListener/onUserDetailInfoChanged',
+        afterFirstCmd: false,
+        cmdCB: payload => payload.info.uid === uid,
+        args: [
+          {
+            callFrom: 'BuddyProfileStore',
+            uid: [uid],
+            source: UserDetailSource.KSERVER,
+            bizList: [ProfileBizType.KALL]
+          },
+          null
+        ],
+      })
+      info = result.info
+    }
+    const ret: User = {
+      ...info.simpleInfo.coreInfo,
+      ...info.simpleInfo.status,
+      ...info.simpleInfo.vasInfo,
+      ...info.commonExt,
+      ...info.simpleInfo.baseInfo,
+      qqLevel: info.commonExt?.qqLevel,
       pendantId: ''
     }
-    return RetUser
+    return ret
   }
 
   static async getUserDetailInfo(uid: string, getLevel = false, withBizInfo = true) {
@@ -115,7 +136,7 @@ export class NTQQUserApi {
     }
     return cookies
   }
-  
+
   static async getSkey(): Promise<string> {
     const clientKeyData = await NTQQUserApi.getClientKey()
     if (clientKeyData.result !== 0) {

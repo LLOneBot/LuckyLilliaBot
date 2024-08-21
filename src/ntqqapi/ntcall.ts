@@ -1,7 +1,8 @@
 import { ipcMain } from 'electron'
-import { hookApiCallbacks, ReceiveCmd, ReceiveCmdS, registerReceiveHook, removeReceiveHook } from './hook'
+import { hookApiCallbacks, ReceiveCmd, registerReceiveHook, removeReceiveHook } from './hook'
 import { log } from '../common/utils/log'
 import { randomUUID } from 'node:crypto'
+import { GeneralCallResult } from './services/common'
 
 export enum NTQQApiClass {
   NT_API = 'ns-ntApi',
@@ -108,38 +109,24 @@ interface NTQQApiParams {
   cbCmd?: ReceiveCmd | ReceiveCmd[] | null
   cmdCB?: (payload: any) => boolean
   afterFirstCmd?: boolean // 是否在methodName调用完之后再去hook cbCmd
-  timeoutSecond?: number
+  timeout?: number
 }
 
 export function callNTQQApi<ReturnType>(params: NTQQApiParams) {
-  let {
-    className,
-    methodName,
-    channel,
-    args,
-    cbCmd,
-    timeoutSecond: timeout,
-    classNameIsRegister,
-    cmdCB,
-    afterFirstCmd,
-  } = params
-  className = className ?? NTQQApiClass.NT_API
-  channel = channel ?? NTQQApiChannel.IPC_UP_2
-  args = args ?? []
-  timeout = timeout ?? 5
-  afterFirstCmd = afterFirstCmd ?? true
+  const className = params.className ?? NTQQApiClass.NT_API
+  const channel = params.channel ?? NTQQApiChannel.IPC_UP_2
+  const timeout = params.timeout ?? 5000
+  const afterFirstCmd = params.afterFirstCmd ?? true
   const uuid = randomUUID()
-  //HOOK_LOG && log('callNTQQApi', channel, className, methodName, args, uuid)
+  let eventName = className + '-' + channel[channel.length - 1]
+  if (params.classNameIsRegister) {
+    eventName += '-register'
+  }
+  const apiArgs = [params.methodName, ...(params.args ?? [])]
+  //log('callNTQQApi', channel, eventName, apiArgs, uuid)
   return new Promise((resolve: (data: ReturnType) => void, reject) => {
-    // log("callNTQQApiPromise", channel, className, methodName, args, uuid)
-    const _timeout = timeout * 1000
     let success = false
-    let eventName = className + '-' + channel[channel.length - 1]
-    if (classNameIsRegister) {
-      eventName += '-register'
-    }
-    const apiArgs = [methodName, ...args]
-    if (!cbCmd) {
+    if (!params.cbCmd) {
       // QQ后端会返回结果，并且可以根据uuid识别
       hookApiCallbacks[uuid] = (r: ReturnType) => {
         success = true
@@ -149,10 +136,10 @@ export function callNTQQApi<ReturnType>(params: NTQQApiParams) {
     else {
       // 这里的callback比较特殊，QQ后端先返回是否调用成功，再返回一条结果数据
       const secondCallback = () => {
-        const hookId = registerReceiveHook<ReturnType>(cbCmd, (payload) => {
+        const hookId = registerReceiveHook<ReturnType>(params.cbCmd!, (payload) => {
           // log(methodName, "second callback", cbCmd, payload, cmdCB);
-          if (!!cmdCB) {
-            if (cmdCB(payload)) {
+          if (!!params.cmdCB) {
+            if (params.cmdCB(payload)) {
               removeReceiveHook(hookId)
               success = true
               resolve(payload)
@@ -167,8 +154,8 @@ export function callNTQQApi<ReturnType>(params: NTQQApiParams) {
       }
       !afterFirstCmd && secondCallback()
       hookApiCallbacks[uuid] = (result: GeneralCallResult) => {
-        log(`${methodName} callback`, result)
-        if (result?.result == 0 || result === undefined) {
+        log(`${params.methodName} callback`, result)
+        if (result?.result === 0 || result === undefined) {
           afterFirstCmd && secondCallback()
         }
         else {
@@ -180,10 +167,10 @@ export function callNTQQApi<ReturnType>(params: NTQQApiParams) {
     setTimeout(() => {
       // log("ntqq api timeout", success, channel, className, methodName)
       if (!success) {
-        log(`ntqq api timeout ${channel}, ${eventName}, ${methodName}`, apiArgs)
-        reject(`ntqq api timeout ${channel}, ${eventName}, ${methodName}, ${apiArgs}`)
+        log(`ntqq api timeout ${channel}, ${eventName}, ${params.methodName}`, apiArgs)
+        reject(`ntqq api timeout ${channel}, ${eventName}, ${params.methodName}, ${apiArgs}`)
       }
-    }, _timeout)
+    }, timeout)
 
     ipcMain.emit(
       channel,
@@ -199,7 +186,4 @@ export function callNTQQApi<ReturnType>(params: NTQQApiParams) {
   })
 }
 
-export interface GeneralCallResult {
-  result: number // 0: success
-  errMsg: string
-}
+export { GeneralCallResult }

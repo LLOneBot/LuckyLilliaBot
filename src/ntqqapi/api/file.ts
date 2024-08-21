@@ -25,6 +25,7 @@ import fsPromise from 'node:fs/promises'
 import { NTEventDispatch } from '@/common/utils/EventTask'
 import { OnRichMediaDownloadCompleteParams } from '@/ntqqapi/listeners'
 import { NodeIKernelSearchService } from '@/ntqqapi/services'
+import { Time } from 'cosmokit'
 
 export class NTQQFileApi {
   static async getVideoUrl(peer: Peer, msgId: string, elementId: string): Promise<string> {
@@ -379,7 +380,7 @@ export class NTQQFileCacheApi {
     return callNTQQApi<CacheScanResult>({
       methodName: NTQQApiMethod.CACHE_SCAN,
       args: [null, null],
-      timeoutSecond: 300,
+      timeout: 300 * Time.second,
     })
   }
 

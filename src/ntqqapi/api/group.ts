@@ -71,11 +71,36 @@ export class NTQQGroupApi {
 
   static async getGroupMembers(groupQQ: string, num = 3000): Promise<Map<string, GroupMember>> {
     const session = getSession()
-    const groupService = session?.getGroupService()
-    const sceneId = groupService?.createMemberListScene(groupQQ, 'groupMemberList_MainWindow')
-    const result = await groupService?.getNextMemberList(sceneId!, undefined, num)
-    if (result?.errCode !== 0) {
-      throw ('获取群成员列表出错,' + result?.errMsg)
+    let result: Awaited<ReturnType<NodeIKernelGroupService['getNextMemberList']>>
+    if (session) {
+      const groupService = session.getGroupService()
+      const sceneId = groupService.createMemberListScene(groupQQ, 'groupMemberList_MainWindow')
+      result = await groupService.getNextMemberList(sceneId, undefined, num)
+    } else {
+      const sceneId = await callNTQQApi<string>({
+        methodName: NTQQApiMethod.GROUP_MEMBER_SCENE,
+        args: [
+          {
+            groupCode: groupQQ,
+            scene: 'groupMemberList_MainWindow',
+          },
+        ],
+      })
+      result = await callNTQQApi<
+        ReturnType<NodeIKernelGroupService['getNextMemberList']>
+      >({
+        methodName: NTQQApiMethod.GROUP_MEMBERS,
+        args: [
+          {
+            sceneId,
+            num,
+          },
+          null,
+        ],
+      })
+    }
+    if (result.errCode !== 0) {
+      throw ('获取群成员列表出错,' + result.errMsg)
     }
     return result.result.infos
   }

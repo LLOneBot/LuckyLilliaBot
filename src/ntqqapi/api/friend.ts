@@ -121,6 +121,16 @@ export class NTQQFriendApi {
 
   static async isBuddy(uid: string): Promise<boolean> {
     const session = getSession()
-    return session?.getBuddyService().isBuddy(uid)!
+    if (session) {
+      return session.getBuddyService().isBuddy(uid)
+    } else {
+      return await callNTQQApi<boolean>({
+        methodName: 'nodeIKernelBuddyService/isBuddy',
+        args: [
+          { uid },
+          null,
+        ],
+      })
+    }
   }
 }

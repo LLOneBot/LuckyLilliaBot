@@ -77,15 +77,17 @@ let callHooks: Array<{
   hookFunc: (callParams: unknown[]) => void | Promise<void>
 }> = []
 
+const logHook = false
+
 export function hookNTQQApiReceive(window: BrowserWindow) {
   const originalSend = window.webContents.send
   const patchSend = (channel: string, ...args: NTQQApiReturnData) => {
-    /*try {
+    try {
       const isLogger = args[0]?.eventName?.startsWith('ns-LoggerApi')
-      if (!isLogger) {
+      if (logHook && !isLogger) {
         log(`received ntqq api message: ${channel}`, args)
       }
-    } catch { }*/
+    } catch { }
     if (args?.[1] instanceof Array) {
       for (const receiveData of args?.[1]) {
         const ntQQApiMethodName = receiveData.cmdName
@@ -134,9 +136,9 @@ export function hookNTQQApiCall(window: BrowserWindow) {
         isLogger = args[3][0].eventName.startsWith('ns-LoggerApi')
       } catch (e) { }
       if (!isLogger) {
-        /*try {
-          HOOK_LOG && log('call NTQQ api', thisArg, args)
-        } catch (e) { }*/
+        try {
+          logHook && log('call NTQQ api', thisArg, args)
+        } catch (e) { }
         try {
           const _args: unknown[] = args[3][1]
           const cmdName: NTQQApiMethod = _args[0] as NTQQApiMethod
@@ -145,13 +147,11 @@ export function hookNTQQApiCall(window: BrowserWindow) {
             if (hook.method.includes(cmdName)) {
               new Promise((resolve, reject) => {
                 try {
-                  let _ = hook.hookFunc(callParams)
-                  if (hook.hookFunc.constructor.name === 'AsyncFunction') {
-                    (_ as Promise<void>).then()
-                  }
-                } catch (e) {
+                  hook.hookFunc(callParams)
+                } catch (e: any) {
                   log('hook call error', e, _args)
                 }
+                resolve(undefined)
               }).then()
             }
           })
@@ -399,7 +399,7 @@ export async function startHook() {
         friendList.push(...fData.buddyList)
       }
     }
-    log('好友列表变动', friendList)
+    log('好友列表变动', friendList.length)
     for (let friend of friendList) {
       NTQQMsgApi.activateChat({ peerUid: friend.uid, chatType: ChatType.friend }).then()
       let existFriend = friends.find((f) => f.uin == friend.uin)

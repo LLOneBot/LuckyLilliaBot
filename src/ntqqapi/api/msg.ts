@@ -139,56 +139,6 @@ export class NTQQMsgApi {
     return retMsg!
   }
 
-  static async sendMsgV2(peer: Peer, msgElements: SendMessageElement[], waitComplete = true, timeout = 10000) {
-    function generateMsgId() {
-      const timestamp = Math.floor(Date.now() / 1000)
-      const random = Math.floor(Math.random() * Math.pow(2, 32))
-      const buffer = Buffer.alloc(8)
-      buffer.writeUInt32BE(timestamp, 0)
-      buffer.writeUInt32BE(random, 4)
-      const msgId = BigInt('0x' + buffer.toString('hex')).toString()
-      return msgId
-    }
-    // 此处有采用Hack方法 利用数据返回正确得到对应消息
-    // 与之前 Peer队列 MsgSeq队列 真正的MsgId并发不同
-    // 谨慎采用 目前测试暂无问题  Developer.Mlikiowa
-    let msgId: string
-    try {
-      msgId = await NTQQMsgApi.getMsgUnique(peer.chatType, await NTQQMsgApi.getServerTime())
-    } catch (error) {
-      //if (!napCatCore.session.getMsgService()['generateMsgUniqueId'])
-      //兜底识别策略V2
-      msgId = generateMsgId().toString()
-    }
-    let data = await NTEventDispatch.CallNormalEvent<
-      (msgId: string, peer: Peer, msgElements: SendMessageElement[], map: Map<any, any>) => Promise<unknown>,
-      (msgList: RawMessage[]) => void
-    >(
-      'NodeIKernelMsgService/sendMsg',
-      'NodeIKernelMsgListener/onMsgInfoListUpdate',
-      1,
-      timeout,
-      (msgRecords: RawMessage[]) => {
-        for (let msgRecord of msgRecords) {
-          if (msgRecord.msgId === msgId && msgRecord.sendStatus === 2) {
-            return true
-          }
-        }
-        return false
-      },
-      msgId,
-      peer,
-      msgElements,
-      new Map()
-    )
-    const retMsg = data[1].find(msgRecord => {
-      if (msgRecord.msgId === msgId) {
-        return true
-      }
-    })
-    return retMsg!
-  }
-
   static async getMsgUnique(chatType: number, time: string) {
     const session = getSession()
     if (getBuildVersion() >= 26702) {
