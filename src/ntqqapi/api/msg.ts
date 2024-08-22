@@ -88,7 +88,9 @@ export class NTQQMsgApi {
     if (session) {
       return session.getMsgService().getMsgsByMsgId(peer, msgIds)
     } else {
-      return await invoke({
+      return await invoke<GeneralCallResult & {
+        msgList: RawMessage[]
+      }>({
         methodName: 'nodeIKernelMsgService/getMsgsByMsgId',
         args: [
           {
