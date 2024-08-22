@@ -78,8 +78,10 @@ export interface Friend extends User {
 
 export interface CategoryFriend {
   categoryId: number
+  categorySortId: number
   categroyName: string
   categroyMbCount: number
+  onlineCount: number
   buddyList: User[]
 }
 

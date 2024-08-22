@@ -25,15 +25,16 @@ export default class GoCQHTTPGetGroupMsgHistory extends BaseAction<Payload, Resp
     const count = payload.count || 20
     const isReverseOrder = payload.reverseOrder || true
     const peer = { chatType: ChatType.group, peerUid: payload.group_id.toString() }
-    let msgList: RawMessage[]
+    let msgList: RawMessage[] | undefined
     // 包含 message_seq 0
     if (!payload.message_seq) {
-      msgList = (await NTQQMsgApi.getLastestMsgByUids(peer, count)).msgList
+      msgList = (await NTQQMsgApi.getLastestMsgByUids(peer, count))?.msgList
     } else {
       const startMsgId = (await MessageUnique.getMsgIdAndPeerByShortId(payload.message_seq))?.MsgId
       if (!startMsgId) throw `消息${payload.message_seq}不存在`
       msgList = (await NTQQMsgApi.getMsgHistory(peer, startMsgId, count)).msgList
     }
+    if (!msgList?.length) throw '未找到消息'
     if (isReverseOrder) msgList.reverse()
     await Promise.all(
       msgList.map(async msg => {

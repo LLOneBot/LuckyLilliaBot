@@ -20,6 +20,7 @@
     "compressing": "^1.10.1",
     "cordis": "^3.18.0",
     "cors": "^2.8.5",
+    "cosmokit": "^1.6.2",
     "express": "^4.19.2",
     "fast-xml-parser": "^4.4.1",
     "file-type": "^19.4.1",

@@ -1,5 +1,5 @@
 import type { BrowserWindow } from 'electron'
-import { NTQQApiClass, NTQQApiMethod } from './ntcall'
+import { NTClass, NTMethod } from './ntcall'
 import { NTQQMsgApi } from './api/msg'
 import {
   CategoryFriend,
@@ -49,43 +49,45 @@ export let ReceiveCmdS = {
   CACHE_SCAN_FINISH: 'nodeIKernelStorageCleanListener/onFinishScan',
   MEDIA_UPLOAD_COMPLETE: 'nodeIKernelMsgListener/onRichMediaUploadComplete',
   SKEY_UPDATE: 'onSkeyUpdate',
-}
+} as const
 
-export type ReceiveCmd = (typeof ReceiveCmdS)[keyof typeof ReceiveCmdS]
+export type ReceiveCmd = string
 
-interface NTQQApiReturnData<PayloadType = unknown> extends Array<any> {
+interface NTQQApiReturnData<Payload = unknown> extends Array<any> {
   0: {
     type: 'request'
-    eventName: NTQQApiClass
+    eventName: NTClass
     callbackId?: string
   }
   1: {
     cmdName: ReceiveCmd
     cmdType: 'event'
-    payload: PayloadType
+    payload: Payload
   }[]
 }
 
-let receiveHooks: Array<{
+const logHook = false
+
+const receiveHooks: Array<{
   method: ReceiveCmd[]
   hookFunc: (payload: any) => void | Promise<void>
   id: string
 }> = []
 
-let callHooks: Array<{
-  method: NTQQApiMethod[]
+const callHooks: Array<{
+  method: NTMethod[]
   hookFunc: (callParams: unknown[]) => void | Promise<void>
 }> = []
 
 export function hookNTQQApiReceive(window: BrowserWindow) {
   const originalSend = window.webContents.send
   const patchSend = (channel: string, ...args: NTQQApiReturnData) => {
-    /*try {
+    try {
       const isLogger = args[0]?.eventName?.startsWith('ns-LoggerApi')
-      if (!isLogger) {
+      if (logHook && !isLogger) {
         log(`received ntqq api message: ${channel}`, args)
       }
-    } catch { }*/
+    } catch { }
     if (args?.[1] instanceof Array) {
       for (const receiveData of args?.[1]) {
         const ntQQApiMethodName = receiveData.cmdName
@@ -134,24 +136,22 @@ export function hookNTQQApiCall(window: BrowserWindow) {
         isLogger = args[3][0].eventName.startsWith('ns-LoggerApi')
       } catch (e) { }
       if (!isLogger) {
-        /*try {
-          HOOK_LOG && log('call NTQQ api', thisArg, args)
-        } catch (e) { }*/
+        try {
+          logHook && log('call NTQQ api', thisArg, args)
+        } catch (e) { }
         try {
           const _args: unknown[] = args[3][1]
-          const cmdName: NTQQApiMethod = _args[0] as NTQQApiMethod
+          const cmdName: NTMethod = _args[0] as NTMethod
           const callParams = _args.slice(1)
           callHooks.forEach((hook) => {
             if (hook.method.includes(cmdName)) {
               new Promise((resolve, reject) => {
                 try {
-                  let _ = hook.hookFunc(callParams)
-                  if (hook.hookFunc.constructor.name === 'AsyncFunction') {
-                    (_ as Promise<void>).then()
-                  }
-                } catch (e) {
+                  hook.hookFunc(callParams)
+                } catch (e: any) {
                   log('hook call error', e, _args)
                 }
+                resolve(undefined)
               }).then()
             }
           })
@@ -207,7 +207,7 @@ export function registerReceiveHook<PayloadType>(
 }
 
 export function registerCallHook(
-  method: NTQQApiMethod | NTQQApiMethod[],
+  method: NTMethod | NTMethod[],
   hookFunc: (callParams: unknown[]) => void | Promise<void>,
 ): void {
   if (!Array.isArray(method)) {
@@ -399,7 +399,7 @@ export async function startHook() {
         friendList.push(...fData.buddyList)
       }
     }
-    log('好友列表变动', friendList)
+    log('好友列表变动', friendList.length)
     for (let friend of friendList) {
       NTQQMsgApi.activateChat({ peerUid: friend.uid, chatType: ChatType.friend }).then()
       let existFriend = friends.find((f) => f.uin == friend.uin)
@@ -499,7 +499,7 @@ export async function startHook() {
     }
   })
 
-  registerCallHook(NTQQApiMethod.DELETE_ACTIVE_CHAT, async (payload) => {
+  registerCallHook(NTMethod.DELETE_ACTIVE_CHAT, async (payload) => {
     const peerUid = payload[0] as string
     log('激活的聊天窗口被删除，准备重新激活', peerUid)
     let chatType = ChatType.friend

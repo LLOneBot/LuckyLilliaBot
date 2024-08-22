@@ -98,7 +98,7 @@ export class OB11Constructor {
     else if (msg.chatType as unknown as ChatType2 == ChatType2.KCHATTYPETEMPC2CFROMGROUP) {
       resMsg.sub_type = 'group'
       const ret = await NTQQMsgApi.getTempChatInfo(ChatType2.KCHATTYPETEMPC2CFROMGROUP, msg.senderUid)
-      if (ret.result === 0) {
+      if (ret?.result === 0) {
         resMsg.group_id = parseInt(ret.tmpChatInfo!.groupCode)
         resMsg.sender.nickname = ret.tmpChatInfo!.fromNick
       } else {
@@ -157,20 +157,20 @@ export class OB11Constructor {
             peerUid: msg.peerUid,
             guildId: '',
             chatType: msg.chatType,
-          }, element.replyElement.replayMsgSeq, 1, true, true)).msgList[0]
+          }, element.replyElement.replayMsgSeq, 1, true, true))?.msgList[0]
           if (!replyMsg || records.msgRandom !== replyMsg.msgRandom) {
             const peer = {
               chatType: msg.chatType,
               peerUid: msg.peerUid,
               guildId: '',
             }
-            replyMsg = (await NTQQMsgApi.getSingleMsg(peer, element.replyElement.replayMsgSeq)).msgList[0]
+            replyMsg = (await NTQQMsgApi.getSingleMsg(peer, element.replyElement.replayMsgSeq))?.msgList[0]
           }
           // 284840486: 合并消息内侧 消息具体定位不到
           if ((!replyMsg || records.msgRandom !== replyMsg.msgRandom) && msg.peerUin !== '284840486') {
             throw new Error('回复消息消息验证失败')
           }
-          message_data['data']['id'] = MessageUnique.createMsg({
+          message_data['data']['id'] = replyMsg && MessageUnique.createMsg({
             peerUid: msg.peerUid,
             guildId: '',
             chatType: msg.chatType,
@@ -483,8 +483,8 @@ export class OB11Constructor {
               chatType: ChatType.group,
               guildId: '',
               peerUid: msg.peerUid,
-            }, msgSeq, 1, true, true)).msgList
-            if (replyMsgList.length < 1) {
+            }, msgSeq, 1, true, true))?.msgList
+            if (!replyMsgList?.length) {
               return
             }
             const likes = [
@@ -577,7 +577,10 @@ export class OB11Constructor {
               chatType: ChatType.group,
               peerUid: Group!
             }
-            const { msgList } = await NTQQMsgApi.getMsgsBySeqAndCount(Peer, msgSeq.toString(), 1, true, true)
+            const msgList = (await NTQQMsgApi.getMsgsBySeqAndCount(Peer, msgSeq.toString(), 1, true, true))?.msgList
+            if (!msgList?.length) {
+              return
+            }
             //const origMsg = await dbUtil.getMsgByLongId(msgList[0].msgId)
             //const postMsg = await dbUtil.getMsgBySeqId(origMsg?.msgSeq!) ?? origMsg
             // 如果 senderUin 为 0，可能是 历史消息 或 自身消息

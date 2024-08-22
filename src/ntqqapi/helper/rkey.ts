@@ -1,5 +1,3 @@
-//远端rkey获取
-
 import { log } from '@/common/utils'
 
 interface ServerRkeyData {

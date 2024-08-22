@@ -22,6 +22,7 @@ export class NTEventWrapper {
   private WrapperSession: NodeIQQNTWrapperSession | undefined//WrapperSession
   private ListenerManger: Map<string, ListenerClassBase> = new Map<string, ListenerClassBase>() //ListenerName-Unique -> Listener实例
   private EventTask = new Map<string, Map<string, Map<string, Internal_MapKey>>>()//tasks ListenerMainName -> ListenerSubName-> uuid -> {timeout,createtime,func}
+  public initialised = false
 
   constructor() {
   }
@@ -46,6 +47,7 @@ export class NTEventWrapper {
   init({ ListenerMap, WrapperSession }: { ListenerMap: { [key: string]: typeof ListenerClassBase }, WrapperSession: NodeIQQNTWrapperSession }) {
     this.ListenerMap = ListenerMap
     this.WrapperSession = WrapperSession
+    this.initialised = true
   }
 
   createEventFunction<T extends (...args: any) => any>(eventName: string): T | undefined {

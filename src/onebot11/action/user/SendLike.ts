@@ -15,8 +15,8 @@ export default class SendLike extends BaseAction<Payload, null> {
       const qq = payload.user_id.toString()
       const uid: string = await NTQQUserApi.getUidByUin(qq) || ''
       const result = await NTQQUserApi.like(uid, parseInt(payload.times?.toString()) || 1)
-      if (result.result !== 0) {
-        throw Error(result.errMsg)
+      if (result?.result !== 0) {
+        throw Error(result?.errMsg)
       }
     } catch (e) {
       throw `点赞失败 ${e}`

@@ -2,7 +2,6 @@ import { getSelfUin } from '@/common/data'
 import { log } from '@/common/utils/log'
 import { NTQQUserApi } from './user'
 import { RequestUtil } from '@/common/utils/request'
-import { CacheClassFuncAsync } from '@/common/utils/helper'
 
 export enum WebHonorType {
   ALL = 'all',
@@ -179,18 +178,6 @@ export class WebApi {
     return memberData
   }
 
-  // public static async addGroupDigest(groupCode: string, msgSeq: string) {
-  //   const url = `https://qun.qq.com/cgi-bin/group_digest/cancel_digest?random=665&X-CROSS-ORIGIN=fetch&group_code=${groupCode}&msg_seq=${msgSeq}&msg_random=444021292`;
-  //   const res = await this.request(url);
-  //   return await res.json();
-  // }
-
-  // public async getGroupDigest(groupCode: string) {
-  //   const url = `https://qun.qq.com/cgi-bin/group_digest/digest_list?random=665&X-CROSS-ORIGIN=fetch&group_code=${groupCode}&page_start=0&page_limit=20`;
-  //   const res = await this.request(url);
-  //   return await res.json();
-  // }
-
   static async setGroupNotice(GroupCode: string, Content: string = '') {
     //https://web.qun.qq.com/cgi-bin/announce/add_qun_notice?bkn=${bkn}
     //qid=${群号}&bkn=${bkn}&text=${内容}&pinned=0&type=1&settings={"is_show_edit_card":1,"tip_window_type":1,"confirm_required":1}
@@ -208,29 +195,6 @@ export class WebApi {
     const url = 'https://web.qun.qq.com/cgi-bin/announce/add_qun_notice?bkn=' + Bkn
     try {
       ret = await RequestUtil.HttpGetJson<any>(url, 'GET', '', { 'Cookie': CookieValue })
-      return ret
-    } catch (e) {
-      return undefined
-    }
-  }
-
-  static async getGrouptNotice(GroupCode: string): Promise<undefined | WebApiGroupNoticeRet> {
-    const _Pskey = (await NTQQUserApi.getPSkey(['qun.qq.com']))['qun.qq.com']
-    const _Skey = await NTQQUserApi.getSkey()
-    const CookieValue = 'p_skey=' + _Pskey + '; skey=' + _Skey + '; p_uin=o' + getSelfUin()
-    let ret: WebApiGroupNoticeRet | undefined = undefined
-    //console.log(CookieValue)
-    if (!_Skey || !_Pskey) {
-      //获取Cookies失败
-      return undefined
-    }
-    const Bkn = WebApi.genBkn(_Skey)
-    const url = 'https://web.qun.qq.com/cgi-bin/announce/get_t_list?bkn=' + Bkn + '&qid=' + GroupCode + '&ft=23&ni=1&n=1&i=1&log_read=1&platform=1&s=-1&n=20'
-    try {
-      ret = await RequestUtil.HttpGetJson<WebApiGroupNoticeRet>(url, 'GET', '', { 'Cookie': CookieValue })
-      if (ret?.ec !== 0) {
-        return undefined
-      }
       return ret
     } catch (e) {
       return undefined

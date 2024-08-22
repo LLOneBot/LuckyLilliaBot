@@ -14,7 +14,7 @@ import {
   CHANNEL_UPDATE,
 } from '../common/channels'
 import { ob11WebsocketServer } from '../onebot11/server/ws/WebsocketServer'
-import { DATA_DIR, TEMP_DIR } from '../common/utils'
+import { DATA_DIR, getBuildVersion, TEMP_DIR } from '../common/utils'
 import {
   llonebotError,
   setSelfInfo,
@@ -346,10 +346,13 @@ function onLoad() {
         if (!!req.isInitiator || (req.isDecide && req.reqType !== BuddyReqType.KMEINITIATORWAITPEERCONFIRM)) {
           continue
         }
+        if (+req.reqTime < startTime / 1000) {
+          continue
+        }
         let userId = 0
         try {
           const requesterUin = await NTQQUserApi.getUinByUid(req.friendUid)
-          userId = parseInt(requesterUin!)
+          userId = parseInt(requesterUin)
         } catch (e) {
           log('获取加好友者QQ号失败', e)
         }
@@ -380,7 +383,10 @@ function onLoad() {
     }
     llonebotError.otherError = ''
     startTime = Date.now()
-    NTEventDispatch.init({ ListenerMap: wrapperConstructor, WrapperSession: getSession()! })
+    const WrapperSession = getSession()
+    if (WrapperSession) {
+      NTEventDispatch.init({ ListenerMap: wrapperConstructor, WrapperSession })
+    }
     MessageUnique.init(uin)
 
     //log('start activate group member info')
@@ -405,6 +411,8 @@ function onLoad() {
     log('LLOneBot start')
   }
 
+  const buildVersion = getBuildVersion()
+
   const intervalId = setInterval(() => {
     const current = getSelfInfo()
     if (!current.uin) {
@@ -414,7 +422,7 @@ function onLoad() {
         nick: current.uin,
       })
     }
-    if (current.uin && getSession()) {
+    if (current.uin && (buildVersion >= 27187 || getSession())) {
       clearInterval(intervalId)
       start(current.uid, current.uin)
     }
@@ -423,7 +431,7 @@ function onLoad() {
 
 // 创建窗口时触发
 function onBrowserWindowCreated(window: BrowserWindow) {
-  if (getSelfUid()) {
+  if (window.id !== 2) {
     return
   }
   mainWindow = window

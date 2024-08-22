@@ -21,7 +21,7 @@ import { log } from '../common/utils/log'
 import { defaultVideoThumb, getVideoInfo } from '../common/utils/video'
 import { encodeSilk } from '../common/utils/audio'
 import { isNull } from '../common/utils'
-import faceConfig from './face_config.json'
+import faceConfig from './helper/face_config.json'
 
 export const mFaceCache = new Map<string, string>() // emojiId -> faceName
 

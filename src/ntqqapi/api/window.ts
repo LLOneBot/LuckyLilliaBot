@@ -1,4 +1,5 @@
-import { callNTQQApi, GeneralCallResult, NTQQApiClass, NTQQApiMethod } from '../ntcall'
+import { invoke, NTClass, NTMethod } from '../ntcall'
+import { GeneralCallResult } from '../services'
 import { ReceiveCmd } from '../hook'
 import { BrowserWindow } from 'electron'
 
@@ -27,12 +28,12 @@ export class NTQQWindowApi {
   static async openWindow<R = GeneralCallResult>(
     ntQQWindow: NTQQWindow,
     args: any[],
-    cbCmd: ReceiveCmd | null = null,
+    cbCmd: ReceiveCmd | undefined,
     autoCloseSeconds: number = 2,
   ) {
-    const result = await callNTQQApi<R>({
-      className: NTQQApiClass.WINDOW_API,
-      methodName: NTQQApiMethod.OPEN_EXTRA_WINDOW,
+    const result = await invoke<R>({
+      className: NTClass.WINDOW_API,
+      methodName: NTMethod.OPEN_EXTRA_WINDOW,
       cbCmd,
       afterFirstCmd: false,
       args: [ntQQWindow.windowName, ...args],
