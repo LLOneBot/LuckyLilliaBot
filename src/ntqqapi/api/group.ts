@@ -98,6 +98,10 @@ export class NTQQGroupApi {
         )
       return notifies
     } else {
+      invoke({
+        methodName: ReceiveCmdS.GROUP_NOTIFY,
+        classNameIsRegister: true,
+      })
       return (await invoke<GroupNotifies>({
         methodName: NTMethod.GET_GROUP_NOTICE,
         cbCmd: ReceiveCmdS.GROUP_NOTIFY,
