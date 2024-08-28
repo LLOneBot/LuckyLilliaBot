@@ -1,9 +1,8 @@
 import BaseAction from '../BaseAction'
 import { OB11ForwardMessage, OB11Message, OB11MessageData } from '../../types'
-import { NTQQMsgApi } from '@/ntqqapi/api'
 import { OB11Constructor } from '../../constructor'
 import { ActionName } from '../types'
-import { MessageUnique } from '@/common/utils/MessageUnique'
+import { MessageUnique } from '@/common/utils/messageUnique'
 
 interface Payload {
   message_id: string // long msg id，gocq
@@ -26,14 +25,14 @@ export class GoCQHTTGetForwardMsgAction extends BaseAction<Payload, Response> {
     if (!rootMsg) {
       throw Error('msg not found')
     }
-    const data = await NTQQMsgApi.getMultiMsg(rootMsg.Peer, rootMsg.MsgId, rootMsg.MsgId)
+    const data = await this.ctx.ntMsgApi.getMultiMsg(rootMsg.Peer, rootMsg.MsgId, rootMsg.MsgId)
     if (data?.result !== 0) {
       throw Error('找不到相关的聊天记录' + data?.errMsg)
     }
     const msgList = data.msgList
     const messages = await Promise.all(
       msgList.map(async (msg) => {
-        const resMsg = await OB11Constructor.message(msg)
+        const resMsg = await OB11Constructor.message(this.ctx, msg)
         resMsg.message_id = MessageUnique.createMsg({
           chatType: msg.chatType,
           peerUid: msg.peerUid,

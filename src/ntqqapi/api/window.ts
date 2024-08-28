@@ -2,30 +2,41 @@ import { invoke, NTClass, NTMethod } from '../ntcall'
 import { GeneralCallResult } from '../services'
 import { ReceiveCmd } from '../hook'
 import { BrowserWindow } from 'electron'
+import { Service, Context } from 'cordis'
+
+declare module 'cordis' {
+  interface Context {
+    ntWindowApi: NTQQWindowApi
+  }
+}
 
 export interface NTQQWindow {
   windowName: string
   windowUrlHash: string
 }
 
-export class NTQQWindows {
-  static GroupHomeWorkWindow: NTQQWindow = {
+export namespace NTQQWindows {
+  export const GroupHomeWorkWindow: NTQQWindow = {
     windowName: 'GroupHomeWorkWindow',
     windowUrlHash: '#/group-home-work',
   }
-  static GroupNotifyFilterWindow: NTQQWindow = {
+  export const GroupNotifyFilterWindow: NTQQWindow = {
     windowName: 'GroupNotifyFilterWindow',
     windowUrlHash: '#/group-notify-filter',
   }
-  static GroupEssenceWindow: NTQQWindow = {
+  export const GroupEssenceWindow: NTQQWindow = {
     windowName: 'GroupEssenceWindow',
     windowUrlHash: '#/group-essence',
   }
 }
 
-export class NTQQWindowApi {
+export class NTQQWindowApi extends Service {
+  constructor(protected ctx: Context) {
+    super(ctx, 'ntWindowApi', true)
+  }
+
   // 打开窗口并获取对应的下发事件
-  static async openWindow<R = GeneralCallResult>(
+  async openWindow<R = GeneralCallResult>(
     ntQQWindow: NTQQWindow,
     args: any[],
     cbCmd: ReceiveCmd | undefined,

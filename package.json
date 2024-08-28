@@ -32,7 +32,7 @@
   "devDependencies": {
     "@types/cors": "^2.8.17",
     "@types/express": "^4.17.21",
-    "@types/fluent-ffmpeg": "^2.1.25",
+    "@types/fluent-ffmpeg": "^2.1.26",
     "@types/node": "^20.14.15",
     "@types/ws": "^8.5.12",
     "electron": "^31.4.0",

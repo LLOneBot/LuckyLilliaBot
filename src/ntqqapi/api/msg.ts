@@ -1,9 +1,16 @@
 import { invoke, NTMethod } from '../ntcall'
 import { GeneralCallResult, TmpChatInfoApi } from '../services'
 import { RawMessage, SendMessageElement, Peer, ChatType2 } from '../types'
-import { getSelfNick, getSelfUid } from '../../common/data'
 import { getSession } from '@/ntqqapi/wrapper'
-import { NTEventDispatch } from '@/common/utils/EventTask'
+import { NTEventDispatch } from '@/common/utils/eventTask'
+import { Service, Context } from 'cordis'
+import { selfInfo } from '@/common/globalVars'
+
+declare module 'cordis' {
+  interface Context {
+    ntMsgApi: NTQQMsgApi
+  }
+}
 
 function generateMsgId() {
   const timestamp = Math.floor(Date.now() / 1000)
@@ -15,8 +22,12 @@ function generateMsgId() {
   return msgId
 }
 
-export class NTQQMsgApi {
-  static async getTempChatInfo(chatType: ChatType2, peerUid: string) {
+export class NTQQMsgApi extends Service {
+  constructor(protected ctx: Context) {
+    super(ctx, 'ntMsgApi', true)
+  }
+
+  async getTempChatInfo(chatType: ChatType2, peerUid: string) {
     const session = getSession()
     if (session) {
       return session.getMsgService().getTempChatInfo(chatType, peerUid)
@@ -34,7 +45,7 @@ export class NTQQMsgApi {
     }
   }
 
-  static async setEmojiLike(peer: Peer, msgSeq: string, emojiId: string, set: boolean = true) {
+  async setEmojiLike(peer: Peer, msgSeq: string, emojiId: string, set: boolean = true) {
     // nt_qq//global//nt_data//Emoji//emoji-resource//sysface_res/apng/ 下可以看到所有QQ表情预览
     // nt_qq\global\nt_data\Emoji\emoji-resource\face_config.json 里面有所有表情的id, 自带表情id是QSid, 标准emoji表情id是QCid
     // 其实以官方文档为准是最好的，https://bot.q.qq.com/wiki/develop/api-v2/openapi/emoji/model.html#EmojiType
@@ -59,7 +70,7 @@ export class NTQQMsgApi {
     }
   }
 
-  static async getMultiMsg(peer: Peer, rootMsgId: string, parentMsgId: string) {
+  async getMultiMsg(peer: Peer, rootMsgId: string, parentMsgId: string) {
     const session = getSession()
     if (session) {
       return session.getMsgService().getMultiMsg(peer, rootMsgId, parentMsgId)
@@ -78,14 +89,14 @@ export class NTQQMsgApi {
     }
   }
 
-  static async activateChat(peer: Peer) {
+  async activateChat(peer: Peer) {
     return await invoke<GeneralCallResult>({
       methodName: NTMethod.ACTIVE_CHAT_PREVIEW,
       args: [{ peer, cnt: 20 }, null],
     })
   }
 
-  static async activateChatAndGetHistory(peer: Peer) {
+  async activateChatAndGetHistory(peer: Peer) {
     return await invoke<GeneralCallResult>({
       methodName: NTMethod.ACTIVE_CHAT_HISTORY,
       // 参数似乎不是这样
@@ -93,7 +104,7 @@ export class NTQQMsgApi {
     })
   }
 
-  static async getMsgsByMsgId(peer: Peer | undefined, msgIds: string[] | undefined) {
+  async getMsgsByMsgId(peer: Peer | undefined, msgIds: string[] | undefined) {
     if (!peer) throw new Error('peer is not allowed')
     if (!msgIds) throw new Error('msgIds is not allowed')
     const session = getSession()
@@ -115,7 +126,7 @@ export class NTQQMsgApi {
     }
   }
 
-  static async getMsgHistory(peer: Peer, msgId: string, count: number, isReverseOrder: boolean = false) {
+  async getMsgHistory(peer: Peer, msgId: string, count: number, isReverseOrder: boolean = false) {
     const session = getSession()
     // 消息时间从旧到新
     if (session) {
@@ -136,7 +147,7 @@ export class NTQQMsgApi {
     }
   }
 
-  static async recallMsg(peer: Peer, msgIds: string[]) {
+  async recallMsg(peer: Peer, msgIds: string[]) {
     const session = getSession()
     if (session) {
       return session.getMsgService().recallMsg({
@@ -157,7 +168,7 @@ export class NTQQMsgApi {
     }
   }
 
-  static async sendMsg(peer: Peer, msgElements: SendMessageElement[], waitComplete = true, timeout = 10000) {
+  async sendMsg(peer: Peer, msgElements: SendMessageElement[], waitComplete = true, timeout = 10000) {
     const msgId = generateMsgId()
     peer.guildId = msgId
     let msgList: RawMessage[]
@@ -218,7 +229,7 @@ export class NTQQMsgApi {
     return retMsg!
   }
 
-  static async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
+  async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
     const session = getSession()
     if (session) {
       return session.getMsgService().forwardMsg(msgIds, srcPeer, [destPeer], [])
@@ -239,12 +250,12 @@ export class NTQQMsgApi {
     }
   }
 
-  static async multiForwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]): Promise<RawMessage> {
-    const senderShowName = await getSelfNick()
+  async multiForwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]): Promise<RawMessage> {
+    const senderShowName = await this.ctx.ntUserApi.getSelfNick(true)
     const msgInfos = msgIds.map(id => {
       return { msgId: id, senderShowName }
     })
-    const selfUid = getSelfUid()
+    const selfUid = selfInfo.uid
     let msgList: RawMessage[]
     if (NTEventDispatch.initialised) {
       const data = await NTEventDispatch.CallNormalEvent<
@@ -312,7 +323,7 @@ export class NTQQMsgApi {
     throw new Error('转发消息超时')
   }
 
-  static async getMsgsBySeqAndCount(peer: Peer, seq: string, count: number, desc: boolean, z: boolean) {
+  async getMsgsBySeqAndCount(peer: Peer, seq: string, count: number, desc: boolean, z: boolean) {
     const session = getSession()
     if (session) {
       return await session.getMsgService().getMsgsBySeqAndCount(peer, seq, count, desc, z)
@@ -335,7 +346,7 @@ export class NTQQMsgApi {
   }
 
   /** 27187 TODO */
-  static async getLastestMsgByUids(peer: Peer, count = 20, isReverseOrder = false) {
+  async getLastestMsgByUids(peer: Peer, count = 20, isReverseOrder = false) {
     const session = getSession()
     const ret = await session?.getMsgService().queryMsgsWithFilterEx('0', '0', '0', {
       chatInfo: peer,
@@ -350,7 +361,7 @@ export class NTQQMsgApi {
     return ret
   }
 
-  static async getSingleMsg(peer: Peer, seq: string) {
+  async getSingleMsg(peer: Peer, seq: string) {
     const session = getSession()
     if (session) {
       return await session.getMsgService().getSingleMsg(peer, seq)

@@ -1,6 +1,6 @@
-import { log } from './log'
 import ffmpeg from 'fluent-ffmpeg'
-import fs from 'fs'
+import fs from 'node:fs'
+import { log } from './legacyLog'
 import { getConfigUtil } from '../config'
 
 const defaultVideoThumbB64 =
@@ -43,43 +43,19 @@ export async function getVideoInfo(filePath: string) {
   })
 }
 
-export async function encodeMp4(filePath: string) {
-  let videoInfo = await getVideoInfo(filePath)
-  log('视频信息', videoInfo)
-  if (videoInfo.format.indexOf('mp4') === -1) {
-    log('视频需要转换为MP4格式', filePath)
-    // 转成mp4
-    const newPath: string = await new Promise<string>((resolve, reject) => {
-      const newPath = filePath + '.mp4'
-      ffmpeg(filePath)
-        .toFormat('mp4')
-        .on('error', (err) => {
-          reject(`转换视频格式失败: ${err.message}`)
-        })
-        .on('end', () => {
-          log('视频转换为MP4格式完成')
-          resolve(newPath) // 返回转换后的文件路径
-        })
-        .save(newPath)
-    })
-    return await getVideoInfo(newPath)
-  }
-  return videoInfo
-}
-
-export function checkFfmpeg(newPath: string | null = null): Promise<boolean> {
+export function checkFfmpeg(newPath?: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
-    log('开始检查ffmpeg', newPath)
+    log(`开始检查 FFmpeg ${newPath ?? ''}`)
     if (newPath) {
       ffmpeg.setFfmpegPath(newPath)
     }
     try {
       ffmpeg.getAvailableFormats((err, formats) => {
         if (err) {
-          log('ffmpeg is not installed or not found in PATH:', err)
+          log('FFmpeg is not installed or not found in PATH:', err)
           resolve(false)
         } else {
-          log('ffmpeg is installed.')
+          log('FFmpeg is installed.')
           resolve(true)
         }
       })

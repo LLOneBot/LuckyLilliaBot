@@ -1,6 +1,5 @@
-import https from 'node:https';
-import http from 'node:http';
-import { log } from '@/common/utils/log'
+import https from 'node:https'
+import http from 'node:http'
 
 export class RequestUtil {
   // 适用于获取服务器下发cookies时获取，仅GET

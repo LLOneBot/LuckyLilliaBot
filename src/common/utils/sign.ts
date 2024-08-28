@@ -1,4 +1,4 @@
-import { log } from './log'
+import { Context } from 'cordis'
 
 export interface IdMusicSignPostData {
   type: 'qq' | '163'
@@ -19,7 +19,7 @@ export type MusicSignPostData = IdMusicSignPostData | CustomMusicSignPostData
 export class MusicSign {
   private readonly url: string
 
-  constructor(url: string) {
+  constructor(protected ctx: Context, url: string) {
     this.url = url
   }
 
@@ -31,7 +31,7 @@ export class MusicSign {
     })
     if (!resp.ok) throw new Error(resp.statusText)
     const data = await resp.text()
-    log('音乐消息生成成功', data)
+    this.ctx.logger.info('音乐消息生成成功', data)
     return data
   }
 }

@@ -1,6 +1,5 @@
 import BaseAction from '../BaseAction'
 import { ActionName } from '../types'
-import { NTQQGroupApi } from '../../../ntqqapi/api/group'
 
 interface Payload {
   group_id: number
@@ -11,7 +10,7 @@ export default class SetGroupName extends BaseAction<Payload, null> {
   actionName = ActionName.SetGroupName
 
   protected async _handle(payload: Payload): Promise<null> {
-    await NTQQGroupApi.setGroupName(payload.group_id.toString(), payload.group_name)
+    await this.ctx.ntGroupApi.setGroupName(payload.group_id.toString(), payload.group_name)
     return null
   }
 }

@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { hookApiCallbacks, registerReceiveHook, removeReceiveHook } from './hook'
-import { log } from '../common/utils/log'
+import { log } from '../common/utils/legacyLog'
 import { randomUUID } from 'node:crypto'
 import { GeneralCallResult } from './services'
 
@@ -149,7 +149,7 @@ export function invoke<ReturnType>(params: InvokeParams<ReturnType>) {
       !afterFirstCmd && secondCallback()
       hookApiCallbacks[uuid] = (result: GeneralCallResult) => {
         if (result?.result === 0 || result === undefined) {
-          log(`${params.methodName} callback`, result)
+          //log(`${params.methodName} callback`, result)
           afterFirstCmd && secondCallback()
         }
         else {

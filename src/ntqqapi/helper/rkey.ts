@@ -1,4 +1,4 @@
-import { log } from '@/common/utils'
+import { Context } from "cordis"
 
 interface ServerRkeyData {
   group_rkey: string
@@ -6,15 +6,15 @@ interface ServerRkeyData {
   expired_time: number
 }
 
-class RkeyManager {
-  serverUrl: string = ''
+export class RkeyManager {
+  private serverUrl: string = ''
   private rkeyData: ServerRkeyData = {
     group_rkey: '',
     private_rkey: '',
     expired_time: 0
   }
 
-  constructor(serverUrl: string) {
+  constructor(protected ctx: Context, serverUrl: string) {
     this.serverUrl = serverUrl
   }
 
@@ -23,7 +23,7 @@ class RkeyManager {
       try {
         await this.refreshRkey()
       } catch (e) {
-        log('获取rkey失败', e)
+        this.ctx.logger.error('获取rkey失败', e)
       }
     }
     return this.rkeyData
@@ -58,5 +58,3 @@ class RkeyManager {
     })
   }
 }
-
-export const rkeyManager = new RkeyManager('http://napcat-sign.wumiao.wang:2082/rkey')

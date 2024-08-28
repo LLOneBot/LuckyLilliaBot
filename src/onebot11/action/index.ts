@@ -54,71 +54,70 @@ import GoCQHTTPSetEssenceMsg from './go-cqhttp/SetEssenceMsg'
 import GoCQHTTPDelEssenceMsg from './go-cqhttp/DelEssenceMsg'
 import GetEvent from './llonebot/GetEvent'
 import { GoCQHTTPDelGroupFile } from './go-cqhttp/DelGroupFile'
+import type Adapter from '../adapter'
 
-
-export const actionHandlers = [
-  new GetFile(),
-  new Debug(),
-  new GetConfigAction(),
-  new SetConfigAction(),
-  new GetGroupAddRequest(),
-  new SetQQAvatar(),
-  new GetFriendWithCategory(),
-  new GetEvent(),
-  // onebot11
-  new SendLike(),
-  new GetMsg(),
-  new GetLoginInfo(),
-  new GetFriendList(),
-  new GetGroupList(),
-  new GetGroupInfo(),
-  new GetGroupMemberList(),
-  new GetGroupMemberInfo(),
-  new SendGroupMsg(),
-  new SendPrivateMsg(),
-  new SendMsg(),
-  new DeleteMsg(),
-  new SetGroupAddRequest(),
-  new SetFriendAddRequest(),
-  new SetGroupLeave(),
-  new GetVersionInfo(),
-  new CanSendRecord(),
-  new CanSendImage(),
-  new GetStatus(),
-  new SetGroupWholeBan(),
-  new SetGroupBan(),
-  new SetGroupKick(),
-  new SetGroupAdmin(),
-  new SetGroupName(),
-  new SetGroupCard(),
-  new GetImage(),
-  new GetRecord(),
-  new CleanCache(),
-  new GetCookies(),
-  new SetMsgEmojiLike(),
-  new ForwardFriendSingleMsg(),
-  new ForwardGroupSingleMsg(),
-  //以下为go-cqhttp api
-  new GetGroupEssence(),
-  new GetGroupHonorInfo(),
-  new GoCQHTTPSendForwardMsg(),
-  new GoCQHTTPSendGroupForwardMsg(),
-  new GoCQHTTPSendPrivateForwardMsg(),
-  new GoCQHTTPGetStrangerInfo(),
-  new GoCQHTTPDownloadFile(),
-  new GetGuildList(),
-  new GoCQHTTPMarkMsgAsRead(),
-  new GoCQHTTPUploadGroupFile(),
-  new GoCQHTTPUploadPrivateFile(),
-  new GoCQHTTPGetGroupMsgHistory(),
-  new GoCQHTTGetForwardMsgAction(),
-  new GoCQHTTHandleQuickOperation(),
-  new GoCQHTTPSetEssenceMsg(),
-  new GoCQHTTPDelEssenceMsg(),
-  new GoCQHTTPDelGroupFile()
-]
-
-function initActionMap() {
+export function initActionMap(adapter: Adapter) {
+  const actionHandlers = [
+    new GetFile(adapter),
+    new Debug(adapter),
+    new GetConfigAction(adapter),
+    new SetConfigAction(adapter),
+    new GetGroupAddRequest(adapter),
+    new SetQQAvatar(adapter),
+    new GetFriendWithCategory(adapter),
+    new GetEvent(adapter),
+    // onebot11
+    new SendLike(adapter),
+    new GetMsg(adapter),
+    new GetLoginInfo(adapter),
+    new GetFriendList(adapter),
+    new GetGroupList(adapter),
+    new GetGroupInfo(adapter),
+    new GetGroupMemberList(adapter),
+    new GetGroupMemberInfo(adapter),
+    new SendGroupMsg(adapter),
+    new SendPrivateMsg(adapter),
+    new SendMsg(adapter),
+    new DeleteMsg(adapter),
+    new SetGroupAddRequest(adapter),
+    new SetFriendAddRequest(adapter),
+    new SetGroupLeave(adapter),
+    new GetVersionInfo(adapter),
+    new CanSendRecord(adapter),
+    new CanSendImage(adapter),
+    new GetStatus(adapter),
+    new SetGroupWholeBan(adapter),
+    new SetGroupBan(adapter),
+    new SetGroupKick(adapter),
+    new SetGroupAdmin(adapter),
+    new SetGroupName(adapter),
+    new SetGroupCard(adapter),
+    new GetImage(adapter),
+    new GetRecord(adapter),
+    new CleanCache(adapter),
+    new GetCookies(adapter),
+    new SetMsgEmojiLike(adapter),
+    new ForwardFriendSingleMsg(adapter),
+    new ForwardGroupSingleMsg(adapter),
+    //以下为go-cqhttp api
+    new GetGroupEssence(adapter),
+    new GetGroupHonorInfo(adapter),
+    new GoCQHTTPSendForwardMsg(adapter),
+    new GoCQHTTPSendGroupForwardMsg(adapter),
+    new GoCQHTTPSendPrivateForwardMsg(adapter),
+    new GoCQHTTPGetStrangerInfo(adapter),
+    new GoCQHTTPDownloadFile(adapter),
+    new GetGuildList(adapter),
+    new GoCQHTTPMarkMsgAsRead(adapter),
+    new GoCQHTTPUploadGroupFile(adapter),
+    new GoCQHTTPUploadPrivateFile(adapter),
+    new GoCQHTTPGetGroupMsgHistory(adapter),
+    new GoCQHTTGetForwardMsgAction(adapter),
+    new GoCQHTTHandleQuickOperation(adapter),
+    new GoCQHTTPSetEssenceMsg(adapter),
+    new GoCQHTTPDelEssenceMsg(adapter),
+    new GoCQHTTPDelGroupFile(adapter)
+  ]
   const actionMap = new Map<string, BaseAction<any, any>>()
   for (const action of actionHandlers) {
     actionMap.set(action.actionName, action)
@@ -128,5 +127,3 @@ function initActionMap() {
 
   return actionMap
 }
-
-export const actionMap = initActionMap()

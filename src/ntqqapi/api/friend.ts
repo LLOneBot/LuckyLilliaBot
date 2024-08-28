@@ -3,13 +3,24 @@ import { ReceiveCmdS } from '../hook'
 import { invoke, NTMethod, NTClass } from '../ntcall'
 import { getSession } from '@/ntqqapi/wrapper'
 import { BuddyListReqType, NodeIKernelProfileService } from '../services'
-import { NTEventDispatch } from '@/common/utils/EventTask'
+import { NTEventDispatch } from '@/common/utils/eventTask'
 import { LimitedHashTable } from '@/common/utils/table'
 import { pick } from 'cosmokit'
+import { Service, Context } from 'cordis'
 
-export class NTQQFriendApi {
+declare module 'cordis' {
+  interface Context {
+    ntFriendApi: NTQQFriendApi
+  }
+}
+
+export class NTQQFriendApi extends Service {
+  constructor(protected ctx: Context) {
+    super(ctx, 'ntFriendApi', true)
+  }
+
   /** 大于或等于 26702 应使用 getBuddyV2 */
-  static async getFriends(forced = false) {
+  async getFriends(forced = false) {
     const data = await invoke<{
       data: {
         categoryId: number
@@ -30,7 +41,7 @@ export class NTQQFriendApi {
     return _friends
   }
 
-  static async handleFriendRequest(flag: string, accept: boolean) {
+  async handleFriendRequest(flag: string, accept: boolean) {
     const data = flag.split('|')
     if (data.length < 2) {
       return
@@ -60,7 +71,7 @@ export class NTQQFriendApi {
     }
   }
 
-  static async getBuddyV2(refresh = false): Promise<FriendV2[]> {
+  async getBuddyV2(refresh = false): Promise<FriendV2[]> {
     const session = getSession()
     if (session) {
       const uids: string[] = []
@@ -90,7 +101,7 @@ export class NTQQFriendApi {
     }
   }
 
-  static async getBuddyIdMap(refresh = false): Promise<LimitedHashTable<string, string>> {
+  async getBuddyIdMap(refresh = false): Promise<LimitedHashTable<string, string>> {
     const retMap: LimitedHashTable<string, string> = new LimitedHashTable<string, string>(5000)
     const session = getSession()
     if (session) {
@@ -122,7 +133,7 @@ export class NTQQFriendApi {
     return retMap
   }
 
-  static async getBuddyV2ExWithCate(refresh = false) {
+  async getBuddyV2ExWithCate(refresh = false) {
     const session = getSession()
     if (session) {
       const uids: string[] = []
@@ -170,7 +181,7 @@ export class NTQQFriendApi {
     }
   }
 
-  static async isBuddy(uid: string): Promise<boolean> {
+  async isBuddy(uid: string): Promise<boolean> {
     const session = getSession()
     if (session) {
       return session.getBuddyService().isBuddy(uid)

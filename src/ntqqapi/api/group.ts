@@ -2,14 +2,28 @@ import { ReceiveCmdS } from '../hook'
 import { Group, GroupMember, GroupMemberRole, GroupNotifies, GroupRequestOperateTypes, GroupNotify } from '../types'
 import { invoke, NTClass, NTMethod } from '../ntcall'
 import { GeneralCallResult } from '../services'
-import { NTQQWindowApi, NTQQWindows } from './window'
+import { NTQQWindows } from './window'
 import { getSession } from '../wrapper'
-import { NTEventDispatch } from '@/common/utils/EventTask'
+import { NTEventDispatch } from '@/common/utils/eventTask'
 import { NodeIKernelGroupListener } from '../listeners'
 import { NodeIKernelGroupService } from '../services'
+import { Service, Context } from 'cordis'
+import { isNumeric } from '@/common/utils/misc'
 
-export class NTQQGroupApi {
-  static async getGroups(forced = false): Promise<Group[]> {
+declare module 'cordis' {
+  interface Context {
+    ntGroupApi: NTQQGroupApi
+  }
+}
+
+export class NTQQGroupApi extends Service {
+  private groupMembers: Map<string, Map<string, GroupMember>> = new Map<string, Map<string, GroupMember>>()
+
+  constructor(protected ctx: Context) {
+    super(ctx, 'ntGroupApi', true)
+  }
+
+  async getGroups(forced = false): Promise<Group[]> {
     if (NTEventDispatch.initialised) {
       type ListenerType = NodeIKernelGroupListener['onGroupListUpdate']
       const [, , groupList] = await NTEventDispatch.CallNormalEvent
@@ -37,7 +51,7 @@ export class NTQQGroupApi {
     }
   }
 
-  static async getGroupMembers(groupQQ: string, num = 3000): Promise<Map<string, GroupMember>> {
+  async getGroupMembers(groupQQ: string, num = 3000): Promise<Map<string, GroupMember>> {
     const session = getSession()
     let result: Awaited<ReturnType<NodeIKernelGroupService['getNextMemberList']>>
     if (session) {
@@ -73,16 +87,48 @@ export class NTQQGroupApi {
     return result.result.infos
   }
 
-  static async getGroupIgnoreNotifies() {
-    await NTQQGroupApi.getSingleScreenNotifies(14)
-    return await NTQQWindowApi.openWindow<GeneralCallResult & GroupNotifies>(
+  async getGroupMember(groupCode: string | number, memberUinOrUid: string | number) {
+    const groupCodeStr = groupCode.toString()
+    const memberUinOrUidStr = memberUinOrUid.toString()
+    let members = this.groupMembers.get(groupCodeStr)
+    if (!members) {
+      try {
+        members = await this.getGroupMembers(groupCodeStr)
+        // 更新群成员列表
+        this.groupMembers.set(groupCodeStr, members)
+      }
+      catch (e) {
+        return null
+      }
+    }
+    const getMember = () => {
+      let member: GroupMember | undefined = undefined
+      if (isNumeric(memberUinOrUidStr)) {
+        member = Array.from(members!.values()).find(member => member.uin === memberUinOrUidStr)
+      } else {
+        member = members!.get(memberUinOrUidStr)
+      }
+      return member
+    }
+    let member = getMember()
+    if (!member) {
+      members = await this.getGroupMembers(groupCodeStr)
+      this.groupMembers.set(groupCodeStr, members)
+      member = getMember()
+    }
+    return member
+  }
+
+  async getGroupIgnoreNotifies() {
+    await this.getSingleScreenNotifies(14)
+    return await this.ctx.ntWindowApi.openWindow<GeneralCallResult & GroupNotifies>(
       NTQQWindows.GroupNotifyFilterWindow,
       [],
       ReceiveCmdS.GROUP_NOTIFY,
     )
   }
 
-  static async getSingleScreenNotifies(num: number) {
+  async getSingleScreenNotifies(num: number) {
     if (NTEventDispatch.initialised) {
       const [_retData, _doubt, _seq, notifies] = await NTEventDispatch.CallNormalEvent
         <(arg1: boolean, arg2: string, arg3: number) => Promise<any>, (doubt: boolean, seq: string, notifies: GroupNotify[]) => void>
@@ -112,12 +158,12 @@ export class NTQQGroupApi {
   }
 
   /** 27187 TODO */
-  static async delGroupFile(groupCode: string, files: string[]) {
+  async delGroupFile(groupCode: string, files: string[]) {
     const session = getSession()
     return session?.getRichMediaService().deleteGroupFile(groupCode, [102], files)
   }
 
-  static async handleGroupRequest(flag: string, operateType: GroupRequestOperateTypes, reason?: string) {
+  async handleGroupRequest(flag: string, operateType: GroupRequestOperateTypes, reason?: string) {
     const flagitem = flag.split('|')
     const groupCode = flagitem[0]
     const seq = flagitem[1]
@@ -157,7 +203,7 @@ export class NTQQGroupApi {
     }
   }
 
-  static async quitGroup(groupQQ: string) {
+  async quitGroup(groupQQ: string) {
     const session = getSession()
     if (session) {
       return session.getGroupService().quitGroup(groupQQ)
@@ -169,7 +215,7 @@ export class NTQQGroupApi {
     }
   }
 
-  static async kickMember(
+  async kickMember(
     groupQQ: string,
     kickUids: string[],
     refuseForever = false,
@@ -193,7 +239,7 @@ export class NTQQGroupApi {
     }
   }
 
-  static async banMember(groupQQ: string, memList: Array<{ uid: string, timeStamp: number }>) {
+  async banMember(groupQQ: string, memList: Array<{ uid: string, timeStamp: number }>) {
     // timeStamp为秒数, 0为解除禁言
     const session = getSession()
     if (session) {
@@ -211,7 +257,7 @@ export class NTQQGroupApi {
     }
   }
 
-  static async banGroup(groupQQ: string, shutUp: boolean) {
+  async banGroup(groupQQ: string, shutUp: boolean) {
     const session = getSession()
     if (session) {
       return session.getGroupService().setGroupShutUp(groupQQ, shutUp)
@@ -229,7 +275,7 @@ export class NTQQGroupApi {
     }
   }
 
-  static async setMemberCard(groupQQ: string, memberUid: string, cardName: string) {
+  async setMemberCard(groupQQ: string, memberUid: string, cardName: string) {
     const session = getSession()
     if (session) {
       return session.getGroupService().modifyMemberCardName(groupQQ, memberUid, cardName)
@@ -248,7 +294,7 @@ export class NTQQGroupApi {
     }
   }
 
-  static async setMemberRole(groupQQ: string, memberUid: string, role: GroupMemberRole) {
+  async setMemberRole(groupQQ: string, memberUid: string, role: GroupMemberRole) {
     const session = getSession()
     if (session) {
       return session.getGroupService().modifyMemberRole(groupQQ, memberUid, role)
@@ -267,7 +313,7 @@ export class NTQQGroupApi {
     }
   }
 
-  static async setGroupName(groupQQ: string, groupName: string) {
+  async setGroupName(groupQQ: string, groupName: string) {
     const session = getSession()
     if (session) {
       return session.getGroupService().modifyGroupName(groupQQ, groupName, false)
@@ -285,7 +331,7 @@ export class NTQQGroupApi {
     }
   }
 
-  static async getGroupAtAllRemainCount(groupCode: string) {
+  async getGroupAtAllRemainCount(groupCode: string) {
     return await invoke<
       GeneralCallResult & {
         atInfo: {
@@ -308,7 +354,7 @@ export class NTQQGroupApi {
   }
 
   /** 27187 TODO */
-  static async removeGroupEssence(GroupCode: string, msgId: string) {
+  async removeGroupEssence(GroupCode: string, msgId: string) {
     const session = getSession()
     // 代码没测过
     // 需要 ob11msgid->msgId + (peer) -> msgSeq + msgRandom
@@ -323,7 +369,7 @@ export class NTQQGroupApi {
   }
 
   /** 27187 TODO */
-  static async addGroupEssence(GroupCode: string, msgId: string) {
+  async addGroupEssence(GroupCode: string, msgId: string) {
     const session = getSession()
     // 代码没测过
     // 需要 ob11msgid->msgId + (peer) -> msgSeq + msgRandom

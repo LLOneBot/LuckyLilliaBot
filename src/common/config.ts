@@ -1,9 +1,25 @@
 import fs from 'node:fs'
 import { Config, OB11Config } from './types'
-import { mergeNewProperties } from './utils/helper'
 import path from 'node:path'
-import { getSelfUin } from './data'
-import { DATA_DIR } from './utils'
+import { selfInfo, DATA_DIR } from './globalVars'
+
+// 在保证老对象已有的属性不变化的情况下将新对象的属性复制到老对象
+function mergeNewProperties(newObj: any, oldObj: any) {
+  Object.keys(newObj).forEach((key) => {
+    // 如果老对象不存在当前属性，则直接复制
+    if (!oldObj.hasOwnProperty(key)) {
+      oldObj[key] = newObj[key]
+    } else {
+      // 如果老对象和新对象的当前属性都是对象，则递归合并
+      if (typeof oldObj[key] === 'object' && typeof newObj[key] === 'object') {
+        mergeNewProperties(newObj[key], oldObj[key])
+      } else if (typeof oldObj[key] === 'object' || typeof newObj[key] === 'object') {
+        // 属性冲突，有一方不是对象，直接覆盖
+        oldObj[key] = newObj[key]
+      }
+    }
+  })
+}
 
 export class ConfigUtil {
   private readonly configPath: string
@@ -94,6 +110,6 @@ export class ConfigUtil {
 }
 
 export function getConfigUtil() {
-  const configFilePath = path.join(DATA_DIR, `config_${getSelfUin()}.json`)
+  const configFilePath = path.join(DATA_DIR, `config_${selfInfo.uin}.json`)
   return new ConfigUtil(configFilePath)
 }

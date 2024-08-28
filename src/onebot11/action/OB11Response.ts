@@ -1,6 +1,5 @@
 import { OB11Return } from '../types'
-
-import { isNull } from '../../common/utils/helper'
+import { isNullable } from 'cosmokit'
 
 export class OB11Response {
   static res<T>(data: T, status: string, retcode: number, message: string = ''): OB11Return<T> {
@@ -16,7 +15,7 @@ export class OB11Response {
 
   static ok<T>(data: T, echo: any = null) {
     let res = OB11Response.res<T>(data, 'ok', 0)
-    if (!isNull(echo)) {
+    if (!isNullable(echo)) {
       res.echo = echo
     }
     return res
@@ -24,7 +23,7 @@ export class OB11Response {
 
   static error(err: string, retcode: number, echo: any = null) {
     let res = OB11Response.res(null, 'failed', retcode, err)
-    if (!isNull(echo)) {
+    if (!isNullable(echo)) {
       res.echo = echo
     }
     return res

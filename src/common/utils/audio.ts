@@ -2,11 +2,11 @@ import path from 'node:path'
 import ffmpeg from 'fluent-ffmpeg'
 import fsPromise from 'node:fs/promises'
 import { decode, encode, getDuration, getWavFileInfo, isWav, isSilk, EncodeResult } from 'silk-wasm'
-import { log } from './log'
-import { TEMP_DIR } from './index'
+import { TEMP_DIR } from '../globalVars'
 import { getConfigUtil } from '../config'
 import { randomUUID } from 'node:crypto'
 import { Readable } from 'node:stream'
+import { Context } from 'cordis'
 
 interface FFmpegOptions {
   input?: string[]
@@ -15,14 +15,14 @@ interface FFmpegOptions {
 
 type Input = string | Readable
 
-function convert(input: Input, options: FFmpegOptions): Promise<Buffer>
-function convert(input: Input, options: FFmpegOptions, outputPath: string): Promise<string>
-function convert(input: Input, options: FFmpegOptions, outputPath?: string): Promise<Buffer> | Promise<string> {
+function convert(ctx: Context, input: Input, options: FFmpegOptions): Promise<Buffer>
+function convert(ctx: Context, input: Input, options: FFmpegOptions, outputPath: string): Promise<string>
+function convert(ctx: Context, input: Input, options: FFmpegOptions, outputPath?: string): Promise<Buffer> | Promise<string> {
   return new Promise<any>((resolve, reject) => {
     const chunks: Buffer[] = []
     let command = ffmpeg(input)
       .on('error', err => {
-        log(`FFmpeg处理转换出错: `, err.message)
+        ctx.logger.error(`FFmpeg处理转换出错: `, err.message)
         reject(err)
       })
       .on('end', () => {
@@ -53,17 +53,17 @@ function convert(input: Input, options: FFmpegOptions, outputPath?: string): Pro
   })
 }
 
-export async function encodeSilk(filePath: string) {
+export async function encodeSilk(ctx: Context, filePath: string) {
   try {
     const file = await fsPromise.readFile(filePath)
     if (!isSilk(file)) {
-      log(`语音文件${filePath}需要转换成silk`)
+      ctx.logger.info(`语音文件${filePath}需要转换成silk`)
       let result: EncodeResult
       const allowSampleRate = [8000, 12000, 16000, 24000, 32000, 44100, 48000]
       if (isWav(file) && allowSampleRate.includes(getWavFileInfo(file).fmt.sampleRate)) {
         result = await encode(file, 0)
       } else {
-        const input = await convert(filePath, {
+        const input = await convert(ctx, filePath, {
           output: [
             '-ar 24000',
             '-ac 1',
@@ -74,7 +74,7 @@ export async function encodeSilk(filePath: string) {
       }
       const pttPath = path.join(TEMP_DIR, randomUUID())
       await fsPromise.writeFile(pttPath, result.data)
-      log(`语音文件${filePath}转换成功!`, pttPath, `时长:`, result.duration)
+      ctx.logger.info(`语音文件${filePath}转换成功!`, pttPath, `时长:`, result.duration)
       return {
         converted: true,
         path: pttPath,
@@ -86,7 +86,7 @@ export async function encodeSilk(filePath: string) {
       try {
         duration = getDuration(silk) / 1000
       } catch (e: any) {
-        log('获取语音文件时长失败, 默认为1秒', filePath, e.stack)
+        ctx.logger.warn('获取语音文件时长失败, 默认为1秒', filePath, e.stack)
       }
       return {
         converted: false,
@@ -95,21 +95,21 @@ export async function encodeSilk(filePath: string) {
       }
     }
   } catch (error: any) {
-    log('convert silk failed', error.stack)
+    ctx.logger.error('convert silk failed', error.stack)
     return {}
   }
 }
 
 type OutFormat = 'mp3' | 'amr' | 'wma' | 'm4a' | 'spx' | 'ogg' | 'wav' | 'flac'
 
-export async function decodeSilk(inputFilePath: string, outFormat: OutFormat = 'mp3') {
+export async function decodeSilk(ctx: Context, inputFilePath: string, outFormat: OutFormat = 'mp3') {
   const silk = await fsPromise.readFile(inputFilePath)
   const { data } = await decode(silk, 24000)
   const tmpPath = path.join(TEMP_DIR, path.basename(inputFilePath))
   const outFilePath = tmpPath + `.${outFormat}`
   const pcmFilePath = tmpPath + '.pcm'
   await fsPromise.writeFile(pcmFilePath, data)
-  return convert(pcmFilePath, {
+  return convert(ctx, pcmFilePath, {
     input: [
       '-f s16le',
       '-ar 24000',

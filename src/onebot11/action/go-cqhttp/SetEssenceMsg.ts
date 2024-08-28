@@ -1,7 +1,6 @@
 import BaseAction from '../BaseAction'
 import { ActionName } from '../types'
-import { NTQQGroupApi } from '@/ntqqapi/api/group'
-import { MessageUnique } from '@/common/utils/MessageUnique'
+import { MessageUnique } from '@/common/utils/messageUnique'
 
 interface Payload {
   message_id: number | string
@@ -18,7 +17,7 @@ export default class GoCQHTTPSetEssenceMsg extends BaseAction<Payload, any> {
     if (!msg) {
       throw new Error('msg not found')
     }
-    return await NTQQGroupApi.addGroupEssence(
+    return await this.ctx.ntGroupApi.addGroupEssence(
       msg.Peer.peerUid,
       msg.MsgId
     )

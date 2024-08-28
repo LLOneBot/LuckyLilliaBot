@@ -1,7 +1,6 @@
 import { ActionName } from '../types'
 import BaseAction from '../BaseAction'
-import { NTQQMsgApi } from '@/ntqqapi/api/msg'
-import { MessageUnique } from '@/common/utils/MessageUnique'
+import { MessageUnique } from '@/common/utils/messageUnique'
 
 interface Payload {
   message_id: number | string
@@ -22,11 +21,11 @@ export class SetMsgEmojiLike extends BaseAction<Payload, any> {
     if (!payload.emoji_id) {
       throw new Error('emojiId not found')
     }
-    const msgData = (await NTQQMsgApi.getMsgsByMsgId(msg.Peer, [msg.MsgId])).msgList
+    const msgData = (await this.ctx.ntMsgApi.getMsgsByMsgId(msg.Peer, [msg.MsgId])).msgList
     if (!msgData || msgData.length == 0 || !msgData[0].msgSeq) {
       throw new Error('find msg by msgid error')
     }
-    return await NTQQMsgApi.setEmojiLike(
+    return await this.ctx.ntMsgApi.setEmojiLike(
       msg.Peer,
       msgData[0].msgSeq,
       payload.emoji_id.toString(),

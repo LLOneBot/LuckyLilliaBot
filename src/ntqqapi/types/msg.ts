@@ -335,6 +335,8 @@ export interface MarketFaceElement {
   faceName?: string
   emojiId: string
   key: string
+  imageWidth?: number
+  imageHeight?: number
 }
 
 export interface VideoElement {

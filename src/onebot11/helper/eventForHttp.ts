@@ -1,4 +1,7 @@
-import { PostEventType } from './post-ob11-event'
+import { OB11Message } from '../types'
+import { OB11BaseEvent } from '../event/OB11BaseEvent'
+
+type PostEventType = OB11Message | OB11BaseEvent
 
 interface HttpEventType {
     seq: number
@@ -19,7 +22,7 @@ export function postHttpEvent(event: PostEventType) {
     eventList.push({
         seq: curentSeq,
         event: event
-    });
+    })
     while (eventList.length > 100) {
         eventList.shift()
     }
@@ -29,7 +32,7 @@ export async function getHttpEvent(userKey: string, timeout = 0) {
     const toRetEvent: PostEventType[] = []
 
     // 清除过时的user，5分钟没访问过的user将被删除
-    const now = Date.now();
+    const now = Date.now()
     for (let key in httpUser) {
         let user = httpUser[key]
         if (now - user.lastAccessTime > 1000 * 60 * 5) {

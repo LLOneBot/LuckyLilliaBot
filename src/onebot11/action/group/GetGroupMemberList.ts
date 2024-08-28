@@ -2,8 +2,7 @@ import { OB11GroupMember } from '../../types'
 import { OB11Constructor } from '../../constructor'
 import BaseAction from '../BaseAction'
 import { ActionName } from '../types'
-import { NTQQGroupApi, WebApi } from '@/ntqqapi/api'
-import { getSelfUid } from '@/common/data'
+import { selfInfo } from '@/common/globalVars'
 
 interface Payload {
   group_id: number | string
@@ -14,7 +13,7 @@ class GetGroupMemberList extends BaseAction<Payload, OB11GroupMember[]> {
   actionName = ActionName.GetGroupMemberList
 
   protected async _handle(payload: Payload) {
-    const groupMembers = await NTQQGroupApi.getGroupMembers(payload.group_id.toString())
+    const groupMembers = await this.ctx.ntGroupApi.getGroupMembers(payload.group_id.toString())
     const groupMembersArr = Array.from(groupMembers.values())
 
     let _groupMembers = groupMembersArr.map(item => {
@@ -31,11 +30,11 @@ class GetGroupMemberList extends BaseAction<Payload, OB11GroupMember[]> {
       MemberMap.set(_groupMembers[i].user_id, _groupMembers[i])
     }
 
-    const selfRole = groupMembers.get(getSelfUid())?.role
+    const selfRole = groupMembers.get(selfInfo.uid)?.role
     const isPrivilege = selfRole === 3 || selfRole === 4
 
     if (isPrivilege) {
-      const webGroupMembers = await WebApi.getGroupMembers(payload.group_id.toString())
+      const webGroupMembers = await this.ctx.ntWebApi.getGroupMembers(payload.group_id.toString())
       for (let i = 0, len = webGroupMembers.length; i < len; i++) {
         if (!webGroupMembers[i]?.uin) {
           continue

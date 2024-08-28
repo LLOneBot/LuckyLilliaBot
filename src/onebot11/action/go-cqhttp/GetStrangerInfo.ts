@@ -2,10 +2,9 @@ import BaseAction from '../BaseAction'
 import { OB11User } from '../../types'
 import { OB11Constructor } from '../../constructor'
 import { ActionName } from '../types'
-import { NTQQUserApi } from '../../../ntqqapi/api/user'
-import { getBuildVersion } from '@/common/utils/QQBasicInfo'
+import { getBuildVersion } from '@/common/utils'
 import { OB11UserSex } from '../../types'
-import { calcQQLevel } from '@/common/utils/qqlevel'
+import { calcQQLevel } from '@/common/utils/misc'
 
 interface Payload {
   user_id: number | string
@@ -17,8 +16,8 @@ export default class GoCQHTTPGetStrangerInfo extends BaseAction<Payload, OB11Use
   protected async _handle(payload: Payload): Promise<OB11User> {
     if (!(getBuildVersion() >= 26702)) {
       const user_id = payload.user_id.toString()
-      const extendData = await NTQQUserApi.getUserDetailInfoByUin(user_id)
-      const uid = (await NTQQUserApi.getUidByUin(user_id))!
+      const extendData = await this.ctx.ntUserApi.getUserDetailInfoByUin(user_id)
+      const uid = (await this.ctx.ntUserApi.getUidByUin(user_id))!
       if (!uid || uid.indexOf('*') != -1) {
         const ret = {
           ...extendData,
@@ -33,12 +32,12 @@ export default class GoCQHTTPGetStrangerInfo extends BaseAction<Payload, OB11Use
         }
         return ret
       }
-      const data = { ...extendData, ...(await NTQQUserApi.getUserDetailInfo(uid)) }
+      const data = { ...extendData, ...(await this.ctx.ntUserApi.getUserDetailInfo(uid)) }
       return OB11Constructor.stranger(data)
     } else {
       const user_id = payload.user_id.toString()
-      const extendData = await NTQQUserApi.getUserDetailInfoByUinV2(user_id)
-      const uid = (await NTQQUserApi.getUidByUin(user_id))!
+      const extendData = await this.ctx.ntUserApi.getUserDetailInfoByUinV2(user_id)
+      const uid = (await this.ctx.ntUserApi.getUidByUin(user_id))!
       if (!uid || uid.indexOf('*') != -1) {
         const ret = {
           ...extendData,
@@ -52,7 +51,7 @@ export default class GoCQHTTPGetStrangerInfo extends BaseAction<Payload, OB11Use
         }
         return ret
       }
-      const data = { ...extendData, ...(await NTQQUserApi.getUserDetailInfo(uid)) }
+      const data = { ...extendData, ...(await this.ctx.ntUserApi.getUserDetailInfo(uid)) }
       return OB11Constructor.stranger(data)
     }
   }

@@ -2,7 +2,6 @@ import { OB11Group } from '../../types'
 import { OB11Constructor } from '../../constructor'
 import BaseAction from '../BaseAction'
 import { ActionName } from '../types'
-import { NTQQGroupApi } from '@/ntqqapi/api'
 
 interface Payload {
   group_id: number | string
@@ -12,7 +11,7 @@ class GetGroupInfo extends BaseAction<Payload, OB11Group> {
   actionName = ActionName.GetGroupInfo
 
   protected async _handle(payload: Payload) {
-    const group = (await NTQQGroupApi.getGroups()).find(e => e.groupCode == payload.group_id.toString())
+    const group = (await this.ctx.ntGroupApi.getGroups()).find(e => e.groupCode == payload.group_id.toString())
     if (group) {
       return OB11Constructor.group(group)
     } else {

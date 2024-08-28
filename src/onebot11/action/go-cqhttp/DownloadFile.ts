@@ -1,9 +1,10 @@
 import BaseAction from '../BaseAction'
-import { ActionName } from '../types'
 import fs from 'fs'
 import fsPromise from 'fs/promises'
 import path from 'node:path'
-import { calculateFileMD5, httpDownload, TEMP_DIR } from '@/common/utils'
+import { ActionName } from '../types'
+import { calculateFileMD5, fetchFile } from '@/common/utils'
+import { TEMP_DIR } from '@/common/globalVars'
 import { randomUUID } from 'node:crypto'
 
 interface Payload {
@@ -30,8 +31,8 @@ export default class GoCQHTTPDownloadFile extends BaseAction<Payload, FileRespon
       await fsPromise.writeFile(filePath, payload.base64, 'base64')
     } else if (payload.url) {
       const headers = this.getHeaders(payload.headers)
-      const buffer = await httpDownload({ url: payload.url, headers: headers })
-      await fsPromise.writeFile(filePath, buffer)
+      const res = await fetchFile(payload.url, headers)
+      await fsPromise.writeFile(filePath, res.data)
     } else {
       throw new Error('不存在任何文件, 无法下载')
     }

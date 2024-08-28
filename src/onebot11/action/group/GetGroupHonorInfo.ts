@@ -1,4 +1,4 @@
-import { WebApi, WebHonorType } from '@/ntqqapi/api'
+import { WebHonorType } from '@/ntqqapi/api'
 import { ActionName } from '../types'
 import BaseAction from '../BaseAction'
 
@@ -18,6 +18,6 @@ export class GetGroupHonorInfo extends BaseAction<Payload, Array<any>> {
     if (!payload.type) {
       payload.type = WebHonorType.ALL
     }
-    return await WebApi.getGroupHonorInfo(payload.group_id.toString(), payload.type)
+    return await this.ctx.ntWebApi.getGroupHonorInfo(payload.group_id.toString(), payload.type)
   }
 }

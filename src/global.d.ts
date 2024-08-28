@@ -1,8 +1,10 @@
-import { type LLOneBot } from './preload'
+import type { LLOneBot } from './preload'
+import { Dict } from 'cosmokit'
 
 declare global {
   interface Window {
     llonebot: LLOneBot
-    LiteLoader: Record<string, any>
+    LiteLoader: Dict
   }
+  var LiteLoader: Dict
 }

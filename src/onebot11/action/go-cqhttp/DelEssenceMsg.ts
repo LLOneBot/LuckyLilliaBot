@@ -1,8 +1,6 @@
-
-import BaseAction from '../BaseAction';
-import { ActionName } from '../types';
-import { NTQQGroupApi } from '@/ntqqapi/api/group'
-import { MessageUnique } from '@/common/utils/MessageUnique'
+import BaseAction from '../BaseAction'
+import { ActionName } from '../types'
+import { MessageUnique } from '@/common/utils/messageUnique'
 
 interface Payload {
   message_id: number | string
@@ -19,7 +17,7 @@ export default class GoCQHTTPDelEssenceMsg extends BaseAction<Payload, any> {
     if (!msg) {
       throw new Error('msg not found')
     }
-    return await NTQQGroupApi.removeGroupEssence(
+    return await this.ctx.ntGroupApi.removeGroupEssence(
       msg.Peer.peerUid,
       msg.MsgId,
     )

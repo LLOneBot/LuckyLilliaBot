@@ -1,4 +1,4 @@
-import { getSelfUin } from '../../common/data'
+import { selfInfo } from "@/common/globalVars"
 
 export enum EventType {
   META = 'meta_event',
@@ -10,6 +10,6 @@ export enum EventType {
 
 export abstract class OB11BaseEvent {
   time = Math.floor(Date.now() / 1000)
-  self_id = parseInt(getSelfUin())
+  self_id = parseInt(selfInfo.uin)
   abstract post_type: EventType
 }

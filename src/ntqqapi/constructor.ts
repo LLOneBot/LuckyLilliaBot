@@ -15,22 +15,21 @@ import {
 } from './types'
 import { promises as fs } from 'node:fs'
 import ffmpeg from 'fluent-ffmpeg'
-import { NTQQFileApi } from './api/file'
 import { calculateFileMD5, isGIF } from '../common/utils/file'
-import { log } from '../common/utils/log'
 import { defaultVideoThumb, getVideoInfo } from '../common/utils/video'
 import { encodeSilk } from '../common/utils/audio'
-import { isNull } from '../common/utils'
 import faceConfig from './helper/face_config.json'
+import { Context } from 'cordis'
+import { isNullable } from 'cosmokit'
 
 export const mFaceCache = new Map<string, string>() // emojiId -> faceName
 
-export class SendMsgElementConstructor {
-  static poke(groupCode: string, uin: string) {
+export namespace SendMsgElementConstructor {
+  export function poke(groupCode: string, uin: string) {
     return null
   }
 
-  static text(content: string): SendTextElement {
+  export function text(content: string): SendTextElement {
     return {
       elementType: ElementType.TEXT,
       elementId: '',
@@ -44,7 +43,7 @@ export class SendMsgElementConstructor {
     }
   }
 
-  static at(atUid: string, atNtUid: string, atType: AtType, display: string): SendTextElement {
+  export function at(atUid: string, atNtUid: string, atType: AtType, display: string): SendTextElement {
     return {
       elementType: ElementType.TEXT,
       elementId: '',
@@ -58,7 +57,7 @@ export class SendMsgElementConstructor {
     }
   }
 
-  static reply(msgSeq: string, msgId: string, senderUin: string, senderUinStr: string): SendReplyElement {
+  export function reply(msgSeq: string, msgId: string, senderUin: string, senderUinStr: string): SendReplyElement {
     return {
       elementType: ElementType.REPLY,
       elementId: '',
@@ -71,8 +70,8 @@ export class SendMsgElementConstructor {
     }
   }
 
-  static async pic(picPath: string, summary: string = '', subType: 0 | 1 = 0): Promise<SendPicElement> {
-    const { md5, fileName, path, fileSize } = await NTQQFileApi.uploadFile(picPath, ElementType.PIC, subType)
+  export async function pic(ctx: Context, picPath: string, summary: string = '', subType: 0 | 1 = 0): Promise<SendPicElement> {
+    const { md5, fileName, path, fileSize } = await ctx.ntFileApi.uploadFile(picPath, ElementType.PIC, subType)
     if (fileSize === 0) {
       throw '文件异常，大小为0'
     }
@@ -80,7 +79,7 @@ export class SendMsgElementConstructor {
     if (fileSize > 1024 * 1024 * 30) {
       throw `图片过大，最大支持${maxMB}MB，当前文件大小${fileSize}B`
     }
-    const imageSize = await NTQQFileApi.getImageSize(picPath)
+    const imageSize = await ctx.ntFileApi.getImageSize(picPath)
     const picElement = {
       md5HexStr: md5,
       fileSize: fileSize.toString(),
@@ -96,7 +95,7 @@ export class SendMsgElementConstructor {
       thumbFileSize: 0,
       summary,
     }
-    log('图片信息', picElement)
+    ctx.logger.info('图片信息', picElement)
     return {
       elementType: ElementType.PIC,
       elementId: '',
@@ -104,8 +103,8 @@ export class SendMsgElementConstructor {
     }
   }
 
-  static async file(filePath: string, fileName: string = '', folderId: string = ''): Promise<SendFileElement> {
-    const { fileName: _fileName, path, fileSize } = await NTQQFileApi.uploadFile(filePath, ElementType.FILE)
+  export async function file(ctx: Context, filePath: string, fileName: string = '', folderId: string = ''): Promise<SendFileElement> {
+    const { fileName: _fileName, path, fileSize } = await ctx.ntFileApi.uploadFile(filePath, ElementType.FILE)
     if (fileSize === 0) {
       throw '文件异常，大小为 0'
     }
@@ -122,16 +121,16 @@ export class SendMsgElementConstructor {
     return element
   }
 
-  static async video(filePath: string, fileName: string = '', diyThumbPath: string = ''): Promise<SendVideoElement> {
+  export async function video(ctx: Context, filePath: string, fileName: string = '', diyThumbPath: string = ''): Promise<SendVideoElement> {
     try {
       await fs.stat(filePath)
     } catch (e) {
       throw `文件${filePath}异常，不存在`
     }
-    log('复制视频到QQ目录', filePath)
-    let { fileName: _fileName, path, fileSize, md5 } = await NTQQFileApi.uploadFile(filePath, ElementType.VIDEO)
+    ctx.logger.info('复制视频到QQ目录', filePath)
+    let { fileName: _fileName, path, fileSize, md5 } = await ctx.ntFileApi.uploadFile(filePath, ElementType.VIDEO)
 
-    log('复制视频到QQ目录完成', path)
+    ctx.logger.info('复制视频到QQ目录完成', path)
     if (fileSize === 0) {
       throw '文件异常，大小为0'
     }
@@ -153,19 +152,19 @@ export class SendMsgElementConstructor {
     }
     try {
       videoInfo = await getVideoInfo(path)
-      log('视频信息', videoInfo)
+      ctx.logger.info('视频信息', videoInfo)
     } catch (e) {
-      log('获取视频信息失败', e)
+      ctx.logger.info('获取视频信息失败', e)
     }
     const createThumb = new Promise<string>((resolve, reject) => {
       const thumbFileName = `${md5}_0.png`
       const thumbPath = pathLib.join(thumbDir, thumbFileName)
-      log('开始生成视频缩略图', filePath)
+      ctx.logger.info('开始生成视频缩略图', filePath)
       let completed = false
 
       function useDefaultThumb() {
         if (completed) return
-        log('获取视频封面失败，使用默认封面')
+        ctx.logger.info('获取视频封面失败，使用默认封面')
         fs.writeFile(thumbPath, defaultVideoThumb)
           .then(() => {
             resolve(thumbPath)
@@ -194,14 +193,14 @@ export class SendMsgElementConstructor {
           size: videoInfo.width + 'x' + videoInfo.height,
         })
         .on('end', () => {
-          log('生成视频缩略图', thumbPath)
+          ctx.logger.info('生成视频缩略图', thumbPath)
           completed = true
           resolve(thumbPath)
         })
     })
     let thumbPath = new Map()
     const _thumbPath = await createThumb
-    log('生成视频缩略图', _thumbPath)
+    ctx.logger.info('生成视频缩略图', _thumbPath)
     const thumbSize = (await fs.stat(_thumbPath)).size
     // log("生成缩略图", _thumbPath)
     thumbPath.set(0, _thumbPath)
@@ -232,17 +231,17 @@ export class SendMsgElementConstructor {
         // sourceVideoCodecFormat: 2
       },
     }
-    log('videoElement', element)
+    ctx.logger.info('videoElement', element)
     return element
   }
 
-  static async ptt(pttPath: string): Promise<SendPttElement> {
-    const { converted, path: silkPath, duration } = await encodeSilk(pttPath)
+  export async function ptt(ctx: Context, pttPath: string): Promise<SendPttElement> {
+    const { converted, path: silkPath, duration } = await encodeSilk(ctx, pttPath)
     if (!silkPath) {
       throw '语音转换失败, 请检查语音文件是否正常'
     }
     // log("生成语音", silkPath, duration);
-    const { md5, fileName, path, fileSize } = await NTQQFileApi.uploadFile(silkPath, ElementType.PTT)
+    const { md5, fileName, path, fileSize } = await ctx.ntFileApi.uploadFile(silkPath, ElementType.PTT)
     if (fileSize === 0) {
       throw '文件异常，大小为0'
     }
@@ -271,7 +270,7 @@ export class SendMsgElementConstructor {
     }
   }
 
-  static face(faceId: number): SendFaceElement {
+  export function face(faceId: number): SendFaceElement {
     // 从face_config.json中获取表情名称
     const sysFaces = faceConfig.sysface
     const emojiFaces = faceConfig.emoji
@@ -300,10 +299,12 @@ export class SendMsgElementConstructor {
     }
   }
 
-  static mface(emojiPackageId: number, emojiId: string, key: string, faceName: string): SendMarketFaceElement {
+  export function mface(emojiPackageId: number, emojiId: string, key: string, faceName: string): SendMarketFaceElement {
     return {
       elementType: ElementType.MFACE,
       marketFaceElement: {
+        imageWidth: 300,
+        imageHeight: 300,
         emojiPackageId,
         emojiId,
         key,
@@ -312,11 +313,11 @@ export class SendMsgElementConstructor {
     }
   }
 
-  static dice(resultId: number | null): SendFaceElement {
+  export function dice(resultId: number | null): SendFaceElement {
     // 实际测试并不能控制结果
 
     // 随机1到6
-    if (isNull(resultId)) resultId = Math.floor(Math.random() * 6) + 1
+    if (isNullable(resultId)) resultId = Math.floor(Math.random() * 6) + 1
     return {
       elementType: ElementType.FACE,
       elementId: '',
@@ -336,9 +337,9 @@ export class SendMsgElementConstructor {
   }
 
   // 猜拳(石头剪刀布)表情
-  static rps(resultId: number | null): SendFaceElement {
+  export function rps(resultId: number | null): SendFaceElement {
     // 实际测试并不能控制结果
-    if (isNull(resultId)) resultId = Math.floor(Math.random() * 3) + 1
+    if (isNullable(resultId)) resultId = Math.floor(Math.random() * 3) + 1
     return {
       elementType: ElementType.FACE,
       elementId: '',
@@ -357,7 +358,7 @@ export class SendMsgElementConstructor {
     }
   }
 
-  static ark(data: string): SendArkElement {
+  export function ark(data: string): SendArkElement {
     return {
       elementType: ElementType.ARK,
       elementId: '',

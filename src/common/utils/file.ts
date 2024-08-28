@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import fsPromise from 'node:fs/promises'
 import path from 'node:path'
-import { TEMP_DIR } from './index'
+import { TEMP_DIR } from '../globalVars'
 import { randomUUID, createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 
@@ -56,34 +56,6 @@ export function calculateFileMD5(filePath: string): Promise<string> {
   })
 }
 
-export interface HttpDownloadOptions {
-  url: string
-  headers?: Record<string, string> | string
-}
-export async function httpDownload(options: string | HttpDownloadOptions): Promise<Buffer> {
-  let url: string
-  let headers: Record<string, string> = {
-    'User-Agent':
-      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36',
-  }
-  if (typeof options === 'string') {
-    url = options
-  } else {
-    url = options.url
-    if (options.headers) {
-      if (typeof options.headers === 'string') {
-        headers = JSON.parse(options.headers)
-      } else {
-        headers = options.headers
-      }
-    }
-  }
-  const fetchRes = await fetch(url, { headers })
-  if (!fetchRes.ok) throw new Error(`下载文件失败: ${fetchRes.statusText}`)
-
-  return Buffer.from(await fetchRes.arrayBuffer())
-}
-
 export enum FileUriType {
   Unknown = 0,
   FileURL = 1,
@@ -117,10 +89,11 @@ interface FetchFileRes {
   url: string
 }
 
-async function fetchFile(url: string): Promise<FetchFileRes> {
+export async function fetchFile(url: string, headersInit?: Record<string, string>): Promise<FetchFileRes> {
   const headers: Record<string, string> = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36',
-    'Host': new URL(url).hostname
+    'Host': new URL(url).hostname,
+    ...headersInit
   }
   const raw = await fetch(url, { headers }).catch((err) => {
     if (err.cause) {
@@ -170,7 +143,7 @@ export async function uri2local(uri: string, filename?: string): Promise<Uri2Loc
       await fsPromise.writeFile(filePath, res.data)
       return { success: true, errMsg: '', fileName: filename, path: filePath, isLocal: false }
     } catch (e: any) {
-      const errMsg = `${uri}下载失败,` + e.toString()
+      const errMsg = `${uri} 下载失败, ${e.message}`
       return { success: false, errMsg, fileName: '', path: '', isLocal: false }
     }
   }

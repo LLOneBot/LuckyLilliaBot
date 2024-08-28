@@ -1,16 +1,5 @@
 import BaseAction from '../BaseAction'
-// import * as ntqqApi from "../../../ntqqapi/api";
-import {
-  NTQQMsgApi,
-  NTQQFriendApi,
-  NTQQGroupApi,
-  NTQQUserApi,
-  NTQQFileApi,
-  NTQQFileCacheApi,
-  NTQQWindowApi,
-} from '../../../ntqqapi/api'
 import { ActionName } from '../types'
-import { log } from '../../../common/utils/log'
 
 interface Payload {
   method: string
@@ -21,13 +10,13 @@ export default class Debug extends BaseAction<Payload, any> {
   actionName = ActionName.Debug
 
   protected async _handle(payload: Payload): Promise<any> {
-    log('debug call ntqq api', payload)
-    const ntqqApi = [NTQQMsgApi, NTQQFriendApi, NTQQGroupApi, NTQQUserApi, NTQQFileApi, NTQQFileCacheApi, NTQQWindowApi]
+    this.ctx.logger.info('debug call ntqq api', payload)
+    const { ntMsgApi, ntFileApi, ntFileCacheApi, ntFriendApi, ntGroupApi, ntUserApi, ntWindowApi } = this.ctx
+    const ntqqApi = [ntMsgApi, ntFriendApi, ntGroupApi, ntUserApi, ntFileApi, ntFileCacheApi, ntWindowApi]
     for (const ntqqApiClass of ntqqApi) {
-      //log('ntqqApiClass', ntqqApiClass)
-      const method = ntqqApiClass[payload.method]
+      const method = ntqqApiClass[payload.method] as Function
       if (method) {
-        const result = method(...payload.args)
+        const result = method.apply(ntqqApiClass, payload.args)
         if (method.constructor.name === 'AsyncFunction') {
           return await result
         }
@@ -35,8 +24,5 @@ export default class Debug extends BaseAction<Payload, any> {
       }
     }
     throw `${payload.method}方法 不存在`
-
-    // const info = await NTQQApi.getUserDetailInfo(friends[0].uid);
-    // return info
   }
 }

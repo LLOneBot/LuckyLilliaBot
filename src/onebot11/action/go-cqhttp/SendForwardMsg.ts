@@ -1,6 +1,7 @@
-import SendMsg, { convertMessage2List } from '../msg/SendMsg'
+import SendMsg from '../msg/SendMsg'
 import { OB11PostSendMsg } from '../../types'
 import { ActionName } from '../types'
+import { convertMessage2List } from '../../helper/createMessage'
 
 export class GoCQHTTPSendForwardMsg extends SendMsg {
   actionName = ActionName.GoCQHTTP_SendForwardMsg

@@ -1,12 +1,12 @@
-import { Peer } from '@/ntqqapi/types'
-import { createHash } from 'node:crypto'
-import { LimitedHashTable } from './table'
-import { DATA_DIR } from './index'
-import Database, { Tables } from 'minato'
-import SQLite from '@minatojs/driver-sqlite'
 import fsPromise from 'node:fs/promises'
 import fs from 'node:fs'
 import path from 'node:path'
+import Database, { Tables } from 'minato'
+import SQLite from '@minatojs/driver-sqlite'
+import { Peer } from '@/ntqqapi/types'
+import { createHash } from 'node:crypto'
+import { LimitedHashTable } from './table'
+import { DATA_DIR } from '../globalVars'
 import { FileCacheV2 } from '../types'
 
 interface SQLiteTables extends Tables {

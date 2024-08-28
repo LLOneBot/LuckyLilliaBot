@@ -1,11 +1,9 @@
 import BaseAction from '../BaseAction'
 import fsPromise from 'node:fs/promises'
 import { getConfigUtil } from '@/common/config'
-import { NTQQFileApi, NTQQGroupApi, NTQQUserApi, NTQQFriendApi, NTQQMsgApi } from '@/ntqqapi/api'
 import { ActionName } from '../types'
-import { UUIDConverter } from '@/common/utils/helper'
-import { Peer, ChatType, ElementType } from '@/ntqqapi/types'
-import { MessageUnique } from '@/common/utils/MessageUnique'
+import { Peer, ElementType } from '@/ntqqapi/types'
+import { MessageUnique } from '@/common/utils/messageUnique'
 
 export interface GetFilePayload {
   file: string // 文件名或者fileUuid
@@ -30,7 +28,7 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
     }
 
     if (fileCache?.length) {
-      const downloadPath = await NTQQFileApi.downloadMedia(
+      const downloadPath = await this.ctx.ntFileApi.downloadMedia(
         fileCache[0].msgId,
         fileCache[0].chatType,
         fileCache[0].peerUid,
@@ -50,7 +48,7 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
         guildId: ''
       }
       if (fileCache[0].elementType === ElementType.PIC) {
-        const msgList = await NTQQMsgApi.getMsgsByMsgId(peer, [fileCache[0].msgId])
+        const msgList = await this.ctx.ntMsgApi.getMsgsByMsgId(peer, [fileCache[0].msgId])
         if (msgList.msgList.length === 0) {
           throw new Error('msg not found')
         }
@@ -59,9 +57,9 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
         if (!findEle) {
           throw new Error('element not found')
         }
-        res.url = await NTQQFileApi.getImageUrl(findEle.picElement)
+        res.url = await this.ctx.ntFileApi.getImageUrl(findEle.picElement)
       } else if (fileCache[0].elementType === ElementType.VIDEO) {
-        res.url = await NTQQFileApi.getVideoUrl(peer, fileCache[0].msgId, fileCache[0].elementId)
+        res.url = await this.ctx.ntFileApi.getVideoUrl(peer, fileCache[0].msgId, fileCache[0].elementId)
       }
       if (enableLocalFile2Url && downloadPath && (res.file === res.url || res.url === undefined)) {
         try {

@@ -1,6 +1,4 @@
-// Electron 主进程 与 渲染进程 交互的桥梁
-
-import { CheckVersion, Config, LLOneBotError } from './common/types'
+import { CheckVersion, Config } from './common/types'
 import {
   CHANNEL_ERROR,
   CHANNEL_GET_CONFIG,
@@ -9,6 +7,7 @@ import {
   CHANNEL_SELECT_FILE,
   CHANNEL_SET_CONFIG,
   CHANNEL_UPDATE,
+  CHANNEL_SET_CONFIG_CONFIRMED,
 } from './common/channels'
 
 const { contextBridge } = require('electron')
@@ -24,8 +23,9 @@ const llonebot = {
   updateLLOneBot: async (): Promise<boolean> => {
     return ipcRenderer.invoke(CHANNEL_UPDATE)
   },
-  setConfig: (ask: boolean, config: Config) => {
-    ipcRenderer.send(CHANNEL_SET_CONFIG, ask, config)
+  setConfig: async (ask: boolean, config: Config) => {
+    const isSuccess = await ipcRenderer.invoke(CHANNEL_SET_CONFIG, ask, config)
+    if (isSuccess) ipcRenderer.send(CHANNEL_SET_CONFIG_CONFIRMED, config)
   },
   getConfig: async (): Promise<Config> => {
     return ipcRenderer.invoke(CHANNEL_GET_CONFIG)

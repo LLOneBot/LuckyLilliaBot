@@ -1,8 +1,9 @@
-import { version } from '../../version'
-import * as path from 'node:path'
-import * as fs from 'node:fs'
-import { copyFolder, httpDownload, log, PLUGIN_DIR, TEMP_DIR } from '.'
+import path from 'node:path'
 import compressing from 'compressing'
+import { writeFile } from 'node:fs/promises'
+import { version } from '../../version'
+import { copyFolder, log, fetchFile } from '.'
+import { PLUGIN_DIR, TEMP_DIR } from '../globalVars'
 
 const downloadMirrorHosts = ['https://mirror.ghproxy.com/']
 const checkVersionMirrorHosts = ['https://kkgithub.com']
@@ -10,9 +11,9 @@ const checkVersionMirrorHosts = ['https://kkgithub.com']
 export async function checkNewVersion() {
   const latestVersionText = await getRemoteVersion()
   const latestVersion = latestVersionText.split('.')
-  log('llonebot last version', latestVersion)
+  //log('llonebot last version', latestVersion)
   const currentVersion: string[] = version.split('.')
-  log('llonebot current version', currentVersion)
+  //log('llonebot current version', currentVersion)
   for (let k of [0, 1, 2]) {
     if (parseInt(latestVersion[k]) > parseInt(currentVersion[k])) {
       log('')
@@ -33,8 +34,8 @@ export async function upgradeLLOneBot() {
     // 多镜像下载
     for (const mirrorGithub of downloadMirrorHosts) {
       try {
-        const buffer = await httpDownload(mirrorGithub + downloadUrl)
-        fs.writeFileSync(filePath, buffer)
+        const res = await fetchFile(mirrorGithub + downloadUrl)
+        await writeFile(filePath, res.data)
         downloadSuccess = true
         break
       } catch (e) {
@@ -88,10 +89,10 @@ export async function getRemoteVersionByMirror(mirrorGithub: string) {
   let releasePage = 'error'
 
   try {
-    releasePage = (await httpDownload(mirrorGithub + '/LLOneBot/LLOneBot/releases')).toString()
+    releasePage = (await fetchFile(mirrorGithub + '/LLOneBot/LLOneBot/releases')).data.toString()
     // log("releasePage", releasePage);
     if (releasePage === 'error') return ''
     return releasePage.match(new RegExp('(?<=(tag/v)).*?(?=("))'))?.[0]
-  } catch {}
+  } catch { }
   return ''
 }

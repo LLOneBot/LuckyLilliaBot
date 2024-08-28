@@ -1,16 +1,12 @@
-// handle quick action, create at 2024-5-18 10:54:39 by linyuchen
-
-
 import { OB11Message, OB11MessageAt, OB11MessageData, OB11MessageDataType } from '../types'
 import { OB11FriendRequestEvent } from '../event/request/OB11FriendRequest'
 import { OB11GroupRequestEvent } from '../event/request/OB11GroupRequest'
-import { NTQQFriendApi, NTQQGroupApi, NTQQMsgApi, NTQQUserApi } from '@/ntqqapi/api'
 import { ChatType, GroupRequestOperateTypes, Peer } from '@/ntqqapi/types'
-import { convertMessage2List, createSendElements, sendMsg } from './msg/SendMsg'
-import { isNull, log } from '@/common/utils'
+import { convertMessage2List, createSendElements, sendMsg } from '../helper/createMessage'
 import { getConfigUtil } from '@/common/config'
-import { MessageUnique } from '@/common/utils/MessageUnique'
-
+import { MessageUnique } from '@/common/utils/messageUnique'
+import { isNullable } from 'cosmokit'
+import { Context } from 'cordis'
 
 interface QuickOperationPrivateMessage {
   reply?: string
@@ -24,7 +20,6 @@ interface QuickOperationGroupMessage extends QuickOperationPrivateMessage {
   kick?: boolean
   ban?: boolean
   ban_duration?: number
-  //
 }
 
 interface QuickOperationFriendRequest {
@@ -44,23 +39,23 @@ export type QuickOperation = QuickOperationPrivateMessage &
 
 export type QuickOperationEvent = OB11Message | OB11FriendRequestEvent | OB11GroupRequestEvent;
 
-export async function handleQuickOperation(context: QuickOperationEvent, quickAction: QuickOperation) {
-  if (context.post_type === 'message') {
-    handleMsg(context as OB11Message, quickAction).then().catch(log)
+export async function handleQuickOperation(ctx: Context, event: QuickOperationEvent, quickAction: QuickOperation) {
+  if (event.post_type === 'message') {
+    handleMsg(ctx, event as OB11Message, quickAction).then().catch(e => ctx.logger.error(e))
   }
-  if (context.post_type === 'request') {
-    const friendRequest = context as OB11FriendRequestEvent
-    const groupRequest = context as OB11GroupRequestEvent
+  if (event.post_type === 'request') {
+    const friendRequest = event as OB11FriendRequestEvent
+    const groupRequest = event as OB11GroupRequestEvent
     if ((friendRequest).request_type === 'friend') {
-      handleFriendRequest(friendRequest, quickAction).then().catch(log)
+      handleFriendRequest(ctx, friendRequest, quickAction).then().catch(e => ctx.logger.error(e))
     }
     else if (groupRequest.request_type === 'group') {
-      handleGroupRequest(groupRequest, quickAction).then().catch(log)
+      handleGroupRequest(ctx, groupRequest, quickAction).then().catch(e => ctx.logger.error(e))
     }
   }
 }
 
-async function handleMsg(msg: OB11Message, quickAction: QuickOperationPrivateMessage | QuickOperationGroupMessage) {
+async function handleMsg(ctx: Context, msg: OB11Message, quickAction: QuickOperationPrivateMessage | QuickOperationGroupMessage) {
   const reply = quickAction.reply
   const ob11Config = getConfigUtil().getConfig().ob11
   const peer: Peer = {
@@ -68,7 +63,7 @@ async function handleMsg(msg: OB11Message, quickAction: QuickOperationPrivateMes
     peerUid: msg.user_id.toString(),
   }
   if (msg.message_type == 'private') {
-    peer.peerUid = (await NTQQUserApi.getUidByUin(msg.user_id.toString()))!
+    peer.peerUid = (await ctx.ntUserApi.getUidByUin(msg.user_id.toString()))!
     if (msg.sub_type === 'group') {
       peer.chatType = ChatType.temp
     }
@@ -99,8 +94,8 @@ async function handleMsg(msg: OB11Message, quickAction: QuickOperationPrivateMes
       }
     }
     replyMessage = replyMessage.concat(convertMessage2List(reply, quickAction.auto_escape))
-    const { sendElements, deleteAfterSentFiles } = await createSendElements(replyMessage, peer)
-    sendMsg(peer, sendElements, deleteAfterSentFiles, false).then().catch(log)
+    const { sendElements, deleteAfterSentFiles } = await createSendElements(ctx, replyMessage, peer)
+    sendMsg(ctx, peer, sendElements, deleteAfterSentFiles, false).catch(e => ctx.logger.error(e))
   }
   if (msg.message_type === 'group') {
     const groupMsgQuickAction = quickAction as QuickOperationGroupMessage
@@ -108,40 +103,38 @@ async function handleMsg(msg: OB11Message, quickAction: QuickOperationPrivateMes
     if (!rawMessage) return
     // handle group msg
     if (groupMsgQuickAction.delete) {
-      NTQQMsgApi.recallMsg(peer, [rawMessage.MsgId]).then().catch(log)
+      ctx.ntMsgApi.recallMsg(peer, [rawMessage.MsgId]).catch(e => ctx.logger.error(e))
     }
     if (groupMsgQuickAction.kick) {
-      const { msgList } = await NTQQMsgApi.getMsgsByMsgId(peer, [rawMessage.MsgId])
-      NTQQGroupApi.kickMember(peer.peerUid, [msgList[0].senderUid]).then().catch(log)
+      const { msgList } = await ctx.ntMsgApi.getMsgsByMsgId(peer, [rawMessage.MsgId])
+      ctx.ntGroupApi.kickMember(peer.peerUid, [msgList[0].senderUid]).catch(e => ctx.logger.error(e))
     }
     if (groupMsgQuickAction.ban) {
-      const { msgList } = await NTQQMsgApi.getMsgsByMsgId(peer, [rawMessage.MsgId])
-      NTQQGroupApi.banMember(peer.peerUid, [
+      const { msgList } = await ctx.ntMsgApi.getMsgsByMsgId(peer, [rawMessage.MsgId])
+      ctx.ntGroupApi.banMember(peer.peerUid, [
         {
           uid: msgList[0].senderUid,
           timeStamp: groupMsgQuickAction.ban_duration || 60 * 30,
         },
-      ]).then().catch(log)
+      ]).catch(e => ctx.logger.error(e))
     }
   }
 }
 
-async function handleFriendRequest(request: OB11FriendRequestEvent,
-  quickAction: QuickOperationFriendRequest) {
-  if (!isNull(quickAction.approve)) {
+async function handleFriendRequest(ctx: Context, request: OB11FriendRequestEvent, quickAction: QuickOperationFriendRequest) {
+  if (!isNullable(quickAction.approve)) {
     // todo: set remark
-    NTQQFriendApi.handleFriendRequest(request.flag, quickAction.approve).then().catch(log)
+    ctx.ntFriendApi.handleFriendRequest(request.flag, quickAction.approve).catch(e => ctx.logger.error(e))
   }
 }
 
 
-async function handleGroupRequest(request: OB11GroupRequestEvent,
-  quickAction: QuickOperationGroupRequest) {
-  if (!isNull(quickAction.approve)) {
-    NTQQGroupApi.handleGroupRequest(
+async function handleGroupRequest(ctx: Context, request: OB11GroupRequestEvent, quickAction: QuickOperationGroupRequest) {
+  if (!isNullable(quickAction.approve)) {
+    ctx.ntGroupApi.handleGroupRequest(
       request.flag,
       quickAction.approve ? GroupRequestOperateTypes.approve : GroupRequestOperateTypes.reject,
       quickAction.reason,
-    ).then().catch(log)
+    ).catch(e => ctx.logger.error(e))
   }
 }
