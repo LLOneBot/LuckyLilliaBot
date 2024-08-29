@@ -43,14 +43,49 @@ export class NTQQFileApi extends Service {
     this.rkeyManager = new RkeyManager(ctx, 'http://napcat-sign.wumiao.wang:2082/rkey')
   }
 
-  /** 27187 TODO */
   async getVideoUrl(peer: Peer, msgId: string, elementId: string) {
     const session = getSession()
-    return (await session?.getRichMediaService().getVideoPlayUrlV2(peer,
-      msgId,
-      elementId,
-      0,
-      { downSourceType: 1, triggerType: 1 }))?.urlResult.domainUrl[0].url
+    if (session) {
+      return (await session.getRichMediaService().getVideoPlayUrlV2(
+        peer,
+        msgId,
+        elementId,
+        0,
+        { downSourceType: 1, triggerType: 1 }
+      )).urlResult.domainUrl[0]?.url
+    } else {
+      const data = await invoke<GeneralCallResult & {
+        urlResult: {
+          v4IpUrl: []
+          v6IpUrl: []
+          domainUrl: {
+            url: string
+            isHttps: boolean
+            httpsDomain: string
+          }[]
+          videoCodecFormat: number
+        }
+      }>({
+        methodName: 'nodeIKernelRichMediaService/getVideoPlayUrlV2',
+        args: [
+          {
+            peer,
+            msgId,
+            elemId: elementId,
+            videoCodecFormat: 0,
+            exParams: {
+              downSourceType: 1,
+              triggerType: 1
+            },
+          },
+          null,
+        ],
+      })
+      if (data.result !== 0) {
+        this.ctx.logger.warn('getVideoUrl', data)
+      }
+      return data.urlResult.domainUrl[0]?.url
+    }
   }
 
   async getFileType(filePath: string) {

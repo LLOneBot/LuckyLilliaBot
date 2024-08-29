@@ -205,7 +205,7 @@ function onBrowserWindowCreated(window: BrowserWindow) {
   if (window.id === 2) {
     mainWindow = window
   }
-  log('window create', window.webContents.getURL().toString())
+  //log('window create', window.webContents.getURL().toString())
   try {
     hookNTQQApiCall(window, window.id !== 2)
     hookNTQQApiReceive(window, window.id !== 2)

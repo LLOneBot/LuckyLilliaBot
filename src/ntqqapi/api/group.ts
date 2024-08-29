@@ -157,12 +157,6 @@ export class NTQQGroupApi extends Service {
     }
   }
 
-  /** 27187 TODO */
-  async delGroupFile(groupCode: string, files: string[]) {
-    const session = getSession()
-    return session?.getRichMediaService().deleteGroupFile(groupCode, [102], files)
-  }
-
   async handleGroupRequest(flag: string, operateType: GroupRequestOperateTypes, reason?: string) {
     const flagitem = flag.split('|')
     const groupCode = flagitem[0]
@@ -403,6 +397,20 @@ export class NTQQGroupApi extends Service {
         {
           groupId,
           folderId
+        },
+        null,
+      ],
+    })
+  }
+
+  async deleteGroupFile(groupId: string, fileIdList: string[]) {
+    return await invoke({
+      methodName: 'nodeIKernelRichMediaService/deleteGroupFile',
+      args: [
+        {
+          groupId,
+          busIdList: [102],
+          fileIdList
         },
         null,
       ],
