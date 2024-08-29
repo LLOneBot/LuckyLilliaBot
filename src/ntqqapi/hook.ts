@@ -56,7 +56,7 @@ const callHooks: Array<{
   hookFunc: (callParams: unknown[]) => void | Promise<void>
 }> = []
 
-export function hookNTQQApiReceive(window: BrowserWindow) {
+export function hookNTQQApiReceive(window: BrowserWindow, onlyLog: boolean) {
   const originalSend = window.webContents.send
   const patchSend = (channel: string, ...args: NTQQApiReturnData) => {
     try {
@@ -65,34 +65,36 @@ export function hookNTQQApiReceive(window: BrowserWindow) {
         log(`received ntqq api message: ${channel}`, args)
       }
     } catch { }
-    if (args?.[1] instanceof Array) {
-      for (const receiveData of args?.[1]) {
-        const ntQQApiMethodName = receiveData.cmdName
-        // log(`received ntqq api message: ${channel} ${ntQQApiMethodName}`, JSON.stringify(receiveData))
-        for (const hook of receiveHooks) {
-          if (hook.method.includes(ntQQApiMethodName)) {
-            new Promise((resolve, reject) => {
-              try {
-                hook.hookFunc(receiveData.payload)
-              } catch (e: any) {
-                log('hook error', ntQQApiMethodName, e.stack.toString())
-              }
-              resolve(undefined)
-            }).then()
+    if (!onlyLog) {
+      if (args?.[1] instanceof Array) {
+        for (const receiveData of args?.[1]) {
+          const ntQQApiMethodName = receiveData.cmdName
+          // log(`received ntqq api message: ${channel} ${ntQQApiMethodName}`, JSON.stringify(receiveData))
+          for (const hook of receiveHooks) {
+            if (hook.method.includes(ntQQApiMethodName)) {
+              new Promise((resolve, reject) => {
+                try {
+                  hook.hookFunc(receiveData.payload)
+                } catch (e: any) {
+                  log('hook error', ntQQApiMethodName, e.stack.toString())
+                }
+                resolve(undefined)
+              }).then()
+            }
           }
         }
       }
-    }
-    if (args[0]?.callbackId) {
-      // log("hookApiCallback", hookApiCallbacks, args)
-      const callbackId = args[0].callbackId
-      if (hookApiCallbacks[callbackId]) {
-        // log("callback found")
-        new Promise((resolve, reject) => {
-          hookApiCallbacks[callbackId](args[1])
-          resolve(undefined)
-        }).then()
-        delete hookApiCallbacks[callbackId]
+      if (args[0]?.callbackId) {
+        // log("hookApiCallback", hookApiCallbacks, args)
+        const callbackId = args[0].callbackId
+        if (hookApiCallbacks[callbackId]) {
+          // log("callback found")
+          new Promise((resolve, reject) => {
+            hookApiCallbacks[callbackId](args[1])
+            resolve(undefined)
+          }).then()
+          delete hookApiCallbacks[callbackId]
+        }
       }
     }
     originalSend.call(window.webContents, channel, ...args)
@@ -100,7 +102,7 @@ export function hookNTQQApiReceive(window: BrowserWindow) {
   window.webContents.send = patchSend
 }
 
-export function hookNTQQApiCall(window: BrowserWindow) {
+export function hookNTQQApiCall(window: BrowserWindow, onlyLog: boolean) {
   // 监听调用NTQQApi
   let webContents = window.webContents as any
   const ipc_message_proxy = webContents._events['-ipc-message']?.[0] || webContents._events['-ipc-message']
@@ -116,23 +118,25 @@ export function hookNTQQApiCall(window: BrowserWindow) {
         try {
           logHook && log('call NTQQ api', thisArg, args)
         } catch (e) { }
-        try {
-          const _args: unknown[] = args[3][1]
-          const cmdName: NTMethod = _args[0] as NTMethod
-          const callParams = _args.slice(1)
-          callHooks.forEach((hook) => {
-            if (hook.method.includes(cmdName)) {
-              new Promise((resolve, reject) => {
-                try {
-                  hook.hookFunc(callParams)
-                } catch (e: any) {
-                  log('hook call error', e, _args)
-                }
-                resolve(undefined)
-              }).then()
-            }
-          })
-        } catch (e) { }
+        if (!onlyLog) {
+          try {
+            const _args: unknown[] = args[3][1]
+            const cmdName: NTMethod = _args[0] as NTMethod
+            const callParams = _args.slice(1)
+            callHooks.forEach((hook) => {
+              if (hook.method.includes(cmdName)) {
+                new Promise((resolve, reject) => {
+                  try {
+                    hook.hookFunc(callParams)
+                  } catch (e: any) {
+                    log('hook call error', e, _args)
+                  }
+                  resolve(undefined)
+                }).then()
+              }
+            })
+          } catch (e) { }
+        }
       }
       return target.apply(thisArg, args)
     },

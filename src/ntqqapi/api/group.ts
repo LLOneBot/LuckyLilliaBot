@@ -382,4 +382,30 @@ export class NTQQGroupApi extends Service {
     // GetMsgByShoretID(ShoretID) -> MsgService.getMsgs(Peer,MsgId,1,false) -> 组出参数
     return session?.getGroupService().addGroupEssence(param)
   }
+
+  async createGroupFileFolder(groupId: string, folderName: string) {
+    return await invoke({
+      methodName: 'nodeIKernelRichMediaService/createGroupFolder',
+      args: [
+        {
+          groupId,
+          folderName
+        },
+        null,
+      ],
+    })
+  }
+
+  async deleteGroupFileFolder(groupId: string, folderId: string) {
+    return await invoke({
+      methodName: 'nodeIKernelRichMediaService/deleteGroupFolder',
+      args: [
+        {
+          groupId,
+          folderId
+        },
+        null,
+      ],
+    })
+  }
 }

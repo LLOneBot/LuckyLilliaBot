@@ -89,9 +89,10 @@ export enum NTMethod {
 }
 
 export enum NTChannel {
+  IPC_UP_1 = 'IPC_UP_1',
   IPC_UP_2 = 'IPC_UP_2',
   IPC_UP_3 = 'IPC_UP_3',
-  IPC_UP_1 = 'IPC_UP_1',
+  IPC_UP_4 = 'IPC_UP_4'
 }
 
 interface InvokeParams<ReturnType> {

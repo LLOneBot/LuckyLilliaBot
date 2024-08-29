@@ -1,5 +1,5 @@
-import { GroupNotify, GroupNotifyStatus } from '@/ntqqapi/types'
 import BaseAction from '../BaseAction'
+import { GroupNotify, GroupNotifyStatus } from '@/ntqqapi/types'
 import { ActionName } from '../types'
 
 interface OB11GroupRequestNotify {
@@ -13,7 +13,7 @@ export default class GetGroupAddRequest extends BaseAction<null, OB11GroupReques
 
   protected async _handle(payload: null): Promise<OB11GroupRequestNotify[]> {
     const data = await this.ctx.ntGroupApi.getGroupIgnoreNotifies()
-    const notifies: GroupNotify[] = data.notifies.filter((notify) => notify.status === GroupNotifyStatus.WAIT_HANDLE)
+    const notifies: GroupNotify[] = data.notifies.filter((notify) => notify.status === GroupNotifyStatus.KUNHANDLE)
     const returnData: OB11GroupRequestNotify[] = []
     for (const notify of notifies) {
       const uin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)

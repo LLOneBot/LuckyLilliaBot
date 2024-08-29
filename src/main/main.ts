@@ -199,14 +199,16 @@ function onLoad() {
 
 // 创建窗口时触发
 function onBrowserWindowCreated(window: BrowserWindow) {
-  if (window.id !== 2) {
+  if (![2, 4].includes(window.id)) {
     return
   }
-  mainWindow = window
+  if (window.id === 2) {
+    mainWindow = window
+  }
   log('window create', window.webContents.getURL().toString())
   try {
-    hookNTQQApiCall(window)
-    hookNTQQApiReceive(window)
+    hookNTQQApiCall(window, window.id !== 2)
+    hookNTQQApiReceive(window, window.id !== 2)
   } catch (e: any) {
     log('LLOneBot hook error: ', e.toString())
   }

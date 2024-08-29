@@ -1,3 +1,4 @@
+import type Adapter from '../adapter'
 import GetMsg from './msg/GetMsg'
 import GetLoginInfo from './system/GetLoginInfo'
 import { GetFriendList, GetFriendWithCategory } from './user/GetFriendList'
@@ -54,7 +55,9 @@ import GoCQHTTPSetEssenceMsg from './go-cqhttp/SetEssenceMsg'
 import GoCQHTTPDelEssenceMsg from './go-cqhttp/DelEssenceMsg'
 import GetEvent from './llonebot/GetEvent'
 import { GoCQHTTPDelGroupFile } from './go-cqhttp/DelGroupFile'
-import type Adapter from '../adapter'
+import { GoCQHTTPGetGroupSystemMsg } from './go-cqhttp/GetGroupSystemMsg'
+import { GoCQHTTPCreateGroupFileFolder } from './go-cqhttp/CreateGroupFileFolder'
+import { GoCQHTTPDelGroupFolder } from './go-cqhttp/DelGroupFolder'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -116,7 +119,10 @@ export function initActionMap(adapter: Adapter) {
     new GoCQHTTHandleQuickOperation(adapter),
     new GoCQHTTPSetEssenceMsg(adapter),
     new GoCQHTTPDelEssenceMsg(adapter),
-    new GoCQHTTPDelGroupFile(adapter)
+    new GoCQHTTPDelGroupFile(adapter),
+    new GoCQHTTPGetGroupSystemMsg(adapter),
+    new GoCQHTTPCreateGroupFileFolder(adapter),
+    new GoCQHTTPDelGroupFolder(adapter)
   ]
   const actionMap = new Map<string, BaseAction<any, any>>()
   for (const action of actionHandlers) {

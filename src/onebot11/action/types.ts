@@ -74,4 +74,7 @@ export enum ActionName {
   GoCQHTTP_SetEssenceMsg = 'set_essence_msg',
   GoCQHTTP_DelEssenceMsg = 'delete_essence_msg',
   GoCQHTTP_DelGroupFile = 'delete_group_file',
+  GoCQHTTP_GetGroupSystemMsg = 'get_group_system_msg',
+  GoCQHTTP_CreateGroupFileFolder = 'create_group_file_folder',
+  GoCQHTTP_DelGroupFolder = 'delete_group_folder'
 }
