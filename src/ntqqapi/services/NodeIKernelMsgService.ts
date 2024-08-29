@@ -110,8 +110,6 @@ export interface NodeIKernelMsgService {
 
   resendMsg(...args: unknown[]): unknown
 
-  recallMsg(...args: unknown[]): unknown
-
   reeditRecallMsg(...args: unknown[]): unknown
   //调用请检查除开commentElements其余参数不能为null
   forwardMsg(msgIds: string[], srcContact: Peer, dstContacts: Peer[], commentElements: MessageElement[]): Promise<GeneralCallResult>

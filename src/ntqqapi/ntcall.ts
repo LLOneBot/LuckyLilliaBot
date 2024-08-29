@@ -2,7 +2,20 @@ import { ipcMain } from 'electron'
 import { hookApiCallbacks, registerReceiveHook, removeReceiveHook } from './hook'
 import { log } from '../common/utils/legacyLog'
 import { randomUUID } from 'node:crypto'
-import { GeneralCallResult } from './services'
+import {
+  GeneralCallResult,
+  NodeIKernelBuddyService,
+  NodeIKernelProfileService,
+  NodeIKernelGroupService,
+  NodeIKernelProfileLikeService,
+  NodeIKernelMsgService,
+  NodeIKernelMSFService,
+  NodeIKernelUixConvertService,
+  NodeIKernelRichMediaService,
+  NodeIKernelTicketService,
+  NodeIKernelTipOffService,
+  NodeIKernelSearchService,
+} from './services'
 
 export enum NTClass {
   NT_API = 'ns-ntApi',
@@ -95,35 +108,52 @@ export enum NTChannel {
   IPC_UP_4 = 'IPC_UP_4'
 }
 
-interface InvokeParams<ReturnType> {
-  methodName: string
+interface NTService {
+  nodeIKernelBuddyService: NodeIKernelBuddyService
+  nodeIKernelProfileService: NodeIKernelProfileService
+  nodeIKernelGroupService: NodeIKernelGroupService
+  nodeIKernelProfileLikeService: NodeIKernelProfileLikeService
+  nodeIKernelMsgService: NodeIKernelMsgService
+  nodeIKernelMSFService: NodeIKernelMSFService
+  nodeIKernelUixConvertService: NodeIKernelUixConvertService
+  nodeIKernelRichMediaService: NodeIKernelRichMediaService
+  nodeIKernelTicketService: NodeIKernelTicketService
+  nodeIKernelTipOffService: NodeIKernelTipOffService
+  nodeIKernelSearchService: NodeIKernelSearchService
+}
+
+interface InvokeOptions<ReturnType> {
   className?: NTClass
   channel?: NTChannel
   classNameIsRegister?: boolean
-  args?: unknown[]
   cbCmd?: string | string[]
   cmdCB?: (payload: ReturnType) => boolean
   afterFirstCmd?: boolean // 是否在methodName调用完之后再去hook cbCmd
   timeout?: number
 }
 
-export function invoke<ReturnType>(params: InvokeParams<ReturnType>) {
-  const className = params.className ?? NTClass.NT_API
-  const channel = params.channel ?? NTChannel.IPC_UP_2
-  const timeout = params.timeout ?? 5000
-  const afterFirstCmd = params.afterFirstCmd ?? true
+export function invoke<
+  R extends Awaited<ReturnType<NTService[S][M] extends (...args: any) => any ? NTService[S][M] : any>>,
+  S extends keyof NTService = any,
+  M extends keyof NTService[S] & string = any,
+  O = string
+>(method: `${O extends `${S}/${M}` ? `${S}/${M}` : string}`, args?: unknown[], options?: InvokeOptions<R>) {
+  const className = options?.className ?? NTClass.NT_API
+  const channel = options?.channel ?? NTChannel.IPC_UP_2
+  const timeout = options?.timeout ?? 5000
+  const afterFirstCmd = options?.afterFirstCmd ?? true
   const uuid = randomUUID()
   let eventName = className + '-' + channel[channel.length - 1]
-  if (params.classNameIsRegister) {
+  if (options?.classNameIsRegister) {
     eventName += '-register'
   }
-  const apiArgs = [params.methodName, ...(params.args ?? [])]
+  const apiArgs = [method, ...(args ?? [])]
   //log('callNTQQApi', channel, eventName, apiArgs, uuid)
-  return new Promise((resolve: (data: ReturnType) => void, reject) => {
+  return new Promise((resolve: (data: R) => void, reject) => {
     let success = false
-    if (!params.cbCmd) {
+    if (!options?.cbCmd) {
       // QQ后端会返回结果，并且可以根据uuid识别
-      hookApiCallbacks[uuid] = (r: ReturnType) => {
+      hookApiCallbacks[uuid] = (r: R) => {
         success = true
         resolve(r)
       }
@@ -131,10 +161,10 @@ export function invoke<ReturnType>(params: InvokeParams<ReturnType>) {
     else {
       // 这里的callback比较特殊，QQ后端先返回是否调用成功，再返回一条结果数据
       const secondCallback = () => {
-        const hookId = registerReceiveHook<ReturnType>(params.cbCmd!, (payload) => {
+        const hookId = registerReceiveHook<R>(options.cbCmd!, (payload) => {
           // log(methodName, "second callback", cbCmd, payload, cmdCB);
-          if (!!params.cmdCB) {
-            if (params.cmdCB(payload)) {
+          if (!!options.cmdCB) {
+            if (options.cmdCB(payload)) {
               removeReceiveHook(hookId)
               success = true
               resolve(payload)
@@ -154,15 +184,15 @@ export function invoke<ReturnType>(params: InvokeParams<ReturnType>) {
           afterFirstCmd && secondCallback()
         }
         else {
-          log('ntqq api call failed,', params.methodName, result)
-          reject(`ntqq api call failed, ${params.methodName}, ${result.errMsg}`)
+          log('ntqq api call failed,', method, result)
+          reject(`ntqq api call failed, ${method}, ${result.errMsg}`)
         }
       }
     }
     setTimeout(() => {
       if (!success) {
-        log(`ntqq api timeout ${channel}, ${eventName}, ${params.methodName}`, apiArgs)
-        reject(`ntqq api timeout ${channel}, ${eventName}, ${params.methodName}, ${apiArgs}`)
+        log(`ntqq api timeout ${channel}, ${eventName}, ${method}`, apiArgs)
+        reject(`ntqq api timeout ${channel}, ${eventName}, ${method}, ${apiArgs}`)
       }
     }, timeout)
 

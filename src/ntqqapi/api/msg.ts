@@ -1,5 +1,5 @@
 import { invoke, NTMethod } from '../ntcall'
-import { GeneralCallResult, TmpChatInfoApi } from '../services'
+import { GeneralCallResult } from '../services'
 import { RawMessage, SendMessageElement, Peer, ChatType2 } from '../types'
 import { getSession } from '@/ntqqapi/wrapper'
 import { NTEventDispatch } from '@/common/utils/eventTask'
@@ -23,6 +23,8 @@ function generateMsgId() {
 }
 
 export class NTQQMsgApi extends Service {
+  static inject = ['ntUserApi']
+
   constructor(protected ctx: Context) {
     super(ctx, 'ntMsgApi', true)
   }
@@ -32,41 +34,20 @@ export class NTQQMsgApi extends Service {
     if (session) {
       return session.getMsgService().getTempChatInfo(chatType, peerUid)
     } else {
-      return await invoke<TmpChatInfoApi>({
-        methodName: 'nodeIKernelMsgService/getTempChatInfo',
-        args: [
-          {
-            chatType,
-            peerUid,
-          },
-          null,
-        ],
-      })
+      return await invoke('nodeIKernelMsgService/getTempChatInfo', [{ chatType, peerUid }, null])
     }
   }
 
-  async setEmojiLike(peer: Peer, msgSeq: string, emojiId: string, set: boolean = true) {
+  async setEmojiLike(peer: Peer, msgSeq: string, emojiId: string, setEmoji: boolean = true) {
     // nt_qq//global//nt_data//Emoji//emoji-resource//sysface_res/apng/ 下可以看到所有QQ表情预览
     // nt_qq\global\nt_data\Emoji\emoji-resource\face_config.json 里面有所有表情的id, 自带表情id是QSid, 标准emoji表情id是QCid
     // 其实以官方文档为准是最好的，https://bot.q.qq.com/wiki/develop/api-v2/openapi/emoji/model.html#EmojiType
-    emojiId = emojiId.toString()
     const session = getSession()
+    const emojiType = emojiId.length > 3 ? '2' : '1'
     if (session) {
-      return session.getMsgService().setMsgEmojiLikes(peer, msgSeq, emojiId, emojiId.length > 3 ? '2' : '1', set)
+      return session.getMsgService().setMsgEmojiLikes(peer, msgSeq, emojiId, emojiType, setEmoji)
     } else {
-      return await invoke({
-        methodName: NTMethod.EMOJI_LIKE,
-        args: [
-          {
-            peer,
-            msgSeq,
-            emojiId,
-            emojiType: emojiId.length > 3 ? '2' : '1',
-            setEmoji: set,
-          },
-          null,
-        ],
-      })
+      return await invoke(NTMethod.EMOJI_LIKE, [{ peer, msgSeq, emojiId, emojiType, setEmoji }, null])
     }
   }
 
@@ -75,33 +56,16 @@ export class NTQQMsgApi extends Service {
     if (session) {
       return session.getMsgService().getMultiMsg(peer, rootMsgId, parentMsgId)
     } else {
-      return await invoke<GeneralCallResult & { msgList: RawMessage[] }>({
-        methodName: NTMethod.GET_MULTI_MSG,
-        args: [
-          {
-            peer,
-            rootMsgId,
-            parentMsgId,
-          },
-          null,
-        ],
-      })
+      return await invoke(NTMethod.GET_MULTI_MSG, [{ peer, rootMsgId, parentMsgId }, null])
     }
   }
 
   async activateChat(peer: Peer) {
-    return await invoke<GeneralCallResult>({
-      methodName: NTMethod.ACTIVE_CHAT_PREVIEW,
-      args: [{ peer, cnt: 20 }, null],
-    })
+    return await invoke<GeneralCallResult>(NTMethod.ACTIVE_CHAT_PREVIEW, [{ peer, cnt: 20 }, null])
   }
 
   async activateChatAndGetHistory(peer: Peer) {
-    return await invoke<GeneralCallResult>({
-      methodName: NTMethod.ACTIVE_CHAT_HISTORY,
-      // 参数似乎不是这样
-      args: [{ peer, cnt: 20 }, null],
-    })
+    return await invoke<GeneralCallResult>(NTMethod.ACTIVE_CHAT_HISTORY, [{ peer, cnt: 20 }, null])
   }
 
   async getMsgsByMsgId(peer: Peer | undefined, msgIds: string[] | undefined) {
@@ -111,60 +75,26 @@ export class NTQQMsgApi extends Service {
     if (session) {
       return session.getMsgService().getMsgsByMsgId(peer, msgIds)
     } else {
-      return await invoke<GeneralCallResult & {
-        msgList: RawMessage[]
-      }>({
-        methodName: 'nodeIKernelMsgService/getMsgsByMsgId',
-        args: [
-          {
-            peer,
-            msgIds,
-          },
-          null,
-        ],
-      })
+      return await invoke('nodeIKernelMsgService/getMsgsByMsgId', [{ peer, msgIds }, null])
     }
   }
 
-  async getMsgHistory(peer: Peer, msgId: string, count: number, isReverseOrder: boolean = false) {
+  async getMsgHistory(peer: Peer, msgId: string, cnt: number, isReverseOrder: boolean = false) {
     const session = getSession()
     // 消息时间从旧到新
     if (session) {
-      return session.getMsgService().getMsgsIncludeSelf(peer, msgId, count, isReverseOrder)
+      return session.getMsgService().getMsgsIncludeSelf(peer, msgId, cnt, isReverseOrder)
     } else {
-      return await invoke<GeneralCallResult & { msgList: RawMessage[] }>({
-        methodName: NTMethod.HISTORY_MSG,
-        args: [
-          {
-            peer,
-            msgId,
-            cnt: count,
-            queryOrder: isReverseOrder,
-          },
-          null,
-        ],
-      })
+      return await invoke(NTMethod.HISTORY_MSG, [{ peer, msgId, cnt, queryOrder: isReverseOrder }, null])
     }
   }
 
   async recallMsg(peer: Peer, msgIds: string[]) {
     const session = getSession()
     if (session) {
-      return session.getMsgService().recallMsg({
-        chatType: peer.chatType,
-        peerUid: peer.peerUid
-      }, msgIds)
+      return session.getMsgService().recallMsg(peer, msgIds)
     } else {
-      return await invoke({
-        methodName: NTMethod.RECALL_MSG,
-        args: [
-          {
-            peer,
-            msgIds,
-          },
-          null,
-        ],
-      })
+      return await invoke(NTMethod.RECALL_MSG, [{ peer, msgIds }, null])
     }
   }
 
@@ -196,19 +126,9 @@ export class NTQQMsgApi extends Service {
       )
       msgList = data[1]
     } else {
-      const data = await invoke<{ msgList: RawMessage[] }>({
-        methodName: 'nodeIKernelMsgService/sendMsg',
-        cbCmd: 'nodeIKernelMsgListener/onMsgInfoListUpdate',
-        afterFirstCmd: false,
-        cmdCB: payload => {
-          for (const msgRecord of payload.msgList) {
-            if (msgRecord.guildId === msgId && msgRecord.sendStatus === 2) {
-              return true
-            }
-          }
-          return false
-        },
-        args: [
+      const data = await invoke<{ msgList: RawMessage[] }>(
+        'nodeIKernelMsgService/sendMsg',
+        [
           {
             msgId: '0',
             peer,
@@ -217,8 +137,20 @@ export class NTQQMsgApi extends Service {
           },
           null
         ],
-        timeout
-      })
+        {
+          cbCmd: 'nodeIKernelMsgListener/onMsgInfoListUpdate',
+          afterFirstCmd: false,
+          cmdCB: payload => {
+            for (const msgRecord of payload.msgList) {
+              if (msgRecord.guildId === msgId && msgRecord.sendStatus === 2) {
+                return true
+              }
+            }
+            return false
+          },
+          timeout
+        }
+      )
       msgList = data.msgList
     }
     const retMsg = msgList.find(msgRecord => {
@@ -234,19 +166,13 @@ export class NTQQMsgApi extends Service {
     if (session) {
       return session.getMsgService().forwardMsg(msgIds, srcPeer, [destPeer], [])
     } else {
-      return await invoke<GeneralCallResult>({
-        methodName: NTMethod.FORWARD_MSG,
-        args: [
-          {
-            msgIds: msgIds,
-            srcContact: srcPeer,
-            dstContacts: [destPeer],
-            commentElements: [],
-            msgAttributeInfos: new Map(),
-          },
-          null,
-        ],
-      })
+      return await invoke<GeneralCallResult>(NTMethod.FORWARD_MSG, [{
+        msgIds,
+        srcContact: srcPeer,
+        dstContacts: [destPeer],
+        commentElements: [],
+        msgAttributeInfos: new Map(),
+      }, null])
     }
   }
 
@@ -282,19 +208,9 @@ export class NTQQMsgApi extends Service {
       )
       msgList = data[1]
     } else {
-      const data = await invoke<{ msgList: RawMessage[] }>({
-        methodName: 'nodeIKernelMsgService/multiForwardMsgWithComment',
-        cbCmd: 'nodeIKernelMsgListener/onMsgInfoListUpdate',
-        afterFirstCmd: false,
-        cmdCB: payload => {
-          for (const msgRecord of payload.msgList) {
-            if (msgRecord.peerUid == destPeer.peerUid && msgRecord.senderUid == selfUid) {
-              return true
-            }
-          }
-          return false
-        },
-        args: [
+      const data = await invoke<{ msgList: RawMessage[] }>(
+        'nodeIKernelMsgService/multiForwardMsgWithComment',
+        [
           {
             msgInfos,
             srcContact: srcPeer,
@@ -304,7 +220,19 @@ export class NTQQMsgApi extends Service {
           },
           null,
         ],
-      })
+        {
+          cbCmd: 'nodeIKernelMsgListener/onMsgInfoListUpdate',
+          afterFirstCmd: false,
+          cmdCB: payload => {
+            for (const msgRecord of payload.msgList) {
+              if (msgRecord.peerUid == destPeer.peerUid && msgRecord.senderUid == selfUid) {
+                return true
+              }
+            }
+            return false
+          },
+        }
+      )
       msgList = data.msgList
     }
     for (const msg of msgList) {
@@ -323,25 +251,17 @@ export class NTQQMsgApi extends Service {
     throw new Error('转发消息超时')
   }
 
-  async getMsgsBySeqAndCount(peer: Peer, seq: string, count: number, desc: boolean, z: boolean) {
+  async getMsgsBySeqAndCount(peer: Peer, msgSeq: string, count: number, desc: boolean, z: boolean) {
     const session = getSession()
     if (session) {
-      return await session.getMsgService().getMsgsBySeqAndCount(peer, seq, count, desc, z)
+      return await session.getMsgService().getMsgsBySeqAndCount(peer, msgSeq, count, desc, z)
     } else {
-      return await invoke<GeneralCallResult & {
-        msgList: RawMessage[]
-      }>({
-        methodName: 'nodeIKernelMsgService/getMsgsBySeqAndCount',
-        args: [
-          {
-            peer,
-            cnt: count,
-            msgSeq: seq,
-            queryOrder: desc
-          },
-          null,
-        ],
-      })
+      return await invoke('nodeIKernelMsgService/getMsgsBySeqAndCount', [{
+        peer,
+        cnt: count,
+        msgSeq,
+        queryOrder: desc
+      }, null])
     }
   }
 
@@ -361,23 +281,12 @@ export class NTQQMsgApi extends Service {
     return ret
   }
 
-  async getSingleMsg(peer: Peer, seq: string) {
+  async getSingleMsg(peer: Peer, msgSeq: string) {
     const session = getSession()
     if (session) {
-      return await session.getMsgService().getSingleMsg(peer, seq)
+      return await session.getMsgService().getSingleMsg(peer, msgSeq)
     } else {
-      return await invoke<GeneralCallResult & {
-        msgList: RawMessage[]
-      }>({
-        methodName: 'nodeIKernelMsgService/getSingleMsg',
-        args: [
-          {
-            peer,
-            msgSeq: seq,
-          },
-          null,
-        ],
-      })
+      return await invoke('nodeIKernelMsgService/getSingleMsg', [{ peer, msgSeq }, null])
     }
   }
 }

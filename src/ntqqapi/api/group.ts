@@ -17,6 +17,8 @@ declare module 'cordis' {
 }
 
 export class NTQQGroupApi extends Service {
+  static inject = ['ntWindowApi']
+
   private groupMembers: Map<string, Map<string, GroupMember>> = new Map<string, Map<string, GroupMember>>()
 
   constructor(protected ctx: Context) {
@@ -41,45 +43,29 @@ export class NTQQGroupApi extends Service {
       const result = await invoke<{
         updateType: number
         groupList: Group[]
-      }>({
-        className: NTClass.NODE_STORE_API,
-        methodName: 'getGroupList',
-        cbCmd: ReceiveCmdS.GROUPS_STORE,
-        afterFirstCmd: false,
-      })
+      }>(
+        'getGroupList',
+        [],
+        {
+          className: NTClass.NODE_STORE_API,
+          cbCmd: ReceiveCmdS.GROUPS_STORE,
+          afterFirstCmd: false,
+        }
+      )
       return result.groupList
     }
   }
 
-  async getGroupMembers(groupQQ: string, num = 3000): Promise<Map<string, GroupMember>> {
+  async getGroupMembers(groupCode: string, num = 3000): Promise<Map<string, GroupMember>> {
     const session = getSession()
     let result: Awaited<ReturnType<NodeIKernelGroupService['getNextMemberList']>>
     if (session) {
       const groupService = session.getGroupService()
-      const sceneId = groupService.createMemberListScene(groupQQ, 'groupMemberList_MainWindow')
+      const sceneId = groupService.createMemberListScene(groupCode, 'groupMemberList_MainWindow')
       result = await groupService.getNextMemberList(sceneId, undefined, num)
     } else {
-      const sceneId = await invoke<string>({
-        methodName: NTMethod.GROUP_MEMBER_SCENE,
-        args: [
-          {
-            groupCode: groupQQ,
-            scene: 'groupMemberList_MainWindow',
-          },
-        ],
-      })
-      result = await invoke<
-        ReturnType<NodeIKernelGroupService['getNextMemberList']>
-      >({
-        methodName: NTMethod.GROUP_MEMBERS,
-        args: [
-          {
-            sceneId,
-            num,
-          },
-          null,
-        ],
-      })
+      const sceneId = await invoke(NTMethod.GROUP_MEMBER_SCENE, [{ groupCode, scene: 'groupMemberList_MainWindow' }])
+      result = await invoke(NTMethod.GROUP_MEMBERS, [{ sceneId, num }, null])
     }
     if (result.errCode !== 0) {
       throw ('获取群成员列表出错,' + result.errMsg)
@@ -144,16 +130,16 @@ export class NTQQGroupApi extends Service {
         )
       return notifies
     } else {
-      invoke({
-        methodName: ReceiveCmdS.GROUP_NOTIFY,
-        classNameIsRegister: true,
-      })
-      return (await invoke<GroupNotifies>({
-        methodName: NTMethod.GET_GROUP_NOTICE,
-        cbCmd: ReceiveCmdS.GROUP_NOTIFY,
-        afterFirstCmd: false,
-        args: [{ doubt: false, startSeq: '', number: num }, null],
-      })).notifies
+      invoke(ReceiveCmdS.GROUP_NOTIFY, [], { classNameIsRegister: true })
+      return (await invoke<GroupNotifies>(
+        NTMethod.GET_GROUP_NOTICE,
+        [{ doubt: false, startSeq: '', number: num }, null],
+        {
+
+          cbCmd: ReceiveCmdS.GROUP_NOTIFY,
+          afterFirstCmd: false,
+        }
+      )).notifies
     }
   }
 
@@ -176,152 +162,87 @@ export class NTQQGroupApi extends Service {
           }
         })
     } else {
-      return await invoke({
-        methodName: NTMethod.HANDLE_GROUP_REQUEST,
-        args: [
-          {
-            doubt: false,
-            operateMsg: {
-              operateType,
-              targetMsg: {
-                seq,
-                type,
-                groupCode,
-                postscript: reason || ' ' // 仅传空值可能导致处理失败，故默认给个空格
-              },
-            },
+      return await invoke(NTMethod.HANDLE_GROUP_REQUEST, [{
+        doubt: false,
+        operateMsg: {
+          operateType,
+          targetMsg: {
+            seq,
+            type,
+            groupCode,
+            postscript: reason || ' ' // 仅传空值可能导致处理失败，故默认给个空格
           },
-          null,
-        ],
-      })
+        },
+      }, null])
     }
   }
 
-  async quitGroup(groupQQ: string) {
+  async quitGroup(groupCode: string) {
     const session = getSession()
     if (session) {
-      return session.getGroupService().quitGroup(groupQQ)
+      return session.getGroupService().quitGroup(groupCode)
     } else {
-      return await invoke({
-        methodName: NTMethod.QUIT_GROUP,
-        args: [{ groupCode: groupQQ }, null],
-      })
+      return await invoke(NTMethod.QUIT_GROUP, [{ groupCode }, null])
     }
   }
 
   async kickMember(
-    groupQQ: string,
+    groupCode: string,
     kickUids: string[],
     refuseForever = false,
     kickReason = '',
   ) {
     const session = getSession()
     if (session) {
-      return session.getGroupService().kickMember(groupQQ, kickUids, refuseForever, kickReason)
+      return session.getGroupService().kickMember(groupCode, kickUids, refuseForever, kickReason)
     } else {
-      return await invoke({
-        methodName: NTMethod.KICK_MEMBER,
-        args: [
-          {
-            groupCode: groupQQ,
-            kickUids,
-            refuseForever,
-            kickReason,
-          },
-        ],
-      })
+      return await invoke(NTMethod.KICK_MEMBER, [{ groupCode, kickUids, refuseForever, kickReason }])
     }
   }
 
-  async banMember(groupQQ: string, memList: Array<{ uid: string, timeStamp: number }>) {
+  async banMember(groupCode: string, memList: Array<{ uid: string, timeStamp: number }>) {
     // timeStamp为秒数, 0为解除禁言
     const session = getSession()
     if (session) {
-      return session.getGroupService().setMemberShutUp(groupQQ, memList)
+      return session.getGroupService().setMemberShutUp(groupCode, memList)
     } else {
-      return await invoke({
-        methodName: NTMethod.MUTE_MEMBER,
-        args: [
-          {
-            groupCode: groupQQ,
-            memList,
-          },
-        ],
-      })
+      return await invoke(NTMethod.MUTE_MEMBER, [{ groupCode, memList }])
     }
   }
 
-  async banGroup(groupQQ: string, shutUp: boolean) {
+  async banGroup(groupCode: string, shutUp: boolean) {
     const session = getSession()
     if (session) {
-      return session.getGroupService().setGroupShutUp(groupQQ, shutUp)
+      return session.getGroupService().setGroupShutUp(groupCode, shutUp)
     } else {
-      return await invoke({
-        methodName: NTMethod.MUTE_GROUP,
-        args: [
-          {
-            groupCode: groupQQ,
-            shutUp,
-          },
-          null,
-        ],
-      })
+      return await invoke(NTMethod.MUTE_GROUP, [{ groupCode, shutUp }, null])
     }
   }
 
-  async setMemberCard(groupQQ: string, memberUid: string, cardName: string) {
+  async setMemberCard(groupCode: string, memberUid: string, cardName: string) {
     const session = getSession()
     if (session) {
-      return session.getGroupService().modifyMemberCardName(groupQQ, memberUid, cardName)
+      return session.getGroupService().modifyMemberCardName(groupCode, memberUid, cardName)
     } else {
-      return await invoke({
-        methodName: NTMethod.SET_MEMBER_CARD,
-        args: [
-          {
-            groupCode: groupQQ,
-            uid: memberUid,
-            cardName,
-          },
-          null,
-        ],
-      })
+      return await invoke(NTMethod.SET_MEMBER_CARD, [{ groupCode, uid: memberUid, cardName }, null])
     }
   }
 
-  async setMemberRole(groupQQ: string, memberUid: string, role: GroupMemberRole) {
+  async setMemberRole(groupCode: string, memberUid: string, role: GroupMemberRole) {
     const session = getSession()
     if (session) {
-      return session.getGroupService().modifyMemberRole(groupQQ, memberUid, role)
+      return session.getGroupService().modifyMemberRole(groupCode, memberUid, role)
     } else {
-      return await invoke({
-        methodName: NTMethod.SET_MEMBER_ROLE,
-        args: [
-          {
-            groupCode: groupQQ,
-            uid: memberUid,
-            role,
-          },
-          null,
-        ],
-      })
+      return await invoke(NTMethod.SET_MEMBER_ROLE, [{ groupCode, uid: memberUid, role }, null])
     }
   }
 
-  async setGroupName(groupQQ: string, groupName: string) {
+  async setGroupName(groupCode: string, groupName: string) {
     const session = getSession()
     if (session) {
-      return session.getGroupService().modifyGroupName(groupQQ, groupName, false)
+      return session.getGroupService().modifyGroupName(groupCode, groupName, false)
     } else {
-      return await invoke({
-        methodName: NTMethod.SET_GROUP_NAME,
-        args: [
-          {
-            groupCode: groupQQ,
-            groupName,
-          },
-          null,
-        ],
-      })
+      return await invoke(NTMethod.SET_GROUP_NAME, [{ groupCode, groupName }, null])
     }
   }
 
@@ -336,15 +257,7 @@ export class NTQQGroupApi extends Service {
           canNotAtAllMsg: ''
         }
       }
-    >({
-      methodName: NTMethod.GROUP_AT_ALL_REMAIN_COUNT,
-      args: [
-        {
-          groupCode,
-        },
-        null,
-      ],
-    })
+    >(NTMethod.GROUP_AT_ALL_REMAIN_COUNT, [{ groupCode }, null])
   }
 
   /** 27187 TODO */
@@ -378,42 +291,14 @@ export class NTQQGroupApi extends Service {
   }
 
   async createGroupFileFolder(groupId: string, folderName: string) {
-    return await invoke({
-      methodName: 'nodeIKernelRichMediaService/createGroupFolder',
-      args: [
-        {
-          groupId,
-          folderName
-        },
-        null,
-      ],
-    })
+    return await invoke('nodeIKernelRichMediaService/createGroupFolder', [{ groupId, folderName }, null])
   }
 
   async deleteGroupFileFolder(groupId: string, folderId: string) {
-    return await invoke({
-      methodName: 'nodeIKernelRichMediaService/deleteGroupFolder',
-      args: [
-        {
-          groupId,
-          folderId
-        },
-        null,
-      ],
-    })
+    return await invoke('nodeIKernelRichMediaService/deleteGroupFolder', [{ groupId, folderId }, null])
   }
 
   async deleteGroupFile(groupId: string, fileIdList: string[]) {
-    return await invoke({
-      methodName: 'nodeIKernelRichMediaService/deleteGroupFile',
-      args: [
-        {
-          groupId,
-          busIdList: [102],
-          fileIdList
-        },
-        null,
-      ],
-    })
+    return await invoke('nodeIKernelRichMediaService/deleteGroupFile', [{ groupId, busIdList: [102], fileIdList }, null])
   }
 }

@@ -42,13 +42,15 @@ export class NTQQWindowApi extends Service {
     cbCmd: ReceiveCmd | undefined,
     autoCloseSeconds: number = 2,
   ) {
-    const result = await invoke<R>({
-      className: NTClass.WINDOW_API,
-      methodName: NTMethod.OPEN_EXTRA_WINDOW,
-      cbCmd,
-      afterFirstCmd: false,
-      args: [ntQQWindow.windowName, ...args],
-    })
+    const result = await invoke<R>(
+      NTMethod.OPEN_EXTRA_WINDOW,
+      [ntQQWindow.windowName, ...args],
+      {
+        className: NTClass.WINDOW_API,
+        cbCmd,
+        afterFirstCmd: false,
+      }
+    )
     setTimeout(() => {
       for (const w of BrowserWindow.getAllWindows()) {
         // log("close window", w.webContents.getURL())

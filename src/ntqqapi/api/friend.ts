@@ -28,12 +28,15 @@ export class NTQQFriendApi extends Service {
         categroyMbCount: number
         buddyList: Friend[]
       }[]
-    }>({
-      className: NTClass.NODE_STORE_API,
-      methodName: 'getBuddyList',
-      cbCmd: ReceiveCmdS.FRIENDS,
-      afterFirstCmd: false,
-    })
+    }>(
+      'getBuddyList',
+      [],
+      {
+        className: NTClass.NODE_STORE_API,
+        cbCmd: ReceiveCmdS.FRIENDS,
+        afterFirstCmd: false,
+      }
+    )
     const _friends: Friend[] = []
     for (const item of data.data) {
       _friends.push(...item.buddyList)
@@ -56,18 +59,13 @@ export class NTQQFriendApi extends Service {
         accept
       })
     } else {
-      return await invoke({
-        methodName: NTMethod.HANDLE_FRIEND_REQUEST,
-        args: [
-          {
-            approvalInfo: {
-              friendUid,
-              reqTime,
-              accept,
-            },
-          },
-        ],
-      })
+      return await invoke(NTMethod.HANDLE_FRIEND_REQUEST, [{
+        approvalInfo: {
+          friendUid,
+          reqTime,
+          accept,
+        },
+      }])
     }
   }
 
@@ -86,13 +84,15 @@ export class NTQQFriendApi extends Service {
       const data = await invoke<{
         buddyCategory: CategoryFriend[]
         userSimpleInfos: Record<string, SimpleInfo>
-      }>({
-        className: NTClass.NODE_STORE_API,
-        methodName: 'getBuddyList',
-        args: [refresh],
-        cbCmd: ReceiveCmdS.FRIENDS,
-        afterFirstCmd: false,
-      })
+      }>(
+        'getBuddyList',
+        [refresh],
+        {
+          className: NTClass.NODE_STORE_API,
+          cbCmd: ReceiveCmdS.FRIENDS,
+          afterFirstCmd: false,
+        }
+      )
       const categoryUids: Map<number, string[]> = new Map()
       for (const item of data.buddyCategory) {
         categoryUids.set(item.categoryId, item.buddyUids)
@@ -119,13 +119,15 @@ export class NTQQFriendApi extends Service {
       const data = await invoke<{
         buddyCategory: CategoryFriend[]
         userSimpleInfos: Record<string, SimpleInfo>
-      }>({
-        className: NTClass.NODE_STORE_API,
-        methodName: 'getBuddyList',
-        args: [refresh],
-        cbCmd: ReceiveCmdS.FRIENDS,
-        afterFirstCmd: false,
-      })
+      }>(
+        'getBuddyList',
+        [refresh],
+        {
+          className: NTClass.NODE_STORE_API,
+          cbCmd: ReceiveCmdS.FRIENDS,
+          afterFirstCmd: false,
+        }
+      )
       for (const item of Object.values(data.userSimpleInfos)) {
         retMap.set(item.uin!, item.uid!)
       }
@@ -158,13 +160,15 @@ export class NTQQFriendApi extends Service {
       const data = await invoke<{
         buddyCategory: CategoryFriend[]
         userSimpleInfos: Record<string, SimpleInfo>
-      }>({
-        className: NTClass.NODE_STORE_API,
-        methodName: 'getBuddyList',
-        args: [refresh],
-        cbCmd: ReceiveCmdS.FRIENDS,
-        afterFirstCmd: false,
-      })
+      }>(
+        'getBuddyList',
+        [refresh],
+        {
+          className: NTClass.NODE_STORE_API,
+          cbCmd: ReceiveCmdS.FRIENDS,
+          afterFirstCmd: false,
+        }
+      )
       const category: Map<number, Pick<CategoryFriend, 'buddyUids' | 'categroyName'>> = new Map()
       for (const item of data.buddyCategory) {
         category.set(item.categoryId, pick(item, ['buddyUids', 'categroyName']))
@@ -186,13 +190,7 @@ export class NTQQFriendApi extends Service {
     if (session) {
       return session.getBuddyService().isBuddy(uid)
     } else {
-      return await invoke<boolean>({
-        methodName: 'nodeIKernelBuddyService/isBuddy',
-        args: [
-          { uid },
-          null,
-        ],
-      })
+      return await invoke('nodeIKernelBuddyService/isBuddy', [{ uid }, null])
     }
   }
 }

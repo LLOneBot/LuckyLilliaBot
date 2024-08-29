@@ -173,8 +173,6 @@ export interface NodeIKernelRichMediaService {
 
   downloadFile(commonFile: CommonFileInfo, arg2: unknown, arg3: unknown, savePath: string): unknown
 
-  createGroupFolder(arg1: unknown, arg2: unknown): unknown
-
   downloadGroupFolder(arg1: unknown, arg2: unknown, arg3: unknown): unknown
 
   renameGroupFolder(arg1: unknown, arg2: unknown, arg3: unknown): unknown

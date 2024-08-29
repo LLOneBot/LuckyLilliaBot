@@ -125,6 +125,8 @@ export interface GroupEssenceMsgRet {
 }
 
 export class NTQQWebApi extends Service {
+  static inject = ['ntUserApi']
+
   constructor(protected ctx: Context) {
     super(ctx, 'ntWebApi', true)
   }
