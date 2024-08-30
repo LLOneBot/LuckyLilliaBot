@@ -135,9 +135,8 @@ interface InvokeOptions<ReturnType> {
 export function invoke<
   R extends Awaited<ReturnType<NTService[S][M] extends (...args: any) => any ? NTService[S][M] : any>>,
   S extends keyof NTService = any,
-  M extends keyof NTService[S] & string = any,
-  O = string
->(method: `${O extends `${S}/${M}` ? `${S}/${M}` : string}`, args?: unknown[], options: InvokeOptions<R> = {}) {
+  M extends keyof NTService[S] & string = any
+>(method: `${unknown extends `${S}/${M}` ? `${S}/${M}` : string}`, args?: unknown[], options: InvokeOptions<R> = {}) {
   const className = options.className ?? NTClass.NT_API
   const channel = options.channel ?? NTChannel.IPC_UP_2
   const timeout = options.timeout ?? 5000

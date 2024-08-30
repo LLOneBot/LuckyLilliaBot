@@ -127,32 +127,29 @@ class OneBot11Adapter extends Service {
             }
             subType = 'kick'
           }
-          const groupDecreaseEvent = new OB11GroupDecreaseEvent(
+          const event = new OB11GroupDecreaseEvent(
             parseInt(notify.group.groupCode),
             parseInt(member1Uin),
             parseInt(operatorId),
             subType,
           )
-          this.dispatch(groupDecreaseEvent)
+          this.dispatch(event)
         }
-        else if ([GroupNotifyType.REQUEST_JOIN_NEED_ADMINI_STRATOR_PASS].includes(notify.type) && notify.status === GroupNotifyStatus.KUNHANDLE) {
+        else if (notify.type === GroupNotifyType.REQUEST_JOIN_NEED_ADMINI_STRATOR_PASS && notify.status === GroupNotifyStatus.KUNHANDLE) {
           this.ctx.logger.info('有加群请求')
-          let requestUin = (await this.ctx.ntUserApi.getUinByUid(notify.user1.uid))
-          if (isNaN(parseInt(requestUin))) {
-            requestUin = (await this.ctx.ntUserApi.getUserDetailInfo(notify.user1.uid)).uin
-          }
-          const groupRequestEvent = new OB11GroupRequestEvent(
+          const requestUin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
+          const event = new OB11GroupRequestEvent(
             parseInt(notify.group.groupCode),
             parseInt(requestUin) || 0,
             flag,
             notify.postscript,
           )
-          this.dispatch(groupRequestEvent)
+          this.dispatch(event)
         }
         else if (notify.type === GroupNotifyType.INVITED_BY_MEMBER && notify.status === GroupNotifyStatus.KUNHANDLE) {
           this.ctx.logger.info('收到邀请我加群通知')
           const userId = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
-          const groupInviteEvent = new OB11GroupRequestEvent(
+          const event = new OB11GroupRequestEvent(
             parseInt(notify.group.groupCode),
             parseInt(userId) || 0,
             flag,
@@ -160,7 +157,18 @@ class OneBot11Adapter extends Service {
             undefined,
             'invite'
           )
-          this.dispatch(groupInviteEvent)
+          this.dispatch(event)
+        }
+        else if (notify.type === GroupNotifyType.INVITED_NEED_ADMINI_STRATOR_PASS && notify.status === GroupNotifyStatus.KUNHANDLE) {
+          this.ctx.logger.info('收到群员邀请加群通知')
+          const userId = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
+          const event = new OB11GroupRequestEvent(
+            parseInt(notify.group.groupCode),
+            parseInt(userId) || 0,
+            flag,
+            notify.postscript
+          )
+          this.dispatch(event)
         }
       } catch (e: any) {
         this.ctx.logger.error('解析群通知失败', e.stack)
