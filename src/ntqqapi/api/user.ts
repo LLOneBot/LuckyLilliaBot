@@ -144,7 +144,7 @@ export class NTQQUserApi extends Service {
     }
     const uin = selfInfo.uin
     const requestUrl = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + uin + '&clientkey=' + clientKeyData.clientKey + '&u1=https%3A%2F%2F' + domain + '%2F' + uin + '%2Finfocenter&keyindex=19%27'
-    const cookies: { [key: string]: string; } = await RequestUtil.HttpsGetCookies(requestUrl)
+    const cookies: { [key: string]: string } = await RequestUtil.HttpsGetCookies(requestUrl)
     return cookies
   }
 
@@ -192,7 +192,7 @@ export class NTQQUserApi extends Service {
     // 通用转换开始尝试
     let uid = (await session?.getUixConvertService().getUid([Uin]))?.uidInfo.get(Uin)
     if (!uid) {
-      let unveifyUid = (await this.getUserDetailInfoByUin(Uin)).info.uid;//从QQ Native 特殊转换 方法三
+      let unveifyUid = (await this.getUserDetailInfoByUin(Uin)).info.uid //从QQ Native 特殊转换 方法三
       if (unveifyUid.indexOf('*') == -1) {
         uid = unveifyUid
       }
