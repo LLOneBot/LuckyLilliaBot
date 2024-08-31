@@ -146,34 +146,31 @@ export namespace OB11Entities {
         message_data['data']['text'] = text
       }
       else if (element.replyElement) {
-        message_data['type'] = OB11MessageDataType.reply
+        const { replyElement } = element
+        const peer = {
+          chatType: msg.chatType,
+          peerUid: msg.peerUid,
+          guildId: ''
+        }
         try {
-          const records = msg.records.find(msgRecord => msgRecord.msgId === element.replyElement.sourceMsgIdInRecords)
+          const records = msg.records.find(msgRecord => msgRecord.msgId === replyElement.sourceMsgIdInRecords)
           if (!records) throw new Error('找不到回复消息')
-          let replyMsg = (await ctx.ntMsgApi.getMsgsBySeqAndCount({
-            peerUid: msg.peerUid,
-            guildId: '',
-            chatType: msg.chatType,
-          }, element.replyElement.replayMsgSeq, 1, true, true))?.msgList[0]
+          let replyMsg = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, replyElement.replayMsgSeq, 1, true, true)).msgList[0]
           if (!replyMsg || records.msgRandom !== replyMsg.msgRandom) {
-            const peer = {
-              chatType: msg.chatType,
-              peerUid: msg.peerUid,
-              guildId: '',
-            }
-            replyMsg = (await ctx.ntMsgApi.getSingleMsg(peer, element.replyElement.replayMsgSeq))?.msgList[0]
+            replyMsg = (await ctx.ntMsgApi.getSingleMsg(peer, replyElement.replayMsgSeq)).msgList[0]
           }
           // 284840486: 合并消息内侧 消息具体定位不到
           if ((!replyMsg || records.msgRandom !== replyMsg.msgRandom) && msg.peerUin !== '284840486') {
             throw new Error('回复消息消息验证失败')
           }
-          message_data['data']['id'] = replyMsg && MessageUnique.createMsg({
-            peerUid: msg.peerUid,
-            guildId: '',
-            chatType: msg.chatType,
-          }, replyMsg.msgId)?.toString()
+          message_data = {
+            type: OB11MessageDataType.reply,
+            data: {
+              id: MessageUnique.createMsg(peer, replyMsg ? replyMsg.msgId : records.msgId).toString()
+            }
+          }
         } catch (e: any) {
-          ctx.logger.error('获取不到引用的消息', e.stack, element.replyElement.replayMsgSeq)
+          ctx.logger.error('获取不到引用的消息', replyElement.replayMsgSeq, e.stack)
           continue
         }
       }

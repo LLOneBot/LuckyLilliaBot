@@ -82,7 +82,7 @@ class MessageUniqueWrapper {
         return ret.map((t) => t?.MsgId).filter((t) => t !== undefined)
     }
 
-    createMsg(peer: Peer, msgId: string): number | undefined {
+    createMsg(peer: Peer, msgId: string): number {
         const key = `${msgId}|${peer.chatType}|${peer.peerUid}`
         const hash = createHash('md5').update(key).digest()
         //设置第一个bit为0 保证shortId为正数
