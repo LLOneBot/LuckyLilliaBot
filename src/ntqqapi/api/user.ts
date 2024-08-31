@@ -210,11 +210,11 @@ export class NTQQUserApi extends Service {
       uid = (await session.getUixConvertService().getUid([uin])).uidInfo.get(uin)
       if (uid) return uid
     } else {
-      let uid = (await invoke('nodeIKernelGroupService/getUidByUins', [{ uin: [uin] }, null])).uids.get(uin)
+      let uid = (await invoke('nodeIKernelGroupService/getUidByUins', [{ uin: [uin] }])).uids.get(uin)
       if (uid) return uid
-      uid = (await invoke('nodeIKernelProfileService/getUidByUin', [{ callFrom: 'FriendsServiceImpl', uin: [uin] }, null])).get(uin)
+      uid = (await invoke('nodeIKernelProfileService/getUidByUin', [{ callFrom: 'FriendsServiceImpl', uin: [uin] }])).get(uin)
       if (uid) return uid
-      uid = (await invoke('nodeIKernelUixConvertService/getUid', [{ uins: [uin] }, null])).uidInfo.get(uin)
+      uid = (await invoke('nodeIKernelUixConvertService/getUid', [{ uins: [uin] }])).uidInfo.get(uin)
       if (uid) return uid
     }
     const unveifyUid = (await this.getUserDetailInfoByUinV2(uin)).detail.uid //从QQ Native 特殊转换
@@ -280,14 +280,14 @@ export class NTQQUserApi extends Service {
       uin = (await session.getUixConvertService().getUin([uid])).uinInfo.get(uid)
       if (uin) return uin
     } else {
-      let uin = (await invoke('nodeIKernelGroupService/getUinByUids', [{ uid: [uid] }, null])).uins.get(uid)
+      let uin = (await invoke('nodeIKernelGroupService/getUinByUids', [{ uid: [uid] }])).uins.get(uid)
       if (uin) return uin
-      uin = (await invoke('nodeIKernelProfileService/getUinByUid', [{ callFrom: 'FriendsServiceImpl', uid: [uid] }, null])).get(uid)
+      uin = (await invoke('nodeIKernelProfileService/getUinByUid', [{ callFrom: 'FriendsServiceImpl', uid: [uid] }])).get(uid)
       if (uin) return uin
-      uin = (await invoke('nodeIKernelUixConvertService/getUin', [{ uids: [uid] }, null])).uinInfo.get(uid)
+      uin = (await invoke('nodeIKernelUixConvertService/getUin', [{ uids: [uid] }])).uinInfo.get(uid)
       if (uin) return uin
     }
-    let uin = (await this.ctx.ntFriendApi.getBuddyIdMap(true)).getKey(uid)
+    let uin = (await this.ctx.ntFriendApi.getBuddyIdMap(true)).get(uid)
     if (uin) return uin
     uin = (await this.getUserDetailInfo(uid)).uin //从QQ Native 转换
     return uin

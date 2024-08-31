@@ -4,7 +4,6 @@ import { invoke, NTMethod, NTClass } from '../ntcall'
 import { getSession } from '@/ntqqapi/wrapper'
 import { BuddyListReqType, NodeIKernelProfileService } from '../services'
 import { NTEventDispatch } from '@/common/utils/eventTask'
-import { LimitedHashTable } from '@/common/utils/table'
 import { pick } from 'cosmokit'
 import { Service, Context } from 'cordis'
 
@@ -101,8 +100,9 @@ export class NTQQFriendApi extends Service {
     }
   }
 
-  async getBuddyIdMap(refresh = false): Promise<LimitedHashTable<string, string>> {
-    const retMap: LimitedHashTable<string, string> = new LimitedHashTable<string, string>(5000)
+  /** uid => uin */
+  async getBuddyIdMap(refresh = false): Promise<Map<string, string>> {
+    const retMap: Map<string, string> = new Map()
     const session = getSession()
     if (session) {
       const uids: string[] = []
@@ -112,9 +112,12 @@ export class NTQQFriendApi extends Service {
       const data = await NTEventDispatch.CallNoListenerEvent<NodeIKernelProfileService['getCoreAndBaseInfo']>(
         'NodeIKernelProfileService/getCoreAndBaseInfo', 5000, 'nodeStore', uids
       )
-      data.forEach((value, key) => {
-        retMap.set(value.uin!, value.uid!)
-      })
+      for (const [, item] of data) {
+        if (retMap.size > 5000) {
+          break
+        }
+        retMap.set(item.uid!, item.uin!)
+      }
     } else {
       const data = await invoke<{
         buddyCategory: CategoryFriend[]
@@ -129,7 +132,10 @@ export class NTQQFriendApi extends Service {
         }
       )
       for (const item of Object.values(data.userSimpleInfos)) {
-        retMap.set(item.uin!, item.uid!)
+        if (retMap.size > 5000) {
+          break
+        }
+        retMap.set(item.uid!, item.uin!)
       }
     }
     return retMap
