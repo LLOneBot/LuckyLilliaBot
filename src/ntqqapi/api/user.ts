@@ -203,9 +203,18 @@ export class NTQQUserApi extends Service {
       }
     }
     if (!uid) {
-      let unveifyUid = (await this.getUserDetailInfoByUin(uin)).info.uid //从QQ Native 特殊转换 方法三
-      if (unveifyUid.indexOf('*') == -1) {
+      let unveifyUid = (await this.getUserDetailInfoByUin(uin)).info.uid //特殊转换
+      if (unveifyUid.indexOf('*') === -1) {
         uid = unveifyUid
+      }
+    }
+    if (!uid) {
+      const friends = await this.ctx.ntFriendApi.getFriends() //从好友列表转
+      for (const item of friends) {
+        if (item.uin === uin) {
+          uid = item.uid
+          break
+        }
       }
     }
     return uid
