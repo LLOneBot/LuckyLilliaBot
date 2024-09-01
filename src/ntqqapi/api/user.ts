@@ -187,12 +187,12 @@ export class NTQQUserApi extends Service {
     }
   }
 
-  async getUidByUinV1(Uin: string) {
+  async getUidByUinV1(uin: string) {
     const session = getSession()
     // 通用转换开始尝试
-    let uid = (await session?.getUixConvertService().getUid([Uin]))?.uidInfo.get(Uin)
+    let uid = (await session?.getUixConvertService().getUid([uin]))?.uidInfo.get(uin)
     if (!uid) {
-      let unveifyUid = (await this.getUserDetailInfoByUin(Uin)).info.uid //从QQ Native 特殊转换 方法三
+      let unveifyUid = (await this.getUserDetailInfoByUin(uin)).info.uid //从QQ Native 特殊转换 方法三
       if (unveifyUid.indexOf('*') == -1) {
         uid = unveifyUid
       }
@@ -221,11 +221,11 @@ export class NTQQUserApi extends Service {
     if (unveifyUid.indexOf('*') == -1) return unveifyUid
   }
 
-  async getUidByUin(Uin: string) {
+  async getUidByUin(uin: string) {
     if (getBuildVersion() >= 26702) {
-      return await this.getUidByUinV2(Uin)
+      return this.getUidByUinV2(uin)
     }
-    return await this.getUidByUinV1(Uin)
+    return this.getUidByUinV1(uin)
   }
 
   async getUserDetailInfoByUinV2(uin: string) {
@@ -247,25 +247,25 @@ export class NTQQUserApi extends Service {
     }
   }
 
-  async getUserDetailInfoByUin(Uin: string) {
+  async getUserDetailInfoByUin(uin: string) {
     return NTEventDispatch.CallNoListenerEvent
       <(Uin: string) => Promise<UserDetailInfoByUin>>(
         'NodeIKernelProfileService/getUserDetailInfoByUin',
         5000,
-        Uin
+        uin
       )
   }
 
-  async getUinByUidV1(Uid: string) {
+  async getUinByUidV1(uid: string) {
     const ret = await NTEventDispatch.CallNoListenerEvent
       <(Uin: string[]) => Promise<{ uinInfo: Map<string, string> }>>(
         'NodeIKernelUixConvertService/getUin',
         5000,
-        [Uid]
+        [uid]
       )
-    let uin = ret.uinInfo.get(Uid)
+    let uin = ret.uinInfo.get(uid)
     if (!uin) {
-      uin = (await this.getUserDetailInfo(Uid)).uin //从QQ Native 转换
+      uin = (await this.getUserDetailInfo(uid)).uin //从QQ Native 转换
     }
     return uin
   }
@@ -293,11 +293,11 @@ export class NTQQUserApi extends Service {
     return uin
   }
 
-  async getUinByUid(Uid: string) {
+  async getUinByUid(uid: string) {
     if (getBuildVersion() >= 26702) {
-      return (await this.getUinByUidV2(Uid))!
+      return this.getUinByUidV2(uid)
     }
-    return await this.getUinByUidV1(Uid)
+    return this.getUinByUidV1(uid)
   }
 
   async forceFetchClientKey() {

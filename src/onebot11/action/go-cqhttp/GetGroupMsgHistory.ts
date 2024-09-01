@@ -17,7 +17,7 @@ interface Response {
   messages: OB11Message[]
 }
 
-export default class GoCQHTTPGetGroupMsgHistory extends BaseAction<Payload, Response> {
+export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
   actionName = ActionName.GoCQHTTP_GetGroupMsgHistory
 
   protected async _handle(payload: Payload): Promise<Response> {

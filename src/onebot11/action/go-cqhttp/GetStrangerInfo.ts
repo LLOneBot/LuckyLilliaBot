@@ -10,7 +10,7 @@ interface Payload {
   user_id: number | string
 }
 
-export default class GoCQHTTPGetStrangerInfo extends BaseAction<Payload, OB11User> {
+export class GetStrangerInfo extends BaseAction<Payload, OB11User> {
   actionName = ActionName.GoCQHTTP_GetStrangerInfo
 
   protected async _handle(payload: Payload): Promise<OB11User> {

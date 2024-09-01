@@ -7,7 +7,7 @@ interface Payload {
   parent_id?: '/'
 }
 
-export class GoCQHTTPCreateGroupFileFolder extends BaseAction<Payload, null> {
+export class CreateGroupFileFolder extends BaseAction<Payload, null> {
   actionName = ActionName.GoCQHTTP_CreateGroupFileFolder
 
   async _handle(payload: Payload) {

@@ -54,7 +54,7 @@ export async function createSendElements(
             let isAdmin: boolean = true
             if (groupCode) {
               try {
-                remainAtAllCount = (await ctx.ntGroupApi.getGroupAtAllRemainCount(groupCode)).atInfo
+                remainAtAllCount = (await ctx.ntGroupApi.getGroupRemainAtTimes(groupCode)).atInfo
                   .RemainAtAllCountForUin
                 ctx.logger.info(`群${groupCode}剩余at全体次数`, remainAtAllCount)
                 const self = await ctx.ntGroupApi.getGroupMember(groupCode, selfInfo.uin)

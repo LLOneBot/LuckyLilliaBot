@@ -7,7 +7,7 @@ interface Payload {
   busid?: 102
 }
 
-export class GoCQHTTPDelGroupFile extends BaseAction<Payload, null> {
+export class DelGroupFile extends BaseAction<Payload, null> {
   actionName = ActionName.GoCQHTTP_DelGroupFile
 
   async _handle(payload: Payload) {

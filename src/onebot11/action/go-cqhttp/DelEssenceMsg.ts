@@ -6,7 +6,7 @@ interface Payload {
   message_id: number | string
 }
 
-export default class GoCQHTTPDelEssenceMsg extends BaseAction<Payload, any> {
+export class DelEssenceMsg extends BaseAction<Payload, any> {
   actionName = ActionName.GoCQHTTP_DelEssenceMsg;
 
   protected async _handle(payload: Payload): Promise<any> {

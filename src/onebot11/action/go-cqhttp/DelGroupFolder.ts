@@ -6,7 +6,7 @@ interface Payload {
   folder_id: string
 }
 
-export class GoCQHTTPDelGroupFolder extends BaseAction<Payload, null> {
+export class DelGroupFolder extends BaseAction<Payload, null> {
   actionName = ActionName.GoCQHTTP_DelGroupFolder
 
   async _handle(payload: Payload) {

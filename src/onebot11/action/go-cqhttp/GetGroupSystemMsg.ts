@@ -24,7 +24,7 @@ interface Response {
   }[]
 }
 
-export class GoCQHTTPGetGroupSystemMsg extends BaseAction<void, Response> {
+export class GetGroupSystemMsg extends BaseAction<void, Response> {
   actionName = ActionName.GoCQHTTP_GetGroupSystemMsg
 
   async _handle(payload: void) {

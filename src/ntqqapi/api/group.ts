@@ -246,7 +246,7 @@ export class NTQQGroupApi extends Service {
     }
   }
 
-  async getGroupAtAllRemainCount(groupCode: string) {
+  async getGroupRemainAtTimes(groupCode: string) {
     return await invoke<
       GeneralCallResult & {
         atInfo: {

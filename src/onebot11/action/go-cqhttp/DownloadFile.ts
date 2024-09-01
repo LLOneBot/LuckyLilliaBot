@@ -19,7 +19,7 @@ interface FileResponse {
   file: string
 }
 
-export default class GoCQHTTPDownloadFile extends BaseAction<Payload, FileResponse> {
+export class DownloadFile extends BaseAction<Payload, FileResponse> {
   actionName = ActionName.GoCQHTTP_DownloadFile
 
   protected async _handle(payload: Payload): Promise<FileResponse> {

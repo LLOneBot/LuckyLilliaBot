@@ -16,7 +16,7 @@ interface Payload {
   folder_id?: string
 }
 
-export class GoCQHTTPUploadGroupFile extends BaseAction<Payload, null> {
+export class UploadGroupFile extends BaseAction<Payload, null> {
   actionName = ActionName.GoCQHTTP_UploadGroupFile
 
   protected async _handle(payload: Payload): Promise<null> {
@@ -37,7 +37,7 @@ export class GoCQHTTPUploadGroupFile extends BaseAction<Payload, null> {
   }
 }
 
-export class GoCQHTTPUploadPrivateFile extends BaseAction<Payload, null> {
+export class UploadPrivateFile extends BaseAction<Payload, null> {
   actionName = ActionName.GoCQHTTP_UploadPrivateFile
 
   async getPeer(payload: Payload): Promise<Peer> {

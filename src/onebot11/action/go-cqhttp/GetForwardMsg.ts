@@ -13,7 +13,7 @@ interface Response {
   messages: (OB11Message & { content: OB11MessageData })[]
 }
 
-export class GoCQHTTGetForwardMsgAction extends BaseAction<Payload, Response> {
+export class GetForwardMsg extends BaseAction<Payload, Response> {
   actionName = ActionName.GoCQHTTP_GetForwardMsg
   protected async _handle(payload: Payload): Promise<any> {
     const msgId = payload.id || payload.message_id

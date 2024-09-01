@@ -6,7 +6,7 @@ interface Payload {
   message_id: number | string
 }
 
-export default class GoCQHTTPSetEssenceMsg extends BaseAction<Payload, any> {
+export class SetEssenceMsg extends BaseAction<Payload, any> {
   actionName = ActionName.GoCQHTTP_SetEssenceMsg;
 
   protected async _handle(payload: Payload): Promise<any> {

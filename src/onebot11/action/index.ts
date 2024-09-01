@@ -16,11 +16,11 @@ import CanSendRecord from './system/CanSendRecord'
 import CanSendImage from './system/CanSendImage'
 import GetStatus from './system/GetStatus'
 import {
-  GoCQHTTPSendForwardMsg,
-  GoCQHTTPSendGroupForwardMsg,
-  GoCQHTTPSendPrivateForwardMsg,
+  SendForwardMsg,
+  SendGroupForwardMsg,
+  SendPrivateForwardMsg,
 } from './go-cqhttp/SendForwardMsg'
-import GoCQHTTPGetStrangerInfo from './go-cqhttp/GetStrangerInfo'
+import { GetStrangerInfo } from './go-cqhttp/GetStrangerInfo'
 import SendLike from './user/SendLike'
 import SetGroupAddRequest from './group/SetGroupAddRequest'
 import SetGroupLeave from './group/SetGroupLeave'
@@ -35,29 +35,30 @@ import SetGroupAdmin from './group/SetGroupAdmin'
 import SetGroupCard from './group/SetGroupCard'
 import GetImage from './file/GetImage'
 import GetRecord from './file/GetRecord'
-import GoCQHTTPMarkMsgAsRead from './msg/MarkMsgAsRead'
+import { MarkMsgAsRead } from './go-cqhttp/MarkMsgAsRead'
 import CleanCache from './system/CleanCache'
-import { GoCQHTTPUploadGroupFile, GoCQHTTPUploadPrivateFile } from './go-cqhttp/UploadFile'
+import { UploadGroupFile, UploadPrivateFile } from './go-cqhttp/UploadFile'
 import { GetConfigAction, SetConfigAction } from './llonebot/Config'
 import GetGroupAddRequest from './llonebot/GetGroupAddRequest'
 import SetQQAvatar from './llonebot/SetQQAvatar'
-import GoCQHTTPDownloadFile from './go-cqhttp/DownloadFile'
-import GoCQHTTPGetGroupMsgHistory from './go-cqhttp/GetGroupMsgHistory'
+import { DownloadFile } from './go-cqhttp/DownloadFile'
+import { GetGroupMsgHistory } from './go-cqhttp/GetGroupMsgHistory'
 import GetFile from './file/GetFile'
-import { GoCQHTTGetForwardMsgAction } from './go-cqhttp/GetForwardMsg'
+import { GetForwardMsg } from './go-cqhttp/GetForwardMsg'
 import { GetCookies } from './user/GetCookie'
 import { SetMsgEmojiLike } from './msg/SetMsgEmojiLike'
 import { ForwardFriendSingleMsg, ForwardGroupSingleMsg } from './msg/ForwardSingleMsg'
 import { GetGroupEssence } from './group/GetGroupEssence'
 import { GetGroupHonorInfo } from './group/GetGroupHonorInfo'
-import { GoCQHTTHandleQuickOperation } from './go-cqhttp/QuickOperation'
-import GoCQHTTPSetEssenceMsg from './go-cqhttp/SetEssenceMsg'
-import GoCQHTTPDelEssenceMsg from './go-cqhttp/DelEssenceMsg'
+import { HandleQuickOperation } from './go-cqhttp/QuickOperation'
+import { SetEssenceMsg } from './go-cqhttp/SetEssenceMsg'
+import { DelEssenceMsg } from './go-cqhttp/DelEssenceMsg'
 import GetEvent from './llonebot/GetEvent'
-import { GoCQHTTPDelGroupFile } from './go-cqhttp/DelGroupFile'
-import { GoCQHTTPGetGroupSystemMsg } from './go-cqhttp/GetGroupSystemMsg'
-import { GoCQHTTPCreateGroupFileFolder } from './go-cqhttp/CreateGroupFileFolder'
-import { GoCQHTTPDelGroupFolder } from './go-cqhttp/DelGroupFolder'
+import { DelGroupFile } from './go-cqhttp/DelGroupFile'
+import { GetGroupSystemMsg } from './go-cqhttp/GetGroupSystemMsg'
+import { CreateGroupFileFolder } from './go-cqhttp/CreateGroupFileFolder'
+import { DelGroupFolder } from './go-cqhttp/DelGroupFolder'
+import { GetGroupAtAllRemain } from './go-cqhttp/GetGroupAtAllRemain'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -105,24 +106,25 @@ export function initActionMap(adapter: Adapter) {
     //以下为go-cqhttp api
     new GetGroupEssence(adapter),
     new GetGroupHonorInfo(adapter),
-    new GoCQHTTPSendForwardMsg(adapter),
-    new GoCQHTTPSendGroupForwardMsg(adapter),
-    new GoCQHTTPSendPrivateForwardMsg(adapter),
-    new GoCQHTTPGetStrangerInfo(adapter),
-    new GoCQHTTPDownloadFile(adapter),
+    new SendForwardMsg(adapter),
+    new SendGroupForwardMsg(adapter),
+    new SendPrivateForwardMsg(adapter),
+    new GetStrangerInfo(adapter),
+    new DownloadFile(adapter),
     new GetGuildList(adapter),
-    new GoCQHTTPMarkMsgAsRead(adapter),
-    new GoCQHTTPUploadGroupFile(adapter),
-    new GoCQHTTPUploadPrivateFile(adapter),
-    new GoCQHTTPGetGroupMsgHistory(adapter),
-    new GoCQHTTGetForwardMsgAction(adapter),
-    new GoCQHTTHandleQuickOperation(adapter),
-    new GoCQHTTPSetEssenceMsg(adapter),
-    new GoCQHTTPDelEssenceMsg(adapter),
-    new GoCQHTTPDelGroupFile(adapter),
-    new GoCQHTTPGetGroupSystemMsg(adapter),
-    new GoCQHTTPCreateGroupFileFolder(adapter),
-    new GoCQHTTPDelGroupFolder(adapter)
+    new MarkMsgAsRead(adapter),
+    new UploadGroupFile(adapter),
+    new UploadPrivateFile(adapter),
+    new GetGroupMsgHistory(adapter),
+    new GetForwardMsg(adapter),
+    new HandleQuickOperation(adapter),
+    new SetEssenceMsg(adapter),
+    new DelEssenceMsg(adapter),
+    new DelGroupFile(adapter),
+    new GetGroupSystemMsg(adapter),
+    new CreateGroupFileFolder(adapter),
+    new DelGroupFolder(adapter),
+    new GetGroupAtAllRemain(adapter)
   ]
   const actionMap = new Map<string, BaseAction<any, any>>()
   for (const action of actionHandlers) {
