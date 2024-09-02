@@ -132,7 +132,7 @@ export class NTQQGroupApi extends Service {
     } else {
       invoke(ReceiveCmdS.GROUP_NOTIFY, [], { classNameIsRegister: true })
       return (await invoke<GroupNotifies>(
-        NTMethod.GET_GROUP_NOTICE,
+        'nodeIKernelGroupService/getSingleScreenNotifies',
         [{ doubt: false, startSeq: '', number: num }, null],
         {
 

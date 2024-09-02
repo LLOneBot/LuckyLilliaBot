@@ -187,7 +187,7 @@ export class NTQQFileApi extends Service {
       filePath = data[1].filePath
     } else {
       const data = await invoke<{ notifyInfo: OnRichMediaDownloadCompleteParams }>(
-        NTMethod.DOWNLOAD_MEDIA,
+        'nodeIKernelMsgService/downloadRichMedia',
         [
           {
             getReq: {

@@ -25,7 +25,7 @@ export class NTQQUserApi extends Service {
 
   async setQQAvatar(path: string) {
     return await invoke(
-      NTMethod.SET_QQ_AVATAR,
+      'nodeIKernelProfileService/setHeader',
       [
         { path },
         null,
