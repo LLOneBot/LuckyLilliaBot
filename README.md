@@ -37,4 +37,4 @@ TG 群：<https://t.me/+nLZEnpne-pQ1OWFl>
 
 ## 友链
 
-- [Lagrange.Core](https://github.com/LagrangeDev/Lagrange.Core) 一款用C#实现的NTQQ纯协议跨平台QQ机器人框架
+- [Lagrange.Core](https://github.com/LagrangeDev/Lagrange.Core): An Implementation of NTQQ Protocol
