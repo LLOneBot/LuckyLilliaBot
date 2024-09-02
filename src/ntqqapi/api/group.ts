@@ -19,7 +19,7 @@ declare module 'cordis' {
 export class NTQQGroupApi extends Service {
   static inject = ['ntWindowApi']
 
-  private groupMembers: Map<string, Map<string, GroupMember>> = new Map<string, Map<string, GroupMember>>()
+  public groupMembers: Map<string, Map<string, GroupMember>> = new Map<string, Map<string, GroupMember>>()
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntGroupApi', true)

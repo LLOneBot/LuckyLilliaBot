@@ -48,16 +48,16 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
       }
     }
     if ((contextMode === ContextMode.Private || contextMode === ContextMode.Normal) && payload.user_id) {
-      const Uid = await this.ctx.ntUserApi.getUidByUin(payload.user_id.toString())
-      const isBuddy = await this.ctx.ntFriendApi.isBuddy(Uid!)
-      //console.log("[调试代码] UIN:", payload.user_id, " UID:", Uid, " IsBuddy:", isBuddy)
+      const uid = await this.ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+      if (!uid) throw new Error('无法获取用户信息')
+      const isBuddy = await this.ctx.ntFriendApi.isBuddy(uid)
       return {
         chatType: isBuddy ? ChatType.friend : ChatType.temp,
-        peerUid: Uid!,
-        guildId: payload.group_id?.toString() || '' //临时主动发起时需要传入群号
+        peerUid: uid,
+        guildId: isBuddy ? '' : payload.group_id?.toString() || ''
       }
     }
-    throw '请指定 group_id 或 user_id'
+    throw new Error('请指定 group_id 或 user_id')
   }
 
   protected async check(payload: OB11PostSendMsg): Promise<BaseCheckResult> {
@@ -160,6 +160,9 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
       }
     }
     const returnMsg = await sendMsg(this.ctx, peer, sendElements, deleteAfterSentFiles)
+    if (!returnMsg) {
+      throw new Error('消息发送失败')
+    }
     return { message_id: returnMsg.msgShortId! }
   }
 
@@ -251,9 +254,12 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnDataType> {
           // log("分割后的转发节点", sendElementsSplit)
           for (const eles of sendElementsSplit) {
             const nodeMsg = await sendMsg(this.ctx, selfPeer, eles, [], true)
+            if (!nodeMsg) {
+              this.ctx.logger.warn('转发节点生成失败', eles)
+              continue
+            }
             nodeMsgIds.push(nodeMsg.msgId)
             await this.ctx.sleep(400)
-            this.ctx.logger.info('转发节点生成成功', nodeMsg.msgId)
           }
           deleteAfterSentFiles.map((f) => fs.unlink(f, () => {
           }))

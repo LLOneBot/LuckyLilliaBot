@@ -3,7 +3,7 @@ import { User, UserDetailInfoByUin, UserDetailInfoByUinV2, UserDetailInfoListene
 import { getBuildVersion } from '@/common/utils'
 import { getSession } from '@/ntqqapi/wrapper'
 import { RequestUtil } from '@/common/utils/request'
-import { NodeIKernelProfileService, UserDetailSource, ProfileBizType, forceFetchClientKeyRetType } from '../services'
+import { NodeIKernelProfileService, UserDetailSource, ProfileBizType } from '../services'
 import { NodeIKernelProfileListener } from '../listeners'
 import { NTEventDispatch } from '@/common/utils/eventTask'
 import { Time } from 'cosmokit'
@@ -17,7 +17,7 @@ declare module 'cordis' {
 }
 
 export class NTQQUserApi extends Service {
-  static inject = ['ntFriendApi']
+  static inject = ['ntFriendApi', 'ntGroupApi']
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntUserApi', true)
@@ -192,10 +192,25 @@ export class NTQQUserApi extends Service {
     // 通用转换开始尝试
     let uid = (await session?.getUixConvertService().getUid([uin]))?.uidInfo.get(uin)
     if (!uid) {
-      let unveifyUid = (await this.getUserDetailInfoByUin(uin)).info.uid //从QQ Native 特殊转换 方法三
-      if (unveifyUid.indexOf('*') == -1) {
+      for (const membersList of this.ctx.ntGroupApi.groupMembers.values()) { //从群友列表转
+        for (const member of membersList.values()) {
+          if (member.uin === uin) {
+            uid = member.uid
+            break
+          }
+        }
+        if (uid) break
+      }
+    }
+    if (!uid) {
+      const unveifyUid = (await this.getUserDetailInfoByUin(uin)).info.uid //特殊转换
+      if (unveifyUid.indexOf('*') === -1) {
         uid = unveifyUid
       }
+    }
+    if (!uid) {
+      const friends = await this.ctx.ntFriendApi.getFriends() //从好友列表转
+      uid = friends.find(item => item.uin === uin)?.uid
     }
     return uid
   }

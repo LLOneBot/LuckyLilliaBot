@@ -270,8 +270,10 @@ export async function sendMsg(
   const timeout = 10000 + (totalSize / 1024 / 256 * 1000)  // 10s Basic Timeout + PredictTime( For File 512kb/s )
   //log('设置消息超时时间', timeout)
   const returnMsg = await ctx.ntMsgApi.sendMsg(peer, sendElements, waitComplete, timeout)
-  returnMsg.msgShortId = MessageUnique.createMsg(peer, returnMsg.msgId)
-  ctx.logger.info('消息发送', returnMsg.msgShortId)
-  deleteAfterSentFiles.map(path => fsPromise.unlink(path))
-  return returnMsg
+  if (returnMsg) {
+    returnMsg.msgShortId = MessageUnique.createMsg(peer, returnMsg.msgId)
+    ctx.logger.info('消息发送', returnMsg.msgShortId)
+    deleteAfterSentFiles.map(path => fsPromise.unlink(path))
+    return returnMsg
+  }
 }

@@ -153,12 +153,7 @@ export class NTQQMsgApi extends Service {
       )
       msgList = data.msgList
     }
-    const retMsg = msgList.find(msgRecord => {
-      if (msgRecord.guildId === msgId) {
-        return true
-      }
-    })
-    return retMsg!
+    return msgList.find(msgRecord => msgRecord.guildId === msgId)
   }
 
   async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
