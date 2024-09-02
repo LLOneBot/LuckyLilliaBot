@@ -133,20 +133,21 @@ export interface OB11MessageMFace {
     emoji_package_id: number
     emoji_id: string
     key: string
-    summary: string
+    summary?: string
+    url?: string
   }
 }
 
 export interface OB11MessageDice {
   type: OB11MessageDataType.dice
   data: {
-    result: number
+    result: number /* intended */ | string /* in fact */
   }
 }
 export interface OB11MessageRPS {
   type: OB11MessageDataType.RPS
   data: {
-    result: number
+    result: number | string
   }
 }
 
@@ -171,6 +172,7 @@ export interface OB11MessageFileBase {
     name?: string
     file: string
     url?: string
+    file_size?: string //扩展
   }
 }
 
@@ -184,14 +186,24 @@ export interface OB11MessageImage extends OB11MessageFileBase {
 
 export interface OB11MessageRecord extends OB11MessageFileBase {
   type: OB11MessageDataType.voice
+  data: OB11MessageFileBase['data'] & {
+    path?: string //扩展
+  }
 }
 
 export interface OB11MessageFile extends OB11MessageFileBase {
   type: OB11MessageDataType.file
+  data: OB11MessageFileBase['data'] & {
+    file_id?: string
+    path?: string
+  }
 }
 
 export interface OB11MessageVideo extends OB11MessageFileBase {
   type: OB11MessageDataType.video
+  data: OB11MessageFileBase['data'] & {
+    path?: string //扩展
+  }
 }
 
 export interface OB11MessageAt {

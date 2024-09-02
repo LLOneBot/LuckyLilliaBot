@@ -1,8 +1,10 @@
-import { CheckVersion } from '../common/types'
+import { CheckVersion, Config } from '../common/types'
 import { SettingButton, SettingItem, SettingList, SettingSwitch, SettingSelect } from './components'
+import { version } from '../version'
 // @ts-ignore
 import StyleRaw from './style.css?raw'
-import { version } from '../version'
+
+type HostsType = 'httpHosts' | 'wsHosts'
 
 function isEmpty(value: unknown) {
   return value === undefined || value === null || value === ''
@@ -10,17 +12,20 @@ function isEmpty(value: unknown) {
 
 async function onSettingWindowCreated(view: Element) {
   //window.llonebot.log('setting window created')
-  let config = await window.llonebot.getConfig()
-  let ob11Config = { ...config.ob11 }
+  const config = await window.llonebot.getConfig()
+  const ob11Config = { ...config.ob11 }
 
   const setConfig = (key: string, value: any) => {
     const configKey = key.split('.')
-    if (key.indexOf('ob11') === 0) {
-      if (configKey.length === 2) ob11Config[configKey[1]] = value
-      else ob11Config[key] = value
+    if (key.startsWith('ob11')) {
+      if (configKey.length === 2) Object.assign(ob11Config, { [configKey[1]]: value })
+      else Object.assign(ob11Config, { [key]: value })
     } else {
-      if (configKey.length === 2) config[configKey[0]][configKey[1]] = value
-      else config[key] = value
+      if (configKey.length === 2) {
+        Object.assign(config[configKey[0] as keyof Config[keyof Config]], { [configKey[1]]: value })
+      } else {
+        Object.assign(config, { [key]: value })
+      }
       if (!['heartInterval', 'token', 'ffmpeg'].includes(key)) {
         window.llonebot.setConfig(false, config)
       }
@@ -244,7 +249,7 @@ async function onSettingWindowCreated(view: Element) {
     window.LiteLoader.api.openExternal('https://llonebot.github.io/')
   })
   // 生成反向地址列表
-  const buildHostListItem = (type: string, host: string, index: number, inputAttrs: any = {}) => {
+  const buildHostListItem = (type: HostsType, host: string, index: number, inputAttrs: any = {}) => {
     const dom = {
       container: document.createElement('setting-item'),
       input: document.createElement('input'),
@@ -276,7 +281,7 @@ async function onSettingWindowCreated(view: Element) {
 
     return dom.container
   }
-  const buildHostList = (hosts: string[], type: string, inputAttr: any = {}) => {
+  const buildHostList = (hosts: string[], type: HostsType, inputAttr: any = {}) => {
     const result: HTMLElement[] = []
 
     hosts.forEach((host, index) => {
@@ -285,12 +290,12 @@ async function onSettingWindowCreated(view: Element) {
 
     return result
   }
-  const addReverseHost = (type: string, doc: Document = document, inputAttr: any = {}) => {
+  const addReverseHost = (type: HostsType, doc: Document = document, inputAttr: any = {}) => {
     const hostContainerDom = doc.body.querySelector(`#config-ob11-${type}-list`)
     hostContainerDom?.appendChild(buildHostListItem(type, '', ob11Config[type].length, inputAttr))
     ob11Config[type].push('')
   }
-  const initReverseHost = (type: string, doc: Document = document) => {
+  const initReverseHost = (type: HostsType, doc: Document = document) => {
     const hostContainerDom = doc.body.querySelector(`#config-ob11-${type}-list`)
       ;[...hostContainerDom?.childNodes!].forEach((dom) => dom.remove())
     buildHostList(ob11Config[type], type).forEach((dom) => {
@@ -431,7 +436,7 @@ function init() {
 }
 
 if (location.hash === '#/blank') {
-  globalThis.navigation.addEventListener('navigatesuccess', init, { once: true })
+  globalThis.navigation?.addEventListener('navigatesuccess', init, { once: true })
 } else {
   init()
 }

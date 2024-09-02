@@ -44,7 +44,7 @@ export function decodeCQCode(source: string): OB11MessageData[] {
   return elements
 }
 
-export function encodeCQCode(data: OB11MessageData) {
+export function encodeCQCode(input: OB11MessageData) {
   const CQCodeEscapeText = (text: string) => {
     return text.replace(/\&/g, '&amp;').replace(/\[/g, '&#91;').replace(/\]/g, '&#93;')
   }
@@ -53,21 +53,20 @@ export function encodeCQCode(data: OB11MessageData) {
     return text.replace(/\&/g, '&amp;').replace(/\[/g, '&#91;').replace(/\]/g, '&#93;').replace(/,/g, '&#44;')
   }
 
-  if (data.type === 'text') {
-    return CQCodeEscapeText(data.data.text)
+  if (input.type === 'text') {
+    return CQCodeEscapeText(input.data.text)
   }
 
-  let result = '[CQ:' + data.type
-  for (const name in data.data) {
-    const value = data.data[name]
+  let result = '[CQ:' + input.type
+  for (const [key, value] of Object.entries(input.data)) {
     if (value === undefined) {
       continue
     }
     try {
       const text = value.toString()
-      result += `,${name}=${CQCodeEscape(text)}`
+      result += `,${key}=${CQCodeEscape(text)}`
     } catch (error) {
-      // If it can't be converted, skip this name-value pair
+      // If it can't be converted, skip this key-value pair
     }
   }
   result += ']'

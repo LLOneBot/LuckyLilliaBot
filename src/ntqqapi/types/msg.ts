@@ -275,7 +275,7 @@ export interface PicElement {
   thumbPath: Map<number, string>
   picWidth: number
   picHeight: number
-  fileSize: number
+  fileSize: string
   fileName: string
   fileUuid: string
   md5HexStr?: string

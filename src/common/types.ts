@@ -34,6 +34,12 @@ export interface Config {
   ignoreBeforeLoginMsg?: boolean
   /** 单位为秒 */
   msgCacheExpire?: number
+  /** @deprecated */
+  http?: string
+  /** @deprecated */
+  hosts?: string[]
+  /** @deprecated */
+  wsPort?: string
 }
 
 export interface LLOneBotError {

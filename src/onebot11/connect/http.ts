@@ -10,6 +10,7 @@ import { OB11Message } from '../types'
 import { OB11BaseEvent } from '../event/OB11BaseEvent'
 import { handleQuickOperation, QuickOperationEvent } from '../helper/quickOperation'
 import { OB11HeartbeatEvent } from '../event/meta/OB11HeartbeatEvent'
+import { Dict } from 'cosmokit'
 
 type RegisterHandler = (res: Response, payload: any) => Promise<any>
 
@@ -159,7 +160,7 @@ class OB11HttpPost {
 
   public async emitEvent(event: OB11BaseEvent | OB11Message) {
     const msgStr = JSON.stringify(event)
-    const headers = {
+    const headers: Dict = {
       'Content-Type': 'application/json',
       'x-self-id': selfInfo.uin,
     }

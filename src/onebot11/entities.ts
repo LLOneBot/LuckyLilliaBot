@@ -37,7 +37,6 @@ import { OB11GroupTitleEvent } from './event/notice/OB11GroupTitleEvent'
 import { OB11GroupCardEvent } from './event/notice/OB11GroupCardEvent'
 import { OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
 import { OB11GroupMsgEmojiLikeEvent } from './event/notice/OB11MsgEmojiLikeEvent'
-import { mFaceCache } from '../ntqqapi/entities'
 import { OB11FriendAddNoticeEvent } from './event/notice/OB11FriendAddNoticeEvent'
 import { OB11FriendRecallNoticeEvent } from './event/notice/OB11FriendRecallNoticeEvent'
 import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNoticeEvent'
@@ -47,6 +46,7 @@ import { OB11GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent'
 import { omit, isNullable } from 'cosmokit'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
+import { pathToFileURL } from 'node:url'
 
 export namespace OB11Entities {
   export async function message(ctx: Context, msg: RawMessage): Promise<OB11Message> {
@@ -105,10 +105,7 @@ export namespace OB11Entities {
     }
 
     for (let element of msg.elements) {
-      let message_data: OB11MessageData = {
-        data: {} as any,
-        type: 'unknown' as any,
-      }
+      let messageSegment: OB11MessageData | undefined
       if (element.textElement && element.textElement?.atType !== AtType.notAt) {
         let qq: string
         let name: string | undefined
@@ -129,7 +126,7 @@ export namespace OB11Entities {
             name = content.replace('@', '')
           }
         }
-        message_data = {
+        messageSegment = {
           type: OB11MessageDataType.at,
           data: {
             qq: qq!,
@@ -138,12 +135,16 @@ export namespace OB11Entities {
         }
       }
       else if (element.textElement) {
-        message_data['type'] = OB11MessageDataType.text
-        let text = element.textElement.content
+        const text = element.textElement.content
         if (!text.trim()) {
           continue
         }
-        message_data['data']['text'] = text
+        messageSegment = {
+          type: OB11MessageDataType.text,
+          data: {
+            text
+          }
+        }
       }
       else if (element.replyElement) {
         const { replyElement } = element
@@ -163,7 +164,7 @@ export namespace OB11Entities {
           if ((!replyMsg || records.msgRandom !== replyMsg.msgRandom) && msg.peerUin !== '284840486') {
             throw new Error('回复消息消息验证失败')
           }
-          message_data = {
+          messageSegment = {
             type: OB11MessageDataType.reply,
             data: {
               id: MessageUnique.createMsg(peer, replyMsg ? replyMsg.msgId : records.msgId).toString()
@@ -175,18 +176,17 @@ export namespace OB11Entities {
         }
       }
       else if (element.picElement) {
-        message_data['type'] = OB11MessageDataType.image
         const { picElement } = element
-        /*let fileName = picElement.fileName
-        const isGif = picElement.picType === PicType.gif
-        if (isGif && !fileName.endsWith('.gif')) {
-          fileName += '.gif'
-        }*/
-        message_data['data']['file'] = picElement.fileName
-        message_data['data']['subType'] = picElement.picSubType
-        //message_data['data']['file_id'] = picElement.fileUuid
-        message_data['data']['url'] = await ctx.ntFileApi.getImageUrl(picElement)
-        message_data['data']['file_size'] = picElement.fileSize
+        const fileSize = picElement.fileSize ?? '0'
+        messageSegment = {
+          type: OB11MessageDataType.image,
+          data: {
+            file: picElement.fileName,
+            subType: picElement.picSubType,
+            url: await ctx.ntFileApi.getImageUrl(picElement),
+            file_size: fileSize,
+          }
+        }
         MessageUnique.addFileCache({
           peerUid: msg.peerUid,
           msgId: msg.msgId,
@@ -195,21 +195,26 @@ export namespace OB11Entities {
           elementId: element.elementId,
           elementType: element.elementType,
           fileName: picElement.fileName,
-          fileSize: String(picElement.fileSize || '0'),
-          fileUuid: picElement.fileUuid
+          fileUuid: picElement.fileUuid,
+          fileSize,
         })
       }
       else if (element.videoElement) {
-        message_data['type'] = OB11MessageDataType.video
         const { videoElement } = element
-        message_data['data']['file'] = videoElement.fileName
-        message_data['data']['path'] = videoElement.filePath
-        //message_data['data']['file_id'] = videoElement.fileUuid
-        message_data['data']['file_size'] = videoElement.fileSize
-        message_data['data']['url'] = await ctx.ntFileApi.getVideoUrl({
+        const videoUrl = await ctx.ntFileApi.getVideoUrl({
           chatType: msg.chatType,
           peerUid: msg.peerUid,
         }, msg.msgId, element.elementId)
+        const fileSize = videoElement.fileSize ?? '0'
+        messageSegment = {
+          type: OB11MessageDataType.video,
+          data: {
+            file: videoElement.fileName,
+            url: videoUrl || pathToFileURL(videoElement.filePath).href,
+            path: videoElement.filePath,
+            file_size: fileSize,
+          }
+        }
         MessageUnique.addFileCache({
           peerUid: msg.peerUid,
           msgId: msg.msgId,
@@ -218,17 +223,23 @@ export namespace OB11Entities {
           elementId: element.elementId,
           elementType: element.elementType,
           fileName: videoElement.fileName,
-          fileSize: String(videoElement.fileSize || '0'),
-          fileUuid: videoElement.fileUuid!
+          fileUuid: videoElement.fileUuid!,
+          fileSize,
         })
       }
       else if (element.fileElement) {
-        message_data['type'] = OB11MessageDataType.file
         const { fileElement } = element
-        message_data['data']['file'] = fileElement.fileName
-        message_data['data']['path'] = fileElement.filePath
-        message_data['data']['file_id'] = fileElement.fileUuid
-        message_data['data']['file_size'] = fileElement.fileSize
+        const fileSize = fileElement.fileSize ?? '0'
+        messageSegment = {
+          type: OB11MessageDataType.file,
+          data: {
+            file: fileElement.fileName,
+            url: pathToFileURL(fileElement.filePath).href,
+            file_id: fileElement.fileUuid,
+            path: fileElement.filePath,
+            file_size: fileSize,
+          }
+        }
         MessageUnique.addFileCache({
           peerUid: msg.peerUid,
           msgId: msg.msgId,
@@ -237,17 +248,22 @@ export namespace OB11Entities {
           elementId: element.elementId,
           elementType: element.elementType,
           fileName: fileElement.fileName,
-          fileSize: String(fileElement.fileSize || '0'),
-          fileUuid: fileElement.fileUuid!
+          fileUuid: fileElement.fileUuid!,
+          fileSize,
         })
       }
       else if (element.pttElement) {
-        message_data['type'] = OB11MessageDataType.voice
         const { pttElement } = element
-        message_data['data']['file'] = pttElement.fileName
-        message_data['data']['path'] = pttElement.filePath
-        //message_data['data']['file_id'] = pttElement.fileUuid
-        message_data['data']['file_size'] = pttElement.fileSize
+        const fileSize = pttElement.fileSize ?? '0'
+        messageSegment = {
+          type: OB11MessageDataType.voice,
+          data: {
+            file: pttElement.fileName,
+            url: pathToFileURL(pttElement.filePath).href,
+            path: pttElement.filePath,
+            file_size: fileSize,
+          }
+        }
         MessageUnique.addFileCache({
           peerUid: msg.peerUid,
           msgId: msg.msgId,
@@ -256,59 +272,91 @@ export namespace OB11Entities {
           elementId: element.elementId,
           elementType: element.elementType,
           fileName: pttElement.fileName,
-          fileSize: String(pttElement.fileSize || '0'),
-          fileUuid: pttElement.fileUuid
+          fileUuid: pttElement.fileUuid,
+          fileSize,
         })
       }
       else if (element.arkElement) {
-        message_data['type'] = OB11MessageDataType.json
-        message_data['data']['data'] = element.arkElement.bytesData
+        const { arkElement } = element
+        messageSegment = {
+          type: OB11MessageDataType.json,
+          data: {
+            data: arkElement.bytesData
+          }
+        }
       }
       else if (element.faceElement) {
-        const faceId = element.faceElement.faceIndex
+        const { faceElement } = element
+        const faceId = faceElement.faceIndex
         if (faceId === FaceIndex.dice) {
-          message_data['type'] = OB11MessageDataType.dice
-          message_data['data']['result'] = element.faceElement.resultId
+          messageSegment = {
+            type: OB11MessageDataType.dice,
+            data: {
+              result: faceElement.resultId!
+            }
+          }
         }
         else if (faceId === FaceIndex.RPS) {
-          message_data['type'] = OB11MessageDataType.RPS
-          message_data['data']['result'] = element.faceElement.resultId
+          messageSegment = {
+            type: OB11MessageDataType.RPS,
+            data: {
+              result: faceElement.resultId!
+            }
+          }
         }
         else {
-          message_data['type'] = OB11MessageDataType.face
-          message_data['data']['id'] = element.faceElement.faceIndex.toString()
+          messageSegment = {
+            type: OB11MessageDataType.face,
+            data: {
+              id: faceId.toString()
+            }
+          }
         }
       }
       else if (element.marketFaceElement) {
-        message_data['type'] = OB11MessageDataType.mface
-        message_data['data']['summary'] = element.marketFaceElement.faceName
-        const md5 = element.marketFaceElement.emojiId
+        const { marketFaceElement } = element
+        const { emojiId } = marketFaceElement
         // 取md5的前两位
-        const dir = md5.substring(0, 2)
+        const dir = emojiId.substring(0, 2)
         // 获取组装url
         // const url = `https://p.qpic.cn/CDN_STATIC/0/data/imgcache/htdocs/club/item/parcel/item/${dir}/${md5}/300x300.gif?max_age=31536000`
-        const url = `https://gxh.vip.qq.com/club/item/parcel/item/${dir}/${md5}/raw300.gif`
-        message_data['data']['url'] = url
-        message_data['data']['emoji_id'] = element.marketFaceElement.emojiId
-        message_data['data']['emoji_package_id'] = String(element.marketFaceElement.emojiPackageId)
-        message_data['data']['key'] = element.marketFaceElement.key
-        mFaceCache.set(md5, element.marketFaceElement.faceName!)
+        const url = `https://gxh.vip.qq.com/club/item/parcel/item/${dir}/${emojiId}/raw300.gif`
+        messageSegment = {
+          type: OB11MessageDataType.mface,
+          data: {
+            summary: marketFaceElement.faceName!,
+            url,
+            emoji_id: emojiId,
+            emoji_package_id: marketFaceElement.emojiPackageId,
+            key: marketFaceElement.key
+          }
+        }
+        //mFaceCache.set(emojiId, element.marketFaceElement.faceName!)
       }
       else if (element.markdownElement) {
-        message_data['type'] = OB11MessageDataType.markdown
-        message_data['data']['data'] = element.markdownElement.content
+        const { markdownElement } = element
+        messageSegment = {
+          type: OB11MessageDataType.markdown,
+          data: {
+            data: markdownElement.content
+          }
+        }
       }
       else if (element.multiForwardMsgElement) {
-        message_data['type'] = OB11MessageDataType.forward
-        message_data['data']['id'] = msg.msgId
+        messageSegment = {
+          type: OB11MessageDataType.forward,
+          data: {
+            id: msg.msgId
+          }
+        }
       }
-      if ((message_data.type as string) !== 'unknown' && message_data.data) {
-        const cqCode = encodeCQCode(message_data)
+      if (messageSegment) {
+        const cqCode = encodeCQCode(messageSegment)
         if (messagePostFormat === 'string') {
           (resMsg.message as string) += cqCode
+        } else {
+          (resMsg.message as OB11MessageData[]).push(messageSegment)
         }
-        else (resMsg.message as OB11MessageData[]).push(message_data)
-
         resMsg.raw_message += cqCode
       }
     }

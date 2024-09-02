@@ -38,7 +38,7 @@ export class ConfigUtil {
   }
 
   reloadConfig(): Config {
-    let ob11Default: OB11Config = {
+    const ob11Default: OB11Config = {
       httpPort: 3000,
       httpHosts: [],
       httpSecret: '',
@@ -52,7 +52,7 @@ export class ConfigUtil {
       enableHttpHeart: false,
       enableQOAutoQuote: false
     }
-    let defaultConfig: Config = {
+    const defaultConfig: Config = {
       enableLLOB: true,
       ob11: ob11Default,
       heartInterval: 60000,
@@ -83,7 +83,6 @@ export class ConfigUtil {
       this.checkOldConfig(jsonData.ob11, jsonData, 'httpPort', 'http')
       this.checkOldConfig(jsonData.ob11, jsonData, 'httpHosts', 'hosts')
       this.checkOldConfig(jsonData.ob11, jsonData, 'wsPort', 'wsPort')
-      // console.log("get config", jsonData);
       this.config = jsonData
       return this.config
     }
@@ -95,15 +94,15 @@ export class ConfigUtil {
   }
 
   private checkOldConfig(
-    currentConfig: Config | OB11Config,
-    oldConfig: Config | OB11Config,
-    currentKey: string,
-    oldKey: string,
+    currentConfig: OB11Config,
+    oldConfig: Config,
+    currentKey: 'httpPort' | 'httpHosts' | 'wsPort',
+    oldKey: 'http' | 'hosts' | 'wsPort',
   ) {
     // 迁移旧的配置到新配置，避免用户重新填写配置
     const oldValue = oldConfig[oldKey]
     if (oldValue) {
-      currentConfig[currentKey] = oldValue
+      currentConfig[currentKey] = oldValue as any
       delete oldConfig[oldKey]
     }
   }

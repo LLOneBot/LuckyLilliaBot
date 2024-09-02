@@ -70,8 +70,8 @@ class OB11WebSocket {
       return
     }
     socket.send(JSON.stringify(data))
-    if (data['post_type']) {
-      this.ctx.logger.info('WebSocket 事件上报', socket.url ?? '', data['post_type'])
+    if ('post_type' in data) {
+      this.ctx.logger.info('WebSocket 事件上报', socket.url ?? '', data.post_type)
     }
   }
 
@@ -192,8 +192,8 @@ class OB11WebSocketReverse {
       return
     }
     socket.send(JSON.stringify(data))
-    if (data['post_type']) {
-      this.ctx.logger.info('WebSocket 事件上报', socket.url ?? '', data['post_type'])
+    if ('post_type' in data) {
+      this.ctx.logger.info('WebSocket 事件上报', socket.url ?? '', data.post_type)
     }
   }
 

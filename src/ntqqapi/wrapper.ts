@@ -11,7 +11,8 @@ import {
   NodeIKernelTipOffService,
   NodeIKernelSearchService
 } from './services'
-import os from 'node:os'
+import { constants } from 'node:os'
+import { Dict } from 'cosmokit'
 const Process = require('node:process')
 
 export interface NodeIQQNTWrapperSession {
@@ -72,7 +73,7 @@ const constructor = [
 
 Process.dlopenOrig = Process.dlopen
 
-Process.dlopen = function (module, filename, flags = os.constants.dlopen.RTLD_LAZY) {
+Process.dlopen = function (module: Dict, filename: string, flags = constants.dlopen.RTLD_LAZY) {
   const dlopenRet = this.dlopenOrig(module, filename, flags)
   for (let export_name in module.exports) {
     module.exports[export_name] = new Proxy(module.exports[export_name], {

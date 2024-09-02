@@ -22,7 +22,7 @@ import { encodeSilk } from '../common/utils/audio'
 import { Context } from 'cordis'
 import { isNullable } from 'cosmokit'
 
-export const mFaceCache = new Map<string, string>() // emojiId -> faceName
+//export const mFaceCache = new Map<string, string>() // emojiId -> faceName
 
 export namespace SendElementEntities {
   export function text(content: string): SendTextElement {
@@ -295,7 +295,7 @@ export namespace SendElementEntities {
     }
   }
 
-  export function mface(emojiPackageId: number, emojiId: string, key: string, faceName: string): SendMarketFaceElement {
+  export function mface(emojiPackageId: number, emojiId: string, key: string, summary: string): SendMarketFaceElement {
     return {
       elementType: ElementType.MFACE,
       marketFaceElement: {
@@ -304,7 +304,7 @@ export namespace SendElementEntities {
         emojiPackageId,
         emojiId,
         key,
-        faceName: faceName || mFaceCache.get(emojiId) || '[商城表情]',
+        faceName: summary || '[商城表情]',
       },
     }
   }
