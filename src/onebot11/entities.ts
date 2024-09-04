@@ -1,4 +1,4 @@
-import fastXmlParser from 'fast-xml-parser'
+import { XMLParser } from 'fast-xml-parser'
 import {
   OB11Group,
   OB11GroupMember,
@@ -32,7 +32,6 @@ import { OB11GroupBanEvent } from './event/notice/OB11GroupBanEvent'
 import { OB11GroupUploadNoticeEvent } from './event/notice/OB11GroupUploadNoticeEvent'
 import { OB11GroupNoticeEvent } from './event/notice/OB11GroupNoticeEvent'
 import { calcQQLevel } from '../common/utils/misc'
-import { getConfigUtil } from '../common/config'
 import { OB11GroupTitleEvent } from './event/notice/OB11GroupTitleEvent'
 import { OB11GroupCardEvent } from './event/notice/OB11GroupCardEvent'
 import { OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
@@ -47,14 +46,14 @@ import { omit, isNullable, pick } from 'cosmokit'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { pathToFileURL } from 'node:url'
+import OneBot11Adapter from './adapter'
 
 export namespace OB11Entities {
   export async function message(ctx: Context, msg: RawMessage): Promise<OB11Message> {
-    let config = getConfigUtil().getConfig()
     const {
       debug,
-      ob11: { messagePostFormat },
-    } = config
+      messagePostFormat,
+    } = ctx.config as OneBot11Adapter.Config
     const selfUin = selfInfo.uin
     const resMsg: OB11Message = {
       self_id: parseInt(selfUin),
@@ -515,7 +514,7 @@ export namespace OB11Entities {
           //    <url jp= \"\" msgseq=\"74711\" col=\"3\" txt=\"消息:\"/>
           //    <face type=\"1\" id=\"76\">  </face>
           //  </gtip>",
-          const emojiLikeData = new fastXmlParser.XMLParser({
+          const emojiLikeData = new XMLParser({
             ignoreAttributes: false,
             attributeNamePrefix: '',
           }).parse(xmlElement.content)
