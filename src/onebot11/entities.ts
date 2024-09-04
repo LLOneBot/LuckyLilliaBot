@@ -96,10 +96,10 @@ export namespace OB11Entities {
       resMsg.sub_type = 'group'
       const ret = await ctx.ntMsgApi.getTempChatInfo(ChatType2.KCHATTYPETEMPC2CFROMGROUP, msg.senderUid)
       if (ret?.result === 0) {
-        resMsg.group_id = parseInt(ret.tmpChatInfo!.groupCode)
-        resMsg.sender.nickname = ret.tmpChatInfo!.fromNick
+        resMsg.temp_source = Number(ret.tmpChatInfo?.groupCode)
+        resMsg.sender.nickname = ret.tmpChatInfo?.fromNick!
       } else {
-        resMsg.group_id = 284840486 //兜底数据
+        resMsg.temp_source = 284840486 //兜底数据
         resMsg.sender.nickname = '临时会话'
       }
     }

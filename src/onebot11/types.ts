@@ -93,6 +93,7 @@ export interface OB11Message {
   font: number
   post_type?: EventType
   raw?: RawMessage
+  temp_source?: number
 }
 
 export interface OB11ForwardMessage extends OB11Message {
