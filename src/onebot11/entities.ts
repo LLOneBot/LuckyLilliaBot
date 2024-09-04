@@ -518,29 +518,27 @@ export namespace OB11Entities {
           }).parse(xmlElement.content)
           ctx.logger.info('收到表情回应我的消息', emojiLikeData)
           try {
-            const senderUin = emojiLikeData.gtip.qq.jp
-            const msgSeq = emojiLikeData.gtip.url.msgseq
-            const emojiId = emojiLikeData.gtip.face.id
-            const replyMsgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount({
+            const senderUin: string = emojiLikeData.gtip.qq.jp
+            const msgSeq: string = emojiLikeData.gtip.url.msgseq
+            const emojiId: string = emojiLikeData.gtip.face.id
+            const peer = {
               chatType: ChatType.group,
               guildId: '',
               peerUid: msg.peerUid,
-            }, msgSeq, 1, true, true))?.msgList
+            }
+            const replyMsgList = (await ctx.ntMsgApi.queryFirstMsgBySeq(peer, msgSeq)).msgList
             if (!replyMsgList?.length) {
               return
             }
-            const likes = [
-              {
-                emoji_id: emojiId,
-                count: 1,
-              },
-            ]
             const shortId = MessageUnique.getShortIdByMsgId(replyMsgList[0].msgId)
             return new OB11GroupMsgEmojiLikeEvent(
               parseInt(msg.peerUid),
               parseInt(senderUin),
               shortId!,
-              likes
+              [{
+                emoji_id: emojiId,
+                count: 1,
+              }]
             )
           } catch (e: any) {
             ctx.logger.error('解析表情回应消息失败', e.stack)

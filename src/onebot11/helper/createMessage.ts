@@ -303,7 +303,6 @@ export async function createPeer(ctx: Context, payload: CreatePeerPayload, mode:
     return {
       chatType: isBuddy ? ChatType.friend : ChatType.temp,
       peerUid: uid,
-      guildId: isBuddy ? '' : payload.group_id?.toString() || ''
     }
   }
   throw new Error('请指定 group_id 或 user_id')
