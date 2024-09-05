@@ -1,5 +1,4 @@
 import { ElementType, MessageElement, Peer, RawMessage, SendMessageElement } from '@/ntqqapi/types'
-import { NodeIKernelMsgListener } from '@/ntqqapi/listeners/NodeIKernelMsgListener'
 import { GeneralCallResult } from './common'
 import { Dict } from 'cosmokit'
 
@@ -32,7 +31,7 @@ export interface TmpChatInfo {
 export interface NodeIKernelMsgService {
   generateMsgUniqueId(chatType: number, time: string): string
 
-  addKernelMsgListener(nodeIKernelMsgListener: NodeIKernelMsgListener): number
+  addKernelMsgListener(nodeIKernelMsgListener: unknown): number
 
   sendMsg(msgId: string, peer: Peer, msgElements: SendMessageElement[], map: Map<unknown, unknown>): Promise<GeneralCallResult>
 
@@ -111,10 +110,11 @@ export interface NodeIKernelMsgService {
   resendMsg(...args: unknown[]): unknown
 
   reeditRecallMsg(...args: unknown[]): unknown
+
   //调用请检查除开commentElements其余参数不能为null
   forwardMsg(msgIds: string[], srcContact: Peer, dstContacts: Peer[], commentElements: MessageElement[]): Promise<GeneralCallResult>
 
-  forwardMsgWithComment(...args: unknown[]): unknown
+  forwardMsgWithComment(...args: unknown[]): Promise<GeneralCallResult>
 
   forwardSubMsgWithComment(...args: unknown[]): unknown
 

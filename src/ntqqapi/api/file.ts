@@ -238,19 +238,19 @@ export class NTQQFileApi extends Service {
     const url: string = element.originImageUrl!  // 没有域名
     const md5HexStr = element.md5HexStr
     const fileMd5 = element.md5HexStr
-
+    
     if (url) {
-      const UrlParse = new URL(IMAGE_HTTP_HOST + url) //临时解析拼接
-      const imageAppid = UrlParse.searchParams.get('appid')
+      const parsedUrl = new URL(IMAGE_HTTP_HOST + url) //临时解析拼接
+      const imageAppid = parsedUrl.searchParams.get('appid')
       const isNewPic = imageAppid && ['1406', '1407'].includes(imageAppid)
       if (isNewPic) {
-        let UrlRkey = UrlParse.searchParams.get('rkey')
-        if (UrlRkey) {
+        let rkey = parsedUrl.searchParams.get('rkey')
+        if (rkey) {
           return IMAGE_HTTP_HOST_NT + url
         }
         const rkeyData = await this.rkeyManager.getRkey()
-        UrlRkey = imageAppid === '1406' ? rkeyData.private_rkey : rkeyData.group_rkey
-        return IMAGE_HTTP_HOST_NT + url + `${UrlRkey}`
+        rkey = imageAppid === '1406' ? rkeyData.private_rkey : rkeyData.group_rkey
+        return IMAGE_HTTP_HOST_NT + url + rkey
       } else {
         // 老的图片url，不需要rkey
         return IMAGE_HTTP_HOST + url

@@ -137,7 +137,7 @@ export class NTQQMsgApi extends Service {
     if (session) {
       return session.getMsgService().forwardMsg(msgIds, srcPeer, [destPeer], [])
     } else {
-      return await invoke<GeneralCallResult>(NTMethod.FORWARD_MSG, [{
+      return await invoke(NTMethod.FORWARD_MSG, [{
         msgIds,
         srcContact: srcPeer,
         dstContacts: [destPeer],

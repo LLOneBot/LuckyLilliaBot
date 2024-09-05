@@ -1,6 +1,6 @@
 import { Group, GroupListUpdateType, GroupMember, GroupNotify } from '@/ntqqapi/types'
 
-interface IGroupListener {
+export interface IGroupListener {
   onGroupListUpdate(updateType: GroupListUpdateType, groupList: Group[]): void
 
   onGroupExtListUpdate(...args: unknown[]): void
@@ -55,9 +55,4 @@ interface IGroupListener {
   
   // 发现于Win 9.9.9 23159
   onGroupMemberLevelInfoChange(...args: unknown[]): void
-}
-
-export interface NodeIKernelGroupListener extends IGroupListener {
-  // eslint-disable-next-line @typescript-eslint/no-misused-new
-  new(listener: IGroupListener): NodeIKernelGroupListener
 }

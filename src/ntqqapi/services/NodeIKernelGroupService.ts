@@ -1,4 +1,3 @@
-import { NodeIKernelGroupListener } from '@/ntqqapi/listeners'
 import {
   GroupExtParam,
   GroupMember,
@@ -99,7 +98,7 @@ export interface NodeIKernelGroupService {
 
   setHeader(uid: string, path: string): unknown
 
-  addKernelGroupListener(listener: NodeIKernelGroupListener): number
+  addKernelGroupListener(listener: unknown): number
 
   removeKernelGroupListener(listenerId: unknown): void
 

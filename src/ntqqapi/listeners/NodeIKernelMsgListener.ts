@@ -265,10 +265,4 @@ export interface IKernelMsgListener {
 
   // 第一次发现于Win 9.9.9 23159
   onBroadcastHelperProgerssUpdate(...args: unknown[]): void
-
-}
-
-export interface NodeIKernelMsgListener extends IKernelMsgListener {
-  // eslint-disable-next-line @typescript-eslint/no-misused-new
-  new(listener: IKernelMsgListener): NodeIKernelMsgListener
 }
