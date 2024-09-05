@@ -76,30 +76,29 @@ export class NTQQGroupApi extends Service {
   async getGroupMember(groupCode: string | number, memberUinOrUid: string | number) {
     const groupCodeStr = groupCode.toString()
     const memberUinOrUidStr = memberUinOrUid.toString()
-    let members = this.groupMembers.get(groupCodeStr)
-    if (!members) {
+    if (!this.groupMembers.has(groupCodeStr)) {
       try {
-        members = await this.getGroupMembers(groupCodeStr)
         // 更新群成员列表
-        this.groupMembers.set(groupCodeStr, members)
+        this.groupMembers.set(groupCodeStr, await this.getGroupMembers(groupCodeStr))
       }
       catch (e) {
         return null
       }
     }
+    let members = this.groupMembers.get(groupCodeStr)!
     const getMember = () => {
       let member: GroupMember | undefined = undefined
       if (isNumeric(memberUinOrUidStr)) {
-        member = Array.from(members!.values()).find(member => member.uin === memberUinOrUidStr)
+        member = Array.from(members.values()).find(member => member.uin === memberUinOrUidStr)
       } else {
-        member = members!.get(memberUinOrUidStr)
+        member = members.get(memberUinOrUidStr)
       }
       return member
     }
     let member = getMember()
     if (!member) {
-      members = await this.getGroupMembers(groupCodeStr)
-      this.groupMembers.set(groupCodeStr, members)
+      this.groupMembers.set(groupCodeStr, await this.getGroupMembers(groupCodeStr))
+      members = this.groupMembers.get(groupCodeStr)!
       member = getMember()
     }
     return member

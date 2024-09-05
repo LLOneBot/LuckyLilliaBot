@@ -356,12 +356,12 @@ class OneBot11Adapter extends Service {
     for (const member of members) {
       const existMember = await this.ctx.ntGroupApi.getGroupMember(groupCode, member.uin)
       if (existMember) {
-        if (member.cardName != existMember.cardName) {
+        if (member.cardName !== existMember.cardName) {
           this.ctx.logger.info('群成员名片变动', `${groupCode}: ${existMember.uin}`, existMember.cardName, '->', member.cardName)
           this.dispatch(
             new OB11GroupCardEvent(parseInt(groupCode), parseInt(member.uin), member.cardName, existMember.cardName),
           )
-        } else if (member.role != existMember.role) {
+        } else if (member.role !== existMember.role) {
           this.ctx.logger.info('有管理员变动通知')
           const groupAdminNoticeEvent = new OB11GroupAdminNoticeEvent(
             member.role == GroupMemberRole.admin ? 'set' : 'unset',
