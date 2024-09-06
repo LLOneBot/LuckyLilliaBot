@@ -108,7 +108,7 @@ interface InvokeOptions<ReturnType> {
 }
 
 export function invoke<
-  R extends Awaited<ReturnType<Extract<NTService[S][M], (...args: any) => any>>>,
+  R extends Awaited<ReturnType<Extract<NTService[S][M], (...args: any) => unknown>>>,
   S extends keyof NTService = any,
   M extends keyof NTService[S] & string = any
 >(method: Extract<unknown, `${S}/${M}`> | string, args: unknown[], options: InvokeOptions<R> = {}) {
@@ -137,7 +137,7 @@ export function invoke<
       const secondCallback = () => {
         const hookId = registerReceiveHook<R>(options.cbCmd!, (payload) => {
           // log(methodName, "second callback", cbCmd, payload, cmdCB);
-          if (!!options.cmdCB) {
+          if (options.cmdCB) {
             if (options.cmdCB(payload, result)) {
               removeReceiveHook(hookId)
               success = true
@@ -174,7 +174,7 @@ export function invoke<
       channel,
       {
         sender: {
-          send: (..._args: unknown[]) => {
+          send: () => {
           },
         },
       },

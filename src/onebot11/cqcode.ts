@@ -10,7 +10,7 @@ function from(source: string) {
   const capture = pattern.exec(source)
   if (!capture) return null
   const [, type, attrs] = capture
-  const data: Record<string, any> = {}
+  const data: Record<string, unknown> = {}
   attrs &&
     attrs
       .slice(1)
@@ -22,7 +22,7 @@ function from(source: string) {
   return { type, data, capture }
 }
 
-function h(type: string, data: any) {
+function h(type: string, data: unknown) {
   return {
     type,
     data,
@@ -30,7 +30,7 @@ function h(type: string, data: any) {
 }
 
 export function decodeCQCode(source: string): OB11MessageData[] {
-  const elements: any[] = []
+  const elements: unknown[] = []
   let result: ReturnType<typeof from>
   while ((result = from(source))) {
     const { type, data, capture } = result
@@ -41,7 +41,7 @@ export function decodeCQCode(source: string): OB11MessageData[] {
     source = source.slice(capture.index + capture[0].length)
   }
   if (source) elements.push(h('text', { text: unescape(source) }))
-  return elements
+  return elements as OB11MessageData[]
 }
 
 export function encodeCQCode(input: OB11MessageData) {

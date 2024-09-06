@@ -3,13 +3,13 @@ import { ActionName } from '../types'
 
 interface Payload {
   method: string
-  args: any[]
+  args: unknown[]
 }
 
-export default class Debug extends BaseAction<Payload, any> {
+export default class Debug extends BaseAction<Payload, unknown> {
   actionName = ActionName.Debug
 
-  protected async _handle(payload: Payload): Promise<any> {
+  protected async _handle(payload: Payload) {
     this.ctx.logger.info('debug call ntqq api', payload)
     const { ntMsgApi, ntFileApi, ntFileCacheApi, ntFriendApi, ntGroupApi, ntUserApi, ntWindowApi } = this.ctx
     const ntqqApi = [ntMsgApi, ntFriendApi, ntGroupApi, ntUserApi, ntFileApi, ntFileCacheApi, ntWindowApi]

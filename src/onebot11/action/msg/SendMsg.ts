@@ -45,8 +45,6 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
         message: '音乐消息不可以和其他消息混在一起发送',
       }
     }
-    if (payload.user_id && payload.message_type !== 'group') {
-    }
     return {
       valid: true,
     }
@@ -67,9 +65,9 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
     if (this.getSpecialMsgNum(messages, OB11MessageDataType.node)) {
       try {
         const returnMsg = await this.handleForwardNode(peer, messages as OB11MessageNode[])
-        return { message_id: returnMsg?.msgShortId! }
-      } catch (e: any) {
-        throw '发送转发消息失败 ' + e.toString()
+        return { message_id: returnMsg.msgShortId! }
+      } catch (e) {
+        throw '发送转发消息失败 ' + e
       }
     }
     else if (this.getSpecialMsgNum(messages, OB11MessageDataType.music)) {
@@ -144,26 +142,20 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
 
   private async cloneMsg(msg: RawMessage): Promise<RawMessage | undefined> {
     this.ctx.logger.info('克隆的目标消息', msg)
-    let sendElements: SendMessageElement[] = []
+    const sendElements: SendMessageElement[] = []
     for (const ele of msg.elements) {
       sendElements.push(ele as SendMessageElement)
-      // Object.keys(ele).forEach((eleKey) => {
-      //     if (eleKey.endsWith("Element")) {
-      //     }
     }
     if (sendElements.length === 0) {
       this.ctx.logger.warn('需要clone的消息无法解析，将会忽略掉', msg)
     }
     this.ctx.logger.info('克隆消息', sendElements)
     try {
-      const nodeMsg = await this.ctx.ntMsgApi.sendMsg(
-        {
-          chatType: ChatType.friend,
-          peerUid: selfInfo.uid,
-        },
-        sendElements,
-        true,
-      )
+      const peer = {
+        chatType: ChatType.friend,
+        peerUid: selfInfo.uid
+      }
+      const nodeMsg = await this.ctx.ntMsgApi.sendMsg(peer, sendElements)
       await this.ctx.sleep(400)
       return nodeMsg
     } catch (e) {
@@ -181,7 +173,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
     // 先判断一遍是不是id和自定义混用
     for (const messageNode of messageNodes) {
       // 一个node表示一个人的消息
-      let nodeId = messageNode.data.id
+      const nodeId = messageNode.data.id
       // 有nodeId表示一个子转发消息卡片
       if (nodeId) {
         const nodeMsg = await MessageUnique.getMsgIdAndPeerByShortId(+nodeId) || await MessageUnique.getPeerByMsgId(nodeId)
@@ -201,7 +193,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
             destPeer
           )
           this.ctx.logger.info('开始生成转发节点', sendElements)
-          let sendElementsSplit: SendMessageElement[][] = []
+          const sendElementsSplit: SendMessageElement[][] = []
           let splitIndex = 0
           for (const ele of sendElements) {
             if (!sendElementsSplit[splitIndex]) {

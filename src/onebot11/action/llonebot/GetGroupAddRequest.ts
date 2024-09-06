@@ -11,7 +11,7 @@ interface OB11GroupRequestNotify {
 export default class GetGroupAddRequest extends BaseAction<null, OB11GroupRequestNotify[]> {
   actionName = ActionName.GetGroupIgnoreAddRequest
 
-  protected async _handle(payload: null): Promise<OB11GroupRequestNotify[]> {
+  protected async _handle(): Promise<OB11GroupRequestNotify[]> {
     const data = await this.ctx.ntGroupApi.getGroupIgnoreNotifies()
     const notifies: GroupNotify[] = data.notifies.filter((notify) => notify.status === GroupNotifyStatus.KUNHANDLE)
     const returnData: OB11GroupRequestNotify[] = []

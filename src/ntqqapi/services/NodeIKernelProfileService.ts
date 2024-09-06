@@ -33,7 +33,7 @@ export interface NodeIKernelProfileService {
 
   fetchUserDetailInfo(trace: string, uids: string[], arg2: number, arg3: number[]): Promise<unknown>
 
-  addKernelProfileListener(listener: any): number
+  addKernelProfileListener(listener: unknown): number
 
   removeKernelProfileListener(listenerId: number): void
 
@@ -64,7 +64,7 @@ export interface NodeIKernelProfileService {
 
   modifySelfProfile(...args: unknown[]): Promise<unknown>
 
-  modifyDesktopMiniProfile(param: any): Promise<GeneralCallResult>
+  modifyDesktopMiniProfile(param: unknown): Promise<GeneralCallResult>
 
   setNickName(NickName: string): Promise<unknown>
 
@@ -82,9 +82,9 @@ export interface NodeIKernelProfileService {
 
   getUserDetailInfo(uid: string): Promise<unknown>
 
-  getUserDetailInfoWithBizInfo(uid: string, Biz: any[]): Promise<GeneralCallResult>
+  getUserDetailInfoWithBizInfo(uid: string, Biz: unknown[]): Promise<GeneralCallResult>
 
-  getUserDetailInfoByUin(uin: string): Promise<any>
+  getUserDetailInfoByUin(uin: string): Promise<unknown>
 
   getZplanAvatarInfos(args: string[]): Promise<unknown>
 
@@ -99,7 +99,7 @@ export interface NodeIKernelProfileService {
   getProfileQzonePicInfo(uid: string, type: number, force: boolean): Promise<unknown>
 
   //profileService.getCoreInfo("UserRemarkServiceImpl::getStrangerRemarkByUid", arrayList)
-  getCoreInfo(name: string, arg: any[]): unknown
+  getCoreInfo(name: string, arg: unknown[]): unknown
 
   //m429253e12.getOtherFlag("FriendListInfoCache_getKernelDataAndPutCache", new ArrayList<>())
   isNull(): boolean

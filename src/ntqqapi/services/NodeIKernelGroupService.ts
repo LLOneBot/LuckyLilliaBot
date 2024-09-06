@@ -1,4 +1,3 @@
-import { NodeIKernelGroupListener } from '@/ntqqapi/listeners'
 import {
   GroupExtParam,
   GroupMember,
@@ -7,8 +6,7 @@ import {
   GroupRequestOperateTypes,
 } from '@/ntqqapi/types'
 import { GeneralCallResult } from './common'
-
-//高版本的接口不应该随意使用 使用应该严格进行pr审核 同时部分ipc中未出现的接口不要过于依赖 应该做好数据兜底
+import { Dict } from 'cosmokit'
 
 export interface NodeIKernelGroupService {
   getMemberCommonInfo(Req: {
@@ -29,8 +27,10 @@ export interface NodeIKernelGroupService {
     onlineFlag: string,
     realSpecialTitleFlag: number
   }): Promise<unknown>
+
   //26702
   getGroupMemberLevelInfo(groupCode: string): Promise<unknown>
+
   //26702
   getGroupHonorList(groupCodes: Array<string>): unknown
 
@@ -45,6 +45,7 @@ export interface NodeIKernelGroupService {
     errMsg: string,
     uids: Map<string, string>
   }>
+  
   //26702(其实更早 但是我不知道)
   checkGroupMemberCache(arrayList: Array<string>): Promise<unknown>
 
@@ -70,12 +71,16 @@ export interface NodeIKernelGroupService {
       brief: string
     }
   }): Promise<unknown>
+
   //26702(其实更早 但是我不知道)
   isEssenceMsg(Req: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<unknown>
+
   //26702(其实更早 但是我不知道)
   queryCachedEssenceMsg(Req: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<unknown>
+
   //26702(其实更早 但是我不知道)
   fetchGroupEssenceList(Req: { groupCode: string, pageStart: number, pageLimit: number }, Arg: unknown): Promise<unknown>
+
   //26702
   getAllMemberList(groupCode: string, forceFetch: boolean): Promise<{
     errCode: number,
@@ -85,7 +90,7 @@ export interface NodeIKernelGroupService {
         uid: string,
         index: number//0
       }>,
-      infos: {},
+      infos: Dict,
       finish: true,
       hasRobot: false
     }
@@ -93,7 +98,7 @@ export interface NodeIKernelGroupService {
 
   setHeader(uid: string, path: string): unknown
 
-  addKernelGroupListener(listener: NodeIKernelGroupListener): number
+  addKernelGroupListener(listener: unknown): number
 
   removeKernelGroupListener(listenerId: unknown): void
 
@@ -171,7 +176,7 @@ export interface NodeIKernelGroupService {
 
   clearGroupNotifies(groupCode: string): void
 
-  getGroupNotifiesUnreadCount(unknown: Boolean): Promise<GeneralCallResult>
+  getGroupNotifiesUnreadCount(unknown: boolean): Promise<GeneralCallResult>
 
   clearGroupNotifiesUnreadCount(groupCode: string): void
 
@@ -193,7 +198,7 @@ export interface NodeIKernelGroupService {
 
   deleteGroupBulletin(groupCode: string, seq: string): void
 
-  publishGroupBulletin(groupCode: string, pskey: string, data: any): Promise<GeneralCallResult>
+  publishGroupBulletin(groupCode: string, pskey: string, data: unknown): Promise<GeneralCallResult>
 
   publishInstructionForNewcomers(groupCode: string, arg: unknown): void
 

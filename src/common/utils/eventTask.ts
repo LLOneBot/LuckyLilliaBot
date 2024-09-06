@@ -4,8 +4,8 @@ import { randomUUID } from 'node:crypto'
 interface Internal_MapKey {
   timeout: number
   createtime: number
-  func: (...arg: any[]) => any
-  checker: ((...args: any[]) => boolean) | undefined
+  func: (...arg: any[]) => unknown
+  checker?: (...args: any[]) => boolean
 }
 
 export class ListenerClassBase {
@@ -13,7 +13,7 @@ export class ListenerClassBase {
 }
 
 export interface ListenerIBase {
-  new(listener: any): ListenerClassBase
+  new(listener: unknown): ListenerClassBase
 }
 
 // forked from https://github.com/NapNeko/NapCatQQ/blob/6f6b258f22d7563f15d84e7172c4d4cbb547f47e/src/common/utils/EventTask.ts#L20
@@ -30,11 +30,11 @@ export class NTEventWrapper {
   createProxyDispatch(ListenerMainName: string) {
     const current = this
     return new Proxy({}, {
-      get(target: any, prop: any, receiver: any) {
+      get(target: any, prop: string, receiver: unknown) {
         // console.log('get', prop, typeof target[prop])
         if (typeof target[prop] === 'undefined') {
           // 如果方法不存在，返回一个函数，这个函数调用existentMethod
-          return (...args: any[]) => {
+          return (...args: unknown[]) => {
             current.dispatcherListener.apply(current, [ListenerMainName, prop, ...args]).then()
           }
         }
@@ -50,7 +50,7 @@ export class NTEventWrapper {
     this.initialised = true
   }
 
-  createEventFunction<T extends (...args: any) => any>(eventName: string): T | undefined {
+  createEventFunction<T extends (...args: any) => unknown>(eventName: string): T | undefined {
     const eventNameArr = eventName.split('/')
     type eventType = {
       [key: string]: () => { [key: string]: (...params: Parameters<T>) => Promise<ReturnType<T>> }
@@ -87,7 +87,7 @@ export class NTEventWrapper {
   }
 
   //统一回调清理事件
-  async dispatcherListener(ListenerMainName: string, ListenerSubName: string, ...args: any[]) {
+  async dispatcherListener(ListenerMainName: string, ListenerSubName: string, ...args: unknown[]) {
     //console.log("[EventDispatcher]",ListenerMainName, ListenerSubName, ...args)
     this.EventTask.get(ListenerMainName)?.get(ListenerSubName)?.forEach((task, uuid) => {
       //console.log(task.func, uuid, task.createtime, task.timeout)
@@ -101,7 +101,7 @@ export class NTEventWrapper {
     })
   }
 
-  async CallNoListenerEvent<EventType extends (...args: any[]) => Promise<any> | any>(EventName = '', timeout: number = 3000, ...args: Parameters<EventType>) {
+  async CallNoListenerEvent<EventType extends (...args: any[]) => Promise<any>>(EventName = '', timeout: number = 3000, ...args: Parameters<EventType>) {
     return new Promise<Awaited<ReturnType<EventType>>>(async (resolve, reject) => {
       const EventFunc = this.createEventFunction<EventType>(EventName)
       let complete = false
@@ -162,7 +162,7 @@ export class NTEventWrapper {
       const id = randomUUID()
       let complete = 0
       let retData: Parameters<ListenerType> | undefined = undefined
-      let retEvent: any = {}
+      let retEvent = {}
       const databack = () => {
         if (complete == 0) {
           reject(new Error('Timeout: NTEvent EventName:' + EventName + ' ListenerName:' + ListenerName + ' EventRet:\n' + JSON.stringify(retEvent, null, 4) + '\n'))
@@ -181,7 +181,7 @@ export class NTEventWrapper {
         timeout: timeout,
         createtime: Date.now(),
         checker: checker,
-        func: (...args: any[]) => {
+        func: (...args: unknown[]) => {
           complete++
           //console.log('func', ...args)
           retData = args as Parameters<ListenerType>
@@ -200,7 +200,7 @@ export class NTEventWrapper {
       this.EventTask.get(ListenerMainName)?.get(ListenerSubName)?.set(id, eventCallbak)
       this.createListenerFunction(ListenerMainName)
       const EventFunc = this.createEventFunction<EventType>(EventName)
-      retEvent = await EventFunc!(...(args as any[]))
+      retEvent = await EventFunc!(...args)
     })
   }
 }

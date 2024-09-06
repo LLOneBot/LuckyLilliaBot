@@ -38,7 +38,7 @@ export class NTQQWindowApi extends Service {
   // 打开窗口并获取对应的下发事件
   async openWindow<R = GeneralCallResult>(
     ntQQWindow: NTQQWindow,
-    args: any[],
+    args: unknown[],
     cbCmd: ReceiveCmd | undefined,
     autoCloseSeconds: number = 2,
   ) {

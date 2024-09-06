@@ -6,7 +6,7 @@ import { selfInfo } from '@/common/globalVars'
 class GetLoginInfo extends BaseAction<null, OB11User> {
   actionName = ActionName.GetLoginInfo
 
-  protected async _handle(payload: null) {
+  protected async _handle() {
     let nickname = selfInfo.nick
     try {
       nickname = await this.ctx.ntUserApi.getSelfNick(true)

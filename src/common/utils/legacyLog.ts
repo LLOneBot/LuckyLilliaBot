@@ -2,8 +2,9 @@ import fs from 'fs'
 import path from 'node:path'
 import { getConfigUtil } from '../config'
 import { LOG_DIR } from '../globalVars'
+import { Dict } from 'cosmokit'
 
-function truncateString(obj: any, maxLength = 500) {
+function truncateString(obj: Dict | null, maxLength = 500) {
   if (obj !== null && typeof obj === 'object') {
     Object.keys(obj).forEach((key) => {
       if (typeof obj[key] === 'string') {
@@ -22,7 +23,7 @@ function truncateString(obj: any, maxLength = 500) {
 
 export const logFileName = `llonebot-${new Date().toLocaleString('zh-CN')}.log`.replace(/\//g, '-').replace(/:/g, '-')
 
-export function log(...msg: any[]) {
+export function log(...msg: unknown[]) {
   if (!getConfigUtil().getConfig().log) {
     return
   }

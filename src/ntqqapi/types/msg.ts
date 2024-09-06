@@ -352,7 +352,7 @@ export interface VideoElement {
   thumbHeight?: number
   busiType?: 0 // 未知
   subBusiType?: 0 // 未知
-  thumbPath?: Map<number, any>
+  thumbPath?: Map<number, string>
   transferStatus?: 0 // 未知
   progress?: 0 // 下载进度？
   invalidState?: 0 // 未知
@@ -523,22 +523,22 @@ export interface MessageElement {
   grayTipElement?: GrayTipElement
   arkElement?: ArkElement
   fileElement?: FileElement
-  liveGiftElement?: null
+  liveGiftElement?: unknown
   markdownElement?: MarkdownElement
-  structLongMsgElement?: any
+  structLongMsgElement?: unknown
   multiForwardMsgElement?: MultiForwardMsgElement
-  giphyElement?: any
-  walletElement?: null
+  giphyElement?: unknown
+  walletElement?: unknown
   inlineKeyboardElement?: InlineKeyboardElement
-  textGiftElement?: null //????
-  calendarElement?: any
-  yoloGameResultElement?: any
-  avRecordElement?: any
-  structMsgElement?: null
-  faceBubbleElement?: any
-  shareLocationElement?: any
-  tofuRecordElement?: any
-  taskTopMsgElement?: any
-  recommendedMsgElement?: any
-  actionBarElement?: any
+  textGiftElement?: unknown //????
+  calendarElement?: unknown
+  yoloGameResultElement?: unknown
+  avRecordElement?: unknown
+  structMsgElement?: unknown
+  faceBubbleElement?: unknown
+  shareLocationElement?: unknown
+  tofuRecordElement?: unknown
+  taskTopMsgElement?: unknown
+  recommendedMsgElement?: unknown
+  actionBarElement?: unknown
 }

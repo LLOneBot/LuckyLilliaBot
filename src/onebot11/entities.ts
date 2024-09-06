@@ -42,7 +42,7 @@ import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNotice
 import { OB11FriendPokeEvent, OB11GroupPokeEvent } from './event/notice/OB11PokeEvent'
 import { OB11BaseNoticeEvent } from './event/notice/OB11BaseNoticeEvent'
 import { OB11GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent'
-import { omit, isNullable, pick } from 'cosmokit'
+import { omit, isNullable, pick, Dict } from 'cosmokit'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { pathToFileURL } from 'node:url'
@@ -66,7 +66,7 @@ export namespace OB11Entities {
       sender: {
         user_id: parseInt(msg.senderUin!),
         nickname: msg.sendNickName,
-        card: msg.sendMemberName || '',
+        card: msg.sendMemberName ?? '',
       },
       raw_message: '',
       font: 14,
@@ -78,32 +78,33 @@ export namespace OB11Entities {
     if (debug) {
       resMsg.raw = msg
     }
-    if (msg.chatType == ChatType.group) {
+    if (msg.chatType === ChatType.group) {
       resMsg.sub_type = 'normal'
       resMsg.group_id = parseInt(msg.peerUin)
       const member = await ctx.ntGroupApi.getGroupMember(msg.peerUin, msg.senderUin!)
       if (member) {
         resMsg.sender.role = groupMemberRole(member.role)
         resMsg.sender.nickname = member.nick
+        resMsg.sender.title = member.memberSpecialTitle ?? ''
       }
     }
-    else if (msg.chatType == ChatType.friend) {
+    else if (msg.chatType === ChatType.friend) {
       resMsg.sub_type = 'friend'
       resMsg.sender.nickname = (await ctx.ntUserApi.getUserDetailInfo(msg.senderUid)).nick
     }
-    else if (msg.chatType as unknown as ChatType2 == ChatType2.KCHATTYPETEMPC2CFROMGROUP) {
+    else if (msg.chatType as unknown as ChatType2 === ChatType2.KCHATTYPETEMPC2CFROMGROUP) {
       resMsg.sub_type = 'group'
+      resMsg.temp_source = 0 //群聊
+      resMsg.sender.nickname = (await ctx.ntUserApi.getUserDetailInfo(msg.senderUid)).nick
       const ret = await ctx.ntMsgApi.getTempChatInfo(ChatType2.KCHATTYPETEMPC2CFROMGROUP, msg.senderUid)
       if (ret?.result === 0) {
-        resMsg.temp_source = Number(ret.tmpChatInfo?.groupCode)
-        resMsg.sender.nickname = ret.tmpChatInfo?.fromNick!
+        resMsg.sender.group_id = Number(ret.tmpChatInfo?.groupCode)
       } else {
-        resMsg.temp_source = 284840486 //兜底数据
-        resMsg.sender.nickname = '临时会话'
+        resMsg.sender.group_id = 284840486 //兜底数据
       }
     }
 
-    for (let element of msg.elements) {
+    for (const element of msg.elements) {
       let messageSegment: OB11MessageData | undefined
       if (element.textElement && element.textElement?.atType !== AtType.notAt) {
         let qq: string
@@ -404,7 +405,7 @@ export namespace OB11Entities {
       return
     }
     if (msg.senderUin) {
-      let member = await ctx.ntGroupApi.getGroupMember(msg.peerUid, msg.senderUin)
+      const member = await ctx.ntGroupApi.getGroupMember(msg.peerUid, msg.senderUin)
       if (member && member.cardName !== msg.sendMemberName) {
         const event = new OB11GroupCardEvent(
           parseInt(msg.peerUid),
@@ -416,12 +417,10 @@ export namespace OB11Entities {
         return event
       }
     }
-    // log("group msg", msg)
-    for (let element of msg.elements) {
+    for (const element of msg.elements) {
       const grayTipElement = element.grayTipElement
       const groupElement = grayTipElement?.groupElement
       if (groupElement) {
-        // log("收到群提示消息", groupElement)
         if (groupElement.type === TipGroupElementType.memberIncrease) {
           ctx.logger.info('收到群成员增加消息', groupElement)
           await ctx.sleep(1000)
@@ -430,14 +429,10 @@ export namespace OB11Entities {
           if (!memberUin) {
             memberUin = (await ctx.ntUserApi.getUserDetailInfo(groupElement.memberUid)).uin
           }
-          // log("获取新群成员QQ", memberUin)
           const adminMember = await ctx.ntGroupApi.getGroupMember(msg.peerUid, groupElement.adminUid)
-          // log("获取同意新成员入群的管理员", adminMember)
           if (memberUin) {
             const operatorUin = adminMember?.uin || memberUin
-            let event = new OB11GroupIncreaseEvent(parseInt(msg.peerUid), parseInt(memberUin), parseInt(operatorUin))
-            // log("构造群增加事件", event)
-            return event
+            return new OB11GroupIncreaseEvent(parseInt(msg.peerUid), parseInt(memberUin), parseInt(operatorUin))
           }
         }
         else if (groupElement.type === TipGroupElementType.ban) {
@@ -445,8 +440,8 @@ export namespace OB11Entities {
           const memberUid = groupElement.shutUp?.member.uid
           const adminUid = groupElement.shutUp?.admin.uid
           let memberUin: string = ''
-          let duration = parseInt(groupElement.shutUp?.duration!)
-          let sub_type: 'ban' | 'lift_ban' = duration > 0 ? 'ban' : 'lift_ban'
+          let duration = Number(groupElement.shutUp?.duration)
+          const subType = duration > 0 ? 'ban' : 'lift_ban'
           if (memberUid) {
             memberUin =
               (await ctx.ntGroupApi.getGroupMember(msg.peerUid, memberUid))?.uin ||
@@ -466,7 +461,7 @@ export namespace OB11Entities {
               parseInt(memberUin),
               parseInt(adminUin),
               duration,
-              sub_type,
+              subType,
             )
           }
         }
@@ -542,8 +537,8 @@ export namespace OB11Entities {
                 count: 1,
               }]
             )
-          } catch (e: any) {
-            ctx.logger.error('解析表情回应消息失败', e.stack)
+          } catch (e) {
+            ctx.logger.error('解析表情回应消息失败', (e as Error).stack)
           }
         }
 
@@ -597,14 +592,14 @@ export namespace OB11Entities {
           if (grayTipElement.jsonGrayTipElement.busiId == 1061) {
             //判断业务类型
             //Poke事件
-            const pokedetail: any[] = json.items
+            const pokedetail: Dict[] = json.items
             //筛选item带有uid的元素
             const poke_uid = pokedetail.filter(item => item.uid)
             if (poke_uid.length == 2) {
               return new OB11GroupPokeEvent(
                 parseInt(msg.peerUid),
-                parseInt(await ctx.ntUserApi.getUinByUid(poke_uid[0].uid)),
-                parseInt(await ctx.ntUserApi.getUinByUid(poke_uid[1].uid)),
+                parseInt(await ctx.ntUserApi.getUinByUid(poke_uid[0].uid) ?? 0),
+                parseInt(await ctx.ntUserApi.getUinByUid(poke_uid[1].uid) ?? 0),
                 pokedetail
               )
             }

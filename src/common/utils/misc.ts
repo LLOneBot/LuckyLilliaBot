@@ -1,4 +1,5 @@
 import { QQLevel } from '@/ntqqapi/types'
+import { Dict } from 'cosmokit'
 
 export function isNumeric(str: string) {
   return /^\d+$/.test(str)
@@ -16,7 +17,7 @@ export function getBuildVersion(): number {
 }
 
 /** 在保证老对象已有的属性不变化的情况下将新对象的属性复制到老对象 */
-export function mergeNewProperties(newObj: any, oldObj: any) {
+export function mergeNewProperties(newObj: Dict, oldObj: Dict) {
   Object.keys(newObj).forEach((key) => {
     // 如果老对象不存在当前属性，则直接复制
     if (!oldObj.hasOwnProperty(key)) {

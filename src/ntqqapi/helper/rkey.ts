@@ -35,7 +35,7 @@ export class RkeyManager {
     return now > this.rkeyData.expired_time
   }
 
-  async refreshRkey(): Promise<any> {
+  async refreshRkey() {
     //刷新rkey
     this.rkeyData = await this.fetchServerRkey()
   }

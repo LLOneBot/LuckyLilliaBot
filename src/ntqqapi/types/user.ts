@@ -124,7 +124,7 @@ interface VideoInfo {
 
 interface ExtOnlineBusinessInfo {
   buf: string
-  customStatus: any
+  customStatus: unknown
   videoBizInfo: VideoBizInfo
   videoInfo: VideoInfo
 }
@@ -142,7 +142,7 @@ interface UserStatus {
   termType: number
   netType: number
   iconType: number
-  customStatus: any
+  customStatus: unknown
   setTime: string
   specialFlag: number
   abiFlag: number
@@ -156,8 +156,8 @@ interface UserStatus {
 
 interface PrivilegeIcon {
   jumpUrl: string
-  openIconList: any[]
-  closeIconList: any[]
+  openIconList: unknown[]
+  closeIconList: unknown[]
 }
 
 interface VasInfo {
@@ -180,7 +180,7 @@ interface VasInfo {
   fontEffect: number
   newLoverDiamondFlag: number
   extendNameplateId: number
-  diyNameplateIDs: any[]
+  diyNameplateIDs: unknown[]
   vipStartFlag: number
   vipDataFlag: number
   gameNameplateId: string
@@ -200,8 +200,8 @@ export interface SimpleInfo {
   status: UserStatus | null
   vasInfo: VasInfo | null
   relationFlags: RelationFlags | null
-  otherFlags: any | null
-  intimate: any | null
+  otherFlags: unknown | null
+  intimate: unknown | null
 }
 
 interface RelationFlags {
@@ -241,7 +241,7 @@ interface CommonExt {
   address: string
   regTime: number
   interest: string
-  labels: any[]
+  labels: string[]
   qqLevel: QQLevel
 }
 
@@ -323,12 +323,12 @@ export interface UserDetailInfoByUin {
     regTime: number
     interest: string
     termType: number
-    labels: any[]
+    labels: unknown[]
     qqLevel: { crownNum: number, sunNum: number, moonNum: number, starNum: number }
     isHideQQLevel: number
-    privilegeIcon: { jumpUrl: string, openIconList: any[], closeIconList: any[] }
+    privilegeIcon: { jumpUrl: string, openIconList: unknown[], closeIconList: unknown[] }
     isHidePrivilegeIcon: number
-    photoWall: { picList: any[] }
+    photoWall: { picList: unknown[] }
     vipFlag: boolean
     yearVipFlag: boolean
     svipFlag: boolean

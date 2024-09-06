@@ -14,7 +14,7 @@ const { contextBridge } = require('electron')
 const { ipcRenderer } = require('electron')
 
 const llonebot = {
-  log: (data: any) => {
+  log: (data: unknown) => {
     ipcRenderer.send(CHANNEL_LOG, data)
   },
   checkVersion: async (): Promise<CheckVersion> => {

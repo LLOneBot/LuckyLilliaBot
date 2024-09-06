@@ -4,7 +4,7 @@ import { invoke, NTMethod, NTClass } from '../ntcall'
 import { getSession } from '@/ntqqapi/wrapper'
 import { BuddyListReqType, NodeIKernelProfileService } from '../services'
 import { NTEventDispatch } from '@/common/utils/eventTask'
-import { pick } from 'cosmokit'
+import { Dict, pick } from 'cosmokit'
 import { Service, Context } from 'cordis'
 
 declare module 'cordis' {
@@ -19,7 +19,7 @@ export class NTQQFriendApi extends Service {
   }
 
   /** 大于或等于 26702 应使用 getBuddyV2 */
-  async getFriends(forced = false) {
+  async getFriends(_forced = false) {
     const data = await invoke<{
       data: {
         categoryId: number
@@ -145,16 +145,16 @@ export class NTQQFriendApi extends Service {
     const session = getSession()
     if (session) {
       const uids: string[] = []
-      const categoryMap: Map<string, any> = new Map()
+      const categoryMap: Map<string, Dict> = new Map()
       const buddyService = session.getBuddyService()
-      const buddyListV2 = (await buddyService?.getBuddyListV2('0', BuddyListReqType.KNOMAL))?.data
+      const buddyListV2 = (await buddyService.getBuddyListV2('0', BuddyListReqType.KNOMAL)).data
       uids.push(
-        ...buddyListV2?.flatMap(item => {
+        ...buddyListV2.flatMap(item => {
           item.buddyUids.forEach(uid => {
             categoryMap.set(uid, { categoryId: item.categoryId, categroyName: item.categroyName })
           })
           return item.buddyUids
-        })!)
+        }))
       const data = await NTEventDispatch.CallNoListenerEvent<NodeIKernelProfileService['getCoreAndBaseInfo']>(
         'NodeIKernelProfileService/getCoreAndBaseInfo', 5000, 'nodeStore', uids
       )

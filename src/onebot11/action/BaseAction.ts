@@ -26,13 +26,13 @@ abstract class BaseAction<PayloadType, ReturnDataType> {
     try {
       const resData = await this._handle(payload)
       return OB11Response.ok(resData)
-    } catch (e: any) {
+    } catch (e) {
       this.ctx.logger.error('发生错误', e)
-      return OB11Response.error(e?.toString() || e?.stack?.toString() || '未知错误，可能操作超时', 200)
+      return OB11Response.error(e?.toString() || (e as Error)?.stack?.toString() || '未知错误，可能操作超时', 200)
     }
   }
 
-  public async websocketHandle(payload: PayloadType, echo: any): Promise<OB11Return<ReturnDataType | null>> {
+  public async websocketHandle(payload: PayloadType, echo: unknown): Promise<OB11Return<ReturnDataType | null>> {
     const result = await this.check(payload)
     if (!result.valid) {
       return OB11Response.error(result.message, 1400)
@@ -40,9 +40,9 @@ abstract class BaseAction<PayloadType, ReturnDataType> {
     try {
       const resData = await this._handle(payload)
       return OB11Response.ok(resData, echo)
-    } catch (e: any) {
+    } catch (e) {
       this.ctx.logger.error('发生错误', e)
-      return OB11Response.error(e.stack?.toString() || e.toString(), 1200, echo)
+      return OB11Response.error((e as Error)?.stack?.toString() || String(e), 1200, echo)
     }
   }
 

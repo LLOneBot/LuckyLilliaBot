@@ -12,7 +12,7 @@ import { handleQuickOperation, QuickOperationEvent } from '../helper/quickOperat
 import { OB11HeartbeatEvent } from '../event/meta/OB11HeartbeatEvent'
 import { Dict } from 'cosmokit'
 
-type RegisterHandler = (res: Response, payload: any) => Promise<any>
+type RegisterHandler = (res: Response, payload: unknown) => Promise<unknown>
 
 class OB11Http {
   private readonly expressAPP: Express
@@ -56,9 +56,9 @@ class OB11Http {
         this.ctx.logger.info(`HTTP server started ${host}:${this.config.port}`)
       })
       llonebotError.httpServerError = ''
-    } catch (e: any) {
-      this.ctx.logger.error('HTTP服务启动失败', e.toString())
-      llonebotError.httpServerError = 'HTTP服务启动失败, ' + e.toString()
+    } catch (e) {
+      this.ctx.logger.error('HTTP服务启动失败', e)
+      llonebotError.httpServerError = 'HTTP服务启动失败, ' + e
     }
   }
 
@@ -84,7 +84,7 @@ class OB11Http {
   }
 
   private authorize(req: Request, res: Response, next: () => void) {
-    let serverToken = this.config.token
+    const serverToken = this.config.token
     let clientToken = ''
     const authHeader = req.get('authorization')
     if (authHeader) {
@@ -99,7 +99,7 @@ class OB11Http {
       this.ctx.logger.info('receive http url token', clientToken)
     }
 
-    if (serverToken && clientToken != serverToken) {
+    if (serverToken && clientToken !== serverToken) {
       return res.status(403).send(JSON.stringify({ message: 'token verify failed!' }))
     }
     next()
@@ -125,8 +125,8 @@ class OB11Http {
       this.ctx.logger.info('收到 HTTP 请求', url, payload)
       try {
         res.send(await handler(res, payload))
-      } catch (e: any) {
-        res.send(OB11Response.error(e.stack.toString(), 200))
+      } catch (e) {
+        res.send(OB11Response.error((e as Error).stack!.toString(), 200))
       }
     })
   }
@@ -136,7 +136,7 @@ namespace OB11Http {
   export interface Config {
     port: number
     token?: string
-    actionMap: Map<string, BaseAction<any, any>>
+    actionMap: Map<string, BaseAction<unknown, unknown>>
     listenLocalhost: boolean
   }
 }
@@ -190,7 +190,7 @@ class OB11HttpPost {
             //log(`新消息事件HTTP上报没有返回快速操作，不需要处理`)
           }
         },
-        (err: any) => {
+        (err) => {
           this.ctx.logger.error(`HTTP 事件上报失败: ${host}`, err, event)
         },
       ).catch(e => this.ctx.logger.error(e))

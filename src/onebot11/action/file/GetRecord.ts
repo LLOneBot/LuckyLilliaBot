@@ -12,7 +12,7 @@ export default class GetRecord extends GetFileBase {
   actionName = ActionName.GetRecord
 
   protected async _handle(payload: Payload): Promise<GetFileResponse> {
-    let res = await super._handle(payload)
+    const res = await super._handle(payload)
     res.file = await decodeSilk(this.ctx, res.file!, payload.out_format)
     res.file_name = path.basename(res.file)
     res.file_size = fs.statSync(res.file).size.toString()

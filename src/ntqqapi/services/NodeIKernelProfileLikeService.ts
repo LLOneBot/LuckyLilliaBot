@@ -9,10 +9,10 @@ export interface NodeIKernelProfileLikeService {
   setBuddyProfileLike(...args: unknown[]): { result: number, errMsg: string, succCounts: number }
 
   getBuddyProfileLike(req: BuddyProfileLikeReq): Promise<GeneralCallResult & {
-    'info': {
-      'userLikeInfos': Array<any>,
-      'friendMaxVotes': number,
-      'start': number
+    info: {
+      userLikeInfos: Array<unknown>,
+      friendMaxVotes: number,
+      start: number
     }
   }>
 

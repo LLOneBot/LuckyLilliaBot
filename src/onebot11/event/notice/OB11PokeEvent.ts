@@ -5,14 +5,13 @@ abstract class OB11PokeEvent extends OB11BaseNoticeEvent {
   sub_type = 'poke'
   target_id = 0
   abstract user_id: number
-  raw_message: any
 }
 
 export class OB11FriendPokeEvent extends OB11PokeEvent {
   user_id: number
-  raw_info: any
+  raw_info: unknown
 
-  constructor(user_id: number, target_id: number, raw_message: any) {
+  constructor(user_id: number, target_id: number, raw_message: unknown) {
     super()
     this.target_id = target_id
     this.user_id = user_id
@@ -24,9 +23,9 @@ export class OB11FriendPokeEvent extends OB11PokeEvent {
 export class OB11GroupPokeEvent extends OB11PokeEvent {
   user_id: number
   group_id: number
-  raw_info: any
+  raw_info: unknown
 
-  constructor(group_id: number, user_id: number = 0, target_id: number = 0, raw_message: any) {
+  constructor(group_id: number, user_id: number, target_id: number, raw_message: unknown) {
     super()
     this.group_id = group_id
     this.target_id = target_id

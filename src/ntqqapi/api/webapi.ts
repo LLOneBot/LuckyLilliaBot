@@ -41,7 +41,7 @@ interface WebApiGroupMemberRet {
   em: string
   cache: number
   adm_num: number
-  levelname: any
+  levelname: unknown
   mems: WebApiGroupMember[]
   count: number
   svr_time: number
@@ -60,7 +60,7 @@ interface GroupEssenceMsg {
   add_digest_uin: string
   add_digest_nick: string
   add_digest_time: number
-  msg_content: any[]
+  msg_content: unknown[]
   can_be_removed: true
 }
 
@@ -106,7 +106,7 @@ export class NTQQWebApi extends Service {
     super(ctx, 'ntWebApi', true)
   }
 
-  async getGroupMembers(GroupCode: string, cached: boolean = true): Promise<WebApiGroupMember[]> {
+  async getGroupMembers(groupCode: string): Promise<WebApiGroupMember[]> {
     const memberData: Array<WebApiGroupMember> = new Array<WebApiGroupMember>()
     const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
     const cookieStr = this.cookieToString(cookieObject)
@@ -115,7 +115,7 @@ export class NTQQWebApi extends Service {
       st: '0',
       end: '40',
       sort: '1',
-      gc: GroupCode,
+      gc: groupCode,
       bkn: this.genBkn(cookieObject.skey)
     })
     const fastRet = await RequestUtil.HttpGetJson<WebApiGroupMemberRet>(`https://qun.qq.com/cgi-bin/qun_mgr/search_group_members?${params}`, 'POST', '', { 'Cookie': cookieStr })
@@ -160,11 +160,10 @@ export class NTQQWebApi extends Service {
   //实现未缓存 考虑2h缓存
   async getGroupHonorInfo(groupCode: string, getType: WebHonorType) {
     const getDataInternal = async (Internal_groupCode: string, Internal_type: number) => {
-      let url = 'https://qun.qq.com/interactive/honorlist?gc=' + Internal_groupCode + '&type=' + Internal_type.toString()
-      let res = ''
+      const url = 'https://qun.qq.com/interactive/honorlist?gc=' + Internal_groupCode + '&type=' + Internal_type.toString()
       let resJson
       try {
-        res = await RequestUtil.HttpGetText(url, 'GET', '', { 'Cookie': cookieStr })
+        const res = await RequestUtil.HttpGetText(url, 'GET', '', { 'Cookie': cookieStr })
         const match = res.match(/window\.__INITIAL_STATE__=(.*?);/)
         if (match) {
           resJson = JSON.parse(match[1].trim())
@@ -180,26 +179,26 @@ export class NTQQWebApi extends Service {
       return undefined
     }
 
-    let HonorInfo: any = { group_id: groupCode }
+    const honorInfo: Dict = { group_id: groupCode }
     const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
     const cookieStr = this.cookieToString(cookieObject)
 
     if (getType === WebHonorType.TALKACTIVE || getType === WebHonorType.ALL) {
       try {
-        let RetInternal = await getDataInternal(groupCode, 1)
+        const RetInternal = await getDataInternal(groupCode, 1)
         if (!RetInternal) {
           throw new Error('获取龙王信息失败')
         }
-        HonorInfo.current_talkative = {
+        honorInfo.current_talkative = {
           user_id: RetInternal[0]?.uin,
           avatar: RetInternal[0]?.avatar,
           nickname: RetInternal[0]?.name,
           day_count: 0,
           description: RetInternal[0]?.desc
         }
-        HonorInfo.talkative_list = [];
+        honorInfo.talkative_list = [];
         for (const talkative_ele of RetInternal) {
-          HonorInfo.talkative_list.push({
+          honorInfo.talkative_list.push({
             user_id: talkative_ele?.uin,
             avatar: talkative_ele?.avatar,
             description: talkative_ele?.desc,
@@ -213,13 +212,13 @@ export class NTQQWebApi extends Service {
     }
     if (getType === WebHonorType.PERFROMER || getType === WebHonorType.ALL) {
       try {
-        let RetInternal = await getDataInternal(groupCode, 2)
+        const RetInternal = await getDataInternal(groupCode, 2)
         if (!RetInternal) {
           throw new Error('获取群聊之火失败')
         }
-        HonorInfo.performer_list = [];
+        honorInfo.performer_list = []
         for (const performer_ele of RetInternal) {
-          HonorInfo.performer_list.push({
+          honorInfo.performer_list.push({
             user_id: performer_ele?.uin,
             nickname: performer_ele?.name,
             avatar: performer_ele?.avatar,
@@ -232,13 +231,13 @@ export class NTQQWebApi extends Service {
     }
     if (getType === WebHonorType.PERFROMER || getType === WebHonorType.ALL) {
       try {
-        let RetInternal = await getDataInternal(groupCode, 3)
+        const RetInternal = await getDataInternal(groupCode, 3)
         if (!RetInternal) {
           throw new Error('获取群聊炽焰失败')
         }
-        HonorInfo.legend_list = []
+        honorInfo.legend_list = []
         for (const legend_ele of RetInternal) {
-          HonorInfo.legend_list.push({
+          honorInfo.legend_list.push({
             user_id: legend_ele?.uin,
             nickname: legend_ele?.name,
             avatar: legend_ele?.avatar,
@@ -251,13 +250,13 @@ export class NTQQWebApi extends Service {
     }
     if (getType === WebHonorType.EMOTION || getType === WebHonorType.ALL) {
       try {
-        let RetInternal = await getDataInternal(groupCode, 6)
+        const RetInternal = await getDataInternal(groupCode, 6)
         if (!RetInternal) {
           throw new Error('获取快乐源泉失败')
         }
-        HonorInfo.emotion_list = []
+        honorInfo.emotion_list = []
         for (const emotion_ele of RetInternal) {
-          HonorInfo.emotion_list.push({
+          honorInfo.emotion_list.push({
             user_id: emotion_ele?.uin,
             nickname: emotion_ele?.name,
             avatar: emotion_ele?.avatar,
@@ -270,9 +269,9 @@ export class NTQQWebApi extends Service {
     }
     //冒尖小春笋好像已经被tx扬了
     if (getType === WebHonorType.EMOTION || getType === WebHonorType.ALL) {
-      HonorInfo.strong_newbie_list = []
+      honorInfo.strong_newbie_list = []
     }
-    return HonorInfo
+    return honorInfo
   }
 
   async setGroupNotice(params: SetGroupNoticeParams): Promise<SetGroupNoticeRet> {

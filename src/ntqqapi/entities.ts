@@ -99,7 +99,7 @@ export namespace SendElementEntities {
     }
   }
 
-  export async function file(ctx: Context, filePath: string, fileName: string = '', folderId: string = ''): Promise<SendFileElement> {
+  export async function file(ctx: Context, filePath: string, fileName = '', folderId = ''): Promise<SendFileElement> {
     const { fileName: _fileName, path, fileSize } = await ctx.ntFileApi.uploadFile(filePath, ElementType.FILE)
     if (fileSize === 0) {
       throw '文件异常，大小为 0'
@@ -117,14 +117,14 @@ export namespace SendElementEntities {
     return element
   }
 
-  export async function video(ctx: Context, filePath: string, fileName: string = '', diyThumbPath: string = ''): Promise<SendVideoElement> {
+  export async function video(ctx: Context, filePath: string, fileName = '', diyThumbPath = ''): Promise<SendVideoElement> {
     try {
       await stat(filePath)
     } catch (e) {
       throw `文件${filePath}异常，不存在`
     }
     ctx.logger.info('复制视频到QQ目录', filePath)
-    let { fileName: _fileName, path, fileSize, md5 } = await ctx.ntFileApi.uploadFile(filePath, ElementType.VIDEO)
+    const { fileName: _fileName, path, fileSize, md5 } = await ctx.ntFileApi.uploadFile(filePath, ElementType.VIDEO)
 
     ctx.logger.info('复制视频到QQ目录完成', path)
     if (fileSize === 0) {
@@ -170,7 +170,7 @@ export namespace SendElementEntities {
 
       setTimeout(useDefaultThumb, 5000)
       ffmpeg(filePath)
-        .on('error', (err) => {
+        .on('error', () => {
           if (diyThumbPath) {
             copyFile(diyThumbPath, thumbPath)
               .then(() => {
@@ -194,7 +194,7 @@ export namespace SendElementEntities {
           resolve(thumbPath)
         })
     })
-    let thumbPath = new Map()
+    const thumbPath = new Map()
     const _thumbPath = await createThumb
     ctx.logger.info('生成视频缩略图', _thumbPath)
     const thumbSize = (await stat(_thumbPath)).size

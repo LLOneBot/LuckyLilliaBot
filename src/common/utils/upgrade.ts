@@ -14,7 +14,7 @@ export async function checkNewVersion() {
   //log('llonebot last version', latestVersion)
   const currentVersion: string[] = version.split('.')
   //log('llonebot current version', currentVersion)
-  for (let k of [0, 1, 2]) {
+  for (const k of [0, 1, 2]) {
     if (parseInt(latestVersion[k]) > parseInt(currentVersion[k])) {
       log('')
       return { result: true, version: latestVersionText }
@@ -47,14 +47,14 @@ export async function upgradeLLOneBot() {
       return false
     }
     const temp_ver_dir = path.join(TEMP_DIR, 'LLOneBot' + latestVersion)
-    let uncompressedPromise = async function () {
-      return new Promise<boolean>((resolve, reject) => {
+    const uncompressedPromise = async function () {
+      return new Promise<boolean>(resolve => {
         compressing.zip
           .uncompress(filePath, temp_ver_dir)
           .then(() => {
             resolve(true)
           })
-          .catch((reason: any) => {
+          .catch(reason => {
             log('llonebot upgrade failed, ', reason)
             if (reason?.errno == -4082) {
               resolve(true)
@@ -75,8 +75,8 @@ export async function upgradeLLOneBot() {
 export async function getRemoteVersion() {
   let Version = ''
   for (let i = 0; i < checkVersionMirrorHosts.length; i++) {
-    let mirrorGithub = checkVersionMirrorHosts[i]
-    let tVersion = await getRemoteVersionByMirror(mirrorGithub)
+    const mirrorGithub = checkVersionMirrorHosts[i]
+    const tVersion = await getRemoteVersionByMirror(mirrorGithub)
     if (tVersion && tVersion != '') {
       Version = tVersion
       break

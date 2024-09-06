@@ -16,8 +16,8 @@ type Input = string | Readable
 
 function convert(ctx: Context, input: Input, options: FFmpegOptions): Promise<Buffer>
 function convert(ctx: Context, input: Input, options: FFmpegOptions, outputPath: string): Promise<string>
-function convert(ctx: Context, input: Input, options: FFmpegOptions, outputPath?: string): Promise<Buffer> | Promise<string> {
-  return new Promise<any>((resolve, reject) => {
+function convert(ctx: Context, input: Input, options: FFmpegOptions, outputPath?: string): Promise<Buffer | string> {
+  return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
     let command = ffmpeg(input)
       .on('error', err => {
@@ -84,8 +84,8 @@ export async function encodeSilk(ctx: Context, filePath: string) {
       let duration = 1
       try {
         duration = getDuration(silk) / 1000
-      } catch (e: any) {
-        ctx.logger.warn('获取语音文件时长失败, 默认为1秒', filePath, e.stack)
+      } catch (e) {
+        ctx.logger.warn('获取语音文件时长失败, 默认为1秒', filePath, (e as Error).stack)
       }
       return {
         converted: false,
@@ -93,8 +93,8 @@ export async function encodeSilk(ctx: Context, filePath: string) {
         duration,
       }
     }
-  } catch (error: any) {
-    ctx.logger.error('convert silk failed', error.stack)
+  } catch (err) {
+    ctx.logger.error('convert silk failed', (err as Error).stack)
     return {}
   }
 }

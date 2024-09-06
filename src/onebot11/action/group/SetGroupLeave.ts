@@ -6,10 +6,10 @@ interface Payload {
   is_dismiss: boolean
 }
 
-export default class SetGroupLeave extends BaseAction<Payload, any> {
+export default class SetGroupLeave extends BaseAction<Payload, void> {
   actionName = ActionName.SetGroupLeave
 
-  protected async _handle(payload: Payload): Promise<any> {
+  protected async _handle(payload: Payload) {
     try {
       await this.ctx.ntGroupApi.quitGroup(payload.group_id.toString())
     } catch (e) {

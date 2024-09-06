@@ -16,7 +16,6 @@ import { Dict } from 'cosmokit'
 const Process = require('node:process')
 
 export interface NodeIQQNTWrapperSession {
-  [key: string]: any
   getBuddyService(): NodeIKernelBuddyService
   getGroupService(): NodeIKernelGroupService
   getProfileService(): NodeIKernelProfileService
@@ -36,19 +35,6 @@ export interface WrapperApi {
 
 export interface WrapperConstructor {
   [key: string]: any
-  NodeIKernelBuddyListener?: any
-  NodeIKernelGroupListener?: any
-  NodeQQNTWrapperUtil?: any
-  NodeIKernelMsgListener?: any
-  NodeIQQNTWrapperEngine?: any
-  NodeIGlobalAdapter?: any
-  NodeIDependsAdapter?: any
-  NodeIDispatcherAdapter?: any
-  NodeIKernelSessionListener?: any
-  NodeIKernelLoginService?: any
-  NodeIKernelLoginListener?: any
-  NodeIKernelProfileService?: any
-  NodeIKernelProfileListener?: any
 }
 
 const wrapperApi: WrapperApi = {}
@@ -75,9 +61,9 @@ Process.dlopenOrig = Process.dlopen
 
 Process.dlopen = function (module: Dict, filename: string, flags = constants.dlopen.RTLD_LAZY) {
   const dlopenRet = this.dlopenOrig(module, filename, flags)
-  for (let export_name in module.exports) {
+  for (const export_name in module.exports) {
     module.exports[export_name] = new Proxy(module.exports[export_name], {
-      construct: (target, args, _newTarget) => {
+      construct: (target, args) => {
         const ret = new target(...args)
         if (export_name === 'NodeIQQNTWrapperSession') wrapperApi.NodeIQQNTWrapperSession = ret
         return ret

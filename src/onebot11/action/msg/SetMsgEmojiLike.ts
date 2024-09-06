@@ -7,7 +7,7 @@ interface Payload {
   emoji_id: number | string
 }
 
-export class SetMsgEmojiLike extends BaseAction<Payload, any> {
+export class SetMsgEmojiLike extends BaseAction<Payload, unknown> {
   actionName = ActionName.SetMsgEmojiLike
 
   protected async _handle(payload: Payload) {

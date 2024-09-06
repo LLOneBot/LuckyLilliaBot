@@ -1,11 +1,9 @@
-import { invoke, NTMethod } from '../ntcall'
+import { invoke } from '../ntcall'
 import { User, UserDetailInfoByUin, UserDetailInfoByUinV2, UserDetailInfoListenerArg } from '../types'
 import { getBuildVersion } from '@/common/utils'
 import { getSession } from '@/ntqqapi/wrapper'
 import { RequestUtil } from '@/common/utils/request'
-import { NodeIKernelProfileService, UserDetailSource, ProfileBizType } from '../services'
-import { NodeIKernelProfileListener } from '../listeners'
-import { NTEventDispatch } from '@/common/utils/eventTask'
+import { UserDetailSource, ProfileBizType } from '../services'
 import { Time } from 'cosmokit'
 import { Service, Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -37,44 +35,24 @@ export class NTQQUserApi extends Service {
   }
 
   async fetchUserDetailInfo(uid: string) {
-    let info: UserDetailInfoListenerArg
-    if (NTEventDispatch.initialised) {
-      type EventService = NodeIKernelProfileService['fetchUserDetailInfo']
-      type EventListener = NodeIKernelProfileListener['onUserDetailInfoChanged']
-      const [_retData, profile] = await NTEventDispatch.CallNormalEvent
-        <EventService, EventListener>
-        (
-          'NodeIKernelProfileService/fetchUserDetailInfo',
-          'NodeIKernelProfileListener/onUserDetailInfoChanged',
-          1,
-          5000,
-          (profile) => profile.uid === uid,
-          'BuddyProfileStore',
-          [uid],
-          UserDetailSource.KSERVER,
-          [ProfileBizType.KALL]
-        )
-      info = profile
-    } else {
-      const result = await invoke<{ info: UserDetailInfoListenerArg }>(
-        'nodeIKernelProfileService/fetchUserDetailInfo',
-        [
-          {
-            callFrom: 'BuddyProfileStore',
-            uid: [uid],
-            source: UserDetailSource.KSERVER,
-            bizList: [ProfileBizType.KALL]
-          },
-          null
-        ],
+    const result = await invoke<{ info: UserDetailInfoListenerArg }>(
+      'nodeIKernelProfileService/fetchUserDetailInfo',
+      [
         {
-          cbCmd: 'nodeIKernelProfileListener/onUserDetailInfoChanged',
-          afterFirstCmd: false,
-          cmdCB: payload => payload.info.uid === uid,
-        }
-      )
-      info = result.info
-    }
+          callFrom: 'BuddyProfileStore',
+          uid: [uid],
+          source: UserDetailSource.KSERVER,
+          bizList: [ProfileBizType.KALL]
+        },
+        null
+      ],
+      {
+        cbCmd: 'nodeIKernelProfileListener/onUserDetailInfoChanged',
+        afterFirstCmd: false,
+        cmdCB: payload => payload.info.uid === uid,
+      }
+    )
+    const { info } = result
     const ret: User = {
       ...info.simpleInfo.coreInfo,
       ...info.simpleInfo.status,
@@ -87,43 +65,26 @@ export class NTQQUserApi extends Service {
     return ret
   }
 
-  async getUserDetailInfo(uid: string, getLevel = false, withBizInfo = true) {
+  async getUserDetailInfo(uid: string, _getLevel = false) {
     if (getBuildVersion() >= 26702) {
       return this.fetchUserDetailInfo(uid)
     }
-    if (NTEventDispatch.initialised) {
-      type EventService = NodeIKernelProfileService['getUserDetailInfoWithBizInfo']
-      type EventListener = NodeIKernelProfileListener['onProfileDetailInfoChanged']
-      const [_retData, profile] = await NTEventDispatch.CallNormalEvent
-        <EventService, EventListener>
-        (
-          'NodeIKernelProfileService/getUserDetailInfoWithBizInfo',
-          'NodeIKernelProfileListener/onProfileDetailInfoChanged',
-          2,
-          5000,
-          (profile) => profile.uid === uid,
-          uid,
-          [0]
-        )
-      return profile
-    } else {
-      const result = await invoke<{ info: User }>(
-        'nodeIKernelProfileService/getUserDetailInfoWithBizInfo',
-        [
-          {
-            uid,
-            bizList: [0]
-          },
-          null,
-        ],
+    const result = await invoke<{ info: User }>(
+      'nodeIKernelProfileService/getUserDetailInfoWithBizInfo',
+      [
         {
-          cbCmd: 'nodeIKernelProfileListener/onProfileDetailInfoChanged',
-          afterFirstCmd: false,
-          cmdCB: (payload) => payload.info.uid === uid,
-        }
-      )
-      return result.info
-    }
+          uid,
+          bizList: [0]
+        },
+        null,
+      ],
+      {
+        cbCmd: 'nodeIKernelProfileListener/onProfileDetailInfoChanged',
+        afterFirstCmd: false,
+        cmdCB: (payload) => payload.info.uid === uid,
+      }
+    )
+    return result.info
   }
 
   async getSkey(): Promise<string> {
@@ -244,40 +205,27 @@ export class NTQQUserApi extends Service {
   }
 
   async getUserDetailInfoByUinV2(uin: string) {
-    if (NTEventDispatch.initialised) {
-      return await NTEventDispatch.CallNoListenerEvent
-        <(Uin: string) => Promise<UserDetailInfoByUinV2>>(
-          'NodeIKernelProfileService/getUserDetailInfoByUin',
-          5000,
-          uin
-        )
-    } else {
-      return await invoke<UserDetailInfoByUinV2>(
-        'nodeIKernelProfileService/getUserDetailInfoByUin',
-        [
-          { uin },
-          null,
-        ],
-      )
-    }
+    return await invoke<UserDetailInfoByUinV2>(
+      'nodeIKernelProfileService/getUserDetailInfoByUin',
+      [
+        { uin },
+        null,
+      ],
+    )
   }
 
   async getUserDetailInfoByUin(uin: string) {
-    return NTEventDispatch.CallNoListenerEvent
-      <(Uin: string) => Promise<UserDetailInfoByUin>>(
-        'NodeIKernelProfileService/getUserDetailInfoByUin',
-        5000,
-        uin
-      )
+    return await invoke<UserDetailInfoByUin>(
+      'nodeIKernelProfileService/getUserDetailInfoByUin',
+      [
+        { uin },
+        null,
+      ],
+    )
   }
 
   async getUinByUidV1(uid: string) {
-    const ret = await NTEventDispatch.CallNoListenerEvent
-      <(Uin: string[]) => Promise<{ uinInfo: Map<string, string> }>>(
-        'NodeIKernelUixConvertService/getUin',
-        5000,
-        [uid]
-      )
+    const ret = await invoke('nodeIKernelUixConvertService/getUin', [{ uids: [uid] }])
     let uin = ret.uinInfo.get(uid)
     if (!uin) {
       uin = (await this.getUserDetailInfo(uid)).uin //从QQ Native 转换

@@ -7,11 +7,10 @@ interface Payload {
   type?: WebHonorType
 }
 
-export class GetGroupHonorInfo extends BaseAction<Payload, Array<any>> {
+export class GetGroupHonorInfo extends BaseAction<Payload, unknown> {
   actionName = ActionName.GetGroupHonorInfo
 
   protected async _handle(payload: Payload) {
-    // console.log(await NTQQUserApi.getRobotUinRange())
     if (!payload.group_id) {
       throw '缺少参数group_id'
     }

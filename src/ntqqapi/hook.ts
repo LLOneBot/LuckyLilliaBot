@@ -2,8 +2,9 @@ import type { BrowserWindow } from 'electron'
 import { NTClass, NTMethod } from './ntcall'
 import { log } from '@/common/utils'
 import { randomUUID } from 'node:crypto'
+import { Dict } from 'cosmokit'
 
-export const hookApiCallbacks: Record<string, (apiReturn: any) => void> = {}
+export const hookApiCallbacks: Record<string, (res: any) => void> = {}
 
 export const ReceiveCmdS = {
   RECENT_CONTACT: 'nodeIKernelRecentContactListener/onRecentContactListChangedVer2',
@@ -30,7 +31,7 @@ export const ReceiveCmdS = {
 
 export type ReceiveCmd = string
 
-interface NTQQApiReturnData<Payload = unknown> extends Array<any> {
+interface NTQQApiReturnData extends Array<unknown> {
   0: {
     type: 'request'
     eventName: NTClass
@@ -39,7 +40,7 @@ interface NTQQApiReturnData<Payload = unknown> extends Array<any> {
   1: {
     cmdName: ReceiveCmd
     cmdType: 'event'
-    payload: Payload
+    payload: unknown
   }[]
 }
 
@@ -67,16 +68,16 @@ export function hookNTQQApiReceive(window: BrowserWindow, onlyLog: boolean) {
     } catch { }
     if (!onlyLog) {
       if (args?.[1] instanceof Array) {
-        for (const receiveData of args?.[1]) {
+        for (const receiveData of args[1]) {
           const ntQQApiMethodName = receiveData.cmdName
           // log(`received ntqq api message: ${channel} ${ntQQApiMethodName}`, JSON.stringify(receiveData))
           for (const hook of receiveHooks) {
             if (hook.method.includes(ntQQApiMethodName)) {
-              new Promise((resolve, reject) => {
+              new Promise(resolve => {
                 try {
                   hook.hookFunc(receiveData.payload)
-                } catch (e: any) {
-                  log('hook error', ntQQApiMethodName, e.stack.toString())
+                } catch (e) {
+                  log('hook error', ntQQApiMethodName, (e as Error).stack?.toString())
                 }
                 resolve(undefined)
               }).then()
@@ -88,8 +89,7 @@ export function hookNTQQApiReceive(window: BrowserWindow, onlyLog: boolean) {
         // log("hookApiCallback", hookApiCallbacks, args)
         const callbackId = args[0].callbackId
         if (hookApiCallbacks[callbackId]) {
-          // log("callback found")
-          new Promise((resolve, reject) => {
+          new Promise(resolve => {
             hookApiCallbacks[callbackId](args[1])
             resolve(undefined)
           }).then()
@@ -104,7 +104,7 @@ export function hookNTQQApiReceive(window: BrowserWindow, onlyLog: boolean) {
 
 export function hookNTQQApiCall(window: BrowserWindow, onlyLog: boolean) {
   // 监听调用NTQQApi
-  let webContents = window.webContents as any
+  const webContents = window.webContents as Dict
   const ipc_message_proxy = webContents._events['-ipc-message']?.[0] || webContents._events['-ipc-message']
 
   const proxyIpcMsg = new Proxy(ipc_message_proxy, {
@@ -125,10 +125,10 @@ export function hookNTQQApiCall(window: BrowserWindow, onlyLog: boolean) {
             const callParams = _args.slice(1)
             callHooks.forEach((hook) => {
               if (hook.method.includes(cmdName)) {
-                new Promise((resolve, reject) => {
+                new Promise(resolve => {
                   try {
                     hook.hookFunc(callParams)
-                  } catch (e: any) {
+                  } catch (e) {
                     log('hook call error', e, _args)
                   }
                   resolve(undefined)
@@ -150,14 +150,13 @@ export function hookNTQQApiCall(window: BrowserWindow, onlyLog: boolean) {
   const ipc_invoke_proxy = webContents._events['-ipc-invoke']?.[0] || webContents._events['-ipc-invoke']
   const proxyIpcInvoke = new Proxy(ipc_invoke_proxy, {
     apply(target, thisArg, args) {
-      // console.log(args);
       //HOOK_LOG && log('call NTQQ invoke api', thisArg, args)
       args[0]['_replyChannel']['sendReply'] = new Proxy(args[0]['_replyChannel']['sendReply'], {
         apply(sendtarget, sendthisArg, sendargs) {
           sendtarget.apply(sendthisArg, sendargs)
         },
       })
-      let ret = target.apply(thisArg, args)
+      const ret = target.apply(thisArg, args)
       /*try {
         HOOK_LOG && log('call NTQQ invoke api return', ret)
       } catch (e) { }*/

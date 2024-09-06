@@ -27,9 +27,9 @@ export async function createSendElements(
   peer: Peer,
   ignoreTypes: OB11MessageDataType[] = [],
 ) {
-  let sendElements: SendMessageElement[] = []
-  let deleteAfterSentFiles: string[] = []
-  for (let sendMsg of messageData) {
+  const sendElements: SendMessageElement[] = []
+  const deleteAfterSentFiles: string[] = []
+  for (const sendMsg of messageData) {
     if (ignoreTypes.includes(sendMsg.type)) {
       continue
     }
@@ -164,10 +164,6 @@ export async function createSendElements(
         sendElements.push(SendElementEntities.ark(sendMsg.data.data))
       }
         break
-      case OB11MessageDataType.poke: {
-        let qq = sendMsg.data?.qq || sendMsg.data?.id
-      }
-        break
       case OB11MessageDataType.dice: {
         const resultId = sendMsg.data?.result
         sendElements.push(SendElementEntities.dice(resultId))
@@ -269,7 +265,7 @@ export async function sendMsg(
   //log('发送消息总大小', totalSize, 'bytes')
   const timeout = 10000 + (totalSize / 1024 / 256 * 1000)  // 10s Basic Timeout + PredictTime( For File 512kb/s )
   //log('设置消息超时时间', timeout)
-  const returnMsg = await ctx.ntMsgApi.sendMsg(peer, sendElements, waitComplete, timeout)
+  const returnMsg = await ctx.ntMsgApi.sendMsg(peer, sendElements, timeout)
   if (returnMsg) {
     returnMsg.msgShortId = MessageUnique.createMsg(peer, returnMsg.msgId)
     ctx.logger.info('消息发送', returnMsg.msgShortId)

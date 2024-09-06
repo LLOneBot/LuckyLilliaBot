@@ -1,7 +1,7 @@
 import { CheckVersion, Config } from '../common/types'
 import { SettingButton, SettingItem, SettingList, SettingSwitch, SettingSelect } from './components'
 import { version } from '../version'
-// @ts-ignore
+// @ts-expect-error
 import StyleRaw from './style.css?raw'
 
 type HostsType = 'httpHosts' | 'wsHosts'
@@ -15,7 +15,7 @@ async function onSettingWindowCreated(view: Element) {
   const config = await window.llonebot.getConfig()
   const ob11Config = { ...config.ob11 }
 
-  const setConfig = (key: string, value: any) => {
+  const setConfig = (key: string, value: unknown) => {
     const configKey = key.split('.')
     if (key.startsWith('ob11')) {
       if (configKey.length === 2) Object.assign(ob11Config, { [configKey[1]]: value })
@@ -87,9 +87,7 @@ async function onSettingWindowCreated(view: Element) {
                         <setting-text>HTTP 事件上报密钥</setting-text>
                     </div>
                     <div class="q-input">
-                        <input id="config-ob11-httpSecret" class="q-input__inner" data-config-key="ob11.httpSecret" type="text" value="${
-                          config.ob11.httpSecret
-                        }" placeholder="未设置" />
+                        <input id="config-ob11-httpSecret" class="q-input__inner" data-config-key="ob11.httpSecret" type="text" value="${config.ob11.httpSecret}" placeholder="未设置" />
                     </div>
                 </setting-item>
                 <setting-item data-direction="row">
@@ -152,8 +150,7 @@ async function onSettingWindowCreated(view: Element) {
         ),
         SettingItem(
           'FFmpeg 路径，发送语音、视频需要',
-          `<a href="javascript:LiteLoader.api.openExternal(\'https://llonebot.github.io/zh-CN/guide/ffmpeg\');">可点此下载</a>, 路径: <span id="config-ffmpeg-path-text">${
-            !isEmpty(config.ffmpeg) ? config.ffmpeg : '未指定'
+          `<a href="javascript:LiteLoader.api.openExternal(\'https://llonebot.github.io/zh-CN/guide/ffmpeg\');">可点此下载</a>, 路径: <span id="config-ffmpeg-path-text">${!isEmpty(config.ffmpeg) ? config.ffmpeg : '未指定'
           }</span>, 需保证 FFprobe 和 FFmpeg 在一起`,
           SettingButton('选择 FFmpeg', 'config-ffmpeg-select'),
         ),
@@ -254,7 +251,7 @@ async function onSettingWindowCreated(view: Element) {
     window.LiteLoader.api.openExternal('https://llonebot.github.io/')
   })
   // 生成反向地址列表
-  const buildHostListItem = (type: HostsType, host: string, index: number, inputAttrs: any = {}) => {
+  const buildHostListItem = (type: HostsType, host: string, index: number, inputAttrs = {}) => {
     const dom = {
       container: document.createElement('setting-item'),
       input: document.createElement('input'),
@@ -286,7 +283,7 @@ async function onSettingWindowCreated(view: Element) {
 
     return dom.container
   }
-  const buildHostList = (hosts: string[], type: HostsType, inputAttr: any = {}) => {
+  const buildHostList = (hosts: string[], type: HostsType, inputAttr = {}) => {
     const result: HTMLElement[] = []
 
     hosts.forEach((host, index) => {
@@ -295,14 +292,15 @@ async function onSettingWindowCreated(view: Element) {
 
     return result
   }
-  const addReverseHost = (type: HostsType, doc: Document = document, inputAttr: any = {}) => {
+  const addReverseHost = (type: HostsType, doc: Document = document, inputAttr = {}) => {
     const hostContainerDom = doc.body.querySelector(`#config-ob11-${type}-list`)
     hostContainerDom?.appendChild(buildHostListItem(type, '', ob11Config[type].length, inputAttr))
     ob11Config[type].push('')
   }
   const initReverseHost = (type: HostsType, doc: Document = document) => {
-    const hostContainerDom = doc.body.querySelector(`#config-ob11-${type}-list`)
-      ;[...hostContainerDom?.childNodes!].forEach((dom) => dom.remove())
+    const hostContainerDom = doc.body.querySelector(`#config-ob11-${type}-list`)!
+    const nodes = [...hostContainerDom.childNodes]
+    nodes.forEach((dom) => dom.remove())
     buildHostList(ob11Config[type], type).forEach((dom) => {
       hostContainerDom?.appendChild(dom)
     })
@@ -427,14 +425,14 @@ async function onSettingWindowCreated(view: Element) {
     }
   }
   window.llonebot.checkVersion().then(checkVersionFunc)
-  window.addEventListener('beforeunload', (event) => {
+  window.addEventListener('beforeunload', () => {
     if (JSON.stringify(ob11Config) === JSON.stringify(config.ob11)) return
     config.ob11 = ob11Config
     window.llonebot.setConfig(true, config)
   })
 }
 
-function init() {
+/**function init() {
   const hash = location.hash
   if (hash === '#/blank') {
   }
@@ -444,6 +442,6 @@ if (location.hash === '#/blank') {
   globalThis.navigation?.addEventListener('navigatesuccess', init, { once: true })
 } else {
   init()
-}
+}*/
 
 export { onSettingWindowCreated }

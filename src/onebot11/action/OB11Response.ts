@@ -13,16 +13,16 @@ export class OB11Response {
     }
   }
 
-  static ok<T>(data: T, echo: any = null) {
-    let res = OB11Response.res<T>(data, 'ok', 0)
+  static ok<T>(data: T, echo?: unknown) {
+    const res = OB11Response.res<T>(data, 'ok', 0)
     if (!isNullable(echo)) {
       res.echo = echo
     }
     return res
   }
 
-  static error(err: string, retcode: number, echo: any = null) {
-    let res = OB11Response.res(null, 'failed', retcode, err)
+  static error(err: string, retcode: number, echo?: unknown) {
+    const res = OB11Response.res(null, 'failed', retcode, err)
     if (!isNullable(echo)) {
       res.echo = echo
     }

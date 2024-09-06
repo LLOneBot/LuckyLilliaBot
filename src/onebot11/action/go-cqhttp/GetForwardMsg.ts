@@ -1,5 +1,5 @@
 import BaseAction from '../BaseAction'
-import { OB11ForwardMessage, OB11Message, OB11MessageData } from '../../types'
+import { OB11ForwardMessage } from '../../types'
 import { OB11Entities } from '../../entities'
 import { ActionName } from '../types'
 import { MessageUnique } from '@/common/utils/messageUnique'
@@ -10,12 +10,12 @@ interface Payload {
 }
 
 interface Response {
-  messages: (OB11Message & { content: OB11MessageData })[]
+  messages: OB11ForwardMessage[]
 }
 
 export class GetForwardMsg extends BaseAction<Payload, Response> {
   actionName = ActionName.GoCQHTTP_GetForwardMsg
-  protected async _handle(payload: Payload): Promise<any> {
+  protected async _handle(payload: Payload) {
     const msgId = payload.id || payload.message_id
     if (!msgId) {
       throw Error('message_id不能为空')
@@ -36,15 +36,16 @@ export class GetForwardMsg extends BaseAction<Payload, Response> {
         resMsg.message_id = MessageUnique.createMsg({
           chatType: msg.chatType,
           peerUid: msg.peerUid,
-        }, msg.msgId)!
+        }, msg.msgId)
         return resMsg
       }),
     )
-    messages.map(v => {
+    const forwardMessages = messages.map(v => {
       const msg = v as Partial<OB11ForwardMessage>
       msg.content = msg.message
       delete msg.message
+      return msg as OB11ForwardMessage
     })
-    return { messages }
+    return { messages: forwardMessages }
   }
 }

@@ -53,15 +53,15 @@ function onLoad() {
     fs.mkdirSync(LOG_DIR)
   }
 
-  ipcMain.handle(CHANNEL_CHECK_VERSION, async (event, arg) => {
+  ipcMain.handle(CHANNEL_CHECK_VERSION, async () => {
     return checkNewVersion()
   })
 
-  ipcMain.handle(CHANNEL_UPDATE, async (event, arg) => {
+  ipcMain.handle(CHANNEL_UPDATE, async () => {
     return upgradeLLOneBot()
   })
 
-  ipcMain.handle(CHANNEL_SELECT_FILE, async (event, arg) => {
+  ipcMain.handle(CHANNEL_SELECT_FILE, async () => {
     const selectPath = new Promise<string>((resolve, reject) => {
       dialog
         .showOpenDialog({
@@ -90,10 +90,10 @@ function onLoad() {
     }
   })
 
-  ipcMain.handle(CHANNEL_ERROR, async (event, arg) => {
+  ipcMain.handle(CHANNEL_ERROR, async () => {
     const ffmpegOk = await checkFfmpeg(getConfigUtil().getConfig().ffmpeg)
     llonebotError.ffmpegError = ffmpegOk ? '' : '没有找到 FFmpeg, 音频只能发送 WAV 和 SILK, 视频尺寸可能异常'
-    let { httpServerError, wsServerError, otherError, ffmpegError } = llonebotError
+    const { httpServerError, wsServerError, otherError, ffmpegError } = llonebotError
     let error = `${otherError}\n${httpServerError}\n${wsServerError}\n${ffmpegError}`
     error = error.replace('\n\n', '\n')
     error = error.trim()
@@ -101,12 +101,12 @@ function onLoad() {
     return error
   })
 
-  ipcMain.handle(CHANNEL_GET_CONFIG, async (event, arg) => {
+  ipcMain.handle(CHANNEL_GET_CONFIG, async () => {
     const config = getConfigUtil().getConfig()
     return config
   })
 
-  ipcMain.handle(CHANNEL_SET_CONFIG, (event, ask: boolean, config: LLOBConfig) => {
+  ipcMain.handle(CHANNEL_SET_CONFIG, (_event, ask: boolean, config: LLOBConfig) => {
     return new Promise<boolean>(resolve => {
       if (!ask) {
         getConfigUtil().setConfig(config)
@@ -139,7 +139,7 @@ function onLoad() {
     })
   })
 
-  ipcMain.on(CHANNEL_LOG, (event, arg) => {
+  ipcMain.on(CHANNEL_LOG, (_event, arg) => {
     log(arg)
   })
 
@@ -212,15 +212,15 @@ function onBrowserWindowCreated(window: BrowserWindow) {
   try {
     hookNTQQApiCall(window, window.id !== 2)
     hookNTQQApiReceive(window, window.id !== 2)
-  } catch (e: any) {
-    log('LLOneBot hook error: ', e.toString())
+  } catch (e) {
+    log('LLOneBot hook error: ', String(e))
   }
 }
 
 try {
   onLoad()
-} catch (e: any) {
-  console.log(e.toString())
+} catch (e) {
+  console.log(e)
 }
 
 // 这两个函数都是可选的

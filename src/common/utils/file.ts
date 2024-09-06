@@ -142,8 +142,8 @@ export async function uri2local(uri: string, filename?: string): Promise<Uri2Loc
       const filePath = path.join(TEMP_DIR, filename)
       await fsPromise.writeFile(filePath, res.data)
       return { success: true, errMsg: '', fileName: filename, path: filePath, isLocal: false }
-    } catch (e: any) {
-      const errMsg = `${uri} 下载失败, ${e.message}`
+    } catch (e) {
+      const errMsg = `${uri} 下载失败, ${(e as Error).message}`
       return { success: false, errMsg, fileName: '', path: '', isLocal: false }
     }
   }
@@ -175,7 +175,7 @@ export async function copyFolder(sourcePath: string, destPath: string) {
   try {
     const entries = await fsPromise.readdir(sourcePath, { withFileTypes: true })
     await fsPromise.mkdir(destPath, { recursive: true })
-    for (let entry of entries) {
+    for (const entry of entries) {
       const srcPath = path.join(sourcePath, entry.name)
       const dstPath = path.join(destPath, entry.name)
       if (entry.isDirectory()) {

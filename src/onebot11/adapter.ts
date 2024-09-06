@@ -172,14 +172,14 @@ class OneBot11Adapter extends Service {
           )
           this.dispatch(event)
         }
-      } catch (e: any) {
-        this.ctx.logger.error('解析群通知失败', e.stack)
+      } catch (e) {
+        this.ctx.logger.error('解析群通知失败', (e as Error).stack)
       }
     }
   }
 
   private handleMsg(msgList: RawMessage[]) {
-    for (let message of msgList) {
+    for (const message of msgList) {
       // 过滤启动之前的消息
       if (parseInt(message.msgTime) < this.startTime / 1000) {
         continue
@@ -356,12 +356,12 @@ class OneBot11Adapter extends Service {
     for (const member of members) {
       const existMember = await this.ctx.ntGroupApi.getGroupMember(groupCode, member.uin)
       if (existMember) {
-        if (member.cardName != existMember.cardName) {
+        if (member.cardName !== existMember.cardName) {
           this.ctx.logger.info('群成员名片变动', `${groupCode}: ${existMember.uin}`, existMember.cardName, '->', member.cardName)
           this.dispatch(
             new OB11GroupCardEvent(parseInt(groupCode), parseInt(member.uin), member.cardName, existMember.cardName),
           )
-        } else if (member.role != existMember.role) {
+        } else if (member.role !== existMember.role) {
           this.ctx.logger.info('有管理员变动通知')
           const groupAdminNoticeEvent = new OB11GroupAdminNoticeEvent(
             member.role == GroupMemberRole.admin ? 'set' : 'unset',

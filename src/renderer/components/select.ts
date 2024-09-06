@@ -32,14 +32,14 @@ window.customElements.define(
       this.attachShadow({ mode: 'open' })
       this.shadowRoot?.append(SelectTemplate.content.cloneNode(true))
 
-      this._button = this.shadowRoot?.querySelector('div[part="button"]')!
-      this._text = this.shadowRoot?.querySelector('input[part="current-text"]')!
-      this._context = this.shadowRoot?.querySelector('ul[part="option-list"]')!
+      this._button = this.shadowRoot?.querySelector('div[part="button"]') as HTMLDivElement
+      this._text = this.shadowRoot?.querySelector('input[part="current-text"]') as HTMLInputElement
+      this._context = this.shadowRoot?.querySelector('ul[part="option-list"]') as HTMLUListElement
 
       const buttonClick = () => {
         const isHidden = this._context.classList.toggle('hidden')
         window[`${isHidden ? 'remove' : 'add'}EventListener`]('pointerdown', ({ target }) => {
-          if (!this.contains(target as any)) buttonClick()
+          if (!this.contains(target as Node)) buttonClick()
         })
       }
 
@@ -67,12 +67,12 @@ window.customElements.define(
         )
       })
 
-      this._text.value = this.querySelector('setting-option[is-selected]')?.textContent!
+      this._text.value = this.querySelector('setting-option[is-selected]')?.textContent as string
     }
   },
 )
 
-export const SettingSelect = (items: Array<{ text: string; value: string }>, configKey?: string, configValue?: any) => {
+export const SettingSelect = (items: Array<{ text: string; value: string }>, configKey?: string, configValue?: unknown) => {
   return `<ob-setting-select ${configKey ? `data-config-key="${configKey}"` : ''}>
     ${items
       .map((e, i) => {

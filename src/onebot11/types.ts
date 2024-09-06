@@ -68,6 +68,8 @@ interface OB11Sender {
   card?: string // 群名片
   level?: string // 群等级
   role?: OB11GroupMemberRole
+  group_id?: number // 当私聊 sub_type 为 group 时
+  title?: string // 群聊专属头衔
 }
 
 export enum OB11MessageType {
@@ -93,7 +95,7 @@ export interface OB11Message {
   font: number
   post_type?: EventType
   raw?: RawMessage
-  temp_source?: number
+  temp_source?: 0 | 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9
 }
 
 export interface OB11ForwardMessage extends OB11Message {
@@ -105,7 +107,7 @@ export interface OB11Return<DataType> {
   retcode: number
   data: DataType
   message: string
-  echo?: any // ws调用api才有此字段
+  echo?: unknown // ws调用api才有此字段
   wording?: string // go-cqhttp字段，错误信息
 }
 

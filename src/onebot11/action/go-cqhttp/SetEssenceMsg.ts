@@ -6,10 +6,10 @@ interface Payload {
   message_id: number | string
 }
 
-export class SetEssenceMsg extends BaseAction<Payload, any> {
-  actionName = ActionName.GoCQHTTP_SetEssenceMsg;
+export class SetEssenceMsg extends BaseAction<Payload, unknown> {
+  actionName = ActionName.GoCQHTTP_SetEssenceMsg
 
-  protected async _handle(payload: Payload): Promise<any> {
+  protected async _handle(payload: Payload) {
     if (!payload.message_id) {
       throw Error('message_id不能为空')
     }

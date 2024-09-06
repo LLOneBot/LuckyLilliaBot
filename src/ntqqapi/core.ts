@@ -62,8 +62,8 @@ class Core extends Service {
       data: CategoryFriend[]
     }>(ReceiveCmdS.FRIENDS, (payload) => {
       type V2data = { userSimpleInfos: Map<string, SimpleInfo> }
-      let friendList: User[] = [];
-      if ((payload as any).userSimpleInfos) {
+      let friendList: User[] = []
+      if ('userSimpleInfos' in payload) {
         friendList = Object.values((payload as unknown as V2data).userSimpleInfos).map((v: SimpleInfo) => {
           return {
             ...v.coreInfo,
@@ -89,11 +89,11 @@ class Core extends Service {
         for (const msgElement of message.elements) {
           setTimeout(() => {
             const picPath = msgElement.picElement?.sourcePath
-            const picThumbPath = [...msgElement.picElement?.thumbPath.values()]
+            const picThumbPath = [...(msgElement.picElement?.thumbPath ?? []).values()]
             const pttPath = msgElement.pttElement?.filePath
             const filePath = msgElement.fileElement?.filePath
             const videoPath = msgElement.videoElement?.filePath
-            const videoThumbPath: string[] = [...msgElement.videoElement.thumbPath?.values()!]
+            const videoThumbPath = [...(msgElement.videoElement?.thumbPath ?? []).values()]
             const pathList = [picPath, ...picThumbPath, pttPath, filePath, videoPath, ...videoThumbPath]
             if (msgElement.picElement) {
               pathList.push(...Object.values(msgElement.picElement.thumbPath))
@@ -126,15 +126,15 @@ class Core extends Service {
       }[]
     }>(ReceiveCmdS.RECENT_CONTACT, async (payload) => {
       for (const recentContact of payload.changedRecentContactLists) {
-        for (const changedContact of recentContact.changedList) {
-          if (activatedPeerUids.includes(changedContact.id)) continue
-          activatedPeerUids.push(changedContact.id)
-          const peer = { peerUid: changedContact.id, chatType: changedContact.chatType }
-          if (changedContact.chatType === ChatType.temp) {
+        for (const contact of recentContact.changedList) {
+          if (activatedPeerUids.includes(contact.id)) continue
+          activatedPeerUids.push(contact.id)
+          const peer = { peerUid: contact.id, chatType: contact.chatType }
+          if (contact.chatType === ChatType.temp) {
             this.ctx.ntMsgApi.activateChatAndGetHistory(peer).then(() => {
               this.ctx.ntMsgApi.getMsgHistory(peer, '', 20).then(({ msgList }) => {
                 const lastTempMsg = msgList.at(-1)
-                if (Date.now() / 1000 - parseInt(lastTempMsg?.msgTime!) < 5) {
+                if (Date.now() / 1000 - Number(lastTempMsg?.msgTime) < 5) {
                   this.ctx.parallel('nt/message-created', [lastTempMsg!])
                 }
               })

@@ -1,6 +1,6 @@
 import { ElementType, MessageElement, Peer, RawMessage, SendMessageElement } from '@/ntqqapi/types'
-import { NodeIKernelMsgListener } from '@/ntqqapi/listeners/NodeIKernelMsgListener'
 import { GeneralCallResult } from './common'
+import { Dict } from 'cosmokit'
 
 export interface QueryMsgsParams {
   chatInfo: Peer,
@@ -29,16 +29,15 @@ export interface TmpChatInfo {
 }
 
 export interface NodeIKernelMsgService {
-
   generateMsgUniqueId(chatType: number, time: string): string
 
-  addKernelMsgListener(nodeIKernelMsgListener: NodeIKernelMsgListener): number
+  addKernelMsgListener(nodeIKernelMsgListener: unknown): number
 
-  sendMsg(msgId: string, peer: Peer, msgElements: SendMessageElement[], map: Map<any, any>): Promise<GeneralCallResult>
+  sendMsg(msgId: string, peer: Peer, msgElements: SendMessageElement[], map: Map<unknown, unknown>): Promise<GeneralCallResult>
 
   recallMsg(peer: Peer, msgIds: string[]): Promise<GeneralCallResult>
 
-  addKernelMsgImportToolListener(arg: Object): unknown
+  addKernelMsgImportToolListener(arg: Dict): unknown
 
   removeKernelMsgListener(args: unknown): unknown
 
@@ -52,7 +51,7 @@ export interface NodeIKernelMsgService {
 
   getOnLineDev(): void
 
-  kickOffLine(DevInfo: Object): unknown
+  kickOffLine(DevInfo: Dict): unknown
 
   setStatus(args: { status: number, extStatus: number, batteryStatus: number }): Promise<GeneralCallResult>
 
@@ -81,11 +80,11 @@ export interface NodeIKernelMsgService {
   // this.voipToken = bArr2
   // this.profileId = str
 
-  setToken(arg: Object): unknown
+  setToken(arg: Dict): unknown
 
   switchForeGround(): unknown
 
-  switchBackGround(arg: Object): unknown
+  switchBackGround(arg: Dict): unknown
 
   //hex
   setTokenForMqq(token: string): unknown
@@ -111,10 +110,11 @@ export interface NodeIKernelMsgService {
   resendMsg(...args: unknown[]): unknown
 
   reeditRecallMsg(...args: unknown[]): unknown
+
   //调用请检查除开commentElements其余参数不能为null
   forwardMsg(msgIds: string[], srcContact: Peer, dstContacts: Peer[], commentElements: MessageElement[]): Promise<GeneralCallResult>
 
-  forwardMsgWithComment(...args: unknown[]): unknown
+  forwardMsgWithComment(...args: unknown[]): Promise<GeneralCallResult>
 
   forwardSubMsgWithComment(...args: unknown[]): unknown
 
@@ -142,9 +142,9 @@ export interface NodeIKernelMsgService {
 
   addLocalTofuRecordMsg(...args: unknown[]): unknown
 
-  addLocalRecordMsg(Peer: Peer, msgId: string, ele: MessageElement, attr: Array<any> | number, front: boolean): Promise<unknown>
+  addLocalRecordMsg(Peer: Peer, msgId: string, ele: MessageElement, attr: Array<unknown> | number, front: boolean): Promise<unknown>
 
-  deleteMsg(Peer: Peer, msgIds: Array<string>): Promise<any>
+  deleteMsg(Peer: Peer, msgIds: Array<string>): Promise<unknown>
 
   updateElementExtBufForUI(...args: unknown[]): unknown
 
@@ -370,8 +370,9 @@ export interface NodeIKernelMsgService {
   getFileThumbSavePathForSend(...args: unknown[]): unknown
 
   getFileThumbSavePath(...args: unknown[]): unknown
+
   //猜测居多
-  translatePtt2Text(MsgId: string, Peer: {}, MsgElement: {}): unknown
+  translatePtt2Text(MsgId: string, Peer: Dict, MsgElement: Dict): unknown
 
   setPttPlayedState(...args: unknown[]): unknown
   // NodeIQQNTWrapperSession fetchFavEmojiList [
@@ -448,7 +449,7 @@ export interface NodeIKernelMsgService {
 
   getEmojiResourcePath(...args: unknown[]): unknown
 
-  JoinDragonGroupEmoji(JoinDragonGroupEmojiReq: any/*joinDragonGroupEmojiReq*/): unknown
+  JoinDragonGroupEmoji(JoinDragonGroupEmojiReq: unknown): unknown
 
   getMsgAbstracts(...args: unknown[]): unknown
 
@@ -623,7 +624,6 @@ export interface NodeIKernelMsgService {
 
   sendSsoCmdReqByContend(cmd: string, param: string): Promise<unknown>
 
-  //chattype,uid->Promise<any>
   getTempChatInfo(ChatType: number, Uid: string): Promise<TmpChatInfoApi>
 
   setContactLocalTop(...args: unknown[]): unknown
@@ -654,7 +654,7 @@ export interface NodeIKernelMsgService {
 
   recordEmoji(...args: unknown[]): unknown
 
-  fetchGetHitEmotionsByWord(args: Object): Promise<unknown>//表情推荐？
+  fetchGetHitEmotionsByWord(args: Dict): Promise<unknown>//表情推荐？
 
   deleteAllRoamMsgs(...args: unknown[]): unknown//漫游消息？
 

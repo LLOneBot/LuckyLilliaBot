@@ -86,7 +86,7 @@ export class ConfigUtil {
     // 迁移旧的配置到新配置，避免用户重新填写配置
     const oldValue = oldConfig[oldKey]
     if (oldValue) {
-      currentConfig[currentKey] = oldValue as any
+      Object.assign(currentConfig, { [currentKey]: oldValue })
       delete oldConfig[oldKey]
     }
   }

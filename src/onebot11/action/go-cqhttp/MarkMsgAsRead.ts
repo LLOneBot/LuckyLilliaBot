@@ -8,7 +8,7 @@ interface Payload {
 export class MarkMsgAsRead extends BaseAction<Payload, null> {
   actionName = ActionName.GoCQHTTP_MarkMsgAsRead
 
-  protected async _handle(payload: Payload): Promise<null> {
+  protected async _handle() {
     return null
   }
 }

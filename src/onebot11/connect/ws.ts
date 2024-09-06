@@ -30,8 +30,8 @@ class OB11WebSocket {
         maxPayload: 1024 * 1024 * 1024
       })
       llonebotError.wsServerError = ''
-    } catch (e: any) {
-      llonebotError.wsServerError = '正向 WebSocket 服务启动失败, ' + e.toString()
+    } catch (e) {
+      llonebotError.wsServerError = '正向 WebSocket 服务启动失败, ' + e
       return
     }
     this.wsServer?.on('connection', (socket, req) => {
@@ -70,7 +70,7 @@ class OB11WebSocket {
     Object.assign(this.config, config)
   }
 
-  private reply(socket: WebSocket, data: OB11Return<any> | OB11BaseEvent | OB11Message) {
+  private reply(socket: WebSocket, data: OB11Return<unknown> | OB11BaseEvent | OB11Message) {
     if (socket.readyState !== WebSocket.OPEN) {
       return
     }
@@ -107,14 +107,14 @@ class OB11WebSocket {
   }
 
   private async handleAction(socket: WebSocket, msg: string) {
-    let receive: { action: ActionName | null; params: any; echo?: any } = { action: null, params: {} }
+    let receive: { action: ActionName | null; params: unknown; echo?: unknown } = { action: null, params: {} }
     try {
       receive = JSON.parse(msg.toString())
       this.ctx.logger.info('收到正向 Websocket 消息', receive)
     } catch (e) {
       return this.reply(socket, OB11Response.error('json解析失败，请检查数据格式', 1400))
     }
-    const action: BaseAction<any, any> = this.config.actionMap.get(receive.action!)!
+    const action = this.config.actionMap.get(receive.action!)!
     if (!action) {
       return this.reply(socket, OB11Response.error('不支持的api ' + receive.action, 1404, receive.echo))
     }
@@ -122,8 +122,8 @@ class OB11WebSocket {
       const handleResult = await action.websocketHandle(receive.params, receive.echo)
       handleResult.echo = receive.echo
       this.reply(socket, handleResult)
-    } catch (e: any) {
-      this.reply(socket, OB11Response.error(`api处理出错:${e.stack}`, 1200, receive.echo))
+    } catch (e) {
+      this.reply(socket, OB11Response.error(`api处理出错:${(e as Error).stack}`, 1200, receive.echo))
     }
   }
 
@@ -169,7 +169,7 @@ namespace OB11WebSocket {
     port: number
     heartInterval: number
     token?: string
-    actionMap: Map<string, BaseAction<any, any>>
+    actionMap: Map<string, BaseAction<unknown, unknown>>
     listenLocalhost: boolean
   }
 }
@@ -200,7 +200,7 @@ class OB11WebSocketReverse {
     }
   }
 
-  private reply(socket: WebSocket, data: OB11Return<any> | OB11BaseEvent | OB11Message) {
+  private reply(socket: WebSocket, data: OB11Return<unknown> | OB11BaseEvent | OB11Message) {
     if (socket.readyState !== WebSocket.OPEN) {
       return
     }
@@ -211,19 +211,19 @@ class OB11WebSocketReverse {
   }
 
   private async handleAction(msg: string) {
-    let receive: { action: ActionName | null; params: any; echo?: any } = { action: null, params: {} }
+    let receive: { action: ActionName | null; params: unknown; echo?: unknown } = { action: null, params: {} }
     try {
       receive = JSON.parse(msg.toString())
       this.ctx.logger.info('收到反向Websocket消息', receive)
     } catch (e) {
       return this.reply(this.wsClient!, OB11Response.error('json解析失败，请检查数据格式', 1400, receive.echo))
     }
-    const action: BaseAction<any, any> = this.config.actionMap.get(receive.action!)!
+    const action = this.config.actionMap.get(receive.action!)!
     if (!action) {
       return this.reply(this.wsClient!, OB11Response.error('不支持的api ' + receive.action, 1404, receive.echo))
     }
     try {
-      let handleResult = await action.websocketHandle(receive.params, receive.echo)
+      const handleResult = await action.websocketHandle(receive.params, receive.echo)
       this.reply(this.wsClient!, handleResult)
     } catch (e) {
       this.reply(this.wsClient!, OB11Response.error(`api处理出错:${e}`, 1200, receive.echo))
@@ -287,7 +287,7 @@ namespace OB11WebSocketReverse {
     url: string
     heartInterval: number
     token?: string
-    actionMap: Map<string, BaseAction<any, any>>
+    actionMap: Map<string, BaseAction<unknown, unknown>>
   }
 }
 
@@ -312,8 +312,8 @@ class OB11WebSocketReverseManager {
     for (const ws of this.list) {
       try {
         ws.stop()
-      } catch (e: any) {
-        this.ctx.logger.error('反向 WebSocket 关闭:', e.stack)
+      } catch (e) {
+        this.ctx.logger.error('反向 WebSocket 关闭:', (e as Error).stack)
       }
     }
     this.list.length = 0
@@ -335,7 +335,7 @@ namespace OB11WebSocketReverseManager {
     hosts: string[]
     heartInterval: number
     token?: string
-    actionMap: Map<string, BaseAction<any, any>>
+    actionMap: Map<string, BaseAction<unknown, unknown>>
   }
 }
 

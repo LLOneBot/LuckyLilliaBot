@@ -29,7 +29,7 @@ export interface NodeIKernelBuddyService {
       buddyUids: Array<string>//Uids
     }>>
 
-  addKernelBuddyListener(listener: any): number
+  addKernelBuddyListener(listener: unknown): number
 
   getAllBuddyCount(): number
 

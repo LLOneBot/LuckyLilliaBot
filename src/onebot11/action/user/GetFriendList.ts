@@ -21,10 +21,10 @@ export class GetFriendList extends BaseAction<Payload, OB11User[]> {
 }
 
 // extend
-export class GetFriendWithCategory extends BaseAction<void, any> {
+export class GetFriendWithCategory extends BaseAction<void, OB11User[]> {
   actionName = ActionName.GetFriendsWithCategory
 
-  protected async _handle(payload: void) {
+  protected async _handle() {
     if (getBuildVersion() >= 26702) {
       //全新逻辑
       return OB11Entities.friendsV2(await this.ctx.ntFriendApi.getBuddyV2ExWithCate(true))
