@@ -24,7 +24,7 @@ export class NTQQGroupApi extends Service {
     super(ctx, 'ntGroupApi', true)
   }
 
-  async getGroups(forced = false): Promise<Group[]> {
+  async getGroups(): Promise<Group[]> {
     const result = await invoke<{
       updateType: number
       groupList: Group[]

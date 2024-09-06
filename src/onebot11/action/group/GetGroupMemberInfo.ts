@@ -18,7 +18,7 @@ class GetGroupMemberInfo extends BaseAction<Payload, OB11GroupMember> {
     if (member) {
       if (isNullable(member.sex)) {
         //log('获取群成员详细信息')
-        const info = await this.ctx.ntUserApi.getUserDetailInfo(member.uid, true)
+        const info = await this.ctx.ntUserApi.getUserDetailInfo(member.uid)
         //log('群成员详细信息结果', info)
         Object.assign(member, info)
       }

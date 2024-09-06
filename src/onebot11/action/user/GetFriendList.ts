@@ -16,7 +16,7 @@ export class GetFriendList extends BaseAction<Payload, OB11User[]> {
     if (getBuildVersion() >= 26702) {
       return OB11Entities.friendsV2(await this.ctx.ntFriendApi.getBuddyV2(refresh))
     }
-    return OB11Entities.friends(await this.ctx.ntFriendApi.getFriends(refresh))
+    return OB11Entities.friends(await this.ctx.ntFriendApi.getFriends())
   }
 }
 

@@ -201,7 +201,7 @@ export namespace SendElementEntities {
     // log("生成缩略图", _thumbPath)
     thumbPath.set(0, _thumbPath)
     const thumbMd5 = await calculateFileMD5(_thumbPath)
-    let element: SendVideoElement = {
+    const element: SendVideoElement = {
       elementType: ElementType.VIDEO,
       elementId: '',
       videoElement: {

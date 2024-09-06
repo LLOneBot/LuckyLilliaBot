@@ -236,8 +236,7 @@ export async function sendMsg(
   ctx: Context,
   peer: Peer,
   sendElements: SendMessageElement[],
-  deleteAfterSentFiles: string[],
-  waitComplete = true,
+  deleteAfterSentFiles: string[]
 ) {
   if (!sendElements.length) {
     throw '消息体无法解析，请检查是否发送了不支持的消息类型'

@@ -28,7 +28,7 @@ export class UploadGroupFile extends BaseAction<UploadGroupFilePayload, null> {
     }
     const sendFileEle = await SendElementEntities.file(this.ctx, downloadResult.path, payload.name, payload.folder_id)
     const peer = await createPeer(this.ctx, payload, CreatePeerMode.Group)
-    await sendMsg(this.ctx, peer, [sendFileEle], [], true)
+    await sendMsg(this.ctx, peer, [sendFileEle], [])
     return null
   }
 }
@@ -53,7 +53,7 @@ export class UploadPrivateFile extends BaseAction<UploadPrivateFilePayload, null
       throw new Error(downloadResult.errMsg)
     }
     const sendFileEle: SendFileElement = await SendElementEntities.file(this.ctx, downloadResult.path, payload.name)
-    await sendMsg(this.ctx, peer, [sendFileEle], [], true)
+    await sendMsg(this.ctx, peer, [sendFileEle], [])
     return null
   }
 }

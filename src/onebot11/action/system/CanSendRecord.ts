@@ -5,7 +5,7 @@ interface ReturnType {
   yes: boolean
 }
 
-export default class CanSendRecord extends BaseAction<any, ReturnType> {
+export default class CanSendRecord extends BaseAction<null, ReturnType> {
   actionName = ActionName.CanSendRecord
 
   protected async _handle() {

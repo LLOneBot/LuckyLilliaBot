@@ -10,8 +10,8 @@ interface Payload {
 class GetGroupList extends BaseAction<Payload, OB11Group[]> {
   actionName = ActionName.GetGroupList
 
-  protected async _handle(payload: Payload) {
-    const groupList = await this.ctx.ntGroupApi.getGroups(payload?.no_cache === true || payload?.no_cache === 'true')
+  protected async _handle() {
+    const groupList = await this.ctx.ntGroupApi.getGroups()
     return OB11Entities.groups(groupList)
   }
 }

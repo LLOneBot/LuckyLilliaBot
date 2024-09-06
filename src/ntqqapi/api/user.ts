@@ -65,7 +65,7 @@ export class NTQQUserApi extends Service {
     return ret
   }
 
-  async getUserDetailInfo(uid: string, _getLevel = false) {
+  async getUserDetailInfo(uid: string) {
     if (getBuildVersion() >= 26702) {
       return this.fetchUserDetailInfo(uid)
     }

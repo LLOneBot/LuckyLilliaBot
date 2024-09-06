@@ -214,7 +214,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
           }
           // log("分割后的转发节点", sendElementsSplit)
           for (const eles of sendElementsSplit) {
-            const nodeMsg = await sendMsg(this.ctx, selfPeer, eles, [], true)
+            const nodeMsg = await sendMsg(this.ctx, selfPeer, eles, [])
             if (!nodeMsg) {
               this.ctx.logger.warn('转发节点生成失败', eles)
               continue

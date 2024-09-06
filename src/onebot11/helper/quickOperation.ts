@@ -88,7 +88,7 @@ async function handleMsg(ctx: Context, msg: OB11Message, quickAction: QuickOpera
     }
     replyMessage = replyMessage.concat(convertMessage2List(reply, quickAction.auto_escape))
     const { sendElements, deleteAfterSentFiles } = await createSendElements(ctx, replyMessage, peer)
-    sendMsg(ctx, peer, sendElements, deleteAfterSentFiles, false).catch(e => ctx.logger.error(e))
+    sendMsg(ctx, peer, sendElements, deleteAfterSentFiles).catch(e => ctx.logger.error(e))
   }
   if (msg.message_type === 'group') {
     const groupMsgQuickAction = quickAction as QuickOperationGroupMessage

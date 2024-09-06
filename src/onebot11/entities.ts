@@ -173,8 +173,8 @@ export namespace OB11Entities {
               id: MessageUnique.createMsg(peer, replyMsg ? replyMsg.msgId : records.msgId).toString()
             }
           }
-        } catch (e: any) {
-          ctx.logger.error('获取不到引用的消息', replyElement, e.stack)
+        } catch (e) {
+          ctx.logger.error('获取不到引用的消息', replyElement, (e as Error).stack)
           continue
         }
       }
@@ -378,7 +378,7 @@ export namespace OB11Entities {
           if (element.grayTipElement.jsonGrayTipElement.busiId == 1061) {
             //判断业务类型
             //Poke事件
-            const pokedetail: any[] = json.items
+            const pokedetail: Dict[] = json.items
             //筛选item带有uid的元素
             const poke_uid = pokedetail.filter(item => item.uid)
             if (poke_uid.length == 2) {

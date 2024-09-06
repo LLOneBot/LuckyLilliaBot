@@ -1,7 +1,7 @@
 import { CheckVersion, Config } from '../common/types'
 import { SettingButton, SettingItem, SettingList, SettingSwitch, SettingSelect } from './components'
 import { version } from '../version'
-// @ts-expect-error
+// @ts-expect-error: Unreachable code error
 import StyleRaw from './style.css?raw'
 
 type HostsType = 'httpHosts' | 'wsHosts'

@@ -34,7 +34,7 @@ export interface WrapperApi {
 }
 
 export interface WrapperConstructor {
-  [key: string]: any
+  [key: string]: unknown
 }
 
 const wrapperApi: WrapperApi = {}

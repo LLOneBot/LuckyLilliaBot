@@ -19,7 +19,7 @@ export class NTQQFriendApi extends Service {
   }
 
   /** 大于或等于 26702 应使用 getBuddyV2 */
-  async getFriends(_forced = false) {
+  async getFriends() {
     const data = await invoke<{
       data: {
         categoryId: number
