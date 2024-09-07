@@ -399,7 +399,7 @@ class OneBot11Adapter extends Service {
       this.handleRecallMsg(input)
     })
     this.ctx.on('nt/message-sent', input => {
-      this.handleRecallMsg(input)
+      this.handleMsg(input)
     })
     this.ctx.on('nt/group-notify', input => {
       this.handleGroupNotify(input)

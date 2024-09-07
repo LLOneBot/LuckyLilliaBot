@@ -89,11 +89,8 @@ export class NTQQFriendApi extends Service {
           afterFirstCmd: false,
         }
       )
-      const categoryUids: Map<number, string[]> = new Map()
-      for (const item of data.buddyCategory) {
-        categoryUids.set(item.categoryId, item.buddyUids)
-      }
-      return Object.values(data.userSimpleInfos).filter(v => v.baseInfo && categoryUids.get(v.baseInfo.categoryId)?.includes(v.uid!))
+      const uids = data.buddyCategory.flatMap(item => item.buddyUids)
+      return Object.values(data.userSimpleInfos).filter(v => uids.includes(v.uid!))
     }
   }
 
