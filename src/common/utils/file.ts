@@ -4,6 +4,7 @@ import path from 'node:path'
 import { TEMP_DIR } from '../globalVars'
 import { randomUUID, createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
+import { fileTypeFromFile } from 'file-type'
 
 export function isGIF(path: string) {
   const buffer = Buffer.alloc(4)
@@ -116,7 +117,7 @@ type Uri2LocalRes = {
   isLocal: boolean
 }
 
-export async function uri2local(uri: string, filename?: string): Promise<Uri2LocalRes> {
+export async function uri2local(uri: string, filename?: string, needExt?: boolean): Promise<Uri2LocalRes> {
   const { type } = checkUriType(uri)
 
   if (type === FileUriType.FileURL) {
@@ -139,8 +140,14 @@ export async function uri2local(uri: string, filename?: string): Promise<Uri2Loc
       } else {
         filename ??= randomUUID()
       }
-      const filePath = path.join(TEMP_DIR, filename)
+      let filePath = path.join(TEMP_DIR, filename)
       await fsPromise.writeFile(filePath, res.data)
+      if (needExt && !path.extname(filePath)) {
+        const ext = (await fileTypeFromFile(filePath))?.ext
+        filename += `.${ext}`
+        await fsPromise.rename(filePath, `${filePath}.${ext}`)
+        filePath = `${filePath}.${ext}`
+      }
       return { success: true, errMsg: '', fileName: filename, path: filePath, isLocal: false }
     } catch (e) {
       const errMsg = `${uri} 下载失败, ${(e as Error).message}`
@@ -150,9 +157,15 @@ export async function uri2local(uri: string, filename?: string): Promise<Uri2Loc
 
   if (type === FileUriType.OneBotBase64) {
     filename ??= randomUUID()
-    const filePath = path.join(TEMP_DIR, filename)
+    let filePath = path.join(TEMP_DIR, filename)
     const base64 = uri.replace(/^base64:\/\//, '')
     await fsPromise.writeFile(filePath, base64, 'base64')
+    if (needExt) {
+      const ext = (await fileTypeFromFile(filePath))?.ext
+      filename += `.${ext}`
+      await fsPromise.rename(filePath, `${filePath}.${ext}`)
+      filePath = `${filePath}.${ext}`
+    }
     return { success: true, errMsg: '', fileName: filename, path: filePath, isLocal: false }
   }
 
@@ -162,8 +175,14 @@ export async function uri2local(uri: string, filename?: string): Promise<Uri2Loc
     if (capture) {
       filename ??= randomUUID()
       const [, _type, base64] = capture
-      const filePath = path.join(TEMP_DIR, filename)
+      let filePath = path.join(TEMP_DIR, filename)
       await fsPromise.writeFile(filePath, base64, 'base64')
+      if (needExt) {
+        const ext = (await fileTypeFromFile(filePath))?.ext
+        filename += `.${ext}`
+        await fsPromise.rename(filePath, `${filePath}.${ext}`)
+        filePath = `${filePath}.${ext}`
+      }
       return { success: true, errMsg: '', fileName: filename, path: filePath, isLocal: false }
     }
   }

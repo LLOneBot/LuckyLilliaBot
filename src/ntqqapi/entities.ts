@@ -99,19 +99,20 @@ export namespace SendElementEntities {
     }
   }
 
-  export async function file(ctx: Context, filePath: string, fileName = '', folderId = ''): Promise<SendFileElement> {
-    const { fileName: _fileName, path, fileSize } = await ctx.ntFileApi.uploadFile(filePath, ElementType.FILE)
-    if (fileSize === 0) {
-      throw '文件异常，大小为 0'
+  export async function file(ctx: Context, filePath: string, fileName: string, folderId = ''): Promise<SendFileElement> {
+    const fileSize = (await stat(filePath)).size.toString()
+    if (fileSize === '0') {
+      ctx.logger.warn(`文件${fileName}异常，大小为 0`)
+      throw new Error('文件异常，大小为 0')
     }
     const element: SendFileElement = {
       elementType: ElementType.FILE,
       elementId: '',
       fileElement: {
-        fileName: fileName || _fileName,
-        folderId: folderId,
-        filePath: path!,
-        fileSize: fileSize.toString(),
+        fileName,
+        folderId,
+        filePath,
+        fileSize,
       },
     }
     return element

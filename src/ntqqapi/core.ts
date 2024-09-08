@@ -30,7 +30,7 @@ declare module 'cordis' {
     'nt/message-sent': (input: RawMessage[]) => void
     'nt/group-notify': (input: GroupNotify[]) => void
     'nt/friend-request': (input: FriendRequest[]) => void
-    'nt/group-member-info-updated': (input: { groupCode: string; members: GroupMember[] }) => void
+    'nt/group-member-info-updated': (input: { groupCode: string, members: GroupMember[] }) => void
   }
 }
 

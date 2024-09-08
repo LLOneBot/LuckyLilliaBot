@@ -109,6 +109,10 @@ export class NTQQUserApi extends Service {
     return cookies
   }
 
+  async getPSkey(domains: string[]) {
+    return await invoke('nodeIKernelTipOffService/getPskey', [{ domains, isForNewPCQQ: true }, null])
+  }
+
   genBkn(sKey: string) {
     sKey = sKey || ''
     let hash = 5381

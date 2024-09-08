@@ -65,3 +65,15 @@ export interface GroupMember {
   joinTime: string
   lastSpeakTime: string
 }
+
+export interface PublishGroupBulletinReq {
+  text: string
+  picInfo?: {
+    id: string
+    width: number
+    height: number
+  }
+  oldFeedsId: ''
+  pinned: number
+  confirmRequired: number
+}

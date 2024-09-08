@@ -1,5 +1,5 @@
 import { ReceiveCmdS } from '../hook'
-import { Group, GroupMember, GroupMemberRole, GroupNotifies, GroupRequestOperateTypes, GetFileListParam } from '../types'
+import { Group, GroupMember, GroupMemberRole, GroupNotifies, GroupRequestOperateTypes, GetFileListParam, PublishGroupBulletinReq } from '../types'
 import { invoke, NTClass, NTMethod } from '../ntcall'
 import { GeneralCallResult } from '../services'
 import { NTQQWindows } from './window'
@@ -287,5 +287,17 @@ export class NTQQGroupApi extends Service {
       }
     )
     return data.fileInfo.item
+  }
+
+  async publishGroupBulletin(groupCode: string, req: PublishGroupBulletinReq) {
+    const ntUserApi = this.ctx.get('ntUserApi')!
+    const psKey = (await ntUserApi.getPSkey(['qun.qq.com'])).domainPskeyMap.get('qun.qq.com')!
+    return await invoke('nodeIKernelGroupService/publishGroupBulletin', [{ groupCode, psKey, req }, null])
+  }
+
+  async uploadGroupBulletinPic(groupCode: string, path: string) {
+    const ntUserApi = this.ctx.get('ntUserApi')!
+    const psKey = (await ntUserApi.getPSkey(['qun.qq.com'])).domainPskeyMap.get('qun.qq.com')!
+    return await invoke('nodeIKernelGroupService/uploadGroupBulletinPic', [{ groupCode, psKey, path }, null])
   }
 }

@@ -252,4 +252,8 @@ export class NTQQMsgApi extends Service {
       }
     }, null])
   }
+
+  async setMsgRead(peer: Peer) {
+    return await invoke('nodeIKernelMsgService/setMsgRead', [{ peer }, null])
+  }
 }

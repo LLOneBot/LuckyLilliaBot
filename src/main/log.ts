@@ -14,19 +14,14 @@ export default class Log {
 
   constructor(ctx: Context, cfg: Config) {
     Logger.targets.splice(0, Logger.targets.length)
-    if (!cfg.enable) {
-      return
-    }
+    let enable = cfg.enable
     const file = path.join(LOG_DIR, cfg.filename)
-    /*const refreshNick = ctx.debounce(() => {
-      const ntUserApi = ctx.get('ntUserApi')
-      if (ntUserApi && !selfInfo.nick) {
-        ntUserApi.getSelfNick(true)
-      }
-    }, 1000)*/
     const target: Logger.Target = {
       colors: 0,
       record: (record: Logger.Record) => {
+        if (!enable) {
+          return
+        }
         const dateTime = new Date(record.timestamp).toLocaleString()
         const userInfo = selfInfo.uin ? `${selfInfo.nick}(${selfInfo.uin})` : ''
         const content = `${dateTime} [${record.type}] ${userInfo} | ${record.name} ${record.content}\n\n`
@@ -34,5 +29,8 @@ export default class Log {
       },
     }
     Logger.targets.push(target)
+    ctx.on('llonebot/config-updated', input => {
+      enable = input.log!
+    })
   }
 }

@@ -202,7 +202,7 @@ function onLoad() {
 
 // 创建窗口时触发
 function onBrowserWindowCreated(window: BrowserWindow) {
-  if (![2, 4].includes(window.id)) {
+  if (![2, 4, 6].includes(window.id)) {
     return
   }
   if (window.id === 2) {

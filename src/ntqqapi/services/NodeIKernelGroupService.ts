@@ -45,7 +45,7 @@ export interface NodeIKernelGroupService {
     errMsg: string,
     uids: Map<string, string>
   }>
-  
+
   //26702(其实更早 但是我不知道)
   checkGroupMemberCache(arrayList: Array<string>): Promise<unknown>
 
@@ -202,11 +202,12 @@ export interface NodeIKernelGroupService {
 
   publishInstructionForNewcomers(groupCode: string, arg: unknown): void
 
-  uploadGroupBulletinPic(groupCode: string, pskey: string, imagePath: string): Promise<GeneralCallResult & {
+  uploadGroupBulletinPic(groupCode: string, pskey: string, imagePath: string): Promise<{
     errCode: number
+    errMsg: string
     picInfo?: {
-      id: string,
-      width: number,
+      id: string
+      width: number
       height: number
     }
   }>
