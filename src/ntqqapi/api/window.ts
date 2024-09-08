@@ -1,6 +1,6 @@
 import { invoke, NTClass, NTMethod } from '../ntcall'
 import { GeneralCallResult } from '../services'
-import { ReceiveCmd } from '../hook'
+import { ReceiveCmdS } from '../hook'
 import { BrowserWindow } from 'electron'
 import { Service, Context } from 'cordis'
 
@@ -39,7 +39,7 @@ export class NTQQWindowApi extends Service {
   async openWindow<R = GeneralCallResult>(
     ntQQWindow: NTQQWindow,
     args: unknown[],
-    cbCmd: ReceiveCmd | undefined,
+    cbCmd: ReceiveCmdS | undefined,
     autoCloseSeconds: number = 2,
   ) {
     const result = await invoke<R>(
