@@ -38,7 +38,7 @@ export class NTQQFileApi extends Service {
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntFileApi', true)
-    this.rkeyManager = new RkeyManager(ctx, 'http://napcat-sign.wumiao.wang:2082/rkey')
+    this.rkeyManager = new RkeyManager(ctx, 'https://llob.linyuchen.net/rkey')
   }
 
   async getVideoUrl(peer: Peer, msgId: string, elementId: string) {
