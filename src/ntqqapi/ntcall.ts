@@ -136,7 +136,6 @@ export function invoke<
       // 这里的callback比较特殊，QQ后端先返回是否调用成功，再返回一条结果数据
       const secondCallback = () => {
         const hookId = registerReceiveHook<R>(options.cbCmd!, (payload) => {
-          // log(methodName, "second callback", cbCmd, payload, cmdCB);
           if (options.cmdCB) {
             if (options.cmdCB(payload, result)) {
               removeReceiveHook(hookId)

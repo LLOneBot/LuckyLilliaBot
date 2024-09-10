@@ -62,6 +62,7 @@ import { GetGroupAtAllRemain } from './go-cqhttp/GetGroupAtAllRemain'
 import { GetGroupRootFiles } from './go-cqhttp/GetGroupRootFiles'
 import { SetOnlineStatus } from './llonebot/SetOnlineStatus'
 import { SendGroupNotice } from './go-cqhttp/SendGroupNotice'
+import { GetProfileLike } from './llonebot/GetProfileLike'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -74,6 +75,7 @@ export function initActionMap(adapter: Adapter) {
     new GetFriendWithCategory(adapter),
     new GetEvent(adapter),
     new SetOnlineStatus(adapter),
+    new GetProfileLike(adapter),
     // onebot11
     new SendLike(adapter),
     new GetMsg(adapter),

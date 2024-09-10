@@ -185,12 +185,6 @@ class Core extends Service {
     })
 
     registerReceiveHook<{ msgRecord: RawMessage }>(ReceiveCmdS.SELF_SEND_MSG, payload => {
-      const { msgId, chatType, peerUid } = payload.msgRecord
-      const peer = {
-        chatType,
-        peerUid
-      }
-      MessageUnique.createMsg(peer, msgId)
       if (!this.config.reportSelfMessage) {
         return
       }

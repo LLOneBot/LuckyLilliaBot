@@ -1,5 +1,6 @@
 import { BuddyProfileLikeReq } from '../types'
 import { GeneralCallResult } from './common'
+import { Dict } from 'cosmokit'
 
 export interface NodeIKernelProfileLikeService {
   addKernelProfileLikeListener(listener: NodeIKernelProfileLikeService): void
@@ -10,8 +11,18 @@ export interface NodeIKernelProfileLikeService {
 
   getBuddyProfileLike(req: BuddyProfileLikeReq): Promise<GeneralCallResult & {
     info: {
-      userLikeInfos: Array<unknown>,
-      friendMaxVotes: number,
+      userLikeInfos: {
+        uid: string
+        time: string
+        favoriteInfo: {
+          total_count: number
+          last_time: number
+          today_count: number
+          userInfos: Dict[]
+        }
+        voteInfo: Dict
+      }[]
+      friendMaxVotes: number
       start: number
     }
   }>

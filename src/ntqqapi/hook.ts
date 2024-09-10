@@ -6,48 +6,46 @@ import { Dict } from 'cosmokit'
 
 export const hookApiCallbacks: Record<string, (res: any) => void> = {}
 
-export const ReceiveCmdS = {
-  RECENT_CONTACT: 'nodeIKernelRecentContactListener/onRecentContactListChangedVer2',
-  UPDATE_MSG: 'nodeIKernelMsgListener/onMsgInfoListUpdate',
-  UPDATE_ACTIVE_MSG: 'nodeIKernelMsgListener/onActiveMsgInfoUpdate',
-  NEW_MSG: `nodeIKernelMsgListener/onRecvMsg`,
-  NEW_ACTIVE_MSG: `nodeIKernelMsgListener/onRecvActiveMsg`,
-  SELF_SEND_MSG: 'nodeIKernelMsgListener/onAddSendMsg',
-  USER_INFO: 'nodeIKernelProfileListener/onProfileSimpleChanged',
-  USER_DETAIL_INFO: 'nodeIKernelProfileListener/onProfileDetailInfoChanged',
-  GROUPS: 'nodeIKernelGroupListener/onGroupListUpdate',
-  GROUPS_STORE: 'onGroupListUpdate',
-  GROUP_MEMBER_INFO_UPDATE: 'nodeIKernelGroupListener/onMemberInfoChange',
-  FRIENDS: 'onBuddyListChange',
-  MEDIA_DOWNLOAD_COMPLETE: 'nodeIKernelMsgListener/onRichMediaDownloadComplete',
-  UNREAD_GROUP_NOTIFY: 'nodeIKernelGroupListener/onGroupNotifiesUnreadCountUpdated',
-  GROUP_NOTIFY: 'nodeIKernelGroupListener/onGroupSingleScreenNotifies',
-  FRIEND_REQUEST: 'nodeIKernelBuddyListener/onBuddyReqChange',
-  SELF_STATUS: 'nodeIKernelProfileListener/onSelfStatusChanged',
-  CACHE_SCAN_FINISH: 'nodeIKernelStorageCleanListener/onFinishScan',
-  MEDIA_UPLOAD_COMPLETE: 'nodeIKernelMsgListener/onRichMediaUploadComplete',
-  SKEY_UPDATE: 'onSkeyUpdate',
-} as const
+export enum ReceiveCmdS {
+  RECENT_CONTACT = 'nodeIKernelRecentContactListener/onRecentContactListChangedVer2',
+  UPDATE_MSG = 'nodeIKernelMsgListener/onMsgInfoListUpdate',
+  UPDATE_ACTIVE_MSG = 'nodeIKernelMsgListener/onActiveMsgInfoUpdate',
+  NEW_MSG = 'nodeIKernelMsgListener/onRecvMsg',
+  NEW_ACTIVE_MSG = 'nodeIKernelMsgListener/onRecvActiveMsg',
+  SELF_SEND_MSG = 'nodeIKernelMsgListener/onAddSendMsg',
+  USER_INFO = 'nodeIKernelProfileListener/onProfileSimpleChanged',
+  USER_DETAIL_INFO = 'nodeIKernelProfileListener/onProfileDetailInfoChanged',
+  GROUPS = 'nodeIKernelGroupListener/onGroupListUpdate',
+  GROUPS_STORE = 'onGroupListUpdate',
+  GROUP_MEMBER_INFO_UPDATE = 'nodeIKernelGroupListener/onMemberInfoChange',
+  FRIENDS = 'onBuddyListChange',
+  MEDIA_DOWNLOAD_COMPLETE = 'nodeIKernelMsgListener/onRichMediaDownloadComplete',
+  UNREAD_GROUP_NOTIFY = 'nodeIKernelGroupListener/onGroupNotifiesUnreadCountUpdated',
+  GROUP_NOTIFY = 'nodeIKernelGroupListener/onGroupSingleScreenNotifies',
+  FRIEND_REQUEST = 'nodeIKernelBuddyListener/onBuddyReqChange',
+  SELF_STATUS = 'nodeIKernelProfileListener/onSelfStatusChanged',
+  CACHE_SCAN_FINISH = 'nodeIKernelStorageCleanListener/onFinishScan',
+  MEDIA_UPLOAD_COMPLETE = 'nodeIKernelMsgListener/onRichMediaUploadComplete',
+  SKEY_UPDATE = 'onSkeyUpdate',
+}
 
-export type ReceiveCmd = string
-
-interface NTQQApiReturnData extends Array<unknown> {
-  0: {
+type NTReturnData = [
+  {
     type: 'request'
     eventName: NTClass
     callbackId?: string
-  }
-  1: {
-    cmdName: ReceiveCmd
+  },
+  {
+    cmdName: ReceiveCmdS
     cmdType: 'event'
     payload: unknown
   }[]
-}
+]
 
 const logHook = false
 
 const receiveHooks: Array<{
-  method: ReceiveCmd[]
+  method: ReceiveCmdS[]
   hookFunc: (payload: any) => void | Promise<void>
   id: string
 }> = []
@@ -58,62 +56,44 @@ const callHooks: Array<{
 }> = []
 
 export function hookNTQQApiReceive(window: BrowserWindow, onlyLog: boolean) {
-  const originalSend = window.webContents.send
-  const patchSend = (channel: string, ...args: NTQQApiReturnData) => {
-    try {
-      const isLogger = args[0]?.eventName?.startsWith('ns-LoggerApi')
-      if (logHook && !isLogger) {
-        log(`received ntqq api message: ${channel}`, args)
-      }
-    } catch { }
-    if (!onlyLog) {
-      if (args?.[1] instanceof Array) {
-        for (const receiveData of args[1]) {
-          const ntQQApiMethodName = receiveData.cmdName
-          // log(`received ntqq api message: ${channel} ${ntQQApiMethodName}`, JSON.stringify(receiveData))
-          for (const hook of receiveHooks) {
-            if (hook.method.includes(ntQQApiMethodName)) {
-              new Promise(resolve => {
-                try {
-                  hook.hookFunc(receiveData.payload)
-                } catch (e) {
-                  log('hook error', ntQQApiMethodName, (e as Error).stack?.toString())
-                }
-                resolve(undefined)
-              }).then()
+  window.webContents.send = new Proxy(window.webContents.send, {
+    apply(target, thisArg, args: [channel: string, ...args: NTReturnData]) {
+      try {
+        if (logHook && !args[1]?.eventName?.startsWith('ns-LoggerApi')) {
+          log('received ntqq api message', args)
+        }
+      } catch { }
+      if (!onlyLog) {
+        if (args[2] instanceof Array) {
+          for (const receiveData of args[2]) {
+            const ntMethodName = receiveData.cmdName
+            for (const hook of receiveHooks) {
+              if (hook.method.includes(ntMethodName)) {
+                Promise.resolve(hook.hookFunc(receiveData.payload))
+              }
             }
           }
         }
-      }
-      if (args[0]?.callbackId) {
-        // log("hookApiCallback", hookApiCallbacks, args)
-        const callbackId = args[0].callbackId
-        if (hookApiCallbacks[callbackId]) {
-          new Promise(resolve => {
-            hookApiCallbacks[callbackId](args[1])
-            resolve(undefined)
-          }).then()
-          delete hookApiCallbacks[callbackId]
+        if (args[1]?.callbackId) {
+          const callbackId = args[1].callbackId
+          if (hookApiCallbacks[callbackId]) {
+            Promise.resolve(hookApiCallbacks[callbackId](args[2]))
+            delete hookApiCallbacks[callbackId]
+          }
         }
       }
-    }
-    originalSend.call(window.webContents, channel, ...args)
-  }
-  window.webContents.send = patchSend
+      return target.apply(thisArg, args)
+    },
+  })
 }
 
 export function hookNTQQApiCall(window: BrowserWindow, onlyLog: boolean) {
-  // 监听调用NTQQApi
   const webContents = window.webContents as Dict
   const ipc_message_proxy = webContents._events['-ipc-message']?.[0] || webContents._events['-ipc-message']
 
   const proxyIpcMsg = new Proxy(ipc_message_proxy, {
     apply(target, thisArg, args) {
-      // console.log(thisArg, args);
-      let isLogger = false
-      try {
-        isLogger = args[3][0].eventName.startsWith('ns-LoggerApi')
-      } catch (e) { }
+      const isLogger = args[3]?.[0]?.eventName?.startsWith('ns-LoggerApi')
       if (!isLogger) {
         try {
           logHook && log('call NTQQ api', thisArg, args)
@@ -121,21 +101,14 @@ export function hookNTQQApiCall(window: BrowserWindow, onlyLog: boolean) {
         if (!onlyLog) {
           try {
             const _args: unknown[] = args[3][1]
-            const cmdName: NTMethod = _args[0] as NTMethod
+            const cmdName = _args[0] as NTMethod
             const callParams = _args.slice(1)
             callHooks.forEach((hook) => {
               if (hook.method.includes(cmdName)) {
-                new Promise(resolve => {
-                  try {
-                    hook.hookFunc(callParams)
-                  } catch (e) {
-                    log('hook call error', e, _args)
-                  }
-                  resolve(undefined)
-                }).then()
+                Promise.resolve(hook.hookFunc(callParams))
               }
             })
-          } catch (e) { }
+          } catch { }
         }
       }
       return target.apply(thisArg, args)
@@ -147,7 +120,7 @@ export function hookNTQQApiCall(window: BrowserWindow, onlyLog: boolean) {
     webContents._events['-ipc-message'] = proxyIpcMsg
   }
 
-  const ipc_invoke_proxy = webContents._events['-ipc-invoke']?.[0] || webContents._events['-ipc-invoke']
+  /*const ipc_invoke_proxy = webContents._events['-ipc-invoke']?.[0] || webContents._events['-ipc-invoke']
   const proxyIpcInvoke = new Proxy(ipc_invoke_proxy, {
     apply(target, thisArg, args) {
       //HOOK_LOG && log('call NTQQ invoke api', thisArg, args)
@@ -157,9 +130,7 @@ export function hookNTQQApiCall(window: BrowserWindow, onlyLog: boolean) {
         },
       })
       const ret = target.apply(thisArg, args)
-      /*try {
-        HOOK_LOG && log('call NTQQ invoke api return', ret)
-      } catch (e) { }*/
+      //HOOK_LOG && log('call NTQQ invoke api return', ret)
       return ret
     },
   })
@@ -167,11 +138,11 @@ export function hookNTQQApiCall(window: BrowserWindow, onlyLog: boolean) {
     webContents._events['-ipc-invoke'][0] = proxyIpcInvoke
   } else {
     webContents._events['-ipc-invoke'] = proxyIpcInvoke
-  }
+  }*/
 }
 
 export function registerReceiveHook<PayloadType>(
-  method: ReceiveCmd | ReceiveCmd[],
+  method: string | string[],
   hookFunc: (payload: PayloadType) => void,
 ): string {
   const id = randomUUID()
@@ -179,7 +150,7 @@ export function registerReceiveHook<PayloadType>(
     method = [method]
   }
   receiveHooks.push({
-    method,
+    method: method as ReceiveCmdS[],
     hookFunc,
     id,
   })
