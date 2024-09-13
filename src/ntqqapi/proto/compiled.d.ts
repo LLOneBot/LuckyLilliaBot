@@ -35,13 +35,6 @@ export namespace SysMsg {
         public bodyWrapper?: (SysMsg.ISystemMessageBodyWrapper|null);
 
         /**
-         * Creates a new SystemMessage instance using the specified properties.
-         * @param [properties] Properties to set
-         * @returns SystemMessage instance
-         */
-        public static create(properties?: SysMsg.ISystemMessage): SysMsg.SystemMessage;
-
-        /**
          * Decodes a SystemMessage message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -104,13 +97,6 @@ export namespace SysMsg {
 
         /** SystemMessageHeader uid. */
         public uid?: (string|null);
-
-        /**
-         * Creates a new SystemMessageHeader instance using the specified properties.
-         * @param [properties] Properties to set
-         * @returns SystemMessageHeader instance
-         */
-        public static create(properties?: SysMsg.ISystemMessageHeader): SysMsg.SystemMessageHeader;
 
         /**
          * Decodes a SystemMessageHeader message from the specified reader or buffer.
@@ -189,13 +175,6 @@ export namespace SysMsg {
         public other: number;
 
         /**
-         * Creates a new SystemMessageMsgSpec instance using the specified properties.
-         * @param [properties] Properties to set
-         * @returns SystemMessageMsgSpec instance
-         */
-        public static create(properties?: SysMsg.ISystemMessageMsgSpec): SysMsg.SystemMessageMsgSpec;
-
-        /**
          * Decodes a SystemMessageMsgSpec message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -240,13 +219,6 @@ export namespace SysMsg {
 
         /** SystemMessageBodyWrapper body. */
         public body: Uint8Array;
-
-        /**
-         * Creates a new SystemMessageBodyWrapper instance using the specified properties.
-         * @param [properties] Properties to set
-         * @returns SystemMessageBodyWrapper instance
-         */
-        public static create(properties?: SysMsg.ISystemMessageBodyWrapper): SysMsg.SystemMessageBodyWrapper;
 
         /**
          * Decodes a SystemMessageBodyWrapper message from the specified reader or buffer.
@@ -307,13 +279,6 @@ export namespace SysMsg {
         public nickname: string;
 
         /**
-         * Creates a new LikeDetail instance using the specified properties.
-         * @param [properties] Properties to set
-         * @returns LikeDetail instance
-         */
-        public static create(properties?: SysMsg.ILikeDetail): SysMsg.LikeDetail;
-
-        /**
          * Decodes a LikeDetail message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -372,13 +337,6 @@ export namespace SysMsg {
         public detail?: (SysMsg.ILikeDetail|null);
 
         /**
-         * Creates a new LikeMsg instance using the specified properties.
-         * @param [properties] Properties to set
-         * @returns LikeMsg instance
-         */
-        public static create(properties?: SysMsg.ILikeMsg): SysMsg.LikeMsg;
-
-        /**
          * Decodes a LikeMsg message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -423,13 +381,6 @@ export namespace SysMsg {
 
         /** ProfileLikeTip msg. */
         public msg?: (SysMsg.ILikeMsg|null);
-
-        /**
-         * Creates a new ProfileLikeTip instance using the specified properties.
-         * @param [properties] Properties to set
-         * @returns ProfileLikeTip instance
-         */
-        public static create(properties?: SysMsg.IProfileLikeTip): SysMsg.ProfileLikeTip;
 
         /**
          * Decodes a ProfileLikeTip message from the specified reader or buffer.

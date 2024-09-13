@@ -69,18 +69,6 @@ export const SysMsg = $root.SysMsg = (() => {
         SystemMessage.prototype.bodyWrapper = null;
 
         /**
-         * Creates a new SystemMessage instance using the specified properties.
-         * @function create
-         * @memberof SysMsg.SystemMessage
-         * @static
-         * @param {SysMsg.ISystemMessage=} [properties] Properties to set
-         * @returns {SysMsg.SystemMessage} SystemMessage instance
-         */
-        SystemMessage.create = function create(properties) {
-            return new SystemMessage(properties);
-        };
-
-        /**
          * Decodes a SystemMessage message from the specified reader or buffer.
          * @function decode
          * @memberof SysMsg.SystemMessage
@@ -223,18 +211,6 @@ export const SysMsg = $root.SysMsg = (() => {
             get: $util.oneOfGetter($oneOfFields = ["uid"]),
             set: $util.oneOfSetter($oneOfFields)
         });
-
-        /**
-         * Creates a new SystemMessageHeader instance using the specified properties.
-         * @function create
-         * @memberof SysMsg.SystemMessageHeader
-         * @static
-         * @param {SysMsg.ISystemMessageHeader=} [properties] Properties to set
-         * @returns {SysMsg.SystemMessageHeader} SystemMessageHeader instance
-         */
-        SystemMessageHeader.create = function create(properties) {
-            return new SystemMessageHeader(properties);
-        };
 
         /**
          * Decodes a SystemMessageHeader message from the specified reader or buffer.
@@ -390,18 +366,6 @@ export const SysMsg = $root.SysMsg = (() => {
         SystemMessageMsgSpec.prototype.other = 0;
 
         /**
-         * Creates a new SystemMessageMsgSpec instance using the specified properties.
-         * @function create
-         * @memberof SysMsg.SystemMessageMsgSpec
-         * @static
-         * @param {SysMsg.ISystemMessageMsgSpec=} [properties] Properties to set
-         * @returns {SysMsg.SystemMessageMsgSpec} SystemMessageMsgSpec instance
-         */
-        SystemMessageMsgSpec.create = function create(properties) {
-            return new SystemMessageMsgSpec(properties);
-        };
-
-        /**
          * Decodes a SystemMessageMsgSpec message from the specified reader or buffer.
          * @function decode
          * @memberof SysMsg.SystemMessageMsgSpec
@@ -518,18 +482,6 @@ export const SysMsg = $root.SysMsg = (() => {
         SystemMessageBodyWrapper.prototype.body = $util.newBuffer([]);
 
         /**
-         * Creates a new SystemMessageBodyWrapper instance using the specified properties.
-         * @function create
-         * @memberof SysMsg.SystemMessageBodyWrapper
-         * @static
-         * @param {SysMsg.ISystemMessageBodyWrapper=} [properties] Properties to set
-         * @returns {SysMsg.SystemMessageBodyWrapper} SystemMessageBodyWrapper instance
-         */
-        SystemMessageBodyWrapper.create = function create(properties) {
-            return new SystemMessageBodyWrapper(properties);
-        };
-
-        /**
          * Decodes a SystemMessageBodyWrapper message from the specified reader or buffer.
          * @function decode
          * @memberof SysMsg.SystemMessageBodyWrapper
@@ -642,18 +594,6 @@ export const SysMsg = $root.SysMsg = (() => {
          * @instance
          */
         LikeDetail.prototype.nickname = "";
-
-        /**
-         * Creates a new LikeDetail instance using the specified properties.
-         * @function create
-         * @memberof SysMsg.LikeDetail
-         * @static
-         * @param {SysMsg.ILikeDetail=} [properties] Properties to set
-         * @returns {SysMsg.LikeDetail} LikeDetail instance
-         */
-        LikeDetail.create = function create(properties) {
-            return new LikeDetail(properties);
-        };
 
         /**
          * Decodes a LikeDetail message from the specified reader or buffer.
@@ -778,18 +718,6 @@ export const SysMsg = $root.SysMsg = (() => {
         LikeMsg.prototype.detail = null;
 
         /**
-         * Creates a new LikeMsg instance using the specified properties.
-         * @function create
-         * @memberof SysMsg.LikeMsg
-         * @static
-         * @param {SysMsg.ILikeMsg=} [properties] Properties to set
-         * @returns {SysMsg.LikeMsg} LikeMsg instance
-         */
-        LikeMsg.create = function create(properties) {
-            return new LikeMsg(properties);
-        };
-
-        /**
          * Decodes a LikeMsg message from the specified reader or buffer.
          * @function decode
          * @memberof SysMsg.LikeMsg
@@ -892,18 +820,6 @@ export const SysMsg = $root.SysMsg = (() => {
          * @instance
          */
         ProfileLikeTip.prototype.msg = null;
-
-        /**
-         * Creates a new ProfileLikeTip instance using the specified properties.
-         * @function create
-         * @memberof SysMsg.ProfileLikeTip
-         * @static
-         * @param {SysMsg.IProfileLikeTip=} [properties] Properties to set
-         * @returns {SysMsg.ProfileLikeTip} ProfileLikeTip instance
-         */
-        ProfileLikeTip.create = function create(properties) {
-            return new ProfileLikeTip(properties);
-        };
 
         /**
          * Decodes a ProfileLikeTip message from the specified reader or buffer.

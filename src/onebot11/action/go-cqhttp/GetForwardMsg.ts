@@ -3,6 +3,7 @@ import { OB11ForwardMessage } from '../../types'
 import { OB11Entities } from '../../entities'
 import { ActionName } from '../types'
 import { MessageUnique } from '@/common/utils/messageUnique'
+import { filterNullable } from '@/common/utils/misc'
 
 interface Payload {
   message_id: string // long msg id，gocq
@@ -33,19 +34,21 @@ export class GetForwardMsg extends BaseAction<Payload, Response> {
     const messages = await Promise.all(
       msgList.map(async (msg) => {
         const resMsg = await OB11Entities.message(this.ctx, msg)
+        if (!resMsg) return
         resMsg.message_id = MessageUnique.createMsg({
           chatType: msg.chatType,
           peerUid: msg.peerUid,
         }, msg.msgId)
         return resMsg
-      }),
+      })
     )
-    const forwardMessages = messages.map(v => {
-      const msg = v as Partial<OB11ForwardMessage>
-      msg.content = msg.message
-      delete msg.message
-      return msg as OB11ForwardMessage
-    })
+    const forwardMessages = filterNullable(messages)
+      .map(v => {
+        const msg = v as Partial<OB11ForwardMessage>
+        msg.content = msg.message
+        delete msg.message
+        return msg as OB11ForwardMessage
+      })
     return { messages: forwardMessages }
   }
 }

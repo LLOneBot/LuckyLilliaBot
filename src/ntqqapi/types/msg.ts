@@ -282,9 +282,23 @@ export interface PicElement {
 }
 
 export enum GrayTipElementSubType {
-  RECALL = 1,
-  INVITE_NEW_MEMBER = 12,
-  MEMBER_NEW_TITLE = 17,
+  REVOKE = 1,
+  PROCLAMATION = 2,
+  EMOJIREPLY = 3,
+  GROUP = 4,
+  BUDDY = 5,
+  FEED = 6,
+  ESSENCE = 7,
+  GROUPNOTIFY = 8,
+  BUDDYNOTIFY = 9,
+  FILE = 10,
+  FEEDCHANNELMSG = 11,
+  XMLMSG = 12,
+  LOCALMSG = 13,
+  BLOCK = 14,
+  AIOOP = 15,
+  WALLET = 16,
+  JSON = 17,
 }
 
 export interface GrayTipElement {

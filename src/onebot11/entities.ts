@@ -49,7 +49,8 @@ import { pathToFileURL } from 'node:url'
 import OneBot11Adapter from './adapter'
 
 export namespace OB11Entities {
-  export async function message(ctx: Context, msg: RawMessage): Promise<OB11Message> {
+  export async function message(ctx: Context, msg: RawMessage): Promise<OB11Message | undefined> {
+    if (!msg.senderUin || msg.senderUin === '0') return //跳过空消息
     const {
       debug,
       messagePostFormat,
@@ -57,14 +58,14 @@ export namespace OB11Entities {
     const selfUin = selfInfo.uin
     const resMsg: OB11Message = {
       self_id: parseInt(selfUin),
-      user_id: parseInt(msg.senderUin!),
+      user_id: parseInt(msg.senderUin),
       time: parseInt(msg.msgTime) || Date.now(),
       message_id: msg.msgShortId!,
       real_id: msg.msgShortId!,
       message_seq: msg.msgShortId!,
       message_type: msg.chatType === ChatType.group ? 'group' : 'private',
       sender: {
-        user_id: parseInt(msg.senderUin!),
+        user_id: parseInt(msg.senderUin),
         nickname: msg.sendNickName,
         card: msg.sendMemberName ?? '',
       },
@@ -81,7 +82,7 @@ export namespace OB11Entities {
     if (msg.chatType === ChatType.group) {
       resMsg.sub_type = 'normal'
       resMsg.group_id = parseInt(msg.peerUin)
-      const member = await ctx.ntGroupApi.getGroupMember(msg.peerUin, msg.senderUin!)
+      const member = await ctx.ntGroupApi.getGroupMember(msg.peerUin, msg.senderUin)
       if (member) {
         resMsg.sender.role = groupMemberRole(member.role)
         resMsg.sender.nickname = member.nick
@@ -373,11 +374,10 @@ export namespace OB11Entities {
     }
     for (const element of msg.elements) {
       if (element.grayTipElement) {
-        if (element.grayTipElement.subElementType == GrayTipElementSubType.MEMBER_NEW_TITLE) {
-          const json = JSON.parse(element.grayTipElement.jsonGrayTipElement.jsonStr)
-          if (element.grayTipElement.jsonGrayTipElement.busiId == 1061) {
-            //判断业务类型
-            //Poke事件
+        const { grayTipElement } = element
+        if (grayTipElement.subElementType === GrayTipElementSubType.JSON) {
+          const json = JSON.parse(grayTipElement.jsonGrayTipElement.jsonStr)
+          if (grayTipElement.jsonGrayTipElement.busiId === 1061) {
             const pokedetail: Dict[] = json.items
             //筛选item带有uid的元素
             const poke_uid = pokedetail.filter(item => item.uid)
@@ -389,7 +389,6 @@ export namespace OB11Entities {
               )
             }
           }
-          //下面得改 上面也是错的grayTipElement.subElementType == GrayTipElementSubType.MEMBER_NEW_TITLE
         }
       }
     }
@@ -543,7 +542,7 @@ export namespace OB11Entities {
         }
 
         if (
-          grayTipElement.subElementType == GrayTipElementSubType.INVITE_NEW_MEMBER &&
+          grayTipElement.subElementType == GrayTipElementSubType.XMLMSG &&
           xmlElement?.templId == '10179'
         ) {
           ctx.logger.info('收到新人被邀请进群消息', grayTipElement)
@@ -563,35 +562,9 @@ export namespace OB11Entities {
             }
           }
         }
-        else if (grayTipElement.subElementType == GrayTipElementSubType.MEMBER_NEW_TITLE) {
+        else if (grayTipElement.subElementType == GrayTipElementSubType.JSON) {
           const json = JSON.parse(grayTipElement.jsonGrayTipElement.jsonStr)
-          /*
-          {
-            align: 'center',
-            items: [
-              { txt: '恭喜', type: 'nor' },
-              {
-                col: '3',
-                jp: '5',
-                param: ["QQ号"],
-                txt: '林雨辰',
-                type: 'url'
-              },
-              { txt: '获得群主授予的', type: 'nor' },
-              {
-                col: '3',
-                jp: '',
-                txt: '好好好',
-                type: 'url'
-              },
-              { txt: '头衔', type: 'nor' }
-            ]
-          }
-
-          * */
           if (grayTipElement.jsonGrayTipElement.busiId == 1061) {
-            //判断业务类型
-            //Poke事件
             const pokedetail: Dict[] = json.items
             //筛选item带有uid的元素
             const poke_uid = pokedetail.filter(item => item.uid)
@@ -653,7 +626,7 @@ export namespace OB11Entities {
     shortId: number
   ): Promise<OB11FriendRecallNoticeEvent | OB11GroupRecallNoticeEvent | undefined> {
     const msgElement = msg.elements.find(
-      (element) => element.grayTipElement?.subElementType === GrayTipElementSubType.RECALL,
+      (element) => element.grayTipElement?.subElementType === GrayTipElementSubType.REVOKE,
     )
     if (!msgElement) {
       return

@@ -1,7 +1,7 @@
 export const iconSvg = `
 <?xml version="2.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="50px" y="10px" width="262px" height="150" viewBox="0 0 212 262" enable-background="new 0 0 212 262" xml:space="preserve">  
+<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="50px" y="10px" width="262px" height="150" viewBox="0 0 212 262" enable-background="new 0 0 212 262" xml:space="preserve">
 <image id="image0" width="212" height="210" x="0" y="-20" transform="rotate(180, 100, 100)"
     xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAANQAAAEGCAYAAAAdX7uIAAAAIGNIUk0AAHomAACAhAAA+gAAAIDo
 AAB1MAAA6mAAADqYAAAXcJy6UTwAAAAGYktHRAD/AP8A/6C9p5MAAAAJcEhZcwAADsMAAA7DAcdv

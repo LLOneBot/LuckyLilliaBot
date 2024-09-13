@@ -7,9 +7,6 @@ body:
     attributes:
       value: |
         欢迎来到 LLOneBot 的 Issue Tracker！请填写以下表格来提交 Bug。
-        在提交新的 Bug 反馈前，请确保您：
-        * 已经搜索了现有的 issues，并且没有找到可以解决您问题的方法
-        * 不与现有的某一 issue 重复
   - type: input
     id: system-version
     attributes:
@@ -40,8 +37,6 @@ body:
       label: OneBot 客户端
       description: 连接至 LLOneBot 的客户端版本信息
       placeholder: Overflow 2.16.0-2cf7991-SNAPSHOT
-    validations:
-      required: true
   - type: textarea
     id: what-happened
     attributes:

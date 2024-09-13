@@ -5,6 +5,7 @@ import { ChatType } from '@/ntqqapi/types'
 import { OB11Entities } from '../../entities'
 import { RawMessage } from '@/ntqqapi/types'
 import { MessageUnique } from '@/common/utils/messageUnique'
+import { filterNullable } from '@/common/utils/misc'
 
 interface Payload {
   group_id: number | string
@@ -41,6 +42,6 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
       })
     )
     const ob11MsgList = await Promise.all(msgList.map((msg) => OB11Entities.message(this.ctx, msg)))
-    return { messages: ob11MsgList }
+    return { messages: filterNullable(ob11MsgList) }
   }
 }

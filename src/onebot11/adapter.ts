@@ -195,6 +195,9 @@ class OneBot11Adapter extends Service {
 
       OB11Entities.message(this.ctx, message)
         .then((msg) => {
+          if (!msg) {
+            return
+          }
           if (!this.config.debug && msg.message.length === 0) {
             return
           }

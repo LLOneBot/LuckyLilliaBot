@@ -1,5 +1,5 @@
 import { QQLevel } from '@/ntqqapi/types'
-import { Dict } from 'cosmokit'
+import { Dict, isNullable } from 'cosmokit'
 
 export function isNumeric(str: string) {
   return /^\d+$/.test(str)
@@ -32,4 +32,8 @@ export function mergeNewProperties(newObj: Dict, oldObj: Dict) {
       }
     }
   })
+}
+
+export function filterNullable<T>(array: T[]) {
+  return array.filter(e => !isNullable(e)) as NonNullable<T>[]
 }
