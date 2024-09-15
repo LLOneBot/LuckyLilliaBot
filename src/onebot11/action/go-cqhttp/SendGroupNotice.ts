@@ -1,4 +1,4 @@
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
 import { unlink } from 'fs/promises'
 import { checkFileReceived, uri2local } from '@/common/utils/file'
@@ -15,7 +15,7 @@ export class SendGroupNotice extends BaseAction<Payload, null> {
   actionName = ActionName.GoCQHTTP_SendGroupNotice
 
   async _handle(payload: Payload) {
-    if(!payload.content){
+    if (!payload.content) {
       throw new Error('参数 content 不能为空')
     }
     const groupCode = payload.group_id.toString()

@@ -101,7 +101,7 @@ export async function encodeSilk(ctx: Context, filePath: string) {
 
 type OutFormat = 'mp3' | 'amr' | 'wma' | 'm4a' | 'spx' | 'ogg' | 'wav' | 'flac'
 
-export async function decodeSilk(ctx: Context, inputFilePath: string, outFormat: OutFormat = 'mp3') {
+export async function decodeSilk(ctx: Context, inputFilePath: string, outFormat: OutFormat) {
   const silk = await fsPromise.readFile(inputFilePath)
   const { data } = await decode(silk, 24000)
   const tmpPath = path.join(TEMP_DIR, path.basename(inputFilePath))

@@ -1,4 +1,4 @@
-import BaseAction from '../action/BaseAction'
+import { BaseAction } from '../action/BaseAction'
 import { Context } from 'cordis'
 import { WebSocket, WebSocketServer } from 'ws'
 import { llonebotError } from '@/common/globalVars'

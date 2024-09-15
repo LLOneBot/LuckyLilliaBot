@@ -1,4 +1,4 @@
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { GroupMemberRole } from '@/ntqqapi/types'
 import { ActionName } from '../types'
 

@@ -1,4 +1,4 @@
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { OB11User } from '../../types'
 import { ActionName } from '../types'
 import { selfInfo } from '@/common/globalVars'

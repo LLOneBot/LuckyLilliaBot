@@ -1,4 +1,4 @@
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
 import { selfInfo } from '@/common/globalVars'
 import { Dict } from 'cosmokit'

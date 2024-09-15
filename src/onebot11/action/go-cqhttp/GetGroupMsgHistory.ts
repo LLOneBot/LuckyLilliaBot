@@ -1,4 +1,4 @@
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { OB11Message } from '../../types'
 import { ActionName } from '../types'
 import { ChatType } from '@/ntqqapi/types'

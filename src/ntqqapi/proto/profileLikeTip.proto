@@ -2,17 +2,23 @@ syntax = "proto3";
 package SysMsg;
 
 message LikeDetail {
-    string txt = 1;
-    uint32 uin = 3;
-    string nickname = 5;
+  string txt = 1;
+  uint32 uin = 3;
+  string nickname = 5;
 }
 
 message LikeMsg {
-    uint32 count = 1;
-    uint32 time = 2;
-    LikeDetail detail = 3;
+  uint32 count = 1;
+  uint32 time = 2;
+  LikeDetail detail = 3;
+}
+
+message ProfileLikeSubTip {
+  LikeMsg msg = 14;
 }
 
 message ProfileLikeTip {
-    LikeMsg msg = 14;
+  uint32 msgType = 1;
+  uint32 subType = 2;
+  ProfileLikeSubTip content = 203;
 }

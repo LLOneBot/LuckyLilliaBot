@@ -1,13 +1,13 @@
 import SendMsg from './SendMsg'
-import { ActionName, BaseCheckResult } from '../types'
+import { ActionName } from '../types'
 import { OB11PostSendMsg } from '../../types'
 
 class SendPrivateMsg extends SendMsg {
   actionName = ActionName.SendPrivateMsg
 
-  protected async check(payload: OB11PostSendMsg): Promise<BaseCheckResult> {
+  protected _handle(payload: OB11PostSendMsg) {
     payload.message_type = 'private'
-    return super.check(payload)
+    return super._handle(payload)
   }
 }
 

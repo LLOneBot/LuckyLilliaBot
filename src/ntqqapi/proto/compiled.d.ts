@@ -363,11 +363,63 @@ export namespace SysMsg {
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
+    /** Properties of a ProfileLikeSubTip. */
+    interface IProfileLikeSubTip {
+
+        /** ProfileLikeSubTip msg */
+        msg?: (SysMsg.ILikeMsg|null);
+    }
+
+    /** Represents a ProfileLikeSubTip. */
+    class ProfileLikeSubTip implements IProfileLikeSubTip {
+
+        /**
+         * Constructs a new ProfileLikeSubTip.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: SysMsg.IProfileLikeSubTip);
+
+        /** ProfileLikeSubTip msg. */
+        public msg?: (SysMsg.ILikeMsg|null);
+
+        /**
+         * Decodes a ProfileLikeSubTip message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns ProfileLikeSubTip
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): SysMsg.ProfileLikeSubTip;
+
+        /**
+         * Decodes a ProfileLikeSubTip message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns ProfileLikeSubTip
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): SysMsg.ProfileLikeSubTip;
+
+        /**
+         * Gets the default type url for ProfileLikeSubTip
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
     /** Properties of a ProfileLikeTip. */
     interface IProfileLikeTip {
 
-        /** ProfileLikeTip msg */
-        msg?: (SysMsg.ILikeMsg|null);
+        /** ProfileLikeTip msgType */
+        msgType?: (number|null);
+
+        /** ProfileLikeTip subType */
+        subType?: (number|null);
+
+        /** ProfileLikeTip content */
+        content?: (SysMsg.IProfileLikeSubTip|null);
     }
 
     /** Represents a ProfileLikeTip. */
@@ -379,8 +431,14 @@ export namespace SysMsg {
          */
         constructor(properties?: SysMsg.IProfileLikeTip);
 
-        /** ProfileLikeTip msg. */
-        public msg?: (SysMsg.ILikeMsg|null);
+        /** ProfileLikeTip msgType. */
+        public msgType: number;
+
+        /** ProfileLikeTip subType. */
+        public subType: number;
+
+        /** ProfileLikeTip content. */
+        public content?: (SysMsg.IProfileLikeSubTip|null);
 
         /**
          * Decodes a ProfileLikeTip message from the specified reader or buffer.

@@ -117,17 +117,15 @@ export class NTQQGroupApi extends Service {
     const type = parseInt(flagitem[2])
     const session = getSession()
     if (session) {
-      return session.getGroupService().operateSysNotify(
-        false,
-        {
-          'operateType': operateType, // 2 拒绝
-          'targetMsg': {
-            'seq': seq,  // 通知序列号
-            'type': type,
-            'groupCode': groupCode,
-            'postscript': reason || ' ' // 仅传空值可能导致处理失败，故默认给个空格
-          }
-        })
+      return session.getGroupService().operateSysNotify(false, {
+        operateType, // 2 拒绝
+        targetMsg: {
+          seq,  // 通知序列号
+          type,
+          groupCode,
+          postscript: reason || ' ' // 仅传空值可能导致处理失败，故默认给个空格
+        }
+      })
     } else {
       return await invoke(NTMethod.HANDLE_GROUP_REQUEST, [{
         doubt: false,
@@ -265,8 +263,8 @@ export class NTQQGroupApi extends Service {
     return await invoke('nodeIKernelRichMediaService/deleteGroupFolder', [{ groupId, folderId }, null])
   }
 
-  async deleteGroupFile(groupId: string, fileIdList: string[]) {
-    return await invoke('nodeIKernelRichMediaService/deleteGroupFile', [{ groupId, busIdList: [102], fileIdList }, null])
+  async deleteGroupFile(groupId: string, fileIdList: string[], busIdList: number[]) {
+    return await invoke('nodeIKernelRichMediaService/deleteGroupFile', [{ groupId, busIdList, fileIdList }, null])
   }
 
   async getGroupFileList(groupId: string, fileListForm: GetFileListParam) {
@@ -299,5 +297,10 @@ export class NTQQGroupApi extends Service {
     const ntUserApi = this.ctx.get('ntUserApi')!
     const psKey = (await ntUserApi.getPSkey(['qun.qq.com'])).domainPskeyMap.get('qun.qq.com')!
     return await invoke('nodeIKernelGroupService/uploadGroupBulletinPic', [{ groupCode, psKey, path }, null])
+  }
+
+  async getGroupRecommendContact(groupCode: string) {
+    const ret = await invoke('nodeIKernelGroupService/getGroupRecommendContactArkJson', [{ groupCode }, null])
+    return ret.arkJson
   }
 }

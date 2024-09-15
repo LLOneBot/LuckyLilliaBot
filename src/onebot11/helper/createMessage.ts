@@ -174,6 +174,12 @@ export async function createSendElements(
         sendElements.push(SendElementEntities.rps(resultId))
       }
         break
+      case OB11MessageDataType.contact: {
+        const { type, id } = sendMsg.data
+        const data = type === 'qq' ? ctx.ntFriendApi.getBuddyRecommendContact(id) : ctx.ntGroupApi.getGroupRecommendContact(id)
+        sendElements.push(SendElementEntities.ark(await data))
+      }
+        break
     }
   }
 

@@ -1,4 +1,4 @@
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
 import { getHttpEvent } from '../../helper/eventForHttp'
 import { OB11Message } from '../../types'

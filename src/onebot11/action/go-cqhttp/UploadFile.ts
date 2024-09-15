@@ -1,4 +1,4 @@
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
 import { SendElementEntities } from '@/ntqqapi/entities'
 import { uri2local } from '@/common/utils'

@@ -87,17 +87,6 @@ export class NTQQUserApi extends Service {
     return result.info
   }
 
-  async getSkey(): Promise<string> {
-    const clientKeyData = await this.forceFetchClientKey()
-    if (clientKeyData?.result !== 0) {
-      throw new Error('获取clientKey失败')
-    }
-    const url = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + selfInfo.uin
-      + '&clientkey=' + clientKeyData.clientKey
-      + '&u1=https%3A%2F%2Fh5.qzone.qq.com%2Fqqnt%2Fqzoneinpcqq%2Ffriend%3Frefresh%3D0%26clientuin%3D0%26darkMode%3D0&keyindex=' + clientKeyData.keyIndex
-    return (await RequestUtil.HttpsGetCookies(url))?.skey
-  }
-
   async getCookies(domain: string) {
     const clientKeyData = await this.forceFetchClientKey()
     if (clientKeyData?.result !== 0) {

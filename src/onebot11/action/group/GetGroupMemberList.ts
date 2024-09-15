@@ -1,6 +1,6 @@
 import { OB11GroupMember } from '../../types'
 import { OB11Entities } from '../../entities'
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
 import { selfInfo } from '@/common/globalVars'
 

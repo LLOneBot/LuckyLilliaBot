@@ -1,6 +1,6 @@
 import { OB11Group } from '../../types'
 import { OB11Entities } from '../../entities'
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
 
 interface Payload {

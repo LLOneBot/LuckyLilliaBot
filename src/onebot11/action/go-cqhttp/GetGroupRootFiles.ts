@@ -1,4 +1,4 @@
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
 import { OB11GroupFile, OB11GroupFileFolder } from '../../types'
 

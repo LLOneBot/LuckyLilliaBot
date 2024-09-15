@@ -14,8 +14,8 @@ import {
   OB11PostSendMsg,
 } from '../../types'
 import fs from 'node:fs'
-import BaseAction from '../BaseAction'
-import { ActionName, BaseCheckResult } from '../types'
+import { BaseAction } from '../BaseAction'
+import { ActionName } from '../types'
 import { CustomMusicSignPostData, IdMusicSignPostData, MusicSign, MusicSignPostData } from '@/common/utils/sign'
 import { Peer } from '@/ntqqapi/types/msg'
 import { MessageUnique } from '@/common/utils/messageUnique'
@@ -28,27 +28,6 @@ interface ReturnData {
 
 export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
   actionName = ActionName.SendMsg
-
-  protected async check(payload: OB11PostSendMsg): Promise<BaseCheckResult> {
-    const messages = convertMessage2List(payload.message)
-    const fmNum = this.getSpecialMsgNum(messages, OB11MessageDataType.node)
-    if (fmNum && fmNum != messages.length) {
-      return {
-        valid: false,
-        message: '转发消息不能和普通消息混在一起发送,转发需要保证message只有type为node的元素',
-      }
-    }
-    const musicNum = this.getSpecialMsgNum(messages, OB11MessageDataType.music)
-    if (musicNum && messages.length > 1) {
-      return {
-        valid: false,
-        message: '音乐消息不可以和其他消息混在一起发送',
-      }
-    }
-    return {
-      valid: true,
-    }
-  }
 
   protected async _handle(payload: OB11PostSendMsg) {
     let contextMode = CreatePeerMode.Normal

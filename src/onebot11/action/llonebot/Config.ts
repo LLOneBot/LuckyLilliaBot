@@ -1,4 +1,4 @@
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { Config } from '@/common/types'
 import { ActionName } from '../types'
 import { getConfigUtil } from '@/common/config'
@@ -13,7 +13,7 @@ export class GetConfigAction extends BaseAction<null, Config> {
 
 export class SetConfigAction extends BaseAction<Config, void> {
   actionName = ActionName.SetConfig
-  
+
   protected async _handle(payload: Config): Promise<void> {
     getConfigUtil().setConfig(payload)
   }

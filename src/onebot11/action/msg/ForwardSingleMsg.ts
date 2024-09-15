@@ -1,4 +1,4 @@
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { ChatType } from '@/ntqqapi/types'
 import { ActionName } from '../types'
 import { Peer } from '@/ntqqapi/types'

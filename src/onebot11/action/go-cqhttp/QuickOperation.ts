@@ -1,4 +1,4 @@
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { handleQuickOperation, QuickOperation, QuickOperationEvent } from '../../helper/quickOperation'
 import { ActionName } from '../types'
 

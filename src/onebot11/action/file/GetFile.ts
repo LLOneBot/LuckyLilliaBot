@@ -1,5 +1,5 @@
-import BaseAction from '../BaseAction'
-import fsPromise from 'node:fs/promises'
+import { BaseAction, Schema } from '../BaseAction'
+import { readFile } from 'node:fs/promises'
 import { ActionName } from '../types'
 import { Peer, ElementType } from '@/ntqqapi/types'
 import { MessageUnique } from '@/common/utils/messageUnique'
@@ -17,13 +17,16 @@ export interface GetFileResponse {
 }
 
 export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResponse> {
-  // forked from https://github.com/NapNeko/NapCatQQ/blob/6f6b258f22d7563f15d84e7172c4d4cbb547f47e/src/onebot11/action/file/GetFile.ts#L44
+  payloadSchema = Schema.object({
+    file: Schema.string().required()
+  })
+
   protected async _handle(payload: GetFilePayload): Promise<GetFileResponse> {
     const { enableLocalFile2Url } = this.adapter.config
 
-    let fileCache = await MessageUnique.getFileCacheById(String(payload.file))
+    let fileCache = await MessageUnique.getFileCacheById(payload.file)
     if (!fileCache?.length) {
-      fileCache = await MessageUnique.getFileCacheByName(String(payload.file))
+      fileCache = await MessageUnique.getFileCacheByName(payload.file)
     }
 
     if (fileCache?.length) {
@@ -62,7 +65,7 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
       }
       if (enableLocalFile2Url && downloadPath && (res.file === res.url || res.url === undefined)) {
         try {
-          res.base64 = await fsPromise.readFile(downloadPath, 'base64')
+          res.base64 = await readFile(downloadPath, 'base64')
         } catch (e) {
           throw new Error('文件下载失败. ' + e)
         }
@@ -76,11 +79,12 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
 
 export default class GetFile extends GetFileBase {
   actionName = ActionName.GetFile
+  payloadSchema = Schema.object({
+    file: Schema.string(),
+    file_id: Schema.string().required()
+  })
 
-  protected async _handle(payload: { file_id: string; file: string }): Promise<GetFileResponse> {
-    if (!payload.file_id) {
-      throw new Error('file_id 不能为空')
-    }
+  protected async _handle(payload: { file_id: string, file: string }): Promise<GetFileResponse> {
     payload.file = payload.file_id
     return super._handle(payload)
   }

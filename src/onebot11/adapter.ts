@@ -419,8 +419,9 @@ class OneBot11Adapter extends Service {
       const sysMsg = SysMsg.SystemMessage.decode(input)
       const { msgType, subType, subSubType } = sysMsg.msgSpec[0] ?? {}
       if (msgType === 528 && subType === 39 && subSubType === 39) {
-        const tip = SysMsg.ProfileLikeTip.decode(sysMsg.bodyWrapper!.body!.slice(12))
-        const detail = tip.msg?.detail
+        const tip = SysMsg.ProfileLikeTip.decode(sysMsg.bodyWrapper!.body!)
+        if (tip.msgType !== 0 || tip.subType !== 203) return
+        const detail = tip.content?.msg?.detail
         if (!detail) return
         const [times] = detail.txt?.match(/\d+/) ?? ['0']
         const profileLikeEvent = new OB11ProfileLikeEvent(detail.uin!, detail.nickname!, +times)

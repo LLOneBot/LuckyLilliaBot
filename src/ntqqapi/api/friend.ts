@@ -189,4 +189,9 @@ export class NTQQFriendApi extends Service {
       return await invoke('nodeIKernelBuddyService/isBuddy', [{ uid }, null])
     }
   }
+
+  async getBuddyRecommendContact(uin: string) {
+    const ret = await invoke('nodeIKernelBuddyService/getBuddyRecommendContactArkJson', [{ uin }, null])
+    return ret.arkMsg
+  }
 }

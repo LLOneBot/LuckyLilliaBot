@@ -52,7 +52,7 @@ export interface NodeIKernelGroupService {
   //26702(其实更早 但是我不知道)
   getGroupLatestEssenceList(groupCode: string): Promise<unknown>
 
-  //26702(其实更早 但是我不知道) 
+  //26702(其实更早 但是我不知道)
   shareDigest(Req: {
     appId: string,
     appType: number,
@@ -232,7 +232,7 @@ export interface NodeIKernelGroupService {
 
   setMemberShutUp(groupCode: string, memberTimes: { uid: string, timeStamp: number }[]): Promise<void>
 
-  getGroupRecommendContactArkJson(groupCode: string): unknown
+  getGroupRecommendContactArkJson(groupCode: string): Promise<GeneralCallResult & { arkJson: string }>
 
   getJoinGroupLink(groupCode: string): unknown
 
@@ -244,6 +244,7 @@ export interface NodeIKernelGroupService {
     msgRandom: number,
     msgSeq: number
   }): Promise<unknown>
+
   //需要提前判断是否存在 高版本新增
   removeGroupEssence(param: {
     groupCode: string

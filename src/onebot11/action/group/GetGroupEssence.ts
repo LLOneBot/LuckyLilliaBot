@@ -1,5 +1,5 @@
 import { GroupEssenceMsgRet } from '@/ntqqapi/api'
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
 
 interface PayloadType {

@@ -1,44 +1,43 @@
-import { ActionName, BaseCheckResult } from './types'
+import { ActionName } from './types'
 import { OB11Response } from './OB11Response'
 import { OB11Return } from '../types'
-import { Context } from 'cordis'
+import { Context, Schema } from 'cordis'
 import type Adapter from '../adapter'
 
 abstract class BaseAction<PayloadType, ReturnDataType> {
   abstract actionName: ActionName
   protected ctx: Context
+  payloadSchema?: Schema<PayloadType>
 
   constructor(protected adapter: Adapter) {
     this.ctx = adapter.ctx
   }
 
-  protected async check(payload: PayloadType): Promise<BaseCheckResult> {
-    return {
-      valid: true,
-    }
-  }
-
   public async handle(payload: PayloadType): Promise<OB11Return<ReturnDataType | null>> {
-    const result = await this.check(payload)
-    if (!result.valid) {
-      return OB11Response.error(result.message, 400)
+    let params: PayloadType
+    try {
+      params = this.payloadSchema ? new this.payloadSchema(payload) : payload
+    } catch (e) {
+      return OB11Response.error((e as Error).message, 400)
     }
     try {
-      const resData = await this._handle(payload)
+      const resData = await this._handle(params)
       return OB11Response.ok(resData)
     } catch (e) {
       this.ctx.logger.error('发生错误', e)
-      return OB11Response.error(e?.toString() || (e as Error)?.stack?.toString() || '未知错误，可能操作超时', 200)
+      return OB11Response.error((e as Error)?.toString() || (e as Error)?.stack?.toString() || '未知错误，可能操作超时', 200)
     }
   }
 
   public async websocketHandle(payload: PayloadType, echo: unknown): Promise<OB11Return<ReturnDataType | null>> {
-    const result = await this.check(payload)
-    if (!result.valid) {
-      return OB11Response.error(result.message, 1400)
+    let params: PayloadType
+    try {
+      params = this.payloadSchema ? new this.payloadSchema(payload) : payload
+    } catch (e) {
+      return OB11Response.error((e as Error).message, 1400)
     }
     try {
-      const resData = await this._handle(payload)
+      const resData = await this._handle(params)
       return OB11Response.ok(resData, echo)
     } catch (e) {
       this.ctx.logger.error('发生错误', e)
@@ -46,9 +45,7 @@ abstract class BaseAction<PayloadType, ReturnDataType> {
     }
   }
 
-  protected async _handle(payload: PayloadType): Promise<ReturnDataType> {
-    throw `pleas override ${this.actionName} _handle`
-  }
+  protected abstract _handle(payload: PayloadType): Promise<ReturnDataType>
 }
 
-export default BaseAction
+export { BaseAction, Schema }

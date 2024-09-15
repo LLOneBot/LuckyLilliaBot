@@ -1,6 +1,5 @@
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
-import { NTQQFriendApi } from '../../../ntqqapi/api/friend'
 
 interface Payload {
   flag: string

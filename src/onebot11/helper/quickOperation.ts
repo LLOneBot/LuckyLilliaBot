@@ -1,4 +1,4 @@
-import { OB11Message, OB11MessageAt, OB11MessageData, OB11MessageDataType } from '../types'
+import { OB11Message, OB11MessageData, OB11MessageDataType } from '../types'
 import { OB11FriendRequestEvent } from '../event/request/OB11FriendRequest'
 import { OB11GroupRequestEvent } from '../event/request/OB11GroupRequest'
 import { GroupRequestOperateTypes } from '@/ntqqapi/types'
@@ -6,7 +6,6 @@ import { convertMessage2List, createSendElements, sendMsg, createPeer, CreatePee
 import { MessageUnique } from '@/common/utils/messageUnique'
 import { isNullable } from 'cosmokit'
 import { Context } from 'cordis'
-import { OB11Config } from '@/common/types'
 
 interface QuickOperationPrivateMessage {
   reply?: string
@@ -57,7 +56,6 @@ export async function handleQuickOperation(ctx: Context, event: QuickOperationEv
 
 async function handleMsg(ctx: Context, msg: OB11Message, quickAction: QuickOperationPrivateMessage | QuickOperationGroupMessage) {
   const reply = quickAction.reply
-  const ob11Config: OB11Config = ctx.config
   let contextMode = CreatePeerMode.Normal
   if (msg.message_type === 'group') {
     contextMode = CreatePeerMode.Group
@@ -67,23 +65,21 @@ async function handleMsg(ctx: Context, msg: OB11Message, quickAction: QuickOpera
   const peer = await createPeer(ctx, msg, contextMode)
   if (reply) {
     let replyMessage: OB11MessageData[] = []
-    if (ob11Config.enableQOAutoQuote) {
-      replyMessage.push({
-        type: OB11MessageDataType.reply,
-        data: {
-          id: msg.message_id.toString(),
-        },
-      })
-    }
+    replyMessage.push({
+      type: OB11MessageDataType.reply,
+      data: {
+        id: msg.message_id.toString(),
+      },
+    })
 
     if (msg.message_type == 'group') {
       if ((quickAction as QuickOperationGroupMessage).at_sender) {
         replyMessage.push({
-          type: 'at',
+          type: OB11MessageDataType.at,
           data: {
             qq: msg.user_id.toString(),
           },
-        } as OB11MessageAt)
+        })
       }
     }
     replyMessage = replyMessage.concat(convertMessage2List(reply, quickAction.auto_escape))

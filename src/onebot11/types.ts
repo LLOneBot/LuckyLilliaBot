@@ -130,6 +130,7 @@ export enum OB11MessageDataType {
   poke = 'poke',
   dice = 'dice',
   RPS = 'rps',
+  contact = 'contact',
 }
 
 export interface OB11MessageMFace {
@@ -276,6 +277,14 @@ export interface OB11MessageForward {
   }
 }
 
+export interface OB11MessageContact {
+  type: OB11MessageDataType.contact
+  data: {
+    type: 'qq' | 'group'
+    id: string
+  }
+}
+
 export type OB11MessageData =
   | OB11MessageText
   | OB11MessageFace
@@ -295,6 +304,7 @@ export type OB11MessageData =
   | OB11MessageRPS
   | OB11MessageMarkdown
   | OB11MessageForward
+  | OB11MessageContact
 
 export interface OB11PostSendMsg {
   message_type?: 'private' | 'group'

@@ -165,7 +165,7 @@ export namespace OB11Entities {
 
           // 284840486: 合并消息内侧 消息具体定位不到
           if (!replyMsg && msg.peerUin !== '284840486') {
-            ctx.logger.info('queryMsgs', msgList.map(e => pick(e, ['msgSeq', 'msgRandom'])))
+            ctx.logger.info('queryMsgs', msgList.map(e => pick(e, ['msgSeq', 'msgRandom'])), records.msgRandom)
             throw new Error('回复消息验证失败')
           }
           messageSegment = {
@@ -394,7 +394,8 @@ export namespace OB11Entities {
     }
     // 好友增加事件
     if (msg.msgType === 5 && msg.subMsgType === 12) {
-      const event = new OB11FriendAddNoticeEvent(parseInt(msg.peerUin))
+      const uin = +msg.peerUin || +(await ctx.ntUserApi.getUinByUid(msg.peerUid))
+      const event = new OB11FriendAddNoticeEvent(uin)
       return event
     }
   }

@@ -1,4 +1,4 @@
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { OB11User } from '../../types'
 import { OB11Entities } from '../../entities'
 import { ActionName } from '../types'

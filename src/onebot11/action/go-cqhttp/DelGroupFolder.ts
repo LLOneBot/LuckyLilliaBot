@@ -1,4 +1,4 @@
-import BaseAction from '../BaseAction'
+import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 
 interface Payload {
@@ -8,6 +8,10 @@ interface Payload {
 
 export class DelGroupFolder extends BaseAction<Payload, null> {
   actionName = ActionName.GoCQHTTP_DelGroupFolder
+  payloadSchema = Schema.object({
+    group_id: Schema.union([Number, String]).required(),
+    folder_id: Schema.string().required()
+  })
 
   async _handle(payload: Payload) {
     await this.ctx.ntGroupApi.deleteGroupFileFolder(payload.group_id.toString(), payload.folder_id)

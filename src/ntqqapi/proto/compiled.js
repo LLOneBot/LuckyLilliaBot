@@ -789,13 +789,111 @@ export const SysMsg = $root.SysMsg = (() => {
         return LikeMsg;
     })();
 
+    SysMsg.ProfileLikeSubTip = (function() {
+
+        /**
+         * Properties of a ProfileLikeSubTip.
+         * @memberof SysMsg
+         * @interface IProfileLikeSubTip
+         * @property {SysMsg.ILikeMsg|null} [msg] ProfileLikeSubTip msg
+         */
+
+        /**
+         * Constructs a new ProfileLikeSubTip.
+         * @memberof SysMsg
+         * @classdesc Represents a ProfileLikeSubTip.
+         * @implements IProfileLikeSubTip
+         * @constructor
+         * @param {SysMsg.IProfileLikeSubTip=} [properties] Properties to set
+         */
+        function ProfileLikeSubTip(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * ProfileLikeSubTip msg.
+         * @member {SysMsg.ILikeMsg|null|undefined} msg
+         * @memberof SysMsg.ProfileLikeSubTip
+         * @instance
+         */
+        ProfileLikeSubTip.prototype.msg = null;
+
+        /**
+         * Decodes a ProfileLikeSubTip message from the specified reader or buffer.
+         * @function decode
+         * @memberof SysMsg.ProfileLikeSubTip
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {SysMsg.ProfileLikeSubTip} ProfileLikeSubTip
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ProfileLikeSubTip.decode = function decode(reader, length) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.SysMsg.ProfileLikeSubTip();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                switch (tag >>> 3) {
+                case 14: {
+                        message.msg = $root.SysMsg.LikeMsg.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a ProfileLikeSubTip message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof SysMsg.ProfileLikeSubTip
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {SysMsg.ProfileLikeSubTip} ProfileLikeSubTip
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        ProfileLikeSubTip.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Gets the default type url for ProfileLikeSubTip
+         * @function getTypeUrl
+         * @memberof SysMsg.ProfileLikeSubTip
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        ProfileLikeSubTip.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/SysMsg.ProfileLikeSubTip";
+        };
+
+        return ProfileLikeSubTip;
+    })();
+
     SysMsg.ProfileLikeTip = (function() {
 
         /**
          * Properties of a ProfileLikeTip.
          * @memberof SysMsg
          * @interface IProfileLikeTip
-         * @property {SysMsg.ILikeMsg|null} [msg] ProfileLikeTip msg
+         * @property {number|null} [msgType] ProfileLikeTip msgType
+         * @property {number|null} [subType] ProfileLikeTip subType
+         * @property {SysMsg.IProfileLikeSubTip|null} [content] ProfileLikeTip content
          */
 
         /**
@@ -814,12 +912,28 @@ export const SysMsg = $root.SysMsg = (() => {
         }
 
         /**
-         * ProfileLikeTip msg.
-         * @member {SysMsg.ILikeMsg|null|undefined} msg
+         * ProfileLikeTip msgType.
+         * @member {number} msgType
          * @memberof SysMsg.ProfileLikeTip
          * @instance
          */
-        ProfileLikeTip.prototype.msg = null;
+        ProfileLikeTip.prototype.msgType = 0;
+
+        /**
+         * ProfileLikeTip subType.
+         * @member {number} subType
+         * @memberof SysMsg.ProfileLikeTip
+         * @instance
+         */
+        ProfileLikeTip.prototype.subType = 0;
+
+        /**
+         * ProfileLikeTip content.
+         * @member {SysMsg.IProfileLikeSubTip|null|undefined} content
+         * @memberof SysMsg.ProfileLikeTip
+         * @instance
+         */
+        ProfileLikeTip.prototype.content = null;
 
         /**
          * Decodes a ProfileLikeTip message from the specified reader or buffer.
@@ -839,8 +953,16 @@ export const SysMsg = $root.SysMsg = (() => {
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 switch (tag >>> 3) {
-                case 14: {
-                        message.msg = $root.SysMsg.LikeMsg.decode(reader, reader.uint32());
+                case 1: {
+                        message.msgType = reader.uint32();
+                        break;
+                    }
+                case 2: {
+                        message.subType = reader.uint32();
+                        break;
+                    }
+                case 203: {
+                        message.content = $root.SysMsg.ProfileLikeSubTip.decode(reader, reader.uint32());
                         break;
                     }
                 default:

@@ -1,5 +1,5 @@
 import { ActionName } from '../types'
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 import { MessageUnique } from '@/common/utils/messageUnique'
 
 interface Payload {

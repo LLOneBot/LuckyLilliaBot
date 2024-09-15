@@ -1,7 +1,7 @@
-import BaseAction from '../BaseAction'
 import fs from 'fs'
 import fsPromise from 'fs/promises'
 import path from 'node:path'
+import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 import { calculateFileMD5, fetchFile } from '@/common/utils'
 import { TEMP_DIR } from '@/common/globalVars'
@@ -22,6 +22,11 @@ interface FileResponse {
 
 export class DownloadFile extends BaseAction<Payload, FileResponse> {
   actionName = ActionName.GoCQHTTP_DownloadFile
+  payloadSchema = Schema.object({
+    url: String,
+    base64: String,
+    headers: Schema.union([String, Schema.array(String)])
+  })
 
   protected async _handle(payload: Payload): Promise<FileResponse> {
     const isRandomName = !payload.name

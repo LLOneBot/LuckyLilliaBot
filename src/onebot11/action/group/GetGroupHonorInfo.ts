@@ -1,6 +1,6 @@
 import { WebHonorType } from '@/ntqqapi/api'
 import { ActionName } from '../types'
-import BaseAction from '../BaseAction'
+import { BaseAction } from '../BaseAction'
 
 interface Payload {
   group_id: number

@@ -10,7 +10,7 @@ import SendGroupMsg from './group/SendGroupMsg'
 import SendPrivateMsg from './msg/SendPrivateMsg'
 import SendMsg from './msg/SendMsg'
 import DeleteMsg from './msg/DeleteMsg'
-import BaseAction from './BaseAction'
+import { BaseAction } from './BaseAction'
 import GetVersionInfo from './system/GetVersionInfo'
 import CanSendRecord from './system/CanSendRecord'
 import CanSendImage from './system/CanSendImage'
@@ -134,7 +134,7 @@ export function initActionMap(adapter: Adapter) {
     new GetGroupRootFiles(adapter),
     new SendGroupNotice(adapter)
   ]
-  const actionMap = new Map<string, BaseAction<unknown, unknown>>()
+  const actionMap = new Map<string, BaseAction<any, unknown>>()
   for (const action of actionHandlers) {
     actionMap.set(action.actionName, action)
     actionMap.set(action.actionName + '_async', action)

@@ -1,6 +1,6 @@
-import BaseAction from '../BaseAction'
+import fs from 'node:fs'
+import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
-import * as fs from 'node:fs'
 import { checkFileReceived, uri2local } from '../../../common/utils/file'
 
 interface Payload {
