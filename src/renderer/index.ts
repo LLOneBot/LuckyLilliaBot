@@ -161,11 +161,6 @@ async function onSettingWindowCreated(view: Element) {
           'config-musicSignUrl',
         ),
         SettingItem(
-          '快速操作回复自动引用原消息',
-          null,
-          SettingSwitch('ob11.enableQOAutoQuote', config.ob11.enableQOAutoQuote),
-        ),
-        SettingItem(
           'HTTP、正向 WebSocket 服务仅监听 127.0.0.1',
           '而不是 0.0.0.0',
           SettingSwitch('ob11.listenLocalhost', config.ob11.listenLocalhost),

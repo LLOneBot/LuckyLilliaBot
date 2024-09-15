@@ -117,17 +117,15 @@ export class NTQQGroupApi extends Service {
     const type = parseInt(flagitem[2])
     const session = getSession()
     if (session) {
-      return session.getGroupService().operateSysNotify(
-        false,
-        {
-          'operateType': operateType, // 2 拒绝
-          'targetMsg': {
-            'seq': seq,  // 通知序列号
-            'type': type,
-            'groupCode': groupCode,
-            'postscript': reason || ' ' // 仅传空值可能导致处理失败，故默认给个空格
-          }
-        })
+      return session.getGroupService().operateSysNotify(false, {
+        operateType, // 2 拒绝
+        targetMsg: {
+          seq,  // 通知序列号
+          type,
+          groupCode,
+          postscript: reason || ' ' // 仅传空值可能导致处理失败，故默认给个空格
+        }
+      })
     } else {
       return await invoke(NTMethod.HANDLE_GROUP_REQUEST, [{
         doubt: false,

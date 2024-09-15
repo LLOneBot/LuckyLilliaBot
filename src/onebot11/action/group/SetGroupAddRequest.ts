@@ -14,9 +14,10 @@ export default class SetGroupAddRequest extends BaseAction<Payload, null> {
   protected async _handle(payload: Payload): Promise<null> {
     const flag = payload.flag.toString()
     const approve = payload.approve?.toString() !== 'false'
-    await this.ctx.ntGroupApi.handleGroupRequest(flag,
+    await this.ctx.ntGroupApi.handleGroupRequest(
+      flag,
       approve ? GroupRequestOperateTypes.approve : GroupRequestOperateTypes.reject,
-      payload.reason || ''
+      payload.reason
     )
     return null
   }

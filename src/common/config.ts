@@ -33,7 +33,6 @@ export class ConfigUtil {
       enableWsReverse: false,
       messagePostFormat: 'array',
       enableHttpHeart: false,
-      enableQOAutoQuote: false,
       listenLocalhost: false
     }
     const defaultConfig: Config = {
