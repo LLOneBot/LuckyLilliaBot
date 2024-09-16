@@ -27,8 +27,8 @@ declare module 'cordis' {
   }
   interface Events {
     'nt/message-created': (input: RawMessage[]) => void
-    'nt/message-deleted': (input: RawMessage[]) => void
-    'nt/message-sent': (input: RawMessage[]) => void
+    'nt/message-deleted': (input: RawMessage) => void
+    'nt/message-sent': (input: RawMessage) => void
     'nt/group-notify': (input: GroupNotify[]) => void
     'nt/friend-request': (input: FriendRequest[]) => void
     'nt/group-member-info-updated': (input: { groupCode: string, members: GroupMember[] }) => void
@@ -174,23 +174,26 @@ class Core extends Service {
       this.ctx.parallel('nt/message-created', payload.msgList)
     })
 
+    const sentMsgIds = new Map<string, boolean>()
     const recallMsgIds: string[] = [] // 避免重复上报
+
     registerReceiveHook<{ msgList: RawMessage[] }>([ReceiveCmdS.UPDATE_MSG], payload => {
-      const list = payload.msgList.filter(v => {
-        if (recallMsgIds.includes(v.msgId)) {
-          return false
+      for (const msg of payload.msgList) {
+        if (msg.recallTime !== '0' && !recallMsgIds.includes(msg.msgId)) {
+          recallMsgIds.push(msg.msgId)
+          this.ctx.parallel('nt/message-deleted', msg)
+        } else if (sentMsgIds.get(msg.msgId)) {
+          sentMsgIds.delete(msg.msgId)
+          this.ctx.parallel('nt/message-sent', msg)
         }
-        recallMsgIds.push(v.msgId)
-        return true
-      })
-      this.ctx.parallel('nt/message-deleted', list)
+      }
     })
 
     registerReceiveHook<{ msgRecord: RawMessage }>(ReceiveCmdS.SELF_SEND_MSG, payload => {
       if (!this.config.reportSelfMessage) {
         return
       }
-      this.ctx.parallel('nt/message-sent', [payload.msgRecord])
+      sentMsgIds.set(payload.msgRecord.msgId, true)
     })
 
     const groupNotifyFlags: string[] = []

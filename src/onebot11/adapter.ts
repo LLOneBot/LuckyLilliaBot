@@ -226,20 +226,16 @@ class OneBot11Adapter extends Service {
     }
   }
 
-  private handleRecallMsg(msgList: RawMessage[]) {
-    for (const message of msgList) {
-      if (message.recallTime != '0') {
-        const oriMessageId = MessageUnique.getShortIdByMsgId(message.msgId)
-        if (!oriMessageId) {
-          continue
-        }
-        OB11Entities.recallEvent(this.ctx, message, oriMessageId).then((recallEvent) => {
-          if (recallEvent) {
-            this.dispatch(recallEvent)
-          }
-        })
-      }
+  private handleRecallMsg(message: RawMessage) {
+    const oriMessageId = MessageUnique.getShortIdByMsgId(message.msgId)
+    if (!oriMessageId) {
+      return
     }
+    OB11Entities.recallEvent(this.ctx, message, oriMessageId).then((recallEvent) => {
+      if (recallEvent) {
+        this.dispatch(recallEvent)
+      }
+    })
   }
 
   private async handleFriendRequest(buddyReqs: FriendRequest[]) {
@@ -404,7 +400,7 @@ class OneBot11Adapter extends Service {
       this.handleRecallMsg(input)
     })
     this.ctx.on('nt/message-sent', input => {
-      this.handleMsg(input)
+      this.handleMsg([input])
     })
     this.ctx.on('nt/group-notify', input => {
       this.handleGroupNotify(input)
