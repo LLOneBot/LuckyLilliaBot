@@ -91,17 +91,26 @@ interface FetchFileRes {
 }
 
 export async function fetchFile(url: string, headersInit?: Record<string, string>): Promise<FetchFileRes> {
-  const headers: Record<string, string> = {
+  const headers = new Headers({
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36',
     'Host': new URL(url).hostname,
     ...headersInit
-  }
-  const raw = await fetch(url, { headers }).catch((err) => {
+  })
+  let raw = await fetch(url, { headers }).catch((err) => {
     if (err.cause) {
       throw err.cause
     }
     throw err
   })
+  if (raw.status === 403 && !headers.has('Referer')) {
+    headers.set('Referer', url)
+    raw = await fetch(url, { headers }).catch((err) => {
+      if (err.cause) {
+        throw err.cause
+      }
+      throw err
+    })
+  }
   if (!raw.ok) throw new Error(`statusText: ${raw.statusText}`)
   return {
     data: Buffer.from(await raw.arrayBuffer()),
@@ -133,7 +142,7 @@ export async function uri2local(uri: string, filename?: string, needExt?: boolea
 
   if (type === FileUriType.RemoteURL) {
     try {
-      const res = await fetchFile(uri, { 'Referer': uri })
+      const res = await fetchFile(uri)
       const match = res.url.match(/.+\/([^/?]*)(?=\?)?/)
       if (match?.[1]) {
         filename ??= match[1].replace(/[/\\:*?"<>|]/g, '_')

@@ -4,7 +4,7 @@
   "name": "LLOneBot",
   "slug": "LLOneBot",
   "description": "实现 OneBot 11 协议，用于 QQ 机器人开发",
-  "version": "3.32.7",
+  "version": "3.32.8",
   "icon": "./icon.webp",
   "authors": [
     {

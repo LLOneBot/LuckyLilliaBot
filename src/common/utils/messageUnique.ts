@@ -127,7 +127,6 @@ class MessageUniqueWrapper {
         }
       }
     }
-    return undefined
   }
 
   getShortIdByMsgId(msgId: string): number | undefined {
