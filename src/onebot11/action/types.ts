@@ -81,4 +81,5 @@ export enum ActionName {
   GoCQHTTP_GetGroupAtAllRemain = 'get_group_at_all_remain',
   GoCQHTTP_GetGroupRootFiles = 'get_group_root_files',
   GoCQHTTP_SendGroupNotice = '_send_group_notice',
+  GoCQHTTP_GetGroupFilesByFolder = 'get_group_files_by_folder'
 }

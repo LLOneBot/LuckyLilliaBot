@@ -11,7 +11,7 @@ interface Payload {
   timeout: number
 }
 
-export default class GetEvent extends BaseAction<Payload, PostEventType[]> {
+export class GetEvent extends BaseAction<Payload, PostEventType[]> {
   actionName = ActionName.GetEvent
 
   protected async _handle(payload: Payload): Promise<PostEventType[]> {
