@@ -482,7 +482,7 @@ export interface RawMessage {
   msgSeq: string
   msgRandom: string
   senderUid: string
-  senderUin?: string // 发送者QQ号
+  senderUin: string // 发送者QQ号
   peerUid: string // 群号 或者 QQ uid
   peerUin: string // 群号 或者 发送者QQ号
   guildId: string
