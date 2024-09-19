@@ -305,4 +305,34 @@ export class NTQQWebApi extends Service {
   private cookieToString(cookieObject: Dict) {
     return Object.entries(cookieObject).map(([key, value]) => `${key}=${value}`).join('; ')
   }
+
+  async findGroupEssenceMsg(groupCode: string, msgSeq: number) {
+    for (let i = 0; i < 20; i++) {
+      const res = await this.getGroupEssenceMsgList(groupCode, i, 50)
+      if (!res) break
+      const msg = res.data.msg_list.find(e => e.msg_seq === msgSeq)
+      if (msg) return msg
+      if (res.data.is_end) break
+    }
+  }
+
+  async getGroupEssenceMsgList(groupCode: string, pageStart: number, pageLimit: number) {
+    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    try {
+      const ret = await RequestUtil.HttpGetJson<GroupEssenceMsgRet>(
+        `https://qun.qq.com/cgi-bin/group_digest/digest_list?${new URLSearchParams({
+          bkn: this.genBkn(cookieObject.skey),
+          page_start: pageStart.toString(),
+          page_limit: pageLimit.toString(),
+          group_code: groupCode,
+        })}`,
+        'GET',
+        '',
+        { 'Cookie': this.cookieToString(cookieObject) }
+      )
+      return ret.retcode === 0 ? ret : undefined
+    } catch {
+      return undefined
+    }
+  }
 }

@@ -15,7 +15,6 @@ import {
   FaceIndex,
   GrayTipElementSubType,
   Group,
-  Peer,
   GroupMember,
   RawMessage,
   Sex,
@@ -585,27 +584,22 @@ export namespace OB11Entities {
           if (grayTipElement.jsonGrayTipElement?.busiId === '2401') {
             ctx.logger.info('收到群精华消息', json)
             const searchParams = new URL(json.items[0].jp).searchParams
-            const msgSeq = searchParams.get('msgSeq')!
-            const Group = searchParams.get('groupCode')
-            const Peer: Peer = {
+            const msgSeq = searchParams.get('msgSeq')
+            const groupCode = searchParams.get('groupCode')
+            if (!groupCode || !msgSeq) return
+            const peer = {
               guildId: '',
               chatType: ChatType.group,
-              peerUid: Group!
+              peerUid: groupCode
             }
-            const msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(Peer, msgSeq.toString(), 1, true, true))?.msgList
-            if (!msgList?.length) {
-              return
-            }
-            //const origMsg = await dbUtil.getMsgByLongId(msgList[0].msgId)
-            //const postMsg = await dbUtil.getMsgBySeqId(origMsg?.msgSeq!) ?? origMsg
-            // 如果 senderUin 为 0，可能是 历史消息 或 自身消息
-            //if (msgList[0].senderUin === '0') {
-            //msgList[0].senderUin = postMsg?.senderUin ?? getSelfUin()
-            //}
+            const essence = await ctx.ntWebApi.findGroupEssenceMsg(groupCode, +msgSeq)
+            if (!essence) return
+            const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, msgSeq, String(essence.sender_time))
             return new OB11GroupEssenceEvent(
               parseInt(msg.peerUid),
               MessageUnique.getShortIdByMsgId(msgList[0].msgId)!,
-              parseInt(msgList[0].senderUin!)
+              parseInt(msgList[0].senderUin),
+              parseInt(essence.add_digest_uin),
             )
             // 获取MsgSeq+Peer可获取具体消息
           }
