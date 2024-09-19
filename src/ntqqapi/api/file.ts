@@ -75,18 +75,13 @@ export class NTQQFileApi extends Service {
   // 上传文件到QQ的文件夹
   async uploadFile(filePath: string, elementType: ElementType = ElementType.PIC, elementSubType = 0) {
     const fileMd5 = await calculateFileMD5(filePath)
-    let ext = (await this.getFileType(filePath))?.ext || ''
-    if (ext) {
-      ext = '.' + ext
+    let fileName = path.basename(filePath)
+    if (!fileName.includes('.')) {
+      const ext = (await this.getFileType(filePath))?.ext
+      fileName += ext ? '.' + ext : ''
     }
-    let fileName = `${path.basename(filePath)}`
-    if (fileName.indexOf('.') === -1) {
-      fileName += ext
-    }
-    const session = getSession()
-    let mediaPath: string
-    if (session) {
-      mediaPath = session?.getMsgService().getRichMediaFilePathForGuild({
+    const mediaPath = await invoke(NTMethod.MEDIA_FILE_PATH, [{
+      path_info: {
         md5HexStr: fileMd5,
         fileName: fileName,
         elementType: elementType,
@@ -94,22 +89,9 @@ export class NTQQFileApi extends Service {
         thumbSize: 0,
         needCreate: true,
         downloadType: 1,
-        file_uuid: ''
-      })
-    } else {
-      mediaPath = await invoke(NTMethod.MEDIA_FILE_PATH, [{
-        path_info: {
-          md5HexStr: fileMd5,
-          fileName: fileName,
-          elementType: elementType,
-          elementSubType,
-          thumbSize: 0,
-          needCreate: true,
-          downloadType: 1,
-          file_uuid: '',
-        },
-      }])
-    }
+        file_uuid: '',
+      },
+    }])
     await copyFile(filePath, mediaPath)
     const fileSize = (await stat(filePath)).size
     return {
@@ -117,7 +99,6 @@ export class NTQQFileApi extends Service {
       fileName,
       path: mediaPath,
       fileSize,
-      ext
     }
   }
 
@@ -176,7 +157,11 @@ export class NTQQFileApi extends Service {
   }
 
   async getImageSize(filePath: string) {
-    return await invoke<{ width: number; height: number }>(
+    return await invoke<{
+      width: number
+      height: number
+      type: string
+    }>(
       NTMethod.IMAGE_SIZE,
       [filePath],
       {
