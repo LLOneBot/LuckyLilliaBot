@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import { Service, Context } from 'cordis'
 import { registerCallHook, registerReceiveHook, ReceiveCmdS } from './hook'
-import { MessageUnique } from '../common/utils/messageUnique'
 import { Config as LLOBConfig } from '../common/types'
 import { llonebotError } from '../common/globalVars'
 import { isNumeric } from '../common/utils/misc'
@@ -45,7 +44,6 @@ class Core extends Service {
 
   public start() {
     llonebotError.otherError = ''
-    MessageUnique.init(selfInfo.uin)
     this.registerListener()
     this.ctx.logger.info(`LLOneBot/${version}`)
     this.ctx.on('llonebot/config-updated', input => {

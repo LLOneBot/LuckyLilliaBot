@@ -2,7 +2,6 @@ import { BaseAction, Schema } from '../BaseAction'
 import { readFile } from 'node:fs/promises'
 import { ActionName } from '../types'
 import { Peer, ElementType } from '@/ntqqapi/types'
-import { MessageUnique } from '@/common/utils/messageUnique'
 
 export interface GetFilePayload {
   file: string // 文件名或者fileUuid
@@ -24,9 +23,9 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
   protected async _handle(payload: GetFilePayload): Promise<GetFileResponse> {
     const { enableLocalFile2Url } = this.adapter.config
 
-    let fileCache = await MessageUnique.getFileCacheById(payload.file)
+    let fileCache = await this.ctx.store.getFileCacheById(payload.file)
     if (!fileCache?.length) {
-      fileCache = await MessageUnique.getFileCacheByName(payload.file)
+      fileCache = await this.ctx.store.getFileCacheByName(payload.file)
     }
 
     if (fileCache?.length) {

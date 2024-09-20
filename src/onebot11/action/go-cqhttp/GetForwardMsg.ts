@@ -2,7 +2,6 @@ import { BaseAction, Schema } from '../BaseAction'
 import { OB11ForwardMessage } from '../../types'
 import { OB11Entities } from '../../entities'
 import { ActionName } from '../types'
-import { MessageUnique } from '@/common/utils/messageUnique'
 import { filterNullable } from '@/common/utils/misc'
 
 interface Payload {
@@ -26,12 +25,12 @@ export class GetForwardMsg extends BaseAction<Payload, Response> {
     if (!msgId) {
       throw Error('message_id不能为空')
     }
-    const rootMsgId = MessageUnique.getShortIdByMsgId(msgId)
-    const rootMsg = await MessageUnique.getMsgIdAndPeerByShortId(rootMsgId || +msgId)
+    const rootMsgId = await this.ctx.store.getShortIdByMsgId(msgId)
+    const rootMsg = await this.ctx.store.getMsgInfoByShortId(rootMsgId || +msgId)
     if (!rootMsg) {
       throw Error('msg not found')
     }
-    const data = await this.ctx.ntMsgApi.getMultiMsg(rootMsg.Peer, rootMsg.MsgId, rootMsg.MsgId)
+    const data = await this.ctx.ntMsgApi.getMultiMsg(rootMsg.peer, rootMsg.msgId, rootMsg.msgId)
     if (data?.result !== 0) {
       throw Error('找不到相关的聊天记录' + data?.errMsg)
     }
@@ -40,7 +39,7 @@ export class GetForwardMsg extends BaseAction<Payload, Response> {
       msgList.map(async (msg) => {
         const resMsg = await OB11Entities.message(this.ctx, msg)
         if (!resMsg) return
-        resMsg.message_id = MessageUnique.createMsg({
+        resMsg.message_id = this.ctx.store.createMsgShortId({
           chatType: msg.chatType,
           peerUid: msg.peerUid,
         }, msg.msgId)

@@ -2,7 +2,6 @@ import { BaseAction } from '../BaseAction'
 import { ChatType } from '@/ntqqapi/types'
 import { ActionName } from '../types'
 import { Peer } from '@/ntqqapi/types'
-import { MessageUnique } from '@/common/utils/messageUnique'
 
 interface Payload {
   message_id: number | string
@@ -26,12 +25,12 @@ abstract class ForwardSingleMsg extends BaseAction<Payload, null> {
     if (!payload.message_id) {
       throw Error('message_id不能为空')
     }
-    const msg = await MessageUnique.getMsgIdAndPeerByShortId(+payload.message_id)
+    const msg = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
     if (!msg) {
       throw new Error(`无法找到消息${payload.message_id}`)
     }
     const peer = await this.getTargetPeer(payload)
-    const ret = await this.ctx.ntMsgApi.forwardMsg(msg.Peer, peer, [msg.MsgId])
+    const ret = await this.ctx.ntMsgApi.forwardMsg(msg.peer, peer, [msg.msgId])
     if (ret.result !== 0) {
       throw new Error(`转发消息失败 ${ret.errMsg}`)
     }

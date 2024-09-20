@@ -233,34 +233,48 @@ export class NTQQGroupApi extends Service {
     >(NTMethod.GROUP_AT_ALL_REMAIN_COUNT, [{ groupCode }, null])
   }
 
-  /** 27187 TODO */
   async removeGroupEssence(groupCode: string, msgId: string) {
     const session = getSession()
-    // 代码没测过
-    // 需要 ob11msgid->msgId + (peer) -> msgSeq + msgRandom
-    const data = await session?.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
-    const param = {
-      groupCode: groupCode,
-      msgRandom: Number(data?.msgList[0].msgRandom),
-      msgSeq: Number(data?.msgList[0].msgSeq)
+    if (session) {
+      const data = await session.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
+      return session.getGroupService().removeGroupEssence({
+        groupCode: groupCode,
+        msgRandom: Number(data?.msgList[0].msgRandom),
+        msgSeq: Number(data?.msgList[0].msgSeq)
+      })
+    } else {
+      const ntMsgApi = this.ctx.get('ntMsgApi')!
+      const data = await ntMsgApi.getMsgHistory({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
+      return await invoke('nodeIKernelGroupService/removeGroupEssence', [{
+        req: {
+          groupCode: groupCode,
+          msgRandom: Number(data?.msgList[0].msgRandom),
+          msgSeq: Number(data?.msgList[0].msgSeq)
+        }
+      }, null])
     }
-    // GetMsgByShoretID(ShoretID) -> MsgService.getMsgs(Peer,MsgId,1,false) -> 组出参数
-    return session?.getGroupService().removeGroupEssence(param)
   }
 
-  /** 27187 TODO */
   async addGroupEssence(groupCode: string, msgId: string) {
     const session = getSession()
-    // 代码没测过
-    // 需要 ob11msgid->msgId + (peer) -> msgSeq + msgRandom
-    const data = await session?.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
-    const param = {
-      groupCode: groupCode,
-      msgRandom: Number(data?.msgList[0].msgRandom),
-      msgSeq: Number(data?.msgList[0].msgSeq)
+    if (session) {
+      const data = await session.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
+      return session.getGroupService().addGroupEssence({
+        groupCode: groupCode,
+        msgRandom: Number(data?.msgList[0].msgRandom),
+        msgSeq: Number(data?.msgList[0].msgSeq)
+      })
+    } else {
+      const ntMsgApi = this.ctx.get('ntMsgApi')!
+      const data = await ntMsgApi.getMsgHistory({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
+      return await invoke('nodeIKernelGroupService/addGroupEssence', [{
+        req: {
+          groupCode: groupCode,
+          msgRandom: Number(data?.msgList[0].msgRandom),
+          msgSeq: Number(data?.msgList[0].msgSeq)
+        }
+      }, null])
     }
-    // GetMsgByShoretID(ShoretID) -> MsgService.getMsgs(Peer,MsgId,1,false) -> 组出参数
-    return session?.getGroupService().addGroupEssence(param)
   }
 
   async createGroupFileFolder(groupId: string, folderName: string) {
@@ -310,5 +324,15 @@ export class NTQQGroupApi extends Service {
   async getGroupRecommendContact(groupCode: string) {
     const ret = await invoke('nodeIKernelGroupService/getGroupRecommendContactArkJson', [{ groupCode }, null])
     return ret.arkJson
+  }
+
+  async queryCachedEssenceMsg(groupCode: string, msgSeq = '0', msgRandom = '0') {
+    return await invoke('nodeIKernelGroupService/queryCachedEssenceMsg', [{
+      key: {
+        groupCode,
+        msgSeq: +msgSeq,
+        msgRandom: +msgRandom
+      }
+    }, null])
   }
 }

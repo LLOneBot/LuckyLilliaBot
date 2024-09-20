@@ -25,7 +25,6 @@ import {
 } from '../ntqqapi/types'
 import { EventType } from './event/OB11BaseEvent'
 import { encodeCQCode } from './cqcode'
-import { MessageUnique } from '../common/utils/messageUnique'
 import { OB11GroupIncreaseEvent } from './event/notice/OB11GroupIncreaseEvent'
 import { OB11GroupBanEvent } from './event/notice/OB11GroupBanEvent'
 import { OB11GroupUploadNoticeEvent } from './event/notice/OB11GroupUploadNoticeEvent'
@@ -178,7 +177,7 @@ export namespace OB11Entities {
           messageSegment = {
             type: OB11MessageDataType.reply,
             data: {
-              id: MessageUnique.createMsg(peer, replyMsg ? replyMsg.msgId : records.msgId).toString()
+              id: ctx.store.createMsgShortId(peer, replyMsg ? replyMsg.msgId : records.msgId).toString()
             }
           }
         } catch (e) {
@@ -198,7 +197,7 @@ export namespace OB11Entities {
             file_size: fileSize,
           }
         }
-        MessageUnique.addFileCache({
+        ctx.store.addFileCache({
           peerUid: msg.peerUid,
           msgId: msg.msgId,
           msgTime: +msg.msgTime,
@@ -226,7 +225,7 @@ export namespace OB11Entities {
             file_size: fileSize,
           }
         }
-        MessageUnique.addFileCache({
+        ctx.store.addFileCache({
           peerUid: msg.peerUid,
           msgId: msg.msgId,
           msgTime: +msg.msgTime,
@@ -251,7 +250,7 @@ export namespace OB11Entities {
             file_size: fileSize,
           }
         }
-        MessageUnique.addFileCache({
+        ctx.store.addFileCache({
           peerUid: msg.peerUid,
           msgId: msg.msgId,
           msgTime: +msg.msgTime,
@@ -275,7 +274,7 @@ export namespace OB11Entities {
             file_size: fileSize,
           }
         }
-        MessageUnique.addFileCache({
+        ctx.store.addFileCache({
           peerUid: msg.peerUid,
           msgId: msg.msgId,
           msgTime: +msg.msgTime,
@@ -530,7 +529,7 @@ export namespace OB11Entities {
             if (!replyMsgList?.length) {
               return
             }
-            const shortId = MessageUnique.getShortIdByMsgId(replyMsgList[0].msgId)
+            const shortId = ctx.store.getShortIdByMsgInfo(peer, replyMsgList[0].msgId)
             return new OB11GroupMsgEmojiLikeEvent(
               parseInt(msg.peerUid),
               parseInt(senderUin),
@@ -581,27 +580,28 @@ export namespace OB11Entities {
               )
             }
           }
-          if (grayTipElement.jsonGrayTipElement?.busiId === '2401') {
+          if (grayTipElement.jsonGrayTipElement?.busiId === '2401' && json.items[2]) {
             ctx.logger.info('收到群精华消息', json)
-            const searchParams = new URL(json.items[0].jp).searchParams
-            const msgSeq = searchParams.get('msgSeq')
-            const groupCode = searchParams.get('groupCode')
-            if (!groupCode || !msgSeq) return
+            const searchParams = new URL(json.items[2].jp).searchParams
+            const msgSeq = searchParams.get('seq')
+            const groupCode = searchParams.get('gc')
+            const msgRandom = searchParams.get('random')
+            if (!groupCode || !msgSeq || !msgRandom) return
             const peer = {
               guildId: '',
               chatType: ChatType.group,
               peerUid: groupCode
             }
-            const essence = await ctx.ntWebApi.findGroupEssenceMsg(groupCode, +msgSeq)
-            if (!essence) return
-            const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, msgSeq, String(essence.sender_time))
+            const essence = await ctx.ntGroupApi.queryCachedEssenceMsg(groupCode, msgSeq, msgRandom)
+            const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, msgSeq, '0')
+            const sourceMsg = msgList.find(e => e.msgRandom === msgRandom)
+            if (!sourceMsg) return
             return new OB11GroupEssenceEvent(
               parseInt(msg.peerUid),
-              MessageUnique.getShortIdByMsgId(msgList[0].msgId)!,
-              parseInt(msgList[0].senderUin),
-              parseInt(essence.add_digest_uin),
+              ctx.store.getShortIdByMsgInfo(peer, sourceMsg.msgId)!,
+              parseInt(essence.items[0]?.msgSenderUin ?? sourceMsg.senderUin),
+              parseInt(essence.items[0]?.opUin ?? '0'),
             )
-            // 获取MsgSeq+Peer可获取具体消息
           }
           if (grayTipElement.jsonGrayTipElement?.busiId === '2407') {
             const memberUin = json.items[1].param[0]

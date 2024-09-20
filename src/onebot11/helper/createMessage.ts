@@ -16,7 +16,6 @@ import {
 import { decodeCQCode } from '../cqcode'
 import { Peer } from '@/ntqqapi/types/msg'
 import { SendElementEntities } from '@/ntqqapi/entities'
-import { MessageUnique } from '@/common/utils/messageUnique'
 import { selfInfo } from '@/common/globalVars'
 import { uri2local } from '@/common/utils'
 import { Context } from 'cordis'
@@ -87,14 +86,14 @@ export async function createSendElements(
         break
       case OB11MessageDataType.reply: {
         if (sendMsg.data?.id) {
-          const replyMsgId = await MessageUnique.getMsgIdAndPeerByShortId(+sendMsg.data.id)
+          const replyMsgId = await ctx.store.getMsgInfoByShortId(+sendMsg.data.id)
           if (!replyMsgId) {
             ctx.logger.warn('回复消息不存在', replyMsgId)
             continue
           }
           const replyMsg = (await ctx.ntMsgApi.getMsgsByMsgId(
-            replyMsgId.Peer,
-            [replyMsgId.MsgId!]
+            replyMsgId.peer,
+            [replyMsgId.msgId!]
           )).msgList[0]
           if (replyMsg) {
             sendElements.push(
@@ -277,7 +276,7 @@ export async function sendMsg(
   //log('设置消息超时时间', timeout)
   const returnMsg = await ctx.ntMsgApi.sendMsg(peer, sendElements, timeout)
   if (returnMsg) {
-    returnMsg.msgShortId = MessageUnique.createMsg(peer, returnMsg.msgId)
+    returnMsg.msgShortId = ctx.store.createMsgShortId(peer, returnMsg.msgId)
     ctx.logger.info('消息发送', returnMsg.msgShortId)
     deleteAfterSentFiles.map(path => fsPromise.unlink(path))
     return returnMsg

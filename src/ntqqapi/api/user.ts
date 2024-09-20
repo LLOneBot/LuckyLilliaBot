@@ -102,18 +102,6 @@ export class NTQQUserApi extends Service {
     return await invoke('nodeIKernelTipOffService/getPskey', [{ domains, isForNewPCQQ: true }, null])
   }
 
-  genBkn(sKey: string) {
-    sKey = sKey || ''
-    let hash = 5381
-
-    for (let i = 0; i < sKey.length; i++) {
-      const code = sKey.charCodeAt(i)
-      hash = hash + (hash << 5) + code
-    }
-
-    return (hash & 0x7fffffff).toString()
-  }
-
   async like(uid: string, count = 1) {
     const session = getSession()
     if (session) {

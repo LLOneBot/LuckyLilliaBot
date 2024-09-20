@@ -10,15 +10,12 @@ export default class SendLike extends BaseAction<Payload, null> {
   actionName = ActionName.SendLike
 
   protected async _handle(payload: Payload): Promise<null> {
-    try {
-      const qq = payload.user_id.toString()
-      const uid: string = await this.ctx.ntUserApi.getUidByUin(qq) || ''
-      const result = await this.ctx.ntUserApi.like(uid, +payload.times || 1)
-      if (result?.result !== 0) {
-        throw Error(result?.errMsg)
-      }
-    } catch (e) {
-      throw `点赞失败 ${e}`
+    const uin = payload.user_id.toString()
+    const uid = await this.ctx.ntUserApi.getUidByUin(uin)
+    if (!uid) throw new Error('无法获取用户信息')
+    const result = await this.ctx.ntUserApi.like(uid, +payload.times || 1)
+    if (result.result !== 0) {
+      throw new Error(result.errMsg)
     }
     return null
   }

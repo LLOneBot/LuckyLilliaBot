@@ -72,14 +72,24 @@ export interface NodeIKernelGroupService {
     }
   }): Promise<unknown>
 
-  //26702(其实更早 但是我不知道)
-  isEssenceMsg(Req: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<unknown>
+  isEssenceMsg(req: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<unknown>
 
-  //26702(其实更早 但是我不知道)
-  queryCachedEssenceMsg(Req: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<unknown>
+  queryCachedEssenceMsg(req: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<{
+    items: {
+      groupCode: string
+      msgSeq: number
+      msgRandom: number
+      msgSenderUin: string
+      msgSenderNick: string
+      opType: number
+      opUin: string
+      opNick: string
+      opTime: number
+      grayTipSeq: string
+    }[]
+  }>
 
-  //26702(其实更早 但是我不知道)
-  fetchGroupEssenceList(Req: { groupCode: string, pageStart: number, pageLimit: number }, Arg: unknown): Promise<unknown>
+  fetchGroupEssenceList(req: { groupCode: string, pageStart: number, pageLimit: number }, arg: unknown): Promise<unknown>
 
   //26702
   getAllMemberList(groupCode: string, forceFetch: boolean): Promise<{

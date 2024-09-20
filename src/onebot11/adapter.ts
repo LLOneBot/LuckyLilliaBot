@@ -13,7 +13,6 @@ import {
 } from '../ntqqapi/types'
 import { OB11GroupRequestEvent } from './event/request/OB11GroupRequest'
 import { OB11FriendRequestEvent } from './event/request/OB11FriendRequest'
-import { MessageUnique } from '../common/utils/messageUnique'
 import { GroupDecreaseSubType, OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
 import { selfInfo } from '../common/globalVars'
 import { OB11Config, Config as LLOBConfig } from '../common/types'
@@ -37,7 +36,7 @@ declare module 'cordis' {
 }
 
 class OneBot11Adapter extends Service {
-  static inject = ['ntMsgApi', 'ntFileApi', 'ntFileCacheApi', 'ntFriendApi', 'ntGroupApi', 'ntUserApi', 'ntWindowApi', 'ntWebApi']
+  static inject = ['ntMsgApi', 'ntFileApi', 'ntFileCacheApi', 'ntFriendApi', 'ntGroupApi', 'ntUserApi', 'ntWindowApi', 'ntWebApi', 'store']
 
   public messages: Map<string, RawMessage> = new Map()
   public startTime = 0
@@ -190,7 +189,7 @@ class OneBot11Adapter extends Service {
         chatType: message.chatType,
         peerUid: message.peerUid
       }
-      message.msgShortId = MessageUnique.createMsg(peer, message.msgId)
+      message.msgShortId = this.ctx.store.createMsgShortId(peer, message.msgId)
       this.addMsgCache(message)
 
       OB11Entities.message(this.ctx, message)
@@ -227,7 +226,11 @@ class OneBot11Adapter extends Service {
   }
 
   private handleRecallMsg(message: RawMessage) {
-    const oriMessageId = MessageUnique.getShortIdByMsgId(message.msgId)
+    const peer = {
+      peerUid: message.peerUid,
+      chatType: message.chatType
+    }
+    const oriMessageId = this.ctx.store.getShortIdByMsgInfo(peer, message.msgId)
     if (!oriMessageId) {
       return
     }

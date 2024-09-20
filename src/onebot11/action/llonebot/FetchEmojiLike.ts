@@ -1,6 +1,5 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
-import { MessageUnique } from '@/common/utils/messageUnique'
 import { Dict } from 'cosmokit'
 
 interface Payload {
@@ -20,9 +19,9 @@ export class FetchEmojiLike extends BaseAction<Payload, Dict> {
   })
 
   async _handle(payload: Payload) {
-    const msgInfo = await MessageUnique.getMsgIdAndPeerByShortId(+payload.message_id)
+    const msgInfo = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
     if (!msgInfo) throw new Error('消息不存在')
-    const { msgSeq } = (await this.ctx.ntMsgApi.getMsgsByMsgId(msgInfo.Peer, [msgInfo.MsgId])).msgList[0]
-    return await this.ctx.ntMsgApi.getMsgEmojiLikesList(msgInfo.Peer, msgSeq, payload.emojiId, payload.emojiType, +payload.count)
+    const { msgSeq } = (await this.ctx.ntMsgApi.getMsgsByMsgId(msgInfo.peer, [msgInfo.msgId])).msgList[0]
+    return await this.ctx.ntMsgApi.getMsgEmojiLikesList(msgInfo.peer, msgSeq, payload.emojiId, payload.emojiType, +payload.count)
   }
 }

@@ -75,30 +75,6 @@ export interface GroupEssenceMsgRet {
   }
 }
 
-interface SetGroupNoticeParams {
-  groupCode: string
-  content: string
-  pinned: number
-  type: number
-  isShowEditCard: number
-  tipWindowType: number
-  confirmRequired: number
-  picId: string
-  imgWidth?: number
-  imgHeight?: number
-}
-
-interface SetGroupNoticeRet {
-  ec: number
-  em: string
-  id: number
-  ltsm: number
-  new_fid: string
-  read_only: number
-  role: number
-  srv_code: number
-}
-
 export class NTQQWebApi extends Service {
   static inject = ['ntUserApi']
 
@@ -274,65 +250,7 @@ export class NTQQWebApi extends Service {
     return honorInfo
   }
 
-  async setGroupNotice(params: SetGroupNoticeParams): Promise<SetGroupNoticeRet> {
-    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
-    const settings = JSON.stringify({
-      is_show_edit_card: params.isShowEditCard,
-      tip_window_type: params.tipWindowType,
-      confirm_required: params.confirmRequired
-    })
-
-    return await RequestUtil.HttpGetJson<SetGroupNoticeRet>(
-      `https://web.qun.qq.com/cgi-bin/announce/add_qun_notice?${new URLSearchParams({
-        bkn: this.genBkn(cookieObject.skey),
-        qid: params.groupCode,
-        text: params.content,
-        pinned: params.pinned.toString(),
-        type: params.type.toString(),
-        settings: settings,
-        ...(params.picId !== '' && {
-          pic: params.picId,
-          imgWidth: params.imgWidth?.toString(),
-          imgHeight: params.imgHeight?.toString(),
-        })
-      })}`,
-      'POST',
-      '',
-      { 'Cookie': this.cookieToString(cookieObject) }
-    )
-  }
-
   private cookieToString(cookieObject: Dict) {
     return Object.entries(cookieObject).map(([key, value]) => `${key}=${value}`).join('; ')
-  }
-
-  async findGroupEssenceMsg(groupCode: string, msgSeq: number) {
-    for (let i = 0; i < 20; i++) {
-      const res = await this.getGroupEssenceMsgList(groupCode, i, 50)
-      if (!res) break
-      const msg = res.data.msg_list.find(e => e.msg_seq === msgSeq)
-      if (msg) return msg
-      if (res.data.is_end) break
-    }
-  }
-
-  async getGroupEssenceMsgList(groupCode: string, pageStart: number, pageLimit: number) {
-    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
-    try {
-      const ret = await RequestUtil.HttpGetJson<GroupEssenceMsgRet>(
-        `https://qun.qq.com/cgi-bin/group_digest/digest_list?${new URLSearchParams({
-          bkn: this.genBkn(cookieObject.skey),
-          page_start: pageStart.toString(),
-          page_limit: pageLimit.toString(),
-          group_code: groupCode,
-        })}`,
-        'GET',
-        '',
-        { 'Cookie': this.cookieToString(cookieObject) }
-      )
-      return ret.retcode === 0 ? ret : undefined
-    } catch {
-      return undefined
-    }
   }
 }

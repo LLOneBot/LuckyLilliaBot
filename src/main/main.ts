@@ -1,5 +1,4 @@
 import path from 'node:path'
-import fs from 'node:fs'
 import Log from './log'
 import Core from '../ntqqapi/core'
 import OneBot11Adapter from '../onebot11/adapter'
@@ -34,6 +33,11 @@ import {
   NTQQWebApi,
   NTQQWindowApi
 } from '../ntqqapi/api'
+import { mkdir } from 'node:fs/promises'
+import { existsSync, mkdirSync } from 'node:fs'
+import Database from 'minato'
+import SQLiteDriver from '@minatojs/driver-sqlite'
+import Store from './store'
 
 declare module 'cordis' {
   interface Events {
@@ -45,12 +49,12 @@ let mainWindow: BrowserWindow | null = null
 
 // 加载插件时触发
 function onLoad() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true })
+  if (!existsSync(DATA_DIR)) {
+    mkdirSync(DATA_DIR, { recursive: true })
   }
 
-  if (!fs.existsSync(LOG_DIR)) {
-    fs.mkdirSync(LOG_DIR)
+  if (!existsSync(LOG_DIR)) {
+    mkdirSync(LOG_DIR)
   }
 
   ipcMain.handle(CHANNEL_CHECK_VERSION, async () => {
@@ -151,8 +155,12 @@ function onLoad() {
       log('LLOneBot 开关设置为关闭，不启动LLOneBot')
       return
     }
-    if (!fs.existsSync(TEMP_DIR)) {
-      fs.mkdirSync(TEMP_DIR)
+    if (!existsSync(TEMP_DIR)) {
+      await mkdir(TEMP_DIR)
+    }
+    const dbDir = path.join(DATA_DIR, 'database')
+    if (!existsSync(dbDir)) {
+      await mkdir(dbDir)
     }
     const ctx = new Context()
     ctx.plugin(Log, {
@@ -179,6 +187,11 @@ function onLoad() {
       enableLocalFile2Url: config.enableLocalFile2Url!,
       ffmpeg: config.ffmpeg,
     })
+    ctx.plugin(Database)
+    ctx.plugin(SQLiteDriver, {
+      path: path.join(dbDir, `${selfInfo.uin}.db`)
+    })
+    ctx.plugin(Store)
     ctx.start()
     ipcMain.on(CHANNEL_SET_CONFIG_CONFIRMED, (event, config: LLOBConfig) => {
       ctx.parallel('llonebot/config-updated', config)

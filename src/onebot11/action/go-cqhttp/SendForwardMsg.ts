@@ -4,7 +4,6 @@ import { ActionName } from '../types'
 import { BaseAction, Schema } from '../BaseAction'
 import { Peer } from '@/ntqqapi/types/msg'
 import { ChatType, ElementType, RawMessage, SendMessageElement } from '@/ntqqapi/types'
-import { MessageUnique } from '@/common/utils/messageUnique'
 import { selfInfo } from '@/common/globalVars'
 import { convertMessage2List, createSendElements, sendMsg, createPeer, CreatePeerMode } from '../../helper/createMessage'
 
@@ -57,7 +56,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
         peerUid: selfInfo.uid
       }
       const nodeMsg = await this.ctx.ntMsgApi.sendMsg(peer, sendElements)
-      await this.ctx.sleep(400)
+      await this.ctx.sleep(300)
       return nodeMsg
     } catch (e) {
       this.ctx.logger.warn(e, '克隆转发消息失败,将忽略本条消息', msg)
@@ -70,19 +69,19 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
       chatType: ChatType.friend,
       peerUid: selfInfo.uid,
     }
-    let nodeMsgIds: string[] = []
+    const nodeMsgIds: { msgId: string, peer: Peer }[] = []
     // 先判断一遍是不是id和自定义混用
     for (const messageNode of messageNodes) {
       // 一个node表示一个人的消息
       const nodeId = messageNode.data.id
       // 有nodeId表示一个子转发消息卡片
       if (nodeId) {
-        const nodeMsg = await MessageUnique.getMsgIdAndPeerByShortId(+nodeId) || await MessageUnique.getPeerByMsgId(nodeId)
+        const nodeMsg = await this.ctx.store.getMsgInfoByShortId(+nodeId)
         if (!nodeMsg) {
           this.ctx.logger.warn('转发消息失败，未找到消息', nodeId)
           continue
         }
-        nodeMsgIds.push(nodeMsg.MsgId)
+        nodeMsgIds.push(nodeMsg)
       }
       else {
         // 自定义的消息
@@ -111,17 +110,16 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
             else {
               sendElementsSplit[splitIndex].push(ele)
             }
-            this.ctx.logger.info(sendElementsSplit)
           }
-          // log("分割后的转发节点", sendElementsSplit)
+          this.ctx.logger.info('分割后的转发节点', sendElementsSplit)
           for (const eles of sendElementsSplit) {
             const nodeMsg = await sendMsg(this.ctx, selfPeer, eles, [])
             if (!nodeMsg) {
               this.ctx.logger.warn('转发节点生成失败', eles)
               continue
             }
-            nodeMsgIds.push(nodeMsg.msgId)
-            await this.ctx.sleep(400)
+            nodeMsgIds.push({ msgId: nodeMsg.msgId, peer: selfPeer })
+            await this.ctx.sleep(300)
           }
           deleteAfterSentFiles.map(path => unlink(path))
         } catch (e) {
@@ -132,31 +130,34 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
 
     // 检查srcPeer是否一致，不一致则需要克隆成自己的消息, 让所有srcPeer都变成自己的，使其保持一致才能够转发
     const nodeMsgArray: RawMessage[] = []
-    let srcPeer: Peer | null = null
+    let srcPeer: Peer
     let needSendSelf = false
-    for (const msgId of nodeMsgIds) {
-      const nodeMsgPeer = await MessageUnique.getPeerByMsgId(msgId)
-      if (nodeMsgPeer) {
-        const nodeMsg = (await this.ctx.ntMsgApi.getMsgsByMsgId(nodeMsgPeer.Peer, [msgId])).msgList[0]
-        srcPeer = srcPeer ?? { chatType: nodeMsg.chatType, peerUid: nodeMsg.peerUid }
-        if (srcPeer.peerUid !== nodeMsg.peerUid) {
-          needSendSelf = true
-        }
-        nodeMsgArray.push(nodeMsg)
+    for (const { msgId, peer } of nodeMsgIds) {
+      const nodeMsg = (await this.ctx.ntMsgApi.getMsgsByMsgId(peer, [msgId])).msgList[0]
+      srcPeer ??= { chatType: nodeMsg.chatType, peerUid: nodeMsg.peerUid }
+      if (srcPeer.peerUid !== nodeMsg.peerUid) {
+        needSendSelf = true
       }
+      nodeMsgArray.push(nodeMsg)
     }
-    nodeMsgIds = nodeMsgArray.map((msg) => msg.msgId)
+    let retMsgIds: string[] = []
     if (needSendSelf) {
       for (const msg of nodeMsgArray) {
-        if (msg.peerUid === selfPeer.peerUid) continue
-        await this.cloneMsg(msg)
+        if (msg.peerUid === selfPeer.peerUid) {
+          retMsgIds.push(msg.msgId)
+          continue
+        }
+        const clonedMsg = await this.cloneMsg(msg)
+        if (clonedMsg) retMsgIds.push(clonedMsg.msgId)
       }
+    } else {
+      retMsgIds = nodeMsgArray.map(msg => msg.msgId)
     }
-    if (nodeMsgIds.length === 0) {
+    if (retMsgIds.length === 0) {
       throw Error('转发消息失败，节点为空')
     }
-    const returnMsg = await this.ctx.ntMsgApi.multiForwardMsg(srcPeer!, destPeer, nodeMsgIds)
-    returnMsg.msgShortId = MessageUnique.createMsg(destPeer, returnMsg.msgId)
+    const returnMsg = await this.ctx.ntMsgApi.multiForwardMsg(srcPeer!, destPeer, retMsgIds)
+    returnMsg.msgShortId = this.ctx.store.createMsgShortId(destPeer, returnMsg.msgId)
     return returnMsg
   }
 }

@@ -4,7 +4,6 @@ import { ActionName } from '../types'
 import { ChatType } from '@/ntqqapi/types'
 import { OB11Entities } from '../../entities'
 import { RawMessage } from '@/ntqqapi/types'
-import { MessageUnique } from '@/common/utils/messageUnique'
 import { filterNullable } from '@/common/utils/misc'
 
 interface Payload {
@@ -35,7 +34,7 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
     if (!payload.message_seq) {
       msgList = (await this.ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, +count)).msgList
     } else {
-      const startMsgId = (await MessageUnique.getMsgIdAndPeerByShortId(+payload.message_seq))?.MsgId
+      const startMsgId = (await this.ctx.store.getMsgInfoByShortId(+payload.message_seq))?.msgId
       if (!startMsgId) throw new Error(`消息${payload.message_seq}不存在`)
       msgList = (await this.ctx.ntMsgApi.getMsgHistory(peer, startMsgId, +count)).msgList
     }
@@ -43,7 +42,7 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
     if (reverseOrder) msgList.reverse()
     await Promise.all(
       msgList.map(async msg => {
-        msg.msgShortId = MessageUnique.createMsg({ chatType: msg.chatType, peerUid: msg.peerUid }, msg.msgId)
+        msg.msgShortId = this.ctx.store.createMsgShortId({ chatType: msg.chatType, peerUid: msg.peerUid }, msg.msgId)
       })
     )
     const ob11MsgList = await Promise.all(msgList.map((msg) => OB11Entities.message(this.ctx, msg)))
