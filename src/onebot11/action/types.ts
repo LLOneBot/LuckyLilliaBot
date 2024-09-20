@@ -69,7 +69,7 @@ export enum ActionName {
   GoCQHTTP_DownloadFile = 'download_file',
   GoCQHTTP_GetGroupMsgHistory = 'get_group_msg_history',
   GoCQHTTP_GetForwardMsg = 'get_forward_msg',
-  GoCQHTTP_GetEssenceMsg = 'get_essence_msg_list',
+  GoCQHTTP_GetEssenceMsgList = 'get_essence_msg_list',
   GoCQHTTP_HandleQuickOperation = '.handle_quick_operation',
   GetGroupHonorInfo = 'get_group_honor_info',
   GoCQHTTP_SetEssenceMsg = 'set_essence_msg',
