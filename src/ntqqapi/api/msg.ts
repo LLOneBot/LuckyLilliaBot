@@ -11,16 +11,6 @@ declare module 'cordis' {
   }
 }
 
-function generateMsgId() {
-  const timestamp = Math.floor(Date.now() / 1000)
-  const random = Math.floor(Math.random() * Math.pow(2, 32))
-  const buffer = Buffer.alloc(8)
-  buffer.writeUInt32BE(timestamp, 0)
-  buffer.writeUInt32BE(random, 4)
-  const msgId = BigInt('0x' + buffer.toString('hex')).toString()
-  return msgId
-}
-
 export class NTQQMsgApi extends Service {
   static inject = ['ntUserApi']
 
@@ -102,7 +92,7 @@ export class NTQQMsgApi extends Service {
   }
 
   async sendMsg(peer: Peer, msgElements: SendMessageElement[], timeout = 10000) {
-    const msgId = generateMsgId()
+    const msgId = await this.generateMsgUniqueId(peer.chatType)
     peer.guildId = msgId
     const data = await invoke<{ msgList: RawMessage[] }>(
       'nodeIKernelMsgService/sendMsg',
@@ -274,5 +264,9 @@ export class NTQQMsgApi extends Service {
       backwardFetch: true,
       forceRefresh: true
     }, null])
+  }
+
+  async generateMsgUniqueId(chatType: number) {
+    return await invoke('nodeIKernelMsgService/generateMsgUniqueId', [{ chatType }])
   }
 }

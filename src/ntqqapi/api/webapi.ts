@@ -109,9 +109,9 @@ export class NTQQWebApi extends Service {
   }
 
   //实现未缓存 考虑2h缓存
-  async getGroupHonorInfo(groupCode: string, getType: WebHonorType) {
-    const getDataInternal = async (Internal_groupCode: string, Internal_type: number) => {
-      const url = 'https://qun.qq.com/interactive/honorlist?gc=' + Internal_groupCode + '&type=' + Internal_type.toString()
+  async getGroupHonorInfo(groupCode: string, getType: string) {
+    const getDataInternal = async (groupCode: string, type: number) => {
+      const url = 'https://qun.qq.com/interactive/honorlist?gc=' + groupCode + '&type=' + type
       let resJson
       try {
         const res = await RequestUtil.HttpGetText(url, 'GET', '', { 'Cookie': cookieStr })
@@ -119,7 +119,7 @@ export class NTQQWebApi extends Service {
         if (match) {
           resJson = JSON.parse(match[1].trim())
         }
-        if (Internal_type === 1) {
+        if (type === 1) {
           return resJson?.talkativeList
         } else {
           return resJson?.actorList

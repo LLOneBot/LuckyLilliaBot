@@ -7,7 +7,20 @@ import {
 import { GeneralCallResult } from './common'
 
 export interface NodeIKernelGroupService {
-  getGroupHonorList(req: { groupCode: number[] }): unknown
+  getGroupHonorList(req: { groupCode: number[] }): Promise<{
+    errCode: number
+    errMsg: string
+    groupMemberHonorList: {
+      honorList: {
+        groupCode: string
+        id: number[]
+        isGray: number
+      }[]
+      cacheTs: number
+      honorInfos: unknown[]
+      joinTime: number
+    }
+  }>
 
   getUinByUids(uins: string[]): Promise<{
     errCode: number
