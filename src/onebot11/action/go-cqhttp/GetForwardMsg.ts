@@ -16,8 +16,8 @@ interface Response {
 export class GetForwardMsg extends BaseAction<Payload, Response> {
   actionName = ActionName.GoCQHTTP_GetForwardMsg
   payloadSchema = Schema.object({
-    message_id: String,
-    id: String
+    message_id: Schema.string(),
+    id: Schema.string()
   })
 
   protected async _handle(payload: Payload) {
