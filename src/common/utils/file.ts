@@ -6,14 +6,6 @@ import { randomUUID, createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { fileTypeFromFile } from 'file-type'
 
-export function isGIF(path: string) {
-  const buffer = Buffer.alloc(4)
-  const fd = fs.openSync(path, 'r')
-  fs.readSync(fd, buffer, 0, 4, 0)
-  fs.closeSync(fd)
-  return buffer.toString() === 'GIF8'
-}
-
 // 定义一个异步函数来检查文件是否存在
 export function checkFileReceived(path: string, timeout: number = 3000): Promise<void> {
   return new Promise((resolve, reject) => {

@@ -1,7 +1,7 @@
 import type Adapter from '../adapter'
 import GetMsg from './msg/GetMsg'
 import GetLoginInfo from './system/GetLoginInfo'
-import { GetFriendList, GetFriendWithCategory } from './user/GetFriendList'
+import { GetFriendList } from './user/GetFriendList'
 import GetGroupList from './group/GetGroupList'
 import GetGroupInfo from './group/GetGroupInfo'
 import GetGroupMemberList from './group/GetGroupMemberList'
@@ -37,7 +37,6 @@ import GetImage from './file/GetImage'
 import GetRecord from './file/GetRecord'
 import { MarkMsgAsRead } from './go-cqhttp/MarkMsgAsRead'
 import CleanCache from './system/CleanCache'
-import { UploadGroupFile, UploadPrivateFile } from './go-cqhttp/UploadFile'
 import { GetConfigAction, SetConfigAction } from './llonebot/Config'
 import GetGroupAddRequest from './llonebot/GetGroupAddRequest'
 import SetQQAvatar from './llonebot/SetQQAvatar'
@@ -48,11 +47,11 @@ import { GetForwardMsg } from './go-cqhttp/GetForwardMsg'
 import { GetCookies } from './user/GetCookie'
 import { SetMsgEmojiLike } from './msg/SetMsgEmojiLike'
 import { ForwardFriendSingleMsg, ForwardGroupSingleMsg } from './msg/ForwardSingleMsg'
-import { GetGroupEssence } from './group/GetGroupEssence'
+import { GetEssenceMsgList } from './go-cqhttp/GetGroupEssence'
 import { GetGroupHonorInfo } from './group/GetGroupHonorInfo'
 import { HandleQuickOperation } from './go-cqhttp/QuickOperation'
 import { SetEssenceMsg } from './go-cqhttp/SetEssenceMsg'
-import { DelEssenceMsg } from './go-cqhttp/DelEssenceMsg'
+import { DeleteEssenceMsg } from './go-cqhttp/DelEssenceMsg'
 import { GetEvent } from './llonebot/GetEvent'
 import { DelGroupFile } from './go-cqhttp/DelGroupFile'
 import { GetGroupSystemMsg } from './go-cqhttp/GetGroupSystemMsg'
@@ -67,6 +66,9 @@ import { FetchEmojiLike } from './llonebot/FetchEmojiLike'
 import { FetchCustomFace } from './llonebot/FetchCustomFace'
 import { GetFriendMsgHistory } from './llonebot/GetFriendMsgHistory'
 import { GetGroupFilesByFolder } from './go-cqhttp/GetGroupFilesByFolder'
+import { GetFriendWithCategory } from './llonebot/GetFriendWithCategory'
+import { UploadGroupFile } from './go-cqhttp/UploadGroupFile'
+import { UploadPrivateFile } from './go-cqhttp/UploadPrivateFile'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -117,7 +119,7 @@ export function initActionMap(adapter: Adapter) {
     new ForwardFriendSingleMsg(adapter),
     new ForwardGroupSingleMsg(adapter),
     // go-cqhttp
-    new GetGroupEssence(adapter),
+    new GetEssenceMsgList(adapter),
     new GetGroupHonorInfo(adapter),
     new SendForwardMsg(adapter),
     new SendGroupForwardMsg(adapter),
@@ -132,7 +134,7 @@ export function initActionMap(adapter: Adapter) {
     new GetForwardMsg(adapter),
     new HandleQuickOperation(adapter),
     new SetEssenceMsg(adapter),
-    new DelEssenceMsg(adapter),
+    new DeleteEssenceMsg(adapter),
     new DelGroupFile(adapter),
     new GetGroupSystemMsg(adapter),
     new CreateGroupFileFolder(adapter),

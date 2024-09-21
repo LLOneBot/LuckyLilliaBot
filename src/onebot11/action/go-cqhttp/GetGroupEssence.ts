@@ -16,7 +16,7 @@ interface EssenceMsg {
   message_id: number
 }
 
-export class GetGroupEssence extends BaseAction<Payload, EssenceMsg[]> {
+export class GetEssenceMsgList extends BaseAction<Payload, EssenceMsg[]> {
   actionName = ActionName.GoCQHTTP_GetEssenceMsgList
   payloadSchema = Schema.object({
     group_id: Schema.union([Number, String]).required()

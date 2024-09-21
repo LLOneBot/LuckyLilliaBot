@@ -8,8 +8,7 @@ import {
   NodeIKernelUixConvertService,
   NodeIKernelRichMediaService,
   NodeIKernelTicketService,
-  NodeIKernelTipOffService,
-  NodeIKernelSearchService
+  NodeIKernelTipOffService
 } from './services'
 import { constants } from 'node:os'
 import { Dict } from 'cosmokit'
@@ -26,7 +25,6 @@ export interface NodeIQQNTWrapperSession {
   getRichMediaService(): NodeIKernelRichMediaService
   getTicketService(): NodeIKernelTicketService
   getTipOffService(): NodeIKernelTipOffService
-  getSearchService(): NodeIKernelSearchService
 }
 
 export interface WrapperApi {

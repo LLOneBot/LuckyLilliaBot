@@ -5,7 +5,7 @@ interface Payload {
   message_id: number | string
 }
 
-export class DelEssenceMsg extends BaseAction<Payload, unknown> {
+export class DeleteEssenceMsg extends BaseAction<Payload, unknown> {
   actionName = ActionName.GoCQHTTP_DelEssenceMsg
   payloadSchema = Schema.object({
     message_id: Schema.union([Number, String]).required()

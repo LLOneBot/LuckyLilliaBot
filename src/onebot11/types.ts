@@ -289,7 +289,7 @@ export interface OB11MessageContact {
 
 export interface OB11MessageShake {
   type: OB11MessageDataType.shake
-  data: {}
+  data: Record<string, never>
 }
 
 export type OB11MessageData =

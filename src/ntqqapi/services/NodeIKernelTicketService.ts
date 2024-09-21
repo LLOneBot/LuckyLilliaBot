@@ -1,11 +1,10 @@
-import { forceFetchClientKeyRetType } from './common'
+import { GeneralCallResult } from './common'
 
 export interface NodeIKernelTicketService {
-  addKernelTicketListener(listener: unknown): void
-
-  removeKernelTicketListener(listenerId: unknown): void
-
-  forceFetchClientKey(arg: string): Promise<forceFetchClientKeyRetType>
-
-  isNull(): boolean
+  forceFetchClientKey(arg: string): Promise<GeneralCallResult & {
+    url: string
+    keyIndex: string
+    clientKey: string
+    expireTime: string
+  }>
 }

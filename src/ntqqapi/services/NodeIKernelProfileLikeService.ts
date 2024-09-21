@@ -3,10 +3,6 @@ import { GeneralCallResult } from './common'
 import { Dict } from 'cosmokit'
 
 export interface NodeIKernelProfileLikeService {
-  addKernelProfileLikeListener(listener: NodeIKernelProfileLikeService): void
-
-  removeKernelProfileLikeListener(listener: unknown): void
-
   setBuddyProfileLike(...args: unknown[]): { result: number, errMsg: string, succCounts: number }
 
   getBuddyProfileLike(req: BuddyProfileLikeReq): Promise<GeneralCallResult & {
@@ -26,8 +22,4 @@ export interface NodeIKernelProfileLikeService {
       start: number
     }
   }>
-
-  getProfileLikeScidResourceInfo(...args: unknown[]): void
-
-  isNull(): boolean
 }

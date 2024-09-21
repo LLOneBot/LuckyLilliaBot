@@ -111,7 +111,6 @@ export class NTQQGroupApi extends Service {
       'nodeIKernelGroupService/getSingleScreenNotifies',
       [{ doubt: false, startSeq: '', number: num }, null],
       {
-
         cbCmd: ReceiveCmdS.GROUP_NOTIFY,
         afterFirstCmd: false,
       }
@@ -220,17 +219,7 @@ export class NTQQGroupApi extends Service {
   }
 
   async getGroupRemainAtTimes(groupCode: string) {
-    return await invoke<
-      GeneralCallResult & {
-        atInfo: {
-          canAtAll: boolean
-          RemainAtAllCountForUin: number
-          RemainAtAllCountForGroup: number
-          atTimesMsg: string
-          canNotAtAllMsg: ''
-        }
-      }
-    >(NTMethod.GROUP_AT_ALL_REMAIN_COUNT, [{ groupCode }, null])
+    return await invoke(NTMethod.GROUP_AT_ALL_REMAIN_COUNT, [{ groupCode }, null])
   }
 
   async removeGroupEssence(groupCode: string, msgId: string) {
@@ -332,6 +321,15 @@ export class NTQQGroupApi extends Service {
         groupCode,
         msgSeq: +msgSeq,
         msgRandom: +msgRandom
+      }
+    }, null])
+  }
+
+  async getGroupHonorList(groupCode: string) {
+    // 还缺点东西
+    return await invoke('nodeIKernelGroupService/getGroupHonorList', [{
+      req: {
+        groupCode: [+groupCode]
       }
     }, null])
   }

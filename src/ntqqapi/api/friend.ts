@@ -62,67 +62,42 @@ export class NTQQFriendApi extends Service {
   }
 
   async getBuddyV2(refresh = false): Promise<FriendV2[]> {
-    const session = getSession()
-    if (session) {
-      const uids: string[] = []
-      const buddyService = session.getBuddyService()
-      const buddyListV2 = await buddyService.getBuddyListV2('0', BuddyListReqType.KNOMAL)
-      uids.push(...buddyListV2.data.flatMap(item => item.buddyUids))
-      const data = await session.getProfileService().getCoreAndBaseInfo('nodeStore', uids)
-      return Array.from(data.values())
-    } else {
-      const data = await invoke<{
-        buddyCategory: CategoryFriend[]
-        userSimpleInfos: Record<string, SimpleInfo>
-      }>(
-        'getBuddyList',
-        [refresh],
-        {
-          className: NTClass.NODE_STORE_API,
-          cbCmd: ReceiveCmdS.FRIENDS,
-          afterFirstCmd: false,
-        }
-      )
-      const uids = data.buddyCategory.flatMap(item => item.buddyUids)
-      return Object.values(data.userSimpleInfos).filter(v => uids.includes(v.uid!))
-    }
+    const data = await invoke<{
+      buddyCategory: CategoryFriend[]
+      userSimpleInfos: Record<string, SimpleInfo>
+    }>(
+      'getBuddyList',
+      [refresh],
+      {
+        className: NTClass.NODE_STORE_API,
+        cbCmd: ReceiveCmdS.FRIENDS,
+        afterFirstCmd: false,
+      }
+    )
+    const uids = data.buddyCategory.flatMap(item => item.buddyUids)
+    return Object.values(data.userSimpleInfos).filter(v => uids.includes(v.uid!))
   }
 
   /** uid => uin */
   async getBuddyIdMap(refresh = false): Promise<Map<string, string>> {
     const retMap: Map<string, string> = new Map()
-    const session = getSession()
-    if (session) {
-      const uids: string[] = []
-      const buddyService = session.getBuddyService()
-      const buddyListV2 = await buddyService.getBuddyListV2('0', BuddyListReqType.KNOMAL)
-      uids.push(...buddyListV2.data.flatMap(item => item.buddyUids))
-      const data = await session.getProfileService().getCoreAndBaseInfo('nodeStore', uids)
-      for (const [, item] of data) {
-        if (retMap.size > 5000) {
-          break
-        }
-        retMap.set(item.uid!, item.uin!)
+    const data = await invoke<{
+      buddyCategory: CategoryFriend[]
+      userSimpleInfos: Record<string, SimpleInfo>
+    }>(
+      'getBuddyList',
+      [refresh],
+      {
+        className: NTClass.NODE_STORE_API,
+        cbCmd: ReceiveCmdS.FRIENDS,
+        afterFirstCmd: false,
       }
-    } else {
-      const data = await invoke<{
-        buddyCategory: CategoryFriend[]
-        userSimpleInfos: Record<string, SimpleInfo>
-      }>(
-        'getBuddyList',
-        [refresh],
-        {
-          className: NTClass.NODE_STORE_API,
-          cbCmd: ReceiveCmdS.FRIENDS,
-          afterFirstCmd: false,
-        }
-      )
-      for (const item of Object.values(data.userSimpleInfos)) {
-        if (retMap.size > 5000) {
-          break
-        }
-        retMap.set(item.uid!, item.uin!)
+    )
+    for (const item of Object.values(data.userSimpleInfos)) {
+      if (retMap.size > 5000) {
+        break
       }
+      retMap.set(item.uid!, item.uin!)
     }
     return retMap
   }

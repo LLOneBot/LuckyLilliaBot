@@ -43,9 +43,9 @@ export class GetFriendMsgHistory extends BaseAction<Payload, Response> {
     }
     if (msgList.length === 0) throw new Error('未找到消息')
     if (payload.reverseOrder) msgList.reverse()
-    msgList.map(msg => {
+    for (const msg of msgList) {
       msg.msgShortId = this.ctx.store.createMsgShortId({ chatType: msg.chatType, peerUid: msg.peerUid }, msg.msgId)
-    })
+    }
     const ob11MsgList = await Promise.all(msgList.map(msg => OB11Entities.message(this.ctx, msg)))
     return { messages: filterNullable(ob11MsgList) }
   }

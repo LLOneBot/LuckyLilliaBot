@@ -1,4 +1,4 @@
-import fs from 'node:fs'
+import { unlink } from 'node:fs/promises'
 import { Service, Context } from 'cordis'
 import { registerCallHook, registerReceiveHook, ReceiveCmdS } from './hook'
 import { Config as LLOBConfig } from '../common/types'
@@ -13,7 +13,6 @@ import {
   GroupMember,
   CategoryFriend,
   SimpleInfo,
-  User,
   ChatType
 } from './types'
 import { selfInfo } from '../common/globalVars'
@@ -53,29 +52,24 @@ class Core extends Service {
 
   private registerListener() {
     registerReceiveHook<{
-      data: CategoryFriend[]
+      data?: CategoryFriend[]
+      userSimpleInfos?: Map<string, SimpleInfo> //V2
+      buddyCategory?: CategoryFriend[] //V2
     }>(ReceiveCmdS.FRIENDS, (payload) => {
-      type V2data = { userSimpleInfos: Map<string, SimpleInfo> }
-      let friendList: User[] = []
-      if ('userSimpleInfos' in payload) {
-        friendList = Object.values((payload as unknown as V2data).userSimpleInfos).map((v: SimpleInfo) => {
-          return {
-            ...v.coreInfo,
-          }
-        })
-      } else {
-        for (const fData of payload.data) {
-          friendList.push(...fData.buddyList)
-        }
+      let uids: string[] = []
+      if (payload.buddyCategory) {
+        uids = payload.buddyCategory.flatMap(item => item.buddyUids)
+      } else if (payload.data) {
+        uids = payload.data.flatMap(item => item.buddyList.map(e => e.uid))
       }
-      this.ctx.logger.info('好友列表变动', friendList.length)
-      for (const friend of friendList) {
-        this.ctx.ntMsgApi.activateChat({ peerUid: friend.uid, chatType: ChatType.friend })
+      for (const uid of uids) {
+        this.ctx.ntMsgApi.activateChat({ peerUid: uid, chatType: ChatType.friend })
       }
+      this.ctx.logger.info('好友列表变动', uids.length)
     })
 
     // 自动清理新消息文件
-    registerReceiveHook<{ msgList: Array<RawMessage> }>([ReceiveCmdS.NEW_MSG, ReceiveCmdS.NEW_ACTIVE_MSG], (payload) => {
+    registerReceiveHook<{ msgList: RawMessage[] }>([ReceiveCmdS.NEW_MSG, ReceiveCmdS.NEW_ACTIVE_MSG], (payload) => {
       if (!this.config.autoDeleteFile) {
         return
       }
@@ -94,9 +88,7 @@ class Core extends Service {
             }
             for (const path of pathList) {
               if (path) {
-                fs.unlink(path, () => {
-                  this.ctx.logger.info('删除文件成功', path)
-                })
+                unlink(path).then(() => this.ctx.logger.info('删除文件成功', path))
               }
             }
           }, this.config.autoDeleteFileSecond! * 1000)

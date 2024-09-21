@@ -1,4 +1,4 @@
-import fs from 'node:fs'
+import { unlink } from 'node:fs/promises'
 import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
 import { checkFileReceived, uri2local } from '../../../common/utils/file'
@@ -13,18 +13,17 @@ export default class SetAvatar extends BaseAction<Payload, null> {
   protected async _handle(payload: Payload): Promise<null> {
     const { path, isLocal, errMsg } = await uri2local(payload.file)
     if (errMsg) {
-      throw `头像${payload.file}设置失败,file字段可能格式不正确`
+      throw new Error(errMsg)
     }
     if (path) {
       await checkFileReceived(path, 5000) // 文件不存在QQ会崩溃，需要提前判断
       const ret = await this.ctx.ntUserApi.setQQAvatar(path)
       if (!isLocal) {
-        fs.unlink(path, () => { })
+        unlink(path)
       }
       if (!ret) {
         throw `头像${payload.file}设置失败,api无返回`
       }
-      // log(`头像设置返回：${JSON.stringify(ret)}`)
       if ((ret.result as number) === 1004022) {
         throw `头像${payload.file}设置失败，文件可能不是图片格式`
       } else if (ret.result !== 0) {
@@ -32,7 +31,7 @@ export default class SetAvatar extends BaseAction<Payload, null> {
       }
     } else {
       if (!isLocal) {
-        fs.unlink(path, () => { })
+        unlink(path)
       }
       throw `头像${payload.file}设置失败,无法获取头像,文件可能不存在`
     }

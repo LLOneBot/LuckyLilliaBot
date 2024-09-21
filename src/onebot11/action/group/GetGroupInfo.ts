@@ -1,6 +1,6 @@
 import { OB11Group } from '../../types'
 import { OB11Entities } from '../../entities'
-import { BaseAction } from '../BaseAction'
+import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 
 interface Payload {
@@ -9,14 +9,17 @@ interface Payload {
 
 class GetGroupInfo extends BaseAction<Payload, OB11Group> {
   actionName = ActionName.GetGroupInfo
+  payloadSchema = Schema.object({
+    group_id: Schema.union([Number, String]).required()
+  })
 
   protected async _handle(payload: Payload) {
-    const group = (await this.ctx.ntGroupApi.getGroups()).find(e => e.groupCode == payload.group_id.toString())
+    const groupCode = payload.group_id.toString()
+    const group = (await this.ctx.ntGroupApi.getGroups()).find(e => e.groupCode === groupCode)
     if (group) {
       return OB11Entities.group(group)
-    } else {
-      throw `群${payload.group_id}不存在`
     }
+    throw new Error(`群${payload.group_id}不存在`)
   }
 }
 

@@ -1,22 +1,19 @@
-import { WebHonorType } from '@/ntqqapi/api'
 import { ActionName } from '../types'
-import { BaseAction } from '../BaseAction'
+import { BaseAction, Schema } from '../BaseAction'
 
 interface Payload {
-  group_id: number
-  type?: WebHonorType
+  group_id: number | string
+  type: 'talkative' | 'performer' | 'legend' | 'strong_newbie' | 'emotion' | 'all'
 }
 
 export class GetGroupHonorInfo extends BaseAction<Payload, unknown> {
   actionName = ActionName.GetGroupHonorInfo
+  payloadSchema = Schema.object({
+    group_id: Schema.union([Number, String]).required(),
+    type: Schema.union(['talkative', 'performer', 'legend', 'strong_newbie', 'emotion', 'all']).default('all')
+  })
 
   protected async _handle(payload: Payload) {
-    if (!payload.group_id) {
-      throw '缺少参数group_id'
-    }
-    if (!payload.type) {
-      payload.type = WebHonorType.ALL
-    }
     return await this.ctx.ntWebApi.getGroupHonorInfo(payload.group_id.toString(), payload.type)
   }
 }

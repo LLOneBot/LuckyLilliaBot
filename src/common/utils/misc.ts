@@ -12,8 +12,9 @@ export function calcQQLevel(level: QQLevel) {
 
 /** QQ Build Version  */
 export function getBuildVersion(): number {
-  const version: string = globalThis.LiteLoader.versions.qqnt
-  return +version.split('-')[1]
+  //const version: string = globalThis.LiteLoader.versions.qqnt
+  //return +version.split('-')[1]
+  return +globalThis.LiteLoader.package.qqnt.buildVersion
 }
 
 /** 在保证老对象已有的属性不变化的情况下将新对象的属性复制到老对象 */
