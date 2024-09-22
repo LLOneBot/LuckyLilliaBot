@@ -190,26 +190,3 @@ export async function uri2local(uri: string, filename?: string, needExt?: boolea
 
   return { success: false, errMsg: '未知文件类型', fileName: '', path: '', isLocal: false }
 }
-
-export async function copyFolder(sourcePath: string, destPath: string) {
-  try {
-    const entries = await fsPromise.readdir(sourcePath, { withFileTypes: true })
-    await fsPromise.mkdir(destPath, { recursive: true })
-    for (const entry of entries) {
-      const srcPath = path.join(sourcePath, entry.name)
-      const dstPath = path.join(destPath, entry.name)
-      if (entry.isDirectory()) {
-        await copyFolder(srcPath, dstPath)
-      } else {
-        try {
-          await fsPromise.copyFile(srcPath, dstPath)
-        } catch (error) {
-          console.error(`无法复制文件 '${srcPath}' 到 '${dstPath}': ${error}`)
-          // 这里可以决定是否要继续复制其他文件
-        }
-      }
-    }
-  } catch (error) {
-    console.error('复制文件夹时出错:', error)
-  }
-}

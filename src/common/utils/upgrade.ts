@@ -1,9 +1,8 @@
 import path from 'node:path'
-import compressing from 'compressing'
 import { writeFile } from 'node:fs/promises'
 import { version } from '../../version'
-import { copyFolder, log, fetchFile } from '.'
-import { PLUGIN_DIR, TEMP_DIR } from '../globalVars'
+import { log, fetchFile } from '.'
+import { TEMP_DIR } from '../globalVars'
 
 const downloadMirrorHosts = ['https://ghp.ci/']
 const releasesMirrorHosts = ['https://kkgithub.com']
@@ -27,49 +26,21 @@ export async function checkNewVersion() {
   return { result: false, version: version }
 }
 
-export async function upgradeLLOneBot() {
+export async function upgradeLLOneBot(): Promise<boolean> {
   const latestVersion = await getRemoteVersion()
   if (latestVersion && latestVersion != '') {
     const downloadUrl = `https://github.com/LLOneBot/LLOneBot/releases/download/v${latestVersion}/LLOneBot.zip`
     const filePath = path.join(TEMP_DIR, './update-' + latestVersion + '.zip')
-    let downloadSuccess = false
     // 多镜像下载
     for (const mirrorGithub of downloadMirrorHosts) {
       try {
         const res = await fetchFile(mirrorGithub + downloadUrl)
         await writeFile(filePath, res.data)
-        downloadSuccess = true
-        break
+        return globalThis.LiteLoader.api.plugin.install(filePath)
       } catch (e) {
         log('llonebot upgrade error', e)
       }
     }
-    if (!downloadSuccess) {
-      log('llonebot upgrade error', 'download failed')
-      return false
-    }
-    const temp_ver_dir = path.join(TEMP_DIR, 'LLOneBot' + latestVersion)
-    const uncompressedPromise = async function () {
-      return new Promise<boolean>(resolve => {
-        compressing.zip
-          .uncompress(filePath, temp_ver_dir)
-          .then(() => {
-            resolve(true)
-          })
-          .catch(reason => {
-            log('llonebot upgrade failed, ', reason)
-            if (reason?.errno == -4082) {
-              resolve(true)
-            }
-            resolve(false)
-          })
-      })
-    }
-    const uncompressedResult = await uncompressedPromise()
-    // 复制文件
-    await copyFolder(temp_ver_dir, PLUGIN_DIR)
-
-    return uncompressedResult
   }
   return false
 }

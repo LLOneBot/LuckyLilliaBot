@@ -29,9 +29,8 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
   protected async _handle(payload: Payload): Promise<Response> {
     const { count, reverseOrder } = payload
     const peer = { chatType: ChatType.group, peerUid: payload.group_id.toString() }
-    let msgList: RawMessage[] | undefined
-    // 包含 message_seq 0
-    if (!payload.message_seq) {
+    let msgList: RawMessage[]
+    if (!payload.message_seq || payload.message_seq === '0') {
       msgList = (await this.ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, +count)).msgList
     } else {
       const startMsgId = (await this.ctx.store.getMsgInfoByShortId(+payload.message_seq))?.msgId
@@ -40,12 +39,10 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
     }
     if (!msgList?.length) throw new Error('未找到消息')
     if (reverseOrder) msgList.reverse()
-    await Promise.all(
-      msgList.map(async msg => {
-        msg.msgShortId = this.ctx.store.createMsgShortId({ chatType: msg.chatType, peerUid: msg.peerUid }, msg.msgId)
-      })
-    )
-    const ob11MsgList = await Promise.all(msgList.map((msg) => OB11Entities.message(this.ctx, msg)))
+    for (const msg of msgList) {
+      msg.msgShortId = this.ctx.store.createMsgShortId({ chatType: msg.chatType, peerUid: msg.peerUid }, msg.msgId)
+    }
+    const ob11MsgList = await Promise.all(msgList.map(msg => OB11Entities.message(this.ctx, msg)))
     return { messages: filterNullable(ob11MsgList) }
   }
 }

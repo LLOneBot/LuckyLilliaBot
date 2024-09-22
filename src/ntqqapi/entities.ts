@@ -1,5 +1,6 @@
 import ffmpeg from 'fluent-ffmpeg'
 import faceConfig from './helper/face_config.json'
+import pathLib from 'node:path'
 import {
   AtType,
   ElementType,
@@ -132,7 +133,6 @@ export namespace SendElementEntities {
     if (fileSize > 1024 * 1024 * maxMB) {
       throw `视频过大，最大支持${maxMB}MB，当前文件大小${fileSize}B`
     }
-    const pathLib = require('path')
     let thumbDir = path.replace(`${pathLib.sep}Ori${pathLib.sep}`, `${pathLib.sep}Thumb${pathLib.sep}`)
     thumbDir = pathLib.dirname(thumbDir)
     // log("thumb 目录", thumb)

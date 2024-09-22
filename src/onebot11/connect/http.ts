@@ -12,8 +12,6 @@ import { handleQuickOperation, QuickOperationEvent } from '../helper/quickOperat
 import { OB11HeartbeatEvent } from '../event/meta/OB11HeartbeatEvent'
 import { Dict } from 'cosmokit'
 
-type RegisterHandler = (res: Response, payload: unknown) => Promise<unknown>
-
 class OB11Http {
   private readonly expressAPP: Express
   private server?: http.Server
@@ -25,7 +23,6 @@ class OB11Http {
     this.expressAPP.use(express.urlencoded({ extended: true, limit: '5000mb' }))
     this.expressAPP.use((req, res, next) => {
       // 兼容处理没有带content-type的请求
-      // log("req.headers['content-type']", req.headers['content-type'])
       req.headers['content-type'] = 'application/json'
       const originalJson = express.json({ limit: '5000mb' })
       // 调用原始的express.json()处理器
@@ -37,12 +34,8 @@ class OB11Http {
         next()
       })
     })
-    setTimeout(() => {
-      for (const [actionName, action] of config.actionMap) {
-        this.registerRouter('post', actionName, (res, payload) => action.handle(payload))
-        this.registerRouter('get', actionName, (res, payload) => action.handle(payload))
-      }
-    }, 0)
+    this.expressAPP.use((req, res, next) => this.authorize(req, res, next))
+    this.expressAPP.use((req, res, next) => this.handleRequest(req, res, next))
   }
 
   public start() {
@@ -85,6 +78,8 @@ class OB11Http {
 
   private authorize(req: Request, res: Response, next: () => void) {
     const serverToken = this.config.token
+    if (!serverToken) return next()
+
     let clientToken = ''
     const authHeader = req.get('authorization')
     if (authHeader) {
@@ -99,36 +94,31 @@ class OB11Http {
       this.ctx.logger.info('receive http url token', clientToken)
     }
 
-    if (serverToken && clientToken !== serverToken) {
-      return res.status(403).send(JSON.stringify({ message: 'token verify failed!' }))
+    if (clientToken !== serverToken) {
+      return res.status(403).json({ message: 'token verify failed!' })
     }
     next()
   }
 
-  private registerRouter(method: 'post' | 'get', url: string, handler: RegisterHandler) {
-    if (!url.startsWith('/')) {
-      url = '/' + url
+  private async handleRequest(req: Request, res: Response, next: () => void) {
+    if (req.path === '/') return next()
+    let payload = req.body
+    if (req.method === 'GET') {
+      payload = req.query
+    } else if (req.query) {
+      payload = { ...req.query, ...req.body }
     }
-
-    if (!this.expressAPP[method]) {
-      const err = `LLOneBot server register router failed，${method} not exist`
-      this.ctx.logger.error(err)
-      throw err
-    }
-    this.expressAPP[method](url, this.authorize.bind(this), async (req: Request, res: Response) => {
-      let payload = req.body
-      if (method == 'get') {
-        payload = req.query
-      } else if (req.query) {
-        payload = { ...req.query, ...req.body }
-      }
-      this.ctx.logger.info('收到 HTTP 请求', url, payload)
+    this.ctx.logger.info('收到 HTTP 请求', req.url, payload)
+    const action = this.config.actionMap.get(req.path.replaceAll('/', ''))
+    if (action) {
       try {
-        res.send(await handler(res, payload))
+        res.json(await action.handle(payload))
       } catch (e) {
-        res.send(OB11Response.error((e as Error).stack!.toString(), 200))
+        res.json(OB11Response.error((e as Error).stack!.toString(), 200))
       }
-    })
+    } else {
+      res.status(404).json(OB11Response.error('API 不存在', 404))
+    }
   }
 }
 

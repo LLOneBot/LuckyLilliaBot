@@ -267,6 +267,12 @@ export class NTQQMsgApi extends Service {
   }
 
   async generateMsgUniqueId(chatType: number) {
-    return await invoke('nodeIKernelMsgService/generateMsgUniqueId', [{ chatType }])
+    const uniqueId = await invoke('nodeIKernelMsgService/generateMsgUniqueId', [{ chatType }])
+    if (typeof uniqueId === 'string') {
+      return uniqueId
+    } else {
+      const random = Math.trunc(Math.random() * 100)
+      return `${Date.now()}${random}`
+    }
   }
 }
