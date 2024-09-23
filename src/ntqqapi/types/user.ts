@@ -344,3 +344,21 @@ export interface UserDetailInfoByUin {
     vipNameColorId: string
   }
 }
+
+export enum BuddyListReqType {
+  KNOMAL,
+  KLETTER
+}
+
+export enum UserDetailSource {
+  KDB,
+  KSERVER
+}
+
+export enum ProfileBizType {
+  KALL,
+  KBASEEXTEND,
+  KVAS,
+  KQZONE,
+  KOTHER
+}

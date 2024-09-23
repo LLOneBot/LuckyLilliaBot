@@ -1,8 +1,7 @@
-import { Friend, FriendV2, SimpleInfo, CategoryFriend } from '../types'
+import { Friend, FriendV2, SimpleInfo, CategoryFriend, BuddyListReqType } from '../types'
 import { ReceiveCmdS } from '../hook'
 import { invoke, NTMethod, NTClass } from '../ntcall'
 import { getSession } from '@/ntqqapi/wrapper'
-import { BuddyListReqType } from '../services'
 import { Dict, pick } from 'cosmokit'
 import { Service, Context } from 'cordis'
 

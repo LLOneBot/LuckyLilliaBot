@@ -1,4 +1,5 @@
 import { GroupMemberRole } from './group'
+import { GeneralCallResult } from '../services'
 
 export interface GetFileListParam {
   sortType: number
@@ -564,4 +565,26 @@ export interface OnGroupFileInfoUpdateParams {
   allFileCount: number
   nextIndex: number
   reqId: number
+}
+
+export interface QueryMsgsParams {
+  chatInfo: Peer
+  filterMsgType: []
+  filterSendersUid: string[]
+  filterMsgFromTime: string
+  filterMsgToTime: string
+  pageLimit: number
+  isReverseOrder: boolean
+  isIncludeCurrent: boolean
+}
+
+export interface TmpChatInfoApi extends GeneralCallResult {
+  tmpChatInfo?: {
+    chatType: number
+    fromNick: string
+    groupCode: string
+    peerUid: string
+    sessionType: number
+    sig: string
+  }
 }

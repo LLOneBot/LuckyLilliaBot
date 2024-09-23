@@ -1,9 +1,5 @@
+import { BuddyListReqType } from '@/ntqqapi/types'
 import { GeneralCallResult } from './common'
-
-export enum BuddyListReqType {
-  KNOMAL,
-  KLETTER
-}
 
 export interface NodeIKernelBuddyService {
   getBuddyListV2(callFrom: string, reqType: BuddyListReqType): Promise<GeneralCallResult & {

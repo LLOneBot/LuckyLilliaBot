@@ -1,19 +1,6 @@
 import { SimpleInfo } from '../types'
 import { GeneralCallResult } from './common'
 
-export enum UserDetailSource {
-  KDB,
-  KSERVER
-}
-
-export enum ProfileBizType {
-  KALL,
-  KBASEEXTEND,
-  KVAS,
-  KQZONE,
-  KOTHER
-}
-
 export interface NodeIKernelProfileService {
   getUidByUin(callfrom: string, uin: Array<string>): Promise<Map<string, string>>
 

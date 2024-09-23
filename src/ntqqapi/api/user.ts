@@ -1,9 +1,8 @@
+import { User, UserDetailInfoByUin, UserDetailInfoByUinV2, UserDetailInfoListenerArg, UserDetailSource, ProfileBizType } from '../types'
 import { invoke } from '../ntcall'
-import { User, UserDetailInfoByUin, UserDetailInfoByUinV2, UserDetailInfoListenerArg } from '../types'
 import { getBuildVersion } from '@/common/utils'
 import { getSession } from '@/ntqqapi/wrapper'
 import { RequestUtil } from '@/common/utils/request'
-import { UserDetailSource, ProfileBizType } from '../services'
 import { Time } from 'cosmokit'
 import { Service, Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -157,30 +156,24 @@ export class NTQQUserApi extends Service {
     return uid
   }
 
-  async getUidByUinV2(uin: string) {
-    const session = getSession()
-    if (session) {
-      let uid = (await session.getGroupService().getUidByUins([uin])).uids.get(uin)
-      if (uid) return uid
-      uid = (await session.getProfileService().getUidByUin('FriendsServiceImpl', [uin])).get(uin)
-      if (uid) return uid
-      uid = (await session.getUixConvertService().getUid([uin])).uidInfo.get(uin)
-      if (uid) return uid
-    } else {
-      let uid = (await invoke('nodeIKernelGroupService/getUidByUins', [{ uin: [uin] }])).uids.get(uin)
-      if (uid) return uid
-      uid = (await invoke('nodeIKernelProfileService/getUidByUin', [{ callFrom: 'FriendsServiceImpl', uin: [uin] }])).get(uin)
-      if (uid) return uid
-      uid = (await invoke('nodeIKernelUixConvertService/getUid', [{ uins: [uin] }])).uidInfo.get(uin)
-      if (uid) return uid
+  async getUidByUinV2(uin: string, groupCode?: string) {
+    let uid = (await invoke('nodeIKernelGroupService/getUidByUins', [{ uin: [uin] }])).uids.get(uin)
+    if (uid) return uid
+    uid = (await invoke('nodeIKernelProfileService/getUidByUin', [{ callFrom: 'FriendsServiceImpl', uin: [uin] }])).get(uin)
+    if (uid) return uid
+    uid = (await invoke('nodeIKernelUixConvertService/getUid', [{ uins: [uin] }])).uidInfo.get(uin)
+    if (uid) return uid
+    const unveifyUid = (await this.getUserDetailInfoByUinV2(uin)).detail.uid
+    if (!unveifyUid.includes('*')) return unveifyUid
+    if (groupCode) {
+      const member = await this.ctx.ntGroupApi.getGroupMember(groupCode, uin)
+      return member?.uid
     }
-    const unveifyUid = (await this.getUserDetailInfoByUinV2(uin)).detail.uid //从QQ Native 特殊转换
-    if (unveifyUid.indexOf('*') == -1) return unveifyUid
   }
 
-  async getUidByUin(uin: string) {
+  async getUidByUin(uin: string, groupCode?: string) {
     if (getBuildVersion() >= 26702) {
-      return this.getUidByUinV2(uin)
+      return this.getUidByUinV2(uin, groupCode)
     }
     return this.getUidByUinV1(uin)
   }
@@ -249,7 +242,7 @@ export class NTQQUserApi extends Service {
     if (session) {
       return await session.getTicketService().forceFetchClientKey('')
     } else {
-      return await invoke('nodeIKernelTicketService/forceFetchClientKey', [{ domain: '' }, null])
+      return await invoke('nodeIKernelTicketService/forceFetchClientKey', [{ url: '' }, null])
     }
   }
 

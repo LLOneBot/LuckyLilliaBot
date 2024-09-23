@@ -1,22 +1,27 @@
-import { BaseAction } from '../BaseAction'
+import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 
 interface Payload {
-  group_id: number
-  user_id: number
+  group_id: number | string
+  user_id: number | string
   duration: number
 }
 
 export default class SetGroupBan extends BaseAction<Payload, null> {
   actionName = ActionName.SetGroupBan
+  payloadSchema = Schema.object({
+    group_id: Schema.union([Number, String]).required(),
+    user_id: Schema.union([Number, String]).required(),
+    duration: Schema.number().default(30 * 60)
+  })
 
   protected async _handle(payload: Payload): Promise<null> {
-    const member = await this.ctx.ntGroupApi.getGroupMember(payload.group_id, payload.user_id)
-    if (!member) {
-      throw `群成员${payload.user_id}不存在`
-    }
-    await this.ctx.ntGroupApi.banMember(payload.group_id.toString(), [
-      { uid: member.uid, timeStamp: parseInt(payload.duration.toString()) },
+    const groupCode = payload.group_id.toString()
+    const uin = payload.user_id.toString()
+    const uid = await this.ctx.ntUserApi.getUidByUin(uin, groupCode)
+    if (!uid) throw new Error('无法获取用户信息')
+    await this.ctx.ntGroupApi.banMember(groupCode, [
+      { uid, timeStamp: payload.duration },
     ])
     return null
   }

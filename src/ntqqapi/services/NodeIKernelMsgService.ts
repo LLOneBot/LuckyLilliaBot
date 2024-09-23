@@ -1,36 +1,10 @@
-import { ElementType, MessageElement, Peer, RawMessage, SendMessageElement } from '@/ntqqapi/types'
+import { ElementType, MessageElement, Peer, RawMessage, QueryMsgsParams, TmpChatInfoApi } from '@/ntqqapi/types'
 import { GeneralCallResult } from './common'
-
-export interface QueryMsgsParams {
-  chatInfo: Peer
-  filterMsgType: []
-  filterSendersUid: string[]
-  filterMsgFromTime: string
-  filterMsgToTime: string
-  pageLimit: number
-  isReverseOrder: boolean
-  isIncludeCurrent: boolean
-}
-
-export interface TmpChatInfoApi {
-  errMsg: string
-  result: number
-  tmpChatInfo?: TmpChatInfo
-}
-
-export interface TmpChatInfo {
-  chatType: number
-  fromNick: string
-  groupCode: string
-  peerUid: string
-  sessionType: number
-  sig: string
-}
 
 export interface NodeIKernelMsgService {
   generateMsgUniqueId(chatType: number, time: string): string
 
-  sendMsg(msgId: string, peer: Peer, msgElements: SendMessageElement[], map: Map<unknown, unknown>): Promise<GeneralCallResult>
+  sendMsg(msgId: string, peer: Peer, msgElements: MessageElement[], map: Map<unknown, unknown>): Promise<GeneralCallResult>
 
   recallMsg(peer: Peer, msgIds: string[]): Promise<GeneralCallResult>
 
