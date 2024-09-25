@@ -129,7 +129,7 @@ export namespace OB11Entities {
       }
       else if (element.textElement) {
         const text = element.textElement.content
-        if (!text.trim()) {
+        if (!text) {
           continue
         }
         messageSegment = {
@@ -359,15 +359,15 @@ export namespace OB11Entities {
       }
       if (messageSegment) {
         const cqCode = encodeCQCode(messageSegment)
-        if (messagePostFormat === 'string') {
-          (resMsg.message as string) += cqCode
-        } else {
+        if (messagePostFormat === 'array') {
           (resMsg.message as OB11MessageData[]).push(messageSegment)
         }
         resMsg.raw_message += cqCode
       }
     }
-    resMsg.raw_message = resMsg.raw_message.trim()
+    if (messagePostFormat === 'string') {
+      resMsg.message = resMsg.raw_message
+    }
     return resMsg
   }
 
