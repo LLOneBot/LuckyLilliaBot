@@ -6,9 +6,9 @@ import {
   GroupNotifies,
   GroupRequestOperateTypes,
   GetFileListParam,
-  OnGroupFileInfoUpdateParams,
   PublishGroupBulletinReq,
-  GroupAllInfo
+  GroupAllInfo,
+  GroupFileInfo
 } from '../types'
 import { invoke, NTClass, NTMethod } from '../ntcall'
 import { GeneralCallResult } from '../services'
@@ -274,7 +274,7 @@ export class NTQQGroupApi extends Service {
 
   async getGroupFileList(groupId: string, fileListForm: GetFileListParam) {
     invoke('nodeIKernelMsgListener/onGroupFileInfoUpdate', [], { registerEvent: true })
-    const data = await invoke<{ fileInfo: OnGroupFileInfoUpdateParams }>(
+    const data = await invoke<{ fileInfo: GroupFileInfo }>(
       'nodeIKernelRichMediaService/getGroupFileList',
       [
         {

@@ -34,25 +34,23 @@ export class GetForwardMsg extends BaseAction<Payload, Response> {
     if (data?.result !== 0) {
       throw Error('找不到相关的聊天记录' + data?.errMsg)
     }
-    const msgList = data.msgList
-    const messages = await Promise.all(
-      msgList.map(async (msg) => {
-        const resMsg = await OB11Entities.message(this.ctx, msg)
-        if (!resMsg) return
-        resMsg.message_id = this.ctx.store.createMsgShortId({
-          chatType: msg.chatType,
-          peerUid: msg.peerUid,
-        }, msg.msgId)
-        return resMsg
+    const messages: (OB11ForwardMessage | undefined)[] = await Promise.all(
+      data.msgList.map(async (msg) => {
+        const res = await OB11Entities.message(this.ctx, msg)
+        if (res) {
+          return {
+            content: res.message,
+            sender: {
+              nickname: res.sender.nickname,
+              user_id: res.sender.user_id
+            },
+            time: res.time,
+            message_format: res.message_format,
+            message_type: res.message_type
+          }
+        }
       })
     )
-    const forwardMessages = filterNullable(messages)
-      .map(v => {
-        const msg = v as Partial<OB11ForwardMessage>
-        msg.content = msg.message
-        delete msg.message
-        return msg as OB11ForwardMessage
-      })
-    return { messages: forwardMessages }
+    return { messages: filterNullable(messages) }
   }
 }

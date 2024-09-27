@@ -98,8 +98,15 @@ export interface OB11Message {
   temp_source?: 0 | 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9
 }
 
-export interface OB11ForwardMessage extends OB11Message {
+export interface OB11ForwardMessage {
   content: OB11MessageData[] | string
+  sender: {
+    nickname: string
+    user_id: number
+  }
+  time: number
+  message_format: string //扩展
+  message_type: string //扩展
 }
 
 export interface OB11Return<DataType> {

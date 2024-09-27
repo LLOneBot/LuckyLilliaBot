@@ -159,9 +159,9 @@ export function invoke<
           afterFirstCmd && secondCallback()
         }
         else {
-          log('ntqq api call failed,', method, res)
+          log('ntqq api call failed,', method, args, res)
           clearTimeout(timeoutId)
-          reject(`ntqq api call failed, ${method}, ${res.errMsg}`)
+          reject(`ntqq api call failed, ${method}, ${res?.errMsg}`)
         }
       }
     }

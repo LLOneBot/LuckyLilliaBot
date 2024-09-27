@@ -478,7 +478,7 @@ export interface OnRichMediaDownloadCompleteParams {
   userUsedSpacePerDay: unknown
 }
 
-export interface OnGroupFileInfoUpdateParams {
+export interface GroupFileInfo {
   retCode: number
   retMsg: string
   clientWording: string

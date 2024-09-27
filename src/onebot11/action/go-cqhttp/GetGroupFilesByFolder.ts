@@ -1,7 +1,7 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 import { OB11GroupFile, OB11GroupFileFolder } from '@/onebot11/types'
-import { OnGroupFileInfoUpdateParams } from '@/ntqqapi/types'
+import { GroupFileInfo } from '@/ntqqapi/types'
 
 interface Payload {
   group_id: number | string
@@ -22,7 +22,7 @@ export class GetGroupFilesByFolder extends BaseAction<Payload, Response> {
 
   async _handle(payload: Payload) {
     const groupId = payload.group_id.toString()
-    const data: OnGroupFileInfoUpdateParams['item'] = []
+    const data: GroupFileInfo['item'] = []
 
     let nextIndex: number | undefined
     while (nextIndex !== 0) {

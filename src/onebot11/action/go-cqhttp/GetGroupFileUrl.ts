@@ -2,6 +2,7 @@ import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 import { pathToFileURL } from 'node:url'
 import { ChatType } from '@/ntqqapi/types'
+import { GroupFileInfo } from '@/ntqqapi/types'
 
 export interface Payload {
   group_id: number | string
@@ -30,23 +31,7 @@ export class GetGroupFileUrl extends BaseAction<Payload, Response> {
       }
     } else {
       const groupId = payload.group_id.toString()
-      let modelId: string | undefined
-      let nextIndex: number | undefined
-      while (nextIndex !== 0) {
-        const res = await this.ctx.ntGroupApi.getGroupFileList(groupId, {
-          sortType: 1,
-          fileCount: 50,
-          startIndex: nextIndex ?? 0,
-          sortOrder: 2,
-          showOnlinedocFolder: 0,
-        })
-        const file = res.item.find(item => item.fileInfo?.fileId === payload.file_id)
-        if (file) {
-          modelId = file.fileInfo?.fileModelId
-          break
-        }
-        nextIndex = res.nextIndex
-      }
+      const modelId = await this.search(groupId, payload.file_id)
       if (modelId) {
         const peer = {
           chatType: ChatType.Group,
@@ -60,5 +45,38 @@ export class GetGroupFileUrl extends BaseAction<Payload, Response> {
       }
       throw new Error('file not found')
     }
+  }
+
+  private async search(groupId: string, fileId: string, folderId?: string) {
+    let modelId: string | undefined
+    let nextIndex: number | undefined
+    let folders: GroupFileInfo['item'] = []
+    while (nextIndex !== 0) {
+      const res = await this.ctx.ntGroupApi.getGroupFileList(groupId, {
+        sortType: 1,
+        fileCount: 100,
+        startIndex: nextIndex ?? 0,
+        sortOrder: 2,
+        showOnlinedocFolder: 0,
+        folderId
+      })
+      const file = res.item.find(item => item.fileInfo?.fileId === fileId)
+      if (file) {
+        modelId = file.fileInfo?.fileModelId
+        break
+      }
+      folders.push(...res.item.filter(item => item.folderInfo?.totalFileCount))
+      nextIndex = res.nextIndex
+    }
+    if (!modelId) {
+      for (const item of folders) {
+        const res = await this.search(groupId, fileId, item.folderInfo?.folderId)
+        if (res) {
+          modelId = res
+          break
+        }
+      }
+    }
+    return modelId
   }
 }
