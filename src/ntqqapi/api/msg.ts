@@ -61,7 +61,7 @@ export class NTQQMsgApi extends Service {
     return await invoke('nodeIKernelMsgService/getAioFirstViewLatestMsgs', [{ peer, cnt }, null])
   }
 
-  async getMsgsByMsgId(peer: Peer | undefined, msgIds: string[] | undefined) {
+  async getMsgsByMsgId(peer: Peer, msgIds: string[]) {
     if (!peer) throw new Error('peer is not allowed')
     if (!msgIds) throw new Error('msgIds is not allowed')
     const session = getSession()
@@ -274,5 +274,28 @@ export class NTQQMsgApi extends Service {
       const random = Math.trunc(Math.random() * 100)
       return `${Date.now()}${random}`
     }
+  }
+
+  async queryMsgsById(chatType: ChatType, msgId: string) {
+    const msgTime = this.getMsgTimeFromId(msgId)
+    return await invoke('nodeIKernelMsgService/queryMsgsWithFilterEx', [{
+      msgId,
+      msgTime: '0',
+      msgSeq: '0',
+      params: {
+        chatInfo: {
+          peerUid: '',
+          chatType
+        },
+        filterMsgToTime: msgTime,
+        filterMsgFromTime: msgTime,
+        isIncludeCurrent: true,
+        pageLimit: 1,
+      }
+    }, null])
+  }
+
+  getMsgTimeFromId(msgId: string) {
+    return String(BigInt(msgId) >> 32n)
   }
 }
