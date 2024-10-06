@@ -18,12 +18,10 @@ import {
   CHANNEL_UPDATE,
   CHANNEL_SET_CONFIG_CONFIRMED
 } from '../common/channels'
-import { getBuildVersion } from '../common/utils'
 import { hookNTQQApiCall, hookNTQQApiReceive } from '../ntqqapi/hook'
 import { checkNewVersion, upgradeLLOneBot } from '../common/utils/upgrade'
 import { getConfigUtil } from '../common/config'
 import { checkFfmpeg } from '../common/utils/video'
-import { getSession } from '../ntqqapi/wrapper'
 import { Context } from 'cordis'
 import { llonebotError, selfInfo, LOG_DIR, DATA_DIR, TEMP_DIR } from '../common/globalVars'
 import { log, logFileName } from '../common/utils/legacyLog'
@@ -204,15 +202,13 @@ function onLoad() {
     })
   }
 
-  const buildVersion = getBuildVersion()
-
   const intervalId = setInterval(() => {
     const self = Object.assign(selfInfo, {
       uin: globalThis.authData?.uin,
       uid: globalThis.authData?.uid,
       online: true
     })
-    if (self.uin && (buildVersion >= 27187 || getSession())) {
+    if (self.uin) {
       clearInterval(intervalId)
       start()
     }

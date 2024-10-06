@@ -2,7 +2,7 @@ import { User, UserDetailInfoByUin, UserDetailInfoByUinV2, UserDetailInfo, UserD
 import { invoke } from '../ntcall'
 import { getBuildVersion } from '@/common/utils'
 import { RequestUtil } from '@/common/utils/request'
-import { isNullable, Time } from 'cosmokit'
+import { isNullable, pick, Time } from 'cosmokit'
 import { Service, Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 
@@ -193,7 +193,7 @@ export class NTQQUserApi extends Service {
   async getSelfNick(refresh = true) {
     if ((refresh || !selfInfo.nick) && selfInfo.uid) {
       const data = await this.getUserSimpleInfo(selfInfo.uid)
-      selfInfo.nick = data.coreInfo.nick
+      selfInfo.nick = data.nick
     }
     return selfInfo.nick
   }
@@ -223,7 +223,7 @@ export class NTQQUserApi extends Service {
     }])
   }
 
-  async getUserSimpleInfo(uid: string, force = true) {
+  async getUserSimpleInfoV2(uid: string, force = true) {
     const data = await invoke<{ profiles: Record<string, SimpleInfo> }>(
       'nodeIKernelProfileService/getUserSimpleInfo',
       [{
@@ -236,7 +236,27 @@ export class NTQQUserApi extends Service {
         cmdCB: payload => !isNullable(payload.profiles[uid]),
       }
     )
-    return data.profiles[uid]
+    return data.profiles[uid].coreInfo
+  }
+
+  async getUserSimpleInfo(uid: string, force = true) {
+    if (getBuildVersion() >= 26702) {
+      return this.getUserSimpleInfoV2(uid, force)
+    }
+    const data = await invoke<{ profiles: Map<string, User> }>(
+      'nodeIKernelProfileService/getUserSimpleInfo',
+      [{
+        uids: [uid],
+        force
+      }],
+      {
+        cbCmd: 'nodeIKernelProfileListener/onProfileSimpleChanged',
+        afterFirstCmd: false,
+        cmdCB: payload => payload.profiles.has(uid),
+      }
+    )
+    const profile = data.profiles.get(uid)!
+    return pick(profile, ['nick', 'remark', 'uid', 'uin'])
   }
 
   async getCoreAndBaseInfo(uids: string[]) {

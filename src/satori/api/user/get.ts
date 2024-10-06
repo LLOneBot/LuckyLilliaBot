@@ -13,7 +13,7 @@ export const getUser: Handler<User, Payload> = async (ctx, payload) => {
   const data = await ctx.ntUserApi.getUserSimpleInfo(uid)
   const ranges = await ctx.ntUserApi.getRobotUinRange()
   return {
-    ...decodeUser(data.coreInfo),
+    ...decodeUser(data),
     is_bot: ranges.some(e => uin >= e.minUin && uin <= e.maxUin)
   }
 }

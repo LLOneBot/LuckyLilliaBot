@@ -7,7 +7,7 @@ export async function parseFriendRequest(bot: SatoriAdapter, input: FriendReques
   const user = await bot.ctx.ntUserApi.getUserSimpleInfo(input.friendUid)
 
   return bot.event('friend-request', {
-    user: decodeUser(user.coreInfo),
+    user: decodeUser(user),
     message: {
       id: flag,
       content: input.extWords

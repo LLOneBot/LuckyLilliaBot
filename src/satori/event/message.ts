@@ -30,6 +30,6 @@ export async function parseMessageDeleted(bot: SatoriAdapter, input: RawMessage)
     user: message.user,
     channel: message.channel,
     guild: message.guild,
-    operator: omit(decodeUser(user.coreInfo), ['is_bot'])
+    operator: omit(decodeUser(user), ['is_bot'])
   })
 }

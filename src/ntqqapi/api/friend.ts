@@ -1,7 +1,6 @@
 import { Friend, SimpleInfo, CategoryFriend } from '../types'
 import { ReceiveCmdS } from '../hook'
 import { invoke, NTMethod, NTClass } from '../ntcall'
-import { getSession } from '@/ntqqapi/wrapper'
 import { Service, Context } from 'cordis'
 
 declare module 'cordis' {
@@ -37,22 +36,13 @@ export class NTQQFriendApi extends Service {
   }
 
   async handleFriendRequest(friendUid: string, reqTime: string, accept: boolean) {
-    const session = getSession()
-    if (session) {
-      return session.getBuddyService().approvalFriendRequest({
+    return await invoke(NTMethod.HANDLE_FRIEND_REQUEST, [{
+      approvalInfo: {
         friendUid,
         reqTime,
-        accept
-      })
-    } else {
-      return await invoke(NTMethod.HANDLE_FRIEND_REQUEST, [{
-        approvalInfo: {
-          friendUid,
-          reqTime,
-          accept,
-        },
-      }])
-    }
+        accept,
+      },
+    }])
   }
 
   async getBuddyV2(refresh = false): Promise<SimpleInfo[]> {

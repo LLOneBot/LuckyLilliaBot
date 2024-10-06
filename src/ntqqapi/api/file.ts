@@ -213,12 +213,10 @@ export class NTQQFileCacheApi extends Service {
   }
 
   getCacheSessionPathList() {
-    return invoke<
-      {
-        key: string
-        value: string
-      }[]
-    >(NTMethod.CACHE_PATH_SESSION, [], { className: NTClass.OS_API })
+    return invoke<Array<{
+      key: string
+      value: string
+    }>>(NTMethod.CACHE_PATH_SESSION, [], { className: NTClass.OS_API })
   }
 
   scanCache() {

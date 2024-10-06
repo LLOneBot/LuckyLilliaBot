@@ -14,7 +14,6 @@ import {
 import { invoke, NTClass, NTMethod } from '../ntcall'
 import { GeneralCallResult } from '../services'
 import { NTQQWindows } from './window'
-import { getSession } from '../wrapper'
 import { Service, Context } from 'cordis'
 
 declare module 'cordis' {
@@ -139,21 +138,11 @@ export class NTQQGroupApi extends Service {
   }
 
   async setMemberCard(groupCode: string, memberUid: string, cardName: string) {
-    const session = getSession()
-    if (session) {
-      return session.getGroupService().modifyMemberCardName(groupCode, memberUid, cardName)
-    } else {
-      return await invoke(NTMethod.SET_MEMBER_CARD, [{ groupCode, uid: memberUid, cardName }])
-    }
+    return await invoke(NTMethod.SET_MEMBER_CARD, [{ groupCode, uid: memberUid, cardName }])
   }
 
   async setMemberRole(groupCode: string, memberUid: string, role: GroupMemberRole) {
-    const session = getSession()
-    if (session) {
-      return session.getGroupService().modifyMemberRole(groupCode, memberUid, role)
-    } else {
-      return await invoke(NTMethod.SET_MEMBER_ROLE, [{ groupCode, uid: memberUid, role }])
-    }
+    return await invoke(NTMethod.SET_MEMBER_ROLE, [{ groupCode, uid: memberUid, role }])
   }
 
   async setGroupName(groupCode: string, groupName: string) {
@@ -165,47 +154,27 @@ export class NTQQGroupApi extends Service {
   }
 
   async removeGroupEssence(groupCode: string, msgId: string) {
-    const session = getSession()
-    if (session) {
-      const data = await session.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
-      return session.getGroupService().removeGroupEssence({
+    const ntMsgApi = this.ctx.get('ntMsgApi')!
+    const data = await ntMsgApi.getMsgHistory({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
+    return await invoke('nodeIKernelGroupService/removeGroupEssence', [{
+      req: {
         groupCode: groupCode,
         msgRandom: Number(data?.msgList[0].msgRandom),
         msgSeq: Number(data?.msgList[0].msgSeq)
-      })
-    } else {
-      const ntMsgApi = this.ctx.get('ntMsgApi')!
-      const data = await ntMsgApi.getMsgHistory({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
-      return await invoke('nodeIKernelGroupService/removeGroupEssence', [{
-        req: {
-          groupCode: groupCode,
-          msgRandom: Number(data?.msgList[0].msgRandom),
-          msgSeq: Number(data?.msgList[0].msgSeq)
-        }
-      }])
-    }
+      }
+    }])
   }
 
   async addGroupEssence(groupCode: string, msgId: string) {
-    const session = getSession()
-    if (session) {
-      const data = await session.getMsgService().getMsgsIncludeSelf({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
-      return session.getGroupService().addGroupEssence({
+    const ntMsgApi = this.ctx.get('ntMsgApi')!
+    const data = await ntMsgApi.getMsgHistory({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
+    return await invoke('nodeIKernelGroupService/addGroupEssence', [{
+      req: {
         groupCode: groupCode,
         msgRandom: Number(data?.msgList[0].msgRandom),
         msgSeq: Number(data?.msgList[0].msgSeq)
-      })
-    } else {
-      const ntMsgApi = this.ctx.get('ntMsgApi')!
-      const data = await ntMsgApi.getMsgHistory({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
-      return await invoke('nodeIKernelGroupService/addGroupEssence', [{
-        req: {
-          groupCode: groupCode,
-          msgRandom: Number(data?.msgList[0].msgRandom),
-          msgSeq: Number(data?.msgList[0].msgSeq)
-        }
-      }])
-    }
+      }
+    }])
   }
 
   async createGroupFileFolder(groupId: string, folderName: string) {

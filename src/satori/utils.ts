@@ -163,7 +163,7 @@ export async function decodeMessage(
   message.user = decodeMessageUser(data)
   message.created_at = +data.msgTime * 1000
   if (message.channel.type === Universal.Channel.Type.DIRECT) {
-    const info = (await ctx.ntUserApi.getUserSimpleInfo(data.senderUid)).coreInfo
+    const info = await ctx.ntUserApi.getUserSimpleInfo(data.senderUid)
     message.channel.name = info.nick
     message.user.name = info.nick
     message.user.nick = info.remark || info.nick

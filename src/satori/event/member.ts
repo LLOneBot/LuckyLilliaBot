@@ -20,7 +20,7 @@ export async function parseGuildMemberAdded(bot: SatoriAdapter, input: RawMessag
   }
   if (!memberUid) return
 
-  const user = decodeUser((await bot.ctx.ntUserApi.getUserSimpleInfo(memberUid)).coreInfo)
+  const user = decodeUser(await bot.ctx.ntUserApi.getUserSimpleInfo(memberUid))
   user.is_bot = isBot
 
   return bot.event('guild-member-added', {
@@ -34,7 +34,7 @@ export async function parseGuildMemberAdded(bot: SatoriAdapter, input: RawMessag
 }
 
 export async function parseGuildMemberRemoved(bot: SatoriAdapter, input: GroupNotify) {
-  const user = decodeUser((await bot.ctx.ntUserApi.getUserSimpleInfo(input.user1.uid)).coreInfo)
+  const user = decodeUser(await bot.ctx.ntUserApi.getUserSimpleInfo(input.user1.uid))
 
   return bot.event('guild-member-removed', {
     guild: decodeGuild(input.group),
