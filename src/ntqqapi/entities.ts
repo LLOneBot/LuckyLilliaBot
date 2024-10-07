@@ -52,15 +52,15 @@ export namespace SendElement {
     }
   }
 
-  export function reply(msgSeq: string, msgId: string, senderUin: string, senderUinStr: string): SendReplyElement {
+  export function reply(msgSeq: string, msgId: string, senderUin: string): SendReplyElement {
     return {
       elementType: ElementType.Reply,
       elementId: '',
       replyElement: {
-        replayMsgSeq: msgSeq, // raw.msgSeq
-        replayMsgId: msgId, // raw.msgId
+        replayMsgSeq: msgSeq,
+        replayMsgId: msgId,
         senderUin: senderUin,
-        senderUinStr: senderUinStr,
+        senderUinStr: senderUin,
       },
     }
   }
@@ -251,19 +251,19 @@ export namespace SendElement {
     }
   }
 
-  export function face(faceId: number): SendFaceElement {
+  export function face(faceId: number, faceType?: number): SendFaceElement {
     // 从face_config.json中获取表情名称
     const sysFaces = faceConfig.sysface
-    const emojiFaces = faceConfig.emoji
-    const face = sysFaces.find((face) => face.QSid === faceId.toString())
-    faceId = parseInt(faceId.toString())
-    // let faceType = parseInt(faceId.toString().substring(0, 1));
-    let faceType = 1
-    if (faceId >= 222) {
-      faceType = 2
-    }
-    if (face?.AniStickerType) {
-      faceType = 3;
+    const face = sysFaces.find(face => face.QSid === String(faceId))
+    if (!faceType) {
+      if (faceId < 222) {
+        faceType = 1
+      } else {
+        faceType = 2
+      }
+      if (face?.AniStickerType) {
+        faceType = 3
+      }
     }
     return {
       elementType: ElementType.Face,

@@ -214,7 +214,7 @@ class OB11WebSocketReverse {
     let receive: { action: ActionName | null; params: unknown; echo?: unknown } = { action: null, params: {} }
     try {
       receive = JSON.parse(msg.toString())
-      this.ctx.logger.info('收到反向Websocket消息', receive)
+      this.ctx.logger.info('收到反向 Websocket 消息', receive)
     } catch (e) {
       return this.reply(this.wsClient!, OB11Response.error('json解析失败，请检查数据格式', 1400, receive.echo))
     }

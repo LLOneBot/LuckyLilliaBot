@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { Config, OB11Config } from './types'
+import { Config, OB11Config, SatoriConfig } from './types'
 import { selfInfo, DATA_DIR } from './globalVars'
 import { mergeNewProperties } from './utils/misc'
 
@@ -22,6 +22,7 @@ export class ConfigUtil {
 
   reloadConfig(): Config {
     const ob11Default: OB11Config = {
+      enable: true,
       httpPort: 3000,
       httpHosts: [],
       httpSecret: '',
@@ -35,8 +36,14 @@ export class ConfigUtil {
       enableHttpHeart: false,
       listenLocalhost: false
     }
+    const satoriDefault: SatoriConfig = {
+      enable: true,
+      port: 5600,
+      listen: '0.0.0.0',
+      token: ''
+    }
     const defaultConfig: Config = {
-      enableLLOB: true,
+      satori: satoriDefault,
       ob11: ob11Default,
       heartInterval: 60000,
       token: '',

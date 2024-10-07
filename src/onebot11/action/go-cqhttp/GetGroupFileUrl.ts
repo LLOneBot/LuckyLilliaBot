@@ -50,7 +50,7 @@ export class GetGroupFileUrl extends BaseAction<Payload, Response> {
   private async search(groupId: string, fileId: string, folderId?: string) {
     let modelId: string | undefined
     let nextIndex: number | undefined
-    let folders: GroupFileInfo['item'] = []
+    const folders: GroupFileInfo['item'] = []
     while (nextIndex !== 0) {
       const res = await this.ctx.ntGroupApi.getGroupFileList(groupId, {
         sortType: 1,

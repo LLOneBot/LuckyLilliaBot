@@ -123,4 +123,6 @@ export interface NodeIKernelGroupService {
   addGroupEssence(param: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<unknown>
 
   removeGroupEssence(param: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<unknown>
+
+  setHeader(args: unknown[]): Promise<GeneralCallResult>
 }

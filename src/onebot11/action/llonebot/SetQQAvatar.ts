@@ -11,13 +11,13 @@ export default class SetAvatar extends BaseAction<Payload, null> {
   actionName = ActionName.SetQQAvatar
 
   protected async _handle(payload: Payload): Promise<null> {
-    const { path, isLocal, errMsg } = await uri2local(payload.file)
+    const { path, isLocal, errMsg } = await uri2local(this.ctx, payload.file)
     if (errMsg) {
       throw new Error(errMsg)
     }
     if (path) {
       await checkFileReceived(path, 5000) // 文件不存在QQ会崩溃，需要提前判断
-      const ret = await this.ctx.ntUserApi.setQQAvatar(path)
+      const ret = await this.ctx.ntUserApi.setSelfAvatar(path)
       if (!isLocal) {
         unlink(path)
       }

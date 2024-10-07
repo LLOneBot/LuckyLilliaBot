@@ -38,7 +38,7 @@ export class GetGroupSystemMsg extends BaseAction<void, Response> {
           invitor_nick: notify.user1.nickName,
           group_id: +notify.group.groupCode,
           group_name: notify.group.groupName,
-          checked: notify.status !== GroupNotifyStatus.KUNHANDLE,
+          checked: notify.status !== GroupNotifyStatus.Unhandle,
           actor: notify.user2?.uid ? Number(await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)) : 0
         })
       } else if (notify.type == 7) {
@@ -49,7 +49,7 @@ export class GetGroupSystemMsg extends BaseAction<void, Response> {
           message: notify.postscript,
           group_id: +notify.group.groupCode,
           group_name: notify.group.groupName,
-          checked: notify.status !== GroupNotifyStatus.KUNHANDLE,
+          checked: notify.status !== GroupNotifyStatus.Unhandle,
           actor: notify.user2?.uid ? Number(await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)) : 0
         })
       }

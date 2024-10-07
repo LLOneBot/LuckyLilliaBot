@@ -1,5 +1,5 @@
 import { CheckVersion, Config } from '../common/types'
-import { SettingButton, SettingItem, SettingList, SettingSwitch, SettingSelect } from './components'
+import { SettingButton, SettingItem, SettingList, SettingSwitch, SettingSelect, SettingInput } from './components'
 import { version } from '../version'
 // @ts-expect-error: Unreachable code error
 import StyleRaw from './style.css?raw'
@@ -11,7 +11,6 @@ function isEmpty(value: unknown) {
 }
 
 async function onSettingWindowCreated(view: Element) {
-  //window.llonebot.log('setting window created')
   const config = await window.llonebot.getConfig()
   const ob11Config = { ...config.ob11 }
 
@@ -49,12 +48,28 @@ async function onSettingWindowCreated(view: Element) {
       ]),
       SettingList([
         SettingItem(
-          '是否启用 LLOneBot, 重启 QQ 后生效',
+          '是否启用 Satori 协议',
+          '重启 QQ 后生效',
+          SettingSwitch('satori.enable', config.satori.enable),
+        ),
+        SettingItem(
+          '服务端口',
           null,
-          SettingSwitch('enableLLOB', config.enableLLOB, { 'control-display-id': 'config-enableLLOB' }),
-        )]
-      ),
+          SettingInput('satori.port', 'port', config.satori.port, config.satori.port),
+        ),
+        SettingItem(
+          '服务令牌',
+          null,
+          SettingInput('satori.token', 'text', config.satori.token, '未设置', 'width:170px;'),
+        ),
+        SettingItem('', null, SettingButton('保存', 'config-ob11-save', 'primary')),
+      ]),
       SettingList([
+        SettingItem(
+          '是否启用 OneBot 协议',
+          '重启 QQ 后生效',
+          SettingSwitch('ob11.enable', config.ob11.enable),
+        ),
         SettingItem(
           '启用 HTTP 服务',
           null,
@@ -63,7 +78,7 @@ async function onSettingWindowCreated(view: Element) {
         SettingItem(
           'HTTP 服务监听端口',
           null,
-          `<div class="q-input"><input class="q-input__inner" data-config-key="ob11.httpPort" type="number" min="1" max="65534" value="${config.ob11.httpPort}" placeholder="${config.ob11.httpPort}" /></div>`,
+          SettingInput('ob11.httpPort', 'port', config.ob11.httpPort, config.ob11.httpPort),
           'config-ob11-httpPort',
           config.ob11.enableHttp,
         ),
@@ -127,14 +142,14 @@ async function onSettingWindowCreated(view: Element) {
                 <div id="config-ob11-wsHosts-list"></div>
             </div>`,
         SettingItem(
-          ' WebSocket 服务心跳间隔',
+          'WebSocket 服务心跳间隔',
           '控制每隔多久发送一个心跳包，单位为毫秒',
           `<div class="q-input"><input class="q-input__inner" data-config-key="heartInterval" type="number" min="1000" value="${config.heartInterval}" placeholder="${config.heartInterval}" /></div>`,
         ),
         SettingItem(
           'Access token',
           null,
-          `<div class="q-input" style="width:210px;"><input class="q-input__inner" data-config-key="token" type="text" value="${config.token}" placeholder="未设置" /></div>`,
+          `<div class="q-input" style="width:170px;"><input class="q-input__inner" data-config-key="token" type="text" value="${config.token}" placeholder="未设置" /></div>`,
         ),
         SettingItem(
           '新消息上报格式',
@@ -149,6 +164,23 @@ async function onSettingWindowCreated(view: Element) {
           ),
         ),
         SettingItem(
+          'HTTP、正向 WebSocket 服务仅监听 127.0.0.1',
+          '而不是 0.0.0.0',
+          SettingSwitch('ob11.listenLocalhost', config.ob11.listenLocalhost),
+        ),
+        SettingItem(
+          '上报 Bot 自身发送的消息',
+          '上报 event 为 message_sent',
+          SettingSwitch('reportSelfMessage', config.reportSelfMessage),
+        ),
+        SettingItem(
+          '使用 Base64 编码获取文件',
+          '调用 /get_image、/get_record、/get_file 时，没有 url 时添加 Base64 字段',
+          SettingSwitch('enableLocalFile2Url', config.enableLocalFile2Url),
+        ),
+      ]),
+      SettingList([
+        SettingItem(
           'FFmpeg 路径，发送语音、视频需要',
           `<a href="javascript:LiteLoader.api.openExternal(\'https://llonebot.github.io/zh-CN/guide/ffmpeg\');">可点此下载</a>, 路径: <span id="config-ffmpeg-path-text">${!isEmpty(config.ffmpeg) ? config.ffmpeg : '未指定'
           }</span>, 需保证 FFprobe 和 FFmpeg 在一起`,
@@ -159,25 +191,6 @@ async function onSettingWindowCreated(view: Element) {
           null,
           `<div class="q-input" style="width:210px;"><input class="q-input__inner" data-config-key="musicSignUrl" type="text" value="${config.musicSignUrl}" placeholder="未设置" /></div>`,
           'config-musicSignUrl',
-        ),
-        SettingItem(
-          'HTTP、正向 WebSocket 服务仅监听 127.0.0.1',
-          '而不是 0.0.0.0',
-          SettingSwitch('ob11.listenLocalhost', config.ob11.listenLocalhost),
-        ),
-        SettingItem('', null, SettingButton('保存', 'config-ob11-save', 'primary')),
-      ]),
-      SettingList([
-        SettingItem(
-          '使用 Base64 编码获取文件',
-          '调用 /get_image、/get_record、/get_file 时，没有 url 时添加 Base64 字段',
-          SettingSwitch('enableLocalFile2Url', config.enableLocalFile2Url),
-        ),
-        SettingItem('调试模式', '开启后上报信息会添加 raw 字段以附带原始信息', SettingSwitch('debug', config.debug)),
-        SettingItem(
-          '上报 Bot 自身发送的消息',
-          '上报 event 为 message_sent',
-          SettingSwitch('reportSelfMessage', config.reportSelfMessage),
         ),
         SettingItem(
           '自动删除收到的文件',
@@ -386,22 +399,22 @@ async function onSettingWindowCreated(view: Element) {
     view.appendChild(node)
   })
   // 更新逻辑
-  async function checkVersionFunc(ResultVersion: CheckVersion) {
+  async function checkVersionFunc(info: CheckVersion) {
     const titleDom = view.querySelector<HTMLSpanElement>('#llonebot-update-title')!
     const buttonDom = view.querySelector<HTMLButtonElement>('#llonebot-update-button')!
 
-    if (ResultVersion.version === '') {
+    if (info.version === '') {
       titleDom.innerHTML = `当前版本为 v${version}，检查更新失败`
       buttonDom.innerHTML = '点击重试'
 
       buttonDom.addEventListener('click', async () => {
         window.llonebot.checkVersion().then(checkVersionFunc)
-      })
-    } else if (!ResultVersion.result) {
+      }, { once: true })
+    } else if (!info.result) {
       titleDom.innerHTML = '当前已是最新版本 v' + version
       buttonDom.innerHTML = '无需更新'
     } else {
-      titleDom.innerHTML = `当前版本为 v${version}，最新版本为 v${ResultVersion.version}`
+      titleDom.innerHTML = `当前版本为 v${version}，最新版本为 v${info.version}`
       buttonDom.innerHTML = '点击更新'
       buttonDom.dataset.type = 'primary'
 

@@ -13,10 +13,15 @@ export function log(...msg: unknown[]) {
   let logMsg = ''
   for (const msgItem of msg) {
     if (typeof msgItem === 'object') {
-      logMsg += inspect(msgItem, { depth: 10, compact: true, breakLength: Infinity }) + ' '
-      continue
+      logMsg += inspect(msgItem, {
+        depth: 10,
+        compact: true,
+        breakLength: Infinity,
+        maxArrayLength: 220
+      }) + ' '
+    } else {
+      logMsg += msgItem + ' '
     }
-    logMsg += msgItem + ' '
   }
   const currentDateTime = new Date().toLocaleString()
   logMsg = `${currentDateTime} ${logMsg}\n\n`

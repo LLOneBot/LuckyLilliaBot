@@ -30,7 +30,6 @@ import { OB11GroupUploadNoticeEvent } from './event/notice/OB11GroupUploadNotice
 import { OB11GroupNoticeEvent } from './event/notice/OB11GroupNoticeEvent'
 import { calcQQLevel } from '../common/utils/misc'
 import { OB11GroupTitleEvent } from './event/notice/OB11GroupTitleEvent'
-import { OB11GroupCardEvent } from './event/notice/OB11GroupCardEvent'
 import { OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
 import { OB11GroupMsgEmojiLikeEvent } from './event/notice/OB11MsgEmojiLikeEvent'
 import { OB11FriendAddNoticeEvent } from './event/notice/OB11FriendAddNoticeEvent'
@@ -39,7 +38,7 @@ import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNotice
 import { OB11FriendPokeEvent, OB11GroupPokeEvent } from './event/notice/OB11PokeEvent'
 import { OB11BaseNoticeEvent } from './event/notice/OB11BaseNoticeEvent'
 import { OB11GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent'
-import { omit, isNullable, pick, Dict } from 'cosmokit'
+import { omit, pick, Dict } from 'cosmokit'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { pathToFileURL } from 'node:url'
@@ -80,7 +79,7 @@ export namespace OB11Entities {
     if (msg.chatType === ChatType.Group) {
       resMsg.sub_type = 'normal'
       resMsg.group_id = parseInt(msg.peerUin)
-      const member = await ctx.ntGroupApi.getGroupMember(msg.peerUin, msg.senderUin)
+      const member = await ctx.ntGroupApi.getGroupMember(msg.peerUin, msg.senderUid)
       if (member) {
         resMsg.sender.role = groupMemberRole(member.role)
         resMsg.sender.nickname = member.nick
@@ -89,12 +88,12 @@ export namespace OB11Entities {
     }
     else if (msg.chatType === ChatType.C2C) {
       resMsg.sub_type = 'friend'
-      resMsg.sender.nickname = (await ctx.ntUserApi.getUserDetailInfo(msg.senderUid)).nick
+      resMsg.sender.nickname = (await ctx.ntUserApi.getUserSimpleInfo(msg.senderUid)).nick
     }
     else if (msg.chatType === ChatType.TempC2CFromGroup) {
       resMsg.sub_type = 'group'
       resMsg.temp_source = 0 //群聊
-      resMsg.sender.nickname = (await ctx.ntUserApi.getUserDetailInfo(msg.senderUid)).nick
+      resMsg.sender.nickname = (await ctx.ntUserApi.getUserSimpleInfo(msg.senderUid)).nick
       const ret = await ctx.ntMsgApi.getTempChatInfo(ChatType.TempC2CFromGroup, msg.senderUid)
       if (ret?.result === 0) {
         resMsg.sender.group_id = Number(ret.tmpChatInfo?.groupCode)
@@ -403,7 +402,7 @@ export namespace OB11Entities {
     if (msg.chatType !== ChatType.Group) {
       return
     }
-    if (msg.senderUin) {
+    /**if (msg.senderUin) {
       const member = await ctx.ntGroupApi.getGroupMember(msg.peerUid, msg.senderUin)
       if (member && member.cardName !== msg.sendMemberName) {
         const event = new OB11GroupCardEvent(
@@ -415,24 +414,17 @@ export namespace OB11Entities {
         member.cardName = msg.sendMemberName!
         return event
       }
-    }
+    }*/
     for (const element of msg.elements) {
       const grayTipElement = element.grayTipElement
       const groupElement = grayTipElement?.groupElement
       if (groupElement) {
         if (groupElement.type === TipGroupElementType.MemberIncrease) {
           ctx.logger.info('收到群成员增加消息', groupElement)
-          await ctx.sleep(1000)
-          const member = await ctx.ntGroupApi.getGroupMember(msg.peerUid, groupElement.memberUid)
-          let memberUin = member?.uin
-          if (!memberUin) {
-            memberUin = (await ctx.ntUserApi.getUserDetailInfo(groupElement.memberUid)).uin
-          }
-          const adminMember = await ctx.ntGroupApi.getGroupMember(msg.peerUid, groupElement.adminUid)
-          if (memberUin) {
-            const operatorUin = adminMember?.uin || memberUin
-            return new OB11GroupIncreaseEvent(parseInt(msg.peerUid), parseInt(memberUin), parseInt(operatorUin))
-          }
+          const { memberUid, adminUid } = groupElement
+          const memberUin = await ctx.ntUserApi.getUinByUid(memberUid)
+          const operatorUin = adminUid ? await ctx.ntUserApi.getUinByUid(adminUid) : memberUin
+          return new OB11GroupIncreaseEvent(+msg.peerUid, +memberUin, +operatorUin)
         }
         else if (groupElement.type === TipGroupElementType.Ban) {
           ctx.logger.info('收到群成员禁言提示', groupElement)
@@ -547,10 +539,9 @@ export namespace OB11Entities {
             while ((match = regex.exec(xmlElement.content)) !== null) {
               matches.push(match[1])
             }
-            // log("新人进群匹配到的QQ号", matches)
             if (matches.length === 2) {
-              const [inviter, invitee] = matches
-              return new OB11GroupIncreaseEvent(parseInt(msg.peerUid), parseInt(invitee), parseInt(inviter), 'invite')
+              const [invitor, invitee] = matches
+              return new OB11GroupIncreaseEvent(+msg.peerUid, +invitee, +invitor, 'invite')
             }
           }
         }
@@ -594,11 +585,6 @@ export namespace OB11Entities {
             const memberUin = json.items[1].param[0]
             const title = json.items[3].txt
             ctx.logger.info('收到群成员新头衔消息', json)
-            ctx.ntGroupApi.getGroupMember(msg.peerUid, memberUin).then(member => {
-              if (!isNullable(member)) {
-                member.memberSpecialTitle = title
-              }
-            })
             return new OB11GroupTitleEvent(parseInt(msg.peerUid), parseInt(memberUin), title)
           } else if (grayTipElement.jsonGrayTipElement?.busiId === '19217') {
             ctx.logger.info('收到新人被邀请进群消息', grayTipElement)
@@ -616,13 +602,7 @@ export namespace OB11Entities {
     msg: RawMessage,
     shortId: number
   ): Promise<OB11FriendRecallNoticeEvent | OB11GroupRecallNoticeEvent | undefined> {
-    const msgElement = msg.elements.find(
-      (element) => element.grayTipElement?.subElementType === GrayTipElementSubType.Revoke,
-    )
-    if (!msgElement) {
-      return
-    }
-    const revokeElement = msgElement.grayTipElement!.revokeElement
+    const revokeElement = msg.elements[0].grayTipElement?.revokeElement
     if (msg.chatType === ChatType.Group) {
       const operator = await ctx.ntGroupApi.getGroupMember(msg.peerUid, revokeElement!.operatorUid)
       return new OB11GroupRecallNoticeEvent(

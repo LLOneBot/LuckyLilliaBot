@@ -4,7 +4,7 @@ import path from 'node:path'
 import { TEMP_DIR } from '../globalVars'
 import { randomUUID, createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
-import { fileTypeFromFile } from 'file-type'
+import { Context } from 'cordis'
 
 // 定义一个异步函数来检查文件是否存在
 export function checkFileReceived(path: string, timeout: number = 3000): Promise<void> {
@@ -118,7 +118,7 @@ type Uri2LocalRes = {
   isLocal: boolean
 }
 
-export async function uri2local(uri: string, filename?: string, needExt?: boolean): Promise<Uri2LocalRes> {
+export async function uri2local(ctx: Context, uri: string, needExt?: boolean): Promise<Uri2LocalRes> {
   const { type } = checkUriType(uri)
 
   if (type === FileUriType.FileURL) {
@@ -136,15 +136,16 @@ export async function uri2local(uri: string, filename?: string, needExt?: boolea
     try {
       const res = await fetchFile(uri)
       const match = res.url.match(/.+\/([^/?]*)(?=\?)?/)
+      let filename: string
       if (match?.[1]) {
-        filename ??= match[1].replace(/[/\\:*?"<>|]/g, '_')
+        filename = match[1].replace(/[/\\:*?"<>|]/g, '_')
       } else {
-        filename ??= randomUUID()
+        filename = randomUUID()
       }
       let filePath = path.join(TEMP_DIR, filename)
       await fsPromise.writeFile(filePath, res.data)
       if (needExt && !path.extname(filePath)) {
-        const ext = (await fileTypeFromFile(filePath))?.ext
+        const ext = (await ctx.ntFileApi.getFileType(filePath)).ext
         filename += `.${ext}`
         await fsPromise.rename(filePath, `${filePath}.${ext}`)
         filePath = `${filePath}.${ext}`
@@ -157,12 +158,12 @@ export async function uri2local(uri: string, filename?: string, needExt?: boolea
   }
 
   if (type === FileUriType.OneBotBase64) {
-    filename ??= randomUUID()
+    let filename = randomUUID()
     let filePath = path.join(TEMP_DIR, filename)
     const base64 = uri.replace(/^base64:\/\//, '')
     await fsPromise.writeFile(filePath, base64, 'base64')
     if (needExt) {
-      const ext = (await fileTypeFromFile(filePath))?.ext
+      const ext = (await ctx.ntFileApi.getFileType(filePath)).ext
       filename += `.${ext}`
       await fsPromise.rename(filePath, `${filePath}.${ext}`)
       filePath = `${filePath}.${ext}`
@@ -174,12 +175,12 @@ export async function uri2local(uri: string, filename?: string, needExt?: boolea
     // https://developer.mozilla.org/en-US/docs/Web/HTTP/Basics_of_HTTP/MIME_types/Common_types
     const capture = /^data:([\w/.+-]+);base64,(.*)$/.exec(uri)
     if (capture) {
-      filename ??= randomUUID()
+      let filename = randomUUID()
       const [, _type, base64] = capture
       let filePath = path.join(TEMP_DIR, filename)
       await fsPromise.writeFile(filePath, base64, 'base64')
       if (needExt) {
-        const ext = (await fileTypeFromFile(filePath))?.ext
+        const ext = (await ctx.ntFileApi.getFileType(filePath)).ext
         filename += `.${ext}`
         await fsPromise.rename(filePath, `${filePath}.${ext}`)
         filePath = `${filePath}.${ext}`

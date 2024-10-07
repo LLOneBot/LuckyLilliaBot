@@ -28,7 +28,7 @@ export class SendGroupNotice extends BaseAction<Payload, null> {
 
     let picInfo: { id: string, width: number, height: number } | undefined
     if (payload.image) {
-      const { path, isLocal, success, errMsg } = await uri2local(payload.image, undefined, true)
+      const { path, isLocal, success, errMsg } = await uri2local(this.ctx, payload.image, true)
       if (!success) {
         throw new Error(`设置群公告失败, 错误信息: uri2local: ${errMsg}`)
       }

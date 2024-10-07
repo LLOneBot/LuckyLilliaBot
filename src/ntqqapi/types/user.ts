@@ -105,7 +105,7 @@ export interface BaseInfo {
   phoneNum: string
   categoryId: number
   richTime: number
-  richBuffer: string
+  richBuffer: Uint8Array
 }
 
 interface MusicInfo {

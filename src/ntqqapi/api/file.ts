@@ -18,7 +18,6 @@ import { ReceiveCmdS } from '../hook'
 import { RkeyManager } from '@/ntqqapi/helper/rkey'
 import { OnRichMediaDownloadCompleteParams, Peer } from '@/ntqqapi/types/msg'
 import { calculateFileMD5 } from '@/common/utils/file'
-import { fileTypeFromFile } from 'file-type'
 import { copyFile, stat, unlink } from 'node:fs/promises'
 import { Time } from 'cosmokit'
 import { Service, Context } from 'cordis'
@@ -56,7 +55,12 @@ export class NTQQFileApi extends Service {
   }
 
   async getFileType(filePath: string) {
-    return fileTypeFromFile(filePath)
+    return await invoke<{
+      ext: string
+      mime: string
+    }>(NTMethod.FILE_TYPE, [filePath], {
+      className: NTClass.FS_API
+    })
   }
 
   /** 上传文件到 QQ 的文件夹 */
@@ -111,23 +115,20 @@ export class NTQQFileApi extends Service {
     }
     const data = await invoke<{ notifyInfo: OnRichMediaDownloadCompleteParams }>(
       'nodeIKernelMsgService/downloadRichMedia',
-      [
-        {
-          getReq: {
-            fileModelId: '0',
-            downloadSourceType: 0,
-            triggerType: 1,
-            msgId: msgId,
-            chatType: chatType,
-            peerUid: peerUid,
-            elementId: elementId,
-            thumbSize: 0,
-            downloadType: 1,
-            filePath: thumbPath,
-          },
+      [{
+        getReq: {
+          fileModelId: '0',
+          downloadSourceType: 0,
+          triggerType: 1,
+          msgId: msgId,
+          chatType: chatType,
+          peerUid: peerUid,
+          elementId: elementId,
+          thumbSize: 0,
+          downloadType: 1,
+          filePath: thumbPath,
         },
-        null,
-      ],
+      }],
       {
         cbCmd: ReceiveCmdS.MEDIA_DOWNLOAD_COMPLETE,
         cmdCB: payload => payload.notifyInfo.msgId === msgId,
@@ -186,14 +187,11 @@ export class NTQQFileApi extends Service {
   async downloadFileForModelId(peer: Peer, fileModelId: string, timeout = 2 * Time.minute) {
     const data = await invoke<{ notifyInfo: OnRichMediaDownloadCompleteParams }>(
       'nodeIKernelRichMediaService/downloadFileForModelId',
-      [
-        {
-          peer,
-          fileModelIdList: [fileModelId],
-          save_path: ''
-        },
-        null,
-      ],
+      [{
+        peer,
+        fileModelIdList: [fileModelId],
+        save_path: ''
+      }],
       {
         cbCmd: ReceiveCmdS.MEDIA_DOWNLOAD_COMPLETE,
         cmdCB: payload => payload.notifyInfo.fileModelId === fileModelId,
@@ -211,21 +209,19 @@ export class NTQQFileCacheApi extends Service {
   }
 
   async setCacheSilentScan(isSilent: boolean = true) {
-    return await invoke<GeneralCallResult>(NTMethod.CACHE_SET_SILENCE, [{ isSilent }, null])
+    return await invoke<GeneralCallResult>(NTMethod.CACHE_SET_SILENCE, [{ isSilent }])
   }
 
   getCacheSessionPathList() {
-    return invoke<
-      {
-        key: string
-        value: string
-      }[]
-    >(NTMethod.CACHE_PATH_SESSION, [], { className: NTClass.OS_API })
+    return invoke<Array<{
+      key: string
+      value: string
+    }>>(NTMethod.CACHE_PATH_SESSION, [], { className: NTClass.OS_API })
   }
 
   scanCache() {
     invoke<GeneralCallResult>(ReceiveCmdS.CACHE_SCAN_FINISH, [], { registerEvent: true })
-    return invoke<CacheScanResult>(NTMethod.CACHE_SCAN, [null, null], { timeout: 300 * Time.second })
+    return invoke<CacheScanResult>(NTMethod.CACHE_SCAN, [], { timeout: 300 * Time.second })
   }
 
   getHotUpdateCachePath() {
@@ -245,13 +241,13 @@ export class NTQQFileCacheApi extends Service {
       pageSize: pageSize,
       order: 1,
       lastRecord: _lastRecord,
-    }, null])
+    }])
   }
 
   async clearChatCache(chats: ChatCacheListItemBasic[] = [], fileKeys: string[] = []) {
     return await invoke<GeneralCallResult>(NTMethod.CACHE_CHAT_CLEAR, [{
       chats,
       fileKeys,
-    }, null])
+    }])
   }
 }

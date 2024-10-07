@@ -28,7 +28,7 @@ export default class Log {
       },
     }
     Logger.targets.push(target)
-    ctx.on('llonebot/config-updated', input => {
+    ctx.on('llob/config-updated', input => {
       enable = input.log!
     })
   }

@@ -18,7 +18,9 @@ class GetGroupMemberInfo extends BaseAction<Payload, OB11GroupMember> {
 
   protected async _handle(payload: Payload) {
     const groupCode = payload.group_id.toString()
-    const member = await this.ctx.ntGroupApi.getGroupMember(groupCode, payload.user_id.toString())
+    const uid = await this.ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    if (!uid) throw new Error('无法获取用户信息')
+    const member = await this.ctx.ntGroupApi.getGroupMember(groupCode, uid)
     if (member) {
       if (isNullable(member.sex)) {
         const info = await this.ctx.ntUserApi.getUserDetailInfo(member.uid)

@@ -20,6 +20,10 @@ export interface NodeIKernelMsgService {
 
   getAioFirstViewLatestMsgs(peer: Peer, num: number): Promise<GeneralCallResult & { msgList: RawMessage[] }>
 
+  getAioFirstViewLatestMsgsAndAddActiveChat(...args: unknown[]): Promise<GeneralCallResult & { msgList: RawMessage[] }>
+
+  getMsgsIncludeSelfAndAddActiveChat(...args: unknown[]): Promise<GeneralCallResult & { msgList: RawMessage[] }>
+
   getMsgsIncludeSelf(peer: Peer, msgId: string, count: number, queryOrder: boolean): Promise<GeneralCallResult & { msgList: RawMessage[] }>
 
   getMsgsBySeqAndCount(peer: Peer, seq: string, count: number, desc: boolean, unknownArg: boolean): Promise<GeneralCallResult & { msgList: RawMessage[] }>

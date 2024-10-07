@@ -197,6 +197,60 @@ export interface PicElement {
   md5HexStr?: string
 }
 
+export interface TipAioOpGrayTipElement {
+  operateType: number
+  peerUid: string
+  fromGrpCodeOfTmpChat: string
+}
+
+export enum TipGroupElementType {
+  MemberIncrease = 1,
+  Kicked = 3, // 被移出群
+  Ban = 8,
+}
+
+export interface TipGroupElement {
+  type: TipGroupElementType // 1是表示有人加入群, 自己加入群也会收到这个
+  role: number
+  groupName: string // 暂时获取不到
+  memberUid: string
+  memberNick: string
+  memberRemark: string
+  adminUid: string
+  adminNick: string
+  adminRemark: string
+  createGroup: null
+  memberAdd?: {
+    showType: number
+    otherAdd?: {
+      uid: string
+      name: string
+    }
+    otherAddByOtherQRCode?: unknown
+    otherAddByYourQRCode?: unknown
+    youAddByOtherQRCode?: unknown
+    otherInviteOther?: unknown
+    otherInviteYou?: unknown
+    youInviteOther?: unknown
+  }
+  shutUp?: {
+    curTime: string
+    duration: string // 禁言时间，秒
+    admin: {
+      uid: string
+      card: string
+      name: string
+      role: GroupMemberRole
+    }
+    member: {
+      uid: string
+      card: string
+      name: string
+      role: GroupMemberRole
+    }
+  }
+}
+
 export enum GrayTipElementSubType {
   Revoke = 1,
   Proclamation = 2,
@@ -234,13 +288,14 @@ export interface GrayTipElement {
   xmlElement?: {
     templId: string
     content: string
+    templParam: Map<string, string>
+    members: Map<string, string> // uid -> remark
   }
   jsonGrayTipElement?: {
     busiId: string
     jsonStr: string
   }
 }
-
 
 export enum FaceIndex {
   Dice = 358,
@@ -268,6 +323,10 @@ export interface MarketFaceElement {
   key: string
   imageWidth?: number
   imageHeight?: number
+  supportSize?: {
+    width: number
+    height: number
+  }[]
 }
 
 export interface VideoElement {
@@ -326,58 +385,6 @@ export interface InlineKeyboardElement {
   ]
 }
 
-export interface TipAioOpGrayTipElement {
-  // 这是什么提示来着？
-  operateType: number
-  peerUid: string
-  fromGrpCodeOfTmpChat: string
-}
-
-export enum TipGroupElementType {
-  MemberIncrease = 1,
-  Kicked = 3, // 被移出群
-  Ban = 8,
-}
-
-export interface TipGroupElement {
-  type: TipGroupElementType // 1是表示有人加入群, 自己加入群也会收到这个
-  role: 0 // 暂时不知
-  groupName: string // 暂时获取不到
-  memberUid: string
-  memberNick: string
-  memberRemark: string
-  adminUid: string
-  adminNick: string
-  adminRemark: string
-  createGroup: null
-  memberAdd?: {
-    showType: 1
-    otherAdd: null
-    otherAddByOtherQRCode: null
-    otherAddByYourQRCode: null
-    youAddByOtherQRCode: null
-    otherInviteOther: null
-    otherInviteYou: null
-    youInviteOther: null
-  }
-  shutUp?: {
-    curTime: string
-    duration: string // 禁言时间，秒
-    admin: {
-      uid: string
-      card: string
-      name: string
-      role: GroupMemberRole
-    }
-    member: {
-      uid: string
-      card: string
-      name: string
-      role: GroupMemberRole
-    }
-  }
-}
-
 export interface StructLongMsgElement {
   xmlContent: string
   resId: string
@@ -409,11 +416,25 @@ export interface RawMessage {
   guildId: string
   sendNickName: string
   sendMemberName?: string // 发送者群名片
+  sendRemarkName?: string // 发送者好友备注
   chatType: ChatType
   sendStatus?: number // 消息状态，别人发的2是已撤回，自己发的2是已发送
   recallTime: string // 撤回时间, "0"是没有撤回
   records: RawMessage[]
   elements: MessageElement[]
+  peerName: string
+  multiTransInfo?: {
+    status: number
+    msgId: number
+    friendFlag: number
+    fromFaceUrl: string
+  }
+  emojiLikesList: {
+    emojiId: string
+    emojiType: string
+    likesCnt: string
+    isClicked: boolean
+  }[]
 }
 
 export interface Peer {

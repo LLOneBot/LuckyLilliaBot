@@ -1,19 +1,19 @@
 export enum GroupNotifyType {
-  INVITED_BY_MEMBER = 1,
-  REFUSE_INVITED,
-  REFUSED_BY_ADMINI_STRATOR,
-  AGREED_TOJOIN_DIRECT, // 有人接受了邀请入群
-  INVITED_NEED_ADMINI_STRATOR_PASS, // 有人邀请了别人入群
-  AGREED_TO_JOIN_BY_ADMINI_STRATOR,
-  REQUEST_JOIN_NEED_ADMINI_STRATOR_PASS,
-  SET_ADMIN,
-  KICK_MEMBER_NOTIFY_ADMIN,
-  KICK_MEMBER_NOTIFY_KICKED,
-  MEMBER_LEAVE_NOTIFY_ADMIN, // 主动退出
-  CANCEL_ADMIN_NOTIFY_CANCELED, // 我被取消管理员
-  CANCEL_ADMIN_NOTIFY_ADMIN, // 其他人取消管理员
-  TRANSFER_GROUP_NOTIFY_OLDOWNER,
-  TRANSFER_GROUP_NOTIFY_ADMIN
+  InvitedByMember = 1,
+  RefuseInvited,
+  RefusedByAdminiStrator,
+  AgreedTojoinDirect, // 有人接受了邀请入群
+  InvitedNeedAdminiStratorPass, // 有人邀请了别人入群
+  AgreedToJoinByAdminiStrator,
+  RequestJoinNeedAdminiStratorPass,
+  SetAdmin,
+  KickMemberNotifyAdmin,
+  KickMemberNotifyKicked,
+  MemberLeaveNotifyAdmin, // 主动退出
+  CancelAdminNotifyCanceled, // 我被取消管理员
+  CancelAdminNotifyAdmin, // 其他人取消管理员
+  TransferGroupNotifyOldowner,
+  TransferGroupNotifyAdmin
 }
 
 export interface GroupNotifies {
@@ -23,11 +23,11 @@ export interface GroupNotifies {
 }
 
 export enum GroupNotifyStatus {
-  KINIT, // 初始化
-  KUNHANDLE, // 未处理
-  KAGREED, // 同意
-  KREFUSED, // 拒绝
-  KIGNORED // 忽略
+  Init, // 初始化
+  Unhandle, // 未处理
+  Agreed, // 同意
+  Refused, // 拒绝
+  Ignored // 忽略
 }
 
 export interface GroupNotify {
@@ -77,43 +77,5 @@ export interface FriendRequestNotify {
   data: {
     unreadNums: number
     buddyReqs: FriendRequest[]
-  }
-}
-
-export enum MemberExtSourceType {
-  DEFAULTTYPE = 0,
-  TITLETYPE = 1,
-  NEWGROUPTYPE = 2,
-}
-
-export interface GroupExtParam {
-  groupCode: string
-  seq: string
-  beginUin: string
-  dataTime: string
-  uinList: Array<string>
-  uinNum: string
-  groupType: string
-  richCardNameVer: string
-  sourceType: MemberExtSourceType
-  memberExtFilter: {
-    memberLevelInfoUin: number
-    memberLevelInfoPoint: number
-    memberLevelInfoActiveDay: number
-    memberLevelInfoLevel: number
-    memberLevelInfoName: number
-    levelName: number
-    dataTime: number
-    userShowFlag: number
-    sysShowFlag: number
-    timeToUpdate: number
-    nickName: number
-    specialTitle: number
-    levelNameNew: number
-    userShowFlagNew: number
-    msgNeedField: number
-    cmdUinFlagExt3Grocery: number
-    memberIcon: number
-    memberInfoSeq: number
   }
 }

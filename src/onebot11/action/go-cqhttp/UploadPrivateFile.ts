@@ -19,7 +19,7 @@ export class UploadPrivateFile extends BaseAction<UploadPrivateFilePayload, null
   })
 
   protected async _handle(payload: UploadPrivateFilePayload): Promise<null> {
-    const { success, errMsg, path, fileName } = await uri2local(payload.file)
+    const { success, errMsg, path, fileName } = await uri2local(this.ctx, payload.file)
     if (!success) {
       throw new Error(errMsg)
     }

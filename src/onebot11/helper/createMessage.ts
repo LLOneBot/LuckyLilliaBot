@@ -56,7 +56,7 @@ export async function createSendElements(
                 remainAtAllCount = (await ctx.ntGroupApi.getGroupRemainAtTimes(groupCode)).atInfo
                   .RemainAtAllCountForUin
                 ctx.logger.info(`群${groupCode}剩余at全体次数`, remainAtAllCount)
-                const self = await ctx.ntGroupApi.getGroupMember(groupCode, selfInfo.uin)
+                const self = await ctx.ntGroupApi.getGroupMember(groupCode, selfInfo.uid)
                 isAdmin = self?.role === GroupMemberRole.admin || self?.role === GroupMemberRole.owner
               } catch (e) {
               }
@@ -66,44 +66,24 @@ export async function createSendElements(
             }
           }
           else if (peer.chatType === ChatType.Group) {
-            const atMember = await ctx.ntGroupApi.getGroupMember(peer.peerUid, atQQ)
-            if (atMember) {
-              const display = `@${atMember.cardName || atMember.nick}`
-              sendElements.push(
-                SendElement.at(atQQ, atMember.uid, AtType.One, display),
-              )
-            } else {
-              const atNmae = sendMsg.data?.name
-              const uid = await ctx.ntUserApi.getUidByUin(atQQ) || ''
-              const display = atNmae ? `@${atNmae}` : ''
-              sendElements.push(
-                SendElement.at(atQQ, uid, AtType.One, display),
-              )
-            }
+            const uid = await ctx.ntUserApi.getUidByUin(atQQ) ?? ''
+            const atNmae = sendMsg.data?.name
+            const display = atNmae ? `@${atNmae}` : ''
+            sendElements.push(SendElement.at(atQQ, uid, AtType.One, display))
           }
         }
       }
         break
       case OB11MessageDataType.reply: {
         if (sendMsg.data?.id) {
-          const replyMsgId = await ctx.store.getMsgInfoByShortId(+sendMsg.data.id)
-          if (!replyMsgId) {
-            ctx.logger.warn('回复消息不存在', replyMsgId)
+          const info = await ctx.store.getMsgInfoByShortId(+sendMsg.data.id)
+          if (!info) {
+            ctx.logger.warn('回复消息不存在', info)
             continue
           }
-          const replyMsg = (await ctx.ntMsgApi.getMsgsByMsgId(
-            replyMsgId.peer,
-            [replyMsgId.msgId!]
-          )).msgList[0]
-          if (replyMsg) {
-            sendElements.push(
-              SendElement.reply(
-                replyMsg.msgSeq,
-                replyMsg.msgId,
-                replyMsg.senderUin!,
-                replyMsg.senderUin!,
-              ),
-            )
+          const source = (await ctx.ntMsgApi.getMsgsByMsgId(info.peer, [info.msgId])).msgList[0]
+          if (source) {
+            sendElements.push(SendElement.reply(source.msgSeq, source.msgId, source.senderUin))
           }
         }
       }
@@ -147,7 +127,7 @@ export async function createSendElements(
         const { path, fileName } = await handleOb11FileLikeMessage(ctx, sendMsg, { deleteAfterSentFiles })
         let thumb = sendMsg.data.thumb
         if (thumb) {
-          const uri2LocalRes = await uri2local(thumb)
+          const uri2LocalRes = await uri2local(ctx, thumb)
           if (uri2LocalRes.success) thumb = uri2LocalRes.path
         }
         const res = await SendElement.video(ctx, path, fileName, thumb)
@@ -206,7 +186,7 @@ async function handleOb11FileLikeMessage(
     fileName,
     errMsg,
     success,
-  } = (await uri2local(inputdata?.url || inputdata.file))
+  } = (await uri2local(ctx, inputdata.url || inputdata.file))
 
   if (!success) {
     ctx.logger.error(errMsg)

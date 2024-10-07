@@ -1,7 +1,6 @@
 import { Friend, SimpleInfo, CategoryFriend } from '../types'
 import { ReceiveCmdS } from '../hook'
 import { invoke, NTMethod, NTClass } from '../ntcall'
-import { getSession } from '@/ntqqapi/wrapper'
 import { Service, Context } from 'cordis'
 
 declare module 'cordis' {
@@ -24,15 +23,11 @@ export class NTQQFriendApi extends Service {
         categroyMbCount: number
         buddyList: Friend[]
       }[]
-    }>(
-      'getBuddyList',
-      [],
-      {
-        className: NTClass.NODE_STORE_API,
-        cbCmd: ReceiveCmdS.FRIENDS,
-        afterFirstCmd: false,
-      }
-    )
+    }>('getBuddyList', [], {
+      className: NTClass.NODE_STORE_API,
+      cbCmd: ReceiveCmdS.FRIENDS,
+      afterFirstCmd: false
+    })
     const _friends: Friend[] = []
     for (const item of data.data) {
       _friends.push(...item.buddyList)
@@ -41,22 +36,13 @@ export class NTQQFriendApi extends Service {
   }
 
   async handleFriendRequest(friendUid: string, reqTime: string, accept: boolean) {
-    const session = getSession()
-    if (session) {
-      return session.getBuddyService().approvalFriendRequest({
+    return await invoke(NTMethod.HANDLE_FRIEND_REQUEST, [{
+      approvalInfo: {
         friendUid,
         reqTime,
-        accept
-      })
-    } else {
-      return await invoke(NTMethod.HANDLE_FRIEND_REQUEST, [{
-        approvalInfo: {
-          friendUid,
-          reqTime,
-          accept,
-        },
-      }])
-    }
+        accept,
+      },
+    }])
   }
 
   async getBuddyV2(refresh = false): Promise<SimpleInfo[]> {
@@ -121,13 +107,13 @@ export class NTQQFriendApi extends Service {
   }
 
   async getBuddyRecommendContact(uin: string) {
-    const ret = await invoke('nodeIKernelBuddyService/getBuddyRecommendContactArkJson', [{ uin }, null])
+    const ret = await invoke('nodeIKernelBuddyService/getBuddyRecommendContactArkJson', [{ uin }])
     return ret.arkMsg
   }
 
   async setBuddyRemark(uid: string, remark: string) {
     return await invoke('nodeIKernelBuddyService/setBuddyRemark', [{
       remarkParams: { uid, remark }
-    }, null])
+    }])
   }
 }

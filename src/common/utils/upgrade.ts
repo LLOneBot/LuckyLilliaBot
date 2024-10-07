@@ -3,25 +3,19 @@ import { writeFile } from 'node:fs/promises'
 import { version } from '../../version'
 import { log, fetchFile } from '.'
 import { TEMP_DIR } from '../globalVars'
+import { compare } from 'compare-versions'
 
 const downloadMirrorHosts = ['https://ghp.ci/']
 const releasesMirrorHosts = ['https://kkgithub.com']
 
 export async function checkNewVersion() {
-  const latestVersionText = await getRemoteVersion()
-  const latestVersion = latestVersionText.split('.')
+  const latestVersion = await getRemoteVersion()
   log('LLOneBot latest version', latestVersion)
-  const currentVersion = version.split('.')
-  //log('llonebot current version', currentVersion)
-  for (const k of [0, 1, 2]) {
-    const latest = parseInt(latestVersion[k])
-    const current = parseInt(currentVersion[k])
-    if (latest > current) {
-      log('')
-      return { result: true, version: latestVersionText }
-    } else if (latest < current) {
-      break
-    }
+  if (latestVersion === '') {
+    return { result: false, version: latestVersion }
+  }
+  if (compare(latestVersion, version, '>')) {
+    return { result: true, version: latestVersion }
   }
   return { result: false, version: version }
 }

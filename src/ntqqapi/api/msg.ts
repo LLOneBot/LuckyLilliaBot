@@ -1,7 +1,5 @@
 import { invoke, NTMethod } from '../ntcall'
-import { GeneralCallResult } from '../services'
 import { RawMessage, SendMessageElement, Peer, ChatType } from '../types'
-import { getSession } from '@/ntqqapi/wrapper'
 import { Service, Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 
@@ -19,37 +17,27 @@ export class NTQQMsgApi extends Service {
   }
 
   async getTempChatInfo(chatType: ChatType, peerUid: string) {
-    const session = getSession()
-    if (session) {
-      return session.getMsgService().getTempChatInfo(chatType, peerUid)
-    } else {
-      return await invoke('nodeIKernelMsgService/getTempChatInfo', [{ chatType, peerUid }, null])
-    }
+    return await invoke('nodeIKernelMsgService/getTempChatInfo', [{ chatType, peerUid }])
   }
 
   async setEmojiLike(peer: Peer, msgSeq: string, emojiId: string, setEmoji: boolean) {
-    // nt_qq//global//nt_data//Emoji//emoji-resource//sysface_res/apng/ 下可以看到所有QQ表情预览
-    // nt_qq\global\nt_data\Emoji\emoji-resource\face_config.json 里面有所有表情的id, 自带表情id是QSid, 标准emoji表情id是QCid
+    // nt_qq/global/nt_data/Emoji/emoji-resource/sysface_res/apng/ 下可以看到所有QQ表情预览
+    // nt_qq/global/nt_data/Emoji/emoji-resource/face_config.json 里面有所有表情的id, 自带表情id是QSid, 标准emoji表情id是QCid
     // 其实以官方文档为准是最好的，https://bot.q.qq.com/wiki/develop/api-v2/openapi/emoji/model.html#EmojiType
     const emojiType = emojiId.length > 3 ? '2' : '1'
     return await invoke(NTMethod.EMOJI_LIKE, [{ peer, msgSeq, emojiId, emojiType, setEmoji }])
   }
 
   async getMultiMsg(peer: Peer, rootMsgId: string, parentMsgId: string) {
-    const session = getSession()
-    if (session) {
-      return session.getMsgService().getMultiMsg(peer, rootMsgId, parentMsgId)
-    } else {
-      return await invoke(NTMethod.GET_MULTI_MSG, [{ peer, rootMsgId, parentMsgId }, null])
-    }
+    return await invoke(NTMethod.GET_MULTI_MSG, [{ peer, rootMsgId, parentMsgId }])
   }
 
   async activateChat(peer: Peer) {
-    return await invoke<GeneralCallResult>(NTMethod.ACTIVE_CHAT_PREVIEW, [{ peer, cnt: 1 }, null])
+    return await invoke(NTMethod.ACTIVE_CHAT_PREVIEW, [{ peer, cnt: 1 }])
   }
 
-  async activateChatAndGetHistory(peer: Peer) {
-    return await invoke<GeneralCallResult>(NTMethod.ACTIVE_CHAT_HISTORY, [{ peer, cnt: 20 }, null])
+  async activateChatAndGetHistory(peer: Peer, cnt: number) {
+    return await invoke(NTMethod.ACTIVE_CHAT_HISTORY, [{ peer, cnt, msgId: '0', queryOrder: true }])
   }
 
   async getAioFirstViewLatestMsgs(peer: Peer, cnt: number) {
@@ -62,9 +50,9 @@ export class NTQQMsgApi extends Service {
     return await invoke('nodeIKernelMsgService/getMsgsByMsgId', [{ peer, msgIds }])
   }
 
-  async getMsgHistory(peer: Peer, msgId: string, cnt: number, isReverseOrder: boolean = false) {
-    // 消息时间从旧到新
-    return await invoke(NTMethod.HISTORY_MSG, [{ peer, msgId, cnt, queryOrder: isReverseOrder }])
+  async getMsgHistory(peer: Peer, msgId: string, cnt: number, queryOrder = false) {
+    // 默认情况下消息时间从旧到新
+    return await invoke(NTMethod.HISTORY_MSG, [{ peer, msgId, cnt, queryOrder }])
   }
 
   async recallMsg(peer: Peer, msgIds: string[]) {
@@ -96,6 +84,7 @@ export class NTQQMsgApi extends Service {
         timeout
       }
     )
+    delete peer.guildId
     return data.msgList.find(msgRecord => msgRecord.guildId === uniqueId)
   }
 
@@ -124,6 +113,7 @@ export class NTQQMsgApi extends Service {
         }
       }
     )
+    delete destPeer.guildId
     return data.msgList.filter(msgRecord => msgRecord.guildId === uniqueId)
   }
 
@@ -171,27 +161,8 @@ export class NTQQMsgApi extends Service {
     throw new Error('转发消息超时')
   }
 
-  async getMsgsBySeqAndCount(peer: Peer, msgSeq: string, count: number, desc: boolean, z: boolean) {
-    const session = getSession()
-    if (session) {
-      return await session.getMsgService().getMsgsBySeqAndCount(peer, msgSeq, count, desc, z)
-    } else {
-      return await invoke('nodeIKernelMsgService/getMsgsBySeqAndCount', [{
-        peer,
-        cnt: count,
-        msgSeq,
-        queryOrder: desc
-      }, null])
-    }
-  }
-
   async getSingleMsg(peer: Peer, msgSeq: string) {
-    const session = getSession()
-    if (session) {
-      return await session.getMsgService().getSingleMsg(peer, msgSeq)
-    } else {
-      return await invoke('nodeIKernelMsgService/getSingleMsg', [{ peer, msgSeq }, null])
-    }
+    return await invoke('nodeIKernelMsgService/getSingleMsg', [{ peer, msgSeq }])
   }
 
   async queryFirstMsgBySeq(peer: Peer, msgSeq: string) {
@@ -209,7 +180,7 @@ export class NTQQMsgApi extends Service {
         isIncludeCurrent: true,
         pageLimit: 1,
       }
-    }, null])
+    }])
   }
 
   async queryMsgsWithFilterExBySeq(peer: Peer, msgSeq: string, filterMsgTime: string, filterSendersUid: string[] = []) {
@@ -231,7 +202,7 @@ export class NTQQMsgApi extends Service {
   }
 
   async setMsgRead(peer: Peer) {
-    return await invoke('nodeIKernelMsgService/setMsgRead', [{ peer }, null])
+    return await invoke('nodeIKernelMsgService/setMsgRead', [{ peer }])
   }
 
   async getMsgEmojiLikesList(peer: Peer, msgSeq: string, emojiId: string, emojiType: string, count: number) {
@@ -250,7 +221,7 @@ export class NTQQMsgApi extends Service {
       count,
       backwardFetch: true,
       forceRefresh: true
-    }, null])
+    }])
   }
 
   async generateMsgUniqueId(chatType: number) {
@@ -289,6 +260,6 @@ export class NTQQMsgApi extends Service {
   }
 
   async getServerTime() {
-    return await invoke('nodeIKernelMSFService/getServerTime', [null])
+    return await invoke('nodeIKernelMSFService/getServerTime', [])
   }
 }

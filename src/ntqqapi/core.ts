@@ -13,9 +13,10 @@ import {
   CategoryFriend,
   SimpleInfo,
   ChatType,
-  BuddyReqType
+  BuddyReqType,
+  GrayTipElementSubType
 } from './types'
-import { selfInfo } from '../common/globalVars'
+import { selfInfo, llonebotError } from '../common/globalVars'
 import { version } from '../version'
 import { invoke } from './ntcall'
 
@@ -43,10 +44,15 @@ class Core extends Service {
   }
 
   public start() {
+    if (!this.config.ob11.enable && !this.config.satori.enable) {
+      llonebotError.otherError = 'LLOneBot 未启动'
+      this.ctx.logger.info('LLOneBot 开关设置为关闭，不启动 LLOneBot')
+      return
+    }
     this.startTime = Date.now()
     this.registerListener()
     this.ctx.logger.info(`LLOneBot/${version}`)
-    this.ctx.on('llonebot/config-updated', input => {
+    this.ctx.on('llob/config-updated', input => {
       Object.assign(this.config, input)
     })
   }
@@ -118,16 +124,13 @@ class Core extends Service {
           activatedPeerUids.push(contact.id)
           const peer = { peerUid: contact.id, chatType: contact.chatType }
           if (contact.chatType === ChatType.TempC2CFromGroup) {
-            this.ctx.ntMsgApi.activateChatAndGetHistory(peer).then(() => {
-              this.ctx.ntMsgApi.getMsgHistory(peer, '', 20).then(({ msgList }) => {
-                const lastTempMsg = msgList.at(-1)
-                if (Date.now() / 1000 - Number(lastTempMsg?.msgTime) < 5) {
-                  this.ctx.parallel('nt/message-created', lastTempMsg!)
-                }
-              })
+            this.ctx.ntMsgApi.activateChatAndGetHistory(peer, 1).then(res => {
+              const lastTempMsg = res.msgList[0]
+              if (Date.now() / 1000 - Number(lastTempMsg?.msgTime) < 5) {
+                this.ctx.parallel('nt/message-created', lastTempMsg!)
+              }
             })
-          }
-          else {
+          } else {
             this.ctx.ntMsgApi.activateChat(peer)
           }
         }
@@ -179,7 +182,14 @@ class Core extends Service {
 
     registerReceiveHook<{ msgList: RawMessage[] }>([ReceiveCmdS.UPDATE_MSG], payload => {
       for (const msg of payload.msgList) {
-        if (msg.recallTime !== '0' && !recallMsgIds.includes(msg.msgId)) {
+        if (
+          msg.recallTime !== '0' &&
+          msg.msgType === 5 &&
+          msg.subMsgType === 4 &&
+          msg.elements[0]?.grayTipElement?.subElementType === GrayTipElementSubType.Revoke &&
+          !recallMsgIds.includes(msg.msgId)
+        ) {
+          recallMsgIds.shift()
           recallMsgIds.push(msg.msgId)
           this.ctx.parallel('nt/message-deleted', msg)
         } else if (sentMsgIds.get(msg.msgId)) {
@@ -205,7 +215,7 @@ class Core extends Service {
       if (payload.unreadCount) {
         let notifies: GroupNotify[]
         try {
-          notifies = (await this.ctx.ntGroupApi.getSingleScreenNotifies(14)).slice(0, payload.unreadCount)
+          notifies = await this.ctx.ntGroupApi.getSingleScreenNotifies(payload.unreadCount)
         } catch (e) {
           return
         }
@@ -215,6 +225,7 @@ class Core extends Service {
           if (groupNotifyFlags.includes(flag) || notifyTime < this.startTime) {
             continue
           }
+          groupNotifyFlags.shift()
           groupNotifyFlags.push(flag)
           this.ctx.parallel('nt/group-notify', notify)
         }

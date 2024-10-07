@@ -35,7 +35,7 @@ export class NTQQWindowApi extends Service {
     super(ctx, 'ntWindowApi', true)
   }
 
-  // 打开窗口并获取对应的下发事件
+  /** 打开窗口并获取对应的下发事件 */
   async openWindow<R = GeneralCallResult>(
     ntQQWindow: NTQQWindow,
     args: unknown[],
@@ -53,7 +53,6 @@ export class NTQQWindowApi extends Service {
     )
     setTimeout(() => {
       for (const w of BrowserWindow.getAllWindows()) {
-        // log("close window", w.webContents.getURL())
         if (w.webContents.getURL().indexOf(ntQQWindow.windowUrlHash) != -1) {
           w.close()
         }

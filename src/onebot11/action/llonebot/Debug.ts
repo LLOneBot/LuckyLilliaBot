@@ -16,10 +16,8 @@ export default class Debug extends BaseAction<Payload, unknown> {
     for (const ntqqApiClass of ntqqApi) {
       const method = ntqqApiClass[payload.method as keyof typeof ntqqApiClass]
       if (method && method instanceof Function) {
-        const result = method.apply(ntqqApiClass, payload.args)
-        if (method.constructor.name === 'AsyncFunction') {
-          return await result
-        }
+        const result = await method.apply(ntqqApiClass, payload.args)
+        this.ctx.logger.info('debug', result)
         return result
       }
     }

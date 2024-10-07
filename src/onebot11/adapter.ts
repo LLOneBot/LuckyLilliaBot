@@ -4,10 +4,7 @@ import {
   GroupNotify,
   GroupNotifyType,
   RawMessage,
-  BuddyReqType,
   FriendRequest,
-  GroupMember,
-  GroupMemberRole,
   GroupNotifyStatus
 } from '../ntqqapi/types'
 import { OB11GroupRequestEvent } from './event/request/OB11GroupRequest'
@@ -23,7 +20,6 @@ import { OB11BaseMetaEvent } from './event/meta/OB11BaseMetaEvent'
 import { postHttpEvent } from './helper/eventForHttp'
 import { initActionMap } from './action'
 import { llonebotError } from '../common/globalVars'
-import { OB11GroupCardEvent } from './event/notice/OB11GroupCardEvent'
 import { OB11GroupAdminNoticeEvent } from './event/notice/OB11GroupAdminNoticeEvent'
 import { OB11ProfileLikeEvent } from './event/notice/OB11ProfileLikeEvent'
 import { SysMsg } from '@/ntqqapi/proto/compiled'
@@ -35,8 +31,10 @@ declare module 'cordis' {
 }
 
 class OneBot11Adapter extends Service {
-  static inject = ['ntMsgApi', 'ntFileApi', 'ntFileCacheApi', 'ntFriendApi', 'ntGroupApi', 'ntUserApi', 'ntWindowApi', 'ntWebApi', 'store']
-
+  static inject = [
+    'ntMsgApi', 'ntFileApi', 'ntFileCacheApi', 'ntFriendApi',
+    'ntGroupApi', 'ntUserApi', 'ntWindowApi', 'ntWebApi', 'store'
+  ]
   private ob11WebSocket: OB11WebSocket
   private ob11WebSocketReverseManager: OB11WebSocketReverseManager
   private ob11Http: OB11Http
@@ -91,7 +89,7 @@ class OneBot11Adapter extends Service {
   private async handleGroupNotify(notify: GroupNotify) {
     try {
       const flag = notify.group.groupCode + '|' + notify.seq + '|' + notify.type
-      if ([GroupNotifyType.MEMBER_LEAVE_NOTIFY_ADMIN, GroupNotifyType.KICK_MEMBER_NOTIFY_ADMIN].includes(notify.type)) {
+      if ([GroupNotifyType.MemberLeaveNotifyAdmin, GroupNotifyType.KickMemberNotifyAdmin].includes(notify.type)) {
         this.ctx.logger.info('有成员退出通知', notify)
         const member1Uin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
         let operatorId = member1Uin
@@ -112,7 +110,7 @@ class OneBot11Adapter extends Service {
         )
         this.dispatch(event)
       }
-      else if (notify.type === GroupNotifyType.REQUEST_JOIN_NEED_ADMINI_STRATOR_PASS && notify.status === GroupNotifyStatus.KUNHANDLE) {
+      else if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
         this.ctx.logger.info('有加群请求')
         const requestUin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
         const event = new OB11GroupRequestEvent(
@@ -123,7 +121,7 @@ class OneBot11Adapter extends Service {
         )
         this.dispatch(event)
       }
-      else if (notify.type === GroupNotifyType.INVITED_BY_MEMBER && notify.status === GroupNotifyStatus.KUNHANDLE) {
+      else if (notify.type === GroupNotifyType.InvitedByMember && notify.status === GroupNotifyStatus.Unhandle) {
         this.ctx.logger.info('收到邀请我加群通知')
         const userId = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
         const event = new OB11GroupRequestEvent(
@@ -136,7 +134,7 @@ class OneBot11Adapter extends Service {
         )
         this.dispatch(event)
       }
-      else if (notify.type === GroupNotifyType.INVITED_NEED_ADMINI_STRATOR_PASS && notify.status === GroupNotifyStatus.KUNHANDLE) {
+      else if (notify.type === GroupNotifyType.InvitedNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
         this.ctx.logger.info('收到群员邀请加群通知')
         const userId = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
         const event = new OB11GroupRequestEvent(
@@ -144,6 +142,20 @@ class OneBot11Adapter extends Service {
           parseInt(userId) || 0,
           flag,
           notify.postscript
+        )
+        this.dispatch(event)
+      }
+      else if ([
+        GroupNotifyType.SetAdmin,
+        GroupNotifyType.CancelAdminNotifyCanceled,
+        GroupNotifyType.CancelAdminNotifyAdmin
+      ].includes(notify.type)) {
+        this.ctx.logger.info('收到管理员变动通知')
+        const uin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
+        const event = new OB11GroupAdminNoticeEvent(
+          notify.type === GroupNotifyType.SetAdmin ? 'set' : 'unset',
+          parseInt(notify.group.groupCode),
+          parseInt(uin),
         )
         this.dispatch(event)
       }
@@ -306,29 +318,6 @@ class OneBot11Adapter extends Service {
     })
   }
 
-  private async handleGroupMemberInfoUpdated(groupCode: string, members: GroupMember[]) {
-    for (const member of members) {
-      const existMember = await this.ctx.ntGroupApi.getGroupMember(groupCode, member.uin)
-      if (existMember) {
-        if (member.cardName !== existMember.cardName) {
-          this.ctx.logger.info('群成员名片变动', `${groupCode}: ${existMember.uin}`, existMember.cardName, '->', member.cardName)
-          this.dispatch(
-            new OB11GroupCardEvent(parseInt(groupCode), parseInt(member.uin), member.cardName, existMember.cardName),
-          )
-        } else if (member.role !== existMember.role) {
-          this.ctx.logger.info('有管理员变动通知')
-          const groupAdminNoticeEvent = new OB11GroupAdminNoticeEvent(
-            member.role == GroupMemberRole.admin ? 'set' : 'unset',
-            parseInt(groupCode),
-            parseInt(member.uin)
-          )
-          this.dispatch(groupAdminNoticeEvent)
-        }
-        Object.assign(existMember, member)
-      }
-    }
-  }
-
   public start() {
     if (this.config.enableWs) {
       this.ob11WebSocket.start()
@@ -342,7 +331,7 @@ class OneBot11Adapter extends Service {
     if (this.config.enableHttpPost) {
       this.ob11HttpPost.start()
     }
-    this.ctx.on('llonebot/config-updated', input => {
+    this.ctx.on('llob/config-updated', input => {
       this.handleConfigUpdated(input)
     })
     this.ctx.on('nt/message-created', input => {
@@ -359,9 +348,6 @@ class OneBot11Adapter extends Service {
     })
     this.ctx.on('nt/friend-request', input => {
       this.handleFriendRequest(input)
-    })
-    this.ctx.on('nt/group-member-info-updated', input => {
-      this.handleGroupMemberInfoUpdated(input.groupCode, input.members)
     })
     this.ctx.on('nt/system-message-created', input => {
       const sysMsg = SysMsg.SystemMessage.decode(input)
@@ -385,7 +371,6 @@ namespace OneBot11Adapter {
     token: string
     debug: boolean
     reportSelfMessage: boolean
-    msgCacheExpire: number
     musicSignUrl?: string
     enableLocalFile2Url: boolean
     ffmpeg?: string

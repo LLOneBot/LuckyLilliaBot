@@ -1,4 +1,5 @@
 export interface OB11Config {
+  enable: boolean
   httpPort: number
   httpHosts: string[]
   httpSecret?: string
@@ -18,13 +19,15 @@ export interface OB11Config {
   listenLocalhost: boolean
 }
 
-export interface CheckVersion {
-  result: boolean
-  version: string
+export interface SatoriConfig {
+  enable: boolean
+  listen: string
+  port: number
+  token: string
 }
 
 export interface Config {
-  enableLLOB: boolean
+  satori: SatoriConfig
   ob11: OB11Config
   token?: string
   heartInterval: number // ms
@@ -45,6 +48,13 @@ export interface Config {
   hosts?: string[]
   /** @deprecated */
   wsPort?: string
+  /** @deprecated */
+  enableLLOB?: boolean
+}
+
+export interface CheckVersion {
+  result: boolean
+  version: string
 }
 
 export interface LLOneBotError {
