@@ -6,7 +6,7 @@ const manifest = {
   type: 'extension',
   name: 'LLOneBot',
   slug: 'LLOneBot',
-  description: '实现 OneBot 11 协议，用于 QQ 机器人开发',
+  description: '实现 OneBot 11 和 Satori 协议，用于 QQ 机器人开发',
   version,
   icon: './icon.webp',
   authors: [
