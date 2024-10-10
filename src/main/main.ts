@@ -18,7 +18,7 @@ import {
   CHANNEL_UPDATE,
   CHANNEL_SET_CONFIG_CONFIRMED
 } from '../common/channels'
-import { hookNTQQApiCall, hookNTQQApiReceive } from '../ntqqapi/hook'
+import { startHook } from '../ntqqapi/hook'
 import { checkNewVersion, upgradeLLOneBot } from '../common/utils/upgrade'
 import { getConfigUtil } from '../common/config'
 import { checkFfmpeg } from '../common/utils/video'
@@ -217,23 +217,11 @@ function onLoad() {
 
 // 创建窗口时触发
 function onBrowserWindowCreated(window: BrowserWindow) {
-  if (![2, 4, 6].includes(window.id)) {
-    return
-  }
-  if (window.id === 2) {
-    mainWindow = window
-  }
-  //log('window create', window.webContents.getURL().toString())
-  try {
-    hookNTQQApiCall(window, window.id !== 2)
-    hookNTQQApiReceive(window, window.id !== 2)
-  } catch (e) {
-    log('LLOneBot hook error: ', String(e))
-  }
 }
 
 try {
   onLoad()
+  startHook()
 } catch (e) {
   console.log(e)
 }

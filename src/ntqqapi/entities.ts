@@ -16,7 +16,7 @@ import {
   SendTextElement,
   SendVideoElement,
 } from './types'
-import { stat, writeFile, copyFile, unlink } from 'node:fs/promises'
+import { stat, writeFile, copyFile, unlink, access } from 'node:fs/promises'
 import { calculateFileMD5 } from '../common/utils/file'
 import { defaultVideoThumb, getVideoInfo } from '../common/utils/video'
 import { encodeSilk } from '../common/utils/audio'
@@ -115,25 +115,17 @@ export namespace SendElement {
   }
 
   export async function video(ctx: Context, filePath: string, fileName = '', diyThumbPath = ''): Promise<SendVideoElement> {
-    try {
-      await stat(filePath)
-    } catch (e) {
-      throw `文件${filePath}异常，不存在`
-    }
-    ctx.logger.info('复制视频到QQ目录', filePath)
+    await access(filePath)
     const { fileName: _fileName, path, fileSize, md5 } = await ctx.ntFileApi.uploadFile(filePath, ElementType.Video)
 
-    ctx.logger.info('复制视频到QQ目录完成', path)
     if (fileSize === 0) {
-      throw '文件异常，大小为0'
+      throw new Error('文件异常，大小为 0')
     }
-    const maxMB = 100;
+    const maxMB = 100
     if (fileSize > 1024 * 1024 * maxMB) {
-      throw `视频过大，最大支持${maxMB}MB，当前文件大小${fileSize}B`
+      throw new Error(`视频过大，最大支持${maxMB}MB，当前文件大小${fileSize}B`)
     }
-    let thumbDir = path.replace(`${pathLib.sep}Ori${pathLib.sep}`, `${pathLib.sep}Thumb${pathLib.sep}`)
-    thumbDir = pathLib.dirname(thumbDir)
-    // log("thumb 目录", thumb)
+    const thumbDir = pathLib.dirname(path.replaceAll('\\', '/').replace(`/Ori/`, `/Thumb/`))
     let videoInfo = {
       width: 1920,
       height: 1080,
@@ -194,7 +186,6 @@ export namespace SendElement {
     const _thumbPath = await createThumb
     ctx.logger.info('生成视频缩略图', _thumbPath)
     const thumbSize = (await stat(_thumbPath)).size
-    // log("生成缩略图", _thumbPath)
     thumbPath.set(0, _thumbPath)
     const thumbMd5 = await calculateFileMD5(_thumbPath)
     const element: SendVideoElement = {

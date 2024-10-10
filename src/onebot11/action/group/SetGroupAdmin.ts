@@ -25,7 +25,7 @@ export default class SetGroupAdmin extends BaseAction<Payload, null> {
     await this.ctx.ntGroupApi.setMemberRole(
       groupCode,
       uid,
-      payload.enable ? GroupMemberRole.admin : GroupMemberRole.normal
+      payload.enable ? GroupMemberRole.Admin : GroupMemberRole.Normal
     )
     return null
   }

@@ -123,8 +123,8 @@ export function invoke<
     const apiArgs = [method, ...args]
     const callbackId = randomUUID()
     const timeoutId = setTimeout(() => {
-      log(`ntqq api timeout ${channel}, ${eventName}, ${method}`, apiArgs)
-      reject(`ntqq api timeout ${channel}, ${eventName}, ${method}, ${apiArgs}`)
+      log(`ntqq api timeout ${channel}, ${eventName}, ${method}`, args)
+      reject(`ntqq api timeout ${channel}, ${eventName}, ${method}, ${JSON.stringify(args)}`)
     }, timeout)
 
     if (!options.cbCmd) {

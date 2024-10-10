@@ -56,7 +56,7 @@ export class SatoriServer {
 
     const { listen, port } = this.config
     this.httpServer = this.express.listen(port, listen, () => {
-      this.ctx.logger.info(`HTTP server started ${listen}:${port}`)
+      this.ctx.logger.info(`server started ${listen}:${port}`)
     })
     this.wsServer = new WebSocketServer({
       server: this.httpServer
@@ -65,7 +65,7 @@ export class SatoriServer {
     this.wsServer.on('connection', (socket, req) => {
       const url = req.url?.split('?').shift()
       if (!['/v1/events', '/v1/events/'].includes(url!)) {
-        return socket.close()
+        return socket.close(1008, 'invalid address')
       }
 
       socket.addEventListener('message', async (event) => {

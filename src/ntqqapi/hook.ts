@@ -1,8 +1,7 @@
-import type { BrowserWindow } from 'electron'
-import { NTClass, NTMethod } from './ntcall'
+import { NTMethod } from './ntcall'
 import { log } from '@/common/utils'
 import { randomUUID } from 'node:crypto'
-import { Dict } from 'cosmokit'
+import { ipcMain } from 'electron'
 
 export const hookApiCallbacks: Record<string, (res: any) => void> = {}
 
@@ -28,19 +27,6 @@ export enum ReceiveCmdS {
   MEDIA_UPLOAD_COMPLETE = 'nodeIKernelMsgListener/onRichMediaUploadComplete',
 }
 
-type NTReturnData = [
-  {
-    type: 'request'
-    eventName: NTClass
-    callbackId?: string
-  },
-  {
-    cmdName: ReceiveCmdS
-    cmdType: 'event'
-    payload: unknown
-  }[]
-]
-
 const logHook = false
 
 const receiveHooks: Array<{
@@ -54,90 +40,62 @@ const callHooks: Array<{
   hookFunc: (callParams: unknown[]) => void | Promise<void>
 }> = []
 
-export function hookNTQQApiReceive(window: BrowserWindow, onlyLog: boolean) {
-  window.webContents.send = new Proxy(window.webContents.send, {
-    apply(target, thisArg, args: [channel: string, ...args: NTReturnData]) {
-      try {
-        if (logHook && !args[1]?.eventName?.startsWith('ns-LoggerApi')) {
-          log('received ntqq api message', args)
-        }
-      } catch { }
-      if (!onlyLog) {
-        if (args[2] instanceof Array) {
-          for (const receiveData of args[2]) {
-            const ntMethodName = receiveData.cmdName
-            for (const hook of receiveHooks) {
-              if (hook.method.includes(ntMethodName)) {
-                Promise.resolve(hook.hookFunc(receiveData.payload))
+export function startHook() {
+  const senderExclude = Symbol()
+
+  ipcMain.emit = new Proxy(ipcMain.emit, {
+    apply(target, thisArg, args: [eventName: string, ...args: any]) {
+      if (args[2]?.eventName.startsWith('ns-LoggerApi')) {
+        return target.apply(thisArg, args)
+      }
+      if (logHook) {
+        log('request', args)
+      }
+
+      const event = args[1]
+      if (event.sender && !event.sender[senderExclude]) {
+        event.sender[senderExclude] = true
+        event.sender.send = new Proxy(event.sender.send, {
+          apply(target, thisArg, args: any[]) {
+            if (args[1].eventName?.startsWith('ns-LoggerApi')) {
+              return target.apply(thisArg, args)
+            }
+            if (logHook) {
+              log('received', args)
+            }
+
+            const callbackId = args[1].callbackId
+            if (callbackId) {
+              if (hookApiCallbacks[callbackId]) {
+                Promise.resolve(hookApiCallbacks[callbackId](args[2]))
+                delete hookApiCallbacks[callbackId]
+              }
+            } else if (args[2]) {
+              for (const receiveData of args[2]) {
+                for (const hook of receiveHooks) {
+                  if (hook.method.includes(receiveData.cmdName)) {
+                    Promise.resolve(hook.hookFunc(receiveData.payload))
+                  }
+                }
               }
             }
+            return target.apply(thisArg, args)
           }
-        }
-        if (args[1]?.callbackId) {
-          const callbackId = args[1].callbackId
-          if (hookApiCallbacks[callbackId]) {
-            Promise.resolve(hookApiCallbacks[callbackId](args[2]))
-            delete hookApiCallbacks[callbackId]
+        })
+      }
+
+      if (args[3]?.length) {
+        const method = args[3][0]
+        const callParams = args[3].slice(1)
+        for (const hook of callHooks) {
+          if (hook.method.includes(method)) {
+            Promise.resolve(hook.hookFunc(callParams))
           }
         }
       }
       return target.apply(thisArg, args)
-    },
+    }
   })
-}
-
-export function hookNTQQApiCall(window: BrowserWindow, onlyLog: boolean) {
-  const webContents = window.webContents as Dict
-  const ipc_message_proxy = webContents._events['-ipc-message']?.[0] || webContents._events['-ipc-message']
-
-  const proxyIpcMsg = new Proxy(ipc_message_proxy, {
-    apply(target, thisArg, args) {
-      const isLogger = args[3]?.[0]?.eventName?.startsWith('ns-LoggerApi')
-      if (!isLogger) {
-        try {
-          logHook && log('call NTQQ api', args)
-        } catch (e) { }
-        if (!onlyLog) {
-          try {
-            const _args: unknown[] = args[3][1]
-            const cmdName = _args[0] as NTMethod
-            const callParams = _args.slice(1)
-            callHooks.forEach((hook) => {
-              if (hook.method.includes(cmdName)) {
-                Promise.resolve(hook.hookFunc(callParams))
-              }
-            })
-          } catch { }
-        }
-      }
-      return target.apply(thisArg, args)
-    },
-  })
-  if (webContents._events['-ipc-message']?.[0]) {
-    webContents._events['-ipc-message'][0] = proxyIpcMsg
-  } else {
-    webContents._events['-ipc-message'] = proxyIpcMsg
-  }
-
-  /*const ipc_invoke_proxy = webContents._events['-ipc-invoke']?.[0] || webContents._events['-ipc-invoke']
-  const proxyIpcInvoke = new Proxy(ipc_invoke_proxy, {
-    apply(target, thisArg, args) {
-      //HOOK_LOG && log('call NTQQ invoke api', thisArg, args)
-      args[0]['_replyChannel']['sendReply'] = new Proxy(args[0]['_replyChannel']['sendReply'], {
-        apply(sendtarget, sendthisArg, sendargs) {
-          sendtarget.apply(sendthisArg, sendargs)
-        },
-      })
-      const ret = target.apply(thisArg, args)
-      //HOOK_LOG && log('call NTQQ invoke api return', ret)
-      return ret
-    },
-  })
-  if (webContents._events['-ipc-invoke']?.[0]) {
-    webContents._events['-ipc-invoke'][0] = proxyIpcInvoke
-  } else {
-    webContents._events['-ipc-invoke'] = proxyIpcInvoke
-  }*/
 }
 
 export function registerReceiveHook<PayloadType>(

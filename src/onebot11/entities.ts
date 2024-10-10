@@ -647,21 +647,21 @@ export namespace OB11Entities {
     return raw.map(friendV2)
   }
 
-  export function groupMemberRole(role: number): OB11GroupMemberRole | undefined {
+  export function groupMemberRole(role: number): OB11GroupMemberRole {
     return {
-      4: OB11GroupMemberRole.owner,
-      3: OB11GroupMemberRole.admin,
-      2: OB11GroupMemberRole.member,
-    }[role]
+      4: OB11GroupMemberRole.Owner,
+      3: OB11GroupMemberRole.Admin,
+      2: OB11GroupMemberRole.Member,
+    }[role] ?? OB11GroupMemberRole.Member
   }
 
   export function sex(sex: Sex): OB11UserSex {
     const sexMap = {
-      [Sex.male]: OB11UserSex.male,
-      [Sex.female]: OB11UserSex.female,
-      [Sex.unknown]: OB11UserSex.unknown,
+      [Sex.male]: OB11UserSex.Male,
+      [Sex.female]: OB11UserSex.Female,
+      [Sex.unknown]: OB11UserSex.Unknown,
     }
-    return sexMap[sex] || OB11UserSex.unknown
+    return sexMap[sex] || OB11UserSex.Unknown
   }
 
   export function groupMember(group_id: string, member: GroupMember): OB11GroupMember {
@@ -670,20 +670,20 @@ export namespace OB11Entities {
       user_id: parseInt(member.uin),
       nickname: member.nick,
       card: member.cardName,
-      sex: sex(member.sex!),
+      sex: OB11UserSex.Unknown,
       age: 0,
       area: '',
       level: String(member.memberLevel ?? 0),
-      qq_level: (member.qqLevel && calcQQLevel(member.qqLevel)) || 0,
+      qq_level: 0,
       join_time: member.joinTime,
       last_sent_time: member.lastSpeakTime,
-      title_expire_time: 0,
+      title_expire_time: +member.specialTitleExpireTime,
       unfriendly: false,
       card_changeable: true,
       is_robot: member.isRobot,
       shut_up_timestamp: member.shutUpTime,
       role: groupMemberRole(member.role),
-      title: member.memberSpecialTitle || '',
+      title: member.memberSpecialTitle,
     }
   }
 

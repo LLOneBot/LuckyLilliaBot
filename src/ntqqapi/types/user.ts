@@ -67,6 +67,7 @@ export interface User {
   recommendImgFlag?: number
   disableEmojiShortCuts?: number
   pendantId?: string
+  age?: number
 }
 
 export interface SelfInfo extends User {

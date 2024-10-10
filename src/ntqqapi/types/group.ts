@@ -1,5 +1,3 @@
-import { QQLevel, Sex } from './user'
-
 export enum GroupListUpdateType {
   REFRESHALL,
   GETALL,
@@ -35,36 +33,54 @@ export interface Group {
     memberUin: string
     memberUid: string
   }
-  members: GroupMember[] // 原始数据是没有这个的，为了方便自己加了这个字段
   createTime: string
 }
 
 export enum GroupMemberRole {
-  normal = 2,
-  admin = 3,
-  owner = 4,
+  Normal = 2,
+  Admin = 3,
+  Owner = 4,
 }
 
 export interface GroupMember {
-  memberSpecialTitle?: string
-  avatarPath: string
-  cardName: string
-  cardType: number
-  isDelete: boolean
-  nick: string
+  uid: string
   qid: string
+  uin: string
+  nick: string
   remark: string
-  role: GroupMemberRole // 群主:4, 管理员:3，群员:2
-  shutUpTime: number // 禁言时间，单位是什么暂时不清楚
-  uid: string // 加密的字符串
-  uin: string // QQ号
+  cardType: number
+  cardName: string
+  role: GroupMemberRole
+  avatarPath: string
+  shutUpTime: number
+  isDelete: boolean
+  isSpecialConcerned: boolean
+  isSpecialShield: boolean
   isRobot: boolean
-  sex?: Sex
-  qqLevel?: QQLevel
-  isChangeRole: boolean
+  groupHonor: Uint8Array
+  memberRealLevel: number
+  memberLevel: number
+  globalGroupLevel: number
+  globalGroupPoint: number
+  memberTitleId: number
+  memberSpecialTitle: string
+  specialTitleExpireTime: string
+  userShowFlag: number
+  userShowFlagNew: number
+  richFlag: number
+  mssVipType: number
+  bigClubLevel: number
+  bigClubFlag: number
+  autoRemark: string
+  creditLevel: number
   joinTime: number
   lastSpeakTime: number
-  memberLevel: number
+  memberFlag: number
+  memberFlagExt: number
+  memberMobileFlag: number
+  memberFlagExt2: number
+  isSpecialShielded: boolean
+  cardNameId: number
 }
 
 export interface PublishGroupBulletinReq {

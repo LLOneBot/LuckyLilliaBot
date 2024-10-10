@@ -95,4 +95,6 @@ export interface NodeIKernelMsgService {
   getMultiMsg(...args: unknown[]): Promise<GeneralCallResult & { msgList: RawMessage[] }>
 
   getTempChatInfo(chatType: number, uid: string): Promise<TmpChatInfoApi>
+
+  sendSsoCmdReqByContend(ssoCmd: string, content: string): Promise<GeneralCallResult & { rsp: string }>
 }

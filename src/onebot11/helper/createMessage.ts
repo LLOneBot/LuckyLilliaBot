@@ -57,7 +57,7 @@ export async function createSendElements(
                   .RemainAtAllCountForUin
                 ctx.logger.info(`群${groupCode}剩余at全体次数`, remainAtAllCount)
                 const self = await ctx.ntGroupApi.getGroupMember(groupCode, selfInfo.uid)
-                isAdmin = self?.role === GroupMemberRole.admin || self?.role === GroupMemberRole.owner
+                isAdmin = self?.role === GroupMemberRole.Admin || self?.role === GroupMemberRole.Owner
               } catch (e) {
               }
             }
@@ -67,8 +67,15 @@ export async function createSendElements(
           }
           else if (peer.chatType === ChatType.Group) {
             const uid = await ctx.ntUserApi.getUidByUin(atQQ) ?? ''
-            const atNmae = sendMsg.data?.name
-            const display = atNmae ? `@${atNmae}` : ''
+            let display = ''
+            if (sendMsg.data.name) {
+              display = `@${sendMsg.data.name}`
+            } else {
+              try {
+                const member = await ctx.ntGroupApi.getGroupMember(peer.peerUid, uid)
+                display = `@${member.cardName || member.nick}`
+              } catch { }
+            }
             sendElements.push(SendElement.at(atQQ, uid, AtType.One, display))
           }
         }
