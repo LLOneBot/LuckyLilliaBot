@@ -73,7 +73,7 @@ export class NTQQGroupApi extends Service {
         cbCmd: 'nodeIKernelGroupListener/onMemberInfoChange',
         afterFirstCmd: false,
         cmdCB: payload => payload.members.has(uid),
-        timeout: 3000
+        timeout: 2000
       }
     )
     return data.members.get(uid)!
