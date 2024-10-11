@@ -125,4 +125,6 @@ export interface NodeIKernelGroupService {
   removeGroupEssence(param: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<unknown>
 
   setHeader(args: unknown[]): Promise<GeneralCallResult>
+
+  searchMember(sceneId: string, keyword: string): Promise<void>
 }

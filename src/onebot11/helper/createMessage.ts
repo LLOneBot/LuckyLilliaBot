@@ -66,15 +66,10 @@ export async function createSendElements(
             }
           }
           else if (peer.chatType === ChatType.Group) {
-            const uid = await ctx.ntUserApi.getUidByUin(atQQ) ?? ''
+            const uid = await ctx.ntUserApi.getUidByUin(atQQ, peer.peerUid) ?? ''
             let display = ''
             if (sendMsg.data.name) {
               display = `@${sendMsg.data.name}`
-            } else {
-              try {
-                const member = await ctx.ntGroupApi.getGroupMember(peer.peerUid, uid)
-                display = `@${member.cardName || member.nick}`
-              } catch { }
             }
             sendElements.push(SendElement.at(atQQ, uid, AtType.One, display))
           }

@@ -16,7 +16,7 @@ export class NTQQFriendApi extends Service {
 
   /** 大于或等于 26702 应使用 getBuddyV2 */
   async getFriends() {
-    const data = await invoke<{
+    const res = await invoke<{
       data: {
         categoryId: number
         categroyName: string
@@ -28,11 +28,7 @@ export class NTQQFriendApi extends Service {
       cbCmd: ReceiveCmdS.FRIENDS,
       afterFirstCmd: false
     })
-    const _friends: Friend[] = []
-    for (const item of data.data) {
-      _friends.push(...item.buddyList)
-    }
-    return _friends
+    return res.data.flatMap(e => e.buddyList)
   }
 
   async handleFriendRequest(friendUid: string, reqTime: string, accept: boolean) {

@@ -108,18 +108,23 @@ export class NTQQUserApi extends Service {
   async getUidByUinV1(uin: string, groupCode?: string) {
     let uid = (await invoke('nodeIKernelUixConvertService/getUid', [{ uins: [uin] }])).uidInfo.get(uin)
     if (!uid) {
-      const unveifyUid = (await this.getUserDetailInfoByUin(uin)).info.uid //特殊转换
-      if (unveifyUid.indexOf('*') === -1) {
-        uid = unveifyUid
-      }
-    }
-    if (!uid) {
-      const friends = await this.ctx.ntFriendApi.getFriends() //从好友列表转
+      const friends = await this.ctx.ntFriendApi.getFriends()
       uid = friends.find(item => item.uin === uin)?.uid
     }
     if (!uid && groupCode) {
-      const members = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
-      uid = Array.from(members.values()).find(e => e.uin === uin)?.uid
+      let member = await this.ctx.ntGroupApi.searchMember(groupCode, uin)
+      if (member.size === 0) {
+        await this.ctx.ntGroupApi.getGroupMembers(groupCode, 1)
+        await this.ctx.sleep(30)
+        member = await this.ctx.ntGroupApi.searchMember(groupCode, uin)
+      }
+      uid = member.values().find(e => e.uin === uin)?.uid
+    }
+    if (!uid) {
+      const unveifyUid = (await this.getUserDetailInfoByUin(uin)).info.uid
+      if (!unveifyUid.includes('*')) {
+        uid = unveifyUid
+      }
     }
     return uid
   }

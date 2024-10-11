@@ -296,4 +296,30 @@ export class NTQQGroupApi extends Service {
   async setGroupAvatar(groupCode: string, path: string) {
     return await invoke('nodeIKernelGroupService/setHeader', [{ path, groupCode }])
   }
+
+  async searchMember(groupCode: string, keyword: string) {
+    await invoke('nodeIKernelGroupListener/onSearchMemberChange', [], {
+      registerEvent: true
+    })
+    const sceneId = await invoke(NTMethod.GROUP_MEMBER_SCENE, [{
+      groupCode,
+      scene: 'groupMemberList_MainWindow'
+    }])
+    const data = await invoke<{
+      sceneId: string
+      keyword: string
+      infos: Map<string, GroupMember>
+    }>(
+      'nodeIKernelGroupService/searchMember',
+      [{ sceneId, keyword }],
+      {
+        cbCmd: 'nodeIKernelGroupListener/onSearchMemberChange',
+        cmdCB: payload => {
+          return payload.sceneId === sceneId && payload.keyword === keyword
+        },
+        afterFirstCmd: false
+      }
+    )
+    return data.infos
+  }
 }

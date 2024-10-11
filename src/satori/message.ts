@@ -175,10 +175,14 @@ export class MessageEncoder {
     if (type === 'text') {
       this.elements.push(SendElement.text(attrs.content))
     } else if (type === 'at') {
+      this.peer ??= await getPeer(this.ctx, this.channelId)
+      if (this.peer.chatType !== NT.ChatType.Group) {
+        return
+      }
       if (attrs.type === 'all') {
         this.elements.push(SendElement.at('', '', NT.AtType.All, '@全体成员'))
       } else {
-        const uid = await this.ctx.ntUserApi.getUidByUin(attrs.id) ?? ''
+        const uid = await this.ctx.ntUserApi.getUidByUin(attrs.id, this.peer.peerUid) ?? ''
         const display = attrs.name ? '@' + attrs.name : ''
         this.elements.push(SendElement.at(attrs.id, uid, NT.AtType.One, display))
       }
