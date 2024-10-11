@@ -180,19 +180,19 @@ class OneBot11Adapter extends Service {
         msg.target_id = parseInt(message.peerUin)
       }
       this.dispatch(msg)
-    }).catch(e => this.ctx.logger.error('constructMessage error: ', e.stack.toString()))
+    }).catch(e => this.ctx.logger.error('handling incoming messages', e))
 
     OB11Entities.groupEvent(this.ctx, message).then(groupEvent => {
       if (groupEvent) {
         this.dispatch(groupEvent)
       }
-    })
+    }).catch(e => this.ctx.logger.error('handling incoming group events', e))
 
     OB11Entities.privateEvent(this.ctx, message).then(privateEvent => {
       if (privateEvent) {
         this.dispatch(privateEvent)
       }
-    })
+    }).catch(e => this.ctx.logger.error('handling incoming buddy events', e))
   }
 
   private handleRecallMsg(message: RawMessage) {

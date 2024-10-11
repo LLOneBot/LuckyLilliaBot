@@ -210,13 +210,9 @@ export namespace SendElement {
 
   export async function ptt(ctx: Context, pttPath: string): Promise<SendPttElement> {
     const { converted, path: silkPath, duration } = await encodeSilk(ctx, pttPath)
-    if (!silkPath) {
-      throw '语音转换失败, 请检查语音文件是否正常'
-    }
-    // log("生成语音", silkPath, duration);
     const { md5, fileName, path, fileSize } = await ctx.ntFileApi.uploadFile(silkPath, ElementType.Ptt)
     if (fileSize === 0) {
-      throw '文件异常，大小为0'
+      throw new Error('文件异常，大小为 0')
     }
     if (converted) {
       unlink(silkPath)

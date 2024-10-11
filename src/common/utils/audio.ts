@@ -53,49 +53,44 @@ function convert(ctx: Context, input: Input, options: FFmpegOptions, outputPath?
 }
 
 export async function encodeSilk(ctx: Context, filePath: string) {
-  try {
-    const file = await fsPromise.readFile(filePath)
-    if (!isSilk(file)) {
-      ctx.logger.info(`语音文件${filePath}需要转换成silk`)
-      let result: EncodeResult
-      const allowSampleRate = [8000, 12000, 16000, 24000, 32000, 44100, 48000]
-      if (isWav(file) && allowSampleRate.includes(getWavFileInfo(file).fmt.sampleRate)) {
-        result = await encode(file, 0)
-      } else {
-        const input = await convert(ctx, filePath, {
-          output: [
-            '-ar 24000',
-            '-ac 1',
-            '-f s16le'
-          ]
-        })
-        result = await encode(input, 24000)
-      }
-      const pttPath = path.join(TEMP_DIR, randomUUID())
-      await fsPromise.writeFile(pttPath, result.data)
-      ctx.logger.info(`语音文件${filePath}转换成功!`, pttPath, `时长:`, result.duration)
-      return {
-        converted: true,
-        path: pttPath,
-        duration: result.duration / 1000,
-      }
+  const file = await fsPromise.readFile(filePath)
+  if (!isSilk(file)) {
+    ctx.logger.info(`语音文件${filePath}需要转换成silk`)
+    let result: EncodeResult
+    const allowSampleRate = [8000, 12000, 16000, 24000, 32000, 44100, 48000]
+    if (isWav(file) && allowSampleRate.includes(getWavFileInfo(file).fmt.sampleRate)) {
+      result = await encode(file, 0)
     } else {
-      const silk = file
-      let duration = 1
-      try {
-        duration = getDuration(silk) / 1000
-      } catch (e) {
-        ctx.logger.warn('获取语音文件时长失败, 默认为1秒', filePath, (e as Error).stack)
-      }
-      return {
-        converted: false,
-        path: filePath,
-        duration,
-      }
+      const input = await convert(ctx, filePath, {
+        output: [
+          '-ar 24000',
+          '-ac 1',
+          '-f s16le'
+        ]
+      })
+      result = await encode(input, 24000)
     }
-  } catch (err) {
-    ctx.logger.error('convert silk failed', (err as Error).stack)
-    return {}
+    const pttPath = path.join(TEMP_DIR, randomUUID())
+    await fsPromise.writeFile(pttPath, result.data)
+    ctx.logger.info(`语音文件${filePath}转换成功!`, pttPath, `时长:`, result.duration)
+    return {
+      converted: true,
+      path: pttPath,
+      duration: result.duration / 1000,
+    }
+  } else {
+    const silk = file
+    let duration = 1
+    try {
+      duration = getDuration(silk) / 1000
+    } catch (e) {
+      ctx.logger.warn('获取语音文件时长失败, 默认为1秒', filePath, (e as Error).stack)
+    }
+    return {
+      converted: false,
+      path: filePath,
+      duration,
+    }
   }
 }
 
