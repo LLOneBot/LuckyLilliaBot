@@ -74,6 +74,8 @@ import { GetGroupNotice } from './go-cqhttp/GetGroupNotice'
 import { GetRobotUinRange } from './llonebot/GetRobotUinRange'
 import { DeleteFriend } from './go-cqhttp/DeleteFriend'
 import { OCRImage } from './go-cqhttp/OCRImage'
+import { GroupPoke } from './llonebot/GroupPoke'
+import { FriendPoke } from './llonebot/FriendPoke'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -92,6 +94,8 @@ export function initActionMap(adapter: Adapter) {
     new FetchCustomFace(adapter),
     new SetMsgEmojiLike(adapter),
     new GetRobotUinRange(adapter),
+    new GroupPoke(adapter),
+    new FriendPoke(adapter),
     // onebot11
     new SendLike(adapter),
     new GetMsg(adapter),

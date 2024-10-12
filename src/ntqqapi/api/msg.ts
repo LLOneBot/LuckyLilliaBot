@@ -263,4 +263,8 @@ export class NTQQMsgApi extends Service {
   async getServerTime() {
     return await invoke('nodeIKernelMSFService/getServerTime', [])
   }
+
+  async fetchUnitedCommendConfig(groups: string[]) {
+    return await invoke('nodeIKernelUnitedConfigService/fetchUnitedCommendConfig', [{ groups }])
+  }
 }

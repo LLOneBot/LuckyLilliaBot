@@ -33,12 +33,13 @@ declare module 'cordis' {
 class OneBot11Adapter extends Service {
   static inject = [
     'ntMsgApi', 'ntFileApi', 'ntFileCacheApi', 'ntFriendApi',
-    'ntGroupApi', 'ntUserApi', 'ntWindowApi', 'ntWebApi', 'store'
+    'ntGroupApi', 'ntUserApi', 'ntWindowApi', 'ntWebApi',
+    'store', 'app'
   ]
-  private ob11WebSocket: OB11WebSocket
-  private ob11WebSocketReverseManager: OB11WebSocketReverseManager
-  private ob11Http: OB11Http
-  private ob11HttpPost: OB11HttpPost
+  private ob11WebSocket
+  private ob11WebSocketReverseManager
+  private ob11Http
+  private ob11HttpPost
 
   constructor(public ctx: Context, public config: OneBot11Adapter.Config) {
     super(ctx, 'onebot', true)

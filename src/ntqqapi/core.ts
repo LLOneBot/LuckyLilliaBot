@@ -19,6 +19,7 @@ import {
 import { selfInfo, llonebotError } from '../common/globalVars'
 import { version } from '../version'
 import { invoke } from './ntcall'
+import { Native } from './native/index'
 
 declare module 'cordis' {
   interface Context {
@@ -38,9 +39,11 @@ declare module 'cordis' {
 class Core extends Service {
   static inject = ['ntMsgApi', 'ntFriendApi', 'ntGroupApi', 'store']
   public startTime = 0
+  public native
 
   constructor(protected ctx: Context, public config: Core.Config) {
     super(ctx, 'app', true)
+    this.native = new Native(ctx)
   }
 
   public start() {

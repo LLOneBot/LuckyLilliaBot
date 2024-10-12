@@ -27,6 +27,8 @@ export enum ActionName {
   SendForwardMsg = 'send_forward_msg',
   SetMsgEmojiLike = 'set_msg_emoji_like',
   GetRobotUinRange = 'get_robot_uin_range',
+  GroupPoke = 'group_poke',
+  FriendPoke = 'friend_poke',
   // onebot 11
   SendLike = 'send_like',
   GetLoginInfo = 'get_login_info',
