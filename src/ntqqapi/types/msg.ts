@@ -294,6 +294,9 @@ export interface GrayTipElement {
   jsonGrayTipElement?: {
     busiId: string
     jsonStr: string
+    xmlToJsonParam?: {
+      templParam: Map<string, string>
+    }
   }
 }
 

@@ -17,7 +17,10 @@ class GetGroupMemberList extends BaseAction<Payload, OB11GroupMember[]> {
   protected async _handle(payload: Payload) {
     const groupCode = payload.group_id.toString()
     let groupMembers = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
-    if (groupMembers.size === 0) {
+    for (let i = 0; i < 5; i++) {
+      if (groupMembers.size > 0) {
+        break
+      }
       await this.ctx.sleep(100)
       groupMembers = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
     }

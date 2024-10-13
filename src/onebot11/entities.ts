@@ -548,14 +548,23 @@ export namespace OB11Entities {
         else if (grayTipElement.subElementType == GrayTipElementSubType.JSON) {
           const json = JSON.parse(grayTipElement.jsonGrayTipElement!.jsonStr)
           if (grayTipElement.jsonGrayTipElement?.busiId === '1061') {
+            const param = grayTipElement.jsonGrayTipElement.xmlToJsonParam
+            if (param) {
+              return new OB11GroupPokeEvent(
+                Number(msg.peerUid),
+                Number(param.templParam.get('uin_str1')),
+                Number(param.templParam.get('uin_str2')),
+                json.items
+              )
+            }
             const pokedetail: Dict[] = json.items
             //筛选item带有uid的元素
             const poke_uid = pokedetail.filter(item => item.uid)
             if (poke_uid.length == 2) {
               return new OB11GroupPokeEvent(
-                parseInt(msg.peerUid),
-                parseInt(await ctx.ntUserApi.getUinByUid(poke_uid[0].uid) ?? 0),
-                parseInt(await ctx.ntUserApi.getUinByUid(poke_uid[1].uid) ?? 0),
+                Number(msg.peerUid),
+                Number(await ctx.ntUserApi.getUinByUid(poke_uid[0].uid) ?? 0),
+                Number(await ctx.ntUserApi.getUinByUid(poke_uid[1].uid) ?? 0),
                 pokedetail
               )
             }
@@ -665,11 +674,13 @@ export namespace OB11Entities {
   }
 
   export function groupMember(group_id: string, member: GroupMember): OB11GroupMember {
+    const titleExpireTime = +member.specialTitleExpireTime
+    const int32Max = Math.pow(2, 31) - 1
     return {
       group_id: parseInt(group_id),
       user_id: parseInt(member.uin),
       nickname: member.nick,
-      card: member.cardName,
+      card: member.cardName || member.nick,
       sex: OB11UserSex.Unknown,
       age: 0,
       area: '',
@@ -677,7 +688,7 @@ export namespace OB11Entities {
       qq_level: 0,
       join_time: member.joinTime,
       last_sent_time: member.lastSpeakTime,
-      title_expire_time: +member.specialTitleExpireTime,
+      title_expire_time: titleExpireTime > int32Max ? 0 : titleExpireTime,
       unfriendly: false,
       card_changeable: true,
       is_robot: member.isRobot,
