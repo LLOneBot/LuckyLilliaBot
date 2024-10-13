@@ -30,12 +30,12 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
     const { count, reverseOrder } = payload
     const peer = { chatType: ChatType.Group, peerUid: payload.group_id.toString() }
     let msgList: RawMessage[]
-    if (!payload.message_seq || payload.message_seq === '0') {
+    if (!payload.message_seq || +payload.message_seq === 0) {
       msgList = (await this.ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, +count)).msgList
     } else {
       const startMsgId = (await this.ctx.store.getMsgInfoByShortId(+payload.message_seq))?.msgId
       if (!startMsgId) throw new Error(`消息${payload.message_seq}不存在`)
-      msgList = (await this.ctx.ntMsgApi.getMsgHistory(peer, startMsgId, +count)).msgList
+      msgList = (await this.ctx.ntMsgApi.getMsgHistory(peer, startMsgId, +count, true)).msgList
     }
     if (!msgList?.length) throw new Error('未找到消息')
     if (reverseOrder) msgList.reverse()
