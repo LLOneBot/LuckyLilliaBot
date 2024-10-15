@@ -423,11 +423,11 @@ export namespace OB11Entities {
       const groupElement = grayTipElement?.groupElement
       if (groupElement) {
         if (groupElement.type === TipGroupElementType.MemberIncrease) {
-          ctx.logger.info('收到群成员增加消息', groupElement)
+          /*ctx.logger.info('收到群成员增加消息', groupElement)
           const { memberUid, adminUid } = groupElement
           const memberUin = await ctx.ntUserApi.getUinByUid(memberUid)
           const operatorUin = adminUid ? await ctx.ntUserApi.getUinByUid(adminUid) : memberUin
-          return new OB11GroupIncreaseEvent(+msg.peerUid, +memberUin, +operatorUin)
+          return new OB11GroupIncreaseEvent(+msg.peerUid, +memberUin, +operatorUin)*/
         }
         else if (groupElement.type === TipGroupElementType.Ban) {
           ctx.logger.info('收到群成员禁言提示', groupElement)

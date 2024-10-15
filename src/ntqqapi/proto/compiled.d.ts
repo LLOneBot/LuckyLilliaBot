@@ -64,11 +64,8 @@ export namespace SysMsg {
     /** Properties of a SystemMessageHeader. */
     interface ISystemMessageHeader {
 
-        /** SystemMessageHeader peerNumber */
-        peerNumber?: (number|null);
-
-        /** SystemMessageHeader peerString */
-        peerString?: (string|null);
+        /** SystemMessageHeader peerUin */
+        peerUin?: (number|null);
 
         /** SystemMessageHeader uin */
         uin?: (number|null);
@@ -86,11 +83,8 @@ export namespace SysMsg {
          */
         constructor(properties?: SysMsg.ISystemMessageHeader);
 
-        /** SystemMessageHeader peerNumber. */
-        public peerNumber: number;
-
-        /** SystemMessageHeader peerString. */
-        public peerString: string;
+        /** SystemMessageHeader peerUin. */
+        public peerUin: number;
 
         /** SystemMessageHeader uin. */
         public uin: number;
@@ -160,10 +154,10 @@ export namespace SysMsg {
         public msgType: number;
 
         /** SystemMessageMsgSpec subType. */
-        public subType: number;
+        public subType?: (number|null);
 
         /** SystemMessageMsgSpec subSubType. */
-        public subSubType: number;
+        public subSubType?: (number|null);
 
         /** SystemMessageMsgSpec msgSeq. */
         public msgSeq: number;
@@ -172,7 +166,7 @@ export namespace SysMsg {
         public time: number;
 
         /** SystemMessageMsgSpec other. */
-        public other: number;
+        public other?: (number|null);
 
         /**
          * Decodes a SystemMessageMsgSpec message from the specified reader or buffer.
@@ -461,6 +455,70 @@ export namespace SysMsg {
 
         /**
          * Gets the default type url for ProfileLikeTip
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GroupMemberIncrease. */
+    interface IGroupMemberIncrease {
+
+        /** GroupMemberIncrease groupCode */
+        groupCode?: (number|null);
+
+        /** GroupMemberIncrease memberUid */
+        memberUid?: (string|null);
+
+        /** GroupMemberIncrease type */
+        type?: (number|null);
+
+        /** GroupMemberIncrease adminUid */
+        adminUid?: (string|null);
+    }
+
+    /** Represents a GroupMemberIncrease. */
+    class GroupMemberIncrease implements IGroupMemberIncrease {
+
+        /**
+         * Constructs a new GroupMemberIncrease.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: SysMsg.IGroupMemberIncrease);
+
+        /** GroupMemberIncrease groupCode. */
+        public groupCode: number;
+
+        /** GroupMemberIncrease memberUid. */
+        public memberUid: string;
+
+        /** GroupMemberIncrease type. */
+        public type: number;
+
+        /** GroupMemberIncrease adminUid. */
+        public adminUid: string;
+
+        /**
+         * Decodes a GroupMemberIncrease message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GroupMemberIncrease
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): SysMsg.GroupMemberIncrease;
+
+        /**
+         * Decodes a GroupMemberIncrease message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns GroupMemberIncrease
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): SysMsg.GroupMemberIncrease;
+
+        /**
+         * Gets the default type url for GroupMemberIncrease
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

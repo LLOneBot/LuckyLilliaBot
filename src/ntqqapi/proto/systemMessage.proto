@@ -8,23 +8,22 @@ message SystemMessage {
 }
 
 message SystemMessageHeader {
-  uint32 peerNumber = 1;
-  string peerString = 2;
+  uint32 peerUin = 1;
+  //string peerUid = 2;
   uint32 uin = 5;
   optional string uid = 6;
 }
 
 message SystemMessageMsgSpec {
   uint32 msgType = 1;
-  uint32 subType = 2;
-  uint32 subSubType = 3;
+  optional uint32 subType = 2;
+  optional uint32 subSubType = 3;
   uint32 msgSeq = 5;
   uint32 time = 6;
   //uint64 msgId = 12;
-  uint32 other = 13;
+  optional uint32 other = 13;
 }
 
 message SystemMessageBodyWrapper {
   bytes body = 2;
-  // Find the first [08], or ignore the first 7 bytes?
 }

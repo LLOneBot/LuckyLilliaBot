@@ -23,6 +23,7 @@ import { llonebotError } from '../common/globalVars'
 import { OB11GroupAdminNoticeEvent } from './event/notice/OB11GroupAdminNoticeEvent'
 import { OB11ProfileLikeEvent } from './event/notice/OB11ProfileLikeEvent'
 import { SysMsg } from '@/ntqqapi/proto/compiled'
+import { OB11GroupIncreaseEvent } from './event/notice/OB11GroupIncreaseEvent'
 
 declare module 'cordis' {
   interface Context {
@@ -349,7 +350,7 @@ class OneBot11Adapter extends Service {
     this.ctx.on('nt/friend-request', input => {
       this.handleFriendRequest(input)
     })
-    this.ctx.on('nt/system-message-created', input => {
+    this.ctx.on('nt/system-message-created', async input => {
       const sysMsg = SysMsg.SystemMessage.decode(input)
       const { msgType, subType, subSubType } = sysMsg.msgSpec[0] ?? {}
       if (msgType === 528 && subType === 39 && subSubType === 39) {
@@ -358,8 +359,16 @@ class OneBot11Adapter extends Service {
         const detail = tip.content?.msg?.detail
         if (!detail) return
         const [times] = detail.txt?.match(/\d+/) ?? ['0']
-        const profileLikeEvent = new OB11ProfileLikeEvent(detail.uin!, detail.nickname!, +times)
-        this.dispatch(profileLikeEvent)
+        const event = new OB11ProfileLikeEvent(detail.uin!, detail.nickname!, +times)
+        this.dispatch(event)
+      } else if (msgType === 33) {
+        const tip = SysMsg.GroupMemberIncrease.decode(sysMsg.bodyWrapper!.body!)
+        if (tip.type !== 130) return
+        this.ctx.logger.info('群成员增加', tip)
+        const memberUin = await this.ctx.ntUserApi.getUinByUid(tip.memberUid)
+        const operatorUin = await this.ctx.ntUserApi.getUinByUid(tip.adminUid)
+        const event = new OB11GroupIncreaseEvent(tip.groupCode, +memberUin, +operatorUin)
+        this.dispatch(event)
       }
     })
   }

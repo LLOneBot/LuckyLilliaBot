@@ -150,8 +150,7 @@ export const SysMsg = $root.SysMsg = (() => {
          * Properties of a SystemMessageHeader.
          * @memberof SysMsg
          * @interface ISystemMessageHeader
-         * @property {number|null} [peerNumber] SystemMessageHeader peerNumber
-         * @property {string|null} [peerString] SystemMessageHeader peerString
+         * @property {number|null} [peerUin] SystemMessageHeader peerUin
          * @property {number|null} [uin] SystemMessageHeader uin
          * @property {string|null} [uid] SystemMessageHeader uid
          */
@@ -172,20 +171,12 @@ export const SysMsg = $root.SysMsg = (() => {
         }
 
         /**
-         * SystemMessageHeader peerNumber.
-         * @member {number} peerNumber
+         * SystemMessageHeader peerUin.
+         * @member {number} peerUin
          * @memberof SysMsg.SystemMessageHeader
          * @instance
          */
-        SystemMessageHeader.prototype.peerNumber = 0;
-
-        /**
-         * SystemMessageHeader peerString.
-         * @member {string} peerString
-         * @memberof SysMsg.SystemMessageHeader
-         * @instance
-         */
-        SystemMessageHeader.prototype.peerString = "";
+        SystemMessageHeader.prototype.peerUin = 0;
 
         /**
          * SystemMessageHeader uin.
@@ -231,11 +222,7 @@ export const SysMsg = $root.SysMsg = (() => {
                 let tag = reader.uint32();
                 switch (tag >>> 3) {
                 case 1: {
-                        message.peerNumber = reader.uint32();
-                        break;
-                    }
-                case 2: {
-                        message.peerString = reader.string();
+                        message.peerUin = reader.uint32();
                         break;
                     }
                 case 5: {
@@ -327,19 +314,19 @@ export const SysMsg = $root.SysMsg = (() => {
 
         /**
          * SystemMessageMsgSpec subType.
-         * @member {number} subType
+         * @member {number|null|undefined} subType
          * @memberof SysMsg.SystemMessageMsgSpec
          * @instance
          */
-        SystemMessageMsgSpec.prototype.subType = 0;
+        SystemMessageMsgSpec.prototype.subType = null;
 
         /**
          * SystemMessageMsgSpec subSubType.
-         * @member {number} subSubType
+         * @member {number|null|undefined} subSubType
          * @memberof SysMsg.SystemMessageMsgSpec
          * @instance
          */
-        SystemMessageMsgSpec.prototype.subSubType = 0;
+        SystemMessageMsgSpec.prototype.subSubType = null;
 
         /**
          * SystemMessageMsgSpec msgSeq.
@@ -359,11 +346,32 @@ export const SysMsg = $root.SysMsg = (() => {
 
         /**
          * SystemMessageMsgSpec other.
-         * @member {number} other
+         * @member {number|null|undefined} other
          * @memberof SysMsg.SystemMessageMsgSpec
          * @instance
          */
-        SystemMessageMsgSpec.prototype.other = 0;
+        SystemMessageMsgSpec.prototype.other = null;
+
+        // OneOf field names bound to virtual getters and setters
+        let $oneOfFields;
+
+        // Virtual OneOf for proto3 optional field
+        Object.defineProperty(SystemMessageMsgSpec.prototype, "_subType", {
+            get: $util.oneOfGetter($oneOfFields = ["subType"]),
+            set: $util.oneOfSetter($oneOfFields)
+        });
+
+        // Virtual OneOf for proto3 optional field
+        Object.defineProperty(SystemMessageMsgSpec.prototype, "_subSubType", {
+            get: $util.oneOfGetter($oneOfFields = ["subSubType"]),
+            set: $util.oneOfSetter($oneOfFields)
+        });
+
+        // Virtual OneOf for proto3 optional field
+        Object.defineProperty(SystemMessageMsgSpec.prototype, "_other", {
+            get: $util.oneOfGetter($oneOfFields = ["other"]),
+            set: $util.oneOfSetter($oneOfFields)
+        });
 
         /**
          * Decodes a SystemMessageMsgSpec message from the specified reader or buffer.
@@ -1005,6 +1013,141 @@ export const SysMsg = $root.SysMsg = (() => {
         };
 
         return ProfileLikeTip;
+    })();
+
+    SysMsg.GroupMemberIncrease = (function() {
+
+        /**
+         * Properties of a GroupMemberIncrease.
+         * @memberof SysMsg
+         * @interface IGroupMemberIncrease
+         * @property {number|null} [groupCode] GroupMemberIncrease groupCode
+         * @property {string|null} [memberUid] GroupMemberIncrease memberUid
+         * @property {number|null} [type] GroupMemberIncrease type
+         * @property {string|null} [adminUid] GroupMemberIncrease adminUid
+         */
+
+        /**
+         * Constructs a new GroupMemberIncrease.
+         * @memberof SysMsg
+         * @classdesc Represents a GroupMemberIncrease.
+         * @implements IGroupMemberIncrease
+         * @constructor
+         * @param {SysMsg.IGroupMemberIncrease=} [properties] Properties to set
+         */
+        function GroupMemberIncrease(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GroupMemberIncrease groupCode.
+         * @member {number} groupCode
+         * @memberof SysMsg.GroupMemberIncrease
+         * @instance
+         */
+        GroupMemberIncrease.prototype.groupCode = 0;
+
+        /**
+         * GroupMemberIncrease memberUid.
+         * @member {string} memberUid
+         * @memberof SysMsg.GroupMemberIncrease
+         * @instance
+         */
+        GroupMemberIncrease.prototype.memberUid = "";
+
+        /**
+         * GroupMemberIncrease type.
+         * @member {number} type
+         * @memberof SysMsg.GroupMemberIncrease
+         * @instance
+         */
+        GroupMemberIncrease.prototype.type = 0;
+
+        /**
+         * GroupMemberIncrease adminUid.
+         * @member {string} adminUid
+         * @memberof SysMsg.GroupMemberIncrease
+         * @instance
+         */
+        GroupMemberIncrease.prototype.adminUid = "";
+
+        /**
+         * Decodes a GroupMemberIncrease message from the specified reader or buffer.
+         * @function decode
+         * @memberof SysMsg.GroupMemberIncrease
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {SysMsg.GroupMemberIncrease} GroupMemberIncrease
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GroupMemberIncrease.decode = function decode(reader, length) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.SysMsg.GroupMemberIncrease();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                switch (tag >>> 3) {
+                case 1: {
+                        message.groupCode = reader.uint32();
+                        break;
+                    }
+                case 3: {
+                        message.memberUid = reader.string();
+                        break;
+                    }
+                case 4: {
+                        message.type = reader.uint32();
+                        break;
+                    }
+                case 5: {
+                        message.adminUid = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a GroupMemberIncrease message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof SysMsg.GroupMemberIncrease
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {SysMsg.GroupMemberIncrease} GroupMemberIncrease
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GroupMemberIncrease.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Gets the default type url for GroupMemberIncrease
+         * @function getTypeUrl
+         * @memberof SysMsg.GroupMemberIncrease
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GroupMemberIncrease.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/SysMsg.GroupMemberIncrease";
+        };
+
+        return GroupMemberIncrease;
     })();
 
     return SysMsg;

@@ -12,7 +12,7 @@
     "deploy-win": "cmd /c \"xcopy /C /S /Y dist\\* %LITELOADERQQNT_PROFILE%\\plugins\\LLOneBot\\\"",
     "format": "prettier -cw .",
     "check": "tsc",
-    "compile:proto": "pbjs --no-create --no-convert --no-encode --no-verify -t static-module -w es6 -p src/ntqqapi/proto -o src/ntqqapi/proto/compiled.js systemMessage.proto profileLikeTip.proto && pbts -o src/ntqqapi/proto/compiled.d.ts src/ntqqapi/proto/compiled.js"
+    "compile:proto": "pbjs --no-create --no-convert --no-encode --no-verify -t static-module -w es6 -p src/ntqqapi/proto -o src/ntqqapi/proto/compiled.js systemMessage.proto profileLikeTip.proto groupMemberIncrease.proto && pbts -o src/ntqqapi/proto/compiled.d.ts src/ntqqapi/proto/compiled.js"
   },
   "author": "",
   "license": "MIT",
@@ -43,7 +43,7 @@
     "electron-vite": "^2.3.0",
     "protobufjs-cli": "^1.1.3",
     "typescript": "^5.6.3",
-    "vite": "^5.4.8",
+    "vite": "^5.4.9",
     "vite-plugin-cp": "^4.0.8"
   },
   "packageManager": "yarn@4.5.0"
