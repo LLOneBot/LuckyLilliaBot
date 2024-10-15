@@ -25,9 +25,6 @@ async function onSettingWindowCreated(view: Element) {
       } else {
         Object.assign(config, { [key]: value })
       }
-      if (!['heartInterval', 'token', 'ffmpeg'].includes(key)) {
-        window.llonebot.setConfig(false, config)
-      }
     }
   }
 

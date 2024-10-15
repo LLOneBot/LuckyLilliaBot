@@ -134,11 +134,13 @@ namespace OB11Http {
 
 class OB11HttpPost {
   private disposeInterval?: () => void
+  private activated = false
 
   constructor(protected ctx: Context, public config: OB11HttpPost.Config) {
   }
 
   public start() {
+    this.activated = true
     if (this.config.enableHttpHeart && !this.disposeInterval) {
       this.disposeInterval = this.ctx.setInterval(() => {
         // ws的心跳是ws自己维护的
@@ -148,10 +150,14 @@ class OB11HttpPost {
   }
 
   public stop() {
+    this.activated = false
     this.disposeInterval?.()
   }
 
   public async emitEvent(event: OB11BaseEvent | OB11Message) {
+    if (!this.activated) {
+      return
+    }
     const msgStr = JSON.stringify(event)
     const headers: Dict = {
       'Content-Type': 'application/json',

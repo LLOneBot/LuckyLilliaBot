@@ -99,6 +99,15 @@ export class SatoriServer {
   }
 
   public async stop() {
+    if (this.wsClients.length > 0) {
+      for (const socket of this.wsClients) {
+        try {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.close(1000)
+          }
+        } catch { }
+      }
+    }
     if (this.wsServer) {
       const close = promisify(this.wsServer.close)
       await close.call(this.wsServer)

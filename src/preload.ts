@@ -8,9 +8,7 @@ import {
   CHANNEL_SET_CONFIG,
   CHANNEL_UPDATE,
 } from './common/channels'
-
-const { contextBridge } = require('electron')
-const { ipcRenderer } = require('electron')
+import { contextBridge, ipcRenderer } from 'electron'
 
 const llonebot = {
   log: (data: unknown) => {
