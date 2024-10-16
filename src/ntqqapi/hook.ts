@@ -29,11 +29,10 @@ export enum ReceiveCmdS {
 
 const logHook = false
 
-const receiveHooks: Array<{
+const receiveHooks: Map<string, {
   method: ReceiveCmdS[]
   hookFunc: (payload: any) => void | Promise<void>
-  id: string
-}> = []
+}> = new Map()
 
 const callHooks: Array<{
   method: NTMethod[]
@@ -72,7 +71,7 @@ export function startHook() {
               }
             } else if (args[2]) {
               for (const receiveData of args[2]) {
-                for (const hook of receiveHooks) {
+                for (const hook of receiveHooks.values()) {
                   if (hook.method.includes(receiveData.cmdName)) {
                     Promise.resolve(hook.hookFunc(receiveData.payload))
                   }
@@ -106,10 +105,9 @@ export function registerReceiveHook<PayloadType>(
   if (!Array.isArray(method)) {
     method = [method]
   }
-  receiveHooks.push({
+  receiveHooks.set(id, {
     method: method as ReceiveCmdS[],
     hookFunc,
-    id,
   })
   return id
 }
@@ -128,6 +126,5 @@ export function registerCallHook(
 }
 
 export function removeReceiveHook(id: string) {
-  const index = receiveHooks.findIndex((h) => h.id === id)
-  receiveHooks.splice(index, 1)
+  receiveHooks.delete(id)
 }

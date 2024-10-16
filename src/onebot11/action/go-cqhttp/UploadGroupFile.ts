@@ -27,7 +27,11 @@ export class UploadGroupFile extends BaseAction<Payload, null> {
     if (!success) {
       throw new Error(errMsg)
     }
-    const file = await SendElement.file(this.ctx, path, payload.name || fileName, payload.folder ?? payload.folder_id)
+    const name = payload.name || fileName
+    if (name.includes('/') || name.includes('\\')) {
+      throw new Error(`文件名 ${name} 不合法`)
+    }
+    const file = await SendElement.file(this.ctx, path, name, payload.folder ?? payload.folder_id)
     const peer = await createPeer(this.ctx, payload, CreatePeerMode.Group)
     await sendMsg(this.ctx, peer, [file], [])
     return null

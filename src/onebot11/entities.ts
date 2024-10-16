@@ -673,14 +673,14 @@ export namespace OB11Entities {
       [Sex.female]: OB11UserSex.Female,
       [Sex.unknown]: OB11UserSex.Unknown,
     }
-    return sexMap[sex] || OB11UserSex.Unknown
+    return sexMap[sex] ?? OB11UserSex.Unknown
   }
 
-  export function groupMember(group_id: string, member: GroupMember): OB11GroupMember {
+  export function groupMember(groupId: number, member: GroupMember): OB11GroupMember {
     const titleExpireTime = +member.specialTitleExpireTime
-    const int32Max = Math.pow(2, 31) - 1
+    const int32Max = 2147483647
     return {
-      group_id: parseInt(group_id),
+      group_id: groupId,
       user_id: parseInt(member.uin),
       nickname: member.nick,
       card: member.cardName || member.nick,

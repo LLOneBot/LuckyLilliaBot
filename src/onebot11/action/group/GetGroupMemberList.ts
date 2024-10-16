@@ -21,18 +21,22 @@ class GetGroupMemberList extends BaseAction<Payload, OB11GroupMember[]> {
       if (groupMembers.size > 0) {
         break
       }
-      await this.ctx.sleep(100)
+      await this.ctx.sleep(60)
       groupMembers = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
     }
-    const groupMembersArr = Array.from(groupMembers.values())
-    const date = Math.round(Date.now() / 1000)
 
-    return groupMembersArr.map(item => {
-      const member = OB11Entities.groupMember(groupCode, item)
+    const date = Math.trunc(Date.now() / 1000)
+    const groupId = Number(payload.group_id)
+    const ret: OB11GroupMember[] = []
+
+    for (const item of groupMembers.values()) {
+      const member = OB11Entities.groupMember(groupId, item)
       member.join_time ??= date
       member.last_sent_time ??= date
-      return member
-    })
+      ret.push(member)
+    }
+
+    return ret
   }
 }
 

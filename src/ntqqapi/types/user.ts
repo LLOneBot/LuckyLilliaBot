@@ -296,7 +296,7 @@ export interface UserDetailInfoByUin {
     birthday_year: number
     birthday_month: number
     birthday_day: number
-    sex: number //0
+    sex: number
     topTime: string
     constellation: number
     shengXiao: number
