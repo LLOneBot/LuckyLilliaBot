@@ -173,9 +173,10 @@ class Core extends Service {
     })
 
     registerReceiveHook<{ msgList: RawMessage[] }>([ReceiveCmdS.NEW_MSG, ReceiveCmdS.NEW_ACTIVE_MSG], payload => {
+      const startTime = this.startTime / 1000
       for (const message of payload.msgList) {
         // 过滤启动之前的消息
-        if (parseInt(message.msgTime) < this.startTime / 1000) {
+        if (parseInt(message.msgTime) < startTime) {
           continue
         }
         if (message.senderUin && message.senderUin !== '0') {
@@ -202,7 +203,9 @@ class Core extends Service {
           this.ctx.parallel('nt/message-deleted', msg)
         } else if (sentMsgIds.get(msg.msgId)) {
           sentMsgIds.delete(msg.msgId)
-          this.ctx.parallel('nt/message-sent', msg)
+          if (msg.sendStatus === 2) {
+            this.ctx.parallel('nt/message-sent', msg)
+          }
         }
       }
     })
@@ -211,7 +214,7 @@ class Core extends Service {
       sentMsgIds.set(payload.msgRecord.msgId, true)
     })
 
-    const groupNotifyFlags: string[] = []
+    const groupNotifyIgnore: string[] = []
     registerReceiveHook<{
       doubt: boolean
       oldestUnreadSeq: string
@@ -225,13 +228,11 @@ class Core extends Service {
           return
         }
         for (const notify of notifies) {
-          const flag = notify.group.groupCode + '|' + notify.seq + '|' + notify.type
-          const notifyTime = parseInt(notify.seq) / 1000
-          if (groupNotifyFlags.includes(flag) || notifyTime < this.startTime) {
+          const notifyTime = Math.trunc(+notify.seq / 1000)
+          if (groupNotifyIgnore.includes(notify.seq) || notifyTime < this.startTime) {
             continue
           }
-          groupNotifyFlags.shift()
-          groupNotifyFlags.push(flag)
+          groupNotifyIgnore.push(notify.seq)
           this.ctx.parallel('nt/group-notify', notify)
         }
       }

@@ -155,7 +155,7 @@ class OB11HttpPost {
   }
 
   public async emitEvent(event: OB11BaseEvent | OB11Message) {
-    if (!this.activated) {
+    if (!this.activated || !this.config.hosts.length) {
       return
     }
     const msgStr = JSON.stringify(event)

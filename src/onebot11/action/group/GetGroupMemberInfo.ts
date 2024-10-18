@@ -24,13 +24,13 @@ class GetGroupMemberInfo extends BaseAction<Payload, OB11GroupMember> {
     if (!uid) throw new Error('无法获取用户信息')
     const member = await this.ctx.ntGroupApi.getGroupMember(groupCode, uid, payload.no_cache)
     if (member) {
-      const ret = OB11Entities.groupMember(groupCode, member)
-      const date = Math.round(Date.now() / 1000)
+      const ret = OB11Entities.groupMember(+groupCode, member)
+      const date = Math.trunc(Date.now() / 1000)
       ret.last_sent_time ??= date
       ret.join_time ??= date
       const info = await this.ctx.ntUserApi.getUserDetailInfo(member.uid)
       ret.sex = OB11Entities.sex(info.sex!)
-      ret.qq_level = (info.qqLevel && calcQQLevel(info.qqLevel)) || 0
+      ret.qq_level = info.qqLevel && calcQQLevel(info.qqLevel) || 0
       ret.age = info.age ?? 0
       return ret
     }

@@ -147,17 +147,13 @@ export function invoke<
       const secondCallback = () => {
         eventId = registerReceiveHook<R>(options.cbCmd!, (payload) => {
           if (options.cmdCB) {
-            if (options.cmdCB(payload, result)) {
-              removeReceiveHook(eventId)
-              clearTimeout(timeoutId)
-              resolve(payload)
+            if (!options.cmdCB(payload, result)) {
+              return
             }
           }
-          else {
-            removeReceiveHook(eventId)
-            clearTimeout(timeoutId)
-            resolve(payload)
-          }
+          removeReceiveHook(eventId)
+          clearTimeout(timeoutId)
+          resolve(payload)
         })
       }
       !afterFirstCmd && secondCallback()
@@ -167,9 +163,12 @@ export function invoke<
           afterFirstCmd && secondCallback()
         }
         else {
-          log('ntqq api call failed,', method, args, res)
           clearTimeout(timeoutId)
-          reject(`ntqq api call failed, ${method}, ${res?.errMsg}`)
+          if (eventId) {
+            removeReceiveHook(eventId)
+          }
+          log('ntqq api call failed,', method, args, res)
+          reject(`ntqq api call failed, ${method}, ${JSON.stringify(res)}`)
         }
       }
     }
