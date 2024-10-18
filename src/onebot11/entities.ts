@@ -71,7 +71,7 @@ export namespace OB11Entities {
       sub_type: 'friend',
       message: messagePostFormat === 'string' ? '' : [],
       message_format: messagePostFormat === 'string' ? 'string' : 'array',
-      post_type: selfUin == msg.senderUin ? EventType.MESSAGE_SENT : EventType.MESSAGE,
+      post_type: selfUin === msg.senderUin ? EventType.MESSAGE_SENT : EventType.MESSAGE,
     }
     if (debug) {
       resMsg.raw = msg
@@ -376,11 +376,23 @@ export namespace OB11Entities {
     if (msg.chatType !== ChatType.C2C) {
       return
     }
+    if (msg.msgType !== 5) {
+      return
+    }
+
     for (const element of msg.elements) {
       if (element.grayTipElement) {
         const { grayTipElement } = element
         if (grayTipElement.jsonGrayTipElement?.busiId === '1061') {
           const json = JSON.parse(grayTipElement.jsonGrayTipElement.jsonStr)
+          const param = grayTipElement.jsonGrayTipElement.xmlToJsonParam
+          if (param) {
+            return new OB11FriendPokeEvent(
+              Number(param.templParam.get('uin_str1')),
+              Number(param.templParam.get('uin_str2')),
+              json.items
+            )
+          }
           const pokedetail: Dict[] = json.items
           //筛选item带有uid的元素
           const poke_uid = pokedetail.filter(item => item.uid)
@@ -405,31 +417,15 @@ export namespace OB11Entities {
     if (msg.chatType !== ChatType.Group) {
       return
     }
-    /**if (msg.senderUin) {
-      const member = await ctx.ntGroupApi.getGroupMember(msg.peerUid, msg.senderUin)
-      if (member && member.cardName !== msg.sendMemberName) {
-        const event = new OB11GroupCardEvent(
-          parseInt(msg.peerUid),
-          parseInt(msg.senderUin),
-          msg.sendMemberName!,
-          member.cardName,
-        )
-        member.cardName = msg.sendMemberName!
-        return event
-      }
-    }*/
+    if (msg.msgType !== 5 && msg.msgType !== 3) {
+      return
+    }
+
     for (const element of msg.elements) {
       const grayTipElement = element.grayTipElement
       const groupElement = grayTipElement?.groupElement
       if (groupElement) {
-        if (groupElement.type === TipGroupElementType.MemberIncrease) {
-          /*ctx.logger.info('收到群成员增加消息', groupElement)
-          const { memberUid, adminUid } = groupElement
-          const memberUin = await ctx.ntUserApi.getUinByUid(memberUid)
-          const operatorUin = adminUid ? await ctx.ntUserApi.getUinByUid(adminUid) : memberUin
-          return new OB11GroupIncreaseEvent(+msg.peerUid, +memberUin, +operatorUin)*/
-        }
-        else if (groupElement.type === TipGroupElementType.Ban) {
+        if (groupElement.type === TipGroupElementType.Ban) {
           ctx.logger.info('收到群成员禁言提示', groupElement)
           const memberUid = groupElement.shutUp?.member.uid
           const adminUid = groupElement.shutUp?.admin.uid

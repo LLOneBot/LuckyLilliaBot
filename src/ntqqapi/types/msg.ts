@@ -438,6 +438,10 @@ export interface RawMessage {
     likesCnt: string
     isClicked: boolean
   }[]
+  msgAttrs: Map<number, {
+    attrType: number
+    attrId: string
+  }>
 }
 
 export interface Peer {
