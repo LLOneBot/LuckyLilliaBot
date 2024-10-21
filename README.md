@@ -23,6 +23,10 @@ TG 群：<https://t.me/+nLZEnpne-pQ1OWFl>
 
 [![Stargazers over time](https://starchart.cc/LLOneBot/LLOneBot.svg?variant=adaptive)](https://starchart.cc/LLOneBot/LLOneBot)
 
+## 贡献者
+
+[![Contributors](https://contributors-img.web.app/image?repo=LLOneBot/LLOneBot)](https://github.com/LOneBot/LLOneBot/graphs/contributors)
+
 ## 鸣谢
 
 - [NapCatQQ](https://github.com/NapNeko/NapCatQQ)
