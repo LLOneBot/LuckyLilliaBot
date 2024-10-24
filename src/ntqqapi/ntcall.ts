@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
 import { hookApiCallbacks, registerReceiveHook, removeReceiveHook } from './hook'
-import { log } from '../common/utils/legacyLog'
+import { getBuildVersion, log } from '../common/utils'
 import { randomUUID } from 'node:crypto'
 import {
   GeneralCallResult,
@@ -114,7 +114,7 @@ export function invoke<
   M extends keyof NTService[S] & string = any
 >(method: Extract<unknown, `${S}/${M}`> | string, args: unknown[], options: InvokeOptions<R> = {}) {
   const className = options.className ?? NTClass.NT_API
-  const channel = options.channel ?? NTChannel.IPC_UP_2
+  const channel = options.channel ?? getBuildVersion() >= 28788 ? NTChannel.IPC_UP_3 : NTChannel.IPC_UP_2
   const timeout = options.timeout ?? 5000
   const afterFirstCmd = options.afterFirstCmd ?? true
   let eventName = className + '-' + channel[channel.length - 1]

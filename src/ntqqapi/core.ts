@@ -197,8 +197,8 @@ class Core extends Service {
           recallMsgIds.push(msg.msgId)
           this.ctx.parallel('nt/message-deleted', msg)
         } else if (sentMsgIds.get(msg.msgId)) {
-          sentMsgIds.delete(msg.msgId)
           if (msg.sendStatus === 2) {
+            sentMsgIds.delete(msg.msgId)
             this.ctx.parallel('nt/message-sent', msg)
           }
         }
