@@ -77,7 +77,7 @@ export enum OB11MessageType {
 
 export interface OB11Message {
   target_id?: number // 自己发送的消息才有此字段
-  self_id?: number
+  self_id: number
   time: number
   message_id: number
   message_seq: number // go-cqhttp字段，实际上是message_id
@@ -91,7 +91,7 @@ export interface OB11Message {
   message_format: 'array' | 'string'
   raw_message: string
   font: number
-  post_type?: EventType
+  post_type: EventType
   raw?: RawMessage
   temp_source?: 0 | 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9
 }

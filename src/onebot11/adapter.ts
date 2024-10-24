@@ -72,7 +72,7 @@ class OneBot11Adapter extends Service {
     })
   }
 
-  public dispatch(event: OB11BaseEvent | OB11Message) {
+  public dispatch(event: OB11BaseEvent) {
     if (this.config.enableWs) {
       this.ob11WebSocket.emitEvent(event)
     }

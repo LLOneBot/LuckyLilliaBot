@@ -1,5 +1,5 @@
 import { User, UserDetailInfoByUin, UserDetailInfoByUinV2, UserDetailInfo, UserDetailSource, ProfileBizType, SimpleInfo } from '../types'
-import { invoke } from '../ntcall'
+import { invoke, NTClass } from '../ntcall'
 import { getBuildVersion } from '@/common/utils'
 import { RequestUtil } from '@/common/utils/request'
 import { isNullable, pick, Time } from 'cosmokit'
@@ -287,5 +287,15 @@ export class NTQQUserApi extends Service {
       }]
     )
     return data.response.robotUinRanges
+  }
+
+  async quitAccount() {
+    return await invoke(
+      'quitAccount',
+      [],
+      {
+        className: NTClass.BUSINESS_API,
+      }
+    )
   }
 }

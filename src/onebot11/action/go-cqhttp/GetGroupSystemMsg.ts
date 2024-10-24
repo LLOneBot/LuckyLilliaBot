@@ -28,7 +28,7 @@ export class GetGroupSystemMsg extends BaseAction<void, Response> {
   actionName = ActionName.GoCQHTTP_GetGroupSystemMsg
 
   async _handle() {
-    const singleScreenNotifies = await this.ctx.ntGroupApi.getSingleScreenNotifies(10)
+    const singleScreenNotifies = await this.ctx.ntGroupApi.getSingleScreenNotifies(false, 10)
     const data: Response = { invited_requests: [], join_requests: [] }
     for (const notify of singleScreenNotifies) {
       if (notify.type == 1) {

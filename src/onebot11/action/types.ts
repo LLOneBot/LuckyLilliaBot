@@ -61,6 +61,7 @@ export enum ActionName {
   GetCookies = 'get_cookies',
   ForwardFriendSingleMsg = 'forward_friend_single_msg',
   ForwardGroupSingleMsg = 'forward_group_single_msg',
+  GetCredentials = 'get_credentials',
   // go-cqhttp
   GoCQHTTP_SendGroupForwardMsg = 'send_group_forward_msg',
   GoCQHTTP_SendPrivateForwardMsg = 'send_private_forward_msg',

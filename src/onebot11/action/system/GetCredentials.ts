@@ -7,11 +7,11 @@ interface Payload {
 
 interface Response {
   cookies: string
-  bkn: string
+  csrf_token: number
 }
 
-export class GetCookies extends BaseAction<Payload, Response> {
-  actionName = ActionName.GetCookies
+export class GetCredentials extends BaseAction<Payload, Response> {
+  actionName = ActionName.GetCredentials
   payloadSchema = Schema.object({
     domain: Schema.string().required()
   })
@@ -21,6 +21,6 @@ export class GetCookies extends BaseAction<Payload, Response> {
     //把获取到的cookiesObject转换成 k=v; 格式字符串拼接在一起
     const cookies = Object.entries(cookiesObject).map(([key, value]) => `${key}=${value}`).join('; ')
     const bkn = cookiesObject.skey ? this.ctx.ntWebApi.genBkn(cookiesObject.skey) : ''
-    return { cookies, bkn }
+    return { cookies, csrf_token: +bkn }
   }
 }

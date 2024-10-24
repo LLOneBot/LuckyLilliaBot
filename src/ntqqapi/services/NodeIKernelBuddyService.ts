@@ -13,7 +13,7 @@ export interface NodeIKernelBuddyService {
     }[]
   }>
 
-  setBuddyRemark(uid: number, remark: string): void
+  setBuddyRemark(arg: unknown): void
 
   isBuddy(uid: string): boolean
 

@@ -218,7 +218,7 @@ class Core extends Service {
       if (payload.unreadCount) {
         let notifies: GroupNotify[]
         try {
-          notifies = await this.ctx.ntGroupApi.getSingleScreenNotifies(payload.unreadCount)
+          notifies = await this.ctx.ntGroupApi.getSingleScreenNotifies(payload.doubt, payload.unreadCount)
         } catch (e) {
           return
         }

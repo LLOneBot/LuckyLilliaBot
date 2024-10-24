@@ -77,6 +77,7 @@ import { OCRImage } from './go-cqhttp/OCRImage'
 import { GroupPoke } from './llonebot/GroupPoke'
 import { FriendPoke } from './llonebot/FriendPoke'
 import { GetGroupFileSystemInfo } from './go-cqhttp/GetGroupFileSystemInfo'
+import { GetCredentials } from './system/GetCredentials'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -129,6 +130,7 @@ export function initActionMap(adapter: Adapter) {
     new GetCookies(adapter),
     new ForwardFriendSingleMsg(adapter),
     new ForwardGroupSingleMsg(adapter),
+    new GetCredentials(adapter),
     // go-cqhttp
     new GetEssenceMsgList(adapter),
     new GetGroupHonorInfo(adapter),
@@ -160,7 +162,7 @@ export function initActionMap(adapter: Adapter) {
     new OCRImage(adapter),
     new GetGroupFileSystemInfo(adapter),
   ]
-  const actionMap = new Map<string, BaseAction<any, unknown>>()
+  const actionMap = new Map()
   for (const action of actionHandlers) {
     actionMap.set(action.actionName, action)
     actionMap.set(action.actionName + '_async', action)

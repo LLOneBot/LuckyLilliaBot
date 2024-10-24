@@ -83,7 +83,7 @@ export class NTQQGroupApi extends Service {
   }
 
   async getGroupIgnoreNotifies() {
-    await this.getSingleScreenNotifies(14)
+    await this.getSingleScreenNotifies(false, 14)
     return await this.ctx.ntWindowApi.openWindow<GeneralCallResult & GroupNotifies>(
       NTQQWindows.GroupNotifyFilterWindow,
       [],
@@ -91,17 +91,18 @@ export class NTQQGroupApi extends Service {
     )
   }
 
-  async getSingleScreenNotifies(number: number, startSeq = '') {
-    invoke(ReceiveCmdS.GROUP_NOTIFY, [], { registerEvent: true })
+  async getSingleScreenNotifies(doubt: boolean, number: number, startSeq = '') {
+    await invoke(ReceiveCmdS.GROUP_NOTIFY, [], { registerEvent: true })
 
-    return (await invoke<GroupNotifies>(
+    const data = await invoke<GroupNotifies>(
       'nodeIKernelGroupService/getSingleScreenNotifies',
-      [{ doubt: false, startSeq, number }],
+      [{ doubt, startSeq, number }],
       {
         cbCmd: ReceiveCmdS.GROUP_NOTIFY,
         afterFirstCmd: false,
       }
-    )).notifies
+    )
+    return data.notifies
   }
 
   async handleGroupRequest(flag: string, operateType: GroupRequestOperateTypes, reason?: string) {

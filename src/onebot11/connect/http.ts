@@ -154,7 +154,7 @@ class OB11HttpPost {
     this.disposeInterval?.()
   }
 
-  public async emitEvent(event: OB11BaseEvent | OB11Message) {
+  public async emitEvent(event: OB11BaseEvent) {
     if (!this.activated || !this.config.hosts.length) {
       return
     }
@@ -177,7 +177,8 @@ class OB11HttpPost {
       }).then(
         async (res) => {
           if (event.post_type) {
-            this.ctx.logger.info(`HTTP 事件上报: ${host}`, event.post_type, res.status)
+            const eventName = event.post_type + '.' + event[event.post_type + '_type']
+            this.ctx.logger.info(`HTTP 事件上报: ${host}`, eventName, res.status)
           }
           try {
             const resJson = await res.json()
