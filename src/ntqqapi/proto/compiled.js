@@ -781,6 +781,147 @@ export const SysMsg = $root.SysMsg = (() => {
         return GroupMemberChange;
     })();
 
+    SysMsg.GroupInvite = (function() {
+
+        /**
+         * Properties of a GroupInvite.
+         * @memberof SysMsg
+         * @interface IGroupInvite
+         * @property {number|null} [groupCode] GroupInvite groupCode
+         * @property {string|null} [operatorUid] GroupInvite operatorUid
+         */
+
+        /**
+         * Constructs a new GroupInvite.
+         * @memberof SysMsg
+         * @classdesc Represents a GroupInvite.
+         * @implements IGroupInvite
+         * @constructor
+         * @param {SysMsg.IGroupInvite=} [properties] Properties to set
+         */
+        function GroupInvite(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GroupInvite groupCode.
+         * @member {number} groupCode
+         * @memberof SysMsg.GroupInvite
+         * @instance
+         */
+        GroupInvite.prototype.groupCode = 0;
+
+        /**
+         * GroupInvite operatorUid.
+         * @member {string} operatorUid
+         * @memberof SysMsg.GroupInvite
+         * @instance
+         */
+        GroupInvite.prototype.operatorUid = "";
+
+        /**
+         * Encodes the specified GroupInvite message. Does not implicitly {@link SysMsg.GroupInvite.verify|verify} messages.
+         * @function encode
+         * @memberof SysMsg.GroupInvite
+         * @static
+         * @param {SysMsg.IGroupInvite} message GroupInvite message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GroupInvite.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.groupCode != null && Object.hasOwnProperty.call(message, "groupCode"))
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.groupCode);
+            if (message.operatorUid != null && Object.hasOwnProperty.call(message, "operatorUid"))
+                writer.uint32(/* id 5, wireType 2 =*/42).string(message.operatorUid);
+            return writer;
+        };
+
+        /**
+         * Encodes the specified GroupInvite message, length delimited. Does not implicitly {@link SysMsg.GroupInvite.verify|verify} messages.
+         * @function encodeDelimited
+         * @memberof SysMsg.GroupInvite
+         * @static
+         * @param {SysMsg.IGroupInvite} message GroupInvite message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GroupInvite.encodeDelimited = function encodeDelimited(message, writer) {
+            return this.encode(message, writer).ldelim();
+        };
+
+        /**
+         * Decodes a GroupInvite message from the specified reader or buffer.
+         * @function decode
+         * @memberof SysMsg.GroupInvite
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {SysMsg.GroupInvite} GroupInvite
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GroupInvite.decode = function decode(reader, length) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.SysMsg.GroupInvite();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                switch (tag >>> 3) {
+                case 1: {
+                        message.groupCode = reader.uint32();
+                        break;
+                    }
+                case 5: {
+                        message.operatorUid = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Decodes a GroupInvite message from the specified reader or buffer, length delimited.
+         * @function decodeDelimited
+         * @memberof SysMsg.GroupInvite
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @returns {SysMsg.GroupInvite} GroupInvite
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GroupInvite.decodeDelimited = function decodeDelimited(reader) {
+            if (!(reader instanceof $Reader))
+                reader = new $Reader(reader);
+            return this.decode(reader, reader.uint32());
+        };
+
+        /**
+         * Gets the default type url for GroupInvite
+         * @function getTypeUrl
+         * @memberof SysMsg.GroupInvite
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GroupInvite.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/SysMsg.GroupInvite";
+        };
+
+        return GroupInvite;
+    })();
+
     return SysMsg;
 })();
 

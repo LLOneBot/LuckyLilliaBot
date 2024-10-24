@@ -9,7 +9,7 @@ import {
 } from '../ntqqapi/types'
 import { OB11GroupRequestEvent } from './event/request/OB11GroupRequest'
 import { OB11FriendRequestEvent } from './event/request/OB11FriendRequest'
-import { GroupDecreaseSubType, OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
+import { OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
 import { selfInfo } from '../common/globalVars'
 import { OB11Config, Config as LLOBConfig } from '../common/types'
 import { OB11WebSocket, OB11WebSocketReverseManager } from './connect/ws'
@@ -92,25 +92,18 @@ class OneBot11Adapter extends Service {
     try {
       const flag = notify.group.groupCode + '|' + notify.seq + '|' + notify.type
       if ([GroupNotifyType.MemberLeaveNotifyAdmin, GroupNotifyType.KickMemberNotifyAdmin].includes(notify.type)) {
-        this.ctx.logger.info('有成员退出通知', notify)
-        const member1Uin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
-        let operatorId = member1Uin
-        let subType: GroupDecreaseSubType = 'leave'
         if (notify.user2.uid) {
-          // 是被踢的
-          const member2Uin = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
-          if (member2Uin) {
-            operatorId = member2Uin
-          }
-          subType = 'kick'
+          this.ctx.logger.info('有群成员被踢', notify.group.groupCode, notify.user1.uid, notify.user2.uid)
+          const memberUin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
+          const adminUin = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
+          const event = new OB11GroupDecreaseEvent(
+            parseInt(notify.group.groupCode),
+            parseInt(memberUin),
+            parseInt(adminUin),
+            'kick',
+          )
+          this.dispatch(event)
         }
-        const event = new OB11GroupDecreaseEvent(
-          parseInt(notify.group.groupCode),
-          parseInt(member1Uin),
-          parseInt(operatorId),
-          subType,
-        )
-        this.dispatch(event)
       }
       else if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
         this.ctx.logger.info('有加群请求')
@@ -369,15 +362,21 @@ class OneBot11Adapter extends Service {
         const operatorUin = await this.ctx.ntUserApi.getUinByUid(tip.adminUid)
         const event = new OB11GroupIncreaseEvent(tip.groupCode, +memberUin, +operatorUin)
         this.dispatch(event)
-      }/* else if (msgType === 34) {
-        const tip = SysMsg.GroupMemberChange.decode(sysMsg.bodyWrapper!.body!)
+      } else if (msgType === 34) {
+        const tip = SysMsg.GroupMemberChange.decode(sysMsg.body!.msgContent!)
+        if (tip.type !== 130) return // adminUid: 0
         this.ctx.logger.info('群成员减少', tip)
         const memberUin = await this.ctx.ntUserApi.getUinByUid(tip.memberUid)
-        const operatorUin = await this.ctx.ntUserApi.getUinByUid(tip.adminUid) //0
-        const subType = tip.type === 130 ? 'leave' : 'kick'
-        const event = new OB11GroupDecreaseEvent(tip.groupCode, +memberUin, +operatorUin, subType)
+        const userId = Number(memberUin)
+        const event = new OB11GroupDecreaseEvent(tip.groupCode, userId, userId)
         this.dispatch(event)
-      }*/
+      } else if (msgType === 87) {
+        const tip = SysMsg.GroupInvite.decode(sysMsg.body!.msgContent!)
+        this.ctx.logger.info('群成员增加', tip)
+        const operatorUin = await this.ctx.ntUserApi.getUinByUid(tip.operatorUid)
+        const event = new OB11GroupIncreaseEvent(tip.groupCode, +selfInfo.uin, +operatorUin, 'invite')
+        this.dispatch(event)
+      }
     })
   }
 }

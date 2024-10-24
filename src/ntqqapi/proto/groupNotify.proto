@@ -7,3 +7,8 @@ message GroupMemberChange {
   uint32 type = 4;  // 130:主动 131:被动
   string adminUid = 5;
 }
+
+message GroupInvite {
+  uint32 groupCode = 1;
+  string operatorUid = 5;
+}

@@ -423,6 +423,8 @@ export namespace OB11Entities {
     for (const element of msg.elements) {
       const grayTipElement = element.grayTipElement
       const groupElement = grayTipElement?.groupElement
+      const xmlElement = grayTipElement?.xmlElement
+
       if (groupElement) {
         if (groupElement.type === TipGroupElementType.Ban) {
           ctx.logger.info('收到群成员禁言提示', groupElement)
@@ -485,11 +487,8 @@ export namespace OB11Entities {
           busid: element.fileElement.fileBizId || 0,
         })
       }
-
-      if (grayTipElement) {
-        const xmlElement = grayTipElement.xmlElement
-
-        if (xmlElement?.templId === '10382') {
+      else if (xmlElement) {
+        if (xmlElement.templId === '10382') {
           ctx.logger.info('收到表情回应我的消息', xmlElement.templParam)
           try {
             const senderUin = xmlElement.templParam.get('jp_uin')
@@ -517,29 +516,19 @@ export namespace OB11Entities {
           } catch (e) {
             ctx.logger.error('解析表情回应消息失败', (e as Error).stack)
           }
-        }
-
-        if (
-          grayTipElement.subElementType == GrayTipElementSubType.XmlMsg &&
-          xmlElement?.templId == '10179'
-        ) {
-          ctx.logger.info('收到新人被邀请进群消息', grayTipElement)
-          if (xmlElement?.content) {
-            const regex = /jp="(\d+)"/g
-
-            const matches: string[] = []
-            let match: RegExpExecArray | null = null
-
-            while ((match = regex.exec(xmlElement.content)) !== null) {
-              matches.push(match[1])
-            }
-            if (matches.length === 2) {
-              const [invitor, invitee] = matches
-              return new OB11GroupIncreaseEvent(+msg.peerUid, +invitee, +invitor, 'invite')
-            }
+        } else if (xmlElement.templId == '10179') {
+          ctx.logger.info('收到新人被邀请进群消息', xmlElement)
+          const invitor = xmlElement.templParam.get('invitor')
+          const invitee = xmlElement.templParam.get('invitee')
+          if (invitee === selfInfo.uin) return
+          if (invitor && invitee) {
+            return new OB11GroupIncreaseEvent(+msg.peerUid, +invitee, +invitor, 'invite')
           }
         }
-        else if (grayTipElement.subElementType == GrayTipElementSubType.JSON) {
+      }
+
+      if (grayTipElement) {
+        if (grayTipElement.subElementType == GrayTipElementSubType.JSON) {
           const json = JSON.parse(grayTipElement.jsonGrayTipElement!.jsonStr)
           if (grayTipElement.jsonGrayTipElement?.busiId === '1061') {
             const param = grayTipElement.jsonGrayTipElement.xmlToJsonParam

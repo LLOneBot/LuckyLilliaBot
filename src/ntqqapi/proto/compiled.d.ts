@@ -366,6 +366,74 @@ export namespace SysMsg {
          */
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
+
+    /** Properties of a GroupInvite. */
+    interface IGroupInvite {
+
+        /** GroupInvite groupCode */
+        groupCode?: (number|null);
+
+        /** GroupInvite operatorUid */
+        operatorUid?: (string|null);
+    }
+
+    /** Represents a GroupInvite. */
+    class GroupInvite implements IGroupInvite {
+
+        /**
+         * Constructs a new GroupInvite.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: SysMsg.IGroupInvite);
+
+        /** GroupInvite groupCode. */
+        public groupCode: number;
+
+        /** GroupInvite operatorUid. */
+        public operatorUid: string;
+
+        /**
+         * Encodes the specified GroupInvite message. Does not implicitly {@link SysMsg.GroupInvite.verify|verify} messages.
+         * @param message GroupInvite message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: SysMsg.IGroupInvite, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Encodes the specified GroupInvite message, length delimited. Does not implicitly {@link SysMsg.GroupInvite.verify|verify} messages.
+         * @param message GroupInvite message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encodeDelimited(message: SysMsg.IGroupInvite, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GroupInvite message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GroupInvite
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): SysMsg.GroupInvite;
+
+        /**
+         * Decodes a GroupInvite message from the specified reader or buffer, length delimited.
+         * @param reader Reader or buffer to decode from
+         * @returns GroupInvite
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): SysMsg.GroupInvite;
+
+        /**
+         * Gets the default type url for GroupInvite
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
 }
 
 /** Namespace Msg. */
