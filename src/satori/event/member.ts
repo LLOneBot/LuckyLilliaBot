@@ -46,9 +46,9 @@ export async function parseGuildMemberRemoved(bot: SatoriAdapter, input: GroupNo
   })
 }
 
-export async function parseGuildMemberRequest(bot: SatoriAdapter, input: GroupNotify) {
+export async function parseGuildMemberRequest(bot: SatoriAdapter, input: GroupNotify, doubt: boolean) {
   const groupCode = input.group.groupCode
-  const flag = groupCode + '|' + input.seq + '|' + input.type
+  const flag = `${groupCode}|${input.seq}|${input.type}|${doubt === true ? '1' : '0'}`
 
   return bot.event('guild-member-request', {
     guild: decodeGuild(input.group),

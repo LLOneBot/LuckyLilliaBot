@@ -88,19 +88,6 @@ export const SysMsg = $root.SysMsg = (() => {
         };
 
         /**
-         * Encodes the specified LikeDetail message, length delimited. Does not implicitly {@link SysMsg.LikeDetail.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof SysMsg.LikeDetail
-         * @static
-         * @param {SysMsg.ILikeDetail} message LikeDetail message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        LikeDetail.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a LikeDetail message from the specified reader or buffer.
          * @function decode
          * @memberof SysMsg.LikeDetail
@@ -136,22 +123,6 @@ export const SysMsg = $root.SysMsg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a LikeDetail message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof SysMsg.LikeDetail
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {SysMsg.LikeDetail} LikeDetail
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        LikeDetail.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -244,19 +215,6 @@ export const SysMsg = $root.SysMsg = (() => {
         };
 
         /**
-         * Encodes the specified LikeMsg message, length delimited. Does not implicitly {@link SysMsg.LikeMsg.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof SysMsg.LikeMsg
-         * @static
-         * @param {SysMsg.ILikeMsg} message LikeMsg message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        LikeMsg.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a LikeMsg message from the specified reader or buffer.
          * @function decode
          * @memberof SysMsg.LikeMsg
@@ -292,22 +250,6 @@ export const SysMsg = $root.SysMsg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a LikeMsg message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof SysMsg.LikeMsg
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {SysMsg.LikeMsg} LikeMsg
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        LikeMsg.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -378,19 +320,6 @@ export const SysMsg = $root.SysMsg = (() => {
         };
 
         /**
-         * Encodes the specified ProfileLikeSubTip message, length delimited. Does not implicitly {@link SysMsg.ProfileLikeSubTip.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof SysMsg.ProfileLikeSubTip
-         * @static
-         * @param {SysMsg.IProfileLikeSubTip} message ProfileLikeSubTip message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        ProfileLikeSubTip.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a ProfileLikeSubTip message from the specified reader or buffer.
          * @function decode
          * @memberof SysMsg.ProfileLikeSubTip
@@ -418,22 +347,6 @@ export const SysMsg = $root.SysMsg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a ProfileLikeSubTip message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof SysMsg.ProfileLikeSubTip
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {SysMsg.ProfileLikeSubTip} ProfileLikeSubTip
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        ProfileLikeSubTip.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -526,19 +439,6 @@ export const SysMsg = $root.SysMsg = (() => {
         };
 
         /**
-         * Encodes the specified ProfileLikeTip message, length delimited. Does not implicitly {@link SysMsg.ProfileLikeTip.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof SysMsg.ProfileLikeTip
-         * @static
-         * @param {SysMsg.IProfileLikeTip} message ProfileLikeTip message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        ProfileLikeTip.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a ProfileLikeTip message from the specified reader or buffer.
          * @function decode
          * @memberof SysMsg.ProfileLikeTip
@@ -574,22 +474,6 @@ export const SysMsg = $root.SysMsg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a ProfileLikeTip message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof SysMsg.ProfileLikeTip
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {SysMsg.ProfileLikeTip} ProfileLikeTip
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        ProfileLikeTip.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -693,19 +577,6 @@ export const SysMsg = $root.SysMsg = (() => {
         };
 
         /**
-         * Encodes the specified GroupMemberChange message, length delimited. Does not implicitly {@link SysMsg.GroupMemberChange.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof SysMsg.GroupMemberChange
-         * @static
-         * @param {SysMsg.IGroupMemberChange} message GroupMemberChange message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        GroupMemberChange.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a GroupMemberChange message from the specified reader or buffer.
          * @function decode
          * @memberof SysMsg.GroupMemberChange
@@ -745,22 +616,6 @@ export const SysMsg = $root.SysMsg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a GroupMemberChange message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof SysMsg.GroupMemberChange
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {SysMsg.GroupMemberChange} GroupMemberChange
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        GroupMemberChange.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -842,19 +697,6 @@ export const SysMsg = $root.SysMsg = (() => {
         };
 
         /**
-         * Encodes the specified GroupInvite message, length delimited. Does not implicitly {@link SysMsg.GroupInvite.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof SysMsg.GroupInvite
-         * @static
-         * @param {SysMsg.IGroupInvite} message GroupInvite message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        GroupInvite.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a GroupInvite message from the specified reader or buffer.
          * @function decode
          * @memberof SysMsg.GroupInvite
@@ -886,22 +728,6 @@ export const SysMsg = $root.SysMsg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a GroupInvite message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof SysMsg.GroupInvite
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {SysMsg.GroupInvite} GroupInvite
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        GroupInvite.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -1112,19 +938,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified RoutingHead message, length delimited. Does not implicitly {@link Msg.RoutingHead.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.RoutingHead
-         * @static
-         * @param {Msg.IRoutingHead} message RoutingHead message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        RoutingHead.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a RoutingHead message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.RoutingHead
@@ -1180,22 +993,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a RoutingHead message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.RoutingHead
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.RoutingHead} RoutingHead
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        RoutingHead.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -1275,19 +1072,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified C2c message, length delimited. Does not implicitly {@link Msg.C2c.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.C2c
-         * @static
-         * @param {Msg.IC2c} message C2c message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        C2c.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a C2c message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.C2c
@@ -1315,22 +1099,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a C2c message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.C2c
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.C2c} C2c
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        C2c.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -1546,19 +1314,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified Group message, length delimited. Does not implicitly {@link Msg.Group.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.Group
-         * @static
-         * @param {Msg.IGroup} message Group message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        Group.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a Group message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.Group
@@ -1618,22 +1373,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a Group message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.Group
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.Group} Group
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        Group.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -1917,19 +1656,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified ContentHead message, length delimited. Does not implicitly {@link Msg.ContentHead.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.ContentHead
-         * @static
-         * @param {Msg.IContentHead} message ContentHead message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        ContentHead.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a ContentHead message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.ContentHead
@@ -2005,22 +1731,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a ContentHead message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.ContentHead
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.ContentHead} ContentHead
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        ContentHead.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -2168,19 +1878,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified ContentHeadField15 message, length delimited. Does not implicitly {@link Msg.ContentHeadField15.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.ContentHeadField15
-         * @static
-         * @param {Msg.IContentHeadField15} message ContentHeadField15 message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        ContentHeadField15.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a ContentHeadField15 message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.ContentHeadField15
@@ -2224,22 +1921,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a ContentHeadField15 message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.ContentHeadField15
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.ContentHeadField15} ContentHeadField15
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        ContentHeadField15.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -2353,19 +2034,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified Message message, length delimited. Does not implicitly {@link Msg.Message.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.Message
-         * @static
-         * @param {Msg.IMessage} message Message message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        Message.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a Message message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.Message
@@ -2401,22 +2069,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a Message message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.Message
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.Message} Message
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        Message.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -2530,19 +2182,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified MessageBody message, length delimited. Does not implicitly {@link Msg.MessageBody.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.MessageBody
-         * @static
-         * @param {Msg.IMessageBody} message MessageBody message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        MessageBody.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a MessageBody message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.MessageBody
@@ -2578,22 +2217,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a MessageBody message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.MessageBody
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.MessageBody} MessageBody
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        MessageBody.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -2686,19 +2309,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified RichText message, length delimited. Does not implicitly {@link Msg.RichText.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.RichText
-         * @static
-         * @param {Msg.IRichText} message RichText message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        RichText.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a RichText message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.RichText
@@ -2732,22 +2342,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a RichText message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.RichText
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.RichText} RichText
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        RichText.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -2878,19 +2472,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified Elem message, length delimited. Does not implicitly {@link Msg.Elem.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.Elem
-         * @static
-         * @param {Msg.IElem} message Elem message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        Elem.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes an Elem message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.Elem
@@ -2930,22 +2511,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes an Elem message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.Elem
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.Elem} Elem
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        Elem.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -3110,19 +2675,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified Text message, length delimited. Does not implicitly {@link Msg.Text.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.Text
-         * @static
-         * @param {Msg.IText} message Text message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        Text.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a Text message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.Text
@@ -3170,22 +2722,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a Text message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.Text
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.Text} Text
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        Text.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -3299,19 +2835,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified Face message, length delimited. Does not implicitly {@link Msg.Face.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.Face
-         * @static
-         * @param {Msg.IFace} message Face message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        Face.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a Face message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.Face
@@ -3347,22 +2870,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a Face message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.Face
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.Face} Face
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        Face.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -3459,19 +2966,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified LightAppElem message, length delimited. Does not implicitly {@link Msg.LightAppElem.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.LightAppElem
-         * @static
-         * @param {Msg.ILightAppElem} message LightAppElem message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        LightAppElem.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a LightAppElem message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.LightAppElem
@@ -3503,22 +2997,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a LightAppElem message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.LightAppElem
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.LightAppElem} LightAppElem
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        LightAppElem.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -3625,19 +3103,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified CommonElem message, length delimited. Does not implicitly {@link Msg.CommonElem.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.CommonElem
-         * @static
-         * @param {Msg.ICommonElem} message CommonElem message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        CommonElem.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a CommonElem message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.CommonElem
@@ -3675,22 +3140,6 @@ export const Msg = $root.Msg = (() => {
             if (!message.hasOwnProperty("serviceType"))
                 throw $util.ProtocolError("missing required 'serviceType'", { instance: message });
             return message;
-        };
-
-        /**
-         * Decodes a CommonElem message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.CommonElem
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.CommonElem} CommonElem
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        CommonElem.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -3923,19 +3372,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified Attr message, length delimited. Does not implicitly {@link Msg.Attr.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.Attr
-         * @static
-         * @param {Msg.IAttr} message Attr message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        Attr.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes an Attr message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.Attr
@@ -3999,22 +3435,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes an Attr message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.Attr
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.Attr} Attr
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        Attr.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -4085,19 +3505,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified MarkdownElem message, length delimited. Does not implicitly {@link Msg.MarkdownElem.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.MarkdownElem
-         * @static
-         * @param {Msg.IMarkdownElem} message MarkdownElem message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        MarkdownElem.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a MarkdownElem message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.MarkdownElem
@@ -4125,22 +3532,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a MarkdownElem message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.MarkdownElem
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.MarkdownElem} MarkdownElem
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        MarkdownElem.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -4222,19 +3613,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified PbMultiMsgItem message, length delimited. Does not implicitly {@link Msg.PbMultiMsgItem.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.PbMultiMsgItem
-         * @static
-         * @param {Msg.IPbMultiMsgItem} message PbMultiMsgItem message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        PbMultiMsgItem.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a PbMultiMsgItem message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.PbMultiMsgItem
@@ -4266,22 +3644,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a PbMultiMsgItem message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.PbMultiMsgItem
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.PbMultiMsgItem} PbMultiMsgItem
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        PbMultiMsgItem.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -4354,19 +3716,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified PbMultiMsgNew message, length delimited. Does not implicitly {@link Msg.PbMultiMsgNew.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.PbMultiMsgNew
-         * @static
-         * @param {Msg.IPbMultiMsgNew} message PbMultiMsgNew message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        PbMultiMsgNew.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a PbMultiMsgNew message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.PbMultiMsgNew
@@ -4396,22 +3745,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a PbMultiMsgNew message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.PbMultiMsgNew
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.PbMultiMsgNew} PbMultiMsgNew
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        PbMultiMsgNew.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -4497,19 +3830,6 @@ export const Msg = $root.Msg = (() => {
         };
 
         /**
-         * Encodes the specified PbMultiMsgTransmit message, length delimited. Does not implicitly {@link Msg.PbMultiMsgTransmit.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof Msg.PbMultiMsgTransmit
-         * @static
-         * @param {Msg.IPbMultiMsgTransmit} message PbMultiMsgTransmit message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        PbMultiMsgTransmit.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a PbMultiMsgTransmit message from the specified reader or buffer.
          * @function decode
          * @memberof Msg.PbMultiMsgTransmit
@@ -4545,22 +3865,6 @@ export const Msg = $root.Msg = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a PbMultiMsgTransmit message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof Msg.PbMultiMsgTransmit
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {Msg.PbMultiMsgTransmit} PbMultiMsgTransmit
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        PbMultiMsgTransmit.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -4656,19 +3960,6 @@ export const RichMedia = $root.RichMedia = (() => {
         };
 
         /**
-         * Encodes the specified MsgInfo message, length delimited. Does not implicitly {@link RichMedia.MsgInfo.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof RichMedia.MsgInfo
-         * @static
-         * @param {RichMedia.IMsgInfo} message MsgInfo message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        MsgInfo.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a MsgInfo message from the specified reader or buffer.
          * @function decode
          * @memberof RichMedia.MsgInfo
@@ -4702,22 +3993,6 @@ export const RichMedia = $root.RichMedia = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a MsgInfo message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof RichMedia.MsgInfo
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {RichMedia.MsgInfo} MsgInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        MsgInfo.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -4810,19 +4085,6 @@ export const RichMedia = $root.RichMedia = (() => {
         };
 
         /**
-         * Encodes the specified MsgInfoBody message, length delimited. Does not implicitly {@link RichMedia.MsgInfoBody.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof RichMedia.MsgInfoBody
-         * @static
-         * @param {RichMedia.IMsgInfoBody} message MsgInfoBody message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        MsgInfoBody.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a MsgInfoBody message from the specified reader or buffer.
          * @function decode
          * @memberof RichMedia.MsgInfoBody
@@ -4858,22 +4120,6 @@ export const RichMedia = $root.RichMedia = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a MsgInfoBody message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof RichMedia.MsgInfoBody
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {RichMedia.MsgInfoBody} MsgInfoBody
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        MsgInfoBody.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -4999,19 +4245,6 @@ export const RichMedia = $root.RichMedia = (() => {
         };
 
         /**
-         * Encodes the specified IndexNode message, length delimited. Does not implicitly {@link RichMedia.IndexNode.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof RichMedia.IndexNode
-         * @static
-         * @param {RichMedia.IIndexNode} message IndexNode message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        IndexNode.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes an IndexNode message from the specified reader or buffer.
          * @function decode
          * @memberof RichMedia.IndexNode
@@ -5059,22 +4292,6 @@ export const RichMedia = $root.RichMedia = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes an IndexNode message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof RichMedia.IndexNode
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {RichMedia.IndexNode} IndexNode
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        IndexNode.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -5233,19 +4450,6 @@ export const RichMedia = $root.RichMedia = (() => {
         };
 
         /**
-         * Encodes the specified FileInfo message, length delimited. Does not implicitly {@link RichMedia.FileInfo.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof RichMedia.FileInfo
-         * @static
-         * @param {RichMedia.IFileInfo} message FileInfo message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        FileInfo.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a FileInfo message from the specified reader or buffer.
          * @function decode
          * @memberof RichMedia.FileInfo
@@ -5305,22 +4509,6 @@ export const RichMedia = $root.RichMedia = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a FileInfo message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof RichMedia.FileInfo
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {RichMedia.FileInfo} FileInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        FileInfo.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -5424,19 +4612,6 @@ export const RichMedia = $root.RichMedia = (() => {
         };
 
         /**
-         * Encodes the specified FileType message, length delimited. Does not implicitly {@link RichMedia.FileType.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof RichMedia.FileType
-         * @static
-         * @param {RichMedia.IFileType} message FileType message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        FileType.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a FileType message from the specified reader or buffer.
          * @function decode
          * @memberof RichMedia.FileType
@@ -5476,22 +4651,6 @@ export const RichMedia = $root.RichMedia = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a FileType message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof RichMedia.FileType
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {RichMedia.FileType} FileType
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        FileType.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -5584,19 +4743,6 @@ export const RichMedia = $root.RichMedia = (() => {
         };
 
         /**
-         * Encodes the specified PicInfo message, length delimited. Does not implicitly {@link RichMedia.PicInfo.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof RichMedia.PicInfo
-         * @static
-         * @param {RichMedia.IPicInfo} message PicInfo message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        PicInfo.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a PicInfo message from the specified reader or buffer.
          * @function decode
          * @memberof RichMedia.PicInfo
@@ -5632,22 +4778,6 @@ export const RichMedia = $root.RichMedia = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a PicInfo message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof RichMedia.PicInfo
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {RichMedia.PicInfo} PicInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        PicInfo.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -5740,19 +4870,6 @@ export const RichMedia = $root.RichMedia = (() => {
         };
 
         /**
-         * Encodes the specified PicUrlExtParams message, length delimited. Does not implicitly {@link RichMedia.PicUrlExtParams.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof RichMedia.PicUrlExtParams
-         * @static
-         * @param {RichMedia.IPicUrlExtParams} message PicUrlExtParams message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        PicUrlExtParams.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a PicUrlExtParams message from the specified reader or buffer.
          * @function decode
          * @memberof RichMedia.PicUrlExtParams
@@ -5788,22 +4905,6 @@ export const RichMedia = $root.RichMedia = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a PicUrlExtParams message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof RichMedia.PicUrlExtParams
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {RichMedia.PicUrlExtParams} PicUrlExtParams
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        PicUrlExtParams.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -5896,19 +4997,6 @@ export const RichMedia = $root.RichMedia = (() => {
         };
 
         /**
-         * Encodes the specified ExtBizInfo message, length delimited. Does not implicitly {@link RichMedia.ExtBizInfo.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof RichMedia.ExtBizInfo
-         * @static
-         * @param {RichMedia.IExtBizInfo} message ExtBizInfo message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        ExtBizInfo.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes an ExtBizInfo message from the specified reader or buffer.
          * @function decode
          * @memberof RichMedia.ExtBizInfo
@@ -5944,22 +5032,6 @@ export const RichMedia = $root.RichMedia = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes an ExtBizInfo message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof RichMedia.ExtBizInfo
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {RichMedia.ExtBizInfo} ExtBizInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        ExtBizInfo.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -6041,19 +5113,6 @@ export const RichMedia = $root.RichMedia = (() => {
         };
 
         /**
-         * Encodes the specified PicExtBizInfo message, length delimited. Does not implicitly {@link RichMedia.PicExtBizInfo.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof RichMedia.PicExtBizInfo
-         * @static
-         * @param {RichMedia.IPicExtBizInfo} message PicExtBizInfo message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        PicExtBizInfo.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a PicExtBizInfo message from the specified reader or buffer.
          * @function decode
          * @memberof RichMedia.PicExtBizInfo
@@ -6085,22 +5144,6 @@ export const RichMedia = $root.RichMedia = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a PicExtBizInfo message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof RichMedia.PicExtBizInfo
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {RichMedia.PicExtBizInfo} PicExtBizInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        PicExtBizInfo.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -6171,19 +5214,6 @@ export const RichMedia = $root.RichMedia = (() => {
         };
 
         /**
-         * Encodes the specified VideoExtBizInfo message, length delimited. Does not implicitly {@link RichMedia.VideoExtBizInfo.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof RichMedia.VideoExtBizInfo
-         * @static
-         * @param {RichMedia.IVideoExtBizInfo} message VideoExtBizInfo message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        VideoExtBizInfo.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a VideoExtBizInfo message from the specified reader or buffer.
          * @function decode
          * @memberof RichMedia.VideoExtBizInfo
@@ -6211,22 +5241,6 @@ export const RichMedia = $root.RichMedia = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a VideoExtBizInfo message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof RichMedia.VideoExtBizInfo
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {RichMedia.VideoExtBizInfo} VideoExtBizInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        VideoExtBizInfo.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**
@@ -6341,19 +5355,6 @@ export const RichMedia = $root.RichMedia = (() => {
         };
 
         /**
-         * Encodes the specified PicFileIdInfo message, length delimited. Does not implicitly {@link RichMedia.PicFileIdInfo.verify|verify} messages.
-         * @function encodeDelimited
-         * @memberof RichMedia.PicFileIdInfo
-         * @static
-         * @param {RichMedia.IPicFileIdInfo} message PicFileIdInfo message or plain object to encode
-         * @param {$protobuf.Writer} [writer] Writer to encode to
-         * @returns {$protobuf.Writer} Writer
-         */
-        PicFileIdInfo.encodeDelimited = function encodeDelimited(message, writer) {
-            return this.encode(message, writer).ldelim();
-        };
-
-        /**
          * Decodes a PicFileIdInfo message from the specified reader or buffer.
          * @function decode
          * @memberof RichMedia.PicFileIdInfo
@@ -6397,22 +5398,6 @@ export const RichMedia = $root.RichMedia = (() => {
                 }
             }
             return message;
-        };
-
-        /**
-         * Decodes a PicFileIdInfo message from the specified reader or buffer, length delimited.
-         * @function decodeDelimited
-         * @memberof RichMedia.PicFileIdInfo
-         * @static
-         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
-         * @returns {RichMedia.PicFileIdInfo} PicFileIdInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        PicFileIdInfo.decodeDelimited = function decodeDelimited(reader) {
-            if (!(reader instanceof $Reader))
-                reader = new $Reader(reader);
-            return this.decode(reader, reader.uint32());
         };
 
         /**

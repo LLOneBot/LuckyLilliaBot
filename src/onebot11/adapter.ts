@@ -15,7 +15,6 @@ import { OB11Config, Config as LLOBConfig } from '../common/types'
 import { OB11WebSocket, OB11WebSocketReverseManager } from './connect/ws'
 import { OB11Http, OB11HttpPost } from './connect/http'
 import { OB11BaseEvent } from './event/OB11BaseEvent'
-import { OB11Message } from './types'
 import { OB11BaseMetaEvent } from './event/meta/OB11BaseMetaEvent'
 import { postHttpEvent } from './helper/eventForHttp'
 import { initActionMap } from './action'
@@ -88,9 +87,9 @@ class OneBot11Adapter extends Service {
     }
   }
 
-  private async handleGroupNotify(notify: GroupNotify) {
+  private async handleGroupNotify(notify: GroupNotify, doubt: boolean) {
     try {
-      const flag = notify.group.groupCode + '|' + notify.seq + '|' + notify.type
+      const flag = `${notify.group.groupCode}|${notify.seq}|${notify.type}|${doubt === true ? '1' : '0'}`
       if ([GroupNotifyType.MemberLeaveNotifyAdmin, GroupNotifyType.KickMemberNotifyAdmin].includes(notify.type)) {
         if (notify.user2.uid) {
           this.ctx.logger.info('有群成员被踢', notify.group.groupCode, notify.user1.uid, notify.user2.uid)
@@ -338,7 +337,8 @@ class OneBot11Adapter extends Service {
       this.handleMsg(input)
     })
     this.ctx.on('nt/group-notify', input => {
-      this.handleGroupNotify(input)
+      const { doubt, notify } = input
+      this.handleGroupNotify(notify, doubt)
     })
     this.ctx.on('nt/friend-request', input => {
       this.handleFriendRequest(input)
@@ -369,12 +369,6 @@ class OneBot11Adapter extends Service {
         const memberUin = await this.ctx.ntUserApi.getUinByUid(tip.memberUid)
         const userId = Number(memberUin)
         const event = new OB11GroupDecreaseEvent(tip.groupCode, userId, userId)
-        this.dispatch(event)
-      } else if (msgType === 87) {
-        const tip = SysMsg.GroupInvite.decode(sysMsg.body!.msgContent!)
-        this.ctx.logger.info('群成员增加', tip)
-        const operatorUin = await this.ctx.ntUserApi.getUinByUid(tip.operatorUid)
-        const event = new OB11GroupIncreaseEvent(tip.groupCode, +selfInfo.uin, +operatorUin, 'invite')
         this.dispatch(event)
       }
     })

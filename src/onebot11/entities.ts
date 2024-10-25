@@ -520,7 +520,6 @@ export namespace OB11Entities {
           ctx.logger.info('收到新人被邀请进群消息', xmlElement)
           const invitor = xmlElement.templParam.get('invitor')
           const invitee = xmlElement.templParam.get('invitee')
-          if (invitee === selfInfo.uin) return
           if (invitor && invitee) {
             return new OB11GroupIncreaseEvent(+msg.peerUid, +invitee, +invitor, 'invite')
           }

@@ -99,7 +99,7 @@ class SatoriAdapter extends Service {
     }
   }
 
-  async handleGroupNotify(input: NT.GroupNotify) {
+  async handleGroupNotify(input: NT.GroupNotify, doubt: boolean) {
     if (
       input.type === NT.GroupNotifyType.InvitedByMember &&
       input.status === NT.GroupNotifyStatus.Unhandle
@@ -119,14 +119,14 @@ class SatoriAdapter extends Service {
       input.status === NT.GroupNotifyStatus.Unhandle
     ) {
       // 他人主动申请，需管理员同意
-      return await parseGuildMemberRequest(this, input)
+      return await parseGuildMemberRequest(this, input, doubt)
     }
     else if (
       input.type === NT.GroupNotifyType.InvitedNeedAdminiStratorPass &&
       input.status === NT.GroupNotifyStatus.Unhandle
     ) {
       // 他人被邀请，需管理员同意
-      return await parseGuildMemberRequest(this, input)
+      return await parseGuildMemberRequest(this, input, doubt)
     }
   }
 
@@ -140,7 +140,8 @@ class SatoriAdapter extends Service {
     })
 
     this.ctx.on('nt/group-notify', async input => {
-      const event = await this.handleGroupNotify(input)
+      const { doubt, notify } = input
+      const event = await this.handleGroupNotify(notify, doubt)
         .catch(e => this.ctx.logger.error(e))
       event && this.server.dispatch(event)
     })

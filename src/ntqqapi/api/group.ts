@@ -110,8 +110,9 @@ export class NTQQGroupApi extends Service {
     const groupCode = flagitem[0]
     const seq = flagitem[1]
     const type = parseInt(flagitem[2])
+    const doubt = flagitem[3] === '1'
     return await invoke(NTMethod.HANDLE_GROUP_REQUEST, [{
-      doubt: false,
+      doubt,
       operateMsg: {
         operateType,
         targetMsg: {
