@@ -12,7 +12,7 @@
     "deploy-win": "cmd /c \"xcopy /C /S /Y dist\\* %LITELOADERQQNT_PROFILE%\\plugins\\LLOneBot\\\"",
     "format": "prettier -cw .",
     "check": "tsc",
-    "compile:proto": "pbjs --no-create --no-convert --no-verify -t static-module -w es6 -p src/ntqqapi/proto -o src/ntqqapi/proto/compiled.js profileLikeTip.proto groupNotify.proto message.proto richMedia.proto && pbts -o src/ntqqapi/proto/compiled.d.ts src/ntqqapi/proto/compiled.js"
+    "compile:proto": "pbjs --no-create --no-convert --no-delimited --no-verify -t static-module -w es6 -p src/ntqqapi/proto -o src/ntqqapi/proto/compiled.js profileLikeTip.proto groupNotify.proto message.proto richMedia.proto && pbts -o src/ntqqapi/proto/compiled.d.ts src/ntqqapi/proto/compiled.js"
   },
   "author": "",
   "license": "MIT",

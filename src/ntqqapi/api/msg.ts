@@ -153,7 +153,17 @@ export class NTQQMsgApi extends Service {
         afterFirstCmd: false,
         cmdCB: payload => {
           for (const msgRecord of payload.msgList) {
-            if (msgRecord.peerUid === destPeer.peerUid && msgRecord.senderUid === selfUid) {
+            if (
+              msgRecord.msgType === 11 &&
+              msgRecord.subMsgType === 7 &&
+              msgRecord.peerUid === destPeer.peerUid &&
+              msgRecord.senderUid === selfUid
+            ) {
+              const element = msgRecord.elements[0]
+              const data = JSON.parse(element.arkElement!.bytesData)
+              if (data.app !== 'com.tencent.multimsg' || !data.meta.detail.resid) {
+                continue
+              }
               return true
             }
           }
@@ -161,20 +171,12 @@ export class NTQQMsgApi extends Service {
         }
       }
     )
-    for (const msg of data.msgList) {
-      const arkElement = msg.elements.find(ele => ele.arkElement)
-      if (!arkElement) {
-        continue
+    return data.msgList.find(msgRecord => {
+      const { arkElement } = msgRecord.elements[0]
+      if (arkElement?.bytesData.includes('com.tencent.multimsg')) {
+        return true
       }
-      const forwardData = JSON.parse(arkElement.arkElement!.bytesData)
-      if (forwardData.app !== 'com.tencent.multimsg') {
-        continue
-      }
-      if (msg.peerUid === destPeer.peerUid && msg.senderUid === selfUid) {
-        return msg
-      }
-    }
-    throw new Error('转发消息超时')
+    })!
   }
 
   async getSingleMsg(peer: Peer, msgSeq: string) {

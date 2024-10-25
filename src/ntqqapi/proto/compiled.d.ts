@@ -43,14 +43,6 @@ export namespace SysMsg {
         public static encode(message: SysMsg.ILikeDetail, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified LikeDetail message, length delimited. Does not implicitly {@link SysMsg.LikeDetail.verify|verify} messages.
-         * @param message LikeDetail message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: SysMsg.ILikeDetail, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a LikeDetail message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -59,15 +51,6 @@ export namespace SysMsg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): SysMsg.LikeDetail;
-
-        /**
-         * Decodes a LikeDetail message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns LikeDetail
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): SysMsg.LikeDetail;
 
         /**
          * Gets the default type url for LikeDetail
@@ -117,14 +100,6 @@ export namespace SysMsg {
         public static encode(message: SysMsg.ILikeMsg, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified LikeMsg message, length delimited. Does not implicitly {@link SysMsg.LikeMsg.verify|verify} messages.
-         * @param message LikeMsg message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: SysMsg.ILikeMsg, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a LikeMsg message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -133,15 +108,6 @@ export namespace SysMsg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): SysMsg.LikeMsg;
-
-        /**
-         * Decodes a LikeMsg message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns LikeMsg
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): SysMsg.LikeMsg;
 
         /**
          * Gets the default type url for LikeMsg
@@ -179,14 +145,6 @@ export namespace SysMsg {
         public static encode(message: SysMsg.IProfileLikeSubTip, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified ProfileLikeSubTip message, length delimited. Does not implicitly {@link SysMsg.ProfileLikeSubTip.verify|verify} messages.
-         * @param message ProfileLikeSubTip message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: SysMsg.IProfileLikeSubTip, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a ProfileLikeSubTip message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -195,15 +153,6 @@ export namespace SysMsg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): SysMsg.ProfileLikeSubTip;
-
-        /**
-         * Decodes a ProfileLikeSubTip message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns ProfileLikeSubTip
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): SysMsg.ProfileLikeSubTip;
 
         /**
          * Gets the default type url for ProfileLikeSubTip
@@ -253,14 +202,6 @@ export namespace SysMsg {
         public static encode(message: SysMsg.IProfileLikeTip, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified ProfileLikeTip message, length delimited. Does not implicitly {@link SysMsg.ProfileLikeTip.verify|verify} messages.
-         * @param message ProfileLikeTip message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: SysMsg.IProfileLikeTip, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a ProfileLikeTip message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -269,15 +210,6 @@ export namespace SysMsg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): SysMsg.ProfileLikeTip;
-
-        /**
-         * Decodes a ProfileLikeTip message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns ProfileLikeTip
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): SysMsg.ProfileLikeTip;
 
         /**
          * Gets the default type url for ProfileLikeTip
@@ -333,14 +265,6 @@ export namespace SysMsg {
         public static encode(message: SysMsg.IGroupMemberChange, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified GroupMemberChange message, length delimited. Does not implicitly {@link SysMsg.GroupMemberChange.verify|verify} messages.
-         * @param message GroupMemberChange message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: SysMsg.IGroupMemberChange, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a GroupMemberChange message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -349,15 +273,6 @@ export namespace SysMsg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): SysMsg.GroupMemberChange;
-
-        /**
-         * Decodes a GroupMemberChange message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns GroupMemberChange
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): SysMsg.GroupMemberChange;
 
         /**
          * Gets the default type url for GroupMemberChange
@@ -401,14 +316,6 @@ export namespace SysMsg {
         public static encode(message: SysMsg.IGroupInvite, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified GroupInvite message, length delimited. Does not implicitly {@link SysMsg.GroupInvite.verify|verify} messages.
-         * @param message GroupInvite message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: SysMsg.IGroupInvite, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a GroupInvite message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -417,15 +324,6 @@ export namespace SysMsg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): SysMsg.GroupInvite;
-
-        /**
-         * Decodes a GroupInvite message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns GroupInvite
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): SysMsg.GroupInvite;
 
         /**
          * Gets the default type url for GroupInvite
@@ -509,14 +407,6 @@ export namespace Msg {
         public static encode(message: Msg.IRoutingHead, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified RoutingHead message, length delimited. Does not implicitly {@link Msg.RoutingHead.verify|verify} messages.
-         * @param message RoutingHead message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IRoutingHead, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a RoutingHead message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -525,15 +415,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.RoutingHead;
-
-        /**
-         * Decodes a RoutingHead message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns RoutingHead
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.RoutingHead;
 
         /**
          * Gets the default type url for RoutingHead
@@ -571,14 +452,6 @@ export namespace Msg {
         public static encode(message: Msg.IC2c, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified C2c message, length delimited. Does not implicitly {@link Msg.C2c.verify|verify} messages.
-         * @param message C2c message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IC2c, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a C2c message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -587,15 +460,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.C2c;
-
-        /**
-         * Decodes a C2c message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns C2c
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.C2c;
 
         /**
          * Gets the default type url for C2c
@@ -681,14 +545,6 @@ export namespace Msg {
         public static encode(message: Msg.IGroup, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified Group message, length delimited. Does not implicitly {@link Msg.Group.verify|verify} messages.
-         * @param message Group message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IGroup, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a Group message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -697,15 +553,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.Group;
-
-        /**
-         * Decodes a Group message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns Group
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.Group;
 
         /**
          * Gets the default type url for Group
@@ -815,14 +662,6 @@ export namespace Msg {
         public static encode(message: Msg.IContentHead, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified ContentHead message, length delimited. Does not implicitly {@link Msg.ContentHead.verify|verify} messages.
-         * @param message ContentHead message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IContentHead, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a ContentHead message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -831,15 +670,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.ContentHead;
-
-        /**
-         * Decodes a ContentHead message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns ContentHead
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.ContentHead;
 
         /**
          * Gets the default type url for ContentHead
@@ -901,14 +731,6 @@ export namespace Msg {
         public static encode(message: Msg.IContentHeadField15, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified ContentHeadField15 message, length delimited. Does not implicitly {@link Msg.ContentHeadField15.verify|verify} messages.
-         * @param message ContentHeadField15 message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IContentHeadField15, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a ContentHeadField15 message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -917,15 +739,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.ContentHeadField15;
-
-        /**
-         * Decodes a ContentHeadField15 message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns ContentHeadField15
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.ContentHeadField15;
 
         /**
          * Gets the default type url for ContentHeadField15
@@ -975,14 +788,6 @@ export namespace Msg {
         public static encode(message: Msg.IMessage, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified Message message, length delimited. Does not implicitly {@link Msg.Message.verify|verify} messages.
-         * @param message Message message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IMessage, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a Message message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -991,15 +796,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.Message;
-
-        /**
-         * Decodes a Message message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns Message
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.Message;
 
         /**
          * Gets the default type url for Message
@@ -1049,14 +845,6 @@ export namespace Msg {
         public static encode(message: Msg.IMessageBody, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified MessageBody message, length delimited. Does not implicitly {@link Msg.MessageBody.verify|verify} messages.
-         * @param message MessageBody message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IMessageBody, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a MessageBody message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -1065,15 +853,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.MessageBody;
-
-        /**
-         * Decodes a MessageBody message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns MessageBody
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.MessageBody;
 
         /**
          * Gets the default type url for MessageBody
@@ -1117,14 +896,6 @@ export namespace Msg {
         public static encode(message: Msg.IRichText, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified RichText message, length delimited. Does not implicitly {@link Msg.RichText.verify|verify} messages.
-         * @param message RichText message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IRichText, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a RichText message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -1133,15 +904,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.RichText;
-
-        /**
-         * Decodes a RichText message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns RichText
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.RichText;
 
         /**
          * Gets the default type url for RichText
@@ -1197,14 +959,6 @@ export namespace Msg {
         public static encode(message: Msg.IElem, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified Elem message, length delimited. Does not implicitly {@link Msg.Elem.verify|verify} messages.
-         * @param message Elem message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IElem, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes an Elem message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -1213,15 +967,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.Elem;
-
-        /**
-         * Decodes an Elem message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns Elem
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.Elem;
 
         /**
          * Gets the default type url for Elem
@@ -1289,14 +1034,6 @@ export namespace Msg {
         public static encode(message: Msg.IText, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified Text message, length delimited. Does not implicitly {@link Msg.Text.verify|verify} messages.
-         * @param message Text message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IText, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a Text message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -1305,15 +1042,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.Text;
-
-        /**
-         * Decodes a Text message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns Text
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.Text;
 
         /**
          * Gets the default type url for Text
@@ -1363,14 +1091,6 @@ export namespace Msg {
         public static encode(message: Msg.IFace, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified Face message, length delimited. Does not implicitly {@link Msg.Face.verify|verify} messages.
-         * @param message Face message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IFace, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a Face message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -1379,15 +1099,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.Face;
-
-        /**
-         * Decodes a Face message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns Face
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.Face;
 
         /**
          * Gets the default type url for Face
@@ -1431,14 +1142,6 @@ export namespace Msg {
         public static encode(message: Msg.ILightAppElem, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified LightAppElem message, length delimited. Does not implicitly {@link Msg.LightAppElem.verify|verify} messages.
-         * @param message LightAppElem message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.ILightAppElem, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a LightAppElem message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -1447,15 +1150,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.LightAppElem;
-
-        /**
-         * Decodes a LightAppElem message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns LightAppElem
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.LightAppElem;
 
         /**
          * Gets the default type url for LightAppElem
@@ -1505,14 +1199,6 @@ export namespace Msg {
         public static encode(message: Msg.ICommonElem, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified CommonElem message, length delimited. Does not implicitly {@link Msg.CommonElem.verify|verify} messages.
-         * @param message CommonElem message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.ICommonElem, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a CommonElem message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -1521,15 +1207,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.CommonElem;
-
-        /**
-         * Decodes a CommonElem message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns CommonElem
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.CommonElem;
 
         /**
          * Gets the default type url for CommonElem
@@ -1621,14 +1298,6 @@ export namespace Msg {
         public static encode(message: Msg.IAttr, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified Attr message, length delimited. Does not implicitly {@link Msg.Attr.verify|verify} messages.
-         * @param message Attr message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IAttr, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes an Attr message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -1637,15 +1306,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.Attr;
-
-        /**
-         * Decodes an Attr message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns Attr
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.Attr;
 
         /**
          * Gets the default type url for Attr
@@ -1683,14 +1343,6 @@ export namespace Msg {
         public static encode(message: Msg.IMarkdownElem, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified MarkdownElem message, length delimited. Does not implicitly {@link Msg.MarkdownElem.verify|verify} messages.
-         * @param message MarkdownElem message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IMarkdownElem, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a MarkdownElem message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -1699,15 +1351,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.MarkdownElem;
-
-        /**
-         * Decodes a MarkdownElem message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns MarkdownElem
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.MarkdownElem;
 
         /**
          * Gets the default type url for MarkdownElem
@@ -1751,14 +1394,6 @@ export namespace Msg {
         public static encode(message: Msg.IPbMultiMsgItem, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified PbMultiMsgItem message, length delimited. Does not implicitly {@link Msg.PbMultiMsgItem.verify|verify} messages.
-         * @param message PbMultiMsgItem message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IPbMultiMsgItem, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a PbMultiMsgItem message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -1767,15 +1402,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.PbMultiMsgItem;
-
-        /**
-         * Decodes a PbMultiMsgItem message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns PbMultiMsgItem
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.PbMultiMsgItem;
 
         /**
          * Gets the default type url for PbMultiMsgItem
@@ -1813,14 +1439,6 @@ export namespace Msg {
         public static encode(message: Msg.IPbMultiMsgNew, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified PbMultiMsgNew message, length delimited. Does not implicitly {@link Msg.PbMultiMsgNew.verify|verify} messages.
-         * @param message PbMultiMsgNew message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IPbMultiMsgNew, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a PbMultiMsgNew message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -1829,15 +1447,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.PbMultiMsgNew;
-
-        /**
-         * Decodes a PbMultiMsgNew message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns PbMultiMsgNew
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.PbMultiMsgNew;
 
         /**
          * Gets the default type url for PbMultiMsgNew
@@ -1881,14 +1490,6 @@ export namespace Msg {
         public static encode(message: Msg.IPbMultiMsgTransmit, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified PbMultiMsgTransmit message, length delimited. Does not implicitly {@link Msg.PbMultiMsgTransmit.verify|verify} messages.
-         * @param message PbMultiMsgTransmit message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: Msg.IPbMultiMsgTransmit, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a PbMultiMsgTransmit message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -1897,15 +1498,6 @@ export namespace Msg {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.PbMultiMsgTransmit;
-
-        /**
-         * Decodes a PbMultiMsgTransmit message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns PbMultiMsgTransmit
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): Msg.PbMultiMsgTransmit;
 
         /**
          * Gets the default type url for PbMultiMsgTransmit
@@ -1953,14 +1545,6 @@ export namespace RichMedia {
         public static encode(message: RichMedia.IMsgInfo, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified MsgInfo message, length delimited. Does not implicitly {@link RichMedia.MsgInfo.verify|verify} messages.
-         * @param message MsgInfo message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: RichMedia.IMsgInfo, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a MsgInfo message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -1969,15 +1553,6 @@ export namespace RichMedia {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): RichMedia.MsgInfo;
-
-        /**
-         * Decodes a MsgInfo message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns MsgInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): RichMedia.MsgInfo;
 
         /**
          * Gets the default type url for MsgInfo
@@ -2027,14 +1602,6 @@ export namespace RichMedia {
         public static encode(message: RichMedia.IMsgInfoBody, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified MsgInfoBody message, length delimited. Does not implicitly {@link RichMedia.MsgInfoBody.verify|verify} messages.
-         * @param message MsgInfoBody message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: RichMedia.IMsgInfoBody, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a MsgInfoBody message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -2043,15 +1610,6 @@ export namespace RichMedia {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): RichMedia.MsgInfoBody;
-
-        /**
-         * Decodes a MsgInfoBody message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns MsgInfoBody
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): RichMedia.MsgInfoBody;
 
         /**
          * Gets the default type url for MsgInfoBody
@@ -2119,14 +1677,6 @@ export namespace RichMedia {
         public static encode(message: RichMedia.IIndexNode, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified IndexNode message, length delimited. Does not implicitly {@link RichMedia.IndexNode.verify|verify} messages.
-         * @param message IndexNode message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: RichMedia.IIndexNode, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes an IndexNode message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -2135,15 +1685,6 @@ export namespace RichMedia {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): RichMedia.IndexNode;
-
-        /**
-         * Decodes an IndexNode message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns IndexNode
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): RichMedia.IndexNode;
 
         /**
          * Gets the default type url for IndexNode
@@ -2229,14 +1770,6 @@ export namespace RichMedia {
         public static encode(message: RichMedia.IFileInfo, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified FileInfo message, length delimited. Does not implicitly {@link RichMedia.FileInfo.verify|verify} messages.
-         * @param message FileInfo message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: RichMedia.IFileInfo, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a FileInfo message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -2245,15 +1778,6 @@ export namespace RichMedia {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): RichMedia.FileInfo;
-
-        /**
-         * Decodes a FileInfo message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns FileInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): RichMedia.FileInfo;
 
         /**
          * Gets the default type url for FileInfo
@@ -2309,14 +1833,6 @@ export namespace RichMedia {
         public static encode(message: RichMedia.IFileType, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified FileType message, length delimited. Does not implicitly {@link RichMedia.FileType.verify|verify} messages.
-         * @param message FileType message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: RichMedia.IFileType, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a FileType message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -2325,15 +1841,6 @@ export namespace RichMedia {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): RichMedia.FileType;
-
-        /**
-         * Decodes a FileType message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns FileType
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): RichMedia.FileType;
 
         /**
          * Gets the default type url for FileType
@@ -2383,14 +1890,6 @@ export namespace RichMedia {
         public static encode(message: RichMedia.IPicInfo, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified PicInfo message, length delimited. Does not implicitly {@link RichMedia.PicInfo.verify|verify} messages.
-         * @param message PicInfo message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: RichMedia.IPicInfo, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a PicInfo message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -2399,15 +1898,6 @@ export namespace RichMedia {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): RichMedia.PicInfo;
-
-        /**
-         * Decodes a PicInfo message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns PicInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): RichMedia.PicInfo;
 
         /**
          * Gets the default type url for PicInfo
@@ -2457,14 +1947,6 @@ export namespace RichMedia {
         public static encode(message: RichMedia.IPicUrlExtParams, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified PicUrlExtParams message, length delimited. Does not implicitly {@link RichMedia.PicUrlExtParams.verify|verify} messages.
-         * @param message PicUrlExtParams message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: RichMedia.IPicUrlExtParams, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a PicUrlExtParams message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -2473,15 +1955,6 @@ export namespace RichMedia {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): RichMedia.PicUrlExtParams;
-
-        /**
-         * Decodes a PicUrlExtParams message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns PicUrlExtParams
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): RichMedia.PicUrlExtParams;
 
         /**
          * Gets the default type url for PicUrlExtParams
@@ -2531,14 +2004,6 @@ export namespace RichMedia {
         public static encode(message: RichMedia.IExtBizInfo, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified ExtBizInfo message, length delimited. Does not implicitly {@link RichMedia.ExtBizInfo.verify|verify} messages.
-         * @param message ExtBizInfo message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: RichMedia.IExtBizInfo, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes an ExtBizInfo message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -2547,15 +2012,6 @@ export namespace RichMedia {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): RichMedia.ExtBizInfo;
-
-        /**
-         * Decodes an ExtBizInfo message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns ExtBizInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): RichMedia.ExtBizInfo;
 
         /**
          * Gets the default type url for ExtBizInfo
@@ -2599,14 +2055,6 @@ export namespace RichMedia {
         public static encode(message: RichMedia.IPicExtBizInfo, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified PicExtBizInfo message, length delimited. Does not implicitly {@link RichMedia.PicExtBizInfo.verify|verify} messages.
-         * @param message PicExtBizInfo message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: RichMedia.IPicExtBizInfo, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a PicExtBizInfo message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -2615,15 +2063,6 @@ export namespace RichMedia {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): RichMedia.PicExtBizInfo;
-
-        /**
-         * Decodes a PicExtBizInfo message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns PicExtBizInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): RichMedia.PicExtBizInfo;
 
         /**
          * Gets the default type url for PicExtBizInfo
@@ -2661,14 +2100,6 @@ export namespace RichMedia {
         public static encode(message: RichMedia.IVideoExtBizInfo, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified VideoExtBizInfo message, length delimited. Does not implicitly {@link RichMedia.VideoExtBizInfo.verify|verify} messages.
-         * @param message VideoExtBizInfo message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: RichMedia.IVideoExtBizInfo, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a VideoExtBizInfo message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -2677,15 +2108,6 @@ export namespace RichMedia {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): RichMedia.VideoExtBizInfo;
-
-        /**
-         * Decodes a VideoExtBizInfo message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns VideoExtBizInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): RichMedia.VideoExtBizInfo;
 
         /**
          * Gets the default type url for VideoExtBizInfo
@@ -2747,14 +2169,6 @@ export namespace RichMedia {
         public static encode(message: RichMedia.IPicFileIdInfo, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Encodes the specified PicFileIdInfo message, length delimited. Does not implicitly {@link RichMedia.PicFileIdInfo.verify|verify} messages.
-         * @param message PicFileIdInfo message or plain object to encode
-         * @param [writer] Writer to encode to
-         * @returns Writer
-         */
-        public static encodeDelimited(message: RichMedia.IPicFileIdInfo, writer?: $protobuf.Writer): $protobuf.Writer;
-
-        /**
          * Decodes a PicFileIdInfo message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
@@ -2763,15 +2177,6 @@ export namespace RichMedia {
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
         public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): RichMedia.PicFileIdInfo;
-
-        /**
-         * Decodes a PicFileIdInfo message from the specified reader or buffer, length delimited.
-         * @param reader Reader or buffer to decode from
-         * @returns PicFileIdInfo
-         * @throws {Error} If the payload is not a reader or valid buffer
-         * @throws {$protobuf.util.ProtocolError} If required fields are missing
-         */
-        public static decodeDelimited(reader: ($protobuf.Reader|Uint8Array)): RichMedia.PicFileIdInfo;
 
         /**
          * Gets the default type url for PicFileIdInfo

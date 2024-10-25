@@ -16,7 +16,7 @@ import {
   BuddyReqType,
   GrayTipElementSubType
 } from './types'
-import { selfInfo, llonebotError } from '../common/globalVars'
+import { selfInfo } from '../common/globalVars'
 import { version } from '../version'
 import { invoke } from './ntcall'
 import { Native } from './native/index'
@@ -29,7 +29,7 @@ declare module 'cordis' {
     'nt/message-created': (input: RawMessage) => void
     'nt/message-deleted': (input: RawMessage) => void
     'nt/message-sent': (input: RawMessage) => void
-    'nt/group-notify': (input: GroupNotify) => void
+    'nt/group-notify': (input: { notify: GroupNotify, doubt: boolean }) => void
     'nt/friend-request': (input: FriendRequest) => void
     'nt/group-member-info-updated': (input: { groupCode: string, members: GroupMember[] }) => void
     'nt/system-message-created': (input: Uint8Array) => void
@@ -228,7 +228,7 @@ class Core extends Service {
             continue
           }
           groupNotifyIgnore.push(notify.seq)
-          this.ctx.parallel('nt/group-notify', notify)
+          this.ctx.parallel('nt/group-notify', { notify, doubt: payload.doubt })
         }
       }
     })
