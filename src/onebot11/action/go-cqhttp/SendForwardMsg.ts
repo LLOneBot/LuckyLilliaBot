@@ -19,7 +19,7 @@ interface Payload {
 
 interface Response {
   message_id: number
-  forward_id?: string
+  forward_id: string
 }
 
 export class SendForwardMsg extends BaseAction<Payload, Response> {
@@ -60,14 +60,11 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
       }
     }
 
-    let msg: RawMessage
     if (fake && this.ctx.app.native.activated) {
-      msg = await this.handleFakeForwardNode(peer, nodes)
+      return await this.handleFakeForwardNode(peer, nodes)
     } else {
-      msg = await this.handleForwardNode(peer, nodes)
+      return await this.handleForwardNode(peer, nodes)
     }
-    const msgShortId = this.ctx.store.createMsgShortId({ chatType: msg.chatType, peerUid: msg.peerUid }, msg.msgId)
-    return { message_id: msgShortId }
   }
 
   private parseNodeContent(nodes: OB11MessageNode[]) {
@@ -82,7 +79,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     })
   }
 
-  private async handleFakeForwardNode(peer: Peer, nodes: OB11MessageNode[]) {
+  private async handleFakeForwardNode(peer: Peer, nodes: OB11MessageNode[]): Promise<Response> {
     const encoder = new MessageEncoder(this.ctx, peer)
     const raw = await encoder.generate(nodes)
     const transmit = Msg.PbMultiMsgTransmit.encode({ pbItemList: raw.multiMsgItems }).finish()
@@ -122,7 +119,11 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
           })
         }
       }], 1800)
-      return msg!
+      const msgShortId = this.ctx.store.createMsgShortId({
+        chatType: msg!.chatType,
+        peerUid: msg!.peerUid
+      }, msg!.msgId)
+      return { message_id: msgShortId, forward_id: resid }
     } catch (e) {
       this.ctx.logger.error('合并转发失败', e)
       throw new Error(`发送伪造合并转发消息失败 (res_id: ${resid} `)
@@ -153,7 +154,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
   }
 
   // 返回一个合并转发的消息id
-  private async handleForwardNode(destPeer: Peer, messageNodes: OB11MessageNode[]) {
+  private async handleForwardNode(destPeer: Peer, messageNodes: OB11MessageNode[]): Promise<Response> {
     const selfPeer = {
       chatType: ChatType.C2C,
       peerUid: selfInfo.uid,
@@ -245,8 +246,13 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     if (retMsgIds.length === 0) {
       throw Error('转发消息失败，节点为空')
     }
-    const returnMsg = await this.ctx.ntMsgApi.multiForwardMsg(srcPeer!, destPeer, retMsgIds)
-    return returnMsg
+    const msg = await this.ctx.ntMsgApi.multiForwardMsg(srcPeer!, destPeer, retMsgIds)
+    const resid = JSON.parse(msg.elements[0].arkElement!.bytesData).meta.detail.resid
+    const msgShortId = this.ctx.store.createMsgShortId({
+      chatType: msg.chatType,
+      peerUid: msg.peerUid
+    }, msg.msgId)
+    return { message_id: msgShortId, forward_id: resid }
   }
 }
 

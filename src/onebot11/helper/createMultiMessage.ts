@@ -174,7 +174,7 @@ export class MessageEncoder {
     const { type, data } = segment
     if (type === OB11MessageDataType.Node) {
       await this.render(data.content as OB11MessageData[])
-      const id = data.id ?? data.user_id
+      const id = data.uin ?? data.user_id
       this.uin = id ? +id : undefined
       this.name = data.name ?? data.nickname
       await this.flush()
