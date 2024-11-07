@@ -23,8 +23,8 @@ interface FileResponse {
 export class DownloadFile extends BaseAction<Payload, FileResponse> {
   actionName = ActionName.GoCQHTTP_DownloadFile
   payloadSchema = Schema.object({
-    url: String,
-    base64: String,
+    url: Schema.string(),
+    base64: Schema.string(),
     headers: Schema.union([String, Schema.array(String)])
   })
 
