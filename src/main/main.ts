@@ -35,7 +35,6 @@ import {
   NTQQWindowApi
 } from '../ntqqapi/api'
 import { existsSync, mkdirSync } from 'node:fs'
-import { checkChanelId } from '@/ntqqapi/ntcall'
 
 declare module 'cordis' {
   interface Events {
@@ -185,7 +184,6 @@ function onLoad() {
 
       if (config.enableLLOB && (config.satori.enable || config.ob11.enable)) {
         startHook()
-        await checkChanelId()
         await ctx.sleep(600)
       } else {
         llonebotError.otherError = 'LLOneBot 未启动'
