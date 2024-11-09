@@ -1,6 +1,6 @@
 import { ipcMain } from 'electron'
-import { hookApiCallbacks, ReceiveCmdS, registerReceiveHook, removeReceiveHook } from './hook'
-import { getBuildVersion, log } from '../common/utils'
+import { hookApiCallbacks, registerReceiveHook, removeReceiveHook } from './hook'
+import { log } from '../common/utils'
 import { randomUUID } from 'node:crypto'
 import {
   GeneralCallResult,
@@ -17,8 +17,6 @@ import {
   NodeIKernelRobotService,
   NodeIKernelNodeMiscService
 } from './services'
-import { CategoryFriend, SimpleInfo, UserDetailInfoByUin } from '@/ntqqapi/types'
-import { selfInfo } from '@/common/globalVars'
 
 export enum NTClass {
   NT_API = 'ns-ntApi',
@@ -110,38 +108,26 @@ interface InvokeOptions<ReturnType> {
   timeout?: number
 }
 
-let availableChannel: NTChannel | undefined = undefined;
+let channel: NTChannel
 
-export async function checkChanelId(){
-  async function testChannel(channel: NTChannel) {
-    await invoke<UserDetailInfoByUin>(
-      'nodeIKernelProfileService/getUserDetailInfoByUin',
-      [{ uin: selfInfo.uin }],
-      { timeout: 1000, channel }
-    )
+function getChannel() {
+  if (channel) {
+    return channel
   }
-
-  for (const channel of [NTChannel.IPC_UP_2, NTChannel.IPC_UP_3]) {
-    // const channel = `IPC_UP_${windowId}` as NTChannel
-    try {
-      await testChannel(channel)
-      log(`check channel ${channel} success`)
-      availableChannel = channel
-      return
-    } catch (e) {
-      log(`check channel ${channel} failed`, e)
-    }
+  if (ipcMain.eventNames().includes(NTChannel.IPC_UP_2)) {
+    return channel = NTChannel.IPC_UP_2
+  } else {
+    return channel = NTChannel.IPC_UP_3
   }
-  availableChannel = getBuildVersion() >= 28788 ? NTChannel.IPC_UP_3 : NTChannel.IPC_UP_2
 }
+
 export function invoke<
   R extends Awaited<ReturnType<Extract<NTService[S][M], (...args: any) => unknown>>>,
   S extends keyof NTService = any,
   M extends keyof NTService[S] & string = any
 >(method: Extract<unknown, `${S}/${M}`> | string, args: unknown[], options: InvokeOptions<R> = {}) {
   const className = options.className ?? NTClass.NT_API
-  // const channel = options.channel ?? getBuildVersion() >= 28788 ? NTChannel.IPC_UP_3 : NTChannel.IPC_UP_2
-  const channel = options.channel ?? availableChannel!
+  const channel = options.channel ?? getChannel()
   const timeout = options.timeout ?? 5000
   const afterFirstCmd = options.afterFirstCmd ?? true
   let eventName = className + '-' + channel[channel.length - 1]

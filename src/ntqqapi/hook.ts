@@ -1,4 +1,4 @@
-import { invoke, NTChannel, NTMethod } from './ntcall'
+import { NTMethod } from './ntcall'
 import { log } from '@/common/utils'
 import { randomUUID } from 'node:crypto'
 import { ipcMain } from 'electron'
@@ -40,7 +40,7 @@ const callHooks: Array<{
 }> = []
 
 export function startHook() {
-  log("start hook")
+  log('start hook')
 
   const senderExclude = Symbol()
 
