@@ -1,4 +1,4 @@
-import { NTMethod } from './ntcall'
+import { invoke, NTChannel, NTMethod } from './ntcall'
 import { log } from '@/common/utils'
 import { randomUUID } from 'node:crypto'
 import { ipcMain } from 'electron'
@@ -40,6 +40,8 @@ const callHooks: Array<{
 }> = []
 
 export function startHook() {
+  log("start hook")
+
   const senderExclude = Symbol()
 
   ipcMain.emit = new Proxy(ipcMain.emit, {
@@ -50,7 +52,6 @@ export function startHook() {
       if (logHook) {
         log('request', args)
       }
-
       const event = args[1]
       if (event.sender && !event.sender[senderExclude]) {
         event.sender[senderExclude] = true

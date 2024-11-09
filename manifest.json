@@ -4,16 +4,12 @@
   "name": "LLOneBot",
   "slug": "LLOneBot",
   "description": "实现 OneBot 11 和 Satori 协议，用于 QQ 机器人开发",
-  "version": "4.1.3",
+  "version": "4.1.4",
   "icon": "./icon.webp",
   "authors": [
     {
       "name": "linyuchen",
       "link": "https://github.com/linyuchen"
-    },
-    {
-      "name": "idranme",
-      "link": "https://github.com/idranme"
     }
   ],
   "repository": {
