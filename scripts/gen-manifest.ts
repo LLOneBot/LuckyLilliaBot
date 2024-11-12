@@ -13,6 +13,10 @@ const manifest = {
     {
       name: 'linyuchen',
       link: 'https://github.com/linyuchen'
+    },
+    {
+      "name": "idranme",
+      "link": "https://github.com/idranme"
     }
   ],
   repository: {

@@ -39,6 +39,7 @@ const config: ElectronViteConfig = {
           ...external.map(genCpModule),
           { src: './manifest.json', dest: 'dist' },
           { src: './icon.webp', dest: 'dist' },
+          { src: './src/ntqqapi/native/napcat-protocol-packet/Moehoo/*', dest: 'dist/main/Moehoo' },
         ],
       }),
     ],

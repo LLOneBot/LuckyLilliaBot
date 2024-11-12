@@ -78,6 +78,8 @@ import { GroupPoke } from './llonebot/GroupPoke'
 import { FriendPoke } from './llonebot/FriendPoke'
 import { GetGroupFileSystemInfo } from './go-cqhttp/GetGroupFileSystemInfo'
 import { GetCredentials } from './system/GetCredentials'
+import { SetGroupSpecialTitle } from '@/onebot11/action/go-cqhttp/SetGroupSpecialTitle'
+import { SendGroupSign } from '@/onebot11/action/go-cqhttp/SendGroupSign'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -161,6 +163,8 @@ export function initActionMap(adapter: Adapter) {
     new DeleteFriend(adapter),
     new OCRImage(adapter),
     new GetGroupFileSystemInfo(adapter),
+    new SetGroupSpecialTitle(adapter),
+    new SendGroupSign(adapter),
   ]
   const actionMap = new Map()
   for (const action of actionHandlers) {

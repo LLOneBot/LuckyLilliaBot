@@ -1,9 +1,9 @@
 import { Context } from 'cordis'
 import { Dict } from 'cosmokit'
-import { getBuildVersion } from '@/common/utils/misc'
-import { TEMP_DIR } from '@/common/globalVars'
+import { getBuildVersion } from '../../../common/utils/misc'
+import { TEMP_DIR } from '../../../common/globalVars'
 import { copyFile } from 'fs/promises'
-import { ChatType, Peer } from '../types'
+import { ChatType, Peer } from '../../types'
 import path from 'node:path'
 import addon from './external/crychic-win32-x64.node?asset'
 
