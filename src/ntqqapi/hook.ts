@@ -2,6 +2,7 @@ import { NTMethod } from './ntcall'
 import { log } from '@/common/utils'
 import { randomUUID } from 'node:crypto'
 import { ipcMain } from 'electron'
+import { Dict } from 'cosmokit'
 
 export const hookApiCallbacks: Record<string, (res: any) => void> = {}
 
@@ -45,7 +46,7 @@ export function startHook() {
   const senderExclude = Symbol()
 
   ipcMain.emit = new Proxy(ipcMain.emit, {
-    apply(target, thisArg, args: [eventName: string, ...args: any]) {
+    apply(target, thisArg, args: [channel: string, ...args: any]) {
       if (args[2]?.eventName?.startsWith('ns-LoggerApi')) {
         return target.apply(thisArg, args)
       }
@@ -56,7 +57,7 @@ export function startHook() {
       if (event.sender && !event.sender[senderExclude]) {
         event.sender[senderExclude] = true
         event.sender.send = new Proxy(event.sender.send, {
-          apply(target, thisArg, args: any[]) {
+          apply(target, thisArg, args: [channel: string, meta: Dict, data: Dict[]]) {
             if (args[1].eventName?.startsWith('ns-LoggerApi')) {
               return target.apply(thisArg, args)
             }

@@ -11,7 +11,7 @@ export class Native {
   public activated = false
   private crychic?: Dict
   private seq = 0
-  private cb: Map<number, Function> = new Map()
+  private cb: Map<number, (res: any) => void> = new Map()
 
   constructor(private ctx: Context) {
     ctx.on('ready', () => {
