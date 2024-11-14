@@ -442,6 +442,7 @@ export interface RawMessage {
     attrType: number
     attrId: string
   }>
+  isOnlineMsg: boolean
 }
 
 export interface Peer {

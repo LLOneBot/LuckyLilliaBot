@@ -228,6 +228,9 @@ function onLoad() {
 
 // 创建窗口时触发
 function onBrowserWindowCreated(window: BrowserWindow) {
+  if (window.id === 2) {
+    mainWindow = window
+  }
 }
 
 try {

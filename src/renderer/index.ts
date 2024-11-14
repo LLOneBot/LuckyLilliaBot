@@ -247,7 +247,9 @@ async function onSettingWindowCreated(view: Element) {
     } else {
       errDom?.classList.add('show')
     }
-    errCodeDom!.innerHTML = errMsg
+    if (errCodeDom) {
+      errCodeDom.innerHTML = errMsg
+    }
   }
   showError().then()
 
@@ -456,8 +458,8 @@ async function onSettingWindowCreated(view: Element) {
   }
   window.llonebot.checkVersion().then(checkVersionFunc)
   window.addEventListener('beforeunload', () => {
-    window.llonebot.getConfig().then(oldConfig=>{
-      if(JSON.stringify(oldConfig) !== JSON.stringify(config)){
+    window.llonebot.getConfig().then(oldConfig => {
+      if (JSON.stringify(oldConfig) !== JSON.stringify(config)) {
         window.llonebot.setConfig(true, config)
       }
     })
