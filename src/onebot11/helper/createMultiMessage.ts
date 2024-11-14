@@ -221,7 +221,7 @@ export class MessageEncoder {
     }
   }
 
-  async generate(content: any[]) {
+  async generate(content: OB11MessageData[]) {
     await this.render(content)
     return {
       multiMsgItems: [{

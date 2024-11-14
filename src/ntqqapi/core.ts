@@ -41,12 +41,14 @@ class Core extends Service {
   static inject = ['ntMsgApi', 'ntFriendApi', 'ntGroupApi', 'store']
   public startTime = 0
   public native
-  public ntqqPacketApi: NTQQPacketApi
+  public packet!: NTQQPacketApi
 
   constructor(protected ctx: Context, public config: Core.Config) {
     super(ctx, 'app', true)
     this.native = new Native(ctx)
-    initWrapperSession().then(session=>{this.ntqqPacketApi = new NTQQPacketApi(session)})
+    initWrapperSession().then(session => {
+      this.packet = new NTQQPacketApi(session)
+    })
   }
 
   public start() {

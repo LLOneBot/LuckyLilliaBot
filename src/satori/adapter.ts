@@ -91,7 +91,7 @@ class SatoriAdapter extends Service {
       input.subMsgType === 12 &&
       input.elements[0]?.grayTipElement?.xmlElement?.templId === '10382'
     ) {
-
+      // 机器人被表情回应
     }
     else {
       // 普通的消息

@@ -36,9 +36,6 @@ import {
 } from '../ntqqapi/api'
 import { existsSync, mkdirSync } from 'node:fs'
 
-import { initWrapperSession} from '@/ntqqapi/native/napcat-protocol-packet'
-initWrapperSession().then()
-
 declare module 'cordis' {
   interface Events {
     'llob/config-updated': (input: LLOBConfig) => void
@@ -231,6 +228,9 @@ function onLoad() {
 
 // 创建窗口时触发
 function onBrowserWindowCreated(window: BrowserWindow) {
+  if (window.id === 2) {
+    mainWindow = window
+  }
 }
 
 try {

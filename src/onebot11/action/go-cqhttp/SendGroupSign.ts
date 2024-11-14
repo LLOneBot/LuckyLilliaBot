@@ -1,6 +1,5 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
-import { getBuildVersion } from '@/common/utils/misc'
 import { selfInfo } from '@/common/globalVars'
 
 interface Payload {
@@ -14,7 +13,7 @@ export class SendGroupSign extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    await this.ctx.app.ntqqPacketApi.sendGroupSignPacket(selfInfo.uin, payload.group_id.toString())
+    await this.ctx.app.packet.sendGroupSignPacket(selfInfo.uin, payload.group_id.toString())
     return null
   }
 }

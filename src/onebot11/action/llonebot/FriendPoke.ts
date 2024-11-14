@@ -1,6 +1,5 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
-import { getBuildVersion } from '@/common/utils/misc'
 
 interface Payload {
   user_id: number | string
@@ -21,7 +20,7 @@ export class FriendPoke extends BaseAction<Payload, null> {
     // }
     // await this.ctx.app.native.sendFriendPoke(+payload.user_id)
 
-    await this.ctx.app.ntqqPacketApi.sendPokePacket(+payload.user_id)
+    await this.ctx.app.packet.sendPokePacket(+payload.user_id)
     return null
   }
 }

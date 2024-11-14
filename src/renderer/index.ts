@@ -11,6 +11,10 @@ function isEmpty(value: unknown) {
 }
 
 async function onSettingWindowCreated(view: Element) {
+  console.log(view)
+  if (!view){
+    return
+  }
   const config = await window.llonebot.getConfig()
   const ob11Config = { ...config.ob11 }
 
@@ -247,7 +251,9 @@ async function onSettingWindowCreated(view: Element) {
     } else {
       errDom?.classList.add('show')
     }
-    errCodeDom!.innerHTML = errMsg
+    if (errCodeDom) {
+      errCodeDom.innerHTML = errMsg
+    }
   }
   showError().then()
 
@@ -456,8 +462,8 @@ async function onSettingWindowCreated(view: Element) {
   }
   window.llonebot.checkVersion().then(checkVersionFunc)
   window.addEventListener('beforeunload', () => {
-    window.llonebot.getConfig().then(oldConfig=>{
-      if(JSON.stringify(oldConfig) !== JSON.stringify(config)){
+    window.llonebot.getConfig().then(oldConfig => {
+      if (JSON.stringify(oldConfig) !== JSON.stringify(config)) {
         window.llonebot.setConfig(true, config)
       }
     })

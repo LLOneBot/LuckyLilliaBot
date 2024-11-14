@@ -1,6 +1,5 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
-import { getBuildVersion } from '@/common/utils/misc'
 import { selfInfo } from '@/common/globalVars'
 import { GroupMemberRole } from '@/ntqqapi/types'
 
@@ -25,7 +24,7 @@ export class SetGroupSpecialTitle extends BaseAction<Payload, null> {
     if (self.role !== GroupMemberRole.Owner){
       throw new Error(`不是群${payload.group_id}的群主，无法设置群头衔`)
     }
-    await this.ctx.app.ntqqPacketApi.sendSetSpecialTittlePacket(payload.group_id.toString(), uid, payload.special_title || "")
+    await this.ctx.app.packet.sendSetSpecialTittlePacket(payload.group_id.toString(), uid, payload.special_title || "")
     return null
   }
 }
