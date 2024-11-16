@@ -80,6 +80,11 @@ import { GetGroupFileSystemInfo } from './go-cqhttp/GetGroupFileSystemInfo'
 import { GetCredentials } from './system/GetCredentials'
 import { SetGroupSpecialTitle } from '@/onebot11/action/go-cqhttp/SetGroupSpecialTitle'
 import { SendGroupSign } from '@/onebot11/action/go-cqhttp/SendGroupSign'
+import { SetRestart } from '@/onebot11/action/system/SetRestart'
+import { SetFriendCategory } from '@/onebot11/action/llonebot/SetFriendCategory'
+import { SetFriendRemark } from '@/onebot11/action/llonebot/SetFriendRemark'
+import { SetGroupMsgMask } from '@/onebot11/action/llonebot/SetGroupMsgMask'
+import { SetGroupRemark } from '@/onebot11/action/llonebot/SetGroupRemark'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -100,6 +105,10 @@ export function initActionMap(adapter: Adapter) {
     new GetRobotUinRange(adapter),
     new GroupPoke(adapter),
     new FriendPoke(adapter),
+    new SetFriendCategory(adapter),
+    new SetFriendRemark(adapter),
+    new SetGroupMsgMask(adapter),
+    new SetGroupRemark(adapter),
     // onebot11
     new SendLike(adapter),
     new GetMsg(adapter),
@@ -133,6 +142,7 @@ export function initActionMap(adapter: Adapter) {
     new ForwardFriendSingleMsg(adapter),
     new ForwardGroupSingleMsg(adapter),
     new GetCredentials(adapter),
+    new SetRestart(adapter),
     // go-cqhttp
     new GetEssenceMsgList(adapter),
     new GetGroupHonorInfo(adapter),

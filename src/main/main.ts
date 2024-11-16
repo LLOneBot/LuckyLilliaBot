@@ -35,6 +35,7 @@ import {
   NTQQWindowApi
 } from '../ntqqapi/api'
 import { existsSync, mkdirSync } from 'node:fs'
+import { NTQQSystemApi } from '@/ntqqapi/api/system'
 
 declare module 'cordis' {
   interface Events {
@@ -74,6 +75,7 @@ function onLoad() {
   ctx.plugin(NTQQWebApi)
   ctx.plugin(NTQQWindowApi)
   ctx.plugin(Database)
+  ctx.plugin(NTQQSystemApi)
 
   let started = false
 

@@ -22,6 +22,12 @@ declare module 'cordis' {
   }
 }
 
+export enum GroupMsgMask {
+  ALLOW_NOTIFY = 1,  // 允许提醒
+  ALLOW_NOT_NOTIFY = 4,  // 接受消息不提醒
+  BOX_NOT_NOTIFY = 2,  // 收进群助手不提醒
+  NOT_ALLOW = 3,  // 屏蔽
+}
 export class NTQQGroupApi extends Service {
   static inject = ['ntWindowApi']
 
@@ -340,5 +346,14 @@ export class NTQQGroupApi extends Service {
       'nodeIKernelRichMediaService/getGroupSpace',
       [{ groupId }]
     )
+  }
+
+  async setGroupMsgMask(groupCode: string, msgMask: GroupMsgMask){
+    return await invoke('nodeIKernelGroupService/setGroupMsgMask', [{ groupCode, msgMask }])
+  }
+
+  async setGroupRemark(groupCode: string, groupRemark?: string) {
+    groupRemark = groupRemark ?? ''
+    return await invoke('nodeIKernelGroupService/modifyGroupRemark', [{ groupCode, groupRemark }])
   }
 }

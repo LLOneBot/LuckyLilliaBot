@@ -29,6 +29,10 @@ export enum ActionName {
   GetRobotUinRange = 'get_robot_uin_range',
   GroupPoke = 'group_poke',
   FriendPoke = 'friend_poke',
+  SetFriendRemark = 'set_friend_remark',
+  SetFriendCategory = 'set_friend_category',
+  SetGroupMsgMask = 'set_group_msg_mask',
+  SetGroupRemark = 'set_group_remark',
   // onebot 11
   SendLike = 'send_like',
   GetLoginInfo = 'get_login_info',
@@ -47,6 +51,7 @@ export enum ActionName {
   SetGroupLeave = 'set_group_leave',
   GetVersionInfo = 'get_version_info',
   GetStatus = 'get_status',
+  SetRestart = 'set_restart',
   CanSendRecord = 'can_send_record',
   CanSendImage = 'can_send_image',
   SetGroupKick = 'set_group_kick',

@@ -29,7 +29,8 @@ export enum NTClass {
   SKEY_API = 'ns-SkeyApi',
   GROUP_HOME_WORK = 'ns-GroupHomeWork',
   GROUP_ESSENCE = 'ns-GroupEssence',
-  NODE_STORE_API = 'ns-NodeStoreApi'
+  NODE_STORE_API = 'ns-NodeStoreApi',
+  QQ_EX_API = 'ns-QQEXApi',
 }
 
 export enum NTMethod {
