@@ -28,7 +28,7 @@ export enum ReceiveCmdS {
   MEDIA_UPLOAD_COMPLETE = 'nodeIKernelMsgListener/onRichMediaUploadComplete',
 }
 
-const logHook = true
+const logHook = false
 
 const receiveHooks: Map<string, {
   method: ReceiveCmdS[]

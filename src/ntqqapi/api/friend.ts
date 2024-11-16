@@ -107,8 +107,7 @@ export class NTQQFriendApi extends Service {
     return ret.arkMsg
   }
 
-  async setBuddyRemark(uid: string, remark?: string) {
-    remark = remark ?? ''
+  async setBuddyRemark(uid: string, remark = '') {
     return await invoke('nodeIKernelBuddyService/setBuddyRemark', [{
       remarkParams: { uid, remark }
     }])
@@ -125,6 +124,6 @@ export class NTQQFriendApi extends Service {
   }
 
   async setBuddyCategory(uid: string, categoryId: number) {
-    return await invoke('nodeIKernelBuddyService/setBuddyCategory', [{uid, categoryId}])
+    return await invoke('nodeIKernelBuddyService/setBuddyCategory', [{ uid, categoryId }])
   }
 }

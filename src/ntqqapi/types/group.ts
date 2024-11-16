@@ -1,10 +1,3 @@
-export enum GroupListUpdateType {
-  REFRESHALL,
-  GETALL,
-  MODIFIED,
-  REMOVE
-}
-
 export interface Group {
   groupCode: string
   maxMember: number
@@ -187,4 +180,11 @@ export interface GroupBulletinListResult {
   svrt: string
   nextIndex: number
   jointime: string
+}
+
+export enum GroupMsgMask {
+  AllowNotify = 1,  // 允许提醒
+  AllowNotNotify = 4,  // 接受消息不提醒
+  BoxNotNotify = 2,  // 收进群助手不提醒
+  NotAllow = 3,  // 屏蔽
 }

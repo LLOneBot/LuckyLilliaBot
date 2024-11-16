@@ -12,4 +12,6 @@ export interface NodeIKernelNodeMiscService {
       score: ''
     }[]
   }>
+
+  queryAutoRun(): Promise<boolean>
 }

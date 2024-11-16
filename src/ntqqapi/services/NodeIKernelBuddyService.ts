@@ -13,7 +13,7 @@ export interface NodeIKernelBuddyService {
     }[]
   }>
 
-  setBuddyRemark(arg: unknown): void
+  setBuddyRemark(arg: unknown): Promise<GeneralCallResult>
 
   isBuddy(uid: string): boolean
 
