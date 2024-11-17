@@ -1,13 +1,13 @@
 import { WrapperSession } from './wrapper-session/types';
 export { initWrapperSession } from './wrapper-session';
+export declare function checkSupportVersion(): void;
 export declare class NTQQPacketApi {
     private qqVersion;
-    private packetSession;
+    private readonly packetClient;
+    private readonly packer;
     private logger;
     private readonly wrapperSession;
     constructor(wrapperSession: WrapperSession);
-    get available(): boolean;
-    private checkQQVersion;
     private InitSendPacket;
     private sendPacket;
     private sendOidbPacket;
