@@ -25,7 +25,7 @@ TG 群：<https://t.me/+nLZEnpne-pQ1OWFl>
 
 ## 贡献者
 
-[![Contributors](https://contributors-img.web.app/image?repo=LLOneBot/LLOneBot)](https://github.com/LOneBot/LLOneBot/graphs/contributors)
+[![Contributors](https://contributors-img.web.app/image?repo=LLOneBot/LLOneBot)](https://github.com/LLOneBot/LLOneBot/graphs/contributors)
 
 ## 鸣谢
 
