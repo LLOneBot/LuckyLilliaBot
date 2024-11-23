@@ -25,7 +25,7 @@ TG 群：<https://t.me/+nLZEnpne-pQ1OWFl>
 
 ## 贡献者
 
-[![Contributors](https://contributors-img.web.app/image?repo=LLOneBot/LLOneBot)](https://github.com/LOneBot/LLOneBot/graphs/contributors)
+[![Contributors](https://contributors-img.web.app/image?repo=LLOneBot/LLOneBot)](https://github.com/LLOneBot/LLOneBot/graphs/contributors)
 
 ## 鸣谢
 
@@ -34,6 +34,12 @@ TG 群：<https://t.me/+nLZEnpne-pQ1OWFl>
 - [Chronocat](https://github.com/chrononeko/chronocat)
 - [koishi-plugin-adapter-onebot](https://github.com/koishijs/koishi-plugin-adapter-onebot)
 - [silk-wasm](https://github.com/idranme/silk-wasm)
+
+## 特别感谢曾经在LLOneBot贡献的人员
+
+- [MliKiowa(拾雪)](https://github.com/MliKiowa)
+
+- [MisaLiu](https://github.com/MisaLiu)
 
 ## 友链
 
