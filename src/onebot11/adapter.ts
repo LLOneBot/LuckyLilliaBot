@@ -324,7 +324,14 @@ class OneBot11Adapter extends Service {
     this.ctx.on('llob/config-updated', input => {
       this.handleConfigUpdated(input)
     })
-    this.ctx.on('nt/message-created', input => {
+    this.ctx.on('nt/message-created', (input: RawMessage) => {
+      // 其他终端自己发送的消息会进入这里
+
+      if (input.senderUid === selfInfo.uid){
+        if (!this.config.reportSelfMessage) {
+          return
+        }
+      }
       this.handleMsg(input)
     })
     this.ctx.on('nt/message-deleted', input => {
