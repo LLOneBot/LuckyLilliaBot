@@ -186,7 +186,7 @@ function onLoad() {
 
       if (config.enableLLOB && (config.satori.enable || config.ob11.enable)) {
         startHook()
-        await ctx.sleep(600)
+        await ctx.sleep(800)
       } else {
         llonebotError.otherError = 'LLOneBot 未启动'
         log('LLOneBot 开关设置为关闭，不启动 LLOneBot')
