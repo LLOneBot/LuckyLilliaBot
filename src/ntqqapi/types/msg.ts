@@ -131,6 +131,8 @@ export interface ReplyElement {
   sourceMsgExpired: boolean
   anonymousNickName: unknown
   originalMsgState: unknown
+  senderUin?: string
+  senderUinStr?: string
 }
 
 export interface FileElement {

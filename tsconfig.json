@@ -1,14 +1,14 @@
 {
   "compilerOptions": {
     "target": "ES2023",
-    "module": "CommonJS",
+    "module": "ESNext",
     "outDir": "./dist",
+    "skipLibCheck": true,
     "strict": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "experimentalDecorators": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "paths": {
       "@/common/*": [
         "./src/common/*"
