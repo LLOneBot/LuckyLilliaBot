@@ -51,8 +51,8 @@ export interface GroupNotify {
 }
 
 export enum GroupRequestOperateTypes {
-  approve = 1,
-  reject = 2,
+  Approve = 1,
+  Reject = 2,
 }
 
 export enum BuddyReqType {

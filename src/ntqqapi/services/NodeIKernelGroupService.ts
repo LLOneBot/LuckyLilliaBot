@@ -90,7 +90,7 @@ export interface NodeIKernelGroupService {
         postscript: string
       }
     }
-  ): Promise<void>
+  ): Promise<GeneralCallResult>
 
   publishGroupBulletin(groupCode: string, pskey: string, data: unknown): Promise<GeneralCallResult>
 

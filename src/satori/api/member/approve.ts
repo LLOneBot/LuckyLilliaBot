@@ -11,7 +11,7 @@ interface Payload {
 export const handleGuildMemberRequest: Handler<Dict<never>, Payload> = async (ctx, payload) => {
   await ctx.ntGroupApi.handleGroupRequest(
     payload.message_id,
-    payload.approve ? GroupRequestOperateTypes.approve : GroupRequestOperateTypes.reject,
+    payload.approve ? GroupRequestOperateTypes.Approve : GroupRequestOperateTypes.Reject,
     payload.comment
   )
   return {}

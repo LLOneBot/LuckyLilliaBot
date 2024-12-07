@@ -129,7 +129,7 @@ async function handleGroupRequest(ctx: Context, request: OB11GroupRequestEvent, 
   if (!isNullable(quickAction.approve)) {
     ctx.ntGroupApi.handleGroupRequest(
       request.flag,
-      quickAction.approve ? GroupRequestOperateTypes.approve : GroupRequestOperateTypes.reject,
+      quickAction.approve ? GroupRequestOperateTypes.Approve : GroupRequestOperateTypes.Reject,
       quickAction.reason,
     ).catch(e => ctx.logger.error(e))
   }

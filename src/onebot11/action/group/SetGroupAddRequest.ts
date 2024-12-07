@@ -18,11 +18,14 @@ export default class SetGroupAddRequest extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload): Promise<null> {
-    await this.ctx.ntGroupApi.handleGroupRequest(
+    const res = await this.ctx.ntGroupApi.handleGroupRequest(
       payload.flag,
-      payload.approve ? GroupRequestOperateTypes.approve : GroupRequestOperateTypes.reject,
+      payload.approve ? GroupRequestOperateTypes.Approve : GroupRequestOperateTypes.Reject,
       payload.reason
     )
+    if (res.result !== 0) {
+      throw new Error(res.errMsg)
+    }
     return null
   }
 }
