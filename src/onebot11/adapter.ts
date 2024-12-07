@@ -89,7 +89,7 @@ class OneBot11Adapter extends Service {
 
   private async handleGroupNotify(notify: GroupNotify, doubt: boolean) {
     try {
-      const flag = `${notify.group.groupCode}|${notify.seq}|${notify.type}|${doubt === true ? '1' : '0'}`
+      const flag = `${notify.group.groupCode}|${notify.seq}|${notify.type}|${doubt ? '1' : '0'}`
       if ([GroupNotifyType.MemberLeaveNotifyAdmin, GroupNotifyType.KickMemberNotifyAdmin].includes(notify.type)) {
         if (notify.user2.uid) {
           this.ctx.logger.info('有群成员被踢', notify.group.groupCode, notify.user1.uid, notify.user2.uid)

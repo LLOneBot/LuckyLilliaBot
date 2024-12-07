@@ -10,7 +10,8 @@ import {
   GroupAllInfo,
   GroupFileInfo,
   GroupBulletinListResult,
-  GroupMsgMask
+  GroupMsgMask,
+  GroupNotify
 } from '../types'
 import { invoke, NTClass, NTMethod } from '../ntcall'
 import { Service, Context } from 'cordis'
@@ -91,6 +92,14 @@ export class NTQQGroupApi extends Service {
       }
     )
     return data.notifies
+  }
+
+  async getGroupRequest(): Promise<{ notifies: GroupNotify[], normalCount: number }> {
+    const normal = await this.getSingleScreenNotifies(false, 50)
+    const normalCount = normal.length
+    const doubt = await this.getSingleScreenNotifies(true, 50)
+    normal.push(...doubt)
+    return { notifies: normal, normalCount }
   }
 
   async handleGroupRequest(flag: string, operateType: GroupRequestOperateTypes, reason?: string) {

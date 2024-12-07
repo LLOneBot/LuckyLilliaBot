@@ -57,12 +57,7 @@ export class GetGroupSystemMsg extends BaseAction<void, Response> {
   }
 
   async _handle() {
-    const notifies = await this.ctx.ntGroupApi.getSingleScreenNotifies(false, 50)
-    const data = await this.parse(notifies)
-    const doubtNotifies = await this.ctx.ntGroupApi.getSingleScreenNotifies(true, 50)
-    const doubtData = await this.parse(doubtNotifies)
-    data.invited_requests.push(...doubtData.invited_requests)
-    data.join_requests.push(...doubtData.join_requests)
-    return data
+    const res = await this.ctx.ntGroupApi.getGroupRequest()
+    return await this.parse(res.notifies)
   }
 }
