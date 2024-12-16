@@ -100,7 +100,7 @@ export class NTQQFileApi extends Service {
     elementId: string,
     thumbPath = '',
     sourcePath = '',
-    timeout = 1000 * 60 * 2,
+    timeout = 1000 * 60 * 30,
     force = false
   ) {
     // 用于下载收到的消息中的图片等
