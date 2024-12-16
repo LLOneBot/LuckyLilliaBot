@@ -86,7 +86,7 @@ interface FetchFileRes {
 export async function fetchFile(url: string, headersInit?: Record<string, string>): Promise<FetchFileRes> {
   const headers = new Headers({
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36',
-    //'Host': new URL(url).hostname,
+    'Host': new URL(url).hostname,
     ...headersInit
   })
   let raw = await fetch(url, { headers }).catch((err) => {
