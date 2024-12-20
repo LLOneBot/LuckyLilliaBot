@@ -37,6 +37,7 @@ import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNotice
 import { OB11FriendPokeEvent, OB11GroupPokeEvent } from './event/notice/OB11PokeEvent'
 import { OB11BaseNoticeEvent } from './event/notice/OB11BaseNoticeEvent'
 import { OB11GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent'
+import { OB11GroupRequestEvent } from './event/request/OB11GroupRequest'
 import { omit, pick, Dict } from 'cosmokit'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -45,7 +46,7 @@ import OneBot11Adapter from './adapter'
 
 export namespace OB11Entities {
   export async function message(ctx: Context, msg: RawMessage): Promise<OB11Message | undefined> {
-    if (!msg.senderUin || msg.senderUin === '0') return //跳过空消息
+    if (!msg.senderUin || msg.senderUin === '0' || msg.msgType === 1) return //跳过空消息
     const {
       debug,
       messagePostFormat,
@@ -375,7 +376,7 @@ export namespace OB11Entities {
     if (msg.chatType !== ChatType.C2C) {
       return
     }
-    if (msg.msgType !== 5) {
+    if (msg.msgType !== 5 && msg.msgType !== 11) {
       return
     }
 
@@ -407,6 +408,27 @@ export namespace OB11Entities {
           ctx.logger.info('收到好友添加消息', msg.peerUid)
           const uin = +msg.peerUin || +(await ctx.ntUserApi.getUinByUid(msg.peerUid))
           return new OB11FriendAddNoticeEvent(uin)
+        }
+      } else if (element.arkElement) {
+        const data = JSON.parse(element.arkElement.bytesData)
+        if (data.app === 'com.tencent.qun.invite') {
+          const params = new URLSearchParams(data.meta.news.jumpUrl)
+          const receiverUin = params.get('receiveruin')
+          const senderUin = params.get('senderuin')
+          if (receiverUin !== selfInfo.uin || senderUin !== msg.senderUin) {
+            return
+          }
+          ctx.logger.info('收到邀请我加群消息')
+          const groupCode = params.get('groupcode')
+          const seq = params.get('msgseq')
+          const flag = `${groupCode}|${seq}|1|0`
+          return new OB11GroupRequestEvent(
+            Number(groupCode),
+            Number(senderUin),
+            flag,
+            '',
+            'invite'
+          )
         }
       }
     }

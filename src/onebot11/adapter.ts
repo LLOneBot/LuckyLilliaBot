@@ -112,10 +112,11 @@ class OneBot11Adapter extends Service {
           parseInt(requestUin) || 0,
           flag,
           notify.postscript,
+          'add'
         )
         this.dispatch(event)
       }
-      else if (notify.type === GroupNotifyType.InvitedByMember && notify.status === GroupNotifyStatus.Unhandle) {
+      /*else if (notify.type === GroupNotifyType.InvitedByMember && notify.status === GroupNotifyStatus.Unhandle) {
         this.ctx.logger.info('收到邀请我加群通知')
         const userId = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
         const event = new OB11GroupRequestEvent(
@@ -123,11 +124,10 @@ class OneBot11Adapter extends Service {
           parseInt(userId) || 0,
           flag,
           notify.postscript,
-          undefined,
           'invite'
         )
         this.dispatch(event)
-      }
+      }*/
       else if (notify.type === GroupNotifyType.InvitedNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
         this.ctx.logger.info('收到群员邀请加群通知')
         const userId = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
@@ -135,7 +135,8 @@ class OneBot11Adapter extends Service {
           parseInt(notify.group.groupCode),
           parseInt(userId) || 0,
           flag,
-          notify.postscript
+          notify.postscript,
+          'add'
         )
         this.dispatch(event)
       }
