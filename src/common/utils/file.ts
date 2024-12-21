@@ -138,22 +138,17 @@ export async function uri2local(ctx: Context, uri: string, needExt?: boolean): P
   if (type === FileUriType.RemoteURL) {
     try {
       const res = await fetchFile(uri)
-      const match = res.url.match(/.+\/([^/?]*)(?=\?)?/)
-      let filename: string
-      if (match?.[1]) {
-        filename = match[1].replace(/[/\\:*?"<>|]/g, '_')
-      } else {
-        filename = randomUUID()
-      }
-      let filePath = path.join(TEMP_DIR, filename)
+      let fileName = randomUUID()
+      let filePath = path.join(TEMP_DIR, fileName)
       await fsPromise.writeFile(filePath, res.data)
-      if (needExt && !path.extname(filePath)) {
+      if (needExt) {
         const ext = (await ctx.ntFileApi.getFileType(filePath)).ext
-        filename += `.${ext}`
-        await fsPromise.rename(filePath, `${filePath}.${ext}`)
-        filePath = `${filePath}.${ext}`
+        fileName += `.${ext}`
+        const newPath = `${filePath}.${ext}`
+        await fsPromise.rename(filePath, newPath)
+        filePath = newPath
       }
-      return { success: true, errMsg: '', fileName: filename, path: filePath, isLocal: false }
+      return { success: true, errMsg: '', fileName, path: filePath, isLocal: false }
     } catch (e) {
       const errMsg = `${uri} 下载失败, ${(e as Error).message}`
       return { success: false, errMsg, fileName: '', path: '', isLocal: false }
