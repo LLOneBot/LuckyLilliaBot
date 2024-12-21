@@ -1,6 +1,5 @@
 import { Handler } from '../index'
 import { Dict } from 'cosmokit'
-import { ChatType } from '@/ntqqapi/types'
 
 interface Payload {
   message_id: string
@@ -16,10 +15,5 @@ export const handleFriendRequest: Handler<Dict<never>, Payload> = async (ctx, pa
   const uid = data[0]
   const reqTime = data[1]
   await ctx.ntFriendApi.handleFriendRequest(uid, reqTime, payload.approve)
-  await ctx.ntMsgApi.activateChat({
-    peerUid: uid,
-    chatType: ChatType.C2C,
-    guildId: ''
-  })
   return {}
 }

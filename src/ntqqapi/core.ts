@@ -1,18 +1,14 @@
 import { unlink } from 'node:fs/promises'
 import { Service, Context } from 'cordis'
-import { registerCallHook, registerReceiveHook, ReceiveCmdS } from './hook'
+import { registerReceiveHook, ReceiveCmdS } from './hook'
 import { Config as LLOBConfig } from '../common/types'
-import { isNumeric } from '../common/utils/misc'
-import { NTMethod } from './ntcall'
+import { getBuildVersion } from '../common/utils/misc'
 import {
   RawMessage,
   GroupNotify,
   FriendRequestNotify,
   FriendRequest,
   GroupMember,
-  CategoryFriend,
-  SimpleInfo,
-  ChatType,
   BuddyReqType,
   GrayTipElementSubType
 } from './types'
@@ -56,25 +52,8 @@ class Core extends Service {
   }
 
   private registerListener() {
-    registerReceiveHook<{
-      data?: CategoryFriend[]
-      userSimpleInfos?: Map<string, SimpleInfo> //V2
-      buddyCategory?: CategoryFriend[] //V2
-    }>(ReceiveCmdS.FRIENDS, (payload) => {
-      let uids: string[] = []
-      if (payload.buddyCategory) {
-        uids = payload.buddyCategory.flatMap(item => item.buddyUids)
-      } else if (payload.data) {
-        uids = payload.data.flatMap(item => item.buddyList.map(e => e.uid))
-      }
-      for (const uid of uids) {
-        this.ctx.ntMsgApi.activateChat({ peerUid: uid, chatType: ChatType.C2C })
-      }
-      this.ctx.logger.info('好友列表变动', uids.length)
-    })
-
-    // 自动清理新消息文件
-    registerReceiveHook<{ msgList: RawMessage[] }>([ReceiveCmdS.NEW_MSG, ReceiveCmdS.NEW_ACTIVE_MSG], (payload) => {
+    registerReceiveHook<{ msgList: RawMessage[] }>(ReceiveCmdS.NEW_MSG, (payload) => {
+      // 自动清理新消息文件
       if (!this.config.autoDeleteFile) {
         return
       }
@@ -105,58 +84,6 @@ class Core extends Service {
       Object.assign(selfInfo, { online: info.info.status !== 20 })
     })
 
-    const activatedPeerUids: string[] = []
-    registerReceiveHook<{
-      changedRecentContactLists: {
-        listType: number
-        sortedContactList: string[]
-        changedList: {
-          id: string // peerUid
-          chatType: ChatType
-        }[]
-      }[]
-    }>(ReceiveCmdS.RECENT_CONTACT, async (payload) => {
-      for (const recentContact of payload.changedRecentContactLists) {
-        for (const contact of recentContact.changedList) {
-          if (activatedPeerUids.includes(contact.id)) continue
-          activatedPeerUids.push(contact.id)
-          const peer = { peerUid: contact.id, chatType: contact.chatType }
-          if (contact.chatType === ChatType.TempC2CFromGroup) {
-            this.ctx.ntMsgApi.activateChatAndGetHistory(peer, 2).then(res => {
-              for (const msg of res.msgList) {
-                if (Date.now() / 1000 - Number(msg.msgTime) > 3) {
-                  continue
-                }
-                if (msg.senderUin && msg.senderUin !== '0') {
-                  this.ctx.store.addMsgCache(msg)
-                }
-                this.ctx.parallel('nt/message-created', msg)
-              }
-            })
-          } else {
-            this.ctx.ntMsgApi.activateChat(peer)
-          }
-        }
-      }
-    })
-
-    registerCallHook(NTMethod.DELETE_ACTIVE_CHAT, async (payload) => {
-      const peerUid = payload[0] as string
-      this.ctx.logger.info('激活的聊天窗口被删除，准备重新激活', peerUid)
-      let chatType = ChatType.C2C
-      if (isNumeric(peerUid)) {
-        chatType = ChatType.Group
-      }
-      else if (!(await this.ctx.ntFriendApi.isBuddy(peerUid))) {
-        chatType = ChatType.TempC2CFromGroup
-      }
-      const peer = { peerUid, chatType }
-      await this.ctx.sleep(1000)
-      this.ctx.ntMsgApi.activateChat(peer).then((r) => {
-        this.ctx.logger.info('重新激活聊天窗口', peer, { result: r.result, errMsg: r.errMsg })
-      })
-    })
-
     registerReceiveHook<{
       groupCode: string
       dataSource: number
@@ -167,7 +94,11 @@ class Core extends Service {
       this.ctx.parallel('nt/group-member-info-updated', { groupCode, members })
     })
 
-    registerReceiveHook<{ msgList: RawMessage[] }>([ReceiveCmdS.NEW_MSG, ReceiveCmdS.NEW_ACTIVE_MSG], payload => {
+    if (getBuildVersion() < 30851) {
+      invoke(ReceiveCmdS.NEW_MSG, [], { registerEvent: true })
+    }
+
+    registerReceiveHook<{ msgList: RawMessage[] }>(ReceiveCmdS.NEW_MSG, payload => {
       const startTime = this.startTime / 1000
       for (const message of payload.msgList) {
         // 过滤启动之前的消息
