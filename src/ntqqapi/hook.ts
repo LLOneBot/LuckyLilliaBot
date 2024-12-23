@@ -1,4 +1,3 @@
-import { NTMethod } from './ntcall'
 import { log } from '@/common/utils'
 import { randomUUID } from 'node:crypto'
 import { ipcMain } from 'electron'
@@ -35,10 +34,10 @@ const receiveHooks: Map<string, {
   hookFunc: (payload: any) => void | Promise<void>
 }> = new Map()
 
-const callHooks: Array<{
+/*const callHooks: Array<{
   method: NTMethod[]
   hookFunc: (callParams: unknown[]) => void | Promise<void>
-}> = []
+}> = []*/
 
 export function startHook() {
   log('start hook')
@@ -87,7 +86,7 @@ export function startHook() {
         })
       }
 
-      if (args[3]?.length) {
+      /*if (args[3]?.length) {
         const method = args[3][0]
         const callParams = args[3].slice(1)
         for (const hook of callHooks) {
@@ -95,7 +94,7 @@ export function startHook() {
             Promise.resolve(hook.hookFunc(callParams))
           }
         }
-      }
+      }*/
       return target.apply(thisArg, args)
     },
   })
@@ -116,7 +115,7 @@ export function registerReceiveHook<PayloadType>(
   return id
 }
 
-export function registerCallHook(
+/*export function registerCallHook(
   method: NTMethod | NTMethod[],
   hookFunc: (callParams: unknown[]) => void | Promise<void>,
 ): void {
@@ -127,7 +126,7 @@ export function registerCallHook(
     method,
     hookFunc,
   })
-}
+}*/
 
 export function removeReceiveHook(id: string) {
   receiveHooks.delete(id)
