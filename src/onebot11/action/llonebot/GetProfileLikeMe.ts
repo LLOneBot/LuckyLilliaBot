@@ -32,6 +32,6 @@ export class GetProfileLikeMe extends BaseAction<Payload, Response> {
         item.uin = 0
       }
     }
-    return {users: likeMeUsers, nextStart: ret.info.start}
+    return {users: users, nextStart: ret.info.start}
   }
 }
