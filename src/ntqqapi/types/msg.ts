@@ -265,6 +265,13 @@ export interface TipGroupElement {
   }
 }
 
+export interface TipXmlElement {
+  templId: string
+  content: string
+  templParam: Map<string, string>
+  members: Map<string, string> // uid -> remark
+}
+
 export enum GrayTipElementSubType {
   Revoke = 1,
   Proclamation = 2,
@@ -299,12 +306,7 @@ export interface GrayTipElement {
   }
   aioOpGrayTipElement?: TipAioOpGrayTipElement
   groupElement?: TipGroupElement
-  xmlElement?: {
-    templId: string
-    content: string
-    templParam: Map<string, string>
-    members: Map<string, string> // uid -> remark
-  }
+  xmlElement?: TipXmlElement
   jsonGrayTipElement?: {
     busiId: string
     jsonStr: string

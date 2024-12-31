@@ -24,20 +24,20 @@ import {
 import { EventType } from './event/OB11BaseEvent'
 import { encodeCQCode } from './cqcode'
 import { OB11GroupIncreaseEvent } from './event/notice/OB11GroupIncreaseEvent'
-import { OB11GroupBanEvent } from './event/notice/OB11GroupBanEvent'
 import { OB11GroupUploadNoticeEvent } from './event/notice/OB11GroupUploadNoticeEvent'
 import { OB11GroupNoticeEvent } from './event/notice/OB11GroupNoticeEvent'
 import { calcQQLevel } from '../common/utils/misc'
 import { OB11GroupTitleEvent } from './event/notice/OB11GroupTitleEvent'
 import { OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
-import { OB11GroupMsgEmojiLikeEvent } from './event/notice/OB11MsgEmojiLikeEvent'
 import { OB11FriendAddNoticeEvent } from './event/notice/OB11FriendAddNoticeEvent'
 import { OB11FriendRecallNoticeEvent } from './event/notice/OB11FriendRecallNoticeEvent'
 import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNoticeEvent'
 import { OB11FriendPokeEvent, OB11GroupPokeEvent } from './event/notice/OB11PokeEvent'
 import { OB11BaseNoticeEvent } from './event/notice/OB11BaseNoticeEvent'
-import { OB11GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent'
 import { OB11GroupRequestEvent } from './event/request/OB11GroupRequest'
+import { GroupBanEvent } from './event/notice/OB11GroupBanEvent'
+import { GroupMsgEmojiLikeEvent } from './event/notice/OB11MsgEmojiLikeEvent'
+import { GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent'
 import { omit, pick, Dict } from 'cosmokit'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -442,174 +442,84 @@ export namespace OB11Entities {
     }
 
     for (const element of msg.elements) {
-      const grayTipElement = element.grayTipElement
-      const groupElement = grayTipElement?.groupElement
-      const xmlElement = grayTipElement?.xmlElement
-
-      if (groupElement) {
-        if (groupElement.type === TipGroupElementType.Ban) {
-          ctx.logger.info('收到群成员禁言提示', groupElement)
-          const memberUid = groupElement.shutUp?.member.uid
-          const adminUid = groupElement.shutUp?.admin.uid
-          let memberUin: string = ''
-          let duration = Number(groupElement.shutUp?.duration)
-          const subType = duration > 0 ? 'ban' : 'lift_ban'
-          if (memberUid) {
-            memberUin =
-              (await ctx.ntGroupApi.getGroupMember(msg.peerUid, memberUid))?.uin ||
-              (await ctx.ntUserApi.getUserDetailInfo(memberUid))?.uin
-          }
-          else {
-            memberUin = '0' // 0表示全员禁言
-            if (duration > 0) {
-              duration = -1
-            }
-          }
-          const adminUin =
-            (await ctx.ntGroupApi.getGroupMember(msg.peerUid, adminUid!))?.uin || (await ctx.ntUserApi.getUserDetailInfo(adminUid!))?.uin
-          if (memberUin && adminUin) {
-            return new OB11GroupBanEvent(
-              parseInt(msg.peerUid),
-              parseInt(memberUin),
-              parseInt(adminUin),
-              duration,
-              subType,
-            )
-          }
-        }
-        else if (groupElement.type === TipGroupElementType.Kicked) {
-          ctx.logger.info(`收到我被踢出或退群提示, 群${msg.peerUid}`, groupElement)
-          ctx.ntGroupApi.quitGroup(msg.peerUid)
-          try {
-            const adminUin = (await ctx.ntGroupApi.getGroupMember(msg.peerUid, groupElement.adminUid))?.uin || (await ctx.ntUserApi.getUinByUid(groupElement.adminUid))
-            if (adminUin) {
-              return new OB11GroupDecreaseEvent(
-                parseInt(msg.peerUid),
-                parseInt(selfInfo.uin),
-                parseInt(adminUin),
-                'kick_me'
-              )
-            }
-          } catch (e) {
-            return new OB11GroupDecreaseEvent(
-              parseInt(msg.peerUid),
-              parseInt(selfInfo.uin),
-              0,
-              'leave'
-            )
-          }
-        }
-        else if (groupElement.type === TipGroupElementType.MemberIncrease) {
-          const { memberUid, adminUid } = groupElement
-          if (memberUid !== selfInfo.uid) return
-          ctx.logger.info('收到群成员增加消息', groupElement)
-          const adminUin = adminUid ? await ctx.ntUserApi.getUinByUid(adminUid) : selfInfo.uin
-          return new OB11GroupIncreaseEvent(+msg.peerUid, +selfInfo.uin, +adminUin)
-        }
-      }
-      else if (element.fileElement) {
+      if (element.fileElement) {
         return new OB11GroupUploadNoticeEvent(+msg.peerUid, +msg.senderUin!, {
           id: element.fileElement.fileUuid!,
           name: element.fileElement.fileName,
           size: parseInt(element.fileElement.fileSize),
           busid: element.fileElement.fileBizId || 0,
         })
-      }
-      else if (xmlElement) {
-        if (xmlElement.templId === '10382') {
-          ctx.logger.info('收到表情回应我的消息', xmlElement.templParam)
-          try {
-            const senderUin = xmlElement.templParam.get('jp_uin')
-            const msgSeq = xmlElement.templParam.get('msg_seq')
-            const emojiId = xmlElement.templParam.get('face_id')
-            const peer = {
-              chatType: ChatType.Group,
-              guildId: '',
-              peerUid: msg.peerUid,
-            }
-            const replyMsgList = (await ctx.ntMsgApi.queryFirstMsgBySeq(peer, msgSeq!)).msgList
-            if (!replyMsgList?.length) {
-              return
-            }
-            const shortId = ctx.store.createMsgShortId(peer, replyMsgList[0].msgId)
-            return new OB11GroupMsgEmojiLikeEvent(
-              parseInt(msg.peerUid),
-              parseInt(senderUin!),
-              shortId,
-              [{
-                emoji_id: emojiId!,
-                count: 1,
-              }]
-            )
-          } catch (e) {
-            ctx.logger.error('解析表情回应消息失败', (e as Error).stack)
-          }
-        } else if (xmlElement.templId == '10179') {
-          ctx.logger.info('收到新人被邀请进群消息', xmlElement)
-          const invitor = xmlElement.templParam.get('invitor')
-          const invitee = xmlElement.templParam.get('invitee')
-          if (invitor && invitee) {
-            return new OB11GroupIncreaseEvent(+msg.peerUid, +invitee, +invitor, 'invite')
-          }
-        }
-      }
-
-      if (grayTipElement) {
-        if (grayTipElement.subElementType == GrayTipElementSubType.JSON) {
+      } else if (element.grayTipElement) {
+        const grayTipElement = element.grayTipElement
+        if (grayTipElement.subElementType === GrayTipElementSubType.JSON) {
           const json = JSON.parse(grayTipElement.jsonGrayTipElement!.jsonStr)
           if (grayTipElement.jsonGrayTipElement?.busiId === '1061') {
-            const param = grayTipElement.jsonGrayTipElement.xmlToJsonParam
-            if (param) {
-              return new OB11GroupPokeEvent(
-                Number(msg.peerUid),
-                Number(param.templParam.get('uin_str1')),
-                Number(param.templParam.get('uin_str2')),
-                json.items
-              )
-            }
-            const pokedetail: Dict[] = json.items
-            //筛选item带有uid的元素
-            const poke_uid = pokedetail.filter(item => item.uid)
-            if (poke_uid.length == 2) {
-              return new OB11GroupPokeEvent(
-                Number(msg.peerUid),
-                Number(await ctx.ntUserApi.getUinByUid(poke_uid[0].uid) ?? 0),
-                Number(await ctx.ntUserApi.getUinByUid(poke_uid[1].uid) ?? 0),
-                pokedetail
-              )
-            }
+            const param = grayTipElement.jsonGrayTipElement.xmlToJsonParam!
+            return new OB11GroupPokeEvent(
+              Number(msg.peerUid),
+              Number(param.templParam.get('uin_str1')),
+              Number(param.templParam.get('uin_str2')),
+              json.items
+            )
           } else if (grayTipElement.jsonGrayTipElement?.busiId === '2401' && json.items[2]) {
             ctx.logger.info('收到群精华消息', json)
-            const searchParams = new URL(json.items[2].jp).searchParams
-            const msgSeq = searchParams.get('seq')
-            const groupCode = searchParams.get('gc')
-            const msgRandom = searchParams.get('random')
-            if (!groupCode || !msgSeq || !msgRandom) return
-            const peer = {
-              guildId: '',
-              chatType: ChatType.Group,
-              peerUid: groupCode
-            }
-            const essence = await ctx.ntGroupApi.queryCachedEssenceMsg(groupCode, msgSeq, msgRandom)
-            const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, msgSeq, '0')
-            const sourceMsg = msgList.find(e => e.msgRandom === msgRandom)
-            if (!sourceMsg) return
-            return new OB11GroupEssenceEvent(
-              parseInt(msg.peerUid),
-              ctx.store.getShortIdByMsgInfo(peer, sourceMsg.msgId)!,
-              parseInt(essence.items[0]?.msgSenderUin ?? sourceMsg.senderUin),
-              parseInt(essence.items[0]?.opUin ?? '0'),
-            )
+            return await GroupEssenceEvent.parse(ctx, new URL(json.items[2].jp))
           } else if (grayTipElement.jsonGrayTipElement?.busiId === '2407') {
+            ctx.logger.info('收到群成员新头衔消息', json)
             const memberUin = json.items[1].param[0]
             const title = json.items[3].txt
-            ctx.logger.info('收到群成员新头衔消息', json)
             return new OB11GroupTitleEvent(parseInt(msg.peerUid), parseInt(memberUin), title)
           } else if (grayTipElement.jsonGrayTipElement?.busiId === '19217') {
             ctx.logger.info('收到新人被邀请进群消息', grayTipElement)
             const userId = new URL(json.items[2].jp).searchParams.get('robot_uin')
             const operatorId = new URL(json.items[0].jp).searchParams.get('uin')
             return new OB11GroupIncreaseEvent(Number(msg.peerUid), Number(userId), Number(operatorId), 'invite')
+          }
+        } else if (grayTipElement.subElementType === GrayTipElementSubType.Group) {
+          const groupElement = grayTipElement.groupElement!
+          if (groupElement.type === TipGroupElementType.Ban) {
+            ctx.logger.info('收到群成员禁言提示', groupElement)
+            return await GroupBanEvent.parse(ctx, groupElement, msg.peerUid)
+          } else if (groupElement.type === TipGroupElementType.Kicked) {
+            ctx.logger.info(`收到我被踢出或退群提示, 群${msg.peerUid}`, groupElement)
+            ctx.ntGroupApi.quitGroup(msg.peerUid)
+            try {
+              const adminUin = await ctx.ntUserApi.getUinByUid(groupElement.adminUid)
+              if (adminUin) {
+                return new OB11GroupDecreaseEvent(
+                  parseInt(msg.peerUid),
+                  parseInt(selfInfo.uin),
+                  parseInt(adminUin),
+                  'kick_me'
+                )
+              }
+            } catch (e) {
+              return new OB11GroupDecreaseEvent(
+                parseInt(msg.peerUid),
+                parseInt(selfInfo.uin),
+                0,
+                'leave'
+              )
+            }
+          } else if (groupElement.type === TipGroupElementType.MemberIncrease) {
+            const { memberUid, adminUid } = groupElement
+            if (memberUid !== selfInfo.uid) return
+            ctx.logger.info('收到群成员增加消息', groupElement)
+            const adminUin = adminUid ? await ctx.ntUserApi.getUinByUid(adminUid) : selfInfo.uin
+            return new OB11GroupIncreaseEvent(+msg.peerUid, +selfInfo.uin, +adminUin)
+          }
+        } else if (grayTipElement.subElementType === GrayTipElementSubType.XmlMsg) {
+          const xmlElement = grayTipElement.xmlElement!
+          if (xmlElement.templId === '10382') {
+            ctx.logger.info('收到表情回应我的消息', xmlElement.templParam)
+            return await GroupMsgEmojiLikeEvent.parse(ctx, xmlElement, msg.peerUid)
+          } else if (xmlElement.templId == '10179') {
+            ctx.logger.info('收到新人被邀请进群消息', xmlElement)
+            const invitor = xmlElement.templParam.get('invitor')
+            const invitee = xmlElement.templParam.get('invitee')
+            if (invitor && invitee) {
+              return new OB11GroupIncreaseEvent(+msg.peerUid, +invitee, +invitor, 'invite')
+            }
           }
         }
       }
