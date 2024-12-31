@@ -5,8 +5,8 @@ import { log, fetchFile } from '.'
 import { TEMP_DIR } from '../globalVars'
 import { compare } from 'compare-versions'
 
-const downloadMirrorHosts = ['https://ghp.ci/']
-const releasesMirrorHosts = ['https://kkgithub.com']
+const downloadMirrors = ['https://ghgo.xyz/']
+const releasesMirrors = ['https://kkgithub.com/']
 
 export async function checkNewVersion() {
   const latestVersion = await getRemoteVersion()
@@ -26,7 +26,7 @@ export async function upgradeLLOneBot(): Promise<boolean> {
     const downloadUrl = `https://github.com/LLOneBot/LLOneBot/releases/download/v${latestVersion}/LLOneBot.zip`
     const filePath = path.join(TEMP_DIR, './update-' + latestVersion + '.zip')
     // 多镜像下载
-    for (const mirrorGithub of downloadMirrorHosts) {
+    for (const mirrorGithub of downloadMirrors) {
       try {
         const res = await fetchFile(mirrorGithub + downloadUrl)
         await writeFile(filePath, res.data)
@@ -40,13 +40,13 @@ export async function upgradeLLOneBot(): Promise<boolean> {
 }
 
 export async function getRemoteVersion() {
-  for (const mirror of releasesMirrorHosts) {
+  for (const mirror of releasesMirrors) {
     const version = await getRemoteVersionByReleasesMirror(mirror)
     if (version) {
       return version
     }
   }
-  for (const mirror of downloadMirrorHosts) {
+  for (const mirror of downloadMirrors) {
     const version = await getRemoteVersionByDownloadMirror(mirror)
     if (version) {
       return version
@@ -67,7 +67,7 @@ export async function getRemoteVersionByDownloadMirror(mirrorGithub: string) {
 
 export async function getRemoteVersionByReleasesMirror(mirrorGithub: string) {
   try {
-    const page = (await fetchFile(mirrorGithub + '/LLOneBot/LLOneBot/releases')).data.toString()
+    const page = (await fetchFile(mirrorGithub + 'LLOneBot/LLOneBot/releases')).data.toString()
     return page.match(new RegExp('(?<=(tag/v)).*?(?=("))'))?.[0]
   } catch { }
 }
