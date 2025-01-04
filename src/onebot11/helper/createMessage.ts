@@ -126,13 +126,13 @@ export async function createSendElements(
       }
         break
       case OB11MessageDataType.Video: {
-        const { path, fileName } = await handleOb11RichMedia(ctx, sendMsg, deleteAfterSentFiles)
+        const { path } = await handleOb11RichMedia(ctx, sendMsg, deleteAfterSentFiles)
         let thumb = sendMsg.data.thumb
         if (thumb) {
           const uri2LocalRes = await uri2local(ctx, thumb)
           if (uri2LocalRes.success) thumb = uri2LocalRes.path
         }
-        const res = await SendElement.video(ctx, path, fileName, thumb)
+        const res = await SendElement.video(ctx, path, thumb)
         deleteAfterSentFiles.push(res.videoElement.filePath)
         sendElements.push(res)
       }

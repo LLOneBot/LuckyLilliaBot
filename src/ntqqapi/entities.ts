@@ -114,9 +114,9 @@ export namespace SendElement {
     return element
   }
 
-  export async function video(ctx: Context, filePath: string, fileName = '', diyThumbPath = ''): Promise<SendVideoElement> {
+  export async function video(ctx: Context, filePath: string, diyThumbPath = ''): Promise<SendVideoElement> {
     await access(filePath)
-    const { fileName: _fileName, path, fileSize, md5 } = await ctx.ntFileApi.uploadFile(filePath, ElementType.Video)
+    const { fileName, path, fileSize, md5 } = await ctx.ntFileApi.uploadFile(filePath, ElementType.Video)
 
     if (fileSize === 0) {
       throw new Error('文件异常，大小为 0')
@@ -177,7 +177,6 @@ export namespace SendElement {
           size: videoInfo.width + 'x' + videoInfo.height,
         })
         .on('end', () => {
-          ctx.logger.info('生成视频缩略图', thumbPath)
           completed = true
           resolve(thumbPath)
         })
@@ -192,7 +191,7 @@ export namespace SendElement {
       elementType: ElementType.Video,
       elementId: '',
       videoElement: {
-        fileName: fileName || _fileName,
+        fileName,
         filePath: path,
         videoMd5: md5,
         thumbMd5,
