@@ -19,6 +19,7 @@ import { SendElement } from '@/ntqqapi/entities'
 import { selfInfo } from '@/common/globalVars'
 import { uri2local } from '@/common/utils'
 import { Context } from 'cordis'
+import { MusicSign, MusicSignPostData } from '@/common/utils/sign'
 
 export async function createSendElements(
   ctx: Context,
@@ -28,15 +29,15 @@ export async function createSendElements(
 ) {
   const sendElements: SendMessageElement[] = []
   const deleteAfterSentFiles: string[] = []
-  for (const sendMsg of messageData) {
-    if (ignoreTypes.includes(sendMsg.type)) {
+  for (const segment of messageData) {
+    if (ignoreTypes.includes(segment.type)) {
       continue
     }
-    switch (sendMsg.type) {
+    switch (segment.type) {
       case OB11MessageDataType.Text: {
-        const text = sendMsg.data?.text
+        const text = segment.data?.text
         if (text) {
-          sendElements.push(SendElement.text(sendMsg.data!.text))
+          sendElements.push(SendElement.text(segment.data!.text))
         }
       }
         break
@@ -44,8 +45,8 @@ export async function createSendElements(
         if (!peer) {
           continue
         }
-        if (sendMsg.data?.qq) {
-          const atQQ = String(sendMsg.data.qq)
+        if (segment.data?.qq) {
+          const atQQ = String(segment.data.qq)
           if (atQQ === 'all') {
             // todo：查询剩余的at全体次数
             const groupCode = peer.peerUid
@@ -68,8 +69,8 @@ export async function createSendElements(
           else if (peer.chatType === ChatType.Group) {
             const uid = await ctx.ntUserApi.getUidByUin(atQQ, peer.peerUid) ?? ''
             let display = ''
-            if (sendMsg.data.name) {
-              display = `@${sendMsg.data.name}`
+            if (segment.data.name) {
+              display = `@${segment.data.name}`
             }
             sendElements.push(SendElement.at(atQQ, uid, AtType.One, display))
           }
@@ -77,8 +78,8 @@ export async function createSendElements(
       }
         break
       case OB11MessageDataType.Reply: {
-        if (sendMsg.data?.id) {
-          const info = await ctx.store.getMsgInfoByShortId(+sendMsg.data.id)
+        if (segment.data?.id) {
+          const info = await ctx.store.getMsgInfoByShortId(+segment.data.id)
           if (!info) {
             ctx.logger.warn('回复消息不存在', info)
             continue
@@ -91,7 +92,7 @@ export async function createSendElements(
       }
         break
       case OB11MessageDataType.Face: {
-        const faceId = sendMsg.data?.id
+        const faceId = segment.data?.id
         if (faceId) {
           sendElements.push(SendElement.face(parseInt(faceId)))
         }
@@ -100,10 +101,10 @@ export async function createSendElements(
       case OB11MessageDataType.Mface: {
         sendElements.push(
           SendElement.mface(
-            +sendMsg.data.emoji_package_id,
-            sendMsg.data.emoji_id,
-            sendMsg.data.key,
-            sendMsg.data.summary,
+            +segment.data.emoji_package_id,
+            segment.data.emoji_id,
+            segment.data.key,
+            segment.data.summary,
           ),
         )
       }
@@ -111,23 +112,23 @@ export async function createSendElements(
       case OB11MessageDataType.Image: {
         const res = await SendElement.pic(
           ctx,
-          (await handleOb11RichMedia(ctx, sendMsg, deleteAfterSentFiles)).path,
-          sendMsg.data.summary || '',
-          sendMsg.data.subType || 0,
-          sendMsg.data.type === 'flash'
+          (await handleOb11RichMedia(ctx, segment, deleteAfterSentFiles)).path,
+          segment.data.summary || '',
+          segment.data.subType || 0,
+          segment.data.type === 'flash'
         )
         deleteAfterSentFiles.push(res.picElement.sourcePath!)
         sendElements.push(res)
       }
         break
       case OB11MessageDataType.File: {
-        const { path, fileName } = await handleOb11RichMedia(ctx, sendMsg, deleteAfterSentFiles)
+        const { path, fileName } = await handleOb11RichMedia(ctx, segment, deleteAfterSentFiles)
         sendElements.push(await SendElement.file(ctx, path, fileName))
       }
         break
       case OB11MessageDataType.Video: {
-        const { path } = await handleOb11RichMedia(ctx, sendMsg, deleteAfterSentFiles)
-        let thumb = sendMsg.data.thumb
+        const { path } = await handleOb11RichMedia(ctx, segment, deleteAfterSentFiles)
+        let thumb = segment.data.thumb
         if (thumb) {
           const uri2LocalRes = await uri2local(ctx, thumb)
           if (uri2LocalRes.success) thumb = uri2LocalRes.path
@@ -138,32 +139,71 @@ export async function createSendElements(
       }
         break
       case OB11MessageDataType.Record: {
-        const { path } = await handleOb11RichMedia(ctx, sendMsg, deleteAfterSentFiles)
+        const { path } = await handleOb11RichMedia(ctx, segment, deleteAfterSentFiles)
         sendElements.push(await SendElement.ptt(ctx, path))
       }
         break
       case OB11MessageDataType.Json: {
-        sendElements.push(SendElement.ark(sendMsg.data.data))
+        sendElements.push(SendElement.ark(segment.data.data))
       }
         break
       case OB11MessageDataType.Dice: {
-        const resultId = sendMsg.data?.result
+        const resultId = segment.data?.result
         sendElements.push(SendElement.dice(resultId))
       }
         break
       case OB11MessageDataType.Rps: {
-        const resultId = sendMsg.data?.result
+        const resultId = segment.data?.result
         sendElements.push(SendElement.rps(resultId))
       }
         break
       case OB11MessageDataType.Contact: {
-        const { type, id } = sendMsg.data
+        const { type, id } = segment.data
         const data = type === 'qq' ? ctx.ntFriendApi.getBuddyRecommendContact(id) : ctx.ntGroupApi.getGroupRecommendContact(id)
         sendElements.push(SendElement.ark(await data))
       }
         break
       case OB11MessageDataType.Shake: {
         sendElements.push(SendElement.shake())
+      }
+        break
+      case OB11MessageDataType.Music: {
+        const { musicSignUrl } = ctx.config
+        if (!musicSignUrl) {
+          throw new Error('音乐卡片签名地址未配置')
+        }
+        const { type } = segment.data
+        if (!['qq', '163', 'kugou', 'kuwo', 'migu', 'custom'].includes(type)) {
+          throw new Error(`不支持的音乐卡片 type ${type}`)
+        }
+        if (type === 'custom') {
+          if (!segment.data.url) {
+            throw new Error('自定义音卡缺少参数url')
+          }
+          if (!segment.data.title) {
+            throw new Error('自定义音卡缺少参数title')
+          }
+        } else {
+          if (!segment.data.id) {
+            throw new Error('音乐卡片缺少id参数')
+          }
+        }
+        let postData: MusicSignPostData
+        if (type === 'custom' && segment.data.content) {
+          const { content, ...others } = segment.data
+          postData = { singer: content, ...others }
+        } else {
+          postData = segment.data
+        }
+        try {
+          const content = await new MusicSign(ctx, musicSignUrl).sign(postData)
+          if (!content) {
+            throw new Error('提交内容有误或者签名服务器签名失败')
+          }
+          sendElements.push(SendElement.ark(content))
+        } catch (e) {
+          throw new Error(`签名音乐消息失败：${e}`)
+        }
       }
         break
     }
@@ -220,7 +260,7 @@ export async function sendMsg(
         totalSize += fs.statSync(fileElement.pttElement.filePath!).size
       }
       if (fileElement.elementType === ElementType.File) {
-        totalSize += fs.statSync(fileElement.fileElement.filePath).size
+        totalSize += fs.statSync(fileElement.fileElement.filePath!).size
       }
       if (fileElement.elementType === ElementType.Video) {
         totalSize += fs.statSync(fileElement.videoElement.filePath).size

@@ -1,4 +1,4 @@
-import { Direction, Message, Order, TwoWayList } from '@satorijs/protocol'
+import { Direction, Message, Order, BidiList } from '@satorijs/protocol'
 import { Handler } from '../index'
 import { decodeMessage, getPeer } from '../../utils'
 import { RawMessage } from '@/ntqqapi/types'
@@ -12,7 +12,7 @@ interface Payload {
   order?: Order
 }
 
-export const getMessageList: Handler<TwoWayList<Message>, Payload> = async (ctx, payload) => {
+export const getMessageList: Handler<BidiList<Message>, Payload> = async (ctx, payload) => {
   const count = payload.limit ?? 50
   const peer = await getPeer(ctx, payload.channel_id)
   let msgList: RawMessage[]

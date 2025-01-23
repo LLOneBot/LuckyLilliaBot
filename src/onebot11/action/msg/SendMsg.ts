@@ -1,14 +1,9 @@
 import {
-  OB11MessageCustomMusic,
-  OB11MessageData,
   OB11MessageDataType,
-  OB11MessageJson,
-  OB11MessageMusic,
   OB11PostSendMsg,
 } from '../../types'
 import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
-import { CustomMusicSignPostData, IdMusicSignPostData, MusicSign, MusicSignPostData } from '@/common/utils/sign'
 import { message2List, createSendElements, sendMsg, createPeer, CreatePeerMode } from '../../helper/createMessage'
 
 interface ReturnData {
@@ -30,58 +25,8 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
       payload.message,
       payload.auto_escape === true || payload.auto_escape === 'true',
     )
-    if (this.getSpecialMsgNum(messages, OB11MessageDataType.Node)) {
+    if (messages.some(e => e.type === OB11MessageDataType.Node)) {
       throw new Error('请使用 /send_group_forward_msg 或 /send_private_forward_msg 进行合并转发')
-    }
-    else if (this.getSpecialMsgNum(messages, OB11MessageDataType.Music)) {
-      const music = messages[0] as OB11MessageMusic
-      if (music) {
-        const { musicSignUrl } = this.adapter.config
-        if (!musicSignUrl) {
-          throw '音乐签名地址未配置'
-        }
-        const { type } = music.data
-        if (!['qq', '163', 'custom'].includes(type)) {
-          throw `不支持的音乐类型 ${type}`
-        }
-        const postData: MusicSignPostData = { ...music.data }
-        if (type === 'custom' && music.data.content) {
-          const data = postData as CustomMusicSignPostData
-          data.singer = music.data.content
-          delete (data as OB11MessageCustomMusic['data']).content
-        }
-        if (type === 'custom') {
-          const customMusicData = music.data as CustomMusicSignPostData
-          if (!customMusicData.url) {
-            throw '自定义音卡缺少参数url'
-          }
-          if (!customMusicData.audio) {
-            throw '自定义音卡缺少参数audio'
-          }
-          if (!customMusicData.title) {
-            throw '自定义音卡缺少参数title'
-          }
-        }
-        if (type === 'qq' || type === '163') {
-          const idMusicData = music.data as IdMusicSignPostData
-          if (!idMusicData.id) {
-            throw '音乐卡片缺少id参数'
-          }
-        }
-        let jsonContent: string
-        try {
-          jsonContent = await new MusicSign(this.ctx, musicSignUrl).sign(postData)
-          if (!jsonContent) {
-            throw '音乐消息生成失败，提交内容有误或者签名服务器签名失败'
-          }
-        } catch (e) {
-          throw `签名音乐消息失败：${e}`
-        }
-        messages[0] = {
-          type: OB11MessageDataType.Json,
-          data: { data: jsonContent },
-        } as OB11MessageJson
-      }
     }
     const { sendElements, deleteAfterSentFiles } = await createSendElements(this.ctx, messages, peer)
     if (sendElements.length === 1) {
@@ -98,13 +43,6 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
       peerUid: returnMsg.peerUid
     }, returnMsg.msgId)
     return { message_id: msgShortId }
-  }
-
-  private getSpecialMsgNum(message: OB11MessageData[], msgType: OB11MessageDataType): number {
-    if (Array.isArray(message)) {
-      return message.filter((msg) => msg.type === msgType).length
-    }
-    return 0
   }
 }
 
