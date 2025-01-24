@@ -4,7 +4,7 @@
   "name": "LLOneBot",
   "slug": "LLOneBot",
   "description": "实现 OneBot 11 和 Satori 协议，用于 QQ 机器人开发",
-  "version": "4.7.1",
+  "version": "4.7.2",
   "icon": "./icon.webp",
   "authors": [
     {

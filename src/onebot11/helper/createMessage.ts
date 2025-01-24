@@ -46,7 +46,6 @@ export async function createSendElements(
         if (segment.data?.qq) {
           const atQQ = String(segment.data.qq)
           if (atQQ === 'all') {
-            // todo：查询剩余的at全体次数
             const groupCode = peer.peerUid
             let remainAtAllCount = 1
             let isAdmin: boolean = true
