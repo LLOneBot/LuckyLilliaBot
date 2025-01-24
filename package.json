@@ -37,7 +37,7 @@
     "@types/express": "^5.0.0",
     "@types/fluent-ffmpeg": "^2.1.27",
     "@types/node": "^20.14.15",
-    "@types/ws": "^8.5.13",
+    "@types/ws": "^8.5.14",
     "electron": "^31.4.0",
     "electron-vite": "^3.0.0-beta.0",
     "protobufjs-cli": "^1.1.3",

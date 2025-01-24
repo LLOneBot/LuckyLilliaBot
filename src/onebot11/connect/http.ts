@@ -14,6 +14,7 @@ import { Dict } from 'cosmokit'
 class OB11Http {
   private readonly expressAPP: Express
   private server?: http.Server
+  private sseClients: Response[] = []
 
   constructor(protected ctx: Context, public config: OB11Http.Config) {
     this.expressAPP = express()
@@ -48,6 +49,17 @@ class OB11Http {
         this.ctx.logger.info(`HTTP server started ${host}:${this.config.port}`)
       })
       llonebotError.httpServerError = ''
+      if (this.config.enableHttpSse) {
+        this.expressAPP.get('/_events', (req: Request, res: Response) => {
+          res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
+          res.setHeader('Cache-Control', 'no-cache')
+          res.setHeader('Connection', 'keep-alive')
+          res.setHeader('X-Accel-Buffering', 'no')
+          res.flushHeaders()
+          this.sseClients.push(res)
+        })
+        this.ctx.logger.info(`HTTP SSE started ${host}:${this.config.port}/_events`)
+      }
     } catch (e) {
       this.ctx.logger.error('HTTP服务启动失败', e)
       llonebotError.httpServerError = 'HTTP服务启动失败, ' + e
@@ -69,6 +81,22 @@ class OB11Http {
         resolve(true)
       }
     })
+  }
+
+  public async emitEvent(event: OB11BaseEvent) {
+    if (this.sseClients.length === 0) {
+      return
+    }
+    const data = `data: ${JSON.stringify(event)}\n\n`
+    for (const client of this.sseClients) {
+      if (!client.closed) {
+        client.write(data)
+      }
+      if ('post_type' in event) {
+        const eventName = event.post_type + '.' + event[event.post_type + '_type']
+        this.ctx.logger.info('HTTP SSE 事件上报', eventName)
+      }
+    }
   }
 
   public updateConfig(config: Partial<OB11Http.Config>) {
@@ -101,7 +129,12 @@ class OB11Http {
   }
 
   private async handleRequest(req: Request, res: Response, next: NextFunction) {
-    if (req.path === '/') return next()
+    if (req.path === '/') {
+      return next()
+    }
+    if (this.config.enableHttpSse && req.path === '/_events') {
+      return next()
+    }
     let payload = req.body
     if (req.method === 'GET') {
       payload = req.query
@@ -124,6 +157,7 @@ namespace OB11Http {
     token?: string
     actionMap: Map<string, BaseAction<unknown, unknown>>
     listenLocalhost: boolean
+    enableHttpSse?: boolean
   }
 }
 
