@@ -1,11 +1,10 @@
-name: Publish
+name: Integrate NTQQ
 on:
   push:
     tags:
       - 'v*'
-
 jobs:
-  build-and-publish:
+  build-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,9 +23,22 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Download QQ 29456
+        run: |
+          wget https://github.com/linyuchen/LiteloaderQQNT-Integration/releases/download/win-29456/win-x64-29456.zip
+      - name: Extract QQ 29456
+        run: |
+          unzip win-x64-29456.zip
+          rm win-x64-29456.zip
+      - name: Copy LLOneBot to QQ 29456
+        run: |
+          cp -r dist/ QQNT/versions/9.9.16-29456/resources/app/app_launcher/LiteLoaderQQNT/plugins/
+          mv QQNT/versions/9.9.16-29456/resources/app/app_launcher/LiteLoaderQQNT/plugins/dist QQNT/versions/9.9.16-29456/resources/app/app_launcher/LiteLoaderQQNT/plugins/LLOneBot
+
       - name: Compress
         run: |
           sudo apt install zip -y
+          zip -r LLOneBot_QQ_Windows_x64.zip QQNT
           cd ./dist/
           zip -r ../LLOneBot.zip ./*
 
@@ -37,7 +49,7 @@ jobs:
       - name: Release
         uses: ncipollo/release-action@v1
         with:
-          artifacts: 'LLOneBot.zip'
+          artifacts: 'LLOneBot.zip, LLOneBot_QQ_Windows_x64.zip'
           draft: true
           token: ${{ secrets.RELEASE_TOKEN }}
           name: LLOneBot v${{ steps.get-version.outputs.VERSION }}
