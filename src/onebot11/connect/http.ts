@@ -49,17 +49,15 @@ class OB11Http {
         this.ctx.logger.info(`HTTP server started ${host}:${this.config.port}`)
       })
       llonebotError.httpServerError = ''
-      if (this.config.enableHttpSse) {
-        this.expressAPP.get('/_events', (req: Request, res: Response) => {
-          res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
-          res.setHeader('Cache-Control', 'no-cache')
-          res.setHeader('Connection', 'keep-alive')
-          res.setHeader('X-Accel-Buffering', 'no')
-          res.flushHeaders()
-          this.sseClients.push(res)
-        })
-        this.ctx.logger.info(`HTTP SSE started ${host}:${this.config.port}/_events`)
-      }
+      this.expressAPP.get('/_events', (req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
+        res.setHeader('Cache-Control', 'no-cache')
+        res.setHeader('Connection', 'keep-alive')
+        res.setHeader('X-Accel-Buffering', 'no')
+        res.flushHeaders()
+        this.sseClients.push(res)
+      })
+      this.ctx.logger.info(`HTTP SSE started ${host}:${this.config.port}/_events`)
     } catch (e) {
       this.ctx.logger.error('HTTP服务启动失败', e)
       llonebotError.httpServerError = 'HTTP服务启动失败, ' + e

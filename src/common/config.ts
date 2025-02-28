@@ -29,7 +29,6 @@ export class ConfigUtil {
       wsPort: 3001,
       wsHosts: [],
       enableHttp: true,
-      enableHttpSse: false,
       enableHttpPost: true,
       enableWs: true,
       enableWsReverse: false,

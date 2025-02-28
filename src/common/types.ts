@@ -6,7 +6,6 @@ export interface OB11Config {
   wsPort: number
   wsHosts: string[]
   enableHttp?: boolean
-  enableHttpSse?: boolean
   enableHttpPost?: boolean
   enableWs?: boolean
   enableWsReverse?: boolean

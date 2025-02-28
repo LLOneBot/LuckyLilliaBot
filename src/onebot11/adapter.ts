@@ -48,8 +48,7 @@ class OneBot11Adapter extends Service {
       port: config.httpPort,
       token: config.token,
       actionMap,
-      listenLocalhost: config.listenLocalhost,
-      enableHttpSse: config.enableHttpSse
+      listenLocalhost: config.listenLocalhost
     })
     this.ob11HttpPost = new OB11HttpPost(ctx, {
       hosts: config.httpHosts,
@@ -82,7 +81,7 @@ class OneBot11Adapter extends Service {
     if (this.config.enableHttpPost) {
       this.ob11HttpPost.emitEvent(event)
     }
-    if (this.config.enableHttpSse) {
+    if (this.config.enableHttp) {
       this.ob11Http.emitEvent(event)
     }
     if ((event as OB11BaseMetaEvent).meta_event_type !== 'heartbeat') {
@@ -248,13 +247,10 @@ class OneBot11Adapter extends Service {
       token: config.token,
     })
     // 判断是否启用或关闭 HTTP 服务
-    if (config.ob11.enableHttp !== old.enableHttp || config.ob11.enableHttpSse !== old.enableHttpSse) {
+    if (config.ob11.enableHttp !== old.enableHttp) {
       if (!config.ob11.enableHttp) {
         await this.ob11Http.stop()
       } else {
-        if (config.ob11.enableHttpSse !== old.enableHttpSse) {
-          await this.ob11Http.stop()
-        }
         this.ob11Http.start()
       }
     }

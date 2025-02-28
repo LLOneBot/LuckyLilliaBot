@@ -91,11 +91,6 @@ async function onSettingWindowCreated(view: Element) {
           config.ob11.enableHttp,
         ),
         SettingItem(
-          '启用 HTTP SSE',
-          '访问 /_events 可获取消息推送',
-          SettingSwitch('ob11.enableHttpSse', config.ob11.enableHttpSse),
-        ),
-        SettingItem(
           '启用 HTTP 心跳',
           null,
           SettingSwitch('ob11.enableHttpHeart', config.ob11.enableHttpHeart, {
