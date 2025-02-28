@@ -25,7 +25,7 @@ jobs:
 
       - name: Download QQ 29456
         run: |
-          wget https://github.com/linyuchen/LiteloaderQQNT-Integration/releases/download/win-29456/win-x64-29456.zip
+          wget https://github.com/linyuchen/LiteloaderQQNT-Integration/releases/download/win/win-x64-29456.zip
       - name: Extract QQ 29456
         run: |
           unzip win-x64-29456.zip
