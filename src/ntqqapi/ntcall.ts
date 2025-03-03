@@ -23,15 +23,20 @@ export enum NTClass {
   NT_API = 'ns-ntApi',
   FS_API = 'ns-FsApi',
   OS_API = 'ns-OsApi',
-  WINDOW_API = 'ns-WindowApi',
   HOTUPDATE_API = 'ns-HotUpdateApi',
   BUSINESS_API = 'ns-BusinessApi',
-  GLOBAL_DATA = 'ns-GlobalDataApi',
-  SKEY_API = 'ns-SkeyApi',
-  GROUP_HOME_WORK = 'ns-GroupHomeWork',
-  GROUP_ESSENCE = 'ns-GroupEssence',
   NODE_STORE_API = 'ns-NodeStoreApi',
   QQ_EX_API = 'ns-QQEXApi',
+}
+
+const newEventName: Record<NTClass, string> = {
+  [NTClass.NT_API]: 'ntApi',
+  [NTClass.FS_API]: 'FileApi',
+  [NTClass.OS_API]: 'OsApi',
+  [NTClass.HOTUPDATE_API]: 'HotUpdateApi',
+  [NTClass.BUSINESS_API]: 'BusinessApi',
+  [NTClass.NODE_STORE_API]: 'NodeStoreApi',
+  [NTClass.QQ_EX_API]: 'QQEXApi'
 }
 
 export enum NTMethod {
@@ -144,7 +149,11 @@ export function invoke<
     let eventName = className + '-' + channel[channel.length - 1]
     let apiArgs: unknown[] | { cmdName: string, cmdType: 'invoke', payload: unknown[] } | string = [method, ...args]
     if (getBuildVersion() >= 32690) {
-      eventName = className.split('-')[1]
+      if (className in newEventName) {
+        eventName = newEventName[className]
+      } else {
+        eventName = className.split('-')[1]
+      }
       if (options.registerEvent) {
         apiArgs = method
       } else {
