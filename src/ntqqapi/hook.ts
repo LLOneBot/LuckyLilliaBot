@@ -4,7 +4,7 @@ import { ipcMain } from 'electron'
 import { Awaitable, Dict } from 'cosmokit'
 import { NTMethod } from './ntcall'
 
-export const hookApiCallbacks: Record<string, (res: any) => void> = {}
+export const hookApiCallbacks: Map<string, (res: any) => void> = new Map()
 
 export enum ReceiveCmdS {
   RECENT_CONTACT = 'nodeIKernelRecentContactListener/onRecentContactListChangedVer2',
@@ -47,7 +47,7 @@ export function startHook() {
 
   ipcMain.emit = new Proxy(ipcMain.emit, {
     apply(target, thisArg, args: [channel: string, ...args: any]) {
-      if (args[2]?.eventName?.startsWith('ns-LoggerApi')) {
+      if (args[2]?.eventName?.startsWith('ns-LoggerApi') || args[2]?.eventName === 'LogApi') {
         return target.apply(thisArg, args)
       }
       if (logHook) {
@@ -67,9 +67,9 @@ export function startHook() {
 
             const callbackId = args[1]?.callbackId
             if (callbackId) {
-              if (hookApiCallbacks[callbackId]) {
-                Promise.resolve(hookApiCallbacks[callbackId](args[2]))
-                delete hookApiCallbacks[callbackId]
+              if (hookApiCallbacks.has(callbackId)) {
+                Promise.resolve(hookApiCallbacks.get(callbackId)!(args[2]))
+                hookApiCallbacks.delete(callbackId)
               }
             } else if (args[2]) {
               if (['IPC_DOWN_2', 'IPC_DOWN_3', 'RM_IPCFROM_MAIN3', 'RM_IPCFROM_MAIN2'].includes(args[0])) {

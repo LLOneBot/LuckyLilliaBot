@@ -145,10 +145,10 @@ export function invoke<
     if (options.registerEvent) {
       eventName += '-register'
     }
-    let apiArgs: unknown[] | {cmdName: string, cmdType: 'invoke', payload: unknown[]} = [method, ...args]
-    if (getBuildVersion() >= 32609){
+    let apiArgs: unknown[] | { cmdName: string, cmdType: 'invoke', payload: unknown[] } = [method, ...args]
+    if (getBuildVersion() >= 32609) {
       eventName = className.split('-')[1]
-      apiArgs = {cmdName: method, cmdType: 'invoke', payload: args}
+      apiArgs = { cmdName: method, cmdType: 'invoke', payload: args }
     }
     const callbackId = randomUUID()
     let eventId: string
@@ -163,10 +163,10 @@ export function invoke<
 
     if (!options.cbCmd) {
       // QQ后端会返回结果，并且可以根据uuid识别
-      hookApiCallbacks[callbackId] = res => {
+      hookApiCallbacks.set(callbackId, res => {
         clearTimeout(timeoutId)
         resolve(res)
-      }
+      })
     }
     else {
       const afterFirstCmd = options.afterFirstCmd ?? true
@@ -187,7 +187,7 @@ export function invoke<
       if (!afterFirstCmd) {
         secondCallback()
       }
-      hookApiCallbacks[callbackId] = (res: GeneralCallResult) => {
+      hookApiCallbacks.set(callbackId, (res: GeneralCallResult) => {
         if (res?.result === 0 || ['undefined', 'number'].includes(typeof res)) {
           result = res
           if (afterFirstCmd) {
@@ -201,7 +201,7 @@ export function invoke<
           }
           reject(new DetailedError(`call failed, ${method}, ${JSON.stringify(res)}`, res))
         }
-      }
+      })
     }
 
     ipcMain.emit(
@@ -212,7 +212,7 @@ export function invoke<
           },
         },
       },
-      { type: 'request', callbackId, eventName, peerId: channel.slice(-1)},
+      { type: 'request', callbackId, eventName, peerId: channel.slice(-1) },
       apiArgs,
     )
   })
