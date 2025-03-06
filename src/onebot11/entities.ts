@@ -505,7 +505,7 @@ export namespace OB11Entities {
             ctx.logger.info('收到表情回应我的消息', xmlElement.templParam)
             return await GroupMsgEmojiLikeEvent.parse(ctx, xmlElement, msg.peerUid)
           } else if (xmlElement.templId == '10179') {
-            ctx.logger.info('收到新人被邀请进群消息', xmlElement)
+            ctx.logger.info('收到新人被邀请进群消息 templId: 10179', xmlElement)
             const invitor = xmlElement.templParam.get('invitor')
             const invitee = xmlElement.templParam.get('invitee')
             if (invitor && invitee) {

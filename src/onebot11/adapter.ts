@@ -139,7 +139,7 @@ class OneBot11Adapter extends Service {
           parseInt(userId) || 0,
           flag,
           notify.postscript,
-          'add'
+          'invite'
         )
         this.dispatch(event)
       }
