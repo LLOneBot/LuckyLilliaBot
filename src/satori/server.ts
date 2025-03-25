@@ -7,19 +7,51 @@ import { WebSocket, WebSocketServer } from 'ws'
 import { promisify } from 'node:util'
 import { ObjectToSnake } from 'ts-case-convert'
 import { selfInfo } from '@/common/globalVars'
+import { initActionMap } from '@/onebot11/action'
+import { OB11Response } from '@/onebot11/action/OB11Response'
 
 export class SatoriServer {
   private express: Express
   private httpServer?: Server
   private wsServer?: WebSocketServer
   private wsClients: WebSocket[] = []
+  private actionMap: Map<string, { handle: (params: any) => Promise<any> }>
 
   constructor(private ctx: Context, private config: SatoriServer.Config) {
     this.express = express()
     this.express.use(express.json({ limit: '50mb' }))
+    this.actionMap = initActionMap(this as any) // 初始化 OB11 actionMap
   }
 
+  async CallOneBot11API(action: string, params: any): Promise<any> {
+    const handler = this.actionMap.get(action)
+    if (!handler) {
+      throw new Error(`Unsupported OB11 action: ${action}`)
+    }
+    return handler.handle(params)
+  }
+  
+  private async handleOneBotRequest(req: Request, res: Response) {
+    if (this.checkAuth(req, res)) return
+    
+    const action = req.params.action;
+    const params = req.method === 'POST' ? req.body : req.query
+    let result;
+    try {
+      result = await this.CallOneBot11API(action, params)
+    } catch (e) {
+      result = OB11Response.error((e as Error)?.toString() ?? String(e), 200)
+    }
+
+    res.json(result)
+  }
+  
   public start() {
+
+    this.express.route('/v1/internal/onebot11/:action')
+    .post(this.handleOneBotRequest.bind(this))
+    .get(this.handleOneBotRequest.bind(this))
+
     this.express.get('/v1/:name', async (req, res) => {
       res.status(405).send('Please use POST method to send requests.')
     })
