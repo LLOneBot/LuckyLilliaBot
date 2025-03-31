@@ -29,7 +29,7 @@ export function postHttpEvent(event: PostEventType) {
 }
 
 export async function getHttpEvent(userKey: string, timeout = 0) {
-  if (userKey === '__proto__' || userKey === 'constructor' || userKey === 'prototype') {
+  if (typeof userKey !== 'string' || userKey === '__proto__' || userKey === 'constructor' || userKey === 'prototype') {
     throw new Error('Invalid user key');
   }
   const toRetEvent: PostEventType[] = []
