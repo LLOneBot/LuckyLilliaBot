@@ -29,6 +29,9 @@ export function postHttpEvent(event: PostEventType) {
 }
 
 export async function getHttpEvent(userKey: string, timeout = 0) {
+  if (userKey === '__proto__' || userKey === 'constructor' || userKey === 'prototype') {
+    throw new Error('Invalid user key');
+  }
   const toRetEvent: PostEventType[] = []
 
   // 清除过时的user，5分钟没访问过的user将被删除
