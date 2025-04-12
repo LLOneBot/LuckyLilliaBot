@@ -227,10 +227,9 @@ async function onSettingWindowCreated(view: Element) {
           `<div class="q-input"><input class="q-input__inner" data-config-key="msgCacheExpire" type="number" min="1" value="${config.msgCacheExpire}" placeholder="${config.msgCacheExpire}" /></div>`,
         ),
         SettingItem(
-          '发包器地址',
+          '发包器端口',
           null,
-          `<div class="q-input" style="width:210px;"><input class="q-input__inner" data-config-key="packetEndpoint" type="text" value="${config.packetEndpoint}" placeholder="未设置" /></div>`,
-          'config-packetEndpoint',
+          `<div class="q-input"><input class="q-input__inner" data-config-key="packetPort" type="number" value="${config.packetPort}" placeholder="未设置" /></div>`
         ),
         SettingItem('', null, SettingButton('保存', 'config-ob11-save-3', 'primary')),
       ]),

@@ -52,7 +52,7 @@ class Core extends Service {
   constructor(protected ctx: Context, public config: Core.Config) {
     super(ctx, 'app', true)
     this.crychic = new Crychic(ctx)
-    this.pmhq = new Pmhq(ctx, config.packetEndpoint)
+    this.pmhq = new Pmhq(ctx, config.packetPort)
   }
 
   public start() {

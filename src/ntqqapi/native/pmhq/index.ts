@@ -15,11 +15,11 @@ export class Pmhq {
   private cb: Map<string, (data: Data) => void> = new Map()
   private connected = false
 
-  constructor(private ctx: Context, endpoint?: string) {
-    if (endpoint) {
+  constructor(private ctx: Context, port?: number) {
+    if (port) {
       this.activated = true
       ctx.on('ready', () => {
-        this.connect(endpoint)
+        this.connect(port)
       })
     }
   }
@@ -49,8 +49,8 @@ export class Pmhq {
     })
   }
 
-  private async connect(endpoint: string) {
-    this.ws = new WebSocket(endpoint)
+  private async connect(port: number) {
+    this.ws = new WebSocket(`ws://localhost:${port}/ws`)
     this.ws.on('open', () => {
       this.connected = true
       this.ws!.addEventListener('message', ({ data }) => {
@@ -73,7 +73,7 @@ export class Pmhq {
     this.ws.on('close', () => {
       this.connected = false
       setTimeout(() => {
-        this.connect(endpoint)
+        this.connect(port)
       }, 5000)
     })
   }
