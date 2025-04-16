@@ -18,7 +18,7 @@ export class FriendPoke extends BaseAction<Payload, null> {
     }
     if (!this.ctx.app.crychic.checkPlatform() || !this.ctx.app.crychic.checkVersion()) {
       // await this.ctx.app.packet.sendPokePacket(+payload.user_id)
-      throw new Error('戳一戳暂时只支持Windows QQ 27333 ~ 27597版本')
+      throw new Error('请到LLOneBot设置页面配置发包器')
     }
     else {
       await this.ctx.app.crychic.sendFriendPoke(+payload.user_id)

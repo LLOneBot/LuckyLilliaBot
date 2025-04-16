@@ -14,20 +14,36 @@ export class Pmhq {
   private seq = 0
   private cb: Map<string, (data: Data) => void> = new Map()
   private connected = false
+  private reconnectTimer: NodeJS.Timeout | undefined
 
   constructor(private ctx: Context, port?: number) {
     if (port) {
-      this.activated = true
       ctx.on('ready', () => {
-        this.connect(port)
+        this.start(port)
       })
+    }
+  }
+
+  public start(port: number){
+    this.activated = true
+    this.connect(port)
+  }
+
+  public stop(){
+    if (this.activated){
+      this.activated = false
+      if (this.ws) {
+        if(this.reconnectTimer) clearTimeout(this.reconnectTimer)
+        this.ws.onclose = null
+        this.ws.close()
+      }
     }
   }
 
   private send(cmd: string, pb: Uint8Array) {
     return new Promise<Data>(async (resolve, reject) => {
       if (!this.connected) {
-        reject(new Error('发包器未连接'))
+        reject(new Error('发包器未连接，请前往LLOneBot设置页面配置'))
       }
       const echo = String(++this.seq)
       this.cb.set(echo, (data: Data) => {
@@ -72,7 +88,7 @@ export class Pmhq {
     })
     this.ws.on('close', () => {
       this.connected = false
-      setTimeout(() => {
+      this.reconnectTimer = setTimeout(() => {
         this.connect(port)
       }, 5000)
     })

@@ -228,7 +228,7 @@ async function onSettingWindowCreated(view: Element) {
         ),
         SettingItem(
           '发包器端口',
-          null,
+          `<a href="javascript:LiteLoader.api.openExternal(\'https://llonebot.github.io/zh-CN/guide/pmhq\');">配置文档</a>`,
           `<div class="q-input"><input class="q-input__inner" data-config-key="packetPort" type="number" value="${config.packetPort}" placeholder="未设置" /></div>`
         ),
         SettingItem('', null, SettingButton('保存', 'config-ob11-save-3', 'primary')),
@@ -384,7 +384,7 @@ async function onSettingWindowCreated(view: Element) {
       dom.addEventListener('input', () => {
         const Type = dom.getAttribute('type')
         const configKey = dom.dataset.configKey
-        const configValue = Type === 'number' ? (parseInt(dom.value) >= 1 ? parseInt(dom.value) : 1) : dom.value
+        const configValue = Type === 'number' ? (parseInt(dom.value) >= 1 ? parseInt(dom.value) : 0) : dom.value
 
         setConfig(configKey!, configValue)
       })

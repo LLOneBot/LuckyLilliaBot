@@ -303,6 +303,10 @@ class OneBot11Adapter extends Service {
       this.ob11HttpPost.stop()
       this.ob11HttpPost.start()
     }
+    this.ctx.app.pmhq.stop()
+    if (config.packetPort){
+      this.ctx.app.pmhq.start(config.packetPort)
+    }
     Object.assign(this.config, {
       ...config.ob11,
       heartInterval: config.heartInterval,

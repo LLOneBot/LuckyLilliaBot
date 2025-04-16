@@ -19,7 +19,7 @@ export class GroupPoke extends BaseAction<Payload, null> {
       return null
     }
     if (!this.ctx.app.crychic.checkPlatform() || !this.ctx.app.crychic.checkVersion()) {
-      throw new Error('戳一戳暂时只支持Windows QQ 27333 ~ 275970版本')
+      throw new Error('请到LLOneBot设置页面配置发包器')
     }
     else{
       await this.ctx.app.crychic.sendGroupPoke(+payload.group_id, +payload.user_id)
