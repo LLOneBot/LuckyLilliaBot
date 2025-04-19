@@ -24,16 +24,16 @@ export class Pmhq {
     }
   }
 
-  public start(port: number){
+  public start(port: number) {
     this.activated = true
     this.connect(port)
   }
 
-  public stop(){
-    if (this.activated){
+  public stop() {
+    if (this.activated) {
       this.activated = false
       if (this.ws) {
-        if(this.reconnectTimer) clearTimeout(this.reconnectTimer)
+        if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
         this.ws.onclose = null
         this.ws.close()
       }
@@ -138,13 +138,12 @@ export class Pmhq {
     return await this.send('OidbSvcTrpcTcp.0x8fc_2', data)
   }
 
-  async getRKey(){
+  async getRKey() {
     const hexStr = '08e7a00210ca01221c0a130a05080110ca011206a80602b006011a02080122050a030a1400'
-    const data = new Uint8Array(Buffer.from(hexStr, 'hex'));
+    const data = Buffer.from(hexStr, 'hex')
     const resp = await this.send('OidbSvcTrpcTcp.0xed3_1', data)
-    const respProtobuf = resp.pb
-    const rkeyBody = Oidb.Base.decode(new Uint8Array(Buffer.from(respProtobuf, 'hex'))).body
-    const rkeyItems =  Oidb.GetRKeyResponseBody.decode(rkeyBody).result?.rkeyItems!
+    const rkeyBody = Oidb.Base.decode(Buffer.from(resp.pb, 'hex')).body
+    const rkeyItems = Oidb.GetRKeyResponseBody.decode(rkeyBody).result?.rkeyItems!
     return {
       privateRKey: rkeyItems[0]?.rkey,
       groupRKey: rkeyItems[1]?.rkey

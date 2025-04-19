@@ -35,8 +35,8 @@ export class RkeyManager {
   }
 
   async refreshRkey() {
-    try{
-      const {privateRKey, groupRKey} = await this.ctx.app.pmhq.getRKey()
+    try {
+      const { privateRKey, groupRKey } = await this.ctx.get('app')!.pmhq.getRKey()
       if (privateRKey && groupRKey) {
         this.ctx.logger.info(`发包获取rkey成功,private:${privateRKey}, group:${groupRKey}`)
         this.rkeyData = {
