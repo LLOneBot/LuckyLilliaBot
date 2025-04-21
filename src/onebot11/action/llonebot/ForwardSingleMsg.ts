@@ -6,6 +6,7 @@ interface Payload {
   message_id: number | string
   group_id: number | string
   user_id?: number | string
+  is_long_id?: boolean
 }
 
 interface Response {
@@ -14,8 +15,16 @@ interface Response {
 
 abstract class ForwardSingleMsg extends BaseAction<Payload, Response> {
   protected async _handle(payload: Payload) {
+    payload.is_long_id = payload.is_long_id ?? false
     if (!payload.message_id) {
       throw Error('message_id不能为空')
+    }
+    if (payload.is_long_id) {
+      const msg = await this.ctx.store.getShortIdByMsgId(String(payload.message_id))
+      if (!msg) {
+        throw Error(`无法找到长id消息${payload.message_id}`)
+      }
+      payload.message_id = msg
     }
     const msg = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
     if (!msg) {
