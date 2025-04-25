@@ -44,7 +44,7 @@ class OB11Http {
       this.expressAPP.get('/', (req: Request, res: Response) => {
         res.send(`LLOneBot server 已启动`)
       })
-      const host = this.config.listenLocalhost ? '127.0.0.1' : '0.0.0.0'
+      const host = this.config.listenLocalhost ? '127.0.0.1' : '::'
       llonebotError.httpServerError = ''
       this.expressAPP.get('/_events', (req: Request, res: Response) => {
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
