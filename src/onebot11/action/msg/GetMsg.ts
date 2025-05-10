@@ -20,12 +20,14 @@ class GetMsg extends BaseAction<PayloadType, OB11Message> {
     if (!msgInfo) {
       throw new Error('消息不存在')
     }
-    const peer = {
-      guildId: '',
-      peerUid: msgInfo.peer.peerUid,
-      chatType: msgInfo.peer.chatType
+    let msg = this.ctx.store.getMsgCache(msgInfo.msgId)
+    if (!msg) {
+      const res = await this.ctx.ntMsgApi.getMsgsByMsgId(msgInfo.peer, [msgInfo.msgId])
+      if (res.msgList.length === 0) {
+        throw new Error('无法获取该消息')
+      }
+      msg = res.msgList[0]
     }
-    const msg = this.ctx.store.getMsgCache(msgInfo.msgId) ?? (await this.ctx.ntMsgApi.getMsgsByMsgId(peer, [msgInfo.msgId])).msgList[0]
     const retMsg = await OB11Entities.message(this.ctx, msg)
     if (!retMsg) {
       throw new Error('消息为空')
