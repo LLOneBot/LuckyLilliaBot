@@ -16,7 +16,7 @@ interface Data {
 
 export class Pmhq {
   private reconnectTimer: NodeJS.Timeout | undefined
-  private url: string
+  private url: string = 'http://127.0.0.1:13000'
 
   constructor(private ctx: Context) {
     let pmhqAddrPath: string
@@ -28,9 +28,14 @@ export class Pmhq {
       pmhqDataDir = path.join(os.homedir(), '.pmhq')
     }
     pmhqAddrPath = path.join(pmhqDataDir, `PMHQ_ADDR_${selfInfo.uin}.txt`)
-    const pmhqAddr: string = fs.readFileSync(pmhqAddrPath).toString()
-    ctx.logger.info('PMHQ address:' + pmhqAddr)
-    this.url = 'http://' + pmhqAddr + '/'
+    fs.readFile(pmhqAddrPath, (err, data)=> {
+      let pmhqAddr = '127.0.0.1:13000'
+      if (err) {
+        ctx.logger.error('PMHQ地址文件读取失败，使用默认地址')
+      }
+      ctx.logger.info('PMHQ address:' + pmhqAddr)
+      this.url = 'http://' + pmhqAddr + '/'
+    })
   }
 
 
