@@ -17,6 +17,7 @@ import {
   NodeIKernelNodeMiscService,
   NodeIKernelRecentContactService,
 } from './services'
+import { pmhq } from '@/ntqqapi/native/pmhq'
 
 export enum NTClass {
   NT_API = 'ns-ntApi',
@@ -117,11 +118,31 @@ interface InvokeOptions<ReturnType> {
   timeout?: number
 }
 
+const NT_SERVICE_TO_PMHQ: Record<string, string> = {
+  'nodeIKernelBuddyService': 'getBuddyService',
+  'nodeIKernelProfileService': 'getProfileService',
+  'nodeIKernelGroupService': 'getGroupService',
+  'nodeIKernelProfileLikeService': 'getProfileLikeService',
+  'nodeIKernelMsgService': 'getMsgService',
+  'nodeIKernelMSFService': 'getMSFService',
+  'nodeIKernelUixConvertService': 'getUixConvertService',
+  'nodeIKernelRichMediaService': 'getRichMediaService',
+  'nodeIKernelTicketService': 'getTicketService',
+  'nodeIKernelTipOffService': 'getTipOffService',
+  'nodeIKernelRobotService': 'getRobotService',
+  'nodeIKernelNodeMiscService': 'getNodeMiscService',
+  'nodeIKernelRecentContactService': 'getRecentContactService',
+}
 
 export function invoke<
   R extends Awaited<ReturnType<Extract<NTService[S][M], (...args: any) => unknown>>>,
   S extends keyof NTService = any,
   M extends keyof NTService[S] & string = any
 >(method: Extract<unknown, `${S}/${M}`> | string, args: unknown[], options: InvokeOptions<R> = {}) {
-
+  const splitMethod = method.split('/');
+  const serviceName = splitMethod[0] as keyof NTService;
+  const methodName = splitMethod.slice(1).join('/');
+  const pmhqService = NT_SERVICE_TO_PMHQ[serviceName] || serviceName;
+  const funcName = `wrapperSession.${pmhqService}().${methodName}`;
+  return pmhq.call(funcName, args)
 }

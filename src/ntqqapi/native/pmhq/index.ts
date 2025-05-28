@@ -8,17 +8,73 @@ import path from 'node:path'
 import * as os from 'node:os'
 import fs from 'node:fs'
 
-interface Data {
-  echo: string
+interface PBData {
+  echo?: string
   cmd: string
   pb: string
 }
 
-export class Pmhq {
-  private reconnectTimer: NodeJS.Timeout | undefined
-  private url: string = 'http://127.0.0.1:13000'
+interface CallResultData {
+  echo?: string
+  result: any
+}
 
-  constructor(private ctx: Context) {
+interface OnListenerData {
+  echo: string | null
+  sub_type: string
+  data: any
+}
+
+interface PMHQResSendPB {
+  type: 'send'
+  data: PBData
+}
+
+interface PMHQResRecvPB {
+  type: 'recv',
+  data: PBData
+}
+
+interface PMHQResOn {
+  type: 'on_message' | 'on_buddy' | 'on_group',
+  data: OnListenerData
+}
+
+interface PMHQResCall {
+  type: 'call',
+  data: CallResultData
+}
+
+interface PMHQReqSendPB {
+  type: 'send',
+  data: PBData
+}
+
+interface PMHQReqCall {
+  type: 'call',
+  data: {
+    echo?: string
+    func: string,
+    args: any[]
+  }
+}
+
+export type PMHQRes = PMHQResSendPB | PMHQResRecvPB | PMHQResOn | PMHQResCall
+
+export type PMHQReq = PMHQReqSendPB | PMHQReqCall
+
+interface ResListener{
+  (data: PMHQRes): void
+}
+
+export class PMHQ {
+  private reconnectTimer: NodeJS.Timeout | undefined
+  private httpUrl: string = 'http://127.0.0.1:13000'
+  private wsUrl: string = 'ws://127.0.0.1:13000/ws'
+  private ws: WebSocket | undefined
+  private resListeners: ResListener[] = []
+
+  constructor() {
     let pmhqAddrPath: string
     let pmhqDataDir
     if (process.platform === 'win32') {
@@ -27,27 +83,49 @@ export class Pmhq {
     else {
       pmhqDataDir = path.join(os.homedir(), '.pmhq')
     }
-    pmhqAddrPath = path.join(pmhqDataDir, `PMHQ_ADDR_${selfInfo.uin}.txt`)
-    fs.readFile(pmhqAddrPath, (err, data)=> {
-      let pmhqAddr = '127.0.0.1:13000'
-      if (err) {
-        ctx.logger.error('PMHQ地址文件读取失败，使用默认地址')
+    pmhqAddrPath = path.join(pmhqDataDir, `PMHQ_ADDR_LAST.txt`)
+    let pmhqAddr = '127.0.0.1:13000'
+    try {
+      pmhqAddr = fs.readFileSync(pmhqAddrPath, 'utf-8')
+    } catch (err) {
+      console.error('PMHQ地址文件读取失败，使用默认地址')
+      console.info('PMHQ address:' + pmhqAddr)
+    }
+    const port = pmhqAddr.split(':')[1]
+    this.httpUrl = `http://127.0.0.1:${port}/`
+    this.wsUrl = `ws://127.0.0.1:${port}/ws`
+    this.connectWebSocket()
+  }
+
+  public addResListener(listener: ResListener) {
+    this.resListeners.push(listener)
+  }
+
+  private connectWebSocket() {
+    this.ws = new WebSocket(this.wsUrl)
+    this.ws.onmessage = (event => {
+      const data: PMHQRes = JSON.parse(event.data.toString())
+      for (const func of this.resListeners) {
+        func(data)
       }
-      ctx.logger.info('PMHQ address:' + pmhqAddr)
-      this.url = 'http://' + pmhqAddr + '/'
+      console.info('PMHQ收到数据', data)
     })
   }
 
-
-  private async send(cmd: string, pb: Uint8Array) {
-    const payload = JSON.stringify({
-      type: 'send',
+  public async call(func: string, args: any){
+    const payload: PMHQReqCall = {
+      type: 'call',
       data: {
-        cmd,
-        pb: Buffer.from(pb).toString('hex'),
-      } as Data,
-    })
-    const response = await fetch(this.url, {
+        func,
+        args
+      }
+    }
+    return (await this.httpSend(payload)).result
+  }
+
+  public async httpSend(data: PMHQReq) {
+    const payload = JSON.stringify(data)
+    const response = await fetch(this.httpUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -65,6 +143,16 @@ export class Pmhq {
     return result.data
   }
 
+  private async httpSendPB(cmd: string, pb: Uint8Array) {
+    return this.httpSend({
+      type: 'send',
+      data: {
+        cmd,
+        pb: Buffer.from(pb).toString('hex'),
+      },
+    })
+  }
+
   async sendFriendPoke(uin: number) {
     const body = Oidb.SendPoke.encode({
       toUin: uin,
@@ -75,7 +163,7 @@ export class Pmhq {
       subCommand: 1,
       body,
     }).finish()
-    return await this.send('OidbSvcTrpcTcp.0xed3_1', data)
+    return await this.httpSendPB('OidbSvcTrpcTcp.0xed3_1', data)
   }
 
   async sendGroupPoke(groupCode: number, memberUin: number) {
@@ -88,7 +176,7 @@ export class Pmhq {
       subCommand: 1,
       body,
     }).finish()
-    return await this.send('OidbSvcTrpcTcp.0xed3_1', data)
+    return await this.httpSendPB('OidbSvcTrpcTcp.0xed3_1', data)
   }
 
   async setSpecialTitle(groupCode: number, memberUid: string, title: string) {
@@ -106,13 +194,13 @@ export class Pmhq {
       subCommand: 2,
       body,
     }).finish()
-    return await this.send('OidbSvcTrpcTcp.0x8fc_2', data)
+    return await this.httpSendPB('OidbSvcTrpcTcp.0x8fc_2', data)
   }
 
   async getRKey() {
     const hexStr = '08e7a00210ca01221c0a130a05080110ca011206a80602b006011a02080122050a030a1400'
     const data = Buffer.from(hexStr, 'hex')
-    const resp = await this.send('OidbSvcTrpcTcp.0xed3_1', data)
+    const resp = await this.httpSendPB('OidbSvcTrpcTcp.0xed3_1', data)
     const rkeyBody = Oidb.Base.decode(Buffer.from(resp.pb, 'hex')).body
     const rkeyItems = Oidb.GetRKeyResponseBody.decode(rkeyBody).result?.rkeyItems!
     return {
@@ -121,3 +209,5 @@ export class Pmhq {
     }
   }
 }
+
+export const pmhq = new PMHQ()

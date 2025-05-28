@@ -23,7 +23,7 @@ import { selfInfo } from '../common/globalVars'
 import { version } from '../version'
 import { invoke, NTMethod } from './ntcall'
 import { Crychic } from './native/crychic'
-import { Pmhq } from './native/pmhq'
+import { PMHQ } from './native/pmhq'
 
 declare module 'cordis' {
   interface Context {
@@ -52,7 +52,7 @@ class Core extends Service {
   constructor(protected ctx: Context, public config: Core.Config) {
     super(ctx, 'app', true)
     this.crychic = new Crychic(ctx)
-    this.pmhq = new Pmhq(ctx)
+    this.pmhq = new PMHQ(ctx)
   }
 
   public start() {

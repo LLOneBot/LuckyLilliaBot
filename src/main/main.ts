@@ -42,7 +42,6 @@ declare module 'cordis' {
 }
 
 
-// 加载插件时触发
 function onLoad() {
   if (!existsSync(DATA_DIR)) {
     mkdirSync(DATA_DIR, { recursive: true })
