@@ -59,12 +59,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
         break
       }
     }
-
-    if (fake && this.ctx.app.crychic.activated) {
-      return await this.handleFakeForwardNode(peer, nodes)
-    } else {
-      return await this.handleForwardNode(peer, nodes)
-    }
+    return await this.handleForwardNode(peer, nodes)
   }
 
   private parseNodeContent(nodes: OB11MessageNode[]) {

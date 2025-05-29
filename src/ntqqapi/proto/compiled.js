@@ -3,7 +3,6 @@ import * as $protobuf from "protobufjs/minimal";
 
 // Common aliases
 const $Reader = $protobuf.Reader, $Writer = $protobuf.Writer, $util = $protobuf.util;
-
 // Exported root namespace
 const $root = $protobuf.roots["default"] || ($protobuf.roots["default"] = {});
 
@@ -870,49 +869,89 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * RoutingHead _fromUin.
+         * @member {"fromUin"|undefined} _fromUin
+         * @memberof Msg.RoutingHead
+         * @instance
+         */
         Object.defineProperty(RoutingHead.prototype, "_fromUin", {
             get: $util.oneOfGetter($oneOfFields = ["fromUin"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * RoutingHead _fromUid.
+         * @member {"fromUid"|undefined} _fromUid
+         * @memberof Msg.RoutingHead
+         * @instance
+         */
         Object.defineProperty(RoutingHead.prototype, "_fromUid", {
             get: $util.oneOfGetter($oneOfFields = ["fromUid"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * RoutingHead _fromAppid.
+         * @member {"fromAppid"|undefined} _fromAppid
+         * @memberof Msg.RoutingHead
+         * @instance
+         */
         Object.defineProperty(RoutingHead.prototype, "_fromAppid", {
             get: $util.oneOfGetter($oneOfFields = ["fromAppid"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * RoutingHead _fromInstid.
+         * @member {"fromInstid"|undefined} _fromInstid
+         * @memberof Msg.RoutingHead
+         * @instance
+         */
         Object.defineProperty(RoutingHead.prototype, "_fromInstid", {
             get: $util.oneOfGetter($oneOfFields = ["fromInstid"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * RoutingHead _toUin.
+         * @member {"toUin"|undefined} _toUin
+         * @memberof Msg.RoutingHead
+         * @instance
+         */
         Object.defineProperty(RoutingHead.prototype, "_toUin", {
             get: $util.oneOfGetter($oneOfFields = ["toUin"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * RoutingHead _toUid.
+         * @member {"toUid"|undefined} _toUid
+         * @memberof Msg.RoutingHead
+         * @instance
+         */
         Object.defineProperty(RoutingHead.prototype, "_toUid", {
             get: $util.oneOfGetter($oneOfFields = ["toUid"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * RoutingHead _c2c.
+         * @member {"c2c"|undefined} _c2c
+         * @memberof Msg.RoutingHead
+         * @instance
+         */
         Object.defineProperty(RoutingHead.prototype, "_c2c", {
             get: $util.oneOfGetter($oneOfFields = ["c2c"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * RoutingHead _group.
+         * @member {"group"|undefined} _group
+         * @memberof Msg.RoutingHead
+         * @instance
+         */
         Object.defineProperty(RoutingHead.prototype, "_group", {
             get: $util.oneOfGetter($oneOfFields = ["group"]),
             set: $util.oneOfSetter($oneOfFields)
@@ -1062,7 +1101,12 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * C2c _friendName.
+         * @member {"friendName"|undefined} _friendName
+         * @memberof Msg.C2c
+         * @instance
+         */
         Object.defineProperty(C2c.prototype, "_friendName", {
             get: $util.oneOfGetter($oneOfFields = ["friendName"]),
             set: $util.oneOfSetter($oneOfFields)
@@ -1242,55 +1286,100 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Group _groupCode.
+         * @member {"groupCode"|undefined} _groupCode
+         * @memberof Msg.Group
+         * @instance
+         */
         Object.defineProperty(Group.prototype, "_groupCode", {
             get: $util.oneOfGetter($oneOfFields = ["groupCode"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Group _groupType.
+         * @member {"groupType"|undefined} _groupType
+         * @memberof Msg.Group
+         * @instance
+         */
         Object.defineProperty(Group.prototype, "_groupType", {
             get: $util.oneOfGetter($oneOfFields = ["groupType"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Group _groupInfoSeq.
+         * @member {"groupInfoSeq"|undefined} _groupInfoSeq
+         * @memberof Msg.Group
+         * @instance
+         */
         Object.defineProperty(Group.prototype, "_groupInfoSeq", {
             get: $util.oneOfGetter($oneOfFields = ["groupInfoSeq"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Group _groupCard.
+         * @member {"groupCard"|undefined} _groupCard
+         * @memberof Msg.Group
+         * @instance
+         */
         Object.defineProperty(Group.prototype, "_groupCard", {
             get: $util.oneOfGetter($oneOfFields = ["groupCard"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Group _groupCardType.
+         * @member {"groupCardType"|undefined} _groupCardType
+         * @memberof Msg.Group
+         * @instance
+         */
         Object.defineProperty(Group.prototype, "_groupCardType", {
             get: $util.oneOfGetter($oneOfFields = ["groupCardType"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Group _groupLevel.
+         * @member {"groupLevel"|undefined} _groupLevel
+         * @memberof Msg.Group
+         * @instance
+         */
         Object.defineProperty(Group.prototype, "_groupLevel", {
             get: $util.oneOfGetter($oneOfFields = ["groupLevel"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Group _groupName.
+         * @member {"groupName"|undefined} _groupName
+         * @memberof Msg.Group
+         * @instance
+         */
         Object.defineProperty(Group.prototype, "_groupName", {
             get: $util.oneOfGetter($oneOfFields = ["groupName"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Group _extGroupKeyInfo.
+         * @member {"extGroupKeyInfo"|undefined} _extGroupKeyInfo
+         * @memberof Msg.Group
+         * @instance
+         */
         Object.defineProperty(Group.prototype, "_extGroupKeyInfo", {
             get: $util.oneOfGetter($oneOfFields = ["extGroupKeyInfo"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Group _msgFlag.
+         * @member {"msgFlag"|undefined} _msgFlag
+         * @memberof Msg.Group
+         * @instance
+         */
         Object.defineProperty(Group.prototype, "_msgFlag", {
             get: $util.oneOfGetter($oneOfFields = ["msgFlag"]),
             set: $util.oneOfSetter($oneOfFields)
@@ -1554,79 +1643,144 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHead _msgType.
+         * @member {"msgType"|undefined} _msgType
+         * @memberof Msg.ContentHead
+         * @instance
+         */
         Object.defineProperty(ContentHead.prototype, "_msgType", {
             get: $util.oneOfGetter($oneOfFields = ["msgType"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHead _subType.
+         * @member {"subType"|undefined} _subType
+         * @memberof Msg.ContentHead
+         * @instance
+         */
         Object.defineProperty(ContentHead.prototype, "_subType", {
             get: $util.oneOfGetter($oneOfFields = ["subType"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHead _c2cCmd.
+         * @member {"c2cCmd"|undefined} _c2cCmd
+         * @memberof Msg.ContentHead
+         * @instance
+         */
         Object.defineProperty(ContentHead.prototype, "_c2cCmd", {
             get: $util.oneOfGetter($oneOfFields = ["c2cCmd"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHead _random.
+         * @member {"random"|undefined} _random
+         * @memberof Msg.ContentHead
+         * @instance
+         */
         Object.defineProperty(ContentHead.prototype, "_random", {
             get: $util.oneOfGetter($oneOfFields = ["random"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHead _msgSeq.
+         * @member {"msgSeq"|undefined} _msgSeq
+         * @memberof Msg.ContentHead
+         * @instance
+         */
         Object.defineProperty(ContentHead.prototype, "_msgSeq", {
             get: $util.oneOfGetter($oneOfFields = ["msgSeq"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHead _msgTime.
+         * @member {"msgTime"|undefined} _msgTime
+         * @memberof Msg.ContentHead
+         * @instance
+         */
         Object.defineProperty(ContentHead.prototype, "_msgTime", {
             get: $util.oneOfGetter($oneOfFields = ["msgTime"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHead _pkgNum.
+         * @member {"pkgNum"|undefined} _pkgNum
+         * @memberof Msg.ContentHead
+         * @instance
+         */
         Object.defineProperty(ContentHead.prototype, "_pkgNum", {
             get: $util.oneOfGetter($oneOfFields = ["pkgNum"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHead _pkgIndex.
+         * @member {"pkgIndex"|undefined} _pkgIndex
+         * @memberof Msg.ContentHead
+         * @instance
+         */
         Object.defineProperty(ContentHead.prototype, "_pkgIndex", {
             get: $util.oneOfGetter($oneOfFields = ["pkgIndex"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHead _divSeq.
+         * @member {"divSeq"|undefined} _divSeq
+         * @memberof Msg.ContentHead
+         * @instance
+         */
         Object.defineProperty(ContentHead.prototype, "_divSeq", {
             get: $util.oneOfGetter($oneOfFields = ["divSeq"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHead _autoReply.
+         * @member {"autoReply"|undefined} _autoReply
+         * @memberof Msg.ContentHead
+         * @instance
+         */
         Object.defineProperty(ContentHead.prototype, "_autoReply", {
             get: $util.oneOfGetter($oneOfFields = ["autoReply"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHead _ntMsgSeq.
+         * @member {"ntMsgSeq"|undefined} _ntMsgSeq
+         * @memberof Msg.ContentHead
+         * @instance
+         */
         Object.defineProperty(ContentHead.prototype, "_ntMsgSeq", {
             get: $util.oneOfGetter($oneOfFields = ["ntMsgSeq"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHead _msgUid.
+         * @member {"msgUid"|undefined} _msgUid
+         * @memberof Msg.ContentHead
+         * @instance
+         */
         Object.defineProperty(ContentHead.prototype, "_msgUid", {
             get: $util.oneOfGetter($oneOfFields = ["msgUid"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHead _field15.
+         * @member {"field15"|undefined} _field15
+         * @memberof Msg.ContentHead
+         * @instance
+         */
         Object.defineProperty(ContentHead.prototype, "_field15", {
             get: $util.oneOfGetter($oneOfFields = ["field15"]),
             set: $util.oneOfSetter($oneOfFields)
@@ -1842,31 +1996,56 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHeadField15 _field1.
+         * @member {"field1"|undefined} _field1
+         * @memberof Msg.ContentHeadField15
+         * @instance
+         */
         Object.defineProperty(ContentHeadField15.prototype, "_field1", {
             get: $util.oneOfGetter($oneOfFields = ["field1"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHeadField15 _field2.
+         * @member {"field2"|undefined} _field2
+         * @memberof Msg.ContentHeadField15
+         * @instance
+         */
         Object.defineProperty(ContentHeadField15.prototype, "_field2", {
             get: $util.oneOfGetter($oneOfFields = ["field2"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHeadField15 _field3.
+         * @member {"field3"|undefined} _field3
+         * @memberof Msg.ContentHeadField15
+         * @instance
+         */
         Object.defineProperty(ContentHeadField15.prototype, "_field3", {
             get: $util.oneOfGetter($oneOfFields = ["field3"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHeadField15 _field4.
+         * @member {"field4"|undefined} _field4
+         * @memberof Msg.ContentHeadField15
+         * @instance
+         */
         Object.defineProperty(ContentHeadField15.prototype, "_field4", {
             get: $util.oneOfGetter($oneOfFields = ["field4"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * ContentHeadField15 _field5.
+         * @member {"field5"|undefined} _field5
+         * @memberof Msg.ContentHeadField15
+         * @instance
+         */
         Object.defineProperty(ContentHeadField15.prototype, "_field5", {
             get: $util.oneOfGetter($oneOfFields = ["field5"]),
             set: $util.oneOfSetter($oneOfFields)
@@ -2016,19 +2195,34 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Message _routingHead.
+         * @member {"routingHead"|undefined} _routingHead
+         * @memberof Msg.Message
+         * @instance
+         */
         Object.defineProperty(Message.prototype, "_routingHead", {
             get: $util.oneOfGetter($oneOfFields = ["routingHead"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Message _contentHead.
+         * @member {"contentHead"|undefined} _contentHead
+         * @memberof Msg.Message
+         * @instance
+         */
         Object.defineProperty(Message.prototype, "_contentHead", {
             get: $util.oneOfGetter($oneOfFields = ["contentHead"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Message _body.
+         * @member {"body"|undefined} _body
+         * @memberof Msg.Message
+         * @instance
+         */
         Object.defineProperty(Message.prototype, "_body", {
             get: $util.oneOfGetter($oneOfFields = ["body"]),
             set: $util.oneOfSetter($oneOfFields)
@@ -2166,19 +2360,34 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * MessageBody _richText.
+         * @member {"richText"|undefined} _richText
+         * @memberof Msg.MessageBody
+         * @instance
+         */
         Object.defineProperty(MessageBody.prototype, "_richText", {
             get: $util.oneOfGetter($oneOfFields = ["richText"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * MessageBody _msgContent.
+         * @member {"msgContent"|undefined} _msgContent
+         * @memberof Msg.MessageBody
+         * @instance
+         */
         Object.defineProperty(MessageBody.prototype, "_msgContent", {
             get: $util.oneOfGetter($oneOfFields = ["msgContent"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * MessageBody _msgEncryptContent.
+         * @member {"msgEncryptContent"|undefined} _msgEncryptContent
+         * @memberof Msg.MessageBody
+         * @instance
+         */
         Object.defineProperty(MessageBody.prototype, "_msgEncryptContent", {
             get: $util.oneOfGetter($oneOfFields = ["msgEncryptContent"]),
             set: $util.oneOfSetter($oneOfFields)
@@ -2308,7 +2517,12 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * RichText _attr.
+         * @member {"attr"|undefined} _attr
+         * @memberof Msg.RichText
+         * @instance
+         */
         Object.defineProperty(RichText.prototype, "_attr", {
             get: $util.oneOfGetter($oneOfFields = ["attr"]),
             set: $util.oneOfSetter($oneOfFields)
@@ -2452,25 +2666,45 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Elem _text.
+         * @member {"text"|undefined} _text
+         * @memberof Msg.Elem
+         * @instance
+         */
         Object.defineProperty(Elem.prototype, "_text", {
             get: $util.oneOfGetter($oneOfFields = ["text"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Elem _face.
+         * @member {"face"|undefined} _face
+         * @memberof Msg.Elem
+         * @instance
+         */
         Object.defineProperty(Elem.prototype, "_face", {
             get: $util.oneOfGetter($oneOfFields = ["face"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Elem _lightApp.
+         * @member {"lightApp"|undefined} _lightApp
+         * @memberof Msg.Elem
+         * @instance
+         */
         Object.defineProperty(Elem.prototype, "_lightApp", {
             get: $util.oneOfGetter($oneOfFields = ["lightApp"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Elem _commonElem.
+         * @member {"commonElem"|undefined} _commonElem
+         * @memberof Msg.Elem
+         * @instance
+         */
         Object.defineProperty(Elem.prototype, "_commonElem", {
             get: $util.oneOfGetter($oneOfFields = ["commonElem"]),
             set: $util.oneOfSetter($oneOfFields)
@@ -2641,37 +2875,67 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Text _str.
+         * @member {"str"|undefined} _str
+         * @memberof Msg.Text
+         * @instance
+         */
         Object.defineProperty(Text.prototype, "_str", {
             get: $util.oneOfGetter($oneOfFields = ["str"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Text _link.
+         * @member {"link"|undefined} _link
+         * @memberof Msg.Text
+         * @instance
+         */
         Object.defineProperty(Text.prototype, "_link", {
             get: $util.oneOfGetter($oneOfFields = ["link"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Text _attr6Buf.
+         * @member {"attr6Buf"|undefined} _attr6Buf
+         * @memberof Msg.Text
+         * @instance
+         */
         Object.defineProperty(Text.prototype, "_attr6Buf", {
             get: $util.oneOfGetter($oneOfFields = ["attr6Buf"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Text _attr7Buf.
+         * @member {"attr7Buf"|undefined} _attr7Buf
+         * @memberof Msg.Text
+         * @instance
+         */
         Object.defineProperty(Text.prototype, "_attr7Buf", {
             get: $util.oneOfGetter($oneOfFields = ["attr7Buf"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Text _buf.
+         * @member {"buf"|undefined} _buf
+         * @memberof Msg.Text
+         * @instance
+         */
         Object.defineProperty(Text.prototype, "_buf", {
             get: $util.oneOfGetter($oneOfFields = ["buf"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Text _pbReserve.
+         * @member {"pbReserve"|undefined} _pbReserve
+         * @memberof Msg.Text
+         * @instance
+         */
         Object.defineProperty(Text.prototype, "_pbReserve", {
             get: $util.oneOfGetter($oneOfFields = ["pbReserve"]),
             set: $util.oneOfSetter($oneOfFields)
@@ -2827,19 +3091,34 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Face _index.
+         * @member {"index"|undefined} _index
+         * @memberof Msg.Face
+         * @instance
+         */
         Object.defineProperty(Face.prototype, "_index", {
             get: $util.oneOfGetter($oneOfFields = ["index"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Face _old.
+         * @member {"old"|undefined} _old
+         * @memberof Msg.Face
+         * @instance
+         */
         Object.defineProperty(Face.prototype, "_old", {
             get: $util.oneOfGetter($oneOfFields = ["old"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Face _buf.
+         * @member {"buf"|undefined} _buf
+         * @memberof Msg.Face
+         * @instance
+         */
         Object.defineProperty(Face.prototype, "_buf", {
             get: $util.oneOfGetter($oneOfFields = ["buf"]),
             set: $util.oneOfSetter($oneOfFields)
@@ -2968,13 +3247,23 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * LightAppElem _data.
+         * @member {"data"|undefined} _data
+         * @memberof Msg.LightAppElem
+         * @instance
+         */
         Object.defineProperty(LightAppElem.prototype, "_data", {
             get: $util.oneOfGetter($oneOfFields = ["data"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * LightAppElem _msgResid.
+         * @member {"msgResid"|undefined} _msgResid
+         * @memberof Msg.LightAppElem
+         * @instance
+         */
         Object.defineProperty(LightAppElem.prototype, "_msgResid", {
             get: $util.oneOfGetter($oneOfFields = ["msgResid"]),
             set: $util.oneOfSetter($oneOfFields)
@@ -3106,13 +3395,23 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * CommonElem _pbElem.
+         * @member {"pbElem"|undefined} _pbElem
+         * @memberof Msg.CommonElem
+         * @instance
+         */
         Object.defineProperty(CommonElem.prototype, "_pbElem", {
             get: $util.oneOfGetter($oneOfFields = ["pbElem"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * CommonElem _businessType.
+         * @member {"businessType"|undefined} _businessType
+         * @memberof Msg.CommonElem
+         * @instance
+         */
         Object.defineProperty(CommonElem.prototype, "_businessType", {
             get: $util.oneOfGetter($oneOfFields = ["businessType"]),
             set: $util.oneOfSetter($oneOfFields)
@@ -3313,61 +3612,111 @@ export const Msg = $root.Msg = (() => {
         // OneOf field names bound to virtual getters and setters
         let $oneOfFields;
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Attr _codePage.
+         * @member {"codePage"|undefined} _codePage
+         * @memberof Msg.Attr
+         * @instance
+         */
         Object.defineProperty(Attr.prototype, "_codePage", {
             get: $util.oneOfGetter($oneOfFields = ["codePage"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Attr _time.
+         * @member {"time"|undefined} _time
+         * @memberof Msg.Attr
+         * @instance
+         */
         Object.defineProperty(Attr.prototype, "_time", {
             get: $util.oneOfGetter($oneOfFields = ["time"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Attr _random.
+         * @member {"random"|undefined} _random
+         * @memberof Msg.Attr
+         * @instance
+         */
         Object.defineProperty(Attr.prototype, "_random", {
             get: $util.oneOfGetter($oneOfFields = ["random"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Attr _color.
+         * @member {"color"|undefined} _color
+         * @memberof Msg.Attr
+         * @instance
+         */
         Object.defineProperty(Attr.prototype, "_color", {
             get: $util.oneOfGetter($oneOfFields = ["color"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Attr _size.
+         * @member {"size"|undefined} _size
+         * @memberof Msg.Attr
+         * @instance
+         */
         Object.defineProperty(Attr.prototype, "_size", {
             get: $util.oneOfGetter($oneOfFields = ["size"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Attr _effect.
+         * @member {"effect"|undefined} _effect
+         * @memberof Msg.Attr
+         * @instance
+         */
         Object.defineProperty(Attr.prototype, "_effect", {
             get: $util.oneOfGetter($oneOfFields = ["effect"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Attr _charSet.
+         * @member {"charSet"|undefined} _charSet
+         * @memberof Msg.Attr
+         * @instance
+         */
         Object.defineProperty(Attr.prototype, "_charSet", {
             get: $util.oneOfGetter($oneOfFields = ["charSet"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Attr _pitchAndFamily.
+         * @member {"pitchAndFamily"|undefined} _pitchAndFamily
+         * @memberof Msg.Attr
+         * @instance
+         */
         Object.defineProperty(Attr.prototype, "_pitchAndFamily", {
             get: $util.oneOfGetter($oneOfFields = ["pitchAndFamily"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Attr _fontName.
+         * @member {"fontName"|undefined} _fontName
+         * @memberof Msg.Attr
+         * @instance
+         */
         Object.defineProperty(Attr.prototype, "_fontName", {
             get: $util.oneOfGetter($oneOfFields = ["fontName"]),
             set: $util.oneOfSetter($oneOfFields)
         });
 
-        // Virtual OneOf for proto3 optional field
+        /**
+         * Attr _reserveData.
+         * @member {"reserveData"|undefined} _reserveData
+         * @memberof Msg.Attr
+         * @instance
+         */
         Object.defineProperty(Attr.prototype, "_reserveData", {
             get: $util.oneOfGetter($oneOfFields = ["reserveData"]),
             set: $util.oneOfSetter($oneOfFields)

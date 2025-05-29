@@ -20,12 +20,6 @@ export class GroupPoke extends BaseAction<Payload, null> {
     }catch (e) {
       this.ctx.logger.error('pmhq 发包失败', e)
     }
-    if (!this.ctx.app.crychic.checkPlatform() || !this.ctx.app.crychic.checkVersion()) {
-      throw new Error('请配置发包器，参考https://llonebot.com/zh-CN/guide/pmhq')
-    }
-    else{
-      await this.ctx.app.crychic.sendGroupPoke(+payload.group_id, +payload.user_id)
-    }
     return null
   }
 }

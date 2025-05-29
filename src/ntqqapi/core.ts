@@ -22,7 +22,6 @@ import {
 import { selfInfo } from '../common/globalVars'
 import { version } from '../version'
 import { invoke, NTMethod } from './ntcall'
-import { Crychic } from './native/crychic'
 import { PMHQ } from './native/pmhq'
 
 declare module 'cordis' {
@@ -46,13 +45,11 @@ class Core extends Service {
   public messageReceivedCount = 0
   public messageSentCount = 0
   public lastMessageTime = 0
-  public crychic
   public pmhq
 
   constructor(protected ctx: Context, public config: Core.Config) {
     super(ctx, 'app', true)
-    this.crychic = new Crychic(ctx)
-    this.pmhq = new PMHQ(ctx)
+    this.pmhq = new PMHQ()
   }
 
   public start() {
