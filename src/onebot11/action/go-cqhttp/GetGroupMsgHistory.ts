@@ -50,7 +50,7 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
 
     while (count > 0) {
       const res = await this.getMessage(peer, count, seq)
-      if (!res) break
+      if (!res || res.length == 0) break
       seq = res[0].message_seq - 1
       count -= res.length
       messages.unshift(...res)

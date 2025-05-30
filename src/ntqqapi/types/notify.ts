@@ -74,8 +74,6 @@ export interface FriendRequest {
 }
 
 export interface FriendRequestNotify {
-  data: {
-    unreadNums: number
-    buddyReqs: FriendRequest[]
-  }
+  unreadNums: number
+  buddyReqs: FriendRequest[]
 }

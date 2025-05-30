@@ -3,7 +3,7 @@ import { RawMessage, GroupNotify } from '@/ntqqapi/types'
 import { decodeGuild, decodeUser } from '../utils'
 
 export async function parseGuildMemberAdded(bot: SatoriAdapter, input: RawMessage, isBot = false) {
-  const { groupAll } = await bot.ctx.ntGroupApi.getGroupAllInfo(input.peerUid)
+  const groupAll = await bot.ctx.ntGroupApi.getGroupAllInfo(input.peerUid)
 
   let memberUid: string | undefined
   if (input.elements[0].grayTipElement?.groupElement) {
@@ -20,7 +20,7 @@ export async function parseGuildMemberAdded(bot: SatoriAdapter, input: RawMessag
   }
   if (!memberUid) return
 
-  const user = decodeUser(await bot.ctx.ntUserApi.getUserSimpleInfo(memberUid))
+  const user = decodeUser((await bot.ctx.ntUserApi.getUserSimpleInfo(memberUid)).coreInfo)
   user.is_bot = isBot
 
   return bot.event('guild-member-added', {
@@ -34,7 +34,7 @@ export async function parseGuildMemberAdded(bot: SatoriAdapter, input: RawMessag
 }
 
 export async function parseGuildMemberRemoved(bot: SatoriAdapter, input: GroupNotify) {
-  const user = decodeUser(await bot.ctx.ntUserApi.getUserSimpleInfo(input.user1.uid))
+  const user = decodeUser((await bot.ctx.ntUserApi.getUserSimpleInfo(input.user1.uid)).coreInfo)
 
   return bot.event('guild-member-removed', {
     guild: decodeGuild(input.group),

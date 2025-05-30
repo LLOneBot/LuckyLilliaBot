@@ -8,6 +8,7 @@ import path from 'node:path'
 import * as os from 'node:os'
 import fs from 'node:fs'
 import { deepConvertMap, deepStringifyMap } from '@/ntqqapi/native/pmhq/util'
+import { randomUUID } from 'node:crypto'
 
 interface PBData {
   echo?: string
@@ -64,7 +65,7 @@ export type PMHQRes = PMHQResSendPB | PMHQResRecvPB | PMHQResOn | PMHQResCall
 
 export type PMHQReq = PMHQReqSendPB | PMHQReqCall
 
-interface ResListener{
+interface ResListener {
   (data: PMHQRes): void
 }
 
@@ -73,7 +74,7 @@ export class PMHQ {
   private httpUrl: string = 'http://127.0.0.1:13000'
   private wsUrl: string = 'ws://127.0.0.1:13000/ws'
   private ws: WebSocket | undefined
-  private resListeners: ResListener[] = []
+  private resListeners: Map<string, ResListener> = new Map()
 
   constructor() {
     let pmhqAddrPath: string
@@ -99,7 +100,13 @@ export class PMHQ {
   }
 
   public addResListener(listener: ResListener) {
-    this.resListeners.push(listener)
+    const listenerId = randomUUID()
+    this.resListeners.set(listenerId, listener)
+    return listenerId
+  }
+
+  public removeResListener(listenerId: string) {
+    this.resListeners.delete(listenerId)
   }
 
   private connectWebSocket() {
@@ -107,7 +114,7 @@ export class PMHQ {
     this.ws.onmessage = (event => {
       let data: PMHQRes = JSON.parse(event.data.toString())
       data = deepConvertMap(data)
-      for (const func of this.resListeners) {
+      for (const func of this.resListeners.values()) {
         func(data)
       }
       // console.info('PMHQ收到数据', data)
@@ -124,15 +131,37 @@ export class PMHQ {
     }
   }
 
-  public async call(func: string, args: any){
+  public async call(func: string, args: any) {
     const payload: PMHQReqCall = {
       type: 'call',
       data: {
         func,
-        args
-      }
+        args,
+      },
     }
-    return (await this.httpSend(payload)).result
+    return ((await this.wsSend(payload)) as PMHQResCall).data.result
+  }
+
+  public async wsSend(data: PMHQReq) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      throw new Error('PMHQ WebSocket 未连接或已断开，请检查 PMHQ 设置')
+    }
+    const echo = randomUUID()
+    data.data.echo = echo
+    const payload = JSON.stringify(deepStringifyMap(data))
+    const p = new Promise<PMHQRes>((resolve, reject) => {
+      const listenerId = this.addResListener((res => {
+        if (!res.data) {
+          console.error(data)
+        }
+        if (res.data?.echo == echo) {
+          resolve(res)
+          this.removeResListener(listenerId)
+        }
+      }))
+    })
+    this.ws.send(payload)
+    return p
   }
 
   public async httpSend(data: PMHQReq) {

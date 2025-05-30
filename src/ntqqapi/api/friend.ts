@@ -16,12 +16,11 @@ export class NTQQFriendApi extends Service {
 
   async handleFriendRequest(friendUid: string, reqTime: string, accept: boolean) {
     return await invoke(NTMethod.HANDLE_FRIEND_REQUEST, [{
-      approvalInfo: {
-        friendUid,
-        reqTime,
-        accept,
-      },
-    }])
+      friendUid,
+      reqTime,
+      accept,
+    },
+    ])
   }
 
   async getBuddyV2(): Promise<SimpleInfo[]> {
@@ -30,9 +29,9 @@ export class NTQQFriendApi extends Service {
       [true],
       {
         resultCmd: ReceiveCmdS.FRIENDS,
-      }
+      },
     )
-    const result: SimpleInfo[] = data.flatMap((item: CategoryFriend)=> item.buddyList)
+    const result: SimpleInfo[] = data.flatMap((item: CategoryFriend) => item.buddyList)
     return result
   }
 
@@ -47,7 +46,7 @@ export class NTQQFriendApi extends Service {
       [refresh],
       {
         resultCmd: ReceiveCmdS.FRIENDS,
-      }
+      },
     )
     for (const item of Object.values(data.userSimpleInfos)) {
       if (retMap.size > 5000) {
@@ -64,7 +63,7 @@ export class NTQQFriendApi extends Service {
       [refresh],
       {
         resultCmd: ReceiveCmdS.FRIENDS,
-      }
+      },
     )
     return data[0]
   }
@@ -80,20 +79,20 @@ export class NTQQFriendApi extends Service {
 
   async setBuddyRemark(uid: string, remark = '') {
     return await invoke('nodeIKernelBuddyService/setBuddyRemark', [
-      {uid, remark}
+      { uid, remark },
     ])
   }
 
   async delBuddy(friendUid: string) {
     return await invoke('nodeIKernelBuddyService/delBuddy', [{
-        friendUid,
-        tempBlock: false,
-        tempBothDel: true
-      }
+      friendUid,
+      tempBlock: false,
+      tempBothDel: true,
+    },
     ])
   }
 
   async setBuddyCategory(uid: string, categoryId: number) {
-    return await invoke('nodeIKernelBuddyService/setBuddyCategory', [{ uid, categoryId }])
+    return await invoke('nodeIKernelBuddyService/setBuddyCategory', [uid, categoryId])
   }
 }

@@ -10,6 +10,6 @@ export const getChannel: Handler<Channel, Payload> = async (ctx, payload) => {
   return {
     id: payload.channel_id,
     type: Channel.Type.TEXT,
-    name: info.groupAll.groupName
+    name: info.groupName
   }
 }

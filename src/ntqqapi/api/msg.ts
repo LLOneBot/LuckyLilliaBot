@@ -42,7 +42,7 @@ export class NTQQMsgApi extends Service {
   }
 
   async getAioFirstViewLatestMsgs(peer: Peer, cnt: number) {
-    return await invoke('nodeIKernelMsgService/getAioFirstViewLatestMsgs', [{ peer, cnt }])
+    return await invoke('nodeIKernelMsgService/getAioFirstViewLatestMsgs', [peer, cnt])
   }
 
   async getMsgsByMsgId(peer: Peer, msgIds: string[]) {
@@ -53,11 +53,11 @@ export class NTQQMsgApi extends Service {
 
   async getMsgHistory(peer: Peer, msgId: string, cnt: number, queryOrder = false) {
     // 默认情况下消息时间从新到旧
-    return await invoke(NTMethod.HISTORY_MSG, [{ peer, msgId, cnt, queryOrder }])
+    return await invoke(NTMethod.HISTORY_MSG, [peer, msgId, cnt, queryOrder])
   }
 
   async recallMsg(peer: Peer, msgIds: string[]) {
-    return await invoke(NTMethod.RECALL_MSG, [{ peer, msgIds }])
+    return await invoke(NTMethod.RECALL_MSG, [peer, msgIds])
   }
 
   async sendMsg(peer: Peer, msgElements: SendMessageElement[], timeout = 10000) {
@@ -105,19 +105,21 @@ export class NTQQMsgApi extends Service {
   async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
     const uniqueId = await this.generateMsgUniqueId(destPeer.chatType)
     destPeer.guildId = uniqueId
-    const data = await invoke<{ msgList: RawMessage[] }>(
+    const commentElements: unknown = []
+    const msgAttributeInfos = new Map()
+    const data = await invoke<RawMessage[]>(
       'nodeIKernelMsgService/forwardMsgWithComment',
-      [{
+      [
         msgIds,
-        srcContact: srcPeer,
-        dstContacts: [destPeer],
-        commentElements: [],
-        msgAttributeInfos: new Map(),
-      }],
+        srcPeer,
+        [destPeer],
+        commentElements,
+        msgAttributeInfos,
+      ],
       {
         resultCmd: 'nodeIKernelMsgListener/onMsgInfoListUpdate',
         resultCb: payload => {
-          for (const msgRecord of payload.msgList) {
+          for (const msgRecord of payload) {
             if (msgRecord.guildId === uniqueId && msgRecord.sendStatus === 2) {
               return true
             }
@@ -128,28 +130,30 @@ export class NTQQMsgApi extends Service {
       },
     )
     delete destPeer.guildId
-    return data.msgList.filter(msgRecord => msgRecord.guildId === uniqueId)
+    return data.filter(msgRecord => msgRecord.guildId === uniqueId)
   }
 
   async multiForwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]): Promise<RawMessage> {
-    const senderShowName = await this.ctx.ntUserApi.getSelfNick(true)
+    const senderShowName = await this.ctx.ntUserApi.getSelfNick(false)
     const msgInfos = msgIds.map(id => {
       return { msgId: id, senderShowName }
     })
     const selfUid = selfInfo.uid
-    const data = await invoke<{ msgList: RawMessage[] }>(
+    const commentElements: unknown[] = []
+    const msgAttributeInfos = new Map()
+    const data = await invoke<RawMessage[]>(
       'nodeIKernelMsgService/multiForwardMsgWithComment',
-      [{
+      [
         msgInfos,
-        srcContact: srcPeer,
-        dstContact: destPeer,
-        commentElements: [],
-        msgAttributeInfos: new Map(),
-      }],
+        srcPeer,
+        destPeer,
+        commentElements,
+        msgAttributeInfos,
+      ],
       {
         resultCmd: 'nodeIKernelMsgListener/onMsgInfoListUpdate',
         resultCb: payload => {
-          for (const msgRecord of payload.msgList) {
+          for (const msgRecord of payload) {
             if (
               msgRecord.msgType === 11 &&
               msgRecord.subMsgType === 7 &&
@@ -168,7 +172,7 @@ export class NTQQMsgApi extends Service {
         },
       },
     )
-    return data.msgList.find(msgRecord => {
+    return data.find(msgRecord => {
       const { arkElement } = msgRecord.elements[0]
       if (arkElement?.bytesData.includes('com.tencent.multimsg')) {
         return true
@@ -283,12 +287,12 @@ export class NTQQMsgApi extends Service {
   }
 
   async getMsgsBySeqAndCount(peer: Peer, msgSeq: string, cnt: number, queryOrder: boolean, incloudeDeleteMsg: boolean) {
-    return await invoke('nodeIKernelMsgService/getMsgsBySeqAndCount', [{
+    return await invoke('nodeIKernelMsgService/getMsgsBySeqAndCount', [
       peer,
       msgSeq,
       cnt,
       queryOrder,
       incloudeDeleteMsg,
-    }])
+    ])
   }
 }

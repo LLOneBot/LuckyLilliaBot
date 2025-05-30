@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import fsPromise from 'node:fs/promises'
 import path from 'node:path'
+import { fileTypeFromFile } from 'file-type'
 import { TEMP_DIR } from '../globalVars'
 import { randomUUID, createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
@@ -14,9 +15,11 @@ export function checkFileReceived(path: string, timeout: number = 3000): Promise
     function check() {
       if (fs.existsSync(path)) {
         resolve()
-      } else if (Date.now() - startTime > timeout) {
+      }
+      else if (Date.now() - startTime > timeout) {
         reject(new Error(`文件不存在: ${path}`))
-      } else {
+      }
+      else {
         setTimeout(check, 200)
       }
     }
@@ -74,7 +77,8 @@ export function checkUriType(uri: string): { type: FileUriType } {
   }
   try {
     if (fs.existsSync(uri)) return { type: FileUriType.Path }
-  } catch { }
+  } catch {
+  }
   return { type: FileUriType.Unknown }
 }
 
@@ -87,7 +91,7 @@ export async function fetchFile(url: string, headersInit?: Record<string, string
   const headers = new Headers({
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.71 Safari/537.36',
     'Host': new URL(url).hostname,
-    ...headersInit
+    ...headersInit,
   })
   let raw = await fetch(url, { headers }).catch((err) => {
     if (err.cause) {
@@ -107,7 +111,7 @@ export async function fetchFile(url: string, headersInit?: Record<string, string
   if (!raw.ok) throw new Error(`statusText: ${raw.statusText}`)
   return {
     data: Buffer.from(await raw.arrayBuffer()),
-    url: raw.url
+    url: raw.url,
   }
 }
 
@@ -200,11 +204,43 @@ export async function uri2local(ctx: Context, uri: string, needExt?: boolean): P
         fileCache[0].peerUid,
         fileCache[0].elementId,
         '',
-        ''
+        '',
       )
       return { success: true, errMsg: '', fileName: fileCache[0].fileName, path: downloadPath, isLocal: true }
     }
   }
 
   return { success: false, errMsg: '未知文件类型', fileName: '', path: '', isLocal: false }
+}
+
+
+export async function getFileType(filePath: string) {
+  try {
+    const type = await fileTypeFromFile(filePath)
+
+    if (!type) {
+      return {
+        mime: 'application/octet-stream',
+        ext: path.extname(filePath).slice(0) || '',
+      }
+    }
+
+    return {
+      mime: type.mime,
+      ext: type.ext,
+    }
+  } catch (error) {
+    console.error('Error detecting file type:', error)
+    return {
+      mime: '',
+      ext: '',
+    }
+  }
+}
+
+import { imageSizeFromFile } from "image-size/fromFile";
+// const { imageSizeFromFile } = require('image-size/fromFile')
+
+export async function getImageSize(path: string){
+  return await imageSizeFromFile(path)
 }

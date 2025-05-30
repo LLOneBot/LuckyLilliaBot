@@ -17,18 +17,18 @@ export class SetQQProfile extends BaseAction<Payload, null> {
   async _handle(payload: Payload) {
     const old = await this.ctx.ntUserApi.getUserDetailInfo(selfInfo.uid)
     await this.ctx.ntUserApi.modifySelfProfile({
-      nick: payload.nickname ?? old.nick,
-      longNick: payload.personal_note ?? old.longNick,
-      sex: old.sex,
+      nick: payload.nickname ?? old.coreInfo.nick,
+      longNick: payload.personal_note ?? old.baseInfo.longNick,
+      sex: old.baseInfo.sex,
       birthday: {
-        birthday_year: old.birthday_year,
-        birthday_month: old.birthday_month,
-        birthday_day: old.birthday_day,
+        birthday_year: old.baseInfo.birthday_year,
+        birthday_month: old.baseInfo.birthday_month,
+        birthday_day: old.baseInfo.birthday_day,
       },
       location: {
-        country: old.country,
-        province: old.province,
-        city: old.city,
+        country: '',
+        province: '',
+        city: '',
         zone: ''
       },
     })

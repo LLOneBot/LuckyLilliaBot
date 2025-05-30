@@ -17,6 +17,8 @@ import { invoke, NTClass, NTMethod } from '../ntcall'
 import { Service, Context } from 'cordis'
 import { Field } from 'minato'
 import number = Field.number
+import boolean = Field.boolean
+import string = Field.string
 
 declare module 'cordis' {
   interface Context {
@@ -43,7 +45,7 @@ export class NTQQGroupApi extends Service {
     return result[1]
   }
 
-  async getGroupMembers(groupCode: string, force: boolean = true) {
+  async getGroupMembers(groupCode: string, force: boolean = true): Promise<Map<string, GroupMember>> {
     const data = await invoke(NTMethod.GROUP_MEMBERS, [groupCode, force])
     if (data.errCode !== 0) {
       throw new Error('获取群成员列表出错,' + data.errMsg)
@@ -71,14 +73,14 @@ export class NTQQGroupApi extends Service {
   }
 
   async getSingleScreenNotifies(doubt: boolean, number: number, startSeq = '') {
-    const data = await invoke<GroupNotifies>(
+    const data = await invoke<[boolean, string, GroupNotify[]]>(
       'nodeIKernelGroupService/getSingleScreenNotifies',
       [doubt, startSeq, number],
       {
         resultCmd: ReceiveCmdS.GROUP_NOTIFY,
       },
     )
-    return data.notifies
+    return data[2]
   }
 
   async getGroupRequest(): Promise<{ notifies: GroupNotify[], normalCount: number }> {
@@ -95,9 +97,9 @@ export class NTQQGroupApi extends Service {
     const seq = flagitem[1]
     const type = parseInt(flagitem[2])
     const doubt = flagitem[3] === '1'
-    return await invoke(NTMethod.HANDLE_GROUP_REQUEST, [{
+    return await invoke(NTMethod.HANDLE_GROUP_REQUEST, [
       doubt,
-      operateMsg: {
+      {
         operateType,
         targetMsg: {
           seq,
@@ -106,7 +108,7 @@ export class NTQQGroupApi extends Service {
           postscript: reason || ' ', // 仅传空值可能导致处理失败，故默认给个空格
         },
       },
-    }])
+    ])
   }
 
   async quitGroup(groupCode: string) {
@@ -114,7 +116,7 @@ export class NTQQGroupApi extends Service {
   }
 
   async kickMember(groupCode: string, kickUids: string[], refuseForever = false, kickReason = '') {
-    return await invoke(NTMethod.KICK_MEMBER, [{ groupCode, kickUids, refuseForever, kickReason }])
+    return await invoke(NTMethod.KICK_MEMBER, [groupCode, kickUids, refuseForever, kickReason])
   }
 
   /** timeStamp为秒数, 0为解除禁言 */
@@ -139,43 +141,41 @@ export class NTQQGroupApi extends Service {
   }
 
   async getGroupRemainAtTimes(groupCode: string) {
-    return await invoke(NTMethod.GROUP_AT_ALL_REMAIN_COUNT, [{ groupCode }])
+    return await invoke(NTMethod.GROUP_AT_ALL_REMAIN_COUNT, [groupCode])
   }
 
   async removeGroupEssence(groupCode: string, msgId: string) {
     const ntMsgApi = this.ctx.get('ntMsgApi')!
     const data = await ntMsgApi.getMsgHistory({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
     return await invoke('nodeIKernelGroupService/removeGroupEssence', [{
-      req: {
-        groupCode: groupCode,
-        msgRandom: Number(data?.msgList[0].msgRandom),
-        msgSeq: Number(data?.msgList[0].msgSeq),
-      },
+      groupCode: groupCode,
+      msgRandom: Number(data?.msgList[0].msgRandom),
+      msgSeq: Number(data?.msgList[0].msgSeq),
     }])
   }
 
   async addGroupEssence(groupCode: string, msgId: string) {
     const ntMsgApi = this.ctx.get('ntMsgApi')!
     const data = await ntMsgApi.getMsgHistory({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
-    return await invoke('nodeIKernelGroupService/addGroupEssence', [{
-      req: {
+    return await invoke('nodeIKernelGroupService/addGroupEssence', [
+      {
         groupCode: groupCode,
         msgRandom: Number(data?.msgList[0].msgRandom),
         msgSeq: Number(data?.msgList[0].msgSeq),
-      },
-    }])
+
+      }])
   }
 
   async createGroupFileFolder(groupId: string, folderName: string) {
-    return await invoke('nodeIKernelRichMediaService/createGroupFolder', [{ groupId, folderName }])
+    return await invoke('nodeIKernelRichMediaService/createGroupFolder', [groupId, folderName])
   }
 
   async deleteGroupFileFolder(groupId: string, folderId: string) {
-    return await invoke('nodeIKernelRichMediaService/deleteGroupFolder', [{ groupId, folderId }])
+    return await invoke('nodeIKernelRichMediaService/deleteGroupFolder', [groupId, folderId])
   }
 
   async deleteGroupFile(groupId: string, fileIdList: string[], busIdList: number[]) {
-    return await invoke('nodeIKernelRichMediaService/deleteGroupFile', [{ groupId, busIdList, fileIdList }])
+    return await invoke('nodeIKernelRichMediaService/deleteGroupFile', [groupId, busIdList, fileIdList])
   }
 
   async getGroupFileList(groupId: string, fileListForm: GetFileListParam) {
@@ -189,7 +189,7 @@ export class NTQQGroupApi extends Service {
         resultCmd: 'nodeIKernelMsgListener/onGroupFileInfoUpdate',
         resultCb: (payload, reqId) => {
           return payload.reqId === reqId
-        }
+        },
       },
     )
     return data
@@ -198,13 +198,13 @@ export class NTQQGroupApi extends Service {
   async publishGroupBulletin(groupCode: string, req: PublishGroupBulletinReq) {
     const ntUserApi = this.ctx.get('ntUserApi')!
     const psKey = (await ntUserApi.getPSkey(['qun.qq.com'])).domainPskeyMap.get('qun.qq.com')!
-    return await invoke('nodeIKernelGroupService/publishGroupBulletin', [{ groupCode, psKey, req }])
+    return await invoke('nodeIKernelGroupService/publishGroupBulletin', [groupCode, psKey, req])
   }
 
   async uploadGroupBulletinPic(groupCode: string, path: string) {
     const ntUserApi = this.ctx.get('ntUserApi')!
     const psKey = (await ntUserApi.getPSkey(['qun.qq.com'])).domainPskeyMap.get('qun.qq.com')!
-    return await invoke('nodeIKernelGroupService/uploadGroupBulletinPic', [{ groupCode, psKey, path }])
+    return await invoke('nodeIKernelGroupService/uploadGroupBulletinPic', [groupCode, psKey, path])
   }
 
   async getGroupRecommendContact(groupCode: string) {
@@ -250,11 +250,11 @@ export class NTQQGroupApi extends Service {
   async getGroupBulletinList(groupCode: string) {
     const ntUserApi = this.ctx.get('ntUserApi')!
     const psKey = (await ntUserApi.getPSkey(['qun.qq.com'])).domainPskeyMap.get('qun.qq.com')!
-    return await invoke<{
-      groupCode: string
-      context: string
+    const result = await invoke<[
+      groupCode: string,
+      context: string,
       result: GroupBulletinListResult
-    }>(
+    ]>(
       'nodeIKernelGroupService/getGroupBulletinList',
       [
         groupCode,
@@ -269,13 +269,14 @@ export class NTQQGroupApi extends Service {
       ],
       {
         resultCmd: 'nodeIKernelGroupListener/onGetGroupBulletinListResult',
-        resultCb: payload => payload.groupCode === groupCode,
+        resultCb: payload => payload[0] === groupCode,
       },
     )
+    return result[2]
   }
 
   async setGroupAvatar(groupCode: string, path: string) {
-    return await invoke('nodeIKernelGroupService/setHeader', [{ path, groupCode }])
+    return await invoke('nodeIKernelGroupService/setHeader', [path, groupCode])
   }
 
   async searchMember(groupCode: string, keyword: string) {
@@ -315,11 +316,11 @@ export class NTQQGroupApi extends Service {
   }
 
   async setGroupMsgMask(groupCode: string, msgMask: GroupMsgMask) {
-    return await invoke('nodeIKernelGroupService/setGroupMsgMask', [{ groupCode, msgMask }])
+    return await invoke('nodeIKernelGroupService/setGroupMsgMask', [groupCode, msgMask])
   }
 
   async setGroupRemark(groupCode: string, groupRemark = '') {
-    return await invoke('nodeIKernelGroupService/modifyGroupRemark', [{ groupCode, groupRemark }])
+    return await invoke('nodeIKernelGroupService/modifyGroupRemark', [groupCode, groupRemark])
   }
 
   async moveGroupFile(groupId: string, fileIdList: string[], curFolderId: string, dstFolderId: string) {

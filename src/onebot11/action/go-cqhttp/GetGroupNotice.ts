@@ -27,7 +27,7 @@ export class GetGroupNotice extends BaseAction<Payload, Notice[]> {
   protected async _handle(payload: Payload) {
     const data = await this.ctx.ntGroupApi.getGroupBulletinList(payload.group_id.toString())
     const result: Notice[] = []
-    for (const feed of data.result.feeds) {
+    for (const feed of data.feeds) {
       result.push({
         sender_id: +feed.uin,
         publish_time: +feed.publishTime,

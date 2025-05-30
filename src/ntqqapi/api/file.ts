@@ -17,7 +17,7 @@ import { existsSync } from 'node:fs'
 import { ReceiveCmdS } from '../hook'
 import { RkeyManager } from '@/ntqqapi/helper/rkey'
 import { RichMediaDownloadCompleteNotify, RichMediaUploadCompleteNotify, RMBizType, Peer } from '@/ntqqapi/types/msg'
-import { calculateFileMD5 } from '@/common/utils/file'
+import { calculateFileMD5, getFileType, getImageSize } from '@/common/utils/file'
 import { copyFile, stat, unlink } from 'node:fs/promises'
 import { Time } from 'cosmokit'
 import { Service, Context } from 'cordis'
@@ -55,12 +55,7 @@ export class NTQQFileApi extends Service {
   }
 
   async getFileType(filePath: string) {
-    return await invoke<{
-      ext: string
-      mime: string
-    }>(NTMethod.FILE_TYPE, [filePath], {
-      className: NTClass.FS_API
-    })
+    return await getFileType(filePath)
   }
 
   /** 上传文件到 QQ 的文件夹 */
@@ -71,8 +66,8 @@ export class NTQQFileApi extends Service {
       const ext = (await this.getFileType(filePath))?.ext
       fileName += ext ? '.' + ext : ''
     }
-    const mediaPath = await invoke(NTMethod.MEDIA_FILE_PATH, [{
-      path_info: {
+    const mediaPath = await invoke(NTMethod.MEDIA_FILE_PATH, [
+      {
         md5HexStr: fileMd5,
         fileName: fileName,
         elementType: elementType,
@@ -81,8 +76,8 @@ export class NTQQFileApi extends Service {
         needCreate: true,
         downloadType: 1,
         file_uuid: '',
-      },
-    }])
+      }
+    ])
     await copyFile(filePath, mediaPath)
     const fileSize = (await stat(filePath)).size
     return {
@@ -113,10 +108,9 @@ export class NTQQFileApi extends Service {
         return sourcePath
       }
     }
-    const data = await invoke<{ notifyInfo: RichMediaDownloadCompleteNotify }>(
+    const data = await invoke<RichMediaDownloadCompleteNotify>(
       'nodeIKernelMsgService/downloadRichMedia',
       [{
-        getReq: {
           fileModelId: '0',
           downloadSourceType: 0,
           triggerType: 1,
@@ -127,29 +121,23 @@ export class NTQQFileApi extends Service {
           thumbSize: 0,
           downloadType: 1,
           filePath: thumbPath,
-        },
       }],
       {
-        cbCmd: ReceiveCmdS.MEDIA_DOWNLOAD_COMPLETE,
-        cmdCB: payload => payload.notifyInfo.msgId === msgId,
+        resultCmd: ReceiveCmdS.MEDIA_DOWNLOAD_COMPLETE,
+        resultCb: payload => payload.msgId === msgId,
         timeout
       }
     )
-    return data.notifyInfo.filePath
+    return data.filePath
   }
 
-  async getImageSize(filePath: string) {
-    return await invoke<{
-      width: number
-      height: number
-      type: string
-    }>(
-      NTMethod.IMAGE_SIZE,
-      [filePath],
-      {
-        className: NTClass.FS_API,
-      }
-    )
+  async getImageSize(filePath: string): Promise<{type: string, width: number, height: number}> {
+    const fileType = await getFileType(filePath)
+    const size = await getImageSize(filePath)
+    return {
+      type: fileType.ext,
+      ...size
+    }
   }
 
   async getImageUrl(element: PicElement) {
@@ -185,29 +173,27 @@ export class NTQQFileApi extends Service {
   }
 
   async downloadFileForModelId(peer: Peer, fileModelId: string, timeout = 2 * Time.minute) {
-    const data = await invoke<{ notifyInfo: RichMediaDownloadCompleteNotify }>(
+    const data = await invoke<RichMediaDownloadCompleteNotify>(
       'nodeIKernelRichMediaService/downloadFileForModelId',
-      [{
+      [
         peer,
-        fileModelIdList: [fileModelId],
-        save_path: ''
-      }],
+        [fileModelId],
+        '' // savePath
+      ],
       {
-        cbCmd: ReceiveCmdS.MEDIA_DOWNLOAD_COMPLETE,
-        cmdCB: payload => payload.notifyInfo.fileModelId === fileModelId,
+        resultCmd: ReceiveCmdS.MEDIA_DOWNLOAD_COMPLETE,
+        resultCb: payload => payload.fileModelId === fileModelId,
         timeout,
-        afterFirstCmd: false
       }
     )
-    return data.notifyInfo.filePath
+    return data.filePath
   }
 
   async ocrImage(path: string) {
     return await invoke(
       'nodeIKernelNodeMiscService/wantWinScreenOCR',
       [
-        { url: path },
-        { timeout: 5000 }
+        path
       ]
     )
   }
@@ -217,17 +203,17 @@ export class NTQQFileApi extends Service {
       notifyInfo: RichMediaUploadCompleteNotify
     }>(
       'nodeIKernelRichMediaService/uploadRMFileWithoutMsg',
-      [{
-        params: {
+      [
+        {
           filePath,
           bizType,
           peerUid,
           useNTV2: true
         }
-      }],
+      ],
       {
-        cbCmd: ReceiveCmdS.MEDIA_UPLOAD_COMPLETE,
-        cmdCB: payload => payload.notifyInfo.filePath === filePath,
+        resultCmd: ReceiveCmdS.MEDIA_UPLOAD_COMPLETE,
+        resultCb: payload => payload.notifyInfo.filePath === filePath,
         timeout: 10 * Time.second,
       }
     )
@@ -248,20 +234,20 @@ export class NTQQFileCacheApi extends Service {
     return invoke<Array<{
       key: string
       value: string
-    }>>(NTMethod.CACHE_PATH_SESSION, [], { className: NTClass.OS_API })
+    }>>(NTMethod.CACHE_PATH_SESSION, [])
   }
 
   scanCache() {
-    invoke<GeneralCallResult>(ReceiveCmdS.CACHE_SCAN_FINISH, [], { registerEvent: true })
+    invoke<GeneralCallResult>(ReceiveCmdS.CACHE_SCAN_FINISH, [])
     return invoke<CacheScanResult>(NTMethod.CACHE_SCAN, [], { timeout: 300 * Time.second })
   }
 
   getHotUpdateCachePath() {
-    return invoke<string>(NTMethod.CACHE_PATH_HOT_UPDATE, [], { className: NTClass.HOTUPDATE_API })
+    return invoke<string>(NTMethod.CACHE_PATH_HOT_UPDATE, [])
   }
 
   getDesktopTmpPath() {
-    return invoke<string>(NTMethod.CACHE_PATH_DESKTOP_TEMP, [], { className: NTClass.BUSINESS_API })
+    return invoke<string>(NTMethod.CACHE_PATH_DESKTOP_TEMP, [])
   }
 
   getFileCacheInfo(fileType: CacheFileType, pageSize: number = 1000, lastRecord?: CacheFileListItem) {

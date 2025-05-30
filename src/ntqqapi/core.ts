@@ -69,7 +69,7 @@ class Core extends Service {
     if (peer.chatType === ChatType.Group) {
       const info = await ctx.ntGroupApi.getGroupAllInfo(peer.peerUid)
         .catch(() => undefined)
-      const shutUpMeTimestamp = info?.groupAll.shutUpMeTimestamp
+      const shutUpMeTimestamp = info?.shutUpMeTimestamp
       if (shutUpMeTimestamp && shutUpMeTimestamp * 1000 > Date.now()) {
         throw new Error('当前处于被禁言状态')
       }
@@ -147,8 +147,8 @@ class Core extends Service {
   }
 
   private registerListener() {
-    registerReceiveHook<{ info: { status: number } }>(ReceiveCmdS.SELF_STATUS, (info) => {
-      Object.assign(selfInfo, { online: info.info.status !== 20 })
+    registerReceiveHook<{  status: number }>(ReceiveCmdS.SELF_STATUS, (info) => {
+      Object.assign(selfInfo, { online: info.status !== 20 })
     })
 
     registerReceiveHook<[
@@ -219,7 +219,7 @@ class Core extends Service {
     })
 
     registerReceiveHook<FriendRequestNotify>(ReceiveCmdS.FRIEND_REQUEST, payload => {
-      for (const req of payload.data.buddyReqs) {
+      for (const req of payload.buddyReqs) {
         if (!!req.isInitiator || (req.isDecide && req.reqType !== BuddyReqType.MeInitiatorWaitPeerConfirm)) {
           continue
         }

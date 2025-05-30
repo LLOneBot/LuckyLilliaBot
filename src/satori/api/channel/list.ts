@@ -12,7 +12,7 @@ export const getChannelList: Handler<List<Channel>, Payload> = async (ctx, paylo
     data: [{
       id: payload.guild_id,
       type: Channel.Type.TEXT,
-      name: info.groupAll.groupName
+      name: info.groupName
     }]
   }
 }

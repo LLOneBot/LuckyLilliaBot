@@ -72,7 +72,10 @@ export class NTQQUserApi extends Service {
   }
 
   async getPSkey(domains: string[]) {
-    return await invoke('nodeIKernelTipOffService/getPskey', [{ domains, isForNewPCQQ: true }])
+    return await invoke('nodeIKernelTipOffService/getPskey', [
+      domains,
+      true // isFromNewPCQQ
+    ])
   }
 
   async like(uid: string, count = 1) {
@@ -121,17 +124,17 @@ export class NTQQUserApi extends Service {
     return uin
   }
 
-  async getUinByUidV2(uid: string) {
-    let uin = (await invoke('nodeIKernelGroupService/getUinByUids', [{ uidList: [uid] }])).uins.get(uid)
-    if (uin && uin !== '0') return uin
-    uin = (await invoke('nodeIKernelProfileService/getUinByUid', [{ callFrom: 'FriendsServiceImpl', uid: [uid] }])).get(uid)
-    if (uin) return uin
-    uin = (await invoke('nodeIKernelUixConvertService/getUin', [{ uids: [uid] }])).uinInfo.get(uid)
+  async getUinByUidV2(uid: string): Promise<string> {
+    // let uin = (await invoke('nodeIKernelGroupService/getUinByUids', [{ uidList: [uid] }])).uins.get(uid)
+    // if (uin && uin !== '0') return uin
+    // uin = (await invoke('nodeIKernelProfileService/getUinByUid', [{ callFrom: 'FriendsServiceImpl', uid: [uid] }])).get(uid)
+    // if (uin) return uin
+    let uin = (await invoke('nodeIKernelUixConvertService/getUin', [[uid]])).uinInfo.get(uid)
     if (uin) return uin
     uin = (await this.ctx.ntFriendApi.getBuddyIdMap()).get(uid)
     if (uin) return uin
     uin = (await this.getUserDetailInfo(uid)).uin
-    return uin
+    return uin as string
   }
 
   async getUinByUid(uid: string) {
@@ -144,8 +147,9 @@ export class NTQQUserApi extends Service {
 
   async getSelfNick(refresh = true) {
     if ((refresh || !selfInfo.nick) && selfInfo.uid) {
-      const data = await this.getUserSimpleInfo(selfInfo.uid)
-      selfInfo.nick = data.nick
+      // const data = await this.getUserSimpleInfo(selfInfo.uid, refresh)
+      const data = await this.getUserDetailInfo(selfInfo.uid)
+      selfInfo.nick = data.coreInfo.nick
     }
     return selfInfo.nick
   }
@@ -161,8 +165,8 @@ export class NTQQUserApi extends Service {
   }
 
   async getProfileLike(uid: string, start = 0, limit = 20) {
-    return await invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [{
-      req: {
+    return await invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
+      {
         friendUids: [uid],
         basic: 1,
         vote: 0,
@@ -172,12 +176,12 @@ export class NTQQUserApi extends Service {
         start,
         limit,
       }
-    }])
+    ])
   }
 
   async getProfileLikeMe(uid: string, start = 0, limit = 20) {
-    return await invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [{
-      req: {
+    return await invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
+      {
         friendUids: [uid],
         basic: 1,
         vote: 1,
@@ -187,21 +191,22 @@ export class NTQQUserApi extends Service {
         start,
         limit,
       }
-    }])
+    ])
   }
 
   async getUserSimpleInfoV2(uid: string, force = true) {
-    const data = await invoke<{ profiles: Record<string, SimpleInfo> }>(
-      'nodeIKernelProfileService/getUserSimpleInfo',
-      [
-        [uid],
-        force
-      ],
-      {
-        resultCmd: ReceiveCmdS.USER_INFO,
-      }
-    )
-    return data.profiles[uid].coreInfo
+    return (await this.getUserDetailInfo(uid))
+    // const data = await invoke<Map<string, SimpleInfo>>(
+    //   'nodeIKernelProfileService/getUserSimpleInfo',
+    //   [
+    //     [uid],
+    //     force
+    //   ],
+    //   {
+    //     resultCmd: ReceiveCmdS.USER_INFO,
+    //   }
+    // )
+    // return data.get(uid)?.coreInfo
   }
 
   async getUserSimpleInfo(uid: string, force = true) {
@@ -221,14 +226,14 @@ export class NTQQUserApi extends Service {
   async getRobotUinRange() {
     const data = await invoke(
       'nodeIKernelRobotService/getRobotUinRange',
-      [{
-        req: {
+      [
+        {
           justFetchMsgConfig: '1',
           type: 1,
           version: 0,
           aioKeywordVersion: 0
         }
-      }]
+      ]
     )
     return data.response.robotUinRanges
   }
