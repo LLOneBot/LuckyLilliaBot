@@ -142,7 +142,7 @@ function onLoad() {
 
   const intervalId = setInterval(async () => {
     const pmhqSelfInfo = await pmhq.call('getSelfInfo', [])
-    ctx.logger.info('PMHQ self info', pmhqSelfInfo)
+    ctx.logger.info('self info', pmhqSelfInfo)
     const self = Object.assign(selfInfo, {
       uin: pmhqSelfInfo.uin,
       uid: pmhqSelfInfo.uid,
@@ -151,7 +151,11 @@ function onLoad() {
     if (self.uin) {
       clearInterval(intervalId)
       log('process pid', process.pid)
-      const config = getConfigUtil().getConfig()
+      const configUtil = getConfigUtil()
+      const config = configUtil.getConfig()
+      configUtil.listenChange(c=>{
+        ctx.parallel('llob/config-updated', c)
+      })
 
       if (config.enableLLOB && (config.satori.enable || config.ob11.enable)) {
         startHook()
@@ -176,7 +180,6 @@ function onLoad() {
         ctx.plugin(OneBot11Adapter, {
           ...config.ob11,
           heartInterval: config.heartInterval,
-          token: config.token!,
           debug: config.debug!,
           musicSignUrl: config.musicSignUrl,
           enableLocalFile2Url: config.enableLocalFile2Url!,

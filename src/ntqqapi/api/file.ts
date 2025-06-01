@@ -1,4 +1,4 @@
-import { invoke, NTClass, NTMethod } from '../ntcall'
+import { invoke, NTMethod } from '../ntcall'
 import { GeneralCallResult } from '../services'
 import {
   CacheFileList,

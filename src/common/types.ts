@@ -1,10 +1,11 @@
 export interface OB11Config {
   enable: boolean
+  token: string
   httpPort: number
-  httpHosts: string[]
+  httpPostUrls: string[]
   httpSecret?: string
   wsPort: number
-  wsHosts: string[]
+  wsReverseUrls: string[]
   enableHttp?: boolean
   enableHttpPost?: boolean
   enableWs?: boolean
@@ -31,7 +32,6 @@ export interface Config {
   enableLLOB: boolean
   satori: SatoriConfig
   ob11: OB11Config
-  token?: string
   heartInterval: number // ms
   enableLocalFile2Url?: boolean // 开启后，本地文件路径图片会转成http链接, 语音会转成base64
   debug?: boolean

@@ -1,5 +1,5 @@
 import { MiniProfile, ProfileBizType, SimpleInfo, UserDetailInfo, UserDetailInfoV2, UserDetailSource } from '../types'
-import { invoke, NTClass } from '../ntcall'
+import { invoke } from '../ntcall'
 import { RequestUtil } from '@/common/utils/request'
 import { isNullable, Time } from 'cosmokit'
 import { Context, Service } from 'cordis'

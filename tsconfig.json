@@ -5,6 +5,7 @@
     "outDir": "./dist",
     "skipLibCheck": true,
     "strict": true,
+    "sourceMap": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,

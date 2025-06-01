@@ -1,5 +1,5 @@
 import { Context, Service } from 'cordis'
-import { invoke, NTClass } from '@/ntqqapi/ntcall'
+import { invoke } from '@/ntqqapi/ntcall'
 
 declare module 'cordis' {
   interface Context {
@@ -18,11 +18,9 @@ export class NTQQSystemApi extends Service {
     // 设置自动登录
     await this.setSettingAutoLogin(true)
     // 退出账号
-    invoke('quitAccount', [], {
-      className: NTClass.BUSINESS_API
-    }).then()
-    invoke('notifyQQClose', [{ type: 1 }], { className: NTClass.QQ_EX_API }).then()
-    // 等待登录界面，模拟点击登录按钮？还是直接调用登录方法？
+    // invoke('quitAccount', []).then()
+    // invoke('notifyQQClose', [{ type: 1 }]).then()
+    // // 等待登录界面，模拟点击登录按钮？还是直接调用登录方法？
   }
 
   async getSettingAutoLogin() {
@@ -31,8 +29,8 @@ export class NTQQSystemApi extends Service {
   }
 
   async setSettingAutoLogin(state: boolean) {
-    await invoke('nodeIKernelSettingService/setNeedConfirmSwitch', [{ state: 1 }]) // 1：不需要手机确认，2：需要手机确认
+    await invoke('nodeIKernelSettingService/setNeedConfirmSwitch', [1] ) // 1：不需要手机确认，2：需要手机确认
 
-    await invoke('nodeIKernelSettingService/setAutoLoginSwitch', [{ state }])
+    await invoke('nodeIKernelSettingService/setAutoLoginSwitch', [state])
   }
 }

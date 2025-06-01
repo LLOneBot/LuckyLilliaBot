@@ -51,7 +51,7 @@ class OneBot11Adapter extends Service {
       listenLocalhost: config.listenLocalhost
     })
     this.ob11HttpPost = new OB11HttpPost(ctx, {
-      hosts: config.httpHosts,
+      hosts: config.httpPostUrls,
       heartInterval: config.heartInterval,
       secret: config.httpSecret,
       enableHttpHeart: config.enableHttpHeart
@@ -64,7 +64,7 @@ class OneBot11Adapter extends Service {
       listenLocalhost: config.listenLocalhost
     })
     this.ob11WebSocketReverseManager = new OB11WebSocketReverseManager(ctx, {
-      hosts: config.wsHosts,
+      hosts: config.wsReverseUrls,
       heartInterval: config.heartInterval,
       token: config.token,
       actionMap
@@ -231,10 +231,10 @@ class OneBot11Adapter extends Service {
     const old = this.config
     this.ob11Http.updateConfig({
       port: config.ob11.httpPort,
-      token: config.token,
+      token: config.ob11.token,
     })
     this.ob11HttpPost.updateConfig({
-      hosts: config.ob11.httpHosts,
+      hosts: config.ob11.httpPostUrls,
       heartInterval: config.heartInterval,
       secret: config.ob11.httpSecret,
       enableHttpHeart: config.ob11.enableHttpHeart
@@ -242,12 +242,12 @@ class OneBot11Adapter extends Service {
     this.ob11WebSocket.updateConfig({
       port: config.ob11.wsPort,
       heartInterval: config.heartInterval,
-      token: config.token,
+      token: config.ob11.token,
     })
     this.ob11WebSocketReverseManager.updateConfig({
-      hosts: config.ob11.wsHosts,
+      hosts: config.ob11.wsReverseUrls,
       heartInterval: config.heartInterval,
-      token: config.token,
+      token: config.ob11.token,
     })
     // 判断是否启用或关闭 HTTP 服务
     if (config.ob11.enableHttp !== old.enableHttp) {
@@ -286,12 +286,12 @@ class OneBot11Adapter extends Service {
     }
     // 判断反向 WebSocket 地址有变化
     if (config.ob11.enableWsReverse) {
-      if (config.ob11.wsHosts.length !== old.wsHosts.length) {
+      if (config.ob11.wsReverseUrls.length !== old.wsReverseUrls.length) {
         this.ob11WebSocketReverseManager.stop()
         this.ob11WebSocketReverseManager.start()
       } else {
-        for (const newHost of config.ob11.wsHosts) {
-          if (!old.wsHosts.includes(newHost)) {
+        for (const newHost of config.ob11.wsReverseUrls) {
+          if (!old.wsReverseUrls.includes(newHost)) {
             this.ob11WebSocketReverseManager.stop()
             this.ob11WebSocketReverseManager.start()
             break
@@ -306,7 +306,6 @@ class OneBot11Adapter extends Service {
     Object.assign(this.config, {
       ...config.ob11,
       heartInterval: config.heartInterval,
-      token: config.token,
       debug: config.debug,
       msgCacheExpire: config.msgCacheExpire,
       musicSignUrl: config.musicSignUrl,
@@ -391,7 +390,6 @@ class OneBot11Adapter extends Service {
 namespace OneBot11Adapter {
   export interface Config extends OB11Config {
     heartInterval: number
-    token: string
     debug: boolean
     musicSignUrl?: string
     enableLocalFile2Url: boolean

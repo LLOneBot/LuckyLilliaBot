@@ -1,6 +1,6 @@
 import { Friend, SimpleInfo, CategoryFriend } from '../types'
 import { ReceiveCmdS } from '../hook'
-import { invoke, NTMethod, NTClass } from '../ntcall'
+import { invoke, NTMethod } from '../ntcall'
 import { Service, Context } from 'cordis'
 
 declare module 'cordis' {
@@ -38,21 +38,23 @@ export class NTQQFriendApi extends Service {
   /** uid -> uin */
   async getBuddyIdMap(refresh = false): Promise<Map<string, string>> {
     const retMap: Map<string, string> = new Map()
-    const data = await invoke<{
-      buddyCategory: CategoryFriend[]
-      userSimpleInfos: Record<string, SimpleInfo>
-    }>(
-      'getBuddyList',
+    const data = await invoke<CategoryFriend[][]
+    >(
+      'nodeIKernelBuddyService/getBuddyList',
       [refresh],
       {
         resultCmd: ReceiveCmdS.FRIENDS,
       },
     )
-    for (const item of Object.values(data.userSimpleInfos)) {
+    for (const category of data) {
       if (retMap.size > 5000) {
         break
       }
-      retMap.set(item.uid!, item.uin!)
+      for (const item of category) {
+        for (const buddy of item.buddyList) {
+          retMap.set(buddy.uid!, buddy.uin!)
+        }
+      }
     }
     return retMap
   }

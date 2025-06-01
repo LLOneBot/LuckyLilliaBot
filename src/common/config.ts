@@ -12,6 +12,14 @@ export class ConfigUtil {
     this.configPath = configPath
   }
 
+  listenChange(cb: (config: Config) => void) {
+    this.setConfig(this.getConfig())
+    fs.watchFile(this.configPath, { persistent: true, interval: 1000 }, () => {
+      const c = this.reloadConfig()
+      cb(c)
+    })
+  }
+
   getConfig(cache = true) {
     if (this.config && cache) {
       return this.config
@@ -23,18 +31,19 @@ export class ConfigUtil {
   reloadConfig(): Config {
     const ob11Default: OB11Config = {
       enable: true,
+      token: '',
       httpPort: 3000,
-      httpHosts: [],
+      httpPostUrls: [],
       httpSecret: '',
       wsPort: 3001,
-      wsHosts: [],
+      wsReverseUrls: [],
       enableHttp: true,
       enableHttpPost: true,
       enableWs: true,
       enableWsReverse: false,
       messagePostFormat: 'array',
       enableHttpHeart: false,
-      listenLocalhost: false,
+      listenLocalhost: true,
       reportSelfMessage: false
     }
     const satoriDefault: SatoriConfig = {
@@ -48,16 +57,15 @@ export class ConfigUtil {
       satori: satoriDefault,
       ob11: ob11Default,
       heartInterval: 60000,
-      token: '',
       enableLocalFile2Url: false,
       debug: false,
       log: true,
       autoDeleteFile: false,
       autoDeleteFileSecond: 60,
-      musicSignUrl: '',
+      musicSignUrl: 'https://llob.linyuchen.net/sign/music',
       msgCacheExpire: 120
     }
-
+    console.info('读取配置文件', this.configPath)
     if (!fs.existsSync(this.configPath)) {
       this.config = defaultConfig
       return this.config
@@ -67,14 +75,18 @@ export class ConfigUtil {
       try {
         jsonData = JSON.parse(data)
       } catch (e) {
+        console.error(`${this.configPath} json 内容不合格`)
         this.config = defaultConfig
         return this.config
       }
       mergeNewProperties(defaultConfig, jsonData)
       this.checkOldConfig(jsonData.ob11, jsonData, 'httpPort', 'http')
-      this.checkOldConfig(jsonData.ob11, jsonData, 'httpHosts', 'hosts')
+      this.checkOldConfig(jsonData.ob11, jsonData, 'httpPostUrls', 'hosts')
       this.checkOldConfig(jsonData.ob11, jsonData, 'wsPort', 'wsPort')
       this.checkOldConfig(jsonData.ob11, jsonData, 'reportSelfMessage', 'reportSelfMessage')
+      this.checkOldConfig(jsonData.ob11, jsonData, 'token', 'token')
+      this.checkOldConfig(jsonData.ob11, jsonData.ob11, 'wsReverseUrls', 'wsHosts')
+      this.checkOldConfig(jsonData.ob11, jsonData.ob11, 'httpPostUrls', 'httpHosts')
       this.config = jsonData
       return this.config
     }
@@ -86,16 +98,16 @@ export class ConfigUtil {
   }
 
   private checkOldConfig(
-    currentConfig: OB11Config,
-    oldConfig: Config,
-    currentKey: 'httpPort' | 'httpHosts' | 'wsPort' | 'reportSelfMessage',
-    oldKey: 'http' | 'hosts' | 'wsPort' | 'reportSelfMessage',
+    currentConfig: Config | OB11Config | SatoriConfig,
+    oldConfig: Config | OB11Config | SatoriConfig,
+    currentKey: keyof OB11Config | keyof SatoriConfig | keyof Config,
+    oldKey: 'http' | 'hosts' | 'wsPort' | 'wsHosts' | 'reportSelfMessage' | 'httpHosts' | 'token',
   ) {
     // 迁移旧的配置到新配置，避免用户重新填写配置
-    const oldValue = oldConfig[oldKey]
-    if (oldValue) {
+    const oldValue = (oldConfig as any)[oldKey]
+    if (oldValue !== undefined) {
       Object.assign(currentConfig, { [currentKey]: oldValue })
-      delete oldConfig[oldKey]
+      delete (oldConfig as any)[oldKey]
     }
   }
 }

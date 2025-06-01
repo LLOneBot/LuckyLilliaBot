@@ -19,26 +19,6 @@ import {
 } from './services'
 import { pmhq } from '@/ntqqapi/native/pmhq'
 
-export enum NTClass {
-  NT_API = 'ns-ntApi',
-  FS_API = 'ns-FsApi',
-  OS_API = 'ns-OsApi',
-  HOTUPDATE_API = 'ns-HotUpdateApi',
-  BUSINESS_API = 'ns-BusinessApi',
-  NODE_STORE_API = 'ns-NodeStoreApi',
-  QQ_EX_API = 'ns-QQEXApi',
-}
-
-const newEventName: Record<NTClass, string> = {
-  [NTClass.NT_API]: 'ntApi',
-  [NTClass.FS_API]: 'FileApi',
-  [NTClass.OS_API]: 'OsApi',
-  [NTClass.HOTUPDATE_API]: 'HotUpdateApi',
-  [NTClass.BUSINESS_API]: 'BusinessApi',
-  [NTClass.NODE_STORE_API]: 'NodeStoreApi',
-  [NTClass.QQ_EX_API]: 'QQEXApi'
-}
-
 export enum NTMethod {
   ACTIVE_CHAT_PREVIEW = 'nodeIKernelMsgService/getAioFirstViewLatestMsgsAndAddActiveChat', // 激活聊天窗口，有时候必须这样才能收到消息, 并返回最新预览消息
   ACTIVE_CHAT_HISTORY = 'nodeIKernelMsgService/getMsgsIncludeSelfAndAddActiveChat', // 激活聊天窗口，有时候必须这样才能收到消息, 并返回历史消息
@@ -48,17 +28,6 @@ export enum NTMethod {
   MEDIA_FILE_PATH = 'nodeIKernelMsgService/getRichMediaFilePathForGuild',
   RECALL_MSG = 'nodeIKernelMsgService/recallMsg',
   EMOJI_LIKE = 'nodeIKernelMsgService/setMsgEmojiLikes',
-
-  SELF_INFO = 'fetchAuthData',
-  FILE_TYPE = 'getFileType',
-  FILE_MD5 = 'getFileMd5',
-  FILE_COPY = 'copyFile',
-  IMAGE_SIZE = 'getImageSizeFromPath',
-  FILE_SIZE = 'getFileSize',
-  CACHE_PATH_HOT_UPDATE = 'getHotUpdateCachePath',
-  CACHE_PATH_DESKTOP_TEMP = 'getDesktopTmpPath',
-  CACHE_PATH_SESSION = 'getCleanableAppSessionPathList',
-  OPEN_EXTRA_WINDOW = 'openExternalWindow',
 
   GROUP_MEMBER_SCENE = 'nodeIKernelGroupService/createMemberListScene',
   GROUP_MEMBERS = 'nodeIKernelGroupService/getAllMemberList',
@@ -83,14 +52,6 @@ export enum NTMethod {
   CACHE_CHAT_CLEAR = 'nodeIKernelStorageCleanService/clearChatCacheInfo',
 }
 
-export enum NTChannel {
-  IPC_UP_1 = 'IPC_UP_1',
-  IPC_UP_2 = 'IPC_UP_2',
-  IPC_UP_3 = 'IPC_UP_3',
-  IPC_UP_4 = 'IPC_UP_4',
-  RM_IPC_FROM_RENDERER_2 = 'RM_IPCFROM_RENDERER2',
-  RM_IPC_FROM_RENDERER_3 = 'RM_IPCFROM_RENDERER3'
-}
 
 interface NTService {
   nodeIKernelBuddyService: NodeIKernelBuddyService

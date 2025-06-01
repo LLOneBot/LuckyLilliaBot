@@ -80,7 +80,7 @@ export class PMHQ {
     let pmhqAddrPath: string
     let pmhqDataDir
     if (process.platform === 'win32') {
-      pmhqDataDir = path.join(process.env['LOCALAPPDATA']!!, 'pmhq')
+      pmhqDataDir = path.join(os.homedir(), 'APPDATA/Local/pmhq')
     }
     else {
       pmhqDataDir = path.join(os.homedir(), '.pmhq')

@@ -13,7 +13,7 @@ import {
   GroupMsgMask,
   GroupNotify,
 } from '../types'
-import { invoke, NTClass, NTMethod } from '../ntcall'
+import { invoke, NTMethod } from '../ntcall'
 import { Service, Context } from 'cordis'
 import { Field } from 'minato'
 import number = Field.number
