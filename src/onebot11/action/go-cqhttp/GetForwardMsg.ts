@@ -48,7 +48,7 @@ export class GetForwardMsg extends BaseAction<Payload, Response> {
           const segments = message2List(res.message)
           for (const item of segments) {
             if (item.type === OB11MessageDataType.Forward) {
-              await this.ctx.store.addMultiMsgInfo(rootMsgId, item.data.id, peer.peerUid)
+              this.ctx.store.addMultiMsgInfo(rootMsgId, item.data.id, peer.peerUid)
             }
           }
           return {

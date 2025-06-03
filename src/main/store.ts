@@ -30,7 +30,7 @@ interface MsgInfo {
 }
 
 class Store extends Service {
-  static inject = ['database', 'model']
+  static inject = ['database', 'model', 'logger']
   private cache: LimitedHashTable<string, number>
   private messages: Map<string, RawMessage>
 
@@ -38,7 +38,7 @@ class Store extends Service {
     super(ctx, 'store', true)
     this.cache = new LimitedHashTable(1000)
     this.messages = new Map()
-    this.initDatabase()
+    this.initDatabase().then().catch(console.error)
   }
 
   private async initDatabase() {
@@ -84,12 +84,12 @@ class Store extends Service {
     hash[0] &= 0x7f //保证shortId为正数
     const shortId = hash.readInt32BE()
     this.cache.set(cacheKey, shortId)
-    this.ctx.database.upsert('message', [{
-      msgId,
-      shortId,
-      chatType: peer.chatType,
-      peerUid: peer.peerUid
-    }], 'shortId').then()
+      this.ctx.database.upsert('message', [{
+        msgId,
+        shortId,
+        chatType: peer.chatType,
+        peerUid: peer.peerUid
+      }], 'shortId').then().catch(e=>this.ctx.logger.error('createMsgShortId database error:', e))
     return shortId
   }
 
@@ -135,7 +135,8 @@ class Store extends Service {
     if (existingFile) {
       return existingFile
     }
-    return this.ctx.database.upsert('file_v2', [data], 'fileUuid')
+    this.ctx.database.upsert('file_v2', [data], 'fileUuid').then()
+      .catch(e=>this.ctx.logger.error('addFileCache database error:', e))
   }
 
   getFileCacheByName(fileName: string) {
@@ -165,7 +166,8 @@ class Store extends Service {
   }
 
   addMultiMsgInfo(rootMsgId: string, parentMsgId: string, peerUid: string) {
-    return this.ctx.database.upsert('forward', [{ rootMsgId, parentMsgId, peerUid }])
+    this.ctx.database.upsert('forward', [{ rootMsgId, parentMsgId, peerUid }]).then()
+      .catch(e=>this.ctx.logger.error('addMultiMsgInfo database error:', e))
   }
 
   getMultiMsgInfo(parentMsgId: string) {

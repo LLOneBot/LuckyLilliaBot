@@ -16,7 +16,7 @@ import {
   ChatType,
   Peer,
   SendMessageElement,
-  ElementType, summaryMessage, logSummaryMessage,
+  ElementType, logSummaryMessage,
 } from './types'
 import { selfInfo } from '../common/globalVars'
 import { version } from '../version'
@@ -204,15 +204,16 @@ class Core extends Service {
     })
 
     const groupNotifyIgnore: string[] = []
-    registerReceiveHook<{
-      doubt: boolean
-      oldestUnreadSeq: string
-      unreadCount: number
-    }>(ReceiveCmdS.UNREAD_GROUP_NOTIFY, async (payload) => {
-      if (payload.unreadCount) {
+    registerReceiveHook<[
+      doubt: boolean,
+      oldestUnreadSeq: string,
+      unreadCount: number,
+    ]>(ReceiveCmdS.UNREAD_GROUP_NOTIFY, async (payload) => {
+      const [doubt, oldestUnreadSeq, unreadCount] = payload
+      if (unreadCount) {
         let notifies: GroupNotify[]
         try {
-          notifies = await this.ctx.ntGroupApi.getSingleScreenNotifies(payload.doubt, payload.unreadCount)
+          notifies = await this.ctx.ntGroupApi.getSingleScreenNotifies(doubt, unreadCount)
         } catch (e) {
           return
         }
@@ -222,7 +223,7 @@ class Core extends Service {
             continue
           }
           groupNotifyIgnore.push(notify.seq)
-          this.ctx.parallel('nt/group-notify', { notify, doubt: payload.doubt })
+          this.ctx.parallel('nt/group-notify', { notify, doubt: doubt })
         }
       }
     })

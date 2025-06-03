@@ -22,8 +22,9 @@ export default class Log {
         if (!enable) {
           return
         }
-        const dateTime = new Date(record.timestamp).toLocaleString()
-        let content = `${dateTime} | ${record.name} ${record.content}\n\n`
+        const dateTime = new Date(record.timestamp)
+        const dateTimeStr = `${dateTime.getFullYear()}-${(dateTime.getMonth() + 1).toString().padStart(2, '0')}-${dateTime.getDate().toString().padStart(2, '0')} ${dateTime.getHours().toString().padStart(2, '0')}:${dateTime.getMinutes().toString().padStart(2, '0')}:${dateTime.getSeconds().toString().padStart(2, '0')}`
+        let content = `${dateTimeStr} | ${record.content}\n\n`
         console.log(content)
         appendFile(file, content, noop)
       },

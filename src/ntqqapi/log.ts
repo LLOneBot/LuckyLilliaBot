@@ -65,6 +65,6 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
     peerName = `临] ${sender}(${senderUin})`
   }
   const padTime = (t: number) => t.toString().padStart(2, '0')
-  const logMsg = `${padTime(now.getHours())}:${padTime(now.getMinutes())}:${padTime(now.getSeconds())}[${direction}-${peerName}：\n${summary}`
+  const logMsg = `[${direction}-${peerName}：\n${summary}`
   ctx.logger.info(logMsg)
 }
