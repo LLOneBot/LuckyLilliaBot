@@ -1,0 +1,32 @@
+{
+  "satori": {
+    "enable": true,
+    "port": 5600,
+    "token": ""
+  },
+  "ob11": {
+    "enable": true,
+    "token": "",
+    "httpPort": 3000,
+    "httpPostUrls": [],
+    "httpSecret": "",
+    "wsPort": 3001,
+    "wsReverseUrls": [],
+    "enableHttp": true,
+    "enableHttpPost": true,
+    "enableWs": true,
+    "enableWsReverse": true,
+    "messagePostFormat": "array",
+    "enableHttpHeart": false,
+    "reportSelfMessage": false
+  },
+  "heartInterval": 60000,
+  "enableLocalFile2Url": false,
+  "debug": false,
+  "log": true,
+  "autoDeleteFile": false,
+  "autoDeleteFileSecond": 60,
+  "musicSignUrl": "https://llob.linyuchen.net/sign/music",
+  "msgCacheExpire": 120,
+  "onlyLocalhost": true
+}

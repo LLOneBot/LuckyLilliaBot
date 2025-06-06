@@ -17,21 +17,19 @@ export interface OB11Config {
    * @deprecated
    */
   enableQOAutoQuote?: boolean
-  listenLocalhost: boolean
   reportSelfMessage: boolean
 }
 
 export interface SatoriConfig {
   enable: boolean
-  listen: string
   port: number
   token: string
 }
 
 export interface Config {
-  enableLLOB: boolean
   satori: SatoriConfig
   ob11: OB11Config
+  onlyLocalhost: boolean
   heartInterval: number // ms
   enableLocalFile2Url?: boolean // 开启后，本地文件路径图片会转成http链接, 语音会转成base64
   debug?: boolean
@@ -43,14 +41,6 @@ export interface Config {
   ignoreBeforeLoginMsg?: boolean
   /** 单位为秒 */
   msgCacheExpire?: number
-  /** @deprecated */
-  http?: string
-  /** @deprecated */
-  hosts?: string[]
-  /** @deprecated */
-  wsPort?: string
-  /** @deprecated */
-  reportSelfMessage?: boolean
 }
 
 export interface CheckVersion {

@@ -30,10 +30,10 @@ export class SatoriServer {
     }
     return handler.handle(params)
   }
-  
+
   private async handleOneBotRequest(req: Request, res: Response) {
     if (this.checkAuth(req, res)) return
-    
+
     const action = req.params.action;
     const params = req.method === 'POST' ? req.body : req.query
     let result;
@@ -45,7 +45,7 @@ export class SatoriServer {
 
     res.json(result)
   }
-  
+
   public start() {
 
     this.express.route('/v1/internal/onebot11/:action')
@@ -86,9 +86,10 @@ export class SatoriServer {
       }
     })
 
-    const { listen, port } = this.config
-    this.httpServer = this.express.listen(port, listen, () => {
-      this.ctx.logger.info(`server started ${listen}:${port}`)
+    const { onlyLocalhost, port } = this.config
+    let host = onlyLocalhost ? '127.0.0.1': '::'
+    this.httpServer = this.express.listen(port, host, () => {
+      this.ctx.logger.info(`server started ${host}:${port}`)
     })
     this.wsServer = new WebSocketServer({
       server: this.httpServer
@@ -179,7 +180,7 @@ export class SatoriServer {
 namespace SatoriServer {
   export interface Config {
     port: number
-    listen: string
+    onlyLocalhost: boolean
     token: string
   }
 }

@@ -48,7 +48,7 @@ class OneBot11Adapter extends Service {
       port: config.httpPort,
       token: config.token,
       actionMap,
-      listenLocalhost: config.listenLocalhost
+      listenLocalhost: config.onlyLocalhost
     })
     this.ob11HttpPost = new OB11HttpPost(ctx, {
       hosts: config.httpPostUrls,
@@ -61,7 +61,7 @@ class OneBot11Adapter extends Service {
       heartInterval: config.heartInterval,
       token: config.token,
       actionMap,
-      listenLocalhost: config.listenLocalhost
+      listenLocalhost: config.onlyLocalhost
     })
     this.ob11WebSocketReverseManager = new OB11WebSocketReverseManager(ctx, {
       hosts: config.wsReverseUrls,
@@ -230,7 +230,7 @@ class OneBot11Adapter extends Service {
   private async handleConfigUpdated(config: LLOBConfig) {
     const old = this.config
     this.ob11Http.updateConfig({
-      listenLocalhost: config.ob11.listenLocalhost,
+      listenLocalhost: config.onlyLocalhost,
       port: config.ob11.httpPort,
       token: config.ob11.token,
     })
@@ -241,7 +241,7 @@ class OneBot11Adapter extends Service {
       enableHttpHeart: config.ob11.enableHttpHeart
     })
     this.ob11WebSocket.updateConfig({
-      listenLocalhost: config.ob11.listenLocalhost,
+      listenLocalhost: config.onlyLocalhost,
       port: config.ob11.wsPort,
       heartInterval: config.heartInterval,
       token: config.ob11.token,
@@ -259,7 +259,7 @@ class OneBot11Adapter extends Service {
       }
     }
     // HTTP 端口变化，重启服务
-    if ((config.ob11.httpPort !== old.httpPort || config.ob11.listenLocalhost !== old.listenLocalhost) && config.ob11.enableHttp) {
+    if ((config.ob11.httpPort !== old.httpPort || config.onlyLocalhost !== old.onlyLocalhost) && config.ob11.enableHttp) {
       await this.ob11Http.stop()
       this.ob11Http.start()
     }
@@ -272,7 +272,7 @@ class OneBot11Adapter extends Service {
       }
     }
     // 正向 WebSocket 端口变化，重启服务
-    if ((config.ob11.wsPort !== old.wsPort || config.ob11.listenLocalhost !== old.listenLocalhost) && config.ob11.enableWs) {
+    if ((config.ob11.wsPort !== old.wsPort || config.onlyLocalhost !== old.onlyLocalhost) && config.ob11.enableWs) {
       await this.ob11WebSocket.stop()
       this.ob11WebSocket.start()
       llonebotError.wsServerError = ''
@@ -390,6 +390,7 @@ class OneBot11Adapter extends Service {
 
 namespace OneBot11Adapter {
   export interface Config extends OB11Config {
+    onlyLocalhost: boolean
     heartInterval: number
     debug: boolean
     musicSignUrl?: string

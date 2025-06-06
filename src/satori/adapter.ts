@@ -46,8 +46,7 @@ class SatoriAdapter extends Service {
     ) {
       // 自身主动申请
       return await parseGuildAdded(this, input)
-    }
-    else if (
+    } else if (
       input.msgType === 5 &&
       input.subMsgType === 12 &&
       input.elements[0]?.grayTipElement?.xmlElement?.templId === '10179' &&
@@ -55,47 +54,41 @@ class SatoriAdapter extends Service {
     ) {
       // 自身被邀请
       return await parseGuildAdded(this, input)
-    }
-    else if (
+    } else if (
       input.msgType === 5 &&
       input.subMsgType === 8 &&
       input.elements[0]?.grayTipElement?.groupElement?.type === 3
     ) {
       // 自身被踢出
       return await parseGuildRemoved(this, input)
-    }
-    else if (
+    } else if (
       input.msgType === 5 &&
       input.subMsgType === 8 &&
       input.elements[0]?.grayTipElement?.groupElement?.type === 1
     ) {
       // 他人主动申请
       return await parseGuildMemberAdded(this, input)
-    }
-    else if (
+    } else if (
       input.msgType === 5 &&
       input.subMsgType === 12 &&
       input.elements[0]?.grayTipElement?.xmlElement?.templId === '10179'
     ) {
       // 他人被邀请
       return await parseGuildMemberAdded(this, input)
-    }
-    else if (
+    } else if (
       input.msgType === 5 &&
       input.subMsgType === 12 &&
       input.elements[0]?.grayTipElement?.jsonGrayTipElement?.busiId === '19217'
     ) {
       // 机器人被邀请
       return await parseGuildMemberAdded(this, input, true)
-    }
-    else if (
+    } else if (
       input.msgType === 5 &&
       input.subMsgType === 12 &&
       input.elements[0]?.grayTipElement?.xmlElement?.templId === '10382'
     ) {
       // 机器人被表情回应
-    }
-    else {
+    } else {
       // 普通的消息
       return await parseMessageCreated(this, input)
     }
@@ -108,22 +101,19 @@ class SatoriAdapter extends Service {
     ) {
       // 自身被邀请，需自身同意
       return await parseGuildRequest(this, input)
-    }
-    else if (
+    } else if (
       input.type === NT.GroupNotifyType.MemberLeaveNotifyAdmin ||
       input.type === NT.GroupNotifyType.KickMemberNotifyAdmin
     ) {
       // 他人主动退出或被踢
       return await parseGuildMemberRemoved(this, input)
-    }
-    else if (
+    } else if (
       input.type === NT.GroupNotifyType.RequestJoinNeedAdminiStratorPass &&
       input.status === NT.GroupNotifyStatus.Unhandle
     ) {
       // 他人主动申请，需管理员同意
       return await parseGuildMemberRequest(this, input, doubt)
-    }
-    else if (
+    } else if (
       input.type === NT.GroupNotifyType.InvitedNeedAdminiStratorPass &&
       input.status === NT.GroupNotifyStatus.Unhandle
     ) {
@@ -170,15 +160,16 @@ class SatoriAdapter extends Service {
 
     this.ctx.on('llob/config-updated', async input => {
       const old = omit(this.config, ['ffmpeg'])
-      if (!isDeepStrictEqual(old, input.satori)) {
+      const inputSatoriConfig = {
+        ...input.satori,
+        onlyLocalhost: input.onlyLocalhost
+      }
+      if (!isDeepStrictEqual(old, inputSatoriConfig)) {
         await this.server.stop()
-        this.server.updateConfig(input.satori)
+        this.server.updateConfig(inputSatoriConfig)
         this.server.start()
       }
-      Object.assign(this.config, {
-        ...input.satori,
-        ffmpeg: input.ffmpeg
-      })
+      Object.assign(this.config, {...inputSatoriConfig, ffmpeg: input.ffmpeg })
     })
   }
 
@@ -192,13 +183,14 @@ class SatoriAdapter extends Service {
       self_id: this.selfId,
       platform: 'llonebot',
       timestamp: Date.now(),
-      ...data
+      ...data,
     }
   }
 }
 
 namespace SatoriAdapter {
   export interface Config extends SatoriConfig {
+    onlyLocalhost: boolean,
     ffmpeg?: string
   }
 }

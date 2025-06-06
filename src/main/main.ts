@@ -177,6 +177,7 @@ async function onLoad() {
   if (config.ob11.enable) {
     ctx.plugin(OneBot11Adapter, {
       ...config.ob11,
+      onlyLocalhost: config.onlyLocalhost,
       heartInterval: config.heartInterval,
       debug: config.debug!,
       musicSignUrl: config.musicSignUrl,
@@ -188,6 +189,7 @@ async function onLoad() {
     ctx.plugin(SatoriAdapter, {
       ...config.satori,
       ffmpeg: config.ffmpeg,
+      onlyLocalhost: config.onlyLocalhost,
     })
   }
 
