@@ -1,0 +1,47 @@
+注意：如果你安装过老版本的 LLOneBot 请先卸载并删干净 QQ 目录，重新安装原版 QQ，不要安装任何插件，否则依然有掉线风险！
+
+使用方法：
+
+双击 llonebot.exe 后会启动QQ
+
+登录 QQ 后修改 data/config_xxx.json 中的配置，xxx 为 QQ 号，修改后会自动重载，无需重启
+
+配置说明如下：
+
+{
+  "satori": {
+    "enable": true,  // 是否启用 Satori 协议
+    "port": 5600,  // Satori 监听端口
+    "token": "" // Satori token
+  },
+  "ob11": {
+    "enable": true, // 是否启用 OneBot 11 协议
+    "token": "", // OneBot 11 协议的 token
+    "httpPort": 3000, // HTTP 监听端口
+    "httpPostUrls": [],  // HTTP 上报地址，如 ["http://localhost:8080/onebot/v11"]
+    "httpSecret": "",  // HTTP 上报密钥
+    "wsPort": 3001, // 正向 WebSocket 监听端口
+    "wsReverseUrls": [], // 反向 WebSocket 地址，如 ["ws://localhost:8080/onebot/v11/ws"]
+    "enableHttp": true, // 是否启用 HTTP 服务
+    "enableHttpPost": true, // 是否启用 HTTP 上报
+    "enableWs": true, // 是否启用正向 WebSocket 服务
+    "enableWsReverse": false, // 是否启用反向 WebSocket 服务
+    "messagePostFormat": "array", // 消息上报格式，支持 "array" 或 "string"
+    "enableHttpHeart": false, // 是否启用 HTTP 心跳
+    "reportSelfMessage": true // 是否上报自己的消息
+  },
+  "heartInterval": 60000, // 心跳间隔，单位毫秒
+  "enableLocalFile2Url": false, // 是否启用本地文件转 URL 功能
+  "debug": false, // 是否启用调试模式
+  "log": true, // 是否启用日志
+  "autoDeleteFile": false, // 是否自动删除收到的文件
+  "autoDeleteFileSecond": 60, // 自动删除收到的文件的时间，单位秒
+  "musicSignUrl": "", // 音乐签名地址
+  "msgCacheExpire": 120, // 消息缓存过期时间，单位秒
+  "onlyLocalhost": true, // 是否只监听本地地址，否则监听公网地址，暴露在公网请务必设置 token
+}
+
+
+
+
+QQ Group: 545402644

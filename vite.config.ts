@@ -3,6 +3,10 @@ import commonjs from '@rollup/plugin-commonjs'
 import { builtinModules } from 'module'
 import path from 'node:path'
 import cp from 'vite-plugin-cp'
+import { writeVersion } from './src/version'
+
+writeVersion()
+
 const external = [
   'silk-wasm',
   '@minatojs/sql.js',
@@ -21,9 +25,11 @@ const external = [
   'ms',
   /^node:/,
 ]
-function genCpModule(module: string | RegExp){
+
+function genCpModule(module: string | RegExp) {
   return { src: `./node_modules/${module}`, dest: `dist/node_modules/${module}`, flatten: false }
 }
+
 // vite.config.ts
 
 export default defineConfig({
@@ -40,25 +46,26 @@ export default defineConfig({
       input: 'src/main/main.ts',
       output: {
         entryFileNames: 'llonebot.js',
-        format: 'es'
+        format: 'es',
       },
       plugins: [
         // 也可以在这里添加 commonjs 插件，但注意顺序
         cp({
-        targets: [
-          ...external.map(genCpModule),
-          // { src: './src/ntqqapi/native/napcat-protocol-packet/Moehoo/*', dest: 'dist/main/Moehoo' },
-        ],
-      }),
+          targets: [
+            ...external.map(genCpModule),
+            { src: './package-dist.json', dest: 'dist/', rename: 'package.json' },
+            { src: './doc/使用说明.txt', dest: 'dist/'}
+          ],
+        }),
         commonjs({
-          include: /node_modules\/file-type/
-        })
-      ]
-    }
+          include: /node_modules\/file-type/,
+        }),
+      ],
+    },
   },
   resolve: {
     alias: {
-      '@': '/src' // 可选：配置路径别名
-    }
-  }
+      '@': '/src', // 可选：配置路径别名
+    },
+  },
 })
