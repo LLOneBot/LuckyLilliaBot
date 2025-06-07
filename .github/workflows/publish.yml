@@ -37,6 +37,7 @@ jobs:
           mv ../dist ./llonebot
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-win-x64.zip
           unzip pmhq-win-x64.zip
+          rm pmhq-win-x64.zip
           mv pmhq-win-x64.exe llonebot.exe
           zip -r ../LLOneBot-win-x64.zip ./*
           wget https://github.com/LLOneBot/exe/releases/latest/download/node.exe -O llonebot/node.exe
