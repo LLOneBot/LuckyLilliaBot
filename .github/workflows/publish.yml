@@ -39,8 +39,8 @@ jobs:
           unzip pmhq-win-x64.zip
           rm pmhq-win-x64.zip
           mv pmhq-win-x64.exe llonebot.exe
-          zip -r ../LLOneBot-win-x64.zip ./*
           wget https://github.com/LLOneBot/exe/releases/latest/download/node.exe -O llonebot/node.exe
+          zip -r ../LLOneBot-win-x64.zip ./*
           wget https://github.com/LLOneBot/exe/releases/latest/download/ffmpeg.exe -O llonebot/ffmpeg.exe
           wget https://github.com/LLOneBot/exe/releases/latest/download/ffprobe.exe -O llonebot/ffprobe.exe
           zip -r ../LLOneBot-win-x64-ffmpeg.zip ./*
