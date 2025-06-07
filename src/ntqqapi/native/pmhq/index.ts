@@ -78,20 +78,24 @@ export class PMHQ {
 
   constructor() {
     console.log(process.argv)
-    const port = this.getPMHQPort()
-    this.httpUrl = `http://127.0.0.1:${port}/`
-    this.wsUrl = `ws://127.0.0.1:${port}/ws`
+    const {pmhqHost, pmhqPort} = this.getPMHQHostPort()
+    this.httpUrl = `http://${pmhqHost}:${pmhqPort}/`
+    this.wsUrl = `ws://${pmhqHost}:${pmhqPort}/ws`
     this.connectWebSocket().then()
   }
 
-  private getPMHQPort(): string{
+  private getPMHQHostPort() {
     let pmhqPort = '13000'
+    let pmhqHost: string = '127.0.0.1'
     for(const pArg of process.argv) {
       if (pArg.startsWith('--pmhq-port=')) {
         pmhqPort = pArg.replace('--pmhq-port=', '')
       }
+      else if (pArg.startsWith('--pmhq-host=')) {
+        pmhqHost = pArg.replace('--pmhq-host=', '')
+      }
     }
-    return pmhqPort
+    return {pmhqPort, pmhqHost}
   }
 
   public addResListener<R extends PMHQRes>(listener: ResListener<R>) {
@@ -190,7 +194,7 @@ export class PMHQ {
     const p = new Promise<R>((resolve, reject) => {
       const listenerId = this.addResListener<R>((res => {
         if (!res.data) {
-          console.error(data)
+          console.error(`PMHQ WS send error: payload ${data}, response ${res}`)
         }
         if (res.data?.echo == echo) {
           resolve(res)
