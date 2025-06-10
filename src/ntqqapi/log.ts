@@ -57,12 +57,17 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
     peerName = `群] ${message.peerName}(${message.peerUid}) ${sender}(${senderUin})`
   }
   else if (message.chatType == ChatType.C2C) {
-    const senderInfo = (await ctx.ntUserApi.getUserDetailInfo(message.senderUid)).coreInfo
-    sender = senderInfo.remark || senderInfo.nick
-    peerName = `私] ${sender}(${senderUin})`
+    try {
+      const userUid = message.peerUid
+      const userInfo = (await ctx.ntUserApi.getUserDetailInfo(userUid)).coreInfo
+      sender = userInfo.remark || userInfo.nick
+      peerName = `私] ${sender}(${userInfo.uin})`
+    }catch (e) {
+      return
+    }
   }
   else if (message.chatType == ChatType.TempC2CFromGroup) {
-    peerName = `临] ${sender}(${senderUin})`
+    peerName = `临] ${message.peerName}(${message.peerUin})`
   }
   const padTime = (t: number) => t.toString().padStart(2, '0')
   const logMsg = `[${direction}-${peerName}：\n${summary}`

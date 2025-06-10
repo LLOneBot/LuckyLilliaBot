@@ -124,13 +124,13 @@ export function invoke<
         removeReceiveHook(hookId)
         timeoutId && clearTimeout(timeoutId)
       })
-      pmhq.call(funcName, args).then(r => firstResult = r)
+      pmhq.call(funcName, args).then(r => firstResult = r).catch(reject)
     }
     else {
       pmhq.call(funcName, args).then(r=>{
         resolve(r)
         timeoutId && clearTimeout(timeoutId)
-      })
+      }).catch(reject)
     }
   })
 }

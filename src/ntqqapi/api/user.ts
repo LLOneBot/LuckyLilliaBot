@@ -55,6 +55,7 @@ export class NTQQUserApi extends Service {
       ],
       {
         resultCmd: 'nodeIKernelProfileListener/onUserDetailInfoChanged',
+        resultCb: payload => payload.simpleInfo.uid === uid,
       },
     )
     return result.simpleInfo
