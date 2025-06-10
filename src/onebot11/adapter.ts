@@ -206,7 +206,7 @@ class OneBot11Adapter extends Service {
       if (recallEvent) {
         this.dispatch(recallEvent)
       }
-    })
+    }).catch(e => this.ctx.logger.error('handling recall events', e))
   }
 
   private async handleFriendRequest(req: FriendRequest) {

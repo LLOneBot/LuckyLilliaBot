@@ -73,6 +73,9 @@ export class NTQQGroupApi extends Service {
       ],
       {
         resultCmd: 'nodeIKernelGroupListener/onMemberInfoChange',
+        resultCb: result=> {
+          return result[0] === groupCode && result[2].has(uid)
+        }
       },
     )
     return data[2].get(uid)!
