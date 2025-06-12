@@ -39,16 +39,16 @@ export class NTQQFileApi extends Service {
 
   async getVideoUrl(peer: Peer, msgId: string, elementId: string): Promise<string | undefined> {
     try {
-      const data = await invoke('nodeIKernelRichMediaService/getVideoPlayUrlV2', [{
+      const data = await invoke('nodeIKernelRichMediaService/getVideoPlayUrlV2', [
         peer,
         msgId,
-        elemId: elementId,
-        videoCodecFormat: 0,
-        exParams: {
+        elementId,
+        0, // video code format, 0: H264, 1: H265 ?
+        {
           downSourceType: 1,
           triggerType: 1
         }
-      }])
+      ])
       if (data.result !== 0) {
         this.ctx.logger.warn('getVideoUrl', data)
       }

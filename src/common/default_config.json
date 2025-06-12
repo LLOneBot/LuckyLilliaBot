@@ -1,6 +1,6 @@
 {
   "satori": {
-    "enable": true,
+    "enable": false,
     "port": 5600,
     "token": ""
   },
