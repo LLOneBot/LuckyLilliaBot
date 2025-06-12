@@ -15,7 +15,7 @@ export class SetQQProfile extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    const old = await this.ctx.ntUserApi.getUserDetailInfo(selfInfo.uid)
+    const old = await this.ctx.ntUserApi.getUserDetailInfoWithBizInfo(selfInfo.uid)
     await this.ctx.ntUserApi.modifySelfProfile({
       nick: payload.nickname ?? old.coreInfo.nick,
       longNick: payload.personal_note ?? old.baseInfo.longNick,

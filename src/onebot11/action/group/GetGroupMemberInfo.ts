@@ -28,7 +28,7 @@ class GetGroupMemberInfo extends BaseAction<Payload, OB11GroupMember> {
       const date = Math.trunc(Date.now() / 1000)
       ret.last_sent_time ??= date
       ret.join_time ??= date
-      const info = await this.ctx.ntUserApi.getUserDetailInfo(member.uid)
+      const info = await this.ctx.ntUserApi.getUserDetailInfoWithBizInfo(member.uid)
       ret.sex = OB11Entities.sex(info.baseInfo.sex!)
       // ret.qq_level = info.qqLevel && calcQQLevel(info.baseInfo.qqLevel) || 0
       ret.age = info.baseInfo.age ?? 0

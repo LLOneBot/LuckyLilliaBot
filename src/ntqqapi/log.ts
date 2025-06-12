@@ -59,7 +59,7 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
   else if (message.chatType == ChatType.C2C) {
     try {
       const userUid = message.peerUid
-      const userInfo = (await ctx.ntUserApi.getUserDetailInfo(userUid)).coreInfo
+      const userInfo = (await ctx.ntUserApi.getUserDetailInfoWithBizInfo(userUid)).coreInfo
       sender = userInfo.remark || userInfo.nick
       peerName = `私] ${sender}(${userInfo.uin})`
     }catch (e) {

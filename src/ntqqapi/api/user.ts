@@ -5,6 +5,9 @@ import { Time } from 'cosmokit'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { uidUinMap } from '@/ntqqapi/cache'
+import { ReceiveCmdS } from '@/ntqqapi/hook'
+import { Field } from 'minato'
+import string = Field.string
 
 declare module 'cordis' {
   interface Context {
@@ -29,24 +32,90 @@ export class NTQQUserApi extends Service {
     )
   }
 
+  async getUidByUin(uin: string, groupCode?: string) {
+    let callResult: any = (await invoke('nodeIKernelGroupService/getUidByUins', [[uin]]))
+    let uid = callResult.uids.get(uin)
+    if (uid) return uid
+    callResult = (await invoke('nodeIKernelProfileService/getUidByUin', ['FriendsServiceImpl', [uin]]))
+    uid = callResult?.get(uin)
+    if (uid) return uid
+    callResult = (await invoke('nodeIKernelUixConvertService/getUid', [[uin]]))
+    uid = callResult?.uidInfo.get(uin)
+    if (uid) return uid
+    callResult = (await this.getUserDetailInfoByUin(uin))
+    uid = callResult.detail!.uid
+    //if (!unveifyUid.includes('*')) return unveifyUid
+    return uid
+  }
+
+  async getUserDetailInfoByUin(uin: string) {
+    return await invoke('nodeIKernelProfileService/getUserDetailInfoByUin', [uin])
+  }
+
+  async getUinByUid(uid: string, groupCode?: string): Promise<string> {
+
+    let uin = uidUinMap.get(uid)
+    if (uin) return uin
+
+    if (groupCode) {
+      try {
+        await this.ctx.ntGroupApi.getGroupMembers(groupCode)
+        uin = uidUinMap.get(uid)
+        if (uin) return uin
+      } catch (e) {
+
+      }
+    }
+
+    try {
+      uin = (await invoke('nodeIKernelUixConvertService/getUin', [[uid]])).uinInfo.get(uid) || ''
+      if (uin) {
+        uidUinMap.set(uid, uin)
+        return uin
+      }
+    } catch (e) {
+      // this.ctx.logger.error('nodeIKernelUixConvertService/getUin error', e)
+    }
+    try {
+      uin = (await this.fetchUserDetailInfo(uid))?.uin
+      if (uin) {
+        uidUinMap.set(uid, uin)
+        return uin!
+      }
+    } catch (e) {
+    }
+
+    return ''
+  }
+
   async fetchUserDetailInfo(uid: string) {
-    const result = await invoke<{ info: UserDetailInfoV2 }>(
+    const result = await invoke<Map<string, UserDetailInfoV2>>(
       'nodeIKernelProfileService/fetchUserDetailInfo',
-      [{
-        callFrom: 'BuddyProfileStore',
-        uid: [uid],
-        source: UserDetailSource.KSERVER,
-        bizList: [ProfileBizType.KALL],
-      }],
-      {
-        resultCmd: 'nodeIKernelProfileListener/onUserDetailInfoChanged',
-        resultCb: payload => payload.info.uid === uid,
-      },
+      [
+        'BuddyProfileStore', // callFrom
+        [uid],
+        UserDetailSource.KSERVER, // source
+        [ProfileBizType.KALL], //bizList
+      ],
     )
-    return result.info
+    return result.get(uid)
   }
 
   async getUserDetailInfo(uid: string) {
+    const result = await invoke<UserDetailInfoV2>(
+      'nodeIKernelProfileService/getUserDetailInfo',
+      [
+        uid,
+      ],
+      {
+        resultCmd: 'nodeIKernelProfileListener/onUserDetailInfoChanged',
+        resultCb: payload => payload.uid === uid,
+      },
+    )
+    return result
+  }
+
+  async getUserDetailInfoWithBizInfo(uid: string) {
     const result = await invoke<{ simpleInfo: SimpleInfo }>(
       'nodeIKernelProfileService/getUserDetailInfoWithBizInfo',
       [
@@ -59,6 +128,32 @@ export class NTQQUserApi extends Service {
       },
     )
     return result.simpleInfo
+  }
+
+  async getUserSimpleInfo(uid: string, force = true) {
+    return this.getUserDetailInfoWithBizInfo(uid)
+    const data = await invoke<Map<string, SimpleInfo>>(
+      'nodeIKernelProfileService/getUserSimpleInfo',
+      [
+        [uid],
+        force,
+      ],
+      {
+        resultCmd: ReceiveCmdS.USER_INFO,
+      },
+    )
+    return data.get(uid)?.coreInfo
+  }
+
+
+  async getCoreAndBaseInfo(uids: string[]) {
+    return await invoke(
+      'nodeIKernelProfileService/getCoreAndBaseInfo',
+      [
+        uids,
+        'nodeStore',
+      ],
+    )
   }
 
   async getBuddyNick(uid: string): Promise<string> {
@@ -97,58 +192,6 @@ export class NTQQUserApi extends Service {
     )
   }
 
-  async getUidByUin(uin: string, groupCode?: string) {
-    let callResult: any = (await invoke('nodeIKernelGroupService/getUidByUins', [[uin]]))
-    let uid = callResult.uids.get(uin)
-    if (uid) return uid
-    callResult = (await invoke('nodeIKernelProfileService/getUidByUin', ['FriendsServiceImpl', [uin]]))
-    uid = callResult?.get(uin)
-    if (uid) return uid
-    callResult = (await invoke('nodeIKernelUixConvertService/getUid', [[uin]]))
-    uid = callResult?.uidInfo.get(uin)
-    if (uid) return uid
-    callResult = (await this.getUserDetailInfoByUin(uin))
-    uid = callResult.detail!.uid
-    //if (!unveifyUid.includes('*')) return unveifyUid
-    return uid
-  }
-
-  async getUserDetailInfoByUin(uin: string) {
-    return await invoke('nodeIKernelProfileService/getUserDetailInfoByUin', [uin])
-  }
-
-  async getUinByUid(uid: string, groupCode?: string): Promise<string> {
-    // let uin = (await invoke('nodeIKernelGroupService/getUinByUids', [{ uidList: [uid] }])).uins.get(uid)
-    // if (uin && uin !== '0') return uin
-    // uin = (await invoke('nodeIKernelProfileService/getUinByUid', [{ callFrom: 'FriendsServiceImpl', uid: [uid] }])).get(uid)
-    // if (uin) return uin
-    let uin = uidUinMap.get(uid)
-    if (uin) return uin
-    if (groupCode){
-      try {
-        await this.ctx.ntGroupApi.getGroupMembers(groupCode)
-        uin = uidUinMap.get(uid)
-      }catch (e) {
-
-      }
-    }
-    if (uin) return uin
-    try {
-      uin = (await invoke('nodeIKernelUixConvertService/getUin', [[uid]])).uinInfo.get(uid) || ''
-      if (uin) uidUinMap.set(uid, uin)
-      return uin
-    } catch (e) {
-      // this.ctx.logger.error('nodeIKernelUixConvertService/getUin error', e)
-    }
-    try{
-      uin = (await this.getUserDetailInfo(uid)).uin
-      return uin!
-    }
-    catch (e) {
-      this.ctx.logger.error('getUserDetailInfo from getUinByUid error', e)
-    }
-    return ''
-  }
 
   async forceFetchClientKey() {
     return await invoke('nodeIKernelTicketService/forceFetchClientKey', [{ url: '' }])
@@ -202,34 +245,6 @@ export class NTQQUserApi extends Service {
     ])
   }
 
-  async getUserSimpleInfoV2(uid: string, force = true) {
-    return (await this.getUserDetailInfo(uid))
-    // const data = await invoke<Map<string, SimpleInfo>>(
-    //   'nodeIKernelProfileService/getUserSimpleInfo',
-    //   [
-    //     [uid],
-    //     force
-    //   ],
-    //   {
-    //     resultCmd: ReceiveCmdS.USER_INFO,
-    //   }
-    // )
-    // return data.get(uid)?.coreInfo
-  }
-
-  async getUserSimpleInfo(uid: string, force = true) {
-    return this.getUserSimpleInfoV2(uid, force)
-  }
-
-  async getCoreAndBaseInfo(uids: string[]) {
-    return await invoke(
-      'nodeIKernelProfileService/getCoreAndBaseInfo',
-      [
-        uids,
-        'nodeStore',
-      ],
-    )
-  }
 
   async getRobotUinRange() {
     const data = await invoke(

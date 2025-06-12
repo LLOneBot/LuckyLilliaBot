@@ -109,7 +109,7 @@ class OneBot11Adapter extends Service {
       }
       else if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
         this.ctx.logger.info('有加群请求')
-        const requestUin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid, notify.group.groupCode)
+        const requestUin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
         const event = new OB11GroupRequestEvent(
           parseInt(notify.group.groupCode),
           parseInt(requestUin) || 0,
