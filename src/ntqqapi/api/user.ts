@@ -55,7 +55,8 @@ export class NTQQUserApi extends Service {
   async getUinByUid(uid: string, groupCode?: string): Promise<string> {
 
     let uin = uidUinMap.get(uid)
-    if (uin) return uin
+    if (uin)
+      return uin
 
     if (groupCode) {
       try {
@@ -66,30 +67,36 @@ export class NTQQUserApi extends Service {
 
       }
     }
-
-    try {
-      uin = (await invoke('nodeIKernelUixConvertService/getUin', [[uid]])).uinInfo.get(uid) || ''
-      if (uin) {
-        uidUinMap.set(uid, uin)
+    const funcs = [
+      async () => {
+        const uin = (await invoke('nodeIKernelUixConvertService/getUin', [[uid]])).uinInfo.get(uid) || ''
+        this.ctx.logger.info('nodeIKernelUixConvertService/getUin', uin)
         return uin
+      },
+      async () => {
+        const uin = (await this.fetchUserDetailInfo(uid))?.uin
+        this.ctx.logger.info('fetchUserDetailInfo', uin)
+        return uin
+      },
+    ]
+
+    for(const f of funcs) {
+      try {
+        const result = await f()
+        if (result) {
+          uidUinMap.set(uid, result)
+          return result
+        }
+      } catch (e) {
+        this.ctx.logger.error('get uin filed', e)
       }
-    } catch (e) {
-      // this.ctx.logger.error('nodeIKernelUixConvertService/getUin error', e)
-    }
-    try {
-      uin = (await this.fetchUserDetailInfo(uid))?.uin
-      if (uin) {
-        uidUinMap.set(uid, uin)
-        return uin!
-      }
-    } catch (e) {
     }
 
     return ''
   }
 
   async fetchUserDetailInfo(uid: string) {
-    const result = await invoke<Map<string, UserDetailInfoV2>>(
+    const result = await invoke<{detail: Map<string, UserDetailInfoV2>}>(
       'nodeIKernelProfileService/fetchUserDetailInfo',
       [
         'BuddyProfileStore', // callFrom
@@ -98,7 +105,7 @@ export class NTQQUserApi extends Service {
         [ProfileBizType.KALL], //bizList
       ],
     )
-    return result.get(uid)
+    return result.detail.get(uid)
   }
 
   async getUserDetailInfo(uid: string) {
