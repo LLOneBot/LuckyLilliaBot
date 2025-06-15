@@ -247,6 +247,10 @@ export class PMHQ {
     })).data
   }
 
+  async sendPB(cmd: string, pb: Uint8Array): Promise<PBData> {
+    return this.wsSendPB(cmd,pb)
+  }
+
   async sendFriendPoke(uin: number) {
     const body = Oidb.SendPoke.encode({
       toUin: uin,
