@@ -12,8 +12,8 @@ interface PBData{
   echo?: string
 }
 
-export class SendRaw extends BaseAction<Payload, PBData> {
-  actionName = ActionName.SendRaw
+export class SendPB extends BaseAction<Payload, PBData> {
+  actionName = ActionName.SendPB
   payloadSchema = Schema.object({
     cmd: String,
     hex: String
@@ -21,7 +21,7 @@ export class SendRaw extends BaseAction<Payload, PBData> {
 
   async _handle(payload: Payload) {
     try {
-      const result = await this.ctx.app.pmhq.sendPB(payload.cmd, Uint8Array.from(Buffer.from(payload.hex, 'hex')))
+      const result = await this.ctx.app.pmhq.sendPB(payload.cmd, payload.hex)
       return {
         cmd: result.cmd,
         hex: result.pb,
@@ -30,7 +30,7 @@ export class SendRaw extends BaseAction<Payload, PBData> {
     }
     catch (e) {
       this.ctx.logger.error('pmhq 发包失败', e)
-      throw new Error(`pmhq 发包失败: ${e}`)
+      throw new Error(`pmhq 发包失败: ${e}`, { cause: e })
     }
   }
 }

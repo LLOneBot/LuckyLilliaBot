@@ -92,12 +92,12 @@ import { MoveGroupFile } from './llonebot/MoveGroupFile'
 import { GetGroupShutList } from './llonebot/GetGroupShutList'
 import { RenameGroupFileFolder } from './llonebot/RenameGroupFileFolder'
 import { VoiceMsg2Text } from '@/onebot11/action/llonebot/VoiceMsg2Text'
-import { SendRaw } from './llonebot/SendRaw'
+import { SendPB } from './llonebot/SendPB'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
     // llonebot
-    new SendRaw(adapter),
+    new SendPB(adapter),
     new VoiceMsg2Text(adapter),
     new GetFile(adapter),
     new Debug(adapter),

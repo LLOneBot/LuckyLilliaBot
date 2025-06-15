@@ -247,8 +247,14 @@ export class PMHQ {
     })).data
   }
 
-  async sendPB(cmd: string, pb: Uint8Array): Promise<PBData> {
-    return this.wsSendPB(cmd,pb)
+  async sendPB(cmd: string, hex: string): Promise<PBData> {
+    return (await this.wsSend<PMHQResSendPB>({
+      type: 'send',
+      data: {
+        cmd,
+        pb: hex,
+      },
+    })).data
   }
 
   async sendFriendPoke(uin: number) {
