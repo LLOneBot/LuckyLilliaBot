@@ -398,30 +398,6 @@ export namespace Msg {
         /** RoutingHead group. */
         public group?: (Msg.IGroup|null);
 
-        /** RoutingHead _fromUin. */
-        public _fromUin?: "fromUin";
-
-        /** RoutingHead _fromUid. */
-        public _fromUid?: "fromUid";
-
-        /** RoutingHead _fromAppid. */
-        public _fromAppid?: "fromAppid";
-
-        /** RoutingHead _fromInstid. */
-        public _fromInstid?: "fromInstid";
-
-        /** RoutingHead _toUin. */
-        public _toUin?: "toUin";
-
-        /** RoutingHead _toUid. */
-        public _toUid?: "toUid";
-
-        /** RoutingHead _c2c. */
-        public _c2c?: "c2c";
-
-        /** RoutingHead _group. */
-        public _group?: "group";
-
         /**
          * Encodes the specified RoutingHead message. Does not implicitly {@link Msg.RoutingHead.verify|verify} messages.
          * @param message RoutingHead message or plain object to encode
@@ -466,9 +442,6 @@ export namespace Msg {
 
         /** C2c friendName. */
         public friendName?: (string|null);
-
-        /** C2c _friendName. */
-        public _friendName?: "friendName";
 
         /**
          * Encodes the specified C2c message. Does not implicitly {@link Msg.C2c.verify|verify} messages.
@@ -562,33 +535,6 @@ export namespace Msg {
 
         /** Group msgFlag. */
         public msgFlag?: (number|null);
-
-        /** Group _groupCode. */
-        public _groupCode?: "groupCode";
-
-        /** Group _groupType. */
-        public _groupType?: "groupType";
-
-        /** Group _groupInfoSeq. */
-        public _groupInfoSeq?: "groupInfoSeq";
-
-        /** Group _groupCard. */
-        public _groupCard?: "groupCard";
-
-        /** Group _groupCardType. */
-        public _groupCardType?: "groupCardType";
-
-        /** Group _groupLevel. */
-        public _groupLevel?: "groupLevel";
-
-        /** Group _groupName. */
-        public _groupName?: "groupName";
-
-        /** Group _extGroupKeyInfo. */
-        public _extGroupKeyInfo?: "extGroupKeyInfo";
-
-        /** Group _msgFlag. */
-        public _msgFlag?: "msgFlag";
 
         /**
          * Encodes the specified Group message. Does not implicitly {@link Msg.Group.verify|verify} messages.
@@ -707,45 +653,6 @@ export namespace Msg {
         /** ContentHead field15. */
         public field15?: (Msg.IContentHeadField15|null);
 
-        /** ContentHead _msgType. */
-        public _msgType?: "msgType";
-
-        /** ContentHead _subType. */
-        public _subType?: "subType";
-
-        /** ContentHead _c2cCmd. */
-        public _c2cCmd?: "c2cCmd";
-
-        /** ContentHead _random. */
-        public _random?: "random";
-
-        /** ContentHead _msgSeq. */
-        public _msgSeq?: "msgSeq";
-
-        /** ContentHead _msgTime. */
-        public _msgTime?: "msgTime";
-
-        /** ContentHead _pkgNum. */
-        public _pkgNum?: "pkgNum";
-
-        /** ContentHead _pkgIndex. */
-        public _pkgIndex?: "pkgIndex";
-
-        /** ContentHead _divSeq. */
-        public _divSeq?: "divSeq";
-
-        /** ContentHead _autoReply. */
-        public _autoReply?: "autoReply";
-
-        /** ContentHead _ntMsgSeq. */
-        public _ntMsgSeq?: "ntMsgSeq";
-
-        /** ContentHead _msgUid. */
-        public _msgUid?: "msgUid";
-
-        /** ContentHead _field15. */
-        public _field15?: "field15";
-
         /**
          * Encodes the specified ContentHead message. Does not implicitly {@link Msg.ContentHead.verify|verify} messages.
          * @param message ContentHead message or plain object to encode
@@ -815,21 +722,6 @@ export namespace Msg {
         /** ContentHeadField15 field5. */
         public field5?: (string|null);
 
-        /** ContentHeadField15 _field1. */
-        public _field1?: "field1";
-
-        /** ContentHeadField15 _field2. */
-        public _field2?: "field2";
-
-        /** ContentHeadField15 _field3. */
-        public _field3?: "field3";
-
-        /** ContentHeadField15 _field4. */
-        public _field4?: "field4";
-
-        /** ContentHeadField15 _field5. */
-        public _field5?: "field5";
-
         /**
          * Encodes the specified ContentHeadField15 message. Does not implicitly {@link Msg.ContentHeadField15.verify|verify} messages.
          * @param message ContentHeadField15 message or plain object to encode
@@ -886,15 +778,6 @@ export namespace Msg {
 
         /** Message body. */
         public body?: (Msg.IMessageBody|null);
-
-        /** Message _routingHead. */
-        public _routingHead?: "routingHead";
-
-        /** Message _contentHead. */
-        public _contentHead?: "contentHead";
-
-        /** Message _body. */
-        public _body?: "body";
 
         /**
          * Encodes the specified Message message. Does not implicitly {@link Msg.Message.verify|verify} messages.
@@ -953,15 +836,6 @@ export namespace Msg {
         /** MessageBody msgEncryptContent. */
         public msgEncryptContent?: (Uint8Array|null);
 
-        /** MessageBody _richText. */
-        public _richText?: "richText";
-
-        /** MessageBody _msgContent. */
-        public _msgContent?: "msgContent";
-
-        /** MessageBody _msgEncryptContent. */
-        public _msgEncryptContent?: "msgEncryptContent";
-
         /**
          * Encodes the specified MessageBody message. Does not implicitly {@link Msg.MessageBody.verify|verify} messages.
          * @param message MessageBody message or plain object to encode
@@ -1012,9 +886,6 @@ export namespace Msg {
 
         /** RichText elems. */
         public elems: Msg.IElem[];
-
-        /** RichText _attr. */
-        public _attr?: "attr";
 
         /**
          * Encodes the specified RichText message. Does not implicitly {@link Msg.RichText.verify|verify} messages.
@@ -1078,18 +949,6 @@ export namespace Msg {
 
         /** Elem commonElem. */
         public commonElem?: (Msg.ICommonElem|null);
-
-        /** Elem _text. */
-        public _text?: "text";
-
-        /** Elem _face. */
-        public _face?: "face";
-
-        /** Elem _lightApp. */
-        public _lightApp?: "lightApp";
-
-        /** Elem _commonElem. */
-        public _commonElem?: "commonElem";
 
         /**
          * Encodes the specified Elem message. Does not implicitly {@link Msg.Elem.verify|verify} messages.
@@ -1166,24 +1025,6 @@ export namespace Msg {
         /** Text pbReserve. */
         public pbReserve?: (Uint8Array|null);
 
-        /** Text _str. */
-        public _str?: "str";
-
-        /** Text _link. */
-        public _link?: "link";
-
-        /** Text _attr6Buf. */
-        public _attr6Buf?: "attr6Buf";
-
-        /** Text _attr7Buf. */
-        public _attr7Buf?: "attr7Buf";
-
-        /** Text _buf. */
-        public _buf?: "buf";
-
-        /** Text _pbReserve. */
-        public _pbReserve?: "pbReserve";
-
         /**
          * Encodes the specified Text message. Does not implicitly {@link Msg.Text.verify|verify} messages.
          * @param message Text message or plain object to encode
@@ -1241,15 +1082,6 @@ export namespace Msg {
         /** Face buf. */
         public buf?: (Uint8Array|null);
 
-        /** Face _index. */
-        public _index?: "index";
-
-        /** Face _old. */
-        public _old?: "old";
-
-        /** Face _buf. */
-        public _buf?: "buf";
-
         /**
          * Encodes the specified Face message. Does not implicitly {@link Msg.Face.verify|verify} messages.
          * @param message Face message or plain object to encode
@@ -1300,12 +1132,6 @@ export namespace Msg {
 
         /** LightAppElem msgResid. */
         public msgResid?: (Uint8Array|null);
-
-        /** LightAppElem _data. */
-        public _data?: "data";
-
-        /** LightAppElem _msgResid. */
-        public _msgResid?: "msgResid";
 
         /**
          * Encodes the specified LightAppElem message. Does not implicitly {@link Msg.LightAppElem.verify|verify} messages.
@@ -1363,12 +1189,6 @@ export namespace Msg {
 
         /** CommonElem businessType. */
         public businessType?: (number|null);
-
-        /** CommonElem _pbElem. */
-        public _pbElem?: "pbElem";
-
-        /** CommonElem _businessType. */
-        public _businessType?: "businessType";
 
         /**
          * Encodes the specified CommonElem message. Does not implicitly {@link Msg.CommonElem.verify|verify} messages.
@@ -1468,36 +1288,6 @@ export namespace Msg {
 
         /** Attr reserveData. */
         public reserveData?: (Uint8Array|null);
-
-        /** Attr _codePage. */
-        public _codePage?: "codePage";
-
-        /** Attr _time. */
-        public _time?: "time";
-
-        /** Attr _random. */
-        public _random?: "random";
-
-        /** Attr _color. */
-        public _color?: "color";
-
-        /** Attr _size. */
-        public _size?: "size";
-
-        /** Attr _effect. */
-        public _effect?: "effect";
-
-        /** Attr _charSet. */
-        public _charSet?: "charSet";
-
-        /** Attr _pitchAndFamily. */
-        public _pitchAndFamily?: "pitchAndFamily";
-
-        /** Attr _fontName. */
-        public _fontName?: "fontName";
-
-        /** Attr _reserveData. */
-        public _reserveData?: "reserveData";
 
         /**
          * Encodes the specified Attr message. Does not implicitly {@link Msg.Attr.verify|verify} messages.
@@ -1711,6 +1501,75 @@ export namespace Msg {
 
         /**
          * Gets the default type url for PbMultiMsgTransmit
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a SendMsgRsp. */
+    interface ISendMsgRsp {
+
+        /** SendMsgRsp retCode */
+        retCode?: (number|null);
+
+        /** SendMsgRsp errMsg */
+        errMsg?: (string|null);
+
+        /** SendMsgRsp groupSeq */
+        groupSeq?: (number|null);
+
+        /** SendMsgRsp timestamp */
+        timestamp?: (number|null);
+
+        /** SendMsgRsp privateSeq */
+        privateSeq?: (number|null);
+    }
+
+    /** Represents a SendMsgRsp. */
+    class SendMsgRsp implements ISendMsgRsp {
+
+        /**
+         * Constructs a new SendMsgRsp.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Msg.ISendMsgRsp);
+
+        /** SendMsgRsp retCode. */
+        public retCode: number;
+
+        /** SendMsgRsp errMsg. */
+        public errMsg?: (string|null);
+
+        /** SendMsgRsp groupSeq. */
+        public groupSeq?: (number|null);
+
+        /** SendMsgRsp timestamp. */
+        public timestamp?: (number|null);
+
+        /** SendMsgRsp privateSeq. */
+        public privateSeq?: (number|null);
+
+        /**
+         * Encodes the specified SendMsgRsp message. Does not implicitly {@link Msg.SendMsgRsp.verify|verify} messages.
+         * @param message SendMsgRsp message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Msg.ISendMsgRsp, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a SendMsgRsp message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns SendMsgRsp
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Msg.SendMsgRsp;
+
+        /**
+         * Gets the default type url for SendMsgRsp
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

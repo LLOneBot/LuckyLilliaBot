@@ -132,3 +132,11 @@ message PbMultiMsgTransmit {
   repeated Message msg = 1;
   repeated PbMultiMsgItem pbItemList = 2;
 }
+
+message SendMsgRsp {
+  int32 ret_code = 1;
+  optional string err_msg = 2;
+  optional int32 group_seq = 11;
+  optional uint32 timestamp = 12;
+  optional int32 private_seq = 14;
+}
