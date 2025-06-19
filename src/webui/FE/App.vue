@@ -3,7 +3,7 @@
     <el-header class="header">
       <h2>LLTwoBot</h2>
     </el-header>
-    <el-main>
+    <el-main v-loading="loading">
       <el-row :gutter="24" justify="center">
         <el-col :xs="24" :sm="22" :md="20" :lg="16" :xl="12">
           <el-card shadow="hover" class="config-card">
@@ -217,7 +217,7 @@
                 </el-form-item>
               </div>
               <el-form-item class="form-actions">
-                <el-button type="primary" @click="onSave" size="large" style="float: right;">保存配置</el-button>
+                <el-button type="primary" @click="onSave" size="large" style="float: right;" :loading="loading">保存配置</el-button>
               </el-form-item>
             </el-form>
           </el-card>
@@ -228,7 +228,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { QuestionFilled } from '@element-plus/icons-vue'
 
@@ -266,6 +266,55 @@ const activeIndex = ref('1')
 
 const httpPostUrlInput = ref('')
 const wsReverseUrlInput = ref('')
+const loading = ref(false)
+
+// 获取配置
+async function fetchConfig() {
+  try {
+    loading.value = true
+    const resp = await fetch('/api/config')
+    const data = await resp.json()
+    if (data.success) {
+      form.value = data.data
+      ElMessage.success('配置加载成功')
+    } else {
+      throw new Error(data.message || '获取配置失败')
+    }
+  } catch (error) {
+    ElMessage.error(`获取配置失败: ${error.message || String(error)}`)
+    console.error('获取配置失败:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+// 保存配置
+async function onSave() {
+  try {
+    loading.value = true
+    const resp = await fetch('/api/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(form.value),
+    })
+    const data = await resp.json()
+    if (data.success) {
+      ElMessage.success('配置保存成功')
+    } else {
+      throw new Error(data.message || '保存配置失败')
+    }
+  } catch (error) {
+    ElMessage.error(`保存配置失败: ${error.message || String(error)}`)
+    console.error('保存配置失败:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+// 页面加载时获取配置
+onMounted(() => {
+  fetchConfig()
+})
 
 function addHttpPostUrl() {
   const val = httpPostUrlInput.value.trim()
@@ -293,10 +342,6 @@ function removeWsReverseUrl(idx: number) {
 
 function handleSelect(key: string) {
   activeIndex.value = key
-}
-
-function onSave() {
-  ElMessage.success('配置已保存（仅前端演示）')
 }
 </script>
 

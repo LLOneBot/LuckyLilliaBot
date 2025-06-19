@@ -1,5 +1,4 @@
 {
-  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "composite": true,
     "baseUrl": ".",
@@ -10,4 +9,4 @@
   },
   "include": ["./**/*"],
   "exclude": ["node_modules"]
-} 
+}

@@ -42,6 +42,7 @@ import {
 import { existsSync, mkdirSync } from 'node:fs'
 import { pmhq } from '@/ntqqapi/native/pmhq'
 import { version } from '../version'
+import WebUIServer from '../webui/BE/server'
 
 declare module 'cordis' {
   interface Events {
@@ -157,6 +158,8 @@ async function onLoad() {
   // log('process pid', process.pid)
   const configUtil = getConfigUtil()
   const config = configUtil.getConfig()
+  const webUIServer = new WebUIServer(ctx)
+  webUIServer.start(config)
   configUtil.listenChange(c => {
     ctx.parallel('llob/config-updated', c)
   })
