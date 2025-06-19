@@ -287,14 +287,14 @@ export class NTQQMsgApi extends Service {
     return await invoke('nodeIKernelUnitedConfigService/fetchUnitedCommendConfig', [{ groups }])
   }
 
-  async getMsgsBySeqAndCount(peer: Peer, msgSeq: string, cnt: number, queryOrder: boolean, incloudeDeleteMsg: boolean) {
+  async getMsgsBySeqAndCount(peer: Peer, msgSeq: string, cnt: number, queryOrder: boolean, includeDeleteMsg: boolean) {
     try {
       return await invoke('nodeIKernelMsgService/getMsgsBySeqAndCount', [
         peer,
         msgSeq,
         cnt,
         queryOrder,
-        incloudeDeleteMsg,
+        includeDeleteMsg,
       ])
     } catch (e) {
       this.ctx.logger.error('getMsgsBySeqAndCount error', e)

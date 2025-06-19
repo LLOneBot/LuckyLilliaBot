@@ -140,20 +140,23 @@
                   </el-icon>
                   Satori 协议
                 </el-divider>
-                <el-row :gutter="16" class="satori-row">
-                  <el-col :span="6">
+                <el-row :gutter="20" class="satori-row">
+                  <el-col :span="8">
                     <el-form-item>
                       <template #label>启用 Satori</template>
                       <el-switch v-model="form.satori.enable" style="width: 100%;" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="8">
+                  <el-col :span="12">
                     <el-form-item>
                       <template #label>Satori 端口</template>
                       <el-input-number v-model="form.satori.port" :min="1" :max="65535" style="width: 100%;" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="10">
+
+                </el-row>
+                <el-row :gutter="20" class="satori-row">
+                  <el-col :span="20">
                     <el-form-item>
                       <template #label>Satori Token</template>
                       <el-input v-model="form.satori.token" placeholder="Satori Token" clearable style="width: 100%;" />
@@ -224,13 +227,133 @@
         </el-col>
       </el-row>
     </el-main>
+    <el-dialog
+      v-model="showTokenDialog"
+      title="请输入 WebUI 密码"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      :show-close="false"
+      width="350px"
+      @close="handleTokenDialogClose"
+    >
+      <el-input
+        v-model="tokenInput"
+        placeholder="请输入密码"
+        show-password
+        @keyup.enter="handleTokenDialogConfirm"
+        :disabled="tokenDialogLoading"
+      />
+      <div v-if="tokenDialogError" style="color: red; margin-top: 8px;">{{ tokenDialogError }}</div>
+      <template #footer>
+        <el-button @click="handleTokenDialogConfirm" type="primary" :loading="tokenDialogLoading">确定</el-button>
+      </template>
+    </el-dialog>
   </el-container>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
+import { ref, onMounted, watch } from 'vue'
+import { ElMessage, ElDialog, ElInput, ElButton } from 'element-plus'
 import { QuestionFilled } from '@element-plus/icons-vue'
+
+// Token logic
+const tokenKey = 'webui_token'
+const token = ref(localStorage.getItem(tokenKey) || '')
+const showTokenDialog = ref(false)
+const tokenInput = ref('')
+const tokenDialogLoading = ref(false)
+const tokenDialogError = ref('')
+
+async function setToken(newToken: string) {
+  // 先请求后端
+  try {
+    const resp = await fetch('/api/set-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: newToken })
+    })
+    const data = await resp.json()
+    if (!data.success) {
+      throw new Error(data.message || '设置密码失败')
+    }
+    token.value = newToken
+    localStorage.setItem(tokenKey, newToken)
+    ElMessage.success('密码设置成功')
+  } catch (e: any) {
+    ElMessage.error(e.message || '设置密码失败')
+    throw e
+  }
+}
+
+// 弹出密码输入框，直到用户输入非空密码并点击确定/回车才resolve
+async function promptPassword(tip: string): Promise<string> {
+  return new Promise<string>((resolve) => {
+    tokenDialogError.value = ''
+    tokenInput.value = ''
+    showTokenDialog.value = true
+    tokenDialogError.value = tip
+    function onConfirm() {
+      const pwd = tokenInput.value.trim()
+      if (!pwd) {
+        tokenDialogError.value = '密码不能为空'
+        return
+      }
+      showTokenDialog.value = false
+      resolve(pwd)
+    }
+    // 监听弹窗关闭（防止用户点ESC或X关闭）
+    const stopShow = watch(showTokenDialog, (val) => {
+      if (!val) {
+        stopShow()
+      }
+    })
+    // 监听确定按钮
+    handleTokenDialogConfirm = onConfirm
+  })
+}
+
+// 包装 fetch，自动带 token
+async function apiFetch(url: string, options: any = {}): Promise<Response> {
+  options.headers = options.headers || {}
+  if (token.value) {
+    options.headers['x-webui-token'] = token.value
+  }
+  let resp = await fetch(url, options)
+  // 如果不是401/403，直接返回
+  if (resp.status !== 401 && resp.status !== 403) {
+    return resp
+  }
+  while (resp.status === 401 || resp.status === 403) {
+    if (resp.status === 401) {
+      token.value = ''
+      localStorage.removeItem(tokenKey)
+      const inputPwd = await promptPassword('请设置密码')
+      // 401时需要setToken
+      try {
+        await setToken(inputPwd)
+      } catch {
+        throw new Error('设置密码失败')
+      }
+      tokenInput.value = ''
+    }
+    else if (resp.status === 403) {
+      token.value = ''
+      localStorage.removeItem(tokenKey)
+      const inputPwd = await promptPassword('密码校验失败，请输入密码')
+      // 403时只保存本地密码，不调用setToken
+      token.value = inputPwd
+      localStorage.setItem(tokenKey, token.value)
+      tokenInput.value = ''
+    }
+    // 重新带新密码请求
+    options.headers['x-webui-token'] = token.value
+    resp = await fetch(url, options)
+    if (resp.status !== 401 && resp.status !== 403) {
+      return resp
+    }
+  }
+  return resp
+}
 
 const defaultConfig = {
   satori: { enable: false, port: 5600, token: '' },
@@ -272,7 +395,7 @@ const loading = ref(false)
 async function fetchConfig() {
   try {
     loading.value = true
-    const resp = await fetch('/api/config')
+    const resp = await apiFetch('/api/config')
     const data = await resp.json()
     if (data.success) {
       form.value = data.data
@@ -280,7 +403,7 @@ async function fetchConfig() {
     } else {
       throw new Error(data.message || '获取配置失败')
     }
-  } catch (error) {
+  } catch (error: any) {
     ElMessage.error(`获取配置失败: ${error.message || String(error)}`)
     console.error('获取配置失败:', error)
   } finally {
@@ -292,7 +415,7 @@ async function fetchConfig() {
 async function onSave() {
   try {
     loading.value = true
-    const resp = await fetch('/api/config', {
+    const resp = await apiFetch('/api/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form.value),
@@ -303,7 +426,7 @@ async function onSave() {
     } else {
       throw new Error(data.message || '保存配置失败')
     }
-  } catch (error) {
+  } catch (error: any) {
     ElMessage.error(`保存配置失败: ${error.message || String(error)}`)
     console.error('保存配置失败:', error)
   } finally {
@@ -342,6 +465,14 @@ function removeWsReverseUrl(idx: number) {
 
 function handleSelect(key: string) {
   activeIndex.value = key
+}
+
+// 修改handleTokenDialogConfirm为let变量，便于promptPassword里动态赋值
+let handleTokenDialogConfirm = async () => {}
+
+function handleTokenDialogClose() {
+  tokenDialogError.value = ''
+  return true
 }
 </script>
 

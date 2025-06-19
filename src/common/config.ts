@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import JSON5 from 'json5'
-import { Config, OB11Config, SatoriConfig } from './types'
+import { Config, OB11Config, SatoriConfig, WebUIConfig } from './types'
 import { DATA_DIR, selfInfo } from './globalVars'
 import { mergeNewProperties } from './utils/misc'
 import { fileURLToPath } from 'node:url'
@@ -54,7 +54,13 @@ export class ConfigUtil {
       port: 5600,
       token: ''
     }
+    const webuiDefault: WebUIConfig = {
+      enable: true,
+      port: 3080,
+      token: ''
+    }
     const defaultConfig: Config = {
+      webui: webuiDefault,
       onlyLocalhost: true,
       satori: satoriDefault,
       ob11: ob11Default,
