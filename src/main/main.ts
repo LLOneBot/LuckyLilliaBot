@@ -79,9 +79,9 @@ async function onLoad() {
     uid: pmhqSelfInfo.uid,
     online: true,
   })
-  ctx.ntUserApi.getUserDetailInfo(self.uid).then(userInfo => {
-    self.nick = userInfo.simpleInfo.coreInfo.nick
-  }).catch(ctx.logger.error)
+  ctx.ntUserApi.getSelfNick().then(nick => {
+    self.nick = nick
+  }).catch(e=>ctx.logger.error('获取bot昵称失败', e))
   // log('process pid', process.pid)
   const configUtil = getConfigUtil()
   const config = configUtil.getConfig()
