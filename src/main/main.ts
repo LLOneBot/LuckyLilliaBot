@@ -13,22 +13,11 @@ import Database from 'minato'
 import SQLiteDriver from '@minatojs/driver-sqlite'
 import Store from './store'
 import { Config as LLOBConfig } from '../common/types'
-import {
-  CHANNEL_CHECK_VERSION,
-  CHANNEL_ERROR,
-  CHANNEL_GET_CONFIG,
-  CHANNEL_LOG,
-  CHANNEL_SELECT_FILE,
-  CHANNEL_SET_CONFIG,
-  CHANNEL_UPDATE,
-} from '../common/channels'
 import { startHook } from '../ntqqapi/hook'
-import { checkNewVersion, upgradeLLOneBot } from '../common/utils/upgrade'
 import { getConfigUtil } from '../common/config'
-import { checkFfmpeg } from '../common/utils/video'
 import { Context } from 'cordis'
 import { llonebotError, selfInfo, LOG_DIR, DATA_DIR, TEMP_DIR } from '../common/globalVars'
-import { log, logFileName } from '../common/utils/legacyLog'
+import { logFileName } from '../common/utils/legacyLog'
 import {
   NTQQFileApi,
   NTQQFileCacheApi,
@@ -92,7 +81,7 @@ async function onLoad() {
   })
   ctx.ntUserApi.getUserDetailInfo(self.uid).then(userInfo => {
     self.nick = userInfo.simpleInfo.coreInfo.nick
-  })
+  }).catch(ctx.logger.error)
   // log('process pid', process.pid)
   const configUtil = getConfigUtil()
   const config = configUtil.getConfig()
