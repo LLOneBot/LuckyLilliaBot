@@ -4,7 +4,7 @@ import { RequestUtil } from '@/common/utils/request'
 import { Time } from 'cosmokit'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
-import { uidUinMap } from '@/ntqqapi/cache'
+import { uidUinMap, uinUidMap } from '@/ntqqapi/cache'
 import { ReceiveCmdS } from '@/ntqqapi/hook'
 import { Field } from 'minato'
 import string = Field.string
@@ -33,19 +33,35 @@ export class NTQQUserApi extends Service {
   }
 
   async getUidByUin(uin: string, groupCode?: string) {
-    let callResult: any = (await invoke('nodeIKernelGroupService/getUidByUins', [[uin]]))
-    let uid = callResult.uids.get(uin)
+    let uid = uinUidMap.get(uin)
     if (uid) return uid
-    callResult = (await invoke('nodeIKernelProfileService/getUidByUin', ['FriendsServiceImpl', [uin]]))
-    uid = callResult?.get(uin)
-    if (uid) return uid
-    callResult = (await invoke('nodeIKernelUixConvertService/getUid', [[uin]]))
-    uid = callResult?.uidInfo.get(uin)
-    if (uid) return uid
-    callResult = (await this.getUserDetailInfoByUin(uin))
-    uid = callResult.detail!.uid
-    //if (!unveifyUid.includes('*')) return unveifyUid
-    return uid
+    const funcs = [
+      async ()=>{
+        return (await invoke('nodeIKernelUixConvertService/getUid', [[uin]]))?.uidInfo.get(uin)
+      },
+      async ()=>{
+        return (await invoke('nodeIKernelGroupService/getUidByUins', [[uin]])).uids.get(uin)
+      },
+      async ()=>{
+        return (await invoke('nodeIKernelProfileService/getUidByUin', ['FriendsServiceImpl', [uin]]))?.get(uin)
+      },
+      async ()=>{
+        return (await this.getUserDetailInfoByUin(uin)).detail!.uid
+      }
+    ]
+
+    for(const f of funcs) {
+      try {
+        const uid = await f()
+        if (uid) {
+          uinUidMap.set(uin, uid)
+          return uid
+        }
+      } catch (e) {
+        this.ctx.logger.error('get uid by uin filed', e)
+      }
+    }
+    return ''
   }
 
   async getUserDetailInfoByUin(uin: string) {
