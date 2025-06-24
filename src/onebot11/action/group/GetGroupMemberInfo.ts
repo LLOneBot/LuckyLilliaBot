@@ -3,6 +3,7 @@ import { OB11GroupMember } from '../../types'
 import { OB11Entities } from '../../entities'
 import { ActionName } from '../types'
 import { calcQQLevel, parseBool } from '@/common/utils/misc'
+import { SimpleInfo } from '@/ntqqapi/types'
 
 interface Payload {
   group_id: number | string
@@ -28,10 +29,23 @@ class GetGroupMemberInfo extends BaseAction<Payload, OB11GroupMember> {
       const date = Math.trunc(Date.now() / 1000)
       ret.last_sent_time ??= date
       ret.join_time ??= date
-      const info = await this.ctx.ntUserApi.getUserDetailInfoWithBizInfo(member.uid)
-      ret.sex = OB11Entities.sex(info.baseInfo.sex!)
-      // ret.qq_level = info.qqLevel && calcQQLevel(info.baseInfo.qqLevel) || 0
-      ret.age = info.baseInfo.age ?? 0
+      let info: SimpleInfo | null = null
+      try {
+        info = await this.ctx.ntUserApi.getUserDetailInfoWithBizInfo(member.uid)
+      }catch (e) {
+        try {
+          const fetchInfo = await this.ctx.ntUserApi.fetchUserDetailInfo(member.uid)
+          if (fetchInfo) {
+            info = fetchInfo.simpleInfo
+          }
+        }catch (e) {
+        }
+      }
+      if (info) {
+        ret.sex = OB11Entities.sex(info.baseInfo.sex!)
+        // ret.qq_level = info.qqLevel && calcQQLevel(info.baseInfo.qqLevel) || 0
+        ret.age = info.baseInfo.age ?? 0
+      }
       return ret
     }
     throw new Error(`群成员${payload.user_id}不存在`)
