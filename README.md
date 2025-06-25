@@ -11,3 +11,5 @@ OneBot 11 and Satori Server
 TG Group：<https://t.me/+nLZEnpne-pQ1OWFl>
 
 QQ Group：<https://qm.qq.com/q/3k5fzILp7y>
+
+[![Powered by DartNode](https://dartnode.com/branding/DN-Open-Source-sm.png)](https://dartnode.com "Powered by DartNode - Free VPS for Open Source")
