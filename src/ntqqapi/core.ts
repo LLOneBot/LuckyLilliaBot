@@ -192,7 +192,7 @@ class Core extends Service {
           msg.elements[0]?.grayTipElement?.subElementType === GrayTipElementSubType.Revoke &&
           !recallMsgIds.includes(msg.msgId)
         ) {
-          recallMsgIds.shift()
+          
           recallMsgIds.push(msg.msgId)
           this.ctx.parallel('nt/message-deleted', msg)
         }
@@ -205,6 +205,10 @@ class Core extends Service {
         }
       }
       
+      if (recallMsgIds.length > 1000) {
+        recallMsgIds.shift()
+      }
+
       // 限制Map大小，防止内存泄露
       if (sentMsgIds.size > 1000) {
         const firstKey = sentMsgIds.keys().next().value
@@ -238,6 +242,9 @@ class Core extends Service {
             continue
           }
           groupNotifyIgnore.push(notify.seq)
+          if (groupNotifyIgnore.length > 1000) {
+            groupNotifyIgnore.shift()
+          }
           this.ctx.parallel('nt/group-notify', { notify, doubt: doubt })
         }
       }

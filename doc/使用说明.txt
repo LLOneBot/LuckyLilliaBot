@@ -1,12 +1,11 @@
-注意：请使用原版 QQ，不要安装任何插件，否则依然有掉线风险！
+注意：请使用原版 QQ，不要安装任何插件，否则依然有掉线风险！如果安装过 LiteloaderQQNT 请删除干净 QQ 安装目录!
+
 官网 https://llonebot.com
+GitHub: https://github.com/LLOneBot/LLOneBot
+QQ Group: https://qm.qq.com/q/NsbdKiQ3eg
 
 使用方法：
 
 双击 llonebot.exe 后会启动 QQ，登录 QQ 后
-
 浏览器访问 http://localhost:3080 进行配置
 
-
-
-QQ Group: 545402644
