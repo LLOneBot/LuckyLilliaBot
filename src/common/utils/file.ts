@@ -212,7 +212,7 @@ export async function uri2local(ctx: Context, uri: string, needExt?: boolean): P
     }
   }
 
-  return { success: false, errMsg: '未知文件类型', fileName: '', path: '', isLocal: false }
+  return { success: false, errMsg: '未知文件类型或路径不存在', fileName: '', path: '', isLocal: false }
 }
 
 
