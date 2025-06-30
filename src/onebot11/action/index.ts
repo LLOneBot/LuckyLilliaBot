@@ -95,10 +95,12 @@ import { VoiceMsg2Text } from '@/onebot11/action/llonebot/VoiceMsg2Text'
 import { SendPB } from './llonebot/SendPB'
 import { SendPbMsg } from './llonebot/SendPbMsg'
 import { GetRKey } from '@/onebot11/action/llonebot/GetRkey'
+import { FlashUpload } from '@/onebot11/action/llonebot/FlashUpload'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
     // llonebot
+    new FlashUpload(adapter),
     new GetRKey(adapter),
     new SendPbMsg(adapter),
     new SendPB(adapter),

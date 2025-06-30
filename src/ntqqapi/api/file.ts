@@ -227,13 +227,13 @@ export class NTQQFileApi extends Service {
     return data.notifyInfo
   }
 
-  async createFlashTransferUploadTask(filePaths: string[]){
+  async createFlashTransferUploadTask(name: string, filePaths: string[]){
     const res = await invoke('nodeIKernelFlashTransferService/createFlashTransferUploadTask',
       [
         new Date().getTime(),
         {
           "scene": 1,
-          "name": "wrapper-darwin-arm64-34606.node",
+          "name": name,
           "uploaders": [
             {
               "uin": selfInfo.uin,
