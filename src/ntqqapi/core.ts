@@ -50,7 +50,7 @@ declare module 'cordis' {
 }
 
 class Core extends Service {
-  static inject = ['ntMsgApi', 'ntFriendApi', 'ntGroupApi', 'store', 'ntUserApi']
+  static inject = ['ntMsgApi', 'ntFriendApi', 'ntGroupApi', 'store', 'ntUserApi', 'ntFileApi']
   public startupTime = 0
   public messageReceivedCount = 0
   public messageSentCount = 0
@@ -296,6 +296,10 @@ class Core extends Service {
     registerReceiveHook<[fileSetId: string, info: FlashFileDownloadingInfo]>(ReceiveCmdS.FLASH_FILE_DOWNLOADING, payload => {
       const [fileSetId, info] = payload
       this.ctx.parallel('nt/flash-file-downloading', [fileSetId, info])
+    })
+
+    registerReceiveHook<{fileSet: FlashFileSetInfo} & FlashFileUploadingInfo>(ReceiveCmdS.FLASH_FILE_UPLOADING, payload => {
+      this.ctx.parallel('nt/flash-file-uploading', payload)
     })
   }
 }

@@ -8,6 +8,7 @@ interface Payload {
 }
 
 interface Response {
+  file_set_id: string,
   share_link: string,
   expire_time: string,
 }
@@ -31,6 +32,7 @@ export class UploadFlashFile extends BaseAction<Payload, Response> {
     }
     const res = await this.ctx.ntFileApi.uploadFlashFile(name, localPaths)
     return {
+      file_set_id: res.fileSetId,
       share_link: res.shareLink,
       expire_time: res.expireTime,
     }

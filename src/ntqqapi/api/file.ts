@@ -290,7 +290,32 @@ export class NTQQFileApi extends Service {
     }
     const res = await invoke('nodeIKernelFlashTransferService/getFileList',
       [
-        fileSetId,
+        {
+          seq: 0,
+          fileSetId,
+          isUseCache: false,
+          sceneType: 1,
+          reqInfos: [
+            {
+              count: 18,
+              paginationInfo: {},
+              parentId: "",
+              reqIndexPath: "",
+              reqDepth: 1,
+              filterCondition: {
+                fileCategory: 0,
+                filterType: 0
+              },
+              sortConditions: [
+                {
+                  sortField: 0,
+                  sortOrder: 0
+                }
+              ],
+              isNeedPhysicalInfoReady: false
+            }
+          ]
+        },
       ],
     )
     if (res.rsp.result !== 0) {

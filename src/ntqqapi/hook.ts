@@ -29,6 +29,7 @@ export enum ReceiveCmdS {
   FLASH_FILE_DOWNLOAD_STATUS = 'nodeIKernelFlashTransferListener/onFileSetDownloadTaskStatusChange',
   FLASH_FILE_DOWNLOADING = 'nodeIKernelFlashTransferListener/onFileSetDownloadTaskProgressChanged',
   FLASH_FILE_UPLOAD_STATUS = 'nodeIKernelFlashTransferListener/onFileSetUploadStatusChanged',
+  FLASH_FILE_UPLOADING = 'nodeIKernelFlashTransferListener/onFileSetUploadProgressChanged',
 }
 
 const logHook = false
