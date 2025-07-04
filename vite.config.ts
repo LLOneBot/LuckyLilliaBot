@@ -44,7 +44,6 @@ function genCpModule(module: string | RegExp) {
   return { src: `./node_modules/${module}`, dest: `dist/node_modules/${module}`, flatten: false }
 }
 
-// vite.config.ts
 
 export default defineConfig({
   define: {
@@ -63,15 +62,13 @@ export default defineConfig({
         format: 'es',
       },
       plugins: [
-        // 也可以在这里添加 commonjs 插件，但注意顺序
         cp({
           targets: [
             ...external.map(genCpModule),
             { src: './src/common/default_config.json', dest: 'dist/' },
             { src: './package-dist.json', dest: 'dist/', rename: 'package.json' },
             { src: './doc/使用说明.txt', dest: 'dist/' },
-            { src: './doc/更新日志.txt', dest: 'dist/' },
-            { src: './public/qq_msg_encoding.wasm', dest: 'dist/'}
+            { src: './doc/更新日志.txt', dest: 'dist/' }
           ],
         }),
       ],

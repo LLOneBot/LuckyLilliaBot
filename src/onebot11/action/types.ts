@@ -14,7 +14,6 @@ export enum ActionName {
   DownloadFlashFile = 'download_flash_file',
   UploadFlashFile = 'upload_flash_file',
   GetRKey = "get_rkey",
-  SendPbMsg = "send_msg_pb",
   SendPB = "send_pb",
   VoiceMsg2Text = 'voice_msg_to_text',
   SendPoke = 'send_poke',

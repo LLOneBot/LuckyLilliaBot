@@ -128,8 +128,4 @@ async function onLoad() {
 }
 
 
-try {
-  onLoad().then()
-} catch (e) {
-  console.log(e)
-}
+onLoad().then().catch(e=>console.log(e))
