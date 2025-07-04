@@ -2646,3 +2646,325 @@ export namespace Oidb {
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 }
+
+/** Namespace Action. */
+export namespace Action {
+
+    /** Properties of a SendLongMsgReq. */
+    interface ISendLongMsgReq {
+
+        /** SendLongMsgReq info */
+        info?: (Action.ISendLongMsgInfo|null);
+
+        /** SendLongMsgReq settings */
+        settings?: (Action.ILongMsgSettings|null);
+    }
+
+    /** Represents a SendLongMsgReq. */
+    class SendLongMsgReq implements ISendLongMsgReq {
+
+        /**
+         * Constructs a new SendLongMsgReq.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Action.ISendLongMsgReq);
+
+        /** SendLongMsgReq info. */
+        public info?: (Action.ISendLongMsgInfo|null);
+
+        /** SendLongMsgReq settings. */
+        public settings?: (Action.ILongMsgSettings|null);
+
+        /**
+         * Encodes the specified SendLongMsgReq message. Does not implicitly {@link Action.SendLongMsgReq.verify|verify} messages.
+         * @param message SendLongMsgReq message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Action.ISendLongMsgReq, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a SendLongMsgReq message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns SendLongMsgReq
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Action.SendLongMsgReq;
+
+        /**
+         * Gets the default type url for SendLongMsgReq
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a SendLongMsgInfo. */
+    interface ISendLongMsgInfo {
+
+        /** SendLongMsgInfo type */
+        type?: (number|null);
+
+        /** SendLongMsgInfo peer */
+        peer?: (Action.ILongMsgPeer|null);
+
+        /** SendLongMsgInfo groupCode */
+        groupCode?: (number|null);
+
+        /** SendLongMsgInfo payload */
+        payload?: (Uint8Array|null);
+    }
+
+    /** Represents a SendLongMsgInfo. */
+    class SendLongMsgInfo implements ISendLongMsgInfo {
+
+        /**
+         * Constructs a new SendLongMsgInfo.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Action.ISendLongMsgInfo);
+
+        /** SendLongMsgInfo type. */
+        public type: number;
+
+        /** SendLongMsgInfo peer. */
+        public peer?: (Action.ILongMsgPeer|null);
+
+        /** SendLongMsgInfo groupCode. */
+        public groupCode: number;
+
+        /** SendLongMsgInfo payload. */
+        public payload: Uint8Array;
+
+        /**
+         * Encodes the specified SendLongMsgInfo message. Does not implicitly {@link Action.SendLongMsgInfo.verify|verify} messages.
+         * @param message SendLongMsgInfo message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Action.ISendLongMsgInfo, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a SendLongMsgInfo message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns SendLongMsgInfo
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Action.SendLongMsgInfo;
+
+        /**
+         * Gets the default type url for SendLongMsgInfo
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a LongMsgPeer. */
+    interface ILongMsgPeer {
+
+        /** LongMsgPeer uid */
+        uid?: (string|null);
+    }
+
+    /** Represents a LongMsgPeer. */
+    class LongMsgPeer implements ILongMsgPeer {
+
+        /**
+         * Constructs a new LongMsgPeer.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Action.ILongMsgPeer);
+
+        /** LongMsgPeer uid. */
+        public uid: string;
+
+        /**
+         * Encodes the specified LongMsgPeer message. Does not implicitly {@link Action.LongMsgPeer.verify|verify} messages.
+         * @param message LongMsgPeer message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Action.ILongMsgPeer, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a LongMsgPeer message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns LongMsgPeer
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Action.LongMsgPeer;
+
+        /**
+         * Gets the default type url for LongMsgPeer
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a LongMsgSettings. */
+    interface ILongMsgSettings {
+
+        /** LongMsgSettings field1 */
+        field1?: (number|null);
+
+        /** LongMsgSettings field2 */
+        field2?: (number|null);
+
+        /** LongMsgSettings field3 */
+        field3?: (number|null);
+
+        /** LongMsgSettings field4 */
+        field4?: (number|null);
+    }
+
+    /** Represents a LongMsgSettings. */
+    class LongMsgSettings implements ILongMsgSettings {
+
+        /**
+         * Constructs a new LongMsgSettings.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Action.ILongMsgSettings);
+
+        /** LongMsgSettings field1. */
+        public field1: number;
+
+        /** LongMsgSettings field2. */
+        public field2: number;
+
+        /** LongMsgSettings field3. */
+        public field3: number;
+
+        /** LongMsgSettings field4. */
+        public field4: number;
+
+        /**
+         * Encodes the specified LongMsgSettings message. Does not implicitly {@link Action.LongMsgSettings.verify|verify} messages.
+         * @param message LongMsgSettings message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Action.ILongMsgSettings, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a LongMsgSettings message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns LongMsgSettings
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Action.LongMsgSettings;
+
+        /**
+         * Gets the default type url for LongMsgSettings
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a SendLongMsgResp. */
+    interface ISendLongMsgResp {
+
+        /** SendLongMsgResp result */
+        result?: (Action.ISendLongMsgResult|null);
+
+        /** SendLongMsgResp settings */
+        settings?: (Action.ILongMsgSettings|null);
+    }
+
+    /** Represents a SendLongMsgResp. */
+    class SendLongMsgResp implements ISendLongMsgResp {
+
+        /**
+         * Constructs a new SendLongMsgResp.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Action.ISendLongMsgResp);
+
+        /** SendLongMsgResp result. */
+        public result?: (Action.ISendLongMsgResult|null);
+
+        /** SendLongMsgResp settings. */
+        public settings?: (Action.ILongMsgSettings|null);
+
+        /**
+         * Encodes the specified SendLongMsgResp message. Does not implicitly {@link Action.SendLongMsgResp.verify|verify} messages.
+         * @param message SendLongMsgResp message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Action.ISendLongMsgResp, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a SendLongMsgResp message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns SendLongMsgResp
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Action.SendLongMsgResp;
+
+        /**
+         * Gets the default type url for SendLongMsgResp
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a SendLongMsgResult. */
+    interface ISendLongMsgResult {
+
+        /** SendLongMsgResult resId */
+        resId?: (string|null);
+    }
+
+    /** Represents a SendLongMsgResult. */
+    class SendLongMsgResult implements ISendLongMsgResult {
+
+        /**
+         * Constructs a new SendLongMsgResult.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Action.ISendLongMsgResult);
+
+        /** SendLongMsgResult resId. */
+        public resId: string;
+
+        /**
+         * Encodes the specified SendLongMsgResult message. Does not implicitly {@link Action.SendLongMsgResult.verify|verify} messages.
+         * @param message SendLongMsgResult message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Action.ISendLongMsgResult, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a SendLongMsgResult message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns SendLongMsgResult
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Action.SendLongMsgResult;
+
+        /**
+         * Gets the default type url for SendLongMsgResult
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+}

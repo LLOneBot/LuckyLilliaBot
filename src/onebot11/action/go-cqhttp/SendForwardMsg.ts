@@ -59,7 +59,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
         break
       }
     }
-    return await this.handleForwardNode(peer, nodes)
+    return fake ? await this.handleFakeForwardNode(peer, nodes) : await this.handleForwardNode(peer, nodes)
   }
 
   private parseNodeContent(nodes: OB11MessageNode[]) {
@@ -77,8 +77,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
   private async handleFakeForwardNode(peer: Peer, nodes: OB11MessageNode[]): Promise<Response> {
     const encoder = new MessageEncoder(this.ctx, peer)
     const raw = await encoder.generate(nodes)
-    const transmit = Msg.PbMultiMsgTransmit.encode({ pbItemList: raw.multiMsgItems }).finish()
-    const resid = await this.ctx.app.pmhq.uploadForward(peer, transmit.subarray(1))
+    const resid = await this.ctx.app.pmhq.uploadForward(peer, raw.multiMsgItems)
     const uuid = crypto.randomUUID()
     try {
       const msg = await this.ctx.ntMsgApi.sendMsg(peer, [{
@@ -206,7 +205,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
             nodeMsgIds.push({ msgId: nodeMsg.msgId, peer: selfPeer })
             await this.ctx.sleep(300)
           }
-          deleteAfterSentFiles.map(path => unlink(path).then().catch(e=>{}))
+          deleteAfterSentFiles.map(path => unlink(path).then().catch(e => { }))
         } catch (e) {
           this.ctx.logger.error('生成转发消息节点失败', e)
         }

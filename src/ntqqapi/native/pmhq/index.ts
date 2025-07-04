@@ -1,14 +1,10 @@
-import { Context } from 'cordis'
 import { WebSocket } from 'ws'
-import { Oidb } from '@/ntqqapi/proto/compiled'
-import { selfInfo } from '@/common/globalVars'
-import { Field } from 'minato'
-import string = Field.string
-import path from 'node:path'
-import * as os from 'node:os'
-import fs from 'node:fs'
+import { Action, Msg, Oidb } from '@/ntqqapi/proto/compiled'
 import { deepConvertMap, deepStringifyMap } from '@/ntqqapi/native/pmhq/util'
+import { Peer, ChatType } from '@/ntqqapi/types/msg'
+import { selfInfo } from '@/common/globalVars'
 import { randomUUID } from 'node:crypto'
+import { gzipSync } from 'node:zlib'
 
 interface PBData {
   echo?: string
@@ -69,6 +65,13 @@ interface ResListener<R extends PMHQRes> {
   (data: R): void
 }
 
+interface MultiMsgItem {
+  fileName: string
+  buffer: {
+    msg: Msg.Message[]
+  }
+}
+
 export class PMHQ {
   private reconnectTimer: NodeJS.Timeout | undefined
   private httpUrl: string = 'http://127.0.0.1:13000'
@@ -78,7 +81,7 @@ export class PMHQ {
 
   constructor() {
     console.log(process.argv)
-    const {pmhqHost, pmhqPort} = this.getPMHQHostPort()
+    const { pmhqHost, pmhqPort } = this.getPMHQHostPort()
     this.httpUrl = `http://${pmhqHost}:${pmhqPort}/`
     this.wsUrl = `ws://${pmhqHost}:${pmhqPort}/ws`
     this.connectWebSocket().then()
@@ -87,7 +90,7 @@ export class PMHQ {
   private getPMHQHostPort() {
     let pmhqPort = '13000'
     let pmhqHost: string = '127.0.0.1'
-    for(const pArg of process.argv) {
+    for (const pArg of process.argv) {
       if (pArg.startsWith('--pmhq-port=')) {
         pmhqPort = pArg.replace('--pmhq-port=', '')
       }
@@ -95,7 +98,7 @@ export class PMHQ {
         pmhqHost = pArg.replace('--pmhq-host=', '')
       }
     }
-    return {pmhqPort, pmhqHost}
+    return { pmhqPort, pmhqHost }
   }
 
   public addResListener<R extends PMHQRes>(listener: ResListener<R>) {
@@ -157,12 +160,12 @@ export class PMHQ {
       reconnect()
     }
 
-    this.ws.onopen = ()=>{
+    this.ws.onopen = () => {
       console.info('PMHQ WebSocket 连接成功')
     }
   }
 
-  public async call(func: string, args: any, timeout=10000): Promise<any> {
+  public async call(func: string, args: any, timeout = 10000): Promise<any> {
     const payload: PMHQReqCall = {
       type: 'call',
       data: {
@@ -189,7 +192,7 @@ export class PMHQ {
     })
   }
 
-  public async wsSend<R extends PMHQRes>(data: PMHQReq, timeout=10000): Promise<R> {
+  public async wsSend<R extends PMHQRes>(data: PMHQReq, timeout = 10000): Promise<R> {
     await this.waitConnected()
     let echo = data.data?.echo
     if (!data.data?.echo) {
@@ -322,6 +325,29 @@ export class PMHQ {
       privateRKey: rkeyItems[0]?.rkey,
       groupRKey: rkeyItems[1]?.rkey,
     }
+  }
+
+  async uploadForward(peer: Peer, items: MultiMsgItem[]) {
+    const transmit = Msg.PbMultiMsgTransmit.encode({ pbItemList: items }).finish()
+    const isGroup = peer.chatType === ChatType.Group
+    const data = Action.SendLongMsgReq.encode({
+      info: {
+        type: isGroup ? 3 : 1,
+        peer: {
+          uid: isGroup ? peer.peerUid : selfInfo.uid
+        },
+        groupCode: isGroup ? +peer.peerUid : 0,
+        payload: gzipSync(transmit)
+      },
+      settings: {
+        field1: 4,
+        field2: 1,
+        field3: 7,
+        field4: 0
+      }
+    }).finish()
+    const res = await this.httpSendPB('trpc.group.long_msg_interface.MsgService.SsoSendLongMsg', data)
+    return Action.SendLongMsgResp.decode(Buffer.from(res.pb, 'hex')).result!.resId!
   }
 }
 

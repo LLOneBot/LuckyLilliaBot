@@ -1,8 +1,9 @@
 /*eslint-disable block-scoped-var, id-length, no-control-regex, no-magic-numbers, no-prototype-builtins, no-redeclare, no-shadow, no-var, sort-vars*/
-import * as $protobuf_ from "protobufjs";
-const $protobuf = $protobuf_.default;
+import $protobuf from "protobufjs/minimal";
+
 // Common aliases
 const $Reader = $protobuf.Reader, $Writer = $protobuf.Writer, $util = $protobuf.util;
+
 // Exported root namespace
 const $root = $protobuf.roots["default"] || ($protobuf.roots["default"] = {});
 
@@ -6562,6 +6563,732 @@ export const Oidb = $root.Oidb = (() => {
     })();
 
     return Oidb;
+})();
+
+export const Action = $root.Action = (() => {
+
+    /**
+     * Namespace Action.
+     * @exports Action
+     * @namespace
+     */
+    const Action = {};
+
+    Action.SendLongMsgReq = (function() {
+
+        /**
+         * Properties of a SendLongMsgReq.
+         * @memberof Action
+         * @interface ISendLongMsgReq
+         * @property {Action.ISendLongMsgInfo|null} [info] SendLongMsgReq info
+         * @property {Action.ILongMsgSettings|null} [settings] SendLongMsgReq settings
+         */
+
+        /**
+         * Constructs a new SendLongMsgReq.
+         * @memberof Action
+         * @classdesc Represents a SendLongMsgReq.
+         * @implements ISendLongMsgReq
+         * @constructor
+         * @param {Action.ISendLongMsgReq=} [properties] Properties to set
+         */
+        function SendLongMsgReq(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * SendLongMsgReq info.
+         * @member {Action.ISendLongMsgInfo|null|undefined} info
+         * @memberof Action.SendLongMsgReq
+         * @instance
+         */
+        SendLongMsgReq.prototype.info = null;
+
+        /**
+         * SendLongMsgReq settings.
+         * @member {Action.ILongMsgSettings|null|undefined} settings
+         * @memberof Action.SendLongMsgReq
+         * @instance
+         */
+        SendLongMsgReq.prototype.settings = null;
+
+        /**
+         * Encodes the specified SendLongMsgReq message. Does not implicitly {@link Action.SendLongMsgReq.verify|verify} messages.
+         * @function encode
+         * @memberof Action.SendLongMsgReq
+         * @static
+         * @param {Action.ISendLongMsgReq} message SendLongMsgReq message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        SendLongMsgReq.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.info != null && Object.hasOwnProperty.call(message, "info"))
+                $root.Action.SendLongMsgInfo.encode(message.info, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+            if (message.settings != null && Object.hasOwnProperty.call(message, "settings"))
+                $root.Action.LongMsgSettings.encode(message.settings, writer.uint32(/* id 15, wireType 2 =*/122).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a SendLongMsgReq message from the specified reader or buffer.
+         * @function decode
+         * @memberof Action.SendLongMsgReq
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Action.SendLongMsgReq} SendLongMsgReq
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        SendLongMsgReq.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Action.SendLongMsgReq();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 2: {
+                        message.info = $root.Action.SendLongMsgInfo.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 15: {
+                        message.settings = $root.Action.LongMsgSettings.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for SendLongMsgReq
+         * @function getTypeUrl
+         * @memberof Action.SendLongMsgReq
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        SendLongMsgReq.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Action.SendLongMsgReq";
+        };
+
+        return SendLongMsgReq;
+    })();
+
+    Action.SendLongMsgInfo = (function() {
+
+        /**
+         * Properties of a SendLongMsgInfo.
+         * @memberof Action
+         * @interface ISendLongMsgInfo
+         * @property {number|null} [type] SendLongMsgInfo type
+         * @property {Action.ILongMsgPeer|null} [peer] SendLongMsgInfo peer
+         * @property {number|null} [groupCode] SendLongMsgInfo groupCode
+         * @property {Uint8Array|null} [payload] SendLongMsgInfo payload
+         */
+
+        /**
+         * Constructs a new SendLongMsgInfo.
+         * @memberof Action
+         * @classdesc Represents a SendLongMsgInfo.
+         * @implements ISendLongMsgInfo
+         * @constructor
+         * @param {Action.ISendLongMsgInfo=} [properties] Properties to set
+         */
+        function SendLongMsgInfo(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * SendLongMsgInfo type.
+         * @member {number} type
+         * @memberof Action.SendLongMsgInfo
+         * @instance
+         */
+        SendLongMsgInfo.prototype.type = 0;
+
+        /**
+         * SendLongMsgInfo peer.
+         * @member {Action.ILongMsgPeer|null|undefined} peer
+         * @memberof Action.SendLongMsgInfo
+         * @instance
+         */
+        SendLongMsgInfo.prototype.peer = null;
+
+        /**
+         * SendLongMsgInfo groupCode.
+         * @member {number} groupCode
+         * @memberof Action.SendLongMsgInfo
+         * @instance
+         */
+        SendLongMsgInfo.prototype.groupCode = 0;
+
+        /**
+         * SendLongMsgInfo payload.
+         * @member {Uint8Array} payload
+         * @memberof Action.SendLongMsgInfo
+         * @instance
+         */
+        SendLongMsgInfo.prototype.payload = $util.newBuffer([]);
+
+        /**
+         * Encodes the specified SendLongMsgInfo message. Does not implicitly {@link Action.SendLongMsgInfo.verify|verify} messages.
+         * @function encode
+         * @memberof Action.SendLongMsgInfo
+         * @static
+         * @param {Action.ISendLongMsgInfo} message SendLongMsgInfo message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        SendLongMsgInfo.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.type != null && Object.hasOwnProperty.call(message, "type"))
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.type);
+            if (message.peer != null && Object.hasOwnProperty.call(message, "peer"))
+                $root.Action.LongMsgPeer.encode(message.peer, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+            if (message.groupCode != null && Object.hasOwnProperty.call(message, "groupCode"))
+                writer.uint32(/* id 3, wireType 0 =*/24).uint32(message.groupCode);
+            if (message.payload != null && Object.hasOwnProperty.call(message, "payload"))
+                writer.uint32(/* id 4, wireType 2 =*/34).bytes(message.payload);
+            return writer;
+        };
+
+        /**
+         * Decodes a SendLongMsgInfo message from the specified reader or buffer.
+         * @function decode
+         * @memberof Action.SendLongMsgInfo
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Action.SendLongMsgInfo} SendLongMsgInfo
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        SendLongMsgInfo.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Action.SendLongMsgInfo();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.type = reader.uint32();
+                        break;
+                    }
+                case 2: {
+                        message.peer = $root.Action.LongMsgPeer.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 3: {
+                        message.groupCode = reader.uint32();
+                        break;
+                    }
+                case 4: {
+                        message.payload = reader.bytes();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for SendLongMsgInfo
+         * @function getTypeUrl
+         * @memberof Action.SendLongMsgInfo
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        SendLongMsgInfo.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Action.SendLongMsgInfo";
+        };
+
+        return SendLongMsgInfo;
+    })();
+
+    Action.LongMsgPeer = (function() {
+
+        /**
+         * Properties of a LongMsgPeer.
+         * @memberof Action
+         * @interface ILongMsgPeer
+         * @property {string|null} [uid] LongMsgPeer uid
+         */
+
+        /**
+         * Constructs a new LongMsgPeer.
+         * @memberof Action
+         * @classdesc Represents a LongMsgPeer.
+         * @implements ILongMsgPeer
+         * @constructor
+         * @param {Action.ILongMsgPeer=} [properties] Properties to set
+         */
+        function LongMsgPeer(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * LongMsgPeer uid.
+         * @member {string} uid
+         * @memberof Action.LongMsgPeer
+         * @instance
+         */
+        LongMsgPeer.prototype.uid = "";
+
+        /**
+         * Encodes the specified LongMsgPeer message. Does not implicitly {@link Action.LongMsgPeer.verify|verify} messages.
+         * @function encode
+         * @memberof Action.LongMsgPeer
+         * @static
+         * @param {Action.ILongMsgPeer} message LongMsgPeer message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        LongMsgPeer.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.uid != null && Object.hasOwnProperty.call(message, "uid"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.uid);
+            return writer;
+        };
+
+        /**
+         * Decodes a LongMsgPeer message from the specified reader or buffer.
+         * @function decode
+         * @memberof Action.LongMsgPeer
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Action.LongMsgPeer} LongMsgPeer
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        LongMsgPeer.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Action.LongMsgPeer();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 2: {
+                        message.uid = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for LongMsgPeer
+         * @function getTypeUrl
+         * @memberof Action.LongMsgPeer
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        LongMsgPeer.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Action.LongMsgPeer";
+        };
+
+        return LongMsgPeer;
+    })();
+
+    Action.LongMsgSettings = (function() {
+
+        /**
+         * Properties of a LongMsgSettings.
+         * @memberof Action
+         * @interface ILongMsgSettings
+         * @property {number|null} [field1] LongMsgSettings field1
+         * @property {number|null} [field2] LongMsgSettings field2
+         * @property {number|null} [field3] LongMsgSettings field3
+         * @property {number|null} [field4] LongMsgSettings field4
+         */
+
+        /**
+         * Constructs a new LongMsgSettings.
+         * @memberof Action
+         * @classdesc Represents a LongMsgSettings.
+         * @implements ILongMsgSettings
+         * @constructor
+         * @param {Action.ILongMsgSettings=} [properties] Properties to set
+         */
+        function LongMsgSettings(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * LongMsgSettings field1.
+         * @member {number} field1
+         * @memberof Action.LongMsgSettings
+         * @instance
+         */
+        LongMsgSettings.prototype.field1 = 0;
+
+        /**
+         * LongMsgSettings field2.
+         * @member {number} field2
+         * @memberof Action.LongMsgSettings
+         * @instance
+         */
+        LongMsgSettings.prototype.field2 = 0;
+
+        /**
+         * LongMsgSettings field3.
+         * @member {number} field3
+         * @memberof Action.LongMsgSettings
+         * @instance
+         */
+        LongMsgSettings.prototype.field3 = 0;
+
+        /**
+         * LongMsgSettings field4.
+         * @member {number} field4
+         * @memberof Action.LongMsgSettings
+         * @instance
+         */
+        LongMsgSettings.prototype.field4 = 0;
+
+        /**
+         * Encodes the specified LongMsgSettings message. Does not implicitly {@link Action.LongMsgSettings.verify|verify} messages.
+         * @function encode
+         * @memberof Action.LongMsgSettings
+         * @static
+         * @param {Action.ILongMsgSettings} message LongMsgSettings message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        LongMsgSettings.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.field1 != null && Object.hasOwnProperty.call(message, "field1"))
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.field1);
+            if (message.field2 != null && Object.hasOwnProperty.call(message, "field2"))
+                writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.field2);
+            if (message.field3 != null && Object.hasOwnProperty.call(message, "field3"))
+                writer.uint32(/* id 3, wireType 0 =*/24).uint32(message.field3);
+            if (message.field4 != null && Object.hasOwnProperty.call(message, "field4"))
+                writer.uint32(/* id 4, wireType 0 =*/32).uint32(message.field4);
+            return writer;
+        };
+
+        /**
+         * Decodes a LongMsgSettings message from the specified reader or buffer.
+         * @function decode
+         * @memberof Action.LongMsgSettings
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Action.LongMsgSettings} LongMsgSettings
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        LongMsgSettings.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Action.LongMsgSettings();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.field1 = reader.uint32();
+                        break;
+                    }
+                case 2: {
+                        message.field2 = reader.uint32();
+                        break;
+                    }
+                case 3: {
+                        message.field3 = reader.uint32();
+                        break;
+                    }
+                case 4: {
+                        message.field4 = reader.uint32();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for LongMsgSettings
+         * @function getTypeUrl
+         * @memberof Action.LongMsgSettings
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        LongMsgSettings.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Action.LongMsgSettings";
+        };
+
+        return LongMsgSettings;
+    })();
+
+    Action.SendLongMsgResp = (function() {
+
+        /**
+         * Properties of a SendLongMsgResp.
+         * @memberof Action
+         * @interface ISendLongMsgResp
+         * @property {Action.ISendLongMsgResult|null} [result] SendLongMsgResp result
+         * @property {Action.ILongMsgSettings|null} [settings] SendLongMsgResp settings
+         */
+
+        /**
+         * Constructs a new SendLongMsgResp.
+         * @memberof Action
+         * @classdesc Represents a SendLongMsgResp.
+         * @implements ISendLongMsgResp
+         * @constructor
+         * @param {Action.ISendLongMsgResp=} [properties] Properties to set
+         */
+        function SendLongMsgResp(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * SendLongMsgResp result.
+         * @member {Action.ISendLongMsgResult|null|undefined} result
+         * @memberof Action.SendLongMsgResp
+         * @instance
+         */
+        SendLongMsgResp.prototype.result = null;
+
+        /**
+         * SendLongMsgResp settings.
+         * @member {Action.ILongMsgSettings|null|undefined} settings
+         * @memberof Action.SendLongMsgResp
+         * @instance
+         */
+        SendLongMsgResp.prototype.settings = null;
+
+        /**
+         * Encodes the specified SendLongMsgResp message. Does not implicitly {@link Action.SendLongMsgResp.verify|verify} messages.
+         * @function encode
+         * @memberof Action.SendLongMsgResp
+         * @static
+         * @param {Action.ISendLongMsgResp} message SendLongMsgResp message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        SendLongMsgResp.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.result != null && Object.hasOwnProperty.call(message, "result"))
+                $root.Action.SendLongMsgResult.encode(message.result, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+            if (message.settings != null && Object.hasOwnProperty.call(message, "settings"))
+                $root.Action.LongMsgSettings.encode(message.settings, writer.uint32(/* id 15, wireType 2 =*/122).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a SendLongMsgResp message from the specified reader or buffer.
+         * @function decode
+         * @memberof Action.SendLongMsgResp
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Action.SendLongMsgResp} SendLongMsgResp
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        SendLongMsgResp.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Action.SendLongMsgResp();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 2: {
+                        message.result = $root.Action.SendLongMsgResult.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 15: {
+                        message.settings = $root.Action.LongMsgSettings.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for SendLongMsgResp
+         * @function getTypeUrl
+         * @memberof Action.SendLongMsgResp
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        SendLongMsgResp.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Action.SendLongMsgResp";
+        };
+
+        return SendLongMsgResp;
+    })();
+
+    Action.SendLongMsgResult = (function() {
+
+        /**
+         * Properties of a SendLongMsgResult.
+         * @memberof Action
+         * @interface ISendLongMsgResult
+         * @property {string|null} [resId] SendLongMsgResult resId
+         */
+
+        /**
+         * Constructs a new SendLongMsgResult.
+         * @memberof Action
+         * @classdesc Represents a SendLongMsgResult.
+         * @implements ISendLongMsgResult
+         * @constructor
+         * @param {Action.ISendLongMsgResult=} [properties] Properties to set
+         */
+        function SendLongMsgResult(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * SendLongMsgResult resId.
+         * @member {string} resId
+         * @memberof Action.SendLongMsgResult
+         * @instance
+         */
+        SendLongMsgResult.prototype.resId = "";
+
+        /**
+         * Encodes the specified SendLongMsgResult message. Does not implicitly {@link Action.SendLongMsgResult.verify|verify} messages.
+         * @function encode
+         * @memberof Action.SendLongMsgResult
+         * @static
+         * @param {Action.ISendLongMsgResult} message SendLongMsgResult message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        SendLongMsgResult.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.resId != null && Object.hasOwnProperty.call(message, "resId"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.resId);
+            return writer;
+        };
+
+        /**
+         * Decodes a SendLongMsgResult message from the specified reader or buffer.
+         * @function decode
+         * @memberof Action.SendLongMsgResult
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Action.SendLongMsgResult} SendLongMsgResult
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        SendLongMsgResult.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Action.SendLongMsgResult();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 3: {
+                        message.resId = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for SendLongMsgResult
+         * @function getTypeUrl
+         * @memberof Action.SendLongMsgResult
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        SendLongMsgResult.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Action.SendLongMsgResult";
+        };
+
+        return SendLongMsgResult;
+    })();
+
+    return Action;
 })();
 
 export { $root as default };

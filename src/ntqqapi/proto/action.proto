@@ -1,0 +1,34 @@
+syntax = "proto3";
+package Action;
+
+message SendLongMsgReq {
+  SendLongMsgInfo info = 2;
+  LongMsgSettings settings = 15;
+}
+
+message SendLongMsgInfo {
+  uint32 type = 1;
+  LongMsgPeer peer = 2;
+  uint32 groupCode = 3;
+  bytes payload = 4;
+}
+
+message LongMsgPeer {
+  string uid = 2;
+}
+
+message LongMsgSettings {
+  uint32 field1 = 1;
+  uint32 field2 = 2;
+  uint32 field3 = 3;
+  uint32 field4 = 4;
+}
+
+message SendLongMsgResp {
+  SendLongMsgResult result = 2;
+  LongMsgSettings settings = 15;
+}
+
+message SendLongMsgResult {
+  string resId = 3;
+}
