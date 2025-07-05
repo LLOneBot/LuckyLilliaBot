@@ -7,7 +7,7 @@ import { ChatType, ElementType, RawMessage, SendMessageElement } from '@/ntqqapi
 import { selfInfo } from '@/common/globalVars'
 import { message2List, createSendElements, createPeer, CreatePeerMode } from '../../helper/createMessage'
 import { MessageEncoder } from '@/onebot11/helper/createMultiMessage'
-import { Msg } from '@/ntqqapi/proto/compiled'
+import { randomUUID } from 'node:crypto'
 
 interface Payload {
   user_id?: string | number
@@ -29,7 +29,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     group_id: Schema.union([Number, String]),
     messages: Schema.array(Schema.any()),
     message: Schema.array(Schema.any()),
-    message_type: Schema.union(['group', 'private'])
+    message_type: Schema.union(['group', 'private']),
   })
 
   protected async _handle(payload: Payload) {
@@ -40,7 +40,8 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     let contextMode = CreatePeerMode.Normal
     if (payload.message_type === 'group') {
       contextMode = CreatePeerMode.Group
-    } else if (payload.message_type === 'private') {
+    }
+    else if (payload.message_type === 'private') {
       contextMode = CreatePeerMode.Private
     }
     const peer = await createPeer(this.ctx, payload, contextMode)
@@ -68,8 +69,8 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
         type: e.type,
         data: {
           ...e.data,
-          content: e.data.content ? message2List(e.data.content) : undefined
-        }
+          content: e.data.content ? message2List(e.data.content) : undefined,
+        },
       }
     })
   }
@@ -78,7 +79,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     const encoder = new MessageEncoder(this.ctx, peer)
     const raw = await encoder.generate(nodes)
     const resid = await this.ctx.app.pmhq.uploadForward(peer, raw.multiMsgItems)
-    const uuid = crypto.randomUUID()
+    const uuid = randomUUID()
     try {
       const msg = await this.ctx.ntMsgApi.sendMsg(peer, [{
         elementType: 10,
@@ -91,7 +92,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
               forward: 1,
               round: 1,
               type: 'normal',
-              width: 300
+              width: 300,
             },
             desc: '[聊天记录]',
             extra: JSON.stringify({
@@ -105,17 +106,17 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
                 source: raw.source,
                 summary: raw.summary,
                 uniseq: uuid,
-              }
+              },
             },
             prompt: '[聊天记录]',
             ver: '0.0.0.5',
-            view: 'contact'
-          })
-        }
+            view: 'contact',
+          }),
+        },
       }], 1800)
       const msgShortId = this.ctx.store.createMsgShortId({
         chatType: msg!.chatType,
-        peerUid: msg!.peerUid
+        peerUid: msg!.peerUid,
       }, msg!.msgId)
       return { message_id: msgShortId, forward_id: resid }
     } catch (e) {
@@ -137,7 +138,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     try {
       const peer = {
         chatType: ChatType.C2C,
-        peerUid: selfInfo.uid
+        peerUid: selfInfo.uid,
       }
       const nodeMsg = await this.ctx.ntMsgApi.sendMsg(peer, sendElements)
       await this.ctx.sleep(300)
@@ -174,7 +175,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
           const { sendElements, deleteAfterSentFiles } = await createSendElements(
             this.ctx,
             messageNode.data.content as OB11MessageData[],
-            destPeer
+            destPeer,
           )
           this.ctx.logger.info('开始生成转发节点', sendElements)
           const sendElementsSplit: SendMessageElement[][] = []
@@ -205,7 +206,8 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
             nodeMsgIds.push({ msgId: nodeMsg.msgId, peer: selfPeer })
             await this.ctx.sleep(300)
           }
-          deleteAfterSentFiles.map(path => unlink(path).then().catch(e => { }))
+          deleteAfterSentFiles.map(path => unlink(path).then().catch(e => {
+          }))
         } catch (e) {
           this.ctx.logger.error('生成转发消息节点失败', e)
         }
@@ -234,7 +236,8 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
         const clonedMsg = await this.cloneMsg(msg)
         if (clonedMsg) retMsgIds.push(clonedMsg.msgId)
       }
-    } else {
+    }
+    else {
       retMsgIds = nodeMsgArray.map(msg => msg.msgId)
     }
     if (retMsgIds.length === 0) {
@@ -244,7 +247,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     const resid = JSON.parse(msg.elements[0].arkElement!.bytesData).meta.detail.resid
     const msgShortId = this.ctx.store.createMsgShortId({
       chatType: msg.chatType,
-      peerUid: msg.peerUid
+      peerUid: msg.peerUid,
     }, msg.msgId)
     return { message_id: msgShortId, forward_id: resid }
   }

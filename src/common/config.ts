@@ -138,7 +138,12 @@ export class ConfigUtil {
   }
 }
 
+let globalConfigUtil: ConfigUtil | null = null
+
 export function getConfigUtil() {
   const configFilePath = path.join(DATA_DIR, `config_${selfInfo.uin}.json`)
-  return new ConfigUtil(configFilePath)
+  if (!globalConfigUtil) {
+    globalConfigUtil = new ConfigUtil(configFilePath)
+  }
+  return globalConfigUtil
 }

@@ -24,7 +24,11 @@ export function getFixedDataDir() {
     dataDir = path.join(os.homedir(), '.llonebot')
   }
   if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir)
+    try {
+      fs.mkdirSync(dataDir)
+    }catch (e) {
+
+    }
   }
   return dataDir
 }

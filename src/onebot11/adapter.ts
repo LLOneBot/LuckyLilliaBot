@@ -105,7 +105,8 @@ class OneBot11Adapter extends Service {
           )
           this.dispatch(event)
         }
-      } else if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
+      }
+      else if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
         this.ctx.logger.info('有加群请求')
         const requestUin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
         const event = new OB11GroupRequestEvent(
@@ -143,7 +144,8 @@ class OneBot11Adapter extends Service {
           parseInt(invitorId) || 0,
         )
         this.dispatch(event)
-      } else if ([
+      }
+      else if ([
         GroupNotifyType.SetAdmin,
         GroupNotifyType.CancelAdminNotifyCanceled,
         GroupNotifyType.CancelAdminNotifyAdmin,
@@ -248,58 +250,70 @@ class OneBot11Adapter extends Service {
       heartInterval: config.heartInterval,
       token: config.ob11.token,
     })
-    if (config.ob11.enableHttp !== old.enableHttp) {
-      if (!config.ob11.enableHttp) {
+    if (config.ob11.enable) {
+      if (config.ob11.enableHttp !== old.enableHttp) {
+        if (!config.ob11.enableHttp) {
+          await this.ob11Http.stop()
+        }
+        else {
+          this.ob11Http.start()
+        }
+      }
+      // HTTP 端口变化，重启服务
+      if ((config.ob11.httpPort !== old.httpPort || config.onlyLocalhost !== old.onlyLocalhost) && config.ob11.enableHttp) {
         await this.ob11Http.stop()
-      } else {
         this.ob11Http.start()
       }
-    }
-    // HTTP 端口变化，重启服务
-    if ((config.ob11.httpPort !== old.httpPort || config.onlyLocalhost !== old.onlyLocalhost) && config.ob11.enableHttp) {
-      await this.ob11Http.stop()
-      this.ob11Http.start()
-    }
-    // 判断是否启用或关闭正向 WebSocket
-    if (config.ob11.enableWs !== old.enableWs) {
-      if (config.ob11.enableWs) {
-        this.ob11WebSocket.start()
-      } else {
+      // 判断是否启用或关闭正向 WebSocket
+      if (config.ob11.enableWs !== old.enableWs || config.ob11.enable !== old.enable) {
+        if (config.ob11.enableWs) {
+          this.ob11WebSocket.start()
+        }
+        else {
+          await this.ob11WebSocket.stop()
+        }
+      }
+      // 正向 WebSocket 端口变化，重启服务
+      if ((config.ob11.wsPort !== old.wsPort || config.onlyLocalhost !== old.onlyLocalhost) && config.ob11.enableWs) {
         await this.ob11WebSocket.stop()
+        this.ob11WebSocket.start()
+        llonebotError.wsServerError = ''
       }
-    }
-    // 正向 WebSocket 端口变化，重启服务
-    if ((config.ob11.wsPort !== old.wsPort || config.onlyLocalhost !== old.onlyLocalhost) && config.ob11.enableWs) {
-      await this.ob11WebSocket.stop()
-      this.ob11WebSocket.start()
-      llonebotError.wsServerError = ''
-    }
-    // 判断是否启用或关闭反向ws
-    if (config.ob11.enableWsReverse !== old.enableWsReverse) {
+      // 判断是否启用或关闭反向ws
+      if (config.ob11.enableWsReverse !== old.enableWsReverse || config.ob11.enable !== old.enable) {
+        if (config.ob11.enableWsReverse) {
+          this.ob11WebSocketReverseManager.start()
+        }
+        else {
+          this.ob11WebSocketReverseManager.stop()
+        }
+      }
+      // 判断反向 WebSocket 地址有变化
       if (config.ob11.enableWsReverse) {
-        this.ob11WebSocketReverseManager.start()
-      } else {
-        this.ob11WebSocketReverseManager.stop()
-      }
-    }
-    // 判断反向 WebSocket 地址有变化
-    if (config.ob11.enableWsReverse) {
-      if (config.ob11.wsReverseUrls.length !== old.wsReverseUrls.length) {
-        this.ob11WebSocketReverseManager.stop()
-        this.ob11WebSocketReverseManager.start()
-      } else {
-        for (const newHost of config.ob11.wsReverseUrls) {
-          if (!old.wsReverseUrls.includes(newHost)) {
-            this.ob11WebSocketReverseManager.stop()
-            this.ob11WebSocketReverseManager.start()
-            break
+        if (config.ob11.wsReverseUrls.length !== old.wsReverseUrls.length) {
+          this.ob11WebSocketReverseManager.stop()
+          this.ob11WebSocketReverseManager.start()
+        }
+        else {
+          for (const newHost of config.ob11.wsReverseUrls) {
+            if (!old.wsReverseUrls.includes(newHost)) {
+              this.ob11WebSocketReverseManager.stop()
+              this.ob11WebSocketReverseManager.start()
+              break
+            }
           }
         }
       }
+      if (config.ob11.enableHttpHeart !== old.enableHttpHeart || config.ob11.enable !== old.enable) {
+        this.ob11HttpPost.stop()
+        this.ob11HttpPost.start()
+      }
     }
-    if (config.ob11.enableHttpHeart !== old.enableHttpHeart) {
+    else {
+      this.ob11Http.stop()
+      this.ob11WebSocket.stop()
       this.ob11HttpPost.stop()
-      this.ob11HttpPost.start()
+      this.ob11WebSocketReverseManager.stop()
     }
     Object.assign(this.config, {
       ...config.ob11,
@@ -326,7 +340,8 @@ class OneBot11Adapter extends Service {
       this.ob11HttpPost.start()
     }
     this.ctx.on('llob/config-updated', input => {
-      this.handleConfigUpdated(input)
+      this.handleConfigUpdated(input).catch(e => {
+      })
     })
     this.ctx.on('nt/message-created', (input: RawMessage) => {
       // 其他终端自己发送的消息会进入这里
@@ -364,7 +379,8 @@ class OneBot11Adapter extends Service {
         const [times] = detail.txt?.match(/\d+/) ?? ['0']
         const event = new OB11ProfileLikeEvent(detail.uin!, detail.nickname!, +times)
         this.dispatch(event)
-      } else if (msgType === 33) {
+      }
+      else if (msgType === 33) {
         const tip = SysMsg.GroupMemberChange.decode(sysMsg.body!.msgContent!)
         if (tip.type !== 130) return
         this.ctx.logger.info('群成员增加', tip)
@@ -372,7 +388,8 @@ class OneBot11Adapter extends Service {
         const operatorUin = await this.ctx.ntUserApi.getUinByUid(tip.adminUid)
         const event = new OB11GroupIncreaseEvent(tip.groupCode, +memberUin, +operatorUin)
         this.dispatch(event)
-      } else if (msgType === 34) {
+      }
+      else if (msgType === 34) {
         const tip = SysMsg.GroupMemberChange.decode(sysMsg.body!.msgContent!)
         if (tip.type !== 130) return // adminUid: 0
         this.ctx.logger.info('群成员减少', tip)
@@ -443,7 +460,7 @@ class OneBot11Adapter extends Service {
             parseInt(downloadingInfo.totalDownLoadedBytes),
             downloadingInfo.curSpeedBps,
             downloadingInfo.remainDownLoadSeconds,
-            files
+            files,
           )
           this.dispatch(event)
         }).catch((err) => {
@@ -456,7 +473,7 @@ class OneBot11Adapter extends Service {
     })
 
     this.ctx.on('nt/flash-file-uploading', info => {
-      this.ctx.ntFileApi.getFlashFileList(info.fileSet.fileSetId, false).then(fileList=>{
+      this.ctx.ntFileApi.getFlashFileList(info.fileSet.fileSetId, false).then(fileList => {
         const files: OB11FlashFile[] = []
         for (const file of fileList) {
           for (const file2 of file.fileList) {
@@ -476,7 +493,7 @@ class OneBot11Adapter extends Service {
           parseInt(info.fileSet.totalFileSize),
           parseInt(info.uploadSpeed),
           parseInt(info.timeRemain),
-          files
+          files,
         )
         this.dispatch(event)
       })

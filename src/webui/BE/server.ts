@@ -13,7 +13,10 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
 // 静态文件服务，指向前端dist目录
-const feDistPath = path.resolve(__dirname, 'webui/')
+let feDistPath = path.resolve(__dirname, 'webui/')
+if (!import.meta.env){
+  feDistPath = path.join(__dirname, '../../../dist/webui/')
+}
 
 export interface WebUIServerConfig extends WebUIConfig {
   onlyLocalhost: boolean
@@ -59,7 +62,9 @@ export class WebUIServer extends Service {
     this.app.post('/api/config', (req, res) => {
       try {
         const config = req.body as Config
-        getConfigUtil().setConfig(config)
+        const oldConfig = getConfigUtil().getConfig()
+        const newConfig = {...oldConfig, ...config}
+        this.ctx.parallel('llob/config-updated', newConfig).then().catch(e=>this.ctx.logger.error(e))
         res.json({ success: true, message: '配置保存成功' })
       } catch (e) {
         res.status(500).json({ success: false, message: '保存配置失败', error: String(e) })
@@ -90,11 +95,16 @@ export class WebUIServer extends Service {
 
     // 监听 config 更新事件
     ctx.on('llob/config-updated', (newConfig: Config) => {
+      const oldConfig = {...this.config}
       this.config = { onlyLocalhost: newConfig.onlyLocalhost, ...newConfig.webui }
-      // this.ctx.logger.info('WebUI 配置已更新:', this.config)
-      this.restart()
+      if (oldConfig.onlyLocalhost != newConfig.onlyLocalhost
+        || oldConfig.enable != newConfig.webui?.enable
+        || oldConfig.port != newConfig.webui?.port
+      ) {
+        this.ctx.logger.info('WebUI 配置已更新:', this.config)
+        this.restart()
+      }
     })
-
   }
 
   // Override the base Service.start() signature to match expected arguments

@@ -9,6 +9,7 @@ import { ObjectToSnake } from 'ts-case-convert'
 import { selfInfo } from '@/common/globalVars'
 import { initActionMap } from '@/onebot11/action'
 import { OB11Response } from '@/onebot11/action/OB11Response'
+import { getAvailablePort } from '@/common/utils/port'
 
 export class SatoriServer {
   private express: Express
@@ -34,9 +35,9 @@ export class SatoriServer {
   private async handleOneBotRequest(req: Request, res: Response) {
     if (this.checkAuth(req, res)) return
 
-    const action = req.params.action;
+    const action = req.params.action
     const params = req.method === 'POST' ? req.body : req.query
-    let result;
+    let result
     try {
       result = await this.CallOneBot11API(action, params)
     } catch (e) {
@@ -49,8 +50,8 @@ export class SatoriServer {
   public start() {
 
     this.express.route('/v1/internal/onebot11/:action')
-    .post(this.handleOneBotRequest.bind(this))
-    .get(this.handleOneBotRequest.bind(this))
+      .post(this.handleOneBotRequest.bind(this))
+      .get(this.handleOneBotRequest.bind(this))
 
     this.express.get('/v1/:name', async (req, res) => {
       res.status(405).send('Please use POST method to send requests.')
@@ -86,48 +87,56 @@ export class SatoriServer {
       }
     })
 
-    const { onlyLocalhost, port } = this.config
-    let host = onlyLocalhost ? '127.0.0.1': ''
-    this.httpServer = this.express.listen(port, host, () => {
-      this.ctx.logger.info(`Satori server started ${host}:${port}`)
-    })
-    this.wsServer = new WebSocketServer({
-      server: this.httpServer
-    })
-
-    this.wsServer.on('connection', (socket, req) => {
-      const url = req.url?.split('?').shift()
-      if (!['/v1/events', '/v1/events/'].includes(url!)) {
-        return socket.close(1008, 'invalid address')
+    let { onlyLocalhost, port } = this.config
+    let host = onlyLocalhost ? '127.0.0.1' : ''
+    getAvailablePort(port).then(availablePort => {
+      if (availablePort !== port) {
+        return this.ctx.logger.warn(`端口 ${port} 已被占用`)
       }
-
-      socket.addEventListener('message', async (event) => {
-        let payload: Universal.ClientPayload
-        try {
-          payload = JSON.parse(event.data.toString())
-        } catch (error) {
-          return socket.close(4000, 'invalid message')
+      this.httpServer = this.express.listen(port, host, (error) => {
+        this.ctx.logger.info(`Satori server started ${host}:${port}`)
+        if (error) {
+          this.ctx.logger.error('Failed to start Satori server:', error)
+        }
+      })
+      this.wsServer = new WebSocketServer({
+        server: this.httpServer,
+      })
+      this.wsServer.on('connection', (socket, req) => {
+        const url = req.url?.split('?').shift()
+        if (!['/v1/events', '/v1/events/'].includes(url!)) {
+          return socket.close(1008, 'invalid address')
         }
 
-        if (payload.op === Universal.Opcode.IDENTIFY) {
-          if (this.config.token && payload.body?.token !== this.config.token) {
-            return socket.close(4004, 'invalid token')
+        socket.addEventListener('message', async (event) => {
+          let payload: Universal.ClientPayload
+          try {
+            payload = JSON.parse(event.data.toString())
+          } catch (error) {
+            return socket.close(4000, 'invalid message')
           }
-          this.ctx.logger.info('ws connect', url)
-          socket.send(JSON.stringify({
-            op: Universal.Opcode.READY,
-            body: {
-              logins: [await handlers.getLogin(this.ctx, {}) as Universal.Login],
-              proxy_urls: []
+
+          if (payload.op === Universal.Opcode.IDENTIFY) {
+            if (this.config.token && payload.body?.token !== this.config.token) {
+              return socket.close(4004, 'invalid token')
             }
-          } as ObjectToSnake<Universal.ServerPayload>))
-          this.wsClients.push(socket)
-        } else if (payload.op === Universal.Opcode.PING) {
-          socket.send(JSON.stringify({
-            op: Universal.Opcode.PONG,
-            body: {},
-          } as Universal.ServerPayload))
-        }
+            this.ctx.logger.info('ws connect', url)
+            socket.send(JSON.stringify({
+              op: Universal.Opcode.READY,
+              body: {
+                logins: [await handlers.getLogin(this.ctx, {}) as Universal.Login],
+                proxy_urls: [],
+              },
+            } as ObjectToSnake<Universal.ServerPayload>))
+            this.wsClients.push(socket)
+          }
+          else if (payload.op === Universal.Opcode.PING) {
+            socket.send(JSON.stringify({
+              op: Universal.Opcode.PONG,
+              body: {},
+            } as Universal.ServerPayload))
+          }
+        })
       })
     })
   }
@@ -139,16 +148,19 @@ export class SatoriServer {
           if (socket.readyState === WebSocket.OPEN) {
             socket.close(1000)
           }
-        } catch { }
+        } catch {
+        }
       }
     }
     if (this.wsServer) {
       const close = promisify(this.wsServer.close)
       await close.call(this.wsServer)
+      this.wsServer = undefined
     }
     if (this.httpServer) {
       const close = promisify(this.httpServer.close)
       await close.call(this.httpServer)
+      this.httpServer = undefined
     }
   }
 
@@ -165,7 +177,7 @@ export class SatoriServer {
       if (socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify({
           op: Universal.Opcode.EVENT,
-          body
+          body,
         } as ObjectToSnake<Universal.ServerPayload>))
         this.ctx.logger.info('WebSocket 事件上报', socket.url ?? '', body.type)
       }

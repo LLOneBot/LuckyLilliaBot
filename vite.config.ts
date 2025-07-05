@@ -9,26 +9,26 @@ writeVersion()
 
 function getModuleDependencies(moduleName: string, basePath = path.join(__dirname, 'node_modules'), seen = new Set<string>()) {
   if (seen.has(moduleName)) {
-    return [];
+    return []
   }
-  seen.add(moduleName);
+  seen.add(moduleName)
 
-  const pkgPath = path.join(basePath, moduleName, 'package.json');
-  let pkg;
+  const pkgPath = path.join(basePath, moduleName, 'package.json')
+  let pkg
   try {
-    const content = fs.readFileSync(pkgPath, 'utf-8');
-    pkg = JSON.parse(content);
+    const content = fs.readFileSync(pkgPath, 'utf-8')
+    pkg = JSON.parse(content)
   } catch (err) {
     // 找不到 package.json 或 JSON 解析失败时，跳过
-    return [];
+    return []
   }
 
-  const deps = Object.keys(pkg.dependencies || {});
+  const deps = Object.keys(pkg.dependencies || {})
   for (const dep of deps) {
-    getModuleDependencies(dep, basePath, seen);
+    getModuleDependencies(dep, basePath, seen)
   }
 
-  const result = Array.from(seen);
+  const result = Array.from(seen)
   return result
 }
 
@@ -38,6 +38,7 @@ const external = [
   '@minatojs/sql.js',
   ...getModuleDependencies('file-type'),
 ]
+
 // console.log(external)
 
 function genCpModule(module: string | RegExp) {
@@ -48,14 +49,16 @@ function genCpModule(module: string | RegExp) {
 export default defineConfig({
   define: {
     __IS_BROWSER__: false, // 确保在 Node.js 环境中运行
+    'process.env': 'process.env', // 防止 Vite 替换 process.env
+    // 'import.meta.env.MODE': '"production"'
   },
   build: {
     sourcemap: true,
     minify: false,
     outDir: 'dist',
-    target: 'node18',
+    target: 'node22',
     rollupOptions: {
-      external: [...external, ...builtinModules, /^node:/,],
+      external: [...external, ...builtinModules, /^node:/],
       input: 'src/main/main.ts',
       output: {
         entryFileNames: 'llonebot.js',
@@ -68,7 +71,7 @@ export default defineConfig({
             { src: './src/common/default_config.json', dest: 'dist/' },
             { src: './package-dist.json', dest: 'dist/', rename: 'package.json' },
             { src: './doc/使用说明.txt', dest: 'dist/' },
-            { src: './doc/更新日志.txt', dest: 'dist/' }
+            { src: './doc/更新日志.txt', dest: 'dist/' },
           ],
         }),
       ],

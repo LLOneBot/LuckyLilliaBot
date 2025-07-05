@@ -124,7 +124,6 @@ class SatoriAdapter extends Service {
 
   start() {
     this.server.start()
-
     this.ctx.on('nt/message-created', async input => {
       const event = await this.handleMessage(input)
         .catch(e => this.ctx.logger.error(e))
@@ -167,7 +166,9 @@ class SatoriAdapter extends Service {
       if (!isDeepStrictEqual(old, inputSatoriConfig)) {
         await this.server.stop()
         this.server.updateConfig(inputSatoriConfig)
-        this.server.start()
+        if (inputSatoriConfig.enable) {
+          this.server.start()
+        }
       }
       Object.assign(this.config, {...inputSatoriConfig, ffmpeg: input.ffmpeg })
     })

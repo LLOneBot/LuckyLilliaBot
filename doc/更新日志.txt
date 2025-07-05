@@ -1,7 +1,10 @@
 V5.3.0
-更新时间：
+更新时间：2025-7-5 19:24:42
 
 * 修复内存泄露
+* 修复自动检测环境变量的 ffmpeg
+* 支持 37012
+* 支持合并转发自定义 uin 和 name
 * 新增获取 rkey API `get_rkey`
 * 新增上传闪传文件 API `upload_flash_file`
 * 新增下载闪传文件 API `download_flash_file`
