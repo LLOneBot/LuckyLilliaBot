@@ -10,5 +10,5 @@ OneBot 11 and Satori Server
 
 TG Group：<https://t.me/+nLZEnpne-pQ1OWFl>
 
-QQ Group：<https://qm.qq.com/q/3k5fzILp7y>
+QQ Group：[545402644](https://qm.qq.com/q/3k5fzILp7y)
 

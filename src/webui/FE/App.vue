@@ -12,6 +12,7 @@
               <el-menu-item index='1'>OneBot 11 配置</el-menu-item>
               <el-menu-item index='2'>Satori 配置</el-menu-item>
               <el-menu-item index='3'>其他配置</el-menu-item>
+              <el-menu-item index='4'>关于</el-menu-item>
             </el-menu>
             <el-form :model='form' label-width='160px' size='large' class='config-form'>
               <Ob11ConfigForm
@@ -21,6 +22,7 @@
               />
               <SatoriConfigForm v-if="activeIndex === '2'" v-model='form.satori' />
               <OtherConfigForm v-if="activeIndex === '3'" v-model='form' />
+              <About v-if="activeIndex === '4'" />
               <el-form-item class='form-actions'>
                 <el-button type='primary' @click='onSave' size='large' style='float: right;' :loading='loading'>
                   保存配置
@@ -47,6 +49,7 @@ import OtherConfigForm from './components/OtherConfigForm.vue'
 import TokenDialog from './components/TokenDialog.vue'
 import { Config } from '@common/types'
 import { version } from '../../version'
+import About from '@/components/About.vue'
 
 // Token logic
 const tokenKey = 'webui_token'
