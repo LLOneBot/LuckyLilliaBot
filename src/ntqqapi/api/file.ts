@@ -48,7 +48,7 @@ export class NTQQFileApi extends Service {
         0, // video code format, 0: H264, 1: H265 ?
         {
           downSourceType: 1,
-          triggerType: 1,
+          triggerType: 0,  // 是否下载到本地
         },
       ])
       if (data.result !== 0) {

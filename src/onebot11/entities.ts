@@ -258,7 +258,7 @@ export namespace OB11Entities {
           type: OB11MessageDataType.File,
           data: {
             file: fileElement.fileName,
-            url: pathToFileURL(fileElement.filePath).href,
+            url: fileElement?.filePath ?? pathToFileURL(fileElement.filePath).href,
             file_id: fileElement.fileUuid,
             path: fileElement.filePath,
             file_size: fileSize,
