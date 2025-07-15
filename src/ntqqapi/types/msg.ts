@@ -577,12 +577,12 @@ export interface GroupFileInfo {
 
 export interface QueryMsgsParams {
   chatInfo: Peer
-  filterMsgType: []
-  filterSendersUid: string[]
+  filterMsgType?: []
+  filterSendersUid?: string[]
   filterMsgFromTime: string
   filterMsgToTime: string
   pageLimit: number
-  isReverseOrder: boolean
+  isReverseOrder?: boolean
   isIncludeCurrent: boolean
 }
 

@@ -4,27 +4,29 @@ import { GeneralCallResult } from './common'
 export interface NodeIKernelMsgService {
   generateMsgUniqueId(chatType: number, time: string): string
 
-  sendMsg(msgId: string, peer: Peer, msgElements: MessageElement[], map: Map<unknown, unknown>): Promise<GeneralCallResult>
+  sendMsg(msgId: string, peer: Peer, msgElements: MessageElement[], msgAttributeInfos: Map<unknown, unknown>): Promise<GeneralCallResult>
 
   recallMsg(peer: Peer, msgIds: string[]): Promise<GeneralCallResult>
 
-  setStatus(args: { status: number, extStatus: number, batteryStatus: number }): Promise<GeneralCallResult>
+  setStatus(statusReq: { status: number, extStatus: number, batteryStatus: number }): Promise<GeneralCallResult>
 
   forwardMsg(msgIds: string[], srcContact: Peer, dstContacts: Peer[], commentElements: MessageElement[]): Promise<GeneralCallResult & {
     detailErr: Map<unknown, unknown>
   }>
 
-  forwardMsgWithComment(...args: unknown[]): Promise<GeneralCallResult>
+  forwardMsgWithComment(msgIds: string[], srcContact: Peer, dstContacts: Peer[], commentElements: MessageElement[], msgAttributeInfos: Map<unknown, unknown>): Promise<GeneralCallResult & {
+    detailErr: Map<unknown, unknown>
+  }>
 
   multiForwardMsgWithComment(...args: unknown[]): unknown
 
-  getAioFirstViewLatestMsgs(peer: Peer, num: number): Promise<GeneralCallResult & { msgList: RawMessage[] }>
+  getAioFirstViewLatestMsgs(peer: Peer, cnt: number): Promise<GeneralCallResult & { msgList: RawMessage[] }>
 
   getAioFirstViewLatestMsgsAndAddActiveChat(...args: unknown[]): Promise<GeneralCallResult & { msgList: RawMessage[] }>
 
   getMsgsIncludeSelfAndAddActiveChat(...args: unknown[]): Promise<GeneralCallResult & { msgList: RawMessage[] }>
 
-  getMsgsIncludeSelf(peer: Peer, msgId: string, count: number, queryOrder: boolean): Promise<GeneralCallResult & { msgList: RawMessage[] }>
+  getMsgsIncludeSelf(peer: Peer, msgId: string, cnt: number, queryOrder: boolean): Promise<GeneralCallResult & { msgList: RawMessage[] }>
 
   getMsgsBySeqAndCount(peer: Peer, msgSeq: string, cnt: number, queryOrder: boolean, incloudeDeleteMsg: boolean): Promise<GeneralCallResult & { msgList: RawMessage[] }>
 
@@ -40,7 +42,7 @@ export interface NodeIKernelMsgService {
 
   setMsgRead(peer: Peer): Promise<GeneralCallResult>
 
-  getRichMediaFilePathForGuild(arg: {
+  getRichMediaFilePathForGuild(path_info: {
     md5HexStr: string
     fileName: string
     elementType: ElementType
@@ -51,7 +53,7 @@ export interface NodeIKernelMsgService {
     file_uuid: ''
   }): string
 
-  fetchFavEmojiList(str: string, num: number, uk1: boolean, uk2: boolean): Promise<GeneralCallResult & {
+  fetchFavEmojiList(resId: string, count: number, backwardFetch: boolean, forceRefresh: boolean): Promise<GeneralCallResult & {
     emojiInfoList: {
       uin: string
       emoId: number

@@ -52,7 +52,7 @@ export class NTQQGroupApi extends Service {
       throw new Error('获取群成员列表出错,' + data.errMsg)
     }
     const infos: Map<string, GroupMember> = data.result.infos
-    for(const [uid, member] of infos){
+    for (const [uid, member] of infos) {
       uidUinBidiMap.set(uid, member.uin)
     }
     return infos
@@ -72,7 +72,7 @@ export class NTQQGroupApi extends Service {
       ],
       {
         resultCmd: 'nodeIKernelGroupListener/onMemberInfoChange',
-        resultCb: result=> {
+        resultCb: result => {
           return result[0] === groupCode && result[2].has(uid)
         }
       },
@@ -216,7 +216,7 @@ export class NTQQGroupApi extends Service {
   }
 
   async getGroupRecommendContact(groupCode: string) {
-    const ret = await invoke('nodeIKernelGroupService/getGroupRecommendContactArkJson', [{ groupCode }])
+    const ret = await invoke('nodeIKernelGroupService/getGroupRecommendContactArkJson', [groupCode])
     return ret.arkJson
   }
 
@@ -233,9 +233,7 @@ export class NTQQGroupApi extends Service {
   async getGroupHonorList(groupCode: string) {
     // 还缺点东西
     return await invoke('nodeIKernelGroupService/getGroupHonorList', [{
-      req: {
-        groupCode: [+groupCode],
-      },
+      groupCode: [+groupCode],
     }])
   }
 
@@ -288,10 +286,10 @@ export class NTQQGroupApi extends Service {
   }
 
   async searchMember(groupCode: string, keyword: string) {
-    const sceneId = await invoke(NTMethod.GROUP_MEMBER_SCENE, [{
+    const sceneId = await invoke(NTMethod.GROUP_MEMBER_SCENE, [
       groupCode,
-      scene: 'groupMemberList_MainWindow',
-    }])
+      'groupMemberList_MainWindow'
+    ])
     const data = await invoke<{
       sceneId: string
       keyword: string
@@ -312,14 +310,14 @@ export class NTQQGroupApi extends Service {
   async getGroupFileCount(groupId: string) {
     return await invoke(
       'nodeIKernelRichMediaService/batchGetGroupFileCount',
-      [{ groupIds: [groupId] }],
+      [[groupId]],
     )
   }
 
   async getGroupFileSpace(groupId: string) {
     return await invoke(
       'nodeIKernelRichMediaService/getGroupSpace',
-      [{ groupId }],
+      [groupId],
     )
   }
 

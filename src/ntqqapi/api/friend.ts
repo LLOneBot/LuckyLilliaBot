@@ -30,7 +30,7 @@ export class NTQQFriendApi extends Service {
       [],
       {},
     )
-    for (const item of data){
+    for (const item of data) {
       if (item.uid && item.uin) {
         uidUinBidiMap.set(item.uid, item.uin);
       }
@@ -44,7 +44,7 @@ export class NTQQFriendApi extends Service {
   }
 
   async getBuddyV2WithCate(refresh = false): Promise<CategoryFriend[]> {
-    const categoryData = (await invoke<{data:CategoryFriend[]}>(
+    const categoryData = (await invoke<{ data: CategoryFriend[] }>(
       'nodeIKernelBuddyService/getBuddyListV2',
       [refresh, 0],
       {
@@ -57,7 +57,7 @@ export class NTQQFriendApi extends Service {
     }
     for (const category of categoryData) {
       category.buddyList = []
-      for(const uid of category.buddyUids){
+      for (const uid of category.buddyUids) {
         category.buddyList.push(buddyMap.get(uid)!)
       }
     }
@@ -69,7 +69,7 @@ export class NTQQFriendApi extends Service {
   }
 
   async getBuddyRecommendContact(uin: string) {
-    const ret = await invoke('nodeIKernelBuddyService/getBuddyRecommendContactArkJson', [{ uin }])
+    const ret = await invoke('nodeIKernelBuddyService/getBuddyRecommendContactArkJson', [uin, '-'])
     return ret.arkMsg
   }
 
@@ -84,8 +84,7 @@ export class NTQQFriendApi extends Service {
       friendUid,
       tempBlock: false,
       tempBothDel: true,
-    },
-    ])
+    }])
   }
 
   async setBuddyCategory(uid: string, categoryId: number) {

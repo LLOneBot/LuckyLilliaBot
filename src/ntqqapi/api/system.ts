@@ -29,8 +29,8 @@ export class NTQQSystemApi extends Service {
   }
 
   async setSettingAutoLogin(state: boolean) {
-    await invoke('nodeIKernelSettingService/setNeedConfirmSwitch', [1] ) // 1：不需要手机确认，2：需要手机确认
+    await invoke<unknown>('nodeIKernelSettingService/setNeedConfirmSwitch', [1] ) // 1：不需要手机确认，2：需要手机确认
 
-    await invoke('nodeIKernelSettingService/setAutoLoginSwitch', [state])
+    await invoke<unknown>('nodeIKernelSettingService/setAutoLoginSwitch', [state])
   }
 }

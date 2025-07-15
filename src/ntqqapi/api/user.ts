@@ -159,8 +159,8 @@ export class NTQQUserApi extends Service {
     return await invoke(
       'nodeIKernelProfileService/getCoreAndBaseInfo',
       [
-        uids,
         'nodeStore',
+        uids,
       ],
     )
   }
@@ -203,7 +203,7 @@ export class NTQQUserApi extends Service {
 
 
   async forceFetchClientKey() {
-    return await invoke('nodeIKernelTicketService/forceFetchClientKey', [{ url: '' }])
+    return await invoke('nodeIKernelTicketService/forceFetchClientKey', [''])
   }
 
   async getSelfNick(refresh = true) {

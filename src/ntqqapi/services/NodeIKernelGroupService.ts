@@ -3,6 +3,7 @@ import {
   GroupMemberRole,
   GroupNotifyType,
   GroupRequestOperateTypes,
+  GroupMsgMask
 } from '@/ntqqapi/types'
 import { GeneralCallResult } from './common'
 
@@ -49,11 +50,9 @@ export interface NodeIKernelGroupService {
     }[]
   }>
 
-  setHeader(uid: string, path: string): unknown
-
   createMemberListScene(groupCode: string, scene: string): string
 
-  getNextMemberList(sceneId: string, a: undefined, num: number): Promise<{
+  getNextMemberList(sceneId: string, lastId: undefined, num: number): Promise<{
     errCode: number
     errMsg: string
     result: {
@@ -124,7 +123,7 @@ export interface NodeIKernelGroupService {
 
   removeGroupEssence(param: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<unknown>
 
-  setHeader(args: unknown[]): Promise<GeneralCallResult>
+  setHeader(path: string, groupCode: string): Promise<GeneralCallResult>
 
   searchMember(sceneId: string, keyword: string): Promise<void>
 
@@ -134,5 +133,7 @@ export interface NodeIKernelGroupService {
 
   getGroupShutUpMemberList(groupCode: string): Promise<void | GeneralCallResult>
 
-  getAllMemberList(groupCode: string, force: boolean): Promise<GeneralCallResult & {result: {infos: Map<string, GroupMember>}}>
+  getAllMemberList(groupCode: string, force: boolean): Promise<GeneralCallResult & { result: { infos: Map<string, GroupMember> } }>
+
+  setGroupMsgMask(groupCode: string, msgMask: GroupMsgMask): Promise<GeneralCallResult>
 }

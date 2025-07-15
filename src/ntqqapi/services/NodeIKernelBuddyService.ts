@@ -12,15 +12,21 @@ export interface NodeIKernelBuddyService {
 
   }[]>
 
-  setBuddyRemark(arg: unknown): Promise<GeneralCallResult>
+  setBuddyRemark(remarkParams: { uid: string, remark: string }): Promise<GeneralCallResult>
 
   isBuddy(uid: string): boolean
 
-  approvalFriendRequest(arg: {
+  approvalFriendRequest(approvalInfo: {
     friendUid: string
     reqTime: string
     accept: boolean
   }): Promise<void>
 
   getBuddyRecommendContactArkJson(uid: string, phoneNumber: string): Promise<GeneralCallResult & { arkMsg: string }>
+
+  delBuddy(delInfo: {
+    friendUid: string
+    tempBlock: boolean
+    tempBothDel: boolean
+  }): Promise<GeneralCallResult>
 }

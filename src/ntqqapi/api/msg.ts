@@ -230,6 +230,8 @@ export class NTQQMsgApi extends Service {
       msgSeq,
       emojiId,
       emojiType,
+      '',
+      false,
       count,
     ])
   }
@@ -256,11 +258,11 @@ export class NTQQMsgApi extends Service {
 
   async queryMsgsById(chatType: ChatType, msgId: string) {
     const msgTime = this.getMsgTimeFromId(msgId)
-    return await invoke('nodeIKernelMsgService/queryMsgsWithFilterEx', [{
+    return await invoke('nodeIKernelMsgService/queryMsgsWithFilterEx', [
       msgId,
-      msgTime: '0',
-      msgSeq: '0',
-      params: {
+      '0',
+      '0',
+      {
         chatInfo: {
           peerUid: '',
           chatType,
@@ -270,7 +272,7 @@ export class NTQQMsgApi extends Service {
         isIncludeCurrent: true,
         pageLimit: 1,
       },
-    }])
+    ])
   }
 
   getMsgTimeFromId(msgId: string) {
@@ -282,19 +284,15 @@ export class NTQQMsgApi extends Service {
     return await invoke('nodeIKernelMSFService/getServerTime', [])
   }
 
-  async fetchUnitedCommendConfig(groups: string[]) {
-    return await invoke('nodeIKernelUnitedConfigService/fetchUnitedCommendConfig', [{ groups }])
-  }
-
   async getMsgsBySeqAndCount(peer: Peer, msgSeq: string, cnt: number, queryOrder: boolean, includeDeleteMsg: boolean) {
     try {
       return await invoke('nodeIKernelMsgService/getMsgsBySeqAndCount', [
-          peer,
-          msgSeq,
-          cnt,
-          queryOrder,
-          includeDeleteMsg,
-        ],
+        peer,
+        msgSeq,
+        cnt,
+        queryOrder,
+        includeDeleteMsg,
+      ],
         {
           timeout: Math.max(1000 * cnt, 3000),
         })

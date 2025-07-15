@@ -10,7 +10,7 @@ export interface NodeIKernelProfileService {
 
   fetchUserDetailInfo(trace: string, uids: string[], arg2: number, arg3: number[]): Promise<unknown>
 
-  setHeader(arg: string): Promise<GeneralCallResult>
+  setHeader(path: string): Promise<GeneralCallResult>
 
   getUserDetailInfoWithBizInfo(uid: string, biz: unknown[]): Promise<GeneralCallResult>
 
