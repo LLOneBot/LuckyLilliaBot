@@ -34,7 +34,16 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
       msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, String(seq), count, true, true)).msgList
     }
     if (!msgList?.length) return
-    const ob11MsgList = await Promise.all(msgList.map(msg => OB11Entities.message(this.ctx, msg)))
+    const ob11MsgList = await Promise.all(msgList.map(msg => {
+      let rawMsg = msg
+      if (rawMsg.recallTime !== '0') {
+        let msg = this.ctx.store.getMsgCache(rawMsg.msgId)
+        if (msg) {
+          rawMsg = msg
+        }
+      }
+      return OB11Entities.message(this.ctx, rawMsg)
+    }))
     return filterNullable(ob11MsgList)
   }
 
