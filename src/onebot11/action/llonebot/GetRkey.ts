@@ -2,8 +2,8 @@ import { BaseAction } from '@/onebot11/action/BaseAction'
 import { ActionName } from '@/onebot11/action/types'
 
 interface Response {
-  private_key: string | null | undefined
-  group_key: string | null | undefined
+  private_key: string
+  group_key: string
   expired_time: number
   updated_time: string
 }

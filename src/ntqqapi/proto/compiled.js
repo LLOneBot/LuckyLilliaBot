@@ -6253,7 +6253,10 @@ export const Oidb = $root.Oidb = (() => {
          * @memberof Oidb
          * @interface IGetRKeyResponseItem
          * @property {string|null} [rkey] GetRKeyResponseItem rkey
+         * @property {number|null} [ttlSec] GetRKeyResponseItem ttlSec
+         * @property {number|null} [storeId] GetRKeyResponseItem storeId
          * @property {number|null} [createTime] GetRKeyResponseItem createTime
+         * @property {number|null} [type] GetRKeyResponseItem type
          */
 
         /**
@@ -6280,12 +6283,36 @@ export const Oidb = $root.Oidb = (() => {
         GetRKeyResponseItem.prototype.rkey = "";
 
         /**
+         * GetRKeyResponseItem ttlSec.
+         * @member {number} ttlSec
+         * @memberof Oidb.GetRKeyResponseItem
+         * @instance
+         */
+        GetRKeyResponseItem.prototype.ttlSec = 0;
+
+        /**
+         * GetRKeyResponseItem storeId.
+         * @member {number} storeId
+         * @memberof Oidb.GetRKeyResponseItem
+         * @instance
+         */
+        GetRKeyResponseItem.prototype.storeId = 0;
+
+        /**
          * GetRKeyResponseItem createTime.
          * @member {number} createTime
          * @memberof Oidb.GetRKeyResponseItem
          * @instance
          */
         GetRKeyResponseItem.prototype.createTime = 0;
+
+        /**
+         * GetRKeyResponseItem type.
+         * @member {number} type
+         * @memberof Oidb.GetRKeyResponseItem
+         * @instance
+         */
+        GetRKeyResponseItem.prototype.type = 0;
 
         /**
          * Encodes the specified GetRKeyResponseItem message. Does not implicitly {@link Oidb.GetRKeyResponseItem.verify|verify} messages.
@@ -6301,8 +6328,14 @@ export const Oidb = $root.Oidb = (() => {
                 writer = $Writer.create();
             if (message.rkey != null && Object.hasOwnProperty.call(message, "rkey"))
                 writer.uint32(/* id 1, wireType 2 =*/10).string(message.rkey);
+            if (message.ttlSec != null && Object.hasOwnProperty.call(message, "ttlSec"))
+                writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.ttlSec);
+            if (message.storeId != null && Object.hasOwnProperty.call(message, "storeId"))
+                writer.uint32(/* id 3, wireType 0 =*/24).uint32(message.storeId);
             if (message.createTime != null && Object.hasOwnProperty.call(message, "createTime"))
                 writer.uint32(/* id 4, wireType 0 =*/32).uint32(message.createTime);
+            if (message.type != null && Object.hasOwnProperty.call(message, "type"))
+                writer.uint32(/* id 5, wireType 0 =*/40).uint32(message.type);
             return writer;
         };
 
@@ -6330,8 +6363,20 @@ export const Oidb = $root.Oidb = (() => {
                         message.rkey = reader.string();
                         break;
                     }
+                case 2: {
+                        message.ttlSec = reader.uint32();
+                        break;
+                    }
+                case 3: {
+                        message.storeId = reader.uint32();
+                        break;
+                    }
                 case 4: {
                         message.createTime = reader.uint32();
+                        break;
+                    }
+                case 5: {
+                        message.type = reader.uint32();
                         break;
                     }
                 default:

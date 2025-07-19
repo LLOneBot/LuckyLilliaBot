@@ -2511,8 +2511,17 @@ export namespace Oidb {
         /** GetRKeyResponseItem rkey */
         rkey?: (string|null);
 
+        /** GetRKeyResponseItem ttlSec */
+        ttlSec?: (number|null);
+
+        /** GetRKeyResponseItem storeId */
+        storeId?: (number|null);
+
         /** GetRKeyResponseItem createTime */
         createTime?: (number|null);
+
+        /** GetRKeyResponseItem type */
+        type?: (number|null);
     }
 
     /** Represents a GetRKeyResponseItem. */
@@ -2527,8 +2536,17 @@ export namespace Oidb {
         /** GetRKeyResponseItem rkey. */
         public rkey: string;
 
+        /** GetRKeyResponseItem ttlSec. */
+        public ttlSec: number;
+
+        /** GetRKeyResponseItem storeId. */
+        public storeId: number;
+
         /** GetRKeyResponseItem createTime. */
         public createTime: number;
+
+        /** GetRKeyResponseItem type. */
+        public type: number;
 
         /**
          * Encodes the specified GetRKeyResponseItem message. Does not implicitly {@link Oidb.GetRKeyResponseItem.verify|verify} messages.

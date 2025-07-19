@@ -326,10 +326,10 @@ export class PMHQ {
     const data = Buffer.from(hexStr, 'hex')
     const resp = await this.wsSendPB('OidbSvcTrpcTcp.0xed3_1', data)
     const rkeyBody = Oidb.Base.decode(Buffer.from(resp.pb, 'hex')).body
-    const rkeyItems = Oidb.GetRKeyResponseBody.decode(rkeyBody).result?.rkeyItems!
+    const rkeyItems = Oidb.GetRKeyResponseBody.decode(rkeyBody).result!.rkeyItems!
     return {
-      privateRKey: rkeyItems[0]?.rkey,
-      groupRKey: rkeyItems[1]?.rkey,
+      privateRKey: rkeyItems[0].rkey!,
+      groupRKey: rkeyItems[1].rkey!,
     }
   }
 

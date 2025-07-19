@@ -32,12 +32,16 @@ message SetSpecialTitle {
 
 message GetRKeyResponseItem {
   string rkey = 1;
+  uint32 ttlSec = 2;
+  uint32 storeId = 3;
   uint32 createTime = 4;
+  uint32 type = 5;
 }
 
 message GetRKeyResponseItems {
   repeated GetRKeyResponseItem rkeyItems = 1;
 }
-message GetRKeyResponseBody{
+
+message GetRKeyResponseBody {
   GetRKeyResponseItems result = 4;
 }
