@@ -2,6 +2,7 @@ V5.4.2
 更新时间
 
 * 新增获取指定词汇推荐的表情 API `get_recommend_face`
+* 修复 `get_group_member_info` API 返回的 `qq_level` 为 0 的问题
 * 修复非好友邀请 bot 加群上报
 * 修复视频消息 url 上报失败
 * 修复在线状态上报不准确
