@@ -1,6 +1,10 @@
-V5.4.2
-更新时间
+V5.5.0
+更新时间 2025-7-20 17:39:39
 
+* 支持 37475
+* pmhq_config.json 新增配置项
+* * debug: 默认 false，开启后会打印收发的 pb，并且 ws 会推送 send 的 pb
+* * enable_gui: 默认 true，关闭后不启用 gui，仅 Windows 有效
 * 新增获取指定词汇推荐的表情 API `get_recommend_face`
 * 修复 `get_group_member_info` API 返回的 `qq_level` 为 0 的问题
 * 修复 `get_group_msg_history` API 获取撤回的消息时没有使用缓存的问题
