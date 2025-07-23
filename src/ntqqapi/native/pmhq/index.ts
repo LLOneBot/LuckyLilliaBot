@@ -369,6 +369,23 @@ export class PMHQ {
     const res = await this.httpSendPB('PicSearchSvr.PullPics', data)
     return Action.PullPicsResp.decode(Buffer.from(res.pb, 'hex'))
   }
+
+  async fetchUserLevel(uin: number) {
+    const body = Oidb.FetchUserInfo.encode({
+      uin,
+      keys: [{ key: 105 }],
+    }).finish()
+    const data = Oidb.Base.encode({
+      command: 0xfe1,
+      subCommand: 2,
+      body,
+      isReserved: 1,
+    }).finish()
+    const res = await this.httpSendPB('OidbSvcTrpcTcp.0xfe1_2', data)
+    const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+    const info = Oidb.FetchUserInfoResponse.decode(oidbRespBody)
+    return info.body!.properties!.numberProperties![0].value!
+  }
 }
 
 export const pmhq = new PMHQ()

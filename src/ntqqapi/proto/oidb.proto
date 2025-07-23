@@ -45,3 +45,38 @@ message GetRKeyResponseItems {
 message GetRKeyResponseBody {
   GetRKeyResponseItems result = 4;
 }
+
+// OidbSvcTrpcTcp.0xfe1_2
+message FetchUserInfo {
+  uint32 uin = 1;
+  uint32 field2 = 2;
+  repeated FetchUserInfoKey keys = 3;
+}
+
+message FetchUserInfoKey {
+  uint32 key = 1;
+}
+
+message FetchUserInfoResponse {
+  FetchUserInfoResponseBody body = 1;
+}
+
+message FetchUserInfoResponseBody {
+  FetchUserInfoResponseProperty properties = 2;
+  uint32 uin = 3;
+}
+
+message FetchUserInfoResponseProperty {
+  repeated OidbUserNumberProperty numberProperties = 1;
+  repeated OidbUserByteProperty bytesProperties = 2;
+}
+
+message OidbUserNumberProperty {
+  uint32 key = 1;
+  uint32 value = 2;
+}
+
+message OidbUserByteProperty {
+  uint32 key = 1;
+  bytes value = 2;
+}

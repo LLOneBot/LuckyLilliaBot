@@ -17,7 +17,7 @@ export interface NodeIKernelProfileService {
 
   getUserDetailInfoWithBizInfo(uid: string, biz: unknown[]): Promise<GeneralCallResult>
 
-  getUserDetailInfoByUin(uin: string): Promise<GeneralCallResult & { detail?: UserDetailInfoV2, info?: UserDetailInfo }>
+  getUserDetailInfoByUin(uin: string): Promise<GeneralCallResult & { detail: UserDetailInfoV2 }>
 
   modifyDesktopMiniProfile(profile: unknown): Promise<GeneralCallResult>
 }

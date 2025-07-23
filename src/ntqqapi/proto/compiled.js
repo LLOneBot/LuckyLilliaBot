@@ -6607,6 +6607,801 @@ export const Oidb = $root.Oidb = (() => {
         return GetRKeyResponseBody;
     })();
 
+    Oidb.FetchUserInfo = (function() {
+
+        /**
+         * Properties of a FetchUserInfo.
+         * @memberof Oidb
+         * @interface IFetchUserInfo
+         * @property {number|null} [uin] FetchUserInfo uin
+         * @property {number|null} [field2] FetchUserInfo field2
+         * @property {Array.<Oidb.IFetchUserInfoKey>|null} [keys] FetchUserInfo keys
+         */
+
+        /**
+         * Constructs a new FetchUserInfo.
+         * @memberof Oidb
+         * @classdesc Represents a FetchUserInfo.
+         * @implements IFetchUserInfo
+         * @constructor
+         * @param {Oidb.IFetchUserInfo=} [properties] Properties to set
+         */
+        function FetchUserInfo(properties) {
+            this.keys = [];
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * FetchUserInfo uin.
+         * @member {number} uin
+         * @memberof Oidb.FetchUserInfo
+         * @instance
+         */
+        FetchUserInfo.prototype.uin = 0;
+
+        /**
+         * FetchUserInfo field2.
+         * @member {number} field2
+         * @memberof Oidb.FetchUserInfo
+         * @instance
+         */
+        FetchUserInfo.prototype.field2 = 0;
+
+        /**
+         * FetchUserInfo keys.
+         * @member {Array.<Oidb.IFetchUserInfoKey>} keys
+         * @memberof Oidb.FetchUserInfo
+         * @instance
+         */
+        FetchUserInfo.prototype.keys = $util.emptyArray;
+
+        /**
+         * Encodes the specified FetchUserInfo message. Does not implicitly {@link Oidb.FetchUserInfo.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.FetchUserInfo
+         * @static
+         * @param {Oidb.IFetchUserInfo} message FetchUserInfo message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        FetchUserInfo.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.uin != null && Object.hasOwnProperty.call(message, "uin"))
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.uin);
+            if (message.field2 != null && Object.hasOwnProperty.call(message, "field2"))
+                writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.field2);
+            if (message.keys != null && message.keys.length)
+                for (let i = 0; i < message.keys.length; ++i)
+                    $root.Oidb.FetchUserInfoKey.encode(message.keys[i], writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a FetchUserInfo message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.FetchUserInfo
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.FetchUserInfo} FetchUserInfo
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        FetchUserInfo.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.FetchUserInfo();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.uin = reader.uint32();
+                        break;
+                    }
+                case 2: {
+                        message.field2 = reader.uint32();
+                        break;
+                    }
+                case 3: {
+                        if (!(message.keys && message.keys.length))
+                            message.keys = [];
+                        message.keys.push($root.Oidb.FetchUserInfoKey.decode(reader, reader.uint32()));
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for FetchUserInfo
+         * @function getTypeUrl
+         * @memberof Oidb.FetchUserInfo
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        FetchUserInfo.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.FetchUserInfo";
+        };
+
+        return FetchUserInfo;
+    })();
+
+    Oidb.FetchUserInfoKey = (function() {
+
+        /**
+         * Properties of a FetchUserInfoKey.
+         * @memberof Oidb
+         * @interface IFetchUserInfoKey
+         * @property {number|null} [key] FetchUserInfoKey key
+         */
+
+        /**
+         * Constructs a new FetchUserInfoKey.
+         * @memberof Oidb
+         * @classdesc Represents a FetchUserInfoKey.
+         * @implements IFetchUserInfoKey
+         * @constructor
+         * @param {Oidb.IFetchUserInfoKey=} [properties] Properties to set
+         */
+        function FetchUserInfoKey(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * FetchUserInfoKey key.
+         * @member {number} key
+         * @memberof Oidb.FetchUserInfoKey
+         * @instance
+         */
+        FetchUserInfoKey.prototype.key = 0;
+
+        /**
+         * Encodes the specified FetchUserInfoKey message. Does not implicitly {@link Oidb.FetchUserInfoKey.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.FetchUserInfoKey
+         * @static
+         * @param {Oidb.IFetchUserInfoKey} message FetchUserInfoKey message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        FetchUserInfoKey.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.key != null && Object.hasOwnProperty.call(message, "key"))
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.key);
+            return writer;
+        };
+
+        /**
+         * Decodes a FetchUserInfoKey message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.FetchUserInfoKey
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.FetchUserInfoKey} FetchUserInfoKey
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        FetchUserInfoKey.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.FetchUserInfoKey();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.key = reader.uint32();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for FetchUserInfoKey
+         * @function getTypeUrl
+         * @memberof Oidb.FetchUserInfoKey
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        FetchUserInfoKey.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.FetchUserInfoKey";
+        };
+
+        return FetchUserInfoKey;
+    })();
+
+    Oidb.FetchUserInfoResponse = (function() {
+
+        /**
+         * Properties of a FetchUserInfoResponse.
+         * @memberof Oidb
+         * @interface IFetchUserInfoResponse
+         * @property {Oidb.IFetchUserInfoResponseBody|null} [body] FetchUserInfoResponse body
+         */
+
+        /**
+         * Constructs a new FetchUserInfoResponse.
+         * @memberof Oidb
+         * @classdesc Represents a FetchUserInfoResponse.
+         * @implements IFetchUserInfoResponse
+         * @constructor
+         * @param {Oidb.IFetchUserInfoResponse=} [properties] Properties to set
+         */
+        function FetchUserInfoResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * FetchUserInfoResponse body.
+         * @member {Oidb.IFetchUserInfoResponseBody|null|undefined} body
+         * @memberof Oidb.FetchUserInfoResponse
+         * @instance
+         */
+        FetchUserInfoResponse.prototype.body = null;
+
+        /**
+         * Encodes the specified FetchUserInfoResponse message. Does not implicitly {@link Oidb.FetchUserInfoResponse.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.FetchUserInfoResponse
+         * @static
+         * @param {Oidb.IFetchUserInfoResponse} message FetchUserInfoResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        FetchUserInfoResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.body != null && Object.hasOwnProperty.call(message, "body"))
+                $root.Oidb.FetchUserInfoResponseBody.encode(message.body, writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a FetchUserInfoResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.FetchUserInfoResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.FetchUserInfoResponse} FetchUserInfoResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        FetchUserInfoResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.FetchUserInfoResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.body = $root.Oidb.FetchUserInfoResponseBody.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for FetchUserInfoResponse
+         * @function getTypeUrl
+         * @memberof Oidb.FetchUserInfoResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        FetchUserInfoResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.FetchUserInfoResponse";
+        };
+
+        return FetchUserInfoResponse;
+    })();
+
+    Oidb.FetchUserInfoResponseBody = (function() {
+
+        /**
+         * Properties of a FetchUserInfoResponseBody.
+         * @memberof Oidb
+         * @interface IFetchUserInfoResponseBody
+         * @property {Oidb.IFetchUserInfoResponseProperty|null} [properties] FetchUserInfoResponseBody properties
+         * @property {number|null} [uin] FetchUserInfoResponseBody uin
+         */
+
+        /**
+         * Constructs a new FetchUserInfoResponseBody.
+         * @memberof Oidb
+         * @classdesc Represents a FetchUserInfoResponseBody.
+         * @implements IFetchUserInfoResponseBody
+         * @constructor
+         * @param {Oidb.IFetchUserInfoResponseBody=} [properties] Properties to set
+         */
+        function FetchUserInfoResponseBody(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * FetchUserInfoResponseBody properties.
+         * @member {Oidb.IFetchUserInfoResponseProperty|null|undefined} properties
+         * @memberof Oidb.FetchUserInfoResponseBody
+         * @instance
+         */
+        FetchUserInfoResponseBody.prototype.properties = null;
+
+        /**
+         * FetchUserInfoResponseBody uin.
+         * @member {number} uin
+         * @memberof Oidb.FetchUserInfoResponseBody
+         * @instance
+         */
+        FetchUserInfoResponseBody.prototype.uin = 0;
+
+        /**
+         * Encodes the specified FetchUserInfoResponseBody message. Does not implicitly {@link Oidb.FetchUserInfoResponseBody.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.FetchUserInfoResponseBody
+         * @static
+         * @param {Oidb.IFetchUserInfoResponseBody} message FetchUserInfoResponseBody message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        FetchUserInfoResponseBody.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.properties != null && Object.hasOwnProperty.call(message, "properties"))
+                $root.Oidb.FetchUserInfoResponseProperty.encode(message.properties, writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+            if (message.uin != null && Object.hasOwnProperty.call(message, "uin"))
+                writer.uint32(/* id 3, wireType 0 =*/24).uint32(message.uin);
+            return writer;
+        };
+
+        /**
+         * Decodes a FetchUserInfoResponseBody message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.FetchUserInfoResponseBody
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.FetchUserInfoResponseBody} FetchUserInfoResponseBody
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        FetchUserInfoResponseBody.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.FetchUserInfoResponseBody();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 2: {
+                        message.properties = $root.Oidb.FetchUserInfoResponseProperty.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 3: {
+                        message.uin = reader.uint32();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for FetchUserInfoResponseBody
+         * @function getTypeUrl
+         * @memberof Oidb.FetchUserInfoResponseBody
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        FetchUserInfoResponseBody.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.FetchUserInfoResponseBody";
+        };
+
+        return FetchUserInfoResponseBody;
+    })();
+
+    Oidb.FetchUserInfoResponseProperty = (function() {
+
+        /**
+         * Properties of a FetchUserInfoResponseProperty.
+         * @memberof Oidb
+         * @interface IFetchUserInfoResponseProperty
+         * @property {Array.<Oidb.IOidbUserNumberProperty>|null} [numberProperties] FetchUserInfoResponseProperty numberProperties
+         * @property {Array.<Oidb.IOidbUserByteProperty>|null} [bytesProperties] FetchUserInfoResponseProperty bytesProperties
+         */
+
+        /**
+         * Constructs a new FetchUserInfoResponseProperty.
+         * @memberof Oidb
+         * @classdesc Represents a FetchUserInfoResponseProperty.
+         * @implements IFetchUserInfoResponseProperty
+         * @constructor
+         * @param {Oidb.IFetchUserInfoResponseProperty=} [properties] Properties to set
+         */
+        function FetchUserInfoResponseProperty(properties) {
+            this.numberProperties = [];
+            this.bytesProperties = [];
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * FetchUserInfoResponseProperty numberProperties.
+         * @member {Array.<Oidb.IOidbUserNumberProperty>} numberProperties
+         * @memberof Oidb.FetchUserInfoResponseProperty
+         * @instance
+         */
+        FetchUserInfoResponseProperty.prototype.numberProperties = $util.emptyArray;
+
+        /**
+         * FetchUserInfoResponseProperty bytesProperties.
+         * @member {Array.<Oidb.IOidbUserByteProperty>} bytesProperties
+         * @memberof Oidb.FetchUserInfoResponseProperty
+         * @instance
+         */
+        FetchUserInfoResponseProperty.prototype.bytesProperties = $util.emptyArray;
+
+        /**
+         * Encodes the specified FetchUserInfoResponseProperty message. Does not implicitly {@link Oidb.FetchUserInfoResponseProperty.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.FetchUserInfoResponseProperty
+         * @static
+         * @param {Oidb.IFetchUserInfoResponseProperty} message FetchUserInfoResponseProperty message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        FetchUserInfoResponseProperty.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.numberProperties != null && message.numberProperties.length)
+                for (let i = 0; i < message.numberProperties.length; ++i)
+                    $root.Oidb.OidbUserNumberProperty.encode(message.numberProperties[i], writer.uint32(/* id 1, wireType 2 =*/10).fork()).ldelim();
+            if (message.bytesProperties != null && message.bytesProperties.length)
+                for (let i = 0; i < message.bytesProperties.length; ++i)
+                    $root.Oidb.OidbUserByteProperty.encode(message.bytesProperties[i], writer.uint32(/* id 2, wireType 2 =*/18).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a FetchUserInfoResponseProperty message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.FetchUserInfoResponseProperty
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.FetchUserInfoResponseProperty} FetchUserInfoResponseProperty
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        FetchUserInfoResponseProperty.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.FetchUserInfoResponseProperty();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        if (!(message.numberProperties && message.numberProperties.length))
+                            message.numberProperties = [];
+                        message.numberProperties.push($root.Oidb.OidbUserNumberProperty.decode(reader, reader.uint32()));
+                        break;
+                    }
+                case 2: {
+                        if (!(message.bytesProperties && message.bytesProperties.length))
+                            message.bytesProperties = [];
+                        message.bytesProperties.push($root.Oidb.OidbUserByteProperty.decode(reader, reader.uint32()));
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for FetchUserInfoResponseProperty
+         * @function getTypeUrl
+         * @memberof Oidb.FetchUserInfoResponseProperty
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        FetchUserInfoResponseProperty.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.FetchUserInfoResponseProperty";
+        };
+
+        return FetchUserInfoResponseProperty;
+    })();
+
+    Oidb.OidbUserNumberProperty = (function() {
+
+        /**
+         * Properties of an OidbUserNumberProperty.
+         * @memberof Oidb
+         * @interface IOidbUserNumberProperty
+         * @property {number|null} [key] OidbUserNumberProperty key
+         * @property {number|null} [value] OidbUserNumberProperty value
+         */
+
+        /**
+         * Constructs a new OidbUserNumberProperty.
+         * @memberof Oidb
+         * @classdesc Represents an OidbUserNumberProperty.
+         * @implements IOidbUserNumberProperty
+         * @constructor
+         * @param {Oidb.IOidbUserNumberProperty=} [properties] Properties to set
+         */
+        function OidbUserNumberProperty(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * OidbUserNumberProperty key.
+         * @member {number} key
+         * @memberof Oidb.OidbUserNumberProperty
+         * @instance
+         */
+        OidbUserNumberProperty.prototype.key = 0;
+
+        /**
+         * OidbUserNumberProperty value.
+         * @member {number} value
+         * @memberof Oidb.OidbUserNumberProperty
+         * @instance
+         */
+        OidbUserNumberProperty.prototype.value = 0;
+
+        /**
+         * Encodes the specified OidbUserNumberProperty message. Does not implicitly {@link Oidb.OidbUserNumberProperty.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.OidbUserNumberProperty
+         * @static
+         * @param {Oidb.IOidbUserNumberProperty} message OidbUserNumberProperty message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        OidbUserNumberProperty.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.key != null && Object.hasOwnProperty.call(message, "key"))
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.key);
+            if (message.value != null && Object.hasOwnProperty.call(message, "value"))
+                writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.value);
+            return writer;
+        };
+
+        /**
+         * Decodes an OidbUserNumberProperty message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.OidbUserNumberProperty
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.OidbUserNumberProperty} OidbUserNumberProperty
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        OidbUserNumberProperty.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.OidbUserNumberProperty();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.key = reader.uint32();
+                        break;
+                    }
+                case 2: {
+                        message.value = reader.uint32();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for OidbUserNumberProperty
+         * @function getTypeUrl
+         * @memberof Oidb.OidbUserNumberProperty
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        OidbUserNumberProperty.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.OidbUserNumberProperty";
+        };
+
+        return OidbUserNumberProperty;
+    })();
+
+    Oidb.OidbUserByteProperty = (function() {
+
+        /**
+         * Properties of an OidbUserByteProperty.
+         * @memberof Oidb
+         * @interface IOidbUserByteProperty
+         * @property {number|null} [key] OidbUserByteProperty key
+         * @property {Uint8Array|null} [value] OidbUserByteProperty value
+         */
+
+        /**
+         * Constructs a new OidbUserByteProperty.
+         * @memberof Oidb
+         * @classdesc Represents an OidbUserByteProperty.
+         * @implements IOidbUserByteProperty
+         * @constructor
+         * @param {Oidb.IOidbUserByteProperty=} [properties] Properties to set
+         */
+        function OidbUserByteProperty(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * OidbUserByteProperty key.
+         * @member {number} key
+         * @memberof Oidb.OidbUserByteProperty
+         * @instance
+         */
+        OidbUserByteProperty.prototype.key = 0;
+
+        /**
+         * OidbUserByteProperty value.
+         * @member {Uint8Array} value
+         * @memberof Oidb.OidbUserByteProperty
+         * @instance
+         */
+        OidbUserByteProperty.prototype.value = $util.newBuffer([]);
+
+        /**
+         * Encodes the specified OidbUserByteProperty message. Does not implicitly {@link Oidb.OidbUserByteProperty.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.OidbUserByteProperty
+         * @static
+         * @param {Oidb.IOidbUserByteProperty} message OidbUserByteProperty message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        OidbUserByteProperty.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.key != null && Object.hasOwnProperty.call(message, "key"))
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.key);
+            if (message.value != null && Object.hasOwnProperty.call(message, "value"))
+                writer.uint32(/* id 2, wireType 2 =*/18).bytes(message.value);
+            return writer;
+        };
+
+        /**
+         * Decodes an OidbUserByteProperty message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.OidbUserByteProperty
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.OidbUserByteProperty} OidbUserByteProperty
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        OidbUserByteProperty.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.OidbUserByteProperty();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.key = reader.uint32();
+                        break;
+                    }
+                case 2: {
+                        message.value = reader.bytes();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for OidbUserByteProperty
+         * @function getTypeUrl
+         * @memberof Oidb.OidbUserByteProperty
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        OidbUserByteProperty.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.OidbUserByteProperty";
+        };
+
+        return OidbUserByteProperty;
+    })();
+
     return Oidb;
 })();
 

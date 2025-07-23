@@ -2663,6 +2663,357 @@ export namespace Oidb {
          */
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
+
+    /** Properties of a FetchUserInfo. */
+    interface IFetchUserInfo {
+
+        /** FetchUserInfo uin */
+        uin?: (number|null);
+
+        /** FetchUserInfo field2 */
+        field2?: (number|null);
+
+        /** FetchUserInfo keys */
+        keys?: (Oidb.IFetchUserInfoKey[]|null);
+    }
+
+    /** Represents a FetchUserInfo. */
+    class FetchUserInfo implements IFetchUserInfo {
+
+        /**
+         * Constructs a new FetchUserInfo.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IFetchUserInfo);
+
+        /** FetchUserInfo uin. */
+        public uin: number;
+
+        /** FetchUserInfo field2. */
+        public field2: number;
+
+        /** FetchUserInfo keys. */
+        public keys: Oidb.IFetchUserInfoKey[];
+
+        /**
+         * Encodes the specified FetchUserInfo message. Does not implicitly {@link Oidb.FetchUserInfo.verify|verify} messages.
+         * @param message FetchUserInfo message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IFetchUserInfo, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a FetchUserInfo message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns FetchUserInfo
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.FetchUserInfo;
+
+        /**
+         * Gets the default type url for FetchUserInfo
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a FetchUserInfoKey. */
+    interface IFetchUserInfoKey {
+
+        /** FetchUserInfoKey key */
+        key?: (number|null);
+    }
+
+    /** Represents a FetchUserInfoKey. */
+    class FetchUserInfoKey implements IFetchUserInfoKey {
+
+        /**
+         * Constructs a new FetchUserInfoKey.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IFetchUserInfoKey);
+
+        /** FetchUserInfoKey key. */
+        public key: number;
+
+        /**
+         * Encodes the specified FetchUserInfoKey message. Does not implicitly {@link Oidb.FetchUserInfoKey.verify|verify} messages.
+         * @param message FetchUserInfoKey message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IFetchUserInfoKey, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a FetchUserInfoKey message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns FetchUserInfoKey
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.FetchUserInfoKey;
+
+        /**
+         * Gets the default type url for FetchUserInfoKey
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a FetchUserInfoResponse. */
+    interface IFetchUserInfoResponse {
+
+        /** FetchUserInfoResponse body */
+        body?: (Oidb.IFetchUserInfoResponseBody|null);
+    }
+
+    /** Represents a FetchUserInfoResponse. */
+    class FetchUserInfoResponse implements IFetchUserInfoResponse {
+
+        /**
+         * Constructs a new FetchUserInfoResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IFetchUserInfoResponse);
+
+        /** FetchUserInfoResponse body. */
+        public body?: (Oidb.IFetchUserInfoResponseBody|null);
+
+        /**
+         * Encodes the specified FetchUserInfoResponse message. Does not implicitly {@link Oidb.FetchUserInfoResponse.verify|verify} messages.
+         * @param message FetchUserInfoResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IFetchUserInfoResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a FetchUserInfoResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns FetchUserInfoResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.FetchUserInfoResponse;
+
+        /**
+         * Gets the default type url for FetchUserInfoResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a FetchUserInfoResponseBody. */
+    interface IFetchUserInfoResponseBody {
+
+        /** FetchUserInfoResponseBody properties */
+        properties?: (Oidb.IFetchUserInfoResponseProperty|null);
+
+        /** FetchUserInfoResponseBody uin */
+        uin?: (number|null);
+    }
+
+    /** Represents a FetchUserInfoResponseBody. */
+    class FetchUserInfoResponseBody implements IFetchUserInfoResponseBody {
+
+        /**
+         * Constructs a new FetchUserInfoResponseBody.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IFetchUserInfoResponseBody);
+
+        /** FetchUserInfoResponseBody properties. */
+        public properties?: (Oidb.IFetchUserInfoResponseProperty|null);
+
+        /** FetchUserInfoResponseBody uin. */
+        public uin: number;
+
+        /**
+         * Encodes the specified FetchUserInfoResponseBody message. Does not implicitly {@link Oidb.FetchUserInfoResponseBody.verify|verify} messages.
+         * @param message FetchUserInfoResponseBody message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IFetchUserInfoResponseBody, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a FetchUserInfoResponseBody message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns FetchUserInfoResponseBody
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.FetchUserInfoResponseBody;
+
+        /**
+         * Gets the default type url for FetchUserInfoResponseBody
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a FetchUserInfoResponseProperty. */
+    interface IFetchUserInfoResponseProperty {
+
+        /** FetchUserInfoResponseProperty numberProperties */
+        numberProperties?: (Oidb.IOidbUserNumberProperty[]|null);
+
+        /** FetchUserInfoResponseProperty bytesProperties */
+        bytesProperties?: (Oidb.IOidbUserByteProperty[]|null);
+    }
+
+    /** Represents a FetchUserInfoResponseProperty. */
+    class FetchUserInfoResponseProperty implements IFetchUserInfoResponseProperty {
+
+        /**
+         * Constructs a new FetchUserInfoResponseProperty.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IFetchUserInfoResponseProperty);
+
+        /** FetchUserInfoResponseProperty numberProperties. */
+        public numberProperties: Oidb.IOidbUserNumberProperty[];
+
+        /** FetchUserInfoResponseProperty bytesProperties. */
+        public bytesProperties: Oidb.IOidbUserByteProperty[];
+
+        /**
+         * Encodes the specified FetchUserInfoResponseProperty message. Does not implicitly {@link Oidb.FetchUserInfoResponseProperty.verify|verify} messages.
+         * @param message FetchUserInfoResponseProperty message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IFetchUserInfoResponseProperty, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a FetchUserInfoResponseProperty message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns FetchUserInfoResponseProperty
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.FetchUserInfoResponseProperty;
+
+        /**
+         * Gets the default type url for FetchUserInfoResponseProperty
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an OidbUserNumberProperty. */
+    interface IOidbUserNumberProperty {
+
+        /** OidbUserNumberProperty key */
+        key?: (number|null);
+
+        /** OidbUserNumberProperty value */
+        value?: (number|null);
+    }
+
+    /** Represents an OidbUserNumberProperty. */
+    class OidbUserNumberProperty implements IOidbUserNumberProperty {
+
+        /**
+         * Constructs a new OidbUserNumberProperty.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IOidbUserNumberProperty);
+
+        /** OidbUserNumberProperty key. */
+        public key: number;
+
+        /** OidbUserNumberProperty value. */
+        public value: number;
+
+        /**
+         * Encodes the specified OidbUserNumberProperty message. Does not implicitly {@link Oidb.OidbUserNumberProperty.verify|verify} messages.
+         * @param message OidbUserNumberProperty message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IOidbUserNumberProperty, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an OidbUserNumberProperty message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns OidbUserNumberProperty
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.OidbUserNumberProperty;
+
+        /**
+         * Gets the default type url for OidbUserNumberProperty
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of an OidbUserByteProperty. */
+    interface IOidbUserByteProperty {
+
+        /** OidbUserByteProperty key */
+        key?: (number|null);
+
+        /** OidbUserByteProperty value */
+        value?: (Uint8Array|null);
+    }
+
+    /** Represents an OidbUserByteProperty. */
+    class OidbUserByteProperty implements IOidbUserByteProperty {
+
+        /**
+         * Constructs a new OidbUserByteProperty.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IOidbUserByteProperty);
+
+        /** OidbUserByteProperty key. */
+        public key: number;
+
+        /** OidbUserByteProperty value. */
+        public value: Uint8Array;
+
+        /**
+         * Encodes the specified OidbUserByteProperty message. Does not implicitly {@link Oidb.OidbUserByteProperty.verify|verify} messages.
+         * @param message OidbUserByteProperty message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IOidbUserByteProperty, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes an OidbUserByteProperty message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns OidbUserByteProperty
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.OidbUserByteProperty;
+
+        /**
+         * Gets the default type url for OidbUserByteProperty
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
 }
 
 /** Namespace Action. */
