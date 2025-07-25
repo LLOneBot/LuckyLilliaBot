@@ -1,4 +1,4 @@
-name: Build Artifacts Only
+name: Manually Build
 on:
   workflow_dispatch:
 
@@ -49,12 +49,23 @@ jobs:
           wget https://github.com/LLOneBot/exe/releases/latest/download/ffprobe.exe -O llonebot/ffprobe.exe
           zip -r ../LLOneBot-win-x64-ffmpeg.zip ./*
 
-      - name: Upload artifacts
+      - name: Upload LLOneBot.zip
         uses: actions/upload-artifact@v4
         with:
-          name: llonebot-builds
-          path: |
-            LLOneBot.zip
-            LLOneBot-win-x64.zip
-            LLOneBot-win-x64-ffmpeg.zip
+          name: LLOneBot
+          path: LLOneBot.zip
+          retention-days: 30
+
+      - name: Upload LLOneBot-win-x64.zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: LLOneBot-win-x64
+          path: LLOneBot-win-x64.zip
+          retention-days: 30
+
+      - name: Upload LLOneBot-win-x64-ffmpeg.zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: LLOneBot-win-x64-ffmpeg
+          path: LLOneBot-win-x64-ffmpeg.zip
           retention-days: 30
