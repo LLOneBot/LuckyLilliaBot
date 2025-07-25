@@ -1,8 +1,8 @@
 import {
   AtType,
-  ChatType,
+  ChatType, FaceType,
   GroupMemberRole,
-  SendMessageElement
+  SendMessageElement,
 } from '@/ntqqapi/types'
 import {
   OB11MessageData,
@@ -90,8 +90,9 @@ export async function createSendElements(
         break
       case OB11MessageDataType.Face: {
         const faceId = segment.data?.id
+        const faceType: FaceType | undefined = segment.data?.sub_type
         if (faceId) {
-          sendElements.push(SendElement.face(parseInt(faceId)))
+          sendElements.push(SendElement.face(parseInt(faceId), faceType))
         }
       }
         break

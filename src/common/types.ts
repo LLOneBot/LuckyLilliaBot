@@ -45,9 +45,9 @@ export interface Config {
   autoDeleteFileSecond?: number
   ffmpeg?: string // ffmpeg路径
   musicSignUrl?: string
-  ignoreBeforeLoginMsg?: boolean
   /** 单位为秒 */
   msgCacheExpire?: number
+  receiveOfflineMsg?: boolean // 是否接收离线消息
 }
 
 export interface CheckVersion {

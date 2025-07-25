@@ -1,4 +1,4 @@
-import { PicSubType, RawMessage } from '../ntqqapi/types'
+import { FaceType, PicSubType, RawMessage } from '../ntqqapi/types'
 import { EventType } from './event/OB11BaseEvent'
 import { IdMusicSignPostData, CustomMusicSignPostData } from '../common/utils/sign'
 
@@ -278,7 +278,8 @@ export interface OB11MessageReply {
 export interface OB11MessageFace {
   type: OB11MessageDataType.Face
   data: {
-    id: string
+    id: string,
+    sub_type?: FaceType
   }
 }
 

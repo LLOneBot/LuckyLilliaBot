@@ -344,7 +344,8 @@ export namespace OB11Entities {
             messageSegment = {
               type: OB11MessageDataType.Face,
               data: {
-                id: faceIndex.toString()
+                id: faceIndex.toString(),
+                sub_type: faceType
               }
             }
           }

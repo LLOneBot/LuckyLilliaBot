@@ -4,7 +4,7 @@ import pathLib from 'node:path'
 import {
   AtType,
   ElementType,
-  FaceIndex,
+  FaceIndex, FaceType,
   PicType,
   SendArkElement,
   SendFaceElement,

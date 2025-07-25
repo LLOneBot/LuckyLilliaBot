@@ -322,12 +322,14 @@ export enum FaceIndex {
 }
 
 export enum FaceType {
-  Poke = 5  // 戳一戳，窗口抖动那种
+  Normal = 1, // 普通小黄脸表情
+  Super = 3, // 超级表情
+  Poke = 5  // 戳一戳，窗口抖动那种，私聊才有
 }
 
 export interface FaceElement {
   faceIndex: number
-  faceType: number
+  faceType: FaceType
   faceText?: string
   packId?: string
   stickerId?: string
