@@ -34,5 +34,6 @@
   "musicSignUrl": "https://llob.linyuchen.net/sign/music",
   "msgCacheExpire": 120,
   "onlyLocalhost": true,
-  "ffmpeg": ""
+  "ffmpeg": "",
+  "receiveOfflineMsg": false
 }

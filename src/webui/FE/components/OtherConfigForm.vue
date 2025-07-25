@@ -47,6 +47,16 @@
     </el-form-item>
     <el-row :gutter="16">
       <el-col :span="12">
+        <el-form-item label="接收离线消息">
+          <el-switch v-model="form.receiveOfflineMsg" />
+          <el-tooltip content="开启后将接收离线消息" placement="top">
+            <el-icon class="info-icon">
+              <QuestionFilled />
+            </el-icon>
+          </el-tooltip>
+        </el-form-item>
+      </el-col>
+      <el-col :span="12">
         <el-form-item label="只监听本地地址">
           <el-switch v-model="form.onlyLocalhost" />
           <el-tooltip content="取消则监听0.0.0.0，暴露在公网请务必填写 Token ！" placement="top">
@@ -56,6 +66,8 @@
           </el-tooltip>
         </el-form-item>
       </el-col>
+    </el-row>
+    <el-row :gutter="16">
       <el-col :span="12">
         <el-form-item label="webui 密码">
           <el-input v-model="form.webui.token"

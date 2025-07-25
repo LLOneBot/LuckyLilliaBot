@@ -92,6 +92,7 @@ const defaultConfig: Config = {
     token: '',
     port: 3080,
   },
+  receiveOfflineMsg: false
 }
 
 const form = ref(JSON.parse(JSON.stringify(defaultConfig)))
