@@ -1417,8 +1417,8 @@ export const Msg = $root.Msg = (() => {
          * Properties of a ContentHead.
          * @memberof Msg
          * @interface IContentHead
-         * @property {number|Long|null} [msgType] ContentHead msgType
-         * @property {number|Long|null} [subType] ContentHead subType
+         * @property {number|null} [msgType] ContentHead msgType
+         * @property {number|null} [subType] ContentHead subType
          * @property {number|null} [c2cCmd] ContentHead c2cCmd
          * @property {number|Long|null} [random] ContentHead random
          * @property {number|Long|null} [msgSeq] ContentHead msgSeq
@@ -1449,7 +1449,7 @@ export const Msg = $root.Msg = (() => {
 
         /**
          * ContentHead msgType.
-         * @member {number|Long|null|undefined} msgType
+         * @member {number|null|undefined} msgType
          * @memberof Msg.ContentHead
          * @instance
          */
@@ -1457,7 +1457,7 @@ export const Msg = $root.Msg = (() => {
 
         /**
          * ContentHead subType.
-         * @member {number|Long|null|undefined} subType
+         * @member {number|null|undefined} subType
          * @memberof Msg.ContentHead
          * @instance
          */
@@ -1645,9 +1645,9 @@ export const Msg = $root.Msg = (() => {
             if (!writer)
                 writer = $Writer.create();
             if (message.msgType != null && Object.hasOwnProperty.call(message, "msgType"))
-                writer.uint32(/* id 1, wireType 0 =*/8).uint64(message.msgType);
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.msgType);
             if (message.subType != null && Object.hasOwnProperty.call(message, "subType"))
-                writer.uint32(/* id 2, wireType 0 =*/16).uint64(message.subType);
+                writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.subType);
             if (message.c2cCmd != null && Object.hasOwnProperty.call(message, "c2cCmd"))
                 writer.uint32(/* id 3, wireType 0 =*/24).uint32(message.c2cCmd);
             if (message.random != null && Object.hasOwnProperty.call(message, "random"))
@@ -1694,11 +1694,11 @@ export const Msg = $root.Msg = (() => {
                     break;
                 switch (tag >>> 3) {
                 case 1: {
-                        message.msgType = reader.uint64();
+                        message.msgType = reader.uint32();
                         break;
                     }
                 case 2: {
-                        message.subType = reader.uint64();
+                        message.subType = reader.uint32();
                         break;
                     }
                 case 3: {

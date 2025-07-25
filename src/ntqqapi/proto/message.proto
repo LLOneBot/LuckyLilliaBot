@@ -29,8 +29,8 @@ message Group {
 }
 
 message ContentHead {
-  optional uint64 msgType = 1;
-  optional uint64 subType = 2;
+  optional uint32 msgType = 1;
+  optional uint32 subType = 2;
   optional uint32 c2cCmd = 3;
   optional uint64 random = 4;
   optional uint64 msgSeq = 5;

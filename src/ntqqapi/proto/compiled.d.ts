@@ -566,10 +566,10 @@ export namespace Msg {
     interface IContentHead {
 
         /** ContentHead msgType */
-        msgType?: (number|Long|null);
+        msgType?: (number|null);
 
         /** ContentHead subType */
-        subType?: (number|Long|null);
+        subType?: (number|null);
 
         /** ContentHead c2cCmd */
         c2cCmd?: (number|null);
@@ -615,10 +615,10 @@ export namespace Msg {
         constructor(properties?: Msg.IContentHead);
 
         /** ContentHead msgType. */
-        public msgType?: (number|Long|null);
+        public msgType?: (number|null);
 
         /** ContentHead subType. */
-        public subType?: (number|Long|null);
+        public subType?: (number|null);
 
         /** ContentHead c2cCmd. */
         public c2cCmd?: (number|null);
