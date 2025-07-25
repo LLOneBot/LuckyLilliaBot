@@ -1,30 +1,26 @@
 <template>
-  <el-container class='main-container'>
-    <el-header class='header'>
-      <h2 style='display:inline-block;'>LLTwoBot {{version}}</h2>
+  <el-container class="main-container">
+    <el-header class="header">
+      <h2 style="display: inline-block">LLTwoBot {{ version }}</h2>
     </el-header>
-    <el-main v-loading='loading'>
-      <el-row :gutter='24' justify='center'>
-        <el-col :xs='24' :sm='22' :md='20' :lg='16' :xl='12'>
-          <el-card shadow='hover' class='config-card'>
-            <AccountInfo :accountNick='accountNick' :accountUin='accountUin' />
-            <el-menu mode='horizontal' :default-active='activeIndex' @select='handleSelect'>
-              <el-menu-item index='1'>OneBot 11 配置</el-menu-item>
-              <el-menu-item index='2'>Satori 配置</el-menu-item>
-              <el-menu-item index='3'>其他配置</el-menu-item>
-              <el-menu-item index='4'>关于</el-menu-item>
+    <el-main v-loading="loading">
+      <el-row :gutter="24" justify="center">
+        <el-col :xs="24" :sm="22" :md="20" :lg="16" :xl="12">
+          <el-card shadow="hover" class="config-card">
+            <AccountInfo :accountNick="accountNick" :accountUin="accountUin" />
+            <el-menu mode="horizontal" :default-active="activeIndex" @select="handleSelect">
+              <el-menu-item index="1">OneBot 11 配置</el-menu-item>
+              <el-menu-item index="2">Satori 配置</el-menu-item>
+              <el-menu-item index="3">其他配置</el-menu-item>
+              <el-menu-item index="4">关于</el-menu-item>
             </el-menu>
-            <el-form :model='form' label-width='160px' size='large' class='config-form'>
-              <Ob11ConfigForm
-                ref='ob11ConfigFormRef'
-                v-if="activeIndex === '1'"
-                v-model='form.ob11'
-              />
-              <SatoriConfigForm v-if="activeIndex === '2'" v-model='form.satori' />
-              <OtherConfigForm v-if="activeIndex === '3'" v-model='form' />
+            <el-form :model="form" label-width="160px" size="large" class="config-form">
+              <Ob11ConfigForm ref="ob11ConfigFormRef" v-if="activeIndex === '1'" v-model="form.ob11" />
+              <SatoriConfigForm v-if="activeIndex === '2'" v-model="form.satori" />
+              <OtherConfigForm v-if="activeIndex === '3'" v-model="form" />
               <About v-if="activeIndex === '4'" />
-              <el-form-item class='form-actions' v-if="activeIndex != '4'">
-                <el-button type='primary' @click='onSave' size='large' style='float: right;' :loading='loading'>
+              <el-form-item class="form-actions" v-if="activeIndex != '4'">
+                <el-button type="primary" @click="onSave" size="large" style="float: right" :loading="loading">
                   保存配置
                 </el-button>
               </el-form-item>
@@ -33,12 +29,18 @@
         </el-col>
       </el-row>
     </el-main>
-    <TokenDialog v-model:visible='showTokenDialog' v-model:tokenInput='tokenInput' :loading='tokenDialogLoading'
-                 :error='tokenDialogError' @confirm='handleTokenDialogConfirm' @close='handleTokenDialogClose' />
+    <TokenDialog
+      v-model:visible="showTokenDialog"
+      v-model:tokenInput="tokenInput"
+      :loading="tokenDialogLoading"
+      :error="tokenDialogError"
+      @confirm="handleTokenDialogConfirm"
+      @close="handleTokenDialogClose"
+    />
   </el-container>
 </template>
 
-<script setup lang='ts'>
+<script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue'
 import { ElMessage, ElDialog, ElInput, ElButton } from 'element-plus'
 import { QuestionFilled } from '@element-plus/icons-vue'
@@ -92,7 +94,7 @@ const defaultConfig: Config = {
     token: '',
     port: 3080,
   },
-  receiveOfflineMsg: false
+  receiveOfflineMsg: false,
 }
 
 const form = ref(JSON.parse(JSON.stringify(defaultConfig)))
@@ -126,7 +128,6 @@ async function setToken(newToken: string) {
 
 // 弹出密码输入框，直到用户输入非空密码并点击确定/回车才resolve
 async function promptPassword(tip: string): Promise<string> {
-
   return new Promise<string>((resolve) => {
     tokenDialogError.value = ''
     tokenInput.value = ''
@@ -147,7 +148,6 @@ async function promptPassword(tip: string): Promise<string> {
     const stopShow = watch(showTokenDialog, (val) => {
       if (!val) {
         stopShow()
-
       }
     })
     // 监听确定按钮
@@ -178,8 +178,7 @@ async function apiFetch(url: string, options: any = {}): Promise<Response> {
         throw new Error('设置密码失败')
       }
       tokenInput.value = ''
-    }
-    else if (resp.status === 403) {
+    } else if (resp.status === 403) {
       token.value = ''
       localStorage.removeItem(tokenKey)
       const inputPwd = await promptPassword('密码校验失败，请输入密码')
@@ -198,7 +197,6 @@ async function apiFetch(url: string, options: any = {}): Promise<Response> {
   return resp
 }
 
-
 // 获取配置
 async function fetchConfig() {
   try {
@@ -211,16 +209,14 @@ async function fetchConfig() {
         form.value = data.data.config
         accountNick.value = data.data.selfInfo.nick || ''
         accountUin.value = data.data.selfInfo.uin || ''
-      }
-      else {
+      } else {
         form.value = data.data
         accountNick.value = ''
         accountUin.value = ''
       }
       console.log('config接口返回:', data)
       ElMessage.success('配置加载成功')
-    }
-    else {
+    } else {
       throw new Error(data.message || '获取配置失败')
     }
   } catch (error: any) {
@@ -251,8 +247,7 @@ async function onSave() {
       localStorage.setItem(tokenKey, form.value.webui.token)
       token.value = form.value.webui.token
       ElMessage.success('配置保存成功')
-    }
-    else {
+    } else {
       throw new Error(data.message || '保存配置失败')
     }
   } catch (error: any) {
@@ -268,14 +263,12 @@ onMounted(() => {
   fetchConfig()
 })
 
-
 function handleSelect(key: string) {
   activeIndex.value = key
 }
 
 // 修改handleTokenDialogConfirm为let变量，便于promptPassword里动态赋值
-let handleTokenDialogConfirm = async () => {
-}
+let handleTokenDialogConfirm = async () => {}
 
 function handleTokenDialogClose() {
   tokenDialogError.value = ''
