@@ -99,7 +99,7 @@ import { GetQQAvatar } from '@/onebot11/action/llonebot/GetQQAvatar'
 import { DownloadFlashFile } from '@/onebot11/action/llonebot/DownloadFlashFile'
 import { GetFlashFileInfo } from '@/onebot11/action/llonebot/GetFlashFileInfo'
 import { GetRecommendFace } from './llonebot/GetRecommendFace'
-import { BatchDeleteGroupMember } from '@/onebot11/action/group/BatchDeleteGroupMember'
+import { BatchDeleteGroupMember } from '@/onebot11/action/llonebot/BatchDeleteGroupMember'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [

@@ -16,8 +16,10 @@ export class BatchDeleteGroupMember extends BaseAction<Payload, null> {
   protected async _handle(payload: Payload): Promise<null> {
     const groupCode = payload.group_id.toString()
     const memberUinList = payload.user_ids.map(id => id.toString())
-
-    // 使用 WebAPI 进行批量删除
-    return await this.ctx.ntWebApi.batchDeleteGroupMember(groupCode, memberUinList)
+    const memberUids = await Promise.all(memberUinList.map(async uin => {
+      return await this.ctx.ntUserApi.getUidByUin(uin)
+    }))
+    await this.ctx.ntGroupApi.kickMember(groupCode, memberUids)
+    return null
   }
 }
