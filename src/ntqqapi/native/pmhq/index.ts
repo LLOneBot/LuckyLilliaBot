@@ -2,7 +2,7 @@ import { Action, Msg, Oidb } from '@/ntqqapi/proto/compiled'
 import { deepConvertMap, deepStringifyMap } from '@/ntqqapi/native/pmhq/util'
 import { Peer, ChatType } from '@/ntqqapi/types/msg'
 import { selfInfo } from '@/common/globalVars'
-import { randomUUID } from 'node:crypto'
+import { randomBytes, randomUUID } from 'node:crypto'
 import { gzipSync } from 'node:zlib'
 
 interface PBData {
@@ -400,6 +400,24 @@ export class PMHQ {
     const res = await this.httpSendPB('OidbSvcTrpcTcp.0x929d_0', data)
     const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
     return Oidb.FetchAiCharacterListResponse.decode(oidbRespBody)
+  }
+
+  async getGroupGenerateAiRecord(groupId: number, character: string, text: string, chatType: number) {
+    const body = Oidb.GetGroupGenerateAiRecord.encode({
+      groupId,
+      voiceId: character,
+      text,
+      chatType,
+      clientMsgInfo: {
+        msgRandom: randomBytes(4).readUInt32BE(0)
+      }
+    }).finish()
+    const data = Oidb.Base.encode({
+      command: 0x929b,
+      subCommand: 0,
+      body,
+    }).finish()
+    await this.httpSendPB('OidbSvcTrpcTcp.0x929b_0', data)
   }
 }
 

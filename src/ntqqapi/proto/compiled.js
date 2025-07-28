@@ -7866,6 +7866,264 @@ export const Oidb = $root.Oidb = (() => {
         return FetchAiCharacterListResponseProperty;
     })();
 
+    Oidb.GetGroupGenerateAiRecord = (function() {
+
+        /**
+         * Properties of a GetGroupGenerateAiRecord.
+         * @memberof Oidb
+         * @interface IGetGroupGenerateAiRecord
+         * @property {number|null} [groupId] GetGroupGenerateAiRecord groupId
+         * @property {string|null} [voiceId] GetGroupGenerateAiRecord voiceId
+         * @property {string|null} [text] GetGroupGenerateAiRecord text
+         * @property {number|null} [chatType] GetGroupGenerateAiRecord chatType
+         * @property {Oidb.IGetGroupGenerateAiRecordClientMsgInfo|null} [clientMsgInfo] GetGroupGenerateAiRecord clientMsgInfo
+         */
+
+        /**
+         * Constructs a new GetGroupGenerateAiRecord.
+         * @memberof Oidb
+         * @classdesc Represents a GetGroupGenerateAiRecord.
+         * @implements IGetGroupGenerateAiRecord
+         * @constructor
+         * @param {Oidb.IGetGroupGenerateAiRecord=} [properties] Properties to set
+         */
+        function GetGroupGenerateAiRecord(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GetGroupGenerateAiRecord groupId.
+         * @member {number} groupId
+         * @memberof Oidb.GetGroupGenerateAiRecord
+         * @instance
+         */
+        GetGroupGenerateAiRecord.prototype.groupId = 0;
+
+        /**
+         * GetGroupGenerateAiRecord voiceId.
+         * @member {string} voiceId
+         * @memberof Oidb.GetGroupGenerateAiRecord
+         * @instance
+         */
+        GetGroupGenerateAiRecord.prototype.voiceId = "";
+
+        /**
+         * GetGroupGenerateAiRecord text.
+         * @member {string} text
+         * @memberof Oidb.GetGroupGenerateAiRecord
+         * @instance
+         */
+        GetGroupGenerateAiRecord.prototype.text = "";
+
+        /**
+         * GetGroupGenerateAiRecord chatType.
+         * @member {number} chatType
+         * @memberof Oidb.GetGroupGenerateAiRecord
+         * @instance
+         */
+        GetGroupGenerateAiRecord.prototype.chatType = 0;
+
+        /**
+         * GetGroupGenerateAiRecord clientMsgInfo.
+         * @member {Oidb.IGetGroupGenerateAiRecordClientMsgInfo|null|undefined} clientMsgInfo
+         * @memberof Oidb.GetGroupGenerateAiRecord
+         * @instance
+         */
+        GetGroupGenerateAiRecord.prototype.clientMsgInfo = null;
+
+        /**
+         * Encodes the specified GetGroupGenerateAiRecord message. Does not implicitly {@link Oidb.GetGroupGenerateAiRecord.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.GetGroupGenerateAiRecord
+         * @static
+         * @param {Oidb.IGetGroupGenerateAiRecord} message GetGroupGenerateAiRecord message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetGroupGenerateAiRecord.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.groupId != null && Object.hasOwnProperty.call(message, "groupId"))
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.groupId);
+            if (message.voiceId != null && Object.hasOwnProperty.call(message, "voiceId"))
+                writer.uint32(/* id 2, wireType 2 =*/18).string(message.voiceId);
+            if (message.text != null && Object.hasOwnProperty.call(message, "text"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.text);
+            if (message.chatType != null && Object.hasOwnProperty.call(message, "chatType"))
+                writer.uint32(/* id 4, wireType 0 =*/32).uint32(message.chatType);
+            if (message.clientMsgInfo != null && Object.hasOwnProperty.call(message, "clientMsgInfo"))
+                $root.Oidb.GetGroupGenerateAiRecordClientMsgInfo.encode(message.clientMsgInfo, writer.uint32(/* id 5, wireType 2 =*/42).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a GetGroupGenerateAiRecord message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.GetGroupGenerateAiRecord
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.GetGroupGenerateAiRecord} GetGroupGenerateAiRecord
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetGroupGenerateAiRecord.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.GetGroupGenerateAiRecord();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.groupId = reader.uint32();
+                        break;
+                    }
+                case 2: {
+                        message.voiceId = reader.string();
+                        break;
+                    }
+                case 3: {
+                        message.text = reader.string();
+                        break;
+                    }
+                case 4: {
+                        message.chatType = reader.uint32();
+                        break;
+                    }
+                case 5: {
+                        message.clientMsgInfo = $root.Oidb.GetGroupGenerateAiRecordClientMsgInfo.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for GetGroupGenerateAiRecord
+         * @function getTypeUrl
+         * @memberof Oidb.GetGroupGenerateAiRecord
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetGroupGenerateAiRecord.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.GetGroupGenerateAiRecord";
+        };
+
+        return GetGroupGenerateAiRecord;
+    })();
+
+    Oidb.GetGroupGenerateAiRecordClientMsgInfo = (function() {
+
+        /**
+         * Properties of a GetGroupGenerateAiRecordClientMsgInfo.
+         * @memberof Oidb
+         * @interface IGetGroupGenerateAiRecordClientMsgInfo
+         * @property {number|null} [msgRandom] GetGroupGenerateAiRecordClientMsgInfo msgRandom
+         */
+
+        /**
+         * Constructs a new GetGroupGenerateAiRecordClientMsgInfo.
+         * @memberof Oidb
+         * @classdesc Represents a GetGroupGenerateAiRecordClientMsgInfo.
+         * @implements IGetGroupGenerateAiRecordClientMsgInfo
+         * @constructor
+         * @param {Oidb.IGetGroupGenerateAiRecordClientMsgInfo=} [properties] Properties to set
+         */
+        function GetGroupGenerateAiRecordClientMsgInfo(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GetGroupGenerateAiRecordClientMsgInfo msgRandom.
+         * @member {number} msgRandom
+         * @memberof Oidb.GetGroupGenerateAiRecordClientMsgInfo
+         * @instance
+         */
+        GetGroupGenerateAiRecordClientMsgInfo.prototype.msgRandom = 0;
+
+        /**
+         * Encodes the specified GetGroupGenerateAiRecordClientMsgInfo message. Does not implicitly {@link Oidb.GetGroupGenerateAiRecordClientMsgInfo.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.GetGroupGenerateAiRecordClientMsgInfo
+         * @static
+         * @param {Oidb.IGetGroupGenerateAiRecordClientMsgInfo} message GetGroupGenerateAiRecordClientMsgInfo message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GetGroupGenerateAiRecordClientMsgInfo.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.msgRandom != null && Object.hasOwnProperty.call(message, "msgRandom"))
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.msgRandom);
+            return writer;
+        };
+
+        /**
+         * Decodes a GetGroupGenerateAiRecordClientMsgInfo message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.GetGroupGenerateAiRecordClientMsgInfo
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.GetGroupGenerateAiRecordClientMsgInfo} GetGroupGenerateAiRecordClientMsgInfo
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GetGroupGenerateAiRecordClientMsgInfo.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.GetGroupGenerateAiRecordClientMsgInfo();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.msgRandom = reader.uint32();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for GetGroupGenerateAiRecordClientMsgInfo
+         * @function getTypeUrl
+         * @memberof Oidb.GetGroupGenerateAiRecordClientMsgInfo
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GetGroupGenerateAiRecordClientMsgInfo.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.GetGroupGenerateAiRecordClientMsgInfo";
+        };
+
+        return GetGroupGenerateAiRecordClientMsgInfo;
+    })();
+
     return Oidb;
 })();
 

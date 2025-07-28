@@ -49,6 +49,7 @@ export enum ActionName {
   RenameGroupFileFolder = 'rename_group_file_folder',
   GetRecommendFace = 'get_recommend_face',
   GetAiCharacters = 'get_ai_characters',
+  SendGroupAiRecord = 'send_group_ai_record',
   // onebot 11
   SendLike = 'send_like',
   GetLoginInfo = 'get_login_info',

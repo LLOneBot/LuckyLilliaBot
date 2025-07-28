@@ -3218,6 +3218,120 @@ export namespace Oidb {
          */
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
+
+    /** Properties of a GetGroupGenerateAiRecord. */
+    interface IGetGroupGenerateAiRecord {
+
+        /** GetGroupGenerateAiRecord groupId */
+        groupId?: (number|null);
+
+        /** GetGroupGenerateAiRecord voiceId */
+        voiceId?: (string|null);
+
+        /** GetGroupGenerateAiRecord text */
+        text?: (string|null);
+
+        /** GetGroupGenerateAiRecord chatType */
+        chatType?: (number|null);
+
+        /** GetGroupGenerateAiRecord clientMsgInfo */
+        clientMsgInfo?: (Oidb.IGetGroupGenerateAiRecordClientMsgInfo|null);
+    }
+
+    /** Represents a GetGroupGenerateAiRecord. */
+    class GetGroupGenerateAiRecord implements IGetGroupGenerateAiRecord {
+
+        /**
+         * Constructs a new GetGroupGenerateAiRecord.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IGetGroupGenerateAiRecord);
+
+        /** GetGroupGenerateAiRecord groupId. */
+        public groupId: number;
+
+        /** GetGroupGenerateAiRecord voiceId. */
+        public voiceId: string;
+
+        /** GetGroupGenerateAiRecord text. */
+        public text: string;
+
+        /** GetGroupGenerateAiRecord chatType. */
+        public chatType: number;
+
+        /** GetGroupGenerateAiRecord clientMsgInfo. */
+        public clientMsgInfo?: (Oidb.IGetGroupGenerateAiRecordClientMsgInfo|null);
+
+        /**
+         * Encodes the specified GetGroupGenerateAiRecord message. Does not implicitly {@link Oidb.GetGroupGenerateAiRecord.verify|verify} messages.
+         * @param message GetGroupGenerateAiRecord message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IGetGroupGenerateAiRecord, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GetGroupGenerateAiRecord message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GetGroupGenerateAiRecord
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.GetGroupGenerateAiRecord;
+
+        /**
+         * Gets the default type url for GetGroupGenerateAiRecord
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GetGroupGenerateAiRecordClientMsgInfo. */
+    interface IGetGroupGenerateAiRecordClientMsgInfo {
+
+        /** GetGroupGenerateAiRecordClientMsgInfo msgRandom */
+        msgRandom?: (number|null);
+    }
+
+    /** Represents a GetGroupGenerateAiRecordClientMsgInfo. */
+    class GetGroupGenerateAiRecordClientMsgInfo implements IGetGroupGenerateAiRecordClientMsgInfo {
+
+        /**
+         * Constructs a new GetGroupGenerateAiRecordClientMsgInfo.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IGetGroupGenerateAiRecordClientMsgInfo);
+
+        /** GetGroupGenerateAiRecordClientMsgInfo msgRandom. */
+        public msgRandom: number;
+
+        /**
+         * Encodes the specified GetGroupGenerateAiRecordClientMsgInfo message. Does not implicitly {@link Oidb.GetGroupGenerateAiRecordClientMsgInfo.verify|verify} messages.
+         * @param message GetGroupGenerateAiRecordClientMsgInfo message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IGetGroupGenerateAiRecordClientMsgInfo, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GetGroupGenerateAiRecordClientMsgInfo message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GetGroupGenerateAiRecordClientMsgInfo
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.GetGroupGenerateAiRecordClientMsgInfo;
+
+        /**
+         * Gets the default type url for GetGroupGenerateAiRecordClientMsgInfo
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
 }
 
 /** Namespace Action. */

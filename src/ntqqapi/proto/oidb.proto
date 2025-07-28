@@ -101,3 +101,16 @@ message FetchAiCharacterListResponseProperty {
   string characterName = 2;
   string previewUrl = 3;
 }
+
+// OidbSvcTrpcTcp.0x929b_0
+message GetGroupGenerateAiRecord {
+  uint32 groupId = 1;
+  string voiceId = 2;
+  string text = 3;
+  uint32 chatType = 4;
+  GetGroupGenerateAiRecordClientMsgInfo clientMsgInfo = 5;
+}
+
+message GetGroupGenerateAiRecordClientMsgInfo {
+  uint32 msgRandom = 1;
+}
