@@ -5,6 +5,7 @@ import { Time } from 'cosmokit'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { uidUinBidiMap } from '@/ntqqapi/cache'
+import { ReceiveCmdS } from '../hook'
 
 declare module 'cordis' {
   interface Context {
@@ -137,19 +138,19 @@ export class NTQQUserApi extends Service {
     return result
   }
 
-  async getUserSimpleInfo(uid: string, force = true): Promise<SimpleInfo> {
-    return (await this.getUserDetailInfoWithBizInfo(uid)).simpleInfo
-    // const data = await invoke<Map<string, SimpleInfo>>(
-    //   'nodeIKernelProfileService/getUserSimpleInfo',
-    //   [
-    //     [uid],
-    //     force,
-    //   ],
-    //   {
-    //     resultCmd: ReceiveCmdS.USER_INFO,
-    //   },
-    // )
-    // return data.get(uid)?.coreInfo
+  async getUserSimpleInfo(uid: string, force = true) {
+    const data = await invoke<Map<string, SimpleInfo>>(
+      'nodeIKernelProfileService/getUserSimpleInfo',
+      [
+        force,
+        [uid],
+      ],
+      {
+        resultCmd: ReceiveCmdS.USER_INFO,
+        resultCb: payload => payload.has(uid),
+      },
+    )
+    return data.get(uid)!
   }
 
   async getCoreAndBaseInfo(uids: string[]) {
