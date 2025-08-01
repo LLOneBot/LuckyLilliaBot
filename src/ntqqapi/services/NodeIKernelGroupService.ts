@@ -137,7 +137,13 @@ export interface NodeIKernelGroupService {
 
   getGroupShutUpMemberList(groupCode: string): Promise<void | GeneralCallResult>
 
-  getAllMemberList(groupCode: string, force: boolean): Promise<GeneralCallResult & { result: { infos: Map<string, GroupMember> } }>
+  getAllMemberList(groupCode: string, force: boolean): Promise<{
+    errCode: number
+    errMsg: string
+    result: {
+      infos: Map<string, GroupMember>
+    }
+  }>
 
   setGroupMsgMask(groupCode: string, msgMask: GroupMsgMask): Promise<GeneralCallResult>
 }
