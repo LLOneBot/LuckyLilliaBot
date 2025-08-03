@@ -8,7 +8,7 @@ interface Payload {
 }
 
 export const setGuildMemberRole: Handler<Dict<never>, Payload> = async (ctx, payload) => {
-  const uid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.guild_id)
+  const uid = await ctx.ntUserApi.getUidByUin(payload.user_id)
   if (!uid) {
     throw new Error('无法获取用户信息')
   }

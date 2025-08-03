@@ -18,7 +18,7 @@ export default class SetGroupCard extends BaseAction<Payload, null> {
   protected async _handle(payload: Payload): Promise<null> {
     const groupCode = payload.group_id.toString()
     const uin = payload.user_id.toString()
-    const uid = await this.ctx.ntUserApi.getUidByUin(uin, groupCode)
+    const uid = await this.ctx.ntUserApi.getUidByUin(uin)
     if (!uid) throw new Error('无法获取用户信息')
     await this.ctx.ntGroupApi.setMemberCard(groupCode, uid, payload.card)
     return null

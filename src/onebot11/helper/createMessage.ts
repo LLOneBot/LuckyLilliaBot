@@ -64,7 +64,7 @@ export async function createSendElements(
             }
           }
           else if (peer.chatType === ChatType.Group) {
-            const uid = await ctx.ntUserApi.getUidByUin(atQQ, peer.peerUid) ?? ''
+            const uid = await ctx.ntUserApi.getUidByUin(atQQ) ?? ''
             let display = ''
             if (segment.data.name) {
               display = `@${segment.data.name}`

@@ -30,9 +30,10 @@ export class NTQQUserApi extends Service {
     )
   }
 
-  async getUidByUin(uin: string, groupCode?: string) {
-    let uid = uidUinBidiMap.getKey(uin)
+  async getUidByUin(uin: string) {
+    const uid = uidUinBidiMap.getKey(uin)
     if (uid) return uid
+
     const funcs = [
       async () => {
         return (await invoke('nodeIKernelUixConvertService/getUid', [[uin]]))?.uidInfo.get(uin)
@@ -66,21 +67,10 @@ export class NTQQUserApi extends Service {
     return await invoke('nodeIKernelProfileService/getUserDetailInfoByUin', [uin])
   }
 
-  async getUinByUid(uid: string, groupCode?: string): Promise<string> {
+  async getUinByUid(uid: string): Promise<string> {
+    const uin = uidUinBidiMap.get(uid)
+    if (uin) return uin
 
-    let uin = uidUinBidiMap.get(uid)
-    if (uin)
-      return uin
-
-    if (groupCode) {
-      try {
-        await this.ctx.ntGroupApi.getGroupMembers(groupCode)
-        uin = uidUinBidiMap.get(uid)
-        if (uin) return uin
-      } catch (e) {
-
-      }
-    }
     const funcs = [
       async () => {
         const uin = (await invoke('nodeIKernelUixConvertService/getUin', [[uid]])).uinInfo.get(uid) || ''

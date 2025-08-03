@@ -30,11 +30,6 @@ export class NTQQFriendApi extends Service {
       [],
       {},
     )
-    for (const item of data) {
-      if (item.uid && item.uin) {
-        uidUinBidiMap.set(item.uid, item.uin);
-      }
-    }
     return data
   }
 

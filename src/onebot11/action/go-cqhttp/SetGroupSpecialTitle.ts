@@ -18,7 +18,7 @@ export class SetGroupSpecialTitle extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    const uid = await this.ctx.ntUserApi.getUidByUin(payload.user_id.toString(), payload.group_id.toString())
+    const uid = await this.ctx.ntUserApi.getUidByUin(payload.user_id.toString())
     if (!uid) throw new Error(`用户${payload.user_id}的uid获取失败`)
     const self = await this.ctx.ntGroupApi.getGroupMember(payload.group_id.toString(), selfInfo.uid, false)
     if (self.role !== GroupMemberRole.Owner) {

@@ -51,11 +51,7 @@ export class NTQQGroupApi extends Service {
     if (data.errCode !== 0) {
       throw new Error('获取群成员列表出错, ' + data.errMsg)
     }
-    const infos = data.result.infos
-    for (const [uid, member] of infos) {
-      uidUinBidiMap.set(uid, member.uin)
-    }
-    return infos
+    return data.result.infos
   }
 
   async getGroupMember(groupCode: string, uid: string, forceUpdate = false) {

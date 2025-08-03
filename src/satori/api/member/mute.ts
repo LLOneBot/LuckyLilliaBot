@@ -8,7 +8,7 @@ interface Payload {
 }
 
 export const muteGuildMember: Handler<Dict<never>, Payload> = async (ctx, payload) => {
-  const uid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.guild_id)
+  const uid = await ctx.ntUserApi.getUidByUin(payload.user_id)
   if (!uid) throw new Error('无法获取用户信息')
   await ctx.ntGroupApi.banMember(payload.guild_id, [
     { uid, timeStamp: payload.duration / 1000 }

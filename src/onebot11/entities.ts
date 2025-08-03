@@ -125,7 +125,7 @@ export namespace OB11Entities {
           if (atUid && atUid !== '0') {
             qq = atUid
           } else {
-            qq = await ctx.ntUserApi.getUinByUid(atNtUid, peer?.peerUid)
+            qq = await ctx.ntUserApi.getUinByUid(atNtUid)
           }
           name = content.replace('@', '')
         }
