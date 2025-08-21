@@ -85,6 +85,7 @@ export interface OB11Message {
   real_id?: number // 仅在 get_msg 接口存在
   user_id: number
   group_id?: number
+  group_name?: string
   message_type: 'private' | 'group'
   sub_type?: 'friend' | 'group' | 'normal'
   sender: OB11Sender

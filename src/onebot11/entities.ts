@@ -89,6 +89,7 @@ export namespace OB11Entities {
     if (msg.chatType === ChatType.Group) {
       resMsg.sub_type = 'normal'
       resMsg.group_id = parseInt(msg.peerUin)
+      resMsg.group_name = msg.peerName
       // 284840486: 合并转发内部
       if (msg.peerUin !== '284840486') {
         try {
