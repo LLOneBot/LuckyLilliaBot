@@ -552,6 +552,26 @@ export class PMHQ {
     const { download } = RichMedia.NTV2RichMediaResp.decode(oidbRespBody)
     return `https://${download?.info?.domain}${download?.info?.urlPath}${download?.rKeyParam}`
   }
+
+  async getGroupFileUrl(groupCode: number, fileId: string) {
+    const body = Oidb.GroupFile.encode({
+      download: {
+        groupCode,
+        appId: 7,
+        busId: 102,
+        fileId
+      }
+    }).finish()
+    const data = Oidb.Base.encode({
+      command: 0x6d6,
+      subCommand: 2,
+      body,
+    }).finish()
+    const res = await this.httpSendPB('OidbSvcTrpcTcp.0x6d6_2', data)
+    const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+    const { download } = Oidb.GroupFileResponse.decode(oidbRespBody)
+    return `https://${download?.downloadDns}/ftn_handler/${Buffer.from(download!.downloadUrl!).toString('hex')}/?fname=`
+  }
 }
 
 export const pmhq = new PMHQ()

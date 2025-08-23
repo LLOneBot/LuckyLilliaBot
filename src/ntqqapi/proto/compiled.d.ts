@@ -3917,6 +3917,210 @@ export namespace Oidb {
          */
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
+
+    /** Properties of a GroupFile. */
+    interface IGroupFile {
+
+        /** GroupFile download */
+        download?: (Oidb.IGroupFileDownload|null);
+    }
+
+    /** Represents a GroupFile. */
+    class GroupFile implements IGroupFile {
+
+        /**
+         * Constructs a new GroupFile.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IGroupFile);
+
+        /** GroupFile download. */
+        public download?: (Oidb.IGroupFileDownload|null);
+
+        /**
+         * Encodes the specified GroupFile message. Does not implicitly {@link Oidb.GroupFile.verify|verify} messages.
+         * @param message GroupFile message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IGroupFile, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GroupFile message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GroupFile
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.GroupFile;
+
+        /**
+         * Gets the default type url for GroupFile
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GroupFileDownload. */
+    interface IGroupFileDownload {
+
+        /** GroupFileDownload groupCode */
+        groupCode?: (number|null);
+
+        /** GroupFileDownload appId */
+        appId?: (number|null);
+
+        /** GroupFileDownload busId */
+        busId?: (number|null);
+
+        /** GroupFileDownload fileId */
+        fileId?: (string|null);
+    }
+
+    /** Represents a GroupFileDownload. */
+    class GroupFileDownload implements IGroupFileDownload {
+
+        /**
+         * Constructs a new GroupFileDownload.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IGroupFileDownload);
+
+        /** GroupFileDownload groupCode. */
+        public groupCode: number;
+
+        /** GroupFileDownload appId. */
+        public appId: number;
+
+        /** GroupFileDownload busId. */
+        public busId: number;
+
+        /** GroupFileDownload fileId. */
+        public fileId: string;
+
+        /**
+         * Encodes the specified GroupFileDownload message. Does not implicitly {@link Oidb.GroupFileDownload.verify|verify} messages.
+         * @param message GroupFileDownload message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IGroupFileDownload, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GroupFileDownload message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GroupFileDownload
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.GroupFileDownload;
+
+        /**
+         * Gets the default type url for GroupFileDownload
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GroupFileResponse. */
+    interface IGroupFileResponse {
+
+        /** GroupFileResponse download */
+        download?: (Oidb.IGroupFileDownloadResponse|null);
+    }
+
+    /** Represents a GroupFileResponse. */
+    class GroupFileResponse implements IGroupFileResponse {
+
+        /**
+         * Constructs a new GroupFileResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IGroupFileResponse);
+
+        /** GroupFileResponse download. */
+        public download?: (Oidb.IGroupFileDownloadResponse|null);
+
+        /**
+         * Encodes the specified GroupFileResponse message. Does not implicitly {@link Oidb.GroupFileResponse.verify|verify} messages.
+         * @param message GroupFileResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IGroupFileResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GroupFileResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GroupFileResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.GroupFileResponse;
+
+        /**
+         * Gets the default type url for GroupFileResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a GroupFileDownloadResponse. */
+    interface IGroupFileDownloadResponse {
+
+        /** GroupFileDownloadResponse downloadDns */
+        downloadDns?: (string|null);
+
+        /** GroupFileDownloadResponse downloadUrl */
+        downloadUrl?: (Uint8Array|null);
+    }
+
+    /** Represents a GroupFileDownloadResponse. */
+    class GroupFileDownloadResponse implements IGroupFileDownloadResponse {
+
+        /**
+         * Constructs a new GroupFileDownloadResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IGroupFileDownloadResponse);
+
+        /** GroupFileDownloadResponse downloadDns. */
+        public downloadDns: string;
+
+        /** GroupFileDownloadResponse downloadUrl. */
+        public downloadUrl: Uint8Array;
+
+        /**
+         * Encodes the specified GroupFileDownloadResponse message. Does not implicitly {@link Oidb.GroupFileDownloadResponse.verify|verify} messages.
+         * @param message GroupFileDownloadResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IGroupFileDownloadResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a GroupFileDownloadResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns GroupFileDownloadResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.GroupFileDownloadResponse;
+
+        /**
+         * Gets the default type url for GroupFileDownloadResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
 }
 
 /** Namespace Action. */

@@ -114,3 +114,24 @@ message GetGroupGenerateAiRecord {
 message GetGroupGenerateAiRecordClientMsgInfo {
   uint32 msgRandom = 1;
 }
+
+// OidbSvcTrpcTcp.0x6d6_2
+message GroupFile {
+  GroupFileDownload download = 3;
+}
+
+message GroupFileDownload {
+  uint32 groupCode = 1;
+  uint32 appId = 2;
+  uint32 busId = 3;
+  string fileId = 4;
+}
+
+message GroupFileResponse {
+  GroupFileDownloadResponse download = 3;
+}
+
+message GroupFileDownloadResponse {
+  string downloadDns = 5;
+  bytes downloadUrl = 6;
+}

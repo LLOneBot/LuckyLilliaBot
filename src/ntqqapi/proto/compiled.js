@@ -9438,6 +9438,462 @@ export const Oidb = $root.Oidb = (() => {
         return GetGroupGenerateAiRecordClientMsgInfo;
     })();
 
+    Oidb.GroupFile = (function() {
+
+        /**
+         * Properties of a GroupFile.
+         * @memberof Oidb
+         * @interface IGroupFile
+         * @property {Oidb.IGroupFileDownload|null} [download] GroupFile download
+         */
+
+        /**
+         * Constructs a new GroupFile.
+         * @memberof Oidb
+         * @classdesc Represents a GroupFile.
+         * @implements IGroupFile
+         * @constructor
+         * @param {Oidb.IGroupFile=} [properties] Properties to set
+         */
+        function GroupFile(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GroupFile download.
+         * @member {Oidb.IGroupFileDownload|null|undefined} download
+         * @memberof Oidb.GroupFile
+         * @instance
+         */
+        GroupFile.prototype.download = null;
+
+        /**
+         * Encodes the specified GroupFile message. Does not implicitly {@link Oidb.GroupFile.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.GroupFile
+         * @static
+         * @param {Oidb.IGroupFile} message GroupFile message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GroupFile.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.download != null && Object.hasOwnProperty.call(message, "download"))
+                $root.Oidb.GroupFileDownload.encode(message.download, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a GroupFile message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.GroupFile
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.GroupFile} GroupFile
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GroupFile.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.GroupFile();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 3: {
+                        message.download = $root.Oidb.GroupFileDownload.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for GroupFile
+         * @function getTypeUrl
+         * @memberof Oidb.GroupFile
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GroupFile.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.GroupFile";
+        };
+
+        return GroupFile;
+    })();
+
+    Oidb.GroupFileDownload = (function() {
+
+        /**
+         * Properties of a GroupFileDownload.
+         * @memberof Oidb
+         * @interface IGroupFileDownload
+         * @property {number|null} [groupCode] GroupFileDownload groupCode
+         * @property {number|null} [appId] GroupFileDownload appId
+         * @property {number|null} [busId] GroupFileDownload busId
+         * @property {string|null} [fileId] GroupFileDownload fileId
+         */
+
+        /**
+         * Constructs a new GroupFileDownload.
+         * @memberof Oidb
+         * @classdesc Represents a GroupFileDownload.
+         * @implements IGroupFileDownload
+         * @constructor
+         * @param {Oidb.IGroupFileDownload=} [properties] Properties to set
+         */
+        function GroupFileDownload(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GroupFileDownload groupCode.
+         * @member {number} groupCode
+         * @memberof Oidb.GroupFileDownload
+         * @instance
+         */
+        GroupFileDownload.prototype.groupCode = 0;
+
+        /**
+         * GroupFileDownload appId.
+         * @member {number} appId
+         * @memberof Oidb.GroupFileDownload
+         * @instance
+         */
+        GroupFileDownload.prototype.appId = 0;
+
+        /**
+         * GroupFileDownload busId.
+         * @member {number} busId
+         * @memberof Oidb.GroupFileDownload
+         * @instance
+         */
+        GroupFileDownload.prototype.busId = 0;
+
+        /**
+         * GroupFileDownload fileId.
+         * @member {string} fileId
+         * @memberof Oidb.GroupFileDownload
+         * @instance
+         */
+        GroupFileDownload.prototype.fileId = "";
+
+        /**
+         * Encodes the specified GroupFileDownload message. Does not implicitly {@link Oidb.GroupFileDownload.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.GroupFileDownload
+         * @static
+         * @param {Oidb.IGroupFileDownload} message GroupFileDownload message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GroupFileDownload.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.groupCode != null && Object.hasOwnProperty.call(message, "groupCode"))
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.groupCode);
+            if (message.appId != null && Object.hasOwnProperty.call(message, "appId"))
+                writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.appId);
+            if (message.busId != null && Object.hasOwnProperty.call(message, "busId"))
+                writer.uint32(/* id 3, wireType 0 =*/24).uint32(message.busId);
+            if (message.fileId != null && Object.hasOwnProperty.call(message, "fileId"))
+                writer.uint32(/* id 4, wireType 2 =*/34).string(message.fileId);
+            return writer;
+        };
+
+        /**
+         * Decodes a GroupFileDownload message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.GroupFileDownload
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.GroupFileDownload} GroupFileDownload
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GroupFileDownload.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.GroupFileDownload();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.groupCode = reader.uint32();
+                        break;
+                    }
+                case 2: {
+                        message.appId = reader.uint32();
+                        break;
+                    }
+                case 3: {
+                        message.busId = reader.uint32();
+                        break;
+                    }
+                case 4: {
+                        message.fileId = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for GroupFileDownload
+         * @function getTypeUrl
+         * @memberof Oidb.GroupFileDownload
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GroupFileDownload.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.GroupFileDownload";
+        };
+
+        return GroupFileDownload;
+    })();
+
+    Oidb.GroupFileResponse = (function() {
+
+        /**
+         * Properties of a GroupFileResponse.
+         * @memberof Oidb
+         * @interface IGroupFileResponse
+         * @property {Oidb.IGroupFileDownloadResponse|null} [download] GroupFileResponse download
+         */
+
+        /**
+         * Constructs a new GroupFileResponse.
+         * @memberof Oidb
+         * @classdesc Represents a GroupFileResponse.
+         * @implements IGroupFileResponse
+         * @constructor
+         * @param {Oidb.IGroupFileResponse=} [properties] Properties to set
+         */
+        function GroupFileResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GroupFileResponse download.
+         * @member {Oidb.IGroupFileDownloadResponse|null|undefined} download
+         * @memberof Oidb.GroupFileResponse
+         * @instance
+         */
+        GroupFileResponse.prototype.download = null;
+
+        /**
+         * Encodes the specified GroupFileResponse message. Does not implicitly {@link Oidb.GroupFileResponse.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.GroupFileResponse
+         * @static
+         * @param {Oidb.IGroupFileResponse} message GroupFileResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GroupFileResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.download != null && Object.hasOwnProperty.call(message, "download"))
+                $root.Oidb.GroupFileDownloadResponse.encode(message.download, writer.uint32(/* id 3, wireType 2 =*/26).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a GroupFileResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.GroupFileResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.GroupFileResponse} GroupFileResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GroupFileResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.GroupFileResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 3: {
+                        message.download = $root.Oidb.GroupFileDownloadResponse.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for GroupFileResponse
+         * @function getTypeUrl
+         * @memberof Oidb.GroupFileResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GroupFileResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.GroupFileResponse";
+        };
+
+        return GroupFileResponse;
+    })();
+
+    Oidb.GroupFileDownloadResponse = (function() {
+
+        /**
+         * Properties of a GroupFileDownloadResponse.
+         * @memberof Oidb
+         * @interface IGroupFileDownloadResponse
+         * @property {string|null} [downloadDns] GroupFileDownloadResponse downloadDns
+         * @property {Uint8Array|null} [downloadUrl] GroupFileDownloadResponse downloadUrl
+         */
+
+        /**
+         * Constructs a new GroupFileDownloadResponse.
+         * @memberof Oidb
+         * @classdesc Represents a GroupFileDownloadResponse.
+         * @implements IGroupFileDownloadResponse
+         * @constructor
+         * @param {Oidb.IGroupFileDownloadResponse=} [properties] Properties to set
+         */
+        function GroupFileDownloadResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * GroupFileDownloadResponse downloadDns.
+         * @member {string} downloadDns
+         * @memberof Oidb.GroupFileDownloadResponse
+         * @instance
+         */
+        GroupFileDownloadResponse.prototype.downloadDns = "";
+
+        /**
+         * GroupFileDownloadResponse downloadUrl.
+         * @member {Uint8Array} downloadUrl
+         * @memberof Oidb.GroupFileDownloadResponse
+         * @instance
+         */
+        GroupFileDownloadResponse.prototype.downloadUrl = $util.newBuffer([]);
+
+        /**
+         * Encodes the specified GroupFileDownloadResponse message. Does not implicitly {@link Oidb.GroupFileDownloadResponse.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.GroupFileDownloadResponse
+         * @static
+         * @param {Oidb.IGroupFileDownloadResponse} message GroupFileDownloadResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        GroupFileDownloadResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.downloadDns != null && Object.hasOwnProperty.call(message, "downloadDns"))
+                writer.uint32(/* id 5, wireType 2 =*/42).string(message.downloadDns);
+            if (message.downloadUrl != null && Object.hasOwnProperty.call(message, "downloadUrl"))
+                writer.uint32(/* id 6, wireType 2 =*/50).bytes(message.downloadUrl);
+            return writer;
+        };
+
+        /**
+         * Decodes a GroupFileDownloadResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.GroupFileDownloadResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.GroupFileDownloadResponse} GroupFileDownloadResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        GroupFileDownloadResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.GroupFileDownloadResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 5: {
+                        message.downloadDns = reader.string();
+                        break;
+                    }
+                case 6: {
+                        message.downloadUrl = reader.bytes();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for GroupFileDownloadResponse
+         * @function getTypeUrl
+         * @memberof Oidb.GroupFileDownloadResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        GroupFileDownloadResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.GroupFileDownloadResponse";
+        };
+
+        return GroupFileDownloadResponse;
+    })();
+
     return Oidb;
 })();
 
