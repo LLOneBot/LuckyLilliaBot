@@ -37,6 +37,7 @@ import {
   OB11FriendPokeRecallEvent,
   OB11GroupPokeRecallEvent,
 } from '@/onebot11/event/notice/OB11PokeEvent'
+import { OB11GroupDismissEvent } from '@/onebot11/event/notice/OB11GroupDismissEvent'
 
 declare module 'cordis' {
   interface Context {
@@ -545,6 +546,16 @@ class OneBot11Adapter extends Service {
         this.dispatch(event)
       })
 
+    })
+
+    this.ctx.on('nt/group-dismiss', async (group)=>{
+      const groupInfo = await this.ctx.ntGroupApi.getGroupAllInfo(group.groupCode)
+      const ownerUin = await this.ctx.ntUserApi.getUinByUid(groupInfo.ownerUid)
+      const event = new OB11GroupDismissEvent(
+        parseInt(group.groupCode),
+        parseInt(ownerUin)
+      )
+      this.dispatch(event)
     })
   }
 }

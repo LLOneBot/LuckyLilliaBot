@@ -16,7 +16,7 @@ import {
   ChatType,
   Peer,
   SendMessageElement,
-  ElementType,
+  ElementType, GroupSimpleInfo,
 } from './types'
 import { selfInfo } from '../common/globalVars'
 import { version } from '../version'
@@ -41,6 +41,7 @@ declare module 'cordis' {
     'nt/message-deleted': (input: RawMessage) => void
     'nt/message-sent': (input: RawMessage) => void
     'nt/group-notify': (input: { notify: GroupNotify, doubt: boolean }) => void
+    'nt/group-dismiss': (input: GroupSimpleInfo) => void
     'nt/friend-request': (input: FriendRequest) => void
     'nt/group-member-info-updated': (input: { groupCode: string, members: GroupMember[] }) => void
     'nt/system-message-created': (input: Uint8Array) => void
@@ -323,6 +324,19 @@ class Core extends Service {
 
     registerReceiveHook<{fileSet: FlashFileSetInfo} & FlashFileUploadingInfo>(ReceiveCmdS.FLASH_FILE_UPLOADING, payload => {
       this.ctx.parallel('nt/flash-file-uploading', payload)
+    })
+
+    registerReceiveHook<[type: number, groups: GroupSimpleInfo[]]>(ReceiveCmdS.GROUPS, async (data) => {
+      const [type, groups] = data
+      if (type !== 3){
+        return
+      }
+      for (const group of groups) {
+        if (!group.groupOwnerId.memberUid){
+          // 群被解散
+          this.ctx.parallel('nt/group-dismiss', group)
+        }
+      }
     })
   }
 }
