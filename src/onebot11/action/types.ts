@@ -50,6 +50,7 @@ export enum ActionName {
   GetRecommendFace = 'get_recommend_face',
   GetAiCharacters = 'get_ai_characters',
   SendGroupAiRecord = 'send_group_ai_record',
+  GetPrivateFileUrl = 'get_private_file_url',
   // onebot 11
   SendLike = 'send_like',
   GetLoginInfo = 'get_login_info',

@@ -135,3 +135,54 @@ message GroupFileDownloadResponse {
   string downloadDns = 5;
   bytes downloadUrl = 6;
 }
+
+// OidbSvcTrpcTcp.0xe37_1200
+message PrivateFile {
+  uint32 subCommand = 1;
+  uint32 field2 = 2;
+  PrivateFileBody body = 14;
+  uint32 field101 = 101;
+  uint32 field102 = 102;
+  uint32 field200 = 200;
+  bytes field99999 = 99999;
+}
+
+message PrivateFileBody {
+  string receiverUid = 10;
+  string fileUuid = 20;
+  uint32 type = 30;
+  string fileHash = 60;
+  uint32 t2 = 601;
+}
+
+message PrivateFileResponse {
+  uint32 command = 1;
+  uint32 subCommand = 2;
+  PrivateFileResponseBody body = 14;
+  uint32 field50 = 50;
+}
+
+message PrivateFileResponseBody {
+  uint32 field10 = 10;
+  string state = 20;
+  PrivateFileResponseResult result = 30;
+  PrivateFileResponseMetadata metadata = 40;
+}
+
+message PrivateFileResponseResult {
+  PrivateFileResponseExtra extra = 120;
+}
+
+message PrivateFileResponseMetadata {
+  string fileName = 7;
+}
+
+message PrivateFileResponseExtra {
+  uint32 field100 = 100;
+  PrivateFileResponseDownload download = 102;
+}
+
+message PrivateFileResponseDownload {
+  bytes downloadUrl = 8;
+  string downloadDns = 11;
+}
