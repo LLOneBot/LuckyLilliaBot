@@ -4121,6 +4121,474 @@ export namespace Oidb {
          */
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
+
+    /** Properties of a PrivateFile. */
+    interface IPrivateFile {
+
+        /** PrivateFile subCommand */
+        subCommand?: (number|null);
+
+        /** PrivateFile field2 */
+        field2?: (number|null);
+
+        /** PrivateFile body */
+        body?: (Oidb.IPrivateFileBody|null);
+
+        /** PrivateFile field101 */
+        field101?: (number|null);
+
+        /** PrivateFile field102 */
+        field102?: (number|null);
+
+        /** PrivateFile field200 */
+        field200?: (number|null);
+
+        /** PrivateFile field99999 */
+        field99999?: (Uint8Array|null);
+    }
+
+    /** Represents a PrivateFile. */
+    class PrivateFile implements IPrivateFile {
+
+        /**
+         * Constructs a new PrivateFile.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IPrivateFile);
+
+        /** PrivateFile subCommand. */
+        public subCommand: number;
+
+        /** PrivateFile field2. */
+        public field2: number;
+
+        /** PrivateFile body. */
+        public body?: (Oidb.IPrivateFileBody|null);
+
+        /** PrivateFile field101. */
+        public field101: number;
+
+        /** PrivateFile field102. */
+        public field102: number;
+
+        /** PrivateFile field200. */
+        public field200: number;
+
+        /** PrivateFile field99999. */
+        public field99999: Uint8Array;
+
+        /**
+         * Encodes the specified PrivateFile message. Does not implicitly {@link Oidb.PrivateFile.verify|verify} messages.
+         * @param message PrivateFile message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IPrivateFile, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a PrivateFile message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns PrivateFile
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.PrivateFile;
+
+        /**
+         * Gets the default type url for PrivateFile
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a PrivateFileBody. */
+    interface IPrivateFileBody {
+
+        /** PrivateFileBody receiverUid */
+        receiverUid?: (string|null);
+
+        /** PrivateFileBody fileUuid */
+        fileUuid?: (string|null);
+
+        /** PrivateFileBody type */
+        type?: (number|null);
+
+        /** PrivateFileBody fileHash */
+        fileHash?: (string|null);
+
+        /** PrivateFileBody t2 */
+        t2?: (number|null);
+    }
+
+    /** Represents a PrivateFileBody. */
+    class PrivateFileBody implements IPrivateFileBody {
+
+        /**
+         * Constructs a new PrivateFileBody.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IPrivateFileBody);
+
+        /** PrivateFileBody receiverUid. */
+        public receiverUid: string;
+
+        /** PrivateFileBody fileUuid. */
+        public fileUuid: string;
+
+        /** PrivateFileBody type. */
+        public type: number;
+
+        /** PrivateFileBody fileHash. */
+        public fileHash: string;
+
+        /** PrivateFileBody t2. */
+        public t2: number;
+
+        /**
+         * Encodes the specified PrivateFileBody message. Does not implicitly {@link Oidb.PrivateFileBody.verify|verify} messages.
+         * @param message PrivateFileBody message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IPrivateFileBody, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a PrivateFileBody message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns PrivateFileBody
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.PrivateFileBody;
+
+        /**
+         * Gets the default type url for PrivateFileBody
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a PrivateFileResponse. */
+    interface IPrivateFileResponse {
+
+        /** PrivateFileResponse command */
+        command?: (number|null);
+
+        /** PrivateFileResponse subCommand */
+        subCommand?: (number|null);
+
+        /** PrivateFileResponse body */
+        body?: (Oidb.IPrivateFileResponseBody|null);
+
+        /** PrivateFileResponse field50 */
+        field50?: (number|null);
+    }
+
+    /** Represents a PrivateFileResponse. */
+    class PrivateFileResponse implements IPrivateFileResponse {
+
+        /**
+         * Constructs a new PrivateFileResponse.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IPrivateFileResponse);
+
+        /** PrivateFileResponse command. */
+        public command: number;
+
+        /** PrivateFileResponse subCommand. */
+        public subCommand: number;
+
+        /** PrivateFileResponse body. */
+        public body?: (Oidb.IPrivateFileResponseBody|null);
+
+        /** PrivateFileResponse field50. */
+        public field50: number;
+
+        /**
+         * Encodes the specified PrivateFileResponse message. Does not implicitly {@link Oidb.PrivateFileResponse.verify|verify} messages.
+         * @param message PrivateFileResponse message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IPrivateFileResponse, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a PrivateFileResponse message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns PrivateFileResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.PrivateFileResponse;
+
+        /**
+         * Gets the default type url for PrivateFileResponse
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a PrivateFileResponseBody. */
+    interface IPrivateFileResponseBody {
+
+        /** PrivateFileResponseBody field10 */
+        field10?: (number|null);
+
+        /** PrivateFileResponseBody state */
+        state?: (string|null);
+
+        /** PrivateFileResponseBody result */
+        result?: (Oidb.IPrivateFileResponseResult|null);
+
+        /** PrivateFileResponseBody metadata */
+        metadata?: (Oidb.IPrivateFileResponseMetadata|null);
+    }
+
+    /** Represents a PrivateFileResponseBody. */
+    class PrivateFileResponseBody implements IPrivateFileResponseBody {
+
+        /**
+         * Constructs a new PrivateFileResponseBody.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IPrivateFileResponseBody);
+
+        /** PrivateFileResponseBody field10. */
+        public field10: number;
+
+        /** PrivateFileResponseBody state. */
+        public state: string;
+
+        /** PrivateFileResponseBody result. */
+        public result?: (Oidb.IPrivateFileResponseResult|null);
+
+        /** PrivateFileResponseBody metadata. */
+        public metadata?: (Oidb.IPrivateFileResponseMetadata|null);
+
+        /**
+         * Encodes the specified PrivateFileResponseBody message. Does not implicitly {@link Oidb.PrivateFileResponseBody.verify|verify} messages.
+         * @param message PrivateFileResponseBody message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IPrivateFileResponseBody, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a PrivateFileResponseBody message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns PrivateFileResponseBody
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.PrivateFileResponseBody;
+
+        /**
+         * Gets the default type url for PrivateFileResponseBody
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a PrivateFileResponseResult. */
+    interface IPrivateFileResponseResult {
+
+        /** PrivateFileResponseResult extra */
+        extra?: (Oidb.IPrivateFileResponseExtra|null);
+    }
+
+    /** Represents a PrivateFileResponseResult. */
+    class PrivateFileResponseResult implements IPrivateFileResponseResult {
+
+        /**
+         * Constructs a new PrivateFileResponseResult.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IPrivateFileResponseResult);
+
+        /** PrivateFileResponseResult extra. */
+        public extra?: (Oidb.IPrivateFileResponseExtra|null);
+
+        /**
+         * Encodes the specified PrivateFileResponseResult message. Does not implicitly {@link Oidb.PrivateFileResponseResult.verify|verify} messages.
+         * @param message PrivateFileResponseResult message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IPrivateFileResponseResult, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a PrivateFileResponseResult message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns PrivateFileResponseResult
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.PrivateFileResponseResult;
+
+        /**
+         * Gets the default type url for PrivateFileResponseResult
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a PrivateFileResponseMetadata. */
+    interface IPrivateFileResponseMetadata {
+
+        /** PrivateFileResponseMetadata fileName */
+        fileName?: (string|null);
+    }
+
+    /** Represents a PrivateFileResponseMetadata. */
+    class PrivateFileResponseMetadata implements IPrivateFileResponseMetadata {
+
+        /**
+         * Constructs a new PrivateFileResponseMetadata.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IPrivateFileResponseMetadata);
+
+        /** PrivateFileResponseMetadata fileName. */
+        public fileName: string;
+
+        /**
+         * Encodes the specified PrivateFileResponseMetadata message. Does not implicitly {@link Oidb.PrivateFileResponseMetadata.verify|verify} messages.
+         * @param message PrivateFileResponseMetadata message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IPrivateFileResponseMetadata, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a PrivateFileResponseMetadata message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns PrivateFileResponseMetadata
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.PrivateFileResponseMetadata;
+
+        /**
+         * Gets the default type url for PrivateFileResponseMetadata
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a PrivateFileResponseExtra. */
+    interface IPrivateFileResponseExtra {
+
+        /** PrivateFileResponseExtra field100 */
+        field100?: (number|null);
+
+        /** PrivateFileResponseExtra download */
+        download?: (Oidb.IPrivateFileResponseDownload|null);
+    }
+
+    /** Represents a PrivateFileResponseExtra. */
+    class PrivateFileResponseExtra implements IPrivateFileResponseExtra {
+
+        /**
+         * Constructs a new PrivateFileResponseExtra.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IPrivateFileResponseExtra);
+
+        /** PrivateFileResponseExtra field100. */
+        public field100: number;
+
+        /** PrivateFileResponseExtra download. */
+        public download?: (Oidb.IPrivateFileResponseDownload|null);
+
+        /**
+         * Encodes the specified PrivateFileResponseExtra message. Does not implicitly {@link Oidb.PrivateFileResponseExtra.verify|verify} messages.
+         * @param message PrivateFileResponseExtra message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IPrivateFileResponseExtra, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a PrivateFileResponseExtra message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns PrivateFileResponseExtra
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.PrivateFileResponseExtra;
+
+        /**
+         * Gets the default type url for PrivateFileResponseExtra
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a PrivateFileResponseDownload. */
+    interface IPrivateFileResponseDownload {
+
+        /** PrivateFileResponseDownload downloadUrl */
+        downloadUrl?: (Uint8Array|null);
+
+        /** PrivateFileResponseDownload downloadDns */
+        downloadDns?: (string|null);
+    }
+
+    /** Represents a PrivateFileResponseDownload. */
+    class PrivateFileResponseDownload implements IPrivateFileResponseDownload {
+
+        /**
+         * Constructs a new PrivateFileResponseDownload.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Oidb.IPrivateFileResponseDownload);
+
+        /** PrivateFileResponseDownload downloadUrl. */
+        public downloadUrl: Uint8Array;
+
+        /** PrivateFileResponseDownload downloadDns. */
+        public downloadDns: string;
+
+        /**
+         * Encodes the specified PrivateFileResponseDownload message. Does not implicitly {@link Oidb.PrivateFileResponseDownload.verify|verify} messages.
+         * @param message PrivateFileResponseDownload message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Oidb.IPrivateFileResponseDownload, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a PrivateFileResponseDownload message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns PrivateFileResponseDownload
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Oidb.PrivateFileResponseDownload;
+
+        /**
+         * Gets the default type url for PrivateFileResponseDownload
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
 }
 
 /** Namespace Action. */

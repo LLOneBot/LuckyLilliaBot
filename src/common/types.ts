@@ -38,7 +38,7 @@ export interface Config {
   webui: WebUIConfig
   onlyLocalhost: boolean
   heartInterval: number // ms
-  enableLocalFile2Url?: boolean // 开启后，本地文件路径图片会转成http链接, 语音会转成base64
+  enableLocalFile2Url?: boolean // 开启后，本地文件路径图片会转成http链接
   debug?: boolean
   log?: boolean
   autoDeleteFile?: boolean

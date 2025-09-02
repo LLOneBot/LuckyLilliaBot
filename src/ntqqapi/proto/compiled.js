@@ -9894,6 +9894,1068 @@ export const Oidb = $root.Oidb = (() => {
         return GroupFileDownloadResponse;
     })();
 
+    Oidb.PrivateFile = (function() {
+
+        /**
+         * Properties of a PrivateFile.
+         * @memberof Oidb
+         * @interface IPrivateFile
+         * @property {number|null} [subCommand] PrivateFile subCommand
+         * @property {number|null} [field2] PrivateFile field2
+         * @property {Oidb.IPrivateFileBody|null} [body] PrivateFile body
+         * @property {number|null} [field101] PrivateFile field101
+         * @property {number|null} [field102] PrivateFile field102
+         * @property {number|null} [field200] PrivateFile field200
+         * @property {Uint8Array|null} [field99999] PrivateFile field99999
+         */
+
+        /**
+         * Constructs a new PrivateFile.
+         * @memberof Oidb
+         * @classdesc Represents a PrivateFile.
+         * @implements IPrivateFile
+         * @constructor
+         * @param {Oidb.IPrivateFile=} [properties] Properties to set
+         */
+        function PrivateFile(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * PrivateFile subCommand.
+         * @member {number} subCommand
+         * @memberof Oidb.PrivateFile
+         * @instance
+         */
+        PrivateFile.prototype.subCommand = 0;
+
+        /**
+         * PrivateFile field2.
+         * @member {number} field2
+         * @memberof Oidb.PrivateFile
+         * @instance
+         */
+        PrivateFile.prototype.field2 = 0;
+
+        /**
+         * PrivateFile body.
+         * @member {Oidb.IPrivateFileBody|null|undefined} body
+         * @memberof Oidb.PrivateFile
+         * @instance
+         */
+        PrivateFile.prototype.body = null;
+
+        /**
+         * PrivateFile field101.
+         * @member {number} field101
+         * @memberof Oidb.PrivateFile
+         * @instance
+         */
+        PrivateFile.prototype.field101 = 0;
+
+        /**
+         * PrivateFile field102.
+         * @member {number} field102
+         * @memberof Oidb.PrivateFile
+         * @instance
+         */
+        PrivateFile.prototype.field102 = 0;
+
+        /**
+         * PrivateFile field200.
+         * @member {number} field200
+         * @memberof Oidb.PrivateFile
+         * @instance
+         */
+        PrivateFile.prototype.field200 = 0;
+
+        /**
+         * PrivateFile field99999.
+         * @member {Uint8Array} field99999
+         * @memberof Oidb.PrivateFile
+         * @instance
+         */
+        PrivateFile.prototype.field99999 = $util.newBuffer([]);
+
+        /**
+         * Encodes the specified PrivateFile message. Does not implicitly {@link Oidb.PrivateFile.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.PrivateFile
+         * @static
+         * @param {Oidb.IPrivateFile} message PrivateFile message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PrivateFile.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.subCommand != null && Object.hasOwnProperty.call(message, "subCommand"))
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.subCommand);
+            if (message.field2 != null && Object.hasOwnProperty.call(message, "field2"))
+                writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.field2);
+            if (message.body != null && Object.hasOwnProperty.call(message, "body"))
+                $root.Oidb.PrivateFileBody.encode(message.body, writer.uint32(/* id 14, wireType 2 =*/114).fork()).ldelim();
+            if (message.field101 != null && Object.hasOwnProperty.call(message, "field101"))
+                writer.uint32(/* id 101, wireType 0 =*/808).uint32(message.field101);
+            if (message.field102 != null && Object.hasOwnProperty.call(message, "field102"))
+                writer.uint32(/* id 102, wireType 0 =*/816).uint32(message.field102);
+            if (message.field200 != null && Object.hasOwnProperty.call(message, "field200"))
+                writer.uint32(/* id 200, wireType 0 =*/1600).uint32(message.field200);
+            if (message.field99999 != null && Object.hasOwnProperty.call(message, "field99999"))
+                writer.uint32(/* id 99999, wireType 2 =*/799994).bytes(message.field99999);
+            return writer;
+        };
+
+        /**
+         * Decodes a PrivateFile message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.PrivateFile
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.PrivateFile} PrivateFile
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PrivateFile.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.PrivateFile();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.subCommand = reader.uint32();
+                        break;
+                    }
+                case 2: {
+                        message.field2 = reader.uint32();
+                        break;
+                    }
+                case 14: {
+                        message.body = $root.Oidb.PrivateFileBody.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 101: {
+                        message.field101 = reader.uint32();
+                        break;
+                    }
+                case 102: {
+                        message.field102 = reader.uint32();
+                        break;
+                    }
+                case 200: {
+                        message.field200 = reader.uint32();
+                        break;
+                    }
+                case 99999: {
+                        message.field99999 = reader.bytes();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for PrivateFile
+         * @function getTypeUrl
+         * @memberof Oidb.PrivateFile
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        PrivateFile.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.PrivateFile";
+        };
+
+        return PrivateFile;
+    })();
+
+    Oidb.PrivateFileBody = (function() {
+
+        /**
+         * Properties of a PrivateFileBody.
+         * @memberof Oidb
+         * @interface IPrivateFileBody
+         * @property {string|null} [receiverUid] PrivateFileBody receiverUid
+         * @property {string|null} [fileUuid] PrivateFileBody fileUuid
+         * @property {number|null} [type] PrivateFileBody type
+         * @property {string|null} [fileHash] PrivateFileBody fileHash
+         * @property {number|null} [t2] PrivateFileBody t2
+         */
+
+        /**
+         * Constructs a new PrivateFileBody.
+         * @memberof Oidb
+         * @classdesc Represents a PrivateFileBody.
+         * @implements IPrivateFileBody
+         * @constructor
+         * @param {Oidb.IPrivateFileBody=} [properties] Properties to set
+         */
+        function PrivateFileBody(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * PrivateFileBody receiverUid.
+         * @member {string} receiverUid
+         * @memberof Oidb.PrivateFileBody
+         * @instance
+         */
+        PrivateFileBody.prototype.receiverUid = "";
+
+        /**
+         * PrivateFileBody fileUuid.
+         * @member {string} fileUuid
+         * @memberof Oidb.PrivateFileBody
+         * @instance
+         */
+        PrivateFileBody.prototype.fileUuid = "";
+
+        /**
+         * PrivateFileBody type.
+         * @member {number} type
+         * @memberof Oidb.PrivateFileBody
+         * @instance
+         */
+        PrivateFileBody.prototype.type = 0;
+
+        /**
+         * PrivateFileBody fileHash.
+         * @member {string} fileHash
+         * @memberof Oidb.PrivateFileBody
+         * @instance
+         */
+        PrivateFileBody.prototype.fileHash = "";
+
+        /**
+         * PrivateFileBody t2.
+         * @member {number} t2
+         * @memberof Oidb.PrivateFileBody
+         * @instance
+         */
+        PrivateFileBody.prototype.t2 = 0;
+
+        /**
+         * Encodes the specified PrivateFileBody message. Does not implicitly {@link Oidb.PrivateFileBody.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.PrivateFileBody
+         * @static
+         * @param {Oidb.IPrivateFileBody} message PrivateFileBody message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PrivateFileBody.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.receiverUid != null && Object.hasOwnProperty.call(message, "receiverUid"))
+                writer.uint32(/* id 10, wireType 2 =*/82).string(message.receiverUid);
+            if (message.fileUuid != null && Object.hasOwnProperty.call(message, "fileUuid"))
+                writer.uint32(/* id 20, wireType 2 =*/162).string(message.fileUuid);
+            if (message.type != null && Object.hasOwnProperty.call(message, "type"))
+                writer.uint32(/* id 30, wireType 0 =*/240).uint32(message.type);
+            if (message.fileHash != null && Object.hasOwnProperty.call(message, "fileHash"))
+                writer.uint32(/* id 60, wireType 2 =*/482).string(message.fileHash);
+            if (message.t2 != null && Object.hasOwnProperty.call(message, "t2"))
+                writer.uint32(/* id 601, wireType 0 =*/4808).uint32(message.t2);
+            return writer;
+        };
+
+        /**
+         * Decodes a PrivateFileBody message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.PrivateFileBody
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.PrivateFileBody} PrivateFileBody
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PrivateFileBody.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.PrivateFileBody();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 10: {
+                        message.receiverUid = reader.string();
+                        break;
+                    }
+                case 20: {
+                        message.fileUuid = reader.string();
+                        break;
+                    }
+                case 30: {
+                        message.type = reader.uint32();
+                        break;
+                    }
+                case 60: {
+                        message.fileHash = reader.string();
+                        break;
+                    }
+                case 601: {
+                        message.t2 = reader.uint32();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for PrivateFileBody
+         * @function getTypeUrl
+         * @memberof Oidb.PrivateFileBody
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        PrivateFileBody.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.PrivateFileBody";
+        };
+
+        return PrivateFileBody;
+    })();
+
+    Oidb.PrivateFileResponse = (function() {
+
+        /**
+         * Properties of a PrivateFileResponse.
+         * @memberof Oidb
+         * @interface IPrivateFileResponse
+         * @property {number|null} [command] PrivateFileResponse command
+         * @property {number|null} [subCommand] PrivateFileResponse subCommand
+         * @property {Oidb.IPrivateFileResponseBody|null} [body] PrivateFileResponse body
+         * @property {number|null} [field50] PrivateFileResponse field50
+         */
+
+        /**
+         * Constructs a new PrivateFileResponse.
+         * @memberof Oidb
+         * @classdesc Represents a PrivateFileResponse.
+         * @implements IPrivateFileResponse
+         * @constructor
+         * @param {Oidb.IPrivateFileResponse=} [properties] Properties to set
+         */
+        function PrivateFileResponse(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * PrivateFileResponse command.
+         * @member {number} command
+         * @memberof Oidb.PrivateFileResponse
+         * @instance
+         */
+        PrivateFileResponse.prototype.command = 0;
+
+        /**
+         * PrivateFileResponse subCommand.
+         * @member {number} subCommand
+         * @memberof Oidb.PrivateFileResponse
+         * @instance
+         */
+        PrivateFileResponse.prototype.subCommand = 0;
+
+        /**
+         * PrivateFileResponse body.
+         * @member {Oidb.IPrivateFileResponseBody|null|undefined} body
+         * @memberof Oidb.PrivateFileResponse
+         * @instance
+         */
+        PrivateFileResponse.prototype.body = null;
+
+        /**
+         * PrivateFileResponse field50.
+         * @member {number} field50
+         * @memberof Oidb.PrivateFileResponse
+         * @instance
+         */
+        PrivateFileResponse.prototype.field50 = 0;
+
+        /**
+         * Encodes the specified PrivateFileResponse message. Does not implicitly {@link Oidb.PrivateFileResponse.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.PrivateFileResponse
+         * @static
+         * @param {Oidb.IPrivateFileResponse} message PrivateFileResponse message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PrivateFileResponse.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.command != null && Object.hasOwnProperty.call(message, "command"))
+                writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.command);
+            if (message.subCommand != null && Object.hasOwnProperty.call(message, "subCommand"))
+                writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.subCommand);
+            if (message.body != null && Object.hasOwnProperty.call(message, "body"))
+                $root.Oidb.PrivateFileResponseBody.encode(message.body, writer.uint32(/* id 14, wireType 2 =*/114).fork()).ldelim();
+            if (message.field50 != null && Object.hasOwnProperty.call(message, "field50"))
+                writer.uint32(/* id 50, wireType 0 =*/400).uint32(message.field50);
+            return writer;
+        };
+
+        /**
+         * Decodes a PrivateFileResponse message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.PrivateFileResponse
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.PrivateFileResponse} PrivateFileResponse
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PrivateFileResponse.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.PrivateFileResponse();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 1: {
+                        message.command = reader.uint32();
+                        break;
+                    }
+                case 2: {
+                        message.subCommand = reader.uint32();
+                        break;
+                    }
+                case 14: {
+                        message.body = $root.Oidb.PrivateFileResponseBody.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 50: {
+                        message.field50 = reader.uint32();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for PrivateFileResponse
+         * @function getTypeUrl
+         * @memberof Oidb.PrivateFileResponse
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        PrivateFileResponse.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.PrivateFileResponse";
+        };
+
+        return PrivateFileResponse;
+    })();
+
+    Oidb.PrivateFileResponseBody = (function() {
+
+        /**
+         * Properties of a PrivateFileResponseBody.
+         * @memberof Oidb
+         * @interface IPrivateFileResponseBody
+         * @property {number|null} [field10] PrivateFileResponseBody field10
+         * @property {string|null} [state] PrivateFileResponseBody state
+         * @property {Oidb.IPrivateFileResponseResult|null} [result] PrivateFileResponseBody result
+         * @property {Oidb.IPrivateFileResponseMetadata|null} [metadata] PrivateFileResponseBody metadata
+         */
+
+        /**
+         * Constructs a new PrivateFileResponseBody.
+         * @memberof Oidb
+         * @classdesc Represents a PrivateFileResponseBody.
+         * @implements IPrivateFileResponseBody
+         * @constructor
+         * @param {Oidb.IPrivateFileResponseBody=} [properties] Properties to set
+         */
+        function PrivateFileResponseBody(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * PrivateFileResponseBody field10.
+         * @member {number} field10
+         * @memberof Oidb.PrivateFileResponseBody
+         * @instance
+         */
+        PrivateFileResponseBody.prototype.field10 = 0;
+
+        /**
+         * PrivateFileResponseBody state.
+         * @member {string} state
+         * @memberof Oidb.PrivateFileResponseBody
+         * @instance
+         */
+        PrivateFileResponseBody.prototype.state = "";
+
+        /**
+         * PrivateFileResponseBody result.
+         * @member {Oidb.IPrivateFileResponseResult|null|undefined} result
+         * @memberof Oidb.PrivateFileResponseBody
+         * @instance
+         */
+        PrivateFileResponseBody.prototype.result = null;
+
+        /**
+         * PrivateFileResponseBody metadata.
+         * @member {Oidb.IPrivateFileResponseMetadata|null|undefined} metadata
+         * @memberof Oidb.PrivateFileResponseBody
+         * @instance
+         */
+        PrivateFileResponseBody.prototype.metadata = null;
+
+        /**
+         * Encodes the specified PrivateFileResponseBody message. Does not implicitly {@link Oidb.PrivateFileResponseBody.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.PrivateFileResponseBody
+         * @static
+         * @param {Oidb.IPrivateFileResponseBody} message PrivateFileResponseBody message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PrivateFileResponseBody.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.field10 != null && Object.hasOwnProperty.call(message, "field10"))
+                writer.uint32(/* id 10, wireType 0 =*/80).uint32(message.field10);
+            if (message.state != null && Object.hasOwnProperty.call(message, "state"))
+                writer.uint32(/* id 20, wireType 2 =*/162).string(message.state);
+            if (message.result != null && Object.hasOwnProperty.call(message, "result"))
+                $root.Oidb.PrivateFileResponseResult.encode(message.result, writer.uint32(/* id 30, wireType 2 =*/242).fork()).ldelim();
+            if (message.metadata != null && Object.hasOwnProperty.call(message, "metadata"))
+                $root.Oidb.PrivateFileResponseMetadata.encode(message.metadata, writer.uint32(/* id 40, wireType 2 =*/322).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a PrivateFileResponseBody message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.PrivateFileResponseBody
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.PrivateFileResponseBody} PrivateFileResponseBody
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PrivateFileResponseBody.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.PrivateFileResponseBody();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 10: {
+                        message.field10 = reader.uint32();
+                        break;
+                    }
+                case 20: {
+                        message.state = reader.string();
+                        break;
+                    }
+                case 30: {
+                        message.result = $root.Oidb.PrivateFileResponseResult.decode(reader, reader.uint32());
+                        break;
+                    }
+                case 40: {
+                        message.metadata = $root.Oidb.PrivateFileResponseMetadata.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for PrivateFileResponseBody
+         * @function getTypeUrl
+         * @memberof Oidb.PrivateFileResponseBody
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        PrivateFileResponseBody.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.PrivateFileResponseBody";
+        };
+
+        return PrivateFileResponseBody;
+    })();
+
+    Oidb.PrivateFileResponseResult = (function() {
+
+        /**
+         * Properties of a PrivateFileResponseResult.
+         * @memberof Oidb
+         * @interface IPrivateFileResponseResult
+         * @property {Oidb.IPrivateFileResponseExtra|null} [extra] PrivateFileResponseResult extra
+         */
+
+        /**
+         * Constructs a new PrivateFileResponseResult.
+         * @memberof Oidb
+         * @classdesc Represents a PrivateFileResponseResult.
+         * @implements IPrivateFileResponseResult
+         * @constructor
+         * @param {Oidb.IPrivateFileResponseResult=} [properties] Properties to set
+         */
+        function PrivateFileResponseResult(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * PrivateFileResponseResult extra.
+         * @member {Oidb.IPrivateFileResponseExtra|null|undefined} extra
+         * @memberof Oidb.PrivateFileResponseResult
+         * @instance
+         */
+        PrivateFileResponseResult.prototype.extra = null;
+
+        /**
+         * Encodes the specified PrivateFileResponseResult message. Does not implicitly {@link Oidb.PrivateFileResponseResult.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.PrivateFileResponseResult
+         * @static
+         * @param {Oidb.IPrivateFileResponseResult} message PrivateFileResponseResult message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PrivateFileResponseResult.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.extra != null && Object.hasOwnProperty.call(message, "extra"))
+                $root.Oidb.PrivateFileResponseExtra.encode(message.extra, writer.uint32(/* id 120, wireType 2 =*/962).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a PrivateFileResponseResult message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.PrivateFileResponseResult
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.PrivateFileResponseResult} PrivateFileResponseResult
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PrivateFileResponseResult.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.PrivateFileResponseResult();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 120: {
+                        message.extra = $root.Oidb.PrivateFileResponseExtra.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for PrivateFileResponseResult
+         * @function getTypeUrl
+         * @memberof Oidb.PrivateFileResponseResult
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        PrivateFileResponseResult.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.PrivateFileResponseResult";
+        };
+
+        return PrivateFileResponseResult;
+    })();
+
+    Oidb.PrivateFileResponseMetadata = (function() {
+
+        /**
+         * Properties of a PrivateFileResponseMetadata.
+         * @memberof Oidb
+         * @interface IPrivateFileResponseMetadata
+         * @property {string|null} [fileName] PrivateFileResponseMetadata fileName
+         */
+
+        /**
+         * Constructs a new PrivateFileResponseMetadata.
+         * @memberof Oidb
+         * @classdesc Represents a PrivateFileResponseMetadata.
+         * @implements IPrivateFileResponseMetadata
+         * @constructor
+         * @param {Oidb.IPrivateFileResponseMetadata=} [properties] Properties to set
+         */
+        function PrivateFileResponseMetadata(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * PrivateFileResponseMetadata fileName.
+         * @member {string} fileName
+         * @memberof Oidb.PrivateFileResponseMetadata
+         * @instance
+         */
+        PrivateFileResponseMetadata.prototype.fileName = "";
+
+        /**
+         * Encodes the specified PrivateFileResponseMetadata message. Does not implicitly {@link Oidb.PrivateFileResponseMetadata.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.PrivateFileResponseMetadata
+         * @static
+         * @param {Oidb.IPrivateFileResponseMetadata} message PrivateFileResponseMetadata message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PrivateFileResponseMetadata.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.fileName != null && Object.hasOwnProperty.call(message, "fileName"))
+                writer.uint32(/* id 7, wireType 2 =*/58).string(message.fileName);
+            return writer;
+        };
+
+        /**
+         * Decodes a PrivateFileResponseMetadata message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.PrivateFileResponseMetadata
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.PrivateFileResponseMetadata} PrivateFileResponseMetadata
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PrivateFileResponseMetadata.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.PrivateFileResponseMetadata();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 7: {
+                        message.fileName = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for PrivateFileResponseMetadata
+         * @function getTypeUrl
+         * @memberof Oidb.PrivateFileResponseMetadata
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        PrivateFileResponseMetadata.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.PrivateFileResponseMetadata";
+        };
+
+        return PrivateFileResponseMetadata;
+    })();
+
+    Oidb.PrivateFileResponseExtra = (function() {
+
+        /**
+         * Properties of a PrivateFileResponseExtra.
+         * @memberof Oidb
+         * @interface IPrivateFileResponseExtra
+         * @property {number|null} [field100] PrivateFileResponseExtra field100
+         * @property {Oidb.IPrivateFileResponseDownload|null} [download] PrivateFileResponseExtra download
+         */
+
+        /**
+         * Constructs a new PrivateFileResponseExtra.
+         * @memberof Oidb
+         * @classdesc Represents a PrivateFileResponseExtra.
+         * @implements IPrivateFileResponseExtra
+         * @constructor
+         * @param {Oidb.IPrivateFileResponseExtra=} [properties] Properties to set
+         */
+        function PrivateFileResponseExtra(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * PrivateFileResponseExtra field100.
+         * @member {number} field100
+         * @memberof Oidb.PrivateFileResponseExtra
+         * @instance
+         */
+        PrivateFileResponseExtra.prototype.field100 = 0;
+
+        /**
+         * PrivateFileResponseExtra download.
+         * @member {Oidb.IPrivateFileResponseDownload|null|undefined} download
+         * @memberof Oidb.PrivateFileResponseExtra
+         * @instance
+         */
+        PrivateFileResponseExtra.prototype.download = null;
+
+        /**
+         * Encodes the specified PrivateFileResponseExtra message. Does not implicitly {@link Oidb.PrivateFileResponseExtra.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.PrivateFileResponseExtra
+         * @static
+         * @param {Oidb.IPrivateFileResponseExtra} message PrivateFileResponseExtra message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PrivateFileResponseExtra.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.field100 != null && Object.hasOwnProperty.call(message, "field100"))
+                writer.uint32(/* id 100, wireType 0 =*/800).uint32(message.field100);
+            if (message.download != null && Object.hasOwnProperty.call(message, "download"))
+                $root.Oidb.PrivateFileResponseDownload.encode(message.download, writer.uint32(/* id 102, wireType 2 =*/818).fork()).ldelim();
+            return writer;
+        };
+
+        /**
+         * Decodes a PrivateFileResponseExtra message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.PrivateFileResponseExtra
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.PrivateFileResponseExtra} PrivateFileResponseExtra
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PrivateFileResponseExtra.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.PrivateFileResponseExtra();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 100: {
+                        message.field100 = reader.uint32();
+                        break;
+                    }
+                case 102: {
+                        message.download = $root.Oidb.PrivateFileResponseDownload.decode(reader, reader.uint32());
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for PrivateFileResponseExtra
+         * @function getTypeUrl
+         * @memberof Oidb.PrivateFileResponseExtra
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        PrivateFileResponseExtra.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.PrivateFileResponseExtra";
+        };
+
+        return PrivateFileResponseExtra;
+    })();
+
+    Oidb.PrivateFileResponseDownload = (function() {
+
+        /**
+         * Properties of a PrivateFileResponseDownload.
+         * @memberof Oidb
+         * @interface IPrivateFileResponseDownload
+         * @property {Uint8Array|null} [downloadUrl] PrivateFileResponseDownload downloadUrl
+         * @property {string|null} [downloadDns] PrivateFileResponseDownload downloadDns
+         */
+
+        /**
+         * Constructs a new PrivateFileResponseDownload.
+         * @memberof Oidb
+         * @classdesc Represents a PrivateFileResponseDownload.
+         * @implements IPrivateFileResponseDownload
+         * @constructor
+         * @param {Oidb.IPrivateFileResponseDownload=} [properties] Properties to set
+         */
+        function PrivateFileResponseDownload(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * PrivateFileResponseDownload downloadUrl.
+         * @member {Uint8Array} downloadUrl
+         * @memberof Oidb.PrivateFileResponseDownload
+         * @instance
+         */
+        PrivateFileResponseDownload.prototype.downloadUrl = $util.newBuffer([]);
+
+        /**
+         * PrivateFileResponseDownload downloadDns.
+         * @member {string} downloadDns
+         * @memberof Oidb.PrivateFileResponseDownload
+         * @instance
+         */
+        PrivateFileResponseDownload.prototype.downloadDns = "";
+
+        /**
+         * Encodes the specified PrivateFileResponseDownload message. Does not implicitly {@link Oidb.PrivateFileResponseDownload.verify|verify} messages.
+         * @function encode
+         * @memberof Oidb.PrivateFileResponseDownload
+         * @static
+         * @param {Oidb.IPrivateFileResponseDownload} message PrivateFileResponseDownload message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        PrivateFileResponseDownload.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.downloadUrl != null && Object.hasOwnProperty.call(message, "downloadUrl"))
+                writer.uint32(/* id 8, wireType 2 =*/66).bytes(message.downloadUrl);
+            if (message.downloadDns != null && Object.hasOwnProperty.call(message, "downloadDns"))
+                writer.uint32(/* id 11, wireType 2 =*/90).string(message.downloadDns);
+            return writer;
+        };
+
+        /**
+         * Decodes a PrivateFileResponseDownload message from the specified reader or buffer.
+         * @function decode
+         * @memberof Oidb.PrivateFileResponseDownload
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Oidb.PrivateFileResponseDownload} PrivateFileResponseDownload
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        PrivateFileResponseDownload.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Oidb.PrivateFileResponseDownload();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 8: {
+                        message.downloadUrl = reader.bytes();
+                        break;
+                    }
+                case 11: {
+                        message.downloadDns = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for PrivateFileResponseDownload
+         * @function getTypeUrl
+         * @memberof Oidb.PrivateFileResponseDownload
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        PrivateFileResponseDownload.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Oidb.PrivateFileResponseDownload";
+        };
+
+        return PrivateFileResponseDownload;
+    })();
+
     return Oidb;
 })();
 

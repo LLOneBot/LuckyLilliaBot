@@ -155,7 +155,7 @@ export class PMHQ {
 
     this.ws.onerror = (error) => {
       selfInfo.online = false
-      console.error('PMHQ WebSocket 连接错误', '正在重连...')
+      console.error('PMHQ WebSocket 连接错误，可能 QQ 未登录', '正在等待 QQ 登录进行重连...')
       reconnect()
     }
 
@@ -571,6 +571,34 @@ export class PMHQ {
     const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
     const { download } = Oidb.GroupFileResponse.decode(oidbRespBody)
     return `https://${download?.downloadDns}/ftn_handler/${Buffer.from(download!.downloadUrl!).toString('hex')}/?fname=`
+  }
+
+  async getPrivateFileUrl(receiverUid: string, fileUuid: string) {
+    const body = Oidb.PrivateFile.encode({
+      subCommand: 1200,
+      field2: 1,
+      body: {
+        receiverUid,
+        fileUuid,
+        type: 2,
+        t2: 0
+      },
+      field101: 3,
+      field102: 103,
+      field200: 1,
+      field99999: Buffer.from([0xc0, 0x85, 0x2c, 0x01])
+    }).finish()
+    const data = Oidb.Base.encode({
+      command: 0xe37,
+      subCommand: 1200,
+      body,
+    }).finish()
+    const res = await this.httpSendPB('OidbSvcTrpcTcp.0xe37_1200', data)
+    const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+    const file = Oidb.PrivateFileResponse.decode(oidbRespBody)
+    const { download } = file.body!.result!.extra!
+    const { fileName } = file.body!.metadata!
+    return `https://${download?.downloadDns}/ftn_handler/${Buffer.from(download!.downloadUrl!).toString('hex')}/?fname=${encodeURIComponent(fileName!)}`
   }
 }
 
