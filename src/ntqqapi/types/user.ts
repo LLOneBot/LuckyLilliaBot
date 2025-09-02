@@ -6,10 +6,11 @@ export enum Sex {
 }
 
 export interface QQLevel {
-  crownNum: number
-  sunNum: number
-  moonNum: number
-  starNum: number
+  penguinNum?: number  // 256
+  crownNum: number  // 64
+  sunNum: number  // 16
+  moonNum: number  // 4
+  starNum: number  // 1
 }
 
 export interface User {

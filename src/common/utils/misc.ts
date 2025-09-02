@@ -7,8 +7,8 @@ export function isNumeric(str: string) {
 }
 
 export function calcQQLevel(level: QQLevel) {
-  const { crownNum, sunNum, moonNum, starNum } = level
-  return crownNum * 64 + sunNum * 16 + moonNum * 4 + starNum
+  const { penguinNum, crownNum, sunNum, moonNum, starNum } = level
+  return (penguinNum || 0) * 256 + crownNum * 64 + sunNum * 16 + moonNum * 4 + starNum
 }
 
 
