@@ -5,6 +5,7 @@ import { pmhq } from '@/ntqqapi/native/pmhq'
 import { NodeIKernelLoginListener } from '@/ntqqapi/services/NodeIKernelLoginService'
 
 export enum ReceiveCmdS {
+  INIT = 'nodeIQQNTWrapperSessionListener/onSessionInitComplete',
   LOGIN_QR_CODE = 'nodeIKernelLoginListener/onQRCodeGetPicture',
   RECENT_CONTACT = 'nodeIKernelRecentContactListener/onRecentContactListChangedVer2',
   UPDATE_MSG = 'nodeIKernelMsgListener/onMsgInfoListUpdate',
@@ -53,12 +54,12 @@ const NT_RECV_PMHQ_TYPE_TO_NT_METHOD = {
 }
 
 export function startHook() {
-
   pmhq.addResListener((data) => {
     let listenerName = data.type
-    if ('sub_type' in data.data && listenerName in NT_RECV_PMHQ_TYPE_TO_NT_METHOD) {
+    if ('sub_type' in data.data) {
       const sub_type = data.data.sub_type
-      const ntCmd: ReceiveCmdS = (NT_RECV_PMHQ_TYPE_TO_NT_METHOD[listenerName as keyof typeof NT_RECV_PMHQ_TYPE_TO_NT_METHOD] + '/' + sub_type) as ReceiveCmdS
+      const convertedListenerName = NT_RECV_PMHQ_TYPE_TO_NT_METHOD[listenerName as keyof typeof NT_RECV_PMHQ_TYPE_TO_NT_METHOD] || listenerName
+      const ntCmd: ReceiveCmdS = (convertedListenerName + '/' + sub_type) as ReceiveCmdS
       if (logHook){
         console.info(ntCmd, data.data)
       }
@@ -76,7 +77,7 @@ export interface NTListener{
 }
 
 // 辅助类型：从method字符串推断出对应的payload类型
-export type InferPayloadFromMethod<T extends string> = 
+export type InferPayloadFromMethod<T extends string> =
   T extends `${infer S}/${infer M}`
     ? S extends keyof NTListener
       ? M extends keyof NTListener[S]

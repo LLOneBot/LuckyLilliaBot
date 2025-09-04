@@ -56,9 +56,26 @@ interface PMHQReqCall {
   }
 }
 
-export type PMHQRes = PMHQResSendPB | PMHQResRecvPB | PMHQResOn | PMHQResCall
+interface PMHQReqSavePort {
+  type: 'save_port',
+  data: {
+    echo?: string
+    webui_port: number
+  }
+}
 
-export type PMHQReq = PMHQReqSendPB | PMHQReqCall
+interface PMHQResSavePort {
+  type: 'save_port',
+  data: {
+    echo?: string
+    success: boolean
+  }
+}
+
+
+export type PMHQRes = PMHQResSendPB | PMHQResRecvPB | PMHQResOn | PMHQResCall | PMHQResSavePort
+
+export type PMHQReq = PMHQReqSendPB | PMHQReqCall | PMHQReqSavePort
 
 interface ResListener<R extends PMHQRes> {
   (data: R): void
@@ -155,7 +172,7 @@ export class PMHQ {
 
     this.ws.onerror = (error) => {
       selfInfo.online = false
-      console.error('PMHQ WebSocket 连接错误，可能 QQ 未登录', '正在等待 QQ 登录进行重连...')
+      console.error('PMHQ WebSocket 连接错误，可能 QQ 未启动', '正在等待 QQ 启动进行重连...')
       reconnect()
     }
 

@@ -14,7 +14,7 @@ import SQLiteDriver from '@minatojs/driver-sqlite'
 import Store from './store'
 import { Config as LLOBConfig } from '../common/types'
 import { startHook } from '../ntqqapi/hook'
-import { getConfigUtil } from '../common/config'
+import { defaultConfig, getConfigUtil } from '../common/config'
 import { Context } from 'cordis'
 import { llonebotError, selfInfo, LOG_DIR, DATA_DIR, TEMP_DIR } from '../common/globalVars'
 import { logFileName } from '../common/utils/legacyLog'
@@ -30,10 +30,10 @@ import {
   NTQQSystemApi,
 } from '../ntqqapi/api'
 import { existsSync, mkdirSync } from 'node:fs'
-import { pmhq } from '@/ntqqapi/native/pmhq'
 import { version } from '../version'
 import { WebUIServer } from '../webui/BE/server'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
+import { pmhq } from '@/ntqqapi/native/pmhq'
 
 declare module 'cordis' {
   interface Events {
@@ -74,27 +74,27 @@ async function onLoad() {
   ctx.plugin(Database)
 
   let started = false
-
+  const pmhqSelfInfo: {uin: string, uid: string, online: boolean} = await pmhq.call('getSelfInfo', [])
+  let config = defaultConfig
+  if (pmhqSelfInfo.online){
+    selfInfo.uin = pmhqSelfInfo.uin
+    selfInfo.uid = pmhqSelfInfo.uid
+    selfInfo.online = true
+    ctx.ntUserApi.getUserSimpleInfo(selfInfo.uid).then(userInfo => {
+      selfInfo.nick = userInfo.coreInfo.nick
+    })
+    config = getConfigUtil().getConfig()
+    getConfigUtil().listenChange(c=>{
+      ctx.parallel('llob/config-updated', c)
+    })
+  }
+  else{
+    config = defaultConfig
+    config.satori.enable = false
+    config.ob11.enable = false
+  }
   ctx.logger.info(`LLOneBot ${version}`)
-  // const pmhqSelfInfo = await pmhq.call('getSelfInfo', [])
-  // const self = Object.assign(selfInfo, {
-  //   uin: pmhqSelfInfo.uin,
-  //   uid: pmhqSelfInfo.uid,
-  //   nick: pmhqSelfInfo.nickName,
-  //   online: true,
-  // })
-  // if (!self.nick) {
-  //   ctx.ntUserApi.getSelfNick().then(nick => {
-  //     self.nick = nick
-  //   }).catch(e => ctx.logger.error('获取bot昵称失败', e))
-  // }
-  // log('process pid', process.pid)
-  const configUtil = getConfigUtil()
-  const config = configUtil.getConfig()
-  configUtil.listenChange(c => {
-    ctx.parallel('llob/config-updated', c)
-  })
-  setFFMpegPath(config.ffmpeg || '')
+  // setFFMpegPath(config.ffmpeg || '')
   startHook()
 
   ctx.plugin(Log, {

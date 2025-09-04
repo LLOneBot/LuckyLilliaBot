@@ -6,7 +6,6 @@
   <el-container v-else class="main-container">
     <el-header class="header">
       <h2 style="display: inline-block">LLTwoBot {{ version }}</h2>
-      <el-button @click="handleLogout" style="float: right; margin-top: 16px;">退出登录</el-button>
     </el-header>
     <el-main v-loading="loading">
       <el-row :gutter="24" justify="center">
@@ -49,8 +48,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch, nextTick } from 'vue'
-import { ElMessage, ElDialog, ElInput, ElButton } from 'element-plus'
-import { QuestionFilled } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import AccountInfo from './components/AccountInfo.vue'
 import Ob11ConfigForm from './components/Ob11ConfigForm.vue'
 import SatoriConfigForm from './components/SatoriConfigForm.vue'
@@ -63,10 +61,9 @@ import QQLogin from './components/QQLogin.vue'
 import { apiFetch, setPasswordPromptHandler } from './utils/api'
 import './App.css'
 
-// Authentication logic
-const isAuthenticated = ref(false) // Start with false to show login screen
+// QQ login status
 const currentUser = ref(null)
-const isQQOnline = ref(false) // QQ login status
+const isQQOnline = ref(false)
 
 // Token logic
 const tokenKey = 'webui_token'
@@ -263,21 +260,15 @@ function handleLogin(loginData: any) {
   // QQ登录成功，设置状态
   if (loginData.account) {
     currentUser.value = loginData.account
-    accountNick.value = loginData.account.nickname || ''
+    // 兼容两种昵称字段：nickname和nick
+    accountNick.value = loginData.account.nickname || loginData.account.nick || ''
     accountUin.value = loginData.account.uin || ''
   }
   isQQOnline.value = true
-  ElMessage.success(`${loginData.account?.nickname || 'QQ'} 登录成功`)
+  ElMessage.success(`${loginData.account?.nickname || loginData.account?.nick || 'QQ'} 登录成功`)
   
   // Load config after successful QQ login
   fetchConfig()
-}
-
-function handleLogout() {
-  isAuthenticated.value = false
-  currentUser.value = null
-  // Clear any stored auth data if needed
-  ElMessage.info('已退出登录')
 }
 
 // 页面加载时检查QQ登录状态

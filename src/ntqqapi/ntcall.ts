@@ -92,7 +92,9 @@ const NT_SERVICE_TO_PMHQ: Record<string, string> = {
   'nodeIKernelNodeMiscService': 'getNodeMiscService',
   'nodeIKernelRecentContactService': 'getRecentContactService',
   'nodeIKernelFlashTransferService': 'getFlashTransferService',
+  'nodeIKernelLoginService': 'loginService',
 }
+const NOT_SESSION_SERVICES = ['nodeIKernelLoginService']
 
 // 函数重载：当提供resultCmd时，自动从resultCmd推断返回类型
 export function invoke<
@@ -101,8 +103,8 @@ export function invoke<
   M extends keyof NTService[S] & string = any,
   P extends Parameters<Extract<NTService[S][M], (...args: any) => unknown>> = any
 >(
-  method: Extract<unknown, `${S}/${M}`> | string, 
-  args: P, 
+  method: Extract<unknown, `${S}/${M}`> | string,
+  args: P,
   options: InvokeOptions<any> & { resultCmd: ResultCmd }
 ): Promise<InferPayloadFromMethod<ResultCmd> extends never ? any : InferPayloadFromMethod<ResultCmd>>
 
@@ -113,8 +115,8 @@ export function invoke<
   M extends keyof NTService[S] & string = any,
   P extends Parameters<Extract<NTService[S][M], (...args: any) => unknown>> = any
 >(
-  method: Extract<unknown, `${S}/${M}`> | string, 
-  args: P, 
+  method: Extract<unknown, `${S}/${M}`> | string,
+  args: P,
   options?: InvokeOptions<R>
 ): Promise<R>
 
@@ -129,7 +131,15 @@ export function invoke<
   const serviceName = splitMethod[0] as keyof NTService
   const methodName = splitMethod.slice(1).join('/')
   const pmhqService = NT_SERVICE_TO_PMHQ[serviceName]
-  let funcName = `wrapperSession.${pmhqService}().${methodName}`
+  let funcName = ''
+  if (pmhqService){
+    if (NOT_SESSION_SERVICES.includes(serviceName))
+      funcName = `${pmhqService}.${methodName}`
+    else {
+      funcName = `wrapperSession.${pmhqService}().${methodName}`
+    }
+  }
+  else{}
   if (!pmhqService) {
     funcName = method
     // console.error('unknown service:', serviceName);

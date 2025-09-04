@@ -1,45 +1,40 @@
 <template>
   <div class="qq-login-container">
     <!-- QQ Logo -->
-    <div class="qq-logo">
-      <svg viewBox="0 0 24 24" class="qq-icon">
-        <path fill="currentColor" d="M12.1 2.1c-5.5 0-10 4.5-10 10s4.5 10 10 10 10-4.5 10-10-4.5-10-10-10zm4.8 14.8c-.7.3-1.5.5-2.4.5s-1.7-.2-2.4-.5c-.2-.1-.3-.3-.3-.5s.1-.4.3-.5c.7-.3 1.5-.5 2.4-.5s1.7.2 2.4.5c.2.1.3.3.3.5s-.1.4-.3.5zm-9.6-7.7c0-2.7 2.2-4.9 4.9-4.9s4.9 2.2 4.9 4.9c0 .8-.2 1.6-.6 2.3-.4.7-1 1.3-1.7 1.7-.7.4-1.5.6-2.3.6s-1.6-.2-2.3-.6c-.7-.4-1.3-1-1.7-1.7-.4-.7-.6-1.5-.6-2.3z"/>
-      </svg>
-    </div>
-
     <div class="login-content">
       <!-- Quick Login Mode -->
       <div v-if="loginMode === 'quick'" class="quick-login">
         <!-- Single Account Display -->
         <div v-if="!showAccountList && selectedAccount" class="account-display" @click="toggleAccountList">
           <div class="account-avatar">
-            <img :src="selectedAccount.faceUrl || '/api/placeholder/80/80'" :alt="selectedAccount.nickname" />
+            <img :src="selectedAccount.faceUrl" :alt="selectedAccount.nickName" />
           </div>
-          <div class="account-name">{{ selectedAccount.nickname }}</div>
-          <el-icon class="dropdown-icon" :class="{ rotated: showAccountList }">
+          <div class="account-name">{{ selectedAccount.nickName }}</div>
+          <el-icon v-if="accounts.length > 1" class="dropdown-icon" :class="{ rotated: showAccountList }">
             <ArrowDown />
           </el-icon>
         </div>
 
         <!-- Account List -->
         <div v-else class="account-list">
-          <div 
-            v-for="account in accounts" 
+          <div
+            v-for="account in accounts"
             :key="account.uin"
             class="account-item"
             @click="selectAccount(account)"
           >
             <div class="account-avatar">
-              <img :src="account.faceUrl || '/api/placeholder/60/60'" :alt="account.nickname" />
+              <img :src="account.faceUrl" :alt="account.nickName" />
             </div>
-            <div class="account-name">{{ account.nickname }}</div>
+            <div class="account-name">{{ account.nickName }}</div>
           </div>
         </div>
 
         <!-- Login Button -->
-        <el-button 
-          type="primary" 
-          size="large" 
+        <el-button
+          v-if="!showAccountList"
+          type="primary"
+          size="large"
           class="login-button"
           :loading="loginLoading"
           :disabled="!selectedAccount"
@@ -50,7 +45,7 @@
 
         <!-- Action Links -->
         <div class="action-links">
-          <el-link @click="showAddAccount = true">添加账号</el-link>
+          <el-link @click="loginMode = 'qr'">扫码登录</el-link>
           <el-link @click="showRemoveAccount = true">移除账号</el-link>
         </div>
       </div>
@@ -68,12 +63,12 @@
             </div>
           </div>
           <!-- QQ Penguin Logo in center -->
-          <div class="qr-center-logo">
-            <div class="penguin-icon">🐧</div>
-          </div>
+<!--          <div class="qr-center-logo">-->
+<!--            <div class="penguin-icon">🐧</div>-->
+<!--          </div>-->
         </div>
         <div class="qr-tip">请使用手机QQ扫码登录</div>
-        
+
         <!-- QR Status Messages -->
         <div v-if="qrStatus" class="qr-status" :class="qrStatusClass">
           {{ qrStatusText }}
@@ -82,15 +77,8 @@
 
       <!-- Mode Switch Links -->
       <div class="mode-switch">
-        <el-link 
-          v-if="loginMode === 'quick'" 
-          @click="loginMode = 'qr'"
-          class="switch-link"
-        >
-          扫码登录
-        </el-link>
-        <el-link 
-          v-else 
+        <el-link
+          v-if="loginMode === 'qr'"
           @click="loginMode = 'quick'"
           class="switch-link"
         >
@@ -98,35 +86,18 @@
         </el-link>
       </div>
     </div>
-
-    <!-- Add Account Dialog -->
-    <el-dialog v-model="showAddAccount" title="添加账号" width="400px">
-      <el-form :model="newAccountForm" label-width="80px">
-        <el-form-item label="QQ号">
-          <el-input v-model="newAccountForm.qq" placeholder="请输入QQ号" />
-        </el-form-item>
-        <el-form-item label="密码">
-          <el-input v-model="newAccountForm.password" type="password" placeholder="请输入密码" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showAddAccount = false">取消</el-button>
-        <el-button type="primary" @click="addAccount">添加</el-button>
-      </template>
-    </el-dialog>
-
     <!-- Remove Account Dialog -->
     <el-dialog v-model="showRemoveAccount" title="移除账号" width="400px">
       <div>选择要移除的账号:</div>
       <div class="remove-account-list">
-        <div 
-          v-for="account in accounts" 
+        <div
+          v-for="account in accounts"
           :key="account.uin"
           class="remove-account-item"
           @click="removeAccount(account.uin)"
         >
-          <img :src="account.faceUrl || '/api/placeholder/32/32'" :alt="account.nickname" class="small-avatar" />
-          <span>{{ account.nickname }}</span>
+          <img :src="account.faceUrl" :alt="account.nickName" class="small-avatar" />
+          <span>{{ account.nickName }}</span>
           <el-icon class="remove-icon"><Close /></el-icon>
         </div>
       </div>
@@ -151,7 +122,7 @@ const emit = defineEmits<{
 interface Account {
   uin: string
   uid: string
-  nickname: string
+  nickName?: string
   faceUrl: string
   loginType: number
   isQuickLogin: boolean
@@ -163,6 +134,11 @@ interface QRCodeData {
   qrcodeUrl: string
   expireTime: number
   pollTimeInterval: number
+}
+
+interface LoginInfo {
+  online: boolean
+  [key: string]: any
 }
 
 const loginMode = ref<'quick' | 'qr'>('quick')
@@ -177,16 +153,15 @@ const accounts = ref<Account[]>([])
 const qrCodeData = ref<QRCodeData | null>(null)
 
 const selectedAccount = ref<Account | null>(null)
-const showAddAccount = ref(false)
 const showRemoveAccount = ref(false)
-const newAccountForm = ref({
-  qq: '',
-  password: ''
-})
 
 // QR Code related
 const qrCanvas = ref<HTMLCanvasElement>()
 let qrRefreshInterval: NodeJS.Timeout | null = null
+
+// Login polling related
+let loginPollingInterval: NodeJS.Timeout | null = null
+const isPollingLogin = ref(false)
 
 const qrStatusText = computed(() => {
   switch (qrStatus.value) {
@@ -214,14 +189,15 @@ function selectAccount(account: Account) {
 
 async function handleQuickLogin() {
   if (!selectedAccount.value) return
-  
+
   loginLoading.value = true
   try {
     const result = await apiPost('/api/quick-login', { uin: selectedAccount.value.uin })
-    
+
     if (result.success) {
-      ElMessage.success(`${selectedAccount.value.nickname} 登录成功`)
-      emitLogin('quick', selectedAccount.value)
+      ElMessage.info(`正在登录 ${selectedAccount.value.nickName}...`)
+      // 开始轮询登录状态
+      await pollLoginStatus()
     } else {
       throw new Error(result.message || '登录失败')
     }
@@ -233,11 +209,6 @@ async function handleQuickLogin() {
   }
 }
 
-function addAccount() {
-  ElMessage.info('此功能需要通过QQ客户端登录来添加账号')
-  showAddAccount.value = false
-  newAccountForm.value = { qq: '', password: '' }
-}
 
 function removeAccount(uin: string) {
   const index = accounts.value.findIndex(acc => acc.uin === uin)
@@ -248,21 +219,21 @@ function removeAccount(uin: string) {
     } else if (selectedAccount.value?.uin === uin) {
       selectedAccount.value = null
     }
-    ElMessage.success(`已移除账号 ${removedAccount.nickname}`)
+    ElMessage.success(`已移除账号 ${removedAccount.nickName}`)
   }
   showRemoveAccount.value = false
 }
 
 async function generateQrCode() {
   if (!qrCanvas.value) return
-  
+
   try {
     const result = await apiGet('/api/login-qrcode')
-    
+
     if (result.success && result.data) {
       qrCodeData.value = result.data
       displayQrCode(result.data.pngBase64QrcodeData)
-      
+
       // Set expiration timer based on server response
       const expireTime = result.data.expireTime * 1000 // Convert to milliseconds
       if (qrRefreshInterval) {
@@ -271,10 +242,15 @@ async function generateQrCode() {
       qrRefreshInterval = setTimeout(() => {
         qrExpired.value = true
         qrStatus.value = 'expired'
+        stopLoginPolling() // 停止轮询，因为二维码已过期
       }, expireTime)
-      
+
       qrExpired.value = false
       qrStatus.value = ''
+
+      // 二维码生成成功后，开始轮询登录状态
+      ElMessage.info('请使用手机QQ扫码登录')
+      await pollLoginStatus()
     } else {
       throw new Error(result.message || '获取二维码失败')
     }
@@ -288,11 +264,11 @@ async function generateQrCode() {
 
 function displayQrCode(base64Data: string) {
   if (!qrCanvas.value) return
-  
+
   const canvas = qrCanvas.value
   const ctx = canvas.getContext('2d')
   if (!ctx) return
-  
+
   const img = new Image()
   img.onload = () => {
     ctx.clearRect(0, 0, 200, 200)
@@ -303,7 +279,7 @@ function displayQrCode(base64Data: string) {
 
 function displayPlaceholderQrCode() {
   if (!qrCanvas.value) return
-  
+
   const canvas = qrCanvas.value
   const ctx = canvas.getContext('2d')
   if (!ctx) return
@@ -312,7 +288,7 @@ function displayPlaceholderQrCode() {
   ctx.fillStyle = '#000'
   ctx.fillRect(0, 0, 200, 200)
   ctx.fillStyle = '#fff'
-  
+
   // Create a simple dot pattern to simulate QR code
   for (let i = 0; i < 20; i++) {
     for (let j = 0; j < 20; j++) {
@@ -331,9 +307,12 @@ async function refreshQrCode() {
 async function fetchQuickLoginList() {
   try {
     const result = await apiGet('/api/quick-login-list')
-    
+    console.log('Quick login list response:', result)
+
     if (result.success && result.data && result.data.LocalLoginInfoList) {
-      accounts.value = result.data.LocalLoginInfoList
+      accounts.value = result.data.LocalLoginInfoList.filter(item=>item.isQuickLogin)
+      console.log('Accounts loaded:', accounts.value)
+
       if (accounts.value.length > 0 && !selectedAccount.value) {
         selectedAccount.value = accounts.value[0]
       }
@@ -348,6 +327,71 @@ async function fetchQuickLoginList() {
   }
 }
 
+// 轮询login-info接口检查登录状态
+async function pollLoginStatus(): Promise<void> {
+  if (isPollingLogin.value) {
+    return
+  }
+
+  isPollingLogin.value = true
+  console.log('开始轮询登录状态...')
+
+  const maxAttempts = 60 // 最多轮询60次（约5分钟）
+  let attempts = 0
+
+  const poll = async () => {
+    if (attempts >= maxAttempts) {
+      stopLoginPolling()
+      ElMessage.warning('登录超时，请重试')
+      if (loginMode.value === 'qr') {
+        qrStatus.value = 'error'
+      }
+      return
+    }
+
+    attempts++
+
+    try {
+      const result = await apiGet('/api/login-info')
+
+      if (result.success && result.data && result.data.online === true) {
+        stopLoginPolling()
+        ElMessage.success('登录成功！正在跳转到主页面...')
+        if (loginMode.value === 'qr') {
+          qrStatus.value = 'success'
+        }
+
+        // 延迟一下让用户看到成功消息
+        setTimeout(() => {
+          emitLogin(loginMode.value, selectedAccount.value || undefined)
+        }, 1000)
+
+        return
+      }
+
+      // 继续轮询
+      loginPollingInterval = setTimeout(poll, 3000) // 每3秒轮询一次
+
+    } catch (error: any) {
+      console.warn('轮询登录状态失败:', error)
+      // 继续轮询，不中断
+      loginPollingInterval = setTimeout(poll, 3000)
+    }
+  }
+
+  // 开始第一次轮询
+  await poll()
+}
+
+// 停止轮询登录状态
+function stopLoginPolling(): void {
+  isPollingLogin.value = false
+  if (loginPollingInterval) {
+    clearTimeout(loginPollingInterval)
+    loginPollingInterval = null
+  }
+}
+
 function emitLogin(mode: 'quick' | 'qr', account?: Account) {
   // Emit login event to parent component
   console.log('Login attempt:', { mode, account })
@@ -357,7 +401,7 @@ function emitLogin(mode: 'quick' | 'qr', account?: Account) {
 onMounted(async () => {
   // Fetch quick login list first
   await fetchQuickLoginList()
-  
+
   // Generate QR code if in QR mode
   if (loginMode.value === 'qr') {
     await generateQrCode()
@@ -368,6 +412,8 @@ onUnmounted(() => {
   if (qrRefreshInterval) {
     clearInterval(qrRefreshInterval)
   }
+  // 清理轮询定时器
+  stopLoginPolling()
 })
 
 // Watch login mode changes
@@ -377,7 +423,7 @@ watch(loginMode, async (newMode) => {
   } else if (qrRefreshInterval) {
     clearInterval(qrRefreshInterval)
   }
-  
+
   if (newMode === 'quick' && accounts.value.length === 0) {
     await fetchQuickLoginList()
   }
@@ -682,11 +728,11 @@ onUnmounted(() => {
     padding: 24px;
     min-width: 280px;
   }
-  
+
   .account-list {
     grid-template-columns: 1fr;
   }
-  
+
   .login-button {
     width: 240px;
   }

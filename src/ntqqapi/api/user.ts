@@ -242,7 +242,6 @@ export class NTQQUserApi extends Service {
     ])
   }
 
-
   async getRobotUinRange() {
     const data = await invoke(
       'nodeIKernelRobotService/getRobotUinRange',

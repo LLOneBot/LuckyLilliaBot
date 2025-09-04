@@ -6,6 +6,49 @@ import { DATA_DIR, selfInfo } from './globalVars'
 import { mergeNewProperties } from './utils/misc'
 import { fileURLToPath } from 'node:url'
 
+const ob11Default: OB11Config = {
+  enable: true,
+  token: '',
+  httpPort: 3000,
+  httpPostUrls: [],
+  httpSecret: '',
+  wsPort: 3001,
+  wsReverseUrls: [],
+  enableHttp: true,
+  enableHttpPost: true,
+  enableWs: true,
+  enableWsReverse: true,
+  messagePostFormat: 'array',
+  enableHttpHeart: false,
+  reportSelfMessage: false,
+}
+const satoriDefault: SatoriConfig = {
+  enable: false,
+  port: 5600,
+  token: '',
+}
+const webuiDefault: WebUIConfig = {
+  enable: true,
+  port: 3080,
+  token: '',
+}
+export const defaultConfig: Config = {
+  webui: webuiDefault,
+  onlyLocalhost: true,
+  satori: satoriDefault,
+  ob11: ob11Default,
+  heartInterval: 60000,
+  enableLocalFile2Url: false,
+  debug: false,
+  log: true,
+  autoDeleteFile: false,
+  autoDeleteFileSecond: 60,
+  musicSignUrl: 'https://llob.linyuchen.net/sign/music',
+  msgCacheExpire: 120,
+  ffmpeg: '',
+  receiveOfflineMsg: false,
+}
+
 export class ConfigUtil {
   private readonly configPath: string
   private config: Config | null = null
@@ -13,7 +56,6 @@ export class ConfigUtil {
 
   constructor(configPath: string) {
     this.configPath = configPath
-
   }
 
   listenChange(cb: (config: Config) => void) {
@@ -39,49 +81,6 @@ export class ConfigUtil {
   }
 
   reloadConfig(): Config {
-    const ob11Default: OB11Config = {
-      enable: true,
-      token: '',
-      httpPort: 3000,
-      httpPostUrls: [],
-      httpSecret: '',
-      wsPort: 3001,
-      wsReverseUrls: [],
-      enableHttp: true,
-      enableHttpPost: true,
-      enableWs: true,
-      enableWsReverse: true,
-      messagePostFormat: 'array',
-      enableHttpHeart: false,
-      reportSelfMessage: false,
-    }
-    const satoriDefault: SatoriConfig = {
-      enable: false,
-      port: 5600,
-      token: '',
-    }
-    const webuiDefault: WebUIConfig = {
-      enable: true,
-      port: 3080,
-      token: '',
-    }
-    const defaultConfig: Config = {
-      webui: webuiDefault,
-      onlyLocalhost: true,
-      satori: satoriDefault,
-      ob11: ob11Default,
-      heartInterval: 60000,
-      enableLocalFile2Url: false,
-      debug: false,
-      log: true,
-      autoDeleteFile: false,
-      autoDeleteFileSecond: 60,
-      musicSignUrl: 'https://llob.linyuchen.net/sign/music',
-      msgCacheExpire: 120,
-      ffmpeg: '',
-      receiveOfflineMsg: false
-    }
-    // console.info('读取配置文件', this.configPath)
     if (!fs.existsSync(this.configPath)) {
       const defaultConfigPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'default_config.json')
       const defaultConfigData = fs.readFileSync(defaultConfigPath, 'utf-8')
@@ -121,7 +120,7 @@ export class ConfigUtil {
   }
 
   writeConfig(config: Config, watch = false) {
-   this.watch = watch
+    this.watch = watch
     fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), 'utf-8')
     setTimeout(() => {
       this.watch = true
@@ -145,9 +144,9 @@ export class ConfigUtil {
 
 let globalConfigUtil: ConfigUtil | null = null
 
-export function getConfigUtil() {
+export function getConfigUtil(force = false) {
   const configFilePath = path.join(DATA_DIR, `config_${selfInfo.uin}.json`)
-  if (!globalConfigUtil) {
+  if (!globalConfigUtil || force) {
     globalConfigUtil = new ConfigUtil(configFilePath)
   }
   return globalConfigUtil

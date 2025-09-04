@@ -31,6 +31,7 @@ import { logSummaryMessage } from '@/ntqqapi/log'
 import { setFfmpegPath } from 'fluent-ffmpeg'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
 import { NodeIKernelLoginListener, OnQRCodeLoginSucceedParameter } from '@/ntqqapi/services/NodeIKernelLoginService'
+import { getConfigUtil } from '@/common/config'
 
 declare module 'cordis' {
   interface Context {
@@ -47,9 +48,9 @@ declare module 'cordis' {
     'nt/friend-request': (input: FriendRequest) => void
     'nt/group-member-info-updated': (input: { groupCode: string, members: GroupMember[] }) => void
     'nt/system-message-created': (input: Uint8Array) => void
-    'nt/flash-file-uploading': (input: {fileSet: FlashFileSetInfo} & FlashFileUploadingInfo) => void
+    'nt/flash-file-uploading': (input: { fileSet: FlashFileSetInfo } & FlashFileUploadingInfo) => void
     'nt/flash-file-upload-status': (input: FlashFileSetInfo) => void
-    'nt/flash-file-download-status': (input: {status: FlashFileDownloadStatus, info: FlashFileSetInfo}) => void
+    'nt/flash-file-download-status': (input: { status: FlashFileDownloadStatus, info: FlashFileSetInfo }) => void
     'nt/flash-file-downloading': (input: [fileSetId: string, info: FlashFileDownloadingInfo]) => void
   }
 }
@@ -120,7 +121,8 @@ class Core extends Service {
       this.messageSentCount++
       ctx.logger.info('消息发送', peer)
       deleteAfterSentFiles.map(path => {
-          unlink(path).then().catch(e=>{})
+        unlink(path).then().catch(e => {
+        })
       })
       return returnMsg
     }
@@ -169,7 +171,8 @@ class Core extends Service {
       setTimeout(() => {
         for (const path of allPaths) {
           if (path) {
-            unlink(path).then(() => this.ctx.logger.info('删除文件成功', path)).catch(e=>{})
+            unlink(path).then(() => this.ctx.logger.info('删除文件成功', path)).catch(e => {
+            })
           }
         }
       }, this.config.autoDeleteFileSecond! * 1000)
@@ -177,7 +180,27 @@ class Core extends Service {
   }
 
   private registerListener() {
-    registerReceiveHook(ReceiveCmdS.LOGIN_QR_CODE, (data)=>{
+    // 有这个事件表示登录成功了
+    registerReceiveHook(ReceiveCmdS.INIT, (data: [code: number, unknown: string, uid: string]) => {
+      this.ctx.ntUserApi.getUserSimpleInfo(data[2]).then(info => {
+        const oldConfig = getConfigUtil().getConfig()
+        Object.assign(selfInfo, {
+          uin: info.coreInfo.uin,
+          uid: info.coreInfo.uid,
+          nick: info.coreInfo.nick,
+          online: true,
+        })
+        const configUtil = getConfigUtil(true)
+        const config = configUtil.getConfig()
+        config.webui.token = oldConfig.webui.token
+        configUtil.setConfig(config)
+        this.ctx.parallel('llob/config-updated', config)
+        configUtil.listenChange(c => {
+          this.ctx.parallel('llob/config-updated', c)
+        })
+      })
+    })
+    registerReceiveHook(ReceiveCmdS.LOGIN_QR_CODE, (data) => {
       this.ctx.parallel('nt/login-qrcode', data)
     })
     registerReceiveHook<{ status: number }>(ReceiveCmdS.SELF_STATUS, (info) => {
@@ -240,19 +263,19 @@ class Core extends Service {
     registerReceiveHook<[Peer, string[]]>(ReceiveCmdS.DELETE_MSG, payload => {
       // 撤回普通消息不会经过这里
       // 撤回戳一戳会经过这里
-      const [peer, msgIds] = payload;
+      const [peer, msgIds] = payload
       for (const msgId of msgIds) {
         const msg = this.ctx.store.getMsgCache(msgId)
         if (!msg) {
-          this.ctx.ntMsgApi.getMsgsByMsgId(peer, [msgId]).then(r=>{
-            for(const _msg of r.msgList) {
+          this.ctx.ntMsgApi.getMsgsByMsgId(peer, [msgId]).then(r => {
+            for (const _msg of r.msgList) {
               this.ctx.parallel('nt/message-deleted', _msg)
             }
-          }).catch(e=>{
+          }).catch(e => {
             this.ctx.logger.error('获取被撤回戳一戳消息失败', e, { peer, msgId })
           })
         }
-        else{
+        else {
           this.ctx.parallel('nt/message-deleted', msg)
         }
       }
@@ -311,7 +334,7 @@ class Core extends Service {
       this.ctx.ntFileApi.getFlashFileInfo(fileSetId).then(info => {
         this.ctx.parallel('nt/flash-file-download-status', {
           status,
-          info
+          info,
         })
       }).catch(err => {
         this.ctx.logger.error(err, { fileSetId })
@@ -327,17 +350,19 @@ class Core extends Service {
       this.ctx.parallel('nt/flash-file-downloading', [fileSetId, info])
     })
 
-    registerReceiveHook<{fileSet: FlashFileSetInfo} & FlashFileUploadingInfo>(ReceiveCmdS.FLASH_FILE_UPLOADING, payload => {
+    registerReceiveHook<{
+      fileSet: FlashFileSetInfo
+    } & FlashFileUploadingInfo>(ReceiveCmdS.FLASH_FILE_UPLOADING, payload => {
       this.ctx.parallel('nt/flash-file-uploading', payload)
     })
 
     registerReceiveHook<[type: number, groups: GroupSimpleInfo[]]>(ReceiveCmdS.GROUPS, async (data) => {
       const [type, groups] = data
-      if (type !== 3){
+      if (type !== 3) {
         return
       }
       for (const group of groups) {
-        if (!group.groupOwnerId.memberUid){
+        if (!group.groupOwnerId.memberUid) {
           // 群被解散
           this.ctx.parallel('nt/group-dismiss', group)
         }
