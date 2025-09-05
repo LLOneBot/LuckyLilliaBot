@@ -15,11 +15,10 @@ export class GetRKey extends BaseAction<null, Response> {
     const rkey = await this.ctx.app.pmhq.getRKey()
     const now = new Date()
     const updatedTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-    const expiredTime = Math.floor(now.getTime() / 1000) + 50 * 60
     return {
       private_key: rkey.privateRKey,
       group_key: rkey.groupRKey,
-      expired_time: expiredTime,
+      expired_time: rkey.expiredTime,
       updated_time: updatedTime,
     }
   }

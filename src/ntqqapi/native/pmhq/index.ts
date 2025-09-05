@@ -330,6 +330,7 @@ export class PMHQ {
     return {
       privateRKey: rkeyItems[0].rkey!,
       groupRKey: rkeyItems[1].rkey!,
+      expiredTime: rkeyItems[0].createTime! + rkeyItems[0].ttlSec!
     }
   }
 

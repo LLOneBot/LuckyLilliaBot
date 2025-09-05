@@ -1,3 +1,4 @@
+import { inspect } from 'node:util'
 import { ReceiveCmdS, registerReceiveHook, removeReceiveHook } from './hook'
 import {
   NodeIKernelBuddyService,
@@ -114,7 +115,13 @@ export function invoke<
     if (timeout) {
       timeoutId = setTimeout(() => {
         removeReceiveHook(hookId)
-        reject(`invoke timeout, ${funcName}, ${args}`)
+        const display = inspect(args, {
+          depth: 10,
+          compact: true,
+          breakLength: Infinity,
+          maxArrayLength: 220
+        })
+        reject(`invoke timeout, ${funcName}, ${display}`)
       }, timeout)
     }
     if (options.resultCmd) {
