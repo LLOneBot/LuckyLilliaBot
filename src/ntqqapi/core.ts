@@ -182,27 +182,34 @@ class Core extends Service {
   private registerListener() {
     // 有这个事件表示登录成功了
     registerReceiveHook(ReceiveCmdS.INIT, (data: [code: number, unknown: string, uid: string]) => {
-      this.ctx.ntUserApi.getUserSimpleInfo(data[2]).then(info => {
-        const oldConfig = getConfigUtil().getConfig()
-        Object.assign(selfInfo, {
-          uin: info.coreInfo.uin,
-          uid: info.coreInfo.uid,
-          nick: info.coreInfo.nick,
-          online: true,
+      const getSelfInfo = async () => {
+        this.ctx.ntUserApi.getUserSimpleInfo(data[2]).then(info => {
+          const oldConfig = getConfigUtil().getConfig()
+          Object.assign(selfInfo, {
+            uin: info.coreInfo.uin,
+            uid: info.coreInfo.uid,
+            nick: info.coreInfo.nick,
+            online: true,
+          })
+          const configUtil = getConfigUtil(true)
+          const config = configUtil.getConfig()
+          config.webui.token = oldConfig.webui.token
+          configUtil.setConfig(config)
+          this.ctx.parallel('llob/config-updated', config)
+          configUtil.listenChange(c => {
+            this.ctx.parallel('llob/config-updated', c)
+          })
+        }).catch(e => {
+          setTimeout(getSelfInfo, 1000)
         })
-        const configUtil = getConfigUtil(true)
-        const config = configUtil.getConfig()
-        config.webui.token = oldConfig.webui.token
-        configUtil.setConfig(config)
-        this.ctx.parallel('llob/config-updated', config)
-        configUtil.listenChange(c => {
-          this.ctx.parallel('llob/config-updated', c)
-        })
-      })
+      }
+      getSelfInfo().then()
     })
+
     registerReceiveHook(ReceiveCmdS.LOGIN_QR_CODE, (data) => {
       this.ctx.parallel('nt/login-qrcode', data)
     })
+
     registerReceiveHook<{ status: number }>(ReceiveCmdS.SELF_STATUS, (info) => {
       Object.assign(selfInfo, { online: info.status !== 20 })
     })
@@ -216,7 +223,6 @@ class Core extends Service {
       const members = Array.from(payload[2].values())
       this.ctx.parallel('nt/group-member-info-updated', { groupCode, members })
     })
-
 
     registerReceiveHook<RawMessage[]>(ReceiveCmdS.NEW_MSG, payload => {
       this.handleMessage(payload)
