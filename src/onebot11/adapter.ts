@@ -299,6 +299,7 @@ class OneBot11Adapter extends Service {
       }
       // HTTP 端口变化，重启服务
       if ((config.ob11.httpPort !== old.httpPort || config.onlyLocalhost !== old.onlyLocalhost) && config.ob11.enableHttp) {
+        this.ctx.logger.info('HTTP 端口变化，重启 HTTP 服务')
         await this.ob11Http.stop()
         this.ob11Http.start()
       }
