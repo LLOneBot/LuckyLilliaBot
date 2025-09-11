@@ -80,8 +80,8 @@ async function onLoad() {
     selfInfo.uin = pmhqSelfInfo.uin
     selfInfo.uid = pmhqSelfInfo.uid
     selfInfo.online = true
-    ctx.ntUserApi.getUserSimpleInfo(selfInfo.uid).then(userInfo => {
-      selfInfo.nick = userInfo.coreInfo.nick
+    ctx.ntUserApi.fetchUserDetailInfo(selfInfo.uid).then(userInfo => {
+      selfInfo.nick = userInfo.simpleInfo.coreInfo.nick
     }).catch(e=>{
       ctx.logger.warn('获取登录号昵称失败', e)
     })

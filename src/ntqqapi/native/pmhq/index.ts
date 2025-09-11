@@ -226,7 +226,7 @@ export class PMHQ {
     return result
   }
 
-  public async wsSend<R extends PMHQRes>(data: PMHQReq, timeout = 10000): Promise<R> {
+  public async wsSend<R extends PMHQRes>(data: PMHQReq, timeout = 15000): Promise<R> {
     await this.waitConnected()
     let echo = data.data?.echo
     if (!data.data?.echo) {

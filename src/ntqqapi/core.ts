@@ -85,6 +85,7 @@ class Core extends Service {
     deleteAfterSentFiles: string[],
   ) {
     if (peer.chatType === ChatType.Group) {
+      // todo: 优化成不要每次都调用，本地缓存一个禁言标志
       const info = await ctx.ntGroupApi.getGroupAllInfo(peer.peerUid)
         .catch(() => undefined)
       const shutUpMeTimestamp = info?.shutUpMeTimestamp
@@ -182,13 +183,18 @@ class Core extends Service {
   private registerListener() {
     // 有这个事件表示登录成功了
     registerReceiveHook(ReceiveCmdS.INIT, (data: [code: number, unknown: string, uid: string]) => {
+      this.ctx.logger.info('WrapperSession init complete')
+      selfInfo.uid = data[2]
+      selfInfo.online = true
+
       const getSelfInfo = async () => {
-        this.ctx.ntUserApi.getUserSimpleInfo(data[2]).then(info => {
+        const uin = await this.ctx.ntUserApi.getUinByUid(data[2])
+        this.ctx.ntUserApi.getSelfNick().then(nick => {
+          this.ctx.logger.info(`获取登录号${uin}昵称成功`, nick)
           const oldConfig = getConfigUtil().getConfig()
           Object.assign(selfInfo, {
-            uin: info.coreInfo.uin,
-            uid: info.coreInfo.uid,
-            nick: info.coreInfo.nick,
+            uin,
+            nick: nick,
             online: true,
           })
           const configUtil = getConfigUtil(true)
@@ -200,7 +206,7 @@ class Core extends Service {
             this.ctx.parallel('llob/config-updated', c)
           })
         }).catch(e => {
-          setTimeout(getSelfInfo, 1000)
+          this.ctx.logger.warn('获取登录号昵称失败', e)
         })
       }
       getSelfInfo().then()

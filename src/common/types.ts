@@ -29,7 +29,7 @@ export interface SatoriConfig {
 export interface WebUIConfig {
   enable: boolean
   port: number
-  token?: string
+  token?: string  // 已弃用
 }
 
 export interface Config {

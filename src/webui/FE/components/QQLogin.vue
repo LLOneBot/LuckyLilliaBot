@@ -199,7 +199,7 @@ async function handleQuickLogin() {
   try {
     const result = await apiPost('/api/quick-login', { uin: selectedAccount.value.uin })
 
-    if (result.success) {
+    if (result.data.result === '0') {
       ElMessage.info(`正在登录 ${selectedAccount.value.nickName}...`)
       // 开始轮询登录状态
       await pollLoginStatus()
@@ -210,6 +210,7 @@ async function handleQuickLogin() {
   } catch (error: any) {
     ElMessage.error(error.message || '登录失败')
     console.error('Quick login error:', error)
+    loginMode.value = 'qr'
   } finally {
     loginLoading.value = false
   }

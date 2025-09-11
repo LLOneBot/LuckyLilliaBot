@@ -189,7 +189,6 @@ export class NTQQUserApi extends Service {
     )
   }
 
-
   async forceFetchClientKey() {
     return await invoke('nodeIKernelTicketService/forceFetchClientKey', [''])
   }
@@ -270,5 +269,24 @@ export class NTQQUserApi extends Service {
 
   async getRecentContactListSnapShot(count: number) {
     return await invoke('nodeIKernelRecentContactService/getRecentContactListSnapShot', [count])
+  }
+
+  async getUserInfoCompatible(uid: string){
+    const funcs = [
+      ()=>this.getUserSimpleInfo(uid, false),
+      ()=>this.getUserSimpleInfo(uid, true),
+      async ()=>(await this.fetchUserDetailInfo(uid)).simpleInfo,
+      async ()=>(await this.getUserDetailInfoWithBizInfo(uid)).simpleInfo,
+      async ()=>(await this.getCoreAndBaseInfo([uid])).get(uid)
+    ]
+    for(const func of funcs){
+      try{
+        const res = await func()
+        if(res) return res
+      }catch (e) {
+
+      }
+    }
+    throw `获取用户信息失败, uid: ${uid}`
   }
 }

@@ -1,8 +1,7 @@
 {
   "webui": {
     "enable": true,
-    "port": 3080,
-    "token": ""
+    "port": 3080
   },
   "satori": {
     "enable": false,

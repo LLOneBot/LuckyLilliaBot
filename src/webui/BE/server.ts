@@ -73,7 +73,13 @@ abstract class WebUIServerBase extends Service {
         res.json({
           success: true,
           data: {
-            config,
+            config: {
+              ...config,
+              webui: {
+                ...config.webui,
+                token: webuiEntryConfigUtil.getConfig().token
+              }
+            },
             selfInfo,
             loginWebUIPort: webuiEntryConfigUtil.getConfig().port,
           },
@@ -89,6 +95,12 @@ abstract class WebUIServerBase extends Service {
         const config = req.body as Config
         const oldConfig = getConfigUtil().getConfig()
         const newConfig = { ...oldConfig, ...config }
+        const webuiEntryConfig = webuiEntryConfigUtil.getConfig()
+        // @ts-ignore
+        webuiEntryConfig.token = newConfig.webui.token
+        webuiEntryConfigUtil.writeConfig(webuiEntryConfig)
+        // @ts-ignore
+        delete newConfig.webui['token']
         this.ctx.parallel('llob/config-updated', newConfig).then()
         getConfigUtil().setConfig(newConfig)
         res.json({ success: true, message: '配置保存成功' })
