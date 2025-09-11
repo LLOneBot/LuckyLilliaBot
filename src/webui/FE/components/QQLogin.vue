@@ -377,17 +377,22 @@ async function pollLoginStatus(): Promise<void> {
           window.location.href = url
           return false // 页面会跳转，不继续执行
         }
-        ElMessage.success('登录成功！正在跳转到主页面...')
-        if (loginMode.value === 'qr') {
-          qrStatus.value = 'success'
+        else {
+          ElMessage.success('登录成功！正在跳转到主页面...')
+          if (loginMode.value === 'qr') {
+            qrStatus.value = 'success'
+          }
+          setTimeout(()=>{
+            // 刷新页面
+            window.location.reload()
+          })
         }
 
         // 延迟一下让用户看到成功消息
-        setTimeout(() => {
-          emitLogin(loginMode.value, selectedAccount.value || undefined)
-        }, 1000)
+        // setTimeout(() => {
+        //   emitLogin(loginMode.value, selectedAccount.value || undefined)
+        // }, 1000)
 
-        return
       }
 
       // 继续轮询
