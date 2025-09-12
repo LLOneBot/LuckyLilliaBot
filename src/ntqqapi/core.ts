@@ -18,7 +18,7 @@ import {
   SendMessageElement,
   ElementType, GroupSimpleInfo,
 } from './types'
-import { selfInfo } from '../common/globalVars'
+import { dbDir, selfInfo } from '../common/globalVars'
 import { version } from '../version'
 import { pmhq } from './native/pmhq'
 import {
@@ -32,6 +32,8 @@ import { setFfmpegPath } from 'fluent-ffmpeg'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
 import { NodeIKernelLoginListener, OnQRCodeLoginSucceedParameter } from '@/ntqqapi/services/NodeIKernelLoginService'
 import { getConfigUtil } from '@/common/config'
+import SQLiteDriver from '@minatojs/driver-sqlite'
+import path from 'node:path'
 
 declare module 'cordis' {
   interface Context {
@@ -181,36 +183,6 @@ class Core extends Service {
   }
 
   private registerListener() {
-    // 有这个事件表示登录成功了
-    registerReceiveHook(ReceiveCmdS.INIT, (data: [code: number, unknown: string, uid: string]) => {
-      this.ctx.logger.info('WrapperSession init complete')
-      selfInfo.uid = data[2]
-      selfInfo.online = true
-
-      const getSelfInfo = async () => {
-        const uin = await this.ctx.ntUserApi.getUinByUid(data[2])
-        this.ctx.ntUserApi.getSelfNick().then(nick => {
-          this.ctx.logger.info(`获取登录号${uin}昵称成功`, nick)
-          const oldConfig = getConfigUtil().getConfig()
-          Object.assign(selfInfo, {
-            uin,
-            nick: nick,
-            online: true,
-          })
-          const configUtil = getConfigUtil(true)
-          const config = configUtil.getConfig()
-          config.webui.token = oldConfig.webui.token
-          configUtil.setConfig(config)
-          this.ctx.parallel('llob/config-updated', config)
-          configUtil.listenChange(c => {
-            this.ctx.parallel('llob/config-updated', c)
-          })
-        }).catch(e => {
-          this.ctx.logger.warn('获取登录号昵称失败', e)
-        })
-      }
-      getSelfInfo().then()
-    })
 
     registerReceiveHook(ReceiveCmdS.LOGIN_QR_CODE, (data) => {
       this.ctx.parallel('nt/login-qrcode', data)

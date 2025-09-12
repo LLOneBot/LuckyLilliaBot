@@ -3,6 +3,7 @@ import { SelfInfo } from '../ntqqapi/types'
 import path from 'node:path'
 import * as os from 'node:os'
 import fs from 'fs'
+import { existsSync, mkdirSync } from 'node:fs'
 
 export const llonebotError: LLOneBotError = {
   ffmpegError: '',
@@ -14,6 +15,11 @@ export const llonebotError: LLOneBotError = {
 export const DATA_DIR: string = path.resolve('data')
 export const TEMP_DIR: string = path.join(DATA_DIR, 'temp')
 export const LOG_DIR = path.join(DATA_DIR, 'logs')
+
+export const dbDir = path.join(DATA_DIR, 'database')
+if (!existsSync(dbDir)) {
+  mkdirSync(dbDir)
+}
 
 export function getFixedDataDir() {
   let dataDir: string = ''
