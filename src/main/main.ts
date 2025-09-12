@@ -70,6 +70,7 @@ async function onLoad() {
     enable: config.log!,
     filename: logFileName,
   })
+  ctx.plugin(WebUIConfigServer, { ...config.webui, onlyLocalhost: config.onlyLocalhost })
   ctx.plugin(WebUIEntryServer)
 
   const loadPluginAfterLogin = () => {
@@ -95,7 +96,7 @@ async function onLoad() {
     ctx.plugin(Store, {
       msgCacheExpire: config.msgCacheExpire! * 1000,
     })
-    ctx.plugin(WebUIConfigServer, { ...config.webui, onlyLocalhost: config.onlyLocalhost })
+
   }
 
   let started = false
@@ -159,7 +160,9 @@ async function onLoad() {
   ctx.logger.info(`LLOneBot ${version}`)
   // setFFMpegPath(config.ffmpeg || '')
   startHook()
-  ctx.start()
+  ctx.start().catch(e=> {
+    console.error('Start error:', e)
+  })
   started = true
   llonebotError.otherError = ''
 }
