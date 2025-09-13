@@ -32,4 +32,6 @@ export interface NodeIKernelBuddyService {
   }): Promise<GeneralCallResult>
 
   clearBuddyReqUnreadCnt(): Promise<GeneralCallResult>
+
+  setBuddyCategory(uid: string, categoryId: number): Promise<GeneralCallResult>
 }
