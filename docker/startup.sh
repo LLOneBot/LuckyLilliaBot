@@ -48,7 +48,7 @@ if [ ! -d "/app/data" ]; then
 fi
 
 if [ ! -f "$WEBUI_TOKEN_FILE" ]; then
-  echo $WEBUI_TOKEN > "$WEBUI_TOKEN_FILE"
+  echo "$WEBUI_TOKEN" > "$WEBUI_TOKEN_FILE"
 fi
 
 port="13000"
