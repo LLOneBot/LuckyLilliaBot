@@ -42,7 +42,7 @@ interface GlobalLoginAttempt {
 let globalLoginAttempt: GlobalLoginAttempt = {
   consecutiveFailures: 0,
   lockedUntil: null,
-  lastAttempt: 0
+  lastAttempt: 0,
 }
 
 // 确保日志目录存在
@@ -102,10 +102,11 @@ abstract class WebUIServerBase extends Service {
             success: false,
             message: `密码错误次数过多，请在 ${remainingMinutes} 分钟后重试`,
             locked: true,
-            remainingMinutes
+            remainingMinutes,
           })
           return
-        } else {
+        }
+        else {
           // 锁定时间已过，重置记录
           globalLoginAttempt.consecutiveFailures = 0
           globalLoginAttempt.lockedUntil = null
@@ -118,25 +119,26 @@ abstract class WebUIServerBase extends Service {
         globalLoginAttempt.consecutiveFailures++
         globalLoginAttempt.lastAttempt = Date.now()
 
+        const passwordFailureMax = 4
         // 如果连续失败次数达到3次，锁定1小时
-        if (globalLoginAttempt.consecutiveFailures >= 3) {
+        if (globalLoginAttempt.consecutiveFailures >= passwordFailureMax) {
           globalLoginAttempt.lockedUntil = Date.now() + (60 * 60 * 1000) // 1小时
-          logAccess(clientIp, req.method, req.path, 403, `密码连续错误3次，账户锁定1小时`)
+          logAccess(clientIp, req.method, req.path, 403, `密码连续错误${passwordFailureMax - 1}次，账户锁定1小时`)
           res.status(403).json({
             success: false,
             message: '密码连续错误3次，账户已被锁定1小时',
             locked: true,
-            remainingMinutes: 60
+            remainingMinutes: 60,
           })
           return
         }
 
-        const remainingAttempts = 3 - globalLoginAttempt.consecutiveFailures
+        const remainingAttempts = passwordFailureMax - globalLoginAttempt.consecutiveFailures
         logAccess(clientIp, req.method, req.path, 403, `Token验证失败，剩余${remainingAttempts}次尝试`)
         res.status(403).json({
           success: false,
           message: `Token校验失败，剩余尝试次数：${remainingAttempts}`,
-          remainingAttempts
+          remainingAttempts,
         })
         return
       }
@@ -165,14 +167,14 @@ abstract class WebUIServerBase extends Service {
     this.app.get('/api/config/', (req, res) => {
       try {
         const config = getConfigUtil().getConfig()
-        const resJson : ResConfig = {
+        const resJson: ResConfig = {
           token: webuiTokenUtil.getToken(),
           config,
-          selfInfo
+          selfInfo,
         }
         res.json({
           success: true,
-          data: resJson
+          data: resJson,
         })
       } catch (e) {
         res.status(500).json({ success: false, message: '获取配置失败', error: e })
@@ -182,7 +184,7 @@ abstract class WebUIServerBase extends Service {
     // 保存配置接口
     this.app.post('/api/config', (req, res) => {
       try {
-        const {token, config} = req.body as ReqConfig
+        const { token, config } = req.body as ReqConfig
         const oldConfig = getConfigUtil().getConfig()
         const newConfig = { ...oldConfig, ...config }
         webuiTokenUtil.setToken(token!)
@@ -228,7 +230,7 @@ abstract class WebUIServerBase extends Service {
           res.json({
             success: true,
             data,
-            message: data.loginErrorInfo.errMsg
+            message: data.loginErrorInfo.errMsg,
           })
         },
       ).catch(e => {
@@ -248,6 +250,7 @@ abstract class WebUIServerBase extends Service {
 
   async startServer() {
     const { host, port } = this.getHostPort()
+    console.log(`Starting server: ${host}:${port}`)
     const availablePort = await getAvailablePort(port)
     this.server = this.app.listen(availablePort, host, () => {
       this.ctx.logger.info(`${this.appName} 端口: ${port}`)

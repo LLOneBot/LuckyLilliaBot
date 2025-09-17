@@ -57,7 +57,7 @@ async function onLoad() {
   }
   const ctx = new Context()
 
-  let config = defaultConfig
+  let config = getConfigUtil().getConfig()
   ctx.plugin(NTQQFileApi)
   ctx.plugin(NTQQFileCacheApi)
   ctx.plugin(NTQQFriendApi)
@@ -141,7 +141,6 @@ async function onLoad() {
           })
           const configUtil = getConfigUtil(true)
           const config = configUtil.getConfig()
-          config.webui.token = oldConfig.webui.token
           configUtil.setConfig(config)
           ctx.parallel('llob/config-updated', config)
           configUtil.listenChange(c => {

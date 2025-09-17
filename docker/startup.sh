@@ -40,11 +40,11 @@ sed -i "/\"satori\": {/,/}/ {
 sed -i "s/\"onlyLocalhost\":\s*true/\"onlyLocalhost\": false/g" "$FILE"
 sed -i "s|\"ffmpeg\":\s*\"\"|\"ffmpeg\": \"/usr/bin/ffmpeg\"|g" "$FILE"
 
-WEBUI_TOKEN_FILE='/app/data/webui_token.txt'
+WEBUI_TOKEN_FILE='/app/llonebot/data/webui_token.txt'
 
 # Check dir
-if [ ! -d "/app/data" ]; then
-  mkdir /app/data
+if [ ! -d "/app/llonebot/data" ]; then
+  mkdir /app/llonebot/data
 fi
 
 if [ ! -f "$WEBUI_TOKEN_FILE" ]; then
