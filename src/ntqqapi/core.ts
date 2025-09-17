@@ -296,7 +296,7 @@ class Core extends Service {
     })
 
     registerReceiveHook<FriendRequestNotify>(ReceiveCmdS.FRIEND_REQUEST, payload => {
-      this.ctx.ntFriendApi.clearBuddyReqUnreadCnt()
+      this.ctx.ntFriendApi.clearBuddyReqUnreadCnt().catch(e=>this.ctx.logger.error(`清除好友申请未读数失败`, e))
       for (const req of payload.buddyReqs) {
         if (!req.isUnread || req.isInitiator || (req.isDecide && req.reqType !== BuddyReqType.MeInitiatorWaitPeerConfirm)) {
           continue
