@@ -269,22 +269,22 @@ export class NTQQUserApi extends Service {
     return await invoke('nodeIKernelRecentContactService/getRecentContactListSnapShot', [count])
   }
 
-  async getUserInfoCompatible(uid: string){
+  async getUserInfoCompatible(uid: string) {
     const funcs = [
-      ()=>this.getUserSimpleInfo(uid, false),
-      ()=>this.getUserSimpleInfo(uid, true),
-      async ()=>(await this.fetchUserDetailInfo(uid)).simpleInfo,
-      async ()=>(await this.getUserDetailInfoWithBizInfo(uid)).simpleInfo,
-      async ()=>(await this.getCoreAndBaseInfo([uid])).get(uid)
+      () => this.getUserSimpleInfo(uid, false),
+      () => this.getUserSimpleInfo(uid, true),
+      async () => (await this.fetchUserDetailInfo(uid)).simpleInfo,
+      async () => (await this.getUserDetailInfoWithBizInfo(uid)).simpleInfo,
+      async () => (await this.getCoreAndBaseInfo([uid])).get(uid)
     ]
-    for(const func of funcs){
-      try{
+    for (const func of funcs) {
+      try {
         const res = await func()
-        if(res) return res
-      }catch (e) {
+        if (res) return res
+      } catch (e) {
 
       }
     }
-    throw `获取用户信息失败, uid: ${uid}`
+    throw new Error(`获取用户信息失败, uid: ${uid}`)
   }
 }
