@@ -1,7 +1,7 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { OB11Message } from '@/onebot11/types'
 import { ActionName } from '../types'
-import { ChatType, RawMessage } from '@/ntqqapi/types'
+import { ChatType, Peer, RawMessage } from '@/ntqqapi/types'
 import { OB11Entities } from '@/onebot11/entities'
 import { filterNullable, parseBool } from '@/common/utils/misc'
 
@@ -25,23 +25,46 @@ export class GetFriendMsgHistory extends BaseAction<Payload, Response> {
     reverseOrder: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false)
   })
 
+  private async getMessage(peer: Peer, count: number, seq?: number | string) {
+    let msgList: RawMessage[]
+    if (!seq || +seq === 0) {
+      msgList = (await this.ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, count)).msgList
+    } else {
+      msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, String(seq), count, true, true)).msgList
+    }
+    if (!msgList?.length) return
+    const ob11MsgList = await Promise.all(msgList.map(msg => {
+      let rawMsg = msg
+      if (rawMsg.recallTime !== '0') {
+        let msg = this.ctx.store.getMsgCache(rawMsg.msgId)
+        if (msg) {
+          rawMsg = msg
+        }
+      }
+      return OB11Entities.message(this.ctx, rawMsg)
+    }))
+    return { list: filterNullable(ob11MsgList), seq: +msgList[0].msgSeq }
+  }
+
   async _handle(payload: Payload): Promise<Response> {
-    const { count, reverseOrder } = payload
     const uid = await this.ctx.ntUserApi.getUidByUin(payload.user_id.toString())
     if (!uid) throw new Error(`无法获取用户信息`)
     const isBuddy = await this.ctx.ntFriendApi.isBuddy(uid)
     const peer = { chatType: isBuddy ? ChatType.C2C : ChatType.TempC2CFromGroup, peerUid: uid }
 
-    let msgList: RawMessage[]
-    if (!payload.message_seq || +payload.message_seq === 0) {
-      msgList = (await this.ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, +count)).msgList
-    } else {
-      msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, String(payload.message_seq), +count, true, true)).msgList
+    const messages: OB11Message[] = []
+    let seq = payload.message_seq
+    let count = +payload.count
+
+    while (count > 0) {
+      const res = await this.getMessage(peer, count, seq)
+      if (!res) break
+      seq = res.seq - 1
+      count -= res.list.length
+      messages.unshift(...res.list)
     }
 
-    if (!msgList?.length) throw new Error('未找到消息')
-    if (reverseOrder) msgList.reverse()
-    const ob11MsgList = await Promise.all(msgList.map(msg => OB11Entities.message(this.ctx, msg)))
-    return { messages: filterNullable(ob11MsgList) }
+    if (payload.reverseOrder) messages.reverse()
+    return { messages }
   }
 }
