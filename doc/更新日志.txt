@@ -1,3 +1,12 @@
+V6.1.0
+更新时间 2025-9-23
+
+* `pmhq_config.json` 新增 `quick_login_qq`, 如果已经登录过该账号，下次启动会自动快速登录
+* 修复发送合并转发中有图片会发送失败 #623
+* `get_friend_list` API 新增个性签名字段 `long_nick`, 一些非 OneBot11 标准字段暂时恢复，一月后将删除如下字段:
+`longNick`, `level`, `eMail`, `uid`, `categoryId`, `richTime`
+
+=================
 V6.0.2
 更新时间 2025-9-21
 
