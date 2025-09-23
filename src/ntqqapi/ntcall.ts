@@ -141,10 +141,8 @@ export function invoke<
       funcName = `wrapperSession.${pmhqService}().${methodName}`
     }
   }
-  else { }
-  if (!pmhqService) {
+  else {
     funcName = method
-    // console.error('unknown service:', serviceName);
   }
   let timeout = options.timeout ?? 15000
 
@@ -175,7 +173,7 @@ export function invoke<
       })
       pmhq.call(funcName, args, timeout).then(r => {
         firstResult = r
-        if (parseInt(r.result) !== 0) {
+        if (r && Object.hasOwn(r, 'result') && parseInt(r.result) !== 0) {
           const displayReq = inspect(args, {
             depth: 10,
             compact: true,
