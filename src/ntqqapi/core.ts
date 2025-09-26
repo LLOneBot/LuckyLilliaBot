@@ -249,15 +249,15 @@ class Core extends Service {
       for (const msgId of msgIds) {
         const msg = this.ctx.store.getMsgCache(msgId)
         if (!msg) {
-          this.ctx.ntMsgApi.getMsgsByMsgId(peer, [msgId]).then(r=>{
-            for(const _msg of r.msgList) {
+          this.ctx.ntMsgApi.getMsgsByMsgId(peer, [msgId]).then(r => {
+            for (const _msg of r.msgList) {
               this.ctx.parallel('nt/message-deleted', _msg)
             }
-          }).catch(e=>{
+          }).catch(e => {
             this.ctx.logger.error('获取被撤回戳一戳消息失败', e, { peer, msgId })
           })
         }
-        else{
+        else {
           this.ctx.parallel('nt/message-deleted', msg)
         }
       }
@@ -296,7 +296,7 @@ class Core extends Service {
     })
 
     registerReceiveHook<FriendRequestNotify>(ReceiveCmdS.FRIEND_REQUEST, payload => {
-      this.ctx.ntFriendApi.clearBuddyReqUnreadCnt().catch(e=>this.ctx.logger.error(`清除好友申请未读数失败`, e))
+      this.ctx.ntFriendApi.clearBuddyReqUnreadCnt().catch(e => this.ctx.logger.error(`清除好友申请未读数失败`, e))
       for (const req of payload.buddyReqs) {
         if (!req.isUnread || req.isInitiator || (req.isDecide && req.reqType !== BuddyReqType.MeInitiatorWaitPeerConfirm)) {
           continue

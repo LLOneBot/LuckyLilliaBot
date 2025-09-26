@@ -3,7 +3,7 @@ import { OB11GroupMember } from '../../types'
 import { OB11Entities } from '../../entities'
 import { ActionName } from '../types'
 import { calcQQLevel, parseBool } from '@/common/utils/misc'
-import { UserDetailInfoV2 } from '@/ntqqapi/types'
+import { UserDetailInfo } from '@/ntqqapi/types'
 
 interface Payload {
   group_id: number | string
@@ -29,7 +29,7 @@ class GetGroupMemberInfo extends BaseAction<Payload, OB11GroupMember> {
       const date = Math.trunc(Date.now() / 1000)
       ret.last_sent_time ??= date
       ret.join_time ??= date
-      let info: UserDetailInfoV2 | null = null
+      let info: UserDetailInfo | null = null
       try {
         info = await this.ctx.ntUserApi.getUserDetailInfoWithBizInfo(member.uid)
       } catch (e) {

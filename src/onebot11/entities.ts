@@ -22,14 +22,12 @@ import {
   Sex,
   SimpleInfo,
   TipGroupElementType,
-  User,
 } from '../ntqqapi/types'
 import { EventType } from './event/OB11BaseEvent'
 import { encodeCQCode } from './cqcode'
 import { OB11GroupIncreaseEvent } from './event/notice/OB11GroupIncreaseEvent'
 import { OB11GroupUploadNoticeEvent } from './event/notice/OB11GroupUploadNoticeEvent'
 import { OB11GroupNoticeEvent } from './event/notice/OB11GroupNoticeEvent'
-import { calcQQLevel, filterNullable } from '../common/utils/misc'
 import { OB11GroupTitleEvent } from './event/notice/OB11GroupTitleEvent'
 import { OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
 import { OB11FriendAddNoticeEvent } from './event/notice/OB11FriendAddNoticeEvent'
@@ -40,7 +38,7 @@ import { OB11BaseNoticeEvent } from './event/notice/OB11BaseNoticeEvent'
 import { GroupBanEvent } from './event/notice/OB11GroupBanEvent'
 import { GroupMsgEmojiLikeEvent } from './event/notice/OB11MsgEmojiLikeEvent'
 import { GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent'
-import { Dict, omit, pick } from 'cosmokit'
+import { Dict } from 'cosmokit'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { pathToFileURL } from 'node:url'

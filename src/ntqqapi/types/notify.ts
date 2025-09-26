@@ -61,16 +61,28 @@ export enum BuddyReqType {
 }
 
 export interface FriendRequest {
-  isInitiator?: boolean
   isDecide: boolean
+  isInitiator: boolean
   friendUid: string
-  reqType: BuddyReqType
-  reqTime: string // 时间戳,秒
-  extWords: string // 申请人填写的验证消息
+  reqType: number
+  reqSubType: number
+  reqTime: string
+  extWords: string
+  flag: number
+  preGroupingId: number
+  commFriendNum: number
+  curFriendMax: number
+  isShowCard: boolean
   isUnread: boolean
+  isDoubt: boolean
+  nameMore: string
   friendNick: string
+  friendAvatarUrl: string
   sourceId: number
   groupCode: string
+  isBuddy: boolean | null
+  isAgreed: boolean
+  relation: number
 }
 
 export interface FriendRequestNotify {

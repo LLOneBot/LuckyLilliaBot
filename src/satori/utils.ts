@@ -3,10 +3,15 @@ import * as NT from '@/ntqqapi/types'
 import * as Universal from '@satorijs/protocol'
 import { Context } from 'cordis'
 import { ObjectToSnake } from 'ts-case-convert'
-import { pick } from 'cosmokit'
 import { pathToFileURL } from 'node:url'
 
-export function decodeUser(user: NT.User): ObjectToSnake<Universal.User> {
+interface User {
+  uin: string
+  nick: string
+  remark?: string
+}
+
+export function decodeUser(user: User): ObjectToSnake<Universal.User> {
   return {
     id: user.uin,
     name: user.nick,

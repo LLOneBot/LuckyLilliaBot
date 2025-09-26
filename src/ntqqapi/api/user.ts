@@ -1,4 +1,4 @@
-import { MiniProfile, ProfileBizType, SimpleInfo, UserDetailInfoV2, UserDetailSource } from '../types'
+import { MiniProfile, ProfileBizType, SimpleInfo, UserDetailInfo, UserDetailSource } from '../types'
 import { invoke } from '../ntcall'
 import { RequestUtil } from '@/common/utils/request'
 import { Time } from 'cosmokit'
@@ -112,7 +112,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getUserDetailInfoWithBizInfo(uid: string) {
-    const result = await invoke<UserDetailInfoV2>(
+    const result = await invoke<UserDetailInfo>(
       'nodeIKernelProfileService/getUserDetailInfoWithBizInfo',
       [
         uid,
