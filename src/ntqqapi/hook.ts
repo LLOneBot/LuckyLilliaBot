@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { Awaitable } from 'cosmokit'
 import { NTMethod } from './ntcall'
 import { pmhq } from '@/ntqqapi/native/pmhq'
-import { NodeIKernelLoginListener } from '@/ntqqapi/services/NodeIKernelLoginService'
+import { NodeIKernelLoginListener, NodeIKernelBuddyListener } from '@/ntqqapi/listeners'
 
 export enum ReceiveCmdS {
   INIT = 'nodeIQQNTWrapperSessionListener/onSessionInitComplete',
@@ -60,7 +60,7 @@ export function startHook() {
       const sub_type = data.data.sub_type
       const convertedListenerName = NT_RECV_PMHQ_TYPE_TO_NT_METHOD[listenerName as keyof typeof NT_RECV_PMHQ_TYPE_TO_NT_METHOD] || listenerName
       const ntCmd: ReceiveCmdS = (convertedListenerName + '/' + sub_type) as ReceiveCmdS
-      if (logHook){
+      if (logHook) {
         console.info(ntCmd, data.data)
       }
       for (const hook of receiveHooks.values()) {
@@ -72,8 +72,9 @@ export function startHook() {
   })
 }
 
-export interface NTListener{
+export interface NTListener {
   nodeIKernelLoginListener: NodeIKernelLoginListener
+  nodeIKernelBuddyListener: NodeIKernelBuddyListener
 }
 
 // 辅助类型：从method字符串推断出对应的payload类型

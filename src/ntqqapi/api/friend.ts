@@ -90,4 +90,16 @@ export class NTQQFriendApi extends Service {
   async clearBuddyReqUnreadCnt() {
     return await invoke('nodeIKernelBuddyService/clearBuddyReqUnreadCnt', [])
   }
+
+  async getDoubtBuddyReq(reqNum: number) {
+    const reqId = Date.now().toString()
+    return await invoke(
+      'nodeIKernelBuddyService/getDoubtBuddyReq',
+      [reqId, reqNum, ''],
+      {
+        resultCmd: 'nodeIKernelBuddyListener/onDoubtBuddyReqChange',
+        resultCb: payload => payload.reqId === reqId
+      }
+    )
+  }
 }
