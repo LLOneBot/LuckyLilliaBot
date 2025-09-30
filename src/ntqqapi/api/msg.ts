@@ -63,34 +63,20 @@ export class NTQQMsgApi extends Service {
 
   async sendMsg(peer: Peer, msgElements: SendMessageElement[], timeout = 10000) {
     const uniqueId = await this.generateMsgUniqueId(peer.chatType)
-    const msgAttributeInfos = new Map()
-    msgAttributeInfos.set(0, {
-      attrType: 0,
-      attrId: uniqueId,
-      vasMsgInfo: {
-        msgNamePlateInfo: {},
-        bubbleInfo: {},
-        avatarPendantInfo: {},
-        vasFont: {},
-        iceBreakInfo: {},
-      },
-    })
 
-    let sentMsgId: string
     const data = await invoke<RawMessage[]>(
       'nodeIKernelMsgService/sendMsg',
       [
-        '0',
+        uniqueId,
         peer,
         msgElements,
-        msgAttributeInfos,
+        new Map(),
       ],
       {
         resultCmd: 'nodeIKernelMsgListener/onMsgInfoListUpdate',
         resultCb: payload => {
           for (const msgRecord of payload) {
-            if (msgRecord.msgAttrs.get(0)?.attrId === uniqueId && msgRecord.sendStatus === 2) {
-              sentMsgId = msgRecord.msgId
+            if (msgRecord.msgId === uniqueId && msgRecord.sendStatus === 2) {
               return true
             }
           }
@@ -100,7 +86,7 @@ export class NTQQMsgApi extends Service {
       },
     )
 
-    return data.find(msgRecord => msgRecord.msgId === sentMsgId)
+    return data.find(msgRecord => msgRecord.msgId === uniqueId)
   }
 
   async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
@@ -247,13 +233,7 @@ export class NTQQMsgApi extends Service {
 
   async generateMsgUniqueId(chatType: number) {
     const time = await this.getServerTime()
-    const uniqueId = await invoke('nodeIKernelMsgService/generateMsgUniqueId', [chatType, time])
-    if (typeof uniqueId === 'string') {
-      return uniqueId
-    } else {
-      const random = Math.trunc(Math.random() * 100)
-      return `${Date.now()}${random}`
-    }
+    return await invoke('nodeIKernelMsgService/generateMsgUniqueId', [chatType, time])
   }
 
   async queryMsgsById(chatType: ChatType, msgId: string) {
