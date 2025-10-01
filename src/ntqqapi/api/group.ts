@@ -26,13 +26,13 @@ export class NTQQGroupApi extends Service {
     super(ctx, 'ntGroupApi', true)
   }
 
-  async getGroups(): Promise<GroupSimpleInfo[]> {
+  async getGroups(forceFetch = true): Promise<GroupSimpleInfo[]> {
     const result = await invoke<[
       updateType: number,
       groupList: GroupSimpleInfo[]
     ]>(
       'nodeIKernelGroupService/getGroupList',
-      [true],
+      [forceFetch],
       {
         resultCmd: 'nodeIKernelGroupListener/onGroupListUpdate',
       },
