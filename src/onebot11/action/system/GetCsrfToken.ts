@@ -5,7 +5,7 @@ interface Response {
   token: number
 }
 
-export class GetCsrfToken extends BaseAction<null, Response> {
+export class GetCsrfToken extends BaseAction<{}, Response> {
   actionName = ActionName.GetCsrfToken
 
   protected async _handle() {

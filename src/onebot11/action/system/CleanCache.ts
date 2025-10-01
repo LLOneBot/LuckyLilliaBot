@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import Path from 'node:path'
 import { ChatCacheListItemBasic, CacheFileType } from '@/ntqqapi/types'
 
-export default class CleanCache extends BaseAction<void, null> {
+export default class CleanCache extends BaseAction<{}, null> {
   actionName = ActionName.CleanCache
 
   protected async _handle() {

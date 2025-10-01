@@ -3,7 +3,7 @@ import { OB11User } from '../../types'
 import { ActionName } from '../types'
 import { selfInfo } from '@/common/globalVars'
 
-class GetLoginInfo extends BaseAction<null, OB11User> {
+class GetLoginInfo extends BaseAction<{}, OB11User> {
   actionName = ActionName.GetLoginInfo
 
   protected async _handle() {

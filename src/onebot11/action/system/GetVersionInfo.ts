@@ -3,7 +3,7 @@ import { OB11Version } from '../../types'
 import { ActionName } from '../types'
 import { version } from '../../../version'
 
-export default class GetVersionInfo extends BaseAction<null, OB11Version> {
+export default class GetVersionInfo extends BaseAction<{}, OB11Version> {
   actionName = ActionName.GetVersionInfo
 
   protected async _handle(): Promise<OB11Version> {
