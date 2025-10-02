@@ -106,7 +106,7 @@ export class MessageEncoder {
               },
               fileUuid: data.fileId,
               storeID: 1,
-              expire: 2678400
+              expire: this.isGroup ? 2678400 : 157680000
             },
             pic: {
               urlPath: `/download?appid=${this.isGroup ? 1407 : 1406}&fileid=${data.fileId}`,
@@ -122,7 +122,10 @@ export class MessageEncoder {
           extBizInfo: {
             pic: {
               bizType: 0,
-              summary: ''
+              summary: '',
+              fromScene: this.isGroup ? 2 : 1, // 怀旧版 PCQQ 私聊收图需要
+              toScene: this.isGroup ? 2 : 1, // 怀旧版 PCQQ 私聊收图需要
+              oldFileId: this.isGroup ? 574859779 : undefined // 怀旧版 PCQQ 群聊收图需要
             },
             busiType
           }

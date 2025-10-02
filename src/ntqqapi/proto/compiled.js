@@ -6251,6 +6251,9 @@ export const RichMedia = $root.RichMedia = (() => {
          * @interface IPicExtBizInfo
          * @property {number|null} [bizType] PicExtBizInfo bizType
          * @property {string|null} [summary] PicExtBizInfo summary
+         * @property {number|null} [fromScene] PicExtBizInfo fromScene
+         * @property {number|null} [toScene] PicExtBizInfo toScene
+         * @property {number|null} [oldFileId] PicExtBizInfo oldFileId
          */
 
         /**
@@ -6285,6 +6288,30 @@ export const RichMedia = $root.RichMedia = (() => {
         PicExtBizInfo.prototype.summary = "";
 
         /**
+         * PicExtBizInfo fromScene.
+         * @member {number} fromScene
+         * @memberof RichMedia.PicExtBizInfo
+         * @instance
+         */
+        PicExtBizInfo.prototype.fromScene = 0;
+
+        /**
+         * PicExtBizInfo toScene.
+         * @member {number} toScene
+         * @memberof RichMedia.PicExtBizInfo
+         * @instance
+         */
+        PicExtBizInfo.prototype.toScene = 0;
+
+        /**
+         * PicExtBizInfo oldFileId.
+         * @member {number} oldFileId
+         * @memberof RichMedia.PicExtBizInfo
+         * @instance
+         */
+        PicExtBizInfo.prototype.oldFileId = 0;
+
+        /**
          * Encodes the specified PicExtBizInfo message. Does not implicitly {@link RichMedia.PicExtBizInfo.verify|verify} messages.
          * @function encode
          * @memberof RichMedia.PicExtBizInfo
@@ -6300,6 +6327,12 @@ export const RichMedia = $root.RichMedia = (() => {
                 writer.uint32(/* id 1, wireType 0 =*/8).uint32(message.bizType);
             if (message.summary != null && Object.hasOwnProperty.call(message, "summary"))
                 writer.uint32(/* id 2, wireType 2 =*/18).string(message.summary);
+            if (message.fromScene != null && Object.hasOwnProperty.call(message, "fromScene"))
+                writer.uint32(/* id 1001, wireType 0 =*/8008).uint32(message.fromScene);
+            if (message.toScene != null && Object.hasOwnProperty.call(message, "toScene"))
+                writer.uint32(/* id 1002, wireType 0 =*/8016).uint32(message.toScene);
+            if (message.oldFileId != null && Object.hasOwnProperty.call(message, "oldFileId"))
+                writer.uint32(/* id 1003, wireType 0 =*/8024).uint32(message.oldFileId);
             return writer;
         };
 
@@ -6329,6 +6362,18 @@ export const RichMedia = $root.RichMedia = (() => {
                     }
                 case 2: {
                         message.summary = reader.string();
+                        break;
+                    }
+                case 1001: {
+                        message.fromScene = reader.uint32();
+                        break;
+                    }
+                case 1002: {
+                        message.toScene = reader.uint32();
+                        break;
+                    }
+                case 1003: {
+                        message.oldFileId = reader.uint32();
                         break;
                     }
                 default:

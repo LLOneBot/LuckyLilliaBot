@@ -103,6 +103,9 @@ message ExtBizInfo {
 message PicExtBizInfo {
   uint32 bizType = 1;
   string summary = 2;
+  uint32 fromScene = 1001;
+  uint32 toScene = 1002;
+  uint32 oldFileId = 1003;
 }
 
 message VideoExtBizInfo {

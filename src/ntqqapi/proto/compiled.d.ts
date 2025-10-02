@@ -2518,6 +2518,15 @@ export namespace RichMedia {
 
         /** PicExtBizInfo summary */
         summary?: (string|null);
+
+        /** PicExtBizInfo fromScene */
+        fromScene?: (number|null);
+
+        /** PicExtBizInfo toScene */
+        toScene?: (number|null);
+
+        /** PicExtBizInfo oldFileId */
+        oldFileId?: (number|null);
     }
 
     /** Represents a PicExtBizInfo. */
@@ -2534,6 +2543,15 @@ export namespace RichMedia {
 
         /** PicExtBizInfo summary. */
         public summary: string;
+
+        /** PicExtBizInfo fromScene. */
+        public fromScene: number;
+
+        /** PicExtBizInfo toScene. */
+        public toScene: number;
+
+        /** PicExtBizInfo oldFileId. */
+        public oldFileId: number;
 
         /**
          * Encodes the specified PicExtBizInfo message. Does not implicitly {@link RichMedia.PicExtBizInfo.verify|verify} messages.
