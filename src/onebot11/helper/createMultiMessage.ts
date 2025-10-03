@@ -200,7 +200,7 @@ export class MessageEncoder {
       }
     } else if (type === OB11MessageDataType.Image) {
       const { path } = await handleOb11RichMedia(this.ctx, segment, this.deleteAfterSentFiles)
-      const data = await this.ctx.ntFileApi.uploadRMFileWithoutMsg(path, this.isGroup ? 4 : 3, this.peer.peerUid)
+      const data = await this.ctx.ntFileApi.uploadRMFileWithoutMsg(path, this.isGroup ? 4 : 3, this.isGroup ? this.peer.peerUid : selfInfo.uid)
       const busiType = Number(segment.data.subType) || 0
       this.children.push(await this.packImage(data, busiType))
       this.preview += busiType === 1 ? '[动画表情]' : '[图片]'
