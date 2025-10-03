@@ -50,7 +50,7 @@ export class NTQQUserApi extends Service {
     for (const f of funcs) {
       try {
         const uid = await f()
-        if (uid) {
+        if (uid && !uid.includes('****')) {
           uidUinBidiMap.set(uid, uin)
           return uid
         }
