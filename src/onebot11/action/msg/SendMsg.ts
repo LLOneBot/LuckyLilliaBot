@@ -40,7 +40,8 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
     }
     const msgShortId = this.ctx.store.createMsgShortId({
       chatType: returnMsg.chatType,
-      peerUid: returnMsg.peerUid
+      peerUid: returnMsg.peerUid,
+      guildId: ''
     }, returnMsg.msgId)
     return { message_id: msgShortId }
   }

@@ -46,8 +46,8 @@ export class MessageEncoder {
     }
     this.deleteAfterSentFiles.forEach(path => {
       try {
-        unlink(path).then().catch((e)=>{})
-      }catch (e) {
+        unlink(path).then().catch((e) => { })
+      } catch (e) {
 
       }
     })
@@ -77,21 +77,24 @@ export class MessageEncoder {
       if (cacheMsg) {
         return {
           peerUid: cacheMsg.peerUid,
-          chatType: cacheMsg.chatType
+          chatType: cacheMsg.chatType,
+          guildId: ''
         }
       }
       const c2cMsg = await this.ctx.ntMsgApi.queryMsgsById(NT.ChatType.C2C, msgId)
       if (c2cMsg.msgList.length) {
         return {
           peerUid: c2cMsg.msgList[0].peerUid,
-          chatType: c2cMsg.msgList[0].chatType
+          chatType: c2cMsg.msgList[0].chatType,
+          guildId: ''
         }
       }
       const groupMsg = await this.ctx.ntMsgApi.queryMsgsById(NT.ChatType.Group, msgId)
       if (groupMsg.msgList.length) {
         return {
           peerUid: groupMsg.msgList[0].peerUid,
-          chatType: groupMsg.msgList[0].chatType
+          chatType: groupMsg.msgList[0].chatType,
+          guildId: ''
         }
       }
     }
@@ -105,9 +108,10 @@ export class MessageEncoder {
   private async multiForward() {
     if (!this.stack[0].children.length) return
 
-    const selfPeer = {
+    const selfPeer: NT.Peer = {
       chatType: NT.ChatType.C2C,
       peerUid: selfInfo.uid,
+      guildId: ''
     }
     const nodeMsgIds: { msgId: string, peer: NT.Peer }[] = []
     for (const node of this.stack[0].children) {

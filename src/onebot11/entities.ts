@@ -58,7 +58,11 @@ export namespace OB11Entities {
       messagePostFormat,
     } = ctx.config as OneBot11Adapter.Config
     const selfUin = selfInfo.uin
-    const msgShortId = ctx.store.createMsgShortId({ chatType: msg.chatType, peerUid: msg.peerUid }, msg.msgId)
+    const msgShortId = ctx.store.createMsgShortId({
+      chatType: msg.chatType,
+      peerUid: msg.peerUid,
+      guildId: ''
+    }, msg.msgId)
     const resMsg: OB11Message = {
       self_id: Number(selfUin),
       user_id: Number(msg.senderUin),
@@ -223,6 +227,7 @@ export namespace OB11Entities {
           {
             chatType: msg.chatType,
             peerUid: peer?.peerUid ?? msg.peerUid,
+            guildId: ''
           },
           rootMsgID ?? msg.msgId,
           element.elementId,

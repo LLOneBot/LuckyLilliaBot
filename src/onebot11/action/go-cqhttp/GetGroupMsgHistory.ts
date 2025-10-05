@@ -48,9 +48,10 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
   }
 
   protected async _handle(payload: Payload): Promise<Response> {
-    const peer = {
+    const peer: Peer = {
       chatType: ChatType.Group,
-      peerUid: payload.group_id.toString()
+      peerUid: payload.group_id.toString(),
+      guildId: ''
     }
 
     const messages: OB11Message[] = []

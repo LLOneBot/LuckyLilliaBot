@@ -117,6 +117,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
       const msgShortId = this.ctx.store.createMsgShortId({
         chatType: msg!.chatType,
         peerUid: msg!.peerUid,
+        guildId: ''
       }, msg!.msgId)
       return { message_id: msgShortId, forward_id: resid }
     } catch (e) {
@@ -136,9 +137,10 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     }
     this.ctx.logger.info('克隆消息', sendElements)
     try {
-      const peer = {
+      const peer: Peer = {
         chatType: ChatType.C2C,
         peerUid: selfInfo.uid,
+        guildId: ''
       }
       const nodeMsg = await this.ctx.ntMsgApi.sendMsg(peer, sendElements)
       await this.ctx.sleep(300)
@@ -150,9 +152,10 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
 
   // 返回一个合并转发的消息id
   private async handleForwardNode(destPeer: Peer, messageNodes: OB11MessageNode[]): Promise<Response> {
-    const selfPeer = {
+    const selfPeer: Peer = {
       chatType: ChatType.C2C,
       peerUid: selfInfo.uid,
+      guildId: ''
     }
     const nodeMsgIds: { msgId: string, peer: Peer }[] = []
     // 先判断一遍是不是id和自定义混用
@@ -220,7 +223,11 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     let needSendSelf = false
     for (const { msgId, peer } of nodeMsgIds) {
       const nodeMsg = (await this.ctx.ntMsgApi.getMsgsByMsgId(peer, [msgId])).msgList[0]
-      srcPeer ??= { chatType: nodeMsg.chatType, peerUid: nodeMsg.peerUid }
+      srcPeer ??= {
+        chatType: nodeMsg.chatType,
+        peerUid: nodeMsg.peerUid,
+        guildId: ''
+      }
       if (srcPeer.peerUid !== nodeMsg.peerUid) {
         needSendSelf = true
       }
@@ -248,6 +255,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     const msgShortId = this.ctx.store.createMsgShortId({
       chatType: msg.chatType,
       peerUid: msg.peerUid,
+      guildId: ''
     }, msg.msgId)
     return { message_id: msgShortId, forward_id: resid }
   }

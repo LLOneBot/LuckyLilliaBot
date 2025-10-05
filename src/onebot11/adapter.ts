@@ -7,6 +7,7 @@ import {
   GroupNotifyStatus,
   GroupNotifyType,
   JsonGrayTipBusId,
+  Peer,
   RawMessage,
 } from '../ntqqapi/types'
 import { OB11GroupRequestEvent } from './event/request/OB11GroupRequest'
@@ -208,22 +209,23 @@ class OneBot11Adapter extends Service {
   }
 
   private handleRecallMsg(message: RawMessage) {
-    const peer = {
+    const peer: Peer = {
       peerUid: message.peerUid,
       chatType: message.chatType,
+      guildId: ''
     }
     // 解析撤回戳一戳
     const grayTipElement = message.elements.find(el => el.grayTipElement)?.grayTipElement
-    if (grayTipElement && grayTipElement.jsonGrayTipElement?.busiId == JsonGrayTipBusId.Poke){
+    if (grayTipElement && grayTipElement.jsonGrayTipElement?.busiId == JsonGrayTipBusId.Poke) {
       const json = JSON.parse(grayTipElement.jsonGrayTipElement.jsonStr)
       const templateParams = grayTipElement.jsonGrayTipElement?.xmlToJsonParam?.templParam
       const fromUserUin = templateParams?.get('uin_str1') || '0'
       const toUserUin = templateParams?.get('uin_str2') || '0'
       let recallEvent: OB11FriendPokeRecallEvent | OB11GroupPokeRecallEvent;
       if (peer.chatType === ChatType.Group) {
-         recallEvent = new OB11GroupPokeRecallEvent(parseInt(message.peerUid), parseInt(fromUserUin), parseInt(toUserUin), json)
+        recallEvent = new OB11GroupPokeRecallEvent(parseInt(message.peerUid), parseInt(fromUserUin), parseInt(toUserUin), json)
       }
-      else{
+      else {
         recallEvent = new OB11FriendPokeRecallEvent(parseInt(fromUserUin), parseInt(toUserUin), json)
       }
       return this.dispatch(recallEvent)
@@ -548,7 +550,7 @@ class OneBot11Adapter extends Service {
 
     })
 
-    this.ctx.on('nt/group-dismiss', async (group)=>{
+    this.ctx.on('nt/group-dismiss', async (group) => {
       const groupInfo = await this.ctx.ntGroupApi.getGroupAllInfo(group.groupCode)
       const ownerUin = await this.ctx.ntUserApi.getUinByUid(groupInfo.ownerUid)
       const event = new OB11GroupDismissEvent(

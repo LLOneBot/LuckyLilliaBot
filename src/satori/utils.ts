@@ -112,6 +112,7 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       const src = (await ctx.ntFileApi.getVideoUrl({
         chatType: data.chatType,
         peerUid: data.peerUid,
+        guildId: ''
       }, data.msgId, v.elementId)) || pathToFileURL(v.videoElement.filePath).href
       buffer.push(h.video(src))
     } else if (v.marketFaceElement) {

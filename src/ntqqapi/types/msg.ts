@@ -1,5 +1,4 @@
 import { GroupMemberRole } from './group'
-import { GeneralCallResult } from '../services'
 
 export enum ElementType {
   Text = 1,
@@ -480,7 +479,7 @@ export interface RawMessage {
 export interface Peer {
   chatType: ChatType
   peerUid: string  // 如果是群聊uid为群号，私聊uid就是加密的字符串
-  guildId?: string
+  guildId: string
 }
 
 export interface MessageElement {

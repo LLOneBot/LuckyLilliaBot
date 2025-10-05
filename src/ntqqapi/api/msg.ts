@@ -62,12 +62,12 @@ export class NTQQMsgApi extends Service {
   }
 
   async sendMsg(peer: Peer, msgElements: SendMessageElement[], timeout = 10000) {
-    const uniqueId = await this.generateMsgUniqueId(peer.chatType)
+    const msgId = await this.generateMsgUniqueId(peer.chatType)
 
     const data = await invoke<RawMessage[]>(
       'nodeIKernelMsgService/sendMsg',
       [
-        uniqueId,
+        msgId,
         peer,
         msgElements,
         new Map(),
@@ -76,7 +76,7 @@ export class NTQQMsgApi extends Service {
         resultCmd: 'nodeIKernelMsgListener/onMsgInfoListUpdate',
         resultCb: payload => {
           for (const msgRecord of payload) {
-            if (msgRecord.msgId === uniqueId && msgRecord.sendStatus === 2) {
+            if (msgRecord.msgId === msgId && msgRecord.sendStatus === 2) {
               return true
             }
           }
@@ -86,7 +86,7 @@ export class NTQQMsgApi extends Service {
       },
     )
 
-    return data.find(msgRecord => msgRecord.msgId === uniqueId)
+    return data.find(msgRecord => msgRecord.msgId === msgId)
   }
 
   async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
@@ -116,7 +116,7 @@ export class NTQQMsgApi extends Service {
         timeout: 3000,
       },
     )
-    delete destPeer.guildId
+    destPeer.guildId = ''
     return data.filter(msgRecord => msgRecord.guildId === uniqueId)
   }
 
@@ -244,8 +244,9 @@ export class NTQQMsgApi extends Service {
       '0',
       {
         chatInfo: {
-          peerUid: '',
           chatType,
+          peerUid: '',
+          guildId: ''
         },
         filterMsgToTime: msgTime,
         filterMsgFromTime: msgTime,

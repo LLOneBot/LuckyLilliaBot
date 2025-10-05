@@ -33,7 +33,7 @@ abstract class ForwardSingleMsg extends BaseAction<Payload, Response> {
     if (!msg) {
       throw new Error(`无法找到消息${payload.message_id}`)
     }
-    
+
     // 发送目标的peer
     const peer = await createPeer(this.ctx, payload)
 
@@ -48,7 +48,8 @@ abstract class ForwardSingleMsg extends BaseAction<Payload, Response> {
     // 创建消息id
     const msgShortId = this.ctx.store.createMsgShortId({
       chatType: ret[0].chatType,
-      peerUid: ret[0].peerUid
+      peerUid: ret[0].peerUid,
+      guildId: ''
     }, ret[0].msgId)
     return { message_id: msgShortId }
   }

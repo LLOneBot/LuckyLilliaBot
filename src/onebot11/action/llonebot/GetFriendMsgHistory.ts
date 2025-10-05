@@ -50,7 +50,11 @@ export class GetFriendMsgHistory extends BaseAction<Payload, Response> {
     const uid = await this.ctx.ntUserApi.getUidByUin(payload.user_id.toString())
     if (!uid) throw new Error(`无法获取用户信息`)
     const isBuddy = await this.ctx.ntFriendApi.isBuddy(uid)
-    const peer = { chatType: isBuddy ? ChatType.C2C : ChatType.TempC2CFromGroup, peerUid: uid }
+    const peer: Peer = {
+      chatType: isBuddy ? ChatType.C2C : ChatType.TempC2CFromGroup,
+      peerUid: uid,
+      guildId: ''
+    }
 
     const messages: OB11Message[] = []
     let seq = payload.message_seq
