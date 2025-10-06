@@ -1,6 +1,7 @@
 import http from 'node:http'
 import cors from 'cors'
 import crypto from 'node:crypto'
+import net from 'node:net'
 import express, { Express, Request, Response, NextFunction } from 'express'
 import { BaseAction } from '../action/BaseAction'
 import { Context } from 'cordis'
@@ -11,7 +12,6 @@ import { handleQuickOperation, QuickOperationEvent } from '../helper/quickOperat
 import { OB11HeartbeatEvent } from '../event/meta/OB11HeartbeatEvent'
 import { Dict } from 'cosmokit'
 import { HttpConnectConfig, HttpPostConnectConfig } from '@/common/types'
-import net from 'node:net'
 import { OB11Message } from '../types'
 
 class OB11Http {
@@ -227,7 +227,7 @@ namespace OB11Http {
 
 class OB11HttpPost {
   private disposeInterval?: () => void
-  private activated = false
+  private activated: boolean = false
 
   constructor(protected ctx: Context, public config: OB11HttpPost.Config) {
   }
