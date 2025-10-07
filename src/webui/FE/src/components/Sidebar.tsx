@@ -36,7 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, accountInfo }
           </div>
           <div>
             <h1 className="text-xl font-bold text-gray-800">LLTwoBot</h1>
-            <p className="text-xs text-gray-500">配置管理</p>
+            <p className="text-xs text-gray-500">WebUI</p>
           </div>
         </div>
       </div>

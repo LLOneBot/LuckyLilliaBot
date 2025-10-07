@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import OneBotConfigNew from './components/OneBotConfigNew';
 import OtherConfig from './components/OtherConfig';
 import TokenDialog from './components/TokenDialog';
+import QQLogin from './components/QQLogin';
 import { ToastContainer, showToast } from './components/Toast';
 import AnimatedBackground from './components/AnimatedBackground';
 import { Config, ResConfig } from './types';
@@ -84,6 +85,8 @@ function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [config, setConfig] = useState<Config>(defaultConfig);
   const [loading, setLoading] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [checkingLogin, setCheckingLogin] = useState(true);
   const [accountInfo, setAccountInfo] = useState<{ nick: string; uin: string } | null>(null);
   const [token, setToken] = useState(getToken() || '');
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
@@ -178,28 +181,31 @@ function App() {
     };
   };
 
-  // 加载配置
+  // 检查登录状态
   useEffect(() => {
-    const loadConfig = async () => {
+    const checkLoginStatus = async () => {
       try {
-        setLoading(true);
         const response = await apiFetch<ResConfig>('/api/config');
-        if (response.success) {
+        if (response.success && response.data.selfInfo.online) {
+          setIsLoggedIn(true);
           const migratedConfig = migrateOldConfig(response.data.config);
           setConfig(migratedConfig);
           setToken(response.data.token);
           setAccountInfo({
-            nick: response.data.selfInfo.nick || response.data.selfInfo.nickname || '',
+            nick: response.data.selfInfo.nick || '',
             uin: response.data.selfInfo.uin,
           });
+        } else {
+          setIsLoggedIn(false);
         }
       } catch (error) {
-        console.error('Failed to load config:', error);
+        console.error('Failed to check login status:', error);
+        setIsLoggedIn(false);
       } finally {
-        setLoading(false);
+        setCheckingLogin(false);
       }
     };
-    loadConfig();
+    checkLoginStatus();
   }, []);
 
   // 保存配置（直接保存新格式）
@@ -227,6 +233,31 @@ function App() {
     }
   }, [config, token]); // 依赖 config 和 token
 
+  // 登录成功回调
+  const handleLoginSuccess = useCallback(() => {
+    window.location.reload();
+  }, []);
+
+  // 加载中
+  if (checkingLogin) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 size={48} className="animate-spin text-blue-500" />
+      </div>
+    );
+  }
+
+  // 未登录，显示登录页面
+  if (!isLoggedIn) {
+    return (
+      <>
+        <QQLogin onLoginSuccess={handleLoginSuccess} />
+        <ToastContainer />
+      </>
+    );
+  }
+
+  // 已登录，显示主页面
   return (
     <div className="flex min-h-screen">
       {/* Animated Background */}
