@@ -1,15 +1,15 @@
 import { defineConfig } from 'vite'
-import vue from '@vitejs/plugin-vue'
+import react from '@vitejs/plugin-react'
 import * as path from 'node:path'
 
 export default defineConfig({
   build: {
     outDir: path.join(__dirname, '../../../dist/webui'),
   },
-  plugins: [vue()],
+  plugins: [react()],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './'),
+      '@': path.resolve(__dirname, './src'),
     },
   },
   server: {
