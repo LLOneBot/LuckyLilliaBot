@@ -3,7 +3,6 @@ import { ArrowDown, RefreshCw, X, Loader2 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 import { SelfInfo } from '../types';
 import { showToast } from './Toast';
-import AnimatedBackground from './AnimatedBackground';
 
 interface Account {
   uin: string;
@@ -293,10 +292,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center p-5">
-      {/* Animated Background */}
-      <AnimatedBackground />
-
-      {/* Login Content */}
+      {/* Login Content - AnimatedBackground now provided by App.tsx */}
       <div className="bg-white/50 backdrop-blur-2xl rounded-3xl p-10 shadow-xl border border-white/30 min-w-[320px] text-center relative z-10">
         {/* Quick Login Mode */}
         {loginMode === 'quick' && (

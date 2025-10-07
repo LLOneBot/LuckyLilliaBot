@@ -1,129 +1,140 @@
-import { ElMessage } from 'element-plus'
+import { ApiResponse } from '../types';
 
-// Token管理
-const tokenKey = 'webui_token'
+const TOKEN_KEY = 'webui_token';
+let passwordPromptHandler: ((tip: string) => Promise<string>) | null = null;
 
-export function getToken(): string {
-  return localStorage.getItem(tokenKey) || ''
+export function setPasswordPromptHandler(handler: (tip: string) => Promise<string>) {
+  passwordPromptHandler = handler;
 }
 
-export function setTokenStorage(token: string): void {
-  localStorage.setItem(tokenKey, token)
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
 }
 
-export function removeToken(): void {
-  localStorage.removeItem(tokenKey)
+export function setTokenStorage(token: string) {
+  localStorage.setItem(TOKEN_KEY, token);
 }
 
-// 设置token到后端
-async function setTokenToBackend(newToken: string): Promise<void> {
-  const resp = await fetch('/api/set-token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: newToken }),
-  })
-  const data = await resp.json()
-  if (!data.success) {
-    throw new Error(data.message || '设置密码失败')
-  }
-}
-
-// 弹出密码输入框
-let showPasswordDialog: ((tip: string) => Promise<string>) | null = null
-
-export function setPasswordPromptHandler(handler: (tip: string) => Promise<string>): void {
-  showPasswordDialog = handler
-}
-
-async function promptPassword(tip: string): Promise<string> {
-  console.log('调用promptPassword，tip:', tip)
-  if (!showPasswordDialog) {
-    console.error('密码输入处理器未设置!')
-    throw new Error('密码输入处理器未设置')
-  }
-  console.log('开始调用密码输入对话框')
-  const result = await showPasswordDialog(tip)
-  // 判断是否有中文
-  if (/[^\x00-\x7F]/.test(result)) {
-    ElMessage.warning('密码不能包含中文')
-    return await promptPassword(tip)
-  }
-  console.log('密码输入完成，结果长度:', result.length)
-  return result
-}
-
-export interface ApiResponse<T> {
-  success: boolean
-  message?: string
-  data?: T
-}
-
-// 封装的API请求函数
-export async function apiFetch<T>(url: string, options: any = {}, port?: number): Promise<ApiResponse<T>> {
-  console.log('apiFetch 调用:', url, '，当前有token:', !!getToken())
-  options.headers = options.headers || {}
-  let token = getToken()
-
-  if (token) {
-    options.headers['x-webui-token'] = token
-  }
-  if (port){
-    url = `${window.location.protocol}//${window.location.hostname}:${port}` + url
-  }
-  let resp = await fetch(url, options)
-  console.log('API请求返回状态:', resp.status, 'URL:', url)
-
-  // 如果不是401/403，直接返回
-  if (resp.status !== 401 && resp.status !== 403) {
-    return resp.json()
-  }
-
-  while (resp.status === 401 || resp.status === 403) {
-    if (resp.status === 401) {
-      removeToken()
-      const inputPwd = await promptPassword('请设置密码')
-      // 401时需要setToken
-      try {
-        await setTokenToBackend(inputPwd)
-        setTokenStorage(inputPwd)
-        token = inputPwd
-        ElMessage.success('密码设置成功')
-      } catch (e: any) {
-        ElMessage.error(e.message || '设置密码失败')
-        throw new Error('设置密码失败')
+export async function apiFetch<T = any>(
+  url: string,
+  options: RequestInit = {}
+): Promise<ApiResponse<T>> {
+  const makeRequest = async (authToken: string | null): Promise<Response> => {
+    const headers: HeadersInit = {
+      ...options.headers,
+    };
+    
+    // 使用后端期望的 x-webui-token 请求头
+    if (authToken) {
+      headers['x-webui-token'] = authToken;
+    }
+    
+    return fetch(url, {
+      ...options,
+      headers,
+    });
+  };
+  
+  try {
+    let response = await makeRequest(getToken());
+    
+    // 401: 未设置密码，需要调用 set-token 设置
+    if (response.status === 401 && passwordPromptHandler) {
+      console.log('401 - Password not set, prompting to set password...');
+      
+      const newPassword = await passwordPromptHandler('请设置密码');
+      
+      if (!newPassword || !newPassword.trim()) {
+        throw new Error('密码不能为空');
       }
-    } else if (resp.status === 403) {
-      removeToken()
-      const err = (await resp.json()).message
-      const inputPwd = await promptPassword('密码校验失败，' + err)
-      // 403时只保存本地密码，不调用setToken
-      setTokenStorage(inputPwd)
-      token = inputPwd
+      
+      // 调用设置密码接口
+      const setTokenResponse = await fetch('/api/set-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: newPassword.trim() }),
+      });
+      
+      if (!setTokenResponse.ok) {
+        throw new Error('设置密码失败');
+      }
+      
+      setTokenStorage(newPassword.trim());
+      
+      // 重新请求原接口
+      response = await makeRequest(newPassword.trim());
     }
-
-    // 重新带新密码请求
-    options.headers['x-webui-token'] = token
-    resp = await fetch(url, options)
-
-    if (resp.status !== 401 && resp.status !== 403) {
-      return resp.json()
+    
+    // 403: 密码错误或账户锁定，需要重新输入
+    if (response.status === 403 && passwordPromptHandler) {
+      console.log('403 - Token verification failed, prompting for password...');
+      
+      // 解析错误信息
+      let errorData: any = null;
+      try {
+        errorData = await response.clone().json();
+      } catch (e) {
+        // 忽略
+      }
+      
+      // 检查是否被锁定
+      if (errorData?.locked) {
+        throw new Error(errorData.message || '账户已被锁定');
+      }
+      
+      // 循环提示密码
+      let retryCount = 0;
+      const maxRetries = 5;
+      
+      while (response.status === 403 && retryCount < maxRetries) {
+        try {
+          const errorMessage = retryCount > 0 ? '密码错误，请重新输入' : '请输入密码';
+          const newPassword = await passwordPromptHandler(errorMessage);
+          
+          if (!newPassword || !newPassword.trim()) {
+            throw new Error('密码不能为空');
+          }
+          
+          setTokenStorage(newPassword.trim());
+          
+          // 重新请求
+          response = await makeRequest(newPassword.trim());
+          
+          if (response.status === 200) {
+            console.log('Authentication successful!');
+            break;
+          }
+          
+          // 解析新的错误信息
+          try {
+            errorData = await response.clone().json();
+            if (errorData?.locked) {
+              throw new Error(errorData.message || '账户已被锁定');
+            }
+          } catch (e) {
+            // 忽略
+          }
+          
+          retryCount++;
+        } catch (error) {
+          console.error('Password prompt error:', error);
+          throw error;
+        }
+      }
+      
+      if (response.status === 403) {
+        throw new Error(errorData?.message || '认证失败');
+      }
     }
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('API fetch error:', error);
+    throw error;
   }
-
-  return resp.json()
-}
-
-// 便捷的API调用方法
-export async function apiGet<T>(url: string, port?: number) {
-  const resp = await apiFetch<T>(url, {}, port)
-  return resp
-}
-
-export async function apiPost<T>(url: string, data: any, port?: number) {
-  const resp = await apiFetch<T>(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  }, port)
-  return resp
 }

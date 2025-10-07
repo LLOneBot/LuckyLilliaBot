@@ -9,77 +9,8 @@ import AnimatedBackground from './components/AnimatedBackground';
 import { Config, ResConfig } from './types';
 import { apiFetch, getToken, setPasswordPromptHandler, setTokenStorage } from './utils/api';
 import { Save, Loader2 } from 'lucide-react';
+import { defaultConfig } from '../../common/defaultConfig'
 
-// 默认配置
-const defaultConfig: Config = {
-  ob11: {
-    enable: false,
-    connect: [
-      {
-        type: 'ws',
-        enable: false,
-        port: 3001,
-        heartInterval: 30000,
-        token: '',
-        messageFormat: 'array',
-        reportSelfMessage: false,
-        reportOfflineMessage: false,
-        debug: false,
-      },
-      {
-        type: 'ws-reverse',
-        enable: false,
-        url: '',
-        heartInterval: 30000,
-        token: '',
-        messageFormat: 'array',
-        reportSelfMessage: false,
-        reportOfflineMessage: false,
-        debug: false,
-      },
-      {
-        type: 'http',
-        enable: false,
-        port: 3000,
-        token: '',
-        messageFormat: 'array',
-        reportSelfMessage: false,
-        reportOfflineMessage: false,
-        debug: false,
-      },
-      {
-        type: 'http-post',
-        enable: false,
-        url: '',
-        enableHeart: false,
-        heartInterval: 30000,
-        token: '',
-        messageFormat: 'array',
-        reportSelfMessage: false,
-        reportOfflineMessage: false,
-        debug: false,
-      },
-    ],
-  },
-  satori: {
-    enable: false,
-    port: 5500,
-    token: '',
-  },
-  heartInterval: 30000,
-  enableLocalFile2Url: false,
-  debug: false,
-  log: false,
-  autoDeleteFile: false,
-  autoDeleteFileSecond: 60,
-  musicSignUrl: '',
-  msgCacheExpire: 3600,
-  receiveOfflineMsg: false,
-  onlyLocalhost: true,
-  webui: {
-    token: '',
-  },
-};
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -179,11 +110,11 @@ function App() {
       <>
         {/* Animated Background */}
         <AnimatedBackground />
-        
+
         <div className="relative flex items-center justify-center min-h-screen z-10">
           <Loader2 size={48} className="animate-spin text-blue-500" />
         </div>
-        
+
         {/* Password Dialog - 支持加载时的 401 设置密码 */}
         <TokenDialog
           visible={showPasswordDialog}
@@ -198,16 +129,19 @@ function App() {
   if (!isLoggedIn) {
     return (
       <>
-        {/* Animated Background - 登录页面已经有背景了，但密码框需要 */}
+        {/* Animated Background - 为密码弹框提供背景动画 */}
+        <AnimatedBackground />
+
+        {/* QQLogin 组件内部已有自己的背景 */}
         <QQLogin onLoginSuccess={handleLoginSuccess} />
-        
+
         {/* Password Dialog - 支持 401 设置密码 */}
         <TokenDialog
           visible={showPasswordDialog}
           onConfirm={handlePasswordConfirm}
           error={passwordError}
         />
-        
+
         <ToastContainer />
       </>
     );
