@@ -118,69 +118,6 @@ function App() {
     }
   }, [passwordResolve]);
 
-  // 转换旧配置到新格式
-  const migrateOldConfig = (oldConfig: any): Config => {
-    // 如果已经是新格式，直接返回
-    if (oldConfig.ob11?.connect && Array.isArray(oldConfig.ob11.connect)) {
-      return oldConfig as Config;
-    }
-
-    // 转换旧格式到新格式
-    const ob11 = oldConfig.ob11 || {};
-    return {
-      ...oldConfig,
-      ob11: {
-        enable: ob11.enable || false,
-        connect: [
-          {
-            type: 'ws',
-            enable: ob11.enableWs || false,
-            port: ob11.wsPort || 3001,
-            heartInterval: oldConfig.heartInterval || 30000,
-            token: ob11.token || '',
-            messageFormat: ob11.messagePostFormat || 'array',
-            reportSelfMessage: ob11.reportSelfMessage || false,
-            reportOfflineMessage: oldConfig.receiveOfflineMsg || false,
-            debug: oldConfig.debug || false,
-          },
-          {
-            type: 'ws-reverse',
-            enable: ob11.enableWsReverse || false,
-            url: (ob11.wsReverseUrls && ob11.wsReverseUrls[0]) || '',
-            heartInterval: oldConfig.heartInterval || 30000,
-            token: ob11.token || '',
-            messageFormat: ob11.messagePostFormat || 'array',
-            reportSelfMessage: ob11.reportSelfMessage || false,
-            reportOfflineMessage: oldConfig.receiveOfflineMsg || false,
-            debug: oldConfig.debug || false,
-          },
-          {
-            type: 'http',
-            enable: ob11.enableHttp || false,
-            port: ob11.httpPort || 3000,
-            token: ob11.token || '',
-            messageFormat: ob11.messagePostFormat || 'array',
-            reportSelfMessage: ob11.reportSelfMessage || false,
-            reportOfflineMessage: oldConfig.receiveOfflineMsg || false,
-            debug: oldConfig.debug || false,
-          },
-          {
-            type: 'http-post',
-            enable: ob11.enableHttpPost || false,
-            url: (ob11.httpPostUrls && ob11.httpPostUrls[0]) || '',
-            enableHeart: ob11.enableHttpHeart || false,
-            heartInterval: oldConfig.heartInterval || 30000,
-            token: ob11.httpSecret || '',
-            messageFormat: ob11.messagePostFormat || 'array',
-            reportSelfMessage: ob11.reportSelfMessage || false,
-            reportOfflineMessage: oldConfig.receiveOfflineMsg || false,
-            debug: oldConfig.debug || false,
-          },
-        ],
-      },
-    };
-  };
-
   // 检查登录状态
   useEffect(() => {
     const checkLoginStatus = async () => {
@@ -188,8 +125,6 @@ function App() {
         const response = await apiFetch<ResConfig>('/api/config');
         if (response.success && response.data.selfInfo.online) {
           setIsLoggedIn(true);
-          const migratedConfig = migrateOldConfig(response.data.config);
-          setConfig(migratedConfig);
           setToken(response.data.token);
           setAccountInfo({
             nick: response.data.selfInfo.nick || '',

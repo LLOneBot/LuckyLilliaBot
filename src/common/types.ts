@@ -35,38 +35,38 @@ export interface HttpPostConnectConfig extends BaseConnectConfig {
 
 export interface OB11Config {
   enable: boolean
-  /** @deprecated */
-  token?: string
-  /** @deprecated */
-  httpPort?: number
-  /** @deprecated */
-  httpPostUrls?: string[]
-  /** @deprecated */
-  httpSecret?: string
-  /** @deprecated */
-  wsPort?: number
-  /** @deprecated */
-  wsReverseUrls?: string[]
-  /** @deprecated */
-  enableHttp?: boolean
-  /** @deprecated */
-  enableHttpPost?: boolean
-  /** @deprecated */
-  enableWs?: boolean
-  /** @deprecated */
-  enableWsReverse?: boolean
-  /** @deprecated */
-  messagePostFormat?: 'array' | 'string'
-  /** @deprecated */
-  enableHttpHeart?: boolean
-  /**
-   * 快速操作回复自动引用原消息
-   * @deprecated
-   */
-  enableQOAutoQuote?: boolean
-  /** @deprecated */
-  reportSelfMessage?: boolean
   connect: (WsConnectConfig | WsReverseConnectConfig | HttpConnectConfig | HttpPostConnectConfig)[]
+  // /** @deprecated */
+  // token?: string
+  // /** @deprecated */
+  // httpPort?: number
+  // /** @deprecated */
+  // httpPostUrls?: string[]
+  // /** @deprecated */
+  // httpSecret?: string
+  // /** @deprecated */
+  // wsPort?: number
+  // /** @deprecated */
+  // wsReverseUrls?: string[]
+  // /** @deprecated */
+  // enableHttp?: boolean
+  // /** @deprecated */
+  // enableHttpPost?: boolean
+  // /** @deprecated */
+  // enableWs?: boolean
+  // /** @deprecated */
+  // enableWsReverse?: boolean
+  // /** @deprecated */
+  // messagePostFormat?: 'array' | 'string'
+  // /** @deprecated */
+  // enableHttpHeart?: boolean
+  // /**
+  //  * 快速操作回复自动引用原消息
+  //  * @deprecated
+  //  */
+  // enableQOAutoQuote?: boolean
+  // /** @deprecated */
+  // reportSelfMessage?: boolean
 }
 
 export interface SatoriConfig {
@@ -85,20 +85,19 @@ export interface Config {
   ob11: OB11Config
   webui: WebUIConfig
   onlyLocalhost: boolean
-  /** @deprecated */
-  heartInterval?: number // ms
   enableLocalFile2Url?: boolean // 开启后，本地文件路径图片会转成http链接, 语音会转成base64
-  /** @deprecated */
-  debug?: boolean
   log?: boolean
   autoDeleteFile?: boolean
   autoDeleteFileSecond?: number
   ffmpeg?: string // ffmpeg路径
   musicSignUrl?: string
-  /** 单位为秒 */
-  msgCacheExpire?: number
-  /** @deprecated */
-  receiveOfflineMsg?: boolean // 是否接收离线消息
+  msgCacheExpire?: number // second
+  // /** @deprecated */
+  // heartInterval?: number // ms
+  // /** @deprecated */
+  // receiveOfflineMsg?: boolean // 是否接收离线消息
+  // /** @deprecated */
+  // debug?: boolean
 }
 
 export interface CheckVersion {

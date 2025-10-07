@@ -73,10 +73,9 @@ export class ConfigUtil {
         jsonData = JSON5.parse(data)
         console.info('配置加载成功')
         mergeNewProperties(defaultConfig, jsonData)
-        this.checkOldConfig(jsonData.ob11, jsonData.ob11, 'wsReverseUrls', 'wsHosts')
-        this.checkOldConfig(jsonData.ob11, jsonData.ob11, 'httpPostUrls', 'httpHosts')
-        this.checkOldConfig(jsonData, jsonData.ob11, 'onlyLocalhost', 'listenLocalhost')
         jsonData.webui = this.migrateWebUIToken(jsonData.webui)
+        jsonData = this.migrateConfig(jsonData)
+        jsonData = this.cleanupConfig(defaultConfig, jsonData);
         this.setConfig(jsonData)
         this.config = jsonData
         return this.config
@@ -104,6 +103,115 @@ export class ConfigUtil {
     }, 3000)
   }
 
+
+  /**
+   * 递归清理配置对象，以 defaultConfig 为基准，删除 oldConfig 中不存在于 defaultConfig 的 key
+   */
+  private cleanupConfig(defaultConfig: any, oldConfig: any): any {
+    // 如果不是对象，直接返回
+    if (typeof defaultConfig !== 'object' || defaultConfig === null || Array.isArray(defaultConfig)) {
+      return oldConfig;
+    }
+    if (typeof oldConfig !== 'object' || oldConfig === null) {
+      return oldConfig;
+    }
+
+    const cleaned: any = {};
+
+    // 遍历 defaultConfig 的 key
+    for (const key in defaultConfig) {
+      if (defaultConfig.hasOwnProperty(key)) {
+        // 如果 oldConfig 中存在该 key
+        if (oldConfig.hasOwnProperty(key)) {
+          const defaultValue = defaultConfig[key];
+          const oldValue = oldConfig[key];
+
+          // 如果 defaultValue 是普通对象（非数组），递归清理
+          if (
+            typeof defaultValue === 'object' &&
+            defaultValue !== null &&
+            !Array.isArray(defaultValue) &&
+            typeof oldValue === 'object' &&
+            oldValue !== null &&
+            !Array.isArray(oldValue)
+          ) {
+            cleaned[key] = this.cleanupConfig(defaultValue, oldValue);
+          } else {
+            // 否则直接使用 oldConfig 的值
+            cleaned[key] = oldValue;
+          }
+        } else {
+          // oldConfig 中不存在该 key，使用 defaultConfig 的值
+          cleaned[key] = defaultConfig[key];
+        }
+      }
+    }
+
+    return cleaned;
+  }
+
+  private migrateConfig(oldConfig: any): Config {
+    let migratedConfig = oldConfig;
+
+    if (!oldConfig.ob11?.connect || !Array.isArray(oldConfig.ob11.connect)) {
+      const ob11 = oldConfig.ob11 || {};
+      migratedConfig = {
+        ...oldConfig,
+        ob11: {
+          enable: ob11.enable || false,
+          connect: [
+            {
+              type: 'ws',
+              enable: ob11.enableWs || false,
+              port: ob11.wsPort || 3001,
+              heartInterval: oldConfig.heartInterval || 30000,
+              token: ob11.token || '',
+              messageFormat: ob11.messagePostFormat || 'array',
+              reportSelfMessage: ob11.reportSelfMessage || false,
+              reportOfflineMessage: oldConfig.receiveOfflineMsg || false,
+              debug: oldConfig.debug || false,
+            },
+            {
+              type: 'ws-reverse',
+              enable: ob11.enableWsReverse || false,
+              url: (ob11.wsReverseUrls && ob11.wsReverseUrls[0]) || '',
+              heartInterval: oldConfig.heartInterval || 30000,
+              token: ob11.token || '',
+              messageFormat: ob11.messagePostFormat || 'array',
+              reportSelfMessage: ob11.reportSelfMessage || false,
+              reportOfflineMessage: oldConfig.receiveOfflineMsg || false,
+              debug: oldConfig.debug || false,
+            },
+            {
+              type: 'http',
+              enable: ob11.enableHttp || false,
+              port: ob11.httpPort || 3000,
+              token: ob11.token || '',
+              messageFormat: ob11.messagePostFormat || 'array',
+              reportSelfMessage: ob11.reportSelfMessage || false,
+              reportOfflineMessage: oldConfig.receiveOfflineMsg || false,
+              debug: oldConfig.debug || false,
+            },
+            {
+              type: 'http-post',
+              enable: ob11.enableHttpPost || false,
+              url: (ob11.httpPostUrls && ob11.httpPostUrls[0]) || '',
+              enableHeart: ob11.enableHttpHeart || false,
+              heartInterval: oldConfig.heartInterval || 30000,
+              token: ob11.httpSecret || '',
+              messageFormat: ob11.messagePostFormat || 'array',
+              reportSelfMessage: ob11.reportSelfMessage || false,
+              reportOfflineMessage: oldConfig.receiveOfflineMsg || false,
+              debug: oldConfig.debug || false,
+            },
+          ],
+        },
+      };
+    }
+
+    return migratedConfig as Config
+  }
+
   private migrateWebUIToken(oldWebuiConfig: WebUIConfig & {token?: string}) {
     if (oldWebuiConfig.token && !webuiTokenUtil.getToken()) {
       webuiTokenUtil.setToken(oldWebuiConfig.token)
@@ -112,19 +220,6 @@ export class ConfigUtil {
     return oldWebuiConfig
   }
 
-  private checkOldConfig(
-    currentConfig: Config | OB11Config | SatoriConfig,
-    oldConfig: Config | OB11Config | SatoriConfig,
-    currentKey: keyof OB11Config | keyof SatoriConfig | keyof Config,
-    oldKey: 'http' | 'hosts' | 'wsPort' | 'wsHosts' | 'reportSelfMessage' | 'httpHosts' | 'token' | 'listenLocalhost',
-  ) {
-    // 迁移旧的配置到新配置，避免用户重新填写配置
-    const oldValue = (oldConfig as any)[oldKey]
-    if (oldValue !== undefined) {
-      Object.assign(currentConfig, { [currentKey]: oldValue })
-      delete (oldConfig as any)[oldKey]
-    }
-  }
 }
 
 let globalConfigUtil: ConfigUtil | null = null

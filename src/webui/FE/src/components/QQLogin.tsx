@@ -178,8 +178,11 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
     showToast('二维码已刷新', 'success');
   }, [generateQrCode]);
 
-  // 获取快速登录列表
+  // 获取快速登录列表（防重复：通过 hasFetchedRef 控制）
+  const hasFetchedRef = useRef(false);
   const fetchQuickLoginList = useCallback(async () => {
+    if (hasFetchedRef.current) return;
+    hasFetchedRef.current = true;
     try {
       const result = await apiFetch<GetLoginListResult>('/api/quick-login-list');
       console.log('Quick login list response:', result);
@@ -189,9 +192,10 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
         setAccounts(quickLoginAccounts);
         console.log('Accounts loaded:', quickLoginAccounts);
 
-        if (quickLoginAccounts.length > 0 && !selectedAccount) {
-          setSelectedAccount(quickLoginAccounts[0]);
-        } else if (quickLoginAccounts.length === 0) {
+        if (quickLoginAccounts.length > 0) {
+          // 仅在还未选择账号时设置，避免触发依赖循环
+          setSelectedAccount(prev => prev ?? quickLoginAccounts[0]);
+        } else {
           setLoginMode('qr');
         }
       } else {
@@ -203,7 +207,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
       showToast('获取快速登录列表失败', 'error');
       setAccounts([]);
     }
-  }, [selectedAccount]);
+  }, []);
 
   // 快速登录
   const handleQuickLogin = useCallback(async () => {
@@ -263,7 +267,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
 
   // 初始化
   useEffect(() => {
-    fetchQuickLoginList();
+    if (!hasFetchedRef.current) fetchQuickLoginList();
 
     return () => {
       if (qrRefreshIntervalRef.current) {
@@ -271,7 +275,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
       }
       stopLoginPolling();
     };
-  }, [fetchQuickLoginList, stopLoginPolling]);
+  }, []);
 
   // 监听登录模式变化
   useEffect(() => {
@@ -281,10 +285,11 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
       clearInterval(qrRefreshIntervalRef.current);
     }
 
-    if (loginMode === 'quick' && accounts.length === 0) {
+    // 当从二维码模式切换到快速登录且还未获取过列表时再获取，避免重复
+    if (loginMode === 'quick' && accounts.length === 0 && !hasFetchedRef.current) {
       fetchQuickLoginList();
     }
-  }, [loginMode, accounts.length, generateQrCode, fetchQuickLoginList]);
+  }, [loginMode, accounts.length, generateQrCode]);
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center p-5">
@@ -350,9 +355,10 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
               <button onClick={() => setLoginMode('qr')} className="text-blue-600 text-sm hover:underline">
                 扫码登录
               </button>
-              <button onClick={() => setShowRemoveAccount(true)} className="text-blue-600 text-sm hover:underline">
+              {/* 暂时注释掉移除账号功能 */}
+              {/* <button onClick={() => setShowRemoveAccount(true)} className="text-blue-600 text-sm hover:underline">
                 移除账号
-              </button>
+              </button> */}
             </div>
           </div>
         )}
@@ -406,8 +412,8 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
         </div>
       </div>
 
-      {/* Remove Account Dialog */}
-      {showRemoveAccount && (
+      {/* Remove Account Dialog - 暂时注释掉 */}
+      {/* {showRemoveAccount && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
@@ -416,9 +422,9 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
                 <X size={24} />
               </button>
             </div>
-
+            
             <div className="mb-4 text-sm text-gray-600">选择要移除的账号:</div>
-
+            
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {accounts.map((account) => (
                 <div
@@ -432,7 +438,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
                 </div>
               ))}
             </div>
-
+            
             <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setShowRemoveAccount(false)}
@@ -443,7 +449,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
             </div>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 };
