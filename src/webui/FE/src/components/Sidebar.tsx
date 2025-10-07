@@ -27,7 +27,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, accountInfo }
   ];
 
   return (
-    <div className="w-64 bg-white/70 backdrop-blur-xl h-screen flex flex-col shadow-xl border-r border-white/20">
+    <div className="w-64 bg-white/50 backdrop-blur-2xl h-screen flex flex-col shadow-xl border-r border-white/30">
       {/* Logo */}
       <div className="p-6 border-b border-white/20">
         <div className="flex items-center space-x-3">

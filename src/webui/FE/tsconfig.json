@@ -4,9 +4,11 @@
     "baseUrl": ".",
     "paths": {
       "@common/types": ["../../common/types"],
-      "@/*": ["./*"],
+      "@/*": ["./*"]
     },
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+    "jsx": "react",
+    "allowSyntheticDefaultImports": true
   },
   "include": ["./**/*", "../../**/*"],
   "exclude": ["node_modules"]

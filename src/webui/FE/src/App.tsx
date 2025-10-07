@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import OneBotConfig from './components/OneBotConfig';
+import OtherConfig from './components/OtherConfig';
 import TokenDialog from './components/TokenDialog';
 import { ToastContainer, showToast } from './components/Toast';
+import AnimatedBackground from './components/AnimatedBackground';
 import { Config, ResConfig } from './types';
 import { apiFetch, getToken, setPasswordPromptHandler, setTokenStorage } from './utils/api';
 import { Save, Loader2 } from 'lucide-react';
@@ -127,6 +129,9 @@ function App() {
 
   return (
     <div className="flex min-h-screen">
+      {/* Animated Background */}
+      <AnimatedBackground />
+      
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} accountInfo={accountInfo || undefined} />
       
       <main className="flex-1 p-8 overflow-auto">
@@ -306,6 +311,32 @@ function App() {
                 </button>
               </div>
             </div>
+          )}
+
+          {activeTab === 'other' && (
+            <>
+              <OtherConfig
+                config={config}
+                token={token}
+                onChange={setConfig}
+                onTokenChange={setToken}
+              />
+              <div className="mt-6 flex justify-end">
+                <button onClick={handleSave} disabled={loading} className="btn-primary flex items-center gap-2">
+                  {loading ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin" />
+                      保存中...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={20} />
+                      保存配置
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
           )}
 
           {activeTab === 'about' && (
