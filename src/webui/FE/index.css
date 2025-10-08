@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+  
+  body {
+    @apply m-0 font-sans antialiased;
+    background: 
+      linear-gradient(135deg, 
+        rgba(224, 231, 255, 1) 0%, 
+        rgba(233, 213, 255, 1) 25%,
+        rgba(252, 231, 243, 1) 50%,
+        rgba(254, 240, 220, 1) 75%,
+        rgba(240, 253, 250, 1) 100%
+      );
+    min-height: 100vh;
+    position: relative;
+  }
+  
+  /* 添加彩色点阵图案 */
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: 
+      radial-gradient(circle at 20% 30%, rgba(167, 139, 250, 0.08) 0, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(96, 165, 250, 0.08) 0, transparent 50%),
+      radial-gradient(circle at 50% 50%, rgba(244, 114, 182, 0.05) 0, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  #root {
+    @apply min-h-screen;
+    position: relative;
+    z-index: 1;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-white/60 backdrop-blur-xl rounded-3xl shadow-card hover:shadow-card-hover transition-all duration-300 border border-white/50;
+  }
+  
+  .btn-primary {
+    @apply bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-2.5 rounded-xl font-medium hover:shadow-lg hover:scale-105 transition-all duration-200;
+  }
+  
+  .input-field {
+    @apply w-full px-4 py-2.5 border border-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/40 backdrop-blur-sm;
+  }
+  
+  .switch {
+    @apply relative inline-flex items-center cursor-pointer;
+  }
+}

@@ -26,8 +26,9 @@ class OB11Http {
   }
 
   public start() {
-    if (this.server)
+    if (this.server || !this.config.enable) {
       return
+    }
     try {
       // 添加 CORS 中间件
       this.expressAPP.use(cors())
@@ -233,7 +234,7 @@ class OB11HttpPost {
   }
 
   public start() {
-    this.activated = true
+    this.activated = this.config.enable
     if (this.config.enableHeart && !this.disposeInterval) {
       this.disposeInterval = this.ctx.setInterval(() => {
         // ws的心跳是ws自己维护的

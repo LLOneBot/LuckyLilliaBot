@@ -11,6 +11,7 @@ node_modules
 dist
 out
 data
+*.tsbuildinfo
 
 .DS_Store
 .idea

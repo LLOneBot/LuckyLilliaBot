@@ -17,6 +17,7 @@ const __dirname = path.dirname(__filename)
 
 // 静态文件服务，指向前端dist目录
 let feDistPath = path.resolve(__dirname, 'webui/')
+// @ts-ignore
 if (!import.meta.env) {
   feDistPath = path.join(__dirname, '../../../dist/webui/')
 }
@@ -114,6 +115,13 @@ abstract class WebUIServerBase extends Service {
       }
 
       const reqToken = req.headers['x-webui-token'] || req.query?.token
+      if (!reqToken) {
+        res.status(403).json({
+          success: false,
+          message: `请输入密码`,
+        })
+        return
+      }
       if (reqToken !== token) {
         // 记录失败尝试
         globalLoginAttempt.consecutiveFailures++
@@ -168,7 +176,6 @@ abstract class WebUIServerBase extends Service {
       try {
         const config = getConfigUtil().getConfig()
         const resJson: ResConfig = {
-          token: webuiTokenUtil.getToken(),
           config,
           selfInfo,
         }
@@ -184,10 +191,9 @@ abstract class WebUIServerBase extends Service {
     // 保存配置接口
     this.app.post('/api/config', (req, res) => {
       try {
-        const { token, config } = req.body as ReqConfig
+        const { config } = req.body as ReqConfig
         const oldConfig = getConfigUtil().getConfig()
         const newConfig = { ...oldConfig, ...config }
-        webuiTokenUtil.setToken(token!)
         this.ctx.parallel('llob/config-updated', newConfig).then()
         getConfigUtil().setConfig(newConfig)
         res.json({ success: true, message: '配置保存成功' })

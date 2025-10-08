@@ -135,17 +135,16 @@ async function onLoad() {
       const getSelfInfo = async () => {
         const uin = await ctx.ntUserApi.getUinByUid(data[2])
         selfInfo.uin = uin
+        const configUtil = getConfigUtil(true)
         loadPluginAfterLogin()
         // this.ctx.database.config.path = path.join(dbDir, `${uin}.db`)
         ctx.ntUserApi.getSelfNick().then(nick => {
           ctx.logger.info(`获取登录号${uin}昵称成功`, nick)
-          const oldConfig = getConfigUtil().getConfig()
           Object.assign(selfInfo, {
             uin,
             nick: nick,
             online: true,
           })
-          const configUtil = getConfigUtil(true)
           const config = configUtil.getConfig()
           configUtil.setConfig(config)
           ctx.parallel('llob/config-updated', config)

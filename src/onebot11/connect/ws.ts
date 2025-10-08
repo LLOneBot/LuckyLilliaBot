@@ -21,7 +21,9 @@ class OB11WebSocket {
   }
 
   public start() {
-    if (this.wsServer) return
+    if (this.wsServer || !this.config.enable) {
+      return
+    }
     const host = this.config.onlyLocalhost ? '127.0.0.1' : ''
     this.ctx.logger.info(`OneBot V11 WebSocket server started ${host}:${this.config.port}`)
     this.wsServer = new WebSocketServer({
@@ -212,6 +214,9 @@ class OB11WebSocketReverse {
   }
 
   public start() {
+    if (!this.config.enable){
+      return
+    }
     if (!this.activated) {
       this.activated = true
       this.tryConnect()

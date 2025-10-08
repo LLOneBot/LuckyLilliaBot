@@ -107,6 +107,7 @@ export namespace SendElement {
       fileElement: {
         fileName,
         folderId,
+        fileBizId: undefined,
         filePath,
         fileSize,
       },
