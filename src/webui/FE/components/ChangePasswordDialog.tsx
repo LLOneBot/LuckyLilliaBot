@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Eye, EyeOff, Lock } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 import { showToast } from './Toast';
+import { validatePassword } from '../utils/passwordValidation';
 
 interface ChangePasswordDialogProps {
   visible: boolean;
@@ -35,17 +36,14 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ visible, on
   }, [visible]);
 
   const handleConfirm = async () => {
-    // 验证输入
-    if (!newPassword.trim()) {
-      setError('密码不能为空');
+    // 验证新密码
+    const validation = validatePassword(newPassword, 6);
+    if (!validation.isValid) {
+      setError(validation.error || '密码验证失败');
       return;
     }
 
-    if (newPassword.length < 6) {
-      setError('密码长度不能少于6位');
-      return;
-    }
-
+    // 检查两次密码是否一致
     if (newPassword !== confirmPassword) {
       setError('两次输入的密码不一致');
       return;
@@ -127,15 +125,11 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ visible, on
                   type={showNewPassword ? 'text' : 'password'}
                   value={newPassword}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    // 只允许数字和英文字母
-                    if (/^[a-zA-Z0-9]*$/.test(value)) {
-                      setNewPassword(value);
-                      setError('');
-                    }
+                    setNewPassword(e.target.value);
+                    setError('');
                   }}
                   onKeyPress={handleKeyPress}
-                  placeholder="请输入新密码（仅支持数字和英文）"
+                  placeholder="请输入新密码（支持数字、字母、符号）"
                   className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/50 backdrop-blur-sm"
                   autoComplete="new-password"
                 />
@@ -160,12 +154,8 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ visible, on
                   type={showConfirmPassword ? 'text' : 'password'}
                   value={confirmPassword}
                   onChange={(e) => {
-                    const value = e.target.value;
-                    // 只允许数字和英文字母
-                    if (/^[a-zA-Z0-9]*$/.test(value)) {
-                      setConfirmPassword(value);
-                      setError('');
-                    }
+                    setConfirmPassword(e.target.value);
+                    setError('');
                   }}
                   onKeyPress={handleKeyPress}
                   placeholder="请再次输入新密码"
