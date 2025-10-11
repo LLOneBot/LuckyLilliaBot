@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { OB11Config, ConnectConfig, WsConnectConfig, WsReverseConnectConfig, HttpConnectConfig, HttpPostConnectConfig } from '../types';
 import { Radio, Wifi, Globe, Send, X, Settings, Plus, Trash2, Edit2, Eye, EyeOff } from 'lucide-react';
+import Portal from './Portal';
 
 interface OneBotConfigProps {
   config: OB11Config;
@@ -251,8 +252,9 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
 
       {/* 配置弹窗 */}
       {showDialog && selectedAdapter && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+        <Portal>
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white/60 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col border border-white/50">
             {/* Header */}
             <div className="flex items-center justify-between p-6 border-b border-white/20">
               <div className="flex items-center gap-3 flex-1">
@@ -569,13 +571,15 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
               </div>
             </div>
           </div>
-        </div>
+          </div>
+        </Portal>
       )}
 
       {/* 添加适配器对话框 */}
       {showAddDialog && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md">
+        <Portal>
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white/60 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md border border-white/50">
             <div className="flex items-center justify-between p-6 border-b border-white/20">
               <h3 className="text-xl font-semibold text-gray-900">选择适配器类型</h3>
               <button onClick={() => setShowAddDialog(false)} className="text-gray-400 hover:text-gray-600">
@@ -646,7 +650,8 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
               </button>
             </div>
           </div>
-        </div>
+          </div>
+        </Portal>
       )}
     </div>
   );
