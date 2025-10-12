@@ -104,12 +104,20 @@ export namespace OB11Entities {
     }
     else if (msg.chatType === ChatType.C2C) {
       resMsg.sub_type = 'friend'
-      resMsg.sender.nickname = (await ctx.ntUserApi.getCoreAndBaseInfo([msg.senderUid])).get(msg.senderUid)!.coreInfo.nick
+      if (msg.senderUin === '1094950020') {
+        resMsg.sender.nickname = 'QQ用户'
+      } else {
+        resMsg.sender.nickname = (await ctx.ntUserApi.getCoreAndBaseInfo([msg.senderUid])).get(msg.senderUid)!.coreInfo.nick
+      }
     }
     else if (msg.chatType === ChatType.TempC2CFromGroup) {
       resMsg.sub_type = 'group'
       resMsg.temp_source = 0 //群聊
-      resMsg.sender.nickname = (await ctx.ntUserApi.getCoreAndBaseInfo([msg.senderUid])).get(msg.senderUid)!.coreInfo.nick
+      if (msg.senderUin === '1094950020') {
+        resMsg.sender.nickname = 'QQ用户'
+      } else {
+        resMsg.sender.nickname = (await ctx.ntUserApi.getCoreAndBaseInfo([msg.senderUid])).get(msg.senderUid)!.coreInfo.nick
+      }
       const ret = await ctx.ntMsgApi.getTempChatInfo(ChatType.TempC2CFromGroup, msg.senderUid)
       if (ret?.result === 0) {
         resMsg.sender.group_id = Number(ret.tmpChatInfo?.groupCode)
