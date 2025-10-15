@@ -184,7 +184,17 @@ export namespace OB11Entities {
             replyMsg = msgList.find((msg: RawMessage) => msg.msgRandom === record.msgRandom)
           } else {
             ctx.logger.info('msgRandom is missing', replyElement, record)
-            replyMsg = msgList[0]
+            if (msgList.length > 0) {
+              replyMsg = msgList[0]
+            } else {
+              if (record.senderUin && record.senderUin !== '0') {
+                peer.chatType = record.chatType
+                peer.peerUid = record.peerUid
+                ctx.store.addMsgCache(record)
+              }
+              ctx.logger.info('msgList is empty, use record')
+              replyMsg = record
+            }
           }
           if (!replyMsg) {
             ctx.logger.error('获取不到引用的消息', replyElement)
