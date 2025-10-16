@@ -1,5 +1,5 @@
 import { GeneralCallResult } from './common'
 
 export interface NodeIKernelTipOffService {
-  getPskey(domainList: string[], nocache: boolean): Promise<GeneralCallResult & { domainPskeyMap: Map<string, string> }>
+  getPskey(domains: string[], isForNewPCQQ: boolean): Promise<GeneralCallResult & { domainPskeyMap: Map<string, string> }>
 }
