@@ -28,6 +28,7 @@ class SatoriAdapter extends Service {
   private server: SatoriServer
   private _eventSeq: number
   public _loginSeq: number
+  private listenedEvent = false
 
   constructor(public ctx: Context, public config: SatoriAdapter.Config) {
     super(ctx, 'satori', true)
@@ -134,6 +135,7 @@ class SatoriAdapter extends Service {
         this.server.updateConfig(inputSatoriConfig)
         if (inputSatoriConfig.enable) {
           this.server.start()
+          this.listenEvent()
         }
       }
       Object.assign(this.config, {...inputSatoriConfig, ffmpeg: input.ffmpeg })
@@ -144,6 +146,12 @@ class SatoriAdapter extends Service {
     else{
       return
     }
+    this.listenEvent()
+  }
+
+  listenEvent(){
+    if (this.listenedEvent) return
+    this.listenedEvent = true
     this.ctx.on('nt/message-created', async input => {
       const event = await this.handleMessage(input)
         .catch(e => this.ctx.logger.error(e))
