@@ -1,3 +1,4 @@
+import { selfInfo } from '@/common/globalVars'
 import { RequestUtil } from '@/common/utils/request'
 import { Context, Service } from 'cordis'
 import { Dict } from 'cosmokit'
@@ -6,6 +7,16 @@ declare module 'cordis' {
   interface Context {
     ntWebApi: NTQQWebApi
   }
+}
+
+interface ExpertInfo {
+  ret: number
+  data: {
+    m: number[]
+    g: number[]
+  }
+  delay: number
+  domainid: number
 }
 
 export enum WebHonorType {
@@ -24,11 +35,11 @@ export class NTQQWebApi extends Service {
     super(ctx, 'ntWebApi', true)
   }
 
-  genBkn(sKey: string) {
-    sKey = sKey || ''
+  genBkn(key: string) {
+    key = key || ''
     let hash = 5381
-    for (let i = 0; i < sKey.length; i++) {
-      const code = sKey.charCodeAt(i)
+    for (let i = 0; i < key.length; i++) {
+      const code = key.charCodeAt(i)
       hash = hash + (hash << 5) + code
     }
     return (hash & 0x7FFFFFFF).toString()
@@ -185,5 +196,20 @@ export class NTQQWebApi extends Service {
     //   this.ctx.logger.error('删除群成员失败', result)
     //   return { success: false, message: result.msg || '删除失败' }
     // }
+  }
+
+  async getExpertInfo(uin: string): Promise<ExpertInfo> {
+    const pSkey = (await this.ctx.ntUserApi.getPSkey(['vip.qq.com'])).domainPskeyMap.get('vip.qq.com')!
+    const bkn = this.genBkn(pSkey)
+    const url = `https://cgi.vip.qq.com/card/getExpertInfo?ps_tk=${bkn}&fuin=${uin}&g_tk=${bkn}`
+    const cookie = `p_uin=o${selfInfo.uin}; p_skey=${pSkey}; uin=o${selfInfo.uin}`
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Reqable/2.30.1',
+        'Referer': 'https://cgi.vip.qq.com/',
+        'Cookie': cookie
+      }
+    })
+    return await response.json()
   }
 }

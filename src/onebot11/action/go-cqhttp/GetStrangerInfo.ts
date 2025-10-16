@@ -27,6 +27,7 @@ export class GetStrangerInfo extends BaseAction<Payload, Response> {
   protected async _handle(payload: Payload) {
     const uin = payload.user_id.toString()
     const data = await this.ctx.ntUserApi.getUserDetailInfoByUin(uin)
+    const expertInfo = await this.ctx.ntWebApi.getExpertInfo(uin)
     const resp: Response = {
       user_id: parseInt(data.detail.uin) || 0,
       nickname: data.detail.simpleInfo.coreInfo.nick,
@@ -34,7 +35,7 @@ export class GetStrangerInfo extends BaseAction<Payload, Response> {
       age: data.detail.simpleInfo.baseInfo.age,
       qid: data.detail.simpleInfo.baseInfo.qid,
       level: data.detail.commonExt?.qqLevel && calcQQLevel(data.detail.commonExt.qqLevel) || 0,
-      login_days: 0,
+      login_days: expertInfo.data.g[1],
       reg_time: data.detail.commonExt!.regTime,
       long_nick: data.detail.simpleInfo.baseInfo.longNick,
       city: data.detail.commonExt!.city,
