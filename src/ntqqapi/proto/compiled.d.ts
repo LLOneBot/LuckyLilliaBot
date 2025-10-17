@@ -5412,4 +5412,100 @@ export namespace Action {
          */
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
+
+    /** Properties of a FetchUserLoginDays. */
+    interface IFetchUserLoginDays {
+
+        /** FetchUserLoginDays field2 */
+        field2?: (number|null);
+
+        /** FetchUserLoginDays json */
+        json?: (string|null);
+    }
+
+    /** Represents a FetchUserLoginDays. */
+    class FetchUserLoginDays implements IFetchUserLoginDays {
+
+        /**
+         * Constructs a new FetchUserLoginDays.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Action.IFetchUserLoginDays);
+
+        /** FetchUserLoginDays field2. */
+        public field2: number;
+
+        /** FetchUserLoginDays json. */
+        public json: string;
+
+        /**
+         * Encodes the specified FetchUserLoginDays message. Does not implicitly {@link Action.FetchUserLoginDays.verify|verify} messages.
+         * @param message FetchUserLoginDays message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Action.IFetchUserLoginDays, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a FetchUserLoginDays message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns FetchUserLoginDays
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Action.FetchUserLoginDays;
+
+        /**
+         * Gets the default type url for FetchUserLoginDays
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
+
+    /** Properties of a FetchUserLoginDaysResp. */
+    interface IFetchUserLoginDaysResp {
+
+        /** FetchUserLoginDaysResp json */
+        json?: (string|null);
+    }
+
+    /** Represents a FetchUserLoginDaysResp. */
+    class FetchUserLoginDaysResp implements IFetchUserLoginDaysResp {
+
+        /**
+         * Constructs a new FetchUserLoginDaysResp.
+         * @param [properties] Properties to set
+         */
+        constructor(properties?: Action.IFetchUserLoginDaysResp);
+
+        /** FetchUserLoginDaysResp json. */
+        public json: string;
+
+        /**
+         * Encodes the specified FetchUserLoginDaysResp message. Does not implicitly {@link Action.FetchUserLoginDaysResp.verify|verify} messages.
+         * @param message FetchUserLoginDaysResp message or plain object to encode
+         * @param [writer] Writer to encode to
+         * @returns Writer
+         */
+        public static encode(message: Action.IFetchUserLoginDaysResp, writer?: $protobuf.Writer): $protobuf.Writer;
+
+        /**
+         * Decodes a FetchUserLoginDaysResp message from the specified reader or buffer.
+         * @param reader Reader or buffer to decode from
+         * @param [length] Message length if known beforehand
+         * @returns FetchUserLoginDaysResp
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): Action.FetchUserLoginDaysResp;
+
+        /**
+         * Gets the default type url for FetchUserLoginDaysResp
+         * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns The default type url
+         */
+        public static getTypeUrl(typeUrlPrefix?: string): string;
+    }
 }

@@ -215,7 +215,7 @@ export class PMHQ {
     })
   }
 
-  public async tellPort(webuiPort: number){
+  public async tellPort(webuiPort: number) {
     const payload: PMHQReqTellPort = {
       type: 'tell_port',
       data: {
@@ -643,6 +643,21 @@ export class PMHQ {
       body,
     }).finish()
     await this.httpSendPB('OidbSvcTrpcTcp.0xeb7_1', data)
+  }
+
+  async fetchUserLoginDays(uin: number) {
+    const body = Action.FetchUserLoginDays.encode({
+      field2: 0,
+      json: JSON.stringify({
+        msg_req_basic_info: {
+          uint64_request_uin: [uin]
+        },
+        uint32_req_login_info: 1
+      })
+    }).finish()
+    const res = await this.httpSendPB('MQUpdateSvc_com_qq_ti.web.OidbSvc.0xdef_1', body)
+    const { json } = Action.FetchUserLoginDaysResp.decode(Buffer.from(res.pb, 'hex'))
+    return JSON.parse(json).msg_rsp_basic_info.rpt_msg_basic_info[1].uint32_login_days
   }
 }
 

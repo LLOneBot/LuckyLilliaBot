@@ -71,3 +71,12 @@ message RecvLongMsgResult {
   string resId = 3;
   bytes payload = 4;
 }
+
+message FetchUserLoginDays {
+  uint32 field2 = 2;
+  string json = 3;
+}
+
+message FetchUserLoginDaysResp {
+  string json = 4;
+}

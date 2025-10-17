@@ -12817,6 +12817,219 @@ export const Action = $root.Action = (() => {
         return RecvLongMsgResult;
     })();
 
+    Action.FetchUserLoginDays = (function() {
+
+        /**
+         * Properties of a FetchUserLoginDays.
+         * @memberof Action
+         * @interface IFetchUserLoginDays
+         * @property {number|null} [field2] FetchUserLoginDays field2
+         * @property {string|null} [json] FetchUserLoginDays json
+         */
+
+        /**
+         * Constructs a new FetchUserLoginDays.
+         * @memberof Action
+         * @classdesc Represents a FetchUserLoginDays.
+         * @implements IFetchUserLoginDays
+         * @constructor
+         * @param {Action.IFetchUserLoginDays=} [properties] Properties to set
+         */
+        function FetchUserLoginDays(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * FetchUserLoginDays field2.
+         * @member {number} field2
+         * @memberof Action.FetchUserLoginDays
+         * @instance
+         */
+        FetchUserLoginDays.prototype.field2 = 0;
+
+        /**
+         * FetchUserLoginDays json.
+         * @member {string} json
+         * @memberof Action.FetchUserLoginDays
+         * @instance
+         */
+        FetchUserLoginDays.prototype.json = "";
+
+        /**
+         * Encodes the specified FetchUserLoginDays message. Does not implicitly {@link Action.FetchUserLoginDays.verify|verify} messages.
+         * @function encode
+         * @memberof Action.FetchUserLoginDays
+         * @static
+         * @param {Action.IFetchUserLoginDays} message FetchUserLoginDays message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        FetchUserLoginDays.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.field2 != null && Object.hasOwnProperty.call(message, "field2"))
+                writer.uint32(/* id 2, wireType 0 =*/16).uint32(message.field2);
+            if (message.json != null && Object.hasOwnProperty.call(message, "json"))
+                writer.uint32(/* id 3, wireType 2 =*/26).string(message.json);
+            return writer;
+        };
+
+        /**
+         * Decodes a FetchUserLoginDays message from the specified reader or buffer.
+         * @function decode
+         * @memberof Action.FetchUserLoginDays
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Action.FetchUserLoginDays} FetchUserLoginDays
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        FetchUserLoginDays.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Action.FetchUserLoginDays();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 2: {
+                        message.field2 = reader.uint32();
+                        break;
+                    }
+                case 3: {
+                        message.json = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for FetchUserLoginDays
+         * @function getTypeUrl
+         * @memberof Action.FetchUserLoginDays
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        FetchUserLoginDays.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Action.FetchUserLoginDays";
+        };
+
+        return FetchUserLoginDays;
+    })();
+
+    Action.FetchUserLoginDaysResp = (function() {
+
+        /**
+         * Properties of a FetchUserLoginDaysResp.
+         * @memberof Action
+         * @interface IFetchUserLoginDaysResp
+         * @property {string|null} [json] FetchUserLoginDaysResp json
+         */
+
+        /**
+         * Constructs a new FetchUserLoginDaysResp.
+         * @memberof Action
+         * @classdesc Represents a FetchUserLoginDaysResp.
+         * @implements IFetchUserLoginDaysResp
+         * @constructor
+         * @param {Action.IFetchUserLoginDaysResp=} [properties] Properties to set
+         */
+        function FetchUserLoginDaysResp(properties) {
+            if (properties)
+                for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
+                    if (properties[keys[i]] != null)
+                        this[keys[i]] = properties[keys[i]];
+        }
+
+        /**
+         * FetchUserLoginDaysResp json.
+         * @member {string} json
+         * @memberof Action.FetchUserLoginDaysResp
+         * @instance
+         */
+        FetchUserLoginDaysResp.prototype.json = "";
+
+        /**
+         * Encodes the specified FetchUserLoginDaysResp message. Does not implicitly {@link Action.FetchUserLoginDaysResp.verify|verify} messages.
+         * @function encode
+         * @memberof Action.FetchUserLoginDaysResp
+         * @static
+         * @param {Action.IFetchUserLoginDaysResp} message FetchUserLoginDaysResp message or plain object to encode
+         * @param {$protobuf.Writer} [writer] Writer to encode to
+         * @returns {$protobuf.Writer} Writer
+         */
+        FetchUserLoginDaysResp.encode = function encode(message, writer) {
+            if (!writer)
+                writer = $Writer.create();
+            if (message.json != null && Object.hasOwnProperty.call(message, "json"))
+                writer.uint32(/* id 4, wireType 2 =*/34).string(message.json);
+            return writer;
+        };
+
+        /**
+         * Decodes a FetchUserLoginDaysResp message from the specified reader or buffer.
+         * @function decode
+         * @memberof Action.FetchUserLoginDaysResp
+         * @static
+         * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
+         * @param {number} [length] Message length if known beforehand
+         * @returns {Action.FetchUserLoginDaysResp} FetchUserLoginDaysResp
+         * @throws {Error} If the payload is not a reader or valid buffer
+         * @throws {$protobuf.util.ProtocolError} If required fields are missing
+         */
+        FetchUserLoginDaysResp.decode = function decode(reader, length, error) {
+            if (!(reader instanceof $Reader))
+                reader = $Reader.create(reader);
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.Action.FetchUserLoginDaysResp();
+            while (reader.pos < end) {
+                let tag = reader.uint32();
+                if (tag === error)
+                    break;
+                switch (tag >>> 3) {
+                case 4: {
+                        message.json = reader.string();
+                        break;
+                    }
+                default:
+                    reader.skipType(tag & 7);
+                    break;
+                }
+            }
+            return message;
+        };
+
+        /**
+         * Gets the default type url for FetchUserLoginDaysResp
+         * @function getTypeUrl
+         * @memberof Action.FetchUserLoginDaysResp
+         * @static
+         * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
+         * @returns {string} The default type url
+         */
+        FetchUserLoginDaysResp.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+            if (typeUrlPrefix === undefined) {
+                typeUrlPrefix = "type.googleapis.com";
+            }
+            return typeUrlPrefix + "/Action.FetchUserLoginDaysResp";
+        };
+
+        return FetchUserLoginDaysResp;
+    })();
+
     return Action;
 })();
 
