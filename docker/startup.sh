@@ -57,6 +57,6 @@ if [ -n "$pmhq_port" ]; then
   port="$pmhq_port"
 fi
 if [ -n "$pmhq_host" ]; then
-  port="$pmhq_host"
+  host="$pmhq_host"
 fi
 node ./llonebot.js --pmhq-port=$port --pmhq-host=$host
