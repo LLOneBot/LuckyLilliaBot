@@ -35,7 +35,7 @@ export interface NodeIKernelGroupService {
     uids: Map<string, string>
   }>
 
-  queryCachedEssenceMsg(req: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<{
+  queryCachedEssenceMsg(key: { groupCode: string, msgSeq: number, msgRandom: number }): Promise<{
     items: {
       groupCode: string
       msgSeq: number
