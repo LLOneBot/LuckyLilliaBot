@@ -2,6 +2,7 @@ V6.5.0
 更新时间 2025-10-21
 
 * 新增群文件转永久 API `set_group_file_forever`
+* 修复 API `get_stranger_info` 获取不到登录天数时报错
 * 修复 OneBot11 多个上报时，上报格式 string 和 array 没有正确应用
 * 支持 40990
 
