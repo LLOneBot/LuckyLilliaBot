@@ -645,7 +645,7 @@ export class PMHQ {
     await this.httpSendPB('OidbSvcTrpcTcp.0xeb7_1', data)
   }
 
-  async fetchUserLoginDays(uin: number): number {
+  async fetchUserLoginDays(uin: number): Promise<number> {
     const body = Action.FetchUserLoginDays.encode({
       field2: 0,
       json: JSON.stringify({
@@ -657,7 +657,7 @@ export class PMHQ {
     }).finish()
     const res = await this.httpSendPB('MQUpdateSvc_com_qq_ti.web.OidbSvc.0xdef_1', body)
     const { json } = Action.FetchUserLoginDaysResp.decode(Buffer.from(res.pb, 'hex'))
-    return JSON.parse(json).msg_rsp_basic_info.rpt_msg_basic_info.find(e=>e.uint64_uin===uin)?.uint32_login_days || 0
+    return JSON.parse(json).msg_rsp_basic_info.rpt_msg_basic_info.find((e: any)=>e.uint64_uin===uin)?.uint32_login_days || 0
   }
 }
 

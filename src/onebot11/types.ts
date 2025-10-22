@@ -15,12 +15,6 @@ export interface OB11User {
   qid: string,
   long_nick: string
   level: number  // 目前拿不到，一直是 0
-  // 以下字段将在2025年10月23日后彻底删除
-  longNick: string  // 个性签名
-  eMail: string
-  uid: string
-  categoryId: number
-  richTime: number // 暂时未知其含义
 }
 
 export enum OB11UserSex {
