@@ -53,3 +53,8 @@ export class DetailedError<T> extends Error {
 export type DeepNonNullable<T> = T extends object
 ? { [K in keyof T]-?: DeepNonNullable<NonNullable<T[K]>> }
   : NonNullable<T>
+
+export const cloneObj = (obj: any) => Object.assign(
+  Object.create(Object.getPrototypeOf(obj)),
+  obj
+);
