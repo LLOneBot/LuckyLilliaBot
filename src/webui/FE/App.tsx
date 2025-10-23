@@ -157,7 +157,7 @@ function App() {
 
       <Sidebar activeTab={activeTab} onTabChange={setActiveTab} accountInfo={accountInfo || undefined} />
 
-      <main className="flex-1 p-8 overflow-auto">
+      <main className="flex-1 p-8 overflow-auto" style={{ zIndex: 1 }}>
         <div className="max-w-6xl mx-auto">
           {/* Header */}
           <div className="mb-8">
