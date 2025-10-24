@@ -664,13 +664,6 @@ export namespace OB11Entities {
       age: raw.baseInfo.age,
       qid: raw.baseInfo.qid,
       long_nick: raw.baseInfo.longNick,
-      level: 0,
-      // 以下字段将在2025年10月23日后彻底删除
-      longNick: raw.baseInfo.longNick,
-      eMail: raw.baseInfo.eMail,
-      uid: raw.uid || '',
-      categoryId: raw.baseInfo.categoryId,
-      richTime: raw.baseInfo.richTime,
     }
   }
 

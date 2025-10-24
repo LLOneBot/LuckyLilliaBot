@@ -12,9 +12,8 @@ export interface OB11User {
   birthday_day?: number
   age?: number
   // 以下是 OB11 非标准字段
-  qid: string,
-  long_nick: string
-  level: number  // 目前拿不到，一直是 0
+  qid?: string,
+  long_nick?: string
 }
 
 export enum OB11UserSex {
