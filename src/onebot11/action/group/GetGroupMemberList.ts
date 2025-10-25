@@ -3,7 +3,6 @@ import { OB11Entities } from '../../entities'
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 import { parseBool } from '@/common/utils/misc'
-import { GroupMember } from '@/ntqqapi/types'
 
 interface Payload {
   group_id: number | string
@@ -19,17 +18,8 @@ class GetGroupMemberList extends BaseAction<Payload, OB11GroupMember[]> {
 
   protected async _handle(payload: Payload) {
     const groupCode = payload.group_id.toString()
-    let groupMembers: Map<string, GroupMember> = new Map()
-    try {
-      groupMembers = await this.ctx.ntGroupApi.getGroupMembers(groupCode, payload.no_cache)
-    }catch (e) {
-      if (!payload.no_cache) {
-        groupMembers = await this.ctx.ntGroupApi.getGroupMembers(groupCode, true)
-      }
-      else{
-        throw e
-      }
-    }
+    // 使用缓存可能导致群成员列表不完整
+    let groupMembers = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
     for (let i = 0; i < 5; i++) {
       if (groupMembers.size > 0) {
         break

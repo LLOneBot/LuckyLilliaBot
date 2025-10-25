@@ -1,4 +1,4 @@
-import { GroupMember, MiniProfile, ProfileBizType, SimpleInfo, UserDetailInfo, UserDetailSource } from '../types'
+import { MiniProfile, ProfileBizType, SimpleInfo, UserDetailInfo, UserDetailSource } from '../types'
 import { invoke } from '../ntcall'
 import { RequestUtil } from '@/common/utils/request'
 import { Time } from 'cosmokit'
@@ -49,12 +49,7 @@ export class NTQQUserApi extends Service {
       },
       async () => {
         if (groupCode) {
-          let groupMembers: Map<string, GroupMember>
-          try {
-            groupMembers = await this.ctx.ntGroupApi.getGroupMembers(groupCode, false)
-          } catch (e) {
-            groupMembers = await this.ctx.ntGroupApi.getGroupMembers(groupCode, true)
-          }
+          const groupMembers = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
           return groupMembers.values().find(e => e.uin === uin)?.uid
         }
       }
