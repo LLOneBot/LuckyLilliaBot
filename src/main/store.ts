@@ -31,7 +31,7 @@ interface MsgInfo {
 }
 
 class Store extends Service {
-  static inject = ['database', 'model', 'logger']
+  static inject = ['database', 'model']
   private cache: BidiMap<string, number>
   private messages: Map<string, RawMessage>
 
