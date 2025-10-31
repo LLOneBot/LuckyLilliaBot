@@ -117,14 +117,12 @@ class Core extends Service {
     }
     const timeout = 10000 + (totalSize / 1024 / 256 * 1000)  // 10s Basic Timeout + PredictTime( For File 512kb/s )
     const returnMsg = await ctx.ntMsgApi.sendMsg(peer, sendElements, timeout)
-    if (returnMsg) {
-      this.messageSentCount++
-      ctx.logger.info('消息发送', peer)
-      deleteAfterSentFiles.map(path => {
-        unlink(path).then().catch(e => { })
-      })
-      return returnMsg
-    }
+    this.messageSentCount++
+    ctx.logger.info('消息发送', peer)
+    deleteAfterSentFiles.map(path => {
+      unlink(path).then().catch(e => { })
+    })
+    return returnMsg
   }
 
   private handleMessage(msgList: RawMessage[]) {
@@ -346,7 +344,7 @@ class Core extends Service {
         }
         this.ctx.parallel('nt/group-dismiss', data)
       }
-      else if (data.localExitGroupReason === LocalExitGroupReason.SELF_QUIT){
+      else if (data.localExitGroupReason === LocalExitGroupReason.SELF_QUIT) {
         this.ctx.parallel('nt/group-quit', data)
       }
     })

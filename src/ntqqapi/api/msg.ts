@@ -100,7 +100,7 @@ export class NTQQMsgApi extends Service {
       },
     )
 
-    return data.find(msgRecord => msgRecord.msgId === sentMsgId)
+    return data.find(msgRecord => msgRecord.msgId === sentMsgId)!
   }
 
   async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
