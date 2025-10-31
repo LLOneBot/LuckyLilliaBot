@@ -288,7 +288,7 @@ export class NTQQGroupApi extends Service {
       infos: Map<string, GroupMember>
     ]>(
       'nodeIKernelGroupService/searchMember',
-      [ sceneId, keyword ],
+      [sceneId, keyword],
       {
         resultCmd: 'nodeIKernelGroupListener/onSearchMemberChange',
         resultCb: payload => {
@@ -322,13 +322,13 @@ export class NTQQGroupApi extends Service {
   }
 
   async moveGroupFile(groupId: string, fileIdList: string[], curFolderId: string, dstFolderId: string) {
-    return await invoke('nodeIKernelRichMediaService/moveGroupFile', [{
+    return await invoke('nodeIKernelRichMediaService/moveGroupFile', [
       groupId,
+      [102],
       fileIdList,
       curFolderId,
-      dstFolderId,
-      busIdList: [102],
-    }])
+      dstFolderId
+    ])
   }
 
   async getGroupShutUpMemberList(groupCode: string) {
@@ -354,7 +354,7 @@ export class NTQQGroupApi extends Service {
     ])
   }
 
-  async setGroupFileForever(groupId: string, fileId: string){
+  async setGroupFileForever(groupId: string, fileId: string) {
     return await invoke('nodeIKernelRichMediaService/transGroupFile', [
       groupId,
       fileId
