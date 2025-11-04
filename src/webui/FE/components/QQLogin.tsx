@@ -12,6 +12,7 @@ interface Account {
   loginType: number;
   isQuickLogin: boolean;
   isAutoLogin: boolean;
+  isUserLogin: boolean // true 表示已经登录了
 }
 
 interface QRCodeData {
@@ -187,7 +188,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
       console.log('Quick login list response:', result);
 
       if (result.success && result.data && result.data.LocalLoginInfoList) {
-        const quickLoginAccounts = result.data.LocalLoginInfoList.filter(item => item.isQuickLogin);
+        const quickLoginAccounts = result.data.LocalLoginInfoList.filter(item => item.isQuickLogin && !item.isUserLogin);
         setAccounts(quickLoginAccounts);
         console.log('Accounts loaded:', quickLoginAccounts);
 
@@ -423,9 +424,9 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
                 <X size={24} />
               </button>
             </div>
-            
+
             <div className="mb-4 text-sm text-gray-600">选择要移除的账号:</div>
-            
+
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {accounts.map((account) => (
                 <div
@@ -439,7 +440,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
                 </div>
               ))}
             </div>
-            
+
             <div className="mt-6 flex justify-end">
               <button
                 onClick={() => setShowRemoveAccount(false)}
