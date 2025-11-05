@@ -360,4 +360,25 @@ export class NTQQGroupApi extends Service {
       fileId
     ])
   }
+
+  async getGroupAlbumList(groupId: string) {
+    return await invoke('nodeIKernelAlbumService/getAlbumList', [{
+      qun_id: groupId,
+      seq: 0,
+      attach_info: '',
+      request_time_line: {
+        request_invoke_time: '0'
+      }
+    }])
+  }
+
+  async createGroupAlbum(groupId: string, name: string, desc: string) {
+    const seq = Date.now()
+    return await invoke('nodeIKernelAlbumService/addAlbum', [seq, {
+        owner: groupId,
+        name,
+        desc,
+        createTime: '0'
+    }])
+  }
 }

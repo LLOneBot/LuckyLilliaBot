@@ -1,6 +1,5 @@
-import { BaseAction } from '../../BaseAction'
-import { ActionName } from '../../types'
-import { selfInfo } from '@/common/globalVars'
+import { BaseAction } from '../../../BaseAction'
+import { ActionName } from '../../../types'
 import { uri2local } from '@/common/utils'
 
 interface Payload {

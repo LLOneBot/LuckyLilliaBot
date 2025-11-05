@@ -1,3 +1,5 @@
+import { GetGroupAlbumList } from '@/onebot11/action/llonebot/group/GroupAlbum/CreateGroupAlbum'
+
 export type BaseCheckResult = ValidCheckResult | InvalidCheckResult
 
 export interface ValidCheckResult {
@@ -11,6 +13,8 @@ export interface InvalidCheckResult {
 
 export enum ActionName {
   // llonebot
+  GetGroupAlbumList = 'get_group_album_list',
+  CreateGroupAlbum = 'create_group_album',
   UploadGroupAlbum = 'upload_group_album',
   BatchDeleteGroupMember = 'batch_delete_group_member',
   GetFlashFileInfo = 'get_flash_file_info',

@@ -20,6 +20,7 @@ import { pmhq } from '@/ntqqapi/native/pmhq'
 import { NodeIKernelFlashTransferService } from '@/ntqqapi/services/NodeIKernelFlashTransferService'
 import { NodeIKernelLoginService } from '@/ntqqapi/services/NodeIKernelLoginService'
 import { DetailedError } from '@/common/utils'
+import { NodeIKernelAlbumService } from '@/ntqqapi/services/NodeIKernelAlbumService'
 
 export enum NTMethod {
   ACTIVE_CHAT_PREVIEW = 'nodeIKernelMsgService/getAioFirstViewLatestMsgsAndAddActiveChat', // 激活聊天窗口，有时候必须这样才能收到消息, 并返回最新预览消息
@@ -71,6 +72,7 @@ interface NTService {
   nodeIKernelNodeMiscService: NodeIKernelNodeMiscService
   nodeIKernelRecentContactService: NodeIKernelRecentContactService
   nodeIKernelFlashTransferService: NodeIKernelFlashTransferService
+  nodeIKernelAlbumService: NodeIKernelAlbumService
 }
 
 interface InvokeOptions<ReturnType> {
@@ -95,6 +97,7 @@ const NT_SERVICE_TO_PMHQ: Record<string, string> = {
   'nodeIKernelRecentContactService': 'getRecentContactService',
   'nodeIKernelFlashTransferService': 'getFlashTransferService',
   'nodeIKernelLoginService': 'loginService',
+  'nodeIKernelAlbumService': 'getAlbumService',
 }
 const NOT_SESSION_SERVICES = ['nodeIKernelLoginService']
 
