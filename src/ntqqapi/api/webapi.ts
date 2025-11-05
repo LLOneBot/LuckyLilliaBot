@@ -3,6 +3,7 @@ import { HttpUtil } from '@/common/utils/request'
 import { Context, Service } from 'cordis'
 import { Dict } from 'cosmokit'
 import fs from 'node:fs/promises'
+import { calculateFileMD5 } from '@/common/utils'
 
 declare module 'cordis' {
   interface Context {
@@ -224,22 +225,25 @@ export class NTQQWebApi extends Service {
     const cookiesObject = await this.ctx.ntUserApi.getCookies(domain)
     const gtk = this.genBkn(cookiesObject.skey)
     const uuid = crypto.randomUUID().replace(/-/g, '').toLowerCase()
-    // const uuid = cookiesObject.tgw_l7_route
-    const getSessionUrl = `https://${domain}/webapp/json/sliceUpload/FileBatchControl/${uuid}?g_tk=${gtk}`
-    const fileSize = (await fs.stat(filePath)).size
+
+    // 读取文件并计算 MD5
+    const fileBuffer = await fs.readFile(filePath)
+    const fileSize = fileBuffer.length
+    const checksum = await calculateFileMD5(filePath)
+
+    const getSessionUrl = `https://${domain}/webapp/json/sliceUpload/FileBatchControl/${checksum}?g_tk=${gtk}`
     const timestamp = Math.floor(Date.now() / 1000)
-    // cookiesObject.p_skey = cookiesObject.pt4_token
+
     const getSessionPostData = {
       'control_req': [{
         'uin': selfUin,
         'token': {
           'type': 4,
-          // 'data': cookiesObject.pt4_token,
           'data': cookiesObject.p_skey,
           'appid': 5,
         },
         'appid': 'qun',
-        'checksum': 'cf9ad4fa700b2b5705bc8bd5562f1176',
+        'checksum': checksum,
         'check_type': 0,
         'file_len': fileSize,
         'env': { 'refer': 'qzone', 'deviceInfo': 'h5' },
@@ -247,7 +251,8 @@ export class NTQQWebApi extends Service {
         'biz_req': {
           'sPicTitle': fileName,
           'sPicDesc': '',
-          'sAlbumName': albumName,
+          // 'sAlbumName': albumName,
+          'sAlbumName': '',
           'sAlbumID': albumID,
           'iAlbumTypeID': 0,
           'iBitmap': 0,
@@ -269,17 +274,70 @@ export class NTQQWebApi extends Service {
         'cmd': 'FileUpload',
       }],
     }
-    // 发送 post 请求
+
+    // 获取 session
     const res = await HttpUtil.post(getSessionUrl, getSessionPostData, this.cookieToString(cookiesObject))
     const resJson: {
       ret: number,
       msg: string
       data: {
         session: string,
+        slice_size: number
       }
     } = await res.json()
-    const sessionId = resJson.data?.session
-    // 开始上传
 
+    if (resJson.ret !== 0) {
+      throw new Error(`获取上传 session 失败: ${resJson.msg}`)
+    }
+
+    const sessionId = resJson.data?.session
+    const sliceSize = resJson.data?.slice_size || 16384
+
+    // 分片上传文件
+    let offset = 0
+    let seq = 1
+
+    while (offset < fileSize) {
+      const end = Math.min(offset + sliceSize, fileSize)
+      const chunk = fileBuffer.slice(offset, end)
+
+      const uploadUrl = `https://${domain}/webapp/json/sliceUpload/FileUpload?seq=${seq}&retry=0&offset=${offset}&end=${end}&total=${fileSize}&type=form&g_tk=${gtk}`
+
+      const formData = new FormData()
+      formData.append('uin', selfUin)
+      formData.append('appid', 'qun')
+      formData.append('data', new Blob([chunk]))
+      formData.append('session', sessionId)
+      formData.append('offset', offset.toString())
+      formData.append('checksum', '')
+      formData.append('check_type', '0')
+      formData.append('retry', '0')
+      formData.append('seq', seq.toString())
+      formData.append('end', end.toString())
+      formData.append('cmd', 'FileUpload')
+      formData.append('slice_size', sliceSize.toString())
+      formData.append('biz_req.iUploadType', '0')
+
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'POST',
+        headers: {
+          'Cookie': this.cookieToString(cookiesObject),
+        },
+        body: formData,
+      })
+      // this.ctx.logger.info('uploadRes:', uploadRes.status, await uploadRes.text())
+      const uploadResJson = await uploadRes.json()
+      if (uploadResJson.ret !== 0) {
+        throw new Error(`群相册分片上传失败 (seq: ${seq}): ${uploadResJson.msg}`)
+      }
+
+      this.ctx.logger.info(`群相册上传进度: ${end}/${fileSize} (${Math.round(end / fileSize * 100)}%)`)
+
+      offset = end
+      seq++
+    }
+
+    this.ctx.logger.info('群相册上传完成')
+    return { success: true }
   }
 }
