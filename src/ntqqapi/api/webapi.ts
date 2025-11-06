@@ -226,6 +226,7 @@ export class NTQQWebApi extends Service {
     const gtk = this.genBkn(cookiesObject.skey)
     const errIndexList: number[] = []
     const fileLen = filePathList.length.toString()
+    const iBatchID = Math.floor(Date.now() / 1000)
     for (let i = 0; i < filePathList.length; i++) {
       const filePath = filePathList[i]
       // 读取文件并计算 MD5
@@ -260,7 +261,7 @@ export class NTQQWebApi extends Service {
             'iBitmap': 0,
             'iUploadType': 0,
             'iUpPicType': 0,
-            'iBatchID': timestamp,
+            'iBatchID': iBatchID,
             'sPicPath': '',
             'iPicWidth': 0,
             'iPicHight': 0,
@@ -278,7 +279,7 @@ export class NTQQWebApi extends Service {
             },
             'mutliPicInfo': {
               'iBatUploadNum': fileLen,
-              'iCurUpload': 0,
+              'iCurUpload': i,
               'iSuccNum': 0,
               'iFailNum': 0,
             },
