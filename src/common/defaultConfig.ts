@@ -26,4 +26,5 @@ export const defaultConfig: Config = {
   musicSignUrl: 'https://llob.linyuchen.net/sign/music',
   msgCacheExpire: 120,
   ffmpeg: '',
+  rawMsgPB: false,
 }

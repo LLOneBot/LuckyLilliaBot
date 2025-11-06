@@ -3,6 +3,8 @@ import { Awaitable } from 'cosmokit'
 import { NTMethod } from './ntcall'
 import { pmhq } from '@/ntqqapi/native/pmhq'
 import { NodeIKernelLoginListener, NodeIKernelBuddyListener, NodeIKernelGroupListener } from '@/ntqqapi/listeners'
+import { parseProtobufFromHex } from '@/common/utils/protobuf-parser'
+import { getConfigUtil } from '@/common/config'
 
 export enum ReceiveCmdS {
   INIT = 'nodeIQQNTWrapperSessionListener/onSessionInitComplete',
@@ -54,6 +56,7 @@ const NT_RECV_PMHQ_TYPE_TO_NT_METHOD = {
   'on_flash_file': 'nodeIKernelFlashTransferListener',
 }
 
+export const msgPBMap: Map<string, string> = new Map<string, string>()
 export function startHook() {
   pmhq.addResListener((data) => {
     let listenerName = data.type
@@ -68,6 +71,21 @@ export function startHook() {
         if (hook.method.includes(ntCmd)) {
           Promise.resolve(hook.hookFunc(data.data.data))
         }
+      }
+    }
+    else if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush'){
+      if (getConfigUtil().getConfig().rawMsgPB) {
+        const msg = parseProtobufFromHex(data.data.pb)
+        const peerId = msg[1][1][8][1]
+        const msgRand = msg[1][2][4]
+        const msgSeq = msg[1][2][5]
+        const uniqueId = `${peerId}_${msgRand}_${msgSeq}`
+        if (msgPBMap.size > 1000) {
+          // 删除最老的记录
+          const firstKey = msgPBMap.keys().next().value
+          msgPBMap.delete(firstKey!)
+        }
+        msgPBMap.set(uniqueId, data.data.pb)
       }
     }
   })

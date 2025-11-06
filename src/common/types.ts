@@ -92,6 +92,7 @@ export interface Config {
   ffmpeg?: string // ffmpeg路径
   musicSignUrl?: string
   msgCacheExpire?: number // second
+  rawMsgPB?: boolean  // 开启此选项后 再开启 debug 后 msg 添加 raw_pb 字段，内容是 hex string
   // /** @deprecated */
   // heartInterval?: number // ms
   // /** @deprecated */

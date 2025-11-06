@@ -99,6 +99,7 @@ export interface OB11Message {
   font: number
   post_type: EventType
   raw?: RawMessage
+  raw_pb?: string  // hex
   temp_source?: 0 | 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9
   getSummaryEventName(): string
 }

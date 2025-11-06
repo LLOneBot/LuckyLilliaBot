@@ -44,6 +44,7 @@ import { selfInfo } from '@/common/globalVars'
 import { pathToFileURL } from 'node:url'
 import { OB11GroupRequestEvent } from '@/onebot11/event/request/OB11GroupRequest'
 import { ParseMessageConfig } from './types'
+import { msgPBMap } from '@/ntqqapi/hook'
 
 export namespace OB11Entities {
   export async function message(
@@ -84,6 +85,12 @@ export namespace OB11Entities {
     }
     if (!config || config.debug) {
       resMsg.raw = msg
+      resMsg.raw_pb = ''
+      const uniqueId = `${msg.peerUin}_${msg.msgRandom}_${msg.msgSeq}`
+      const msgPB = msgPBMap.get(uniqueId)
+      if (msgPB){
+        resMsg.raw_pb = msgPB
+      }
     }
     if (msg.chatType === ChatType.Group) {
       resMsg.sub_type = 'normal'
