@@ -218,143 +218,171 @@ export class NTQQWebApi extends Service {
   }
 
   async uploadGroupAlbum(groupCode: string,
-                         filePath: string,
+                         filePathList: string[],
                          albumID: string,
   ) {
     const domain = 'h5.qzone.qq.com'
     const cookiesObject = await this.ctx.ntUserApi.getCookies(domain)
     const gtk = this.genBkn(cookiesObject.skey)
+    const errIndexList: number[] = []
+    const fileLen = filePathList.length.toString()
+    for (let i = 0; i < filePathList.length; i++) {
+      const filePath = filePathList[i]
+      // 读取文件并计算 MD5
+      const fileBuffer = await fs.readFile(filePath)
+      const fileSize = fileBuffer.length
+      const checksum = await calculateFileMD5(filePath)
 
-    // 读取文件并计算 MD5
-    const fileBuffer = await fs.readFile(filePath)
-    const fileSize = fileBuffer.length
-    const checksum = await calculateFileMD5(filePath)
+      const getSessionUrl = `https://${domain}/webapp/json/sliceUpload/FileBatchControl/${checksum}?g_tk=${gtk}`
+      const timestamp = Math.floor(Date.now() / 1000)
 
-    const getSessionUrl = `https://${domain}/webapp/json/sliceUpload/FileBatchControl/${checksum}?g_tk=${gtk}`
-    const timestamp = Math.floor(Date.now() / 1000)
-
-    const getSessionPostData = {
-      'control_req': [{
-        'uin': selfInfo.uin,
-        'token': {
-          'type': 4,
-          'data': cookiesObject.p_skey,
-          'appid': 5,
-        },
-        'appid': 'qun',
-        'checksum': checksum,
-        'check_type': 0,
-        'file_len': fileSize,
-        'env': { 'refer': 'qzone', 'deviceInfo': 'h5' },
-        'model': 0,
-        'biz_req': {
-          'sPicTitle': '',
-          'sPicDesc': '',
-          // 'sAlbumName': albumName,
-          'sAlbumName': '',
-          'sAlbumID': albumID,
-          'iAlbumTypeID': 0,
-          'iBitmap': 0,
-          'iUploadType': 0,
-          'iUpPicType': 0,
-          'iBatchID': timestamp,
-          'sPicPath': '',
-          'iPicWidth': 0,
-          'iPicHight': 0,
-          'iWaterType': 0,
-          'iDistinctUse': 0,
-          'iNeedFeeds': 1,
-          'iUploadTime': timestamp,
-          'mapExt': { 'appid': 'qun', 'userid': groupCode },
-          'stExtendInfo': { 'mapParams': { 'photo_num': '1', 'video_num': '0', 'batch_num': '1' } },
-        },
-        'session': '',
-        'asy_upload': 0,
-        'cmd': 'FileUpload',
-      }],
-    }
-
-    // 获取 session
-    const res = await HttpUtil.post(getSessionUrl, getSessionPostData, this.cookieToString(cookiesObject))
-    const resJson: {
-      ret: number,
-      msg: string
-      data: {
-        session: string,
-        slice_size: number
-      }
-    } = await res.json()
-
-    if (resJson.ret !== 0) {
-      throw new Error(`获取上传 session 失败: ${resJson.msg}`)
-    }
-
-    const sessionId = resJson.data.session
-    const sliceSize = resJson.data.slice_size
-    // 分片上传文件 - 并发上传
-    const uploadTasks: Promise<void>[] = []
-    let offset = 0
-    let seq = 1
-    const concurrency = 10
-
-    // 生成所有分片任务
-    const slices: Array<{ offset: number; end: number; seq: number; chunk: Buffer }> = []
-    while (offset < fileSize) {
-      const end = Math.min(offset + sliceSize, fileSize)
-      const chunk = fileBuffer.slice(offset, end)
-      slices.push({ offset, end, seq, chunk })
-      offset = end
-      seq++
-    }
-
-    // 进度跟踪
-    let completedSlices = 0
-    const totalSlices = slices.length
-
-    // 并发上传函数
-    const uploadSlice = async (slice: { offset: number; end: number; seq: number; chunk: Buffer }) => {
-      const uploadUrl = `https://${domain}/webapp/json/sliceUpload/FileUpload?seq=${slice.seq}&retry=0&offset=${slice.offset}&end=${slice.end}&total=${fileSize}&type=form&g_tk=${gtk}`
-
-      const formData = new FormData()
-      formData.append('uin', selfInfo.uin)
-      formData.append('appid', 'qun')
-      formData.append('data', new Blob([slice.chunk]))
-      formData.append('session', sessionId)
-      formData.append('offset', slice.offset.toString())
-      formData.append('checksum', '')
-      formData.append('check_type', '0')
-      formData.append('retry', '0')
-      formData.append('seq', slice.seq.toString())
-      formData.append('end', slice.end.toString())
-      formData.append('cmd', 'FileUpload')
-      formData.append('slice_size', sliceSize.toString())
-      formData.append('biz_req.iUploadType', '0')
-
-      const uploadRes = await fetch(uploadUrl, {
-        method: 'POST',
-        headers: {
-          'Cookie': this.cookieToString(cookiesObject),
-        },
-        body: formData,
-      })
-
-      const uploadResJson = await uploadRes.json()
-      if (uploadResJson.ret !== 0) {
-        throw new Error(`群相册分片上传失败 (seq: ${slice.seq}): ${uploadResJson.msg}, file: ${filePath}`)
+      const getSessionPostData = {
+        'control_req': [{
+          'uin': selfInfo.uin,
+          'token': {
+            'type': 4,
+            'data': cookiesObject.p_skey,
+            'appid': 5,
+          },
+          'appid': 'qun',
+          'checksum': checksum,
+          'check_type': 0,
+          'file_len': fileSize,
+          'env': { 'refer': 'qzone', 'deviceInfo': 'h5' },
+          'model': 0,
+          'biz_req': {
+            'sPicTitle': '',
+            'sPicDesc': '',
+            // 'sAlbumName': albumName,
+            'sAlbumName': '',
+            'sAlbumID': albumID,
+            'iAlbumTypeID': 0,
+            'iBitmap': 0,
+            'iUploadType': 0,
+            'iUpPicType': 0,
+            'iBatchID': timestamp,
+            'sPicPath': '',
+            'iPicWidth': 0,
+            'iPicHight': 0,
+            'iWaterType': 0,
+            'iDistinctUse': 0,
+            'iNeedFeeds': 1,
+            'iUploadTime': timestamp,
+            'mapExt': { 'appid': 'qun', 'userid': groupCode },
+            'stExtendInfo': {
+              'mapParams': {
+                'photo_num': fileLen,
+                'video_num': '0',
+                'batch_num': fileLen,
+              },
+            },
+            'mutliPicInfo': {
+              'iBatUploadNum': fileLen,
+              'iCurUpload': 0,
+              'iSuccNum': 0,
+              'iFailNum': 0,
+            },
+          },
+          'session': '',
+          'asy_upload': 0,
+          'cmd': 'FileUpload',
+        }],
       }
 
-      completedSlices++
-      const progress = Math.round((completedSlices / totalSlices) * 100)
-      // this.ctx.logger.info(`群相册上传进度: ${completedSlices}/${totalSlices} 片 (${progress}%)`)
-    }
+      // 获取 session
+      const res = await HttpUtil.post(getSessionUrl, getSessionPostData, this.cookieToString(cookiesObject))
+      const resJson: {
+        ret: number,
+        msg: string
+        data: {
+          session: string,
+          slice_size: number
+        }
+      } = await res.json()
 
-    // 使用并发控制上传
-    for (let i = 0; i < slices.length; i += concurrency) {
-      const batch = slices.slice(i, i + concurrency)
-      await Promise.all(batch.map(slice => uploadSlice(slice)))
-    }
+      if (resJson.ret !== 0) {
+        this.ctx.logger.error(`获取群相册上传 session 失败: ${resJson.msg}`)
+        errIndexList.push(i)
+        continue
+      }
 
+      const sessionId = resJson.data.session
+      const sliceSize = resJson.data.slice_size
+      // 分片上传文件 - 并发上传
+      const uploadTasks: Promise<void>[] = []
+      let offset = 0
+      let seq = 1
+      const concurrency = 10
+
+      // 生成所有分片任务
+      const slices: Array<{ offset: number; end: number; seq: number; chunk: Buffer }> = []
+      while (offset < fileSize) {
+        const end = Math.min(offset + sliceSize, fileSize)
+        const chunk = fileBuffer.slice(offset, end)
+        slices.push({ offset, end, seq, chunk })
+        offset = end
+        seq++
+      }
+
+      // 进度跟踪
+      let completedSlices = 0
+      const totalSlices = slices.length
+
+      // 并发上传函数
+      const uploadSlice = async (slice: { offset: number; end: number; seq: number; chunk: Buffer }) => {
+        const uploadUrl = `https://${domain}/webapp/json/sliceUpload/FileUpload?seq=${slice.seq}&retry=0&offset=${slice.offset}&end=${slice.end}&total=${fileSize}&type=form&g_tk=${gtk}`
+
+        const formData = new FormData()
+        formData.append('uin', selfInfo.uin)
+        formData.append('appid', 'qun')
+        formData.append('data', new Blob([slice.chunk]))
+        formData.append('session', sessionId)
+        formData.append('offset', slice.offset.toString())
+        formData.append('checksum', '')
+        formData.append('check_type', '0')
+        formData.append('retry', '0')
+        formData.append('seq', slice.seq.toString())
+        formData.append('end', slice.end.toString())
+        formData.append('cmd', 'FileUpload')
+        formData.append('slice_size', sliceSize.toString())
+        formData.append('biz_req.iUploadType', '0')
+
+        const uploadRes = await fetch(uploadUrl, {
+          method: 'POST',
+          headers: {
+            'Cookie': this.cookieToString(cookiesObject),
+          },
+          body: formData,
+        })
+
+        const uploadResJson = await uploadRes.json()
+        if (uploadResJson.ret !== 0) {
+          if (!errIndexList.includes(i)) {
+            errIndexList.push(i)
+          }
+          throw new Error(`群相册分片上传失败 (seq: ${slice.seq}): ${uploadResJson.msg}, file: ${filePath}`)
+        }
+
+        completedSlices++
+        const progress = Math.round((completedSlices / totalSlices) * 100)
+        // this.ctx.logger.info(`群相册上传进度: ${completedSlices}/${totalSlices} 片 (${progress}%)`)
+      }
+
+      // 使用并发控制上传
+      for (let i = 0; i < slices.length; i += concurrency) {
+        const batch = slices.slice(i, i + concurrency)
+        try {
+          await Promise.all(batch.map(slice => uploadSlice(slice)))
+        } catch (e) {
+          this.ctx.logger.error(e)
+        }
+      }
+    }
     this.ctx.logger.info('群相册上传完成')
-    return { success: true }
+    return {
+      success_count: filePathList.length - errIndexList.length,
+      fail_count: errIndexList.length,
+      fail_indexes: errIndexList,
+    }
   }
 }
