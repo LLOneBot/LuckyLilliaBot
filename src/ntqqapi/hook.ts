@@ -60,7 +60,7 @@ export const msgPBMap: Map<string, string> = new Map<string, string>()
 export function startHook() {
   pmhq.addResListener((data) => {
     let listenerName = data.type
-    if ('sub_type' in data.data) {
+    if (data.data && 'sub_type' in data.data) {
       const sub_type = data.data.sub_type
       const convertedListenerName = NT_RECV_PMHQ_TYPE_TO_NT_METHOD[listenerName as keyof typeof NT_RECV_PMHQ_TYPE_TO_NT_METHOD] || listenerName
       const ntCmd: ReceiveCmdS = (convertedListenerName + '/' + sub_type) as ReceiveCmdS
