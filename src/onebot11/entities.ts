@@ -176,14 +176,17 @@ export namespace OB11Entities {
           guildId: ''
         }
         try {
-          const { replayMsgSeq, replyMsgTime } = replyElement
-          const record = msg.records.find(msgRecord => msgRecord.msgId === replyElement.sourceMsgIdInRecords)
+          const { replayMsgSeq: replyMsgSeq, replyMsgTime } = replyElement
+          let record = msg.records.find(msgRecord => msgRecord.msgId === replyElement.sourceMsgIdInRecords)
+          const { msgList } = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, replyMsgSeq, 1, true, true)
+          if (!record){
+            record = msgList.find(msg=>msg.msgSeq === replyMsgSeq && msg.msgTime === replyMsgTime)
+          }
           const senderUid = replyElement.senderUidStr || record?.senderUid
           if (!record || !replyMsgTime || !senderUid) {
             ctx.logger.error('找不到回复消息', replyElement)
             continue
           }
-          const { msgList } = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, replayMsgSeq, 1, true, true)
 
           let replyMsg: RawMessage | undefined
           if (record.msgRandom !== '0') {
@@ -640,9 +643,12 @@ export namespace OB11Entities {
     msg: RawMessage,
     shortId: number
   ): Promise<OB11FriendRecallNoticeEvent | OB11GroupRecallNoticeEvent | undefined> {
-    const revokeElement = msg.elements[0].grayTipElement?.revokeElement
+    const revokeElement = msg.elements[0].grayTipElement?.revokeElement!
     if (msg.chatType === ChatType.Group) {
-      const operator = await ctx.ntGroupApi.getGroupMember(msg.peerUid, revokeElement!.operatorUid)
+      const operator = await ctx.ntGroupApi.getGroupMember(msg.peerUid, revokeElement.operatorUid)
+      if (msg.senderUin === '0' || !msg.senderUin){
+        msg.senderUin = await ctx.ntUserApi.getUinByUid(revokeElement.origMsgSenderUid!)
+      }
       return new OB11GroupRecallNoticeEvent(
         parseInt(msg.peerUid),
         parseInt(msg.senderUin!),

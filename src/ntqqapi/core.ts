@@ -125,16 +125,27 @@ class Core extends Service {
     return returnMsg
   }
 
-  private handleMessage(msgList: RawMessage[]) {
+  private async handleMessage(msgList: RawMessage[]) {
     for (const message of msgList) {
       const msgTime = parseInt(message.msgTime)
       if (msgTime < this.startupTime) {
-        this.ctx.store.getShortIdByMsgId(message.msgId).then(existing=>{
-          // 已存在的离线消息不处理
-          if (!existing) {
-            this.ctx.parallel('nt/offline-message-created', message)
+        const uniqueId = `${message.peerUid}-${message.msgSeq}-${message.msgRandom}`
+        const existing = await this.ctx.store.getShortIdByMsgId(uniqueId)
+        if (!existing){
+          this.ctx.logger.info(uniqueId)
+          const peer = {
+            chatType: message.chatType,
+            peerUid: message.peerUin,
+            guildId: '',
           }
-        })
+          try {
+            this.ctx.store.createMsgShortId(peer, uniqueId)
+          }catch (e) {
+            this.ctx.logger.info(e)
+          }
+          // this.ctx.logger.info(message)
+          this.ctx.parallel('nt/offline-message-created', message)
+        }
         continue
       }
       if (message.senderUin && message.senderUin !== '0') {

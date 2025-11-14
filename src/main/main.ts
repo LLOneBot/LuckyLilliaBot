@@ -35,6 +35,7 @@ import { WebUIServer } from '../webui/BE/server'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
 import { pmhq } from '@/ntqqapi/native/pmhq'
 import { defaultConfig } from '@/common/defaultConfig'
+import { sleep } from '@/common/utils'
 
 declare module 'cordis' {
   interface Events {
@@ -132,8 +133,17 @@ async function onLoad() {
       selfInfo.online = true
 
       const getSelfInfo = async () => {
-        const uin = await ctx.ntUserApi.getUinByUid(data[2])
-        selfInfo.uin = uin
+        let uin: string
+        // 循环 5次 获取uin
+        for (let i = 0; i < 5; i++) {
+          try {
+            uin = await ctx.ntUserApi.getUinByUid(data[2])
+            selfInfo.uin = uin
+            break
+          }catch (e) {
+            await sleep(1000)
+          }
+        }
         const configUtil = getConfigUtil(true)
         config = configUtil.getConfig()
         ctx.parallel('llob/config-updated', config)

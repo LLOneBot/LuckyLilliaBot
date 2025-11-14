@@ -76,16 +76,20 @@ export function startHook() {
     else if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush'){
       if (getConfigUtil().getConfig().rawMsgPB) {
         const msg = parseProtobufFromHex(data.data.pb)
-        const peerId = msg[1][1][8][1]
-        const msgRand = msg[1][2][4]
-        const msgSeq = msg[1][2][5]
-        const uniqueId = `${peerId}_${msgRand}_${msgSeq}`
-        if (msgPBMap.size > 1000) {
-          // 删除最老的记录
-          const firstKey = msgPBMap.keys().next().value
-          msgPBMap.delete(firstKey!)
+        try {
+          const peerId = msg[1][1][8][1]
+          const msgRand = msg[1][2][4]
+          const msgSeq = msg[1][2][5]
+          const uniqueId = `${peerId}_${msgRand}_${msgSeq}`
+          if (msgPBMap.size > 1000) {
+            // 删除最老的记录
+            const firstKey = msgPBMap.keys().next().value
+            msgPBMap.delete(firstKey!)
+          }
+          msgPBMap.set(uniqueId, data.data.pb)
+        }catch (e) {
+
         }
-        msgPBMap.set(uniqueId, data.data.pb)
       }
     }
   })
