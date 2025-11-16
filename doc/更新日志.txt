@@ -1,7 +1,9 @@
 V6.6.1
 更新时间 2025-11-16
 
-优化 shortId 唯一性
+* 修复撤回消息接口失效
+* 修复 UNIQUE constraint failed: message.shortId
+
 =================
 V6.6.0
 更新时间 2025-11-15
