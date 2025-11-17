@@ -1,3 +1,10 @@
+V6.6.2
+更新时间 2025-11-17
+
+* 修复表情回应 出现 Cannot read properties of null (reading 'msgContent') 导致程序崩溃
+* 修复 UNIQUE constraint failed: message.shortId
+
+=================
 V6.6.1
 更新时间 2025-11-16
 
