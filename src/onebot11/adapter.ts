@@ -510,7 +510,7 @@ class OneBot11Adapter extends Service {
       if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
         const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
         const { msgType, subType } = pushMsg.message?.contentHead ?? {}
-        if (msgType === 732 && subType === 16) {
+        if (msgType === 732 && subType === 16 && pushMsg.message!.body) {
           const notify = Msg.NotifyMessageBody.decode(pushMsg.message!.body!.msgContent!.slice(7))
           if (notify.field13 === 35) {
             this.ctx.logger.info('群表情回应', notify.reaction!.data!.body)
