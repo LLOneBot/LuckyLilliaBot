@@ -1,3 +1,11 @@
+V6.6.3
+更新时间 2025-11-17
+
+* 修复 邀请进群 invitor_id 为 0
+* 修复 UNIQUE constraint failed: message.shortId
+* 修复概率启动卡死
+
+=================
 V6.6.2
 更新时间 2025-11-17
 
