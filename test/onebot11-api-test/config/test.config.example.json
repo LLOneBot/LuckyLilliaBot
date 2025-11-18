@@ -1,0 +1,16 @@
+{
+  "accounts": {
+    "primary": {
+      "host": "http://localhost:3000",
+      "apiKey": "your-api-key-1",
+      "protocol": "http"
+    },
+    "secondary": {
+      "host": "http://localhost:3001",
+      "apiKey": "your-api-key-2",
+      "protocol": "ws"
+    }
+  },
+  "timeout": 30000,
+  "retryAttempts": 3
+}

@@ -1,0 +1,7 @@
+node_modules/
+dist/
+coverage/
+test-report.html
+*.log
+.DS_Store
+config/test.config.json
