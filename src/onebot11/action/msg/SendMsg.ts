@@ -38,11 +38,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
     if (!returnMsg) {
       throw new Error('消息发送失败')
     }
-    const msgShortId = this.ctx.store.createMsgShortId({
-      chatType: returnMsg.chatType,
-      peerUid: returnMsg.peerUid,
-      guildId: ''
-    }, returnMsg.msgId)
+    const msgShortId = this.ctx.store.createMsgShortId(returnMsg)
     return { message_id: msgShortId }
   }
 }

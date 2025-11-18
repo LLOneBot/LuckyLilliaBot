@@ -137,11 +137,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
           }),
         },
       }], 1800)
-      const msgShortId = this.ctx.store.createMsgShortId({
-        chatType: msg!.chatType,
-        peerUid: msg!.peerUid,
-        guildId: ''
-      }, msg!.msgId)
+      const msgShortId = this.ctx.store.createMsgShortId(msg!)
       return { message_id: msgShortId, forward_id: resid }
     } catch (e) {
       this.ctx.logger.error('合并转发失败', e)
@@ -275,11 +271,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     }
     const msg = await this.ctx.ntMsgApi.multiForwardMsg(srcPeer!, destPeer, retMsgIds)
     const resid = JSON.parse(msg.elements[0].arkElement!.bytesData).meta.detail.resid
-    const msgShortId = this.ctx.store.createMsgShortId({
-      chatType: msg.chatType,
-      peerUid: msg.peerUid,
-      guildId: ''
-    }, msg.msgId)
+    const msgShortId = this.ctx.store.createMsgShortId(msg)
     return { message_id: msgShortId, forward_id: resid }
   }
 }

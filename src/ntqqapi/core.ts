@@ -125,11 +125,14 @@ class Core extends Service {
     return returnMsg
   }
 
-  private handleMessage(msgList: RawMessage[]) {
+  private async handleMessage(msgList: RawMessage[]) {
     for (const message of msgList) {
       const msgTime = parseInt(message.msgTime)
       if (msgTime < this.startupTime) {
-        this.ctx.parallel('nt/offline-message-created', message)
+        const existing = await this.ctx.store.checkMsgExist(message)
+        if (!existing){
+          this.ctx.parallel('nt/offline-message-created', message)
+        }
         continue
       }
       if (message.senderUin && message.senderUin !== '0') {

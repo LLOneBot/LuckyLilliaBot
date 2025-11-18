@@ -217,10 +217,7 @@ export class NTQQWebApi extends Service {
     return await response.json()
   }
 
-  async uploadGroupAlbum(groupCode: string,
-                         filePathList: string[],
-                         albumID: string,
-  ) {
+  async uploadGroupAlbum(groupCode: string, filePathList: string[], albumID: string) {
     const domain = 'h5.qzone.qq.com'
     const cookiesObject = await this.ctx.ntUserApi.getCookies(domain)
     const gtk = this.genBkn(cookiesObject.skey)
@@ -310,7 +307,6 @@ export class NTQQWebApi extends Service {
       const sessionId = resJson.data.session
       const sliceSize = resJson.data.slice_size
       // 分片上传文件 - 并发上传
-      const uploadTasks: Promise<void>[] = []
       let offset = 0
       let seq = 1
       const concurrency = 10
@@ -319,15 +315,15 @@ export class NTQQWebApi extends Service {
       const slices: Array<{ offset: number; end: number; seq: number; chunk: Buffer }> = []
       while (offset < fileSize) {
         const end = Math.min(offset + sliceSize, fileSize)
-        const chunk = fileBuffer.slice(offset, end)
+        const chunk = fileBuffer.subarray(offset, end)
         slices.push({ offset, end, seq, chunk })
         offset = end
         seq++
       }
 
       // 进度跟踪
-      let completedSlices = 0
-      const totalSlices = slices.length
+      // let completedSlices = 0
+      // const totalSlices = slices.length
 
       // 并发上传函数
       const uploadSlice = async (slice: { offset: number; end: number; seq: number; chunk: Buffer }) => {
@@ -336,7 +332,7 @@ export class NTQQWebApi extends Service {
         const formData = new FormData()
         formData.append('uin', selfInfo.uin)
         formData.append('appid', 'qun')
-        formData.append('data', new Blob([slice.chunk]))
+        formData.append('data', new Blob([Uint8Array.from(slice.chunk)]))
         formData.append('session', sessionId)
         formData.append('offset', slice.offset.toString())
         formData.append('checksum', '')
@@ -364,8 +360,8 @@ export class NTQQWebApi extends Service {
           throw new Error(`群相册分片上传失败 (seq: ${slice.seq}): ${uploadResJson.msg}, file: ${filePath}`)
         }
 
-        completedSlices++
-        const progress = Math.round((completedSlices / totalSlices) * 100)
+        // completedSlices++
+        // const progress = Math.round((completedSlices / totalSlices) * 100)
         // this.ctx.logger.info(`群相册上传进度: ${completedSlices}/${totalSlices} 片 (${progress}%)`)
       }
 

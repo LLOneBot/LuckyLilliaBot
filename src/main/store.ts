@@ -12,6 +12,7 @@ declare module 'cordis' {
     message: {
       shortId: number
       msgId: string
+      uniqueMsgId: string
       chatType: number
       peerUid: string
     }
@@ -32,7 +33,7 @@ interface MsgInfo {
 
 class Store extends Service {
   static inject = ['database', 'model']
-  private cache: BidiMap<string, number>
+  private cache: BidiMap<MsgInfo, number>
   private messages: Map<string, RawMessage>
 
   constructor(protected ctx: Context, public config: Store.Config) {
@@ -47,6 +48,7 @@ class Store extends Service {
       shortId: 'integer(10)',
       chatType: 'unsigned',
       msgId: 'string(24)',
+      uniqueMsgId: 'string(64)',
       peerUid: 'string(24)'
     }, {
       primary: 'shortId'
@@ -75,36 +77,42 @@ class Store extends Service {
     })
   }
 
-  createMsgShortId(peer: Peer, msgId: string): number {
-    const existingShortId = this.getShortIdByMsgInfo(peer, msgId)
+  getUniqueMsgId(msg: RawMessage): string {
+    return `${msg.chatType}-${msg.peerUid}-${msg.msgSeq}-${msg.msgRandom}-${msg.msgTime}`
+  }
+
+  createMsgShortId(msg: RawMessage): number {
+    const peer = {
+      chatType: msg.chatType,
+      peerUid: msg.peerUid,
+      guildId: ''
+    }
+    // QQ 本地给的 msgId 是和 Protobuf 给的不一致
+    // 并且本地的 msgId 是根据一个本地保存的随机字符串 + 某种算法生成的，如果将 QQ 数据库清空了，这个随机字符串会变
+    // 这就导致每次清空数据库后收到的同一条消息的 msgId 都不一样
+    // 所以这里改成用 msgSeq + msgRandom 来生成 shortId，保证清空 QQ 数据库后收到同一条消息收到 shortId 都一致
+    const uniqueMsgId = this.getUniqueMsgId(msg)
+    const existingShortId = this.getShortIdByMsgInfo(peer, msg.msgId)
     if (existingShortId) {
       return existingShortId
     }
-    const key = `${msgId}|${peer.chatType}|${peer.peerUid}`
-    const hash = createHash('md5').update(key).digest()
+    const hash = createHash('md5').update(uniqueMsgId).digest()
     const shortId = hash.readInt32BE() // OneBot 11 要求 message_id 为 int32
-    this.cache.set(key, shortId)
+    this.cache.set({ msgId: msg.msgId, peer }, shortId)
     this.ctx.database.upsert('message', [{
-      msgId,
+      msgId: msg.msgId,
+      uniqueMsgId,
       shortId,
       chatType: peer.chatType,
       peerUid: peer.peerUid
-    }], 'shortId').then().catch(e => this.ctx.logger.error('createMsgShortId database error:', e))
+    }], ['shortId']).then().catch(e => this.ctx.logger.error('createMsgShortId database error:', e))
     return shortId
   }
 
   async getMsgInfoByShortId(shortId: number): Promise<MsgInfo | undefined> {
     const data = this.cache.getKey(shortId)
     if (data) {
-      const [msgId, chatTypeStr, peerUid] = data.split('|')
-      return {
-        msgId,
-        peer: {
-          chatType: +chatTypeStr,
-          peerUid,
-          guildId: ''
-        }
-      }
+      return data
     }
     const items = await this.ctx.database.get('message', { shortId })
     if (items?.length) {
@@ -124,9 +132,18 @@ class Store extends Service {
     return (await this.ctx.database.get('message', { msgId }))[0]?.shortId
   }
 
+  async getShortIdByUniqueMsgId(uniqueMsgId: string): Promise<number | undefined> {
+    return (await this.ctx.database.get('message', { uniqueMsgId }))[0]?.shortId
+  }
+
+  async checkMsgExist(msg: RawMessage): Promise<boolean> {
+    const uniqueMsgId = this.getUniqueMsgId(msg)
+    const existingShortId = await this.getShortIdByUniqueMsgId(uniqueMsgId)
+    return !!existingShortId
+  }
+
   getShortIdByMsgInfo(peer: Peer, msgId: string) {
-    const cacheKey = `${msgId}|${peer.chatType}|${peer.peerUid}`
-    return this.cache.getValue(cacheKey)
+    return this.cache.getValue({msgId, peer})
   }
 
   async addFileCache(data: FileCacheV2) {

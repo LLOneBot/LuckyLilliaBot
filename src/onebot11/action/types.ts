@@ -13,6 +13,7 @@ export enum ActionName {
   // llonebot
   GetGroupAlbumList = 'get_group_album_list',
   CreateGroupAlbum = 'create_group_album',
+  DeleteGroupAlbum = 'delete_group_album',
   UploadGroupAlbum = 'upload_group_album',
   BatchDeleteGroupMember = 'batch_delete_group_member',
   GetFlashFileInfo = 'get_flash_file_info',

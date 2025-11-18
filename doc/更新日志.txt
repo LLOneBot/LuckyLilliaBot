@@ -1,6 +1,29 @@
-V6.6.0
-更新时间 2025-11-
+V6.6.3
+更新时间 2025-11-17
 
+* 修复 邀请进群 invitor_id 为 0
+* 修复 UNIQUE constraint failed: message.shortId
+* 修复概率启动卡死
+
+=================
+V6.6.2
+更新时间 2025-11-17
+
+* 修复表情回应 出现 Cannot read properties of null (reading 'msgContent') 导致程序崩溃
+* 修复 UNIQUE constraint failed: message.shortId
+
+=================
+V6.6.1
+更新时间 2025-11-16
+
+* 修复撤回消息接口失效
+* 修复 UNIQUE constraint failed: message.shortId
+
+=================
+V6.6.0
+更新时间 2025-11-15
+
+* 支持 42086
 * 新增上传群相册 API `upload_group_album`
 * 新增获取群相册列表 API `get_group_album_list`
 * 新增创建群相册列表 API `create_group_album`
@@ -9,6 +32,8 @@ V6.6.0
 * 支持他人的表情回应事件
 * 支持取消表情回应事件, `group_msg_emoji_like` 中 `is_add` 为 `false` 表示取消
 * 修复 > 40990 版本的 QQ 无法发送语音消息
+* 修复离线消息重复推送
+* 提升稳定性
 =================
 V6.5.7
 更新时间 2025-11-04

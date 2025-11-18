@@ -55,11 +55,7 @@ export namespace OB11Entities {
   ): Promise<OB11Message | undefined> {
     if (!msg.senderUin || msg.senderUin === '0' || msg.msgType === 1) return //跳过空消息
     const selfUin = selfInfo.uin
-    const msgShortId = ctx.store.createMsgShortId({
-      chatType: msg.chatType,
-      peerUid: msg.peerUid,
-      guildId: ''
-    }, msg.msgId)
+    const msgShortId = ctx.store.createMsgShortId(msg)
     const resMsg: OB11Message = {
       self_id: Number(selfUin),
       user_id: Number(msg.senderUin),
@@ -176,14 +172,17 @@ export namespace OB11Entities {
           guildId: ''
         }
         try {
-          const { replayMsgSeq, replyMsgTime } = replyElement
-          const record = msg.records.find(msgRecord => msgRecord.msgId === replyElement.sourceMsgIdInRecords)
+          const { replayMsgSeq: replyMsgSeq, replyMsgTime } = replyElement
+          let record = msg.records.find(msgRecord => msgRecord.msgId === replyElement.sourceMsgIdInRecords)
+          const { msgList } = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, replyMsgSeq, 1, true, true)
+          if (!record){
+            record = msgList.find(msg=>msg.msgSeq === replyMsgSeq && msg.msgTime === replyMsgTime)
+          }
           const senderUid = replyElement.senderUidStr || record?.senderUid
           if (!record || !replyMsgTime || !senderUid) {
             ctx.logger.error('找不到回复消息', replyElement)
             continue
           }
-          const { msgList } = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, replayMsgSeq, 1, true, true)
 
           let replyMsg: RawMessage | undefined
           if (record.msgRandom !== '0') {
@@ -210,7 +209,7 @@ export namespace OB11Entities {
           messageSegment = {
             type: OB11MessageDataType.Reply,
             data: {
-              id: ctx.store.createMsgShortId(peer, replyMsg.msgId).toString()
+              id: ctx.store.createMsgShortId(replyMsg).toString()
             }
           }
         } catch (e) {
@@ -541,7 +540,7 @@ export namespace OB11Entities {
           if (receiverUin !== selfInfo.uin || senderUin !== msg.senderUin) {
             return
           }
-          ctx.logger.info('收到邀请我加群消息')
+          ctx.logger.info('收到邀请我加群消息', JSON.stringify(data))
           const groupCode = params.get('groupcode')
           const seq = params.get('msgseq')
           const flag = `${groupCode}|${seq}|1|0`
@@ -551,6 +550,7 @@ export namespace OB11Entities {
             flag,
             data.meta.news.desc,
             'invite',
+            Number(senderUin),
           )
         }
       }
@@ -640,9 +640,12 @@ export namespace OB11Entities {
     msg: RawMessage,
     shortId: number
   ): Promise<OB11FriendRecallNoticeEvent | OB11GroupRecallNoticeEvent | undefined> {
-    const revokeElement = msg.elements[0].grayTipElement?.revokeElement
+    const revokeElement = msg.elements[0].grayTipElement?.revokeElement!
     if (msg.chatType === ChatType.Group) {
-      const operator = await ctx.ntGroupApi.getGroupMember(msg.peerUid, revokeElement!.operatorUid)
+      const operator = await ctx.ntGroupApi.getGroupMember(msg.peerUid, revokeElement.operatorUid)
+      if (msg.senderUin === '0' || !msg.senderUin){
+        msg.senderUin = await ctx.ntUserApi.getUinByUid(revokeElement.origMsgSenderUid!)
+      }
       return new OB11GroupRecallNoticeEvent(
         parseInt(msg.peerUid),
         parseInt(msg.senderUin!),

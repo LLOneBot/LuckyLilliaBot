@@ -46,11 +46,7 @@ abstract class ForwardSingleMsg extends BaseAction<Payload, Response> {
     }
 
     // 创建消息id
-    const msgShortId = this.ctx.store.createMsgShortId({
-      chatType: ret[0].chatType,
-      peerUid: ret[0].peerUid,
-      guildId: ''
-    }, ret[0].msgId)
+    const msgShortId = this.ctx.store.createMsgShortId(ret[0])
     return { message_id: msgShortId }
   }
 }

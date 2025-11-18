@@ -42,7 +42,7 @@ export class GetEssenceMsgList extends BaseAction<Payload, EssenceMsg[]> {
         operator_id: +item.opUin,
         operator_nick: item.opNick,
         operator_time: item.opTime,
-        message_id: this.ctx.store.createMsgShortId(peer, sourceMsg.msgId)
+        message_id: this.ctx.store.createMsgShortId(sourceMsg)
       })
     }
     return data

@@ -1,12 +1,12 @@
 name: Bug 反馈
-description: 报告可能的 LLOneBot 异常行为
+description: 报告可能的异常行为
 title: '[BUG] '
 labels: bug
 body:
   - type: markdown
     attributes:
       value: |
-        欢迎来到 LLOneBot 的 Issue Tracker！请填写以下表格来提交 Bug。
+        请填写以下表格来提交 Bug。
   - type: input
     id: system-version
     attributes:
@@ -19,16 +19,16 @@ body:
     id: qqnt-version
     attributes:
       label: QQNT 版本
-      description: 可在 QQNT 的「关于」或是在 LiteLoaderQQNT 的设置页中找到
+      description: 可在 QQNT 的关于或设置页中找到
       placeholder: 9.9.7-21804
     validations:
       required: true
   - type: input
-    id: llonebot-version
+    id: llbot-version
     attributes:
-      label: LLOneBot 版本
-      description: 可在 LiteLoaderQQNT 的设置页或是 QQNT 的设置页侧栏中找到
-      placeholder: 3.18.0
+      label: LLBot 版本
+      description:
+      placeholder: 6.6.0
     validations:
       required: true
   - type: input
@@ -41,7 +41,7 @@ body:
     id: what-happened
     attributes:
       label: 发生了什么?
-      description: 填写你认为的 LLOneBot 的不正常行为
+      description: 填写你认为的 LLBot 的不正常行为
     validations:
       required: true
   - type: textarea
@@ -59,14 +59,14 @@ body:
     id: what-expected
     attributes:
       label: 期望的结果?
-      description: 填写你认为 LLOneBot 应当执行的正常行为
+      description: 填写你认为 LLBot 应当执行的正常行为
     validations:
       required: true
   - type: textarea
     id: llonebot-log
     attributes:
-      label: LLOneBot 运行日志
-      description: 在 LLOneBot 的设置页中打开「写入日志」然后粘贴相关日志内容到此处
+      label: LLBot 运行日志
+      description:
       render: shell
   - type: textarea
     id: onebot-client-log

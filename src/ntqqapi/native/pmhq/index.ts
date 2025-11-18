@@ -57,18 +57,16 @@ interface PMHQReqCall {
 }
 
 interface PMHQReqTellPort {
-  type: 'tell_port',
-  data: {
-    echo?: string
-    webui_port: number
-  }
+  type: 'broadcast_event',
+  data: PMHQResTellPort
 }
 
 interface PMHQResTellPort {
-  type: 'tell_port',
+  type: 'llbot_web_ui_port',
+  echo?: string
   data: {
     echo?: string
-    success: boolean
+    port: number
   }
 }
 
@@ -216,13 +214,20 @@ export class PMHQ {
   }
 
   public async tellPort(webuiPort: number) {
+    const echo = randomUUID()
     const payload: PMHQReqTellPort = {
-      type: 'tell_port',
+      type: 'broadcast_event',
       data: {
-        webui_port: webuiPort,
+        echo,
+        type: 'llbot_web_ui_port',
+        data: {
+          echo,
+          port: webuiPort,
+        },
       },
     }
-    const result = ((await this.wsSend(payload, 5000)) as PMHQResTellPort).data?.success
+
+    const result = (await this.wsSend(payload, 5000))
     return result
   }
 
@@ -241,7 +246,7 @@ export class PMHQ {
       }, timeout)
       const listenerId = this.addResListener<R>((res => {
         if (!res.data) {
-          console.error(`PMHQ WS send error: payload ${data}, response ${res}`)
+          console.error(`PMHQ WS send error: payload ${JSON.stringify(data)}, response ${JSON.stringify(res)}`)
         }
         if (res.data?.echo == echo) {
           resolve(res)
@@ -358,7 +363,7 @@ export class PMHQ {
     return {
       privateRKey: rkeyItems[0].rkey!,
       groupRKey: rkeyItems[1].rkey!,
-      expiredTime: rkeyItems[0].createTime! + rkeyItems[0].ttlSec!
+      expiredTime: rkeyItems[0].createTime! + rkeyItems[0].ttlSec!,
     }
   }
 
@@ -369,17 +374,17 @@ export class PMHQ {
       info: {
         type: isGroup ? 3 : 1,
         peer: {
-          uid: isGroup ? peer.peerUid : selfInfo.uid
+          uid: isGroup ? peer.peerUid : selfInfo.uid,
         },
         groupCode: isGroup ? +peer.peerUid : 0,
-        payload: gzipSync(transmit)
+        payload: gzipSync(transmit),
       },
       settings: {
         field1: 4,
         field2: 1,
         field3: 7,
-        field4: 0
-      }
+        field4: 0,
+      },
     }).finish()
     const res = await this.httpSendPB('trpc.group.long_msg_interface.MsgService.SsoSendLongMsg', data)
     return Action.SendLongMsgResp.decode(Buffer.from(res.pb, 'hex')).result!.resId!
@@ -393,7 +398,7 @@ export class PMHQ {
       word2: word,
       field8: 0,
       field9: 0,
-      field14: 1
+      field14: 1,
     }).finish()
     const res = await this.httpSendPB('PicSearchSvr.PullPics', data)
     return Action.PullPicsResp.decode(Buffer.from(res.pb, 'hex'))
@@ -438,8 +443,8 @@ export class PMHQ {
       text,
       chatType,
       clientMsgInfo: {
-        msgRandom: randomBytes(4).readUInt32BE(0)
-      }
+        msgRandom: randomBytes(4).readUInt32BE(0),
+      },
     }).finish()
     const data = Oidb.Base.encode({
       command: 0x929b,
@@ -464,11 +469,11 @@ export class PMHQ {
           c2c: {
             accountType: 2,
             targetUid: selfInfo.uid,
-          }
+          },
         },
         client: {
-          agentType: 2
-        }
+          agentType: 2,
+        },
       },
       download: {
         node: {
@@ -476,9 +481,9 @@ export class PMHQ {
           storeID: 1,
           uploadTime: 0,
           expire: 0,
-          type: 0
-        }
-      }
+          type: 0,
+        },
+      },
     }).finish()
     const data = Oidb.Base.encode({
       command: 0x126d,
@@ -495,17 +500,17 @@ export class PMHQ {
     const data = Action.RecvLongMsgReq.encode({
       info: {
         peer: {
-          uid: selfInfo.uid
+          uid: selfInfo.uid,
         },
         resId,
-        acquire: true
+        acquire: true,
       },
       settings: {
         field1: 2,
         field2: 0,
         field3: 0,
-        field4: 0
-      }
+        field4: 0,
+      },
     }).finish()
     const res = await this.httpSendPB('trpc.group.long_msg_interface.MsgService.SsoRecvLongMsg', data)
     const payload = Action.RecvLongMsgResp.decode(Buffer.from(res.pb, 'hex')).result?.payload
@@ -518,23 +523,23 @@ export class PMHQ {
       reqHead: {
         common: {
           requestId: 1,
-          command: 200
+          command: 200,
         },
         scene: {
           requestType: 2,
           businessType: 1,
           sceneType: 2,
           group: {
-            groupId
-          }
+            groupId,
+          },
         },
         client: {
           agentType: 2,
-        }
+        },
       },
       download: {
-        node
-      }
+        node,
+      },
     }).finish()
     const data = Oidb.Base.encode({
       command: 0x11c4,
@@ -552,7 +557,7 @@ export class PMHQ {
       reqHead: {
         common: {
           requestId: 1,
-          command: 200
+          command: 200,
         },
         scene: {
           requestType: 2,
@@ -560,16 +565,16 @@ export class PMHQ {
           sceneType: 1,
           c2c: {
             accountType: 2,
-            targetUid: selfInfo.uid
+            targetUid: selfInfo.uid,
           },
         },
         client: {
           agentType: 2,
-        }
+        },
       },
       download: {
-        node
-      }
+        node,
+      },
     }).finish()
     const data = Oidb.Base.encode({
       command: 0x11c5,
@@ -588,8 +593,8 @@ export class PMHQ {
         groupCode,
         appId: 7,
         busId: 102,
-        fileId
-      }
+        fileId,
+      },
     }).finish()
     const data = Oidb.Base.encode({
       command: 0x6d6,
@@ -610,12 +615,12 @@ export class PMHQ {
         receiverUid,
         fileUuid,
         type: 2,
-        t2: 0
+        t2: 0,
       },
       field101: 3,
       field102: 103,
       field200: 1,
-      field99999: Buffer.from([0xc0, 0x85, 0x2c, 0x01])
+      field99999: Buffer.from([0xc0, 0x85, 0x2c, 0x01]),
     }).finish()
     const data = Oidb.Base.encode({
       command: 0xe37,
@@ -634,8 +639,8 @@ export class PMHQ {
     const body = Oidb.GroupClockIn.encode({
       body: {
         uin: selfInfo.uin,
-        groupCode
-      }
+        groupCode,
+      },
     }).finish()
     const data = Oidb.Base.encode({
       command: 0xeb7,
@@ -650,14 +655,14 @@ export class PMHQ {
       field2: 0,
       json: JSON.stringify({
         msg_req_basic_info: {
-          uint64_request_uin: [uin]
+          uint64_request_uin: [uin],
         },
-        uint32_req_login_info: 1
-      })
+        uint32_req_login_info: 1,
+      }),
     }).finish()
     const res = await this.httpSendPB('MQUpdateSvc_com_qq_ti.web.OidbSvc.0xdef_1', body)
     const { json } = Action.FetchUserLoginDaysResp.decode(Buffer.from(res.pb, 'hex'))
-    return JSON.parse(json).msg_rsp_basic_info.rpt_msg_basic_info.find((e: any)=>e.uint64_uin===uin)?.uint32_login_days || 0
+    return JSON.parse(json).msg_rsp_basic_info.rpt_msg_basic_info.find((e: any) => e.uint64_uin === uin)?.uint32_login_days || 0
   }
 }
 

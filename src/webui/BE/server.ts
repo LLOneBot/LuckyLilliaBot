@@ -147,7 +147,7 @@ export class WebUIServer extends Service {
         })
         return
       }
-      
+
       // 将存储的明文密码 hash 后与前端传来的 hash 对比
       const hashedToken = hashPassword(token)
       if (reqToken !== hashedToken) {
@@ -351,10 +351,9 @@ export class WebUIServer extends Service {
     await this.startWithPort(forcePort)
   }
 
-  private setConfig(newConfig: Config) {
+  public setConfig(newConfig: Config) {
     const oldConfig = { ...this.config }
     this.config = { onlyLocalhost: newConfig.onlyLocalhost, ...newConfig.webui }
-
   }
 
   async start() {

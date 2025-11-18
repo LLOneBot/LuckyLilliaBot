@@ -60,7 +60,7 @@ export const msgPBMap: Map<string, string> = new Map<string, string>()
 export function startHook() {
   pmhq.addResListener((data) => {
     let listenerName = data.type
-    if ('sub_type' in data.data) {
+    if (data.data && 'sub_type' in data.data) {
       const sub_type = data.data.sub_type
       const convertedListenerName = NT_RECV_PMHQ_TYPE_TO_NT_METHOD[listenerName as keyof typeof NT_RECV_PMHQ_TYPE_TO_NT_METHOD] || listenerName
       const ntCmd: ReceiveCmdS = (convertedListenerName + '/' + sub_type) as ReceiveCmdS
@@ -76,16 +76,20 @@ export function startHook() {
     else if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush'){
       if (getConfigUtil().getConfig().rawMsgPB) {
         const msg = parseProtobufFromHex(data.data.pb)
-        const peerId = msg[1][1][8][1]
-        const msgRand = msg[1][2][4]
-        const msgSeq = msg[1][2][5]
-        const uniqueId = `${peerId}_${msgRand}_${msgSeq}`
-        if (msgPBMap.size > 1000) {
-          // 删除最老的记录
-          const firstKey = msgPBMap.keys().next().value
-          msgPBMap.delete(firstKey!)
+        try {
+          const peerId = msg[1][1][8][1]
+          const msgRand = msg[1][2][4]
+          const msgSeq = msg[1][2][5]
+          const uniqueId = `${peerId}_${msgRand}_${msgSeq}`
+          if (msgPBMap.size > 1000) {
+            // 删除最老的记录
+            const firstKey = msgPBMap.keys().next().value
+            msgPBMap.delete(firstKey!)
+          }
+          msgPBMap.set(uniqueId, data.data.pb)
+        }catch (e) {
+
         }
-        msgPBMap.set(uniqueId, data.data.pb)
       }
     }
   })

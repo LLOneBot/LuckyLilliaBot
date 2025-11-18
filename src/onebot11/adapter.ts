@@ -120,8 +120,9 @@ class OneBot11Adapter extends Service {
         this.dispatch(event)
       }
       else if (notify.type === GroupNotifyType.InvitedByMember && notify.status === GroupNotifyStatus.Unhandle) {
-        this.ctx.logger.info('收到邀请我加群通知')
+        this.ctx.logger.info('收到邀请我加群通知, 邀请人uid:', notify.user2.uid)
         const userId = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
+        this.ctx.logger.info('收到邀请我加群通知, 邀请人uin:', userId)
         const event = new OB11GroupRequestEvent(
           parseInt(notify.group.groupCode),
           parseInt(userId) || 0,
@@ -217,7 +218,7 @@ class OneBot11Adapter extends Service {
     //     this.dispatch(privateEvent)
     //   }
     // })
-    const shortId = this.ctx.store.createMsgShortId(peer, message.msgId)
+    const shortId = this.ctx.store.createMsgShortId(message)
 
     OB11Entities.recallEvent(this.ctx, message, shortId).then((recallEvent) => {
       if (recallEvent) {
@@ -316,7 +317,9 @@ class OneBot11Adapter extends Service {
       if (input.senderUid === selfInfo.uid) {
         this.handleMsg(input, true, true)
       }
-      this.handleMsg(input, false, true)
+      else {
+        this.handleMsg(input, false, true)
+      }
     })
     this.ctx.on('nt/message-deleted', input => {
       this.handleRecallMsg(input)
@@ -508,7 +511,7 @@ class OneBot11Adapter extends Service {
       if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
         const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
         const { msgType, subType } = pushMsg.message?.contentHead ?? {}
-        if (msgType === 732 && subType === 16) {
+        if (msgType === 732 && subType === 16 && pushMsg.message!.body) {
           const notify = Msg.NotifyMessageBody.decode(pushMsg.message!.body!.msgContent!.slice(7))
           if (notify.field13 === 35) {
             this.ctx.logger.info('群表情回应', notify.reaction!.data!.body)
@@ -525,7 +528,7 @@ class OneBot11Adapter extends Service {
               this.ctx.logger.error('解析群表情回应失败：未找到消息')
               return
             }
-            const messageId = this.ctx.store.createMsgShortId(peer, targetMsg.msgList[0].msgId)
+            const messageId = this.ctx.store.createMsgShortId(targetMsg.msgList[0])
             const event = new OB11GroupMsgEmojiLikeEvent(
               notify.groupCode,
               userId,

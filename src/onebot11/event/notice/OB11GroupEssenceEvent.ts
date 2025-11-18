@@ -43,7 +43,7 @@ export class GroupEssenceEvent extends OB11GroupNoticeEvent {
     if (!sourceMsg) return
     return new GroupEssenceEvent(
       parseInt(groupCode),
-      ctx.store.createMsgShortId(peer, sourceMsg.msgId),
+      ctx.store.createMsgShortId(sourceMsg!),
       parseInt(essence.items[0]?.msgSenderUin ?? sourceMsg.senderUin),
       parseInt(essence.items[0]?.opUin ?? '0'),
     )

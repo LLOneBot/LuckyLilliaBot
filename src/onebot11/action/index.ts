@@ -111,11 +111,13 @@ import { UploadGroupAlbum } from '@/onebot11/action/llonebot/group/GroupAlbum/Up
 import { GetGroupAlbumList } from '@/onebot11/action/llonebot/group/GroupAlbum/GetGroupAlbumList'
 import { CreateGroupAlbum } from '@/onebot11/action/llonebot/group/GroupAlbum/CreateGroupAlbum'
 import { DeleteGroupNotice } from './llonebot/group/DeleteGroupNotice'
+import { DeleteGroupAlbum } from '@/onebot11/action/llonebot/group/GroupAlbum/DeleteGroupAlbum'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
     // llonebot
     new CreateGroupAlbum(adapter),
+    new DeleteGroupAlbum(adapter),
     new GetGroupAlbumList(adapter),
     new UploadGroupAlbum(adapter),
     new SetGroupFileForever(adapter),

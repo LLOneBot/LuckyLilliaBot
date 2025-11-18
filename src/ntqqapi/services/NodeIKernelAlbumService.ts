@@ -44,6 +44,8 @@ export interface NodeIKernelAlbumService {
     album_info: AlbumInfo;
   }>
 
+  deleteAlbum(seq: number, groupCode: string, albumId: string): Promise<{seq: number, result: number, errMs: string}>
+
   getAlbumList(queryInfo: {
     qun_id: string,
     seq: number,
