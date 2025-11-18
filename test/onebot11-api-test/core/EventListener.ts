@@ -1,15 +1,20 @@
 import WebSocket from 'ws';
+import axios from 'axios';
 import { ApiClient, TimeoutError } from './ApiClient.js';
 
 /**
  * 事件过滤器接口
  */
 export interface EventFilter {
-  type?: string;
-  userId?: string;
-  groupId?: string;
-  messageId?: string;
-  [key: string]: any; // 支持其他自定义过滤条件
+  post_type?: string;
+  sub_type?: string;
+  message_type?: string;
+  notice_type?: string;
+  request_type?: string;
+  user_id?: string | number;
+  group_id?: string | number;
+  message_id?: string | number;
+  [key: string]: any;
 }
 
 /**
@@ -19,16 +24,25 @@ export interface OB11Event {
   time: number;
   self_id: number;
   post_type: string;
+  sub_type?: string;
+  message_type?: string;
+  notice_type?: string;
+  request_type?: string;
+  user_id?: number;
+  group_id?: number;
+  message_id?: number;
   [key: string]: any;
 }
 
 /**
  * 事件监听器
- * 监听 WebSocket 事件并支持事件过滤和超时机制
+ * 支持 HTTP SSE 和 WebSocket 两种协议监听事件
  */
 export class EventListener {
   private client: ApiClient;
+  private protocol: 'http' | 'ws';
   private ws: WebSocket | null = null;
+  private sseAbortController: AbortController | null = null;
   private listening: boolean = false;
   private eventQueue: OB11Event[] = [];
   private eventHandlers: Array<{
@@ -44,21 +58,97 @@ export class EventListener {
    */
   constructor(client: ApiClient) {
     this.client = client;
+    const config = this.client.getConfig();
+    this.protocol = config.protocol;
   }
 
   /**
    * 开始监听事件
-   * 建立 WebSocket 连接并开始接收事件
    */
   async startListening(): Promise<void> {
     if (this.listening) {
       return;
     }
 
-    // 获取客户端配置
-    const config = this.client.getConfig();
+    if (this.protocol === 'http') {
+      await this.startHttpSseListening();
+    } else {
+      await this.startWebSocketListening();
+    }
+  }
 
-    // 将 http:// 或 https:// 转换为 ws:// 或 wss://
+  /**
+   * 开始 HTTP SSE 监听
+   */
+  private async startHttpSseListening(): Promise<void> {
+    const config = this.client.getConfig();
+    const sseUrl = `${config.host}/_events`;
+
+    this.sseAbortController = new AbortController();
+    this.listening = true;
+
+    try {
+      const headers: any = {
+        'Accept': 'text/event-stream',
+      };
+      if (config.apiKey) {
+        headers['Authorization'] = `Bearer ${config.apiKey}`;
+      }
+
+      const response = await axios.get(sseUrl, {
+        headers,
+        responseType: 'stream',
+        signal: this.sseAbortController.signal,
+      });
+
+      const stream = response.data;
+      let buffer = '';
+
+      stream.on('data', (chunk: Buffer) => {
+        buffer += chunk.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const eventData = line.substring(6);
+              const event = JSON.parse(eventData) as OB11Event;
+              this.handleEvent(event);
+            } catch (error) {
+              console.error('Failed to parse SSE event:', error);
+            }
+          }
+        }
+      });
+
+      stream.on('end', () => {
+        this.listening = false;
+        this.sseAbortController = null;
+      });
+
+      stream.on('error', (error: Error) => {
+        if (process.env.NODE_ENV !== 'test') {
+          console.error('SSE stream error:', error);
+        }
+        this.listening = false;
+        this.sseAbortController = null;
+      });
+
+    } catch (error) {
+      this.listening = false;
+      this.sseAbortController = null;
+      throw error;
+    }
+  }
+
+  /**
+   * 开始 WebSocket 监听
+   */
+  private async startWebSocketListening(): Promise<void> {
+    const config = this.client.getConfig();
+    
+    // 构建 WebSocket URL
     let wsUrl = config.host;
     if (wsUrl.startsWith('http://')) {
       wsUrl = wsUrl.replace('http://', 'ws://');
@@ -68,15 +158,13 @@ export class EventListener {
       wsUrl = 'ws://' + wsUrl;
     }
 
-    // 添加事件监听路径（如果需要）
-    // 某些 OneBot 实现可能需要特定的路径来接收事件
-    if (!wsUrl.includes('/event')) {
-      wsUrl = wsUrl + '/event';
+    // WebSocket 连接到根路径 /
+    if (!wsUrl.endsWith('/')) {
+      wsUrl = wsUrl + '/';
     }
 
     return new Promise((resolve, reject) => {
       try {
-        // 创建 WebSocket 连接
         const headers: any = {};
         if (config.apiKey) {
           headers['Authorization'] = `Bearer ${config.apiKey}`;
@@ -84,26 +172,23 @@ export class EventListener {
 
         this.ws = new WebSocket(wsUrl, { headers });
 
-        // 连接成功
         this.ws.on('open', () => {
           this.listening = true;
           if (process.env.NODE_ENV !== 'test') {
-            console.log(`EventListener connected to ${wsUrl}`);
+            console.log(`EventListener WebSocket connected to ${wsUrl}`);
           }
           resolve();
         });
 
-        // 接收消息（事件）
         this.ws.on('message', (data: WebSocket.Data) => {
           try {
             const event = JSON.parse(data.toString()) as OB11Event;
             this.handleEvent(event);
           } catch (error) {
-            console.error('Failed to parse event:', error);
+            console.error('Failed to parse WebSocket event:', error);
           }
         });
 
-        // 连接错误
         this.ws.on('error', (error: Error) => {
           if (process.env.NODE_ENV !== 'test') {
             console.error('EventListener WebSocket error:', error);
@@ -112,7 +197,6 @@ export class EventListener {
           reject(error);
         });
 
-        // 连接关闭
         this.ws.on('close', () => {
           if (process.env.NODE_ENV !== 'test') {
             console.log('EventListener WebSocket connection closed');
@@ -132,7 +216,7 @@ export class EventListener {
         setTimeout(() => {
           if (!this.listening && this.ws) {
             this.ws.terminate();
-            reject(new TimeoutError('EventListener connection timeout', 10000));
+            reject(new TimeoutError('WebSocket connection timeout', 10000));
           }
         }, 10000);
       } catch (error) {
@@ -143,25 +227,25 @@ export class EventListener {
 
   /**
    * 停止监听事件
-   * 关闭 WebSocket 连接
    */
   stopListening(): void {
-    if (this.ws) {
-      // 清理所有待处理的事件处理器
-      this.eventHandlers.forEach((handler) => {
-        clearTimeout(handler.timeout);
-        handler.reject(new Error('EventListener stopped'));
-      });
-      this.eventHandlers = [];
-
-      // 清空事件队列
-      this.eventQueue = [];
-
-      // 关闭连接
+    if (this.protocol === 'http' && this.sseAbortController) {
+      this.sseAbortController.abort();
+      this.sseAbortController = null;
+    } else if (this.protocol === 'ws' && this.ws) {
       this.ws.close();
       this.ws = null;
     }
 
+    // 清理所有待处理的事件处理器
+    this.eventHandlers.forEach((handler) => {
+      clearTimeout(handler.timeout);
+      handler.reject(new Error('EventListener stopped'));
+    });
+    this.eventHandlers = [];
+
+    // 清空事件队列
+    this.eventQueue = [];
     this.listening = false;
   }
 
@@ -192,45 +276,62 @@ export class EventListener {
    * @returns 是否匹配
    */
   private matchesFilter(event: OB11Event, filter: EventFilter): boolean {
-    // 检查事件类型
-    if (filter.type !== undefined) {
-      // 支持多种类型匹配方式
-      if (event.post_type !== filter.type) {
-        // 也检查更具体的类型字段
-        const eventType = this.getEventType(event);
-        if (eventType !== filter.type) {
-          return false;
-        }
-      }
+    // 检查 post_type
+    if (filter.post_type !== undefined && event.post_type !== filter.post_type) {
+      return false;
     }
 
-    // 检查用户 ID
-    if (filter.userId !== undefined) {
-      const userId = this.getUserId(event);
-      if (userId !== filter.userId && userId !== String(filter.userId)) {
+    // 检查 sub_type
+    if (filter.sub_type !== undefined && event.sub_type !== filter.sub_type) {
+      return false;
+    }
+
+    // 检查 message_type
+    if (filter.message_type !== undefined && event.message_type !== filter.message_type) {
+      return false;
+    }
+
+    // 检查 notice_type
+    if (filter.notice_type !== undefined && event.notice_type !== filter.notice_type) {
+      return false;
+    }
+
+    // 检查 request_type
+    if (filter.request_type !== undefined && event.request_type !== filter.request_type) {
+      return false;
+    }
+
+    // 检查 user_id
+    if (filter.user_id !== undefined) {
+      const filterUserId = String(filter.user_id);
+      const eventUserId = String(event.user_id || event.sender?.user_id || '');
+      if (eventUserId !== filterUserId) {
         return false;
       }
     }
 
-    // 检查群 ID
-    if (filter.groupId !== undefined) {
-      const groupId = this.getGroupId(event);
-      if (groupId !== filter.groupId && groupId !== String(filter.groupId)) {
+    // 检查 group_id
+    if (filter.group_id !== undefined) {
+      const filterGroupId = String(filter.group_id);
+      const eventGroupId = String(event.group_id || '');
+      if (eventGroupId !== filterGroupId) {
         return false;
       }
     }
 
-    // 检查消息 ID
-    if (filter.messageId !== undefined) {
-      const messageId = this.getMessageId(event);
-      if (messageId !== filter.messageId && messageId !== String(filter.messageId)) {
+    // 检查 message_id
+    if (filter.message_id !== undefined) {
+      const filterMessageId = String(filter.message_id);
+      const eventMessageId = String(event.message_id || '');
+      if (eventMessageId !== filterMessageId) {
         return false;
       }
     }
 
     // 检查其他自定义过滤条件
     for (const key in filter) {
-      if (key !== 'type' && key !== 'userId' && key !== 'groupId' && key !== 'messageId') {
+      if (!['post_type', 'sub_type', 'message_type', 'notice_type', 'request_type', 
+            'user_id', 'group_id', 'message_id'].includes(key)) {
         if (event[key] !== filter[key]) {
           return false;
         }
@@ -238,59 +339,6 @@ export class EventListener {
     }
 
     return true;
-  }
-
-  /**
-   * 获取事件的完整类型
-   * @param event 事件对象
-   * @returns 事件类型字符串
-   */
-  private getEventType(event: OB11Event): string {
-    let type = event.post_type;
-
-    // 对于消息事件，添加消息类型
-    if (event.post_type === 'message' && event.message_type) {
-      type = `${type}.${event.message_type}`;
-    }
-
-    // 对于通知事件，添加通知类型
-    if (event.post_type === 'notice' && event.notice_type) {
-      type = `${type}.${event.notice_type}`;
-    }
-
-    // 对于请求事件，添加请求类型
-    if (event.post_type === 'request' && event.request_type) {
-      type = `${type}.${event.request_type}`;
-    }
-
-    return type;
-  }
-
-  /**
-   * 从事件中提取用户 ID
-   * @param event 事件对象
-   * @returns 用户 ID
-   */
-  private getUserId(event: OB11Event): string | undefined {
-    return String(event.user_id || event.sender?.user_id || undefined);
-  }
-
-  /**
-   * 从事件中提取群 ID
-   * @param event 事件对象
-   * @returns 群 ID
-   */
-  private getGroupId(event: OB11Event): string | undefined {
-    return String(event.group_id || undefined);
-  }
-
-  /**
-   * 从事件中提取消息 ID
-   * @param event 事件对象
-   * @returns 消息 ID
-   */
-  private getMessageId(event: OB11Event): string | undefined {
-    return String(event.message_id || undefined);
   }
 
   /**

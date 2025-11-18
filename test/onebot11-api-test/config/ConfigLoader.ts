@@ -8,6 +8,7 @@ export interface AccountConfig {
   host: string;
   apiKey: string;
   protocol: 'http' | 'ws';
+  user_id: string;
 }
 
 /**
@@ -18,6 +19,7 @@ export interface TestConfig {
     primary: AccountConfig;
     secondary: AccountConfig;
   };
+  test_group_id?: string;
   timeout: number;
   retryAttempts: number;
 }
@@ -165,6 +167,9 @@ export class ConfigLoader {
     }
     if (!accountConfig.protocol) {
       missingFields.push(`${prefix}.protocol`);
+    }
+    if (!accountConfig.user_id) {
+      missingFields.push(`${prefix}.user_id`);
     }
   }
 }

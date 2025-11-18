@@ -3,14 +3,17 @@
     "primary": {
       "host": "http://localhost:3000",
       "apiKey": "your-api-key-1",
-      "protocol": "http"
+      "protocol": "http",
+      "user_id": "123456789"
     },
     "secondary": {
       "host": "http://localhost:3001",
       "apiKey": "your-api-key-2",
-      "protocol": "ws"
+      "protocol": "ws",
+      "user_id": "987654321"
     }
   },
+  "test_group_id": "111222333",
   "timeout": 30000,
   "retryAttempts": 3
 }
