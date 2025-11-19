@@ -1,6 +1,8 @@
 import WebSocket from 'ws';
 import axios from 'axios';
 import { ApiClient, TimeoutError } from './ApiClient.js';
+// 使用源码中定义的事件类型，避免重复定义
+import type { OB11Event } from '../../../src/onebot11/event/index.js';
 
 /**
  * 事件过滤器接口
@@ -17,22 +19,8 @@ export interface EventFilter {
   [key: string]: any;
 }
 
-/**
- * OneBot11 事件接口
- */
-export interface OB11Event {
-  time: number;
-  self_id: number;
-  post_type: string;
-  sub_type?: string;
-  message_type?: string;
-  notice_type?: string;
-  request_type?: string;
-  user_id?: number;
-  group_id?: number;
-  message_id?: number;
-  [key: string]: any;
-}
+// 重新导出事件类型供外部使用
+export type { OB11Event };
 
 /**
  * 事件监听器

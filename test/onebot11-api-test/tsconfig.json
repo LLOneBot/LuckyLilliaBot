@@ -14,11 +14,11 @@
     "declarationMap": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "rootDir": "./",
     "types": ["jest", "node"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@llonebot/*": ["../../src/*"]
     }
   },
   "include": [
