@@ -35,7 +35,7 @@ describe('send_group_msg - 发送群消息', () => {
   it('测试发送群文本消息', async () => {
     // 在发送消息前清空队列，避免匹配到旧消息
     context.twoAccountTest.clearAllQueues();
-    
+
     const primaryClient = context.twoAccountTest.getClient('primary');
 
     // 测试数组格式
@@ -88,7 +88,7 @@ describe('send_group_msg - 发送群消息', () => {
   it('测试发送群图片消息', async () => {
     // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
-    
+
     const primaryClient = context.twoAccountTest.getClient('primary');
 
     // 测试数组格式
@@ -152,7 +152,7 @@ describe('send_group_msg - 发送群消息', () => {
   it('测试发送群语音消息', async () => {
     // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
-    
+
     const primaryClient = context.twoAccountTest.getClient('primary');
 
     // 测试数组格式
@@ -210,7 +210,7 @@ describe('send_group_msg - 发送群消息', () => {
   it('测试发送群视频消息', async () => {
     // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
-    
+
     const primaryClient = context.twoAccountTest.getClient('primary');
 
     // 测试数组格式
@@ -265,10 +265,10 @@ describe('send_group_msg - 发送群消息', () => {
     }, 150000);
   }, 60000);
 
-  it('测试发送 @ 消息', async () => {
+  it('测试发送群聊 @ 消息', async () => {
     // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
-    
+
     const primaryClient = context.twoAccountTest.getClient('primary');
 
     // 测试数组格式
@@ -331,10 +331,10 @@ describe('send_group_msg - 发送群消息', () => {
     });
   }, 60000);
 
-  it('测试发送回复消息', async () => {
+  it('测试发送群聊回复消息', async () => {
     // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
-    
+
     const primaryClient = context.twoAccountTest.getClient('primary');
 
     // 先发送一条消息
@@ -414,10 +414,10 @@ describe('send_group_msg - 发送群消息', () => {
     });
   }, 60000);
 
-  it('测试发送混合消息 (文本 + @ + 图片)', async () => {
+  it('测试发送群聊混合消息 (文本 + @ + 图片)', async () => {
     // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
-    
+
     const testMessage: OB11MessageData[] = [
       {
         type: OB11MessageDataType.At,

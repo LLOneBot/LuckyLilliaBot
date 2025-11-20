@@ -244,7 +244,7 @@ describe('send_private_msg - 发送私聊消息', () => {
     }, 150000);
   }, 60000);
 
-  it('测试发送回复消息', async () => {
+  it('测试发送私聊回复消息', async () => {
     // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
 
@@ -319,7 +319,7 @@ describe('send_private_msg - 发送私聊消息', () => {
     });
   }, 60000);
 
-  it('测试发送混合消息 (文本 + 图片)', async () => {
+  it('测试发送私聊混合消息 (文本 + 图片)', async () => {
     // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
 
