@@ -6,7 +6,7 @@ interface Payload {
   emoji_id: number | string
 }
 
-export class SetMsgEmojiLike extends BaseAction<Payload, unknown> {
+export class SetMsgEmojiLike extends BaseAction<Payload, null> {
   actionName = ActionName.SetMsgEmojiLike
   payloadSchema = Schema.object({
     message_id: Schema.union([Number, String]).required(),
@@ -23,12 +23,16 @@ export class SetMsgEmojiLike extends BaseAction<Payload, unknown> {
     if (!msgData || msgData.length == 0 || !msgData[0].msgSeq) {
       throw new Error('find msg by msgid error')
     }
-    return await this.ctx.ntMsgApi.setEmojiLike(
+    const res = await this.ctx.ntMsgApi.setEmojiLike(
       msg.peer,
       msgData[0].msgSeq,
       payload.emoji_id.toString(),
       this.set
     )
+    if (res.result !== 0) {
+      throw new Error(res.errMsg)
+    }
+    return null
   }
 }
 

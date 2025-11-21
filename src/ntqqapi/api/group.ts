@@ -40,12 +40,8 @@ export class NTQQGroupApi extends Service {
     return result[1]
   }
 
-  async getGroupMembers(groupCode: string, forceFetch: boolean = true): Promise<Map<string, GroupMember>> {
-    const data = await invoke(NTMethod.GROUP_MEMBERS, [groupCode, forceFetch])
-    if (data.errCode !== 0) {
-      throw new Error('获取群成员列表出错, ' + data.errMsg)
-    }
-    return data.result.infos
+  async getGroupMembers(groupCode: string, forceFetch: boolean = true) {
+    return await invoke(NTMethod.GROUP_MEMBERS, [groupCode, forceFetch])
   }
 
   async getGroupMember(groupCode: string, uid: string, forceUpdate = false) {
@@ -135,7 +131,7 @@ export class NTQQGroupApi extends Service {
   }
 
   async setGroupName(groupCode: string, groupName: string) {
-    return await invoke(NTMethod.SET_GROUP_NAME, [groupCode, groupName, false])
+    return await invoke(NTMethod.SET_GROUP_NAME, [groupCode, groupName, true])
   }
 
   async getGroupRemainAtTimes(groupCode: string) {

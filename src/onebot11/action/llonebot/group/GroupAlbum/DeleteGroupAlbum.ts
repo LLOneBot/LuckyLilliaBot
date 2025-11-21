@@ -16,7 +16,7 @@ export class DeleteGroupAlbum extends BaseAction<Payload, null> {
   protected async _handle(payload: Payload) {
     const res = await this.ctx.ntGroupApi.deleteGroupAlbum(payload.group_id.toString(), payload.album_id)
     if (res.result !== 0) {
-      throw new Error(`CreateGroupAlbum failed: ${res.errMs}`)
+      throw new Error(res.errMs)
     }
     return null
   }

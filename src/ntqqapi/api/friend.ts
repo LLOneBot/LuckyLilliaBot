@@ -34,30 +34,7 @@ export class NTQQFriendApi extends Service {
   }
 
   async getBuddyV2(forceRefresh: boolean) {
-    const res = await invoke('nodeIKernelBuddyService/getBuddyListV2', [forceRefresh, 0])
-    const uids = res.data.filter(e => e.categoryId !== 9999).flatMap(e => e.buddyUids)
-    return await this.ctx.ntUserApi.getCoreAndBaseInfo(uids)
-  }
-
-  async getBuddyV2WithCate(refresh = false): Promise<CategoryFriend[]> {
-    const categoryData = (await invoke<{ data: CategoryFriend[] }>(
-      'nodeIKernelBuddyService/getBuddyListV2',
-      [refresh, 0],
-      {
-      },
-    )).data
-    const buddyList = await this.getBuddyList();
-    const buddyMap = new Map<string, SimpleInfo>();
-    for (const buddy of buddyList) {
-      buddyMap.set(buddy.uid!, buddy)
-    }
-    for (const category of categoryData) {
-      category.buddyList = []
-      for (const uid of category.buddyUids) {
-        category.buddyList.push(buddyMap.get(uid)!)
-      }
-    }
-    return categoryData
+    return await invoke('nodeIKernelBuddyService/getBuddyListV2', [forceRefresh, 0])
   }
 
   async isBuddy(uid: string): Promise<boolean> {

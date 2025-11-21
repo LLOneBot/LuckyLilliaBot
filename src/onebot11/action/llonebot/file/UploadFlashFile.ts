@@ -37,10 +37,13 @@ export class UploadFlashFile extends BaseAction<Payload, Response> {
       }),
     )
     const res = await this.ctx.ntFileApi.uploadFlashFile(title, localPaths)
+    if (res.result !== 0) {
+      throw new Error(res.result)
+    }
     return {
-      file_set_id: res.fileSetId,
-      share_link: res.shareLink,
-      expire_time: parseInt(res.expireTime),
+      file_set_id: res.createFlashTransferResult.fileSetId,
+      share_link: res.createFlashTransferResult.shareLink,
+      expire_time: parseInt(res.createFlashTransferResult.expireTime),
     }
   }
 }

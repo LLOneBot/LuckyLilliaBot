@@ -33,7 +33,11 @@ export class GetFlashFileInfoBase<R> extends BaseAction<GetFlashFilePayload, R> 
         throw new Error('分享链接格式不正确')
       }
       const code = match[1]
-      file_set_id = await this.ctx.ntFileApi.getFlashFileSetIdByCode(code)
+      const res = await this.ctx.ntFileApi.getFlashFileSetIdByCode(code)
+      if (res.result !== 0) {
+        throw new Error(`获取闪传文件 fileSetId 失败: ${res.errMsg}`)
+      }
+      file_set_id = res.fileSetId
     }
     if (!file_set_id) {
       throw new Error('请提供有效的 share_link 或 file_set_id')

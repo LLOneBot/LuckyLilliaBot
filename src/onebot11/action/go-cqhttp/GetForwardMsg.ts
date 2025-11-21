@@ -42,7 +42,7 @@ export class GetForwardMsg extends BaseAction<Payload, Response> {
       peerUid: multiMsgInfo[0].peerUid
     } : msgInfo.peer
     const data = await this.ctx.ntMsgApi.getMultiMsg(peer, rootMsgId, msgInfo.msgId)
-    if (data?.result !== 0) {
+    if (data.result !== 0) {
       if (data.result === 2) {
         const res = await this.ctx.ntMsgApi.getMsgsByMsgId(msgInfo.peer, [msgInfo.msgId])
         if (res.msgList.length === 0) {
@@ -59,7 +59,7 @@ export class GetForwardMsg extends BaseAction<Payload, Response> {
           }
         }
       }
-      throw Error('找不到相关的聊天记录' + data?.errMsg)
+      throw new Error(data.errMsg)
     }
     const messages: (OB11ForwardMessage | undefined)[] = await Promise.all(
       data.msgList.map(async (msg) => {

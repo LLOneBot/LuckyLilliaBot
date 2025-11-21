@@ -101,7 +101,7 @@ async function onLoad() {
   // 有这个事件表示登录成功了
   registerReceiveHook(ReceiveCmdS.INIT, (data: [code: number, unknown: string, uid: string]) => {
     ctx.logger.info('WrapperSession init complete')
-    if (selfInfo.online){ // 已经登录成功说明不再需要重复 init
+    if (selfInfo.online) { // 已经登录成功说明不再需要重复 init
       return
     }
     selfInfo.uid = data[2]
@@ -151,8 +151,11 @@ async function onLoad() {
     selfInfo.uin = pmhqSelfInfo.uin
     selfInfo.uid = pmhqSelfInfo.uid
     selfInfo.online = true
-    ctx.ntUserApi.fetchUserDetailInfo(selfInfo.uid).then(userInfo => {
-      selfInfo.nick = userInfo.simpleInfo.coreInfo.nick
+    ctx.ntUserApi.fetchUserDetailInfo(selfInfo.uid).then(res => {
+      if (res.result !== 0) {
+        throw new Error(res.errMsg)
+      }
+      selfInfo.nick = res.detail.get(selfInfo.uid)!.simpleInfo.coreInfo.nick
     }).catch(e => {
       ctx.logger.warn('获取登录号昵称失败', e)
     })

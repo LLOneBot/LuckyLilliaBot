@@ -27,6 +27,9 @@ export class GetStrangerInfo extends BaseAction<Payload, Response> {
   protected async _handle(payload: Payload) {
     const uin = payload.user_id.toString()
     const data = await this.ctx.ntUserApi.getUserDetailInfoByUin(uin)
+    if (data.result !== 0) {
+      throw new Error(data.errMsg)
+    }
     const loginDays = await this.ctx.app.pmhq.fetchUserLoginDays(+uin)
     const resp: Response = {
       user_id: parseInt(data.detail.uin) || 0,

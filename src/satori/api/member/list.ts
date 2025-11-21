@@ -8,8 +8,11 @@ interface Payload {
 }
 
 export const getGuildMemberList: Handler<List<GuildMember>, Payload> = async (ctx, payload) => {
-  const members = await ctx.ntGroupApi.getGroupMembers(payload.guild_id)
+  const res = await ctx.ntGroupApi.getGroupMembers(payload.guild_id)
+  if (res.errCode !== 0) {
+    throw new Error(res.errMsg)
+  }
   return {
-    data: Array.from(members.values()).map(decodeGuildMember)
+    data: res.result.infos.values().map(decodeGuildMember).toArray()
   }
 }

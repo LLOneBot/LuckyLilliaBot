@@ -22,7 +22,7 @@ export class CreateGroupAlbum extends BaseAction<Payload, unknown> {
       payload.desc,
     )
     if (res.result !== 0) {
-      throw new Error(`CreateGroupAlbum failed: ${res.errMs}`)
+      throw new Error(res.errMs)
     }
     return res.album_info
   }

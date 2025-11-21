@@ -21,7 +21,10 @@ export default class SetGroupKick extends BaseAction<Payload, null> {
     const uin = payload.user_id.toString()
     const uid = await this.ctx.ntUserApi.getUidByUin(uin, groupCode)
     if (!uid) throw new Error('无法获取用户信息')
-    await this.ctx.ntGroupApi.kickMember(groupCode, [uid], payload.reject_add_request)
+    const res = await this.ctx.ntGroupApi.kickMember(groupCode, [uid], payload.reject_add_request)
+    if (res.errCode !== 0) {
+      throw new Error(res.errMsg)
+    }
     return null
   }
 }

@@ -1,7 +1,7 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 import { unlink } from 'fs/promises'
-import { checkFileReceived, uri2local } from '@/common/utils/file'
+import { uri2local } from '@/common/utils/file'
 
 interface Payload {
   group_id: number | string
@@ -30,12 +30,11 @@ export class SendGroupNotice extends BaseAction<Payload, null> {
     if (payload.image) {
       const { path, isLocal, success, errMsg } = await uri2local(this.ctx, payload.image, true)
       if (!success) {
-        throw new Error(`设置群公告失败, 错误信息: uri2local: ${errMsg}`)
+        throw new Error(`获取图片文件失败, 错误信息: ${errMsg}`)
       }
-      await checkFileReceived(path, 5000) // 文件不存在QQ会崩溃，需要提前判断
       const result = await this.ctx.ntGroupApi.uploadGroupBulletinPic(groupCode, path)
       if (result.errCode !== 0) {
-        throw new Error(`设置群公告失败, 错误信息: uploadGroupBulletinPic: ${result.errMsg}`)
+        throw new Error(`上传群公告图片失败, 错误信息: ${result.errMsg}`)
       }
       if (!isLocal) {
         unlink(path).then().catch(e=>{})

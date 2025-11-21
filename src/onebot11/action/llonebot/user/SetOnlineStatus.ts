@@ -22,8 +22,7 @@ export class SetOnlineStatus extends BaseAction<Payload, null> {
       Number(payload.battery_status),
     )
     if (ret.result !== 0) {
-      this.ctx.logger.error(ret)
-      throw new Error('设置在线状态失败')
+      throw new Error(ret.errMsg)
     }
     return null
   }

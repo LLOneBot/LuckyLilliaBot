@@ -50,7 +50,7 @@ export class NTQQUserApi extends Service {
       async () => {
         if (groupCode) {
           const groupMembers = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
-          return groupMembers.values().find(e => e.uin === uin)?.uid
+          return groupMembers.result.infos.values().find(e => e.uin === uin)?.uid
         }
       }
     ]
@@ -84,7 +84,7 @@ export class NTQQUserApi extends Service {
         return uin
       },
       async () => {
-        const uin = (await this.fetchUserDetailInfo(uid))?.uin
+        const uin = (await this.fetchUserDetailInfo(uid)).detail.get(uid)?.uin
         this.ctx.logger.info('fetchUserDetailInfo', uin)
         return uin
       },
@@ -107,7 +107,7 @@ export class NTQQUserApi extends Service {
 
   // 这个会从服务器拉取，比较可靠
   async fetchUserDetailInfo(uid: string) {
-    const result = await invoke(
+    return await invoke(
       'nodeIKernelProfileService/fetchUserDetailInfo',
       [
         'BuddyProfileStore', // callFrom
@@ -116,7 +116,6 @@ export class NTQQUserApi extends Service {
         [ProfileBizType.KALL], //bizList
       ],
     )
-    return result.detail.get(uid)!
   }
 
   async getUserDetailInfoWithBizInfo(uid: string) {
@@ -248,7 +247,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getRobotUinRange() {
-    const data = await invoke(
+    return await invoke(
       'nodeIKernelRobotService/getRobotUinRange',
       [
         {
@@ -259,7 +258,6 @@ export class NTQQUserApi extends Service {
         },
       ],
     )
-    return data.response.robotUinRanges
   }
 
   async quitAccount() {
@@ -281,7 +279,7 @@ export class NTQQUserApi extends Service {
     const funcs = [
       () => this.getUserSimpleInfo(uid, false),
       () => this.getUserSimpleInfo(uid, true),
-      async () => (await this.fetchUserDetailInfo(uid)).simpleInfo,
+      async () => (await this.fetchUserDetailInfo(uid)).detail.get(uid)?.simpleInfo,
       async () => (await this.getUserDetailInfoWithBizInfo(uid)).simpleInfo,
       async () => (await this.getCoreAndBaseInfo([uid])).get(uid)
     ]

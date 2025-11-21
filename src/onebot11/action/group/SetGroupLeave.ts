@@ -13,7 +13,10 @@ export default class SetGroupLeave extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    await this.ctx.ntGroupApi.quitGroup(payload.group_id.toString())
+    const res = await this.ctx.ntGroupApi.quitGroup(payload.group_id.toString())
+    if (res.result !== 0) {
+      throw new Error(res.errMsg)
+    }
     return null
   }
 }

@@ -5,7 +5,7 @@ interface Payload {
   message_id: number | string
 }
 
-export class DeleteEssenceMsg extends BaseAction<Payload, unknown> {
+export class DeleteEssenceMsg extends BaseAction<Payload, null> {
   actionName = ActionName.GoCQHTTP_DeleteEssenceMsg
   payloadSchema = Schema.object({
     message_id: Schema.union([Number, String]).required()
@@ -16,9 +16,13 @@ export class DeleteEssenceMsg extends BaseAction<Payload, unknown> {
     if (!msg) {
       throw new Error('msg not found')
     }
-    return await this.ctx.ntGroupApi.removeGroupEssence(
+    const res = await this.ctx.ntGroupApi.removeGroupEssence(
       msg.peer.peerUid,
       msg.msgId,
     )
+    if (res.errCode !== 0) {
+      throw new Error(res.errMsg)
+    }
+    return null
   }
 }

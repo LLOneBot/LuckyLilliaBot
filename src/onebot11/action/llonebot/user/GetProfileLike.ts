@@ -23,6 +23,9 @@ export class GetProfileLike extends BaseAction<Payload, Response> {
 
   async _handle(payload: Payload) {
     const ret = await this.ctx.ntUserApi.getProfileLike(selfInfo.uid, +payload.start, +payload.count)
+    if (ret.result !== 0) {
+      throw new Error(ret.errMsg)
+    }
     const users = ret.info.userLikeInfos[0].favoriteInfo.userInfos
     for (const item of users) {
       try {

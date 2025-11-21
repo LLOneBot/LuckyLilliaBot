@@ -228,7 +228,7 @@ export class NTQQFileApi extends Service {
   }
 
   async uploadFlashFile(title: string, filePaths: string[]) {
-    const res = await invoke('nodeIKernelFlashTransferService/createFlashTransferUploadTask',
+    return await invoke('nodeIKernelFlashTransferService/createFlashTransferUploadTask',
       [
         new Date().getTime(),
         {
@@ -258,23 +258,16 @@ export class NTQQFileApi extends Service {
         },
       ],
     )
-    if (res.result !== 0) {
-      throw new Error(`创建闪传上传任务失败: ${res.result}`)
-    }
-    return res.createFlashTransferResult
   }
 
   async downloadFlashFile(fileSetId: string, sceneType: number = 1) {
-    const res = await invoke('nodeIKernelFlashTransferService/startFileSetDownload',
+    return await invoke('nodeIKernelFlashTransferService/startFileSetDownload',
       [
         fileSetId,
         sceneType,
         { isIncludeCompressInnerFiles: false },
       ],
     )
-    if (res.result !== 0) {
-      throw new Error(`下载闪传文件失败: ${res.errMsg}`)
-    }
   }
 
   flashFileListCache = new Map<string, FlashFileListItem[]>()
@@ -329,13 +322,9 @@ export class NTQQFileApi extends Service {
 
   async getFlashFileSetIdByCode(code: string) {
     // code 是 qfile.qq.com/q/ 后面的部分
-    const res = await invoke('nodeIKernelFlashTransferService/getFileSetIdByCode',
+    return await invoke('nodeIKernelFlashTransferService/getFileSetIdByCode',
       [code],
     )
-    if (res.result !== 0) {
-      throw new Error(`获取闪传文件 fileSetId 失败: ${res.errMsg}`)
-    }
-    return res.fileSetId
   }
 
   flashFileInfoCache = new Map<string, FlashFileSetInfo>()

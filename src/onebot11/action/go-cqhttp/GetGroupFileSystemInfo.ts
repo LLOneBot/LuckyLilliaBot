@@ -20,13 +20,19 @@ export class GetGroupFileSystemInfo extends BaseAction<Payload, Response> {
 
   async _handle(payload: Payload) {
     const groupId = payload.group_id.toString()
-    const { groupFileCounts } = await this.ctx.ntGroupApi.getGroupFileCount(groupId)
-    const { groupSpaceResult } = await this.ctx.ntGroupApi.getGroupFileSpace(groupId)
+    const fileCount = await this.ctx.ntGroupApi.getGroupFileCount(groupId)
+    if (fileCount.result !== 0) {
+      throw new Error(fileCount.errMsg)
+    }
+    const fileSpace = await this.ctx.ntGroupApi.getGroupFileSpace(groupId)
+    if (fileSpace.result !== 0) {
+      throw new Error(fileSpace.errMsg)
+    }
     return {
-      file_count: groupFileCounts[0],
+      file_count: fileCount.groupFileCounts[0],
       limit_count: 10000,
-      used_space: +groupSpaceResult.usedSpace,
-      total_space: +groupSpaceResult.totalSpace,
+      used_space: +fileSpace.groupSpaceResult.usedSpace,
+      total_space: +fileSpace.groupSpaceResult.totalSpace,
     }
   }
 }
