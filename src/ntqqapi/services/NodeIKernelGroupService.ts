@@ -126,9 +126,59 @@ export interface NodeIKernelGroupService {
 
   getGroupRecommendContactArkJson(groupCode: string): Promise<GeneralCallResult & { arkJson: string }>
 
-  addGroupEssence(param: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<unknown>
+  addGroupEssence(req: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<{
+    errCode: number
+    errMsg: string
+    result: {
+      wording: string
+      digestUin: string
+      digestTime: number
+      msg: {
+        groupCode: string
+        msgSeq: number
+        msgRandom: number
+        msgContent: unknown[]
+        textSize: string
+        picSize: string
+        videoSize: string
+        senderUin: string
+        senderTime: number
+        addDigestUin: string
+        addDigestTime: number
+        startTime: number
+        latestMsgSeq: number
+        opType: number
+      },
+      errorCode: number
+    }
+  }>
 
-  removeGroupEssence(param: { groupCode: string, msgRandom: number, msgSeq: number }): Promise<unknown>
+  removeGroupEssence(req: { groupCode: string, msgSeq: number, msgRandom: number }): Promise<{
+    errCode: number
+    errMsg: string
+    result: {
+      wording: string
+      digestUin: string
+      digestTime: number
+      msg: {
+        groupCode: string
+        msgSeq: number
+        msgRandom: number
+        msgContent: unknown[]
+        textSize: string
+        picSize: string
+        videoSize: string
+        senderUin: string
+        senderTime: number
+        addDigestUin: string
+        addDigestTime: number
+        startTime: number
+        latestMsgSeq: number
+        opType: number
+      },
+      errorCode: number
+    }
+  }>
 
   setHeader(path: string, groupCode: string): Promise<GeneralCallResult>
 

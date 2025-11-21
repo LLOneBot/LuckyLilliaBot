@@ -1,52 +1,56 @@
 interface AlbumInfo {
-  album_id: string;
-  owner: string;
-  name: string;
-  desc: string;
-  create_time: string;
-  modify_time: string;
-  last_upload_time: string;
-  upload_number: string;
-  cover: null | string;
-  creator: null | string;
-  top_flag: string;
-  busi_type: number;
-  status: number;
-  permission: null | string;
-  allow_share: boolean;
-  is_subscribe: boolean;
-  bitmap: string;
-  is_share_album: boolean;
-  share_album: null | string;
-  qz_album_type: number;
-  family_album: null | string;
-  lover_album: null | string;
-  cover_type: number;
-  travel_album: null | string;
-  visitor_info: null | string;
-  default_desc: string;
-  op_info: null | string;
-  active_album: null | string;
-  memory_info: null | string;
-  sort_type: number;
+  album_id: string
+  owner: string
+  name: string
+  desc: string
+  create_time: string
+  modify_time: string
+  last_upload_time: string
+  upload_number: string
+  cover: null | string
+  creator: null | string
+  top_flag: string
+  busi_type: number
+  status: number
+  permission: null | string
+  allow_share: boolean
+  is_subscribe: boolean
+  bitmap: string
+  is_share_album: boolean
+  share_album: null | string
+  qz_album_type: number
+  family_album: null | string
+  lover_album: null | string
+  cover_type: number
+  travel_album: null | string
+  visitor_info: null | string
+  default_desc: string
+  op_info: null | string
+  active_album: null | string
+  memory_info: null | string
+  sort_type: number
 }
 
 export interface NodeIKernelAlbumService {
-  addAlbum(seq: number, albumInfo: {
+  addAlbum(seq: number, album_info: {
     owner: string, // groupId
     name: string,
     desc: string,
     createTime: '0'
   }): Promise<{
-    seq: number;
-    result: number;
-    errMs: string;
-    album_info: AlbumInfo;
+    seq: number
+    result: number
+    errMs: string
+    album_info: AlbumInfo
   }>
 
-  deleteAlbum(seq: number, groupCode: string, albumId: string): Promise<{seq: number, result: number, errMs: string}>
+  deleteAlbum(seq: number, group_id: string, album_id: string): Promise<{
+    seq: number
+    result: number
+    errMs: string
+  }>
 
-  getAlbumList(queryInfo: {
+  getAlbumList(request: {
     qun_id: string,
     seq: number,
     attach_info: '',
@@ -55,10 +59,33 @@ export interface NodeIKernelAlbumService {
     }
   }): Promise<{
     response: {
-      seq: number;
-      result: number;
-      errMs: string;
-      album_list: AlbumInfo[];
+      seq: number
+      result: number
+      errMs: string
+      trace_id: string
+      is_from_cache: boolean
+      request_time_line: {
+        request_invoke_time: string
+        request_send_time: string
+        response_recv_time: string
+        response_callback_time: string
+      }
+      album_list: AlbumInfo[]
+      attach_info: string
+      has_more: boolean
+      right: {
+        right: number[]
+        normal_upload: boolean
+      }
+      banner: {
+        id: string
+        img: string
+        color: string
+        text: string
+        action_url: string
+        interval_time: string
+        action_type: number
+      }
     }
   }>
 }
