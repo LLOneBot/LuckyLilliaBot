@@ -1,4 +1,4 @@
-import { BaseAction } from '../BaseAction'
+import { BaseAction, Schema } from '../BaseAction'
 import { OB11Message } from '../../types'
 import { OB11Entities } from '../../entities'
 import { ActionName } from '../types'
@@ -12,11 +12,11 @@ export type ReturnDataType = OB11Message
 
 class GetMsg extends BaseAction<PayloadType, OB11Message> {
   actionName = ActionName.GetMsg
+  payloadSchema = Schema.object({
+    message_id: Schema.union([Number, String]).required()
+  })
 
   protected async _handle(payload: PayloadType, config: ParseMessageConfig) {
-    if (!payload.message_id) {
-      throw new Error('参数message_id不能为空')
-    }
     const msgInfo = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
     if (!msgInfo) {
       throw new Error('消息不存在')

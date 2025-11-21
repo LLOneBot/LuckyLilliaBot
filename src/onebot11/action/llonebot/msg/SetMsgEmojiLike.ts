@@ -1,5 +1,5 @@
 import { ActionName } from '../../types'
-import { BaseAction } from '../../BaseAction'
+import { BaseAction, Schema } from '../../BaseAction'
 
 interface Payload {
   message_id: number | string
@@ -8,18 +8,16 @@ interface Payload {
 
 export class SetMsgEmojiLike extends BaseAction<Payload, unknown> {
   actionName = ActionName.SetMsgEmojiLike
+  payloadSchema = Schema.object({
+    message_id: Schema.union([Number, String]).required(),
+    emoji_id: Schema.union([Number, String]).required()
+  })
   set: boolean = true
 
   protected async _handle(payload: Payload) {
-    if (!payload.message_id) {
-      throw Error('message_id不能为空')
-    }
     const msg = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
     if (!msg) {
       throw new Error('msg not found')
-    }
-    if (!payload.emoji_id) {
-      throw new Error('emojiId not found')
     }
     const msgData = (await this.ctx.ntMsgApi.getMsgsByMsgId(msg.peer, [msg.msgId])).msgList
     if (!msgData || msgData.length == 0 || !msgData[0].msgSeq) {
@@ -34,7 +32,7 @@ export class SetMsgEmojiLike extends BaseAction<Payload, unknown> {
   }
 }
 
-export class UnSetMsgEmojiLike extends SetMsgEmojiLike{
+export class UnSetMsgEmojiLike extends SetMsgEmojiLike {
   actionName = ActionName.UnSetMsgEmojiLike
   set = false
 }

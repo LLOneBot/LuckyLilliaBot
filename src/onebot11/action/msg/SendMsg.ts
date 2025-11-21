@@ -2,9 +2,10 @@ import {
   OB11MessageDataType,
   OB11PostSendMsg,
 } from '../../types'
-import { BaseAction } from '../BaseAction'
+import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 import { message2List, createSendElements, createPeer, CreatePeerMode } from '../../helper/createMessage'
+import { parseBool } from '@/common/utils/misc'
 
 interface ReturnData {
   message_id: number
@@ -12,6 +13,13 @@ interface ReturnData {
 
 export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
   actionName = ActionName.SendMsg
+  payloadSchema = Schema.object({
+    message_type: Schema.union(['private', 'group']),
+    user_id: Schema.union([Number, String]),
+    group_id: Schema.union([Number, String]),
+    message: Schema.any().required(),
+    auto_escape: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false)
+  })
 
   protected async _handle(payload: OB11PostSendMsg) {
     let contextMode = CreatePeerMode.Normal
@@ -21,10 +29,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
       contextMode = CreatePeerMode.Private
     }
     const peer = await createPeer(this.ctx, payload, contextMode)
-    const messages = message2List(
-      payload.message,
-      payload.auto_escape === true || payload.auto_escape === 'true',
-    )
+    const messages = message2List(payload.message, payload.auto_escape)
     if (messages.some(e => e.type === OB11MessageDataType.Node)) {
       throw new Error('请使用 /send_group_forward_msg 或 /send_private_forward_msg 进行合并转发')
     }

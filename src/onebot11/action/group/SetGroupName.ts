@@ -13,7 +13,7 @@ export default class SetGroupName extends BaseAction<Payload, null> {
     group_name: Schema.string().required()
   })
 
-  protected async _handle(payload: Payload): Promise<null> {
+  protected async _handle(payload: Payload) {
     await this.ctx.ntGroupApi.setGroupName(payload.group_id.toString(), payload.group_name)
     return null
   }

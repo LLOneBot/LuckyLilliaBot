@@ -14,7 +14,7 @@ export default class SetGroupWholeBan extends BaseAction<Payload, null> {
     enable: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(true)
   })
 
-  protected async _handle(payload: Payload): Promise<null> {
+  protected async _handle(payload: Payload) {
     await this.ctx.ntGroupApi.banGroup(payload.group_id.toString(), payload.enable)
     return null
   }

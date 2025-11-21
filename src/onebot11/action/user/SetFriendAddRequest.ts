@@ -16,7 +16,7 @@ export default class SetFriendAddRequest extends BaseAction<Payload, null> {
     remark: Schema.string()
   })
 
-  protected async _handle(payload: Payload): Promise<null> {
+  protected async _handle(payload: Payload) {
     const data = payload.flag.split('|')
     if (data.length < 2) {
       throw new Error('无效的flag')

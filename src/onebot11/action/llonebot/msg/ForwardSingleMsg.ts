@@ -1,10 +1,10 @@
-import { BaseAction } from '../../BaseAction'
+import { BaseAction, Schema } from '../../BaseAction'
 import { ActionName } from '../../types'
 import { createPeer } from '@/onebot11/helper/createMessage'
 
 interface Payload {
   message_id: number | string
-  group_id: number | string
+  group_id?: number | string
   user_id?: number | string
 }
 
@@ -13,12 +13,13 @@ interface Response {
 }
 
 abstract class ForwardSingleMsg extends BaseAction<Payload, Response> {
-  protected async _handle(payload: Payload) {
-    // 判断为空
-    if (!payload.message_id) {
-      throw Error('message_id不能为空')
-    }
+  payloadSchema = Schema.object({
+    message_id: Schema.union([Number, String]).required(),
+    group_id: Schema.union([Number, String]),
+    user_id: Schema.union([Number, String])
+  })
 
+  protected async _handle(payload: Payload) {
     // 判断长id
     if (!(+payload.message_id >= -2147483648 && +payload.message_id <= 2147483647)) {
       const short_msg_id = await this.ctx.store.getShortIdByMsgId(String(payload.message_id))

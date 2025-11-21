@@ -1,4 +1,4 @@
-import { BaseAction } from '@/onebot11/action/BaseAction'
+import { BaseAction, Schema } from '@/onebot11/action/BaseAction'
 import { ActionName } from '@/onebot11/action/types'
 
 export interface GetFlashFilePayload {
@@ -19,6 +19,10 @@ interface Response {
 
 export class GetFlashFileInfoBase<R> extends BaseAction<GetFlashFilePayload, R> {
   actionName = ActionName.GetFlashFileInfo
+  payloadSchema = Schema.object({
+    share_link: Schema.string(),
+    file_set_id: Schema.string()
+  })
 
   protected async get_file_set_id(payload: GetFlashFilePayload): Promise<string> {
     let { share_link, file_set_id } = payload

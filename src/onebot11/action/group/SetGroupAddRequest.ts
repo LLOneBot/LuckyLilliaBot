@@ -17,7 +17,7 @@ export default class SetGroupAddRequest extends BaseAction<Payload, null> {
     reason: Schema.string()
   })
 
-  protected async _handle(payload: Payload): Promise<null> {
+  protected async _handle(payload: Payload) {
     let flag = payload.flag
     if (isNumeric(flag)) {
       const res = await this.ctx.ntGroupApi.getGroupRequest()

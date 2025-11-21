@@ -1,4 +1,4 @@
-import { BaseAction } from '../../BaseAction'
+import { BaseAction, Schema } from '../../BaseAction'
 import { ActionName } from '../../types'
 import { getHttpEvent } from '../../../helper/eventForHttp'
 import { OB11Message } from '../../../types'
@@ -8,11 +8,15 @@ type PostEventType = OB11BaseEvent | OB11Message
 
 interface Payload {
   key: string
-  timeout: number
+  timeout: number | string
 }
 
 export class GetEvent extends BaseAction<Payload, PostEventType[]> {
   actionName = ActionName.GetEvent
+  payloadSchema = Schema.object({
+    key: Schema.string(),
+    timeout: Schema.union([Number, String])
+  })
 
   protected async _handle(payload: Payload): Promise<PostEventType[]> {
     let key = ''

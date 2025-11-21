@@ -8,7 +8,7 @@ interface Response {
   updated_time: string
 }
 
-export class GetRKey extends BaseAction<null, Response> {
+export class GetRKey extends BaseAction<{}, Response> {
   actionName = ActionName.GetRKey
 
   async _handle() {

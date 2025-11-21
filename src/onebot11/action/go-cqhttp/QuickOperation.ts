@@ -1,4 +1,4 @@
-import { BaseAction } from '../BaseAction'
+import { BaseAction, Schema } from '../BaseAction'
 import { handleQuickOperation, QuickOperation, QuickOperationEvent } from '../../helper/quickOperation'
 import { ActionName } from '../types'
 
@@ -9,8 +9,12 @@ interface Payload {
 
 export class HandleQuickOperation extends BaseAction<Payload, null> {
   actionName = ActionName.GoCQHTTP_HandleQuickOperation
+  payloadSchema = Schema.object({
+    context: Schema.any().required(),
+    operation: Schema.any().required(),
+  })
 
-  protected async _handle(payload: Payload): Promise<null> {
+  protected async _handle(payload: Payload) {
     handleQuickOperation(this.ctx, payload.context, payload.operation).catch(e => this.ctx.logger.error(e))
     return null
   }

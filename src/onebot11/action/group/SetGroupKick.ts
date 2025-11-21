@@ -16,7 +16,7 @@ export default class SetGroupKick extends BaseAction<Payload, null> {
     reject_add_request: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false)
   })
 
-  protected async _handle(payload: Payload): Promise<null> {
+  protected async _handle(payload: Payload) {
     const groupCode = payload.group_id.toString()
     const uin = payload.user_id.toString()
     const uid = await this.ctx.ntUserApi.getUidByUin(uin, groupCode)

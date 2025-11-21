@@ -1,4 +1,4 @@
-import { BaseAction } from '@/onebot11/action/BaseAction'
+import { BaseAction, Schema } from '@/onebot11/action/BaseAction'
 import { ActionName } from '@/onebot11/action/types'
 import { uri2local } from '@/common/utils'
 
@@ -8,13 +8,17 @@ interface Payload {
 }
 
 interface Response {
-  file_set_id: string,
-  share_link: string,
-  expire_time: number,
+  file_set_id: string
+  share_link: string
+  expire_time: number
 }
 
 export class UploadFlashFile extends BaseAction<Payload, Response> {
   actionName = ActionName.UploadFlashFile
+  payloadSchema = Schema.object({
+    title: Schema.string(),
+    paths: Schema.array(String).required()
+  })
 
   async _handle(payload: Payload) {
     const { title, paths } = payload

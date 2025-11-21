@@ -12,7 +12,7 @@ interface Category {
   buddyList: OB11User[]
 }
 
-export class GetFriendWithCategory extends BaseAction<void, Category[]> {
+export class GetFriendWithCategory extends BaseAction<{}, Category[]> {
   actionName = ActionName.GetFriendsWithCategory
 
   protected async _handle() {

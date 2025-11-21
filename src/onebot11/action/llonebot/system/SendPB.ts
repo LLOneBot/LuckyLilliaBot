@@ -5,7 +5,7 @@ interface Payload {
   cmd: string
   hex: string
 }
-interface PBData{
+interface PBData {
   cmd: string
   hex: string
   echo?: string
@@ -14,8 +14,8 @@ interface PBData{
 export class SendPB extends BaseAction<Payload, PBData> {
   actionName = ActionName.SendPB
   payloadSchema = Schema.object({
-    cmd: String,
-    hex: String
+    cmd: Schema.string().required(),
+    hex: Schema.string().required()
   })
 
   async _handle(payload: Payload) {

@@ -24,7 +24,7 @@ interface Response {
   }[]
 }
 
-export class GetGroupSystemMsg extends BaseAction<void, Response> {
+export class GetGroupSystemMsg extends BaseAction<{}, Response> {
   actionName = ActionName.GoCQHTTP_GetGroupSystemMsg
 
   private async parse(notifies: GroupNotify[]) {

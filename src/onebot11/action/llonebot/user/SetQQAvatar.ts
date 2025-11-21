@@ -1,5 +1,5 @@
 import { unlink } from 'node:fs/promises'
-import { BaseAction } from '../../BaseAction'
+import { BaseAction, Schema } from '../../BaseAction'
 import { ActionName } from '../../types'
 import { checkFileReceived, uri2local } from '@/common/utils/file'
 
@@ -9,8 +9,11 @@ interface Payload {
 
 export default class SetQQAvatar extends BaseAction<Payload, null> {
   actionName = ActionName.SetQQAvatar
+  payloadSchema = Schema.object({
+    file: Schema.string().required()
+  })
 
-  protected async _handle(payload: Payload): Promise<null> {
+  protected async _handle(payload: Payload) {
     const { path, isLocal, errMsg } = await uri2local(this.ctx, payload.file)
     if (errMsg) {
       throw new Error(errMsg)

@@ -13,7 +13,7 @@ export default class SendLike extends BaseAction<Payload, null> {
     times: Schema.union([Number, String]).default(1)
   })
 
-  protected async _handle(payload: Payload): Promise<null> {
+  protected async _handle(payload: Payload) {
     const uin = payload.user_id.toString()
     const uid = await this.ctx.ntUserApi.getUidByUin(uin)
     if (!uid) throw new Error('无法获取用户信息')

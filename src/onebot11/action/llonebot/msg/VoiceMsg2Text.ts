@@ -1,10 +1,6 @@
 import { BaseAction, Schema } from '../../BaseAction'
-import { readFile } from 'node:fs/promises'
 import { ActionName } from '../../types'
-import { Peer, ElementType } from '@/ntqqapi/types'
-import { Type } from 'minato'
-import Number = Type.Number
-import String = Type.String
+import { ElementType } from '@/ntqqapi/types'
 
 export interface Payload {
   message_id: string | number
@@ -16,6 +12,9 @@ export interface Response {
 
 export class VoiceMsg2Text extends BaseAction<Payload, Response> {
   actionName = ActionName.VoiceMsg2Text
+  payloadSchema = Schema.object({
+    message_id: Schema.union([Number, String]).required()
+  })
 
   protected async _handle(payload: Payload): Promise<Response> {
     const msgInfo = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)

@@ -7,7 +7,7 @@ interface OB11GroupRequestNotify {
   flag: string
 }
 
-export default class GetGroupAddRequest extends BaseAction<null, OB11GroupRequestNotify[]> {
+export default class GetGroupAddRequest extends BaseAction<{}, OB11GroupRequestNotify[]> {
   actionName = ActionName.GetGroupIgnoreAddRequest
 
   protected async _handle(): Promise<OB11GroupRequestNotify[]> {

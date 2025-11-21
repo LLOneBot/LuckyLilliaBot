@@ -15,7 +15,7 @@ export default class SetGroupCard extends BaseAction<Payload, null> {
     card: Schema.string().default('')
   })
 
-  protected async _handle(payload: Payload): Promise<null> {
+  protected async _handle(payload: Payload) {
     const groupCode = payload.group_id.toString()
     const uin = payload.user_id.toString()
     const uid = await this.ctx.ntUserApi.getUidByUin(uin, groupCode)
