@@ -220,9 +220,7 @@ class OneBot11Adapter extends Service {
     const shortId = this.ctx.store.createMsgShortId(message)
 
     OB11Entities.recallEvent(this.ctx, message, shortId).then((recallEvent) => {
-      if (recallEvent) {
-        this.dispatch(recallEvent)
-      }
+      this.dispatch(recallEvent)
     }).catch(e => this.ctx.logger.error('handling recall events', e))
   }
 

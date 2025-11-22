@@ -175,8 +175,8 @@ export namespace OB11Entities {
           const { replayMsgSeq: replyMsgSeq, replyMsgTime } = replyElement
           let record = msg.records.find(msgRecord => msgRecord.msgId === replyElement.sourceMsgIdInRecords)
           const { msgList } = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, replyMsgSeq, 1, true, true)
-          if (!record){
-            record = msgList.find(msg=>msg.msgSeq === replyMsgSeq && msg.msgTime === replyMsgTime)
+          if (!record) {
+            record = msgList.find(msg => msg.msgSeq === replyMsgSeq && msg.msgTime === replyMsgTime)
           }
           const senderUid = replyElement.senderUidStr || record?.senderUid
           if (!record || !replyMsgTime || !senderUid) {
@@ -639,22 +639,23 @@ export namespace OB11Entities {
     ctx: Context,
     msg: RawMessage,
     shortId: number
-  ): Promise<OB11FriendRecallNoticeEvent | OB11GroupRecallNoticeEvent | undefined> {
+  ): Promise<OB11FriendRecallNoticeEvent | OB11GroupRecallNoticeEvent> {
     const revokeElement = msg.elements[0].grayTipElement?.revokeElement!
     if (msg.chatType === ChatType.Group) {
       const operator = await ctx.ntGroupApi.getGroupMember(msg.peerUid, revokeElement.operatorUid)
-      if (msg.senderUin === '0' || !msg.senderUin){
-        msg.senderUin = await ctx.ntUserApi.getUinByUid(revokeElement.origMsgSenderUid!)
+      let uin = msg.senderUin
+      if (uin === '0' || !uin) {
+        uin = await ctx.ntUserApi.getUinByUid(revokeElement.origMsgSenderUid)
       }
       return new OB11GroupRecallNoticeEvent(
         parseInt(msg.peerUid),
-        parseInt(msg.senderUin!),
-        parseInt(operator?.uin || msg.senderUin!),
+        parseInt(uin),
+        parseInt(operator.uin || msg.senderUin),
         shortId,
       )
     }
     else {
-      return new OB11FriendRecallNoticeEvent(parseInt(msg.senderUin!), shortId)
+      return new OB11FriendRecallNoticeEvent(parseInt(msg.senderUin), shortId)
     }
   }
 
