@@ -40,7 +40,6 @@ import {
 import { OB11GroupDismissEvent } from '@/onebot11/event/notice/OB11GroupDismissEvent'
 import { BaseAction } from './action/BaseAction'
 import { cloneObj } from '@/common/utils'
-import { pmhq } from '@/ntqqapi/native/pmhq'
 import { OB11GroupMsgEmojiLikeEvent } from './event/notice/OB11MsgEmojiLikeEvent'
 
 declare module 'cordis' {
@@ -507,7 +506,7 @@ class OneBot11Adapter extends Service {
       this.dispatch(event)
     })
 
-    pmhq.addResListener(async data => {
+    this.ctx.app.pmhq.addResListener(async data => {
       if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
         const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
         const { msgType, subType } = pushMsg.message?.contentHead ?? {}
