@@ -23,7 +23,7 @@ describe('set_group_msg_mask - 设置群消息屏蔽', () => {
 
     const response = await primaryClient.call(ActionName.SetGroupMsgMask, {
       group_id: context.testGroupId,
-      mask: true
+      mask: 3
     });
 
     Assertions.assertSuccess(response, 'set_group_msg_mask');
@@ -34,7 +34,7 @@ describe('set_group_msg_mask - 设置群消息屏蔽', () => {
 
     const response = await primaryClient.call(ActionName.SetGroupMsgMask, {
       group_id: context.testGroupId,
-      mask: false
+      mask: 2
     });
 
     Assertions.assertSuccess(response, 'set_group_msg_mask');

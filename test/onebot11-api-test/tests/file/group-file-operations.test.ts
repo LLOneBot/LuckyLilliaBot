@@ -34,7 +34,7 @@ describe('group_file_operations - 群文件操作', () => {
     });
 
     Assertions.assertSuccess(response, 'upload_group_file');
-    
+
     // 如果返回了 file_id，保存下来用于后续测试
     if (response.data && response.data.file_id) {
       uploadedFileId = response.data.file_id;
@@ -53,12 +53,12 @@ describe('group_file_operations - 群文件操作', () => {
 
     Assertions.assertSuccess(response, 'get_group_root_files');
     Assertions.assertResponseHasFields(response, ['files', 'folders']);
-    
+
     // 验证文件列表中包含我们上传的文件
     if (response.data && response.data.files) {
       const files = response.data.files;
       Assertions.assertDefined(files, '文件列表应该被定义');
-      
+
       // 查找我们上传的文件
       if (uploadedFileName) {
         const foundFile = files.find((f: any) => f.file_name === uploadedFileName);
@@ -88,7 +88,7 @@ describe('group_file_operations - 群文件操作', () => {
 
     Assertions.assertSuccess(response, 'get_group_file_url');
     Assertions.assertResponseHasFields(response, ['url']);
-    
+
     if (response.data && response.data.url) {
       console.log('✓ 获取到文件下载链接:', response.data.url);
     }
@@ -102,7 +102,7 @@ describe('group_file_operations - 群文件操作', () => {
 
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    const response = await primaryClient.call(ActionName.GoCQHTTP_DelGroupFile, {
+    const response = await primaryClient.call(ActionName.GoCQHTTP_DeleteGroupFile, {
       group_id: context.testGroupId,
       file_id: uploadedFileId
     });
@@ -126,12 +126,12 @@ describe('group_file_operations - 群文件操作', () => {
     });
 
     Assertions.assertSuccess(response, 'get_group_root_files');
-    
+
     // 验证文件列表中不再包含已删除的文件
     if (response.data && response.data.files) {
       const files = response.data.files;
       const foundFile = files.find((f: any) => f.file_name === uploadedFileName);
-      
+
       if (!foundFile) {
         console.log('✓ 文件已成功删除');
       } else {

@@ -21,7 +21,7 @@ describe('get_group_add_request - 获取加群请求列表', () => {
   it('测试获取加群请求列表', async () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    const response = await primaryClient.call(ActionName.GetGroupAddRequest, {
+    const response = await primaryClient.call(ActionName.GoCQHTTP_GetGroupSystemMsg, {
       group_id: context.testGroupId
     });
 

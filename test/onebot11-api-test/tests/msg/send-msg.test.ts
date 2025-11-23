@@ -69,7 +69,7 @@ describe('send_msg - 通用发送消息', () => {
     await context.twoAccountTest.secondaryListener.waitForEvent({
       post_type: 'message',
       message_type: 'private',
-      message_id: response.data.message_id,
+      message: testMessage,
     });
   }, 60000);
 });

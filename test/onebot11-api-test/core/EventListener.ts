@@ -3,6 +3,7 @@ import axios from 'axios';
 import { ApiClient, TimeoutError } from './ApiClient.js';
 // 使用源码中定义的事件类型，避免重复定义
 import type { OB11Event } from '../../../src/onebot11/event/index.js';
+import * as console from 'node:console'
 
 /**
  * 事件过滤器接口
@@ -103,6 +104,7 @@ export class EventListener {
             try {
               const eventData = line.substring(6);
               const event = JSON.parse(eventData) as OB11Event;
+              // console.log('Received SSE event:', eventData);
               this.handleEvent(event);
             } catch (error) {
               console.error('Failed to parse SSE event:', error);
@@ -259,6 +261,44 @@ export class EventListener {
   }
 
   /**
+   * 深度比较两个值是否相等
+   * @param a 值 A
+   * @param b 值 B
+   * @returns 是否相等
+   */
+  private deepEqual(a: any, b: any): boolean {
+    if (a === b) return true;
+
+    if (a == null || b == null) return a === b;
+
+    if (typeof a !== typeof b) return false;
+
+    if (typeof a !== 'object') return a === b;
+
+    if (Array.isArray(a) && Array.isArray(b)) {
+      if (a.length !== b.length) return false;
+      for (let i = 0; i < a.length; i++) {
+        if (!this.deepEqual(a[i], b[i])) return false;
+      }
+      return true;
+    }
+
+    if (Array.isArray(a) || Array.isArray(b)) return false;
+
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+
+    if (keysA.length !== keysB.length) return false;
+
+    for (const key of keysA) {
+      if (!keysB.includes(key)) return false;
+      if (!this.deepEqual(a[key], b[key])) return false;
+    }
+
+    return true;
+  }
+
+  /**
    * 检查事件是否匹配过滤器
    * @param event 事件对象
    * @param filter 过滤器
@@ -317,11 +357,11 @@ export class EventListener {
       }
     }
 
-    // 检查其他自定义过滤条件
+    // 检查其他自定义过滤条件（使用深度比较）
     for (const key in filter) {
       if (!['post_type', 'sub_type', 'message_type', 'notice_type', 'request_type',
             'user_id', 'group_id', 'message_id'].includes(key)) {
-        if (event[key] !== filter[key]) {
+        if (!this.deepEqual(event[key], filter[key])) {
           return false;
         }
       }

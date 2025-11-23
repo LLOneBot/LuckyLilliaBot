@@ -18,7 +18,7 @@ const getMediaDir = (): string => {
   } catch (e) {
     // ESM 不可用，尝试 CommonJS
   }
-  
+
   try {
     // CommonJS 模式
     const dirname = eval('__dirname');
@@ -28,7 +28,7 @@ const getMediaDir = (): string => {
   } catch (e) {
     // CommonJS 也不可用
   }
-  
+
   // Fallback: 使用当前工作目录
   return path.join(process.cwd(), 'tests', 'media');
 };
@@ -59,6 +59,7 @@ export const MediaPaths = {
   // 音频文件
   testAudio: getMediaPath('test.mp3'),
   testAudioUrl: getMediaFileUrl('test.mp3'),
+  testAudio2Url: getMediaFileUrl('test2.mp3'),
   testGifUrl: getMediaFileUrl('test.gif'),
   testVideoUrl: getMediaFileUrl('test.mp4'),
   // 工具函数

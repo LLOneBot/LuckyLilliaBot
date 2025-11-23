@@ -90,7 +90,7 @@ describe('group_file_folder - 群文件夹管理', () => {
 
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    const response = await primaryClient.call(ActionName.GoCQHTTP_DelGroupFolder, {
+    const response = await primaryClient.call(ActionName.GoCQHTTP_DeleteGroupFolder, {
       group_id: context.testGroupId,
       folder_id: createdFolderId
     });

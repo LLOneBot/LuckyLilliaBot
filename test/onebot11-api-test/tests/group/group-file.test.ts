@@ -78,7 +78,7 @@ describe('group_file', () => {
         expect(fileUrlResponse.data.url).toBeDefined();
 
         // 7. Delete Group File
-        const delFileResponse = await primaryClient.call(ActionName.GoCQHTTP_DelGroupFile, {
+        const delFileResponse = await primaryClient.call(ActionName.GoCQHTTP_DeleteGroupFile, {
             group_id: groupId,
             file_id: fileId,
             busid: 102, // Default busid
@@ -86,7 +86,7 @@ describe('group_file', () => {
         Assertions.assertSuccess(delFileResponse, 'delete_group_file');
 
         // 8. Delete Group Folder
-        const delFolderResponse = await primaryClient.call(ActionName.GoCQHTTP_DelGroupFolder, {
+        const delFolderResponse = await primaryClient.call(ActionName.GoCQHTTP_DeleteGroupFolder, {
             group_id: groupId,
             folder_id: folderId,
         });

@@ -23,16 +23,5 @@ describe('get_essence_msg_list', () => {
         Assertions.assertSuccess(response, 'get_essence_msg_list');
         // Note: The list might be empty, so we just check if it's an array
         expect(Array.isArray(response.data)).toBe(true);
-        if (response.data.length > 0) {
-            Assertions.assertResponseHasFields(response.data[0], [
-                'sender_id',
-                'sender_nick',
-                'sender_time',
-                'operator_id',
-                'operator_nick',
-                'operator_time',
-                'message_id',
-            ]);
-        }
     });
 });

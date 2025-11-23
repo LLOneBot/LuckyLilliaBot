@@ -34,7 +34,7 @@ describe('essence_msg', () => {
             Assertions.assertSuccess(setResponse, 'set_essence_msg');
 
             // 3. Delete Essence Msg
-            const delResponse = await primaryClient.call(ActionName.GoCQHTTP_DelEssenceMsg, {
+            const delResponse = await primaryClient.call(ActionName.GoCQHTTP_DeleteEssenceMsg, {
                 message_id: messageId,
             });
             Assertions.assertSuccess(delResponse, 'delete_essence_msg');

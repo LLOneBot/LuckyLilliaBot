@@ -29,7 +29,7 @@ describe('voice_msg_2_text - 语音转文字', () => {
       {
         type: OB11MessageDataType.Record,
         data: {
-          file: MediaPaths.testAudioUrl
+          file: MediaPaths.testAudio2Url
         }
       }
     ];

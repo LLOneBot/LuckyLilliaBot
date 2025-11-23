@@ -54,8 +54,8 @@ export class Assertions {
       throw new AssertionError(
         `API call failed${action ? ` for action "${action}"` : ''}`,
         { retcode: 0, status: 'ok' },
-        { retcode: response.retcode, status: response.status },
-        { response }
+        response,
+        { fullResponse: response }
       );
     }
   }

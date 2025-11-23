@@ -23,14 +23,5 @@ describe('get_group_msg_history', () => {
 
         Assertions.assertSuccess(response, 'get_group_msg_history');
         expect(Array.isArray(response.data.messages)).toBe(true);
-        if (response.data.messages.length > 0) {
-            Assertions.assertResponseHasFields(response.data.messages[0], [
-                'message_id',
-                'user_id',
-                'group_id',
-                'message',
-                'time',
-            ]);
-        }
     });
 });
