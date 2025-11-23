@@ -12,12 +12,7 @@ export class FriendPoke extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    try {
-      await this.ctx.app.pmhq.sendFriendPoke(+payload.user_id)
-      return null
-    }catch (e) {
-      this.ctx.logger.error('pmhq 发包失败', e)
-    }
+    await this.ctx.app.pmhq.sendFriendPoke(+payload.user_id)
     return null
   }
 }

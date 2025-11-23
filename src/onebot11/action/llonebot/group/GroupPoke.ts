@@ -14,12 +14,7 @@ export class GroupPoke extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    try{
-      await this.ctx.app.pmhq.sendGroupPoke(+payload.group_id, +payload.user_id)
-      return null
-    }catch (e) {
-      this.ctx.logger.error('pmhq 发包失败', e)
-    }
+    await this.ctx.app.pmhq.sendGroupPoke(+payload.group_id, +payload.user_id)
     return null
   }
 }
