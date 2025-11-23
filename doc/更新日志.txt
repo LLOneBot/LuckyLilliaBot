@@ -4,6 +4,7 @@ V6.6.4
 * 修复有概率登录成功后 webui 依然显示需要登录，或不显示登录二维码
 * 修复 UNIQUE constraint failed: message.shortId
 * 修复内存泄露
+* 修复合并转发使用 message_id 先发给了自己
 * `get_group_info` 返回新增 `avatar_url` 字段
 
 =================
