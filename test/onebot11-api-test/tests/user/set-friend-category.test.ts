@@ -1,11 +1,11 @@
-/**
+﻿/**
  * set_friend_category 接口测试
  * 测试设置好友分组功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('set_friend_category - 设置好友分组', () => {
   let context: MessageTestContext;

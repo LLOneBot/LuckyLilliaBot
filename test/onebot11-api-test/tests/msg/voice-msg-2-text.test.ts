@@ -1,11 +1,11 @@
-/**
+﻿/**
  * voice_msg_2_text 接口测试
  * 测试语音转文字功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llonebot/onebot11/types';
 import { MediaPaths } from '../media';
 

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * group_file_folder 接口测试
  * 测试群文件夹完整生命周期：创建、获取、删除
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('group_file_folder - 群文件夹管理', () => {
   let context: MessageTestContext;

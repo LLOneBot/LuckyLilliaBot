@@ -1,11 +1,11 @@
-/**
+﻿/**
  * send_msg 接口测试
  * 测试通用发送消息功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llonebot/onebot11/types';
 
 describe('send_msg - 通用发送消息', () => {

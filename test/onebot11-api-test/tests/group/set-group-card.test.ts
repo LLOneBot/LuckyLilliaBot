@@ -1,11 +1,11 @@
-/**
+﻿/**
  * set_group_card 接口测试
  * 测试设置群名片功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('set_group_card - 设置群名片', () => {
   let context: MessageTestContext;

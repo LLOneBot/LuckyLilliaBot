@@ -1,11 +1,11 @@
-/**
+﻿/**
  * upload_private_file 接口测试
  * 测试上传私聊文件功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('upload_private_file - 上传私聊文件', () => {
   let context: MessageTestContext;

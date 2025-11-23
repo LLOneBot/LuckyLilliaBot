@@ -1,4 +1,4 @@
-/**
+﻿/**
  * set_qq_profile 接口测试
  * 测试设置 QQ 资料功能
  *
@@ -7,7 +7,7 @@
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('set_qq_profile - 设置 QQ 资料', () => {
   let context: MessageTestContext;

@@ -1,11 +1,11 @@
-/**
+﻿/**
  * group_notice 群公告测试套件
  * 测试群公告的完整生命周期：发送、获取、删除
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types.js';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('group_notice - 群公告操作', () => {
   let context: MessageTestContext;

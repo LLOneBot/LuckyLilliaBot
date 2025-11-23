@@ -1,11 +1,11 @@
-/**
+﻿/**
  * send_pb 接口测试
  * 测试发送 Protobuf 消息功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('send_pb - 发送 Protobuf 消息', () => {
   let context: MessageTestContext;

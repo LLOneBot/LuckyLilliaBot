@@ -1,6 +1,6 @@
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types.js';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('send_group_sign', () => {
     let context: MessageTestContext;

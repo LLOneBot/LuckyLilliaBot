@@ -1,11 +1,11 @@
-/**
+﻿/**
  * get_status 接口测试
  * 测试获取运行状态功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('get_status - 获取运行状态', () => {
   let context: MessageTestContext;

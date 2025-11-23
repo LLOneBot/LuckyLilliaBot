@@ -1,4 +1,4 @@
-/**
+﻿/**
  * send_private_msg 接口测试
  * 测试发送私聊消息功能
  *
@@ -13,7 +13,7 @@ import {
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { MediaPaths } from '../media';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('send_private_msg - 发送私聊消息', () => {
   let context: MessageTestContext;

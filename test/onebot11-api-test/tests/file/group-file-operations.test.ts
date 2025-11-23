@@ -1,11 +1,11 @@
-/**
+﻿/**
  * group_file_operations 接口测试
  * 测试群文件完整生命周期：上传、获取URL、删除
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('group_file_operations - 群文件操作', () => {
   let context: MessageTestContext;

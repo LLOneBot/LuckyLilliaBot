@@ -1,11 +1,11 @@
-/**
+﻿/**
  * get_file 接口测试
  * 测试获取文件信息功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llonebot/onebot11/types';
 import { MediaPaths } from '../media';
 

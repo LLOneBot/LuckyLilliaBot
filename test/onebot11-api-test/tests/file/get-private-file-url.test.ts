@@ -1,4 +1,4 @@
-/**
+﻿/**
  * get_private_file_url 接口测试
  * 测试获取私聊文件 URL 功能
  * 完整流程：上传私聊文件 → 接收文件 → 获取文件 URL
@@ -6,7 +6,7 @@
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 import { MediaPaths } from '@/tests/media'
 
 describe('get_private_file_url - 获取私聊文件 URL', () => {

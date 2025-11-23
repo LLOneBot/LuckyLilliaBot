@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ai_record 接口测试
  * 测试 AI 语音相关功能
  * 完整流程：获取 AI 角色列表 → 发送 AI 语音消息
@@ -6,7 +6,7 @@
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llonebot/onebot11/types';
 
 describe('ai_record - AI 语音功能', () => {

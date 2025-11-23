@@ -1,11 +1,11 @@
-/**
+﻿/**
  * get_profile_like_me 接口测试
  * 测试获取给我点赞的人功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('get_profile_like_me - 获取给我点赞的人', () => {
   let context: MessageTestContext;

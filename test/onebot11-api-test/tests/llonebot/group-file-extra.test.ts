@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 群文件额外操作测试
  * 包括: move_group_file, set_group_file_forever, rename_group_file_folder
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('group_file_extra - 群文件额外操作', () => {
   let context: MessageTestContext;

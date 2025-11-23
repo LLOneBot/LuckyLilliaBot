@@ -1,11 +1,11 @@
-/**
+﻿/**
  * download_file 接口测试
  * 测试下载文件功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 import { MediaPaths } from '../media';
 
 describe('download_file - 下载文件', () => {

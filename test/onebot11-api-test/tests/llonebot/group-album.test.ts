@@ -1,11 +1,11 @@
-/**
+﻿/**
  * 群相册操作测试
  * 包括: get_group_album_list, create_group_album, delete_group_album, upload_group_album
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 import { MediaPaths } from '../media';
 
 describe('group_album - 群相册操作', () => {

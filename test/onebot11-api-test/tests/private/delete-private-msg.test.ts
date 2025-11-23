@@ -1,4 +1,4 @@
-/**
+﻿/**
  * delete_msg 接口测试 - 私聊消息撤回
  * 测试撤回私聊消息功能
  *
@@ -7,7 +7,7 @@
 
 import { setupMessageTest, teardownMessageTest, sleep, MessageTestContext } from '../setup';
 import { Assertions } from '../../utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types.js';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('delete_msg - 撤回私聊消息', () => {
   let context: MessageTestContext;

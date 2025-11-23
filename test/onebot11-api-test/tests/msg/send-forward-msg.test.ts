@@ -1,11 +1,11 @@
-/**
+﻿/**
  * send_group_forward_msg / send_private_forward_msg 接口测试
  * 测试发送合并转发消息功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('send_forward_msg - 发送合并转发消息', () => {
   let context: MessageTestContext;

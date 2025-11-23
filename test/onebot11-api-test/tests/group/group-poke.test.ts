@@ -1,11 +1,11 @@
-/**
+﻿/**
  * group_poke 接口测试
  * 测试群戳一戳功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('group_poke - 群戳一戳', () => {
   let context: MessageTestContext;

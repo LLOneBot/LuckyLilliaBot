@@ -1,11 +1,11 @@
-/**
+﻿/**
  * clean_cache 接口测试
  * 测试清理缓存功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('clean_cache - 清理缓存', () => {
   let context: MessageTestContext;

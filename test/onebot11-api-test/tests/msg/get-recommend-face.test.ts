@@ -1,11 +1,11 @@
-/**
+﻿/**
  * get_recommend_face 接口测试
  * 测试获取推荐表情功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('get_recommend_face - 获取推荐表情', () => {
   let context: MessageTestContext;

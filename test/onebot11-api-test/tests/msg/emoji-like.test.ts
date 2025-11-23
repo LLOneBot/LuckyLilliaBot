@@ -1,4 +1,4 @@
-/**
+﻿/**
  * emoji_like 接口测试
  * 测试消息表情回应功能
  * 完整流程：发送消息 → 设置表情回应 → 获取表情回应 → 取消表情回应
@@ -6,7 +6,7 @@
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llonebot/onebot11/types';
 
 describe('emoji_like - 消息表情回应', () => {

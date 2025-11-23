@@ -1,11 +1,11 @@
-/**
+﻿/**
  * set_online_status 接口测试
  * 测试设置在线状态功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('set_online_status - 设置在线状态', () => {
   let context: MessageTestContext;

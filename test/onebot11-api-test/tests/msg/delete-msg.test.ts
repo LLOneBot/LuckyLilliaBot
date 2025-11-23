@@ -1,11 +1,11 @@
-/**
+﻿/**
  * delete_msg 接口测试
  * 测试撤回消息功能
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llonebot/onebot11/types';
 
 describe('delete_msg - 撤回消息', () => {

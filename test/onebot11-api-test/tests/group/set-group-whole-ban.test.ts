@@ -1,4 +1,4 @@
-/**
+﻿/**
  * set_group_whole_ban 接口测试
  * 测试群组全员禁言功能
  * 
@@ -7,7 +7,7 @@
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe('set_group_whole_ban - 群组全员禁言', () => {
   let context: MessageTestContext;

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * set_group_add_request 接口测试
  * 测试处理加群请求功能
  * 
@@ -8,7 +8,7 @@
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '../../../../src/onebot11/action/types';
+import { ActionName } from '@llonebot/onebot11/action/types';
 
 describe.skip('set_group_add_request - 处理加群请求', () => {
   let context: MessageTestContext;
