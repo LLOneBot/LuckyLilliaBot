@@ -4,7 +4,7 @@
  * 完整流程：上传私聊文件 → 接收文件 → 获取文件 URL
  */
 
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+import { setupMessageTest, teardownMessageTest, MessageTestContext, sleep } from '../setup'
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llonebot/onebot11/action/types';
 import { MediaPaths } from '@/tests/media'
@@ -21,13 +21,12 @@ describe('get_private_file_url - 获取私聊文件 URL', () => {
   });
 
   // 现在这个接口貌似有问题，暂时先跳过
-  it.skip('测试上传私聊文件并获取 URL', async () => {
+  it('测试上传私聊文件并获取 URL', async () => {
     context.twoAccountTest.clearAllQueues();
     const primaryClient = context.twoAccountTest.getClient('primary');
     const secondaryClient = context.twoAccountTest.getClient('secondary');
 
     // 步骤1: 上传私聊文件
-    const testContent = Buffer.from('Test private file for URL test').toString('base64');
     const fileName = `test-private-file-${Date.now()}.txt`;
 
     const uploadResponse = await primaryClient.call(ActionName.GoCQHTTP_UploadPrivateFile, {
@@ -55,9 +54,7 @@ describe('get_private_file_url - 获取私聊文件 URL', () => {
     if (!fileId) {
       throw new Error('无法获取 file_id，测试失败');
     }
-
     const urlResponse = await secondaryClient.call(ActionName.GetPrivateFileUrl, {
-      user_id: context.primaryUserId,
       file_id: fileId
     });
 
