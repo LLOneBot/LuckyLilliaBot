@@ -59,6 +59,10 @@ async function onLoad() {
   const ctx = new Context()
 
   let config = getConfigUtil().getConfig()
+  // 先设置成默认配置，登录成功后再加载真实的配置
+  config = defaultConfig
+  config.satori.enable = false
+  config.ob11.enable = false
   ctx.plugin(NTQQFileApi)
   ctx.plugin(NTQQFileCacheApi)
   ctx.plugin(NTQQFriendApi)
@@ -72,7 +76,6 @@ async function onLoad() {
     enable: config.log!,
     filename: logFileName,
   })
-
   ctx.plugin(WebUIServer, { ...config.webui, onlyLocalhost: config.onlyLocalhost })
 
   const loadPluginAfterLogin = () => {
@@ -98,79 +101,50 @@ async function onLoad() {
     })
   }
 
-  // 有这个事件表示登录成功了
-  registerReceiveHook(ReceiveCmdS.INIT, (data: [code: number, unknown: string, uid: string]) => {
-    ctx.logger.info('WrapperSession init complete')
-    if (selfInfo.online) { // 已经登录成功说明不再需要重复 init
-      return
+  let pmhqSelfInfo = { ...selfInfo }
+  let checkLoginInterval: NodeJS.Timeout = setInterval(async () => {
+    try {
+      pmhqSelfInfo = await pmhq.call('getSelfInfo', [])
+    } catch (e) {
+      ctx.logger.info('获取账号信息状态失败', e)
     }
-    selfInfo.uid = data[2]
-    selfInfo.online = true
-
-    const getSelfInfo = async () => {
-      let uin: string
-      // 循环 5次 获取uin
-      for (let i = 0; i < 5; i++) {
-        try {
-          uin = await ctx.ntUserApi.getUinByUid(data[2])
-          selfInfo.uin = uin
-          break
-        } catch (e) {
-          await sleep(1000)
+    if (pmhqSelfInfo.online) {
+      clearInterval(checkLoginInterval)
+      selfInfo.uin = pmhqSelfInfo.uin
+      selfInfo.uid = pmhqSelfInfo.uid
+      selfInfo.nick = pmhqSelfInfo.nick
+      if (!selfInfo.uin) {
+        let uin: string
+        // 循环 5次 获取uin
+        for (let i = 0; i < 5; i++) {
+          try {
+            uin = await ctx.ntUserApi.getUinByUid(selfInfo.uid)
+            selfInfo.uin = uin
+            break
+          } catch (e) {
+            await sleep(1000)
+          }
         }
       }
-      const configUtil = getConfigUtil(true)
-      config = configUtil.getConfig()
-      ctx.parallel('llob/config-updated', config)
-      configUtil.listenChange(c => {
+      selfInfo.online = true
+      if (!selfInfo.nick) {
+        ctx.ntUserApi.fetchUserDetailInfo(selfInfo.uid).then(res => {
+          if (res.result !== 0) {
+            throw new Error(res.errMsg)
+          }
+          selfInfo.nick = res.detail.get(selfInfo.uid)!.simpleInfo.coreInfo.nick
+        }).catch(e => {
+          ctx.logger.warn('获取登录号昵称失败', e)
+        })
+      }
+      config = getConfigUtil(true).getConfig()
+      getConfigUtil().listenChange(c => {
         ctx.parallel('llob/config-updated', c)
       })
       loadPluginAfterLogin()
-      // this.ctx.database.config.path = path.join(dbDir, `${uin}.db`)
-      ctx.ntUserApi.getSelfNick().then(nick => {
-        ctx.logger.info(`获取登录号${uin}昵称成功`, nick)
-        selfInfo.nick = nick
-      }).catch(e => {
-        ctx.logger.warn('获取登录号昵称失败', e)
-      })
+      ctx.webuiServer.setConfig(config)
     }
-    getSelfInfo().catch(e => {
-      ctx.logger.error(e)
-    })
-  })
-
-  let started = false
-  let pmhqSelfInfo = { ...selfInfo }
-  try {
-    pmhqSelfInfo = await pmhq.call('getSelfInfo', [])
-    ctx.logger.info('获取账号信息状态', pmhqSelfInfo)
-  } catch (e) {
-    ctx.logger.error('获取登录状态失败，等待登录成功中...', e)
-  }
-  if (pmhqSelfInfo.online && !selfInfo.online) {
-    selfInfo.uin = pmhqSelfInfo.uin
-    selfInfo.uid = pmhqSelfInfo.uid
-    selfInfo.online = true
-    ctx.ntUserApi.fetchUserDetailInfo(selfInfo.uid).then(res => {
-      if (res.result !== 0) {
-        throw new Error(res.errMsg)
-      }
-      selfInfo.nick = res.detail.get(selfInfo.uid)!.simpleInfo.coreInfo.nick
-    }).catch(e => {
-      ctx.logger.warn('获取登录号昵称失败', e)
-    })
-    config = getConfigUtil(true).getConfig()
-    getConfigUtil().listenChange(c => {
-      ctx.parallel('llob/config-updated', c)
-    })
-    loadPluginAfterLogin()
-    ctx.webuiServer.setConfig(config)
-  }
-  else {
-    config = defaultConfig
-    config.satori.enable = false
-    config.ob11.enable = false
-  }
+  }, 1000)
 
   ctx.logger.info(`LLTwoBot ${version}`)
   // setFFMpegPath(config.ffmpeg || '')
@@ -178,7 +152,6 @@ async function onLoad() {
   ctx.start().catch(e => {
     console.error('Start error:', e)
   })
-  started = true
 }
 
 
