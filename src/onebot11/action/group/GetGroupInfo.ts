@@ -23,10 +23,8 @@ class GetGroupInfo extends BaseAction<Payload, OB11Group> {
       member_count: groupAll.memberNum,
       max_member_count: groupAll.maxMemberNum,
       remark_name: groupAll.remarkName,
-      groupAll: {
-        ...groupAll,
-        avatar_url: `https://p.qlogo.cn/gh/${groupAll.groupCode}/${groupAll.groupCode}/0`
-      }
+      avatar_url: `https://p.qlogo.cn/gh/${groupAll.groupCode}/${groupAll.groupCode}/0`,
+      groupAll,
     }
     const group = (await this.ctx.ntGroupApi.getGroups()).find(e => e.groupCode === groupCode)
     if (group) {
