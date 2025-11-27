@@ -59,8 +59,6 @@ async function onLoad() {
   const ctx = new Context()
 
   let config = getConfigUtil().getConfig()
-  // 先设置成默认配置，登录成功后再加载真实的配置
-  config = defaultConfig
   config.satori.enable = false
   config.ob11.enable = false
   ctx.plugin(NTQQFileApi)
