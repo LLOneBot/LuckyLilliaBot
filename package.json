@@ -47,5 +47,5 @@
     "vite": "^7.2.2",
     "vite-plugin-cp": "^6.0.3"
   },
-  "packageManager": "yarn@4.11.0"
+  "packageManager": "yarn@4.12.0"
 }
