@@ -21,7 +21,6 @@ import {
   transformGroupNotify,
   transformFriendRequestEvent,
   transformGroupMemberInfoUpdated,
-  transformGroupDismiss,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
 
@@ -32,7 +31,7 @@ declare module 'cordis' {
 }
 
 export class MilkyAdapter extends Service {
-  static inject = ['ntUserApi', 'ntFriendApi', 'ntGroupApi', 'ntMsgApi', 'ntFileApi']
+  static inject = ['ntUserApi', 'ntFriendApi', 'ntGroupApi', 'ntMsgApi', 'ntFileApi', 'app']
 
   readonly apiCollection!: MilkyApiCollection
   readonly httpHandler!: MilkyHttpHandler
@@ -192,15 +191,6 @@ export class MilkyAdapter extends Service {
       const eventData = await transformGroupMemberInfoUpdated(this.ctx, data)
       if (eventData) {
         // this.emitEvent(eventData.eventType, eventData.data)
-      }
-    })
-
-    // Listen to NTQQ group dismiss events
-    this.ctx.on('nt/group-dismiss', async (group) => {
-      // TODO: Implement group dismiss event transformation
-      const eventData = await transformGroupDismiss(this.ctx, group)
-      if (eventData) {
-        // this.emitEvent('group_disbanded', eventData)
       }
     })
 

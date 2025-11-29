@@ -38,4 +38,6 @@ export interface NodeIKernelBuddyService {
   getDoubtBuddyReq(reqId: string, reqNum: number, cookie: string): Promise<GeneralCallResult>
 
   approvalDoubtBuddyReq(uid: string, groupId: string, remark: string): Promise<GeneralCallResult>
+
+  getBuddyReq(): Promise<GeneralCallResult>
 }

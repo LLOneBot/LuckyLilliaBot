@@ -14,11 +14,36 @@ import {
   DeleteGroupFolderInput,
   GroupFileEntity,
   GroupFolderEntity,
+  UploadPrivateFileInput,
+  UploadPrivateFileOutput,
+  GetPrivateFileDownloadUrlInput,
+  GetPrivateFileDownloadUrlOutput,
 } from '@saltify/milky-types'
 import z from 'zod'
 import { defineApi, Failed, Ok } from '@/milky/common/api'
 import { resolveMilkyUri } from '@/milky/common/download'
 import { transformGroupFileList } from '@/milky/transform/entity'
+import { selfInfo, TEMP_DIR } from '@/common/globalVars'
+import { writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import path from 'node:path'
+import { SendElement } from '@/ntqqapi/entities'
+
+export const UploadPrivateFile = defineApi(
+  'upload_private_file',
+  UploadPrivateFileInput,
+  UploadPrivateFileOutput,
+  async (ctx, payload) => {
+    const data = await resolveMilkyUri(payload.file_uri)
+    const tempPath = path.join(TEMP_DIR, `file-${randomUUID()}-${payload.file_name}`)
+    await writeFile(tempPath, data)
+    const file = await SendElement.file(ctx, tempPath, payload.file_name)
+    const peerUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const peer = { chatType: 1, peerUid, guildId: '' }
+    const result = await ctx.app.sendMessage(ctx, peer, [file], [tempPath])
+    return Ok({ file_id: result.elements[0].fileElement!.fileUuid })
+  }
+)
 
 export const UploadGroupFile = defineApi(
   'upload_group_file',
@@ -26,19 +51,25 @@ export const UploadGroupFile = defineApi(
   UploadGroupFileOutput,
   async (ctx, payload) => {
     const data = await resolveMilkyUri(payload.file_uri)
-    const { TEMP_DIR } = await import('@/common/globalVars')
-    const { writeFile } = await import('node:fs/promises')
-    const { randomUUID } = await import('node:crypto')
-    const path = await import('node:path')
     const tempPath = path.join(TEMP_DIR, `file-${randomUUID()}-${payload.file_name}`)
     await writeFile(tempPath, data)
+    const file = await SendElement.file(ctx, tempPath, payload.file_name, payload.parent_folder_id)
+    const peer = { chatType: 2, peerUid: payload.group_id.toString(), guildId: '' }
+    const result = await ctx.app.sendMessage(ctx, peer, [file], [tempPath])
+    return Ok({ file_id: result.elements[0].fileElement!.fileUuid })
+  }
+)
 
-    // TODO: uploadFile doesn't support group file upload directly
-    // The method signature is: uploadFile(filePath: string, elementType?: ElementType, elementSubType?: number)
-    // Need to find the correct API for group file upload
-    const result = await ctx.ntFileApi.uploadFile(tempPath)
-
-    return Failed(1, 'Group file upload not yet implemented')
+export const GetPrivateFileDownloadUrl = defineApi(
+  'get_private_file_download_url',
+  GetPrivateFileDownloadUrlInput,
+  GetPrivateFileDownloadUrlOutput,
+  async (ctx, payload) => {
+    const url = await ctx.app.pmhq.getPrivateFileUrl(
+      selfInfo.uid,
+      payload.file_id
+    )
+    return Ok({ download_url: url })
   }
 )
 
@@ -111,13 +142,15 @@ export const MoveGroupFile = defineApi(
   MoveGroupFileInput,
   z.object({}),
   async (ctx, payload) => {
-    // moveGroupFile signature: (groupId: string, fileIdList: string[], curFolderId: string, dstFolderId: string)
-    await ctx.ntGroupApi.moveGroupFile(
+    const result = await ctx.ntGroupApi.moveGroupFile(
       payload.group_id.toString(),
       [payload.file_id],
       payload.parent_folder_id,
       payload.target_folder_id
     )
+    if (result.moveGroupFileResult.result.retCode !== 0) {
+      return Failed(-500, result.moveGroupFileResult.result.clientWording)
+    }
     return Ok({})
   }
 )
@@ -127,9 +160,16 @@ export const RenameGroupFile = defineApi(
   RenameGroupFileInput,
   z.object({}),
   async (ctx, payload) => {
-    // TODO: renameGroupFile method doesn't exist in ntGroupApi
-    // Need to find the correct API or implement it
-    return Failed(1, 'Rename group file not yet implemented')
+    const result = await ctx.ntGroupApi.renameGroupFile(
+      payload.group_id.toString(),
+      payload.file_id,
+      payload.parent_folder_id,
+      payload.new_file_name
+    )
+    if (result.renameGroupFileResult.result.retCode !== 0) {
+      return Failed(-500, result.renameGroupFileResult.result.clientWording)
+    }
+    return Ok({})
   }
 )
 
@@ -138,12 +178,14 @@ export const DeleteGroupFile = defineApi(
   DeleteGroupFileInput,
   z.object({}),
   async (ctx, payload) => {
-    // deleteGroupFile signature: (groupId: string, fileIdList: string[], busIdList: number[])
-    await ctx.ntGroupApi.deleteGroupFile(
+    const result = await ctx.ntGroupApi.deleteGroupFile(
       payload.group_id.toString(),
       [payload.file_id],
       [102] // busId for group files
     )
+    if (result.transGroupFileResult.result.retCode !== 0) {
+      return Failed(-500, result.transGroupFileResult.result.clientWording)
+    }
     return Ok({})
   }
 )
@@ -157,6 +199,9 @@ export const CreateGroupFolder = defineApi(
       payload.group_id.toString(),
       payload.folder_name
     )
+    if (result.resultWithGroupItem.result.retCode !== 0) {
+      return Failed(-500, result.resultWithGroupItem.result.clientWording)
+    }
     return Ok({ folder_id: result.resultWithGroupItem.groupItem.folderInfo.folderId })
   }
 )
@@ -166,11 +211,14 @@ export const RenameGroupFolder = defineApi(
   RenameGroupFolderInput,
   z.object({}),
   async (ctx, payload) => {
-    await ctx.ntGroupApi.renameGroupFolder(
+    const result = await ctx.ntGroupApi.renameGroupFolder(
       payload.group_id.toString(),
       payload.folder_id,
       payload.new_folder_name
     )
+    if (result.resultWithGroupItem.result.retCode !== 0) {
+      return Failed(-500, result.resultWithGroupItem.result.clientWording)
+    }
     return Ok({})
   }
 )
@@ -180,16 +228,21 @@ export const DeleteGroupFolder = defineApi(
   DeleteGroupFolderInput,
   z.object({}),
   async (ctx, payload) => {
-    await ctx.ntGroupApi.deleteGroupFileFolder(
+    const result = await ctx.ntGroupApi.deleteGroupFileFolder(
       payload.group_id.toString(),
       payload.folder_id
     )
+    if (result.groupFileCommonResult.retCode !== 0) {
+      return Failed(-500, result.groupFileCommonResult.clientWording)
+    }
     return Ok({})
   }
 )
 
 export const FileApi = [
+  UploadPrivateFile,
   UploadGroupFile,
+  GetPrivateFileDownloadUrl,
   GetGroupFileDownloadUrl,
   GetGroupFiles,
   MoveGroupFile,

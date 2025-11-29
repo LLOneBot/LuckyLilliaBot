@@ -130,7 +130,7 @@ class Core extends Service {
       const msgTime = parseInt(message.msgTime)
       if (msgTime < this.startupTime) {
         const existing = await this.ctx.store.checkMsgExist(message)
-        if (!existing){
+        if (!existing) {
           this.ctx.parallel('nt/offline-message-created', message)
         }
         continue
@@ -275,7 +275,7 @@ class Core extends Service {
       if (unreadCount) {
         let notifies: GroupNotify[]
         try {
-          notifies = await this.ctx.ntGroupApi.getSingleScreenNotifies(doubt, unreadCount)
+          notifies = (await this.ctx.ntGroupApi.getSingleScreenNotifies(doubt, unreadCount)).notifies
         } catch (e) {
           return
         }

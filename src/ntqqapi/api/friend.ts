@@ -15,6 +15,7 @@ export class NTQQFriendApi extends Service {
     super(ctx, 'ntFriendApi', true)
   }
 
+  /** reqTime 可为 0 */
   async handleFriendRequest(friendUid: string, reqTime: string, accept: boolean) {
     return await invoke(NTMethod.HANDLE_FRIEND_REQUEST, [{
       friendUid,
@@ -82,5 +83,15 @@ export class NTQQFriendApi extends Service {
 
   async approvalDoubtBuddyReq(uid: string) {
     return await invoke('nodeIKernelBuddyService/approvalDoubtBuddyReq', [uid, '', ''])
+  }
+
+  async getBuddyReq(){
+    return await invoke(
+      'nodeIKernelBuddyService/getBuddyReq',
+      [],
+      {
+        resultCmd: 'nodeIKernelBuddyListener/onBuddyReqChange'
+      }
+    )
   }
 }

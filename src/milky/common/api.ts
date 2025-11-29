@@ -69,7 +69,14 @@ export class MilkyApiCollection {
       if (!parsedPayload.success) {
         return Failed(-400, 'Invalid payload: ' + encodeZodIssues(parsedPayload.error.issues))
       }
-      return await api.handler(this.ctx, parsedPayload.data)
+      const response = await api.handler(this.ctx, parsedPayload.data)
+      if (response.status === 'failed') {
+        this.ctx.logger.warn(
+          'Milky',
+          `Error while handling API /${endpoint}: ${response.message}`,
+        )
+      }
+      return response
     } catch (e) {
       this.ctx.logger.warn(
         'Milky',

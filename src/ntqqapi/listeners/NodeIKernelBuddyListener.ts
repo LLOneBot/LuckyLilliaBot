@@ -1,3 +1,5 @@
+import { FriendRequestNotify } from '../types'
+
 export interface NodeIKernelBuddyListener {
   onDoubtBuddyReqChange(data: {
     reqId: string
@@ -16,4 +18,6 @@ export interface NodeIKernelBuddyListener {
       nameMore: unknown
     }[]
   }): void
+
+  onBuddyReqChange(data: FriendRequestNotify): void
 }

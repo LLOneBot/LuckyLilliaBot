@@ -67,22 +67,33 @@ export class NTQQGroupApi extends Service {
   }
 
   async getSingleScreenNotifies(doubt: boolean, number: number, startSeq = '') {
-    const data = await invoke<[boolean, string, GroupNotify[]]>(
+    const data = await invoke<[
+      doubt: boolean,
+      nextStartSeq: string,
+      notifies: GroupNotify[]
+    ]>(
       'nodeIKernelGroupService/getSingleScreenNotifies',
       [doubt, startSeq, number],
       {
         resultCmd: ReceiveCmdS.GROUP_NOTIFY,
+        resultCb: result => {
+          return result[0] === doubt && (startSeq !== '' ? startSeq === result[2][0].seq : true)
+        }
       },
     )
-    return data[2]
+    return {
+      doubt: data[0],
+      nextStartSeq: data[1],
+      notifies: data[2]
+    }
   }
 
   async getGroupRequest(): Promise<{ notifies: GroupNotify[], normalCount: number }> {
     const normal = await this.getSingleScreenNotifies(false, 50)
-    const normalCount = normal.length
+    const normalCount = normal.notifies.length
     const doubt = await this.getSingleScreenNotifies(true, 50)
-    normal.push(...doubt)
-    return { notifies: normal, normalCount }
+    normal.notifies.push(...doubt.notifies)
+    return { notifies: normal.notifies, normalCount }
   }
 
   async handleGroupRequest(flag: string, operateType: GroupRequestOperateTypes, reason?: string) {
@@ -384,5 +395,15 @@ export class NTQQGroupApi extends Service {
     const ntUserApi = this.ctx.get('ntUserApi')!
     const psKey = (await ntUserApi.getPSkey(['qun.qq.com'])).domainPskeyMap.get('qun.qq.com')!
     return await invoke('nodeIKernelGroupService/deleteGroupBulletin', [groupCode, psKey, feedsId])
+  }
+
+  async renameGroupFile(groupId: string, fileId: string, parentFolderId: string, newFileName: string) {
+    return await invoke('nodeIKernelRichMediaService/renameGroupFile', [
+      groupId,
+      102,
+      fileId,
+      parentFolderId,
+      newFileName
+    ])
   }
 }

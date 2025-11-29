@@ -35,10 +35,10 @@ export interface GroupNotify {
   seq: string // 唯一标识符，转成数字再除以1000应该就是时间戳？
   type: GroupNotifyType
   status: GroupNotifyStatus
-  group: { groupCode: string; groupName: string }
-  user1: { uid: string; nickName: string } // 被设置管理员的人
-  user2: { uid: string; nickName: string } // 操作者
-  actionUser: { uid: string; nickName: string } //未知
+  group: { groupCode: string, groupName: string }
+  user1: { uid: string, nickName: string } // 入群请求发起者、被设置管理员的人、主动退群者
+  user2: { uid: string, nickName: string } // 入群请求邀请者、设置管理员操作者、群成员被移除操作者
+  actionUser: { uid: string, nickName: string } // 入群请求操作者
   actionTime: string
   invitationExt: {
     srcType: number // 0?未知
@@ -56,15 +56,27 @@ export enum GroupRequestOperateTypes {
 }
 
 export enum BuddyReqType {
-  MsgInfo = 12,
-  MeInitiatorWaitPeerConfirm = 13,
+  MeInitiator,
+  PeerInitiator,
+  MeAgreed,
+  MeAgreedAndAdded,
+  PeerAgreed,
+  PeerAgreedAndAdded,
+  PeerRefused,
+  MeRefused,
+  MeIgnored,
+  MeAgreeAnyone,
+  MeSetQuestion,
+  MeAgreeAndAddFailed,
+  MsgInfo,
+  MeInitiatorWaitPeerConfirm,
 }
 
 export interface FriendRequest {
   isDecide: boolean
   isInitiator: boolean
   friendUid: string
-  reqType: number
+  reqType: BuddyReqType
   reqSubType: number
   reqTime: string
   extWords: string

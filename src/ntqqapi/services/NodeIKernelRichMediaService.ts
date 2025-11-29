@@ -137,5 +137,15 @@ export interface NodeIKernelRichMediaService {
     }
   }>
 
+  renameGroupFile(groupId: string, busId: number, fileId: string, parentFolderId: string, newFileName: string): Promise<GeneralCallResult & {
+    renameGroupFileResult: {
+      result: {
+        retCode: number
+        retMsg: string
+        clientWording: string
+      }
+      fileId: string
+    }
+  }>
 }
 

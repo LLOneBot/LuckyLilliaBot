@@ -176,20 +176,3 @@ export async function transformGroupMemberInfoUpdated(
     return null
   }
 }
-
-/**
- * Transform NTQQ group-dismiss event
- */
-export async function transformGroupDismiss(
-  ctx: Context,
-  group: GroupSimpleInfo
-): Promise<any | null> {
-  try {
-    // TODO: Implement group dismissed/disbanded transformation
-    // Should map to appropriate Milky event with group_id and time
-    return null
-  } catch (error) {
-    ctx.logger.error('Failed to transform group dismiss event:', error)
-    return null
-  }
-}

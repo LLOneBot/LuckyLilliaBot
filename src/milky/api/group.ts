@@ -1,6 +1,5 @@
 import { defineApi, Failed, Ok } from '@/milky/common/api'
 import { resolveMilkyUri } from '@/milky/common/download'
-import { transformGroupNotification } from '@/milky/transform/notification'
 import {
   SetGroupNameInput,
   SetGroupAvatarInput,
@@ -19,15 +18,25 @@ import {
   RejectGroupRequestInput,
   AcceptGroupInvitationInput,
   RejectGroupInvitationInput,
+  GetGroupAnnouncementsInput,
+  GetGroupAnnouncementsOutput,
 } from '@saltify/milky-types'
 import z from 'zod'
+import { TEMP_DIR } from '@/common/globalVars'
+import { unlink, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import path from 'node:path'
+import { GroupNotifyStatus, GroupNotifyType } from '@/ntqqapi/types'
 
 export const SetGroupName = defineApi(
   'set_group_name',
   SetGroupNameInput,
   z.object({}),
   async (ctx, payload) => {
-    await ctx.ntGroupApi.setGroupName(payload.group_id.toString(), payload.new_group_name)
+    const result = await ctx.ntGroupApi.setGroupName(payload.group_id.toString(), payload.new_group_name)
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
   }
 )
@@ -38,13 +47,13 @@ export const SetGroupAvatar = defineApi(
   z.object({}),
   async (ctx, payload) => {
     const imageBuffer = await resolveMilkyUri(payload.image_uri)
-    const { TEMP_DIR } = await import('@/common/globalVars')
-    const { writeFile } = await import('node:fs/promises')
-    const { randomUUID } = await import('node:crypto')
-    const path = await import('node:path')
     const tempPath = path.join(TEMP_DIR, `group-avatar-${randomUUID()}`)
     await writeFile(tempPath, imageBuffer)
-    await ctx.ntGroupApi.setGroupAvatar(payload.group_id.toString(), tempPath)
+    const result = await ctx.ntGroupApi.setGroupAvatar(payload.group_id.toString(), tempPath)
+    unlink(tempPath).catch(e => { })
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
   }
 )
@@ -54,11 +63,16 @@ export const SetGroupMemberCard = defineApi(
   SetGroupMemberCardInput,
   z.object({}),
   async (ctx, payload) => {
-    await ctx.ntGroupApi.setMemberCard(
-      payload.group_id.toString(),
-      payload.user_id.toString(),
+    const groupCode = payload.group_id.toString()
+    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
+    const result = await ctx.ntGroupApi.setMemberCard(
+      groupCode,
+      memberUid,
       payload.card
     )
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
   }
 )
@@ -69,21 +83,13 @@ export const SetGroupMemberSpecialTitle = defineApi(
   z.object({}),
   async (ctx, payload) => {
     // Use PMHQ to set special title
-    try {
-      const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
-      if (!memberUid) {
-        return Failed(-404, 'Member not found')
-      }
-      await ctx.app.pmhq.setSpecialTitle(
-        payload.group_id,
-        memberUid,
-        payload.special_title
-      )
-      return Ok({})
-    } catch (error) {
-      ctx.logger.error('Failed to set special title:', error)
-      return Failed(-500, 'Failed to set special title')
-    }
+    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), payload.group_id.toString())
+    await ctx.app.pmhq.setSpecialTitle(
+      payload.group_id,
+      memberUid,
+      payload.special_title
+    )
+    return Ok({})
   }
 )
 
@@ -92,11 +98,16 @@ export const SetGroupMemberAdmin = defineApi(
   SetGroupMemberAdminInput,
   z.object({}),
   async (ctx, payload) => {
-    await ctx.ntGroupApi.setMemberRole(
-      payload.group_id.toString(),
-      payload.user_id.toString(),
+    const groupCode = payload.group_id.toString()
+    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
+    const result = await ctx.ntGroupApi.setMemberRole(
+      groupCode,
+      memberUid,
       payload.is_set ? 3 : 2
     )
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
   }
 )
@@ -106,10 +117,15 @@ export const SetGroupMemberMute = defineApi(
   SetGroupMemberMuteInput,
   z.object({}),
   async (ctx, payload) => {
-    await ctx.ntGroupApi.banMember(
-      payload.group_id.toString(),
-      [{ uid: payload.user_id.toString(), timeStamp: payload.duration }]
+    const groupCode = payload.group_id.toString()
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
+    const result = await ctx.ntGroupApi.banMember(
+      groupCode,
+      [{ uid, timeStamp: payload.duration }]
     )
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
   }
 )
@@ -119,7 +135,10 @@ export const SetGroupWholeMute = defineApi(
   SetGroupWholeMuteInput,
   z.object({}),
   async (ctx, payload) => {
-    await ctx.ntGroupApi.banGroup(payload.group_id.toString(), payload.is_mute)
+    const result = await ctx.ntGroupApi.banGroup(payload.group_id.toString(), payload.is_mute)
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
   }
 )
@@ -129,12 +148,37 @@ export const KickGroupMember = defineApi(
   KickGroupMemberInput,
   z.object({}),
   async (ctx, payload) => {
-    await ctx.ntGroupApi.kickMember(
-      payload.group_id.toString(),
-      [payload.user_id.toString()],
+    const groupCode = payload.group_id.toString()
+    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
+    const result = await ctx.ntGroupApi.kickMember(
+      groupCode,
+      [memberUid],
       payload.reject_add_request
     )
+    if (result.errCode !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
+  }
+)
+
+export const GetGroupAnnouncements = defineApi(
+  'get_group_announcements',
+  GetGroupAnnouncementsInput,
+  GetGroupAnnouncementsOutput,
+  async (ctx, payload) => {
+    const data = await ctx.ntGroupApi.getGroupBulletinList(payload.group_id.toString())
+    return Ok({
+      announcements: data.feeds.map(e => {
+        return {
+          group_id: payload.group_id,
+          announcement_id: e.feedId,
+          user_id: +e.uin,
+          time: +e.publishTime,
+          content: e.msg.text
+        }
+      })
+    })
   }
 )
 
@@ -143,7 +187,10 @@ export const QuitGroup = defineApi(
   QuitGroupInput,
   z.object({}),
   async (ctx, payload) => {
-    await ctx.ntGroupApi.quitGroup(payload.group_id.toString())
+    const result = await ctx.ntGroupApi.quitGroup(payload.group_id.toString())
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
   }
 )
@@ -158,12 +205,15 @@ export const SendGroupMessageReaction = defineApi(
       peerUid: payload.group_id.toString(),
       guildId: ''
     }
-    await ctx.ntMsgApi.setEmojiLike(
+    const result = await ctx.ntMsgApi.setEmojiLike(
       peer,
       payload.message_seq.toString(),
       payload.reaction,
       payload.is_add
     )
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
   }
 )
@@ -174,13 +224,8 @@ export const SendGroupNudge = defineApi(
   z.object({}),
   async (ctx, payload) => {
     // Use PMHQ to send group poke
-    try {
-      await ctx.app.pmhq.sendGroupPoke(payload.group_id, payload.user_id)
-      return Ok({})
-    } catch (error) {
-      ctx.logger.error('Failed to send group nudge:', error)
-      return Failed(-500, 'Failed to send group nudge')
-    }
+    await ctx.app.pmhq.sendGroupPoke(payload.group_id, payload.user_id)
+    return Ok({})
   }
 )
 
@@ -189,13 +234,83 @@ export const GetGroupNotifications = defineApi(
   GetGroupNotificationsInput,
   GetGroupNotificationsOutput,
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.getGroupRequest()
-    const transformedNotifications = result.notifies.map(transformGroupNotification)
-
-    const limited = payload.limit ? transformedNotifications.slice(0, payload.limit) : transformedNotifications
+    const result = await ctx.ntGroupApi.getSingleScreenNotifies(
+      payload.is_filtered,
+      payload.limit,
+      payload.start_notification_seq ? payload.start_notification_seq.toString() : ''
+    )
+    let notifies = result.notifies
+    if (notifies.length > payload.limit) {
+      notifies = notifies.slice(0, payload.limit)
+    }
+    const notifications: GetGroupNotificationsOutput['notifications'] = []
+    for (const notify of notifies) {
+      if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass) {
+        notifications.push({
+          type: 'join_request',
+          group_id: Number(notify.group.groupCode),
+          notification_seq: Number(notify.seq),
+          is_filtered: result.doubt,
+          initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
+          state: ({
+            [GroupNotifyStatus.Init]: 'pending',
+            [GroupNotifyStatus.Unhandle]: 'pending',
+            [GroupNotifyStatus.Agreed]: 'accepted',
+            [GroupNotifyStatus.Refused]: 'rejected',
+            [GroupNotifyStatus.Ignored]: 'ignored'
+          } as const)[notify.status],
+          operator_id: notify.actionUser.uid ? Number(await ctx.ntUserApi.getUinByUid(notify.actionUser.uid)) : undefined,
+          comment: notify.postscript
+        })
+      } else if ([
+        GroupNotifyType.SetAdmin,
+        GroupNotifyType.CancelAdminNotifyCanceled,
+        GroupNotifyType.CancelAdminNotifyAdmin,
+      ].includes(notify.type)) {
+        notifications.push({
+          type: 'admin_change',
+          group_id: Number(notify.group.groupCode),
+          notification_seq: Number(notify.seq),
+          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
+          is_set: notify.type === GroupNotifyType.SetAdmin,
+          operator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid))
+        })
+      } else if (notify.type === GroupNotifyType.KickMemberNotifyAdmin) {
+        notifications.push({
+          type: 'kick',
+          group_id: Number(notify.group.groupCode),
+          notification_seq: Number(notify.seq),
+          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
+          operator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid))
+        })
+      } else if (notify.type === GroupNotifyType.MemberLeaveNotifyAdmin) {
+        notifications.push({
+          type: 'quit',
+          group_id: Number(notify.group.groupCode),
+          notification_seq: Number(notify.seq),
+          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid))
+        })
+      } else if (notify.type === GroupNotifyType.InvitedNeedAdminiStratorPass) {
+        notifications.push({
+          type: 'invited_join_request',
+          group_id: Number(notify.group.groupCode),
+          notification_seq: Number(notify.seq),
+          initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid)),
+          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
+          state: ({
+            [GroupNotifyStatus.Init]: 'pending',
+            [GroupNotifyStatus.Unhandle]: 'pending',
+            [GroupNotifyStatus.Agreed]: 'accepted',
+            [GroupNotifyStatus.Refused]: 'rejected',
+            [GroupNotifyStatus.Ignored]: 'ignored'
+          } as const)[notify.status],
+          operator_id: notify.actionUser.uid ? Number(await ctx.ntUserApi.getUinByUid(notify.actionUser.uid)) : undefined
+        })
+      }
+    }
     return Ok({
-      notifications: limited,
-      next_notification_seq: undefined,
+      notifications,
+      next_notification_seq: result.nextStartSeq !== '0' ? Number(result.nextStartSeq) : undefined,
     })
   }
 )
@@ -261,6 +376,7 @@ export const GroupApi = [
   SetGroupMemberMute,
   SetGroupWholeMute,
   KickGroupMember,
+  GetGroupAnnouncements,
   QuitGroup,
   SendGroupMessageReaction,
   SendGroupNudge,
