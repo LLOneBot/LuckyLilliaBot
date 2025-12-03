@@ -35,22 +35,22 @@ jobs:
           cd ./dist/
           zip -r ../LLOneBot.zip ./*
 
-      - name: Compress for Windows Cli
-        run: |
-          mkdir llbot-cli-win-x64
-          cd llbot-cli-win-x64
-          cp ../dist/使用说明.txt ./
-          cp ../dist/更新日志.txt ./
-          cp -r ../dist ./llonebot
-          wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-win-x64.zip
-          unzip pmhq-win-x64.zip
-          rm pmhq-win-x64.zip
-          mv pmhq-win-x64.exe llbot.exe
-          wget https://github.com/LLOneBot/exe/releases/latest/download/node.exe -O llonebot/node.exe
-          # zip -r ../LLOneBot-win-x64.zip ./*
-          wget https://github.com/LLOneBot/exe/releases/latest/download/ffmpeg.exe -O llonebot/ffmpeg.exe
-          wget https://github.com/LLOneBot/exe/releases/latest/download/ffprobe.exe -O llonebot/ffprobe.exe
-          zip -r ../LLBot-cli-win-x64.zip ./*
+      # - name: Compress for Windows Cli
+      #   run: |
+      #     mkdir llbot-cli-win-x64
+      #     cd llbot-cli-win-x64
+      #     cp ../dist/使用说明.txt ./
+      #     cp ../dist/更新日志.txt ./
+      #     cp -r ../dist ./llonebot
+      #     wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-win-x64.zip
+      #     unzip pmhq-win-x64.zip
+      #     rm pmhq-win-x64.zip
+      #     mv pmhq-win-x64.exe llbot.exe
+      #     wget https://github.com/LLOneBot/exe/releases/latest/download/node.exe -O llonebot/node.exe
+      #     # zip -r ../LLOneBot-win-x64.zip ./*
+      #     wget https://github.com/LLOneBot/exe/releases/latest/download/ffmpeg.exe -O llonebot/ffmpeg.exe
+      #     wget https://github.com/LLOneBot/exe/releases/latest/download/ffprobe.exe -O llonebot/ffprobe.exe
+      #     zip -r ../LLBot-cli-win-x64.zip ./*
 
       - name: Compress for Windows Desktop
         run: |
