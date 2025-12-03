@@ -4,6 +4,7 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
@@ -100,13 +101,56 @@ jobs:
       - name: Compress for Docker
         run: |
           wget https://raw.githubusercontent.com/linyuchen/PMHQ/refs/heads/main/docker/install-llob.sh -O LLBot-Docker.sh
-          
 
+      # 手动触发时只上传 artifacts
+      - name: Upload LLOneBot.zip
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: LLOneBot
+          path: LLOneBot.zip
+          retention-days: 30
+
+      - name: Upload LLBot-Desktop-win-x64.zip
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: LLBot-Desktop-win-x64
+          path: LLBot-Desktop-win-x64.zip
+          retention-days: 30
+
+      - name: Upload LLBot-CLI-linux-x64.zip
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: LLBot-CLI-linux-x64
+          path: LLBot-CLI-linux-x64.zip
+          retention-days: 30
+
+      - name: Upload LLBot-CLI-linux-arm64.zip
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: LLBot-CLI-linux-arm64
+          path: LLBot-CLI-linux-arm64.zip
+          retention-days: 30
+
+      - name: Upload LLBot-Docker.sh
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: LLBot-Docker
+          path: LLBot-Docker.sh
+          retention-days: 30
+
+      # tag 触发时创建 release
       - name: Extract version from tag
+        if: startsWith(github.ref, 'refs/tags/')
         id: get-version
         run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
 
       - name: Generate release body from changelog
+        if: startsWith(github.ref, 'refs/tags/')
         id: changelog
         run: |
           # 取第一个分段
@@ -121,9 +165,10 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Release
+        if: startsWith(github.ref, 'refs/tags/')
         uses: ncipollo/release-action@v1
         with:
-          artifacts: 'LLOneBot.zip, LLBot-Desktop-win-x64.zip, LLBot-CLI-linux-x64.zip, LLBot-CLI-linux-arm64.zip， LLBot-Docker.sh'
+          artifacts: 'LLOneBot.zip, LLBot-Desktop-win-x64.zip, LLBot-CLI-linux-x64.zip, LLBot-CLI-linux-arm64.zip, LLBot-Docker.sh'
           draft: true
           token: ${{ secrets.RELEASE_TOKEN }}
           name: LLOneBot v${{ steps.get-version.outputs.VERSION }}
