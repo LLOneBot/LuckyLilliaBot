@@ -41,7 +41,7 @@ jobs:
           cd llbot-cli-win-x64
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
-          cp ../dist ./llonebot
+          cp -r ../dist ./llonebot
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-win-x64.zip
           unzip pmhq-win-x64.zip
           rm pmhq-win-x64.zip
@@ -59,7 +59,7 @@ jobs:
           cd llbot-desktop-win-x64
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
-          cp ../dist ./bin/llonebot
+          cp -r ../dist ./bin/llonebot
           wget https://github.com/LLOneBot/Lucky-Lillia-Desktop/releases/latest/download/lucky-lillia-desktop-win-x64.zip
           unzip lucky-lillia-desktop-win-x64.zip
           rm lucky-lillia-desktop-win-x64.zip
@@ -72,7 +72,7 @@ jobs:
           cd llbot-cli-linux-x64
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
-          cp ../dist ./llbot
+          cp -r ../dist ./llbot
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-linux-x64.zip
           unzip pmhq-linux-x64.zip
           rm pmhq-linux-x64.zip
@@ -87,7 +87,7 @@ jobs:
           cd llbot-cli-linux-arm64
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
-          cp ../dist ./llbot
+          cp -r ../dist ./llbot
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-linux-arm64.zip
           unzip pmhq-linux-arm64.zip
           rm pmhq-linux-arm64.zip
