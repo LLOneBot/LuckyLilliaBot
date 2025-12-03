@@ -78,7 +78,7 @@ jobs:
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-linux-x64.zip
           unzip pmhq-linux-x64.zip
           rm pmhq-linux-x64.zip
-          mv pmhq-linux-x64 llbot
+          mv pmhq-linux-x64 llbot/pmhq
           wget https://github.com/LLOneBot/exe/releases/latest/download/node-linux-x64 -O llbot/node
           cp ../script/start-linux.sh ./start.sh
           zip -r ../LLBot-CLI-linux-x64.zip ./*
@@ -93,7 +93,7 @@ jobs:
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-linux-arm64.zip
           unzip pmhq-linux-arm64.zip
           rm pmhq-linux-arm64.zip
-          mv pmhq-linux-arm64 llbot
+          mv pmhq-linux-arm64 llbot/pmhq
           wget https://github.com/LLOneBot/exe/releases/latest/download/node-linux-arm64 -O llbot/node
           cp ../script/start-linux.sh ./start.sh
           zip -r ../LLBot-CLI-linux-arm64.zip ./*
