@@ -18,8 +18,6 @@ import { Config as LLOBConfig, OB11Config } from '../common/types'
 import { OB11WebSocket, OB11WebSocketReverse } from './connect/ws'
 import { OB11Http, OB11HttpPost } from './connect/http'
 import { OB11BaseEvent } from './event/OB11BaseEvent'
-import { OB11BaseMetaEvent } from './event/meta/OB11BaseMetaEvent'
-import { postHttpEvent } from './helper/eventForHttp'
 import { initActionMap } from './action'
 import { OB11GroupAdminNoticeEvent } from './event/notice/OB11GroupAdminNoticeEvent'
 import { OB11ProfileLikeEvent } from './event/notice/OB11ProfileLikeEvent'
@@ -89,10 +87,6 @@ class OneBot11Adapter extends Service {
   public dispatch(event: OB11BaseEvent) {
     for (const item of this.connect) {
       item.emitEvent(event)
-    }
-    if ((event as OB11BaseMetaEvent).meta_event_type !== 'heartbeat') {
-      // 不上报心跳
-      postHttpEvent(event)
     }
   }
 

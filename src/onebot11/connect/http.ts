@@ -13,6 +13,7 @@ import { OB11HeartbeatEvent } from '../event/meta/OB11HeartbeatEvent'
 import { Dict } from 'cosmokit'
 import { HttpConnectConfig, HttpPostConnectConfig } from '@/common/types'
 import { OB11Message } from '../types'
+import { postHttpEvent } from '../helper/eventForHttp'
 
 class OB11Http {
   private readonly expressAPP: Express
@@ -124,6 +125,7 @@ class OB11Http {
   }
 
   public async emitEvent(event: OB11BaseEvent) {
+    postHttpEvent(event)
     if (!this.activated) return
     if (this.sseClients.length === 0) {
       return
