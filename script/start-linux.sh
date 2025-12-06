@@ -81,6 +81,38 @@ fi
 chmod +x $SCRIPT_DIR/llbot/node
 chmod +x $SCRIPT_DIR/llbot/pmhq
 
+# 检测 FFmpeg 是否已安装
+if ! command -v ffmpeg &> /dev/null; then
+    echo "未检测到 FFmpeg，正在安装..."
+    sudo apt-get install -y ffmpeg
+    if [ $? -ne 0 ]; then
+        echo "警告：FFmpeg 安装失败，音视频处理功能可能受限"
+    else
+        echo "FFmpeg 安装完成"
+    fi
+fi
+
+# 寻找可用端口（从 13000 开始）
+find_available_port() {
+    local port=$1
+    while [ $port -lt 65535 ]; do
+        if ! ss -tuln | grep -q ":$port "; then
+            echo $port
+            return 0
+        fi
+        port=$((port + 1))
+    done
+    echo ""
+    return 1
+}
+
+AVAILABLE_PORT=$(find_available_port 13000)
+if [ -z "$AVAILABLE_PORT" ]; then
+    echo "错误：无法找到可用端口"
+    exit 1
+fi
+
+
 # 检测 xvfb-run 命令是否存在
 USE_XVFB=1
 if ! command -v xvfb-run &> /dev/null; then
@@ -96,10 +128,12 @@ if ! command -v xvfb-run &> /dev/null; then
     fi
 fi
 
-$SCRIPT_DIR/llbot/node $SCRIPT_DIR/llbot/llonebot.js &
 
 if [ $USE_XVFB -eq 1 ]; then
-    sudo xvfb-run $SCRIPT_DIR/llbot/pmhq
+    sudo xvfb-run $SCRIPT_DIR/llbot/pmhq --port=$AVAILABLE_PORT &
 else
-    sudo $SCRIPT_DIR/llbot/pmhq
+    sudo $SCRIPT_DIR/llbot/pmhq --port=$AVAILABLE_PORT &
 fi
+sleep 5
+
+$SCRIPT_DIR/llbot/node $SCRIPT_DIR/llbot/llonebot.js -- --pmhq-port=$AVAILABLE_PORT &
