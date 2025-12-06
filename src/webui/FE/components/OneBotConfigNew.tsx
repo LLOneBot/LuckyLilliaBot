@@ -61,8 +61,9 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
   const handleSaveAdapter = () => {
     if (!selectedAdapter) return;
 
-    // 检查：如果 onlyLocalhost 为 false，token 必须设置
-    if (!globalConfig.onlyLocalhost && !selectedAdapter.token?.trim()) {
+    // 检查：如果 onlyLocalhost 为 false，token 必须设置（仅对 ws 和 http 类型）
+    const needsTokenValidation = selectedAdapter.type === 'ws' || selectedAdapter.type === 'http';
+    if (needsTokenValidation && !globalConfig.onlyLocalhost && !selectedAdapter.token?.trim()) {
       showToast('当"只监听本地地址"关闭时，必须设置 Token！', 'error');
       return;
     }
