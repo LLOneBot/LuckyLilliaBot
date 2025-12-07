@@ -219,6 +219,26 @@ export async function transformPrivateMessageEvent(
             is_self: message.senderUin === selfInfo.uin
           }
         }
+      } else if (element.arkElement) {
+        const data = JSON.parse(element.arkElement.bytesData)
+        if (data.app === 'com.tencent.qun.invite' || (data.app === 'com.tencent.tuwen.lua' && data.bizsrc === 'qun.invite')) {
+          const params = new URLSearchParams(data.meta.news.jumpUrl)
+          const receiverUin = params.get('receiveruin')
+          const senderUin = params.get('senderuin')
+          if (receiverUin !== selfInfo.uin || senderUin !== message.senderUin) {
+            return null
+          }
+          const groupCode = params.get('groupcode')!
+          const seq = params.get('msgseq')!
+          return {
+            eventType: 'group_invitation',
+            data: {
+              group_id: +groupCode,
+              invitation_seq: +seq,
+              initiator_id: +senderUin
+            }
+          }
+        }
       }
     }
     return null
