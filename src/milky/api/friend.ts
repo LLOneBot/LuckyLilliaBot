@@ -1,4 +1,4 @@
-import { defineApi, Failed, Ok } from '@/milky/common/api'
+import { defineApi, Failed, MilkyApiHandler, Ok } from '@/milky/common/api'
 import {
   SendFriendNudgeInput,
   SendProfileLikeInput,
@@ -12,7 +12,7 @@ import { selfInfo } from '@/common/globalVars'
 import { BuddyReqType } from '@/ntqqapi/types'
 import { GeneralCallResult } from '@/ntqqapi/services'
 
-export const SendFriendNudge = defineApi(
+const SendFriendNudge = defineApi(
   'send_friend_nudge',
   SendFriendNudgeInput,
   z.object({}),
@@ -23,12 +23,15 @@ export const SendFriendNudge = defineApi(
   }
 )
 
-export const SendProfileLike = defineApi(
+const SendProfileLike = defineApi(
   'send_profile_like',
   SendProfileLikeInput,
   z.object({}),
   async (ctx, payload) => {
     const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    if (!uid) {
+      return Failed(-404, 'User not found')
+    }
     const result = await ctx.ntUserApi.like(uid, payload.count)
     if (result.result !== 0) {
       return Failed(-500, result.errMsg)
@@ -37,7 +40,7 @@ export const SendProfileLike = defineApi(
   }
 )
 
-export const GetFriendRequests = defineApi(
+const GetFriendRequests = defineApi(
   'get_friend_requests',
   GetFriendRequestsInput,
   GetFriendRequestsOutput,
@@ -108,7 +111,7 @@ export const GetFriendRequests = defineApi(
   }
 )
 
-export const AcceptFriendRequest = defineApi(
+const AcceptFriendRequest = defineApi(
   'accept_friend_request',
   AcceptFriendRequestInput,
   z.object({}),
@@ -126,7 +129,7 @@ export const AcceptFriendRequest = defineApi(
   }
 )
 
-export const RejectFriendRequest = defineApi(
+const RejectFriendRequest = defineApi(
   'reject_friend_request',
   RejectFriendRequestInput,
   z.object({}),
@@ -141,7 +144,7 @@ export const RejectFriendRequest = defineApi(
   }
 )
 
-export const FriendApi = [
+export const FriendApi: MilkyApiHandler[] = [
   SendFriendNudge,
   SendProfileLike,
   GetFriendRequests,

@@ -1,4 +1,4 @@
-import { CategoryFriend, SimpleInfo } from '../types'
+import { SimpleInfo } from '../types'
 import { invoke, NTMethod } from '../ntcall'
 import { Context, Service } from 'cordis'
 
@@ -85,7 +85,7 @@ export class NTQQFriendApi extends Service {
     return await invoke('nodeIKernelBuddyService/approvalDoubtBuddyReq', [uid, '', ''])
   }
 
-  async getBuddyReq(){
+  async getBuddyReq() {
     return await invoke(
       'nodeIKernelBuddyService/getBuddyReq',
       [],
@@ -93,5 +93,9 @@ export class NTQQFriendApi extends Service {
         resultCmd: 'nodeIKernelBuddyListener/onBuddyReqChange'
       }
     )
+  }
+
+  async getCategoryById(categoryId: number) {
+    return await invoke('nodeIKernelBuddyService/getCategoryById', [categoryId])
   }
 }

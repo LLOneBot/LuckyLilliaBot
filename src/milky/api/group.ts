@@ -1,4 +1,4 @@
-import { defineApi, Failed, Ok } from '@/milky/common/api'
+import { defineApi, Failed, MilkyApiHandler, Ok } from '@/milky/common/api'
 import { resolveMilkyUri } from '@/milky/common/download'
 import {
   SetGroupNameInput,
@@ -20,6 +20,11 @@ import {
   RejectGroupInvitationInput,
   GetGroupAnnouncementsInput,
   GetGroupAnnouncementsOutput,
+  SendGroupAnnouncementInput,
+  DeleteGroupAnnouncementInput,
+  GetGroupEssenceMessagesInput,
+  GetGroupEssenceMessagesOutput,
+  SetGroupEssenceMessageInput,
 } from '@saltify/milky-types'
 import z from 'zod'
 import { TEMP_DIR } from '@/common/globalVars'
@@ -27,8 +32,9 @@ import { unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { GroupNotifyStatus, GroupNotifyType } from '@/ntqqapi/types'
+import { transformIncomingSegments } from '../transform/message'
 
-export const SetGroupName = defineApi(
+const SetGroupName = defineApi(
   'set_group_name',
   SetGroupNameInput,
   z.object({}),
@@ -41,7 +47,7 @@ export const SetGroupName = defineApi(
   }
 )
 
-export const SetGroupAvatar = defineApi(
+const SetGroupAvatar = defineApi(
   'set_group_avatar',
   SetGroupAvatarInput,
   z.object({}),
@@ -58,7 +64,7 @@ export const SetGroupAvatar = defineApi(
   }
 )
 
-export const SetGroupMemberCard = defineApi(
+const SetGroupMemberCard = defineApi(
   'set_group_member_card',
   SetGroupMemberCardInput,
   z.object({}),
@@ -77,7 +83,7 @@ export const SetGroupMemberCard = defineApi(
   }
 )
 
-export const SetGroupMemberSpecialTitle = defineApi(
+const SetGroupMemberSpecialTitle = defineApi(
   'set_group_member_special_title',
   SetGroupMemberSpecialTitleInput,
   z.object({}),
@@ -93,7 +99,7 @@ export const SetGroupMemberSpecialTitle = defineApi(
   }
 )
 
-export const SetGroupMemberAdmin = defineApi(
+const SetGroupMemberAdmin = defineApi(
   'set_group_member_admin',
   SetGroupMemberAdminInput,
   z.object({}),
@@ -112,7 +118,7 @@ export const SetGroupMemberAdmin = defineApi(
   }
 )
 
-export const SetGroupMemberMute = defineApi(
+const SetGroupMemberMute = defineApi(
   'set_group_member_mute',
   SetGroupMemberMuteInput,
   z.object({}),
@@ -130,7 +136,7 @@ export const SetGroupMemberMute = defineApi(
   }
 )
 
-export const SetGroupWholeMute = defineApi(
+const SetGroupWholeMute = defineApi(
   'set_group_whole_mute',
   SetGroupWholeMuteInput,
   z.object({}),
@@ -143,7 +149,7 @@ export const SetGroupWholeMute = defineApi(
   }
 )
 
-export const KickGroupMember = defineApi(
+const KickGroupMember = defineApi(
   'kick_group_member',
   KickGroupMemberInput,
   z.object({}),
@@ -162,7 +168,7 @@ export const KickGroupMember = defineApi(
   }
 )
 
-export const GetGroupAnnouncements = defineApi(
+const GetGroupAnnouncements = defineApi(
   'get_group_announcements',
   GetGroupAnnouncementsInput,
   GetGroupAnnouncementsOutput,
@@ -175,14 +181,152 @@ export const GetGroupAnnouncements = defineApi(
           announcement_id: e.feedId,
           user_id: +e.uin,
           time: +e.publishTime,
-          content: e.msg.text
+          content: e.msg.text,
+          image_url: e.msg.pics[0] ? `https://gdynamic.qpic.cn/gdynamic/${e.msg.pics[0].id}/0` : undefined
         }
       })
     })
   }
 )
 
-export const QuitGroup = defineApi(
+const SendGroupAnnouncement = defineApi(
+  'send_group_announcement',
+  SendGroupAnnouncementInput,
+  z.object({}),
+  async (ctx, payload) => {
+    const groupCode = payload.group_id.toString()
+    let picInfo: { id: string, width: number, height: number } | undefined
+    if (payload.image_uri) {
+      const imageBuffer = await resolveMilkyUri(payload.image_uri)
+      const tempPath = path.join(TEMP_DIR, `group-announcement-${randomUUID()}`)
+      await writeFile(tempPath, imageBuffer)
+      const result = await ctx.ntGroupApi.uploadGroupBulletinPic(groupCode, tempPath)
+      unlink(tempPath).catch(e => { })
+      if (result.errCode !== 0) {
+        return Failed(-500, result.errMsg)
+      }
+      picInfo = result.picInfo
+    }
+    const result = await ctx.ntGroupApi.publishGroupBulletin(
+      groupCode,
+      {
+        text: encodeURIComponent(payload.content),
+        oldFeedsId: '',
+        pinned: 0,
+        confirmRequired: 1,
+        picInfo
+      }
+    )
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
+    return Ok({})
+  }
+)
+
+const DeleteGroupAnnouncement = defineApi(
+  'delete_group_announcement',
+  DeleteGroupAnnouncementInput,
+  z.object({}),
+  async (ctx, payload) => {
+    const result = await ctx.ntGroupApi.deleteGroupBulletin(payload.group_id.toString(), payload.announcement_id)
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
+    return Ok({})
+  }
+)
+
+const GetGroupEssenceMessages = defineApi(
+  'get_group_essence_messages',
+  GetGroupEssenceMessagesInput,
+  GetGroupEssenceMessagesOutput,
+  async (ctx, payload) => {
+    const groupCode = payload.group_id.toString()
+    const peer = {
+      guildId: '',
+      chatType: 2,
+      peerUid: groupCode
+    }
+    const essence = await ctx.ntGroupApi.queryCachedEssenceMsg(groupCode)
+    let isEnd = true
+    let items = essence.items
+    let start = ((payload.page_index + 1) * payload.page_size) - 1
+    if (start > items.length - 1) {
+      start = items.length - 1
+    }
+    items = items.slice(start)
+    if (items.length > payload.page_size) {
+      items = items.slice(0, payload.page_size)
+      isEnd = false
+    }
+    const messages: GetGroupEssenceMessagesOutput['messages'] = []
+    for (const item of items) {
+      const { msgList } = await ctx.ntMsgApi.getMsgsBySeqAndCount(
+        peer,
+        item.msgSeq.toString(),
+        1,
+        true,
+        true
+      )
+      const sourceMsg = msgList.find(e => e.msgRandom === item.msgRandom.toString())
+      if (!sourceMsg) continue
+      messages.push({
+        group_id: +item.groupCode,
+        message_seq: item.msgSeq,
+        message_time: +sourceMsg.msgTime,
+        sender_id: +item.msgSenderUin,
+        sender_name: item.msgSenderNick,
+        operator_id: +item.opUin,
+        operator_name: item.opNick,
+        operation_time: item.opTime,
+        segments: await transformIncomingSegments(ctx, sourceMsg)
+      })
+    }
+    return Ok({
+      messages,
+      is_end: isEnd
+    })
+  }
+)
+
+const SetGroupEssenceMessage = defineApi(
+  'set_group_essence_message',
+  SetGroupEssenceMessageInput,
+  z.object({}),
+  async (ctx, payload) => {
+    const groupCode = payload.group_id.toString()
+    const peer = {
+      guildId: '',
+      chatType: 2,
+      peerUid: groupCode
+    }
+    const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
+      peer,
+      payload.message_seq.toString(),
+      1,
+      true,
+      true
+    )
+    if (msg.msgList.length === 0) {
+      return Failed(-404, 'Message not found')
+    }
+    if (payload.is_set) {
+      const result = await ctx.ntGroupApi.addGroupEssence(groupCode, msg.msgList[0].msgId)
+      if (result.errCode !== 0) {
+        return Failed(-500, result.errMsg)
+      }
+    } else {
+      const result = await ctx.ntGroupApi.removeGroupEssence(groupCode, msg.msgList[0].msgId)
+      if (result.errCode !== 0) {
+        return Failed(-500, result.errMsg)
+      }
+    }
+    return Ok({})
+  }
+)
+
+const QuitGroup = defineApi(
   'quit_group',
   QuitGroupInput,
   z.object({}),
@@ -195,7 +339,7 @@ export const QuitGroup = defineApi(
   }
 )
 
-export const SendGroupMessageReaction = defineApi(
+const SendGroupMessageReaction = defineApi(
   'send_group_message_reaction',
   SendGroupMessageReactionInput,
   z.object({}),
@@ -218,7 +362,7 @@ export const SendGroupMessageReaction = defineApi(
   }
 )
 
-export const SendGroupNudge = defineApi(
+const SendGroupNudge = defineApi(
   'send_group_nudge',
   SendGroupNudgeInput,
   z.object({}),
@@ -229,7 +373,7 @@ export const SendGroupNudge = defineApi(
   }
 )
 
-export const GetGroupNotifications = defineApi(
+const GetGroupNotifications = defineApi(
   'get_group_notifications',
   GetGroupNotificationsInput,
   GetGroupNotificationsOutput,
@@ -315,59 +459,103 @@ export const GetGroupNotifications = defineApi(
   }
 )
 
-export const AcceptGroupRequest = defineApi(
+const AcceptGroupRequest = defineApi(
   'accept_group_request',
   AcceptGroupRequestInput,
   z.object({}),
   async (ctx, payload) => {
-    // handleGroupRequest needs flag format: "groupCode|seq|type|doubt"
-    // TODO: Store notification metadata to reconstruct proper flag
-    // For now, use basic format (type: 1=join request, 7=invitation)
-    const flag = `${payload.group_id}|${payload.notification_seq}|${payload.is_filtered ? 1 : 7}|${payload.is_filtered ? 1 : 0}`
-    await ctx.ntGroupApi.handleGroupRequest(flag, 1) // 1 = accept
+    const result = await ctx.ntGroupApi.operateSysNotify(
+      payload.is_filtered,
+      {
+        operateType: 1,
+        targetMsg: {
+          seq: payload.notification_seq.toString(),
+          type: payload.notification_type === 'join_request' ? 7 : 5,
+          groupCode: payload.group_id.toString(),
+          postscript: ''
+        }
+      }
+    )
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
   }
 )
 
-export const RejectGroupRequest = defineApi(
+const RejectGroupRequest = defineApi(
   'reject_group_request',
   RejectGroupRequestInput,
   z.object({}),
   async (ctx, payload) => {
-    // handleGroupRequest needs flag format: "groupCode|seq|type|doubt"
-    // TODO: Store notification metadata to reconstruct proper flag
-    const flag = `${payload.group_id}|${payload.notification_seq}|${payload.is_filtered ? 1 : 7}|${payload.is_filtered ? 1 : 0}`
-    await ctx.ntGroupApi.handleGroupRequest(flag, 2, payload.reason || undefined) // 2 = reject
+    const result = await ctx.ntGroupApi.operateSysNotify(
+      payload.is_filtered,
+      {
+        operateType: 2,
+        targetMsg: {
+          seq: payload.notification_seq.toString(),
+          type: payload.notification_type === 'join_request' ? 7 : 5,
+          groupCode: payload.group_id.toString(),
+          postscript: payload.reason ?? ''
+        }
+      }
+    )
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
   }
 )
 
-export const AcceptGroupInvitation = defineApi(
+const AcceptGroupInvitation = defineApi(
   'accept_group_invitation',
   AcceptGroupInvitationInput,
   z.object({}),
   async (ctx, payload) => {
-    // TODO: Group invitations may have different type value
-    // Need to determine proper type for group invitation vs join request
-    const flag = `${payload.group_id}|${payload.invitation_seq}|1|0`
-    await ctx.ntGroupApi.handleGroupRequest(flag, 1) // 1 = accept
+    const result = await ctx.ntGroupApi.operateSysNotify(
+      false,
+      {
+        operateType: 1,
+        targetMsg: {
+          seq: payload.invitation_seq.toString(),
+          type: 1,
+          groupCode: payload.group_id.toString(),
+          postscript: ''
+        }
+      }
+    )
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
   }
 )
 
-export const RejectGroupInvitation = defineApi(
+const RejectGroupInvitation = defineApi(
   'reject_group_invitation',
   RejectGroupInvitationInput,
   z.object({}),
   async (ctx, payload) => {
-    // TODO: Group invitations may have different type value
-    const flag = `${payload.group_id}|${payload.invitation_seq}|1|0`
-    await ctx.ntGroupApi.handleGroupRequest(flag, 2) // 2 = reject
+    const result = await ctx.ntGroupApi.operateSysNotify(
+      false,
+      {
+        operateType: 2,
+        targetMsg: {
+          seq: payload.invitation_seq.toString(),
+          type: 1,
+          groupCode: payload.group_id.toString(),
+          postscript: ''
+        }
+      }
+    )
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
   }
 )
 
-export const GroupApi = [
+export const GroupApi: MilkyApiHandler[] = [
   SetGroupName,
   SetGroupAvatar,
   SetGroupMemberCard,
@@ -377,6 +565,10 @@ export const GroupApi = [
   SetGroupWholeMute,
   KickGroupMember,
   GetGroupAnnouncements,
+  SendGroupAnnouncement,
+  DeleteGroupAnnouncement,
+  GetGroupEssenceMessages,
+  SetGroupEssenceMessage,
   QuitGroup,
   SendGroupMessageReaction,
   SendGroupNudge,

@@ -40,4 +40,13 @@ export interface NodeIKernelBuddyService {
   approvalDoubtBuddyReq(uid: string, groupId: string, remark: string): Promise<GeneralCallResult>
 
   getBuddyReq(): Promise<GeneralCallResult>
+
+  getCategoryById(categoryId: number): Promise<{
+    categoryId: number,
+    categorySortId: number,
+    categroyName: string,
+    categroyMbCount: number,
+    onlineCount: number,
+    buddyUids: string[]
+  }>
 }

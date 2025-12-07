@@ -112,7 +112,7 @@ message VideoExtBizInfo {
   bytes pbReserve = 3;
 }
 
-message PicFileIdInfo {
+message FileIdInfo {
   bytes sha1 = 2;
   uint32 size = 3;
   uint32 appid = 4;

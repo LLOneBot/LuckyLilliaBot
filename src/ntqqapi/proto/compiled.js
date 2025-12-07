@@ -7284,28 +7284,28 @@ export const RichMedia = $root.RichMedia = (() => {
         return VideoExtBizInfo;
     })();
 
-    RichMedia.PicFileIdInfo = (function() {
+    RichMedia.FileIdInfo = (function() {
 
         /**
-         * Properties of a PicFileIdInfo.
+         * Properties of a FileIdInfo.
          * @memberof RichMedia
-         * @interface IPicFileIdInfo
-         * @property {Uint8Array|null} [sha1] PicFileIdInfo sha1
-         * @property {number|null} [size] PicFileIdInfo size
-         * @property {number|null} [appid] PicFileIdInfo appid
-         * @property {number|null} [time] PicFileIdInfo time
-         * @property {number|null} [expire] PicFileIdInfo expire
+         * @interface IFileIdInfo
+         * @property {Uint8Array|null} [sha1] FileIdInfo sha1
+         * @property {number|null} [size] FileIdInfo size
+         * @property {number|null} [appid] FileIdInfo appid
+         * @property {number|null} [time] FileIdInfo time
+         * @property {number|null} [expire] FileIdInfo expire
          */
 
         /**
-         * Constructs a new PicFileIdInfo.
+         * Constructs a new FileIdInfo.
          * @memberof RichMedia
-         * @classdesc Represents a PicFileIdInfo.
-         * @implements IPicFileIdInfo
+         * @classdesc Represents a FileIdInfo.
+         * @implements IFileIdInfo
          * @constructor
-         * @param {RichMedia.IPicFileIdInfo=} [properties] Properties to set
+         * @param {RichMedia.IFileIdInfo=} [properties] Properties to set
          */
-        function PicFileIdInfo(properties) {
+        function FileIdInfo(properties) {
             if (properties)
                 for (let keys = Object.keys(properties), i = 0; i < keys.length; ++i)
                     if (properties[keys[i]] != null)
@@ -7313,55 +7313,55 @@ export const RichMedia = $root.RichMedia = (() => {
         }
 
         /**
-         * PicFileIdInfo sha1.
+         * FileIdInfo sha1.
          * @member {Uint8Array} sha1
-         * @memberof RichMedia.PicFileIdInfo
+         * @memberof RichMedia.FileIdInfo
          * @instance
          */
-        PicFileIdInfo.prototype.sha1 = $util.newBuffer([]);
+        FileIdInfo.prototype.sha1 = $util.newBuffer([]);
 
         /**
-         * PicFileIdInfo size.
+         * FileIdInfo size.
          * @member {number} size
-         * @memberof RichMedia.PicFileIdInfo
+         * @memberof RichMedia.FileIdInfo
          * @instance
          */
-        PicFileIdInfo.prototype.size = 0;
+        FileIdInfo.prototype.size = 0;
 
         /**
-         * PicFileIdInfo appid.
+         * FileIdInfo appid.
          * @member {number} appid
-         * @memberof RichMedia.PicFileIdInfo
+         * @memberof RichMedia.FileIdInfo
          * @instance
          */
-        PicFileIdInfo.prototype.appid = 0;
+        FileIdInfo.prototype.appid = 0;
 
         /**
-         * PicFileIdInfo time.
+         * FileIdInfo time.
          * @member {number} time
-         * @memberof RichMedia.PicFileIdInfo
+         * @memberof RichMedia.FileIdInfo
          * @instance
          */
-        PicFileIdInfo.prototype.time = 0;
+        FileIdInfo.prototype.time = 0;
 
         /**
-         * PicFileIdInfo expire.
+         * FileIdInfo expire.
          * @member {number} expire
-         * @memberof RichMedia.PicFileIdInfo
+         * @memberof RichMedia.FileIdInfo
          * @instance
          */
-        PicFileIdInfo.prototype.expire = 0;
+        FileIdInfo.prototype.expire = 0;
 
         /**
-         * Encodes the specified PicFileIdInfo message. Does not implicitly {@link RichMedia.PicFileIdInfo.verify|verify} messages.
+         * Encodes the specified FileIdInfo message. Does not implicitly {@link RichMedia.FileIdInfo.verify|verify} messages.
          * @function encode
-         * @memberof RichMedia.PicFileIdInfo
+         * @memberof RichMedia.FileIdInfo
          * @static
-         * @param {RichMedia.IPicFileIdInfo} message PicFileIdInfo message or plain object to encode
+         * @param {RichMedia.IFileIdInfo} message FileIdInfo message or plain object to encode
          * @param {$protobuf.Writer} [writer] Writer to encode to
          * @returns {$protobuf.Writer} Writer
          */
-        PicFileIdInfo.encode = function encode(message, writer) {
+        FileIdInfo.encode = function encode(message, writer) {
             if (!writer)
                 writer = $Writer.create();
             if (message.sha1 != null && Object.hasOwnProperty.call(message, "sha1"))
@@ -7378,20 +7378,20 @@ export const RichMedia = $root.RichMedia = (() => {
         };
 
         /**
-         * Decodes a PicFileIdInfo message from the specified reader or buffer.
+         * Decodes a FileIdInfo message from the specified reader or buffer.
          * @function decode
-         * @memberof RichMedia.PicFileIdInfo
+         * @memberof RichMedia.FileIdInfo
          * @static
          * @param {$protobuf.Reader|Uint8Array} reader Reader or buffer to decode from
          * @param {number} [length] Message length if known beforehand
-         * @returns {RichMedia.PicFileIdInfo} PicFileIdInfo
+         * @returns {RichMedia.FileIdInfo} FileIdInfo
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        PicFileIdInfo.decode = function decode(reader, length, error) {
+        FileIdInfo.decode = function decode(reader, length, error) {
             if (!(reader instanceof $Reader))
                 reader = $Reader.create(reader);
-            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.RichMedia.PicFileIdInfo();
+            let end = length === undefined ? reader.len : reader.pos + length, message = new $root.RichMedia.FileIdInfo();
             while (reader.pos < end) {
                 let tag = reader.uint32();
                 if (tag === error)
@@ -7426,21 +7426,21 @@ export const RichMedia = $root.RichMedia = (() => {
         };
 
         /**
-         * Gets the default type url for PicFileIdInfo
+         * Gets the default type url for FileIdInfo
          * @function getTypeUrl
-         * @memberof RichMedia.PicFileIdInfo
+         * @memberof RichMedia.FileIdInfo
          * @static
          * @param {string} [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns {string} The default type url
          */
-        PicFileIdInfo.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
+        FileIdInfo.getTypeUrl = function getTypeUrl(typeUrlPrefix) {
             if (typeUrlPrefix === undefined) {
                 typeUrlPrefix = "type.googleapis.com";
             }
-            return typeUrlPrefix + "/RichMedia.PicFileIdInfo";
+            return typeUrlPrefix + "/RichMedia.FileIdInfo";
         };
 
-        return PicFileIdInfo;
+        return FileIdInfo;
     })();
 
     RichMedia.NTV2RichMediaResp = (function() {

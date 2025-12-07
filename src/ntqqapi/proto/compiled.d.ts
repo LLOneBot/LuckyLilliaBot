@@ -2975,69 +2975,69 @@ export namespace RichMedia {
         public static getTypeUrl(typeUrlPrefix?: string): string;
     }
 
-    /** Properties of a PicFileIdInfo. */
-    interface IPicFileIdInfo {
+    /** Properties of a FileIdInfo. */
+    interface IFileIdInfo {
 
-        /** PicFileIdInfo sha1 */
+        /** FileIdInfo sha1 */
         sha1?: (Uint8Array|null);
 
-        /** PicFileIdInfo size */
+        /** FileIdInfo size */
         size?: (number|null);
 
-        /** PicFileIdInfo appid */
+        /** FileIdInfo appid */
         appid?: (number|null);
 
-        /** PicFileIdInfo time */
+        /** FileIdInfo time */
         time?: (number|null);
 
-        /** PicFileIdInfo expire */
+        /** FileIdInfo expire */
         expire?: (number|null);
     }
 
-    /** Represents a PicFileIdInfo. */
-    class PicFileIdInfo implements IPicFileIdInfo {
+    /** Represents a FileIdInfo. */
+    class FileIdInfo implements IFileIdInfo {
 
         /**
-         * Constructs a new PicFileIdInfo.
+         * Constructs a new FileIdInfo.
          * @param [properties] Properties to set
          */
-        constructor(properties?: RichMedia.IPicFileIdInfo);
+        constructor(properties?: RichMedia.IFileIdInfo);
 
-        /** PicFileIdInfo sha1. */
+        /** FileIdInfo sha1. */
         public sha1: Uint8Array;
 
-        /** PicFileIdInfo size. */
+        /** FileIdInfo size. */
         public size: number;
 
-        /** PicFileIdInfo appid. */
+        /** FileIdInfo appid. */
         public appid: number;
 
-        /** PicFileIdInfo time. */
+        /** FileIdInfo time. */
         public time: number;
 
-        /** PicFileIdInfo expire. */
+        /** FileIdInfo expire. */
         public expire: number;
 
         /**
-         * Encodes the specified PicFileIdInfo message. Does not implicitly {@link RichMedia.PicFileIdInfo.verify|verify} messages.
-         * @param message PicFileIdInfo message or plain object to encode
+         * Encodes the specified FileIdInfo message. Does not implicitly {@link RichMedia.FileIdInfo.verify|verify} messages.
+         * @param message FileIdInfo message or plain object to encode
          * @param [writer] Writer to encode to
          * @returns Writer
          */
-        public static encode(message: RichMedia.IPicFileIdInfo, writer?: $protobuf.Writer): $protobuf.Writer;
+        public static encode(message: RichMedia.IFileIdInfo, writer?: $protobuf.Writer): $protobuf.Writer;
 
         /**
-         * Decodes a PicFileIdInfo message from the specified reader or buffer.
+         * Decodes a FileIdInfo message from the specified reader or buffer.
          * @param reader Reader or buffer to decode from
          * @param [length] Message length if known beforehand
-         * @returns PicFileIdInfo
+         * @returns FileIdInfo
          * @throws {Error} If the payload is not a reader or valid buffer
          * @throws {$protobuf.util.ProtocolError} If required fields are missing
          */
-        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): RichMedia.PicFileIdInfo;
+        public static decode(reader: ($protobuf.Reader|Uint8Array), length?: number): RichMedia.FileIdInfo;
 
         /**
-         * Gets the default type url for PicFileIdInfo
+         * Gets the default type url for FileIdInfo
          * @param [typeUrlPrefix] your custom typeUrlPrefix(default "type.googleapis.com")
          * @returns The default type url
          */

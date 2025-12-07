@@ -1,6 +1,6 @@
 import { FriendEntity, GroupEntity, GroupFileEntity, GroupFolderEntity, GroupMemberEntity } from '@saltify/milky-types'
-import { CategoryFriend, Sex, SimpleInfo } from '@/ntqqapi/types'
-import { GroupSimpleInfo, GroupMember, GroupFileInfo } from '@/ntqqapi/types'
+import { CategoryFriend, GroupAllInfo, Sex, SimpleInfo } from '@/ntqqapi/types'
+import { GroupMember, GroupFileInfo } from '@/ntqqapi/types'
 
 export function transformGender(gender: Sex): 'male' | 'female' | 'unknown' {
   if (gender === Sex.Male) return 'male'
@@ -10,11 +10,11 @@ export function transformGender(gender: Sex): 'male' | 'female' | 'unknown' {
 
 export function transformFriend(friend: SimpleInfo, category: CategoryFriend): FriendEntity {
   return {
-    user_id: parseInt(friend.uin || friend.coreInfo.uin),
+    user_id: +friend.uin,
     nickname: friend.coreInfo.nick,
-    sex: transformGender(friend.baseInfo?.sex ?? Sex.Unknown),
-    qid: friend.baseInfo?.qid ?? '',
-    remark: friend.coreInfo.remark ?? '',
+    sex: transformGender(friend.baseInfo.sex),
+    qid: friend.baseInfo.qid,
+    remark: friend.coreInfo.remark,
     category: {
       category_id: category.categoryId,
       category_name: category.categroyName,
@@ -22,12 +22,12 @@ export function transformFriend(friend: SimpleInfo, category: CategoryFriend): F
   }
 }
 
-export function transformGroup(group: GroupSimpleInfo): GroupEntity {
+export function transformGroup(group: GroupAllInfo): GroupEntity {
   return {
-    group_id: parseInt(group.groupCode),
+    group_id: +group.groupCode,
     group_name: group.groupName,
-    member_count: group.memberCount,
-    max_member_count: group.maxMember,
+    member_count: group.memberNum,
+    max_member_count: group.maxMemberNum,
   }
 }
 
@@ -37,72 +37,57 @@ export function transformGroupMemberRole(role: number): GroupMemberEntity['role'
   return 'member'
 }
 
-export function transformGroupMember(member: GroupMember): GroupMemberEntity {
+export function transformGroupMember(member: GroupMember, groupId: number): GroupMemberEntity {
   return {
-    user_id: parseInt(member.uin),
+    user_id: +member.uin,
     nickname: member.nick,
     sex: 'unknown',
-    group_id: parseInt(member.uin),
-    card: member.cardName ?? '',
-    title: member.memberSpecialTitle ?? '',
-    level: 0, // NTQQ doesn't provide level directly
+    group_id: groupId,
+    card: member.cardName,
+    title: member.memberSpecialTitle,
+    level: member.memberRealLevel,
     role: transformGroupMemberRole(member.role),
     join_time: member.joinTime,
     last_sent_time: member.lastSpeakTime,
-    shut_up_end_time: member.shutUpTime,
+    shut_up_end_time: member.shutUpTime || undefined,
   }
 }
 
-export function transformGroupFileList(
-  groupId: number,
-  data: GroupFileInfo,
-  parentFolderId?: string
-): { files: GroupFileEntity[], folders: GroupFolderEntity[] } {
+export function transformGroupFileList(data: GroupFileInfo): {
+  files: GroupFileEntity[],
+  folders: GroupFolderEntity[]
+} {
   const files: GroupFileEntity[] = []
   const folders: GroupFolderEntity[] = []
 
-  if (!data.item || data.item.length === 0) {
+  if (data.item.length === 0) {
     return { files, folders }
   }
 
   for (const item of data.item) {
-    // Type 1 = File, Type 2 = Folder (based on common NTQQ patterns)
-    // Also check isFolder flag in fileInfo
-    if (item.type === 2 || (item.folderInfo && !item.fileInfo)) {
-      // This is a folder
-      if (item.folderInfo) {
-        // Filter by parent folder if specified
-        if (!parentFolderId || item.folderInfo.parentFolderId === parentFolderId) {
-          folders.push({
-            group_id: groupId,
-            folder_id: item.folderInfo.folderId,
-            parent_folder_id: item.folderInfo.parentFolderId || '/',
-            folder_name: item.folderInfo.folderName,
-            created_time: item.folderInfo.createTime,
-            last_modified_time: item.folderInfo.modifyTime || item.folderInfo.createTime,
-            creator_id: parseInt(item.folderInfo.createUin),
-            file_count: item.folderInfo.totalFileCount || 0,
-          })
-        }
-      }
-    } else if (item.type === 1 || item.fileInfo) {
-      // This is a file
-      if (item.fileInfo) {
-        // Filter by parent folder if specified
-        if (!parentFolderId || item.fileInfo.parentFolderId === parentFolderId) {
-          files.push({
-            group_id: groupId,
-            file_id: item.fileInfo.fileId,
-            file_name: item.fileInfo.fileName,
-            parent_folder_id: item.fileInfo.parentFolderId || '/',
-            file_size: parseInt(item.fileInfo.fileSize),
-            uploaded_time: item.fileInfo.uploadTime,
-            expire_time: item.fileInfo.deadTime || 0,
-            uploader_id: parseInt(item.fileInfo.uploaderUin),
-            downloaded_times: item.fileInfo.downloadTimes || 0,
-          })
-        }
-      }
+    if (item.folderInfo) {
+      folders.push({
+        group_id: +item.peerId,
+        folder_id: item.folderInfo.folderId,
+        parent_folder_id: item.folderInfo.parentFolderId,
+        folder_name: item.folderInfo.folderName,
+        created_time: item.folderInfo.createTime,
+        last_modified_time: item.folderInfo.modifyTime,
+        creator_id: +item.folderInfo.createUin,
+        file_count: item.folderInfo.totalFileCount,
+      })
+    } else if (item.fileInfo) {
+      files.push({
+        group_id: +item.peerId,
+        file_id: item.fileInfo.fileId,
+        file_name: item.fileInfo.fileName,
+        parent_folder_id: item.fileInfo.parentFolderId,
+        file_size: +item.fileInfo.fileSize,
+        uploaded_time: item.fileInfo.uploadTime,
+        expire_time: item.fileInfo.deadTime || undefined,
+        uploader_id: +item.fileInfo.uploaderUin,
+        downloaded_times: item.fileInfo.downloadTimes,
+      })
     }
   }
 

@@ -9,11 +9,12 @@ import Log from './log'
 import Core from '../ntqqapi/core'
 import OneBot11Adapter from '../onebot11/adapter'
 import SatoriAdapter from '../satori/adapter'
+import MilkyAdapter from '../milky/adapter'
 import Database from 'minato'
 import SQLiteDriver from '@minatojs/driver-sqlite'
 import Store from './store'
 import { Config as LLOBConfig } from '../common/types'
-import { ReceiveCmdS, registerReceiveHook, startHook } from '../ntqqapi/hook'
+import { startHook } from '../ntqqapi/hook'
 import { getConfigUtil } from '../common/config'
 import { Context } from 'cordis'
 import { selfInfo, LOG_DIR, DATA_DIR, TEMP_DIR, dbDir } from '../common/globalVars'
@@ -32,9 +33,7 @@ import {
 import { existsSync, mkdirSync } from 'node:fs'
 import { version } from '../version'
 import { WebUIServer } from '../webui/BE/server'
-import { setFFMpegPath } from '@/common/utils/ffmpeg'
 import { pmhq } from '@/ntqqapi/native/pmhq'
-import { defaultConfig } from '@/common/defaultConfig'
 import { sleep } from '@/common/utils'
 
 declare module 'cordis' {
@@ -59,6 +58,7 @@ async function onLoad() {
   const ctx = new Context()
 
   let config = getConfigUtil().getConfig()
+  config.milky.enable = false
   config.satori.enable = false
   config.ob11.enable = false
   ctx.plugin(NTQQFileApi)
@@ -92,6 +92,10 @@ async function onLoad() {
     ctx.plugin(SatoriAdapter, {
       ...config.satori,
       ffmpeg: config.ffmpeg,
+      onlyLocalhost: config.onlyLocalhost,
+    })
+    ctx.plugin(MilkyAdapter, {
+      ...config.milky,
       onlyLocalhost: config.onlyLocalhost,
     })
     ctx.plugin(Store, {

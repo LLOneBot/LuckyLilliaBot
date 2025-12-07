@@ -1,12 +1,22 @@
-import { MilkyConfig } from '@/milky/common/config'
 import type { MilkyAdapter } from '@/milky/adapter'
 import { Context } from 'cordis'
+import { MilkyWebhookConfig } from '@/common/types'
 
-export class MilkyWebhookHandler {
-  constructor(readonly milkyAdapter: MilkyAdapter, readonly ctx: Context, readonly config: MilkyConfig['webhook']) { }
+class MilkyWebhookHandler {
+  private activated: boolean = false
+
+  constructor(readonly milkyAdapter: MilkyAdapter, readonly ctx: Context, readonly config: MilkyWebhookHandler.Config) { }
+
+  start() {
+    this.activated = true
+  }
+
+  stop() {
+    this.activated = false
+  }
 
   async broadcast(msg: string) {
-    if (this.config.urls.length === 0) {
+    if (!this.activated || this.config.urls.length === 0) {
       return
     }
     const sendResult = await Promise.allSettled(this.config.urls.map(async (url) => {
@@ -31,4 +41,15 @@ export class MilkyWebhookHandler {
       `Broadcasted message to ${sendResult.filter(result => result.status === 'fulfilled').length} URLs`
     )
   }
+
+  updateConfig(config: Partial<MilkyWebhookHandler.Config>) {
+    Object.assign(this.config, config)
+  }
 }
+
+namespace MilkyWebhookHandler {
+  export interface Config extends MilkyWebhookConfig {
+  }
+}
+
+export { MilkyWebhookHandler }

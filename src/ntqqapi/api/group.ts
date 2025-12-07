@@ -11,6 +11,7 @@ import {
   GroupBulletinListResult,
   GroupMsgMask,
   GroupNotify,
+  GroupNotifyType,
 } from '../types'
 import { invoke, NTMethod } from '../ntcall'
 import { Service, Context } from 'cordis'
@@ -96,24 +97,36 @@ export class NTQQGroupApi extends Service {
     return { notifies: normal.notifies, normalCount }
   }
 
+  async operateSysNotify(
+    doubt: boolean,
+    operateMsg: {
+      operateType: GroupRequestOperateTypes
+      targetMsg: {
+        seq: string
+        type: GroupNotifyType
+        groupCode: string
+        postscript: string
+      }
+    }
+  ) {
+    return await invoke(NTMethod.HANDLE_GROUP_REQUEST, [doubt, operateMsg])
+  }
+
   async handleGroupRequest(flag: string, operateType: GroupRequestOperateTypes, reason?: string) {
     const flagitem = flag.split('|')
     const groupCode = flagitem[0]
     const seq = flagitem[1]
     const type = parseInt(flagitem[2])
     const doubt = flagitem[3] === '1'
-    return await invoke(NTMethod.HANDLE_GROUP_REQUEST, [
-      doubt,
-      {
-        operateType,
-        targetMsg: {
-          seq,
-          type,
-          groupCode,
-          postscript: reason || ' ', // 仅传空值可能导致处理失败，故默认给个空格
-        },
+    return await this.operateSysNotify(doubt, {
+      operateType,
+      targetMsg: {
+        seq,
+        type,
+        groupCode,
+        postscript: reason || ' ', // 仅传空值可能导致处理失败，故默认给个空格
       },
-    ])
+    })
   }
 
   async quitGroup(groupCode: string) {

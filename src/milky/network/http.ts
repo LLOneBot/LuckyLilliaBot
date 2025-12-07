@@ -1,4 +1,4 @@
-import { MilkyConfig } from '@/milky/common/config'
+import { MilkyHttpConfig } from '@/common/types'
 import type { MilkyAdapter } from '@/milky/adapter'
 import { Failed } from '@/milky/common/api'
 import express, { Express } from 'express'
@@ -7,17 +7,17 @@ import http from 'http'
 import cors from 'cors'
 import { Context } from 'cordis'
 
-export class MilkyHttpHandler {
+class MilkyHttpHandler {
   readonly app: Express
   readonly eventPushClients = new Set<WebSocket>()
   private httpServer: http.Server | undefined
   private wsServer: WebSocketServer | undefined
 
-  constructor(readonly milkyAdapter: MilkyAdapter, readonly ctx: Context, readonly config: MilkyConfig['http']) {
+  constructor(readonly milkyAdapter: MilkyAdapter, readonly ctx: Context, readonly config: MilkyHttpHandler.Config) {
     this.app = express()
 
     this.app.use(cors())
-    this.app.use(express.json())
+    this.app.use(express.json({ limit: '1024mb' }))
 
     // Access token middleware for API routes
     if (config.accessToken) {
@@ -62,24 +62,27 @@ export class MilkyHttpHandler {
       this.ctx.logger.info(
         'MilkyHttp',
         `${req.ip} -> ${req.path} (${response.retcode === 0 ? 'OK' : response.retcode
-        } ${end - start}ms)`
+        } ${end - start}ms)`,
+        payload
       )
       return res.json(response)
     })
   }
 
   start() {
-    this.httpServer = this.app.listen(this.config.port, this.config.host, () => {
+    const host = this.config.onlyLocalhost ? '127.0.0.1' : '0.0.0.0'
+    this.httpServer = this.app.listen(this.config.port, host, () => {
       this.ctx.logger.info(
         'MilkyHttp',
-        `HTTP server started at http://${this.config.host}:${this.config.port}${this.config.prefix}`
+        `HTTP server started at http://127.0.0.1:${this.config.port}${this.config.prefix}`
       )
     })
 
     // Setup WebSocket server for event push
     this.wsServer = new WebSocketServer({
       server: this.httpServer,
-      path: `${this.config.prefix}/event`
+      path: `${this.config.prefix}/event`,
+      maxPayload: 1024 * 1024 * 1024
     })
 
     this.wsServer.on('connection', (ws, req) => {
@@ -126,4 +129,16 @@ export class MilkyHttpHandler {
       }
     }
   }
+
+  updateConfig(config: Partial<MilkyHttpHandler.Config>) {
+    Object.assign(this.config, config)
+  }
 }
+
+namespace MilkyHttpHandler {
+  export interface Config extends MilkyHttpConfig {
+    onlyLocalhost: boolean
+  }
+}
+
+export { MilkyHttpHandler }

@@ -1,4 +1,4 @@
-import { Config, OB11Config, SatoriConfig, WebUIConfig } from '@/common/types'
+import { Config, MilkyConfig, OB11Config, SatoriConfig, WebUIConfig } from '@/common/types'
 
 const ob11Default: OB11Config = {
   enable: true,
@@ -10,6 +10,18 @@ const satoriDefault: SatoriConfig = {
   port: 5600,
   token: '',
 }
+const milkyDefault: MilkyConfig = {
+  enable: false,
+  reportSelfMessage: false,
+  http: {
+    port: 3010,
+    prefix: '',
+    accessToken: ''
+  },
+  webhook: {
+    urls: []
+  }
+}
 const webuiDefault: WebUIConfig = {
   enable: true,
   port: 3080,
@@ -17,6 +29,7 @@ const webuiDefault: WebUIConfig = {
 export const defaultConfig: Config = {
   webui: webuiDefault,
   onlyLocalhost: true,
+  milky: milkyDefault,
   satori: satoriDefault,
   ob11: ob11Default,
   enableLocalFile2Url: false,

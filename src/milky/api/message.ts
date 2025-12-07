@@ -1,6 +1,6 @@
-import { defineApi, Failed, Ok } from '@/milky/common/api'
-import { transformOutgoingMessage } from '@/milky/transform/message/outgoing'
-import { transformIncomingPrivateMessage, transformIncomingGroupMessage } from '@/milky/transform/message/incoming'
+import { defineApi, Failed, MilkyApiHandler, Ok } from '@/milky/common/api'
+import { transformOutgoingForwardMessages, transformOutgoingMessage } from '@/milky/transform/message/outgoing'
+import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingForwardedMessage } from '@/milky/transform/message/incoming'
 import {
   SendPrivateMessageInput,
   SendPrivateMessageOutput,
@@ -14,242 +14,376 @@ import {
   RecallGroupMessageInput,
   GetResourceTempUrlInput,
   GetResourceTempUrlOutput,
+  MarkMessageAsReadInput,
+  GetForwardedMessagesInput,
+  GetForwardedMessagesOutput,
+  OutgoingForwardedMessage,
 } from '@saltify/milky-types'
 import z from 'zod'
+import { IMAGE_HTTP_HOST_NT, RawMessage } from '@/ntqqapi/types'
+import { randomUUID } from 'node:crypto'
+import { RichMedia } from '@/ntqqapi/proto/compiled'
 
-export const SendPrivateMessage = defineApi(
+const SendPrivateMessage = defineApi(
   'send_private_message',
   SendPrivateMessageInput,
   SendPrivateMessageOutput,
   async (ctx, payload) => {
-    const friendUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
-    if (!friendUid) {
-      return Failed(-404, 'Friend not found')
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    if (!uid) {
+      return Failed(-404, 'User not found')
+    }
+    const peer = { chatType: 1, peerUid: uid, guildId: '' } // ChatType.C2C = 1
+
+    let result: RawMessage
+    if (payload.message[0].type === 'forward') {
+      const raw = await transformOutgoingForwardMessages(
+        ctx,
+        payload.message[0].data.messages as OutgoingForwardedMessage[],
+        peer
+      )
+      const resid = await ctx.app.pmhq.uploadForward(peer, raw.multiMsgItems)
+      const uuid = randomUUID()
+      result = await ctx.app.sendMessage(ctx, peer, [{
+        elementType: 10,
+        elementId: '',
+        arkElement: {
+          bytesData: JSON.stringify({
+            app: 'com.tencent.multimsg',
+            config: {
+              autosize: 1,
+              forward: 1,
+              round: 1,
+              type: 'normal',
+              width: 300,
+            },
+            desc: '[聊天记录]',
+            extra: JSON.stringify({
+              filename: uuid,
+              tsum: raw.tsum,
+            }),
+            meta: {
+              detail: {
+                news: raw.news,
+                resid,
+                source: raw.source,
+                summary: raw.summary,
+                uniseq: uuid,
+              },
+            },
+            prompt: '[聊天记录]',
+            ver: '0.0.0.5',
+            view: 'contact',
+          }),
+        },
+      }], [])
+    } else {
+      const { elements, deleteAfterSentFiles } = await transformOutgoingMessage(
+        ctx,
+        payload.message,
+        uid,
+        false
+      )
+      result = await ctx.app.sendMessage(
+        ctx,
+        peer,
+        elements,
+        deleteAfterSentFiles
+      )
     }
 
-    const elements = await transformOutgoingMessage(ctx, payload.message, friendUid, false)
-    const peer = { chatType: 1, peerUid: friendUid, guildId: '' } // ChatType.C2C = 1
-    const result = await ctx.ntMsgApi.sendMsg(peer, elements, 10000)
-
-    if (!result) {
-      return Failed(-500, 'Failed to send message')
-    }
 
     return Ok({
-      message_seq: parseInt(result.msgSeq),
-      time: parseInt(result.msgTime),
+      message_seq: +result.msgSeq,
+      time: +result.msgTime,
     })
   }
 )
 
-export const SendGroupMessage = defineApi(
+const SendGroupMessage = defineApi(
   'send_group_message',
   SendGroupMessageInput,
   SendGroupMessageOutput,
   async (ctx, payload) => {
-    const groups = await ctx.ntGroupApi.getGroups()
-    const group = groups.find(g => g.groupCode === payload.group_id.toString())
-    if (!group) {
-      return Failed(-404, 'Group not found')
-    }
+    const groupCode = payload.group_id.toString()
+    const peer = { chatType: 2, peerUid: groupCode, guildId: '' } // ChatType.Group = 2
 
-    const elements = await transformOutgoingMessage(ctx, payload.message, group.groupCode, true)
-    const peer = { chatType: 2, peerUid: group.groupCode, guildId: '' } // ChatType.Group = 2
-    const result = await ctx.ntMsgApi.sendMsg(peer, elements, 10000)
-
-    if (!result) {
-      return Failed(-500, 'Failed to send message')
+    let result: RawMessage
+    if (payload.message[0].type === 'forward') {
+      const raw = await transformOutgoingForwardMessages(
+        ctx,
+        payload.message[0].data.messages as OutgoingForwardedMessage[],
+        peer
+      )
+      const resid = await ctx.app.pmhq.uploadForward(peer, raw.multiMsgItems)
+      const uuid = randomUUID()
+      result = await ctx.app.sendMessage(ctx, peer, [{
+        elementType: 10,
+        elementId: '',
+        arkElement: {
+          bytesData: JSON.stringify({
+            app: 'com.tencent.multimsg',
+            config: {
+              autosize: 1,
+              forward: 1,
+              round: 1,
+              type: 'normal',
+              width: 300,
+            },
+            desc: '[聊天记录]',
+            extra: JSON.stringify({
+              filename: uuid,
+              tsum: raw.tsum,
+            }),
+            meta: {
+              detail: {
+                news: raw.news,
+                resid,
+                source: raw.source,
+                summary: raw.summary,
+                uniseq: uuid,
+              },
+            },
+            prompt: '[聊天记录]',
+            ver: '0.0.0.5',
+            view: 'contact',
+          }),
+        },
+      }], [])
+    } else {
+      const { elements, deleteAfterSentFiles } = await transformOutgoingMessage(
+        ctx,
+        payload.message,
+        groupCode,
+        true
+      )
+      result = await ctx.app.sendMessage(
+        ctx,
+        peer,
+        elements,
+        deleteAfterSentFiles
+      )
     }
 
     return Ok({
-      message_seq: parseInt(result.msgSeq),
-      time: parseInt(result.msgTime),
+      message_seq: +result.msgSeq,
+      time: +result.msgTime,
     })
   }
 )
 
-export const GetMessage = defineApi(
+const RecallPrivateMessage = defineApi(
+  'recall_private_message',
+  RecallPrivateMessageInput,
+  z.object({}),
+  async (ctx, payload) => {
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    if (!uid) {
+      return Failed(-404, 'User not found')
+    }
+    const peer = { chatType: 1, peerUid: uid, guildId: '' } // ChatType.C2C = 1
+    const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
+      peer,
+      payload.message_seq.toString(),
+      1,
+      true,
+      true
+    )
+    if (msg.msgList.length === 0) {
+      return Failed(-404, 'Message not found')
+    }
+    const result = await ctx.ntMsgApi.recallMsg(peer, [msg.msgList[0].msgId])
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
+    return Ok({})
+  }
+)
+
+const RecallGroupMessage = defineApi(
+  'recall_group_message',
+  RecallGroupMessageInput,
+  z.object({}),
+  async (ctx, payload) => {
+    const peer = { chatType: 2, peerUid: payload.group_id.toString(), guildId: '' } // ChatType.Group = 2
+    const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
+      peer,
+      payload.message_seq.toString(),
+      1,
+      true,
+      true
+    )
+    if (msg.msgList.length === 0) {
+      return Failed(-404, 'Message not found')
+    }
+    const result = await ctx.ntMsgApi.recallMsg(peer, [msg.msgList[0].msgId])
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
+    return Ok({})
+  }
+)
+
+const GetMessage = defineApi(
   'get_message',
   GetMessageInput,
   GetMessageOutput,
   async (ctx, payload) => {
-    const msgId = `${payload.peer_id}_${payload.message_seq}`
     const peer = {
-      chatType: payload.message_scene === 'friend' ? 1 : 2, // C2C=1, Group=2
+      chatType: payload.message_scene === 'group' ? 2 : 1, // C2C=1, Group=2
       peerUid: payload.peer_id.toString(),
       guildId: ''
     }
-    const msgResult = await ctx.ntMsgApi.getMsgsByMsgId(peer, [msgId])
+    const msgResult = await ctx.ntMsgApi.getMsgsBySeqAndCount(
+      peer,
+      payload.message_seq.toString(),
+      1,
+      true,
+      true
+    )
 
-    if (!msgResult || !msgResult.msgList || msgResult.msgList.length === 0) {
+    if (msgResult.msgList.length === 0) {
       return Failed(-404, 'Message not found')
     }
 
     const rawMsg = msgResult.msgList[0]
     if (payload.message_scene === 'friend') {
-      const friends = await ctx.ntFriendApi.getBuddyList()
-      const friend = friends.find(f => f.uin === rawMsg.peerUin)
-
-      if (!friend) {
-        return Failed(-404, 'Friend not found')
-      }
-
-      const defaultCategory = {
-        categoryId: 0,
-        categorySortId: 0,
-        categroyName: '我的好友',
-        categroyMbCount: friends.length,
-        onlineCount: 0,
-        buddyList: friends,
-        buddyUids: [],
-      }
-
+      const friend = await ctx.ntUserApi.getUserSimpleInfo(rawMsg.senderUid)
+      const category = await ctx.ntFriendApi.getCategoryById(friend.baseInfo.categoryId)
       return Ok({
-        message: transformIncomingPrivateMessage(friend, defaultCategory, rawMsg),
+        message: await transformIncomingPrivateMessage(ctx, friend, category, rawMsg),
       })
     } else {
-      const groups = await ctx.ntGroupApi.getGroups()
-      const group = groups.find(g => g.groupCode === rawMsg.peerUin)
-      if (!group) {
-        return Failed(-404, 'Group not found')
-      }
-      const member = await ctx.ntGroupApi.getGroupMember(rawMsg.peerUin, rawMsg.senderUin)
-      if (!member) {
-        return Failed(-404, 'Member not found')
-      }
+      const group = await ctx.ntGroupApi.getGroupAllInfo(rawMsg.peerUid)
+      const member = await ctx.ntGroupApi.getGroupMember(rawMsg.peerUin, rawMsg.senderUid)
       return Ok({
-        message: transformIncomingGroupMessage(group, member, rawMsg),
+        message: await transformIncomingGroupMessage(ctx, group, member, rawMsg),
       })
     }
   }
 )
 
-export const GetHistoryMessages = defineApi(
+const GetHistoryMessages = defineApi(
   'get_history_messages',
   GetHistoryMessagesInput,
   GetHistoryMessagesOutput,
   async (ctx, payload) => {
     const peer = {
-      chatType: payload.message_scene === 'friend' ? 1 : 2, // C2C=1, Group=2
+      chatType: payload.message_scene === 'group' ? 2 : 1, // C2C=1, Group=2
       peerUid: payload.peer_id.toString(),
       guildId: ''
     }
 
-    const msgResult = await ctx.ntMsgApi.getMsgHistory(
-      peer,
-      payload.start_message_seq ? payload.start_message_seq.toString() : '0',
-      payload.limit,
-      false
-    )
+    let msgList: RawMessage[]
+    if (!payload.start_message_seq) {
+      msgList = (await ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, payload.limit)).msgList
+    } else {
+      msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, payload.start_message_seq.toString(), payload.limit, true, true)).msgList
+    }
 
-    if (!msgResult || !msgResult.msgList || msgResult.msgList.length === 0) {
+    if (msgList.length === 0) {
       return Ok({
         messages: [],
         next_message_seq: undefined,
       })
     }
 
-    const messages = msgResult.msgList
-    const transformedMessages = []
+    const transformedMessages: GetHistoryMessagesOutput['messages'] = []
 
     if (payload.message_scene === 'friend') {
-      const friends = await ctx.ntFriendApi.getBuddyList()
-      const friend = friends.find(f => f.uin === payload.peer_id.toString())
-
-      if (!friend) {
-        return Failed(-404, 'Friend not found')
-      }
-
-      const defaultCategory = {
-        categoryId: 0,
-        categorySortId: 0,
-        categroyName: '我的好友',
-        categroyMbCount: friends.length,
-        onlineCount: 0,
-        buddyList: friends,
-        buddyUids: [],
-      }
-
-      for (const msg of messages) {
-        transformedMessages.push(transformIncomingPrivateMessage(friend, defaultCategory, msg))
+      for (const msg of msgList) {
+        const friend = await ctx.ntUserApi.getUserSimpleInfo(msg.senderUid)
+        const category = await ctx.ntFriendApi.getCategoryById(friend.baseInfo.categoryId)
+        transformedMessages.push(await transformIncomingPrivateMessage(ctx, friend, category, msg))
       }
     } else {
-      const groups = await ctx.ntGroupApi.getGroups()
-      const group = groups.find(g => g.groupCode === payload.peer_id.toString())
-      if (!group) {
-        return Failed(-404, 'Group not found')
-      }
-      for (const msg of messages) {
-        const member = await ctx.ntGroupApi.getGroupMember(msg.peerUin, msg.senderUin)
+      const group = await ctx.ntGroupApi.getGroupAllInfo(payload.peer_id.toString())
+      for (const msg of msgList) {
+        const member = await ctx.ntGroupApi.getGroupMember(msg.peerUid, msg.senderUid)
         if (member) {
-          transformedMessages.push(transformIncomingGroupMessage(group, member, msg))
+          transformedMessages.push(await transformIncomingGroupMessage(ctx, group, member, msg))
         }
       }
     }
 
-    const nextSeq = messages.length > 0 ? parseInt(messages[messages.length - 1].msgSeq) - 1 : undefined
-
     return Ok({
       messages: transformedMessages,
-      next_message_seq: nextSeq && nextSeq > 0 ? nextSeq : undefined,
+      next_message_seq: msgList.length > 0 ? +msgList.at(-1)!.msgSeq - 1 : undefined,
     })
   }
 )
 
-export const GetResourceTempUrl = defineApi(
+const GetResourceTempUrl = defineApi(
   'get_resource_temp_url',
   GetResourceTempUrlInput,
   GetResourceTempUrlOutput,
   async (ctx, payload) => {
-    // TODO: Parse resource_id to determine type and get appropriate URL
-    // resource_id format may vary by resource type (image, video, audio, file)
-    // For now, return the resource_id as-is
-    // Proper implementation would need:
-    // - Parse resource type from resource_id
-    // - Use pmhq.getGroupImageUrl / getC2cImageUrl for images
-    // - Use pmhq.getGroupFileUrl / getPrivateFileUrl for files
-    // - Use pmhq.getC2cPttUrl for audio
-    ctx.logger.warn('GetResourceTempUrl: partial implementation, returning resource_id as-is')
+    const buffer = Buffer.from(payload.resource_id, 'base64url')
+    const { appid } = RichMedia.FileIdInfo.decode(buffer)
+    // 1402, 1403: private record, group record
+    // 1413, 1415: private video, group video
+    if (appid === 1406 || appid === 1407) {
+      const rkeyData = await ctx.ntFileApi.rkeyManager.getRkey()
+      const rkey = appid === 1406 ? rkeyData.private_rkey : rkeyData.group_rkey
+      const url = `${IMAGE_HTTP_HOST_NT}/download?appid=${appid}&fileid=${payload.resource_id}&spec=0${rkey}`
+      return Ok({ url })
+    } else {
+      ctx.logger.warn(`GetResourceTempUrl: not yet supported appid: ${appid}`)
+      return Ok({
+        url: '',
+      })
+    }
+  }
+)
+
+const GetForwardedMessages = defineApi(
+  'get_forwarded_messages',
+  GetForwardedMessagesInput,
+  GetForwardedMessagesOutput,
+  async (ctx, payload) => {
+    const [chatTypeStr, peerUid, msgId] = payload.forward_id.split('|')
+    const multiMsgInfo = await ctx.store.getMultiMsgInfo(msgId)
+    const rootMsgId = multiMsgInfo[0]?.rootMsgId ?? msgId
+    const peer = multiMsgInfo[0]?.peerUid ? {
+      chatType: multiMsgInfo[0].chatType,
+      peerUid: multiMsgInfo[0].peerUid,
+      guildId: ''
+    } : {
+      chatType: +chatTypeStr,
+      peerUid,
+      guildId: ''
+    }
+    const result = await ctx.ntMsgApi.getMultiMsg(peer, rootMsgId, msgId)
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({
-      url: payload.resource_id,
+      messages: await Promise.all(
+        result.msgList.map(async e => await transformIncomingForwardedMessage(ctx, e, rootMsgId, peer))
+      )
     })
   }
 )
 
-export const RecallPrivateMessage = defineApi(
-  'recall_private_message',
-  RecallPrivateMessageInput,
+const MarkMessageAsRead = defineApi(
+  'mark_message_as_read',
+  MarkMessageAsReadInput,
   z.object({}),
   async (ctx, payload) => {
-    const friendUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
-    if (!friendUid) {
-      return Failed(-404, 'Friend not found')
+    const peer = {
+      chatType: payload.message_scene === 'group' ? 2 : 1, // C2C=1, Group=2
+      peerUid: payload.peer_id.toString(),
+      guildId: ''
     }
-
-    const peer = { chatType: 1, peerUid: friendUid, guildId: '' } // ChatType.C2C = 1
-    await ctx.ntMsgApi.recallMsg(peer, [`${payload.user_id}_${payload.message_seq}`])
+    const result = await ctx.ntMsgApi.setMsgRead(peer)
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
     return Ok({})
   }
 )
 
-export const RecallGroupMessage = defineApi(
-  'recall_group_message',
-  RecallGroupMessageInput,
-  z.object({}),
-  async (ctx, payload) => {
-    const groups = await ctx.ntGroupApi.getGroups()
-    const group = groups.find(g => g.groupCode === payload.group_id.toString())
-    if (!group) {
-      return Failed(-404, 'Group not found')
-    }
-
-    const peer = { chatType: 2, peerUid: group.groupCode, guildId: '' } // ChatType.Group = 2
-    await ctx.ntMsgApi.recallMsg(peer, [`${payload.group_id}_${payload.message_seq}`])
-    return Ok({})
-  }
-)
-
-export const MessageApi = [
+export const MessageApi: MilkyApiHandler[] = [
   SendPrivateMessage,
   SendGroupMessage,
   GetMessage,
@@ -257,4 +391,6 @@ export const MessageApi = [
   GetResourceTempUrl,
   RecallPrivateMessage,
   RecallGroupMessage,
+  GetForwardedMessages,
+  MarkMessageAsRead
 ]

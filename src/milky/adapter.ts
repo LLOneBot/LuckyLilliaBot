@@ -1,5 +1,5 @@
 import { Context, Service } from 'cordis'
-import { MilkyConfig } from './common/config'
+import { MilkyConfig } from '@/common/types'
 import { MilkyApiCollection } from './common/api'
 import { MilkyHttpHandler } from './network/http'
 import { MilkyWebhookHandler } from './network/webhook'
@@ -9,10 +9,7 @@ import { MessageApi } from './api/message'
 import { FriendApi } from './api/friend'
 import { GroupApi } from './api/group'
 import { FileApi } from './api/file'
-import path from 'node:path'
-import { writeFile, unlink } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
-import { selfInfo, TEMP_DIR } from '@/common/globalVars'
+import { selfInfo } from '@/common/globalVars'
 import {
   transformPrivateMessageCreated,
   transformGroupMessageCreated,
@@ -20,7 +17,10 @@ import {
   transformGroupMessageDeleted,
   transformGroupNotify,
   transformFriendRequestEvent,
-  transformGroupMemberInfoUpdated,
+  transformSystemMessageEvent,
+  transformGroupMessageEvent,
+  transformPrivateMessageEvent,
+  transformOlpushEvent,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
 
@@ -31,19 +31,15 @@ declare module 'cordis' {
 }
 
 export class MilkyAdapter extends Service {
-  static inject = ['ntUserApi', 'ntFriendApi', 'ntGroupApi', 'ntMsgApi', 'ntFileApi', 'app']
+  static inject = ['ntUserApi', 'ntFriendApi', 'ntGroupApi', 'ntMsgApi', 'ntFileApi', 'ntSystemApi', 'ntWebApi', 'app']
 
   readonly apiCollection!: MilkyApiCollection
   readonly httpHandler!: MilkyHttpHandler
   readonly webhookHandler!: MilkyWebhookHandler
+  private listenedEvent = false
 
-  constructor(ctx: Context, public config: MilkyConfig) {
+  constructor(ctx: Context, public config: MilkyAdapter.Config) {
     super(ctx, 'milky', true)
-
-    if (!config.enable) {
-      ctx.logger.info('Milky adapter is disabled')
-      return
-    }
 
     this.apiCollection = new MilkyApiCollection(ctx, [
       ...SystemApi,
@@ -53,22 +49,38 @@ export class MilkyAdapter extends Service {
       ...FileApi,
     ])
 
-    this.httpHandler = new MilkyHttpHandler(this, ctx, config.http)
+    this.httpHandler = new MilkyHttpHandler(this, ctx, { ...config.http, onlyLocalhost: config.onlyLocalhost })
     this.webhookHandler = new MilkyWebhookHandler(this, ctx, config.webhook)
-
-    ctx.logger.info('Milky adapter initialized')
   }
 
 
   async start() {
+    this.ctx.on('llob/config-updated', (config) => {
+      this.httpHandler.stop()
+      this.webhookHandler.stop()
+      this.httpHandler.updateConfig({
+        ...config.milky.http,
+        onlyLocalhost: config.onlyLocalhost
+      })
+      this.webhookHandler.updateConfig(config.milky.webhook)
+      if (config.milky.enable) {
+        this.httpHandler.start()
+        this.webhookHandler.start()
+        this.setupEventListeners()
+      }
+      Object.assign(this.config, {
+        ...config.milky,
+        onlyLocalhost: config.onlyLocalhost
+      })
+    })
+
     if (!this.config.enable) {
       return
     }
 
     this.httpHandler.start()
+    this.webhookHandler.start()
     this.setupEventListeners()
-
-    this.ctx.logger.info('Milky adapter started')
   }
 
   async stop() {
@@ -77,7 +89,6 @@ export class MilkyAdapter extends Service {
     }
 
     this.httpHandler.stop()
-    this.ctx.logger.info('Milky adapter stopped')
   }
 
   emitEvent<E extends keyof MilkyEventTypes>(eventName: E, data: MilkyEventTypes[E]) {
@@ -92,28 +103,25 @@ export class MilkyAdapter extends Service {
     this.webhookHandler.broadcast(eventString)
   }
 
-  async saveToTempFile(buffer: Buffer, prefix: string): Promise<string> {
-    const tempPath = path.join(TEMP_DIR, `${prefix}-${randomUUID()}`)
-    await writeFile(tempPath, buffer)
-    return tempPath
-  }
-
-  async deleteTempFile(filePath: string): Promise<void> {
-    try {
-      await unlink(filePath)
-    } catch (error) {
-      this.ctx.logger.warn('Failed to delete temp file:', error)
-    }
-  }
-
   private setupEventListeners() {
+    if (this.listenedEvent) return
+    this.listenedEvent = true
+
     // Listen to NTQQ message created events
     this.ctx.on('nt/message-created', async (message) => {
+      // 其他终端自己发送的消息会进入这里
+      if (message.senderUid === selfInfo.uid && !this.config.reportSelfMessage) {
+        return
+      }
       if (message.chatType === ChatType.C2C) {
         // Private message
         const eventData = await transformPrivateMessageCreated(this.ctx, message)
         if (eventData) {
           this.emitEvent('message_receive', eventData)
+        }
+        const result = await transformPrivateMessageEvent(this.ctx, message)
+        if (result) {
+          this.emitEvent(result.eventType, result.data)
         }
       } else if (message.chatType === ChatType.Group) {
         // Group message
@@ -121,20 +129,9 @@ export class MilkyAdapter extends Service {
         if (eventData) {
           this.emitEvent('message_receive', eventData)
         }
-      }
-    })
-
-    // Listen to NTQQ offline message created events
-    this.ctx.on('nt/offline-message-created', async (message) => {
-      if (message.chatType === ChatType.C2C) {
-        const eventData = await transformPrivateMessageCreated(this.ctx, message)
-        if (eventData) {
-          this.emitEvent('message_receive', eventData)
-        }
-      } else if (message.chatType === ChatType.Group) {
-        const eventData = await transformGroupMessageCreated(this.ctx, message)
-        if (eventData) {
-          this.emitEvent('message_receive', eventData)
+        const result = await transformGroupMessageEvent(this.ctx, message)
+        if (result) {
+          this.emitEvent(result.eventType, result.data)
         }
       }
     })
@@ -156,6 +153,9 @@ export class MilkyAdapter extends Service {
 
     // Listen to NTQQ message sent events (self messages)
     this.ctx.on('nt/message-sent', async (message) => {
+      if (!this.config.reportSelfMessage) {
+        return
+      }
       if (message.chatType === ChatType.C2C) {
         const eventData = await transformPrivateMessageCreated(this.ctx, message)
         if (eventData) {
@@ -171,7 +171,7 @@ export class MilkyAdapter extends Service {
 
     // Listen to NTQQ group notify events
     this.ctx.on('nt/group-notify', async ({ notify, doubt }) => {
-      const result = await transformGroupNotify(this.ctx, notify)
+      const result = await transformGroupNotify(this.ctx, notify, doubt)
       if (result) {
         this.emitEvent(result.eventType, result.data)
       }
@@ -185,28 +185,33 @@ export class MilkyAdapter extends Service {
       }
     })
 
-    // Listen to NTQQ group member info updated events
-    this.ctx.on('nt/group-member-info-updated', async (data) => {
-      // TODO: Implement group member info updated event transformation
-      const eventData = await transformGroupMemberInfoUpdated(this.ctx, data)
-      if (eventData) {
-        // this.emitEvent(eventData.eventType, eventData.data)
+    this.ctx.on('nt/system-message-created', async (data) => {
+      const result = await transformSystemMessageEvent(this.ctx, data)
+      if (result) {
+        this.emitEvent(result.eventType, result.data)
       }
     })
 
-    // TODO: Listen to flash file events
-    // this.ctx.on('nt/flash-file-uploading', async (data) => { ... })
-    // this.ctx.on('nt/flash-file-upload-status', async (data) => { ... })
-    // this.ctx.on('nt/flash-file-download-status', async (data) => { ... })
-    // this.ctx.on('nt/flash-file-downloading', async (data) => { ... })
+    this.ctx.on('nt/kicked-offLine', async (info) => {
+      this.emitEvent('bot_offline', {
+        reason: info.tipsDesc
+      })
+    })
 
-    // TODO: Listen to system message events
-    // this.ctx.on('nt/system-message-created', async (data) => { ... })
+    this.ctx.app.pmhq.addResListener(async (data) => {
+      if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
+        const result = await transformOlpushEvent(this.ctx, Buffer.from(data.data.pb, 'hex'))
+        if (result) {
+          this.emitEvent(result.eventType, result.data)
+        }
+      }
+    })
+  }
+}
 
-    // TODO: Listen to QR code login events
-    // this.ctx.on('nt/login-qrcode', async (data) => { ... })
-
-    this.ctx.logger.info('Milky event listeners set up')
+namespace MilkyAdapter {
+  export interface Config extends MilkyConfig {
+    onlyLocalhost: boolean
   }
 }
 

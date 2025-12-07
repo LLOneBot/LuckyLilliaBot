@@ -20,7 +20,7 @@ import {
   GetPrivateFileDownloadUrlOutput,
 } from '@saltify/milky-types'
 import z from 'zod'
-import { defineApi, Failed, Ok } from '@/milky/common/api'
+import { defineApi, Failed, MilkyApiHandler, Ok } from '@/milky/common/api'
 import { resolveMilkyUri } from '@/milky/common/download'
 import { transformGroupFileList } from '@/milky/transform/entity'
 import { selfInfo, TEMP_DIR } from '@/common/globalVars'
@@ -29,7 +29,7 @@ import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { SendElement } from '@/ntqqapi/entities'
 
-export const UploadPrivateFile = defineApi(
+const UploadPrivateFile = defineApi(
   'upload_private_file',
   UploadPrivateFileInput,
   UploadPrivateFileOutput,
@@ -38,14 +38,17 @@ export const UploadPrivateFile = defineApi(
     const tempPath = path.join(TEMP_DIR, `file-${randomUUID()}-${payload.file_name}`)
     await writeFile(tempPath, data)
     const file = await SendElement.file(ctx, tempPath, payload.file_name)
-    const peerUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
-    const peer = { chatType: 1, peerUid, guildId: '' }
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    if (!uid) {
+      return Failed(-404, 'User not found')
+    }
+    const peer = { chatType: 1, peerUid: uid, guildId: '' }
     const result = await ctx.app.sendMessage(ctx, peer, [file], [tempPath])
     return Ok({ file_id: result.elements[0].fileElement!.fileUuid })
   }
 )
 
-export const UploadGroupFile = defineApi(
+const UploadGroupFile = defineApi(
   'upload_group_file',
   UploadGroupFileInput,
   UploadGroupFileOutput,
@@ -60,7 +63,7 @@ export const UploadGroupFile = defineApi(
   }
 )
 
-export const GetPrivateFileDownloadUrl = defineApi(
+const GetPrivateFileDownloadUrl = defineApi(
   'get_private_file_download_url',
   GetPrivateFileDownloadUrlInput,
   GetPrivateFileDownloadUrlOutput,
@@ -73,7 +76,7 @@ export const GetPrivateFileDownloadUrl = defineApi(
   }
 )
 
-export const GetGroupFileDownloadUrl = defineApi(
+const GetGroupFileDownloadUrl = defineApi(
   'get_group_file_download_url',
   GetGroupFileDownloadUrlInput,
   GetGroupFileDownloadUrlOutput,
@@ -87,7 +90,7 @@ export const GetGroupFileDownloadUrl = defineApi(
   }
 )
 
-export const GetGroupFiles = defineApi(
+const GetGroupFiles = defineApi(
   'get_group_files',
   GetGroupFilesInput,
   GetGroupFilesOutput,
@@ -104,7 +107,8 @@ export const GetGroupFiles = defineApi(
         fileCount: 100,
         startIndex: startIndex,
         sortOrder: 2,
-        showOnlinedocFolder: 0
+        showOnlinedocFolder: 0,
+        folderId: payload.parent_folder_id
       }
 
       const data = await ctx.ntGroupApi.getGroupFileList(
@@ -112,12 +116,7 @@ export const GetGroupFiles = defineApi(
         fileListParam
       )
 
-      // Transform and filter by parent_folder_id
-      const { files, folders } = transformGroupFileList(
-        payload.group_id,
-        data,
-        payload.parent_folder_id
-      )
+      const { files, folders } = transformGroupFileList(data)
 
       allFiles.push(...files)
       allFolders.push(...folders)
@@ -128,8 +127,6 @@ export const GetGroupFiles = defineApi(
       // Update startIndex for next iteration
       if (!isEnd) {
         startIndex = data.nextIndex
-      } else {
-        break
       }
     }
 
@@ -137,7 +134,7 @@ export const GetGroupFiles = defineApi(
   }
 )
 
-export const MoveGroupFile = defineApi(
+const MoveGroupFile = defineApi(
   'move_group_file',
   MoveGroupFileInput,
   z.object({}),
@@ -155,7 +152,7 @@ export const MoveGroupFile = defineApi(
   }
 )
 
-export const RenameGroupFile = defineApi(
+const RenameGroupFile = defineApi(
   'rename_group_file',
   RenameGroupFileInput,
   z.object({}),
@@ -173,7 +170,7 @@ export const RenameGroupFile = defineApi(
   }
 )
 
-export const DeleteGroupFile = defineApi(
+const DeleteGroupFile = defineApi(
   'delete_group_file',
   DeleteGroupFileInput,
   z.object({}),
@@ -190,7 +187,7 @@ export const DeleteGroupFile = defineApi(
   }
 )
 
-export const CreateGroupFolder = defineApi(
+const CreateGroupFolder = defineApi(
   'create_group_folder',
   CreateGroupFolderInput,
   CreateGroupFolderOutput,
@@ -206,7 +203,7 @@ export const CreateGroupFolder = defineApi(
   }
 )
 
-export const RenameGroupFolder = defineApi(
+const RenameGroupFolder = defineApi(
   'rename_group_folder',
   RenameGroupFolderInput,
   z.object({}),
@@ -223,7 +220,7 @@ export const RenameGroupFolder = defineApi(
   }
 )
 
-export const DeleteGroupFolder = defineApi(
+const DeleteGroupFolder = defineApi(
   'delete_group_folder',
   DeleteGroupFolderInput,
   z.object({}),
@@ -239,7 +236,7 @@ export const DeleteGroupFolder = defineApi(
   }
 )
 
-export const FileApi = [
+export const FileApi: MilkyApiHandler[] = [
   UploadPrivateFile,
   UploadGroupFile,
   GetPrivateFileDownloadUrl,

@@ -75,12 +75,30 @@ export interface SatoriConfig {
   token: string
 }
 
+export interface MilkyHttpConfig {
+  port: number
+  prefix: string
+  accessToken: string
+}
+
+export interface MilkyWebhookConfig {
+  urls: string[]
+}
+
+export interface MilkyConfig {
+  enable: boolean
+  reportSelfMessage: boolean
+  http: MilkyHttpConfig
+  webhook: MilkyWebhookConfig
+}
+
 export interface WebUIConfig {
   enable: boolean
   port: number
 }
 
 export interface Config {
+  milky: MilkyConfig
   satori: SatoriConfig
   ob11: OB11Config
   webui: WebUIConfig

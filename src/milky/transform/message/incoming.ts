@@ -1,42 +1,45 @@
 import { IncomingMessage, IncomingSegment, IncomingForwardedMessage } from '@saltify/milky-types'
 import { transformFriend, transformGroup, transformGroupMember } from '@/milky/transform/entity'
-import { RawMessage, ElementType, AtType } from '@/ntqqapi/types'
-import { SimpleInfo, CategoryFriend, GroupMember, GroupSimpleInfo } from '@/ntqqapi/types'
+import { RawMessage, ElementType, AtType, GroupAllInfo, Peer } from '@/ntqqapi/types'
+import { SimpleInfo, CategoryFriend, GroupMember } from '@/ntqqapi/types'
+import { Context } from 'cordis'
 
-export function transformIncomingPrivateMessage(
+export async function transformIncomingPrivateMessage(
+  ctx: Context,
   friend: SimpleInfo,
   category: CategoryFriend,
   message: RawMessage,
-): IncomingMessage {
+): Promise<IncomingMessage> {
   return {
     message_scene: 'friend',
-    peer_id: parseInt(message.peerUin),
-    message_seq: parseInt(message.msgSeq),
-    segments: transformIncomingSegments(message),
-    time: parseInt(message.msgTime),
-    sender_id: parseInt(message.senderUin || message.peerUin),
+    peer_id: +message.peerUin,
+    message_seq: +message.msgSeq,
+    sender_id: +message.senderUin,
+    time: +message.msgTime,
+    segments: await transformIncomingSegments(ctx, message),
     friend: transformFriend(friend, category),
   }
 }
 
-export function transformIncomingGroupMessage(
-  group: GroupSimpleInfo,
+export async function transformIncomingGroupMessage(
+  ctx: Context,
+  group: GroupAllInfo,
   member: GroupMember,
   message: RawMessage,
-): IncomingMessage {
+): Promise<IncomingMessage> {
   return {
     message_scene: 'group',
-    peer_id: parseInt(message.peerUin),
-    message_seq: parseInt(message.msgSeq),
-    segments: transformIncomingSegments(message),
-    time: parseInt(message.msgTime),
-    sender_id: parseInt(message.senderUin || '0'),
+    peer_id: +message.peerUin,
+    message_seq: +message.msgSeq,
+    sender_id: +message.senderUin,
+    time: +message.msgTime,
+    segments: await transformIncomingSegments(ctx, message),
     group: transformGroup(group),
-    group_member: transformGroupMember(member),
+    group_member: transformGroupMember(member, +group.groupCode),
   }
 }
 
-export function transformIncomingSegments(message: RawMessage): IncomingSegment[] {
+export async function transformIncomingSegments(ctx: Context, message: RawMessage): Promise<IncomingSegment[]> {
   const segments: IncomingSegment[] = []
 
   for (const element of message.elements) {
@@ -45,13 +48,13 @@ export function transformIncomingSegments(message: RawMessage): IncomingSegment[
         if (element.textElement?.atType === AtType.All) {
           segments.push({
             type: 'mention_all',
-            data: {} as Record<string, never>,
+            data: {},
           })
         } else if (element.textElement?.atType === AtType.One) {
           segments.push({
             type: 'mention',
             data: {
-              user_id: parseInt(element.textElement.atUid || element.textElement.atNtUid || '0'),
+              user_id: +element.textElement.atUid,
             },
           })
         } else if (element.textElement?.content) {
@@ -62,20 +65,6 @@ export function transformIncomingSegments(message: RawMessage): IncomingSegment[
             },
           })
         }
-        break
-
-      case ElementType.Pic:
-        segments.push({
-          type: 'image',
-          data: {
-            resource_id: element.picElement!.fileUuid,
-            width: element.picElement!.picWidth,
-            height: element.picElement!.picHeight,
-            temp_url: element.picElement!.sourcePath,
-            summary: '', // TODO: resolve summary
-            sub_type: element.picElement!.picSubType === 1 ? 'sticker' : 'normal',
-          },
-        })
         break
 
       case ElementType.Face:
@@ -91,7 +80,21 @@ export function transformIncomingSegments(message: RawMessage): IncomingSegment[
         segments.push({
           type: 'reply',
           data: {
-            message_seq: parseInt(element.replyElement!.replayMsgSeq),
+            message_seq: +element.replyElement!.replayMsgSeq,
+          },
+        })
+        break
+
+      case ElementType.Pic:
+        segments.push({
+          type: 'image',
+          data: {
+            resource_id: element.picElement!.fileUuid,
+            temp_url: await ctx.ntFileApi.getImageUrl(element.picElement!),
+            width: element.picElement!.picWidth,
+            height: element.picElement!.picHeight,
+            summary: element.picElement!.summary,
+            sub_type: element.picElement!.picSubType === 1 ? 'sticker' : 'normal',
           },
         })
         break
@@ -101,7 +104,7 @@ export function transformIncomingSegments(message: RawMessage): IncomingSegment[
           type: 'record',
           data: {
             resource_id: element.pttElement!.fileUuid,
-            temp_url: element.pttElement!.filePath,
+            temp_url: '', // TODO: 获取直链，群聊的还没写好
             duration: element.pttElement!.duration,
           },
         })
@@ -111,11 +114,40 @@ export function transformIncomingSegments(message: RawMessage): IncomingSegment[
         segments.push({
           type: 'video',
           data: {
-            resource_id: element.videoElement!.fileUuid!,
-            width: element.videoElement!.thumbWidth!,
-            height: element.videoElement!.thumbHeight!,
-            duration: 0, // TODO: resolve duration
+            resource_id: element.videoElement!.fileUuid,
             temp_url: element.videoElement!.filePath,
+            width: element.videoElement!.thumbWidth,
+            height: element.videoElement!.thumbHeight,
+            duration: element.videoElement!.fileTime,
+          },
+        })
+        break
+
+      case ElementType.File:
+        segments.push({
+          type: 'file',
+          data: {
+            file_id: element.fileElement!.fileUuid,
+            file_name: element.fileElement!.fileName,
+            file_size: +element.fileElement!.fileSize,
+          },
+        })
+        break
+
+      case ElementType.MultiForward:
+        segments.push({
+          type: 'forward',
+          data: {
+            forward_id: `${message.chatType}|${message.peerUid}|${message.msgId}`,
+          },
+        })
+        break
+
+      case ElementType.MarketFace:
+        segments.push({
+          type: 'market_face',
+          data: {
+            url: `https://gxh.vip.qq.com/club/item/parcel/item/${element.marketFaceElement!.emojiId.substring(0, 2)}/${element.marketFaceElement!.emojiId}/raw300.gif`,
           },
         })
         break
@@ -124,8 +156,8 @@ export function transformIncomingSegments(message: RawMessage): IncomingSegment[
         segments.push({
           type: 'light_app',
           data: {
-            app_name: 'ark',
-            json_payload: JSON.stringify(element.arkElement),
+            app_name: JSON.parse(element.arkElement!.bytesData).app,
+            json_payload: element.arkElement!.bytesData,
           },
         })
         break
@@ -135,12 +167,18 @@ export function transformIncomingSegments(message: RawMessage): IncomingSegment[
   return segments
 }
 
-export function transformIncomingForwardedMessage(message: any): IncomingForwardedMessage {
-  // This would need to be implemented based on NTQQ's forward message structure
+export async function transformIncomingForwardedMessage(ctx: Context, message: RawMessage, rootMsgId: string, peer: Peer): Promise<IncomingForwardedMessage> {
+  const segments = await transformIncomingSegments(ctx, message)
+  for (const item of segments) {
+    if (item.type === 'forward') {
+      const [, , msgId] = item.data.forward_id.split('|')
+      ctx.store.addMultiMsgInfo(rootMsgId, msgId, peer)
+    }
+  }
   return {
-    sender_name: message.senderName || 'Unknown',
-    avatar_url: '',
-    time: message.time || Date.now(),
-    segments: [],
+    sender_name: message.sendNickName,
+    avatar_url: `https://thirdqq.qlogo.cn/g?b=qq&nk=${message.senderUin}&s=640`,
+    time: +message.msgTime,
+    segments
   }
 }

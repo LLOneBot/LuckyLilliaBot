@@ -14,10 +14,10 @@ import {
   ChatType,
   Peer,
   SendMessageElement,
-  ElementType, GroupSimpleInfo,
+  ElementType,
+  KickedOffLineInfo,
 } from './types'
 import { selfInfo } from '../common/globalVars'
-import { version } from '../version'
 import { pmhq } from './native/pmhq'
 import {
   FlashFileDownloadingInfo,
@@ -51,6 +51,7 @@ declare module 'cordis' {
     'nt/flash-file-upload-status': (input: FlashFileSetInfo) => void
     'nt/flash-file-download-status': (input: { status: FlashFileDownloadStatus, info: FlashFileSetInfo }) => void
     'nt/flash-file-downloading': (input: [fileSetId: string, info: FlashFileDownloadingInfo]) => void
+    'nt/kicked-offLine': (input: KickedOffLineInfo) => void
   }
 }
 
@@ -106,7 +107,7 @@ class Core extends Service {
           totalSize += statSync(fileElement.fileElement.filePath!).size
         }
         else if (fileElement.elementType === ElementType.Video) {
-          totalSize += statSync(fileElement.videoElement.filePath).size
+          totalSize += statSync(fileElement.videoElement.filePath!).size
         }
         else if (fileElement.elementType === ElementType.Pic) {
           totalSize += statSync(fileElement.picElement.sourcePath!).size
@@ -336,7 +337,7 @@ class Core extends Service {
     })
 
     const group_dismiss_codes: string[] = []  // 不知是否是 QQ 的 bug，退群的时候会上报一个以前解散的群，这里用于避免重复上报
-    registerReceiveHook(ReceiveCmdS.GROUP_DETAIL_INFO_UPDATE, async (data: GroupInfo) => {
+    registerReceiveHook<GroupInfo>(ReceiveCmdS.GROUP_DETAIL_INFO_UPDATE, async data => {
       if (data.localExitGroupReason === LocalExitGroupReason.DISMISS
         && !group_dismiss_codes.includes(data.groupCode)
         && data.cmdUinJoinTime > this.startupTime
@@ -350,6 +351,10 @@ class Core extends Service {
       else if (data.localExitGroupReason === LocalExitGroupReason.SELF_QUIT) {
         this.ctx.parallel('nt/group-quit', data)
       }
+    })
+
+    registerReceiveHook<KickedOffLineInfo>('nodeIKernelMsgListener/onKickedOffLine', info => {
+      this.ctx.parallel('nt/kicked-offLine', info)
     })
   }
 }

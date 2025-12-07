@@ -6,7 +6,7 @@ export enum Sex {
 }
 
 export interface QQLevel {
-  penguinNum?: number  // 256
+  penguinNum: number  // 256
   crownNum: number  // 64
   sunNum: number  // 16
   moonNum: number  // 4
@@ -26,7 +26,7 @@ export interface CategoryFriend {
   categroyName: string
   categroyMbCount: number
   onlineCount: number
-  buddyList: SimpleInfo[]
+  buddyList?: SimpleInfo[]
   buddyUids: string[]
 }
 
@@ -137,8 +137,8 @@ interface VasInfo {
 }
 
 export interface SimpleInfo {
-  uid?: string
-  uin?: string
+  uid: string
+  uin: string
   coreInfo: CoreInfo
   baseInfo: BaseInfo
   status: UserStatus | null

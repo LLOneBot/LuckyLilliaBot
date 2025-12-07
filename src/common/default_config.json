@@ -3,6 +3,18 @@
     "enable": true,
     "port": 3080
   },
+  "milky": {
+    "enable": false,
+    "reportSelfMessage": false,
+    "http": {
+      "port": 3010,
+      "prefix": "",
+      "accessToken": ""
+    },
+    "webhook": {
+      "urls": []
+    }
+  },
   "satori": {
     "enable": false,
     "port": 5600,

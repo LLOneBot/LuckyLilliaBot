@@ -73,7 +73,7 @@ export interface SendFileElement {
 export interface SendVideoElement {
   elementType: ElementType.Video
   elementId: ''
-  videoElement: VideoElement
+  videoElement: Partial<VideoElement>
 }
 
 export interface SendArkElement {
@@ -201,17 +201,47 @@ export enum PicSubType {
 
 export interface PicElement {
   picSubType: PicSubType
-  picType: PicType  // 有这玩意儿吗
-  originImageUrl: string // http url, 没有host，host是https://gchat.qpic.cn/, 带download参数的是https://multimedia.nt.qq.com.cn
-  originImageMd5?: string
-  sourcePath: string // 图片本地路径
-  thumbPath: Map<number, string>
+  fileName: string
+  fileSize: string
   picWidth: number
   picHeight: number
-  fileSize: string
-  fileName: string
+  original: boolean
+  md5HexStr: string
+  sourcePath: string
+  thumbPath: Map<number, string>
+  transferStatus: number
+  progress: number
+  picType: PicType
+  invalidState: number
   fileUuid: string
-  md5HexStr?: string
+  fileSubId: string
+  thumbFileSize: number
+  fileBizId: unknown
+  downloadIndex: unknown
+  summary: string
+  emojiFrom: unknown
+  emojiWebUrl: unknown
+  emojiAd: {
+    url: string
+    desc: string
+  },
+  emojiMall: {
+    packageId: number
+    emojiId: number
+  },
+  emojiZplan: {
+    actionId: number
+    actionName: string
+    actionType: number
+    playerNumber: number
+    peerUid: string
+    bytesReserveInfo: string
+  },
+  originImageMd5: string
+  originImageUrl: string
+  import_rich_media_context: unknown
+  isFlashPic: unknown
+  storeID: number
 }
 
 export interface TipAioOpGrayTipElement {
@@ -269,9 +299,16 @@ export interface TipGroupElement {
 }
 
 export interface TipXmlElement {
-  templId: string
+  busiType: string
+  busiId: string
+  c2cType: number
+  serviceType: number
+  ctrlFlag: number
   content: string
+  templId: string
+  seqId: string,
   templParam: Map<string, string>
+  pbReserv: Record<string, number>
   members: Map<string, string> // uid -> remark
 }
 
@@ -325,9 +362,20 @@ export interface GrayTipElement {
   jsonGrayTipElement?: {
     busiId: JsonGrayTipBusId
     jsonStr: string
-    xmlToJsonParam?: {
+    recentAbstract: string
+    isServer: boolean
+    xmlToJsonParam: {
+      busiType: string
+      busiId: string
+      c2cType: number
+      serviceType: number
+      ctrlFlag: number
+      content: string
       templId: string
+      seqId: string
       templParam: Map<string, string>
+      pbReserv: {}
+      members: Map<string, string>
     }
   }
 }
@@ -373,26 +421,27 @@ export interface MarketFaceElement {
 export interface VideoElement {
   filePath: string
   fileName: string
-  videoMd5?: string
-  thumbMd5?: string
-  fileTime?: number // second
-  thumbSize?: number // byte
-  fileFormat?: number // 2表示mp4？
-  fileSize?: string // byte
-  thumbWidth?: number
-  thumbHeight?: number
-  busiType?: 0 // 未知
-  subBusiType?: 0 // 未知
-  thumbPath?: Map<number, string>
-  transferStatus?: 0 // 未知
-  progress?: 0 // 下载进度？
-  invalidState?: 0 // 未知
-  fileUuid?: string // 可以用于下载链接？
-  fileSubId?: ''
-  fileBizId?: null
-  originVideoMd5?: ''
-  import_rich_media_context?: null
-  sourceVideoCodecFormat?: number
+  videoMd5: string
+  thumbMd5: string
+  fileTime: number
+  thumbSize: number
+  fileFormat: number
+  fileSize: string
+  thumbWidth: number
+  thumbHeight: number
+  busiType: number
+  subBusiType: number
+  thumbPath: Map<number, string>
+  transferStatus: number
+  progress: number
+  invalidState: number
+  fileUuid: string
+  fileSubId: string
+  fileBizId: unknown
+  originVideoMd5: string
+  import_rich_media_context: unknown
+  sourceVideoCodecFormat: number
+  storeID: number
 }
 
 export interface MarkdownElement {
