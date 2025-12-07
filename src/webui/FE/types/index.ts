@@ -4,6 +4,9 @@ import type { Config as BackendConfig, WebUIConfig as BackendWebUIConfig } from 
 export type {
   OB11Config,
   SatoriConfig,
+  MilkyConfig,
+  MilkyHttpConfig,
+  MilkyWebhookConfig,
   BaseConnectConfig,
   WsConnectConfig,
   WsReverseConnectConfig,

@@ -9,7 +9,7 @@ import { ToastContainer, showToast } from './components/Toast';
 import AnimatedBackground from './components/AnimatedBackground';
 import { Config, ResConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
-import { Save, Loader2, Settings, Eye, EyeOff } from 'lucide-react';
+import { Save, Loader2, Settings, Eye, EyeOff, Plus, Trash2 } from 'lucide-react';
 import { defaultConfig } from '../../common/defaultConfig'
 import { version } from '../../version'
 
@@ -25,6 +25,7 @@ function App() {
   const [passwordError, setPasswordError] = useState('');
   const [passwordResolve, setPasswordResolve] = useState<((value: string) => void) | null>(null);
   const [showSatoriToken, setShowSatoriToken] = useState(false);
+  const [showMilkyToken, setShowMilkyToken] = useState(false);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
 
   // 设置密码提示处理器
@@ -214,6 +215,24 @@ function App() {
 
               <div className="card p-6 hover:scale-105">
                 <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-gray-800">Milky</h3>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    config.milky.enable ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    {config.milky.enable ? '已启用' : '未启用'}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600">Milky 协议配置</p>
+                <button
+                  onClick={() => setActiveTab('milky')}
+                  className="mt-4 text-blue-600 text-sm font-medium hover:text-blue-700"
+                >
+                  前往配置 →
+                </button>
+              </div>
+
+              <div className="card p-6 hover:scale-105">
+                <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-gray-800">系统设置</h3>
                   <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                     配置
@@ -343,6 +362,263 @@ function App() {
                     return;
                   }
                   handleSave();
+                }} disabled={loading} className="btn-primary flex items-center gap-2">
+                  {loading ? (
+                    <>
+                      <Loader2 size={20} className="animate-spin" />
+                      保存中...
+                    </>
+                  ) : (
+                    <>
+                      <Save size={20} />
+                      保存配置
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'milky' && (
+            <div className="card p-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center">
+                  <Settings size={24} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Milky 协议</h3>
+                  <p className="text-sm text-gray-600">配置 Milky 协议相关设置</p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between p-4 bg-gray-50/50 rounded-xl hover:bg-gray-100/50 transition-colors">
+                  <div>
+                    <div className="text-sm font-medium text-gray-800">启用 Milky 协议</div>
+                    <div className="text-xs text-gray-500 mt-0.5">开启后将支持 Milky 协议连接</div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={config.milky.enable}
+                    onChange={(e) => setConfig({
+                      ...config,
+                      milky: { ...config.milky, enable: e.target.checked }
+                    })}
+                    className="w-12 h-6 rounded-full bg-gray-300 relative cursor-pointer appearance-none
+                      checked:bg-gradient-to-r checked:from-blue-500 checked:to-purple-600
+                      transition-colors duration-200 ease-in-out
+                      before:content-[''] before:absolute before:top-0.5 before:left-0.5
+                      before:w-5 before:h-5 before:rounded-full before:bg-white
+                      before:transition-transform before:duration-200
+                      checked:before:translate-x-6"
+                  />
+                </div>
+
+                {config.milky.enable && (
+                  <>
+                    <div className="flex items-center justify-between p-4 bg-gray-50/50 rounded-xl hover:bg-gray-100/50 transition-colors">
+                      <div>
+                        <div className="text-sm font-medium text-gray-800">上报自己发送的消息</div>
+                        <div className="text-xs text-gray-500 mt-0.5">启用后将上报自己发送的消息</div>
+                      </div>
+                      <input
+                        type="checkbox"
+                        checked={config.milky.reportSelfMessage}
+                        onChange={(e) => setConfig({
+                          ...config,
+                          milky: { ...config.milky, reportSelfMessage: e.target.checked }
+                        })}
+                        className="w-12 h-6 rounded-full bg-gray-300 relative cursor-pointer appearance-none
+                          checked:bg-gradient-to-r checked:from-blue-500 checked:to-purple-600
+                          transition-colors duration-200 ease-in-out
+                          before:content-[''] before:absolute before:top-0.5 before:left-0.5
+                          before:w-5 before:h-5 before:rounded-full before:bg-white
+                          before:transition-transform before:duration-200
+                          checked:before:translate-x-6"
+                      />
+                    </div>
+
+                    {/* HTTP 配置 */}
+                    <div className="border-t border-gray-200 pt-4 mt-4">
+                      <h4 className="text-md font-semibold text-gray-800 mb-4">HTTP 配置</h4>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            HTTP 端口
+                          </label>
+                          <input
+                            type="number"
+                            value={config.milky.http.port}
+                            onChange={(e) => setConfig({
+                              ...config,
+                              milky: {
+                                ...config.milky,
+                                http: { ...config.milky.http, port: parseInt(e.target.value) }
+                              }
+                            })}
+                            min="1"
+                            max="65535"
+                            placeholder="3010"
+                            className="input-field"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">Milky HTTP 服务监听端口（1-65535）</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            路径前缀
+                          </label>
+                          <input
+                            type="text"
+                            value={config.milky.http.prefix}
+                            onChange={(e) => setConfig({
+                              ...config,
+                              milky: {
+                                ...config.milky,
+                                http: { ...config.milky.http, prefix: e.target.value }
+                              }
+                            })}
+                            placeholder="/api"
+                            className="input-field"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">HTTP API 路径前缀（可选）</p>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Access Token
+                          </label>
+                          <div className="relative">
+                            <input
+                              type={showMilkyToken ? 'text' : 'password'}
+                              value={config.milky.http.accessToken}
+                              onChange={(e) => setConfig({
+                                ...config,
+                                milky: {
+                                  ...config.milky,
+                                  http: { ...config.milky.http, accessToken: e.target.value }
+                                }
+                              })}
+                              placeholder="请输入 Access Token"
+                              className="input-field pr-12"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowMilkyToken(!showMilkyToken)}
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors p-1"
+                            >
+                              {showMilkyToken ? <EyeOff size={20} /> : <Eye size={20} />}
+                            </button>
+                          </div>
+                          <p className="text-xs text-gray-500 mt-1">用于 Milky HTTP 连接验证的 Token</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Webhook 配置 */}
+                    <div className="border-t border-gray-200 pt-4 mt-4">
+                      <h4 className="text-md font-semibold text-gray-800 mb-4">Webhook 配置</h4>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          Webhook URLs
+                        </label>
+                        <div className="space-y-2">
+                          {config.milky.webhook.urls.map((url, index) => (
+                            <div key={index} className="flex items-center gap-2">
+                              <input
+                                type="text"
+                                value={url}
+                                onChange={(e) => {
+                                  const newUrls = [...config.milky.webhook.urls];
+                                  newUrls[index] = e.target.value;
+                                  setConfig({
+                                    ...config,
+                                    milky: {
+                                      ...config.milky,
+                                      webhook: { ...config.milky.webhook, urls: newUrls }
+                                    }
+                                  });
+                                }}
+                                placeholder="http:// 或 https://"
+                                className={`input-field flex-1 ${
+                                  url && !url.match(/^https?:\/\//) ? 'border-red-300 focus:ring-red-500' : ''
+                                }`}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newUrls = config.milky.webhook.urls.filter((_, i) => i !== index);
+                                  setConfig({
+                                    ...config,
+                                    milky: {
+                                      ...config.milky,
+                                      webhook: { ...config.milky.webhook, urls: newUrls }
+                                    }
+                                  });
+                                }}
+                                className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                title="删除"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          ))}
+                          {config.milky.webhook.urls.some(url => url && !url.match(/^https?:\/\//)) && (
+                            <p className="text-xs text-red-500">URL 必须以 http:// 或 https:// 开头</p>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setConfig({
+                                ...config,
+                                milky: {
+                                  ...config.milky,
+                                  webhook: {
+                                    ...config.milky.webhook,
+                                    urls: [...config.milky.webhook.urls, '']
+                                  }
+                                }
+                              });
+                            }}
+                            className="flex items-center gap-2 px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-sm font-medium"
+                          >
+                            <Plus size={18} />
+                            添加 Webhook URL
+                          </button>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-2">事件上报的 Webhook 地址</p>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end">
+                <button onClick={() => {
+                  // 检查：如果 onlyLocalhost 为 false 且 milky 启用，accessToken 必须设置
+                  if (!config.onlyLocalhost && config.milky.enable && !config.milky.http.accessToken?.trim()) {
+                    showToast('当"只监听本地地址"关闭时，必须设置 Milky Access Token！', 'error');
+                    return;
+                  }
+                  // 检查 Webhook URL 格式
+                  const invalidUrls = config.milky.webhook.urls.filter(url => url.trim() && !url.match(/^https?:\/\//));
+                  if (invalidUrls.length > 0) {
+                    showToast('Webhook URL 必须以 http:// 或 https:// 开头', 'error');
+                    return;
+                  }
+                  // 过滤掉空的 URL
+                  const cleanedConfig = {
+                    ...config,
+                    milky: {
+                      ...config.milky,
+                      webhook: {
+                        ...config.milky.webhook,
+                        urls: config.milky.webhook.urls.filter(url => url.trim())
+                      }
+                    }
+                  };
+                  setConfig(cleanedConfig);
+                  handleSave(cleanedConfig);
                 }} disabled={loading} className="btn-primary flex items-center gap-2">
                   {loading ? (
                     <>
