@@ -7,6 +7,8 @@ on:
 
 jobs:
   build-and-release:
+    permissions:
+      id-token: write
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -181,5 +183,3 @@ jobs:
           mv dist package
           tar -czf llonebot-dist.tgz package/*
           npm publish llonebot-dist.tgz
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
