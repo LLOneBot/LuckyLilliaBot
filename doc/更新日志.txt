@@ -3,6 +3,7 @@ V7.0.0
 
 * 支持 Milky 协议
 * Webui 中 OneBot 反向 WS 和 HTTP Post 不再强制要求 token
+* LLBot-Desktop 新增日志设置：开关和保存时长
 
 =================
 V6.6.9
