@@ -1,7 +1,7 @@
 import { resolveMilkyUri } from '@/milky/common/download'
 import type { Context } from 'cordis'
-import { OutgoingSegment, OutgoingForwardedMessage } from '@saltify/milky-types'
-import { Peer, RichMediaUploadCompleteNotify, SendMessageElement } from '@/ntqqapi/types'
+import { OutgoingForwardedMessage, OutgoingSegment } from '@saltify/milky-types'
+import { AtType, Peer, RichMediaUploadCompleteNotify, SendMessageElement } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
 import { selfInfo, TEMP_DIR } from '@/common/globalVars'
 import { unlink, writeFile } from 'node:fs/promises'
@@ -27,9 +27,9 @@ export async function transformOutgoingMessage(
       } else if (segment.type === 'mention' && isGroup) {
         const memberUin = segment.data.user_id.toString()
         const memberUid = await ctx.ntUserApi.getUidByUin(memberUin, peerUid)
-        elements.push(SendElement.at(memberUin, memberUid, 1, ''))
+        elements.push(SendElement.at(memberUin, memberUid, AtType.One, ''))
       } else if (segment.type === 'mention_all' && isGroup) {
-        elements.push(SendElement.at('', '', 2, '@全体成员'))
+        elements.push(SendElement.at('', '', AtType.All, '@全体成员'))
       } else if (segment.type === 'face') {
         elements.push(SendElement.face(+segment.data.face_id))
       } else if (segment.type === 'reply') {
