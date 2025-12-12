@@ -21,7 +21,7 @@ class MilkyHttpHandler {
 
     // Access token middleware for API routes
     if (config.accessToken) {
-      this.app.use(`${config.prefix}/api/*`, (req, res, next) => {
+      this.app.use(`${config.prefix}/api`, (req, res, next) => {
         if (req.headers['content-type'] !== 'application/json') {
           ctx.logger.warn(
             'MilkyHttp',
