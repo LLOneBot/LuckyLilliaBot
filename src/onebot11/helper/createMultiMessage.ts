@@ -62,12 +62,12 @@ export class MessageEncoder {
         pkgNum: 1,
         pkgIndex: 0,
         divSeq: 0,
-        field15: {
+        forward: {
           field1: 0,
           field2: 0,
           field3: 0,
           field4: '',
-          field5: ''
+          avatar: ''
         }
       },
       body: {

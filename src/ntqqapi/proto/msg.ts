@@ -9,21 +9,30 @@ export namespace Msg {
       attr7Buf: ProtoField(4, 'bytes'),
       buf: ProtoField(11, 'bytes'),
       pbReserve: ProtoField(12, 'bytes')
-    }),
+    }, 'optional'),
     face: ProtoField(2, {
       index: ProtoField(1, 'uint32'),
       old: ProtoField(2, 'bytes'),
       buf: ProtoField(11, 'bytes')
-    }),
+    }, 'optional'),
+    richMsg: ProtoField(12, {
+      template: ProtoField(1, 'bytes'),
+      serviceId: ProtoField(2, 'int32'),
+    }, 'optional'),
+    srcMsg: ProtoField(45, {
+      origSeqs: ProtoField(1, 'uint32', 'repeated'),
+      senderUin: ProtoField(2, 'uint32'),
+      time: ProtoField(3, 'int32'),
+    }, 'optional'),
     lightApp: ProtoField(51, {
       data: ProtoField(1, 'bytes'),
       msgResid: ProtoField(2, 'bytes')
-    }),
+    }, 'optional'),
     commonElem: ProtoField(53, {
       serviceType: ProtoField(1, 'uint32'),
       pbElem: ProtoField(2, 'bytes'),
       businessType: ProtoField(3, 'uint32')
-    })
+    }, 'optional')
   })
 
   export const Message = ProtoMessage.of({
@@ -62,13 +71,13 @@ export namespace Msg {
       autoReply: ProtoField(10, 'uint32'),
       ntMsgSeq: ProtoField(11, 'uint64'),
       msgUid: ProtoField(12, 'uint64'),
-      field15: ProtoField(15, {
+      forward: ProtoField(15, {
         field1: ProtoField(1, 'uint32'),
         field2: ProtoField(2, 'uint32'),
         field3: ProtoField(3, 'uint32'),
         field4: ProtoField(4, 'string'),
-        field5: ProtoField(5, 'string')
-      })
+        avatar: ProtoField(5, 'string')
+      }, 'optional')
     }),
     body: ProtoField(3, {
       richText: ProtoField(1, {
@@ -139,5 +148,11 @@ export namespace Msg {
         })
       })
     })
+  })
+
+  export const QSmallFaceExtra = ProtoMessage.of({
+    faceId: ProtoField(1, 'uint32'),
+    text: ProtoField(2, 'string'),
+    compatText: ProtoField(3, 'string')
   })
 }

@@ -347,25 +347,10 @@ const GetForwardedMessages = defineApi(
   GetForwardedMessagesInput,
   GetForwardedMessagesOutput,
   async (ctx, payload) => {
-    const [chatTypeStr, peerUid, msgId] = payload.forward_id.split('|')
-    const multiMsgInfo = await ctx.store.getMultiMsgInfo(msgId)
-    const rootMsgId = multiMsgInfo[0]?.rootMsgId ?? msgId
-    const peer = multiMsgInfo[0]?.peerUid ? {
-      chatType: multiMsgInfo[0].chatType,
-      peerUid: multiMsgInfo[0].peerUid,
-      guildId: ''
-    } : {
-      chatType: +chatTypeStr,
-      peerUid,
-      guildId: ''
-    }
-    const result = await ctx.ntMsgApi.getMultiMsg(peer, rootMsgId, msgId)
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
-    }
+    const result = await ctx.app.pmhq.getMultiMsg(payload.forward_id)
     return Ok({
       messages: await Promise.all(
-        result.msgList.map(async e => await transformIncomingForwardedMessage(ctx, e, rootMsgId, peer))
+        result[0].buffer.msg.map(async e => await transformIncomingForwardedMessage(ctx, e))
       )
     })
   }

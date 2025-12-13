@@ -530,8 +530,8 @@ export class PMHQ {
       },
     })
     const res = await this.httpSendPB('trpc.group.long_msg_interface.MsgService.SsoRecvLongMsg', data)
-    const payload = Action.RecvLongMsgResp.decode(Buffer.from(res.pb, 'hex')).result?.payload
-    const inflate = gunzipSync(payload!)
+    const payload = Action.RecvLongMsgResp.decode(Buffer.from(res.pb, 'hex')).result.payload
+    const inflate = gunzipSync(payload)
     return Msg.PbMultiMsgTransmit.decode(inflate).pbItemList
   }
 
