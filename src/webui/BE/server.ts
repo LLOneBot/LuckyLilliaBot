@@ -81,7 +81,7 @@ export class WebUIServer extends Service {
   private connections = new Set<Socket>()
   private currentPort?: number
   public port?: number = undefined
-  static inject = ['ntLoginApi']
+  static inject = ['app', 'ntLoginApi', 'ntFriendApi', 'ntGroupApi']
 
   constructor(ctx: Context, public config: WebUIServerConfig) {
     super(ctx, 'webuiServer', true)
@@ -274,6 +274,58 @@ export class WebUIServer extends Service {
     // 获取账号信息接口
     this.app.get('/api/login-info', (req, res) => {
       res.json({ success: true, data: selfInfo })
+    })
+
+    // 获取 Dashboard 统计数据
+    this.app.get('/api/dashboard/stats', async (req, res) => {
+      try {
+        const app = this.ctx.app
+        const friends = await this.ctx.ntFriendApi.getBuddyList()
+        const groups = await this.ctx.ntGroupApi.getGroups(false)
+
+        // 获取 QQ 进程资源
+        const qqInfo = await pmhq.getProcessInfo()
+        const qqMemory = qqInfo?.memory?.rss || 0
+        const qqCpu = qqInfo?.cpu?.percent || 0
+        const qqTotalMem = qqInfo?.memory?.totalMem || 1
+        const qqMemoryPercent = (qqMemory / qqTotalMem) * 100
+
+        // Bot 进程资源（使用 Node.js 自己获取系统总内存）
+        const os = await import('os')
+        const botTotalMem = os.totalmem()
+        const cpuCores = os.cpus().length
+        const memUsage = process.memoryUsage()
+        const cpuUsage = process.cpuUsage()
+        // CPU 百分比需要除以核心数，得到相对于整个系统的占用
+        const botCpuPercent = ((cpuUsage.user + cpuUsage.system) / 1000000 / process.uptime() / cpuCores) * 100
+        const botMemoryPercent = (memUsage.rss / botTotalMem) * 100
+
+        res.json({
+          success: true,
+          data: {
+            friendCount: friends.length,
+            groupCount: groups.length,
+            messageReceived: app.messageReceivedCount,
+            messageSent: app.messageSentCount,
+            startupTime: app.startupTime,
+            lastMessageTime: app.lastMessageTime,
+            bot: {
+              memory: memUsage.rss,
+              totalMemory: botTotalMem,
+              memoryPercent: botMemoryPercent,
+              cpu: botCpuPercent,
+            },
+            qq: {
+              memory: qqMemory,
+              totalMemory: qqTotalMem,
+              memoryPercent: qqMemoryPercent,
+              cpu: qqCpu,
+            },
+          },
+        })
+      } catch (e) {
+        res.status(500).json({ success: false, message: '获取统计数据失败', error: e })
+      }
     })
     this.app.get('/', (req, res) => {
       res.sendFile(path.join(feDistPath, 'index.html'))

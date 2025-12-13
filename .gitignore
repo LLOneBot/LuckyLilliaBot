@@ -16,3 +16,5 @@ data
 .DS_Store
 .idea
 .vscode
+src/webui/BE/server.ts
+llonebot-dist.tgz

@@ -5,6 +5,7 @@ import OtherConfig from './components/OtherConfig';
 import TokenDialog from './components/TokenDialog';
 import ChangePasswordDialog from './components/ChangePasswordDialog';
 import QQLogin from './components/QQLogin';
+import Dashboard from './components/Dashboard';
 import { ToastContainer, showToast } from './components/Toast';
 import AnimatedBackground from './components/AnimatedBackground';
 import { Config, ResConfig } from './types';
@@ -175,79 +176,7 @@ function App() {
           </div>
 
           {/* Content */}
-          {activeTab === 'dashboard' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="card p-6 hover:scale-105">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800">OneBot 11</h3>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    config.ob11.enable ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {config.ob11.enable ? '已启用' : '未启用'}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600">OneBot 11 协议配置</p>
-                <button
-                  onClick={() => setActiveTab('onebot')}
-                  className="mt-4 text-blue-600 text-sm font-medium hover:text-blue-700"
-                >
-                  前往配置 →
-                </button>
-              </div>
-
-              <div className="card p-6 hover:scale-105">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800">Satori</h3>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    config.satori.enable ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {config.satori.enable ? '已启用' : '未启用'}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600">Satori 协议配置</p>
-                <button
-                  onClick={() => setActiveTab('satori')}
-                  className="mt-4 text-blue-600 text-sm font-medium hover:text-blue-700"
-                >
-                  前往配置 →
-                </button>
-              </div>
-
-              <div className="card p-6 hover:scale-105">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800">Milky</h3>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    config.milky.enable ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
-                    {config.milky.enable ? '已启用' : '未启用'}
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600">Milky 协议配置</p>
-                <button
-                  onClick={() => setActiveTab('milky')}
-                  className="mt-4 text-blue-600 text-sm font-medium hover:text-blue-700"
-                >
-                  前往配置 →
-                </button>
-              </div>
-
-              <div className="card p-6 hover:scale-105">
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-800">系统设置</h3>
-                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    配置
-                  </span>
-                </div>
-                <p className="text-sm text-gray-600">全局配置和系统选项</p>
-                <button
-                  onClick={() => setActiveTab('other')}
-                  className="mt-4 text-blue-600 text-sm font-medium hover:text-blue-700"
-                >
-                  前往配置 →
-                </button>
-              </div>
-            </div>
-          )}
+          {activeTab === 'dashboard' && <Dashboard />}
 
           {activeTab === 'onebot' && (
             <OneBotConfigNew
@@ -676,7 +605,7 @@ function App() {
                   <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-800 mb-2">Lucky Lillia Bot</h1>
-                <p className="text-gray-600 mb-6">使你的 QQNT 支持 OneBot 11 协议 和 Satori 协议进行 QQ 机器人开发</p>
+                <p className="text-gray-600 mb-6">使你的 QQNT 支持 OneBot 11 协议、Satori 协议、Milky 协议进行 QQ 机器人开发</p>
                 <div className="flex items-center justify-center gap-4">
                   <a
                     href="https://github.com/LLOneBot/LLOneBot"
