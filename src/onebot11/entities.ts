@@ -599,10 +599,10 @@ export namespace OB11Entities {
           }
         } else if (grayTipElement.subElementType === GrayTipElementSubType.Group) {
           const groupElement = grayTipElement.groupElement!
-          if (groupElement.type === TipGroupElementType.Ban) {
+          if (groupElement.type === TipGroupElementType.ShutUp) {
             ctx.logger.info('收到群成员禁言提示', groupElement)
             return await GroupBanEvent.parse(ctx, groupElement, msg.peerUid)
-          } else if (groupElement.type === TipGroupElementType.Kicked) {
+          } else if (groupElement.type === TipGroupElementType.Quitted) {
             ctx.logger.info(`收到我被踢出或退群提示, 群${msg.peerUid}`, groupElement)
             const { adminUid } = groupElement
             return new OB11GroupDecreaseEvent(
@@ -611,7 +611,7 @@ export namespace OB11Entities {
               adminUid ? Number(await ctx.ntUserApi.getUinByUid(adminUid)) : 0,
               adminUid ? 'kick_me' : 'leave'
             )
-          } else if (groupElement.type === TipGroupElementType.MemberIncrease) {
+          } else if (groupElement.type === TipGroupElementType.MemberAdd) {
             const { memberUid, adminUid } = groupElement
             if (memberUid !== selfInfo.uid) return
             ctx.logger.info('收到群成员增加消息', groupElement)

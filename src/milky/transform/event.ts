@@ -275,7 +275,7 @@ export async function transformGroupMessageEvent(
           return {
             eventType: 'group_mute',
             data: {
-              group_id: +message.peerUid,
+              group_id: Number(message.peerUid),
               user_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.shutUp!.member.uid)),
               operator_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.shutUp!.admin.uid)),
               duration: Number(element.grayTipElement.groupElement.shutUp!.duration)
@@ -285,7 +285,7 @@ export async function transformGroupMessageEvent(
           return {
             eventType: 'group_whole_mute',
             data: {
-              group_id: +message.peerUid,
+              group_id: Number(message.peerUid),
               operator_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.shutUp!.admin.uid)),
               is_mute: Number(element.grayTipElement.groupElement.shutUp!.duration) > 0
             }
@@ -313,6 +313,15 @@ export async function transformGroupMessageEvent(
             file_id: element.fileElement.fileUuid,
             file_name: element.fileElement.fileName,
             file_size: +element.fileElement.fileSize
+          }
+        }
+      } else if (element.grayTipElement?.groupElement?.type === 5) {
+        return {
+          eventType: 'group_name_change',
+          data: {
+            group_id: Number(message.peerUid),
+            new_group_name: element.grayTipElement.groupElement.groupName,
+            operator_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.memberUid))
           }
         }
       }

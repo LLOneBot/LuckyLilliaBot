@@ -251,15 +251,23 @@ export interface TipAioOpGrayTipElement {
 }
 
 export enum TipGroupElementType {
-  MemberIncrease = 1,
-  Kicked = 3, // 被移出群
-  Ban = 8,
+  Unknown,
+  MemberAdd,
+  Disbanded,
+  Quitted,
+  Created,
+  GroupNameModified,
+  Block,
+  Unblock,
+  ShutUp,
+  BeRecycled,
+  DisbandOrBeRecycled
 }
 
 export interface TipGroupElement {
   type: TipGroupElementType // 1是表示有人加入群, 自己加入群也会收到这个
   role: number
-  groupName: string // 暂时获取不到
+  groupName: string
   memberUid: string
   memberNick: string
   memberRemark: string
