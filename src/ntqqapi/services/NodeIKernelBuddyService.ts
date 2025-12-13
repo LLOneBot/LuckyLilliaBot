@@ -13,6 +13,17 @@ export interface NodeIKernelBuddyService {
     }[]
   }>
 
+  getBuddyListV2(callFrom: string, forceRefresh: boolean, reqType: BuddyListReqType): Promise<GeneralCallResult & {
+    data: {
+      categoryId: number
+      categorySortId: number
+      categroyName: string
+      categroyMbCount: number
+      onlineCount: number
+      buddyUids: string[]
+    }[]
+  }>
+
   setBuddyRemark(remarkParams: { uid: string, remark: string }): Promise<GeneralCallResult>
 
   isBuddy(uid: string): boolean

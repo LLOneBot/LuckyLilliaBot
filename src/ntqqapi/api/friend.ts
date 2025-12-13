@@ -1,6 +1,7 @@
 import { SimpleInfo } from '../types'
 import { invoke, NTMethod } from '../ntcall'
 import { Context, Service } from 'cordis'
+import { GeneralCallResult } from '../services'
 
 declare module 'cordis' {
   interface Context {
@@ -9,7 +10,7 @@ declare module 'cordis' {
 }
 
 export class NTQQFriendApi extends Service {
-  static inject = ['ntUserApi']
+  static inject = ['ntUserApi', 'ntSystemApi']
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntFriendApi', true)
@@ -35,7 +36,22 @@ export class NTQQFriendApi extends Service {
   }
 
   async getBuddyV2(forceRefresh: boolean) {
-    return await invoke('nodeIKernelBuddyService/getBuddyListV2', [forceRefresh, 0])
+    const deviceInfo = await this.ctx.ntSystemApi.getDeviceInfo()
+    const version = +deviceInfo.buildVer.split('-')[1]
+    if (version >= 41679) {
+      return await invoke('nodeIKernelBuddyService/getBuddyListV2', ['', forceRefresh, 0])
+    } else {
+      return await invoke<GeneralCallResult & {
+        data: {
+          categoryId: number
+          categorySortId: number
+          categroyName: string
+          categroyMbCount: number
+          onlineCount: number
+          buddyUids: string[]
+        }[]
+      }>('nodeIKernelBuddyService/getBuddyListV2', [forceRefresh, 0])
+    }
   }
 
   async isBuddy(uid: string): Promise<boolean> {
