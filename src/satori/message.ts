@@ -292,7 +292,7 @@ export class MessageEncoder {
       this.peer ??= await getPeer(this.ctx, this.channelId)
       const source = (await this.ctx.ntMsgApi.getMsgsByMsgId(this.peer, [attrs.id])).msgList[0]
       if (source) {
-        this.elements.push(SendElement.reply(source.msgSeq, source.msgId, source.senderUin))
+        this.elements.push(SendElement.reply(source.msgSeq, source.msgId, source.senderUid))
       }
     } else if (type === 'face') {
       this.elements.push(SendElement.face(+attrs.id, +attrs.type))

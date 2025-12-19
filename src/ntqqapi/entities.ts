@@ -52,15 +52,15 @@ export namespace SendElement {
     }
   }
 
-  export function reply(msgSeq: string, msgId: string, senderUin: string): SendReplyElement {
+  export function reply(msgSeq: string, msgId: string, senderUid: string): SendReplyElement {
     return {
       elementType: ElementType.Reply,
       elementId: '',
       replyElement: {
-        replayMsgSeq: msgSeq,
         replayMsgId: msgId,
-        senderUin: senderUin,
-        senderUinStr: senderUin,
+        replayMsgSeq: msgSeq,
+        senderUid: senderUid,
+        senderUidStr: senderUid,
       },
     }
   }

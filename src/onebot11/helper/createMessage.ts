@@ -83,7 +83,7 @@ export async function createSendElements(
           }
           const source = (await ctx.ntMsgApi.getMsgsByMsgId(info.peer, [info.msgId])).msgList[0]
           if (source) {
-            sendElements.push(SendElement.reply(source.msgSeq, source.msgId, source.senderUin))
+            sendElements.push(SendElement.reply(source.msgSeq, source.msgId, source.senderUid))
           }
         }
       }
