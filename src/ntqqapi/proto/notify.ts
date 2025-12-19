@@ -29,7 +29,7 @@ export namespace Notify {
     isPromote: ProtoField(2, 'bool')
   })
 
-  export const GroupAdmin = ProtoMessage.of({
+  export const GroupAdminChange = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
     flag: ProtoField(2, 'uint32'),
     isPromote: ProtoField(3, 'bool'),

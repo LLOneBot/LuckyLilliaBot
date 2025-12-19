@@ -364,7 +364,7 @@ class OneBot11Adapter extends Service {
       else if (msgType === 732 && subType === 21) {
         // 撤回群戳一戳，不再从这里解析，应从 nt/message-deleted 事件中解析
       } else if (msgType === 44) {
-        const tip = Notify.GroupAdmin.decode(sysMsg.body.msgContent)
+        const tip = Notify.GroupAdminChange.decode(sysMsg.body.msgContent)
         this.ctx.logger.info('收到管理员变动通知', tip)
         const uid =  tip.isPromote ? tip.body.extraEnable?.adminUid : tip.body.extraDisable?.adminUid
         if (!uid) return null

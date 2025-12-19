@@ -370,7 +370,7 @@ export async function transformSystemMessageEvent(
         }
       }
     } else if (msgType === 44) {
-      const tip = Notify.GroupAdmin.decode(sysMsg.body.msgContent)
+      const tip = Notify.GroupAdminChange.decode(sysMsg.body.msgContent)
       const adminUid = tip.isPromote ? tip.body.extraEnable?.adminUid : tip.body.extraDisable?.adminUid
       if (!adminUid) return null
       const groupAllInfo = await ctx.ntGroupApi.getGroupAllInfo(tip.groupCode.toString())
