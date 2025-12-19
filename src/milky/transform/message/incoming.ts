@@ -6,6 +6,7 @@ import { Context } from 'cordis'
 import { InferProtoModel } from '@saltify/typeproto'
 import { Media, Msg } from '@/ntqqapi/proto'
 import { inflateSync } from 'node:zlib'
+import { XMLParser } from 'fast-xml-parser'
 
 export async function transformIncomingPrivateMessage(
   ctx: Context,
@@ -75,6 +76,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
           type: 'face',
           data: {
             face_id: element.faceElement!.faceIndex.toString(),
+            is_large: element.faceElement!.faceType === 3
           },
         })
         break
@@ -141,19 +143,29 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         })
         break
 
-      case ElementType.MultiForward:
+      case ElementType.MultiForward: {
+        const parser = new XMLParser()
+        const content = parser.parse(element.multiForwardMsgElement!.xmlContent)
         segments.push({
           type: 'forward',
           data: {
             forward_id: element.multiForwardMsgElement!.resId,
+            title: content.msg.item.title[0],
+            preview: content.msg.item.title.slice(1),
+            summary: content.msg.item.summary,
           },
         })
         break
+      }
 
       case ElementType.MarketFace:
         segments.push({
           type: 'market_face',
           data: {
+            emoji_package_id: element.marketFaceElement!.emojiPackageId,
+            emoji_id: element.marketFaceElement!.emojiId,
+            key: element.marketFaceElement!.key,
+            summary: element.marketFaceElement!.faceName,
             url: `https://gxh.vip.qq.com/club/item/parcel/item/${element.marketFaceElement!.emojiId.substring(0, 2)}/${element.marketFaceElement!.emojiId}/raw300.gif`,
           },
         })
@@ -192,7 +204,8 @@ export async function transformIncomingForwardedMessage(ctx: Context, message: I
         segments.push({
           type: 'face',
           data: {
-            face_id: faceId.toString()
+            face_id: faceId.toString(),
+            is_large: false
           }
         })
       } else if (serviceType === 48 && (businessType === 10 || businessType === 20)) {
@@ -238,10 +251,15 @@ export async function transformIncomingForwardedMessage(ctx: Context, message: I
       const xml = inflateSync(elem.richMsg.template.subarray(1)).toString()
       const resId = xml.match(/m_resid="([^"]+)"/)?.[1]
       if (resId) {
+        const parser = new XMLParser()
+        const content = parser.parse(xml)
         segments.push({
           type: 'forward',
           data: {
-            forward_id: resId
+            forward_id: resId,
+            title: content.msg.item.title[0],
+            preview: content.msg.item.title.slice(1),
+            summary: content.msg.item.summary
           }
         })
       }

@@ -19,7 +19,8 @@ const milkyDefault: MilkyConfig = {
     accessToken: ''
   },
   webhook: {
-    urls: []
+    urls: [],
+    accessToken: ''
   }
 }
 const webuiDefault: WebUIConfig = {

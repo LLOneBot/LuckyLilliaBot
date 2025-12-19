@@ -143,7 +143,7 @@ export async function transformGroupNotify(
           is_filtered: doubt,
           initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
           comment: notify.postscript
-        }
+        } as MilkyEventTypes['group_join_request']
       }
     }
     else if (notify.type === GroupNotifyType.InvitedNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
@@ -154,7 +154,7 @@ export async function transformGroupNotify(
           notification_seq: Number(notify.seq),
           initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid)),
           target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid))
-        }
+        } as MilkyEventTypes['group_invited_join_request']
       }
     }
     else if (notify.type === GroupNotifyType.InvitedByMember && notify.status === GroupNotifyStatus.Unhandle) {
@@ -164,7 +164,7 @@ export async function transformGroupNotify(
           group_id: Number(notify.group.groupCode),
           invitation_seq: Number(notify.seq),
           initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid))
-        }
+        } as MilkyEventTypes['group_invitation']
       }
     }
     else {
@@ -193,7 +193,7 @@ export async function transformPrivateMessageEvent(
             display_action: templParam.get('action_str'),
             display_suffix: templParam.get('suffix_str'),
             display_action_img_url: templParam.get('action_img_url')
-          }
+          } as MilkyEventTypes['friend_nudge']
         }
       } else if (element.fileElement) {
         return {
@@ -205,7 +205,7 @@ export async function transformPrivateMessageEvent(
             file_size: +element.fileElement.fileSize,
             file_hash: '', // 拿不到
             is_self: message.senderUin === selfInfo.uin
-          }
+          } as MilkyEventTypes['friend_file_upload']
         }
       } else if (element.arkElement) {
         const data = JSON.parse(element.arkElement.bytesData)
@@ -224,7 +224,7 @@ export async function transformPrivateMessageEvent(
               group_id: +groupCode,
               invitation_seq: +seq,
               initiator_id: +senderUin
-            }
+            } as MilkyEventTypes['group_invitation']
           }
         }
       }
@@ -254,7 +254,7 @@ export async function transformGroupMessageEvent(
             group_id: +message.peerUid,
             user_id: +invitee,
             invitor_id: +invitor
-          }
+          } as MilkyEventTypes['group_member_increase']
         }
       } else if (element.grayTipElement?.groupElement?.type === 8) {
         if (element.grayTipElement.groupElement.shutUp?.member.uid) {
@@ -265,7 +265,7 @@ export async function transformGroupMessageEvent(
               user_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.shutUp!.member.uid)),
               operator_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.shutUp!.admin.uid)),
               duration: Number(element.grayTipElement.groupElement.shutUp!.duration)
-            }
+            } as MilkyEventTypes['group_mute']
           }
         } else {
           return {
@@ -274,7 +274,7 @@ export async function transformGroupMessageEvent(
               group_id: Number(message.peerUid),
               operator_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.shutUp!.admin.uid)),
               is_mute: Number(element.grayTipElement.groupElement.shutUp!.duration) > 0
-            }
+            } as MilkyEventTypes['group_whole_mute']
           }
         }
       } else if (element.grayTipElement?.jsonGrayTipElement?.busiId === '1061') {
@@ -282,13 +282,13 @@ export async function transformGroupMessageEvent(
         return {
           eventType: 'group_nudge',
           data: {
-            user_id: +message.peerUin,
-            sender_id: templParam.get('uin_str1'),
-            receiver_id: templParam.get('uin_str2'),
+            group_id: +message.peerUid,
+            sender_id: +templParam.get('uin_str1')!,
+            receiver_id: +templParam.get('uin_str2')!,
             display_action: templParam.get('action_str'),
             display_suffix: templParam.get('suffix_str'),
             display_action_img_url: templParam.get('action_img_url')
-          }
+          } as MilkyEventTypes['group_nudge']
         }
       } else if (element.fileElement) {
         return {
@@ -299,7 +299,7 @@ export async function transformGroupMessageEvent(
             file_id: element.fileElement.fileUuid,
             file_name: element.fileElement.fileName,
             file_size: +element.fileElement.fileSize
-          }
+          } as MilkyEventTypes['group_file_upload']
         }
       } else if (element.grayTipElement?.groupElement?.type === 5) {
         return {
@@ -308,7 +308,7 @@ export async function transformGroupMessageEvent(
             group_id: Number(message.peerUid),
             new_group_name: element.grayTipElement.groupElement.groupName,
             operator_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.memberUid))
-          }
+          } as MilkyEventTypes['group_name_change']
         }
       }
     }
@@ -335,7 +335,7 @@ export async function transformSystemMessageEvent(
           group_id: tip.groupCode,
           user_id: Number(await ctx.ntUserApi.getUinByUid(tip.memberUid)),
           operator_id: Number(await ctx.ntUserApi.getUinByUid(tip.adminUid))
-        }
+        } as MilkyEventTypes['group_member_increase']
       }
     }
     else if (msgType === 34) {
@@ -346,7 +346,7 @@ export async function transformSystemMessageEvent(
           data: {
             group_id: tip.groupCode,
             user_id: Number(await ctx.ntUserApi.getUinByUid(tip.memberUid))
-          }
+          } as MilkyEventTypes['group_member_decrease']
         }
       } else if (tip.type === 131) {
         if (tip.memberUid === selfInfo.uid) return null
@@ -366,21 +366,22 @@ export async function transformSystemMessageEvent(
             group_id: tip.groupCode,
             user_id: +memberUin,
             operator_id: +adminUin
-          }
+          } as MilkyEventTypes['group_member_decrease']
         }
       }
     } else if (msgType === 44) {
       const tip = Notify.GroupAdmin.decode(sysMsg.body.msgContent)
-      const uid =  tip.isPromote ? tip.body.extraEnable?.adminUid : tip.body.extraDisable?.adminUid
-      if (!uid) return null
-      const uin = await ctx.ntUserApi.getUinByUid(uid)
+      const adminUid = tip.isPromote ? tip.body.extraEnable?.adminUid : tip.body.extraDisable?.adminUid
+      if (!adminUid) return null
+      const groupAllInfo = await ctx.ntGroupApi.getGroupAllInfo(tip.groupCode.toString())
       return {
         eventType: 'group_admin_change',
         data: {
           group_id: tip.groupCode,
-          user_id: +uin,
+          user_id: Number(await ctx.ntUserApi.getUinByUid(adminUid)),
+          operator_id: Number(await ctx.ntUserApi.getUinByUid(groupAllInfo.ownerUid)),
           is_set: tip.isPromote
-        }
+        } as MilkyEventTypes['group_admin_change']
       }
     }
     return null
@@ -414,7 +415,7 @@ export async function transformOlpushEvent(
             message_seq: target.sequence,
             face_id: info.code,
             is_add: info.type === 1
-          }
+          } as MilkyEventTypes['group_message_reaction']
         }
       }
     } else if (msgType === 732 && subType === 21) {
@@ -425,8 +426,9 @@ export async function transformOlpushEvent(
           data: {
             group_id: notify.groupCode,
             message_seq: notify.essenceMessage.msgSequence,
+            operator_id: notify.essenceMessage.operatorUin,
             is_set: notify.essenceMessage.setFlag === 1
-          }
+          } as MilkyEventTypes['group_essence_message_change']
         }
       }
     }

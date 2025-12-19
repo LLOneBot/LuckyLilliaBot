@@ -12,7 +12,8 @@
       "accessToken": ""
     },
     "webhook": {
-      "urls": []
+      "urls": [],
+      "accessToken": ""
     }
   },
   "satori": {

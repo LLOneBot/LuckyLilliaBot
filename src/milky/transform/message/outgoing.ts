@@ -32,7 +32,7 @@ export async function transformOutgoingMessage(
       } else if (segment.type === 'mention_all' && isGroup) {
         elements.push(SendElement.at('', '', AtType.All, '@全体成员'))
       } else if (segment.type === 'face') {
-        elements.push(SendElement.face(+segment.data.face_id))
+        elements.push(SendElement.face(+segment.data.face_id, segment.data.is_large ? 3 : undefined))
       } else if (segment.type === 'reply') {
         const replyMsgSeq = segment.data.message_seq.toString()
         const peer = {

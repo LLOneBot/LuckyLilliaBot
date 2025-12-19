@@ -83,6 +83,7 @@ export interface MilkyHttpConfig {
 
 export interface MilkyWebhookConfig {
   urls: string[]
+  accessToken: string
 }
 
 export interface MilkyConfig {

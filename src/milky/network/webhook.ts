@@ -21,11 +21,15 @@ class MilkyWebhookHandler {
     }
     const sendResult = await Promise.allSettled(this.config.urls.map(async (url) => {
       try {
+        const headers = new Headers({
+          'Content-Type': 'application/json',
+        })
+        if (this.config.accessToken) {
+          headers.append('Authorization', `Bearer ${this.config.accessToken}`)
+        }
         await fetch(url, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers,
           body: msg,
         })
       } catch (e) {

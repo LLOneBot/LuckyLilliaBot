@@ -22,9 +22,17 @@ import {
   GetCookiesInput,
   GetCookiesOutput,
   GetCSRFTokenOutput,
+  SetAvatarInput,
+  SetNicknameInput,
+  SetBioInput,
+  GetCustomFaceUrlListOutput,
 } from '@saltify/milky-types'
 import z from 'zod'
-import { selfInfo } from '@/common/globalVars'
+import { selfInfo, TEMP_DIR } from '@/common/globalVars'
+import { resolveMilkyUri } from '@/milky/common/download'
+import { unlink, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import path from 'node:path'
 
 const GetLoginInfo = defineApi(
   'get_login_info',
@@ -53,7 +61,7 @@ const GetImplInfo = defineApi(
       impl_version: version,
       qq_protocol_version: deviceInfo.buildVer,
       qq_protocol_type: transformProtocolOsType(deviceInfo.devType),
-      milky_version: '1.0',
+      milky_version: '1.1',
     })
   },
 )
@@ -189,6 +197,96 @@ const GetGroupMemberInfo = defineApi(
   }
 )
 
+const SetAvatar = defineApi(
+  'set_avatar',
+  SetAvatarInput,
+  z.object({}),
+  async (ctx, payload) => {
+    const data = await resolveMilkyUri(payload.uri)
+    const tempPath = path.join(TEMP_DIR, `avatar-${randomUUID()}`)
+    await writeFile(tempPath, data)
+    const result = await ctx.ntUserApi.setSelfAvatar(tempPath)
+    unlink(tempPath).catch(e => { })
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
+    return Ok({})
+  }
+)
+
+const SetNickname = defineApi(
+  'set_nickname',
+  SetNicknameInput,
+  z.object({}),
+  async (ctx, payload) => {
+    const old = (await ctx.ntUserApi.getUserDetailInfoWithBizInfo(selfInfo.uid)).simpleInfo
+    const result = await ctx.ntUserApi.modifySelfProfile({
+      nick: payload.new_card,
+      longNick: old.baseInfo.longNick,
+      sex: old.baseInfo.sex,
+      birthday: {
+        birthday_year: old.baseInfo.birthday_year,
+        birthday_month: old.baseInfo.birthday_month,
+        birthday_day: old.baseInfo.birthday_day,
+      },
+      location: {
+        country: '',
+        province: '',
+        city: '',
+        zone: ''
+      },
+    })
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
+    return Ok({})
+  }
+)
+
+const SetBio = defineApi(
+  'set_bio',
+  SetBioInput,
+  z.object({}),
+  async (ctx, payload) => {
+    const old = (await ctx.ntUserApi.getUserDetailInfoWithBizInfo(selfInfo.uid)).simpleInfo
+    const result = await ctx.ntUserApi.modifySelfProfile({
+      nick: old.coreInfo.nick,
+      longNick: payload.new_bio,
+      sex: old.baseInfo.sex,
+      birthday: {
+        birthday_year: old.baseInfo.birthday_year,
+        birthday_month: old.baseInfo.birthday_month,
+        birthday_day: old.baseInfo.birthday_day,
+      },
+      location: {
+        country: '',
+        province: '',
+        city: '',
+        zone: ''
+      },
+    })
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
+    return Ok({})
+  }
+)
+
+const GetCustomFaceUrlList = defineApi(
+  'get_custom_face_url_list',
+  z.object({}),
+  GetCustomFaceUrlListOutput,
+  async (ctx, payload) => {
+    const result = await ctx.ntMsgApi.fetchFavEmojiList(200)
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
+    return Ok({
+      urls: result.emojiInfoList.map(e => e.url)
+    })
+  }
+)
+
 const GetCookies = defineApi(
   'get_cookies',
   GetCookiesInput,
@@ -226,6 +324,10 @@ export const SystemApi: MilkyApiHandler[] = [
   GetGroupInfo,
   GetGroupMemberList,
   GetGroupMemberInfo,
+  SetAvatar,
+  SetNickname,
+  SetBio,
+  GetCustomFaceUrlList,
   GetCookies,
   GetCSRFToken
 ]

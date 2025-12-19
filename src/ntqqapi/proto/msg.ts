@@ -23,6 +23,10 @@ export namespace Msg {
       origSeqs: ProtoField(1, 'uint32', 'repeated'),
       senderUin: ProtoField(2, 'uint32'),
       time: ProtoField(3, 'int32'),
+      elems: ProtoField(5, 'bytes', 'repeated'),
+      pbReserve: ProtoField(8, 'bytes'),
+      srcMsg: ProtoField(9, 'bytes'),
+      toUin: ProtoField(10, 'uint32')
     }, 'optional'),
     lightApp: ProtoField(51, {
       data: ProtoField(1, 'bytes'),

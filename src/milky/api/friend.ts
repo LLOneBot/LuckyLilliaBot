@@ -6,6 +6,7 @@ import {
   GetFriendRequestsOutput,
   AcceptFriendRequestInput,
   RejectFriendRequestInput,
+  DeleteFriendInput,
 } from '@saltify/milky-types'
 import z from 'zod'
 import { selfInfo } from '@/common/globalVars'
@@ -33,6 +34,23 @@ const SendProfileLike = defineApi(
       return Failed(-404, 'User not found')
     }
     const result = await ctx.ntUserApi.like(uid, payload.count)
+    if (result.result !== 0) {
+      return Failed(-500, result.errMsg)
+    }
+    return Ok({})
+  }
+)
+
+const DeleteFriend = defineApi(
+  'delete_friend',
+  DeleteFriendInput,
+  z.object({}),
+  async (ctx, payload) => {
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    if (!uid) {
+      return Failed(-404, 'User not found')
+    }
+    const result = await ctx.ntFriendApi.delBuddy(uid)
     if (result.result !== 0) {
       return Failed(-500, result.errMsg)
     }
@@ -147,6 +165,7 @@ const RejectFriendRequest = defineApi(
 export const FriendApi: MilkyApiHandler[] = [
   SendFriendNudge,
   SendProfileLike,
+  DeleteFriend,
   GetFriendRequests,
   AcceptFriendRequest,
   RejectFriendRequest,
