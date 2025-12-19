@@ -3,7 +3,7 @@
   "version": "7.0.0",
   "type": "module",
   "description": "",
-  "main": "dist/llonebot.js",
+  "main": "dist/llbot.js",
   "scripts": {
     "dev": "tsx src/main/main.ts",
     "build": "vite build",

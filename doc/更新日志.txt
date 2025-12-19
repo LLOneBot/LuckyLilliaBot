@@ -1,3 +1,10 @@
+V7.2.0
+更新时间 2025-12-
+
+* WebUI 新增日志查看功能
+* 破坏性改动：Release 的 LLOneBot.zip 改名为 LLBot.zip，llonebot.js 改名为 llbot.js
+
+=================
 V7.1.3
 更新时间 2025-12-15
 
