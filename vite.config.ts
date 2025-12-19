@@ -63,7 +63,7 @@ export default defineConfig({
       external: [...external, ...builtinModules, /^node:/],
       input: 'src/main/main.ts',
       output: {
-        entryFileNames: 'llonebot.js',
+        entryFileNames: 'llbot.js',
         format: 'es',
       },
       plugins: [

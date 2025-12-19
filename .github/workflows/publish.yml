@@ -37,7 +37,7 @@ jobs:
 
           sudo apt install zip -y
           cd ./dist/
-          zip -r ../LLOneBot.zip ./*
+          zip -r ../LLBot.zip ./*
 
       - name: Compress for Windows Cli
         run: |
@@ -106,12 +106,12 @@ jobs:
           wget https://raw.githubusercontent.com/linyuchen/PMHQ/refs/heads/main/docker/install-llob.sh -O LLBot-Docker.sh
 
       # 手动触发时只上传 artifacts
-      - name: Upload LLOneBot.zip
+      - name: Upload LLBot.zip
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
         with:
-          name: LLOneBot
-          path: LLOneBot.zip
+          name: LLBot
+          path: LLBot.zip
           retention-days: 30
 
       - name: Upload LLBot-Desktop-win-x64.zip
@@ -171,7 +171,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: ncipollo/release-action@v1
         with:
-          artifacts: 'LLOneBot.zip, LLBot-Desktop-win-x64.zip, LLBot-CLI-win-x64.zip, LLBot-CLI-linux-x64.zip, LLBot-CLI-linux-arm64.zip, LLBot-Docker.sh'
+          artifacts: 'LLBot.zip, LLBot-Desktop-win-x64.zip, LLBot-CLI-win-x64.zip, LLBot-CLI-linux-x64.zip, LLBot-CLI-linux-arm64.zip, LLBot-Docker.sh'
           draft: true
           token: ${{ secrets.RELEASE_TOKEN }}
           name: LuckyLilliaBot v${{ steps.get-version.outputs.VERSION }}
