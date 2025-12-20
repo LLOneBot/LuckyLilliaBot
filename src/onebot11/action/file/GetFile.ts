@@ -17,13 +17,10 @@ export interface GetFileResponse {
 
 export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResponse> {
   payloadSchema = Schema.object({
-    file: Schema.string()
+    file: Schema.string().required()
   })
 
   protected async _handle(payload: GetFilePayload): Promise<GetFileResponse> {
-    if (!payload.file){
-      throw new Error('file is required')
-    }
     const { enableLocalFile2Url } = this.adapter.config
 
     let fileCache = await this.ctx.store.getFileCacheById(payload.file)
@@ -64,6 +61,8 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
         res.url = await this.ctx.ntFileApi.getImageUrl(findEle.picElement!)
       } else if (fileCache[0].elementType === ElementType.Video) {
         res.url = await this.ctx.ntFileApi.getVideoUrl(peer, fileCache[0].msgId, fileCache[0].elementId)
+      } else if (fileCache[0].elementType === ElementType.Ptt) {
+        res.url = await this.ctx.ntFileApi.getPttUrl(fileCache[0].fileUuid, peer.chatType === 2)
       }
       if (enableLocalFile2Url && downloadPath && (res.file === res.url || res.url === undefined)) {
         try {
