@@ -96,7 +96,7 @@ export interface NodeIKernelMsgService {
 
   getMultiMsg(...args: unknown[]): Promise<GeneralCallResult & { msgList: RawMessage[] }>
 
-  getTempChatInfo(chatType: number, uid: string): Promise<GeneralCallResult & {
+  getTempChatInfo(chatType: number, peerUid: string): Promise<GeneralCallResult & {
     tmpChatInfo: {
       sessionType: number
       chatType: number

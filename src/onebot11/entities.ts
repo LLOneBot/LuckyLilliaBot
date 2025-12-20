@@ -119,7 +119,7 @@ export namespace OB11Entities {
       } else {
         resMsg.sender.nickname = (await ctx.ntUserApi.getCoreAndBaseInfo([msg.senderUid])).get(msg.senderUid)!.coreInfo.nick
       }
-      const ret = await ctx.ntMsgApi.getTempChatInfo(ChatType.TempC2CFromGroup, msg.senderUid)
+      const ret = await ctx.ntMsgApi.getTempChatInfo(ChatType.TempC2CFromGroup, msg.peerUid)
       if (ret?.result === 0) {
         resMsg.sender.group_id = Number(ret.tmpChatInfo?.groupCode)
       } else {
