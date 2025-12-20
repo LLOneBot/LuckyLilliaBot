@@ -43,10 +43,10 @@ jobs:
         run: |
           mkdir llbot-cli-win-x64
           cd llbot-cli-win-x64
-          mkdir llonebot
+          mkdir llbot
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
-          cp -r ../dist/* ./llonebot/
+          cp -r ../dist/* ./llbot/
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-win-x64.zip
           unzip pmhq-win-x64.zip
           rm pmhq-win-x64.zip
@@ -63,8 +63,8 @@ jobs:
           cd llbot-desktop-win-x64
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
-          mkdir -p ./bin/llonebot
-          cp -r ../dist/* ./bin/llonebot/
+          mkdir -p ./bin/llbot
+          cp -r ../dist/* ./bin/llbot/
           wget https://github.com/LLOneBot/Lucky-Lillia-Desktop/releases/latest/download/lucky-lillia-desktop-win-x64.zip
           unzip lucky-lillia-desktop-win-x64.zip
           rm lucky-lillia-desktop-win-x64.zip

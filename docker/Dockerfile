@@ -1,6 +1,6 @@
 FROM node:lts-alpine3.19
 
-ARG LLONEBOT_VERSION
+ARG LLBOT_VERSION
 
 RUN set -eux; \
     # 获取当前系统 Alpine 主要版本 (如 3.19)
@@ -26,11 +26,11 @@ COPY docker/startup.sh /startup.sh
 
 RUN chmod +x /startup.sh
 
-RUN wget https://github.com/LLOneBot/LLOneBot/releases/download/v$LLONEBOT_VERSION/LLOneBot.zip -O /app/llonebot.zip
+RUN wget https://github.com/LLOneBot/LLOneBot/releases/download/v$LLBOT_VERSION/LLBot.zip -O /app/llbot.zip
 
 #COPY /dist/llonebot.zip /app/llonebot.zip
 
-RUN unzip /app/llonebot.zip -d /app/llonebot \
-    && rm /app/llonebot.zip
+RUN unzip /app/llbot.zip -d /app/llbot \
+    && rm /app/llbot.zip
 
 ENTRYPOINT ["/startup.sh"]

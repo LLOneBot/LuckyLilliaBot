@@ -1,6 +1,6 @@
 #!/bin/ash
 
-cd /app/llonebot
+cd /app/llbot
 
 FILE="default_config.json"
 
@@ -40,11 +40,11 @@ sed -i "/\"webui\": {/,/}/ {
 sed -i "s/\"onlyLocalhost\":\s*true/\"onlyLocalhost\": false/g" "$FILE"
 sed -i "s|\"ffmpeg\":\s*\"\"|\"ffmpeg\": \"/usr/bin/ffmpeg\"|g" "$FILE"
 
-WEBUI_TOKEN_FILE='/app/llonebot/data/webui_token.txt'
+WEBUI_TOKEN_FILE='/app/llbot/data/webui_token.txt'
 
 # Check dir
-if [ ! -d "/app/llonebot/data" ]; then
-  mkdir /app/llonebot/data
+if [ ! -d "/app/llbot/data" ]; then
+  mkdir /app/llbot/data
 fi
 
 if [ ! -f "$WEBUI_TOKEN_FILE" ]; then
@@ -59,4 +59,4 @@ fi
 if [ -n "$pmhq_host" ]; then
   host="$pmhq_host"
 fi
-node ./llonebot.js --pmhq-port=$port --pmhq-host=$host
+node --enable-source-maps ./llbot.js --pmhq-port=$port --pmhq-host=$host

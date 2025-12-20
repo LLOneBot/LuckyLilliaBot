@@ -4,7 +4,6 @@ V7.2.0
 * WebUI 新增日志查看功能
 * OneBot 11 新增 API `scan_qrcode`
 * 优化 Linux CLI，Ctrl + C 现可以正常退出
-* 破坏性改动：Release 的 LLOneBot.zip 改名为 LLBot.zip，llonebot.js 改名为 llbot.js
 * OneBot 新增识别二维码 API `scan_qrcode`
 * Milky 新增有关设置个人资料的 API `set_avatar`、`set_nickname`、`set_bio`
 * Milky 新增删除好友 API `delete_friend`
@@ -14,6 +13,7 @@ V7.2.0
 * Milky 给 `face` 消息段增加 `is_large` 属性，用于表示是否为超级表情
 * Milky 给 `group_admin_change`、 `group_essence_message_change` 事件补充 `operator_id` 字段，表示操作者 QQ 号
 * Milky 给 WebHook 通信方式增加基于 Authorization 头的鉴权
+* 破坏性改动：Release 的 LLOneBot.zip 改名为 LLBot.zip，llonebot.js 改名为 llbot.js
 
 =================
 V7.1.3

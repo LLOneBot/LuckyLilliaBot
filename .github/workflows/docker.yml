@@ -59,24 +59,24 @@ jobs:
           fi
           echo "version=$version" >> $GITHUB_OUTPUT
 
-      - name: Build and push LLOneBot Docker image
+      - name: Build and push LLBot Docker image
         run: |
           version="${{ steps.version.outputs.version }}"
           username="${{ secrets.DOCKER_USERNAME }}"
-          echo "Building LLOneBot with version: $version"
+          echo "Building LLBot with version: $version"
           docker buildx build \
             --progress=plain \
-            --build-arg LLONEBOT_VERSION="$version" \
+            --build-arg LLBOT_VERSION="$version" \
             --platform linux/amd64,linux/arm64 \
-            -t "$username/llonebot:$version" \
-            -t "$username/llonebot:latest" \
+            -t "$username/llbot:$version" \
+            -t "$username/llbot:latest" \
             -f docker/Dockerfile \
             --push \
             .
 
       - name: Output build summary
         run: |
-          echo "✅ Successfully built and pushed LLOneBot Docker image"
+          echo "✅ Successfully built and pushed LLBot Docker image"
           echo "📦 Image tags:"
-          echo "  - ${{ secrets.DOCKER_USERNAME }}/llonebot:${{ steps.version.outputs.version }}"
-          echo "  - ${{ secrets.DOCKER_USERNAME }}/llonebot:latest"
+          echo "  - ${{ secrets.DOCKER_USERNAME }}/llbot:${{ steps.version.outputs.version }}"
+          echo "  - ${{ secrets.DOCKER_USERNAME }}/llbot:latest"
