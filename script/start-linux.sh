@@ -1,3 +1,4 @@
+#!/bin/bash
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 # 检测是否为 Debian 系列系统（通过 apt 命令）
