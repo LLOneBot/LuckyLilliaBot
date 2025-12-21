@@ -280,9 +280,7 @@ class OB11HttpPost {
           const resJson = await res.json()
           this.ctx.logger.info(`HTTP 事件上报后返回快速操作:`, JSON.stringify(resJson))
           handleQuickOperation(this.ctx, event as QuickOperationEvent, resJson).catch(e => this.ctx.logger.error(e))
-        } catch (e) {
-          this.ctx.logger.warn(`HTTP 事件上报返回数据解析失败: ${host}`, e)
-        }
+        } catch (e) { }
       },
       (err) => {
         this.ctx.logger.error(`HTTP 事件上报失败: ${host}`, err, event)
