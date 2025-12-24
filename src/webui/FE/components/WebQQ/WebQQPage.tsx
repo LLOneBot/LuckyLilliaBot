@@ -4,7 +4,7 @@ import ChatWindow from './ChatWindow'
 import GroupMemberPanel from './GroupMemberPanel'
 import type { ChatSession, FriendItem, GroupItem, RecentChatItem, RawMessage } from '../../types/webqq'
 import { createEventSource, getLoginInfo } from '../../utils/webqqApi'
-import { useWebQQStore } from '../../stores/webqqStore'
+import { useWebQQStore, resetVisitedChats } from '../../stores/webqqStore'
 import { showToast } from '../Toast'
 import { Loader2 } from 'lucide-react'
 
@@ -62,10 +62,13 @@ const WebQQPage: React.FC = () => {
     incrementUnreadCount,
     updateRecentChat,
     loadContacts,
-    setRecentChats
+    setRecentChats,
+    appendCachedMessage
   } = useWebQQStore()
 
   useEffect(() => {
+    // 每次进入 WebQQ 页面时重置已访问聊天记录
+    resetVisitedChats()
     getLoginInfo().catch(e => console.error('获取登录信息失败:', e))
     loadContacts()
   }, [loadContacts])
@@ -113,18 +116,24 @@ const WebQQPage: React.FC = () => {
           }
           
           const chatType = rawMessage.chatType === 1 ? 'friend' : 'group'
-          const peerId = rawMessage.peerUin
+          // peerUin 可能为空，优先用 peerUin，否则用 peerUid
+          const peerId = rawMessage.peerUin || rawMessage.peerUid
           const chatKey = `${chatType}_${peerId}`
           const chat = currentChatRef.current
           
           console.log('SSE 消息匹配:', { 
             msgChatType: chatType, 
             msgPeerId: peerId,
+            peerUin: rawMessage.peerUin,
+            peerUid: rawMessage.peerUid,
             currentChatType: chat?.chatType, 
             currentPeerId: chat?.peerId,
             isMatch: chat && chat.chatType === chatType && chat.peerId === peerId,
             hasCallback: !!onNewMessageRef.current
           })
+          
+          // 无论是否匹配当前聊天，都要缓存消息
+          appendCachedMessage(chatType, peerId, rawMessage)
           
           if (chat && chat.chatType === chatType && chat.peerId === peerId) {
             console.log('SSE 消息匹配成功，通知 ChatWindow')
@@ -166,7 +175,7 @@ const WebQQPage: React.FC = () => {
     return () => {
       eventSource.close()
     }
-  }, [incrementUnreadCount, updateRecentChat])
+  }, [incrementUnreadCount, updateRecentChat, appendCachedMessage])
 
   const handleSelectChat = useCallback((session: ChatSession) => {
     // 切换聊天时清空待处理消息队列

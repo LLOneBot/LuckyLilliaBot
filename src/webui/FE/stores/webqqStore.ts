@@ -22,8 +22,31 @@ interface MembersCacheEntry {
   timestamp: number
 }
 
+// 滚动位置记录（用消息ID定位）
+interface ScrollPosition {
+  msgId: string  // 可见区域第一条消息的 ID
+  offset: number // 该消息距离顶部的偏移量
+}
 
 type TabType = 'friends' | 'groups' | 'recent'
+
+// 已访问的聊天（不持久化，每次进入页面重置）
+let visitedChats = new Set<string>()
+
+// 重置已访问聊天记录
+export const resetVisitedChats = () => {
+  visitedChats = new Set<string>()
+}
+
+// 检查是否已访问过
+export const hasVisitedChat = (chatType: string, peerId: string): boolean => {
+  return visitedChats.has(`${chatType}_${peerId}`)
+}
+
+// 标记为已访问
+export const markChatVisited = (chatType: string, peerId: string) => {
+  visitedChats.add(`${chatType}_${peerId}`)
+}
 
 interface WebQQState {
   // 联系人数据
@@ -55,6 +78,9 @@ interface WebQQState {
   
   // 群成员面板展开状态
   showMemberPanel: boolean
+  
+  // 滚动位置记录
+  scrollPositions: Record<string, ScrollPosition>
   
   // 缓存时间戳
   contactsCacheTimestamp: number
@@ -90,6 +116,11 @@ interface WebQQState {
   // 群成员面板操作
   setShowMemberPanel: (show: boolean) => void
   
+  // 滚动位置操作
+  getScrollPosition: (chatType: string, peerId: string) => ScrollPosition | null
+  setScrollPosition: (chatType: string, peerId: string, position: ScrollPosition) => void
+  clearScrollPosition: (chatType: string, peerId: string) => void
+  
   // 联系人加载
   loadContacts: () => Promise<void>
   refreshContacts: () => Promise<void>
@@ -117,6 +148,7 @@ export const useWebQQStore = create<WebQQState>()(
       messageCache: {},
       membersCache: {},
       showMemberPanel: false,
+      scrollPositions: {},
       contactsCacheTimestamp: 0,
 
       // 基础 setters
@@ -251,6 +283,25 @@ export const useWebQQStore = create<WebQQState>()(
       // 群成员面板操作
       setShowMemberPanel: (show) => set({ showMemberPanel: show }),
 
+      // 滚动位置操作
+      getScrollPosition: (chatType, peerId) => {
+        const state = get()
+        const key = `${chatType}_${peerId}`
+        return state.scrollPositions[key] || null
+      },
+      
+      setScrollPosition: (chatType, peerId, position) => set((state) => ({
+        scrollPositions: {
+          ...state.scrollPositions,
+          [`${chatType}_${peerId}`]: position
+        }
+      })),
+      
+      clearScrollPosition: (chatType, peerId) => set((state) => {
+        const { [`${chatType}_${peerId}`]: _, ...rest } = state.scrollPositions
+        return { scrollPositions: rest }
+      }),
+
       // 检查缓存是否有效
       isContactsCacheValid: () => {
         const state = get()
@@ -282,13 +333,20 @@ export const useWebQQStore = create<WebQQState>()(
             getRecentChats()
           ])
           
+          // 过滤无效的最近会话
+          const validRecentData = recentData.filter(item => 
+            item.peerId && item.peerId !== '0' && item.peerId !== ''
+          )
+          
           // 合并最近会话
           const localRecentMap = new Map<string, RecentChatItem>()
           state.recentChats.forEach(item => {
-            localRecentMap.set(`${item.chatType}_${item.peerId}`, item)
+            if (item.peerId && item.peerId !== '0' && item.peerId !== '') {
+              localRecentMap.set(`${item.chatType}_${item.peerId}`, item)
+            }
           })
           
-          recentData.forEach(item => {
+          validRecentData.forEach(item => {
             const key = `${item.chatType}_${item.peerId}`
             const local = localRecentMap.get(key)
             if (local) {
@@ -314,7 +372,7 @@ export const useWebQQStore = create<WebQQState>()(
           // 初始化未读计数（合并）
           const currentUnread = get().unreadCounts
           const newUnread = { ...currentUnread }
-          recentData.forEach(item => {
+          validRecentData.forEach(item => {
             const key = `${item.chatType}_${item.peerId}`
             if (!(key in newUnread) && item.unreadCount > 0) {
               newUnread[key] = item.unreadCount
@@ -338,15 +396,22 @@ export const useWebQQStore = create<WebQQState>()(
             getRecentChats()
           ])
           
+          // 过滤无效的最近会话
+          const validRecentData = recentData.filter(item => 
+            item.peerId && item.peerId !== '0' && item.peerId !== ''
+          )
+          
           // 合并最近会话：保留本地更新的，合并服务器返回的
           const state = get()
           const localRecentMap = new Map<string, RecentChatItem>()
           state.recentChats.forEach(item => {
-            localRecentMap.set(`${item.chatType}_${item.peerId}`, item)
+            if (item.peerId && item.peerId !== '0' && item.peerId !== '') {
+              localRecentMap.set(`${item.chatType}_${item.peerId}`, item)
+            }
           })
           
           // 合并服务器数据
-          recentData.forEach(item => {
+          validRecentData.forEach(item => {
             const key = `${item.chatType}_${item.peerId}`
             const local = localRecentMap.get(key)
             if (local) {
@@ -373,7 +438,7 @@ export const useWebQQStore = create<WebQQState>()(
           // 更新未读计数（只添加新的，不覆盖已有的）
           const currentUnread = get().unreadCounts
           const newUnread = { ...currentUnread }
-          recentData.forEach(item => {
+          validRecentData.forEach(item => {
             const key = `${item.chatType}_${item.peerId}`
             if (!(key in newUnread) && item.unreadCount > 0) {
               newUnread[key] = item.unreadCount
@@ -472,6 +537,7 @@ export const useWebQQStore = create<WebQQState>()(
         messageCache: state.messageCache,
         membersCache: state.membersCache,
         showMemberPanel: state.showMemberPanel,
+        scrollPositions: state.scrollPositions,
         contactsCacheTimestamp: state.contactsCacheTimestamp,
         unreadCounts: state.unreadCounts,
         activeTab: state.activeTab,
@@ -480,9 +546,13 @@ export const useWebQQStore = create<WebQQState>()(
       // 恢复数据时去重
       onRehydrateStorage: () => (state) => {
         if (state && state.recentChats) {
-          // 去重最近会话
+          // 去重最近会话，并过滤掉无效的 peerId
           const seen = new Set<string>()
           state.recentChats = state.recentChats.filter(item => {
+            // 过滤掉无效的 peerId
+            if (!item.peerId || item.peerId === '0' || item.peerId === '') {
+              return false
+            }
             const key = `${item.chatType}_${item.peerId}`
             if (seen.has(key)) {
               return false

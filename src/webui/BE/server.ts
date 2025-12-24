@@ -14,6 +14,7 @@ import { pmhq } from '@/ntqqapi/native/pmhq'
 import { ReqConfig, ResConfig } from './types'
 import { appendFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { ChatType, ElementType, RawMessage, MessageElement } from '@/ntqqapi/types'
+import { SendElement } from '@/ntqqapi/entities'
 import multer from 'multer'
 import { randomUUID } from 'crypto'
 
@@ -481,22 +482,28 @@ export class WebUIServer extends Service {
     this.app.get('/api/webqq/recent', async (req, res) => {
       try {
         const result = await this.ctx.ntUserApi.getRecentContactListSnapShot(50)
-        const recentItems = result.info.changedList.map(item => {
-          const isC2C = item.chatType === ChatType.C2C
-          // For groups, peerUin contains the group code (number as string)
-          const groupCode = item.peerUin || item.peerUid
-          return {
-            chatType: isC2C ? 'friend' : 'group',
-            peerId: isC2C ? item.peerUin : groupCode,
-            peerName: item.peerName || item.remark || item.peerUin,
-            peerAvatar: isC2C
-              ? `https://q1.qlogo.cn/g?b=qq&nk=${item.peerUin}&s=640`
-              : `https://p.qlogo.cn/gh/${groupCode}/${groupCode}/640/`,
-            lastMessage: this.extractAbstractContent(item.abstractContent),
-            lastTime: parseInt(item.msgTime) * 1000,
-            unreadCount: parseInt(item.unreadCnt) || 0
-          }
-        })
+        const recentItems = result.info.changedList
+          .filter(item => {
+            // 过滤掉无效的会话（peerId 为空或为 0）
+            const peerId = item.peerUin || item.peerUid
+            return peerId && peerId !== '0' && peerId !== ''
+          })
+          .map(item => {
+            const isC2C = item.chatType === ChatType.C2C
+            // For groups, peerUin contains the group code (number as string)
+            const groupCode = item.peerUin || item.peerUid
+            return {
+              chatType: isC2C ? 'friend' : 'group',
+              peerId: isC2C ? item.peerUin : groupCode,
+              peerName: item.peerName || item.remark || item.peerUin,
+              peerAvatar: isC2C
+                ? `https://q1.qlogo.cn/g?b=qq&nk=${item.peerUin}&s=640`
+                : `https://p.qlogo.cn/gh/${groupCode}/${groupCode}/640/`,
+              lastMessage: this.extractAbstractContent(item.abstractContent),
+              lastTime: parseInt(item.msgTime) * 1000,
+              unreadCount: parseInt(item.unreadCnt) || 0
+            }
+          })
         // 按时间排序
         recentItems.sort((a, b) => b.lastTime - a.lastTime)
         res.json({ success: true, data: recentItems })
@@ -798,77 +805,10 @@ export class WebUIServer extends Service {
     }).join('')
   }
 
-  // 辅助方法：转换消息元素
-  private async convertMessageElements(elements: MessageElement[]): Promise<{ type: string; text?: string; url?: string; width?: number; height?: number }[]> {
-    const contents: { type: string; text?: string; url?: string; width?: number; height?: number }[] = []
-
-    for (const element of elements) {
-      if (element.textElement) {
-        contents.push({
-          type: 'text',
-          text: element.textElement.content
-        })
-      } else if (element.picElement) {
-        const pic = element.picElement
-        // 使用 ntFileApi.getImageUrl 获取带 rkey 的图片 URL
-        let url = ''
-        try {
-          url = await this.ctx.ntFileApi.getImageUrl(pic)
-        } catch (e) {
-          this.ctx.logger.warn('获取图片URL失败:', e)
-        }
-        
-        // 如果 getImageUrl 返回的 URL 没有 rkey，手动添加
-        if (url && !url.includes('rkey=')) {
-          try {
-            const parsedUrl = new URL(url)
-            const appid = parsedUrl.searchParams.get('appid')
-            if (appid && ['1406', '1407'].includes(appid)) {
-              const rkeyData = await this.ctx.ntFileApi.rkeyManager.getRkey()
-              const rkey = appid === '1406' ? rkeyData.private_rkey : rkeyData.group_rkey
-              if (rkey) {
-                url = url + rkey
-              }
-            }
-          } catch (e) {
-            this.ctx.logger.warn('添加rkey失败:', e)
-          }
-        }
-        
-        // 降级处理
-        if (!url && pic.originImageUrl) {
-          url = pic.originImageUrl.startsWith('http')
-            ? pic.originImageUrl
-            : `https://gchat.qpic.cn${pic.originImageUrl}`
-        }
-        
-        contents.push({
-          type: 'image',
-          url,
-          width: pic.picWidth,
-          height: pic.picHeight
-        })
-      }
-    }
-
-    return contents
-  }
-
   // 辅助方法：创建图片消息元素
-  private async createPicElement(imagePath: string): Promise<any> {
+  private async createPicElement(imagePath: string) {
     try {
-      // 这里需要调用 NTQQ 的图片上传接口
-      // 简化处理，直接返回本地路径的图片元素
-      return {
-        elementType: ElementType.Pic,
-        elementId: '',
-        picElement: {
-          sourcePath: imagePath,
-          picWidth: 0,
-          picHeight: 0,
-          original: true
-        }
-      }
+      return await SendElement.pic(this.ctx, imagePath)
     } catch (e) {
       this.ctx.logger.error('创建图片元素失败:', e)
       return null
@@ -897,6 +837,14 @@ export class WebUIServer extends Service {
     // 监听自己发送的消息 - 直接推送原始 RawMessage
     this.ctx.on('nt/message-sent', (message: RawMessage) => {
       if (this.sseClients.size === 0) return
+      this.ctx.logger.info('WebQQ SSE 推送自己发送的消息:', {
+        msgId: message.msgId,
+        chatType: message.chatType,
+        peerUin: message.peerUin,
+        peerUid: message.peerUid,
+        senderUin: message.senderUin,
+        elementsCount: message.elements?.length
+      })
       this.broadcastMessage('message', {
         type: 'message-sent',
         data: message

@@ -20,6 +20,12 @@
     min-height: 100vh;
     position: relative;
   }
+
+  /* 暗黑模式背景 - 更深沉 */
+  .dark body,
+  :root.dark body {
+    background: #0f0f0f;
+  }
   
   /* 添加彩色点阵图案 */
   body::after {
@@ -36,6 +42,12 @@
     pointer-events: none;
     z-index: 0;
   }
+
+  /* 暗黑模式 - 去掉点阵 */
+  .dark body::after,
+  :root.dark body::after {
+    background-image: none;
+  }
   
   #root {
     @apply min-h-screen;
@@ -46,16 +58,25 @@
 
 @layer components {
   .card {
-    @apply bg-white/60 backdrop-blur-xl rounded-3xl shadow-card hover:shadow-card-hover transition-all duration-300 border border-white/50;
+    @apply bg-white/60 dark:bg-neutral-900 backdrop-blur-xl dark:backdrop-blur-none rounded-3xl shadow-card hover:shadow-card-hover transition-all duration-300 border border-white/50 dark:border-neutral-800;
   }
   
   /* 主题渐变色 - 粉珊瑚系 */
   .gradient-primary {
     background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
   }
+
+  /* 暗黑模式渐变 - 更柔和 */
+  .dark .gradient-primary {
+    background: linear-gradient(to right, #be185d 0%, #dc2626 100%);
+  }
   
   .gradient-primary-br {
     background: linear-gradient(to bottom right, #ec4899 0%, #f87171 100%);
+  }
+
+  .dark .gradient-primary-br {
+    background: linear-gradient(to bottom right, #be185d 0%, #dc2626 100%);
   }
   
   .btn-primary {
@@ -64,7 +85,7 @@
   
   /* Switch 开关样式 */
   .switch-toggle {
-    @apply w-12 h-6 rounded-full bg-gray-300 relative cursor-pointer appearance-none
+    @apply w-12 h-6 rounded-full bg-gray-300 dark:bg-neutral-700 relative cursor-pointer appearance-none
       transition-colors duration-200 ease-in-out
       before:content-[''] before:absolute before:top-0.5 before:left-0.5
       before:w-5 before:h-5 before:rounded-full before:bg-white
@@ -74,9 +95,13 @@
       background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
     }
   }
+
+  .dark .switch-toggle:checked {
+    background: linear-gradient(to right, #be185d 0%, #dc2626 100%);
+  }
   
   .switch-toggle-lg {
-    @apply w-14 h-7 rounded-full bg-gray-300 relative cursor-pointer appearance-none
+    @apply w-14 h-7 rounded-full bg-gray-300 dark:bg-neutral-700 relative cursor-pointer appearance-none
       transition-colors duration-200 ease-in-out
       before:content-[''] before:absolute before:top-0.5 before:left-0.5
       before:w-6 before:h-6 before:rounded-full before:bg-white
@@ -86,9 +111,13 @@
       background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
     }
   }
+
+  .dark .switch-toggle-lg:checked {
+    background: linear-gradient(to right, #be185d 0%, #dc2626 100%);
+  }
   
   .input-field {
-    @apply w-full px-4 py-2.5 border border-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all bg-white/40 backdrop-blur-sm;
+    @apply w-full px-4 py-2.5 border border-white/30 dark:border-neutral-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400 dark:focus:ring-pink-600 focus:border-transparent transition-all bg-white/40 dark:bg-neutral-800 backdrop-blur-sm dark:backdrop-blur-none text-gray-900 dark:text-neutral-100 placeholder-gray-500 dark:placeholder-neutral-500;
   }
   
   .switch {
