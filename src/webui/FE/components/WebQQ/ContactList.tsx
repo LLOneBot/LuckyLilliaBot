@@ -1,0 +1,354 @@
+import React, { useState, useMemo } from 'react'
+import { Users, MessageCircle, Search, Clock, ChevronDown, ChevronRight } from 'lucide-react'
+import type { FriendItem, FriendCategory, GroupItem, RecentChatItem } from '../../types/webqq'
+import { filterGroups, formatMessageTime } from '../../utils/webqqApi'
+import { useWebQQStore } from '../../stores/webqqStore'
+
+type TabType = 'friends' | 'groups' | 'recent'
+
+interface ContactListProps {
+  activeTab: TabType
+  onTabChange: (tab: TabType) => void
+  friendCategories: FriendCategory[]
+  groups: GroupItem[]
+  recentChats: RecentChatItem[]
+  unreadCounts: Map<string, number>
+  selectedPeerId?: string
+  onSelectFriend: (friend: FriendItem) => void
+  onSelectGroup: (group: GroupItem) => void
+  onSelectRecent: (recent: RecentChatItem) => void
+}
+
+const ContactList: React.FC<ContactListProps> = ({
+  activeTab,
+  onTabChange,
+  friendCategories,
+  groups,
+  recentChats,
+  unreadCounts,
+  selectedPeerId,
+  onSelectFriend,
+  onSelectGroup,
+  onSelectRecent
+}) => {
+  const [searchQuery, setSearchQuery] = useState('')
+
+  // 过滤后的好友分组
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return friendCategories
+    const lowerQuery = searchQuery.toLowerCase()
+    return friendCategories.map(category => ({
+      ...category,
+      friends: category.friends.filter(friend =>
+        friend.nickname.toLowerCase().includes(lowerQuery) ||
+        friend.remark.toLowerCase().includes(lowerQuery) ||
+        friend.uin.includes(searchQuery)
+      )
+    })).filter(category => category.friends.length > 0)
+  }, [friendCategories, searchQuery])
+
+  const filteredGroups = useMemo(() => filterGroups(groups, searchQuery), [groups, searchQuery])
+
+  const tabs = [
+    { id: 'recent' as TabType, icon: Clock, label: '最近' },
+    { id: 'friends' as TabType, icon: Users, label: '好友' },
+    { id: 'groups' as TabType, icon: MessageCircle, label: '群组' }
+  ]
+
+  return (
+    <div className="flex flex-col h-full">
+      {/* Tab 切换 */}
+      <div className="flex border-b border-gray-200/50 px-2 pt-2">
+        {tabs.map(tab => {
+          const Icon = tab.icon
+          const isActive = activeTab === tab.id
+          return (
+            <button
+              key={tab.id}
+              onClick={() => onTabChange(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors rounded-t-lg ${
+                isActive
+                  ? 'text-pink-600 bg-pink-50/50'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50/50'
+              }`}
+            >
+              <Icon size={16} />
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {/* 搜索框 */}
+      {activeTab !== 'recent' && (
+        <div className="p-3">
+          <div className="relative">
+            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={activeTab === 'friends' ? '搜索好友...' : '搜索群组...'}
+              className="w-full pl-9 pr-3 py-2 text-sm bg-gray-100/50 border border-gray-200/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500/50"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* 列表内容 */}
+      <div className="flex-1 overflow-y-auto">
+        {activeTab === 'recent' && (
+          <RecentList
+            items={recentChats}
+            unreadCounts={unreadCounts}
+            selectedPeerId={selectedPeerId}
+            onSelect={onSelectRecent}
+          />
+        )}
+        {activeTab === 'friends' && (
+          <FriendCategoryList
+            categories={filteredCategories}
+            selectedPeerId={selectedPeerId}
+            onSelect={onSelectFriend}
+          />
+        )}
+        {activeTab === 'groups' && (
+          <GroupList
+            items={filteredGroups}
+            selectedPeerId={selectedPeerId}
+            onSelect={onSelectGroup}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// 好友分组列表
+interface FriendCategoryListProps {
+  categories: FriendCategory[]
+  selectedPeerId?: string
+  onSelect: (friend: FriendItem) => void
+}
+
+const FriendCategoryList: React.FC<FriendCategoryListProps> = ({ categories, selectedPeerId, onSelect }) => {
+  // 使用 store 管理展开状态
+  const { expandedCategories, toggleCategory } = useWebQQStore()
+  const expandedSet = useMemo(() => new Set(expandedCategories), [expandedCategories])
+
+  if (categories.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
+        暂无好友
+      </div>
+    )
+  }
+
+  return (
+    <div className="py-1">
+      {categories.map(category => {
+        const isExpanded = expandedSet.has(category.categoryId)
+        return (
+          <div key={category.categoryId}>
+            {/* 分组标题 */}
+            <div
+              onClick={() => toggleCategory(category.categoryId)}
+              className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-gray-50/50 text-gray-600"
+            >
+              {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              <span className="text-xs font-medium">{category.categoryName}</span>
+              <span className="text-xs text-gray-400">
+                {category.onlineCount}/{category.memberCount}
+              </span>
+            </div>
+            {/* 好友列表 */}
+            {isExpanded && category.friends.map(friend => (
+              <FriendListItem
+                key={friend.uid}
+                friend={friend}
+                isSelected={selectedPeerId === friend.uin}
+                onClick={() => onSelect(friend)}
+              />
+            ))}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// 好友列表项
+interface FriendListItemProps {
+  friend: FriendItem
+  isSelected: boolean
+  onClick: () => void
+}
+
+export const FriendListItem: React.FC<FriendListItemProps> = ({ friend, isSelected, onClick }) => {
+  return (
+    <div
+      onClick={onClick}
+      className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+        isSelected ? 'bg-pink-50' : 'hover:bg-gray-50/50'
+      }`}
+    >
+      <div className="relative flex-shrink-0">
+        <img
+          src={friend.avatar}
+          alt={friend.nickname}
+          className="w-10 h-10 rounded-full object-cover"
+          onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+            e.currentTarget.src = `https://q1.qlogo.cn/g?b=qq&nk=${friend.uin}&s=640`
+          }}
+        />
+        {friend.online && (
+          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-gray-800 truncate">
+          {friend.remark || friend.nickname}
+        </div>
+        {friend.remark && (
+          <div className="text-xs text-gray-400 truncate">{friend.nickname}</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// 群组列表
+interface GroupListProps {
+  items: GroupItem[]
+  selectedPeerId?: string
+  onSelect: (group: GroupItem) => void
+}
+
+const GroupList: React.FC<GroupListProps> = ({ items, selectedPeerId, onSelect }) => {
+  if (items.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
+        暂无群组
+      </div>
+    )
+  }
+
+  return (
+    <div className="py-1">
+      {items.map(group => (
+        <GroupListItem
+          key={group.groupCode}
+          group={group}
+          isSelected={selectedPeerId === group.groupCode}
+          onClick={() => onSelect(group)}
+        />
+      ))}
+    </div>
+  )
+}
+
+// 群组列表项
+interface GroupListItemProps {
+  group: GroupItem
+  isSelected: boolean
+  onClick: () => void
+}
+
+export const GroupListItem: React.FC<GroupListItemProps> = ({ group, isSelected, onClick }) => {
+  return (
+    <div
+      onClick={onClick}
+      className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+        isSelected ? 'bg-pink-50' : 'hover:bg-gray-50/50'
+      }`}
+    >
+      <img
+        src={group.avatar}
+        alt={group.groupName}
+        className="w-10 h-10 rounded-full object-cover flex-shrink-0"
+        onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
+          e.currentTarget.src = `https://p.qlogo.cn/gh/${group.groupCode}/${group.groupCode}/640/`
+        }}
+      />
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-gray-800 truncate">{group.groupName}</div>
+        <div className="text-xs text-gray-400">{group.memberCount} 人</div>
+      </div>
+    </div>
+  )
+}
+
+// 最近会话列表
+interface RecentListProps {
+  items: RecentChatItem[]
+  unreadCounts: Map<string, number>
+  selectedPeerId?: string
+  onSelect: (recent: RecentChatItem) => void
+}
+
+const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPeerId, onSelect }) => {
+  if (items.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-32 text-gray-400 text-sm">
+        暂无最近会话
+      </div>
+    )
+  }
+
+  return (
+    <div className="py-1">
+      {items.map(item => (
+        <RecentListItem
+          key={`${item.chatType}_${item.peerId}`}
+          item={item}
+          unreadCount={unreadCounts.get(`${item.chatType}_${item.peerId}`) || item.unreadCount}
+          isSelected={selectedPeerId === item.peerId}
+          onClick={() => onSelect(item)}
+        />
+      ))}
+    </div>
+  )
+}
+
+// 最近会话列表项
+interface RecentListItemProps {
+  item: RecentChatItem
+  unreadCount: number
+  isSelected: boolean
+  onClick: () => void
+}
+
+export const RecentListItem: React.FC<RecentListItemProps> = ({ item, unreadCount, isSelected, onClick }) => {
+  return (
+    <div
+      onClick={onClick}
+      className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+        isSelected ? 'bg-pink-50' : 'hover:bg-gray-50/50'
+      }`}
+    >
+      <div className="relative flex-shrink-0">
+        <img
+          src={item.peerAvatar}
+          alt={item.peerName}
+          className="w-10 h-10 rounded-full object-cover"
+        />
+        {unreadCount > 0 && (
+          <div className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-xs font-medium rounded-full flex items-center justify-center px-1">
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </div>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-gray-800 truncate">{item.peerName}</span>
+          <span className="text-xs text-gray-400 flex-shrink-0 ml-2">
+            {formatMessageTime(item.lastTime)}
+          </span>
+        </div>
+        <div className="text-xs text-gray-400 truncate mt-0.5">{item.lastMessage}</div>
+      </div>
+    </div>
+  )
+}
+
+export default ContactList

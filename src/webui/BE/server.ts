@@ -8,11 +8,14 @@ import { Server } from 'http'
 import { Socket } from 'net'
 import { hashPassword } from './passwordHash'
 import { Context, Service } from 'cordis'
-import { selfInfo, LOG_DIR } from '@/common/globalVars'
+import { selfInfo, LOG_DIR, TEMP_DIR } from '@/common/globalVars'
 import { getAvailablePort } from '@/common/utils/port'
 import { pmhq } from '@/ntqqapi/native/pmhq'
 import { ReqConfig, ResConfig } from './types'
-import { appendFileSync } from 'node:fs'
+import { appendFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { ChatType, ElementType, RawMessage, MessageElement } from '@/ntqqapi/types'
+import multer from 'multer'
+import { randomUUID } from 'crypto'
 
 import { getLogCache, LogRecord } from '../../main/log'
 
@@ -82,12 +85,41 @@ export class WebUIServer extends Service {
   private connections = new Set<Socket>()
   private currentPort?: number
   public port?: number = undefined
-  static inject = ['ntLoginApi', 'ntFriendApi', 'ntGroupApi', 'ntSystemApi']
+  private sseClients: Set<Response> = new Set()
+  private upload: multer.Multer
+  static inject = ['ntLoginApi', 'ntFriendApi', 'ntGroupApi', 'ntSystemApi', 'ntMsgApi', 'ntUserApi', 'ntFileApi']
 
   constructor(ctx: Context, public config: WebUIServerConfig) {
     super(ctx, 'webuiServer', true)
+    // 配置 multer 用于文件上传
+    const uploadDir = path.join(TEMP_DIR, 'webqq-uploads')
+    if (!existsSync(uploadDir)) {
+      mkdirSync(uploadDir, { recursive: true })
+    }
+    this.upload = multer({
+      storage: multer.diskStorage({
+        destination: uploadDir,
+        filename: (req, file, cb) => {
+          const ext = path.extname(file.originalname)
+          cb(null, `${randomUUID()}${ext}`)
+        }
+      }),
+      fileFilter: (req, file, cb) => {
+        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg']
+        if (allowedTypes.includes(file.mimetype)) {
+          cb(null, true)
+        } else {
+          cb(new Error('不支持的图片格式，仅支持 JPG、PNG、GIF'))
+        }
+      },
+      limits: {
+        fileSize: 10 * 1024 * 1024 // 10MB
+      }
+    })
     // 初始化服务器路由
     this.initServer()
+    // 监听消息事件，推送给 SSE 客户端
+    this.setupMessageListener()
     // 监听 config 更新事件
     ctx.on('llob/config-updated', (newConfig: Config) => {
       const oldConfig = { ...this.config }
@@ -368,11 +400,507 @@ export class WebUIServer extends Service {
       })
     })
 
+    // ==================== WebQQ API ====================
+    this.initWebQQRoutes()
+
     // 静态文件服务放在 API 路由之后
     this.app.use(express.static(feDistPath))
 
     this.app.get('/', (req, res) => {
       res.sendFile(path.join(feDistPath, 'index.html'))
+    })
+  }
+
+  // WebQQ API 路由初始化
+  private initWebQQRoutes() {
+    // 获取好友列表
+    this.app.get('/api/webqq/friends', async (req, res) => {
+      try {
+        // 获取带分组的好友列表
+        const buddyV2Result = await this.ctx.ntFriendApi.getBuddyV2(true)
+        const buddyList = await this.ctx.ntFriendApi.getBuddyList()
+        
+        // 创建 uid -> SimpleInfo 的映射
+        const buddyMap = new Map<string, typeof buddyList[0]>()
+        for (const buddy of buddyList) {
+          buddyMap.set(buddy.uid!, buddy)
+        }
+        
+        // 构建分组数据
+        const categories = (buddyV2Result.data || []).map((category: any) => {
+          const friends = (category.buddyUids || [])
+            .map((uid: string) => buddyMap.get(uid))
+            .filter((buddy: any) => buddy)
+            .map((buddy: any) => ({
+              uid: buddy.uid,
+              uin: buddy.uin,
+              nickname: buddy.coreInfo.nick,
+              remark: buddy.coreInfo.remark || '',
+              avatar: `https://q1.qlogo.cn/g?b=qq&nk=${buddy.uin}&s=640`,
+              online: buddy.status?.status === 10 || false
+            }))
+          
+          return {
+            categoryId: category.categoryId,
+            categoryName: category.categroyName || '我的好友',
+            categorySort: category.categorySortId,
+            onlineCount: category.onlineCount || 0,
+            memberCount: category.categroyMbCount || friends.length,
+            friends
+          }
+        })
+        
+        // 按 categorySort 排序
+        categories.sort((a: any, b: any) => a.categorySort - b.categorySort)
+        
+        res.json({ success: true, data: categories })
+      } catch (e: any) {
+        this.ctx.logger.error('获取好友列表失败:', e)
+        res.status(500).json({ success: false, message: '获取好友列表失败', error: e.message })
+      }
+    })
+
+    // 获取群组列表
+    this.app.get('/api/webqq/groups', async (req, res) => {
+      try {
+        const groups = await this.ctx.ntGroupApi.getGroups(false)
+        const groupItems = groups.map(group => ({
+          groupCode: group.groupCode,
+          groupName: group.groupName,
+          avatar: `https://p.qlogo.cn/gh/${group.groupCode}/${group.groupCode}/640/`,
+          memberCount: group.memberCount
+        }))
+        res.json({ success: true, data: groupItems })
+      } catch (e: any) {
+        this.ctx.logger.error('获取群组列表失败:', e)
+        res.status(500).json({ success: false, message: '获取群组列表失败', error: e.message })
+      }
+    })
+
+    // 获取最近会话列表
+    this.app.get('/api/webqq/recent', async (req, res) => {
+      try {
+        const result = await this.ctx.ntUserApi.getRecentContactListSnapShot(50)
+        const recentItems = result.info.changedList.map(item => {
+          const isC2C = item.chatType === ChatType.C2C
+          // For groups, peerUin contains the group code (number as string)
+          const groupCode = item.peerUin || item.peerUid
+          return {
+            chatType: isC2C ? 'friend' : 'group',
+            peerId: isC2C ? item.peerUin : groupCode,
+            peerName: item.peerName || item.remark || item.peerUin,
+            peerAvatar: isC2C
+              ? `https://q1.qlogo.cn/g?b=qq&nk=${item.peerUin}&s=640`
+              : `https://p.qlogo.cn/gh/${groupCode}/${groupCode}/640/`,
+            lastMessage: this.extractAbstractContent(item.abstractContent),
+            lastTime: parseInt(item.msgTime) * 1000,
+            unreadCount: parseInt(item.unreadCnt) || 0
+          }
+        })
+        // 按时间排序
+        recentItems.sort((a, b) => b.lastTime - a.lastTime)
+        res.json({ success: true, data: recentItems })
+      } catch (e: any) {
+        this.ctx.logger.error('获取最近会话失败:', e)
+        res.status(500).json({ success: false, message: '获取最近会话失败', error: e.message })
+      }
+    })
+
+    // 获取消息历史 - 返回原始 RawMessage 数据
+    this.app.get('/api/webqq/messages', async (req, res) => {
+      try {
+        const { chatType, peerId, beforeMsgId, limit = '20' } = req.query as {
+          chatType: string
+          peerId: string
+          beforeMsgId?: string
+          limit?: string
+        }
+
+        if (!chatType || !peerId) {
+          res.status(400).json({ success: false, message: '缺少必要参数' })
+          return
+        }
+
+        // 构建 peer 对象
+        // 对于私聊，peerUid 需要是 uid（内部ID），不是 uin（QQ号）
+        // 对于群聊，peerUid 直接用群号
+        let peerUid = peerId
+        if (chatType === 'friend') {
+          // 将 uin（QQ号）转换为 uid
+          const uid = await this.ctx.ntUserApi.getUidByUin(peerId)
+          if (!uid) {
+            res.status(400).json({ success: false, message: '无法获取用户信息' })
+            return
+          }
+          peerUid = uid
+        }
+
+        const peer = {
+          chatType: chatType === 'friend' ? ChatType.C2C : ChatType.Group,
+          peerUid,
+          guildId: ''
+        }
+
+        // 初次加载使用 getAioFirstViewLatestMsgs，加载更多使用 getMsgHistory
+        let result
+        if (!beforeMsgId || beforeMsgId === '0') {
+          result = await this.ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, parseInt(limit))
+        } else {
+          result = await this.ctx.ntMsgApi.getMsgHistory(peer, beforeMsgId, parseInt(limit))
+        }
+
+        const messages = result?.msgList || []
+
+        // 消息按时间正序排列
+        messages.sort((a: RawMessage, b: RawMessage) => parseInt(a.msgTime) - parseInt(b.msgTime))
+
+        res.json({
+          success: true,
+          data: {
+            messages,
+            hasMore: messages.length >= parseInt(limit)
+          }
+        })
+      } catch (e: any) {
+        this.ctx.logger.error('获取消息历史失败:', e)
+        res.status(500).json({ success: false, message: '获取消息历史失败', error: e.message })
+      }
+    })
+
+    // 发送消息
+    this.app.post('/api/webqq/messages', async (req, res) => {
+      try {
+        const { chatType, peerId, content } = req.body as {
+          chatType: string
+          peerId: string
+          content: { type: string; text?: string; imagePath?: string }[]
+        }
+
+        if (!chatType || !peerId || !content || content.length === 0) {
+          res.status(400).json({ success: false, message: '缺少必要参数' })
+          return
+        }
+
+        // 构建 peer 对象
+        // 对于私聊，peerUid 需要是 uid（内部ID），不是 uin（QQ号）
+        // 对于群聊，peerUid 直接用群号
+        let peerUid = peerId
+        if (chatType === 'friend') {
+          const uid = await this.ctx.ntUserApi.getUidByUin(peerId)
+          if (!uid) {
+            res.status(400).json({ success: false, message: '无法获取用户信息' })
+            return
+          }
+          peerUid = uid
+        }
+
+        const peer = {
+          chatType: chatType === 'friend' ? ChatType.C2C : ChatType.Group,
+          peerUid,
+          guildId: ''
+        }
+
+        const elements: any[] = []
+        for (const item of content) {
+          if (item.type === 'text' && item.text) {
+            elements.push({
+              elementType: ElementType.Text,
+              elementId: '',
+              textElement: {
+                content: item.text,
+                atType: 0,
+                atUid: '',
+                atTinyId: '',
+                atNtUid: ''
+              }
+            })
+          } else if (item.type === 'image' && item.imagePath) {
+            // 图片消息需要先上传
+            const picElement = await this.createPicElement(item.imagePath)
+            if (picElement) {
+              elements.push(picElement)
+            }
+          }
+        }
+
+        if (elements.length === 0) {
+          res.status(400).json({ success: false, message: '消息内容为空' })
+          return
+        }
+
+        const result = await this.ctx.ntMsgApi.sendMsg(peer, elements)
+        res.json({
+          success: true,
+          data: { msgId: result.msgId }
+        })
+      } catch (e: any) {
+        this.ctx.logger.error('发送消息失败:', e)
+        res.status(500).json({ success: false, message: '发送消息失败', error: e.message })
+      }
+    })
+
+    // 上传图片
+    this.app.post('/api/webqq/upload', this.upload.single('image'), async (req, res) => {
+      try {
+        if (!req.file) {
+          res.status(400).json({ success: false, message: '没有上传文件' })
+          return
+        }
+
+        res.json({
+          success: true,
+          data: {
+            imagePath: req.file.path,
+            filename: req.file.filename
+          }
+        })
+      } catch (e: any) {
+        this.ctx.logger.error('上传图片失败:', e)
+        res.status(500).json({ success: false, message: '上传图片失败', error: e.message })
+      }
+    })
+
+    // 获取群成员列表
+    this.app.get('/api/webqq/members', async (req, res) => {
+      try {
+        const { groupCode } = req.query as { groupCode: string }
+
+        if (!groupCode) {
+          res.status(400).json({ success: false, message: '缺少群号参数' })
+          return
+        }
+
+        const result = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
+        const members: any[] = []
+
+        if (result?.result?.infos) {
+          for (const [uid, member] of result.result.infos) {
+            const role = member.role === 4 ? 'owner' : member.role === 3 ? 'admin' : 'member'
+            members.push({
+              uid: member.uid,
+              uin: member.uin,
+              nickname: member.nick,
+              card: member.cardName || '',
+              avatar: `https://q1.qlogo.cn/g?b=qq&nk=${member.uin}&s=640`,
+              role
+            })
+          }
+        }
+
+        // 按角色排序：群主 > 管理员 > 成员
+        const roleOrder = { owner: 0, admin: 1, member: 2 }
+        members.sort((a, b) => roleOrder[a.role as keyof typeof roleOrder] - roleOrder[b.role as keyof typeof roleOrder])
+
+        res.json({ success: true, data: members })
+      } catch (e: any) {
+        this.ctx.logger.error('获取群成员失败:', e)
+        res.status(500).json({ success: false, message: '获取群成员失败', error: e.message })
+      }
+    })
+
+    // SSE 实时消息推送
+    this.app.get('/api/webqq/events', (req: Request, res: Response) => {
+      res.setHeader('Content-Type', 'text/event-stream')
+      res.setHeader('Cache-Control', 'no-cache')
+      res.setHeader('Connection', 'keep-alive')
+      res.flushHeaders()
+
+      res.write(`event: connected\ndata: {}\n\n`)
+
+      this.sseClients.add(res)
+
+      req.on('close', () => {
+        this.sseClients.delete(res)
+      })
+    })
+
+    // 图片代理接口 - 解决跨域和 Referer 问题
+    this.app.get('/api/webqq/image-proxy', async (req: Request, res: Response) => {
+      try {
+        const urlParam = req.query.url as string
+        if (!urlParam) {
+          res.status(400).json({ success: false, message: '缺少图片URL参数' })
+          return
+        }
+
+        // URL 解码
+        let url = decodeURIComponent(urlParam)
+        this.ctx.logger.info('图片代理请求:', url)
+
+        // 验证 URL 是否是 QQ 图片服务器
+        let parsedUrl: URL
+        try {
+          parsedUrl = new URL(url)
+        } catch (e) {
+          res.status(400).json({ success: false, message: '无效的URL' })
+          return
+        }
+
+        const allowedHosts = ['gchat.qpic.cn', 'multimedia.nt.qq.com.cn', 'c2cpicdw.qpic.cn', 'p.qlogo.cn', 'q1.qlogo.cn']
+        if (!allowedHosts.some(host => parsedUrl.hostname.includes(host))) {
+          res.status(403).json({ success: false, message: '不允许代理此域名的图片' })
+          return
+        }
+
+        // 如果 URL 没有 rkey，尝试添加
+        if (!url.includes('rkey=') && (parsedUrl.hostname.includes('multimedia.nt.qq.com.cn') || parsedUrl.hostname.includes('gchat.qpic.cn'))) {
+          try {
+            const appid = parsedUrl.searchParams.get('appid')
+            if (appid && ['1406', '1407'].includes(appid)) {
+              const rkeyData = await this.ctx.ntFileApi.rkeyManager.getRkey()
+              const rkey = appid === '1406' ? rkeyData.private_rkey : rkeyData.group_rkey
+              if (rkey) {
+                url = url + rkey
+                this.ctx.logger.info('已添加 rkey 到图片 URL')
+              }
+            }
+          } catch (e) {
+            this.ctx.logger.warn('添加 rkey 失败:', e)
+          }
+        }
+
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+            'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+          }
+        })
+
+        if (!response.ok) {
+          this.ctx.logger.warn('图片代理请求失败:', response.status, response.statusText)
+          res.status(response.status).json({ success: false, message: `获取图片失败: ${response.statusText}` })
+          return
+        }
+
+        const contentType = response.headers.get('content-type') || 'image/png'
+        res.setHeader('Content-Type', contentType)
+        res.setHeader('Cache-Control', 'public, max-age=86400') // 缓存1天
+        res.setHeader('Access-Control-Allow-Origin', '*')
+
+        const buffer = await response.arrayBuffer()
+        res.send(Buffer.from(buffer))
+      } catch (e: any) {
+        this.ctx.logger.error('图片代理失败:', e)
+        res.status(500).json({ success: false, message: '图片代理失败', error: e.message })
+      }
+    })
+  }
+
+  // 辅助方法：提取摘要内容
+  private extractAbstractContent(abstractContent: any[]): string {
+    if (!abstractContent || abstractContent.length === 0) return ''
+    return abstractContent.map(item => {
+      if (item.type === 'text') return item.content || ''
+      if (item.type === 'pic') return '[图片]'
+      if (item.type === 'face') return '[表情]'
+      return ''
+    }).join('')
+  }
+
+  // 辅助方法：转换消息元素
+  private async convertMessageElements(elements: MessageElement[]): Promise<{ type: string; text?: string; url?: string; width?: number; height?: number }[]> {
+    const contents: { type: string; text?: string; url?: string; width?: number; height?: number }[] = []
+
+    for (const element of elements) {
+      if (element.textElement) {
+        contents.push({
+          type: 'text',
+          text: element.textElement.content
+        })
+      } else if (element.picElement) {
+        const pic = element.picElement
+        // 使用 ntFileApi.getImageUrl 获取带 rkey 的图片 URL
+        let url = ''
+        try {
+          url = await this.ctx.ntFileApi.getImageUrl(pic)
+        } catch (e) {
+          this.ctx.logger.warn('获取图片URL失败:', e)
+        }
+        
+        // 如果 getImageUrl 返回的 URL 没有 rkey，手动添加
+        if (url && !url.includes('rkey=')) {
+          try {
+            const parsedUrl = new URL(url)
+            const appid = parsedUrl.searchParams.get('appid')
+            if (appid && ['1406', '1407'].includes(appid)) {
+              const rkeyData = await this.ctx.ntFileApi.rkeyManager.getRkey()
+              const rkey = appid === '1406' ? rkeyData.private_rkey : rkeyData.group_rkey
+              if (rkey) {
+                url = url + rkey
+              }
+            }
+          } catch (e) {
+            this.ctx.logger.warn('添加rkey失败:', e)
+          }
+        }
+        
+        // 降级处理
+        if (!url && pic.originImageUrl) {
+          url = pic.originImageUrl.startsWith('http')
+            ? pic.originImageUrl
+            : `https://gchat.qpic.cn${pic.originImageUrl}`
+        }
+        
+        contents.push({
+          type: 'image',
+          url,
+          width: pic.picWidth,
+          height: pic.picHeight
+        })
+      }
+    }
+
+    return contents
+  }
+
+  // 辅助方法：创建图片消息元素
+  private async createPicElement(imagePath: string): Promise<any> {
+    try {
+      // 这里需要调用 NTQQ 的图片上传接口
+      // 简化处理，直接返回本地路径的图片元素
+      return {
+        elementType: ElementType.Pic,
+        elementId: '',
+        picElement: {
+          sourcePath: imagePath,
+          picWidth: 0,
+          picHeight: 0,
+          original: true
+        }
+      }
+    } catch (e) {
+      this.ctx.logger.error('创建图片元素失败:', e)
+      return null
+    }
+  }
+
+  // 广播消息到所有 SSE 客户端
+  public broadcastMessage(event: string, data: any) {
+    const message = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`
+    for (const client of this.sseClients) {
+      client.write(message)
+    }
+  }
+
+  // 设置消息事件监听
+  private setupMessageListener() {
+    // 监听新消息事件 - 直接推送原始 RawMessage
+    this.ctx.on('nt/message-created', (message: RawMessage) => {
+      if (this.sseClients.size === 0) return
+      this.broadcastMessage('message', {
+        type: 'message-created',
+        data: message
+      })
+    })
+    
+    // 监听自己发送的消息 - 直接推送原始 RawMessage
+    this.ctx.on('nt/message-sent', (message: RawMessage) => {
+      if (this.sseClients.size === 0) return
+      this.broadcastMessage('message', {
+        type: 'message-sent',
+        data: message
+      })
     })
   }
 

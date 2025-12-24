@@ -7,6 +7,7 @@ import ChangePasswordDialog from './components/ChangePasswordDialog';
 import QQLogin from './components/QQLogin';
 import Dashboard from './components/Dashboard';
 import LogViewer from './components/LogViewer';
+import { WebQQPage } from './components/WebQQ';
 import { ToastContainer, showToast } from './components/Toast';
 import AnimatedBackground from './components/AnimatedBackground';
 import { Config, ResConfig } from './types';
@@ -189,6 +190,8 @@ function App() {
 
           {/* Content */}
           {activeTab === 'dashboard' && <Dashboard />}
+
+          {activeTab === 'webqq' && <WebQQPage />}
 
           {activeTab === 'logs' && <LogViewer />}
 
