@@ -3,6 +3,7 @@ import { OB11Message } from '../../types'
 import { OB11Entities } from '../../entities'
 import { ActionName } from '../types'
 import { ParseMessageConfig } from '@/onebot11/types'
+import { ChatType } from '@/ntqqapi/types'
 
 export interface PayloadType {
   message_id: number | string
@@ -17,7 +18,50 @@ class GetMsg extends BaseAction<PayloadType, OB11Message> {
   })
 
   protected async _handle(payload: PayloadType, config: ParseMessageConfig) {
-    const msgInfo = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
+    let msgInfo = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
+    if (!msgInfo) {
+      const msgId = String(payload.message_id)
+      const shortId = await this.ctx.store.getShortIdByMsgId(msgId)
+      if (shortId) {
+        msgInfo = await this.ctx.store.getMsgInfoByShortId(shortId)
+      } else {
+        const cacheMsg = this.ctx.store.getMsgCache(msgId)
+        if (cacheMsg) {
+          msgInfo = {
+            msgId,
+            peer: {
+              chatType: cacheMsg.chatType,
+              peerUid: cacheMsg.peerUid,
+              guildId: ''
+            }
+          }
+        } else {
+          const c2cMsg = await this.ctx.ntMsgApi.queryMsgsById(1, msgId)
+          if (c2cMsg.msgList.length > 0) {
+            msgInfo = {
+              msgId,
+              peer: {
+                chatType: c2cMsg.msgList[0].chatType,
+                peerUid: c2cMsg.msgList[0].peerUid,
+                guildId: ''
+              }
+            }
+          } else {
+            const groupMsg = await this.ctx.ntMsgApi.queryMsgsById(2, msgId)
+            if (groupMsg.msgList.length > 0) {
+              msgInfo = {
+                msgId,
+                peer: {
+                  chatType: groupMsg.msgList[0].chatType,
+                  peerUid: groupMsg.msgList[0].peerUid,
+                  guildId: ''
+                }
+              }
+            }
+          }
+        }
+      }
+    }
     if (!msgInfo) {
       throw new Error('消息不存在')
     }

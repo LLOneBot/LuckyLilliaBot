@@ -180,11 +180,12 @@ export namespace OB11Entities {
           }
 
           let replyMsg: RawMessage | undefined
+          let useSourceMsgId = false
           if (record && record.msgRandom !== '0') {
             replyMsg = msgList.find((msg: RawMessage) => msg.msgRandom === record.msgRandom)
           } else {
             if (msgList.length > 0) {
-              replyMsg = msgList.find(msg => msg.msgTime === replyMsgTime)
+              replyMsg = msgList.find((m: RawMessage) => m.msgTime === replyMsgTime)
             } else if (record) {
               if (record.senderUin && record.senderUin !== '0') {
                 peer.chatType = record.chatType
@@ -193,6 +194,9 @@ export namespace OB11Entities {
               }
               ctx.logger.info('msgList is empty, use record', replyElement, record)
               replyMsg = record
+              if (record.msgRandom === '0') {
+                useSourceMsgId = true
+              }
             }
           }
           if (!replyMsg) {
@@ -203,7 +207,7 @@ export namespace OB11Entities {
           messageSegment = {
             type: OB11MessageDataType.Reply,
             data: {
-              id: ctx.store.createMsgShortId(replyMsg).toString()
+              id: useSourceMsgId ? replyElement.sourceMsgIdInRecords : ctx.store.createMsgShortId(replyMsg).toString()
             }
           }
         } catch (e) {
