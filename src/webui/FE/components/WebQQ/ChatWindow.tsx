@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Users, Send, Image as ImageIcon, X, Loader2, AlertCircle, RefreshCw, Reply } from 'lucide-react'
 import type { ChatSession, RawMessage, MessageElement } from '../../types/webqq'
-import { getMessages, sendMessage, uploadImage, formatMessageTime, isEmptyMessage, isValidImageFormat, getSelfUid, getSelfUin, getUserDisplayName } from '../../utils/webqqApi'
+import { getMessages, sendMessage, uploadImage, formatMessageTime, isEmptyMessage, isValidImageFormat, getSelfUid, getSelfUin, getUserDisplayName, getVideoUrl } from '../../utils/webqqApi'
 import { useWebQQStore, hasVisitedChat, markChatVisited } from '../../stores/webqqStore'
 import { getToken } from '../../utils/api'
 import { showToast } from '../Toast'
@@ -34,6 +34,11 @@ const getProxyImageUrl = (url: string | undefined): string => {
 // 图片预览上下文
 const ImagePreviewContext = React.createContext<{
   showPreview: (url: string) => void
+} | null>(null)
+
+// 视频预览上下文
+const VideoPreviewContext = React.createContext<{
+  showPreview: (chatType: number, peerUid: string, msgId: string, elementId: string) => void
 } | null>(null)
 
 // 消息右键菜单上下文
@@ -67,10 +72,73 @@ const ImagePreviewModal: React.FC<{ url: string | null; onClose: () => void }> =
   )
 }
 
-const MessageElementRenderer = memo<{ element: MessageElement }>(({ element }) => {
+// 视频预览弹窗组件
+const VideoPreviewModal: React.FC<{ 
+  videoInfo: { chatType: number; peerUid: string; msgId: string; elementId: string } | null
+  onClose: () => void 
+}> = ({ videoInfo, onClose }) => {
+  const [url, setUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  
+  useEffect(() => {
+    if (!videoInfo) {
+      setUrl(null)
+      setError(null)
+      return
+    }
+    
+    setLoading(true)
+    setError(null)
+    getVideoUrl(videoInfo.chatType, videoInfo.peerUid, videoInfo.msgId, videoInfo.elementId)
+      .then(setUrl)
+      .catch(e => setError(e.message || '获取视频失败'))
+      .finally(() => setLoading(false))
+  }, [videoInfo])
+  
+  if (!videoInfo) return null
+  
+  return createPortal(
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80"
+      onClick={onClose}
+    >
+      <button 
+        onClick={onClose}
+        className="absolute top-4 right-4 p-2 text-white/80 hover:text-white bg-black/50 rounded-full z-10"
+      >
+        <X size={24} />
+      </button>
+      {loading && (
+        <div className="text-white flex items-center gap-2">
+          <Loader2 size={24} className="animate-spin" />
+          加载中...
+        </div>
+      )}
+      {error && (
+        <div className="text-red-400">{error}</div>
+      )}
+      {url && !loading && (
+        <video 
+          src={url} 
+          controls
+          autoPlay
+          className="max-w-[90vw] max-h-[90vh]"
+          onClick={(e) => e.stopPropagation()}
+        />
+      )}
+    </div>,
+    document.body
+  )
+}
+
+const MessageElementRenderer = memo<{ element: MessageElement; message?: RawMessage }>(({ element, message }) => {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
+  const [videoThumbLoaded, setVideoThumbLoaded] = useState(false)
+  const [videoThumbError, setVideoThumbError] = useState(false)
   const previewContext = React.useContext(ImagePreviewContext)
+  const videoPreviewContext = React.useContext(VideoPreviewContext)
   
   if (element.textElement) return <span className="whitespace-pre-wrap break-words">{element.textElement.content}</span>
   if (element.picElement) {
@@ -123,7 +191,83 @@ const MessageElementRenderer = memo<{ element: MessageElement }>(({ element }) =
   if (element.faceElement) return <span>[表情]</span>
   if (element.fileElement) return <span>[文件: {element.fileElement.fileName}]</span>
   if (element.pttElement) return <span>[语音消息]</span>
-  if (element.videoElement) return <span>[视频消息]</span>
+  if (element.videoElement) {
+    const video = element.videoElement
+    // 计算显示尺寸
+    const maxHeight = 200
+    const maxWidth = 300
+    let displayWidth = video.thumbWidth || 200
+    let displayHeight = video.thumbHeight || 150
+    
+    if (displayHeight > maxHeight) {
+      displayWidth = (displayWidth * maxHeight) / displayHeight
+      displayHeight = maxHeight
+    }
+    if (displayWidth > maxWidth) {
+      displayHeight = (displayHeight * maxWidth) / displayWidth
+      displayWidth = maxWidth
+    }
+    
+    // 获取缩略图 URL（从 thumbPath Map 中取第一个）
+    let thumbUrl = ''
+    if (video.thumbPath && video.thumbPath instanceof Map) {
+      const firstThumb = video.thumbPath.values().next().value
+      if (firstThumb) thumbUrl = `file://${firstThumb}`
+    }
+    
+    // 格式化时长
+    const duration = video.fileTime || 0
+    const minutes = Math.floor(duration / 60)
+    const seconds = duration % 60
+    const durationStr = `${minutes}:${seconds.toString().padStart(2, '0')}`
+    
+    // 点击播放视频
+    const handleClick = () => {
+      if (message && element.elementId) {
+        videoPreviewContext?.showPreview(message.chatType, message.peerUid, message.msgId, element.elementId)
+      }
+    }
+    
+    return (
+      <div 
+        className="relative rounded-lg overflow-hidden bg-theme-item cursor-pointer group"
+        style={{ width: displayWidth, height: displayHeight }}
+        onClick={handleClick}
+      >
+        {!videoThumbLoaded && !videoThumbError && (
+          <div className="absolute inset-0 flex items-center justify-center text-theme-hint bg-gray-200 dark:bg-gray-700">
+            <Loader2 size={24} className="animate-spin" />
+          </div>
+        )}
+        {videoThumbError && (
+          <div className="absolute inset-0 flex items-center justify-center text-theme-hint text-xs bg-gray-200 dark:bg-gray-700">
+            视频
+          </div>
+        )}
+        {thumbUrl && (
+          <img 
+            src={thumbUrl} 
+            alt="视频缩略图" 
+            loading="lazy" 
+            className={`w-full h-full object-cover transition-opacity ${videoThumbLoaded ? 'opacity-100' : 'opacity-0'}`}
+            onLoad={() => setVideoThumbLoaded(true)}
+            onError={() => setVideoThumbError(true)}
+          />
+        )}
+        {/* 播放按钮 */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-12 h-12 rounded-full bg-black/50 flex items-center justify-center group-hover:bg-black/70 transition-colors">
+            <div className="w-0 h-0 border-t-8 border-t-transparent border-l-12 border-l-white border-b-8 border-b-transparent ml-1" 
+                 style={{ borderLeftWidth: '14px' }} />
+          </div>
+        </div>
+        {/* 时长 */}
+        <div className="absolute bottom-1 right-1 px-1.5 py-0.5 bg-black/60 rounded text-white text-xs">
+          {durationStr}
+        </div>
+      </div>
+    )
+  }
   if (element.grayTipElement) {
     // 解析戳一戳等灰色提示
     const grayTip = element.grayTipElement
@@ -310,7 +454,7 @@ const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMessage[] }
               </div>
             </div>
           )}
-          {otherElements.map((element, index) => <MessageElementRenderer key={index} element={element} />)}
+          {otherElements.map((element, index) => <MessageElementRenderer key={index} element={element} message={message} />)}
         </div>
         <span className="text-xs text-theme-hint mt-1">{formatMessageTime(timestamp)}</span>
       </div>
@@ -355,11 +499,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   const [sending, setSending] = useState(false)
   const [imagePreview, setImagePreview] = useState<{ file: File; url: string } | null>(null)
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
+  const [previewVideoUrl, setPreviewVideoUrl] = useState<{ chatType: number; peerUid: string; msgId: string; elementId: string } | null>(null)
   const [replyTo, setReplyTo] = useState<RawMessage | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; message: RawMessage } | null>(null)
   
   const imagePreviewContextValue = useMemo(() => ({
     showPreview: (url: string) => setPreviewImageUrl(url)
+  }), [])
+  
+  const videoPreviewContextValue = useMemo(() => ({
+    showPreview: (chatType: number, peerUid: string, msgId: string, elementId: string) => 
+      setPreviewVideoUrl({ chatType, peerUid, msgId, elementId })
   }), [])
   
   const messageContextMenuValue = useMemo(() => ({
@@ -668,6 +818,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
 
   return (
     <ImagePreviewContext.Provider value={imagePreviewContextValue}>
+    <VideoPreviewContext.Provider value={videoPreviewContextValue}>
     <MessageContextMenuContext.Provider value={messageContextMenuValue}>
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-between px-4 py-3 border-b border-theme-divider bg-theme-card">
@@ -785,7 +936,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
       )}
       
       <ImagePreviewModal url={previewImageUrl} onClose={() => setPreviewImageUrl(null)} />
+      <VideoPreviewModal videoInfo={previewVideoUrl} onClose={() => setPreviewVideoUrl(null)} />
     </MessageContextMenuContext.Provider>
+    </VideoPreviewContext.Provider>
     </ImagePreviewContext.Provider>
   )
 }

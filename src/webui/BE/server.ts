@@ -764,6 +764,7 @@ export class WebUIServer extends Service {
           'ntUserApi': this.ctx.ntUserApi,
           'ntGroupApi': this.ctx.ntGroupApi,
           'ntFriendApi': this.ctx.ntFriendApi,
+          'ntFileApi': this.ctx.ntFileApi,
         }
 
         const serviceInstance = allowedServices[service]

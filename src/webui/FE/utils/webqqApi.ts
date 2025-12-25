@@ -149,6 +149,12 @@ export async function ntCall<T = any>(service: string, method: string, args: any
   return response.data!
 }
 
+// 获取视频播放 URL
+export async function getVideoUrl(chatType: number, peerUid: string, msgId: string, elementId: string): Promise<string> {
+  const peer = { chatType, peerUid, guildId: '' }
+  return await ntCall<string>('ntFileApi', 'getVideoUrl', [peer, msgId, elementId])
+}
+
 // 获取用户显示名称（群聊用群名片，私聊用备注）
 export async function getUserDisplayName(uid: string, groupCode?: string): Promise<string> {
   try {
