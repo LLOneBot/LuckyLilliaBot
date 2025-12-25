@@ -128,6 +128,12 @@ interface WebQQState {
   // 更新最近会话
   updateRecentChat: (chatType: string, peerId: string, lastMessage: string, lastTime: number, peerName?: string, peerAvatar?: string) => void
   
+  // 置顶/取消置顶会话
+  togglePinChat: (chatType: string, peerId: string) => void
+  
+  // 删除最近会话
+  removeRecentChat: (chatType: string, peerId: string) => void
+  
   // 检查缓存是否有效
   isContactsCacheValid: () => boolean
 }
@@ -471,13 +477,28 @@ export const useWebQQStore = create<WebQQState>()(
             item => !(item.chatType === chatType && item.peerId === peerId)
           )
           
+          // 如果是置顶的，保持在置顶区域
+          const updatedChat = {
+            ...existing,
+            lastMessage,
+            lastTime,
+            unreadCount: isCurrentChat ? 0 : existing.unreadCount + 1
+          }
+          
+          if (existing.pinned) {
+            // 置顶的放在置顶区域的最前面
+            const pinnedChats = updated.filter(item => item.pinned)
+            const normalChats = updated.filter(item => !item.pinned)
+            return {
+              recentChats: [updatedChat, ...pinnedChats, ...normalChats]
+            }
+          }
+          
+          // 非置顶的放在非置顶区域的最前面
+          const pinnedChats = updated.filter(item => item.pinned)
+          const normalChats = updated.filter(item => !item.pinned)
           return {
-            recentChats: [{
-              ...existing,
-              lastMessage,
-              lastTime,
-              unreadCount: isCurrentChat ? 0 : existing.unreadCount + 1
-            }, ...updated]
+            recentChats: [...pinnedChats, updatedChat, ...normalChats]
           }
         } else {
           // 创建新的会话
@@ -524,7 +545,31 @@ export const useWebQQStore = create<WebQQState>()(
             recentChats: [newChat, ...dedupedChats]
           }
         }
-      })
+      }),
+
+      // 置顶/取消置顶会话
+      togglePinChat: (chatType, peerId) => set((state) => {
+        const chats = state.recentChats.map(item => {
+          if (item.chatType === chatType && item.peerId === peerId) {
+            return { ...item, pinned: !item.pinned }
+          }
+          return item
+        })
+        // 重新排序：置顶的在前，然后按时间排序
+        chats.sort((a, b) => {
+          if (a.pinned && !b.pinned) return -1
+          if (!a.pinned && b.pinned) return 1
+          return b.lastTime - a.lastTime
+        })
+        return { recentChats: chats }
+      }),
+
+      // 删除最近会话
+      removeRecentChat: (chatType, peerId) => set((state) => ({
+        recentChats: state.recentChats.filter(
+          item => !(item.chatType === chatType && item.peerId === peerId)
+        )
+      }))
     }),
     {
       name: 'webqq-storage',

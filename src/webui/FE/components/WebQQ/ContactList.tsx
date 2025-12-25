@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
-import { Users, MessageCircle, Search, Clock, ChevronDown, ChevronRight } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { Users, MessageCircle, Search, Clock, ChevronDown, ChevronRight, Pin, Trash2 } from 'lucide-react'
 import type { FriendItem, FriendCategory, GroupItem, RecentChatItem } from '../../types/webqq'
 import { filterGroups, formatMessageTime } from '../../utils/webqqApi'
 import { useWebQQStore } from '../../stores/webqqStore'
@@ -287,6 +288,30 @@ interface RecentListProps {
 }
 
 const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPeerId, onSelect }) => {
+  const { togglePinChat, removeRecentChat } = useWebQQStore()
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: RecentChatItem } | null>(null)
+
+  const handleContextMenu = (e: React.MouseEvent, item: RecentChatItem) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY, item })
+  }
+
+  const closeContextMenu = () => setContextMenu(null)
+
+  const handlePin = () => {
+    if (contextMenu) {
+      togglePinChat(contextMenu.item.chatType, contextMenu.item.peerId)
+      closeContextMenu()
+    }
+  }
+
+  const handleDelete = () => {
+    if (contextMenu) {
+      removeRecentChat(contextMenu.item.chatType, contextMenu.item.peerId)
+      closeContextMenu()
+    }
+  }
+
   if (items.length === 0) {
     return (
       <div className="flex items-center justify-center h-32 text-theme-hint text-sm">
@@ -296,7 +321,7 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
   }
 
   return (
-    <div className="py-1">
+    <div className="py-1" onClick={closeContextMenu}>
       {items.map(item => (
         <RecentListItem
           key={`${item.chatType}_${item.peerId}`}
@@ -304,8 +329,41 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
           unreadCount={unreadCounts.get(`${item.chatType}_${item.peerId}`) || item.unreadCount}
           isSelected={selectedPeerId === item.peerId}
           onClick={() => onSelect(item)}
+          onContextMenu={(e) => handleContextMenu(e, item)}
         />
       ))}
+      
+      {/* 右键菜单 - 使用 Portal 渲染到 body */}
+      {contextMenu && createPortal(
+        <>
+          <div 
+            className="fixed inset-0 z-40" 
+            onClick={closeContextMenu}
+            onContextMenu={(e) => { e.preventDefault(); closeContextMenu() }}
+          />
+          <div
+            className="fixed z-50 bg-theme-card border border-theme-divider rounded-lg shadow-lg py-1 min-w-[120px]"
+            style={{ left: contextMenu.x, top: contextMenu.y }}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <button
+              onClick={handlePin}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
+            >
+              <Pin size={14} />
+              {contextMenu.item.pinned ? '取消置顶' : '置顶'}
+            </button>
+            <button
+              onClick={handleDelete}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-theme-item-hover transition-colors"
+            >
+              <Trash2 size={14} />
+              删除
+            </button>
+          </div>
+        </>,
+        document.body
+      )}
     </div>
   )
 }
@@ -316,14 +374,20 @@ interface RecentListItemProps {
   unreadCount: number
   isSelected: boolean
   onClick: () => void
+  onContextMenu: (e: React.MouseEvent) => void
 }
 
-export const RecentListItem: React.FC<RecentListItemProps> = ({ item, unreadCount, isSelected, onClick }) => {
+export const RecentListItem: React.FC<RecentListItemProps> = ({ item, unreadCount, isSelected, onClick, onContextMenu }) => {
   return (
     <div
       onClick={onClick}
+      onContextMenu={onContextMenu}
       className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
-        isSelected ? 'bg-pink-500/20' : 'hover:bg-theme-item-hover'
+        isSelected 
+          ? 'bg-pink-500/20' 
+          : item.pinned 
+            ? 'bg-theme-item-hover' 
+            : 'hover:bg-theme-item-hover'
       }`}
     >
       <div className="relative flex-shrink-0">

@@ -152,6 +152,7 @@ export interface RecentChatItem {
   lastMessage: string
   lastTime: number
   unreadCount: number
+  pinned?: boolean  // 是否置顶
 }
 
 // 聊天会话
