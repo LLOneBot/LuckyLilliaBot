@@ -221,7 +221,7 @@ const SetNickname = defineApi(
   async (ctx, payload) => {
     const old = (await ctx.ntUserApi.getUserDetailInfoWithBizInfo(selfInfo.uid)).simpleInfo
     const result = await ctx.ntUserApi.modifySelfProfile({
-      nick: payload.new_card,
+      nick: payload.new_nickname,
       longNick: old.baseInfo.longNick,
       sex: old.baseInfo.sex,
       birthday: {
