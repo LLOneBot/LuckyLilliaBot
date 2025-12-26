@@ -77,30 +77,34 @@ const UserProfileCard: React.FC<{
   position: { x: number; y: number }
   onClose: () => void 
 }> = ({ profile, loading, position, onClose }) => {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [adjustedPosition, setAdjustedPosition] = useState({ left: position.x, top: position.y })
+  
+  useEffect(() => {
+    if (!cardRef.current) return
+    
+    const cardWidth = 320
+    const cardHeight = cardRef.current.offsetHeight || 400
+    let left = position.x
+    let top = position.y
+    
+    // 右边界检查
+    if (left + cardWidth > window.innerWidth - 20) {
+      left = window.innerWidth - cardWidth - 20
+    }
+    // 左边界检查
+    if (left < 20) left = 20
+    // 底部边界检查
+    if (top + cardHeight > window.innerHeight - 20) {
+      top = window.innerHeight - cardHeight - 20
+    }
+    // 顶部边界检查
+    if (top < 20) top = 20
+    
+    setAdjustedPosition({ left, top })
+  }, [position, profile, loading])
+  
   if (!profile && !loading) return null
-  
-  // 计算位置，确保不超出屏幕
-  const cardWidth = 320
-  const cardHeight = 400
-  let left = position.x
-  let top = position.y
-  
-  // 右边界检查
-  if (left + cardWidth > window.innerWidth - 20) {
-    left = window.innerWidth - cardWidth - 20
-  }
-  // 左边界检查
-  if (left < 20) {
-    left = 20
-  }
-  // 底部边界检查 - 留出更多空间
-  if (top + cardHeight > window.innerHeight - 20) {
-    top = window.innerHeight - cardHeight - 20
-  }
-  // 顶部边界检查
-  if (top < 20) {
-    top = 20
-  }
   
   const getSexText = (sex: number) => {
     if (sex === 1) return '男'
@@ -186,8 +190,9 @@ const UserProfileCard: React.FC<{
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
+        ref={cardRef}
         className="fixed z-50 border border-theme-divider rounded-xl shadow-xl overflow-hidden bg-popup backdrop-blur-sm"
-        style={{ left, top, width: cardWidth }}
+        style={{ left: adjustedPosition.left, top: adjustedPosition.top, width: 320, maxHeight: 'calc(100vh - 40px)' }}
         onClick={(e) => e.stopPropagation()}
       >
         {loading ? (
@@ -228,7 +233,7 @@ const UserProfileCard: React.FC<{
             <div className="p-4">
               {/* 个性签名 */}
               {profile.signature && (
-                <div className="text-theme-secondary text-sm mb-3 bg-theme-item/50 rounded-lg px-3 py-2 line-clamp-2">
+                <div className="text-theme-secondary text-sm mb-3 bg-theme-item/50 rounded-lg px-3 py-2 max-h-24 overflow-y-auto break-words">
                   {profile.signature}
                 </div>
               )}

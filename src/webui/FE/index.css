@@ -160,7 +160,11 @@
     background: var(--bg-item);
   }
   
-  .bg-theme-item-hover:hover {
+  .bg-theme-item-hover {
+    background: var(--bg-item-hover);
+  }
+  
+  .hover\:bg-theme-item-hover:hover {
     background: var(--bg-item-hover);
   }
   
