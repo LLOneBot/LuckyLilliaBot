@@ -188,7 +188,14 @@ const RecallPrivateMessage = defineApi(
     if (!uid) {
       return Failed(-404, 'User not found')
     }
-    const peer = { chatType: 1, peerUid: uid, guildId: '' } // ChatType.C2C = 1
+    const peer = { chatType: 1, peerUid: uid, guildId: '' }
+    const isBuddy = await ctx.ntFriendApi.isBuddy(uid)
+    if (!isBuddy) {
+      const result = await ctx.ntMsgApi.getTempChatInfo(100, uid)
+      if (result.tmpChatInfo.groupCode) {
+        peer.chatType = 100
+      }
+    }
     const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
       peer,
       payload.message_seq.toString(),
@@ -237,10 +244,22 @@ const GetMessage = defineApi(
   GetMessageOutput,
   async (ctx, payload) => {
     const peer = {
-      chatType: payload.message_scene === 'group' ? 2 : 1, // C2C=1, Group=2
+      chatType: {
+        friend: 1,
+        group: 2,
+        temp: 100
+      }[payload.message_scene],
       peerUid: payload.peer_id.toString(),
       guildId: ''
     }
+    if (peer.chatType === 1 || peer.chatType === 100) {
+      const uid = await ctx.ntUserApi.getUidByUin(peer.peerUid)
+      if (!uid) {
+        return Failed(-404, 'User not found')
+      }
+      peer.peerUid = uid
+    }
+
     const msgResult = await ctx.ntMsgApi.getMsgsBySeqAndCount(
       peer,
       payload.message_seq.toString(),
@@ -282,9 +301,20 @@ const GetHistoryMessages = defineApi(
   GetHistoryMessagesOutput,
   async (ctx, payload) => {
     const peer = {
-      chatType: payload.message_scene === 'group' ? 2 : 1, // C2C=1, Group=2
+      chatType: {
+        friend: 1,
+        group: 2,
+        temp: 100
+      }[payload.message_scene],
       peerUid: payload.peer_id.toString(),
       guildId: ''
+    }
+    if (peer.chatType === 1 || peer.chatType === 100) {
+      const uid = await ctx.ntUserApi.getUidByUin(peer.peerUid)
+      if (!uid) {
+        return Failed(-404, 'User not found')
+      }
+      peer.peerUid = uid
     }
 
     let msgList: RawMessage[]
@@ -380,9 +410,20 @@ const MarkMessageAsRead = defineApi(
   z.object({}),
   async (ctx, payload) => {
     const peer = {
-      chatType: payload.message_scene === 'group' ? 2 : 1, // C2C=1, Group=2
+      chatType: {
+        friend: 1,
+        group: 2,
+        temp: 100
+      }[payload.message_scene],
       peerUid: payload.peer_id.toString(),
       guildId: ''
+    }
+    if (peer.chatType === 1 || peer.chatType === 100) {
+      const uid = await ctx.ntUserApi.getUidByUin(peer.peerUid)
+      if (!uid) {
+        return Failed(-404, 'User not found')
+      }
+      peer.peerUid = uid
     }
     const result = await ctx.ntMsgApi.setMsgRead(peer)
     if (result.result !== 0) {
