@@ -78,7 +78,27 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
       </div>
     )
   }
-  if (element.faceElement) return <span>[表情]</span>
+  if (element.faceElement) {
+    const faceId = element.faceElement.faceIndex
+    const faceText = element.faceElement.faceText
+    return (
+      <img 
+        src={`/face/${faceId}.png`}
+        alt={faceText || `[表情${faceId}]`}
+        title={faceText || `表情${faceId}`}
+        className="inline-block align-text-bottom"
+        style={{ width: 24, height: 24 }}
+        onError={(e) => {
+          // 如果图片加载失败，显示文字
+          const target = e.target as HTMLImageElement
+          target.style.display = 'none'
+          const span = document.createElement('span')
+          span.textContent = faceText || `[表情${faceId}]`
+          target.parentNode?.insertBefore(span, target)
+        }}
+      />
+    )
+  }
   if (element.fileElement) return <span>[文件: {element.fileElement.fileName}]</span>
   if (element.pttElement) {
     return <PttElementRenderer element={element} message={message} />
