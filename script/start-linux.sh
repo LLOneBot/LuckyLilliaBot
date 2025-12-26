@@ -1,140 +1,146 @@
 #!/bin/bash
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+export PATH=$PATH:/usr/bin:/usr/local/bin
+RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 
-# 检测是否为 Debian 系列系统（通过 apt 命令）
-if ! command -v apt &> /dev/null; then
-    echo "错误：本脚本只支持使用 apt 包管理器的系统（如 Debian、Ubuntu 等）"
-    exit 1
-fi
+log() { echo -e "${GREEN}>>> $1${NC}"; }
+warn() { echo -e "${YELLOW}>>> $1${NC}"; }
+error() { echo -e "${RED}错误: $1${NC}"; exit 1; }
 
-# 检测系统架构
-ARCH=$(uname -m)
-if [ "$ARCH" == "x86_64" ]; then
-    ARCH_TYPE="amd64"
-elif [ "$ARCH" == "aarch64" ]; then
-    ARCH_TYPE="arm64"
-else
-    echo "错误：不支持的系统架构: $ARCH"
-    echo "本脚本只支持 x86_64 (x64) 和 aarch64 (arm64) 架构"
-    exit 1
-fi
-
-echo "检测到系统架构: $ARCH_TYPE"
-
-# 检测 QQ 是否已安装
-if [ ! -f "/opt/QQ/qq" ]; then
-    echo "未检测到 QQ 安装 (/opt/QQ/qq 不存在)"
-    echo "是否需要安装 QQ？(Y/n)"
-    read -n 1 -s -r key
+confirm() {
+    read -n 1 -s -r -p "$1 (Y/n) " key
     echo ""
-    if [[ "$key" == "Y" || "$key" == "y" || "$key" == "" ]]; then
-        echo "正在下载 QQ ($ARCH_TYPE 版本)..."
-        QQ_DEB="/tmp/qq_linux_$ARCH_TYPE.deb"
-        sudo apt-get update
-        sudo apt-get install wget
-        wget -O "$QQ_DEB" "https://dldir1v6.qq.com/qqfile/qq/QQNT/ec800879/linuxqq_3.2.20-40990_$ARCH_TYPE.deb"
-        if [ $? -ne 0 ]; then
-            echo "错误：QQ 下载失败"
-            exit 1
-        fi
-        echo "正在安装 QQ..."
+    [[ "$key" == "Y" || "$key" == "y" || "$key" == "" ]]
+}
 
-        sudo apt install -y "$QQ_DEB"
-        if [ $? -ne 0 ]; then
-            echo "错误：QQ 安装失败"
-            exit 1
-        fi
-        echo "QQ 安装完成"
-        rm -f "$QQ_DEB"
-        echo "进行安装 QQ 相关依赖"
-        # 检测 libasound 包名（新系统用 libasound2t64，旧系统用 libasound2）
-        # 使用 apt-cache policy 检测包是否真正可安装
-        if apt-cache policy libasound2t64 2>/dev/null | grep -q "Candidate:"; then
-            LIBASOUND_PKG="libasound2t64"
-        elif apt-cache policy libasound2 2>/dev/null | grep -q "Candidate:"; then
-            LIBASOUND_PKG="libasound2"
-        else
-            # 如果都不可用，尝试安装 alsa-utils 作为替代（会拉取正确的 libasound 依赖）
-            LIBASOUND_PKG="alsa-utils"
-        fi
-        echo "使用 ALSA 库包: $LIBASOUND_PKG"
-
-        sudo apt-get install -y \
-            x11-utils \
-            libgtk-3-0 \
-            libxcb-xinerama0 \
-            libgl1-mesa-dri \
-            libnotify4 \
-            libnss3 \
-            xdg-utils \
-            libsecret-1-0 \
-            libappindicator3-1 \
-            libgbm1 \
-            $LIBASOUND_PKG \
-            fonts-noto-cjk \
-            libxss1
-    else
-        echo "跳过 QQ 安装，退出脚本"
-        exit 0
-    fi
-fi
-
-chmod +x $SCRIPT_DIR/llbot/node
-chmod +x $SCRIPT_DIR/llbot/pmhq
-
-# 检测 FFmpeg 是否已安装
-if ! command -v ffmpeg &> /dev/null; then
-    echo "未检测到 FFmpeg，正在安装..."
-    sudo apt-get install -y ffmpeg
-    if [ $? -ne 0 ]; then
-        echo "警告：FFmpeg 安装失败，音视频处理功能可能受限"
-    else
-        echo "FFmpeg 安装完成"
-    fi
-fi
-
-# 寻找可用端口（从 13000 开始）
-find_available_port() {
+find_port() {
     local port=$1
     while [ $port -lt 65535 ]; do
-        if ! ss -tuln | grep -q ":$port "; then
-            echo $port
-            return 0
-        fi
-        port=$((port + 1))
+        if ! ss -tuln | grep -q ":$port "; then echo $port; return 0; fi
+        ((port++))
     done
-    echo ""
     return 1
 }
 
-AVAILABLE_PORT=$(find_available_port 13000)
-if [ -z "$AVAILABLE_PORT" ]; then
-    echo "错误：无法找到可用端口"
-    exit 1
+if command -v pacman &> /dev/null; then
+    DISTRO="arch"
+elif command -v apt &> /dev/null; then
+    DISTRO="debian"
+else
+    error "只支持 apt 或 pacman 包管理器"
 fi
+log "检测到系统: $DISTRO"
 
+install_arch() {
+    log "检查 Arch 依赖..."
+    sudo pacman -S --needed --noconfirm base-devel git ffmpeg xorg-server-xvfb libvips imagemagick dbus xorg-xhost fcitx5-im wget
 
-# 检测 xvfb-run 命令是否存在
-USE_XVFB=1
-if ! command -v xvfb-run &> /dev/null; then
-    echo "未找到 xvfb-run 命令"
-    echo "如果你是桌面环境，按 Y 继续运行"
-    echo "如果不是桌面环境，按其他键进行安装 xvfb"
-    read -n 1 -s -r key
-    echo ""
-    if [[ "$key" == "Y" || "$key" == "y" ]]; then
-        USE_XVFB=0
+    if [ ! -f "/opt/QQ/qq" ] && confirm "未检测到 QQ，是否通过 AUR 安装?"; then
+        if ! command -v yay &> /dev/null; then
+            warn "未检测到 yay，尝试安装..."
+            if ! sudo pacman -S --needed --noconfirm yay 2>/dev/null; then
+                warn "pacman 安装失败，切换源码编译..."
+                rm -rf /tmp/yay_install && git clone https://aur.archlinux.org/yay.git /tmp/yay_install
+                (cd /tmp/yay_install && makepkg -si --noconfirm) || error "yay 编译失败"
+                rm -rf /tmp/yay_install
+            fi
+        fi
+        yay -S --noconfirm linuxqq || error "LinuxQQ 安装失败"
+    fi
+}
+
+install_debian() {
+    local ARCH_MAP=( ["x86_64"]="amd64" ["aarch64"]="arm64" )
+    local ARCH=${ARCH_MAP[$(uname -m)]}
+    [ -z "$ARCH" ] && error "不支持的架构: $(uname -m)"
+
+    if [ ! -f "/opt/QQ/qq" ] && confirm "未检测到 QQ，是否安装?"; then
+        log "下载并安装 QQ ($ARCH)..."
+        sudo apt-get update && sudo apt-get install -y wget
+        local DEB="/tmp/qq.deb"
+        wget -O "$DEB" "https://dldir1v6.qq.com/qqfile/qq/QQNT/ec800879/linuxqq_3.2.20-41768_$ARCH.deb" || error "下载失败"
+
+        # 依赖判断
+        local LIB_SND="alsa-utils"
+        apt-cache policy libasound2t64 2>/dev/null | grep -q "Candidate:" && LIB_SND="libasound2t64"
+        apt-cache policy libasound2 2>/dev/null | grep -q "Candidate:" && LIB_SND="libasound2"
+
+        echo "使用 ALSA 库包: $LIB_SND"
+
+        sudo apt install -y "$DEB" x11-utils libgtk-3-0 libxcb-xinerama0 libgl1-mesa-dri libnotify4 libnss3 xdg-utils libsecret-1-0 libappindicator3-1 libgbm1 $LIB_SND fonts-noto-cjk libxss1
+        rm -f "$DEB"
+    fi
+
+    for pkg in ffmpeg xvfb; do
+        command -v $pkg &> /dev/null || sudo apt-get install -y $pkg
+    done
+}
+
+[ "$DISTRO" == "arch" ] && install_arch || install_debian
+
+chmod +x "$SCRIPT_DIR/llbot/node" "$SCRIPT_DIR/llbot/pmhq" 2>/dev/null
+[ "$DISTRO" == "arch" ] && sudo chown -R $(whoami):$(whoami) "$SCRIPT_DIR/llbot"
+
+PORT=$(find_port 13000)
+[ -z "$PORT" ] && error "无法找到可用端口"
+log "使用端口: $PORT"
+
+HAS_DISPLAY=0
+[[ -n "$DISPLAY" || -n "$WAYLAND_DISPLAY" ]] && HAS_DISPLAY=1
+
+echo "------------------------------------------------"
+echo "1) GUI 模式"
+echo "2) Shell 模式"
+echo "------------------------------------------------"
+DEFAULT_CHOICE=$([ $HAS_DISPLAY -eq 1 ] && echo "1" || echo "2")
+read -p "请选择 [1/2] (默认 $DEFAULT_CHOICE): " MODE_CHOICE
+MODE_CHOICE=${MODE_CHOICE:-$DEFAULT_CHOICE}
+USE_XVFB=$([ "$MODE_CHOICE" == "2" ] && echo 1 || echo 0)
+
+# 授权 X11
+if [ $USE_XVFB -eq 0 ]; then
+    if command -v xauth &> /dev/null; then
+        export XAUTHORITY=${XAUTHORITY:-$HOME/.Xauthority}
     else
-        sudo apt install -y xvfb
+        warn "未检测到 xauth，使用临时 xhost 授权"
+        xhost +local:$(whoami) > /dev/null 2>&1
+        trap "xhost -local:$(whoami) > /dev/null 2>&1" EXIT
     fi
 fi
 
-SUB_CMD="$SCRIPT_DIR/llbot/node --enable-source-maps $SCRIPT_DIR/llbot/llbot.js -- --pmhq-port=$AVAILABLE_PORT"
+IM_ENV=""
+EXTRA_FLAGS=""
 
-if [ $USE_XVFB -eq 1 ]; then
-    sudo xvfb-run $SCRIPT_DIR/llbot/pmhq --port=$AVAILABLE_PORT --sub-cmd="$SUB_CMD"
+if [[ "$XDG_SESSION_TYPE" == "wayland" || -n "$WAYLAND_DISPLAY" ]]; then
+    log "环境: Wayland"
+    IM_ENV="XMODIFIERS=@im=fcitx"
+    EXTRA_FLAGS="--enable-features=UseOzonePlatform --ozone-platform=wayland --enable-wayland-ime"
 else
-    sudo $SCRIPT_DIR/llbot/pmhq --port=$AVAILABLE_PORT --sub-cmd="$SUB_CMD"
+    log "环境: X11"
+    IM_ENV="GTK_IM_MODULE=fcitx QT_IM_MODULE=fcitx XMODIFIERS=@im=fcitx SDL_IM_MODULE=fcitx GLFW_IM_MODULE=ibus"
 fi
 
+NODE_BIN="$SCRIPT_DIR/llbot/node"
+LLBOT_JS="$SCRIPT_DIR/llbot/llbot.js"
+PMHQ_BIN="$SCRIPT_DIR/llbot/pmhq"
 
+run_llbot() {
+    if [ "$DISTRO" == "arch" ]; then
+        export LD_PRELOAD="/usr/lib/libstdc++.so.6:/usr/lib/libgcc_s.so.1"
+        export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
+    fi
+
+    local sub_cmd="$NODE_BIN --enable-source-maps $LLBOT_JS -- --pmhq-port=$PORT --no-sandbox $EXTRA_FLAGS"
+
+    log "启动中... (模式: $([ $USE_XVFB -eq 1 ] && echo "Headless" || echo "GUI"))"
+
+    if [ $USE_XVFB -eq 1 ]; then
+        env $IM_ENV xvfb-run -a "$PMHQ_BIN" --port="$PORT" --sub-cmd="$sub_cmd"
+    else
+        [ "$DISTRO" != "arch" ] && xhost +local:$(whoami) > /dev/null 2>&1
+        env $IM_ENV "$PMHQ_BIN" --port="$PORT" --sub-cmd="$sub_cmd"
+    fi
+}
+
+run_llbot
