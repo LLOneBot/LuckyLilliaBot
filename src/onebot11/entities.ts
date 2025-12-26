@@ -319,22 +319,24 @@ export namespace OB11Entities {
       }
       else if (element.arkElement) {
         const { arkElement } = element
-        const data = JSON.parse(arkElement.bytesData)
-        if (data.app === 'com.tencent.multimsg') {
-          messageSegment = {
-            type: OB11MessageDataType.Forward,
-            data: {
-              id: msg.msgId
+        try {
+          const data = JSON.parse(arkElement.bytesData)
+          if (data.app === 'com.tencent.multimsg') {
+            messageSegment = {
+              type: OB11MessageDataType.Forward,
+              data: {
+                id: msg.msgId
+              }
+            }
+          } else {
+            messageSegment = {
+              type: OB11MessageDataType.Json,
+              data: {
+                data: arkElement.bytesData
+              }
             }
           }
-        } else {
-          messageSegment = {
-            type: OB11MessageDataType.Json,
-            data: {
-              data: arkElement.bytesData
-            }
-          }
-        }
+        } catch { }
       }
       else if (element.faceElement) {
         const { faceElement } = element
