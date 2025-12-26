@@ -297,15 +297,26 @@ const WebQQPage: React.FC = () => {
         />
       </div>
 
-      {/* 群成员面板 - 移动端隐藏 */}
+      {/* 群成员面板 - 桌面端侧边栏，移动端全屏覆盖 */}
       {showMemberPanel && currentChat?.chatType === 2 && (
-        <div className="hidden md:block w-64 border-l border-theme-divider flex-shrink-0">
-          <GroupMemberPanel 
-            groupCode={currentChat.peerId} 
-            onClose={() => setShowMemberPanel(false)} 
-            onAtMember={handleAtMember}
-          />
-        </div>
+        <>
+          {/* 移动端：全屏覆盖，轻微透明 + 毛玻璃效果 */}
+          <div className="md:hidden fixed inset-0 z-50 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-xl">
+            <GroupMemberPanel 
+              groupCode={currentChat.peerId} 
+              onClose={() => setShowMemberPanel(false)} 
+              onAtMember={handleAtMember}
+            />
+          </div>
+          {/* 桌面端：侧边栏 */}
+          <div className="hidden md:block w-64 border-l border-theme-divider flex-shrink-0">
+            <GroupMemberPanel 
+              groupCode={currentChat.peerId} 
+              onClose={() => setShowMemberPanel(false)} 
+              onAtMember={handleAtMember}
+            />
+          </div>
+        </>
       )}
     </div>
   )

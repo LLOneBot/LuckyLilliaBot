@@ -225,6 +225,22 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
     })
   }
 
+  // 移动端单击头像也触发菜单
+  const handleAvatarClick = (e: React.MouseEvent) => {
+    // 检测是否为触摸设备（移动端）
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      e.preventDefault()
+      e.stopPropagation()
+      avatarContextMenuContext?.showMenu(e, {
+        senderUid: message.senderUid,
+        senderUin: message.senderUin,
+        senderName,
+        chatType: message.chatType,
+        groupCode: message.chatType === 2 ? message.peerUin : undefined
+      })
+    }
+  }
+
   const handleReplyClick = () => {
     if (replyElement) {
       scrollToMessageContext?.scrollToMessage(replyElement.replayMsgId, replyElement.replayMsgSeq)
@@ -238,6 +254,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
         alt={senderName} 
         loading="lazy" 
         className="w-8 h-8 rounded-full object-cover flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity" 
+        onClick={handleAvatarClick}
         onContextMenu={handleAvatarContextMenu}
       />
       <div className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'} max-w-[70%]`}>

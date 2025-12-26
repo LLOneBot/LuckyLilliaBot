@@ -5,7 +5,7 @@ import type { GroupMemberItem } from '../../../types/webqq'
 import { filterMembers, sendPoke, getUserProfile, UserProfile } from '../../../utils/webqqApi'
 import { useWebQQStore } from '../../../stores/webqqStore'
 import { showToast } from '../../common'
-import { UserProfileCard } from '../profile/UserProfileCard'
+import { UserProfileCard } from '../profile'
 
 interface GroupMemberPanelProps {
   groupCode: string
@@ -22,9 +22,10 @@ interface MemberContextMenuInfo {
 interface MemberListItemProps {
   member: GroupMemberItem
   onContextMenu?: (e: React.MouseEvent) => void
+  onClick?: (e: React.MouseEvent) => void
 }
 
-const MemberListItem: React.FC<MemberListItemProps> = ({ member, onContextMenu }) => {
+const MemberListItem: React.FC<MemberListItemProps> = ({ member, onContextMenu, onClick }) => {
   const displayName = member.card || member.nickname
   const roleIcon = member.role === 'owner' ? (
     <Crown size={14} className="text-yellow-500" />
@@ -32,8 +33,15 @@ const MemberListItem: React.FC<MemberListItemProps> = ({ member, onContextMenu }
     <Shield size={14} className="text-blue-500" />
   ) : null
 
+  // 移动端单击触发菜单
+  const handleClick = (e: React.MouseEvent) => {
+    if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
+      onClick?.(e)
+    }
+  }
+
   return (
-    <div className="flex items-center gap-3 px-3 py-2 hover:bg-theme-item-hover transition-colors cursor-pointer" onContextMenu={onContextMenu}>
+    <div className="flex items-center gap-3 px-3 py-2 hover:bg-theme-item-hover transition-colors cursor-pointer" onClick={handleClick} onContextMenu={onContextMenu}>
       <img src={member.avatar} alt={displayName} className="w-8 h-8 rounded-full object-cover flex-shrink-0" loading="lazy" onError={(e: React.SyntheticEvent<HTMLImageElement>) => { e.currentTarget.src = `https://q1.qlogo.cn/g?b=qq&nk=${member.uin}&s=640` }} />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
@@ -170,14 +178,14 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
         ) : error ? (
           <div className="flex flex-col items-center justify-center h-32 gap-2">
             <p className="text-sm text-red-500">{error}</p>
-            <button onClick={loadMembers} className="text-sm text-pink-500 hover:text-pink-600">重试</button>
+            <button onClick={() => fetchGroupMembers(groupCode)} className="text-sm text-pink-500 hover:text-pink-600">重试</button>
           </div>
         ) : filteredMembers.length === 0 ? (
           <div className="flex items-center justify-center h-32 text-theme-hint text-sm">{searchQuery ? '未找到匹配的成员' : '暂无成员'}</div>
         ) : (
           <div className="py-1">
             {filteredMembers.map(member => (
-              <MemberListItem key={member.uid} member={member} onContextMenu={(e) => handleContextMenu(e, member)} />
+              <MemberListItem key={member.uid} member={member} onClick={(e) => handleContextMenu(e, member)} onContextMenu={(e) => handleContextMenu(e, member)} />
             ))}
           </div>
         )}
