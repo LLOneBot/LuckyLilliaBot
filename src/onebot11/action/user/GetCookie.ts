@@ -22,6 +22,12 @@ export class GetCookies extends BaseAction<Payload, Response> {
       throw new Error('该域名禁止获取cookie')
     }
     const cookiesObject = await this.ctx.ntUserApi.getCookies(payload.domain)
+    if (!cookiesObject.p_skey) {
+      const pSkey = (await this.ctx.ntUserApi.getPSkey([payload.domain])).domainPskeyMap.get(payload.domain)
+      if (pSkey) {
+        cookiesObject.p_skey = pSkey
+      }
+    }
     //把获取到的cookiesObject转换成 k=v; 格式字符串拼接在一起
     const cookies = Object.entries(cookiesObject).map(([key, value]) => `${key}=${value}`).join('; ')
     const bkn = cookiesObject.skey ? this.ctx.ntWebApi.genBkn(cookiesObject.skey) : ''
