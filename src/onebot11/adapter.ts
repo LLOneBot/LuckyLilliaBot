@@ -159,7 +159,13 @@ class OneBot11Adapter extends Service {
 
     OB11Entities.groupEvent(this.ctx, message).then(groupEvent => {
       if (groupEvent) {
-        this.dispatchMessageLike(groupEvent, self, offline)
+        if (Array.isArray(groupEvent)) {
+          for (const item of groupEvent) {
+            this.dispatchMessageLike(item, self, offline)
+          }
+        } else {
+          this.dispatchMessageLike(groupEvent, self, offline)
+        }
       }
     }).catch(e => this.ctx.logger.error('handling incoming group events', e))
 
@@ -366,7 +372,7 @@ class OneBot11Adapter extends Service {
       } else if (msgType === 44) {
         const tip = Notify.GroupAdminChange.decode(sysMsg.body.msgContent)
         this.ctx.logger.info('收到管理员变动通知', tip)
-        const uid =  tip.isPromote ? tip.body.extraEnable?.adminUid : tip.body.extraDisable?.adminUid
+        const uid = tip.isPromote ? tip.body.extraEnable?.adminUid : tip.body.extraDisable?.adminUid
         if (!uid) return null
         const uin = await this.ctx.ntUserApi.getUinByUid(uid)
         const event = new OB11GroupAdminNoticeEvent(
