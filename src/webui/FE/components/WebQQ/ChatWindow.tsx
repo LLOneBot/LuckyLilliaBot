@@ -722,7 +722,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
         </div>
 
         {/* 消息列表 */}
-        <div ref={parentRef} onScroll={handleScroll} className="flex-1 overflow-y-auto p-4">
+        <div ref={parentRef} onScroll={handleScroll} className="flex-1 overflow-y-auto overflow-x-hidden p-4">
           <div ref={topSentinelRef} className="h-1" />
           {loadingMore && <div className="flex justify-center py-2"><Loader2 size={20} className="animate-spin text-pink-500" /></div>}
           {loading ? (
@@ -730,11 +730,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
           ) : allItems.length === 0 ? (
             <div className="flex items-center justify-center h-full text-theme-hint">暂无消息</div>
           ) : (
-            <div style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative', opacity: isScrollReady ? 1 : 0 }}>
+            <div style={{ height: `${virtualizer.getTotalSize()}px`, width: '100%', position: 'relative', opacity: isScrollReady ? 1 : 0 }} className="overflow-hidden">
               {virtualizer.getVirtualItems().map(virtualRow => {
                 const item = allItems[virtualRow.index]
                 return (
-                  <div key={virtualRow.key} style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualRow.start}px)`, padding: '8px 0' }} data-index={virtualRow.index} ref={virtualizer.measureElement}>
+                  <div key={virtualRow.key} style={{ position: 'absolute', top: 0, left: 0, width: '100%', transform: `translateY(${virtualRow.start}px)`, padding: '8px 0' }} data-index={virtualRow.index} ref={virtualizer.measureElement} className="overflow-hidden box-border">
                     {item.type === 'raw' ? (
                       <RawMessageBubble message={item.data} allMessages={messages} isHighlighted={highlightMsgId === item.data.msgId} />
                     ) : item.type === 'temp' ? (

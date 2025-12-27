@@ -248,7 +248,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
   }
 
   return (
-    <div className={`flex gap-2 ${isSelf ? 'flex-row-reverse' : ''} ${isHighlighted ? 'animate-pulse bg-pink-100 dark:bg-pink-900/30 rounded-lg -mx-2 px-2' : ''}`}>
+    <div className={`flex gap-2 w-full ${isSelf ? 'flex-row-reverse' : ''} ${isHighlighted ? 'animate-pulse bg-pink-100 dark:bg-pink-900/30 rounded-lg -mx-2 px-2' : ''}`}>
       <img 
         src={senderAvatar} 
         alt={senderName} 
@@ -257,7 +257,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
         onClick={handleAvatarClick}
         onContextMenu={handleAvatarContextMenu}
       />
-      <div className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'} max-w-[70%]`}>
+      <div className={`flex flex-col ${isSelf ? 'items-end' : 'items-start'} max-w-[calc(100%-48px)] md:max-w-[70%] min-w-0 overflow-hidden`}>
         <div className={`flex items-center gap-1.5 mb-1 ${isSelf ? 'flex-row-reverse' : ''}`}>
           <span className="text-xs text-theme-hint">{senderName}</span>
           {memberLevel !== undefined && memberLevel > 0 && (
@@ -287,7 +287,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
           </div>
         ) : (
           <div 
-            className={`rounded-2xl px-4 py-2 min-w-[80px] break-all bg-theme-item text-theme shadow-sm ${isSelf ? 'rounded-br-sm' : 'rounded-tl-sm'}`}
+            className={`rounded-2xl px-4 py-2 min-w-[80px] max-w-full break-words overflow-hidden bg-theme-item text-theme shadow-sm ${isSelf ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
             onContextMenu={handleBubbleContextMenu}
           >
             {replyElement && (
@@ -358,14 +358,14 @@ export const TempMessageBubble = memo<{ message: TempMessage; onRetry: () => voi
   const selfAvatar = selfUin ? `https://q1.qlogo.cn/g?b=qq&nk=${selfUin}&s=640` : ''
   
   return (
-    <div className="flex gap-2 flex-row-reverse">
+    <div className="flex gap-2 flex-row-reverse w-full">
       {selfAvatar && <img src={selfAvatar} alt="我" loading="lazy" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />}
-      <div className="flex flex-col items-end max-w-[70%]">
+      <div className="flex flex-col items-end max-w-[calc(100%-48px)] md:max-w-[70%] min-w-0 overflow-hidden">
         <span className="text-xs text-theme-hint mb-1">我</span>
         <div className="flex items-end gap-1">
           {message.status === 'failed' && <button onClick={onRetry} className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded" title="重新发送"><RefreshCw size={14} /></button>}
           <div 
-            className="rounded-2xl px-4 py-2 bg-theme-item text-theme rounded-br-sm min-w-[80px] break-all shadow-sm"
+            className="rounded-2xl px-4 py-2 bg-theme-item text-theme rounded-tr-sm min-w-[80px] max-w-full break-words overflow-hidden shadow-sm"
           >
             {message.text && <span className="whitespace-pre-wrap break-words">{message.text}</span>}
             {message.imageUrl && <img src={message.imageUrl} alt="图片" loading="lazy" className="max-w-full rounded-lg" style={{ maxHeight: '200px' }} />}

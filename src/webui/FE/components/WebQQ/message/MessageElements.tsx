@@ -31,7 +31,7 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
   const previewContext = React.useContext(ImagePreviewContext)
   const videoPreviewContext = React.useContext(VideoPreviewContext)
   
-  if (element.textElement) return <span className="whitespace-pre-wrap break-words">{element.textElement.content}</span>
+  if (element.textElement) return <span className="whitespace-pre-wrap break-all" style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>{element.textElement.content}</span>
   if (element.picElement) {
     const pic = element.picElement
     let url = pic.originImageUrl ? (pic.originImageUrl.startsWith('http') ? pic.originImageUrl : `https://gchat.qpic.cn${pic.originImageUrl}`) : ''
