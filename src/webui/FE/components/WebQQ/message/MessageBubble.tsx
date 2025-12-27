@@ -35,6 +35,18 @@ export const GroupMembersContext = React.createContext<{
   getMembers: (groupCode: string) => GroupMemberItem[] | null
 } | null>(null)
 
+// 好友缓存上下文
+export interface FriendInfo {
+  uid: string
+  uin: string
+  nickname: string
+  remark?: string
+}
+
+export const FriendsContext = React.createContext<{
+  getFriend: (uin: string) => FriendInfo | null
+} | null>(null)
+
 // 临时消息元素类型
 export interface TempMessageItem {
   type: 'text' | 'face' | 'image' | 'at'
@@ -149,13 +161,25 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
   
   const selfUid = getSelfUid()
   const isSelf = selfUid ? message.senderUid === selfUid : false
-  const senderName = message.sendMemberName || message.sendNickName || message.senderUin
-  const senderAvatar = `https://q1.qlogo.cn/g?b=qq&nk=${message.senderUin}&s=640`
-  const timestamp = parseInt(message.msgTime) * 1000
   const contextMenuContext = React.useContext(MessageContextMenuContext)
   const avatarContextMenuContext = React.useContext(AvatarContextMenuContext)
   const scrollToMessageContext = React.useContext(ScrollToMessageContext)
   const groupMembersContext = React.useContext(GroupMembersContext)
+  const friendsContext = React.useContext(FriendsContext)
+  
+  // 获取发送者名称
+  let senderName = message.sendMemberName || message.sendNickName || message.senderUin
+  
+  // 私聊时从好友列表获取备注或昵称
+  if (message.chatType === 1 && !isSelf && friendsContext) {
+    const friend = friendsContext.getFriend(message.senderUin)
+    if (friend) {
+      senderName = friend.remark || friend.nickname || senderName
+    }
+  }
+  
+  const senderAvatar = `https://q1.qlogo.cn/g?b=qq&nk=${message.senderUin}&s=640`
+  const timestamp = parseInt(message.msgTime) * 1000
   
   // 从 msgAttrs 中获取群等级和头衔
   let memberLevel: number | undefined

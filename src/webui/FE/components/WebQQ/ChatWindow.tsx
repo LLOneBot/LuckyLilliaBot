@@ -12,8 +12,8 @@ import { UserProfileCard } from './profile/UserProfileCard'
 import { GroupProfileCard } from './profile/GroupProfileCard'
 import { ImagePreviewModal, VideoPreviewModal } from './common/PreviewModals'
 import { ImagePreviewContext, VideoPreviewContext } from './message/MessageElements'
-import { RawMessageBubble, TempMessageBubble, MessageContextMenuContext, AvatarContextMenuContext, ScrollToMessageContext, GroupMembersContext } from './message/MessageBubble'
-import type { TempMessage, AvatarContextMenuInfo } from './message/MessageBubble'
+import { RawMessageBubble, TempMessageBubble, MessageContextMenuContext, AvatarContextMenuContext, ScrollToMessageContext, GroupMembersContext, FriendsContext } from './message/MessageBubble'
+import type { TempMessage, AvatarContextMenuInfo, FriendInfo } from './message/MessageBubble'
 import { MuteDialog, KickConfirmDialog, TitleDialog } from './chat/ChatDialogs'
 import { MessageContextMenu, AvatarContextMenu } from './chat/ContextMenus'
 import { ChatInput } from './chat/ChatInput'
@@ -122,7 +122,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     }
   }), [])
   
-  const { getCachedMembers, setCachedMembers, fetchGroupMembers } = useWebQQStore()
+  const { getCachedMembers, setCachedMembers, fetchGroupMembers, friendCategories } = useWebQQStore()
   
   const chatWindowRef = useRef<HTMLDivElement>(null)
   const parentRef = useRef<HTMLDivElement>(null)
@@ -196,6 +196,23 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   const groupMembersContextValue = useMemo(() => ({
     getMembers: (groupCode: string) => getCachedMembers(groupCode)
   }), [getCachedMembers])
+  
+  const friendsContextValue = useMemo(() => ({
+    getFriend: (uin: string): FriendInfo | null => {
+      for (const category of friendCategories) {
+        const friend = category.friends.find(f => f.uin === uin)
+        if (friend) {
+          return {
+            uid: friend.uid,
+            uin: friend.uin,
+            nickname: friend.nickname,
+            remark: friend.remark
+          }
+        }
+      }
+      return null
+    }
+  }), [friendCategories])
 
   const scrollToBottom = useCallback(() => {
     if (allItemsRef.current.length > 0) {
@@ -651,6 +668,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     <AvatarContextMenuContext.Provider value={avatarContextMenuValue}>
     <ScrollToMessageContext.Provider value={scrollToMessageContextValue}>
     <GroupMembersContext.Provider value={groupMembersContextValue}>
+    <FriendsContext.Provider value={friendsContextValue}>
       <div ref={chatWindowRef} className="flex flex-col h-full">
         {/* 头部 */}
         <div className="flex items-center justify-between px-2 md:px-4 py-3 border-b border-theme-divider bg-theme-card">
@@ -928,6 +946,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
       
       <ImagePreviewModal url={previewImageUrl} onClose={() => setPreviewImageUrl(null)} />
       <VideoPreviewModal videoInfo={previewVideoUrl} onClose={() => setPreviewVideoUrl(null)} />
+    </FriendsContext.Provider>
     </GroupMembersContext.Provider>
     </ScrollToMessageContext.Provider>
     </AvatarContextMenuContext.Provider>

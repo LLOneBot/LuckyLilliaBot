@@ -335,10 +335,30 @@ interface RecentListProps {
 }
 
 const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPeerId, onSelect }) => {
-  const { togglePinChat, removeRecentChat } = useWebQQStore()
+  const { togglePinChat, removeRecentChat, friendCategories, groups } = useWebQQStore()
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: RecentChatItem } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
   const menuPosition = useMenuPosition(contextMenu?.x || 0, contextMenu?.y || 0, menuRef)
+
+  // 获取显示名称（优先显示备注）
+  const getDisplayName = (item: RecentChatItem): string => {
+    if (item.chatType === 2) {
+      // 群聊：查找群备注
+      const group = groups.find(g => g.groupCode === item.peerId)
+      if (group?.remarkName && group.remarkName !== group.groupName) {
+        return group.remarkName
+      }
+    } else if (item.chatType === 1 || item.chatType === 100) {
+      // 私聊或临时会话：查找好友备注
+      for (const category of friendCategories) {
+        const friend = category.friends.find(f => f.uin === item.peerId)
+        if (friend?.remark && friend.remark !== friend.nickname) {
+          return friend.remark
+        }
+      }
+    }
+    return item.peerName
+  }
 
   const handleContextMenu = (e: React.MouseEvent, item: RecentChatItem) => {
     e.preventDefault()
@@ -375,6 +395,7 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
         <RecentListItem
           key={`${item.chatType}_${item.peerId}`}
           item={item}
+          displayName={getDisplayName(item)}
           unreadCount={unreadCounts.get(`${item.chatType}_${item.peerId}`) || item.unreadCount}
           isSelected={selectedPeerId === item.peerId}
           onClick={() => onSelect(item)}
@@ -421,13 +442,14 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
 // 最近会话列表项
 interface RecentListItemProps {
   item: RecentChatItem
+  displayName: string
   unreadCount: number
   isSelected: boolean
   onClick: () => void
   onContextMenu: (e: React.MouseEvent) => void
 }
 
-export const RecentListItem: React.FC<RecentListItemProps> = ({ item, unreadCount, isSelected, onClick, onContextMenu }) => {
+export const RecentListItem: React.FC<RecentListItemProps> = ({ item, displayName, unreadCount, isSelected, onClick, onContextMenu }) => {
   return (
     <div
       onClick={onClick}
@@ -443,7 +465,7 @@ export const RecentListItem: React.FC<RecentListItemProps> = ({ item, unreadCoun
       <div className="relative flex-shrink-0">
         <img
           src={item.peerAvatar}
-          alt={item.peerName}
+          alt={displayName}
           className="w-10 h-10 rounded-full object-cover"
         />
         {unreadCount > 0 && (
@@ -454,7 +476,7 @@ export const RecentListItem: React.FC<RecentListItemProps> = ({ item, unreadCoun
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-theme truncate">{item.peerName}</span>
+          <span className="text-sm font-medium text-theme truncate">{displayName}</span>
           <span className="text-xs text-theme-hint flex-shrink-0 ml-2">
             {formatMessageTime(item.lastTime)}
           </span>

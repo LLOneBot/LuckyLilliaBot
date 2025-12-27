@@ -1,5 +1,5 @@
-export { RawMessageBubble, TempMessageBubble, MessageContextMenuContext, AvatarContextMenuContext, ScrollToMessageContext, GroupMembersContext } from './MessageBubble'
-export type { TempMessage, TempMessageItem, AvatarContextMenuInfo } from './MessageBubble'
+export { RawMessageBubble, TempMessageBubble, MessageContextMenuContext, AvatarContextMenuContext, ScrollToMessageContext, GroupMembersContext, FriendsContext } from './MessageBubble'
+export type { TempMessage, TempMessageItem, AvatarContextMenuInfo, FriendInfo } from './MessageBubble'
 export { MessageElementRenderer, ImagePreviewContext, VideoPreviewContext, hasValidContent, isSystemTipMessage, getProxyImageUrl } from './MessageElements'
 export { EmojiPicker } from './EmojiPicker'
 export { FavEmojiPicker } from './FavEmojiPicker'
