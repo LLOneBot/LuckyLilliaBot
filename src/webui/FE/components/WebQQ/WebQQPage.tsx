@@ -316,7 +316,7 @@ const WebQQPage: React.FC = () => {
       `}>
         <ChatWindow
           session={currentChat}
-          onShowMembers={() => setShowMemberPanel(prev => !prev)}
+          onShowMembers={() => setShowMemberPanel(!showMemberPanel)}
           onNewMessageCallback={handleSetNewMessageCallback}
           onEmojiReactionCallback={handleSetEmojiReactionCallback}
           appendInputText={appendInputText}

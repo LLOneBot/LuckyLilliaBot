@@ -27,9 +27,13 @@ type TabType = 'friends' | 'groups' | 'recent'
 // 已访问的聊天（不持久化，每次进入页面重置）
 let visitedChats = new Set<string>()
 
+// 已拉取过成员的群（不持久化，每次进入页面重置）
+let fetchedMembersGroups = new Set<string>()
+
 // 重置已访问聊天记录
 export const resetVisitedChats = () => {
   visitedChats = new Set<string>()
+  fetchedMembersGroups = new Set<string>()
 }
 
 // 检查是否已访问过
@@ -45,6 +49,16 @@ export const markChatVisited = (chatType: number, peerId: string) => {
 // 取消已访问标记（用于加载中断时）
 export const unmarkChatVisited = (chatType: number, peerId: string) => {
   visitedChats.delete(`${chatType}_${peerId}`)
+}
+
+// 检查群成员是否已拉取过
+export const hasFetchedMembers = (groupCode: string): boolean => {
+  return fetchedMembersGroups.has(groupCode)
+}
+
+// 标记群成员已拉取
+export const markMembersFetched = (groupCode: string) => {
+  fetchedMembersGroups.add(groupCode)
 }
 
 interface WebQQState {
