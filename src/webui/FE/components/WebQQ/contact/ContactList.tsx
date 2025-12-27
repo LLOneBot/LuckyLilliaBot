@@ -1,9 +1,56 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Users, MessageCircle, Search, Clock, ChevronDown, ChevronRight, Pin, Trash2 } from 'lucide-react'
 import type { FriendItem, FriendCategory, GroupItem, RecentChatItem } from '../../../types/webqq'
 import { filterGroups, formatMessageTime } from '../../../utils/webqqApi'
 import { useWebQQStore } from '../../../stores/webqqStore'
+
+// 计算菜单位置，确保不超出屏幕
+function useMenuPosition(x: number, y: number, menuRef: React.RefObject<HTMLDivElement>) {
+  const [position, setPosition] = useState<{ left: number; top: number; ready: boolean }>({ left: -9999, top: -9999, ready: false })
+  
+  useEffect(() => {
+    // 重置为未就绪状态
+    setPosition({ left: -9999, top: -9999, ready: false })
+    
+    // 使用 requestAnimationFrame 确保 DOM 已渲染
+    const frame = requestAnimationFrame(() => {
+      if (!menuRef.current) {
+        setPosition({ left: x, top: y, ready: true })
+        return
+      }
+      
+      const menuRect = menuRef.current.getBoundingClientRect()
+      const padding = 10
+      
+      let left = x
+      let top = y
+      
+      // 右边界检测
+      if (x + menuRect.width > window.innerWidth - padding) {
+        left = x - menuRect.width
+      }
+      // 左边界检测
+      if (left < padding) {
+        left = padding
+      }
+      // 下边界检测
+      if (y + menuRect.height > window.innerHeight - padding) {
+        top = y - menuRect.height
+      }
+      // 上边界检测
+      if (top < padding) {
+        top = padding
+      }
+      
+      setPosition({ left, top, ready: true })
+    })
+    
+    return () => cancelAnimationFrame(frame)
+  }, [x, y])
+  
+  return position
+}
 
 type TabType = 'friends' | 'groups' | 'recent'
 
@@ -290,6 +337,8 @@ interface RecentListProps {
 const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPeerId, onSelect }) => {
   const { togglePinChat, removeRecentChat } = useWebQQStore()
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; item: RecentChatItem } | null>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const menuPosition = useMenuPosition(contextMenu?.x || 0, contextMenu?.y || 0, menuRef)
 
   const handleContextMenu = (e: React.MouseEvent, item: RecentChatItem) => {
     e.preventDefault()
@@ -342,8 +391,9 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
             onContextMenu={(e) => { e.preventDefault(); closeContextMenu() }}
           />
           <div
+            ref={menuRef}
             className="fixed z-50 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[120px]"
-            style={{ left: contextMenu.x, top: Math.min(contextMenu.y, window.innerHeight - 100) }}
+            style={{ left: menuPosition.left, top: menuPosition.top, visibility: menuPosition.ready ? 'visible' : 'hidden' }}
             onContextMenu={(e) => e.preventDefault()}
           >
             <button

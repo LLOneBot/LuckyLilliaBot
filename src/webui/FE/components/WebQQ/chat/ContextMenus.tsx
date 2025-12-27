@@ -1,9 +1,56 @@
-import React from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Reply, Trash2, AtSign, Hand, User, UserMinus, VolumeX, Award, Smile, Shield, ShieldOff } from 'lucide-react'
 import type { RawMessage, GroupMemberItem } from '../../../types/webqq'
 import { getSelfUid, recallMessage, sendPoke, ntCall } from '../../../utils/webqqApi'
 import { showToast } from '../../common'
+
+// 计算菜单位置，确保不超出屏幕
+function useMenuPosition(x: number, y: number, menuRef: React.RefObject<HTMLDivElement>) {
+  const [position, setPosition] = useState<{ left: number; top: number; ready: boolean }>({ left: -9999, top: -9999, ready: false })
+  
+  useEffect(() => {
+    // 重置为未就绪状态
+    setPosition({ left: -9999, top: -9999, ready: false })
+    
+    // 使用 requestAnimationFrame 确保 DOM 已渲染
+    const frame = requestAnimationFrame(() => {
+      if (!menuRef.current) {
+        setPosition({ left: x, top: y, ready: true })
+        return
+      }
+      
+      const menuRect = menuRef.current.getBoundingClientRect()
+      const padding = 10
+      
+      let left = x
+      let top = y
+      
+      // 右边界检测
+      if (x + menuRect.width > window.innerWidth - padding) {
+        left = x - menuRect.width
+      }
+      // 左边界检测
+      if (left < padding) {
+        left = padding
+      }
+      // 下边界检测
+      if (y + menuRect.height > window.innerHeight - padding) {
+        top = y - menuRect.height
+      }
+      // 上边界检测
+      if (top < padding) {
+        top = padding
+      }
+      
+      setPosition({ left, top, ready: true })
+    })
+    
+    return () => cancelAnimationFrame(frame)
+  }, [x, y])
+  
+  return position
+}
 
 interface MessageContextMenuProps {
   contextMenu: { x: number; y: number; message: RawMessage }
@@ -38,12 +85,16 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
   const targetIsAdmin = targetRole === 'admin' || targetRole === 'owner'
   const canRecall = isSelfMessage || (isGroup && (isOwner || (isAdmin && !targetIsAdmin)))
 
+  const menuRef = useRef<HTMLDivElement>(null)
+  const position = useMenuPosition(contextMenu.x, contextMenu.y, menuRef)
+
   return createPortal(
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
       <div 
+        ref={menuRef}
         className="fixed z-50 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[100px]" 
-        style={{ left: contextMenu.x, top: Math.min(contextMenu.y, window.innerHeight - 120) }} 
+        style={{ left: position.left, top: position.top, visibility: position.ready ? 'visible' : 'hidden' }} 
         onContextMenu={(e) => e.preventDefault()}
       >
         <button 
@@ -131,6 +182,9 @@ export const AvatarContextMenu: React.FC<AvatarContextMenuProps> = ({
   // 只有群主可以设置/取消管理员，且不能对自己操作
   const canSetAdmin = isOwner && !isSelf
 
+  const menuRef = useRef<HTMLDivElement>(null)
+  const position = useMenuPosition(avatarContextMenu.x, avatarContextMenu.y, menuRef)
+
   const handleToggleAdmin = async () => {
     const info = avatarContextMenu
     onClose()
@@ -149,8 +203,9 @@ export const AvatarContextMenu: React.FC<AvatarContextMenuProps> = ({
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
       <div 
+        ref={menuRef}
         className="fixed z-50 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[120px]" 
-        style={{ left: avatarContextMenu.x, top: Math.min(avatarContextMenu.y, window.innerHeight - 150) }} 
+        style={{ left: position.left, top: position.top, visibility: position.ready ? 'visible' : 'hidden' }} 
         onContextMenu={(e) => e.preventDefault()}
       >
         {avatarContextMenu.chatType === 2 && (
