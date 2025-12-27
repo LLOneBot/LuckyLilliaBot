@@ -71,17 +71,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   
   const { getCachedMembers, setCachedMembers, fetchGroupMembers } = useWebQQStore()
   
-  // 预加载群成员到缓存（不需要本地状态）
-  useEffect(() => {
-    if (session?.chatType === 2) {
-      const groupCode = session.peerId
-      // 如果没有缓存，触发加载（结果会存入全局缓存）
-      if (!getCachedMembers(groupCode)) {
-        fetchGroupMembers(groupCode).catch(() => {})
-      }
-    }
-  }, [session?.chatType, session?.peerId, getCachedMembers, fetchGroupMembers])
-  
   const parentRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<any>(null)
   const sessionRef = useRef(session)
@@ -94,6 +83,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   const scrollToMsgIdRef = useRef<string | null>(null)
   const isFirstMountRef = useRef(true)
   const loadVersionRef = useRef(0)  // 用于检查消息加载的版本
+  const isLoadingInitialRef = useRef(false)  // 防止重复加载初始消息
   
   useEffect(() => { sessionRef.current = session }, [session])
 
@@ -201,11 +191,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
 
   const getSessionKey = (chatType: number | string, peerId: string) => `${chatType}_${peerId}`
 
-  const loadMessages = useCallback(async (beforeMsgSeq?: string) => {
+  const loadMessages = useCallback(async (beforeMsgSeq?: string, afterMsgSeq?: string) => {
     if (!session) return
     const requestChatType = session.chatType
     const requestPeerId = session.peerId
-    const version = ++loadVersionRef.current
+
+    // 检查 session 是否仍然匹配
+    const checkSession = () => {
+      const currentSession = sessionRef.current
+      return currentSession && currentSession.chatType === requestChatType && currentSession.peerId === requestPeerId
+    }
+
+    console.log('[ChatWindow] loadMessages called:', { chatType: requestChatType, peerId: requestPeerId, beforeMsgSeq, afterMsgSeq })
 
     if (beforeMsgSeq) setLoadingMore(true)
     else setLoading(true)
@@ -213,10 +210,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     if (beforeMsgSeq && messages.length > 0) scrollToMsgIdRef.current = messages[0]?.msgId || null
 
     try {
-      const result = await getMessages(requestChatType, requestPeerId, beforeMsgSeq)
+      const result = await getMessages(requestChatType, requestPeerId, beforeMsgSeq, 20, afterMsgSeq)
       
-      // 检查版本号，如果不匹配说明已经切换了会话
-      if (loadVersionRef.current !== version) {
+      console.log('[ChatWindow] API response:', { messagesCount: result.messages.length, hasMore: result.hasMore })
+      
+      // 检查 session 是否仍然匹配
+      if (!checkSession()) {
+        console.log('[ChatWindow] Session changed after API call, skipping')
         return
       }
       
@@ -224,26 +224,137 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
         msg !== null && msg !== undefined && msg.elements && Array.isArray(msg.elements)
       )
       
+      console.log('[ChatWindow] Valid messages:', validMessages.length)
+      
       setMessages(prev => {
         const existingIds = new Set(prev.map(m => m.msgId))
         const newMsgs = validMessages.filter(m => !existingIds.has(m.msgId))
         const merged = beforeMsgSeq ? [...newMsgs, ...prev] : [...prev, ...newMsgs]
         merged.sort((a, b) => parseInt(a.msgTime) - parseInt(b.msgTime))
+        console.log('[ChatWindow] Merged messages:', merged.length, 'new:', newMsgs.length)
         setCachedMessages(requestChatType, requestPeerId, merged)
         return merged
       })
       setHasMore(result.hasMore)
+      return { validMessages, hasMore: result.hasMore }
     } catch (e: any) {
+      console.error('[ChatWindow] loadMessages error:', e)
       scrollToMsgIdRef.current = null
-      if (loadVersionRef.current !== version) return
+      if (!checkSession()) return
       showToast(beforeMsgSeq ? '加载更多消息失败' : '加载消息失败', 'error')
     } finally {
-      if (loadVersionRef.current === version) {
+      if (checkSession()) {
         setLoading(false)
         setLoadingMore(false)
       }
     }
   }, [session, messages])
+
+  // 加载最新消息并尝试和本地缓存合并
+  const loadMessagesAndMergeWithCache = useCallback(async (cachedMessages: RawMessage[]) => {
+    if (!session) return
+    const requestChatType = session.chatType
+    const requestPeerId = session.peerId
+    
+    setLoading(true)
+    
+    // 检查 session 是否仍然匹配
+    const checkSession = () => {
+      const currentSession = sessionRef.current
+      return currentSession && currentSession.chatType === requestChatType && currentSession.peerId === requestPeerId
+    }
+    
+    try {
+      // 1. 先加载最新 20 条消息
+      const result = await getMessages(requestChatType, requestPeerId)
+      
+      if (!checkSession()) {
+        console.log('[ChatWindow] Session changed during API call, skipping')
+        return
+      }
+      
+      const latestMessages = result.messages.filter((msg): msg is RawMessage => 
+        msg !== null && msg !== undefined && msg.elements && Array.isArray(msg.elements)
+      )
+      
+      console.log('[ChatWindow] Latest messages from API:', latestMessages.length)
+      
+      if (latestMessages.length === 0) {
+        setHasMore(false)
+        return
+      }
+      
+      // 2. 检查是否和本地缓存有重叠
+      const cachedMsgIds = new Set(cachedMessages.map(m => m.msgId))
+      const hasOverlap = latestMessages.some(m => cachedMsgIds.has(m.msgId))
+      
+      if (hasOverlap || cachedMessages.length === 0) {
+        // 有重叠或没有缓存，直接合并
+        console.log('[ChatWindow] Has overlap with cache, merging directly')
+        const merged = [...cachedMessages, ...latestMessages]
+        const uniqueMessages = merged.filter((msg, index, arr) => 
+          arr.findIndex(m => m.msgId === msg.msgId) === index
+        )
+        uniqueMessages.sort((a, b) => parseInt(a.msgTime) - parseInt(b.msgTime))
+        setMessages(uniqueMessages)
+        setCachedMessages(requestChatType, requestPeerId, uniqueMessages)
+        setHasMore(result.hasMore)
+      } else {
+        // 没有重叠，需要继续向上拉取直到和缓存接上
+        console.log('[ChatWindow] No overlap, need to fill gap')
+        let allNewMessages = [...latestMessages]
+        let currentBeforeMsgSeq = latestMessages[0]?.msgSeq
+        let hasMore = result.hasMore
+        const cachedLatestMsgSeq = cachedMessages[cachedMessages.length - 1]?.msgSeq
+        
+        // 最多尝试 10 次（200 条消息）来填补间隙
+        for (let i = 0; i < 10 && hasMore; i++) {
+          if (!checkSession()) {
+            console.log('[ChatWindow] Session changed during gap fill, skipping')
+            return
+          }
+          
+          const moreResult = await getMessages(requestChatType, requestPeerId, currentBeforeMsgSeq)
+          const moreMessages = moreResult.messages.filter((msg): msg is RawMessage => 
+            msg !== null && msg !== undefined && msg.elements && Array.isArray(msg.elements)
+          )
+          
+          if (moreMessages.length === 0) break
+          
+          allNewMessages = [...moreMessages, ...allNewMessages]
+          currentBeforeMsgSeq = moreMessages[0]?.msgSeq
+          hasMore = moreResult.hasMore
+          
+          // 检查是否和缓存接上了
+          const newMsgIds = new Set(moreMessages.map(m => m.msgId))
+          const connected = cachedMessages.some(m => newMsgIds.has(m.msgId)) ||
+            (cachedLatestMsgSeq && moreMessages.some(m => parseInt(m.msgSeq) <= parseInt(cachedLatestMsgSeq)))
+          
+          if (connected) {
+            console.log('[ChatWindow] Connected with cache after', i + 1, 'iterations')
+            break
+          }
+        }
+        
+        // 合并所有消息
+        const merged = [...cachedMessages, ...allNewMessages]
+        const uniqueMessages = merged.filter((msg, index, arr) => 
+          arr.findIndex(m => m.msgId === msg.msgId) === index
+        )
+        uniqueMessages.sort((a, b) => parseInt(a.msgTime) - parseInt(b.msgTime))
+        setMessages(uniqueMessages)
+        setCachedMessages(requestChatType, requestPeerId, uniqueMessages)
+        setHasMore(hasMore)
+      }
+    } catch (e: any) {
+      console.error('[ChatWindow] loadMessagesAndMergeWithCache error:', e)
+      showToast('加载消息失败', 'error')
+    } finally {
+      if (checkSession()) {
+        setLoading(false)
+      }
+    }
+  }, [session])
 
   useEffect(() => {
     const targetMsgId = scrollToMsgIdRef.current
@@ -257,40 +368,75 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   useEffect(() => {
     if (session) {
       // 切换会话时递增版本号，使旧的请求失效
-      ++loadVersionRef.current
+      const currentVersion = ++loadVersionRef.current
       
       const sessionKey = getSessionKey(session.chatType, session.peerId)
       const currentChatType = session.chatType
       const currentPeerId = session.peerId
       
-      const cachedInMemory = messageCacheRef.current.get(sessionKey)
-      if (cachedInMemory && cachedInMemory.length > 0) setMessages(cachedInMemory)
-      else setMessages([])
+      console.log('[ChatWindow] Session changed:', { chatType: currentChatType, peerId: currentPeerId, version: currentVersion })
       
-      getCachedMessages(currentChatType, currentPeerId).then(cachedMessages => {
-        const currentSession = sessionRef.current
-        if (!currentSession || currentSession.chatType !== currentChatType || currentSession.peerId !== currentPeerId) return
-        if (cachedMessages && cachedMessages.length > 0) {
-          const validMessages = cachedMessages.filter(m => m.elements && Array.isArray(m.elements))
-          if (validMessages.length > 0) {
-            messageCacheRef.current.set(sessionKey, validMessages)
-            setMessages(validMessages)
-          }
-        }
-      })
+      // 重置加载状态
+      isLoadingInitialRef.current = false
+      
+      // 先尝试从内存缓存读取
+      const cachedInMemory = messageCacheRef.current.get(sessionKey)
+      if (cachedInMemory && cachedInMemory.length > 0) {
+        console.log('[ChatWindow] Memory cache hit:', cachedInMemory.length, 'messages')
+        setMessages(cachedInMemory)
+      } else {
+        console.log('[ChatWindow] Memory cache miss')
+        setMessages([])
+      }
       
       setTempMessages([])
       shouldScrollRef.current = true
       
-      if (isFirstMountRef.current || !hasVisitedChat(session.chatType, session.peerId)) {
-        isFirstMountRef.current = false
-        markChatVisited(session.chatType, session.peerId)
-        loadMessages()
-      }
+      // 首次挂载或未访问过的聊天，从 API 加载最新消息
+      const isFirstMount = isFirstMountRef.current
+      const hasVisited = hasVisitedChat(currentChatType, currentPeerId)
+      const shouldLoadFromApi = isFirstMount || !hasVisited
+      console.log('[ChatWindow] Check load:', { isFirstMount, hasVisited, shouldLoadFromApi })
+      
+      // 从 IndexedDB 读取缓存，然后从 API 加载最新消息
+      getCachedMessages(currentChatType, currentPeerId).then(async cachedMessages => {
+        // 只检查 session 是否匹配，不检查版本号（因为版本号可能因为 SSE 重连而变化）
+        const currentSession = sessionRef.current
+        if (!currentSession || currentSession.chatType !== currentChatType || currentSession.peerId !== currentPeerId) {
+          console.log('[ChatWindow] Session changed after IndexedDB read, skipping')
+          return
+        }
+        
+        // 获取有效的缓存消息
+        let validCachedMessages: RawMessage[] = []
+        if (cachedMessages && cachedMessages.length > 0) {
+          validCachedMessages = cachedMessages.filter(m => m.elements && Array.isArray(m.elements))
+          console.log('[ChatWindow] IndexedDB cache hit:', validCachedMessages.length, 'valid messages')
+          if (validCachedMessages.length > 0) {
+            messageCacheRef.current.set(sessionKey, validCachedMessages)
+            // 只有当前没有消息时才设置缓存消息
+            setMessages(prev => prev.length === 0 ? validCachedMessages : prev)
+          }
+        } else {
+          console.log('[ChatWindow] IndexedDB cache miss')
+        }
+        
+        // 防止重复加载
+        if (shouldLoadFromApi && !isLoadingInitialRef.current) {
+          isLoadingInitialRef.current = true
+          isFirstMountRef.current = false
+          markChatVisited(currentChatType, currentPeerId)
+          console.log('[ChatWindow] Calling loadMessagesAndMergeWithCache()')
+          
+          // 加载最新消息，然后尝试和本地缓存合并
+          await loadMessagesAndMergeWithCache(validCachedMessages)
+        }
+      })
     } else {
       setMessages([])
       setTempMessages([])
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.peerId, session?.chatType])
 
   useEffect(() => {
@@ -308,7 +454,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0]
-        if (entry.isIntersecting && hasMore && !isLoadingMoreRef.current && messages.length > 0) {
+        // 首次加载中不触发加载更多
+        if (entry.isIntersecting && hasMore && !isLoadingMoreRef.current && !loading && messages.length > 0) {
           const firstMsgSeq = messages[0]?.msgSeq
           if (firstMsgSeq) {
             isLoadingMoreRef.current = true

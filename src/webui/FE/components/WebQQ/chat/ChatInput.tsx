@@ -4,7 +4,7 @@ import { RichInput, type RichInputRef, type RichInputItem, type MentionState } f
 import { MentionPicker } from './MentionPicker'
 import { EmojiPicker, FavEmojiPicker, type FavEmoji } from '../message'
 import { sendMessage, uploadImage, uploadImageByUrl, uploadFile, isValidImageFormat } from '../../../utils/webqqApi'
-import { useWebQQStore } from '../../../stores/webqqStore'
+import { useWebQQStore, hasVisitedChat } from '../../../stores/webqqStore'
 import { showToast } from '../../common'
 import type { ChatSession, RawMessage, GroupMemberItem } from '../../../types/webqq'
 
@@ -44,6 +44,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
   
   // 用 ref 跟踪当前 session 的 peerId
   const currentPeerIdRef = useRef<string | null>(null)
+  
+  // 用 ref 存储函数避免依赖变化
+  const getCachedMembersRef = useRef(getCachedMembers)
+  getCachedMembersRef.current = getCachedMembers
+  const fetchGroupMembersRef = useRef(fetchGroupMembers)
+  fetchGroupMembersRef.current = fetchGroupMembers
 
   useImperativeHandle(ref, () => ({
     insertAt: (uid: string, uin: string, name: string) => {
@@ -65,19 +71,24 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
       return
     }
     
-    // 先检查缓存（同步）
-    const cached = getCachedMembers(groupCode)
-    if (cached) {
-      setGroupMembers(cached)
-      setMembersLoading(false)
-      return
+    // 检查是否首次进入该聊天（用于决定是否强制刷新）
+    const isFirstVisit = !hasVisitedChat(2, groupCode)
+    
+    // 先检查缓存（同步）- 非首次访问时使用缓存
+    if (!isFirstVisit) {
+      const cached = getCachedMembersRef.current(groupCode)
+      if (cached) {
+        setGroupMembers(cached)
+        setMembersLoading(false)
+        return
+      }
     }
     
-    // 没有缓存，需要加载
+    // 需要加载
     setMembersLoading(true)
     setGroupMembers([])
     
-    fetchGroupMembers(groupCode)
+    fetchGroupMembersRef.current(groupCode, isFirstVisit)
       .then(members => {
         if (currentPeerIdRef.current === groupCode) {
           setGroupMembers(members)
@@ -89,7 +100,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
           setMembersLoading(false)
         }
       })
-  }, [session?.chatType, session?.peerId, getCachedMembers, fetchGroupMembers])
+  }, [session?.chatType, session?.peerId])  // 只依赖 session
 
   // 处理 @ 状态变化
   const handleMentionChange = useCallback((state: MentionState) => {

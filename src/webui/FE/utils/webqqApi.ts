@@ -146,7 +146,8 @@ export async function getMessages(
   chatType: number,
   peerId: string,
   beforeMsgSeq?: string,
-  limit: number = 20
+  limit: number = 20,
+  afterMsgSeq?: string
 ): Promise<MessagesResponse> {
   const params = new URLSearchParams({
     chatType: String(chatType),
@@ -155,6 +156,9 @@ export async function getMessages(
   })
   if (beforeMsgSeq) {
     params.append('beforeMsgSeq', beforeMsgSeq)
+  }
+  if (afterMsgSeq) {
+    params.append('afterMsgSeq', afterMsgSeq)
   }
   
   const response = await apiFetch<MessagesResponse>(`/api/webqq/messages?${params}`)
@@ -448,35 +452,106 @@ export async function getUserProfile(uid?: string, uin?: string, groupCode?: str
   return profile
 }
 
-// 创建 SSE 连接
-export function createEventSource(onMessage: (event: any) => void, onError?: (error: any) => void): EventSource {
-  // SSE doesn't support custom headers, so we pass the token as a query parameter
+// 创建 SSE 连接（带自动重连）
+export function createEventSource(
+  onMessage: (event: any) => void, 
+  onError?: (error: any) => void,
+  onReconnect?: () => void
+): EventSource {
   const token = getToken()
   const url = token ? `/api/webqq/events?token=${encodeURIComponent(token)}` : '/api/webqq/events'
-  const eventSource = new EventSource(url)
   
-  // 监听自定义 message 事件（后端发送 event: message）
-  eventSource.addEventListener('message', (event) => {
-    try {
-      const data = JSON.parse(event.data)
-      onMessage(data)
-    } catch (e) {
-      console.error('解析 SSE 消息失败:', e)
+  let eventSource: EventSource
+  let reconnectAttempts = 0
+  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+  let isClosed = false
+  
+  const connect = () => {
+    eventSource = new EventSource(url)
+    
+    eventSource.addEventListener('message', (event) => {
+      try {
+        const data = JSON.parse(event.data)
+        onMessage(data)
+      } catch (e) {
+        console.error('解析 SSE 消息失败:', e)
+      }
+    })
+    
+    eventSource.addEventListener('connected', () => {
+      console.log('[SSE] 连接已建立')
+      reconnectAttempts = 0
+    })
+    
+    eventSource.onopen = () => {
+      console.log('[SSE] 连接打开')
+      // 如果是重连成功，触发回调
+      if (reconnectAttempts > 0) {
+        console.log('[SSE] 重连成功')
+        onReconnect?.()
+      }
+      reconnectAttempts = 0
     }
-  })
-  
-  eventSource.addEventListener('connected', () => {
-    // SSE 连接已建立
-  })
-  
-  eventSource.onerror = (error) => {
-    console.error('WebQQ SSE 连接错误:', error)
-    if (onError) {
-      onError(error)
+    
+    eventSource.onerror = (error) => {
+      console.error('[SSE] 连接错误:', error)
+      
+      if (isClosed) return
+      
+      // 关闭当前连接
+      eventSource.close()
+      
+      // 计算重连延迟（指数退避，最大 30 秒）
+      const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000)
+      reconnectAttempts++
+      
+      console.log(`[SSE] 将在 ${delay}ms 后尝试第 ${reconnectAttempts} 次重连...`)
+      
+      reconnectTimer = setTimeout(() => {
+        if (!isClosed) {
+          console.log('[SSE] 正在重连...')
+          connect()
+        }
+      }, delay)
+      
+      onError?.(error)
     }
+    
+    return eventSource
   }
   
-  return eventSource
+  eventSource = connect()
+  
+  // 返回一个包装的 EventSource，支持正确关闭
+  const wrappedEventSource = {
+    close: () => {
+      isClosed = true
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer)
+        reconnectTimer = null
+      }
+      eventSource.close()
+      console.log('[SSE] 连接已关闭')
+    },
+    get readyState() {
+      return eventSource.readyState
+    },
+    get url() {
+      return eventSource.url
+    },
+    addEventListener: eventSource.addEventListener.bind(eventSource),
+    removeEventListener: eventSource.removeEventListener.bind(eventSource),
+    dispatchEvent: eventSource.dispatchEvent.bind(eventSource),
+    onerror: eventSource.onerror,
+    onmessage: eventSource.onmessage,
+    onopen: eventSource.onopen,
+    CONNECTING: EventSource.CONNECTING,
+    OPEN: EventSource.OPEN,
+    CLOSED: EventSource.CLOSED,
+    withCredentials: eventSource.withCredentials
+  } as EventSource
+  
+  return wrappedEventSource
 }
 
 // 搜索过滤群组

@@ -23,6 +23,11 @@ interface DashboardStats {
   }
 }
 
+interface DashboardProps {
+  llbotVersion: string
+  qqVersion: string
+}
+
 const USE_MOCK_DATA = false
 
 const generateMockStats = (): DashboardStats => ({
@@ -146,6 +151,7 @@ const PieChart: React.FC<{
 
 const ResourceCard: React.FC<{
   title: string
+  version?: string
   icon: React.ReactNode
   gradient: string
   cpu: number
@@ -156,7 +162,7 @@ const ResourceCard: React.FC<{
   memGradientId: string
   cpuColors: [string, string]
   memColors: [string, string]
-}> = ({ title, icon, gradient, cpu, memory, totalMemory, memoryPercent, cpuGradientId, memGradientId, cpuColors, memColors }) => {
+}> = ({ title, version, icon, gradient, cpu, memory, totalMemory, memoryPercent, cpuGradientId, memGradientId, cpuColors, memColors }) => {
   return (
     <div className="card p-4">
       <div className="flex items-center gap-2 mb-4">
@@ -164,6 +170,11 @@ const ResourceCard: React.FC<{
           {icon}
         </div>
         <h4 className="text-sm font-semibold text-theme">{title}</h4>
+        {version && (
+          <span className="ml-auto text-xs text-theme-muted bg-theme-item px-2 py-0.5 rounded-full">
+            {version}
+          </span>
+        )}
       </div>
       <div className="flex justify-around">
         <PieChart
@@ -187,7 +198,7 @@ const ResourceCard: React.FC<{
   )
 }
 
-const Dashboard: React.FC = () => {
+const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [uptime, setUptime] = useState('')
@@ -300,6 +311,7 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <ResourceCard
           title="QQ 资源"
+          version={qqVersion}
           icon={<MessageCircle size={16} className="text-white" />}
           gradient="bg-gradient-to-br from-cyan-500 to-teal-500"
           cpu={stats.qq.cpu}
@@ -312,7 +324,8 @@ const Dashboard: React.FC = () => {
           memColors={['#0ea5e9', '#22d3ee']}
         />
         <ResourceCard
-          title="Bot 资源"
+          title="LLBot 资源"
+          version={llbotVersion}
           icon={<Bot size={16} className="text-white" />}
           gradient="bg-gradient-to-br from-fuchsia-500 to-pink-500"
           cpu={stats.bot.cpu}

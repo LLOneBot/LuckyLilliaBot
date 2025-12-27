@@ -234,7 +234,7 @@ function App() {
           </div>
 
           {/* Content */}
-          {activeTab === 'dashboard' && <Dashboard />}
+          {activeTab === 'dashboard' && <Dashboard llbotVersion={version} qqVersion={qqVersion} />}
 
           {activeTab === 'webqq' && <WebQQPage />}
 

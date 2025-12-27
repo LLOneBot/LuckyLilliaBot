@@ -85,3 +85,59 @@ const textMsg = {
 2. 类型安全，IDE 自动补全
 3. 统一消息结构，便于维护
 4. 减少重复代码
+
+## 群成员数据获取规范
+
+群成员数据使用全局缓存，通过 `webqqStore` 中的 `fetchGroupMembers` 统一获取。
+
+### 缓存策略
+
+1. **首次进入群聊时强制刷新**：使用 `hasVisitedChat` 函数判断是否首次进入，首次进入时传 `forceRefresh: true`
+2. **同一会话内复用缓存**：非首次进入时使用缓存，避免重复请求
+3. **刷新浏览器后重置**：`hasVisitedChat` 内部使用的 `visitedChats` 是内存变量（不持久化），刷新浏览器后所有聊天都变成"首次进入"
+
+### 使用示例
+
+```typescript
+import { useWebQQStore, hasVisitedChat } from '../../../stores/webqqStore'
+
+const { getCachedMembers, fetchGroupMembers } = useWebQQStore()
+
+// 检查是否首次进入
+const isFirstVisit = !hasVisitedChat(2, groupCode)
+
+// 非首次访问时先检查缓存
+if (!isFirstVisit) {
+  const cached = getCachedMembers(groupCode)
+  if (cached) {
+    // 使用缓存
+    return
+  }
+}
+
+// 获取群成员，首次进入时强制刷新
+const members = await fetchGroupMembers(groupCode, isFirstVisit)
+```
+
+### 避免重复请求
+
+1. **使用 ref 存储 store 函数**：避免 useEffect 依赖变化导致重复执行
+2. **store 内部去重**：`fetchGroupMembers` 内部使用 `loadingMembersPromises` Map 防止并发请求
+3. **只依赖必要的值**：useEffect 依赖数组只包含 `groupCode`，不包含 store 函数
+
+### 错误示例
+
+```typescript
+// ❌ 错误：将 store 函数放入依赖数组
+useEffect(() => {
+  fetchGroupMembers(groupCode)
+}, [groupCode, fetchGroupMembers])  // fetchGroupMembers 会导致重复执行
+
+// ✅ 正确：使用 ref 存储函数
+const fetchGroupMembersRef = useRef(fetchGroupMembers)
+fetchGroupMembersRef.current = fetchGroupMembers
+
+useEffect(() => {
+  fetchGroupMembersRef.current(groupCode)
+}, [groupCode])  // 只依赖 groupCode
+```

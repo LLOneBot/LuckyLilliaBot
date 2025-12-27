@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, Search, Crown, Shield, Loader2, AtSign, Hand, User } from 'lucide-react'
 import type { GroupMemberItem } from '../../../types/webqq'
 import { filterMembers, sendPoke, getUserProfile, UserProfile } from '../../../utils/webqqApi'
-import { useWebQQStore } from '../../../stores/webqqStore'
+import { useWebQQStore, hasVisitedChat } from '../../../stores/webqqStore'
 import { showToast } from '../../common'
 import { UserProfileCard } from '../profile'
 
@@ -69,40 +69,76 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
   // 用 ref 跟踪当前 groupCode，用于异步回调检查
   const currentGroupCodeRef = useRef(groupCode)
   useEffect(() => { currentGroupCodeRef.current = groupCode }, [groupCode])
+  
+  // 用 ref 存储函数避免依赖变化
+  const getCachedMembersRef = useRef(getCachedMembers)
+  getCachedMembersRef.current = getCachedMembers
+  const fetchGroupMembersRef = useRef(fetchGroupMembers)
+  fetchGroupMembersRef.current = fetchGroupMembers
+  const isLoadingRef = useRef(false)
 
-  // 加载群成员
+  // 加载群成员 - 只依赖 groupCode
   useEffect(() => {
     const targetGroupCode = groupCode
     
-    // 先检查缓存（同步）
-    const cached = getCachedMembers(targetGroupCode)
-    if (cached) {
-      setMembers(cached)
-      setLoading(false)
-      setError(null)
+    // 检查是否首次进入该聊天
+    const isFirstVisit = !hasVisitedChat(2, targetGroupCode)
+    
+    console.log('[GroupMemberPanel] useEffect triggered:', { groupCode: targetGroupCode, isLoading: isLoadingRef.current, isFirstVisit })
+    
+    // 先检查缓存（同步）- 非首次访问时使用缓存
+    if (!isFirstVisit) {
+      const cached = getCachedMembersRef.current(targetGroupCode)
+      if (cached) {
+        console.log('[GroupMemberPanel] Cache hit:', cached.length, 'members')
+        setMembers(cached)
+        setLoading(false)
+        setError(null)
+        return
+      }
+    }
+    
+    // 防止重复加载
+    if (isLoadingRef.current) {
+      console.log('[GroupMemberPanel] Already loading, skip')
       return
     }
     
-    // 没有缓存，需要加载
+    // 需要加载
+    console.log('[GroupMemberPanel] Fetching from API, isFirstVisit:', isFirstVisit)
+    isLoadingRef.current = true
     setLoading(true)
     setError(null)
     setMembers([])
     
-    fetchGroupMembers(targetGroupCode)
+    fetchGroupMembersRef.current(targetGroupCode, isFirstVisit)
       .then(data => {
+        console.log('[GroupMemberPanel] API success:', data.length, 'members, currentGroupCode:', currentGroupCodeRef.current)
         if (currentGroupCodeRef.current === targetGroupCode) {
           setMembers(data)
           setLoading(false)
         }
       })
       .catch((e: any) => {
+        console.log('[GroupMemberPanel] API error:', e.message)
         if (currentGroupCodeRef.current === targetGroupCode) {
           setError(e.message || '加载群成员失败')
           showToast('加载群成员失败', 'error')
           setLoading(false)
         }
       })
-  }, [groupCode, getCachedMembers, fetchGroupMembers])
+      .finally(() => {
+        if (currentGroupCodeRef.current === targetGroupCode) {
+          isLoadingRef.current = false
+        }
+      })
+    
+    // 清理函数：切换群时重置加载状态
+    return () => {
+      console.log('[GroupMemberPanel] Cleanup, reset isLoading')
+      isLoadingRef.current = false
+    }
+  }, [groupCode])  // 只依赖 groupCode
 
   const filteredMembers = useMemo(() => filterMembers(members, searchQuery), [members, searchQuery])
 

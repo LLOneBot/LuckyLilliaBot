@@ -163,13 +163,21 @@ const WebQQPage: React.FC = () => {
       },
       (error) => {
         console.error('SSE 连接错误:', error)
+      },
+      () => {
+        // SSE 重连成功回调
+        console.log('[WebQQ] SSE 重连成功，重置已访问聊天标志')
+        // 重置已访问聊天记录，这样下次进入聊天会重新拉取历史消息
+        resetVisitedChats()
+        // 刷新联系人列表
+        loadContacts()
       }
     )
 
     return () => {
       eventSource.close()
     }
-  }, [incrementUnreadCount, updateRecentChat, appendCachedMessage])
+  }, [incrementUnreadCount, updateRecentChat, loadContacts])
 
   const handleSelectChat = useCallback((session: ChatSession) => {
     // 切换聊天时清空待处理消息队列
@@ -299,24 +307,13 @@ const WebQQPage: React.FC = () => {
 
       {/* 群成员面板 - 桌面端侧边栏，移动端全屏覆盖 */}
       {showMemberPanel && currentChat?.chatType === 2 && (
-        <>
-          {/* 移动端：全屏覆盖，轻微透明 + 毛玻璃效果 */}
-          <div className="md:hidden fixed inset-0 z-50 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-xl">
-            <GroupMemberPanel 
-              groupCode={currentChat.peerId} 
-              onClose={() => setShowMemberPanel(false)} 
-              onAtMember={handleAtMember}
-            />
-          </div>
-          {/* 桌面端：侧边栏 */}
-          <div className="hidden md:block w-64 border-l border-theme-divider flex-shrink-0">
-            <GroupMemberPanel 
-              groupCode={currentChat.peerId} 
-              onClose={() => setShowMemberPanel(false)} 
-              onAtMember={handleAtMember}
-            />
-          </div>
-        </>
+        <div className="fixed inset-0 z-50 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-xl md:static md:inset-auto md:z-auto md:bg-transparent md:backdrop-blur-none md:w-64 md:border-l md:border-theme-divider md:flex-shrink-0">
+          <GroupMemberPanel 
+            groupCode={currentChat.peerId} 
+            onClose={() => setShowMemberPanel(false)} 
+            onAtMember={handleAtMember}
+          />
+        </div>
       )}
     </div>
   )

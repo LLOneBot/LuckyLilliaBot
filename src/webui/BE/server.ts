@@ -418,10 +418,11 @@ export class WebUIServer extends Service {
     // 获取消息历史 - 返回原始 RawMessage 数据
     this.app.get('/api/webqq/messages', async (req, res) => {
       try {
-        const { chatType, peerId, beforeMsgSeq, limit = '20' } = req.query as {
+        const { chatType, peerId, beforeMsgSeq, afterMsgSeq, limit = '20' } = req.query as {
           chatType: string
           peerId: string
           beforeMsgSeq?: string
+          afterMsgSeq?: string
           limit?: string
         }
 
@@ -456,12 +457,18 @@ export class WebUIServer extends Service {
           guildId: ''
         }
 
-        // 初次加载使用 getAioFirstViewLatestMsgs，加载更多使用 getMsgsBySeqAndCount
         let result
-        if (!beforeMsgSeq || beforeMsgSeq === '0') {
-          result = await this.ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, parseInt(limit))
-        } else {
+        if (afterMsgSeq) {
+          // 增量加载：获取 afterMsgSeq 之后的消息（更新的消息）
+          // queryOrder=false 表示向后查询（更新的消息）
+          result = await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, afterMsgSeq, parseInt(limit), false, true)
+        } else if (beforeMsgSeq && beforeMsgSeq !== '0') {
+          // 加载更多：获取 beforeMsgSeq 之前的消息（更早的消息）
+          // queryOrder=true 表示向前查询（更早的消息）
           result = await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, beforeMsgSeq, parseInt(limit), true, true)
+        } else {
+          // 初次加载：获取最新消息
+          result = await this.ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, parseInt(limit))
         }
 
         const messages = result?.msgList || []
