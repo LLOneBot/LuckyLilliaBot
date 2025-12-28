@@ -116,7 +116,8 @@ const LogViewer: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="card p-4">
-        <div className="flex items-center justify-between">
+        {/* 桌面端布局 - 保持原样 */}
+        <div className="hidden md:flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">
               <Terminal size={20} className="text-white" />
@@ -144,6 +145,42 @@ const LogViewer: React.FC = () => {
             <button onClick={() => setAutoScroll(!autoScroll)} className={`p-2 rounded-lg transition-all ${autoScroll ? 'gradient-primary text-white shadow-md' : 'bg-theme-input text-theme-secondary hover:bg-theme-item-hover'}`} title={autoScroll ? '自动滚动已开启' : '自动滚动已关闭'}><ArrowDown size={18} /></button>
             <button onClick={isPaused ? handleResume : () => setIsPaused(true)} className={`p-2 rounded-lg transition-all ${isPaused ? 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-md' : 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md'}`} title={isPaused ? '继续' : '暂停'}>{isPaused ? <Play size={18} /> : <Pause size={18} />}</button>
             <button onClick={handleClear} className="p-2 bg-gradient-to-br from-red-500 to-pink-500 text-white rounded-lg shadow-md hover:shadow-lg transition-all" title="清空日志"><Trash2 size={18} /></button>
+          </div>
+        </div>
+        {/* 移动端布局 */}
+        <div className="md:hidden space-y-3">
+          {/* 标题行 */}
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md flex-shrink-0">
+              <Terminal size={20} className="text-white" />
+            </div>
+            <div className="min-w-0">
+              <h3 className="text-base font-semibold text-theme">实时日志</h3>
+              <div className="flex items-center gap-2 text-xs">
+                <span className={`flex items-center gap-1 px-2 py-0.5 rounded-full flex-shrink-0 ${connected ? 'bg-green-100 dark:bg-green-900/50 text-green-600 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/50 text-red-600 dark:text-red-400'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+                  {connected ? '已连接' : '未连接'}
+                </span>
+                <span className="text-theme-muted truncate">{isPaused ? `已暂停 (${pausedLogsRef.current.length} 条待显示)` : `${logs.length} 条日志`}</span>
+              </div>
+            </div>
+          </div>
+          {/* 搜索框 */}
+          <input type="text" placeholder="搜索日志..." value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full px-3 py-2 text-sm bg-theme-input border border-theme-input rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-theme placeholder:text-theme-hint" />
+          {/* 筛选和操作按钮 */}
+          <div className="flex items-center justify-between">
+            <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-neutral-600">
+              {[{ value: 'all', label: '全部' }, { value: 'info', label: 'Info' }, { value: 'warn', label: 'Warn' }, { value: 'error', label: 'Error' }].map((item) => (
+                <button key={item.value} onClick={() => setLevelFilter(item.value)} className={`px-2 py-1.5 text-xs font-medium transition-all ${levelFilter === item.value ? 'gradient-primary-br text-white' : 'bg-theme-input text-theme-secondary hover:bg-theme-item-hover'}`}>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex items-center gap-1">
+              <button onClick={() => setAutoScroll(!autoScroll)} className={`p-1.5 rounded-lg transition-all ${autoScroll ? 'gradient-primary text-white shadow-md' : 'bg-theme-input text-theme-secondary hover:bg-theme-item-hover'}`} title={autoScroll ? '自动滚动已开启' : '自动滚动已关闭'}><ArrowDown size={16} /></button>
+              <button onClick={isPaused ? handleResume : () => setIsPaused(true)} className={`p-1.5 rounded-lg transition-all ${isPaused ? 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-md' : 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md'}`} title={isPaused ? '继续' : '暂停'}>{isPaused ? <Play size={16} /> : <Pause size={16} />}</button>
+              <button onClick={handleClear} className="p-1.5 bg-gradient-to-br from-red-500 to-pink-500 text-white rounded-lg shadow-md hover:shadow-lg transition-all" title="清空日志"><Trash2 size={16} /></button>
+            </div>
           </div>
         </div>
       </div>
