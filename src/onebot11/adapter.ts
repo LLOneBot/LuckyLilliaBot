@@ -504,65 +504,69 @@ class OneBot11Adapter extends Service {
     })
 
     this.ctx.app.pmhq.addResListener(async data => {
-      if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
-        const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
-        if (!pushMsg.message.body) {
-          return null
-        }
-        const { msgType, subType } = pushMsg.message?.contentHead ?? {}
-        if (msgType === 732 && subType === 16) {
-          const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
-          if (notify.field13 === 35) {
-            this.ctx.logger.info('群表情回应', notify.reaction.data.body)
-            const info = notify.reaction.data.body.info
-            const target = notify.reaction.data.body.target
-            const userId = Number(await this.ctx.ntUserApi.getUinByUid(info.operatorUid))
-            const peer: Peer = {
-              chatType: 2,
-              peerUid: String(notify.groupCode),
-              guildId: ''
-            }
-            const targetMsg = await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, String(target.sequence), 1, true, true)
-            if (targetMsg.msgList.length === 0) {
-              this.ctx.logger.error('解析群表情回应失败：未找到消息')
-              return
-            }
-            const messageId = this.ctx.store.createMsgShortId(targetMsg.msgList[0])
-            const event = new OB11GroupMsgEmojiLikeEvent(
-              notify.groupCode,
-              userId,
-              messageId,
-              [{
-                emoji_id: info.code,
-                count: 1,
-              }],
-              info.type === 1
-            )
-            this.dispatch(event)
+      try {
+        if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
+          const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
+          if (!pushMsg.message.body) {
+            return null
           }
-        } else if (msgType === 732 && subType === 21) {
-          const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
-          if (notify.type === 27) {
-            this.ctx.logger.info('收到群精华消息通知', notify)
-            const peer = {
-              chatType: ChatType.Group,
-              peerUid: notify.groupCode.toString(),
-              guildId: ''
+          const { msgType, subType } = pushMsg.message?.contentHead ?? {}
+          if (msgType === 732 && subType === 16) {
+            const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
+            if (notify.field13 === 35) {
+              this.ctx.logger.info('群表情回应', notify.reaction.data.body)
+              const info = notify.reaction.data.body.info
+              const target = notify.reaction.data.body.target
+              const userId = Number(await this.ctx.ntUserApi.getUinByUid(info.operatorUid))
+              const peer: Peer = {
+                chatType: 2,
+                peerUid: String(notify.groupCode),
+                guildId: ''
+              }
+              const targetMsg = await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, String(target.sequence), 1, true, true)
+              if (targetMsg.msgList.length === 0) {
+                this.ctx.logger.error('解析群表情回应失败：未找到消息')
+                return
+              }
+              const messageId = this.ctx.store.createMsgShortId(targetMsg.msgList[0])
+              const event = new OB11GroupMsgEmojiLikeEvent(
+                notify.groupCode,
+                userId,
+                messageId,
+                [{
+                  emoji_id: info.code,
+                  count: 1,
+                }],
+                info.type === 1
+              )
+              this.dispatch(event)
             }
-            const msg = await this.ctx.ntMsgApi.queryFirstMsgBySeq(peer, notify.essenceMessage.msgSequence.toString())
-            if (msg.msgList.length === 0) {
-              return
+          } else if (msgType === 732 && subType === 21) {
+            const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
+            if (notify.type === 27) {
+              this.ctx.logger.info('收到群精华消息通知', notify)
+              const peer = {
+                chatType: ChatType.Group,
+                peerUid: notify.groupCode.toString(),
+                guildId: ''
+              }
+              const msg = await this.ctx.ntMsgApi.queryFirstMsgBySeq(peer, notify.essenceMessage.msgSequence.toString())
+              if (msg.msgList.length === 0) {
+                return
+              }
+              const event = new GroupEssenceEvent(
+                notify.groupCode,
+                this.ctx.store.createMsgShortId(msg.msgList[0]),
+                notify.essenceMessage.memberUin,
+                notify.essenceMessage.operatorUin,
+                notify.essenceMessage.setFlag === 1 ? 'add' : 'delete'
+              )
+              this.dispatch(event)
             }
-            const event = new GroupEssenceEvent(
-              notify.groupCode,
-              this.ctx.store.createMsgShortId(msg.msgList[0]),
-              notify.essenceMessage.memberUin,
-              notify.essenceMessage.operatorUin,
-              notify.essenceMessage.setFlag === 1 ? 'add' : 'delete'
-            )
-            this.dispatch(event)
           }
         }
+      } catch (e) {
+        this.ctx.logger.error('handling incoming olpush events', e)
       }
     })
   }
