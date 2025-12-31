@@ -33,19 +33,24 @@ import { resolveMilkyUri } from '@/milky/common/download'
 import { unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
+import { sleep } from '@/common/utils'
 
 const GetLoginInfo = defineApi(
   'get_login_info',
   z.object({}),
   GetLoginInfoOutput,
   async (ctx) => {
-    let nickname = selfInfo.nick
-    try {
-      nickname = await ctx.ntUserApi.getSelfNick(true)
-    } catch { }
+    for (let i = 0; i < 5; i++) {
+      try {
+        await ctx.ntUserApi.getSelfNick(true)
+        break
+      } catch {
+        await sleep(500)
+      }
+    }
     return Ok({
       uin: +selfInfo.uin,
-      nickname,
+      nickname: selfInfo.nick,
     })
   },
 )
