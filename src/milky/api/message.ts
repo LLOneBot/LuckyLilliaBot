@@ -338,27 +338,41 @@ const GetHistoryMessages = defineApi(
         if (!msg.senderUid) continue
         const friend = await ctx.ntUserApi.getUserSimpleInfo(msg.senderUid)
         const category = await ctx.ntFriendApi.getCategoryById(friend.baseInfo.categoryId)
-        transformedMessages.push(await transformIncomingPrivateMessage(ctx, friend, category, msg))
+        const message = await transformIncomingPrivateMessage(ctx, friend, category, msg)
+        if (message.segments.length === 0) continue
+        transformedMessages.push(message)
       }
     } else if (payload.message_scene === 'group') {
       const group = await ctx.ntGroupApi.getGroupAllInfo(payload.peer_id.toString())
       for (const msg of msgList) {
         if (!msg.senderUid) continue
         const member = await ctx.ntGroupApi.getGroupMember(msg.peerUid, msg.senderUid)
-        transformedMessages.push(await transformIncomingGroupMessage(ctx, group, member, msg))
+        const message = await transformIncomingGroupMessage(ctx, group, member, msg)
+        if (message.segments.length === 0) continue
+        transformedMessages.push(message)
       }
     } else {
       for (const msg of msgList) {
         if (!msg.senderUid) continue
         const { tmpChatInfo } = await ctx.ntMsgApi.getTempChatInfo(100, msg.peerUid)
         const group = await ctx.ntGroupApi.getGroupAllInfo(tmpChatInfo.groupCode)
-        transformedMessages.push(await transformIncomingTempMessage(ctx, group, msg))
+        const message = await transformIncomingTempMessage(ctx, group, msg)
+        if (message.segments.length === 0) continue
+        transformedMessages.push(message)
+      }
+    }
+
+    let nextMessageSeq = undefined
+    if (msgList.length > 0) {
+      const seq = +msgList[0].msgSeq - 1
+      if (seq >= 0) {
+        nextMessageSeq = seq
       }
     }
 
     return Ok({
       messages: transformedMessages,
-      next_message_seq: msgList.length > 0 ? +msgList.at(-1)!.msgSeq - 1 : undefined,
+      next_message_seq: nextMessageSeq,
     })
   }
 )
