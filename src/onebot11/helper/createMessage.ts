@@ -341,7 +341,7 @@ export async function handleOb11RichMedia(ctx: Context, segment: OB11MessageFile
 
   if (!res.success) {
     ctx.logger.error(res.errMsg)
-    throw Error(res.errMsg)
+    throw new Error(res.errMsg)
   }
 
   if (!res.isLocal) {

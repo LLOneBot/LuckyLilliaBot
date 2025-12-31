@@ -129,9 +129,10 @@ export async function uri2local(ctx: Context, uri: string, needExt?: boolean): P
 
   if (type === FileUriType.FileURL) {
     const filePath = fileURLToPath(uri)
+    if (!fs.existsSync(filePath)) {
+      return { success: false, errMsg: '路径不存在', fileName: '', path: '', isLocal: false }
+    }
     const fileName = path.basename(filePath)
-    // console.log('fileURLToPath', filePath)
-    // console.log('fileName', fileName)
     return { success: true, errMsg: '', fileName, path: filePath, isLocal: true }
   }
 
@@ -239,6 +240,6 @@ export async function getFileType(filePath: string) {
   }
 }
 
-export async function getImageSize(path: string){
+export async function getImageSize(path: string) {
   return await imageSizeFromFile(path)
 }
