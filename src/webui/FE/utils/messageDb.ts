@@ -163,6 +163,37 @@ export async function updateCachedMessageEmojiReaction(
   }
 }
 
+// 标记消息为已撤回
+export async function markCachedMessageAsRecalled(
+  chatType: number, 
+  peerId: string, 
+  msgId: string,
+  msgSeq: string
+): Promise<boolean> {
+  try {
+    const existing = await getCachedMessages(chatType, peerId)
+    if (!existing) return false
+    
+    let found = false
+    const messages = existing.map(m => {
+      // 优先用 msgId 匹配，如果没有则用 msgSeq
+      if (m.msgId === msgId || (msgSeq && m.msgSeq === msgSeq)) {
+        found = true
+        return { ...m, recallTime: String(Math.floor(Date.now() / 1000)) }
+      }
+      return m
+    })
+    
+    if (found) {
+      await setCachedMessages(chatType, peerId, messages)
+    }
+    return found
+  } catch (e) {
+    console.error('Failed to mark message as recalled:', e)
+    return false
+  }
+}
+
 // 清除所有缓存
 export async function clearAllMessages(): Promise<void> {
   try {

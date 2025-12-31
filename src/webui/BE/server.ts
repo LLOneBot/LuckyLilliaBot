@@ -1112,6 +1112,37 @@ export class WebUIServer extends Service {
       })
     })
     
+    // 监听消息撤回事件
+    this.ctx.on('nt/message-deleted', async (message: RawMessage) => {
+      if (this.sseClients.size === 0) return
+      
+      // 从 grayTipElement 中提取撤回信息
+      const revokeElement = message.elements[0]?.grayTipElement?.revokeElement
+      
+      // 补充 peerUin（私聊时可能为空或为 0）
+      if (message.chatType === ChatType.C2C && (!message.peerUin || message.peerUin === '0') && message.peerUid) {
+        const uin = await this.ctx.ntUserApi.getUinByUid(message.peerUid)
+        if (uin) {
+          message.peerUin = uin
+        }
+      }
+      
+      this.broadcastMessage('message', {
+        type: 'message-deleted',
+        data: {
+          msgId: message.msgId,
+          msgSeq: message.msgSeq,
+          chatType: message.chatType,
+          peerUid: message.peerUid,
+          peerUin: message.peerUin,
+          operatorUid: revokeElement?.operatorUid,
+          operatorNick: revokeElement?.operatorNick || revokeElement?.operatorMemRemark || revokeElement?.operatorRemark,
+          isSelfOperate: revokeElement?.isSelfOperate,
+          wording: revokeElement?.wording
+        }
+      })
+    })
+    
     // 监听表情回应事件
     pmhq.addResListener(async data => {
       if (this.sseClients.size === 0) return

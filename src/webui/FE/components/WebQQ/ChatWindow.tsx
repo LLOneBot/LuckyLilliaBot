@@ -72,6 +72,7 @@ interface ChatWindowProps {
   onShowMembers?: () => void
   onNewMessageCallback?: (callback: ((msg: RawMessage) => void) | null) => void
   onEmojiReactionCallback?: (callback: ((data: EmojiReactionData) => void) | null) => void
+  onMessageRecalledCallback?: (callback: ((data: { msgId: string; msgSeq: string }) => void) | null) => void
   appendInputText?: string
   onAppendInputTextConsumed?: () => void
   onBack?: () => void
@@ -80,7 +81,7 @@ interface ChatWindowProps {
 
 type MessageItem = { type: 'raw'; data: RawMessage } | { type: 'temp'; data: TempMessage } | { type: 'system'; data: SystemTip }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMessageCallback, onEmojiReactionCallback, appendInputText, onAppendInputTextConsumed, onBack, showBackButton }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMessageCallback, onEmojiReactionCallback, onMessageRecalledCallback, appendInputText, onAppendInputTextConsumed, onBack, showBackButton }) => {
   const [messages, setMessages] = useState<RawMessage[]>([])
   const [tempMessages, setTempMessages] = useState<TempMessage[]>([])
   const [systemTips, setSystemTips] = useState<SystemTip[]>([])
@@ -370,6 +371,23 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     }
     return () => { if (onEmojiReactionCallback) onEmojiReactionCallback(null) }
   }, [onEmojiReactionCallback])
+
+  // 处理消息撤回事件
+  useEffect(() => {
+    if (onMessageRecalledCallback) {
+      const handleMessageRecalled = (data: { msgId: string; msgSeq: string }) => {
+        // 标记消息为已撤回（设置 recallTime）
+        setMessages(prev => prev.map(m => {
+          if (m.msgId === data.msgId || (data.msgSeq && m.msgSeq === data.msgSeq)) {
+            return { ...m, recallTime: String(Math.floor(Date.now() / 1000)) }
+          }
+          return m
+        }))
+      }
+      onMessageRecalledCallback(handleMessageRecalled)
+    }
+    return () => { if (onMessageRecalledCallback) onMessageRecalledCallback(null) }
+  }, [onMessageRecalledCallback])
 
   const getSessionKey = (chatType: number | string, peerId: string) => `${chatType}_${peerId}`
 

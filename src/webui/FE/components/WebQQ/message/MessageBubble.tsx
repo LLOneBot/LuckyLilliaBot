@@ -228,6 +228,9 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
   
   if (!message.elements || !Array.isArray(message.elements)) return null
 
+  // 检查消息是否已撤回
+  const isRecalled = message.recallTime && message.recallTime !== '0'
+
   const replyElement = message.elements.find(el => el.replyElement)?.replyElement
   const otherElements = message.elements.filter(el => !el.replyElement)
   
@@ -314,15 +317,17 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
           )}
         </div>
         {isPttOnly ? (
-          <div onContextMenu={handleBubbleContextMenu}>
+          <div onContextMenu={handleBubbleContextMenu} className={isRecalled ? 'opacity-50' : ''}>
             {otherElements.map((element, index) => <MessageElementRenderer key={index} element={element} message={message} />)}
+            {isRecalled && <div className="text-xs text-theme-muted italic mt-1">已撤回</div>}
           </div>
         ) : (
-          <div 
-            className={`rounded-2xl px-4 py-2 min-w-[80px] max-w-full break-words overflow-hidden bg-theme-item text-theme shadow-sm ${isSelf ? 'rounded-tr-sm' : 'rounded-tl-sm'}`}
-            onContextMenu={handleBubbleContextMenu}
-          >
-            {replyElement && (
+          <div className="relative">
+            <div 
+              className={`rounded-2xl px-4 py-2 min-w-[80px] max-w-full break-words overflow-hidden bg-theme-item text-theme shadow-sm ${isSelf ? 'rounded-tr-sm' : 'rounded-tl-sm'} ${isRecalled ? 'opacity-50' : ''}`}
+              onContextMenu={handleBubbleContextMenu}
+            >
+              {replyElement && (
               <div 
                 className="text-xs mb-2 pb-2 border-b border-theme-divider cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={handleReplyClick}
@@ -348,6 +353,10 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
               </div>
             )}
             {otherElements.map((element, index) => <MessageElementRenderer key={index} element={element} message={message} />)}
+            </div>
+            {isRecalled && (
+              <div className="text-xs text-theme-muted italic mt-1">已撤回</div>
+            )}
           </div>
         )}
         {/* 表情回应显示 */}

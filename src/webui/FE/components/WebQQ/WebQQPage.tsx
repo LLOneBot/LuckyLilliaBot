@@ -5,7 +5,7 @@ import GroupMemberPanel from './contact/GroupMemberPanel'
 import type { ChatSession, FriendItem, GroupItem, RecentChatItem, RawMessage } from '../../types/webqq'
 import { createEventSource, getLoginInfo } from '../../utils/webqqApi'
 import { useWebQQStore, resetVisitedChats } from '../../stores/webqqStore'
-import { appendCachedMessage, updateCachedMessageEmojiReaction } from '../../utils/messageDb'
+import { appendCachedMessage, updateCachedMessageEmojiReaction, markCachedMessageAsRecalled } from '../../utils/messageDb'
 import { showToast } from '../common'
 import { Loader2 } from 'lucide-react'
 
@@ -41,6 +41,7 @@ const WebQQPage: React.FC = () => {
   // 使用 ref 直接存储回调，避免 state 更新的异步问题
   const onNewMessageRef = React.useRef<((msg: RawMessage) => void) | null>(null)
   const onEmojiReactionRef = React.useRef<((data: { groupCode: string; msgSeq: string; emojiId: string; userId: string; userName: string; isAdd: boolean }) => void) | null>(null)
+  const onMessageRecalledRef = React.useRef<((data: { msgId: string; msgSeq: string }) => void) | null>(null)
   // 消息队列：缓存在回调未就绪时收到的消息
   const pendingMessagesRef = React.useRef<RawMessage[]>([])
   
@@ -116,6 +117,11 @@ const WebQQPage: React.FC = () => {
     onEmojiReactionRef.current = callback
   }, [])
   
+  // 消息撤回回调设置函数
+  const handleSetMessageRecalledCallback = React.useCallback((callback: ((data: { msgId: string; msgSeq: string }) => void) | null) => {
+    onMessageRecalledRef.current = callback
+  }, [])
+  
   useEffect(() => {
     const eventSource = createEventSource(
       (data) => {
@@ -177,6 +183,21 @@ const WebQQPage: React.FC = () => {
           if (chat && chat.chatType === 2 && chat.peerId === groupCode) {
             if (onEmojiReactionRef.current) {
               onEmojiReactionRef.current({ groupCode, msgSeq, emojiId, userId, userName, isAdd })
+            }
+          }
+        } else if (data.type === 'message-deleted') {
+          // 处理消息撤回事件
+          const { msgId, msgSeq, chatType, peerUid, peerUin } = data.data
+          const peerId = peerUin || peerUid
+          const chat = currentChatRef.current
+          
+          // 更新本地缓存
+          markCachedMessageAsRecalled(chatType, peerId, msgId, msgSeq)
+          
+          // 只有当前聊天匹配时才更新 UI
+          if (chat && chat.chatType === chatType && chat.peerId === peerId) {
+            if (onMessageRecalledRef.current) {
+              onMessageRecalledRef.current({ msgId, msgSeq })
             }
           }
         }
@@ -319,6 +340,7 @@ const WebQQPage: React.FC = () => {
           onShowMembers={() => setShowMemberPanel(!showMemberPanel)}
           onNewMessageCallback={handleSetNewMessageCallback}
           onEmojiReactionCallback={handleSetEmojiReactionCallback}
+          onMessageRecalledCallback={handleSetMessageRecalledCallback}
           appendInputText={appendInputText}
           onAppendInputTextConsumed={handleAppendInputTextConsumed}
           onBack={handleBackToContacts}
