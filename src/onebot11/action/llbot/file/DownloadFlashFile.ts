@@ -1,5 +1,5 @@
 import { ActionName } from '@/onebot11/action/types'
-import { GetFlashFileInfoBase, GetFlashFilePayload } from '@/onebot11/action/llonebot/file/GetFlashFileInfo'
+import { GetFlashFileInfoBase, GetFlashFilePayload } from '@/onebot11/action/llbot/file/GetFlashFileInfo'
 
 
 export class DownloadFlashFile extends GetFlashFileInfoBase<null> {

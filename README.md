@@ -12,7 +12,7 @@
 
 ## Stargazers over time
 
-[![Stargazers over time](https://starchart.cc/LLOneBot/LLOneBot.svg?variant=adaptive)](https://starchart.cc/LLOneBot/LLOneBot)
+[![Stargazers over time](https://starchart.cc/LLOneBot/LuckyLilliaBot.svg?variant=adaptive)](https://starchart.cc/LLOneBot/LuckyLilliaBot)
 
 TG Group：<https://t.me/+nLZEnpne-pQ1OWFl>
 
