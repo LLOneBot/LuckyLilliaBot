@@ -857,33 +857,40 @@ export class WebUIServer extends Service {
         }
 
         // URL 解码
-        let url = decodeURIComponent(urlParam)
-        this.ctx.logger.info('图片代理请求:', url)
+        const decodedUrl = decodeURIComponent(urlParam)
+        this.ctx.logger.info('图片代理请求:', decodedUrl)
 
         // 验证 URL 是否是 QQ 图片服务器
         let parsedUrl: URL
         try {
-          parsedUrl = new URL(url)
+          parsedUrl = new URL(decodedUrl)
         } catch (e) {
           res.status(400).json({ success: false, message: '无效的URL' })
           return
         }
 
+        // 只允许 http/https 协议，防止 SSRF 到其他协议
+        if (parsedUrl.protocol !== 'http:' && parsedUrl.protocol !== 'https:') {
+          res.status(400).json({ success: false, message: '不支持的URL协议' })
+          return
+        }
+
         const allowedHosts = ['gchat.qpic.cn', 'multimedia.nt.qq.com.cn', 'c2cpicdw.qpic.cn', 'p.qlogo.cn', 'q1.qlogo.cn']
-        if (!allowedHosts.some(host => parsedUrl.hostname.includes(host))) {
+        if (!allowedHosts.some(host => parsedUrl.hostname === host)) {
           res.status(403).json({ success: false, message: '不允许代理此域名的图片' })
           return
         }
 
         // 如果 URL 没有 rkey，尝试添加
-        if (!url.includes('rkey=') && (parsedUrl.hostname.includes('multimedia.nt.qq.com.cn') || parsedUrl.hostname.includes('gchat.qpic.cn'))) {
+        if (!parsedUrl.searchParams.has('rkey') && (parsedUrl.hostname === 'multimedia.nt.qq.com.cn' || parsedUrl.hostname === 'gchat.qpic.cn')) {
           try {
             const appid = parsedUrl.searchParams.get('appid')
             if (appid && ['1406', '1407'].includes(appid)) {
               const rkeyData = await this.ctx.ntFileApi.rkeyManager.getRkey()
               const rkey = appid === '1406' ? rkeyData.private_rkey : rkeyData.group_rkey
               if (rkey) {
-                url = url + rkey
+                // 通过 URL 接口安全地设置 rkey 参数
+                parsedUrl.searchParams.set('rkey', rkey)
                 this.ctx.logger.info('已添加 rkey 到图片 URL')
               }
             }
@@ -892,7 +899,9 @@ export class WebUIServer extends Service {
           }
         }
 
-        const response = await fetch(url, {
+        const finalUrl = parsedUrl.toString()
+
+        const response = await fetch(finalUrl, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
