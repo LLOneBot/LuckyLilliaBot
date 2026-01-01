@@ -15,7 +15,7 @@ V7.4.0
 * OneBot 修复老版本 QQ 无法使用闪传相关接口
 * OneBot 修复 Docker 环境下可能无法发送合并转发图片
 * OneBot 修复获取合并转发内视频网址可能失败
-* Milky 修复 API `get_history_messages` 可能获取到空消息
+* Milky 修复 API `get_history_messages` 可能获取到被撤回的消息
 * Milky 修复 API `get_history_messages` 返回的 `next_message_seq` 不正确
 
 =================
