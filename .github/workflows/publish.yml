@@ -126,6 +126,14 @@ jobs:
           path: LLBot-Desktop-win-x64.zip
           retention-days: 30
 
+      - name: Upload LLBot-CLI-win-x64.zip
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: LLBot-CLI-win-x64
+          path: LLBot-CLI-win-x64.zip
+          retention-days: 30
+
       - name: Upload LLBot-CLI-linux-x64.zip
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
