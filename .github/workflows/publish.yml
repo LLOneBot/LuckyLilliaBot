@@ -43,17 +43,21 @@ jobs:
         run: |
           mkdir llbot-cli-win-x64
           cd llbot-cli-win-x64
-          mkdir llbot
+          mkdir -p bin/llbot
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
-          cp -r ../dist/* ./llbot/
+          cp -r ../dist/* .bin/llbot/
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-win-x64.zip
           unzip pmhq-win-x64.zip
+          mkdir -p bin/pmhq
           rm pmhq-win-x64.zip
-          mv pmhq-win-x64.exe llbot.exe
-          wget https://github.com/LLOneBot/exe/releases/latest/download/node.exe -O llbot/node.exe
-          wget https://github.com/LLOneBot/exe/releases/latest/download/ffmpeg.exe -O llbot/ffmpeg.exe
-          wget https://github.com/LLOneBot/exe/releases/latest/download/ffprobe.exe -O llbot/ffprobe.exe
+          mv pmhq-win-x64.exe bin/pmhq/pmhq.exe
+          mv pmhq.dll bin/pmhq/
+          wget https://github.com/LLOneBot/LLBot.CLI/releases/latest/download/llbot-win-x64.exe
+          mv llbot-win-x64.exe llbot.exe
+          wget https://github.com/LLOneBot/exe/releases/latest/download/node.exe -O bin/llbot/node.exe
+          wget https://github.com/LLOneBot/exe/releases/latest/download/ffmpeg.exe -O bin/llbot/ffmpeg.exe
+          wget https://github.com/LLOneBot/exe/releases/latest/download/ffprobe.exe -O bin/llbot/ffprobe.exe
           zip -r ../LLBot-CLI-win-x64.zip ./*
 
       - name: Compress for Windows Desktop
