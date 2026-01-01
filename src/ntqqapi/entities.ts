@@ -115,7 +115,7 @@ export namespace SendElement {
     return element
   }
 
-  export async function video(ctx: Context, filePath: string, diyThumbPath = ''): Promise<SendVideoElement> {
+  export async function video(ctx: Context, filePath: string, diyThumbPath?: string): Promise<SendVideoElement> {
     await access(filePath)
     const { fileName, path, fileSize, md5 } = await ctx.ntFileApi.uploadFile(filePath, ElementType.Video)
 
@@ -144,47 +144,45 @@ export namespace SendElement {
     const createThumb = new Promise<string>((resolve, reject) => {
       const thumbFileName = `${md5}_0.png`
       const thumbPath = pathLib.join(thumbDir, thumbFileName)
-      ctx.logger.info('开始生成视频缩略图', filePath)
-      let completed = false
-
-      function useDefaultThumb() {
-        if (completed) return
-        ctx.logger.info('获取视频封面失败，使用默认封面')
-        writeFile(thumbPath, defaultVideoThumb)
+      if (diyThumbPath) {
+        copyFile(diyThumbPath, thumbPath)
           .then(() => {
             resolve(thumbPath)
           })
           .catch(reject)
-      }
+      } else {
+        ctx.logger.info('开始生成视频缩略图', filePath)
+        let completed = false
 
-      setTimeout(useDefaultThumb, 5000)
-      ffmpeg(filePath)
-        .on('error', () => {
-          if (diyThumbPath) {
-            copyFile(diyThumbPath, thumbPath)
-              .then(() => {
-                completed = true
-                resolve(thumbPath)
-              })
-              .catch(reject)
-          } else {
+        function useDefaultThumb() {
+          if (completed) return
+          ctx.logger.info('获取视频封面失败，使用默认封面')
+          writeFile(thumbPath, defaultVideoThumb)
+            .then(() => {
+              resolve(thumbPath)
+            })
+            .catch(reject)
+        }
+
+        setTimeout(useDefaultThumb, 5000)
+        ffmpeg(filePath)
+          .on('error', () => {
             useDefaultThumb()
-          }
-        })
-        .screenshots({
-          timestamps: [0],
-          filename: thumbFileName,
-          folder: thumbDir,
-          size: videoInfo.width + 'x' + videoInfo.height,
-        })
-        .on('end', () => {
-          completed = true
-          resolve(thumbPath)
-        })
+          })
+          .screenshots({
+            timestamps: [0],
+            filename: thumbFileName,
+            folder: thumbDir,
+            size: videoInfo.width + 'x' + videoInfo.height,
+          })
+          .on('end', () => {
+            completed = true
+            resolve(thumbPath)
+          })
+      }
     })
     const thumbPath = new Map()
     const _thumbPath = await createThumb
-    ctx.logger.info('生成视频缩略图', _thumbPath)
     const thumbSize = (await stat(_thumbPath)).size
     thumbPath.set(0, _thumbPath)
     const thumbMd5 = await calculateFileMD5(_thumbPath)

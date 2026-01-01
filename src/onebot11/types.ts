@@ -219,7 +219,6 @@ export interface OB11MessagePoke {
 
 export interface OB11MessageFileBase {
   data: {
-    thumb?: string
     name?: string
     file: string
     url?: string
@@ -263,6 +262,8 @@ export interface OB11MessageFlashFile {
 export interface OB11MessageVideo extends OB11MessageFileBase {
   type: OB11MessageDataType.Video
   data: OB11MessageFileBase['data'] & {
+    cover?: string
+    thumb?: string //扩展
     path?: string //扩展
   }
 }
