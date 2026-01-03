@@ -38,8 +38,22 @@ interface SystemTip {
   timestamp: number
 }
 
+// 获取表情图片路径（根据 emojiId 判断类型）
+function getEmojiImagePath(emojiId: string): string {
+  const id = parseInt(emojiId)
+  // Unicode emoji 的码点通常大于 1000（QQ 表情 ID 一般在 0-500 范围内）
+  if (id > 1000) {
+    const codePoint = id.toString(16)
+    return `/face/emoji-${codePoint}.png`
+  }
+  return `/face/${emojiId}.png`
+}
+
 // 表情回应系统提示组件（类似戳一戳）
 const EmojiReactionTip: React.FC<{ tip: SystemTip; onScrollToMessage: (msgSeq: string) => void }> = ({ tip, onScrollToMessage }) => {
+  const imgSrc = getEmojiImagePath(tip.emojiId)
+  const emojiId = parseInt(tip.emojiId)
+  
   return (
     <div className="flex justify-center py-2">
       <span className="text-xs text-theme-hint bg-theme-item/50 px-3 py-1 rounded-full">
@@ -51,14 +65,20 @@ const EmojiReactionTip: React.FC<{ tip: SystemTip; onScrollToMessage: (msgSeq: s
         >消息</span>
         <span> </span>
         <img 
-          src={`/face/${tip.emojiId}.png`} 
+          src={imgSrc} 
           alt="emoji" 
           className="inline-block w-4 h-4 align-text-bottom"
           onError={(e) => {
             const img = e.target as HTMLImageElement
             if (!img.dataset.fallback) {
               img.dataset.fallback = '1'
-              img.src = `https://gxh.vip.qq.com/club/item/parcel/item/${tip.emojiId.slice(0, 2)}/${tip.emojiId}/100x100.png`
+              // 如果是 Unicode emoji，尝试显示字符
+              if (emojiId > 1000) {
+                img.style.display = 'none'
+                img.insertAdjacentHTML('afterend', `<span class="text-sm">${String.fromCodePoint(emojiId)}</span>`)
+              } else {
+                img.src = `https://gxh.vip.qq.com/club/item/parcel/item/${tip.emojiId.slice(0, 2)}/${tip.emojiId}/100x100.png`
+              }
             }
           }}
         />

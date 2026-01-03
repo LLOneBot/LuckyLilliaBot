@@ -1,8 +1,9 @@
 import React, { useState, useEffect, memo } from 'react'
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import type { RawMessage, GroupMemberItem } from '../../../types/webqq'
-import { formatMessageTime, getSelfUid, getSelfUin, getUserDisplayName } from '../../../utils/webqqApi'
+import { formatMessageTime, getSelfUid, getSelfUin, getUserDisplayName, ntCall } from '../../../utils/webqqApi'
 import { MessageElementRenderer, hasValidContent, isSystemTipMessage } from './MessageElements'
+import { showToast } from '../../common'
 
 // 消息右键菜单上下文
 export const MessageContextMenuContext = React.createContext<{
@@ -360,36 +361,79 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
           </div>
         )}
         {/* 表情回应显示 */}
-        {message.emojiLikesList && message.emojiLikesList.length > 0 && (
-          <div className={`flex flex-wrap gap-1 mt-1 ${isSelf ? 'justify-end' : 'justify-start'}`}>
-            {message.emojiLikesList.map((emoji, index) => (
-              <div 
-                key={`${emoji.emojiId}-${index}`}
-                className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs ${
-                  emoji.isClicked 
-                    ? 'bg-pink-100 dark:bg-pink-900/40 border border-pink-300 dark:border-pink-700' 
-                    : 'bg-theme-item border border-theme-divider'
-                }`}
-                title={`表情 ${emoji.emojiId}`}
-              >
-                <img 
-                  src={`/face/${emoji.emojiId}.png`} 
-                  alt={`表情${emoji.emojiId}`} 
-                  className="w-4 h-4"
-                  onError={(e) => {
-                    // 如果是标准 emoji（emojiType=2），显示 Unicode 字符
-                    if (emoji.emojiType === '2') {
-                      (e.target as HTMLImageElement).style.display = 'none'
-                    }
-                  }}
-                />
-                <span className="text-theme-secondary">{emoji.likesCnt}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <EmojiReactionList message={message} isSelf={isSelf} />
         <span className="text-xs text-theme-hint mt-1">{formatMessageTime(timestamp)}</span>
       </div>
+    </div>
+  )
+})
+
+// 获取表情图片路径
+function getEmojiImagePath(emojiId: string, emojiType: string): string {
+  // emojiType '1' 是 QQ 表情，直接用数字 ID
+  // emojiType '2' 是 Unicode emoji，需要转换为 emoji-{codepoint}.png
+  if (emojiType === '2') {
+    // emojiId 是 Unicode 码点（十进制），转换为十六进制
+    const codePoint = parseInt(emojiId).toString(16)
+    return `/face/emoji-${codePoint}.png`
+  }
+  return `/face/${emojiId}.png`
+}
+
+// 表情回应列表组件
+const EmojiReactionList = memo<{ message: RawMessage; isSelf: boolean }>(({ message, isSelf }) => {
+  const [loading, setLoading] = useState<string | null>(null)
+  
+  if (!message.emojiLikesList || message.emojiLikesList.length === 0) return null
+
+  const handleEmojiClick = async (emojiId: string, isClicked: boolean) => {
+    if (loading) return
+    setLoading(emojiId)
+    try {
+      const peer = { chatType: message.chatType, peerUid: message.peerUin, guildId: '' }
+      // isClicked 为 true 表示自己已贴过，点击取消；否则点击添加
+      await ntCall('ntMsgApi', 'setEmojiLike', [peer, message.msgSeq, emojiId, !isClicked])
+    } catch (e: any) {
+      showToast(e.message || '操作失败', 'error')
+    } finally {
+      setLoading(null)
+    }
+  }
+
+  return (
+    <div className={`flex flex-wrap gap-1 mt-1 ${isSelf ? 'justify-end' : 'justify-start'}`}>
+      {message.emojiLikesList.map((emoji, index) => {
+        const imgSrc = getEmojiImagePath(emoji.emojiId, emoji.emojiType)
+        return (
+          <button 
+            key={`${emoji.emojiId}-${index}`}
+            onClick={() => handleEmojiClick(emoji.emojiId, emoji.isClicked)}
+            disabled={loading === emoji.emojiId}
+            className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs transition-all cursor-pointer hover:scale-105 active:scale-95 ${
+              emoji.isClicked 
+                ? 'bg-pink-100 dark:bg-pink-900/40 border border-pink-300 dark:border-pink-700' 
+                : 'bg-theme-item border border-theme-divider hover:border-pink-300 dark:hover:border-pink-700'
+            } ${loading === emoji.emojiId ? 'opacity-50' : ''}`}
+            title={emoji.isClicked ? '点击取消' : '点击跟贴'}
+          >
+            <img 
+              src={imgSrc} 
+              alt={`表情${emoji.emojiId}`} 
+              className="w-4 h-4"
+              onError={(e) => {
+                // 图片加载失败时，尝试显示 Unicode emoji 字符
+                if (emoji.emojiType === '2') {
+                  const target = e.target as HTMLImageElement
+                  const char = String.fromCodePoint(parseInt(emoji.emojiId))
+                  target.style.display = 'none'
+                  target.insertAdjacentHTML('afterend', `<span class="text-sm">${char}</span>`)
+                }
+              }}
+            />
+            <span className="text-theme-secondary">{emoji.likesCnt}</span>
+          </button>
+        )
+      })}
     </div>
   )
 })

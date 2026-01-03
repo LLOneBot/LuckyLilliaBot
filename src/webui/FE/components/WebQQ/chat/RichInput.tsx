@@ -15,6 +15,7 @@ export interface RichInputRef {
   focus: () => void
   clear: () => void
   insertFace: (faceId: number) => void
+  insertText: (text: string) => void
   insertImage: (file: File | null, url: string) => void
   insertAt: (uid: string, uin: string, name: string) => void
   getContent: () => RichInputItem[]
@@ -185,6 +186,36 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
       }
     }
   }, [mentionActive, getMentionQuery, getCaretPosition, cancelMention, onMentionChange])
+
+  // 插入文本（用于 Unicode emoji 等）
+  const insertText = useCallback((text: string) => {
+    const editor = editorRef.current
+    if (!editor) return
+    
+    cancelMention()
+    
+    const textNode = document.createTextNode(text)
+    
+    const selection = window.getSelection()
+    if (selection && selection.rangeCount > 0) {
+      const range = selection.getRangeAt(0)
+      if (editor.contains(range.commonAncestorContainer)) {
+        range.deleteContents()
+        range.insertNode(textNode)
+        range.setStartAfter(textNode)
+        range.setEndAfter(textNode)
+        selection.removeAllRanges()
+        selection.addRange(range)
+      } else {
+        editor.appendChild(textNode)
+      }
+    } else {
+      editor.appendChild(textNode)
+    }
+    
+    editor.focus()
+    onChange?.(parseContent())
+  }, [onChange, parseContent, cancelMention])
 
   // 插入表情
   const insertFace = useCallback((faceId: number) => {
@@ -369,12 +400,13 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
     focus,
     clear,
     insertFace,
+    insertText,
     insertImage,
     insertAt,
     getContent: parseContent,
     isEmpty,
     cancelMention
-  }), [focus, clear, insertFace, insertImage, insertAt, parseContent, isEmpty, cancelMention])
+  }), [focus, clear, insertFace, insertText, insertImage, insertAt, parseContent, isEmpty, cancelMention])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     // 如果在 @ 模式中，让 MentionPicker 处理方向键和回车
