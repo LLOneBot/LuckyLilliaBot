@@ -10,7 +10,7 @@ CLEANING=0
 PMHQ_PID=""
 USE_XVFB=0
 DISTRO=""
-PMHQ_BIN="$SCRIPT_DIR/llbot/pmhq"
+LLBOT_CLI_BIN="$SCRIPT_DIR/llbot"
 
 log() { echo -e "${GREEN}>>> $1${NC}"; }
 warn() { echo -e "${YELLOW}>>> $1${NC}"; }
@@ -21,80 +21,6 @@ check_sudo() {
     sudo -v || error "Sudo 验证失败或被取消，脚本终止。"
 }
 
-cleanup() {
-    # 防止用户对 Ctrl+C 突然产生某种异样的迷恋然后狂按 Ctrl+C
-    [ "$CLEANING" -eq 1 ] && return
-    CLEANING=1
-    trap '' SIGINT SIGTERM # 屏蔽后续 Ctrl+C，防止崩溃
-
-    # 防止日志挡交互
-    if [ -n "$PMHQ_PID" ] && kill -0 "$PMHQ_PID" 2>/dev/null; then
-        kill -STOP -"$PMHQ_PID" 2>/dev/null
-    fi
-
-    echo ""
-    warn "收到退出信号 (进程已挂起) <<<"
-
-    local kill_qq=1
-    local choice=""
-
-    if [ -n "$PMHQ_PID" ]; then
-        local T_COUNT=5
-        while [ $T_COUNT -gt 0 ]; do
-            printf "\r是否关闭 PMHQ 及 QQ 相关进程? [Y/n] (${T_COUNT}秒后默认关闭): "
-            if read -t 1 -n 1 choice < /dev/tty; then
-                echo ""
-                break
-            fi
-            ((T_COUNT--))
-        done
-
-        if [ $T_COUNT -eq 0 ]; then
-            echo ""
-            log "等待超时，执行默认关闭操作。"
-        fi
-
-        if [[ "$choice" == "n" || "$choice" == "N" ]]; then
-            kill_qq=0
-        fi
-    fi
-
-    if [ $kill_qq -eq 1 ]; then
-        warn "正在停止服务..."
-        [ -n "$PMHQ_PID" ] && kill -CONT -"$PMHQ_PID" 2>/dev/null
-        [ -n "$PMHQ_PID" ] && kill -TERM -"$PMHQ_PID" 2>/dev/null
-        pkill -15 -f "$PMHQ_BIN" 2>/dev/null
-        pkill -15 -f "/opt/QQ/qq" 2>/dev/null
-
-        local wait_count=0
-        while kill -0 "$PMHQ_PID" 2>/dev/null || pgrep -f "$PMHQ_BIN" > /dev/null || pgrep -f "/opt/QQ/qq" > /dev/null; do
-            sleep 0.5
-            ((wait_count++))
-            if [ $wait_count -ge 6 ]; then
-                warn "检测到残留进程，执行强制清理..."
-                # 气死我了，总有点关不掉进程的毛病，累了，跟我 pkill -9 说去吧
-                # 可能会误伤别的 QQ 的进程罢
-                # 期待大手子修复
-                [ -n "$PMHQ_PID" ] && kill -9 -"$PMHQ_PID" 2>/dev/null
-                pkill -9 -f "$PMHQ_BIN" 2>/dev/null
-                pkill -9 -f "/opt/QQ/qq" 2>/dev/null
-                break
-            fi
-        done
-
-        # 环境清理
-        if [ "$DISTRO" != "arch" ] && [ "$USE_XVFB" -eq 0 ]; then
-            command -v xhost &> /dev/null && xhost -local:$(whoami) > /dev/null 2>&1
-        fi
-        log "所有进程已清理完毕。"
-    else
-        # 选择不关闭时必须恢复进程运行
-        [ -n "$PMHQ_PID" ] && kill -CONT -"$PMHQ_PID" 2>/dev/null
-        log "已恢复后台进程运行 (PGID: $PMHQ_PID)"
-    fi
-
-    exit 0
-}
 
 trap cleanup SIGINT SIGTERM
 
@@ -105,24 +31,6 @@ confirm() {
     [[ "$key" == "Y" || "$key" == "y" || "$key" == "" ]]
 }
 
-find_port() {
-    # 优先尝试让系统自动分配
-    local port=$(python3 -c 'import socket; s=socket.socket(); s.bind(("",0)); print(s.getsockname()[1]); s.close()' 2>/dev/null)
-    if [ -n "$port" ]; then
-        echo $port
-        return 0
-    fi
-    # 回退方案：扫描可用端口
-    local p=$1
-    while [ $p -lt 65535 ]; do
-        if ! ss -tuln 2>/dev/null | grep -q ":$p " && ! netstat -tuln 2>/dev/null | grep -q ":$p "; then
-            echo $p
-            return 0
-        fi
-        ((p++))
-    done
-    return 1
-}
 
 # 环境检查
 if command -v pacman &> /dev/null; then
@@ -178,12 +86,9 @@ install_debian() {
 [ "$DISTRO" == "arch" ] && install_arch || install_debian
 
 # 配置权限
-chmod +x "$SCRIPT_DIR/llbot/node" "$PMHQ_BIN" 2>/dev/null
-sudo chown -R $(whoami):$(whoami) "$SCRIPT_DIR/llbot" 2>/dev/null
+chmod +x "$SCRIPT_DIR/llbot/node" "$LLBOT_CLI_BIN" 2>/dev/null
+sudo chown -R $(whoami):$(whoami) "$SCRIPT_DIR/bin" 2>/dev/null
 
-PORT=$(find_port 13000)
-[ -z "$PORT" ] && error "无法找到可用端口"
-log "分配端口: $PORT"
 
 echo "------------------------------------------------"
 echo "1) GUI 模式 (有界面)"
@@ -230,18 +135,14 @@ run_llbot() {
         export DBUS_SESSION_BUS_ADDRESS="unix:path=/run/user/$(id -u)/bus"
     fi
 
-    local sub_cmd="$SCRIPT_DIR/llbot/node --enable-source-maps $SCRIPT_DIR/llbot/llbot.js -- --pmhq-port=$PORT --no-sandbox $EXTRA_FLAGS"
     log "启动模式: $([ $USE_XVFB -eq 1 ] && echo "Headless" || echo "GUI")"
 
     if [ $USE_XVFB -eq 1 ]; then
-        env $IM_ENV xvfb-run -a "$PMHQ_BIN" --port="$PORT" --sub-cmd="$sub_cmd" &
+        env $IM_ENV xvfb-run -a "$LLBOT_CLI_BIN"
     else
         [ "$DISTRO" != "arch" ] && xhost +local:$(whoami) > /dev/null 2>&1
-        env $IM_ENV "$PMHQ_BIN" --port="$PORT" --sub-cmd="$sub_cmd" &
+        env $IM_ENV "$LLBOT_CLI_BIN"
     fi
-
-    PMHQ_PID=$!
-    wait "$PMHQ_PID" 2>/dev/null
 }
 
 run_llbot
