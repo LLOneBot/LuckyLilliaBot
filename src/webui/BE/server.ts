@@ -1065,7 +1065,7 @@ export class WebUIServer extends Service {
 
   // 设置消息事件监听
   private setupMessageListener() {
-    this.ctx.logger.info('WebQQ: 设置消息事件监听')
+    // this.ctx.logger.info('WebQQ: 设置消息事件监听')
     
     // 监听新消息事件 - 直接推送原始 RawMessage
     this.ctx.on('nt/message-created', async (message: RawMessage) => {
@@ -1087,7 +1087,7 @@ export class WebUIServer extends Service {
     
     // 监听自己发送的消息 - 直接推送原始 RawMessage
     this.ctx.on('nt/message-sent', async (message: RawMessage) => {
-      this.ctx.logger.info('WebQQ: 收到 nt/message-sent 事件, sseClients:', this.sseClients.size)
+      // this.ctx.logger.info('WebQQ: 收到 nt/message-sent 事件, sseClients:', this.sseClients.size)
       if (this.sseClients.size === 0) return
       
       // 补充 peerUin（私聊时可能为空或为 0）
@@ -1098,14 +1098,14 @@ export class WebUIServer extends Service {
         }
       }
       
-      this.ctx.logger.info('WebQQ SSE 推送自己发送的消息:', {
-        msgId: message.msgId,
-        chatType: message.chatType,
-        peerUin: message.peerUin,
-        peerUid: message.peerUid,
-        senderUin: message.senderUin,
-        elementsCount: message.elements?.length
-      })
+      // this.ctx.logger.info('WebQQ SSE 推送自己发送的消息:', {
+      //   msgId: message.msgId,
+      //   chatType: message.chatType,
+      //   peerUin: message.peerUin,
+      //   peerUid: message.peerUid,
+      //   senderUin: message.senderUin,
+      //   elementsCount: message.elements?.length
+      // })
       this.broadcastMessage('message', {
         type: 'message-sent',
         data: message
