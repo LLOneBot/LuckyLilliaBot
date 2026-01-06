@@ -1,15 +1,18 @@
 import { Context } from 'cordis'
-import { OB11MessageData, OB11MessageDataType } from '../types'
+import { OB11MessageData, OB11MessageDataType, OB11MessageNode } from '../types'
 import { Msg, Media } from '@/ntqqapi/proto'
-import { handleOb11RichMedia } from './createMessage'
+import { handleOb11RichMedia, message2List } from './createMessage'
 import { selfInfo } from '@/common/globalVars'
 import { ElementType, Peer, RichMediaUploadCompleteNotify } from '@/ntqqapi/types'
 import { deflateSync } from 'node:zlib'
 import faceConfig from '@/ntqqapi/helper/face_config.json'
 import { InferProtoModelInput } from '@saltify/typeproto'
 
+// 最大嵌套深度
+const MAX_FORWARD_DEPTH = 3
+
 export class MessageEncoder {
-  static support = ['text', 'face', 'image', 'markdown', 'forward']
+  static support = ['text', 'face', 'image', 'markdown', 'forward', 'node']
   results: InferProtoModelInput<typeof Msg.Message>[]
   children: InferProtoModelInput<typeof Msg.Elem>[]
   deleteAfterSentFiles: string[]
@@ -20,8 +23,9 @@ export class MessageEncoder {
   news: { text: string }[]
   name?: string
   uin?: number
+  depth: number = 0
 
-  constructor(private ctx: Context, private peer: Peer) {
+  constructor(private ctx: Context, private peer: Peer, depth: number = 0) {
     this.results = []
     this.children = []
     this.deleteAfterSentFiles = []
@@ -30,6 +34,7 @@ export class MessageEncoder {
     this.tsum = 0
     this.preview = ''
     this.news = []
+    this.depth = depth
   }
 
   async flush() {
@@ -136,8 +141,9 @@ export class MessageEncoder {
     }
   }
 
-  packForwardMessage(resid: string) {
+  packForwardMessage(resid: string, options?: { source?: string; news?: { text: string }[]; summary?: string; prompt?: string }) {
     const uuid = crypto.randomUUID()
+    const prompt = options?.prompt ?? '[聊天记录]'
     const content = JSON.stringify({
       app: 'com.tencent.multimsg',
       config: {
@@ -147,23 +153,23 @@ export class MessageEncoder {
         type: 'normal',
         width: 300
       },
-      desc: '[聊天记录]',
+      desc: prompt,
       extra: JSON.stringify({
         filename: uuid,
         tsum: 0,
       }),
       meta: {
         detail: {
-          news: [{
+          news: options?.news ?? [{
             text: '查看转发消息'
           }],
           resid,
-          source: '聊天记录',
-          summary: '查看转发消息',
+          source: options?.source ?? '聊天记录',
+          summary: options?.summary ?? '查看转发消息',
           uniseq: uuid,
         }
       },
-      prompt: '[聊天记录]',
+      prompt,
       ver: '0.0.0.5',
       view: 'contact'
     })
@@ -177,10 +183,49 @@ export class MessageEncoder {
   async visit(segment: OB11MessageData) {
     const { type, data } = segment
     if (type === OB11MessageDataType.Node) {
-      await this.render(data.content as OB11MessageData[])
-      const id = data.uin ?? data.user_id
+      const nodeData = data as OB11MessageNode['data']
+      const content = nodeData.content ? message2List(nodeData.content) : []
+
+      // 检查 content 中是否包含嵌套的 node 节点
+      const hasNestedNodes = content.some(e => e.type === OB11MessageDataType.Node)
+
+      if (hasNestedNodes) {
+        // 递归处理嵌套的合并转发
+        if (this.depth >= MAX_FORWARD_DEPTH) {
+          this.ctx.logger.warn(`合并转发嵌套深度超过 ${MAX_FORWARD_DEPTH} 层，将停止解析`)
+          return
+        }
+
+        // 提取嵌套节点的自定义外显参数
+        const nestedOptions = {
+          source: (nodeData as any).source,
+          news: (nodeData as any).news,
+          summary: (nodeData as any).summary,
+          prompt: (nodeData as any).prompt,
+        }
+
+        // 递归生成内层合并转发
+        const innerEncoder = new MessageEncoder(this.ctx, this.peer, this.depth + 1)
+        const innerNodes = content.filter(e => e.type === OB11MessageDataType.Node) as OB11MessageNode[]
+        const innerRaw = await innerEncoder.generate(innerNodes, nestedOptions)
+
+        // 上传内层合并转发，获取 resid
+        const resid = await this.ctx.app.pmhq.uploadForward(this.peer, innerRaw.multiMsgItems)
+
+        // 合并内层的待删除文件
+        this.deleteAfterSentFiles.push(...innerEncoder.deleteAfterSentFiles)
+
+        // 将内层合并转发作为当前节点的内容
+        this.children.push(this.packForwardMessage(resid, nestedOptions))
+        this.preview += '[聊天记录]'
+      } else {
+        // 普通节点，直接渲染内容
+        await this.render(content)
+      }
+
+      const id = nodeData.uin ?? nodeData.user_id
       this.uin = id ? +id : undefined
-      this.name = data.name ?? data.nickname
+      this.name = nodeData.name ?? nodeData.nickname
       await this.flush()
     } else if (type === OB11MessageDataType.Text) {
       this.children.push({
@@ -211,7 +256,37 @@ export class MessageEncoder {
       this.preview += busiType === 1 ? '[动画表情]' : '[图片]'
       this.deleteAfterSentFiles.push(path)
     } else if (type === OB11MessageDataType.Forward) {
-      this.children.push(this.packForwardMessage(data.id))
+      // 处理 forward 类型：支持 id（已有 resid）或 content（嵌套节点）
+      const forwardData = data as { id?: string; content?: OB11MessageData[]; source?: string; news?: { text: string }[]; summary?: string; prompt?: string }
+
+      if (forwardData.id) {
+        this.children.push(this.packForwardMessage(forwardData.id, forwardData))
+      } else if (forwardData.content) {
+        if (this.depth >= MAX_FORWARD_DEPTH) {
+          this.ctx.logger.warn(`合并转发嵌套深度超过 ${MAX_FORWARD_DEPTH} 层，将停止解析`)
+          return
+        }
+
+        const nestedContent = message2List(forwardData.content)
+        const innerEncoder = new MessageEncoder(this.ctx, this.peer, this.depth + 1)
+        const innerNodes = nestedContent.filter(e => e.type === OB11MessageDataType.Node) as OB11MessageNode[]
+
+        if (innerNodes.length === 0) {
+          this.ctx.logger.warn('forward content 中没有有效的 node 节点')
+          return
+        }
+
+        const innerRaw = await innerEncoder.generate(innerNodes, {
+          source: forwardData.source,
+          news: forwardData.news,
+          summary: forwardData.summary,
+          prompt: forwardData.prompt,
+        })
+
+        const resid = await this.ctx.app.pmhq.uploadForward(this.peer, innerRaw.multiMsgItems)
+        this.deleteAfterSentFiles.push(...innerEncoder.deleteAfterSentFiles)
+        this.children.push(this.packForwardMessage(resid, forwardData))
+      }
       this.preview += '[聊天记录]'
     }
   }

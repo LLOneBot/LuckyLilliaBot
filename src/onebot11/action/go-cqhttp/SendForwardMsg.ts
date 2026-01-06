@@ -40,8 +40,8 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload) {
-    const messages = payload.messages ?? payload.message
-    if (!messages) {
+    const messages = (payload.messages?.length ? payload.messages : null) ?? payload.message
+    if (!messages || messages.length === 0) {
       throw new Error('未指定消息内容')
     }
     let contextMode = CreatePeerMode.Normal
