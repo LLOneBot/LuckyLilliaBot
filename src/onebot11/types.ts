@@ -378,6 +378,11 @@ export interface OB11PostSendMsg {
   group_id?: string | number
   message: OB11MessageMixType
   auto_escape?: boolean
+  // 合并转发自定义外显
+  source?: string
+  news?: { text: string }[]
+  summary?: string
+  prompt?: string
 }
 
 export interface OB11Version {

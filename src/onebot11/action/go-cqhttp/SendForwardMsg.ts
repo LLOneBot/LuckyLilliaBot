@@ -17,6 +17,11 @@ interface Payload {
   messages?: OB11MessageNode[]
   message?: OB11MessageNode[]
   message_type?: 'group' | 'private'
+  // 合并转发自定义外显
+  source?: string
+  news?: { text: string }[]
+  summary?: string
+  prompt?: string
 }
 
 interface Response {
@@ -122,7 +127,12 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
       }
     }
 
-    return fake ? await this.handleFakeForwardNode(peer, nodes) : await this.handleForwardNode(peer, nodes, msgInfos)
+    return fake ? await this.handleFakeForwardNode(peer, nodes, {
+      source: payload.source,
+      news: payload.news,
+      summary: payload.summary,
+      prompt: payload.prompt
+    }) : await this.handleForwardNode(peer, nodes, msgInfos)
   }
 
   private async getMessageNode(msgInfo: MsgInfo) {
@@ -162,11 +172,17 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     })
   }
 
-  private async handleFakeForwardNode(peer: Peer, nodes: OB11MessageNode[]): Promise<Response> {
+  private async handleFakeForwardNode(peer: Peer, nodes: OB11MessageNode[], options?: {
+    source?: string
+    news?: { text: string }[]
+    summary?: string
+    prompt?: string
+  }): Promise<Response> {
     const encoder = new MessageEncoder(this.ctx, peer)
-    const raw = await encoder.generate(nodes)
+    const raw = await encoder.generate(nodes, options)
     const resid = await this.ctx.app.pmhq.uploadForward(peer, raw.multiMsgItems)
     const uuid = randomUUID()
+    const prompt = options?.prompt ?? '[聊天记录]'
     try {
       const msg = await this.ctx.app.sendMessage(this.ctx, peer, [{
         elementType: 10,
@@ -181,7 +197,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
               type: 'normal',
               width: 300,
             },
-            desc: '[聊天记录]',
+            desc: prompt,
             extra: JSON.stringify({
               filename: uuid,
               tsum: raw.tsum,
@@ -195,7 +211,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
                 uniseq: uuid,
               },
             },
-            prompt: '[聊天记录]',
+            prompt,
             ver: '0.0.0.5',
             view: 'contact',
           }),

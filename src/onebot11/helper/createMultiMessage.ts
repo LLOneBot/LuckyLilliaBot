@@ -222,7 +222,12 @@ export class MessageEncoder {
     }
   }
 
-  async generate(content: OB11MessageData[]) {
+  async generate(content: OB11MessageData[], options?: {
+    source?: string
+    news?: { text: string }[]
+    summary?: string
+    prompt?: string
+  }) {
     await this.render(content)
     return {
       multiMsgItems: [{
@@ -232,9 +237,10 @@ export class MessageEncoder {
         }
       }],
       tsum: this.tsum,
-      source: this.isGroup ? '群聊的聊天记录' : '聊天记录',
-      summary: `查看${this.tsum}条转发消息`,
-      news: this.news
+      source: options?.source ?? (this.isGroup ? '群聊的聊天记录' : '聊天记录'),
+      summary: options?.summary ?? `查看${this.tsum}条转发消息`,
+      news: options?.news ?? this.news,
+      prompt: options?.prompt ?? '[聊天记录]'
     }
   }
 }
