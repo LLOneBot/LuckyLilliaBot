@@ -203,10 +203,11 @@ export async function transformPrivateMessageEvent(
     for (const element of message.elements) {
       if (element.grayTipElement?.jsonGrayTipElement?.busiId === '1061') {
         const { templParam } = element.grayTipElement.jsonGrayTipElement.xmlToJsonParam
+        const userId = +message.peerUin || +(await ctx.ntUserApi.getUinByUid(message.peerUid))
         return {
           eventType: 'friend_nudge',
           data: {
-            user_id: +message.peerUin,
+            user_id: userId,
             is_self_send: templParam.get('uin_str1') === selfInfo.uin,
             is_self_receive: templParam.get('uin_str2') === selfInfo.uin,
             display_action: templParam.get('action_str'),
