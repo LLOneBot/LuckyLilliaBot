@@ -69,7 +69,7 @@ jobs:
           cp ../dist/更新日志.txt ./
           mkdir -p ./bin/llbot
           cp -r ../dist/* ./bin/llbot/
-          wget https://github.com/LLOneBot/Lucky-Lillia-Desktop/releases/latest/download/lucky-lillia-desktop-win-x64.zip
+          wget https://github.com/LLOneBot/LuckyLilliaDesktop.Avalonia/releases/latest/download/lucky-lillia-desktop-win-x64.zip
           unzip lucky-lillia-desktop-win-x64.zip
           rm lucky-lillia-desktop-win-x64.zip
           mv lucky-lillia-desktop.exe llbot.exe
