@@ -53,7 +53,7 @@ jobs:
           rm pmhq-win-x64.zip
           mv pmhq-win-x64.exe bin/pmhq/pmhq.exe
           mv pmhq.dll bin/pmhq/
-          wget https://github.com/LLOneBot/LLBot.CLI/releases/latest/download/llbot-win-x64.exe
+          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-win-x64.exe
           mv llbot-win-x64.exe llbot.exe
           wget https://github.com/LLOneBot/exe/releases/latest/download/node.exe -O bin/llbot/node.exe
           wget https://github.com/LLOneBot/exe/releases/latest/download/ffmpeg.exe -O bin/llbot/ffmpeg.exe
@@ -90,7 +90,7 @@ jobs:
           mv pmhq-linux-x64 bin/pmhq/pmhq
           mv libpmhq.so bin/pmhq/
           wget https://github.com/LLOneBot/exe/releases/latest/download/node-linux-x64 -O llbot/node
-          wget https://github.com/LLOneBot/LLBot.CLI/releases/latest/download/llbot-linux-x64 -O llbot
+          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-linux-x64 -O llbot
           cp ../script/start-linux.sh ./start.sh
           zip -r ../LLBot-CLI-linux-x64.zip ./*
 
@@ -109,7 +109,7 @@ jobs:
           mv pmhq-linux-arm64 llbot/pmhq/pmhq
           mv libpmhq.so bin/pmhq/
           wget https://github.com/LLOneBot/exe/releases/latest/download/node-linux-arm64 -O llbot/node
-          wget https://github.com/LLOneBot/LLBot.CLI/releases/latest/download/llbot-linux-arm64 -O llbot
+          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-linux-arm64 -O llbot
           cp ../script/start-linux.sh ./start.sh
           zip -r ../LLBot-CLI-linux-arm64.zip ./*
 
