@@ -1,12 +1,14 @@
 {
   "webui": {
     "enable": true,
+    "host": "127.0.0.1",
     "port": 3080
   },
   "milky": {
     "enable": false,
     "reportSelfMessage": false,
     "http": {
+      "host": "127.0.0.1",
       "port": 3010,
       "prefix": "",
       "accessToken": ""
@@ -18,6 +20,7 @@
   },
   "satori": {
     "enable": false,
+    "host": "127.0.0.1",
     "port": 5600,
     "token": ""
   },
@@ -27,6 +30,7 @@
       {
         "type": "ws",
         "enable": false,
+        "host": "127.0.0.1",
         "port": 3001,
         "heartInterval": 60000,
         "token": "",
@@ -49,6 +53,7 @@
       {
         "type": "http",
         "enable": false,
+        "host": "127.0.0.1",
         "port": 3000,
         "token": "",
         "reportSelfMessage": false,
@@ -76,6 +81,5 @@
   "autoDeleteFileSecond": 60,
   "musicSignUrl": "https://llob.linyuchen.net/sign/music",
   "msgCacheExpire": 120,
-  "onlyLocalhost": true,
   "ffmpeg": ""
 }

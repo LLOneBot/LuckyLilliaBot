@@ -43,7 +43,6 @@ declare module 'cordis' {
 }
 
 export interface WebUIServerConfig extends WebUIConfig {
-  onlyLocalhost: boolean
 }
 
 export class WebUIServer extends Service {
@@ -109,7 +108,7 @@ export class WebUIServer extends Service {
       const oldConfig = { ...this.config }
       this.setConfig(newConfig)
       const forcePort = (oldConfig.port === newConfig.webui?.port) ? this.currentPort : undefined
-      if (oldConfig.onlyLocalhost != newConfig.onlyLocalhost
+      if (oldConfig.host != newConfig.webui?.host
         || oldConfig.enable != newConfig.webui?.enable
         || oldConfig.port != newConfig.webui?.port
       ) {
@@ -263,8 +262,7 @@ export class WebUIServer extends Service {
   }
 
   private getHostPort(): { host: string; port: number } {
-    const host = this.config.onlyLocalhost ? '127.0.0.1' : ''
-    return { host, port: this.config.port }
+    return { host: this.config.host, port: this.config.port }
   }
 
   private async startServer(forcePort?: number) {
@@ -326,7 +324,7 @@ export class WebUIServer extends Service {
   }
 
   public setConfig(newConfig: Config) {
-    this.config = { onlyLocalhost: newConfig.onlyLocalhost, ...newConfig.webui }
+    this.config = newConfig.webui
   }
 
   async start() {

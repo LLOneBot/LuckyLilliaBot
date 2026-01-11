@@ -66,16 +66,14 @@ class OneBot11Adapter extends Service {
       if (item.type === 'http') {
         return new OB11Http(ctx, {
           ...item,
-          actionMap: this.actionMap,
-          onlyLocalhost: config.onlyLocalhost
+          actionMap: this.actionMap
         })
       } else if (item.type === 'http-post') {
         return new OB11HttpPost(ctx, item)
       } else if (item.type === 'ws') {
         return new OB11WebSocket(ctx, {
           ...item,
-          actionMap: this.actionMap,
-          onlyLocalhost: config.onlyLocalhost
+          actionMap: this.actionMap
         })
       } else if (item.type === 'ws-reverse') {
         return new OB11WebSocketReverse(ctx, {
@@ -240,16 +238,14 @@ class OneBot11Adapter extends Service {
         if (item.type === 'http') {
           return new OB11Http(this.ctx, {
             ...item,
-            actionMap: this.actionMap,
-            onlyLocalhost: config.onlyLocalhost
+            actionMap: this.actionMap
           })
         } else if (item.type === 'http-post') {
           return new OB11HttpPost(this.ctx, item)
         } else if (item.type === 'ws') {
           return new OB11WebSocket(this.ctx, {
             ...item,
-            actionMap: this.actionMap,
-            onlyLocalhost: config.onlyLocalhost
+            actionMap: this.actionMap
           })
         } else if (item.type === 'ws-reverse') {
           return new OB11WebSocketReverse(this.ctx, {
@@ -574,7 +570,6 @@ class OneBot11Adapter extends Service {
 
 namespace OneBot11Adapter {
   export interface Config extends OB11Config {
-    onlyLocalhost: boolean
     musicSignUrl?: string
     enableLocalFile2Url: boolean
     ffmpeg?: string

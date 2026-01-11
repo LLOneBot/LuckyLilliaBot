@@ -91,8 +91,7 @@ export class SatoriServer {
       }
     })
 
-    let { onlyLocalhost, port } = this.config
-    let host = onlyLocalhost ? '127.0.0.1' : ''
+    const { host, port } = this.config
     getAvailablePort(port).then(availablePort => {
       if (availablePort !== port) {
         return this.ctx.logger.warn(`端口 ${port} 已被占用`)
@@ -196,7 +195,7 @@ export class SatoriServer {
 namespace SatoriServer {
   export interface Config {
     port: number
-    onlyLocalhost: boolean
+    host: string
     token: string
   }
 }

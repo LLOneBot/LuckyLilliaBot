@@ -50,7 +50,7 @@ export class MilkyAdapter extends Service {
       ...FileApi,
     ])
 
-    this.httpHandler = new MilkyHttpHandler(this, ctx, { ...config.http, onlyLocalhost: config.onlyLocalhost })
+    this.httpHandler = new MilkyHttpHandler(this, ctx, config.http)
     this.webhookHandler = new MilkyWebhookHandler(this, ctx, config.webhook)
   }
 
@@ -59,20 +59,14 @@ export class MilkyAdapter extends Service {
     this.ctx.on('llob/config-updated', (config) => {
       this.httpHandler.stop()
       this.webhookHandler.stop()
-      this.httpHandler.updateConfig({
-        ...config.milky.http,
-        onlyLocalhost: config.onlyLocalhost
-      })
+      this.httpHandler.updateConfig(config.milky.http)
       this.webhookHandler.updateConfig(config.milky.webhook)
       if (config.milky.enable) {
         this.httpHandler.start()
         this.webhookHandler.start()
         this.setupEventListeners()
       }
-      Object.assign(this.config, {
-        ...config.milky,
-        onlyLocalhost: config.onlyLocalhost
-      })
+      this.config = config.milky
     })
 
     if (!this.config.enable) {
@@ -233,7 +227,6 @@ export class MilkyAdapter extends Service {
 
 namespace MilkyAdapter {
   export interface Config extends MilkyConfig {
-    onlyLocalhost: boolean
   }
 }
 

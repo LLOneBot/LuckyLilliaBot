@@ -24,7 +24,7 @@ class OB11WebSocket {
     if (this.wsServer || !this.config.enable) {
       return
     }
-    const host = this.config.onlyLocalhost ? '127.0.0.1' : ''
+    const host = this.config.host
     this.ctx.logger.info(`OneBot V11 WebSocket server started ${host}:${this.config.port}`)
     this.wsServer = new WebSocketServer({
       host,
@@ -202,7 +202,6 @@ class OB11WebSocket {
 namespace OB11WebSocket {
   export interface Config extends WsConnectConfig {
     actionMap: Map<string, BaseAction<unknown, unknown>>
-    onlyLocalhost: boolean
   }
 }
 

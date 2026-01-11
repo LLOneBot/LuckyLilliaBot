@@ -7,6 +7,7 @@ const ob11Default: OB11Config = {
 }
 const satoriDefault: SatoriConfig = {
   enable: false,
+  host: '127.0.0.1',
   port: 5600,
   token: '',
 }
@@ -14,6 +15,7 @@ const milkyDefault: MilkyConfig = {
   enable: false,
   reportSelfMessage: false,
   http: {
+    host: '127.0.0.1',
     port: 3010,
     prefix: '',
     accessToken: ''
@@ -25,11 +27,11 @@ const milkyDefault: MilkyConfig = {
 }
 const webuiDefault: WebUIConfig = {
   enable: true,
+  host: '127.0.0.1',
   port: 3080,
 }
 export const defaultConfig: Config = {
   webui: webuiDefault,
-  onlyLocalhost: true,
   milky: milkyDefault,
   satori: satoriDefault,
   ob11: ob11Default,

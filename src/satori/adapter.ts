@@ -126,10 +126,7 @@ class SatoriAdapter extends Service {
   start() {
     this.ctx.on('llob/config-updated', async input => {
       const old = omit(this.config, ['ffmpeg'])
-      const inputSatoriConfig = {
-        ...input.satori,
-        onlyLocalhost: input.onlyLocalhost
-      }
+      const inputSatoriConfig = input.satori
       if (!isDeepStrictEqual(old, inputSatoriConfig)) {
         await this.server.stop()
         this.server.updateConfig(inputSatoriConfig)
@@ -203,7 +200,6 @@ class SatoriAdapter extends Service {
 
 namespace SatoriAdapter {
   export interface Config extends SatoriConfig {
-    onlyLocalhost: boolean,
     ffmpeg?: string
   }
 }
