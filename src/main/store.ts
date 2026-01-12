@@ -186,9 +186,7 @@ class Store extends Service {
     if (this.messages.size > 10000) {
       // 如果缓存超过10000条，清理最早的
       const firstKey = this.messages.keys().next().value
-      if (firstKey) {
-        this.messages.delete(firstKey)
-      }
+      this.messages.delete(firstKey!)
     }
     setTimeout(() => {
       this.messages.delete(id)
