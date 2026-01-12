@@ -82,7 +82,7 @@ jobs:
           mkdir -p bin/pmhq
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
-          cp -r ../dist ./bin/llbot
+          cp -r ../dist/* ./bin/llbot/
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-linux-x64.zip
           unzip pmhq-linux-x64.zip
           rm pmhq-linux-x64.zip
@@ -101,7 +101,7 @@ jobs:
           mkdir -p bin/pmhq
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
-          cp -r ../dist ./bin/llbot
+          cp -r ../dist/* ./bin/llbot/
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-linux-arm64.zip
           unzip pmhq-linux-arm64.zip
           rm pmhq-linux-arm64.zip
