@@ -136,10 +136,10 @@ function App() {
       if (response.success) {
         showToast('配置保存成功', 'success');
       } else {
-        showToast(response.message || '保存失败', 'error', 5000);
+        showToast(response.message || '保存失败', 'error');
       }
     } catch (error: any) {
-      showToast(error.message || '保存失败', 'error', 5000);
+      showToast(error.message || '保存失败', 'error');
     } finally {
       setLoading(false);
     }

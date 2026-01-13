@@ -62,7 +62,7 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
     const adapterHost = (selectedAdapter as WsConnectConfig | HttpConnectConfig).host;
     const isListenAll = !adapterHost || adapterHost === '0.0.0.0' || adapterHost === '::';
     if (needsTokenValidation && isListenAll && !selectedAdapter.token?.trim()) {
-      showToast('监听全部地址时必须设置 Token', 'error', 5000);
+      showToast('监听全部地址时必须设置 Token', 'error');
       return;
     }
 
