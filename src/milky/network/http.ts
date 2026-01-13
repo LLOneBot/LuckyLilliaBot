@@ -119,9 +119,10 @@ class MilkyHttpHandler {
     })
 
     this.httpServer = this.app.listen(this.config.port, this.config.host, () => {
+      const displayHost = this.config.host || '0.0.0.0'
       this.ctx.logger.info(
         'MilkyHttp',
-        `HTTP server started at http://127.0.0.1:${this.config.port}${this.config.prefix}`
+        `HTTP server started at http://${displayHost}:${this.config.port}${this.config.prefix}`
       )
     })
 

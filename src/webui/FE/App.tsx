@@ -11,6 +11,7 @@ import {
   ToastContainer,
   showToast,
   AnimatedBackground,
+  HostSelector,
 } from './components';
 import { WebQQPage } from './components/WebQQ';
 import { Config, ResConfig } from './types';
@@ -127,7 +128,6 @@ function App() {
     try {
       setLoading(true);
       const finalConfig = configToSave || config;
-      // console.log('Saving config:', finalConfig);
       const response = await apiFetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -136,10 +136,10 @@ function App() {
       if (response.success) {
         showToast('配置保存成功', 'success');
       } else {
-        showToast('保存失败：' + response.message, 'error');
+        showToast(response.message || '保存失败', 'error', 5000);
       }
     } catch (error: any) {
-      showToast('保存失败：' + error.message, 'error');
+      showToast(error.message || '保存失败', 'error', 5000);
     } finally {
       setLoading(false);
     }
@@ -243,18 +243,15 @@ function App() {
           {activeTab === 'onebot' && (
             <OneBotConfigNew
               config={config.ob11}
-              globalConfig={config}
               onChange={(newOb11Config) => {
                 const newConfig = { ...config, ob11: newOb11Config };
                 setConfig(newConfig);
               }}
               onSave={(newOb11Config) => {
-                // 如果传入了新配置，使用新配置保存
                 if (newOb11Config) {
                   const newConfig = { ...config, ob11: newOb11Config };
                   handleSave(newConfig);
                 } else {
-                  // 否则使用当前 state
                   handleSave();
                 }
               }}
@@ -292,6 +289,19 @@ function App() {
 
                 {config.satori.enable && (
                   <>
+                    <div>
+                      <label className="block text-sm font-medium text-theme-secondary mb-2">
+                        监听地址
+                      </label>
+                      <HostSelector
+                        value={config.satori.host}
+                        onChange={(host) => setConfig({
+                          ...config,
+                          satori: { ...config.satori, host }
+                        })}
+                      />
+                      <p className="text-xs text-theme-muted mt-1">选择服务监听的网络地址</p>
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-theme-secondary mb-2">
                         Satori 端口
@@ -341,9 +351,9 @@ function App() {
 
               <div className="mt-6 flex justify-end">
                 <button onClick={() => {
-                  // 检查：如果 onlyLocalhost 为 false 且 satori 启用，token 必须设置
-                  if (!config.onlyLocalhost && config.satori.enable && !config.satori.token?.trim()) {
-                    showToast('当"只监听本地地址"关闭时，必须设置 Satori Token！', 'error');
+                  // 检查：如果监听所有地址且 satori 启用，token 必须设置
+                  if (config.satori.host === '' && config.satori.enable && !config.satori.token?.trim()) {
+                    showToast('当监听所有地址时，必须设置 Satori Token！', 'error');
                     return;
                   }
                   handleSave();
@@ -415,6 +425,22 @@ function App() {
                     <div className="border-t border-theme-divider pt-4 mt-4">
                       <h4 className="text-md font-semibold text-theme mb-4">HTTP 配置</h4>
                       <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-theme-secondary mb-2">
+                            监听地址
+                          </label>
+                          <HostSelector
+                            value={config.milky.http.host}
+                            onChange={(host) => setConfig({
+                              ...config,
+                              milky: {
+                                ...config.milky,
+                                http: { ...config.milky.http, host }
+                              }
+                            })}
+                          />
+                          <p className="text-xs text-theme-muted mt-1">选择服务监听的网络地址</p>
+                        </div>
                         <div>
                           <label className="block text-sm font-medium text-theme-secondary mb-2">
                             HTTP 端口
@@ -597,9 +623,9 @@ function App() {
 
               <div className="mt-6 flex justify-end">
                 <button onClick={() => {
-                  // 检查：如果 onlyLocalhost 为 false 且 milky 启用，accessToken 必须设置
-                  if (!config.onlyLocalhost && config.milky.enable && !config.milky.http.accessToken?.trim()) {
-                    showToast('当"只监听本地地址"关闭时，必须设置 Milky Access Token！', 'error');
+                  // 检查：如果监听所有地址且 milky 启用，accessToken 必须设置
+                  if (config.milky.http.host === '' && config.milky.enable && !config.milky.http.accessToken?.trim()) {
+                    showToast('当监听所有地址时，必须设置 Milky Access Token！', 'error');
                     return;
                   }
                   // 检查 Webhook URL 格式

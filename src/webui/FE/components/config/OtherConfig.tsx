@@ -9,7 +9,6 @@ interface OtherConfigProps {
 }
 
 const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, onOpenChangePassword }) => {
-
   const handleChange = (field: keyof Config, value: any) => {
     onChange({ ...config, [field]: value })
   }
@@ -38,16 +37,6 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, onOpenChang
               </div>
             </div>
             <input type='checkbox' checked={config.log} onChange={(e) => handleChange('log', e.target.checked)} className="switch-toggle" />
-          </div>
-          <div className='flex items-center justify-between p-4 bg-theme-item rounded-xl bg-item-hover transition-colors'>
-            <div className='flex items-center gap-3'>
-              <Globe size={20} className='text-pink-500' />
-              <div>
-                <div className='text-sm font-medium text-theme'>只监听本地地址</div>
-                <div className='text-xs text-theme-muted mt-0.5'>取消后可能会暴露在公网</div>
-              </div>
-            </div>
-            <input type='checkbox' checked={config.onlyLocalhost} onChange={(e) => handleChange('onlyLocalhost', e.target.checked)} className="switch-toggle" />
           </div>
           <div className='flex items-center justify-between p-4 bg-theme-item rounded-xl bg-item-hover transition-colors'>
             <div className='flex items-center gap-3'>

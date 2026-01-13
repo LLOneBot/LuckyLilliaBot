@@ -87,20 +87,22 @@ export class ConfigUtil {
     }
   }
 
-  setConfig(config: Config) {
+  setConfig(config: Config, triggerWatch = false) {
     this.config = config
-    this.writeConfig(config)
+    this.writeConfig(config, triggerWatch)
   }
 
-  writeConfig(config: Config, watch = false) {
+  writeConfig(config: Config, triggerWatch = false) {
     if (!this.configPath) {
       return
     }
-    this.watch = watch
+    this.watch = false
     fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), 'utf-8')
-    setTimeout(() => {
-      this.watch = true
-    }, 3000)
+    if (triggerWatch) {
+      setTimeout(() => {
+        this.watch = true
+      }, 1500)
+    }
   }
 
 
@@ -153,7 +155,8 @@ export class ConfigUtil {
   private migrateConfig(oldConfig: any): Config {
     let migratedConfig = oldConfig;
 
-    if (!Array.isArray(oldConfig.ob11.connect)) {
+    // 先迁移 ob11.connect 数组格式
+    if (!oldConfig.ob11 || !Array.isArray(oldConfig.ob11.connect)) {
       const ob11 = oldConfig.ob11 || {};
       migratedConfig = {
         ...oldConfig,
@@ -207,6 +210,29 @@ export class ConfigUtil {
           ],
         },
       };
+    }
+
+    // 迁移 onlyLocalhost 配置项
+    if ('onlyLocalhost' in oldConfig) {
+      const host = oldConfig.onlyLocalhost ? '127.0.0.1' : ''
+      
+      if (migratedConfig.webui && !migratedConfig.webui.host) {
+        migratedConfig.webui.host = host
+      }
+      if (migratedConfig.satori && !migratedConfig.satori.host) {
+        migratedConfig.satori.host = host
+      }
+      if (migratedConfig.milky?.http && !migratedConfig.milky.http.host) {
+        migratedConfig.milky.http.host = host
+      }
+      if (Array.isArray(migratedConfig.ob11?.connect)) {
+        for (const conn of migratedConfig.ob11.connect) {
+          if ((conn.type === 'ws' || conn.type === 'http') && !conn.host) {
+            conn.host = host
+          }
+        }
+      }
+      delete migratedConfig.onlyLocalhost
     }
 
     return migratedConfig as Config
