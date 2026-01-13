@@ -40,7 +40,13 @@ class Store extends Service {
     super(ctx, 'store', true)
     this.cache = new BidiMap(1000)
     this.messages = new Map()
+  }
+
+  start() {
     this.initDatabase().then().catch(console.error)
+    this.ctx.on('llob/config-updated', async input => {
+      this.config = { msgCacheExpire: input.msgCacheExpire! }
+    })
   }
 
   private async initDatabase() {
