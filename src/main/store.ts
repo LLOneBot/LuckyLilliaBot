@@ -220,7 +220,7 @@ class Store extends Service {
 
 namespace Store {
   export interface Config {
-    /** 单位为毫秒 */
+    /** 单位为秒 */
     msgCacheExpire: number
   }
 }
