@@ -45,6 +45,7 @@ export const HostSelector: React.FC<HostSelectorProps> = ({ value, onChange }) =
   useEffect(() => {
     if (value === '' || value === '127.0.0.1' || networkInterfaces.includes(value)) {
       setIsCustom(false)
+      setCustomHost('')
     } else if (value) {
       setIsCustom(true)
       setCustomHost(value)
@@ -58,20 +59,24 @@ export const HostSelector: React.FC<HostSelectorProps> = ({ value, onChange }) =
   ]
 
   const getDisplayLabel = () => {
-    if (isCustom) return '自定义'
+    if (isCustom) return `自定义: ${customHost}`
     const opt = options.find(o => o.value === value)
     return opt?.label || '仅本地 (127.0.0.1)'
   }
 
   const handleSelect = (opt: Option) => {
     setIsCustom(false)
-    onChange(opt.value)
+    setCustomHost('')
     setIsOpen(false)
+    onChange(opt.value)
   }
 
   const handleCustomSelect = () => {
     setIsCustom(true)
     setIsOpen(false)
+    if (!customHost) {
+      setCustomHost(value || '')
+    }
   }
 
   const handleCustomChange = (val: string) => {
@@ -81,7 +86,7 @@ export const HostSelector: React.FC<HostSelectorProps> = ({ value, onChange }) =
 
   return (
     <div className='flex items-center gap-2'>
-      <div className='relative flex-1' ref={dropdownRef}>
+      <div className='relative flex-1 z-[9999]' ref={dropdownRef}>
         <button
           type='button'
           onClick={() => setIsOpen(!isOpen)}
@@ -92,12 +97,16 @@ export const HostSelector: React.FC<HostSelectorProps> = ({ value, onChange }) =
         </button>
         
         {isOpen && (
-          <div className='absolute z-50 mt-1 w-full bg-white dark:bg-neutral-800 border border-theme-divider rounded-xl shadow-lg overflow-hidden'>
+          <div className='absolute z-[9999] mt-1 w-full bg-white dark:bg-neutral-800 border border-theme-divider rounded-xl shadow-lg overflow-hidden'>
             <div className='max-h-60 overflow-y-auto'>
-              {options.map((opt) => (
+              {options.map((opt, index) => (
                 <div
-                  key={opt.value}
-                  onClick={() => handleSelect(opt)}
+                  key={`${opt.value}-${index}`}
+                  onMouseDown={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleSelect(opt)
+                  }}
                   className={`px-3 py-2.5 cursor-pointer flex items-center justify-between hover:bg-pink-50 dark:hover:bg-pink-900/30 transition-colors ${
                     !isCustom && value === opt.value ? 'bg-pink-50 dark:bg-pink-900/30 text-pink-600' : 'text-theme'
                   }`}
@@ -107,7 +116,11 @@ export const HostSelector: React.FC<HostSelectorProps> = ({ value, onChange }) =
                 </div>
               ))}
               <div
-                onClick={handleCustomSelect}
+                onMouseDown={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  handleCustomSelect()
+                }}
                 className={`px-3 py-2.5 cursor-pointer flex items-center justify-between hover:bg-pink-50 dark:hover:bg-pink-900/30 transition-colors border-t border-theme-divider ${
                   isCustom ? 'bg-pink-50 dark:bg-pink-900/30 text-pink-600' : 'text-theme'
                 }`}

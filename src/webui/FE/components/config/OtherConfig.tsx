@@ -1,7 +1,7 @@
 import React from 'react'
 import { Config } from '../../types'
-import { Globe, FileText, Trash2, Music, Lock, Clock, Shield, Edit, Paperclip } from 'lucide-react'
-import { DurationPicker } from '../common'
+import { Globe, FileText, Trash2, Music, Lock, Clock, Shield, Edit, Paperclip, Server } from 'lucide-react'
+import { DurationPicker, HostSelector } from '../common'
 
 interface OtherConfigProps {
   config: Config;
@@ -16,6 +16,52 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, onOpenChang
 
   return (
     <div className='space-y-6'>
+      {/* WebUI 服务配置 */}
+      <div className='card p-6 relative z-[100]'>
+        <div className='flex items-center gap-3 mb-6'>
+          <div className='w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center'>
+            <Server size={20} className='text-white' />
+          </div>
+          <div>
+            <h3 className='text-lg font-semibold text-theme'>WebUI 服务</h3>
+            <p className='text-sm text-theme-secondary'>WebUI 访问地址和端口配置，如果是 Docker 不建议更改此项，否则可能无法访问</p>
+          </div>
+        </div>
+
+        <div className='space-y-4'>
+          <label className='block'>
+            <div className='flex items-center gap-2 mb-2'>
+              <Globe size={16} className='text-blue-600' />
+              <span className='text-sm font-medium text-theme-secondary'>监听地址</span>
+            </div>
+            <HostSelector 
+              value={config.webui?.host ?? '127.0.0.1'} 
+              onChange={(host) => {
+                onChange({ ...config, webui: { ...(config.webui || {}), enable: config.webui?.enable ?? true, port: config.webui?.port || 6099, host } });
+              }} 
+            />
+            <p className='text-xs text-theme-muted mt-2'>选择 WebUI 监听的网络地址</p>
+          </label>
+
+          <label className='block'>
+            <div className='flex items-center gap-2 mb-2'>
+              <Server size={16} className='text-blue-600' />
+              <span className='text-sm font-medium text-theme-secondary'>端口</span>
+            </div>
+            <input 
+              type='number' 
+              value={config.webui?.port || 6099} 
+              onChange={(e) => onChange({ ...config, webui: { ...(config.webui || {}), port: parseInt(e.target.value) } })} 
+              min='1' 
+              max='65535' 
+              className='input-field' 
+              placeholder='6099' 
+            />
+            <p className='text-xs text-theme-muted mt-1'>WebUI 服务端口（1-65535）</p>
+          </label>
+        </div>
+      </div>
+
       {/* 系统功能 */}
       <div className='card p-6'>
         <div className='flex items-center gap-3 mb-6'>
