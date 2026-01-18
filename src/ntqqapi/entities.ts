@@ -121,7 +121,7 @@ export namespace SendElement {
     if (fileSize === 0) {
       throw new Error(`文件异常，大小为 0: ${filePath}`)
     }
-    const maxMB = 100
+    const maxMB = 1024
     if (fileSize > 1024 * 1024 * maxMB) {
       throw new Error(`视频过大，最大支持${maxMB}MB，当前文件大小${fileSize}B`)
     }
