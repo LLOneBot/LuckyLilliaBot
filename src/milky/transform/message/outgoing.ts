@@ -90,10 +90,16 @@ export async function transformOutgoingMessage(
 export async function transformOutgoingForwardMessages(
   ctx: Context,
   messages: OutgoingForwardedMessage[],
-  peer: Peer
+  peer: Peer,
+  options?: {
+    title?: string
+    preview?: { text: string }[]
+    summary?: string
+    prompt?: string
+  }
 ) {
   const encoder = new ForwardMessageEncoder(ctx, peer)
-  return await encoder.generate(messages)
+  return await encoder.generate(messages, options)
 }
 
 class ForwardMessageEncoder {
@@ -304,7 +310,12 @@ class ForwardMessageEncoder {
     }
   }
 
-  async generate(content: OutgoingForwardedMessage[]) {
+  async generate(content: OutgoingForwardedMessage[], options?: {
+    title?: string
+    preview?: { text: string }[]
+    summary?: string
+    prompt?: string
+  }) {
     await this.render(content)
     return {
       multiMsgItems: [{
@@ -314,9 +325,10 @@ class ForwardMessageEncoder {
         }
       }],
       tsum: this.tsum,
-      source: this.isGroup ? '群聊的聊天记录' : '聊天记录',
-      summary: `查看${this.tsum}条转发消息`,
-      news: this.news
+      source: options?.title ?? (this.isGroup ? '群聊的聊天记录' : '聊天记录'),
+      summary: options?.summary ?? `查看${this.tsum}条转发消息`,
+      news: options?.preview ?? this.news,
+      prompt: options?.prompt ?? '[聊天记录]'
     }
   }
 }

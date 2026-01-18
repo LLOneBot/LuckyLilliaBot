@@ -44,13 +44,27 @@ const SendPrivateMessage = defineApi(
 
     let result: RawMessage
     if (payload.message[0].type === 'forward') {
+      const forwardData = payload.message[0].data as {
+        messages: OutgoingForwardedMessage[]
+        title?: string
+        preview?: { text: string }[]
+        summary?: string
+        prompt?: string
+      }
       const raw = await transformOutgoingForwardMessages(
         ctx,
-        payload.message[0].data.messages as OutgoingForwardedMessage[],
-        peer
+        forwardData.messages,
+        peer,
+        {
+          title: forwardData.title,
+          preview: forwardData.preview,
+          summary: forwardData.summary,
+          prompt: forwardData.prompt
+        }
       )
       const resid = await ctx.app.pmhq.uploadForward(peer, raw.multiMsgItems)
       const uuid = randomUUID()
+      const prompt = raw.prompt
       result = await ctx.app.sendMessage(ctx, peer, [{
         elementType: 10,
         elementId: '',
@@ -64,7 +78,7 @@ const SendPrivateMessage = defineApi(
               type: 'normal',
               width: 300,
             },
-            desc: '[聊天记录]',
+            desc: prompt,
             extra: JSON.stringify({
               filename: uuid,
               tsum: raw.tsum,
@@ -78,7 +92,7 @@ const SendPrivateMessage = defineApi(
                 uniseq: uuid,
               },
             },
-            prompt: '[聊天记录]',
+            prompt,
             ver: '0.0.0.5',
             view: 'contact',
           }),
@@ -117,13 +131,27 @@ const SendGroupMessage = defineApi(
 
     let result: RawMessage
     if (payload.message[0].type === 'forward') {
+      const forwardData = payload.message[0].data as {
+        messages: OutgoingForwardedMessage[]
+        title?: string
+        preview?: { text: string }[]
+        summary?: string
+        prompt?: string
+      }
       const raw = await transformOutgoingForwardMessages(
         ctx,
-        payload.message[0].data.messages as OutgoingForwardedMessage[],
-        peer
+        forwardData.messages,
+        peer,
+        {
+          title: forwardData.title,
+          preview: forwardData.preview,
+          summary: forwardData.summary,
+          prompt: forwardData.prompt
+        }
       )
       const resid = await ctx.app.pmhq.uploadForward(peer, raw.multiMsgItems)
       const uuid = randomUUID()
+      const prompt = raw.prompt
       result = await ctx.app.sendMessage(ctx, peer, [{
         elementType: 10,
         elementId: '',
@@ -137,7 +165,7 @@ const SendGroupMessage = defineApi(
               type: 'normal',
               width: 300,
             },
-            desc: '[聊天记录]',
+            desc: prompt,
             extra: JSON.stringify({
               filename: uuid,
               tsum: raw.tsum,
@@ -151,7 +179,7 @@ const SendGroupMessage = defineApi(
                 uniseq: uuid,
               },
             },
-            prompt: '[聊天记录]',
+            prompt,
             ver: '0.0.0.5',
             view: 'contact',
           }),
