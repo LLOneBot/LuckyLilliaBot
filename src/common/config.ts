@@ -34,6 +34,7 @@ export class ConfigUtil {
         const c = this.reloadConfig()
         cb(c)
       })
+      setTimeout(()=>this.watch = true, 1500)
     }
   }
 

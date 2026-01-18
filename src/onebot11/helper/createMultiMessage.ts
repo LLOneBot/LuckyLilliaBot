@@ -316,7 +316,7 @@ export class MessageEncoder {
       tsum: this.tsum,
       source: options?.source ?? (this.isGroup ? '群聊的聊天记录' : '聊天记录'),
       summary: options?.summary ?? `查看${this.tsum}条转发消息`,
-      news: options?.news ?? this.news,
+      news: (options?.news && options.news.length > 0) ? options.news : this.news,
       prompt: options?.prompt ?? '[聊天记录]'
     }
   }

@@ -252,6 +252,38 @@ docker_mirror=""
 PMHQ_TAG="latest"
 LLBOT_TAG="latest"
 
+# 从 npm registry 获取版本号
+get_npm_version() {
+  local package=$1
+  local version=$(curl -s --connect-timeout 5 "https://registry.npmjs.org/${package}/latest" | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
+  if [ -n "$version" ]; then
+    echo "$version"
+    return 0
+  fi
+  return 1
+}
+
+echo ""
+echo "正在获取最新版本信息..."
+
+# 获取 LLBot 版本
+LLBOT_TAG=$(get_npm_version "llonebot-dist")
+if [ -n "$LLBOT_TAG" ]; then
+  echo "LLBot 最新版本: $LLBOT_TAG"
+else
+  echo "无法获取 LLBot 版本，将使用 latest"
+  LLBOT_TAG="latest"
+fi
+
+# 获取 PMHQ 版本
+PMHQ_TAG=$(get_npm_version "pmhq-dist-win-x64")
+if [ -n "$PMHQ_TAG" ]; then
+  echo "PMHQ 最新版本: $PMHQ_TAG"
+else
+  echo "无法获取 PMHQ 版本，将使用 latest"
+  PMHQ_TAG="latest"
+fi
+
 if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
   # Docker 镜像源列表
   DOCKER_MIRRORS=(
@@ -263,9 +295,10 @@ if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
   # 测试镜像源是否可用
   test_mirror() {
     local mirror=$1
-    local tag=$2
-    echo "测试镜像源: ${mirror} ..." >&2
-    if docker manifest inspect "${mirror}/linyuchen/llbot:${tag}" > /dev/null 2>&1; then
+    local image=$2
+    local tag=$3
+    echo "测试镜像源 ${mirror} 的 ${image}:${tag} ..." >&2
+    if timeout 10 docker manifest inspect "${mirror}/linyuchen/${image}:${tag}" > /dev/null 2>&1; then
       return 0
     fi
     return 1
@@ -273,52 +306,33 @@ if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
 
   # 查找可用的镜像源
   find_available_mirror() {
-    local tag=$1
+    local llbot_tag=$1
+    local pmhq_tag=$2
+    
     for mirror in "${DOCKER_MIRRORS[@]}"; do
-      if test_mirror "$mirror" "$tag"; then
-        echo "找到可用镜像源: ${mirror}" >&2
-        echo "${mirror}/"
-        return 0
+      # 测试 llbot 镜像
+      if test_mirror "$mirror" "llbot" "$llbot_tag"; then
+        # 测试 pmhq 镜像
+        if test_mirror "$mirror" "pmhq" "$pmhq_tag"; then
+          echo "找到可用镜像源: ${mirror}" >&2
+          echo "${mirror}/"
+          return 0
+        fi
       fi
-      echo "镜像源 ${mirror} 不可用" >&2
+      echo "镜像源 ${mirror} 不可用或版本不存在" >&2
     done
-    echo "所有镜像源均不可用，将使用官方源" >&2
+    
+    echo "所有镜像源均不可用或不支持该版本" >&2
+    echo "将回退到 Docker 官方源使用 latest 标签" >&2
+    LLBOT_TAG="latest"
+    PMHQ_TAG="latest"
     echo ""
     return 1
   }
 
-  echo "正在获取最新版本信息..."
-  
-  # 获取PMHQ最新标签
-  PMHQ_RELEASE=$(curl -s -L "https://gh-proxy.com/https://api.github.com/repos/linyuchen/PMHQ/releases/latest")
-  if [ $? -eq 0 ]; then
-    PMHQ_TAG=$(echo "$PMHQ_RELEASE" | grep -o '"tag_name": "[^"]*' | cut -d'"' -f4 | sed 's/^v//')
-    if [ -z "$PMHQ_TAG" ]; then
-      echo "警告: 无法解析PMHQ版本号，镜像源可能不支持latest标签"
-      PMHQ_TAG="latest"
-    else
-      echo "PMHQ 最新版本: $PMHQ_TAG"
-    fi
-  else
-    echo "警告: 无法获取PMHQ最新版本，使用latest"
-  fi
-  
-  # 获取LLBot最新标签
-  LLBOT_RELEASE=$(curl -s -L "https://gh-proxy.com/https://api.github.com/repos/LLOneBot/LuckyLilliaBot/releases/latest")
-  if [ $? -eq 0 ]; then
-    LLBOT_TAG=$(echo "$LLBOT_RELEASE" | grep -o '"tag_name": "[^"]*' | cut -d'"' -f4 | sed 's/^v//')
-    if [ -z "$LLBOT_TAG" ]; then
-      echo "警告: 无法解析LLBot版本号，镜像源可能不支持latest标签"
-      LLBOT_TAG="latest"
-    else
-      echo "LLBot 最新版本: $LLBOT_TAG"
-    fi
-  else
-    echo "警告: 无法获取LLBot最新版本，使用latest"
-  fi
-
+  echo ""
   echo "正在检测可用的镜像源..."
-  docker_mirror=$(find_available_mirror "$LLBOT_TAG")
+  docker_mirror=$(find_available_mirror "$LLBOT_TAG" "$PMHQ_TAG")
 fi
 # 生成docker-compose.yml
 if [ "$config_mode" == "2" ]; then
