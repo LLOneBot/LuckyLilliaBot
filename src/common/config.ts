@@ -24,7 +24,8 @@ export class ConfigUtil {
   listenChange(cb: (config: Config) => void) {
     console.log('配置文件位于', this.configPath)
 
-    this.setConfig(this.getConfig())
+    // 初始化时不写入文件，只加载配置
+    this.config = this.getConfig()
     if (this.configPath) {
       fs.watchFile(this.configPath, { persistent: true, interval: 1000 }, () => {
         if (!this.watch) {
@@ -77,6 +78,7 @@ export class ConfigUtil {
         mergeNewProperties(defaultConfig, jsonData)
         jsonData.webui = this.migrateWebUIToken(jsonData.webui)
         jsonData = this.cleanupConfig(defaultConfig, jsonData);
+        // 重载配置时需要写入文件（可能有迁移或清理）
         this.setConfig(jsonData)
         this.config = jsonData
         return this.config
@@ -88,22 +90,22 @@ export class ConfigUtil {
     }
   }
 
-  setConfig(config: Config, triggerWatch = false) {
+  setConfig(config: Config) {
     this.config = config
-    this.writeConfig(config, triggerWatch)
+    this.writeConfig(config)
   }
 
-  writeConfig(config: Config, triggerWatch = false) {
+  writeConfig(config: Config) {
     if (!this.configPath) {
       return
     }
+    // 暂时关闭监听，避免触发自己写入的变化
     this.watch = false
     fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), 'utf-8')
-    if (triggerWatch) {
-      setTimeout(() => {
-        this.watch = true
-      }, 1500)
-    }
+    // 延迟重新启用监听
+    setTimeout(() => {
+      this.watch = true
+    }, 1500)
   }
 
 
