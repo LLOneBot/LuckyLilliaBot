@@ -232,7 +232,9 @@ const EmailConfigSection: React.FC<EmailConfigSectionProps> = (props) => {
             <button
               onClick={handleTest}
               disabled={testing}
-              className='btn-secondary flex items-center gap-2 w-full justify-center'
+              className='w-full px-6 py-2.5 rounded-xl font-medium transition-colors flex items-center gap-2 justify-center
+                bg-theme-item hover:bg-theme-item-hover text-theme
+                disabled:opacity-50 disabled:cursor-not-allowed'
             >
               {testing ? (
                 <>
