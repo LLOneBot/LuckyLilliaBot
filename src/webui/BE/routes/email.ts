@@ -102,6 +102,10 @@ export function createEmailRoutes(ctx: Context): Router {
       let emailConfig: EmailConfig
       if (testConfig) {
         emailConfig = testConfig
+        const currentConfig = emailService.getConfigManager().getConfig()
+        if (emailConfig.smtp.auth.pass === '********' || emailConfig.smtp.auth.pass === '') {
+          emailConfig.smtp.auth.pass = currentConfig.smtp.auth.pass
+        }
       } else {
         emailConfig = emailService.getConfigManager().getConfig()
       }
