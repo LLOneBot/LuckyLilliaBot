@@ -13,7 +13,7 @@ import {
   AnimatedBackground,
   HostSelector,
 } from './components';
-import { WebQQPage } from './components/WebQQ';
+import { WebQQPage, WebQQFullscreen } from './components/WebQQ';
 import { Config, ResConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
 import { Save, Loader2, Settings, Eye, EyeOff, Plus, Trash2, Menu } from 'lucide-react';
@@ -27,13 +27,13 @@ function App() {
   // 从 URL hash 读取初始 tab，默认 dashboard
   const getInitialTab = () => {
     const hash = window.location.hash.slice(1) // 去掉 #
-    const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'webqq', 'about']
+    const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'webqq', 'webqq-fullscreen', 'about']
     return validTabs.includes(hash) ? hash : 'dashboard'
   }
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [config, setConfig] = useState<Config>(defaultConfig);
-  
+
   const [loading, setLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [checkingLogin, setCheckingLogin] = useState(true);
@@ -78,7 +78,7 @@ function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
-      const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'webqq', 'about']
+      const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'webqq', 'webqq-fullscreen', 'about']
       if (validTabs.includes(hash)) {
         setActiveTab(hash)
       }
@@ -244,15 +244,37 @@ function App() {
     );
   }
 
+  // webqq-fullscreen 路由：独立的全屏页面
+  if (activeTab === 'webqq-fullscreen') {
+    return (
+      <>
+        {/* Animated Background */}
+        <AnimatedBackground />
+
+        <WebQQFullscreen />
+
+        {/* Password Dialog */}
+        <TokenDialog
+          visible={showPasswordDialog}
+          onConfirm={handlePasswordConfirm}
+          error={passwordError}
+        />
+
+        {/* Toast Container */}
+        <ToastContainer />
+      </>
+    )
+  }
+
   // 已登录，显示主页面
   return (
     <div className="flex min-h-screen">
       {/* Animated Background */}
       <AnimatedBackground />
 
-      <Sidebar 
-        activeTab={activeTab} 
-        onTabChange={setActiveTab} 
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         accountInfo={accountInfo || undefined}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -264,7 +286,7 @@ function App() {
       <main className={`flex-1 overflow-auto z-10 transition-all duration-300 ${sidebarCollapsed ? '' : 'md:ml-64'}`}>
         {/* 移动端顶部导航栏 */}
         <div className="md:hidden sticky top-0 z-30 bg-theme-card/95 backdrop-blur-xl border-b border-theme-divider px-4 py-3 flex items-center gap-3">
-          <button 
+          <button
             onClick={() => setSidebarOpen(true)}
             className="p-2 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg transition-colors"
           >
@@ -275,7 +297,7 @@ function App() {
             <span className="font-semibold text-theme">LLBot</span>
           </div>
         </div>
-        
+
         <div className="p-4 md:p-8 max-w-6xl mx-auto">
           {/* Header - 桌面端显示 */}
           <div className="mb-8 hidden md:block">

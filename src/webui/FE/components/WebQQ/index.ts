@@ -1,5 +1,6 @@
 // Main page
 export { default as WebQQPage } from './WebQQPage'
+export { default as WebQQFullscreen } from './WebQQFullscreen'
 
 // Chat components
 export { ChatInput, RichInput, MuteDialog, KickConfirmDialog, TitleDialog } from './chat'
