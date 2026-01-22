@@ -6,6 +6,7 @@ import { selfInfo } from '@/common/globalVars.js'
 import { DATA_DIR } from '@/common/globalVars.js'
 import { watch } from 'node:fs'
 import path from 'node:path'
+import { pmhq } from '@/ntqqapi/native/pmhq/index.js'
 
 declare module 'cordis' {
   interface Context {
@@ -22,6 +23,7 @@ export class EmailNotificationService extends Service {
   private hasLoggedIn: boolean = false
   private configPath: string
   private fileWatcher: ReturnType<typeof watch> | null = null
+  private pmhqDisconnectId: string | null = null
 
   constructor(ctx: Context) {
     super(ctx, 'emailNotification', true)
@@ -33,6 +35,7 @@ export class EmailNotificationService extends Service {
     this.initializeConfig()
     this.registerEventListeners()
     this.watchConfigFile()
+    this.registerPmhqDisconnectCallback()
   }
 
   private async initializeConfig() {
@@ -52,7 +55,7 @@ export class EmailNotificationService extends Service {
     
     this.ctx.on('nt/kicked-offLine', (info: KickedOffLineInfo) => {
       wasOffline = true
-      this.onOffline(info)
+      this.onOffline(info.tipsDesc || info.tipsTitle)
     })
 
     const checkLoginStatus = setInterval(() => {
@@ -67,6 +70,9 @@ export class EmailNotificationService extends Service {
       clearInterval(checkLoginStatus)
       if (this.fileWatcher) {
         this.fileWatcher.close()
+      }
+      if (this.pmhqDisconnectId) {
+        pmhq.offDisconnect(this.pmhqDisconnectId)
       }
     })
   }
@@ -86,7 +92,17 @@ export class EmailNotificationService extends Service {
     }
   }
 
-  private onOffline(info: KickedOffLineInfo) {
+  private registerPmhqDisconnectCallback() {
+    this.pmhqDisconnectId = pmhq.onDisconnect(60000, (duration) => {
+      if (!this.notificationSent && this.hasLoggedIn) {
+        this.ctx.logger.warn(`[EmailNotification] PMHQ disconnected for ${duration}ms`)
+        this.onOffline('可能 QQ 已经有点死了')
+      }
+    })
+    this.ctx.logger.info(`[EmailNotification] Registered PMHQ disconnect callback with ID: ${this.pmhqDisconnectId}`)
+  }
+
+  private onOffline(reason?: string) {
     if (!this.hasLoggedIn) {
       this.ctx.logger.debug('[EmailNotification] Offline event before login, ignoring')
       return
@@ -98,7 +114,7 @@ export class EmailNotificationService extends Service {
     }
 
     this.ctx.logger.info('[EmailNotification] Bot went offline, sending notification')
-    this.sendOfflineNotification(info.tipsDesc || info.tipsTitle)
+    this.sendOfflineNotification(reason)
   }
 
   private async sendOfflineNotification(reason?: string) {

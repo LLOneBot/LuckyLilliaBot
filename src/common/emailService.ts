@@ -103,159 +103,56 @@ export class EmailService {
 
   private formatOfflineEmail(botInfo: BotInfo, reason?: string): EmailOptions {
     const timestamp = botInfo.timestamp.toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
-    const reasonText = reason || '未知原因'
+    const displayName = botInfo.nick ? `${botInfo.nick} (${botInfo.uin})` : botInfo.uin
 
-    const subject = `【LLBot 告警】机器人 ${botInfo.uin} 已离线`
+    const subject = 'LLBot 掉线通知'
+
+    const reasonSection = reason
+      ? `<div class="info">
+                <p><strong>掉线原因:</strong> ${reason}</p>
+            </div>`
+      : `<p>可能的原因：</p>
+            <ul>
+                <li>网络连接中断</li>
+                <li>QQ 被强制下线</li>
+                <li>程序异常退出</li>
+            </ul>`
 
     const html = `
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
-      background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
-      padding: 40px 20px;
-      line-height: 1.6;
-    }
-    .container { 
-      max-width: 600px; 
-      margin: 0 auto; 
-      background: white;
-      border-radius: 20px;
-      overflow: hidden;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    }
-    .header { 
-      background: linear-gradient(135deg, #ef4444 0%, #ec4899 100%);
-      color: white; 
-      padding: 40px 32px;
-      text-align: center;
-      position: relative;
-    }
-    .header::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.1) 0%, transparent 50%);
-    }
-    .header-content {
-      position: relative;
-      z-index: 1;
-    }
-    .icon {
-      font-size: 56px;
-      margin-bottom: 16px;
-      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
-    }
-    .header h2 {
-      font-size: 28px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      letter-spacing: -0.5px;
-    }
-    .header p {
-      font-size: 15px;
-      opacity: 0.95;
-      font-weight: 500;
-    }
-    .content { 
-      padding: 36px 32px;
-    }
-    .info-card {
-      background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-      border-radius: 16px;
-      padding: 24px;
-      margin-bottom: 24px;
-      border: 1px solid rgba(0,0,0,0.05);
-    }
-    .info-item { 
-      margin: 14px 0;
-      display: flex;
-      align-items: flex-start;
-      padding: 8px 0;
-    }
-    .info-item:not(:last-child) {
-      border-bottom: 1px solid rgba(0,0,0,0.06);
-    }
-    .label { 
-      font-weight: 600;
-      color: #374151;
-      min-width: 90px;
-      flex-shrink: 0;
-      font-size: 14px;
-    }
-    .value {
-      color: #6b7280;
-      flex: 1;
-      font-size: 14px;
-      word-break: break-word;
-    }
-    .alert-message {
-      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-      border-left: 4px solid #f59e0b;
-      padding: 18px 20px;
-      border-radius: 12px;
-      color: #92400e;
-      font-size: 14px;
-      line-height: 1.6;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .footer {
-      text-align: center;
-      padding: 28px 24px;
-      background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
-      color: #9ca3af;
-      font-size: 13px;
-      border-top: 1px solid rgba(0,0,0,0.05);
-    }
-    .footer strong {
-      background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      font-weight: 600;
-    }
-  </style>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+        .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
+        .alert { background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 10px 0; }
+        .info { background: white; padding: 15px; margin: 10px 0; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="header-content">
-        <div class="icon">⚠️</div>
-        <h2>机器人离线告警</h2>
-        <p>您的 LLBot 实例已离线</p>
-      </div>
-    </div>
-    <div class="content">
-      <div class="info-card">
-        <div class="info-item">
-          <span class="label">机器人账号</span>
-          <span class="value">${botInfo.uin} (${botInfo.nick})</span>
+    <div class="container">
+        <div class="header">
+            <h2>⚠️ LLBot 掉线通知</h2>
         </div>
-        <div class="info-item">
-          <span class="label">离线时间</span>
-          <span class="value">${timestamp}</span>
+        <div class="content">
+            <div class="alert">
+                <p><strong>⚠️ QQ 已掉线</strong></p>
+            </div>
+            <div class="info">
+                <p><strong>账号信息:</strong> ${displayName}</p>
+                <p><strong>掉线时间:</strong> ${timestamp}</p>
+            </div>
+            <p>您的 QQ 机器人已掉线，请及时检查并重新登录。</p>
+            ${reasonSection}
         </div>
-        <div class="info-item">
-          <span class="label">离线原因</span>
-          <span class="value">${reasonText}</span>
+        <div class="footer">
+            <p>此邮件由 LLBot 自动发送，请勿回复</p>
         </div>
-      </div>
-      <div class="alert-message">
-        💡 请检查机器人状态和日志以获取更多信息，确保服务正常运行。
-      </div>
     </div>
-    <div class="footer">
-      Powered by <strong>LLBot</strong> · Lucky Lillia Bot
-    </div>
-  </div>
 </body>
 </html>
     `.trim()
@@ -264,149 +161,41 @@ export class EmailService {
   }
 
   private formatTestEmail(timestamp: string): EmailOptions {
-    const subject = '【LLBot】测试邮件'
+    const subject = 'LLBot 邮件通知测试'
 
     const html = `
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
-      background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
-      padding: 40px 20px;
-      line-height: 1.6;
-    }
-    .container { 
-      max-width: 600px; 
-      margin: 0 auto; 
-      background: white;
-      border-radius: 20px;
-      overflow: hidden;
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    }
-    .header { 
-      background: linear-gradient(135deg, #10b981 0%, #14b8a6 100%);
-      color: white; 
-      padding: 40px 32px;
-      text-align: center;
-      position: relative;
-    }
-    .header::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: radial-gradient(circle at 30% 50%, rgba(255,255,255,0.1) 0%, transparent 50%);
-    }
-    .header-content {
-      position: relative;
-      z-index: 1;
-    }
-    .icon {
-      font-size: 56px;
-      margin-bottom: 16px;
-      filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1));
-    }
-    .header h2 {
-      font-size: 28px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      letter-spacing: -0.5px;
-    }
-    .header p {
-      font-size: 15px;
-      opacity: 0.95;
-      font-weight: 500;
-    }
-    .content { 
-      padding: 36px 32px;
-    }
-    .success-card {
-      background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-      border-radius: 16px;
-      padding: 28px;
-      margin-bottom: 24px;
-      text-align: center;
-      border: 1px solid rgba(16, 185, 129, 0.2);
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    .success-card p {
-      color: #065f46;
-      font-size: 17px;
-      margin: 10px 0;
-      font-weight: 500;
-    }
-    .success-card .subtitle {
-      font-size: 14px;
-      margin-top: 12px;
-      opacity: 0.8;
-      font-weight: 400;
-    }
-    .info-box {
-      background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-      border-radius: 12px;
-      padding: 20px;
-      margin-top: 24px;
-      border: 1px solid rgba(0,0,0,0.05);
-    }
-    .info-box .label {
-      font-weight: 600;
-      color: #374151;
-      margin-bottom: 6px;
-      font-size: 13px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .info-box .value {
-      color: #6b7280;
-      font-size: 15px;
-    }
-    .footer {
-      text-align: center;
-      padding: 28px 24px;
-      background: linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%);
-      color: #9ca3af;
-      font-size: 13px;
-      border-top: 1px solid rgba(0,0,0,0.05);
-    }
-    .footer strong {
-      background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      font-weight: 600;
-    }
-  </style>
+    <meta charset="utf-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+        .content { background: #f9f9f9; padding: 20px; border-radius: 0 0 8px 8px; }
+        .info { background: white; padding: 15px; border-left: 4px solid #667eea; margin: 10px 0; }
+        .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+    </style>
 </head>
 <body>
-  <div class="container">
-    <div class="header">
-      <div class="header-content">
-        <div class="icon">✅</div>
-        <h2>测试邮件</h2>
-        <p>LLBot 邮件通知系统</p>
-      </div>
+    <div class="container">
+        <div class="header">
+            <h2>🎉 LLBot 邮件通知测试</h2>
+        </div>
+        <div class="content">
+            <p>您好！</p>
+            <p>这是一封来自 <strong>LLBot</strong> 的测试邮件。</p>
+            <div class="info">
+                <p><strong>📧 邮件配置测试成功</strong></p>
+                <p>发送时间: ${timestamp}</p>
+            </div>
+            <p>如果您收到这封邮件，说明邮件通知功能已正常工作。</p>
+            <p>当 QQ 掉线时，系统将自动向您发送通知邮件。</p>
+        </div>
+        <div class="footer">
+            <p>此邮件由 LLBot 自动发送，请勿回复</p>
+        </div>
     </div>
-    <div class="content">
-      <div class="success-card">
-        <p>🎉 恭喜！邮件配置测试成功</p>
-        <p class="subtitle">如果您收到此邮件，说明您的邮件配置已正确设置。</p>
-      </div>
-      <div class="info-box">
-        <div class="label">发送时间</div>
-        <div class="value">${timestamp}</div>
-      </div>
-    </div>
-    <div class="footer">
-      Powered by <strong>LLBot</strong> · Lucky Lillia Bot
-    </div>
-  </div>
 </body>
 </html>
     `.trim()

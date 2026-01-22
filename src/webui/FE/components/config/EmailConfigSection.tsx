@@ -164,21 +164,26 @@ const EmailConfigSection: React.FC<EmailConfigSectionProps> = (props) => {
               {errors.port && <p className='text-xs text-red-500 mt-1'>{errors.port}</p>}
             </label>
 
-            <div>
+            <label className='block'>
               <div className='flex items-center gap-2 mb-2'>
                 <Lock size={16} className='text-blue-600' />
-                <span className='text-sm font-medium text-theme-secondary'>SSL/TLS 加密</span>
+                <span className='text-sm font-medium text-theme-secondary'>加密方式</span>
               </div>
-              <label className='flex items-center gap-3 px-4 py-2.5 rounded-xl bg-theme-item hover:bg-theme-item-hover transition-colors cursor-pointer border border-theme-input'>
-                <input
-                  type='checkbox'
-                  checked={value.smtp.secure}
-                  onChange={(e) => handleChange('smtp.secure', e.target.checked)}
-                  className='switch-toggle'
-                />
-                <span className='text-sm text-theme'>启用加密连接</span>
-              </label>
-            </div>
+              <select
+                value={value.smtp.secure ? 'ssl' : 'starttls'}
+                onChange={(e) => {
+                  const isSecure = e.target.value === 'ssl'
+                  handleChange('smtp.secure', isSecure)
+                }}
+                className='input-field'
+              >
+                <option value='starttls'>STARTTLS（常用端口 587）</option>
+                <option value='ssl'>SSL/TLS（常用端口 465）</option>
+              </select>
+              <p className='text-xs text-theme-muted mt-1'>
+                {value.smtp.secure ? 'SSL/TLS 直接加密连接' : 'STARTTLS 升级加密连接'}
+              </p>
+            </label>
           </div>
 
           <label className='block'>
