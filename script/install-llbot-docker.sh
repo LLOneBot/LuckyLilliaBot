@@ -350,6 +350,12 @@ services:
     volumes:
       - qq_volume:/root/.config/QQ
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:13000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   llbot:
     image: ${docker_mirror}linyuchen/llbot:${LLBOT_TAG}
@@ -367,6 +373,12 @@ $([ ${#SERVICE_PORTS[@]} -gt 0 ] && echo "    ports:" && for port in "${!SERVICE
     depends_on:
       - pmhq
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "ps | grep '[n]ode'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   qq_volume:
@@ -390,6 +402,13 @@ services:
       - app_network
     volumes:
       - qq_volume:/root/.config/QQ
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:13000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   llbot:
     image: ${docker_mirror}linyuchen/llbot:${LLBOT_TAG}
@@ -407,6 +426,13 @@ $([ ${#SERVICE_PORTS[@]} -gt 0 ] && echo "    ports:" && for port in "${!SERVICE
       - ./llbot_config/webui_token.txt:/app/llbot/data/webui_token.txt:ro
     depends_on:
       - pmhq
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "ps | grep '[n]ode'"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 volumes:
   qq_volume:
