@@ -24,7 +24,7 @@
     "@types/nodemailer": "^7.0.5",
     "compare-versions": "^6.1.1",
     "cordis": "^3.18.1",
-    "cors": "^2.8.5",
+    "cors": "^2.8.6",
     "cosmokit": "^1.8.1",
     "express": "^5.2.1",
     "fast-xml-parser": "^5.3.3",
@@ -38,7 +38,7 @@
     "nodemailer": "^7.0.12",
     "silk-wasm": "^3.7.1",
     "ws": "^8.19.0",
-    "zod": "^4.3.5"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
