@@ -57,8 +57,30 @@ export class WebUIServer extends Service {
   private fileUpload: multer.Multer
   private uploadDir: string
   static inject = {
-    required: ['ntLoginApi', 'ntFriendApi', 'ntGroupApi', 'ntSystemApi', 'ntMsgApi', 'ntUserApi', 'ntFileApi'],
-    optional: ['emailNotification']
+    ntLoginApi: {
+      required: true
+    },
+    ntFriendApi: {
+      required: true
+    },
+    ntGroupApi: {
+      required: true
+    },
+    ntSystemApi: {
+      required: true
+    },
+    ntMsgApi: {
+      required: true
+    },
+    ntUserApi: {
+      required: true
+    },
+    ntFileApi: {
+      required: true
+    },
+    emailNotification: {
+      required: false
+    }
   }
 
   constructor(ctx: Context, public config: WebUIServerConfig) {
@@ -245,7 +267,7 @@ export class WebUIServer extends Service {
                   }
                 }
               }
-            } catch {}
+            } catch { }
 
             this.broadcastMessage('message', {
               type: 'emoji-reaction',
