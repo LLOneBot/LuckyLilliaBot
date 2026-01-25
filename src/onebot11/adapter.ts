@@ -58,11 +58,16 @@ class OneBot11Adapter extends Service {
   ]
   private connect: (OB11Http | OB11HttpPost | OB11WebSocket | OB11WebSocketReverse)[]
   private actionMap: Map<string, BaseAction<unknown, unknown>>
+  private reportOfflineMessage: boolean
 
   constructor(public ctx: Context, public config: OneBot11Adapter.Config) {
     super(ctx, 'onebot', true)
     this.actionMap = initActionMap(this)
+    this.reportOfflineMessage = false
     this.connect = config.connect.map(item => {
+      if (item.reportOfflineMessage) {
+        this.reportOfflineMessage = true
+      }
       if (item.type === 'http') {
         return new OB11Http(ctx, {
           ...item,
@@ -95,7 +100,7 @@ class OneBot11Adapter extends Service {
   public dispatchMessageLike(event: OB11BaseEvent, self: boolean, offline: boolean) {
     for (const item of this.connect) {
       // 这里不 copy 出来的话，更改了 msg.message 会影响下一个 connect
-      item.emitMessageLikeEvent(cloneObj(event) as OB11BaseEvent, self, offline)
+      item.emitMessageLikeEvent(cloneObj(event), self, offline)
     }
   }
 
@@ -144,6 +149,10 @@ class OneBot11Adapter extends Service {
   }
 
   private handleMsg(message: RawMessage, self: boolean, offline: boolean) {
+    if (offline && !this.reportOfflineMessage) {
+      return
+    }
+
     OB11Entities.message(this.ctx, message).then(msg => {
       if (!msg) {
         return
@@ -234,7 +243,11 @@ class OneBot11Adapter extends Service {
       }
     }
     if (config.ob11.enable) {
+      this.reportOfflineMessage = false
       this.connect = config.ob11.connect.map(item => {
+        if (item.reportOfflineMessage) {
+          this.reportOfflineMessage = true
+        }
         if (item.type === 'http') {
           return new OB11Http(this.ctx, {
             ...item,

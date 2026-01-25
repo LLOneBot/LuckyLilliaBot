@@ -42,7 +42,7 @@ export class SatoriServer {
     const params = req.method === 'POST' ? req.body : req.query
     let result
     try {
-      result = await this.CallOneBot11API(action, params)
+      result = await this.CallOneBot11API(action as string, params)
     } catch (e) {
       result = OB11Response.error((e as Error)?.toString() ?? String(e), 200)
     }
@@ -156,7 +156,7 @@ export class SatoriServer {
       }
     }
     this.wsClients = []
-    
+
     if (this.wsServer) {
       await new Promise<void>((resolve) => {
         this.wsServer!.close(() => resolve())

@@ -4,16 +4,16 @@ export namespace Msg {
   export const Elem = ProtoMessage.of({
     text: ProtoField(1, {
       str: ProtoField(1, 'string'),
-      link: ProtoField(2, 'string'),
-      attr6Buf: ProtoField(3, 'bytes'),
-      attr7Buf: ProtoField(4, 'bytes'),
-      buf: ProtoField(11, 'bytes'),
-      pbReserve: ProtoField(12, 'bytes')
+      link: ProtoField(2, 'string', 'optional'),
+      attr6Buf: ProtoField(3, 'bytes', 'optional'),
+      attr7Buf: ProtoField(4, 'bytes', 'optional'),
+      buf: ProtoField(11, 'bytes', 'optional'),
+      pbReserve: ProtoField(12, 'bytes', 'optional')
     }, 'optional'),
     face: ProtoField(2, {
       index: ProtoField(1, 'uint32'),
       old: ProtoField(2, 'bytes'),
-      buf: ProtoField(11, 'bytes')
+      buf: ProtoField(11, 'bytes', 'optional')
     }, 'optional'),
     richMsg: ProtoField(12, {
       template: ProtoField(1, 'bytes'),
@@ -25,12 +25,12 @@ export namespace Msg {
       time: ProtoField(3, 'int32'),
       elems: ProtoField(5, 'bytes', 'repeated'),
       pbReserve: ProtoField(8, 'bytes'),
-      srcMsg: ProtoField(9, 'bytes'),
+      srcMsg: ProtoField(9, 'bytes', 'optional'), // 仅在合并转发内存在
       toUin: ProtoField(10, 'uint32')
     }, 'optional'),
     lightApp: ProtoField(51, {
       data: ProtoField(1, 'bytes'),
-      msgResid: ProtoField(2, 'bytes')
+      msgResid: ProtoField(2, 'bytes', 'optional')
     }, 'optional'),
     commonElem: ProtoField(53, {
       serviceType: ProtoField(1, 'uint32'),

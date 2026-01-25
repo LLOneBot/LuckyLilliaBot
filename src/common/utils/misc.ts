@@ -54,7 +54,7 @@ export type DeepNonNullable<T> = T extends object
 ? { [K in keyof T]-?: DeepNonNullable<NonNullable<T[K]>> }
   : NonNullable<T>
 
-export const cloneObj = (obj: any) => Object.assign(
+export const cloneObj = <T>(obj: T) => Object.assign(
   Object.create(Object.getPrototypeOf(obj)),
   obj
-);
+) as T
