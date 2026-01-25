@@ -88,6 +88,11 @@ export class EmailConfigManager {
   validateConfig(config: EmailConfig): ValidationResult {
     const errors: string[] = []
 
+    // 关闭邮件通知时允许保存空配置（issue##690）
+    if (!config.enabled) {
+      return { valid: true, errors: [] }
+    }
+
     if (!config.smtp.host || config.smtp.host.trim() === '') {
       errors.push('SMTP 服务器不能为空')
     }
