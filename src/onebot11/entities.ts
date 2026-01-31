@@ -171,20 +171,16 @@ export namespace OB11Entities {
           guildId: ''
         }
         try {
-          const { replayMsgSeq: replyMsgSeq, replyMsgTime } = replyElement
-          const record = msg.records.find(msgRecord => msgRecord.msgId === replyElement.sourceMsgIdInRecords)
-          const { msgList } = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, replyMsgSeq, 1, true, true)
-          if (!replyMsgTime) {
-            ctx.logger.error('找不到回复消息', replyElement)
-            continue
-          }
+          const { replayMsgSeq, replyMsgTime, sourceMsgIdInRecords, senderUidStr } = replyElement
+          const record = msg.records.find(msgRecord => msgRecord.msgId === sourceMsgIdInRecords)
+          const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, replayMsgSeq, replyMsgTime, [senderUidStr])
 
           let replyMsg: RawMessage | undefined
           if (record && record.msgRandom !== '0') {
             replyMsg = msgList.find((msg: RawMessage) => msg.msgRandom === record.msgRandom)
           } else {
             if (msgList.length > 0) {
-              replyMsg = msgList.find(msg => msg.msgTime === replyMsgTime)
+              replyMsg = msgList[0]
             } else if (record) {
               if (record.senderUin && record.senderUin !== '0') {
                 peer.chatType = record.chatType

@@ -274,6 +274,7 @@ export class NTQQMsgApi extends Service {
         filterSendersUid,
         filterMsgToTime: filterMsgTime,
         filterMsgFromTime: filterMsgTime,
+        isReverseOrder: false,
         isIncludeCurrent: true,
         pageLimit: 1,
       },
