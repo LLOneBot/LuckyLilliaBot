@@ -36,7 +36,7 @@ export interface NodeIKernelMsgService {
 
   getSingleMsg(peer: Peer, msgSeq: string): Promise<GeneralCallResult & { msgList: RawMessage[] }>
 
-  queryMsgsWithFilterEx(msgId: string, msgTime: string, megSeq: string, param: QueryMsgsParams): Promise<GeneralCallResult & {
+  queryMsgsWithFilterEx(msgId: string, msgTime: string, megSeq: string, params: QueryMsgsParams): Promise<GeneralCallResult & {
     msgList: RawMessage[]
   }>
 
