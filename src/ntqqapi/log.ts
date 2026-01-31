@@ -1,6 +1,6 @@
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
-import { AtType, ChatType, ElementType, RawMessage } from '@/ntqqapi/types'
+import { ChatType, ElementType, RawMessage } from '@/ntqqapi/types'
 
 export async function logSummaryMessage(ctx: Context, message: RawMessage) {
   const direction = message.senderUid == selfInfo.uid ? '发' : '收'
@@ -51,7 +51,6 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
   if (!summary){
     return
   }
-  const now = new Date(parseInt(message.msgTime) * 1000)
   let peerName = ''
   if (message.chatType == ChatType.Group) {
     peerName = `群] ${message.peerName}(${message.peerUid}) ${sender}(${senderUin})`
@@ -69,7 +68,6 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
   else if (message.chatType == ChatType.TempC2CFromGroup) {
     peerName = `临] ${message.peerName}(${message.peerUin})`
   }
-  const padTime = (t: number) => t.toString().padStart(2, '0')
   const logMsg = `[${direction}-${peerName}：\n${summary}`
   ctx.logger.info(logMsg)
 }
