@@ -16,7 +16,7 @@ import {
 import { WebQQPage, WebQQFullscreen } from './components/WebQQ';
 import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
-import { Save, Loader2, Settings, Eye, EyeOff, Plus, Trash2, Menu } from 'lucide-react';
+import { Save, Loader2, Eye, EyeOff, Plus, Trash2, Menu, Cpu, Milk } from 'lucide-react';
 import { defaultConfig } from '../../common/defaultConfig'
 import { version } from '../../version'
 import SettingsDialog from './components/common/SettingsDialog'
@@ -337,7 +337,7 @@ function App() {
             <div className="card p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-xl gradient-primary-br flex items-center justify-center">
-                  <Settings size={24} className="text-white" />
+                  <Cpu size={24} className="text-white" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-theme">Satori 协议</h3>
@@ -453,7 +453,7 @@ function App() {
             <div className="card p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center">
-                  <Settings size={24} className="text-white" />
+                  <Milk size={24} className="text-white" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-theme">Milky 协议</h3>

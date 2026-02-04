@@ -142,10 +142,13 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
     <div className="space-y-6">
       {/* 总开关 */}
       <div className="card p-6">
-        <label className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 rounded-xl gradient-primary-br flex items-center justify-center">
+            <Radio size={24} className="text-white" />
+          </div>
+          <div className="flex-1">
             <h3 className="text-lg font-semibold text-theme">OneBot 11 协议</h3>
-            <p className="text-sm text-theme-secondary mt-1">启用或禁用 OneBot 11 适配器</p>
+            <p className="text-sm text-theme-secondary">启用或禁用 OneBot 11 适配器</p>
           </div>
           <input
             type="checkbox"
@@ -157,7 +160,7 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
             }}
             className="switch-toggle-lg"
           />
-        </label>
+        </div>
       </div>
 
       {/* 适配器卡片 */}
