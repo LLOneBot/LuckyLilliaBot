@@ -14,7 +14,7 @@ import {
   HostSelector,
 } from './components';
 import { WebQQPage, WebQQFullscreen } from './components/WebQQ';
-import { Config, ResConfig } from './types';
+import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
 import { Save, Loader2, Settings, Eye, EyeOff, Plus, Trash2, Menu } from 'lucide-react';
 import { defaultConfig } from '../../common/defaultConfig'
@@ -33,6 +33,7 @@ function App() {
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [config, setConfig] = useState<Config>(defaultConfig);
+  const [emailConfig, setEmailConfig] = useState<EmailConfig | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -114,19 +115,17 @@ function App() {
           });
           
           // 获取主配置
-          const mainConfig = response.data.config;
+          setConfig(response.data.config);
           
-          // 获取邮件配置
+          // 获取邮件配置（独立管理）
           try {
-            const emailResponse = await apiFetch<{ enabled: boolean; smtp: any; from: string; to: string }>('/api/email/config');
+            const emailResponse = await apiFetch<EmailConfig>('/api/email/config');
             if (emailResponse.success && emailResponse.data) {
-              mainConfig.email = emailResponse.data;
+              setEmailConfig(emailResponse.data);
             }
           } catch (e) {
             console.error('Failed to fetch email config:', e);
           }
-          
-          setConfig(mainConfig);
           
           // 获取 QQ 版本号（单独 try-catch，不影响登录状态）
           try {
@@ -150,12 +149,12 @@ function App() {
     checkLoginStatus();
   }, []);
 
-  // 保存配置（直接保存新格式）
-  // configToSave: 可选，传入时使用传入的配置，否则使用当前 state
-  const handleSave = useCallback(async (configToSave?: Config) => {
+  // 保存配置
+  const handleSave = useCallback(async (configToSave?: Config, emailConfigToSave?: EmailConfig | null) => {
     try {
       setLoading(true);
       const finalConfig = configToSave || config;
+      const finalEmailConfig = emailConfigToSave !== undefined ? emailConfigToSave : emailConfig;
       
       // 保存主配置
       const response = await apiFetch('/api/config', {
@@ -169,13 +168,13 @@ function App() {
         return;
       }
       
-      // 如果有邮件配置，同时保存到独立文件
-      if (finalConfig.email) {
+      // 保存邮件配置（如果有）
+      if (finalEmailConfig) {
         try {
           const emailResponse = await apiFetch('/api/email/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(finalConfig.email),
+            body: JSON.stringify(finalEmailConfig),
           });
           
           if (!emailResponse.success) {
@@ -194,7 +193,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [config]); // 依赖 config
+  }, [config, emailConfig]);
 
   // 登录成功回调
   const handleLoginSuccess = useCallback(() => {
@@ -745,7 +744,9 @@ function App() {
               <div className="pb-24">
                 <OtherConfig
                   config={config}
+                  emailConfig={emailConfig}
                   onChange={setConfig}
+                  onEmailChange={setEmailConfig}
                   onOpenChangePassword={() => setShowChangePasswordDialog(true)}
                 />
               </div>

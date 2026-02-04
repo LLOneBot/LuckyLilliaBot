@@ -3,6 +3,7 @@ import { Context } from 'cordis'
 import { ChatType, ElementType, RawMessage } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
 import { serializeResult } from '../../../BE/utils'
+import { unlink } from 'node:fs/promises'
 
 export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath: string) => Promise<any>): Router {
   const router = Router()
@@ -72,6 +73,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
 
   // 发送消息
   router.post('/messages', async (req, res) => {
+    const uploadedFiles: string[] = []
     try {
       const { chatType, peerId, content } = req.body as {
         chatType: number | string
@@ -148,6 +150,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
             }
           })
         } else if (item.type === 'image' && item.imagePath) {
+          uploadedFiles.push(item.imagePath)
           const picElement = await createPicElement(item.imagePath)
           if (picElement) {
             elements.push(picElement)
@@ -155,6 +158,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
         } else if (item.type === 'face' && item.faceId !== undefined) {
           elements.push(SendElement.face(item.faceId))
         } else if (item.type === 'file' && item.filePath && item.fileName) {
+          uploadedFiles.push(item.filePath)
           const fileElement = await SendElement.file(ctx, item.filePath, item.fileName)
           elements.push(fileElement)
         }
@@ -166,12 +170,28 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       }
 
       const result = await ctx.ntMsgApi.sendMsg(peer, elements)
+      
+      // 发送成功后清理上传的临时文件
+      for (const filePath of uploadedFiles) {
+        unlink(filePath).catch(err => {
+          ctx.logger.warn(`清理临时文件失败: ${filePath}`, err)
+        })
+      }
+      
       res.json({
         success: true,
         data: { msgId: result.msgId }
       })
     } catch (e: any) {
       ctx.logger.error('发送消息失败:', e)
+      
+      // 发送失败也要清理临时文件
+      for (const filePath of uploadedFiles) {
+        unlink(filePath).catch(err => {
+          ctx.logger.warn(`清理临时文件失败: ${filePath}`, err)
+        })
+      }
+      
       res.status(500).json({ success: false, message: '发送消息失败', error: e.message })
     }
   })
