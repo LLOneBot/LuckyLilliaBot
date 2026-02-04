@@ -6,25 +6,27 @@ import EmailConfigSection from './EmailConfigSection'
 
 interface OtherConfigProps {
   config: Config;
+  emailConfig: EmailConfig | null;
   onChange: (config: Config) => void;
+  onEmailChange: (emailConfig: EmailConfig) => void;
   onOpenChangePassword: () => void;
 }
 
-const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, onOpenChangePassword }) => {
+const OtherConfig: React.FC<OtherConfigProps> = ({ config, emailConfig, onChange, onEmailChange, onOpenChangePassword }) => {
   const handleChange = (field: keyof Config, value: any) => {
     onChange({ ...config, [field]: value })
   }
 
-  const handleEmailChange = (emailConfig: EmailConfig) => {
+  const handleEmailChange = (newEmailConfig: EmailConfig) => {
     // 如果端口为空，使用默认值 587
     const normalizedConfig = {
-      ...emailConfig,
+      ...newEmailConfig,
       smtp: {
-        ...emailConfig.smtp,
-        port: emailConfig.smtp.port || 587
+        ...newEmailConfig.smtp,
+        port: newEmailConfig.smtp.port || 587
       }
     }
-    onChange({ ...config, email: normalizedConfig })
+    onEmailChange(normalizedConfig)
   }
 
   // 默认邮件配置
@@ -107,7 +109,7 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, onOpenChang
 
       {/* 邮件通知 */}
       <EmailConfigSection 
-        value={config.email || defaultEmailConfig} 
+        value={emailConfig || defaultEmailConfig} 
         onChange={handleEmailChange} 
       />
 
