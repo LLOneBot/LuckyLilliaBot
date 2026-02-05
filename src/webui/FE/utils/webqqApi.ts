@@ -796,3 +796,19 @@ export async function setRecentChatTop(chatType: number, peerId: string, isTop: 
     }
   }
 }
+
+// 群消息接收方式枚举
+export enum GroupMsgMask {
+  AllowNotify = 1,      // 接收并提醒
+  BoxNotNotify = 2,     // 收进群助手不提醒
+  NotAllow = 3,         // 屏蔽群消息
+  AllowNotNotify = 4,   // 接收但不提醒
+}
+
+// 设置群消息接收方式
+export async function setGroupMsgMask(groupCode: string, msgMask: GroupMsgMask): Promise<void> {
+  const result = await ntCall<{ result: number; errMsg: string }>('ntGroupApi', 'setGroupMsgMask', [groupCode, msgMask])
+  if (result?.result !== 0) {
+    throw new Error(result?.errMsg || '设置消息接收方式失败')
+  }
+}

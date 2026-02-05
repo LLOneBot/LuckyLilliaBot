@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { Pin } from 'lucide-react'
+import { Pin, Bell, BellOff, Archive, Ban, ChevronRight } from 'lucide-react'
 import type { FriendItem, GroupItem } from '../../../types/webqq'
 import { useWebQQStore } from '../../../stores/webqqStore'
+import { GroupMsgMask, setGroupMsgMask } from '../../../utils/webqqApi'
 
 // 计算菜单位置，确保不超出屏幕
 export function useMenuPosition(x: number, y: number, menuRef: React.RefObject<HTMLDivElement>) {
@@ -43,6 +44,90 @@ export function useMenuPosition(x: number, y: number, menuRef: React.RefObject<H
   }, [x, y])
   
   return position
+}
+
+// 群消息接收方式菜单（共享组件）
+interface GroupMsgMaskMenuProps {
+  groupCode: string
+  onClose: () => void
+}
+
+export const GroupMsgMaskMenu: React.FC<GroupMsgMaskMenuProps> = ({ groupCode, onClose }) => {
+  const { groups, setGroups } = useWebQQStore()
+  const [showSubmenu, setShowSubmenu] = useState(false)
+  const submenuRef = useRef<HTMLDivElement>(null)
+
+  const handleSetMsgMask = async (msgMask: GroupMsgMask) => {
+    try {
+      await setGroupMsgMask(groupCode, msgMask)
+      // 更新本地 groups 数据
+      const updatedGroups = groups.map(g => 
+        g.groupCode === groupCode ? { ...g, msgMask } : g
+      )
+      setGroups(updatedGroups)
+    } catch (error: any) {
+      console.error('设置消息接收方式失败:', error)
+      alert(`设置失败: ${error.message || '未知错误'}`)
+    }
+    onClose()
+  }
+
+  // 获取当前群的 msgMask
+  const currentMsgMask = groups.find(g => g.groupCode === groupCode)?.msgMask
+
+  return (
+    <div className="relative">
+      <button
+        onMouseEnter={() => setShowSubmenu(true)}
+        className="w-full px-3 py-2 text-left text-sm hover:bg-theme-item-hover flex items-center gap-2 text-theme"
+      >
+        <Bell size={14} className="flex-shrink-0" />
+        <span className="flex-1">消息接收方式</span>
+        <ChevronRight size={14} className="flex-shrink-0" />
+      </button>
+      
+      {showSubmenu && (
+        <div
+          ref={submenuRef}
+          className="absolute left-full top-0 ml-1 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[140px] z-[10000]"
+          onMouseLeave={() => setShowSubmenu(false)}
+        >
+          <button
+            onClick={() => handleSetMsgMask(GroupMsgMask.AllowNotify)}
+            className="w-full px-3 py-2 text-left text-sm hover:bg-theme-item-hover flex items-center gap-2 text-theme"
+          >
+            <Bell size={14} className="flex-shrink-0" />
+            <span className="flex-1">接收并提醒</span>
+            {currentMsgMask === GroupMsgMask.AllowNotify && <span className="flex-shrink-0 text-pink-500">✓</span>}
+          </button>
+          <button
+            onClick={() => handleSetMsgMask(GroupMsgMask.AllowNotNotify)}
+            className="w-full px-3 py-2 text-left text-sm hover:bg-theme-item-hover flex items-center gap-2 text-theme"
+          >
+            <BellOff size={14} className="flex-shrink-0" />
+            <span className="flex-1">接收但不提醒</span>
+            {currentMsgMask === GroupMsgMask.AllowNotNotify && <span className="flex-shrink-0 text-pink-500">✓</span>}
+          </button>
+          <button
+            onClick={() => handleSetMsgMask(GroupMsgMask.BoxNotNotify)}
+            className="w-full px-3 py-2 text-left text-sm hover:bg-theme-item-hover flex items-center gap-2 text-theme"
+          >
+            <Archive size={14} className="flex-shrink-0" />
+            <span className="flex-1">收进群助手</span>
+            {currentMsgMask === GroupMsgMask.BoxNotNotify && <span className="flex-shrink-0 text-pink-500">✓</span>}
+          </button>
+          <button
+            onClick={() => handleSetMsgMask(GroupMsgMask.NotAllow)}
+            className="w-full px-3 py-2 text-left text-sm hover:bg-theme-item-hover flex items-center gap-2 text-theme"
+          >
+            <Ban size={14} className="flex-shrink-0" />
+            <span className="flex-1">屏蔽群消息</span>
+            {currentMsgMask === GroupMsgMask.NotAllow && <span className="flex-shrink-0 text-pink-500">✓</span>}
+          </button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // 好友列表项
@@ -129,10 +214,10 @@ export const FriendListItem: React.FC<FriendListItemProps> = ({ friend, isSelect
         >
           <button
             onClick={handlePin}
-            className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2 text-theme"
+            className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2 text-theme"
           >
-            <Pin className="w-4 h-4" />
-            {friend.topTime && friend.topTime !== '0' ? '取消置顶' : '置顶'}
+            <Pin size={14} className="flex-shrink-0" />
+            <span className="flex-1">{friend.topTime && friend.topTime !== '0' ? '取消置顶' : '置顶'}</span>
           </button>
         </div>,
         document.body
@@ -162,7 +247,9 @@ export const GroupListItem: React.FC<GroupListItemProps> = ({ group, isSelected,
     setContextMenu({ x: e.clientX, y: e.clientY })
   }
 
-  const closeContextMenu = () => setContextMenu(null)
+  const closeContextMenu = () => {
+    setContextMenu(null)
+  }
 
   const handlePin = async () => {
     try {
@@ -218,7 +305,7 @@ export const GroupListItem: React.FC<GroupListItemProps> = ({ group, isSelected,
       {contextMenu && createPortal(
         <div
           ref={menuRef}
-          className="fixed bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 py-1 min-w-[120px] z-[9999]"
+          className="fixed bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 py-1 min-w-[160px] z-[9999]"
           style={{
             left: `${menuPosition.left}px`,
             top: `${menuPosition.top}px`,
@@ -229,11 +316,14 @@ export const GroupListItem: React.FC<GroupListItemProps> = ({ group, isSelected,
         >
           <button
             onClick={handlePin}
-            className="w-full px-4 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2 text-theme"
+            className="w-full px-3 py-2 text-left text-sm hover:bg-neutral-100 dark:hover:bg-neutral-700 flex items-center gap-2 text-theme"
           >
-            <Pin className="w-4 h-4" />
-            {group.isTop ? '取消置顶' : '置顶'}
+            <Pin size={14} className="flex-shrink-0" />
+            <span className="flex-1">{group.isTop ? '取消置顶' : '置顶'}</span>
           </button>
+          
+          {/* 使用共享的消息接收方式菜单 */}
+          <GroupMsgMaskMenu groupCode={group.groupCode} onClose={closeContextMenu} />
         </div>,
         document.body
       )}

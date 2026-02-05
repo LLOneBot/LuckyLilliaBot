@@ -1,10 +1,10 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react'
+import React, { useState, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Users, MessageCircle, Search, Clock, ChevronDown, ChevronRight, Pin, Trash2 } from 'lucide-react'
 import type { FriendItem, FriendCategory, GroupItem, RecentChatItem } from '../../../types/webqq'
 import { filterGroups, formatMessageTime } from '../../../utils/webqqApi'
 import { useWebQQStore } from '../../../stores/webqqStore'
-import { FriendListItem, GroupListItem, useMenuPosition } from './ListItems'
+import { FriendListItem, GroupListItem, useMenuPosition, GroupMsgMaskMenu } from './ListItems'
 
 type TabType = 'friends' | 'groups' | 'recent'
 
@@ -330,7 +330,9 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
     setContextMenu({ x: e.clientX, y: e.clientY, item })
   }
 
-  const closeContextMenu = () => setContextMenu(null)
+  const closeContextMenu = () => {
+    setContextMenu(null)
+  }
 
   const handlePin = async () => {
     if (contextMenu) {
@@ -410,23 +412,32 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
           />
           <div
             ref={menuRef}
-            className="fixed z-50 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[120px]"
+            className="fixed z-50 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[160px]"
             style={{ left: menuPosition.left, top: menuPosition.top, visibility: menuPosition.ready ? 'visible' : 'hidden' }}
             onContextMenu={(e) => e.preventDefault()}
           >
             <button
               onClick={handlePin}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
+              className="w-full px-3 py-2 text-left text-sm hover:bg-theme-item-hover flex items-center gap-2 text-theme"
             >
-              <Pin size={14} />
-              {contextMenu.item.pinned ? '取消置顶' : '置顶'}
+              <Pin size={14} className="flex-shrink-0" />
+              <span className="flex-1">{contextMenu.item.pinned ? '取消置顶' : '置顶'}</span>
             </button>
+            
+            {/* 只有群聊才显示消息接收方式 - 使用共享的 GroupMsgMaskMenu 组件 */}
+            {contextMenu.item.chatType === 2 && (
+              <GroupMsgMaskMenu
+                groupCode={contextMenu.item.peerId}
+                onClose={closeContextMenu}
+              />
+            )}
+            
             <button
               onClick={handleDelete}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-theme-item-hover transition-colors"
+              className="w-full px-3 py-2 text-left text-sm hover:bg-theme-item-hover flex items-center gap-2 text-red-500"
             >
-              <Trash2 size={14} />
-              删除
+              <Trash2 size={14} className="flex-shrink-0" />
+              <span className="flex-1">删除</span>
             </button>
           </div>
         </>,
