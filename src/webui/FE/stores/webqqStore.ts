@@ -70,6 +70,9 @@ interface WebQQState {
   groups: GroupItem[]
   recentChats: RecentChatItem[]
   
+  // 群最后消息时间映射（用于排序）
+  groupLastTimeMap: Record<string, number>
+  
   // 加载状态
   contactsLoading: boolean
   contactsError: string | null
@@ -165,6 +168,7 @@ export const useWebQQStore = create<WebQQState>()(
       friendCategories: [],
       groups: [],
       recentChats: [],
+      groupLastTimeMap: {},
       contactsLoading: false,
       contactsError: null,
       currentChat: null,
@@ -489,6 +493,11 @@ export const useWebQQStore = create<WebQQState>()(
         const currentChat = state.currentChat
         const isCurrentChat = currentChat?.chatType === chatType && currentChat?.peerId === peerId
         
+        // 创建新的 groupLastTimeMap（如果是群聊）
+        const newGroupLastTimeMap = chatType === 2 
+          ? { ...state.groupLastTimeMap, [peerId]: lastTime }
+          : state.groupLastTimeMap
+        
         if (existing) {
           // 更新已存在的会话
           const updated = dedupedChats.filter(
@@ -508,7 +517,8 @@ export const useWebQQStore = create<WebQQState>()(
             const pinnedChats = updated.filter(item => item.pinned)
             const normalChats = updated.filter(item => !item.pinned)
             return {
-              recentChats: [updatedChat, ...pinnedChats, ...normalChats]
+              recentChats: [updatedChat, ...pinnedChats, ...normalChats],
+              groupLastTimeMap: newGroupLastTimeMap
             }
           }
           
@@ -516,7 +526,8 @@ export const useWebQQStore = create<WebQQState>()(
           const pinnedChats = updated.filter(item => item.pinned)
           const normalChats = updated.filter(item => !item.pinned)
           return {
-            recentChats: [...pinnedChats, updatedChat, ...normalChats]
+            recentChats: [...pinnedChats, updatedChat, ...normalChats],
+            groupLastTimeMap: newGroupLastTimeMap
           }
         } else {
           // 创建新的会话
@@ -541,9 +552,11 @@ export const useWebQQStore = create<WebQQState>()(
             // 从群组列表查找
             const group = state.groups.find(g => g.groupCode === peerId)
             if (group) {
-              // 如果是群助手的群（msgMask === 2），不添加到最近联系列表
+              // 如果是群助手的群（msgMask === 2），不添加到最近联系列表，但仍然更新时间映射
               if (group.msgMask === 2) {
-                return {}
+                return {
+                  groupLastTimeMap: newGroupLastTimeMap
+                }
               }
               name = group.groupName
               avatar = group.avatar
@@ -564,7 +577,8 @@ export const useWebQQStore = create<WebQQState>()(
           }
           
           return {
-            recentChats: [newChat, ...dedupedChats]
+            recentChats: [newChat, ...dedupedChats],
+            groupLastTimeMap: newGroupLastTimeMap
           }
         }
       }),
@@ -630,6 +644,7 @@ export const useWebQQStore = create<WebQQState>()(
         friendCategories: state.friendCategories,
         groups: state.groups,
         recentChats: state.recentChats,
+        groupLastTimeMap: state.groupLastTimeMap,
         expandedCategories: state.expandedCategories,
         // messageCache 不持久化，太大会超出 localStorage 配额
         membersCache: state.membersCache,

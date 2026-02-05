@@ -54,7 +54,6 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
   const {
     friendCategories,
     groups,
-    recentChats,
     contactsLoading,
     contactsError,
     currentChat,
@@ -70,6 +69,9 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
     loadContacts,
     setRecentChats
   } = useWebQQStore()
+  
+  // 单独订阅 recentChats 以确保更新时触发重新渲染
+  const recentChats = useWebQQStore(state => state.recentChats)
 
   // 用于从群成员面板 @ 成员
   const [appendInputText, setAppendInputText] = React.useState<string>('')

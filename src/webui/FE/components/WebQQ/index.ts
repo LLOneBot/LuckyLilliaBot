@@ -7,7 +7,7 @@ export { ChatInput, RichInput, MuteDialog, KickConfirmDialog, TitleDialog } from
 export type { ChatInputRef, RichInputRef, RichInputItem } from './chat'
 
 // Contact components
-export { ContactList, GroupMemberPanel, FriendListItem, GroupListItem, RecentListItem } from './contact'
+export { ContactList, GroupMemberPanel, FriendListItem, GroupListItem } from './contact'
 
 // Message components
 export {
