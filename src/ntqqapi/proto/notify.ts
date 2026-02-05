@@ -38,4 +38,19 @@ export namespace Notify {
       extraEnable: ProtoField(2, GroupAdminExtra, 'optional')
     })
   })
+
+  export const FriendDeleteOrPinChange = ProtoMessage.of({
+    body: ProtoField(1, {
+      type: ProtoField(2, 'uint32'),
+      pinChanged: ProtoField(20, {
+        body: ProtoField(1, {
+          uid: ProtoField(1, 'string'),
+          groupCode: ProtoField(2, 'uint32', 'optional'),
+          info: ProtoField(400, {
+            timestamp: ProtoField(2, 'bytes'),
+          })
+        })
+      }, 'optional')
+    })
+  })
 }

@@ -23,7 +23,7 @@ export class GetEvent extends BaseAction<Payload, PostEventType[]> {
     if (payload.key) {
       key = payload.key
     }
-    const timeout = parseInt(payload.timeout?.toString()) || 0
+    const timeout = +payload.timeout?.toString() || 0
     const evts = await getHttpEvent(key, timeout)
     return evts
   }

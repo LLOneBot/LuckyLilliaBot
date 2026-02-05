@@ -48,13 +48,13 @@ export class UploadFlashFile extends BaseAction<Payload, Response> {
       return {
         file_set_id: oldFlashFileInfo.fileSetId,
         share_link: oldFlashFileInfo.shareInfo.shareLink,
-        expire_time: parseInt(oldFlashFileInfo.expireTime),
+        expire_time: +oldFlashFileInfo.expireTime,
       }
     }
     return {
       file_set_id: res.createFlashTransferResult.fileSetId,
       share_link: res.createFlashTransferResult.shareLink,
-      expire_time: parseInt(res.createFlashTransferResult.expireTime),
+      expire_time: +res.createFlashTransferResult.expireTime,
     }
   }
 }

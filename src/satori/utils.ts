@@ -65,7 +65,7 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
         peerUid: data.peerUid,
         guildId: ''
       }
-      const { replayMsgSeq, replyMsgTime, sourceMsgIdInRecords } = v.replyElement
+      const { replayMsgSeq, replyMsgTime, sourceMsgIdInRecords, senderUidStr } = v.replyElement
       const records = data.records.find(msgRecord => msgRecord.msgId === sourceMsgIdInRecords)
       const senderUid = v.replyElement.senderUidStr || records?.senderUid
       if (!records || !replyMsgTime || !senderUid) {
@@ -78,7 +78,7 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       }
 
       try {
-        const { msgList } = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, replayMsgSeq, 1, true, true)
+        const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, replayMsgSeq, replyMsgTime, [senderUidStr])
         let replyMsg: NT.RawMessage | undefined
         if (records.msgRandom !== '0') {
           replyMsg = msgList.find(msg => msg.msgRandom === records.msgRandom)

@@ -128,7 +128,7 @@ class Core extends Service {
 
   private async handleMessage(msgList: RawMessage[]) {
     for (const message of msgList) {
-      const msgTime = parseInt(message.msgTime)
+      const msgTime = +message.msgTime
       if (msgTime < this.startupTime) {
         const existing = await this.ctx.store.checkMsgExist(message)
         if (!existing) {

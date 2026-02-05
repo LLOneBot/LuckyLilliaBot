@@ -92,7 +92,7 @@ export async function createSendElements(
         const faceId = segment.data?.id
         const faceType: FaceType | undefined = segment.data?.sub_type
         if (faceId) {
-          sendElements.push(SendElement.face(parseInt(faceId), faceType))
+          sendElements.push(SendElement.face(+faceId, faceType))
         }
       }
         break

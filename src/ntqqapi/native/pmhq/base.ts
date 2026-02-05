@@ -58,11 +58,11 @@ export class PMHQBase {
 
   private startDisconnectMonitoring() {
     if (this.disconnectCheckTimer) return
-    
+
     console.info('[PMHQ] Starting disconnect monitoring')
     this.disconnectCheckTimer = setInterval(() => {
       const isConnected = this.get_is_connected()
-      
+
       if (isConnected) {
         this.lastConnectedTime = Date.now()
         for (const info of this.disconnectCallbacks.values()) {
@@ -70,7 +70,7 @@ export class PMHQBase {
         }
       } else {
         const disconnectedDuration = Date.now() - this.lastConnectedTime
-        
+
         for (const info of this.disconnectCallbacks.values()) {
           if (!info.triggered && disconnectedDuration >= info.timeout) {
             info.triggered = true
@@ -149,23 +149,23 @@ export class PMHQBase {
 
     this.ws.onerror = () => {
       selfInfo.online = false
-      
+
       if (!this.hasLoggedConnectionError) {
         console.error('PMHQ WebSocket 连接错误，可能 QQ 未启动，正在等待 QQ 启动进行重连...')
         this.hasLoggedConnectionError = true
       }
-      
+
       reconnect()
     }
 
     this.ws.onclose = () => {
       selfInfo.online = false
-      
+
       if (!this.hasLoggedConnectionError) {
         console.info('PMHQ WebSocket 连接关闭，准备重连...')
         this.hasLoggedConnectionError = true
       }
-      
+
       reconnect()
     }
 

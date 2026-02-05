@@ -17,7 +17,7 @@ class GetLoginInfo extends BaseAction<{}, OB11User> {
       }
     }
     return {
-      user_id: parseInt(selfInfo.uin),
+      user_id: +selfInfo.uin,
       nickname: selfInfo.nick
     }
   }

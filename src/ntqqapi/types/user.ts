@@ -149,7 +149,7 @@ export interface SimpleInfo {
 }
 
 interface RelationFlags {
-  topTime: string
+  topTime: string  // 非 0 时表示顶置
   isBlock: boolean
   isMsgDisturb: boolean
   isSpecialCareOpen: boolean

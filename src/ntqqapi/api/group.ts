@@ -116,7 +116,7 @@ export class NTQQGroupApi extends Service {
     const flagitem = flag.split('|')
     const groupCode = flagitem[0]
     const seq = flagitem[1]
-    const type = parseInt(flagitem[2])
+    const type = +flagitem[2]
     const doubt = flagitem[3] === '1'
     return await this.operateSysNotify(doubt, {
       operateType,

@@ -28,7 +28,7 @@ export async function getVideoInfo(filePath: string) {
         resolve({
           width: videoStream?.width!,
           height: videoStream?.height!,
-          time: parseInt(videoStream?.duration!),
+          time: +videoStream?.duration!,
           format: metadata.format.format_name!,
           size,
           filePath,

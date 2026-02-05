@@ -90,7 +90,7 @@ export class MilkyAdapter extends Service {
     const selfUin = selfInfo.uin
     const eventString = JSON.stringify({
       time: Math.floor(Date.now() / 1000),
-      self_id: parseInt(selfUin),
+      self_id: +selfUin,
       event_type: eventName,
       data: data,
     })

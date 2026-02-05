@@ -185,7 +185,6 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     const encoder = new MessageEncoder(this.ctx, peer)
     const raw = await encoder.generate(nodes, options)
     const resid = await this.ctx.app.pmhq.uploadForward(peer, raw.multiMsgItems)
-    const uuid = randomUUID()
     const prompt = options?.prompt ?? '[聊天记录]'
     try {
       const msg = await this.ctx.app.sendMessage(this.ctx, peer, [{
@@ -203,7 +202,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
             },
             desc: prompt,
             extra: JSON.stringify({
-              filename: uuid,
+              filename: raw.uuid,
               tsum: raw.tsum,
             }),
             meta: {
@@ -212,7 +211,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
                 resid,
                 source: raw.source,
                 summary: raw.summary,
-                uniseq: uuid,
+                uniseq: raw.uuid,
               },
             },
             prompt,

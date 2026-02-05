@@ -51,8 +51,8 @@ export class OCRImage extends BaseAction<Payload, Response> {
       for (let i = 0; i < 4; i++) {
         const pt = item[`pt${i + 1}`]
         ret.coordinates.push({
-          x: parseInt(pt.x),
-          y: parseInt(pt.y)
+          x: +pt.x,
+          y: +pt.y
         })
       }
       return ret

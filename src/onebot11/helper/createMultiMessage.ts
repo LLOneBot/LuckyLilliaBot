@@ -25,6 +25,7 @@ export class MessageEncoder {
   name?: string
   uin?: number
   depth: number = 0
+  innerRaw: Awaited<ReturnType<MessageEncoder['generate']>>[] = []
 
   constructor(private ctx: Context, private peer: Peer, depth: number = 0) {
     this.results = []
@@ -142,8 +143,8 @@ export class MessageEncoder {
     }
   }
 
-  packForwardMessage(resid: string, options?: { source?: string; news?: { text: string }[]; summary?: string; prompt?: string }) {
-    const uuid = crypto.randomUUID()
+  packForwardMessage(resid: string, uuid?: string, options?: { source?: string; news?: { text: string }[]; summary?: string; prompt?: string }) {
+    const id = uuid ?? crypto.randomUUID()
     const prompt = options?.prompt ?? '[聊天记录]'
     const content = JSON.stringify({
       app: 'com.tencent.multimsg',
@@ -156,7 +157,7 @@ export class MessageEncoder {
       },
       desc: prompt,
       extra: JSON.stringify({
-        filename: uuid,
+        filename: id,
         tsum: 0,
       }),
       meta: {
@@ -167,7 +168,7 @@ export class MessageEncoder {
           resid,
           source: options?.source ?? '聊天记录',
           summary: options?.summary ?? '查看转发消息',
-          uniseq: uuid,
+          uniseq: id,
         }
       },
       prompt,
@@ -209,6 +210,7 @@ export class MessageEncoder {
         const innerEncoder = new MessageEncoder(this.ctx, this.peer, this.depth + 1)
         const innerNodes = content.filter(e => e.type === OB11MessageDataType.Node) as OB11MessageNode[]
         const innerRaw = await innerEncoder.generate(innerNodes, nestedOptions)
+        this.innerRaw.push(innerRaw)
 
         // 上传内层合并转发，获取 resid
         const resid = await this.ctx.app.pmhq.uploadForward(this.peer, innerRaw.multiMsgItems)
@@ -217,7 +219,7 @@ export class MessageEncoder {
         this.deleteAfterSentFiles.push(...innerEncoder.deleteAfterSentFiles)
 
         // 将内层合并转发作为当前节点的内容
-        this.children.push(this.packForwardMessage(resid, nestedOptions))
+        this.children.push(this.packForwardMessage(resid, innerRaw.uuid, innerRaw))
         this.preview += '[聊天记录]'
       } else {
         // 普通节点，直接渲染内容
@@ -262,7 +264,7 @@ export class MessageEncoder {
       const forwardData = data as { id?: string; content?: OB11MessageData[]; source?: string; news?: { text: string }[]; summary?: string; prompt?: string }
 
       if (forwardData.id) {
-        this.children.push(this.packForwardMessage(forwardData.id, forwardData))
+        this.children.push(this.packForwardMessage(forwardData.id, undefined, forwardData))
       } else if (forwardData.content) {
         if (this.depth >= MAX_FORWARD_DEPTH) {
           this.ctx.logger.warn(`合并转发嵌套深度超过 ${MAX_FORWARD_DEPTH} 层，将停止解析`)
@@ -284,10 +286,11 @@ export class MessageEncoder {
           summary: forwardData.summary,
           prompt: forwardData.prompt,
         })
+        this.innerRaw.push(innerRaw)
 
         const resid = await this.ctx.app.pmhq.uploadForward(this.peer, innerRaw.multiMsgItems)
         this.deleteAfterSentFiles.push(...innerEncoder.deleteAfterSentFiles)
-        this.children.push(this.packForwardMessage(resid, forwardData))
+        this.children.push(this.packForwardMessage(resid, innerRaw.uuid, innerRaw))
       }
       this.preview += '[聊天记录]'
     }
@@ -306,18 +309,28 @@ export class MessageEncoder {
     prompt?: string
   }) {
     await this.render(content)
+    const multiMsgItems = [{
+      fileName: 'MultiMsg',
+      buffer: {
+        msg: this.results
+      }
+    }]
+    for (const raw of this.innerRaw) {
+      for (const item of raw.multiMsgItems) {
+        multiMsgItems.push({
+          fileName: item.fileName === 'MultiMsg' ? raw.uuid : item.fileName,
+          buffer: item.buffer
+        })
+      }
+    }
     return {
-      multiMsgItems: [{
-        fileName: 'MultiMsg',
-        buffer: {
-          msg: this.results
-        }
-      }],
+      multiMsgItems,
       tsum: this.tsum,
       source: options?.source ?? (this.isGroup ? '群聊的聊天记录' : '聊天记录'),
       summary: options?.summary ?? `查看${this.tsum}条转发消息`,
       news: (options?.news && options.news.length > 0) ? options.news : this.news,
-      prompt: options?.prompt ?? '[聊天记录]'
+      prompt: options?.prompt ?? '[聊天记录]',
+      uuid: crypto.randomUUID()
     }
   }
 }

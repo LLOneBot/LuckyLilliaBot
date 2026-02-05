@@ -32,7 +32,7 @@ export class GetStrangerInfo extends BaseAction<Payload, Response> {
     }
     const loginDays = await this.ctx.app.pmhq.fetchUserLoginDays(+uin)
     const resp: Response = {
-      user_id: parseInt(data.detail.uin) || 0,
+      user_id: +data.detail.uin || 0,
       nickname: data.detail.simpleInfo.coreInfo.nick,
       sex: OB11Entities.sex(data.detail.simpleInfo.baseInfo.sex),
       age: data.detail.simpleInfo.baseInfo.age,

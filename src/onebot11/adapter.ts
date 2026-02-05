@@ -111,8 +111,8 @@ class OneBot11Adapter extends Service {
         this.ctx.logger.info('有加群请求')
         const requestUin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
         const event = new OB11GroupRequestAddEvent(
-          parseInt(notify.group.groupCode),
-          parseInt(requestUin) || 0,
+          +notify.group.groupCode,
+          +requestUin || 0,
           flag,
           notify.postscript,
         )
@@ -123,8 +123,8 @@ class OneBot11Adapter extends Service {
         const userId = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
         this.ctx.logger.info('收到邀请我加群通知, 邀请人uin:', userId)
         const event = new OB11GroupRequestInviteBotEvent(
-          parseInt(notify.group.groupCode),
-          parseInt(userId) || 0,
+          +notify.group.groupCode,
+          +userId || 0,
           flag,
           notify.postscript,
         )
@@ -135,11 +135,11 @@ class OneBot11Adapter extends Service {
         const userId = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
         const invitorId = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
         const event = new OB11GroupRequestAddEvent(
-          parseInt(notify.group.groupCode),
-          parseInt(userId) || 0,
+          +notify.group.groupCode,
+          +userId || 0,
           flag,
           notify.postscript,
-          parseInt(invitorId) || 0,
+          +invitorId || 0,
         )
         this.dispatch(event)
       }
@@ -159,7 +159,7 @@ class OneBot11Adapter extends Service {
       }
       const isSelfMsg = msg.user_id.toString() === selfInfo.uin
       if (isSelfMsg) {
-        msg.target_id = parseInt(message.peerUin)
+        msg.target_id = +message.peerUin
       }
       this.dispatchMessageLike(msg, self, offline)
     }).catch(e => this.ctx.logger.error('handling incoming messages', e))
@@ -198,10 +198,10 @@ class OneBot11Adapter extends Service {
       const toUserUin = templateParams?.get('uin_str2') || '0'
       let recallEvent: OB11FriendPokeRecallEvent | OB11GroupPokeRecallEvent;
       if (peer.chatType === ChatType.Group) {
-        recallEvent = new OB11GroupPokeRecallEvent(parseInt(message.peerUid), parseInt(fromUserUin), parseInt(toUserUin), json)
+        recallEvent = new OB11GroupPokeRecallEvent(+message.peerUid, +fromUserUin, +toUserUin, json)
       }
       else {
-        recallEvent = new OB11FriendPokeRecallEvent(parseInt(fromUserUin), parseInt(toUserUin), json)
+        recallEvent = new OB11FriendPokeRecallEvent(+fromUserUin, +toUserUin, json)
       }
       return this.dispatch(recallEvent)
     }
@@ -222,7 +222,7 @@ class OneBot11Adapter extends Service {
     let userId = 0
     try {
       const requesterUin = await this.ctx.ntUserApi.getUinByUid(req.friendUid)
-      userId = parseInt(requesterUin)
+      userId = +requesterUin
     } catch (e) {
       this.ctx.logger.error('获取加好友者QQ号失败', e)
     }
@@ -401,7 +401,7 @@ class OneBot11Adapter extends Service {
             for (const file2 of file.fileList) {
               files.push({
                 name: file2.name,
-                size: parseInt(file2.filePhysicalSize),
+                size: +file2.filePhysicalSize,
                 path: file2.saveFilePath,
               })
             }
@@ -440,7 +440,7 @@ class OneBot11Adapter extends Service {
             for (const file2 of file.fileList) {
               files.push({
                 name: file2.name,
-                size: parseInt(file2.filePhysicalSize),
+                size: +file2.filePhysicalSize,
                 path: file2.saveFilePath,
               })
             }
@@ -449,8 +449,8 @@ class OneBot11Adapter extends Service {
             res.name,
             res.shareInfo.shareLink,
             fileSetId,
-            parseInt(downloadingInfo.curDownLoadedBytes),
-            parseInt(downloadingInfo.totalDownLoadedBytes),
+            +downloadingInfo.curDownLoadedBytes,
+            +downloadingInfo.totalDownLoadedBytes,
             downloadingInfo.curSpeedBps,
             downloadingInfo.remainDownLoadSeconds,
             files,
@@ -472,7 +472,7 @@ class OneBot11Adapter extends Service {
           for (const file2 of file.fileList) {
             files.push({
               name: file2.name,
-              size: parseInt(file2.filePhysicalSize),
+              size: +file2.filePhysicalSize,
               path: file2.physical.localPath,
             })
           }
@@ -482,10 +482,10 @@ class OneBot11Adapter extends Service {
           info.fileSet.name,
           info.fileSet.shareInfo.shareLink,
           info.fileSet.fileSetId,
-          parseInt(info.uploadedFileSize),
-          parseInt(info.fileSet.totalFileSize),
-          parseInt(info.uploadSpeed),
-          parseInt(info.timeRemain),
+          +info.uploadedFileSize,
+          +info.fileSet.totalFileSize,
+          +info.uploadSpeed,
+          +info.timeRemain,
           files,
         )
         this.dispatch(event)
@@ -497,8 +497,8 @@ class OneBot11Adapter extends Service {
       const groupInfo = await this.ctx.ntGroupApi.getGroupAllInfo(group.groupCode)
       const ownerUin = await this.ctx.ntUserApi.getUinByUid(groupInfo.ownerUid)
       const event = new OB11GroupDismissEvent(
-        parseInt(group.groupCode),
-        parseInt(ownerUin)
+        +group.groupCode,
+        +ownerUin
       )
       this.dispatch(event)
     })
