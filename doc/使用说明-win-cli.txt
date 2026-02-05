@@ -1,6 +1,6 @@
-
+llbot.exe --help 查看使用参数，也可无需参数直接运行
 
 您的 star 是我们前进的动力！GitHub: https://github.com/LLOneBot/LuckyLilliaBot
 官网: https://luckylillia.com
-QQ Group: https://qm.qq.com/q/NsbdKiQ3eg
+QQ 群: https://qm.qq.com/q/NsbdKiQ3eg
 
