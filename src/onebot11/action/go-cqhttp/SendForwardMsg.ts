@@ -155,7 +155,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
       throw new Error(`消息 ${shortId} 解析失败`)
     }
     return {
-      type: OB11MessageDataType.Node as OB11MessageDataType.Node,
+      type: OB11MessageDataType.Node as const,
       data: {
         name: obMsg.sender.nickname,
         uin: obMsg.sender.user_id,

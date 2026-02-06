@@ -298,10 +298,15 @@ export interface OB11MessageNode {
   data: {
     id?: number | string
     content?: OB11MessageMixType
-    user_id?: number // ob11
+    user_id?: number | string // ob11
     nickname?: string // ob11
     name?: string // gocq
     uin?: number | string // gocq
+    source?: string
+    news?: { text: string }[]
+    summary?: string
+    prompt?: string
+    time?: number | string
   }
 }
 

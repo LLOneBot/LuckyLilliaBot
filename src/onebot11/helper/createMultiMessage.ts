@@ -24,6 +24,7 @@ export class MessageEncoder {
   news: { text: string }[]
   name?: string
   uin?: number
+  time?: number
   depth: number = 0
   innerRaw: Awaited<ReturnType<MessageEncoder['generate']>>[] = []
 
@@ -65,7 +66,7 @@ export class MessageEncoder {
         msgType: this.isGroup ? 82 : 9,
         random: Math.floor(Math.random() * 4294967290),
         msgSeq: this.seq,
-        msgTime: Math.trunc(Date.now() / 1000),
+        msgTime: this.time ?? Math.trunc(Date.now() / 1000),
         pkgNum: 1,
         pkgIndex: 0,
         divSeq: 0,
@@ -200,10 +201,10 @@ export class MessageEncoder {
 
         // 提取嵌套节点的自定义外显参数
         const nestedOptions = {
-          source: (nodeData as any).source,
-          news: (nodeData as any).news,
-          summary: (nodeData as any).summary,
-          prompt: (nodeData as any).prompt,
+          source: nodeData.source,
+          news: nodeData.news,
+          summary: nodeData.summary,
+          prompt: nodeData.prompt,
         }
 
         // 递归生成内层合并转发
@@ -229,6 +230,7 @@ export class MessageEncoder {
       const id = nodeData.uin ?? nodeData.user_id
       this.uin = id ? +id : undefined
       this.name = nodeData.name ?? nodeData.nickname
+      this.time = nodeData.time ? +nodeData.time : undefined
       await this.flush()
     } else if (type === OB11MessageDataType.Text) {
       this.children.push({
