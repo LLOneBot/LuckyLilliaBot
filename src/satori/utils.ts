@@ -60,34 +60,26 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       buffer.push(h.text(v.textElement.content))
     } else if (v.replyElement && !quoted) {
       // quote
+      if (data.multiTransInfo) {
+        continue
+      }
       const peer = {
         chatType: data.chatType,
         peerUid: data.peerUid,
         guildId: ''
       }
-      const { replayMsgSeq, replyMsgTime, sourceMsgIdInRecords, senderUidStr } = v.replyElement
-      const records = data.records.find(msgRecord => msgRecord.msgId === sourceMsgIdInRecords)
-      const senderUid = v.replyElement.senderUidStr || records?.senderUid
-      if (!records || !replyMsgTime || !senderUid) {
-        ctx.logger.error('找不到引用消息', v.replyElement)
-        continue
-      }
-      if (data.multiTransInfo) {
-        buffer.push(h.quote(records.msgId))
-        continue
-      }
-
       try {
+        const { replayMsgSeq, replyMsgTime, sourceMsgIdInRecords, senderUidStr } = v.replyElement
+        const record = data.records.find(msgRecord => msgRecord.msgId === sourceMsgIdInRecords)
         const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, replayMsgSeq, replyMsgTime, [senderUidStr])
         let replyMsg: NT.RawMessage | undefined
-        if (records.msgRandom !== '0') {
-          replyMsg = msgList.find(msg => msg.msgRandom === records.msgRandom)
+        if (record && record.msgRandom !== '0') {
+          replyMsg = msgList.find(msg => msg.msgRandom === record.msgRandom)
         } else {
-          ctx.logger.info('msgRandom is missing', v.replyElement, records)
           replyMsg = msgList[0]
         }
         if (!replyMsg) {
-          ctx.logger.warn('引用消息可能不完整', v.replyElement, records)
+          ctx.logger.warn('引用消息获取失败', v.replyElement, record)
           continue
         }
         const elements = await decodeElement(ctx, replyMsg, true)
