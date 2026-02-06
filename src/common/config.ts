@@ -157,7 +157,9 @@ export class ConfigUtil {
 
   private migrateConfig(oldConfig: any): Config {
     let migratedConfig = oldConfig;
-
+    if (oldConfig.musicSignUrl && oldConfig.musicSignUrl.includes('linyuchen')) {
+      oldConfig.musicSignUrl = defaultConfig.musicSignUrl
+    }
     // 先迁移 ob11.connect 数组格式
     if (!oldConfig.ob11 || !Array.isArray(oldConfig.ob11.connect)) {
       const ob11 = oldConfig.ob11 || {};
@@ -218,7 +220,7 @@ export class ConfigUtil {
     // 迁移 onlyLocalhost 配置项
     if ('onlyLocalhost' in oldConfig) {
       const host = oldConfig.onlyLocalhost ? '127.0.0.1' : ''
-      
+
       if (migratedConfig.webui && !migratedConfig.webui.host) {
         migratedConfig.webui.host = host
       }

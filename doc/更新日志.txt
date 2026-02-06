@@ -15,6 +15,9 @@ V7.8.0
 * WebQQ 群聊列表支持置顶群
 * WebQQ 群聊支持设置消息接收方式，支持收进群助手
 
+** 破坏性改动 **
+* `get_group_info` 去掉了 `groupAll` 字段，添加了 `is_top`, `owner_id`, `shut_up_all_timestamp`, `shut_up_me_timestamp`, `active_member_num`, `is_freeze`
+
 =================
 
 V7.7.2

@@ -39,7 +39,7 @@ export const defaultConfig: Config = {
   log: true,
   autoDeleteFile: false,
   autoDeleteFileSecond: 60,
-  musicSignUrl: 'https://llob.linyuchen.net/sign/music',
+  musicSignUrl: 'https://ss.xingzhige.com/music_card/card',
   msgCacheExpire: 120,
   ffmpeg: '',
   rawMsgPB: false,
