@@ -14,23 +14,17 @@ class GetGroupInfo extends BaseAction<Payload, OB11Group> {
 
   protected async _handle(payload: Payload) {
     const groupCode = payload.group_id.toString()
-    const groupAll = await this.ctx.ntGroupApi.getGroupAllInfo(groupCode)
-    const data = {
-      group_id: +groupAll.groupCode,
-      group_name: groupAll.groupName,
-      group_memo: groupAll.richFingerMemo,
-      group_create_time: 0,
-      member_count: groupAll.memberNum,
-      max_member_count: groupAll.maxMemberNum,
-      remark_name: groupAll.remarkName,
-      avatar_url: `https://p.qlogo.cn/gh/${groupAll.groupCode}/${groupAll.groupCode}/0`,
-      groupAll,
+    const groupDetail = await this.ctx.ntGroupApi.getGroupDetailInfo(groupCode)
+    return {
+      group_id: +groupDetail.groupCode,
+      group_name: groupDetail.groupName,
+      group_memo: groupDetail.richFingerMemo,
+      group_create_time: groupDetail.groupCreateTime,
+      member_count: groupDetail.memberNum,
+      max_member_count: groupDetail.maxMemberNum,
+      remark_name: groupDetail.remarkName,
+      avatar_url: `https://p.qlogo.cn/gh/${groupDetail.groupCode}/${groupDetail.groupCode}/0`,
     }
-    const group = (await this.ctx.ntGroupApi.getGroups()).find(e => e.groupCode === groupCode)
-    if (group) {
-      data.group_create_time = +group.createTime
-    }
-    return data
   }
 }
 

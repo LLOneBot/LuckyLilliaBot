@@ -428,4 +428,20 @@ export class NTQQGroupApi extends Service {
   async setTop(groupCode: string, isTop: boolean) {
     return await invoke('nodeIKernelGroupService/setTop', [groupCode, isTop])
   }
+
+  async getGroupDetailInfo(groupCode: string) {
+    return await invoke(
+      'nodeIKernelGroupService/getGroupDetailInfo',
+      [
+        groupCode,
+        4,
+      ],
+      {
+        resultCmd: 'nodeIKernelGroupListener/onGroupDetailInfoChange',
+        resultCb: payload => {
+          return payload.groupCode === groupCode
+        },
+      },
+    )
+  }
 }
