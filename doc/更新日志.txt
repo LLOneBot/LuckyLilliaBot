@@ -2,15 +2,16 @@ V7.8.0
 
 更新时间 2026-02-
 
-* 修复发送的嵌套合并转发无法查看
-* 修复发送的嵌套合并转发缺失外显
+* OneBot 修复发送的嵌套合并转发无法查看
+* OneBot 修复发送的嵌套合并转发缺失外显
 * 修复引用消息可能无法获取
 * 修复 CLI 版本关掉终端窗口后没有结束相关进程
 * 修复 Desktop 版本停止或者关闭后可能没有结束相关进程
 * 修复无头模式不生效
-* 支持合并转发 node 指定 time
-* 支持 get_group_info 接口返回的 group_create_time 字段在未加群时获取
-* 支持 get_stranger_info 接口返回标签字段 labels
+* OneBot 支持合并转发 node 指定 time
+* OneBot 支持 get_group_info 接口返回的 group_create_time 字段在未加群时获取
+* OneBot 支持 get_stranger_info 接口返回标签字段 labels
+* Milky 支持 get_friend_info, get_group_member_list, get_group_member_info 接口使用 no_cache 参数
 * 优化 Desktop 一键对接框架使用体验
 * 优化 WebQQ 上传文件自动清理
 * 优化保存 Email 相关配置时，不再往 config_<qq>.json 写入，而是只保存在 email_config.json
@@ -19,8 +20,8 @@ V7.8.0
 * WebQQ 群聊支持设置消息接收方式，支持收进群助手
 
 ** 破坏性改动 **
-* `get_group_info` 去掉了 `groupAll` 字段，添加了 `is_top`, `owner_id`, `shut_up_all_timestamp`, `shut_up_me_timestamp`, `active_member_num`, `is_freeze`
-* `_send_group_notice` 请求参数 `pinned` 和 `confirm_required` 的类型由 integer 变为 boolean
+* OneBot `get_group_info` 去掉了 `groupAll` 字段，添加了 `is_top`, `owner_id`, `shut_up_all_timestamp`, `shut_up_me_timestamp`, `active_member_num`, `is_freeze`
+* OneBot `_send_group_notice` 请求参数 `pinned` 和 `confirm_required` 的类型由 integer 变为 boolean
 
 =================
 
