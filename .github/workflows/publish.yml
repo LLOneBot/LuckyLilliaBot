@@ -80,7 +80,7 @@ jobs:
           cd llbot-cli-linux-x64
           mkdir -p bin/llbot
           mkdir -p bin/pmhq
-          cp ../dist/使用说明.txt ./
+          cp ../doc/使用说明-linux-cli.txt ./使用说明.txt
           cp ../dist/更新日志.txt ./
           cp -r ../dist/* ./bin/llbot/
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-linux-x64.zip
@@ -99,7 +99,7 @@ jobs:
           cd llbot-cli-linux-arm64
           mkdir -p bin/llbot
           mkdir -p bin/pmhq
-          cp ../dist/使用说明.txt ./
+          cp ../doc/使用说明-linux-cli.txt ./使用说明.txt
           cp ../dist/更新日志.txt ./
           cp -r ../dist/* ./bin/llbot/
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-linux-arm64.zip
@@ -111,6 +111,27 @@ jobs:
           wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-linux-arm64 -O llbot
           cp ../script/start-linux.sh ./start.sh
           zip -r ../LLBot-CLI-linux-arm64.zip ./*
+
+      - name: Compress for macOS CLI arm64
+        run: |
+          mkdir llbot-cli-macos-arm64
+          cd llbot-cli-macos-arm64
+          mkdir -p bin/llbot
+          mkdir -p bin/pmhq
+          cp ../doc/使用说明-macos-cli.txt ./使用说明.txt
+          cp ../dist/更新日志.txt ./
+          cp -r ../dist/* ./bin/llbot/
+          wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-macos-arm64.zip
+          unzip pmhq-macos-arm64.zip
+          rm pmhq-macos-arm64.zip
+          mv pmhq-macos-arm64 bin/pmhq/pmhq
+          mv libpmhq.dylib bin/pmhq/
+          wget https://github.com/LLOneBot/exe/releases/latest/download/node-darwin-arm64 -O bin/llbot/node
+          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-darwin-arm64 -O llbot
+          wget https://github.com/LLOneBot/exe/releases/download/0.0.0/QQ-macos-6.9.88-44725.zip
+          unzip QQ-macos-6.9.88-44725.zip -d bin/qq
+          rm QQ-macos-6.9.88-44725.zip
+          zip -r ../LLBot-CLI-macos-arm64.zip ./*
 
       - name: Compress for Docker
         run: |
@@ -157,6 +178,14 @@ jobs:
           path: LLBot-CLI-linux-arm64.zip
           retention-days: 30
 
+      - name: Upload LLBot-CLI-macos-arm64.zip
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: LLBot-CLI-macos-arm64
+          path: LLBot-CLI-macos-arm64.zip
+          retention-days: 30
+
       - name: Upload LLBot-Docker.sh
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
@@ -190,7 +219,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: ncipollo/release-action@v1
         with:
-          artifacts: 'LLBot.zip, LLBot-Desktop-win-x64.zip, LLBot-CLI-win-x64.zip, LLBot-CLI-linux-x64.zip, LLBot-CLI-linux-arm64.zip, LLBot-Docker.sh'
+          artifacts: 'LLBot.zip, LLBot-Desktop-win-x64.zip, LLBot-CLI-win-x64.zip, LLBot-CLI-linux-x64.zip, LLBot-CLI-linux-arm64.zip, LLBot-CLI-macos-arm64.zip, LLBot-Docker.sh'
           draft: true
           token: ${{ secrets.RELEASE_TOKEN }}
           name: LuckyLilliaBot v${{ steps.get-version.outputs.VERSION }}
