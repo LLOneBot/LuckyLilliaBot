@@ -243,3 +243,7 @@ export async function getFileType(filePath: string) {
 export async function getImageSize(path: string) {
   return await imageSizeFromFile(path)
 }
+
+export function getMd5FromBuffer(buf: Buffer) {
+  return createHash('md5').update(buf).digest('hex')
+}
