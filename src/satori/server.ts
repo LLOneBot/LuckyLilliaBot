@@ -141,7 +141,7 @@ export class SatoriServer {
         res.json(result)
       } catch (e) {
         this.ctx.logger.error(e)
-        throw e
+        res.status(500).send((e as Error).toString())
       }
     })
   }
