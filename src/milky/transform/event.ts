@@ -32,7 +32,7 @@ export async function transformGroupMessageCreated(
   message: RawMessage
 ): Promise<MilkyEventTypes['message_receive'] | null> {
   try {
-    if (!message.senderUid) return null
+    if (!message.senderUid || message.peerUin === message.senderUid) return null
     const group = await ctx.ntGroupApi.getGroupAllInfo(message.peerUid)
     const member = await ctx.ntGroupApi.getGroupMember(message.peerUin, message.senderUid)
 
