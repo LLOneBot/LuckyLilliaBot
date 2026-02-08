@@ -10,7 +10,10 @@ interface Payload {
 
 export const updateChannel: Handler<Dict<never>, Payload> = async (ctx, payload) => {
   if (payload.data.name) {
-    await ctx.ntGroupApi.setGroupName(payload.channel_id, payload.data.name)
+    const res = await ctx.ntGroupApi.setGroupName(payload.channel_id, payload.data.name)
+    if (res.result !== 0) {
+      throw new Error(res.errMsg)
+    }
   }
   return {}
 }

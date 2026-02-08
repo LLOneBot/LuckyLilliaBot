@@ -14,6 +14,9 @@ export const handleFriendRequest: Handler<Dict<never>, Payload> = async (ctx, pa
   }
   const uid = data[0]
   const reqTime = data[1]
-  await ctx.ntFriendApi.handleFriendRequest(uid, reqTime, payload.approve)
+  const res = await ctx.ntFriendApi.handleFriendRequest(uid, reqTime, payload.approve)
+  if (res.result !== 0) {
+    throw new Error(res.errMsg)
+  }
   return {}
 }

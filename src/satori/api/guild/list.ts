@@ -7,7 +7,7 @@ interface Payload {
 }
 
 export const getGuildList: Handler<List<Guild>, Payload> = async (ctx) => {
-  const groups = await ctx.ntGroupApi.getGroups()
+  const groups = await ctx.ntGroupApi.getGroups(true)
   return {
     data: groups.map(decodeGuild)
   }
