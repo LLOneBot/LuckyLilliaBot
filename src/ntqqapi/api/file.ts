@@ -81,6 +81,21 @@ export class NTQQFileApi extends Service {
     return await getFileType(filePath)
   }
 
+  async getRichMediaFilePath(md5HexStr: string, fileName: string, elementType: ElementType, elementSubType = 0) {
+    return await invoke(NTMethod.MEDIA_FILE_PATH, [
+      {
+        md5HexStr,
+        fileName,
+        elementType,
+        elementSubType,
+        thumbSize: 0,
+        needCreate: true,
+        downloadType: 1,
+        file_uuid: '',
+      },
+    ])
+  }
+
   /** 上传文件到 QQ 的文件夹 */
   async uploadFile(filePath: string, elementType = ElementType.Pic, elementSubType = 0) {
     const fileMd5 = await calculateFileMD5(filePath)
@@ -89,18 +104,7 @@ export class NTQQFileApi extends Service {
       const ext = (await this.getFileType(filePath))?.ext
       fileName += ext ? '.' + ext : ''
     }
-    const mediaPath = await invoke(NTMethod.MEDIA_FILE_PATH, [
-      {
-        md5HexStr: fileMd5,
-        fileName: fileName,
-        elementType: elementType,
-        elementSubType,
-        thumbSize: 0,
-        needCreate: true,
-        downloadType: 1,
-        file_uuid: '',
-      },
-    ])
+    const mediaPath = await this.getRichMediaFilePath(fileMd5, fileName, elementType, elementSubType)
     await copyFile(filePath, mediaPath)
     return {
       md5: fileMd5,
