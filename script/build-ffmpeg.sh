@@ -2,24 +2,37 @@
 # FFmpeg 精简版编译脚本 - 在 MSYS2 UCRT64 环境中运行
 set -e
 
-INSTALL_DIR="${1:-./install}"
+FFMPEG_SRC_DIR="${1:-ffmpeg}"
+INSTALL_DIR="${2:-./install}"
 
 echo "========================================"
 echo "FFmpeg 精简版编译"
 echo "========================================"
 
-if [ ! -f "./configure" ]; then
-    echo "错误: 请在 FFmpeg 源码目录运行此脚本"
+if [ ! -d "$FFMPEG_SRC_DIR" ]; then
+    echo "错误: FFmpeg 源码目录 '$FFMPEG_SRC_DIR' 不存在"
+    echo "用法: $0 [ffmpeg源码目录] [安装目录]"
     exit 1
 fi
+
+if [ ! -f "$FFMPEG_SRC_DIR/configure" ]; then
+    echo "错误: '$FFMPEG_SRC_DIR' 不是有效的 FFmpeg 源码目录"
+    exit 1
+fi
+
+cd "$FFMPEG_SRC_DIR"
 
 echo "清理旧构建..."
 make clean 2>/dev/null || true
 make distclean 2>/dev/null || true
 
+# 转换为绝对路径
+INSTALL_DIR="$(cd "$(dirname "$INSTALL_DIR")" && pwd)/$(basename "$INSTALL_DIR")"
+
 echo "配置编译选项..."
 ./configure \
     --prefix="$INSTALL_DIR" \
+    --enable-version3 \
     --disable-everything \
     --enable-small \
     --disable-doc \
@@ -37,6 +50,10 @@ echo "配置编译选项..."
     --enable-avfilter \
     --enable-swresample \
     --enable-swscale \
+    --enable-libopencore-amrnb \
+    --enable-libopencore-amrwb \
+    --enable-decoder=libopencore_amrnb \
+    --enable-decoder=libopencore_amrwb \
     --enable-decoder=pcm_s16le \
     --enable-decoder=pcm_s16be \
     --enable-decoder=pcm_u8 \
@@ -48,8 +65,6 @@ echo "配置编译选项..."
     --enable-decoder=flac \
     --enable-decoder=opus \
     --enable-decoder=vorbis \
-    --enable-decoder=amrnb \
-    --enable-decoder=amrwb \
     --enable-decoder=h264 \
     --enable-decoder=hevc \
     --enable-decoder=vp8 \
@@ -103,6 +118,7 @@ echo "配置编译选项..."
     --enable-parser=gif \
     --enable-parser=webp \
     --enable-parser=bmp \
+    --enable-parser=amr \
     --enable-filter=aresample \
     --enable-filter=aformat \
     --enable-filter=anull \
@@ -170,5 +186,4 @@ else
 fi
 
 echo "========================================"
-echo "按 Enter 键退出..."
-read
+echo "编译完成"

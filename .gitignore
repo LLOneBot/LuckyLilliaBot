@@ -17,3 +17,4 @@ data
 .DS_Store
 .idea
 llonebot-dist.tgz
+script/ffmpeg/

@@ -19,6 +19,8 @@ V7.8.0
 * WebQQ 置顶群聊现在和 PC / 手机端同步
 * WebQQ 群聊列表支持置顶群
 * WebQQ 群聊支持设置消息接收方式，支持收进群助手
+* 修复 Windows 上 ffmpeg 转换 amr 语音长度不对，如果是用的是 LLBot Desktop，需要先删除 bin/llbot/ffmpeg.exe 和 bin/llbot/ffprobe.exe
+* 优化 WebUI 在手机端上的适配
 
 ** 破坏性改动 **
 * OneBot `get_group_info` 去掉了 `groupAll` 字段，添加了 `is_top`, `owner_id`, `shut_up_all_timestamp`, `shut_up_me_timestamp`, `active_member_num`, `is_freeze`
