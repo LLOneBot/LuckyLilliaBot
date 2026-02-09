@@ -128,8 +128,7 @@ class Core extends Service {
 
   private async handleMessage(msgList: RawMessage[]) {
     for (const message of msgList) {
-      const msgTime = +message.msgTime
-      if (msgTime < this.startupTime) {
+      if (!message.isOnlineMsg) {
         const existing = await this.ctx.store.checkMsgExist(message)
         if (!existing) {
           this.ctx.parallel('nt/offline-message-created', message)
@@ -139,7 +138,7 @@ class Core extends Service {
       if (message.senderUin && message.senderUin !== '0') {
         this.ctx.store.addMsgCache(message)
       }
-      this.lastMessageTime = msgTime
+      this.lastMessageTime = +message.msgTime
       this.messageReceivedCount++
       logSummaryMessage(this.ctx, message).then()
       this.ctx.parallel('nt/message-created', message)
