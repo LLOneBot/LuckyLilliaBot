@@ -22,6 +22,11 @@ declare module 'cordis' {
       parentMsgId: string
       chatType: number
       peerUid: string
+    },
+    group_member: {
+      groupId: string
+      userId: string
+      card: string
     }
   }
 }
@@ -80,6 +85,13 @@ class Store extends Service {
       peerUid: 'string(24)'
     }, {
       primary: 'parentMsgId'
+    })
+    this.ctx.model.extend('group_member', {
+      groupId: 'string(10)',
+      userId: 'string(10)',
+      card: 'string(60)'
+    }, {
+      primary: ['groupId', 'userId']
     })
   }
 
@@ -215,6 +227,19 @@ class Store extends Service {
 
   getMultiMsgInfo(parentMsgId: string) {
     return this.ctx.database.get('forward', { parentMsgId })
+  }
+
+  async getGroupMemberCard(groupId: string, userId: string): Promise<string | undefined> {
+    const items = await this.ctx.database.get('group_member', { groupId, userId })
+    return items[0]?.card
+  }
+
+  setGroupMemberCard(groupId: string, userId: string, card: string) {
+    return this.ctx.database.upsert('group_member', [{
+      groupId,
+      userId,
+      card
+    }])
   }
 }
 

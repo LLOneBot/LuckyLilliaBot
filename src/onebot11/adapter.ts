@@ -43,6 +43,7 @@ import { BaseAction } from './action/BaseAction'
 import { cloneObj } from '@/common/utils'
 import { OB11GroupMsgEmojiLikeEvent } from './event/notice/OB11MsgEmojiLikeEvent'
 import { GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent'
+import { OB11GroupCardEvent } from './event/notice/OB11GroupCardEvent'
 
 declare module 'cordis' {
   interface Context {
@@ -148,7 +149,7 @@ class OneBot11Adapter extends Service {
     }
   }
 
-  private handleMsg(message: RawMessage, self: boolean, offline: boolean) {
+  private async handleMsg(message: RawMessage, self: boolean, offline: boolean) {
     if (offline && !this.reportOfflineMessage) {
       return
     }
@@ -181,6 +182,30 @@ class OneBot11Adapter extends Service {
         this.dispatchMessageLike(privateEvent, self, offline)
       }
     }).catch(e => this.ctx.logger.error('handling incoming buddy events', e))
+
+    try {
+      if (message.chatType === ChatType.Group) {
+        const oldCard = await this.ctx.store.getGroupMemberCard(message.peerUid, message.senderUin)
+        if (oldCard === undefined) {
+          await this.ctx.store.setGroupMemberCard(message.peerUid, message.senderUin, message.sendMemberName)
+        } else {
+          const { peerName, peerUid, sendMemberName, sendNickName, senderUin } = message
+          if (oldCard !== sendMemberName) {
+            await this.ctx.store.setGroupMemberCard(peerUid, senderUin, sendMemberName)
+            this.ctx.logger.info(`群 ${peerName}(${peerUid}) 的 ${sendMemberName || sendNickName}(${senderUin}) 更新了名片 ${oldCard} -> ${sendMemberName}`)
+            const groupCardEvent = new OB11GroupCardEvent(
+              +peerUid,
+              +senderUin,
+              sendMemberName,
+              oldCard
+            )
+            this.dispatch(groupCardEvent)
+          }
+        }
+      }
+    } catch (e) {
+      this.ctx.logger.error('handling group member name card change events', e)
+    }
   }
 
   private handleRecallMsg(message: RawMessage) {

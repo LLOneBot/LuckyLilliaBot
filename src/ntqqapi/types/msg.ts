@@ -512,8 +512,8 @@ export interface RawMessage {
   peerUin: string // 群号 或者 发送者QQ号
   guildId: string
   sendNickName: string
-  sendMemberName?: string // 发送者群名片
-  sendRemarkName?: string // 发送者好友备注
+  sendMemberName: string // 发送者群名片
+  sendRemarkName: string // 发送者好友备注
   chatType: ChatType
   sendStatus?: number // 消息状态，别人发的2是已撤回，自己发的2是已发送
   recallTime: string // 撤回时间, "0"是没有撤回
