@@ -1,3 +1,12 @@
+V7.8.3
+更新时间 2026-02-
+
+* `get_group_list` 返回字段增加 `avatar_url`, `owner_id`, `is_top`, `shut_up_all_timestamp`, `shut_up_me_timestamp`
+
+**破坏性改动**
+* `get_group_info` 的 `active_member_num` 字段更改为 `active_member_count`
+
+=================
 V7.8.2
 更新时间 2026-02-09
 
