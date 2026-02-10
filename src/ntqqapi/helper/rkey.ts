@@ -18,7 +18,7 @@ export class RkeyManager {
     this.serverUrl = serverUrl
   }
 
-  async getRkey(refresh=false) {
+  async getRkey(refresh = false) {
     if (this.isExpired() || refresh) {
       try {
         await this.refreshRkey()
@@ -37,14 +37,12 @@ export class RkeyManager {
   async refreshRkey() {
     try {
       const { privateRKey, groupRKey, expiredTime } = await this.ctx.get('app')!.pmhq.getRKey()
-      if (privateRKey && groupRKey) {
-        this.ctx.logger.info(`发包获取rkey成功, private:${privateRKey}, group:${groupRKey}`)
-        this.rkeyData = {
-          private_rkey: privateRKey,
-          group_rkey: groupRKey,
-          expired_time: expiredTime
-        }
+      this.rkeyData = {
+        private_rkey: privateRKey,
+        group_rkey: groupRKey,
+        expired_time: expiredTime
       }
+      this.ctx.logger.info(`发包获取rkey成功, private:${privateRKey}, group:${groupRKey}`)
     }
     catch (e) {
       this.ctx.logger.warn(`发包获取rkey失败 ${e}，开始获取远程rkey`)
