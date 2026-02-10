@@ -8,7 +8,6 @@ import {
   GroupNotify,
   FriendRequestNotify,
   FriendRequest,
-  GroupMember,
   BuddyReqType,
   GrayTipElementSubType,
   ChatType,
@@ -45,7 +44,6 @@ declare module 'cordis' {
     'nt/group-dismiss': (input: GroupDetailInfo) => void
     'nt/group-quit': (input: GroupDetailInfo) => void // 主动退群
     'nt/friend-request': (input: FriendRequest) => void
-    'nt/group-member-info-updated': (input: { groupCode: string, members: GroupMember[] }) => void
     'nt/system-message-created': (input: Buffer) => void
     'nt/flash-file-uploading': (input: { fileSet: FlashFileSetInfo } & FlashFileUploadingInfo) => void
     'nt/flash-file-upload-status': (input: FlashFileSetInfo) => void
