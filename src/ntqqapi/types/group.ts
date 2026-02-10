@@ -28,7 +28,7 @@ export interface GroupSimpleInfo {
   hasModifyConfGroupFace: boolean
   hasModifyConfGroupName: boolean
   groupFlagExt4: number
-  groupMemo: Record<string, number>
+  groupMemo: Record<string, number>  // 第一条群公告的部分内容
   hasMemo: boolean
   groupSecLevelInfo: number
   appealDeadline: number
