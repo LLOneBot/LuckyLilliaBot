@@ -713,20 +713,4 @@ export namespace OB11Entities {
       title: member.memberSpecialTitle,
     }
   }
-
-  export function group(group: GroupSimpleInfo): OB11Group {
-    return {
-      group_id: +group.groupCode,
-      group_name: group.groupName,
-      group_memo: '',
-      group_create_time: +group.createTime,
-      member_count: group.memberCount,
-      max_member_count: group.maxMember,
-      remark_name: group.remarkName,
-    }
-  }
-
-  export function groups(groups: GroupSimpleInfo[]): OB11Group[] {
-    return groups.map(group)
-  }
 }

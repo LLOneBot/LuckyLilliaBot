@@ -61,6 +61,12 @@ export interface OB11Group {
   member_count: number
   max_member_count: number
   remark_name: string
+  owner_id: number
+  is_top: boolean
+  shut_up_all_timestamp: number
+  shut_up_me_timestamp: number
+  is_freeze?: boolean
+  active_member_count?: number
 }
 
 interface OB11Sender {
