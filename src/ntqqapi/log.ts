@@ -28,7 +28,7 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
       }
         break
       case ElementType.Ptt: {
-        summary += `[语音](${msgEle.pttElement?.fileName})`
+        summary += `[语音]${msgEle.pttElement?.fileName}`
       }
         break
       case ElementType.Video: {
