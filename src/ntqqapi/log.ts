@@ -20,11 +20,11 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
       }
         break
       case ElementType.Pic: {
-        summary += `[图片]${msgEle.picElement?.fileName}\n`
+        summary += `[图片]${msgEle.picElement?.fileName}`
       }
         break
       case ElementType.Face: {
-        summary += `[表情]${msgEle.faceElement?.faceText || '未知表情'}\n`
+        summary += `[表情]${msgEle.faceElement?.faceText || '未知表情'}`
       }
         break
       case ElementType.Ptt: {
@@ -36,15 +36,15 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
       }
         break
       case ElementType.File: {
-        summary += `[文件]${msgEle.fileElement?.fileName}\n`
+        summary += `[文件]${msgEle.fileElement?.fileName}`
       }
         break
       case ElementType.Ark: {
-        summary += `[卡片]\n`
+        summary += `[卡片]`
       }
         break
       case ElementType.MultiForward: {
-        summary += `[合并转发]\n`
+        summary += `[合并转发]`
       }
     }
   }
