@@ -136,7 +136,7 @@ jobs:
           cd llbot-cli-macos-arm64
           mkdir -p bin/llbot
           mkdir -p bin/pmhq
-          cp ../doc/使用说明-linux-cli.txt ./使用说明.txt
+          cp ../doc/使用说明-macos-cli.txt ./使用说明.txt
           cp ../script/start-mac.sh ./start.sh
           cp ../dist/更新日志.txt ./
           cp -r ../dist/* ./bin/llbot/

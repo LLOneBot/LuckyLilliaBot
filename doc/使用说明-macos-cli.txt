@@ -1,0 +1,11 @@
+首次运行使用 ./start.sh，中途会弹窗提示不明开发者软件，需要去系统设置 - 安全与隐私允许其运行，
+这一步估计要重复四次，属于正常现象
+
+后续可直接使用 ./llbot 运行
+
+./llbot --help 查看使用参数，也可无需参数直接运行
+
+您的 star 是我们前进的动力！GitHub: https://github.com/LLOneBot/LuckyLilliaBot
+官网: https://luckylillia.com
+QQ 群: https://qm.qq.com/q/NsbdKiQ3eg
+
