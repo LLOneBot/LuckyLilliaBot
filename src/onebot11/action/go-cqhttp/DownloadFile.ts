@@ -3,7 +3,7 @@ import fsPromise from 'fs/promises'
 import path from 'node:path'
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
-import { calculateFileMD5, fetchFile } from '@/common/utils'
+import { fetchFile, getMd5FromFile } from '@/common/utils'
 import { TEMP_DIR } from '@/common/globalVars'
 import { randomUUID } from 'node:crypto'
 import { Dict } from 'cosmokit'
@@ -45,7 +45,7 @@ export class DownloadFile extends BaseAction<Payload, FileResponse> {
     if (fs.existsSync(filePath)) {
       if (isRandomName) {
         // 默认实现要名称未填写时文件名为文件 md5
-        const md5 = await calculateFileMD5(filePath)
+        const md5 = await getMd5FromFile(filePath)
         const newPath = path.join(TEMP_DIR, md5)
         await fsPromise.rename(filePath, newPath)
         return { file: newPath }

@@ -17,7 +17,7 @@ import {
   SendVideoElement,
 } from './types'
 import { stat, writeFile, copyFile, unlink } from 'node:fs/promises'
-import { calculateFileMD5 } from '../common/utils/file'
+import { getMd5FromFile } from '../common/utils/file'
 import { defaultVideoThumb, getVideoInfo } from '../common/utils/video'
 import { encodeSilk } from '../common/utils/audio'
 import { Context } from 'cordis'
@@ -197,7 +197,7 @@ export namespace SendElement {
     const _thumbPath = await createThumb
     const thumbSize = (await stat(_thumbPath)).size
     thumbPath.set(0, _thumbPath)
-    const thumbMd5 = await calculateFileMD5(_thumbPath)
+    const thumbMd5 = await getMd5FromFile(_thumbPath)
     const element: SendVideoElement = {
       elementType: ElementType.Video,
       elementId: '',
