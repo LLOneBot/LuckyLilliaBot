@@ -29,31 +29,6 @@ export function checkFileReceived(path: string, timeout: number = 3000): Promise
   })
 }
 
-export function calculateFileMD5(filePath: string): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const hash = createHash('md5')
-
-    // 创建一个流式读取器
-    const stream = fs.createReadStream(filePath)
-
-    stream.on('data', (data: Buffer | string) => {
-      // 当读取到数据时，更新哈希对象的状态
-      hash.update(data)
-    })
-
-    stream.on('end', () => {
-      // 文件读取完成，计算哈希
-      const md5 = hash.digest('hex')
-      resolve(md5)
-    })
-
-    stream.on('error', (err: Error) => {
-      // 处理可能的读取错误
-      reject(err)
-    })
-  })
-}
-
 export enum FileUriType {
   Unknown = 0,
   FileURL = 1,
@@ -246,4 +221,26 @@ export async function getImageSize(path: string) {
 
 export function getMd5FromBuffer(buf: Buffer) {
   return createHash('md5').update(buf).digest('hex')
+}
+
+export function getSha1FromBuffer(buf: Buffer) {
+  return createHash('sha1').update(buf).digest('hex')
+}
+
+export async function getMd5FromFile(filePath: string) {
+  const hash = createHash('md5')
+  const stream = fs.createReadStream(filePath)
+  for await (const chunk of stream) {
+    hash.update(chunk)
+  }
+  return hash.digest('hex')
+}
+
+export async function getSha1FromFile(filePath: string) {
+  const hash = createHash('sha1')
+  const stream = fs.createReadStream(filePath)
+  for await (const chunk of stream) {
+    hash.update(chunk)
+  }
+  return hash.digest('hex')
 }

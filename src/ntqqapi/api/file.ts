@@ -17,7 +17,7 @@ import { existsSync } from 'node:fs'
 import { ReceiveCmdS } from '../hook'
 import { RkeyManager } from '@/ntqqapi/helper/rkey'
 import { RichMediaDownloadCompleteNotify, RichMediaUploadCompleteNotify, RMBizType, Peer } from '@/ntqqapi/types/msg'
-import { calculateFileMD5, getFileType, getImageSize } from '@/common/utils/file'
+import { getFileType, getImageSize, getMd5FromFile } from '@/common/utils/file'
 import { copyFile, stat, unlink } from 'node:fs/promises'
 import { Time } from 'cosmokit'
 import { Service, Context } from 'cordis'
@@ -98,7 +98,7 @@ export class NTQQFileApi extends Service {
 
   /** 上传文件到 QQ 的文件夹 */
   async uploadFile(filePath: string, elementType = ElementType.Pic, elementSubType = 0) {
-    const fileMd5 = await calculateFileMD5(filePath)
+    const fileMd5 = await getMd5FromFile(filePath)
     let fileName = path.basename(filePath)
     if (!fileName.includes('.')) {
       const ext = (await this.getFileType(filePath))?.ext

@@ -3,7 +3,7 @@ import { HttpUtil } from '@/common/utils/request'
 import { Context, Service } from 'cordis'
 import { Dict } from 'cosmokit'
 import fs from 'node:fs/promises'
-import { calculateFileMD5 } from '@/common/utils'
+import { getMd5FromFile } from '@/common/utils'
 
 declare module 'cordis' {
   interface Context {
@@ -229,7 +229,7 @@ export class NTQQWebApi extends Service {
       // 读取文件并计算 MD5
       const fileBuffer = await fs.readFile(filePath)
       const fileSize = fileBuffer.length
-      const checksum = await calculateFileMD5(filePath)
+      const checksum = await getMd5FromFile(filePath)
 
       const getSessionUrl = `https://${domain}/webapp/json/sliceUpload/FileBatchControl/${checksum}?g_tk=${gtk}`
       const timestamp = Math.floor(Date.now() / 1000)
