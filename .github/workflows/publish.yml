@@ -147,9 +147,9 @@ jobs:
           mv libpmhq.dylib bin/pmhq/
           wget https://github.com/LLOneBot/exe/releases/latest/download/node-darwin-arm64 -O bin/llbot/node
           wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-darwin-arm64 -O llbot
-          wget https://github.com/LLOneBot/exe/releases/download/0.0.0/QQ-macos-6.9.86-42941.zip
-          unzip QQ-macos-6.9.86-42941.zip -d bin/qq
-          rm QQ-macos-6.9.86-42941.zip
+          wget https://github.com/LLOneBot/exe/releases/download/0.0.0/QQ-macos.zip
+          unzip QQ-macos.zip -d bin/qq
+          rm QQ-macos.zip
           tar -cJvf ../LLBot-CLI-macos-arm64.tar.xz ./*
 
       - name: Compress for Docker
