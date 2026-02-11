@@ -4,6 +4,19 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      target:
+        description: '选择要构建的目标平台'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - win-cli
+          - win-desktop
+          - linux-x64
+          - linux-arm64
+          - macos-arm64
 
 jobs:
   build-and-release:
@@ -40,6 +53,7 @@ jobs:
           zip -r ../LLBot.zip ./*
 
       - name: Compress for Windows Cli
+        if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'win-cli' || startsWith(github.ref, 'refs/tags/') }}
         run: |
           mkdir llbot-cli-win-x64
           cd llbot-cli-win-x64
@@ -61,6 +75,7 @@ jobs:
           zip -r ../LLBot-CLI-win-x64.zip ./*
 
       - name: Compress for Windows Desktop
+        if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'win-desktop' || startsWith(github.ref, 'refs/tags/') }}
         run: |
           mkdir llbot-desktop-win-x64
           cd llbot-desktop-win-x64
@@ -75,6 +90,7 @@ jobs:
           zip -r ../LLBot-Desktop-win-x64.zip ./*
 
       - name: Compress for Linux CLI x64
+        if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'linux-x64' || startsWith(github.ref, 'refs/tags/') }}
         run: |
           mkdir llbot-cli-linux-x64
           cd llbot-cli-linux-x64
@@ -94,6 +110,7 @@ jobs:
           zip -r ../LLBot-CLI-linux-x64.zip ./*
 
       - name: Compress for Linux CLI arm64
+        if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'linux-arm64' || startsWith(github.ref, 'refs/tags/') }}
         run: |
           mkdir llbot-cli-linux-arm64
           cd llbot-cli-linux-arm64
@@ -113,6 +130,7 @@ jobs:
           zip -r ../LLBot-CLI-linux-arm64.zip ./*
 
       - name: Compress for macOS CLI arm64
+        if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'macos-arm64' || startsWith(github.ref, 'refs/tags/') }}
         run: |
           mkdir llbot-cli-macos-arm64
           cd llbot-cli-macos-arm64
@@ -132,7 +150,7 @@ jobs:
           wget https://github.com/LLOneBot/exe/releases/download/0.0.0/QQ-macos-6.9.88-44725.zip
           unzip QQ-macos-6.9.88-44725.zip -d bin/qq
           rm QQ-macos-6.9.88-44725.zip
-          zip -r ../LLBot-CLI-macos-arm64.zip ./*
+          tar -cJvf ../LLBot-CLI-macos-arm64.tar.xz ./*
 
       - name: Compress for Docker
         run: |
@@ -148,7 +166,7 @@ jobs:
           retention-days: 30
 
       - name: Upload LLBot-Desktop-win-x64.zip
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'win-desktop') }}
         uses: actions/upload-artifact@v4
         with:
           name: LLBot-Desktop-win-x64
@@ -156,7 +174,7 @@ jobs:
           retention-days: 30
 
       - name: Upload LLBot-CLI-win-x64.zip
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'win-cli') }}
         uses: actions/upload-artifact@v4
         with:
           name: LLBot-CLI-win-x64
@@ -164,7 +182,7 @@ jobs:
           retention-days: 30
 
       - name: Upload LLBot-CLI-linux-x64.zip
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'linux-x64') }}
         uses: actions/upload-artifact@v4
         with:
           name: LLBot-CLI-linux-x64
@@ -172,19 +190,19 @@ jobs:
           retention-days: 30
 
       - name: Upload LLBot-CLI-linux-arm64.zip
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'linux-arm64') }}
         uses: actions/upload-artifact@v4
         with:
           name: LLBot-CLI-linux-arm64
           path: LLBot-CLI-linux-arm64.zip
           retention-days: 30
 
-      - name: Upload LLBot-CLI-macos-arm64.zip
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+      - name: Upload LLBot-CLI-macos-arm64.tar.xz
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'macos-arm64') }}
         uses: actions/upload-artifact@v4
         with:
           name: LLBot-CLI-macos-arm64
-          path: LLBot-CLI-macos-arm64.zip
+          path: LLBot-CLI-macos-arm64.tar.xz
           retention-days: 30
 
       - name: Upload LLBot-Docker.sh
@@ -220,7 +238,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: ncipollo/release-action@v1
         with:
-          artifacts: 'LLBot.zip, LLBot-Desktop-win-x64.zip, LLBot-CLI-win-x64.zip, LLBot-CLI-linux-x64.zip, LLBot-CLI-linux-arm64.zip, LLBot-CLI-macos-arm64.zip, LLBot-Docker.sh'
+          artifacts: 'LLBot.zip, LLBot-Desktop-win-x64.zip, LLBot-CLI-win-x64.zip, LLBot-CLI-linux-x64.zip, LLBot-CLI-linux-arm64.zip, LLBot-CLI-macos-arm64.tar.xz, LLBot-Docker.sh'
           draft: true
           token: ${{ secrets.RELEASE_TOKEN }}
           name: LuckyLilliaBot v${{ steps.get-version.outputs.VERSION }}
