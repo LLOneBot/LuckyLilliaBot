@@ -219,15 +219,15 @@ export async function getImageSize(path: string) {
   return await imageSizeFromFile(path)
 }
 
-export function getMd5FromBuffer(buf: Buffer) {
+export function getMd5HexFromBuffer(buf: Buffer) {
   return createHash('md5').update(buf).digest('hex')
 }
 
-export function getSha1FromBuffer(buf: Buffer) {
+export function getSha1HexFromBuffer(buf: Buffer) {
   return createHash('sha1').update(buf).digest('hex')
 }
 
-export async function getMd5FromFile(filePath: string) {
+export async function getMd5HexFromFile(filePath: string) {
   const hash = createHash('md5')
   const stream = fs.createReadStream(filePath)
   for await (const chunk of stream) {
@@ -236,11 +236,58 @@ export async function getMd5FromFile(filePath: string) {
   return hash.digest('hex')
 }
 
-export async function getSha1FromFile(filePath: string) {
+export async function getSha1HexFromFile(filePath: string) {
   const hash = createHash('sha1')
   const stream = fs.createReadStream(filePath)
   for await (const chunk of stream) {
     hash.update(chunk)
   }
   return hash.digest('hex')
+}
+
+export function getMd5BufferFromBuffer(buf: Buffer) {
+  return createHash('md5').update(buf).digest()
+}
+
+export async function getMd5BufferFromFile(filePath: string) {
+  const hash = createHash('md5')
+  const stream = fs.createReadStream(filePath)
+  for await (const chunk of stream) {
+    hash.update(chunk)
+  }
+  return hash.digest()
+}
+
+export async function calculateStreamBytes(stream: fs.ReadStream) {
+  const blockSize = 1024 * 1024 // 1MB
+  const sha1 = createHash('sha1')
+  const result = []
+
+  let processed = 0
+
+  for await (const chunk of stream) {
+    let offset = 0
+
+    while (offset < chunk.length) {
+      const remainingToBlock = blockSize - (processed % blockSize)
+      const len = Math.min(remainingToBlock, chunk.length - offset)
+
+      const slice = chunk.subarray(offset, offset + len)
+      sha1.update(slice)
+
+      processed += len
+      offset += len
+
+      // 每到 1MB 边界，输出一次中间 SHA1
+      if (processed % blockSize === 0) {
+        const clone = sha1.copy()
+        const digest = clone.digest() // 20 bytes
+        result.push(Buffer.from(digest))
+      }
+    }
+  }
+
+  // 最终 SHA1
+  result.push(sha1.digest())
+  return result
 }

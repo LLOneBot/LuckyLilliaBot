@@ -1,5 +1,5 @@
 import { QQLevel } from '@/ntqqapi/types'
-import { Dict, isNullable } from 'cosmokit'
+import { Dict, isNonNullable } from 'cosmokit'
 import { defineProperty } from 'cosmokit'
 
 export function isNumeric(str: string) {
@@ -31,7 +31,7 @@ export function mergeNewProperties(newObj: Dict, oldObj: Dict) {
 }
 
 export function filterNullable<T>(array: T[]) {
-  return array.filter(e => !isNullable(e)) as NonNullable<T>[]
+  return array.filter(e => isNonNullable(e))
 }
 
 export function parseBool(value: string) {
@@ -51,10 +51,19 @@ export class DetailedError<T> extends Error {
 }
 
 export type DeepNonNullable<T> = T extends object
-? { [K in keyof T]-?: DeepNonNullable<NonNullable<T[K]>> }
+  ? { [K in keyof T]-?: DeepNonNullable<NonNullable<T[K]>> }
   : NonNullable<T>
 
 export const cloneObj = <T>(obj: T) => Object.assign(
   Object.create(Object.getPrototypeOf(obj)),
   obj
 ) as T
+
+export function uint32ToIPV4Addr(value: number) {
+  return [
+    value & 0xFF,
+    (value >> 8) & 0xFF,
+    (value >> 16) & 0xFF,
+    (value >> 24) & 0xFF
+  ].join('.')
+}

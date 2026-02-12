@@ -16,9 +16,9 @@ import {
   SendTextElement,
   SendVideoElement,
 } from './types'
-import { stat, writeFile, copyFile, unlink } from 'node:fs/promises'
-import { getMd5FromFile } from '../common/utils/file'
-import { defaultVideoThumb, getVideoInfo } from '../common/utils/video'
+import { stat, copyFile, unlink } from 'node:fs/promises'
+import { getMd5HexFromFile } from '../common/utils/file'
+import { createThumb, getVideoInfo } from '../common/utils/video'
 import { encodeSilk } from '../common/utils/audio'
 import { Context } from 'cordis'
 import { isNullable } from 'cosmokit'
@@ -126,8 +126,6 @@ export namespace SendElement {
       throw new Error(`视频过大，最大支持${maxMB}MB，当前文件大小${fileSize}B`)
     }
     const { fileName, path, md5 } = await ctx.ntFileApi.uploadFile(filePath, ElementType.Video)
-
-    const thumbDir = pathLib.dirname(path.replaceAll('\\', '/').replace(`/Ori/`, `/Thumb/`))
     let videoInfo = {
       width: 1920,
       height: 1080,
@@ -142,62 +140,18 @@ export namespace SendElement {
     } catch (e) {
       ctx.logger.info('获取视频信息失败', e)
     }
-    const createThumb = new Promise<string>((resolve) => {
-      const thumbFileName = `${md5}_0.png`
-      const thumbPath = pathLib.join(thumbDir, thumbFileName)
-      if (diyThumbPath) {
-        copyFile(diyThumbPath, thumbPath)
-          .then(() => resolve(thumbPath))
-          .catch(() => {
-            writeFile(thumbPath, defaultVideoThumb)
-              .then(() => resolve(thumbPath))
-              .catch(() => resolve(thumbPath))
-          })
-      } else {
-        ctx.logger.info('开始生成视频缩略图', filePath)
-        let completed = false
-
-        function useDefaultThumb() {
-          if (completed) return
-          completed = true
-          ctx.logger.info('获取视频封面失败，使用默认封面')
-          writeFile(thumbPath, defaultVideoThumb)
-            .then(() => resolve(thumbPath))
-            .catch(() => resolve(thumbPath))
-        }
-
-        const timeout = setTimeout(useDefaultThumb, 5000)
-        try {
-          const cmd = ffmpeg(filePath)
-          cmd.on('error', (err) => {
-            clearTimeout(timeout)
-            ctx.logger.warn('FFmpeg 生成缩略图失败:', err?.message || err)
-            useDefaultThumb()
-          })
-          cmd.on('end', () => {
-            if (completed) return
-            completed = true
-            clearTimeout(timeout)
-            resolve(thumbPath)
-          })
-          cmd.screenshots({
-            timestamps: [0],
-            filename: thumbFileName,
-            folder: thumbDir,
-            size: videoInfo.width + 'x' + videoInfo.height,
-          })
-        } catch (e) {
-          clearTimeout(timeout)
-          ctx.logger.warn('FFmpeg 调用异常:', e)
-          useDefaultThumb()
-        }
-      }
-    })
+    const thumbDir = pathLib.dirname(path.replaceAll('\\', '/').replace(`/Ori/`, `/Thumb/`))
+    const thumbFilePath = pathLib.join(thumbDir, `${md5}_0.png`)
+    if (diyThumbPath) {
+      await copyFile(diyThumbPath, thumbFilePath)
+    } else {
+      const path = await createThumb(ctx, videoInfo.filePath, md5, videoInfo.width, videoInfo.height)
+      await copyFile(path, thumbFilePath)
+    }
     const thumbPath = new Map()
-    const _thumbPath = await createThumb
-    const thumbSize = (await stat(_thumbPath)).size
-    thumbPath.set(0, _thumbPath)
-    const thumbMd5 = await getMd5FromFile(_thumbPath)
+    const thumbSize = (await stat(thumbFilePath)).size
+    thumbPath.set(0, thumbFilePath)
+    const thumbMd5 = await getMd5HexFromFile(thumbFilePath)
     const element: SendVideoElement = {
       elementType: ElementType.Video,
       elementId: '',
