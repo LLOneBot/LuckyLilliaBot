@@ -3,9 +3,9 @@ import { selfInfo } from '@/common/globalVars'
 import { InferProtoModelInput } from '@saltify/typeproto'
 import type { PMHQBase } from '../base'
 import { calculateTriSha1, getMd5BufferFromFile, getSha1BufferFromFile, readAndHash10M, uint32ToIPV4Addr } from '@/common/utils'
-import { NTV2RichMedia } from '@/ntqqapi/helper/ntV2RichMedia'
+import { NTV2RichMedia } from '@/ntqqapi/helper/ntv2RichMedia'
 import { ChatType } from '@/ntqqapi/types'
-import { readFile, stat } from 'fs/promises'
+import { stat } from 'fs/promises'
 
 export function MediaMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) {
   return class extends Base {
