@@ -149,6 +149,7 @@ export class MilkyAdapter extends Service {
 
     // Listen to NTQQ message deleted events
     this.ctx.on('nt/message-deleted', async (message) => {
+      if (!message.elements[0].grayTipElement?.revokeElement) return
       if (message.chatType === ChatType.C2C) {
         const eventData = await transformPrivateMessageDeleted(this.ctx, message)
         if (eventData) {
