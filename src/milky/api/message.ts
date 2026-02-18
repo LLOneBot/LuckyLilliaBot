@@ -44,16 +44,10 @@ const SendPrivateMessage = defineApi(
 
     let result: RawMessage
     if (payload.message[0].type === 'forward') {
-      const forwardData = payload.message[0].data as {
-        messages: OutgoingForwardedMessage[]
-        title?: string
-        preview?: { text: string }[]
-        summary?: string
-        prompt?: string
-      }
+      const forwardData = payload.message[0].data
       const raw = await transformOutgoingForwardMessages(
         ctx,
-        forwardData.messages,
+        forwardData.messages as OutgoingForwardedMessage[],
         peer,
         {
           title: forwardData.title,
@@ -131,16 +125,10 @@ const SendGroupMessage = defineApi(
 
     let result: RawMessage
     if (payload.message[0].type === 'forward') {
-      const forwardData = payload.message[0].data as {
-        messages: OutgoingForwardedMessage[]
-        title?: string
-        preview?: { text: string }[]
-        summary?: string
-        prompt?: string
-      }
+      const forwardData = payload.message[0].data
       const raw = await transformOutgoingForwardMessages(
         ctx,
-        forwardData.messages,
+        forwardData.messages as OutgoingForwardedMessage[],
         peer,
         {
           title: forwardData.title,

@@ -97,10 +97,10 @@ export async function transformOutgoingForwardMessages(
   messages: OutgoingForwardedMessage[],
   peer: Peer,
   options?: {
-    title?: string
-    preview?: { text: string }[]
-    summary?: string
-    prompt?: string
+    title: string | null | undefined
+    preview: string[] | null | undefined
+    summary: string | null | undefined
+    prompt: string | null | undefined
   }
 ) {
   const encoder = new ForwardMessageEncoder(ctx, peer)
@@ -314,7 +314,12 @@ class ForwardMessageEncoder {
         this.preview += busiType === 1 ? '[动画表情]' : '[图片]'
         unlink(tempPath).catch(e => { })
       } else if (type === 'forward') {
-        const innerRaw = await this.generate(data.messages as OutgoingForwardedMessage[])
+        const innerRaw = await this.generate(data.messages as OutgoingForwardedMessage[], {
+          title: data.title,
+          preview: data.preview,
+          summary: data.summary,
+          prompt: data.prompt
+        })
         this.innerRaws.push(innerRaw)
         const resid = await this.ctx.app.pmhq.uploadForward(this.peer, innerRaw.multiMsgItems)
         this.children.push(this.packForwardMessage(resid, innerRaw.uuid, innerRaw))
@@ -353,10 +358,10 @@ class ForwardMessageEncoder {
   }
 
   async generate(content: OutgoingForwardedMessage[], options?: {
-    title?: string
-    preview?: { text: string }[]
-    summary?: string
-    prompt?: string
+    title: string | null | undefined
+    preview: string[] | null | undefined
+    summary: string | null | undefined
+    prompt: string | null | undefined
   }) {
     await this.render(content)
     const msg = this.results
@@ -385,7 +390,7 @@ class ForwardMessageEncoder {
       tsum,
       source: options?.title ?? (this.isGroup ? '群聊的聊天记录' : '聊天记录'),
       summary: options?.summary ?? `查看${tsum}条转发消息`,
-      news: options?.preview ?? news,
+      news: options?.preview?.map(e => ({ text: e })) ?? news,
       prompt: options?.prompt ?? '[聊天记录]',
       uuid: crypto.randomUUID()
     }
