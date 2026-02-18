@@ -79,7 +79,7 @@ export interface NodeIKernelMsgService {
 
   downloadRichMedia(...args: unknown[]): unknown
 
-  setMsgEmojiLikes(...args: unknown[]): Promise<GeneralCallResult>
+  setMsgEmojiLikes(peer: Peer, emojiId: string, emojiType: string, msgSeq: string, setEmoji: boolean): Promise<GeneralCallResult>
 
   getMsgEmojiLikesList(peer: Peer, msgSeq: string, emojiId: string, emojiType: string, cookie: string, bForward: boolean, number: number): Promise<{
     result: number

@@ -26,11 +26,11 @@ export class NTQQMsgApi extends Service {
     return emojiId.length > 3 ? '2' : '1'
   }
 
-  async setEmojiLike(peer: Peer, msgSeq: string, emojiId: string, setEmoji: boolean) {
+  async setEmojiLike(peer: Peer, msgSeq: string, emojiId: string, setEmoji: boolean, emojiType?: string) {
     // nt_qq/global/nt_data/Emoji/emoji-resource/sysface_res/apng/ 下可以看到所有QQ表情预览
     // nt_qq/global/nt_data/Emoji/emoji-resource/face_config.json 里面有所有表情的id, 自带表情id是QSid, 标准emoji表情id是QCid
     // 其实以官方文档为准是最好的，https://bot.q.qq.com/wiki/develop/api-v2/openapi/emoji/model.html#EmojiType
-    return await invoke(NTMethod.EMOJI_LIKE, [peer, msgSeq, emojiId, this.getEmojiIdType(emojiId), setEmoji])
+    return await invoke(NTMethod.EMOJI_LIKE, [peer, msgSeq, emojiId, emojiType ?? this.getEmojiIdType(emojiId), setEmoji])
   }
 
   async getMultiMsg(peer: Peer, rootMsgId: string, parentMsgId: string) {
