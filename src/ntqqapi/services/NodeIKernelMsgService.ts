@@ -164,4 +164,6 @@ export interface NodeIKernelMsgService {
   }): Promise<GeneralCallResult & { isExist: number }>
 
   deleteFavEmoji(emojiIds: string[]): Promise<GeneralCallResult>
+
+  setContactLocalTop(peer: Peer, isTop: boolean): Promise<GeneralCallResult>
 }

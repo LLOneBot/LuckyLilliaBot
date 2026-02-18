@@ -419,4 +419,8 @@ export class NTQQMsgApi extends Service {
   async deleteFavEmoji(emojiIds: string[]) {
     return await invoke('nodeIKernelMsgService/deleteFavEmoji', [emojiIds])
   }
+
+  async setContactLocalTop(peer: Peer, isTop: boolean) {
+    return await invoke('nodeIKernelMsgService/setContactLocalTop', [peer, isTop])
+  }
 }
