@@ -391,7 +391,7 @@ const GetGroupNotifications = defineApi(
     if (notifies.length > payload.limit) {
       notifies = notifies.slice(0, payload.limit)
     }
-    const notifications: GetGroupNotificationsOutput['notifications'] = []
+    const notifications = []
     for (const notify of notifies) {
       if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass) {
         notifications.push({
