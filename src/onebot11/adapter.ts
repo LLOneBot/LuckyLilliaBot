@@ -354,7 +354,10 @@ class OneBot11Adapter extends Service {
     })
     this.ctx.on('nt/system-message-created', async input => {
       const sysMsg = Msg.Message.decode(input)
-      const { msgType, subType } = sysMsg.contentHead ?? {}
+      if (!sysMsg.body) {
+        return
+      }
+      const { msgType, subType } = sysMsg.contentHead
       if (msgType === 528 && subType === 39) {
         const tip = Notify.ProfileLike.decode(sysMsg.body.msgContent)
         if (tip.msgType !== 0 || tip.subType !== 203) return
@@ -544,7 +547,7 @@ class OneBot11Adapter extends Service {
           if (!pushMsg.message.body) {
             return null
           }
-          const { msgType, subType } = pushMsg.message?.contentHead ?? {}
+          const { msgType, subType } = pushMsg.message.contentHead
           if (msgType === 732 && subType === 16) {
             const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
             if (notify.field13 === 35) {

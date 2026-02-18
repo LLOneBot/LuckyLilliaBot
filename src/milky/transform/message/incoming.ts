@@ -299,6 +299,6 @@ export async function transformIncomingForwardedMessage(ctx: Context, message: I
     sender_name: contentHead.msgType === 82 ? routingHead.group.groupCard : routingHead.c2c.friendName,
     avatar_url: contentHead.forward!.avatar,
     time: contentHead.msgTime,
-    segments: await transformSegments(body.richText.elems)
+    segments: await transformSegments(body!.richText.elems)
   }
 }

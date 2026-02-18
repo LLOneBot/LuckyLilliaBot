@@ -368,7 +368,10 @@ export async function transformSystemMessageEvent(
 ): Promise<{ eventType: keyof MilkyEventTypes, data: any } | null> {
   try {
     const sysMsg = Msg.Message.decode(data)
-    const { msgType, subType } = sysMsg.contentHead ?? {}
+    if (!sysMsg.body) {
+      return null
+    }
+    const { msgType, subType } = sysMsg.contentHead
     if (msgType === 33) {
       const tip = Notify.GroupMemberChange.decode(sysMsg.body.msgContent)
       if (tip.type !== 130) return null
@@ -457,7 +460,7 @@ export async function transformOlpushEvent(
     if (!pushMsg.message.body) {
       return null
     }
-    const { msgType, subType } = pushMsg.message?.contentHead ?? {}
+    const { msgType, subType } = pushMsg.message.contentHead
     if (msgType === 732 && subType === 16) {
       const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
       if (notify.field13 === 35) {

@@ -105,7 +105,7 @@ export namespace Msg {
       }),
       msgContent: ProtoField(2, 'bytes'),
       msgEncryptContent: ProtoField(3, 'bytes')
-    })
+    }, 'optional')
   })
 
   export const PbMultiMsgItem = ProtoMessage.of({
