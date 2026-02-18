@@ -11,6 +11,8 @@ import { parseMessageCreated, parseMessageDeleted } from './event/message'
 import { parseGuildAdded, parseGuildRemoved, parseGuildRequest } from './event/guild'
 import { parseGuildMemberAdded, parseGuildMemberRemoved, parseGuildMemberRequest } from './event/member'
 import { parseFriendRequest } from './event/user'
+import { Msg } from '@/ntqqapi/proto'
+import { parseReactionAdded, parseReactionRemoved } from './event/reaction'
 
 declare module 'cordis' {
   interface Context {
@@ -22,7 +24,7 @@ class SatoriAdapter extends Service {
   static inject = [
     'ntMsgApi', 'ntFileApi', 'ntFileCacheApi',
     'ntFriendApi', 'ntGroupApi', 'ntUserApi',
-    'ntWebApi', 'store',
+    'ntWebApi', 'store', 'app'
   ]
   private selfId: string
   private server: SatoriServer
@@ -135,18 +137,18 @@ class SatoriAdapter extends Service {
           this.listenEvent()
         }
       }
-      Object.assign(this.config, {...inputSatoriConfig, ffmpeg: input.ffmpeg })
+      Object.assign(this.config, { ...inputSatoriConfig, ffmpeg: input.ffmpeg })
     })
-    if(this.config.enable){
+    if (this.config.enable) {
       this.server.start()
     }
-    else{
+    else {
       return
     }
     this.listenEvent()
   }
 
-  listenEvent(){
+  listenEvent() {
     if (this.listenedEvent) return
     this.listenedEvent = true
     this.ctx.on('nt/message-created', async input => {
@@ -179,6 +181,34 @@ class SatoriAdapter extends Service {
         .catch(e => this.ctx.logger.error(e))
       if (event) {
         this.server.dispatch(event)
+      }
+    })
+
+    this.ctx.app.pmhq.addResListener(async data => {
+      if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
+        const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
+        if (!pushMsg.message.body) {
+          return
+        }
+        const { msgTime, msgType, subType } = pushMsg.message.contentHead
+        if (msgType === 732 && subType === 16) {
+          const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
+          if (notify.field13 === 35) {
+            if (notify.reaction.data.body.info.type === 1) {
+              const event = await parseReactionAdded(this, notify, msgTime)
+                .catch(e => this.ctx.logger.error(e))
+              if (event) {
+                this.server.dispatch(event)
+              }
+            } else {
+              const event = await parseReactionRemoved(this, notify, msgTime)
+                .catch(e => this.ctx.logger.error(e))
+              if (event) {
+                this.server.dispatch(event)
+              }
+            }
+          }
+        }
       }
     })
   }
