@@ -75,6 +75,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
             type: 'mention',
             data: {
               user_id: +element.textElement.atUid,
+              name: element.textElement.content.slice(1)
             },
           })
         } else if (element.textElement?.content) {
