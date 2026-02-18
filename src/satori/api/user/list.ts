@@ -11,5 +11,4 @@ export const getFriendList: Handler<List<User>, Payload> = async (ctx) => {
   return {
     data: friends.map(e => decodeUser(e.coreInfo))
   }
-
 }

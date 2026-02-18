@@ -96,7 +96,7 @@ const GetUserProfile = defineApi(
       school: userInfo.detail.commonExt?.college || '',
     }
     if (profile.level === 0) {
-      profile.level = await ctx.app.pmhq.fetchUserLevel(payload.user_id)
+      profile.level = (await ctx.app.pmhq.fetchUserInfo(payload.user_id)).level
     }
     return Ok(profile)
   }
@@ -128,7 +128,7 @@ const GetFriendInfo = defineApi(
     if (!uid) {
       return Failed(-404, 'User not found')
     }
-    const friend = await ctx.ntUserApi.getUserSimpleInfo(uid)
+    const friend = await ctx.ntUserApi.getUserSimpleInfo(uid, payload.no_cache)
     const category = await ctx.ntFriendApi.getCategoryById(friend.baseInfo.categoryId)
     return Ok({
       friend: transformFriend(friend, category),
@@ -172,12 +172,39 @@ const GetGroupMemberList = defineApi(
   GetGroupMemberListInput,
   GetGroupMemberListOutput,
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.getGroupMembers(payload.group_id.toString())
-    if (result.errCode !== 0) {
-      return Failed(-500, result.errMsg)
+    const groupCode = payload.group_id.toString()
+    async function getMembers(forceFetch: boolean) {
+      const res = await ctx.ntGroupApi.getGroupMembers(groupCode, forceFetch)
+      if (res.errCode !== 0) {
+        throw new Error(res.errMsg)
+      }
+      return res.result
+    }
+    let result
+    try {
+      if (payload.no_cache) {
+        result = await getMembers(true)
+      } else {
+        let cached = false
+        try {
+          result = await getMembers(false)
+          cached = true
+        } catch {
+          result = await getMembers(true)
+        }
+        if (cached) {
+          const { memberNum } = await ctx.ntGroupApi.getGroupAllInfo(groupCode)
+          // 使用缓存可能导致群成员列表不完整
+          if (memberNum !== result.infos.size) {
+            result = await getMembers(true)
+          }
+        }
+      }
+    } catch (e) {
+      return Failed(-500, (e as Error).message)
     }
     return Ok({
-      members: result.result.infos.values().map(e => transformGroupMember(e, payload.group_id)).toArray(),
+      members: result.infos.values().map(e => transformGroupMember(e, payload.group_id)).toArray(),
     })
   }
 )
@@ -194,7 +221,8 @@ const GetGroupMemberInfo = defineApi(
     }
     const member = await ctx.ntGroupApi.getGroupMember(
       groupCode,
-      memberUid
+      memberUid,
+      payload.no_cache
     )
     return Ok({
       member: transformGroupMember(member, payload.group_id),

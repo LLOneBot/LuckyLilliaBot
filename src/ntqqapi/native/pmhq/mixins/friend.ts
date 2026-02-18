@@ -39,12 +39,12 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
       const res = await this.httpSendPB('OidbSvcTrpcTcp.0xe37_1200', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const file = Oidb.GetPrivateFileResp.decode(oidbRespBody)
-      if (file.body?.field10 !== 0) {
-        throw new Error(file.body!.state!)
+      const { download } = file.body.result.extra
+      const { fileName } = file.body.metadata
+      return {
+        state: file.body.state,
+        url: `https://${download.downloadDns}/ftn_handler/${download.downloadUrl.toString('hex')}/?fname=${encodeURIComponent(fileName)}`
       }
-      const { download } = file.body!.result!.extra!
-      const { fileName } = file.body!.metadata!
-      return `https://${download?.downloadDns}/ftn_handler/${Buffer.from(download!.downloadUrl!).toString('hex')}/?fname=${encodeURIComponent(fileName!)}`
     }
   }
 }

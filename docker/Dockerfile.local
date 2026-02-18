@@ -1,0 +1,38 @@
+FROM node:22-alpine AS builder
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare yarn@4.12.0 --activate
+
+COPY package.json yarn.lock .yarnrc.yml ./
+COPY .yarn .yarn
+
+RUN yarn install --immutable
+
+COPY src/webui/FE/package.json src/webui/FE/
+RUN cd src/webui/FE && npm install
+
+COPY . .
+
+RUN yarn build-webui
+
+RUN yarn build
+
+
+FROM node:22-alpine AS production
+
+RUN set -eux; \
+    apk update; \
+    apk add --no-cache tzdata ffmpeg; \
+    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
+    echo "Asia/Shanghai" > /etc/timezone; \
+    rm -rf /var/cache/apk/*
+
+WORKDIR /app/llbot
+
+COPY --from=builder /app/dist .
+
+COPY docker/startup.sh /startup.sh
+RUN chmod +x /startup.sh
+
+ENTRYPOINT ["/startup.sh"]

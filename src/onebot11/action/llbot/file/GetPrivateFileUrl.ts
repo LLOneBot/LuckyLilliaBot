@@ -17,7 +17,10 @@ export class GetPrivateFileUrl extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload) {
-    const url = await this.ctx.app.pmhq.getPrivateFileUrl(selfInfo.uid, payload.file_id)
+    const { state, url } = await this.ctx.app.pmhq.getPrivateFileUrl(selfInfo.uid, payload.file_id)
+    if (state !== 'ok') {
+      throw new Error(state)
+    }
     return { url }
   }
 }

@@ -64,7 +64,7 @@ export async function createSendElements(
             }
           }
           else if (peer.chatType === ChatType.Group) {
-            const uid = await ctx.ntUserApi.getUidByUin(atQQ, peer.peerUid) ?? ''
+            const uid = await ctx.ntUserApi.getUidByUin(atQQ, peer.peerUid)
             let display = ''
             if (segment.data.name) {
               display = `@${segment.data.name}`
@@ -92,7 +92,7 @@ export async function createSendElements(
         const faceId = segment.data?.id
         const faceType: FaceType | undefined = segment.data?.sub_type
         if (faceId) {
-          sendElements.push(SendElement.face(parseInt(faceId), faceType))
+          sendElements.push(SendElement.face(+faceId, faceType))
         }
       }
         break
@@ -126,10 +126,17 @@ export async function createSendElements(
         break
       case OB11MessageDataType.Video: {
         const { path } = await handleOb11RichMedia(ctx, segment, deleteAfterSentFiles)
-        let thumb = segment.data.thumb
+        let thumb = segment.data.cover ?? segment.data.thumb
         if (thumb) {
           const uri2LocalRes = await uri2local(ctx, thumb)
-          if (uri2LocalRes.success) thumb = uri2LocalRes.path
+          if (uri2LocalRes.success) {
+            if (!uri2LocalRes.isLocal) {
+              deleteAfterSentFiles.push(uri2LocalRes.path)
+            }
+            thumb = uri2LocalRes.path
+          } else {
+            throw new Error(uri2LocalRes.errMsg)
+          }
         }
         const res = await SendElement.video(ctx, path, thumb)
         deleteAfterSentFiles.push(res.videoElement.filePath!)

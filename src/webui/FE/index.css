@@ -319,6 +319,17 @@
     color: var(--text-hint);
   }
   
+  /* 隐藏 number 输入框的上下箭头 */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+  
   .switch {
     @apply relative inline-flex items-center cursor-pointer;
   }

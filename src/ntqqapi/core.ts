@@ -8,7 +8,6 @@ import {
   GroupNotify,
   FriendRequestNotify,
   FriendRequest,
-  GroupMember,
   BuddyReqType,
   GrayTipElementSubType,
   ChatType,
@@ -28,7 +27,7 @@ import {
 import { logSummaryMessage } from '@/ntqqapi/log'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
 import { OnQRCodeLoginSucceedParameter } from '@/ntqqapi/listeners/NodeIKernelLoginListener'
-import { GroupInfo, LocalExitGroupReason } from '@/ntqqapi/listeners'
+import { GroupDetailInfo, LocalExitGroupReason } from '@/ntqqapi/types'
 
 declare module 'cordis' {
   interface Context {
@@ -42,10 +41,9 @@ declare module 'cordis' {
     'nt/message-deleted': (input: RawMessage) => void
     'nt/message-sent': (input: RawMessage) => void
     'nt/group-notify': (input: { notify: GroupNotify, doubt: boolean }) => void
-    'nt/group-dismiss': (input: GroupInfo) => void
-    'nt/group-quit': (input: GroupInfo) => void // 主动退群
+    'nt/group-dismiss': (input: GroupDetailInfo) => void
+    'nt/group-quit': (input: GroupDetailInfo) => void // 主动退群
     'nt/friend-request': (input: FriendRequest) => void
-    'nt/group-member-info-updated': (input: { groupCode: string, members: GroupMember[] }) => void
     'nt/system-message-created': (input: Buffer) => void
     'nt/flash-file-uploading': (input: { fileSet: FlashFileSetInfo } & FlashFileUploadingInfo) => void
     'nt/flash-file-upload-status': (input: FlashFileSetInfo) => void
@@ -128,7 +126,7 @@ class Core extends Service {
 
   private async handleMessage(msgList: RawMessage[]) {
     for (const message of msgList) {
-      const msgTime = parseInt(message.msgTime)
+      const msgTime = +message.msgTime
       if (msgTime < this.startupTime) {
         const existing = await this.ctx.store.checkMsgExist(message)
         if (!existing) {
@@ -337,7 +335,7 @@ class Core extends Service {
     })
 
     const group_dismiss_codes: string[] = []  // 不知是否是 QQ 的 bug，退群的时候会上报一个以前解散的群，这里用于避免重复上报
-    registerReceiveHook<GroupInfo>(ReceiveCmdS.GROUP_DETAIL_INFO_UPDATE, async data => {
+    registerReceiveHook<GroupDetailInfo>(ReceiveCmdS.GROUP_DETAIL_INFO_UPDATE, async data => {
       if (data.localExitGroupReason === LocalExitGroupReason.DISMISS
         && !group_dismiss_codes.includes(data.groupCode)
         && data.cmdUinJoinTime > this.startupTime

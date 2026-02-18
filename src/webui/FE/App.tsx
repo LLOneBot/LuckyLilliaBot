@@ -11,25 +11,30 @@ import {
   ToastContainer,
   showToast,
   AnimatedBackground,
+  HostSelector,
 } from './components';
-import { WebQQPage } from './components/WebQQ';
-import { Config, ResConfig } from './types';
+import { WebQQPage, WebQQFullscreen } from './components/WebQQ';
+import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
-import { Save, Loader2, Settings, Eye, EyeOff, Plus, Trash2, Menu } from 'lucide-react';
+import { Save, Loader2, Eye, EyeOff, Plus, Trash2, Menu, Cpu, Milk } from 'lucide-react';
 import { defaultConfig } from '../../common/defaultConfig'
 import { version } from '../../version'
+import SettingsDialog from './components/common/SettingsDialog'
+import { useSettingsStore } from './stores/settingsStore'
 
 
 function App() {
   // 从 URL hash 读取初始 tab，默认 dashboard
   const getInitialTab = () => {
     const hash = window.location.hash.slice(1) // 去掉 #
-    const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'webqq', 'about']
+    const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'webqq', 'webqq-fullscreen', 'about']
     return validTabs.includes(hash) ? hash : 'dashboard'
   }
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [config, setConfig] = useState<Config>(defaultConfig);
+  const [emailConfig, setEmailConfig] = useState<EmailConfig | null>(null);
+
   const [loading, setLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [checkingLogin, setCheckingLogin] = useState(true);
@@ -43,6 +48,9 @@ function App() {
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
   const [qqVersion, setQqVersion] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showSettingsDialog, setShowSettingsDialog] = useState(false);
+  const { autoHideSidebarInWebQQ } = useSettingsStore();
 
   // 设置密码提示处理器
   useEffect(() => {
@@ -60,11 +68,18 @@ function App() {
     window.location.hash = activeTab
   }, [activeTab])
 
+  // WebQQ 自动隐藏侧边栏
+  useEffect(() => {
+    if (autoHideSidebarInWebQQ && activeTab === 'webqq') {
+      setSidebarCollapsed(true)
+    }
+  }, [activeTab, autoHideSidebarInWebQQ])
+
   // 监听浏览器前进/后退
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
-      const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'webqq', 'about']
+      const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'webqq', 'webqq-fullscreen', 'about']
       if (validTabs.includes(hash)) {
         setActiveTab(hash)
       }
@@ -98,7 +113,20 @@ function App() {
             nick: response.data.selfInfo.nick || '',
             uin: response.data.selfInfo.uin,
           });
-          setConfig(response.data.config)
+          
+          // 获取主配置
+          setConfig(response.data.config);
+          
+          // 获取邮件配置（独立管理）
+          try {
+            const emailResponse = await apiFetch<EmailConfig>('/api/email/config');
+            if (emailResponse.success && emailResponse.data) {
+              setEmailConfig(emailResponse.data);
+            }
+          } catch (e) {
+            console.error('Failed to fetch email config:', e);
+          }
+          
           // 获取 QQ 版本号（单独 try-catch，不影响登录状态）
           try {
             const deviceInfoRes = await apiFetch<{ devType: string; buildVer: string }>('/api/device-info');
@@ -121,29 +149,51 @@ function App() {
     checkLoginStatus();
   }, []);
 
-  // 保存配置（直接保存新格式）
-  // configToSave: 可选，传入时使用传入的配置，否则使用当前 state
-  const handleSave = useCallback(async (configToSave?: Config) => {
+  // 保存配置
+  const handleSave = useCallback(async (configToSave?: Config, emailConfigToSave?: EmailConfig | null) => {
     try {
       setLoading(true);
       const finalConfig = configToSave || config;
-      // console.log('Saving config:', finalConfig);
+      const finalEmailConfig = emailConfigToSave !== undefined ? emailConfigToSave : emailConfig;
+      
+      // 保存主配置
       const response = await apiFetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ config: finalConfig }),
       });
-      if (response.success) {
-        showToast('配置保存成功', 'success');
-      } else {
-        showToast('保存失败：' + response.message, 'error');
+      
+      if (!response.success) {
+        showToast(response.message || '保存失败', 'error');
+        return;
       }
+      
+      // 保存邮件配置（如果有）
+      if (finalEmailConfig) {
+        try {
+          const emailResponse = await apiFetch('/api/email/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(finalEmailConfig),
+          });
+          
+          if (!emailResponse.success) {
+            showToast(`主配置已保存，但邮件配置保存失败：${emailResponse.message}`, 'warning');
+            return;
+          }
+        } catch (emailError: any) {
+          showToast(`主配置已保存，但邮件配置保存失败：${emailError.message}`, 'warning');
+          return;
+        }
+      }
+      
+      showToast('配置保存成功', 'success');
     } catch (error: any) {
-      showToast('保存失败：' + error.message, 'error');
+      showToast(error.message || '保存失败', 'error');
     } finally {
       setLoading(false);
     }
-  }, [config]); // 依赖 config
+  }, [config, emailConfig]);
 
   // 登录成功回调
   const handleLoginSuccess = useCallback(() => {
@@ -193,24 +243,49 @@ function App() {
     );
   }
 
+  // webqq-fullscreen 路由：独立的全屏页面
+  if (activeTab === 'webqq-fullscreen') {
+    return (
+      <>
+        {/* Animated Background */}
+        <AnimatedBackground />
+
+        <WebQQFullscreen />
+
+        {/* Password Dialog */}
+        <TokenDialog
+          visible={showPasswordDialog}
+          onConfirm={handlePasswordConfirm}
+          error={passwordError}
+        />
+
+        {/* Toast Container */}
+        <ToastContainer />
+      </>
+    )
+  }
+
   // 已登录，显示主页面
   return (
     <div className="flex min-h-screen">
       {/* Animated Background */}
       <AnimatedBackground />
 
-      <Sidebar 
-        activeTab={activeTab} 
-        onTabChange={setActiveTab} 
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
         accountInfo={accountInfo || undefined}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        onOpenSettings={() => setShowSettingsDialog(true)}
       />
 
-      <main className="flex-1 overflow-auto z-10">
+      <main className={`flex-1 overflow-auto z-10 transition-all duration-300 ${sidebarCollapsed ? '' : 'md:ml-64'}`}>
         {/* 移动端顶部导航栏 */}
         <div className="md:hidden sticky top-0 z-30 bg-theme-card/95 backdrop-blur-xl border-b border-theme-divider px-4 py-3 flex items-center gap-3">
-          <button 
+          <button
             onClick={() => setSidebarOpen(true)}
             className="p-2 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg transition-colors"
           >
@@ -221,7 +296,7 @@ function App() {
             <span className="font-semibold text-theme">LLBot</span>
           </div>
         </div>
-        
+
         <div className="p-4 md:p-8 max-w-6xl mx-auto">
           {/* Header - 桌面端显示 */}
           <div className="mb-8 hidden md:block">
@@ -243,18 +318,15 @@ function App() {
           {activeTab === 'onebot' && (
             <OneBotConfigNew
               config={config.ob11}
-              globalConfig={config}
               onChange={(newOb11Config) => {
                 const newConfig = { ...config, ob11: newOb11Config };
                 setConfig(newConfig);
               }}
               onSave={(newOb11Config) => {
-                // 如果传入了新配置，使用新配置保存
                 if (newOb11Config) {
                   const newConfig = { ...config, ob11: newOb11Config };
                   handleSave(newConfig);
                 } else {
-                  // 否则使用当前 state
                   handleSave();
                 }
               }}
@@ -265,7 +337,7 @@ function App() {
             <div className="card p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-xl gradient-primary-br flex items-center justify-center">
-                  <Settings size={24} className="text-white" />
+                  <Cpu size={24} className="text-white" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-theme">Satori 协议</h3>
@@ -292,6 +364,19 @@ function App() {
 
                 {config.satori.enable && (
                   <>
+                    <div>
+                      <label className="block text-sm font-medium text-theme-secondary mb-2">
+                        监听地址
+                      </label>
+                      <HostSelector
+                        value={config.satori.host}
+                        onChange={(host) => setConfig({
+                          ...config,
+                          satori: { ...config.satori, host }
+                        })}
+                      />
+                      <p className="text-xs text-theme-muted mt-1">选择服务监听的网络地址</p>
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-theme-secondary mb-2">
                         Satori 端口
@@ -341,9 +426,9 @@ function App() {
 
               <div className="mt-6 flex justify-end">
                 <button onClick={() => {
-                  // 检查：如果 onlyLocalhost 为 false 且 satori 启用，token 必须设置
-                  if (!config.onlyLocalhost && config.satori.enable && !config.satori.token?.trim()) {
-                    showToast('当"只监听本地地址"关闭时，必须设置 Satori Token！', 'error');
+                  // 检查：如果监听所有地址且 satori 启用，token 必须设置
+                  if (config.satori.host === '' && config.satori.enable && !config.satori.token?.trim()) {
+                    showToast('当监听所有地址时，必须设置 Satori Token！', 'error');
                     return;
                   }
                   handleSave();
@@ -368,7 +453,7 @@ function App() {
             <div className="card p-6">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center">
-                  <Settings size={24} className="text-white" />
+                  <Milk size={24} className="text-white" />
                 </div>
                 <div>
                   <h3 className="text-lg font-semibold text-theme">Milky 协议</h3>
@@ -415,6 +500,22 @@ function App() {
                     <div className="border-t border-theme-divider pt-4 mt-4">
                       <h4 className="text-md font-semibold text-theme mb-4">HTTP 配置</h4>
                       <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-theme-secondary mb-2">
+                            监听地址
+                          </label>
+                          <HostSelector
+                            value={config.milky.http.host}
+                            onChange={(host) => setConfig({
+                              ...config,
+                              milky: {
+                                ...config.milky,
+                                http: { ...config.milky.http, host }
+                              }
+                            })}
+                          />
+                          <p className="text-xs text-theme-muted mt-1">选择服务监听的网络地址</p>
+                        </div>
                         <div>
                           <label className="block text-sm font-medium text-theme-secondary mb-2">
                             HTTP 端口
@@ -597,9 +698,9 @@ function App() {
 
               <div className="mt-6 flex justify-end">
                 <button onClick={() => {
-                  // 检查：如果 onlyLocalhost 为 false 且 milky 启用，accessToken 必须设置
-                  if (!config.onlyLocalhost && config.milky.enable && !config.milky.http.accessToken?.trim()) {
-                    showToast('当"只监听本地地址"关闭时，必须设置 Milky Access Token！', 'error');
+                  // 检查：如果监听所有地址且 milky 启用，accessToken 必须设置
+                  if (config.milky.http.host === '' && config.milky.enable && !config.milky.http.accessToken?.trim()) {
+                    showToast('当监听所有地址时，必须设置 Milky Access Token！', 'error');
                     return;
                   }
                   // 检查 Webhook URL 格式
@@ -643,7 +744,9 @@ function App() {
               <div className="pb-24">
                 <OtherConfig
                   config={config}
+                  emailConfig={emailConfig}
                   onChange={setConfig}
+                  onEmailChange={setEmailConfig}
                   onOpenChangePassword={() => setShowChangePasswordDialog(true)}
                 />
               </div>
@@ -808,6 +911,12 @@ function App() {
 
       {/* Toast Container */}
       <ToastContainer />
+
+      {/* Settings Dialog */}
+      <SettingsDialog
+        visible={showSettingsDialog}
+        onClose={() => setShowSettingsDialog(false)}
+      />
     </div>
   );
 }

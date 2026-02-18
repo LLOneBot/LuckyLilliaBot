@@ -1,0 +1,6 @@
+export { createConfigRoutes } from './config'
+export { createDashboardRoutes } from './dashboard'
+export { createLoginRoutes } from './login'
+export { createLogsRoutes } from './logs'
+export { createWebQQRoutes, createNtCallRoutes } from './webqq'
+export { createEmailRoutes } from './email'

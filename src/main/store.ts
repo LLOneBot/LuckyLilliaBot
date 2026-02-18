@@ -22,6 +22,11 @@ declare module 'cordis' {
       parentMsgId: string
       chatType: number
       peerUid: string
+    },
+    group_member: {
+      groupId: string
+      userId: string
+      card: string
     }
   }
 }
@@ -40,7 +45,13 @@ class Store extends Service {
     super(ctx, 'store', true)
     this.cache = new BidiMap(1000)
     this.messages = new Map()
+  }
+
+  start() {
     this.initDatabase().then().catch(console.error)
+    this.ctx.on('llob/config-updated', async input => {
+      this.config = { msgCacheExpire: input.msgCacheExpire! }
+    })
   }
 
   private async initDatabase() {
@@ -74,6 +85,13 @@ class Store extends Service {
       peerUid: 'string(24)'
     }, {
       primary: 'parentMsgId'
+    })
+    this.ctx.model.extend('group_member', {
+      groupId: 'string(10)',
+      userId: 'string(10)',
+      card: 'string(60)'
+    }, {
+      primary: ['groupId', 'userId']
     })
   }
 
@@ -186,13 +204,11 @@ class Store extends Service {
     if (this.messages.size > 10000) {
       // 如果缓存超过10000条，清理最早的
       const firstKey = this.messages.keys().next().value
-      if (firstKey) {
-        this.messages.delete(firstKey)
-      }
+      this.messages.delete(firstKey!)
     }
     setTimeout(() => {
       this.messages.delete(id)
-    }, expire)
+    }, expire * 1000)
   }
 
   getMsgCache(msgId: string) {
@@ -212,11 +228,24 @@ class Store extends Service {
   getMultiMsgInfo(parentMsgId: string) {
     return this.ctx.database.get('forward', { parentMsgId })
   }
+
+  async getGroupMemberCard(groupId: string, userId: string): Promise<string | undefined> {
+    const items = await this.ctx.database.get('group_member', { groupId, userId })
+    return items[0]?.card
+  }
+
+  setGroupMemberCard(groupId: string, userId: string, card: string) {
+    return this.ctx.database.upsert('group_member', [{
+      groupId,
+      userId,
+      card
+    }])
+  }
 }
 
 namespace Store {
   export interface Config {
-    /** 单位为毫秒 */
+    /** 单位为秒 */
     msgCacheExpire: number
   }
 }

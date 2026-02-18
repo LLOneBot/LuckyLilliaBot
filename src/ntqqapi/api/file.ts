@@ -13,16 +13,18 @@ import {
   PicElement,
 } from '../types'
 import path from 'node:path'
-import { existsSync } from 'node:fs'
+import { createReadStream, existsSync } from 'node:fs'
 import { ReceiveCmdS } from '../hook'
 import { RkeyManager } from '@/ntqqapi/helper/rkey'
 import { RichMediaDownloadCompleteNotify, RichMediaUploadCompleteNotify, RMBizType, Peer } from '@/ntqqapi/types/msg'
-import { calculateFileMD5, getFileType, getImageSize } from '@/common/utils/file'
-import { copyFile, stat, unlink } from 'node:fs/promises'
+import { calculateSha1StreamBytes, getFileType, getImageSize, getMd5HexFromFile } from '@/common/utils/file'
+import { copyFile, unlink } from 'node:fs/promises'
 import { Time } from 'cosmokit'
 import { Service, Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { FlashFileListItem, FlashFileSetInfo } from '@/ntqqapi/types/flashfile'
+import { HighwayHttpSession, HighwayTcpSession } from '../helper/highway'
+import { Media } from '../proto'
 
 declare module 'cordis' {
   interface Context {
@@ -81,19 +83,12 @@ export class NTQQFileApi extends Service {
     return await getFileType(filePath)
   }
 
-  /** 上传文件到 QQ 的文件夹 */
-  async uploadFile(filePath: string, elementType = ElementType.Pic, elementSubType = 0) {
-    const fileMd5 = await calculateFileMD5(filePath)
-    let fileName = path.basename(filePath)
-    if (!fileName.includes('.')) {
-      const ext = (await this.getFileType(filePath))?.ext
-      fileName += ext ? '.' + ext : ''
-    }
-    const mediaPath = await invoke(NTMethod.MEDIA_FILE_PATH, [
+  async getRichMediaFilePath(md5HexStr: string, fileName: string, elementType: ElementType, elementSubType = 0) {
+    return await invoke(NTMethod.MEDIA_FILE_PATH, [
       {
-        md5HexStr: fileMd5,
-        fileName: fileName,
-        elementType: elementType,
+        md5HexStr,
+        fileName,
+        elementType,
         elementSubType,
         thumbSize: 0,
         needCreate: true,
@@ -101,13 +96,22 @@ export class NTQQFileApi extends Service {
         file_uuid: '',
       },
     ])
+  }
+
+  /** 上传文件到 QQ 的文件夹 */
+  async uploadFile(filePath: string, elementType = ElementType.Pic, elementSubType = 0) {
+    const fileMd5 = await getMd5HexFromFile(filePath)
+    let fileName = path.basename(filePath)
+    if (!fileName.includes('.')) {
+      const ext = (await this.getFileType(filePath))?.ext
+      fileName += ext ? '.' + ext : ''
+    }
+    const mediaPath = await this.getRichMediaFilePath(fileMd5, fileName, elementType, elementSubType)
     await copyFile(filePath, mediaPath)
-    const fileSize = (await stat(filePath)).size
     return {
       md5: fileMd5,
       fileName,
       path: mediaPath,
-      fileSize,
     }
   }
 
@@ -361,6 +365,236 @@ export class NTQQFileApi extends Service {
     }
     this.flashFileInfoCache.set(fileSetId, res.fileSet)
     return res.fileSet
+  }
+
+  async uploadGroupVideo(groupCode: string, filePath: string, thumbPath: string) {
+    const result = await this.ctx.get('app')!.pmhq.getGroupVideoUploadInfo(groupCode, filePath, thumbPath)
+    const highwaySession = await this.ctx.get('app')!.pmhq.getHighwaySession()
+    const maxBlockSize = 1024 * 1024
+    if (result.ext.uKey) {
+      const { index } = result.ext.msgInfoBody[0]
+      result.ext.hash.fileSha1 = await calculateSha1StreamBytes(filePath)
+      const trans = {
+        uin: selfInfo.uin,
+        cmd: 1005,
+        readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
+        sum: Buffer.from(index.info.md5HexStr, 'hex'),
+        size: index.info.fileSize,
+        ticket: highwaySession.sigSession,
+        ext: Media.NTV2RichMediaHighwayExt.encode(result.ext),
+        server: highwaySession.highwayHostAndPorts[1][0].host,
+        port: highwaySession.highwayHostAndPorts[1][0].port
+      }
+      try {
+        await new HighwayTcpSession(trans).upload()
+      } catch {
+        await new HighwayHttpSession(trans).upload()
+      }
+    }
+    if (result.subExt.uKey) {
+      const { index } = result.subExt.msgInfoBody[1]
+      result.subExt.hash.fileSha1 = await calculateSha1StreamBytes(thumbPath)
+      const trans = {
+        uin: selfInfo.uin,
+        cmd: 1006,
+        readable: createReadStream(thumbPath, { highWaterMark: maxBlockSize }),
+        sum: Buffer.from(index.info.md5HexStr, 'hex'),
+        size: index.info.fileSize,
+        ticket: highwaySession.sigSession,
+        ext: Media.NTV2RichMediaHighwayExt.encode(result.subExt),
+        server: highwaySession.highwayHostAndPorts[1][0].host,
+        port: highwaySession.highwayHostAndPorts[1][0].port
+      }
+      try {
+        await new HighwayTcpSession(trans).upload()
+      } catch {
+        await new HighwayHttpSession(trans).upload()
+      }
+    }
+    return {
+      msgInfo: result.info,
+      compat: result.compat
+    }
+  }
+
+  async uploadC2CVideo(peerUid: string, filePath: string, thumbPath: string) {
+    const result = await this.ctx.get('app')!.pmhq.getC2CVideoUploadInfo(peerUid, filePath, thumbPath)
+    const highwaySession = await this.ctx.get('app')!.pmhq.getHighwaySession()
+    const maxBlockSize = 1024 * 1024
+    if (result.ext.uKey) {
+      const { index } = result.ext.msgInfoBody[0]
+      result.ext.hash.fileSha1 = await calculateSha1StreamBytes(filePath)
+      const trans = {
+        uin: selfInfo.uin,
+        cmd: 1001,
+        readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
+        sum: Buffer.from(index.info.md5HexStr, 'hex'),
+        size: index.info.fileSize,
+        ticket: highwaySession.sigSession,
+        ext: Media.NTV2RichMediaHighwayExt.encode(result.ext),
+        server: highwaySession.highwayHostAndPorts[1][0].host,
+        port: highwaySession.highwayHostAndPorts[1][0].port
+      }
+      try {
+        await new HighwayTcpSession(trans).upload()
+      } catch {
+        await new HighwayHttpSession(trans).upload()
+      }
+    }
+    if (result.subExt.uKey) {
+      const { index } = result.subExt.msgInfoBody[1]
+      result.subExt.hash.fileSha1 = await calculateSha1StreamBytes(thumbPath)
+      const trans = {
+        uin: selfInfo.uin,
+        cmd: 1002,
+        readable: createReadStream(thumbPath, { highWaterMark: maxBlockSize }),
+        sum: Buffer.from(index.info.md5HexStr, 'hex'),
+        size: index.info.fileSize,
+        ticket: highwaySession.sigSession,
+        ext: Media.NTV2RichMediaHighwayExt.encode(result.subExt),
+        server: highwaySession.highwayHostAndPorts[1][0].host,
+        port: highwaySession.highwayHostAndPorts[1][0].port
+      }
+      try {
+        await new HighwayTcpSession(trans).upload()
+      } catch {
+        await new HighwayHttpSession(trans).upload()
+      }
+    }
+    return {
+      msgInfo: result.info,
+      compat: result.compat
+    }
+  }
+
+  async uploadGroupFile(groupCode: string, filePath: string, fileName: string, parentFolderId = '/') {
+    const result = await this.ctx.get('app')!.pmhq.getGroupFileUploadInfo(groupCode, filePath, fileName, parentFolderId)
+    if (!result.fileExist) {
+      const highwaySession = await this.ctx.get('app')!.pmhq.getHighwaySession()
+      const ext = Media.FileUploadExt.encode({
+        unknown1: 100,
+        unknown2: 1,
+        entry: {
+          busiBuff: {
+            senderUin: +selfInfo.uin,
+            receiverUin: +groupCode,
+            groupCode: +groupCode
+          },
+          fileEntry: {
+            fileSize: result.fileSize,
+            md5: result.md5,
+            checkKey: result.checkKey,
+            fileId: result.fileId,
+            uploadKey: result.fileKey
+          },
+          clientInfo: {
+            clientType: 3,
+            appId: '100',
+            terminalType: 3,
+            clientVer: '1.1.1',
+            unknown: 4
+          },
+          fileNameInfo: {
+            fileName
+          },
+          host: {
+            hosts: [{
+              url: {
+                unknown: 1,
+                host: result.addr.ip
+              },
+              port: result.addr.port
+            }]
+          }
+        }
+      })
+      const maxBlockSize = 1024 * 1024
+      const trans = {
+        uin: selfInfo.uin,
+        cmd: 71,
+        readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
+        sum: result.md5,
+        size: result.fileSize,
+        ticket: highwaySession.sigSession,
+        ext,
+        server: highwaySession.highwayHostAndPorts[1][0].host,
+        port: highwaySession.highwayHostAndPorts[1][0].port
+      }
+      try {
+        await new HighwayTcpSession(trans).upload()
+      } catch {
+        await new HighwayHttpSession(trans).upload()
+      }
+    }
+    return {
+      fileId: result.fileId,
+      fileMd5: result.md5.toString('hex')
+    }
+  }
+
+  async uploadC2CFile(peerUid: string, filePath: string, fileName: string) {
+    const result = await this.ctx.get('app')!.pmhq.getC2CFileUploadInfo(peerUid, filePath, fileName)
+    const highwaySession = await this.ctx.get('app')!.pmhq.getHighwaySession()
+    const ext = Media.FileUploadExt.encode({
+      unknown1: 100,
+      unknown2: 1,
+      entry: {
+        busiBuff: {
+          senderUin: +selfInfo.uin
+        },
+        fileEntry: {
+          fileSize: result.fileSize,
+          md5: result.md5CheckSum,
+          checkKey: result.sha1CheckSum,
+          md510M: result.md510MCheckSum,
+          sha3: result.sha3CheckSum,
+          fileId: result.fileId,
+          uploadKey: result.uploadKey
+        },
+        clientInfo: {
+          clientType: 3,
+          appId: '100',
+          terminalType: 3,
+          clientVer: '1.1.1',
+          unknown: 4
+        },
+        fileNameInfo: {
+          fileName
+        },
+        host: {
+          hosts: result.rtpMediaPlatformUploadAddress.map(([ip, port]) => ({
+            url: {
+              unknown: 1,
+              host: ip
+            },
+            port
+          }))
+        }
+      },
+      unknown200: 1,
+    })
+    const maxBlockSize = 1024 * 1024
+    const trans = {
+      uin: selfInfo.uin,
+      cmd: 95,
+      readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
+      sum: result.md5CheckSum,
+      size: result.fileSize,
+      ticket: highwaySession.sigSession,
+      ext,
+      server: highwaySession.highwayHostAndPorts[1][0].host,
+      port: highwaySession.highwayHostAndPorts[1][0].port
+    }
+    try {
+      await new HighwayTcpSession(trans).upload()
+    } catch {
+      await new HighwayHttpSession(trans).upload()
+    }
+    return {
+      fileId: result.fileId,
+      file10MMd5: result.md510MCheckSum,
+      crcMedia: result.crcMedia
+    }
   }
 }
 

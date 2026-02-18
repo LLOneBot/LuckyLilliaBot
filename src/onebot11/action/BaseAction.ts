@@ -19,6 +19,7 @@ abstract class BaseAction<PayloadType, ReturnDataType> {
     try {
       params = this.payloadSchema ? new this.payloadSchema(payload) : payload
     } catch (e) {
+      this.ctx.logger.error('发生错误', e)
       return OB11Response.error((e as Error).message, 400)
     }
     try {
@@ -35,7 +36,8 @@ abstract class BaseAction<PayloadType, ReturnDataType> {
     try {
       params = this.payloadSchema ? new this.payloadSchema(payload) : payload
     } catch (e) {
-      return OB11Response.error((e as Error).message, 1400)
+      this.ctx.logger.error('发生错误', e)
+      return OB11Response.error((e as Error).message, 1400, echo)
     }
     try {
       const resData = await this._handle(params, config)

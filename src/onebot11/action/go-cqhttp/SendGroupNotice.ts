@@ -1,14 +1,14 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 import { unlink } from 'fs/promises'
-import { uri2local } from '@/common/utils/file'
+import { uri2local, parseBool } from '@/common/utils'
 
 interface Payload {
   group_id: number | string
   content: string
   image?: string
-  pinned: number | string //扩展
-  confirm_required: number | string //扩展
+  pinned: boolean //扩展
+  confirm_required: boolean //扩展
 }
 
 export class SendGroupNotice extends BaseAction<Payload, null> {
@@ -17,8 +17,8 @@ export class SendGroupNotice extends BaseAction<Payload, null> {
     group_id: Schema.union([Number, String]).required(),
     content: Schema.string().required(),
     image: Schema.string(),
-    pinned: Schema.union([Number, String]).default(0),
-    confirm_required: Schema.union([Number, String]).default(1)
+    pinned: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false),
+    confirm_required: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(true)
   })
 
   async _handle(payload: Payload) {
@@ -37,7 +37,7 @@ export class SendGroupNotice extends BaseAction<Payload, null> {
         throw new Error(`上传群公告图片失败, 错误信息: ${result.errMsg}`)
       }
       if (!isLocal) {
-        unlink(path).then().catch(e=>{})
+        unlink(path).catch(e => { })
       }
       picInfo = result.picInfo
     }

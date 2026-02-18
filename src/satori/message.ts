@@ -23,15 +23,20 @@ export class MessageEncoder {
   private deleteAfterSentFiles: string[] = []
   private stack: State[] = [new State('message')]
   private peer?: NT.Peer
+  private pLength?: number
 
   constructor(private ctx: Context, private channelId: string) { }
 
   async flush() {
     if (this.elements.length === 0) return
+    if (this.pLength === this.elements.length) {
+      this.elements.pop()
+    }
 
     if (this.stack[0].type === 'multiForward') {
       this.stack[0].children.push(...this.elements)
       this.elements = []
+      this.pLength = undefined
       return
     }
 
@@ -53,6 +58,7 @@ export class MessageEncoder {
     })
     this.deleteAfterSentFiles = []
     this.elements = []
+    this.pLength = undefined
   }
 
   private async fetchFile(url: string) {
@@ -199,7 +205,7 @@ export class MessageEncoder {
       if (attrs.type === 'all') {
         this.elements.push(SendElement.at('', '', NT.AtType.All, '@全体成员'))
       } else {
-        const uid = await this.ctx.ntUserApi.getUidByUin(attrs.id, this.peer.peerUid) ?? ''
+        const uid = await this.ctx.ntUserApi.getUidByUin(attrs.id, this.peer.peerUid)
         const display = attrs.name ? '@' + attrs.name : ''
         this.elements.push(SendElement.at(attrs.id, uid, NT.AtType.One, display))
       }
@@ -252,14 +258,7 @@ export class MessageEncoder {
         this.elements.push(SendElement.text('\n'))
       }
       await this.render(children)
-      const last = this.elements.at(-1)
-      if (last?.elementType === 1 && last.textElement.atType === 0) {
-        if (!last.textElement.content.endsWith('\n')) {
-          last.textElement.content += '\n'
-        }
-      } else {
-        this.elements.push(SendElement.text('\n'))
-      }
+      this.pLength = this.elements.push(SendElement.text('\n'))
     } else if (type === 'message') {
       if (attrs.id && attrs.forward) {
         await this.flush()

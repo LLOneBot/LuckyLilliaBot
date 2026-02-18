@@ -67,7 +67,10 @@ export function GroupMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
       const res = await this.httpSendPB('OidbSvcTrpcTcp.0x6d6_2', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { download } = Oidb.GetGroupFileResp.decode(oidbRespBody)
-      return `https://${download?.downloadDns}/ftn_handler/${Buffer.from(download!.downloadUrl!).toString('hex')}/?fname=`
+      return {
+        clientWording: download.clientWording,
+        url: `https://${download.downloadDns}/ftn_handler/${download.downloadUrl.toString('hex')}/?fname=`,
+      }
     }
   }
 }

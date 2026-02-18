@@ -4,20 +4,24 @@ export namespace Msg {
   export const Elem = ProtoMessage.of({
     text: ProtoField(1, {
       str: ProtoField(1, 'string'),
-      link: ProtoField(2, 'string'),
-      attr6Buf: ProtoField(3, 'bytes'),
-      attr7Buf: ProtoField(4, 'bytes'),
-      buf: ProtoField(11, 'bytes'),
-      pbReserve: ProtoField(12, 'bytes')
+      link: ProtoField(2, 'string', 'optional'),
+      attr6Buf: ProtoField(3, 'bytes', 'optional'),
+      attr7Buf: ProtoField(4, 'bytes', 'optional'),
+      buf: ProtoField(11, 'bytes', 'optional'),
+      pbReserve: ProtoField(12, 'bytes', 'optional')
     }, 'optional'),
     face: ProtoField(2, {
       index: ProtoField(1, 'uint32'),
       old: ProtoField(2, 'bytes'),
-      buf: ProtoField(11, 'bytes')
+      buf: ProtoField(11, 'bytes', 'optional')
+    }, 'optional'),
+    transElemInfo: ProtoField(5, {
+      elemType: ProtoField(1, 'uint32'),
+      elemValue: ProtoField(2, 'bytes')
     }, 'optional'),
     richMsg: ProtoField(12, {
       template: ProtoField(1, 'bytes'),
-      serviceId: ProtoField(2, 'int32'),
+      serviceId: ProtoField(2, 'int32')
     }, 'optional'),
     srcMsg: ProtoField(45, {
       origSeqs: ProtoField(1, 'uint32', 'repeated'),
@@ -25,12 +29,12 @@ export namespace Msg {
       time: ProtoField(3, 'int32'),
       elems: ProtoField(5, 'bytes', 'repeated'),
       pbReserve: ProtoField(8, 'bytes'),
-      srcMsg: ProtoField(9, 'bytes'),
+      srcMsg: ProtoField(9, 'bytes', 'optional'), // 仅在合并转发内存在
       toUin: ProtoField(10, 'uint32')
     }, 'optional'),
     lightApp: ProtoField(51, {
       data: ProtoField(1, 'bytes'),
-      msgResid: ProtoField(2, 'bytes')
+      msgResid: ProtoField(2, 'bytes', 'optional')
     }, 'optional'),
     commonElem: ProtoField(53, {
       serviceType: ProtoField(1, 'uint32'),
@@ -158,5 +162,47 @@ export namespace Msg {
     faceId: ProtoField(1, 'uint32'),
     text: ProtoField(2, 'string'),
     compatText: ProtoField(3, 'string')
+  })
+
+  export const GroupFileExtra = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    fileName: ProtoField(2, 'string'),
+    display: ProtoField(3, 'string'),
+    inner: ProtoField(7, {
+      info: ProtoField(2, {
+        busId: ProtoField(1, 'uint32'),
+        fileId: ProtoField(2, 'string'),
+        fileSize: ProtoField(3, 'uint32'),
+        fileName: ProtoField(4, 'string'),
+        field5: ProtoField(5, 'uint32', 'optional'),
+        field7: ProtoField(7, 'string', 'optional'),
+        fileMd5: ProtoField(8, 'string')
+      })
+    })
+  })
+
+  export const FileExtra = ProtoMessage.of({
+    file: ProtoField(1, {
+      fileType: ProtoField(1, 'uint32'),
+      sig: ProtoField(2, 'bytes', 'optional'),
+      fileUuid: ProtoField(3, 'string'),
+      fileMd5: ProtoField(4, 'bytes', 'optional'),
+      fileName: ProtoField(5, 'string'),
+      fileSize: ProtoField(6, 'uint32'),
+      note: ProtoField(7, 'bytes', 'optional'),
+      reserved: ProtoField(8, 'uint32'),
+      subCmd: ProtoField(9, 'uint32'),
+      microCloud: ProtoField(10, 'uint32'),
+      fileUrls: ProtoField(11, 'bytes', 'repeated'),
+      downloadFlag: ProtoField(12, 'uint32'),
+      dangerLevel: ProtoField(50, 'uint32'),
+      lifeTime: ProtoField(51, 'uint32'),
+      uploadTime: ProtoField(52, 'uint32'),
+      absFileType: ProtoField(53, 'uint32'),
+      clientType: ProtoField(54, 'uint32'),
+      expireTime: ProtoField(55, 'uint32'),
+      pbReserve: ProtoField(56, 'bytes', 'optional'),
+      fileIdCrcMedia: ProtoField(57, 'string')
+    })
   })
 }

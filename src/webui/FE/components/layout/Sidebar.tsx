@@ -9,8 +9,10 @@ import {
   Terminal,
   MessageSquare,
   X,
+  ChevronLeft,
+  ChevronRight,
+  Settings,
 } from 'lucide-react'
-import ThemeToggle from '../common/ThemeToggle'
 
 interface SidebarProps {
   activeTab: string;
@@ -21,9 +23,21 @@ interface SidebarProps {
   };
   isOpen?: boolean;
   onClose?: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+  onOpenSettings?: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, accountInfo, isOpen = true, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ 
+  activeTab, 
+  onTabChange, 
+  accountInfo, 
+  isOpen = true, 
+  onClose,
+  collapsed = false,
+  onToggleCollapse,
+  onOpenSettings,
+}) => {
   const menuItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'onebot', icon: Radio, label: 'OneBot 11' },
@@ -55,14 +69,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, accountInfo, 
       
       {/* 侧边栏 */}
       <div className={`
-        fixed md:sticky top-0 left-0 z-50
+        fixed top-0 left-0 z-50
         w-64 bg-theme-card backdrop-blur-2xl h-screen flex flex-col shadow-xl border-r border-theme
-        transform transition-transform duration-300 ease-in-out
+        transform transition-all duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        md:translate-x-0
+        ${collapsed ? 'md:-translate-x-full' : 'md:translate-x-0'}
       `}>
         {/* Logo */}
-        <div className='p-6 border-b border-theme-divider'>
+        <div className='p-6 border-b border-theme-divider relative'>
           <div className='flex items-center gap-4'>
             <div className='w-12 h-12 rounded-2xl overflow-hidden shadow-lg flex-shrink-0'>
               <img src='/logo.jpg' alt='Logo' className='w-full h-full object-cover' />
@@ -78,6 +92,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, accountInfo, 
             >
               <X size={20} />
             </button>
+            {/* 桌面端关闭按钮 */}
+            {onToggleCollapse && (
+              <button 
+                onClick={onToggleCollapse}
+                className='hidden md:block p-2 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg transition-colors'
+                title='收起侧边栏'
+              >
+                <ChevronLeft size={20} />
+              </button>
+            )}
           </div>
         </div>
 
@@ -103,7 +127,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, accountInfo, 
           })}
         </nav>
 
-        {/* Account Info & Theme Toggle */}
+        {/* Account Info & Settings */}
         <div className='p-4 border-t border-theme-divider'>
           <div className='flex items-center space-x-3 px-3 py-2'>
             {accountInfo && (
@@ -134,10 +158,27 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, accountInfo, 
               </>
             )}
             {!accountInfo && <div className='flex-1' />}
-            <ThemeToggle />
+            <button
+              onClick={onOpenSettings}
+              className="p-2 rounded-lg transition-all duration-200 text-theme-muted hover:bg-theme-item hover:text-theme"
+              title="设置"
+            >
+              <Settings size={18} />
+            </button>
           </div>
         </div>
       </div>
+      
+      {/* 桌面端展开按钮 - 当侧边栏收起时显示 */}
+      {collapsed && onToggleCollapse && (
+        <button
+          onClick={onToggleCollapse}
+          className='hidden md:flex fixed left-2 top-4 z-40 w-8 h-8 items-center justify-center bg-theme-card/80 backdrop-blur-sm border border-theme-divider rounded-md text-theme-muted hover:text-theme hover:bg-theme-card transition-all shadow-md hover:shadow-lg'
+          title='展开侧边栏'
+        >
+          <ChevronRight size={18} />
+        </button>
+      )}
     </>
   )
 }

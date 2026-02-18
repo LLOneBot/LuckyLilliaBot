@@ -38,10 +38,11 @@ export class NTQQFriendApi extends Service {
   async getBuddyV2(forceRefresh: boolean) {
     const deviceInfo = await this.ctx.ntSystemApi.getDeviceInfo()
     const version = +deviceInfo.buildVer.split('-')[1]
+    let result
     if (version >= 41679) {
-      return await invoke('nodeIKernelBuddyService/getBuddyListV2', ['', forceRefresh, 0])
+      result = await invoke('nodeIKernelBuddyService/getBuddyListV2', ['', forceRefresh, 0])
     } else {
-      return await invoke<GeneralCallResult & {
+      result = await invoke<GeneralCallResult & {
         data: {
           categoryId: number
           categorySortId: number
@@ -52,6 +53,8 @@ export class NTQQFriendApi extends Service {
         }[]
       }>('nodeIKernelBuddyService/getBuddyListV2', [forceRefresh, 0])
     }
+    
+    return result
   }
 
   async isBuddy(uid: string): Promise<boolean> {
@@ -113,5 +116,9 @@ export class NTQQFriendApi extends Service {
 
   async getCategoryById(categoryId: number) {
     return await invoke('nodeIKernelBuddyService/getCategoryById', [categoryId])
+  }
+
+  async setTop(uid: string, isTop: boolean) {
+    return await invoke('nodeIKernelBuddyService/setTop', [uid, isTop])
   }
 }

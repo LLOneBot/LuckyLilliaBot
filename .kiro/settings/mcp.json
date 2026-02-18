@@ -12,7 +12,16 @@
         "take_snapshot",
         "take_screenshot",
         "click",
-        "list_console_messages"
+        "list_console_messages",
+        "list_pages",
+        "navigate_page",
+        "evaluate_script",
+        "get_console_message",
+        "list_network_requests",
+        "get_network_request",
+        "fill",
+        "press_key",
+        "hover"
       ]
     }
   }

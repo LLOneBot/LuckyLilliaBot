@@ -184,6 +184,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
     setShowEmojiPicker(false)
   }, [])
 
+  // 选择 Unicode emoji - 插入文本
+  const handleUnicodeEmojiSelect = useCallback((emoji: string) => {
+    richInputRef.current?.insertText(emoji)
+    setShowEmojiPicker(false)
+  }, [])
+
   // 选择收藏表情 - 插入到输入框
   const handleFavEmojiSelect = useCallback((emoji: FavEmoji) => {
     setShowFavEmojiPicker(false)
@@ -280,7 +286,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
           <button onClick={() => fileUploadInputRef.current?.click()} className="p-2 text-theme-muted hover:text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/30 rounded-lg transition-colors" title="文件">
             <Paperclip size={18} />
           </button>
-          {showEmojiPicker && <EmojiPicker onSelect={handleEmojiSelect} onClose={() => setShowEmojiPicker(false)} />}
+          {showEmojiPicker && <EmojiPicker onSelect={handleEmojiSelect} onSelectEmoji={handleUnicodeEmojiSelect} onClose={() => setShowEmojiPicker(false)} />}
           {showFavEmojiPicker && <FavEmojiPicker onSelect={handleFavEmojiSelect} onClose={() => setShowFavEmojiPicker(false)} />}
         </div>
 

@@ -72,7 +72,8 @@ export async function getFriends(): Promise<FriendCategory[]> {
         nickname: buddy.coreInfo?.nick || '',
         remark: buddy.coreInfo?.remark || '',
         avatar: getUserAvatar(buddy.uin),
-        online: buddy.status?.status === 10 || false
+        online: buddy.status?.status === 10 || false,
+        topTime: buddy.relationFlags?.topTime || '0'
       }))
     
     return {
@@ -99,14 +100,55 @@ export async function getGroups(): Promise<GroupItem[]> {
     groupName: group.groupName,
     remarkName: group.remarkName || '',
     avatar: getGroupAvatar(group.groupCode),
-    memberCount: group.memberCount
+    memberCount: group.memberCount,
+    isTop: group.isTop || false,
+    msgMask: group.cmdUinMsgMask || 1
   }))
 }
 
 // 获取最近会话列表
 export async function getRecentChats(): Promise<RecentChatItem[]> {
   const result = await ntCall<{ info: { changedList: any[] } }>('ntUserApi', 'getRecentContactListSnapShot', [50])
-  return result.info.changedList
+  
+  // 获取群列表和好友列表的置顶信息
+  const [groupsData, friendsData] = await Promise.all([
+    getGroups(),
+    getFriends()
+  ])
+  
+  // 创建置顶信息映射
+  const topMap = new Map<string, boolean>()
+  
+  // 群聊置顶信息（排除 msgMask === 2 的群）
+  const toppedGroups: any[] = []
+  groupsData.forEach(group => {
+    // 群助手的群（msgMask === 2）不应该出现在最近联系列表
+    if (group.msgMask === 2) {
+      return
+    }
+    topMap.set(`2_${group.groupCode}`, group.isTop)
+    if (group.isTop) {
+      toppedGroups.push(group)
+    }
+  })
+  
+  // 好友置顶信息
+  const toppedFriends: any[] = []
+  friendsData.forEach(category => {
+    category.friends.forEach(friend => {
+      const isTop = !!(friend as any).topTime && (friend as any).topTime !== '0'
+      topMap.set(`1_${friend.uin}`, isTop)
+      if (isTop) {
+        toppedFriends.push(friend)
+      }
+    })
+  })
+  
+  // 创建已存在的会话 ID 集合
+  const existingChatIds = new Set<string>()
+  
+  // 处理最近联系列表中的会话
+  const recentChats = result.info.changedList
     .filter(item => {
       const peerId = item.peerUin || item.peerUid
       return peerId && peerId !== '0' && peerId !== ''
@@ -115,6 +157,13 @@ export async function getRecentChats(): Promise<RecentChatItem[]> {
       const chatType = item.chatType as 1 | 2 | 100
       const isGroup = chatType === 2
       const peerId = isGroup ? (item.peerUin || item.peerUid) : item.peerUin
+      
+      existingChatIds.add(`${chatType}_${peerId}`)
+      
+      // 从群列表或好友列表获取置顶状态
+      const topKey = `${chatType}_${peerId}`
+      const pinned = topMap.get(topKey) || false
+      
       return {
         chatType,
         peerId,
@@ -122,10 +171,63 @@ export async function getRecentChats(): Promise<RecentChatItem[]> {
         peerAvatar: isGroup ? getGroupAvatar(peerId) : getUserAvatar(item.peerUin),
         lastMessage: extractAbstractContent(item.abstractContent),
         lastTime: parseInt(item.msgTime) * 1000,
-        unreadCount: parseInt(item.unreadCnt) || 0
+        unreadCount: parseInt(item.unreadCnt) || 0,
+        pinned
       }
     })
-    .sort((a, b) => b.lastTime - a.lastTime)
+    .filter(item => {
+      // 过滤掉群助手的群（msgMask === 2）
+      if (item.chatType === 2) {
+        const group = groupsData.find(g => g.groupCode === item.peerId)
+        if (group && group.msgMask === 2) {
+          return false
+        }
+      }
+      return true
+    })
+  
+  // 添加置顶但不在最近联系列表中的群聊（排除群助手的群）
+  toppedGroups.forEach(group => {
+    const chatId = `2_${group.groupCode}`
+    if (!existingChatIds.has(chatId)) {
+      recentChats.push({
+        chatType: 2,
+        peerId: group.groupCode,
+        peerName: group.groupName,
+        peerAvatar: getGroupAvatar(group.groupCode),
+        lastMessage: '',
+        lastTime: Date.now(),
+        unreadCount: 0,
+        pinned: true
+      })
+    }
+  })
+  
+  // 添加置顶但不在最近联系列表中的好友
+  toppedFriends.forEach(friend => {
+    const chatId = `1_${friend.uin}`
+    if (!existingChatIds.has(chatId)) {
+      recentChats.push({
+        chatType: 1,
+        peerId: friend.uin,
+        peerName: friend.remark || friend.nickname,
+        peerAvatar: getUserAvatar(friend.uin),
+        lastMessage: '',
+        lastTime: Date.now(),
+        unreadCount: 0,
+        pinned: true
+      })
+    }
+  })
+  
+  // 排序：置顶的在前，然后按时间排序
+  recentChats.sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1
+    if (!a.pinned && b.pinned) return 1
+    return b.lastTime - a.lastTime
+  })
+  
+  return recentChats
 }
 
 // 提取消息摘要
@@ -675,5 +777,38 @@ export async function deleteFriend(uid: string): Promise<void> {
   const result = await ntCall<{ result: number; errMsg: string }>('ntFriendApi', 'delBuddy', [uid])
   if (result?.result !== 0) {
     throw new Error(result?.errMsg || '删除好友失败')
+  }
+}
+
+// 设置会话置顶
+export async function setRecentChatTop(chatType: number, peerId: string, isTop: boolean): Promise<void> {
+  if (chatType === 2) {
+    // 群聊使用 GroupService.setTop
+    const result = await ntCall<{ result: number; errMsg: string }>('ntGroupApi', 'setTop', [peerId, isTop])
+    if (result?.result !== 0) {
+      throw new Error(result?.errMsg || '设置置顶失败')
+    }
+  } else {
+    // 私聊和临时会话使用 BuddyService.setTop
+    const result = await ntCall<{ result: number; errMsg: string }>('ntFriendApi', 'setTop', [peerId, isTop])
+    if (result?.result !== 0) {
+      throw new Error(result?.errMsg || '设置置顶失败')
+    }
+  }
+}
+
+// 群消息接收方式枚举
+export enum GroupMsgMask {
+  AllowNotify = 1,      // 接收并提醒
+  BoxNotNotify = 2,     // 收进群助手不提醒
+  NotAllow = 3,         // 屏蔽群消息
+  AllowNotNotify = 4,   // 接收但不提醒
+}
+
+// 设置群消息接收方式
+export async function setGroupMsgMask(groupCode: string, msgMask: GroupMsgMask): Promise<void> {
+  const result = await ntCall<{ result: number; errMsg: string }>('ntGroupApi', 'setGroupMsgMask', [groupCode, msgMask])
+  if (result?.result !== 0) {
+    throw new Error(result?.errMsg || '设置消息接收方式失败')
   }
 }

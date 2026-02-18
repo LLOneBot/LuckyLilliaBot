@@ -1,4 +1,5 @@
 import fsp from 'node:fs/promises'
+import { fileURLToPath } from 'node:url'
 
 async function getResponse(
   url: string,
@@ -28,7 +29,7 @@ export async function download(url: string, headers?: Record<string, string>) {
 
 export async function resolveMilkyUri(uri: string): Promise<Buffer> {
   if (uri.startsWith('file://')) {
-    return await fsp.readFile(uri.slice(7))
+    return await fsp.readFile(fileURLToPath(uri))
   }
   if (uri.startsWith('http://') || uri.startsWith('https://')) {
     return await download(uri)

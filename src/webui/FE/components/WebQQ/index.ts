@@ -1,12 +1,13 @@
 // Main page
 export { default as WebQQPage } from './WebQQPage'
+export { default as WebQQFullscreen } from './WebQQFullscreen'
 
 // Chat components
 export { ChatInput, RichInput, MuteDialog, KickConfirmDialog, TitleDialog } from './chat'
 export type { ChatInputRef, RichInputRef, RichInputItem } from './chat'
 
 // Contact components
-export { ContactList, GroupMemberPanel, FriendListItem, GroupListItem, RecentListItem } from './contact'
+export { ContactList, GroupMemberPanel, FriendListItem, GroupListItem } from './contact'
 
 // Message components
 export {

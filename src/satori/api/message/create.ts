@@ -7,7 +7,7 @@ interface Payload {
   content: string
 }
 
-export const createMessage: Handler<Message[], Payload> = (ctx, payload) => {
+export const createMessage: Handler<Message[], Payload> = async (ctx, payload) => {
   const encoder = new MessageEncoder(ctx, payload.channel_id)
-  return encoder.send(payload.content)
+  return await encoder.send(payload.content)
 }

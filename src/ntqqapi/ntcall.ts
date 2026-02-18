@@ -104,14 +104,15 @@ const NOT_SESSION_SERVICES = ['nodeIKernelLoginService']
 // 函数重载：当提供resultCmd时，自动从resultCmd推断返回类型
 export function invoke<
   ResultCmd extends string,
+  R extends InferPayloadFromMethod<ResultCmd>,
   S extends keyof NTService = any,
   M extends keyof NTService[S] & string = any,
   P extends Parameters<Extract<NTService[S][M], (...args: any) => unknown>> = any
 >(
   method: Extract<unknown, `${S}/${M}`> | string,
   args: P,
-  options: InvokeOptions<any> & { resultCmd: ResultCmd }
-): Promise<InferPayloadFromMethod<ResultCmd> extends never ? any : InferPayloadFromMethod<ResultCmd>>
+  options: InvokeOptions<R> & { resultCmd: ResultCmd }
+): Promise<R>
 
 // 函数重载：当不提供resultCmd时，使用原来的类型推断
 export function invoke<
@@ -176,7 +177,7 @@ export function invoke<
       })
       pmhq.call(funcName, args, timeout).then(r => {
         firstResult = r
-        if (r && Object.hasOwn(r, 'result') && parseInt(r.result) !== 0) {
+        if (r && Object.hasOwn(r, 'result') && +r.result !== 0) {
           const displayReq = inspect(args, {
             depth: 10,
             compact: true,

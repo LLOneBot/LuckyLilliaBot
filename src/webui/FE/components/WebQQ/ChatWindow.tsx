@@ -38,8 +38,22 @@ interface SystemTip {
   timestamp: number
 }
 
+// 获取表情图片路径（根据 emojiId 判断类型）
+function getEmojiImagePath(emojiId: string): string {
+  const id = parseInt(emojiId)
+  // Unicode emoji 的码点通常大于 1000（QQ 表情 ID 一般在 0-500 范围内）
+  if (id > 1000) {
+    const codePoint = id.toString(16)
+    return `/face/emoji-${codePoint}.png`
+  }
+  return `/face/${emojiId}.png`
+}
+
 // 表情回应系统提示组件（类似戳一戳）
 const EmojiReactionTip: React.FC<{ tip: SystemTip; onScrollToMessage: (msgSeq: string) => void }> = ({ tip, onScrollToMessage }) => {
+  const imgSrc = getEmojiImagePath(tip.emojiId)
+  const emojiId = parseInt(tip.emojiId)
+  
   return (
     <div className="flex justify-center py-2">
       <span className="text-xs text-theme-hint bg-theme-item/50 px-3 py-1 rounded-full">
@@ -51,14 +65,20 @@ const EmojiReactionTip: React.FC<{ tip: SystemTip; onScrollToMessage: (msgSeq: s
         >消息</span>
         <span> </span>
         <img 
-          src={`/face/${tip.emojiId}.png`} 
+          src={imgSrc} 
           alt="emoji" 
           className="inline-block w-4 h-4 align-text-bottom"
           onError={(e) => {
             const img = e.target as HTMLImageElement
             if (!img.dataset.fallback) {
               img.dataset.fallback = '1'
-              img.src = `https://gxh.vip.qq.com/club/item/parcel/item/${tip.emojiId.slice(0, 2)}/${tip.emojiId}/100x100.png`
+              // 如果是 Unicode emoji，尝试显示字符
+              if (emojiId > 1000) {
+                img.style.display = 'none'
+                img.insertAdjacentHTML('afterend', `<span class="text-sm">${String.fromCodePoint(emojiId)}</span>`)
+              } else {
+                img.src = `https://gxh.vip.qq.com/club/item/parcel/item/${tip.emojiId.slice(0, 2)}/${tip.emojiId}/100x100.png`
+              }
             }
           }}
         />
@@ -316,6 +336,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   useEffect(() => {
     if (onEmojiReactionCallback) {
       const handleEmojiReaction = (data: EmojiReactionData) => {
+        const selfUin = getSelfUin()
+        const isSelf = selfUin && data.userId === selfUin
+        
         // 更新消息的表情列表
         setMessages(prev => prev.map(m => {
           if (m.msgSeq !== data.msgSeq) return m
@@ -328,13 +351,15 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
               const newList = [...existingList]
               newList[existingIndex] = {
                 ...newList[existingIndex],
-                likesCnt: String(parseInt(newList[existingIndex].likesCnt) + 1)
+                likesCnt: String(parseInt(newList[existingIndex].likesCnt) + 1),
+                // 如果是自己贴的，标记为已点击
+                isClicked: newList[existingIndex].isClicked || isSelf
               }
               return { ...m, emojiLikesList: newList }
             } else {
               return {
                 ...m,
-                emojiLikesList: [...existingList, { emojiId: data.emojiId, emojiType: parseInt(data.emojiId) > 999 ? '2' : '1', likesCnt: '1', isClicked: false }]
+                emojiLikesList: [...existingList, { emojiId: data.emojiId, emojiType: parseInt(data.emojiId) > 999 ? '2' : '1', likesCnt: '1', isClicked: isSelf }]
               }
             }
           } else {
@@ -346,7 +371,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
               if (newCount <= 0) {
                 newList.splice(existingIndex, 1)
               } else {
-                newList[existingIndex] = { ...newList[existingIndex], likesCnt: String(newCount) }
+                newList[existingIndex] = { 
+                  ...newList[existingIndex], 
+                  likesCnt: String(newCount),
+                  // 如果是自己取消的，标记为未点击
+                  isClicked: isSelf ? false : newList[existingIndex].isClicked
+                }
               }
               return { ...m, emojiLikesList: newList }
             }
@@ -354,8 +384,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
           return m
         }))
         
-        // 添加系统提示消息（只在添加表情时显示）
-        if (data.isAdd) {
+        // 添加系统提示消息（只在添加表情时显示，且不是自己的回应）
+        if (data.isAdd && !isSelf) {
           const tip: SystemTip = {
             id: `tip_${Date.now()}_${Math.random()}`,
             type: 'emoji-reaction',

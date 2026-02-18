@@ -45,7 +45,7 @@ class MilkyHttpHandler {
     // Access token middleware for API routes
     if (this.config.accessToken) {
       this.app.use(`${this.config.prefix}/api`, (req, res, next) => {
-        if (req.headers['content-type'] !== 'application/json') {
+        if (!req.headers['content-type']?.includes('application/json')) {
           this.ctx.logger.warn(
             'MilkyHttp',
             `${req.ip} -> ${req.path} (Content-Type not application/json)`
@@ -118,11 +118,11 @@ class MilkyHttpHandler {
       })
     })
 
-    const host = this.config.onlyLocalhost ? '127.0.0.1' : ''
-    this.httpServer = this.app.listen(this.config.port, host, () => {
+    this.httpServer = this.app.listen(this.config.port, this.config.host, () => {
+      const displayHost = this.config.host || '0.0.0.0'
       this.ctx.logger.info(
         'MilkyHttp',
-        `HTTP server started at http://127.0.0.1:${this.config.port}${this.config.prefix}`
+        `HTTP server started at http://${displayHost}:${this.config.port}${this.config.prefix}`
       )
     })
 
@@ -204,7 +204,6 @@ class MilkyHttpHandler {
 
 namespace MilkyHttpHandler {
   export interface Config extends MilkyHttpConfig {
-    onlyLocalhost: boolean
   }
 }
 

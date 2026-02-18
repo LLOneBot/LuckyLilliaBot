@@ -105,6 +105,7 @@ export namespace Oidb {
 
   export const GetGroupFileResp = ProtoMessage.of({
     download: ProtoField(3, {
+      clientWording: ProtoField(3, 'string'),
       downloadDns: ProtoField(5, 'string'),
       downloadUrl: ProtoField(6, 'bytes')
     })
@@ -156,5 +157,95 @@ export namespace Oidb {
       groupCode: ProtoField(2, 'string'),
       appVersion: ProtoField(3, 'string')
     })
+  })
+
+  export const GroupFileReq = ProtoMessage.of({
+    uploadFileReq: ProtoField(1, {
+      groupCode: ProtoField(1, 'uint32'),
+      appId: ProtoField(2, 'uint32'),
+      busId: ProtoField(3, 'uint32'),
+      entrance: ProtoField(4, 'uint32'),
+      parentFolderId: ProtoField(5, 'string'),
+      fileName: ProtoField(6, 'string'),
+      localPath: ProtoField(7, 'string'),
+      fileSize: ProtoField(8, 'uint32'),
+      sha: ProtoField(9, 'bytes'),
+      sha3: ProtoField(10, 'bytes', 'optional'),
+      md5: ProtoField(11, 'bytes'),
+      supportMultiUpload: ProtoField(12, 'bool')
+    })
+  })
+
+  export const GroupFileResp = ProtoMessage.of({
+    uploadFileRsp: ProtoField(1, {
+      retCode: ProtoField(1, 'int32'),
+      retMsg: ProtoField(2, 'string'),
+      clientWording: ProtoField(3, 'string'),
+      uploadIp: ProtoField(4, 'string'),
+      serverDns: ProtoField(5, 'string'),
+      busId: ProtoField(6, 'uint32'),
+      fileId: ProtoField(7, 'string'),
+      checkKey: ProtoField(8, 'bytes'),
+      fileKey: ProtoField(9, 'bytes'),
+      fileExist: ProtoField(10, 'bool'),
+      uploadIpLanV4: ProtoField(12, 'string', 'repeated'),
+      uploadIpLanV6: ProtoField(13, 'string', 'repeated'),
+      uploadPort: ProtoField(14, 'uint32')
+    })
+  })
+
+  export const OfflineFileUploadReq = ProtoMessage.of({
+    command: ProtoField(1, 'uint32'),
+    seq: ProtoField(2, 'int32'),
+    upload: ProtoField(19, {
+      senderUid: ProtoField(10, 'string'),
+      receiverUid: ProtoField(20, 'string'),
+      fileSize: ProtoField(30, 'uint32'),
+      fileName: ProtoField(40, 'string'),
+      md510MCheckSum: ProtoField(50, 'bytes'),
+      sha1CheckSum: ProtoField(60, 'bytes'),
+      localPath: ProtoField(70, 'string'),
+      md5CheckSum: ProtoField(110, 'bytes'),
+      sha3CheckSum: ProtoField(120, 'bytes')
+    }),
+    businessId: ProtoField(101, 'int32'),
+    clientType: ProtoField(102, 'int32'),
+    flagSupportMediaPlatform: ProtoField(200, 'int32')
+  })
+
+  export const OfflineFileUploadResp = ProtoMessage.of({
+    command: ProtoField(1, 'uint32'),
+    seq: ProtoField(2, 'int32'),
+    upload: ProtoField(19, {
+      retCode: ProtoField(10, 'int32'),
+      retMsg: ProtoField(20, 'string'),
+      totalSpace: ProtoField(30, 'uint32'),
+      usedSpace: ProtoField(40, 'uint32'),
+      uploadedSize: ProtoField(50, 'uint32'),
+      uploadIp: ProtoField(60, 'string'),
+      uploadDomain: ProtoField(70, 'string'),
+      uploadPort: ProtoField(80, 'uint32'),
+      uuid: ProtoField(90, 'string'),
+      uploadKey: ProtoField(100, 'bytes'),
+      fileExist: ProtoField(110, 'bool'),
+      packSize: ProtoField(120, 'int32'),
+      uploadIpList: ProtoField(130, 'string', 'repeated'),
+      uploadHttpsPort: ProtoField(140, 'int32'),
+      uploadHttpsDomain: ProtoField(150, 'string'),
+      uploadDns: ProtoField(160, 'string'),
+      uploadLanip: ProtoField(170, 'string'),
+      fileIdCrc: ProtoField(200, 'string'),
+      rtpMediaPlatformUploadAddress: ProtoField(210, {
+        outIp: ProtoField(1, 'uint32'),
+        outPort: ProtoField(2, 'uint32'),
+        innerIp: ProtoField(3, 'uint32'),
+        innerPort: ProtoField(4, 'uint32'),
+        ipType: ProtoField(5, 'uint32')
+      }, 'repeated'),
+      mediaPlatformUploadKey: ProtoField(220, 'bytes')
+    }),
+    businessId: ProtoField(101, 'int32'),
+    clientType: ProtoField(102, 'int32'),
+    flagSupportMediaPlatform: ProtoField(200, 'int32')
   })
 }

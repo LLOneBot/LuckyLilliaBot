@@ -6,6 +6,9 @@ interface Payload {
 }
 
 export const deleteChannel: Handler<Dict<never>, Payload> = async (ctx, payload) => {
-  await ctx.ntGroupApi.quitGroup(payload.channel_id)
+  const res = await ctx.ntGroupApi.quitGroup(payload.channel_id)
+  if (res.result !== 0) {
+    throw new Error(res.errMsg)
+  }
   return {}
 }

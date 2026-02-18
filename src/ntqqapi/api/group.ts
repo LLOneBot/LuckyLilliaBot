@@ -116,7 +116,7 @@ export class NTQQGroupApi extends Service {
     const flagitem = flag.split('|')
     const groupCode = flagitem[0]
     const seq = flagitem[1]
-    const type = parseInt(flagitem[2])
+    const type = +flagitem[2]
     const doubt = flagitem[3] === '1'
     return await this.operateSysNotify(doubt, {
       operateType,
@@ -248,7 +248,7 @@ export class NTQQGroupApi extends Service {
   }
 
   async getGroupAllInfo(groupCode: string) {
-    return await invoke<GroupAllInfo>(
+    return await invoke(
       'nodeIKernelGroupService/getGroupAllInfo',
       [
         groupCode,
@@ -401,6 +401,7 @@ export class NTQQGroupApi extends Service {
       createTime: '0'
     }])
   }
+
   async deleteGroupAlbum(groupId: string, albumId: string) {
     return await invoke('nodeIKernelAlbumService/deleteAlbum', [Date.now(), groupId, albumId])
   }
@@ -418,5 +419,29 @@ export class NTQQGroupApi extends Service {
       parentFolderId,
       newFileName
     ])
+  }
+
+  async checkGroupMemberCache(groupCodes: string[]) {
+    return await invoke('nodeIKernelGroupService/checkGroupMemberCache', [groupCodes])
+  }
+
+  async setTop(groupCode: string, isTop: boolean) {
+    return await invoke('nodeIKernelGroupService/setTop', [groupCode, isTop])
+  }
+
+  async getGroupDetailInfo(groupCode: string) {
+    return await invoke(
+      'nodeIKernelGroupService/getGroupDetailInfo',
+      [
+        groupCode,
+        4,
+      ],
+      {
+        resultCmd: 'nodeIKernelGroupListener/onGroupDetailInfoChange',
+        resultCb: payload => {
+          return payload.groupCode === groupCode
+        },
+      },
+    )
   }
 }

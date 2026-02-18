@@ -60,34 +60,26 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       buffer.push(h.text(v.textElement.content))
     } else if (v.replyElement && !quoted) {
       // quote
+      if (data.multiTransInfo) {
+        continue
+      }
       const peer = {
         chatType: data.chatType,
         peerUid: data.peerUid,
         guildId: ''
       }
-      const { replayMsgSeq, replyMsgTime, sourceMsgIdInRecords } = v.replyElement
-      const records = data.records.find(msgRecord => msgRecord.msgId === sourceMsgIdInRecords)
-      const senderUid = v.replyElement.senderUidStr || records?.senderUid
-      if (!records || !replyMsgTime || !senderUid) {
-        ctx.logger.error('找不到引用消息', v.replyElement)
-        continue
-      }
-      if (data.multiTransInfo) {
-        buffer.push(h.quote(records.msgId))
-        continue
-      }
-
       try {
-        const { msgList } = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, replayMsgSeq, 1, true, true)
+        const { replayMsgSeq, replyMsgTime, sourceMsgIdInRecords, senderUidStr } = v.replyElement
+        const record = data.records.find(msgRecord => msgRecord.msgId === sourceMsgIdInRecords)
+        const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, replayMsgSeq, replyMsgTime, [senderUidStr])
         let replyMsg: NT.RawMessage | undefined
-        if (records.msgRandom !== '0') {
-          replyMsg = msgList.find(msg => msg.msgRandom === records.msgRandom)
+        if (record && record.msgRandom !== '0') {
+          replyMsg = msgList.find(msg => msg.msgRandom === record.msgRandom)
         } else {
-          ctx.logger.info('msgRandom is missing', v.replyElement, records)
           replyMsg = msgList[0]
         }
         if (!replyMsg) {
-          ctx.logger.warn('引用消息可能不完整', v.replyElement, records)
+          ctx.logger.warn('引用消息获取失败', v.replyElement, record)
           continue
         }
         const elements = await decodeElement(ctx, replyMsg, true)
@@ -105,7 +97,7 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       }))
     } else if (v.pttElement) {
       // audio
-      const src = pathToFileURL(v.pttElement.filePath).href
+      const src = await ctx.ntFileApi.getPttUrl(v.pttElement.fileUuid, data.chatType === NT.ChatType.Group)
       buffer.push(h.audio(src, { duration: v.pttElement.duration }))
     } else if (v.videoElement) {
       // video
@@ -116,12 +108,12 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       }, data.msgId, v.elementId)) || pathToFileURL(v.videoElement.filePath).href
       buffer.push(h.video(src))
     } else if (v.marketFaceElement) {
-      // mface
+      // llonebot:market-face
       const { emojiId, supportSize } = v.marketFaceElement
       const { width = 300, height = 300 } = supportSize?.[0] ?? {}
       const dir = emojiId.substring(0, 2)
       const src = `https://gxh.vip.qq.com/club/item/parcel/item/${dir}/${emojiId}/raw${width}.gif`
-      buffer.push(h('mface', {
+      buffer.push(h('llonebot:market-face', {
         emojiPackageId: v.marketFaceElement.emojiPackageId,
         emojiId,
         key: v.marketFaceElement.key,
@@ -210,19 +202,31 @@ export function decodeGuild(data: Record<'groupCode' | 'groupName', string>): Ob
 }
 
 export async function getPeer(ctx: Context, channelId: string): Promise<NT.Peer> {
-  let peerUid = channelId
-  let chatType: NT.ChatType = NT.ChatType.Group
-  if (peerUid.includes('private:')) {
+  if (channelId.startsWith('private:')) {
     const uin = channelId.replace('private:', '')
     const uid = await ctx.ntUserApi.getUidByUin(uin)
     if (!uid) throw new Error('无法获取用户信息')
     const isBuddy = await ctx.ntFriendApi.isBuddy(uid)
-    chatType = isBuddy ? NT.ChatType.C2C : NT.ChatType.TempC2CFromGroup
-    peerUid = uid
-  }
-  return {
-    chatType,
-    peerUid,
-    guildId: ''
+    if (!isBuddy) {
+      const res = await ctx.ntMsgApi.getTempChatInfo(NT.ChatType.TempC2CFromGroup, uid)
+      if (res.tmpChatInfo.groupCode) {
+        return {
+          chatType: NT.ChatType.TempC2CFromGroup,
+          peerUid: uid,
+          guildId: ''
+        }
+      }
+    }
+    return {
+      chatType: NT.ChatType.C2C,
+      peerUid: uid,
+      guildId: ''
+    }
+  } else {
+    return {
+      chatType: NT.ChatType.Group,
+      peerUid: channelId,
+      guildId: ''
+    }
   }
 }

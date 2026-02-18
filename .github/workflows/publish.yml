@@ -4,6 +4,19 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      target:
+        description: '选择要构建的目标平台'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - win-cli
+          - win-desktop
+          - linux-x64
+          - linux-arm64
+          - macos-arm64
 
 jobs:
   build-and-release:
@@ -40,6 +53,7 @@ jobs:
           zip -r ../LLBot.zip ./*
 
       - name: Compress for Windows Cli
+        if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'win-cli' || startsWith(github.ref, 'refs/tags/') }}
         run: |
           mkdir llbot-cli-win-x64
           cd llbot-cli-win-x64
@@ -53,7 +67,7 @@ jobs:
           rm pmhq-win-x64.zip
           mv pmhq-win-x64.exe bin/pmhq/pmhq.exe
           mv pmhq.dll bin/pmhq/
-          wget https://github.com/LLOneBot/LLBot.CLI/releases/latest/download/llbot-win-x64.exe
+          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-win-x64.exe
           mv llbot-win-x64.exe llbot.exe
           wget https://github.com/LLOneBot/exe/releases/latest/download/node.exe -O bin/llbot/node.exe
           wget https://github.com/LLOneBot/exe/releases/latest/download/ffmpeg.exe -O bin/llbot/ffmpeg.exe
@@ -61,49 +75,82 @@ jobs:
           zip -r ../LLBot-CLI-win-x64.zip ./*
 
       - name: Compress for Windows Desktop
+        if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'win-desktop' || startsWith(github.ref, 'refs/tags/') }}
         run: |
           mkdir llbot-desktop-win-x64
-          mkdir -p bin/llbot
           cd llbot-desktop-win-x64
+          mkdir -p bin/llbot
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
-          mkdir -p ./bin/llbot
           cp -r ../dist/* ./bin/llbot/
-          wget https://github.com/LLOneBot/Lucky-Lillia-Desktop/releases/latest/download/lucky-lillia-desktop-win-x64.zip
+          wget https://github.com/LLOneBot/LuckyLilliaDesktop.Avalonia/releases/latest/download/lucky-lillia-desktop-win-x64.zip
           unzip lucky-lillia-desktop-win-x64.zip
           rm lucky-lillia-desktop-win-x64.zip
           mv lucky-lillia-desktop.exe llbot.exe
           zip -r ../LLBot-Desktop-win-x64.zip ./*
 
       - name: Compress for Linux CLI x64
+        if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'linux-x64' || startsWith(github.ref, 'refs/tags/') }}
         run: |
           mkdir llbot-cli-linux-x64
           cd llbot-cli-linux-x64
-          cp ../dist/使用说明.txt ./
+          mkdir -p bin/llbot
+          mkdir -p bin/pmhq
+          cp ../doc/使用说明-linux-cli.txt ./使用说明.txt
           cp ../dist/更新日志.txt ./
-          cp -r ../dist ./llbot
+          cp -r ../dist/* ./bin/llbot/
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-linux-x64.zip
           unzip pmhq-linux-x64.zip
           rm pmhq-linux-x64.zip
-          mv pmhq-linux-x64 llbot/pmhq
-          wget https://github.com/LLOneBot/exe/releases/latest/download/node-linux-x64 -O llbot/node
+          mv pmhq-linux-x64 bin/pmhq/pmhq
+          mv libpmhq.so bin/pmhq/
+          wget https://github.com/LLOneBot/exe/releases/latest/download/node-linux-x64 -O bin/llbot/node
+          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-linux-x64 -O llbot
           cp ../script/start-linux.sh ./start.sh
           zip -r ../LLBot-CLI-linux-x64.zip ./*
 
       - name: Compress for Linux CLI arm64
+        if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'linux-arm64' || startsWith(github.ref, 'refs/tags/') }}
         run: |
           mkdir llbot-cli-linux-arm64
           cd llbot-cli-linux-arm64
-          cp ../dist/使用说明.txt ./
+          mkdir -p bin/llbot
+          mkdir -p bin/pmhq
+          cp ../doc/使用说明-linux-cli.txt ./使用说明.txt
           cp ../dist/更新日志.txt ./
-          cp -r ../dist ./llbot
+          cp -r ../dist/* ./bin/llbot/
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-linux-arm64.zip
           unzip pmhq-linux-arm64.zip
           rm pmhq-linux-arm64.zip
-          mv pmhq-linux-arm64 llbot/pmhq
-          wget https://github.com/LLOneBot/exe/releases/latest/download/node-linux-arm64 -O llbot/node
+          mv pmhq-linux-arm64 bin/pmhq/pmhq
+          mv libpmhq.so bin/pmhq/
+          wget https://github.com/LLOneBot/exe/releases/latest/download/node-linux-arm64 -O bin/llbot/node
+          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-linux-arm64 -O llbot
           cp ../script/start-linux.sh ./start.sh
           zip -r ../LLBot-CLI-linux-arm64.zip ./*
+
+      - name: Compress for macOS CLI arm64
+        if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'macos-arm64' || startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          mkdir llbot-cli-macos-arm64
+          cd llbot-cli-macos-arm64
+          mkdir -p bin/llbot
+          mkdir -p bin/pmhq
+          cp ../doc/使用说明-macos-cli.txt ./使用说明.txt
+          cp ../script/start-mac.sh ./start.sh
+          cp ../dist/更新日志.txt ./
+          cp -r ../dist/* ./bin/llbot/
+          wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-macos-arm64.zip
+          unzip pmhq-macos-arm64.zip
+          rm pmhq-macos-arm64.zip
+          mv pmhq-macos-arm64 bin/pmhq/pmhq
+          mv libpmhq.dylib bin/pmhq/
+          wget https://github.com/LLOneBot/exe/releases/latest/download/node-darwin-arm64 -O bin/llbot/node
+          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-darwin-arm64 -O llbot
+          wget https://github.com/LLOneBot/exe/releases/download/0.0.0/QQ-macos.zip
+          unzip QQ-macos.zip -d bin/qq
+          rm QQ-macos.zip
+          tar -cJvf ../LLBot-CLI-macos-arm64.tar.xz ./*
 
       - name: Compress for Docker
         run: |
@@ -119,7 +166,7 @@ jobs:
           retention-days: 30
 
       - name: Upload LLBot-Desktop-win-x64.zip
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'win-desktop') }}
         uses: actions/upload-artifact@v4
         with:
           name: LLBot-Desktop-win-x64
@@ -127,7 +174,7 @@ jobs:
           retention-days: 30
 
       - name: Upload LLBot-CLI-win-x64.zip
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'win-cli') }}
         uses: actions/upload-artifact@v4
         with:
           name: LLBot-CLI-win-x64
@@ -135,7 +182,7 @@ jobs:
           retention-days: 30
 
       - name: Upload LLBot-CLI-linux-x64.zip
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'linux-x64') }}
         uses: actions/upload-artifact@v4
         with:
           name: LLBot-CLI-linux-x64
@@ -143,11 +190,19 @@ jobs:
           retention-days: 30
 
       - name: Upload LLBot-CLI-linux-arm64.zip
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'linux-arm64') }}
         uses: actions/upload-artifact@v4
         with:
           name: LLBot-CLI-linux-arm64
           path: LLBot-CLI-linux-arm64.zip
+          retention-days: 30
+
+      - name: Upload LLBot-CLI-macos-arm64.tar.xz
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'macos-arm64') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: LLBot-CLI-macos-arm64
+          path: LLBot-CLI-macos-arm64.tar.xz
           retention-days: 30
 
       - name: Upload LLBot-Docker.sh
@@ -183,15 +238,14 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: ncipollo/release-action@v1
         with:
-          artifacts: 'LLBot.zip, LLBot-Desktop-win-x64.zip, LLBot-CLI-win-x64.zip, LLBot-CLI-linux-x64.zip, LLBot-CLI-linux-arm64.zip, LLBot-Docker.sh'
+          artifacts: 'LLBot.zip, LLBot-Desktop-win-x64.zip, LLBot-CLI-win-x64.zip, LLBot-CLI-linux-x64.zip, LLBot-CLI-linux-arm64.zip, LLBot-CLI-macos-arm64.tar.xz, LLBot-Docker.sh'
           draft: true
           token: ${{ secrets.RELEASE_TOKEN }}
           name: LuckyLilliaBot v${{ steps.get-version.outputs.VERSION }}
           body: |
             ${{ steps.changelog.outputs.BODY }}
 
-            **Windows Desktop 版本只支持 Windows Server 2016 / Windows 10 及以上版本**
-            **Windows CLI 版本只支持 Windows server 2012 R2 / Windows 8.1 及以上版本**
+            **Windows Desktop 版本只支持 Windows Server 2012 R2 / Windows 10 及以上版本**
 
       - name: Publish to npm
         if: startsWith(github.ref, 'refs/tags/')

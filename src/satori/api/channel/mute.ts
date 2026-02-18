@@ -7,6 +7,9 @@ interface Payload {
 }
 
 export const muteChannel: Handler<Dict<never>, Payload> = async (ctx, payload) => {
-  await ctx.ntGroupApi.banGroup(payload.channel_id, payload.duration !== 0)
+  const res = await ctx.ntGroupApi.banGroup(payload.channel_id, payload.duration !== 0)
+  if (res.result !== 0) {
+    throw new Error(res.errMsg)
+  }
   return {}
 }

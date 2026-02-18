@@ -137,8 +137,14 @@ export async function apiFetch<T = any>(
     }
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+      let errorMessage = `HTTP error! status: ${response.status}`
+      try {
+        const errorData = await response.json()
+        errorMessage = errorData.message || errorMessage
+      } catch {
+        // 无法解析 JSON，使用默认错误信息
+      }
+      throw new Error(errorMessage)
     }
 
     return await response.json();

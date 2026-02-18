@@ -45,6 +45,7 @@ export interface FriendItem {
   remark: string
   avatar: string
   online: boolean
+  topTime?: string
 }
 
 // 好友分组
@@ -64,6 +65,8 @@ export interface GroupItem {
   remarkName?: string
   avatar: string
   memberCount: number
+  isTop?: boolean
+  msgMask?: number
 }
 
 // 最近会话项

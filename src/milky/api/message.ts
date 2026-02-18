@@ -288,38 +288,30 @@ const GetMessage = defineApi(
       peer.peerUid = uid
     }
 
-    const msgResult = await ctx.ntMsgApi.getMsgsBySeqAndCount(
-      peer,
-      payload.message_seq.toString(),
-      1,
-      true,
-      true
-    )
-
+    const msgResult = await ctx.ntMsgApi.queryFirstMsgBySeq(peer, payload.message_seq.toString())
     if (msgResult.msgList.length === 0) {
       return Failed(-404, 'Message not found')
     }
-
     const rawMsg = msgResult.msgList[0]
+
+    let message
     if (payload.message_scene === 'friend') {
       const friend = await ctx.ntUserApi.getUserSimpleInfo(rawMsg.senderUid)
       const category = await ctx.ntFriendApi.getCategoryById(friend.baseInfo.categoryId)
-      return Ok({
-        message: await transformIncomingPrivateMessage(ctx, friend, category, rawMsg),
-      })
+      message = await transformIncomingPrivateMessage(ctx, friend, category, rawMsg)
     } else if (payload.message_scene === 'group') {
       const group = await ctx.ntGroupApi.getGroupAllInfo(rawMsg.peerUid)
       const member = await ctx.ntGroupApi.getGroupMember(rawMsg.peerUin, rawMsg.senderUid)
-      return Ok({
-        message: await transformIncomingGroupMessage(ctx, group, member, rawMsg),
-      })
+      message = await transformIncomingGroupMessage(ctx, group, member, rawMsg)
     } else {
       const { tmpChatInfo } = await ctx.ntMsgApi.getTempChatInfo(100, rawMsg.peerUid)
       const group = await ctx.ntGroupApi.getGroupAllInfo(tmpChatInfo.groupCode)
-      return Ok({
-        message: await transformIncomingTempMessage(ctx, group, rawMsg),
-      })
+      message = await transformIncomingTempMessage(ctx, group, rawMsg)
     }
+    if (message.segments.length === 0) {
+      return Failed(-404, 'Message not found')
+    }
+    return Ok({ message })
   }
 )
 
@@ -352,24 +344,23 @@ const GetHistoryMessages = defineApi(
       msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, payload.start_message_seq.toString(), payload.limit, true, true)).msgList
     }
 
-    if (msgList.length === 0) {
+    const filteredMsgList = msgList.filter(msg => {
+      if (!msg.senderUid) return false
+      if (msg.elements[0].grayTipElement?.subElementType === 1) return false
+      return true
+    })
+    if (filteredMsgList.length === 0) {
       return Ok({
         messages: [],
         next_message_seq: undefined,
       })
     }
 
-    const filteredMsgList = msgList.filter(msg => {
-      if (!msg.senderUid) return false
-      if (msg.elements[0].grayTipElement?.subElementType === 1) return false
-      return true
-    })
     const transformedMessages: GetHistoryMessagesOutput['messages'] = []
-
     if (payload.message_scene === 'friend') {
+      const friend = await ctx.ntUserApi.getUserSimpleInfo(filteredMsgList[0].peerUid)
+      const category = await ctx.ntFriendApi.getCategoryById(friend.baseInfo.categoryId)
       for (const msg of filteredMsgList) {
-        const friend = await ctx.ntUserApi.getUserSimpleInfo(msg.senderUid)
-        const category = await ctx.ntFriendApi.getCategoryById(friend.baseInfo.categoryId)
         transformedMessages.push(await transformIncomingPrivateMessage(ctx, friend, category, msg))
       }
     } else if (payload.message_scene === 'group') {
@@ -379,9 +370,9 @@ const GetHistoryMessages = defineApi(
         transformedMessages.push(await transformIncomingGroupMessage(ctx, group, member, msg))
       }
     } else {
+      const { tmpChatInfo } = await ctx.ntMsgApi.getTempChatInfo(100, filteredMsgList[0].peerUid)
+      const group = await ctx.ntGroupApi.getGroupAllInfo(tmpChatInfo.groupCode)
       for (const msg of filteredMsgList) {
-        const { tmpChatInfo } = await ctx.ntMsgApi.getTempChatInfo(100, msg.peerUid)
-        const group = await ctx.ntGroupApi.getGroupAllInfo(tmpChatInfo.groupCode)
         transformedMessages.push(await transformIncomingTempMessage(ctx, group, msg))
       }
     }
@@ -395,7 +386,7 @@ const GetHistoryMessages = defineApi(
     }
 
     return Ok({
-      messages: transformedMessages,
+      messages: transformedMessages.filter(e => e.segments.length > 0),
       next_message_seq: nextMessageSeq,
     })
   }

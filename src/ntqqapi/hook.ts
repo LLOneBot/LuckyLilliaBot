@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { Awaitable } from 'cosmokit'
 import { NTMethod } from './ntcall'
 import { pmhq } from '@/ntqqapi/native/pmhq'
-import { NodeIKernelLoginListener, NodeIKernelBuddyListener, NodeIKernelGroupListener } from '@/ntqqapi/listeners'
+import { NodeIKernelLoginListener, NodeIKernelBuddyListener, NodeIKernelGroupListener, NodeIKernelMsgListener } from '@/ntqqapi/listeners'
 import { parseProtobufFromHex } from '@/common/utils/protobuf-parser'
 import { getConfigUtil } from '@/common/config'
 
@@ -87,7 +87,7 @@ export function startHook() {
             msgPBMap.delete(firstKey!)
           }
           msgPBMap.set(uniqueId, data.data.pb)
-        }catch (e) {
+        } catch (e) {
 
         }
       }
@@ -99,6 +99,7 @@ export interface NTListener {
   nodeIKernelLoginListener: NodeIKernelLoginListener
   nodeIKernelBuddyListener: NodeIKernelBuddyListener
   nodeIKernelGroupListener: NodeIKernelGroupListener
+  nodeIKernelMsgListener: NodeIKernelMsgListener
 }
 
 // 辅助类型：从method字符串推断出对应的payload类型

@@ -1,10 +1,10 @@
-import { ElementType, MessageElement, Peer, RawMessage, QueryMsgsParams } from '@/ntqqapi/types'
+import { ElementType, MessageElement, Peer, RawMessage, QueryMsgsParams, SendMessageElement } from '@/ntqqapi/types'
 import { GeneralCallResult } from './common'
 
 export interface NodeIKernelMsgService {
   generateMsgUniqueId(chatType: number, time: string): string
 
-  sendMsg(msgId: string, peer: Peer, msgElements: MessageElement[], msgAttributeInfos: Map<unknown, unknown>): Promise<GeneralCallResult>
+  sendMsg(msgId: string, peer: Peer, msgElements: SendMessageElement[], msgAttributeInfos: Map<unknown, unknown>): Promise<GeneralCallResult>
 
   recallMsg(peer: Peer, msgIds: string[]): Promise<GeneralCallResult>
 
@@ -18,7 +18,7 @@ export interface NodeIKernelMsgService {
     detailErr: Map<unknown, unknown>
   }>
 
-  multiForwardMsgWithComment(...args: unknown[]): unknown
+  multiForwardMsgWithComment(msgInfos: { msgId: string, senderShowName: string }[], srcContact: Peer, dstContact: Peer, commentElements: MessageElement[], msgAttributeInfos: Map<unknown, unknown>): unknown
 
   getAioFirstViewLatestMsgs(peer: Peer, cnt: number): Promise<GeneralCallResult & { msgList: RawMessage[] }>
 
@@ -36,7 +36,7 @@ export interface NodeIKernelMsgService {
 
   getSingleMsg(peer: Peer, msgSeq: string): Promise<GeneralCallResult & { msgList: RawMessage[] }>
 
-  queryMsgsWithFilterEx(msgId: string, msgTime: string, megSeq: string, param: QueryMsgsParams): Promise<GeneralCallResult & {
+  queryMsgsWithFilterEx(msgId: string, msgTime: string, megSeq: string, params: QueryMsgsParams): Promise<GeneralCallResult & {
     msgList: RawMessage[]
   }>
 

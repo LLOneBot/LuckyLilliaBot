@@ -1,3 +1,134 @@
+V7.8.5
+更新时间 2026-02-16
+
+* 支持上报群成员名片更新事件 `group_card`
+* 支持上报消息事件的 `sender.level`
+* 支持伪造合并转发发送视频和文件
+* Milky HTTP 放宽 Content-Type 校验逻辑以支持 charset 参数
+
+=================
+V7.8.3
+更新时间 2026-02-10
+
+* 新增 macOS cli 版本
+* 修复 Desktop 版本无法更新
+* 支持 45758
+* `get_group_list` 返回字段增加 `avatar_url`, `owner_id`, `is_top`, `shut_up_all_timestamp`, `shut_up_me_timestamp`
+
+**破坏性改动**
+* `get_group_info` 的 `active_member_num` 字段更改为 `active_member_count`
+
+=================
+V7.8.2
+更新时间 2026-02-09
+
+* 修复禁言等事件不上报
+
+=================
+V7.8.1
+更新时间 2026-02-09
+
+* Milky 支持发送嵌套合并转发
+* 修复消息不上报
+
+=================
+V7.8.0
+
+更新时间 2026-02-09
+
+* Milky 修复合并转发无法发图
+* OneBot 修复发送的嵌套合并转发无法查看
+* OneBot 修复发送的嵌套合并转发缺失外显
+* 修复引用消息可能无法获取
+* 修复 CLI 版本关掉终端窗口后没有结束相关进程
+* 修复 Desktop 版本停止或者关闭后可能没有结束相关进程
+* 修复无头模式不生效
+* OneBot 支持合并转发 node 指定 time
+* OneBot 支持 get_group_info 接口返回的 group_create_time 字段在未加群时获取
+* OneBot 支持 get_stranger_info 接口返回标签字段 labels
+* Milky 支持 get_friend_info, get_group_member_list, get_group_member_info 接口使用 no_cache 参数
+* 优化 Desktop 一键对接框架使用体验
+* 优化 WebQQ 上传文件自动清理
+* 优化保存 Email 相关配置时，不再往 config_<qq>.json 写入，而是只保存在 email_config.json
+* WebQQ 置顶群聊现在和 PC / 手机端同步
+* WebQQ 群聊列表支持置顶群
+* WebQQ 群聊支持设置消息接收方式，支持收进群助手
+* 修复 Windows 上 ffmpeg 转换 amr 语音长度不对，如果是用的是 LLBot Desktop，需要先删除 bin/llbot/ffmpeg.exe 和 bin/llbot/ffprobe.exe
+* 优化 WebUI 在手机端上的适配
+
+** 破坏性改动 **
+* OneBot `get_group_info` 去掉了 `groupAll` 字段，添加了 `is_top`, `owner_id`, `shut_up_all_timestamp`, `shut_up_me_timestamp`, `active_member_num`, `is_freeze`
+* OneBot `_send_group_notice` 请求参数 `pinned` 和 `confirm_required` 的类型由 integer 变为 boolean
+
+=================
+
+V7.7.2
+更新时间 2026-01-26
+
+* 修复获取群成员列表可能失败
+* Linux CLI 修复 GUI 模式下 QQ 崩溃异常退出
+* 优化离线消息上报
+* WebUI 优化保存邮件配置逻辑 #690
+* WebUI 修复 Docker 中保存可能保存配置失败
+
+=================
+V7.7.1
+更新时间 2026-01-22
+
+* 优化掉线邮件通知功能，QQ 异常退出也会发送邮件
+
+=================
+V7.7.0
+更新时间 2026-01-21
+
+* 新增掉线邮件通知功能
+* WebUI 新增 进入 WebQQ 自动隐藏侧边栏选项
+* WebQQ 添加全屏按钮
+
+=================
+V7.6.2
+更新时间 2026-01-19
+
+* 发送视频消息的视频大小上限调整为 1 GB
+* 修复更改了配置文件没有热重载
+
+=================
+
+V7.6.1
+更新时间 2026-01-18
+
+* 修复合并转发没有外部显示和 PC 上无法打开
+* 修复更改配置文件后没有热重载
+* 如果无法启动 QQ 会提示下载老版本兼容版 PMHQ
+
+=================
+V7.6.0
+更新时间 2026-01-17
+
+* 支持 44725
+* 桌面版 新增一键安装对接框架
+* 桌面版 收进托盘时降低资源占用
+* 桌面版 修复登录了可能依然显示未登录
+* Docker 脚本新增命令行配置协议
+* OneBot `get_file` API 新增 `download` 参数，可控制是否下载文件到 QQ 目录
+* OneBot 支持自定义合并转发外显和嵌套合并转发
+* Milky 修复 `group_nudge` 事件的部分字段可能缺失
+* 移除 `onlyLocalhost` 配置项，改为各组件独立配置 `host`
+
+=================
+V7.5.0
+更新时间 2026-01-10
+
+* 支持 44498
+* 使用 Avalonia 重构 Desktop，优化使用体验
+* OneBot 支持发送视频时指定 cover
+* WebQQ 自带表情更换成可动的 apng
+* WebQQ 支持更多的自带表情
+* WebQQ 贴表情支持 Emoji 表情
+* Linux 版本采用新版 Rust 重构的 PMHQ
+* CLI 支持 --update 参数，可自动更新相关文件，更多参数可使用 --help 获取
+
+=================
 V7.4.0
 更新时间 2026-01-01
 
@@ -15,7 +146,7 @@ V7.4.0
 * OneBot 修复老版本 QQ 无法使用闪传相关接口
 * OneBot 修复 Docker 环境下可能无法发送合并转发图片
 * OneBot 修复获取合并转发内视频网址可能失败
-* Milky 修复 API `get_history_messages` 可能获取到空消息
+* Milky 修复 API `get_history_messages` 可能获取到被撤回的消息
 * Milky 修复 API `get_history_messages` 返回的 `next_message_seq` 不正确
 
 =================

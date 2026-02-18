@@ -68,10 +68,13 @@ const GetPrivateFileDownloadUrl = defineApi(
   GetPrivateFileDownloadUrlInput,
   GetPrivateFileDownloadUrlOutput,
   async (ctx, payload) => {
-    const url = await ctx.app.pmhq.getPrivateFileUrl(
+    const { state, url } = await ctx.app.pmhq.getPrivateFileUrl(
       selfInfo.uid,
       payload.file_id
     )
+    if (state !== 'ok') {
+      return Failed(-500, state)
+    }
     return Ok({ download_url: url })
   }
 )
@@ -82,10 +85,13 @@ const GetGroupFileDownloadUrl = defineApi(
   GetGroupFileDownloadUrlOutput,
   async (ctx, payload) => {
     // Use pmhq API to get group file download URL
-    const url = await ctx.app.pmhq.getGroupFileUrl(
+    const { clientWording, url } = await ctx.app.pmhq.getGroupFileUrl(
       Number(payload.group_id),
       payload.file_id
     )
+    if (clientWording) {
+      return Failed(-500, clientWording)
+    }
     return Ok({ download_url: url })
   }
 )

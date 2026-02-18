@@ -1,10 +1,15 @@
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 
-const __dirname = typeof window === 'undefined'
-  ? path.dirname(fileURLToPath(import.meta.url))
-  : ''
-global.__dirname = __dirname
+// 全局异常处理，防止未捕获的异常导致程序崩溃
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err?.message || err)
+})
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason)
+})
+
+// fluent-ffmpeg 需要用到这个
+globalThis.__dirname = import.meta.dirname
 import Log from './log'
 import Core from '../ntqqapi/core'
 import OneBot11Adapter from '../onebot11/adapter'
@@ -35,10 +40,13 @@ import { version } from '../version'
 import { WebUIServer } from '../webui/BE/server'
 import { pmhq } from '@/ntqqapi/native/pmhq'
 import { sleep } from '@/common/utils'
+import EmailNotificationService from '@/common/emailNotification'
+import { EmailConfig } from '@/common/emailConfig'
 
 declare module 'cordis' {
   interface Events {
     'llob/config-updated': (input: LLOBConfig) => void
+    'llbot/email-config-updated': (input: EmailConfig) => void
   }
 }
 
@@ -74,7 +82,7 @@ async function onLoad() {
     enable: config.log!,
     filename: logFileName,
   })
-  ctx.plugin(WebUIServer, { ...config.webui, onlyLocalhost: config.onlyLocalhost })
+  ctx.plugin(WebUIServer, config.webui)
 
   const loadPluginAfterLogin = () => {
     ctx.plugin(Database)
@@ -84,7 +92,6 @@ async function onLoad() {
     ctx.plugin(Core, config)
     ctx.plugin(OneBot11Adapter, {
       ...config.ob11,
-      onlyLocalhost: config.onlyLocalhost,
       musicSignUrl: config.musicSignUrl,
       enableLocalFile2Url: config.enableLocalFile2Url!,
       ffmpeg: config.ffmpeg,
@@ -92,56 +99,54 @@ async function onLoad() {
     ctx.plugin(SatoriAdapter, {
       ...config.satori,
       ffmpeg: config.ffmpeg,
-      onlyLocalhost: config.onlyLocalhost,
     })
-    ctx.plugin(MilkyAdapter, {
-      ...config.milky,
-      onlyLocalhost: config.onlyLocalhost,
-    })
+    ctx.plugin(MilkyAdapter, config.milky)
     ctx.plugin(Store, {
-      msgCacheExpire: config.msgCacheExpire! * 1000,
+      msgCacheExpire: config.msgCacheExpire!,
     })
+    ctx.plugin(EmailNotificationService)
   }
 
-  let pmhqSelfInfo = { ...selfInfo }
-  let checkLoginInterval: NodeJS.Timeout = setInterval(async () => {
+  const checkLogin = async () => {
+    let pmhqSelfInfo = { ...selfInfo }
     try {
       pmhqSelfInfo = await pmhq.call('getSelfInfo', [])
     } catch (e) {
       ctx.logger.info('获取账号信息状态失败', e)
+      setTimeout(checkLogin, 1000)
+      return
     }
-    if (pmhqSelfInfo.online) {
-      clearInterval(checkLoginInterval)
-      selfInfo.uin = pmhqSelfInfo.uin
-      selfInfo.uid = pmhqSelfInfo.uid
-      selfInfo.nick = pmhqSelfInfo.nick
-      if (!selfInfo.uin) {
-        let uin: string
-        // 循环 5次 获取uin
-        for (let i = 0; i < 5; i++) {
-          try {
-            uin = await ctx.ntUserApi.getUinByUid(selfInfo.uid)
-            selfInfo.uin = uin
-            break
-          } catch (e) {
-            await sleep(1000)
-          }
+    if (!pmhqSelfInfo.online) {
+      setTimeout(checkLogin, 1000)
+      return
+    }
+    selfInfo.uin = pmhqSelfInfo.uin
+    selfInfo.uid = pmhqSelfInfo.uid
+    selfInfo.nick = pmhqSelfInfo.nick
+    if (!selfInfo.uin) {
+      for (let i = 0; i < 5; i++) {
+        try {
+          selfInfo.uin = await ctx.ntUserApi.getUinByUid(selfInfo.uid)
+          break
+        } catch (e) {
+          await sleep(1000)
         }
       }
-      selfInfo.online = true
-      if (!selfInfo.nick) {
-        await ctx.ntUserApi.getSelfNick(true).catch(e => {
-          ctx.logger.warn('获取登录号昵称失败', e)
-        })
-      }
-      config = getConfigUtil(true).getConfig()
-      getConfigUtil().listenChange(c => {
-        ctx.parallel('llob/config-updated', c)
-      })
-      ctx.parallel('llob/config-updated', config)
-      loadPluginAfterLogin()
     }
-  }, 1000)
+    selfInfo.online = true
+    if (!selfInfo.nick) {
+      await ctx.ntUserApi.getSelfNick(true).catch(e => {
+        ctx.logger.warn('获取登录号昵称失败', e)
+      })
+    }
+    config = getConfigUtil(true).getConfig()
+    getConfigUtil().listenChange(c => {
+      ctx.parallel('llob/config-updated', c)
+    })
+    ctx.parallel('llob/config-updated', config)
+    loadPluginAfterLogin()
+  }
+  checkLogin()
 
   ctx.logger.info(`LLBot ${version}`)
   // setFFMpegPath(config.ffmpeg || '')

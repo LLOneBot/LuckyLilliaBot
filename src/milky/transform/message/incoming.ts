@@ -229,7 +229,7 @@ export async function transformIncomingForwardedMessage(ctx: Context, message: I
         const { index, pic } = msgInfoBody[0]
         const rkeyData = await ctx.ntFileApi.rkeyManager.getRkey()
         const rkey = businessType === 10 ? rkeyData.private_rkey : rkeyData.group_rkey
-        const url = `https://${pic.domain}${pic.urlPath}&spec=0${rkey}`
+        const url = `https://${pic!.domain}${pic!.urlPath}&spec=0${rkey}`
         segments.push({
           type: 'image',
           data: {

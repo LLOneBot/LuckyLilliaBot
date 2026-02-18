@@ -11,6 +11,7 @@ export interface BaseConnectConfig {
 
 export interface WsConnectConfig extends BaseConnectConfig {
   type: 'ws'
+  host: string
   port: number
   heartInterval: number // ms
 }
@@ -23,6 +24,7 @@ export interface WsReverseConnectConfig extends BaseConnectConfig {
 
 export interface HttpConnectConfig extends BaseConnectConfig {
   type: 'http'
+  host: string
   port: number
 }
 
@@ -71,11 +73,13 @@ export interface OB11Config {
 
 export interface SatoriConfig {
   enable: boolean
+  host: string
   port: number
   token: string
 }
 
 export interface MilkyHttpConfig {
+  host: string
   port: number
   prefix: string
   accessToken: string
@@ -95,7 +99,23 @@ export interface MilkyConfig {
 
 export interface WebUIConfig {
   enable: boolean
+  host: string
   port: number
+}
+
+export interface EmailConfig {
+  enabled: boolean
+  smtp: {
+    host: string
+    port: number
+    secure: boolean
+    auth: {
+      user: string
+      pass: string
+    }
+  }
+  from: string
+  to: string
 }
 
 export interface Config {
@@ -103,7 +123,8 @@ export interface Config {
   satori: SatoriConfig
   ob11: OB11Config
   webui: WebUIConfig
-  onlyLocalhost: boolean
+  email?: EmailConfig
+  // onlyLocalhost: boolean
   enableLocalFile2Url?: boolean // 开启后，本地文件路径图片会转成http链接, 语音会转成base64
   log?: boolean
   autoDeleteFile?: boolean

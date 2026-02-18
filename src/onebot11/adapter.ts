@@ -43,6 +43,7 @@ import { BaseAction } from './action/BaseAction'
 import { cloneObj } from '@/common/utils'
 import { OB11GroupMsgEmojiLikeEvent } from './event/notice/OB11MsgEmojiLikeEvent'
 import { GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent'
+import { OB11GroupCardEvent } from './event/notice/OB11GroupCardEvent'
 
 declare module 'cordis' {
   interface Context {
@@ -58,24 +59,27 @@ class OneBot11Adapter extends Service {
   ]
   private connect: (OB11Http | OB11HttpPost | OB11WebSocket | OB11WebSocketReverse)[]
   private actionMap: Map<string, BaseAction<unknown, unknown>>
+  private reportOfflineMessage: boolean
 
   constructor(public ctx: Context, public config: OneBot11Adapter.Config) {
     super(ctx, 'onebot', true)
     this.actionMap = initActionMap(this)
+    this.reportOfflineMessage = false
     this.connect = config.connect.map(item => {
+      if (item.reportOfflineMessage) {
+        this.reportOfflineMessage = true
+      }
       if (item.type === 'http') {
         return new OB11Http(ctx, {
           ...item,
-          actionMap: this.actionMap,
-          onlyLocalhost: config.onlyLocalhost
+          actionMap: this.actionMap
         })
       } else if (item.type === 'http-post') {
         return new OB11HttpPost(ctx, item)
       } else if (item.type === 'ws') {
         return new OB11WebSocket(ctx, {
           ...item,
-          actionMap: this.actionMap,
-          onlyLocalhost: config.onlyLocalhost
+          actionMap: this.actionMap
         })
       } else if (item.type === 'ws-reverse') {
         return new OB11WebSocketReverse(ctx, {
@@ -97,7 +101,7 @@ class OneBot11Adapter extends Service {
   public dispatchMessageLike(event: OB11BaseEvent, self: boolean, offline: boolean) {
     for (const item of this.connect) {
       // 这里不 copy 出来的话，更改了 msg.message 会影响下一个 connect
-      item.emitMessageLikeEvent(cloneObj(event) as OB11BaseEvent, self, offline)
+      item.emitMessageLikeEvent(cloneObj(event), self, offline)
     }
   }
 
@@ -108,8 +112,8 @@ class OneBot11Adapter extends Service {
         this.ctx.logger.info('有加群请求')
         const requestUin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
         const event = new OB11GroupRequestAddEvent(
-          parseInt(notify.group.groupCode),
-          parseInt(requestUin) || 0,
+          +notify.group.groupCode,
+          +requestUin || 0,
           flag,
           notify.postscript,
         )
@@ -120,8 +124,8 @@ class OneBot11Adapter extends Service {
         const userId = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
         this.ctx.logger.info('收到邀请我加群通知, 邀请人uin:', userId)
         const event = new OB11GroupRequestInviteBotEvent(
-          parseInt(notify.group.groupCode),
-          parseInt(userId) || 0,
+          +notify.group.groupCode,
+          +userId || 0,
           flag,
           notify.postscript,
         )
@@ -132,11 +136,11 @@ class OneBot11Adapter extends Service {
         const userId = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
         const invitorId = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
         const event = new OB11GroupRequestAddEvent(
-          parseInt(notify.group.groupCode),
-          parseInt(userId) || 0,
+          +notify.group.groupCode,
+          +userId || 0,
           flag,
           notify.postscript,
-          parseInt(invitorId) || 0,
+          +invitorId || 0,
         )
         this.dispatch(event)
       }
@@ -145,14 +149,18 @@ class OneBot11Adapter extends Service {
     }
   }
 
-  private handleMsg(message: RawMessage, self: boolean, offline: boolean) {
+  private async handleMsg(message: RawMessage, self: boolean, offline: boolean) {
+    if (offline && !this.reportOfflineMessage) {
+      return
+    }
+
     OB11Entities.message(this.ctx, message).then(msg => {
       if (!msg) {
         return
       }
       const isSelfMsg = msg.user_id.toString() === selfInfo.uin
       if (isSelfMsg) {
-        msg.target_id = parseInt(message.peerUin)
+        msg.target_id = +message.peerUin
       }
       this.dispatchMessageLike(msg, self, offline)
     }).catch(e => this.ctx.logger.error('handling incoming messages', e))
@@ -174,6 +182,30 @@ class OneBot11Adapter extends Service {
         this.dispatchMessageLike(privateEvent, self, offline)
       }
     }).catch(e => this.ctx.logger.error('handling incoming buddy events', e))
+
+    try {
+      if (message.chatType === ChatType.Group) {
+        const oldCard = await this.ctx.store.getGroupMemberCard(message.peerUid, message.senderUin)
+        if (oldCard === undefined) {
+          await this.ctx.store.setGroupMemberCard(message.peerUid, message.senderUin, message.sendMemberName)
+        } else {
+          const { peerName, peerUid, sendMemberName, sendNickName, senderUin } = message
+          if (oldCard !== sendMemberName) {
+            await this.ctx.store.setGroupMemberCard(peerUid, senderUin, sendMemberName)
+            this.ctx.logger.info(`群 ${peerName}(${peerUid}) 的 ${sendMemberName || sendNickName}(${senderUin}) 更新了名片 ${oldCard} -> ${sendMemberName}`)
+            const groupCardEvent = new OB11GroupCardEvent(
+              +peerUid,
+              +senderUin,
+              sendMemberName,
+              oldCard
+            )
+            this.dispatch(groupCardEvent)
+          }
+        }
+      }
+    } catch (e) {
+      this.ctx.logger.error('handling group member name card change events', e)
+    }
   }
 
   private handleRecallMsg(message: RawMessage) {
@@ -191,10 +223,10 @@ class OneBot11Adapter extends Service {
       const toUserUin = templateParams?.get('uin_str2') || '0'
       let recallEvent: OB11FriendPokeRecallEvent | OB11GroupPokeRecallEvent;
       if (peer.chatType === ChatType.Group) {
-        recallEvent = new OB11GroupPokeRecallEvent(parseInt(message.peerUid), parseInt(fromUserUin), parseInt(toUserUin), json)
+        recallEvent = new OB11GroupPokeRecallEvent(+message.peerUid, +fromUserUin, +toUserUin, json)
       }
       else {
-        recallEvent = new OB11FriendPokeRecallEvent(parseInt(fromUserUin), parseInt(toUserUin), json)
+        recallEvent = new OB11FriendPokeRecallEvent(+fromUserUin, +toUserUin, json)
       }
       return this.dispatch(recallEvent)
     }
@@ -215,7 +247,7 @@ class OneBot11Adapter extends Service {
     let userId = 0
     try {
       const requesterUin = await this.ctx.ntUserApi.getUinByUid(req.friendUid)
-      userId = parseInt(requesterUin)
+      userId = +requesterUin
     } catch (e) {
       this.ctx.logger.error('获取加好友者QQ号失败', e)
     }
@@ -236,20 +268,22 @@ class OneBot11Adapter extends Service {
       }
     }
     if (config.ob11.enable) {
+      this.reportOfflineMessage = false
       this.connect = config.ob11.connect.map(item => {
+        if (item.reportOfflineMessage) {
+          this.reportOfflineMessage = true
+        }
         if (item.type === 'http') {
           return new OB11Http(this.ctx, {
             ...item,
-            actionMap: this.actionMap,
-            onlyLocalhost: config.onlyLocalhost
+            actionMap: this.actionMap
           })
         } else if (item.type === 'http-post') {
           return new OB11HttpPost(this.ctx, item)
         } else if (item.type === 'ws') {
           return new OB11WebSocket(this.ctx, {
             ...item,
-            actionMap: this.actionMap,
-            onlyLocalhost: config.onlyLocalhost
+            actionMap: this.actionMap
           })
         } else if (item.type === 'ws-reverse') {
           return new OB11WebSocketReverse(this.ctx, {
@@ -392,7 +426,7 @@ class OneBot11Adapter extends Service {
             for (const file2 of file.fileList) {
               files.push({
                 name: file2.name,
-                size: parseInt(file2.filePhysicalSize),
+                size: +file2.filePhysicalSize,
                 path: file2.saveFilePath,
               })
             }
@@ -431,7 +465,7 @@ class OneBot11Adapter extends Service {
             for (const file2 of file.fileList) {
               files.push({
                 name: file2.name,
-                size: parseInt(file2.filePhysicalSize),
+                size: +file2.filePhysicalSize,
                 path: file2.saveFilePath,
               })
             }
@@ -440,8 +474,8 @@ class OneBot11Adapter extends Service {
             res.name,
             res.shareInfo.shareLink,
             fileSetId,
-            parseInt(downloadingInfo.curDownLoadedBytes),
-            parseInt(downloadingInfo.totalDownLoadedBytes),
+            +downloadingInfo.curDownLoadedBytes,
+            +downloadingInfo.totalDownLoadedBytes,
             downloadingInfo.curSpeedBps,
             downloadingInfo.remainDownLoadSeconds,
             files,
@@ -463,7 +497,7 @@ class OneBot11Adapter extends Service {
           for (const file2 of file.fileList) {
             files.push({
               name: file2.name,
-              size: parseInt(file2.filePhysicalSize),
+              size: +file2.filePhysicalSize,
               path: file2.physical.localPath,
             })
           }
@@ -473,10 +507,10 @@ class OneBot11Adapter extends Service {
           info.fileSet.name,
           info.fileSet.shareInfo.shareLink,
           info.fileSet.fileSetId,
-          parseInt(info.uploadedFileSize),
-          parseInt(info.fileSet.totalFileSize),
-          parseInt(info.uploadSpeed),
-          parseInt(info.timeRemain),
+          +info.uploadedFileSize,
+          +info.fileSet.totalFileSize,
+          +info.uploadSpeed,
+          +info.timeRemain,
           files,
         )
         this.dispatch(event)
@@ -488,8 +522,8 @@ class OneBot11Adapter extends Service {
       const groupInfo = await this.ctx.ntGroupApi.getGroupAllInfo(group.groupCode)
       const ownerUin = await this.ctx.ntUserApi.getUinByUid(groupInfo.ownerUid)
       const event = new OB11GroupDismissEvent(
-        parseInt(group.groupCode),
-        parseInt(ownerUin)
+        +group.groupCode,
+        +ownerUin
       )
       this.dispatch(event)
     })
@@ -574,7 +608,6 @@ class OneBot11Adapter extends Service {
 
 namespace OneBot11Adapter {
   export interface Config extends OB11Config {
-    onlyLocalhost: boolean
     musicSignUrl?: string
     enableLocalFile2Url: boolean
     ffmpeg?: string

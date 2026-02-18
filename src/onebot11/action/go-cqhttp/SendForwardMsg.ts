@@ -17,6 +17,11 @@ interface Payload {
   messages?: OB11MessageNode[]
   message?: OB11MessageNode[]
   message_type?: 'group' | 'private'
+  // 合并转发自定义外显
+  source?: string
+  news?: { text: string }[]
+  summary?: string
+  prompt?: string
 }
 
 interface Response {
@@ -32,11 +37,15 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     messages: Schema.array(Schema.any()),
     message: Schema.array(Schema.any()),
     message_type: Schema.union(['group', 'private']),
+    source: Schema.string(),
+    news: Schema.array(Schema.object({ text: Schema.string() })),
+    summary: Schema.string(),
+    prompt: Schema.string(),
   })
 
   protected async _handle(payload: Payload) {
-    const messages = payload.messages ?? payload.message
-    if (!messages) {
+    const messages = (payload.messages?.length ? payload.messages : null) ?? payload.message
+    if (!messages || messages.length === 0) {
       throw new Error('未指定消息内容')
     }
     let contextMode = CreatePeerMode.Normal
@@ -122,7 +131,12 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
       }
     }
 
-    return fake ? await this.handleFakeForwardNode(peer, nodes) : await this.handleForwardNode(peer, nodes, msgInfos)
+    return fake ? await this.handleFakeForwardNode(peer, nodes, {
+      source: payload.source,
+      news: payload.news,
+      summary: payload.summary,
+      prompt: payload.prompt
+    }) : await this.handleForwardNode(peer, nodes, msgInfos)
   }
 
   private async getMessageNode(msgInfo: MsgInfo) {
@@ -141,7 +155,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
       throw new Error(`消息 ${shortId} 解析失败`)
     }
     return {
-      type: OB11MessageDataType.Node as OB11MessageDataType.Node,
+      type: OB11MessageDataType.Node as const,
       data: {
         name: obMsg.sender.nickname,
         uin: obMsg.sender.user_id,
@@ -162,11 +176,16 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     })
   }
 
-  private async handleFakeForwardNode(peer: Peer, nodes: OB11MessageNode[]): Promise<Response> {
+  private async handleFakeForwardNode(peer: Peer, nodes: OB11MessageNode[], options?: {
+    source?: string
+    news?: { text: string }[]
+    summary?: string
+    prompt?: string
+  }): Promise<Response> {
     const encoder = new MessageEncoder(this.ctx, peer)
-    const raw = await encoder.generate(nodes)
+    const raw = await encoder.generate(nodes, options)
     const resid = await this.ctx.app.pmhq.uploadForward(peer, raw.multiMsgItems)
-    const uuid = randomUUID()
+    const prompt = options?.prompt ?? '[聊天记录]'
     try {
       const msg = await this.ctx.app.sendMessage(this.ctx, peer, [{
         elementType: 10,
@@ -181,9 +200,9 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
               type: 'normal',
               width: 300,
             },
-            desc: '[聊天记录]',
+            desc: prompt,
             extra: JSON.stringify({
-              filename: uuid,
+              filename: raw.uuid,
               tsum: raw.tsum,
             }),
             meta: {
@@ -192,10 +211,10 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
                 resid,
                 source: raw.source,
                 summary: raw.summary,
-                uniseq: uuid,
+                uniseq: raw.uuid,
               },
             },
-            prompt: '[聊天记录]',
+            prompt,
             ver: '0.0.0.5',
             view: 'contact',
           }),

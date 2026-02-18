@@ -2,9 +2,11 @@ import { BaseAction, Schema } from '../BaseAction'
 import { readFile } from 'node:fs/promises'
 import { ActionName } from '../types'
 import { Peer, ElementType } from '@/ntqqapi/types'
+import { parseBool } from '@/common/utils'
 
 export interface GetFilePayload {
   file: string // 文件名或者fileUuid
+  download: boolean
 }
 
 export interface GetFileResponse {
@@ -17,7 +19,8 @@ export interface GetFileResponse {
 
 export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResponse> {
   payloadSchema = Schema.object({
-    file: Schema.string().required()
+    file: Schema.string().required(),
+    download: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(true)
   })
 
   protected async _handle(payload: GetFilePayload): Promise<GetFileResponse> {
@@ -29,17 +32,20 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
     }
 
     if (fileCache?.length) {
-      const downloadPath = await this.ctx.ntFileApi.downloadMedia(
-        fileCache[0].msgId,
-        fileCache[0].chatType,
-        fileCache[0].peerUid,
-        fileCache[0].elementId,
-        '',
-        ''
-      )
+      let downloadPath = ''
+      if (payload.download) {
+        downloadPath = await this.ctx.ntFileApi.downloadMedia(
+          fileCache[0].msgId,
+          fileCache[0].chatType,
+          fileCache[0].peerUid,
+          fileCache[0].elementId,
+          '',
+          ''
+        )
+      }
       const res: GetFileResponse = {
         file: downloadPath,
-        url: downloadPath,
+        url: '',
         file_size: fileCache[0].fileSize,
         file_name: fileCache[0].fileName,
       }
@@ -81,11 +87,12 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
 export default class GetFile extends GetFileBase {
   actionName = ActionName.GetFile
   payloadSchema = Schema.object({
-    file: Schema.string().required(false),
-    file_id: Schema.string().required(false),
+    file: Schema.string(),
+    file_id: Schema.string(),
+    download: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(true)
   })
 
-  protected async _handle(payload: { file_id: string, file: string }): Promise<GetFileResponse> {
+  protected async _handle(payload: { file_id: string, file: string, download: boolean }): Promise<GetFileResponse> {
     payload.file = payload.file || payload.file_id
     return super._handle(payload)
   }

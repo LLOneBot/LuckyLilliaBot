@@ -67,7 +67,7 @@ export class GetFlashFileInfo extends GetFlashFileInfoBase<Response> {
       for (const file2 of file.fileList) {
         files.push({
           name: file2.name,
-          size: parseInt(file2.fileSize),
+          size: +file2.fileSize,
         })
       }
     }
@@ -75,7 +75,7 @@ export class GetFlashFileInfo extends GetFlashFileInfoBase<Response> {
       file_set_id,
       title: fileInfo.name,
       share_link: fileInfo.shareInfo.shareLink,
-      total_file_size: parseInt(fileInfo.totalFileSize),
+      total_file_size: +fileInfo.totalFileSize,
       files,
     }
   }

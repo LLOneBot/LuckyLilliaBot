@@ -7,7 +7,8 @@ import { createEventSource, getLoginInfo } from '../../utils/webqqApi'
 import { useWebQQStore, resetVisitedChats } from '../../stores/webqqStore'
 import { appendCachedMessage, updateCachedMessageEmojiReaction, markCachedMessageAsRecalled } from '../../utils/messageDb'
 import { showToast } from '../common'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Maximize2 } from 'lucide-react'
+import { useSettingsStore } from '../../stores/settingsStore'
 
 // 从原始消息中提取摘要
 function extractMessageSummary(rawMessage: RawMessage): string {
@@ -37,7 +38,7 @@ function extractMessageSummary(rawMessage: RawMessage): string {
   return '[消息]'
 }
 
-const WebQQPage: React.FC = () => {
+const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false }) => {
   // 使用 ref 直接存储回调，避免 state 更新的异步问题
   const onNewMessageRef = React.useRef<((msg: RawMessage) => void) | null>(null)
   const onEmojiReactionRef = React.useRef<((data: { groupCode: string; msgSeq: string; emojiId: string; userId: string; userName: string; isAdd: boolean }) => void) | null>(null)
@@ -48,10 +49,11 @@ const WebQQPage: React.FC = () => {
   // 用于触发重新渲染的 state（当回调被设置时）
   const [, forceUpdate] = React.useState(0)
 
+  const { showWebQQFullscreenButton } = useSettingsStore()
+
   const {
     friendCategories,
     groups,
-    recentChats,
     contactsLoading,
     contactsError,
     currentChat,
@@ -67,6 +69,9 @@ const WebQQPage: React.FC = () => {
     loadContacts,
     setRecentChats
   } = useWebQQStore()
+  
+  // 单独订阅 recentChats 以确保更新时触发重新渲染
+  const recentChats = useWebQQStore(state => state.recentChats)
 
   // 用于从群成员面板 @ 成员
   const [appendInputText, setAppendInputText] = React.useState<string>('')
@@ -310,55 +315,68 @@ const WebQQPage: React.FC = () => {
   }
 
   return (
-    <div className="flex h-[calc(100vh-80px)] md:h-[calc(100vh-120px)] bg-theme-card backdrop-blur-xl rounded-none md:rounded-2xl overflow-hidden shadow-xl border border-theme">
-      {/* 联系人列表 - 移动端全屏，桌面端固定宽度 */}
-      <div className={`
-        w-full md:w-72 border-r border-theme-divider flex-shrink-0
-        ${showChatOnMobile ? 'hidden md:block' : 'block'}
-      `}>
-        <ContactList
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-          friendCategories={friendCategories}
-          groups={groups}
-          recentChats={recentChats}
-          unreadCounts={unreadCountsMap}
-          selectedPeerId={currentChat?.peerId}
-          onSelectFriend={handleSelectFriend}
-          onSelectGroup={handleSelectGroup}
-          onSelectRecent={handleSelectRecent}
-        />
-      </div>
-
-      {/* 聊天窗口 - 移动端全屏，桌面端自适应 */}
-      <div className={`
-        flex-1 flex flex-col min-w-0
-        ${showChatOnMobile ? 'block' : 'hidden md:flex'}
-      `}>
-        <ChatWindow
-          session={currentChat}
-          onShowMembers={() => setShowMemberPanel(!showMemberPanel)}
-          onNewMessageCallback={handleSetNewMessageCallback}
-          onEmojiReactionCallback={handleSetEmojiReactionCallback}
-          onMessageRecalledCallback={handleSetMessageRecalledCallback}
-          appendInputText={appendInputText}
-          onAppendInputTextConsumed={handleAppendInputTextConsumed}
-          onBack={handleBackToContacts}
-          showBackButton={showChatOnMobile}
-        />
-      </div>
-
-      {/* 群成员面板 - 桌面端侧边栏，移动端全屏覆盖 */}
-      {showMemberPanel && currentChat?.chatType === 2 && (
-        <div className="fixed inset-0 z-50 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-xl md:static md:inset-auto md:z-auto md:bg-transparent md:backdrop-blur-none md:w-64 md:border-l md:border-theme-divider md:flex-shrink-0">
-          <GroupMemberPanel 
-            groupCode={currentChat.peerId} 
-            onClose={() => setShowMemberPanel(false)} 
-            onAtMember={handleAtMember}
+    <>
+      <div className="flex h-[calc(100vh-80px)] md:h-[calc(100vh-120px)] bg-theme-card backdrop-blur-xl rounded-none md:rounded-2xl overflow-hidden shadow-xl border border-theme">
+        {/* 联系人列表 - 移动端全屏，桌面端固定宽度 */}
+        <div className={`
+          w-full md:w-72 border-r border-theme-divider flex-shrink-0
+          ${showChatOnMobile ? 'hidden md:block' : 'block'}
+        `}>
+          <ContactList
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            friendCategories={friendCategories}
+            groups={groups}
+            recentChats={recentChats}
+            unreadCounts={unreadCountsMap}
+            selectedPeerId={currentChat?.peerId}
+            onSelectFriend={handleSelectFriend}
+            onSelectGroup={handleSelectGroup}
+            onSelectRecent={handleSelectRecent}
           />
         </div>
+
+        {/* 聊天窗口 - 移动端全屏，桌面端自适应 */}
+        <div className={`
+          flex-1 flex flex-col min-w-0
+          ${showChatOnMobile ? 'block' : 'hidden md:flex'}
+        `}>
+          <ChatWindow
+            session={currentChat}
+            onShowMembers={() => setShowMemberPanel(!showMemberPanel)}
+            onNewMessageCallback={handleSetNewMessageCallback}
+            onEmojiReactionCallback={handleSetEmojiReactionCallback}
+            onMessageRecalledCallback={handleSetMessageRecalledCallback}
+            appendInputText={appendInputText}
+            onAppendInputTextConsumed={handleAppendInputTextConsumed}
+            onBack={handleBackToContacts}
+            showBackButton={showChatOnMobile}
+          />
+        </div>
+
+        {/* 群成员面板 - 桌面端侧边栏，移动端全屏覆盖 */}
+        {showMemberPanel && currentChat?.chatType === 2 && (
+          <div className="fixed inset-0 z-50 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-xl md:static md:inset-auto md:z-auto md:bg-transparent md:backdrop-blur-none md:w-64 md:border-l md:border-theme-divider md:flex-shrink-0">
+            <GroupMemberPanel 
+              groupCode={currentChat.peerId} 
+              onClose={() => setShowMemberPanel(false)} 
+              onAtMember={handleAtMember}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* 全屏按钮 - 固定在浏览器窗口右下角，仅在非全屏模式且设置开启时显示 */}
+      {!isFullscreen && showWebQQFullscreenButton && (
+        <button
+          onClick={() => window.open('#webqq-fullscreen', '_blank')}
+          className="fixed bottom-6 right-6 z-50 p-3 bg-pink-500/70 hover:bg-pink-500/90 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group backdrop-blur-sm"
+          title="在新窗口中全屏打开"
+        >
+          <Maximize2 size={20} className="group-hover:scale-110 transition-transform" />
+        </button>
       )}
-    </div>
+    </>
   )
 }
 

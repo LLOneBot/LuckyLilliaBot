@@ -11,6 +11,8 @@ import { Msg, Media } from '@/ntqqapi/proto'
 import faceConfig from '@/ntqqapi/helper/face_config.json'
 import { deflateSync } from 'node:zlib'
 import { InferProtoModelInput } from '@saltify/typeproto'
+import { getMd5HexFromFile } from '@/common/utils'
+import { createThumb } from '@/common/utils/video'
 
 export async function transformOutgoingMessage(
   ctx: Context,
@@ -68,7 +70,7 @@ export async function transformOutgoingMessage(
         let thumbTempPath: string | undefined = undefined
         if (segment.data.thumb_uri) {
           const thumbBuffer = await resolveMilkyUri(segment.data.thumb_uri)
-          const thumbTempPath = path.join(TEMP_DIR, `thumb-${randomUUID()}`)
+          thumbTempPath = path.join(TEMP_DIR, `thumb-${randomUUID()}`)
           await writeFile(thumbTempPath, thumbBuffer)
           deleteAfterSentFiles.push(thumbTempPath)
         }
@@ -103,10 +105,8 @@ export async function transformOutgoingForwardMessages(
 }
 
 class ForwardMessageEncoder {
-  static support = ['text', 'face', 'image', 'markdown', 'forward']
   results: InferProtoModelInput<typeof Msg.Message>[]
   children: InferProtoModelInput<typeof Msg.Elem>[]
-  deleteAfterSentFiles: string[]
   isGroup: boolean
   seq: number
   tsum: number
@@ -114,11 +114,11 @@ class ForwardMessageEncoder {
   news: { text: string }[]
   name?: string
   uin?: number
+  innerRaws: Awaited<ReturnType<ForwardMessageEncoder['generate']>>[] = []
 
   constructor(private ctx: Context, private peer: Peer) {
     this.results = []
     this.children = []
-    this.deleteAfterSentFiles = []
     this.isGroup = peer.chatType === 2
     this.seq = Math.trunc(Math.random() * 65430)
     this.tsum = 0
@@ -230,8 +230,9 @@ class ForwardMessageEncoder {
     }
   }
 
-  packForwardMessage(resid: string) {
-    const uuid = crypto.randomUUID()
+  packForwardMessage(resid: string, uuid?: string, options?: { source?: string; news?: { text: string }[]; summary?: string; prompt?: string }) {
+    const id = uuid ?? crypto.randomUUID()
+    const prompt = options?.prompt ?? '[聊天记录]'
     const content = JSON.stringify({
       app: 'com.tencent.multimsg',
       config: {
@@ -241,29 +242,39 @@ class ForwardMessageEncoder {
         type: 'normal',
         width: 300
       },
-      desc: '[聊天记录]',
+      desc: prompt,
       extra: JSON.stringify({
-        filename: uuid,
+        filename: id,
         tsum: 0,
       }),
       meta: {
         detail: {
-          news: [{
+          news: options?.news ?? [{
             text: '查看转发消息'
           }],
           resid,
-          source: '聊天记录',
-          summary: '查看转发消息',
-          uniseq: uuid,
+          source: options?.source ?? '聊天记录',
+          summary: options?.summary ?? '查看转发消息',
+          uniseq: id,
         }
       },
-      prompt: '[聊天记录]',
+      prompt,
       ver: '0.0.0.5',
       view: 'contact'
     })
     return {
       lightApp: {
         data: Buffer.concat([Buffer.from([1]), deflateSync(Buffer.from(content, 'utf-8'))])
+      }
+    }
+  }
+
+  packVideo(msgInfo: InferProtoModelInput<typeof Media.MsgInfo>) {
+    return {
+      commonElem: {
+        serviceType: 48,
+        pbElem: Media.MsgInfo.encode(msgInfo),
+        businessType: this.isGroup ? 21 : 11
       }
     }
   }
@@ -295,10 +306,38 @@ class ForwardMessageEncoder {
         const tempPath = path.join(TEMP_DIR, `image-${randomUUID()}`)
         await writeFile(tempPath, imageBuffer)
         const data = await this.ctx.ntFileApi.uploadRMFileWithoutMsg(tempPath, this.isGroup ? 4 : 3, this.isGroup ? this.peer.peerUid : selfInfo.uid)
-        unlink(tempPath).catch(e => { })
         const busiType = segment.data.sub_type === 'sticker' ? 1 : 0
         this.children.push(await this.packImage(data, busiType))
         this.preview += busiType === 1 ? '[动画表情]' : '[图片]'
+        unlink(tempPath).catch(e => { })
+      } else if (type === 'forward') {
+        const innerRaw = await this.generate(data.messages as OutgoingForwardedMessage[])
+        this.innerRaws.push(innerRaw)
+        const resid = await this.ctx.app.pmhq.uploadForward(this.peer, innerRaw.multiMsgItems)
+        this.children.push(this.packForwardMessage(resid, innerRaw.uuid, innerRaw))
+        this.preview += '[聊天记录]'
+      } else if (type === 'video') {
+        const videoBuffer = await resolveMilkyUri(segment.data.uri)
+        const tempPath = path.join(TEMP_DIR, `video-${randomUUID()}`)
+        await writeFile(tempPath, videoBuffer)
+        let thumbTempPath
+        if (segment.data.thumb_uri) {
+          const thumbBuffer = await resolveMilkyUri(segment.data.thumb_uri)
+          thumbTempPath = path.join(TEMP_DIR, `thumb-${randomUUID()}`)
+          await writeFile(thumbTempPath, thumbBuffer)
+        } else {
+          thumbTempPath = await createThumb(this.ctx, tempPath)
+        }
+        let data
+        if (this.isGroup) {
+          data = await this.ctx.ntFileApi.uploadGroupVideo(this.peer.peerUid, tempPath, thumbTempPath)
+        } else {
+          data = await this.ctx.ntFileApi.uploadC2CVideo(this.peer.peerUid, tempPath, thumbTempPath)
+        }
+        this.children.push(this.packVideo(data.msgInfo))
+        this.preview += '[视频]'
+        unlink(tempPath).catch(e => { })
+        unlink(thumbTempPath).catch(e => { })
       }
     }
     await this.flush()
@@ -317,18 +356,35 @@ class ForwardMessageEncoder {
     prompt?: string
   }) {
     await this.render(content)
+    const msg = this.results
+    const tsum = this.tsum
+    const news = this.news
+    this.results = []
+    this.tsum = 0
+    this.news = []
+    const multiMsgItems = [{
+      fileName: 'MultiMsg',
+      buffer: {
+        msg
+      }
+    }]
+    for (const raw of this.innerRaws) {
+      for (const item of raw.multiMsgItems) {
+        multiMsgItems.push({
+          fileName: item.fileName === 'MultiMsg' ? raw.uuid : item.fileName,
+          buffer: item.buffer
+        })
+      }
+    }
+    this.innerRaws = []
     return {
-      multiMsgItems: [{
-        fileName: 'MultiMsg',
-        buffer: {
-          msg: this.results
-        }
-      }],
-      tsum: this.tsum,
+      multiMsgItems,
+      tsum,
       source: options?.title ?? (this.isGroup ? '群聊的聊天记录' : '聊天记录'),
-      summary: options?.summary ?? `查看${this.tsum}条转发消息`,
-      news: options?.preview ?? this.news,
-      prompt: options?.prompt ?? '[聊天记录]'
+      summary: options?.summary ?? `查看${tsum}条转发消息`,
+      news: options?.preview ?? news,
+      prompt: options?.prompt ?? '[聊天记录]',
+      uuid: crypto.randomUUID()
     }
   }
 }

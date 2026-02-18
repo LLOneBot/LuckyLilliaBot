@@ -198,7 +198,6 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
     setContextMenu(null)
     try {
       await sendPoke(2, Number(member.uin), Number(groupCode))
-      showToast('戳一戳成功', 'success')
     } catch (e: any) {
       showToast(e.message || '戳一戳失败', 'error')
     }

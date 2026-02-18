@@ -3,7 +3,7 @@ import { GeneralCallResult } from './common'
 import { Dict } from 'cosmokit'
 
 export interface NodeIKernelProfileLikeService {
-  setBuddyProfileLike(...args: unknown[]): GeneralCallResult & { succCounts: number }
+  setBuddyProfileLike(...args: unknown[]): Promise<GeneralCallResult & { succCounts: number }>
 
   getBuddyProfileLike(req: BuddyProfileLikeReq): Promise<GeneralCallResult & {
     info: {

@@ -13,12 +13,25 @@ import type {
   ResListener,
 } from './types'
 
+type DisconnectCallback = (duration: number) => void
+
+interface DisconnectCallbackInfo {
+  timeout: number
+  callback: DisconnectCallback
+  triggered: boolean
+}
+
 export class PMHQBase {
   private reconnectTimer: NodeJS.Timeout | undefined
   protected httpUrl: string = 'http://127.0.0.1:13000'
   protected wsUrl: string = 'ws://127.0.0.1:13000/ws'
   protected ws: WebSocket | undefined
   private resListeners: Map<string, ResListener<any>> = new Map()
+  private disconnectCallbacks: Map<string, DisconnectCallbackInfo> = new Map()
+  private lastConnectedTime: number = Date.now()
+  private disconnectCheckTimer: NodeJS.Timeout | undefined
+  private hasConnectedOnce: boolean = false
+  private hasLoggedConnectionError: boolean = false
 
   constructor() {
     console.log(process.argv)
@@ -30,6 +43,47 @@ export class PMHQBase {
 
   public get_is_connected() {
     return this.ws && this.ws.readyState === WebSocket.OPEN
+  }
+
+  public onDisconnect(timeout: number, callback: DisconnectCallback): string {
+    const id = randomUUID()
+    this.disconnectCallbacks.set(id, { timeout, callback, triggered: false })
+    console.info(`[PMHQ] Registered disconnect callback ${id} with timeout ${timeout}ms`)
+    return id
+  }
+
+  public offDisconnect(id: string): void {
+    this.disconnectCallbacks.delete(id)
+  }
+
+  private startDisconnectMonitoring() {
+    if (this.disconnectCheckTimer) return
+
+    console.info('[PMHQ] Starting disconnect monitoring')
+    this.disconnectCheckTimer = setInterval(() => {
+      const isConnected = this.get_is_connected()
+
+      if (isConnected) {
+        this.lastConnectedTime = Date.now()
+        for (const info of this.disconnectCallbacks.values()) {
+          info.triggered = false
+        }
+      } else {
+        const disconnectedDuration = Date.now() - this.lastConnectedTime
+
+        for (const info of this.disconnectCallbacks.values()) {
+          if (!info.triggered && disconnectedDuration >= info.timeout) {
+            info.triggered = true
+            console.warn(`[PMHQ] Triggering disconnect callback, duration: ${disconnectedDuration}ms, timeout: ${info.timeout}ms`)
+            try {
+              info.callback(disconnectedDuration)
+            } catch (e) {
+              console.error('PMHQ disconnect callback error', e)
+            }
+          }
+        }
+      }
+    }, 5000)
   }
 
   private getPMHQHostPort() {
@@ -95,18 +149,33 @@ export class PMHQBase {
 
     this.ws.onerror = () => {
       selfInfo.online = false
-      console.error('PMHQ WebSocket 连接错误，可能 QQ 未启动', '正在等待 QQ 启动进行重连...')
+
+      if (!this.hasLoggedConnectionError) {
+        console.error('PMHQ WebSocket 连接错误，可能 QQ 未启动，正在等待 QQ 启动进行重连...')
+        this.hasLoggedConnectionError = true
+      }
+
       reconnect()
     }
 
     this.ws.onclose = () => {
       selfInfo.online = false
-      console.info('PMHQ WebSocket 连接关闭，准备重连...')
+
+      if (!this.hasLoggedConnectionError) {
+        console.info('PMHQ WebSocket 连接关闭，准备重连...')
+        this.hasLoggedConnectionError = true
+      }
+
       reconnect()
     }
 
     this.ws.onopen = () => {
       console.info('PMHQ WebSocket 连接成功')
+      this.hasLoggedConnectionError = false
+      if (!this.hasConnectedOnce) {
+        this.hasConnectedOnce = true
+        this.startDisconnectMonitoring()
+      }
     }
   }
 

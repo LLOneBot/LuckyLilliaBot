@@ -269,7 +269,6 @@ export const AvatarContextMenu: React.FC<AvatarContextMenuProps> = ({
               } else {
                 await sendPoke(info.chatType, parseInt(info.senderUin))
               }
-              showToast('戳一戳已发送', 'success')
             } catch (e: any) {
               showToast(e.message || '戳一戳失败', 'error')
             }

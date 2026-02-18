@@ -1,21 +1,118 @@
 import React from 'react'
-import { Config } from '../../types'
-import { Globe, FileText, Trash2, Music, Lock, Clock, Shield, Edit, Paperclip } from 'lucide-react'
+import { Config, EmailConfig } from '../../types'
+import { Globe, FileText, Trash2, Music, Lock, Clock, Shield, Edit, Paperclip, Server } from 'lucide-react'
+import { DurationPicker, HostSelector } from '../common'
+import EmailConfigSection from './EmailConfigSection'
 
 interface OtherConfigProps {
   config: Config;
+  emailConfig: EmailConfig | null;
   onChange: (config: Config) => void;
+  onEmailChange: (emailConfig: EmailConfig) => void;
   onOpenChangePassword: () => void;
 }
 
-const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, onOpenChangePassword }) => {
-
+const OtherConfig: React.FC<OtherConfigProps> = ({ config, emailConfig, onChange, onEmailChange, onOpenChangePassword }) => {
   const handleChange = (field: keyof Config, value: any) => {
     onChange({ ...config, [field]: value })
   }
 
+  const handleEmailChange = (newEmailConfig: EmailConfig) => {
+    // 如果端口为空，使用默认值 587
+    const normalizedConfig = {
+      ...newEmailConfig,
+      smtp: {
+        ...newEmailConfig.smtp,
+        port: newEmailConfig.smtp.port || 587
+      }
+    }
+    onEmailChange(normalizedConfig)
+  }
+
+  // 默认邮件配置
+  const defaultEmailConfig: EmailConfig = {
+    enabled: false,
+    smtp: {
+      host: '',
+      port: 587,
+      secure: false,
+      auth: {
+        user: '',
+        pass: '',
+      },
+    },
+    from: '',
+    to: '',
+  }
+
   return (
     <div className='space-y-6'>
+      {/* WebUI 服务配置 */}
+      <div className='card p-6 relative z-[100]'>
+        <div className='flex items-center gap-3 mb-6'>
+          <div className='w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center'>
+            <Server size={20} className='text-white' />
+          </div>
+          <div>
+            <h3 className='text-lg font-semibold text-theme'>WebUI 服务</h3>
+            <p className='text-sm text-theme-secondary'>WebUI 访问地址和端口配置，如果是 Docker 不建议更改此项，否则可能无法访问</p>
+          </div>
+        </div>
+
+        <div className='space-y-4'>
+          <label className='block'>
+            <div className='flex items-center gap-2 mb-2'>
+              <Globe size={16} className='text-blue-600' />
+              <span className='text-sm font-medium text-theme-secondary'>监听地址</span>
+            </div>
+            <HostSelector 
+              value={config.webui?.host ?? '127.0.0.1'} 
+              onChange={(host) => {
+                onChange({ 
+                  ...config, 
+                  webui: { 
+                    enable: config.webui?.enable ?? true, 
+                    port: config.webui?.port || 6099, 
+                    host 
+                  } 
+                });
+              }} 
+            />
+            <p className='text-xs text-theme-muted mt-2'>选择 WebUI 监听的网络地址</p>
+          </label>
+
+          <label className='block'>
+            <div className='flex items-center gap-2 mb-2'>
+              <Server size={16} className='text-blue-600' />
+              <span className='text-sm font-medium text-theme-secondary'>端口</span>
+            </div>
+            <input 
+              type='number' 
+              value={config.webui?.port || 6099} 
+              onChange={(e) => onChange({ 
+                ...config, 
+                webui: { 
+                  enable: config.webui?.enable ?? true, 
+                  host: config.webui?.host || '127.0.0.1',
+                  port: parseInt(e.target.value) 
+                } 
+              })} 
+              min='1' 
+              max='65535' 
+              className='input-field' 
+              placeholder='6099' 
+            />
+            <p className='text-xs text-theme-muted mt-1'>WebUI 服务端口（1-65535）</p>
+          </label>
+        </div>
+      </div>
+
+      {/* 邮件通知 */}
+      <EmailConfigSection 
+        value={emailConfig || defaultEmailConfig} 
+        onChange={handleEmailChange} 
+      />
+
       {/* 系统功能 */}
       <div className='card p-6'>
         <div className='flex items-center gap-3 mb-6'>
@@ -38,16 +135,6 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, onOpenChang
               </div>
             </div>
             <input type='checkbox' checked={config.log} onChange={(e) => handleChange('log', e.target.checked)} className="switch-toggle" />
-          </div>
-          <div className='flex items-center justify-between p-4 bg-theme-item rounded-xl bg-item-hover transition-colors'>
-            <div className='flex items-center gap-3'>
-              <Globe size={20} className='text-pink-500' />
-              <div>
-                <div className='text-sm font-medium text-theme'>只监听本地地址</div>
-                <div className='text-xs text-theme-muted mt-0.5'>取消后可能会暴露在公网</div>
-              </div>
-            </div>
-            <input type='checkbox' checked={config.onlyLocalhost} onChange={(e) => handleChange('onlyLocalhost', e.target.checked)} className="switch-toggle" />
           </div>
           <div className='flex items-center justify-between p-4 bg-theme-item rounded-xl bg-item-hover transition-colors'>
             <div className='flex items-center gap-3'>
@@ -116,10 +203,15 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, onOpenChang
         <label className='block'>
           <div className='flex items-center gap-2 mb-2'>
             <Clock size={16} className='text-pink-500' />
-            <span className='text-sm font-medium text-theme-secondary'>消息缓存过期时间（秒）</span>
+            <span className='text-sm font-medium text-theme-secondary'>消息缓存过期时间</span>
           </div>
-          <input type='number' value={config.msgCacheExpire} onChange={(e) => handleChange('msgCacheExpire', parseInt(e.target.value))} min='1' max='86400' className='input-field' placeholder='3600' />
-          <p className='text-xs text-theme-muted mt-1'>消息在缓存中保留的时间（1-86400秒）</p>
+          <DurationPicker 
+            value={config.msgCacheExpire || 120} 
+            onChange={(seconds) => handleChange('msgCacheExpire', seconds)} 
+            maxDays={1}
+            showSeconds={false}
+          />
+          <p className='text-xs text-theme-muted mt-2'>消息在缓存中保留的时间，最长1天</p>
         </label>
       </div>
 

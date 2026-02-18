@@ -12,21 +12,22 @@ export type {
   WsReverseConnectConfig,
   HttpConnectConfig,
   HttpPostConnectConfig,
+  EmailConfig,
 } from '@common/types'
 
 // 从后端类型导出（使用相对路径）
 export type { SelfInfo } from '../../../ntqqapi/types/user'
 export type { ResConfig, ReqConfig } from '../../BE/types'
 
-// 前端使用的 WebUIConfig 类型（只包含 token）
+// 前端使用的 WebUIConfig 类型（与后端一致）
 export interface WebUIConfig {
   enable: boolean
+  host: string
+  port: number
 }
 
-// 前端使用的 Config 类型（webui 字段使用前端版本）
-export type Config = Omit<BackendConfig, 'webui'> & {
-  webui: WebUIConfig
-}
+// 前端使用的 Config 类型（与后端一致）
+export type Config = BackendConfig
 
 // 连接配置联合类型
 export type ConnectConfig =

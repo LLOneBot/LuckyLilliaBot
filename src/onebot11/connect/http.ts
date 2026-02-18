@@ -52,7 +52,7 @@ class OB11Http {
       this.expressAPP.get('/', (req: Request, res: Response) => {
         res.send(`ok`)
       })
-      const host = this.config.onlyLocalhost ? '127.0.0.1' : ''
+      const host = this.config.host
       this.expressAPP.get('/_events', (req: Request, res: Response) => {
         res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
         res.setHeader('Cache-Control', 'no-cache')
@@ -224,7 +224,6 @@ class OB11Http {
 namespace OB11Http {
   export interface Config extends HttpConnectConfig {
     actionMap: Map<string, BaseAction<unknown, unknown>>
-    onlyLocalhost: boolean
   }
 }
 

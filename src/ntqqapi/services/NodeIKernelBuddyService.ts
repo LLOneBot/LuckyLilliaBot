@@ -62,4 +62,6 @@ export interface NodeIKernelBuddyService {
   }>
 
   getBuddyNick(uids: string[]): Promise<Map<string, string>>
+
+  setTop(uid: string, isTop: boolean): Promise<GeneralCallResult>
 }

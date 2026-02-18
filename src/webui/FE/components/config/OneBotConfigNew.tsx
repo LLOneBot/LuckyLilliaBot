@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
-import { OB11Config, ConnectConfig, WsConnectConfig, WsReverseConnectConfig, HttpConnectConfig, HttpPostConnectConfig, Config } from '../../types';
+import { OB11Config, ConnectConfig, WsConnectConfig, WsReverseConnectConfig, HttpConnectConfig, HttpPostConnectConfig } from '../../types';
 import { Radio, Wifi, Globe, Send, X, Settings, Plus, Trash2, Edit2, Eye, EyeOff } from 'lucide-react';
-import { Portal } from '../common';
+import { Portal, HostSelector } from '../common';
 import { showToast } from '../common';
 
 interface OneBotConfigProps {
   config: OB11Config;
   onChange: (config: OB11Config) => void;
   onSave: (config?: OB11Config) => void;
-  globalConfig: Config;
 }
 
-const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave, globalConfig }) => {
+const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave }) => {
   const [selectedAdapter, setSelectedAdapter] = useState<ConnectConfig | null>(null);
   const [selectedAdapterIndex, setSelectedAdapterIndex] = useState<number>(-1);
   const [showDialog, setShowDialog] = useState(false);
@@ -58,9 +57,12 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
   const handleSaveAdapter = () => {
     if (!selectedAdapter) return;
 
+    // 检查：如果监听所有地址且是 ws/http 类型，token 必须设置
     const needsTokenValidation = selectedAdapter.type === 'ws' || selectedAdapter.type === 'http';
-    if (needsTokenValidation && !globalConfig.onlyLocalhost && !selectedAdapter.token?.trim()) {
-      showToast('当"只监听本地地址"关闭时，必须设置 Token！', 'error');
+    const adapterHost = (selectedAdapter as WsConnectConfig | HttpConnectConfig).host;
+    const isListenAll = !adapterHost || adapterHost === '0.0.0.0' || adapterHost === '::';
+    if (needsTokenValidation && isListenAll && !selectedAdapter.token?.trim()) {
+      showToast('监听全部地址时必须设置 Token', 'error');
       return;
     }
 
@@ -110,13 +112,13 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
     let newAdapter: ConnectConfig;
     switch (type) {
       case 'ws':
-        newAdapter = { ...baseConfig, type: 'ws', port: 3001, heartInterval: 60000 };
+        newAdapter = { ...baseConfig, type: 'ws', host: '', port: 3001, heartInterval: 60000 };
         break;
       case 'ws-reverse':
         newAdapter = { ...baseConfig, type: 'ws-reverse', url: '', heartInterval: 60000 };
         break;
       case 'http':
-        newAdapter = { ...baseConfig, type: 'http', port: 3000 };
+        newAdapter = { ...baseConfig, type: 'http', host: '', port: 3000 };
         break;
       case 'http-post':
         newAdapter = { ...baseConfig, type: 'http-post', url: '', enableHeart: false, heartInterval: 60000 };
@@ -140,10 +142,13 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
     <div className="space-y-6">
       {/* 总开关 */}
       <div className="card p-6">
-        <label className="flex items-center justify-between">
-          <div>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="w-12 h-12 rounded-xl gradient-primary-br flex items-center justify-center">
+            <Radio size={24} className="text-white" />
+          </div>
+          <div className="flex-1">
             <h3 className="text-lg font-semibold text-theme">OneBot 11 协议</h3>
-            <p className="text-sm text-theme-secondary mt-1">启用或禁用 OneBot 11 适配器</p>
+            <p className="text-sm text-theme-secondary">启用或禁用 OneBot 11 适配器</p>
           </div>
           <input
             type="checkbox"
@@ -155,7 +160,7 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
             }}
             className="switch-toggle-lg"
           />
-        </label>
+        </div>
       </div>
 
       {/* 适配器卡片 */}
@@ -243,7 +248,7 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
             <div className="flex items-center justify-between p-6 border-b border-white/20 dark:border-neutral-700/50">
               <div className="flex items-center gap-3 flex-1">
                 {editingName ? (
-                  <div className="flex items-center gap-2 flex-1">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
                     <input
                       type="text"
                       value={tempName}
@@ -256,8 +261,10 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
                       className="flex-1 px-3 py-2 border border-theme-input rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500 bg-theme-input text-theme"
                       autoFocus
                     />
-                    <button onClick={handleSaveName} className="px-4 py-2 bg-pink-500 text-white rounded-xl hover:bg-pink-600 transition-colors">确定</button>
-                    <button onClick={handleCancelEditName} className="px-4 py-2 bg-theme-item text-theme-secondary rounded-xl hover:bg-theme-item-hover transition-colors">取消</button>
+                    <div className="flex gap-2 sm:flex-shrink-0">
+                      <button onClick={handleSaveName} className="flex-1 sm:flex-none px-4 py-2 bg-pink-500 text-white rounded-xl hover:bg-pink-600 transition-colors whitespace-nowrap">确定</button>
+                      <button onClick={handleCancelEditName} className="flex-1 sm:flex-none px-4 py-2 bg-theme-item text-theme-secondary rounded-xl hover:bg-theme-item-hover transition-colors whitespace-nowrap">取消</button>
+                    </div>
                   </div>
                 ) : (
                   <>
@@ -288,6 +295,10 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
               {selectedAdapter.type === 'ws' && (
                 <>
                   <div>
+                    <label className="block text-sm font-medium text-theme-secondary mb-2">监听地址</label>
+                    <HostSelector value={(selectedAdapter as WsConnectConfig).host || ''} onChange={(host) => updateSelectedAdapter('host', host)} />
+                  </div>
+                  <div>
                     <label className="block text-sm font-medium text-theme-secondary mb-2">端口</label>
                     <input type="number" value={(selectedAdapter as WsConnectConfig).port} onChange={(e) => updateSelectedAdapter('port', parseInt(e.target.value))} className="input-field" />
                   </div>
@@ -314,10 +325,16 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
 
               {/* HTTP */}
               {selectedAdapter.type === 'http' && (
-                <div>
-                  <label className="block text-sm font-medium text-theme-secondary mb-2">端口</label>
-                  <input type="number" value={(selectedAdapter as HttpConnectConfig).port} onChange={(e) => updateSelectedAdapter('port', parseInt(e.target.value))} className="input-field" />
-                </div>
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-theme-secondary mb-2">监听地址</label>
+                    <HostSelector value={(selectedAdapter as HttpConnectConfig).host || ''} onChange={(host) => updateSelectedAdapter('host', host)} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-theme-secondary mb-2">端口</label>
+                    <input type="number" value={(selectedAdapter as HttpConnectConfig).port} onChange={(e) => updateSelectedAdapter('port', parseInt(e.target.value))} className="input-field" />
+                  </div>
+                </>
               )}
 
               {/* HTTP上报 */}
