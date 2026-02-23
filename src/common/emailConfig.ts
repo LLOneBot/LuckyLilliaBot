@@ -57,7 +57,7 @@ export class EmailConfigManager {
 
       const content = await readFile(this.configPath, 'utf-8')
       this.config = JSON.parse(content)
-      this.logger?.info('[EmailConfig] Configuration loaded successfully')
+      // this.logger?.info('[EmailConfig] Configuration loaded successfully')
       return this.config!
     } catch (error) {
       this.logger?.error('[EmailConfig] Failed to load configuration:', error)

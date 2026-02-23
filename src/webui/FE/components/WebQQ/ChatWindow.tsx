@@ -289,7 +289,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
         
         // 检查是否是自己发送的消息
         const selfUid = getSelfUid()
-        const isSelfMessage = msg.senderUid === selfUid
         
         setMessages(prev => {
           if (prev.some(m => m && m.msgId === msg.msgId)) return prev
@@ -299,31 +298,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
           return newMessages
         })
         
-        // 如果是自己发送的消息，移除对应的临时消息
-        // 使用时间戳匹配：SSE 消息时间应该在临时消息时间附近（5秒内）
-        if (isSelfMessage) {
-          const msgTime = parseInt(msg.msgTime) * 1000
+        // 注：临时消息已在 ChatInput.sendMessage 成功后立即移除，
+        // SSE 消息达到时应该没有待移除的临时消息。此处保留防御性代码。
+        // 在极端情况下（如快速重连），可能仍有未移除的临时消息，此时将其全部移除。
+        if (msg.senderUid === selfUid) {
           setTempMessages(prev => {
-            // 找到时间最接近的 sending 状态的临时消息并移除
             const sendingMsgs = prev.filter(t => t.status === 'sending')
             if (sendingMsgs.length === 0) return prev
-            
-            // 找时间差最小的
-            let closestIdx = -1
-            let minDiff = Infinity
-            sendingMsgs.forEach((t, idx) => {
-              const diff = Math.abs(msgTime - t.timestamp)
-              if (diff < minDiff && diff < 5000) { // 5秒内
-                minDiff = diff
-                closestIdx = idx
-              }
-            })
-            
-            if (closestIdx >= 0) {
-              const toRemove = sendingMsgs[closestIdx]
-              return prev.filter(t => t.msgId !== toRemove.msgId)
-            }
-            return prev
+            // 移除所有"发送中"状态的临时消息，因为此时收到了真实的消息，临时消息应该已清除
+            console.warn(`[SSE] 收到自己的消息时，仍存在 ${sendingMsgs.length} 条临时消息，现已清除`, sendingMsgs)
+            return prev.filter(t => t.status !== 'sending')
           })
         }
       }

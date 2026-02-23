@@ -1,7 +1,11 @@
 V7.9.1
-更新时间 2026-02-
+更新时间 2026-02-23
 
 * Milky 给 `group_message_reaction` 事件增加了字段 `reaction_type`，含义与 `send_group_message_reaction` 中的 `reaction_type` 参数相同
+* CLI 支持 `--qq-args` 参数，用于传递额外命令行参数给 QQ，详情见 `llbot --help`
+* Windows CLI 支持自动更改控制台标题为 <nickname>(<qq>)
+* 修复 CLI 自动更新失败
+* WebQQ 修复发送消息后偶现有两条重复消息，有一条一直显示发送中
 
 =================
 V7.9.0

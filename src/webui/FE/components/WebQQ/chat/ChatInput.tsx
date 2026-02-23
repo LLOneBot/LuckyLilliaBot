@@ -170,7 +170,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
       
       if (content.length === 0) { onTempMessageRemove(tempId); return }
       await sendMessage({ chatType: session.chatType, peerId: session.peerId, content })
-      // 发送成功后不移除临时消息，等待 SSE 消息到达时自动替换
+      // 发送成功后立即移除临时消息，避免与SSE消息重复显示
+      onTempMessageRemove(tempId)
     } catch (e: any) {
       showToast('发送失败', 'error')
       onTempMessageFail(tempId)
@@ -224,7 +225,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
         peerId: session.peerId, 
         content: [{ type: 'file', filePath: uploadResult.filePath, fileName: uploadResult.fileName }] 
       })
-      // 发送成功后不移除临时消息，等待 SSE 消息到达时自动替换
+      // 发送成功后立即移除临时消息，避免与SSE消息重复显示
+      onTempMessageRemove(tempId)
     } catch (e: any) {
       showToast('发送失败', 'error')
       onTempMessageFail(tempId)

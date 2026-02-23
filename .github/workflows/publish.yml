@@ -17,6 +17,7 @@ on:
           - linux-x64
           - linux-arm64
           - macos-arm64
+          - macos-desktop-arm64
 
 jobs:
   build-and-release:
@@ -152,6 +153,20 @@ jobs:
           rm QQ-macos.zip
           tar -cJvf ../LLBot-CLI-macos-arm64.tar.xz ./*
 
+      - name: Compress for macOS Desktop arm64
+        if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'macos-desktop-arm64' || startsWith(github.ref, 'refs/tags/') }}
+        run: |
+          mkdir llbot-desktop-macos-arm64
+          cd llbot-desktop-macos-arm64
+          mkdir -p bin/llbot
+          cp ../doc/使用说明.txt ./使用说明.txt
+          cp ../dist/更新日志.txt ./
+          cp -r ../dist/* ./bin/llbot/
+          wget https://github.com/LLOneBot/LuckyLilliaDesktop.Avalonia/releases/latest/download/lucky-lillia-desktop-macos-arm64.tar.gz
+          tar -xzvf lucky-lillia-desktop-macos-arm64.tar.gz
+          rm lucky-lillia-desktop-macos-arm64.tar.gz
+          tar -cJvf ../LLBot-Desktop-macos-arm64.tar.xz ./*
+
       - name: Compress for Docker
         run: |
           cp script/install-llbot-docker.sh LLBot-Docker.sh
@@ -205,6 +220,14 @@ jobs:
           path: LLBot-CLI-macos-arm64.tar.xz
           retention-days: 30
 
+      - name: Upload LLBot-Desktop-macos-arm64.tar.xz
+        if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'macos-desktop-arm64') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: LLBot-Desktop-macos-arm64
+          path: LLBot-Desktop-macos-arm64.tar.xz
+          retention-days: 30
+
       - name: Upload LLBot-Docker.sh
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
@@ -238,7 +261,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: ncipollo/release-action@v1
         with:
-          artifacts: 'LLBot.zip, LLBot-Desktop-win-x64.zip, LLBot-CLI-win-x64.zip, LLBot-CLI-linux-x64.zip, LLBot-CLI-linux-arm64.zip, LLBot-CLI-macos-arm64.tar.xz, LLBot-Docker.sh'
+          artifacts: 'LLBot.zip, LLBot-Desktop-win-x64.zip, LLBot-Desktop-macos-arm64.tar.xz, LLBot-CLI-win-x64.zip, LLBot-CLI-linux-x64.zip, LLBot-CLI-linux-arm64.zip, LLBot-CLI-macos-arm64.tar.xz, LLBot-Docker.sh'
           draft: true
           token: ${{ secrets.RELEASE_TOKEN }}
           name: LuckyLilliaBot v${{ steps.get-version.outputs.VERSION }}

@@ -48,7 +48,7 @@ export class PMHQBase {
   public onDisconnect(timeout: number, callback: DisconnectCallback): string {
     const id = randomUUID()
     this.disconnectCallbacks.set(id, { timeout, callback, triggered: false })
-    console.info(`[PMHQ] Registered disconnect callback ${id} with timeout ${timeout}ms`)
+    // console.info(`[PMHQ] Registered disconnect callback ${id} with timeout ${timeout}ms`)
     return id
   }
 
@@ -59,7 +59,7 @@ export class PMHQBase {
   private startDisconnectMonitoring() {
     if (this.disconnectCheckTimer) return
 
-    console.info('[PMHQ] Starting disconnect monitoring')
+    // console.info('[PMHQ] Starting disconnect monitoring')
     this.disconnectCheckTimer = setInterval(() => {
       const isConnected = this.get_is_connected()
 
