@@ -97,14 +97,14 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
   const recentChats = useWebQQStore(state => state.recentChats)
 
   // 用于从群成员面板 @ 成员
-  const [appendInputText, setAppendInputText] = React.useState<string>('')
+  const [appendInputMention, setAppendInputMention] = React.useState<{ uid: string; uin: string; name: string } | null>(null)
 
-  const handleAtMember = useCallback((name: string) => {
-    setAppendInputText(`@${name} `)
+  const handleAtMember = useCallback((member: { uid: string; uin: string; name: string }) => {
+    setAppendInputMention(member)
   }, [])
 
-  const handleAppendInputTextConsumed = useCallback(() => {
-    setAppendInputText('')
+  const handleAppendInputMentionConsumed = useCallback(() => {
+    setAppendInputMention(null)
   }, [])
 
   useEffect(() => {
@@ -370,8 +370,8 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
             onNewMessageCallback={handleSetNewMessageCallback}
             onEmojiReactionCallback={handleSetEmojiReactionCallback}
             onMessageRecalledCallback={handleSetMessageRecalledCallback}
-            appendInputText={appendInputText}
-            onAppendInputTextConsumed={handleAppendInputTextConsumed}
+            appendInputMention={appendInputMention}
+            onAppendInputMentionConsumed={handleAppendInputMentionConsumed}
             onBack={handleBackToContacts}
             showBackButton={showChatOnMobile}
           />

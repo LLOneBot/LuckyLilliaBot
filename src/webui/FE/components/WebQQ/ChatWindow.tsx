@@ -93,15 +93,15 @@ interface ChatWindowProps {
   onNewMessageCallback?: (callback: ((msg: RawMessage) => void) | null) => void
   onEmojiReactionCallback?: (callback: ((data: EmojiReactionData) => void) | null) => void
   onMessageRecalledCallback?: (callback: ((data: { msgId: string; msgSeq: string }) => void) | null) => void
-  appendInputText?: string
-  onAppendInputTextConsumed?: () => void
+  appendInputMention?: { uid: string; uin: string; name: string } | null
+  onAppendInputMentionConsumed?: () => void
   onBack?: () => void
   showBackButton?: boolean
 }
 
 type MessageItem = { type: 'raw'; data: RawMessage } | { type: 'temp'; data: TempMessage } | { type: 'system'; data: SystemTip }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMessageCallback, onEmojiReactionCallback, onMessageRecalledCallback, appendInputText, onAppendInputTextConsumed, onBack, showBackButton }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMessageCallback, onEmojiReactionCallback, onMessageRecalledCallback, appendInputMention, onAppendInputMentionConsumed, onBack, showBackButton }) => {
   const [messages, setMessages] = useState<RawMessage[]>([])
   const [tempMessages, setTempMessages] = useState<TempMessage[]>([])
   const [systemTips, setSystemTips] = useState<SystemTip[]>([])
@@ -721,6 +721,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   const handleTempMessageFail = useCallback((msgId: string) => {
     setTempMessages(prev => prev.map(t => t.msgId === msgId ? { ...t, status: 'failed' as const } : t))
   }, [])
+
+  useEffect(() => {
+    if (!appendInputMention) return
+    chatInputRef.current?.insertAt?.(appendInputMention.uid, appendInputMention.uin, appendInputMention.name)
+    chatInputRef.current?.focus?.()
+    onAppendInputMentionConsumed?.()
+  }, [appendInputMention, onAppendInputMentionConsumed])
 
   if (!session) {
     return (

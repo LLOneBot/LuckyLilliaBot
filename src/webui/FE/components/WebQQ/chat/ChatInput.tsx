@@ -11,6 +11,7 @@ import type { TempMessageItem } from '../message/MessageBubble'
 
 export interface ChatInputRef {
   insertAt: (uid: string, uin: string, name: string) => void
+  insertText: (text: string) => void
   focus: () => void
 }
 
@@ -54,6 +55,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
   useImperativeHandle(ref, () => ({
     insertAt: (uid: string, uin: string, name: string) => {
       richInputRef.current?.insertAt(uid, uin, name)
+    },
+    insertText: (text: string) => {
+      richInputRef.current?.insertText(text)
     },
     focus: () => {
       richInputRef.current?.focus()

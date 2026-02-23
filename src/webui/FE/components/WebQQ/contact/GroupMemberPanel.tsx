@@ -11,7 +11,7 @@ import { UserProfileCard } from '../profile'
 interface GroupMemberPanelProps {
   groupCode: string
   onClose: () => void
-  onAtMember?: (name: string) => void
+  onAtMember?: (member: { uid: string; uin: string; name: string }) => void
 }
 
 interface MemberContextMenuInfo {
@@ -186,8 +186,12 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
 
   const handleAtMember = useCallback(() => {
     if (contextMenu && onAtMember) {
-      const name = contextMenu.member.card || contextMenu.member.nickname
-      onAtMember(name)
+      const member = contextMenu.member
+      onAtMember({
+        uid: member.uid,
+        uin: member.uin,
+        name: member.card || member.nickname
+      })
     }
     setContextMenu(null)
   }, [contextMenu, onAtMember])
