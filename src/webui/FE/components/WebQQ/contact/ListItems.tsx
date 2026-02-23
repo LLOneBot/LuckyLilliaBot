@@ -233,9 +233,10 @@ interface GroupListItemProps {
   onClick: () => void
   showPinnedStyle?: boolean
   unreadCount?: number
+  subtitle?: string
 }
 
-export const GroupListItem: React.FC<GroupListItemProps> = ({ group, isSelected, onClick, showPinnedStyle = false, unreadCount = 0 }) => {
+export const GroupListItem: React.FC<GroupListItemProps> = ({ group, isSelected, onClick, showPinnedStyle = false, unreadCount = 0, subtitle }) => {
   const { togglePinChat } = useWebQQStore()
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -298,7 +299,7 @@ export const GroupListItem: React.FC<GroupListItemProps> = ({ group, isSelected,
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm font-medium text-theme truncate">{group.groupName}</div>
-          <div className="text-xs text-theme-hint">{group.memberCount} 人</div>
+          <div className="text-xs text-theme-hint truncate">{subtitle || `${group.memberCount} 人`}</div>
         </div>
       </div>
 

@@ -175,16 +175,6 @@ export async function getRecentChats(): Promise<RecentChatItem[]> {
         pinned
       }
     })
-    .filter(item => {
-      // 过滤掉群助手的群（msgMask === 2）
-      if (item.chatType === 2) {
-        const group = groupsData.find(g => g.groupCode === item.peerId)
-        if (group && group.msgMask === 2) {
-          return false
-        }
-      }
-      return true
-    })
   
   // 添加置顶但不在最近联系列表中的群聊（排除群助手的群）
   toppedGroups.forEach(group => {
@@ -231,17 +221,49 @@ export async function getRecentChats(): Promise<RecentChatItem[]> {
 }
 
 // 提取消息摘要
-function extractAbstractContent(abstractContent: any[]): string {
-  if (!abstractContent || !Array.isArray(abstractContent)) return ''
-  return abstractContent
-    .map(item => {
-      if (item.type === 1) return item.content || ''
-      if (item.type === 2) return '[图片]'
-      if (item.type === 3) return '[表情]'
-      if (item.type === 6) return '[文件]'
-      return ''
-    })
-    .join('')
+function extractAbstractContent(abstractContent: any): string {
+  const extractFromItem = (item: any): string => {
+    if (!item) return ''
+    if (typeof item === 'string') return item
+
+    const textContent =
+      item.content ||
+      item.text ||
+      item.recentAbstract ||
+      item.textElement?.content ||
+      item.grayTipElement?.jsonGrayTipElement?.recentAbstract
+    if (typeof textContent === 'string' && textContent.trim()) {
+      return textContent
+    }
+
+    if (item.picElement || item.imageElement || item.type === 2 || item.elementType === 2) {
+      return '[图片]'
+    }
+    if (item.faceElement || item.marketFaceElement || item.type === 3 || item.elementType === 6) {
+      return '[表情]'
+    }
+    if (item.fileElement || item.type === 6 || item.elementType === 3) {
+      return '[文件]'
+    }
+    if (item.pttElement || item.voiceElement || item.elementType === 4) {
+      return '[语音]'
+    }
+    if (item.videoElement || item.elementType === 5) {
+      return '[视频]'
+    }
+
+    return ''
+  }
+
+  if (!abstractContent) return '[消息]'
+
+  if (Array.isArray(abstractContent)) {
+    const content = abstractContent.map(extractFromItem).filter(Boolean).join('')
+    return content || '[消息]'
+  }
+
+  const singleContent = extractFromItem(abstractContent)
+  return singleContent || '[消息]'
 }
 
 // 获取消息历史
