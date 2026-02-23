@@ -38,6 +38,7 @@ const ContactList: React.FC<ContactListProps> = ({
   
   // 单独订阅 groupLastTimeMap 以确保更新时触发重新渲染
   const groupLastTimeMap = useWebQQStore(state => state.groupLastTimeMap)
+  const groupLastMessageMap = useWebQQStore(state => state.groupLastMessageMap)
 
   // 过滤后的好友分组
   const filteredCategories = useMemo(() => {
@@ -115,7 +116,9 @@ const ContactList: React.FC<ContactListProps> = ({
         {activeTab === 'recent' && groupAssistantMode === 'assistant' && (
           <GroupAssistantList
             groups={groups}
+            recentChats={recentChats}
             groupLastTimeMap={groupLastTimeMap}
+            groupLastMessageMap={groupLastMessageMap}
             unreadCounts={unreadCounts}
             selectedPeerId={selectedPeerId}
             onSelect={onSelectGroup}
@@ -217,10 +220,11 @@ interface GroupListProps {
   selectedPeerId?: string
   onSelect: (group: GroupItem) => void
   groupLastTimeMap?: Record<string, number>  // 群最后消息时间映射
+  subtitleMap?: Record<string, string>
   showPinnedStyle?: boolean
 }
 
-const GroupList: React.FC<GroupListProps> = ({ items, unreadCounts, selectedPeerId, onSelect, groupLastTimeMap, showPinnedStyle = false }) => {
+const GroupList: React.FC<GroupListProps> = ({ items, unreadCounts, selectedPeerId, onSelect, groupLastTimeMap, subtitleMap, showPinnedStyle = false }) => {
   // 按置顶状态和最后消息时间排序
   const sortedItems = useMemo(() => {
     const sorted = [...items].sort((a, b) => {
@@ -265,6 +269,7 @@ const GroupList: React.FC<GroupListProps> = ({ items, unreadCounts, selectedPeer
             onClick={() => onSelect(group)}
             showPinnedStyle={showPinnedStyle}
             unreadCount={unreadCount}
+            subtitle={subtitleMap?.[group.groupCode]}
           />
         )
       })}
@@ -304,6 +309,17 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
   const groupAssistantCount = useMemo(() => {
     return groups.filter(g => g.msgMask === 2).length
   }, [groups])
+
+  // 最近会话主列表中隐藏“收进群助手”的群
+  const visibleRecentItems = useMemo(() => {
+    return items.filter(item => {
+      if (item.chatType !== 2) {
+        return true
+      }
+      const group = groups.find(g => g.groupCode === item.peerId)
+      return group?.msgMask !== 2
+    })
+  }, [items, groups])
 
   // 获取显示名称（优先显示备注）
   const getDisplayName = (item: RecentChatItem): string => {
@@ -353,7 +369,7 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
     }
   }
 
-  if (items.length === 0) {
+  if (visibleRecentItems.length === 0 && groupAssistantCount === 0) {
     return (
       <div className="flex items-center justify-center h-32 text-theme-hint text-sm">
         暂无最近会话
@@ -390,7 +406,7 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
         </div>
       )}
       
-      {items.map(item => (
+      {visibleRecentItems.map(item => (
         <RecentListItem
           key={`${item.chatType}_${item.peerId}`}
           item={item}
@@ -498,18 +514,30 @@ export const RecentListItem: React.FC<RecentListItemProps> = ({ item, displayNam
 // 群助手列表
 interface GroupAssistantListProps {
   groups: GroupItem[]
+  recentChats: RecentChatItem[]
   groupLastTimeMap: Record<string, number>
+  groupLastMessageMap: Record<string, string>
   unreadCounts: Map<string, number>
   selectedPeerId?: string
   onSelect: (group: GroupItem) => void
   onBack: () => void
 }
 
-const GroupAssistantList: React.FC<GroupAssistantListProps> = ({ groups, groupLastTimeMap, unreadCounts, selectedPeerId, onSelect, onBack }) => {
+const GroupAssistantList: React.FC<GroupAssistantListProps> = ({ groups, recentChats, groupLastTimeMap, groupLastMessageMap, unreadCounts, selectedPeerId, onSelect, onBack }) => {
   // 过滤出 msgMask === 2 的群（收进群助手不提醒）
   const assistantGroups = useMemo(() => {
     return groups.filter(g => g.msgMask === 2)
   }, [groups])
+
+  const assistantSubtitleMap = useMemo(() => {
+    const map: Record<string, string> = { ...groupLastMessageMap }
+    recentChats.forEach(chat => {
+      if (chat.chatType === 2 && chat.lastMessage) {
+        map[chat.peerId] = chat.lastMessage
+      }
+    })
+    return map
+  }, [groupLastMessageMap, recentChats])
 
   return (
     <div className="py-1">
@@ -537,6 +565,7 @@ const GroupAssistantList: React.FC<GroupAssistantListProps> = ({ groups, groupLa
           items={assistantGroups}
           unreadCounts={unreadCounts}
           groupLastTimeMap={groupLastTimeMap}
+          subtitleMap={assistantSubtitleMap}
           selectedPeerId={selectedPeerId}
           onSelect={onSelect}
           showPinnedStyle={true}

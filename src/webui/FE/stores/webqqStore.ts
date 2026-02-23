@@ -72,6 +72,8 @@ interface WebQQState {
   
   // 群最后消息时间映射（用于排序）
   groupLastTimeMap: Record<string, number>
+  // 群最后消息摘要映射（用于群助手预览）
+  groupLastMessageMap: Record<string, string>
   
   // 加载状态
   contactsLoading: boolean
@@ -169,6 +171,7 @@ export const useWebQQStore = create<WebQQState>()(
       groups: [],
       recentChats: [],
       groupLastTimeMap: {},
+      groupLastMessageMap: {},
       contactsLoading: false,
       contactsError: null,
       currentChat: null,
@@ -378,7 +381,10 @@ export const useWebQQStore = create<WebQQState>()(
             const key = `${item.chatType}_${item.peerId}`
             const local = localRecentMap.get(key)
             if (local) {
-              if (item.lastTime > local.lastTime) {
+              const shouldUseRemote =
+                item.lastTime > local.lastTime ||
+                (item.lastTime === local.lastTime && !local.lastMessage && !!item.lastMessage)
+              if (shouldUseRemote) {
                 localRecentMap.set(key, item)
               }
             } else {
@@ -388,11 +394,24 @@ export const useWebQQStore = create<WebQQState>()(
           
           const mergedRecent = Array.from(localRecentMap.values())
             .sort((a, b) => b.lastTime - a.lastTime)
+
+          const groupLastTimeMap: Record<string, number> = {}
+          const groupLastMessageMap: Record<string, string> = {}
+          validRecentData.forEach(item => {
+            if (item.chatType === 2) {
+              groupLastTimeMap[item.peerId] = item.lastTime
+              if (item.lastMessage) {
+                groupLastMessageMap[item.peerId] = item.lastMessage
+              }
+            }
+          })
           
           set({
             friendCategories: categoriesData,
             groups: groupsData,
             recentChats: mergedRecent,
+            groupLastTimeMap,
+            groupLastMessageMap,
             contactsCacheTimestamp: Date.now(),
             contactsLoading: false
           })
@@ -443,8 +462,11 @@ export const useWebQQStore = create<WebQQState>()(
             const key = `${item.chatType}_${item.peerId}`
             const local = localRecentMap.get(key)
             if (local) {
-              // 使用较新的时间戳
-              if (item.lastTime > local.lastTime) {
+              // 使用较新的时间戳；时间相同但本地摘要为空时也使用服务端摘要
+              const shouldUseRemote =
+                item.lastTime > local.lastTime ||
+                (item.lastTime === local.lastTime && !local.lastMessage && !!item.lastMessage)
+              if (shouldUseRemote) {
                 localRecentMap.set(key, item)
               }
             } else {
@@ -455,11 +477,24 @@ export const useWebQQStore = create<WebQQState>()(
           // 转换为数组并按时间排序
           const mergedRecent = Array.from(localRecentMap.values())
             .sort((a, b) => b.lastTime - a.lastTime)
+
+          const groupLastTimeMap: Record<string, number> = { ...state.groupLastTimeMap }
+          const groupLastMessageMap: Record<string, string> = { ...state.groupLastMessageMap }
+          validRecentData.forEach(item => {
+            if (item.chatType === 2) {
+              groupLastTimeMap[item.peerId] = item.lastTime
+              if (item.lastMessage) {
+                groupLastMessageMap[item.peerId] = item.lastMessage
+              }
+            }
+          })
           
           set({
             friendCategories: categoriesData,
             groups: groupsData,
             recentChats: mergedRecent,
+            groupLastTimeMap,
+            groupLastMessageMap,
             contactsCacheTimestamp: Date.now()
           })
           
@@ -497,6 +532,9 @@ export const useWebQQStore = create<WebQQState>()(
         const newGroupLastTimeMap = chatType === 2 
           ? { ...state.groupLastTimeMap, [peerId]: lastTime }
           : state.groupLastTimeMap
+        const newGroupLastMessageMap = chatType === 2
+          ? { ...state.groupLastMessageMap, [peerId]: lastMessage || '[消息]' }
+          : state.groupLastMessageMap
         
         if (existing) {
           // 更新已存在的会话
@@ -518,7 +556,8 @@ export const useWebQQStore = create<WebQQState>()(
             const normalChats = updated.filter(item => !item.pinned)
             return {
               recentChats: [updatedChat, ...pinnedChats, ...normalChats],
-              groupLastTimeMap: newGroupLastTimeMap
+              groupLastTimeMap: newGroupLastTimeMap,
+              groupLastMessageMap: newGroupLastMessageMap
             }
           }
           
@@ -527,7 +566,8 @@ export const useWebQQStore = create<WebQQState>()(
           const normalChats = updated.filter(item => !item.pinned)
           return {
             recentChats: [...pinnedChats, updatedChat, ...normalChats],
-            groupLastTimeMap: newGroupLastTimeMap
+            groupLastTimeMap: newGroupLastTimeMap,
+            groupLastMessageMap: newGroupLastMessageMap
           }
         } else {
           // 创建新的会话
@@ -555,7 +595,8 @@ export const useWebQQStore = create<WebQQState>()(
               // 如果是群助手的群（msgMask === 2），不添加到最近联系列表，但仍然更新时间映射
               if (group.msgMask === 2) {
                 return {
-                  groupLastTimeMap: newGroupLastTimeMap
+                  groupLastTimeMap: newGroupLastTimeMap,
+                  groupLastMessageMap: newGroupLastMessageMap
                 }
               }
               name = group.groupName
@@ -578,7 +619,8 @@ export const useWebQQStore = create<WebQQState>()(
           
           return {
             recentChats: [newChat, ...dedupedChats],
-            groupLastTimeMap: newGroupLastTimeMap
+            groupLastTimeMap: newGroupLastTimeMap,
+            groupLastMessageMap: newGroupLastMessageMap
           }
         }
       }),
@@ -645,6 +687,7 @@ export const useWebQQStore = create<WebQQState>()(
         groups: state.groups,
         recentChats: state.recentChats,
         groupLastTimeMap: state.groupLastTimeMap,
+        groupLastMessageMap: state.groupLastMessageMap,
         expandedCategories: state.expandedCategories,
         // messageCache 不持久化，太大会超出 localStorage 配额
         membersCache: state.membersCache,

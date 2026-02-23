@@ -15,27 +15,50 @@ function extractMessageSummary(rawMessage: RawMessage): string {
   if (!rawMessage || !rawMessage.elements || !Array.isArray(rawMessage.elements)) {
     return '[消息]'
   }
+
+  const summaryParts: string[] = []
   for (const element of rawMessage.elements) {
-    if (element.textElement) {
-      return element.textElement.content
+    if (element.textElement?.content) {
+      summaryParts.push(element.textElement.content)
+      continue
     }
     if (element.picElement) {
-      return '[图片]'
+      summaryParts.push('[图片]')
+      continue
     }
     if (element.faceElement) {
-      return '[表情]'
+      summaryParts.push('[表情]')
+      continue
     }
     if (element.fileElement) {
-      return '[文件]'
+      summaryParts.push('[文件]')
+      continue
     }
     if (element.pttElement) {
-      return '[语音]'
+      summaryParts.push('[语音]')
+      continue
     }
     if (element.videoElement) {
-      return '[视频]'
+      summaryParts.push('[视频]')
+      continue
+    }
+    if (element.replyElement) {
+      summaryParts.push('[回复]')
+      continue
     }
   }
-  return '[消息]'
+
+  const summary = summaryParts.join('').replace(/\s+/g, ' ').trim()
+  if (!summary) {
+    return '[消息]'
+  }
+
+  // 纯 @ 提及时补充提示，避免预览显得过于突兀
+  if (/^@[^\s]+$/.test(summary)) {
+    return `${summary} [提及]`
+  }
+
+  return summary
 }
 
 const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false }) => {
