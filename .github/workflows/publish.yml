@@ -147,7 +147,7 @@ jobs:
           mv pmhq-macos-arm64 bin/pmhq/pmhq
           mv libpmhq.dylib bin/pmhq/
           wget https://github.com/LLOneBot/exe/releases/latest/download/node-darwin-arm64 -O bin/llbot/node
-          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-darwin-arm64 -O llbot
+          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-macos-arm64 -O llbot
           wget https://github.com/LLOneBot/exe/releases/download/0.0.0/QQ-macos.zip
           unzip QQ-macos.zip -d bin/qq
           rm QQ-macos.zip
