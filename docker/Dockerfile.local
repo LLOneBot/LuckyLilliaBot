@@ -35,4 +35,6 @@ COPY --from=builder /app/dist .
 COPY docker/startup.sh /startup.sh
 RUN chmod +x /startup.sh
 
+RUN touch /.dockerenv
+
 ENTRYPOINT ["/startup.sh"]

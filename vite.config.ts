@@ -81,8 +81,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': '/src', // 可选：配置路径别名
+      '@': '/src',
       'supports-color': 'node_modules/supports-color/index.js',
+      'qrcode': 'node_modules/qrcode/lib/server.js',
     },
   },
 })

@@ -1,4 +1,6 @@
 import path from 'node:path'
+import { writeFile } from 'node:fs/promises'
+import QRCode from 'qrcode'
 
 // 全局异常处理，防止未捕获的异常导致程序崩溃
 process.on('uncaughtException', (err) => {
@@ -42,6 +44,7 @@ import { pmhq } from '@/ntqqapi/native/pmhq'
 import { sleep } from '@/common/utils'
 import EmailNotificationService from '@/common/emailNotification'
 import { EmailConfig } from '@/common/emailConfig'
+import { isDockerEnvironment } from '@/common/utils/environment'
 
 declare module 'cordis' {
   interface Events {
@@ -49,6 +52,8 @@ declare module 'cordis' {
     'llbot/email-config-updated': (input: EmailConfig) => void
   }
 }
+
+
 
 
 async function onLoad() {
@@ -107,6 +112,33 @@ async function onLoad() {
     ctx.plugin(EmailNotificationService)
   }
 
+  const isDocker = isDockerEnvironment()
+  let qrCodeTriggered = false
+
+  const printLoginQrCode = async () => {
+    try {
+      const data = await ctx.ntLoginApi.getLoginQrCode()
+
+      const qrText = await QRCode.toString(data.qrcodeUrl, { type: 'terminal', small: true })
+      console.log('\n========== 请使用手机QQ扫描二维码登录 ==========')
+      console.log(qrText)
+      console.log('================================================\n')
+
+      const base64Data = data.pngBase64QrcodeData.replace(/^data:image\/png;base64,/, '')
+      const qrFilePath = path.join(TEMP_DIR, 'login-qrcode.png')
+      if (!existsSync(TEMP_DIR)) {
+        mkdirSync(TEMP_DIR, { recursive: true })
+      }
+      await writeFile(qrFilePath, Buffer.from(base64Data, 'base64'))
+      ctx.logger.info(`二维码文件已保存: ${qrFilePath}`)
+
+      const qrWebUrl = `https://api.2dcode.biz/v1/create-qr-code?data=${encodeURIComponent(data.qrcodeUrl)}`
+      ctx.logger.info(`或浏览器打开二维码网址: ${qrWebUrl}`)
+    } catch (e) {
+      ctx.logger.warn('获取登录二维码失败', e)
+    }
+  }
+
   const checkLogin = async () => {
     let pmhqSelfInfo = { ...selfInfo }
     try {
@@ -117,6 +149,10 @@ async function onLoad() {
       return
     }
     if (!pmhqSelfInfo.online) {
+      if (isDocker && !qrCodeTriggered) {
+        qrCodeTriggered = true
+        printLoginQrCode()
+      }
       setTimeout(checkLogin, 1000)
       return
     }
