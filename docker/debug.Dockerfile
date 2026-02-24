@@ -21,6 +21,8 @@ COPY docker/startup.sh /startup.sh
 
 RUN chmod +x /startup.sh
 
+RUN touch /.dockerenv
+
 #RUN wget https://github.com/LLOneBot/LLOneBot/releases/download/v$LLONEBOT_VERSION/LLOneBot.zip -O /app/llonebot.zip
 
 COPY /dist /app/llonebot
