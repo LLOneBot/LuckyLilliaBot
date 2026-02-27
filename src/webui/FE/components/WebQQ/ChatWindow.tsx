@@ -246,10 +246,39 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     if (allItemsRef.current.length > 0) {
       virtualizer.scrollToIndex(allItemsRef.current.length - 1, { align: 'end' })
     }
+    const container = parentRef.current
+    if (container) {
+      container.scrollTop = container.scrollHeight
+    }
   }, [virtualizer])
 
   const [needScrollToBottom, setNeedScrollToBottom] = useState(false)
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const bottomLockUntilRef = useRef(0)
+  const bottomLockRafRef = useRef<number | null>(null)
+
+  const stopBottomLock = useCallback(() => {
+    if (bottomLockRafRef.current !== null) {
+      cancelAnimationFrame(bottomLockRafRef.current)
+      bottomLockRafRef.current = null
+    }
+  }, [])
+
+  const startBottomLock = useCallback((durationMs: number = 800) => {
+    bottomLockUntilRef.current = Date.now() + durationMs
+    stopBottomLock()
+
+    const tick = () => {
+      if (Date.now() > bottomLockUntilRef.current) {
+        bottomLockRafRef.current = null
+        return
+      }
+      scrollToBottom()
+      bottomLockRafRef.current = requestAnimationFrame(tick)
+    }
+
+    tick()
+  }, [scrollToBottom, stopBottomLock])
   
   useEffect(() => {
     const currentKey = session ? `${session.chatType}_${session.peerId}` : null
@@ -274,6 +303,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     }, 200)
     return () => { if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current) }
   }, [allItems.length, needScrollToBottom, virtualizer])
+
+  useEffect(() => {
+    return () => stopBottomLock()
+  }, [stopBottomLock])
 
   useEffect(() => {
     if (shouldScrollRef.current && allItems.length > 0) {
@@ -714,6 +747,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     shouldScrollRef.current = true
   }, [])
 
+  const handleSendStart = useCallback(() => {
+    shouldScrollRef.current = true
+    setShowScrollToBottom(false)
+    startBottomLock(900)
+  }, [startBottomLock])
+
+  const handleSendEnd = useCallback(() => {
+    shouldScrollRef.current = true
+    startBottomLock(1400)
+  }, [startBottomLock])
+
   const handleTempMessageRemove = useCallback((msgId: string) => {
     setTempMessages(prev => prev.filter(t => t.msgId !== msgId))
   }, [])
@@ -878,8 +922,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
           session={session}
           replyTo={replyTo}
           onReplyCancel={() => setReplyTo(null)}
-          onSendStart={() => {}}
-          onSendEnd={() => {}}
+          onSendStart={handleSendStart}
+          onSendEnd={handleSendEnd}
           onTempMessage={handleTempMessage}
           onTempMessageRemove={handleTempMessageRemove}
           onTempMessageFail={handleTempMessageFail}
