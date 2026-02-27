@@ -255,6 +255,7 @@ export class WebUIServer extends Service {
             const target = notify.reaction.data.body.target
             const groupCode = String(notify.groupCode)
             const userId = await this.ctx.ntUserApi.getUinByUid(info.operatorUid)
+            const actionType = typeof info.actionType === 'number' ? info.actionType : info.type
 
             let userName = userId
             try {
@@ -277,7 +278,7 @@ export class WebUIServer extends Service {
                 emojiId: info.code,
                 userId,
                 userName,
-                isAdd: info.type === 1
+                isAdd: actionType === 1
               }
             })
           }

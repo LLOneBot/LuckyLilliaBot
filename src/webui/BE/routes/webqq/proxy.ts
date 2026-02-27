@@ -53,7 +53,7 @@ export function createProxyRoutes(ctx: Context): Router {
       }
 
       let url = decodeURIComponent(urlParam)
-      ctx.logger.info('图片代理请求:', url)
+      // ctx.logger.info('图片代理请求:', url)
 
       let parsedUrl: URL
       try {
@@ -78,7 +78,7 @@ export function createProxyRoutes(ctx: Context): Router {
             const rkey = appid === '1406' ? rkeyData.private_rkey : rkeyData.group_rkey
             if (rkey) {
               url = url + rkey
-              ctx.logger.info('已添加 rkey 到图片 URL')
+              // ctx.logger.info('已添加 rkey 到图片 URL')
             }
           }
         } catch (e) {
