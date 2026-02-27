@@ -96,7 +96,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ visible, onClose }) => 
                   <Eye size={20} className="text-theme-muted" />
                   <div>
                     <div className="text-sm font-medium text-theme">显示全屏按钮</div>
-                    <div className="text-xs text-theme-muted mt-0.5">在 WebQQ 页面右下角显示全屏按钮</div>
+                    <div className="text-xs text-theme-muted mt-0.5">在 WebQQ 页面显示全屏按钮</div>
                   </div>
                 </div>
                 <input
