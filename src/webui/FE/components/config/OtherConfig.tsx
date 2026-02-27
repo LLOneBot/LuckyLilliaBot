@@ -50,10 +50,10 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, emailConfig, onChange
       {/* WebUI 服务配置 */}
       <div className='card p-6 relative z-[100]'>
         <div className='flex items-center gap-3 mb-6'>
-          <div className='w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center'>
+          <div className='w-10 h-10 aspect-square flex-shrink-0 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center'>
             <Server size={20} className='text-white' />
           </div>
-          <div>
+          <div className='min-w-0'>
             <h3 className='text-lg font-semibold text-theme'>WebUI 服务</h3>
             <p className='text-sm text-theme-secondary'>WebUI 访问地址和端口配置，如果是 Docker 不建议更改此项，否则可能无法访问</p>
           </div>
@@ -257,8 +257,8 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, emailConfig, onChange
               <div className='text-xs text-theme-muted mt-0.5'>用于保护 WebUI 访问的密码</div>
             </div>
           </div>
-          <button onClick={onOpenChangePassword} className='px-4 py-2 gradient-primary text-white rounded-lg text-sm font-medium hover:shadow-lg transition-all flex items-center gap-2'>
-            <Edit size={16} />修改密码
+          <button onClick={onOpenChangePassword} className='px-3 py-1.5 md:px-4 md:py-2 gradient-primary text-white rounded-lg text-xs md:text-sm font-medium hover:shadow-lg transition-all flex items-center gap-1.5 md:gap-2'>
+            <Edit size={14} className='md:w-4 md:h-4' />修改密码
           </button>
         </div>
       </div>
