@@ -20,7 +20,7 @@ import {
   OutgoingForwardedMessage,
 } from '@saltify/milky-types'
 import z from 'zod'
-import { IMAGE_HTTP_HOST_NT, RawMessage } from '@/ntqqapi/types'
+import { ChatType, IMAGE_HTTP_HOST_NT, RawMessage } from '@/ntqqapi/types'
 import { randomUUID } from 'node:crypto'
 import { Media } from '@/ntqqapi/proto'
 
@@ -261,14 +261,14 @@ const GetMessage = defineApi(
   async (ctx, payload) => {
     const peer = {
       chatType: {
-        friend: 1,
-        group: 2,
-        temp: 100
+        friend: ChatType.C2C,
+        group: ChatType.Group,
+        temp: ChatType.TempC2CFromGroup
       }[payload.message_scene],
       peerUid: payload.peer_id.toString(),
       guildId: ''
     }
-    if (peer.chatType === 1 || peer.chatType === 100) {
+    if (peer.chatType === ChatType.C2C || peer.chatType === ChatType.TempC2CFromGroup) {
       const uid = await ctx.ntUserApi.getUidByUin(peer.peerUid)
       if (!uid) {
         return Failed(-404, 'User not found')
@@ -276,7 +276,7 @@ const GetMessage = defineApi(
       peer.peerUid = uid
     }
 
-    const msgResult = await ctx.ntMsgApi.queryFirstMsgBySeq(peer, payload.message_seq.toString())
+    const msgResult = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq.toString())
     if (msgResult.msgList.length === 0) {
       return Failed(-404, 'Message not found')
     }
