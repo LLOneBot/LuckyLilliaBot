@@ -84,7 +84,7 @@ class SatoriAdapter extends Service {
       input.elements[0]?.grayTipElement?.jsonGrayTipElement?.busiId === '19217'
     ) {
       // 机器人被邀请
-      return await parseGuildMemberAdded(this, input, true)
+      return await parseGuildMemberAdded(this, input)
     } else if (
       input.msgType === 5 &&
       input.subMsgType === 12 &&

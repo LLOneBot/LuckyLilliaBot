@@ -11,12 +11,35 @@ interface User {
   remark?: string
 }
 
+const robotUinRanges = [
+  {
+    minUin: '3328144510',
+    maxUin: '3328144510'
+  },
+  {
+    minUin: '2854196301',
+    maxUin: '2854216399'
+  },
+  {
+    minUin: '66600000',
+    maxUin: '66600000'
+  },
+  {
+    minUin: '3889000000',
+    maxUin: '3889999999'
+  },
+  {
+    minUin: '4010000000',
+    maxUin: '4019999999'
+  }
+]
+
 export function decodeUser(user: User): ObjectToSnake<Universal.User> {
   return {
     id: user.uin,
     name: user.nick,
     avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${user.uin}&spec=640`,
-    is_bot: false
+    is_bot: robotUinRanges.some(e => user.uin >= e.minUin && user.uin <= e.maxUin)
   }
 }
 
@@ -25,14 +48,6 @@ function decodeGuildChannelId(data: NT.RawMessage) {
     return [data.peerUin, data.peerUin]
   } else {
     return [undefined, 'private:' + data.peerUin]
-  }
-}
-
-function decodeMessageUser(data: NT.RawMessage) {
-  return {
-    id: data.senderUin,
-    name: data.sendNickName,
-    avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${data.senderUin}&spec=640`
   }
 }
 
@@ -154,15 +169,20 @@ export async function decodeMessage(
     name: data.peerName,
     type: guildId ? Universal.Channel.Type.TEXT : Universal.Channel.Type.DIRECT
   }
-  message.user = decodeMessageUser(data)
+  message.user = {
+    id: data.senderUin,
+    name: data.sendNickName,
+    avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${data.senderUin}&spec=640`,
+    is_bot: robotUinRanges.some(e => data.senderUin >= e.minUin && data.senderUin <= e.maxUin)
+  }
   message.created_at = +data.msgTime * 1000
   if (!message.user.name) {
-    const info = (await ctx.ntUserApi.getUserSimpleInfo(data.senderUid)).coreInfo
-    message.user.name = info.nick
-    message.user.nick = info.remark || info.nick
-    if (message.channel.type === Universal.Channel.Type.DIRECT) {
-      message.channel.name = info.nick
-    }
+    const { coreInfo } = await ctx.ntUserApi.getUserSimpleInfo(data.senderUid)
+    message.user.name = coreInfo.nick
+  }
+  if (!message.channel.name && message.channel.type === Universal.Channel.Type.DIRECT) {
+    const { coreInfo } = await ctx.ntUserApi.getUserSimpleInfo(data.peerUid)
+    message.channel.name = coreInfo.nick
   }
   if (guildId) {
     message.guild = {
@@ -181,10 +201,7 @@ export async function decodeMessage(
 
 export function decodeGuildMember(data: NT.GroupMember): ObjectToSnake<Universal.GuildMember> {
   return {
-    user: {
-      ...decodeUser(data),
-      is_bot: data.isRobot
-    },
+    user: decodeUser(data),
     nick: data.cardName || data.nick,
     avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${data.uin}&spec=640`,
     joined_at: data.joinTime * 1000,

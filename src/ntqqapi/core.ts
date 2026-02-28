@@ -257,28 +257,19 @@ class Core extends Service {
     const groupNotifyIgnore: string[] = []
     registerReceiveHook<[
       doubt: boolean,
-      oldestUnreadSeq: string,
-      unreadCount: number,
-    ]>(ReceiveCmdS.UNREAD_GROUP_NOTIFY, async (payload) => {
-      const [doubt, oldestUnreadSeq, unreadCount] = payload
-      if (unreadCount) {
-        let notifies: GroupNotify[]
-        try {
-          notifies = (await this.ctx.ntGroupApi.getSingleScreenNotifies(doubt, unreadCount)).notifies
-        } catch (e) {
-          return
+      notifies: GroupNotify[]
+    ]>('nodeIKernelGroupListener/onGroupNotifiesUpdated', async (payload) => {
+      const [doubt, notifies] = payload
+      for (const notify of notifies) {
+        const notifyTime = Math.trunc(+notify.seq / 1000 / 1000)
+        if (groupNotifyIgnore.includes(notify.seq) || notifyTime < this.startupTime) {
+          continue
         }
-        for (const notify of notifies) {
-          const notifyTime = Math.trunc(+notify.seq / 1000 / 1000)
-          if (groupNotifyIgnore.includes(notify.seq) || notifyTime < this.startupTime) {
-            continue
-          }
-          groupNotifyIgnore.push(notify.seq)
-          if (groupNotifyIgnore.length > 1000) {
-            groupNotifyIgnore.shift()
-          }
-          this.ctx.parallel('nt/group-notify', { notify, doubt: doubt })
+        groupNotifyIgnore.push(notify.seq)
+        if (groupNotifyIgnore.length > 1000) {
+          groupNotifyIgnore.shift()
         }
+        this.ctx.parallel('nt/group-notify', { notify, doubt: doubt })
       }
     })
 
