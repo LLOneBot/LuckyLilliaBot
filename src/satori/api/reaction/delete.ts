@@ -5,7 +5,7 @@ import { getPeer } from '../../utils'
 interface Payload {
   channel_id: string
   message_id: string
-  emoji: string
+  emoji_id: string
   user_id?: string
 }
 
@@ -15,8 +15,7 @@ export const deleteReaction: Handler<Dict<never>, Payload> = async (ctx, payload
   if (!msgList.length) {
     throw new Error('无法获取该消息')
   }
-  await ctx.ntMsgApi.setEmojiLike(peer, msgList[0].msgSeq, payload.emoji, false)
-  const res = await ctx.ntMsgApi.setEmojiLike(peer, msgList[0].msgSeq, payload.emoji, false)
+  const res = await ctx.ntMsgApi.setEmojiLike(peer, msgList[0].msgSeq, payload.emoji_id, false)
   if (res.result !== 0) {
     throw new Error(res.errMsg)
   }

@@ -190,18 +190,18 @@ class SatoriAdapter extends Service {
         if (!pushMsg.message.body) {
           return
         }
-        const { msgTime, msgType, subType } = pushMsg.message.contentHead
+        const { msgType, subType } = pushMsg.message.contentHead
         if (msgType === 732 && subType === 16) {
           const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
           if (notify.field13 === 35) {
             if (notify.reaction.data.body.info.actionType === 1) {
-              const event = await parseReactionAdded(this, notify, msgTime)
+              const event = await parseReactionAdded(this, notify)
                 .catch(e => this.ctx.logger.error(e))
               if (event) {
                 this.server.dispatch(event)
               }
             } else {
-              const event = await parseReactionRemoved(this, notify, msgTime)
+              const event = await parseReactionRemoved(this, notify)
                 .catch(e => this.ctx.logger.error(e))
               if (event) {
                 this.server.dispatch(event)

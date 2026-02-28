@@ -15,7 +15,6 @@ export function decodeUser(user: User): ObjectToSnake<Universal.User> {
   return {
     id: user.uin,
     name: user.nick,
-    nick: user.remark || user.nick,
     avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${user.uin}&spec=640`,
     is_bot: false
   }
@@ -33,7 +32,6 @@ function decodeMessageUser(data: NT.RawMessage) {
   return {
     id: data.senderUin,
     name: data.sendNickName,
-    nick: data.sendRemarkName || data.sendNickName,
     avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${data.senderUin}&spec=640`
   }
 }
@@ -189,7 +187,15 @@ export function decodeGuildMember(data: NT.GroupMember): ObjectToSnake<Universal
     },
     nick: data.cardName || data.nick,
     avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${data.uin}&spec=640`,
-    joined_at: data.joinTime * 1000
+    joined_at: data.joinTime * 1000,
+    roles: [{
+      id: data.role.toString(),
+      name: {
+        4: 'owner',
+        3: 'admin',
+        2: 'member',
+      }[data.role]
+    }]
   }
 }
 

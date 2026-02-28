@@ -6,7 +6,7 @@ import { filterNullable } from '@/common/utils/misc'
 interface Payload {
   channel_id: string
   message_id: string
-  emoji: string
+  emoji_id: string
   next?: string
 }
 
@@ -16,8 +16,8 @@ export const getReactionList: Handler<List<User>, Payload> = async (ctx, payload
   if (!msgList.length) {
     throw new Error('无法获取该消息')
   }
-  const count = msgList[0].emojiLikesList.find(e => e.emojiId === payload.emoji)?.likesCnt ?? '50'
-  const data = await ctx.ntMsgApi.getMsgEmojiLikesList(peer, msgList[0].msgSeq, payload.emoji, +count)
+  const count = msgList[0].emojiLikesList.find(e => e.emojiId === payload.emoji_id)?.likesCnt ?? '50'
+  const data = await ctx.ntMsgApi.getMsgEmojiLikesList(peer, msgList[0].msgSeq, payload.emoji_id, +count)
   if (data.result !== 0) {
     throw new Error(data.errMsg)
   }

@@ -26,8 +26,9 @@ import { getReactionList } from './reaction/list'
 import { setGuildMemberRole } from './role/member/set'
 import { getGuildRoleList } from './role/list'
 import { getUser } from './user/get'
-import { getFriendList } from './user/list'
-import { handleFriendRequest } from './user/approve'
+import { getFriendList } from './friend/list'
+import { handleFriendRequest } from './friend/approve'
+import { deleteFriend } from './friend/delete'
 
 export type Handler<
   R extends Dict = Dict,
@@ -68,6 +69,8 @@ export const handlers: Record<string, Handler> = {
   getGuildRoleList,
   // 用户 (User)
   getUser,
+  // 好友 (Friend)
   getFriendList,
   handleFriendRequest,
+  deleteFriend
 }

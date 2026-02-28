@@ -7,8 +7,7 @@ import { decodeGuild, decodeUser } from '../utils'
 
 export async function parseReactionAdded(
   bot: SatoriAdapter,
-  input: InferProtoModel<typeof Msg.NotifyMessageBody>,
-  time: number
+  input: InferProtoModel<typeof Msg.NotifyMessageBody>
 ) {
   const { info, target } = input.reaction.data.body
 
@@ -28,9 +27,7 @@ export async function parseReactionAdded(
 
   return bot.event('reaction-added', {
     message: {
-      id: targetMsg.msgList[0].msgId,
-      content: info.code,
-      timestamp: time * 1000
+      id: targetMsg.msgList[0].msgId
     },
     user: decodeUser(user.coreInfo),
     channel: {
@@ -38,14 +35,16 @@ export async function parseReactionAdded(
       name: groupAll.groupName,
       type: Universal.Channel.Type.TEXT
     },
-    guild: decodeGuild(groupAll)
+    guild: decodeGuild(groupAll),
+    emoji: {
+      id: info.code
+    }
   })
 }
 
 export async function parseReactionRemoved(
   bot: SatoriAdapter,
-  input: InferProtoModel<typeof Msg.NotifyMessageBody>,
-  time: number
+  input: InferProtoModel<typeof Msg.NotifyMessageBody>
 ) {
   const { info, target } = input.reaction.data.body
 
@@ -65,9 +64,7 @@ export async function parseReactionRemoved(
 
   return bot.event('reaction-removed', {
     message: {
-      id: targetMsg.msgList[0].msgId,
-      content: info.code,
-      timestamp: time * 1000
+      id: targetMsg.msgList[0].msgId
     },
     user: decodeUser(user.coreInfo),
     channel: {
@@ -75,6 +72,9 @@ export async function parseReactionRemoved(
       name: groupAll.groupName,
       type: Universal.Channel.Type.TEXT
     },
-    guild: decodeGuild(groupAll)
+    guild: decodeGuild(groupAll),
+    emoji: {
+      id: info.code
+    }
   })
 }
