@@ -95,6 +95,7 @@ export interface FriendRequest {
   isBuddy: boolean | null
   isAgreed: boolean
   relation: number
+  /** 该字段从 9.9.26-44498 开始存在 */
   addSource: string
   sourceFlag: number
 }

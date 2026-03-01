@@ -90,21 +90,6 @@ const GetFriendRequests = defineApi(
         requests: await Promise.all(buddyReqs.map(async e => {
           const friendId = Number(await ctx.ntUserApi.getUinByUid(e.friendUid))
           const selfId = Number(selfInfo.uin)
-          let via = ''
-          if (e.sourceId === 3020) {
-            via = 'QQ号查找'
-          } else if (e.sourceId === 3004) {
-            const groupAll = await ctx.ntGroupApi.getGroupAllInfo(e.groupCode)
-            via = `QQ群-${groupAll.groupName}`
-          } else if (e.sourceId === 3014) {
-            via = '手机号码查找'
-          } else if (e.sourceId === 3999) {
-            via = '搜索好友'
-          } else if (e.sourceId === 3022) {
-            via = '推荐联系人'
-          } else if (e.sourceId > 10) {
-            ctx.logger.info(`via 获取失败, 请反馈, friendId: ${friendId}, sourceId: ${e.sourceId}`)
-          }
           return {
             time: Number(e.reqTime),
             initiator_id: e.isInitiator ? selfId : friendId,
@@ -120,7 +105,7 @@ const GetFriendRequests = defineApi(
               [BuddyReqType.MeRefused]: 'rejected'
             } as const)[e.reqType as number] ?? 'pending',
             comment: e.extWords,
-            via,
+            via: e.addSource ?? '',
             is_filtered: e.isDoubt
           }
         }))

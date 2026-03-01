@@ -250,7 +250,7 @@ class OneBot11Adapter extends Service {
       +uin,
       req.extWords,
       flag,
-      req.addSource
+      req.addSource ?? ''
     )
     this.dispatch(friendRequestEvent)
   }

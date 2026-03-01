@@ -129,26 +129,11 @@ export async function transformFriendRequestEvent(
 ): Promise<MilkyEventTypes['friend_request'] | null> {
   try {
     const initiatorId = Number(await ctx.ntUserApi.getUinByUid(request.friendUid))
-    let via = ''
-    if (request.sourceId === 3020) {
-      via = 'QQ号查找'
-    } else if (request.sourceId === 3004) {
-      const groupAll = await ctx.ntGroupApi.getGroupAllInfo(request.groupCode)
-      via = `QQ群-${groupAll.groupName}`
-    } else if (request.sourceId === 3014) {
-      via = '手机号码查找'
-    } else if (request.sourceId === 3999) {
-      via = '搜索好友'
-    } else if (request.sourceId === 3022) {
-      via = '推荐联系人'
-    } else if (request.sourceId > 10) {
-      ctx.logger.info(`via 获取失败, 请反馈, friendId: ${initiatorId}, sourceId: ${request.sourceId}`)
-    }
     return {
       initiator_id: initiatorId,
       initiator_uid: request.friendUid,
       comment: request.extWords,
-      via
+      via: request.addSource ?? ''
     }
   } catch (error) {
     ctx.logger.error('Failed to transform friend request event:', error)
