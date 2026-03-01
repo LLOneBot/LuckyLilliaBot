@@ -95,6 +95,8 @@ export interface FriendRequest {
   isBuddy: boolean | null
   isAgreed: boolean
   relation: number
+  addSource: string
+  sourceFlag: number
 }
 
 export interface FriendRequestNotify {
