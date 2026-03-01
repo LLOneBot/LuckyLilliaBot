@@ -244,19 +244,13 @@ class OneBot11Adapter extends Service {
   }
 
   private async handleFriendRequest(req: FriendRequest) {
-    let userId = 0
-    try {
-      const requesterUin = await this.ctx.ntUserApi.getUinByUid(req.friendUid)
-      userId = +requesterUin
-    } catch (e) {
-      this.ctx.logger.error('获取加好友者QQ号失败', e)
-    }
+    const uin = await this.ctx.ntUserApi.getUinByUid(req.friendUid)
     const flag = req.friendUid + '|' + req.reqTime
-    const comment = req.extWords
     const friendRequestEvent = new OB11FriendRequestEvent(
-      userId,
-      comment,
+      +uin,
+      req.extWords,
       flag,
+      req.addSource
     )
     this.dispatch(friendRequestEvent)
   }
