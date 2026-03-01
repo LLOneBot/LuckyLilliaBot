@@ -16,7 +16,7 @@ import {
   SendTextElement,
   SendVideoElement,
 } from './types'
-import { stat, copyFile, unlink } from 'node:fs/promises'
+import { stat, copyFile, unlink, mkdir } from 'node:fs/promises'
 import { getMd5HexFromFile } from '../common/utils/file'
 import { createThumb, getVideoInfo } from '../common/utils/video'
 import { encodeSilk } from '../common/utils/audio'
@@ -142,6 +142,7 @@ export namespace SendElement {
     }
     const thumbDir = pathLib.dirname(path.replaceAll('\\', '/').replace(`/Ori/`, `/Thumb/`))
     const thumbFilePath = pathLib.join(thumbDir, `${md5}_0.png`)
+    await mkdir(thumbDir, { recursive: true })
     if (diyThumbPath) {
       await copyFile(diyThumbPath, thumbFilePath)
     } else {
