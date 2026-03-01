@@ -4,6 +4,12 @@ V7.9.4
 * 修复 Desktop 版本在一些机器上无法运行弹出快速检测失败
 * WebUI 修复手机访问时背景小球鬼畜，以及一些 UI 适配问题
 * WebQQ 修复贴表情
+* Milky 修复 `get_message` API 获取到的私聊消息不正确
+* Satori 修改 `friend.list` API 返回类型
+* Satori 新增 `friend.delete` API
+* Satori 所有 reaction 相关 API 的 `emoji` 参数均更名为 `emoji_id`
+* Satori 群成员信息增加 `roles` 字段，表示成员的角色列表
+* OneBot 好友请求事件增加 `via` 字段，表示申请来源
 
 =================
 V7.9.3
