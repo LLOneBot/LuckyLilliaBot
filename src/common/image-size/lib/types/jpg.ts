@@ -59,6 +59,12 @@ function extractOrientation(exifBlock: Uint8Array, isBigEndian: boolean) {
     }
 
     const block = exifBlock.slice(start, end)
+
+    // Skip if block is too small to contain a valid IDF entry
+    if (block.length < IDF_ENTRY_BYTES) {
+      return
+    }
+
     const tagNumber = readUInt(block, 16, 0, isBigEndian)
 
     // 0x0112 (decimal: 274) is the `orientation` tag ID

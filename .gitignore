@@ -18,3 +18,4 @@ data
 .idea
 llonebot-dist.tgz
 script/ffmpeg/
+.claude/
