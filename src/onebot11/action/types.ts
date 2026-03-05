@@ -49,6 +49,7 @@ export enum ActionName {
   SetGroupMsgMask = 'set_group_msg_mask',
   SetGroupRemark = 'set_group_remark',
   MoveGroupFile = 'move_group_file',
+  RenameGroupFile = 'rename_group_file',
   SetGroupFileForever = 'set_group_file_forever',
   GetGroupShutList = 'get_group_shut_list',
   RenameGroupFileFolder = 'rename_group_file_folder',

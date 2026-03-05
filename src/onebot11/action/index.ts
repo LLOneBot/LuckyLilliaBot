@@ -90,6 +90,7 @@ import { GetProfileLike } from './llbot/user/GetProfileLike'
 import { GetCsrfToken } from './system/GetCsrfToken'
 import { SetGroupPortrait } from './go-cqhttp/SetGroupPortrait'
 import { MoveGroupFile } from './llbot/file/MoveGroupFile'
+import { RenameGroupFile } from './llbot/file/RenameGroupFile'
 import { GetGroupShutList } from './llbot/group/GetGroupShutList'
 import { RenameGroupFileFolder } from './llbot/file/RenameGroupFileFolder'
 import { VoiceMsg2Text } from '@/onebot11/action/llbot/msg/VoiceMsg2Text'
@@ -155,6 +156,7 @@ export function initActionMap(adapter: Adapter) {
     new SetGroupMsgMask(adapter),
     new SetGroupRemark(adapter),
     new MoveGroupFile(adapter),
+    new RenameGroupFile(adapter),
     new GetGroupShutList(adapter),
     new RenameGroupFileFolder(adapter),
     new GetRecommendFace(adapter),
