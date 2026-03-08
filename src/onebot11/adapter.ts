@@ -60,14 +60,19 @@ class OneBot11Adapter extends Service {
   private connect: (OB11Http | OB11HttpPost | OB11WebSocket | OB11WebSocketReverse)[]
   private actionMap: Map<string, BaseAction<unknown, unknown>>
   private reportOfflineMessage: boolean
+  private reportSelfMessage: boolean
 
   constructor(public ctx: Context, public config: OneBot11Adapter.Config) {
     super(ctx, 'onebot', true)
     this.actionMap = initActionMap(this)
     this.reportOfflineMessage = false
+    this.reportSelfMessage = false
     this.connect = config.connect.map(item => {
       if (item.reportOfflineMessage) {
         this.reportOfflineMessage = true
+      }
+      if (item.reportSelfMessage) {
+        this.reportSelfMessage = true
       }
       if (item.type === 'http') {
         return new OB11Http(ctx, {
@@ -152,6 +157,9 @@ class OneBot11Adapter extends Service {
 
   private async handleMsg(message: RawMessage, self: boolean, offline: boolean) {
     if (offline && !this.reportOfflineMessage) {
+      return
+    }
+    if (self && !this.reportSelfMessage) {
       return
     }
 
@@ -264,9 +272,13 @@ class OneBot11Adapter extends Service {
     }
     if (config.ob11.enable) {
       this.reportOfflineMessage = false
+      this.reportSelfMessage = false
       this.connect = config.ob11.connect.map(item => {
         if (item.reportOfflineMessage) {
           this.reportOfflineMessage = true
+        }
+        if (item.reportSelfMessage) {
+          this.reportSelfMessage = true
         }
         if (item.type === 'http') {
           return new OB11Http(this.ctx, {
