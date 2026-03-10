@@ -4,9 +4,9 @@ V7.10.1
 * 修复视频可能发送失败
 * 修复发送图片可能失败
 * OneBot 增加 `rename_group_file` 接口
-* OneBot 邀请登录号入群事件增加 `source_group_id` 字段
+* OneBot 邀请登录号入群事件增加 `source_group_id` 字段，表示邀请的来源 QQ 群群号（如果是通过 QQ 群邀请）
 * Milky 修复引用消息时可能会有空 At
-* Milky 他人邀请自身入群事件增加 `source_group_id` 字段
+* Milky 他人邀请自身入群事件增加 `source_group_id` 字段，表示邀请的来源 QQ 群群号（如果是通过 QQ 群邀请）
 
 =================
 V7.10.0
