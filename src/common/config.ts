@@ -77,8 +77,11 @@ export class ConfigUtil {
         mergeNewProperties(defaultConfig, jsonData)
         jsonData.webui = this.migrateWebUIToken(jsonData.webui)
         jsonData = this.cleanupConfig(defaultConfig, jsonData);
-        // 重载配置时需要写入文件（可能有迁移或清理）
-        this.setConfig(jsonData)
+        // 只在配置内容实际变化时才写入文件，避免触发 watchFile 导致无限重载
+        const newData = JSON.stringify(jsonData, null, 2)
+        if (newData !== data) {
+          this.setConfig(jsonData)
+        }
         this.config = jsonData
         return this.config
       } catch (e) {
