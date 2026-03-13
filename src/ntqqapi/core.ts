@@ -97,21 +97,17 @@ class Core extends Service {
     // 计算发送的文件大小
     let totalSize = 0
     for (const fileElement of sendElements) {
-      try {
-        if (fileElement.elementType === ElementType.Ptt) {
-          totalSize += statSync(fileElement.pttElement.filePath!).size
-        }
-        else if (fileElement.elementType === ElementType.File) {
-          totalSize += statSync(fileElement.fileElement.filePath!).size
-        }
-        else if (fileElement.elementType === ElementType.Video) {
-          totalSize += statSync(fileElement.videoElement.filePath!).size
-        }
-        else if (fileElement.elementType === ElementType.Pic) {
-          totalSize += statSync(fileElement.picElement.sourcePath!).size
-        }
-      } catch (e) {
-        ctx.logger.warn('文件大小计算失败', e, fileElement)
+      if (fileElement.elementType === ElementType.Ptt) {
+        totalSize += +fileElement.pttElement.fileSize!
+      }
+      else if (fileElement.elementType === ElementType.File) {
+        totalSize += +fileElement.fileElement.fileSize!
+      }
+      else if (fileElement.elementType === ElementType.Video) {
+        totalSize += +fileElement.videoElement.fileSize!
+      }
+      else if (fileElement.elementType === ElementType.Pic) {
+        totalSize += +fileElement.picElement.fileSize!
       }
     }
     const timeout = 10000 + (totalSize / 1024 / 256 * 1000)  // 10s Basic Timeout + PredictTime( For File 512kb/s )

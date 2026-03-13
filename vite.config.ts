@@ -82,7 +82,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': '/src',
-      'supports-color': 'node_modules/supports-color/index.js',
       'qrcode': 'node_modules/qrcode/lib/server.js',
     },
   },
