@@ -59,7 +59,8 @@ export default defineConfig({
     minify: false,
     outDir: 'dist',
     target: 'node22',
-    rollupOptions: {
+    rolldownOptions: {
+      platform: 'node',
       external: [...external, ...builtinModules, /^node:/],
       input: 'src/main/main.ts',
       output: {
@@ -81,8 +82,8 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': '/src',
       'qrcode': 'node_modules/qrcode/lib/server.js',
     },
+    tsconfigPaths: true
   },
 })
