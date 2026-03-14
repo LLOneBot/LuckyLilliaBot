@@ -14,7 +14,6 @@ import { SendElement } from '@/ntqqapi/entities'
 import multer from 'multer'
 import { randomUUID } from 'crypto'
 import { existsSync, mkdirSync } from 'node:fs'
-
 import { authMiddleware } from './auth'
 import { serializeResult } from './utils'
 import {
@@ -26,6 +25,7 @@ import {
   createNtCallRoutes,
   createEmailRoutes
 } from './routes'
+import { Msg } from '@/ntqqapi/proto'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -243,7 +243,6 @@ export class WebUIServer extends Service {
       if (data.type !== 'recv' || data.data.cmd !== 'trpc.msg.olpush.OlPushService.MsgPush') return
 
       try {
-        const { Msg } = await import('@/ntqqapi/proto')
         const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
         if (!pushMsg.message?.body) return
 
