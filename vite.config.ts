@@ -82,7 +82,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      'qrcode': 'node_modules/qrcode/lib/server.js',
+      'qrcode': path.resolve(import.meta.dirname, 'node_modules/qrcode/lib/server.js'),
     },
     tsconfigPaths: true
   },
