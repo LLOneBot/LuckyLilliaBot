@@ -1,6 +1,6 @@
 import * as NT from '@/ntqqapi/types'
 import { omit } from 'cosmokit'
-import { Event, Status } from '@satorijs/protocol'
+import { Event, Login } from '@satorijs/protocol'
 import { Service, Context } from 'cordis'
 import { SatoriConfig } from '@/common/types'
 import { SatoriServer } from './server'
@@ -224,14 +224,13 @@ class SatoriAdapter extends Service {
       self_id: this.selfId,
       platform: 'llonebot',
       timestamp: Date.now(),
+      // https://satori.chat/zh-CN/protocol/events.html#event
+      // 非登录事件中的 login 资源只会带有 sn, user 和 platform 三个属性
       login: {
         sn: this._loginSeq,
         user: decodeUser(selfInfo),
-        adapter: 'llonebot',
         platform: 'llonebot',
-        status: selfInfo.online ? Status.ONLINE : Status.OFFLINE,
-        features: [],
-      },
+      } as Login,
       ...data,
     }
   }
