@@ -24,7 +24,14 @@ check_sudo() {
 
 trap cleanup SIGINT SIGTERM
 
+HAS_TTY=0
+[ -t 0 ] || [ -c /dev/tty ] 2>/dev/null && HAS_TTY=1
+
 confirm() {
+    if [ "$HAS_TTY" -eq 0 ]; then
+        log "无终端，自动确认: $1"
+        return 0
+    fi
     local key=""
     read -n 1 -s -r -p "$1 (Y/n) " key < /dev/tty
     echo ""
@@ -96,17 +103,20 @@ echo "2) Shell 模式 (无界面)"
 echo "------------------------------------------------"
 
 MODE_CHOICE=""
-TIMEOUT=5
-while [ $TIMEOUT -gt 0 ]; do
-    printf "\r请选择 [1/2] (${TIMEOUT}秒后自动选择 Shell): "
-    # 使用 tty 确保 read 不被管道干扰
-    if read -t 1 -n 1 MODE_CHOICE < /dev/tty; then
-        echo ""
-        break
-    fi
-    ((TIMEOUT--))
-done
-[ -z "$MODE_CHOICE" ] && { echo ""; log "超时，自动选择 Shell 模式"; }
+if [ "$HAS_TTY" -eq 1 ]; then
+    TIMEOUT=5
+    while [ $TIMEOUT -gt 0 ]; do
+        printf "\r请选择 [1/2] (${TIMEOUT}秒后自动选择 Shell): "
+        if read -t 1 -n 1 MODE_CHOICE < /dev/tty; then
+            echo ""
+            break
+        fi
+        ((TIMEOUT--))
+    done
+    [ -z "$MODE_CHOICE" ] && { echo ""; log "超时，自动选择 Shell 模式"; }
+else
+    log "无终端，自动选择 Shell 模式"
+fi
 
 MODE_CHOICE=${MODE_CHOICE:-2}
 USE_XVFB=$([ "$MODE_CHOICE" == "2" ] && echo 1 || echo 0)
