@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react'
 import { Check, X, Loader2, UserPlus, Users, LogOut, AlertTriangle, ShieldAlert } from 'lucide-react'
 import { useWebQQStore } from '../../../stores/webqqStore'
-import { handleGroupNotification, handleFriendRequest, approveDoubtBuddy, getGroupNotifications, getUserAvatar, getGroupAvatar } from '../../../utils/webqqApi'
+import { handleGroupNotification, handleFriendRequest, approveDoubtBuddy, getUserAvatar, getGroupAvatar } from '../../../utils/webqqApi'
 import { GroupNotifyType, GroupNotifyStatus } from '../../../types/webqq'
-import type { NotificationItem, GroupNotifyItem, FriendRequestItem, DoubtBuddyItem } from '../../../types/webqq'
+import type { GroupNotifyItem, FriendRequestItem, DoubtBuddyItem } from '../../../types/webqq'
 import { showToast } from '../../common'
 
 function formatTime(timestamp: number): string {
@@ -82,6 +82,12 @@ function getStatusText(item: GroupNotifyItem): string | null {
   }
 }
 
+// 通知操作按钮样式
+const btnApprove = 'flex items-center gap-1 px-3 py-1 text-xs text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/30 rounded-md transition-colors disabled:opacity-50'
+const btnReject = 'flex items-center gap-1 px-3 py-1 text-xs text-theme-secondary hover:bg-neutral-100 dark:hover:bg-neutral-700/50 rounded-md transition-colors disabled:opacity-50'
+const btnRejectConfirm = 'flex items-center gap-1 px-3 py-1 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors disabled:opacity-50'
+const btnCancel = 'px-3 py-1 text-xs text-theme-muted hover:text-theme hover:bg-theme-item rounded-md transition-colors'
+
 // 群通知卡片
 const GroupNotifyCard: React.FC<{ item: GroupNotifyItem; time: number }> = ({ item, time }) => {
   const [loading, setLoading] = useState<'approve' | 'reject' | null>(null)
@@ -127,7 +133,7 @@ const GroupNotifyCard: React.FC<{ item: GroupNotifyItem; time: number }> = ({ it
             <button
               onClick={() => handleAction('approve')}
               disabled={loading !== null}
-              className="flex items-center gap-1 px-3 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded-md transition-colors disabled:opacity-50"
+              className={btnApprove}
             >
               {loading === 'approve' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
               同意
@@ -135,7 +141,7 @@ const GroupNotifyCard: React.FC<{ item: GroupNotifyItem; time: number }> = ({ it
             <button
               onClick={() => setShowRejectInput(true)}
               disabled={loading !== null}
-              className="flex items-center gap-1 px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors disabled:opacity-50"
+              className={btnReject}
             >
               <X size={12} />
               拒绝
@@ -157,7 +163,7 @@ const GroupNotifyCard: React.FC<{ item: GroupNotifyItem; time: number }> = ({ it
               <button
                 onClick={() => handleAction('reject', rejectReason)}
                 disabled={loading !== null}
-                className="flex items-center gap-1 px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors disabled:opacity-50"
+                className={btnRejectConfirm}
               >
                 {loading === 'reject' ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
                 确认拒绝
@@ -165,7 +171,7 @@ const GroupNotifyCard: React.FC<{ item: GroupNotifyItem; time: number }> = ({ it
               <button
                 onClick={() => { setShowRejectInput(false); setRejectReason('') }}
                 disabled={loading !== null}
-                className="px-3 py-1 text-xs text-theme-muted hover:text-theme rounded-md transition-colors"
+                className={btnCancel}
               >
                 取消
               </button>
@@ -173,7 +179,7 @@ const GroupNotifyCard: React.FC<{ item: GroupNotifyItem; time: number }> = ({ it
           </div>
         )}
         {statusText && (
-          <div className={`text-xs mt-1 ${item.status === GroupNotifyStatus.Agreed ? 'text-green-500' : item.status === GroupNotifyStatus.Refused ? 'text-red-500' : 'text-theme-hint'}`}>
+          <div className={`text-xs mt-1 ${item.status === GroupNotifyStatus.Agreed ? 'text-pink-500' : item.status === GroupNotifyStatus.Refused ? 'text-theme-secondary' : 'text-theme-hint'}`}>
             {statusText}
           </div>
         )}
@@ -228,7 +234,7 @@ const FriendRequestCard: React.FC<{ item: FriendRequestItem; time: number }> = (
             <button
               onClick={() => handleAction('approve')}
               disabled={loading !== null}
-              className="flex items-center gap-1 px-3 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded-md transition-colors disabled:opacity-50"
+              className={btnApprove}
             >
               {loading === 'approve' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
               同意
@@ -236,7 +242,7 @@ const FriendRequestCard: React.FC<{ item: FriendRequestItem; time: number }> = (
             <button
               onClick={() => handleAction('reject')}
               disabled={loading !== null}
-              className="flex items-center gap-1 px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors disabled:opacity-50"
+              className={btnReject}
             >
               {loading === 'reject' ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
               拒绝
@@ -244,7 +250,7 @@ const FriendRequestCard: React.FC<{ item: FriendRequestItem; time: number }> = (
           </div>
         )}
         {decided && (
-          <div className={`text-xs mt-1 ${result === 'approve' ? 'text-green-500' : result === 'reject' ? 'text-red-500' : 'text-theme-hint'}`}>
+          <div className={`text-xs mt-1 ${result === 'approve' ? 'text-pink-500' : result === 'reject' ? 'text-theme-secondary' : 'text-theme-hint'}`}>
             {result === 'approve' ? '已同意' : result === 'reject' ? '已拒绝' : '已处理'}
           </div>
         )}
@@ -312,7 +318,7 @@ const DoubtBuddyCard: React.FC<{ item: DoubtBuddyItem; time: number }> = ({ item
             <button
               onClick={() => handleAction('approve')}
               disabled={loading !== null}
-              className="flex items-center gap-1 px-3 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded-md transition-colors disabled:opacity-50"
+              className={btnApprove}
             >
               {loading === 'approve' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
               同意
@@ -320,7 +326,7 @@ const DoubtBuddyCard: React.FC<{ item: DoubtBuddyItem; time: number }> = ({ item
             <button
               onClick={() => handleAction('reject')}
               disabled={loading !== null}
-              className="flex items-center gap-1 px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors disabled:opacity-50"
+              className={btnReject}
             >
               {loading === 'reject' ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
               拒绝
@@ -328,7 +334,7 @@ const DoubtBuddyCard: React.FC<{ item: DoubtBuddyItem; time: number }> = ({ item
           </div>
         )}
         {decided && (
-          <div className={`text-xs mt-1 ${result === 'approve' ? 'text-green-500' : 'text-red-500'}`}>
+          <div className={`text-xs mt-1 ${result === 'approve' ? 'text-pink-500' : 'text-theme-secondary'}`}>
             {result === 'approve' ? '已同意' : '已拒绝'}
           </div>
         )}
