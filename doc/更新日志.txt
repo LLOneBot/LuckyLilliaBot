@@ -1,7 +1,20 @@
 V7.11.0
-更新时间 2026-03-10
+更新时间 2026-03-
 
 * OneBot 新增重新分享闪传文件接口 `reshare_flash_file`
+* Satori Event 添加 login 字段
+* 新增日志切片，超过一定大小就会分割日志文件
+* Linux CLI 版本修复 start.sh 无法使用 nohup 运行
+* macOS CLI 版本优化启动权限
+
+* Windows Desktop 
+  * 修复可能无法检测到 QQ 正在运行
+  * 修复离线消息上报
+
+* WebQQ
+  * 新增查看合并转发消息
+  * 新增好友申请和群通知
+
 =================
 
 V7.10.1
