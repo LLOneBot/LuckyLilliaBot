@@ -9,7 +9,9 @@
     },
     "types": ["vite/client"],
     "jsx": "react",
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "bundler",
+    "module": "esnext"
   },
   "include": ["./**/*", "../../**/*"],
   "exclude": ["node_modules"]

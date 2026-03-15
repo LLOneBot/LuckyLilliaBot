@@ -1,6 +1,16 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@utility shadow-card {
+  @apply shadow-lg rounded-xl bg-white;
+}
+
+@utility shadow-card-hover {
+  @apply shadow-xl transition-shadow;
+}
+
+@utility gradient-primary {
+  background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
+}
 
 @layer base {
   /* 主题变量定义 */
@@ -10,7 +20,7 @@
     --text-secondary: #4b5563;
     --text-muted: #6b7280;
     --text-hint: #9ca3af;
-    
+
     /* 背景颜色 */
     --bg-card: rgba(255, 255, 255, 0.6);
     --bg-card-hover: rgba(255, 255, 255, 0.8);
@@ -18,34 +28,34 @@
     --bg-item: rgba(249, 250, 251, 0.5);
     --bg-item-hover: rgba(243, 244, 246, 0.5);
     --bg-selected: rgba(252, 231, 243, 1);
-    
+
     /* 边框颜色 */
     --border-card: rgba(255, 255, 255, 0.5);
     --border-input: rgba(255, 255, 255, 0.3);
     --border-divider: rgba(229, 231, 235, 0.5);
-    
+
     /* 毛玻璃效果 */
     --backdrop-blur: blur(24px);
   }
-  
+
   /* 暗黑模式变量 */
   .dark {
     --text-primary: #ffffff;
     --text-secondary: #d4d4d4;
     --text-muted: #a3a3a3;
     --text-hint: #737373;
-    
+
     --bg-card: rgba(38, 38, 38, 0.7);
     --bg-card-hover: rgba(45, 45, 45, 0.8);
     --bg-input: rgba(64, 64, 64, 0.6);
     --bg-item: rgba(64, 64, 64, 0.5);
     --bg-item-hover: rgba(82, 82, 82, 0.5);
     --bg-selected: rgba(157, 23, 77, 0.3);
-    
+
     --border-card: rgba(82, 82, 82, 0.5);
     --border-input: rgba(82, 82, 82, 0.5);
     --border-divider: rgba(82, 82, 82, 0.5);
-    
+
     /* 夜间模式粉红色调整 - 更柔和 */
     --pink-accent: #f472b6;
     --pink-accent-hover: #f9a8d4;
@@ -54,12 +64,12 @@
   * {
     @apply box-border;
   }
-  
+
   body {
     @apply m-0 font-sans antialiased;
-    background: 
-      linear-gradient(135deg, 
-        rgba(224, 231, 255, 1) 0%, 
+    background:
+      linear-gradient(135deg,
+        rgba(224, 231, 255, 1) 0%,
         rgba(233, 213, 255, 1) 25%,
         rgba(252, 231, 243, 1) 50%,
         rgba(254, 240, 220, 1) 75%,
@@ -74,7 +84,7 @@
   :root.dark body {
     background: #0f0f0f;
   }
-  
+
   /* 添加彩色点阵图案 */
   body::after {
     content: '';
@@ -83,7 +93,7 @@
     left: 0;
     right: 0;
     bottom: 0;
-    background-image: 
+    background-image:
       radial-gradient(circle at 20% 30%, rgba(167, 139, 250, 0.08) 0, transparent 50%),
       radial-gradient(circle at 80% 70%, rgba(96, 165, 250, 0.08) 0, transparent 50%),
       radial-gradient(circle at 50% 50%, rgba(244, 114, 182, 0.05) 0, transparent 50%);
@@ -96,7 +106,7 @@
   :root.dark body::after {
     background-image: none;
   }
-  
+
   #root {
     @apply min-h-screen;
     position: relative;
@@ -142,57 +152,57 @@
   .text-theme {
     color: var(--text-primary);
   }
-  
+
   .text-theme-secondary {
     color: var(--text-secondary);
   }
-  
+
   .text-theme-muted {
     color: var(--text-muted);
   }
-  
+
   .text-theme-hint {
     color: var(--text-hint);
   }
-  
+
   /* 主题背景颜色 */
   .bg-theme-card {
     background: var(--bg-card);
   }
-  
+
   .bg-theme-item {
     background: var(--bg-item);
   }
-  
+
   .bg-theme-item-hover {
     background: var(--bg-item-hover);
   }
-  
+
   .hover\:bg-theme-item-hover:hover {
     background: var(--bg-item-hover);
   }
-  
+
   .bg-theme-selected {
     background: var(--bg-selected);
   }
-  
+
   .bg-theme-input {
     background: var(--bg-input);
   }
-  
+
   /* 主题边框颜色 */
   .border-theme {
     border-color: var(--border-card);
   }
-  
+
   .border-theme-divider {
     border-color: var(--border-divider);
   }
-  
+
   .border-theme-input {
     border-color: var(--border-input);
   }
-  
+
   /* 使用 CSS 变量的通用组件 */
   .card {
     background: var(--bg-card);
@@ -200,31 +210,31 @@
     border: 1px solid var(--border-card);
     @apply rounded-3xl shadow-card hover:shadow-card-hover transition-all duration-300;
   }
-  
+
   .text-primary {
     color: var(--text-primary);
   }
-  
+
   .text-secondary {
     color: var(--text-secondary);
   }
-  
+
   .text-muted {
     color: var(--text-muted);
   }
-  
+
   .text-hint {
     color: var(--text-hint);
   }
-  
+
   .bg-item {
     background: var(--bg-item);
   }
-  
+
   .bg-item-hover:hover {
     background: var(--bg-item-hover);
   }
-  
+
   .bg-selected {
     background: var(--bg-selected);
   }
@@ -233,15 +243,15 @@
   .bg-popup {
     background: rgba(255, 255, 255, 0.9);
   }
-  
+
   .dark .bg-popup {
     background: rgba(23, 23, 23, 0.95);
   }
-  
+
   .border-divider {
     border-color: var(--border-divider);
   }
-  
+
   /* 主题渐变色 - 粉珊瑚系 */
   .gradient-primary {
     background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
@@ -251,7 +261,7 @@
   .dark .gradient-primary {
     background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
   }
-  
+
   .gradient-primary-br {
     background: linear-gradient(to bottom right, #ec4899 0%, #f87171 100%);
   }
@@ -259,11 +269,11 @@
   .dark .gradient-primary-br {
     background: linear-gradient(to bottom right, #ec4899 0%, #f87171 100%);
   }
-  
+
   .btn-primary {
     @apply gradient-primary text-white px-6 py-2.5 rounded-xl font-medium hover:shadow-lg hover:scale-105 transition-all duration-200;
   }
-  
+
   /* Switch 开关样式 */
   .switch-toggle {
     @apply w-12 h-6 rounded-full relative cursor-pointer appearance-none
@@ -285,7 +295,7 @@
   .dark .switch-toggle:checked {
     background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
   }
-  
+
   .switch-toggle-lg {
     @apply w-14 h-7 rounded-full relative cursor-pointer appearance-none
       transition-colors duration-200 ease-in-out
@@ -306,7 +316,7 @@
   .dark .switch-toggle-lg:checked {
     background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
   }
-  
+
   .input-field {
     @apply w-full px-4 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all;
     background: var(--bg-input);
@@ -314,22 +324,22 @@
     color: var(--text-primary);
     backdrop-filter: blur(8px);
   }
-  
+
   .input-field::placeholder {
     color: var(--text-hint);
   }
-  
+
   /* 隐藏 number 输入框的上下箭头 */
   input[type='number']::-webkit-inner-spin-button,
   input[type='number']::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
   }
-  
+
   input[type='number'] {
     -moz-appearance: textfield;
   }
-  
+
   .switch {
     @apply relative inline-flex items-center cursor-pointer;
   }
@@ -338,23 +348,23 @@
   .dark .bg-pink-500 {
     background-color: #db2777 !important;
   }
-  
+
   .dark .hover\:bg-pink-600:hover {
     background-color: #be185d !important;
   }
-  
+
   .dark .text-pink-500 {
     color: #f472b6 !important;
   }
-  
+
   .dark .text-pink-600 {
     color: #ec4899 !important;
   }
-  
+
   .dark .ring-pink-500\/20 {
     --tw-ring-color: rgb(244 114 182 / 0.15) !important;
   }
-  
+
   .dark .focus\:ring-pink-500\/20:focus {
     --tw-ring-color: rgb(244 114 182 / 0.15) !important;
   }
@@ -372,7 +382,7 @@
       transform: translateY(0);
     }
   }
-  
+
   .animate-fade-in {
     animation: fade-in 0.3s ease-out forwards;
   }
