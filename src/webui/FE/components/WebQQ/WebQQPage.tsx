@@ -96,9 +96,11 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
     loadContacts,
     setRecentChats
   } = useWebQQStore()
-  
+
   // 单独订阅 recentChats 以确保更新时触发重新渲染
   const recentChats = useWebQQStore(state => state.recentChats)
+  const addNotification = useWebQQStore(state => state.addNotification)
+  const loadGroupNotifications = useWebQQStore(state => state.loadGroupNotifications)
 
   // 用于从群成员面板 @ 成员
   const [appendInputMention, setAppendInputMention] = React.useState<{ uid: string; uin: string; name: string } | null>(null)
@@ -116,7 +118,8 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
     resetVisitedChats()
     getLoginInfo().catch(e => console.error('获取登录信息失败:', e))
     loadContacts()
-  }, [loadContacts])
+    loadGroupNotifications()
+  }, [loadContacts, loadGroupNotifications])
 
   useEffect(() => {
     if (contactsError) {
@@ -232,6 +235,36 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
               onMessageRecalledRef.current({ msgId, msgSeq })
             }
           }
+        } else if (data.type === 'group-notify') {
+          // 处理群通知事件
+          const notifyData = data.data
+          addNotification({
+            type: 'group-notify',
+            data: notifyData,
+            time: notifyData.actionTime ? parseInt(notifyData.actionTime) * 1000 : Date.now()
+          })
+        } else if (data.type === 'friend-request') {
+          // 处理好友申请事件
+          const reqData = data.data
+          addNotification({
+            type: 'friend-request',
+            data: reqData,
+            time: reqData.reqTime ? parseInt(reqData.reqTime) * 1000 : Date.now()
+          })
+        } else if (data.type === 'group-dismiss') {
+          // 处理群解散事件
+          addNotification({
+            type: 'group-dismiss',
+            data: data.data,
+            time: Date.now()
+          })
+        } else if (data.type === 'group-quit') {
+          // 处理退群事件
+          addNotification({
+            type: 'group-quit',
+            data: data.data,
+            time: Date.now()
+          })
         }
       },
       (error) => {
@@ -250,7 +283,7 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
     return () => {
       eventSource.close()
     }
-  }, [incrementUnreadCount, updateRecentChat, loadContacts])
+  }, [incrementUnreadCount, updateRecentChat, loadContacts, addNotification])
 
   const handleSelectChat = useCallback((session: ChatSession) => {
     // 切换聊天时清空待处理消息队列

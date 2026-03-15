@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FriendCategory, GroupItem, RecentChatItem, ChatSession, GroupMemberItem } from '../types/webqq'
-import { getFriends, getGroups, getRecentChats } from '../utils/webqqApi'
+import type { FriendCategory, GroupItem, RecentChatItem, ChatSession, GroupMemberItem, NotificationItem } from '../types/webqq'
+import { getFriends, getGroups, getRecentChats, getGroupNotifications, getFriendRequests, getDoubtBuddyRequests } from '../utils/webqqApi'
+import { GroupNotifyType, GroupNotifyStatus } from '../types/webqq'
 
 // 缓存过期时间（1小时）
 const CACHE_EXPIRY_MS = 60 * 60 * 1000
@@ -99,6 +100,10 @@ interface WebQQState {
   
   // 群成员面板展开状态
   showMemberPanel: boolean
+
+  // 系统通知
+  notifications: NotificationItem[]
+  notificationUnreadCount: number
   
   // 滚动位置记录
   scrollPositions: Record<string, ScrollPosition>
@@ -137,6 +142,13 @@ interface WebQQState {
   
   // 群成员面板操作
   setShowMemberPanel: (show: boolean) => void
+
+  // 系统通知操作
+  addNotification: (notification: NotificationItem) => void
+  setNotifications: (notifications: NotificationItem[]) => void
+  clearNotificationUnread: () => void
+  updateNotificationStatus: (type: string, flag: string, newStatus: number) => void
+  loadGroupNotifications: () => Promise<void>
   
   // 滚动位置操作
   getScrollPosition: (chatType: string, peerId: string) => ScrollPosition | null
@@ -181,6 +193,8 @@ export const useWebQQStore = create<WebQQState>()(
       expandedCategories: [],
       membersCache: {},
       showMemberPanel: false,
+      notifications: [],
+      notificationUnreadCount: 0,
       scrollPositions: {},
       contactsCacheTimestamp: 0,
 
@@ -313,6 +327,94 @@ export const useWebQQStore = create<WebQQState>()(
       
       // 群成员面板操作
       setShowMemberPanel: (show) => set({ showMemberPanel: show }),
+
+      // 系统通知操作
+      addNotification: (notification) => set((state) => {
+        // 去重：对于 group-notify 和 friend-request，根据 flag 去重
+        const isDuplicate = state.notifications.some(n => {
+          if (n.type === 'group-notify' && notification.type === 'group-notify') {
+            return n.data.flag === notification.data.flag
+          }
+          if (n.type === 'friend-request' && notification.type === 'friend-request') {
+            return n.data.flag === notification.data.flag
+          }
+          return false
+        })
+        if (isDuplicate) {
+          // 更新已有通知（状态可能变化）
+          return {
+            notifications: state.notifications.map(n => {
+              if (n.type === notification.type) {
+                if (n.type === 'group-notify' && notification.type === 'group-notify' && n.data.flag === notification.data.flag) {
+                  return notification
+                }
+                if (n.type === 'friend-request' && notification.type === 'friend-request' && n.data.flag === notification.data.flag) {
+                  return notification
+                }
+              }
+              return n
+            })
+          }
+        }
+        return {
+          notifications: [notification, ...state.notifications].slice(0, 200),
+          notificationUnreadCount: state.notificationUnreadCount + 1
+        }
+      }),
+
+      setNotifications: (notifications) => set({ notifications }),
+
+      clearNotificationUnread: () => set({ notificationUnreadCount: 0 }),
+
+      updateNotificationStatus: (type, flag, newStatus) => set((state) => ({
+        notifications: state.notifications.map(n => {
+          if (n.type === type) {
+            if (n.type === 'group-notify' && n.data.flag === flag) {
+              return { ...n, data: { ...n.data, status: newStatus } }
+            }
+            if (n.type === 'friend-request' && n.data.flag === flag) {
+              return { ...n, data: { ...n.data, isDecide: true } }
+            }
+          }
+          return n
+        })
+      })),
+
+      loadGroupNotifications: async () => {
+        try {
+          const [notifies, friendReqs, doubtReqs] = await Promise.all([
+            getGroupNotifications().catch(() => []),
+            getFriendRequests().catch(() => []),
+            getDoubtBuddyRequests().catch(() => [])
+          ])
+          const groupItems: NotificationItem[] = notifies.map(n => ({
+            type: 'group-notify' as const,
+            data: n,
+            time: n.actionTime ? parseInt(n.actionTime) * 1000 : parseInt(n.seq) / 1000
+          }))
+          const friendItems: NotificationItem[] = friendReqs.map(r => ({
+            type: 'friend-request' as const,
+            data: r,
+            time: r.reqTime ? parseInt(r.reqTime) * 1000 : Date.now()
+          }))
+          const doubtItems: NotificationItem[] = doubtReqs.map(d => ({
+            type: 'doubt-buddy' as const,
+            data: d,
+            time: d.reqTime ? parseInt(d.reqTime) * 1000 : Date.now()
+          }))
+          // 合并：保留信息类通知（群解散、退群），用新数据替换群通知和好友申请
+          const state = get()
+          const infoNotifications = state.notifications.filter(
+            n => n.type !== 'group-notify' && n.type !== 'friend-request' && n.type !== 'doubt-buddy'
+          )
+          const merged = [...groupItems, ...friendItems, ...doubtItems, ...infoNotifications]
+            .sort((a, b) => b.time - a.time)
+            .slice(0, 200)
+          set({ notifications: merged })
+        } catch (e) {
+          console.error('加载通知失败:', e)
+        }
+      },
 
       // 滚动位置操作
       getScrollPosition: (chatType, peerId) => {

@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Users, MessageCircle, Search, Clock, ChevronDown, ChevronRight, Pin, Trash2 } from 'lucide-react'
+import { Users, MessageCircle, Search, Clock, ChevronDown, ChevronRight, Pin, Trash2, Bell } from 'lucide-react'
 import type { FriendItem, FriendCategory, GroupItem, RecentChatItem } from '../../../types/webqq'
 import { filterGroups, formatMessageTime } from '../../../utils/webqqApi'
 import { useWebQQStore } from '../../../stores/webqqStore'
 import { FriendListItem, GroupListItem, useMenuPosition, GroupMsgMaskMenu } from './ListItems'
+import NotificationPanel from './NotificationPanel'
 
 type TabType = 'friends' | 'groups' | 'recent'
 
@@ -62,32 +63,60 @@ const ContactList: React.FC<ContactListProps> = ({
     { id: 'groups' as TabType, icon: MessageCircle, label: '群组' }
   ]
 
+  const notificationUnreadCount = useWebQQStore(state => state.notificationUnreadCount)
+  const [showNotifications, setShowNotifications] = useState(false)
+
   return (
     <div className="flex flex-col h-full">
       {/* Tab 切换 */}
-      <div className="flex border-b border-theme-divider px-2 pt-2">
-        {tabs.map(tab => {
-          const Icon = tab.icon
-          const isActive = activeTab === tab.id
-          return (
-            <button
-              key={tab.id}
-              onClick={() => onTabChange(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors rounded-t-lg ${
-                isActive
-                  ? 'text-pink-600 dark:text-pink-400 bg-pink-50/50 dark:bg-pink-900/30'
-                  : 'text-theme-muted hover:text-theme hover:bg-theme-item'
-              }`}
-            >
-              <Icon size={16} />
-              {tab.label}
-            </button>
-          )
-        })}
+      <div className="flex items-center border-b border-theme-divider px-2 pt-2">
+        <div className="flex flex-1">
+          {tabs.map(tab => {
+            const Icon = tab.icon
+            const isActive = !showNotifications && activeTab === tab.id
+            return (
+              <button
+                key={tab.id}
+                onClick={() => { setShowNotifications(false); onTabChange(tab.id) }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium transition-colors rounded-t-lg ${
+                  isActive
+                    ? 'text-pink-600 dark:text-pink-400 bg-pink-50/50 dark:bg-pink-900/30'
+                    : 'text-theme-muted hover:text-theme hover:bg-theme-item'
+                }`}
+              >
+                <Icon size={16} />
+                {tab.label}
+              </button>
+            )
+          })}
+        </div>
+        {/* 通知铃铛按钮 */}
+        <button
+          onClick={() => setShowNotifications(!showNotifications)}
+          className={`relative flex items-center justify-center w-9 h-9 rounded-lg transition-colors flex-shrink-0 ${
+            showNotifications
+              ? 'text-pink-600 dark:text-pink-400 bg-pink-50/50 dark:bg-pink-900/30'
+              : 'text-theme-muted hover:text-theme hover:bg-theme-item'
+          }`}
+        >
+          <Bell size={16} />
+          {notificationUnreadCount > 0 && (
+            <div className="absolute top-1 right-1 min-w-[14px] h-[14px] bg-red-500 text-white text-[10px] font-medium rounded-full flex items-center justify-center px-0.5">
+              {notificationUnreadCount > 99 ? '99+' : notificationUnreadCount}
+            </div>
+          )}
+        </button>
       </div>
 
+      {/* 通知面板（替换列表内容显示） */}
+      {showNotifications ? (
+        <div className="flex-1 min-h-0">
+          <NotificationPanel onClose={() => setShowNotifications(false)} />
+        </div>
+      ) : (
+      <>
       {/* 搜索框 */}
-      {activeTab !== 'recent' && (
+      {(activeTab === 'friends' || activeTab === 'groups') && (
         <div className="p-3">
           <div className="relative">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-theme-hint" />
@@ -142,6 +171,8 @@ const ContactList: React.FC<ContactListProps> = ({
           />
         )}
       </div>
+      </>
+      )}
     </div>
   )
 }

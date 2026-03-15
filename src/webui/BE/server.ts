@@ -9,7 +9,7 @@ import { Context, Service } from 'cordis'
 import { TEMP_DIR } from '@/common/globalVars'
 import { getAvailablePort } from '@/common/utils/port'
 import { pmhq } from '@/ntqqapi/native/pmhq'
-import { ChatType, RawMessage } from '@/ntqqapi/types'
+import { ChatType, RawMessage, GroupNotify, GroupNotifyType, GroupNotifyStatus, FriendRequest, BuddyReqType } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
 import multer from 'multer'
 import { randomUUID } from 'crypto'
@@ -226,6 +226,81 @@ export class WebUIServer extends Service {
 
     // 监听表情回应事件
     this.setupEmojiReactionListener()
+
+    // 监听群通知事件（加群申请、邀请入群、被踢等）
+    this.ctx.on('nt/group-notify', async ({ notify, doubt }) => {
+      if (this.sseClients.size === 0) return
+      try {
+        const user1Uin = notify.user1.uid ? await this.ctx.ntUserApi.getUinByUid(notify.user1.uid).catch(() => '') : ''
+        const user2Uin = notify.user2.uid ? await this.ctx.ntUserApi.getUinByUid(notify.user2.uid).catch(() => '') : ''
+        this.broadcastMessage('message', {
+          type: 'group-notify',
+          data: {
+            seq: notify.seq,
+            notifyType: notify.type,
+            status: notify.status,
+            doubt,
+            group: notify.group,
+            user1: { ...notify.user1, uin: user1Uin },
+            user2: { ...notify.user2, uin: user2Uin },
+            postscript: notify.postscript,
+            actionTime: notify.actionTime,
+            flag: `${notify.group.groupCode}|${notify.seq}|${notify.type}|${doubt ? '1' : '0'}`
+          }
+        })
+      } catch (e) {
+        this.ctx.logger.error('处理群通知事件失败:', e)
+      }
+    })
+
+    // 监听好友申请事件
+    this.ctx.on('nt/friend-request', async (req: FriendRequest) => {
+      if (this.sseClients.size === 0) return
+      try {
+        const uin = await this.ctx.ntUserApi.getUinByUid(req.friendUid).catch(() => '')
+        this.broadcastMessage('message', {
+          type: 'friend-request',
+          data: {
+            friendUid: req.friendUid,
+            friendUin: uin,
+            friendNick: req.friendNick,
+            friendAvatarUrl: req.friendAvatarUrl,
+            reqTime: req.reqTime,
+            extWords: req.extWords,
+            isDecide: req.isDecide,
+            reqType: req.reqType,
+            addSource: req.addSource || '',
+            flag: `${req.friendUid}|${req.reqTime}`
+          }
+        })
+      } catch (e) {
+        this.ctx.logger.error('处理好友申请事件失败:', e)
+      }
+    })
+
+    // 监听群解散事件
+    this.ctx.on('nt/group-dismiss', (data) => {
+      if (this.sseClients.size === 0) return
+      this.broadcastMessage('message', {
+        type: 'group-dismiss',
+        data: {
+          groupCode: data.groupCode,
+          groupName: data.groupName
+        }
+      })
+    })
+
+    // 监听主动退群事件
+    this.ctx.on('nt/group-quit', (data) => {
+      if (this.sseClients.size === 0) return
+      this.broadcastMessage('message', {
+        type: 'group-quit',
+        data: {
+          groupCode: data.groupCode,
+          groupName: data.groupName
+        }
+      })
+    })
   }
 
   private async fillPeerUin(message: RawMessage) {

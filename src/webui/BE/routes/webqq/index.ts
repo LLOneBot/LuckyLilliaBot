@@ -5,6 +5,7 @@ import { createMessagesRoutes } from './messages'
 import { createUploadRoutes } from './upload'
 import { createProxyRoutes } from './proxy'
 import { createMembersRoutes } from './members'
+import { createNotificationRoutes } from './notifications'
 import { createNtCallRoutes } from './ntcall'
 import { serializeResult } from '../../utils'
 
@@ -31,6 +32,9 @@ export function createWebQQRoutes(ctx: Context, options: WebQQRoutesOptions): Ro
 
   // 群成员和用户信息路由
   router.use(createMembersRoutes(ctx))
+
+  // 通知相关路由（好友申请、群通知）
+  router.use(createNotificationRoutes(ctx))
 
   // SSE 实时消息推送
   router.get('/events', (req: Request, res: Response) => {

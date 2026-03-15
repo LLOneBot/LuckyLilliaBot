@@ -8,7 +8,10 @@ import type {
   MessagesResponse,
   SendMessageRequest,
   UploadResponse,
-  RawMessage
+  RawMessage,
+  GroupNotifyItem,
+  FriendRequestItem,
+  DoubtBuddyItem,
 } from '../types/webqq'
 
 // 获取当前登录用户的 uid
@@ -864,5 +867,70 @@ export async function setGroupMsgMask(groupCode: string, msgMask: GroupMsgMask):
   const result = await ntCall<{ result: number; errMsg: string }>('ntGroupApi', 'setGroupMsgMask', [groupCode, msgMask])
   if (result?.result !== 0) {
     throw new Error(result?.errMsg || '设置消息接收方式失败')
+  }
+}
+
+// ==================== 系统通知 API ====================
+
+// 获取群通知列表
+export async function getGroupNotifications(): Promise<GroupNotifyItem[]> {
+  const response = await apiFetch<GroupNotifyItem[]>('/api/webqq/notifications/group')
+  if (!response.success) {
+    throw new Error(response.message || '获取群通知失败')
+  }
+  return response.data || []
+}
+
+// 处理群通知（同意/拒绝）
+export async function handleGroupNotification(flag: string, action: 'approve' | 'reject', reason?: string): Promise<void> {
+  const response = await apiFetch<void>('/api/webqq/notifications/group/handle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ flag, action, reason })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '处理群通知失败')
+  }
+}
+
+// 处理好友申请（同意/拒绝）
+export async function handleFriendRequest(flag: string, action: 'approve' | 'reject'): Promise<void> {
+  const response = await apiFetch<void>('/api/webqq/notifications/friend/handle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ flag, action })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '处理好友申请失败')
+  }
+}
+
+// 获取好友申请历史
+export async function getFriendRequests(): Promise<FriendRequestItem[]> {
+  const response = await apiFetch<FriendRequestItem[]>('/api/webqq/notifications/friend')
+  if (!response.success) {
+    throw new Error(response.message || '获取好友申请失败')
+  }
+  return response.data || []
+}
+
+// 获取被过滤的好友申请
+export async function getDoubtBuddyRequests(): Promise<DoubtBuddyItem[]> {
+  const response = await apiFetch<DoubtBuddyItem[]>('/api/webqq/notifications/friend/doubt')
+  if (!response.success) {
+    throw new Error(response.message || '获取被过滤好友申请失败')
+  }
+  return response.data || []
+}
+
+// 同意被过滤的好友申请
+export async function approveDoubtBuddy(uid: string): Promise<void> {
+  const response = await apiFetch<void>('/api/webqq/notifications/friend/doubt/approve', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uid })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '处理被过滤好友申请失败')
   }
 }

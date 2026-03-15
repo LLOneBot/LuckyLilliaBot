@@ -138,3 +138,85 @@ export interface UploadResponse {
   imagePath: string
   filename: string
 }
+
+// ==================== 系统通知类型 ====================
+
+// 群通知类型
+export enum GroupNotifyType {
+  InvitedByMember = 1,
+  RefuseInvited = 2,
+  RefusedByAdminiStrator = 3,
+  AgreedTojoinDirect = 4,
+  InvitedNeedAdminiStratorPass = 5,
+  AgreedToJoinByAdminiStrator = 6,
+  RequestJoinNeedAdminiStratorPass = 7,
+  SetAdmin = 8,
+  KickMemberNotifyAdmin = 9,
+  KickMemberNotifyKicked = 10,
+  MemberLeaveNotifyAdmin = 11,
+  CancelAdminNotifyCanceled = 12,
+  CancelAdminNotifyAdmin = 13,
+  TransferGroupNotifyOldowner = 14,
+  TransferGroupNotifyAdmin = 15,
+}
+
+// 群通知状态
+export enum GroupNotifyStatus {
+  Init = 0,
+  Unhandle = 1,
+  Agreed = 2,
+  Refused = 3,
+  Ignored = 4,
+}
+
+// 群通知项
+export interface GroupNotifyItem {
+  seq: string
+  notifyType: GroupNotifyType
+  status: GroupNotifyStatus
+  doubt: boolean
+  group: { groupCode: string; groupName: string }
+  user1: { uid: string; nickName: string; uin: string }
+  user2: { uid: string; nickName: string; uin: string }
+  postscript: string
+  actionTime: string
+  flag: string
+}
+
+// 好友申请项
+export interface FriendRequestItem {
+  friendUid: string
+  friendUin: string
+  friendNick: string
+  friendAvatarUrl: string
+  reqTime: string
+  extWords: string
+  isDecide: boolean
+  reqType: number
+  addSource: string
+  flag: string
+}
+
+// 被过滤的好友申请项
+export interface DoubtBuddyItem {
+  uid: string
+  nick: string
+  age: number
+  sex: number
+  reqTime: string
+  msg: string
+  source: string
+  reason: string
+  groupCode: string
+  commFriendNum: number
+  flag: string
+}
+
+// 通知类型（用于前端统一展示）
+export type NotificationItem =
+  | { type: 'group-notify'; data: GroupNotifyItem; time: number }
+  | { type: 'friend-request'; data: FriendRequestItem; time: number }
+  | { type: 'doubt-buddy'; data: DoubtBuddyItem; time: number }
+  | { type: 'group-dismiss'; data: { groupCode: string; groupName: string }; time: number }
+  | { type: 'group-quit'; data: { groupCode: string; groupName: string }; time: number }
+
