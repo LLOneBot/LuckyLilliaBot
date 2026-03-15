@@ -85,14 +85,17 @@ function getStatusText(item: GroupNotifyItem): string | null {
 // 群通知卡片
 const GroupNotifyCard: React.FC<{ item: GroupNotifyItem; time: number }> = ({ item, time }) => {
   const [loading, setLoading] = useState<'approve' | 'reject' | null>(null)
+  const [showRejectInput, setShowRejectInput] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
   const updateNotificationStatus = useWebQQStore(state => state.updateNotificationStatus)
 
-  const handleAction = async (action: 'approve' | 'reject') => {
+  const handleAction = async (action: 'approve' | 'reject', reason?: string) => {
     setLoading(action)
     try {
-      await handleGroupNotification(item.flag, action)
+      await handleGroupNotification(item.flag, action, reason)
       updateNotificationStatus('group-notify', item.flag, action === 'approve' ? GroupNotifyStatus.Agreed : GroupNotifyStatus.Refused)
       showToast(action === 'approve' ? '已同意' : '已拒绝', 'success')
+      setShowRejectInput(false)
     } catch (e: any) {
       showToast(e.message || '操作失败', 'error')
     } finally {
@@ -119,7 +122,7 @@ const GroupNotifyCard: React.FC<{ item: GroupNotifyItem; time: number }> = ({ it
             验证信息：{item.postscript}
           </div>
         )}
-        {actionable && (
+        {actionable && !showRejectInput && (
           <div className="flex gap-2 mt-2">
             <button
               onClick={() => handleAction('approve')}
@@ -130,13 +133,43 @@ const GroupNotifyCard: React.FC<{ item: GroupNotifyItem; time: number }> = ({ it
               同意
             </button>
             <button
-              onClick={() => handleAction('reject')}
+              onClick={() => setShowRejectInput(true)}
               disabled={loading !== null}
               className="flex items-center gap-1 px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors disabled:opacity-50"
             >
-              {loading === 'reject' ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+              <X size={12} />
               拒绝
             </button>
+          </div>
+        )}
+        {actionable && showRejectInput && (
+          <div className="mt-2 space-y-1.5">
+            <input
+              type="text"
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="拒绝理由（可选）"
+              className="w-full px-2 py-1 text-xs bg-theme-input text-theme rounded border border-theme-divider focus:outline-none focus:border-pink-400"
+              onKeyDown={(e) => { if (e.key === 'Enter') handleAction('reject', rejectReason) }}
+              autoFocus
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleAction('reject', rejectReason)}
+                disabled={loading !== null}
+                className="flex items-center gap-1 px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors disabled:opacity-50"
+              >
+                {loading === 'reject' ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                确认拒绝
+              </button>
+              <button
+                onClick={() => { setShowRejectInput(false); setRejectReason('') }}
+                disabled={loading !== null}
+                className="px-3 py-1 text-xs text-theme-muted hover:text-theme rounded-md transition-colors"
+              >
+                取消
+              </button>
+            </div>
           </div>
         )}
         {statusText && (
@@ -222,21 +255,27 @@ const FriendRequestCard: React.FC<{ item: FriendRequestItem; time: number }> = (
 
 // 被过滤好友申请卡片
 const DoubtBuddyCard: React.FC<{ item: DoubtBuddyItem; time: number }> = ({ item, time }) => {
-  const [loading, setLoading] = useState(false)
-  const [approved, setApproved] = useState(false)
+  const [loading, setLoading] = useState<'approve' | 'reject' | null>(null)
+  const [decided, setDecided] = useState(false)
+  const [result, setResult] = useState<'approve' | 'reject' | null>(null)
   const updateNotificationStatus = useWebQQStore(state => state.updateNotificationStatus)
 
-  const handleApprove = async () => {
-    setLoading(true)
+  const handleAction = async (action: 'approve' | 'reject') => {
+    setLoading(action)
     try {
-      await approveDoubtBuddy(item.uid)
+      if (action === 'approve') {
+        await approveDoubtBuddy(item.uid)
+      } else {
+        await handleFriendRequest(`${item.uid}|${item.reqTime}`, 'reject')
+      }
       updateNotificationStatus('doubt-buddy', item.flag, 0)
-      setApproved(true)
-      showToast('已同意', 'success')
+      setDecided(true)
+      setResult(action)
+      showToast(action === 'approve' ? '已同意' : '已拒绝', 'success')
     } catch (e: any) {
       showToast(e.message || '操作失败', 'error')
     } finally {
-      setLoading(false)
+      setLoading(null)
     }
   }
 
@@ -268,20 +307,30 @@ const DoubtBuddyCard: React.FC<{ item: DoubtBuddyItem; time: number }> = ({ item
         {item.reason && (
           <div className="text-xs text-amber-500/80 mt-0.5">过滤原因：{item.reason}</div>
         )}
-        {!approved && (
+        {!decided && (
           <div className="flex gap-2 mt-2">
             <button
-              onClick={handleApprove}
-              disabled={loading}
+              onClick={() => handleAction('approve')}
+              disabled={loading !== null}
               className="flex items-center gap-1 px-3 py-1 text-xs bg-green-500 hover:bg-green-600 text-white rounded-md transition-colors disabled:opacity-50"
             >
-              {loading ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+              {loading === 'approve' ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
               同意
+            </button>
+            <button
+              onClick={() => handleAction('reject')}
+              disabled={loading !== null}
+              className="flex items-center gap-1 px-3 py-1 text-xs bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors disabled:opacity-50"
+            >
+              {loading === 'reject' ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+              拒绝
             </button>
           </div>
         )}
-        {approved && (
-          <div className="text-xs mt-1 text-green-500">已同意</div>
+        {decided && (
+          <div className={`text-xs mt-1 ${result === 'approve' ? 'text-green-500' : 'text-red-500'}`}>
+            {result === 'approve' ? '已同意' : '已拒绝'}
+          </div>
         )}
       </div>
     </div>
