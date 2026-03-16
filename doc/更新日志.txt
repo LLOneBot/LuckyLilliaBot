@@ -6,6 +6,7 @@ V7.11.0
 * 新增日志切片，超过一定大小就会分割日志文件
 * Linux CLI 版本修复 start.sh 无法使用 nohup 运行
 * macOS CLI 版本优化启动权限
+* Windows CLI 版本修复无法在 Windows 2016 以下版本使用
 
 * Windows Desktop 
   * 修复可能无法检测到 QQ 正在运行
