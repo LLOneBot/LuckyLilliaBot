@@ -217,9 +217,17 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
     }
     return <span className="text-theme-hint text-xs">[系统提示]</span>
   }
-  if (element.arkElement) return <span>[卡片消息]</span>
   if (element.multiForwardMsgElement) {
     return <ForwardMsgElementRenderer element={element} />
+  }
+  if (element.arkElement) {
+    try {
+      const arkData = JSON.parse(element.arkElement.bytesData)
+      if (arkData.app === 'com.tencent.multimsg' && arkData.meta?.detail?.resid) {
+        return <ArkForwardMsgRenderer arkData={arkData} />
+      }
+    } catch { /* ignore */ }
+    return <span>[卡片消息]</span>
   }
   if (element.marketFaceElement) {
     const { emojiId, faceName, supportSize } = element.marketFaceElement
@@ -511,6 +519,37 @@ const ForwardMsgElementRenderer: React.FC<{ element: MessageElement }> = ({ elem
         </div>
       </div>
       {showModal && <ForwardMsgModal resId={forward.resId} title={title} onClose={() => setShowModal(false)} />}
+    </>
+  )
+}
+
+// Ark 格式的合并转发消息渲染器（自己发出的转发消息）
+const ArkForwardMsgRenderer: React.FC<{ arkData: any }> = ({ arkData }) => {
+  const [showModal, setShowModal] = useState(false)
+  const detail = arkData.meta?.detail || {}
+  const title = detail.source || '[聊天记录]'
+  const previews: string[] = (detail.news || []).map((n: any) => n.text || '')
+  const summary = detail.summary || ''
+  const resId = detail.resid || ''
+
+  return (
+    <>
+      <div
+        className="w-[240px] bg-gray-50 dark:bg-gray-800/80 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors border border-theme-divider"
+        onClick={() => setShowModal(true)}
+      >
+        <div className="px-3 pt-2.5 pb-1">
+          <div className="text-sm font-medium text-theme mb-1.5">{title}</div>
+          {previews.map((preview, i) => (
+            <div key={i} className="text-xs text-theme-secondary truncate leading-5">{preview}</div>
+          ))}
+        </div>
+        <div className="flex items-center justify-between px-3 py-1.5 border-t border-theme-divider">
+          <span className="text-xs text-theme-hint">{summary}</span>
+          <ChevronRight size={12} className="text-theme-hint" />
+        </div>
+      </div>
+      {showModal && <ForwardMsgModal resId={resId} title={title} onClose={() => setShowModal(false)} />}
     </>
   )
 }

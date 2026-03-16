@@ -257,6 +257,12 @@ function extractAbstractContent(abstractContent: any): string {
     if (item.multiForwardMsgElement || item.elementType === 16) {
       return '[聊天记录]'
     }
+    if (item.arkElement || item.elementType === 10) {
+      try {
+        const arkData = JSON.parse(item.arkElement?.bytesData || '{}')
+        if (arkData.app === 'com.tencent.multimsg') return '[聊天记录]'
+      } catch { /* ignore */ }
+    }
 
     return ''
   }

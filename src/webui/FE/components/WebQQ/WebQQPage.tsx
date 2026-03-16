@@ -50,6 +50,15 @@ function extractMessageSummary(rawMessage: RawMessage): string {
       summaryParts.push('[聊天记录]')
       continue
     }
+    if (element.arkElement) {
+      try {
+        const arkData = JSON.parse(element.arkElement.bytesData)
+        if (arkData.app === 'com.tencent.multimsg') {
+          summaryParts.push('[聊天记录]')
+          continue
+        }
+      } catch { /* ignore */ }
+    }
   }
 
   const summary = summaryParts.join('').replace(/\s+/g, ' ').trim()
