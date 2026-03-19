@@ -16,7 +16,7 @@ import {
 import { WebQQPage, WebQQFullscreen } from './components/WebQQ';
 import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
-import { Save, Loader2, Eye, EyeOff, Plus, Trash2, Menu, Cpu, Milk } from 'lucide-react';
+import { Save, Loader2, Eye, EyeOff, Plus, Trash2, Menu, Cpu, Milk, ExternalLink } from 'lucide-react';
 import { defaultConfig } from '../../common/defaultConfig'
 import { version } from '../../version'
 import SettingsDialog from './components/common/SettingsDialog'
@@ -343,6 +343,16 @@ function App() {
                   <h3 className="text-lg font-semibold text-theme">Satori 协议</h3>
                   <p className="text-sm text-theme-secondary">配置 Satori 协议相关设置</p>
                 </div>
+                <div className="flex-1" />
+                <a
+                  href="https://www.luckylillia.com/guide/develop#satori-%E5%8D%8F%E8%AE%AE"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/30 rounded-lg transition-colors"
+                >
+                  <ExternalLink size={16} />
+                  文档
+                </a>
               </div>
 
               <div className="space-y-4">
@@ -459,6 +469,16 @@ function App() {
                   <h3 className="text-lg font-semibold text-theme">Milky 协议</h3>
                   <p className="text-sm text-theme-secondary">配置 Milky 协议相关设置</p>
                 </div>
+                <div className="flex-1" />
+                <a
+                  href="https://www.luckylillia.com/guide/develop#milky-%E5%8D%8F%E8%AE%AE"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/30 rounded-lg transition-colors"
+                >
+                  <ExternalLink size={16} />
+                  文档
+                </a>
               </div>
 
               <div className="space-y-4">

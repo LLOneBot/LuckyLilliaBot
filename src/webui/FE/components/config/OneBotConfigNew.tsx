@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { OB11Config, ConnectConfig, WsConnectConfig, WsReverseConnectConfig, HttpConnectConfig, HttpPostConnectConfig } from '../../types';
-import { Radio, Wifi, Globe, Send, X, Settings, Plus, Trash2, Edit2, Eye, EyeOff } from 'lucide-react';
+import { Radio, Wifi, Globe, Send, X, Settings, Plus, Trash2, Edit2, Eye, EyeOff, ExternalLink } from 'lucide-react';
 import { Portal, HostSelector } from '../common';
 import { showToast } from '../common';
 
@@ -150,6 +150,15 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
             <h3 className="text-lg font-semibold text-theme">OneBot 11 协议</h3>
             <p className="text-sm text-theme-secondary">启用或禁用 OneBot 11 适配器</p>
           </div>
+          <a
+            href="https://www.luckylillia.com/guide/develop#onebot11-%E5%8D%8F%E8%AE%AE"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/30 rounded-lg transition-colors"
+          >
+            <ExternalLink size={16} />
+            文档
+          </a>
           <input
             type="checkbox"
             checked={config.enable}
