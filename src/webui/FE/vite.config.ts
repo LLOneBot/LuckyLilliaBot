@@ -5,6 +5,7 @@ import * as path from 'node:path'
 export default defineConfig({
   build: {
     outDir: path.join(__dirname, '../../../dist/webui'),
+    emptyOutDir: true,
   },
   plugins: [react()],
   resolve: {
