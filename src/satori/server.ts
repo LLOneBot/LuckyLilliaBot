@@ -1,6 +1,4 @@
 import * as Universal from '@satorijs/protocol'
-import express, { Express, Request, Response } from 'express'
-import { Server } from 'node:http'
 import { Context } from 'cordis'
 import { handlers } from './api'
 import { WebSocket, WebSocketServer } from 'ws'
@@ -9,22 +7,32 @@ import { selfInfo } from '@/common/globalVars'
 import { initActionMap } from '@/onebot11/action'
 import { OB11Response } from '@/onebot11/action/OB11Response'
 import { ParseMessageConfig } from '@/onebot11/types'
+import { Hono, Context as HonoContext, Next } from 'hono'
+import { cors } from 'hono/cors'
+import { serve, ServerType } from '@hono/node-server'
+import { WSContext } from 'hono/ws'
+import { createNodeWebSocket, NodeWebSocket } from '@hono/node-ws'
 
 export class SatoriServer {
-  private express: Express
-  private httpServer?: Server
+  private app: Hono
+  private httpServer?: ServerType
   private wsServer?: WebSocketServer
-  private wsClients: WebSocket[] = []
-  private actionMap: Map<string, { handle: (params: any, config: ParseMessageConfig) => Promise<any> }>
+  private wsClients: WSContext[] = []
+  private actionMap?: Map<string, { handle: (params: any, config: ParseMessageConfig) => Promise<any> }>
   private routesRegistered = false
+  private injectWebSocket?: NodeWebSocket['injectWebSocket']
 
   constructor(private ctx: Context, private config: SatoriServer.Config) {
-    this.express = express()
-    this.express.use(express.json({ limit: '50mb' }))
-    this.actionMap = initActionMap(this as any)
+    this.app = new Hono()
   }
 
-  async CallOneBot11API(action: string, params: any): Promise<any> {
+  async callOneBot11API(action: string, params: any): Promise<any> {
+    const onebotAdapter = this.ctx.get('onebot')
+    if (onebotAdapter) {
+      this.actionMap ??= initActionMap(onebotAdapter)
+    } else {
+      throw new Error(`OB11 service has not started`)
+    }
     const handler = this.actionMap.get(action)
     if (!handler) {
       throw new Error(`Unsupported OB11 action: ${action}`)
@@ -35,19 +43,17 @@ export class SatoriServer {
     })
   }
 
-  private async handleOneBotRequest(req: Request, res: Response) {
-    if (this.checkAuth(req, res)) return
-
-    const action = req.params.action
-    const params = req.method === 'POST' ? req.body : req.query
+  private async handleOneBotRequest(c: HonoContext, next: Next) {
+    const action = c.req.param('action')
+    const payload = c.req.method === 'POST' ? await c.req.json() : c.req.query()
     let result
     try {
-      result = await this.CallOneBot11API(action as string, params)
+      result = await this.callOneBot11API(action as string, payload)
     } catch (e) {
       result = OB11Response.error((e as Error)?.toString() ?? String(e), 200)
     }
 
-    res.json(result)
+    return c.json(result)
   }
 
   public start() {
@@ -57,91 +63,90 @@ export class SatoriServer {
     }
 
     const { host, port } = this.config
-    this.httpServer = this.express.listen(port, host, () => {
+    this.httpServer = serve({
+      fetch: this.app.fetch,
+      port: port,
+      hostname: host
+    }, () => {
       this.ctx.logger.info(`Satori server started ${host || '0.0.0.0'}:${port}`)
     })
-    this.httpServer.on('error', (error: NodeJS.ErrnoException) => {
-      if (error.code === 'EADDRINUSE') {
-        this.ctx.logger.warn(`端口 ${port} 已被占用`)
-      } else {
-        this.ctx.logger.error('Failed to start Satori server:', error)
-      }
-    })
-    this.wsServer = new WebSocketServer({ server: this.httpServer })
-    this.wsServer.on('connection', (socket, req) => {
-      const url = req.url?.split('?').shift()
-      if (!['/v1/events', '/v1/events/'].includes(url!)) {
-        return socket.close(1008, 'invalid address')
-      }
-
-      socket.addEventListener('message', async (event) => {
-        let payload: Universal.ClientPayload
-        try {
-          payload = JSON.parse(event.data.toString())
-        } catch {
-          return socket.close(4000, 'invalid message')
-        }
-
-        if (payload.op === Universal.Opcode.IDENTIFY) {
-          if (this.config.token && payload.body?.token !== this.config.token) {
-            return socket.close(4004, 'invalid token')
-          }
-          this.ctx.logger.info('ws connect', url)
-          socket.send(JSON.stringify({
-            op: Universal.Opcode.READY,
-            body: {
-              logins: [await handlers.getLogin(this.ctx, {}) as Universal.Login],
-              proxy_urls: [],
-            },
-          } as ObjectToSnake<Universal.ServerPayload>))
-          this.wsClients.push(socket)
-        }
-        else if (payload.op === Universal.Opcode.PING) {
-          socket.send(JSON.stringify({
-            op: Universal.Opcode.PONG,
-            body: {},
-          } as Universal.ServerPayload))
-        }
-      })
-    })
+    this.injectWebSocket?.(this.httpServer)
   }
 
   private registerRoutes() {
-    this.express.route('/v1/internal/onebot11/:action')
-      .post(this.handleOneBotRequest.bind(this))
-      .get(this.handleOneBotRequest.bind(this))
+    // TODO: 待 https://github.com/honojs/middleware/pull/1808 通过后，将 maxPayload 指定为 constants.MAX_STRING_LENGTH
+    // 默认的 maxPayload 为 100 MiB
+    const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app: this.app })
+    this.injectWebSocket = injectWebSocket
 
-    this.express.get('/v1/:name', async (req, res) => {
-      res.status(405).send('Please use POST method to send requests.')
+    this.app.get('/v1/events',
+      upgradeWebSocket((c) => {
+        return {
+          onMessage: async (event, ws) => {
+            let payload: Universal.ClientPayload
+            try {
+              payload = JSON.parse(event.data.toString())
+            } catch {
+              return ws.close(4000, 'invalid message')
+            }
+
+            if (payload.op === Universal.Opcode.IDENTIFY) {
+              if (this.config.token && payload.body?.token !== this.config.token) {
+                return ws.close(4004, 'invalid token')
+              }
+              this.ctx.logger.info('ws connect', c.req.path)
+              ws.send(JSON.stringify({
+                op: Universal.Opcode.READY,
+                body: {
+                  logins: [await handlers.getLogin(this.ctx, {}) as Universal.Login],
+                  proxy_urls: [],
+                },
+              } as ObjectToSnake<Universal.ServerPayload>))
+              this.wsClients.push(ws)
+            }
+            else if (payload.op === Universal.Opcode.PING) {
+              ws.send(JSON.stringify({
+                op: Universal.Opcode.PONG,
+                body: {},
+              } as Universal.ServerPayload))
+            }
+          }
+        }
+      })
+    )
+
+    this.app.use('/v1/*', cors())
+
+    this.app.use('/v1/*', this.checkAuth.bind(this))
+
+    this.app.use('/v1/internal/onebot11/:action', this.handleOneBotRequest.bind(this))
+
+    this.app.get('/v1/*', async (c) => {
+      return c.text('Please use POST method to send requests.', 405)
     })
 
-    this.express.post('/v1/:name', async (req, res) => {
-      const method = Universal.Methods[req.params.name]
-      if (!method) {
-        res.status(404).send('method not found')
-        return
+    this.app.post('/v1/:name', async (c, next) => {
+      const selfId = c.req.header('Satori-User-ID')
+      const platform = c.req.header('Satori-Platform')
+      if (selfId !== selfInfo.uin || !platform) {
+        return c.text('login not found', 403)
       }
 
-      if (this.checkAuth(req, res)) return
-
-      const selfId = req.headers['satori-user-id'] ?? req.headers['x-self-id']
-      const platform = req.headers['satori-platform'] ?? req.headers['x-platform']
-      if (selfId !== selfInfo.uin || !platform) {
-        res.status(403).send('login not found')
-        return
+      const method = Universal.Methods[c.req.param('name')]
+      if (!method) {
+        return c.text('method not found', 404)
       }
 
       const handle = handlers[method.name]
       if (!handle) {
-        res.status(404).send('method not found')
-        return
+        return c.text('method not found', 404)
       }
       try {
-        const result = await handle(this.ctx, req.body)
-        res.json(result)
+        const result = await handle(this.ctx, await c.req.json())
+        return c.json(result)
       } catch (e) {
         this.ctx.logger.error(e)
-        res.status(500).send((e as Error).message)
+        return c.text((e as Error).message, 500)
       }
     })
   }
@@ -150,7 +155,7 @@ export class SatoriServer {
     for (const socket of this.wsClients) {
       try {
         if (socket.readyState === WebSocket.OPEN) {
-          socket.close(1000)
+          socket.close()
         }
       } catch {
       }
@@ -171,12 +176,12 @@ export class SatoriServer {
     }
   }
 
-  private checkAuth(req: Request, res: Response) {
-    if (!this.config.token) return
-    if (req.headers.authorization !== `Bearer ${this.config.token}`) {
-      res.status(403).send('invalid token')
-      return true
+  private async checkAuth(c: HonoContext, next: Next) {
+    if (!this.config.token) return await next()
+    if (c.req.header('Authorization') !== `Bearer ${this.config.token}`) {
+      return c.text('invalid token', 403)
     }
+    await next()
   }
 
   public async dispatch(body: ObjectToSnake<Universal.Event>) {
@@ -186,7 +191,7 @@ export class SatoriServer {
           op: Universal.Opcode.EVENT,
           body,
         } as ObjectToSnake<Universal.ServerPayload>))
-        this.ctx.logger.info('WebSocket 事件上报', socket.url ?? '', body.type)
+        this.ctx.logger.info('WebSocket 事件上报', body.type)
       }
     })
   }
