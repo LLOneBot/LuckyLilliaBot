@@ -237,7 +237,7 @@ export class NTQQFileApi extends Service {
       {
         resultCmd: ReceiveCmdS.MEDIA_UPLOAD_COMPLETE,
         resultCb: payload => payload.filePath === filePath,
-        timeout: 10 * Time.second,
+        timeout: 20 * Time.second,
       },
     )
     return data

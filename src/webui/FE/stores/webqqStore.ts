@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { FriendCategory, GroupItem, RecentChatItem, ChatSession, GroupMemberItem, NotificationItem } from '../types/webqq'
-import { getFriends, getGroups, getRecentChats, getGroupNotifications, getFriendRequests, getDoubtBuddyRequests } from '../utils/webqqApi'
+import { getFriends, getGroups, getRecentChats, getGroupNotifications, getFriendRequests, getDoubtBuddyRequests, getGroupMembers, setRecentChatTop } from '../utils/webqqApi'
 import { GroupNotifyType, GroupNotifyStatus } from '../types/webqq'
 
 // 缓存过期时间（1小时）
@@ -70,47 +70,47 @@ interface WebQQState {
   friendCategories: FriendCategory[]
   groups: GroupItem[]
   recentChats: RecentChatItem[]
-  
+
   // 群最后消息时间映射（用于排序）
   groupLastTimeMap: Record<string, number>
   // 群最后消息摘要映射（用于群助手预览）
   groupLastMessageMap: Record<string, string>
-  
+
   // 加载状态
   contactsLoading: boolean
   contactsError: string | null
-  
+
   // 当前会话
   currentChat: ChatSession | null
-  
+
   // 当前 Tab
   activeTab: TabType
-  
+
   // 群助手模式
   groupAssistantMode: GroupAssistantMode
-  
+
   // 未读计数
   unreadCounts: Record<string, number>
-  
+
   // 好友分组展开状态（空数组表示全部折叠）
   expandedCategories: number[]
-  
+
   // 群成员缓存
   membersCache: Record<string, MembersCacheEntry>
-  
+
   // 群成员面板展开状态
   showMemberPanel: boolean
 
   // 系统通知
   notifications: NotificationItem[]
   notificationUnreadCount: number
-  
+
   // 滚动位置记录
   scrollPositions: Record<string, ScrollPosition>
-  
+
   // 缓存时间戳
   contactsCacheTimestamp: number
-  
+
   // Actions
   setFriendCategories: (categories: FriendCategory[]) => void
   setGroups: (groups: GroupItem[]) => void
@@ -119,27 +119,27 @@ interface WebQQState {
   setContactsError: (error: string | null) => void
   setCurrentChat: (chat: ChatSession | null) => void
   setActiveTab: (tab: TabType) => void
-  
+
   // 群助手模式操作
   setGroupAssistantMode: (mode: GroupAssistantMode) => void
   enterGroupAssistant: () => void
   exitGroupAssistant: () => void
-  
+
   // 未读计数操作
   setUnreadCount: (chatKey: string, count: number) => void
   incrementUnreadCount: (chatKey: string) => void
   clearUnreadCount: (chatKey: string) => void
   initUnreadCounts: (recentChats: RecentChatItem[]) => void
-  
+
   // 分组展开操作
   toggleCategory: (categoryId: number) => void
   setExpandedCategories: (ids: number[]) => void
-  
+
   // 群成员缓存操作
   getCachedMembers: (groupCode: string) => GroupMemberItem[] | null
   setCachedMembers: (groupCode: string, members: GroupMemberItem[]) => void
   fetchGroupMembers: (groupCode: string, forceRefresh?: boolean) => Promise<GroupMemberItem[]>
-  
+
   // 群成员面板操作
   setShowMemberPanel: (show: boolean) => void
 
@@ -149,28 +149,28 @@ interface WebQQState {
   clearNotificationUnread: () => void
   updateNotificationStatus: (type: string, flag: string, newStatus: number) => void
   loadGroupNotifications: () => Promise<void>
-  
+
   // 滚动位置操作
   getScrollPosition: (chatType: string, peerId: string) => ScrollPosition | null
   setScrollPosition: (chatType: string, peerId: string, position: ScrollPosition) => void
   clearScrollPosition: (chatType: string, peerId: string) => void
-  
+
   // 联系人加载
   loadContacts: () => Promise<void>
   refreshContacts: () => Promise<void>
-  
+
   // 更新最近会话
   updateRecentChat: (chatType: number, peerId: string, lastMessage: string, lastTime: number, peerName?: string, peerAvatar?: string) => void
-  
+
   // 置顶/取消置顶会话
   togglePinChat: (chatType: number, peerId: string) => Promise<void>
-  
+
   // 删除最近会话
   removeRecentChat: (chatType: number, peerId: string) => void
-  
+
   // 删除好友（从本地缓存中移除）
   removeFriend: (uid: string) => void
-  
+
   // 检查缓存是否有效
   isContactsCacheValid: () => boolean
 }
@@ -216,19 +216,19 @@ export const useWebQQStore = create<WebQQState>()(
       setUnreadCount: (chatKey, count) => set((state) => ({
         unreadCounts: { ...state.unreadCounts, [chatKey]: count }
       })),
-      
+
       incrementUnreadCount: (chatKey) => set((state) => ({
-        unreadCounts: { 
-          ...state.unreadCounts, 
-          [chatKey]: (state.unreadCounts[chatKey] || 0) + 1 
+        unreadCounts: {
+          ...state.unreadCounts,
+          [chatKey]: (state.unreadCounts[chatKey] || 0) + 1
         }
       })),
-      
+
       clearUnreadCount: (chatKey) => set((state) => {
         const { [chatKey]: _, ...rest } = state.unreadCounts
         return { unreadCounts: rest }
       }),
-      
+
       initUnreadCounts: (recentChats) => {
         const counts: Record<string, number> = {}
         recentChats.forEach(item => {
@@ -249,20 +249,20 @@ export const useWebQQStore = create<WebQQState>()(
         }
         return { expandedCategories: Array.from(expanded) }
       }),
-      
+
       setExpandedCategories: (ids) => set({ expandedCategories: ids }),
 
       // 群成员缓存操作
       getCachedMembers: (groupCode) => {
         const state = get()
         const entry = state.membersCache[groupCode]
-        
+
         if (entry && Date.now() - entry.timestamp < MEMBERS_CACHE_EXPIRY_MS) {
           return entry.members
         }
         return null
       },
-      
+
       setCachedMembers: (groupCode, members) => set((state) => {
         // 清理过期缓存
         const now = Date.now()
@@ -272,7 +272,7 @@ export const useWebQQStore = create<WebQQState>()(
             cleanedCache[k] = v
           }
         }
-        
+
         return {
           membersCache: {
             ...cleanedCache,
@@ -280,14 +280,14 @@ export const useWebQQStore = create<WebQQState>()(
           }
         }
       }),
-      
+
       // 统一的获取群成员方法（带缓存和去重）
       // forceRefresh: 是否强制刷新（首次进入聊天框时传 true）
       fetchGroupMembers: async (groupCode, forceRefresh = false) => {
         const state = get()
-        
+
         console.log('[Store] fetchGroupMembers called:', groupCode, 'forceRefresh:', forceRefresh)
-        
+
         // 1. 检查缓存（非强制刷新时使用缓存）
         if (!forceRefresh) {
           const cached = state.getCachedMembers(groupCode)
@@ -296,19 +296,18 @@ export const useWebQQStore = create<WebQQState>()(
             return cached
           }
         }
-        
+
         // 2. 检查是否正在加载
         const existingPromise = loadingMembersPromises.get(groupCode)
         if (existingPromise) {
           console.log('[Store] Already loading, returning existing promise')
           return existingPromise
         }
-        
+
         // 3. 发起新请求 - 先创建 promise 并存入 map，防止并发调用
         console.log('[Store] Fetching from API')
-        
+
         const promise = (async () => {
-          const { getGroupMembers } = await import('../utils/webqqApi')
           const members = await getGroupMembers(groupCode)
           console.log('[Store] API success, caching members')
           get().setCachedMembers(groupCode, members)
@@ -319,12 +318,12 @@ export const useWebQQStore = create<WebQQState>()(
           loadingMembersPromises.delete(groupCode)
           throw err
         })
-        
+
         // 立即存入 map，防止并发调用
         loadingMembersPromises.set(groupCode, promise)
         return promise
       },
-      
+
       // 群成员面板操作
       setShowMemberPanel: (show) => set({ showMemberPanel: show }),
 
@@ -422,14 +421,14 @@ export const useWebQQStore = create<WebQQState>()(
         const key = `${chatType}_${peerId}`
         return state.scrollPositions[key] || null
       },
-      
+
       setScrollPosition: (chatType, peerId, position) => set((state) => ({
         scrollPositions: {
           ...state.scrollPositions,
           [`${chatType}_${peerId}`]: position
         }
       })),
-      
+
       clearScrollPosition: (chatType, peerId) => set((state) => {
         const { [`${chatType}_${peerId}`]: _, ...rest } = state.scrollPositions
         return { scrollPositions: rest }
@@ -448,29 +447,29 @@ export const useWebQQStore = create<WebQQState>()(
       // 加载联系人（优先使用缓存）
       loadContacts: async () => {
         const state = get()
-        
+
         // 如果缓存有效，直接使用缓存数据
         if (state.isContactsCacheValid()) {
           // 后台静默刷新
           state.refreshContacts()
           return
         }
-        
+
         // 缓存无效，显示加载状态
         set({ contactsLoading: true, contactsError: null })
-        
+
         try {
           const [categoriesData, groupsData, recentData] = await Promise.all([
             getFriends(),
             getGroups(),
             getRecentChats()
           ])
-          
+
           // 过滤无效的最近会话
-          const validRecentData = recentData.filter(item => 
+          const validRecentData = recentData.filter(item =>
             item.peerId && item.peerId !== '0' && item.peerId !== ''
           )
-          
+
           // 合并最近会话
           const localRecentMap = new Map<string, RecentChatItem>()
           state.recentChats.forEach(item => {
@@ -478,7 +477,7 @@ export const useWebQQStore = create<WebQQState>()(
               localRecentMap.set(`${item.chatType}_${item.peerId}`, item)
             }
           })
-          
+
           validRecentData.forEach(item => {
             const key = `${item.chatType}_${item.peerId}`
             const local = localRecentMap.get(key)
@@ -493,7 +492,7 @@ export const useWebQQStore = create<WebQQState>()(
               localRecentMap.set(key, item)
             }
           })
-          
+
           const mergedRecent = Array.from(localRecentMap.values())
             .sort((a, b) => b.lastTime - a.lastTime)
 
@@ -507,7 +506,7 @@ export const useWebQQStore = create<WebQQState>()(
               }
             }
           })
-          
+
           set({
             friendCategories: categoriesData,
             groups: groupsData,
@@ -517,7 +516,7 @@ export const useWebQQStore = create<WebQQState>()(
             contactsCacheTimestamp: Date.now(),
             contactsLoading: false
           })
-          
+
           // 初始化未读计数（合并）
           const currentUnread = get().unreadCounts
           const newUnread = { ...currentUnread }
@@ -529,9 +528,9 @@ export const useWebQQStore = create<WebQQState>()(
           })
           set({ unreadCounts: newUnread })
         } catch (e: any) {
-          set({ 
+          set({
             contactsError: e.message || '加载联系人失败',
-            contactsLoading: false 
+            contactsLoading: false
           })
         }
       },
@@ -544,12 +543,12 @@ export const useWebQQStore = create<WebQQState>()(
             getGroups(),
             getRecentChats()
           ])
-          
+
           // 过滤无效的最近会话
-          const validRecentData = recentData.filter(item => 
+          const validRecentData = recentData.filter(item =>
             item.peerId && item.peerId !== '0' && item.peerId !== ''
           )
-          
+
           // 合并最近会话：保留本地更新的，合并服务器返回的
           const state = get()
           const localRecentMap = new Map<string, RecentChatItem>()
@@ -558,7 +557,7 @@ export const useWebQQStore = create<WebQQState>()(
               localRecentMap.set(`${item.chatType}_${item.peerId}`, item)
             }
           })
-          
+
           // 合并服务器数据
           validRecentData.forEach(item => {
             const key = `${item.chatType}_${item.peerId}`
@@ -575,7 +574,7 @@ export const useWebQQStore = create<WebQQState>()(
               localRecentMap.set(key, item)
             }
           })
-          
+
           // 转换为数组并按时间排序
           const mergedRecent = Array.from(localRecentMap.values())
             .sort((a, b) => b.lastTime - a.lastTime)
@@ -590,7 +589,7 @@ export const useWebQQStore = create<WebQQState>()(
               }
             }
           })
-          
+
           set({
             friendCategories: categoriesData,
             groups: groupsData,
@@ -599,7 +598,7 @@ export const useWebQQStore = create<WebQQState>()(
             groupLastMessageMap,
             contactsCacheTimestamp: Date.now()
           })
-          
+
           // 更新未读计数（只添加新的，不覆盖已有的）
           const currentUnread = get().unreadCounts
           const newUnread = { ...currentUnread }
@@ -619,31 +618,31 @@ export const useWebQQStore = create<WebQQState>()(
       // 更新最近会话（如果不存在则创建）
       updateRecentChat: (chatType, peerId, lastMessage, lastTime, peerName?: string, peerAvatar?: string) => set((state) => {
         // 先去重，确保没有重复项
-        const dedupedChats = state.recentChats.filter((item, index, arr) => 
+        const dedupedChats = state.recentChats.filter((item, index, arr) =>
           arr.findIndex(i => i.chatType === item.chatType && i.peerId === item.peerId) === index
         )
-        
+
         const existing = dedupedChats.find(
           item => item.chatType === chatType && item.peerId === peerId
         )
-        
+
         const currentChat = state.currentChat
         const isCurrentChat = currentChat?.chatType === chatType && currentChat?.peerId === peerId
-        
+
         // 创建新的 groupLastTimeMap（如果是群聊）
-        const newGroupLastTimeMap = chatType === 2 
+        const newGroupLastTimeMap = chatType === 2
           ? { ...state.groupLastTimeMap, [peerId]: lastTime }
           : state.groupLastTimeMap
         const newGroupLastMessageMap = chatType === 2
           ? { ...state.groupLastMessageMap, [peerId]: lastMessage || '[消息]' }
           : state.groupLastMessageMap
-        
+
         if (existing) {
           // 更新已存在的会话
           const updated = dedupedChats.filter(
             item => !(item.chatType === chatType && item.peerId === peerId)
           )
-          
+
           // 如果是置顶的，保持在置顶区域
           const updatedChat = {
             ...existing,
@@ -651,7 +650,7 @@ export const useWebQQStore = create<WebQQState>()(
             lastTime,
             unreadCount: isCurrentChat ? 0 : existing.unreadCount + 1
           }
-          
+
           if (existing.pinned) {
             // 置顶的放在置顶区域的最前面
             const pinnedChats = updated.filter(item => item.pinned)
@@ -662,7 +661,7 @@ export const useWebQQStore = create<WebQQState>()(
               groupLastMessageMap: newGroupLastMessageMap
             }
           }
-          
+
           // 非置顶的放在非置顶区域的最前面
           const pinnedChats = updated.filter(item => item.pinned)
           const normalChats = updated.filter(item => !item.pinned)
@@ -676,7 +675,7 @@ export const useWebQQStore = create<WebQQState>()(
           // 尝试从好友列表或群组列表获取名称和头像
           let name = peerName || peerId
           let avatar = peerAvatar || ''
-          
+
           if (chatType === 1 || chatType === 100) {
             // 从好友列表查找（私聊和临时会话）
             for (const category of state.friendCategories) {
@@ -708,7 +707,7 @@ export const useWebQQStore = create<WebQQState>()(
               avatar = `https://p.qlogo.cn/gh/${peerId}/${peerId}/640/`
             }
           }
-          
+
           const newChat: RecentChatItem = {
             chatType: chatType as 1 | 2 | 100,
             peerId,
@@ -718,7 +717,7 @@ export const useWebQQStore = create<WebQQState>()(
             lastTime,
             unreadCount: isCurrentChat ? 0 : 1
           }
-          
+
           return {
             recentChats: [newChat, ...dedupedChats],
             groupLastTimeMap: newGroupLastTimeMap,
@@ -732,14 +731,13 @@ export const useWebQQStore = create<WebQQState>()(
         const state = get()
         const chat = state.recentChats.find(item => item.chatType === chatType && item.peerId === peerId)
         if (!chat) return
-        
+
         const newPinnedState = !chat.pinned
-        
+
         try {
           // 调用 QQ API 设置置顶
-          const { setRecentChatTop } = await import('../utils/webqqApi')
           await setRecentChatTop(chatType, peerId, newPinnedState)
-          
+
           // 更新本地状态
           set((state) => {
             const chats = state.recentChats.map(item => {
