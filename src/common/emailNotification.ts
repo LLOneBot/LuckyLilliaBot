@@ -34,13 +34,13 @@ export class EmailNotificationService extends Service {
 
     this.initializeConfig()
     this.registerEventListeners()
-    this.watchConfigFile()
     this.registerPmhqDisconnectCallback()
   }
 
   private async initializeConfig() {
     try {
       await this.configManager.loadConfig()
+      this.watchConfigFile()
     } catch (error) {
       this.ctx.logger.error('[EmailNotification] Failed to initialize:', error)
     }
