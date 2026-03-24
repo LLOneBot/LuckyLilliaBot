@@ -72,5 +72,35 @@ export function GroupMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
         url: `https://${download.downloadDns}/ftn_handler/${download.downloadUrl.toString('hex')}/?fname=`,
       }
     }
+
+    async fetchGroups() {
+      const body = Oidb.FetchGroupsReq.encode({
+        config: {
+          config1: {
+            groupOwner: true,
+            createdTime: true,
+            memberMax: true,
+            memberCount: true,
+            groupName: true,
+            topTime: true,
+            description: true,
+            question: true,
+            richDescription: true,
+            announcement: true,
+          },
+          config2: {
+            remark: true,
+          },
+        },
+      })
+      const data = Oidb.Base.encode({
+        command: 0xfe5,
+        subCommand: 2,
+        body,
+      })
+      const res = await this.httpSendPB('OidbSvcTrpcTcp.0xfe5_2', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.FetchGroupsResp.decode(oidbRespBody)
+    }
   }
 }

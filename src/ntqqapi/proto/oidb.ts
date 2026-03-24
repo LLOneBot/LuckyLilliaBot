@@ -159,6 +159,7 @@ export namespace Oidb {
     })
   })
 
+  /** OidbSvcTrpcTcp.0x6d6_0 */
   export const GroupFileReq = ProtoMessage.of({
     uploadFileReq: ProtoField(1, {
       groupCode: ProtoField(1, 'uint32'),
@@ -194,6 +195,7 @@ export namespace Oidb {
     })
   })
 
+  /** OidbSvcTrpcTcp.0xe37_1700 */
   export const OfflineFileUploadReq = ProtoMessage.of({
     command: ProtoField(1, 'uint32'),
     seq: ProtoField(2, 'int32'),
@@ -247,5 +249,49 @@ export namespace Oidb {
     businessId: ProtoField(101, 'int32'),
     clientType: ProtoField(102, 'int32'),
     flagSupportMediaPlatform: ProtoField(200, 'int32')
+  })
+
+  /** OidbSvcTrpcTcp.0xfe5_2 */
+  export const FetchGroupsReq = ProtoMessage.of({
+    config: ProtoField(1, {
+      config1: ProtoField(1, {
+        groupOwner: ProtoField(1, 'bool'),
+        createdTime: ProtoField(2, 'bool'),
+        memberMax: ProtoField(3, 'bool'),
+        memberCount: ProtoField(4, 'bool'),
+        groupName: ProtoField(5, 'bool'),
+        topTime: ProtoField(9, 'bool'),
+        description: ProtoField(18, 'bool'),
+        question: ProtoField(19, 'bool'),
+        richDescription: ProtoField(21, 'bool'),
+        announcement: ProtoField(30, 'bool'),
+      }),
+      config2: ProtoField(2, {
+        remark: ProtoField(3, 'bool')
+      })
+    })
+  })
+
+  export const FetchGroupsResp = ProtoMessage.of({
+    groups: ProtoField(2, {
+      groupCode: ProtoField(3, 'uint32'),
+      info: ProtoField(4, {
+        groupOwner: ProtoField(1, {
+          uid: ProtoField(2, 'string')
+        }),
+        createdTime: ProtoField(2, 'uint32'),
+        memberMax: ProtoField(3, 'uint32'),
+        memberCount: ProtoField(4, 'uint32'),
+        groupName: ProtoField(5, 'string'),
+        topTime: ProtoField(9, 'uint32', 'optional'),
+        description: ProtoField(18, 'string', 'optional'),
+        question: ProtoField(19, 'string', 'optional'),
+        richDescription: ProtoField(21, 'string', 'optional'),
+        announcement: ProtoField(30, 'string', 'optional')
+      }),
+      customInfo: ProtoField(5, {
+        remark: ProtoField(3, 'string', 'optional')
+      })
+    }, 'repeated')
   })
 }

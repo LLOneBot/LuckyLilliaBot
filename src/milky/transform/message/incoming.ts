@@ -1,6 +1,6 @@
 import { IncomingMessage, IncomingSegment, IncomingForwardedMessage } from '@saltify/milky-types'
 import { transformFriend, transformGroup, transformGroupMember } from '@/milky/transform/entity'
-import { RawMessage, ElementType, AtType, GroupAllInfo } from '@/ntqqapi/types'
+import { RawMessage, ElementType, AtType, GroupDetailInfo } from '@/ntqqapi/types'
 import { SimpleInfo, CategoryFriend, GroupMember } from '@/ntqqapi/types'
 import { Context } from 'cordis'
 import { InferProtoModel } from '@saltify/typeproto'
@@ -27,7 +27,7 @@ export async function transformIncomingPrivateMessage(
 
 export async function transformIncomingGroupMessage(
   ctx: Context,
-  group: GroupAllInfo,
+  group: GroupDetailInfo,
   member: GroupMember,
   message: RawMessage,
 ): Promise<IncomingMessage> {
@@ -45,7 +45,7 @@ export async function transformIncomingGroupMessage(
 
 export async function transformIncomingTempMessage(
   ctx: Context,
-  group: GroupAllInfo,
+  group: GroupDetailInfo,
   message: RawMessage,
 ): Promise<IncomingMessage> {
   return {
