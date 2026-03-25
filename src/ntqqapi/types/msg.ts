@@ -180,8 +180,12 @@ export interface PttElement {
 
 export interface ArkElement {
   bytesData: string
-  linkInfo: null
-  subElementType: null
+  linkInfo: unknown | null
+  subElementType: unknown | null
+  buildMultiMsgReqInfo: {
+    srcMsgIds: unknown
+    srcContact: unknown
+  } | null
 }
 
 export const IMAGE_HTTP_HOST = 'https://gchat.qpic.cn'

@@ -293,7 +293,7 @@ class ForwardMessageEncoder {
             str: data.text
           }
         })
-        this.preview += data.text
+        this.preview += data.text.slice(0, 70)
       } else if (type === 'face') {
         this.children.push({
           face: {

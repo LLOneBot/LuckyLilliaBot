@@ -253,7 +253,7 @@ export class MessageEncoder {
           str: data.text
         }
       })
-      this.preview += data.text
+      this.preview += data.text.slice(0, 70)
     } else if (type === OB11MessageDataType.Face) {
       this.children.push({
         face: {
