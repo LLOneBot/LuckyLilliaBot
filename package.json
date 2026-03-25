@@ -34,7 +34,7 @@
     "image-size": "^2.0.2",
     "json5": "^2.2.3",
     "minato": "^3.7.0",
-    "nodemailer": "^8.0.3",
+    "nodemailer": "^8.0.4",
     "qrcode": "^1.5.4",
     "silk-wasm": "^3.7.1",
     "ws": "^8.20.0",
