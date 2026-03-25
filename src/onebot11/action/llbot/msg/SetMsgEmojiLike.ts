@@ -1,5 +1,6 @@
 import { ActionName } from '../../types'
 import { BaseAction, Schema } from '../../BaseAction'
+import { ChatType } from '@/ntqqapi/types'
 
 interface Payload {
   message_id: number | string
@@ -18,6 +19,9 @@ export class SetMsgEmojiLike extends BaseAction<Payload, null> {
     const msg = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
     if (!msg) {
       throw new Error('msg not found')
+    }
+    if (msg.peer.chatType !== ChatType.Group) {
+      throw new Error('只支持群聊消息')
     }
     const msgData = (await this.ctx.ntMsgApi.getMsgsByMsgId(msg.peer, [msg.msgId])).msgList
     if (!msgData || msgData.length == 0 || !msgData[0].msgSeq) {
