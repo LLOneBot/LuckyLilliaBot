@@ -1,25 +1,24 @@
-import { Router, Request, Response } from 'express'
 import { Context } from 'cordis'
 import path from 'path'
 import { existsSync } from 'node:fs'
 import { decodeSilk } from '@/common/utils/audio'
+import { Hono } from 'hono'
+import { readFile } from 'node:fs/promises'
 
-export function createProxyRoutes(ctx: Context): Router {
-  const router = Router()
+export function createProxyRoutes(ctx: Context): Hono {
+  const router = new Hono()
 
   // 本地文件代理接口 - 用于视频封面等本地文件
-  router.get('/file-proxy', async (req: Request, res: Response) => {
+  router.get('/file-proxy', async (c) => {
     try {
-      const filePath = req.query.path as string
+      const filePath = c.req.query('path')
       if (!filePath) {
-        res.status(400).json({ success: false, message: '缺少文件路径参数' })
-        return
+        return c.json({ success: false, message: '缺少文件路径参数' }, 400)
       }
 
       const normalizedPath = path.normalize(filePath)
       if (!existsSync(normalizedPath)) {
-        res.status(404).json({ success: false, message: '文件不存在' })
-        return
+        return c.json({ success: false, message: '文件不存在' }, 404)
       }
 
       const ext = path.extname(normalizedPath).toLowerCase()
@@ -34,22 +33,21 @@ export function createProxyRoutes(ctx: Context): Router {
       }
       const contentType = mimeTypes[ext] || 'application/octet-stream'
 
-      res.setHeader('Content-Type', contentType)
-      res.setHeader('Cache-Control', 'public, max-age=86400')
-      res.sendFile(normalizedPath)
+      c.header('Content-Type', contentType)
+      c.header('Cache-Control', 'public, max-age=86400')
+      return c.body(await readFile(normalizedPath))
     } catch (e: any) {
       ctx.logger.error('文件代理失败:', e)
-      res.status(500).json({ success: false, message: '文件代理失败', error: e.message })
+      return c.json({ success: false, message: '文件代理失败', error: e.message }, 500)
     }
   })
 
   // 图片代理接口 - 解决跨域和 Referer 问题
-  router.get('/image-proxy', async (req: Request, res: Response) => {
+  router.get('/image-proxy', async (c) => {
     try {
-      const urlParam = req.query.url as string
+      const urlParam = c.req.query('url')
       if (!urlParam) {
-        res.status(400).json({ success: false, message: '缺少图片URL参数' })
-        return
+        return c.json({ success: false, message: '缺少图片URL参数' }, 400)
       }
 
       let url = decodeURIComponent(urlParam)
@@ -59,14 +57,12 @@ export function createProxyRoutes(ctx: Context): Router {
       try {
         parsedUrl = new URL(url)
       } catch (e) {
-        res.status(400).json({ success: false, message: '无效的URL' })
-        return
+        return c.json({ success: false, message: '无效的URL' }, 400)
       }
 
       const allowedHosts = ['gchat.qpic.cn', 'multimedia.nt.qq.com.cn', 'c2cpicdw.qpic.cn', 'p.qlogo.cn', 'q1.qlogo.cn']
       if (!allowedHosts.some(host => parsedUrl.hostname.includes(host))) {
-        res.status(403).json({ success: false, message: '不允许代理此域名的图片' })
-        return
+        return c.json({ success: false, message: '不允许代理此域名的图片' }, 403)
       }
 
       // 如果 URL 没有 rkey，尝试添加
@@ -96,33 +92,31 @@ export function createProxyRoutes(ctx: Context): Router {
 
       if (!response.ok) {
         ctx.logger.warn('图片代理请求失败:', response.status, response.statusText)
-        res.status(response.status).json({ success: false, message: `获取图片失败: ${response.statusText}` })
-        return
+        return c.json({ success: false, message: `获取图片失败: ${response.statusText}` }, response.status as 400)
       }
 
       const contentType = response.headers.get('content-type') || 'image/png'
-      res.setHeader('Content-Type', contentType)
-      res.setHeader('Cache-Control', 'public, max-age=86400')
-      res.setHeader('Access-Control-Allow-Origin', '*')
+      c.header('Content-Type', contentType)
+      c.header('Cache-Control', 'public, max-age=86400')
+      c.header('Access-Control-Allow-Origin', '*')
 
       const buffer = await response.arrayBuffer()
-      res.send(Buffer.from(buffer))
+      return c.body(buffer)
     } catch (e: any) {
       ctx.logger.error('图片代理失败:', e)
-      res.status(500).json({ success: false, message: '图片代理失败', error: e.message })
+      return c.json({ success: false, message: '图片代理失败', error: e.message }, 500)
     }
   })
 
   // 语音代理接口 - 获取语音并转换为浏览器可播放格式
-  router.get('/audio-proxy', async (req: Request, res: Response) => {
+  router.get('/audio-proxy', async (c) => {
     try {
-      const fileUuid = req.query.fileUuid as string
-      const filePath = req.query.filePath as string
-      const isGroup = req.query.isGroup === 'true'
+      const fileUuid = c.req.query('fileUuid')
+      const filePath = c.req.query('filePath')
+      const isGroup = c.req.query('isGroup') === 'true'
 
       if (!fileUuid && !filePath) {
-        res.status(400).json({ success: false, message: '缺少 fileUuid 或 filePath 参数' })
-        return
+        return c.json({ success: false, message: '缺少 fileUuid 或 filePath 参数' }, 400)
       }
 
       ctx.logger.info('语音代理请求:', { fileUuid, filePath, isGroup })
@@ -150,8 +144,7 @@ export function createProxyRoutes(ctx: Context): Router {
       if (!audioFilePath && fileUuid) {
         const url = await ctx.ntFileApi.getPttUrl(fileUuid, isGroup)
         if (!url) {
-          res.status(404).json({ success: false, message: '获取语音URL失败' })
-          return
+          return c.json({ success: false, message: '获取语音URL失败' }, 404)
         }
 
         ctx.logger.info('语音URL:', url)
@@ -164,8 +157,7 @@ export function createProxyRoutes(ctx: Context): Router {
 
         if (!response.ok) {
           ctx.logger.warn('语音代理请求失败:', response.status, response.statusText)
-          res.status(response.status).json({ success: false, message: `获取语音失败: ${response.statusText}` })
-          return
+          return c.json({ success: false, message: `获取语音失败: ${response.statusText}` }, response.status as 400)
         }
 
         const audioBuffer = Buffer.from(await response.arrayBuffer())
@@ -186,17 +178,17 @@ export function createProxyRoutes(ctx: Context): Router {
         }
         fs.unlink(mp3Path).catch(() => { })
 
-        res.setHeader('Content-Type', 'audio/mpeg')
-        res.setHeader('Cache-Control', 'public, max-age=86400')
-        res.setHeader('Access-Control-Allow-Origin', '*')
-        res.send(mp3Buffer)
+        c.header('Content-Type', 'audio/mpeg')
+        c.header('Cache-Control', 'public, max-age=86400')
+        c.header('Access-Control-Allow-Origin', '*')
+        return c.body(mp3Buffer)
       } catch (decodeError) {
         ctx.logger.error('silk 解码失败:', decodeError)
-        res.status(500).json({ success: false, message: '语音解码失败', error: String(decodeError) })
+        return c.json({ success: false, message: '语音解码失败', error: String(decodeError) }, 500)
       }
     } catch (e: any) {
       ctx.logger.error('语音代理失败:', e)
-      res.status(500).json({ success: false, message: '语音代理失败', error: e.message })
+      return c.json({ success: false, message: '语音代理失败', error: e.message }, 500)
     }
   })
 

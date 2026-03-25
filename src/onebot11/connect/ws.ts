@@ -11,6 +11,7 @@ import { selfInfo } from '@/common/globalVars'
 import { OB11BaseEvent } from '../event/OB11BaseEvent'
 import { version } from '../../version'
 import { WsConnectConfig, WsReverseConnectConfig } from '@/common/types'
+import { constants } from 'node:buffer'
 
 class OB11WebSocket {
   private wsServer?: WebSocketServer
@@ -29,7 +30,7 @@ class OB11WebSocket {
     this.wsServer = new WebSocketServer({
       host,
       port: this.config.port,
-      maxPayload: 1024 * 1024 * 1024
+      maxPayload: constants.MAX_STRING_LENGTH
     })
     this.wsServer.on('error', (err: Error) => {
       this.ctx.logger.error('OneBot V11 正向 WS 错误', err)

@@ -155,14 +155,19 @@ const GetGroupList = defineApi(
   GetGroupListInput,
   GetGroupListOutput,
   async (ctx, payload) => {
-    const groups = await ctx.ntGroupApi.getGroups(payload.no_cache)
+    const { groups } = await ctx.app.pmhq.fetchGroups()
     return Ok({
       groups: groups.map(e => {
         return {
-          group_id: +e.groupCode,
-          group_name: e.groupName,
-          member_count: e.memberCount,
-          max_member_count: e.maxMember
+          group_id: e.groupCode,
+          group_name: e.info.groupName,
+          member_count: e.info.memberCount,
+          max_member_count: e.info.memberMax,
+          remark: e.customInfo.remark ?? '',
+          created_time: e.info.createdTime,
+          description: e.info.richDescription ?? '',
+          question: e.info.question ?? '',
+          announcement: e.info.announcement ?? ''
         }
       }),
     })
@@ -174,7 +179,7 @@ const GetGroupInfo = defineApi(
   GetGroupInfoInput,
   GetGroupInfoOutput,
   async (ctx, payload) => {
-    const group = await ctx.ntGroupApi.getGroupAllInfo(payload.group_id.toString())
+    const group = await ctx.ntGroupApi.getGroupDetailInfo(payload.group_id.toString())
     return Ok({
       group: transformGroup(group),
     })
@@ -258,10 +263,10 @@ const GetPeerPins = defineApi(
       onlineCount: number
       buddyUids: string[]
     }> = new Map()
-    const groups = await ctx.ntGroupApi.getGroups()
+    const { groups } = await ctx.app.pmhq.fetchGroups()
     return Ok({
       friends: await Promise.all(
-        friends.filter(e => e.relationFlags?.topTime !== '0').map(async e => {
+        friends.filter(e => e.relationFlags && e.relationFlags.topTime !== '0').map(async e => {
           const { categoryId } = e.baseInfo
           if (!category.has(categoryId)) {
             category.set(categoryId, await ctx.ntFriendApi.getCategoryById(categoryId))
@@ -269,12 +274,17 @@ const GetPeerPins = defineApi(
           return transformFriend(e, category.get(categoryId)!)
         })
       ),
-      groups: groups.filter(e => e.isTop).map(e => {
+      groups: groups.filter(e => e.info.topTime).map(e => {
         return {
-          group_id: +e.groupCode,
-          group_name: e.groupName,
-          member_count: e.memberCount,
-          max_member_count: e.maxMember
+          group_id: e.groupCode,
+          group_name: e.info.groupName,
+          member_count: e.info.memberCount,
+          max_member_count: e.info.memberMax,
+          remark: e.customInfo.remark ?? '',
+          created_time: e.info.createdTime,
+          description: e.info.richDescription ?? '',
+          question: e.info.question ?? '',
+          announcement: e.info.announcement ?? ''
         }
       })
     })

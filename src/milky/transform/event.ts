@@ -37,7 +37,7 @@ export async function transformGroupMessageCreated(
 ): Promise<MilkyEventTypes['message_receive'] | null> {
   try {
     if (!message.senderUid || message.peerUin === message.senderUid) return null
-    const group = await ctx.ntGroupApi.getGroupAllInfo(message.peerUid)
+    const group = await ctx.ntGroupApi.getGroupDetailInfo(message.peerUid)
     const member = await ctx.ntGroupApi.getGroupMember(message.peerUin, message.senderUid)
 
     const transformedMessage = await transformIncomingGroupMessage(ctx, group, member, message)
@@ -61,7 +61,7 @@ export async function transformTempMessageCreated(
   try {
     if (!message.senderUid) return null
     const { tmpChatInfo } = await ctx.ntMsgApi.getTempChatInfo(100, message.peerUid)
-    const group = await ctx.ntGroupApi.getGroupAllInfo(tmpChatInfo.groupCode)
+    const group = await ctx.ntGroupApi.getGroupDetailInfo(tmpChatInfo.groupCode)
 
     const transformedMessage = await transformIncomingTempMessage(ctx, group, message)
     if (transformedMessage.segments.length === 0) {

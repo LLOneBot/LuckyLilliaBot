@@ -1,4 +1,3 @@
-import { Router } from 'express'
 import { Context } from 'cordis'
 import { ChatType, ElementType, RawMessage } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
@@ -7,14 +6,15 @@ import { unlink } from 'node:fs/promises'
 import { pmhq } from '@/ntqqapi/native/pmhq'
 import { Msg, Media } from '@/ntqqapi/proto'
 import { inflateSync } from 'node:zlib'
+import { Hono } from 'hono'
 
-export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath: string) => Promise<any>): Router {
-  const router = Router()
+export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath: string) => Promise<any>): Hono {
+  const router = new Hono()
 
   // 获取消息历史 - 返回原始 RawMessage 数据
-  router.get('/messages', async (req, res) => {
+  router.get('/messages', async (c) => {
     try {
-      const { chatType, peerId, beforeMsgSeq, afterMsgSeq, limit = '20' } = req.query as {
+      const { chatType, peerId, beforeMsgSeq, afterMsgSeq, limit = '20' } = c.req.query() as {
         chatType: string
         peerId: string
         beforeMsgSeq?: string
@@ -23,22 +23,19 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       }
 
       if (!chatType || !peerId) {
-        res.status(400).json({ success: false, message: '缺少必要参数' })
-        return
+        return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
 
       const chatTypeNum = Number(chatType)
       if (chatTypeNum !== ChatType.C2C && chatTypeNum !== ChatType.Group && chatTypeNum !== ChatType.TempC2CFromGroup) {
-        res.status(400).json({ success: false, message: `无效的 chatType: ${chatType}，应为 1(私聊)、2(群聊) 或 100(临时会话)` })
-        return
+        return c.json({ success: false, message: `无效的 chatType: ${chatType}，应为 1(私聊)、2(群聊) 或 100(临时会话)` }, 400)
       }
 
       let peerUid = peerId
       if (chatTypeNum === ChatType.C2C || chatTypeNum === ChatType.TempC2CFromGroup) {
         const uid = await ctx.ntUserApi.getUidByUin(peerId)
         if (!uid) {
-          res.status(400).json({ success: false, message: '无法获取用户信息' })
-          return
+          return c.json({ success: false, message: '无法获取用户信息' }, 400)
         }
         peerUid = uid
       }
@@ -61,7 +58,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       const messages = result?.msgList || []
       messages.sort((a: RawMessage, b: RawMessage) => parseInt(a.msgTime) - parseInt(b.msgTime))
 
-      res.json({
+      return c.json({
         success: true,
         data: serializeResult({
           messages,
@@ -70,37 +67,34 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       })
     } catch (e: any) {
       ctx.logger.error('获取消息历史失败:', e)
-      res.status(500).json({ success: false, message: '获取消息历史失败', error: e.message })
+      return c.json({ success: false, message: '获取消息历史失败', error: e.message }, 500)
     }
   })
 
   // 发送消息
-  router.post('/messages', async (req, res) => {
+  router.post('/messages', async (c) => {
     const uploadedFiles: string[] = []
     try {
-      const { chatType, peerId, content } = req.body as {
+      const { chatType, peerId, content } = await c.req.json() as {
         chatType: number | string
         peerId: string
         content: { type: string; text?: string; imagePath?: string; msgId?: string; msgSeq?: string; uid?: string; uin?: string; name?: string; faceId?: number; filePath?: string; fileName?: string }[]
       }
 
       if (chatType === undefined || chatType === null || !peerId || !content || content.length === 0) {
-        res.status(400).json({ success: false, message: '缺少必要参数' })
-        return
+        return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
 
       const chatTypeNum = Number(chatType)
       if (chatTypeNum !== ChatType.C2C && chatTypeNum !== ChatType.Group && chatTypeNum !== ChatType.TempC2CFromGroup) {
-        res.status(400).json({ success: false, message: `无效的 chatType: ${chatType}，应为 1(私聊)、2(群聊) 或 100(临时会话)` })
-        return
+        return c.json({ success: false, message: `无效的 chatType: ${chatType}，应为 1(私聊)、2(群聊) 或 100(临时会话)` }, 400)
       }
 
       let peerUid = peerId
       if (chatTypeNum === ChatType.C2C || chatTypeNum === ChatType.TempC2CFromGroup) {
         const uid = await ctx.ntUserApi.getUidByUin(peerId)
         if (!uid) {
-          res.status(400).json({ success: false, message: '无法获取用户信息' })
-          return
+          return c.json({ success: false, message: '无法获取用户信息' }, 400)
         }
         peerUid = uid
       }
@@ -168,44 +162,42 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       }
 
       if (elements.length === 0) {
-        res.status(400).json({ success: false, message: '消息内容为空' })
-        return
+        return c.json({ success: false, message: '消息内容为空' }, 400)
       }
 
       const result = await ctx.ntMsgApi.sendMsg(peer, elements)
-      
+
       // 发送成功后清理上传的临时文件
       for (const filePath of uploadedFiles) {
         unlink(filePath).catch(err => {
           ctx.logger.warn(`清理临时文件失败: ${filePath}`, err)
         })
       }
-      
-      res.json({
+
+      return c.json({
         success: true,
         data: { msgId: result.msgId }
       })
     } catch (e: any) {
       ctx.logger.error('发送消息失败:', e)
-      
+
       // 发送失败也要清理临时文件
       for (const filePath of uploadedFiles) {
         unlink(filePath).catch(err => {
           ctx.logger.warn(`清理临时文件失败: ${filePath}`, err)
         })
       }
-      
-      res.status(500).json({ success: false, message: '发送消息失败', error: e.message })
+
+      return c.json({ success: false, message: '发送消息失败', error: e.message }, 500)
     }
   })
 
   // 获取合并转发消息内容
-  router.get('/forward-msg', async (req, res) => {
+  router.get('/forward-msg', async (c) => {
     try {
-      const { resId } = req.query as { resId: string }
+      const { resId } = c.req.query() as { resId: string }
       if (!resId) {
-        res.status(400).json({ success: false, message: '缺少 resId 参数' })
-        return
+        return c.json({ success: false, message: '缺少 resId 参数' }, 400)
       }
 
       const items = await pmhq.getMultiMsg(resId)
@@ -276,10 +268,10 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
         }
       }))
 
-      res.json({ success: true, data: transformedMessages })
+      return c.json({ success: true, data: transformedMessages })
     } catch (e: any) {
       ctx.logger.error('获取合并转发消息失败:', e)
-      res.status(500).json({ success: false, message: '获取合并转发消息失败', error: e.message })
+      return c.json({ success: false, message: '获取合并转发消息失败', error: e.message }, 500)
     }
   })
 

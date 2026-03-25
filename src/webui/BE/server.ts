@@ -1,18 +1,11 @@
-import express, { Express, Response } from 'express'
-import cors from 'cors'
 import path from 'path'
-import { fileURLToPath } from 'url'
 import { Config, WebUIConfig } from '@/common/types'
-import { Server } from 'http'
-import { Socket } from 'net'
 import { Context, Service } from 'cordis'
 import { TEMP_DIR } from '@/common/globalVars'
 import { getAvailablePort } from '@/common/utils/port'
 import { pmhq } from '@/ntqqapi/native/pmhq'
-import { ChatType, RawMessage, GroupNotify, GroupNotifyType, GroupNotifyStatus, FriendRequest, BuddyReqType } from '@/ntqqapi/types'
+import { ChatType, RawMessage, FriendRequest } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
-import multer from 'multer'
-import { randomUUID } from 'crypto'
 import { existsSync, mkdirSync } from 'node:fs'
 import { authMiddleware } from './auth'
 import { serializeResult } from './utils'
@@ -26,15 +19,17 @@ import {
   createEmailRoutes
 } from './routes'
 import { Msg } from '@/ntqqapi/proto'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+import { readFile } from 'node:fs/promises'
+import { Hono } from 'hono'
+import { SSEStreamingApi } from 'hono/streaming'
+import { serveStatic } from '@hono/node-server/serve-static'
+import { serve, ServerType } from '@hono/node-server'
 
 // 静态文件服务，指向前端dist目录
-let feDistPath = path.resolve(__dirname, 'webui/')
+let feDistPath = path.resolve(import.meta.dirname, 'webui/')
 // @ts-ignore
 if (!import.meta.env) {
-  feDistPath = path.join(__dirname, '../../../dist/webui/')
+  feDistPath = path.join(import.meta.dirname, '../../../dist/webui/')
 }
 
 declare module 'cordis' {
@@ -47,14 +42,11 @@ export interface WebUIServerConfig extends WebUIConfig {
 }
 
 export class WebUIServer extends Service {
-  private server: Server | null = null
-  private app: Express = express()
-  private connections = new Set<Socket>()
+  private server: ServerType | null = null
+  private app: Hono = new Hono()
   private currentPort?: number
   public port?: number = undefined
-  private sseClients: Set<Response> = new Set()
-  private upload: multer.Multer
-  private fileUpload: multer.Multer
+  private sseClients: Set<SSEStreamingApi> = new Set()
   private uploadDir: string
   static inject = {
     ntLoginApi: {
@@ -89,44 +81,9 @@ export class WebUIServer extends Service {
     if (!existsSync(this.uploadDir)) {
       mkdirSync(this.uploadDir, { recursive: true })
     }
-    this.upload = this.createImageUpload()
-    this.fileUpload = this.createFileUpload()
     this.initServer()
     this.setupMessageListener()
     this.setupConfigListener()
-  }
-
-  private createImageUpload(): multer.Multer {
-    return multer({
-      storage: multer.diskStorage({
-        destination: this.uploadDir,
-        filename: (req, file, cb) => {
-          const ext = path.extname(file.originalname)
-          cb(null, `${randomUUID()}${ext}`)
-        }
-      }),
-      fileFilter: (req, file, cb) => {
-        const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/jpg']
-        if (allowedTypes.includes(file.mimetype)) {
-          cb(null, true)
-        } else {
-          cb(new Error('不支持的图片格式，仅支持 JPG、PNG、GIF'))
-        }
-      },
-      limits: { fileSize: 10 * 1024 * 1024 }
-    })
-  }
-
-  private createFileUpload(): multer.Multer {
-    return multer({
-      storage: multer.diskStorage({
-        destination: this.uploadDir,
-        filename: (req, file, cb) => {
-          const ext = path.extname(file.originalname)
-          cb(null, `${randomUUID()}${ext}`)
-        }
-      })
-    })
   }
 
   private setupConfigListener() {
@@ -145,29 +102,26 @@ export class WebUIServer extends Service {
   }
 
   private initServer() {
-    this.app.use(express.json())
-    this.app.use(cors())
     this.app.use('/api', authMiddleware)
 
     // 注册路由
-    this.app.use('/api', createConfigRoutes(this.ctx))
-    this.app.use('/api', createLoginRoutes(this.ctx))
-    this.app.use('/api', createDashboardRoutes(this.ctx))
-    this.app.use('/api', createLogsRoutes(this.ctx))
-    this.app.use('/api', createNtCallRoutes(this.ctx))
-    this.app.use('/api/email', createEmailRoutes(this.ctx))
-    this.app.use('/api/webqq', createWebQQRoutes(this.ctx, {
-      upload: this.upload,
-      fileUpload: this.fileUpload,
+    this.app.route('/api', createConfigRoutes(this.ctx))
+    this.app.route('/api', createLoginRoutes(this.ctx))
+    this.app.route('/api', createDashboardRoutes(this.ctx))
+    this.app.route('/api', createLogsRoutes(this.ctx))
+    this.app.route('/api', createNtCallRoutes(this.ctx))
+    this.app.route('/api/email', createEmailRoutes(this.ctx))
+    this.app.route('/api/webqq', createWebQQRoutes(this.ctx, {
       uploadDir: this.uploadDir,
       sseClients: this.sseClients,
       createPicElement: this.createPicElement.bind(this)
     }))
 
     // 静态文件服务
-    this.app.use(express.static(feDistPath))
-    this.app.get('/', (req, res) => {
-      res.sendFile(path.join(feDistPath, 'index.html'))
+    this.app.use('/*', serveStatic({ root: feDistPath }))
+    this.app.get('/', async (c) => {
+      const filePath = path.join(feDistPath, 'index.html')
+      return c.html((await readFile(filePath)).toString())
     })
   }
 
@@ -370,24 +324,14 @@ export class WebUIServer extends Service {
   private async startServer(forcePort?: number) {
     const { host, port } = this.getHostPort()
     const targetPort = forcePort !== undefined ? forcePort : await getAvailablePort(port)
-    this.server = this.app.listen(targetPort, host, () => {
+    this.server = serve({
+      fetch: this.app.fetch,
+      port: targetPort,
+      hostname: host
+    }, () => {
       this.currentPort = targetPort
-      this.ctx.logger.info(`Webui 服务器已启动 ${host}:${targetPort}`)
-    })
-
-    this.server.on('connection', (conn) => {
-      this.connections.add(conn)
-      conn.on('close', () => {
-        this.connections.delete(conn)
-      })
-    })
-
-    this.server.on('error', (err: any) => {
-      if (err.code === 'EADDRINUSE') {
-        this.ctx.logger.error(`Webui 端口 ${targetPort} 被占用，启动失败！`)
-      } else {
-        this.ctx.logger.error(`Webui 启动失败:`, err)
-      }
+      const displayHost = host || '0.0.0.0'
+      this.ctx.logger.info(`Webui 服务器已启动 ${displayHost}:${targetPort}`)
     })
     return targetPort
   }
@@ -395,14 +339,6 @@ export class WebUIServer extends Service {
   stop() {
     return new Promise<void>((resolve) => {
       if (this.server) {
-        if (this.connections.size > 0) {
-          this.ctx.logger.info(`Webui 正在关闭 ${this.connections.size} 个连接...`)
-          for (const conn of this.connections) {
-            conn.destroy()
-          }
-          this.connections.clear()
-        }
-
         this.server.close((err) => {
           if (err) {
             this.ctx.logger.error(`Webui 停止时出错:`, err)
@@ -430,7 +366,6 @@ export class WebUIServer extends Service {
   }
 
   async start() {
-    console.log('webui start')
     if (!this.config?.enable) {
       return
     }

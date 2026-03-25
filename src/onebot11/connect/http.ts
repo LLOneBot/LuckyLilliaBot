@@ -1,8 +1,4 @@
-import http from 'node:http'
-import cors from 'cors'
 import crypto from 'node:crypto'
-import net from 'node:net'
-import express, { Express, Request, Response, NextFunction } from 'express'
 import { BaseAction } from '../action/BaseAction'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -14,99 +10,61 @@ import { Dict } from 'cosmokit'
 import { HttpConnectConfig, HttpPostConnectConfig } from '@/common/types'
 import { OB11Message } from '../types'
 import { postHttpEvent } from '../helper/eventForHttp'
+import { Hono, Context as HonoContext, Next } from 'hono'
+import { cors } from 'hono/cors'
+import { SSEStreamingApi, streamSSE } from 'hono/streaming'
+import { serve, ServerType } from '@hono/node-server'
 
 class OB11Http {
-  private readonly expressAPP: Express
-  private server?: http.Server
-  private sseClients: Response[] = []
-  private sockets: Set<net.Socket> = new Set()
+  private app?: Hono
+  private server?: ServerType
+  private sseClients: Set<SSEStreamingApi> = new Set()
   private activated: boolean = false
 
   constructor(protected ctx: Context, public config: OB11Http.Config) {
-    this.expressAPP = express()
   }
 
   public start() {
     if (this.server || !this.config.enable) {
       return
     }
-    try {
-      // 添加 CORS 中间件
-      this.expressAPP.use(cors())
-      this.expressAPP.use(express.urlencoded({ extended: true, limit: '5000mb' }))
-      this.expressAPP.use((req, res, next) => {
-        // 兼容处理没有带content-type的请求
-        req.headers['content-type'] = 'application/json'
-        const originalJson = express.json({ limit: '5000mb' })
-        // 调用原始的express.json()处理器
-        originalJson(req, res, (err) => {
-          if (err) {
-            this.ctx.logger.error('Error parsing JSON:', err)
-            return res.status(400).send('Invalid JSON')
-          }
-          next()
-        })
-      })
-      this.expressAPP.use((req, res, next) => this.authorize(req, res, next))
-      this.expressAPP.use((req, res, next) => this.handleRequest(req, res, next))
-      this.expressAPP.get('/', (req: Request, res: Response) => {
-        res.send(`ok`)
-      })
-      const host = this.config.host
-      this.expressAPP.get('/_events', (req: Request, res: Response) => {
-        res.setHeader('Content-Type', 'text/event-stream; charset=utf-8')
-        res.setHeader('Cache-Control', 'no-cache')
-        res.setHeader('Connection', 'keep-alive')
-        res.setHeader('X-Accel-Buffering', 'no')
-        res.flushHeaders()
-        this.sseClients.push(res)
+    this.app = new Hono()
 
-        // 添加客户端断开连接时的清理逻辑
-        req.on('close', () => {
-          const index = this.sseClients.indexOf(res)
-          if (index > -1) {
-            this.sseClients.splice(index, 1)
-          }
-        })
+    this.app.use(`/*`, cors())
 
-        req.on('error', () => {
-          const index = this.sseClients.indexOf(res)
-          if (index > -1) {
-            this.sseClients.splice(index, 1)
-          }
+    this.app.use('/*', this.authorize.bind(this))
+
+    this.app.get('/_events', async (c) => {
+      return streamSSE(c, async (stream) => {
+        this.sseClients.add(stream)
+        stream.onAbort(() => {
+          this.sseClients.delete(stream)
+        })
+        return new Promise((resolve) => {
+          stream.onAbort(resolve)
         })
       })
-      this.ctx.logger.info(`OneBot V11 HTTP SSE started ${host}:${this.config.port}/_events`)
-      try {
-        this.server = this.expressAPP.listen(this.config.port, host, (err) => {
-          if (err) {
-            this.ctx.logger.error('OneBot V11 HTTP server start error:', err)
-          }
-          this.ctx.logger.info(`OneBot V11 HTTP server started ${host}:${this.config.port}`)
-        })
-        // 追踪所有 socket 连接
-        this.server.on('connection', (socket: net.Socket) => {
-          this.sockets.add(socket)
-          socket.on('close', () => this.sockets.delete(socket))
-        })
-      } catch (e) {
-        this.ctx.logger.error(`OneBot V11 HTTP server error ${host}:${this.config.port}`, e)
-      }
-      this.activated = true
-    } catch (e) {
-      this.ctx.logger.error('OneBot V11 HTTP服务启动失败', e)
-    }
+    })
+
+    this.app.use('/:endpoint', this.handleRequest.bind(this))
+
+    const displayHost = this.config.host || '0.0.0.0'
+    this.server = serve({
+      fetch: this.app.fetch,
+      port: this.config.port,
+      hostname: this.config.host
+    }, () => {
+      this.ctx.logger.info(`OneBot V11 HTTP server started ${displayHost}:${this.config.port}`)
+      this.ctx.logger.info(`OneBot V11 HTTP SSE started ${displayHost}:${this.config.port}/_events`)
+    })
+
+    this.activated = true
   }
 
   public stop() {
     return new Promise<boolean>((resolve) => {
       if (this.server) {
         this.ctx.logger.info('OneBot V11 HTTP Server closing...')
-        // 主动销毁所有 socket
-        for (const socket of this.sockets) {
-          socket.destroy()
-        }
-        this.sockets.clear()
         this.server.close((err) => {
           if (err) {
             this.ctx.logger.error(`OneBot V11 HTTP Server closing ${err}`)
@@ -120,6 +78,7 @@ class OB11Http {
       } else {
         resolve(true)
       }
+      this.app = undefined
       this.activated = false
     })
   }
@@ -127,13 +86,13 @@ class OB11Http {
   public async emitEvent(event: OB11BaseEvent) {
     postHttpEvent(event)
     if (!this.activated) return
-    if (this.sseClients.length === 0) {
+    if (this.sseClients.size === 0) {
       return
     }
-    const data = `data: ${JSON.stringify(event)}\n\n`
+    const data = JSON.stringify(event)
     for (const client of this.sseClients) {
       if (!client.closed) {
-        client.write(data)
+        client.writeSSE({ data })
         if ('post_type' in event) {
           const eventName = event.getSummaryEventName()
           this.ctx.logger.info('OneBot V11 HTTP SSE 事件上报', eventName)
@@ -169,54 +128,40 @@ class OB11Http {
     Object.assign(this.config, config)
   }
 
-  private authorize(req: Request, res: Response, next: NextFunction) {
+  private async authorize(c: HonoContext, next: Next) {
     const serverToken = this.config.token
-    if (!serverToken) return next()
+    if (!serverToken) return await next()
 
     let clientToken = ''
-    const authHeader = req.get('authorization')
+    const authHeader = c.req.header('Authorization')
+    const authQuery = c.req.query('access_token')
     if (authHeader) {
       clientToken = authHeader.split('Bearer ').pop()!
       this.ctx.logger.info('receive http header token', clientToken)
-    } else if (req.query.access_token) {
-      if (Array.isArray(req.query.access_token)) {
-        clientToken = req.query.access_token[0].toString()
-      } else {
-        clientToken = req.query.access_token.toString()
-      }
+    } else if (authQuery) {
+      clientToken = authQuery
       this.ctx.logger.info('receive http url token', clientToken)
     }
 
     if (clientToken !== serverToken) {
-      res.status(403).json({ message: '403' })
+      return c.json({ message: 'token verify failed' }, 403)
     } else {
-      next()
+      await next()
     }
   }
 
-  private async handleRequest(req: Request, res: Response, next: NextFunction) {
-    if (req.path === '/') {
-      return next()
-    }
-    if (req.path === '/_events') {
-      return next()
-    }
-    let payload = req.body
-    if (req.method === 'GET') {
-      payload = req.query
-    } else if (req.query) {
-      payload = { ...req.query, ...req.body }
-    }
-    this.ctx.logger.info('收到 HTTP 请求', req.url, payload)
-    const actionName = req.path.replaceAll('/', '')
+  private async handleRequest(c: HonoContext, next: Next) {
+    const payload = c.req.method === 'POST' ? await c.req.json() : c.req.query()
+    this.ctx.logger.info('收到 HTTP 请求', c.req.url, payload)
+    const actionName = c.req.param('endpoint')!
     const action = this.config.actionMap.get(actionName)
     if (action) {
-      res.json(await action.handle(payload, {
+      return c.json(await action.handle(payload, {
         messageFormat: this.config.messageFormat,
         debug: this.config.debug
       }))
     } else {
-      res.status(404).json(OB11Response.error(`${actionName} API 不存在`, 404))
+      return c.json(OB11Response.error(`${actionName} API 不存在`, 404), 404)
     }
   }
 }

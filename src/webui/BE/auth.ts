@@ -1,9 +1,9 @@
-import { Request, Response, NextFunction } from 'express'
 import { appendFileSync } from 'node:fs'
 import path from 'path'
 import { LOG_DIR } from '@/common/globalVars'
 import { webuiTokenUtil } from '@/common/config'
 import { hashPassword } from './passwordHash'
+import { Context, Next } from 'hono'
 
 // 全局密码错误记录
 interface GlobalLoginAttempt {
@@ -44,15 +44,14 @@ setInterval(() => {
 }, 60 * 60 * 1000)
 
 // 认证中间件
-export function authMiddleware(req: Request, res: Response, next: NextFunction) {
-  const clientIp = req.ip || req.socket.remoteAddress || 'unknown'
+export async function authMiddleware(c: Context, next: Next) {
+  const clientIp = c.env.incoming.socket.remoteAddress
 
   const token = webuiTokenUtil.getToken()
   if (!token) {
-    if (req.path === '/set-token') return next()
-    logAccess(clientIp, req.method, req.path, 401, '未设置密码')
-    res.status(401).json({ success: false, message: '请先设置WebUI密码' })
-    return
+    if (c.req.path === '/set-token') return await next()
+    logAccess(clientIp, c.req.method, c.req.path, 401, '未设置密码')
+    return c.json({ success: false, message: '请先设置WebUI密码' }, 401)
   }
 
   // 检查是否被全局锁定
@@ -60,27 +59,25 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     const now = Date.now()
     if (now < globalLoginAttempt.lockedUntil) {
       const remainingMinutes = Math.ceil((globalLoginAttempt.lockedUntil - now) / (60 * 1000))
-      logAccess(clientIp, req.method, req.path, 403, `账户锁定中，剩余${remainingMinutes}分钟`)
-      res.status(403).json({
+      logAccess(clientIp, c.req.method, c.req.path, 403, `账户锁定中，剩余${remainingMinutes}分钟`)
+      return c.json({
         success: false,
         message: `密码错误次数过多，请在 ${remainingMinutes} 分钟后重试`,
         locked: true,
         remainingMinutes,
-      })
-      return
+      }, 403)
     } else {
       globalLoginAttempt.consecutiveFailures = 0
       globalLoginAttempt.lockedUntil = null
     }
   }
 
-  const reqToken = req.headers['x-webui-token'] || req.query?.token
+  const reqToken = c.req.header('X-Webui-Token') || c.req.query('token')
   if (!reqToken) {
-    res.status(403).json({
+    return c.json({
       success: false,
       message: `请输入密码`,
-    })
-    return
+    }, 403)
   }
 
   const hashedToken = hashPassword(token)
@@ -91,33 +88,31 @@ export function authMiddleware(req: Request, res: Response, next: NextFunction) 
     const passwordFailureMax = 4
     if (globalLoginAttempt.consecutiveFailures >= passwordFailureMax) {
       globalLoginAttempt.lockedUntil = Date.now() + (60 * 60 * 1000)
-      logAccess(clientIp, req.method, req.path, 403, `密码连续错误${passwordFailureMax - 1}次，账户锁定1小时`)
-      res.status(403).json({
+      logAccess(clientIp, c.req.method, c.req.path, 403, `密码连续错误${passwordFailureMax - 1}次，账户锁定1小时`)
+      return c.json({
         success: false,
         message: '密码连续错误3次，账户已被锁定1小时',
         locked: true,
         remainingMinutes: 60,
-      })
-      return
+      }, 403)
     }
 
     const remainingAttempts = passwordFailureMax - globalLoginAttempt.consecutiveFailures
-    logAccess(clientIp, req.method, req.path, 403, `Token验证失败，剩余${remainingAttempts}次尝试`)
-    res.status(403).json({
+    logAccess(clientIp, c.req.method, c.req.path, 403, `Token验证失败，剩余${remainingAttempts}次尝试`)
+    return c.json({
       success: false,
       message: `Token校验失败，剩余尝试次数：${remainingAttempts}`,
       remainingAttempts,
-    })
-    return
+    }, 403)
   }
 
   // 登录成功，重置失败记录
   if (globalLoginAttempt.consecutiveFailures > 0) {
-    logAccess(clientIp, req.method, req.path, 200, '登录成功，重置失败计数')
+    logAccess(clientIp, c.req.method, c.req.path, 200, '登录成功，重置失败计数')
     globalLoginAttempt.consecutiveFailures = 0
     globalLoginAttempt.lockedUntil = null
   }
 
-  logAccess(clientIp, req.method, req.path, 200)
+  logAccess(clientIp, c.req.method, c.req.path, 200)
   next()
 }

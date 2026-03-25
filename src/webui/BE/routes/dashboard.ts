@@ -1,17 +1,16 @@
-import { Router } from 'express'
 import { Context } from 'cordis'
 import { pmhq } from '@/ntqqapi/native/pmhq'
+import { Hono } from 'hono'
 
-export function createDashboardRoutes(ctx: Context): Router {
-  const router = Router()
+export function createDashboardRoutes(ctx: Context): Hono {
+  const router = new Hono()
 
   // 获取 Dashboard 统计数据
-  router.get('/dashboard/stats', async (req, res) => {
+  router.get('/dashboard/stats', async (c) => {
     try {
       const app = ctx.get('app')
       if (!app) {
-        res.status(503).json({ success: false, message: '服务尚未就绪，请等待登录完成' })
-        return
+        return c.json({ success: false, message: '服务尚未就绪，请等待登录完成' }, 503)
       }
       const friends = await ctx.ntFriendApi.getBuddyList()
       const groups = await ctx.ntGroupApi.getGroups(false)
@@ -32,7 +31,7 @@ export function createDashboardRoutes(ctx: Context): Router {
       const botCpuPercent = ((cpuUsage.user + cpuUsage.system) / 1000000 / process.uptime() / cpuCores) * 100
       const botMemoryPercent = (memUsage.rss / botTotalMem) * 100
 
-      res.json({
+      return c.json({
         success: true,
         data: {
           friendCount: friends.length,
@@ -56,20 +55,20 @@ export function createDashboardRoutes(ctx: Context): Router {
         },
       })
     } catch (e) {
-      res.status(500).json({ success: false, message: '获取统计数据失败', error: e })
+      return c.json({ success: false, message: '获取统计数据失败', error: e }, 500)
     }
   })
 
   // 获取设备信息
-  router.get('/device-info', async (req, res) => {
+  router.get('/device-info', async (c) => {
     try {
       const deviceInfo = await ctx.ntSystemApi.getDeviceInfo()
-      res.json({
+      return c.json({
         success: true,
         data: deviceInfo,
       })
     } catch (e) {
-      res.status(500).json({ success: false, message: '获取设备信息失败', error: e })
+      return c.json({ success: false, message: '获取设备信息失败', error: e }, 500)
     }
   })
 

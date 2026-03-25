@@ -1,31 +1,40 @@
-import { Router, Request, Response } from 'express'
 import { Context } from 'cordis'
 import { getLogCache, LogRecord } from '../../../main/log'
+import { Hono } from 'hono'
+import { streamSSE } from 'hono/streaming'
 
-export function createLogsRoutes(ctx: Context): Router {
-  const router = Router()
+export function createLogsRoutes(ctx: Context): Hono {
+  const router = new Hono()
 
   // SSE 日志流端点
-  router.get('/logs/stream', (req: Request, res: Response) => {
-    res.setHeader('Content-Type', 'text/event-stream')
-    res.setHeader('Cache-Control', 'no-cache')
-    res.setHeader('Connection', 'keep-alive')
-    res.flushHeaders()
+  router.get('/logs/stream', async (c) => {
+    return streamSSE(c, async (stream) => {
+      // 发送连接确认事件
+      stream.writeSSE({
+        data: '{}',
+        event: 'connected'
+      })
 
-    // 发送连接确认事件
-    res.write(`event: connected\ndata: {}\n\n`)
+      // 先发送历史日志
+      for (const record of getLogCache()) {
+        stream.writeSSE({
+          data: JSON.stringify(record)
+        })
+      }
 
-    // 先发送历史日志
-    for (const record of getLogCache()) {
-      res.write(`data: ${JSON.stringify(record)}\n\n`)
-    }
+      const dispose = ctx.on('llob/log', (record: LogRecord) => {
+        stream.writeSSE({
+          data: JSON.stringify(record)
+        })
+      })
 
-    const dispose = ctx.on('llob/log', (record: LogRecord) => {
-      res.write(`data: ${JSON.stringify(record)}\n\n`)
-    })
+      stream.onAbort(() => {
+        dispose()
+      })
 
-    req.on('close', () => {
-      dispose()
+      return new Promise((resolve) => {
+        stream.onAbort(resolve)
+      })
     })
   })
 

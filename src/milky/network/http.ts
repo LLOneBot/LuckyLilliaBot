@@ -3,7 +3,7 @@ import { MilkyAdapter } from '@/milky/adapter'
 import { Failed } from '@/milky/common/api'
 import { Context } from 'cordis'
 import { createNodeWebSocket } from '@hono/node-ws'
-import { serve, ServerType } from '@hono/node-server'
+import { HttpBindings, serve, ServerType } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { SSEStreamingApi, streamSSE } from 'hono/streaming'
@@ -13,7 +13,7 @@ import { constants } from 'node:buffer'
 class MilkyHttpHandler {
   readonly eventPushClients = new Set<WSContext>()
   readonly sseClients = new Set<SSEStreamingApi>()
-  private app: Hono | undefined
+  private app: Hono<{ Bindings: HttpBindings }> | undefined
   private httpServer: ServerType | undefined
 
   /**
@@ -39,7 +39,7 @@ class MilkyHttpHandler {
   }
 
   start() {
-    this.app = new Hono()
+    this.app = new Hono<{ Bindings: HttpBindings }>()
 
     this.app.use(`${this.config.prefix}/api/*`,
       cors(),
@@ -47,10 +47,9 @@ class MilkyHttpHandler {
         if (!c.req.header('Content-Type')?.includes('application/json')) {
           this.ctx.logger.warn(
             'MilkyHttp',
-            `${c.req.path} (Content-Type not application/json)`
+            `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} (Content-Type not application/json)`
           )
-          c.status(415)
-          return c.json(Failed(-415, 'Unsupported Media Type'))
+          return c.json(Failed(415, 'Unsupported Media Type'), 415)
         }
 
         await next()
@@ -62,16 +61,14 @@ class MilkyHttpHandler {
       this.app.post(`${this.config.prefix}/api/*`, async (c, next) => {
         const authorization = c.req.header('Authorization')
         if (!authorization || !authorization.startsWith('Bearer ')) {
-          this.ctx.logger.warn('MilkyHttp', `${c.req.path} (Credentials missing)`)
-          c.status(401)
-          return c.json(Failed(-401, 'Unauthorized'))
+          this.ctx.logger.warn('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} (Credentials missing)`)
+          return c.json(Failed(401, 'Unauthorized'), 401)
         }
 
         const inputToken = authorization.slice(7)
         if (inputToken !== this.config.accessToken) {
-          this.ctx.logger.warn('MilkyHttp', `${c.req.path} (Credentials wrong)`)
-          c.status(401)
-          return c.json(Failed(-401, 'Unauthorized'))
+          this.ctx.logger.warn('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} (Credentials wrong)`)
+          return c.json(Failed(401, 'Unauthorized'), 401)
         }
 
         await next()
@@ -83,9 +80,8 @@ class MilkyHttpHandler {
       const endpoint = c.req.param('endpoint')
 
       if (!this.milkyAdapter.apiCollection.hasApi(endpoint)) {
-        this.ctx.logger.warn('MilkyHttp', `${c.req.path} (API not found)`)
-        c.status(404)
-        return c.json(Failed(404, 'API not found'))
+        this.ctx.logger.warn('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} (API not found)`)
+        return c.json(Failed(404, 'API not found'), 404)
       }
 
       const start = Date.now()
@@ -94,7 +90,7 @@ class MilkyHttpHandler {
       const end = Date.now()
       this.ctx.logger.info(
         'MilkyHttp',
-        `${c.req.path} (${response.retcode === 0 ? 'OK' : response.retcode
+        `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} (${response.retcode === 0 ? 'OK' : response.retcode
         } ${end - start}ms)`,
         payload
       )
@@ -112,17 +108,17 @@ class MilkyHttpHandler {
             if (this.config.accessToken) {
               const inputToken = this.extractToken(c.req.header(), c.req.query())
               if (!this.validateToken(inputToken)) {
-                this.ctx.logger.warn('MilkyHttp', `${c.req.path} WS (Credentials invalid)`)
+                this.ctx.logger.warn('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} WS (Credentials invalid)`)
                 return ws.close(1008, 'Unauthorized')
               }
             }
 
             this.eventPushClients.add(ws)
-            this.ctx.logger.info('MilkyHttp', `${c.req.path} WS (Connected)`)
+            this.ctx.logger.info('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} WS (Connected)`)
           },
           onClose: (event, ws) => {
             this.eventPushClients.delete(ws)
-            this.ctx.logger.info('MilkyHttp', `${c.req.path} WS (Disconnected)`)
+            this.ctx.logger.info('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} WS (Disconnected)`)
           }
         }
       }, {
@@ -135,18 +131,17 @@ class MilkyHttpHandler {
         if (this.config.accessToken) {
           const inputToken = this.extractToken(c.req.header(), c.req.query())
           if (!this.validateToken(inputToken)) {
-            this.ctx.logger.warn('MilkyHttp', `${c.req.path} SSE (Credentials invalid)`)
-            c.status(401)
-            return c.json(Failed(-401, 'Unauthorized'))
+            this.ctx.logger.warn('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} SSE (Credentials invalid)`)
+            return c.json(Failed(401, 'Unauthorized'), 401)
           }
         }
 
         return streamSSE(c, async (stream) => {
           this.sseClients.add(stream)
-          this.ctx.logger.info('MilkyHttp', `${c.req.path} SSE (Connected)`)
+          this.ctx.logger.info('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} SSE (Connected)`)
           stream.onAbort(() => {
             this.sseClients.delete(stream)
-            this.ctx.logger.info('MilkyHttp', `${c.req.path} SSE (Disconnected)`)
+            this.ctx.logger.info('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} SSE (Disconnected)`)
           })
           return new Promise((resolve) => {
             stream.onAbort(resolve)
@@ -159,13 +154,14 @@ class MilkyHttpHandler {
       fetch: this.app.fetch,
       port: this.config.port,
       hostname: this.config.host
+    }, () => {
+      const displayHost = this.config.host || '0.0.0.0'
+      this.ctx.logger.info(
+        'MilkyHttp',
+        `HTTP server started at ${displayHost}:${this.config.port}${this.config.prefix}`
+      )
     })
     injectWebSocket(this.httpServer)
-    const displayHost = this.config.host || '0.0.0.0'
-    this.ctx.logger.info(
-      'MilkyHttp',
-      `HTTP server started at ${displayHost}:${this.config.port}${this.config.prefix}`
-    )
   }
 
   stop() {

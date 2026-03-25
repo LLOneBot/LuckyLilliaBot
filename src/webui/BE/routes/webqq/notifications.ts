@@ -1,12 +1,12 @@
-import { Router } from 'express'
 import { Context } from 'cordis'
 import { GroupRequestOperateTypes } from '@/ntqqapi/types'
+import { Hono } from 'hono'
 
-export function createNotificationRoutes(ctx: Context): Router {
-  const router = Router()
+export function createNotificationRoutes(ctx: Context): Hono {
+  const router = new Hono()
 
   // 获取群通知列表
-  router.get('/notifications/group', async (req, res) => {
+  router.get('/notifications/group', async (c) => {
     try {
       const { notifies, normalCount } = await ctx.ntGroupApi.getGroupRequest()
       const enriched = await Promise.all(notifies.map(async (notify, index) => {
@@ -26,15 +26,15 @@ export function createNotificationRoutes(ctx: Context): Router {
           flag: `${notify.group.groupCode}|${notify.seq}|${notify.type}|${isDoubt ? '1' : '0'}`
         }
       }))
-      res.json({ success: true, data: enriched })
+      return c.json({ success: true, data: enriched })
     } catch (e: any) {
       ctx.logger.error('获取群通知失败:', e)
-      res.status(500).json({ success: false, message: '获取群通知失败', error: e.message })
+      return c.json({ success: false, message: '获取群通知失败', error: e.message }, 500)
     }
   })
 
   // 获取好友申请历史
-  router.get('/notifications/friend', async (req, res) => {
+  router.get('/notifications/friend', async (c) => {
     try {
       const result = await ctx.ntFriendApi.getBuddyReq()
       const buddyReqs = (result.buddyReqs || []).filter((reqItem: any) => !reqItem.isInitiator)
@@ -53,15 +53,15 @@ export function createNotificationRoutes(ctx: Context): Router {
           flag: `${reqItem.friendUid}|${reqItem.reqTime}`
         }
       }))
-      res.json({ success: true, data: enriched })
+      return c.json({ success: true, data: enriched })
     } catch (e: any) {
       ctx.logger.error('获取好友申请失败:', e)
-      res.status(500).json({ success: false, message: '获取好友申请失败', error: e.message })
+      return c.json({ success: false, message: '获取好友申请失败', error: e.message }, 500)
     }
   })
 
   // 获取被过滤的好友申请
-  router.get('/notifications/friend/doubt', async (req, res) => {
+  router.get('/notifications/friend/doubt', async (c) => {
     try {
       const result = await ctx.ntFriendApi.getDoubtBuddyReq(50)
       const doubtList = result.doubtList || []
@@ -78,73 +78,69 @@ export function createNotificationRoutes(ctx: Context): Router {
         commFriendNum: item.commFriendNum,
         flag: `doubt|${item.uid}|${item.reqTime}`
       }))
-      res.json({ success: true, data: enriched })
+      return c.json({ success: true, data: enriched })
     } catch (e: any) {
       ctx.logger.error('获取被过滤好友申请失败:', e)
-      res.status(500).json({ success: false, message: '获取被过滤好友申请失败', error: e.message })
+      return c.json({ success: false, message: '获取被过滤好友申请失败', error: e.message }, 500)
     }
   })
 
   // 处理被过滤的好友申请（仅支持同意）
-  router.post('/notifications/friend/doubt/approve', async (req, res) => {
+  router.post('/notifications/friend/doubt/approve', async (c) => {
     try {
-      const { uid } = req.body as { uid: string }
+      const { uid } = await c.req.json() as { uid: string }
       if (!uid) {
-        res.status(400).json({ success: false, message: '缺少必要参数' })
-        return
+        return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
       await ctx.ntFriendApi.approvalDoubtBuddyReq(uid)
-      res.json({ success: true })
+      return c.json({ success: true })
     } catch (e: any) {
       ctx.logger.error('处理被过滤好友申请失败:', e)
-      res.status(500).json({ success: false, message: '处理被过滤好友申请失败', error: e.message })
+      return c.json({ success: false, message: '处理被过滤好友申请失败', error: e.message }, 500)
     }
   })
 
   // 处理群通知（同意/拒绝）
-  router.post('/notifications/group/handle', async (req, res) => {
+  router.post('/notifications/group/handle', async (c) => {
     try {
-      const { flag, action, reason } = req.body as {
+      const { flag, action, reason } = await c.req.json() as {
         flag: string
         action: 'approve' | 'reject'
         reason?: string
       }
       if (!flag || !action) {
-        res.status(400).json({ success: false, message: '缺少必要参数' })
-        return
+        return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
       const operateType = action === 'approve'
         ? GroupRequestOperateTypes.Approve
         : GroupRequestOperateTypes.Reject
       await ctx.ntGroupApi.handleGroupRequest(flag, operateType, reason)
-      res.json({ success: true })
+      return c.json({ success: true })
     } catch (e: any) {
       ctx.logger.error('处理群通知失败:', e)
-      res.status(500).json({ success: false, message: '处理群通知失败', error: e.message })
+      return c.json({ success: false, message: '处理群通知失败', error: e.message }, 500)
     }
   })
 
   // 处理好友申请（同意/拒绝）
-  router.post('/notifications/friend/handle', async (req, res) => {
+  router.post('/notifications/friend/handle', async (c) => {
     try {
-      const { flag, action } = req.body as {
+      const { flag, action } = await c.req.json() as {
         flag: string
         action: 'approve' | 'reject'
       }
       if (!flag || !action) {
-        res.status(400).json({ success: false, message: '缺少必要参数' })
-        return
+        return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
       const [friendUid, reqTime] = flag.split('|')
       if (!friendUid) {
-        res.status(400).json({ success: false, message: '无效的 flag 参数' })
-        return
+        return c.json({ success: false, message: '无效的 flag 参数' }, 400)
       }
       await ctx.ntFriendApi.handleFriendRequest(friendUid, reqTime || '0', action === 'approve')
-      res.json({ success: true })
+      return c.json({ success: true })
     } catch (e: any) {
       ctx.logger.error('处理好友申请失败:', e)
-      res.status(500).json({ success: false, message: '处理好友申请失败', error: e.message })
+      return c.json({ success: false, message: '处理好友申请失败', error: e.message }, 500)
     }
   })
 

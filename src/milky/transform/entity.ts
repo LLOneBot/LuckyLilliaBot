@@ -1,5 +1,5 @@
 import { FriendEntity, GroupEntity, GroupFileEntity, GroupFolderEntity, GroupMemberEntity } from '@saltify/milky-types'
-import { CategoryFriend, GroupAllInfo, Sex, SimpleInfo } from '@/ntqqapi/types'
+import { CategoryFriend, GroupDetailInfo, Sex, SimpleInfo } from '@/ntqqapi/types'
 import { GroupMember, GroupFileInfo } from '@/ntqqapi/types'
 
 export function transformGender(gender: Sex): 'male' | 'female' | 'unknown' {
@@ -22,12 +22,17 @@ export function transformFriend(friend: SimpleInfo, category: CategoryFriend): F
   }
 }
 
-export function transformGroup(group: GroupAllInfo): GroupEntity {
+export function transformGroup(group: GroupDetailInfo): GroupEntity {
   return {
     group_id: +group.groupCode,
     group_name: group.groupName,
     member_count: group.memberNum,
     max_member_count: group.maxMemberNum,
+    remark: group.remarkName,
+    created_time: group.groupCreateTime,
+    description: group.richFingerMemo,
+    question: group.groupQuestion,
+    announcement: group.groupMemo,
   }
 }
 

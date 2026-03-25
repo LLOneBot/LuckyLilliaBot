@@ -1,17 +1,16 @@
-import { Router } from 'express'
 import { Context } from 'cordis'
+import { Hono } from 'hono'
 
-export function createMembersRoutes(ctx: Context): Router {
-  const router = Router()
+export function createMembersRoutes(ctx: Context): Hono {
+  const router = new Hono()
 
   // 获取群成员列表
-  router.get('/members', async (req, res) => {
+  router.get('/members', async (c) => {
     try {
-      const { groupCode } = req.query as { groupCode: string }
+      const { groupCode } = c.req.query() as { groupCode: string }
 
       if (!groupCode) {
-        res.status(400).json({ success: false, message: '缺少群号参数' })
-        return
+        return c.json({ success: false, message: '缺少群号参数' }, 400)
       }
 
       const result = await ctx.ntGroupApi.getGroupMembers(groupCode)
@@ -37,27 +36,26 @@ export function createMembersRoutes(ctx: Context): Router {
       const roleOrder = { owner: 0, admin: 1, member: 2 }
       members.sort((a, b) => roleOrder[a.role as keyof typeof roleOrder] - roleOrder[b.role as keyof typeof roleOrder])
 
-      res.json({ success: true, data: members })
+      return c.json({ success: true, data: members })
     } catch (e: any) {
       ctx.logger.error('获取群成员失败:', e)
-      res.status(500).json({ success: false, message: '获取群成员失败', error: e.message })
+      return c.json({ success: false, message: '获取群成员失败', error: e.message }, 500)
     }
   })
 
   // 获取用户信息（通过 uid）- 保留兼容
-  router.get('/user-info', async (req, res) => {
+  router.get('/user-info', async (c) => {
     try {
-      const { uid } = req.query as { uid: string }
+      const { uid } = c.req.query() as { uid: string }
 
       if (!uid) {
-        res.status(400).json({ success: false, message: '缺少 uid 参数' })
-        return
+        return c.json({ success: false, message: '缺少 uid 参数' }, 400)
       }
 
       const userInfo = await ctx.ntUserApi.getUserSimpleInfo(uid, false)
       const uin = await ctx.ntUserApi.getUinByUid(uid)
 
-      res.json({
+      return c.json({
         success: true,
         data: {
           uid: userInfo.uid,
@@ -68,7 +66,7 @@ export function createMembersRoutes(ctx: Context): Router {
       })
     } catch (e: any) {
       ctx.logger.error('获取用户信息失败:', e)
-      res.status(500).json({ success: false, message: '获取用户信息失败', error: e.message })
+      return c.json({ success: false, message: '获取用户信息失败', error: e.message }, 500)
     }
   })
 
