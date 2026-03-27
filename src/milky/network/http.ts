@@ -92,7 +92,7 @@ class MilkyHttpHandler {
     })
 
     // SSE event endpoint
-    this.app.get('/event', (req, res) => {
+    this.app.get(`${this.config.prefix}/event`, (req, res) => {
       // Check access token for SSE connection
       if (this.config.accessToken) {
         const inputToken = this.extractToken(req.headers, req.query as Record<string, unknown>)
