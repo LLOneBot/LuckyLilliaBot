@@ -375,7 +375,6 @@ cat << EOF > docker-compose.yml
 services:
   pmhq:
     image: ${docker_mirror}linyuchen/pmhq:${PMHQ_TAG}
-    container_name: pmhq
     privileged: true
     environment:
 ${PMHQ_ENV}

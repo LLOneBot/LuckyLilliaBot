@@ -14,7 +14,7 @@
 
 [![Stargazers over time](https://starchart.cc/LLOneBot/LuckyLilliaBot.svg?variant=adaptive)](https://starchart.cc/LLOneBot/LuckyLilliaBot)
 
-TG Group：<https://t.me/+nLZEnpne-pQ1OWFl>
+TG Group：<https://t.me/luckylillia>
 
 QQ Group：[545402644](https://qm.qq.com/q/3k5fzILp7y)
 
