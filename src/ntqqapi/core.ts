@@ -95,24 +95,7 @@ class Core extends Service {
     if (!sendElements.length) {
       throw new Error('消息体无法解析，请检查是否发送了不支持的消息类型')
     }
-    // 计算发送的文件大小
-    let totalSize = 0
-    for (const fileElement of sendElements) {
-      if (fileElement.elementType === ElementType.Ptt) {
-        totalSize += +fileElement.pttElement.fileSize!
-      }
-      else if (fileElement.elementType === ElementType.File) {
-        totalSize += +fileElement.fileElement.fileSize!
-      }
-      else if (fileElement.elementType === ElementType.Video) {
-        totalSize += +fileElement.videoElement.fileSize!
-      }
-      else if (fileElement.elementType === ElementType.Pic) {
-        totalSize += +fileElement.picElement.fileSize!
-      }
-    }
-    const timeout = 10000 + (totalSize / 1024 / 256 * 1000)  // 10s Basic Timeout + PredictTime( For File 512kb/s )
-    const returnMsg = await ctx.ntMsgApi.sendMsg(peer, sendElements, timeout)
+    const returnMsg = await ctx.ntMsgApi.sendMsg(peer, sendElements)
     this.messageSentCount++
     ctx.logger.info('消息发送', peer)
     deleteAfterSentFiles.forEach(path => {

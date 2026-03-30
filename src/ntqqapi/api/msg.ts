@@ -1,5 +1,5 @@
 import { invoke, NTMethod } from '../ntcall'
-import { ChatType, MessageElement, Peer, RawMessage, SendMessageElement } from '../types'
+import { ChatType, ElementType, MessageElement, Peer, RawMessage, SendMessageElement } from '../types'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { ReceiveCmdS } from '@/ntqqapi/hook'
@@ -63,7 +63,25 @@ export class NTQQMsgApi extends Service {
     return await invoke(NTMethod.RECALL_MSG, [peer, msgIds])
   }
 
-  async sendMsg(peer: Peer, msgElements: SendMessageElement[], timeout = 10000) {
+  async sendMsg(peer: Peer, msgElements: SendMessageElement[]) {
+    // 计算发送的文件大小
+    let totalSize = 0
+    for (const fileElement of msgElements) {
+      if (fileElement.elementType === ElementType.Ptt) {
+        totalSize += +fileElement.pttElement.fileSize!
+      }
+      else if (fileElement.elementType === ElementType.File) {
+        totalSize += +fileElement.fileElement.fileSize!
+      }
+      else if (fileElement.elementType === ElementType.Video) {
+        totalSize += +fileElement.videoElement.fileSize!
+      }
+      else if (fileElement.elementType === ElementType.Pic) {
+        totalSize += +fileElement.picElement.fileSize!
+      }
+    }
+    const timeout = 10000 + (totalSize / 1024 / 256 * 1000)  // 10s Basic Timeout + PredictTime( For File 512kb/s )
+
     const uniqueId = await this.generateMsgUniqueId(peer.chatType)
     const msgAttributeInfos = new Map()
     msgAttributeInfos.set(0, {
