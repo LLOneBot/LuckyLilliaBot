@@ -567,12 +567,14 @@ class OneBot11Adapter extends Service {
                 peerUid: String(notify.groupCode),
                 guildId: ''
               }
-              const targetMsg = await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, String(target.sequence), 1, true, true)
-              if (targetMsg.msgList.length === 0) {
+              const seqStr = String(target.sequence)
+              const targetMsg = await this.ctx.ntMsgApi.getSingleMsg(peer, seqStr)
+              const msg0 = targetMsg.msgList.reduce((a, b) => +a.msgTime <= +b.msgTime ? a : b)
+              if (!msg0) {
                 this.ctx.logger.error('解析群表情回应失败：未找到消息')
                 return
               }
-              const messageId = this.ctx.store.createMsgShortId(targetMsg.msgList[0])
+              const messageId = this.ctx.store.createMsgShortId(msg0)
               const event = new OB11GroupMsgEmojiLikeEvent(
                 notify.groupCode,
                 userId,
