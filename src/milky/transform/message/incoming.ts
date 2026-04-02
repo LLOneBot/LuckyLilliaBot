@@ -191,7 +191,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         })
         break
 
-      case ElementType.Ark:
+      case ElementType.Ark: {
         const { arkElement } = element
         const data = JSON.parse(arkElement!.bytesData)
         if (data.app === 'com.tencent.multimsg' && data.meta.detail.resid) {
@@ -214,6 +214,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
           })
         }
         break
+      }
     }
   }
 
