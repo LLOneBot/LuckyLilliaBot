@@ -192,13 +192,27 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         break
 
       case ElementType.Ark:
-        segments.push({
-          type: 'light_app',
-          data: {
-            app_name: JSON.parse(element.arkElement!.bytesData).app,
-            json_payload: element.arkElement!.bytesData,
-          },
-        })
+        const { arkElement } = element
+        const data = JSON.parse(arkElement!.bytesData)
+        if (data.app === 'com.tencent.multimsg') {
+          segments.push({
+            type: 'forward',
+            data: {
+              forward_id: data.meta.detail.resid,
+              title: data.meta.detail.source,
+              preview: data.meta.detail.news.map((item: any) => item.text),
+              summary: data.meta.detail.summary,
+            },
+          })
+        } else {
+          segments.push({
+            type: 'light_app',
+            data: {
+              app_name: data.app,
+              json_payload: arkElement!.bytesData,
+            },
+          })
+        }
         break
     }
   }
