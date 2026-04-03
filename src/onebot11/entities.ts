@@ -399,13 +399,13 @@ export namespace OB11Entities {
             const jsonData = JSON.parse(urlJson)
             const busId = jsonData?.busId
             if (busId === 'FlashTransfer') {
-              const attributes: any[] = jsonData?.attributes?.attributes || []
+              const attributes: Dict[] = jsonData?.attributes?.attributes || []
               const fileAttribute = attributes.find(a => a.viewId === 'file')
               if (fileAttribute) {
                 const urlParams = new URL(fileAttribute.schema).searchParams
                 const fileSetId = urlParams.get('fileset_id') || ''
                 const sceneType = urlParams.get('scene_type') || ''
-                const fileSubAttributes: any[] = fileAttribute?.attributes || []
+                const fileSubAttributes: Dict[] = fileAttribute?.attributes || []
                 const titleAttribute = fileSubAttributes.find(a => a.viewId === 'title')
                 const title: string = titleAttribute?.text
                 messageSegment = {
@@ -628,7 +628,7 @@ export namespace OB11Entities {
     msg: RawMessage,
     shortId: number
   ): Promise<OB11FriendRecallNoticeEvent | OB11GroupRecallNoticeEvent> {
-    const revokeElement = msg.elements[0].grayTipElement?.revokeElement!
+    const revokeElement = msg.elements[0].grayTipElement!.revokeElement!
     if (msg.chatType === ChatType.Group) {
       const operator = await ctx.ntGroupApi.getGroupMember(msg.peerUid, revokeElement.operatorUid)
       let uin = msg.senderUin
