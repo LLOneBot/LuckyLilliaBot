@@ -105,7 +105,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
             message_seq: +element.replyElement!.replayMsgSeq,
             sender_id: +element.replyElement!.senderUid,
             time: +element.replyElement!.replyMsgTime,
-            segments: await transformIncomingSegments(ctx, message.records[0])
+            segments: message.records[0] ? await transformIncomingSegments(ctx, message.records[0]) : []
           },
         })
         break
