@@ -53,20 +53,20 @@ function getEmojiImagePath(emojiId: string): string {
 const EmojiReactionTip: React.FC<{ tip: SystemTip; onScrollToMessage: (msgSeq: string) => void }> = ({ tip, onScrollToMessage }) => {
   const imgSrc = getEmojiImagePath(tip.emojiId)
   const emojiId = parseInt(tip.emojiId)
-  
+
   return (
     <div className="flex justify-center py-2">
       <span className="text-xs text-theme-hint bg-theme-item/50 px-3 py-1 rounded-full">
         <span className="text-blue-500">{tip.userName}</span>
         <span> 回应了</span>
-        <span 
+        <span
           className="text-blue-500 cursor-pointer hover:underline"
           onClick={() => onScrollToMessage(tip.msgSeq)}
         >消息</span>
         <span> </span>
-        <img 
-          src={imgSrc} 
-          alt="emoji" 
+        <img
+          src={imgSrc}
+          alt="emoji"
           className="inline-block w-4 h-4 align-text-bottom"
           onError={(e) => {
             const img = e.target as HTMLImageElement
@@ -126,32 +126,32 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   const imagePreviewContextValue = useMemo(() => ({
     showPreview: (url: string) => setPreviewImageUrl(url)
   }), [])
-  
+
   const videoPreviewContextValue = useMemo(() => ({
-    showPreview: (chatType: number, peerUid: string, msgId: string, elementId: string) => 
+    showPreview: (chatType: number, peerUid: string, msgId: string, elementId: string) =>
       setPreviewVideoUrl({ chatType, peerUid, msgId, elementId })
   }), [])
-  
+
   const messageContextMenuValue = useMemo(() => ({
     showMenu: (e: React.MouseEvent, message: RawMessage) => {
       setContextMenu({ x: e.clientX, y: e.clientY, message })
     }
   }), [])
-  
+
   const imageContextMenuValue = useMemo(() => ({
     showMenu: (e: React.MouseEvent, message: RawMessage, elementId: string) => {
       setContextMenu({ x: e.clientX, y: e.clientY, message, elementId })
     }
   }), [])
-  
+
   const avatarContextMenuValue = useMemo(() => ({
     showMenu: (e: React.MouseEvent, info: Omit<AvatarContextMenuInfo, 'x' | 'y'>) => {
       setAvatarContextMenu({ x: e.clientX, y: e.clientY, ...info })
     }
   }), [])
-  
+
   const { getCachedMembers, setCachedMembers, fetchGroupMembers, friendCategories } = useWebQQStore()
-  
+
   const chatWindowRef = useRef<HTMLDivElement>(null)
   const parentRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<any>(null)
@@ -166,7 +166,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   const isFirstMountRef = useRef(true)
   const loadVersionRef = useRef(0)  // 用于检查消息加载的版本
   const isLoadingInitialRef = useRef(false)  // 防止重复加载初始消息
-  
+
   useEffect(() => { sessionRef.current = session }, [session])
 
   const allItems = useMemo<MessageItem[]>(() => {
@@ -179,10 +179,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
         return true
       })
       .map(msg => ({ type: 'raw' as const, data: msg }))
-    
+
     const tempItems: MessageItem[] = tempMessages.map(msg => ({ type: 'temp' as const, data: msg }))
     const systemItems: MessageItem[] = systemTips.map(tip => ({ type: 'system' as const, data: tip }))
-    
+
     // 合并所有消息并按时间排序
     const items = [...rawItems, ...tempItems, ...systemItems]
     items.sort((a, b) => {
@@ -193,7 +193,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
       }
       return getTimestamp(a) - getTimestamp(b)
     })
-    
+
     allItemsRef.current = items
     return items
   }, [messages, tempMessages, systemTips])
@@ -224,7 +224,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   const groupMembersContextValue = useMemo(() => ({
     getMembers: (groupCode: string) => getCachedMembers(groupCode)
   }), [getCachedMembers])
-  
+
   const friendsContextValue = useMemo(() => ({
     getFriend: (uin: string): FriendInfo | null => {
       for (const category of friendCategories) {
@@ -279,7 +279,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
 
     tick()
   }, [scrollToBottom, stopBottomLock])
-  
+
   useEffect(() => {
     const currentKey = session ? `${session.chatType}_${session.peerId}` : null
     if (currentKey !== prevSessionKeyRef.current) {
@@ -319,10 +319,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     if (onNewMessageCallback) {
       const handleNewMessage = (msg: RawMessage) => {
         if (!msg || !msg.msgId || !msg.elements || !Array.isArray(msg.elements)) return
-        
+
         // 检查是否是自己发送的消息
         const selfUid = getSelfUid()
-        
+
         setMessages(prev => {
           if (prev.some(m => m && m.msgId === msg.msgId)) return prev
           const newMessages = [...prev, msg]
@@ -330,7 +330,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
           if (currentSession) appendCachedMessage(currentSession.chatType, currentSession.peerId, msg)
           return newMessages
         })
-        
+
         // 注：临时消息已在 ChatInput.sendMessage 成功后立即移除，
         // SSE 消息达到时应该没有待移除的临时消息。此处保留防御性代码。
         // 在极端情况下（如快速重连），可能仍有未移除的临时消息，此时将其全部移除。
@@ -355,12 +355,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
       const handleEmojiReaction = (data: EmojiReactionData) => {
         const selfUin = getSelfUin()
         const isSelf = selfUin && data.userId === selfUin
-        
+
         // 更新消息的表情列表
         setMessages(prev => prev.map(m => {
           if (m.msgSeq !== data.msgSeq) return m
           const existingList = m.emojiLikesList || []
-          
+
           if (data.isAdd) {
             // 添加表情
             const existingIndex = existingList.findIndex(e => e.emojiId === data.emojiId)
@@ -388,8 +388,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
               if (newCount <= 0) {
                 newList.splice(existingIndex, 1)
               } else {
-                newList[existingIndex] = { 
-                  ...newList[existingIndex], 
+                newList[existingIndex] = {
+                  ...newList[existingIndex],
                   likesCnt: String(newCount),
                   // 如果是自己取消的，标记为未点击
                   isClicked: isSelf ? false : newList[existingIndex].isClicked
@@ -400,7 +400,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
           }
           return m
         }))
-        
+
         // 添加系统提示消息（只在添加表情时显示，且不是自己的回应）
         if (data.isAdd && !isSelf) {
           const tip: SystemTip = {
@@ -458,21 +458,21 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
 
     try {
       const result = await getMessages(requestChatType, requestPeerId, beforeMsgSeq, 20, afterMsgSeq)
-      
+
       console.log('[ChatWindow] API response:', { messagesCount: result.messages.length, hasMore: result.hasMore })
-      
+
       // 检查 session 是否仍然匹配
       if (!checkSession()) {
         console.log('[ChatWindow] Session changed after API call, skipping')
         return
       }
-      
-      const validMessages = result.messages.filter((msg): msg is RawMessage => 
+
+      const validMessages = result.messages.filter((msg): msg is RawMessage =>
         msg !== null && msg !== undefined && msg.elements && Array.isArray(msg.elements)
       )
-      
+
       console.log('[ChatWindow] Valid messages:', validMessages.length)
-      
+
       setMessages(prev => {
         const existingIds = new Set(prev.map(m => m.msgId))
         const newMsgs = validMessages.filter(m => !existingIds.has(m.msgId))
@@ -484,7 +484,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
       })
       setHasMore(result.hasMore)
       return { validMessages, hasMore: result.hasMore }
-    } catch (e: any) {
+    } catch (e) {
       console.error('[ChatWindow] loadMessages error:', e)
       scrollToMsgIdRef.current = null
       if (!checkSession()) return
@@ -502,44 +502,44 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     if (!session) return
     const requestChatType = session.chatType
     const requestPeerId = session.peerId
-    
+
     setLoading(true)
-    
+
     // 检查 session 是否仍然匹配
     const checkSession = () => {
       const currentSession = sessionRef.current
       return currentSession && currentSession.chatType === requestChatType && currentSession.peerId === requestPeerId
     }
-    
+
     try {
       // 1. 先加载最新 20 条消息
       const result = await getMessages(requestChatType, requestPeerId)
-      
+
       if (!checkSession()) {
         console.log('[ChatWindow] Session changed during API call, skipping')
         return
       }
-      
-      const latestMessages = result.messages.filter((msg): msg is RawMessage => 
+
+      const latestMessages = result.messages.filter((msg): msg is RawMessage =>
         msg !== null && msg !== undefined && msg.elements && Array.isArray(msg.elements)
       )
-      
+
       console.log('[ChatWindow] Latest messages from API:', latestMessages.length)
-      
+
       if (latestMessages.length === 0) {
         setHasMore(false)
         return
       }
-      
+
       // 2. 检查是否和本地缓存有重叠
       const cachedMsgIds = new Set(cachedMessages.map(m => m.msgId))
       const hasOverlap = latestMessages.some(m => cachedMsgIds.has(m.msgId))
-      
+
       if (hasOverlap || cachedMessages.length === 0) {
         // 有重叠或没有缓存，直接合并
         console.log('[ChatWindow] Has overlap with cache, merging directly')
         const merged = [...cachedMessages, ...latestMessages]
-        const uniqueMessages = merged.filter((msg, index, arr) => 
+        const uniqueMessages = merged.filter((msg, index, arr) =>
           arr.findIndex(m => m.msgId === msg.msgId) === index
         )
         uniqueMessages.sort((a, b) => parseInt(a.msgTime) - parseInt(b.msgTime))
@@ -553,39 +553,39 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
         let currentBeforeMsgSeq = latestMessages[0]?.msgSeq
         let hasMore = result.hasMore
         const cachedLatestMsgSeq = cachedMessages[cachedMessages.length - 1]?.msgSeq
-        
+
         // 最多尝试 10 次（200 条消息）来填补间隙
         for (let i = 0; i < 10 && hasMore; i++) {
           if (!checkSession()) {
             console.log('[ChatWindow] Session changed during gap fill, skipping')
             return
           }
-          
+
           const moreResult = await getMessages(requestChatType, requestPeerId, currentBeforeMsgSeq)
-          const moreMessages = moreResult.messages.filter((msg): msg is RawMessage => 
+          const moreMessages = moreResult.messages.filter((msg): msg is RawMessage =>
             msg !== null && msg !== undefined && msg.elements && Array.isArray(msg.elements)
           )
-          
+
           if (moreMessages.length === 0) break
-          
+
           allNewMessages = [...moreMessages, ...allNewMessages]
           currentBeforeMsgSeq = moreMessages[0]?.msgSeq
           hasMore = moreResult.hasMore
-          
+
           // 检查是否和缓存接上了
           const newMsgIds = new Set(moreMessages.map(m => m.msgId))
           const connected = cachedMessages.some(m => newMsgIds.has(m.msgId)) ||
             (cachedLatestMsgSeq && moreMessages.some(m => parseInt(m.msgSeq) <= parseInt(cachedLatestMsgSeq)))
-          
+
           if (connected) {
             console.log('[ChatWindow] Connected with cache after', i + 1, 'iterations')
             break
           }
         }
-        
+
         // 合并所有消息
         const merged = [...cachedMessages, ...allNewMessages]
-        const uniqueMessages = merged.filter((msg, index, arr) => 
+        const uniqueMessages = merged.filter((msg, index, arr) =>
           arr.findIndex(m => m.msgId === msg.msgId) === index
         )
         uniqueMessages.sort((a, b) => parseInt(a.msgTime) - parseInt(b.msgTime))
@@ -593,7 +593,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
         setCachedMessages(requestChatType, requestPeerId, uniqueMessages)
         setHasMore(hasMore)
       }
-    } catch (e: any) {
+    } catch (e) {
       console.error('[ChatWindow] loadMessagesAndMergeWithCache error:', e)
       showToast('加载消息失败', 'error')
     } finally {
@@ -616,16 +616,16 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     if (session) {
       // 切换会话时递增版本号，使旧的请求失效
       const currentVersion = ++loadVersionRef.current
-      
+
       const sessionKey = getSessionKey(session.chatType, session.peerId)
       const currentChatType = session.chatType
       const currentPeerId = session.peerId
-      
+
       console.log('[ChatWindow] Session changed:', { chatType: currentChatType, peerId: currentPeerId, version: currentVersion })
-      
+
       // 重置加载状态
       isLoadingInitialRef.current = false
-      
+
       // 先尝试从内存缓存读取
       const cachedInMemory = messageCacheRef.current.get(sessionKey)
       if (cachedInMemory && cachedInMemory.length > 0) {
@@ -635,17 +635,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
         console.log('[ChatWindow] Memory cache miss')
         setMessages([])
       }
-      
+
       setTempMessages([])
       setSystemTips([])
       shouldScrollRef.current = true
-      
+
       // 首次挂载或未访问过的聊天，从 API 加载最新消息
       const isFirstMount = isFirstMountRef.current
       const hasVisited = hasVisitedChat(currentChatType, currentPeerId)
       const shouldLoadFromApi = isFirstMount || !hasVisited
       console.log('[ChatWindow] Check load:', { isFirstMount, hasVisited, shouldLoadFromApi })
-      
+
       // 从 IndexedDB 读取缓存，然后从 API 加载最新消息
       getCachedMessages(currentChatType, currentPeerId).then(async cachedMessages => {
         // 只检查 session 是否匹配，不检查版本号（因为版本号可能因为 SSE 重连而变化）
@@ -654,7 +654,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
           console.log('[ChatWindow] Session changed after IndexedDB read, skipping')
           return
         }
-        
+
         // 获取有效的缓存消息
         let validCachedMessages: RawMessage[] = []
         if (cachedMessages && cachedMessages.length > 0) {
@@ -668,14 +668,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
         } else {
           console.log('[ChatWindow] IndexedDB cache miss')
         }
-        
+
         // 防止重复加载
         if (shouldLoadFromApi && !isLoadingInitialRef.current) {
           isLoadingInitialRef.current = true
           isFirstMountRef.current = false
           markChatVisited(currentChatType, currentPeerId)
           console.log('[ChatWindow] Calling loadMessagesAndMergeWithCache()')
-          
+
           // 加载最新消息，然后尝试和本地缓存合并
           await loadMessagesAndMergeWithCache(validCachedMessages)
         }
@@ -699,7 +699,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     const sentinel = topSentinelRef.current
     const container = parentRef.current
     if (!sentinel || !container) return
-    
+
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0]
@@ -714,7 +714,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
       },
       { root: container, rootMargin: '50px 0px 0px 0px', threshold: 0 }
     )
-    
+
     observer.observe(sentinel)
     return () => observer.disconnect()
   }, [hasMore, messages, loadMessages])
@@ -798,20 +798,20 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
         <div className="flex items-center justify-between px-2 md:px-4 py-3 border-b border-theme-divider bg-theme-card">
           {/* 返回按钮（移动端） */}
           {showBackButton && (
-            <button 
+            <button
               onClick={onBack}
               className="p-2 mr-1 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg transition-colors md:hidden"
             >
               <ArrowLeft size={20} />
             </button>
           )}
-          <div 
+          <div
             className="flex items-center gap-3 cursor-pointer hover:opacity-80 transition-opacity flex-1 min-w-0"
             onClick={async (e) => {
               const rect = e.currentTarget.getBoundingClientRect()
               const x = rect.left
               const y = rect.bottom + 8
-              
+
               if (session.chatType === 2) {
                 setGroupProfile({ profile: null, loading: true, position: { x, y } })
                 try {
@@ -959,7 +959,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
           containerRef={chatWindowRef}
         />
       )}
-      
+
       {/* 头像右键菜单 */}
       {avatarContextMenu && (
         <AvatarContextMenu
@@ -978,10 +978,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
 
       {/* 用户资料卡 */}
       {userProfile && (
-        <UserProfileCard 
-          profile={userProfile.profile} 
-          loading={userProfile.loading} 
-          position={userProfile.position} 
+        <UserProfileCard
+          profile={userProfile.profile}
+          loading={userProfile.loading}
+          position={userProfile.position}
           onClose={() => setUserProfile(null)}
           isFriend={session?.chatType === 1}
           onFriendDeleted={(uid) => {
@@ -995,13 +995,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
           }}
         />
       )}
-      
+
       {/* 群资料卡 */}
       {groupProfile && (
-        <GroupProfileCard 
-          profile={groupProfile.profile} 
-          loading={groupProfile.loading} 
-          position={groupProfile.position} 
+        <GroupProfileCard
+          profile={groupProfile.profile}
+          loading={groupProfile.loading}
+          position={groupProfile.position}
           onClose={() => setGroupProfile(null)}
           onQuitGroup={async (groupCode, isOwner) => {
             try {
@@ -1010,13 +1010,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
               const { setCurrentChat, removeRecentChat } = useWebQQStore.getState()
               setCurrentChat(null)
               removeRecentChat(2, groupCode)
-            } catch (e: any) {
+            } catch (e) {
               showToast(e.message || (isOwner ? '解散失败' : '退群失败'), 'error')
             }
           }}
         />
       )}
-      
+
       {/* 踢出群确认对话框 */}
       {kickConfirm && (
         <KickConfirmDialog
@@ -1028,17 +1028,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
             try {
               await kickGroupMember(groupCode, uid)
               showToast(`已将 ${name} 移出群聊`, 'success')
-            } catch (e: any) {
+            } catch (e) {
               showToast(e.message || '踢出失败', 'error')
             }
           }}
           onClose={() => setKickConfirm(null)}
         />
       )}
-      
+
       {/* 禁言时长选择对话框 */}
       {muteDialog && (
-        <MuteDialog 
+        <MuteDialog
           name={muteDialog.name}
           onMute={async (seconds) => {
             const { uid, name, groupCode } = muteDialog
@@ -1053,14 +1053,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
                   seconds >= 60 ? `${Math.floor(seconds / 60)}分钟` : `${seconds}秒`
                 showToast(`已禁言 ${name} ${display}`, 'success')
               }
-            } catch (e: any) {
+            } catch (e) {
               showToast(e.message || '禁言失败', 'error')
             }
           }}
           onClose={() => setMuteDialog(null)}
         />
       )}
-      
+
       {/* 设置头衔对话框 */}
       {titleDialog && (
         <TitleDialog
@@ -1071,14 +1071,14 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
             try {
               await setMemberTitle(groupCode, uid, title)
               showToast(title ? `已设置 ${name} 的头衔为「${title}」` : `已清除 ${name} 的头衔`, 'success')
-            } catch (err: any) {
+            } catch (err) {
               showToast(err.message || '设置头衔失败', 'error')
             }
           }}
           onClose={() => setTitleDialog(null)}
         />
       )}
-      
+
       <ImagePreviewModal url={previewImageUrl} onClose={() => setPreviewImageUrl(null)} />
       <VideoPreviewModal videoInfo={previewVideoUrl} onClose={() => setPreviewVideoUrl(null)} />
     </FriendsContext.Provider>
