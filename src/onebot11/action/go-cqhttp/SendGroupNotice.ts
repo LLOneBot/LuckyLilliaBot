@@ -2,6 +2,7 @@ import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 import { unlink } from 'fs/promises'
 import { uri2local, parseBool } from '@/common/utils'
+import { noop } from 'cosmokit'
 
 interface Payload {
   group_id: number | string
@@ -37,7 +38,7 @@ export class SendGroupNotice extends BaseAction<Payload, null> {
         throw new Error(`上传群公告图片失败, 错误信息: ${result.errMsg}`)
       }
       if (!isLocal) {
-        unlink(path).catch(e => { })
+        unlink(path).catch(noop)
       }
       picInfo = result.picInfo
     }

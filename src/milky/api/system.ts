@@ -37,6 +37,7 @@ import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { sleep } from '@/common/utils'
 import { ChatType } from '@/ntqqapi/types'
+import { noop } from 'cosmokit'
 
 const GetLoginInfo = defineApi(
   'get_login_info',
@@ -331,7 +332,7 @@ const SetAvatar = defineApi(
     const tempPath = path.join(TEMP_DIR, `avatar-${randomUUID()}`)
     await writeFile(tempPath, data)
     const result = await ctx.ntUserApi.setSelfAvatar(tempPath)
-    unlink(tempPath).catch(e => { })
+    unlink(tempPath).catch(noop)
     if (result.result !== 0) {
       return Failed(-500, result.errMsg)
     }

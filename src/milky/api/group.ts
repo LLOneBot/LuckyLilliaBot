@@ -33,6 +33,7 @@ import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { GroupNotifyStatus, GroupNotifyType } from '@/ntqqapi/types'
 import { transformIncomingSegments } from '../transform/message'
+import { noop } from 'cosmokit'
 
 const SetGroupName = defineApi(
   'set_group_name',
@@ -56,7 +57,7 @@ const SetGroupAvatar = defineApi(
     const tempPath = path.join(TEMP_DIR, `group-avatar-${randomUUID()}`)
     await writeFile(tempPath, imageBuffer)
     const result = await ctx.ntGroupApi.setGroupAvatar(payload.group_id.toString(), tempPath)
-    unlink(tempPath).catch(e => { })
+    unlink(tempPath).catch(noop)
     if (result.result !== 0) {
       return Failed(-500, result.errMsg)
     }
@@ -201,7 +202,7 @@ const SendGroupAnnouncement = defineApi(
       const tempPath = path.join(TEMP_DIR, `group-announcement-${randomUUID()}`)
       await writeFile(tempPath, imageBuffer)
       const result = await ctx.ntGroupApi.uploadGroupBulletinPic(groupCode, tempPath)
-      unlink(tempPath).catch(e => { })
+      unlink(tempPath).catch(noop)
       if (result.errCode !== 0) {
         return Failed(-500, result.errMsg)
       }

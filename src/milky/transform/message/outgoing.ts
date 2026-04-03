@@ -12,6 +12,7 @@ import faceConfig from '@/ntqqapi/helper/face_config.json'
 import { deflateSync } from 'node:zlib'
 import { InferProtoModelInput } from '@saltify/typeproto'
 import { createThumb } from '@/common/utils/video'
+import { noop } from 'cosmokit'
 
 export async function transformOutgoingMessage(
   ctx: Context,
@@ -355,7 +356,7 @@ class ForwardMessageEncoder {
         const busiType = segment.data.sub_type === 'sticker' ? 1 : 0
         this.children.push(await this.packImage(data, busiType))
         this.preview += busiType === 1 ? '[动画表情]' : '[图片]'
-        unlink(tempPath).catch(e => { })
+        unlink(tempPath).catch(noop)
       } else if (type === 'forward') {
         const encoder = new ForwardMessageEncoder(this.ctx, this.peerUid, this.isGroup)
         const innerRaw = await encoder.generate(data.messages as OutgoingForwardedMessage[], {
@@ -388,8 +389,8 @@ class ForwardMessageEncoder {
         }
         this.children.push(this.packVideo(data.msgInfo))
         this.preview += '[视频]'
-        unlink(tempPath).catch(e => { })
-        unlink(thumbTempPath).catch(e => { })
+        unlink(tempPath).catch(noop)
+        unlink(thumbTempPath).catch(noop)
       }
     }
     await this.flush()

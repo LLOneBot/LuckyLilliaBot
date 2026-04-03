@@ -21,7 +21,7 @@ import { getMd5HexFromFile } from '../common/utils/file'
 import { createThumb, getVideoInfo } from '../common/utils/video'
 import { encodeSilk } from '../common/utils/audio'
 import { Context } from 'cordis'
-import { isNullable } from 'cosmokit'
+import { isNullable, noop } from 'cosmokit'
 
 export namespace SendElement {
   export function text(content: string): SendTextElement {
@@ -148,7 +148,7 @@ export namespace SendElement {
     } else {
       const path = await createThumb(ctx, videoInfo.filePath)
       await copyFile(path, thumbFilePath)
-      unlink(path).catch(e => { })
+      unlink(path).catch(noop)
     }
     const thumbPath = new Map()
     const thumbSize = (await stat(thumbFilePath)).size
@@ -182,7 +182,7 @@ export namespace SendElement {
     }
     const { md5, fileName, path } = await ctx.ntFileApi.uploadFile(silkPath, ElementType.Ptt)
     if (converted) {
-      unlink(silkPath).then().catch(e => { })
+      unlink(silkPath).catch(noop)
     }
     return {
       elementType: ElementType.Ptt,

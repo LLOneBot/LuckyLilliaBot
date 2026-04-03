@@ -29,6 +29,7 @@ import { logSummaryMessage } from '@/ntqqapi/log'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
 import { OnQRCodeLoginSucceedParameter } from '@/ntqqapi/listeners/NodeIKernelLoginListener'
 import { GroupDetailInfo, LocalExitGroupReason } from '@/ntqqapi/types'
+import { noop } from 'cosmokit'
 
 declare module 'cordis' {
   interface Context {
@@ -99,7 +100,7 @@ class Core extends Service {
     this.messageSentCount++
     ctx.logger.info('消息发送', peer)
     deleteAfterSentFiles.forEach(path => {
-      unlink(path).catch(e => { })
+      unlink(path).catch(noop)
     })
     return returnMsg
   }
@@ -150,7 +151,7 @@ class Core extends Service {
       setTimeout(() => {
         for (const path of allPaths) {
           if (path) {
-            unlink(path).then(() => this.ctx.logger.info('删除文件成功', path)).catch(e => { })
+            unlink(path).then(() => this.ctx.logger.info('删除文件成功', path)).catch(noop)
           }
         }
       }, this.config.autoDeleteFileSecond! * 1000)
