@@ -73,7 +73,7 @@ const EmailConfigSection: React.FC<EmailConfigSectionProps> = (props) => {
       newConfig = {
         ...value,
         [keys[0]]: {
-          ...(value as any)[keys[0]],
+          ...value[keys[0]],
           [keys[1]]: newValue,
         },
       }
@@ -81,9 +81,9 @@ const EmailConfigSection: React.FC<EmailConfigSectionProps> = (props) => {
       newConfig = {
         ...value,
         [keys[0]]: {
-          ...(value as any)[keys[0]],
+          ...value[keys[0]],
           [keys[1]]: {
-            ...(value as any)[keys[0]][keys[1]],
+            ...value[keys[0]][keys[1]],
             [keys[2]]: newValue,
           },
         },
