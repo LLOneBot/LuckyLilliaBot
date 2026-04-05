@@ -580,7 +580,7 @@ class OneBot11Adapter extends Service {
                 messageId,
                 [{
                   emoji_id: info.code,
-                  count: 1,
+                  count: info.count,
                 }],
                 info.actionType === 1
               )
