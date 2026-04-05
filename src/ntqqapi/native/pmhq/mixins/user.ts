@@ -61,7 +61,7 @@ export function UserMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) {
       const res = await this.httpSendPB('MQUpdateSvc_com_qq_ti.web.OidbSvc.0xdef_1', body)
       const { json } = Action.FetchUserLoginDaysResp.decode(Buffer.from(res.pb, 'hex'))
       return (
-        JSON.parse(json).msg_rsp_basic_info.rpt_msg_basic_info.find((e: Dict) => e.uint64_uin === uin)
+        JSON.parse(json).msg_rsp_basic_info?.rpt_msg_basic_info.find((e: Dict) => e.uint64_uin === uin)
           ?.uint32_login_days ?? 0
       )
     }
