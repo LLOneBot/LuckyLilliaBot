@@ -49,7 +49,6 @@ export { OB11FriendRequestEvent } from './request/OB11FriendRequest'
 export { OB11GroupRequestEvent } from './request/OB11GroupRequest'
 
 // 导入所有事件类型用于联合类型定义
-import type { OB11BaseMessageEvent } from './message/OB11BaseMessageEvent'
 import type { OB11HeartbeatEvent } from './meta/OB11HeartbeatEvent'
 import type { OB11LifeCycleEvent } from './meta/OB11LifeCycleEvent'
 import type { OB11FriendAddNoticeEvent } from './notice/OB11FriendAddNoticeEvent'
