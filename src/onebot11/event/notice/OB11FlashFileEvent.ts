@@ -15,7 +15,7 @@ abstract class OB11FlashFileEvent extends OB11BaseNoticeEvent {
   file_set_id: string = ''
   files: Array<OB11FlashFile> = []
 
-  protected constructor(title: string, share_link: string, file_set_id: string, files: OB11FlashFile[]) {
+  protected constructor(title: string, share_link: string, file_set_id: string) {
     super()
     this.title = title
     this.share_link = share_link
@@ -35,7 +35,7 @@ export class OB11FlashFileDownloadingEvent extends OB11FlashFileEvent {
               speed: number,
               remain_seconds: number,
               files: OB11FlashFile[]) {
-    super(title, share_link, file_set_id, files)
+    super(title, share_link, file_set_id)
     this.sub_type = 'downloading'
     this.downloaded_size = downloaded_size
     this.total_size = total_size
@@ -46,8 +46,8 @@ export class OB11FlashFileDownloadingEvent extends OB11FlashFileEvent {
 }
 
 export class OB11FlashFileDownloadedEvent extends OB11FlashFileEvent {
-  constructor(title: string, share_link: string, file_set_id: string, files: OB11FlashFile[]) {
-    super(title, share_link, file_set_id, files)
+  constructor(title: string, share_link: string, file_set_id: string) {
+    super(title, share_link, file_set_id)
     this.sub_type = 'downloaded'
   }
 }
@@ -63,7 +63,7 @@ export class OB11FlashFileUploadingEvent extends OB11FlashFileEvent {
               speed: number,
               remain_seconds: number,
               files: OB11FlashFile[] = []) {
-    super(title, share_link, file_set_id, files)
+    super(title, share_link, file_set_id)
     this.sub_type = 'uploading'
     this.uploaded_size = uploaded_size
     this.total_size = total_size
@@ -74,8 +74,8 @@ export class OB11FlashFileUploadingEvent extends OB11FlashFileEvent {
 }
 
 export class OB11FlashFileUploadedEvent extends OB11FlashFileEvent {
-  constructor(title: string, share_link: string, file_set_id: string, files: OB11FlashFile[] = []) {
-    super(title, share_link, file_set_id, files)
+  constructor(title: string, share_link: string, file_set_id: string) {
+    super(title, share_link, file_set_id)
     this.sub_type = 'uploaded'
   }
 }

@@ -445,7 +445,6 @@ class OneBot11Adapter extends Service {
             input.info.name,
             input.info.shareInfo.shareLink,
             input.info.fileSetId,
-            files,
           )
           this.dispatch(event)
         }).catch((err) => {

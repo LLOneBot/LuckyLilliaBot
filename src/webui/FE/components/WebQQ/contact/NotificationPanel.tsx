@@ -371,7 +371,7 @@ const InfoNotifyCard: React.FC<{ type: 'group-dismiss' | 'group-quit'; data: { g
 // 主通知面板
 type NotifyTab = 'friend' | 'group'
 
-const NotificationPanel: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+const NotificationPanel: React.FC<{ onClose: () => void }> = () => {
   const notifications = useWebQQStore(state => state.notifications)
   const clearNotificationUnread = useWebQQStore(state => state.clearNotificationUnread)
   const loadGroupNotifications = useWebQQStore(state => state.loadGroupNotifications)

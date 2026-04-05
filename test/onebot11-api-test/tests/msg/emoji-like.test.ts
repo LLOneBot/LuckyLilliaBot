@@ -77,7 +77,7 @@ describe('emoji_like - 消息表情回应', () => {
 
 
     // 步骤5: 再次获取表情回应，验证已取消
-    let fetchAfterUnsetResponse = await primaryClient.call(ActionName.FetchEmojiLike, {
+    const fetchAfterUnsetResponse = await primaryClient.call(ActionName.FetchEmojiLike, {
       message_id: messageId,
       emoji_id: emojiId,
       count: 20

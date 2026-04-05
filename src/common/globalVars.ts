@@ -19,7 +19,7 @@ if (!existsSync(dbDir)) {
 export function getFixedDataDir() {
   let dataDir: string = ''
   if (process.platform === 'win32') {
-    dataDir = path.join(process.env['LOCALAPPDATA']!!, 'llonebot')
+    dataDir = path.join(process.env['LOCALAPPDATA']!, 'llonebot')
   }
   else {
     dataDir = path.join(os.homedir(), '.llonebot')

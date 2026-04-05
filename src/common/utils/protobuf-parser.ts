@@ -85,7 +85,7 @@ class ProtobufParser {
       if (Buffer.from(str, 'utf-8').equals(data)) {
         return str
       }
-    } catch {}
+    } catch { }
 
     // 尝试解析为嵌套消息
     try {
@@ -93,7 +93,7 @@ class ProtobufParser {
       if (Object.keys(nested).length > 0) {
         return nested
       }
-    } catch {}
+    } catch { }
 
     // 否则返回十六进制字符串
     return data.toString('hex')
@@ -125,11 +125,12 @@ class ProtobufParser {
           value = Number(this.readFixed64())
           break
 
-        case WireType.LENGTH_DELIMITED:
+        case WireType.LENGTH_DELIMITED: {
           const length = Number(this.readVarint())
           const data = this.readBytes(length)
           value = this.parseLengthDelimited(data)
           break
+        }
 
         case WireType.FIXED32:
           value = this.readFixed32()

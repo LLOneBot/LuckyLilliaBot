@@ -25,7 +25,8 @@ export class GetFlashFileInfoBase<R> extends BaseAction<GetFlashFilePayload, R> 
   })
 
   protected async get_file_set_id(payload: GetFlashFilePayload): Promise<string> {
-    let { share_link, file_set_id } = payload
+    const { share_link } = payload
+    let { file_set_id } = payload
     if (share_link) {
       // 正则提取 code
       const match = share_link.match(/qfile.qq.com\/q\/([\w\d]+)/)
@@ -48,7 +49,6 @@ export class GetFlashFileInfoBase<R> extends BaseAction<GetFlashFilePayload, R> 
   async _handle(payload: GetFlashFilePayload): Promise<R> {
     throw new Error('Method not implemented.')
   }
-
 }
 
 

@@ -265,7 +265,7 @@ export class MessageEncoder {
         this.preview += face.QDes
       }
     } else if (type === OB11MessageDataType.Image) {
-      const busiType = Number(segment.data.subType) ?? 0
+      const busiType = Number(segment.data.subType) || 0
       const { path: picPath } = await handleOb11RichMedia(this.ctx, segment, this.deleteAfterSentFiles)
       const fileSize = (await stat(picPath)).size
       if (fileSize === 0) {

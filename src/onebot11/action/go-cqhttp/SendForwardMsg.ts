@@ -9,6 +9,7 @@ import { message2List, createSendElements, createPeer, CreatePeerMode } from '..
 import { MessageEncoder } from '@/onebot11/helper/createMultiMessage'
 import { MsgInfo } from '../../../main/store'
 import { OB11Entities } from '@/onebot11/entities'
+import { noop } from 'cosmokit'
 
 interface Payload {
   user_id?: string | number
@@ -278,8 +279,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
               }
               msgIds.push(nodeMsg.msgId)
             }
-            deleteAfterSentFiles.map(path => unlink(path).then().catch(e => {
-            }))
+            deleteAfterSentFiles.map(path => unlink(path).catch(noop))
           } catch (e) {
             this.ctx.logger.error('生成转发消息节点失败', e)
           }

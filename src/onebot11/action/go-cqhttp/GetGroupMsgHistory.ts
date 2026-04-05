@@ -38,7 +38,7 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
     const ob11MsgList = await Promise.all(msgList.map(msg => {
       let rawMsg = msg
       if (rawMsg.recallTime !== '0') {
-        let msg = this.ctx.store.getMsgCache(rawMsg.msgId)
+        const msg = this.ctx.store.getMsgCache(rawMsg.msgId)
         if (msg) {
           rawMsg = msg
         }

@@ -335,7 +335,7 @@ class OB11WebSocketReverse {
       }
     }, this.config.heartInterval)
 
-    this.wsClient.on('close', (code, reason) => {
+    this.wsClient.on('close', (code) => {
       disposeHeartBeat()
       this.ctx.logger.info(`The websocket connection: ${this.config.url} closed, code ${code}${this.activated ? ', trying reconnecting...' : ''}`)
       if (this.activated) {

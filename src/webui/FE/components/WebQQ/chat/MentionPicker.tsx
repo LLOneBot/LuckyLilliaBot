@@ -15,7 +15,6 @@ export const MentionPicker: React.FC<MentionPickerProps> = ({
   members,
   loading,
   query,
-  position,
   onSelect,
   onClose
 }) => {
@@ -26,7 +25,7 @@ export const MentionPicker: React.FC<MentionPickerProps> = ({
   const filteredMembers = useMemo(() => {
     if (!query) return members.slice(0, 20) // 默认显示前20个
     const lowerQuery = query.toLowerCase()
-    return members.filter(m => 
+    return members.filter(m =>
       m.nickname.toLowerCase().includes(lowerQuery) ||
       m.card?.toLowerCase().includes(lowerQuery) ||
       m.uin.includes(query)
@@ -111,8 +110,8 @@ export const MentionPicker: React.FC<MentionPickerProps> = ({
               data-index={index}
               onClick={() => onSelect(member)}
               className={`flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors ${
-                index === selectedIndex 
-                  ? 'bg-pink-50 dark:bg-pink-900/30' 
+                index === selectedIndex
+                  ? 'bg-pink-50 dark:bg-pink-900/30'
                   : 'hover:bg-theme-item-hover'
               }`}
             >

@@ -2,6 +2,7 @@ import { unlink } from 'node:fs/promises'
 import { BaseAction, Schema } from '../../BaseAction'
 import { ActionName } from '../../types'
 import { uri2local } from '@/common/utils/file'
+import { noop } from 'cosmokit'
 
 interface Payload {
   file: string
@@ -20,7 +21,7 @@ export default class SetQQAvatar extends BaseAction<Payload, null> {
     }
     const ret = await this.ctx.ntUserApi.setSelfAvatar(path)
     if (!isLocal) {
-      unlink(path).then().catch(err => { })
+      unlink(path).catch(noop)
     }
     if (ret.result !== 0) {
       throw new Error(ret.errMsg)

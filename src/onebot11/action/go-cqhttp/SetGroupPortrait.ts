@@ -1,3 +1,4 @@
+import { noop } from 'cosmokit'
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 import { uri2local } from '@/common/utils/file'
@@ -24,7 +25,7 @@ export class SetGroupPortrait extends BaseAction<Payload, null> {
     const groupCode = payload.group_id.toString()
     const res = await this.ctx.ntGroupApi.setGroupAvatar(groupCode, path)
     if (!isLocal) {
-        unlink(path).then().catch(e=>{})
+      unlink(path).catch(noop)
     }
     if (res.result !== 0) {
       throw new Error(res.errMsg)

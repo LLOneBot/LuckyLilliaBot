@@ -13,7 +13,7 @@ interface GlobalLoginAttempt {
 }
 
 // 全局登录失败记录（不基于IP）
-let globalLoginAttempt: GlobalLoginAttempt = {
+const globalLoginAttempt: GlobalLoginAttempt = {
   consecutiveFailures: 0,
   lockedUntil: null,
   lastAttempt: 0,
