@@ -1,19 +1,22 @@
 import { ActionName } from '../../types'
 import { BaseAction, Schema } from '../../BaseAction'
 import { ChatType } from '@/ntqqapi/types'
+import { parseBool } from '@/common/utils'
 
 interface Payload {
   message_id: number | string
   emoji_id: number | string
+  set: boolean
 }
 
 export class SetMsgEmojiLike extends BaseAction<Payload, null> {
   actionName = ActionName.SetMsgEmojiLike
   payloadSchema = Schema.object({
     message_id: Schema.union([Number, String]).required(),
-    emoji_id: Schema.union([Number, String]).required()
+    emoji_id: Schema.union([Number, String]).required(),
+    set: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(true)
   })
-  set: boolean = true
+  set?: boolean
 
   protected async _handle(payload: Payload) {
     const msg = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
@@ -31,7 +34,7 @@ export class SetMsgEmojiLike extends BaseAction<Payload, null> {
       msg.peer,
       msgData[0].msgSeq,
       payload.emoji_id.toString(),
-      this.set
+      this.set ?? payload.set
     )
     if (res.result !== 0) {
       throw new Error(res.errMsg)
