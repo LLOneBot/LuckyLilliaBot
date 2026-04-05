@@ -23,9 +23,9 @@ export interface BotInfo {
 
 export class EmailService {
   private configManager: EmailConfigManager
-  private logger?: { info: (msg: string, ...args: any[]) => void; error: (msg: string, ...args: any[]) => void }
+  private logger?: { info: (msg: string, ...args: unknown[]) => void; error: (msg: string, ...args: unknown[]) => void }
 
-  constructor(configManager: EmailConfigManager, logger?: { info: (msg: string, ...args: any[]) => void; error: (msg: string, ...args: any[]) => void }) {
+  constructor(configManager: EmailConfigManager, logger?: { info: (msg: string, ...args: unknown[]) => void; error: (msg: string, ...args: unknown[]) => void }) {
     this.configManager = configManager
     this.logger = logger
   }
@@ -65,7 +65,7 @@ export class EmailService {
         success: true,
         messageId: info.messageId,
       }
-    } catch (error: any) {
+    } catch (error) {
       const errorMessage = this.getErrorMessage(error)
       this.logger?.error('[EmailService] Failed to send email:', errorMessage)
 

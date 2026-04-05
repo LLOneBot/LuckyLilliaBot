@@ -166,7 +166,7 @@ export function invoke<
       }, timeout)
     }
     if (options.resultCmd) {
-      let firstResult: any = undefined
+      let firstResult: unknown = undefined
       hookId = registerReceiveHook<R>(options.resultCmd as string, (data: R) => {
         if (options.resultCb && !options.resultCb(data, firstResult)) {
           return

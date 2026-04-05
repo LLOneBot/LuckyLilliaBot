@@ -102,7 +102,7 @@ const GroupNotifyCard: React.FC<{ item: GroupNotifyItem; time: number }> = ({ it
       updateNotificationStatus('group-notify', item.flag, action === 'approve' ? GroupNotifyStatus.Agreed : GroupNotifyStatus.Refused)
       showToast(action === 'approve' ? '已同意' : '已拒绝', 'success')
       setShowRejectInput(false)
-    } catch (e: any) {
+    } catch (e) {
       showToast(e.message || '操作失败', 'error')
     } finally {
       setLoading(null)
@@ -203,7 +203,7 @@ const FriendRequestCard: React.FC<{ item: FriendRequestItem; time: number }> = (
       setDecided(true)
       setResult(action)
       showToast(action === 'approve' ? '已同意' : '已拒绝', 'success')
-    } catch (e: any) {
+    } catch (e) {
       showToast(e.message || '操作失败', 'error')
     } finally {
       setLoading(null)
@@ -278,7 +278,7 @@ const DoubtBuddyCard: React.FC<{ item: DoubtBuddyItem; time: number }> = ({ item
       setDecided(true)
       setResult(action)
       showToast(action === 'approve' ? '已同意' : '已拒绝', 'success')
-    } catch (e: any) {
+    } catch (e) {
       showToast(e.message || '操作失败', 'error')
     } finally {
       setLoading(null)

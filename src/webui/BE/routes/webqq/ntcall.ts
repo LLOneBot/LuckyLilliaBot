@@ -37,9 +37,9 @@ export function createNtCallRoutes(ctx: Context): Hono {
       const serializedResult = serializeResult(result)
 
       return c.json({ success: true, data: serializedResult })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('NT API 调用失败:', e)
-      return c.json({ success: false, message: 'NT API 调用失败', error: e.message }, 500)
+      return c.json({ success: false, message: 'NT API 调用失败', error: (e as Error).message }, 500)
     }
   })
 

@@ -133,7 +133,7 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
     setShowDialog(true);
   };
 
-  const updateSelectedAdapter = (field: string, value: any) => {
+  const updateSelectedAdapter = (field: string, value: unknown) => {
     if (!selectedAdapter) return;
     setSelectedAdapter({ ...selectedAdapter, [field]: value });
   };

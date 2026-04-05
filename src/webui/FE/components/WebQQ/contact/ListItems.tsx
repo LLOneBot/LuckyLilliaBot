@@ -8,22 +8,22 @@ import { GroupMsgMask, setGroupMsgMask } from '../../../utils/webqqApi'
 // 计算菜单位置，确保不超出屏幕
 export function useMenuPosition(x: number, y: number, menuRef: React.RefObject<HTMLDivElement>) {
   const [position, setPosition] = useState<{ left: number; top: number; ready: boolean }>({ left: -9999, top: -9999, ready: false })
-  
+
   useEffect(() => {
     setPosition({ left: -9999, top: -9999, ready: false })
-    
+
     const frame = requestAnimationFrame(() => {
       if (!menuRef.current) {
         setPosition({ left: x, top: y, ready: true })
         return
       }
-      
+
       const menuRect = menuRef.current.getBoundingClientRect()
       const padding = 10
-      
+
       let left = x
       let top = y
-      
+
       if (x + menuRect.width > window.innerWidth - padding) {
         left = x - menuRect.width
       }
@@ -36,13 +36,13 @@ export function useMenuPosition(x: number, y: number, menuRef: React.RefObject<H
       if (top < padding) {
         top = padding
       }
-      
+
       setPosition({ left, top, ready: true })
     })
-    
+
     return () => cancelAnimationFrame(frame)
   }, [x, y])
-  
+
   return position
 }
 
@@ -61,11 +61,11 @@ export const GroupMsgMaskMenu: React.FC<GroupMsgMaskMenuProps> = ({ groupCode, o
     try {
       await setGroupMsgMask(groupCode, msgMask)
       // 更新本地 groups 数据
-      const updatedGroups = groups.map(g => 
+      const updatedGroups = groups.map(g =>
         g.groupCode === groupCode ? { ...g, msgMask } : g
       )
       setGroups(updatedGroups)
-    } catch (error: any) {
+    } catch (error) {
       console.error('设置消息接收方式失败:', error)
       alert(`设置失败: ${error.message || '未知错误'}`)
     }
@@ -85,7 +85,7 @@ export const GroupMsgMaskMenu: React.FC<GroupMsgMaskMenuProps> = ({ groupCode, o
         <span className="flex-1">消息接收方式</span>
         <ChevronRight size={14} className="flex-shrink-0" />
       </button>
-      
+
       {showSubmenu && (
         <div
           ref={submenuRef}
@@ -154,7 +154,7 @@ export const FriendListItem: React.FC<FriendListItemProps> = ({ friend, isSelect
   const handlePin = async () => {
     try {
       await togglePinChat(1, friend.uin)
-    } catch (error: any) {
+    } catch (error) {
       console.error('置顶失败:', error)
       alert(`置顶失败: ${error.message || '未知错误'}`)
     }
@@ -255,7 +255,7 @@ export const GroupListItem: React.FC<GroupListItemProps> = ({ group, isSelected,
   const handlePin = async () => {
     try {
       await togglePinChat(2, group.groupCode)
-    } catch (error: any) {
+    } catch (error) {
       console.error('置顶失败:', error)
       alert(`置顶失败: ${error.message || '未知错误'}`)
     }
@@ -275,10 +275,10 @@ export const GroupListItem: React.FC<GroupListItemProps> = ({ group, isSelected,
         onClick={onClick}
         onContextMenu={handleContextMenu}
         className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
-          isSelected 
-            ? 'bg-pink-500/20' 
-            : showPinnedStyle && group.isTop 
-              ? 'bg-theme-item-hover' 
+          isSelected
+            ? 'bg-pink-500/20'
+            : showPinnedStyle && group.isTop
+              ? 'bg-theme-item-hover'
               : 'hover:bg-theme-item-hover'
         }`}
       >
@@ -322,7 +322,7 @@ export const GroupListItem: React.FC<GroupListItemProps> = ({ group, isSelected,
             <Pin size={14} className="flex-shrink-0" />
             <span className="flex-1">{group.isTop ? '取消置顶' : '置顶'}</span>
           </button>
-          
+
           {/* 使用共享的消息接收方式菜单 */}
           <GroupMsgMaskMenu groupCode={group.groupCode} onClose={closeContextMenu} />
         </div>,

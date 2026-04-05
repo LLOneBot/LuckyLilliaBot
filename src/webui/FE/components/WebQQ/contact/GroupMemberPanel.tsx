@@ -146,7 +146,7 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
           markMembersFetched(targetGroupCode)
         }
       })
-      .catch((e: any) => {
+      .catch((e) => {
         console.log('[GroupMemberPanel] API error:', e.message)
         if (currentGroupCodeRef.current === targetGroupCode) {
           // 如果有缓存，错误时不覆盖
@@ -206,7 +206,7 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
     try {
       const profile = await getUserProfile(uid, uin, gCode)
       setUserProfile({ profile, loading: false, position: pos })
-    } catch (e: any) {
+    } catch (e) {
       showToast(e.message || '获取资料失败', 'error')
       setUserProfile(null)
     }
@@ -301,7 +301,7 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
                   seconds >= 60 ? `${Math.floor(seconds / 60)}分钟` : `${seconds}秒`
                 showToast(`已禁言 ${name} ${display}`, 'success')
               }
-            } catch (e: any) {
+            } catch (e) {
               showToast(e.message || '禁言失败', 'error')
             }
           }}
@@ -319,7 +319,7 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
             try {
               await kickGroupMember(groupCode, uid)
               showToast(`已将 ${name} 移出群聊`, 'success')
-            } catch (e: any) {
+            } catch (e) {
               showToast(e.message || '踢出失败', 'error')
             }
           }}
@@ -336,7 +336,7 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
             try {
               await setMemberTitle(groupCode, uid, title)
               showToast(title ? `已设置 ${name} 的头衔为「${title}」` : `已清除 ${name} 的头衔`, 'success')
-            } catch (e: any) {
+            } catch (e) {
               showToast(e.message || '设置头衔失败', 'error')
             }
           }}

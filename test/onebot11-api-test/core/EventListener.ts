@@ -17,7 +17,7 @@ export interface EventFilter {
   user_id?: string | number;
   group_id?: string | number;
   message_id?: string | number;
-  [key: string]: any;
+  [key: string]: string | number | undefined;
 }
 
 // 重新导出事件类型供外部使用
@@ -322,7 +322,7 @@ export class EventListener {
     // 检查其他自定义过滤条件（使用 Node.js 内置深度比较）
     for (const key in filter) {
       if (!['post_type', 'sub_type', 'message_type', 'notice_type', 'request_type',
-            'user_id', 'group_id', 'message_id'].includes(key)) {
+        'user_id', 'group_id', 'message_id'].includes(key)) {
         if (!isDeepStrictEqual(event[key], filter[key])) {
           return false;
         }

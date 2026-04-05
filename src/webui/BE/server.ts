@@ -134,7 +134,7 @@ export class WebUIServer extends Service {
     }
   }
 
-  public broadcastMessage(event: string, data: any) {
+  public broadcastMessage(event: string, data: unknown) {
     const serializedData = serializeResult(data)
     const message = `event: ${event}\ndata: ${JSON.stringify(serializedData)}\n\n`
     for (const client of this.sseClients) {

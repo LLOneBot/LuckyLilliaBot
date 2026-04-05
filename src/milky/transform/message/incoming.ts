@@ -200,7 +200,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
             data: {
               forward_id: data.meta.detail.resid,
               title: data.meta.detail.source,
-              preview: data.meta.detail.news.map((item: any) => item.text),
+              preview: data.meta.detail.news.map((item: { text: string }) => item.text),
               summary: data.meta.detail.summary,
             },
           })

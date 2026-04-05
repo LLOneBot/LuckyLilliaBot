@@ -27,9 +27,9 @@ export function createNotificationRoutes(ctx: Context): Hono {
         }
       }))
       return c.json({ success: true, data: enriched })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('获取群通知失败:', e)
-      return c.json({ success: false, message: '获取群通知失败', error: e.message }, 500)
+      return c.json({ success: false, message: '获取群通知失败', error: (e as Error).message }, 500)
     }
   })
 
@@ -37,8 +37,8 @@ export function createNotificationRoutes(ctx: Context): Hono {
   router.get('/notifications/friend', async (c) => {
     try {
       const result = await ctx.ntFriendApi.getBuddyReq()
-      const buddyReqs = (result.buddyReqs || []).filter((reqItem: any) => !reqItem.isInitiator)
-      const enriched = await Promise.all(buddyReqs.map(async (reqItem: any) => {
+      const buddyReqs = (result.buddyReqs || []).filter((reqItem) => !reqItem.isInitiator)
+      const enriched = await Promise.all(buddyReqs.map(async (reqItem) => {
         const uin = reqItem.friendUid ? await ctx.ntUserApi.getUinByUid(reqItem.friendUid).catch(() => '') : ''
         return {
           friendUid: reqItem.friendUid,
@@ -54,9 +54,9 @@ export function createNotificationRoutes(ctx: Context): Hono {
         }
       }))
       return c.json({ success: true, data: enriched })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('获取好友申请失败:', e)
-      return c.json({ success: false, message: '获取好友申请失败', error: e.message }, 500)
+      return c.json({ success: false, message: '获取好友申请失败', error: (e as Error).message }, 500)
     }
   })
 
@@ -65,7 +65,7 @@ export function createNotificationRoutes(ctx: Context): Hono {
     try {
       const result = await ctx.ntFriendApi.getDoubtBuddyReq(50)
       const doubtList = result.doubtList || []
-      const enriched = doubtList.map((item: any) => ({
+      const enriched = doubtList.map((item) => ({
         uid: item.uid,
         nick: item.nick,
         age: item.age,
@@ -79,9 +79,9 @@ export function createNotificationRoutes(ctx: Context): Hono {
         flag: `doubt|${item.uid}|${item.reqTime}`
       }))
       return c.json({ success: true, data: enriched })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('获取被过滤好友申请失败:', e)
-      return c.json({ success: false, message: '获取被过滤好友申请失败', error: e.message }, 500)
+      return c.json({ success: false, message: '获取被过滤好友申请失败', error: (e as Error).message }, 500)
     }
   })
 
@@ -94,9 +94,9 @@ export function createNotificationRoutes(ctx: Context): Hono {
       }
       await ctx.ntFriendApi.approvalDoubtBuddyReq(uid)
       return c.json({ success: true })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('处理被过滤好友申请失败:', e)
-      return c.json({ success: false, message: '处理被过滤好友申请失败', error: e.message }, 500)
+      return c.json({ success: false, message: '处理被过滤好友申请失败', error: (e as Error).message }, 500)
     }
   })
 
@@ -116,9 +116,9 @@ export function createNotificationRoutes(ctx: Context): Hono {
         : GroupRequestOperateTypes.Reject
       await ctx.ntGroupApi.handleGroupRequest(flag, operateType, reason)
       return c.json({ success: true })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('处理群通知失败:', e)
-      return c.json({ success: false, message: '处理群通知失败', error: e.message }, 500)
+      return c.json({ success: false, message: '处理群通知失败', error: (e as Error).message }, 500)
     }
   })
 
@@ -138,9 +138,9 @@ export function createNotificationRoutes(ctx: Context): Hono {
       }
       await ctx.ntFriendApi.handleFriendRequest(friendUid, reqTime || '0', action === 'approve')
       return c.json({ success: true })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('处理好友申请失败:', e)
-      return c.json({ success: false, message: '处理好友申请失败', error: e.message }, 500)
+      return c.json({ success: false, message: '处理好友申请失败', error: (e as Error).message }, 500)
     }
   })
 

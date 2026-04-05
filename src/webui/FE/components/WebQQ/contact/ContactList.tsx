@@ -36,7 +36,7 @@ const ContactList: React.FC<ContactListProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('')
   const { groupAssistantMode, enterGroupAssistant, exitGroupAssistant } = useWebQQStore()
-  
+
   // 单独订阅 groupLastTimeMap 以确保更新时触发重新渲染
   const groupLastTimeMap = useWebQQStore(state => state.groupLastTimeMap)
   const groupLastMessageMap = useWebQQStore(state => state.groupLastMessageMap)
@@ -262,21 +262,21 @@ const GroupList: React.FC<GroupListProps> = ({ items, unreadCounts, selectedPeer
       // 先按置顶排序
       if (a.isTop && !b.isTop) return -1
       if (!a.isTop && b.isTop) return 1
-      
+
       // 再按最后消息时间排序
       if (groupLastTimeMap) {
         const aTime = groupLastTimeMap[a.groupCode] || 0
         const bTime = groupLastTimeMap[b.groupCode] || 0
-        
+
         if (aTime !== bTime) {
           return bTime - aTime
         }
       }
-      
+
       // 时间相同或没有时间映射时保持原顺序
       return 0
     })
-    
+
     return sorted
   }, [items, groupLastTimeMap])
 
@@ -335,7 +335,7 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
     })
     return totalUnread
   }, [groups, unreadCounts])
-  
+
   // 计算群助手群数量
   const groupAssistantCount = useMemo(() => {
     return groups.filter(g => g.msgMask === 2).length
@@ -385,7 +385,7 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
     if (contextMenu) {
       try {
         await togglePinChat(contextMenu.item.chatType, contextMenu.item.peerId)
-      } catch (error: any) {
+      } catch (error) {
         console.error('置顶失败:', error)
         alert(`置顶失败: ${error.message || '未知错误'}`)
       }
@@ -436,7 +436,7 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
           </div>
         </div>
       )}
-      
+
       {visibleRecentItems.map(item => (
         <RecentListItem
           key={`${item.chatType}_${item.peerId}`}
@@ -448,12 +448,12 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
           onContextMenu={(e) => handleContextMenu(e, item)}
         />
       ))}
-      
+
       {/* 右键菜单 - 使用 Portal 渲染到 body */}
       {contextMenu && createPortal(
         <>
-          <div 
-            className="fixed inset-0 z-40" 
+          <div
+            className="fixed inset-0 z-40"
             onClick={closeContextMenu}
             onContextMenu={(e) => { e.preventDefault(); closeContextMenu() }}
           />
@@ -470,7 +470,7 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
               <Pin size={14} className="flex-shrink-0" />
               <span className="flex-1">{contextMenu.item.pinned ? '取消置顶' : '置顶'}</span>
             </button>
-            
+
             {/* 只有群聊才显示消息接收方式 - 使用共享的 GroupMsgMaskMenu 组件 */}
             {contextMenu.item.chatType === 2 && (
               <GroupMsgMaskMenu
@@ -478,7 +478,7 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
                 onClose={closeContextMenu}
               />
             )}
-            
+
             <button
               onClick={handleDelete}
               className="w-full px-3 py-2 text-left text-sm hover:bg-theme-item-hover flex items-center gap-2 text-red-500"
@@ -510,10 +510,10 @@ export const RecentListItem: React.FC<RecentListItemProps> = ({ item, displayNam
       onClick={onClick}
       onContextMenu={onContextMenu}
       className={`flex items-center gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
-        isSelected 
-          ? 'bg-pink-500/20' 
-          : item.pinned 
-            ? 'bg-theme-item-hover' 
+        isSelected
+          ? 'bg-pink-500/20'
+          : item.pinned
+            ? 'bg-theme-item-hover'
             : 'hover:bg-theme-item-hover'
       }`}
     >

@@ -45,7 +45,7 @@ export interface PMHQReqCall {
   data: {
     echo?: string
     func: string
-    args: any[]
+    args: unknown[]
   }
 }
 

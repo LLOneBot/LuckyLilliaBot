@@ -90,13 +90,13 @@ const SystemTipMessage = memo<{ message: RawMessage; groupCode?: string }>(({ me
   const cachedContent = systemTipContentCache.get(message.msgId)
   const [content, setContent] = useState<React.ReactNode>(cachedContent ?? '[系统提示]')
   const selfUid = getSelfUid()
-  
+
   useEffect(() => {
     if (systemTipContentCache.has(message.msgId)) {
       setContent(systemTipContentCache.get(message.msgId)!)
       return
     }
-    
+
     const parsed = parseGrayTipItems(message)
     if (!parsed) {
       for (const el of message.elements) {
@@ -111,17 +111,17 @@ const SystemTipMessage = memo<{ message: RawMessage; groupCode?: string }>(({ me
       setContent('[系统提示]')
       return
     }
-    
+
     const { items, hasUid } = parsed
-    
+
     if (!hasUid) {
-      const result = items.map((item: any) => item.txt || '').join('')
+      const result = items.map((item) => item.txt || '').join('')
       const finalContent = result || '[系统提示]'
       systemTipContentCache.set(message.msgId, finalContent)
       setContent(finalContent)
       return
     }
-    
+
     const resolveContent = async () => {
       const parts: React.ReactNode[] = []
       let keyIndex = 0
@@ -141,10 +141,10 @@ const SystemTipMessage = memo<{ message: RawMessage; groupCode?: string }>(({ me
       systemTipContentCache.set(message.msgId, finalContent)
       setContent(finalContent)
     }
-    
+
     resolveContent()
   }, [message.msgId, selfUid, groupCode])
-  
+
   return (
     <div className="flex justify-center py-2">
       <span className="text-xs text-theme-hint bg-theme-item/50 px-3 py-1 rounded-full">
@@ -159,7 +159,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
     const groupCode = message.chatType === 2 ? message.peerUin : undefined
     return <SystemTipMessage message={message} groupCode={groupCode} />
   }
-  
+
   const selfUid = getSelfUid()
   const isSelf = selfUid ? message.senderUid === selfUid : false
   const contextMenuContext = React.useContext(MessageContextMenuContext)
@@ -167,10 +167,10 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
   const scrollToMessageContext = React.useContext(ScrollToMessageContext)
   const groupMembersContext = React.useContext(GroupMembersContext)
   const friendsContext = React.useContext(FriendsContext)
-  
+
   // 获取发送者名称
   let senderName = message.sendMemberName || message.sendNickName || message.senderUin
-  
+
   // 私聊时从好友列表获取备注或昵称
   if (message.chatType === 1 && !isSelf && friendsContext) {
     const friend = friendsContext.getFriend(message.senderUin)
@@ -178,15 +178,15 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
       senderName = friend.remark || friend.nickname || senderName
     }
   }
-  
+
   const senderAvatar = `https://q1.qlogo.cn/g?b=qq&nk=${message.senderUin}&s=640`
   const timestamp = parseInt(message.msgTime) * 1000
-  
+
   // 从 msgAttrs 中获取群等级和头衔
   let memberLevel: number | undefined
   let memberTitle: string | undefined
   let memberRole: 'owner' | 'admin' | 'member' | undefined
-  
+
   if (message.chatType === 2) {
     // 从 msgAttrs 获取群荣誉信息（包含等级和头衔）
     const msgAttrs = message.msgAttrs
@@ -200,7 +200,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
         }
         return undefined
       }
-      
+
       // attrType 2 包含 groupHonor（群等级和头衔）
       const honorAttr = getAttr(2)
       if (honorAttr?.groupHonor) {
@@ -208,7 +208,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
         memberTitle = honorAttr.groupHonor.uniqueTitle || undefined
       }
     }
-    
+
     // 从缓存的群成员信息获取角色
     if (groupMembersContext) {
       const members = groupMembersContext.getMembers(message.peerUin)
@@ -226,7 +226,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
       }
     }
   }
-  
+
   if (!message.elements || !Array.isArray(message.elements)) return null
 
   // 检查消息是否已撤回
@@ -234,7 +234,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
 
   const replyElement = message.elements.find(el => el.replyElement)?.replyElement
   const otherElements = message.elements.filter(el => !el.replyElement)
-  
+
   const hasContent = otherElements.some(hasValidContent) || replyElement
   if (!hasContent) return null
 
@@ -285,11 +285,11 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
 
   return (
     <div className={`flex gap-2 w-full ${isSelf ? 'flex-row-reverse' : ''} ${isHighlighted ? 'animate-pulse bg-pink-100 dark:bg-pink-900/30 rounded-lg -mx-2 px-2' : ''}`}>
-      <img 
-        src={senderAvatar} 
-        alt={senderName} 
-        loading="lazy" 
-        className="w-8 h-8 rounded-full object-cover flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity" 
+      <img
+        src={senderAvatar}
+        alt={senderName}
+        loading="lazy"
+        className="w-8 h-8 rounded-full object-cover flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
         onClick={handleAvatarClick}
         onContextMenu={handleAvatarContextMenu}
       />
@@ -324,12 +324,12 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
           </div>
         ) : (
           <div className="relative">
-            <div 
+            <div
               className={`rounded-2xl px-4 py-2 min-w-[80px] max-w-full break-words overflow-hidden bg-theme-item text-theme shadow-sm ${isSelf ? 'rounded-tr-sm' : 'rounded-tl-sm'} ${isRecalled ? 'opacity-50' : ''}`}
               onContextMenu={handleBubbleContextMenu}
             >
               {replyElement && (
-              <div 
+              <div
                 className="text-xs mb-2 pb-2 border-b border-theme-divider cursor-pointer hover:opacity-80 transition-opacity"
                 onClick={handleReplyClick}
               >
@@ -383,7 +383,7 @@ function getEmojiImagePath(emojiId: string, emojiType: string): string {
 // 表情回应列表组件
 const EmojiReactionList = memo<{ message: RawMessage; isSelf: boolean }>(({ message, isSelf }) => {
   const [loading, setLoading] = useState<string | null>(null)
-  
+
   if (!message.emojiLikesList || message.emojiLikesList.length === 0) return null
 
   const handleEmojiClick = async (emojiId: string, isClicked: boolean) => {
@@ -393,7 +393,7 @@ const EmojiReactionList = memo<{ message: RawMessage; isSelf: boolean }>(({ mess
       const peer = { chatType: message.chatType, peerUid: message.peerUin, guildId: '' }
       // isClicked 为 true 表示自己已贴过，点击取消；否则点击添加
       await ntCall('ntMsgApi', 'setEmojiLike', [peer, message.msgSeq, emojiId, !isClicked])
-    } catch (e: any) {
+    } catch (e) {
       showToast(e.message || '操作失败', 'error')
     } finally {
       setLoading(null)
@@ -405,20 +405,20 @@ const EmojiReactionList = memo<{ message: RawMessage; isSelf: boolean }>(({ mess
       {message.emojiLikesList.map((emoji, index) => {
         const imgSrc = getEmojiImagePath(emoji.emojiId, emoji.emojiType)
         return (
-          <button 
+          <button
             key={`${emoji.emojiId}-${index}`}
             onClick={() => handleEmojiClick(emoji.emojiId, emoji.isClicked)}
             disabled={loading === emoji.emojiId}
             className={`flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-xs transition-all cursor-pointer hover:scale-105 active:scale-95 ${
-              emoji.isClicked 
-                ? 'bg-pink-100 dark:bg-pink-900/40 border border-pink-300 dark:border-pink-700' 
+              emoji.isClicked
+                ? 'bg-pink-100 dark:bg-pink-900/40 border border-pink-300 dark:border-pink-700'
                 : 'bg-theme-item border border-theme-divider hover:border-pink-300 dark:hover:border-pink-700'
             } ${loading === emoji.emojiId ? 'opacity-50' : ''}`}
             title={emoji.isClicked ? '点击取消' : '点击跟贴'}
           >
-            <img 
-              src={imgSrc} 
-              alt={`表情${emoji.emojiId}`} 
+            <img
+              src={imgSrc}
+              alt={`表情${emoji.emojiId}`}
               className="w-4 h-4"
               onError={(e) => {
                 // 图片加载失败时，尝试显示 Unicode emoji 字符
@@ -441,7 +441,7 @@ const EmojiReactionList = memo<{ message: RawMessage; isSelf: boolean }>(({ mess
 export const TempMessageBubble = memo<{ message: TempMessage; onRetry: () => void }>(({ message, onRetry }) => {
   const selfUin = getSelfUin()
   const selfAvatar = selfUin ? `https://q1.qlogo.cn/g?b=qq&nk=${selfUin}&s=640` : ''
-  
+
   return (
     <div className="flex gap-2 flex-row-reverse w-full">
       {selfAvatar && <img src={selfAvatar} alt="我" loading="lazy" className="w-8 h-8 rounded-full object-cover flex-shrink-0" />}
@@ -449,7 +449,7 @@ export const TempMessageBubble = memo<{ message: TempMessage; onRetry: () => voi
         <span className="text-xs text-theme-hint mb-1">我</span>
         <div className="flex items-end gap-1">
           {message.status === 'failed' && <button onClick={onRetry} className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded" title="重新发送"><RefreshCw size={14} /></button>}
-          <div 
+          <div
             className="rounded-2xl px-4 py-2 bg-theme-item text-theme rounded-tr-sm min-w-[80px] max-w-full break-words overflow-hidden shadow-sm"
           >
             {message.items.map((item, index) => {
@@ -458,7 +458,7 @@ export const TempMessageBubble = memo<{ message: TempMessage; onRetry: () => voi
               }
               if (item.type === 'face' && item.faceId !== undefined) {
                 return (
-                  <img 
+                  <img
                     key={index}
                     src={`/face/${item.faceId}.png`}
                     alt={`[表情${item.faceId}]`}

@@ -20,7 +20,7 @@ export type {
 } from './types'
 
 
-type Constructor<T = object> = new (...args: any[]) => T
+type Constructor<T = object> = new (...args: unknown[]) => T
 
 type Mixin<TBase extends Constructor> = (Base: TBase) => Constructor
 
@@ -42,7 +42,7 @@ function applyMixins<TBase extends Constructor, TMixins extends readonly Mixin<a
   Base: TBase,
   mixins: TMixins,
 ): Constructor<MergeMixins<InstanceType<TBase>, TMixins>> {
-  return mixins.reduce<Constructor>((acc, mixin) => mixin(acc), Base) as any
+  return mixins.reduce<Constructor>((acc, mixin) => mixin(acc), Base) as Constructor<MergeMixins<InstanceType<TBase>, TMixins>>
 }
 
 

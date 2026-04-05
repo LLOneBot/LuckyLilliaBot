@@ -59,9 +59,9 @@ export function createUploadRoutes(ctx: Context, uploadDir: string): Hono {
           filename: fileName
         }
       })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('上传图片失败:', e)
-      return c.json({ success: false, message: '上传图片失败', error: e.message }, 500)
+      return c.json({ success: false, message: '上传图片失败', error: (e as Error).message }, 500)
     }
   })
 
@@ -86,9 +86,9 @@ export function createUploadRoutes(ctx: Context, uploadDir: string): Hono {
           fileSize: file.size
         }
       })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('上传文件失败:', e)
-      return c.json({ success: false, message: '上传文件失败', error: e.message }, 500)
+      return c.json({ success: false, message: '上传文件失败', error: (e as Error).message }, 500)
     }
   })
 

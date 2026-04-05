@@ -13,7 +13,7 @@ interface OtherConfigProps {
 }
 
 const OtherConfig: React.FC<OtherConfigProps> = ({ config, emailConfig, onChange, onEmailChange, onOpenChangePassword }) => {
-  const handleChange = (field: keyof Config, value: any) => {
+  const handleChange = (field: keyof Config, value: unknown) => {
     onChange({ ...config, [field]: value })
   }
 
@@ -65,18 +65,18 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, emailConfig, onChange
               <Globe size={16} className='text-blue-600' />
               <span className='text-sm font-medium text-theme-secondary'>监听地址</span>
             </div>
-            <HostSelector 
-              value={config.webui?.host ?? '127.0.0.1'} 
+            <HostSelector
+              value={config.webui?.host ?? '127.0.0.1'}
               onChange={(host) => {
-                onChange({ 
-                  ...config, 
-                  webui: { 
-                    enable: config.webui?.enable ?? true, 
-                    port: config.webui?.port || 6099, 
-                    host 
-                  } 
+                onChange({
+                  ...config,
+                  webui: {
+                    enable: config.webui?.enable ?? true,
+                    port: config.webui?.port || 6099,
+                    host
+                  }
                 });
-              }} 
+              }}
             />
             <p className='text-xs text-theme-muted mt-2'>选择 WebUI 监听的网络地址</p>
           </label>
@@ -86,21 +86,21 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, emailConfig, onChange
               <Server size={16} className='text-blue-600' />
               <span className='text-sm font-medium text-theme-secondary'>端口</span>
             </div>
-            <input 
-              type='number' 
-              value={config.webui?.port || 6099} 
-              onChange={(e) => onChange({ 
-                ...config, 
-                webui: { 
-                  enable: config.webui?.enable ?? true, 
+            <input
+              type='number'
+              value={config.webui?.port || 6099}
+              onChange={(e) => onChange({
+                ...config,
+                webui: {
+                  enable: config.webui?.enable ?? true,
                   host: config.webui?.host || '127.0.0.1',
-                  port: parseInt(e.target.value) 
-                } 
-              })} 
-              min='1' 
-              max='65535' 
-              className='input-field' 
-              placeholder='6099' 
+                  port: parseInt(e.target.value)
+                }
+              })}
+              min='1'
+              max='65535'
+              className='input-field'
+              placeholder='6099'
             />
             <p className='text-xs text-theme-muted mt-1'>WebUI 服务端口（1-65535）</p>
           </label>
@@ -108,9 +108,9 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, emailConfig, onChange
       </div>
 
       {/* 邮件通知 */}
-      <EmailConfigSection 
-        value={emailConfig || defaultEmailConfig} 
-        onChange={handleEmailChange} 
+      <EmailConfigSection
+        value={emailConfig || defaultEmailConfig}
+        onChange={handleEmailChange}
       />
 
       {/* 系统功能 */}
@@ -205,9 +205,9 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, emailConfig, onChange
             <Clock size={16} className='text-pink-500' />
             <span className='text-sm font-medium text-theme-secondary'>消息缓存过期时间</span>
           </div>
-          <DurationPicker 
-            value={config.msgCacheExpire || 120} 
-            onChange={(seconds) => handleChange('msgCacheExpire', seconds)} 
+          <DurationPicker
+            value={config.msgCacheExpire || 120}
+            onChange={(seconds) => handleChange('msgCacheExpire', seconds)}
             maxDays={1}
             showSeconds={false}
           />

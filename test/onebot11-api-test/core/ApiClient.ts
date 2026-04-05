@@ -20,7 +20,7 @@ export interface ApiResponse<T = any> {
  */
 interface WsRequest {
   action: ActionName;
-  params: any;
+  params: unknown;
   echo?: string;
 }
 

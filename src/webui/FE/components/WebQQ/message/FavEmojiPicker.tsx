@@ -52,7 +52,7 @@ const EmojiContextMenu: React.FC<{
 }> = ({ x, y, onClose, onDelete }) => {
   const menuRef = useRef<HTMLDivElement>(null)
   const [position, setPosition] = useState({ left: x, top: y })
-  
+
   useEffect(() => {
     if (!menuRef.current) return
     const menuRect = menuRef.current.getBoundingClientRect()
@@ -64,18 +64,18 @@ const EmojiContextMenu: React.FC<{
     if (top < padding) top = padding
     setPosition({ left, top })
   }, [x, y])
-  
+
   return createPortal(
     <>
       <div className="fixed inset-0 z-[60]" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
-      <div 
+      <div
         ref={menuRef}
-        className="fixed z-[60] bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[100px]" 
+        className="fixed z-[60] bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[100px]"
         style={{ left: position.left, top: position.top }}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <button 
-          onClick={onDelete} 
+        <button
+          onClick={onDelete}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-theme-item-hover transition-colors"
         >
           <Trash2 size={14} /> 删除
@@ -106,7 +106,7 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
       setLoading(false)
       return
     }
-    
+
     const loadEmojis = async () => {
       try {
         const result = await ntCall<{ emojiInfoList: any[] }>('ntMsgApi', 'fetchFavEmojiList', [1000])
@@ -119,7 +119,7 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
         }))
         cachedEmojis = emojiList
         setEmojis(emojiList)
-      } catch (e: any) {
+      } catch {
         setError('加载失败')
       } finally {
         setLoading(false)
@@ -160,7 +160,7 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
     if (!contextMenu) return
     const { emoji } = contextMenu
     setContextMenu(null)
-    
+
     try {
       const result = await ntCall<{ result: number; errMsg: string }>('ntMsgApi', 'deleteFavEmoji', [[emoji.resId]])
       if (result.result === 0) {
@@ -175,7 +175,7 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
       } else {
         showToast(result.errMsg || '删除失败', 'error')
       }
-    } catch (e: any) {
+    } catch (e) {
       showToast(e.message || '删除失败', 'error')
     }
   }
@@ -237,7 +237,7 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
           </>
         )}
       </div>
-      
+
       {/* 右键菜单 */}
       {contextMenu && (
         <EmojiContextMenu

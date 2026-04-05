@@ -179,7 +179,7 @@ export class PMHQBase {
     }
   }
 
-  public async call(func: string, args: any, timeout = 10000): Promise<any> {
+  public async call(func: string, args: unknown[], timeout = 10000) {
     const payload: PMHQReqCall = {
       type: 'call',
       data: { func, args },

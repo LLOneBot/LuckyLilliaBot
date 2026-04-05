@@ -66,7 +66,7 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ visible, on
       } else {
         setError(response.message || '密码修改失败');
       }
-    } catch (error: any) {
+    } catch (error) {
       setError(error.message || '密码修改失败');
     } finally {
       setLoading(false);
@@ -83,7 +83,7 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ visible, on
 
   return (
     <>
-      <div 
+      <div
         className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4"
         style={{ zIndex: 9000 }}
         onClick={(e) => e.target === e.currentTarget && onClose()}

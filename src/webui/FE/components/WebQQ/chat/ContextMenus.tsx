@@ -8,24 +8,24 @@ import { showToast } from '../../common'
 // 计算菜单位置，确保不超出屏幕
 function useMenuPosition(x: number, y: number, menuRef: React.RefObject<HTMLDivElement>) {
   const [position, setPosition] = useState<{ left: number; top: number; ready: boolean }>({ left: -9999, top: -9999, ready: false })
-  
+
   useEffect(() => {
     // 重置为未就绪状态
     setPosition({ left: -9999, top: -9999, ready: false })
-    
+
     // 使用 requestAnimationFrame 确保 DOM 已渲染
     const frame = requestAnimationFrame(() => {
       if (!menuRef.current) {
         setPosition({ left: x, top: y, ready: true })
         return
       }
-      
+
       const menuRect = menuRef.current.getBoundingClientRect()
       const padding = 10
-      
+
       let left = x
       let top = y
-      
+
       // 右边界检测
       if (x + menuRect.width > window.innerWidth - padding) {
         left = x - menuRect.width
@@ -42,13 +42,13 @@ function useMenuPosition(x: number, y: number, menuRef: React.RefObject<HTMLDivE
       if (top < padding) {
         top = padding
       }
-      
+
       setPosition({ left, top, ready: true })
     })
-    
+
     return () => cancelAnimationFrame(frame)
   }, [x, y])
-  
+
   return position
 }
 
@@ -84,7 +84,7 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
   const targetRole = targetMember?.role
   const targetIsAdmin = targetRole === 'admin' || targetRole === 'owner'
   const canRecall = isSelfMessage || (isGroup && (isOwner || (isAdmin && !targetIsAdmin)))
-  
+
   // 检查是否是图片右键菜单（有 elementId 说明是在图片上右键）
   const isImageMenu = !!contextMenu.elementId
 
@@ -104,19 +104,19 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
         '',
         ''
       ])
-      
+
       if (!filePath) {
         showToast('图片下载失败', 'error')
         return
       }
-      
+
       const result = await ntCall('ntMsgApi', 'addFavEmoji', [filePath])
       if (result.result === 0) {
         showToast(result.isExist ? '表情已存在' : '已添加到表情', 'success')
       } else {
         showToast(result.errMsg || '添加失败', 'error')
       }
-    } catch (e: any) {
+    } catch (e) {
       showToast(e.message || '添加失败', 'error')
     }
   }
@@ -124,46 +124,46 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
   return createPortal(
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
-      <div 
+      <div
         ref={menuRef}
-        className="fixed z-50 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[100px]" 
-        style={{ left: position.left, top: position.top, visibility: position.ready ? 'visible' : 'hidden' }} 
+        className="fixed z-50 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[100px]"
+        style={{ left: position.left, top: position.top, visibility: position.ready ? 'visible' : 'hidden' }}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <button 
-          onClick={() => { onReply(msg); onClose() }} 
+        <button
+          onClick={() => { onReply(msg); onClose() }}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
         >
           <Reply size={14} /> 回复
         </button>
         {session.chatType === 2 && (
-          <button 
-            onClick={() => { onEmojiReaction(msg, contextMenu.x, contextMenu.y); onClose() }} 
+          <button
+            onClick={() => { onEmojiReaction(msg, contextMenu.x, contextMenu.y); onClose() }}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
           >
             <Smile size={14} /> 贴表情
           </button>
         )}
         {isImageMenu && (
-          <button 
-            onClick={handleAddToFavEmoji} 
+          <button
+            onClick={handleAddToFavEmoji}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
           >
             <Star size={14} /> 添加到表情
           </button>
         )}
         {canRecall && (
-          <button 
+          <button
             onClick={async () => {
               onClose()
               try {
                 await recallMessage(msg.chatType, msg.peerUid, msg.msgId)
                 onRecall(msg.msgId)
                 showToast('消息已撤回', 'success')
-              } catch (e: any) {
+              } catch (e) {
                 showToast(e.message || '撤回失败', 'error')
               }
-            }} 
+            }}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-theme-item-hover transition-colors"
           >
             <Trash2 size={14} /> 撤回
@@ -237,7 +237,7 @@ export const AvatarContextMenu: React.FC<AvatarContextMenuProps> = ({
       await ntCall('ntGroupApi', 'setMemberRole', [info.groupCode, info.senderUid, newRole])
       showToast(targetIsAdmin ? '已取消管理员' : '已设为管理员', 'success')
       onAdminChanged?.()
-    } catch (e: any) {
+    } catch (e) {
       showToast(e.message || '操作失败', 'error')
     }
   }
@@ -245,21 +245,21 @@ export const AvatarContextMenu: React.FC<AvatarContextMenuProps> = ({
   return createPortal(
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
-      <div 
+      <div
         ref={menuRef}
-        className="fixed z-50 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[120px]" 
-        style={{ left: position.left, top: position.top, visibility: position.ready ? 'visible' : 'hidden' }} 
+        className="fixed z-50 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[120px]"
+        style={{ left: position.left, top: position.top, visibility: position.ready ? 'visible' : 'hidden' }}
         onContextMenu={(e) => e.preventDefault()}
       >
         {avatarContextMenu.chatType === 2 && (
-          <button 
-            onClick={() => { onInsertAt(avatarContextMenu.senderUid, avatarContextMenu.senderUin, avatarContextMenu.senderName); onClose() }} 
+          <button
+            onClick={() => { onInsertAt(avatarContextMenu.senderUid, avatarContextMenu.senderUin, avatarContextMenu.senderName); onClose() }}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
           >
             <AtSign size={14} /> 召唤ta
           </button>
         )}
-        <button 
+        <button
           onClick={async () => {
             const info = avatarContextMenu
             onClose()
@@ -269,31 +269,31 @@ export const AvatarContextMenu: React.FC<AvatarContextMenuProps> = ({
               } else {
                 await sendPoke(info.chatType, parseInt(info.senderUin))
               }
-            } catch (e: any) {
+            } catch (e) {
               showToast(e.message || '戳一戳失败', 'error')
             }
-          }} 
+          }}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
         >
           <Hand size={14} /> 戳一戳
         </button>
-        <button 
-          onClick={() => { onShowProfile(avatarContextMenu.senderUid, avatarContextMenu.senderUin, avatarContextMenu.x, avatarContextMenu.y, avatarContextMenu.groupCode); onClose() }} 
+        <button
+          onClick={() => { onShowProfile(avatarContextMenu.senderUid, avatarContextMenu.senderUin, avatarContextMenu.x, avatarContextMenu.y, avatarContextMenu.groupCode); onClose() }}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
         >
           <User size={14} /> 查看资料
         </button>
         {avatarContextMenu.chatType === 2 && avatarContextMenu.groupCode && isOwner && (
-          <button 
-            onClick={() => { onSetTitle(avatarContextMenu.senderUid, avatarContextMenu.senderName, avatarContextMenu.groupCode!); onClose() }} 
+          <button
+            onClick={() => { onSetTitle(avatarContextMenu.senderUid, avatarContextMenu.senderName, avatarContextMenu.groupCode!); onClose() }}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
           >
             <Award size={14} /> 设置头衔
           </button>
         )}
         {avatarContextMenu.chatType === 2 && avatarContextMenu.groupCode && canSetAdmin && (
-          <button 
-            onClick={handleToggleAdmin} 
+          <button
+            onClick={handleToggleAdmin}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
           >
             {targetIsAdmin ? <ShieldOff size={14} /> : <Shield size={14} />}
@@ -301,16 +301,16 @@ export const AvatarContextMenu: React.FC<AvatarContextMenuProps> = ({
           </button>
         )}
         {avatarContextMenu.chatType === 2 && avatarContextMenu.groupCode && !isSelf && canMute && (
-          <button 
-            onClick={() => { onMute(avatarContextMenu.senderUid, avatarContextMenu.senderName, avatarContextMenu.groupCode!); onClose() }} 
+          <button
+            onClick={() => { onMute(avatarContextMenu.senderUid, avatarContextMenu.senderName, avatarContextMenu.groupCode!); onClose() }}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-orange-500 hover:bg-theme-item-hover transition-colors"
           >
             <VolumeX size={14} /> 禁言
           </button>
         )}
         {avatarContextMenu.chatType === 2 && avatarContextMenu.groupCode && !isSelf && canKick && (
-          <button 
-            onClick={() => { onKick(avatarContextMenu.senderUid, avatarContextMenu.senderName, avatarContextMenu.groupCode!, groupName || avatarContextMenu.groupCode!); onClose() }} 
+          <button
+            onClick={() => { onKick(avatarContextMenu.senderUid, avatarContextMenu.senderName, avatarContextMenu.groupCode!, groupName || avatarContextMenu.groupCode!); onClose() }}
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-500 hover:bg-theme-item-hover transition-colors"
           >
             <UserMinus size={14} /> 踢出群

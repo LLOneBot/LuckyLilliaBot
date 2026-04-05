@@ -12,13 +12,14 @@ import { cors } from 'hono/cors'
 import { serve, ServerType } from '@hono/node-server'
 import { WSContext } from 'hono/ws'
 import { createNodeWebSocket, NodeWebSocket } from '@hono/node-ws'
+import { Dict } from 'cosmokit'
 
 export class SatoriServer {
   private app: Hono
   private httpServer?: ServerType
   private wsServer?: WebSocketServer
   private wsClients: WSContext[] = []
-  private actionMap?: Map<string, { handle: (params: any, config: ParseMessageConfig) => Promise<any> }>
+  private actionMap?: Map<string, { handle: (params: Dict, config: ParseMessageConfig) => Promise<any> }>
   private routesRegistered = false
   private injectWebSocket?: NodeWebSocket['injectWebSocket']
 
@@ -26,7 +27,7 @@ export class SatoriServer {
     this.app = new Hono()
   }
 
-  async callOneBot11API(action: string, params: any): Promise<any> {
+  async callOneBot11API(action: string, params: Dict) {
     const onebotAdapter = this.ctx.get('onebot')
     if (onebotAdapter) {
       this.actionMap ??= initActionMap(onebotAdapter)

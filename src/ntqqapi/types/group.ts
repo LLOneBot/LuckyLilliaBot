@@ -237,7 +237,7 @@ export interface GroupGeoInfo {
 
 export interface GroupCardPrefix {
   introduction: string
-  rptPrefix: any[]
+  rptPrefix: unknown[]
 }
 
 export interface GroupOwnerId {
@@ -247,20 +247,20 @@ export interface GroupOwnerId {
 }
 
 export interface GroupBindGuildIds {
-  guildIds: any[]
+  guildIds: unknown[]
 }
 
 export interface GroupExtFlameData {
   switchState: number
   state: number
-  dayNums: any[]
+  dayNums: unknown[]
   version: number
   updateTime: string
   isDisplayDayNum: boolean
 }
 
 export interface GroupExcludeGuildIds {
-  guildIds: any[]
+  guildIds: unknown[]
 }
 
 export interface GroupExt {
@@ -306,10 +306,10 @@ export interface GroupSchoolInfo {
 
 export interface GroupHeadPortrait {
   portraitCnt: number
-  portraitInfo: any[]
+  portraitInfo: unknown[]
   defaultId: number
   verifyingPortraitCnt: number
-  verifyingPortraitInfo: any[]
+  verifyingPortraitInfo: unknown[]
 }
 
 export interface GroupExtOnly {
@@ -340,7 +340,7 @@ export interface GroupDetailInfo {
   groupQuestion: string
   certType: number
   richFingerMemo: string
-  tagRecord: any[]
+  tagRecord: unknown[]
   shutUpAllTimestamp: number
   shutUpMeTimestamp: number
   groupTypeFlag: number

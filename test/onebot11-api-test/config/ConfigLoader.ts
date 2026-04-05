@@ -76,7 +76,7 @@ export class ConfigLoader {
     }
 
     // 读取并解析 JSON
-    let config: any;
+    let config;
     try {
       const fileContent = fs.readFileSync(configPath, 'utf-8');
       config = JSON.parse(fileContent);
@@ -136,14 +136,14 @@ export class ConfigLoader {
     }
 
     // 验证协议值
-    if (config.accounts?.primary?.protocol && 
+    if (config.accounts?.primary?.protocol &&
         !['http', 'ws'].includes(config.accounts.primary.protocol)) {
       throw new ConfigFormatError(
         `Invalid protocol for primary account: ${config.accounts.primary.protocol}. Must be 'http' or 'ws'`
       );
     }
 
-    if (config.accounts?.secondary?.protocol && 
+    if (config.accounts?.secondary?.protocol &&
         !['http', 'ws'].includes(config.accounts.secondary.protocol)) {
       throw new ConfigFormatError(
         `Invalid protocol for secondary account: ${config.accounts.secondary.protocol}. Must be 'http' or 'ws'`

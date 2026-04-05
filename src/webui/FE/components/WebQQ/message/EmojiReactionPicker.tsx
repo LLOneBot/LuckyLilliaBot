@@ -19,7 +19,7 @@ export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({ target
     try {
       const peer = { chatType: msg.chatType, peerUid: msg.peerUin, guildId: '' }
       await ntCall('ntMsgApi', 'setEmojiLike', [peer, msg.msgSeq, String(faceId), true])
-    } catch (e: any) {
+    } catch (e) {
       showToast(e.message || '贴表情失败', 'error')
     }
   }
@@ -37,7 +37,7 @@ export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({ target
         return
       }
       await ntCall('ntMsgApi', 'setEmojiLike', [peer, msg.msgSeq, String(codePoint), true])
-    } catch (e: any) {
+    } catch (e) {
       showToast(e.message || '贴表情失败', 'error')
     }
   }
@@ -63,7 +63,7 @@ export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({ target
   return createPortal(
     <>
       <div className="fixed inset-0 z-40 bg-black/20" onClick={onClose} />
-      <div 
+      <div
         className="fixed z-50 -translate-x-1/2 -translate-y-1/2"
         style={{ left: pos.left, top: pos.top }}
       >

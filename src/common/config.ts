@@ -5,6 +5,7 @@ import { Config, WebUIConfig } from './types'
 import { DATA_DIR, selfInfo } from './globalVars'
 import { mergeNewProperties } from './utils/misc'
 import { defaultConfig } from '@/common/defaultConfig'
+import { Dict } from 'cosmokit'
 
 export class ConfigUtil {
   private configPath: string | undefined
@@ -76,7 +77,7 @@ export class ConfigUtil {
         jsonData = this.migrateConfig(jsonData)
         mergeNewProperties(defaultConfig, jsonData)
         jsonData.webui = this.migrateWebUIToken(jsonData.webui)
-        jsonData = this.cleanupConfig(defaultConfig, jsonData);
+        jsonData = this.cleanupConfig(defaultConfig, jsonData) as Config
         // 只在配置内容实际变化时才写入文件，避免触发 watchFile 导致无限重载
         const newData = JSON.stringify(jsonData, null, 2)
         if (newData !== data) {
@@ -114,24 +115,24 @@ export class ConfigUtil {
   /**
    * 递归清理配置对象，以 defaultConfig 为基准，删除 oldConfig 中不存在于 defaultConfig 的 key
    */
-  private cleanupConfig(defaultConfig: any, oldConfig: any): any {
+  private cleanupConfig(defaultConfig: Dict, oldConfig: Dict): Dict {
     // 如果不是对象，直接返回
     if (typeof defaultConfig !== 'object' || defaultConfig === null || Array.isArray(defaultConfig)) {
-      return oldConfig;
+      return oldConfig
     }
     if (typeof oldConfig !== 'object' || oldConfig === null) {
-      return oldConfig;
+      return oldConfig
     }
 
-    const cleaned: any = {};
+    const cleaned: Dict = {}
 
     // 遍历 defaultConfig 的 key
     for (const key in defaultConfig) {
       if (defaultConfig.hasOwnProperty(key)) {
         // 如果 oldConfig 中存在该 key
         if (oldConfig.hasOwnProperty(key)) {
-          const defaultValue = defaultConfig[key];
-          const oldValue = oldConfig[key];
+          const defaultValue = defaultConfig[key]
+          const oldValue = oldConfig[key]
 
           // 如果 defaultValue 是普通对象（非数组），递归清理
           if (
@@ -142,29 +143,29 @@ export class ConfigUtil {
             oldValue !== null &&
             !Array.isArray(oldValue)
           ) {
-            cleaned[key] = this.cleanupConfig(defaultValue, oldValue);
+            cleaned[key] = this.cleanupConfig(defaultValue, oldValue)
           } else {
             // 否则直接使用 oldConfig 的值
-            cleaned[key] = oldValue;
+            cleaned[key] = oldValue
           }
         } else {
           // oldConfig 中不存在该 key，使用 defaultConfig 的值
-          cleaned[key] = defaultConfig[key];
+          cleaned[key] = defaultConfig[key]
         }
       }
     }
 
-    return cleaned;
+    return cleaned
   }
 
-  private migrateConfig(oldConfig: any): Config {
-    let migratedConfig = oldConfig;
+  private migrateConfig(oldConfig: Dict): Config {
+    let migratedConfig = oldConfig
     if (oldConfig.musicSignUrl && oldConfig.musicSignUrl.includes('linyuchen')) {
       oldConfig.musicSignUrl = defaultConfig.musicSignUrl
     }
     // 先迁移 ob11.connect 数组格式
     if (!oldConfig.ob11 || !Array.isArray(oldConfig.ob11.connect)) {
-      const ob11 = oldConfig.ob11 || {};
+      const ob11 = oldConfig.ob11 || {}
       migratedConfig = {
         ...oldConfig,
         ob11: {
@@ -216,7 +217,7 @@ export class ConfigUtil {
             },
           ],
         },
-      };
+      }
     }
 
     // 迁移 onlyLocalhost 配置项

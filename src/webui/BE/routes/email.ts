@@ -30,11 +30,11 @@ export function createEmailRoutes(ctx: Context): Hono {
         success: true,
         data: maskedConfig,
       })
-    } catch (error: any) {
+    } catch (error) {
       ctx.logger?.error('[EmailAPI] Failed to get email config:', error)
       return c.json({
         success: false,
-        message: error.message || '获取邮件配置失败',
+        message: (error as Error).message || '获取邮件配置失败',
       }, 500)
     }
   })
@@ -78,11 +78,11 @@ export function createEmailRoutes(ctx: Context): Hono {
         success: true,
         message: '邮件配置保存成功',
       })
-    } catch (error: any) {
+    } catch (error) {
       ctx.logger?.error('[EmailAPI] Failed to save email config:', error)
       return c.json({
         success: false,
-        message: error.message || '保存邮件配置失败',
+        message: (error as Error).message || '保存邮件配置失败',
       }, 500)
     }
   })
@@ -138,11 +138,11 @@ export function createEmailRoutes(ctx: Context): Hono {
           message: result.error || '测试邮件发送失败',
         }, 400)
       }
-    } catch (error: any) {
+    } catch (error) {
       ctx.logger?.error('[EmailAPI] Failed to send test email:', error)
       return c.json({
         success: false,
-        message: error.message || '测试邮件发送失败',
+        message: (error as Error).message || '测试邮件发送失败',
       }, 500)
     }
   })

@@ -92,7 +92,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
           return;
         }
         loginPollingIntervalRef.current = setTimeout(poll, 3000);
-      } catch (error: any) {
+      } catch {
         loginPollingIntervalRef.current = setTimeout(poll, 3000);
       }
     };
@@ -137,7 +137,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
       } else {
         throw new Error(result.message || '获取二维码失败');
       }
-    } catch (error: any) {
+    } catch (error) {
       showToast(error.message || '获取二维码失败', 'error');
     }
   }, [displayQrCode, pollLoginStatus, stopLoginPolling]);
@@ -163,7 +163,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
       } else {
         setAccounts([]);
       }
-    } catch (error: any) {
+    } catch {
       showToast('获取快速登录列表失败', 'error');
       setAccounts([]);
     }
@@ -185,7 +185,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
       } else {
         throw new Error(data.loginErrorInfo.errMsg || '登录失败');
       }
-    } catch (error: any) {
+    } catch (error) {
       showToast(error.message, 'error');
       setLoginMode('qr');
     } finally {

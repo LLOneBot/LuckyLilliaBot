@@ -56,17 +56,17 @@ const EmailConfigSection: React.FC<EmailConfigSectionProps> = (props) => {
       }
       const result = await testEmail(testConfig)
       showToast(result.message || '测试邮件发送成功', 'success')
-    } catch (error: any) {
+    } catch (error) {
       showToast(error.message || '测试邮件发送失败', 'error')
     } finally {
       setTesting(false)
     }
   }
 
-  const handleChange = (field: string, newValue: any) => {
+  const handleChange = (field: string, newValue: unknown) => {
     const keys = field.split('.')
     let newConfig = { ...value }
-    
+
     if (keys.length === 1) {
       newConfig = { ...value, [field]: newValue }
     } else if (keys.length === 2) {
@@ -89,9 +89,9 @@ const EmailConfigSection: React.FC<EmailConfigSectionProps> = (props) => {
         },
       }
     }
-    
+
     onChange(newConfig)
-    
+
     if (errors[field]) {
       setErrors({ ...errors, [field]: '' })
     }

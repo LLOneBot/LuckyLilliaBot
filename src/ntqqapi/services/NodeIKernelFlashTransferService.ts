@@ -1,6 +1,6 @@
 import { GeneralCallResult } from '@/ntqqapi/services/common'
-
 import { FlashFileInfo, FlashFileListItem, FlashFileSetInfo } from '@/ntqqapi/types/flashfile'
+import { Dict } from 'cosmokit'
 
 export interface NodeIKernelFlashTransferService {
   createFlashTransferUploadTask(seq: number, createParam: {
@@ -12,7 +12,7 @@ export interface NodeIKernelFlashTransferService {
       uid: string,
       sendEntrance: string // 可为空字符串
     }>,
-    permission: Record<string, any>, // 可为空对象
+    permission: Dict, // 可为空对象
     coverPath: string,  // 可为空字符串
     paths: string[],
     excludePaths: string[],
@@ -92,7 +92,7 @@ export interface NodeIKernelFlashTransferService {
         uid: string
         sendEntrance: string
       }>
-      permission: Record<string, any>
+      permission: Dict
       coverPath: string
       paths: string[]
       excludePaths: string[]

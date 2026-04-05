@@ -36,9 +36,9 @@ export function createProxyRoutes(ctx: Context): Hono {
       c.header('Content-Type', contentType)
       c.header('Cache-Control', 'public, max-age=86400')
       return c.body(await readFile(normalizedPath))
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('文件代理失败:', e)
-      return c.json({ success: false, message: '文件代理失败', error: e.message }, 500)
+      return c.json({ success: false, message: '文件代理失败', error: (e as Error).message }, 500)
     }
   })
 
@@ -102,9 +102,9 @@ export function createProxyRoutes(ctx: Context): Hono {
 
       const buffer = await response.arrayBuffer()
       return c.body(buffer)
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('图片代理失败:', e)
-      return c.json({ success: false, message: '图片代理失败', error: e.message }, 500)
+      return c.json({ success: false, message: '图片代理失败', error: (e as Error).message }, 500)
     }
   })
 
@@ -186,9 +186,9 @@ export function createProxyRoutes(ctx: Context): Hono {
         ctx.logger.error('silk 解码失败:', decodeError)
         return c.json({ success: false, message: '语音解码失败', error: String(decodeError) }, 500)
       }
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('语音代理失败:', e)
-      return c.json({ success: false, message: '语音代理失败', error: e.message }, 500)
+      return c.json({ success: false, message: '语音代理失败', error: (e as Error).message }, 500)
     }
   })
 

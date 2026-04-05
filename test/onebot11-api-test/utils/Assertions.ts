@@ -8,9 +8,9 @@ import { OB11Event } from '../core/EventListener.js';
 export class AssertionError extends Error {
   constructor(
     message: string,
-    public readonly expected?: any,
-    public readonly actual?: any,
-    public readonly details?: any
+    public readonly expected?: unknown,
+    public readonly actual?: unknown,
+    public readonly details?: unknown
   ) {
     super(message);
     this.name = 'AssertionError';
@@ -267,7 +267,7 @@ export class Assertions {
   static assertResponseFieldEquals(
     response: ApiResponse,
     field: string,
-    expectedValue: any
+    expectedValue: unknown
   ): void {
     if (!(field in response.data)) {
       throw new AssertionError(
@@ -296,7 +296,7 @@ export class Assertions {
    * @param arrayName 数组名称（用于错误信息）
    * @throws {AssertionError} 数组为空时抛出
    */
-  static assertArrayNotEmpty(array: any[], arrayName?: string): void {
+  static assertArrayNotEmpty(array: unknown[], arrayName?: string): void {
     if (!Array.isArray(array)) {
       throw new AssertionError(
         `${arrayName || 'Value'} is not an array`,
@@ -321,7 +321,7 @@ export class Assertions {
    * @param arrayName 数组名称（用于错误信息）
    * @throws {AssertionError} 长度不匹配时抛出
    */
-  static assertArrayLength(array: any[], expectedLength: number, arrayName?: string): void {
+  static assertArrayLength(array: unknown[], expectedLength: number, arrayName?: string): void {
     if (!Array.isArray(array)) {
       throw new AssertionError(
         `${arrayName || 'Value'} is not an array`,
@@ -346,7 +346,7 @@ export class Assertions {
    * @param message 错误信息
    * @throws {AssertionError} 值不相等时抛出
    */
-  static assertEqual(actual: any, expected: any, message?: string): void {
+  static assertEqual(actual: unknown, expected: unknown, message?: string): void {
     if (actual !== expected) {
       throw new AssertionError(
         message || 'Values are not equal',
@@ -363,7 +363,7 @@ export class Assertions {
    * @param message 错误信息
    * @throws {AssertionError} 对象不相等时抛出
    */
-  static assertDeepEqual(actual: any, expected: any, message?: string): void {
+  static assertDeepEqual(actual: unknown, expected: unknown, message?: string): void {
     if (!this.deepEqual(actual, expected)) {
       throw new AssertionError(
         message || 'Objects are not deeply equal',
@@ -380,7 +380,7 @@ export class Assertions {
    * @param message 错误信息
    * @throws {AssertionError} 值相等时抛出
    */
-  static assertNotEqual(actual: any, notExpected: any, message?: string): void {
+  static assertNotEqual(actual: unknown, notExpected: unknown, message?: string): void {
     if (actual === notExpected) {
       throw new AssertionError(
         message || 'Values should not be equal',
@@ -396,7 +396,7 @@ export class Assertions {
    * @param message 错误信息
    * @throws {AssertionError} 值为假时抛出
    */
-  static assertTrue(value: any, message?: string): void {
+  static assertTrue(value: unknown, message?: string): void {
     if (!value) {
       throw new AssertionError(
         message || 'Value is not truthy',
@@ -412,7 +412,7 @@ export class Assertions {
    * @param message 错误信息
    * @throws {AssertionError} 值为真时抛出
    */
-  static assertFalse(value: any, message?: string): void {
+  static assertFalse(value: unknown, message?: string): void {
     if (value) {
       throw new AssertionError(
         message || 'Value is not falsy',
@@ -428,7 +428,7 @@ export class Assertions {
    * @param message 错误信息
    * @throws {AssertionError} 值未定义时抛出
    */
-  static assertDefined(value: any, message?: string): void {
+  static assertDefined(value: unknown, message?: string): void {
     if (value === undefined || value === null) {
       throw new AssertionError(
         message || 'Value is undefined or null',

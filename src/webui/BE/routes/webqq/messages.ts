@@ -1,5 +1,5 @@
 import { Context } from 'cordis'
-import { ChatType, ElementType, RawMessage } from '@/ntqqapi/types'
+import { ChatType, ElementType, RawMessage, SendMessageElement } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
 import { serializeResult } from '../../../BE/utils'
 import { unlink } from 'node:fs/promises'
@@ -65,9 +65,9 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
           hasMore: messages.length >= parseInt(limit)
         })
       })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('获取消息历史失败:', e)
-      return c.json({ success: false, message: '获取消息历史失败', error: e.message }, 500)
+      return c.json({ success: false, message: '获取消息历史失败', error: (e as Error).message }, 500)
     }
   })
 
@@ -105,7 +105,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
         guildId: ''
       }
 
-      const elements: any[] = []
+      const elements: SendMessageElement[] = []
       for (const item of content) {
         if (item.type === 'reply' && item.msgId && item.msgSeq) {
           elements.push({
@@ -178,7 +178,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
         success: true,
         data: { msgId: result.msgId }
       })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('发送消息失败:', e)
 
       // 发送失败也要清理临时文件
@@ -188,7 +188,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
         })
       }
 
-      return c.json({ success: false, message: '发送消息失败', error: e.message }, 500)
+      return c.json({ success: false, message: '发送消息失败', error: (e as Error).message }, 500)
     }
   })
 
@@ -203,9 +203,9 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       const items = await pmhq.getMultiMsg(resId)
       const messages = items[0]?.buffer?.msg || []
 
-      const transformedMessages = await Promise.all(messages.map(async (msg: any) => {
+      const transformedMessages = await Promise.all(messages.map(async (msg) => {
         const { body, contentHead, routingHead } = msg
-        const segments: any[] = []
+        const segments = []
 
         for (const elem of body?.richText?.elems || []) {
           if (elem.text) {
@@ -269,9 +269,9 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       }))
 
       return c.json({ success: true, data: transformedMessages })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('获取合并转发消息失败:', e)
-      return c.json({ success: false, message: '获取合并转发消息失败', error: e.message }, 500)
+      return c.json({ success: false, message: '获取合并转发消息失败', error: (e as Error).message }, 500)
     }
   })
 

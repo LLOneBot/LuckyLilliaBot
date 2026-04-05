@@ -21,9 +21,9 @@ const QQLevelIcons: React.FC<{ level: number }> = ({ level }) => {
   const suns = Math.floor(level / 16) % 4
   const crowns = Math.floor(level / 64) % 4
   const penguins = Math.floor(level / 256)
-  
+
   const icons: React.ReactNode[] = []
-  
+
   for (let i = 0; i < penguins; i++) {
     icons.push(<span key={`penguin-${i}`} className="text-amber-400 text-xs font-bold" title="金企鹅">🐧</span>)
   }
@@ -39,7 +39,7 @@ const QQLevelIcons: React.FC<{ level: number }> = ({ level }) => {
   for (let i = 0; i < stars; i++) {
     icons.push(<Star key={`star-${i}`} size={14} className="text-yellow-400 fill-yellow-400" />)
   }
-  
+
   return <div className="flex items-center gap-0.5 flex-wrap">{icons}</div>
 }
 
@@ -48,15 +48,15 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({ profile, loadi
   const [adjustedPosition, setAdjustedPosition] = useState({ left: position.x, top: position.y })
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  
+
   useEffect(() => {
     if (!cardRef.current) return
-    
+
     const cardWidth = 320
     const cardHeight = cardRef.current.offsetHeight || 400
     let left = position.x
     let top = position.y
-    
+
     if (left + cardWidth > window.innerWidth - 20) {
       left = window.innerWidth - cardWidth - 20
     }
@@ -65,18 +65,18 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({ profile, loadi
       top = window.innerHeight - cardHeight - 20
     }
     if (top < 20) top = 20
-    
+
     setAdjustedPosition({ left, top })
   }, [position, profile, loading])
-  
+
   if (!profile && !loading) return null
-  
+
   const getSexText = (sex: number) => {
     if (sex === 1) return '男'
     if (sex === 2) return '女'
     return ''
   }
-  
+
   const getQAge = (regTime?: number) => {
     if (!regTime) return ''
     const regDate = new Date(regTime * 1000)
@@ -90,19 +90,19 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({ profile, loadi
     }
     return `${totalYears}年`
   }
-  
+
   const getRoleText = (role?: 'owner' | 'admin' | 'member') => {
     if (role === 'owner') return '群主'
     if (role === 'admin') return '管理员'
     return ''
   }
-  
+
   const getRoleBadgeClass = (role?: 'owner' | 'admin' | 'member') => {
     if (role === 'owner') return 'bg-amber-500 text-white'
     if (role === 'admin') return 'bg-green-500 text-white'
     return ''
   }
-  
+
   const handleDeleteFriend = async () => {
     if (!profile) return
     setDeleting(true)
@@ -111,14 +111,14 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({ profile, loadi
       showToast('已删除好友', 'success')
       onFriendDeleted?.(profile.uid)
       onClose()
-    } catch (e: any) {
+    } catch (e) {
       showToast(e.message || '删除好友失败', 'error')
     } finally {
       setDeleting(false)
       setShowDeleteConfirm(false)
     }
   }
-  
+
   const formatTime = (timestamp?: number) => {
     if (!timestamp) return ''
     return new Date(timestamp * 1000).toLocaleString('zh-CN', {
@@ -129,7 +129,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({ profile, loadi
       minute: '2-digit'
     })
   }
-  
+
   return createPortal(
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} />
@@ -157,8 +157,8 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({ profile, loadi
                 </button>
               )}
               <div className="flex items-start gap-4">
-                <img 
-                  src={profile.avatar} 
+                <img
+                  src={profile.avatar}
                   alt={profile.nickname}
                   className="w-16 h-16 rounded-full border-3 border-white/80 object-cover flex-shrink-0"
                 />
@@ -181,14 +181,14 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({ profile, loadi
                 </div>
               </div>
             </div>
-            
+
             <div className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 40px - 120px)' }}>
               {profile.signature && (
                 <div className="text-theme-secondary text-sm mb-3 bg-theme-item/50 rounded-lg px-3 py-2 max-h-24 overflow-y-auto break-words">
                   {profile.signature}
                 </div>
               )}
-              
+
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 {getSexText(profile.sex) && (
                   <>
@@ -218,7 +218,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({ profile, loadi
                   </>
                 )}
               </div>
-              
+
               {(profile.groupCard || profile.groupTitle || profile.groupLevel) && (
                 <>
                   <div className="border-t border-theme-divider my-3" />
@@ -260,7 +260,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({ profile, loadi
             </div>
           </>
         )}
-        
+
         {/* 删除好友确认对话框 */}
         {showDeleteConfirm && profile && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center rounded-xl">

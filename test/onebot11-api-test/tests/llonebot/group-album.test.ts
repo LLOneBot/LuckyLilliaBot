@@ -96,7 +96,7 @@ describe('group_album - 群相册操作', () => {
       });
 
       if (listResponse.retcode === 0 && Array.isArray(listResponse.data)) {
-        const album = listResponse.data.find((a: any) => a.album_name === albumName);
+        const album = listResponse.data.find((a) => a.album_name === albumName);
 
         if (album) {
           const response = await primaryClient.call(ActionName.DeleteGroupAlbum, {

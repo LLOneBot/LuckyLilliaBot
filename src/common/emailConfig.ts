@@ -40,9 +40,9 @@ const DEFAULT_CONFIG: EmailConfig = {
 export class EmailConfigManager {
   private configPath: string
   private config: EmailConfig | null = null
-  private logger?: { info: (msg: string, ...args: any[]) => void; error: (msg: string, ...args: any[]) => void }
+  private logger?: { info: (msg: string, ...args: unknown[]) => void; error: (msg: string, ...args: unknown[]) => void }
 
-  constructor(configPath: string, logger?: { info: (msg: string, ...args: any[]) => void; error: (msg: string, ...args: any[]) => void }) {
+  constructor(configPath: string, logger?: { info: (msg: string, ...args: unknown[]) => void; error: (msg: string, ...args: unknown[]) => void }) {
     this.configPath = configPath
     this.logger = logger
   }

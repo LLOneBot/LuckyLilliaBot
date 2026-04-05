@@ -77,7 +77,7 @@ export async function apiFetch<T = any>(
       console.log('403 - Token verification failed, prompting for password...');
 
       // 解析错误信息
-      let errorData: any = null;
+      let errorData = null;
       try {
         errorData = await response.clone().json();
       } catch (e) {

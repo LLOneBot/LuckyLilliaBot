@@ -1,4 +1,5 @@
 import { Context } from 'cordis'
+import { Dict } from 'cosmokit'
 import { Hono } from 'hono'
 
 export function createMembersRoutes(ctx: Context): Hono {
@@ -14,7 +15,7 @@ export function createMembersRoutes(ctx: Context): Hono {
       }
 
       const result = await ctx.ntGroupApi.getGroupMembers(groupCode)
-      const members: any[] = []
+      const members: Dict[] = []
 
       if (result?.result?.infos) {
         for (const [uid, member] of result.result.infos) {
@@ -37,9 +38,9 @@ export function createMembersRoutes(ctx: Context): Hono {
       members.sort((a, b) => roleOrder[a.role as keyof typeof roleOrder] - roleOrder[b.role as keyof typeof roleOrder])
 
       return c.json({ success: true, data: members })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('获取群成员失败:', e)
-      return c.json({ success: false, message: '获取群成员失败', error: e.message }, 500)
+      return c.json({ success: false, message: '获取群成员失败', error: (e as Error).message }, 500)
     }
   })
 
@@ -64,9 +65,9 @@ export function createMembersRoutes(ctx: Context): Hono {
           remark: userInfo.coreInfo?.remark || ''
         }
       })
-    } catch (e: any) {
+    } catch (e) {
       ctx.logger.error('获取用户信息失败:', e)
-      return c.json({ success: false, message: '获取用户信息失败', error: e.message }, 500)
+      return c.json({ success: false, message: '获取用户信息失败', error: (e as Error).message }, 500)
     }
   })
 

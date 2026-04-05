@@ -28,24 +28,24 @@ interface ChatInputProps {
 
 export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) => {
   const { session, replyTo, onReplyCancel, onSendStart, onSendEnd, onTempMessage, onTempMessageRemove, onTempMessageFail } = props
-  
+
   const richInputRef = useRef<RichInputRef>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const fileUploadInputRef = useRef<HTMLInputElement>(null)
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [showFavEmojiPicker, setShowFavEmojiPicker] = useState(false)
   const [hasContent, setHasContent] = useState(false)
-  
+
   // @ 提及相关状态
   const [mentionState, setMentionState] = useState<MentionState>({ active: false, query: '', position: { top: 0, left: 0 } })
   const [groupMembers, setGroupMembers] = useState<GroupMemberItem[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
-  
+
   const { getCachedMembers, fetchGroupMembers } = useWebQQStore()
-  
+
   // 用 ref 跟踪当前 session 的 peerId
   const currentPeerIdRef = useRef<string | null>(null)
-  
+
   // 用 ref 存储函数避免依赖变化
   const getCachedMembersRef = useRef(getCachedMembers)
   getCachedMembersRef.current = getCachedMembers
@@ -68,16 +68,16 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
   useEffect(() => {
     const groupCode = session?.chatType === 2 ? session.peerId : null
     currentPeerIdRef.current = groupCode
-    
+
     if (!groupCode) {
       setGroupMembers([])
       setMembersLoading(false)
       return
     }
-    
+
     // 检查是否首次进入该聊天（用于决定是否强制刷新）
     const isFirstVisit = !hasVisitedChat(2, groupCode)
-    
+
     // 先检查缓存（同步）- 非首次访问时使用缓存
     if (!isFirstVisit) {
       const cached = getCachedMembersRef.current(groupCode)
@@ -87,11 +87,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
         return
       }
     }
-    
+
     // 需要加载
     setMembersLoading(true)
     setGroupMembers([])
-    
+
     fetchGroupMembersRef.current(groupCode, isFirstVisit)
       .then(members => {
         if (currentPeerIdRef.current === groupCode) {
@@ -131,13 +131,13 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
     const items = richInputRef.current.getContent()
     const isEmpty = richInputRef.current.isEmpty()
     if (isEmpty) return
-    
+
     onSendStart()
     const currentReplyTo = replyTo
     richInputRef.current.clear()
     onReplyCancel()
     setHasContent(false)
-    
+
     // 立即聚焦回输入框
     setTimeout(() => richInputRef.current?.focus(), 0)
 
@@ -149,14 +149,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
       imageUrl: item.imageUrl,
       atName: item.atName
     }))
-    
+
     const tempId = `temp_${Date.now()}`
     onTempMessage({ msgId: tempId, items: tempItems, timestamp: Date.now(), status: 'sending' })
 
     try {
-      const content: any[] = []
+      const content = []
       if (currentReplyTo) content.push({ type: 'reply', msgId: currentReplyTo.msgId, msgSeq: currentReplyTo.msgSeq })
-      
+
       for (const item of items) {
         if (item.type === 'text' && item.content) content.push({ type: 'text', text: item.content })
         else if (item.type === 'face' && item.faceId !== undefined) content.push({ type: 'face', faceId: item.faceId })
@@ -171,12 +171,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
           }
         } else if (item.type === 'at' && item.atUid) content.push({ type: 'at', uid: item.atUid, uin: item.atUin, name: item.atName })
       }
-      
+
       if (content.length === 0) { onTempMessageRemove(tempId); return }
       await sendMessage({ chatType: session.chatType, peerId: session.peerId, content })
       // 发送成功后立即移除临时消息，避免与SSE消息重复显示
       onTempMessageRemove(tempId)
-    } catch (e: any) {
+    } catch {
       showToast('发送失败', 'error')
       onTempMessageFail(tempId)
     } finally {
@@ -215,23 +215,23 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
     if (!file || !session) return
     if (file.size > 100 * 1024 * 1024) { showToast('文件过大，最大支持 100MB', 'error'); return }
     if (fileUploadInputRef.current) fileUploadInputRef.current.value = ''
-    
+
     // 直接发送文件
     onSendStart()
-    
+
     const tempId = `temp_${Date.now()}`
     onTempMessage({ msgId: tempId, items: [{ type: 'text', content: `[文件] ${file.name}` }], timestamp: Date.now(), status: 'sending' })
-    
+
     try {
       const uploadResult = await uploadFile(file)
-      await sendMessage({ 
-        chatType: session.chatType, 
-        peerId: session.peerId, 
-        content: [{ type: 'file', filePath: uploadResult.filePath, fileName: uploadResult.fileName }] 
+      await sendMessage({
+        chatType: session.chatType,
+        peerId: session.peerId,
+        content: [{ type: 'file', filePath: uploadResult.filePath, fileName: uploadResult.fileName }]
       })
       // 发送成功后立即移除临时消息，避免与SSE消息重复显示
       onTempMessageRemove(tempId)
-    } catch (e: any) {
+    } catch {
       showToast('发送失败', 'error')
       onTempMessageFail(tempId)
     } finally {
@@ -300,11 +300,11 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
           <input type="file" ref={fileInputRef} onChange={handleImageSelect} accept="image/jpeg,image/png,image/gif" className="hidden" />
           <input type="file" ref={fileUploadInputRef} onChange={handleFileSelect} className="hidden" />
           <div className="flex-1 bg-theme-input border border-theme-input rounded-xl focus-within:ring-2 focus-within:ring-pink-500/20 overflow-hidden">
-            <RichInput 
-              ref={richInputRef} 
-              placeholder="输入消息..." 
-              onEnter={handleSend} 
-              onPaste={handlePaste} 
+            <RichInput
+              ref={richInputRef}
+              placeholder="输入消息..."
+              onEnter={handleSend}
+              onPaste={handlePaste}
               onChange={handleContentChange}
               onMentionChange={handleMentionChange}
             />
