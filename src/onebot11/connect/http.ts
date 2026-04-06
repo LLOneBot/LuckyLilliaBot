@@ -151,7 +151,16 @@ class OB11Http {
   }
 
   private async handleRequest(c: HonoContext, next: Next) {
-    const payload = c.req.method === 'POST' ? await c.req.json() : c.req.query()
+    let payload
+    if (c.req.method === 'POST') {
+      if (c.req.header('Content-Type')?.includes('application/x-www-form-urlencoded')) {
+        payload = await c.req.parseBody()
+      } else {
+        payload = await c.req.json()
+      }
+    } else {
+      payload = c.req.query()
+    }
     this.ctx.logger.info('收到 HTTP 请求', c.req.url, payload)
     const actionName = c.req.param('endpoint')!
     const action = this.config.actionMap.get(actionName)
