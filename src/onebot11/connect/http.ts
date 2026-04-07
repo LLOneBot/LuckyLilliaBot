@@ -156,7 +156,8 @@ class OB11Http {
       if (c.req.header('Content-Type')?.includes('application/x-www-form-urlencoded')) {
         payload = await c.req.parseBody()
       } else {
-        payload = await c.req.json()
+        const text = await c.req.text()
+        payload = text ? JSON.parse(text) : {}
       }
     } else {
       payload = c.req.query()
