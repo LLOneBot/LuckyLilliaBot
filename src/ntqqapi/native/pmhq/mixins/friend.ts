@@ -3,10 +3,10 @@ import type { PMHQBase } from '../base'
 
 export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) {
   return class extends Base {
-    async sendFriendPoke(uin: number) {
+    async sendFriendPoke(friendUin: number, toUin: number) {
       const body = Oidb.SendPokeReq.encode({
-        toUin: uin,
-        friendUin: uin,
+        toUin,
+        friendUin,
       })
       const data = Oidb.Base.encode({
         command: 0xed3,
