@@ -4,6 +4,10 @@ V7.11.3
 **如果你是在使用7.11.1及以上版本，一定要更新此版本，否则暴露在公网的 LLBot WebUI 有安全风险!**
 
 * 修复 WebUI 鉴权失效，导致不需要密码即可访问
+* 修复引用消息偶现获取失败
+* OneBot 兼容 HTTP Server 的 POST 请求体为空的情况
+* OneBot 支持 send_poke 接口
+* OneBot 支持 friend_poke 接口的 `target_id` 参数
 
 =================
 V7.11.2
