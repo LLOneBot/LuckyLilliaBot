@@ -102,7 +102,7 @@ export class WebUIServer extends Service {
   }
 
   private initServer() {
-    this.app.use('/api', authMiddleware)
+    this.app.use('/api/*', authMiddleware)
 
     // 注册路由
     this.app.route('/api', createConfigRoutes(this.ctx))
