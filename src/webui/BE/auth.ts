@@ -114,5 +114,5 @@ export async function authMiddleware(c: Context, next: Next) {
   }
 
   logAccess(clientIp, c.req.method, c.req.path, 200)
-  next()
+  await next()
 }
