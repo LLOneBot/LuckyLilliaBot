@@ -136,7 +136,12 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
       news: payload.news,
       summary: payload.summary,
       prompt: payload.prompt
-    }) : await this.handleForwardNode(peer, nodes, msgInfos)
+    }) : await this.handleForwardNode(peer, nodes, {
+      source: payload.source,
+      news: payload.news,
+      summary: payload.summary,
+      prompt: payload.prompt
+    }, msgInfos)
   }
 
   private async getMessageNode(msgInfo: MsgInfo) {
@@ -176,7 +181,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     })
   }
 
-  private async handleFakeForwardNode(peer: Peer, nodes: OB11MessageNode[], options?: {
+  private async handleFakeForwardNode(peer: Peer, nodes: OB11MessageNode[], options: {
     source?: string
     news?: { text: string }[]
     summary?: string
@@ -229,7 +234,12 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
   }
 
   // 返回一个合并转发的消息id
-  private async handleForwardNode(destPeer: Peer, messageNodes: OB11MessageNode[], msgInfos?: MsgInfo[]): Promise<Response> {
+  private async handleForwardNode(destPeer: Peer, messageNodes: OB11MessageNode[], options: {
+    source?: string
+    news?: { text: string }[]
+    summary?: string
+    prompt?: string
+  }, msgInfos?: MsgInfo[]): Promise<Response> {
     let srcPeer: Peer
     let msgIds: string[] = []
     if (msgInfos) {
@@ -289,10 +299,42 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     if (msgIds.length === 0) {
       throw new Error('转发消息失败，节点为空')
     }
-    const msg = await this.ctx.ntMsgApi.multiForwardMsg(srcPeer, destPeer, msgIds)
-    const resid = JSON.parse(msg.elements[0].arkElement!.bytesData).meta.detail.resid
-    const msgShortId = this.ctx.store.createMsgShortId(msg)
-    return { message_id: msgShortId, forward_id: resid }
+    if ((options.news && options.news.length > 0) || options.source || options.summary || options.prompt) {
+      const msg = await this.ctx.ntMsgApi.multiForwardMsg(srcPeer, {
+        chatType: ChatType.C2C,
+        peerUid: selfInfo.uid,
+        guildId: ''
+      }, msgIds)
+      const arkData = JSON.parse(msg.elements[0].arkElement!.bytesData)
+      const resid = arkData.meta.detail.resid
+      if (options.news && options.news.length > 0) {
+        arkData.meta.detail.news = options.news
+      }
+      if (options.source) {
+        arkData.meta.detail.source = options.source
+      }
+      if (options.summary) {
+        arkData.meta.detail.summary = options.summary
+      }
+      if (options.prompt) {
+        arkData.desc = options.prompt
+        arkData.prompt = options.prompt
+      }
+      const sentMsg = await this.ctx.app.sendMessage(this.ctx, destPeer, [{
+        elementType: 10,
+        elementId: '',
+        arkElement: {
+          bytesData: JSON.stringify(arkData),
+        },
+      }], [])
+      const msgShortId = this.ctx.store.createMsgShortId(sentMsg)
+      return { message_id: msgShortId, forward_id: resid }
+    } else {
+      const msg = await this.ctx.ntMsgApi.multiForwardMsg(srcPeer, destPeer, msgIds)
+      const resid = JSON.parse(msg.elements[0].arkElement!.bytesData).meta.detail.resid
+      const msgShortId = this.ctx.store.createMsgShortId(msg)
+      return { message_id: msgShortId, forward_id: resid }
+    }
   }
 }
 
