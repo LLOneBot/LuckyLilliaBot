@@ -126,7 +126,7 @@ export class SatoriServer {
       return c.text('Please use POST method to send requests.', 405)
     })
 
-    this.app.post('/v1/:name', async (c, next) => {
+    this.app.post('/v1/:name', async (c) => {
       const selfId = c.req.header('Satori-User-ID')
       const platform = c.req.header('Satori-Platform')
       if (selfId !== selfInfo.uin || !platform) {

@@ -7,11 +7,12 @@ import { createNotificationRoutes } from './notifications'
 import { createNtCallRoutes } from './ntcall'
 import { Hono } from 'hono'
 import { SSEStreamingApi, streamSSE } from 'hono/streaming'
+import { SendPicElement } from '@/ntqqapi/types'
 
 export interface WebQQRoutesOptions {
   uploadDir: string
   sseClients: Set<SSEStreamingApi>
-  createPicElement: (imagePath: string) => Promise<any>
+  createPicElement: (imagePath: string) => Promise<SendPicElement | null>
 }
 
 export function createWebQQRoutes(ctx: Context, options: WebQQRoutesOptions): Hono {

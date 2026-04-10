@@ -1,5 +1,5 @@
 import { Context } from 'cordis'
-import { ChatType, ElementType, RawMessage, SendMessageElement } from '@/ntqqapi/types'
+import { ChatType, ElementType, RawMessage, SendMessageElement, SendPicElement } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
 import { serializeResult } from '../../../BE/utils'
 import { unlink } from 'node:fs/promises'
@@ -8,7 +8,7 @@ import { Msg, Media } from '@/ntqqapi/proto'
 import { inflateSync } from 'node:zlib'
 import { Hono } from 'hono'
 
-export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath: string) => Promise<any>): Hono {
+export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath: string) => Promise<SendPicElement | null>): Hono {
   const router = new Hono()
 
   // 获取消息历史 - 返回原始 RawMessage 数据

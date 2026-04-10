@@ -1,3 +1,4 @@
+import { noop } from 'cosmokit'
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 import { uri2local } from '@/common/utils/file'
@@ -36,7 +37,7 @@ export class OCRImage extends BaseAction<Payload, Response> {
 
     const data = await this.ctx.ntFileApi.ocrImage(path)
     if (!isLocal) {
-      unlink(path).then().catch((e) => { })
+      unlink(path).catch(noop)
     }
     if (data.code !== 0) {
       throw new Error(data.errMsg)

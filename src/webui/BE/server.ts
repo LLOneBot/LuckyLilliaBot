@@ -27,7 +27,7 @@ import { serve, ServerType } from '@hono/node-server'
 
 // 静态文件服务，指向前端dist目录
 let feDistPath = path.resolve(import.meta.dirname, 'webui/')
-// @ts-ignore
+// @ts-expect-error: TS2339 - Property 'env' does not exist on type 'ImportMeta'
 if (!import.meta.env) {
   feDistPath = path.join(import.meta.dirname, '../../../dist/webui/')
 }
@@ -283,7 +283,6 @@ export class WebUIServer extends Service {
             const target = notify.reaction.data.body.target
             const groupCode = String(notify.groupCode)
             const userId = await this.ctx.ntUserApi.getUinByUid(info.operatorUid)
-            const actionType = typeof info.actionType === 'number' ? info.actionType : info.type
 
             let userName = userId
             try {
@@ -306,7 +305,7 @@ export class WebUIServer extends Service {
                 emojiId: info.code,
                 userId,
                 userName,
-                isAdd: actionType === 1
+                isAdd: info.actionType === 1
               }
             })
           }

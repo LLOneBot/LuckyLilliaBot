@@ -19,7 +19,7 @@ import { RkeyManager } from '@/ntqqapi/helper/rkey'
 import { RichMediaDownloadCompleteNotify, RichMediaUploadCompleteNotify, RMBizType, Peer } from '@/ntqqapi/types/msg'
 import { calculateSha1StreamBytes, getFileType, getImageSize, getMd5HexFromFile } from '@/common/utils/file'
 import { copyFile, unlink } from 'node:fs/promises'
-import { Time } from 'cosmokit'
+import { noop, Time } from 'cosmokit'
 import { Service, Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { FlashFileListItem, FlashFileSetInfo } from '@/ntqqapi/types/flashfile'
@@ -128,8 +128,7 @@ export class NTQQFileApi extends Service {
     // 用于下载收到的消息中的图片等
     if (sourcePath && existsSync(sourcePath)) {
       if (force) {
-        unlink(sourcePath).then().catch(e => {
-        })
+        unlink(sourcePath).catch(noop)
       } else {
         return sourcePath
       }

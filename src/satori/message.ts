@@ -12,6 +12,7 @@ import { selfInfo } from '@/common/globalVars'
 import { InferProtoModelInput } from '@saltify/typeproto'
 import { Media, Msg } from '@/ntqqapi/proto'
 import { deflateSync } from 'node:zlib'
+import { noop } from 'cosmokit'
 
 interface Author {
   id?: string
@@ -61,7 +62,7 @@ export class MessageEncoder {
       }
     }
     this.deleteAfterSentFiles.forEach(path => {
-      unlink(path).catch((e) => { })
+      unlink(path).catch(noop)
     })
     this.deleteAfterSentFiles = []
     this.elements = []

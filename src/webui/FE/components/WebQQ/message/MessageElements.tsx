@@ -42,7 +42,7 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
   if (element.textElement) return <span className="whitespace-pre-wrap break-all" style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>{element.textElement.content}</span>
   if (element.picElement) {
     const pic = element.picElement
-    let url = pic.originImageUrl ? (pic.originImageUrl.startsWith('http') ? pic.originImageUrl : `https://gchat.qpic.cn${pic.originImageUrl}`) : ''
+    const url = pic.originImageUrl ? (pic.originImageUrl.startsWith('http') ? pic.originImageUrl : `https://gchat.qpic.cn${pic.originImageUrl}`) : ''
     const proxyUrl = getProxyImageUrl(url)
 
     const maxHeight = 200

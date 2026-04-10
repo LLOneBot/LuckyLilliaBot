@@ -23,7 +23,7 @@ export function createNtCallRoutes(ctx: Context): Hono {
       }
 
       // pmhq 是单例，不在 ctx 中
-      const serviceInstance = service === 'pmhq' ? pmhq : (ctx as any)[service]
+      const serviceInstance = service === 'pmhq' ? pmhq : ctx.get(service)
       if (!serviceInstance) {
         return c.json({ success: false, message: `服务 ${service} 未注入` }, 400)
       }

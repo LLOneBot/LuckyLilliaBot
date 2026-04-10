@@ -42,8 +42,8 @@ export class UploadFlashFile extends BaseAction<Payload, Response> {
     }
 
     // 旧版本 QQ 可能没有该字段，尝试通过 fileSetId 获取
-    if (!res.createFlashTransferResult){
-      // @ts-ignore
+    if (!res.createFlashTransferResult) {
+      // @ts-expect-error: TS2339 - Property 'fileSetId' does not exist on type 'GeneralCallResult & { seq: number; createFlashTransferResult: { fileSetId: string; shareLink: string; expireTime: string; expireLeftTime: string; }; }'
       const oldFlashFileInfo = await this.ctx.ntFileApi.getFlashFileInfo(res.fileSetId)
       return {
         file_set_id: oldFlashFileInfo.fileSetId,

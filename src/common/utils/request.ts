@@ -107,18 +107,14 @@ export class HttpUtil {
       'origin': url.startsWith('https') ? 'https://' + new URL(url).hostname : 'http://' + new URL(url).hostname,
       ...headers,
     }
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: _headers,
-        body: JSON.stringify(data),
-      })
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status} statusText: ${response.statusText}`)
-      }
-      return response
-    } catch (error) {
-      throw error
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: _headers,
+      body: JSON.stringify(data),
+    })
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status} statusText: ${response.statusText}`)
     }
+    return response
   }
 }

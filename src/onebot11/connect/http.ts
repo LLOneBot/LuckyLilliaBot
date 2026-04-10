@@ -150,7 +150,7 @@ class OB11Http {
     }
   }
 
-  private async handleRequest(c: HonoContext, next: Next) {
+  private async handleRequest(c: HonoContext) {
     let payload
     if (c.req.method === 'POST') {
       if (c.req.header('Content-Type')?.includes('application/x-www-form-urlencoded')) {
