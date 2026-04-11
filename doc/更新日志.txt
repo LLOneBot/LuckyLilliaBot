@@ -3,6 +3,7 @@ V7.11.5
 
 * Milky 修复 send_friend_nudge 接口无法使用
 * OneBot 支持普通合并转发自定义外显
+* OneBot 支持事件过滤器
 
 =================
 V7.11.4
