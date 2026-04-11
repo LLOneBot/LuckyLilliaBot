@@ -7,6 +7,7 @@ export interface BaseConnectConfig {
   reportOfflineMessage: boolean
   messageFormat: 'array' | 'string'
   debug: boolean
+  filter?: Record<string, unknown>
 }
 
 export interface WsConnectConfig extends BaseConnectConfig {
