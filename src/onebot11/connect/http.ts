@@ -196,7 +196,7 @@ class OB11HttpPost {
   public start() {
     this.activated = this.config.enable
     if (this.config.enableHeart && !this.disposeInterval) {
-      this.disposeInterval = this.ctx.setInterval(() => {
+      this.disposeInterval = this.ctx.interval(() => {
         // ws的心跳是ws自己维护的
         this.emitEvent(new OB11HeartbeatEvent(selfInfo.online!, true, this.config.heartInterval))
       }, this.config.heartInterval)

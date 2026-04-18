@@ -179,7 +179,7 @@ class OB11WebSocket {
         this.ctx.logger.error('发送生命周期失败', e)
       }
 
-      const disposeHeartBeat = this.ctx.setInterval(() => {
+      const disposeHeartBeat = this.ctx.interval(() => {
         const event = new OB11HeartbeatEvent(selfInfo.online!, true, this.config.heartInterval)
         if (!matchEventFilter(this.config.filter, event)) return
         this.reply(socket, event)
@@ -334,7 +334,7 @@ class OB11WebSocketReverse {
       this.wsClient?.pong()
     })
 
-    const disposeHeartBeat = this.ctx.setInterval(() => {
+    const disposeHeartBeat = this.ctx.interval(() => {
       if (this.wsClient) {
         const event = new OB11HeartbeatEvent(selfInfo.online!, true, this.config.heartInterval)
         if (!matchEventFilter(this.config.filter, event)) return
@@ -346,7 +346,7 @@ class OB11WebSocketReverse {
       disposeHeartBeat()
       this.ctx.logger.info(`The websocket connection: ${this.config.url} closed, code ${code}${this.activated ? ', trying reconnecting...' : ''}`)
       if (this.activated) {
-        this.ctx.setTimeout(() => this.tryConnect(), 3000)
+        this.ctx.timeout(() => this.tryConnect(), 3000)
       }
     })
   }
