@@ -43,8 +43,6 @@ function getModuleDependencies(moduleName: string, basePath = path.join(__dirnam
 const external = [
   'ws',
   'silk-wasm',
-  '@minatojs/sql.js',
-  'has-flag',
   ...getModuleDependencies('reggol'),
   ...getModuleDependencies('file-type'),
 ]
