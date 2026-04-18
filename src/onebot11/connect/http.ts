@@ -36,7 +36,7 @@ class OB11Http {
     this.app.use('/*', this.authorize.bind(this))
 
     this.app.get('/_events', async (c) => {
-      return streamSSE(c, async (stream) => {
+      const res = await streamSSE(c, async (stream) => {
         this.sseClients.add(stream)
         stream.onAbort(() => {
           this.sseClients.delete(stream)
@@ -45,6 +45,8 @@ class OB11Http {
           stream.onAbort(resolve)
         })
       })
+      res.headers.set('Content-Type', 'text/event-stream; charset=utf-8')
+      return res
     })
 
     this.app.use('/:endpoint', this.handleRequest.bind(this))
@@ -66,15 +68,15 @@ class OB11Http {
     return new Promise<boolean>((resolve) => {
       if (this.server) {
         this.ctx.logger.info('OneBot V11 HTTP Server closing...')
+        this.server.closeAllConnections()
         this.server.close((err) => {
           if (err) {
             this.ctx.logger.error(`OneBot V11 HTTP Server closing ${err}`)
-            this.server = undefined
-            return resolve(false)
+          } else {
+            this.ctx.logger.info('OneBot V11 HTTP Server closed')
           }
-          this.ctx.logger.info('OneBot V11 HTTP Server closed')
           this.server = undefined
-          resolve(true)
+          resolve(!err)
         })
       } else {
         resolve(true)
