@@ -1,0 +1,3 @@
+*.md
+.git
+src/webui/FE/node_modules
