@@ -15,6 +15,7 @@ import { Hono, Context as HonoContext, Next } from 'hono'
 import { cors } from 'hono/cors'
 import { SSEStreamingApi, streamSSE } from 'hono/streaming'
 import { serve, ServerType } from '@hono/node-server'
+import { Server } from 'node:http'
 
 class OB11Http {
   private app?: Hono
@@ -68,8 +69,9 @@ class OB11Http {
     return new Promise<boolean>((resolve) => {
       if (this.server) {
         this.ctx.logger.info('OneBot V11 HTTP Server closing...')
-        this.server.closeAllConnections()
-        this.server.close((err) => {
+        const server = this.server as Server
+        server.closeAllConnections()
+        server.close((err) => {
           if (err) {
             this.ctx.logger.error(`OneBot V11 HTTP Server closing ${err}`)
           } else {
