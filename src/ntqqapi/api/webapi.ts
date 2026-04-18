@@ -31,10 +31,10 @@ export enum WebHonorType {
 }
 
 export class NTQQWebApi extends Service {
-  static inject = ['ntUserApi']
+  static inject = ['ntUserApi', 'logger']
 
   constructor(protected ctx: Context) {
-    super(ctx, 'ntWebApi', true)
+    super(ctx, 'ntWebApi')
   }
 
   genBkn(key: string) {

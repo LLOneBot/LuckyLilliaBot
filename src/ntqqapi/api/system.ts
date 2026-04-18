@@ -1,5 +1,4 @@
 import { Context, Service } from 'cordis'
-import { invoke } from '@/ntqqapi/ntcall'
 
 declare module 'cordis' {
   interface Context {
@@ -8,8 +7,10 @@ declare module 'cordis' {
 }
 
 export class NTQQSystemApi extends Service {
+  static inject = ['pmhq']
+
   constructor(protected ctx: Context) {
-    super(ctx, 'ntSystemApi', true)
+    super(ctx, 'ntSystemApi')
   }
 
   async restart() {
@@ -25,23 +26,23 @@ export class NTQQSystemApi extends Service {
 
   async getSettingAutoLogin() {
     // 查询是否自动登录
-    return invoke('nodeIKernelNodeMiscService/queryAutoRun', [])
+    return await this.ctx.pmhq.invoke('nodeIKernelNodeMiscService/queryAutoRun', [])
   }
 
   async setSettingAutoLogin(state: boolean) {
-    await invoke<unknown>('nodeIKernelSettingService/setNeedConfirmSwitch', [1]) // 1：不需要手机确认，2：需要手机确认
+    await this.ctx.pmhq.invoke<unknown>('nodeIKernelSettingService/setNeedConfirmSwitch', [1]) // 1：不需要手机确认，2：需要手机确认
 
-    await invoke<unknown>('nodeIKernelSettingService/setAutoLoginSwitch', [state])
+    await this.ctx.pmhq.invoke<unknown>('nodeIKernelSettingService/setAutoLoginSwitch', [state])
   }
 
   async getDeviceInfo() {
-    return await invoke<{
+    return await this.ctx.pmhq.invoke<{
       devType: string
       buildVer: string
     }>('getDeviceInfo', [])
   }
 
   async scanQRCode(path: string){
-    return await invoke('nodeIKernelNodeMiscService/scanQBar', [path])
+    return await this.ctx.pmhq.invoke('nodeIKernelNodeMiscService/scanQBar', [path])
   }
 }

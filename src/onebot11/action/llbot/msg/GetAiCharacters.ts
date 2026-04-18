@@ -24,7 +24,7 @@ export class GetAiCharacters extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload) {
-    const res = await this.ctx.app.pmhq.fetchAiCharacterList(+payload.group_id, +payload.chat_type)
+    const res = await this.ctx.pmhq.fetchAiCharacterList(+payload.group_id, +payload.chat_type)
     return objectToSnake(res.property) as Response
   }
 }

@@ -1,4 +1,4 @@
-import { Context, Service } from 'cordis'
+import { Context, Inject, Service } from 'cordis'
 import { OB11Entities } from './entities'
 import {
   ChatType,
@@ -48,23 +48,24 @@ import { noop } from 'cosmokit'
 
 declare module 'cordis' {
   interface Context {
-    onebot: OneBot11Adapter
+    onebot: Onebot11Adapter
   }
 }
 
-class OneBot11Adapter extends Service {
+class Onebot11Adapter extends Service {
   static inject = [
     'ntMsgApi', 'ntFileApi', 'ntFileCacheApi',
     'ntFriendApi', 'ntGroupApi', 'ntUserApi',
     'ntWebApi', 'ntSystemApi', 'store', 'app',
+    'logger', 'pmhq'
   ]
   private connect: (OB11Http | OB11HttpPost | OB11WebSocket | OB11WebSocketReverse)[]
   private actionMap: Map<string, BaseAction<unknown, unknown>>
   private reportOfflineMessage: boolean
   private reportSelfMessage: boolean
 
-  constructor(public ctx: Context, public config: OneBot11Adapter.Config) {
-    super(ctx, 'onebot', true)
+  constructor(public ctx: Context, public config: Onebot11Adapter.Config) {
+    super(ctx, 'onebot')
     this.actionMap = initActionMap(this)
     this.reportOfflineMessage = false
     this.reportSelfMessage = false
@@ -96,6 +97,11 @@ class OneBot11Adapter extends Service {
         throw new Error('incorrect ob11 connect type')
       }
     })
+  }
+
+  async [Service.init]() {
+    this.start()
+    return noop
   }
 
   public dispatch(event: OB11BaseEvent) {
@@ -546,7 +552,7 @@ class OneBot11Adapter extends Service {
       this.dispatch(event)
     })
 
-    this.ctx.app.pmhq.addResListener(async data => {
+    this.ctx.pmhq.addResListener(async data => {
       try {
         if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
           const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
@@ -617,7 +623,7 @@ class OneBot11Adapter extends Service {
   }
 }
 
-namespace OneBot11Adapter {
+namespace Onebot11Adapter {
   export interface Config extends OB11Config {
     musicSignUrl?: string
     enableLocalFile2Url: boolean
@@ -625,4 +631,4 @@ namespace OneBot11Adapter {
   }
 }
 
-export default OneBot11Adapter
+export default Onebot11Adapter

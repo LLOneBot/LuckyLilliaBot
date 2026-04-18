@@ -43,7 +43,7 @@ class GetGroupMemberInfo extends BaseAction<Payload, OB11GroupMember> {
       ret.age = info.simpleInfo.baseInfo.age ?? 0
     }
     if (ret.qq_level === 0) {
-      ret.qq_level = (await this.ctx.app.pmhq.fetchUserInfo(+payload.user_id)).level
+      ret.qq_level = (await this.ctx.pmhq.fetchUserInfo(+payload.user_id)).level
     }
     return ret
   }

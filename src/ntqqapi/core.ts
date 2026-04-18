@@ -1,7 +1,6 @@
 import { unlink } from 'node:fs/promises'
-import { statSync } from 'node:fs'
 import { Service, Context } from 'cordis'
-import { registerReceiveHook, ReceiveCmdS } from './hook'
+import { ReceiveCmdS } from './hook'
 import { Config as LLOBConfig } from '../common/types'
 import {
   RawMessage,
@@ -13,12 +12,10 @@ import {
   ChatType,
   Peer,
   SendMessageElement,
-  ElementType,
   KickedOffLineInfo,
   MsgType,
 } from './types'
 import { selfInfo } from '../common/globalVars'
-import { pmhq } from './native/pmhq'
 import {
   FlashFileDownloadingInfo,
   FlashFileDownloadStatus,
@@ -56,16 +53,19 @@ declare module 'cordis' {
 }
 
 class Core extends Service {
-  static inject = ['ntMsgApi', 'ntFriendApi', 'ntGroupApi', 'store', 'ntUserApi', 'ntFileApi']
+  static inject = ['ntMsgApi', 'ntFriendApi', 'ntGroupApi', 'store', 'ntUserApi', 'ntFileApi', 'logger', 'pmhq']
   public startupTime = 0
   public messageReceivedCount = 0
   public messageSentCount = 0
   public lastMessageTime = 0
-  public pmhq
 
   constructor(protected ctx: Context, public config: Core.Config) {
-    super(ctx, 'app', true)
-    this.pmhq = pmhq
+    super(ctx, 'app')
+  }
+
+  async [Service.init]() {
+    this.start()
+    return noop
   }
 
   public start() {
@@ -160,22 +160,22 @@ class Core extends Service {
 
   private registerListener() {
 
-    registerReceiveHook(ReceiveCmdS.LOGIN_QR_CODE, (data) => {
+    this.ctx.pmhq.registerReceiveHook(ReceiveCmdS.LOGIN_QR_CODE, (data) => {
       this.ctx.parallel('nt/login-qrcode', data)
     })
 
-    registerReceiveHook<{ status: number }>(ReceiveCmdS.SELF_STATUS, (info) => {
+    this.ctx.pmhq.registerReceiveHook<{ status: number }>(ReceiveCmdS.SELF_STATUS, (info) => {
       Object.assign(selfInfo, { online: info.status !== 20 })
     })
 
-    registerReceiveHook<RawMessage[]>(ReceiveCmdS.NEW_MSG, payload => {
+    this.ctx.pmhq.registerReceiveHook<RawMessage[]>(ReceiveCmdS.NEW_MSG, payload => {
       this.handleMessage(payload)
     })
 
     const sentMsgIds = new Map<string, boolean>()
     const recallMsgIds: string[] = [] // 避免重复上报
 
-    registerReceiveHook<RawMessage[]>([ReceiveCmdS.UPDATE_MSG], payload => {
+    this.ctx.pmhq.registerReceiveHook<RawMessage[]>([ReceiveCmdS.UPDATE_MSG], payload => {
       for (const msg of payload) {
         if (
           msg.recallTime !== '0' &&
@@ -210,7 +210,7 @@ class Core extends Service {
       }
     })
 
-    registerReceiveHook<[Peer, string[]]>(ReceiveCmdS.DELETE_MSG, payload => {
+    this.ctx.pmhq.registerReceiveHook<[Peer, string[]]>(ReceiveCmdS.DELETE_MSG, payload => {
       // 撤回普通消息不会经过这里
       // 撤回戳一戳会经过这里
       const [peer, msgIds] = payload;
@@ -231,12 +231,12 @@ class Core extends Service {
       }
     })
 
-    registerReceiveHook<RawMessage>(ReceiveCmdS.SELF_SEND_MSG, payload => {
+    this.ctx.pmhq.registerReceiveHook<RawMessage>(ReceiveCmdS.SELF_SEND_MSG, payload => {
       sentMsgIds.set(payload.msgId, true)
     })
 
     const groupNotifyIgnore: string[] = []
-    registerReceiveHook<[
+    this.ctx.pmhq.registerReceiveHook<[
       doubt: boolean,
       notifies: GroupNotify[]
     ]>('nodeIKernelGroupListener/onGroupNotifiesUpdated', async (payload) => {
@@ -254,7 +254,7 @@ class Core extends Service {
       }
     })
 
-    registerReceiveHook<FriendRequestNotify>(ReceiveCmdS.FRIEND_REQUEST, payload => {
+    this.ctx.pmhq.registerReceiveHook<FriendRequestNotify>(ReceiveCmdS.FRIEND_REQUEST, payload => {
       this.ctx.ntFriendApi.clearBuddyReqUnreadCnt().catch(e => this.ctx.logger.error(`清除好友申请未读数失败`, e))
       for (const req of payload.buddyReqs) {
         if (!req.isUnread || req.isInitiator || (req.isDecide && req.reqType !== BuddyReqType.MeInitiatorWaitPeerConfirm)) {
@@ -267,11 +267,11 @@ class Core extends Service {
       }
     })
 
-    registerReceiveHook<number[]>('nodeIKernelMsgListener/onRecvSysMsg', payload => {
+    this.ctx.pmhq.registerReceiveHook<number[]>('nodeIKernelMsgListener/onRecvSysMsg', payload => {
       this.ctx.parallel('nt/system-message-created', Buffer.from(payload))
     })
 
-    registerReceiveHook<[status: number, errCode: number | string, fileSetId: string | unknown]>(ReceiveCmdS.FLASH_FILE_DOWNLOAD_STATUS, payload => {
+    this.ctx.pmhq.registerReceiveHook<[status: number, errCode: number | string, fileSetId: string | unknown]>(ReceiveCmdS.FLASH_FILE_DOWNLOAD_STATUS, payload => {
       // 旧版本 QQ 会把 fileSetId 放在第 2 个参数
       // 新版本 QQ 会把 fileSetId 放在第 3 个参数
       const [status, errCodeOrFileSetId, fileSetIdOrFileInfo] = payload
@@ -293,21 +293,21 @@ class Core extends Service {
       })
     })
 
-    registerReceiveHook<FlashFileSetInfo>(ReceiveCmdS.FLASH_FILE_UPLOAD_STATUS, payload => {
+    this.ctx.pmhq.registerReceiveHook<FlashFileSetInfo>(ReceiveCmdS.FLASH_FILE_UPLOAD_STATUS, payload => {
       this.ctx.parallel('nt/flash-file-upload-status', payload)
     })
 
-    registerReceiveHook<[fileSetId: string, info: FlashFileDownloadingInfo]>(ReceiveCmdS.FLASH_FILE_DOWNLOADING, payload => {
+    this.ctx.pmhq.registerReceiveHook<[fileSetId: string, info: FlashFileDownloadingInfo]>(ReceiveCmdS.FLASH_FILE_DOWNLOADING, payload => {
       const [fileSetId, info] = payload
       this.ctx.parallel('nt/flash-file-downloading', [fileSetId, info])
     })
 
-    registerReceiveHook<{ fileSet: FlashFileSetInfo } & FlashFileUploadingInfo>(ReceiveCmdS.FLASH_FILE_UPLOADING, payload => {
+    this.ctx.pmhq.registerReceiveHook<{ fileSet: FlashFileSetInfo } & FlashFileUploadingInfo>(ReceiveCmdS.FLASH_FILE_UPLOADING, payload => {
       this.ctx.parallel('nt/flash-file-uploading', payload)
     })
 
     const group_dismiss_codes: string[] = []  // 不知是否是 QQ 的 bug，退群的时候会上报一个以前解散的群，这里用于避免重复上报
-    registerReceiveHook<GroupDetailInfo>(ReceiveCmdS.GROUP_DETAIL_INFO_UPDATE, async data => {
+    this.ctx.pmhq.registerReceiveHook<GroupDetailInfo>(ReceiveCmdS.GROUP_DETAIL_INFO_UPDATE, async data => {
       if (data.localExitGroupReason === LocalExitGroupReason.DISMISS
         && !group_dismiss_codes.includes(data.groupCode)
         && data.cmdUinJoinTime > this.startupTime
@@ -323,7 +323,7 @@ class Core extends Service {
       }
     })
 
-    registerReceiveHook<KickedOffLineInfo>('nodeIKernelMsgListener/onKickedOffLine', info => {
+    this.ctx.pmhq.registerReceiveHook<KickedOffLineInfo>('nodeIKernelMsgListener/onKickedOffLine', info => {
       this.ctx.parallel('nt/kicked-offLine', info)
     })
   }

@@ -100,7 +100,7 @@ const GetUserProfile = defineApi(
       school: userInfo.detail.commonExt?.college || '',
     }
     if (profile.level === 0) {
-      profile.level = (await ctx.app.pmhq.fetchUserInfo(payload.user_id)).level
+      profile.level = (await ctx.pmhq.fetchUserInfo(payload.user_id)).level
     }
     return Ok(profile)
   }
@@ -156,7 +156,7 @@ const GetGroupList = defineApi(
   GetGroupListInput,
   GetGroupListOutput,
   async (ctx) => {
-    const { groups } = await ctx.app.pmhq.fetchGroups()
+    const { groups } = await ctx.pmhq.fetchGroups()
     return Ok({
       groups: groups.map(e => {
         return {
@@ -264,7 +264,7 @@ const GetPeerPins = defineApi(
       onlineCount: number
       buddyUids: string[]
     }> = new Map()
-    const { groups } = await ctx.app.pmhq.fetchGroups()
+    const { groups } = await ctx.pmhq.fetchGroups()
     return Ok({
       friends: await Promise.all(
         friends.filter(e => e.relationFlags && e.relationFlags.topTime !== '0').map(async e => {

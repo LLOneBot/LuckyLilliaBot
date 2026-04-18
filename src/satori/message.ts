@@ -6,7 +6,7 @@ import { Message } from '@satorijs/protocol'
 import { SendElement } from '@/ntqqapi/entities'
 import { decodeMessage, getPeer } from './utils'
 import { ObjectToSnake } from 'ts-case-convert'
-import { uri2local } from '@/common/utils'
+import { sleep, uri2local } from '@/common/utils'
 import { unlink } from 'node:fs/promises'
 import { selfInfo } from '@/common/globalVars'
 import { InferProtoModelInput } from '@saltify/typeproto'
@@ -232,7 +232,7 @@ export class MessageEncoder {
           msg: messages
         }
       }, ...this.stack[0].subMultiMsgItems]
-      const resid = await this.ctx.app.pmhq.uploadForward(this.peer.peerUid, this.peer.chatType === NT.ChatType.Group, multiMsgItems)
+      const resid = await this.ctx.pmhq.uploadForward(this.peer.peerUid, this.peer.chatType === NT.ChatType.Group, multiMsgItems)
       const id = crypto.randomUUID()
       const isGroup = this.peer.chatType === NT.ChatType.Group
       const content = JSON.stringify({
@@ -339,7 +339,7 @@ export class MessageEncoder {
         if (clonedMsg) {
           retMsgIds.push(clonedMsg.msgId)
         }
-        await this.ctx.sleep(100)
+        await sleep(100)
       }
       srcPeer = selfPeer
     } else {
@@ -354,7 +354,7 @@ export class MessageEncoder {
       const msg = await this.ctx.ntMsgApi.multiForwardMsg(srcPeer!, selfPeer, retMsgIds)
       const { resid, uniseq } = JSON.parse(msg.elements[0].arkElement!.bytesData).meta.detail
       this.stack[1].children.push([...msg.elements as NT.SendMessageElement[]])
-      this.stack[1].subMultiMsgItems.push(...(await this.ctx.app.pmhq.getMultiMsg(resid)).map(e => {
+      this.stack[1].subMultiMsgItems.push(...(await this.ctx.pmhq.getMultiMsg(resid)).map(e => {
         if (e.fileName === 'MultiMsg') {
           return {
             fileName: uniseq,

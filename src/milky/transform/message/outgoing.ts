@@ -91,7 +91,7 @@ export async function transformOutgoingMessage(
             prompt: forwardData.prompt
           }
         )
-        const resid = await ctx.app.pmhq.uploadForward(peerUid, isGroup, raw.multiMsgItems)
+        const resid = await ctx.pmhq.uploadForward(peerUid, isGroup, raw.multiMsgItems)
         const uuid = randomUUID()
         const prompt = raw.prompt
         const arkElement = SendElement.ark(JSON.stringify({
@@ -366,7 +366,7 @@ class ForwardMessageEncoder {
           prompt: data.prompt
         })
         this.innerRaws.push(innerRaw)
-        const resid = await this.ctx.app.pmhq.uploadForward(this.peerUid, this.isGroup, innerRaw.multiMsgItems)
+        const resid = await this.ctx.pmhq.uploadForward(this.peerUid, this.isGroup, innerRaw.multiMsgItems)
         this.children.push(this.packForwardMessage(resid, innerRaw.uuid, innerRaw))
         this.preview += '[聊天记录]'
       } else if (type === 'video') {

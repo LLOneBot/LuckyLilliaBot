@@ -16,7 +16,7 @@ export class GetRecommendFace extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload) {
-    const res = await this.ctx.app.pmhq.pullPics(payload.word)
+    const res = await this.ctx.pmhq.pullPics(payload.word)
     return { url: res.info.map(e => e.url!) }
   }
 }

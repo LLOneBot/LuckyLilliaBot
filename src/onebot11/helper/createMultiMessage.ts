@@ -229,7 +229,7 @@ export class MessageEncoder {
         this.innerRaw.push(innerRaw)
 
         // 上传内层合并转发，获取 resid
-        const resid = await this.ctx.app.pmhq.uploadForward(this.peer.peerUid, this.peer.chatType === ChatType.Group, innerRaw.multiMsgItems)
+        const resid = await this.ctx.pmhq.uploadForward(this.peer.peerUid, this.peer.chatType === ChatType.Group, innerRaw.multiMsgItems)
 
         // 合并内层的待删除文件
         this.deleteAfterSentFiles.push(...innerEncoder.deleteAfterSentFiles)
@@ -305,7 +305,7 @@ export class MessageEncoder {
         })
         this.innerRaw.push(innerRaw)
 
-        const resid = await this.ctx.app.pmhq.uploadForward(this.peer.peerUid, this.peer.chatType === ChatType.Group, innerRaw.multiMsgItems)
+        const resid = await this.ctx.pmhq.uploadForward(this.peer.peerUid, this.peer.chatType === ChatType.Group, innerRaw.multiMsgItems)
         this.deleteAfterSentFiles.push(...innerEncoder.deleteAfterSentFiles)
         this.children.push(this.packForwardMessage(resid, innerRaw.uuid, innerRaw))
       }

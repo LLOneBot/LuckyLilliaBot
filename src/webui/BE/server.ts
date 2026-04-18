@@ -3,7 +3,6 @@ import { Config, WebUIConfig } from '@/common/types'
 import { Context, Service } from 'cordis'
 import { TEMP_DIR } from '@/common/globalVars'
 import { getAvailablePort } from '@/common/utils/port'
-import { pmhq } from '@/ntqqapi/native/pmhq'
 import { ChatType, RawMessage, FriendRequest } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
 import { existsSync, mkdirSync } from 'node:fs'
@@ -24,6 +23,7 @@ import { Hono } from 'hono'
 import { SSEStreamingApi } from 'hono/streaming'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { serve, ServerType } from '@hono/node-server'
+import { noop } from 'cosmokit'
 
 // 静态文件服务，指向前端dist目录
 let feDistPath = path.resolve(import.meta.dirname, 'webui/')
@@ -34,49 +34,41 @@ if (!import.meta.env) {
 
 declare module 'cordis' {
   interface Context {
-    webuiServer: WebUIServer
+    webuiServer: WebuiServer
   }
 }
 
-export interface WebUIServerConfig extends WebUIConfig {
+export interface WebuiServerConfig extends WebUIConfig {
 }
 
-export class WebUIServer extends Service {
+export class WebuiServer extends Service {
+  static inject = {
+    ntLoginApi: true,
+    ntFriendApi: true,
+    ntGroupApi: true,
+    ntSystemApi: true,
+    ntMsgApi: true,
+    ntUserApi: true,
+    ntFileApi: true,
+    emailNotification: false,
+    logger: true,
+    pmhq: true
+  }
+
   private server: ServerType | null = null
   private app: Hono = new Hono()
   private currentPort?: number
   public port?: number = undefined
   private sseClients: Set<SSEStreamingApi> = new Set()
   private uploadDir: string
-  static inject = {
-    ntLoginApi: {
-      required: true
-    },
-    ntFriendApi: {
-      required: true
-    },
-    ntGroupApi: {
-      required: true
-    },
-    ntSystemApi: {
-      required: true
-    },
-    ntMsgApi: {
-      required: true
-    },
-    ntUserApi: {
-      required: true
-    },
-    ntFileApi: {
-      required: true
-    },
-    emailNotification: {
-      required: false
-    }
+
+  async [Service.init]() {
+    await this.start()
+    return noop
   }
 
-  constructor(ctx: Context, public config: WebUIServerConfig) {
-    super(ctx, 'webuiServer', true)
+  constructor(ctx: Context, public config: WebuiServerConfig) {
+    super(ctx, 'webuiServer')
     this.uploadDir = path.join(TEMP_DIR, 'webqq-uploads')
     if (!existsSync(this.uploadDir)) {
       mkdirSync(this.uploadDir, { recursive: true })
@@ -267,7 +259,7 @@ export class WebUIServer extends Service {
   }
 
   private setupEmojiReactionListener() {
-    pmhq.addResListener(async data => {
+    this.ctx.pmhq.addResListener(async data => {
       if (this.sseClients.size === 0) return
       if (data.type !== 'recv' || data.data.cmd !== 'trpc.msg.olpush.OlPushService.MsgPush') return
 
@@ -369,7 +361,7 @@ export class WebUIServer extends Service {
       return
     }
     this.port = await this.startServer()
-    pmhq.tellPort(this.port).catch((err: Error) => {
+    this.ctx.pmhq.tellPort(this.port).catch((err: Error) => {
       this.ctx.logger.error('记录 WebUI 端口失败:', err)
     })
   }
@@ -379,7 +371,7 @@ export class WebUIServer extends Service {
       return
     }
     this.port = await this.startServer(forcePort)
-    pmhq.tellPort(this.port).catch((err: Error) => {
+    this.ctx.pmhq.tellPort(this.port).catch((err: Error) => {
       this.ctx.logger.error('记录 WebUI 端口失败:', err)
     })
   }

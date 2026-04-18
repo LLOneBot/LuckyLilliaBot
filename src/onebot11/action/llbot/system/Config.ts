@@ -1,13 +1,12 @@
 import { BaseAction, Schema } from '../../BaseAction'
 import { Config } from '@/common/types'
 import { ActionName } from '../../types'
-import { getConfigUtil } from '@/common/config'
 
 export class GetConfigAction extends BaseAction<{}, Config> {
   actionName = ActionName.GetConfig
 
   protected async _handle(): Promise<Config> {
-    return getConfigUtil().getConfig()
+    return this.ctx.config.get()
   }
 }
 
@@ -30,7 +29,7 @@ export class SetConfigAction extends BaseAction<Config, null> {
   })
 
   protected async _handle(payload: Config) {
-    getConfigUtil().setConfig(payload)
+    this.ctx.config.set(payload)
     await this.ctx.parallel('llob/config-updated', payload)
     return null
   }

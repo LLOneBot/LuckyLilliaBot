@@ -1,4 +1,4 @@
-import { Context, Service } from 'cordis'
+import { Context, Inject, Service } from 'cordis'
 import { EmailService, BotInfo } from './emailService.js'
 import { EmailConfigManager } from './emailConfig.js'
 import { KickedOffLineInfo } from '@/ntqqapi/types/index.js'
@@ -6,7 +6,6 @@ import { selfInfo } from '@/common/globalVars.js'
 import { DATA_DIR } from '@/common/globalVars.js'
 import { watch } from 'node:fs'
 import path from 'node:path'
-import { pmhq } from '@/ntqqapi/native/pmhq/index.js'
 
 declare module 'cordis' {
   interface Context {
@@ -15,8 +14,8 @@ declare module 'cordis' {
 }
 
 export class EmailNotificationService extends Service {
-  static inject = ['logger']
-  
+  static inject = ['logger', 'pmhq']
+
   private emailService: EmailService
   private configManager: EmailConfigManager
   private notificationSent: boolean = false
@@ -24,9 +23,10 @@ export class EmailNotificationService extends Service {
   private configPath: string
   private fileWatcher: ReturnType<typeof watch> | null = null
   private pmhqDisconnectId: string | null = null
+  private checkLoginStatus: NodeJS.Timeout | null = null
 
   constructor(ctx: Context) {
-    super(ctx, 'emailNotification', true)
+    super(ctx, 'emailNotification')
 
     this.configPath = path.join(DATA_DIR, 'email_config.json')
     this.configManager = new EmailConfigManager(this.configPath, ctx.logger)
@@ -35,6 +35,20 @@ export class EmailNotificationService extends Service {
     this.initializeConfig()
     this.registerEventListeners()
     this.registerPmhqDisconnectCallback()
+  }
+
+  async [Service.init]() {
+    return () => {
+      if (this.checkLoginStatus) {
+        clearInterval(this.checkLoginStatus)
+      }
+      if (this.fileWatcher) {
+        this.fileWatcher.close()
+      }
+      if (this.pmhqDisconnectId) {
+        this.ctx.pmhq.offDisconnect(this.pmhqDisconnectId)
+      }
+    }
   }
 
   private async initializeConfig() {
@@ -56,22 +70,12 @@ export class EmailNotificationService extends Service {
       this.onOffline(info.tipsDesc || info.tipsTitle)
     })
 
-    const checkLoginStatus = setInterval(() => {
+    this.checkLoginStatus = setInterval(() => {
       if (wasOffline && selfInfo.online) {
         this.notificationSent = false
         wasOffline = false
       }
     }, 5000)
-
-    this.ctx.on('dispose', () => {
-      clearInterval(checkLoginStatus)
-      if (this.fileWatcher) {
-        this.fileWatcher.close()
-      }
-      if (this.pmhqDisconnectId) {
-        pmhq.offDisconnect(this.pmhqDisconnectId)
-      }
-    })
   }
 
   private watchConfigFile() {
@@ -88,7 +92,7 @@ export class EmailNotificationService extends Service {
   }
 
   private registerPmhqDisconnectCallback() {
-    this.pmhqDisconnectId = pmhq.onDisconnect(10000, (duration) => {
+    this.pmhqDisconnectId = this.ctx.pmhq.onDisconnect(10000, (duration) => {
       if (!this.notificationSent && this.hasLoggedIn) {
         this.ctx.logger.warn(`[EmailNotification] PMHQ disconnected for ${duration}ms`)
         this.onOffline('可能 QQ 已经有点死了')

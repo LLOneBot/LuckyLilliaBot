@@ -20,7 +20,7 @@ export class SendPB extends BaseAction<Payload, PBData> {
 
   async _handle(payload: Payload) {
     try {
-      const result = await this.ctx.app.pmhq.sendPB(payload.cmd, payload.hex)
+      const result = await this.ctx.pmhq.sendPB(payload.cmd, payload.hex)
       return {
         cmd: result.cmd,
         hex: result.pb,

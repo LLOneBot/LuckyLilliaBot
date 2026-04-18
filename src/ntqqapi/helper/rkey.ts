@@ -36,7 +36,7 @@ export class RkeyManager {
 
   async refreshRkey() {
     try {
-      const { privateRKey, groupRKey, expiredTime } = await this.ctx.get('app')!.pmhq.getRKey()
+      const { privateRKey, groupRKey, expiredTime } = await this.ctx.pmhq.getRKey()
       this.rkeyData = {
         private_rkey: privateRKey,
         group_rkey: groupRKey,

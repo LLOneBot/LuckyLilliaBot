@@ -1,5 +1,5 @@
 import * as NT from '@/ntqqapi/types'
-import { omit } from 'cosmokit'
+import { noop, omit } from 'cosmokit'
 import { Event, Login } from '@satorijs/protocol'
 import { Service, Context } from 'cordis'
 import { SatoriConfig } from '@/common/types'
@@ -25,7 +25,8 @@ class SatoriAdapter extends Service {
   static inject = [
     'ntMsgApi', 'ntFileApi', 'ntFileCacheApi',
     'ntFriendApi', 'ntGroupApi', 'ntUserApi',
-    'ntWebApi', 'store', 'app'
+    'ntWebApi', 'store', 'app', 'logger',
+    'pmhq'
   ]
   private selfId: string
   private server: SatoriServer
@@ -34,11 +35,16 @@ class SatoriAdapter extends Service {
   private listenedEvent = false
 
   constructor(public ctx: Context, public config: SatoriAdapter.Config) {
-    super(ctx, 'satori', true)
+    super(ctx, 'satori')
     this.selfId = selfInfo.uin
     this.server = new SatoriServer(ctx, config)
     this._eventSeq = 0
     this._loginSeq = 1
+  }
+
+  async [Service.init]() {
+    this.start()
+    return noop
   }
 
   async handleMessage(input: NT.RawMessage) {
@@ -185,7 +191,7 @@ class SatoriAdapter extends Service {
       }
     })
 
-    this.ctx.app.pmhq.addResListener(async data => {
+    this.ctx.pmhq.addResListener(async data => {
       if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
         const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
         if (!pushMsg.message.body) {

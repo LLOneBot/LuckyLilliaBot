@@ -9,6 +9,7 @@ import { OB11HeartbeatEvent } from '../event/meta/OB11HeartbeatEvent'
 import { Dict } from 'cosmokit'
 import { HttpConnectConfig, HttpPostConnectConfig } from '@/common/types'
 import { OB11Message } from '../types'
+import { matchEventFilter } from '../eventfilter'
 import { postHttpEvent } from '../helper/eventForHttp'
 import { Hono, Context as HonoContext, Next } from 'hono'
 import { cors } from 'hono/cors'
@@ -84,6 +85,7 @@ class OB11Http {
   }
 
   public async emitEvent(event: OB11BaseEvent) {
+    if (!matchEventFilter(this.config.filter, event)) return
     postHttpEvent(event)
     if (!this.activated) return
     if (this.sseClients.size === 0) {
@@ -205,6 +207,7 @@ class OB11HttpPost {
   }
 
   public async emitEvent(event: OB11BaseEvent) {
+    if (!matchEventFilter(this.config.filter, event)) return
     if (!this.activated || !this.config.url) {
       return
     }

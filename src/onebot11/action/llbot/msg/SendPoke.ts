@@ -17,9 +17,9 @@ export class SendPoke extends BaseAction<Payload, null> {
 
   async _handle(payload: Payload) {
     if (payload.group_id) {
-      await this.ctx.app.pmhq.sendGroupPoke(+payload.group_id, +payload.user_id)
+      await this.ctx.pmhq.sendGroupPoke(+payload.group_id, +payload.user_id)
     } else {
-      await this.ctx.app.pmhq.sendFriendPoke(+payload.user_id, payload.target_id ? +payload.target_id : +payload.user_id)
+      await this.ctx.pmhq.sendFriendPoke(+payload.user_id, payload.target_id ? +payload.target_id : +payload.user_id)
     }
     return null
   }

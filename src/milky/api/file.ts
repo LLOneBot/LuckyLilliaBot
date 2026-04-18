@@ -68,7 +68,7 @@ const GetPrivateFileDownloadUrl = defineApi(
   GetPrivateFileDownloadUrlInput,
   GetPrivateFileDownloadUrlOutput,
   async (ctx, payload) => {
-    const { state, url } = await ctx.app.pmhq.getPrivateFileUrl(
+    const { state, url } = await ctx.pmhq.getPrivateFileUrl(
       selfInfo.uid,
       payload.file_id
     )
@@ -85,7 +85,7 @@ const GetGroupFileDownloadUrl = defineApi(
   GetGroupFileDownloadUrlOutput,
   async (ctx, payload) => {
     // Use pmhq API to get group file download URL
-    const { clientWording, url } = await ctx.app.pmhq.getGroupFileUrl(
+    const { clientWording, url } = await ctx.pmhq.getGroupFileUrl(
       Number(payload.group_id),
       payload.file_id
     )
@@ -106,7 +106,7 @@ const GetGroupFiles = defineApi(
 
     let nextIndex: number | undefined
     while (nextIndex !== 0) {
-      const data = await ctx.app.pmhq.getGroupFileList(payload.group_id, payload.parent_folder_id, nextIndex ?? 0, 100)
+      const data = await ctx.pmhq.getGroupFileList(payload.group_id, payload.parent_folder_id, nextIndex ?? 0, 100)
       if (data.listResp.retCode !== 0) {
         if (data.listResp.retCode === -3) {
           throw new Error('你没有加入该群聊')

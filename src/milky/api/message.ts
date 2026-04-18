@@ -305,7 +305,7 @@ const GetForwardedMessages = defineApi(
   GetForwardedMessagesInput,
   GetForwardedMessagesOutput,
   async (ctx, payload) => {
-    const result = await ctx.app.pmhq.getMultiMsg(payload.forward_id)
+    const result = await ctx.pmhq.getMultiMsg(payload.forward_id)
     return Ok({
       messages: await Promise.all(
         result[0].buffer.msg.map(async e => await transformIncomingForwardedMessage(ctx, e))

@@ -11,6 +11,7 @@ import { selfInfo } from '@/common/globalVars'
 import { OB11BaseEvent } from '../event/OB11BaseEvent'
 import { version } from '../../version'
 import { WsConnectConfig, WsReverseConnectConfig } from '@/common/types'
+import { matchEventFilter } from '../eventfilter'
 import { constants } from 'node:buffer'
 
 class OB11WebSocket {
@@ -71,6 +72,7 @@ class OB11WebSocket {
   }
 
   public async emitEvent(event: OB11BaseEvent) {
+    if (!matchEventFilter(this.config.filter, event)) return
     if (!this.activated) return
     this.wsClients.forEach(({ socket, emitEvent }) => {
       if (emitEvent && socket.readyState === WebSocket.OPEN) {
@@ -178,7 +180,9 @@ class OB11WebSocket {
       }
 
       const disposeHeartBeat = this.ctx.setInterval(() => {
-        this.reply(socket, new OB11HeartbeatEvent(selfInfo.online!, true, this.config.heartInterval))
+        const event = new OB11HeartbeatEvent(selfInfo.online!, true, this.config.heartInterval)
+        if (!matchEventFilter(this.config.filter, event)) return
+        this.reply(socket, event)
       }, this.config.heartInterval)
 
       socket.on('close', () => {
@@ -229,6 +233,7 @@ class OB11WebSocketReverse {
   }
 
   public async emitEvent(event: OB11BaseEvent) {
+    if (!matchEventFilter(this.config.filter, event)) return
     if (!this.activated) return
     if (this.wsClient && this.wsClient.readyState === WebSocket.OPEN) {
       this.wsClient.send(JSON.stringify(event))
@@ -331,7 +336,9 @@ class OB11WebSocketReverse {
 
     const disposeHeartBeat = this.ctx.setInterval(() => {
       if (this.wsClient) {
-        this.reply(this.wsClient, new OB11HeartbeatEvent(selfInfo.online!, true, this.config.heartInterval))
+        const event = new OB11HeartbeatEvent(selfInfo.online!, true, this.config.heartInterval)
+        if (!matchEventFilter(this.config.filter, event)) return
+        this.reply(this.wsClient, event)
       }
     }, this.config.heartInterval)
 

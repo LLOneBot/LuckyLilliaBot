@@ -27,7 +27,7 @@ export class GetGroupFilesByFolder extends BaseAction<Payload, Response> {
 
     let nextIndex: number | undefined
     while (nextIndex !== 0) {
-      const res = await this.ctx.app.pmhq.getGroupFileList(groupId, payload.folder_id, nextIndex ?? 0, 100)
+      const res = await this.ctx.pmhq.getGroupFileList(groupId, payload.folder_id, nextIndex ?? 0, 100)
       if (res.listResp.retCode !== 0) {
         if (res.listResp.retCode === -3) {
           throw new Error('你没有加入该群聊')

@@ -1,5 +1,4 @@
 import { Context } from 'cordis'
-import { pmhq } from '@/ntqqapi/native/pmhq'
 import { serializeResult } from '../../../BE/utils'
 import { Hono } from 'hono'
 
@@ -22,8 +21,7 @@ export function createNtCallRoutes(ctx: Context): Hono {
         return c.json({ success: false, message: `不支持的服务: ${service}` }, 400)
       }
 
-      // pmhq 是单例，不在 ctx 中
-      const serviceInstance = service === 'pmhq' ? pmhq : ctx.get(service)
+      const serviceInstance = ctx.get(service)
       if (!serviceInstance) {
         return c.json({ success: false, message: `服务 ${service} 未注入` }, 400)
       }

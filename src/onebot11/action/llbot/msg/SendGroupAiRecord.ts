@@ -22,7 +22,7 @@ export class SendGroupAiRecord extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload) {
-    await this.ctx.app.pmhq.getGroupGenerateAiRecord(+payload.group_id, payload.character, payload.text, +payload.chat_type)
+    await this.ctx.pmhq.getGroupGenerateAiRecord(+payload.group_id, payload.character, payload.text, +payload.chat_type)
     return { message_id: 0 }
   }
 }

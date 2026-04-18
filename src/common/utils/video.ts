@@ -1,6 +1,5 @@
 import ffmpeg from 'fluent-ffmpeg'
 import fs from 'node:fs'
-import { log } from './legacyLog'
 import { Context } from 'cordis'
 import path from 'node:path'
 import { TEMP_DIR } from '../globalVars'
@@ -37,28 +36,6 @@ export async function getVideoInfo(filePath: string) {
         })
       }
     })
-  })
-}
-
-export function checkFfmpeg(newPath?: string): Promise<boolean> {
-  return new Promise((resolve, reject) => {
-    log(`开始检查 FFmpeg ${newPath ?? ''}`)
-    if (newPath) {
-      ffmpeg.setFfmpegPath(newPath)
-    }
-    try {
-      ffmpeg.getAvailableFormats((err, formats) => {
-        if (err) {
-          log('FFmpeg is not installed or not found in PATH:', err)
-          resolve(false)
-        } else {
-          log('FFmpeg is installed.')
-          resolve(true)
-        }
-      })
-    } catch (e) {
-      resolve(false)
-    }
   })
 }
 

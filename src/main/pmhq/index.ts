@@ -20,7 +20,7 @@ export type {
 } from './types'
 
 
-type Constructor<T = object> = new (...args: unknown[]) => T
+type Constructor<T = object> = new (...args: any[]) => T
 
 type Mixin<TBase extends Constructor> = (Base: TBase) => Constructor
 
@@ -51,5 +51,9 @@ function applyMixins<TBase extends Constructor, TMixins extends readonly Mixin<a
  */
 const mixins = [GroupMixin, FriendMixin, MediaMixin, MessageMixin, UserMixin] as const
 export const PMHQ = applyMixins(PMHQBase, mixins)
-export type PMHQ = InstanceType<typeof PMHQ>
-export const pmhq = new PMHQ()
+
+declare module 'cordis' {
+  interface Context {
+    pmhq: InstanceType<typeof PMHQ>
+  }
+}

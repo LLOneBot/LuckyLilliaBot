@@ -1,4 +1,4 @@
-import { invoke, NTMethod } from '../ntcall'
+import { NTMethod } from '../ntcall'
 import { ChatType, ElementType, MessageElement, Peer, RawMessage, SendMessageElement } from '../types'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -11,14 +11,14 @@ declare module 'cordis' {
 }
 
 export class NTQQMsgApi extends Service {
-  static inject = ['ntUserApi']
+  static inject = ['ntUserApi', 'logger', 'pmhq']
 
   constructor(protected ctx: Context) {
-    super(ctx, 'ntMsgApi', true)
+    super(ctx, 'ntMsgApi')
   }
 
   async getTempChatInfo(chatType: ChatType, peerUid: string) {
-    return await invoke('nodeIKernelMsgService/getTempChatInfo', [chatType, peerUid])
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/getTempChatInfo', [chatType, peerUid])
   }
 
   private getEmojiIdType(emojiId: string) {
@@ -30,37 +30,37 @@ export class NTQQMsgApi extends Service {
     // nt_qq/global/nt_data/Emoji/emoji-resource/sysface_res/apng/ 下可以看到所有QQ表情预览
     // nt_qq/global/nt_data/Emoji/emoji-resource/face_config.json 里面有所有表情的id, 自带表情id是QSid, 标准emoji表情id是QCid
     // 其实以官方文档为准是最好的，https://bot.q.qq.com/wiki/develop/api-v2/openapi/emoji/model.html#EmojiType
-    return await invoke(NTMethod.EMOJI_LIKE, [peer, msgSeq, emojiId, emojiType ?? this.getEmojiIdType(emojiId), setEmoji])
+    return await this.ctx.pmhq.invoke(NTMethod.EMOJI_LIKE, [peer, msgSeq, emojiId, emojiType ?? this.getEmojiIdType(emojiId), setEmoji])
   }
 
   async getMultiMsg(peer: Peer, rootMsgId: string, parentMsgId: string) {
-    return await invoke(NTMethod.GET_MULTI_MSG, [peer, rootMsgId, parentMsgId])
+    return await this.ctx.pmhq.invoke(NTMethod.GET_MULTI_MSG, [peer, rootMsgId, parentMsgId])
   }
 
   async activateChat(peer: Peer) {
-    return await invoke(NTMethod.ACTIVE_CHAT_PREVIEW, [peer, 0])
+    return await this.ctx.pmhq.invoke(NTMethod.ACTIVE_CHAT_PREVIEW, [peer, 0])
   }
 
   async activateChatAndGetHistory(peer: Peer, cnt: number) {
     // 消息从旧到新
-    return await invoke(NTMethod.ACTIVE_CHAT_HISTORY, [peer, cnt, '0', true])
+    return await this.ctx.pmhq.invoke(NTMethod.ACTIVE_CHAT_HISTORY, [peer, cnt, '0', true])
   }
 
   async getAioFirstViewLatestMsgs(peer: Peer, cnt: number) {
-    return await invoke('nodeIKernelMsgService/getAioFirstViewLatestMsgs', [peer, cnt])
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/getAioFirstViewLatestMsgs', [peer, cnt])
   }
 
   async getMsgsByMsgId(peer: Peer, msgIds: string[]) {
-    return await invoke('nodeIKernelMsgService/getMsgsByMsgId', [peer, msgIds])
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/getMsgsByMsgId', [peer, msgIds])
   }
 
   async getMsgHistory(peer: Peer, msgId: string, cnt: number, queryOrder = false) {
     // 默认情况下消息时间从新到旧
-    return await invoke(NTMethod.HISTORY_MSG, [peer, msgId, cnt, queryOrder])
+    return await this.ctx.pmhq.invoke(NTMethod.HISTORY_MSG, [peer, msgId, cnt, queryOrder])
   }
 
   async recallMsg(peer: Peer, msgIds: string[]) {
-    return await invoke(NTMethod.RECALL_MSG, [peer, msgIds])
+    return await this.ctx.pmhq.invoke(NTMethod.RECALL_MSG, [peer, msgIds])
   }
 
   async sendMsg(peer: Peer, msgElements: SendMessageElement[]) {
@@ -97,7 +97,7 @@ export class NTQQMsgApi extends Service {
     })
 
     let sentMsgId: string
-    const data = await invoke(
+    const data = await this.ctx.pmhq.invoke(
       'nodeIKernelMsgService/sendMsg',
       [
         '0',
@@ -127,7 +127,7 @@ export class NTQQMsgApi extends Service {
     const uniqueId = await this.generateMsgUniqueId(destPeer.chatType)
     destPeer.guildId = uniqueId
     const msgAttributeInfos = new Map()
-    const data = await invoke(
+    const data = await this.ctx.pmhq.invoke(
       'nodeIKernelMsgService/forwardMsgWithComment',
       [
         msgIds,
@@ -154,7 +154,7 @@ export class NTQQMsgApi extends Service {
   }
 
   async forwardMultiMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
-    const data = await invoke(
+    const data = await this.ctx.pmhq.invoke(
       'nodeIKernelMsgService/forwardMsgWithComment',
       [
         msgIds,
@@ -210,7 +210,7 @@ export class NTQQMsgApi extends Service {
       return { msgId: id, senderShowName }
     })
     const msgAttributeInfos = new Map()
-    const data = await invoke(
+    const data = await this.ctx.pmhq.invoke(
       'nodeIKernelMsgService/multiForwardMsgWithComment',
       [
         msgInfos,
@@ -260,11 +260,11 @@ export class NTQQMsgApi extends Service {
   }
 
   async getSingleMsg(peer: Peer, msgSeq: string) {
-    return await invoke('nodeIKernelMsgService/getSingleMsg', [peer, msgSeq])
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/getSingleMsg', [peer, msgSeq])
   }
 
   async queryFirstMsgBySeq(peer: Peer, msgSeq: string) {
-    return await invoke('nodeIKernelMsgService/queryMsgsWithFilterEx', [
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/queryMsgsWithFilterEx', [
       '0', // msgId
       '0', // msgTime
       msgSeq,
@@ -282,7 +282,7 @@ export class NTQQMsgApi extends Service {
   }
 
   async queryMsgsWithFilterExBySeq(peer: Peer, msgSeq: string, filterMsgTime: string, filterSendersUid: string[]) {
-    return await invoke('nodeIKernelMsgService/queryMsgsWithFilterEx', [
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/queryMsgsWithFilterEx', [
       '0',
       '0',
       msgSeq,
@@ -300,11 +300,11 @@ export class NTQQMsgApi extends Service {
   }
 
   async setMsgRead(peer: Peer) {
-    return await invoke('nodeIKernelMsgService/setMsgRead', [peer])
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/setMsgRead', [peer])
   }
 
   async getMsgEmojiLikesList(peer: Peer, msgSeq: string, emojiId: string, count: number) {
-    return await invoke('nodeIKernelMsgService/getMsgEmojiLikesList', [
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/getMsgEmojiLikesList', [
       peer,
       msgSeq,
       emojiId,
@@ -316,7 +316,7 @@ export class NTQQMsgApi extends Service {
   }
 
   async fetchFavEmojiList(count: number) {
-    return await invoke('nodeIKernelMsgService/fetchFavEmojiList', [
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/fetchFavEmojiList', [
       '', // resId
       count,
       true, // backwardFetch
@@ -326,12 +326,12 @@ export class NTQQMsgApi extends Service {
 
   async generateMsgUniqueId(chatType: number) {
     const time = await this.getServerTime()
-    return await invoke('nodeIKernelMsgService/generateMsgUniqueId', [chatType, time])
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/generateMsgUniqueId', [chatType, time])
   }
 
   async queryMsgsById(chatType: ChatType, msgId: string) {
     const msgTime = this.getMsgTimeFromId(msgId)
-    return await invoke('nodeIKernelMsgService/queryMsgsWithFilterEx', [
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/queryMsgsWithFilterEx', [
       msgId,
       '0',
       '0',
@@ -355,12 +355,12 @@ export class NTQQMsgApi extends Service {
   }
 
   async getServerTime() {
-    return await invoke('nodeIKernelMSFService/getServerTime', [])
+    return await this.ctx.pmhq.invoke('nodeIKernelMSFService/getServerTime', [])
   }
 
   async getMsgsBySeqAndCount(peer: Peer, msgSeq: string, cnt: number, queryOrder: boolean, includeDeleteMsg: boolean) {
     try {
-      return await invoke('nodeIKernelMsgService/getMsgsBySeqAndCount', [
+      return await this.ctx.pmhq.invoke('nodeIKernelMsgService/getMsgsBySeqAndCount', [
         peer,
         msgSeq,
         cnt,
@@ -378,11 +378,11 @@ export class NTQQMsgApi extends Service {
 
   async getSourceOfReplyMsgByClientSeqAndTime(peer: Peer, clientSeq: string, msgTime: string, sourceMsgIdInRecords: string) {
     // sourceMsgIdInRecord
-    return await invoke('nodeIKernelMsgService/getSourceOfReplyMsgByClientSeqAndTime', [peer, clientSeq, msgTime, sourceMsgIdInRecords])
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/getSourceOfReplyMsgByClientSeqAndTime', [peer, clientSeq, msgTime, sourceMsgIdInRecords])
   }
 
   async translatePtt2Text(msgId: string, peer: Peer, voiceMsgElement: MessageElement) {
-    const res = await invoke('nodeIKernelMsgService/translatePtt2Text', [msgId, peer, voiceMsgElement],
+    const res = await this.ctx.pmhq.invoke('nodeIKernelMsgService/translatePtt2Text', [msgId, peer, voiceMsgElement],
       {
         resultCmd: ReceiveCmdS.UPDATE_MSG,
         resultCb: (msgList: RawMessage[]) => {
@@ -401,7 +401,7 @@ export class NTQQMsgApi extends Service {
   }
 
   async fetchGetHitEmotionsByWord(word: string, count: number) {
-    return await invoke('nodeIKernelMsgService/fetchGetHitEmotionsByWord', [{
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/fetchGetHitEmotionsByWord', [{
       word,
       uid: selfInfo.uid,
       count,
@@ -422,7 +422,7 @@ export class NTQQMsgApi extends Service {
     const fileBuffer = fs.readFileSync(emojiPath)
     const md5 = crypto.createHash('md5').update(fileBuffer).digest('hex')
 
-    return await invoke('nodeIKernelMsgService/addFavEmoji', [{
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/addFavEmoji', [{
       isMarkFace: false,
       emojiPath,
       fileSize,
@@ -435,10 +435,10 @@ export class NTQQMsgApi extends Service {
   }
 
   async deleteFavEmoji(emojiIds: string[]) {
-    return await invoke('nodeIKernelMsgService/deleteFavEmoji', [emojiIds])
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/deleteFavEmoji', [emojiIds])
   }
 
   async setContactLocalTop(peer: Peer, isTop: boolean) {
-    return await invoke('nodeIKernelMsgService/setContactLocalTop', [peer, isTop])
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/setContactLocalTop', [peer, isTop])
   }
 }

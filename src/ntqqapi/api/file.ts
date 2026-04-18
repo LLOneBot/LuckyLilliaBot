@@ -1,4 +1,4 @@
-import { invoke, NTMethod } from '../ntcall'
+import { NTMethod } from '../ntcall'
 import { GeneralCallResult } from '../services'
 import {
   CacheFileList,
@@ -34,32 +34,34 @@ declare module 'cordis' {
 }
 
 export class NTQQFileApi extends Service {
+  static inject = ['logger', 'pmhq']
+
   rkeyManager: RkeyManager
 
   constructor(protected ctx: Context) {
-    super(ctx, 'ntFileApi', true)
+    super(ctx, 'ntFileApi')
     this.rkeyManager = new RkeyManager(ctx, 'https://llob.linyuchen.net/rkey')
   }
 
   async getVideoUrlByPacket(fileUuid: string, isGroup: boolean) {
     if (isGroup) {
-      return await this.ctx.get('app')!.pmhq.getGroupVideoUrl(fileUuid)
+      return await this.ctx.pmhq.getGroupVideoUrl(fileUuid)
     } else {
-      return await this.ctx.get('app')!.pmhq.getPrivateVideoUrl(fileUuid)
+      return await this.ctx.pmhq.getPrivateVideoUrl(fileUuid)
     }
   }
 
   async getPttUrl(fileUuid: string, isGroup: boolean) {
     if (isGroup) {
-      return await this.ctx.get('app')!.pmhq.getGroupPttUrl(fileUuid)
+      return await this.ctx.pmhq.getGroupPttUrl(fileUuid)
     } else {
-      return await this.ctx.get('app')!.pmhq.getPrivatePttUrl(fileUuid)
+      return await this.ctx.pmhq.getPrivatePttUrl(fileUuid)
     }
   }
 
   async getVideoUrl(peer: Peer, msgId: string, elementId: string) {
     try {
-      const data = await invoke('nodeIKernelRichMediaService/getVideoPlayUrlV2', [
+      const data = await this.ctx.pmhq.invoke('nodeIKernelRichMediaService/getVideoPlayUrlV2', [
         peer,
         msgId,
         elementId,
@@ -84,7 +86,7 @@ export class NTQQFileApi extends Service {
   }
 
   async getRichMediaFilePath(md5HexStr: string, fileName: string, elementType: ElementType, elementSubType = 0) {
-    return await invoke(NTMethod.MEDIA_FILE_PATH, [
+    return await this.ctx.pmhq.invoke(NTMethod.MEDIA_FILE_PATH, [
       {
         md5HexStr,
         fileName,
@@ -133,7 +135,7 @@ export class NTQQFileApi extends Service {
         return sourcePath
       }
     }
-    const data = await invoke<RichMediaDownloadCompleteNotify>(
+    const data = await this.ctx.pmhq.invoke<RichMediaDownloadCompleteNotify>(
       'nodeIKernelMsgService/downloadRichMedia',
       [{
         fileModelId: '0',
@@ -194,7 +196,7 @@ export class NTQQFileApi extends Service {
   }
 
   async downloadFileForModelId(peer: Peer, fileModelId: string, timeout = 2 * Time.minute) {
-    const data = await invoke<RichMediaDownloadCompleteNotify>(
+    const data = await this.ctx.pmhq.invoke<RichMediaDownloadCompleteNotify>(
       'nodeIKernelRichMediaService/downloadFileForModelId',
       [
         peer,
@@ -211,7 +213,7 @@ export class NTQQFileApi extends Service {
   }
 
   async ocrImage(path: string) {
-    return await invoke(
+    return await this.ctx.pmhq.invoke(
       'nodeIKernelNodeMiscService/wantWinScreenOCR',
       [
         path,
@@ -223,7 +225,7 @@ export class NTQQFileApi extends Service {
   }
 
   async uploadRMFileWithoutMsg(filePath: string, bizType: RMBizType, peerUid: string) {
-    const data = await invoke<RichMediaUploadCompleteNotify>(
+    const data = await this.ctx.pmhq.invoke<RichMediaUploadCompleteNotify>(
       'nodeIKernelRichMediaService/uploadRMFileWithoutMsg',
       [
         {
@@ -243,7 +245,7 @@ export class NTQQFileApi extends Service {
   }
 
   async uploadFlashFile(title: string, filePaths: string[]) {
-    return await invoke('nodeIKernelFlashTransferService/createFlashTransferUploadTask',
+    return await this.ctx.pmhq.invoke('nodeIKernelFlashTransferService/createFlashTransferUploadTask',
       [
         new Date().getTime(),
         {
@@ -276,7 +278,7 @@ export class NTQQFileApi extends Service {
   }
 
   async downloadFlashFile(fileSetId: string, sceneType: number = 1) {
-    return await invoke('nodeIKernelFlashTransferService/startFileSetDownload',
+    return await this.ctx.pmhq.invoke('nodeIKernelFlashTransferService/startFileSetDownload',
       [
         fileSetId,
         sceneType,
@@ -294,7 +296,7 @@ export class NTQQFileApi extends Service {
         return cachedList
       }
     }
-    const res = await invoke('nodeIKernelFlashTransferService/getFileList',
+    const res = await this.ctx.pmhq.invoke('nodeIKernelFlashTransferService/getFileList',
       [
         {
           seq: 0,
@@ -337,7 +339,7 @@ export class NTQQFileApi extends Service {
 
   async getFlashFileSetIdByCode(code: string) {
     // code 是 qfile.qq.com/q/ 后面的部分
-    return await invoke('nodeIKernelFlashTransferService/getFileSetIdByCode',
+    return await this.ctx.pmhq.invoke('nodeIKernelFlashTransferService/getFileSetIdByCode',
       [code],
     )
   }
@@ -351,7 +353,7 @@ export class NTQQFileApi extends Service {
         return cachedInfo
       }
     }
-    const res = await invoke('nodeIKernelFlashTransferService/getFileSet',
+    const res = await this.ctx.pmhq.invoke('nodeIKernelFlashTransferService/getFileSet',
       [
         { seq: 0, fileSetId, isUseCache: false, isNoReqSvr: false, sceneType: 1 },
       ])
@@ -369,7 +371,7 @@ export class NTQQFileApi extends Service {
   async reshareFlashFile(fileSetId: string) {
     const shareFiles = (await this.getFlashFileList(fileSetId)).flatMap(f => f.fileList)
     const fileNames = shareFiles.map(f => f.name)
-    return await invoke('nodeIKernelFlashTransferService/createMergeShareTask', [
+    return await this.ctx.pmhq.invoke('nodeIKernelFlashTransferService/createMergeShareTask', [
       new Date().getTime(),
       {
         fileSetId,
@@ -397,8 +399,8 @@ export class NTQQFileApi extends Service {
     ])
   }
   async uploadGroupVideo(groupCode: string, filePath: string, thumbPath: string) {
-    const result = await this.ctx.get('app')!.pmhq.getGroupVideoUploadInfo(groupCode, filePath, thumbPath)
-    const highwaySession = await this.ctx.get('app')!.pmhq.getHighwaySession()
+    const result = await this.ctx.pmhq.getGroupVideoUploadInfo(groupCode, filePath, thumbPath)
+    const highwaySession = await this.ctx.pmhq.getHighwaySession()
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
@@ -447,8 +449,8 @@ export class NTQQFileApi extends Service {
   }
 
   async uploadC2CVideo(peerUid: string, filePath: string, thumbPath: string) {
-    const result = await this.ctx.get('app')!.pmhq.getC2CVideoUploadInfo(peerUid, filePath, thumbPath)
-    const highwaySession = await this.ctx.get('app')!.pmhq.getHighwaySession()
+    const result = await this.ctx.pmhq.getC2CVideoUploadInfo(peerUid, filePath, thumbPath)
+    const highwaySession = await this.ctx.pmhq.getHighwaySession()
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
@@ -497,9 +499,9 @@ export class NTQQFileApi extends Service {
   }
 
   async uploadGroupFile(groupCode: string, filePath: string, fileName: string, parentFolderId = '/') {
-    const result = await this.ctx.get('app')!.pmhq.getGroupFileUploadInfo(groupCode, filePath, fileName, parentFolderId)
+    const result = await this.ctx.pmhq.getGroupFileUploadInfo(groupCode, filePath, fileName, parentFolderId)
     if (!result.fileExist) {
-      const highwaySession = await this.ctx.get('app')!.pmhq.getHighwaySession()
+      const highwaySession = await this.ctx.pmhq.getHighwaySession()
       const ext = Media.FileUploadExt.encode({
         unknown1: 100,
         unknown2: 1,
@@ -562,8 +564,8 @@ export class NTQQFileApi extends Service {
   }
 
   async uploadC2CFile(peerUid: string, filePath: string, fileName: string) {
-    const result = await this.ctx.get('app')!.pmhq.getC2CFileUploadInfo(peerUid, filePath, fileName)
-    const highwaySession = await this.ctx.get('app')!.pmhq.getHighwaySession()
+    const result = await this.ctx.pmhq.getC2CFileUploadInfo(peerUid, filePath, fileName)
+    const highwaySession = await this.ctx.pmhq.getHighwaySession()
     const ext = Media.FileUploadExt.encode({
       unknown1: 100,
       unknown2: 1,
@@ -628,12 +630,14 @@ export class NTQQFileApi extends Service {
 }
 
 export class NTQQFileCacheApi extends Service {
+  static inject = ['pmhq']
+
   constructor(protected ctx: Context) {
-    super(ctx, 'ntFileCacheApi', true)
+    super(ctx, 'ntFileCacheApi')
   }
 
   async setCacheSilentScan(isSilent: boolean = true) {
-    return await invoke<GeneralCallResult>(NTMethod.CACHE_SET_SILENCE, [{ isSilent }])
+    return await this.ctx.pmhq.invoke<GeneralCallResult>(NTMethod.CACHE_SET_SILENCE, [{ isSilent }])
   }
 
   getCacheSessionPathList() {
@@ -644,8 +648,8 @@ export class NTQQFileCacheApi extends Service {
   }
 
   scanCache() {
-    invoke<GeneralCallResult>(ReceiveCmdS.CACHE_SCAN_FINISH, [])
-    return invoke<CacheScanResult>(NTMethod.CACHE_SCAN, [], { timeout: 300 * Time.second })
+    this.ctx.pmhq.invoke<GeneralCallResult>(ReceiveCmdS.CACHE_SCAN_FINISH, [])
+    return this.ctx.pmhq.invoke<CacheScanResult>(NTMethod.CACHE_SCAN, [], { timeout: 300 * Time.second })
   }
 
   getHotUpdateCachePath() {
@@ -659,7 +663,7 @@ export class NTQQFileCacheApi extends Service {
   getFileCacheInfo(fileType: CacheFileType, pageSize: number = 1000, lastRecord?: CacheFileListItem) {
     const _lastRecord = lastRecord ? lastRecord : { fileType: fileType }
 
-    return invoke<CacheFileList>(NTMethod.CACHE_FILE_GET, [{
+    return this.ctx.pmhq.invoke<CacheFileList>(NTMethod.CACHE_FILE_GET, [{
       fileType: fileType,
       restart: true,
       pageSize: pageSize,
@@ -669,7 +673,7 @@ export class NTQQFileCacheApi extends Service {
   }
 
   async clearChatCache(chats: ChatCacheListItemBasic[] = [], fileKeys: string[] = []) {
-    return await invoke<GeneralCallResult>(NTMethod.CACHE_CHAT_CLEAR, [{
+    return await this.ctx.pmhq.invoke<GeneralCallResult>(NTMethod.CACHE_CHAT_CLEAR, [{
       chats,
       fileKeys,
     }])

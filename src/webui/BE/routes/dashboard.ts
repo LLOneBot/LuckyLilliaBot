@@ -1,5 +1,4 @@
 import { Context } from 'cordis'
-import { pmhq } from '@/ntqqapi/native/pmhq'
 import { Hono } from 'hono'
 
 export function createDashboardRoutes(ctx: Context): Hono {
@@ -16,7 +15,7 @@ export function createDashboardRoutes(ctx: Context): Hono {
       const groups = await ctx.ntGroupApi.getGroups(false)
 
       // 获取 QQ 进程资源
-      const qqInfo = await pmhq.getProcessInfo()
+      const qqInfo = await ctx.pmhq.getProcessInfo()
       const qqMemory = qqInfo?.memory?.rss || 0
       const qqCpu = qqInfo?.cpu?.percent || 0
       const qqTotalMem = qqInfo?.memory?.totalMem || 1

@@ -1,104 +1,113 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import JSON5 from 'json5'
-import { Config, WebUIConfig } from './types'
-import { DATA_DIR, selfInfo } from './globalVars'
-import { mergeNewProperties } from './utils/misc'
-import { defaultConfig } from '@/common/defaultConfig'
+import { Context, Service } from 'cordis'
+import { DATA_DIR, selfInfo } from '@/common/globalVars'
+import { defaultConfig } from './defaultConfig'
+import { Config as LLBotConfig, WebUIConfig } from '@/common/types'
 import { Dict } from 'cosmokit'
+import path from 'node:path'
+import fs from 'node:fs'
+import JSON5 from 'json5'
+import { mergeNewProperties } from '@/common/utils'
 
-export class ConfigUtil {
+declare module 'cordis' {
+  interface Context {
+    config: Config
+  }
+}
+
+export default class Config extends Service {
+  static inject = ['logger']
+
   private configPath: string | undefined
-  private config: Config | null = null
+  private config: LLBotConfig | null = null
   private watch = false
   private defaultConfigPath = path.join(import.meta.dirname, 'default_config.json')
+  private logger
 
-  constructor(configPath?: string) {
-    this.configPath = configPath
+  constructor(ctx: Context) {
+    super(ctx, 'config')
+    this.logger = ctx.logger('config')
   }
 
-  setConfigPath(configPath: string) {
-    this.configPath = configPath
-  }
-
-  listenChange(cb: (config: Config) => void) {
-    console.log('配置文件位于', this.configPath)
+  listenChange(cb: (config: LLBotConfig) => void) {
+    this.logger.info('配置文件位于', this.configPath)
 
     // 初始化时不写入文件，只加载配置
-    this.config = this.getConfig()
+    this.config = this.get()
     if (this.configPath) {
       fs.watchFile(this.configPath, { persistent: true, interval: 1000 }, () => {
         if (!this.watch) {
           return
         }
-        console.log('配置重載')
+        this.logger.info('配置重載')
         const c = this.reloadConfig()
         cb(c)
       })
-      setTimeout(()=>this.watch = true, 1500)
+      setTimeout(() => this.watch = true, 1500)
     }
   }
 
-  getConfig(cache = true) {
+  get(cache = true) {
     if (this.config && cache) {
       return this.config
     }
 
+    this.configPath = selfInfo.uin ? path.join(DATA_DIR, `config_${selfInfo.uin}.json`) : undefined
+
     return this.reloadConfig()
   }
 
-  getDefaultConfig(): Config {
+  private getDefaultConfig(): LLBotConfig {
     const _defaultConfig = { ...defaultConfig }
     const defaultConfigFromFile = fs.readFileSync(this.defaultConfigPath, 'utf-8')
     try {
-      const parsedDefaultConfig: Config = JSON5.parse(defaultConfigFromFile)
+      const parsedDefaultConfig: LLBotConfig = JSON5.parse(defaultConfigFromFile)
       Object.assign(_defaultConfig, parsedDefaultConfig)
     } catch (e) {
-      console.error('解析 default_config.json 错误', e)
+      this.logger.error('解析 default_config.json 错误', e)
     }
     return _defaultConfig
   }
 
-  reloadConfig(): Config {
+  private reloadConfig(): LLBotConfig {
     if (!this.configPath) {
       return this.getDefaultConfig()
     }
     if (!fs.existsSync(this.configPath)) {
       this.config = this.getDefaultConfig()
-      this.setConfig(this.config)
+      this.set(this.config)
       return this.config
     }
     else {
       const data = fs.readFileSync(this.configPath, 'utf-8')
-      let jsonData: Config = defaultConfig
+      let jsonData: LLBotConfig = defaultConfig
       try {
         jsonData = JSON5.parse(data)
-        console.info('配置加载成功')
+        this.logger.info('配置加载成功')
         jsonData = this.migrateConfig(jsonData)
         mergeNewProperties(defaultConfig, jsonData)
         jsonData.webui = this.migrateWebUIToken(jsonData.webui)
-        jsonData = this.cleanupConfig(defaultConfig, jsonData) as Config
+        jsonData = this.cleanupConfig(defaultConfig, jsonData) as LLBotConfig
         // 只在配置内容实际变化时才写入文件，避免触发 watchFile 导致无限重载
         const newData = JSON.stringify(jsonData, null, 2)
         if (newData !== data) {
-          this.setConfig(jsonData)
+          this.set(jsonData)
         }
         this.config = jsonData
         return this.config
       } catch (e) {
-        console.error(`${this.configPath} json 内容不合格`, e)
+        this.logger.error(`${this.configPath} json 内容不合格`, e)
         this.config = this.getDefaultConfig()
         return this.config
       }
     }
   }
 
-  setConfig(config: Config) {
+  set(config: LLBotConfig) {
     this.config = config
     this.writeConfig(config)
   }
 
-  writeConfig(config: Config) {
+  private writeConfig(config: LLBotConfig) {
     if (!this.configPath) {
       return
     }
@@ -158,7 +167,7 @@ export class ConfigUtil {
     return cleaned
   }
 
-  private migrateConfig(oldConfig: Dict): Config {
+  private migrateConfig(oldConfig: Dict): LLBotConfig {
     let migratedConfig = oldConfig
     if (oldConfig.musicSignUrl && oldConfig.musicSignUrl.includes('linyuchen')) {
       oldConfig.musicSignUrl = defaultConfig.musicSignUrl
@@ -243,27 +252,16 @@ export class ConfigUtil {
       delete migratedConfig.onlyLocalhost
     }
 
-    return migratedConfig as Config
+    return migratedConfig as LLBotConfig
   }
 
-  private migrateWebUIToken(oldWebuiConfig: WebUIConfig & {token?: string}) {
+  private migrateWebUIToken(oldWebuiConfig: WebUIConfig & { token?: string }) {
     if (oldWebuiConfig.token && !webuiTokenUtil.getToken()) {
       webuiTokenUtil.setToken(oldWebuiConfig.token)
       delete oldWebuiConfig['token']
     }
     return oldWebuiConfig
   }
-
-}
-
-let globalConfigUtil: ConfigUtil | null = null
-
-export function getConfigUtil(force = false) {
-  const configFilePath = selfInfo.uin ? path.join(DATA_DIR, `config_${selfInfo.uin}.json`) : undefined
-  if (!globalConfigUtil || force) {
-    globalConfigUtil = new ConfigUtil(configFilePath)
-  }
-  return globalConfigUtil
 }
 
 class WebUITokenUtil {

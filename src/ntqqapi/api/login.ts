@@ -1,5 +1,4 @@
 import { Context, Service } from 'cordis'
-import { invoke } from '@/ntqqapi/ntcall'
 import { ReceiveCmdS } from '@/ntqqapi/hook'
 
 declare module 'cordis' {
@@ -9,23 +8,23 @@ declare module 'cordis' {
 }
 
 export class NTLoginApi extends Service {
-  static inject = []
+  static inject = ['pmhq']
 
   constructor(protected ctx: Context) {
-    super(ctx, 'ntLoginApi', true)
+    super(ctx, 'ntLoginApi')
   }
 
   async getQuickLoginList(){
-    return await invoke('nodeIKernelLoginService/getLoginList', [])
+    return await this.ctx.pmhq.invoke('nodeIKernelLoginService/getLoginList', [])
   }
 
   async quickLoginWithUin(uin: string){
-    return await invoke('nodeIKernelLoginService/quickLoginWithUin', [uin], {
+    return await this.ctx.pmhq.invoke('nodeIKernelLoginService/quickLoginWithUin', [uin], {
     })
   }
 
   async getLoginQrCode(){
-    return await invoke('nodeIKernelLoginService/getQRCodePicture', [], {
+    return await this.ctx.pmhq.invoke('nodeIKernelLoginService/getQRCodePicture', [], {
       resultCmd: ReceiveCmdS.LOGIN_QR_CODE,
     })
   }

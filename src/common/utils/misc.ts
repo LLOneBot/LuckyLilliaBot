@@ -66,3 +66,7 @@ export function uint32ToIPV4Addr(value: number) {
     (value >> 24) & 0xFF
   ].join('.')
 }
+
+export function sleep(ms = 0) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms))
+}

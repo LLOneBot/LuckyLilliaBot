@@ -26,7 +26,7 @@ export class SetGroupSpecialTitle extends BaseAction<Payload, null> {
     if (self.role !== GroupMemberRole.Owner) {
       throw new Error(`不是群${groupCode}的群主，无法设置群头衔`)
     }
-    await this.ctx.app.pmhq.setSpecialTitle(+payload.group_id, uid, payload.special_title)
+    await this.ctx.pmhq.setSpecialTitle(+payload.group_id, uid, payload.special_title)
     return null
   }
 }

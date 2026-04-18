@@ -12,7 +12,7 @@ export class GetRKey extends BaseAction<{}, Response> {
   actionName = ActionName.GetRKey
 
   async _handle() {
-    const rkey = await this.ctx.app.pmhq.getRKey()
+    const rkey = await this.ctx.pmhq.getRKey()
     const now = new Date()
     const updatedTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
     return {

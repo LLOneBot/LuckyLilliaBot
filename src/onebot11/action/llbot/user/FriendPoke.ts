@@ -14,7 +14,7 @@ export class FriendPoke extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    await this.ctx.app.pmhq.sendFriendPoke(+payload.user_id, payload.target_id ? +payload.target_id : +payload.user_id)
+    await this.ctx.pmhq.sendFriendPoke(+payload.user_id, payload.target_id ? +payload.target_id : +payload.user_id)
     return null
   }
 }

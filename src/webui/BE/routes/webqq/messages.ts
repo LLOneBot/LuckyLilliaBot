@@ -3,7 +3,6 @@ import { ChatType, ElementType, RawMessage, SendMessageElement, SendPicElement }
 import { SendElement } from '@/ntqqapi/entities'
 import { serializeResult } from '../../../BE/utils'
 import { unlink } from 'node:fs/promises'
-import { pmhq } from '@/ntqqapi/native/pmhq'
 import { Msg, Media } from '@/ntqqapi/proto'
 import { inflateSync } from 'node:zlib'
 import { Hono } from 'hono'
@@ -200,7 +199,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
         return c.json({ success: false, message: '缺少 resId 参数' }, 400)
       }
 
-      const items = await pmhq.getMultiMsg(resId)
+      const items = await ctx.pmhq.getMultiMsg(resId)
       const messages = items[0]?.buffer?.msg || []
 
       const transformedMessages = await Promise.all(messages.map(async (msg) => {

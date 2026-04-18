@@ -24,6 +24,7 @@ import {
   transformTempMessageCreated,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
+import { noop } from 'cosmokit'
 
 declare module 'cordis' {
   interface Context {
@@ -32,7 +33,7 @@ declare module 'cordis' {
 }
 
 export class MilkyAdapter extends Service {
-  static inject = ['ntUserApi', 'ntFriendApi', 'ntGroupApi', 'ntMsgApi', 'ntFileApi', 'ntSystemApi', 'ntWebApi', 'app']
+  static inject = ['ntUserApi', 'ntFriendApi', 'ntGroupApi', 'ntMsgApi', 'ntFileApi', 'ntSystemApi', 'ntWebApi', 'app', 'logger', 'pmhq']
 
   readonly apiCollection!: MilkyApiCollection
   readonly httpHandler!: MilkyHttpHandler
@@ -40,7 +41,7 @@ export class MilkyAdapter extends Service {
   private listenedEvent = false
 
   constructor(ctx: Context, public config: MilkyAdapter.Config) {
-    super(ctx, 'milky', true)
+    super(ctx, 'milky')
 
     this.apiCollection = new MilkyApiCollection(ctx, [
       ...SystemApi,
@@ -54,8 +55,12 @@ export class MilkyAdapter extends Service {
     this.webhookHandler = new MilkyWebhookHandler(this, ctx, config.webhook)
   }
 
+  async [Service.init]() {
+    this.start()
+    return noop
+  }
 
-  async start() {
+  start() {
     this.ctx.on('llob/config-updated', (config) => {
       this.httpHandler.stop()
       this.webhookHandler.stop()
@@ -215,7 +220,7 @@ export class MilkyAdapter extends Service {
       })
     })
 
-    this.ctx.app.pmhq.addResListener(async (data) => {
+    this.ctx.pmhq.addResListener(async (data) => {
       if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
         const result = await transformOlpushEvent(this.ctx, Buffer.from(data.data.pb, 'hex'))
         if (result) {

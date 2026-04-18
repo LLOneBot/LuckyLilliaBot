@@ -1,5 +1,4 @@
 import { MiniProfile, ProfileBizType, SimpleInfo, UserDetailInfo, UserDetailSource } from '../types'
-import { invoke } from '../ntcall'
 import { HttpUtil } from '@/common/utils/request'
 import { Time } from 'cosmokit'
 import { Context, Service } from 'cordis'
@@ -13,14 +12,14 @@ declare module 'cordis' {
 }
 
 export class NTQQUserApi extends Service {
-  static inject = ['ntGroupApi']
+  static inject = ['ntGroupApi', 'logger', 'pmhq']
 
   constructor(protected ctx: Context) {
-    super(ctx, 'ntUserApi', true)
+    super(ctx, 'ntUserApi')
   }
 
   async setSelfAvatar(path: string) {
-    return await invoke(
+    return await this.ctx.pmhq.invoke(
       'nodeIKernelProfileService/setHeader',
       [path],
       {
@@ -32,13 +31,13 @@ export class NTQQUserApi extends Service {
   async getUidByUin(uin: string, groupCode?: string) {
     const funcs = [
       async () => {
-        return (await invoke('nodeIKernelUixConvertService/getUid', [[uin]])).uidInfo.get(uin)
+        return (await this.ctx.pmhq.invoke('nodeIKernelUixConvertService/getUid', [[uin]])).uidInfo.get(uin)
       },
       async () => {
-        return (await invoke('nodeIKernelGroupService/getUidByUins', [[uin]])).uids.get(uin)
+        return (await this.ctx.pmhq.invoke('nodeIKernelGroupService/getUidByUins', [[uin]])).uids.get(uin)
       },
       async () => {
-        return (await invoke('nodeIKernelProfileService/getUidByUin', ['FriendsServiceImpl', [uin]])).get(uin)
+        return (await this.ctx.pmhq.invoke('nodeIKernelProfileService/getUidByUin', ['FriendsServiceImpl', [uin]])).get(uin)
       },
       async () => {
         return (await this.getUserDetailInfoByUin(uin)).detail.uid
@@ -65,13 +64,13 @@ export class NTQQUserApi extends Service {
   }
 
   async getUserDetailInfoByUin(uin: string) {
-    return await invoke('nodeIKernelProfileService/getUserDetailInfoByUin', [uin])
+    return await this.ctx.pmhq.invoke('nodeIKernelProfileService/getUserDetailInfoByUin', [uin])
   }
 
   async getUinByUid(uid: string): Promise<string> {
     const funcs = [
       async () => {
-        return (await invoke('nodeIKernelUixConvertService/getUin', [[uid]])).uinInfo.get(uid)
+        return (await this.ctx.pmhq.invoke('nodeIKernelUixConvertService/getUin', [[uid]])).uinInfo.get(uid)
       },
       async () => {
         return (await this.fetchUserDetailInfo(uid)).detail.get(uid)?.uin
@@ -94,7 +93,7 @@ export class NTQQUserApi extends Service {
 
   // 这个会从服务器拉取，比较可靠
   async fetchUserDetailInfo(uid: string) {
-    return await invoke(
+    return await this.ctx.pmhq.invoke(
       'nodeIKernelProfileService/fetchUserDetailInfo',
       [
         'BuddyProfileStore', // callFrom
@@ -106,7 +105,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getUserDetailInfoWithBizInfo(uid: string) {
-    const result = await invoke<UserDetailInfo>(
+    const result = await this.ctx.pmhq.invoke<UserDetailInfo>(
       'nodeIKernelProfileService/getUserDetailInfoWithBizInfo',
       [
         uid,
@@ -121,7 +120,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getUserSimpleInfo(uid: string, force = true) {
-    const data = await invoke<Map<string, SimpleInfo>>(
+    const data = await this.ctx.pmhq.invoke<Map<string, SimpleInfo>>(
       'nodeIKernelProfileService/getUserSimpleInfo',
       [
         force,
@@ -136,7 +135,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getCoreAndBaseInfo(uids: string[]) {
-    return await invoke(
+    return await this.ctx.pmhq.invoke(
       'nodeIKernelProfileService/getCoreAndBaseInfo',
       [
         'nodeStore',
@@ -146,7 +145,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getBuddyNick(uid: string): Promise<string> {
-    const data = await invoke('nodeIKernelBuddyService/getBuddyNick', [[uid]])
+    const data = await this.ctx.pmhq.invoke('nodeIKernelBuddyService/getBuddyNick', [[uid]])
     const nick = data.get(uid)
     if (nick === undefined) {
       this.ctx.logger.warn(`获取昵称失败, uid: ${uid}`)
@@ -166,14 +165,14 @@ export class NTQQUserApi extends Service {
   }
 
   async getPSkey(domains: string[]) {
-    return await invoke('nodeIKernelTipOffService/getPskey', [
+    return await this.ctx.pmhq.invoke('nodeIKernelTipOffService/getPskey', [
       domains,
       true, // isFromNewPCQQ
     ])
   }
 
   async like(uid: string, count = 1) {
-    return await invoke(
+    return await this.ctx.pmhq.invoke(
       'nodeIKernelProfileLikeService/setBuddyProfileLike',
       [{
 
@@ -186,7 +185,7 @@ export class NTQQUserApi extends Service {
   }
 
   async forceFetchClientKey() {
-    return await invoke('nodeIKernelTicketService/forceFetchClientKey', [''])
+    return await this.ctx.pmhq.invoke('nodeIKernelTicketService/forceFetchClientKey', [''])
   }
 
   async getSelfNick(refresh = true) {
@@ -198,7 +197,7 @@ export class NTQQUserApi extends Service {
   }
 
   async setSelfStatus(status: number, extStatus: number, batteryStatus: number) {
-    return await invoke('nodeIKernelMsgService/setStatus', [
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/setStatus', [
       {
         status,
         extStatus,
@@ -208,7 +207,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getProfileLike(uid: string, start = 0, limit = 20) {
-    return await invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
+    return await this.ctx.pmhq.invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
       {
         friendUids: [uid],
         basic: 1,
@@ -223,7 +222,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getProfileLikeMe(uid: string, start = 0, limit = 20) {
-    return await invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
+    return await this.ctx.pmhq.invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
       {
         friendUids: [uid],
         basic: 1,
@@ -238,7 +237,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getRobotUinRange() {
-    return await invoke(
+    return await this.ctx.pmhq.invoke(
       'nodeIKernelRobotService/getRobotUinRange',
       [
         {
@@ -252,18 +251,18 @@ export class NTQQUserApi extends Service {
   }
 
   async quitAccount() {
-    return await invoke(
+    return await this.ctx.pmhq.invoke(
       'quitAccount',
       [],
     )
   }
 
   async modifySelfProfile(profile: MiniProfile) {
-    return await invoke('nodeIKernelProfileService/modifyDesktopMiniProfile', [profile])
+    return await this.ctx.pmhq.invoke('nodeIKernelProfileService/modifyDesktopMiniProfile', [profile])
   }
 
   async getRecentContactListSnapShot(count: number) {
-    return await invoke('nodeIKernelRecentContactService/getRecentContactListSnapShot', [count])
+    return await this.ctx.pmhq.invoke('nodeIKernelRecentContactService/getRecentContactListSnapShot', [count])
   }
 
   async getUserInfoCompatible(uid: string) {

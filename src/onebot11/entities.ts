@@ -33,7 +33,6 @@ import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { OB11GroupRequestInviteBotEvent } from '@/onebot11/event/request/OB11GroupRequest'
 import { ParseMessageConfig } from './types'
-import { msgPBMap } from '@/ntqqapi/hook'
 import { transformIncomingSegments } from './transform/message'
 
 export namespace OB11Entities {
@@ -73,7 +72,7 @@ export namespace OB11Entities {
       resMsg.raw = msg
       resMsg.raw_pb = ''
       const uniqueId = `${msg.peerUin}_${msg.msgRandom}_${msg.msgSeq}`
-      const msgPB = msgPBMap.get(uniqueId)
+      const msgPB = ctx.pmhq.msgPBMap.get(uniqueId)
       if (msgPB) {
         resMsg.raw_pb = msgPB
       }

@@ -21,7 +21,7 @@ export class GetGroupFileUrl extends BaseAction<Payload, Response> {
 
   protected async _handle(payload: Payload) {
     const file = await this.ctx.store.getFileCacheById(payload.file_id)
-    const { clientWording, url } = await this.ctx.app.pmhq.getGroupFileUrl(+payload.group_id, payload.file_id)
+    const { clientWording, url } = await this.ctx.pmhq.getGroupFileUrl(+payload.group_id, payload.file_id)
     if (clientWording) {
       throw new Error(clientWording)
     }

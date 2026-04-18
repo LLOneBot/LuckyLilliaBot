@@ -3,11 +3,15 @@ import { createHash } from 'node:crypto'
 import { BidiMap } from '@/common/utils/table'
 import { FileCacheV2 } from '@/common/types'
 import { Context, Service } from 'cordis'
+import { noop } from 'cosmokit'
 
 declare module 'cordis' {
   interface Context {
     store: Store
   }
+}
+
+declare module 'minato' {
   interface Tables {
     message: {
       shortId: number
@@ -37,14 +41,19 @@ export interface MsgInfo {
 }
 
 class Store extends Service {
-  static inject = ['database', 'model']
+  static inject = ['database', 'model', 'logger']
   private cache: BidiMap<string, number>
   private messages: Map<string, RawMessage>
 
   constructor(protected ctx: Context, public config: Store.Config) {
-    super(ctx, 'store', true)
+    super(ctx, 'store')
     this.cache = new BidiMap(1000)
     this.messages = new Map()
+  }
+
+  async [Service.init]() {
+    this.start()
+    return noop
   }
 
   start() {

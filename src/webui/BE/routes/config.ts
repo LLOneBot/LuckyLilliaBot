@@ -1,11 +1,11 @@
 import { Context } from 'cordis'
 import { networkInterfaces } from 'os'
-import { getConfigUtil, webuiTokenUtil } from '@/common/config'
 import { selfInfo } from '@/common/globalVars'
 import { ReqConfig, ResConfig } from '../types'
 import { Config } from '@/common/types'
 import { isDockerEnvironment } from '@/common/utils/environment'
 import { Hono } from 'hono'
+import { webuiTokenUtil } from '../../../main/config'
 
 function isListenAllInterfaces(host: string | undefined): boolean {
   return !host || host === '0.0.0.0' || host === '::'
@@ -73,7 +73,7 @@ export function createConfigRoutes(ctx: Context): Hono {
   // 获取配置
   router.get('/config', async (c) => {
     try {
-      const config = getConfigUtil().getConfig()
+      const config = ctx.config.get()
       const resJson: ResConfig = {
         config,
         selfInfo,
@@ -91,7 +91,7 @@ export function createConfigRoutes(ctx: Context): Hono {
   router.post('/config', async (c) => {
     try {
       const { config } = await c.req.json() as ReqConfig
-      const oldConfig = getConfigUtil().getConfig()
+      const oldConfig = ctx.config.get()
       const newConfig = { ...oldConfig, ...config }
 
       const validationError = validateTokenConfig(newConfig)
@@ -99,7 +99,7 @@ export function createConfigRoutes(ctx: Context): Hono {
         return c.json({ success: false, message: validationError }, 400)
       }
 
-      getConfigUtil().setConfig(newConfig)
+      ctx.config.set(newConfig)
       ctx.parallel('llob/config-updated', newConfig)
       return c.json({ success: true, message: '配置保存成功' })
     } catch (e) {

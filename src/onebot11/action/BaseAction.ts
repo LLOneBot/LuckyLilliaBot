@@ -1,14 +1,15 @@
 import { ActionName } from './types'
 import { OB11Response } from './OB11Response'
 import { OB11Return } from '../types'
-import { Context, Schema } from 'cordis'
+import { Context } from 'cordis'
 import { ParseMessageConfig } from '../types'
 import type Adapter from '../adapter'
+import z from 'schemastery'
 
 abstract class BaseAction<PayloadType, ReturnDataType> {
   abstract actionName: ActionName
   protected ctx: Context
-  payloadSchema?: Schema<PayloadType>
+  payloadSchema?: z<PayloadType>
 
   constructor(protected adapter: Adapter) {
     this.ctx = adapter.ctx
@@ -51,4 +52,4 @@ abstract class BaseAction<PayloadType, ReturnDataType> {
   protected abstract _handle(payload: PayloadType, config: ParseMessageConfig): Promise<ReturnDataType>
 }
 
-export { BaseAction, Schema }
+export { BaseAction, z as Schema }

@@ -1,5 +1,5 @@
 import { SimpleInfo } from '../types'
-import { invoke, NTMethod } from '../ntcall'
+import { NTMethod } from '../ntcall'
 import { Context, Service } from 'cordis'
 import { GeneralCallResult } from '../services'
 
@@ -10,15 +10,15 @@ declare module 'cordis' {
 }
 
 export class NTQQFriendApi extends Service {
-  static inject = ['ntUserApi', 'ntSystemApi']
+  static inject = ['ntUserApi', 'ntSystemApi', 'pmhq']
 
   constructor(protected ctx: Context) {
-    super(ctx, 'ntFriendApi', true)
+    super(ctx, 'ntFriendApi')
   }
 
   /** reqTime 可为 0 */
   async handleFriendRequest(friendUid: string, reqTime: string, accept: boolean) {
-    return await invoke(NTMethod.HANDLE_FRIEND_REQUEST, [{
+    return await this.ctx.pmhq.invoke(NTMethod.HANDLE_FRIEND_REQUEST, [{
       friendUid,
       reqTime,
       accept,
@@ -27,7 +27,7 @@ export class NTQQFriendApi extends Service {
   }
 
   async getBuddyList(): Promise<SimpleInfo[]> {
-    const data = await invoke<SimpleInfo[]>(
+    const data = await this.ctx.pmhq.invoke<SimpleInfo[]>(
       'getBuddyList',
       [],
       {},
@@ -40,9 +40,9 @@ export class NTQQFriendApi extends Service {
     const version = +deviceInfo.buildVer.split('-')[1]
     let result
     if (version >= 41679) {
-      result = await invoke('nodeIKernelBuddyService/getBuddyListV2', ['', forceRefresh, 0])
+      result = await this.ctx.pmhq.invoke('nodeIKernelBuddyService/getBuddyListV2', ['', forceRefresh, 0])
     } else {
-      result = await invoke<GeneralCallResult & {
+      result = await this.ctx.pmhq.invoke<GeneralCallResult & {
         data: {
           categoryId: number
           categorySortId: number
@@ -53,27 +53,27 @@ export class NTQQFriendApi extends Service {
         }[]
       }>('nodeIKernelBuddyService/getBuddyListV2', [forceRefresh, 0])
     }
-    
+
     return result
   }
 
   async isBuddy(uid: string): Promise<boolean> {
-    return await invoke('nodeIKernelBuddyService/isBuddy', [uid])
+    return await this.ctx.pmhq.invoke('nodeIKernelBuddyService/isBuddy', [uid])
   }
 
   async getBuddyRecommendContact(uin: string) {
-    const ret = await invoke('nodeIKernelBuddyService/getBuddyRecommendContactArkJson', [uin, '-'])
+    const ret = await this.ctx.pmhq.invoke('nodeIKernelBuddyService/getBuddyRecommendContactArkJson', [uin, '-'])
     return ret.arkMsg
   }
 
   async setBuddyRemark(uid: string, remark = '') {
-    return await invoke('nodeIKernelBuddyService/setBuddyRemark', [
+    return await this.ctx.pmhq.invoke('nodeIKernelBuddyService/setBuddyRemark', [
       { uid, remark },
     ])
   }
 
   async delBuddy(friendUid: string) {
-    return await invoke('nodeIKernelBuddyService/delBuddy', [{
+    return await this.ctx.pmhq.invoke('nodeIKernelBuddyService/delBuddy', [{
       friendUid,
       tempBlock: false,
       tempBothDel: true,
@@ -81,16 +81,16 @@ export class NTQQFriendApi extends Service {
   }
 
   async setBuddyCategory(uid: string, categoryId: number) {
-    return await invoke('nodeIKernelBuddyService/setBuddyCategory', [uid, categoryId])
+    return await this.ctx.pmhq.invoke('nodeIKernelBuddyService/setBuddyCategory', [uid, categoryId])
   }
 
   async clearBuddyReqUnreadCnt() {
-    return await invoke('nodeIKernelBuddyService/clearBuddyReqUnreadCnt', [])
+    return await this.ctx.pmhq.invoke('nodeIKernelBuddyService/clearBuddyReqUnreadCnt', [])
   }
 
   async getDoubtBuddyReq(reqNum: number) {
     const reqId = Date.now().toString()
-    return await invoke(
+    return await this.ctx.pmhq.invoke(
       'nodeIKernelBuddyService/getDoubtBuddyReq',
       [reqId, reqNum, ''],
       {
@@ -101,11 +101,11 @@ export class NTQQFriendApi extends Service {
   }
 
   async approvalDoubtBuddyReq(uid: string) {
-    return await invoke('nodeIKernelBuddyService/approvalDoubtBuddyReq', [uid, '', ''])
+    return await this.ctx.pmhq.invoke('nodeIKernelBuddyService/approvalDoubtBuddyReq', [uid, '', ''])
   }
 
   async getBuddyReq() {
-    return await invoke(
+    return await this.ctx.pmhq.invoke(
       'nodeIKernelBuddyService/getBuddyReq',
       [],
       {
@@ -115,10 +115,10 @@ export class NTQQFriendApi extends Service {
   }
 
   async getCategoryById(categoryId: number) {
-    return await invoke('nodeIKernelBuddyService/getCategoryById', [categoryId])
+    return await this.ctx.pmhq.invoke('nodeIKernelBuddyService/getCategoryById', [categoryId])
   }
 
   async setTop(uid: string, isTop: boolean) {
-    return await invoke('nodeIKernelBuddyService/setTop', [uid, isTop])
+    return await this.ctx.pmhq.invoke('nodeIKernelBuddyService/setTop', [uid, isTop])
   }
 }

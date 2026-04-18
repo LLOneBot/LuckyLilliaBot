@@ -12,7 +12,7 @@ export class SendGroupSign extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    await this.ctx.app.pmhq.groupClockIn(String(payload.group_id))
+    await this.ctx.pmhq.groupClockIn(String(payload.group_id))
     return null
   }
 }

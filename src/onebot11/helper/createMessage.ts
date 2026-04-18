@@ -15,7 +15,7 @@ import { Peer } from '@/ntqqapi/types/msg'
 import { SendElement } from '@/ntqqapi/entities'
 import { selfInfo } from '@/common/globalVars'
 import { uri2local, isNumeric } from '@/common/utils'
-import { Context } from 'cordis'
+import { Context, Service } from 'cordis'
 import { MusicSign } from '@/common/utils/sign'
 import { randomUUID } from 'node:crypto'
 
@@ -173,7 +173,7 @@ export async function createSendElements(
       }
         break
       case OB11MessageDataType.Music: {
-        const { musicSignUrl } = ctx.config
+        const { musicSignUrl } = ctx.onebot.config
         if (!musicSignUrl) {
           throw new Error('音乐卡片签名地址未配置')
         }

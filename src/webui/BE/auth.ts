@@ -1,9 +1,9 @@
 import { appendFileSync } from 'node:fs'
 import path from 'path'
 import { LOG_DIR } from '@/common/globalVars'
-import { webuiTokenUtil } from '@/common/config'
 import { hashPassword } from './passwordHash'
 import { Context, Next } from 'hono'
+import { webuiTokenUtil } from '../../main/config'
 
 // 全局密码错误记录
 interface GlobalLoginAttempt {
