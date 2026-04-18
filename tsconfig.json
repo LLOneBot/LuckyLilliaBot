@@ -29,7 +29,8 @@
   },
   "include": [
     "src",
-    "scripts"
+    "scripts",
+    "test/*.ts"
   ],
   "exclude": [
     "src/webui/FE"

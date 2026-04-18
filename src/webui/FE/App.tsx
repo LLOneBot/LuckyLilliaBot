@@ -182,14 +182,14 @@ function App() {
             return;
           }
         } catch (emailError) {
-          showToast(`主配置已保存，但邮件配置保存失败：${emailError.message}`, 'warning');
+          showToast(`主配置已保存，但邮件配置保存失败：${String(emailError)}`, 'warning');
           return;
         }
       }
 
       showToast('配置保存成功', 'success');
     } catch (error) {
-      showToast(error.message || '保存失败', 'error');
+      showToast(error instanceof Error ? error.message : '保存失败', 'error');
     } finally {
       setLoading(false);
     }

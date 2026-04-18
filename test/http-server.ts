@@ -1,11 +1,11 @@
-import { createServer } from 'node:http'
+import { createServer, IncomingMessage, ServerResponse } from 'node:http'
 
 const PORT = Number(process.argv[2]) || 8080
 
-const server = createServer((req, res) => {
+const server = createServer((req: IncomingMessage, res: ServerResponse) => {
   if (req.method === 'POST') {
     let body = ''
-    req.on('data', (chunk) => body += chunk)
+    req.on('data', (chunk: Buffer) => body += chunk.toString())
     req.on('end', () => {
       try {
         const json = JSON.parse(body)
