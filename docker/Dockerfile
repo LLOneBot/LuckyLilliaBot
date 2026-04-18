@@ -1,4 +1,4 @@
-FROM node:lts-alpine3.19
+FROM node:24-alpine
 
 ARG LLBOT_VERSION
 

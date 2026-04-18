@@ -1,4 +1,8 @@
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
+
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ENV HTTP_PROXY=${HTTP_PROXY} HTTPS_PROXY=${HTTPS_PROXY}
 
 WORKDIR /app
 
@@ -19,7 +23,11 @@ RUN yarn build-webui
 RUN yarn build
 
 
-FROM node:22-alpine AS production
+FROM node:24-alpine AS production
+
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ENV HTTP_PROXY=${HTTP_PROXY} HTTPS_PROXY=${HTTPS_PROXY}
 
 RUN set -eux; \
     apk update; \
@@ -36,5 +44,7 @@ COPY docker/startup.sh /startup.sh
 RUN chmod +x /startup.sh
 
 RUN touch /.dockerenv
+
+ENV HTTP_PROXY= HTTPS_PROXY=
 
 ENTRYPOINT ["/startup.sh"]
