@@ -79,7 +79,7 @@ export default defineConfig({
         cp({
           targets: [
             ...external.map(genCpModule),
-            { src: './src/common/default_config.json', dest: 'dist/' },
+            { src: './src/main/config/default_config.json', dest: 'dist/' },
             { src: './package-dist.json', dest: 'dist/', rename: 'package.json' },
             { src: './doc/使用说明.txt', dest: 'dist/' },
             { src: './doc/更新日志.txt', dest: 'dist/' },
