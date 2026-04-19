@@ -47,7 +47,7 @@ export class NTQQGroupApi extends Service {
     return await this.ctx.pmhq.invoke(NTMethod.GROUP_MEMBERS, [groupCode, forceFetch])
   }
 
-  async getGroupMember(groupCode: string, uid: string, forceUpdate = false) {
+  async getGroupMember(groupCode: string, uid: string, forceUpdate = false, timeout = 15000) {
     const data = await this.ctx.pmhq.invoke<[
       groupCode: string,
       dataSource: number,
@@ -63,7 +63,8 @@ export class NTQQGroupApi extends Service {
         resultCmd: 'nodeIKernelGroupListener/onMemberInfoChange',
         resultCb: result => {
           return result[0] === groupCode && result[2].has(uid)
-        }
+        },
+        timeout
       },
     )
     return data[2].get(uid)!
