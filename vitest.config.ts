@@ -9,9 +9,9 @@ export default defineConfig({
     },
   },
   test: {
-    include: ['test/webui/**/*.test.ts'],
+    include: ['test/webui/**/*.test.ts', 'test/unit/**/*.test.ts'],
     environment: 'node',
-    setupFiles: ['test/webui/setup.ts'],
+    setupFiles: ['test/unit/setup.ts'],
     mockReset: true,
   },
 })

@@ -12,7 +12,9 @@
     "postinstall": "npm --prefix src/webui/FE install",
     "format": "prettier -cw .",
     "check": "tsc",
-    "test:webui": "vitest run --config vitest.config.ts"
+    "test:webui": "vitest run --config vitest.config.ts 'test/webui'",
+    "test:unit": "vitest run --config vitest.config.ts 'test/unit'",
+    "test": "vitest run --config vitest.config.ts"
   },
   "author": "",
   "license": "GPL-2.0",
