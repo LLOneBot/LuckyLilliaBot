@@ -131,7 +131,6 @@ export class PMHQBase extends Service {
   constructor(protected ctx: Context) {
     super(ctx, 'pmhq')
     this.logger = ctx.logger('pmhq')
-    this.logger.info(process.argv)
     const { pmhqHost, pmhqPort } = this.getPMHQHostPort()
     this.httpUrl = `http://${pmhqHost}:${pmhqPort}/`
     this.wsUrl = `ws://${pmhqHost}:${pmhqPort}/ws`

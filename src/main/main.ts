@@ -172,6 +172,7 @@ async function onLoad() {
   ctx.inject(['logger'], (ctx) => {
     ctx.logger.exporter(new Log(ctx, true))
     ctx.logger.info(`LLBot ${version}`)
+    ctx.logger.info(process.argv)
   })
   // setFFMpegPath(config.ffmpeg || '')
   ctx.inject(['pmhq', 'config', 'logger'], (ctx) => {
