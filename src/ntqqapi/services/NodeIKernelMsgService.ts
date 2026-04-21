@@ -1,4 +1,4 @@
-import { ElementType, MessageElement, Peer, RawMessage, QueryMsgsParams, SendMessageElement } from '@/ntqqapi/types'
+import { ElementType, MessageElement, Peer, RawMessage, QueryMsgsParams, SendMessageElement, ChatType } from '@/ntqqapi/types'
 import { GeneralCallResult } from './common'
 
 export interface NodeIKernelMsgService {
@@ -166,4 +166,6 @@ export interface NodeIKernelMsgService {
   deleteFavEmoji(emojiIds: string[]): Promise<GeneralCallResult>
 
   setContactLocalTop(peer: Peer, isTop: boolean): Promise<GeneralCallResult>
+
+  sendShowInputStatusReq(chatType: ChatType, eventType: number, toUid: string): Promise<GeneralCallResult>
 }

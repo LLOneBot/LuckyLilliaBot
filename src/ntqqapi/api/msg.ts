@@ -441,4 +441,8 @@ export class NTQQMsgApi extends Service {
   async setContactLocalTop(peer: Peer, isTop: boolean) {
     return await this.ctx.pmhq.invoke('nodeIKernelMsgService/setContactLocalTop', [peer, isTop])
   }
+
+  async sendShowInputStatusReq(chatType: ChatType, eventType: number, toUid: string) {
+    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/sendShowInputStatusReq', [chatType, eventType, toUid])
+  }
 }

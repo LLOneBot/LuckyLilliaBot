@@ -116,6 +116,7 @@ import { DeleteGroupNotice } from './llbot/group/DeleteGroupNotice'
 import { DeleteGroupAlbum } from '@/onebot11/action/llbot/group/GroupAlbum/DeleteGroupAlbum'
 import { ScanQRCode } from '@/onebot11/action/llbot/system/ScanQRCode'
 import { SendPoke } from './llbot/msg/SendPoke'
+import { SetInputStatus } from './llbot/user/SetInputStatus'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -170,6 +171,7 @@ export function initActionMap(adapter: Adapter) {
     new SetDoubtFriendsAddRequest(adapter),
     new DeleteGroupNotice(adapter),
     new SendPoke(adapter),
+    new SetInputStatus(adapter),
     // onebot11
     new SendLike(adapter),
     new GetMsg(adapter),

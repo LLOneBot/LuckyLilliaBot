@@ -62,6 +62,7 @@ export enum ActionName {
   SetDoubtFriendsAddRequest = 'set_doubt_friends_add_request',
   DeleteGroupNotice = '_delete_group_notice',
   SendPoke = 'send_poke',
+  SetInputStatus = 'set_input_status',
   // onebot 11
   SendLike = 'send_like',
   GetLoginInfo = 'get_login_info',
