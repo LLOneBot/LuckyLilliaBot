@@ -107,6 +107,14 @@ jobs:
           yarn install --no-immutable
           cd src/webui/FE && npm install
 
+      - name: Build
+        run: |
+          npm run build
+          npm run build-webui
+
+      - name: Build PR LLBot image
+        run: docker build -f docker/Dockerfile.test -t llbot-pr-test .
+
       - name: Write llbot configs
         run: |
           mkdir -p workspace1/data workspace2/data
@@ -139,32 +147,37 @@ jobs:
           }
           CONF
 
-      - name: Mount QQ volumes to host
+      - name: Mount e2e media into PMHQ containers
         run: |
-          sudo mkdir -p /root/.config/QQ
-          VOL1=/var/lib/docker/volumes/llbot-test_qq_volume1/_data
-          VOL2=/var/lib/docker/volumes/llbot-test_qq_volume2/_data
-          # Symlink each nt_qq_* subdir from both volumes into /root/.config/QQ
-          for dir in $VOL1/nt_qq_* $VOL2/nt_qq_*; do
-            [ -d "$dir" ] && sudo ln -sfn "$dir" "/root/.config/QQ/$(basename $dir)"
-          done
-          # Also symlink other needed dirs from volume1
-          for name in Cache Crashpad; do
-            [ -d "$VOL1/$name" ] && sudo ln -sfn "$VOL1/$name" "/root/.config/QQ/$name"
-          done
-          sudo chmod -R a+rwX /root/.config/QQ
-          ls -la /root/.config/QQ/
+          E2E_MEDIA=${{ github.workspace }}/test/onebot11-api-test/tests/media
+          docker cp "$E2E_MEDIA" pmhq1:/app/llbot/test-media
+          docker cp "$E2E_MEDIA" pmhq2:/app/llbot/test-media
 
-      - name: Start LLBot instances
+      - name: Start PR LLBot containers
         run: |
-          cd $GITHUB_WORKSPACE/workspace1 && npx tsx $GITHUB_WORKSPACE/src/main/main.ts --pmhq-host=127.0.0.1 --pmhq-port=13001 > llbot1.log 2>&1 &
-          echo "LLBOT1_PID=$!" >> $GITHUB_ENV
+          docker rm -f llbot-pr1 llbot-pr2 2>/dev/null || true
 
-          cd $GITHUB_WORKSPACE/workspace2 && npx tsx $GITHUB_WORKSPACE/src/main/main.ts --pmhq-host=127.0.0.1 --pmhq-port=13002 > llbot2.log 2>&1 &
-          echo "LLBOT2_PID=$!" >> $GITHUB_ENV
+          docker run -d --name llbot-pr1 \
+            --network llbot-test_test_network \
+            -p 53000:53000 \
+            -e pmhq_host=pmhq1 \
+            -e pmhq_port=13000 \
+            -e WEBUI_PORT=3091 \
+            -v llbot-test_qq_volume1:/root/.config/QQ \
+            -v ${{ github.workspace }}/workspace1/data:/app/llbot/data:rw \
+            -v ${{ github.workspace }}/test/onebot11-api-test/tests/media:/app/llbot/test-media:ro \
+            llbot-pr-test
 
-          echo "Waiting for LLBot instances to initialize..."
-          sleep 15
+          docker run -d --name llbot-pr2 \
+            --network llbot-test_test_network \
+            -p 53001:53001 \
+            -e pmhq_host=pmhq2 \
+            -e pmhq_port=13000 \
+            -e WEBUI_PORT=3092 \
+            -v llbot-test_qq_volume2:/root/.config/QQ \
+            -v ${{ github.workspace }}/workspace2/data:/app/llbot/data:rw \
+            -v ${{ github.workspace }}/test/onebot11-api-test/tests/media:/app/llbot/test-media:ro \
+            llbot-pr-test
 
       - name: Wait for LLBot ready
         run: |
@@ -218,13 +231,12 @@ jobs:
         run: npm test
         continue-on-error: true
 
-      - name: Stop LLBot instances
+      - name: Stop PR LLBot containers
         if: always()
         run: |
-          kill $LLBOT1_PID 2>/dev/null || true
-          kill $LLBOT2_PID 2>/dev/null || true
-          echo "=== LLBot1 logs ===" && tail -30 $GITHUB_WORKSPACE/workspace1/llbot1.log 2>/dev/null || true
-          echo "=== LLBot2 logs ===" && tail -30 $GITHUB_WORKSPACE/workspace2/llbot2.log 2>/dev/null || true
+          echo "=== LLBot1 logs ===" && docker logs llbot-pr1 2>&1 | tail -30 || true
+          echo "=== LLBot2 logs ===" && docker logs llbot-pr2 2>&1 | tail -30 || true
+          docker rm -f llbot-pr1 llbot-pr2 2>/dev/null || true
 
       - name: Upload test report
         if: always()
