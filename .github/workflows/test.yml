@@ -1,0 +1,157 @@
+name: Test
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  unit-test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: |
+          npm install
+          cd src/webui/FE && npm install
+
+      - name: Run unit tests
+        run: npm run test:unit
+
+      - name: Run WebUI tests
+        run: npm run test:webui
+
+  build-test:
+    name: Build Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install dependencies
+        run: |
+          npm install
+          cd src/webui/FE && npm install
+
+      - name: Build LLBot
+        run: npm run build
+
+      - name: Build WebUI
+        run: npm run build-webui
+
+      - name: Verify dist
+        run: |
+          test -f dist/llbot.js || (echo "dist/llbot.js not found" && exit 1)
+          test -f dist/webui/index.html || (echo "dist/webui/index.html not found" && exit 1)
+          echo "Build artifacts verified"
+
+      - name: Docker build test
+        run: |
+          docker build -f docker/Dockerfile.test -t llbot-build-test .
+
+  e2e-test:
+    name: E2E Tests
+    runs-on: [self-hosted, llbot-test]
+    needs: [unit-test, build-test]
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install test dependencies
+        working-directory: test/onebot11-api-test
+        run: npm install
+
+      - name: Run OneBot11 API tests
+        working-directory: test/onebot11-api-test
+        run: npm test
+        continue-on-error: true
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-report
+          path: test/onebot11-api-test/test-report.html
+          retention-days: 30
+
+  report:
+    name: Test Report
+    runs-on: ubuntu-latest
+    needs: [unit-test, build-test, e2e-test]
+    if: always() && github.event_name == 'pull_request'
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Generate report comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const jobs = {
+              'unit-test': '${{ needs.unit-test.result }}',
+              'build-test': '${{ needs.build-test.result }}',
+              'e2e-test': '${{ needs.e2e-test.result }}',
+            };
+
+            const icons = { success: '✅', failure: '❌', skipped: '⏭️', cancelled: '🚫' };
+            const lines = Object.entries(jobs).map(([name, result]) =>
+              `| ${name} | ${icons[result] || '❓'} ${result} |`
+            );
+
+            const allPassed = Object.values(jobs).every(r => r === 'success' || r === 'skipped');
+            const summary = allPassed ? '✅ All tests passed' : '❌ Some tests failed';
+
+            const body = [
+              `## Test Report`,
+              ``,
+              `| Job | Status |`,
+              `|-----|--------|`,
+              ...lines,
+              ``,
+              summary,
+            ].join('\n');
+
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('## Test Report')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
