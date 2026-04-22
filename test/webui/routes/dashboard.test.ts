@@ -12,7 +12,7 @@ describe('dashboard routes', () => {
 
   describe('GET /dashboard/stats', () => {
     it('returns 503 when app is not ready', async () => {
-      ctx.get.mockReturnValue(null)
+      ctx.get.mockImplementation((key: string) => key === 'app' ? null : undefined)
       const app = createTestApp(createDashboardRoutes(ctx))
 
       const res = await app.request('/dashboard/stats')
@@ -22,11 +22,15 @@ describe('dashboard routes', () => {
     })
 
     it('returns stats on success', async () => {
-      ctx.get.mockReturnValue({
-        messageReceivedCount: 100,
-        messageSentCount: 50,
-        startupTime: Date.now(),
-        lastMessageTime: Date.now(),
+      ctx.get.mockImplementation((key: string) => {
+        if (key === 'app') return {
+          messageReceivedCount: 100,
+          messageSentCount: 50,
+          startupTime: Date.now(),
+          lastMessageTime: Date.now(),
+        }
+        if (key === 'pmhq') return ctx.pmhq
+        return undefined
       })
       ctx.ntFriendApi.getBuddyList.mockResolvedValue([{}, {}, {}])
       ctx.ntGroupApi.getGroups.mockResolvedValue([{}, {}])

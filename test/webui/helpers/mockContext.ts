@@ -1,7 +1,7 @@
 import { vi } from 'vitest'
 
 export function createMockContext() {
-  return {
+  const services: Record<string, any> = {
     ntLoginApi: {
       getLoginQrCode: vi.fn(),
       getQuickLoginList: vi.fn(),
@@ -40,14 +40,37 @@ export function createMockContext() {
       rkeyManager: { getRkey: vi.fn(() => Promise.resolve({ private_rkey: '', group_rkey: '' })) },
       getPttUrl: vi.fn(),
     },
+    pmhq: {
+      getProcessInfo: vi.fn(() => Promise.resolve({
+        memory: { rss: 100000000, totalMem: 8000000000 },
+        cpu: { percent: 5.0 },
+      })),
+      getMultiMsg: vi.fn(() => Promise.resolve([])),
+    },
+    app: null as any,
+    config: {
+      get: vi.fn(() => ({
+        ob11: { enable: false, connect: [] },
+        satori: { enable: false },
+        milky: { enable: false },
+        webui: { enable: true, host: '0.0.0.0', port: 3080 },
+      })),
+      set: vi.fn(),
+    },
+  }
+
+  const ctx = {
+    ...services,
     emailNotification: null as any,
     logger: {
       info: vi.fn(),
       error: vi.fn(),
       warn: vi.fn(),
     },
-    get: vi.fn(),
+    get: vi.fn((key: string) => services[key]),
     on: vi.fn(() => vi.fn()),
     parallel: vi.fn(),
   } as any
+
+  return ctx
 }
