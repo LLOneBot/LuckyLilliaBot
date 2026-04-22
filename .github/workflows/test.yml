@@ -237,6 +237,7 @@ jobs:
           echo "=== LLBot1 logs ===" && docker logs llbot-pr1 2>&1 | tail -30 || true
           echo "=== LLBot2 logs ===" && docker logs llbot-pr2 2>&1 | tail -30 || true
           docker rm -f llbot-pr1 llbot-pr2 2>/dev/null || true
+          sudo rm -rf ${{ github.workspace }}/workspace1 ${{ github.workspace }}/workspace2
 
       - name: Upload test report
         if: always()
