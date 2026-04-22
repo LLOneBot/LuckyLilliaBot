@@ -1,4 +1,6 @@
 FROM node:24-alpine3.23
 WORKDIR /app/llbot
 COPY dist/ .
-RUN node -e "import('./llbot.js').catch(e => { console.error('Bundle load check:', e.message); })"
+COPY docker/startup.sh /startup.sh
+RUN chmod +x /startup.sh
+ENTRYPOINT ["/startup.sh"]
