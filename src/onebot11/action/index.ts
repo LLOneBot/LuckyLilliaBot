@@ -117,6 +117,7 @@ import { DeleteGroupAlbum } from '@/onebot11/action/llbot/group/GroupAlbum/Delet
 import { ScanQRCode } from '@/onebot11/action/llbot/system/ScanQRCode'
 import { SendPoke } from './llbot/msg/SendPoke'
 import { SetInputStatus } from './llbot/user/SetInputStatus'
+import { GetGroupAlbumMediaList } from './llbot/group/GroupAlbum/GetGroupAlbumMediaList'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -172,6 +173,7 @@ export function initActionMap(adapter: Adapter) {
     new DeleteGroupNotice(adapter),
     new SendPoke(adapter),
     new SetInputStatus(adapter),
+    new GetGroupAlbumMediaList(adapter),
     // onebot11
     new SendLike(adapter),
     new GetMsg(adapter),

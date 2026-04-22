@@ -3,6 +3,8 @@ V7.12.3
 
 * OneBot 支持伪造合并转发发送 `at` 消息段
 * OneBot 支持设置输入状态 `set_input_status` API
+* OneBot 支持获取群相册媒体列表 `get_group_album_media_list` API
+* OneBot 新增获取消息 `get_msg` API 返回的 `status` 字段
 * Milky 修复视频链接可能获取失败
 
 =================
