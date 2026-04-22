@@ -71,10 +71,21 @@ jobs:
             -e pmhq_port=13000 \
             -e WEBUI_PORT=3090 \
             llbot-build-test
+
           echo "Waiting for LLBot to connect to PMHQ..."
-          sleep 15
-          docker logs llbot-build-test 2>&1 | tail -20
+          for i in $(seq 1 60); do
+            if docker logs llbot-build-test 2>&1 | grep -q "PMHQ WebSocket 连接成功"; then
+              echo "LLBot connected to PMHQ successfully"
+              docker rm -f llbot-build-test
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "ERROR: LLBot failed to connect to PMHQ within 120s"
+          docker logs llbot-build-test 2>&1 | tail -30
           docker rm -f llbot-build-test
+          exit 1
 
   e2e-test:
     name: E2E Tests
