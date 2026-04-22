@@ -77,6 +77,73 @@ jobs:
         with:
           node-version: 24
 
+      - name: Install dependencies
+        run: |
+          npm install
+          cd src/webui/FE && npm install
+
+      - name: Write llbot configs
+        run: |
+          mkdir -p workspace1/data workspace2/data
+
+          cat > workspace1/data/config_1577491075.json << 'CONF'
+          {
+            "ob11": {
+              "enable": true,
+              "connect": [
+                { "type": "http", "enable": true, "host": "", "port": 53000, "token": "123", "messageFormat": "array", "reportSelfMessage": false, "reportOfflineMessage": false, "debug": false }
+              ]
+            },
+            "satori": { "enable": false },
+            "milky": { "enable": false },
+            "webui": { "enable": false }
+          }
+          CONF
+
+          cat > workspace2/data/config_412805684.json << 'CONF'
+          {
+            "ob11": {
+              "enable": true,
+              "connect": [
+                { "type": "http", "enable": true, "host": "", "port": 53001, "token": "123", "messageFormat": "array", "reportSelfMessage": false, "reportOfflineMessage": false, "debug": false }
+              ]
+            },
+            "satori": { "enable": false },
+            "milky": { "enable": false },
+            "webui": { "enable": false }
+          }
+          CONF
+
+      - name: Start LLBot instances
+        run: |
+          cd $GITHUB_WORKSPACE/workspace1 && npx tsx $GITHUB_WORKSPACE/src/main/main.ts --pmhq-host=127.0.0.1 --pmhq-port=13001 > llbot1.log 2>&1 &
+          echo "LLBOT1_PID=$!" >> $GITHUB_ENV
+
+          cd $GITHUB_WORKSPACE/workspace2 && npx tsx $GITHUB_WORKSPACE/src/main/main.ts --pmhq-host=127.0.0.1 --pmhq-port=13002 > llbot2.log 2>&1 &
+          echo "LLBOT2_PID=$!" >> $GITHUB_ENV
+
+          echo "Waiting for LLBot instances to initialize..."
+          sleep 15
+
+      - name: Wait for LLBot ready
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:53000/get_login_info -H "Authorization: Bearer 123" > /dev/null 2>&1; then
+              echo "LLBot1 ready"
+              break
+            fi
+            echo "Waiting for LLBot1... ($i/30)"
+            sleep 5
+          done
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:53001/get_login_info -H "Authorization: Bearer 123" > /dev/null 2>&1; then
+              echo "LLBot2 ready"
+              break
+            fi
+            echo "Waiting for LLBot2... ($i/30)"
+            sleep 5
+          done
+
       - name: Install test dependencies
         working-directory: test/onebot11-api-test
         run: npm install
@@ -85,6 +152,14 @@ jobs:
         working-directory: test/onebot11-api-test
         run: npm test
         continue-on-error: true
+
+      - name: Stop LLBot instances
+        if: always()
+        run: |
+          kill $LLBOT1_PID 2>/dev/null || true
+          kill $LLBOT2_PID 2>/dev/null || true
+          echo "=== LLBot1 logs ===" && tail -30 $GITHUB_WORKSPACE/workspace1/llbot1.log 2>/dev/null || true
+          echo "=== LLBot2 logs ===" && tail -30 $GITHUB_WORKSPACE/workspace2/llbot2.log 2>/dev/null || true
 
       - name: Upload test report
         if: always()
