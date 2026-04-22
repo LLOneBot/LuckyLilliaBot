@@ -33,7 +33,7 @@ jobs:
 
   build-test:
     name: Build Test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, llbot-test]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -61,9 +61,20 @@ jobs:
           test -f dist/webui/index.html || (echo "dist/webui/index.html not found" && exit 1)
           echo "Build artifacts verified"
 
-      - name: Docker build test
+      - name: Docker build and run test
         run: |
           docker build -f docker/Dockerfile.test -t llbot-build-test .
+          docker rm -f llbot-build-test 2>/dev/null || true
+          docker run -d --name llbot-build-test \
+            --network llbot-test_test_network \
+            -e pmhq_host=pmhq1 \
+            -e pmhq_port=13000 \
+            -e WEBUI_PORT=3090 \
+            llbot-build-test
+          echo "Waiting for LLBot to connect to PMHQ..."
+          sleep 15
+          docker logs llbot-build-test 2>&1 | tail -20
+          docker rm -f llbot-build-test
 
   e2e-test:
     name: E2E Tests
