@@ -2,7 +2,24 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createTestApp } from '../helpers/testApp'
 import { createMockContext } from '../helpers/mockContext'
 import { createConfigRoutes } from '@/webui/BE/routes/config'
-import { webuiTokenUtil, getConfigUtil } from '@/common/config'
+
+vi.mock('@/main/config', () => ({
+  webuiTokenUtil: {
+    getToken: vi.fn(() => 'test-token'),
+    setToken: vi.fn(),
+  },
+  getConfigUtil: vi.fn(() => ({
+    getConfig: vi.fn(() => ({
+      ob11: { enable: false, connect: [] },
+      satori: { enable: false },
+      milky: { enable: false },
+      webui: { enable: true, host: '0.0.0.0', port: 3080 },
+    })),
+    setConfig: vi.fn(),
+  })),
+}))
+
+import { webuiTokenUtil } from '@/main/config'
 
 describe('config routes', () => {
   let ctx: ReturnType<typeof createMockContext>

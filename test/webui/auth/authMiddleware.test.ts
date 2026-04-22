@@ -1,7 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Hono } from 'hono'
 import { hashPassword } from '@/webui/BE/passwordHash'
-import { webuiTokenUtil } from '@/common/config'
+
+vi.mock('@/main/config', () => ({
+  webuiTokenUtil: {
+    getToken: vi.fn(() => 'test-token'),
+    setToken: vi.fn(),
+  },
+  getConfigUtil: vi.fn(() => ({
+    getConfig: vi.fn(() => ({})),
+    setConfig: vi.fn(),
+  })),
+}))
+
+import { webuiTokenUtil } from '@/main/config'
 
 function createAuthApp() {
   // 每次都重新 import authMiddleware，这样模块级状态（globalLoginAttempt）会被重置
@@ -26,7 +38,7 @@ describe('authMiddleware', () => {
 
   describe('when no token is set', () => {
     beforeEach(() => {
-      vi.mocked(webuiTokenUtil.getToken).mockReturnValue('')
+      webuiTokenUtil.getToken.mockReturnValue('')
     })
 
     it('allows /api/set-token endpoint through', async () => {
@@ -57,7 +69,7 @@ describe('authMiddleware', () => {
     const TOKEN = 'my-secret'
 
     beforeEach(() => {
-      vi.mocked(webuiTokenUtil.getToken).mockReturnValue(TOKEN)
+      webuiTokenUtil.getToken.mockReturnValue(TOKEN)
     })
 
     it('returns 403 when no token in request', async () => {
@@ -115,7 +127,7 @@ describe('authMiddleware', () => {
     const TOKEN = 'my-secret'
 
     beforeEach(() => {
-      vi.mocked(webuiTokenUtil.getToken).mockReturnValue(TOKEN)
+      webuiTokenUtil.getToken.mockReturnValue(TOKEN)
     })
 
     it('locks after 4 consecutive failures', async () => {
@@ -189,7 +201,7 @@ describe('authMiddleware', () => {
 
   describe('app.route() middleware isolation bug', () => {
     it('middleware via app.use does NOT apply to sub-routers via app.route', async () => {
-      vi.mocked(webuiTokenUtil.getToken).mockReturnValue('secret')
+      webuiTokenUtil.getToken.mockReturnValue('secret')
 
       // Replicate server.ts pattern:
       const mainApp = new Hono()
@@ -220,7 +232,7 @@ describe('authMiddleware', () => {
     })
 
     it('middleware applied on sub-router itself works correctly', async () => {
-      vi.mocked(webuiTokenUtil.getToken).mockReturnValue('secret')
+      webuiTokenUtil.getToken.mockReturnValue('secret')
 
       // Fix: apply middleware on the sub-router
       const api = new Hono()
