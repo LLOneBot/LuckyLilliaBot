@@ -107,6 +107,7 @@ export interface OB11Message {
   raw?: RawMessage
   raw_pb?: string  // hex
   temp_source?: 0 | 1 | 2 | 3 | 4 | 6 | 7 | 8 | 9
+  status?: 'normal' | 'deleted'
   getSummaryEventName(): string
 }
 
