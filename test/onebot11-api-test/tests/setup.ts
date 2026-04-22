@@ -4,9 +4,12 @@
  */
 
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { ConfigLoader } from '../config/ConfigLoader';
 import { AccountManager } from '../core/AccountManager';
 import { TwoAccountTest } from '../utils/TwoAccountTest';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
  * 测试上下文接口
@@ -25,7 +28,7 @@ export interface MessageTestContext {
  * @returns 测试上下文对象
  */
 export async function setupMessageTest(): Promise<MessageTestContext> {
-  const config = ConfigLoader.load(path.resolve(import.meta.dirname, '../config/test.config.json'));
+  const config = ConfigLoader.load(path.resolve(__dirname, '../config/test.config.json'));
   const testTimeout = config.timeout || 30000;
   const accountManager = new AccountManager(config);
   const twoAccountTest = new TwoAccountTest(accountManager);
