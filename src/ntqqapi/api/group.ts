@@ -447,4 +447,18 @@ export class NTQQGroupApi extends Service {
       },
     )
   }
+
+  async getGroupAlbumMediaList(groupCode: string, albumId: string, attachInfo = '') {
+    return await this.ctx.pmhq.invoke('nodeIKernelAlbumService/getMediaList', [{
+      qun_id: groupCode,
+      attach_info: attachInfo,
+      seq: 0,
+      request_time_line: {
+        request_invoke_time: '0'
+      },
+      album_id: albumId,
+      lloc: '',
+      batch_id: ''
+    }])
+  }
 }
