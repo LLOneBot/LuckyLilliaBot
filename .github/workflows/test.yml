@@ -218,6 +218,15 @@ jobs:
             node:24-alpine3.23 sh -c "npm install && npm test"
         continue-on-error: true
 
+      - name: Show test summary
+        if: always()
+        run: |
+          if [ -f test/onebot11-api-test/test-report.html ]; then
+            echo "Test report generated"
+          else
+            echo "No test report found"
+          fi
+
       - name: Stop PR LLBot containers
         if: always()
         run: |
