@@ -1,5 +1,6 @@
 FROM node:24-alpine3.23
-RUN apk add --no-cache ffmpeg curl
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
+    apk add --no-cache ffmpeg curl
 WORKDIR /app/llbot
 COPY dist/ .
 COPY docker/startup.sh /startup.sh
