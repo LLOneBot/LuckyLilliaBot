@@ -105,7 +105,7 @@ jobs:
             -e WEBUI_PORT=3091 \
             -v llbot-test_qq_volume1:/root/.config/QQ \
             -v ${{ github.workspace }}/workspace1/data:/app/llbot/data:rw \
-            -v ${{ github.workspace }}/test/onebot11-api-test:/app/test:ro \
+            -v ${{ github.workspace }}:/app/workspace:ro \
             llbot-pr-test
 
           docker run -d --name llbot-pr2 \
@@ -115,7 +115,7 @@ jobs:
             -e WEBUI_PORT=3092 \
             -v llbot-test_qq_volume2:/root/.config/QQ \
             -v ${{ github.workspace }}/workspace2/data:/app/llbot/data:rw \
-            -v ${{ github.workspace }}/test/onebot11-api-test:/app/test:ro \
+            -v ${{ github.workspace }}:/app/workspace:ro \
             llbot-pr-test
 
       - name: Wait for LLBot ready
