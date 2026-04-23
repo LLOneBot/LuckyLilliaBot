@@ -13,9 +13,14 @@ export default {
       'ts-jest',
       {
         useESM: true,
+        diagnostics: false,
         tsconfig: {
           module: 'ES2022',
           target: 'ES2022',
+          paths: {
+            '@/*': ['./*'],
+            '@llbot/*': ['../../src/*'],
+          },
         },
       },
     ],
