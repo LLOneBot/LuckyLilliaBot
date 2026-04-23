@@ -117,7 +117,7 @@ jobs:
 
       - name: Write configs
         run: |
-          mkdir -p workspace1/data workspace2/data e2e-workspace
+          mkdir -p workspace1/data workspace2/data
 
           cat > workspace1/data/config_1577491075.json << 'CONF'
           {
@@ -147,7 +147,45 @@ jobs:
           }
           CONF
 
-          cat > e2e-workspace/test.config.json << 'CONF'
+      - name: Start PR LLBot containers
+        run: |
+          docker rm -f llbot-pr1 llbot-pr2 2>/dev/null || true
+
+          docker run -d --name llbot-pr1 \
+            --network llbot-test_test_network \
+            -e pmhq_host=pmhq1 \
+            -e pmhq_port=13000 \
+            -e WEBUI_PORT=3091 \
+            -v llbot-test_qq_volume1:/root/.config/QQ \
+            -v ${{ github.workspace }}/workspace1/data:/app/llbot/data:rw \
+            -v ${{ github.workspace }}/test/onebot11-api-test:/app/test:ro \
+            llbot-pr-test
+
+          docker run -d --name llbot-pr2 \
+            --network llbot-test_test_network \
+            -e pmhq_host=pmhq2 \
+            -e pmhq_port=13000 \
+            -e WEBUI_PORT=3092 \
+            -v llbot-test_qq_volume2:/root/.config/QQ \
+            -v ${{ github.workspace }}/workspace2/data:/app/llbot/data:rw \
+            -v ${{ github.workspace }}/test/onebot11-api-test:/app/test:ro \
+            llbot-pr-test
+
+      - name: Wait for LLBot ready
+        run: |
+          for i in $(seq 1 60); do
+            R1=$(docker exec llbot-pr1 curl -sf http://127.0.0.1:53000/get_login_info -H "Authorization: Bearer 123" 2>/dev/null || true)
+            R2=$(docker exec llbot-pr2 curl -sf http://127.0.0.1:53001/get_login_info -H "Authorization: Bearer 123" 2>/dev/null || true)
+            [ -n "$R1" ] && [ -n "$R2" ] && echo "Both LLBot instances ready" && break
+            echo "Waiting... ($i/60)"
+            sleep 5
+          done
+
+      - name: Install test deps and write config
+        run: |
+          cd ${{ github.workspace }}/test/onebot11-api-test && npm install
+
+          cat > ${{ github.workspace }}/test/onebot11-api-test/config/test.config.json << 'CONF'
           {
             "accounts": {
               "primary": {
@@ -169,82 +207,14 @@ jobs:
           }
           CONF
 
-      - name: Prepare shared media volume
-        run: |
-          docker volume rm e2e-shared 2>/dev/null || true
-          docker volume create e2e-shared
-          docker run --rm \
-            -v e2e-shared:/shared \
-            -v ${{ github.workspace }}/test/onebot11-api-test/tests/media:/media:ro \
-            alpine sh -c "cp -r /media /shared/media"
-
-      - name: Start PR LLBot containers
-        run: |
-          docker rm -f llbot-pr1 llbot-pr2 2>/dev/null || true
-
-          docker run -d --name llbot-pr1 \
-            --network llbot-test_test_network \
-            -e pmhq_host=pmhq1 \
-            -e pmhq_port=13000 \
-            -e WEBUI_PORT=3091 \
-            -v llbot-test_qq_volume1:/root/.config/QQ \
-            -v ${{ github.workspace }}/workspace1/data:/app/llbot/data:rw \
-            -v e2e-shared:/shared:ro \
-            llbot-pr-test
-
-          docker run -d --name llbot-pr2 \
-            --network llbot-test_test_network \
-            -e pmhq_host=pmhq2 \
-            -e pmhq_port=13000 \
-            -e WEBUI_PORT=3092 \
-            -v llbot-test_qq_volume2:/root/.config/QQ \
-            -v ${{ github.workspace }}/workspace2/data:/app/llbot/data:rw \
-            -v e2e-shared:/shared:ro \
-            llbot-pr-test
-
-      - name: Wait for LLBot ready
-        run: |
-          for i in $(seq 1 60); do
-            R1=$(docker exec llbot-pr1 curl -sf http://127.0.0.1:53000/get_login_info -H "Authorization: Bearer 123" 2>/dev/null || true)
-            R2=$(docker exec llbot-pr2 curl -sf http://127.0.0.1:53001/get_login_info -H "Authorization: Bearer 123" 2>/dev/null || true)
-            [ -n "$R1" ] && [ -n "$R2" ] && echo "Both LLBot instances ready" && break
-            echo "Waiting... ($i/60)"
-            sleep 5
-          done
-
       - name: Run e2e tests in Docker
         run: |
           docker run --rm --name e2e-runner \
             --network llbot-test_test_network \
             -v ${{ github.workspace }}/test/onebot11-api-test:/app/test:rw \
             -v ${{ github.workspace }}/src:/app/src:ro \
-            -v e2e-shared:/shared:ro \
             -w /app/test \
-            node:24-alpine3.23 sh -c "
-              cp /app/test/config/test.config.json /app/test/config/test.config.json.bak 2>/dev/null || true
-              cat > /app/test/config/test.config.json << 'EOF'
-          {
-            \"accounts\": {
-              \"primary\": {
-                \"host\": \"http://llbot-pr1:53000\",
-                \"apiKey\": \"123\",
-                \"protocol\": \"http\",
-                \"user_id\": \"1577491075\"
-              },
-              \"secondary\": {
-                \"host\": \"http://llbot-pr2:53001\",
-                \"apiKey\": \"123\",
-                \"protocol\": \"http\",
-                \"user_id\": \"412805684\"
-              }
-            },
-            \"test_group_id\": \"1098066573\",
-            \"timeout\": 30000,
-            \"retryAttempts\": 3
-          }
-          EOF
-              npm install && npm test
-            "
+            node:24-alpine3.23 sh -c "npm test"
         continue-on-error: true
 
       - name: Stop PR LLBot containers
@@ -253,8 +223,7 @@ jobs:
           echo "=== LLBot1 logs ===" && docker logs llbot-pr1 2>&1 | tail -30 || true
           echo "=== LLBot2 logs ===" && docker logs llbot-pr2 2>&1 | tail -30 || true
           docker rm -f llbot-pr1 llbot-pr2 2>/dev/null || true
-          docker volume rm e2e-shared 2>/dev/null || true
-          sudo rm -rf ${{ github.workspace }}/workspace1 ${{ github.workspace }}/workspace2 ${{ github.workspace }}/e2e-workspace
+          sudo rm -rf ${{ github.workspace }}/workspace1 ${{ github.workspace }}/workspace2
 
       - name: Upload test report
         if: always()
