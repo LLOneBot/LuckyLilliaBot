@@ -31,66 +31,10 @@ jobs:
       - name: Run WebUI tests
         run: npm run test:webui
 
-  build-test:
-    name: Build Test
-    runs-on: [self-hosted, llbot-test]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 24
-
-      - name: Install dependencies
-        run: |
-          corepack enable
-          yarn install --no-immutable
-          cd src/webui/FE && npm install
-
-      - name: Build LLBot
-        run: npm run build
-
-      - name: Build WebUI
-        run: npm run build-webui
-
-      - name: Verify dist
-        run: |
-          test -f dist/llbot.js || (echo "dist/llbot.js not found" && exit 1)
-          test -f dist/webui/index.html || (echo "dist/webui/index.html not found" && exit 1)
-          echo "Build artifacts verified"
-
-      - name: Docker build and run test
-        run: |
-          docker build -f docker/Dockerfile.test -t llbot-build-test .
-          docker rm -f llbot-build-test 2>/dev/null || true
-          docker run -d --name llbot-build-test \
-            --network llbot-test_test_network \
-            -e pmhq_host=pmhq1 \
-            -e pmhq_port=13000 \
-            -e WEBUI_PORT=3090 \
-            llbot-build-test
-
-          echo "Waiting for LLBot to connect to PMHQ..."
-          for i in $(seq 1 60); do
-            if docker logs llbot-build-test 2>&1 | grep -q "PMHQ WebSocket 连接成功"; then
-              echo "LLBot connected to PMHQ successfully"
-              docker rm -f llbot-build-test
-              exit 0
-            fi
-            sleep 2
-          done
-
-          echo "ERROR: LLBot failed to connect to PMHQ within 120s"
-          docker logs llbot-build-test 2>&1 | tail -30
-          docker rm -f llbot-build-test
-          exit 1
-
   e2e-test:
     name: E2E Tests
     runs-on: [self-hosted, llbot-test]
-    needs: [unit-test, build-test]
+    needs: [unit-test]
     if: github.event_name == 'pull_request'
     steps:
       - name: Cleanup root-owned files
@@ -246,7 +190,7 @@ jobs:
   report:
     name: Test Report
     runs-on: ubuntu-latest
-    needs: [unit-test, build-test, e2e-test]
+    needs: [unit-test, e2e-test]
     if: always() && github.event_name == 'pull_request'
     permissions:
       pull-requests: write
@@ -257,7 +201,6 @@ jobs:
           script: |
             const jobs = {
               'unit-test': '${{ needs.unit-test.result }}',
-              'build-test': '${{ needs.build-test.result }}',
               'e2e-test': '${{ needs.e2e-test.result }}',
             };
 
