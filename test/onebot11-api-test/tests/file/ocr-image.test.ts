@@ -7,7 +7,6 @@ import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../se
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llbot/onebot11/types';
-import { MediaPaths } from '../media';
 
 describe('ocr_image - 图片 OCR 识别', () => {
   let context: MessageTestContext;
