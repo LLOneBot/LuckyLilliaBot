@@ -1,5 +1,5 @@
 # LLBot
-![Node.js Version](https://img.shields.io/badge/node-%3E=22.x-brightgreen)
+![Node.js Version](https://img.shields.io/badge/node-%3E=24.x-brightgreen)
 
 <div align="center">
   <img src="./logo.jpg" width="200" alt="Logo" />

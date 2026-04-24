@@ -59,8 +59,9 @@ describe('get_image - 获取图片信息', () => {
       throw new Error('未找到图片消息');
     }
 
-    // 测试 get_image
-    const imageResponse = await primaryClient.call(ActionName.GetImage, {
+    // 测试 get_image（用接收方账号查询，因为 file ID 来自接收方）
+    const secondaryClient = context.twoAccountTest.getClient('secondary');
+    const imageResponse = await secondaryClient.call(ActionName.GetImage, {
       file: imageMsg.data.file
     });
 

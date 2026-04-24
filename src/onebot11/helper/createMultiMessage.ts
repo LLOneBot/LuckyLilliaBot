@@ -10,12 +10,13 @@ import { InferProtoModelInput } from '@saltify/typeproto'
 import { stat } from 'node:fs/promises'
 import { createThumb } from '@/common/utils/video'
 import { uri2local } from '@/common/utils'
+import { isNonNullable } from 'cosmokit'
 
 // 最大嵌套深度
 const MAX_FORWARD_DEPTH = 3
 
 export class MessageEncoder {
-  static support = ['text', 'face', 'image', 'forward', 'node', 'video', 'file']
+  static support = ['text', 'face', 'image', 'forward', 'node', 'video', 'file', 'at']
   results: InferProtoModelInput<typeof Msg.Message>[]
   children: InferProtoModelInput<typeof Msg.Elem>[]
   content?: Buffer
@@ -46,7 +47,7 @@ export class MessageEncoder {
   async flush() {
     if (this.children.length === 0 && !this.content) return
 
-    const nick = this.name || selfInfo.nick || 'QQ用户'
+    const nick = this.name ?? selfInfo.nick
 
     if (this.news.length < 4) {
       this.news.push({
@@ -386,6 +387,33 @@ export class MessageEncoder {
         this.content = extra
       }
       this.preview += `[文件] ${fileName}`
+    } else if (type === OB11MessageDataType.At) {
+      if (!this.isGroup) {
+        return
+      }
+      let str
+      if (isNonNullable(data.name)) {
+        str = `@${data.name}`
+      } else {
+        if (data.qq === 'all') {
+          str = '@全体成员'
+        } else {
+          const uid = await this.ctx.ntUserApi.getUidByUin(data.qq, this.isGroup ? this.peer.peerUid : undefined)
+          try {
+            const info = await this.ctx.ntGroupApi.getGroupMember(this.peer.peerUid, uid, false, 50)
+            str = `@${info.cardName || info.nick}`
+          } catch (e) {
+            const info = await this.ctx.ntUserApi.getUserSimpleInfo(uid)
+            str = `@${info.coreInfo.nick}`
+          }
+        }
+      }
+      this.children.push({
+        text: {
+          str
+        }
+      })
+      this.preview += str
     }
   }
 

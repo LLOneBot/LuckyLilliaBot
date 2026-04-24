@@ -1,6 +1,6 @@
 import { IncomingMessage, IncomingSegment, IncomingForwardedMessage } from '@saltify/milky-types'
 import { transformFriend, transformGroup, transformGroupMember } from '@/milky/transform/entity'
-import { RawMessage, ElementType, AtType, GroupDetailInfo } from '@/ntqqapi/types'
+import { RawMessage, ElementType, AtType, GroupDetailInfo, ChatType } from '@/ntqqapi/types'
 import { SimpleInfo, CategoryFriend, GroupMember } from '@/ntqqapi/types'
 import { Context } from 'cordis'
 import { InferProtoModel } from '@saltify/typeproto'
@@ -140,11 +140,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
           type: 'video',
           data: {
             resource_id: element.videoElement!.fileUuid,
-            temp_url: await ctx.ntFileApi.getVideoUrl({
-              chatType: message.chatType,
-              peerUid: message.peerUid,
-              guildId: message.guildId
-            }, message.msgId, element.elementId),
+            temp_url: await ctx.ntFileApi.getVideoUrlByPacket(element.videoElement!.fileUuid, message.chatType === ChatType.Group),
             width: element.videoElement!.thumbWidth,
             height: element.videoElement!.thumbHeight,
             duration: element.videoElement!.fileTime,

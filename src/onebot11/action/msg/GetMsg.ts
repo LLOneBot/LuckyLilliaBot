@@ -21,12 +21,21 @@ class GetMsg extends BaseAction<PayloadType, OB11Message> {
     if (!msgInfo) {
       throw new Error('消息不存在')
     }
-    let msg = this.ctx.store.getMsgCache(msgInfo.msgId)
-    if (!msg) {
-      const res = await this.ctx.ntMsgApi.getMsgsByMsgId(msgInfo.peer, [msgInfo.msgId])
-      if (res.msgList.length === 0) {
+    let status: 'normal' | 'deleted' = 'normal'
+    let msg
+    const res = await this.ctx.ntMsgApi.getMsgsByMsgId(msgInfo.peer, [msgInfo.msgId])
+    if (res.msgList.length === 0 || res.msgList[0].elements[0].grayTipElement?.revokeElement) {
+      const msgCache = this.ctx.store.getMsgCache(msgInfo.msgId)
+      if (msgCache) {
+        msg = msgCache
+        status = 'deleted'
+      } else if (res.msgList.length === 0) {
         throw new Error('无法获取该消息')
+      } else {
+        msg = res.msgList[0]
+        status = 'deleted'
       }
+    } else {
       msg = res.msgList[0]
     }
     const retMsg = await OB11Entities.message(this.ctx, msg, undefined, undefined, config)
@@ -34,6 +43,7 @@ class GetMsg extends BaseAction<PayloadType, OB11Message> {
       throw new Error('消息为空')
     }
     retMsg.real_id = retMsg.message_seq
+    retMsg.status = status
     return retMsg
   }
 }

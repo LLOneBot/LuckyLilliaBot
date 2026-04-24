@@ -1,0 +1,8 @@
+FROM node:24-alpine3.23
+RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
+    apk add --no-cache ffmpeg curl
+WORKDIR /app/llbot
+COPY dist/ .
+COPY docker/startup.sh /startup.sh
+RUN chmod +x /startup.sh
+ENTRYPOINT ["/startup.sh"]

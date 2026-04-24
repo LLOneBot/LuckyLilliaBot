@@ -4,6 +4,7 @@ export default {
   extensionsToTreatAsEsm: ['.ts'],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
+    '^@llbot/(.*)$': '<rootDir>/../../src/$1',
     '^@llonebot/(.*)$': '<rootDir>/../../src/$1',
     '^(\\.{1,2}/.*)\\.js$': '$1',
   },
@@ -12,9 +13,14 @@ export default {
       'ts-jest',
       {
         useESM: true,
+        diagnostics: false,
         tsconfig: {
           module: 'ES2022',
           target: 'ES2022',
+          paths: {
+            '@/*': ['./*'],
+            '@llbot/*': ['../../src/*'],
+          },
         },
       },
     ],

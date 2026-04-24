@@ -47,7 +47,7 @@ export class NTQQGroupApi extends Service {
     return await this.ctx.pmhq.invoke(NTMethod.GROUP_MEMBERS, [groupCode, forceFetch])
   }
 
-  async getGroupMember(groupCode: string, uid: string, forceUpdate = false) {
+  async getGroupMember(groupCode: string, uid: string, forceUpdate = false, timeout = 15000) {
     const data = await this.ctx.pmhq.invoke<[
       groupCode: string,
       dataSource: number,
@@ -63,7 +63,8 @@ export class NTQQGroupApi extends Service {
         resultCmd: 'nodeIKernelGroupListener/onMemberInfoChange',
         resultCb: result => {
           return result[0] === groupCode && result[2].has(uid)
-        }
+        },
+        timeout
       },
     )
     return data[2].get(uid)!
@@ -353,7 +354,7 @@ export class NTQQGroupApi extends Service {
     ])
   }
 
-  async getGroupShutUpMemberList(groupCode: string) {
+  async getGroupShutUpMemberList(groupCode: string): Promise<GroupMember[]> {
     const res = await this.ctx.pmhq.invoke<[
       groupCode: string,
       memList: GroupMember[]
@@ -362,7 +363,7 @@ export class NTQQGroupApi extends Service {
       [groupCode],
       {
         resultCmd: 'nodeIKernelGroupListener/onShutUpMemberListChanged',
-        resultCb: payload => payload[0] === groupCode,
+        resultCb: payload => payload[0] === groupCode || payload[0] === '0'
       },
     )
     return res[1]
@@ -445,5 +446,19 @@ export class NTQQGroupApi extends Service {
         },
       },
     )
+  }
+
+  async getGroupAlbumMediaList(groupCode: string, albumId: string, attachInfo = '') {
+    return await this.ctx.pmhq.invoke('nodeIKernelAlbumService/getMediaList', [{
+      qun_id: groupCode,
+      attach_info: attachInfo,
+      seq: 0,
+      request_time_line: {
+        request_invoke_time: '0'
+      },
+      album_id: albumId,
+      lloc: '',
+      batch_id: ''
+    }])
   }
 }
