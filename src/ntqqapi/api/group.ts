@@ -364,10 +364,7 @@ export class NTQQGroupApi extends Service {
       {
         resultCmd: 'nodeIKernelGroupListener/onShutUpMemberListChanged',
         resultCb: payload => payload[0] === groupCode,
-        onCallResult: (r) => {
-          // void 返回表示没有禁言成员，QQ 不会触发回调，直接返回空列表
-          if (!r) return [groupCode, []] as [string, GroupMember[]]
-        },
+        onCallResult: () => [groupCode, []] as [string, GroupMember[]],
       },
     )
     return res[1]
