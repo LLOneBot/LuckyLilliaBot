@@ -364,8 +364,9 @@ export class NTQQGroupApi extends Service {
       {
         resultCmd: 'nodeIKernelGroupListener/onShutUpMemberListChanged',
         resultCb: payload => payload[0] === groupCode,
+        timeout: 5000,
       },
-    )
+    ).catch(() => [groupCode, []] as [string, GroupMember[]])
     return res[1]
   }
 
