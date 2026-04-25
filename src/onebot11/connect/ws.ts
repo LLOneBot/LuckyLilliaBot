@@ -78,7 +78,7 @@ class OB11WebSocket {
       if (emitEvent && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify(event))
         const eventName = event.getSummaryEventName()
-        this.ctx.logger.info('WebSocket 事件上报', socket.url ?? '', eventName)
+        this.ctx.logger.info('WebSocket 事件上报', eventName)
       }
     })
   }
@@ -116,7 +116,7 @@ class OB11WebSocket {
     }
     socket.send(JSON.stringify(data))
     if ('post_type' in data) {
-      this.ctx.logger.info('WebSocket 事件上报', socket.url ?? '', data.post_type)
+      this.ctx.logger.info('WebSocket 事件上报', data.post_type)
     }
   }
 

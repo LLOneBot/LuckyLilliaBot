@@ -268,15 +268,19 @@ export namespace OB11Entities {
   ): Promise<OB11FriendRecallNoticeEvent | OB11GroupRecallNoticeEvent> {
     const revokeElement = msg.elements[0].grayTipElement!.revokeElement!
     if (msg.chatType === ChatType.Group) {
-      const operator = await ctx.ntGroupApi.getGroupMember(msg.peerUid, revokeElement.operatorUid)
-      let uin = msg.senderUin
-      if (uin === '0' || !uin) {
-        uin = await ctx.ntUserApi.getUinByUid(revokeElement.origMsgSenderUid)
+      let operatorUin
+      if (revokeElement.operatorUid === revokeElement.origMsgSenderUid) {
+        operatorUin = msg.senderUin
+      } else {
+        operatorUin = await ctx.ntUserApi.getUinByUid(revokeElement.operatorUid)
+      }
+      if (msg.senderUin === '0' || !msg.senderUin) {
+        ctx.logger.warn(`发生异常 senderUin: ${msg.senderUin}`)
       }
       return new OB11GroupRecallNoticeEvent(
         Number(msg.peerUid),
-        Number(uin),
-        Number(operator.uin || msg.senderUin),
+        Number(msg.senderUin),
+        Number(operatorUin),
         shortId,
       )
     }

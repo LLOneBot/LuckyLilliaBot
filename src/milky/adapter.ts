@@ -22,6 +22,7 @@ import {
   transformPrivateMessageEvent,
   transformOlpushEvent,
   transformTempMessageCreated,
+  transformTempMessageDeleted,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
 import { noop } from 'cosmokit'
@@ -162,6 +163,11 @@ export class MilkyAdapter extends Service {
         }
       } else if (message.chatType === ChatType.Group) {
         const eventData = await transformGroupMessageDeleted(this.ctx, message)
+        if (eventData) {
+          this.emitEvent('message_recall', eventData)
+        }
+      } else if (message.chatType === ChatType.TempC2CFromGroup) {
+        const eventData = await transformTempMessageDeleted(this.ctx, message)
         if (eventData) {
           this.emitEvent('message_recall', eventData)
         }

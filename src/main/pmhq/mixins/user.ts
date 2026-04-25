@@ -40,7 +40,7 @@ export function UserMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) {
         qid: bytes[27394]?.toString() ?? '',
         level: numbers[105],
         regTime: numbers[20026] ?? 0,
-        longNick: bytes[102].toString(),
+        longNick: bytes[102]?.toString() ?? '',
         city: bytes[20020]?.toString() ?? '',
         country: bytes[20003]?.toString() ?? '',
         birthdayYear: (bytes[20031]?.[0] << 8) | bytes[20031]?.[1],

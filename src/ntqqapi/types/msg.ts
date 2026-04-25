@@ -396,7 +396,8 @@ export enum FaceIndex {
 }
 
 export enum FaceType {
-  Normal = 1, // 普通小黄脸表情
+  Old = 1, // 普通小黄脸表情
+  Normal = 2, // 常规表情
   Super = 3, // 超级表情
   Poke = 5  // 戳一戳，窗口抖动那种，私聊才有
 }

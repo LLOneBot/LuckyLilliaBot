@@ -3,7 +3,7 @@ import { OB11MessageData, OB11MessageDataType, OB11MessageNode } from '../types'
 import { Msg, Media } from '@/ntqqapi/proto'
 import { handleOb11RichMedia, message2List } from './createMessage'
 import { selfInfo } from '@/common/globalVars'
-import { ChatType, ElementType, Peer, RichMediaUploadCompleteNotify } from '@/ntqqapi/types'
+import { ChatType, ElementType, FaceType, Peer, RichMediaUploadCompleteNotify } from '@/ntqqapi/types'
 import { deflateSync } from 'node:zlib'
 import faceConfig from '@/ntqqapi/helper/face_config.json'
 import { InferProtoModelInput } from '@saltify/typeproto'
@@ -16,7 +16,7 @@ import { isNonNullable } from 'cosmokit'
 const MAX_FORWARD_DEPTH = 3
 
 export class MessageEncoder {
-  static support = ['text', 'face', 'image', 'forward', 'node', 'video', 'file', 'at']
+  static support = ['text', 'face', 'image', 'forward', 'node', 'video', 'file', 'at', 'reply']
   results: InferProtoModelInput<typeof Msg.Message>[]
   children: InferProtoModelInput<typeof Msg.Elem>[]
   content?: Buffer
@@ -414,6 +414,68 @@ export class MessageEncoder {
         }
       })
       this.preview += str
+    } else if (type === OB11MessageDataType.Reply) {
+      const msgInfo = await this.ctx.store.getMsgInfoByShortId(+data.id)
+      if (!msgInfo) {
+        throw new Error(`消息 ${data.id} 不存在`)
+      }
+      const res = await this.ctx.ntMsgApi.getMsgsByMsgId(msgInfo.peer, [msgInfo.msgId])
+      if (res.msgList.length === 0) {
+        throw new Error(`无法获取消息 ${data.id} 的内容`)
+      }
+      const msg = res.msgList[0]
+      const elems: InferProtoModelInput<typeof Msg.Elem>[] = []
+      for (const element of msg.elements) {
+        if (element.elementType === ElementType.Text) {
+          elems.push({
+            text: {
+              str: element.textElement!.content
+            }
+          })
+        } else if (element.elementType === ElementType.Pic) {
+          elems.push({
+            text: {
+              str: element.picElement!.summary
+            }
+          })
+        } else if (element.elementType === ElementType.Video) {
+          elems.push({
+            text: {
+              str: '[视频]'
+            }
+          })
+        } else if (element.elementType === ElementType.Face) {
+          const { faceType, faceIndex, faceText } = element.faceElement!
+          if (faceType === FaceType.Old || faceType === FaceType.Normal) {
+            elems.push({
+              face: {
+                index: faceIndex
+              }
+            })
+          } else {
+            elems.push({
+              text: {
+                str: faceText
+              }
+            })
+          }
+        } else if (element.elementType === ElementType.File) {
+          elems.push({
+            text: {
+              str: '[文件]'
+            }
+          })
+        }
+      }
+      this.children.push({
+        srcMsg: {
+          origSeqs: [+msg.msgSeq],
+          senderUin: +msg.senderUin,
+          time: +msg.msgTime,
+          elems: elems.map(e => Msg.Elem.encode(e)),
+          toUin: 0
+        }
+      })
     }
   }
 
