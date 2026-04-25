@@ -38,8 +38,6 @@ jobs:
         run: |
           corepack enable
           yarn install
-          cd src/webui/FE
-          yarn install
 
       - name: Build
         run: |
