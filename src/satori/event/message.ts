@@ -21,8 +21,13 @@ export async function parseMessageDeleted(bot: SatoriAdapter, input: RawMessage)
   if (!origin) return
   const message = await decodeMessage(bot.ctx, origin)
   if (!message) return
-  const operatorUid = input.elements[0].grayTipElement!.revokeElement!.operatorUid
-  const user = await bot.ctx.ntUserApi.getUserSimpleInfo(operatorUid)
+  const revokeElement = input.elements[0].grayTipElement!.revokeElement!
+  let operator
+  if (revokeElement.operatorUid === revokeElement.origMsgSenderUid) {
+    operator = message.user!
+  } else {
+    operator = decodeUser((await bot.ctx.ntUserApi.getUserSimpleInfo(revokeElement.operatorUid)).coreInfo)
+  }
 
   return bot.event('message-deleted', {
     message: omit(message, ['member', 'user', 'channel', 'guild']),
@@ -30,6 +35,6 @@ export async function parseMessageDeleted(bot: SatoriAdapter, input: RawMessage)
     user: message.user,
     channel: message.channel,
     guild: message.guild,
-    operator: omit(decodeUser(user.coreInfo), ['is_bot'])
+    operator: omit(operator, ['is_bot'])
   })
 }

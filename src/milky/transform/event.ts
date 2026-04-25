@@ -89,7 +89,7 @@ export async function transformPrivateMessageDeleted(
       peer_id: Number(message.peerUin),
       message_seq: Number(message.msgSeq),
       sender_id: Number(message.senderUin),
-      operator_id: Number(await ctx.ntUserApi.getUinByUid(revokeElement.operatorUid)),
+      operator_id: Number(message.senderUin),
       display_suffix: revokeElement.wording,
     }
   } catch (error) {
@@ -107,12 +107,18 @@ export async function transformGroupMessageDeleted(
 ): Promise<MilkyEventTypes['message_recall'] | null> {
   try {
     const revokeElement = message.elements[0].grayTipElement!.revokeElement!
+    let operatorUin
+    if (revokeElement.operatorUid === revokeElement.origMsgSenderUid) {
+      operatorUin = message.senderUin
+    } else {
+      operatorUin = await ctx.ntUserApi.getUinByUid(revokeElement.operatorUid)
+    }
     return {
       message_scene: 'group',
       peer_id: Number(message.peerUin),
       message_seq: Number(message.msgSeq),
       sender_id: Number(message.senderUin),
-      operator_id: Number(await ctx.ntUserApi.getUinByUid(revokeElement.operatorUid)),
+      operator_id: Number(operatorUin),
       display_suffix: revokeElement.wording,
     }
   } catch (error) {
