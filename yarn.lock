@@ -1292,9 +1292,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-xml-parser@npm:^5.7.1":
-  version: 5.7.1
-  resolution: "fast-xml-parser@npm:5.7.1"
+"fast-xml-parser@npm:^5.7.2":
+  version: 5.7.2
+  resolution: "fast-xml-parser@npm:5.7.2"
   dependencies:
     "@nodable/entities": "npm:^2.1.0"
     fast-xml-builder: "npm:^1.1.5"
@@ -1302,7 +1302,7 @@ __metadata:
     strnum: "npm:^2.2.3"
   bin:
     fxparser: src/cli/cli.js
-  checksum: 10c0/b8b54e33060da5fc5ce26fdc73c4728f18415f9be9a774f1406b03265a5b411b742c39dba0127c3f0f31fad5b3ee11f51be79aa16df160f69fd5e4b902bfbb85
+  checksum: 10c0/d48439ce0700add82f5e7c6ccc5a1f06483beb7cd8e88caa83c6406843e52f14988e60d05cbb3a86ffe07e073807674c807e0764d94a280e1c96d7e2011dae8e
   languageName: node
   linkType: hard
 
@@ -1714,7 +1714,7 @@ __metadata:
     compare-versions: "npm:^6.1.1"
     cordis: "npm:^4.0.0-rc.3"
     cosmokit: "npm:^1.8.1"
-    fast-xml-parser: "npm:^5.7.1"
+    fast-xml-parser: "npm:^5.7.2"
     file-type: "npm:^22.0.1"
     fluent-ffmpeg: "npm:^2.1.3"
     get-port: "npm:^7.2.0"
