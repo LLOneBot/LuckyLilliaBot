@@ -36,15 +36,15 @@ jobs:
 
       - name: Install dependencies
         run: |
-          export ELECTRON_SKIP_BINARY_DOWNLOAD=1
-          npm install
+          corepack enable
+          yarn install
           cd src/webui/FE
-          npm install
+          yarn install
 
       - name: Build
         run: |
-          npm run build
-          npm run build-webui
+          yarn build
+          yarn build-webui
 
       - name: Compress dist
         run: |
