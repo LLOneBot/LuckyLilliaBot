@@ -144,13 +144,9 @@ export class NTQQUserApi extends Service {
     )
   }
 
-  async getBuddyNick(uid: string): Promise<string> {
+  async getBuddyNick(uid: string) {
     const data = await this.ctx.pmhq.invoke('nodeIKernelBuddyService/getBuddyNick', [[uid]])
-    const nick = data.get(uid)
-    if (nick === undefined) {
-      this.ctx.logger.warn(`获取昵称失败, uid: ${uid}`)
-    }
-    return nick ?? ''
+    return data.get(uid)
   }
 
   async getCookies(domain: string) {
@@ -190,8 +186,11 @@ export class NTQQUserApi extends Service {
 
   async getSelfNick(refresh = true) {
     if ((refresh || !selfInfo.nick) && selfInfo.uid) {
-      // const data = await this.getUserSimpleInfo(selfInfo.uid, refresh)
-      selfInfo.nick = await this.getBuddyNick(selfInfo.uid)
+      let nick = await this.getBuddyNick(selfInfo.uid)
+      if (nick === undefined) {
+        nick = (await this.getUserSimpleInfo(selfInfo.uid, refresh)).coreInfo.nick
+      }
+      selfInfo.nick = nick
     }
     return selfInfo.nick
   }
