@@ -840,15 +840,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cordis@npm:^4.0.0-rc.3":
-  version: 4.0.0-rc.3
-  resolution: "cordis@npm:4.0.0-rc.3"
+"cordis@npm:^4.0.0-rc.4":
+  version: 4.0.0-rc.4
+  resolution: "cordis@npm:4.0.0-rc.4"
   dependencies:
     "@standard-schema/spec": "npm:^1.1.0"
     cosmokit: "npm:^1.8.1"
   peerDependencies:
-    "@cordisjs/plugin-include": ^1.0.2
-    "@cordisjs/plugin-loader": ^1.0.0-rc.2
+    "@cordisjs/plugin-include": ^1.0.3
+    "@cordisjs/plugin-loader": ^1.0.0-rc.3
   peerDependenciesMeta:
     "@cordisjs/plugin-include":
       optional: true
@@ -856,7 +856,7 @@ __metadata:
       optional: true
   bin:
     cordis: bin.js
-  checksum: 10c0/2ce6a659aa27d413e1c927ee70d3febf8dadd34ccffdf9a92e5619dd0fce3050124ac3f6c7e9f1bd7ab91025ac8a41edd28b70d4846498d71e515cbaa224403e
+  checksum: 10c0/7d52b10c328c55acea8f8a7515bd55dbb8a9ba496c17c86db29899cf4a5d60aa95ddbeab848ec7ebd20f9e85e43b8d238dee40c8ce21d5848ff634559a6d7762
   languageName: node
   linkType: hard
 
@@ -1398,7 +1398,7 @@ __metadata:
     "@types/qrcode": "npm:^1.5.6"
     "@types/ws": "npm:^8.18.1"
     compare-versions: "npm:^6.1.1"
-    cordis: "npm:^4.0.0-rc.3"
+    cordis: "npm:^4.0.0-rc.4"
     cosmokit: "npm:^1.8.1"
     fast-xml-parser: "npm:^5.7.2"
     file-type: "npm:^22.0.1"
@@ -1408,7 +1408,7 @@ __metadata:
     image-size: "npm:^2.0.2"
     json5: "npm:^2.2.3"
     minato: "npm:^4.0.1"
-    nodemailer: "npm:^8.0.6"
+    nodemailer: "npm:^8.0.7"
     qrcode: "npm:^1.5.4"
     schemastery: "npm:^3.18.0"
     sift: "npm:^17.1.3"
@@ -1496,10 +1496,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nodemailer@npm:^8.0.6":
-  version: 8.0.6
-  resolution: "nodemailer@npm:8.0.6"
-  checksum: 10c0/84d1b48e647d4ee86752b1dff09012a86d0be9df5d4beb4b63494973d6d1e7262edcd754722f0f1d5f1f7b20c5d8a8ec54cfeb9d265e6d1d3aafc3e94809be5e
+"nodemailer@npm:^8.0.7":
+  version: 8.0.7
+  resolution: "nodemailer@npm:8.0.7"
+  checksum: 10c0/f1580263ad7fba64a493c47c4d78f06679c0da9cc3becbe6b628311a16474c07286fc4e530006ea262537594ccc475dc569fd519275222fd01f99c315976aeac
   languageName: node
   linkType: hard
 
