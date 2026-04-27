@@ -156,41 +156,43 @@ export interface GroupAllInfo {
   isAllowModifyConfGroupName: number
 }
 
+interface GroupBulletinFeed {
+  uin: string
+  feedId: string
+  publishTime: string
+  msg: {
+    text: string
+    textFace: string
+    pics: {
+      id: string
+      width: number
+      height: number
+    }[]
+    title: string
+  }
+  type: number
+  fn: number
+  cn: number
+  vn: number
+  settings: {
+    isShowEditCard: number
+    remindTs: number
+    tipWindowType: number
+    confirmRequired: number
+  }
+  pinned: number
+  readNum: number
+  is_read: number
+  is_all_confirm: number
+}
+
 export interface GroupBulletinListResult {
   groupCode: string
   srvCode: number
   readOnly: number
   role: number
-  inst: unknown[]
-  feeds: {
-    uin: string
-    feedId: string
-    publishTime: string
-    msg: {
-      text: string
-      textFace: string
-      pics: {
-        id: string
-        width: number
-        height: number
-      }[]
-      title: string
-    }
-    type: number
-    fn: number
-    cn: number
-    vn: number
-    settings: {
-      isShowEditCard: number
-      remindTs: number
-      tipWindowType: number
-      confirmRequired: number
-    }
-    pinned: number
-    readNum: number
-    is_read: number
-    is_all_confirm: number
-  }[]
+  inst: GroupBulletinFeed[]
+  feeds: GroupBulletinFeed[]
   groupInfo: {
     groupCode: string
     classId: number
