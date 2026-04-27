@@ -17,6 +17,11 @@ interface Notice {
       id: string
     }[]
   }
+  settings: {
+    is_show_edit_card: boolean
+    tip_window: boolean
+    confirm_required: boolean
+  }
 }
 
 export class GetGroupNotice extends BaseAction<Payload, Notice[]> {
@@ -42,6 +47,11 @@ export class GetGroupNotice extends BaseAction<Payload, Notice[]> {
               id: image.id
             }
           })
+        },
+        settings: {
+          is_show_edit_card: !!feed.settings.isShowEditCard,
+          tip_window: !feed.settings.tipWindowType,
+          confirm_required: !!feed.settings.confirmRequired
         }
       })
     }

@@ -8,8 +8,10 @@ interface Payload {
   group_id: number | string
   content: string
   image?: string
-  pinned: boolean //扩展
-  confirm_required: boolean //扩展
+  pinned: boolean
+  confirm_required: boolean
+  is_show_edit_card: boolean
+  tip_window: boolean
 }
 
 export class SendGroupNotice extends BaseAction<Payload, null> {
@@ -19,13 +21,17 @@ export class SendGroupNotice extends BaseAction<Payload, null> {
     content: Schema.string().required(),
     image: Schema.string(),
     pinned: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false),
-    confirm_required: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(true)
+    confirm_required: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(true),
+    is_show_edit_card: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false),
+    tip_window: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false)
   })
 
   async _handle(payload: Payload) {
     const groupCode = payload.group_id.toString()
     const pinned = +payload.pinned
     const confirmRequired = +payload.confirm_required
+    const isShowEditCard = +payload.is_show_edit_card
+    const tipWindowType = +!payload.tip_window
 
     let picInfo: { id: string, width: number, height: number } | undefined
     if (payload.image) {
@@ -43,15 +49,20 @@ export class SendGroupNotice extends BaseAction<Payload, null> {
       picInfo = result.picInfo
     }
 
-    const res = await this.ctx.ntGroupApi.publishGroupBulletin(groupCode, {
-      text: encodeURIComponent(payload.content),
-      oldFeedsId: '',
+    const res = await this.ctx.ntWebApi.publishGroupBulletin(
+      groupCode,
+      payload.content,
       pinned,
+      1,
+      isShowEditCard,
+      tipWindowType,
       confirmRequired,
-      picInfo
-    })
-    if (res.result !== 0) {
-      throw new Error(`设置群公告失败, 错误信息: ${res.errMsg}`)
+      picInfo?.id,
+      picInfo?.width,
+      picInfo?.height
+    )
+    if (res.ec !== 0) {
+      throw new Error(`设置群公告失败, 错误信息: ${res.em}`)
     }
     return null
   }

@@ -1,3 +1,11 @@
+V7.12.5
+更新时间 2026-04-27
+
+* OneBot 支持 upload_group_album API 上传视频
+* OneBot 支持 _send_group_notice API 设置群公告是否弹窗展示、引导修改群昵称
+* OneBot 支持 _get_group_notice API 获取群公告相关设置
+
+=================
 V7.12.4
 更新时间 2026-04-25
 
