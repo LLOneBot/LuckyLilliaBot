@@ -12,6 +12,7 @@ interface Payload {
   confirm_required: boolean
   is_show_edit_card: boolean
   tip_window: boolean
+  send_new_member: boolean
 }
 
 export class SendGroupNotice extends BaseAction<Payload, null> {
@@ -23,15 +24,12 @@ export class SendGroupNotice extends BaseAction<Payload, null> {
     pinned: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false),
     confirm_required: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(true),
     is_show_edit_card: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false),
-    tip_window: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false)
+    tip_window: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false),
+    send_new_member: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false)
   })
 
   async _handle(payload: Payload) {
     const groupCode = payload.group_id.toString()
-    const pinned = +payload.pinned
-    const confirmRequired = +payload.confirm_required
-    const isShowEditCard = +payload.is_show_edit_card
-    const tipWindowType = +!payload.tip_window
 
     let picInfo: { id: string, width: number, height: number } | undefined
     if (payload.image) {
@@ -52,11 +50,11 @@ export class SendGroupNotice extends BaseAction<Payload, null> {
     const res = await this.ctx.ntWebApi.publishGroupBulletin(
       groupCode,
       payload.content,
-      pinned,
-      1,
-      isShowEditCard,
-      tipWindowType,
-      confirmRequired,
+      +payload.pinned,
+      payload.send_new_member ? 20 : 1,
+      +payload.is_show_edit_card,
+      +!payload.tip_window,
+      +payload.confirm_required,
       picInfo?.id,
       picInfo?.width,
       picInfo?.height

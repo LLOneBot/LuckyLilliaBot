@@ -22,6 +22,7 @@ interface Notice {
     tip_window: boolean
     confirm_required: boolean
     pinned: boolean
+    send_new_member: boolean
   }
 }
 
@@ -53,7 +54,8 @@ export class GetGroupNotice extends BaseAction<Payload, Notice[]> {
           is_show_edit_card: !!feed.settings.isShowEditCard,
           tip_window: !feed.settings.tipWindowType,
           confirm_required: !!feed.settings.confirmRequired,
-          pinned: !!feed.pinned
+          pinned: !!feed.pinned,
+          send_new_member: feed.type === 20
         }
       })
     }

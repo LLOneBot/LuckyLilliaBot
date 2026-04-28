@@ -624,7 +624,8 @@ export class NTQQWebApi extends Service {
       imgHeight: imgHeight?.toString()
     }
 
-    const res = await fetch('https://web.qun.qq.com/cgi-bin/announce/add_qun_notice', {
+    const url = type === 20 ? 'https://web.qun.qq.com/cgi-bin/announce/add_qun_instruction' : 'https://web.qun.qq.com/cgi-bin/announce/add_qun_notice'
+    const res = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
