@@ -16,6 +16,7 @@ import {
 import { WebQQPage, WebQQFullscreen } from './components/WebQQ';
 import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
+import { deleteCookie } from './utils/cookie';
 import { Save, Loader2, Eye, EyeOff, Plus, Trash2, Menu, Cpu, Milk, ExternalLink } from 'lucide-react';
 import { defaultConfig } from '../../main/config/defaultConfig'
 import { version } from '../../version'
@@ -280,6 +281,10 @@ function App() {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         onOpenSettings={() => setShowSettingsDialog(true)}
+        onLogout={() => {
+          deleteCookie('webui_token')
+          window.location.reload()
+        }}
       />
 
       <main className={`flex-1 overflow-auto z-10 transition-all duration-300 ${sidebarCollapsed ? '' : 'md:ml-64'}`}>
