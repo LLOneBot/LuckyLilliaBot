@@ -12,7 +12,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
-  LogOut,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -27,7 +26,6 @@ interface SidebarProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onOpenSettings?: () => void;
-  onLogout?: () => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ 
@@ -39,7 +37,6 @@ const Sidebar: React.FC<SidebarProps> = ({
   collapsed = false,
   onToggleCollapse,
   onOpenSettings,
-  onLogout,
 }) => {
   const menuItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -167,13 +164,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               title="设置"
             >
               <Settings size={18} />
-            </button>
-            <button
-              onClick={onLogout}
-              className="p-2 rounded-lg transition-all duration-200 text-theme-muted hover:bg-red-100 hover:text-red-500 dark:hover:bg-red-900/30"
-              title="退出 WebUI（不会退出QQ）"
-            >
-              <LogOut size={18} />
             </button>
           </div>
         </div>

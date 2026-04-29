@@ -1,16 +1,18 @@
 import React from 'react'
-import { X, Sun, Moon, Monitor, Eye, EyeOff } from 'lucide-react'
+import { X, Sun, Moon, Monitor, Eye, EyeOff, LogOut } from 'lucide-react'
 import { useThemeStore } from '../../stores/themeStore'
 import { useSettingsStore } from '../../stores/settingsStore'
 
 interface SettingsDialogProps {
   visible: boolean
   onClose: () => void
+  onLogout?: () => void
 }
 
-const SettingsDialog: React.FC<SettingsDialogProps> = ({ visible, onClose }) => {
+const SettingsDialog: React.FC<SettingsDialogProps> = ({ visible, onClose, onLogout }) => {
   const { mode, setMode } = useThemeStore()
   const { autoHideSidebarInWebQQ, setAutoHideSidebarInWebQQ, showWebQQFullscreenButton, setShowWebQQFullscreenButton } = useSettingsStore()
+  const [showLogoutConfirm, setShowLogoutConfirm] = React.useState(false)
 
   if (!visible) return null
 
@@ -111,7 +113,14 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ visible, onClose }) => 
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3 p-6 border-t border-theme-divider">
+        <div className="flex justify-between gap-3 p-6 border-t border-theme-divider">
+          <button
+            onClick={() => setShowLogoutConfirm(true)}
+            className="flex items-center gap-2 px-4 py-2.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors font-medium"
+          >
+            <LogOut size={18} />
+            退出 WebUI
+          </button>
           <button
             onClick={onClose}
             className="px-6 py-2.5 bg-theme-item hover:bg-theme-item-hover text-theme rounded-xl transition-colors font-medium"
@@ -120,6 +129,33 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ visible, onClose }) => 
           </button>
         </div>
       </div>
+
+      {/* Logout Confirm Dialog */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)} />
+          <div className="relative bg-theme-card rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
+            <h3 className="text-lg font-semibold text-theme mb-2">确认退出</h3>
+            <p className="text-sm text-theme-secondary mb-6">
+              确定要退出 WebUI 吗？这不会退出 QQ，仅清除 WebUI 登录状态。
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="px-4 py-2 bg-theme-item hover:bg-theme-item-hover text-theme rounded-xl transition-colors font-medium"
+              >
+                取消
+              </button>
+              <button
+                onClick={onLogout}
+                className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl transition-colors font-medium"
+              >
+                确认退出
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

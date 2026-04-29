@@ -281,10 +281,6 @@ function App() {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         onOpenSettings={() => setShowSettingsDialog(true)}
-        onLogout={() => {
-          deleteCookie('webui_token')
-          window.location.reload()
-        }}
       />
 
       <main className={`flex-1 overflow-auto z-10 transition-all duration-300 ${sidebarCollapsed ? '' : 'md:ml-64'}`}>
@@ -941,6 +937,10 @@ function App() {
       <SettingsDialog
         visible={showSettingsDialog}
         onClose={() => setShowSettingsDialog(false)}
+        onLogout={() => {
+          deleteCookie('webui_token')
+          window.location.reload()
+        }}
       />
     </div>
   );
