@@ -36,6 +36,7 @@ export function UserMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) {
       const numbers = Object.fromEntries(info.body.properties.numberProperties.map(p => [p.key, p.value]))
       const bytes = Object.fromEntries(info.body.properties.bytesProperties.map(p => [p.key, p.value]))
       const business = bytes[107] ? Misc.UserInfoBusiness.decode(bytes[107]) : undefined
+      const vipInfo = business?.body.lists.find((e) => e.type === 1)
       return {
         uin: info.body.uin,
         nick: bytes[20002]?.toString() ?? '',
@@ -53,9 +54,9 @@ export function UserMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) {
         labels: bytes[104] ? Misc.UserInfoLabel.decode(bytes[104]).labels.map(e => e.content) : [],
         school: bytes[20021]?.toString() ?? '',
         remark: bytes[103]?.toString() ?? '',
-        isVip: !!business?.body.lists[0],
-        isYearsVip: !!business?.body.lists[0]?.isYear,
-        vipLevel: business?.body.lists[0]?.level ?? 0
+        isVip: !!vipInfo,
+        isYearsVip: !!vipInfo?.isYear,
+        vipLevel: vipInfo?.level ?? 0
       }
     }
 
