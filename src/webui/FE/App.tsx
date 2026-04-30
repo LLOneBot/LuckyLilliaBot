@@ -16,6 +16,7 @@ import {
 import { WebQQPage, WebQQFullscreen } from './components/WebQQ';
 import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
+import { deleteCookie } from './utils/cookie';
 import { Save, Loader2, Eye, EyeOff, Plus, Trash2, Menu, Cpu, Milk, ExternalLink } from 'lucide-react';
 import { defaultConfig } from '../../main/config/defaultConfig'
 import { version } from '../../version'
@@ -936,6 +937,10 @@ function App() {
       <SettingsDialog
         visible={showSettingsDialog}
         onClose={() => setShowSettingsDialog(false)}
+        onLogout={() => {
+          deleteCookie('webui_token')
+          window.location.reload()
+        }}
       />
     </div>
   );

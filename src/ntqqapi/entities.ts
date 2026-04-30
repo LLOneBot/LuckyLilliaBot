@@ -1,4 +1,3 @@
-import ffmpeg from 'fluent-ffmpeg'
 import faceConfig from './helper/face_config.json'
 import pathLib from 'node:path'
 import {

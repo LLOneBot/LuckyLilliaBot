@@ -30,7 +30,8 @@ export async function transformOutgoingMessage(
       } else if (segment.type === 'mention' && isGroup) {
         const memberUin = segment.data.user_id.toString()
         const memberUid = await ctx.ntUserApi.getUidByUin(memberUin, peerUid)
-        elements.push(SendElement.at(memberUin, memberUid, AtType.One, ''))
+        const info = await ctx.ntGroupApi.getGroupMember(peerUid, memberUid)
+        elements.push(SendElement.at(memberUin, memberUid, AtType.One, `@${info.cardName || info.nick}`))
       } else if (segment.type === 'mention_all' && isGroup) {
         elements.push(SendElement.at('', '', AtType.All, '@全体成员'))
       } else if (segment.type === 'face') {

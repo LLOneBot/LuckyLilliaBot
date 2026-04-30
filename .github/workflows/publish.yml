@@ -36,8 +36,11 @@ jobs:
 
       - name: Install dependencies
         run: |
+          export ELECTRON_SKIP_BINARY_DOWNLOAD=1
           corepack enable
-          yarn install
+          yarn install --no-immutable
+          cd src/webui/FE
+          npm install
 
       - name: Build
         run: |
