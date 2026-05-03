@@ -63,15 +63,17 @@ export function MessageMixin<T extends new (...args: any[]) => PMHQBase>(Base: T
     }
 
     async getGroupGenerateAiRecord(groupId: number, character: string, text: string, chatType: number) {
+      const msgRandom = randomBytes(4).readUInt32BE(0)
       const body = Oidb.GetGroupGenerateAiRecordReq.encode({
         groupId,
         voiceId: character,
         text,
         chatType,
-        clientMsgInfo: { msgRandom: randomBytes(4).readUInt32BE(0) },
+        clientMsgInfo: { msgRandom },
       })
       const data = Oidb.Base.encode({ command: 0x929b, subCommand: 0, body })
       await this.httpSendPB('OidbSvcTrpcTcp.0x929b_0', data)
+      return { msgRandom }
     }
   }
 }

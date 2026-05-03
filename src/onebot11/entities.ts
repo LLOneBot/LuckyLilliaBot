@@ -274,12 +274,16 @@ export namespace OB11Entities {
       } else {
         operatorUin = await ctx.ntUserApi.getUinByUid(revokeElement.operatorUid)
       }
-      if (msg.senderUin === '0' || !msg.senderUin) {
-        ctx.logger.warn(`发生异常 senderUin: ${msg.senderUin}`)
+      let senderUin = msg.senderUin
+      if (msg.senderUin === '0') {
+        senderUin = await ctx.ntUserApi.getUinByUid(revokeElement.origMsgSenderUid)
+        if (revokeElement.operatorUid === revokeElement.origMsgSenderUid) {
+          operatorUin = senderUin
+        }
       }
       return new OB11GroupRecallNoticeEvent(
         Number(msg.peerUid),
-        Number(msg.senderUin),
+        Number(senderUin),
         Number(operatorUin),
         shortId,
       )

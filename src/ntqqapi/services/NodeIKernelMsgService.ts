@@ -168,4 +168,20 @@ export interface NodeIKernelMsgService {
   setContactLocalTop(peer: Peer, isTop: boolean): Promise<GeneralCallResult>
 
   sendShowInputStatusReq(chatType: ChatType, eventType: number, toUid: string): Promise<GeneralCallResult>
+
+  clickInlineKeyboardButton(inlineKeyboardClickInfo: {
+    guildId: string
+    dmFlag: number
+    peerId: string
+    chatType: ChatType
+    botAppid: string
+    msgSeq: string
+    buttonId: string
+    callback_data: string
+  }): Promise<GeneralCallResult & {
+    status: number
+    promptText: string
+    promptType: number
+    promptIcon: number
+  }>
 }
