@@ -17,22 +17,38 @@ export async function decodeMultiMessage(ctx: Context, items: InferProtoModel<ty
             text: element.text.str!
           }
         }
-      } else if (element.commonElem && element.commonElem.serviceType === 48) {
-        const richMediaInfo = Media.MsgInfo.decode(element.commonElem.pbElem)
-        const infoBody = richMediaInfo.msgInfoBody[0]
-        const parsedUrl = new URL('https://' + infoBody.pic!.domain + infoBody.pic!.urlPath + infoBody.pic!.ext!.originalParam)
-        const imageAppid = parsedUrl.searchParams.get('appid')
-        const rkeyData = await ctx.ntFileApi.rkeyManager.getRkey()
-        const url = parsedUrl.href + (imageAppid === '1406' ? rkeyData.private_rkey : rkeyData.group_rkey)
-        const { info } = richMediaInfo.msgInfoBody[0].index!
-        const { pic } = richMediaInfo.extBizInfo!
-        segment = {
-          type: OB11MessageDataType.Image,
-          data: {
-            file: info!.fileName!,
-            subType: pic!.bizType!,
-            url,
-            file_size: info!.fileSize!.toString(),
+      } else if (element.commonElem) {
+        const { businessType, serviceType, pbElem } = element.commonElem
+        if (serviceType === 48 && (businessType === 10 || businessType === 20)) {
+          const richMediaInfo = Media.MsgInfo.decode(pbElem)
+          const infoBody = richMediaInfo.msgInfoBody[0]
+          const parsedUrl = new URL('https://' + infoBody.pic!.domain + infoBody.pic!.urlPath + infoBody.pic!.ext!.originalParam)
+          const imageAppid = parsedUrl.searchParams.get('appid')
+          const rkeyData = await ctx.ntFileApi.rkeyManager.getRkey()
+          const url = parsedUrl.href + (imageAppid === '1406' ? rkeyData.private_rkey : rkeyData.group_rkey)
+          const { info } = richMediaInfo.msgInfoBody[0].index!
+          const { pic } = richMediaInfo.extBizInfo!
+          segment = {
+            type: OB11MessageDataType.Image,
+            data: {
+              file: info!.fileName!,
+              subType: pic!.bizType!,
+              url,
+              file_size: info!.fileSize!.toString(),
+            }
+          }
+        } else if (serviceType === 48 && (businessType === 11 || businessType === 21)) {
+          const { msgInfoBody } = Media.MsgInfo.decode(pbElem)
+          const { index } = msgInfoBody[0]
+          const url = await ctx.ntFileApi.getVideoUrlByPacket(index.fileUuid, businessType === 21)
+          segment = {
+            type: OB11MessageDataType.Video,
+            data: {
+              file: index.info.fileName,
+              url,
+              path: '',
+              file_size: index.info.fileSize.toString(),
+            }
           }
         }
       }
