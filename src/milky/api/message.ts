@@ -32,7 +32,7 @@ const SendPrivateMessage = defineApi(
       return Failed(-404, 'User not found')
     }
     const peer = { chatType: 1, peerUid: uid, guildId: '' }
-    const isBuddy = await ctx.ntFriendApi.isBuddy(uid)
+    const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
       const result = await ctx.ntMsgApi.getTempChatInfo(100, uid)
       if (result.tmpChatInfo.groupCode) {
@@ -98,7 +98,7 @@ const RecallPrivateMessage = defineApi(
       return Failed(-404, 'User not found')
     }
     const peer = { chatType: 1, peerUid: uid, guildId: '' }
-    const isBuddy = await ctx.ntFriendApi.isBuddy(uid)
+    const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
       const result = await ctx.ntMsgApi.getTempChatInfo(100, uid)
       if (result.tmpChatInfo.groupCode) {

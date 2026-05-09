@@ -11,7 +11,7 @@ export function createDashboardRoutes(ctx: Context): Hono {
       if (!app) {
         return c.json({ success: false, message: '服务尚未就绪，请等待登录完成' }, 503)
       }
-      const friends = await ctx.ntFriendApi.getBuddyList()
+      const friends = await ctx.ntFriendApi.getFriendList(false)
       const groups = await ctx.ntGroupApi.getGroups(false)
 
       // 获取 QQ 进程资源
@@ -33,7 +33,7 @@ export function createDashboardRoutes(ctx: Context): Hono {
       return c.json({
         success: true,
         data: {
-          friendCount: friends.length,
+          friendCount: friends.friends.length,
           groupCount: groups.length,
           messageReceived: app.messageReceivedCount,
           messageSent: app.messageSentCount,

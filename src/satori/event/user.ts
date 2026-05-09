@@ -3,7 +3,7 @@ import { FriendRequest } from '@/ntqqapi/types'
 import { decodeUser } from '../utils'
 
 export async function parseFriendRequest(bot: SatoriAdapter, input: FriendRequest) {
-  const flag = input.friendUid + '|' + input.reqTime
+  const flag = input.friendUid
   const user = await bot.ctx.ntUserApi.getUserSimpleInfo(input.friendUid)
 
   return bot.event('friend-request', {

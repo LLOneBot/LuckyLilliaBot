@@ -50,7 +50,7 @@ export function createNotificationRoutes(ctx: Context): Hono {
           isDecide: reqItem.isDecide,
           reqType: reqItem.reqType,
           addSource: reqItem.addSource || '',
-          flag: `${reqItem.friendUid}|${reqItem.reqTime}`
+          flag: reqItem.friendUid
         }
       }))
       return c.json({ success: true, data: enriched })
@@ -92,7 +92,7 @@ export function createNotificationRoutes(ctx: Context): Hono {
       if (!uid) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      await ctx.ntFriendApi.approvalDoubtBuddyReq(uid)
+      await ctx.ntFriendApi.approvalDoubtFriendRequest(uid)
       return c.json({ success: true })
     } catch (e) {
       ctx.logger.error('处理被过滤好友申请失败:', e)
@@ -132,11 +132,7 @@ export function createNotificationRoutes(ctx: Context): Hono {
       if (!flag || !action) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      const [friendUid, reqTime] = flag.split('|')
-      if (!friendUid) {
-        return c.json({ success: false, message: '无效的 flag 参数' }, 400)
-      }
-      await ctx.ntFriendApi.handleFriendRequest(friendUid, reqTime || '0', action === 'approve')
+      await ctx.ntFriendApi.approvalFriendRequest(flag, action === 'approve')
       return c.json({ success: true })
     } catch (e) {
       ctx.logger.error('处理好友申请失败:', e)

@@ -12,10 +12,7 @@ export class SetDoubtFriendsAddRequest extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    const res = await this.ctx.ntFriendApi.approvalDoubtBuddyReq(payload.flag)
-    if (res.result !== 0) {
-      throw new Error(res.errMsg)
-    }
+    await this.ctx.ntFriendApi.approvalDoubtFriendRequest(payload.flag)
     return null
   }
 }

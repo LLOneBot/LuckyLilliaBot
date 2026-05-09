@@ -216,7 +216,7 @@ export class WebuiServer extends Service {
             isDecide: req.isDecide,
             reqType: req.reqType,
             addSource: req.addSource || '',
-            flag: `${req.friendUid}|${req.reqTime}`
+            flag: req.friendUid
           }
         })
       } catch (e) {

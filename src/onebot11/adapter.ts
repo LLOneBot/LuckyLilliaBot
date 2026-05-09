@@ -261,7 +261,7 @@ class Onebot11Adapter extends Service {
 
   private async handleFriendRequest(req: FriendRequest) {
     const uin = await this.ctx.ntUserApi.getUinByUid(req.friendUid)
-    const flag = req.friendUid + '|' + req.reqTime
+    const flag = req.friendUid
     const friendRequestEvent = new OB11FriendRequestEvent(
       +uin,
       req.extWords,
