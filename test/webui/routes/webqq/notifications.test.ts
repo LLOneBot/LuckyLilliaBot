@@ -115,7 +115,7 @@ describe('notification routes', () => {
         body: JSON.stringify({ uid: 'u1' }),
       })
       expect(res.status).toBe(200)
-      expect(ctx.ntFriendApi.approvalDoubtBuddyReq).toHaveBeenCalledWith('u1')
+      expect(ctx.ntFriendApi.approvalDoubtFriendRequest).toHaveBeenCalledWith('u1')
     })
   })
 
@@ -179,10 +179,10 @@ describe('notification routes', () => {
       const res = await app.request('/notifications/friend/handle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ flag: 'uid123|1000', action: 'approve' }),
+        body: JSON.stringify({ flag: 'uid123', action: 'approve' }),
       })
       expect(res.status).toBe(200)
-      expect(ctx.ntFriendApi.handleFriendRequest).toHaveBeenCalledWith('uid123', '1000', true)
+      expect(ctx.ntFriendApi.approvalFriendRequest).toHaveBeenCalledWith('uid123', true)
     })
   })
 })
