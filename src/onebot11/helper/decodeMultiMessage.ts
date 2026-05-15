@@ -40,7 +40,7 @@ export async function decodeMultiMessage(ctx: Context, items: InferProtoModel<ty
         } else if (serviceType === 48 && (businessType === 11 || businessType === 21)) {
           const { msgInfoBody } = Media.MsgInfo.decode(pbElem)
           const { index } = msgInfoBody[0]
-          const url = await ctx.ntFileApi.getVideoUrlByPacket(index.fileUuid, businessType === 21)
+          const url = await ctx.ntFileApi.getVideoUrl(index.fileUuid, businessType === 21)
           segment = {
             type: OB11MessageDataType.Video,
             data: {

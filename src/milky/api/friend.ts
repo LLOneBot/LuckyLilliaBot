@@ -119,14 +119,10 @@ const AcceptFriendRequest = defineApi(
   AcceptFriendRequestInput,
   z.object({}),
   async (ctx, payload) => {
-    let result: GeneralCallResult
     if (payload.is_filtered) {
-      result = await ctx.ntFriendApi.approvalDoubtBuddyReq(payload.initiator_uid)
+      await ctx.ntFriendApi.approvalDoubtFriendRequest(payload.initiator_uid)
     } else {
-      result = await ctx.ntFriendApi.handleFriendRequest(payload.initiator_uid, '0', true)
-    }
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+      await ctx.ntFriendApi.approvalFriendRequest(payload.initiator_uid, true)
     }
     return Ok({})
   }
@@ -138,10 +134,7 @@ const RejectFriendRequest = defineApi(
   z.object({}),
   async (ctx, payload) => {
     if (!payload.is_filtered) {
-      const result = await ctx.ntFriendApi.handleFriendRequest(payload.initiator_uid, '0', false)
-      if (result.result !== 0) {
-        return Failed(-500, result.errMsg)
-      }
+      await ctx.ntFriendApi.approvalFriendRequest(payload.initiator_uid, false)
     }
     return Ok({})
   }

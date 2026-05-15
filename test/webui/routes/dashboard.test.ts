@@ -32,7 +32,10 @@ describe('dashboard routes', () => {
         if (key === 'pmhq') return ctx.pmhq
         return undefined
       })
-      ctx.ntFriendApi.getBuddyList.mockResolvedValue([{}, {}, {}])
+      ctx.ntFriendApi.getFriendList.mockResolvedValue({
+        friends: [{}, {}, {}],
+        categories: new Map()
+      })
       ctx.ntGroupApi.getGroups.mockResolvedValue([{}, {}])
 
       const app = createTestApp(createDashboardRoutes(ctx))

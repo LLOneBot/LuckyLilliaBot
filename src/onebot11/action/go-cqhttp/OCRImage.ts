@@ -2,7 +2,9 @@ import { noop } from 'cosmokit'
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 import { uri2local } from '@/common/utils/file'
-import { access, unlink } from 'node:fs/promises'
+import { unlink } from 'node:fs/promises'
+import { isHttpUrl } from '@/common/utils'
+import { selfInfo } from '@/common/globalVars'
 
 interface Payload {
   image: string
@@ -29,39 +31,31 @@ export class OCRImage extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload) {
-    const { errMsg, isLocal, path, success } = await uri2local(this.ctx, payload.image, true)
-    if (!success) {
-      throw new Error(errMsg)
-    }
-    await access(path)
-
-    const data = await this.ctx.ntFileApi.ocrImage(path)
-    if (!isLocal) {
-      unlink(path).catch(noop)
-    }
-    if (data.code !== 0) {
-      throw new Error(data.errMsg)
-    }
-
-    const texts = data.result.map(item => {
-      const ret: TextDetection = {
-        text: item.text,
-        confidence: 1,
-        coordinates: []
+    let url
+    if (isHttpUrl(payload.image)) {
+      url = payload.image
+    } else {
+      const { errMsg, isLocal, path, success } = await uri2local(this.ctx, payload.image)
+      if (!success) {
+        throw new Error(errMsg)
       }
-      for (let i = 0; i < 4; i++) {
-        const pt = item[`pt${i + 1}`]
-        ret.coordinates.push({
-          x: +pt.x,
-          y: +pt.y
-        })
+      const { msgInfo } = await this.ctx.ntFileApi.uploadC2CImage(selfInfo.uid, path)
+      if (!isLocal) {
+        unlink(path).catch(noop)
       }
-      return ret
-    })
+      const { pic, index } = msgInfo.msgInfoBody[0]
+      url = await this.ctx.ntFileApi.getImageUrl(pic!.urlPath + pic!.ext.originalParam, index.info.md5HexStr)
+    }
+
+    const { textDetections, language } = await this.ctx.ntFileApi.ocrImage(url)
 
     return {
-      texts,
-      language: ''
+      texts: textDetections.map(item => ({
+        text: item.detectedText,
+        confidence: item.confidence,
+        coordinates: item.polygon.coordinates
+      })),
+      language
     }
   }
 }

@@ -147,25 +147,12 @@ export interface CheckVersion {
   version: string
 }
 
-
 export interface FileCache {
   fileName: string
   fileSize: string
-  msgId: string
-  peerUid: string
-  chatType: number
-  elementId: string
-  elementType: number
-}
-
-export interface FileCacheV2 {
-  fileName: string
-  fileSize: string
   fileUuid: string
-  msgId: string
   msgTime: number
-  peerUid: string
   chatType: number
-  elementId: string
   elementType: number
+  md5HexStr: string
 }

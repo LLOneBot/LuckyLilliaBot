@@ -247,3 +247,25 @@ export interface MiniProfile {
     zone: string
   }
 }
+
+export interface Friend {
+  uid: string
+  uin: number
+  categoryId: number
+  nick: string
+  longNick: string
+  remark: string
+  qid: string
+  age: number
+  sex: number
+  birthdayYear: number
+  birthdayMonth: number
+  birthdayDay: number
+}
+
+export interface Category {
+  categoryId: number
+  categoryName: string
+  categoryMemberCount: number
+  categorySortId: number
+}

@@ -225,54 +225,11 @@ class ForwardMessageEncoder {
     this.preview = ''
   }
 
-  async packImage(data: RichMediaUploadCompleteNotify, busiType: number) {
-    const imageSize = await this.ctx.ntFileApi.getImageSize(data.filePath)
+  async packImage(msgInfo: InferProtoModelInput<typeof Media.MsgInfo>) {
     return {
       commonElem: {
         serviceType: 48,
-        pbElem: Media.MsgInfo.encode({
-          msgInfoBody: [{
-            index: {
-              info: {
-                fileSize: +data.commonFileInfo.fileSize,
-                md5HexStr: data.commonFileInfo.md5,
-                sha1HexStr: data.commonFileInfo.sha,
-                fileName: data.commonFileInfo.fileName,
-                fileType: {
-                  type: 1,
-                  picFormat: imageSize.type === 'gif' ? 2000 : 1000
-                },
-                width: imageSize.width,
-                height: imageSize.height,
-                time: 0,
-                original: 1
-              },
-              fileUuid: data.fileId,
-              storeID: 1,
-              expire: this.isGroup ? 2678400 : 157680000
-            },
-            pic: {
-              urlPath: `/download?appid=${this.isGroup ? 1407 : 1406}&fileid=${data.fileId}`,
-              ext: {
-                originalParam: '&spec=0',
-                bigParam: '&spec=720',
-                thumbParam: '&spec=198'
-              },
-              domain: 'multimedia.nt.qq.com.cn'
-            },
-            fileExist: true
-          }],
-          extBizInfo: {
-            pic: {
-              bizType: 0,
-              summary: '',
-              fromScene: this.isGroup ? 2 : 1, // 怀旧版 PCQQ 私聊收图需要
-              toScene: this.isGroup ? 2 : 1, // 怀旧版 PCQQ 私聊收图需要
-              oldFileId: this.isGroup ? 574859779 : undefined // 怀旧版 PCQQ 群聊收图需要
-            },
-            busiType
-          }
-        }),
+        pbElem: Media.MsgInfo.encode(msgInfo),
         businessType: this.isGroup ? 20 : 10
       }
     }
@@ -353,9 +310,14 @@ class ForwardMessageEncoder {
         const imageBuffer = await resolveMilkyUri(segment.data.uri)
         const tempPath = path.join(TEMP_DIR, `image-${randomUUID()}`)
         await writeFile(tempPath, imageBuffer)
-        const data = await this.ctx.ntFileApi.uploadRMFileWithoutMsg(tempPath, this.isGroup ? RMBizType.GroupPic : RMBizType.C2CPic, this.isGroup ? this.peerUid : selfInfo.uid)
+        let data
+        if (this.isGroup) {
+          data = await this.ctx.ntFileApi.uploadGroupImage(this.peerUid, tempPath)
+        } else {
+          data = await this.ctx.ntFileApi.uploadC2CImage(this.peerUid, tempPath)
+        }
         const busiType = segment.data.sub_type === 'sticker' ? 1 : 0
-        this.children.push(await this.packImage(data, busiType))
+        this.children.push(await this.packImage(data.msgInfo))
         this.preview += busiType === 1 ? '[动画表情]' : '[图片]'
         unlink(tempPath).catch(noop)
       } else if (type === 'forward') {

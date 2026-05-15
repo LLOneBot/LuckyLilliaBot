@@ -38,7 +38,7 @@ class GetMsg extends BaseAction<PayloadType, OB11Message> {
     } else {
       msg = res.msgList[0]
     }
-    const retMsg = await OB11Entities.message(this.ctx, msg, undefined, undefined, config)
+    const retMsg = await OB11Entities.message(this.ctx, msg, config)
     if (!retMsg) {
       throw new Error('消息为空')
     }

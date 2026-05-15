@@ -533,54 +533,17 @@ async function ntToProto(ctx: Context, input: NT.SendMessageElement, peer: NT.Pe
   } else if (input.elementType === NT.ElementType.Pic) {
     const isGroup = peer.chatType === NT.ChatType.Group
     const path = input.picElement.sourcePath!
-    const data = await ctx.ntFileApi.uploadRMFileWithoutMsg(path, isGroup ? 4 : 3, peer.peerUid)
+    let data
+    if (isGroup) {
+      data = await ctx.ntFileApi.uploadGroupImage(peer.peerUid, path)
+    } else {
+      data = await ctx.ntFileApi.uploadC2CImage(peer.peerUid, path)
+    }
     return {
       element: {
         commonElem: {
           serviceType: 48,
-          pbElem: Media.MsgInfo.encode({
-            msgInfoBody: [{
-              index: {
-                info: {
-                  fileSize: +data.commonFileInfo.fileSize,
-                  md5HexStr: data.commonFileInfo.md5,
-                  sha1HexStr: data.commonFileInfo.sha,
-                  fileName: data.commonFileInfo.fileName,
-                  fileType: {
-                    type: 1,
-                    picFormat: input.picElement.picType
-                  },
-                  width: input.picElement.picWidth,
-                  height: input.picElement.picHeight,
-                  time: 0,
-                  original: 1
-                },
-                fileUuid: data.fileId,
-                storeID: 1,
-                expire: isGroup ? 2678400 : 157680000
-              },
-              pic: {
-                urlPath: `/download?appid=${isGroup ? 1407 : 1406}&fileid=${data.fileId}`,
-                ext: {
-                  originalParam: '&spec=0',
-                  bigParam: '&spec=720',
-                  thumbParam: '&spec=198'
-                },
-                domain: 'multimedia.nt.qq.com.cn'
-              },
-              fileExist: true
-            }],
-            extBizInfo: {
-              pic: {
-                bizType: 0,
-                summary: '',
-                fromScene: isGroup ? 2 : 1, // 怀旧版 PCQQ 私聊收图需要
-                toScene: isGroup ? 2 : 1, // 怀旧版 PCQQ 私聊收图需要
-                oldFileId: isGroup ? 574859779 : undefined // 怀旧版 PCQQ 群聊收图需要
-              },
-              busiType: input.picElement.picSubType
-            }
-          }),
+          pbElem: Media.MsgInfo.encode(data.msgInfo),
           businessType: isGroup ? 20 : 10
         }
       },

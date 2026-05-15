@@ -1,5 +1,5 @@
 import { FriendEntity, GroupEntity, GroupFileEntity, GroupFolderEntity, GroupMemberEntity } from '@saltify/milky-types'
-import { CategoryFriend, GroupDetailInfo, Sex, SimpleInfo } from '@/ntqqapi/types'
+import { Category, Friend, GroupDetailInfo, Sex } from '@/ntqqapi/types'
 import { GroupMember } from '@/ntqqapi/types'
 import { InferProtoModel } from '@saltify/typeproto'
 import { Oidb } from '@/ntqqapi/proto'
@@ -10,16 +10,19 @@ export function transformGender(gender: Sex): 'male' | 'female' | 'unknown' {
   return 'unknown'
 }
 
-export function transformFriend(friend: SimpleInfo, category: CategoryFriend): FriendEntity {
+export function transformFriend(
+  friend: Friend,
+  category: Category
+): FriendEntity {
   return {
-    user_id: +friend.uin,
-    nickname: friend.coreInfo.nick,
-    sex: transformGender(friend.baseInfo.sex),
-    qid: friend.baseInfo.qid,
-    remark: friend.coreInfo.remark,
+    user_id: friend.uin,
+    nickname: friend.nick,
+    sex: transformGender(friend.sex),
+    qid: friend.qid,
+    remark: friend.remark,
     category: {
       category_id: category.categoryId,
-      category_name: category.categroyName,
+      category_name: category.categoryName,
     },
   }
 }

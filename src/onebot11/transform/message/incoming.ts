@@ -5,12 +5,8 @@ import { Context } from 'cordis'
 import { Dict } from 'cosmokit'
 import { pathToFileURL } from 'node:url'
 
-export async function transformIncomingSegments(
-  ctx: Context,
-  message: RawMessage,
-  rootMsgID?: string,
-  peer?: Peer
-): Promise<{ segments: OB11MessageData[], cqCode: string }> {
+export async function transformIncomingSegments(ctx: Context, message: RawMessage)
+  : Promise<{ segments: OB11MessageData[], cqCode: string }> {
   const segments: OB11MessageData[] = []
   let cqCode = ''
 
@@ -102,33 +98,23 @@ export async function transformIncomingSegments(
         data: {
           file: picElement.fileName,
           subType: picElement.picSubType,
-          url: await ctx.ntFileApi.getImageUrl(picElement),
+          url: await ctx.ntFileApi.getImageUrl(picElement.originImageUrl, picElement.md5HexStr),
           file_size: fileSize,
         }
       }
       ctx.store.addFileCache({
-        peerUid: message.peerUid,
-        msgId: message.msgId,
         msgTime: +message.msgTime,
         chatType: message.chatType,
-        elementId: element.elementId,
         elementType: element.elementType,
         fileName: picElement.fileName,
         fileUuid: picElement.fileUuid,
         fileSize,
-      }).then()
+        md5HexStr: picElement.md5HexStr,
+      })
     }
     else if (element.videoElement) {
       const { videoElement } = element
-      const videoUrl = await ctx.ntFileApi.getVideoUrl(
-        peer ?? {
-          chatType: message.chatType,
-          peerUid: message.peerUid,
-          guildId: ''
-        },
-        rootMsgID ?? message.msgId,
-        element.elementId,
-      )
+      const videoUrl = await ctx.ntFileApi.getVideoUrl(videoElement.fileUuid, message.chatType === ChatType.Group)
       const fileSize = videoElement.fileSize ?? '0'
       messageSegment = {
         type: OB11MessageDataType.Video,
@@ -140,16 +126,14 @@ export async function transformIncomingSegments(
         }
       }
       ctx.store.addFileCache({
-        peerUid: message.peerUid,
-        msgId: message.msgId,
         msgTime: +message.msgTime,
         chatType: message.chatType,
-        elementId: element.elementId,
         elementType: element.elementType,
         fileName: videoElement.fileName,
         fileUuid: videoElement.fileUuid!,
         fileSize,
-      }).then()
+        md5HexStr: videoElement.videoMd5
+      })
     }
     else if (element.fileElement) {
       const { fileElement } = element
@@ -165,16 +149,14 @@ export async function transformIncomingSegments(
         }
       }
       ctx.store.addFileCache({
-        peerUid: message.peerUid,
-        msgId: message.msgId,
         msgTime: +message.msgTime,
         chatType: message.chatType,
-        elementId: element.elementId,
         elementType: element.elementType,
         fileName: fileElement.fileName,
-        fileUuid: fileElement.fileUuid!,
+        fileUuid: fileElement.fileUuid,
         fileSize,
-      }).then()
+        md5HexStr: fileElement.fileMd5
+      })
     }
     else if (element.pttElement) {
       const { pttElement } = element
@@ -189,16 +171,14 @@ export async function transformIncomingSegments(
         }
       }
       ctx.store.addFileCache({
-        peerUid: message.peerUid,
-        msgId: message.msgId,
         msgTime: +message.msgTime,
         chatType: message.chatType,
-        elementId: element.elementId,
         elementType: element.elementType,
         fileName: pttElement.fileName,
         fileUuid: pttElement.fileUuid,
         fileSize,
-      }).then()
+        md5HexStr: pttElement.md5HexStr
+      })
     }
     else if (element.arkElement) {
       const { arkElement } = element

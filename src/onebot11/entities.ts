@@ -7,6 +7,7 @@ import {
 } from './types'
 import {
   ChatType,
+  Friend,
   GrayTipElementSubType,
   GroupMember,
   JsonGrayTipBusId,
@@ -39,14 +40,12 @@ export namespace OB11Entities {
   export async function message(
     ctx: Context,
     msg: RawMessage,
-    rootMsgID?: string,
-    peer?: Peer,
     config?: ParseMessageConfig
   ): Promise<OB11Message | undefined> {
     if (!msg.senderUin || msg.senderUin === '0' || msg.msgType === 1) return //跳过空消息
     const selfUin = selfInfo.uin
     const msgShortId = ctx.store.createMsgShortId(msg)
-    const { segments, cqCode } = await transformIncomingSegments(ctx, msg, rootMsgID, peer)
+    const { segments, cqCode } = await transformIncomingSegments(ctx, msg)
     const resMsg: OB11Message = {
       self_id: Number(selfUin),
       user_id: Number(msg.senderUin),
@@ -293,22 +292,22 @@ export namespace OB11Entities {
     }
   }
 
-  export function friend(raw: SimpleInfo): OB11User {
+  export function friend(raw: Friend): OB11User {
     return {
-      user_id: +raw.coreInfo.uin,
-      nickname: raw.coreInfo.nick,
-      remark: raw.coreInfo.remark || raw.coreInfo.nick,
-      sex: sex(raw.baseInfo.sex),
-      birthday_year: raw.baseInfo.birthday_year,
-      birthday_month: raw.baseInfo.birthday_month,
-      birthday_day: raw.baseInfo.birthday_day,
-      age: raw.baseInfo.age,
-      qid: raw.baseInfo.qid,
-      long_nick: raw.baseInfo.longNick,
+      user_id: raw.uin,
+      nickname: raw.nick,
+      remark: raw.remark,
+      sex: sex(raw.sex),
+      birthday_year: raw.birthdayYear,
+      birthday_month: raw.birthdayMonth,
+      birthday_day: raw.birthdayDay,
+      age: raw.age,
+      qid: raw.qid,
+      long_nick: raw.longNick,
     }
   }
 
-  export function friends(raw: SimpleInfo[]): OB11User[] {
+  export function friends(raw: Friend[]): OB11User[] {
     return raw.map(friend)
   }
 

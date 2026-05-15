@@ -7,6 +7,7 @@ import { TEMP_DIR } from '../globalVars'
 import { randomUUID, createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { Context } from 'cordis'
+import { ChatType, ElementType } from '@/ntqqapi/types'
 
 // 定义一个异步函数来检查文件是否存在
 export function checkFileReceived(path: string, timeout: number = 3000): Promise<void> {
@@ -122,7 +123,7 @@ export async function uri2local(ctx: Context, uri: string, needExt?: boolean): P
       let filePath = path.join(TEMP_DIR, fileName)
       await fsPromise.writeFile(filePath, res.data)
       if (needExt) {
-        const ext = (await ctx.ntFileApi.getFileType(filePath)).ext
+        const ext = (await getFileType(filePath)).ext
         fileName += `.${ext}`
         const newPath = `${filePath}.${ext}`
         await fsPromise.rename(filePath, newPath)
@@ -141,7 +142,7 @@ export async function uri2local(ctx: Context, uri: string, needExt?: boolean): P
     const base64 = uri.replace(/^base64:\/\//, '')
     await fsPromise.writeFile(filePath, base64, 'base64')
     if (needExt) {
-      const ext = (await ctx.ntFileApi.getFileType(filePath)).ext
+      const ext = (await getFileType(filePath)).ext
       filename += `.${ext}`
       await fsPromise.rename(filePath, `${filePath}.${ext}`)
       filePath = `${filePath}.${ext}`
@@ -158,7 +159,7 @@ export async function uri2local(ctx: Context, uri: string, needExt?: boolean): P
       let filePath = path.join(TEMP_DIR, filename)
       await fsPromise.writeFile(filePath, base64, 'base64')
       if (needExt) {
-        const ext = (await ctx.ntFileApi.getFileType(filePath)).ext
+        const ext = (await getFileType(filePath)).ext
         filename += `.${ext}`
         await fsPromise.rename(filePath, `${filePath}.${ext}`)
         filePath = `${filePath}.${ext}`
@@ -174,15 +175,21 @@ export async function uri2local(ctx: Context, uri: string, needExt?: boolean): P
       fileCache = await ctx.store.getFileCacheByName(uri)
     }
     if (fileCache?.length) {
-      const downloadPath = await ctx.ntFileApi.downloadMedia(
-        fileCache[0].msgId,
-        fileCache[0].chatType,
-        fileCache[0].peerUid,
-        fileCache[0].elementId,
-        '',
-        '',
-      )
-      return { success: true, errMsg: '', fileName: fileCache[0].fileName, path: downloadPath, isLocal: true }
+      const isGroup = fileCache[0].chatType === ChatType.Group
+      let url
+      if (fileCache[0].elementType === ElementType.Pic) {
+        const originImageUrl = `/download?appid=${isGroup ? 1407 : 1406}&fileid=${fileCache[0].fileUuid}&spec=0`
+        url = await ctx.ntFileApi.getImageUrl(originImageUrl, fileCache[0].md5HexStr)
+      } else if (fileCache[0].elementType === ElementType.Video) {
+        url = await ctx.ntFileApi.getVideoUrl(fileCache[0].fileUuid, isGroup)
+      } else if (fileCache[0].elementType === ElementType.Ptt) {
+        url = await ctx.ntFileApi.getPttUrl(fileCache[0].fileUuid, isGroup)
+      }
+      if (url) {
+        return await uri2local(ctx, url, needExt)
+      } else {
+        return { success: false, errMsg: `不支持的文件类型: ${fileCache[0].elementType}`, fileName: '', path: '', isLocal: false }
+      }
     }
   }
 

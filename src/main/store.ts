@@ -1,7 +1,7 @@
 import { Peer, RawMessage } from '@/ntqqapi/types'
 import { createHash } from 'node:crypto'
 import { BidiMap } from '@/common/utils/table'
-import { FileCacheV2 } from '@/common/types'
+import { FileCache } from '@/common/types'
 import { Context, Service } from 'cordis'
 import { noop } from 'cosmokit'
 
@@ -20,7 +20,7 @@ declare module 'minato' {
       chatType: number
       peerUid: string
     }
-    file_v2: FileCacheV2
+    file: FileCache
     forward: {
       rootMsgId: string
       parentMsgId: string
@@ -73,16 +73,14 @@ class Store extends Service {
     }, {
       primary: 'shortId'
     })
-    this.ctx.model.extend('file_v2', {
+    this.ctx.model.extend('file', {
       fileName: 'string',
       fileSize: 'string',
       fileUuid: 'string(128)',
-      msgId: 'string(24)',
       msgTime: 'unsigned(10)',
-      peerUid: 'string(24)',
       chatType: 'unsigned',
-      elementId: 'string(24)',
       elementType: 'unsigned',
+      md5HexStr: 'string(32)'
     }, {
       primary: 'fileUuid',
       indexes: ['fileName']
@@ -183,24 +181,24 @@ class Store extends Service {
     return this.cache.getValue(cacheKey)
   }
 
-  async addFileCache(data: FileCacheV2) {
+  async addFileCache(data: FileCache) {
     // 判断 fileUuid 是否存在
-    const existingFile = await this.ctx.database.get('file_v2', { fileUuid: data.fileUuid })
+    const existingFile = await this.ctx.database.get('file', { fileUuid: data.fileUuid })
     if (existingFile.length) {
       return existingFile
     }
-    this.ctx.database.upsert('file_v2', [data], 'fileUuid').then()
+    this.ctx.database.upsert('file', [data], 'fileUuid').then()
       .catch(e => this.ctx.logger.error('addFileCache database error:', e))
   }
 
   getFileCacheByName(fileName: string) {
-    return this.ctx.database.get('file_v2', { fileName }, {
+    return this.ctx.database.get('file', { fileName }, {
       sort: { msgTime: 'desc' }
     })
   }
 
   getFileCacheById(fileUuid: string) {
-    return this.ctx.database.get('file_v2', { fileUuid })
+    return this.ctx.database.get('file', { fileUuid })
   }
 
   async addMsgCache(msg: RawMessage) {

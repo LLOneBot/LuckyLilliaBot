@@ -1,5 +1,5 @@
 import { PMHQBase } from './base'
-import { FriendMixin, GroupMixin, MediaMixin, MessageMixin, UserMixin } from './mixins'
+import { FriendMixin, GroupMixin, MediaMixin, MessageMixin, SystemMixin, UserMixin } from './mixins'
 
 export type {
   PBData,
@@ -49,7 +49,7 @@ function applyMixins<TBase extends Constructor, TMixins extends readonly Mixin<a
 /**
  * PMHQ 类 - 通过 Mixin 模式组合所有功能
  */
-const mixins = [GroupMixin, FriendMixin, MediaMixin, MessageMixin, UserMixin] as const
+const mixins = [GroupMixin, FriendMixin, MediaMixin, MessageMixin, UserMixin, SystemMixin] as const
 export const PMHQ = applyMixins(PMHQBase, mixins)
 
 declare module 'cordis' {

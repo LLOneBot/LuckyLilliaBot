@@ -167,7 +167,7 @@ export async function createSendElements(
         break
       case OB11MessageDataType.Contact: {
         const { type, id } = segment.data
-        const data = type === 'qq' ? ctx.ntFriendApi.getBuddyRecommendContact(id) : ctx.ntGroupApi.getGroupRecommendContact(id)
+        const data = type === 'qq' ? ctx.ntFriendApi.getFriendRecommendContactArk(+id) : ctx.ntGroupApi.getGroupRecommendContact(id)
         sendElements.push(SendElement.ark(await data))
       }
         break
@@ -312,7 +312,7 @@ export async function createPeer(ctx: Context, payload: CreatePeerPayload, mode 
   if ((mode === CreatePeerMode.Private || mode === CreatePeerMode.Normal) && payload.user_id) {
     const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), payload.group_id?.toString())
     if (!uid) throw new Error('无法获取用户信息')
-    const isBuddy = await ctx.ntFriendApi.isBuddy(uid)
+    const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
       const res = await ctx.ntMsgApi.getTempChatInfo(ChatType.TempC2CFromGroup, uid)
       if (res.tmpChatInfo.groupCode) {

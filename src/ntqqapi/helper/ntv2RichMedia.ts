@@ -120,7 +120,7 @@ export namespace NTV2RichMedia {
         msgInfoBody: upload.msgInfo.msgInfoBody,
         blockSize,
         hash: {
-          fileSha1: [] as Buffer[]
+          fileSha1: [Buffer.alloc(0)] as Buffer[]
         }
       } satisfies InferProtoModelInput<typeof Media.NTV2RichMediaHighwayExt>
     } else {
@@ -131,7 +131,7 @@ export namespace NTV2RichMedia {
         msgInfoBody: upload.msgInfo.msgInfoBody,
         blockSize,
         hash: {
-          fileSha1: [] as Buffer[]
+          fileSha1: [Buffer.alloc(0)] as Buffer[]
         }
       } satisfies InferProtoModelInput<typeof Media.NTV2RichMediaHighwayExt>
     }

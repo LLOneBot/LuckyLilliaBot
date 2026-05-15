@@ -8,11 +8,14 @@ export function createMockContext() {
       quickLoginWithUin: vi.fn(),
     },
     ntFriendApi: {
-      getBuddyList: vi.fn(() => Promise.resolve([])),
+      getFriendList: vi.fn(() => Promise.resolve({
+        friends: [],
+        categories: new Map()
+      })),
       getBuddyReq: vi.fn(() => Promise.resolve({ buddyReqs: [] })),
       getDoubtBuddyReq: vi.fn(() => Promise.resolve({ doubtList: [] })),
-      approvalDoubtBuddyReq: vi.fn(() => Promise.resolve()),
-      handleFriendRequest: vi.fn(() => Promise.resolve()),
+      approvalDoubtFriendRequest: vi.fn(() => Promise.resolve()),
+      approvalFriendRequest: vi.fn(() => Promise.resolve()),
     },
     ntGroupApi: {
       getGroups: vi.fn(() => Promise.resolve([])),

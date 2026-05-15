@@ -17,7 +17,6 @@ import { Context } from 'cordis'
 import { selfInfo, LOG_DIR, TEMP_DIR, dbDir } from '../common/globalVars'
 import {
   NTQQFileApi,
-  NTQQFileCacheApi,
   NTQQFriendApi,
   NTQQGroupApi,
   NTLoginApi,
@@ -64,7 +63,6 @@ async function onLoad() {
   ctx.plugin(ConfigService)
   ctx.plugin(PMHQ)
   ctx.plugin(NTQQFileApi)
-  ctx.plugin(NTQQFileCacheApi)
   ctx.plugin(NTQQFriendApi)
   ctx.plugin(NTQQGroupApi)
   ctx.plugin(NTLoginApi)

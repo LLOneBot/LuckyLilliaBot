@@ -97,54 +97,11 @@ export class MessageEncoder {
     this.preview = ''
   }
 
-  async packImage(data: RichMediaUploadCompleteNotify, busiType: number) {
-    const imageSize = await this.ctx.ntFileApi.getImageSize(data.filePath)
+  async packImage(msgInfo: InferProtoModelInput<typeof Media.MsgInfo>) {
     return {
       commonElem: {
         serviceType: 48,
-        pbElem: Media.MsgInfo.encode({
-          msgInfoBody: [{
-            index: {
-              info: {
-                fileSize: +data.commonFileInfo.fileSize,
-                md5HexStr: data.commonFileInfo.md5,
-                sha1HexStr: data.commonFileInfo.sha,
-                fileName: data.commonFileInfo.fileName,
-                fileType: {
-                  type: 1,
-                  picFormat: imageSize.type === 'gif' ? 2000 : 1000
-                },
-                width: imageSize.width,
-                height: imageSize.height,
-                time: 0,
-                original: 1
-              },
-              fileUuid: data.fileId,
-              storeID: 1,
-              expire: this.isGroup ? 2678400 : 157680000
-            },
-            pic: {
-              urlPath: `/download?appid=${this.isGroup ? 1407 : 1406}&fileid=${data.fileId}`,
-              ext: {
-                originalParam: '&spec=0',
-                bigParam: '&spec=720',
-                thumbParam: '&spec=198'
-              },
-              domain: 'multimedia.nt.qq.com.cn'
-            },
-            fileExist: true
-          }],
-          extBizInfo: {
-            pic: {
-              bizType: 0,
-              summary: '',
-              fromScene: this.isGroup ? 2 : 1, // 怀旧版 PCQQ 私聊收图需要
-              toScene: this.isGroup ? 2 : 1, // 怀旧版 PCQQ 私聊收图需要
-              oldFileId: this.isGroup ? 574859779 : undefined // 怀旧版 PCQQ 群聊收图需要
-            },
-            busiType
-          }
-        }),
+        pbElem: Media.MsgInfo.encode(msgInfo),
         businessType: this.isGroup ? 20 : 10
       }
     }
@@ -272,11 +229,14 @@ export class MessageEncoder {
       if (fileSize === 0) {
         throw new Error(`文件异常，大小为 0: ${picPath}`)
       }
-      const { path } = await this.ctx.ntFileApi.uploadFile(picPath, ElementType.Pic, busiType)
-      const data = await this.ctx.ntFileApi.uploadRMFileWithoutMsg(path, this.isGroup ? 4 : 3, this.isGroup ? this.peer.peerUid : selfInfo.uid)
-      this.children.push(await this.packImage(data, busiType))
+      let data
+      if (this.isGroup) {
+        data = await this.ctx.ntFileApi.uploadGroupImage(this.peer.peerUid, picPath)
+      } else {
+        data = await this.ctx.ntFileApi.uploadC2CImage(this.peer.peerUid, picPath)
+      }
+      this.children.push(await this.packImage(data.msgInfo))
       this.preview += busiType === 1 ? '[动画表情]' : '[图片]'
-      this.deleteAfterSentFiles.push(path)
     } else if (type === OB11MessageDataType.Forward) {
       // 处理 forward 类型：支持 id（已有 resid）或 content（嵌套节点）
       const forwardData = data as { id?: string; content?: OB11MessageData[]; source?: string; news?: { text: string }[]; summary?: string; prompt?: string }

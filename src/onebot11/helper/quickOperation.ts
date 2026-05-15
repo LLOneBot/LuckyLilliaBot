@@ -115,15 +115,9 @@ async function handleMsg(ctx: Context, msg: OB11Message, quickAction: QuickOpera
 
 async function handleFriendRequest(ctx: Context, request: OB11FriendRequestEvent, quickAction: QuickOperationFriendRequest) {
   if (!isNullable(quickAction.approve)) {
-    const data = request.flag.split('|')
-    if (data.length < 2) {
-      return
-    }
-    const uid = data[0]
-    const reqTime = data[1]
-    await ctx.ntFriendApi.handleFriendRequest(uid, reqTime, quickAction.approve).catch(e => ctx.logger.error(e))
+    await ctx.ntFriendApi.approvalFriendRequest(request.flag, quickAction.approve).catch(e => ctx.logger.error(e))
     if (!isNullable(quickAction.remark)) {
-      ctx.ntFriendApi.setBuddyRemark(uid, quickAction.remark).catch(e => ctx.logger.error(e))
+      ctx.ntFriendApi.setBuddyRemark(request.flag, quickAction.remark).catch(e => ctx.logger.error(e))
     }
   }
 }

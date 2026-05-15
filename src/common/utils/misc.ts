@@ -70,3 +70,7 @@ export function uint32ToIPV4Addr(value: number) {
 export function sleep(ms = 0) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms))
 }
+
+export function isHttpUrl(str: string) {
+  return /^https?:\/\/.+/.test(str)
+}

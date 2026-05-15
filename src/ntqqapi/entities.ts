@@ -16,7 +16,7 @@ import {
   SendVideoElement,
 } from './types'
 import { stat, copyFile, unlink, mkdir } from 'node:fs/promises'
-import { getMd5HexFromFile } from '../common/utils/file'
+import { getFileType, getImageSize, getMd5HexFromFile } from '../common/utils/file'
 import { createThumb, getVideoInfo } from '../common/utils/video'
 import { encodeSilk } from '../common/utils/audio'
 import { Context } from 'cordis'
@@ -70,16 +70,17 @@ export namespace SendElement {
       throw new Error(`文件异常，大小为 0: ${picPath}`)
     }
     const { md5, fileName, path } = await ctx.ntFileApi.uploadFile(picPath, ElementType.Pic, subType)
-    const imageSize = await ctx.ntFileApi.getImageSize(picPath)
+    const fileType = await getFileType(picPath)
+    const size = await getImageSize(picPath)
     const picElement = {
       md5HexStr: md5,
       fileSize: fileSize.toString(),
-      picWidth: imageSize.width,
-      picHeight: imageSize.height,
+      picWidth: size.width,
+      picHeight: size.height,
       fileName: fileName,
       sourcePath: path,
       original: true,
-      picType: imageSize.type === 'gif' ? PicType.GIF : PicType.JPEG,
+      picType: fileType.ext === 'gif' ? PicType.GIF : PicType.JPEG,
       picSubType: subType,
       fileUuid: '',
       fileSubId: '',

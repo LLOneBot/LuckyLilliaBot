@@ -133,7 +133,7 @@ export interface ReplyElement {
 }
 
 export interface FileElement {
-  fileMd5?: string
+  fileMd5: string
   fileName: string
   filePath: string
   fileSize: string

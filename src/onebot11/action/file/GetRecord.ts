@@ -3,6 +3,7 @@ import { ActionName } from '../types'
 import { decodeSilk } from '@/common/utils/audio'
 import { BaseAction, Schema } from '../BaseAction'
 import { stat, readFile } from 'node:fs/promises'
+import { uri2local } from '@/common/utils'
 
 interface Payload {
   file: string
@@ -26,15 +27,11 @@ export default class GetRecord extends BaseAction<Payload, Response> {
   protected async _handle(payload: Payload): Promise<Response> {
     const fileCache = await this.ctx.store.getFileCacheByName(payload.file)
     if (fileCache?.length) {
-      const downloadPath = await this.ctx.ntFileApi.downloadMedia(
-        fileCache[0].msgId,
-        fileCache[0].chatType,
-        fileCache[0].peerUid,
-        fileCache[0].elementId,
-        '',
-        ''
-      )
-      const file = await decodeSilk(this.ctx, downloadPath, payload.out_format)
+      const originFile = await uri2local(this.ctx, fileCache[0].fileUuid, true)
+      if (originFile.errMsg) {
+        throw new Error(originFile.errMsg)
+      }
+      const file = await decodeSilk(this.ctx, originFile.path, payload.out_format)
       const res: Response = {
         file,
         file_name: path.basename(file),
