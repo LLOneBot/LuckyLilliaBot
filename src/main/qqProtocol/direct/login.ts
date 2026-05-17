@@ -81,8 +81,8 @@ function buildWtLoginFrame(uin: number, command: number, body: Buffer, ecdhPubli
   inner.writeUInt8(2, offset); offset += 1
   // insId (short 0)
   inner.writeInt16BE(0, offset); offset += 2
-  // AppClientVersion (short 0)
-  inner.writeInt16BE(0, offset); offset += 2
+  // AppClientVersion (short 46494 for Linux)
+  inner.writeUInt16BE(46494, offset); offset += 2
   // retryTime (int 0)
   inner.writeInt32BE(0, offset); offset += 4
   // encrypt head
