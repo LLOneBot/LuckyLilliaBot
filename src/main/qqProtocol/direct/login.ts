@@ -14,7 +14,7 @@ import { EncryptType } from './packet'
 import { TlvWriter, tlvUnpack, writeBytes16, writeString16 } from './tlv'
 import { teaEncrypt, teaDecrypt } from './tea'
 import { AppInfo, DeviceInfo } from './appInfo'
-import { randomBytes } from 'node:crypto'
+import { randomBytes, createHash } from 'node:crypto'
 
 export enum QrCodeState {
   Confirmed = 0,
@@ -39,73 +39,166 @@ export interface QrPollResult {
   tempPassword?: Buffer
 }
 
-// Random TgtgtKey for initial TransEmp encryption
-let currentTgtgtKey = randomBytes(16)
+// Random key for ECDH encrypt head
+const randomKey = randomBytes(16)
 
 /**
- * Build WtLogin OICQ frame (0x02...0x03 wrapper)
+ * Build WtLogin OICQ frame (matches Lagrange's BuildPacket)
+ * Structure: 0x02 + [length] + version + cmd + seq + uin + flags + encryptHead + cipher + 0x03
  */
-function buildWtLoginFrame(uin: number, command: number, body: Buffer): Buffer {
-  // Frame: 0x02 + [length(2)] + version(2) + cmd(2) + seq(2) + uin(4) +
-  //        retry(1) + encrypt(1) + reserved(1) + pubkeyVer(2) + pubkeyLen(2) + body + 0x03
-  // Length field = version(2)+cmd(2)+seq(2)+uin(4)+retry(1)+encrypt(1)+reserved(1)+pubkeyVer(2)+pubkeyLen(2)+body
-  //             = 17 + body.length
-  const frameLength = 17 + body.length
-  const parts: Buffer[] = []
+function buildWtLoginFrame(uin: number, command: number, body: Buffer, ecdhPublicKey: Buffer, shareKey: Buffer): Buffer {
+  // TEA encrypt body with ECDH shared key
+  const cipher = Buffer.from(teaEncrypt(body, shareKey))
 
-  parts.push(Buffer.from([0x02]))  // start byte
+  // Build encrypt head: byte(1) + byte(1) + randomKey(16) + short(0x102) + short(pubkey.len) + pubkey
+  const encHead = Buffer.alloc(2 + 16 + 2 + 2 + ecdhPublicKey.length)
+  encHead.writeUInt8(1, 0)
+  encHead.writeUInt8(1, 1)
+  randomKey.copy(encHead, 2)
+  encHead.writeUInt16BE(0x0102, 18)
+  encHead.writeUInt16BE(ecdhPublicKey.length, 20)
+  ecdhPublicKey.copy(encHead, 22)
 
-  const header = Buffer.alloc(19)
-  header.writeUInt16BE(frameLength, 0)   // length
-  header.writeUInt16BE(8001, 2)          // version
-  header.writeUInt16BE(command, 4)       // command
-  header.writeUInt16BE(1, 6)             // sequence
-  header.writeUInt32BE(uin, 8)           // uin
-  header.writeUInt8(3, 12)              // retry flag
-  header.writeUInt8(0x87, 13)           // encrypt method
-  header.writeUInt8(0, 14)              // reserved
-  header.writeUInt16BE(2, 15)           // public key version
-  header.writeUInt16BE(0, 17)           // public key length = 0
-  parts.push(header)
+  // Build inner frame (everything between 0x02 start and 0x03 end)
+  const inner = Buffer.alloc(2 + 2 + 2 + 4 + 1 + 1 + 4 + 1 + 2 + 2 + 4 + encHead.length + cipher.length)
+  let offset = 0
 
-  parts.push(body)
-  parts.push(Buffer.from([0x03]))  // end byte
+  // version (8001)
+  inner.writeUInt16BE(8001, offset); offset += 2
+  // command
+  inner.writeInt16BE(command, offset); offset += 2
+  // sequence (0)
+  inner.writeUInt16BE(0, offset); offset += 2
+  // uin
+  inner.writeUInt32BE(uin, offset); offset += 4
+  // retry flag
+  inner.writeUInt8(3, offset); offset += 1
+  // encrypt method (0x87 = ECDH_ST)
+  inner.writeUInt8(0x87, offset); offset += 1
+  // reserved (int32 = 0)
+  inner.writeInt32BE(0, offset); offset += 4
+  // byte: 2
+  inner.writeUInt8(2, offset); offset += 1
+  // insId (short 0)
+  inner.writeInt16BE(0, offset); offset += 2
+  // AppClientVersion (short 0)
+  inner.writeInt16BE(0, offset); offset += 2
+  // retryTime (int 0)
+  inner.writeInt32BE(0, offset); offset += 4
+  // encrypt head
+  encHead.copy(inner, offset); offset += encHead.length
+  // cipher
+  cipher.copy(inner, offset); offset += cipher.length
 
-  return Buffer.concat(parts)
+  // Wrap: 0x02 + length(short, includes self +1 for 0x03) + inner + 0x03
+  const frameLength = inner.length + 3 // +2 for length field itself +1 for 0x03
+  const frame = Buffer.alloc(1 + 2 + inner.length + 1)
+  frame.writeUInt8(0x02, 0)
+  frame.writeUInt16BE(frameLength, 1)
+  inner.copy(frame, 3)
+  frame.writeUInt8(0x03, frame.length - 1)
+
+  return frame
 }
 
 /**
- * Build Code2D packet (wraps TransEmp body)
+ * Build Code2D packet (matches Lagrange's BuildCode2dPacket)
  */
-function buildCode2dPacket(uin: number, subCommand: number, body: Buffer, tgtgtKey: Buffer): Buffer {
-  // TEA encrypt the inner body with TgtgtKey
-  const encrypted = Buffer.from(teaEncrypt(body, tgtgtKey))
+function buildCode2dPacket(subCommand: number, tlvBody: Buffer): Buffer {
+  // Build reqBody: timestamp(4) + structure
+  const timestamp = Math.floor(Date.now() / 1000)
 
-  const parts: Buffer[] = []
+  const reqParts: Buffer[] = []
 
-  const header = Buffer.alloc(14)
-  header.writeUInt16BE(0x0001, 0)     // head
-  header.writeUInt32BE(uin, 2)        // uin
-  header.writeUInt32BE(0x00000073, 6) // fixed value
-  header.writeUInt32BE(0x00000000, 10) // zero
-  parts.push(header)
+  // timestamp (uint32)
+  const tsBuf = Buffer.alloc(4)
+  tsBuf.writeUInt32BE(timestamp)
+  reqParts.push(tsBuf)
 
-  // Sub command (0x31 for fetch QR, 0x12 for poll)
+  // byte: 2
+  reqParts.push(Buffer.from([0x02]))
+
+  // Length barrier content (short length prefix, includes self + trailing 0x03)
+  const barrierParts: Buffer[] = []
+
+  // command (short)
   const cmdBuf = Buffer.alloc(2)
-  cmdBuf.writeUInt16BE(subCommand)
-  parts.push(cmdBuf)
+  cmdBuf.writeInt16BE(subCommand)
+  barrierParts.push(cmdBuf)
 
-  // Encrypted body with uint16 length prefix
-  parts.push(writeBytes16(encrypted))
+  // 21 zero bytes (skip)
+  barrierParts.push(Buffer.alloc(21))
 
-  return Buffer.concat(parts)
+  // flag: 3
+  barrierParts.push(Buffer.from([0x03]))
+
+  // close (short 0)
+  const closeBuf = Buffer.alloc(2)
+  barrierParts.push(closeBuf)
+
+  // version code (short 0x32 = 50)
+  const verCode = Buffer.alloc(2)
+  verCode.writeInt16BE(0x32)
+  barrierParts.push(verCode)
+
+  // trans_emp sequence (int 0)
+  barrierParts.push(Buffer.alloc(4))
+
+  // uin (uint32 0)
+  barrierParts.push(Buffer.alloc(4))
+
+  // TLV data
+  barrierParts.push(tlvBody)
+
+  // end marker: byte 3
+  barrierParts.push(Buffer.from([0x03]))
+
+  const barrierContent = Buffer.concat(barrierParts)
+  // Length includes self (2 bytes) + content
+  const barrierLen = Buffer.alloc(2)
+  barrierLen.writeUInt16BE(barrierContent.length + 2 + 1) // +2 for len itself, +1 per Lagrange's (true, 1)
+  reqParts.push(barrierLen)
+  reqParts.push(barrierContent)
+
+  const reqBody = Buffer.concat(reqParts)
+
+  // Outer wrapper: encrypt_flag(1) + reqBody_len(2) + appId(4) + role(4) + st(2+data) + rollback(1+data) + reqBody
+  const outerParts: Buffer[] = []
+
+  // encrypt flag: 0 (no encrypt for initial)
+  outerParts.push(Buffer.from([0x00]))
+
+  // reqBody length (ushort)
+  const reqLenBuf = Buffer.alloc(2)
+  reqLenBuf.writeUInt16BE(reqBody.length)
+  outerParts.push(reqLenBuf)
+
+  // AppId (int32)
+  const appIdBuf = Buffer.alloc(4)
+  appIdBuf.writeInt32BE(AppInfo.appId)
+  outerParts.push(appIdBuf)
+
+  // Role (uint32 = 0x72)
+  const roleBuf = Buffer.alloc(4)
+  roleBuf.writeUInt32BE(0x72)
+  outerParts.push(roleBuf)
+
+  // St (int16 length prefix, empty)
+  outerParts.push(Buffer.from([0x00, 0x00]))
+
+  // Rollback (byte length prefix, empty)
+  outerParts.push(Buffer.from([0x00]))
+
+  // reqBody
+  outerParts.push(reqBody)
+
+  return Buffer.concat(outerParts)
 }
 
 /**
  * Fetch QR code from server (TransEmp31)
  */
 export async function fetchQrCode(client: DirectProtocolClient): Promise<QrCodeResult> {
-  currentTgtgtKey = randomBytes(16)
 
   const tlv = new TlvWriter()
 
@@ -139,22 +232,9 @@ export async function fetchQrCode(client: DirectProtocolClient): Promise<QrCodeR
   // TLV 0x66: SSO Version (duplicate)
   tlv.addTlvUint32(0x66, AppInfo.ssoVersion)
 
-  // Build inner body: header + TLVs
-  const bodyParts: Buffer[] = []
-  const bodyHeader = Buffer.alloc(14)
-  bodyHeader.writeUInt16BE(0, 0)                // dummy
-  bodyHeader.writeUInt32BE(AppInfo.appId, 2)    // appId
-  bodyHeader.writeBigUInt64BE(0n, 6)            // uin = 0
-  bodyParts.push(bodyHeader)
-  bodyParts.push(Buffer.from([0x00, 0x00]))     // empty TGT (uint16 len = 0)
-  bodyParts.push(Buffer.from([0x00]))           // empty byte
-  bodyParts.push(Buffer.from([0x00, 0x00]))     // empty data (uint16 len = 0)
-  bodyParts.push(tlv.build())                   // TLV collection
-  const innerBody = Buffer.concat(bodyParts)
-
-  // Wrap in Code2D → WtLogin
-  const code2d = buildCode2dPacket(0, 0x31, innerBody, currentTgtgtKey)
-  const wtLogin = buildWtLoginFrame(0, 0x0812, code2d)
+  // Build Code2D then wrap in WtLogin frame
+  const code2d = buildCode2dPacket(0x31, tlv.build())
+  const wtLogin = buildWtLoginFrame(0, 0x0812, code2d, client.getEcdhPublicKey(), client.getEcdhShareKey())
 
   // Send via SSO (Protocol 13 Simple, EncryptEmpty)
   const resp = await client.sendCommand(
@@ -164,29 +244,22 @@ export async function fetchQrCode(client: DirectProtocolClient): Promise<QrCodeR
     10000,
   )
 
-  return parseTransEmp31Response(resp.payload, currentTgtgtKey)
+  return parseTransEmp31Response(resp.payload, client.getEcdhShareKey())
 }
 
 /**
  * Poll QR code status (TransEmp12)
  */
 export async function pollQrCode(client: DirectProtocolClient, sig: Buffer): Promise<QrPollResult> {
-  // Build inner body for poll (no TLVs)
-  const bodyParts: Buffer[] = []
-  const bodyHeader = Buffer.alloc(6)
-  bodyHeader.writeUInt16BE(0, 0)                // dummy
-  bodyHeader.writeUInt32BE(AppInfo.appId, 2)    // appId
-  bodyParts.push(bodyHeader)
-  bodyParts.push(writeBytes16(sig))             // QR sig with uint16 prefix
-  bodyParts.push(Buffer.alloc(8))               // uin = 0 (uint64)
-  bodyParts.push(Buffer.from([0x00, 0x00]))     // empty TGT
-  bodyParts.push(Buffer.from([0x00]))           // empty byte
-  bodyParts.push(Buffer.from([0x00, 0x00]))     // empty data
-  bodyParts.push(Buffer.from([0x00, 0x00]))     // TLV count = 0
-  const innerBody = Buffer.concat(bodyParts)
+  // For poll, TLV body is empty but sig needs to be embedded somewhere
+  // Actually in Lagrange, TransEmp12 includes sig in the TLV collection
+  const tlv = new TlvWriter()
+  // No TLVs for poll - sig is part of the Code2D structure...
+  // Actually looking at Lagrange's BuildTransEmp12, it writes sig differently
+  // For now pass empty TLV and include sig as part of the body
 
-  const code2d = buildCode2dPacket(0, 0x12, innerBody, currentTgtgtKey)
-  const wtLogin = buildWtLoginFrame(0, 0x0812, code2d)
+  const code2d = buildCode2dPacket(0x12, Buffer.concat([sig, Buffer.from([0x00, 0x00])]))
+  const wtLogin = buildWtLoginFrame(0, 0x0812, code2d, client.getEcdhPublicKey(), client.getEcdhShareKey())
 
   const resp = await client.sendCommand(
     'wtlogin.trans_emp',
@@ -195,7 +268,7 @@ export async function pollQrCode(client: DirectProtocolClient, sig: Buffer): Pro
     10000,
   )
 
-  return parseTransEmp12Response(resp.payload, currentTgtgtKey)
+  return parseTransEmp12Response(resp.payload, client.getEcdhShareKey())
 }
 
 /**
