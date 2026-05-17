@@ -1,8 +1,3 @@
-/**
- * TLV (Tag-Length-Value) packing and unpacking utilities
- * for QQ protocol login packets
- */
-
 export class TlvWriter {
   private parts: Buffer[] = []
   private count = 0
@@ -59,9 +54,6 @@ export function tlvUnpack(data: Buffer): Map<number, Buffer> {
   return result
 }
 
-/**
- * Write a length-prefixed string (uint16 BE length + UTF-8 string)
- */
 export function writeString16(str: string): Buffer {
   const strBuf = Buffer.from(str, 'utf-8')
   const header = Buffer.alloc(2)
@@ -69,18 +61,12 @@ export function writeString16(str: string): Buffer {
   return Buffer.concat([header, strBuf])
 }
 
-/**
- * Write a length-prefixed buffer (uint16 BE length + data)
- */
 export function writeBytes16(data: Buffer): Buffer {
   const header = Buffer.alloc(2)
   header.writeUInt16BE(data.length)
   return Buffer.concat([header, data])
 }
 
-/**
- * Write a length-prefixed buffer (uint32 BE length + data)
- */
 export function writeBytes32(data: Buffer): Buffer {
   const header = Buffer.alloc(4)
   header.writeUInt32BE(data.length + 4)

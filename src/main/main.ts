@@ -96,25 +96,34 @@ async function onLoad() {
     ctx.plugin(EmailNotificationService)
   }
 
-  const isDocker = isDockerEnvironment()
   let lastQrCodeTime = 0
+
+  const isDocker = isDockerEnvironment()
+  const useDirectProtocol = !process.env.QQ_USE_PMHQ
 
   const printLoginQrCode = async () => {
     try {
-      const data = await ctx.ntLoginApi.getLoginQrCode()
+      let data: { qrcodeUrl: string; pngBase64QrcodeData: string }
+      if (useDirectProtocol) {
+        data = await ctx.qqProtocol.getDirectLoginQrCode()
+      } else {
+        data = await ctx.ntLoginApi.getLoginQrCode()
+      }
 
       const qrText = await QRCode.toString(data.qrcodeUrl, { type: 'terminal', small: true })
       console.log('\n========== 请使用手机QQ扫描二维码登录 ==========')
       console.log(qrText)
       console.log('================================================\n')
 
-      const base64Data = data.pngBase64QrcodeData.replace(/^data:image\/png;base64,/, '')
-      const qrFilePath = path.join(TEMP_DIR, 'login-qrcode.png')
-      if (!existsSync(TEMP_DIR)) {
-        mkdirSync(TEMP_DIR, { recursive: true })
+      if (data.pngBase64QrcodeData) {
+        const base64Data = data.pngBase64QrcodeData.replace(/^data:image\/png;base64,/, '')
+        const qrFilePath = path.join(TEMP_DIR, 'login-qrcode.png')
+        if (!existsSync(TEMP_DIR)) {
+          mkdirSync(TEMP_DIR, { recursive: true })
+        }
+        await writeFile(qrFilePath, Buffer.from(base64Data, 'base64'))
+        ctx.logger.info(`二维码文件已保存: ${qrFilePath}`)
       }
-      await writeFile(qrFilePath, Buffer.from(base64Data, 'base64'))
-      ctx.logger.info(`二维码文件已保存: ${qrFilePath}`)
 
       const qrWebUrl = `https://api.2dcode.biz/v1/create-qr-code?data=${encodeURIComponent(data.qrcodeUrl)}`
       ctx.logger.info(`或浏览器打开二维码网址: ${qrWebUrl}`)
@@ -124,47 +133,75 @@ async function onLoad() {
   }
 
   const checkLogin = async () => {
-    let pmhqSelfInfo = { ...selfInfo }
-    try {
-      pmhqSelfInfo = await ctx.qqProtocol.call('getSelfInfo', [])
-    } catch (e) {
-      ctx.logger.info('获取账号信息状态失败', e)
-      setTimeout(checkLogin, 1000)
-      return
-    }
-    if (!pmhqSelfInfo.online) {
-      const now = Date.now()
-      if (isDocker && now - lastQrCodeTime > 120_000) {
-        lastQrCodeTime = now
-        printLoginQrCode()
+    if (useDirectProtocol) {
+      const info = ctx.qqProtocol.getDirectSelfInfo()
+      if (!info.online) {
+        const now = Date.now()
+        if (now - lastQrCodeTime > 120_000) {
+          lastQrCodeTime = now
+          printLoginQrCode()
+        }
+        setTimeout(checkLogin, 1000)
+        return
       }
-      setTimeout(checkLogin, 1000)
-      return
-    }
-    selfInfo.uin = pmhqSelfInfo.uin
-    selfInfo.uid = pmhqSelfInfo.uid
-    selfInfo.nick = pmhqSelfInfo.nick
-    if (!selfInfo.uin) {
-      for (let i = 0; i < 5; i++) {
-        try {
-          selfInfo.uin = await ctx.ntUserApi.getUinByUid(selfInfo.uid)
-          break
-        } catch (e) {
-          await sleep(1000)
+      selfInfo.uin = info.uin
+      selfInfo.uid = info.uid
+      selfInfo.nick = info.nick
+      selfInfo.online = true
+    } else {
+      let pmhqSelfInfo = { ...selfInfo }
+      try {
+        pmhqSelfInfo = await ctx.qqProtocol.call('getSelfInfo', [])
+      } catch (e) {
+        ctx.logger.info('获取账号信息状态失败', e)
+        setTimeout(checkLogin, 1000)
+        return
+      }
+      if (!pmhqSelfInfo.online) {
+        const now = Date.now()
+        if (isDocker && now - lastQrCodeTime > 120_000) {
+          lastQrCodeTime = now
+          printLoginQrCode()
+        }
+        setTimeout(checkLogin, 1000)
+        return
+      }
+      selfInfo.uin = pmhqSelfInfo.uin
+      selfInfo.uid = pmhqSelfInfo.uid
+      selfInfo.nick = pmhqSelfInfo.nick
+      if (!selfInfo.uin) {
+        for (let i = 0; i < 5; i++) {
+          try {
+            selfInfo.uin = await ctx.ntUserApi.getUinByUid(selfInfo.uid)
+            break
+          } catch (e) {
+            await sleep(1000)
+          }
         }
       }
+      selfInfo.online = true
+      if (!selfInfo.nick) {
+        await ctx.ntUserApi.getSelfNick(true).catch(e => {
+          ctx.logger.warn('获取登录号昵称失败', e)
+        })
+      }
     }
-    selfInfo.online = true
-    if (!selfInfo.nick) {
-      await ctx.ntUserApi.getSelfNick(true).catch(e => {
-        ctx.logger.warn('获取登录号昵称失败', e)
-      })
-    }
+    console.log(`
+  _                _            _     _ _ _ _
+ | |    _   _  ___| | ___   _  | |   (_) | (_) __ _
+ | |   | | | |/ __| |/ / | | | | |   | | | | |/ _\` |
+ | |___| |_| | (__|   <| |_| | | |___| | | | | (_| |
+ |_____|\\__,_|\\___|_|\\_\\\\__, | |_____|_|_|_|_|\\__,_|
+                        |___/
+                                        UIN: ${selfInfo.uin}
+`)
+
     config = ctx.config.get(false)
     ctx.config.listenChange(c => {
       ctx.parallel('llob/config-updated', c)
     })
     ctx.parallel('llob/config-updated', config)
+
     loadPluginAfterLogin()
   }
 
@@ -180,8 +217,14 @@ async function onLoad() {
     config.satori.enable = false
     config.ob11.enable = false
     ctx.plugin(WebuiServer, config.webui)
-    checkLogin()
-    ctx.qqProtocol.startHook()
+    if (useDirectProtocol) {
+      ctx.qqProtocol.initDirectClient().then(() => {
+        checkLogin()
+      })
+    } else {
+      checkLogin()
+      ctx.qqProtocol.startHook()
+    }
   })
 }
 

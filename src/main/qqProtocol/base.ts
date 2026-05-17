@@ -21,6 +21,8 @@ import { ReceiveCmdS } from '@/ntqqapi/hook'
 import { inspect } from 'node:util'
 import { DetailedError } from '@/common/utils'
 import { parseProtobufFromHex } from '@/common/utils/protobuf-parser'
+import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, registerOnline, startHeartbeat, getCorrectUin, QrCodeState, AppInfo, saveSession, loadSession, persistedToSessionInfo } from './direct'
+import type { QrCodeResult, QrPollResult } from './direct'
 
 type DisconnectCallback = (duration: number) => void
 
@@ -128,6 +130,12 @@ export class QQProtocolBase extends Service {
   > = new Map()
   public msgPBMap: Map<string, string> = new Map<string, string>()
   private logger
+
+  // Direct protocol client
+  public directClient: DirectProtocolClient | null = null
+  private directQrResult: QrCodeResult | null = null
+  private directPollResult: QrPollResult | null = null
+  private directStopHeartbeat: (() => void) | null = null
 
   constructor(protected ctx: Context) {
     super(ctx, 'qqProtocol')
@@ -579,5 +587,170 @@ export class QQProtocolBase extends Service {
         }
       }
     })
+  }
+
+  // --- Direct Protocol Integration ---
+
+  /**
+   * Initialize direct protocol client and attempt session restore.
+   * Call this in place of (or alongside) connectWebSocket when using direct protocol.
+   */
+  async initDirectClient(signUrl?: string): Promise<void> {
+    const url = signUrl || process.env.QQ_SIGN_URL || 'http://127.0.0.1:8080'
+    this.directClient = new DirectProtocolClient({ signUrl: url })
+
+    this.directClient.on('error', (err: Error) => {
+      this.logger.warn('Direct client error:', err.message)
+    })
+    this.directClient.on('close', () => {
+      selfInfo.online = false
+      if (this.directStopHeartbeat) {
+        this.directStopHeartbeat()
+        this.directStopHeartbeat = null
+      }
+    })
+    this.directClient.on('push', (packet: { cmd: string; payload: Buffer }) => {
+      this.logger.debug(`[Push] ${packet.cmd} len=${packet.payload.length}`)
+    })
+
+    // Try to restore saved session
+    const persisted = loadSession()
+    if (persisted) {
+      this.logger.info('Found saved session for UIN %s, attempting restore...', persisted.uin)
+      this.directClient.setGuid(Buffer.from(persisted.guid, 'hex'))
+      await this.directClient.connect()
+      const session = persistedToSessionInfo(persisted)
+      this.directClient.setSession(session)
+
+      try {
+        const msg = await registerOnline(this.directClient)
+        console.log('[QQ Server] Online registered!')
+        selfInfo.uin = persisted.uin
+        selfInfo.uid = persisted.uid
+        selfInfo.online = true
+        this.directStopHeartbeat = startHeartbeat(this.directClient)
+        return
+      } catch (e) {
+        this.logger.info('Saved session expired, will need QR login: %s', (e as Error).message)
+        this.directClient.disconnect()
+      }
+    }
+
+    // Connect fresh (will need QR login)
+    await this.directClient.connect()
+  }
+
+  /**
+   * Check if logged in via direct protocol
+   */
+  isDirectLoggedIn(): boolean {
+    return this.directClient?.isLoggedIn ?? false
+  }
+
+  /**
+   * Get self info for direct protocol (matches the shape used by main.ts checkLogin)
+   */
+  getDirectSelfInfo(): { uin: string; uid: string; nick: string; online: boolean } {
+    if (!this.directClient?.isLoggedIn) {
+      return { uin: '', uid: '', nick: '', online: false }
+    }
+    const session = this.directClient.getSession()
+    return {
+      uin: session?.uin || '',
+      uid: session?.uid || '',
+      nick: '',
+      online: true,
+    }
+  }
+
+  /**
+   * Fetch QR code via direct protocol.
+   * Returns same shape as ntLoginApi.getLoginQrCode() for compatibility.
+   */
+  async getDirectLoginQrCode(): Promise<{ qrcodeUrl: string; pngBase64QrcodeData: string }> {
+    if (!this.directClient) {
+      throw new Error('Direct client not initialized')
+    }
+
+    const qr = await fetchQrCode(this.directClient)
+    this.directQrResult = qr
+
+    // Start background polling
+    this.startDirectQrPolling()
+
+    return {
+      qrcodeUrl: qr.url,
+      pngBase64QrcodeData: qr.image.length > 0
+        ? 'data:image/png;base64,' + qr.image.toString('base64')
+        : '',
+    }
+  }
+
+  private startDirectQrPolling() {
+    if (!this.directClient || !this.directQrResult) return
+
+    const poll = async () => {
+      if (!this.directClient || !this.directQrResult) return
+      if (this.directClient.isLoggedIn) return
+
+      try {
+        const result = await pollQrCode(this.directClient, this.directQrResult.sig)
+        this.directPollResult = result
+
+        if (result.state === QrCodeState.Confirmed) {
+          await this.completeDirectLogin()
+          return
+        }
+
+        if (result.state === QrCodeState.Expired || result.state === QrCodeState.Cancelled) {
+          this.directQrResult = null
+          return
+        }
+      } catch (e) {
+        this.logger.warn('QR poll error:', (e as Error).message)
+      }
+
+      setTimeout(poll, 2000)
+    }
+
+    setTimeout(poll, 2000)
+  }
+
+  private async completeDirectLogin() {
+    if (!this.directClient || !this.directPollResult || !this.directQrResult) return
+
+    // Get UIN
+    const urlParams = new URL(this.directQrResult.url).searchParams
+    const qrSig = urlParams.get('k') || ''
+    const uin = await getCorrectUin(AppInfo.appId, qrSig)
+    this.directPollResult.uin = String(uin)
+
+    // wtlogin.login
+    const loginResult = await loginWithQrResult(this.directClient, this.directPollResult)
+    if (!loginResult.success) {
+      this.logger.error(`Login failed: state=${loginResult.state} ${loginResult.tag} ${loginResult.message}`)
+      return
+    }
+
+    this.logger.info(`Login successful! UID: ${loginResult.uid}`)
+
+    // Save session
+    const session = this.directClient.getSession()!
+    saveSession(session, this.directPollResult.tgtgtKey!, this.directClient.getGuid(), loginResult.tempPassword)
+
+    // Register online
+    try {
+      await registerOnline(this.directClient)
+    } catch (e) {
+      this.logger.warn('Register:', (e as Error).message)
+    }
+
+    // Start heartbeat
+    this.directStopHeartbeat = startHeartbeat(this.directClient)
+
+    // Update global state
+    selfInfo.uin = String(uin)
+    selfInfo.uid = loginResult.uid
+    selfInfo.online = true
   }
 }

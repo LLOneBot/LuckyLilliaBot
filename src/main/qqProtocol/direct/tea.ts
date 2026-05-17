@@ -1,7 +1,6 @@
 /**
- * TEA (Tiny Encryption Algorithm) cipher implementation
- * Compatible with Tencent's QQ protocol TEA variant
- * 16-round TEA with CBC-like chaining and random padding
+ * TEA cipher implementation (Tencent QQ variant)
+ * 16-round TEA with QQ-specific CBC chaining and random padding
  */
 
 const DELTA = 0x9E3779B9
@@ -72,46 +71,36 @@ export function teaEncrypt(data: Uint8Array, key: Uint8Array): Uint8Array {
   const k = parseKey(key)
 
   // Padding: fill(3~10 random bytes) + data + 7 zero bytes
-  // fill = 10 - ((data.length + 1) & 7), range [3, 10]
   const fill = 10 - ((data.length + 1) & 7)
   const totalLen = fill + data.length + 7
   const plain = new Uint8Array(totalLen)
 
-  // Random fill bytes
   for (let i = 0; i < fill; i++) {
     plain[i] = Math.floor(Math.random() * 256)
   }
-  // First byte: (fill - 3) | 0xF8
   plain[0] = ((fill - 3) & 0x07) | 0xF8
 
-  // Copy data after fill
   plain.set(data, fill)
-  // Last 7 bytes are zero (already)
 
-  // QQ-specific CBC mode encryption
+  // QQ-specific CBC mode: cipher = encrypt(plain ^ prevCipher) ^ prevPlain
   const out = new Uint8Array(totalLen)
   plain.set(data, fill)
-  // Copy plain to out for in-place encryption
   out.set(plain)
 
   let plainXorHi = 0, plainXorLo = 0
   let prevXorHi = 0, prevXorLo = 0
 
   for (let i = 0; i < totalLen; i += 8) {
-    // XOR with plainXor
     const pHi = readUint32BE(out, i) ^ plainXorHi
     const pLo = readUint32BE(out, i + 4) ^ plainXorLo
 
-    // Encrypt block
     const [cHi, cLo] = teaEncryptBlock(pHi, pLo, k)
 
-    // Update XOR chains
     plainXorHi = cHi ^ prevXorHi
     plainXorLo = cLo ^ prevXorLo
     prevXorHi = pHi
     prevXorLo = pLo
 
-    // Write output
     writeUint32BE(out, i, plainXorHi)
     writeUint32BE(out, i + 4, plainXorLo)
   }
@@ -135,22 +124,17 @@ export function teaDecrypt(data: Uint8Array, key: Uint8Array): Uint8Array {
     const cHi = readUint32BE(data, i)
     const cLo = readUint32BE(data, i + 4)
 
-    // XOR with running plainXor
     plainXorHi ^= cHi
     plainXorLo ^= cLo
 
-    // Decrypt block
     const [dHi, dLo] = teaDecryptBlock(plainXorHi, plainXorLo, k)
 
-    // Update plainXor
     plainXorHi = dHi
     plainXorLo = dLo
 
-    // Output = decrypted XOR previous cipher
     writeUint32BE(plain, i, plainXorHi ^ prevXorHi)
     writeUint32BE(plain, i + 4, plainXorLo ^ prevXorLo)
 
-    // Save current cipher for next round
     prevXorHi = cHi
     prevXorLo = cLo
   }

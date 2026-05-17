@@ -1,8 +1,3 @@
-/**
- * TCP connection manager for direct QQ protocol
- * Connects to msfwifi.3g.qq.com:8080, handles frame reading
- */
-
 import { Socket } from 'node:net'
 import { lookup } from 'node:dns/promises'
 import { EventEmitter } from 'node:events'
@@ -31,8 +26,11 @@ export class TcpConnection extends EventEmitter {
       this.socket = new Socket()
       this.socket.setKeepAlive(true, 30000)
 
+      console.log(`[QQ Server] Connecting to ${addr.address}:${port} (${host})...`)
+
       this.socket.on('connect', () => {
         this.connected = true
+        console.log(`[QQ Server] Connected to ${addr.address}:${port}`)
         this.emit('connected')
         resolve()
       })

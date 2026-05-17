@@ -1,8 +1,3 @@
-/**
- * Direct QQ Protocol Client
- * Manages connection, login, and packet exchange with QQ servers
- */
-
 import { TcpConnection } from './connection'
 import { buildServicePacket, buildServicePacket13, parseServicePacket, EncryptType, PacketContext, SsoPacket } from './packet'
 import { generateEcdhKeyPair, EcdhKeyPair } from './ecdh'
@@ -72,9 +67,6 @@ export class DirectProtocolClient extends EventEmitter {
     await this.sendHeartbeat()
   }
 
-  /**
-   * Send Heartbeat.Alive (Protocol 13, NoEncrypt) and wait for response
-   */
   async sendHeartbeat(): Promise<void> {
     const seq = this.nextSeq()
     const ctx = this.getPacketContext()
@@ -114,13 +106,13 @@ export class DirectProtocolClient extends EventEmitter {
   private getPacketContext(): PacketContext {
     return {
       uin: this.session?.uin || '0',
+      uid: this.session?.uid || '',
       d2: this.session?.d2 || Buffer.alloc(0),
       d2Key: this.session?.d2Key || Buffer.alloc(16),
       tgt: this.session?.tgt || Buffer.alloc(0),
       guid: this.guid,
       appId: this.config.appId,
       subAppId: this.config.subAppId,
-      ssoVersion: this.config.ssoVersion,
       buildVer: this.config.buildVer,
     }
   }
@@ -134,15 +126,11 @@ export class DirectProtocolClient extends EventEmitter {
     'trpc.login.ecdh.EcdhService.SsoKeyExchange',
   ])
 
-  /**
-   * Send a command and wait for response
-   */
   async sendCommand(cmd: string, payload: Buffer, encryptType?: EncryptType, timeout = 15000): Promise<SsoPacket> {
     const seq = this.nextSeq()
     const ctx = this.getPacketContext()
     const enc = encryptType ?? (this.session ? EncryptType.EncryptD2Key : EncryptType.EncryptEmpty)
 
-    // Request sign if command is in allowlist and signUrl is configured
     let signResult: SignResult | null = null
     if (this.config.signUrl && this.SIGN_ALLOWLIST.has(cmd)) {
       signResult = await requestSign(this.config.signUrl, cmd, payload, seq)
@@ -169,7 +157,6 @@ export class DirectProtocolClient extends EventEmitter {
       return
     }
 
-    // Check for pending request
     const pending = this.pendingPackets.get(parsed.seq)
     if (pending) {
       clearTimeout(pending.timeout)
@@ -178,7 +165,6 @@ export class DirectProtocolClient extends EventEmitter {
       return
     }
 
-    // Server push event
     this.emit('push', parsed)
   }
 
@@ -192,6 +178,14 @@ export class DirectProtocolClient extends EventEmitter {
 
   getGuid(): Buffer {
     return this.guid
+  }
+
+  setGuid(guid: Buffer): void {
+    this.guid = guid
+  }
+
+  getSession(): SessionInfo | null {
+    return this.session
   }
 
   getEcdhPublicKey(): Buffer {

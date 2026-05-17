@@ -1,8 +1,3 @@
-/**
- * ECDH key exchange for QQ protocol
- * WtLogin uses secp192k1, SSO reserved uses prime256v1
- */
-
 import { createECDH, createHash } from 'node:crypto'
 
 export interface EcdhKeyPair {
@@ -11,7 +6,7 @@ export interface EcdhKeyPair {
   shareKey: Buffer
 }
 
-// QQ server's ECDH public key for WtLogin (secp192k1, 49 bytes uncompressed)
+// QQ server's ECDH public key for WtLogin (secp192k1)
 const SERVER_PUBLIC_KEY_192K1 = Buffer.from([
   0x04, 0x92, 0x8D, 0x88, 0x50, 0x67, 0x30, 0x88, 0xB3, 0x43,
   0x26, 0x4E, 0x0C, 0x6B, 0xAC, 0xB8, 0x49, 0x6D, 0x69, 0x77,
@@ -24,8 +19,7 @@ export function generateEcdhKeyPair(): EcdhKeyPair {
   const ecdh = createECDH('secp192k1')
   const rawPublicKey = ecdh.generateKeys()
 
-  // Manual compressed format: always use 0x02 prefix + X coordinate (24 bytes)
-  // This matches Lagrange/tanebi behavior (not standard compress which may use 0x03)
+  // Always use 0x02 prefix + X coordinate, not standard compress (which may use 0x03)
   const publicKey = Buffer.concat([Buffer.from([0x02]), rawPublicKey.subarray(1, 25)])
 
   const sharedSecret = ecdh.computeSecret(SERVER_PUBLIC_KEY_192K1)

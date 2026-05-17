@@ -1,8 +1,3 @@
-/**
- * Sign provider for QQ protocol
- * Calls external sign API to get packet signatures
- */
-
 export interface SignResult {
   sign: Buffer
   token: Buffer

@@ -1,8 +1,3 @@
-/**
- * App/Platform info constants for QQ protocol
- * Linux PC platform (matching Lagrange's Linux config)
- */
-
 export const AppInfo = {
   os: 'Linux',
   kernel: 'Linux',
@@ -29,4 +24,5 @@ export const DeviceInfo = {
   osVer: 'Ubuntu 22.04 LTS',
   vendorName: '',
   vendorOsName: 'linux',
+  systemKernel: '5.15.0',
 }
