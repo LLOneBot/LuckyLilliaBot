@@ -89,10 +89,10 @@ function buildSsoHead12(seq: number, cmd: string, ctx: PacketContext): Buffer {
   subAppBuf.writeInt32BE(ctx.subAppId)
   parts.push(subAppBuf)
 
-  // Fixed: 2052 (0x0804)
-  const fixedShort = Buffer.alloc(2)
-  fixedShort.writeInt16BE(2052)
-  parts.push(fixedShort)
+  // Fixed int32: 2052
+  const fixed2052 = Buffer.alloc(4)
+  fixed2052.writeInt32BE(2052)
+  parts.push(fixed2052)
 
   // Fixed 12 bytes
   parts.push(FIXED_HEADER)
