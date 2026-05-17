@@ -468,60 +468,58 @@ function encodeVarintBuf(value: number): Buffer {
 
 // --- Response parsers ---
 
-function parseTransEmp31Response(data: Buffer, tgtgtKey: Buffer): QrCodeResult {
-  // The response payload is inside a WtLogin frame - strip outer 0x02...0x03
-  let body = data
-  if (body[0] === 0x02 && body[body.length - 1] === 0x03) {
-    // Skip: 0x02(1) + length(2) + version(2) + cmd(2) + seq(2) + uin(4) = 13 bytes header
-    body = body.subarray(13, body.length - 1)
+function parseTransEmp31Response(data: Buffer, shareKey: Buffer): QrCodeResult {
+  // WtLogin response: 0x02 + header(15 bytes) + encrypted + 0x03
+  if (data[0] !== 0x02 || data[data.length - 1] !== 0x03) {
+    throw new Error('Invalid WtLogin response frame')
   }
 
-  // Decrypt Code2D response body with TgtgtKey
-  // Skip: head(2) + uin(4) + fixed(4) + zero(4) + subcmd(2) + encrypted body (uint16 length prefix)
-  let offset = 0
-  offset += 2 + 4 + 4 + 4 + 2 // 16 bytes of code2d header
+  // Skip 0x02, then header: internalLength(2)+version(2)+commandId(2)+sequence(2)+uin(4)+flag(1)+retryTime(2) = 15
+  const encrypted = data.subarray(1 + 15, data.length - 1)
 
-  const encLen = body.readUInt16BE(offset); offset += 2
-  const encBody = body.subarray(offset, offset + encLen)
-
+  // TEA decrypt with ECDH shared key
   let decrypted: Buffer
   try {
-    decrypted = Buffer.from(teaDecrypt(encBody, tgtgtKey))
+    decrypted = Buffer.from(teaDecrypt(encrypted, shareKey))
   } catch {
     throw new Error('Failed to decrypt TransEmp31 response')
   }
 
-  // Parse decrypted body
-  let dOffset = 0
-  // dummy(2) + appId(4)
-  dOffset += 2 + 4
-  const retCode = decrypted.readUInt8(dOffset); dOffset += 1
+  // unwrapTransEmpPacket: skip 8 bytes, read subCommand(uint16), skip 40 bytes, read appId(uint32), then rest is data
+  // Per tanebi: readOffset += 8; subCommand = readUInt16BE(); readOffset += 40; appId = readUInt32BE(); data = rest
+  let offset = 0
+  offset += 8          // skip
+  const subCmd = decrypted.readUInt16BE(offset); offset += 2
+  offset += 40         // skip
+  const appId = decrypted.readUInt32BE(offset); offset += 4
+  const transEmpData = decrypted.subarray(offset)
 
-  if (retCode !== 0) {
-    throw new Error(`TransEmp31 failed with code ${retCode}`)
-  }
+  // Parse TransEmp31Response: dummyByte(uint8) + signature(bytes, uint16 prefix) + tlvPack(rest)
+  let dOff = 0
+  const dummyByte = transEmpData.readUInt8(dOff); dOff += 1
 
-  // sig (int16 length prefix)
-  const sigLen = decrypted.readUInt16BE(dOffset); dOffset += 2
-  const sig = Buffer.from(decrypted.subarray(dOffset, dOffset + sigLen)); dOffset += sigLen
+  // signature with uint16 length prefix (length does NOT include prefix itself)
+  const sigLen = transEmpData.readUInt16BE(dOff); dOff += 2
+  const sig = Buffer.from(transEmpData.subarray(dOff, dOff + sigLen)); dOff += sigLen
 
-  // TLV collection
-  const tlvData = decrypted.subarray(dOffset)
+  // TLV collection (rest)
+  const tlvData = transEmpData.subarray(dOff)
   const tlvs = tlvUnpack(tlvData)
 
-  // Extract QR URL from TLV 0xD1
+  // Extract QR URL from TLV 0xD1 (protobuf: field 2 = url string)
   let url = ''
   const tlvD1 = tlvs.get(0xD1)
   if (tlvD1) {
-    const urlMatch = tlvD1.toString('utf-8').match(/https?:\/\/[^\x00]+/)
+    const urlMatch = tlvD1.toString('utf-8').match(/https?:\/\/[^\x00\x01\x02]+/)
     if (urlMatch) url = urlMatch[0]
   }
 
   // Extract QR image from TLV 0x17
   const image = tlvs.get(0x17) || Buffer.alloc(0)
 
-  return { url, image, sig, tgtgtKey }
+  return { url, image, sig, tgtgtKey: shareKey }
 }
+
 
 function parseTransEmp12Response(data: Buffer, tgtgtKey: Buffer): QrPollResult {
   // Strip WtLogin frame
