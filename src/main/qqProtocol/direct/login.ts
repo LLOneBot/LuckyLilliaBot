@@ -146,25 +146,27 @@ export async function fetchQrCode(client: DirectProtocolClient): Promise<QrCodeR
 
   const tlv = new TlvWriter()
 
-  // TLV 0x16: App info
+  // TLV 0x16: App info (field0 + appId + appIdQrCode + guid + packageName + ptVersion + packageName2)
   tlv.addTlv(0x16, buildTlv16(client))
 
-  // TLV 0x1B: QR code params
-  const tlv1B = Buffer.alloc(9)
-  tlv1B.writeUInt16BE(0, 0)   // micro
-  tlv1B.writeUInt8(0, 2)      // version
-  tlv1B.writeUInt16BE(3, 3)   // size
-  tlv1B.writeUInt8(4, 5)      // margin
-  tlv1B.writeUInt8(72, 6)     // dpi
-  tlv1B.writeUInt8(2, 7)      // eclevel
-  tlv1B.writeUInt8(2, 8)      // hint
+  // TLV 0x1B: QR code params (all uint32 except last uint16)
+  const tlv1B = Buffer.alloc(30) // 7*uint32 + 1*uint16
+  tlv1B.writeUInt32BE(0, 0)    // micro
+  tlv1B.writeUInt32BE(0, 4)    // version
+  tlv1B.writeUInt32BE(3, 8)    // size
+  tlv1B.writeUInt32BE(4, 12)   // margin
+  tlv1B.writeUInt32BE(72, 16)  // dpi
+  tlv1B.writeUInt32BE(2, 20)   // ecLevel
+  tlv1B.writeUInt32BE(2, 24)   // hint
+  tlv1B.writeUInt16BE(0, 28)   // field7
   tlv.addTlv(0x1B, tlv1B)
 
-  // TLV 0x1D: Device capabilities
-  const tlv1D = Buffer.alloc(7)
+  // TLV 0x1D: Device capabilities (uint8 + uint32 + uint32 + uint8)
+  const tlv1D = Buffer.alloc(10)
   tlv1D.writeUInt8(1, 0)
-  tlv1D.writeUInt32BE(AppInfo.miscBitmap, 1)
-  tlv1D.writeUInt16BE(0, 5)
+  tlv1D.writeUInt32BE(AppInfo.mainSigMap, 1)
+  tlv1D.writeUInt32BE(0, 5)
+  tlv1D.writeUInt8(0, 9)
   tlv.addTlv(0x1D, tlv1D)
 
   // TLV 0x33: GUID
@@ -319,11 +321,12 @@ export async function loginWithQrResult(
 
 function buildTlv16(client: DirectProtocolClient): Buffer {
   const parts: Buffer[] = []
-  const header = Buffer.alloc(8)
-  header.writeUInt32BE(AppInfo.appId, 0)
-  header.writeUInt32BE(AppInfo.subAppId, 4)
+  const header = Buffer.alloc(12) // field0(4) + appId(4) + appIdQrCode(4)
+  header.writeUInt32BE(0, 0)                    // field0 = 0
+  header.writeUInt32BE(AppInfo.appId, 4)        // appId
+  header.writeUInt32BE(AppInfo.subAppId, 8)     // appIdQrCode = SubAppId
   parts.push(header)
-  parts.push(client.getGuid())
+  parts.push(client.getGuid())                  // guid (raw 16 bytes)
   parts.push(writeString16(AppInfo.packageName))
   parts.push(writeString16(AppInfo.ptVersion))
   parts.push(writeString16(AppInfo.packageName))
@@ -415,33 +418,24 @@ function buildTlv100(): Buffer {
 }
 
 function buildTlvD1(): Buffer {
-  // QrExtInfo protobuf:
-  // field 1 (DevInfo): message { field 1: devType (string), field 2: devName (string) }
-  // field 5 (GenInfo): message { field 6: uint = 1 }
+  // Proto: field 1 (system): {field 1: os, field 2: name}, field 4 (type): bytes [0x30, 0x01]
 
-  // Build DevInfo
+  // Build system message
   const devType = Buffer.from(DeviceInfo.devType)
   const devName = Buffer.from(DeviceInfo.devName)
-  const devInfoParts: Buffer[] = []
-  // field 1: devType
-  devInfoParts.push(encodeProtoString(1, devType))
-  // field 2: devName
-  devInfoParts.push(encodeProtoString(2, devName))
-  const devInfo = Buffer.concat(devInfoParts)
+  const systemParts: Buffer[] = []
+  systemParts.push(encodeProtoString(1, devType))
+  systemParts.push(encodeProtoString(2, devName))
+  const system = Buffer.concat(systemParts)
 
-  // Build GenInfo
-  // field 6: uint = 1
-  const genInfo = encodeProtoVarint(6, 1)
-
-  // Build QrExtInfo
+  // Build outer
   const parts: Buffer[] = []
-  // field 1: DevInfo (nested message)
-  parts.push(encodeProtoBytes(1, devInfo))
-  // field 5: GenInfo (nested message)
-  parts.push(encodeProtoBytes(5, genInfo))
+  parts.push(encodeProtoBytes(1, system))
+  parts.push(encodeProtoBytes(4, Buffer.from([0x30, 0x01])))
 
   return Buffer.concat(parts)
 }
+
 
 // Proto encoding helpers
 function encodeProtoVarint(fieldNum: number, value: number): Buffer {
