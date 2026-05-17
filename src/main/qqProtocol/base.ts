@@ -22,6 +22,7 @@ import { inspect } from 'node:util'
 import { DetailedError } from '@/common/utils'
 import { parseProtobufFromHex } from '@/common/utils/protobuf-parser'
 import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, registerOnline, startHeartbeat, getCorrectUin, QrCodeState, AppInfo, saveSession, loadSession, persistedToSessionInfo } from './direct'
+import { startPushDispatcher } from './direct/pushDispatcher'
 import type { QrCodeResult, QrPollResult } from './direct'
 
 type DisconnectCallback = (duration: number) => void
@@ -120,7 +121,7 @@ export class QQProtocolBase extends Service {
   private disconnectCheckTimer: NodeJS.Timeout | undefined
   private hasConnectedOnce: boolean = false
   private hasLoggedConnectionError: boolean = false
-  private receiveHooks: Map<string, {
+  public receiveHooks: Map<string, {
     method: ReceiveCmdS[]
     hookFunc: (payload: any) => Awaitable<void>
   }> = new Map()
@@ -612,6 +613,8 @@ export class QQProtocolBase extends Service {
     this.directClient.on('push', (packet: { cmd: string; payload: Buffer }) => {
       this.logger.debug(`[Push] ${packet.cmd} len=${packet.payload.length}`)
     })
+
+    startPushDispatcher(this.ctx, this.directClient)
 
     // Try to restore saved session
     const persisted = loadSession()

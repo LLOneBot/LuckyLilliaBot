@@ -62,15 +62,6 @@ export default class Log implements Exporter {
   }
 
   export(message: Message) {
-    // Ensure message.body exists (cordis passes args, reggol expects body)
-    if (!message.body && message.args) {
-      const args = [...message.args]
-      let first = args[0]
-      if (first instanceof Error) first = first.stack || first.message
-      else if (typeof first !== 'string') first = String(first)
-      ;(message as any).body = [first, ...args.slice(1).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a))].join(' ')
-    }
-
     const dateTime = new Date(message.ts)
     const dateTimeStr = `${dateTime.getFullYear()}-${(dateTime.getMonth() + 1).toString().padStart(2, '0')}-${dateTime.getDate().toString().padStart(2, '0')} ${dateTime.getHours().toString().padStart(2, '0')}:${dateTime.getMinutes().toString().padStart(2, '0')}:${dateTime.getSeconds().toString().padStart(2, '0')}`
 
@@ -92,16 +83,16 @@ export default class Log implements Exporter {
 
     if (!this.exportFile) return
 
-    // 检查是否需要切片
     if (this.currentSize >= MAX_FILE_SIZE || this.currentEntries >= MAX_ENTRIES) {
       this.rotate()
     }
 
-    const content = this.render(message) + '\n'
-
-    appendFile(this.currentFile, content, noop)
-    this.currentEntries++
-    this.currentSize += Buffer.byteLength(content)
+    try {
+      const content = this.render(message) + '\n'
+      appendFile(this.currentFile, content, noop)
+      this.currentEntries++
+      this.currentSize += Buffer.byteLength(content)
+    } catch {}
   }
 
   render(message: Message) {

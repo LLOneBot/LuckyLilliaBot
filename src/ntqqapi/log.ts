@@ -68,6 +68,6 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
   else if (message.chatType == ChatType.TempC2CFromGroup) {
     peerName = `临] ${message.peerName}(${message.peerUin})`
   }
-  const logMsg = `[${direction}-${peerName}：\n${summary}`
+  const logMsg = `[${direction}-${peerName}：${summary}`
   ctx.logger.info(logMsg)
 }
