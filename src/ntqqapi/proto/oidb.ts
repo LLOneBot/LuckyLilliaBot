@@ -558,4 +558,30 @@ export namespace Oidb {
       }, 'repeated')
     })
   })
+
+  /** OidbSvcTrpcTcp.0x5d6_18 */
+  export const SetFriendPinReq = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    info: ProtoField(2, {
+      friendUid: ProtoField(1, 'string'),
+      field400: ProtoField(400, {
+        field1: ProtoField(1, 'uint32'),
+        timestamp: ProtoField(2, 'bytes')
+      })
+    }),
+    field3: ProtoField(3, 'uint32')
+  })
+
+  /** OidbSvcTrpcTcp.0x5d6_1 */
+  export const SetGroupPinReq = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    info: ProtoField(2, {
+      groupCode: ProtoField(2, 'uint32'),
+      field400: ProtoField(400, {
+        field1: ProtoField(1, 'uint32'),
+        timestamp: ProtoField(2, 'bytes')
+      })
+    }),
+    field3: ProtoField(3, 'uint32')
+  })
 }

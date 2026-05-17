@@ -15,10 +15,9 @@ export async function transformPrivateMessageCreated(
 ): Promise<MilkyEventTypes['message_receive'] | null> {
   try {
     if (!message.senderUid) return null
-    const friend = await ctx.ntUserApi.getUserSimpleInfo(message.senderUid)
-    const category = await ctx.ntFriendApi.getCategoryById(friend.baseInfo.categoryId)
+    const friend = await ctx.ntFriendApi.getFriendInfoByUid(message.senderUid, false)
 
-    const transformedMessage = await transformIncomingPrivateMessage(ctx, friend, category, message)
+    const transformedMessage = await transformIncomingPrivateMessage(ctx, friend!, message)
     if (transformedMessage.segments.length === 0) {
       return null
     }

@@ -252,6 +252,7 @@ export interface Friend {
   uid: string
   uin: number
   categoryId: number
+  categoryName: string
   nick: string
   longNick: string
   remark: string

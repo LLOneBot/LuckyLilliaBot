@@ -1,7 +1,7 @@
 import { IncomingMessage, IncomingSegment, IncomingForwardedMessage } from '@saltify/milky-types'
 import { transformFriend, transformGroup, transformGroupMember } from '@/milky/transform/entity'
 import { RawMessage, ElementType, AtType, GroupDetailInfo, ChatType } from '@/ntqqapi/types'
-import { SimpleInfo, CategoryFriend, GroupMember } from '@/ntqqapi/types'
+import { Friend, GroupMember } from '@/ntqqapi/types'
 import { Context } from 'cordis'
 import { InferProtoModel } from '@saltify/typeproto'
 import { Media, Msg } from '@/ntqqapi/proto'
@@ -10,8 +10,7 @@ import { XMLParser } from 'fast-xml-parser'
 
 export async function transformIncomingPrivateMessage(
   ctx: Context,
-  friend: SimpleInfo,
-  category: CategoryFriend,
+  friend: Friend,
   message: RawMessage,
 ): Promise<IncomingMessage> {
   return {
@@ -21,25 +20,7 @@ export async function transformIncomingPrivateMessage(
     sender_id: +message.senderUin,
     time: +message.msgTime,
     segments: await transformIncomingSegments(ctx, message),
-    friend: transformFriend({
-      uid: friend.uid,
-      uin: +friend.uin,
-      categoryId: friend.baseInfo.categoryId,
-      nick: friend.coreInfo.nick,
-      longNick: friend.baseInfo.longNick,
-      remark: friend.coreInfo.remark,
-      qid: friend.baseInfo.qid,
-      age: friend.baseInfo.age,
-      sex: friend.baseInfo.sex,
-      birthdayYear: friend.baseInfo.birthday_year,
-      birthdayMonth: friend.baseInfo.birthday_month,
-      birthdayDay: friend.baseInfo.birthday_day,
-    }, {
-      categoryId: category.categoryId,
-      categoryName: category.categroyName,
-      categoryMemberCount: category.categroyMbCount,
-      categorySortId: category.categorySortId,
-    }),
+    friend: transformFriend(friend),
   }
 }
 

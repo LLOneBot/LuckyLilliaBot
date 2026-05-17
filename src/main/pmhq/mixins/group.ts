@@ -125,5 +125,32 @@ export function GroupMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.GetGroupFileListResp.decode(oidbRespBody)
     }
+
+    async setGroupPin(groupCode: number, isPinned: boolean) {
+      let timestamp
+      if (isPinned) {
+        timestamp = Buffer.alloc(4)
+        timestamp.writeInt32BE(Math.floor(Date.now() / 1000), 0)
+      } else {
+        timestamp = Buffer.alloc(0)
+      }
+      const body = Oidb.SetGroupPinReq.encode({
+        field1: 0,
+        field3: 11,
+        info: {
+          groupCode,
+          field400: {
+            field1: 13569,
+            timestamp,
+          },
+        },
+      })
+      const data = Oidb.Base.encode({
+        command: 0x5d6,
+        subCommand: 1,
+        body,
+      })
+      await this.httpSendPB('OidbSvcTrpcTcp.0x5d6_1', data)
+    }
   }
 }

@@ -10,10 +10,7 @@ export function transformGender(gender: Sex): 'male' | 'female' | 'unknown' {
   return 'unknown'
 }
 
-export function transformFriend(
-  friend: Friend,
-  category: Category
-): FriendEntity {
+export function transformFriend(friend: Friend): FriendEntity {
   return {
     user_id: friend.uin,
     nickname: friend.nick,
@@ -21,8 +18,8 @@ export function transformFriend(
     qid: friend.qid,
     remark: friend.remark,
     category: {
-      category_id: category.categoryId,
-      category_name: category.categoryName,
+      category_id: friend.categoryId,
+      category_name: friend.categoryName,
     },
   }
 }

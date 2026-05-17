@@ -428,10 +428,6 @@ export class NTQQGroupApi extends Service {
     return await this.ctx.pmhq.invoke('nodeIKernelGroupService/checkGroupMemberCache', [groupCodes])
   }
 
-  async setTop(groupCode: string, isTop: boolean) {
-    return await this.ctx.pmhq.invoke('nodeIKernelGroupService/setTop', [groupCode, isTop])
-  }
-
   async getGroupDetailInfo(groupCode: string) {
     return await this.ctx.pmhq.invoke(
       'nodeIKernelGroupService/getGroupDetailInfo',
@@ -460,5 +456,9 @@ export class NTQQGroupApi extends Service {
       lloc: '',
       batch_id: ''
     }])
+  }
+
+  async setGroupPin(groupCode: number, isPinned: boolean) {
+    return await this.ctx.pmhq.setGroupPin(groupCode, isPinned)
   }
 }

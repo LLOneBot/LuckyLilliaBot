@@ -8,7 +8,6 @@ import type {
   MessagesResponse,
   SendMessageRequest,
   UploadResponse,
-  RawMessage,
   GroupNotifyItem,
   FriendRequestItem,
   DoubtBuddyItem,

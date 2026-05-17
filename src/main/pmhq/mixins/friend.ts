@@ -199,5 +199,32 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchFilteredFriendRequestsResp.decode(oidbRespBody)
     }
+
+    async setFriendPin(friendUid: string, isPinned: boolean) {
+      let timestamp
+      if (isPinned) {
+        timestamp = Buffer.alloc(4)
+        timestamp.writeInt32BE(Math.floor(Date.now() / 1000), 0)
+      } else {
+        timestamp = Buffer.alloc(0)
+      }
+      const body = Oidb.SetFriendPinReq.encode({
+        field1: 0,
+        field3: 1,
+        info: {
+          friendUid,
+          field400: {
+            field1: 13578,
+            timestamp,
+          },
+        },
+      })
+      const data = Oidb.Base.encode({
+        command: 0x5d6,
+        subCommand: 18,
+        body,
+      })
+      await this.httpSendPB('OidbSvcTrpcTcp.0x5d6_18', data)
+    }
   }
 }

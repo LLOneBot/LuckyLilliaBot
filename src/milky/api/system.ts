@@ -104,7 +104,7 @@ const GetFriendList = defineApi(
     const result = await ctx.ntFriendApi.getFriendList(payload.no_cache)
     const friendList = []
     for (const friend of result.friends) {
-      friendList.push(transformFriend(friend, result.categories.get(friend.categoryId)!))
+      friendList.push(transformFriend(friend))
     }
     return Ok({
       friends: friendList,
@@ -122,7 +122,7 @@ const GetFriendInfo = defineApi(
       return Failed(-404, 'Friend not found')
     }
     return Ok({
-      friend: transformFriend(result.friend, result.category),
+      friend: transformFriend(result),
     })
   }
 )
@@ -236,7 +236,7 @@ const GetPeerPins = defineApi(
       friends: await Promise.all(
         result.friends.map(async (e) => {
           const info = await ctx.ntFriendApi.getFriendInfoByUid(e.uid, false)
-          return transformFriend(info!.friend, info!.category)
+          return transformFriend(info!)
         })
       ),
       groups: await Promise.all(
@@ -256,15 +256,9 @@ const SetPeerPin = defineApi(
   async (ctx, payload) => {
     if (payload.message_scene === 'friend') {
       const uid = await ctx.ntUserApi.getUidByUin(payload.peer_id.toString())
-      const result = await ctx.ntFriendApi.setTop(uid, payload.is_pinned)
-      if (result.result !== 0) {
-        return Failed(-500, result.errMsg)
-      }
+      await ctx.ntFriendApi.setFriendPin(uid, payload.is_pinned)
     } else if (payload.message_scene === 'group') {
-      const result = await ctx.ntGroupApi.setTop(payload.peer_id.toString(), payload.is_pinned)
-      if (result.result !== 0) {
-        return Failed(-500, result.errMsg)
-      }
+      await ctx.ntGroupApi.setGroupPin(payload.peer_id, payload.is_pinned)
     } else if (payload.message_scene === 'temp') {
       const uid = await ctx.ntUserApi.getUidByUin(payload.peer_id.toString())
       const result = await ctx.ntMsgApi.setContactLocalTop({
