@@ -17,9 +17,14 @@ export class NTQQFriendApi extends Service {
     super(ctx, 'ntFriendApi')
   }
 
-  async getFriendList(forceUpdate: boolean) {
+  // TODO: 好友数量变更时刷新缓存
+  async getFriends(forceUpdate: boolean) {
     if (forceUpdate || this.friendsCache.length === 0) {
       const res = await this.ctx.qqProtocol.fetchFriends()
+      this.categoriesCache.clear()
+      for (const cat of res.category) {
+        this.categoriesCache.set(cat.categoryId, cat)
+      }
       this.friendsCache = res.friendList.map(friend => {
         const biz = friend.subBiz.get(1)!
         let statusId = biz.numData.get(27372)!
@@ -29,13 +34,11 @@ export class NTQQFriendApi extends Service {
         if (statusId > 14878464) {
           statusId -= 14878464
         }
-        if (statusId === 0) {
-          statusId = 2
-        }
         return {
           uid: friend.uid,
           uin: friend.uin,
           categoryId: friend.categoryId,
+          categoryName: this.categoriesCache.get(friend.categoryId)!.categoryName,
           nick: biz.data.get(20002)!.toString(),
           longNick: biz.data.get(102)!.toString(),
           remark: biz.data.get(103)!.toString(),
@@ -45,13 +48,9 @@ export class NTQQFriendApi extends Service {
           birthdayYear: (biz.data.get(20031)![0] << 8) | biz.data.get(20031)![1],
           birthdayMonth: biz.data.get(20031)![2],
           birthdayDay: biz.data.get(20031)![3],
-          status: statusId * 10
+          status: statusId === 0 ? 20 : statusId * 10
         }
       })
-      this.categoriesCache.clear()
-      for (const cat of res.category) {
-        this.categoriesCache.set(cat.categoryId, cat)
-      }
     }
     return {
       friends: this.friendsCache,
@@ -59,46 +58,34 @@ export class NTQQFriendApi extends Service {
     }
   }
 
-  async getFriendInfoByUin(uin: number, forceUpdate: boolean) {
-    const result = await this.getFriendList(forceUpdate)
-    let categories = result.categories
+  async getFriendByUin(uin: number, forceUpdate: boolean) {
+    const result = await this.getFriends(forceUpdate)
     let friend = result.friends.find(e => e.uin === uin)
     if (!friend) {
-      const result = await this.getFriendList(true)
-      categories = result.categories
+      const result = await this.getFriends(true)
       friend = result.friends.find(e => e.uin === uin)
     }
     if (!friend) {
       return
     }
-    const category = categories.get(friend.categoryId)!
-    return {
-      friend,
-      category
-    }
+    return friend
   }
 
-  async getFriendInfoByUid(uid: string, forceUpdate: boolean) {
-    const result = await this.getFriendList(forceUpdate)
-    let categories = result.categories
+  async getFriendByUid(uid: string, forceUpdate: boolean) {
+    const result = await this.getFriends(forceUpdate)
     let friend = result.friends.find(e => e.uid === uid)
     if (!friend) {
-      const result = await this.getFriendList(true)
-      categories = result.categories
+      const result = await this.getFriends(true)
       friend = result.friends.find(e => e.uid === uid)
     }
     if (!friend) {
       return
     }
-    const category = categories.get(friend.categoryId)!
-    return {
-      friend,
-      category
-    }
+    return friend
   }
 
   async isFriend(uid: string): Promise<boolean> {
-    return (await this.getFriendInfoByUid(uid, false)) !== undefined
+    return (await this.getFriendByUid(uid, false)) !== undefined
   }
 
   async getFriendRecommendContactArk(uin: number) {
@@ -140,11 +127,7 @@ export class NTQQFriendApi extends Service {
     return await this.ctx.qqProtocol.setFilteredFriendRequestReq(selfInfo.uid, requestUid)
   }
 
-  async getCategoryById(categoryId: number) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelBuddyService/getCategoryById', [categoryId])
-  }
-
-  async setTop(uid: string, isTop: boolean) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelBuddyService/setTop', [uid, isTop])
+  async setFriendPin(friendUid: string, isPinned: boolean) {
+    return await this.ctx.qqProtocol.setFriendPin(friendUid, isPinned)
   }
 }

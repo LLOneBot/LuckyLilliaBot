@@ -16,7 +16,7 @@ export class GetFriendWithCategory extends BaseAction<{}, Category[]> {
   actionName = ActionName.GetFriendsWithCategory
 
   protected async _handle() {
-    const result = await this.ctx.ntFriendApi.getFriendList(true)
+    const result = await this.ctx.ntFriendApi.getFriends(true)
     return result.categories.values().map(item => ({
       categoryId: item.categoryId,
       categorySortId: item.categorySortId,

@@ -211,9 +211,11 @@ export function decodeGuildMember(data: NT.GroupMember): ObjectToSnake<Universal
   }
 }
 
-export function decodeGuild(data: Record<'groupCode' | 'groupName', string>): ObjectToSnake<Universal.Guild> {
+export function decodeGuild(
+  data: { groupCode: string | number, groupName: string }
+): ObjectToSnake<Universal.Guild> {
   return {
-    id: data.groupCode,
+    id: data.groupCode.toString(),
     name: data.groupName,
     avatar: `https://p.qlogo.cn/gh/${data.groupCode}/${data.groupCode}/640`
   }

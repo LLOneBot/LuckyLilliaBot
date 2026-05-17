@@ -101,7 +101,7 @@ const GetFriendList = defineApi(
   GetFriendListInput,
   GetFriendListOutput,
   async (ctx, payload) => {
-    const result = await ctx.ntFriendApi.getFriendList(payload.no_cache)
+    const result = await ctx.ntFriendApi.getFriends(payload.no_cache)
     const friendList = []
     for (const friend of result.friends) {
       friendList.push(transformFriend(friend))
@@ -117,7 +117,7 @@ const GetFriendInfo = defineApi(
   GetFriendInfoInput,
   GetFriendInfoOutput,
   async (ctx, payload) => {
-    const result = await ctx.ntFriendApi.getFriendInfoByUin(payload.user_id, payload.no_cache)
+    const result = await ctx.ntFriendApi.getFriendByUin(payload.user_id, payload.no_cache)
     if (!result) {
       return Failed(-404, 'Friend not found')
     }
@@ -131,20 +131,20 @@ const GetGroupList = defineApi(
   'get_group_list',
   GetGroupListInput,
   GetGroupListOutput,
-  async (ctx) => {
-    const { groups } = await ctx.qqProtocol.fetchGroups()
+  async (ctx, payload) => {
+    const result = await ctx.ntGroupApi.getGroups(payload.no_cache)
     return Ok({
-      groups: groups.map(e => {
+      groups: result.map(e => {
         return {
           group_id: e.groupCode,
-          group_name: e.info.groupName,
-          member_count: e.info.memberCount,
-          max_member_count: e.info.memberMax,
-          remark: e.customInfo.remark ?? '',
-          created_time: e.info.createdTime,
-          description: e.info.richDescription ?? '',
-          question: e.info.question ?? '',
-          announcement: e.info.announcement ?? ''
+          group_name: e.groupName,
+          member_count: e.memberCount,
+          max_member_count: e.maxMemberCount,
+          remark: e.remark,
+          created_time: e.createdAt,
+          description: e.description,
+          question: e.question,
+          announcement: e.announcementPreview
         }
       }),
     })
@@ -156,7 +156,7 @@ const GetGroupInfo = defineApi(
   GetGroupInfoInput,
   GetGroupInfoOutput,
   async (ctx, payload) => {
-    const group = await ctx.ntGroupApi.getGroupDetailInfo(payload.group_id.toString())
+    const group = await ctx.ntGroupApi.getGroup(payload.group_id, payload.no_cache)
     return Ok({
       group: transformGroup(group),
     })
@@ -168,9 +168,8 @@ const GetGroupMemberList = defineApi(
   GetGroupMemberListInput,
   GetGroupMemberListOutput,
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
     async function getMembers(forceFetch: boolean) {
-      const res = await ctx.ntGroupApi.getGroupMembers(groupCode, forceFetch)
+      const res = await ctx.ntGroupApi.getGroupMembers(payload.group_id.toString(), forceFetch)
       if (res.errCode !== 0) {
         throw new Error(res.errMsg)
       }
@@ -189,9 +188,9 @@ const GetGroupMemberList = defineApi(
           result = await getMembers(true)
         }
         if (cached) {
-          const { memberNum } = await ctx.ntGroupApi.getGroupAllInfo(groupCode)
+          const { memberCount } = await ctx.ntGroupApi.getGroup(payload.group_id, true)
           // 使用缓存可能导致群成员列表不完整
-          if (memberNum !== result.infos.size) {
+          if (memberCount !== result.infos.size) {
             result = await getMembers(true)
           }
         }
@@ -235,13 +234,13 @@ const GetPeerPins = defineApi(
     return Ok({
       friends: await Promise.all(
         result.friends.map(async (e) => {
-          const info = await ctx.ntFriendApi.getFriendInfoByUid(e.uid, false)
+          const info = await ctx.ntFriendApi.getFriendByUid(e.uid, false)
           return transformFriend(info!)
         })
       ),
       groups: await Promise.all(
         result.groups.map(async (e) => {
-          const info = await ctx.ntGroupApi.getGroupDetailInfo(e.groupCode.toString())
+          const info = await ctx.ntGroupApi.getGroup(e.groupCode, false)
           return transformGroup(info)
         })
       )

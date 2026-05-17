@@ -8,7 +8,7 @@ export function createMockContext() {
       quickLoginWithUin: vi.fn(),
     },
     ntFriendApi: {
-      getFriendList: vi.fn(() => Promise.resolve({
+      getFriends: vi.fn(() => Promise.resolve({
         friends: [],
         categories: new Map()
       })),

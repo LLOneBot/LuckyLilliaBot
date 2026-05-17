@@ -38,9 +38,9 @@ class GetGroupMemberList extends BaseAction<Payload, OB11GroupMember[]> {
         result = await this.getMembers(groupCode, true)
       }
       if (cached) {
-        const { memberNum } = await this.ctx.ntGroupApi.getGroupAllInfo(groupCode)
+        const { memberCount } = await this.ctx.ntGroupApi.getGroup(+payload.group_id, true)
         // 使用缓存可能导致群成员列表不完整
-        if (memberNum !== result.infos.size) {
+        if (memberCount !== result.infos.size) {
           result = await this.getMembers(groupCode, true)
         }
       }

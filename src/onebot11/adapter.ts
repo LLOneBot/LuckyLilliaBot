@@ -534,7 +534,7 @@ class Onebot11Adapter extends Service {
     })
 
     this.ctx.on('nt/group-dismiss', async (group) => {
-      const groupInfo = await this.ctx.ntGroupApi.getGroupAllInfo(group.groupCode)
+      const groupInfo = await this.ctx.ntGroupApi.getGroup(+group.groupCode, false)
       const ownerUin = await this.ctx.ntUserApi.getUinByUid(groupInfo.ownerUid)
       const event = new OB11GroupDismissEvent(
         +group.groupCode,

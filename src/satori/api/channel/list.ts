@@ -7,7 +7,7 @@ interface Payload {
 }
 
 export const getChannelList: Handler<List<Channel>, Payload> = async (ctx, payload) => {
-  const info = await ctx.ntGroupApi.getGroupAllInfo(payload.guild_id)
+  const info = await ctx.ntGroupApi.getGroup(+payload.guild_id, true)
   return {
     data: [{
       id: payload.guild_id,

@@ -1,17 +1,16 @@
 import { ReceiveCmdS } from '../hook'
 import {
-  GroupSimpleInfo,
   GroupMember,
   GroupMemberRole,
   GroupRequestOperateTypes,
   GetFileListParam,
   PublishGroupBulletinReq,
-  GroupAllInfo,
   GroupFileInfo,
   GroupBulletinListResult,
   GroupMsgMask,
   GroupNotify,
   GroupNotifyType,
+  Group,
 } from '../types'
 import { NTMethod } from '../ntcall'
 import { Service, Context } from 'cordis'
@@ -24,23 +23,62 @@ declare module 'cordis' {
 
 export class NTQQGroupApi extends Service {
   static inject = ['qqProtocol']
+  private groupsCache: Group[] = []
+  private groupCache: Map<number, Group> = new Map()
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntGroupApi')
   }
 
-  async getGroups(forceFetch = true): Promise<GroupSimpleInfo[]> {
-    const result = await this.ctx.qqProtocol.invoke<[
-      updateType: number,
-      groupList: GroupSimpleInfo[]
-    ]>(
-      'nodeIKernelGroupService/getGroupList',
-      [forceFetch],
-      {
-        resultCmd: 'nodeIKernelGroupListener/onGroupListUpdate',
-      },
-    )
-    return result[1]
+  // TODO: 群组数量变更时刷新缓存
+  async getGroups(forceUpdate: boolean) {
+    if (forceUpdate || this.groupsCache.length === 0) {
+      const res = await this.ctx.qqProtocol.fetchGroups()
+      this.groupsCache = res.groups.map(group => ({
+        groupCode: group.groupCode,
+        groupName: group.info.groupName,
+        ownerUid: group.info.groupOwner.uid,
+        createdAt: group.info.createdTime,
+        maxMemberCount: group.info.memberMax,
+        memberCount: group.info.memberCount,
+        description: group.info.richDescription ?? '',
+        question: group.info.question ?? '',
+        announcementPreview: group.info.announcement ?? '',
+        remark: group.personInfo.remark ?? '',
+        isPin: !!group.info.topTime,
+        groupShutupExpireTime: group.info.groupShutupExpireTime ?? 0,
+        personShutupExpireTime: group.personInfo.personShutupExpireTime ?? 0
+      }))
+    }
+    return this.groupsCache
+  }
+
+  async getGroup(groupCode: number, forceUpdate: boolean) {
+    const groups = await this.getGroups(forceUpdate)
+    const group = groups.find(e => e.groupCode === groupCode)
+    if (group) {
+      return group
+    } else if (forceUpdate || !this.groupCache.has(groupCode)) {
+      const { info } = await this.ctx.qqProtocol.fetchGroup(groupCode)
+      const group = {
+        groupCode: info.groupCode,
+        groupName: info.results.groupName,
+        ownerUid: info.results.ownerUid,
+        createdAt: info.results.groupCreateTime,
+        maxMemberCount: info.results.maxMemberNum,
+        memberCount: info.results.memberNum,
+        description: info.results.description ?? '',
+        question: info.results.question,
+        announcementPreview: '',
+        remark: '',
+        isPin: false,
+        groupShutupExpireTime: 0,
+        personShutupExpireTime: info.results.shutUpMeTimestamp
+      }
+      this.groupCache.set(group.groupCode, group)
+      return group
+    }
+    return this.groupCache.get(groupCode)!
   }
 
   async getGroupMembers(groupCode: string, forceFetch: boolean = true) {
@@ -250,22 +288,6 @@ export class NTQQGroupApi extends Service {
     }])
   }
 
-  async getGroupAllInfo(groupCode: string) {
-    return await this.ctx.qqProtocol.invoke(
-      'nodeIKernelGroupService/getGroupAllInfo',
-      [
-        groupCode,
-        4,
-      ],
-      {
-        resultCmd: 'nodeIKernelGroupListener/onGroupAllInfoChange',
-        resultCb: payload => {
-          return payload.groupCode === groupCode
-        },
-      },
-    )
-  }
-
   async getGroupBulletinList(groupCode: string) {
     const ntUserApi = this.ctx.get('ntUserApi')!
     const psKey = (await ntUserApi.getPSkey(['qun.qq.com'])).domainPskeyMap.get('qun.qq.com')!
@@ -428,26 +450,6 @@ export class NTQQGroupApi extends Service {
     return await this.ctx.qqProtocol.invoke('nodeIKernelGroupService/checkGroupMemberCache', [groupCodes])
   }
 
-  async setTop(groupCode: string, isTop: boolean) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelGroupService/setTop', [groupCode, isTop])
-  }
-
-  async getGroupDetailInfo(groupCode: string) {
-    return await this.ctx.qqProtocol.invoke(
-      'nodeIKernelGroupService/getGroupDetailInfo',
-      [
-        groupCode,
-        4,
-      ],
-      {
-        resultCmd: 'nodeIKernelGroupListener/onGroupDetailInfoChange',
-        resultCb: payload => {
-          return payload.groupCode === groupCode
-        },
-      },
-    )
-  }
-
   async getGroupAlbumMediaList(groupCode: string, albumId: string, attachInfo = '') {
     return await this.ctx.qqProtocol.invoke('nodeIKernelAlbumService/getMediaList', [{
       qun_id: groupCode,
@@ -460,5 +462,9 @@ export class NTQQGroupApi extends Service {
       lloc: '',
       batch_id: ''
     }])
+  }
+
+  async setGroupPin(groupCode: number, isPinned: boolean) {
+    return await this.ctx.qqProtocol.setGroupPin(groupCode, isPinned)
   }
 }

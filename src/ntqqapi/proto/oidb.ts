@@ -261,13 +261,15 @@ export namespace Oidb {
         memberCount: ProtoField(4, 'bool'),
         groupName: ProtoField(5, 'bool'),
         topTime: ProtoField(9, 'bool'),
+        groupShutupExpireTime: ProtoField(10, 'bool'),
         description: ProtoField(18, 'bool'),
         question: ProtoField(19, 'bool'),
         richDescription: ProtoField(21, 'bool'),
         announcement: ProtoField(30, 'bool'),
       }),
       config2: ProtoField(2, {
-        remark: ProtoField(3, 'bool')
+        remark: ProtoField(3, 'bool'),
+        personShutupExpireTime: ProtoField(4, 'bool')
       })
     })
   })
@@ -284,13 +286,15 @@ export namespace Oidb {
         memberCount: ProtoField(4, 'uint32'),
         groupName: ProtoField(5, 'string'),
         topTime: ProtoField(9, 'uint32', 'optional'),
+        groupShutupExpireTime: ProtoField(10, 'uint32', 'optional'),
         description: ProtoField(18, 'string', 'optional'),
         question: ProtoField(19, 'string', 'optional'),
         richDescription: ProtoField(21, 'string', 'optional'),
         announcement: ProtoField(30, 'string', 'optional')
       }),
-      customInfo: ProtoField(5, {
-        remark: ProtoField(3, 'string', 'optional')
+      personInfo: ProtoField(5, {
+        remark: ProtoField(3, 'string', 'optional'),
+        personShutupExpireTime: ProtoField(4, 'uint32', 'optional')
       })
     }, 'repeated')
   })
@@ -583,5 +587,39 @@ export namespace Oidb {
       })
     }),
     field3: ProtoField(3, 'uint32')
+  })
+
+  /** OidbSvcTrpcTcp.0x88d_14 */
+  export const FetchGroupReq = ProtoMessage.of({
+    random: ProtoField(1, 'uint32'),
+    config: ProtoField(2, {
+      groupCode: ProtoField(1, 'uint32'),
+      flags: ProtoField(2, {
+        ownerUid: ProtoField(1, 'bool'),
+        groupCreateTime: ProtoField(2, 'bool'),
+        maxMemberNum: ProtoField(5, 'bool'),
+        memberNum: ProtoField(6, 'bool'),
+        groupName: ProtoField(15, 'string'),
+        question: ProtoField(24, 'string'),
+        description: ProtoField(40, 'string'),
+        shutUpMeTimestamp: ProtoField(46, 'bool')
+      })
+    })
+  })
+
+  export const FetchGroupResp = ProtoMessage.of({
+    info: ProtoField(1, {
+      groupCode: ProtoField(1, 'uint32'),
+      results: ProtoField(3, {
+        ownerUid: ProtoField(1, 'string'),
+        groupCreateTime: ProtoField(2, 'uint32'),
+        maxMemberNum: ProtoField(5, 'uint32'),
+        memberNum: ProtoField(6, 'uint32'),
+        groupName: ProtoField(15, 'string'),
+        question: ProtoField(24, 'string'),
+        description: ProtoField(40, 'string', 'optional'),
+        shutUpMeTimestamp: ProtoField(46, 'uint32')
+      })
+    })
   })
 }

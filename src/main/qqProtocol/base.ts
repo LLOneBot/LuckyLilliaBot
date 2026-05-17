@@ -140,7 +140,7 @@ export class QQProtocolBase extends Service {
 
   constructor(protected ctx: Context) {
     super(ctx, 'qqProtocol')
-    this.logger = ctx.logger('qqProtocol')
+    this.logger = ctx.logger('qq-protocol')
     const { pmhqHost, pmhqPort } = this.getPMHQHostPort()
     this.httpUrl = `http://${pmhqHost}:${pmhqPort}/`
     this.wsUrl = `ws://${pmhqHost}:${pmhqPort}/ws`

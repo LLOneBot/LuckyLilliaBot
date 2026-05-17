@@ -32,7 +32,7 @@ describe('dashboard routes', () => {
         if (key === 'qqProtocol') return ctx.qqProtocol
         return undefined
       })
-      ctx.ntFriendApi.getFriendList.mockResolvedValue({
+      ctx.ntFriendApi.getFriends.mockResolvedValue({
         friends: [{}, {}, {}],
         categories: new Map()
       })

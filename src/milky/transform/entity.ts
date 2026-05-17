@@ -1,5 +1,5 @@
 import { FriendEntity, GroupEntity, GroupFileEntity, GroupFolderEntity, GroupMemberEntity } from '@saltify/milky-types'
-import { Category, Friend, GroupDetailInfo, Sex } from '@/ntqqapi/types'
+import { Friend, Group, Sex } from '@/ntqqapi/types'
 import { GroupMember } from '@/ntqqapi/types'
 import { InferProtoModel } from '@saltify/typeproto'
 import { Oidb } from '@/ntqqapi/proto'
@@ -24,17 +24,17 @@ export function transformFriend(friend: Friend): FriendEntity {
   }
 }
 
-export function transformGroup(group: GroupDetailInfo): GroupEntity {
+export function transformGroup(group: Group): GroupEntity {
   return {
-    group_id: +group.groupCode,
+    group_id: group.groupCode,
     group_name: group.groupName,
-    member_count: group.memberNum,
-    max_member_count: group.maxMemberNum,
-    remark: group.remarkName,
-    created_time: group.groupCreateTime,
-    description: group.richFingerMemo,
-    question: group.groupQuestion,
-    announcement: group.groupMemo,
+    member_count: group.memberCount,
+    max_member_count: group.maxMemberCount,
+    remark: group.remark,
+    created_time: group.createdAt,
+    description: group.description,
+    question: group.question,
+    announcement: group.announcementPreview,
   }
 }
 

@@ -224,7 +224,7 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
         subCommand: 18,
         body,
       })
-      await this.httpSendPB('OidbSvcTrpcTcp.0x5d6_18', data)
+      await this.sendPB('OidbSvcTrpcTcp.0x5d6_18', data)
     }
   }
 }

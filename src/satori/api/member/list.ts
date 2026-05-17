@@ -24,9 +24,9 @@ export const getGuildMemberList: Handler<List<GuildMember>, Payload> = async (ct
     result = await getMembers(true)
   }
   if (cached) {
-    const { memberNum } = await ctx.ntGroupApi.getGroupAllInfo(payload.guild_id)
+    const { memberCount } = await ctx.ntGroupApi.getGroup(+payload.guild_id, true)
     // 使用缓存可能导致群成员列表不完整
-    if (memberNum !== result.infos.size) {
+    if (memberCount !== result.infos.size) {
       result = await getMembers(true)
     }
   }

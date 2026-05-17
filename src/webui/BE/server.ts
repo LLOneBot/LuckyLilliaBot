@@ -52,7 +52,7 @@ export class WebuiServer extends Service {
     ntFileApi: true,
     emailNotification: false,
     logger: true,
-    pmhq: true
+    qqProtocol: true
   }
 
   private server: ServerType | null = null

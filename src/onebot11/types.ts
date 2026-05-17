@@ -65,8 +65,6 @@ export interface OB11Group {
   is_top: boolean
   shut_up_all_timestamp: number
   shut_up_me_timestamp: number
-  is_freeze?: boolean
-  active_member_count?: number
 }
 
 interface OB11Sender {

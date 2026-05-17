@@ -57,7 +57,7 @@ export async function getFriends(): Promise<FriendCategory[]> {
   const result = await ntCall<{
     friends: any[],
     categories: Record<number, any>
-  }>('ntFriendApi', 'getFriendList', [true])
+  }>('ntFriendApi', 'getFriends', [true])
 
   // 构建分组数据
   const categories = Object.values(result.categories).map((category) => {

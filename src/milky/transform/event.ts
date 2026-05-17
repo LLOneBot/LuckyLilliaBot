@@ -15,7 +15,7 @@ export async function transformPrivateMessageCreated(
 ): Promise<MilkyEventTypes['message_receive'] | null> {
   try {
     if (!message.senderUid) return null
-    const friend = await ctx.ntFriendApi.getFriendInfoByUid(message.senderUid, false)
+    const friend = await ctx.ntFriendApi.getFriendByUid(message.senderUid, false)
 
     const transformedMessage = await transformIncomingPrivateMessage(ctx, friend!, message)
     if (transformedMessage.segments.length === 0) {
@@ -37,7 +37,7 @@ export async function transformGroupMessageCreated(
 ): Promise<MilkyEventTypes['message_receive'] | null> {
   try {
     if (!message.senderUid || message.peerUin === message.senderUid) return null
-    const group = await ctx.ntGroupApi.getGroupDetailInfo(message.peerUid)
+    const group = await ctx.ntGroupApi.getGroup(+message.peerUid, false)
     const member = await ctx.ntGroupApi.getGroupMember(message.peerUin, message.senderUid)
 
     const transformedMessage = await transformIncomingGroupMessage(ctx, group, member, message)
@@ -61,7 +61,7 @@ export async function transformTempMessageCreated(
   try {
     if (!message.senderUid) return null
     const { tmpChatInfo } = await ctx.ntMsgApi.getTempChatInfo(100, message.peerUid)
-    const group = await ctx.ntGroupApi.getGroupDetailInfo(tmpChatInfo.groupCode)
+    const group = await ctx.ntGroupApi.getGroup(+tmpChatInfo.groupCode, false)
 
     const transformedMessage = await transformIncomingTempMessage(ctx, group, message)
     if (transformedMessage.segments.length === 0) {
@@ -434,13 +434,13 @@ export async function transformSystemMessageEvent(
       const tip = Notify.GroupAdminChange.decode(sysMsg.body.msgContent)
       const adminUid = tip.isPromote ? tip.body.extraEnable?.adminUid : tip.body.extraDisable?.adminUid
       if (!adminUid) return null
-      const groupAllInfo = await ctx.ntGroupApi.getGroupAllInfo(tip.groupCode.toString())
+      const group = await ctx.ntGroupApi.getGroup(tip.groupCode, false)
       return {
         eventType: 'group_admin_change',
         data: {
           group_id: tip.groupCode,
           user_id: Number(await ctx.ntUserApi.getUinByUid(adminUid)),
-          operator_id: Number(await ctx.ntUserApi.getUinByUid(groupAllInfo.ownerUid)),
+          operator_id: Number(await ctx.ntUserApi.getUinByUid(group.ownerUid)),
           is_set: tip.isPromote
         } satisfies MilkyEventTypes['group_admin_change']
       }

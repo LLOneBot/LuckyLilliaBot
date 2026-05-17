@@ -23,7 +23,7 @@ export async function parseReactionAdded(
   }
 
   const user = await bot.ctx.ntUserApi.getUserSimpleInfo(info.operatorUid)
-  const groupAll = await bot.ctx.ntGroupApi.getGroupAllInfo(input.groupCode.toString())
+  const group = await bot.ctx.ntGroupApi.getGroup(input.groupCode, false)
 
   return bot.event('reaction-added', {
     message: {
@@ -31,11 +31,11 @@ export async function parseReactionAdded(
     },
     user: decodeUser(user.coreInfo),
     channel: {
-      id: groupAll.groupCode,
-      name: groupAll.groupName,
+      id: group.groupCode.toString(),
+      name: group.groupName,
       type: Universal.Channel.Type.TEXT
     },
-    guild: decodeGuild(groupAll),
+    guild: decodeGuild(group),
     emoji: {
       id: info.code
     }
@@ -60,7 +60,7 @@ export async function parseReactionRemoved(
   }
 
   const user = await bot.ctx.ntUserApi.getUserSimpleInfo(info.operatorUid)
-  const groupAll = await bot.ctx.ntGroupApi.getGroupAllInfo(input.groupCode.toString())
+  const group = await bot.ctx.ntGroupApi.getGroup(input.groupCode, false)
 
   return bot.event('reaction-removed', {
     message: {
@@ -68,11 +68,11 @@ export async function parseReactionRemoved(
     },
     user: decodeUser(user.coreInfo),
     channel: {
-      id: groupAll.groupCode,
-      name: groupAll.groupName,
+      id: group.groupCode.toString(),
+      name: group.groupName,
       type: Universal.Channel.Type.TEXT
     },
-    guild: decodeGuild(groupAll),
+    guild: decodeGuild(group),
     emoji: {
       id: info.code
     }

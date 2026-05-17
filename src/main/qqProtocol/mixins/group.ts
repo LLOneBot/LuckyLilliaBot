@@ -1,6 +1,7 @@
 import { Oidb } from '@/ntqqapi/proto'
 import { selfInfo } from '@/common/globalVars'
 import type { QQProtocolBase } from '../base'
+import { randomInt } from 'crypto'
 
 export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
   return class extends Base {
@@ -83,6 +84,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
             memberCount: true,
             groupName: true,
             topTime: true,
+            groupShutupExpireTime: true,
             description: true,
             question: true,
             richDescription: true,
@@ -90,6 +92,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           },
           config2: {
             remark: true,
+            personShutupExpireTime: true
           },
         },
       })
@@ -150,7 +153,34 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         subCommand: 1,
         body,
       })
-      await this.httpSendPB('OidbSvcTrpcTcp.0x5d6_1', data)
+      await this.sendPB('OidbSvcTrpcTcp.0x5d6_1', data)
+    }
+
+    async fetchGroup(groupCode: number) {
+      const body = Oidb.FetchGroupReq.encode({
+        random: randomInt(0, 0x7fffffff),
+        config: {
+          groupCode,
+          flags: {
+            ownerUid: true,
+            groupCreateTime: true,
+            maxMemberNum: true,
+            memberNum: true,
+            groupName: '',
+            question: '',
+            description: '',
+            shutUpMeTimestamp: true,
+          },
+        },
+      })
+      const data = Oidb.Base.encode({
+        command: 0x88d,
+        subCommand: 14,
+        body,
+      })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x88d_14', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.FetchGroupResp.decode(oidbRespBody)
     }
   }
 }

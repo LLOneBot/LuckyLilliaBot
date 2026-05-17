@@ -408,3 +408,19 @@ export interface GroupDetailInfo {
   isAllowHlGuildBinary: number
   localExitGroupReason: LocalExitGroupReason
 }
+
+export interface Group {
+  groupCode: number
+  groupName: string
+  ownerUid: string
+  createdAt: number
+  maxMemberCount: number
+  memberCount: number
+  description: string
+  question: string
+  announcementPreview: string
+  remark: string
+  isPin: boolean
+  groupShutupExpireTime: number
+  personShutupExpireTime: number
+}
