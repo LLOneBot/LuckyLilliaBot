@@ -22,13 +22,16 @@ const SERVER_PUBLIC_KEY_192K1 = Buffer.from([
 
 export function generateEcdhKeyPair(): EcdhKeyPair {
   const ecdh = createECDH('secp192k1')
-  ecdh.generateKeys()
+  const rawPublicKey = ecdh.generateKeys()
 
-  const publicKey = Buffer.from(ecdh.getPublicKey(null, 'compressed'))
-  const privateKey = Buffer.from(ecdh.getPrivateKey())
+  // Manual compressed format: always use 0x02 prefix + X coordinate (24 bytes)
+  // This matches Lagrange/tanebi behavior (not standard compress which may use 0x03)
+  const publicKey = Buffer.concat([Buffer.from([0x02]), rawPublicKey.subarray(1, 25)])
+
   const sharedSecret = ecdh.computeSecret(SERVER_PUBLIC_KEY_192K1)
-  // MD5 of shared secret X coordinate (full 24 bytes for secp192k1)
-  const shareKey = createHash('md5').update(sharedSecret).digest()
+  const shareKey = createHash('md5').update(sharedSecret).digest().subarray(0, 16)
+
+  const privateKey = Buffer.from(ecdh.getPrivateKey())
 
   return { publicKey, privateKey, shareKey }
 }

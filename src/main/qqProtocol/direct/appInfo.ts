@@ -20,6 +20,7 @@ export const AppInfo = {
   mainSigMap: 169742560,
   subSigMap: 0x10400,
   ntLoginType: 1,
+  appClientVersion: 46494,
 }
 
 export const DeviceInfo = {
