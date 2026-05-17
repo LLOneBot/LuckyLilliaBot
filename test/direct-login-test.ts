@@ -1,4 +1,4 @@
-import { DirectProtocolClient, fetchQrCode, pollQrCode, QrCodeState } from '../src/main/qqProtocol/direct'
+import { DirectProtocolClient, fetchQrCode, pollQrCode, getCorrectUin, QrCodeState, AppInfo } from '../src/main/qqProtocol/direct'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -13,50 +13,65 @@ async function main() {
   console.log('Connected!\n')
 
   // Fetch QR code
-  console.log('Fetching QR code...')
   const qr = await fetchQrCode(client)
   console.log('QR URL:', qr.url)
-  console.log('QR Sig:', qr.sig.length, 'bytes')
   if (qr.image.length > 0) {
     writeFileSync(join(import.meta.dirname, 'qr-code.png'), qr.image)
     console.log('QR image saved.\n')
   }
 
   // Poll
-  console.log('Polling... scan the QR code with your phone!')
+  console.log('Scan the QR code with your phone...')
+  let pollResult
   while (true) {
     await new Promise(r => setTimeout(r, 2000))
     try {
-      const result = await pollQrCode(client, qr.sig)
-      switch (result.state) {
-        case QrCodeState.WaitingForScan:
-          process.stdout.write('.')
-          break
-        case QrCodeState.WaitingForConfirm:
-          console.log('\n[Scanned] Waiting for confirm...')
-          break
-        case QrCodeState.Confirmed:
-          console.log('\n[Confirmed!]')
-          console.log('TgtgtKey:', result.tgtgtKey?.length, 'bytes')
-          console.log('NoPicSig:', result.noPicSig?.length, 'bytes')
-          console.log('TempPassword:', result.tempPassword?.length, 'bytes')
-          client.disconnect()
-          return
-        case QrCodeState.Expired:
-          console.log('\n[Expired]')
-          client.disconnect()
-          return
-        case QrCodeState.Cancelled:
-          console.log('\n[Cancelled]')
-          client.disconnect()
-          return
-        default:
-          console.log(`\n[Unknown state: ${result.state}]`)
-      }
+      pollResult = await pollQrCode(client, qr.sig)
     } catch (e) {
-      console.error('\nPoll error:', (e as Error).message)
+      console.error('Poll error:', (e as Error).message)
+      continue
     }
+
+    switch (pollResult.state) {
+      case QrCodeState.WaitingForScan:
+        process.stdout.write('.')
+        break
+      case QrCodeState.WaitingForConfirm:
+        console.log('\n[Scanned!] Confirm on phone...')
+        break
+      case QrCodeState.Confirmed:
+        console.log('\n[Confirmed!]')
+        console.log('  TgtgtKey:', pollResult.tgtgtKey?.length, 'bytes')
+        console.log('  NoPicSig:', pollResult.noPicSig?.length, 'bytes')
+        console.log('  TempPassword:', pollResult.tempPassword?.length, 'bytes')
+        break
+      case QrCodeState.Expired:
+        console.log('\n[QR Expired]')
+        client.disconnect()
+        return
+      case QrCodeState.Cancelled:
+        console.log('\n[Cancelled]')
+        client.disconnect()
+        return
+    }
+
+    if (pollResult.state === QrCodeState.Confirmed) break
   }
+
+  // Get UIN
+  console.log('\nGetting UIN...')
+  // Extract qrSig from URL (the 'k' param)
+  const urlParams = new URL(qr.url).searchParams
+  const qrSig = urlParams.get('k') || ''
+  try {
+    const uin = await getCorrectUin(AppInfo.appId, qrSig)
+    console.log('UIN:', uin)
+  } catch (e) {
+    console.error('Get UIN failed:', (e as Error).message)
+  }
+
+  console.log('\nLogin flow complete (wtlogin.login not yet implemented)')
+  client.disconnect()
 }
 
 main().catch(e => { console.error(e); process.exit(1) })

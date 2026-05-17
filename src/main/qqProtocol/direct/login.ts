@@ -565,9 +565,8 @@ function parseTransEmp12Response(data: Buffer, shareKey: Buffer): QrPollResult {
     return { state }
   }
 
-  // When confirmed: signature(uint16 prefix) + tlvPack
-  const sigLen = transEmpData.readUInt16BE(dOff); dOff += 2
-  dOff += sigLen // skip sig
+  // When confirmed: 12 bytes misc + TLV pack
+  dOff += 12
 
   // TLV collection
   const tlvData = transEmpData.subarray(dOff)
@@ -647,4 +646,18 @@ function parseLoginResponse(data: Buffer, tgtgtKey: Buffer): import('./client').
     a2Key: tlvs.get(0x10D) || Buffer.alloc(16),
     sKey: tlvs.get(0x120) || Buffer.alloc(0),
   }
+}
+
+/**
+ * Get correct UIN after QR code confirmation
+ * Calls https://ntlogin.qq.com/qr/getFace
+ */
+export async function getCorrectUin(appId: number, qrSig: string): Promise<number> {
+  const res = await fetch('https://ntlogin.qq.com/qr/getFace', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ appid: appId, faceUpdateTime: 0, qrsig: qrSig }),
+  })
+  const json = await res.json() as { uin: number }
+  return json.uin
 }
