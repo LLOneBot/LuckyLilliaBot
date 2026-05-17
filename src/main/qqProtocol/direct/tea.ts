@@ -88,21 +88,32 @@ export function teaEncrypt(data: Uint8Array, key: Uint8Array): Uint8Array {
   plain.set(data, fill)
   // Last 7 bytes are zero (already)
 
-  // CBC encrypt
+  // QQ-specific CBC mode encryption
   const out = new Uint8Array(totalLen)
-  let prevCipher0 = 0, prevCipher1 = 0
-  let prevPlain0 = 0, prevPlain1 = 0
+  plain.set(data, fill)
+  // Copy plain to out for in-place encryption
+  out.set(plain)
+
+  let plainXorHi = 0, plainXorLo = 0
+  let prevXorHi = 0, prevXorLo = 0
 
   for (let i = 0; i < totalLen; i += 8) {
-    const p0 = readUint32BE(plain, i) ^ prevCipher0
-    const p1 = readUint32BE(plain, i + 4) ^ prevCipher1
-    const [c0, c1] = teaEncryptBlock(p0, p1, k)
-    prevCipher0 = c0
-    prevCipher1 = c1
-    prevPlain0 = readUint32BE(plain, i)
-    prevPlain1 = readUint32BE(plain, i + 4)
-    writeUint32BE(out, i, c0)
-    writeUint32BE(out, i + 4, c1)
+    // XOR with plainXor
+    const pHi = readUint32BE(out, i) ^ plainXorHi
+    const pLo = readUint32BE(out, i + 4) ^ plainXorLo
+
+    // Encrypt block
+    const [cHi, cLo] = teaEncryptBlock(pHi, pLo, k)
+
+    // Update XOR chains
+    plainXorHi = cHi ^ prevXorHi
+    plainXorLo = cLo ^ prevXorLo
+    prevXorHi = pHi
+    prevXorLo = pLo
+
+    // Write output
+    writeUint32BE(out, i, plainXorHi)
+    writeUint32BE(out, i + 4, plainXorLo)
   }
 
   return out
@@ -115,18 +126,33 @@ export function teaDecrypt(data: Uint8Array, key: Uint8Array): Uint8Array {
     throw new Error('TEA decrypt: invalid data length')
   }
 
-  // CBC decrypt
+  // QQ-specific CBC mode decryption
   const plain = new Uint8Array(data.length)
-  let prevCipher0 = 0, prevCipher1 = 0
+  let plainXorHi = 0, plainXorLo = 0
+  let prevXorHi = 0, prevXorLo = 0
 
   for (let i = 0; i < data.length; i += 8) {
-    const c0 = readUint32BE(data, i)
-    const c1 = readUint32BE(data, i + 4)
-    const [p0, p1] = teaDecryptBlock(c0, c1, k)
-    writeUint32BE(plain, i, p0 ^ prevCipher0)
-    writeUint32BE(plain, i + 4, p1 ^ prevCipher1)
-    prevCipher0 = c0
-    prevCipher1 = c1
+    const cHi = readUint32BE(data, i)
+    const cLo = readUint32BE(data, i + 4)
+
+    // XOR with running plainXor
+    plainXorHi ^= cHi
+    plainXorLo ^= cLo
+
+    // Decrypt block
+    const [dHi, dLo] = teaDecryptBlock(plainXorHi, plainXorLo, k)
+
+    // Update plainXor
+    plainXorHi = dHi
+    plainXorLo = dLo
+
+    // Output = decrypted XOR previous cipher
+    writeUint32BE(plain, i, plainXorHi ^ prevXorHi)
+    writeUint32BE(plain, i + 4, plainXorLo ^ prevXorLo)
+
+    // Save current cipher for next round
+    prevXorHi = cHi
+    prevXorLo = cLo
   }
 
   // Extract data: skip fill bytes, strip 7 trailing zeros
