@@ -91,7 +91,11 @@ const EMOJI_LIST: { codePoint: number; char: string }[] = [
   { codePoint: 0x1f6ac, char: '🚬' },
 ]
 
-const RECENT_EMOJI_KEY = 'webqq_recent_emojis'
+const RECENT_EMOJI_BASE_KEY = 'webqq_recent_emojis'
+function getRecentEmojiKey() {
+  const uin = localStorage.getItem('current-uin') || ''
+  return uin ? `${uin}-${RECENT_EMOJI_BASE_KEY}` : RECENT_EMOJI_BASE_KEY
+}
 const MAX_RECENT = 10
 
 // 最近表情项：type='face' 是 QQ 表情，type='emoji' 是 Unicode emoji
@@ -104,7 +108,7 @@ export interface RecentEmojiItem {
 
 function getRecentEmojis(): RecentEmojiItem[] {
   try {
-    const stored = localStorage.getItem(RECENT_EMOJI_KEY)
+    const stored = localStorage.getItem(getRecentEmojiKey())
     if (!stored) return []
     const parsed = JSON.parse(stored)
     // 兼容旧格式（纯数字数组）
@@ -124,7 +128,7 @@ function addRecentEmoji(item: RecentEmojiItem) {
     return r.codePoint !== item.codePoint
   })
   recent.unshift(item)
-  localStorage.setItem(RECENT_EMOJI_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)))
+  localStorage.setItem(getRecentEmojiKey(), JSON.stringify(recent.slice(0, MAX_RECENT)))
 }
 
 interface EmojiPickerProps {

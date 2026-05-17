@@ -19,12 +19,17 @@ export const clearFavEmojiCache = () => {
   cachedEmojis = null
 }
 
-const RECENT_FAV_EMOJI_KEY = 'webqq_recent_fav_emojis'
+const RECENT_FAV_EMOJI_BASE_KEY = 'webqq_recent_fav_emojis'
 const MAX_RECENT = 10
+
+function getRecentFavEmojiKey() {
+  const uin = localStorage.getItem('current-uin') || ''
+  return uin ? `${uin}-${RECENT_FAV_EMOJI_BASE_KEY}` : RECENT_FAV_EMOJI_BASE_KEY
+}
 
 function getRecentFavEmojis(): FavEmoji[] {
   try {
-    const stored = localStorage.getItem(RECENT_FAV_EMOJI_KEY)
+    const stored = localStorage.getItem(getRecentFavEmojiKey())
     return stored ? JSON.parse(stored) : []
   } catch {
     return []
@@ -34,12 +39,12 @@ function getRecentFavEmojis(): FavEmoji[] {
 function addRecentFavEmoji(emoji: FavEmoji) {
   const recent = getRecentFavEmojis().filter(e => e.emoId !== emoji.emoId)
   recent.unshift(emoji)
-  localStorage.setItem(RECENT_FAV_EMOJI_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)))
+  localStorage.setItem(getRecentFavEmojiKey(), JSON.stringify(recent.slice(0, MAX_RECENT)))
 }
 
 function removeRecentFavEmoji(emoId: number) {
   const recent = getRecentFavEmojis().filter(e => e.emoId !== emoId)
-  localStorage.setItem(RECENT_FAV_EMOJI_KEY, JSON.stringify(recent))
+  localStorage.setItem(getRecentFavEmojiKey(), JSON.stringify(recent))
 }
 
 // 表情右键菜单

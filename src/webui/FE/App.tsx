@@ -114,6 +114,7 @@ function App() {
             nick: response.data.selfInfo.nick || '',
             uin: response.data.selfInfo.uin,
           });
+          localStorage.setItem('current-uin', response.data.selfInfo.uin);
 
           // 获取主配置
           setConfig(response.data.config);
