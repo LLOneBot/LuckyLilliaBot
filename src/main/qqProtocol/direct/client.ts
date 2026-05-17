@@ -4,7 +4,7 @@
  */
 
 import { TcpConnection } from './connection'
-import { buildServicePacket, parseServicePacket, EncryptType, PacketContext, SsoPacket } from './packet'
+import { buildServicePacket, buildServicePacket13, parseServicePacket, EncryptType, PacketContext, SsoPacket } from './packet'
 import { generateEcdhKeyPair, EcdhKeyPair } from './ecdh'
 import { randomBytes, createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
@@ -42,7 +42,7 @@ export class DirectProtocolClient extends EventEmitter {
   private config: DirectClientConfig
   private ecdhKeyPair: EcdhKeyPair
   private guid: Buffer
-  private seq = 0x1000
+  private seq = (Math.random() * 0x00FFFFFF) >>> 0
   private session: SessionInfo | null = null
   private pendingPackets: Map<number, {
     resolve: (packet: SsoPacket) => void
@@ -65,6 +65,35 @@ export class DirectProtocolClient extends EventEmitter {
   async connect(): Promise<void> {
     await this.conn.connect({ useIPv6: this.config.useIPv6 })
     this.emit('connected')
+
+    // Send initial heartbeat (required before other commands)
+    await this.sendHeartbeat()
+  }
+
+  /**
+   * Send Heartbeat.Alive (Protocol 13, NoEncrypt) and wait for response
+   */
+  async sendHeartbeat(): Promise<void> {
+    const seq = this.nextSeq()
+    const ctx = this.getPacketContext()
+    const payload = Buffer.alloc(4)
+    payload.writeUInt32BE(0x00000004)
+    const packet = buildServicePacket13(seq, 'Heartbeat.Alive', ctx, payload, EncryptType.NoEncrypt)
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingPackets.delete(seq)
+        resolve() // Don't fail on heartbeat timeout
+      }, 5000)
+
+      this.pendingPackets.set(seq, {
+        resolve: () => { clearTimeout(timer); resolve() },
+        reject: (err) => { clearTimeout(timer); reject(err) },
+        timeout: timer,
+      })
+
+      this.conn.send(packet)
+    })
   }
 
   disconnect(): void {

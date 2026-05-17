@@ -126,6 +126,85 @@ function buildSsoHead12(seq: number, cmd: string, ctx: PacketContext): Buffer {
 }
 
 /**
+ * Build SSO Head (Protocol 13 - Simple, used for Heartbeat.Alive)
+ * Only contains: command + empty + reservedField
+ */
+function buildSsoHead13(cmd: string, ctx: PacketContext): Buffer {
+  const parts: Buffer[] = []
+  parts.push(writeInt32PrefixedString(cmd))
+  parts.push(writeInt32Prefixed(Buffer.alloc(0)))
+  const reservedField = buildSsoReservedField(ctx.uin !== '0' ? ctx.uin : undefined)
+  parts.push(writeInt32Prefixed(reservedField))
+  const head = Buffer.concat(parts)
+  return writeInt32Prefixed(head)
+}
+
+function buildSsoFrame13(cmd: string, ctx: PacketContext, payload: Buffer): Buffer {
+  const head = buildSsoHead13(cmd, ctx)
+  const payloadWithLen = writeInt32Prefixed(payload)
+  return Buffer.concat([head, payloadWithLen])
+}
+
+/**
+ * Build Service frame (Protocol 13) - for Heartbeat.Alive etc
+ */
+export function buildServicePacket13(
+  seq: number,
+  cmd: string,
+  ctx: PacketContext,
+  payload: Buffer,
+  encryptType: EncryptType = EncryptType.NoEncrypt,
+): Buffer {
+  const ssoFrame = buildSsoFrame13(cmd, ctx, payload)
+
+  let encrypted: Buffer
+  switch (encryptType) {
+    case EncryptType.EncryptD2Key:
+      encrypted = Buffer.from(teaEncrypt(ssoFrame, ctx.d2Key))
+      break
+    case EncryptType.EncryptEmpty:
+      encrypted = Buffer.from(teaEncrypt(ssoFrame, EMPTY_KEY))
+      break
+    case EncryptType.NoEncrypt:
+    default:
+      encrypted = ssoFrame
+  }
+
+  const parts: Buffer[] = []
+
+  // Protocol version 13 (int32)
+  const verBuf = Buffer.alloc(4)
+  verBuf.writeInt32BE(13)
+  parts.push(verBuf)
+
+  // Encrypt type (byte)
+  parts.push(Buffer.from([encryptType]))
+
+  // Sequence (int32) — Protocol 13 includes seq in service frame
+  const seqBuf = Buffer.alloc(4)
+  seqBuf.writeInt32BE(seq)
+  parts.push(seqBuf)
+
+  // Dummy byte
+  parts.push(Buffer.from([0x00]))
+
+  // UIN string with int32 length prefix
+  parts.push(writeInt32PrefixedString(ctx.uin))
+
+  // Encrypted body
+  parts.push(encrypted)
+
+  const innerPacket = Buffer.concat(parts)
+
+  // Outer frame: int32 total length (including self)
+  const frame = Buffer.alloc(4 + innerPacket.length)
+  frame.writeInt32BE(4 + innerPacket.length)
+  innerPacket.copy(frame, 4)
+
+  return frame
+}
+
+/**
  * Build complete SSO frame (head + payload) for Protocol 12
  */
 function buildSsoFrame12(seq: number, cmd: string, ctx: PacketContext, payload: Buffer): Buffer {
@@ -201,7 +280,8 @@ export function buildServicePacket(
 }
 
 /**
- * Parse incoming service packet (Protocol 12)
+ * Parse incoming service packet (response format is unified regardless of protocol)
+ * Response: [int32:length][int32:protocol][byte:encType][byte:dummy][int32+string:uin][body]
  */
 export function parseServicePacket(frame: Buffer, d2Key: Buffer): SsoPacket | null {
   let offset = 0
@@ -211,15 +291,6 @@ export function parseServicePacket(frame: Buffer, d2Key: Buffer): SsoPacket | nu
 
   // Encrypt type (byte)
   const encType = frame.readUInt8(offset); offset += 1
-
-  if (version === 12) {
-    // D2 token with int32 length prefix
-    const d2Len = frame.readInt32BE(offset); offset += 4
-    if (d2Len > 4) offset += d2Len - 4
-  } else if (version === 13) {
-    // Sequence (int32) in Protocol 13
-    offset += 4
-  }
 
   // Dummy byte
   offset += 1
@@ -248,37 +319,22 @@ export function parseServicePacket(frame: Buffer, d2Key: Buffer): SsoPacket | nu
     return null
   }
 
-  // Parse SSO frame
-  return parseSsoFrame(ssoBody)
+  // Parse SSO frame (response always uses Protocol 12 format with full head)
+  return parseSsoFrame12(ssoBody)
 }
 
-function parseSsoFrame(data: Buffer): SsoPacket | null {
+function parseSsoFrame13(data: Buffer, seq: number): SsoPacket | null {
   let offset = 0
 
   // Head length (int32, includes self)
   if (offset + 4 > data.length) return null
   const headLen = data.readInt32BE(offset); offset += 4
-
-  // Parse head
   const headEnd = offset + headLen - 4
-  if (headEnd > data.length) return null
-
-  // Sequence (int32)
-  const seq = data.readInt32BE(offset); offset += 4
-
-  // Skip: subAppId(4) + fixed short(2) + fixed 12 bytes
-  offset += 4 + 2 + 12
-
-  // Skip: A2 with int32 prefix
-  if (offset + 4 > headEnd) return null
-  const a2Len = data.readInt32BE(offset); offset += 4
-  if (a2Len > 4) offset += a2Len - 4
 
   // Command with int32 prefix
   if (offset + 4 > headEnd) return null
   const cmdLen = data.readInt32BE(offset); offset += 4
   const cmd = data.subarray(offset, offset + cmdLen - 4).toString()
-  offset += cmdLen - 4
 
   // Skip to end of head
   offset = headEnd
@@ -287,6 +343,41 @@ function parseSsoFrame(data: Buffer): SsoPacket | null {
   if (offset + 4 > data.length) return null
   const payloadLen = data.readInt32BE(offset); offset += 4
   const payload = Buffer.from(data.subarray(offset, offset + payloadLen - 4))
+
+  return { seq, cmd, payload }
+}
+
+function parseSsoFrame12(data: Buffer): SsoPacket | null {
+  let offset = 0
+
+  // Head with int32 length prefix (includes prefix)
+  if (offset + 4 > data.length) return null
+  const headLen = data.readInt32BE(offset); offset += 4
+  const headEnd = offset + headLen - 4
+  if (headEnd > data.length) return null
+
+  // Parse head: seq(4) + retCode(4) + extra(int32 prefixed) + command(int32 prefixed) + ...
+  const seq = data.readInt32BE(offset); offset += 4
+  const retCode = data.readInt32BE(offset); offset += 4
+
+  // Extra string (int32 prefix)
+  if (offset + 4 > headEnd) return null
+  const extraLen = data.readInt32BE(offset); offset += 4
+  if (extraLen > 4) offset += extraLen - 4
+
+  // Command string (int32 prefix)
+  if (offset + 4 > headEnd) return null
+  const cmdLen = data.readInt32BE(offset); offset += 4
+  const cmd = data.subarray(offset, offset + cmdLen - 4).toString()
+  offset += cmdLen - 4
+
+  // Skip rest of head (msgCookie, dataFlag, reserveField)
+  offset = headEnd
+
+  // Body with int32 length prefix
+  if (offset + 4 > data.length) return null
+  const bodyLen = data.readInt32BE(offset); offset += 4
+  const payload = Buffer.from(data.subarray(offset, offset + bodyLen - 4))
 
   return { seq, cmd, payload }
 }
