@@ -16,7 +16,7 @@ export function createNtCallRoutes(ctx: Context): Hono {
       }
 
       // 白名单：只允许调用 inject 中声明的服务 + pmhq
-      const allowedServices = ['ntUserApi', 'ntGroupApi', 'ntFriendApi', 'ntFileApi', 'ntMsgApi', 'pmhq']
+      const allowedServices = ['ntUserApi', 'ntGroupApi', 'ntFriendApi', 'ntFileApi', 'ntMsgApi', 'qqProtocol']
       if (!allowedServices.includes(service)) {
         return c.json({ success: false, message: `不支持的服务: ${service}` }, 400)
       }

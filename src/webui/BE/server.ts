@@ -258,7 +258,7 @@ export class WebuiServer extends Service {
   }
 
   private setupEmojiReactionListener() {
-    this.ctx.pmhq.addResListener(async data => {
+    this.ctx.qqProtocol.addResListener(async data => {
       if (this.sseClients.size === 0) return
       if (data.type !== 'recv' || data.data.cmd !== 'trpc.msg.olpush.OlPushService.MsgPush') return
 
@@ -360,7 +360,7 @@ export class WebuiServer extends Service {
       return
     }
     this.port = await this.startServer()
-    this.ctx.pmhq.tellPort(this.port).catch((err: Error) => {
+    this.ctx.qqProtocol.tellPort(this.port).catch((err: Error) => {
       this.ctx.logger.error('记录 WebUI 端口失败:', err)
     })
   }
@@ -370,7 +370,7 @@ export class WebuiServer extends Service {
       return
     }
     this.port = await this.startServer(forcePort)
-    this.ctx.pmhq.tellPort(this.port).catch((err: Error) => {
+    this.ctx.qqProtocol.tellPort(this.port).catch((err: Error) => {
       this.ctx.logger.error('记录 WebUI 端口失败:', err)
     })
   }

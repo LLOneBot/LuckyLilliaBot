@@ -189,7 +189,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
   }): Promise<Response> {
     const encoder = new MessageEncoder(this.ctx, peer)
     const raw = await encoder.generate(nodes, options)
-    const resid = await this.ctx.pmhq.uploadForward(peer.peerUid, peer.chatType === ChatType.Group, raw.multiMsgItems)
+    const resid = await this.ctx.qqProtocol.uploadForward(peer.peerUid, peer.chatType === ChatType.Group, raw.multiMsgItems)
     const prompt = options?.prompt ?? '[聊天记录]'
     try {
       const msg = await this.ctx.app.sendMessage(this.ctx, peer, [{

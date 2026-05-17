@@ -43,7 +43,7 @@ export function createMockContext() {
       rkeyManager: { getRkey: vi.fn(() => Promise.resolve({ private_rkey: '', group_rkey: '' })) },
       getPttUrl: vi.fn(),
     },
-    pmhq: {
+    qqProtocol: {
       getProcessInfo: vi.fn(() => Promise.resolve({
         memory: { rss: 100000000, totalMem: 8000000000 },
         cpu: { percent: 5.0 },

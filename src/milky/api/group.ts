@@ -91,7 +91,7 @@ const SetGroupMemberSpecialTitle = defineApi(
   async (ctx, payload) => {
     // Use PMHQ to set special title
     const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), payload.group_id.toString())
-    await ctx.pmhq.setSpecialTitle(
+    await ctx.qqProtocol.setSpecialTitle(
       payload.group_id,
       memberUid,
       payload.special_title
@@ -373,7 +373,7 @@ const SendGroupNudge = defineApi(
   z.object({}),
   async (ctx, payload) => {
     // Use PMHQ to send group poke
-    await ctx.pmhq.sendGroupPoke(payload.group_id, payload.user_id)
+    await ctx.qqProtocol.sendGroupPoke(payload.group_id, payload.user_id)
     return Ok({})
   }
 )

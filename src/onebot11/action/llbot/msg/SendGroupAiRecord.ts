@@ -22,7 +22,7 @@ export class SendGroupAiRecord extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload) {
-    const res = await this.ctx.pmhq.getGroupGenerateAiRecord(+payload.group_id, payload.character, payload.text, +payload.chat_type)
+    const res = await this.ctx.qqProtocol.getGroupGenerateAiRecord(+payload.group_id, payload.character, payload.text, +payload.chat_type)
     const targetMsgRandom = res.msgRandom.toString()
     const { promise, resolve } = Promise.withResolvers<Response>()
     const dispose = this.ctx.on('nt/message-created', (msg) => {

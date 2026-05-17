@@ -30,8 +30,8 @@ export class GetStrangerInfo extends BaseAction<Payload, Response> {
 
   protected async _handle(payload: Payload) {
     const uin = +payload.user_id
-    const info = await this.ctx.pmhq.fetchUserInfo(uin)
-    const loginDays = await this.ctx.pmhq.fetchUserLoginDays(uin)
+    const info = await this.ctx.qqProtocol.fetchUserInfo(uin)
+    const loginDays = await this.ctx.qqProtocol.fetchUserLoginDays(uin)
     return {
       user_id: info.uin,
       nickname: info.nick,

@@ -9,7 +9,7 @@ declare module 'cordis' {
 }
 
 export class NTQQFriendApi extends Service {
-  static inject = ['ntUserApi', 'ntSystemApi', 'pmhq']
+  static inject = ['ntUserApi', 'ntSystemApi', 'qqProtocol']
   private friendsCache: Friend[] = []
   private categoriesCache: Map<number, Category> = new Map()
 
@@ -19,11 +19,7 @@ export class NTQQFriendApi extends Service {
 
   async getFriendList(forceUpdate: boolean) {
     if (forceUpdate || this.friendsCache.length === 0) {
-      const res = await this.ctx.pmhq.fetchFriends()
-      this.categoriesCache.clear()
-      for (const cat of res.category) {
-        this.categoriesCache.set(cat.categoryId, cat)
-      }
+      const res = await this.ctx.qqProtocol.fetchFriends()
       this.friendsCache = res.friendList.map(friend => {
         const biz = friend.subBiz.get(1)!
         let statusId = biz.numData.get(27372)!
@@ -33,11 +29,13 @@ export class NTQQFriendApi extends Service {
         if (statusId > 14878464) {
           statusId -= 14878464
         }
+        if (statusId === 0) {
+          statusId = 2
+        }
         return {
           uid: friend.uid,
           uin: friend.uin,
           categoryId: friend.categoryId,
-          categoryName: this.categoriesCache.get(friend.categoryId)!.categoryName,
           nick: biz.data.get(20002)!.toString(),
           longNick: biz.data.get(102)!.toString(),
           remark: biz.data.get(103)!.toString(),
@@ -47,9 +45,13 @@ export class NTQQFriendApi extends Service {
           birthdayYear: (biz.data.get(20031)![0] << 8) | biz.data.get(20031)![1],
           birthdayMonth: biz.data.get(20031)![2],
           birthdayDay: biz.data.get(20031)![3],
-          status: statusId === 0 ? 20 : statusId * 10
+          status: statusId * 10
         }
       })
+      this.categoriesCache.clear()
+      for (const cat of res.category) {
+        this.categoriesCache.set(cat.categoryId, cat)
+      }
     }
     return {
       friends: this.friendsCache,
@@ -59,28 +61,40 @@ export class NTQQFriendApi extends Service {
 
   async getFriendInfoByUin(uin: number, forceUpdate: boolean) {
     const result = await this.getFriendList(forceUpdate)
+    let categories = result.categories
     let friend = result.friends.find(e => e.uin === uin)
     if (!friend) {
       const result = await this.getFriendList(true)
+      categories = result.categories
       friend = result.friends.find(e => e.uin === uin)
     }
     if (!friend) {
       return
     }
-    return friend
+    const category = categories.get(friend.categoryId)!
+    return {
+      friend,
+      category
+    }
   }
 
   async getFriendInfoByUid(uid: string, forceUpdate: boolean) {
     const result = await this.getFriendList(forceUpdate)
+    let categories = result.categories
     let friend = result.friends.find(e => e.uid === uid)
     if (!friend) {
       const result = await this.getFriendList(true)
+      categories = result.categories
       friend = result.friends.find(e => e.uid === uid)
     }
     if (!friend) {
       return
     }
-    return friend
+    const category = categories.get(friend.categoryId)!
+    return {
+      friend,
+      category
+    }
   }
 
   async isFriend(uid: string): Promise<boolean> {
@@ -88,45 +102,49 @@ export class NTQQFriendApi extends Service {
   }
 
   async getFriendRecommendContactArk(uin: number) {
-    const { ark } = await this.ctx.pmhq.getFriendRecommendContactArk(uin)
+    const { ark } = await this.ctx.qqProtocol.getFriendRecommendContactArk(uin)
     return ark
   }
 
   async setFriendRemark(uid: string, remark = '') {
-    return await this.ctx.pmhq.setFriendRemark(uid, remark)
+    return await this.ctx.qqProtocol.setFriendRemark(uid, remark)
   }
 
   async deleteFriend(targetUid: string, block = false, bothDelete = true) {
-    return await this.ctx.pmhq.deleteFriend(targetUid, block, bothDelete)
+    return await this.ctx.qqProtocol.deleteFriend(targetUid, block, bothDelete)
   }
 
   async setFriendCategory(uid: string, categoryId: number) {
-    return await this.ctx.pmhq.setFriendCategory(uid, categoryId)
+    return await this.ctx.qqProtocol.setFriendCategory(uid, categoryId)
   }
 
   async clearBuddyReqUnreadCnt() {
-    return await this.ctx.pmhq.invoke('nodeIKernelBuddyService/clearBuddyReqUnreadCnt', [])
+    return await this.ctx.qqProtocol.invoke('nodeIKernelBuddyService/clearBuddyReqUnreadCnt', [])
   }
 
   async getFriendRequests(limit: number) {
-    const { info } = await this.ctx.pmhq.fetchFriendRequests(selfInfo.uid, limit)
+    const { info } = await this.ctx.qqProtocol.fetchFriendRequests(selfInfo.uid, limit)
     return info.requests
   }
 
   async getDoubtFriendRequests(limit: number) {
-    const { info } = await this.ctx.pmhq.fetchFilteredFriendRequests(limit)
+    const { info } = await this.ctx.qqProtocol.fetchFilteredFriendRequests(limit)
     return info.requests
   }
 
   async approvalFriendRequest(friendUid: string, accept: boolean) {
-    await this.ctx.pmhq.setFriendRequest(friendUid, accept ? 3 : 5)
+    await this.ctx.qqProtocol.setFriendRequest(friendUid, accept ? 3 : 5)
   }
 
   async approvalDoubtFriendRequest(requestUid: string) {
-    return await this.ctx.pmhq.setFilteredFriendRequestReq(selfInfo.uid, requestUid)
+    return await this.ctx.qqProtocol.setFilteredFriendRequestReq(selfInfo.uid, requestUid)
   }
 
-  async setFriendPin(friendUid: string, isPinned: boolean) {
-    return await this.ctx.pmhq.setFriendPin(friendUid, isPinned)
+  async getCategoryById(categoryId: number) {
+    return await this.ctx.qqProtocol.invoke('nodeIKernelBuddyService/getCategoryById', [categoryId])
+  }
+
+  async setTop(uid: string, isTop: boolean) {
+    return await this.ctx.qqProtocol.invoke('nodeIKernelBuddyService/setTop', [uid, isTop])
   }
 }

@@ -25,7 +25,7 @@ class SatoriAdapter extends Service {
   static inject = [
     'ntMsgApi', 'ntFileApi', 'ntFriendApi',
     'ntGroupApi', 'ntUserApi', 'ntWebApi',
-    'store', 'app', 'logger', 'pmhq'
+    'store', 'app', 'logger', 'qqProtocol'
   ]
   private selfId: string
   private server: SatoriServer
@@ -190,7 +190,7 @@ class SatoriAdapter extends Service {
       }
     })
 
-    this.ctx.pmhq.addResListener(async data => {
+    this.ctx.qqProtocol.addResListener(async data => {
       if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
         const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
         if (!pushMsg.message.body) {

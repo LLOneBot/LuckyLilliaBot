@@ -1,7 +1,7 @@
 import { Oidb } from '@/ntqqapi/proto'
-import type { PMHQBase } from '../base'
+import type { QQProtocolBase } from '../base'
 
-export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) {
+export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
   return class extends Base {
     async sendFriendPoke(friendUin: number, toUin: number) {
       const body = Oidb.SendPokeReq.encode({
@@ -13,7 +13,7 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
         subCommand: 1,
         body,
       })
-      return await this.wsSendPB('OidbSvcTrpcTcp.0xed3_1', data)
+      return await this.sendPB('OidbSvcTrpcTcp.0xed3_1', data)
     }
 
     async getPrivateFileUrl(receiverUid: string, fileUuid: string) {
@@ -36,7 +36,7 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
         subCommand: 1200,
         body,
       })
-      const res = await this.httpSendPB('OidbSvcTrpcTcp.0xe37_1200', data)
+      const res = await this.sendPB('OidbSvcTrpcTcp.0xe37_1200', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const file = Oidb.GetPrivateFileResp.decode(oidbRespBody)
       const { download } = file.body.result.extra
@@ -57,7 +57,7 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
         subCommand: 44,
         body,
       })
-      await this.httpSendPB('OidbSvcTrpcTcp.0xb5d_44', data)
+      await this.sendPB('OidbSvcTrpcTcp.0xb5d_44', data)
     }
 
     async setFilteredFriendRequestReq(selfUid: string, requestUid: string) {
@@ -70,7 +70,7 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
         subCommand: 0,
         body,
       })
-      await this.httpSendPB('OidbSvcTrpcTcp.0xd72_0', data)
+      await this.sendPB('OidbSvcTrpcTcp.0xd72_0', data)
     }
 
     async fetchFriends() {
@@ -89,7 +89,7 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
         subCommand: 1,
         body,
       })
-      const res = await this.httpSendPB('OidbSvcTrpcTcp.0xfd4_1', data)
+      const res = await this.sendPB('OidbSvcTrpcTcp.0xfd4_1', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.IncPullResp.decode(oidbRespBody)
     }
@@ -105,7 +105,7 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
         subCommand: 0,
         body,
       })
-      const res = await this.httpSendPB('OidbSvcTrpcTcp.0x12b6_0', data)
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x12b6_0', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.GetFriendRecommendContactArkResp.decode(oidbRespBody)
     }
@@ -120,7 +120,7 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
         subCommand: 1,
         body,
       })
-      await this.httpSendPB('OidbSvcTrpcTcp.0x10cc_1', data)
+      await this.sendPB('OidbSvcTrpcTcp.0x10cc_1', data)
     }
 
     async deleteFriend(targetUid: string, block: boolean, bothDelete: boolean) {
@@ -145,7 +145,7 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
         subCommand: 0,
         body,
       })
-      await this.httpSendPB('OidbSvcTrpcTcp.0x126b_0', data)
+      await this.sendPB('OidbSvcTrpcTcp.0x126b_0', data)
     }
 
     async setFriendCategory(uid: string, categoryId: number) {
@@ -158,7 +158,7 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
         subCommand: 1,
         body,
       })
-      await this.httpSendPB('OidbSvcTrpcTcp.0x10eb_1', data)
+      await this.sendPB('OidbSvcTrpcTcp.0x10eb_1', data)
     }
 
     async fetchFriendRequests(selfUid: string, reqNum: number) {
@@ -178,7 +178,7 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
         subCommand: 11,
         body,
       })
-      const res = await this.httpSendPB('OidbSvcTrpcTcp.0x5cf_11', data)
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x5cf_11', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchFriendRequestsResp.decode(oidbRespBody)
     }
@@ -195,7 +195,7 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
         subCommand: 0,
         body,
       })
-      const res = await this.httpSendPB('OidbSvcTrpcTcp.0xd69_0', data)
+      const res = await this.sendPB('OidbSvcTrpcTcp.0xd69_0', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchFilteredFriendRequestsResp.decode(oidbRespBody)
     }

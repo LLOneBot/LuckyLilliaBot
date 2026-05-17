@@ -12,14 +12,14 @@ declare module 'cordis' {
 }
 
 export class NTQQUserApi extends Service {
-  static inject = ['ntGroupApi', 'logger', 'pmhq']
+  static inject = ['ntGroupApi', 'logger', 'qqProtocol']
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntUserApi')
   }
 
   async setSelfAvatar(path: string) {
-    return await this.ctx.pmhq.invoke(
+    return await this.ctx.qqProtocol.invoke(
       'nodeIKernelProfileService/setHeader',
       [path],
       {
@@ -31,13 +31,13 @@ export class NTQQUserApi extends Service {
   async getUidByUin(uin: string, groupCode?: string) {
     const funcs = [
       async () => {
-        return (await this.ctx.pmhq.invoke('nodeIKernelUixConvertService/getUid', [[uin]])).uidInfo.get(uin)
+        return (await this.ctx.qqProtocol.invoke('nodeIKernelUixConvertService/getUid', [[uin]])).uidInfo.get(uin)
       },
       async () => {
-        return (await this.ctx.pmhq.invoke('nodeIKernelGroupService/getUidByUins', [[uin]])).uids.get(uin)
+        return (await this.ctx.qqProtocol.invoke('nodeIKernelGroupService/getUidByUins', [[uin]])).uids.get(uin)
       },
       async () => {
-        return (await this.ctx.pmhq.invoke('nodeIKernelProfileService/getUidByUin', ['FriendsServiceImpl', [uin]])).get(uin)
+        return (await this.ctx.qqProtocol.invoke('nodeIKernelProfileService/getUidByUin', ['FriendsServiceImpl', [uin]])).get(uin)
       },
       async () => {
         return (await this.getUserDetailInfoByUin(uin)).detail.uid
@@ -64,13 +64,13 @@ export class NTQQUserApi extends Service {
   }
 
   async getUserDetailInfoByUin(uin: string) {
-    return await this.ctx.pmhq.invoke('nodeIKernelProfileService/getUserDetailInfoByUin', [uin])
+    return await this.ctx.qqProtocol.invoke('nodeIKernelProfileService/getUserDetailInfoByUin', [uin])
   }
 
   async getUinByUid(uid: string): Promise<string> {
     const funcs = [
       async () => {
-        return (await this.ctx.pmhq.invoke('nodeIKernelUixConvertService/getUin', [[uid]])).uinInfo.get(uid)
+        return (await this.ctx.qqProtocol.invoke('nodeIKernelUixConvertService/getUin', [[uid]])).uinInfo.get(uid)
       },
       async () => {
         return (await this.getUserSimpleInfo(uid)).uin
@@ -93,7 +93,7 @@ export class NTQQUserApi extends Service {
 
   /** 始终会从服务器拉取 */
   async fetchUserDetailInfo(uid: string) {
-    return await this.ctx.pmhq.invoke(
+    return await this.ctx.qqProtocol.invoke(
       'nodeIKernelProfileService/fetchUserDetailInfo',
       [
         'BuddyProfileStore', // callFrom
@@ -105,7 +105,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getUserDetailInfoWithBizInfo(uid: string) {
-    const result = await this.ctx.pmhq.invoke<UserDetailInfo>(
+    const result = await this.ctx.qqProtocol.invoke<UserDetailInfo>(
       'nodeIKernelProfileService/getUserDetailInfoWithBizInfo',
       [
         uid,
@@ -121,7 +121,7 @@ export class NTQQUserApi extends Service {
 
   /** 无缓存时会从服务器拉取 */
   async getUserSimpleInfo(uid: string, force = true) {
-    const data = await this.ctx.pmhq.invoke<Map<string, SimpleInfo>>(
+    const data = await this.ctx.qqProtocol.invoke<Map<string, SimpleInfo>>(
       'nodeIKernelProfileService/getUserSimpleInfo',
       [
         force,
@@ -137,7 +137,7 @@ export class NTQQUserApi extends Service {
 
   /** 无缓存时会获取不到用户信息 */
   async getCoreAndBaseInfo(uids: string[]) {
-    return await this.ctx.pmhq.invoke(
+    return await this.ctx.qqProtocol.invoke(
       'nodeIKernelProfileService/getCoreAndBaseInfo',
       [
         'nodeStore',
@@ -147,7 +147,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getBuddyNick(uid: string) {
-    const data = await this.ctx.pmhq.invoke('nodeIKernelBuddyService/getBuddyNick', [[uid]])
+    const data = await this.ctx.qqProtocol.invoke('nodeIKernelBuddyService/getBuddyNick', [[uid]])
     return data.get(uid)
   }
 
@@ -163,14 +163,14 @@ export class NTQQUserApi extends Service {
   }
 
   async getPSkey(domains: string[]) {
-    return await this.ctx.pmhq.invoke('nodeIKernelTipOffService/getPskey', [
+    return await this.ctx.qqProtocol.invoke('nodeIKernelTipOffService/getPskey', [
       domains,
       true, // isFromNewPCQQ
     ])
   }
 
   async like(uid: string, count = 1) {
-    return await this.ctx.pmhq.invoke(
+    return await this.ctx.qqProtocol.invoke(
       'nodeIKernelProfileLikeService/setBuddyProfileLike',
       [{
 
@@ -183,7 +183,7 @@ export class NTQQUserApi extends Service {
   }
 
   async forceFetchClientKey() {
-    return await this.ctx.pmhq.invoke('nodeIKernelTicketService/forceFetchClientKey', [''])
+    return await this.ctx.qqProtocol.invoke('nodeIKernelTicketService/forceFetchClientKey', [''])
   }
 
   async getSelfNick(refresh = true) {
@@ -198,7 +198,7 @@ export class NTQQUserApi extends Service {
   }
 
   async setSelfStatus(status: number, extStatus: number, batteryStatus: number) {
-    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/setStatus', [
+    return await this.ctx.qqProtocol.invoke('nodeIKernelMsgService/setStatus', [
       {
         status,
         extStatus,
@@ -208,7 +208,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getProfileLike(uid: string, start = 0, limit = 20) {
-    return await this.ctx.pmhq.invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
+    return await this.ctx.qqProtocol.invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
       {
         friendUids: [uid],
         basic: 1,
@@ -223,7 +223,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getProfileLikeMe(uid: string, start = 0, limit = 20) {
-    return await this.ctx.pmhq.invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
+    return await this.ctx.qqProtocol.invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
       {
         friendUids: [uid],
         basic: 1,
@@ -238,7 +238,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getRobotUinRange() {
-    return await this.ctx.pmhq.invoke(
+    return await this.ctx.qqProtocol.invoke(
       'nodeIKernelRobotService/getRobotUinRange',
       [
         {
@@ -252,18 +252,18 @@ export class NTQQUserApi extends Service {
   }
 
   async quitAccount() {
-    return await this.ctx.pmhq.invoke(
+    return await this.ctx.qqProtocol.invoke(
       'quitAccount',
       [],
     )
   }
 
   async modifySelfProfile(profile: MiniProfile) {
-    return await this.ctx.pmhq.invoke('nodeIKernelProfileService/modifyDesktopMiniProfile', [profile])
+    return await this.ctx.qqProtocol.invoke('nodeIKernelProfileService/modifyDesktopMiniProfile', [profile])
   }
 
   async getRecentContactListSnapShot(count: number) {
-    return await this.ctx.pmhq.invoke('nodeIKernelRecentContactService/getRecentContactListSnapShot', [count])
+    return await this.ctx.qqProtocol.invoke('nodeIKernelRecentContactService/getRecentContactListSnapShot', [count])
   }
 
   async getUserInfoCompatible(uid: string) {

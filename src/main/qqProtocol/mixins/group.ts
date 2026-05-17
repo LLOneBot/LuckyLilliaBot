@@ -1,8 +1,8 @@
 import { Oidb } from '@/ntqqapi/proto'
 import { selfInfo } from '@/common/globalVars'
-import type { PMHQBase } from '../base'
+import type { QQProtocolBase } from '../base'
 
-export function GroupMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) {
+export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
   return class extends Base {
     async sendGroupPoke(groupCode: number, memberUin: number) {
       const body = Oidb.SendPokeReq.encode({
@@ -14,7 +14,7 @@ export function GroupMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
         subCommand: 1,
         body,
       })
-      return await this.wsSendPB('OidbSvcTrpcTcp.0xed3_1', data)
+      return await this.sendPB('OidbSvcTrpcTcp.0xed3_1', data)
     }
 
     async setSpecialTitle(groupCode: number, memberUid: string, title: string) {
@@ -32,7 +32,7 @@ export function GroupMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
         subCommand: 2,
         body,
       })
-      return await this.httpSendPB('OidbSvcTrpcTcp.0x8fc_2', data)
+      return await this.sendPB('OidbSvcTrpcTcp.0x8fc_2', data)
     }
 
     async groupClockIn(groupCode: string) {
@@ -47,7 +47,7 @@ export function GroupMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
         subCommand: 1,
         body,
       })
-      await this.httpSendPB('OidbSvcTrpcTcp.0xeb7_1', data)
+      await this.sendPB('OidbSvcTrpcTcp.0xeb7_1', data)
     }
 
     async getGroupFileUrl(groupCode: number, fileId: string) {
@@ -64,7 +64,7 @@ export function GroupMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
         subCommand: 2,
         body,
       })
-      const res = await this.httpSendPB('OidbSvcTrpcTcp.0x6d6_2', data)
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_2', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { download } = Oidb.GetGroupFileResp.decode(oidbRespBody)
       return {
@@ -98,7 +98,7 @@ export function GroupMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
         subCommand: 2,
         body,
       })
-      const res = await this.httpSendPB('OidbSvcTrpcTcp.0xfe5_2', data)
+      const res = await this.sendPB('OidbSvcTrpcTcp.0xfe5_2', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchGroupsResp.decode(oidbRespBody)
     }
@@ -121,7 +121,7 @@ export function GroupMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
         subCommand: 1,
         body,
       })
-      const res = await this.httpSendPB('OidbSvcTrpcTcp.0x6d8_1', data)
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d8_1', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.GetGroupFileListResp.decode(oidbRespBody)
     }

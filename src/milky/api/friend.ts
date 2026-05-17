@@ -18,7 +18,7 @@ const SendFriendNudge = defineApi(
   z.object({}),
   async (ctx, payload) => {
     // Use PMHQ to send friend poke
-    await ctx.pmhq.sendFriendPoke(payload.user_id, payload.is_self ? +selfInfo.uin : payload.user_id)
+    await ctx.qqProtocol.sendFriendPoke(payload.user_id, payload.is_self ? +selfInfo.uin : payload.user_id)
     return Ok({})
   }
 )

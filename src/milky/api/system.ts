@@ -80,7 +80,7 @@ const GetUserProfile = defineApi(
   GetUserProfileInput,
   GetUserProfileOutput,
   async (ctx, payload) => {
-    const info = await ctx.pmhq.fetchUserInfo(payload.user_id)
+    const info = await ctx.qqProtocol.fetchUserInfo(payload.user_id)
     return Ok({
       nickname: info.nick,
       qid: info.qid,
@@ -132,7 +132,7 @@ const GetGroupList = defineApi(
   GetGroupListInput,
   GetGroupListOutput,
   async (ctx) => {
-    const { groups } = await ctx.pmhq.fetchGroups()
+    const { groups } = await ctx.qqProtocol.fetchGroups()
     return Ok({
       groups: groups.map(e => {
         return {

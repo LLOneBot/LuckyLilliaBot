@@ -3,9 +3,9 @@ import { selfInfo } from '@/common/globalVars'
 import { randomBytes } from 'node:crypto'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { InferProtoModelInput } from '@saltify/typeproto'
-import type { PMHQBase } from '../base'
+import type { QQProtocolBase } from '../base'
 
-export function MessageMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) {
+export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
   return class extends Base {
     async uploadForward(peerUid: string, isGroup: boolean, items: InferProtoModelInput<typeof Msg.PbMultiMsgItem>[]) {
       const transmit = Msg.PbMultiMsgTransmit.encode({ pbItemList: items })
@@ -18,7 +18,7 @@ export function MessageMixin<T extends new (...args: any[]) => PMHQBase>(Base: T
         },
         settings: { field1: 4, field2: 1, field3: 7, field4: 0 },
       })
-      const res = await this.httpSendPB('trpc.group.long_msg_interface.MsgService.SsoSendLongMsg', data)
+      const res = await this.sendPB('trpc.group.long_msg_interface.MsgService.SsoSendLongMsg', data)
       return Action.SendLongMsgResp.decode(Buffer.from(res.pb, 'hex')).result!.resId!
     }
 
@@ -31,7 +31,7 @@ export function MessageMixin<T extends new (...args: any[]) => PMHQBase>(Base: T
         },
         settings: { field1: 2, field2: 0, field3: 0, field4: 0 },
       })
-      const res = await this.httpSendPB('trpc.group.long_msg_interface.MsgService.SsoRecvLongMsg', data)
+      const res = await this.sendPB('trpc.group.long_msg_interface.MsgService.SsoRecvLongMsg', data)
       const payload = Action.RecvLongMsgResp.decode(Buffer.from(res.pb, 'hex')).result.payload
       if (payload.length === 0) {
         throw new Error('获取合并转发消息内容失败')
@@ -50,14 +50,14 @@ export function MessageMixin<T extends new (...args: any[]) => PMHQBase>(Base: T
         field9: 0,
         field14: 1,
       })
-      const res = await this.httpSendPB('PicSearchSvr.PullPics', data)
+      const res = await this.sendPB('PicSearchSvr.PullPics', data)
       return Action.PullPicsResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     async fetchAiCharacterList(groupId: number, chatType: number) {
       const body = Oidb.FetchAiCharacterListReq.encode({ groupId, chatType })
       const data = Oidb.Base.encode({ command: 0x929d, subCommand: 0, body })
-      const res = await this.httpSendPB('OidbSvcTrpcTcp.0x929d_0', data)
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x929d_0', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchAiCharacterListResp.decode(oidbRespBody)
     }
@@ -72,7 +72,7 @@ export function MessageMixin<T extends new (...args: any[]) => PMHQBase>(Base: T
         clientMsgInfo: { msgRandom },
       })
       const data = Oidb.Base.encode({ command: 0x929b, subCommand: 0, body })
-      await this.httpSendPB('OidbSvcTrpcTcp.0x929b_0', data)
+      await this.sendPB('OidbSvcTrpcTcp.0x929b_0', data)
       return { msgRandom }
     }
   }

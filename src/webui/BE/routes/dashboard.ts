@@ -15,7 +15,7 @@ export function createDashboardRoutes(ctx: Context): Hono {
       const groups = await ctx.ntGroupApi.getGroups(false)
 
       // 获取 QQ 进程资源
-      const qqInfo = await ctx.pmhq.getProcessInfo()
+      const qqInfo = await ctx.qqProtocol.getProcessInfo()
       const qqMemory = qqInfo?.memory?.rss || 0
       const qqCpu = qqInfo?.cpu?.percent || 0
       const qqTotalMem = qqInfo?.memory?.totalMem || 1

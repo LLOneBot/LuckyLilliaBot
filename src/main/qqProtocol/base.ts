@@ -105,7 +105,7 @@ const NT_RECV_PMHQ_TYPE_TO_NT_METHOD = {
 
 const logHook = false
 
-export class PMHQBase extends Service {
+export class QQProtocolBase extends Service {
   static inject = ['logger', 'config']
 
   private reconnectTimer: NodeJS.Timeout | undefined
@@ -130,8 +130,8 @@ export class PMHQBase extends Service {
   private logger
 
   constructor(protected ctx: Context) {
-    super(ctx, 'pmhq')
-    this.logger = ctx.logger('pmhq')
+    super(ctx, 'qqProtocol')
+    this.logger = ctx.logger('qqProtocol')
     const { pmhqHost, pmhqPort } = this.getPMHQHostPort()
     this.httpUrl = `http://${pmhqHost}:${pmhqPort}/`
     this.wsUrl = `ws://${pmhqHost}:${pmhqPort}/ws`
@@ -351,27 +351,35 @@ export class PMHQBase extends Service {
     return result
   }
 
-  public async httpSendPB(cmd: string, pb: Uint8Array): Promise<PBData> {
+  public async sendPB(cmd: string, pb: Uint8Array): Promise<PBData> {
+    const hex = Buffer.from(pb).toString('hex')
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      return (
+        await this.wsSend<PMHQResSendPB>({
+          type: 'send',
+          data: { cmd, pb: hex },
+        })
+      ).data
+    }
     return (
       await this.httpSend<PMHQResSendPB>({
         type: 'send',
-        data: { cmd, pb: Buffer.from(pb).toString('hex') },
+        data: { cmd, pb: hex },
       })
     ).data
   }
 
-  public async wsSendPB(cmd: string, pb: Uint8Array): Promise<PBData> {
+  public async sendPBHex(cmd: string, hex: string): Promise<PBData> {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      return (
+        await this.wsSend<PMHQResSendPB>({
+          type: 'send',
+          data: { cmd, pb: hex },
+        })
+      ).data
+    }
     return (
-      await this.wsSend<PMHQResSendPB>({
-        type: 'send',
-        data: { cmd, pb: Buffer.from(pb).toString('hex') },
-      })
-    ).data
-  }
-
-  async sendPB(cmd: string, hex: string): Promise<PBData> {
-    return (
-      await this.wsSend<PMHQResSendPB>({
+      await this.httpSend<PMHQResSendPB>({
         type: 'send',
         data: { cmd, pb: hex },
       })

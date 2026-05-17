@@ -8,23 +8,23 @@ declare module 'cordis' {
 }
 
 export class NTLoginApi extends Service {
-  static inject = ['pmhq']
+  static inject = ['qqProtocol']
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntLoginApi')
   }
 
   async getQuickLoginList(){
-    return await this.ctx.pmhq.invoke('nodeIKernelLoginService/getLoginList', [])
+    return await this.ctx.qqProtocol.invoke('nodeIKernelLoginService/getLoginList', [])
   }
 
   async quickLoginWithUin(uin: string){
-    return await this.ctx.pmhq.invoke('nodeIKernelLoginService/quickLoginWithUin', [uin], {
+    return await this.ctx.qqProtocol.invoke('nodeIKernelLoginService/quickLoginWithUin', [uin], {
     })
   }
 
   async getLoginQrCode(){
-    return await this.ctx.pmhq.invoke('nodeIKernelLoginService/getQRCodePicture', [], {
+    return await this.ctx.qqProtocol.invoke('nodeIKernelLoginService/getQRCodePicture', [], {
       resultCmd: ReceiveCmdS.LOGIN_QR_CODE,
     })
   }

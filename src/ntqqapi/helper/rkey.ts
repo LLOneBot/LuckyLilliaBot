@@ -42,7 +42,7 @@ export class RkeyManager {
     const { promise, resolve } = Promise.withResolvers<void>()
     this.pull = promise
     try {
-      const { privateRKey, groupRKey, expiredTime } = await this.ctx.pmhq.getRKey()
+      const { privateRKey, groupRKey, expiredTime } = await this.ctx.qqProtocol.getRKey()
       this.rkeyData = {
         private_rkey: privateRKey,
         group_rkey: groupRKey,

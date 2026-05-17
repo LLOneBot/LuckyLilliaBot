@@ -199,7 +199,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
         return c.json({ success: false, message: '缺少 resId 参数' }, 400)
       }
 
-      const items = await ctx.pmhq.getMultiMsg(resId)
+      const items = await ctx.qqProtocol.getMultiMsg(resId)
       const messages = items[0]?.buffer?.msg || []
 
       const transformedMessages = await Promise.all(messages.map(async (msg) => {

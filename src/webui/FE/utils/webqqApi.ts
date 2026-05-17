@@ -429,10 +429,10 @@ export async function getUserDisplayName(uid: string, groupCode?: string): Promi
 export async function sendPoke(chatType: number, targetUin: number, groupCode?: number): Promise<void> {
   if (chatType === 2 && groupCode) {
     // 群聊戳一戳
-    await ntCall('pmhq', 'sendGroupPoke', [Number(groupCode), Number(targetUin)])
+    await ntCall('qqProtocol', 'sendGroupPoke', [Number(groupCode), Number(targetUin)])
   } else {
     // 私聊戳一戳
-    await ntCall('pmhq', 'sendFriendPoke', [Number(targetUin)])
+    await ntCall('qqProtocol', 'sendFriendPoke', [Number(targetUin)])
   }
 }
 
@@ -459,7 +459,7 @@ export async function muteGroupMember(groupCode: string, uid: string, duration: 
 
 // 设置群成员头衔 - 使用 pmhq（仅群主可用）
 export async function setMemberTitle(groupCode: string, uid: string, title: string): Promise<void> {
-  await ntCall('pmhq', 'setSpecialTitle', [parseInt(groupCode), uid, title])
+  await ntCall('qqProtocol', 'setSpecialTitle', [parseInt(groupCode), uid, title])
 }
 
 // 获取语音消息 URL（通过代理）
@@ -540,7 +540,7 @@ export async function getUserProfile(uid?: string, uin?: string, groupCode?: str
   // 如果等级为 0，通过 pmhq.fetchUserLevel 获取
   if (level === 0 && targetUin) {
     try {
-      level = await ntCall<number>('pmhq', 'fetchUserLevel', [parseInt(targetUin)])
+      level = await ntCall<number>('qqProtocol', 'fetchUserLevel', [parseInt(targetUin)])
     } catch {
       // 获取等级失败，忽略
     }

@@ -33,7 +33,7 @@ import EmailNotificationService from '@/common/emailNotification'
 import { EmailConfig } from '@/common/emailConfig'
 import { isDockerEnvironment } from '@/common/utils/environment'
 import { pathToFileURL } from 'node:url'
-import { PMHQ } from './pmhq'
+import { QQProtocolClient } from './qqProtocol'
 import LoggerService from '@cordisjs/plugin-logger'
 import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
@@ -61,7 +61,7 @@ async function onLoad() {
   })
   ctx.plugin(TimerService)
   ctx.plugin(ConfigService)
-  ctx.plugin(PMHQ)
+  ctx.plugin(QQProtocolClient)
   ctx.plugin(NTQQFileApi)
   ctx.plugin(NTQQFriendApi)
   ctx.plugin(NTQQGroupApi)
@@ -126,7 +126,7 @@ async function onLoad() {
   const checkLogin = async () => {
     let pmhqSelfInfo = { ...selfInfo }
     try {
-      pmhqSelfInfo = await ctx.pmhq.call('getSelfInfo', [])
+      pmhqSelfInfo = await ctx.qqProtocol.call('getSelfInfo', [])
     } catch (e) {
       ctx.logger.info('获取账号信息状态失败', e)
       setTimeout(checkLogin, 1000)
@@ -174,14 +174,14 @@ async function onLoad() {
     ctx.logger.info(process.argv)
   })
   // setFFMpegPath(config.ffmpeg || '')
-  ctx.inject(['pmhq', 'config', 'logger'], (ctx) => {
+  ctx.inject(['qqProtocol', 'config', 'logger'], (ctx) => {
     config = ctx.config.get()
     config.milky.enable = false
     config.satori.enable = false
     config.ob11.enable = false
     ctx.plugin(WebuiServer, config.webui)
     checkLogin()
-    ctx.pmhq.startHook()
+    ctx.qqProtocol.startHook()
   })
 }
 

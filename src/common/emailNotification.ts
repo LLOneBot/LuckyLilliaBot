@@ -14,7 +14,7 @@ declare module 'cordis' {
 }
 
 export class EmailNotificationService extends Service {
-  static inject = ['logger', 'pmhq']
+  static inject = ['logger', 'qqProtocol']
 
   private emailService: EmailService
   private configManager: EmailConfigManager
@@ -46,7 +46,7 @@ export class EmailNotificationService extends Service {
         this.fileWatcher.close()
       }
       if (this.pmhqDisconnectId) {
-        this.ctx.pmhq.offDisconnect(this.pmhqDisconnectId)
+        this.ctx.qqProtocol.offDisconnect(this.pmhqDisconnectId)
       }
     }
   }
@@ -92,7 +92,7 @@ export class EmailNotificationService extends Service {
   }
 
   private registerPmhqDisconnectCallback() {
-    this.pmhqDisconnectId = this.ctx.pmhq.onDisconnect(10000, (duration) => {
+    this.pmhqDisconnectId = this.ctx.qqProtocol.onDisconnect(10000, (duration) => {
       if (!this.notificationSent && this.hasLoggedIn) {
         this.ctx.logger.warn(`[EmailNotification] PMHQ disconnected for ${duration}ms`)
         this.onOffline('可能 QQ 已经有点死了')

@@ -53,7 +53,7 @@ export class GetForwardMsg extends BaseAction<Payload, Response> {
           const data = JSON.parse(arkElement.bytesData)
           if (data.app === 'com.tencent.multimsg') {
             const resId = data.meta.detail.resid
-            const res = await this.ctx.pmhq.getMultiMsg(resId)
+            const res = await this.ctx.qqProtocol.getMultiMsg(resId)
             return { messages: await decodeMultiMessage(this.ctx, res, config.messageFormat) }
           }
         }

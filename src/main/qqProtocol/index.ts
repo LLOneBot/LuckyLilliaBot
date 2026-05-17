@@ -1,4 +1,4 @@
-import { PMHQBase } from './base'
+import { QQProtocolBase } from './base'
 import { FriendMixin, GroupMixin, MediaMixin, MessageMixin, SystemMixin, UserMixin } from './mixins'
 
 export type {
@@ -47,13 +47,13 @@ function applyMixins<TBase extends Constructor, TMixins extends readonly Mixin<a
 
 
 /**
- * PMHQ 类 - 通过 Mixin 模式组合所有功能
+ * QQProtocolClient - 通过 Mixin 模式组合所有协议功能
  */
 const mixins = [GroupMixin, FriendMixin, MediaMixin, MessageMixin, UserMixin, SystemMixin] as const
-export const PMHQ = applyMixins(PMHQBase, mixins)
+export const QQProtocolClient = applyMixins(QQProtocolBase, mixins)
 
 declare module 'cordis' {
   interface Context {
-    pmhq: InstanceType<typeof PMHQ>
+    qqProtocol: InstanceType<typeof QQProtocolClient>
   }
 }

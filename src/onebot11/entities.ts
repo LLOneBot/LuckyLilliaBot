@@ -71,7 +71,7 @@ export namespace OB11Entities {
       resMsg.raw = msg
       resMsg.raw_pb = ''
       const uniqueId = `${msg.peerUin}_${msg.msgRandom}_${msg.msgSeq}`
-      const msgPB = ctx.pmhq.msgPBMap.get(uniqueId)
+      const msgPB = ctx.qqProtocol.msgPBMap.get(uniqueId)
       if (msgPB) {
         resMsg.raw_pb = msgPB
       }
