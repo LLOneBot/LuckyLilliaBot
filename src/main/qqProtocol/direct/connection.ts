@@ -39,6 +39,7 @@ export class TcpConnection extends EventEmitter {
 
       this.socket.on('data', (chunk: Buffer) => {
         this.buffer = Buffer.concat([this.buffer, chunk])
+        this.emit('rawdata', chunk)
         this.processFrames()
       })
 
@@ -76,6 +77,7 @@ export class TcpConnection extends EventEmitter {
     if (!this.socket || !this.connected) {
       throw new Error('Not connected')
     }
+    this.emit('send', data)
     this.socket.write(data)
   }
 
