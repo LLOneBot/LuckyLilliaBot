@@ -28,6 +28,7 @@
 
 import { teaEncrypt, teaDecrypt } from './tea'
 import { buildSsoReservedField } from './ssoReserved'
+import type { SignResult } from './sign'
 import { randomBytes } from 'node:crypto'
 
 export enum EncryptType {
@@ -76,7 +77,7 @@ function writeInt16PrefixedString(str: string): Buffer {
 /**
  * Build SSO Head (Protocol 12)
  */
-function buildSsoHead12(seq: number, cmd: string, ctx: PacketContext): Buffer {
+function buildSsoHead12(seq: number, cmd: string, ctx: PacketContext, signResult?: SignResult | null): Buffer {
   const parts: Buffer[] = []
 
   // Sequence
@@ -116,7 +117,7 @@ function buildSsoHead12(seq: number, cmd: string, ctx: PacketContext): Buffer {
   parts.push(writeInt16PrefixedString(ctx.buildVer))
 
   // Reserved field with int32 length prefix (SsoReservedField protobuf)
-  const reservedField = buildSsoReservedField(ctx.uin !== '0' ? ctx.uin : undefined)
+  const reservedField = buildSsoReservedField(ctx.uin !== '0' ? ctx.uin : undefined, signResult)
   parts.push(writeInt32Prefixed(reservedField))
 
   const head = Buffer.concat(parts)
@@ -207,8 +208,8 @@ export function buildServicePacket13(
 /**
  * Build complete SSO frame (head + payload) for Protocol 12
  */
-function buildSsoFrame12(seq: number, cmd: string, ctx: PacketContext, payload: Buffer): Buffer {
-  const head = buildSsoHead12(seq, cmd, ctx)
+function buildSsoFrame12(seq: number, cmd: string, ctx: PacketContext, payload: Buffer, signResult?: SignResult | null): Buffer {
+  const head = buildSsoHead12(seq, cmd, ctx, signResult)
   const payloadWithLen = writeInt32Prefixed(payload)
   return Buffer.concat([head, payloadWithLen])
 }
@@ -222,13 +223,13 @@ export function buildServicePacket(
   ctx: PacketContext,
   payload: Buffer,
   encryptType: EncryptType = EncryptType.EncryptD2Key,
+  signResult?: SignResult | null,
 ): Buffer {
   // Build SSO frame
-  const ssoFrame = buildSsoFrame12(seq, cmd, ctx, payload)
+  const ssoFrame = buildSsoFrame12(seq, cmd, ctx, payload, signResult)
 
   // Debug: dump SSO frame before encryption
   if (cmd.includes('trans_emp')) {
-    console.log(`[MY SSO BODY] ${ssoFrame.length} bytes`)
     console.log(`[MY SSO BODY HEX] ${ssoFrame.subarray(0, Math.min(ssoFrame.length, 200)).toString('hex').toUpperCase()}`)
   }
 

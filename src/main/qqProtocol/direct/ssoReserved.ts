@@ -1,12 +1,16 @@
 /**
  * SsoReservedField protobuf encoding
  *
- * Proto definition (partial, only fields we need):
+ * Proto definition:
  *   field 15: TraceParent (string) - "01-{32hex}-{16hex}-01"
  *   field 16: Uid (string) - user UID
- *
- * Uses manual protobuf encoding (varint + length-delimited)
+ *   field 24: SecInfo (message) - sign result
+ *     field 1: secSign (bytes)
+ *     field 2: secToken (bytes)
+ *     field 3: secExtra (bytes)
  */
+
+import type { SignResult } from './sign'
 
 const HEX_CHARS = '0123456789abcdef'
 
@@ -65,7 +69,7 @@ function encodeString(fieldNumber: number, value: string): Buffer {
 /**
  * Build SsoReservedField protobuf bytes
  */
-export function buildSsoReservedField(uid?: string): Buffer {
+export function buildSsoReservedField(uid?: string, signResult?: SignResult | null): Buffer {
   const parts: Buffer[] = []
 
   // Field 15: TraceParent (string)
@@ -73,6 +77,17 @@ export function buildSsoReservedField(uid?: string): Buffer {
 
   // Field 16: Uid (string) - always present (empty if not logged in)
   parts.push(encodeString(16, uid || ''))
+
+  // Field 24: SecInfo (message) - sign result
+  if (signResult) {
+    const secParts: Buffer[] = []
+    if (signResult.sign.length > 0) secParts.push(encodeLengthDelimited(1, signResult.sign))
+    if (signResult.token.length > 0) secParts.push(encodeLengthDelimited(2, signResult.token))
+    if (signResult.extra.length > 0) secParts.push(encodeLengthDelimited(3, signResult.extra))
+    if (secParts.length > 0) {
+      parts.push(encodeLengthDelimited(24, Buffer.concat(secParts)))
+    }
+  }
 
   return Buffer.concat(parts)
 }

@@ -6,6 +6,7 @@
 import { TcpConnection } from './connection'
 import { buildServicePacket, buildServicePacket13, parseServicePacket, EncryptType, PacketContext, SsoPacket } from './packet'
 import { generateEcdhKeyPair, EcdhKeyPair } from './ecdh'
+import { requestSign, SignResult } from './sign'
 import { randomBytes, createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 
@@ -15,6 +16,7 @@ export interface DirectClientConfig {
   ssoVersion: number
   buildVer: string
   useIPv6?: boolean
+  signUrl?: string
 }
 
 // Linux PC platform defaults
@@ -123,6 +125,15 @@ export class DirectProtocolClient extends EventEmitter {
     }
   }
 
+  private readonly SIGN_ALLOWLIST = new Set([
+    'wtlogin.trans_emp',
+    'wtlogin.login',
+    'trpc.o3.ecdh_access.EcdhAccess.SsoEstablishShareKey',
+    'trpc.o3.ecdh_access.EcdhAccess.SsoSecureAccess',
+    'MessageSvc.PbSendMsg',
+    'trpc.login.ecdh.EcdhService.SsoKeyExchange',
+  ])
+
   /**
    * Send a command and wait for response
    */
@@ -130,7 +141,14 @@ export class DirectProtocolClient extends EventEmitter {
     const seq = this.nextSeq()
     const ctx = this.getPacketContext()
     const enc = encryptType ?? (this.session ? EncryptType.EncryptD2Key : EncryptType.EncryptEmpty)
-    const packet = buildServicePacket(seq, cmd, ctx, payload, enc)
+
+    // Request sign if command is in allowlist and signUrl is configured
+    let signResult: SignResult | null = null
+    if (this.config.signUrl && this.SIGN_ALLOWLIST.has(cmd)) {
+      signResult = await requestSign(this.config.signUrl, cmd, payload, seq)
+    }
+
+    const packet = buildServicePacket(seq, cmd, ctx, payload, enc, signResult)
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
