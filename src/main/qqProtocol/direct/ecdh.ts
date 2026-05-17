@@ -24,10 +24,11 @@ export function generateEcdhKeyPair(): EcdhKeyPair {
   const ecdh = createECDH('secp192k1')
   ecdh.generateKeys()
 
-  const publicKey = Buffer.from(ecdh.getPublicKey('binary', 'compressed'))
+  const publicKey = Buffer.from(ecdh.getPublicKey(null, 'compressed'))
   const privateKey = Buffer.from(ecdh.getPrivateKey())
   const sharedSecret = ecdh.computeSecret(SERVER_PUBLIC_KEY_192K1)
-  const shareKey = createHash('md5').update(sharedSecret.subarray(0, 16)).digest()
+  // MD5 of shared secret X coordinate (full 24 bytes for secp192k1)
+  const shareKey = createHash('md5').update(sharedSecret).digest()
 
   return { publicKey, privateKey, shareKey }
 }

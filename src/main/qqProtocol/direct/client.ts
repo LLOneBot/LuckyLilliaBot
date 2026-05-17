@@ -20,9 +20,9 @@ export interface DirectClientConfig {
 // Linux PC platform defaults
 const DEFAULT_CONFIG: DirectClientConfig = {
   appId: 1600001615,
-  subAppId: 537234773,
+  subAppId: 537345891,
   ssoVersion: 19,
-  buildVer: '6.9.63-25765',
+  buildVer: '3.2.26-46494',
   useIPv6: false,
 }
 
