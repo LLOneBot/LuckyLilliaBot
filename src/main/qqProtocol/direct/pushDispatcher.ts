@@ -34,7 +34,6 @@ export function startPushDispatcher(ctx: Context, client: DirectProtocolClient) 
 }
 
 function dispatch(ctx: Context, packet: SsoPacket) {
-  console.log(`[PushDispatcher] cmd=${packet.cmd} len=${packet.payload.length}`)
   if (packet.cmd === MSG_PUSH_CMD) {
     handleMsgPush(ctx, packet.payload)
   } else if (packet.cmd === KICK_CMD) {
@@ -61,17 +60,13 @@ function handleMsgPush(ctx: Context, payload: Buffer) {
     case MsgType.GroupAdminChange:
     case MsgType.Event0x210:
     case MsgType.Event0x2DC:
-      handleSystemMessage(ctx, msg, payload)
+      handleSystemMessage(ctx, msg)
       break
   }
 }
 
-function handleSystemMessage(ctx: Context, _msg: any, rawPayload: Buffer) {
-  // Re-encode the Message as protobuf bytes for nt/system-message-created
-  // The upper layer (OneBot11 adapter) decodes with Msg.Message.decode(input)
-  // and routes by msgType/subType internally
-  const pushMsg = Msg.PushMsg.decode(rawPayload)
-  const messageBytes = Msg.Message.encode(pushMsg.message)
+function handleSystemMessage(ctx: Context, msg: any) {
+  const messageBytes = Msg.Message.encode(msg)
   ctx.parallel('nt/system-message-created', Buffer.from(messageBytes))
 }
 
@@ -133,15 +128,12 @@ function handleChatMessage(ctx: Context, msg: any, msgType: number) {
   // Skip self-sent messages
   if (rawMessage.senderUin === selfInfo.uin) return
 
-  console.log(`[QQ Server] Message from ${rawMessage.senderUin} in ${chatType === ChatType.Group ? 'group ' + peerUin : 'private'}: ${elements.filter(e => e.textElement).map(e => e.textElement?.content).join('')}`)
-
   triggerReceiveHook(ctx, ReceiveCmdS.NEW_MSG, [rawMessage])
 }
 
 function triggerReceiveHook(ctx: Context, cmd: string, payload: any) {
   const qqProtocol = ctx.qqProtocol as any
   if (!qqProtocol?.receiveHooks) {
-    console.log(`[PushDispatcher] No receiveHooks, emitting directly`)
     if (cmd === ReceiveCmdS.NEW_MSG) {
       for (const msg of payload as RawMessage[]) {
         ctx.parallel('nt/message-created', msg)
@@ -150,14 +142,11 @@ function triggerReceiveHook(ctx: Context, cmd: string, payload: any) {
     return
   }
 
-  let triggered = 0
   for (const hook of qqProtocol.receiveHooks.values()) {
     if (hook.method.includes(cmd)) {
-      triggered++
       Promise.resolve(hook.hookFunc(payload))
     }
   }
-  console.log(`[PushDispatcher] Triggered ${triggered} hooks for ${cmd}`)
 }
 
 function parseElements(elems: any[]): MessageElement[] {

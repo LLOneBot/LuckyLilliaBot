@@ -83,11 +83,15 @@ export namespace OB11Entities {
       resMsg.sender.card = msg.sendMemberName
       // 284840486: 合并转发内部
       if (msg.peerUin !== '284840486') {
-        const member = await ctx.ntGroupApi.getGroupMember(msg.peerUin, msg.senderUid)
-        resMsg.sender.nickname = member.nick
-        resMsg.sender.role = groupMemberRole(member.role)
-        resMsg.sender.level = member.memberRealLevel.toString()
-        resMsg.sender.title = member.memberSpecialTitle
+        try {
+          const member = await ctx.ntGroupApi.getGroupMember(msg.peerUin, msg.senderUid)
+          resMsg.sender.nickname = member.nick
+          resMsg.sender.role = groupMemberRole(member.role)
+          resMsg.sender.level = member.memberRealLevel.toString()
+          resMsg.sender.title = member.memberSpecialTitle
+        } catch {
+          resMsg.sender.nickname = msg.sendMemberName || msg.sendNickName
+        }
       }
     }
     else if (msg.chatType === ChatType.C2C) {
@@ -95,7 +99,11 @@ export namespace OB11Entities {
       if (msg.senderUin === '1094950020') {
         resMsg.sender.nickname = 'QQ用户'
       } else {
-        resMsg.sender.nickname = (await ctx.ntUserApi.getCoreAndBaseInfo([msg.senderUid])).get(msg.senderUid)!.coreInfo.nick
+        try {
+          resMsg.sender.nickname = (await ctx.ntUserApi.getCoreAndBaseInfo([msg.senderUid])).get(msg.senderUid)!.coreInfo.nick
+        } catch {
+          resMsg.sender.nickname = msg.sendNickName || msg.senderUin
+        }
       }
     }
     else if (msg.chatType === ChatType.TempC2CFromGroup) {
