@@ -46,31 +46,30 @@ let currentTgtgtKey = randomBytes(16)
  * Build WtLogin OICQ frame (0x02...0x03 wrapper)
  */
 function buildWtLoginFrame(uin: number, command: number, body: Buffer): Buffer {
-  const bodyLen = body.length + 53 // fixed header size within the frame
+  // Frame: 0x02 + [length(2)] + version(2) + cmd(2) + seq(2) + uin(4) +
+  //        retry(1) + encrypt(1) + reserved(1) + pubkeyVer(2) + pubkeyLen(2) + body + 0x03
+  // Length field = version(2)+cmd(2)+seq(2)+uin(4)+retry(1)+encrypt(1)+reserved(1)+pubkeyVer(2)+pubkeyLen(2)+body
+  //             = 17 + body.length
+  const frameLength = 17 + body.length
   const parts: Buffer[] = []
 
   parts.push(Buffer.from([0x02]))  // start byte
 
-  const header = Buffer.alloc(17)
-  header.writeUInt16BE(bodyLen, 0)       // total length
+  const header = Buffer.alloc(19)
+  header.writeUInt16BE(frameLength, 0)   // length
   header.writeUInt16BE(8001, 2)          // version
-  header.writeUInt16BE(command, 4)       // command (0x0812 TransEmp, 0x0810 login)
+  header.writeUInt16BE(command, 4)       // command
   header.writeUInt16BE(1, 6)             // sequence
   header.writeUInt32BE(uin, 8)           // uin
   header.writeUInt8(3, 12)              // retry flag
-  header.writeUInt8(0x87, 13)           // encrypt method (ECDH empty key)
+  header.writeUInt8(0x87, 13)           // encrypt method
   header.writeUInt8(0, 14)              // reserved
   header.writeUInt16BE(2, 15)           // public key version
+  header.writeUInt16BE(0, 17)           // public key length = 0
   parts.push(header)
 
-  // Public key length = 0 (use empty/shared key)
-  parts.push(Buffer.from([0x00, 0x00]))
-
-  // Body
   parts.push(body)
-
-  // End byte
-  parts.push(Buffer.from([0x03]))
+  parts.push(Buffer.from([0x03]))  // end byte
 
   return Buffer.concat(parts)
 }

@@ -27,6 +27,7 @@
  */
 
 import { teaEncrypt, teaDecrypt } from './tea'
+import { buildSsoReservedField } from './ssoReserved'
 import { randomBytes } from 'node:crypto'
 
 export enum EncryptType {
@@ -114,8 +115,9 @@ function buildSsoHead12(seq: number, cmd: string, ctx: PacketContext): Buffer {
   // App version with int16 length prefix
   parts.push(writeInt16PrefixedString(ctx.buildVer))
 
-  // Reserved field with int32 length prefix (empty for now)
-  parts.push(writeInt32Prefixed(Buffer.alloc(0)))
+  // Reserved field with int32 length prefix (SsoReservedField protobuf)
+  const reservedField = buildSsoReservedField(ctx.uin !== '0' ? ctx.uin : undefined)
+  parts.push(writeInt32Prefixed(reservedField))
 
   const head = Buffer.concat(parts)
 

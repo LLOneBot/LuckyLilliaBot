@@ -71,20 +71,21 @@ function parseKey(key: Uint8Array): Uint32Array {
 export function teaEncrypt(data: Uint8Array, key: Uint8Array): Uint8Array {
   const k = parseKey(key)
 
-  // Padding: (1 byte header) + (random fill to align to 8 bytes) + data + (7 bytes zero tail)
-  const fillCount = (8 - ((data.length + 10) % 8)) % 8
-  const padLen = 1 + fillCount + 2 // 1 header + fill + 2 zero bytes before data
-  const totalLen = padLen + data.length + 7
+  // Padding: fill(3~10 random bytes) + data + 7 zero bytes
+  // fill = 10 - ((data.length + 1) & 7), range [3, 10]
+  const fill = 10 - ((data.length + 1) & 7)
+  const totalLen = fill + data.length + 7
   const plain = new Uint8Array(totalLen)
 
-  // Header byte: (fillCount & 0x07) | (random high bits)
-  plain[0] = (fillCount & 0x07) | ((Math.random() * 0xf8) & 0xf8)
   // Random fill bytes
-  for (let i = 1; i <= fillCount + 2; i++) {
+  for (let i = 0; i < fill; i++) {
     plain[i] = Math.floor(Math.random() * 256)
   }
-  // Copy data
-  plain.set(data, padLen)
+  // First byte: (fill - 3) | 0xF8
+  plain[0] = ((fill - 3) & 0x07) | 0xF8
+
+  // Copy data after fill
+  plain.set(data, fill)
   // Last 7 bytes are zero (already)
 
   // CBC encrypt
@@ -128,9 +129,9 @@ export function teaDecrypt(data: Uint8Array, key: Uint8Array): Uint8Array {
     prevCipher1 = c1
   }
 
-  // Extract data: skip padding
-  const fillCount = plain[0] & 0x07
-  const start = 1 + fillCount + 2
+  // Extract data: skip fill bytes, strip 7 trailing zeros
+  const fill = (plain[0] & 0x07) + 3
+  const start = fill
   const end = data.length - 7
 
   if (start >= end) {

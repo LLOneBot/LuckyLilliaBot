@@ -44,7 +44,7 @@ async function main() {
   }
 
   // Step 2: Fetch QR code
-  console.log('Fetching QR code...')
+  console.log('Fetching QR code (timeout 15s)...')
   let qrResult
   try {
     qrResult = await fetchQrCode(client)
@@ -60,7 +60,9 @@ async function main() {
     console.log()
   } catch (err) {
     console.error('Fetch QR failed:', (err as Error).message)
-    console.error('Stack:', (err as Error).stack)
+    console.log('Waiting 10s to see if server responds late or closes...')
+    await sleep(10000)
+    console.error('No response received. Disconnecting.')
     client.disconnect()
     process.exit(1)
   }
