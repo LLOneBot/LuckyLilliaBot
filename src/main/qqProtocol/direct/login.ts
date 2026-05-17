@@ -232,8 +232,30 @@ export async function fetchQrCode(client: DirectProtocolClient): Promise<QrCodeR
   // TLV 0x66: SSO Version (duplicate)
   tlv.addTlvUint32(0x66, AppInfo.ssoVersion)
 
+  // TLV 0xD1: QrExtInfo protobuf (DevInfo + GenInfo)
+  tlv.addTlv(0xD1, buildTlvD1())
+
+  // Build TransEmp31 body (matches Lagrange's BuildTransEmp31)
+  const bodyParts: Buffer[] = []
+  // ushort: 0
+  bodyParts.push(Buffer.alloc(2))
+  // int: AppId
+  const appIdBuf = Buffer.alloc(4)
+  appIdBuf.writeInt32BE(AppInfo.appId)
+  bodyParts.push(appIdBuf)
+  // ulong: 0 (uin)
+  bodyParts.push(Buffer.alloc(8))
+  // empty TGT (raw empty = nothing written, or 0 bytes)
+  // byte: 0
+  bodyParts.push(Buffer.from([0x00]))
+  // empty (int16 length-only prefix = 0x0000)
+  bodyParts.push(Buffer.from([0x00, 0x00]))
+  // TLV collection
+  bodyParts.push(tlv.build())
+  const innerBody = Buffer.concat(bodyParts)
+
   // Build Code2D then wrap in WtLogin frame
-  const code2d = buildCode2dPacket(0x31, tlv.build())
+  const code2d = buildCode2dPacket(0x31, innerBody)
   const wtLogin = buildWtLoginFrame(0, 0x0812, code2d, client.getEcdhPublicKey(), client.getEcdhShareKey())
 
   // Send via SSO (Protocol 13 Simple, EncryptEmpty)
@@ -448,6 +470,64 @@ function buildTlv100(): Buffer {
   buf.writeUInt16BE(0, 14)
   buf.writeUInt32BE(AppInfo.mainSigMap, 16)
   return buf
+}
+
+function buildTlvD1(): Buffer {
+  // QrExtInfo protobuf:
+  // field 1 (DevInfo): message { field 1: devType (string), field 2: devName (string) }
+  // field 5 (GenInfo): message { field 6: uint = 1 }
+
+  // Build DevInfo
+  const devType = Buffer.from(DeviceInfo.devType)
+  const devName = Buffer.from(DeviceInfo.devName)
+  const devInfoParts: Buffer[] = []
+  // field 1: devType
+  devInfoParts.push(encodeProtoString(1, devType))
+  // field 2: devName
+  devInfoParts.push(encodeProtoString(2, devName))
+  const devInfo = Buffer.concat(devInfoParts)
+
+  // Build GenInfo
+  // field 6: uint = 1
+  const genInfo = encodeProtoVarint(6, 1)
+
+  // Build QrExtInfo
+  const parts: Buffer[] = []
+  // field 1: DevInfo (nested message)
+  parts.push(encodeProtoBytes(1, devInfo))
+  // field 5: GenInfo (nested message)
+  parts.push(encodeProtoBytes(5, genInfo))
+
+  return Buffer.concat(parts)
+}
+
+// Proto encoding helpers
+function encodeProtoVarint(fieldNum: number, value: number): Buffer {
+  const tag = (fieldNum << 3) | 0 // wire type 0 = varint
+  const tagBuf = encodeVarintBuf(tag)
+  const valBuf = encodeVarintBuf(value)
+  return Buffer.concat([tagBuf, valBuf])
+}
+
+function encodeProtoString(fieldNum: number, data: Buffer): Buffer {
+  return encodeProtoBytes(fieldNum, data)
+}
+
+function encodeProtoBytes(fieldNum: number, data: Buffer): Buffer {
+  const tag = (fieldNum << 3) | 2 // wire type 2 = length-delimited
+  const tagBuf = encodeVarintBuf(tag)
+  const lenBuf = encodeVarintBuf(data.length)
+  return Buffer.concat([tagBuf, lenBuf, data])
+}
+
+function encodeVarintBuf(value: number): Buffer {
+  const bytes: number[] = []
+  while (value > 0x7f) {
+    bytes.push((value & 0x7f) | 0x80)
+    value >>>= 7
+  }
+  bytes.push(value & 0x7f)
+  return Buffer.from(bytes)
 }
 
 // --- Response parsers ---
