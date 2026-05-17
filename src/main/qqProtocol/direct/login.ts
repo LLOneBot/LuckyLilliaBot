@@ -217,14 +217,19 @@ export async function fetchQrCode(client: DirectProtocolClient): Promise<QrCodeR
  * Poll QR code status (TransEmp12)
  */
 export async function pollQrCode(client: DirectProtocolClient, sig: Buffer): Promise<QrPollResult> {
-  // For poll, TLV body is empty but sig needs to be embedded somewhere
-  // Actually in Lagrange, TransEmp12 includes sig in the TLV collection
-  const tlv = new TlvWriter()
-  // No TLVs for poll - sig is part of the Code2D structure...
-  // Actually looking at Lagrange's BuildTransEmp12, it writes sig differently
-  // For now pass empty TLV and include sig as part of the body
+  // TransEmp12 body: appId(4) + sigLen(2) + sig + uin(8) + 0(4) + 0(1) + 0x03(1)
+  const bodySize = 4 + 2 + sig.length + 8 + 4 + 1 + 1
+  const body = Buffer.alloc(bodySize)
+  let off = 0
+  body.writeUInt32BE(AppInfo.appId, off); off += 4
+  body.writeUInt16BE(sig.length, off); off += 2
+  sig.copy(body, off); off += sig.length
+  body.writeBigUInt64BE(0n, off); off += 8  // uin = 0
+  body.writeUInt32BE(0, off); off += 4
+  body.writeUInt8(0, off); off += 1
+  body.writeUInt8(0x03, off); off += 1
 
-  const code2d = buildCode2dPacket(0x12, Buffer.concat([sig, Buffer.from([0x00, 0x00])]))
+  const code2d = buildCode2dPacket(0x12, body)
   const wtLogin = buildWtLoginFrame(0, 'wtlogin.trans_emp', code2d, client.getEcdhPublicKey(), client.getEcdhShareKey())
 
   const resp = await client.sendCommand(
@@ -510,8 +515,15 @@ function parseTransEmp31Response(data: Buffer, shareKey: Buffer): QrCodeResult {
   let url = ''
   const tlvD1 = tlvs.get(0xD1)
   if (tlvD1) {
-    const urlMatch = tlvD1.toString('utf-8').match(/https?:\/\/[^\x00\x01\x02]+/)
-    if (urlMatch) url = urlMatch[0]
+    // TLV 0xD1 is protobuf. Field 2 = qrUrl. Extract URL with simple regex.
+    const str = tlvD1.toString('latin1')
+    const urlStart = str.indexOf('https://')
+    if (urlStart >= 0) {
+      // URL ends at first non-printable or non-URL character
+      let urlEnd = urlStart
+      while (urlEnd < str.length && str.charCodeAt(urlEnd) >= 0x20 && str.charCodeAt(urlEnd) < 0x7f) urlEnd++
+      url = str.slice(urlStart, urlEnd)
+    }
   }
 
   // Extract QR image from TLV 0x17
@@ -521,46 +533,50 @@ function parseTransEmp31Response(data: Buffer, shareKey: Buffer): QrCodeResult {
 }
 
 
-function parseTransEmp12Response(data: Buffer, tgtgtKey: Buffer): QrPollResult {
-  // Strip WtLogin frame
-  let body = data
-  if (body[0] === 0x02 && body[body.length - 1] === 0x03) {
-    body = body.subarray(13, body.length - 1)
+function parseTransEmp12Response(data: Buffer, shareKey: Buffer): QrPollResult {
+  // Same WtLogin unwrap as TransEmp31
+  if (data[0] !== 0x02 || data[data.length - 1] !== 0x03) {
+    throw new Error('Invalid WtLogin response frame')
   }
 
-  // Decrypt Code2D response
-  let offset = 0
-  offset += 2 + 4 + 4 + 4 + 2 // code2d header (16 bytes)
-  const encLen = body.readUInt16BE(offset); offset += 2
-  const encBody = body.subarray(offset, offset + encLen)
+  const encrypted = data.subarray(1 + 15, data.length - 1)
 
   let decrypted: Buffer
   try {
-    decrypted = Buffer.from(teaDecrypt(encBody, tgtgtKey))
+    decrypted = Buffer.from(teaDecrypt(encrypted, shareKey))
   } catch {
     throw new Error('Failed to decrypt TransEmp12 response')
   }
 
-  let dOffset = 0
-  dOffset += 2 + 4 // dummy + appId
-  const state = decrypted.readUInt8(dOffset) as QrCodeState; dOffset += 1
+  // unwrapTransEmpPacket: skip 8, read subCommand, skip 40, read appId, then data
+  let offset = 0
+  offset += 8
+  offset += 2  // subCommand
+  offset += 40
+  offset += 4  // appId
+  const transEmpData = decrypted.subarray(offset)
+
+  // TransEmp12Response: same as tanebi's TransEmp12Response structure
+  // dummyByte(1) + state depends on content
+  let dOff = 0
+  const state = transEmpData.readUInt8(dOff) as QrCodeState; dOff += 1
 
   if (state !== QrCodeState.Confirmed) {
     return { state }
   }
 
-  // UIN (8 bytes)
-  const uin = decrypted.readBigUInt64BE(dOffset).toString(); dOffset += 8
-  // Retry count (4 bytes)
-  dOffset += 4
+  // When confirmed: signature(uint16 prefix) + tlvPack
+  const sigLen = transEmpData.readUInt16BE(dOff); dOff += 2
+  dOff += sigLen // skip sig
 
   // TLV collection
-  const tlvData = decrypted.subarray(dOffset)
+  const tlvData = transEmpData.subarray(dOff)
   const tlvs = tlvUnpack(tlvData)
 
+  // Extract credentials
   return {
     state,
-    uin,
+    uin: '', // Will be obtained from getCorrectUin like tanebi does
     tgtgtKey: tlvs.get(0x1E),
     noPicSig: tlvs.get(0x19),
     tempPassword: tlvs.get(0x18),
@@ -632,63 +648,3 @@ function parseLoginResponse(data: Buffer, tgtgtKey: Buffer): import('./client').
     sKey: tlvs.get(0x120) || Buffer.alloc(0),
   }
 }
-
-export enum QrCodeState {
-  Confirmed = 0,
-  Expired = 17,
-  WaitingForScan = 48,
-  WaitingForConfirm = 53,
-  Cancelled = 54,
-}
-
-export interface QrCodeResult {
-  url: string
-  image: Buffer
-  sig: Buffer
-}
-
-export interface QrPollResult {
-  state: QrCodeState
-  uin?: string
-  tgtgtKey?: Buffer
-  noPicSig?: Buffer
-  tempPassword?: Buffer
-}
-
-/**
- * Build the outer WtLogin packet frame
- */
-function buildWtLoginPacket(cmd: number, uin: bigint, body: Buffer): Buffer {
-  const parts: Buffer[] = []
-
-  // Header
-  const header = Buffer.alloc(15)
-  header.writeUInt16BE(8001, 0)    // version
-  header.writeUInt16BE(cmd, 2)     // command (0x0812 for TransEmp, 0x0810 for login)
-  header.writeUInt16BE(1, 4)       // seq placeholder
-  header.writeUInt32BE(Number(uin & 0xFFFFFFFFn), 6) // uin lower 32
-  header.writeUInt8(3, 10)         // retry flag
-  header.writeUInt8(0x87, 11)      // encrypt method flag
-  header.writeUInt8(0, 12)         // reserved
-  header.writeUInt16BE(0, 13)      // public key index
-  parts.push(header)
-
-  // Encrypt key (16 zero bytes for empty encrypt)
-  parts.push(Buffer.alloc(2))  // key length = 0 when empty encrypt
-
-  // Body
-  parts.push(body)
-
-  // Tail
-  parts.push(Buffer.from([0x03]))
-
-  const inner = Buffer.concat(parts)
-
-  // Prefix with length
-  const frame = Buffer.alloc(4 + inner.length)
-  frame.writeUInt32BE(inner.length + 4, 0)
-  inner.copy(frame, 4)
-
-  return frame
-}
-
