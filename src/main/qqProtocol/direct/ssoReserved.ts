@@ -71,10 +71,8 @@ export function buildSsoReservedField(uid?: string): Buffer {
   // Field 15: TraceParent (string)
   parts.push(encodeString(15, generateTraceParent()))
 
-  // Field 16: Uid (string) - only if logged in
-  if (uid) {
-    parts.push(encodeString(16, uid))
-  }
+  // Field 16: Uid (string) - always present (empty if not logged in)
+  parts.push(encodeString(16, uid || ''))
 
   return Buffer.concat(parts)
 }
