@@ -230,6 +230,7 @@ export function buildServicePacket(
 
   // Debug: dump SSO frame before encryption
   if (cmd.includes('trans_emp')) {
+    console.log(`[MY SSO] len=${ssoFrame.length} head=${ssoFrame.subarray(0, 4).toString('hex')}`)
     console.log(`[MY SSO BODY HEX] ${ssoFrame.subarray(0, Math.min(ssoFrame.length, 200)).toString('hex').toUpperCase()}`)
   }
 

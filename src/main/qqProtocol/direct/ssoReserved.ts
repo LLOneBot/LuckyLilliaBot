@@ -72,21 +72,22 @@ function encodeString(fieldNumber: number, value: string): Buffer {
 export function buildSsoReservedField(uid?: string, signResult?: SignResult | null): Buffer {
   const parts: Buffer[] = []
 
-  // Field 15: TraceParent (string)
-  parts.push(encodeString(15, generateTraceParent()))
-
-  // Field 16: Uid (string) - always present (empty if not logged in)
-  parts.push(encodeString(16, uid || ''))
-
-  // Field 24: SecInfo (message) - sign result
+  // Field 24: SecInfo (message) - sign result (write BEFORE traceParent per tanebi)
   if (signResult) {
     const secParts: Buffer[] = []
     if (signResult.sign.length > 0) secParts.push(encodeLengthDelimited(1, signResult.sign))
     if (signResult.token.length > 0) secParts.push(encodeLengthDelimited(2, signResult.token))
+    else secParts.push(encodeLengthDelimited(2, Buffer.alloc(0))) // empty token field
     if (signResult.extra.length > 0) secParts.push(encodeLengthDelimited(3, signResult.extra))
-    if (secParts.length > 0) {
-      parts.push(encodeLengthDelimited(24, Buffer.concat(secParts)))
-    }
+    parts.push(encodeLengthDelimited(24, Buffer.concat(secParts)))
+  }
+
+  // Field 15: TraceParent (string)
+  parts.push(encodeString(15, generateTraceParent()))
+
+  // Field 16: Uid (string) - skip if empty (tanebi doesn't write empty uid)
+  if (uid) {
+    parts.push(encodeString(16, uid))
   }
 
   return Buffer.concat(parts)
