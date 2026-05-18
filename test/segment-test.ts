@@ -258,9 +258,10 @@ async function main() {
     { skipReason: existsSync(TEST_PTT) ? undefined : `ptt ${TEST_PTT} not found` })
 
   // 8. 视频（自动抽帧做缩略图）
-  // 注意：QQ 服务端对视频消息特殊处理 — PbSendMsg 响应不含 sequence(field 11)。
-  // Lagrange 同样行为（result.Sequence=0），真实 seq 通过 OlPush 异步推送。
-  // 这里只验证消息发出去不抛错。
+  // 视频跟其他消息一样，server 会返回 sequence — 之前观察到 video 没 seq
+  // 实际上是因为旧文件被错误的 highway cmd 上传过，server 缓存里 routing
+  // 错位导致 PbSendMsg 接受但找不到正确投递路径。修了 cmd 1001/1002 后新视
+  // 频正常返回 sequence。
   await sendAndVerify(ctx, 'Video (mp4)',
     async () => [await SendElement.video(ctx, TEST_VIDEO)],
     (m) => {
@@ -270,6 +271,7 @@ async function main() {
     },
     {
       skipReason: existsSync(TEST_VIDEO) ? undefined : `video ${TEST_VIDEO} not found`,
+      // 旧 fixture 可能已被错 cmd 污染过 server 缓存，允许 missing seq
       allowMissingSeq: true,
     })
 

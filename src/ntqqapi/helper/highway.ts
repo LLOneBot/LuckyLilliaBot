@@ -100,17 +100,22 @@ class HighwayTcpUploaderTransform extends Transform {
 export class HighwayTcpSession extends AbstractHighwaySession {
   override async upload() {
     await new Promise<void>((resolve, reject) => {
+      let receivedFinalResponse = false
+      let lastErrorCode = -1
       const highwayTransForm = new HighwayTcpUploaderTransform(this)
       const socket = connect(this.trans.port, this.trans.server, () => {
         this.trans.readable.pipe(highwayTransForm).pipe(socket, { end: false })
       })
       const handleRspHeader = (header: Buffer) => {
         const rsp = Media.RespDataHighwayHead.decode(header)
+        lastErrorCode = rsp.errorCode
         if (rsp.errorCode !== 0) {
           socket.end()
           reject(new Error(`TCP Upload failed (code=${rsp.errorCode})`))
+          return
         }
         if (rsp.msgSegHead!.dataOffset + rsp.msgSegHead!.dataLength >= rsp.msgSegHead!.filesize) {
+          receivedFinalResponse = true
           socket.end()
           resolve()
         }
@@ -120,7 +125,12 @@ export class HighwayTcpSession extends AbstractHighwaySession {
         handleRspHeader(head)
       })
       socket.on('close', () => {
-        resolve()
+        // 必须收到完整最终 ack 才算成功，否则 fallback 到 HTTP
+        if (receivedFinalResponse) {
+          resolve()
+        } else {
+          reject(new Error(`TCP Upload incomplete: socket closed before final ack (lastErrorCode=${lastErrorCode})`))
+        }
       })
       socket.on('error', (err) => {
         socket.end()

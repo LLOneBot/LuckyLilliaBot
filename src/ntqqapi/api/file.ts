@@ -141,6 +141,7 @@ export class NTQQFileApi extends Service {
     const result = await this.ctx.qqProtocol.getGroupVideoUploadInfo(groupCode, filePath, thumbPath)
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const maxBlockSize = 1024 * 1024
+    // 注意：result.ext.uKey 为空表示 server 已有该文件（按 md5 命中），跳过 highway 上传
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
       result.ext.hash.fileSha1 = (await calculateSha1StreamBytes(filePath)).map((b: Buffer) => Buffer.from(b))
