@@ -39,6 +39,10 @@ export namespace Media {
     video: ProtoField(2, {
       pbReserve: ProtoField(3, 'bytes')
     }),
+    ptt: ProtoField(3, {
+      bytesPbReserve: ProtoField(11, 'bytes', 'optional'),
+      bytesGeneralFlags: ProtoField(12, 'bytes', 'optional'),
+    }, 'optional'),
     busiType: ProtoField(10, 'uint32')
   })
 

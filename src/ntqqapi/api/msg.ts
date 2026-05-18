@@ -183,8 +183,40 @@ export class NTQQMsgApi extends Service {
             businessType: isGroup ? 20 : 10,
           }
         })
+      } else if (elem.elementType === ElementType.Video) {
+        const v = elem.videoElement
+        const sourcePath = v.filePath
+        const thumbPath = v.thumbPath instanceof Map ? [...v.thumbPath.values()][0] : ''
+        if (!sourcePath || !thumbPath) continue
+        const isGroup = peer.chatType === ChatType.Group
+        const result = isGroup
+          ? await this.ctx.ntFileApi.uploadGroupVideo(peer.peerUid, sourcePath, thumbPath)
+          : await this.ctx.ntFileApi.uploadC2CVideo(peer.peerUid, sourcePath, thumbPath)
+        const msgInfoBytes = Media.MsgInfo.encode(result.msgInfo)
+        elems.push({
+          commonElem: {
+            serviceType: 48,
+            pbElem: Buffer.from(msgInfoBytes),
+            businessType: isGroup ? 21 : 11,
+          }
+        })
+      } else if (elem.elementType === ElementType.Ptt) {
+        const p = elem.pttElement
+        const sourcePath = p.filePath
+        if (!sourcePath) continue
+        const isGroup = peer.chatType === ChatType.Group
+        const result = isGroup
+          ? await this.ctx.ntFileApi.uploadGroupPtt(peer.peerUid, sourcePath, p.duration ?? 1)
+          : await this.ctx.ntFileApi.uploadC2CPtt(peer.peerUid, sourcePath, p.duration ?? 1)
+        const msgInfoBytes = Media.MsgInfo.encode(result.msgInfo)
+        elems.push({
+          commonElem: {
+            serviceType: 48,
+            pbElem: Buffer.from(msgInfoBytes),
+            businessType: isGroup ? 22 : 12,
+          }
+        })
       }
-      // 其他元素类型（视频/语音/文件）暂未实现
     }
 
     const isGroup = peer.chatType === ChatType.Group

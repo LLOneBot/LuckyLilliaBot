@@ -6,8 +6,9 @@ import { randomInt } from 'node:crypto'
 import { stat } from 'node:fs/promises'
 
 interface Entity {
-  type: 'video' | 'image'
+  type: 'video' | 'image' | 'voice'
   filePath: string
+  duration?: number  // for voice (seconds)
 }
 
 export namespace NTV2RichMedia {
@@ -24,6 +25,9 @@ export namespace NTV2RichMedia {
     } else if (entity.type === 'image') {
       requestType = 2
       businessType = 1
+    } else if (entity.type === 'voice') {
+      requestType = 2
+      businessType = 3
     }
     const isGroup = peer.chatType === ChatType.Group
     return Media.NTV2RichMediaReq.encode({
@@ -90,6 +94,11 @@ export namespace NTV2RichMedia {
       }
       width = w
       height = h
+      original = 1
+    } else if (entity.type === 'voice') {
+      fileName = `${md5HexStr}.amr`
+      fileType = { type: 3, pttFormat: 1 }
+      time = entity.duration ?? 1
       original = 1
     }
 

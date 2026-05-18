@@ -335,6 +335,52 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
     }
 
+    async getGroupPttUploadInfo(groupCode: string, filePath: string, duration: number) {
+      const peer = { chatType: ChatType.Group, peerUid: groupCode, guildId: '' }
+      const body = await NTV2RichMedia.buildUploadReq(
+        peer,
+        { type: 'voice', filePath, duration },
+        {
+          ptt: {
+            bytesPbReserve: Buffer.from([0x08, 0x00, 0x38, 0x00]),
+            bytesGeneralFlags: Buffer.from([0x9a, 0x01, 0x07, 0xaa, 0x03, 0x04, 0x08, 0x08, 0x12, 0x00]),
+          } as any,
+        },
+      )
+      const data = Oidb.Base.encode({ command: 0x126e, subCommand: 100, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x126e_100', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
+      return {
+        info: upload.msgInfo,
+        compat: upload.compatQMsg,
+        ext: NTV2RichMedia.generateExt(upload),
+      }
+    }
+
+    async getC2CPttUploadInfo(peerUid: string, filePath: string, duration: number) {
+      const peer = { chatType: ChatType.C2C, peerUid, guildId: '' }
+      const body = await NTV2RichMedia.buildUploadReq(
+        peer,
+        { type: 'voice', filePath, duration },
+        {
+          ptt: {
+            bytesPbReserve: Buffer.from([0x08, 0x00, 0x38, 0x00]),
+            bytesGeneralFlags: Buffer.from([0x9a, 0x01, 0x07, 0xaa, 0x03, 0x04, 0x08, 0x08, 0x12, 0x00]),
+          } as any,
+        },
+      )
+      const data = Oidb.Base.encode({ command: 0x126d, subCommand: 100, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x126d_100', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
+      return {
+        info: upload.msgInfo,
+        compat: upload.compatQMsg,
+        ext: NTV2RichMedia.generateExt(upload),
+      }
+    }
+
     async imageOcr(imageUrl: string) {
       const body = Oidb.ImageOcrReq.encode({
         version: 1,

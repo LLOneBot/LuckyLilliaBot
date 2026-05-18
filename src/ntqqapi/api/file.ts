@@ -560,4 +560,56 @@ export class NTQQFileApi extends Service {
       compat: result.compat
     }
   }
+
+  async uploadGroupPtt(groupCode: string, filePath: string, duration: number) {
+    const result = await this.ctx.qqProtocol.getGroupPttUploadInfo(groupCode, filePath, duration)
+    const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
+    const maxBlockSize = 1024 * 1024
+    if (result.ext.uKey) {
+      const { index } = result.ext.msgInfoBody[0]
+      const trans = {
+        uin: selfInfo.uin,
+        cmd: 1008,
+        readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
+        sum: Buffer.from(index.info.md5HexStr, 'hex'),
+        size: index.info.fileSize,
+        ticket: highwaySession.sigSession,
+        ext: Media.NTV2RichMediaHighwayExt.encode(result.ext),
+        server: highwaySession.highwayHostAndPorts[1][0].host,
+        port: highwaySession.highwayHostAndPorts[1][0].port
+      }
+      try {
+        await new HighwayTcpSession(trans).upload()
+      } catch {
+        await new HighwayHttpSession(trans).upload()
+      }
+    }
+    return { msgInfo: result.info, compat: result.compat }
+  }
+
+  async uploadC2CPtt(peerUid: string, filePath: string, duration: number) {
+    const result = await this.ctx.qqProtocol.getC2CPttUploadInfo(peerUid, filePath, duration)
+    const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
+    const maxBlockSize = 1024 * 1024
+    if (result.ext.uKey) {
+      const { index } = result.ext.msgInfoBody[0]
+      const trans = {
+        uin: selfInfo.uin,
+        cmd: 1007,
+        readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
+        sum: Buffer.from(index.info.md5HexStr, 'hex'),
+        size: index.info.fileSize,
+        ticket: highwaySession.sigSession,
+        ext: Media.NTV2RichMediaHighwayExt.encode(result.ext),
+        server: highwaySession.highwayHostAndPorts[1][0].host,
+        port: highwaySession.highwayHostAndPorts[1][0].port
+      }
+      try {
+        await new HighwayTcpSession(trans).upload()
+      } catch {
+        await new HighwayHttpSession(trans).upload()
+      }
+    }
+    return { msgInfo: result.info, compat: result.compat }
+  }
 }
