@@ -1,10 +1,7 @@
 import { Msg, Notify } from '@/ntqqapi/proto'
 import { ChatType, ElementType, RawMessage, MessageElement, GrayTipElementSubType, GroupNotify, GroupNotifyType, GroupNotifyStatus, FriendRequestNotify, BuddyReqType } from '@/ntqqapi/types'
-import type { DirectProtocolClient } from './client'
-import type { SsoPacket } from './packet'
 import type { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
-import { ReceiveCmdS } from '@/ntqqapi/hook'
 
 const MSG_PUSH_CMD = 'trpc.msg.olpush.OlPushService.MsgPush'
 const KICK_CMD = 'trpc.qq_new_tech.status_svc.StatusService.KickNT'
@@ -41,21 +38,19 @@ const enum Event0x2DCSub {
   GroupEssenceChange = 21,
 }
 
-export function startPushDispatcher(ctx: Context, client: DirectProtocolClient) {
-  client.on('push', (packet: SsoPacket) => {
-    try {
-      dispatch(ctx, packet)
-    } catch (e) {
-      ctx.logger('qqProtocol').warn('Push dispatch error:', (e as Error).message)
+/**
+ * 解析 QQ 协议原始 protobuf 推送，emit 对应 cordis 事件。
+ * 直连模式和 PMHQ 模式都用这个入口。
+ */
+export function dispatchRawProtobuf(ctx: Context, cmd: string, payload: Buffer) {
+  try {
+    if (cmd === MSG_PUSH_CMD) {
+      handleMsgPush(ctx, payload)
+    } else if (cmd === KICK_CMD) {
+      ctx.parallel('nt/kicked-offLine', { tipsTitle: 'KickNT', tipsDesc: 'Kicked by server' } as any)
     }
-  })
-}
-
-function dispatch(ctx: Context, packet: SsoPacket) {
-  if (packet.cmd === MSG_PUSH_CMD) {
-    handleMsgPush(ctx, packet.payload)
-  } else if (packet.cmd === KICK_CMD) {
-    ctx.parallel('nt/kicked-offLine', { tipsTitle: 'KickNT', tipsDesc: 'Kicked by server' } as any)
+  } catch (e) {
+    ctx.logger('qqProtocol').warn('dispatchRawProtobuf error:', (e as Error).message)
   }
 }
 
@@ -168,7 +163,7 @@ function handleFriendRequest(ctx: Context, msg: any, content: Buffer) {
       }],
     }
 
-    triggerReceiveHook(ctx, ReceiveCmdS.FRIEND_REQUEST, notify)
+    ctx.parallel('nt/raw/friend-request', notify)
   } catch (e) {
     ctx.logger('qqProtocol').warn('Failed to parse FriendRequest:', (e as Error).message)
   }
@@ -199,7 +194,7 @@ function handleFriendRecall(ctx: Context, msg: any, content: Buffer) {
       operatorUin: senderUin,
     })
 
-    triggerReceiveHook(ctx, ReceiveCmdS.UPDATE_MSG, [recallMessage])
+    ctx.parallel('nt/raw/update-msg', [recallMessage])
   } catch (e) {
     ctx.logger('qqProtocol').warn('Failed to parse FriendRecall:', (e as Error).message)
   }
@@ -269,7 +264,7 @@ function handleGroupRecall(ctx: Context, msg: any, content: Buffer) {
       operatorUin: '0',
     })
 
-    triggerReceiveHook(ctx, ReceiveCmdS.UPDATE_MSG, [recallMessage])
+    ctx.parallel('nt/raw/update-msg', [recallMessage])
   } catch (e) {
     ctx.logger('qqProtocol').warn('Failed to parse GroupRecall:', (e as Error).message)
   }
@@ -346,7 +341,7 @@ function handleGroupJoinRequest(ctx: Context, msg: any) {
       joinGroupTransInfo: {},
     } as unknown as GroupNotify
 
-    triggerReceiveHook(ctx, 'nodeIKernelGroupListener/onGroupNotifiesUpdated', [false, [notify]])
+    ctx.parallel('nt/raw/group-notifies-updated', [false, [notify]])
   } catch (e) {
     ctx.logger('qqProtocol').warn('Failed to parse GroupJoinRequest:', (e as Error).message)
   }
@@ -394,7 +389,7 @@ function handleGroupInvitation(ctx: Context, msg: any, msgType: number) {
       joinGroupTransInfo: {},
     } as unknown as GroupNotify
 
-    triggerReceiveHook(ctx, 'nodeIKernelGroupListener/onGroupNotifiesUpdated', [false, [notify]])
+    ctx.parallel('nt/raw/group-notifies-updated', [false, [notify]])
   } catch (e) {
     ctx.logger('qqProtocol').warn('Failed to parse GroupInvitation:', (e as Error).message)
   }
@@ -520,23 +515,12 @@ function handleChatMessage(ctx: Context, msg: any, msgType: number) {
   }
 
   if (isSelfMsg) {
-    triggerReceiveHook(ctx, ReceiveCmdS.SELF_SEND_MSG, rawMessage)
-    triggerReceiveHook(ctx, ReceiveCmdS.UPDATE_MSG, [rawMessage])
+    ctx.parallel('nt/raw/self-send-msg', rawMessage)
+    ctx.parallel('nt/raw/update-msg', [rawMessage])
     return
   }
 
-  triggerReceiveHook(ctx, ReceiveCmdS.NEW_MSG, [rawMessage])
-}
-
-function triggerReceiveHook(ctx: Context, cmd: string, payload: any) {
-  const qqProtocol = ctx.qqProtocol as any
-  if (!qqProtocol?.receiveHooks) return
-
-  for (const hook of qqProtocol.receiveHooks.values()) {
-    if (hook.method.includes(cmd)) {
-      Promise.resolve(hook.hookFunc(payload))
-    }
-  }
+  ctx.parallel('nt/raw/new-msg', [rawMessage])
 }
 
 function parseElements(elems: any[]): MessageElement[] {

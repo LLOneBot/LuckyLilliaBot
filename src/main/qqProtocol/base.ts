@@ -20,9 +20,8 @@ import { NTMethod } from '@/ntqqapi/ntcall'
 import { ReceiveCmdS } from '@/ntqqapi/hook'
 import { inspect } from 'node:util'
 import { DetailedError } from '@/common/utils'
-import { parseProtobufFromHex } from '@/common/utils/protobuf-parser'
 import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, registerOnline, startHeartbeat, getCorrectUin, QrCodeState, AppInfo, saveSession, loadSession, persistedToSessionInfo } from './direct'
-import { startPushDispatcher } from './direct/pushDispatcher'
+import { dispatchRawProtobuf } from './dispatcher'
 import type { QrCodeResult, QrPollResult } from './direct'
 
 type DisconnectCallback = (duration: number) => void
@@ -98,16 +97,6 @@ const NT_SERVICE_TO_PMHQ: Record<string, string> = {
 }
 const NOT_SESSION_SERVICES = ['nodeIKernelLoginService']
 
-const NT_RECV_PMHQ_TYPE_TO_NT_METHOD = {
-  'on_message': 'nodeIKernelMsgListener',
-  'on_group': 'nodeIKernelGroupListener',
-  'on_buddy': 'nodeIKernelBuddyListener',
-  'on_profile': 'nodeIKernelProfileListener',
-  'on_flash_file': 'nodeIKernelFlashTransferListener',
-}
-
-const logHook = false
-
 export class QQProtocolBase extends Service {
   static inject = ['logger', 'config']
 
@@ -121,7 +110,7 @@ export class QQProtocolBase extends Service {
   private disconnectCheckTimer: NodeJS.Timeout | undefined
   private hasConnectedOnce: boolean = false
   private hasLoggedConnectionError: boolean = false
-  public receiveHooks: Map<string, {
+  private receiveHooks: Map<string, {
     method: ReceiveCmdS[]
     hookFunc: (payload: any) => Awaitable<void>
   }> = new Map()
@@ -522,7 +511,7 @@ export class QQProtocolBase extends Service {
     })
   }
 
-  registerReceiveHook<
+  private registerReceiveHook<
     PayloadType = any,
     Method extends string = string
   >(
@@ -548,44 +537,15 @@ export class QQProtocolBase extends Service {
     this.callHooks.set(method, hookFunc)
   }
 
-  removeReceiveHook(id: string) {
+  private removeReceiveHook(id: string) {
     this.receiveHooks.delete(id)
   }
 
   startHook() {
-    this.addResListener((data) => {
-      const listenerName = data.type
-      if (data.data && 'sub_type' in data.data) {
-        const sub_type = data.data.sub_type
-        const convertedListenerName = NT_RECV_PMHQ_TYPE_TO_NT_METHOD[listenerName as keyof typeof NT_RECV_PMHQ_TYPE_TO_NT_METHOD] || listenerName
-        const ntCmd: ReceiveCmdS = (convertedListenerName + '/' + sub_type) as ReceiveCmdS
-        if (logHook) {
-          this.logger.info(ntCmd, data.data)
-        }
-        for (const hook of this.receiveHooks.values()) {
-          if (hook.method.includes(ntCmd)) {
-            Promise.resolve(hook.hookFunc(data.data.data))
-          }
-        }
-      }
-      else if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
-        if (this.ctx.config.get().rawMsgPB) {
-          const msg = parseProtobufFromHex(data.data.pb)
-          try {
-            const peerId = msg[1][1][8][1]
-            const msgRand = msg[1][2][4]
-            const msgSeq = msg[1][2][5]
-            const uniqueId = `${peerId}_${msgRand}_${msgSeq}`
-            if (this.msgPBMap.size > 1000) {
-              // 删除最老的记录
-              const firstKey = this.msgPBMap.keys().next().value
-              this.msgPBMap.delete(firstKey!)
-            }
-            this.msgPBMap.set(uniqueId, data.data.pb)
-          } catch (e) {
-
-          }
-        }
+    this.addResListener((data: any) => {
+      if (data?.type === 'recv' && data.data?.cmd && data.data?.pb) {
+        const payload = Buffer.from(data.data.pb, 'hex')
+        dispatchRawProtobuf(this.ctx, data.data.cmd, payload)
       }
     })
   }
@@ -611,10 +571,8 @@ export class QQProtocolBase extends Service {
       }
     })
     this.directClient.on('push', (packet: { cmd: string; payload: Buffer }) => {
-      this.logger.debug(`[Push] ${packet.cmd} len=${packet.payload.length}`)
+      dispatchRawProtobuf(this.ctx, packet.cmd, packet.payload)
     })
-
-    startPushDispatcher(this.ctx, this.directClient)
 
     // Try to restore saved session
     const persisted = loadSession()

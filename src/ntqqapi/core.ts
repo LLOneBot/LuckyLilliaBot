@@ -49,6 +49,13 @@ declare module 'cordis' {
     'nt/flash-file-download-status': (input: { status: FlashFileDownloadStatus, info: FlashFileSetInfo }) => void
     'nt/flash-file-downloading': (input: [fileSetId: string, info: FlashFileDownloadingInfo]) => void
     'nt/kicked-offLine': (input: KickedOffLineInfo) => void
+
+    // Raw events parsed from QQ protocol push
+    'nt/raw/new-msg': (input: RawMessage[]) => void
+    'nt/raw/update-msg': (input: RawMessage[]) => void
+    'nt/raw/self-send-msg': (input: RawMessage) => void
+    'nt/raw/group-notifies-updated': (input: [doubt: boolean, notifies: GroupNotify[]]) => void
+    'nt/raw/friend-request': (input: FriendRequestNotify) => void
   }
 }
 
@@ -151,22 +158,14 @@ class Core extends Service {
 
   private registerListener() {
 
-    this.ctx.qqProtocol.registerReceiveHook(ReceiveCmdS.LOGIN_QR_CODE, (data) => {
-      this.ctx.parallel('nt/login-qrcode', data)
-    })
-
-    this.ctx.qqProtocol.registerReceiveHook<{ status: number }>(ReceiveCmdS.SELF_STATUS, (info) => {
-      Object.assign(selfInfo, { online: info.status !== 20 })
-    })
-
-    this.ctx.qqProtocol.registerReceiveHook<RawMessage[]>(ReceiveCmdS.NEW_MSG, payload => {
+    this.ctx.on('nt/raw/new-msg', payload => {
       this.handleMessage(payload)
     })
 
     const sentMsgIds = new Map<string, boolean>()
     const recallMsgIds: string[] = [] // 避免重复上报
 
-    this.ctx.qqProtocol.registerReceiveHook<RawMessage[]>([ReceiveCmdS.UPDATE_MSG], payload => {
+    this.ctx.on('nt/raw/update-msg', payload => {
       for (const msg of payload) {
         if (
           msg.recallTime !== '0' &&
@@ -201,36 +200,12 @@ class Core extends Service {
       }
     })
 
-    this.ctx.qqProtocol.registerReceiveHook<[Peer, string[]]>(ReceiveCmdS.DELETE_MSG, payload => {
-      // 撤回普通消息不会经过这里
-      // 撤回戳一戳会经过这里
-      const [peer, msgIds] = payload;
-      for (const msgId of msgIds) {
-        const msg = this.ctx.store.getMsgCache(msgId)
-        if (!msg) {
-          this.ctx.ntMsgApi.getMsgsByMsgId(peer, [msgId]).then(r => {
-            for (const _msg of r.msgList) {
-              this.ctx.parallel('nt/message-deleted', _msg)
-            }
-          }).catch(e => {
-            this.ctx.logger.error('获取被撤回戳一戳消息失败', e, { peer, msgId })
-          })
-        }
-        else {
-          this.ctx.parallel('nt/message-deleted', msg)
-        }
-      }
-    })
-
-    this.ctx.qqProtocol.registerReceiveHook<RawMessage>(ReceiveCmdS.SELF_SEND_MSG, payload => {
+    this.ctx.on('nt/raw/self-send-msg', payload => {
       sentMsgIds.set(payload.msgId, true)
     })
 
     const groupNotifyIgnore: string[] = []
-    this.ctx.qqProtocol.registerReceiveHook<[
-      doubt: boolean,
-      notifies: GroupNotify[]
-    ]>('nodeIKernelGroupListener/onGroupNotifiesUpdated', async (payload) => {
+    this.ctx.on('nt/raw/group-notifies-updated', async (payload) => {
       const [doubt, notifies] = payload
       for (const notify of notifies) {
         const notifyTime = Math.trunc(+notify.seq / 1000 / 1000)
@@ -245,7 +220,7 @@ class Core extends Service {
       }
     })
 
-    this.ctx.qqProtocol.registerReceiveHook<FriendRequestNotify>(ReceiveCmdS.FRIEND_REQUEST, payload => {
+    this.ctx.on('nt/raw/friend-request', payload => {
       this.ctx.ntFriendApi.clearBuddyReqUnreadCnt().catch(e => this.ctx.logger.error(`清除好友申请未读数失败`, e))
       for (const req of payload.buddyReqs) {
         if (!req.isUnread || req.isInitiator || (req.isDecide && req.reqType !== BuddyReqType.MeInitiatorWaitPeerConfirm)) {
@@ -256,66 +231,6 @@ class Core extends Service {
         }
         this.ctx.parallel('nt/friend-request', req)
       }
-    })
-
-    this.ctx.qqProtocol.registerReceiveHook<number[]>('nodeIKernelMsgListener/onRecvSysMsg', payload => {
-      this.ctx.parallel('nt/system-message-created', Buffer.from(payload))
-    })
-
-    this.ctx.qqProtocol.registerReceiveHook<[status: number, errCode: number | string, fileSetId: string | unknown]>(ReceiveCmdS.FLASH_FILE_DOWNLOAD_STATUS, payload => {
-      // 旧版本 QQ 会把 fileSetId 放在第 2 个参数
-      // 新版本 QQ 会把 fileSetId 放在第 3 个参数
-      const [status, errCodeOrFileSetId, fileSetIdOrFileInfo] = payload
-      let fileSetId: string;
-      // 没有精力一个个版本测试了，只能靠类型判断了
-      if (typeof fileSetIdOrFileInfo !== 'string') {
-        fileSetId = errCodeOrFileSetId as string
-      }
-      else {
-        fileSetId = fileSetIdOrFileInfo as string
-      }
-      this.ctx.ntFileApi.getFlashFileInfo(fileSetId).then(info => {
-        this.ctx.parallel('nt/flash-file-download-status', {
-          status,
-          info
-        })
-      }).catch(err => {
-        this.ctx.logger.error(err, { fileSetId })
-      })
-    })
-
-    this.ctx.qqProtocol.registerReceiveHook<FlashFileSetInfo>(ReceiveCmdS.FLASH_FILE_UPLOAD_STATUS, payload => {
-      this.ctx.parallel('nt/flash-file-upload-status', payload)
-    })
-
-    this.ctx.qqProtocol.registerReceiveHook<[fileSetId: string, info: FlashFileDownloadingInfo]>(ReceiveCmdS.FLASH_FILE_DOWNLOADING, payload => {
-      const [fileSetId, info] = payload
-      this.ctx.parallel('nt/flash-file-downloading', [fileSetId, info])
-    })
-
-    this.ctx.qqProtocol.registerReceiveHook<{ fileSet: FlashFileSetInfo } & FlashFileUploadingInfo>(ReceiveCmdS.FLASH_FILE_UPLOADING, payload => {
-      this.ctx.parallel('nt/flash-file-uploading', payload)
-    })
-
-    const group_dismiss_codes: string[] = []  // 不知是否是 QQ 的 bug，退群的时候会上报一个以前解散的群，这里用于避免重复上报
-    this.ctx.qqProtocol.registerReceiveHook<GroupDetailInfo>(ReceiveCmdS.GROUP_DETAIL_INFO_UPDATE, async data => {
-      if (data.localExitGroupReason === LocalExitGroupReason.DISMISS
-        && !group_dismiss_codes.includes(data.groupCode)
-        && data.cmdUinJoinTime > this.startupTime
-      ) {
-        group_dismiss_codes.push(data.groupCode)
-        if (group_dismiss_codes.length > 1000) {
-          group_dismiss_codes.shift()
-        }
-        this.ctx.parallel('nt/group-dismiss', data)
-      }
-      else if (data.localExitGroupReason === LocalExitGroupReason.SELF_QUIT) {
-        this.ctx.parallel('nt/group-quit', data)
-      }
-    })
-
-    this.ctx.qqProtocol.registerReceiveHook<KickedOffLineInfo>('nodeIKernelMsgListener/onKickedOffLine', info => {
-      this.ctx.parallel('nt/kicked-offLine', info)
     })
   }
 }
