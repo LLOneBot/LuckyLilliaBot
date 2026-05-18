@@ -182,5 +182,40 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchGroupResp.decode(oidbRespBody)
     }
+
+    async fetchGroupMembers(groupCode: number) {
+      const all: any[] = []
+      let cookie: Buffer | undefined = undefined
+      while (true) {
+        const body = Oidb.FetchGroupMembersReq.encode({
+          groupCode,
+          field2: 5,
+          field3: 2,
+          body: {
+            memberName: true,
+            memberCard: true,
+            level: true,
+            specialTitle: true,
+            joinTimestamp: true,
+            lastMsgTimestamp: true,
+            shutUpTimestamp: true,
+            permission: true,
+          },
+          cookie,
+        })
+        const data = Oidb.Base.encode({
+          command: 0xfe7,
+          subCommand: 3,
+          body,
+        })
+        const res = await this.sendPB('OidbSvcTrpcTcp.0xfe7_3', data)
+        const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+        const decoded = Oidb.FetchGroupMembersResp.decode(oidbRespBody)
+        all.push(...(decoded.members || []))
+        if (!decoded.cookie || decoded.cookie.length === 0) break
+        cookie = Buffer.from(decoded.cookie)
+      }
+      return all
+    }
   }
 }

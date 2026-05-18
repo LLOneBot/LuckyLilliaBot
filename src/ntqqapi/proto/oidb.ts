@@ -65,6 +65,56 @@ export namespace Oidb {
     })
   })
 
+  /** OidbSvcTrpcTcp.0xfe1_2 - 通过 UID 查 stranger，返回里包含 UIN */
+  export const FetchUserInfoByUidReq = ProtoMessage.of({
+    uid: ProtoField(1, 'string'),
+    keys: ProtoField(3, {
+      key: ProtoField(1, 'uint32')
+    }, 'repeated')
+  })
+
+  /** OidbSvcTrpcTcp.0xfe7_3 - 拉群成员列表 */
+  export const FetchGroupMembersReq = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32'),
+    field2: ProtoField(2, 'uint32'),
+    field3: ProtoField(3, 'uint32'),
+    body: ProtoField(4, {
+      memberName: ProtoField(10, 'bool'),
+      memberCard: ProtoField(11, 'bool'),
+      level: ProtoField(12, 'bool'),
+      specialTitle: ProtoField(17, 'bool'),
+      joinTimestamp: ProtoField(100, 'bool'),
+      lastMsgTimestamp: ProtoField(101, 'bool'),
+      shutUpTimestamp: ProtoField(102, 'bool'),
+      permission: ProtoField(107, 'bool'),
+    }),
+    cookie: ProtoField(15, 'bytes', 'optional'),
+  })
+
+  export const FetchGroupMembersResp = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32'),
+    members: ProtoField(2, {
+      id: ProtoField(1, {
+        uid: ProtoField(2, 'string'),
+        uin: ProtoField(4, 'uint32'),
+      }),
+      memberName: ProtoField(10, 'string', 'optional'),
+      memberCard: ProtoField(11, {
+        memberCard: ProtoField(2, 'string', 'optional'),
+      }, 'optional'),
+      level: ProtoField(12, {
+        level: ProtoField(2, 'uint32', 'optional'),
+      }, 'optional'),
+      specialTitle: ProtoField(17, 'string', 'optional'),
+      joinTimestamp: ProtoField(100, 'uint32', 'optional'),
+      lastMsgTimestamp: ProtoField(101, 'uint32', 'optional'),
+      shutUpTimestamp: ProtoField(102, 'uint32', 'optional'),
+      permission: ProtoField(107, 'uint32', 'optional'),
+    }, 'repeated'),
+    memberCount: ProtoField(3, 'uint32', 'optional'),
+    cookie: ProtoField(15, 'bytes', 'optional'),
+  })
+
   /** OidbSvcTrpcTcp.0x929d_0 */
   export const FetchAiCharacterListReq = ProtoMessage.of({
     groupId: ProtoField(1, 'uint32'),

@@ -132,7 +132,9 @@ export class QQProtocolBase extends Service {
     const { pmhqHost, pmhqPort } = this.getPMHQHostPort()
     this.httpUrl = `http://${pmhqHost}:${pmhqPort}/`
     this.wsUrl = `ws://${pmhqHost}:${pmhqPort}/ws`
-    this.connectWebSocket().then()
+    if (process.env.QQ_USE_PMHQ) {
+      this.connectWebSocket().then()
+    }
   }
 
   public get_is_connected() {
@@ -349,6 +351,15 @@ export class QQProtocolBase extends Service {
   }
 
   public async sendPB(cmd: string, pb: Uint8Array): Promise<PBData> {
+    // Direct mode: send through TCP directly
+    if (this.directClient?.isLoggedIn) {
+      const buf = Buffer.from(pb)
+      const resp = await this.directClient.sendCommand(cmd, buf)
+      return {
+        cmd,
+        pb: resp.payload.toString('hex'),
+      } as PBData
+    }
     const hex = Buffer.from(pb).toString('hex')
     if (this.ws?.readyState === WebSocket.OPEN) {
       return (
@@ -367,6 +378,14 @@ export class QQProtocolBase extends Service {
   }
 
   public async sendPBHex(cmd: string, hex: string): Promise<PBData> {
+    if (this.directClient?.isLoggedIn) {
+      const buf = Buffer.from(hex, 'hex')
+      const resp = await this.directClient.sendCommand(cmd, buf)
+      return {
+        cmd,
+        pb: resp.payload.toString('hex'),
+      } as PBData
+    }
     if (this.ws?.readyState === WebSocket.OPEN) {
       return (
         await this.wsSend<PMHQResSendPB>({
@@ -423,6 +442,10 @@ export class QQProtocolBase extends Service {
     M extends keyof NTService[S] & string = any,
     P extends Parameters<Extract<NTService[S][M], (...args: any) => unknown>> = any
   >(method: Extract<unknown, `${S}/${M}`> | string, args: P, options: InvokeOptions<R> = {}): Promise<R> {
+    // 直连模式下没有 NT 服务，PMHQ-only 的 invoke 调用立即失败避免 5s 超时
+    if (this.directClient && !process.env.QQ_USE_PMHQ) {
+      return Promise.reject(new Error(`invoke unavailable in direct mode: ${method}`))
+    }
     const splitMethod = method.split('/')
     const serviceName = splitMethod[0] as keyof NTService
     const methodName = splitMethod.slice(1).join('/')

@@ -75,6 +75,11 @@ export class NTQQUserApi extends Service {
       async () => {
         return (await this.getUserSimpleInfo(uid)).uin
       },
+      // 直连模式 fallback：通过 OIDB 0xfe1_2 拿用户信息
+      async () => {
+        const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+        return String(info.uin)
+      },
     ]
 
     for (const f of funcs) {

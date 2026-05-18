@@ -60,6 +60,45 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
       }
     }
 
+    async fetchUserInfoByUid(uid: string) {
+      const body = Oidb.FetchUserInfoByUidReq.encode({
+        uid,
+        keys: [
+          { key: 102 },
+          { key: 103 },
+          { key: 104 },
+          { key: 105 },
+          { key: 107 },
+          { key: 20002 },
+          { key: 20009 },
+          { key: 20037 },
+          { key: 27394 },
+        ],
+      })
+      const data = Oidb.Base.encode({
+        command: 0xfe1,
+        subCommand: 2,
+        body,
+        isReserved: 1,
+      })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0xfe1_2', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      const info = Oidb.FetchUserInfoResp.decode(oidbRespBody)
+      const numbers = Object.fromEntries(info.body.properties.numberProperties.map(p => [p.key, p.value]))
+      const bytes = Object.fromEntries(info.body.properties.bytesProperties.map(p => [p.key, p.value]))
+      return {
+        uid,
+        uin: info.body.uin,
+        nick: bytes[20002]?.toString() ?? '',
+        sex: numbers[20009] ?? 0,
+        age: numbers[20037] ?? 0,
+        qid: bytes[27394]?.toString() ?? '',
+        level: numbers[105] ?? 0,
+        longNick: bytes[102]?.toString() ?? '',
+        remark: bytes[103]?.toString() ?? '',
+      }
+    }
+
     async fetchUserLoginDays(uin: number): Promise<number> {
       const body = Action.FetchUserLoginDaysReq.encode({
         field2: 0,

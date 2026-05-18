@@ -86,26 +86,89 @@ export class NTQQGroupApi extends Service {
   }
 
   async getGroupMember(groupCode: string, uid: string, forceUpdate = false, timeout = 15000) {
-    const data = await this.ctx.qqProtocol.invoke<[
-      groupCode: string,
-      dataSource: number,
-      members: Map<string, GroupMember>
-    ]>(
-      'nodeIKernelGroupService/getMemberInfo',
-      [
-        groupCode,
-        [uid],
-        forceUpdate,
-      ],
-      {
-        resultCmd: 'nodeIKernelGroupListener/onMemberInfoChange',
-        resultCb: result => {
-          return result[0] === groupCode && result[2].has(uid)
+    try {
+      const data = await this.ctx.qqProtocol.invoke<[
+        groupCode: string,
+        dataSource: number,
+        members: Map<string, GroupMember>
+      ]>(
+        'nodeIKernelGroupService/getMemberInfo',
+        [
+          groupCode,
+          [uid],
+          forceUpdate,
+        ],
+        {
+          resultCmd: 'nodeIKernelGroupListener/onMemberInfoChange',
+          resultCb: result => {
+            return result[0] === groupCode && result[2].has(uid)
+          },
+          timeout
         },
-        timeout
-      },
-    )
-    return data[2].get(uid)!
+      )
+      return data[2].get(uid)!
+    } catch {
+      // 直连模式 fallback: OIDB 0xfe7_3 拉群成员列表，找到对应 uid
+      return this.getGroupMemberViaOidb(groupCode, uid)
+    }
+  }
+
+  private memberCache: Map<string, Map<string, GroupMember>> = new Map()
+
+  private async getGroupMemberViaOidb(groupCode: string, uid: string): Promise<GroupMember> {
+    let cache = this.memberCache.get(groupCode)
+    if (!cache?.has(uid)) {
+      const members = await this.ctx.qqProtocol.fetchGroupMembers(+groupCode)
+      cache = new Map()
+      for (const m of members) {
+        const memberUid = m.id?.uid
+        if (!memberUid) continue
+        cache.set(memberUid, this.toGroupMember(m))
+      }
+      this.memberCache.set(groupCode, cache)
+    }
+    const member = cache.get(uid)
+    if (member) return member
+    // 缓存里没有就构造个空 stub（新成员等）
+    return this.toGroupMember({ id: { uid, uin: 0 } })
+  }
+
+  private toGroupMember(m: any): GroupMember {
+    const role = m.permission === 1 ? GroupMemberRole.Owner
+      : m.permission === 2 ? GroupMemberRole.Admin
+      : GroupMemberRole.Normal
+    return {
+      uid: m.id?.uid || '',
+      qid: '',
+      uin: String(m.id?.uin || 0),
+      nick: m.memberName || '',
+      remark: '',
+      cardType: 0,
+      cardName: m.memberCard?.memberCard || '',
+      role,
+      avatarPath: '',
+      shutUpTime: m.shutUpTimestamp || 0,
+      isDelete: false,
+      isSpecialConcerned: false,
+      isSpecialShield: false,
+      isRobot: false,
+      groupHonor: new Uint8Array(),
+      memberRealLevel: m.level?.level || 0,
+      memberLevel: m.level?.level || 0,
+      globalGroupLevel: 0,
+      globalGroupPoint: 0,
+      memberTitleId: 0,
+      memberSpecialTitle: m.specialTitle || '',
+      specialTitleExpireTime: '0',
+      userShowFlag: 0,
+      userShowFlagNew: 0,
+      richFlag: 0,
+      mssVipType: 0,
+      bigClubLevel: 0,
+      bigClubFlag: 0,
+      autoRemark: '',
+      creditLevel: 0,
+    } as GroupMember
   }
 
   async getSingleScreenNotifies(doubt: boolean, number: number, startSeq = '') {
