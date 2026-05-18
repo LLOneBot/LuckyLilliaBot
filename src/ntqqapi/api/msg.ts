@@ -157,6 +157,21 @@ export class NTQQMsgApi extends Service {
         }
       } else if (elem.elementType === ElementType.Face) {
         elems.push({ face: { index: elem.faceElement.faceIndex } })
+      } else if (elem.elementType === ElementType.MarketFace) {
+        const m = elem.marketFaceElement
+        elems.push({
+          marketFace: {
+            summary: m.faceName,
+            itemType: 6,
+            info: 1,
+            faceId: Buffer.from(m.emojiId, 'hex'),
+            tabId: m.emojiPackageId,
+            subType: 3,
+            key: m.key,
+            width: m.imageWidth ?? 200,
+            height: m.imageHeight ?? 200,
+          }
+        })
       } else if (elem.elementType === ElementType.Reply) {
         const r = elem.replyElement
         elems.push({
@@ -216,6 +231,28 @@ export class NTQQMsgApi extends Service {
             businessType: isGroup ? 22 : 12,
           }
         })
+      } else if (elem.elementType === ElementType.File) {
+        const f = elem.fileElement
+        const sourcePath = f.filePath
+        if (!sourcePath || !f.fileName) continue
+        const isGroup = peer.chatType === ChatType.Group
+        if (isGroup) {
+          const result = await this.ctx.ntFileApi.uploadGroupFile(
+            peer.peerUid,
+            sourcePath,
+            f.fileName,
+            f.folderId ?? '/'
+          )
+          // 群文件上传成功后通过 groupFile element 发送
+          elems.push({
+            groupFile: {
+              filename: f.fileName,
+              fileSize: BigInt(f.fileSize ?? 0),
+              fileId: Buffer.from(result.fileId),
+            }
+          })
+        }
+        // C2C 文件流程不同，需要 OfflineFileUpload 协议（trans 0x211），暂未支持
       }
     }
 
