@@ -129,5 +129,35 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       })
       await this.sendPB('trpc.msg.msg_svc.MsgService.SsoC2CRecallMsg', data)
     }
+
+    /** 发消息（仅文本/At/表情/回复，不含媒体） */
+    async sendMessage(opts: {
+      isGroup: boolean
+      groupCode?: number
+      toUin?: number
+      toUid?: string
+      elems: InferProtoModelInput<typeof Msg.Elem>[]
+    }) {
+      const random = randomBytes(4).readUInt32BE(0)
+      const data = Msg.PbSendMsg.encode({
+        routingHead: opts.isGroup
+          ? { group: { groupCode: opts.groupCode! } }
+          : { c2c: { toUin: opts.toUin, toUid: opts.toUid } },
+        contentHead: { msgType: opts.isGroup ? 82 : 166 },
+        body: { richText: { elems: opts.elems } },
+        clientSequence: random & 0xffffff,
+        random,
+      })
+      const res = await this.sendPB('MessageSvc.PbSendMsg', data)
+      const resp = Msg.PbSendMsgResp.decode(Buffer.from(res.pb, 'hex'))
+      if (resp.resultCode !== 0) {
+        throw new Error(`发送消息失败 (code=${resp.resultCode}): ${resp.errMsg || ''}`)
+      }
+      return {
+        sequence: resp.groupSequence ?? resp.privateSequence,
+        timestamp: resp.timestamp1,
+        random,
+      }
+    }
   }
 }

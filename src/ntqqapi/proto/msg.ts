@@ -265,4 +265,52 @@ export namespace Msg {
       fileIdCrcMedia: ProtoField(57, 'string')
     })
   })
+
+  /** MessageSvc.PbSendMsg - 发消息请求 */
+  export const PbSendMsg = ProtoMessage.of({
+    routingHead: ProtoField(1, {
+      c2c: ProtoField(1, {
+        toUin: ProtoField(1, 'uint32', 'optional'),
+        toUid: ProtoField(2, 'string', 'optional'),
+      }, 'optional'),
+      group: ProtoField(2, {
+        groupCode: ProtoField(1, 'uint32'),
+      }, 'optional'),
+    }),
+    contentHead: ProtoField(2, {
+      msgType: ProtoField(1, 'uint32'),
+      subType: ProtoField(2, 'uint32', 'optional'),
+      c2cCmd: ProtoField(3, 'uint32', 'optional'),
+      random: ProtoField(4, 'uint32', 'optional'),
+      msgSeq: ProtoField(5, 'uint32', 'optional'),
+      msgTime: ProtoField(6, 'uint32', 'optional'),
+      pkgNum: ProtoField(7, 'uint32', 'optional'),
+      pkgIndex: ProtoField(8, 'uint32', 'optional'),
+      divSeq: ProtoField(9, 'uint32', 'optional'),
+      autoReply: ProtoField(10, 'uint32', 'optional'),
+      ntMsgSeq: ProtoField(11, 'uint64', 'optional'),
+      msgUid: ProtoField(12, 'uint64', 'optional'),
+    }, 'optional'),
+    body: ProtoField(3, {
+      richText: ProtoField(1, {
+        elems: ProtoField(2, Elem, 'repeated'),
+      }),
+    }),
+    clientSequence: ProtoField(4, 'uint32', 'optional'),
+    random: ProtoField(5, 'uint32'),
+    syncCookie: ProtoField(6, 'bytes', 'optional'),
+    via: ProtoField(8, 'uint32', 'optional'),
+    control: ProtoField(12, {
+      msgFlag: ProtoField(1, 'uint32'),
+    }, 'optional'),
+    multiSendSeq: ProtoField(14, 'uint32', 'optional'),
+  })
+
+  export const PbSendMsgResp = ProtoMessage.of({
+    resultCode: ProtoField(1, 'int32'),
+    errMsg: ProtoField(2, 'string', 'optional'),
+    timestamp1: ProtoField(3, 'uint32', 'optional'),
+    groupSequence: ProtoField(11, 'uint32', 'optional'),
+    privateSequence: ProtoField(14, 'uint32', 'optional'),
+  })
 }
