@@ -52,7 +52,20 @@ export class NTQQMsgApi extends Service {
   }
 
   async getMsgsByMsgId(peer: Peer, msgIds: string[]) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelMsgService/getMsgsByMsgId', [peer, msgIds])
+    try {
+      return await this.ctx.qqProtocol.invoke('nodeIKernelMsgService/getMsgsByMsgId', [peer, msgIds])
+    } catch {
+      // 直连模式 fallback: 从消息缓存查
+      const store = this.ctx.get('store') as any
+      const msgList: RawMessage[] = []
+      if (store?.getMsgCache) {
+        for (const id of msgIds) {
+          const msg = store.getMsgCache(id)
+          if (msg) msgList.push(msg)
+        }
+      }
+      return { msgList } as any
+    }
   }
 
   async getMsgHistory(peer: Peer, msgId: string, cnt: number, queryOrder = false) {
@@ -61,7 +74,28 @@ export class NTQQMsgApi extends Service {
   }
 
   async recallMsg(peer: Peer, msgIds: string[]) {
-    return await this.ctx.qqProtocol.invoke(NTMethod.RECALL_MSG, [peer, msgIds])
+    try {
+      return await this.ctx.qqProtocol.invoke(NTMethod.RECALL_MSG, [peer, msgIds])
+    } catch {
+      // 直连模式 fallback: 从缓存查 seq/random 然后调 OIDB 撤回
+      const store = this.ctx.get('store') as any
+      const isGroup = peer.chatType === ChatType.Group
+      for (const id of msgIds) {
+        const msg = store?.getMsgCache?.(id) as RawMessage | undefined
+        if (!msg) continue
+        if (isGroup) {
+          await this.ctx.qqProtocol.recallGroupMessage(+peer.peerUid, +msg.msgSeq)
+        } else {
+          await this.ctx.qqProtocol.recallC2CMessage(
+            peer.peerUid,
+            +msg.msgSeq,
+            +msg.msgRandom,
+            +msg.msgTime,
+            +msg.msgSeq,
+          )
+        }
+      }
+    }
   }
 
   async sendMsg(peer: Peer, msgElements: SendMessageElement[]) {
@@ -429,7 +463,16 @@ export class NTQQMsgApi extends Service {
   }
 
   async getSingleMsg(peer: Peer, msgSeq: string) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelMsgService/getSingleMsg', [peer, msgSeq])
+    try {
+      return await this.ctx.qqProtocol.invoke('nodeIKernelMsgService/getSingleMsg', [peer, msgSeq])
+    } catch {
+      // 直连模式 fallback: 用 SsoGetGroupMsg / SsoGetC2CMsg 拉单条
+      const seq = +msgSeq
+      const messages = peer.chatType === ChatType.Group
+        ? await this.ctx.qqProtocol.getGroupMessages(+peer.peerUid, seq, seq)
+        : await this.ctx.qqProtocol.getC2CMessages(peer.peerUid, seq, seq)
+      return { msgList: messages } as any
+    }
   }
 
   async queryFirstMsgBySeq(peer: Peer, msgSeq: string) {
@@ -545,8 +588,20 @@ export class NTQQMsgApi extends Service {
           timeout: Math.max(1000 * cnt, 3000),
         })
     } catch (e) {
-      this.ctx.logger.error('getMsgsBySeqAndCount error', e)
-      return { msgList: [] }
+      // 直连模式 fallback: 用 SsoGetGroupMsg/SsoGetC2CMsg 按 seq 范围拉
+      try {
+        const start = +msgSeq
+        const end = queryOrder ? start + cnt - 1 : start
+        const startSeq = queryOrder ? start : Math.max(1, start - cnt + 1)
+        const endSeq = queryOrder ? end : start
+        const messages = peer.chatType === ChatType.Group
+          ? await this.ctx.qqProtocol.getGroupMessages(+peer.peerUid, startSeq, endSeq)
+          : await this.ctx.qqProtocol.getC2CMessages(peer.peerUid, startSeq, endSeq)
+        return { msgList: messages } as any
+      } catch {
+        this.ctx.logger.error('getMsgsBySeqAndCount fallback failed', e)
+        return { msgList: [] }
+      }
     }
   }
 
