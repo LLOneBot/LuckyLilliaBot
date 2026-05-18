@@ -76,7 +76,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       return { msgRandom }
     }
 
-    /** 拉群历史消息（按 seq 范围） */
+    /** 拉群历史消息（按 seq 范围）。返回 Msg.Message 解码后的对象列表（routingHead/contentHead/body） */
     async getGroupMessages(groupCode: number, startSequence: number, endSequence: number) {
       const data = Action.SsoGetGroupMsgReq.encode({
         groupInfo: { groupCode, startSequence, endSequence },
@@ -87,7 +87,8 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       if (decoded.retcode !== 0) {
         throw new Error(`获取群消息失败: ${decoded.errorMsg}`)
       }
-      return decoded.body.messages
+      // body.messages 是 bytes[]，每个是序列化的 Msg.Message，需要再解一次
+      return (decoded.body.messages || []).map((buf: Uint8Array) => Msg.Message.decode(Buffer.from(buf)))
     }
 
     /** 拉私聊历史消息（按 seq 范围） */
@@ -98,7 +99,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       if (decoded.retcode !== 0) {
         throw new Error(`获取私聊消息失败: ${decoded.errorMsg}`)
       }
-      return decoded.messages
+      return (decoded.messages || []).map((buf: Uint8Array) => Msg.Message.decode(Buffer.from(buf)))
     }
 
     /** 撤回群消息 */
@@ -143,7 +144,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
         routingHead: opts.isGroup
           ? { group: { groupCode: opts.groupCode! } }
           : { c2c: { toUin: opts.toUin, toUid: opts.toUid } },
-        contentHead: { msgType: opts.isGroup ? 82 : 166 },
+        contentHead: { pkgNum: 1, pkgIndex: 0, divSeq: 0, autoReply: 0 },
         body: { richText: { elems: opts.elems } },
         clientSequence: random & 0xffffff,
         random,
@@ -153,9 +154,13 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       if (resp.resultCode !== 0) {
         throw new Error(`发送消息失败 (code=${resp.resultCode}): ${resp.errMsg || ''}`)
       }
+      // 参考 Lagrange：clientSequence 不为 0 用它，否则用 sequence
+      const seq = (resp.clientSequence && resp.clientSequence !== 0n)
+        ? resp.clientSequence
+        : resp.sequence
       return {
-        sequence: resp.groupSequence ?? resp.privateSequence,
-        timestamp: resp.timestamp1,
+        sequence: seq,
+        timestamp: resp.sendTime,
         random,
       }
     }

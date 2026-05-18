@@ -2,6 +2,7 @@ import { ChatType, ElementType, MessageElement, Peer, RawMessage, SendMessageEle
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { Media } from '../proto'
+import { convertToRawMessage } from '../dispatcher'
 
 declare module 'cordis' {
   interface Context {
@@ -14,6 +15,19 @@ export class NTQQMsgApi extends Service {
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntMsgApi')
+  }
+
+  /** 把 SsoGetGroupMsg/SsoGetC2CMsg 返回的 Msg.Message 列表转成 RawMessage */
+  private toRawMessages(decodedMessages: any[], chatType: ChatType): RawMessage[] {
+    const msgType = chatType === ChatType.Group ? 82
+      : chatType === ChatType.TempC2CFromGroup ? 141
+      : 166
+    const out: RawMessage[] = []
+    for (const m of decodedMessages) {
+      const r = convertToRawMessage(m, msgType)
+      if (r) out.push(r)
+    }
+    return out
   }
 
   async getTempChatInfo(_chatType: ChatType, _peerUid: string): Promise<any> {
@@ -74,9 +88,10 @@ export class NTQQMsgApi extends Service {
     if (!endSeq) {
       // 不知道 seq 时尝试拉最新的 cnt 条（端点 seq=0 由协议侧处理）
       try {
-        const messages = peer.chatType === ChatType.Group
+        const decoded = peer.chatType === ChatType.Group
           ? await this.ctx.qqProtocol.getGroupMessages(+peer.peerUid, 0, cnt)
           : await this.ctx.qqProtocol.getC2CMessages(peer.peerUid, 0, cnt)
+        const messages = this.toRawMessages(decoded, peer.chatType)
         return { msgList: queryOrder ? messages : messages.reverse() } as any
       } catch (e) {
         this.ctx.logger.error('getMsgHistory failed', e)
@@ -85,9 +100,10 @@ export class NTQQMsgApi extends Service {
     }
     const startSeq = Math.max(1, endSeq - cnt + 1)
     try {
-      const messages = peer.chatType === ChatType.Group
+      const decoded = peer.chatType === ChatType.Group
         ? await this.ctx.qqProtocol.getGroupMessages(+peer.peerUid, startSeq, endSeq)
         : await this.ctx.qqProtocol.getC2CMessages(peer.peerUid, startSeq, endSeq)
+      const messages = this.toRawMessages(decoded, peer.chatType)
       return { msgList: queryOrder ? messages : messages.reverse() } as any
     } catch (e) {
       this.ctx.logger.error('getMsgHistory failed', e)
@@ -299,10 +315,10 @@ export class NTQQMsgApi extends Service {
 
   async getSingleMsg(peer: Peer, msgSeq: string) {
     const seq = +msgSeq
-    const messages = peer.chatType === ChatType.Group
+    const decoded = peer.chatType === ChatType.Group
       ? await this.ctx.qqProtocol.getGroupMessages(+peer.peerUid, seq, seq)
       : await this.ctx.qqProtocol.getC2CMessages(peer.peerUid, seq, seq)
-    return { msgList: messages } as any
+    return { msgList: this.toRawMessages(decoded, peer.chatType) } as any
   }
 
   async queryFirstMsgBySeq(peer: Peer, msgSeq: string) {
@@ -351,10 +367,10 @@ export class NTQQMsgApi extends Service {
       const start = +msgSeq
       const startSeq = queryOrder ? start : Math.max(1, start - cnt + 1)
       const endSeq = queryOrder ? start + cnt - 1 : start
-      const messages = peer.chatType === ChatType.Group
+      const decoded = peer.chatType === ChatType.Group
         ? await this.ctx.qqProtocol.getGroupMessages(+peer.peerUid, startSeq, endSeq)
         : await this.ctx.qqProtocol.getC2CMessages(peer.peerUid, startSeq, endSeq)
-      return { msgList: messages } as any
+      return { msgList: this.toRawMessages(decoded, peer.chatType) } as any
     } catch (e) {
       this.ctx.logger.error('getMsgsBySeqAndCount failed', e)
       return { msgList: [] }

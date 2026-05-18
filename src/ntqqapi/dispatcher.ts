@@ -692,11 +692,24 @@ function buildRecallMessage(p: RecallParams): RawMessage {
 }
 
 function handleChatMessage(ctx: Context, msg: any, msgType: number) {
+  const rawMessage = convertToRawMessage(msg, msgType)
+  if (!rawMessage) return
+  const isSelfMsg = rawMessage.senderUin === selfInfo.uin
+  if (isSelfMsg) {
+    ctx.parallel('nt/raw/self-send-msg', rawMessage)
+    ctx.parallel('nt/raw/update-msg', [rawMessage])
+    return
+  }
+  ctx.parallel('nt/raw/new-msg', [rawMessage])
+}
+
+/** 把 Msg.Message protobuf 转换为上层用的 RawMessage（OlPush 推送和 SsoGetGroupMsg 拉历史共用） */
+export function convertToRawMessage(msg: any, msgType: number): RawMessage | null {
   const routingHead = msg.routingHead
   const contentHead = msg.contentHead
   const body = msg.body
 
-  if (!routingHead || !contentHead) return
+  if (!routingHead || !contentHead) return null
 
   let chatType: ChatType
   let peerUin: string
@@ -723,7 +736,7 @@ function handleChatMessage(ctx: Context, msg: any, msgType: number) {
   const senderUin = String(routingHead.fromUin || 0)
   const isSelfMsg = senderUin === selfInfo.uin
 
-  const rawMessage: RawMessage = {
+  return {
     msgId: String(contentHead.msgUid || contentHead.msgSeq || Date.now()),
     msgType: 2,
     subMsgType: 0,
@@ -748,14 +761,6 @@ function handleChatMessage(ctx: Context, msg: any, msgType: number) {
     msgAttrs: new Map(),
     isOnlineMsg: true,
   }
-
-  if (isSelfMsg) {
-    ctx.parallel('nt/raw/self-send-msg', rawMessage)
-    ctx.parallel('nt/raw/update-msg', [rawMessage])
-    return
-  }
-
-  ctx.parallel('nt/raw/new-msg', [rawMessage])
 }
 
 function parseElements(elems: any[]): MessageElement[] {

@@ -90,9 +90,9 @@ export class NTQQGroupApi extends Service {
     return { result: { infos, finish: true, ids: [] } } as any
   }
 
-  async getGroupMember(groupCode: string, uid: string, _forceUpdate = false, _timeout = 15000) {
+  async getGroupMember(groupCode: string, uid: string, forceUpdate = false, _timeout = 15000) {
     let cache = this.memberCache.get(groupCode)
-    if (!cache?.has(uid)) {
+    if (forceUpdate || !cache?.has(uid)) {
       const members = await this.ctx.qqProtocol.fetchGroupMembers(+groupCode)
       cache = new Map()
       for (const m of members) {

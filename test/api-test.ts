@@ -438,15 +438,43 @@ async function main() {
     await run(`${name} (must throw)`, fn as any, { expectThrow: '暂未实现' })
   }
   // destructive
-  await run('setMemberCard',
-    () => ctx.ntGroupApi.setMemberCard(TEST_GROUP, TEST_UID, 'apitest'),
-    { destructive: true, check: (v) => v?.result === 0 || `result=${v?.result} errMsg=${v?.errMsg}` })
-  await run('banMember (unmute)',
-    () => ctx.ntGroupApi.banMember(TEST_GROUP, [{ uid: TEST_UID, timeStamp: 0 }]),
-    { destructive: true, check: (v) => v?.result === 0 || `result=${v?.result}` })
-  await run('banGroup (off)',
-    () => ctx.ntGroupApi.banGroup(TEST_GROUP, false),
-    { destructive: true, check: (v) => v?.result === 0 || `result=${v?.result}` })
+  // 检查 self 在测试群里的权限（影响哪些 destructive 测试可跑）
+  let selfRole: number | undefined
+  try {
+    const me = await ctx.ntGroupApi.getGroupMember(TEST_GROUP, selfInfo.uid)
+    selfRole = me?.role  // 4=Owner, 3=Admin, 2=Normal
+  } catch {}
+  const isAdmin = selfRole === 4 || selfRole === 3
+  console.log(COLOR.gray(`  (self role in TEST_GROUP: ${selfRole}, isAdmin=${isAdmin})`))
+
+  // setMemberCard 改自己名片：普通成员也有权
+  await run('setMemberCard(self)',
+    async () => {
+      const newCard = `apitest-${Date.now() % 10000}`
+      const r = await ctx.ntGroupApi.setMemberCard(TEST_GROUP, selfInfo.uid, newCard)
+      // 拉回来验证
+      const m = await ctx.ntGroupApi.getGroupMember(TEST_GROUP, selfInfo.uid, true)
+      return { setResult: r, actualCard: m.cardName, expectedCard: newCard }
+    },
+    { destructive: true, check: (v) => {
+      if (v.setResult.result !== 0) return `setResult ${v.setResult.result}`
+      if (v.actualCard !== v.expectedCard) return `card mismatch: server="${v.actualCard}" expected="${v.expectedCard}"`
+      return true
+    }})
+  // banMember/banGroup 需要管理员权限
+  if (isAdmin) {
+    await run('banMember (unmute)',
+      () => ctx.ntGroupApi.banMember(TEST_GROUP, [{ uid: TEST_UID, timeStamp: 0 }]),
+      { destructive: true, check: (v) => v?.result === 0 || `result=${v?.result}` })
+    await run('banGroup (off)',
+      () => ctx.ntGroupApi.banGroup(TEST_GROUP, false),
+      { destructive: true, check: (v) => v?.result === 0 || `result=${v?.result}` })
+  } else {
+    results.push({ name: 'banMember (unmute)', status: 'SKIP', detail: 'self is not group admin', duration: 0 })
+    results.push({ name: 'banGroup (off)', status: 'SKIP', detail: 'self is not group admin', duration: 0 })
+    console.log(COLOR.gray(`SKIP  banMember (unmute)  (self is not admin)`))
+    console.log(COLOR.gray(`SKIP  banGroup (off)  (self is not admin)`))
+  }
 
   // ============================================================
   // ntMsgApi
@@ -556,12 +584,30 @@ async function main() {
     await run(`${name} (must throw)`, fn as any, { expectThrow: '暂未实现' })
   }
   // destructive
-  await run('sendMsg(group, text)',
-    () => ctx.ntMsgApi.sendMsg(
-      { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' },
-      [{ elementType: ElementType.Text, elementId: '', textElement: { content: 'apitest', atType: 0, atUid: '', atTinyId: '', atNtUid: '' } } as any],
-    ),
-    { destructive: true, check: (v) => !!v?.msgId || 'no msgId' })
+  await run('sendMsg(group, text) + round-trip verify',
+    async () => {
+      const marker = `apitest-${Date.now()}`
+      const sent = await ctx.ntMsgApi.sendMsg(
+        { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' },
+        [{ elementType: ElementType.Text, elementId: '', textElement: { content: marker, atType: 0, atUid: '', atTinyId: '', atNtUid: '' } } as any],
+      )
+      if (!sent?.msgId) return { sent, error: 'no msgId' }
+      const seq = sent.msgSeq
+      if (!seq || seq === '0') return { sent, error: 'no msgSeq returned from server' }
+      // 等服务器消息可读
+      await new Promise(r => setTimeout(r, 800))
+      const back = await ctx.ntMsgApi.getSingleMsg(
+        { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, seq)
+      const found = back.msgList?.[0]
+      const content = found?.elements?.[0]?.textElement?.content
+      return { sent, seq, found: !!found, content, marker }
+    },
+    { destructive: true, check: (v) => {
+      if (v.error) return v.error
+      if (!v.found) return `seq ${v.seq} not found by getSingleMsg`
+      if (v.content !== v.marker) return `content mismatch: "${v.content}" vs "${v.marker}"`
+      return true
+    }})
 
   // ============================================================
   // ntFileApi
