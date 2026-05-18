@@ -47,9 +47,13 @@ export class NTQQUserApi extends Service {
   }
 
   /** OIDB 0xfe1_1 / 0xfe1_2 都拒绝自查（errorCode=62）。
-   * 自己的信息从群成员列表里拿（memberName 字段就是昵称）。 */
+   * 自己的昵称在登录时从 wtlogin TLV 0x11A 拿到（保存在 selfInfo.nick）。
+   * 兜底从群成员列表里找自己。 */
   private async fetchSelfInfo(): Promise<{ uin: string, uid: string, nick: string } | null> {
     if (!selfInfo.uid) return null
+    if (selfInfo.nick) {
+      return { uin: selfInfo.uin, uid: selfInfo.uid, nick: selfInfo.nick }
+    }
     try {
       const groups = await this.ctx.ntGroupApi.getGroups(false)
       for (const g of groups) {
@@ -57,7 +61,7 @@ export class NTQQUserApi extends Service {
           const members: any = await this.ctx.ntGroupApi.getGroupMembers(String(g.groupCode))
           const me = members.result?.infos?.get(selfInfo.uid)
           if (me?.nick) {
-            if (!selfInfo.nick) selfInfo.nick = me.nick
+            selfInfo.nick = me.nick
             return { uin: selfInfo.uin, uid: selfInfo.uid, nick: me.nick }
           }
         } catch {}
@@ -65,7 +69,7 @@ export class NTQQUserApi extends Service {
     } catch (e) {
       this.ctx.logger.error('fetchSelfInfo via groups failed', e)
     }
-    return { uin: selfInfo.uin, uid: selfInfo.uid, nick: selfInfo.nick || '' }
+    return { uin: selfInfo.uin, uid: selfInfo.uid, nick: '' }
   }
 
   async setSelfAvatar(_path: string): Promise<{ result: number, errMsg: string }> {

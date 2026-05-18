@@ -401,6 +401,7 @@ export class QQProtocolBase extends Service {
         console.log('[QQ Server] Online registered!')
         selfInfo.uin = persisted.uin
         selfInfo.uid = persisted.uid
+        if (persisted.nick) selfInfo.nick = persisted.nick
         selfInfo.online = true
         this.directStopHeartbeat = startHeartbeat(this.directClient)
         return
@@ -506,11 +507,11 @@ export class QQProtocolBase extends Service {
       return
     }
 
-    this.logger.info(`Login successful! UID: ${loginResult.uid}`)
+    this.logger.info(`Login successful! UID: ${loginResult.uid}, nick: "${loginResult.nick}"`)
 
     // Save session
     const session = this.directClient.getSession()!
-    saveSession(session, this.directPollResult.tgtgtKey!, this.directClient.getGuid(), loginResult.tempPassword)
+    saveSession(session, this.directPollResult.tgtgtKey!, this.directClient.getGuid(), loginResult.tempPassword, loginResult.nick)
 
     // Register online
     try {
@@ -525,6 +526,7 @@ export class QQProtocolBase extends Service {
     // Update global state
     selfInfo.uin = String(uin)
     selfInfo.uid = loginResult.uid
+    selfInfo.nick = loginResult.nick
     selfInfo.online = true
   }
 }

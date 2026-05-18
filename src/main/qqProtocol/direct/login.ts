@@ -34,6 +34,9 @@ export type LoginResult = {
   d2Key: Buffer
   tgt: Buffer
   tempPassword: Buffer
+  nick: string
+  age: number
+  gender: number
 } | {
   success: false
   state: number
@@ -585,6 +588,18 @@ function parseLoginResponse(data: Buffer, shareKey: Buffer, tgtgtKey: Buffer): L
   const tgt = nestedTlvs.get(0x10A) || Buffer.alloc(0)
   const tempPassword = nestedTlvs.get(0x106) || Buffer.alloc(0)
 
+  // TLV 0x11A: FaceId(2B) + Age(1B) + Gender(1B) + nickLen(1B) + nick(utf8)
+  let nick = '', age = 0, gender = 0
+  const tlv11a = nestedTlvs.get(0x11A)
+  if (tlv11a && tlv11a.length >= 5) {
+    age = tlv11a.readUInt8(2)
+    gender = tlv11a.readUInt8(3)
+    const nickLen = tlv11a.readUInt8(4)
+    if (5 + nickLen <= tlv11a.length) {
+      nick = tlv11a.subarray(5, 5 + nickLen).toString('utf-8')
+    }
+  }
+
   // TLV 0x543 protobuf: { field9: { field11: { field1: uid_string } } }
   let uid = ''
   const tlv543 = nestedTlvs.get(0x543)
@@ -592,7 +607,7 @@ function parseLoginResponse(data: Buffer, shareKey: Buffer, tgtgtKey: Buffer): L
     uid = parseUidFromTlv543(tlv543)
   }
 
-  return { success: true, uid, d2, d2Key, tgt, tempPassword }
+  return { success: true, uid, d2, d2Key, tgt, tempPassword, nick, age, gender }
 }
 
 function parseUidFromTlv543(data: Buffer): string {

@@ -12,6 +12,7 @@ export interface PersistedSession {
   tempPassword: string // hex
   tgtgtKey: string  // hex
   guid: string      // hex
+  nick?: string     // 自己的昵称（来自登录响应 TLV 0x11A）
   savedAt: number   // timestamp
 }
 
@@ -22,6 +23,7 @@ export function saveSession(
   tgtgtKey: Buffer,
   guid: Buffer,
   tempPassword: Buffer,
+  nick: string = '',
   path: string = SESSION_FILE,
 ): void {
   const data: PersistedSession = {
@@ -33,6 +35,7 @@ export function saveSession(
     tempPassword: tempPassword.toString('hex'),
     tgtgtKey: tgtgtKey.toString('hex'),
     guid: guid.toString('hex'),
+    nick,
     savedAt: Date.now(),
   }
   writeFileSync(path, JSON.stringify(data, null, 2))
