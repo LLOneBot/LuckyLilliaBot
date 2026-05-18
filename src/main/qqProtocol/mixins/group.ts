@@ -1,7 +1,7 @@
 import { Oidb } from '@/ntqqapi/proto'
 import { selfInfo } from '@/common/globalVars'
 import type { QQProtocolBase } from '../base'
-import { randomInt } from 'crypto'
+import { randomInt } from 'node:crypto'
 
 export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
   return class extends Base {
