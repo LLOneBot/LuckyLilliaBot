@@ -135,6 +135,35 @@ async function main() {
   console.log(COLOR.cyan(`Test config: GROUP=${TEST_GROUP} UID=${TEST_UID} UIN=${TEST_UIN}`))
   console.log(COLOR.cyan(`Destructive tests: ${RUN_DESTRUCTIVE ? 'ENABLED' : 'disabled'}\n`))
 
+  // 诊断：验证 selfInfo.uin 是否真实对应 selfInfo.uid
+  console.log(COLOR.cyan('--- self info diagnostic ---'))
+  try {
+    const selfByUin = await ctx.qqProtocol.fetchUserInfo(+selfInfo.uin)
+    console.log(`  fetchUserInfo(selfInfo.uin=${selfInfo.uin}) → nick="${selfByUin.nick}", level=${selfByUin.level}, age=${selfByUin.age}`)
+    if (!selfByUin.nick) {
+      console.log(COLOR.red(`  ⚠️  selfInfo.uin (${selfInfo.uin}) does NOT correspond to a real account — nick empty`))
+    }
+  } catch (e) {
+    console.log(COLOR.red(`  fetchUserInfo(self) failed: ${(e as Error).message}`))
+  }
+  try {
+    const members: any[] = await ctx.qqProtocol.fetchGroupMembers(+TEST_GROUP)
+    const meByUid = members.find((m) => m.id?.uid === selfInfo.uid)
+    if (meByUid) {
+      console.log(`  group ${TEST_GROUP}: selfInfo.uid → uin from group = ${meByUid.id.uin}`)
+      if (String(meByUid.id.uin) !== selfInfo.uin) {
+        console.log(COLOR.red(`  ⚠️  selfInfo.uin (${selfInfo.uin}) ≠ real UIN from group (${meByUid.id.uin})`))
+      } else {
+        console.log(COLOR.green(`  ✓ selfInfo.uin matches real UIN`))
+      }
+    } else {
+      console.log(`  selfInfo.uid not in group ${TEST_GROUP} (skip cross-check)`)
+    }
+  } catch (e) {
+    console.log(COLOR.red(`  fetchGroupMembers diagnostic failed: ${(e as Error).message}`))
+  }
+  console.log()
+
   // ============================================================
   // SystemApi
   // ============================================================

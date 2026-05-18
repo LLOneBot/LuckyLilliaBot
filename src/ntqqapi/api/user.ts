@@ -46,17 +46,22 @@ export class NTQQUserApi extends Service {
     super(ctx, 'ntUserApi')
   }
 
+  /** 安全获取 ntFriendApi（避免 cordis 循环依赖：user→friend，friend 缓存里有 uin/nick） */
+  private get friendApi(): any {
+    return this.ctx.get('ntFriendApi')
+  }
+
   async setSelfAvatar(_path: string): Promise<{ result: number, errMsg: string }> {
     throw new Error('setSelfAvatar 暂未实现 (直连模式)')
   }
 
   async getUidByUin(uin: string, groupCode?: string) {
-    // 优先尝试 OIDB by uin
+    // 1) 好友列表
     try {
-      const info = await this.ctx.qqProtocol.fetchUserInfo(+uin)
-      // OIDB 0xfe1_2 不返回 uid，必须从其他渠道
+      const friend = await this.friendApi?.getFriendByUin(+uin, false)
+      if (friend?.uid) return friend.uid
     } catch {}
-    // 通过群成员列表获取 uid
+    // 2) 群成员列表
     if (groupCode) {
       try {
         const groupMembers: any = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
@@ -85,11 +90,21 @@ export class NTQQUserApi extends Service {
   }
 
   async getUinByUid(uid: string): Promise<string> {
+    if (!uid) return ''
+    // 自己
+    if (uid === selfInfo.uid && selfInfo.uin) return selfInfo.uin
+    // 1) 好友列表（最准）
+    try {
+      const friend = await this.friendApi?.getFriendByUid(uid, false)
+      if (friend?.uin && +friend.uin > 10000) return String(friend.uin)
+    } catch {}
+    // 2) OIDB 0xfe1_2 (协议返回的 body.uin 是占位符，仅在没有更好信息时使用)
     try {
       const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-      if (info?.uin) return String(info.uin)
+      const uin = String(info.uin || '')
+      if (uin && +uin > 10000) return uin
     } catch (e) {
-      this.ctx.logger.error('getUinByUid failed', e)
+      this.ctx.logger.error('getUinByUid via OIDB 0xfe1_2 failed', e)
     }
     return ''
   }
@@ -97,16 +112,18 @@ export class NTQQUserApi extends Service {
   /** 始终会从服务器拉取 */
   async fetchUserDetailInfo(uid: string) {
     const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+    const enriched = await this.enrichWithFriendCache(uid, info)
     return {
-      simpleInfo: makeSimpleInfoFromOidb(uid, info),
+      simpleInfo: makeSimpleInfoFromOidb(uid, enriched),
       commonExt: null,
     }
   }
 
   async getUserDetailInfoWithBizInfo(uid: string) {
     const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+    const enriched = await this.enrichWithFriendCache(uid, info)
     return {
-      simpleInfo: makeSimpleInfoFromOidb(uid, info),
+      simpleInfo: makeSimpleInfoFromOidb(uid, enriched),
       commonExt: null,
     } as unknown as UserDetailInfo
   }
@@ -114,7 +131,8 @@ export class NTQQUserApi extends Service {
   /** 无缓存时会从服务器拉取 */
   async getUserSimpleInfo(uid: string, _force = true) {
     const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-    return makeSimpleInfoFromOidb(uid, info)
+    const enriched = await this.enrichWithFriendCache(uid, info)
+    return makeSimpleInfoFromOidb(uid, enriched)
   }
 
   /** 无缓存时会获取不到用户信息 */
@@ -123,7 +141,8 @@ export class NTQQUserApi extends Service {
     for (const uid of uids) {
       try {
         const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-        result.set(uid, makeSimpleInfoFromOidb(uid, info))
+        const enriched = await this.enrichWithFriendCache(uid, info)
+        result.set(uid, makeSimpleInfoFromOidb(uid, enriched))
       } catch (e) {
         this.ctx.logger.error('getCoreAndBaseInfo failed for uid', uid, e)
       }
@@ -132,8 +151,45 @@ export class NTQQUserApi extends Service {
   }
 
   async getBuddyNick(uid: string) {
-    const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-    return info.nick
+    if (!uid) return ''
+    // 1) 自己
+    if (uid === selfInfo.uid && selfInfo.nick) return selfInfo.nick
+    // 2) 好友列表
+    try {
+      const friend = await this.friendApi?.getFriendByUid(uid, false)
+      if (friend?.nick) return friend.nick
+    } catch {}
+    // 3) OIDB（实际上 0xfe1_2 返回空 nick，但保留作为最后兜底）
+    try {
+      const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+      if (info.nick) return info.nick
+    } catch {}
+    return ''
+  }
+
+  /** 用好友列表里的 uin / nick 补全 OIDB 0xfe1_2 缺失的字段 */
+  private async enrichWithFriendCache(uid: string, info: any): Promise<any> {
+    const needsUin = !info?.uin || +info.uin <= 10000
+    const needsNick = !info?.nick
+    if (!needsUin && !needsNick) return info
+    if (uid === selfInfo.uid) {
+      return {
+        ...info,
+        uin: needsUin ? selfInfo.uin : info.uin,
+        nick: needsNick ? (selfInfo.nick || info.nick || '') : info.nick,
+      }
+    }
+    try {
+      const friend = await this.friendApi?.getFriendByUid(uid, false)
+      if (friend) {
+        return {
+          ...info,
+          uin: needsUin && friend.uin ? friend.uin : info.uin,
+          nick: needsNick && friend.nick ? friend.nick : info.nick,
+        }
+      }
+    } catch {}
+    return info
   }
 
   async getCookies(domain: string) {
@@ -160,16 +216,25 @@ export class NTQQUserApi extends Service {
   }
 
   async getSelfNick(refresh = true) {
-    if ((refresh || !selfInfo.nick) && selfInfo.uid) {
-      try {
-        let nick = await this.getBuddyNick(selfInfo.uid)
-        if (!nick) {
-          nick = (await this.getUserSimpleInfo(selfInfo.uid, refresh)).coreInfo.nick
-        }
-        selfInfo.nick = nick
-      } catch (e) {
-        this.ctx.logger.error('getSelfNick failed', e)
+    if (!refresh && selfInfo.nick) return selfInfo.nick
+    if (!selfInfo.uid) return selfInfo.nick
+    // 自己不在好友列表，OIDB 0xfe1 by self uid/uin 都不返回 nick
+    // 通过群成员列表里的自己拿
+    try {
+      const groups = await this.ctx.ntGroupApi.getGroups(false)
+      for (const g of groups) {
+        try {
+          const members: any = await this.ctx.ntGroupApi.getGroupMembers(String(g.groupCode))
+          const me = members.result?.infos?.get(selfInfo.uid)
+          if (me?.nick) {
+            selfInfo.nick = me.nick
+            return me.nick
+          }
+        } catch {}
+        if (selfInfo.nick) return selfInfo.nick
       }
+    } catch (e) {
+      this.ctx.logger.error('getSelfNick via groups failed', e)
     }
     return selfInfo.nick
   }
