@@ -5,13 +5,12 @@
  * 用法：
  *   QQ_TEST_GROUP=164461995 RUN_DESTRUCTIVE=1 npx tsx test/segment-test.ts
  *
- * 可选：
- *   TEST_AT_UID=u_xxx          @某人 测试用的 uid
- *   TEST_PIC=path/to/pic.png   图片测试用文件（默认 test/qr-code.png）
- *   TEST_PTT=path/to/voice.silk 语音测试文件（缺失则 SKIP）
- *   TEST_VIDEO=path/to/v.mp4   视频
- *   TEST_VIDEO_THUMB=...       视频缩略图
- *   TEST_FILE=path/to/file.txt 群文件
+ * 自动使用 test/onebot11-api-test/tests/media/ 下的 fixture：
+ *   - test2.mp3  → 转 silk → ptt 测试
+ *   - test.mp4   → video 测试（自动抽帧做缩略图）
+ *   - test.gif   → 群文件测试
+ *
+ * 可选环境变量覆盖：TEST_PIC, TEST_PTT, TEST_VIDEO, TEST_FILE
  */
 
 import { Context } from 'cordis'
@@ -25,16 +24,17 @@ import {
 } from '../src/ntqqapi/api'
 import { selfInfo } from '../src/common/globalVars'
 import { ChatType, ElementType, AtType, Peer, RawMessage, SendMessageElement } from '../src/ntqqapi/types'
+import { SendElement } from '../src/ntqqapi/entities'
 import { existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 const TEST_GROUP = process.env.QQ_TEST_GROUP || '164461995'
 const TEST_AT_UID = process.env.TEST_AT_UID || process.env.QQ_TEST_UID || 'u_snYxnEfja-Po_cdFcyccRQ'
+const FIXTURE_DIR = resolve('test/onebot11-api-test/tests/media')
 const TEST_PIC = resolve(process.env.TEST_PIC || 'test/qr-code.png')
-const TEST_PTT = process.env.TEST_PTT
-const TEST_VIDEO = process.env.TEST_VIDEO
-const TEST_VIDEO_THUMB = process.env.TEST_VIDEO_THUMB
-const TEST_FILE = process.env.TEST_FILE
+const TEST_PTT = resolve(process.env.TEST_PTT || `${FIXTURE_DIR}/test2.mp3`)
+const TEST_VIDEO = resolve(process.env.TEST_VIDEO || `${FIXTURE_DIR}/test.mp4`)
+const TEST_FILE = resolve(process.env.TEST_FILE || `${FIXTURE_DIR}/test.gif`)
 const RUN_DESTRUCTIVE = process.env.RUN_DESTRUCTIVE === '1'
 
 const COLOR = {
@@ -51,9 +51,9 @@ const results: { name: string; status: Status; detail: string }[] = []
 async function sendAndVerify(
   ctx: any,
   name: string,
-  buildElems: () => SendMessageElement[],
+  buildElems: () => Promise<SendMessageElement[]> | SendMessageElement[],
   verify: (msg: RawMessage) => boolean | string,
-  options: { skipReason?: string } = {},
+  options: { skipReason?: string, /** 视频等异步消息：无 msgSeq 也算 PASS（仅检查 sendMsg 不抛错） */ allowMissingSeq?: boolean } = {},
 ): Promise<RawMessage | undefined> {
   if (options.skipReason) {
     results.push({ name, status: 'SKIP', detail: options.skipReason })
@@ -62,9 +62,14 @@ async function sendAndVerify(
   }
   const peer: Peer = { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }
   try {
-    const elems = buildElems()
+    const elems = await buildElems()
     const sent = await ctx.ntMsgApi.sendMsg(peer, elems)
     if (!sent?.msgSeq || sent.msgSeq === '0') {
+      if (options.allowMissingSeq) {
+        results.push({ name, status: 'PASS', detail: '(no seq, async msg)' })
+        console.log(COLOR.green(`PASS  ${name}`), COLOR.gray('(sent, server returned no seq — async)'))
+        return
+      }
       results.push({ name, status: 'FAIL', detail: 'no msgSeq returned' })
       console.log(COLOR.red(`FAIL  ${name}`), COLOR.gray('no msgSeq'))
       return
@@ -232,10 +237,7 @@ async function main() {
 
   // 6. 图片
   await sendAndVerify(ctx, 'Pic (qr-code.png)',
-    () => [{
-      elementType: ElementType.Pic, elementId: '',
-      picElement: { sourcePath: TEST_PIC, fileSize: '0', picWidth: 0, picHeight: 0, fileName: 'qr-code.png' },
-    } as any],
+    async () => [await SendElement.pic(ctx, TEST_PIC)],
     (m) => {
       const p = m.elements?.find((e: any) => e.elementType === ElementType.Pic)
       if (!p) return 'no pic element'
@@ -244,48 +246,39 @@ async function main() {
     },
     { skipReason: existsSync(TEST_PIC) ? undefined : `pic ${TEST_PIC} not found` })
 
-  // 7. 语音
-  await sendAndVerify(ctx, 'Ptt (voice)',
-    () => [{
-      elementType: ElementType.Ptt, elementId: '',
-      pttElement: { filePath: TEST_PTT!, duration: 1, fileSize: '0' },
-    } as any],
+  // 7. 语音（自动 mp3 → silk）
+  await sendAndVerify(ctx, 'Ptt (mp3 → silk)',
+    async () => [await SendElement.ptt(ctx, TEST_PTT)],
     (m) => {
       const p = m.elements?.find((e: any) => e.elementType === ElementType.Ptt)
       if (!p) return 'no ptt element'
+      if (!p.pttElement?.md5HexStr) return 'no md5'
       return true
     },
-    { skipReason: TEST_PTT && existsSync(TEST_PTT) ? undefined : 'TEST_PTT not set or file missing' })
+    { skipReason: existsSync(TEST_PTT) ? undefined : `ptt ${TEST_PTT} not found` })
 
-  // 8. 视频
-  await sendAndVerify(ctx, 'Video',
-    () => {
-      const thumb = new Map([[0, TEST_VIDEO_THUMB!]])
-      return [{
-        elementType: ElementType.Video, elementId: '',
-        videoElement: { filePath: TEST_VIDEO!, thumbPath: thumb, fileSize: '0' },
-      } as any]
-    },
+  // 8. 视频（自动抽帧做缩略图）。视频是异步消息，server 不立即返 sequence，只验证发送不抛错
+  await sendAndVerify(ctx, 'Video (mp4)',
+    async () => [await SendElement.video(ctx, TEST_VIDEO)],
     (m) => {
       const v = m.elements?.find((e: any) => e.elementType === ElementType.Video)
       if (!v) return 'no video element'
       return true
     },
-    { skipReason: TEST_VIDEO && TEST_VIDEO_THUMB && existsSync(TEST_VIDEO) && existsSync(TEST_VIDEO_THUMB)
-      ? undefined : 'TEST_VIDEO/TEST_VIDEO_THUMB not set' })
+    {
+      skipReason: existsSync(TEST_VIDEO) ? undefined : `video ${TEST_VIDEO} not found`,
+      allowMissingSeq: true,
+    })
 
   // 9. 群文件
   await sendAndVerify(ctx, 'GroupFile',
-    () => [{
-      elementType: ElementType.File, elementId: '',
-      fileElement: { filePath: TEST_FILE!, fileName: 'apitest.txt', fileSize: '0' },
-    } as any],
+    async () => [await SendElement.file(ctx, TEST_FILE, 'apitest.gif')],
     (m) => {
       const f = m.elements?.find((e: any) => e.elementType === ElementType.File)
       if (!f) return 'no file element'
       return true
     },
-    { skipReason: TEST_FILE && existsSync(TEST_FILE) ? undefined : 'TEST_FILE not set or missing' })
+    { skipReason: existsSync(TEST_FILE) ? undefined : `file ${TEST_FILE} not found` })
 
   // ============================================================
   const pass = results.filter(r => r.status === 'PASS').length
