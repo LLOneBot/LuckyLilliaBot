@@ -74,8 +74,8 @@ export class NTQQUserApi extends Service {
       },
       async () => {
         if (groupCode) {
-          const groupMembers = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
-          return groupMembers.result.infos.values().find(e => e.uin === uin)?.uid
+          const groupMembers: any = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
+          return [...groupMembers.result?.infos?.values() ?? []].find((e: any) => e.uin === uin)?.uid
         }
       }
     ]
@@ -133,30 +133,48 @@ export class NTQQUserApi extends Service {
 
   /** 始终会从服务器拉取 */
   async fetchUserDetailInfo(uid: string) {
-    return await this.ctx.qqProtocol.invoke(
-      'nodeIKernelProfileService/fetchUserDetailInfo',
-      [
-        'BuddyProfileStore', // callFrom
-        [uid],
-        UserDetailSource.KSERVER, // source
-        [ProfileBizType.KALL], //bizList
-      ],
-    )
+    try {
+      return await this.ctx.qqProtocol.invoke(
+        'nodeIKernelProfileService/fetchUserDetailInfo',
+        [
+          'BuddyProfileStore', // callFrom
+          [uid],
+          UserDetailSource.KSERVER, // source
+          [ProfileBizType.KALL], //bizList
+        ],
+      )
+    } catch {
+      // 直连模式 fallback: 用 fetchUserInfoByUid + getCoreAndBaseInfo
+      const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+      return {
+        simpleInfo: makeSimpleInfoFromOidb(uid, info),
+        commonExt: null,
+      }
+    }
   }
 
   async getUserDetailInfoWithBizInfo(uid: string) {
-    const result = await this.ctx.qqProtocol.invoke<UserDetailInfo>(
-      'nodeIKernelProfileService/getUserDetailInfoWithBizInfo',
-      [
-        uid,
-        [0],
-      ],
-      {
-        resultCmd: 'nodeIKernelProfileListener/onUserDetailInfoChanged',
-        resultCb: payload => payload.simpleInfo.uid === uid,
-      },
-    )
-    return result
+    try {
+      const result = await this.ctx.qqProtocol.invoke<UserDetailInfo>(
+        'nodeIKernelProfileService/getUserDetailInfoWithBizInfo',
+        [
+          uid,
+          [0],
+        ],
+        {
+          resultCmd: 'nodeIKernelProfileListener/onUserDetailInfoChanged',
+          resultCb: payload => payload.simpleInfo.uid === uid,
+        },
+      )
+      return result
+    } catch {
+      // 直连模式 fallback: 用 fetchUserInfoByUid 拼装
+      const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+      return {
+        simpleInfo: makeSimpleInfoFromOidb(uid, info),
+        commonExt: null,
+      } as unknown as UserDetailInfo
+    }
   }
 
   /** 无缓存时会从服务器拉取 */
@@ -332,7 +350,7 @@ export class NTQQUserApi extends Service {
     const funcs = [
       () => this.getUserSimpleInfo(uid, false),
       () => this.getUserSimpleInfo(uid, true),
-      async () => (await this.fetchUserDetailInfo(uid)).detail.get(uid)?.simpleInfo,
+      async () => (await this.fetchUserDetailInfo(uid) as any).detail?.get(uid)?.simpleInfo,
       async () => (await this.getUserDetailInfoWithBizInfo(uid)).simpleInfo,
       async () => (await this.getCoreAndBaseInfo([uid])).get(uid)
     ]

@@ -82,7 +82,17 @@ export class NTQQGroupApi extends Service {
   }
 
   async getGroupMembers(groupCode: string, forceFetch: boolean = true) {
-    return await this.ctx.qqProtocol.invoke(NTMethod.GROUP_MEMBERS, [groupCode, forceFetch])
+    try {
+      return await this.ctx.qqProtocol.invoke(NTMethod.GROUP_MEMBERS, [groupCode, forceFetch] as any)
+    } catch {
+      // 直连模式 fallback：拉全员
+      const all = await this.ctx.qqProtocol.fetchGroupMembers(+groupCode)
+      const infos = new Map<string, GroupMember>()
+      for (const m of all) {
+        if (m.id?.uid) infos.set(m.id.uid, this.toGroupMember(m))
+      }
+      return { result: { infos, finish: true, ids: [] } } as any
+    }
   }
 
   async getGroupMember(groupCode: string, uid: string, forceUpdate = false, timeout = 15000) {
@@ -523,18 +533,27 @@ export class NTQQGroupApi extends Service {
   }
 
   async getGroupShutUpMemberList(groupCode: string): Promise<GroupMember[]> {
-    const res = await this.ctx.qqProtocol.invoke<[
-      groupCode: string,
-      memList: GroupMember[]
-    ]>(
-      'nodeIKernelGroupService/getGroupShutUpMemberList',
-      [groupCode],
-      {
-        resultCmd: 'nodeIKernelGroupListener/onShutUpMemberListChanged',
-        resultCb: payload => payload[0] === groupCode || payload[0] === '0'
-      },
-    )
-    return res[1]
+    try {
+      const res = await this.ctx.qqProtocol.invoke<[
+        groupCode: string,
+        memList: GroupMember[]
+      ]>(
+        'nodeIKernelGroupService/getGroupShutUpMemberList',
+        [groupCode],
+        {
+          resultCmd: 'nodeIKernelGroupListener/onShutUpMemberListChanged',
+          resultCb: payload => payload[0] === groupCode || payload[0] === '0'
+        },
+      )
+      return res[1]
+    } catch {
+      // 直连模式 fallback: 拉全员 + 过滤 shutUpTimestamp > now
+      const all = await this.ctx.qqProtocol.fetchGroupMembers(+groupCode)
+      const now = Math.floor(Date.now() / 1000)
+      return all
+        .filter((m: any) => m.shutUpTimestamp && m.shutUpTimestamp > now)
+        .map((m: any) => this.toGroupMember(m))
+    }
   }
 
   async renameGroupFolder(groupId: string, folderId: string, newFolderName: string) {
