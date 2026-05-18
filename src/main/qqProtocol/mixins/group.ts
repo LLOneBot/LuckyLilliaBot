@@ -217,5 +217,96 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
       return all
     }
+
+    async kickGroupMember(groupCode: number, memberUid: string, rejectSubsequentRequests = false, reason = '') {
+      const body = Oidb.KickMemberReq.encode({
+        groupCode,
+        memberUid,
+        rejectSubsequentRequests,
+        reason,
+      })
+      const data = Oidb.Base.encode({ command: 0x8a0, subCommand: 1, body })
+      await this.sendPB('OidbSvcTrpcTcp.0x8a0_1', data)
+    }
+
+    async muteGroupMember(groupCode: number, memberUid: string, durationSec: number) {
+      const body = Oidb.MuteMemberReq.encode({
+        groupCode,
+        type: 0,
+        body: { targetUid: memberUid, duration: durationSec },
+      })
+      const data = Oidb.Base.encode({ command: 0x1253, subCommand: 1, body })
+      await this.sendPB('OidbSvcTrpcTcp.0x1253_1', data)
+    }
+
+    async muteAllGroupMembers(groupCode: number, isMute: boolean) {
+      const body = Oidb.MuteAllMembersReq.encode({
+        groupCode,
+        body: { duration: isMute ? 0xffffffff : 0 },
+      })
+      const data = Oidb.Base.encode({ command: 0x89a, subCommand: 0, body })
+      await this.sendPB('OidbSvcTrpcTcp.0x89a_0', data)
+    }
+
+    async setGroupName(groupCode: number, name: string) {
+      const body = Oidb.SetGroupNameReq.encode({
+        groupCode,
+        body: { name },
+      })
+      const data = Oidb.Base.encode({ command: 0x89a, subCommand: 15, body })
+      await this.sendPB('OidbSvcTrpcTcp.0x89a_15', data)
+    }
+
+    async setGroupMemberCard(groupCode: number, memberUid: string, card: string) {
+      const body = Oidb.SetMemberCardReq.encode({
+        groupCode,
+        body: [{ targetUid: memberUid, card }],
+      })
+      const data = Oidb.Base.encode({ command: 0x8fc, subCommand: 3, body })
+      await this.sendPB('OidbSvcTrpcTcp.0x8fc_3', data)
+    }
+
+    async setGroupMemberAdmin(groupCode: number, memberUid: string, isSet: boolean) {
+      const body = Oidb.SetMemberAdminReq.encode({
+        groupCode,
+        memberUid,
+        isSet,
+      })
+      const data = Oidb.Base.encode({ command: 0x1096, subCommand: 1, body })
+      await this.sendPB('OidbSvcTrpcTcp.0x1096_1', data)
+    }
+
+    async leaveGroup(groupCode: number) {
+      const body = Oidb.LeaveGroupReq.encode({ groupCode })
+      const data = Oidb.Base.encode({ command: 0x1097, subCommand: 1, body })
+      await this.sendPB('OidbSvcTrpcTcp.0x1097_1', data)
+    }
+
+    /** operation: 1=accept, 2=reject, 3=ignore */
+    async handleGroupRequest(sequence: bigint, eventType: number, groupCode: number, operation: number, message = '', filtered = false) {
+      const body = Oidb.HandleGroupRequestReq.encode({
+        operation,
+        body: { sequence, eventType, groupCode, message },
+      })
+      const subCommand = filtered ? 2 : 1
+      const data = Oidb.Base.encode({ command: 0x10c8, subCommand, body })
+      await this.sendPB(`OidbSvcTrpcTcp.0x10c8_${subCommand}`, data)
+    }
+
+    /** isAdd: true=设精华, false=取消精华 */
+    async setGroupEssence(groupCode: number, msgSequence: number, msgRandom: number, isAdd: boolean) {
+      const body = Oidb.GroupEssenceReq.encode({ groupCode, msgSequence, msgRandom })
+      const subCommand = isAdd ? 1 : 2
+      const data = Oidb.Base.encode({ command: 0xeac, subCommand, body })
+      await this.sendPB(`OidbSvcTrpcTcp.0xeac_${subCommand}`, data)
+    }
+
+    /** type: 1=face(QQ表情), 2=emoji(unicode) */
+    async setGroupReaction(groupCode: number, sequence: number, code: string, type: number, isAdd: boolean) {
+      const body = Oidb.GroupReactionReq.encode({ groupCode, sequence, code, type })
+      const subCommand = isAdd ? 1 : 2
+      const data = Oidb.Base.encode({ command: 0x9082, subCommand, body })
+      await this.sendPB(`OidbSvcTrpcTcp.0x9082_${subCommand}`, data)
+    }
   }
 }

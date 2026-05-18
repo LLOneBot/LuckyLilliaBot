@@ -672,4 +672,85 @@ export namespace Oidb {
       })
     })
   })
+
+  /** OidbSvcTrpcTcp.0x8a0_1 - 踢人 */
+  export const KickMemberReq = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32'),
+    memberUid: ProtoField(3, 'string'),
+    rejectSubsequentRequests: ProtoField(4, 'bool'),
+    reason: ProtoField(5, 'string', 'optional'),
+  })
+
+  /** OidbSvcTrpcTcp.0x1253_1 - 禁言成员 */
+  export const MuteMemberReq = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32'),
+    type: ProtoField(2, 'uint32'),
+    body: ProtoField(3, {
+      targetUid: ProtoField(1, 'string'),
+      duration: ProtoField(2, 'uint32'),
+    }),
+  })
+
+  /** OidbSvcTrpcTcp.0x89a_0 - 全员禁言 */
+  export const MuteAllMembersReq = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32'),
+    body: ProtoField(2, {
+      duration: ProtoField(17, 'uint32'),
+    }),
+  })
+
+  /** OidbSvcTrpcTcp.0x89a_15 - 设置群名 */
+  export const SetGroupNameReq = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32'),
+    body: ProtoField(2, {
+      name: ProtoField(3, 'string'),
+    }),
+  })
+
+  /** OidbSvcTrpcTcp.0x8fc_3 - 设置群名片 */
+  export const SetMemberCardReq = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32'),
+    body: ProtoField(3, {
+      targetUid: ProtoField(1, 'string'),
+      card: ProtoField(8, 'string'),
+    }, 'repeated'),
+  })
+
+  /** OidbSvcTrpcTcp.0x1097_1 - 退群 */
+  export const LeaveGroupReq = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32'),
+  })
+
+  /** OidbSvcTrpcTcp.0x10c8_1 / 0x10c8_2 - 处理群通知（入群审批等） */
+  export const HandleGroupRequestReq = ProtoMessage.of({
+    operation: ProtoField(1, 'uint32'),
+    body: ProtoField(2, {
+      sequence: ProtoField(1, 'uint64'),
+      eventType: ProtoField(2, 'uint32'),
+      groupCode: ProtoField(3, 'uint32'),
+      message: ProtoField(4, 'string'),
+    }),
+  })
+
+  /** OidbSvcTrpcTcp.0x1096_1 - 设/取消管理员 */
+  export const SetMemberAdminReq = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32'),
+    memberUid: ProtoField(2, 'string'),
+    isSet: ProtoField(3, 'bool'),
+  })
+
+  /** OidbSvcTrpcTcp.0xeac_1 / 0xeac_2 - 设精华 / 取消精华 */
+  export const GroupEssenceReq = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32'),
+    msgSequence: ProtoField(2, 'uint32'),
+    msgRandom: ProtoField(3, 'uint32'),
+  })
+
+  /** OidbSvcTrpcTcp.0x9082_1 / 0x9082_2 - 群表情回应（添加 / 移除） */
+  export const GroupReactionReq = ProtoMessage.of({
+    groupCode: ProtoField(2, 'uint32'),
+    sequence: ProtoField(3, 'uint32'),
+    code: ProtoField(4, 'string'),
+    type: ProtoField(5, 'uint32'),
+  })
 }

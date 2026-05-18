@@ -222,44 +222,83 @@ export class NTQQGroupApi extends Service {
     const seq = flagitem[1]
     const type = +flagitem[2]
     const doubt = flagitem[3] === '1'
-    return await this.operateSysNotify(doubt, {
-      operateType,
-      targetMsg: {
-        seq,
-        type,
-        groupCode,
-        postscript: reason || ' ', // 仅传空值可能导致处理失败，故默认给个空格
-      },
-    })
+    try {
+      return await this.operateSysNotify(doubt, {
+        operateType,
+        targetMsg: {
+          seq,
+          type,
+          groupCode,
+          postscript: reason || ' ',
+        },
+      })
+    } catch {
+      // 直连模式 fallback：用 OIDB 0x10c8_1 / 0x10c8_2
+      // operateType 1=accept, 2=reject (NT 内部值)
+      const operation = operateType === GroupRequestOperateTypes.Approve ? 1 : 2
+      await this.ctx.qqProtocol.handleGroupRequest(BigInt(seq), type, +groupCode, operation, reason || '', doubt)
+    }
   }
 
   async quitGroup(groupCode: string) {
-    return await this.ctx.qqProtocol.invoke(NTMethod.QUIT_GROUP, [groupCode])
+    try {
+      return await this.ctx.qqProtocol.invoke(NTMethod.QUIT_GROUP, [groupCode])
+    } catch {
+      return await this.ctx.qqProtocol.leaveGroup(+groupCode)
+    }
   }
 
   async kickMember(groupCode: string, kickUids: string[], refuseForever = false, kickReason = '') {
-    return await this.ctx.qqProtocol.invoke(NTMethod.KICK_MEMBER, [groupCode, kickUids, refuseForever, kickReason])
+    try {
+      return await this.ctx.qqProtocol.invoke(NTMethod.KICK_MEMBER, [groupCode, kickUids, refuseForever, kickReason])
+    } catch {
+      for (const uid of kickUids) {
+        await this.ctx.qqProtocol.kickGroupMember(+groupCode, uid, refuseForever, kickReason)
+      }
+    }
   }
 
   /** timeStamp为秒数, 0为解除禁言 */
   async banMember(groupCode: string, memList: Array<{ uid: string, timeStamp: number }>) {
-    return await this.ctx.qqProtocol.invoke(NTMethod.MUTE_MEMBER, [groupCode, memList])
+    try {
+      return await this.ctx.qqProtocol.invoke(NTMethod.MUTE_MEMBER, [groupCode, memList])
+    } catch {
+      for (const m of memList) {
+        await this.ctx.qqProtocol.muteGroupMember(+groupCode, m.uid, m.timeStamp)
+      }
+    }
   }
 
   async banGroup(groupCode: string, shutUp: boolean) {
-    return await this.ctx.qqProtocol.invoke(NTMethod.MUTE_GROUP, [groupCode, shutUp])
+    try {
+      return await this.ctx.qqProtocol.invoke(NTMethod.MUTE_GROUP, [groupCode, shutUp])
+    } catch {
+      await this.ctx.qqProtocol.muteAllGroupMembers(+groupCode, shutUp)
+    }
   }
 
   async setMemberCard(groupCode: string, memberUid: string, cardName: string) {
-    return await this.ctx.qqProtocol.invoke(NTMethod.SET_MEMBER_CARD, [groupCode, memberUid, cardName])
+    try {
+      return await this.ctx.qqProtocol.invoke(NTMethod.SET_MEMBER_CARD, [groupCode, memberUid, cardName])
+    } catch {
+      await this.ctx.qqProtocol.setGroupMemberCard(+groupCode, memberUid, cardName)
+    }
   }
 
   async setMemberRole(groupCode: string, memberUid: string, role: GroupMemberRole) {
-    return await this.ctx.qqProtocol.invoke(NTMethod.SET_MEMBER_ROLE, [groupCode, memberUid, role])
+    try {
+      return await this.ctx.qqProtocol.invoke(NTMethod.SET_MEMBER_ROLE, [groupCode, memberUid, role])
+    } catch {
+      await this.ctx.qqProtocol.setGroupMemberAdmin(+groupCode, memberUid, role === GroupMemberRole.Admin)
+    }
   }
 
   async setGroupName(groupCode: string, groupName: string) {
-    return await this.ctx.qqProtocol.invoke(NTMethod.SET_GROUP_NAME, [groupCode, groupName, true])
+    try {
+      return await this.ctx.qqProtocol.invoke(NTMethod.SET_GROUP_NAME, [groupCode, groupName, true])
+    } catch {
+      await this.ctx.qqProtocol.setGroupName(+groupCode, groupName)
+    }
   }
 
   async getGroupRemainAtTimes(groupCode: string) {
@@ -269,23 +308,29 @@ export class NTQQGroupApi extends Service {
   async removeGroupEssence(groupCode: string, msgId: string) {
     const ntMsgApi = this.ctx.get('ntMsgApi')!
     const data = await ntMsgApi.getMsgHistory({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
-    return await this.ctx.qqProtocol.invoke('nodeIKernelGroupService/removeGroupEssence', [{
-      groupCode: groupCode,
-      msgRandom: Number(data?.msgList[0].msgRandom),
-      msgSeq: Number(data?.msgList[0].msgSeq),
-    }])
+    const msgRandom = Number(data?.msgList[0].msgRandom)
+    const msgSeq = Number(data?.msgList[0].msgSeq)
+    try {
+      return await this.ctx.qqProtocol.invoke('nodeIKernelGroupService/removeGroupEssence', [{
+        groupCode, msgRandom, msgSeq,
+      }])
+    } catch {
+      await this.ctx.qqProtocol.setGroupEssence(+groupCode, msgSeq, msgRandom, false)
+    }
   }
 
   async addGroupEssence(groupCode: string, msgId: string) {
     const ntMsgApi = this.ctx.get('ntMsgApi')!
     const data = await ntMsgApi.getMsgHistory({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
-    return await this.ctx.qqProtocol.invoke('nodeIKernelGroupService/addGroupEssence', [
-      {
-        groupCode: groupCode,
-        msgRandom: Number(data?.msgList[0].msgRandom),
-        msgSeq: Number(data?.msgList[0].msgSeq),
-
+    const msgRandom = Number(data?.msgList[0].msgRandom)
+    const msgSeq = Number(data?.msgList[0].msgSeq)
+    try {
+      return await this.ctx.qqProtocol.invoke('nodeIKernelGroupService/addGroupEssence', [{
+        groupCode, msgRandom, msgSeq,
       }])
+    } catch {
+      await this.ctx.qqProtocol.setGroupEssence(+groupCode, msgSeq, msgRandom, true)
+    }
   }
 
   async createGroupFileFolder(groupId: string, folderName: string) {
