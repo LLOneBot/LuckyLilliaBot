@@ -6,9 +6,9 @@
  *   QQ_TEST_GROUP=164461995 RUN_DESTRUCTIVE=1 npx tsx test/segment-test.ts
  *
  * 自动使用 test/onebot11-api-test/tests/media/ 下的 fixture：
+ *   - test.gif   → 图片测试 / 群文件测试
  *   - test2.mp3  → 转 silk → ptt 测试
  *   - test.mp4   → video 测试（自动抽帧做缩略图）
- *   - test.gif   → 群文件测试
  *
  * 可选环境变量覆盖：TEST_PIC, TEST_PTT, TEST_VIDEO, TEST_FILE
  */
@@ -31,7 +31,7 @@ import { resolve } from 'node:path'
 const TEST_GROUP = process.env.QQ_TEST_GROUP || '164461995'
 const TEST_AT_UID = process.env.TEST_AT_UID || process.env.QQ_TEST_UID || 'u_snYxnEfja-Po_cdFcyccRQ'
 const FIXTURE_DIR = resolve('test/onebot11-api-test/tests/media')
-const TEST_PIC = resolve(process.env.TEST_PIC || 'test/qr-code.png')
+const TEST_PIC = resolve(process.env.TEST_PIC || `${FIXTURE_DIR}/test.gif`)
 const TEST_PTT = resolve(process.env.TEST_PTT || `${FIXTURE_DIR}/test2.mp3`)
 const TEST_VIDEO = resolve(process.env.TEST_VIDEO || `${FIXTURE_DIR}/test.mp4`)
 const TEST_FILE = resolve(process.env.TEST_FILE || `${FIXTURE_DIR}/test.gif`)
@@ -236,7 +236,7 @@ async function main() {
   }
 
   // 6. 图片
-  await sendAndVerify(ctx, 'Pic (qr-code.png)',
+  await sendAndVerify(ctx, 'Pic',
     async () => [await SendElement.pic(ctx, TEST_PIC)],
     (m) => {
       const p = m.elements?.find((e: any) => e.elementType === ElementType.Pic)
