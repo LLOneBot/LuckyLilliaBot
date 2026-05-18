@@ -219,6 +219,9 @@ export class NTQQMsgApi extends Service {
           ? await this.ctx.ntFileApi.uploadGroupVideo(peer.peerUid, sourcePath, thumbPath)
           : await this.ctx.ntFileApi.uploadC2CVideo(peer.peerUid, sourcePath, thumbPath)
         const msgInfoBytes = Media.MsgInfo.encode(result.msgInfo)
+        // 注意：视频消息发送后服务端不返回 sequence（field 11 缺失），是已知行为。
+        // Lagrange 同样 SendMessageEventResp 的 sequence 此时为 0；真正的 seq 通过
+        // OlPush 推送（server 转码完成后）异步到达。
         elems.push({
           commonElem: {
             serviceType: 48,

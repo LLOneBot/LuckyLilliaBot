@@ -143,10 +143,10 @@ export class NTQQFileApi extends Service {
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
-      result.ext.hash.fileSha1 = await calculateSha1StreamBytes(filePath)
+      result.ext.hash.fileSha1 = (await calculateSha1StreamBytes(filePath)).map((b: Buffer) => Buffer.from(b))
       const trans = {
         uin: selfInfo.uin,
-        cmd: 1005,
+        cmd: 1001,  // group video main (Lagrange 一致)
         readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,
@@ -163,10 +163,10 @@ export class NTQQFileApi extends Service {
     }
     if (result.subExt.uKey) {
       const { index } = result.subExt.msgInfoBody[1]
-      result.subExt.hash.fileSha1 = await calculateSha1StreamBytes(thumbPath)
+      // 注意：Lagrange video thumb 不重新算 sha1，只用 server 响应里的（已在 generateExt 填充）
       const trans = {
         uin: selfInfo.uin,
-        cmd: 1006,
+        cmd: 1002,  // group video thumb
         readable: createReadStream(thumbPath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,
@@ -193,10 +193,10 @@ export class NTQQFileApi extends Service {
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
-      result.ext.hash.fileSha1 = await calculateSha1StreamBytes(filePath)
+      result.ext.hash.fileSha1 = (await calculateSha1StreamBytes(filePath)).map((b: Buffer) => Buffer.from(b))
       const trans = {
         uin: selfInfo.uin,
-        cmd: 1001,
+        cmd: 1005,  // c2c video main
         readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,
@@ -213,10 +213,9 @@ export class NTQQFileApi extends Service {
     }
     if (result.subExt.uKey) {
       const { index } = result.subExt.msgInfoBody[1]
-      result.subExt.hash.fileSha1 = await calculateSha1StreamBytes(thumbPath)
       const trans = {
         uin: selfInfo.uin,
-        cmd: 1002,
+        cmd: 1006,  // c2c video thumb
         readable: createReadStream(thumbPath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,

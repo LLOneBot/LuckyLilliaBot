@@ -120,8 +120,17 @@ export namespace NTV2RichMedia {
     subFileInfo?: InferProtoModel<typeof Media.NTV2RichMediaResp>['upload']['subFileInfos'][number]
   ) {
     const blockSize = 1024 * 1024
+    // Lagrange 用 index.Info.FileSha1 (server 算过的 hex 字符串) 作为初始 sha1。
+    // 主文件上传前调用方会用 calculateSha1StreamBytes 覆盖；subExt（缩略图）不覆盖。
     const index = upload.msgInfo.msgInfoBody[0].index
+    const initialSha1: Buffer[] = index.info?.sha1HexStr
+      ? [Buffer.from(index.info.sha1HexStr, 'hex')]
+      : [Buffer.alloc(0)]
     if (subFileInfo) {
+      const subIndex = upload.msgInfo.msgInfoBody[1]?.index
+      const subInitialSha1: Buffer[] = subIndex?.info?.sha1HexStr
+        ? [Buffer.from(subIndex.info.sha1HexStr, 'hex')]
+        : initialSha1
       return {
         fileUuid: index.fileUuid,
         uKey: subFileInfo.uKey,
@@ -129,7 +138,7 @@ export namespace NTV2RichMedia {
         msgInfoBody: upload.msgInfo.msgInfoBody,
         blockSize,
         hash: {
-          fileSha1: [Buffer.alloc(0)] as Buffer[]
+          fileSha1: subInitialSha1
         }
       } satisfies InferProtoModelInput<typeof Media.NTV2RichMediaHighwayExt>
     } else {
@@ -140,7 +149,7 @@ export namespace NTV2RichMedia {
         msgInfoBody: upload.msgInfo.msgInfoBody,
         blockSize,
         hash: {
-          fileSha1: [Buffer.alloc(0)] as Buffer[]
+          fileSha1: initialSha1
         }
       } satisfies InferProtoModelInput<typeof Media.NTV2RichMediaHighwayExt>
     }

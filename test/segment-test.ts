@@ -257,7 +257,10 @@ async function main() {
     },
     { skipReason: existsSync(TEST_PTT) ? undefined : `ptt ${TEST_PTT} not found` })
 
-  // 8. 视频（自动抽帧做缩略图）。视频是异步消息，server 不立即返 sequence，只验证发送不抛错
+  // 8. 视频（自动抽帧做缩略图）
+  // 注意：QQ 服务端对视频消息特殊处理 — PbSendMsg 响应不含 sequence(field 11)。
+  // Lagrange 同样行为（result.Sequence=0），真实 seq 通过 OlPush 异步推送。
+  // 这里只验证消息发出去不抛错。
   await sendAndVerify(ctx, 'Video (mp4)',
     async () => [await SendElement.video(ctx, TEST_VIDEO)],
     (m) => {
