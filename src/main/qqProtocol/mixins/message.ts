@@ -140,13 +140,15 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       elems: InferProtoModelInput<typeof Msg.Elem>[]
     }) {
       const random = randomBytes(4).readUInt32BE(0)
+      // Lagrange BotMessage.ClientSequence: Random.NextInt64(10000, 99999)
+      const clientSequence = 10000 + Math.floor(Math.random() * 90000)
       const data = Msg.PbSendMsg.encode({
         routingHead: opts.isGroup
           ? { group: { groupCode: opts.groupCode! } }
           : { c2c: { toUin: opts.toUin, toUid: opts.toUid } },
         contentHead: { pkgNum: 1, pkgIndex: 0, divSeq: 0, autoReply: 0 },
         body: { richText: { elems: opts.elems } },
-        clientSequence: random & 0xffffff,
+        clientSequence,
         random,
       })
       const res = await this.sendPB('MessageSvc.PbSendMsg', data)
