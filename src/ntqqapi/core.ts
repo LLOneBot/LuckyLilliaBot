@@ -70,6 +70,15 @@ declare module 'cordis' {
     'nt/raw/flash-file-upload-status': (input: FlashFileSetInfo) => void
     'nt/raw/flash-file-downloading': (input: [fileSetId: string, info: FlashFileDownloadingInfo]) => void
     'nt/raw/flash-file-uploading': (input: { fileSet: FlashFileSetInfo } & FlashFileUploadingInfo) => void
+    // Group events
+    'nt/raw/group-mute': (input: { groupCode: string, operatorUid: string, targetUid: string, duration: number }) => void
+    'nt/raw/group-mute-all': (input: { groupCode: string, operatorUid: string, isMute: boolean }) => void
+    'nt/raw/group-essence-change': (input: { groupCode: string, msgSequence: number, operatorUin: string, isAdd: boolean }) => void
+    'nt/raw/group-reaction': (input: { groupCode: string, msgSeq: number, operatorUid: string, code: string, isAdd: boolean, count: number }) => void
+    'nt/raw/group-poke': (input: { groupCode: string, fromUin: string, toUin: string, action: string, suffix: string, actionImg: string }) => void
+    // Friend events
+    'nt/raw/friend-poke': (input: { fromUin: string, toUin: string, action: string, suffix: string, actionImg: string }) => void
+    'nt/raw/friend-pin-changed': (input: { uid: string, isPinned: boolean }) => void
   }
 }
 

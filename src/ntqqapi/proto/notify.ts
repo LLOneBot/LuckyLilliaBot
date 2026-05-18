@@ -141,4 +141,24 @@ export namespace Notify {
       }),
     }),
   })
+
+  /**
+   * 0x2DC subtype 16/17/20 内部包装 (after 5-byte header [groupCode + 1 byte])
+   */
+  export const NotifyMessageBody = ProtoMessage.of({
+    notifyType: ProtoField(1, 'uint32', 'optional'),
+    groupCode: ProtoField(4, 'uint32', 'optional'),
+    operatorUid: ProtoField(11, 'string', 'optional'),
+    subType: ProtoField(13, 'uint32', 'optional'),
+    recall: ProtoField(11, 'bytes', 'optional'),
+  })
+
+  export const GroupEssenceChange = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32'),
+    msgSequence: ProtoField(2, 'uint32'),
+    random: ProtoField(3, 'uint32'),
+    setFlag: ProtoField(4, 'uint32'),
+    memberUin: ProtoField(5, 'uint32'),
+    operatorUin: ProtoField(6, 'uint32'),
+  })
 }
