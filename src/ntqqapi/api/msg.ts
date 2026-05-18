@@ -3,6 +3,7 @@ import { ChatType, ElementType, MessageElement, Peer, RawMessage, SendMessageEle
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { ReceiveCmdS } from '@/ntqqapi/hook'
+import { Media } from '../proto'
 
 declare module 'cordis' {
   interface Context {
@@ -11,7 +12,7 @@ declare module 'cordis' {
 }
 
 export class NTQQMsgApi extends Service {
-  static inject = ['ntUserApi', 'logger', 'qqProtocol']
+  static inject = ['ntUserApi', 'ntFileApi', 'logger', 'qqProtocol']
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntMsgApi')
@@ -96,31 +97,130 @@ export class NTQQMsgApi extends Service {
       },
     })
 
-    let sentMsgId: string
-    const data = await this.ctx.qqProtocol.invoke(
-      'nodeIKernelMsgService/sendMsg',
-      [
-        '0',
-        peer,
-        msgElements,
-        msgAttributeInfos,
-      ],
-      {
-        resultCmd: 'nodeIKernelMsgListener/onMsgInfoListUpdate',
-        resultCb: payload => {
-          for (const msgRecord of payload) {
-            if (msgRecord.msgAttrs.get(0)?.attrId === uniqueId && msgRecord.sendStatus === 2) {
-              sentMsgId = msgRecord.msgId
-              return true
+    try {
+      let sentMsgId: string
+      const data = await this.ctx.qqProtocol.invoke(
+        'nodeIKernelMsgService/sendMsg',
+        [
+          '0',
+          peer,
+          msgElements,
+          msgAttributeInfos,
+        ],
+        {
+          resultCmd: 'nodeIKernelMsgListener/onMsgInfoListUpdate',
+          resultCb: payload => {
+            for (const msgRecord of payload) {
+              if (msgRecord.msgAttrs.get(0)?.attrId === uniqueId && msgRecord.sendStatus === 2) {
+                sentMsgId = msgRecord.msgId
+                return true
+              }
             }
-          }
-          return false
+            return false
+          },
+          timeout,
         },
-        timeout,
-      },
-    )
+      )
+      return data.find(msgRecord => msgRecord.msgId === sentMsgId)!
+    } catch {
+      // 直连模式 fallback：转换 SendMessageElement[] 为 protobuf Elem[] 并通过 PbSendMsg 发送
+      return await this.sendMsgViaPbSendMsg(peer, msgElements)
+    }
+  }
 
-    return data.find(msgRecord => msgRecord.msgId === sentMsgId)!
+  /**
+   * 直连模式发消息：构造 Msg.Elem[]，对图片等媒体先走 highway 上传
+   */
+  private async sendMsgViaPbSendMsg(peer: Peer, msgElements: SendMessageElement[]): Promise<RawMessage> {
+    const elems: any[] = []
+
+    for (const elem of msgElements) {
+      if (elem.elementType === ElementType.Text) {
+        const t = elem.textElement
+        if (t.atType === 1 /* AtType.All */) {
+          // @全体成员
+          const attr6 = Buffer.from([0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00])
+          elems.push({ text: { str: t.content || '@全体成员', attr6Buf: attr6 } })
+        } else if (t.atType === 2 /* AtType.One */) {
+          // @某人
+          const targetUin = t.atUid && /^\d+$/.test(t.atUid) ? +t.atUid : 0
+          const attr6 = Buffer.alloc(20)
+          attr6.writeUInt16BE(0x0001, 0)
+          attr6.writeUInt16BE(0x0000, 2)
+          attr6.writeUInt16BE((t.content || '').length, 4)
+          attr6.writeUInt8(0x00, 6)
+          attr6.writeUInt32BE(targetUin, 7)
+          attr6.writeUInt16BE(0x0000, 11)
+          elems.push({ text: { str: t.content || '', attr6Buf: attr6 } })
+        } else {
+          elems.push({ text: { str: t.content || '' } })
+        }
+      } else if (elem.elementType === ElementType.Face) {
+        elems.push({ face: { index: elem.faceElement.faceIndex } })
+      } else if (elem.elementType === ElementType.Reply) {
+        const r = elem.replyElement
+        elems.push({
+          srcMsg: {
+            origSeqs: [+(r.replayMsgSeq ?? 0)],
+            senderUin: +(r.senderUid ?? 0),
+            time: +(r.replyMsgTime ?? 0),
+            elems: [],
+          }
+        })
+      } else if (elem.elementType === ElementType.Pic) {
+        const p = elem.picElement
+        const sourcePath = p.sourcePath
+        if (!sourcePath) continue
+        const isGroup = peer.chatType === ChatType.Group
+        const result = isGroup
+          ? await this.ctx.ntFileApi.uploadGroupImage(peer.peerUid, sourcePath)
+          : await this.ctx.ntFileApi.uploadC2CImage(peer.peerUid, sourcePath)
+        const msgInfoBytes = Media.MsgInfo.encode(result.msgInfo)
+        elems.push({
+          commonElem: {
+            serviceType: 48,
+            pbElem: Buffer.from(msgInfoBytes),
+            businessType: isGroup ? 20 : 10,
+          }
+        })
+      }
+      // 其他元素类型（视频/语音/文件）暂未实现
+    }
+
+    const isGroup = peer.chatType === ChatType.Group
+    const ret = await this.ctx.qqProtocol.sendMessage({
+      isGroup,
+      groupCode: isGroup ? +peer.peerUid : undefined,
+      toUid: !isGroup ? peer.peerUid : undefined,
+      elems,
+    })
+
+    // 构造一个最小的 RawMessage 返回（满足上层接口）
+    return {
+      msgId: String(ret.random),
+      msgType: 2,
+      subMsgType: 0,
+      msgTime: String(ret.timestamp || Math.floor(Date.now() / 1000)),
+      msgSeq: String(ret.sequence || 0),
+      msgRandom: String(ret.random),
+      senderUid: selfInfo.uid,
+      senderUin: selfInfo.uin,
+      peerUid: peer.peerUid,
+      peerUin: peer.peerUid,
+      guildId: '',
+      sendNickName: '',
+      sendMemberName: '',
+      sendRemarkName: '',
+      chatType: peer.chatType,
+      sendStatus: 2,
+      recallTime: '0',
+      records: [],
+      elements: [],
+      peerName: '',
+      emojiLikesList: [],
+      msgAttrs: new Map(),
+      isOnlineMsg: true,
+    } as RawMessage
   }
 
   async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]) {
