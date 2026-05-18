@@ -1,4 +1,4 @@
-import { MiniProfile, ProfileBizType, SimpleInfo, UserDetailInfo, UserDetailSource } from '../types'
+import { MiniProfile, ProfileBizType, SimpleInfo, UserDetailInfo, UserDetailSource, Sex } from '../types'
 import { HttpUtil } from '@/common/utils/request'
 import { Time } from 'cosmokit'
 import { Context, Service } from 'cordis'
@@ -8,6 +8,36 @@ import { ReceiveCmdS } from '../hook'
 declare module 'cordis' {
   interface Context {
     ntUserApi: NTQQUserApi
+  }
+}
+
+function makeSimpleInfoFromOidb(uid: string, info: any): SimpleInfo {
+  return {
+    uid,
+    uin: String(info.uin || 0),
+    coreInfo: {
+      uid,
+      uin: String(info.uin || 0),
+      nick: info.nick || '',
+      remark: info.remark || '',
+    },
+    baseInfo: {
+      qid: info.qid || '',
+      longNick: info.longNick || '',
+      birthday_year: 0,
+      birthday_month: 0,
+      birthday_day: 0,
+      age: info.age || 0,
+      sex: (info.sex || 0) as Sex,
+      eMail: '',
+      phoneNum: '',
+      categoryId: 0,
+    } as any,
+    status: null,
+    vasInfo: null,
+    relationFlags: null,
+    otherFlags: null,
+    intimate: null,
   }
 }
 
@@ -64,7 +94,12 @@ export class NTQQUserApi extends Service {
   }
 
   async getUserDetailInfoByUin(uin: string) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelProfileService/getUserDetailInfoByUin', [uin])
+    try {
+      return await this.ctx.qqProtocol.invoke('nodeIKernelProfileService/getUserDetailInfoByUin', [uin])
+    } catch {
+      const info = await this.ctx.qqProtocol.fetchUserInfo(+uin)
+      return { detail: { uid: '', uin: String(info.uin), nick: info.nick, sex: info.sex, age: info.age, longNick: info.longNick, level: info.level } }
+    }
   }
 
   async getUinByUid(uid: string): Promise<string> {
@@ -126,34 +161,56 @@ export class NTQQUserApi extends Service {
 
   /** 无缓存时会从服务器拉取 */
   async getUserSimpleInfo(uid: string, force = true) {
-    const data = await this.ctx.qqProtocol.invoke<Map<string, SimpleInfo>>(
-      'nodeIKernelProfileService/getUserSimpleInfo',
-      [
-        force,
-        [uid],
-      ],
-      {
-        resultCmd: ReceiveCmdS.USER_INFO,
-        resultCb: payload => payload.has(uid),
-      },
-    )
-    return data.get(uid)!
+    try {
+      const data = await this.ctx.qqProtocol.invoke<Map<string, SimpleInfo>>(
+        'nodeIKernelProfileService/getUserSimpleInfo',
+        [
+          force,
+          [uid],
+        ],
+        {
+          resultCmd: ReceiveCmdS.USER_INFO,
+          resultCb: payload => payload.has(uid),
+        },
+      )
+      return data.get(uid)!
+    } catch {
+      // 直连模式 fallback: OIDB 0xfe1_2 by UID
+      const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+      return makeSimpleInfoFromOidb(uid, info)
+    }
   }
 
   /** 无缓存时会获取不到用户信息 */
   async getCoreAndBaseInfo(uids: string[]) {
-    return await this.ctx.qqProtocol.invoke(
-      'nodeIKernelProfileService/getCoreAndBaseInfo',
-      [
-        'nodeStore',
-        uids,
-      ],
-    )
+    try {
+      return await this.ctx.qqProtocol.invoke<Map<string, SimpleInfo>>(
+        'nodeIKernelProfileService/getCoreAndBaseInfo',
+        [
+          'nodeStore',
+          uids,
+        ],
+      )
+    } catch {
+      const result = new Map<string, SimpleInfo>()
+      for (const uid of uids) {
+        try {
+          const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+          result.set(uid, makeSimpleInfoFromOidb(uid, info))
+        } catch {}
+      }
+      return result
+    }
   }
 
   async getBuddyNick(uid: string) {
-    const data = await this.ctx.qqProtocol.invoke('nodeIKernelBuddyService/getBuddyNick', [[uid]])
-    return data.get(uid)
+    try {
+      const data = await this.ctx.qqProtocol.invoke('nodeIKernelBuddyService/getBuddyNick', [[uid]])
+      return data.get(uid)
+    } catch {
+      const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+      return info.nick
+    }
   }
 
   async getCookies(domain: string) {
