@@ -25,22 +25,15 @@ import {
   NTLoginApi,
 } from '../src/ntqqapi/api'
 import { selfInfo } from '../src/common/globalVars'
-import { ChatType } from '../src/ntqqapi/types'
+import { ChatType, ElementType } from '../src/ntqqapi/types'
 
 const TEST_GROUP = process.env.QQ_TEST_GROUP || '164461995'
 const TEST_UID = process.env.QQ_TEST_UID || 'u_snYxnEfja-Po_cdFcyccRQ'
 const TEST_UIN = process.env.QQ_TEST_UIN || '379450326'
-const TEST_FRIEND_UID = process.env.QQ_TEST_FRIEND_UID || TEST_UID
-const TEST_FRIEND_UIN = process.env.QQ_TEST_FRIEND_UIN || TEST_UIN
 const RUN_DESTRUCTIVE = process.env.RUN_DESTRUCTIVE === '1'
 
 type Status = 'PASS' | 'FAIL' | 'SKIP'
-interface Result {
-  name: string
-  status: Status
-  detail: string
-  duration: number
-}
+interface Result { name: string; status: Status; detail: string; duration: number }
 const results: Result[] = []
 
 const COLOR = {
@@ -70,27 +63,34 @@ async function run(
   name: string,
   fn: () => Promise<unknown>,
   options: {
-    /** 检查返回值是否符合预期。返回 true=通过，false 或 string=失败（string 是失败原因） */
     check?: (value: any) => boolean | string
     destructive?: boolean
+    /** 期望此调用抛错，message 必须包含子串。多个子串任意一个匹配即可。 */
+    expectThrow?: string | string[]
   } = {},
 ): Promise<void> {
   if (options.destructive && !RUN_DESTRUCTIVE) {
-    results.push({ name, status: 'SKIP', detail: '(destructive, set RUN_DESTRUCTIVE=1)', duration: 0 })
-    console.log(COLOR.gray(`SKIP  ${name}  (destructive)`))
+    results.push({ name, status: 'SKIP', detail: '(destructive)', duration: 0 })
+    console.log(COLOR.gray(`SKIP  ${name}`))
     return
   }
   const t0 = Date.now()
   try {
     const value = await fn()
     const duration = Date.now() - t0
+    if (options.expectThrow) {
+      const expected = Array.isArray(options.expectThrow) ? options.expectThrow.join('|') : options.expectThrow
+      results.push({ name, status: 'FAIL', detail: `expected throw containing "${expected}", got ${summarize(value)}`, duration })
+      console.log(COLOR.red(`FAIL  ${name}`), COLOR.gray('did not throw'))
+      return
+    }
     let detail = summarize(value)
     if (options.check) {
       const checked = options.check(value)
       if (checked !== true) {
         const reason = typeof checked === 'string' ? checked : 'check failed'
         results.push({ name, status: 'FAIL', detail: `${reason} | ${detail}`, duration })
-        console.log(COLOR.red(`FAIL  ${name}  ${duration}ms`), COLOR.gray(`(${reason})`), detail)
+        console.log(COLOR.red(`FAIL  ${name}`), COLOR.gray(`(${reason})`), detail)
         return
       }
     }
@@ -99,6 +99,18 @@ async function run(
   } catch (e) {
     const duration = Date.now() - t0
     const msg = (e as Error).message || String(e)
+    if (options.expectThrow) {
+      const expected = Array.isArray(options.expectThrow) ? options.expectThrow : [options.expectThrow]
+      const matched = expected.some(s => msg.includes(s))
+      if (matched) {
+        results.push({ name, status: 'PASS', detail: `[expected throw] ${msg}`, duration })
+        console.log(COLOR.green(`PASS  ${name}  ${duration}ms`), COLOR.gray(`(threw as expected: ${msg})`))
+        return
+      }
+      results.push({ name, status: 'FAIL', detail: `threw "${msg}", expected one of [${expected.join(',')}]`, duration })
+      console.log(COLOR.red(`FAIL  ${name}`), COLOR.gray(`unexpected throw: ${msg}`))
+      return
+    }
     results.push({ name, status: 'FAIL', detail: msg, duration })
     console.log(COLOR.red(`FAIL  ${name}  ${duration}ms`), COLOR.gray(msg))
   }
@@ -119,11 +131,8 @@ async function main() {
   ctx.plugin(NTLoginApi)
 
   await new Promise<void>(resolve => {
-    ctx.inject(['qqProtocol'], (ctx) => {
-      ctx.qqProtocol.initDirectClient().then(() => resolve())
-    })
+    ctx.inject(['qqProtocol'], (ctx) => { ctx.qqProtocol.initDirectClient().then(() => resolve()) })
   })
-
   await new Promise(r => setTimeout(r, 2000))
 
   if (!selfInfo.uin) {
@@ -135,266 +144,451 @@ async function main() {
   console.log(COLOR.cyan(`Test config: GROUP=${TEST_GROUP} UID=${TEST_UID} UIN=${TEST_UIN}`))
   console.log(COLOR.cyan(`Destructive tests: ${RUN_DESTRUCTIVE ? 'ENABLED' : 'disabled'}\n`))
 
-  // 诊断：验证 selfInfo.uin 是否真实对应 selfInfo.uid
-  console.log(COLOR.cyan('--- self info diagnostic ---'))
-  try {
-    const selfByUin = await ctx.qqProtocol.fetchUserInfo(+selfInfo.uin)
-    console.log(`  fetchUserInfo(selfInfo.uin=${selfInfo.uin}) → nick="${selfByUin.nick}", level=${selfByUin.level}, age=${selfByUin.age}`)
-    if (!selfByUin.nick) {
-      console.log(COLOR.red(`  ⚠️  selfInfo.uin (${selfInfo.uin}) does NOT correspond to a real account — nick empty`))
-    }
-  } catch (e) {
-    console.log(COLOR.red(`  fetchUserInfo(self) failed: ${(e as Error).message}`))
-  }
-  try {
-    const members: any[] = await ctx.qqProtocol.fetchGroupMembers(+TEST_GROUP)
-    const meByUid = members.find((m) => m.id?.uid === selfInfo.uid)
-    if (meByUid) {
-      console.log(`  group ${TEST_GROUP}: selfInfo.uid → uin from group = ${meByUid.id.uin}`)
-      if (String(meByUid.id.uin) !== selfInfo.uin) {
-        console.log(COLOR.red(`  ⚠️  selfInfo.uin (${selfInfo.uin}) ≠ real UIN from group (${meByUid.id.uin})`))
-      } else {
-        console.log(COLOR.green(`  ✓ selfInfo.uin matches real UIN`))
-      }
-    } else {
-      console.log(`  selfInfo.uid not in group ${TEST_GROUP} (skip cross-check)`)
-    }
-  } catch (e) {
-    console.log(COLOR.red(`  fetchGroupMembers diagnostic failed: ${(e as Error).message}`))
-  }
-  console.log()
-
   // ============================================================
-  // SystemApi
+  // ntSystemApi
   // ============================================================
   console.log(COLOR.cyan('\n--- ntSystemApi ---'))
-  await run('ntSystemApi.getDeviceInfo', () => ctx.ntSystemApi.getDeviceInfo(), {
-    check: (v) => !!(v?.devType && v?.buildVer) || 'missing devType/buildVer',
+  await run('getDeviceInfo', () => ctx.ntSystemApi.getDeviceInfo(), {
+    check: (v) => (!!v?.devType && !!v?.buildVer) || 'missing fields',
   })
-  await run('ntSystemApi.getSettingAutoLogin', () => ctx.ntSystemApi.getSettingAutoLogin(), {
-    check: (v) => v === true || 'expected true',
+  await run('getSettingAutoLogin', () => ctx.ntSystemApi.getSettingAutoLogin(), {
+    check: (v) => v === true || `expected true, got ${v}`,
   })
+  await run('setSettingAutoLogin (noop)', () => ctx.ntSystemApi.setSettingAutoLogin(true))
+  await run('restart (noop)', () => ctx.ntSystemApi.restart())
+  await run('scanQRCode (must throw)', () => ctx.ntSystemApi.scanQRCode('x'),
+    { expectThrow: ['不支持', 'not supported'] })
 
   // ============================================================
-  // LoginApi
+  // ntLoginApi
   // ============================================================
   console.log(COLOR.cyan('\n--- ntLoginApi ---'))
-  await run('ntLoginApi.getQuickLoginList', () => ctx.ntLoginApi.getQuickLoginList(), {
-    check: (v) => Array.isArray(v?.LocalLoginInfoList) || 'no LocalLoginInfoList array',
+  await run('getQuickLoginList', () => ctx.ntLoginApi.getQuickLoginList(), {
+    check: (v) => {
+      if (!Array.isArray(v?.LocalLoginInfoList)) return 'no LocalLoginInfoList'
+      const me = v.LocalLoginInfoList.find((e: any) => e.uin === selfInfo.uin)
+      if (!me) return 'self not in list'
+      return true
+    },
   })
+  await run('quickLoginWithUin (must throw)', () => ctx.ntLoginApi.quickLoginWithUin(selfInfo.uin),
+    { expectThrow: ['quickLoginWithUin'] })
+  // 不测 getLoginQrCode（会重新签发二维码）
 
   // ============================================================
-  // FriendApi
+  // ntFriendApi
   // ============================================================
   console.log(COLOR.cyan('\n--- ntFriendApi ---'))
-  await run('ntFriendApi.getFriends(false)', () => ctx.ntFriendApi.getFriends(false), {
-    check: (v) => (Array.isArray(v?.friends) && v.categories instanceof Map) || 'shape wrong',
+  await run('getFriends(false)', () => ctx.ntFriendApi.getFriends(false), {
+    check: (v) => {
+      if (!Array.isArray(v?.friends) || !v.friends.length) return 'empty friends'
+      if (!(v.categories instanceof Map)) return 'categories not Map'
+      const f = v.friends.find((e: any) => String(e.uin) === TEST_UIN)
+      if (!f) return `TEST_UIN ${TEST_UIN} not in friends`
+      if (!f.nick) return `friend ${TEST_UIN}.nick empty`
+      if (f.uid !== TEST_UID) return `friend uid mismatch: ${f.uid} vs ${TEST_UID}`
+      return true
+    },
   })
-  await run('ntFriendApi.getFriends(true) [forceUpdate]', () => ctx.ntFriendApi.getFriends(true), {
-    check: (v) => Array.isArray(v?.friends) || 'no friends array',
+  await run('getFriends(true) [forceUpdate]', () => ctx.ntFriendApi.getFriends(true), {
+    check: (v) => Array.isArray(v?.friends) && v.friends.length > 0 || 'empty',
   })
-  await run(`ntFriendApi.getFriendByUin(${TEST_FRIEND_UIN})`,
-    () => ctx.ntFriendApi.getFriendByUin(+TEST_FRIEND_UIN, false))
-  await run(`ntFriendApi.getFriendByUid(${TEST_FRIEND_UID})`,
-    () => ctx.ntFriendApi.getFriendByUid(TEST_FRIEND_UID, false))
-  await run(`ntFriendApi.isFriend(${TEST_FRIEND_UID})`,
-    () => ctx.ntFriendApi.isFriend(TEST_FRIEND_UID), {
-      check: (v) => typeof v === 'boolean' || 'not boolean',
+  await run(`getFriendByUin(${TEST_UIN})`,
+    () => ctx.ntFriendApi.getFriendByUin(+TEST_UIN, false), {
+      check: (v) => v?.uid === TEST_UID || `uid mismatch: ${v?.uid}`,
     })
-  await run('ntFriendApi.getFriendRequests(20)',
+  await run(`getFriendByUid(${TEST_UID})`,
+    () => ctx.ntFriendApi.getFriendByUid(TEST_UID, false), {
+      check: (v) => String(v?.uin) === TEST_UIN || `uin mismatch: ${v?.uin}`,
+    })
+  await run(`isFriend(${TEST_UID})`,
+    () => ctx.ntFriendApi.isFriend(TEST_UID), {
+      check: (v) => v === true || 'expected true',
+    })
+  await run('isFriend(non-existent)',
+    () => ctx.ntFriendApi.isFriend('u_nonexistent_xxxxxxxxxxxx'), {
+      check: (v) => v === false || 'expected false',
+    })
+  await run('getFriendRequests(20)',
     () => ctx.ntFriendApi.getFriendRequests(20), {
       check: (v) => Array.isArray(v) || 'not array',
     })
-  await run('ntFriendApi.getDoubtFriendRequests(20)',
+  await run('getDoubtFriendRequests(20)',
     () => ctx.ntFriendApi.getDoubtFriendRequests(20), {
       check: (v) => Array.isArray(v) || 'not array',
     })
-  await run('ntFriendApi.clearBuddyReqUnreadCnt',
+  await run('clearBuddyReqUnreadCnt (noop)',
     () => ctx.ntFriendApi.clearBuddyReqUnreadCnt())
+  // destructive
+  await run('setFriendRemark', () => ctx.ntFriendApi.setFriendRemark(TEST_UID, 'apitest-remark'),
+    { destructive: true })
+  await run('setFriendCategory', () => ctx.ntFriendApi.setFriendCategory(TEST_UID, 0),
+    { destructive: true })
+  await run('setFriendPin', () => ctx.ntFriendApi.setFriendPin(TEST_UID, false),
+    { destructive: true })
 
   // ============================================================
-  // UserApi
+  // ntUserApi
   // ============================================================
   console.log(COLOR.cyan('\n--- ntUserApi ---'))
-  await run(`ntUserApi.getUidByUin(${TEST_UIN}, ${TEST_GROUP})`,
-    () => ctx.ntUserApi.getUidByUin(TEST_UIN, TEST_GROUP))
-  await run(`ntUserApi.getUinByUid(${TEST_UID})`,
+  await run(`getUidByUin(${TEST_UIN}, ${TEST_GROUP})`,
+    () => ctx.ntUserApi.getUidByUin(TEST_UIN, TEST_GROUP), {
+      check: (v) => v === TEST_UID || `expected ${TEST_UID}, got ${v}`,
+    })
+  await run(`getUinByUid(${TEST_UID})`,
     () => ctx.ntUserApi.getUinByUid(TEST_UID), {
+      check: (v) => v === TEST_UIN || `expected ${TEST_UIN}, got ${v}`,
+    })
+  await run(`getUserDetailInfoByUin(${TEST_UIN})`,
+    () => ctx.ntUserApi.getUserDetailInfoByUin(TEST_UIN), {
       check: (v) => {
-        if (typeof v !== 'string' || !v.length) return 'empty uin'
-        if (v === '81') return 'OIDB 0xfe1_2 returned placeholder UIN 81 (known protocol issue)'
-        if (!/^\d+$/.test(v) || +v < 10000) return `unexpected uin: ${v}`
+        if (String(v?.detail?.uin) !== TEST_UIN) return `uin mismatch: ${v?.detail?.uin}`
+        if (!v.detail.nick) return 'nick empty'
+        if (typeof v.detail.level !== 'number' || v.detail.level <= 0) return `level=${v.detail.level}`
         return true
       },
     })
-  await run(`ntUserApi.getUserDetailInfoByUin(${TEST_UIN})`,
-    () => ctx.ntUserApi.getUserDetailInfoByUin(TEST_UIN), {
-      check: (v) => !!v?.detail || 'no detail',
-    })
-  await run(`ntUserApi.fetchUserDetailInfo(${TEST_UID})`,
+  await run(`fetchUserDetailInfo(${TEST_UID})`,
     () => ctx.ntUserApi.fetchUserDetailInfo(TEST_UID), {
-      check: (v) => !!v?.simpleInfo || 'no simpleInfo',
+      check: (v) => {
+        const ci = v?.simpleInfo?.coreInfo
+        if (!ci) return 'no coreInfo'
+        if (ci.uid !== TEST_UID) return `uid mismatch: ${ci.uid}`
+        if (String(ci.uin) !== TEST_UIN) return `uin mismatch: ${ci.uin}`
+        if (!ci.nick) return 'nick empty'
+        return true
+      },
     })
-  await run(`ntUserApi.getUserDetailInfoWithBizInfo(${TEST_UID})`,
-    () => ctx.ntUserApi.getUserDetailInfoWithBizInfo(TEST_UID), {
-      check: (v) => !!v?.simpleInfo || 'no simpleInfo',
-    })
-  await run(`ntUserApi.getUserSimpleInfo(${TEST_UID})`,
+  await run(`getUserSimpleInfo(${TEST_UID})`,
     () => ctx.ntUserApi.getUserSimpleInfo(TEST_UID), {
-      check: (v) => !!v?.coreInfo?.uid || 'no coreInfo.uid',
+      check: (v) => {
+        if (v?.coreInfo?.uid !== TEST_UID) return `uid mismatch`
+        if (String(v.coreInfo.uin) !== TEST_UIN) return `uin mismatch: ${v.coreInfo.uin}`
+        if (!v.coreInfo.nick) return 'nick empty'
+        return true
+      },
     })
-  await run(`ntUserApi.getCoreAndBaseInfo([${TEST_UID}])`,
+  await run(`getCoreAndBaseInfo([${TEST_UID}])`,
     () => ctx.ntUserApi.getCoreAndBaseInfo([TEST_UID]), {
-      check: (v) => v instanceof Map || 'not Map',
+      check: (v) => {
+        if (!(v instanceof Map)) return 'not Map'
+        const e = v.get(TEST_UID)
+        if (!e) return 'missing entry'
+        if (String(e.coreInfo.uin) !== TEST_UIN) return `uin mismatch: ${e.coreInfo.uin}`
+        if (!e.coreInfo.nick) return 'nick empty'
+        return true
+      },
     })
-  await run(`ntUserApi.getBuddyNick(${TEST_UID})`,
+  await run(`getBuddyNick(${TEST_UID})`,
     () => ctx.ntUserApi.getBuddyNick(TEST_UID), {
-      check: (v) => (typeof v === 'string' && v.length > 0) || 'empty nick',
+      check: (v) => (typeof v === 'string' && v.length > 0) || 'empty',
     })
-  await run('ntUserApi.getSelfNick(true)',
+  await run('getSelfNick(true)',
     () => ctx.ntUserApi.getSelfNick(true), {
-      check: (v) => (typeof v === 'string' && v.length > 0) || 'empty nick',
+      check: (v) => (typeof v === 'string' && v.length > 0) || 'empty',
     })
-  await run(`ntUserApi.getUserInfoCompatible(${TEST_UID})`,
+  await run(`getUserInfoCompatible(${TEST_UID})`,
     () => ctx.ntUserApi.getUserInfoCompatible(TEST_UID), {
-      check: (v) => !!v?.coreInfo || 'no coreInfo',
+      check: (v) => v?.coreInfo?.uid === TEST_UID || 'uid mismatch',
+    })
+  // 自查（OIDB 0xfe1 拒绝自查，会走 fallback 群成员）
+  await run('getBuddyNick(self)',
+    () => ctx.ntUserApi.getBuddyNick(selfInfo.uid), {
+      check: (v) => typeof v === 'string' || 'not string',
+    })
+  await run('getUinByUid(self)',
+    () => ctx.ntUserApi.getUinByUid(selfInfo.uid), {
+      check: (v) => v === selfInfo.uin || `expected ${selfInfo.uin}, got ${v}`,
+    })
+  // stub APIs (must throw)
+  await run('setSelfAvatar (must throw)', () => ctx.ntUserApi.setSelfAvatar('x'),
+    { expectThrow: '暂未实现' })
+  await run('getPSkey (must throw)', () => ctx.ntUserApi.getPSkey(['x']),
+    { expectThrow: '暂未实现' })
+  await run('like (must throw)', () => ctx.ntUserApi.like('x', 1),
+    { expectThrow: '暂未实现' })
+  await run('forceFetchClientKey (must throw)', () => ctx.ntUserApi.forceFetchClientKey(),
+    { expectThrow: '暂未实现' })
+  await run('setSelfStatus (must throw)', () => ctx.ntUserApi.setSelfStatus(0, 0, 0),
+    { expectThrow: '暂未实现' })
+  await run('getProfileLike (must throw)', () => ctx.ntUserApi.getProfileLike('x'),
+    { expectThrow: '暂未实现' })
+  await run('getProfileLikeMe (must throw)', () => ctx.ntUserApi.getProfileLikeMe('x'),
+    { expectThrow: '暂未实现' })
+  await run('getRobotUinRange (returns stub)',
+    () => ctx.ntUserApi.getRobotUinRange(), {
+      check: (v) => Array.isArray(v?.response?.robotUinRanges) || 'no robotUinRanges',
+    })
+  await run('quitAccount (must throw)', () => ctx.ntUserApi.quitAccount(),
+    { expectThrow: '暂未实现' })
+  await run('modifySelfProfile (must throw)', () => ctx.ntUserApi.modifySelfProfile({} as any),
+    { expectThrow: '暂未实现' })
+  await run('getRecentContactListSnapShot (returns stub)',
+    () => ctx.ntUserApi.getRecentContactListSnapShot(20), {
+      check: (v) => Array.isArray(v?.contacts) || 'no contacts',
     })
 
   // ============================================================
-  // GroupApi
+  // ntGroupApi
   // ============================================================
   console.log(COLOR.cyan('\n--- ntGroupApi ---'))
-  await run('ntGroupApi.getGroups(false)',
+  await run('getGroups(false)',
     () => ctx.ntGroupApi.getGroups(false), {
-      check: (v) => Array.isArray(v) || 'not array',
+      check: (v) => {
+        if (!Array.isArray(v) || !v.length) return 'empty'
+        const g = v.find((x) => String(x.groupCode) === TEST_GROUP)
+        if (!g) return `TEST_GROUP ${TEST_GROUP} not in groups`
+        if (!g.groupName) return 'group.groupName empty'
+        if (typeof g.memberCount !== 'number' || g.memberCount <= 0) return 'memberCount<=0'
+        return true
+      },
     })
-  await run('ntGroupApi.getGroups(true) [forceUpdate]',
+  await run('getGroups(true) [forceUpdate]',
     () => ctx.ntGroupApi.getGroups(true), {
-      check: (v) => Array.isArray(v) || 'not array',
+      check: (v) => Array.isArray(v) && v.length > 0 || 'empty',
     })
-  await run(`ntGroupApi.getGroup(${TEST_GROUP})`,
+  await run(`getGroup(${TEST_GROUP})`,
     () => ctx.ntGroupApi.getGroup(+TEST_GROUP, false), {
-      check: (v) => v?.groupCode === +TEST_GROUP || 'groupCode mismatch',
+      check: (v) => {
+        if (v?.groupCode !== +TEST_GROUP) return 'groupCode mismatch'
+        if (!v.groupName) return 'no groupName'
+        return true
+      },
     })
-  await run(`ntGroupApi.getGroupMembers(${TEST_GROUP})`,
+  await run(`getGroupMembers(${TEST_GROUP})`,
     () => ctx.ntGroupApi.getGroupMembers(TEST_GROUP), {
-      check: (v) => v?.result?.infos instanceof Map || 'no infos Map',
+      check: (v) => {
+        const infos = v?.result?.infos
+        if (!(infos instanceof Map) || infos.size === 0) return 'no infos'
+        const me = infos.get(selfInfo.uid)
+        if (!me) return 'self not in members'
+        if (!me.nick) return 'me.nick empty'
+        return true
+      },
     })
-  await run(`ntGroupApi.getGroupMember(${TEST_GROUP}, ${TEST_UID})`,
+  await run(`getGroupMember(${TEST_GROUP}, ${TEST_UID})`,
     () => ctx.ntGroupApi.getGroupMember(TEST_GROUP, TEST_UID), {
-      check: (v) => v?.uid === TEST_UID || 'uid mismatch',
+      check: (v) => {
+        if (v?.uid !== TEST_UID) return 'uid mismatch'
+        if (String(v.uin) !== TEST_UIN) return `uin mismatch: ${v.uin}`
+        return true
+      },
     })
-  await run('ntGroupApi.getSingleScreenNotifies(false, 20)',
+  await run('getSingleScreenNotifies(false, 20)',
     () => ctx.ntGroupApi.getSingleScreenNotifies(false, 20), {
-      check: (v) => Array.isArray(v?.notifies) || 'no notifies array',
+      check: (v) => Array.isArray(v?.notifies) || 'no notifies',
     })
-  await run('ntGroupApi.getSingleScreenNotifies(true, 20) [doubt]',
+  await run('getSingleScreenNotifies(true, 20) [doubt]',
     () => ctx.ntGroupApi.getSingleScreenNotifies(true, 20), {
-      check: (v) => Array.isArray(v?.notifies) || 'no notifies array',
+      check: (v) => Array.isArray(v?.notifies) || 'no notifies',
     })
-  await run('ntGroupApi.getGroupRequest',
+  await run('getGroupRequest',
     () => ctx.ntGroupApi.getGroupRequest(), {
-      check: (v) => Array.isArray(v?.notifies) && typeof v?.normalCount === 'number' || 'shape wrong',
+      check: (v) => Array.isArray(v?.notifies) && typeof v?.normalCount === 'number' || 'shape',
     })
-  await run(`ntGroupApi.searchMember(${TEST_GROUP}, "")`,
+  await run(`searchMember(${TEST_GROUP}, "")`,
     () => ctx.ntGroupApi.searchMember(TEST_GROUP, ''), {
-      check: (v) => v instanceof Map || 'not Map',
+      check: (v) => v instanceof Map && v.size > 0 || 'empty',
     })
-  await run(`ntGroupApi.getGroupShutUpMemberList(${TEST_GROUP})`,
+  await run(`getGroupShutUpMemberList(${TEST_GROUP})`,
     () => ctx.ntGroupApi.getGroupShutUpMemberList(TEST_GROUP), {
       check: (v) => Array.isArray(v) || 'not array',
     })
-  await run(`ntGroupApi.getGroupRemainAtTimes(${TEST_GROUP})`,
+  await run(`getGroupRemainAtTimes(${TEST_GROUP})`,
     () => ctx.ntGroupApi.getGroupRemainAtTimes(TEST_GROUP), {
       check: (v) => !!v?.atInfo || 'no atInfo',
     })
-
-  // 写操作（默认跳过）
-  await run(`ntGroupApi.setMemberCard(${TEST_GROUP}, ${TEST_UID}, "test")`,
+  await run('getGroupFileCount (stub)',
+    () => ctx.ntGroupApi.getGroupFileCount(TEST_GROUP), {
+      check: (v) => Array.isArray(v?.groupFileCounts) || 'no groupFileCounts',
+    })
+  await run('getGroupFileSpace (stub)',
+    () => ctx.ntGroupApi.getGroupFileSpace(TEST_GROUP), {
+      check: (v) => 'totalSpace' in v || 'no totalSpace',
+    })
+  await run('checkGroupMemberCache (stub)',
+    () => ctx.ntGroupApi.checkGroupMemberCache([TEST_GROUP]), {
+      check: (v) => v?.result === 0 || 'unexpected',
+    })
+  // stub-throw APIs
+  for (const [name, fn] of [
+    ['createGroupFileFolder', () => ctx.ntGroupApi.createGroupFileFolder(TEST_GROUP, 'x')],
+    ['deleteGroupFileFolder', () => ctx.ntGroupApi.deleteGroupFileFolder(TEST_GROUP, 'x')],
+    ['deleteGroupFile', () => ctx.ntGroupApi.deleteGroupFile(TEST_GROUP, ['x'], [102])],
+    ['getGroupFileList', () => ctx.ntGroupApi.getGroupFileList(TEST_GROUP, {} as any)],
+    ['publishGroupBulletin', () => ctx.ntGroupApi.publishGroupBulletin(TEST_GROUP, {} as any)],
+    ['uploadGroupBulletinPic', () => ctx.ntGroupApi.uploadGroupBulletinPic(TEST_GROUP, 'x')],
+    ['getGroupRecommendContact', () => ctx.ntGroupApi.getGroupRecommendContact(TEST_GROUP)],
+    ['queryCachedEssenceMsg', () => ctx.ntGroupApi.queryCachedEssenceMsg(TEST_GROUP)],
+    ['getGroupHonorList', () => ctx.ntGroupApi.getGroupHonorList(TEST_GROUP)],
+    ['getGroupBulletinList', () => ctx.ntGroupApi.getGroupBulletinList(TEST_GROUP)],
+    ['setGroupAvatar', () => ctx.ntGroupApi.setGroupAvatar(TEST_GROUP, 'x')],
+    ['setGroupMsgMask', () => ctx.ntGroupApi.setGroupMsgMask(TEST_GROUP, 1 as any)],
+    ['setGroupRemark', () => ctx.ntGroupApi.setGroupRemark(TEST_GROUP, 'x')],
+    ['moveGroupFile', () => ctx.ntGroupApi.moveGroupFile(TEST_GROUP, ['x'], 'x', 'x')],
+    ['renameGroupFolder', () => ctx.ntGroupApi.renameGroupFolder(TEST_GROUP, 'x', 'y')],
+    ['setGroupFileForever', () => ctx.ntGroupApi.setGroupFileForever(TEST_GROUP, 'x')],
+    ['getGroupAlbumList', () => ctx.ntGroupApi.getGroupAlbumList(TEST_GROUP)],
+    ['createGroupAlbum', () => ctx.ntGroupApi.createGroupAlbum(TEST_GROUP, 'x', 'y')],
+    ['deleteGroupAlbum', () => ctx.ntGroupApi.deleteGroupAlbum(TEST_GROUP, 'x')],
+    ['deleteGroupBulletin', () => ctx.ntGroupApi.deleteGroupBulletin(TEST_GROUP, 'x')],
+    ['renameGroupFile', () => ctx.ntGroupApi.renameGroupFile(TEST_GROUP, 'x', 'y', 'z')],
+    ['getGroupAlbumMediaList', () => ctx.ntGroupApi.getGroupAlbumMediaList(TEST_GROUP, 'x')],
+  ] as const) {
+    await run(`${name} (must throw)`, fn as any, { expectThrow: '暂未实现' })
+  }
+  // destructive
+  await run('setMemberCard',
     () => ctx.ntGroupApi.setMemberCard(TEST_GROUP, TEST_UID, 'apitest'),
-    { destructive: true, check: (v) => v?.result === 0 || `result=${v?.result}` })
-  await run(`ntGroupApi.setGroupName(${TEST_GROUP}, "...")`,
-    () => ctx.ntGroupApi.setGroupName(TEST_GROUP, 'apitest-temp-name'),
-    { destructive: true, check: (v) => v?.result === 0 || `result=${v?.result}` })
-  await run(`ntGroupApi.banMember(${TEST_GROUP}, [...0s])`,
+    { destructive: true, check: (v) => v?.result === 0 || `result=${v?.result} errMsg=${v?.errMsg}` })
+  await run('banMember (unmute)',
     () => ctx.ntGroupApi.banMember(TEST_GROUP, [{ uid: TEST_UID, timeStamp: 0 }]),
     { destructive: true, check: (v) => v?.result === 0 || `result=${v?.result}` })
-  await run(`ntGroupApi.banGroup(${TEST_GROUP}, false)`,
+  await run('banGroup (off)',
     () => ctx.ntGroupApi.banGroup(TEST_GROUP, false),
     { destructive: true, check: (v) => v?.result === 0 || `result=${v?.result}` })
 
   // ============================================================
-  // MsgApi
+  // ntMsgApi
   // ============================================================
   console.log(COLOR.cyan('\n--- ntMsgApi ---'))
-  await run('ntMsgApi.getServerTime',
+  await run('getServerTime',
     () => ctx.ntMsgApi.getServerTime(), {
-      check: (v) => /^\d+$/.test(String(v)) || 'not numeric string',
+      check: (v) => {
+        const n = +v
+        const now = Math.floor(Date.now() / 1000)
+        return (Math.abs(n - now) < 60 * 60) || `time too far from local: ${n} vs ${now}`
+      },
     })
-  await run('ntMsgApi.generateMsgUniqueId(2)',
+  await run('generateMsgUniqueId(2)',
     () => ctx.ntMsgApi.generateMsgUniqueId(2), {
-      check: (v) => /^\d+$/.test(String(v)) || 'not numeric string',
+      check: (v) => /^\d+$/.test(String(v)) || 'not numeric',
     })
-  await run('ntMsgApi.getMsgTimeFromId("12345678901234567890")',
-    () => Promise.resolve(ctx.ntMsgApi.getMsgTimeFromId('12345678901234567890')))
-  await run('ntMsgApi.getPins',
-    () => ctx.ntMsgApi.getPins())
-  await run('ntMsgApi.fetchFavEmojiList(20)',
+  await run('getMsgTimeFromId',
+    () => Promise.resolve(ctx.ntMsgApi.getMsgTimeFromId('1234567890')))
+  await run('getPins',
+    () => ctx.ntMsgApi.getPins(), {
+      check: (v) => 'friends' in v && 'groups' in v || 'shape',
+    })
+  await run('fetchFavEmojiList(20) (stub)',
     () => ctx.ntMsgApi.fetchFavEmojiList(20), {
       check: (v) => Array.isArray(v?.emojiInfoList) || 'no emojiInfoList',
     })
-  await run('ntMsgApi.fetchGetHitEmotionsByWord("hello", 5)',
+  await run('fetchGetHitEmotionsByWord (stub)',
     () => ctx.ntMsgApi.fetchGetHitEmotionsByWord('hello', 5))
-  await run(`ntMsgApi.getMsgHistory(group=${TEST_GROUP}, latest 5)`,
-    () => ctx.ntMsgApi.getMsgHistory({ chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, '0', 5, false), {
+  let firstSeq = ''
+  // 先 dispatch 消息事件后能拿到 latest seq，但目前直连模式没暴露这个。
+  // SsoGetGroupMsg 必须传精确的 startSequence/endSequence；msgId='0' 时只能拉群最早的 cnt 条
+  // 如果群很活跃（早期消息已被服务器淘汰），可能返回空 — 这是协议限制不是 bug
+  await run(`getMsgHistory(group=${TEST_GROUP}, latest 5)`,
+    async () => {
+      const r = await ctx.ntMsgApi.getMsgHistory(
+        { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, '0', 5, false)
+      if (r.msgList?.[0]?.msgSeq) firstSeq = String(r.msgList[0].msgSeq)
+      return r
+    }, {
+      check: (v) => {
+        if (!Array.isArray(v?.msgList)) return 'no msgList array'
+        // 即使空也算 PASS（边界情况），但有数据就严格校验
+        if (v.msgList.length > 0) {
+          const m = v.msgList[0]
+          if (!m.msgSeq) return 'msg missing msgSeq'
+          if (!Array.isArray(m.elements)) return 'no elements array'
+        }
+        return true
+      },
+    })
+  if (firstSeq) {
+    await run(`getMsgsBySeqAndCount(seq=${firstSeq}, 1)`,
+      () => ctx.ntMsgApi.getMsgsBySeqAndCount(
+        { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, firstSeq, 1, false, false), {
+        check: (v) => Array.isArray(v?.msgList) || 'no msgList',
+      })
+    await run(`getSingleMsg(seq=${firstSeq})`,
+      () => ctx.ntMsgApi.getSingleMsg(
+        { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, firstSeq), {
+        check: (v) => Array.isArray(v?.msgList) || 'no msgList',
+      })
+  }
+  await run('activateChatAndGetHistory',
+    () => ctx.ntMsgApi.activateChatAndGetHistory(
+      { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, 5), {
       check: (v) => Array.isArray(v?.msgList) || 'no msgList',
     })
-  await run(`ntMsgApi.activateChatAndGetHistory(group=${TEST_GROUP}, 5)`,
-    () => ctx.ntMsgApi.activateChatAndGetHistory({ chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, 5), {
+  await run('getAioFirstViewLatestMsgs (stub)',
+    () => ctx.ntMsgApi.getAioFirstViewLatestMsgs(
+      { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, 5), {
       check: (v) => Array.isArray(v?.msgList) || 'no msgList',
     })
-  await run(`ntMsgApi.getAioFirstViewLatestMsgs(group=${TEST_GROUP}, 5)`,
-    () => ctx.ntMsgApi.getAioFirstViewLatestMsgs({ chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, 5), {
+  await run('getMsgsByMsgId(empty) (cache)',
+    () => ctx.ntMsgApi.getMsgsByMsgId(
+      { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, []), {
       check: (v) => Array.isArray(v?.msgList) || 'no msgList',
     })
-  await run('ntMsgApi.getMsgsByMsgId(empty)',
-    () => ctx.ntMsgApi.getMsgsByMsgId({ chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, []), {
-      check: (v) => Array.isArray(v?.msgList) || 'no msgList',
-    })
-  await run('ntMsgApi.activateChat',
+  await run('activateChat (noop)',
     () => ctx.ntMsgApi.activateChat({ chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }), {
-      check: (v) => typeof v?.result === 'number' || 'no result',
+      check: (v) => v?.result === 0 || 'result',
     })
-  await run('ntMsgApi.setMsgRead',
+  await run('setMsgRead (noop)',
     () => ctx.ntMsgApi.setMsgRead({ chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }), {
-      check: (v) => typeof v?.result === 'number' || 'no result',
+      check: (v) => v?.result === 0 || 'result',
     })
-  await run('ntMsgApi.sendShowInputStatusReq',
+  await run('sendShowInputStatusReq (noop)',
     () => ctx.ntMsgApi.sendShowInputStatusReq(ChatType.Group, 0, TEST_UID))
-
-  // 写操作
-  await run('ntMsgApi.sendMsg(group, text "apitest")',
+  // stub-throw
+  for (const [name, fn] of [
+    ['getTempChatInfo', () => ctx.ntMsgApi.getTempChatInfo(ChatType.C2C, TEST_UID)],
+    ['getMultiMsg', () => ctx.ntMsgApi.getMultiMsg({ chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, 'x', 'y')],
+    ['forwardMsg', () => ctx.ntMsgApi.forwardMsg(
+      { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' },
+      { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, ['x'])],
+    ['multiForwardMsg', () => ctx.ntMsgApi.multiForwardMsg(
+      { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' },
+      { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, ['x'])],
+    ['queryMsgsById', () => ctx.ntMsgApi.queryMsgsById(ChatType.Group, 'x')],
+    ['addFavEmoji', () => ctx.ntMsgApi.addFavEmoji('/nonexistent')],
+    ['deleteFavEmoji', () => ctx.ntMsgApi.deleteFavEmoji(['x'])],
+    ['setContactLocalTop', () => ctx.ntMsgApi.setContactLocalTop(
+      { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, true)],
+    ['translatePtt2Text', () => ctx.ntMsgApi.translatePtt2Text(
+      'x', { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' }, {} as any)],
+  ] as const) {
+    await run(`${name} (must throw)`, fn as any, { expectThrow: '暂未实现' })
+  }
+  // destructive
+  await run('sendMsg(group, text)',
     () => ctx.ntMsgApi.sendMsg(
       { chatType: ChatType.Group, peerUid: TEST_GROUP, guildId: '' },
-      [{ elementType: 1 as any, elementId: '', textElement: { content: 'apitest', atType: 0, atUid: '', atTinyId: '', atNtUid: '' } } as any],
+      [{ elementType: ElementType.Text, elementId: '', textElement: { content: 'apitest', atType: 0, atUid: '', atTinyId: '', atNtUid: '' } } as any],
     ),
     { destructive: true, check: (v) => !!v?.msgId || 'no msgId' })
 
   // ============================================================
-  // FileApi
+  // ntFileApi
   // ============================================================
   console.log(COLOR.cyan('\n--- ntFileApi ---'))
-  await run('ntFileApi.getRichMediaFilePath',
+  await run('getRichMediaFilePath',
     () => ctx.ntFileApi.getRichMediaFilePath('a'.repeat(32), 'test.png', 2 as any, 0), {
-      check: (v) => (typeof v === 'string' && v.includes('test.png')) || 'no path',
+      check: (v) => typeof v === 'string' && v.includes('test.png') || 'no path',
     })
-  await run('ntFileApi.getImageUrl(empty, md5)',
+  await run('getImageUrl(empty,md5)',
     () => Promise.resolve(ctx.ntFileApi.getImageUrl('', 'a'.repeat(32))), {
-      check: (v) => (typeof v === 'string' && v.startsWith('http')) || 'no http url',
+      check: (v) => typeof v === 'string' && v.startsWith('http') || 'no http',
     })
+  // stub-throw
+  for (const [name, fn] of [
+    ['uploadFlashFile', () => ctx.ntFileApi.uploadFlashFile('x', ['/nonexistent'])],
+    ['downloadFlashFile', () => ctx.ntFileApi.downloadFlashFile('x')],
+    ['getFlashFileList', () => ctx.ntFileApi.getFlashFileList('x')],
+    ['getFlashFileSetIdByCode', () => ctx.ntFileApi.getFlashFileSetIdByCode('x')],
+    ['getFlashFileInfo', () => ctx.ntFileApi.getFlashFileInfo('x')],
+    ['reshareFlashFile', () => ctx.ntFileApi.reshareFlashFile('x')],
+  ] as const) {
+    await run(`${name} (must throw)`, fn as any, { expectThrow: '暂未实现' })
+  }
 
   // ============================================================
-  // 输出报告
+  // 报告
   // ============================================================
   const pass = results.filter(r => r.status === 'PASS').length
   const fail = results.filter(r => r.status === 'FAIL').length
@@ -409,7 +603,4 @@ async function main() {
   process.exit(fail > 0 ? 1 : 0)
 }
 
-main().catch(e => {
-  console.error(COLOR.red('Fatal:'), e)
-  process.exit(1)
-})
+main().catch(e => { console.error(COLOR.red('Fatal:'), e); process.exit(1) })
