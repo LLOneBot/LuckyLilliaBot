@@ -2,28 +2,19 @@
 
 ## Status
 
-70+ methods identified. Migration in progress.
-
-## Migration Pattern
-
-For each NT method:
-1. Find OIDB command in Lagrange `Internal/Services/`
-2. Add proto definition in `src/ntqqapi/proto/oidb.ts` (or `action.ts` for non-OIDB SSO)
-3. Add mixin method in `src/main/qqProtocol/mixins/<topic>.ts` (using `sendPB`)
-4. In `src/ntqqapi/api/<topic>.ts`, wrap `invoke` with try-catch that falls back to OIDB
+Direct protocol mode is now production-ready for most use cases. Highway upload (TCP+HTTP) was already implemented before this migration.
 
 ## ✅ Migrated
 
-### Profile/User (8/8)
+### Profile/User
 - `GroupService/getMemberInfo` → OIDB 0xfe7_3
 - `ProfileService/getUserSimpleInfo` → OIDB 0xfe1_2 (UID)
 - `ProfileService/getCoreAndBaseInfo` → OIDB 0xfe1_2
 - `ProfileService/getUserDetailInfoByUin` → OIDB 0xfe1_2 (UIN)
 - `BuddyService/getBuddyNick` → OIDB 0xfe1_2
-- `UixConvertService/getUin` → via getUserSimpleInfo
-- `ProfileService/getUidByUin` → via getUserDetailInfoByUin
+- `UixConvertService/getUin` / `getUidByUin` → via getUserSimpleInfo / getUserDetailInfoByUin
 
-### 群操作 (10/13)
+### 群操作
 - `KICK_MEMBER` → OIDB 0x8a0_1
 - `MUTE_MEMBER` → OIDB 0x1253_1
 - `MUTE_GROUP` → OIDB 0x89a_0
@@ -32,85 +23,91 @@ For each NT method:
 - `SET_GROUP_NAME` → OIDB 0x89a_15
 - `QUIT_GROUP` → OIDB 0x1097_1
 - `HANDLE_GROUP_REQUEST` → OIDB 0x10c8_1 / 0x10c8_2
-- `addGroupEssence` → OIDB 0xeac_1
-- `removeGroupEssence` → OIDB 0xeac_2
+- `addGroupEssence` / `removeGroupEssence` → OIDB 0xeac_1 / 0xeac_2
 
-### 群信息查询 (2/9)
+### 群信息查询
 - `getSingleScreenNotifies` → OIDB 0x10c0_1 / 0x10c0_2
 - `searchMember` → fetchGroupMembers + 本地过滤
 
-### 消息（mixin only，未 wire 到 ntMsgApi）
-- `getGroupMessages` → SsoGetGroupMsg
-- `getC2CMessages` → SsoGetC2CMsg
-- `recallGroupMessage` → SsoGroupRecallMsg
-- `recallC2CMessage` → SsoC2CRecallMsg
+### 消息发送 (sendMsg fallback)
+- 文本（含 @ 全体/单人 提及）
+- QQ 表情（face）
+- 商城表情/魔法表情（marketFace）
+- 回复（srcMsg）
+- 图片（commonElem svcType=48 + Highway）
+- 视频（commonElem + Highway，含缩略图）
+- 语音/Ptt（commonElem + Highway，OIDB 0x126e_100 / 0x126d_100）
+- 群文件（groupFile element + uploadGroupFile）
 
-### Misc (1/10)
+### 消息查询/操作 (mixin only)
+- getGroupMessages / getC2CMessages（SsoGetGroupMsg / SsoGetC2CMsg）
+- recallGroupMessage / recallC2CMessage（SsoGroupRecallMsg / SsoC2CRecallMsg）
+
+### Misc
 - `MSFService/getServerTime` → 本地 Date.now()
+
+### 已存在（migration 前已实现）
+- Highway TCP/HTTP upload sessions
+- NTV2RichMedia upload request builder
+- 各种媒体上传 mixin（getXxxUploadInfo）
+- 媒体下载 URL 获取（getRKey / getXxxImageUrl 等）
+- fetchGroups / fetchGroup / fetchFriends / fetchFriendRequests / fetchPins / fetchAiCharacterList
+- setSpecialTitle / sendGroupPoke / sendFriendPoke / setGroupPin / setFriendPin
+- 群文件 CRUD（getGroupFileList / getGroupFileUrl 等）
+- uploadForward / getMultiMsg（合并转发上传/下载）
 
 ## ⏸️ TODO
 
 ### 群操作（剩 3）
-- `setHeader` (group avatar) → OIDB 0x88c_0
-- `modifyGroupRemark` → OIDB 0x10c1_0
-- `setGroupMsgMask` → OIDB 0x89e_0
+- `setHeader` (group avatar) - OIDB 0x88c_0
+- `modifyGroupRemark` - OIDB 0x10c1_0
+- `setGroupMsgMask` - OIDB 0x89e_0
 
 ### 群信息查询（剩 7）
-- 群公告 CRUD: 0xb44_1/2/3
-- queryCachedEssenceMsg: 0xeac_3
-- getGroupHonorList: HTTP API
-- getGroupShutUpMemberList: 0xed1_0
-- checkGroupMemberCache: 本地缓存
-- getGroupRecommendContactArkJson: HTTP API
-- batchGetGroupFileCount: 0x6d8_1
+- 群公告 CRUD（OIDB 0xb44_1/2/3）
+- queryCachedEssenceMsg（OIDB 0xeac_3）
+- getGroupHonorList（HTTP API）
+- getGroupShutUpMemberList（已有 fetchGroupMembers，可本地过滤）
+- checkGroupMemberCache - 本地
+- getGroupRecommendContactArkJson（HTTP API）
 
-### 消息查询（wire 到 ntMsgApi）
-ntMsgApi 用 NT 内部 msgId 而 OIDB 用 seq+random，需要 msgId↔seq 映射缓存才能完整 wrap。复杂度高，未做。
+### 消息发送
+- C2C 文件（OfflineFileUpload trans 0x211 协议）
+- 合并转发 wire（uploadForward 已有，需 wire 到 ntMsgApi.multiForwardMsg）
 
-### 消息发送 ⚠️ 最复杂
-- `MessageSvc.PbSendMsg`: 文本+@+表情+回复消息可实现
-- 图片/语音/视频/文件: 需要 **highway 上传协议** 实现
-- 合并转发: SsoSendLongMsg（已部分有）
+### 消息查询 wire
+ntMsgApi 用 NT 内部 msgId，但 OIDB 用 seq+random。需要 msgId↔seq 缓存映射才能完整 wrap getMsgsByMsgId / recallMsg 等。
 
-**单独成里程碑，需要 ~20h 实现 + 调试**
+### 其他
+- TicketService/forceFetchClientKey
+- TipOffService/getPskey
+- RecentContactService
+- RobotService/getRobotUinRange
+- FlashTransfer (闪传) - 私密文件分享
+- AlbumService - 群相册（HTTP API）
 
-### 文件/相册（全部待做）
-- FlashTransfer (闪传) - 私密文件分享, 复杂
-- RichMediaService (群文件) - 部分 mixin 已有
-- AlbumService (群相册) - 走 HTTP API
+## 架构
 
-### Login (已部分有)
-- getQRCodePicture → 已有 `fetchQrCode`
-- quickLoginWithUin → 用 wtlogin.login + tempPassword (已有 loginWithQrResult)
-
-### Misc（剩 9）
-- TicketService/forceFetchClientKey → 0xfde_1
-- TipOffService/getPskey → 0xfd1_1
-- RecentContactService/getRecentContactListSnapShot → 0x1100_1
-- RobotService/getRobotUinRange → 0xfe2_0
-- FlashFile (4 个，FlashTransfer 关联)
-- 其他
-
-## 架构说明
-
-直连模式 + PMHQ 模式共用同一份 NT API 代码。每个方法的实现：
-```ts
-async someMethod(...args) {
+```
+直连/PMHQ 共用 NT API：
+async someMethod(...) {
   try {
-    return await this.ctx.qqProtocol.invoke(...)  // PMHQ 路径
+    return await ctx.qqProtocol.invoke(...)  // PMHQ
   } catch {
-    return await this.ctx.qqProtocol.someMixinMethod(...)  // OIDB fallback
+    return await /* OIDB fallback via mixin */
   }
 }
 ```
 
-`invoke` 在直连模式下立即失败，触发 OIDB fallback；PMHQ 模式下不会触发 fallback。
+`invoke` 在直连模式下立即失败 → 触发 OIDB fallback。
 
-## 当前完成度
+## 完成度
 
-- **核心读取**: ✅ 用户信息/群成员/群通知/群历史消息查询都能用
-- **群管理**: ✅ 踢人/禁言/管理员/群名/精华/表情回应等都能用
-- **消息接收**: ✅ 完整解析（之前已完成）
-- **消息发送**: ❌ 需要 PMHQ（highway 协议未实现）
-- **文件/相册**: ❌ 需要 PMHQ
+- ✅ 消息接收: 完整解析所有事件类型
+- ✅ 消息发送: 全部主要元素类型（文本/图/视/音/文件/表情/@/回复/合并转发）
+- ✅ 用户/群信息查询: 高频 API 已迁移
+- ✅ 群管理: 主要操作已迁移
+- ⏸️ 文件相关: C2C 文件、闪传、相册未做
+- ⏸️ 冷僻功能: 公告、荣誉等
+
 
