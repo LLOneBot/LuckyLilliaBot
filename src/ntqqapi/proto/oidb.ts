@@ -753,4 +753,37 @@ export namespace Oidb {
     code: ProtoField(4, 'string'),
     type: ProtoField(5, 'uint32'),
   })
+
+  /** OidbSvcTrpcTcp.0x10c0_1 / 0x10c0_2 - 拉群通知 */
+  export const FetchGroupNotifiesReq = ProtoMessage.of({
+    count: ProtoField(1, 'uint32'),
+    nextSequence: ProtoField(2, 'uint64', 'optional'),
+  })
+
+  export const FetchGroupNotifiesResp = ProtoMessage.of({
+    requests: ProtoField(1, {
+      sequence: ProtoField(1, 'uint64'),
+      notifyType: ProtoField(2, 'uint32'),
+      requestState: ProtoField(3, 'uint32'),
+      group: ProtoField(4, {
+        groupCode: ProtoField(1, 'uint32'),
+        groupName: ProtoField(2, 'string'),
+      }),
+      user1: ProtoField(5, {
+        uid: ProtoField(1, 'string'),
+        nickname: ProtoField(2, 'string'),
+      }),
+      user2: ProtoField(6, {
+        uid: ProtoField(1, 'string'),
+        nickname: ProtoField(2, 'string'),
+      }, 'optional'),
+      user3: ProtoField(7, {
+        uid: ProtoField(1, 'string'),
+        nickname: ProtoField(2, 'string'),
+      }, 'optional'),
+      time: ProtoField(8, 'uint32', 'optional'),
+      comment: ProtoField(10, 'string', 'optional'),
+    }, 'repeated'),
+    newLatestSequence: ProtoField(3, 'uint64', 'optional'),
+  })
 }

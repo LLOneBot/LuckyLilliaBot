@@ -308,5 +308,27 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const data = Oidb.Base.encode({ command: 0x9082, subCommand, body })
       await this.sendPB(`OidbSvcTrpcTcp.0x9082_${subCommand}`, data)
     }
+
+    /** filtered: true=拉过滤掉的通知（来自陌生人的入群申请等） */
+    async fetchGroupNotifies(count = 20, filtered = false) {
+      const body = Oidb.FetchGroupNotifiesReq.encode({ count })
+      const subCommand = filtered ? 2 : 1
+      const data = Oidb.Base.encode({ command: 0x10c0, subCommand, body })
+      const res = await this.sendPB(`OidbSvcTrpcTcp.0x10c0_${subCommand}`, data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.FetchGroupNotifiesResp.decode(oidbRespBody)
+    }
+
+    /** 通过拉全成员然后本地过滤实现 searchMember */
+    async searchGroupMember(groupCode: number, keyword: string) {
+      const all = await this.fetchGroupMembers(groupCode)
+      const lower = keyword.toLowerCase()
+      return all.filter((m: any) => {
+        const name = m.memberName?.toLowerCase() || ''
+        const card = m.memberCard?.memberCard?.toLowerCase() || ''
+        const uin = String(m.id?.uin || '')
+        return name.includes(lower) || card.includes(lower) || uin.includes(keyword)
+      })
+    }
   }
 }

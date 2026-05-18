@@ -355,7 +355,12 @@ export class NTQQMsgApi extends Service {
   }
 
   async getServerTime() {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelMSFService/getServerTime', [])
+    try {
+      return await this.ctx.qqProtocol.invoke('nodeIKernelMSFService/getServerTime', [])
+    } catch {
+      // 直连模式：使用本地时间（秒）
+      return String(Math.floor(Date.now() / 1000))
+    }
   }
 
   async getMsgsBySeqAndCount(peer: Peer, msgSeq: string, cnt: number, queryOrder: boolean, includeDeleteMsg: boolean) {

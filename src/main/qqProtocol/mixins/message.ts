@@ -75,5 +75,59 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       await this.sendPB('OidbSvcTrpcTcp.0x929b_0', data)
       return { msgRandom }
     }
+
+    /** 拉群历史消息（按 seq 范围） */
+    async getGroupMessages(groupCode: number, startSequence: number, endSequence: number) {
+      const data = Action.SsoGetGroupMsgReq.encode({
+        groupInfo: { groupCode, startSequence, endSequence },
+        filter: 1,
+      })
+      const res = await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoGetGroupMsg', data)
+      const decoded = Action.SsoGetGroupMsgResp.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.retcode !== 0) {
+        throw new Error(`获取群消息失败: ${decoded.errorMsg}`)
+      }
+      return decoded.body.messages
+    }
+
+    /** 拉私聊历史消息（按 seq 范围） */
+    async getC2CMessages(peerUid: string, startSequence: number, endSequence: number) {
+      const data = Action.SsoGetC2CMsgReq.encode({ peerUid, startSequence, endSequence })
+      const res = await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoGetC2CMsg', data)
+      const decoded = Action.SsoGetC2CMsgResp.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.retcode !== 0) {
+        throw new Error(`获取私聊消息失败: ${decoded.errorMsg}`)
+      }
+      return decoded.messages
+    }
+
+    /** 撤回群消息 */
+    async recallGroupMessage(groupCode: number, sequence: number) {
+      const data = Action.SsoGroupRecallMsgReq.encode({
+        type: 1,
+        groupCode,
+        info: { sequence },
+      })
+      await this.sendPB('trpc.msg.msg_svc.MsgService.SsoGroupRecallMsg', data)
+    }
+
+    /** 撤回私聊消息 */
+    async recallC2CMessage(targetUid: string, clientSequence: number, random: number, timestamp: number, ntMsgSeq: number) {
+      const data = Action.SsoC2CRecallMsgReq.encode({
+        type: 1,
+        targetUid,
+        info: {
+          clientSequence,
+          random,
+          messageUid: (BigInt(0x01000000) << 32n) | BigInt(random),
+          timestamp,
+          field5: 0,
+          ntMsgSeq,
+        },
+        field5: { field1: 0, field2: 0 },
+        field6: 0,
+      })
+      await this.sendPB('trpc.msg.msg_svc.MsgService.SsoC2CRecallMsg', data)
+    }
   }
 }

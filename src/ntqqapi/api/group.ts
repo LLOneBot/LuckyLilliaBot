@@ -172,24 +172,51 @@ export class NTQQGroupApi extends Service {
   }
 
   async getSingleScreenNotifies(doubt: boolean, number: number, startSeq = '') {
-    const data = await this.ctx.qqProtocol.invoke<[
-      doubt: boolean,
-      nextStartSeq: string,
-      notifies: GroupNotify[]
-    ]>(
-      'nodeIKernelGroupService/getSingleScreenNotifies',
-      [doubt, startSeq, number],
-      {
-        resultCmd: ReceiveCmdS.GROUP_NOTIFY,
-        resultCb: result => {
-          return result[0] === doubt && (startSeq !== '' ? startSeq === result[2][0].seq : true)
-        }
-      },
-    )
-    return {
-      doubt: data[0],
-      nextStartSeq: data[1],
-      notifies: data[2]
+    try {
+      const data = await this.ctx.qqProtocol.invoke<[
+        doubt: boolean,
+        nextStartSeq: string,
+        notifies: GroupNotify[]
+      ]>(
+        'nodeIKernelGroupService/getSingleScreenNotifies',
+        [doubt, startSeq, number],
+        {
+          resultCmd: ReceiveCmdS.GROUP_NOTIFY,
+          resultCb: result => {
+            return result[0] === doubt && (startSeq !== '' ? startSeq === result[2][0].seq : true)
+          }
+        },
+      )
+      return {
+        doubt: data[0],
+        nextStartSeq: data[1],
+        notifies: data[2]
+      }
+    } catch {
+      // 直连模式 fallback: OIDB 0x10c0
+      const res = await this.ctx.qqProtocol.fetchGroupNotifies(number, doubt)
+      const notifies: GroupNotify[] = (res.requests || []).map((r: any) => ({
+        seq: String(r.sequence),
+        type: r.notifyType,
+        status: r.requestState,
+        group: { groupCode: String(r.group?.groupCode), groupName: r.group?.groupName || '' },
+        user1: { uid: r.user1?.uid || '', nickName: r.user1?.nickname || '' },
+        user2: { uid: r.user2?.uid || '', nickName: r.user2?.nickname || '' },
+        actionUser: { uid: r.user3?.uid || '', nickName: r.user3?.nickname || '' },
+        actionTime: String(r.time || 0),
+        invitationExt: { srcType: 0, groupCode: '', waitStatus: 0, invitorRole: 0 },
+        postscript: r.comment || '',
+        repeatSeqs: [],
+        warningTips: '',
+        templateSeq: '',
+        groupFlagExt3: 0,
+        joinGroupTransInfo: {},
+      }) as unknown as GroupNotify)
+      return {
+        doubt,
+        nextStartSeq: String(res.newLatestSequence || 0),
+        notifies,
+      }
     }
   }
 
@@ -429,27 +456,38 @@ export class NTQQGroupApi extends Service {
   }
 
   async searchMember(groupCode: string, keyword: string) {
-    // 须在获取群成员列表后使用
-    const sceneId = await this.ctx.qqProtocol.invoke(NTMethod.GROUP_MEMBER_SCENE, [
-      groupCode,
-      'groupMemberList_MainWindow'
-    ])
-    const data = await this.ctx.qqProtocol.invoke<[
-      sceneId: string,
-      keyword: string,
-      ids: { uid: string, index: number }[],
-      infos: Map<string, GroupMember>
-    ]>(
-      'nodeIKernelGroupService/searchMember',
-      [sceneId, keyword],
-      {
-        resultCmd: 'nodeIKernelGroupListener/onSearchMemberChange',
-        resultCb: payload => {
-          return payload[0] === sceneId && payload[1] === keyword
+    try {
+      const sceneId = await this.ctx.qqProtocol.invoke(NTMethod.GROUP_MEMBER_SCENE, [
+        groupCode,
+        'groupMemberList_MainWindow'
+      ])
+      const data = await this.ctx.qqProtocol.invoke<[
+        sceneId: string,
+        keyword: string,
+        ids: { uid: string, index: number }[],
+        infos: Map<string, GroupMember>
+      ]>(
+        'nodeIKernelGroupService/searchMember',
+        [sceneId, keyword],
+        {
+          resultCmd: 'nodeIKernelGroupListener/onSearchMemberChange',
+          resultCb: payload => {
+            return payload[0] === sceneId && payload[1] === keyword
+          },
         },
-      },
-    )
-    return data[3]
+      )
+      return data[3]
+    } catch {
+      // 直连模式 fallback: OIDB 拉全员然后本地过滤
+      const matched = await this.ctx.qqProtocol.searchGroupMember(+groupCode, keyword)
+      const result = new Map<string, GroupMember>()
+      for (const m of matched) {
+        const uid = m.id?.uid
+        if (!uid) continue
+        result.set(uid, this.toGroupMember(m))
+      }
+      return result
+    }
   }
 
   async getGroupFileCount(groupId: string) {

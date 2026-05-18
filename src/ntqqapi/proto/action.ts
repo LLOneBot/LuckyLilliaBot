@@ -70,4 +70,66 @@ export namespace Action {
   export const FetchUserLoginDaysResp = ProtoMessage.of({
     json: ProtoField(4, 'string')
   })
+
+  /** trpc.msg.register_proxy.RegisterProxy.SsoGetGroupMsg - 拉群历史消息 */
+  export const SsoGetGroupMsgReq = ProtoMessage.of({
+    groupInfo: ProtoField(1, {
+      groupCode: ProtoField(1, 'uint32'),
+      startSequence: ProtoField(2, 'uint32'),
+      endSequence: ProtoField(3, 'uint32'),
+    }),
+    filter: ProtoField(2, 'uint32'),
+  })
+
+  export const SsoGetGroupMsgResp = ProtoMessage.of({
+    retcode: ProtoField(1, 'uint32'),
+    errorMsg: ProtoField(2, 'string', 'optional'),
+    body: ProtoField(3, {
+      groupCode: ProtoField(3, 'uint32'),
+      startSequence: ProtoField(4, 'uint32'),
+      endSequence: ProtoField(5, 'uint32'),
+      messages: ProtoField(6, 'bytes', 'repeated'),
+    }),
+  })
+
+  /** trpc.msg.register_proxy.RegisterProxy.SsoGetC2CMsg - 拉私聊历史消息 */
+  export const SsoGetC2CMsgReq = ProtoMessage.of({
+    peerUid: ProtoField(2, 'string'),
+    startSequence: ProtoField(3, 'uint32'),
+    endSequence: ProtoField(4, 'uint32'),
+  })
+
+  export const SsoGetC2CMsgResp = ProtoMessage.of({
+    retcode: ProtoField(1, 'uint32'),
+    errorMsg: ProtoField(2, 'string', 'optional'),
+    messages: ProtoField(7, 'bytes', 'repeated'),
+  })
+
+  /** trpc.msg.msg_svc.MsgService.SsoGroupRecallMsg - 撤回群消息 */
+  export const SsoGroupRecallMsgReq = ProtoMessage.of({
+    type: ProtoField(1, 'uint32'),
+    groupCode: ProtoField(2, 'uint32'),
+    info: ProtoField(3, {
+      sequence: ProtoField(1, 'uint32'),
+    }),
+  })
+
+  /** trpc.msg.msg_svc.MsgService.SsoC2CRecallMsg - 撤回私聊消息 */
+  export const SsoC2CRecallMsgReq = ProtoMessage.of({
+    type: ProtoField(1, 'uint32'),
+    targetUid: ProtoField(3, 'string'),
+    info: ProtoField(4, {
+      clientSequence: ProtoField(1, 'uint32'),
+      random: ProtoField(2, 'uint32'),
+      messageUid: ProtoField(3, 'uint64'),
+      timestamp: ProtoField(4, 'uint32'),
+      field5: ProtoField(5, 'uint32'),
+      ntMsgSeq: ProtoField(6, 'uint32'),
+    }),
+    field5: ProtoField(5, {
+      field1: ProtoField(1, 'uint32'),
+      field2: ProtoField(2, 'uint32'),
+    }),
+    field6: ProtoField(6, 'uint32'),
+  })
 }
