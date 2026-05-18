@@ -40,18 +40,20 @@ const enum Event0x2DCSub {
 
 /**
  * 解析 QQ 协议原始 protobuf 推送，emit 对应 cordis 事件。
- * 直连模式和 PMHQ 模式都用这个入口。
+ * 直连模式和 PMHQ 模式都通过 'qq/raw' 事件喂数据进来。
  */
-export function dispatchRawProtobuf(ctx: Context, cmd: string, payload: Buffer) {
-  try {
-    if (cmd === MSG_PUSH_CMD) {
-      handleMsgPush(ctx, payload)
-    } else if (cmd === KICK_CMD) {
-      ctx.parallel('nt/kicked-offLine', { tipsTitle: 'KickNT', tipsDesc: 'Kicked by server' } as any)
+export function registerDispatcher(ctx: Context) {
+  ctx.on('qq/raw', ({ cmd, payload }) => {
+    try {
+      if (cmd === MSG_PUSH_CMD) {
+        handleMsgPush(ctx, payload)
+      } else if (cmd === KICK_CMD) {
+        ctx.parallel('nt/kicked-offLine', { tipsTitle: 'KickNT', tipsDesc: 'Kicked by server' } as any)
+      }
+    } catch (e) {
+      ctx.logger('qqProtocol').warn('dispatch error:', (e as Error).message)
     }
-  } catch (e) {
-    ctx.logger('qqProtocol').warn('dispatchRawProtobuf error:', (e as Error).message)
-  }
+  })
 }
 
 function handleMsgPush(ctx: Context, payload: Buffer) {

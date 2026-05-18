@@ -21,7 +21,6 @@ import { ReceiveCmdS } from '@/ntqqapi/hook'
 import { inspect } from 'node:util'
 import { DetailedError } from '@/common/utils'
 import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, registerOnline, startHeartbeat, getCorrectUin, QrCodeState, AppInfo, saveSession, loadSession, persistedToSessionInfo } from './direct'
-import { dispatchRawProtobuf } from './dispatcher'
 import type { QrCodeResult, QrPollResult } from './direct'
 
 type DisconnectCallback = (duration: number) => void
@@ -545,7 +544,7 @@ export class QQProtocolBase extends Service {
     this.addResListener((data: any) => {
       if (data?.type === 'recv' && data.data?.cmd && data.data?.pb) {
         const payload = Buffer.from(data.data.pb, 'hex')
-        dispatchRawProtobuf(this.ctx, data.data.cmd, payload)
+        this.ctx.parallel('qq/raw', { cmd: data.data.cmd, payload })
       }
     })
   }
@@ -571,7 +570,7 @@ export class QQProtocolBase extends Service {
       }
     })
     this.directClient.on('push', (packet: { cmd: string; payload: Buffer }) => {
-      dispatchRawProtobuf(this.ctx, packet.cmd, packet.payload)
+      this.ctx.parallel('qq/raw', { cmd: packet.cmd, payload: packet.payload })
     })
 
     // Try to restore saved session

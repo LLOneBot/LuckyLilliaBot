@@ -26,6 +26,7 @@ import { logSummaryMessage } from '@/ntqqapi/log'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
 import { OnQRCodeLoginSucceedParameter } from '@/ntqqapi/listeners/NodeIKernelLoginListener'
 import { GroupDetailInfo, LocalExitGroupReason } from '@/ntqqapi/types'
+import { registerDispatcher } from './dispatcher'
 import { noop } from 'cosmokit'
 
 declare module 'cordis' {
@@ -50,12 +51,25 @@ declare module 'cordis' {
     'nt/flash-file-downloading': (input: [fileSetId: string, info: FlashFileDownloadingInfo]) => void
     'nt/kicked-offLine': (input: KickedOffLineInfo) => void
 
+    // Raw QQ protocol push: { cmd, payload } from PMHQ recv or direct push
+    'qq/raw': (input: { cmd: string, payload: Buffer }) => void
+
     // Raw events parsed from QQ protocol push
+    'nt/raw/login-qr-code': (input: OnQRCodeLoginSucceedParameter) => void
+    'nt/raw/self-status': (input: { status: number }) => void
     'nt/raw/new-msg': (input: RawMessage[]) => void
     'nt/raw/update-msg': (input: RawMessage[]) => void
+    'nt/raw/delete-msg': (input: [Peer, string[]]) => void
     'nt/raw/self-send-msg': (input: RawMessage) => void
     'nt/raw/group-notifies-updated': (input: [doubt: boolean, notifies: GroupNotify[]]) => void
     'nt/raw/friend-request': (input: FriendRequestNotify) => void
+    'nt/raw/sys-msg': (input: Buffer) => void
+    'nt/raw/group-detail-update': (input: GroupDetailInfo) => void
+    'nt/raw/kicked-offline': (input: KickedOffLineInfo) => void
+    'nt/raw/flash-file-download-status': (input: [status: number, errCodeOrFileSetId: number | string, fileSetIdOrInfo: string | unknown]) => void
+    'nt/raw/flash-file-upload-status': (input: FlashFileSetInfo) => void
+    'nt/raw/flash-file-downloading': (input: [fileSetId: string, info: FlashFileDownloadingInfo]) => void
+    'nt/raw/flash-file-uploading': (input: { fileSet: FlashFileSetInfo } & FlashFileUploadingInfo) => void
   }
 }
 
@@ -78,6 +92,7 @@ class Core extends Service {
   public start() {
     this.startupTime = Math.trunc(Date.now() / 1000)
     this.registerListener()
+    registerDispatcher(this.ctx)
     setFFMpegPath('')
     this.ctx.on('llob/config-updated', input => {
       Object.assign(this.config, input)
@@ -158,6 +173,14 @@ class Core extends Service {
 
   private registerListener() {
 
+    this.ctx.on('nt/raw/login-qr-code', (data) => {
+      this.ctx.parallel('nt/login-qrcode', data)
+    })
+
+    this.ctx.on('nt/raw/self-status', (info) => {
+      Object.assign(selfInfo, { online: info.status !== 20 })
+    })
+
     this.ctx.on('nt/raw/new-msg', payload => {
       this.handleMessage(payload)
     })
@@ -200,6 +223,27 @@ class Core extends Service {
       }
     })
 
+    this.ctx.on('nt/raw/delete-msg', payload => {
+      // 撤回普通消息不会经过这里
+      // 撤回戳一戳会经过这里
+      const [peer, msgIds] = payload;
+      for (const msgId of msgIds) {
+        const msg = this.ctx.store.getMsgCache(msgId)
+        if (!msg) {
+          this.ctx.ntMsgApi.getMsgsByMsgId(peer, [msgId]).then(r => {
+            for (const _msg of r.msgList) {
+              this.ctx.parallel('nt/message-deleted', _msg)
+            }
+          }).catch(e => {
+            this.ctx.logger.error('获取被撤回戳一戳消息失败', e, { peer, msgId })
+          })
+        }
+        else {
+          this.ctx.parallel('nt/message-deleted', msg)
+        }
+      }
+    })
+
     this.ctx.on('nt/raw/self-send-msg', payload => {
       sentMsgIds.set(payload.msgId, true)
     })
@@ -231,6 +275,65 @@ class Core extends Service {
         }
         this.ctx.parallel('nt/friend-request', req)
       }
+    })
+
+    this.ctx.on('nt/raw/sys-msg', payload => {
+      this.ctx.parallel('nt/system-message-created', payload)
+    })
+
+    this.ctx.on('nt/raw/flash-file-download-status', payload => {
+      // 旧版本 QQ 会把 fileSetId 放在第 2 个参数
+      // 新版本 QQ 会把 fileSetId 放在第 3 个参数
+      const [status, errCodeOrFileSetId, fileSetIdOrFileInfo] = payload
+      let fileSetId: string;
+      if (typeof fileSetIdOrFileInfo !== 'string') {
+        fileSetId = errCodeOrFileSetId as string
+      }
+      else {
+        fileSetId = fileSetIdOrFileInfo as string
+      }
+      this.ctx.ntFileApi.getFlashFileInfo(fileSetId).then(info => {
+        this.ctx.parallel('nt/flash-file-download-status', {
+          status,
+          info
+        })
+      }).catch(err => {
+        this.ctx.logger.error(err, { fileSetId })
+      })
+    })
+
+    this.ctx.on('nt/raw/flash-file-upload-status', payload => {
+      this.ctx.parallel('nt/flash-file-upload-status', payload)
+    })
+
+    this.ctx.on('nt/raw/flash-file-downloading', payload => {
+      const [fileSetId, info] = payload
+      this.ctx.parallel('nt/flash-file-downloading', [fileSetId, info])
+    })
+
+    this.ctx.on('nt/raw/flash-file-uploading', payload => {
+      this.ctx.parallel('nt/flash-file-uploading', payload)
+    })
+
+    const group_dismiss_codes: string[] = []  // 不知是否是 QQ 的 bug，退群的时候会上报一个以前解散的群，这里用于避免重复上报
+    this.ctx.on('nt/raw/group-detail-update', async data => {
+      if (data.localExitGroupReason === LocalExitGroupReason.DISMISS
+        && !group_dismiss_codes.includes(data.groupCode)
+        && data.cmdUinJoinTime > this.startupTime
+      ) {
+        group_dismiss_codes.push(data.groupCode)
+        if (group_dismiss_codes.length > 1000) {
+          group_dismiss_codes.shift()
+        }
+        this.ctx.parallel('nt/group-dismiss', data)
+      }
+      else if (data.localExitGroupReason === LocalExitGroupReason.SELF_QUIT) {
+        this.ctx.parallel('nt/group-quit', data)
+      }
+    })
+
+    this.ctx.on('nt/raw/kicked-offline', info => {
+      this.ctx.parallel('nt/kicked-offLine', info)
     })
   }
 }
