@@ -14,35 +14,23 @@ export class NTQQSystemApi extends Service {
   }
 
   async restart() {
-    // todo: 调用此接口后会将 NTQQ 设置里面的自动登录和无需手机确认打开，重启后将状态恢复到之前的状态
-
-    // 设置自动登录
-    await this.setSettingAutoLogin(true)
-    // 退出账号
-    // invoke('quitAccount', []).then()
-    // invoke('notifyQQClose', [{ type: 1 }]).then()
-    // // 等待登录界面，模拟点击登录按钮？还是直接调用登录方法？
+    // 直连模式无需此操作（重启进程即可）
   }
 
   async getSettingAutoLogin() {
-    // 查询是否自动登录
-    return await this.ctx.qqProtocol.invoke('nodeIKernelNodeMiscService/queryAutoRun', [])
+    // 直连模式：session 持久化即自动登录
+    return true
   }
 
-  async setSettingAutoLogin(state: boolean) {
-    await this.ctx.qqProtocol.invoke<unknown>('nodeIKernelSettingService/setNeedConfirmSwitch', [1]) // 1：不需要手机确认，2：需要手机确认
-
-    await this.ctx.qqProtocol.invoke<unknown>('nodeIKernelSettingService/setAutoLoginSwitch', [state])
+  async setSettingAutoLogin(_state: boolean) {
+    // 直连模式：无操作
   }
 
   async getDeviceInfo() {
-    return await this.ctx.qqProtocol.invoke<{
-      devType: string
-      buildVer: string
-    }>('getDeviceInfo', [])
+    return { devType: 'Linux', buildVer: '3.2.26-46494' }
   }
 
-  async scanQRCode(path: string) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelNodeMiscService/scanQBar', [path])
+  async scanQRCode(_path: string): Promise<any> {
+    throw new Error('scanQRCode 在直连模式下不支持')
   }
 }

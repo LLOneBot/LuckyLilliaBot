@@ -13,13 +13,6 @@ import type {
   ResListener,
 } from './types'
 import { Context, Service } from 'cordis'
-import { NodeIKernelAlbumService, NodeIKernelBuddyService, NodeIKernelFlashTransferService, NodeIKernelGroupService, NodeIKernelLoginService, NodeIKernelMSFService, NodeIKernelMsgService, NodeIKernelNodeMiscService, NodeIKernelProfileLikeService, NodeIKernelProfileService, NodeIKernelRecentContactService, NodeIKernelRichMediaService, NodeIKernelRobotService, NodeIKernelTicketService, NodeIKernelTipOffService, NodeIKernelUixConvertService } from '@/ntqqapi/services'
-import { NodeIKernelBuddyListener, NodeIKernelGroupListener, NodeIKernelLoginListener, NodeIKernelMsgListener } from '@/ntqqapi/listeners'
-import { Awaitable } from 'cosmokit'
-import { NTMethod } from '@/ntqqapi/ntcall'
-import { ReceiveCmdS } from '@/ntqqapi/hook'
-import { inspect } from 'node:util'
-import { DetailedError } from '@/common/utils'
 import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, registerOnline, startHeartbeat, getCorrectUin, QrCodeState, AppInfo, saveSession, loadSession, persistedToSessionInfo } from './direct'
 import type { QrCodeResult, QrPollResult } from './direct'
 
@@ -30,71 +23,6 @@ interface DisconnectCallbackInfo {
   callback: DisconnectCallback
   triggered: boolean
 }
-
-interface NTService {
-  nodeIKernelLoginService: NodeIKernelLoginService
-  nodeIKernelBuddyService: NodeIKernelBuddyService
-  nodeIKernelProfileService: NodeIKernelProfileService
-  nodeIKernelGroupService: NodeIKernelGroupService
-  nodeIKernelProfileLikeService: NodeIKernelProfileLikeService
-  nodeIKernelMsgService: NodeIKernelMsgService
-  nodeIKernelMSFService: NodeIKernelMSFService
-  nodeIKernelUixConvertService: NodeIKernelUixConvertService
-  nodeIKernelRichMediaService: NodeIKernelRichMediaService
-  nodeIKernelTicketService: NodeIKernelTicketService
-  nodeIKernelTipOffService: NodeIKernelTipOffService
-  nodeIKernelRobotService: NodeIKernelRobotService
-  nodeIKernelNodeMiscService: NodeIKernelNodeMiscService
-  nodeIKernelRecentContactService: NodeIKernelRecentContactService
-  nodeIKernelFlashTransferService: NodeIKernelFlashTransferService
-  nodeIKernelAlbumService: NodeIKernelAlbumService
-}
-
-interface InvokeOptions<ReturnType> {
-  resultCmd?: string // 表示这次call是异步的，返回结果会通过这个命令上报
-  resultCb?: (data: ReturnType, firstResult: any) => boolean // 结果回调，直到返回true才会移除钩子
-  timeout?: number
-  onCallResult?: (result: any) => ReturnType | undefined // 根据call返回值提前resolve，返回undefined则继续等待resultCmd
-}
-
-interface NTListener {
-  nodeIKernelLoginListener: NodeIKernelLoginListener
-  nodeIKernelBuddyListener: NodeIKernelBuddyListener
-  nodeIKernelGroupListener: NodeIKernelGroupListener
-  nodeIKernelMsgListener: NodeIKernelMsgListener
-}
-
-// 辅助类型：从method字符串推断出对应的payload类型
-type InferPayloadFromMethod<T extends string> =
-  T extends `${infer S}/${infer M}`
-  ? S extends keyof NTListener
-  ? M extends keyof NTListener[S]
-  ? NTListener[S][M] extends (...args: any) => unknown
-  ? Parameters<NTListener[S][M]>[0]
-  : never
-  : never
-  : never
-  : never
-
-const NT_SERVICE_TO_PMHQ: Record<string, string> = {
-  'nodeIKernelBuddyService': 'getBuddyService',
-  'nodeIKernelProfileService': 'getProfileService',
-  'nodeIKernelGroupService': 'getGroupService',
-  'nodeIKernelProfileLikeService': 'getProfileLikeService',
-  'nodeIKernelMsgService': 'getMsgService',
-  'nodeIKernelMSFService': 'getMSFService',
-  'nodeIKernelUixConvertService': 'getUixConvertService',
-  'nodeIKernelRichMediaService': 'getRichMediaService',
-  'nodeIKernelTicketService': 'getTicketService',
-  'nodeIKernelTipOffService': 'getTipOffService',
-  'nodeIKernelRobotService': 'getRobotService',
-  'nodeIKernelNodeMiscService': 'getNodeMiscService',
-  'nodeIKernelRecentContactService': 'getRecentContactService',
-  'nodeIKernelFlashTransferService': 'getFlashTransferService',
-  'nodeIKernelLoginService': 'loginService',
-  'nodeIKernelAlbumService': 'getAlbumService',
-}
-const NOT_SESSION_SERVICES = ['nodeIKernelLoginService']
 
 export class QQProtocolBase extends Service {
   static inject = ['logger', 'config']
@@ -109,14 +37,6 @@ export class QQProtocolBase extends Service {
   private disconnectCheckTimer: NodeJS.Timeout | undefined
   private hasConnectedOnce: boolean = false
   private hasLoggedConnectionError: boolean = false
-  private receiveHooks: Map<string, {
-    method: ReceiveCmdS[]
-    hookFunc: (payload: any) => Awaitable<void>
-  }> = new Map()
-  private callHooks: Map<
-    NTMethod,
-    (callParams: unknown[]) => Awaitable<void>
-  > = new Map()
   public msgPBMap: Map<string, string> = new Map<string, string>()
   private logger
 
@@ -410,157 +330,28 @@ export class QQProtocolBase extends Service {
     }
   }
 
-  // 函数重载：当提供resultCmd时，自动从resultCmd推断返回类型
-  invoke<
-    ResultCmd extends string,
-    R extends InferPayloadFromMethod<ResultCmd>,
-    S extends keyof NTService = any,
-    M extends keyof NTService[S] & string = any,
-    P extends Parameters<Extract<NTService[S][M], (...args: any) => unknown>> = any
-  >(
-    method: Extract<unknown, `${S}/${M}`> | string,
-    args: P,
-    options: InvokeOptions<R> & { resultCmd: ResultCmd }
-  ): Promise<R>
-
-  // 函数重载：当不提供resultCmd时，使用原来的类型推断
-  invoke<
-    R extends Awaited<ReturnType<Extract<NTService[S][M], (...args: any) => unknown>>>,
-    S extends keyof NTService = any,
-    M extends keyof NTService[S] & string = any,
-    P extends Parameters<Extract<NTService[S][M], (...args: any) => unknown>> = any
-  >(
-    method: Extract<unknown, `${S}/${M}`> | string,
-    args: P,
-    options?: InvokeOptions<R>
-  ): Promise<R>
-
-  // 实际实现
-  invoke<
-    R = any,
-    S extends keyof NTService = any,
-    M extends keyof NTService[S] & string = any,
-    P extends Parameters<Extract<NTService[S][M], (...args: any) => unknown>> = any
-  >(method: Extract<unknown, `${S}/${M}`> | string, args: P, options: InvokeOptions<R> = {}): Promise<R> {
-    // 直连模式下没有 NT 服务，PMHQ-only 的 invoke 调用立即失败避免 5s 超时
-    if (this.directClient && !process.env.QQ_USE_PMHQ) {
-      return Promise.reject(new Error(`invoke unavailable in direct mode: ${method}`))
+  /**
+   * 发送 OIDB 命令，自动 encode Oidb.Base、发送、decode 响应、检查 errorCode。
+   * - errorCode === 0 时返回 { errorCode: 0, errorMsg: '', body: <bytes> }
+   * - errorCode !== 0 时直接抛 Error 包含服务器返回的 errorMsg
+   */
+  public async sendOidb(
+    command: number,
+    subCommand: number,
+    body: Uint8Array,
+    cmdSuffix?: string,
+  ): Promise<{ errorCode: number, errorMsg: string, body: Uint8Array }> {
+    const Oidb = (await import('@/ntqqapi/proto')).Oidb
+    const reqBytes = Oidb.Base.encode({ command, subCommand, body: Buffer.from(body) })
+    const cmd = cmdSuffix ?? `OidbSvcTrpcTcp.0x${command.toString(16)}_${subCommand}`
+    const resp = await this.sendPB(cmd, reqBytes)
+    const decoded = Oidb.Base.decode(Buffer.from(resp.pb, 'hex'))
+    const errorCode = decoded.errorCode ?? 0
+    const errorMsg = decoded.errorMsg ?? ''
+    if (errorCode !== 0) {
+      throw new Error(`OIDB ${cmd} failed: errorCode=${errorCode}, errorMsg=${errorMsg}`)
     }
-    const splitMethod = method.split('/')
-    const serviceName = splitMethod[0] as keyof NTService
-    const methodName = splitMethod.slice(1).join('/')
-    const pmhqService = NT_SERVICE_TO_PMHQ[serviceName]
-    let funcName = ''
-    if (pmhqService) {
-      if (NOT_SESSION_SERVICES.includes(serviceName))
-        funcName = `${pmhqService}.${methodName}`
-      else {
-        funcName = `wrapperSession.${pmhqService}().${methodName}`
-      }
-    }
-    else {
-      funcName = method
-    }
-    const timeout = options.timeout ?? 15000
-
-    return new Promise<R>((resolve, reject) => {
-      let timeoutId = null
-      let hookId: string = ''
-      if (timeout) {
-        timeoutId = setTimeout(() => {
-          this.removeReceiveHook(hookId)
-          const display = inspect(args, {
-            depth: 10,
-            compact: true,
-            breakLength: Infinity,
-            maxArrayLength: 220
-          })
-          reject(new Error(`invoke timeout, ${funcName}, ${display}`))
-        }, timeout)
-      }
-      if (options.resultCmd) {
-        let firstResult: unknown = undefined
-        hookId = this.registerReceiveHook<R>(options.resultCmd as string, (data: R) => {
-          if (options.resultCb && !options.resultCb(data, firstResult)) {
-            return
-          }
-          resolve(data)
-          this.removeReceiveHook(hookId)
-          if (timeoutId) {
-            clearTimeout(timeoutId)
-          }
-        })
-        this.call(funcName, args, timeout).then(r => {
-          firstResult = r
-          if (options.onCallResult) {
-            const result = options.onCallResult(r)
-            if (result !== undefined) {
-              resolve(result)
-              this.removeReceiveHook(hookId)
-              if (timeoutId) clearTimeout(timeoutId)
-              return
-            }
-          }
-          if (r && Object.hasOwn(r, 'result') && +r.result !== 0) {
-            const displayReq = inspect(args, {
-              depth: 10,
-              compact: true,
-              breakLength: Infinity,
-              maxArrayLength: 220
-            })
-            const displayRes = inspect(r, {
-              depth: 10,
-              compact: true,
-              breakLength: Infinity,
-              maxArrayLength: 220
-            })
-            reject(new DetailedError(`invoke failed, ${funcName}, ${displayReq}, ${displayRes}`, r))
-            this.removeReceiveHook(hookId)
-            if (timeoutId) {
-              clearTimeout(timeoutId)
-            }
-          }
-        }).catch(reject)
-      }
-      else {
-        this.call(funcName, args, timeout).then(r => {
-          resolve(r)
-          if (timeoutId) {
-            clearTimeout(timeoutId)
-          }
-        }).catch(reject)
-      }
-    })
-  }
-
-  private registerReceiveHook<
-    PayloadType = any,
-    Method extends string = string
-  >(
-    method: Method | Method[],
-    hookFunc: (payload: InferPayloadFromMethod<Method> extends never ? PayloadType : InferPayloadFromMethod<Method>) => Awaitable<void>,
-  ): string {
-    const id = randomUUID()
-    if (!Array.isArray(method)) {
-      method = [method]
-    }
-    this.receiveHooks.set(id, {
-      method: method as ReceiveCmdS[],
-      hookFunc,
-    })
-    return id
-  }
-
-
-  registerCallHook(
-    method: NTMethod,
-    hookFunc: (callParams: unknown[]) => Awaitable<void>,
-  ): void {
-    this.callHooks.set(method, hookFunc)
-  }
-
-  private removeReceiveHook(id: string) {
-    this.receiveHooks.delete(id)
+    return { errorCode, errorMsg, body: decoded.body as Uint8Array }
   }
 
   startHook() {

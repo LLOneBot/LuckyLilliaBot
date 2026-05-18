@@ -1,5 +1,5 @@
 import { Context, Service } from 'cordis'
-import { ReceiveCmdS } from '@/ntqqapi/hook'
+import { selfInfo } from '@/common/globalVars'
 
 declare module 'cordis' {
   interface Context {
@@ -15,17 +15,14 @@ export class NTLoginApi extends Service {
   }
 
   async getQuickLoginList(){
-    return await this.ctx.qqProtocol.invoke('nodeIKernelLoginService/getLoginList', [])
+    return { LocalLoginInfoList: selfInfo.uin ? [{ uin: selfInfo.uin, uid: selfInfo.uid, isQuickLogin: true }] : [] } as any
   }
 
   async quickLoginWithUin(uin: string){
-    return await this.ctx.qqProtocol.invoke('nodeIKernelLoginService/quickLoginWithUin', [uin], {
-    })
+    throw new Error('quickLoginWithUin: 直连模式自动恢复 session，无需此接口')
   }
 
   async getLoginQrCode(){
-    return await this.ctx.qqProtocol.invoke('nodeIKernelLoginService/getQRCodePicture', [], {
-      resultCmd: ReceiveCmdS.LOGIN_QR_CODE,
-    })
+    return await this.ctx.qqProtocol.getDirectLoginQrCode()
   }
 }

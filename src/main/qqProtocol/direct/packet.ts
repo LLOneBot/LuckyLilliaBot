@@ -13,6 +13,8 @@ export interface SsoPacket {
   seq: number
   cmd: string
   payload: Buffer
+  retCode?: number
+  extraMsg?: string
 }
 
 export interface PacketContext {
@@ -277,7 +279,11 @@ function parseSsoFrame12(data: Buffer): SsoPacket | null {
 
   if (offset + 4 > headEnd) return null
   const extraLen = data.readInt32BE(offset); offset += 4
-  if (extraLen > 4) offset += extraLen - 4
+  let extraMsg = ''
+  if (extraLen > 4) {
+    extraMsg = data.subarray(offset, offset + extraLen - 4).toString('utf8')
+    offset += extraLen - 4
+  }
 
   if (offset + 4 > headEnd) return null
   const cmdLen = data.readInt32BE(offset); offset += 4
@@ -290,5 +296,5 @@ function parseSsoFrame12(data: Buffer): SsoPacket | null {
   const bodyLen = data.readInt32BE(offset); offset += 4
   const payload = Buffer.from(data.subarray(offset, offset + bodyLen - 4))
 
-  return { seq, cmd, payload }
+  return { seq, cmd, payload, retCode, extraMsg }
 }

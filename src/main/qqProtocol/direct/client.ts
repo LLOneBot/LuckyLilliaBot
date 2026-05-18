@@ -161,7 +161,11 @@ export class DirectProtocolClient extends EventEmitter {
     if (pending) {
       clearTimeout(pending.timeout)
       this.pendingPackets.delete(parsed.seq)
-      pending.resolve(parsed)
+      if (parsed.retCode && parsed.retCode !== 0) {
+        pending.reject(new Error(`SSO ${parsed.cmd} failed: retCode=${parsed.retCode}, extraMsg=${parsed.extraMsg || ''}`))
+      } else {
+        pending.resolve(parsed)
+      }
       return
     }
 

@@ -106,7 +106,7 @@ export class NTQQFriendApi extends Service {
   }
 
   async clearBuddyReqUnreadCnt() {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelBuddyService/clearBuddyReqUnreadCnt', [])
+    // 直连模式：无需清理（NT 内部状态）
   }
 
   async getFriendRequests(limit: number) {

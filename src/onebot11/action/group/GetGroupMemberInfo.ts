@@ -31,7 +31,7 @@ class GetGroupMemberInfo extends BaseAction<Payload, OB11GroupMember> {
     } catch (e) {
       try {
         const fetchInfo = await this.ctx.ntUserApi.fetchUserDetailInfo(member.uid)
-        info = fetchInfo.detail.get(member.uid)
+        info = fetchInfo as unknown as UserDetailInfo
       } catch (e) {
       }
     }

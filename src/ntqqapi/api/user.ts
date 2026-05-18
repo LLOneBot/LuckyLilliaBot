@@ -1,9 +1,7 @@
 import { MiniProfile, ProfileBizType, SimpleInfo, UserDetailInfo, UserDetailSource, Sex } from '../types'
 import { HttpUtil } from '@/common/utils/request'
-import { Time } from 'cosmokit'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
-import { ReceiveCmdS } from '../hook'
 
 declare module 'cordis' {
   interface Context {
@@ -48,187 +46,94 @@ export class NTQQUserApi extends Service {
     super(ctx, 'ntUserApi')
   }
 
-  async setSelfAvatar(path: string) {
-    return await this.ctx.qqProtocol.invoke(
-      'nodeIKernelProfileService/setHeader',
-      [path],
-      {
-        timeout: 10 * Time.second, // 10秒不一定够？
-      },
-    )
+  async setSelfAvatar(_path: string): Promise<{ result: number, errMsg: string }> {
+    throw new Error('setSelfAvatar 暂未实现 (直连模式)')
   }
 
   async getUidByUin(uin: string, groupCode?: string) {
-    const funcs = [
-      async () => {
-        return (await this.ctx.qqProtocol.invoke('nodeIKernelUixConvertService/getUid', [[uin]])).uidInfo.get(uin)
-      },
-      async () => {
-        return (await this.ctx.qqProtocol.invoke('nodeIKernelGroupService/getUidByUins', [[uin]])).uids.get(uin)
-      },
-      async () => {
-        return (await this.ctx.qqProtocol.invoke('nodeIKernelProfileService/getUidByUin', ['FriendsServiceImpl', [uin]])).get(uin)
-      },
-      async () => {
-        return (await this.getUserDetailInfoByUin(uin)).detail.uid
-      },
-      async () => {
-        if (groupCode) {
-          const groupMembers: any = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
-          return [...groupMembers.result?.infos?.values() ?? []].find((e: any) => e.uin === uin)?.uid
-        }
-      }
-    ]
-
-    for (const f of funcs) {
+    // 优先尝试 OIDB by uin
+    try {
+      const info = await this.ctx.qqProtocol.fetchUserInfo(+uin)
+      // OIDB 0xfe1_2 不返回 uid，必须从其他渠道
+    } catch {}
+    // 通过群成员列表获取 uid
+    if (groupCode) {
       try {
-        const uid = await f()
-        if (uid && !uid.includes('****')) {
-          return uid
-        }
+        const groupMembers: any = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
+        const found = [...groupMembers.result?.infos?.values() ?? []].find((e: any) => String(e.uin) === String(uin))
+        if (found?.uid) return found.uid
       } catch (e) {
-        this.ctx.logger.error('get uid by uin filed', e)
+        this.ctx.logger.error('getUidByUin via group members failed', e)
       }
     }
     return ''
   }
 
   async getUserDetailInfoByUin(uin: string) {
-    try {
-      return await this.ctx.qqProtocol.invoke('nodeIKernelProfileService/getUserDetailInfoByUin', [uin])
-    } catch {
-      const info = await this.ctx.qqProtocol.fetchUserInfo(+uin)
-      return { detail: { uid: '', uin: String(info.uin), nick: info.nick, sex: info.sex, age: info.age, longNick: info.longNick, level: info.level } }
+    const info = await this.ctx.qqProtocol.fetchUserInfo(+uin)
+    return {
+      detail: {
+        uid: '',
+        uin: String(info.uin),
+        nick: info.nick,
+        sex: info.sex,
+        age: info.age,
+        longNick: info.longNick,
+        level: info.level,
+      },
     }
   }
 
   async getUinByUid(uid: string): Promise<string> {
-    const funcs = [
-      async () => {
-        return (await this.ctx.qqProtocol.invoke('nodeIKernelUixConvertService/getUin', [[uid]])).uinInfo.get(uid)
-      },
-      async () => {
-        return (await this.getUserSimpleInfo(uid)).uin
-      },
-      // 直连模式 fallback：通过 OIDB 0xfe1_2 拿用户信息
-      async () => {
-        const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-        return String(info.uin)
-      },
-    ]
-
-    for (const f of funcs) {
-      try {
-        const result = await f()
-        if (result) {
-          return result
-        }
-      } catch (e) {
-        this.ctx.logger.error('get uin filed', e)
-      }
+    try {
+      const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+      if (info?.uin) return String(info.uin)
+    } catch (e) {
+      this.ctx.logger.error('getUinByUid failed', e)
     }
-
     return ''
   }
 
   /** 始终会从服务器拉取 */
   async fetchUserDetailInfo(uid: string) {
-    try {
-      return await this.ctx.qqProtocol.invoke(
-        'nodeIKernelProfileService/fetchUserDetailInfo',
-        [
-          'BuddyProfileStore', // callFrom
-          [uid],
-          UserDetailSource.KSERVER, // source
-          [ProfileBizType.KALL], //bizList
-        ],
-      )
-    } catch {
-      // 直连模式 fallback: 用 fetchUserInfoByUid + getCoreAndBaseInfo
-      const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-      return {
-        simpleInfo: makeSimpleInfoFromOidb(uid, info),
-        commonExt: null,
-      }
+    const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+    return {
+      simpleInfo: makeSimpleInfoFromOidb(uid, info),
+      commonExt: null,
     }
   }
 
   async getUserDetailInfoWithBizInfo(uid: string) {
-    try {
-      const result = await this.ctx.qqProtocol.invoke<UserDetailInfo>(
-        'nodeIKernelProfileService/getUserDetailInfoWithBizInfo',
-        [
-          uid,
-          [0],
-        ],
-        {
-          resultCmd: 'nodeIKernelProfileListener/onUserDetailInfoChanged',
-          resultCb: payload => payload.simpleInfo.uid === uid,
-        },
-      )
-      return result
-    } catch {
-      // 直连模式 fallback: 用 fetchUserInfoByUid 拼装
-      const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-      return {
-        simpleInfo: makeSimpleInfoFromOidb(uid, info),
-        commonExt: null,
-      } as unknown as UserDetailInfo
-    }
+    const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+    return {
+      simpleInfo: makeSimpleInfoFromOidb(uid, info),
+      commonExt: null,
+    } as unknown as UserDetailInfo
   }
 
   /** 无缓存时会从服务器拉取 */
-  async getUserSimpleInfo(uid: string, force = true) {
-    try {
-      const data = await this.ctx.qqProtocol.invoke<Map<string, SimpleInfo>>(
-        'nodeIKernelProfileService/getUserSimpleInfo',
-        [
-          force,
-          [uid],
-        ],
-        {
-          resultCmd: ReceiveCmdS.USER_INFO,
-          resultCb: payload => payload.has(uid),
-        },
-      )
-      return data.get(uid)!
-    } catch {
-      // 直连模式 fallback: OIDB 0xfe1_2 by UID
-      const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-      return makeSimpleInfoFromOidb(uid, info)
-    }
+  async getUserSimpleInfo(uid: string, _force = true) {
+    const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+    return makeSimpleInfoFromOidb(uid, info)
   }
 
   /** 无缓存时会获取不到用户信息 */
   async getCoreAndBaseInfo(uids: string[]) {
-    try {
-      return await this.ctx.qqProtocol.invoke<Map<string, SimpleInfo>>(
-        'nodeIKernelProfileService/getCoreAndBaseInfo',
-        [
-          'nodeStore',
-          uids,
-        ],
-      )
-    } catch {
-      const result = new Map<string, SimpleInfo>()
-      for (const uid of uids) {
-        try {
-          const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-          result.set(uid, makeSimpleInfoFromOidb(uid, info))
-        } catch {}
+    const result = new Map<string, SimpleInfo>()
+    for (const uid of uids) {
+      try {
+        const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+        result.set(uid, makeSimpleInfoFromOidb(uid, info))
+      } catch (e) {
+        this.ctx.logger.error('getCoreAndBaseInfo failed for uid', uid, e)
       }
-      return result
     }
+    return result
   }
 
   async getBuddyNick(uid: string) {
-    try {
-      const data = await this.ctx.qqProtocol.invoke('nodeIKernelBuddyService/getBuddyNick', [[uid]])
-      return data.get(uid)
-    } catch {
-      const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-      return info.nick
-    }
+    const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+    return info.nick
   }
 
   async getCookies(domain: string) {
@@ -242,125 +147,67 @@ export class NTQQUserApi extends Service {
     return cookies
   }
 
-  async getPSkey(domains: string[]) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelTipOffService/getPskey', [
-      domains,
-      true, // isFromNewPCQQ
-    ])
+  async getPSkey(_domains: string[]): Promise<any> {
+    throw new Error('getPSkey 暂未实现 (直连模式)')
   }
 
-  async like(uid: string, count = 1) {
-    return await this.ctx.qqProtocol.invoke(
-      'nodeIKernelProfileLikeService/setBuddyProfileLike',
-      [{
-
-        friendUid: uid,
-        sourceId: 71,
-        doLikeCount: count,
-        doLikeTollCount: 0,
-      }],
-    )
+  async like(_uid: string, _count = 1): Promise<any> {
+    throw new Error('like 暂未实现 (直连模式)')
   }
 
-  async forceFetchClientKey() {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelTicketService/forceFetchClientKey', [''])
+  async forceFetchClientKey(): Promise<any> {
+    throw new Error('forceFetchClientKey 暂未实现 (直连模式)')
   }
 
   async getSelfNick(refresh = true) {
     if ((refresh || !selfInfo.nick) && selfInfo.uid) {
-      let nick = await this.getBuddyNick(selfInfo.uid)
-      if (nick === undefined) {
-        nick = (await this.getUserSimpleInfo(selfInfo.uid, refresh)).coreInfo.nick
+      try {
+        let nick = await this.getBuddyNick(selfInfo.uid)
+        if (!nick) {
+          nick = (await this.getUserSimpleInfo(selfInfo.uid, refresh)).coreInfo.nick
+        }
+        selfInfo.nick = nick
+      } catch (e) {
+        this.ctx.logger.error('getSelfNick failed', e)
       }
-      selfInfo.nick = nick
     }
     return selfInfo.nick
   }
 
-  async setSelfStatus(status: number, extStatus: number, batteryStatus: number) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelMsgService/setStatus', [
-      {
-        status,
-        extStatus,
-        batteryStatus,
-      },
-    ])
+  async setSelfStatus(_status: number, _extStatus: number, _batteryStatus: number): Promise<any> {
+    throw new Error('setSelfStatus 暂未实现 (直连模式)')
   }
 
-  async getProfileLike(uid: string, start = 0, limit = 20) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
-      {
-        friendUids: [uid],
-        basic: 1,
-        vote: 0,
-        favorite: 1,
-        userProfile: 1,
-        type: 3,
-        start,
-        limit,
-      },
-    ])
+  async getProfileLike(_uid: string, _start = 0, _limit = 20): Promise<any> {
+    throw new Error('getProfileLike 暂未实现 (直连模式)')
   }
 
-  async getProfileLikeMe(uid: string, start = 0, limit = 20) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
-      {
-        friendUids: [uid],
-        basic: 1,
-        vote: 1,
-        favorite: 0,
-        userProfile: 1,
-        type: 2,
-        start,
-        limit,
-      },
-    ])
+  async getProfileLikeMe(_uid: string, _start = 0, _limit = 20): Promise<any> {
+    throw new Error('getProfileLikeMe 暂未实现 (直连模式)')
   }
 
-  async getRobotUinRange() {
-    return await this.ctx.qqProtocol.invoke(
-      'nodeIKernelRobotService/getRobotUinRange',
-      [
-        {
-          justFetchMsgConfig: '1',
-          type: 1,
-          version: 0,
-          aioKeywordVersion: 0,
-        },
-      ],
-    )
+  async getRobotUinRange(): Promise<any> {
+    return { response: { robotUinRanges: [] } }
   }
 
-  async quitAccount() {
-    return await this.ctx.qqProtocol.invoke(
-      'quitAccount',
-      [],
-    )
+  async quitAccount(): Promise<any> {
+    throw new Error('quitAccount 暂未实现 (直连模式)')
   }
 
-  async modifySelfProfile(profile: MiniProfile) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelProfileService/modifyDesktopMiniProfile', [profile])
+  async modifySelfProfile(_profile: MiniProfile): Promise<any> {
+    throw new Error('modifySelfProfile 暂未实现 (直连模式)')
   }
 
-  async getRecentContactListSnapShot(count: number) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelRecentContactService/getRecentContactListSnapShot', [count])
+  async getRecentContactListSnapShot(_count: number): Promise<any> {
+    return { contacts: [] }
   }
 
   async getUserInfoCompatible(uid: string) {
-    const funcs = [
-      () => this.getUserSimpleInfo(uid, false),
-      () => this.getUserSimpleInfo(uid, true),
-      async () => (await this.fetchUserDetailInfo(uid) as any).detail?.get(uid)?.simpleInfo,
-      async () => (await this.getUserDetailInfoWithBizInfo(uid)).simpleInfo,
-      async () => (await this.getCoreAndBaseInfo([uid])).get(uid)
-    ]
-    for (const func of funcs) {
-      try {
-        const res = await func()
-        if (res) return res
-      } catch (e) {
-
-      }
+    try {
+      const res = await this.getUserSimpleInfo(uid, true)
+      if (res) return res
+    } catch (e) {
+      this.ctx.logger.error('getUserInfoCompatible failed', e)
     }
     throw new Error(`获取用户信息失败, uid: ${uid}`)
   }

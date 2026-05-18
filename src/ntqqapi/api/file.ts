@@ -1,4 +1,3 @@
-import { NTMethod } from '../ntcall'
 import {
   ElementType,
   IMAGE_HTTP_HOST,
@@ -51,19 +50,13 @@ export class NTQQFileApi extends Service {
     }
   }
 
-  async getRichMediaFilePath(md5HexStr: string, fileName: string, elementType: ElementType, elementSubType = 0) {
-    return await this.ctx.qqProtocol.invoke(NTMethod.MEDIA_FILE_PATH, [
-      {
-        md5HexStr,
-        fileName,
-        elementType,
-        elementSubType,
-        thumbSize: 0,
-        needCreate: true,
-        downloadType: 1,
-        file_uuid: '',
-      },
-    ])
+  async getRichMediaFilePath(_md5HexStr: string, fileName: string, _elementType: ElementType, _elementSubType = 0) {
+    // 直连模式：在系统临时目录下创建路径
+    const os = await import('node:os')
+    const fs = await import('node:fs/promises')
+    const dir = path.join(os.tmpdir(), 'lucky-lillia-media')
+    await fs.mkdir(dir, { recursive: true })
+    return path.join(dir, fileName)
   }
 
   /** 上传文件到 QQ 的文件夹 */
@@ -84,10 +77,10 @@ export class NTQQFileApi extends Service {
   }
 
   async getImageUrl(originImageUrl: string, md5HexStr: string) {
-    const url = originImageUrl  // 没有域名
+    const url = originImageUrl
 
     if (url) {
-      const parsedUrl = new URL(IMAGE_HTTP_HOST + url) //临时解析拼接
+      const parsedUrl = new URL(IMAGE_HTTP_HOST + url)
       const imageAppid = parsedUrl.searchParams.get('appid')
       const isNTPic = imageAppid && ['1406', '1407'].includes(imageAppid)
       if (isNTPic) {
@@ -101,11 +94,9 @@ export class NTQQFileApi extends Service {
       } else if (url.startsWith('/offpic_new/')) {
         return `${IMAGE_HTTP_HOST}/gchatpic_new/0/0-0-${md5HexStr.toUpperCase()}/0`
       } else {
-        // 老的图片url，不需要rkey
         return IMAGE_HTTP_HOST + url
       }
     } else {
-      // 没有url，需要自己拼接
       return `${IMAGE_HTTP_HOST}/gchatpic_new/0/0-0-${md5HexStr.toUpperCase()}/0`
     }
   }
@@ -118,159 +109,32 @@ export class NTQQFileApi extends Service {
     return res.ocrRspBody
   }
 
-  async uploadFlashFile(title: string, filePaths: string[]) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelFlashTransferService/createFlashTransferUploadTask',
-      [
-        new Date().getTime(),
-        {
-          'scene': 1,
-          'name': title,
-          'uploaders': [
-            {
-              'uin': selfInfo.uin,
-              'nickname': selfInfo.nick,
-              'uid': selfInfo.uid,
-              'sendEntrance': '',
-            },
-          ],
-          'permission': {},
-          'coverPath': '',
-          'paths': filePaths,
-          'excludePaths': [],
-          'expireLeftTime': 0,
-          'isNeedDelExif': true,
-          'coverOriginalInfos': [
-            {
-              'path': '',
-              'thumbnailPath': '',
-            },
-          ],
-          'uploadSceneType': 1,
-        },
-      ],
-    )
+  async uploadFlashFile(_title: string, _filePaths: string[]): Promise<any> {
+    throw new Error('uploadFlashFile 暂未实现 (直连模式)')
   }
 
-  async downloadFlashFile(fileSetId: string, sceneType: number = 1) {
-    return await this.ctx.qqProtocol.invoke('nodeIKernelFlashTransferService/startFileSetDownload',
-      [
-        fileSetId,
-        sceneType,
-        { isIncludeCompressInnerFiles: false },
-      ],
-    )
+  async downloadFlashFile(_fileSetId: string, _sceneType: number = 1): Promise<any> {
+    throw new Error('downloadFlashFile 暂未实现 (直连模式)')
   }
 
   flashFileListCache = new Map<string, FlashFileListItem[]>()
 
-  async getFlashFileList(fileSetId: string, force = true) {
-    if (!force) {
-      const cachedList = this.flashFileListCache.get(fileSetId)
-      if (cachedList) {
-        return cachedList
-      }
-    }
-    const res = await this.ctx.qqProtocol.invoke('nodeIKernelFlashTransferService/getFileList',
-      [
-        {
-          seq: 0,
-          fileSetId,
-          isUseCache: false,
-          sceneType: 1,
-          reqInfos: [
-            {
-              count: 18,
-              paginationInfo: new Uint8Array(),
-              parentId: '',
-              reqIndexPath: '',
-              reqDepth: 1,
-              filterCondition: {
-                fileCategory: 0,
-                filterType: 0
-              },
-              sortConditions: [
-                {
-                  sortField: 0,
-                  sortOrder: 0
-                }
-              ],
-              isNeedPhysicalInfoReady: false
-            }
-          ]
-        },
-      ],
-    )
-    if (res.rsp.result !== 0) {
-      throw new Error(`获取闪传文件列表失败: ${res.rsp.errMs}`)
-    }
-    if (this.flashFileListCache.size > 100) {
-      const oldestKey = this.flashFileListCache.keys().next().value!
-      this.flashFileListCache.delete(oldestKey)
-    }
-    this.flashFileListCache.set(fileSetId, res.rsp.fileLists)
-    return res.rsp.fileLists
+  async getFlashFileList(_fileSetId: string, _force = true): Promise<FlashFileListItem[]> {
+    throw new Error('getFlashFileList 暂未实现 (直连模式)')
   }
 
-  async getFlashFileSetIdByCode(code: string) {
-    // code 是 qfile.qq.com/q/ 后面的部分
-    return await this.ctx.qqProtocol.invoke('nodeIKernelFlashTransferService/getFileSetIdByCode',
-      [code],
-    )
+  async getFlashFileSetIdByCode(_code: string): Promise<any> {
+    throw new Error('getFlashFileSetIdByCode 暂未实现 (直连模式)')
   }
 
   flashFileInfoCache = new Map<string, FlashFileSetInfo>()
 
-  async getFlashFileInfo(fileSetId: string, force = true) {
-    if (!force) {
-      const cachedInfo = this.flashFileInfoCache.get(fileSetId)
-      if (cachedInfo) {
-        return cachedInfo
-      }
-    }
-    const res = await this.ctx.qqProtocol.invoke('nodeIKernelFlashTransferService/getFileSet',
-      [
-        { seq: 0, fileSetId, isUseCache: false, isNoReqSvr: false, sceneType: 1 },
-      ])
-    if (res.result !== 0) {
-      throw new Error(`获取闪传文件信息失败: ${res.errMsg}`)
-    }
-    if (this.flashFileInfoCache.size > 100) {
-      const oldestKey = this.flashFileInfoCache.keys().next().value!
-      this.flashFileInfoCache.delete(oldestKey)
-    }
-    this.flashFileInfoCache.set(fileSetId, res.fileSet)
-    return res.fileSet
+  async getFlashFileInfo(_fileSetId: string, _force = true): Promise<FlashFileSetInfo> {
+    throw new Error('getFlashFileInfo 暂未实现 (直连模式)')
   }
 
-  async reshareFlashFile(fileSetId: string) {
-    const shareFiles = (await this.getFlashFileList(fileSetId)).flatMap(f => f.fileList)
-    const fileNames = shareFiles.map(f => f.name)
-    return await this.ctx.qqProtocol.invoke('nodeIKernelFlashTransferService/createMergeShareTask', [
-      new Date().getTime(),
-      {
-        fileSetId,
-        shareFiles,
-        createSetParam: {
-          scene: 1,
-          name: fileNames.join(','),
-          uploaders: [{
-            uin: selfInfo.uin,
-            uid: selfInfo.uid,
-            nickname: selfInfo.nick,
-            sendEntrance: ''
-          }],
-          permission: {},
-          coverPath: '',
-          paths: shareFiles.map(f => f.saveFilePath || ''),
-          excludePaths: [],
-          uploadSceneType: 1,
-          expireLeftTime: 0,
-          isNeedDelDeviceInfo: false,
-          isNeedDelLocation: false,
-          coverOriginalInfos: []
-        }
-      }
-    ])
+  async reshareFlashFile(_fileSetId: string): Promise<any> {
+    throw new Error('reshareFlashFile 暂未实现 (直连模式)')
   }
 
   async uploadGroupVideo(groupCode: string, filePath: string, thumbPath: string) {
