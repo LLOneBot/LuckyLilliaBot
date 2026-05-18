@@ -24,6 +24,7 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
           { key: 27394 },  // QID
         ],
       })
+      // by-UIN 需要 isReserved=1（参考 Lagrange）
       const data = Oidb.Base.encode({
         command: 0xfe1,
         subCommand: 2,
@@ -31,8 +32,11 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
         isReserved: 1,
       })
       const res = await this.sendPB('OidbSvcTrpcTcp.0xfe1_2', data)
-      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-      const info = Oidb.FetchUserInfoResp.decode(oidbRespBody)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`fetchUserInfo(uin=${uin}) failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      const info = Oidb.FetchUserInfoResp.decode(Buffer.from(decoded.body))
       const numbers = Object.fromEntries(info.body.properties.numberProperties.map(p => [p.key, p.value]))
       const bytes = Object.fromEntries(info.body.properties.bytesProperties.map(p => [p.key, p.value]))
       const business = bytes[107] ? Misc.UserInfoBusiness.decode(bytes[107]) : undefined
@@ -75,15 +79,18 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
           { key: 27394 },
         ],
       })
+      // 注意：by-UID 不能加 isReserved=1（参考 Lagrange FetchStrangerService）
       const data = Oidb.Base.encode({
         command: 0xfe1,
         subCommand: 2,
         body,
-        isReserved: 1,
       })
       const res = await this.sendPB('OidbSvcTrpcTcp.0xfe1_2', data)
-      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-      const info = Oidb.FetchUserInfoResp.decode(oidbRespBody)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`fetchUserInfoByUid(uid=${uid}) failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      const info = Oidb.FetchUserInfoResp.decode(Buffer.from(decoded.body))
       const numbers = Object.fromEntries(info.body.properties.numberProperties.map(p => [p.key, p.value]))
       const bytes = Object.fromEntries(info.body.properties.bytesProperties.map(p => [p.key, p.value]))
       return {
