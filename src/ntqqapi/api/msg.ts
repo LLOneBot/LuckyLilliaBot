@@ -563,8 +563,13 @@ export class NTQQMsgApi extends Service {
     throw new Error('deleteFavEmoji 暂未实现 (直连模式)')
   }
 
-  async setContactLocalTop(_peer: Peer, _isTop: boolean): Promise<any> {
-    throw new Error('setContactLocalTop 暂未实现 (直连模式)')
+  async setContactLocalTop(peer: Peer, isTop: boolean): Promise<{ result: number, errMsg: string }> {
+    if (peer.chatType === ChatType.Group) {
+      await this.ctx.qqProtocol.setGroupPin(+peer.peerUid, isTop)
+    } else {
+      await this.ctx.qqProtocol.setFriendPin(peer.peerUid, isTop)
+    }
+    return { result: 0, errMsg: '' }
   }
 
   async sendShowInputStatusReq(_chatType: ChatType, _eventType: number, _toUid: string): Promise<any> {
