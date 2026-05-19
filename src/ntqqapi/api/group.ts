@@ -382,8 +382,8 @@ export class NTQQGroupApi extends Service {
     )
   }
 
-  async uploadGroupBulletinPic(_groupCode: string, _path: string): Promise<any> {
-    throw new Error('uploadGroupBulletinPic 暂未实现 (直连模式)')
+  async uploadGroupBulletinPic(groupCode: string, path: string): Promise<any> {
+    return await this.ctx.ntWebApi.uploadGroupBulletinPic(groupCode, path)
   }
 
   async getGroupRecommendContactArk(groupCode: number) {

@@ -688,4 +688,34 @@ export class NTQQWebApi extends Service {
     if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
     return await res.json()
   }
+
+  /** 上传群公告图片 — web.qun.qq.com/cgi-bin/announce/upload_img */
+  async uploadGroupBulletinPic(groupCode: string, filePath: string): Promise<{ errCode: number, errMsg: string, picInfo?: { id: string, width: number, height: number } }> {
+    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    const bkn = this.genBkn(cookieObject.skey)
+    const buf = await fs.readFile(filePath)
+    const ft = await fileTypeFromBuffer(buf)
+    const formData = new FormData()
+    formData.append('bkn', bkn)
+    formData.append('qid', groupCode)
+    formData.append('pic_up', new Blob([new Uint8Array(buf)], { type: ft?.mime || 'image/png' }), `pic.${ft?.ext || 'png'}`)
+    const res = await fetch('https://web.qun.qq.com/cgi-bin/announce/upload_img', {
+      method: 'POST',
+      headers: { 'Cookie': this.cookieToString(cookieObject) },
+      body: formData,
+    })
+    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+    const data = await res.json() as any
+    if (data.ec !== 0) {
+      return { errCode: data.ec, errMsg: data.em || '' }
+    }
+    // data.id is HTML-escaped JSON string: {"h":"147","id":"...","w":"147"}
+    const decoded = data.id.replace(/&quot;/g, '"')
+    const info = JSON.parse(decoded) as { h: string, id: string, w: string }
+    return {
+      errCode: 0,
+      errMsg: '',
+      picInfo: { id: info.id, width: +info.w, height: +info.h },
+    }
+  }
 }
