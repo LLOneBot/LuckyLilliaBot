@@ -358,11 +358,21 @@ export class NTQQMsgApi extends Service {
   }
 
   async forwardMultiMsg(_srcPeer: Peer, _destPeer: Peer, _msgIds: string[]): Promise<RawMessage> {
-    throw new Error('forwardMultiMsg 暂未实现 (直连模式)')
+    // 直连模式聚合转发的完整链路在 milky API 里已经实现了（见
+    // src/milky/transform/message/outgoing.ts 的 ForwardMessageEncoder
+    // + qqProtocol.uploadForward + ark element），milky 接口接的是用户
+    // 构造的虚拟 OutgoingForwardedMessage 节点。
+    //
+    // 这里 ntqqapi 的签名要求把 cache 里的真实历史消息反向编码回
+    // Msg.Message wire format，需要：(a) RawMessage.elements 整套反向
+    // 映射成 Msg.Elem（picElement/videoElement 等还得重新拉文件再上传到
+    // dest peer），(b) routingHead/contentHead 重建。工作量大且边界条件多。
+    // 推荐走 milky 的 send_forwarded_message 接口完成同样需求。
+    throw new Error('forwardMultiMsg via cache 暂未实现 (直连模式)；请走 milky send_forwarded_message')
   }
 
   async multiForwardMsg(_srcPeer: Peer, _destPeer: Peer, _msgIds: string[]): Promise<RawMessage> {
-    throw new Error('multiForwardMsg 暂未实现 (直连模式)')
+    throw new Error('multiForwardMsg via cache 暂未实现 (直连模式)；请走 milky send_forwarded_message')
   }
 
   async getSingleMsg(peer: Peer, msgSeq: string) {
