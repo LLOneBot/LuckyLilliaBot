@@ -271,8 +271,16 @@ export class NTQQUserApi extends Service {
     return { result: 0, errMsg: '' }
   }
 
-  async modifySelfProfile(_profile: MiniProfile): Promise<any> {
-    throw new Error('modifySelfProfile 暂未实现 (直连模式)')
+  async modifySelfProfile(profile: MiniProfile): Promise<{ result: number, errMsg: string }> {
+    await this.ctx.qqProtocol.modifySelfProfile({
+      nick: profile.nick,
+      longNick: profile.longNick,
+      sex: profile.sex,
+      birthdayYear: profile.birthday?.birthday_year,
+      birthdayMonth: profile.birthday?.birthday_month,
+      birthdayDay: profile.birthday?.birthday_day,
+    })
+    return { result: 0, errMsg: '' }
   }
 
   async getRecentContactListSnapShot(_count: number): Promise<any> {

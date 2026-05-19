@@ -1,6 +1,7 @@
 import { Action, Misc, Oidb } from '@/ntqqapi/proto'
 import type { QQProtocolBase } from '../base'
 import { Dict } from 'cosmokit'
+import { selfInfo } from '@/common/globalVars'
 
 export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
   return class extends Base {
@@ -196,6 +197,33 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
         nextStart: detail?.nextStart ?? 0,
         users: detail?.users ?? [],
       }
+    }
+
+    /** 修改自己的资料 (OidbSvcTrpcTcp.0x112a_2) */
+    async modifySelfProfile(profile: { nick?: string, longNick?: string, sex?: number, birthdayYear?: number, birthdayMonth?: number, birthdayDay?: number }) {
+      const bytesProperties: { key: number, value: Buffer }[] = []
+      const numberProperties: { key: number, value: number }[] = []
+      if (profile.longNick != null) bytesProperties.push({ key: 102, value: Buffer.from(profile.longNick, 'utf-8') })
+      if (profile.nick != null) bytesProperties.push({ key: 20002, value: Buffer.from(profile.nick, 'utf-8') })
+      // 20032 是 location，复杂结构，目前只用 12 字节零（清空）
+      bytesProperties.push({ key: 20032, value: Buffer.alloc(12) })
+      if (profile.sex != null) numberProperties.push({ key: 20009, value: profile.sex })
+      if (profile.birthdayYear != null) {
+        const packed = ((profile.birthdayYear & 0xffff) << 16) | (((profile.birthdayMonth ?? 0) & 0xff) << 8) | ((profile.birthdayDay ?? 0) & 0xff)
+        numberProperties.push({ key: 20031, value: packed })
+      }
+      const body = Oidb.ModifySelfProfileReq.encode({
+        selfUin: +selfInfo.uin,
+        bytesProperties,
+        numberProperties,
+      })
+      const data = Oidb.Base.encode({ command: 0x112a, subCommand: 2, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x112a_2', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`modifySelfProfile failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      return { result: 0 }
     }
   }
 }

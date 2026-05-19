@@ -955,4 +955,17 @@ export namespace Oidb {
       newFileName: ProtoField(6, 'string'),
     }),
   })
+
+  /** OidbSvcTrpcTcp.0x112a_2 - 修改自己的资料 */
+  export const ModifySelfProfileReq = ProtoMessage.of({
+    selfUin: ProtoField(1, 'uint32'),
+    bytesProperties: ProtoField(2, {
+      key: ProtoField(1, 'uint32'),
+      value: ProtoField(2, 'bytes'),
+    }, 'repeated'),
+    numberProperties: ProtoField(3, {
+      key: ProtoField(1, 'uint32'),
+      value: ProtoField(2, 'uint32'),
+    }, 'repeated'),
+  })
 }
