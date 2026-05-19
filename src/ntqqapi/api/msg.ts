@@ -361,8 +361,19 @@ export class NTQQMsgApi extends Service {
     return String((time << 32n) | random)
   }
 
-  async queryMsgsById(_chatType: ChatType, _msgId: string): Promise<any> {
-    throw new Error('queryMsgsById 暂未实现 (直连模式)')
+  async queryMsgsById(chatType: ChatType, msgId: string): Promise<any> {
+    // 直连模式没有 server 端按 msgId 索引的接口；从本地 cache 找
+    // （cache 由 dispatcher 在收到 / 自己发出的消息时填充）
+    const store = this.ctx.get('store') as any
+    const cached = store?.getMsgCache?.(msgId) as RawMessage | undefined
+    if (cached) {
+      // 校验 chatType 一致性，避免拉到别的会话的消息
+      if (chatType != null && cached.chatType !== chatType) {
+        return { msgList: [] }
+      }
+      return { msgList: [cached] }
+    }
+    return { msgList: [] }
   }
 
   getMsgTimeFromId(msgId: string) {
