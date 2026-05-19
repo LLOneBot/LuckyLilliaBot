@@ -6,7 +6,7 @@ import {
 import path from 'node:path'
 import { createReadStream } from 'node:fs'
 import { RkeyManager } from '@/ntqqapi/helper/rkey'
-import { calculateSha1StreamBytes, getFileType, getMd5HexFromFile } from '@/common/utils/file'
+import { calculateSha1StreamBytes, getFileType, getMd5HexFromFile, getSha1HexFromFile } from '@/common/utils/file'
 import { copyFile } from 'node:fs/promises'
 import { Service, Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -109,8 +109,62 @@ export class NTQQFileApi extends Service {
     return res.ocrRspBody
   }
 
-  async uploadFlashFile(_title: string, _filePaths: string[]): Promise<any> {
-    throw new Error('uploadFlashFile 暂未实现 (直连模式)')
+  async uploadFlashFile(title: string, filePaths: string[]): Promise<any> {
+    if (filePaths.length === 0) throw new Error('uploadFlashFile: filePaths empty')
+    const fs = await import('node:fs/promises')
+    const pathMod = await import('node:path')
+    const cryptoMod = await import('node:crypto')
+    type FileMeta = { path: string, name: string, size: number, sha1: string, fileUuid: string }
+    const files: FileMeta[] = []
+    let totalSize = 0
+    for (const p of filePaths) {
+      const stat = await fs.stat(p)
+      const sha1 = await getSha1HexFromFile(p)
+      files.push({ path: p, name: pathMod.basename(p), size: stat.size, sha1, fileUuid: cryptoMod.randomUUID() })
+      totalSize += stat.size
+    }
+    // 1. 创建 fileSet
+    const fset = await this.ctx.qqProtocol.createFlashFileSet({
+      title,
+      totalFileCount: files.length,
+      totalFileSize: totalSize,
+      uploaderUin: selfInfo.uin,
+      uploaderNick: selfInfo.nick || selfInfo.uin,
+      uploaderUid: selfInfo.uid,
+    })
+    const fileSetId = fset.fileSetId
+    // 2. 注册每个文件
+    for (const f of files) {
+      await this.ctx.qqProtocol.registerFlashFile(fileSetId, { fileUuid: f.fileUuid, name: f.name, fileSize: f.size })
+    }
+    // 3. prep
+    await this.ctx.qqProtocol.prepFlashFileSet(fileSetId)
+    // 4. preflight + commit per file（仅支持秒传命中场景）
+    let reqId = 0
+    for (const f of files) {
+      const pre = await this.ctx.qqProtocol.flashFileUploadPreflight({ fileSize: f.size, sha1Hex: f.sha1, name: f.name, requestId: ++reqId })
+      if (pre.uKey) {
+        // 服务器要 highway 上传，目前未实现
+        throw new Error(`uploadFlashFile: file ${f.name} 不在服务端缓存中（非秒传命中），highway 上传暂未实现`)
+      }
+      await this.ctx.qqProtocol.flashFileUploadCommit({
+        fileSize: f.size, sha1Hex: f.sha1, name: f.name,
+        token: '', time: Math.floor(Date.now() / 1000), ttl: 1209600, requestId: ++reqId,
+      })
+    }
+    // 5. finalize
+    await this.ctx.qqProtocol.downloadFlashFile(fileSetId, 6).catch(() => {})
+    return {
+      result: 0,
+      errMsg: '',
+      seq: 0,
+      createFlashTransferResult: {
+        fileSetId,
+        shareLink: fset.shareLink,
+        expireTime: String(fset.expireTime),
+        expireLeftTime: String(fset.expireLeftTime),
+      },
+    }
   }
 
   async downloadFlashFile(fileSetId: string, sceneType: number = 6): Promise<{ result: number, errMsg: string }> {
@@ -166,8 +220,57 @@ export class NTQQFileApi extends Service {
     } as FlashFileSetInfo
   }
 
-  async reshareFlashFile(_fileSetId: string): Promise<any> {
-    throw new Error('reshareFlashFile 暂未实现 (直连模式)')
+  async reshareFlashFile(fileSetId: string): Promise<any> {
+    const cryptoMod = await import('node:crypto')
+    const sourceFiles = await this.ctx.qqProtocol.getFlashFileList(fileSetId)
+    if (sourceFiles.length === 0) throw new Error('reshareFlashFile: 源 fileSet 无文件')
+    const sourceInfo = await this.ctx.qqProtocol.getFlashFileInfo(fileSetId)
+    if (!sourceInfo) throw new Error('reshareFlashFile: 无法获取源 fileSet 信息')
+    const totalSize = sourceFiles.reduce((s: number, f: any) => s + (f.fileSize ?? 0), 0)
+    // 1. 创建新 fileSet
+    const fset = await this.ctx.qqProtocol.createFlashFileSet({
+      title: sourceInfo.title ?? '',
+      totalFileCount: sourceFiles.length,
+      totalFileSize: totalSize,
+      uploaderUin: selfInfo.uin,
+      uploaderNick: selfInfo.nick || selfInfo.uin,
+      uploaderUid: selfInfo.uid,
+    })
+    const newFileSetId = fset.fileSetId
+    // 2. 注册每个文件（用源文件的元信息）+ prep + 秒传 commit
+    for (const f of sourceFiles as any[]) {
+      await this.ctx.qqProtocol.registerFlashFile(newFileSetId, {
+        fileUuid: cryptoMod.randomUUID(),
+        name: f.name ?? '',
+        fileSize: f.fileSize ?? 0,
+      })
+    }
+    await this.ctx.qqProtocol.prepFlashFileSet(newFileSetId)
+    let reqId = 0
+    for (const f of sourceFiles as any[]) {
+      const sha1Hex = f.download?.sha1 ?? ''
+      const pre = await this.ctx.qqProtocol.flashFileUploadPreflight({
+        fileSize: f.fileSize ?? 0, sha1Hex, name: f.name ?? '', requestId: ++reqId,
+      })
+      if (pre.uKey) {
+        throw new Error(`reshareFlashFile: 源文件不再在服务端缓存中（非秒传命中），无法重新分享`)
+      }
+      await this.ctx.qqProtocol.flashFileUploadCommit({
+        fileSize: f.fileSize ?? 0, sha1Hex, name: f.name ?? '',
+        token: '', time: Math.floor(Date.now() / 1000), ttl: 1209600, requestId: ++reqId,
+      })
+    }
+    await this.ctx.qqProtocol.downloadFlashFile(newFileSetId, 6).catch(() => {})
+    return {
+      result: 0,
+      errMsg: '',
+      createFlashTransferResult: {
+        fileSetId: newFileSetId,
+        shareLink: fset.shareLink,
+        expireTime: String(fset.expireTime),
+        expireLeftTime: String(fset.expireLeftTime),
+      },
+    }
   }
 
   async uploadGroupVideo(groupCode: string, filePath: string, thumbPath: string, duration: number = 0, width: number = 0, height: number = 0) {

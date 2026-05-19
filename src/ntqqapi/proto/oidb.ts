@@ -1127,4 +1127,166 @@ export namespace Oidb {
       expireLeftTime: ProtoField(5, 'uint32'),
     }),
   })
+
+  /** OidbSvcTrpcTcp.0x93d0_1 - 闪传：把单个文件元数据登记到 fileSet */
+  export const RegisterFlashFileReq = ProtoMessage.of({
+    body: ProtoField(4, {
+      field1: ProtoField(1, 'uint32'),
+      fileSetId: ProtoField(2, 'string'),
+      fileSetIdEcho: ProtoField(3, 'string'),
+      file: ProtoField(4, {
+        fileSetId: ProtoField(1, 'string'),
+        fileUuid: ProtoField(2, 'string'),
+        field3: ProtoField(3, 'uint32'),
+        field4: ProtoField(4, 'bytes'),
+        field5: ProtoField(5, 'uint32'),
+        field6: ProtoField(6, 'uint32'),
+        field7: ProtoField(7, 'uint32'),
+        name: ProtoField(8, 'string'),
+        name2: ProtoField(9, 'string'),
+        field10: ProtoField(10, 'uint32'),
+        fileSize: ProtoField(11, 'uint32'),
+        field12: ProtoField(12, 'uint32'),
+        field24: ProtoField(24, 'bytes'),
+      }),
+      field5: ProtoField(5, 'uint32'),
+      field6: ProtoField(6, 'uint32'),
+    }),
+  })
+
+  /** OidbSvcTrpcTcp.0x93db_1 - 闪传：fileSet prep（在 12a9 上传前调用） */
+  export const PrepFlashFileSetReq = ProtoMessage.of({
+    body: ProtoField(4, {
+      fileSetId: ProtoField(1, 'string'),
+      field2: ProtoField(2, 'bytes'),
+    }),
+  })
+
+  /** OidbSvcTrpcTcp.0x12a9_100 - 闪传：highway 上传 preflight（NTV2RichMedia 风格，但 sceneType=5 businessType=4） */
+  export const FlashFileUploadPreReq = ProtoMessage.of({
+    head: ProtoField(1, {
+      common: ProtoField(1, {
+        requestId: ProtoField(1, 'uint32'),
+        command: ProtoField(2, 'uint32'),
+      }),
+      scene: ProtoField(2, {
+        requestType: ProtoField(101, 'uint32'),  // 2
+        businessType: ProtoField(102, 'uint32'),  // 4 (flash file)
+        field103: ProtoField(103, 'uint32'),
+        sceneType: ProtoField(200, 'uint32'),  // 5
+      }),
+      client: ProtoField(3, {
+        agentType: ProtoField(1, 'uint32'),  // 1
+      }),
+    }),
+    upload: ProtoField(2, {
+      uploadInfo: ProtoField(1, {
+        fileInfo: ProtoField(1, {
+          fileSize: ProtoField(1, 'uint32'),
+          md5: ProtoField(2, 'bytes'),
+          sha1: ProtoField(3, 'string'),
+          name: ProtoField(4, 'string'),
+          fileType: ProtoField(5, {
+            field1: ProtoField(1, 'uint32'),
+            field2: ProtoField(2, 'uint32'),
+            field3: ProtoField(3, 'uint32'),
+            field4: ProtoField(4, 'uint32'),
+          }),
+          width: ProtoField(6, 'uint32'),
+          height: ProtoField(7, 'uint32'),
+          field8: ProtoField(8, 'uint32'),
+          field9: ProtoField(9, 'uint32'),
+        }),
+        subFileType: ProtoField(2, 'uint32'),
+      }),
+      tryFastUploadCompleted: ProtoField(2, 'bool'),
+      srvSendMsg: ProtoField(3, 'bool'),
+      clientRandomId: ProtoField(4, 'uint32'),
+      compatQMsgSceneType: ProtoField(5, 'uint32'),
+      extBizInfo: ProtoField(6, {
+        field1: ProtoField(1, {
+          field1: ProtoField(1, 'uint32'),
+          field2: ProtoField(2, 'bytes'),
+        }),
+        field2: ProtoField(2, {
+          field1: ProtoField(1, 'uint32'),
+        }, 'optional'),
+      }),
+    }),
+  })
+
+  /** OidbSvcTrpcTcp.0x12a9_103 - 闪传：upload commit */
+  export const FlashFileUploadCommitReq = ProtoMessage.of({
+    head: ProtoField(1, {
+      common: ProtoField(1, {
+        requestId: ProtoField(1, 'uint32'),
+        command: ProtoField(2, 'uint32'),
+      }),
+      scene: ProtoField(2, {
+        requestType: ProtoField(101, 'uint32'),
+        businessType: ProtoField(102, 'uint32'),
+        field103: ProtoField(103, 'uint32'),
+        sceneType: ProtoField(200, 'uint32'),
+      }),
+      client: ProtoField(3, {
+        agentType: ProtoField(1, 'uint32'),
+      }),
+    }),
+    commit: ProtoField(12, {
+      fileSummary: ProtoField(1, {
+        fileInfo: ProtoField(1, {
+          fileSize: ProtoField(1, 'uint32'),
+          md5: ProtoField(2, 'bytes'),
+          sha1: ProtoField(3, 'string'),
+          name: ProtoField(4, 'string'),
+          fileType: ProtoField(5, {
+            field1: ProtoField(1, 'uint32'),
+            field2: ProtoField(2, 'uint32'),
+            field3: ProtoField(3, 'uint32'),
+            field4: ProtoField(4, 'uint32'),
+          }),
+          width: ProtoField(6, 'uint32'),
+          height: ProtoField(7, 'uint32'),
+          field8: ProtoField(8, 'uint32'),
+          field9: ProtoField(9, 'uint32'),
+        }),
+        token: ProtoField(2, 'string'),  // server-issued token from preflight
+        field3: ProtoField(3, 'uint32'),
+        time: ProtoField(4, 'uint32'),
+        ttl: ProtoField(5, 'uint32'),
+        field6: ProtoField(6, 'uint32'),
+      }),
+      field2: ProtoField(2, {
+        field1: ProtoField(1, 'uint32'),
+      }),
+      field3: ProtoField(3, {
+        field1: ProtoField(1, 'uint32'),
+        field2: ProtoField(2, 'uint32'),
+      }),
+    }),
+  })
+
+  /** 0x12a9_100 / 0x12a9_103 共用响应（NTV2RichMediaResp 风格） */
+  export const FlashFileUploadResp = ProtoMessage.of({
+    head: ProtoField(1, {
+      common: ProtoField(1, {
+        requestId: ProtoField(1, 'uint32'),
+        command: ProtoField(2, 'uint32'),
+      }),
+      retCode: ProtoField(3, 'string', 'optional'),
+    }),
+    body: ProtoField(2, {
+      uKey: ProtoField(1, 'string', 'optional'),
+      uKeyTtlSecond: ProtoField(2, 'uint32'),
+      // server returns 'IPv4 list' here when highway upload is needed; we ignore for 秒传 path
+    }, 'optional'),
+    commitInfo: ProtoField(12, {
+      summary: ProtoField(1, {
+        token: ProtoField(2, 'string'),
+        field3: ProtoField(3, 'uint32'),
+        time: ProtoField(4, 'uint32'),
+        ttl: ProtoField(5, 'uint32'),
+      }, 'optional'),
+    }, 'optional'),
+  })
 }

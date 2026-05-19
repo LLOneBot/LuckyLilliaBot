@@ -528,5 +528,142 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const resp = Oidb.CreateFlashFileSetResp.decode(Buffer.from(decoded.body))
       return resp.body
     }
+
+    /** 闪传：登记单个文件元数据 (OidbSvcTrpcTcp.0x93d0_1) */
+    async registerFlashFile(fileSetId: string, file: { fileUuid: string, name: string, fileSize: number }) {
+      const body = Oidb.RegisterFlashFileReq.encode({
+        body: {
+          field1: 1,
+          fileSetId,
+          fileSetIdEcho: fileSetId,
+          file: {
+            fileSetId,
+            fileUuid: file.fileUuid,
+            field3: 0,
+            field4: Buffer.alloc(0),
+            field5: 1,
+            field6: 1,
+            field7: 26,
+            name: file.name,
+            name2: file.name,
+            field10: 0,
+            fileSize: file.fileSize,
+            field12: 0,
+            field24: Buffer.alloc(0),
+          },
+          field5: 1,
+          field6: 1,
+        },
+      })
+      const data = Oidb.Base.encode({ command: 0x93d0, subCommand: 1, body, isReserved: 1 })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x93d0_1', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`registerFlashFile failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      return { result: 0 }
+    }
+
+    /** 闪传：fileSet upload prep (OidbSvcTrpcTcp.0x93db_1) */
+    async prepFlashFileSet(fileSetId: string) {
+      const body = Oidb.PrepFlashFileSetReq.encode({
+        body: { fileSetId, field2: Buffer.alloc(0) },
+      })
+      const data = Oidb.Base.encode({ command: 0x93db, subCommand: 1, body, isReserved: 1 })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x93db_1', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`prepFlashFileSet failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      return { result: 0 }
+    }
+
+    /** 闪传：upload preflight (OidbSvcTrpcTcp.0x12a9_100)。
+     * 若 server 已有同 sha1 的文件则返回成功（秒传），否则返回 highway uKey+IPs。
+     * 当前实现只支持秒传命中场景；返回 highway 信息时 caller 需要调用 highway 上传。 */
+    async flashFileUploadPreflight(opts: { fileSize: number, sha1Hex: string, name: string, requestId: number }) {
+      const body = Oidb.FlashFileUploadPreReq.encode({
+        head: {
+          common: { requestId: opts.requestId, command: 100 },
+          scene: { requestType: 2, businessType: 4, field103: 22, sceneType: 5 },
+          client: { agentType: 1 },
+        },
+        upload: {
+          uploadInfo: {
+            fileInfo: {
+              fileSize: opts.fileSize,
+              md5: Buffer.alloc(0),
+              sha1: opts.sha1Hex,
+              name: opts.name,
+              fileType: { field1: 0, field2: 0, field3: 0, field4: 0 },
+              width: 0,
+              height: 0,
+              field8: 0,
+              field9: 1,
+            },
+            subFileType: 0,
+          },
+          tryFastUploadCompleted: true,
+          srvSendMsg: false,
+          clientRandomId: 0,
+          compatQMsgSceneType: 0,
+          extBizInfo: {
+            field1: { field1: 0, field2: Buffer.alloc(0) },
+          },
+        },
+      })
+      const data = Oidb.Base.encode({ command: 0x12a9, subCommand: 100, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x12a9_100', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`flashFileUploadPreflight failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      const resp = Oidb.FlashFileUploadResp.decode(Buffer.from(decoded.body))
+      return {
+        retCode: resp.head?.retCode ?? '',
+        // 秒传命中时 uKey 通常为空（直接进入 commit 阶段）；非空则需 highway 上传
+        uKey: resp.body?.uKey ?? '',
+      }
+    }
+
+    /** 闪传：upload commit (OidbSvcTrpcTcp.0x12a9_103) — 在 preflight 秒传命中后立即调用 */
+    async flashFileUploadCommit(opts: { fileSize: number, sha1Hex: string, name: string, token: string, time: number, ttl: number, requestId: number }) {
+      const body = Oidb.FlashFileUploadCommitReq.encode({
+        head: {
+          common: { requestId: opts.requestId, command: 103 },
+          scene: { requestType: 2, businessType: 4, field103: 22, sceneType: 5 },
+          client: { agentType: 1 },
+        },
+        commit: {
+          fileSummary: {
+            fileInfo: {
+              fileSize: opts.fileSize,
+              md5: Buffer.alloc(0),
+              sha1: opts.sha1Hex,
+              name: opts.name,
+              fileType: { field1: 0, field2: 0, field3: 0, field4: 0 },
+              width: 0,
+              height: 0,
+              field8: 0,
+              field9: 1,
+            },
+            token: opts.token,
+            field3: 1,
+            time: opts.time,
+            ttl: opts.ttl,
+            field6: 0,
+          },
+          field2: { field1: 2 },
+          field3: { field1: 0, field2: 0 },
+        },
+      })
+      const data = Oidb.Base.encode({ command: 0x12a9, subCommand: 103, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x12a9_103', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`flashFileUploadCommit failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      return { result: 0 }
+    }
   }
 }
