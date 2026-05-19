@@ -132,4 +132,20 @@ export namespace Action {
     }),
     field6: ProtoField(6, 'uint32'),
   })
+
+  /** trpc.qq_new_tech.status_svc.StatusService.SetStatus */
+  export const SetStatusReq = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),    // 10 (or 0 per v1)
+    status: ProtoField(2, 'uint32'),
+    extStatus: ProtoField(3, 'uint32'),
+    customExt: ProtoField(4, {
+      faceId: ProtoField(1, 'uint32'),
+      text: ProtoField(2, 'string'),
+      field3: ProtoField(3, 'uint32'),  // 1
+    }, 'optional'),
+  })
+
+  export const SetStatusResp = ProtoMessage.of({
+    message: ProtoField(2, 'string'),
+  })
 }

@@ -221,8 +221,9 @@ export class NTQQUserApi extends Service {
     return self?.nick ?? selfInfo.nick
   }
 
-  async setSelfStatus(_status: number, _extStatus: number, _batteryStatus: number): Promise<any> {
-    throw new Error('setSelfStatus 暂未实现 (直连模式)')
+  async setSelfStatus(status: number, extStatus: number, _batteryStatus: number): Promise<any> {
+    // 直连协议没有独立的电池上报通道，batteryStatus 忽略
+    return await this.ctx.qqProtocol.setOnlineStatus(status, extStatus)
   }
 
   async getProfileLike(_uid: string, _start = 0, _limit = 20): Promise<any> {

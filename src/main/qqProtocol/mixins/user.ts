@@ -133,5 +133,18 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
       }
       return { result: 0 }
     }
+
+    /** 设置在线状态。status: 在线状态码（11=在线, 31=离开, 41=隐身, 50=忙碌, 60=Q我, 70=请勿打扰）；extStatus 通常 0 */
+    async setOnlineStatus(status: number, extStatus: number = 0, customFaceId?: number, customText?: string) {
+      const body = Action.SetStatusReq.encode({
+        field1: 10,
+        status,
+        extStatus,
+        customExt: customFaceId != null ? { faceId: customFaceId, text: customText ?? '', field3: 1 } : undefined,
+      })
+      const res = await this.sendPB('trpc.qq_new_tech.status_svc.StatusService.SetStatus', body)
+      const { message } = Action.SetStatusResp.decode(Buffer.from(res.pb, 'hex'))
+      return { message: message || '' }
+    }
   }
 }
