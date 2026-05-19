@@ -395,5 +395,21 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         return name.includes(lower) || card.includes(lower) || uin.includes(keyword)
       })
     }
+
+    async getGroupRecommendContactArk(groupCode: number) {
+      const body = Oidb.GetGroupRecommendContactArkReq.encode({
+        field1: 1,
+        groupCode,
+        field5: 1,
+      })
+      const data = Oidb.Base.encode({
+        command: 0x8b7,
+        subCommand: 5,
+        body,
+      })
+      const res = await this.sendPB(`OidbSvcTrpcTcp.0x8b7_5`, data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.GetGroupRecommendContactArkResp.decode(oidbRespBody)
+    }
   }
 }

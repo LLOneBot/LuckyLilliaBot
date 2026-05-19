@@ -167,7 +167,7 @@ export async function createSendElements(
         break
       case OB11MessageDataType.Contact: {
         const { type, id } = segment.data
-        const data = type === 'qq' ? ctx.ntFriendApi.getFriendRecommendContactArk(+id) : ctx.ntGroupApi.getGroupRecommendContact(id)
+        const data = type === 'qq' ? ctx.ntFriendApi.getFriendRecommendContactArk(+id) : ctx.ntGroupApi.getGroupRecommendContactArk(+id)
         sendElements.push(SendElement.ark(await data))
       }
         break

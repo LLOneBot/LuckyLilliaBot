@@ -110,7 +110,7 @@ export class NTQQGroupApi extends Service {
   private toGroupMember(m: any): GroupMember {
     const role = m.permission === 1 ? GroupMemberRole.Owner
       : m.permission === 2 ? GroupMemberRole.Admin
-      : GroupMemberRole.Normal
+        : GroupMemberRole.Normal
     return {
       uid: m.id?.uid || '',
       qid: '',
@@ -374,8 +374,9 @@ export class NTQQGroupApi extends Service {
     throw new Error('uploadGroupBulletinPic 暂未实现 (直连模式)')
   }
 
-  async getGroupRecommendContact(_groupCode: string): Promise<any> {
-    throw new Error('getGroupRecommendContact 暂未实现 (直连模式)')
+  async getGroupRecommendContactArk(groupCode: number) {
+    const { ark } = await this.ctx.qqProtocol.getGroupRecommendContactArk(groupCode)
+    return ark
   }
 
   async queryCachedEssenceMsg(_groupCode: string, _msgSeq = '0', _msgRandom = '0'): Promise<any> {

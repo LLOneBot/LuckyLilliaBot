@@ -848,4 +848,15 @@ export namespace Oidb {
       newFolderName: ProtoField(4, 'string'),
     }),
   })
+
+  /** OidbSvcTrpcTcp.0x8b7_5 */
+  export const GetGroupRecommendContactArkReq = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    groupCode: ProtoField(2, 'uint32'),
+    field5: ProtoField(5, 'uint32')
+  })
+
+  export const GetGroupRecommendContactArkResp = ProtoMessage.of({
+    ark: ProtoField(5, 'string')
+  })
 }
