@@ -476,8 +476,20 @@ export class NTQQMsgApi extends Service {
     return { result: 0, errMsg: '' }
   }
 
-  async getMsgEmojiLikesList(_peer: Peer, _msgSeq: string, _emojiId: string, _count: number): Promise<any> {
-    throw new Error('getMsgEmojiLikesList 暂未实现 (直连模式)')
+  async getMsgEmojiLikesList(peer: Peer, msgSeq: string, emojiId: string, count: number): Promise<any> {
+    const r = await this.ctx.qqProtocol.fetchMsgEmojiLikes(+peer.peerUid, +msgSeq, emojiId, count)
+    const emojiLikesList = await Promise.all(r.users.map(async (u: any) => ({
+      uid: await this.ctx.ntUserApi.getUidByUin(String(u.uin), peer.peerUid).catch(() => ''),
+      uin: String(u.uin),
+      nickName: '',
+      headUrl: `https://q1.qlogo.cn/g?b=qq&nk=${u.uin}&s=640`,
+    })))
+    return {
+      emojiLikesList,
+      cookie: '',
+      isLastPage: !r.hasMore,
+      isFirstPage: true,
+    }
   }
 
   async fetchFavEmojiList(_count: number): Promise<any> {

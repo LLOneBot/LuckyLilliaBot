@@ -968,4 +968,27 @@ export namespace Oidb {
       value: ProtoField(2, 'uint32'),
     }, 'repeated'),
   })
+
+  /** OidbSvcTrpcTcp.0x9083_1 - 拉取消息表情回应的用户列表 */
+  export const FetchEmojiLikesReq = ProtoMessage.of({
+    body: ProtoField(4, {
+      groupCode: ProtoField(2, 'uint32'),
+      msgSeq: ProtoField(3, 'uint32'),
+      chatType: ProtoField(4, 'uint32'),
+      emojiCode: ProtoField(5, 'string'),
+      cookie: ProtoField(6, 'bytes'),
+      field7: ProtoField(7, 'uint32'),
+      count: ProtoField(8, 'uint32'),
+    }),
+  })
+
+  export const FetchEmojiLikesResp = ProtoMessage.of({
+    body: ProtoField(4, {
+      users: ProtoField(1, {
+        uin: ProtoField(1, 'uint32'),
+      }, 'repeated'),
+      totalCount: ProtoField(3, 'uint32'),
+      hasMore: ProtoField(4, 'uint32'),
+    }, 'optional'),
+  })
 }
