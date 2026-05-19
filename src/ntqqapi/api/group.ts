@@ -1,3 +1,4 @@
+import { selfInfo } from '@/common/globalVars'
 import {
   GroupMember,
   GroupMemberRole,
@@ -425,8 +426,9 @@ export class NTQQGroupApi extends Service {
     return { totalSpace: 0, usedSpace: 0, allUpload: 0, allDownload: 0 }
   }
 
-  async setGroupMsgMask(_groupCode: string, _msgMask: GroupMsgMask): Promise<any> {
-    throw new Error('setGroupMsgMask 暂未实现 (直连模式)')
+  async setGroupMsgMask(groupCode: number, msgMask: GroupMsgMask) {
+    const { body } = await this.ctx.qqProtocol.setGroupMsgMask(groupCode, selfInfo.uid, msgMask)
+    return { errCode: body.errCode }
   }
 
   async setGroupRemark(groupCode: string, groupRemark = ''): Promise<any> {

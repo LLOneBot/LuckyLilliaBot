@@ -411,5 +411,27 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.GetGroupRecommendContactArkResp.decode(oidbRespBody)
     }
+
+    async setGroupMsgMask(groupCode: number, selfUid: string, msgMask: number) {
+      const body = Oidb.SetGroupMsgMaskReq.encode({
+        body: {
+          groupCode,
+          setting: {
+            selfUid,
+            msgMask,
+          },
+          field3: 1,
+          field4: 2,
+        },
+      })
+      const data = Oidb.Base.encode({
+        command: 0xa80,
+        subCommand: 1,
+        body,
+      })
+      const res = await this.sendPB(`OidbSvcTrpcTcp.0xa80_1`, data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.SetGroupMsgMaskResp.decode(oidbRespBody)
+    }
   }
 }

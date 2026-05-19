@@ -871,4 +871,24 @@ export namespace Oidb {
   export const GetGroupRecommendContactArkResp = ProtoMessage.of({
     ark: ProtoField(5, 'string')
   })
+
+  /** OidbSvcTrpcTcp.0xa80_1 */
+  export const SetGroupMsgMaskReq = ProtoMessage.of({
+    body: ProtoField(1, {
+      groupCode: ProtoField(1, 'uint32'),
+      setting: ProtoField(2, {
+        selfUid: ProtoField(1, 'string'),
+        msgMask: ProtoField(4, 'uint32')
+      }),
+      field3: ProtoField(3, 'uint32'),
+      field4: ProtoField(4, 'uint32')
+    })
+  })
+
+  export const SetGroupMsgMaskResp = ProtoMessage.of({
+    body: ProtoField(1, {
+      groupCode: ProtoField(1, 'uint32'),
+      errCode: ProtoField(2, 'uint32')
+    })
+  })
 }
