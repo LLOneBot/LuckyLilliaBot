@@ -652,4 +652,40 @@ export class NTQQWebApi extends Service {
 
     return await res.json()
   }
+
+  /** 拉群公告列表 — web.qun.qq.com/cgi-bin/announce/list_announce */
+  async getGroupBulletinList(groupCode: string): Promise<any> {
+    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    const bkn = this.genBkn(cookieObject.skey)
+    const url = `https://web.qun.qq.com/cgi-bin/announce/list_announce?qid=${groupCode}&bkn=${bkn}&ft=23&s=-1&n=20&ni=1&i=1`
+    const res = await fetch(url, { method: 'GET', headers: { 'Cookie': this.cookieToString(cookieObject) } })
+    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+    return await res.json()
+  }
+
+  /** 删群公告 — web.qun.qq.com/cgi-bin/announce/del_feed */
+  async deleteGroupBulletin(groupCode: string, feedsId: string): Promise<any> {
+    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    const bkn = this.genBkn(cookieObject.skey)
+    const res = await fetch('https://web.qun.qq.com/cgi-bin/announce/del_feed', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Cookie': this.cookieToString(cookieObject),
+      },
+      body: new URLSearchParams({ qid: groupCode, bkn, fid: feedsId }),
+    })
+    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+    return await res.json()
+  }
+
+  /** 拉群精华消息 — qun.qq.com/cgi-bin/group_digest/digest_list */
+  async queryCachedEssenceMsg(groupCode: string, pageStart = 0, pageLimit = 20): Promise<any> {
+    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    const bkn = this.genBkn(cookieObject.skey)
+    const url = `https://qun.qq.com/cgi-bin/group_digest/digest_list?bkn=${bkn}&group_code=${groupCode}&page_start=${pageStart}&page_limit=${pageLimit}`
+    const res = await fetch(url, { method: 'GET', headers: { 'Cookie': this.cookieToString(cookieObject) } })
+    if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
+    return await res.json()
+  }
 }
