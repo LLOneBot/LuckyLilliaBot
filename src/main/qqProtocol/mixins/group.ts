@@ -155,6 +155,18 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return { result: 0 }
     }
 
+    /** 设置本地群备注（只自己看见，对群成员不可见） */
+    async setGroupRemark(groupCode: number, remark: string) {
+      const body = Oidb.GroupRemarkReq.encode({ body: { groupCode, targetRemark: remark } })
+      const data = Oidb.Base.encode({ command: 0xf16, subCommand: 1, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0xf16_1', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`setGroupRemark failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      return { result: 0 }
+    }
+
     /** 创建群文件夹，rootDirectory 为父目录 id（根目录用 "/"） */
     async createGroupFolder(groupCode: number, folderName: string, rootDirectory: string = '/') {
       const body = Oidb.GroupFolderCreateReq.encode({ create: { groupCode, rootDirectory, folderName } })

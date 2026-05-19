@@ -815,6 +815,14 @@ export namespace Oidb {
     }),
   })
 
+  /** OidbSvcTrpcTcp.0xf16_1 - 设置本地群备注（只自己看见） */
+  export const GroupRemarkReq = ProtoMessage.of({
+    body: ProtoField(1, {
+      groupCode: ProtoField(1, 'uint32'),
+      targetRemark: ProtoField(3, 'string'),
+    }),
+  })
+
   /** OidbSvcTrpcTcp.0x6d7_0 - 创建群文件夹 */
   export const GroupFolderCreateReq = ProtoMessage.of({
     create: ProtoField(1, {

@@ -417,8 +417,9 @@ export class NTQQGroupApi extends Service {
     throw new Error('setGroupMsgMask 暂未实现 (直连模式)')
   }
 
-  async setGroupRemark(_groupCode: string, _groupRemark = ''): Promise<any> {
-    throw new Error('setGroupRemark 暂未实现 (直连模式)')
+  async setGroupRemark(groupCode: string, groupRemark = ''): Promise<any> {
+    await this.ctx.qqProtocol.setGroupRemark(+groupCode, groupRemark)
+    return { result: 0, errMsg: '' }
   }
 
   async moveGroupFile(groupId: string, fileIdList: string[], curFolderId: string, dstFolderId: string): Promise<any> {
