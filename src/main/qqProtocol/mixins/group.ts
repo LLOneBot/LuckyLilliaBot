@@ -525,5 +525,32 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.DeleteAlbum', reqBytes)
       return { result: 0 }
     }
+
+    /** 拉群相册媒体列表 (QunAlbum.GetMediaList) */
+    async fetchGroupAlbumMediaList(groupCode: number, albumId: string) {
+      const reqBytes = Action.GetMediaListReq.encode({
+        field1: 0,
+        field2: Buffer.alloc(0),
+        field3: Buffer.alloc(0),
+        body: {
+          groupCode: String(groupCode),
+          albumId,
+          field3: 0,
+          field4: Buffer.alloc(0),
+          field5: Buffer.alloc(0),
+        },
+        sessionId: this.genQunAlbumSession(),
+        headers: [{ name: 'fc-appid', value: '100' }],
+      })
+      const res = await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.GetMediaList', reqBytes)
+      const decoded = Action.GetMediaListResp.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.status !== 0) {
+        throw new Error(`fetchGroupAlbumMediaList failed: status=${decoded.status}`)
+      }
+      return {
+        album: decoded.body?.album,
+        mediaList: decoded.body?.mediaList ?? [],
+      }
+    }
   }
 }

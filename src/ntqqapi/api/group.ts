@@ -546,8 +546,30 @@ export class NTQQGroupApi extends Service {
     return { result: 0, errMsg: '' }
   }
 
-  async getGroupAlbumMediaList(_groupCode: string, _albumId: string, _attachInfo = ''): Promise<any> {
-    throw new Error('getGroupAlbumMediaList 暂未实现 (直连模式)')
+  async getGroupAlbumMediaList(groupCode: string, albumId: string, _attachInfo = ''): Promise<any> {
+    const r = await this.ctx.qqProtocol.fetchGroupAlbumMediaList(+groupCode, albumId)
+    const album = r.album
+    const albumOut = album ? {
+      album_id: album.albumId, owner: album.owner, name: album.name, desc: album.desc ?? '',
+      create_time: String(album.createTime ?? 0), modify_time: String(album.modifyTime ?? 0),
+      last_upload_time: String(album.lastUploadTime ?? 0), upload_number: String(album.uploadNumber ?? 0),
+      creator: { uid: '', nick: album.creator?.nick ?? '', uin: album.creator?.uin ?? '' },
+    } : null
+    const media_list = r.mediaList.map((m: any) => ({
+      type: m.type ?? 0,
+      image: m.image ? {
+        name: '', sloc: '', lloc: m.image.lloc ?? '',
+        photo_url: (m.image.photoUrls ?? []).map((p: any) => ({
+          spec: p.spec, url: { url: p.url?.url ?? '', width: p.url?.width ?? 0, height: p.url?.height ?? 0 },
+        })),
+        default_url: m.image.defaultUrl ? { url: m.image.defaultUrl.url ?? '', width: m.image.defaultUrl.width ?? 0, height: m.image.defaultUrl.height ?? 0 } : null,
+        is_gif: false, has_raw: false,
+      } : null,
+      video: null, desc: m.desc ?? '', uploader: '', upload_user: { uin: m.uploaderUin ?? '' },
+      upload_time: String(m.uploadTime ?? 0), shoot_time: '0',
+      batch_id: m.batchId?.key ?? '0',
+    }))
+    return { response: { result: 0, errMs: '', album: albumOut, media_list, next_attach_info: '', next_has_more: false } }
   }
 
   async setGroupPin(groupCode: number, isPinned: boolean) {

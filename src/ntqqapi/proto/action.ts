@@ -260,4 +260,48 @@ export namespace Action {
     sessionId: ProtoField(5, 'string'),
     headers: ProtoField(10, QunAlbumMetaHeader, 'repeated'),
   })
+
+  const QunMediaImage = ProtoMessage.of({
+    field1: ProtoField(1, 'bytes', 'optional'),
+    lloc: ProtoField(3, 'string'),
+    photoUrls: ProtoField(4, QunAlbumThumbnail, 'repeated'),
+    defaultUrl: ProtoField(5, QunAlbumPhotoUrl, 'optional'),
+    field7: ProtoField(7, 'uint32'),
+  })
+
+  const QunMediaItem = ProtoMessage.of({
+    type: ProtoField(1, 'uint32'),
+    image: ProtoField(2, QunMediaImage, 'optional'),
+    desc: ProtoField(4, 'string'),
+    uploaderUin: ProtoField(6, 'string'),
+    time1: ProtoField(7, 'uint32'),
+    uploadTime: ProtoField(8, 'uint32'),
+    batchId: ProtoField(10, {
+      key: ProtoField(1, 'string'),
+    }, 'optional'),
+  })
+
+  /** QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.GetMediaList - 拉群相册媒体列表 */
+  export const GetMediaListReq = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    field2: ProtoField(2, 'bytes'),
+    field3: ProtoField(3, 'bytes'),
+    body: ProtoField(4, {
+      groupCode: ProtoField(1, 'string'),
+      albumId: ProtoField(2, 'string'),
+      field3: ProtoField(3, 'uint32'),
+      field4: ProtoField(4, 'bytes'),
+      field5: ProtoField(5, 'bytes'),
+    }),
+    sessionId: ProtoField(5, 'string'),
+    headers: ProtoField(10, QunAlbumMetaHeader, 'repeated'),
+  })
+
+  export const GetMediaListResp = ProtoMessage.of({
+    status: ProtoField(1, 'uint32'),
+    body: ProtoField(4, {
+      album: ProtoField(1, QunAlbumRecord, 'optional'),
+      mediaList: ProtoField(3, QunMediaItem, 'repeated'),
+    }, 'optional'),
+  })
 }
