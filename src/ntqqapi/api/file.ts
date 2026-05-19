@@ -140,24 +140,23 @@ export class NTQQFileApi extends Service {
     // 3. prep
     await this.ctx.qqProtocol.prepFlashFileSet(fileSetId)
     // 4. preflight + commit per file（仅支持秒传命中场景）
-    // 实测 LLBot 每个文件做两遍 (field103=24 然后 22)，照搬以提高兼容性
+    // 注：LLBot 对图片文件会先做一遍 field103=24 的"图像模式"上传（需要 NT 内部
+    // 分配的 md5+ext 文件名），无法可靠复现；这里只做 field103=22 的通用文件模式。
     let reqId = 0
     for (const f of files) {
-      for (const f103 of [24, 22]) {
-        const pre = await this.ctx.qqProtocol.flashFileUploadPreflight({
-          fileSize: f.size, sha1Hex: f.sha1, name: f.name, requestId: ++reqId, field103: f103,
-        })
-        if (pre.uKey) {
-          throw new Error(`uploadFlashFile: file ${f.name} 不在服务端缓存中（非秒传命中），highway 上传暂未实现`)
-        }
-        if (!pre.token) {
-          throw new Error(`uploadFlashFile: preflight (field103=${f103}) 没有返回 token (file ${f.name})`)
-        }
-        await this.ctx.qqProtocol.flashFileUploadCommit({
-          fileSize: f.size, sha1Hex: f.sha1, name: f.name,
-          token: pre.token, time: pre.time, ttl: pre.ttl, requestId: ++reqId, field103: f103,
-        })
+      const pre = await this.ctx.qqProtocol.flashFileUploadPreflight({
+        fileSize: f.size, sha1Hex: f.sha1, name: f.name, requestId: ++reqId, field103: 22,
+      })
+      if (pre.uKey) {
+        throw new Error(`uploadFlashFile: file ${f.name} 不在服务端缓存中（非秒传命中），highway 上传暂未实现`)
       }
+      if (!pre.token) {
+        throw new Error(`uploadFlashFile: preflight 没有返回 token (file ${f.name})`)
+      }
+      await this.ctx.qqProtocol.flashFileUploadCommit({
+        fileSize: f.size, sha1Hex: f.sha1, name: f.name,
+        token: pre.token, time: pre.time, ttl: pre.ttl, requestId: ++reqId, field103: 22,
+      })
     }
     // 5. finalize
     await this.ctx.qqProtocol.downloadFlashFile(fileSetId, 6).catch(() => {})
@@ -256,21 +255,19 @@ export class NTQQFileApi extends Service {
     let reqId = 0
     for (const f of sourceFiles as any[]) {
       const sha1Hex = f.download?.sha1 ?? ''
-      for (const f103 of [24, 22]) {
-        const pre = await this.ctx.qqProtocol.flashFileUploadPreflight({
-          fileSize: f.fileSize ?? 0, sha1Hex, name: f.name ?? '', requestId: ++reqId, field103: f103,
-        })
-        if (pre.uKey) {
-          throw new Error(`reshareFlashFile: 源文件不再在服务端缓存中（非秒传命中），无法重新分享`)
-        }
-        if (!pre.token) {
-          throw new Error(`reshareFlashFile: preflight (field103=${f103}) 没有返回 token (file ${f.name})`)
-        }
-        await this.ctx.qqProtocol.flashFileUploadCommit({
-          fileSize: f.fileSize ?? 0, sha1Hex, name: f.name ?? '',
-          token: pre.token, time: pre.time, ttl: pre.ttl, requestId: ++reqId, field103: f103,
-        })
+      const pre = await this.ctx.qqProtocol.flashFileUploadPreflight({
+        fileSize: f.fileSize ?? 0, sha1Hex, name: f.name ?? '', requestId: ++reqId, field103: 22,
+      })
+      if (pre.uKey) {
+        throw new Error(`reshareFlashFile: 源文件不再在服务端缓存中（非秒传命中），无法重新分享`)
       }
+      if (!pre.token) {
+        throw new Error(`reshareFlashFile: preflight 没有返回 token (file ${f.name})`)
+      }
+      await this.ctx.qqProtocol.flashFileUploadCommit({
+        fileSize: f.fileSize ?? 0, sha1Hex, name: f.name ?? '',
+        token: pre.token, time: pre.time, ttl: pre.ttl, requestId: ++reqId, field103: 22,
+      })
     }
     await this.ctx.qqProtocol.downloadFlashFile(newFileSetId, 6).catch(() => {})
     return {
