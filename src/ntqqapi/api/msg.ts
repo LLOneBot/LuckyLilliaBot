@@ -434,8 +434,22 @@ export class NTQQMsgApi extends Service {
     }
   }
 
-  async getSourceOfReplyMsgByClientSeqAndTime(_peer: Peer, _clientSeq: string, _msgTime: string, _sourceMsgIdInRecords: string): Promise<any> {
-    throw new Error('getSourceOfReplyMsgByClientSeqAndTime 暂未实现 (直连模式)')
+  async getSourceOfReplyMsgByClientSeqAndTime(peer: Peer, clientSeq: string, msgTime: string, sourceMsgIdInRecords: string): Promise<any> {
+    // 直连模式：先从本地 cache 查 sourceMsgId（reply elem 里通常带这个）；
+    // 没找到再按 clientSeq + msgTime 在 cache 里筛
+    const store = this.ctx.get('store') as any
+    if (sourceMsgIdInRecords) {
+      const cached = store?.getMsgCache?.(sourceMsgIdInRecords) as RawMessage | undefined
+      if (cached) return { msgList: [cached] }
+    }
+    const all: RawMessage[] = store?.getAllMsgCache?.() ?? []
+    const target = all.find((m) =>
+      m.peerUid === peer.peerUid &&
+      m.chatType === peer.chatType &&
+      String((m as any).clientSeq ?? m.msgSeq) === String(clientSeq) &&
+      String(m.msgTime) === String(msgTime)
+    )
+    return { msgList: target ? [target] : [] }
   }
 
   async translatePtt2Text(_msgId: string, _peer: Peer, _voiceMsgElement: MessageElement): Promise<string> {
