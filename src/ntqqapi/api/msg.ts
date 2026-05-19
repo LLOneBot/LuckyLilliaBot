@@ -3,6 +3,7 @@ import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { Media } from '../proto'
 import { convertToRawMessage } from '../dispatcher'
+import { SendElement } from '../entities'
 
 declare module 'cordis' {
   interface Context {
@@ -312,8 +313,42 @@ export class NTQQMsgApi extends Service {
     } as RawMessage
   }
 
-  async forwardMsg(_srcPeer: Peer, _destPeer: Peer, _msgIds: string[]): Promise<RawMessage> {
-    throw new Error('forwardMsg 暂未实现 (直连模式)')
+  async forwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]): Promise<RawMessage> {
+    // 简单实现：从 cache 拿源消息，逐条把 elements 重新构造成 SendElement 发到 dest
+    // 接收方看到的是新消息，没"已转发自 X"标识。完整聚合转发用 multiForwardMsg
+    const store = this.ctx.get('store') as any
+    let lastSent: RawMessage | undefined
+    for (const msgId of msgIds) {
+      const raw = store?.getMsgCache?.(msgId) as RawMessage | undefined
+      if (!raw) continue
+      const sendElems = await this.rawElementsToSend(raw.elements)
+      if (sendElems.length === 0) continue
+      lastSent = await this.sendMsg(destPeer, sendElems)
+    }
+    if (!lastSent) throw new Error(`forwardMsg: no source message in cache for ids=${msgIds.join(',')}`)
+    return lastSent
+  }
+
+  /** 把 RawMessage.elements 转成 SendMessageElement 数组（forwardMsg 用） */
+  private async rawElementsToSend(elements: MessageElement[]): Promise<SendMessageElement[]> {
+    const out: SendMessageElement[] = []
+    for (const e of elements) {
+      if (e.textElement) {
+        out.push({ elementType: ElementType.Text, elementId: '', textElement: e.textElement } as any)
+      } else if (e.faceElement) {
+        out.push({ elementType: ElementType.Face, elementId: '', faceElement: e.faceElement } as any)
+      } else if (e.picElement?.sourcePath) {
+        out.push(await SendElement.pic(this.ctx, e.picElement.sourcePath))
+      } else if (e.videoElement?.filePath) {
+        out.push(await SendElement.video(this.ctx, e.videoElement.filePath))
+      } else if (e.pttElement?.filePath) {
+        out.push(await SendElement.ptt(this.ctx, e.pttElement.filePath))
+      } else if (e.arkElement) {
+        out.push({ elementType: ElementType.Ark, elementId: '', arkElement: e.arkElement } as any)
+      }
+      // 其他类型（reply/marketFace 等）转发时 server 不接受外部 client 重构，跳过
+    }
+    return out
   }
 
   async forwardMultiMsg(_srcPeer: Peer, _destPeer: Peer, _msgIds: string[]): Promise<RawMessage> {
