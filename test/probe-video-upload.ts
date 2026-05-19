@@ -78,7 +78,7 @@ async function main() {
   console.log('thumb uKey set:', !!result.subExt?.uKey, 'len=', result.subExt?.uKey?.length || 0)
 
   // 上传 highway
-  const { HighwayTcpSession, HighwayHttpSession } = await import('../src/ntqqapi/helper/highway')
+  const { HighwayHttpSession } = await import('../src/ntqqapi/helper/highway')
   const highwaySession = await (ctx as any).qqProtocol.getHighwaySession()
   const fs = await import('node:fs')
   const { calculateSha1StreamBytes } = await import('../src/common/utils/file')
@@ -97,16 +97,8 @@ async function main() {
       server: highwaySession.highwayHostAndPorts[1][0].host,
       port: highwaySession.highwayHostAndPorts[1][0].port,
     }
-    try {
-      if (process.env.FORCE_HTTP) throw new Error('FORCE_HTTP set, skip TCP')
-      await new HighwayTcpSession(trans).upload()
-      console.log('main highway TCP upload OK')
-    } catch (e) {
-      console.log('TCP failed, fallback HTTP:', (e as Error).message)
-      const trans2 = { ...trans, readable: fs.createReadStream(TEST_VIDEO, { highWaterMark: 1024 * 1024 }) }
-      await new HighwayHttpSession(trans2).upload()
-      console.log('main highway HTTP upload OK')
-    }
+    await new HighwayHttpSession(trans).upload()
+    console.log('main highway HTTP upload OK')
   }
 
   // 上传完后多等几次，看 server 异步归档

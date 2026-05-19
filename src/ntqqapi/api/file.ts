@@ -11,7 +11,7 @@ import { copyFile } from 'node:fs/promises'
 import { Service, Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { FlashFileListItem, FlashFileSetInfo } from '@/ntqqapi/types/flashfile'
-import { HighwayHttpSession, HighwayTcpSession } from '../helper/highway'
+import { HighwayHttpSession } from '../helper/highway'
 import { Media } from '../proto'
 
 declare module 'cordis' {
@@ -161,11 +161,7 @@ export class NTQQFileApi extends Service {
         server: highwaySession.highwayHostAndPorts[1][0].host,
         port: highwaySession.highwayHostAndPorts[1][0].port
       }
-      try {
-        await new HighwayTcpSession(trans).upload()
-      } catch {
-        await new HighwayHttpSession(trans).upload()
-      }
+      await new HighwayHttpSession(trans).upload()
     }
     if (result.subExt.uKey) {
       const { index } = result.subExt.msgInfoBody[1]
@@ -181,11 +177,7 @@ export class NTQQFileApi extends Service {
         server: highwaySession.highwayHostAndPorts[1][0].host,
         port: highwaySession.highwayHostAndPorts[1][0].port
       }
-      try {
-        await new HighwayTcpSession(trans).upload()
-      } catch {
-        await new HighwayHttpSession(trans).upload()
-      }
+      await new HighwayHttpSession(trans).upload()
     }
     return {
       msgInfo: result.info,
@@ -211,11 +203,7 @@ export class NTQQFileApi extends Service {
         server: highwaySession.highwayHostAndPorts[1][0].host,
         port: highwaySession.highwayHostAndPorts[1][0].port
       }
-      try {
-        await new HighwayTcpSession(trans).upload()
-      } catch {
-        await new HighwayHttpSession(trans).upload()
-      }
+      await new HighwayHttpSession(trans).upload()
     }
     if (result.subExt.uKey) {
       const { index } = result.subExt.msgInfoBody[1]
@@ -231,11 +219,7 @@ export class NTQQFileApi extends Service {
         server: highwaySession.highwayHostAndPorts[1][0].host,
         port: highwaySession.highwayHostAndPorts[1][0].port
       }
-      try {
-        await new HighwayTcpSession(trans).upload()
-      } catch {
-        await new HighwayHttpSession(trans).upload()
-      }
+      await new HighwayHttpSession(trans).upload()
     }
     return {
       msgInfo: result.info,
@@ -296,11 +280,7 @@ export class NTQQFileApi extends Service {
         server: highwaySession.highwayHostAndPorts[1][0].host,
         port: highwaySession.highwayHostAndPorts[1][0].port
       }
-      try {
-        await new HighwayTcpSession(trans).upload()
-      } catch {
-        await new HighwayHttpSession(trans).upload()
-      }
+      await new HighwayHttpSession(trans).upload()
     }
     return {
       fileId: result.fileId,
@@ -361,11 +341,7 @@ export class NTQQFileApi extends Service {
       server: highwaySession.highwayHostAndPorts[1][0].host,
       port: highwaySession.highwayHostAndPorts[1][0].port
     }
-    try {
-      await new HighwayTcpSession(trans).upload()
-    } catch {
-      await new HighwayHttpSession(trans).upload()
-    }
+    await new HighwayHttpSession(trans).upload()
     return {
       fileId: result.fileId,
       file10MMd5: result.md510MCheckSum,
@@ -390,11 +366,7 @@ export class NTQQFileApi extends Service {
         server: highwaySession.highwayHostAndPorts[1][0].host,
         port: highwaySession.highwayHostAndPorts[1][0].port
       }
-      try {
-        await new HighwayTcpSession(trans).upload()
-      } catch {
-        await new HighwayHttpSession(trans).upload()
-      }
+      await new HighwayHttpSession(trans).upload()
     }
     return {
       msgInfo: result.info,
@@ -419,11 +391,7 @@ export class NTQQFileApi extends Service {
         server: highwaySession.highwayHostAndPorts[1][0].host,
         port: highwaySession.highwayHostAndPorts[1][0].port
       }
-      try {
-        await new HighwayTcpSession(trans).upload()
-      } catch {
-        await new HighwayHttpSession(trans).upload()
-      }
+      await new HighwayHttpSession(trans).upload()
     }
     return {
       msgInfo: result.info,
@@ -448,11 +416,7 @@ export class NTQQFileApi extends Service {
         server: highwaySession.highwayHostAndPorts[1][0].host,
         port: highwaySession.highwayHostAndPorts[1][0].port
       }
-      try {
-        await new HighwayTcpSession(trans).upload()
-      } catch {
-        await new HighwayHttpSession(trans).upload()
-      }
+      await new HighwayHttpSession(trans).upload()
     }
     return { msgInfo: result.info, compat: result.compat }
   }
@@ -474,11 +438,7 @@ export class NTQQFileApi extends Service {
         server: highwaySession.highwayHostAndPorts[1][0].host,
         port: highwaySession.highwayHostAndPorts[1][0].port
       }
-      try {
-        await new HighwayTcpSession(trans).upload()
-      } catch {
-        await new HighwayHttpSession(trans).upload()
-      }
+      await new HighwayHttpSession(trans).upload()
     }
     return { msgInfo: result.info, compat: result.compat }
   }

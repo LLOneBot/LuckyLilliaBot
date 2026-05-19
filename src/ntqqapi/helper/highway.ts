@@ -1,8 +1,7 @@
 import { request } from 'node:http'
-import { Readable, Transform, TransformCallback } from 'node:stream'
+import { Readable } from 'node:stream'
 import { Media } from '../proto'
 import { getMd5BufferFromBuffer } from '@/common/utils'
-import { connect } from 'node:net'
 import { AppInfo } from '../../main/qqProtocol/direct/appInfo'
 
 interface HighwayTrans {
@@ -39,7 +38,7 @@ abstract class AbstractHighwaySession {
         version: 1,
         uin: this.trans.uin,
         command: 'PicUp.DataUp',
-        seq: 0,
+        seq: this.nextSeq++,
         retryTimes: 0,
         appId: AppInfo.appId,
         dataFlag: 16,
@@ -84,106 +83,6 @@ abstract class AbstractHighwaySession {
   }
 
   abstract upload(): Promise<void>
-}
-
-class HighwayTcpUploaderTransform extends Transform {
-  offset: number = 0
-
-  constructor(private readonly session: HighwayTcpSession) {
-    super()
-  }
-
-  override _transform(data: Buffer, encoding: BufferEncoding, callback: TransformCallback) {
-    const maxBlockSize = 1024 * 1024
-    let chunkOffset = 0
-    while (chunkOffset < data.length) {
-      const chunkSize = Math.min(maxBlockSize, data.length - chunkOffset)
-      const chunk = data.subarray(chunkOffset, chunkOffset + chunkSize)
-      const chunkMd5 = getMd5BufferFromBuffer(chunk)
-      const head = this.session.buildPicUpHead(this.offset, chunk.length, chunkMd5)
-      chunkOffset += chunk.length
-      this.offset += chunk.length
-      this.push(this.session.packFrame(head, chunk))
-    }
-    callback(null)
-  }
-}
-
-export class HighwayTcpSession extends AbstractHighwaySession {
-  override async upload() {
-    await new Promise<void>((resolve, reject) => {
-      const totalBlocks = Math.ceil(this.trans.size / (1024 * 1024))
-      let acksReceived = 0
-      let lastErrorCode = -1
-      let buffer = Buffer.alloc(0)  // 累积 socket 收到的字节用于 frame 分帧
-      const highwayTransForm = new HighwayTcpUploaderTransform(this)
-      const socket = connect(this.trans.port, this.trans.server, () => {
-        this.trans.readable.pipe(highwayTransForm).pipe(socket, { end: false })
-      })
-      const handleRsp = (head: Buffer) => {
-        const rsp = Media.RespDataHighwayHead.decode(head)
-        lastErrorCode = rsp.errorCode
-        if (process.env.DEBUG_HIGHWAY) {
-          console.log('[highway] ack:', JSON.stringify({
-            errorCode: rsp.errorCode,
-            seg: rsp.msgSegHead ? {
-              retCode: rsp.msgSegHead.retCode,
-              dataOffset: rsp.msgSegHead.dataOffset,
-              dataLength: rsp.msgSegHead.dataLength,
-              filesize: rsp.msgSegHead.filesize,
-            } : null,
-          }))
-        }
-        if (rsp.errorCode !== 0) {
-          socket.destroy()
-          reject(new Error(`TCP Upload failed (code=${rsp.errorCode})`))
-          return
-        }
-        acksReceived++
-        // 收到所有 block 的 ack 才算上传完成。
-        // 注意：仅检查最后块的 ack 不够（ack 乱序时可能漏块）；
-        // 收齐后给 server 一点时间彻底归档再关连接，避免 server 端尚未处理完最后块就断开
-        if (acksReceived >= totalBlocks) {
-          setTimeout(() => socket.end(), 200)
-        }
-      }
-      // 流式 frame 解析：buffer 累积，按 0x28...0x29 分帧
-      socket.on('data', (chunk: Buffer) => {
-        buffer = Buffer.concat([buffer, chunk])
-        while (buffer.length >= 9) {
-          if (buffer[0] !== 0x28) {
-            // 不应发生：协议帧必须 0x28 开头，丢弃直到下一个
-            const idx = buffer.indexOf(0x28)
-            if (idx < 0) { buffer = Buffer.alloc(0); break }
-            buffer = buffer.subarray(idx)
-            continue
-          }
-          const headLen = buffer.readUInt32BE(1)
-          const bodyLen = buffer.readUInt32BE(5)
-          const total = 9 + headLen + bodyLen + 1
-          if (buffer.length < total) break  // 帧不完整，等更多数据
-          const head = buffer.subarray(9, 9 + headLen)
-          buffer = buffer.subarray(total)
-          handleRsp(head)
-        }
-      })
-      socket.on('close', () => {
-        if (acksReceived >= totalBlocks) {
-          resolve()
-        } else {
-          reject(new Error(`TCP Upload incomplete: got ${acksReceived}/${totalBlocks} acks (lastErrorCode=${lastErrorCode})`))
-        }
-      })
-      socket.on('error', (err) => {
-        socket.destroy()
-        reject(new Error(`TCP Upload error at socket: ${err}`))
-      })
-      this.trans.readable.on('error', (err) => {
-        socket.destroy()
-        reject(new Error(`TCP Upload error at readable: ${err}`))
-      })
-    })
-  }
 }
 
 export class HighwayHttpSession extends AbstractHighwaySession {
