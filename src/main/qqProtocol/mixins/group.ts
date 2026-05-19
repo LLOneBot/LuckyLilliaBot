@@ -292,9 +292,10 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return await this.sendOidb(0xeac, subCommand, body)
     }
 
-    /** type: 1=face(QQ表情), 2=emoji(unicode) */
-    async setGroupReaction(groupCode: number, sequence: number, code: string, type: number, isAdd: boolean) {
-      const body = Oidb.GroupReactionReq.encode({ groupCode, sequence, code, type })
+    /** type: 1=face(QQ表情)，2=emoji(unicode)。默认按 code 长度推断（≤3 当 face，否则 emoji） */
+    async setGroupReaction(groupCode: number, sequence: number, code: string, isAdd: boolean, type?: number) {
+      const finalType = type ?? (code.length <= 3 ? 1 : 2)
+      const body = Oidb.GroupReactionReq.encode({ groupCode, sequence, code, type: finalType })
       const subCommand = isAdd ? 1 : 2
       return await this.sendOidb(0x9082, subCommand, body)
     }

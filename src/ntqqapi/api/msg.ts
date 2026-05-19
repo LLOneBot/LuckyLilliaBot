@@ -42,11 +42,7 @@ export class NTQQMsgApi extends Service {
     if (peer.chatType !== ChatType.Group) {
       throw new Error('setEmojiLike 仅支持群聊 (直连模式)')
     }
-    const setReaction = (this.ctx.qqProtocol as any).setGroupReaction
-    if (typeof setReaction === 'function') {
-      return await setReaction.call(this.ctx.qqProtocol, +peer.peerUid, +msgSeq, emojiId, setEmoji)
-    }
-    throw new Error('setEmojiLike 暂未实现 (直连模式)')
+    return await this.ctx.qqProtocol.setGroupReaction(+peer.peerUid, +msgSeq, emojiId, setEmoji)
   }
 
   async getMultiMsg(_peer: Peer, _rootMsgId: string, _parentMsgId: string): Promise<any> {
