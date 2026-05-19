@@ -619,10 +619,15 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         throw new Error(`flashFileUploadPreflight failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
       }
       const resp = Oidb.FlashFileUploadResp.decode(Buffer.from(decoded.body))
+      const summary = resp.body?.fastUploadInfo?.summary?.fileSummary
       return {
         retCode: resp.head?.retCode ?? '',
         // 秒传命中时 uKey 通常为空（直接进入 commit 阶段）；非空则需 highway 上传
         uKey: resp.body?.uKey ?? '',
+        // 秒传命中：返回 token 给 commit 用
+        token: summary?.token ?? '',
+        time: summary?.time ?? 0,
+        ttl: summary?.ttl ?? 0,
       }
     }
 

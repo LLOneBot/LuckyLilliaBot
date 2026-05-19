@@ -1278,7 +1278,29 @@ export namespace Oidb {
     body: ProtoField(2, {
       uKey: ProtoField(1, 'string', 'optional'),
       uKeyTtlSecond: ProtoField(2, 'uint32'),
-      // server returns 'IPv4 list' here when highway upload is needed; we ignore for 秒传 path
+      // server returns 'IPv4 list' here when highway upload is needed
+      // 秒传命中时 file token + meta 在 field 6 内
+      fastUploadInfo: ProtoField(6, {
+        summary: ProtoField(1, {
+          fileSummary: ProtoField(1, {
+            fileInfo: ProtoField(1, {
+              fileSize: ProtoField(1, 'uint32'),
+              sha1: ProtoField(3, 'string'),
+              name: ProtoField(4, 'string'),
+              md5: ProtoField(5, 'bytes'),
+              width: ProtoField(6, 'uint32'),
+              height: ProtoField(7, 'uint32'),
+              field9: ProtoField(9, 'uint32'),
+            }),
+            token: ProtoField(2, 'string'),
+            field3: ProtoField(3, 'uint32'),
+            time: ProtoField(4, 'uint32'),
+            ttl: ProtoField(5, 'uint32'),
+            field7: ProtoField(7, 'uint32'),
+          }),
+          field5: ProtoField(5, 'uint32'),
+        }),
+      }, 'optional'),
     }, 'optional'),
     commitInfo: ProtoField(12, {
       summary: ProtoField(1, {

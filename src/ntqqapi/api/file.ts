@@ -147,9 +147,12 @@ export class NTQQFileApi extends Service {
         // 服务器要 highway 上传，目前未实现
         throw new Error(`uploadFlashFile: file ${f.name} 不在服务端缓存中（非秒传命中），highway 上传暂未实现`)
       }
+      if (!pre.token) {
+        throw new Error(`uploadFlashFile: preflight 没有返回 token (file ${f.name})`)
+      }
       await this.ctx.qqProtocol.flashFileUploadCommit({
         fileSize: f.size, sha1Hex: f.sha1, name: f.name,
-        token: '', time: Math.floor(Date.now() / 1000), ttl: 1209600, requestId: ++reqId,
+        token: pre.token, time: pre.time, ttl: pre.ttl, requestId: ++reqId,
       })
     }
     // 5. finalize
@@ -255,9 +258,12 @@ export class NTQQFileApi extends Service {
       if (pre.uKey) {
         throw new Error(`reshareFlashFile: 源文件不再在服务端缓存中（非秒传命中），无法重新分享`)
       }
+      if (!pre.token) {
+        throw new Error(`reshareFlashFile: preflight 没有返回 token (file ${f.name})`)
+      }
       await this.ctx.qqProtocol.flashFileUploadCommit({
         fileSize: f.fileSize ?? 0, sha1Hex, name: f.name ?? '',
-        token: '', time: Math.floor(Date.now() / 1000), ttl: 1209600, requestId: ++reqId,
+        token: pre.token, time: pre.time, ttl: pre.ttl, requestId: ++reqId,
       })
     }
     await this.ctx.qqProtocol.downloadFlashFile(newFileSetId, 6).catch(() => {})
