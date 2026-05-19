@@ -172,5 +172,30 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
       const resp = Oidb.FetchCookiesResp.decode(Buffer.from(decoded.body))
       return Object.fromEntries(resp.psKeys)
     }
+
+    /** 获取赞过我或我赞过的列表。direction: 0=我赞过的, 1=赞过我的。OidbSvcTrpcTcp.0x7ed_13 */
+    async fetchProfileLikes(targetUid: string, direction: 0 | 1, count: number) {
+      const body = Oidb.FetchProfileLikeReq.encode({
+        targetUid,
+        field2: 1,
+        direction,
+        field4: direction === 0 ? 1 : 0,
+        field101: 1,
+        field102: 0,
+        count,
+      })
+      const data = Oidb.Base.encode({ command: 0x7ed, subCommand: 13, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x7ed_13', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`fetchProfileLikes failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      const resp = Oidb.FetchProfileLikeResp.decode(Buffer.from(decoded.body))
+      const detail = resp.body?.detail
+      return {
+        nextStart: detail?.nextStart ?? 0,
+        users: detail?.users ?? [],
+      }
+    }
   }
 }

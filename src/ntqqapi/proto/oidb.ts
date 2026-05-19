@@ -906,4 +906,42 @@ export namespace Oidb {
     retMsg: ProtoField(2, 'string'),
     clientWording: ProtoField(3, 'string')
   })
+
+  /** OidbSvcTrpcTcp.0x7ed_13 - 获取赞过我/我赞过的列表 */
+  export const FetchProfileLikeReq = ProtoMessage.of({
+    targetUid: ProtoField(1, 'string'),
+    field2: ProtoField(2, 'uint32'),
+    direction: ProtoField(3, 'uint32'),  // 0=我点赞过的, 1=赞过我的
+    field4: ProtoField(4, 'uint32'),
+    field101: ProtoField(101, 'uint32'),
+    field102: ProtoField(102, 'uint32'),
+    count: ProtoField(103, 'uint32'),
+  })
+
+  export const FetchProfileLikeResp = ProtoMessage.of({
+    body: ProtoField(1, {
+      targetUid: ProtoField(1, 'string'),
+      field2: ProtoField(2, 'uint32'),
+      detail: ProtoField(3, {
+        field1: ProtoField(1, 'uint32'),
+        field2: ProtoField(2, 'uint32'),
+        nextStart: ProtoField(3, 'uint32'),
+        users: ProtoField(4, {
+          uid: ProtoField(1, 'string'),
+          src: ProtoField(2, 'uint32'),
+          latestTime: ProtoField(3, 'uint64'),
+          count: ProtoField(4, 'uint32'),
+          giftCount: ProtoField(5, 'uint32'),
+          customId: ProtoField(6, 'uint32'),
+          lastCharged: ProtoField(8, 'uint64'),
+          field22: ProtoField(22, 'uint32'),
+          nick: ProtoField(101, 'string'),
+          gender: ProtoField(102, 'uint32'),
+          age: ProtoField(103, 'uint32'),
+          isvip: ProtoField(105, 'uint32'),
+          isSvip: ProtoField(106, 'uint32'),
+        }, 'repeated'),
+      }, 'optional'),
+    }),
+  })
 }

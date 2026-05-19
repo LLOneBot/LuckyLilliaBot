@@ -234,12 +234,28 @@ export class NTQQUserApi extends Service {
     return await this.ctx.qqProtocol.setOnlineStatus(status, extStatus)
   }
 
-  async getProfileLike(_uid: string, _start = 0, _limit = 20): Promise<any> {
-    throw new Error('getProfileLike 暂未实现 (直连模式)')
+  async getProfileLike(uid: string, _start = 0, limit = 20): Promise<any> {
+    const r = await this.ctx.qqProtocol.fetchProfileLikes(uid, 0, limit)
+    return {
+      result: 0,
+      errMsg: '',
+      info: {
+        start: r.nextStart,
+        userLikeInfos: [{ favoriteInfo: { userInfos: r.users } }],
+      },
+    }
   }
 
-  async getProfileLikeMe(_uid: string, _start = 0, _limit = 20): Promise<any> {
-    throw new Error('getProfileLikeMe 暂未实现 (直连模式)')
+  async getProfileLikeMe(uid: string, _start = 0, limit = 20): Promise<any> {
+    const r = await this.ctx.qqProtocol.fetchProfileLikes(uid, 1, limit)
+    return {
+      result: 0,
+      errMsg: '',
+      info: {
+        start: r.nextStart,
+        userLikeInfos: [{ voteInfo: { userInfos: r.users } }],
+      },
+    }
   }
 
   async getRobotUinRange(): Promise<any> {
