@@ -991,4 +991,98 @@ export namespace Oidb {
       hasMore: ProtoField(4, 'uint32'),
     }, 'optional'),
   })
+
+  /** OidbSvcTrpcTcp.0x93eb_1 - 闪传：通过 code 解析 fileSetId */
+  export const FlashFileSetIdByCodeReq = ProtoMessage.of({
+    body: ProtoField(4, {
+      code: ProtoField(1, 'string'),
+    }),
+  })
+
+  export const FlashFileSetIdByCodeResp = ProtoMessage.of({
+    body: ProtoField(4, {
+      fileSetId: ProtoField(1, 'string'),
+    }),
+  })
+
+  /** OidbSvcTrpcTcp.0x93d3_1 - 闪传：取 fileSet 基本信息 */
+  export const FlashFileInfoReq = ProtoMessage.of({
+    body: ProtoField(4, {
+      fileSetId: ProtoField(1, 'string'),
+      field2: ProtoField(2, 'uint32'),
+    }),
+  })
+
+  const FlashFileShareLink = ProtoMessage.of({
+    url: ProtoField(1, 'string'),
+  })
+
+  export const FlashFileInfoResp = ProtoMessage.of({
+    body: ProtoField(4, {
+      info: ProtoField(1, {
+        fileSetId: ProtoField(1, 'string'),
+        title: ProtoField(2, 'string'),
+        subtitle: ProtoField(3, 'string'),
+        field4: ProtoField(4, 'uint32'),
+        totalSize: ProtoField(5, 'uint32'),
+        shareInfo: ProtoField(8, FlashFileShareLink, 'optional'),
+        field11: ProtoField(11, 'uint32'),
+        createTime: ProtoField(13, 'uint32'),
+        expireTime: ProtoField(14, 'uint32'),
+      }, 'optional'),
+    }, 'optional'),
+  })
+
+  /** OidbSvcTrpcTcp.0x93d4_1 - 闪传：取 fileSet 中文件列表 */
+  export const FlashFileListReq = ProtoMessage.of({
+    body: ProtoField(4, {
+      fileSetId: ProtoField(1, 'string'),
+      paging: ProtoField(2, {
+        cookie: ProtoField(1, 'bytes'),
+        field2: ProtoField(2, 'uint32'),
+        count: ProtoField(3, 'uint32'),
+        field4: ProtoField(4, 'bytes'),
+        flags1: ProtoField(5, {
+          field1: ProtoField(1, 'uint32'),
+        }),
+        flags2: ProtoField(6, {
+          field1: ProtoField(1, 'uint32'),
+          field2: ProtoField(2, 'uint32'),
+        }),
+      }),
+      field3: ProtoField(3, 'uint32'),
+    }),
+  })
+
+  const FlashFileDownloadInfo = ProtoMessage.of({
+    token: ProtoField(1, 'string'),
+    download: ProtoField(2, {
+      kind: ProtoField(1, 'uint32'),
+      url: ProtoField(2, 'string'),
+    }, 'optional'),
+    sha1: ProtoField(3, 'string'),
+    fileSize: ProtoField(4, 'uint32'),
+    md5: ProtoField(5, 'string'),
+  })
+
+  const FlashFileEntry = ProtoMessage.of({
+    fileSetId: ProtoField(1, 'string'),
+    fileUuid: ProtoField(2, 'string'),
+    field5: ProtoField(5, 'uint32'),
+    field6: ProtoField(6, 'uint32'),
+    fileSize: ProtoField(7, 'uint32'),
+    name: ProtoField(8, 'string'),
+    name2: ProtoField(9, 'string'),
+    fileSize2: ProtoField(11, 'uint32'),
+    download: ProtoField(13, FlashFileDownloadInfo, 'optional'),
+  })
+
+  export const FlashFileListResp = ProtoMessage.of({
+    body: ProtoField(4, {
+      result: ProtoField(1, {
+        field2: ProtoField(2, 'uint32'),
+        files: ProtoField(3, FlashFileEntry, 'repeated'),
+      }, 'optional'),
+    }, 'optional'),
+  })
 }

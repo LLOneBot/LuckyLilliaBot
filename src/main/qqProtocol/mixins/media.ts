@@ -428,5 +428,57 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.ImageOcrResp.decode(oidbRespBody)
     }
+
+    /** 闪传：通过 share code 解析 fileSetId (OidbSvcTrpcTcp.0x93eb_1) */
+    async getFlashFileSetIdByCode(code: string): Promise<string> {
+      const body = Oidb.FlashFileSetIdByCodeReq.encode({ body: { code } })
+      const data = Oidb.Base.encode({ command: 0x93eb, subCommand: 1, body, isReserved: 1 })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x93eb_1', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`getFlashFileSetIdByCode failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      const resp = Oidb.FlashFileSetIdByCodeResp.decode(Buffer.from(decoded.body))
+      return resp.body?.fileSetId ?? ''
+    }
+
+    /** 闪传：取 fileSet 基本信息 (OidbSvcTrpcTcp.0x93d3_1) */
+    async getFlashFileInfo(fileSetId: string) {
+      const body = Oidb.FlashFileInfoReq.encode({ body: { fileSetId, field2: 1 } })
+      const data = Oidb.Base.encode({ command: 0x93d3, subCommand: 1, body, isReserved: 1 })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x93d3_1', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`getFlashFileInfo failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      const resp = Oidb.FlashFileInfoResp.decode(Buffer.from(decoded.body))
+      return resp.body?.info
+    }
+
+    /** 闪传：取 fileSet 中文件列表 (OidbSvcTrpcTcp.0x93d4_1) */
+    async getFlashFileList(fileSetId: string) {
+      const body = Oidb.FlashFileListReq.encode({
+        body: {
+          fileSetId,
+          paging: {
+            cookie: Buffer.alloc(0),
+            field2: 1,
+            count: 18,
+            field4: Buffer.alloc(0),
+            flags1: { field1: 0 },
+            flags2: { field1: 0, field2: 0 },
+          },
+          field3: 1,
+        },
+      })
+      const data = Oidb.Base.encode({ command: 0x93d4, subCommand: 1, body, isReserved: 1 })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x93d4_1', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`getFlashFileList failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      const resp = Oidb.FlashFileListResp.decode(Buffer.from(decoded.body))
+      return resp.body?.result?.files ?? []
+    }
   }
 }

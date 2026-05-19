@@ -119,18 +119,50 @@ export class NTQQFileApi extends Service {
 
   flashFileListCache = new Map<string, FlashFileListItem[]>()
 
-  async getFlashFileList(_fileSetId: string, _force = true): Promise<FlashFileListItem[]> {
-    throw new Error('getFlashFileList 暂未实现 (直连模式)')
+  async getFlashFileList(fileSetId: string, _force = true): Promise<FlashFileListItem[]> {
+    const files = await this.ctx.qqProtocol.getFlashFileList(fileSetId)
+    return [{
+      fileList: files.map((f: any) => ({
+        fileSetId: f.fileSetId,
+        cliFileId: f.fileUuid,
+        fileType: f.field5 ?? 0,
+        name: f.name ?? '',
+        fileSize: String(f.fileSize ?? 0),
+        status: 2,
+        uploadStatus: 3,
+        downloadStatus: 0,
+        filePhysicalSize: String(f.fileSize ?? 0),
+        physical: { id: f.fileUuid, status: 2, localPath: '' },
+      })),
+      isEnd: true,
+      isCache: false,
+    }]
   }
 
-  async getFlashFileSetIdByCode(_code: string): Promise<any> {
-    throw new Error('getFlashFileSetIdByCode 暂未实现 (直连模式)')
+  async getFlashFileSetIdByCode(code: string): Promise<{ result: number, errMsg: string, fileSetId: string }> {
+    const fileSetId = await this.ctx.qqProtocol.getFlashFileSetIdByCode(code)
+    return { result: 0, errMsg: '', fileSetId }
   }
 
   flashFileInfoCache = new Map<string, FlashFileSetInfo>()
 
-  async getFlashFileInfo(_fileSetId: string, _force = true): Promise<FlashFileSetInfo> {
-    throw new Error('getFlashFileInfo 暂未实现 (直连模式)')
+  async getFlashFileInfo(fileSetId: string, _force = true): Promise<FlashFileSetInfo> {
+    const info = await this.ctx.qqProtocol.getFlashFileInfo(fileSetId)
+    if (!info) throw new Error('getFlashFileInfo: empty response')
+    return {
+      fileSetId: info.fileSetId,
+      name: info.title ?? '',
+      totalFileCount: '1',
+      totalFileSize: String(info.totalSize ?? 0),
+      shareInfo: { shareLink: info.shareInfo?.url ?? '', extractionCode: '' },
+      uploaders: [],
+      uploadInfo: { totalUploadedFileSize: String(info.totalSize ?? 0), successCount: 1, failedCount: 0 },
+      expireTime: String(info.expireTime ?? 0),
+      expireLeftTime: Math.max(0, (info.expireTime ?? 0) - Math.floor(Date.now() / 1000)),
+      status: 2,
+      uploadStatus: 4,
+      downloadStatus: 0,
+    } as FlashFileSetInfo
   }
 
   async reshareFlashFile(_fileSetId: string): Promise<any> {
