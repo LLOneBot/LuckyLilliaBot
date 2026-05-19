@@ -525,12 +525,13 @@ export class NTQQGroupApi extends Service {
     return { response: { result: 0, errMs: '', album_list } }
   }
 
-  async createGroupAlbum(_groupId: string, _name: string, _desc: string): Promise<any> {
-    throw new Error('createGroupAlbum 暂未实现 (直连模式)')
+  async createGroupAlbum(groupId: string, name: string, desc: string): Promise<any> {
+    const album = await this.ctx.qqProtocol.createGroupAlbum(+groupId, name, desc)
+    return { response: { result: 0, errMs: '', album_id: album.albumId, name: album.name, desc: album.desc } }
   }
 
-  async deleteGroupAlbum(_groupId: string, _albumId: string): Promise<any> {
-    throw new Error('deleteGroupAlbum 暂未实现 (直连模式)')
+  async deleteGroupAlbum(groupId: string, albumId: string): Promise<any> {
+    return await this.ctx.qqProtocol.deleteGroupAlbum(+groupId, albumId)
   }
 
   async deleteGroupBulletin(_groupCode: string, _feedsId: string): Promise<any> {

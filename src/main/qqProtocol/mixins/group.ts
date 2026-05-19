@@ -486,5 +486,44 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
       return { result: 0 }
     }
+
+    private genQunAlbumSession(): string {
+      const ts = new Date()
+      const pad = (n: number, w = 2) => n.toString().padStart(w, '0')
+      return `_${pad(ts.getMonth() + 1)}${pad(ts.getDate())}${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}${pad(ts.getMilliseconds(), 3)}_${randomInt(10000, 99999)}`
+    }
+
+    /** 创建群相册 (QunAlbum.AddAlbum) */
+    async createGroupAlbum(groupCode: number, name: string, desc: string) {
+      const reqBytes = Action.AddAlbumReq.encode({
+        requestId: randomInt(1, 0x7fffffff),
+        field2: Buffer.alloc(0),
+        field3: Buffer.alloc(0),
+        body: { info: { groupCode: String(groupCode), name, desc, field5: 0 } },
+        sessionId: this.genQunAlbumSession(),
+        headers: [{ name: 'fc-appid', value: '100' }],
+      })
+      const res = await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.AddAlbum', reqBytes)
+      const decoded = Action.AddAlbumResp.decode(Buffer.from(res.pb, 'hex'))
+      const album = decoded.body?.info
+      if (!album?.albumId) {
+        throw new Error('createGroupAlbum failed: server returned no albumId')
+      }
+      return album
+    }
+
+    /** 删群相册 (QunAlbum.DeleteAlbum) */
+    async deleteGroupAlbum(groupCode: number, albumId: string) {
+      const reqBytes = Action.DeleteAlbumReq.encode({
+        requestId: randomInt(1, 0x7fffffff),
+        field2: Buffer.alloc(0),
+        field3: Buffer.alloc(0),
+        body: { groupCode: String(groupCode), albumId },
+        sessionId: this.genQunAlbumSession(),
+        headers: [{ name: 'fc-appid', value: '100' }],
+      })
+      await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.DeleteAlbum', reqBytes)
+      return { result: 0 }
+    }
   }
 }

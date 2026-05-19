@@ -218,4 +218,46 @@ export namespace Action {
       albums: ProtoField(1, QunAlbumRecord, 'repeated'),
     }, 'optional'),
   })
+
+  /** QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.AddAlbum - 创建群相册 */
+  export const AddAlbumReq = ProtoMessage.of({
+    requestId: ProtoField(1, 'uint32'),
+    field2: ProtoField(2, 'bytes'),
+    field3: ProtoField(3, 'bytes'),
+    body: ProtoField(4, {
+      info: ProtoField(1, {
+        groupCode: ProtoField(2, 'string'),
+        name: ProtoField(3, 'string'),
+        desc: ProtoField(4, 'string'),
+        field5: ProtoField(5, 'uint32'),
+      }),
+    }),
+    sessionId: ProtoField(5, 'string'),
+    headers: ProtoField(10, QunAlbumMetaHeader, 'repeated'),
+  })
+
+  export const AddAlbumResp = ProtoMessage.of({
+    requestId: ProtoField(1, 'uint32'),
+    body: ProtoField(4, {
+      info: ProtoField(1, {
+        albumId: ProtoField(1, 'string'),
+        groupCode: ProtoField(2, 'string'),
+        name: ProtoField(3, 'string'),
+        desc: ProtoField(4, 'string'),
+      }),
+    }, 'optional'),
+  })
+
+  /** QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.DeleteAlbum - 删群相册 */
+  export const DeleteAlbumReq = ProtoMessage.of({
+    requestId: ProtoField(1, 'uint32'),
+    field2: ProtoField(2, 'bytes'),
+    field3: ProtoField(3, 'bytes'),
+    body: ProtoField(4, {
+      groupCode: ProtoField(1, 'string'),
+      albumId: ProtoField(2, 'string'),
+    }),
+    sessionId: ProtoField(5, 'string'),
+    headers: ProtoField(10, QunAlbumMetaHeader, 'repeated'),
+  })
 }
