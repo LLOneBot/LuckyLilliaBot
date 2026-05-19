@@ -20,7 +20,7 @@ declare module 'cordis' {
 }
 
 export class NTQQGroupApi extends Service {
-  static inject = ['qqProtocol']
+  static inject = ['qqProtocol', 'ntWebApi']
   private groupsCache: Group[] = []
   private groupCache: Map<number, Group> = new Map()
   private memberCache: Map<string, Map<string, GroupMember>> = new Map()
@@ -366,8 +366,19 @@ export class NTQQGroupApi extends Service {
     }
   }
 
-  async publishGroupBulletin(_groupCode: string, _req: PublishGroupBulletinReq): Promise<any> {
-    throw new Error('publishGroupBulletin 暂未实现 (直连模式)')
+  async publishGroupBulletin(groupCode: string, req: PublishGroupBulletinReq): Promise<any> {
+    return await this.ctx.ntWebApi.publishGroupBulletin(
+      groupCode,
+      req.text,
+      req.pinned,
+      0,
+      0,
+      0,
+      req.confirmRequired,
+      req.picInfo?.id,
+      req.picInfo?.width,
+      req.picInfo?.height,
+    )
   }
 
   async uploadGroupBulletinPic(_groupCode: string, _path: string): Promise<any> {
@@ -383,8 +394,8 @@ export class NTQQGroupApi extends Service {
     throw new Error('queryCachedEssenceMsg 暂未实现 (直连模式)')
   }
 
-  async getGroupHonorList(_groupCode: string): Promise<any> {
-    throw new Error('getGroupHonorList 暂未实现 (直连模式)')
+  async getGroupHonorList(groupCode: string): Promise<any> {
+    return await this.ctx.ntWebApi.getGroupHonorInfo(groupCode, 'all')
   }
 
   async getGroupBulletinList(_groupCode: string): Promise<GroupBulletinListResult> {
