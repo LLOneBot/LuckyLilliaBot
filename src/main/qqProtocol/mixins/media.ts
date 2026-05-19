@@ -480,5 +480,17 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const resp = Oidb.FlashFileListResp.decode(Buffer.from(decoded.body))
       return resp.body?.result?.files ?? []
     }
+
+    /** 闪传：发起下载（OidbSvcTrpcTcp.0x93d1_1） */
+    async downloadFlashFile(fileSetId: string, sceneType: number = 6) {
+      const body = Oidb.FlashFileDownloadReq.encode({ body: { fileSetId, sceneType } })
+      const data = Oidb.Base.encode({ command: 0x93d1, subCommand: 1, body, isReserved: 1 })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x93d1_1', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`downloadFlashFile failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      return { result: 0 }
+    }
   }
 }

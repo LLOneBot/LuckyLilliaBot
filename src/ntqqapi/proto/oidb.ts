@@ -1085,4 +1085,12 @@ export namespace Oidb {
       }, 'optional'),
     }, 'optional'),
   })
+
+  /** OidbSvcTrpcTcp.0x93d1_1 - 闪传：发起下载（注册下载意图，实际 URL 由 getFlashFileList 返回） */
+  export const FlashFileDownloadReq = ProtoMessage.of({
+    body: ProtoField(4, {
+      fileSetId: ProtoField(1, 'string'),
+      sceneType: ProtoField(2, 'uint32'),
+    }),
+  })
 }

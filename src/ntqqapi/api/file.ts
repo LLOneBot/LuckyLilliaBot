@@ -113,8 +113,9 @@ export class NTQQFileApi extends Service {
     throw new Error('uploadFlashFile 暂未实现 (直连模式)')
   }
 
-  async downloadFlashFile(_fileSetId: string, _sceneType: number = 1): Promise<any> {
-    throw new Error('downloadFlashFile 暂未实现 (直连模式)')
+  async downloadFlashFile(fileSetId: string, sceneType: number = 6): Promise<{ result: number, errMsg: string }> {
+    await this.ctx.qqProtocol.downloadFlashFile(fileSetId, sceneType)
+    return { result: 0, errMsg: '' }
   }
 
   flashFileListCache = new Map<string, FlashFileListItem[]>()
