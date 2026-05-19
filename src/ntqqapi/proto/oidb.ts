@@ -793,4 +793,13 @@ export namespace Oidb {
     field2: ProtoField(12, 'uint32'),  // 固定 71
     count: ProtoField(13, 'uint32'),
   })
+
+  /** OidbSvcTrpcTcp.0x6d6_3 - 删群文件 */
+  export const GroupFileDeleteReq = ProtoMessage.of({
+    delete: ProtoField(4, {
+      groupCode: ProtoField(1, 'uint32'),
+      busId: ProtoField(3, 'uint32'),    // 102
+      fileId: ProtoField(5, 'string'),
+    }),
+  })
 }

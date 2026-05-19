@@ -286,8 +286,13 @@ export class NTQQGroupApi extends Service {
     throw new Error('deleteGroupFileFolder 暂未实现 (直连模式)')
   }
 
-  async deleteGroupFile(_groupId: string, _fileIdList: string[], _busIdList: number[]): Promise<any> {
-    throw new Error('deleteGroupFile 暂未实现 (直连模式)')
+  async deleteGroupFile(groupId: string, fileIdList: string[], busIdList: number[]): Promise<any> {
+    // 协议是单个 fileId 一次调用，多个用 Promise.all 并行删
+    const tasks = fileIdList.map((fileId, i) =>
+      this.ctx.qqProtocol.deleteGroupFile(+groupId, fileId, busIdList?.[i] ?? 102)
+    )
+    await Promise.all(tasks)
+    return { result: 0, errMsg: '' }
   }
 
   async getGroupFileList(groupId: string, fileListForm: GetFileListParam): Promise<GroupFileInfo> {
