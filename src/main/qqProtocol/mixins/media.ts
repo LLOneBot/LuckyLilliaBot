@@ -492,5 +492,41 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
       return { result: 0 }
     }
+
+    /** 闪传：创建 fileSet 并拿到 shareLink (OidbSvcTrpcTcp.0x93cf_1)。
+     * 这只是 uploadFlashFile 多步流程的第一步——还需 0x93d0_1 注册文件 + 0x93db_1 prep
+     * + 0x12a9_100/103 highway 上传 + 0x93d1_1 finalize 才能把实际文件放进 fileSet。 */
+    async createFlashFileSet(opts: { title: string, subtitle?: string, totalFileCount: number, totalFileSize: number, uploaderUin: string, uploaderNick: string, uploaderUid: string }) {
+      const body = Oidb.CreateFlashFileSetReq.encode({
+        body: {
+          totalFileCount: opts.totalFileCount,
+          meta: {
+            title: opts.title,
+            subtitle: opts.subtitle ?? opts.title,
+            field4: 1,
+            totalFileSize: opts.totalFileSize,
+            uploader: {
+              uin: opts.uploaderUin,
+              nickname: opts.uploaderNick,
+              uid: opts.uploaderUid,
+              field4: Buffer.alloc(0),
+            },
+            field16: 1,
+            field20: 0,
+            field21: 0,
+            field23: 0,
+          },
+          field3: 1,
+        },
+      })
+      const data = Oidb.Base.encode({ command: 0x93cf, subCommand: 1, body, isReserved: 1 })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x93cf_1', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`createFlashFileSet failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      const resp = Oidb.CreateFlashFileSetResp.decode(Buffer.from(decoded.body))
+      return resp.body
+    }
   }
 }

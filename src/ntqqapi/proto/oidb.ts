@@ -1093,4 +1093,38 @@ export namespace Oidb {
       sceneType: ProtoField(2, 'uint32'),
     }),
   })
+
+  /** OidbSvcTrpcTcp.0x93cf_1 - 闪传：创建 fileSet（返回 fileSetId + shareLink） */
+  export const CreateFlashFileSetReq = ProtoMessage.of({
+    body: ProtoField(4, {
+      totalFileCount: ProtoField(1, 'uint32'),
+      meta: ProtoField(2, {
+        title: ProtoField(2, 'string'),
+        subtitle: ProtoField(3, 'string'),
+        field4: ProtoField(4, 'uint32'),
+        totalFileSize: ProtoField(5, 'uint32'),
+        uploader: ProtoField(10, {
+          uin: ProtoField(1, 'string'),
+          nickname: ProtoField(2, 'string'),
+          uid: ProtoField(3, 'string'),
+          field4: ProtoField(4, 'bytes'),
+        }),
+        field16: ProtoField(16, 'uint32'),
+        field20: ProtoField(20, 'uint32'),
+        field21: ProtoField(21, 'uint32'),
+        field23: ProtoField(23, 'uint32'),
+      }),
+      field3: ProtoField(3, 'uint32'),
+    }),
+  })
+
+  export const CreateFlashFileSetResp = ProtoMessage.of({
+    body: ProtoField(4, {
+      fileSetId: ProtoField(1, 'string'),
+      fileSetIdEcho: ProtoField(2, 'string'),
+      shareLink: ProtoField(3, 'string'),
+      expireTime: ProtoField(4, 'uint32'),
+      expireLeftTime: ProtoField(5, 'uint32'),
+    }),
+  })
 }
