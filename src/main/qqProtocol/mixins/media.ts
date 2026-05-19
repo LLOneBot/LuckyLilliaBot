@@ -580,12 +580,13 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
 
     /** 闪传：upload preflight (OidbSvcTrpcTcp.0x12a9_100)。
      * 若 server 已有同 sha1 的文件则返回成功（秒传），否则返回 highway uKey+IPs。
-     * 当前实现只支持秒传命中场景；返回 highway 信息时 caller 需要调用 highway 上传。 */
-    async flashFileUploadPreflight(opts: { fileSize: number, sha1Hex: string, name: string, requestId: number }) {
+     * 当前实现只支持秒传命中场景；返回 highway 信息时 caller 需要调用 highway 上传。
+     * field103: LLBot 实际会做两遍 preflight+commit，第一遍 24（图像类），第二遍 22（通用）。 */
+    async flashFileUploadPreflight(opts: { fileSize: number, sha1Hex: string, name: string, requestId: number, field103?: number }) {
       const body = Oidb.FlashFileUploadPreReq.encode({
         head: {
           common: { requestId: opts.requestId, command: 100 },
-          scene: { requestType: 2, businessType: 4, field103: 22, sceneType: 5 },
+          scene: { requestType: 2, businessType: 4, field103: opts.field103 ?? 22, sceneType: 5 },
           client: { agentType: 1 },
         },
         upload: {
@@ -632,11 +633,11 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
     }
 
     /** 闪传：upload commit (OidbSvcTrpcTcp.0x12a9_103) — 在 preflight 秒传命中后立即调用 */
-    async flashFileUploadCommit(opts: { fileSize: number, sha1Hex: string, name: string, token: string, time: number, ttl: number, requestId: number }) {
+    async flashFileUploadCommit(opts: { fileSize: number, sha1Hex: string, name: string, token: string, time: number, ttl: number, requestId: number, field103?: number }) {
       const body = Oidb.FlashFileUploadCommitReq.encode({
         head: {
           common: { requestId: opts.requestId, command: 103 },
-          scene: { requestType: 2, businessType: 4, field103: 22, sceneType: 5 },
+          scene: { requestType: 2, businessType: 4, field103: opts.field103 ?? 22, sceneType: 5 },
           client: { agentType: 1 },
         },
         commit: {
