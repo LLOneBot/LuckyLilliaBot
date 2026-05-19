@@ -891,4 +891,19 @@ export namespace Oidb {
       errCode: ProtoField(2, 'uint32')
     })
   })
+
+  /** OidbSvcTrpcTcp.0x6d9_0 */
+  export const TransGroupFileReq = ProtoMessage.of({
+    body: ProtoField(1, {
+      groupCode: ProtoField(1, 'uint32'),
+      busId: ProtoField(3, 'uint32'),
+      fileId: ProtoField(4, 'string')
+    })
+  })
+
+  export const TransGroupFileResp = ProtoMessage.of({
+    retCode: ProtoField(1, 'int64'),
+    retMsg: ProtoField(2, 'string'),
+    clientWording: ProtoField(3, 'string')
+  })
 }

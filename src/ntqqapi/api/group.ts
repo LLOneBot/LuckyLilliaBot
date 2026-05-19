@@ -456,8 +456,8 @@ export class NTQQGroupApi extends Service {
     return { result: 0, errMsg: '' }
   }
 
-  async setGroupFileForever(_groupId: string, _fileId: string): Promise<any> {
-    throw new Error('setGroupFileForever 暂未实现 (直连模式)')
+  async persistGroupFile(groupCode: number, fileId: string) {
+    return await this.ctx.qqProtocol.transGroupFile(groupCode, fileId)
   }
 
   async getGroupAlbumList(_groupId: string): Promise<any> {
