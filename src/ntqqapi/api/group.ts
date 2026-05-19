@@ -381,8 +381,8 @@ export class NTQQGroupApi extends Service {
     )
   }
 
-  async uploadGroupBulletinPic(_groupCode: string, _path: string): Promise<any> {
-    throw new Error('uploadGroupBulletinPic 暂未实现 (直连模式)')
+  async uploadGroupBulletinPic(groupCode: string, path: string): Promise<any> {
+    return await this.ctx.ntWebApi.uploadGroupBulletinPic(groupCode, path)
   }
 
   async getGroupRecommendContactArk(groupCode: number) {
@@ -390,16 +390,16 @@ export class NTQQGroupApi extends Service {
     return ark
   }
 
-  async queryCachedEssenceMsg(_groupCode: string, _msgSeq = '0', _msgRandom = '0'): Promise<any> {
-    throw new Error('queryCachedEssenceMsg 暂未实现 (直连模式)')
+  async queryCachedEssenceMsg(groupCode: string, _msgSeq = '0', _msgRandom = '0'): Promise<any> {
+    return await this.ctx.ntWebApi.queryCachedEssenceMsg(groupCode)
   }
 
   async getGroupHonorList(groupCode: string): Promise<any> {
     return await this.ctx.ntWebApi.getGroupHonorInfo(groupCode, 'all')
   }
 
-  async getGroupBulletinList(_groupCode: string): Promise<GroupBulletinListResult> {
-    throw new Error('getGroupBulletinList 暂未实现 (直连模式)')
+  async getGroupBulletinList(groupCode: string): Promise<GroupBulletinListResult> {
+    return await this.ctx.ntWebApi.getGroupBulletinList(groupCode) as GroupBulletinListResult
   }
 
   async setGroupAvatar(_groupCode: string, _path: string): Promise<any> {
@@ -470,8 +470,8 @@ export class NTQQGroupApi extends Service {
     throw new Error('deleteGroupAlbum 暂未实现 (直连模式)')
   }
 
-  async deleteGroupBulletin(_groupCode: string, _feedsId: string): Promise<any> {
-    throw new Error('deleteGroupBulletin 暂未实现 (直连模式)')
+  async deleteGroupBulletin(groupCode: string, feedsId: string): Promise<any> {
+    return await this.ctx.ntWebApi.deleteGroupBulletin(groupCode, feedsId)
   }
 
   async renameGroupFile(_groupId: string, _fileId: string, _parentFolderId: string, _newFileName: string): Promise<any> {
