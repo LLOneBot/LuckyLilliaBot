@@ -472,5 +472,19 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
       return decoded.body?.albums ?? []
     }
+
+    /** 重命名群文件 (OidbSvcTrpcTcp.0x6d6_4) */
+    async renameGroupFile(groupCode: number, fileId: string, parentDirectory: string, newFileName: string, busId = 102) {
+      const body = Oidb.RenameGroupFileReq.encode({
+        rename: { groupCode, busId, fileId, parentDirectory, newFileName },
+      })
+      const data = Oidb.Base.encode({ command: 0x6d6, subCommand: 4, body, isReserved: 1 })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_4', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`renameGroupFile failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      return { result: 0 }
+    }
   }
 }

@@ -944,4 +944,15 @@ export namespace Oidb {
       }, 'optional'),
     }),
   })
+
+  /** OidbSvcTrpcTcp.0x6d6_4 - 重命名群文件 */
+  export const RenameGroupFileReq = ProtoMessage.of({
+    rename: ProtoField(5, {
+      groupCode: ProtoField(1, 'uint32'),
+      busId: ProtoField(3, 'uint32'),
+      fileId: ProtoField(4, 'string'),
+      parentDirectory: ProtoField(5, 'string'),
+      newFileName: ProtoField(6, 'string'),
+    }),
+  })
 }

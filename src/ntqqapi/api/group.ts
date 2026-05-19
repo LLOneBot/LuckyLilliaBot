@@ -537,8 +537,8 @@ export class NTQQGroupApi extends Service {
     throw new Error('deleteGroupBulletin 暂未实现 (直连模式)')
   }
 
-  async renameGroupFile(_groupId: string, _fileId: string, _parentFolderId: string, _newFileName: string): Promise<any> {
-    throw new Error('renameGroupFile 暂未实现 (直连模式)')
+  async renameGroupFile(groupId: string, fileId: string, parentFolderId: string, newFileName: string): Promise<any> {
+    return await this.ctx.qqProtocol.renameGroupFile(+groupId, fileId, parentFolderId, newFileName)
   }
 
   async checkGroupMemberCache(_groupCodes: string[]): Promise<any> {
