@@ -149,7 +149,7 @@ export class NTQQFileApi extends Service {
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
-      result.ext.hash.fileSha1 = (await calculateSha1StreamBytes(filePath)).map((b: Buffer) => Buffer.from(b))
+      result.ext.hash.fileSha1 = await calculateSha1StreamBytes(filePath)
       const trans = {
         uin: selfInfo.uin,
         cmd: 1005,  // group video main
@@ -165,7 +165,7 @@ export class NTQQFileApi extends Service {
     }
     if (result.subExt.uKey) {
       const { index } = result.subExt.msgInfoBody[1]
-      result.subExt.hash.fileSha1 = (await calculateSha1StreamBytes(thumbPath)).map((b: Buffer) => Buffer.from(b))
+      result.subExt.hash.fileSha1 = await calculateSha1StreamBytes(thumbPath)
       const trans = {
         uin: selfInfo.uin,
         cmd: 1006,  // group video thumb
@@ -191,7 +191,7 @@ export class NTQQFileApi extends Service {
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
-      result.ext.hash.fileSha1 = (await calculateSha1StreamBytes(filePath)).map((b: Buffer) => Buffer.from(b))
+      result.ext.hash.fileSha1 = await calculateSha1StreamBytes(filePath)
       const trans = {
         uin: selfInfo.uin,
         cmd: 1001,  // c2c video main
@@ -207,7 +207,7 @@ export class NTQQFileApi extends Service {
     }
     if (result.subExt.uKey) {
       const { index } = result.subExt.msgInfoBody[1]
-      result.subExt.hash.fileSha1 = (await calculateSha1StreamBytes(thumbPath)).map((b: Buffer) => Buffer.from(b))
+      result.subExt.hash.fileSha1 = await calculateSha1StreamBytes(thumbPath)
       const trans = {
         uin: selfInfo.uin,
         cmd: 1002,  // c2c video thumb
