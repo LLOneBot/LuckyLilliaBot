@@ -1,6 +1,32 @@
 import { ProtoField, ProtoMessage } from '@saltify/typeproto'
 
 export namespace Msg {
+  export const VideoFileMsg = ProtoMessage.of({
+    fileUuid: ProtoField(1, 'string', 'optional'),
+    fileMd5: ProtoField(2, 'bytes', 'optional'),
+    fileName: ProtoField(3, 'string', 'optional'),
+    fileFormat: ProtoField(4, 'uint32', 'optional'),
+    fileTime: ProtoField(5, 'uint32', 'optional'),
+    fileSize: ProtoField(6, 'uint32', 'optional'),
+    thumbWidth: ProtoField(7, 'uint32', 'optional'),
+    thumbHeight: ProtoField(8, 'uint32', 'optional'),
+    thumbFileMd5: ProtoField(9, 'bytes', 'optional'),
+    source: ProtoField(10, 'bytes', 'optional'),
+    thumbFileSize: ProtoField(11, 'uint32', 'optional'),
+    busiType: ProtoField(12, 'uint32', 'optional'),
+    fromChatType: ProtoField(13, 'uint32', 'optional'),
+    toChatType: ProtoField(14, 'uint32', 'optional'),
+    boolSupportProgressive: ProtoField(15, 'bool', 'optional'),
+    fileWidth: ProtoField(16, 'uint32', 'optional'),
+    fileHeight: ProtoField(17, 'uint32', 'optional'),
+    subBusiType: ProtoField(18, 'uint32', 'optional'),
+    videoAttr: ProtoField(19, 'uint32', 'optional'),
+    bytesThumbFileUrls: ProtoField(20, 'bytes', 'repeated'),
+    bytesVideoFileUrls: ProtoField(21, 'bytes', 'repeated'),
+    thumbDownloadFlag: ProtoField(22, 'uint32', 'optional'),
+    fileDownloadFlag: ProtoField(23, 'uint32', 'optional'),
+  })
+
   export const Elem = ProtoMessage.of({
     text: ProtoField(1, {
       str: ProtoField(1, 'string'),
@@ -71,31 +97,7 @@ export namespace Msg {
       level: ProtoField(3, 'uint32', 'optional'),
       uin: ProtoField(9, 'uint64', 'optional'),
     }, 'optional'),
-    videoFile: ProtoField(19, {
-      fileUuid: ProtoField(1, 'string', 'optional'),
-      fileMd5: ProtoField(2, 'bytes', 'optional'),
-      fileName: ProtoField(3, 'string', 'optional'),
-      fileFormat: ProtoField(4, 'uint32', 'optional'),
-      fileTime: ProtoField(5, 'uint32', 'optional'),
-      fileSize: ProtoField(6, 'uint32', 'optional'),
-      thumbWidth: ProtoField(7, 'uint32', 'optional'),
-      thumbHeight: ProtoField(8, 'uint32', 'optional'),
-      thumbFileMd5: ProtoField(9, 'bytes', 'optional'),
-      source: ProtoField(10, 'bytes', 'optional'),
-      thumbFileSize: ProtoField(11, 'uint32', 'optional'),
-      busiType: ProtoField(12, 'uint32', 'optional'),
-      fromChatType: ProtoField(13, 'uint32', 'optional'),
-      toChatType: ProtoField(14, 'uint32', 'optional'),
-      boolSupportProgressive: ProtoField(15, 'bool', 'optional'),
-      fileWidth: ProtoField(16, 'uint32', 'optional'),
-      fileHeight: ProtoField(17, 'uint32', 'optional'),
-      subBusiType: ProtoField(18, 'uint32', 'optional'),
-      videoAttr: ProtoField(19, 'uint32', 'optional'),
-      bytesThumbFileUrls: ProtoField(20, 'bytes', 'repeated'),
-      bytesVideoFileUrls: ProtoField(21, 'bytes', 'repeated'),
-      thumbDownloadFlag: ProtoField(22, 'uint32', 'optional'),
-      fileDownloadFlag: ProtoField(23, 'uint32', 'optional'),
-    }, 'optional'),
+    videoFile: ProtoField(19, 'bytes', 'optional'),
     srcMsg: ProtoField(45, {
       origSeqs: ProtoField(1, 'uint32', 'repeated'),
       senderUin: ProtoField(2, 'uint32'),
@@ -292,7 +294,7 @@ export namespace Msg {
       }, 'optional'),
     }),
     contentHead: ProtoField(2, {
-      // 注意：发送 PbSendMsg 时，contentHead 是 SendContentHead（参考 Lagrange）
+      // 注意：发送 PbSendMsg 时，contentHead 是 SendContentHead
       // 而不是 OlPush 收到的 ContentHead（field 1=msgType）
       pkgNum: ProtoField(1, 'uint32', 'optional'),
       pkgIndex: ProtoField(2, 'uint32', 'optional'),

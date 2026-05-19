@@ -27,7 +27,7 @@ export class NTQQSystemApi extends Service {
   }
 
   async getDeviceInfo() {
-    return { devType: 'Linux', buildVer: '3.2.26-46494' }
+    return { devType: 'Linux', buildVer: '3.2.28-48517' }
   }
 
   async scanQRCode(_path: string): Promise<any> {

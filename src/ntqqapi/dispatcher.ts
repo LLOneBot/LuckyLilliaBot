@@ -904,7 +904,7 @@ function parseElements(elems: any[]): MessageElement[] {
 
     // Old format video
     if (elem.videoFile) {
-      const v = elem.videoFile
+      const v = Msg.VideoFileMsg.decode(Buffer.from(elem.videoFile))
       result.push({
         elementType: ElementType.Video,
         elementId: '',

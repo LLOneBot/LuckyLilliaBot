@@ -41,20 +41,26 @@ function encodeString(fieldNumber: number, value: string): Buffer {
 export function buildSsoReservedField(uid?: string, signResult?: SignResult | null): Buffer {
   const parts: Buffer[] = []
 
-  // SecInfo must be written before traceParent (protocol ordering requirement)
+  // 按 protobuf field number 升序：15 (TraceParent), 16 (Uid), 24 (SecInfo)
+  // SsoReserveFields 用 protobuf-net 默认按字段顺序序列化
+
+  // field 15: TraceParent
+  parts.push(encodeString(15, generateTraceParent()))
+
+  // field 16: Uid
+  if (uid) {
+    parts.push(encodeString(16, uid))
+  }
+
+  // field 24: SecInfo (SsoSecureInfo)
+  // SsoSecureInfo: 1=SecSign, 2=SecDeviceToken, 3=SecExtra
+  // 注意：仅在非空时编码（protobuf-net 不编码 default empty bytes）
   if (signResult) {
     const secParts: Buffer[] = []
     if (signResult.sign.length > 0) secParts.push(encodeLengthDelimited(1, signResult.sign))
     if (signResult.token.length > 0) secParts.push(encodeLengthDelimited(2, signResult.token))
-    else secParts.push(encodeLengthDelimited(2, Buffer.alloc(0)))
     if (signResult.extra.length > 0) secParts.push(encodeLengthDelimited(3, signResult.extra))
     parts.push(encodeLengthDelimited(24, Buffer.concat(secParts)))
-  }
-
-  parts.push(encodeString(15, generateTraceParent()))
-
-  if (uid) {
-    parts.push(encodeString(16, uid))
   }
 
   return Buffer.concat(parts)

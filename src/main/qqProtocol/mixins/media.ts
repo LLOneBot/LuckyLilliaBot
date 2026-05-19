@@ -84,14 +84,19 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
 
-    async getGroupVideoUrl(fileUuid: string) {
+    async getGroupVideoUrl(node: any, groupId = 0) {
+      // BuildDownloadReq 传 entity.MsgInfo.MsgInfoBody[0].Index 整个 IndexNode
+      // 不能只传 fileUuid，否则 server 报 file does not exist
+      const indexNode = typeof node === 'string'
+        ? { fileUuid: node, storeID: 1, uploadTime: 0, expire: 0, type: 0 }
+        : node
       const body = Media.NTV2RichMediaReq.encode({
         reqHead: {
           common: { requestId: 1, command: 200 },
-          scene: { requestType: 2, businessType: 2, field103: 0, sceneType: 2, group: { groupId: 0 } },
+          scene: { requestType: 2, businessType: 2, field103: 0, sceneType: 2, group: { groupId } },
           client: { agentType: 2 },
         },
-        download: { node: { fileUuid, storeID: 1, uploadTime: 0, expire: 0, type: 0 } },
+        download: { node: indexNode },
       })
       const data = Oidb.Base.encode({ command: 0x11ea, subCommand: 200, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x11ea_200', data)
@@ -115,6 +120,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
     }
 
     async getHighwaySession() {
+      // 老版本（wrapper 模式）写法：loginSigType=1，不传 loginSigTicket
       const data = Media.HighwaySessionReq.encode({
         reqBody: {
           uin: 0,
@@ -147,7 +153,28 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
     }
 
-    async getGroupVideoUploadInfo(groupCode: string, filePath: string, thumbFilePath: string) {
+    async notifyGroupVideoUploadCompleted(groupCode: string, msgInfoBytes: Buffer, clientRandomId: number) {
+      // 通知 server "视频字节已传完"——它收到才会真正归档；否则上传完字节短期可访问然后失效
+      const body = Media.NTV2RichMediaReq.encode({
+        reqHead: {
+          common: { requestId: 1, command: 100 },
+          scene: { requestType: 2, businessType: 2, sceneType: 2, group: { groupId: +groupCode } },
+          client: { agentType: 2 },
+        },
+        uploadCompleted: {
+          srvSendMsg: false,
+          clientRandomId: BigInt(clientRandomId),
+          msgInfo: msgInfoBytes,
+          clientSeq: 0,
+        },
+      })
+      const data = Oidb.Base.encode({ command: 0x11ea, subCommand: 100, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x11ea_100', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Media.NTV2RichMediaResp.decode(oidbRespBody)
+    }
+
+    async getGroupVideoUploadInfo(groupCode: string, filePath: string, thumbFilePath: string, duration: number = 0, width: number = 0, height: number = 0) {
       const peer = {
         chatType: ChatType.Group,
         peerUid: groupCode,
@@ -155,7 +182,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
       const body = await NTV2RichMedia.buildUploadReq(
         peer,
-        { type: 'video', filePath },
+        { type: 'video', filePath, duration, width, height },
         {
           video: {
             pbReserve: Buffer.from([0x80, 0x01, 0x00])
@@ -175,7 +202,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
     }
 
-    async getC2CVideoUploadInfo(peerUid: string, filePath: string, thumbFilePath: string) {
+    async getC2CVideoUploadInfo(peerUid: string, filePath: string, thumbFilePath: string, duration: number = 0, width: number = 0, height: number = 0) {
       const peer = {
         chatType: ChatType.C2C,
         peerUid,
@@ -183,7 +210,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
       const body = await NTV2RichMedia.buildUploadReq(
         peer,
-        { type: 'video', filePath },
+        { type: 'video', filePath, duration, width, height },
         {
           video: {
             pbReserve: Buffer.from([0x80, 0x01, 0x00])

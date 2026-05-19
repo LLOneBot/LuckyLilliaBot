@@ -24,7 +24,7 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
           { key: 27394 },  // QID
         ],
       })
-      // by-UIN 需要 isReserved=1（参考 Lagrange）
+      // by-UIN 需要 isReserved=1
       const data = Oidb.Base.encode({
         command: 0xfe1,
         subCommand: 2,
@@ -79,7 +79,7 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
           { key: 27394 },
         ],
       })
-      // 注意：by-UID 不能加 isReserved=1（参考 Lagrange FetchStrangerService）
+      // 注意：by-UID 不能加 isReserved=1（FetchStrangerService 路径）
       const data = Oidb.Base.encode({
         command: 0xfe1,
         subCommand: 2,

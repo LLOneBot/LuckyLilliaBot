@@ -137,17 +137,22 @@ export class NTQQFileApi extends Service {
     throw new Error('reshareFlashFile 暂未实现 (直连模式)')
   }
 
-  async uploadGroupVideo(groupCode: string, filePath: string, thumbPath: string) {
-    const result = await this.ctx.qqProtocol.getGroupVideoUploadInfo(groupCode, filePath, thumbPath)
+  async uploadGroupVideo(groupCode: string, filePath: string, thumbPath: string, duration: number = 0, width: number = 0, height: number = 0) {
+    const result = await this.ctx.qqProtocol.getGroupVideoUploadInfo(groupCode, filePath, thumbPath, duration, width, height)
+    if (process.env.DEBUG_VIDEO_UPLOAD) {
+      const idxMain = result.ext?.msgInfoBody?.[0]?.index
+      const idxThumb = result.subExt?.msgInfoBody?.[1]?.index
+      console.log(`[uploadGroupVideo] main fileUuid=${idxMain?.fileUuid?.slice(0, 60)}... mainUKey=${result.ext?.uKey ? 'set' : 'EMPTY'}`)
+      console.log(`[uploadGroupVideo] thumb fileUuid=${idxThumb?.fileUuid?.slice(0, 60)}... thumbUKey=${result.subExt?.uKey ? 'set' : 'EMPTY'}`)
+    }
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const maxBlockSize = 1024 * 1024
-    // 注意：result.ext.uKey 为空表示 server 已有该文件（按 md5 命中），跳过 highway 上传
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
       result.ext.hash.fileSha1 = (await calculateSha1StreamBytes(filePath)).map((b: Buffer) => Buffer.from(b))
       const trans = {
         uin: selfInfo.uin,
-        cmd: 1001,  // group video main (Lagrange 一致)
+        cmd: 1005,  // group video main
         readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,
@@ -164,10 +169,10 @@ export class NTQQFileApi extends Service {
     }
     if (result.subExt.uKey) {
       const { index } = result.subExt.msgInfoBody[1]
-      // 注意：Lagrange video thumb 不重新算 sha1，只用 server 响应里的（已在 generateExt 填充）
+      result.subExt.hash.fileSha1 = (await calculateSha1StreamBytes(thumbPath)).map((b: Buffer) => Buffer.from(b))
       const trans = {
         uin: selfInfo.uin,
-        cmd: 1002,  // group video thumb
+        cmd: 1006,  // group video thumb
         readable: createReadStream(thumbPath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,
@@ -188,8 +193,8 @@ export class NTQQFileApi extends Service {
     }
   }
 
-  async uploadC2CVideo(peerUid: string, filePath: string, thumbPath: string) {
-    const result = await this.ctx.qqProtocol.getC2CVideoUploadInfo(peerUid, filePath, thumbPath)
+  async uploadC2CVideo(peerUid: string, filePath: string, thumbPath: string, duration: number = 0, width: number = 0, height: number = 0) {
+    const result = await this.ctx.qqProtocol.getC2CVideoUploadInfo(peerUid, filePath, thumbPath, duration, width, height)
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
@@ -197,7 +202,7 @@ export class NTQQFileApi extends Service {
       result.ext.hash.fileSha1 = (await calculateSha1StreamBytes(filePath)).map((b: Buffer) => Buffer.from(b))
       const trans = {
         uin: selfInfo.uin,
-        cmd: 1005,  // c2c video main
+        cmd: 1001,  // c2c video main
         readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,
@@ -214,9 +219,10 @@ export class NTQQFileApi extends Service {
     }
     if (result.subExt.uKey) {
       const { index } = result.subExt.msgInfoBody[1]
+      result.subExt.hash.fileSha1 = (await calculateSha1StreamBytes(thumbPath)).map((b: Buffer) => Buffer.from(b))
       const trans = {
         uin: selfInfo.uin,
-        cmd: 1006,  // c2c video thumb
+        cmd: 1002,  // c2c video thumb
         readable: createReadStream(thumbPath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,

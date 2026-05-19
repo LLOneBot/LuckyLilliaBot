@@ -32,16 +32,26 @@ export namespace Media {
       bizType: ProtoField(1, 'uint32'),
       summary: ProtoField(2, 'string'),
       bytesPbReserveC2c: ProtoField(11, 'bytes', 'optional'),
+      bytesPbReserveTroop: ProtoField(12, 'bytes', 'optional'),
       fromScene: ProtoField(1001, 'uint32'),
       toScene: ProtoField(1002, 'uint32'),
       oldFileId: ProtoField(1003, 'uint32')
     }),
     video: ProtoField(2, {
+      fromScene: ProtoField(1, 'uint32', 'optional'),
+      toScene: ProtoField(2, 'uint32', 'optional'),
       pbReserve: ProtoField(3, 'bytes')
     }),
     ptt: ProtoField(3, {
-      bytesPbReserve: ProtoField(11, 'bytes', 'optional'),
-      bytesGeneralFlags: ProtoField(12, 'bytes', 'optional'),
+      srcUin: ProtoField(1, 'uint64', 'optional'),
+      pttScene: ProtoField(2, 'uint32', 'optional'),
+      pttType: ProtoField(3, 'uint32', 'optional'),
+      changeVoice: ProtoField(4, 'uint32', 'optional'),
+      waveform: ProtoField(5, 'bytes', 'optional'),
+      autoConvertText: ProtoField(6, 'uint32', 'optional'),
+      bytesReserve: ProtoField(11, 'bytes', 'optional'),
+      bytesPbReserve: ProtoField(12, 'bytes', 'optional'),
+      bytesGeneralFlags: ProtoField(13, 'bytes', 'optional'),
     }, 'optional'),
     busiType: ProtoField(10, 'uint32')
   })
@@ -84,7 +94,13 @@ export namespace Media {
     }, 'optional'),
     download: ProtoField(3, {
       node: ProtoField(1, IndexNode)
-    }, 'optional')
+    }, 'optional'),
+    uploadCompleted: ProtoField(6, {
+      srvSendMsg: ProtoField(1, 'bool'),
+      clientRandomId: ProtoField(2, 'uint64'),
+      msgInfo: ProtoField(3, 'bytes'),
+      clientSeq: ProtoField(4, 'uint32'),
+    }, 'optional'),
   })
 
   const MsgInfoBody = ProtoMessage.of({
@@ -98,6 +114,10 @@ export namespace Media {
       }),
       domain: ProtoField(3, 'string')
     }, 'optional'),
+    // MsgInfoBody field 3/4 是 VideoInfo/AudioInfo（空 class）。
+    // 必须在 proto 里声明否则 decode→re-encode 会丢；用 bytes 透传 server 给的内容。
+    video: ProtoField(3, 'bytes', 'optional'),
+    audio: ProtoField(4, 'bytes', 'optional'),
     fileExist: ProtoField(5, 'bool'),
     hashSum: ProtoField(6, {
       bytesPbReserveC2c: ProtoField(201, {
@@ -145,7 +165,9 @@ export namespace Media {
       ipv4s: ProtoField(3, IPv4, 'repeated'),
       ipv6s: ProtoField(4, IPv6, 'repeated'),
       msgSeq: ProtoField(5, 'uint32', 'optional'),
-      msgInfo: ProtoField(6, MsgInfo),
+      // 关键：保留 server 原始 msgInfo bytes 作为 commonElem.pbElem，避免 decode→encode
+      // 时丢失字段（typeproto 跟 protobuf-net 行为不一致：decode 默认值 vs 不编码）
+      msgInfo: ProtoField(6, 'bytes'),
       ext: ProtoField(7, {
         subType: ProtoField(1, 'uint32'),
         extType: ProtoField(2, 'uint32'),

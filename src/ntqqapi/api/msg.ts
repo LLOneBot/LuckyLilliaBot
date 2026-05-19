@@ -201,7 +201,7 @@ export class NTQQMsgApi extends Service {
         const result = isGroup
           ? await this.ctx.ntFileApi.uploadGroupImage(peer.peerUid, sourcePath)
           : await this.ctx.ntFileApi.uploadC2CImage(peer.peerUid, sourcePath)
-        const msgInfoBytes = Media.MsgInfo.encode(result.msgInfo)
+        const msgInfoBytes = Buffer.from(result.msgInfo)
         elems.push({
           commonElem: {
             serviceType: 48,
@@ -216,12 +216,17 @@ export class NTQQMsgApi extends Service {
         if (!sourcePath || !thumbPath) continue
         const isGroup = peer.chatType === ChatType.Group
         const result = isGroup
-          ? await this.ctx.ntFileApi.uploadGroupVideo(peer.peerUid, sourcePath, thumbPath)
-          : await this.ctx.ntFileApi.uploadC2CVideo(peer.peerUid, sourcePath, thumbPath)
-        const msgInfoBytes = Media.MsgInfo.encode(result.msgInfo)
+          ? await this.ctx.ntFileApi.uploadGroupVideo(peer.peerUid, sourcePath, thumbPath, v.fileTime ?? 0, v.thumbWidth ?? 0, v.thumbHeight ?? 0)
+          : await this.ctx.ntFileApi.uploadC2CVideo(peer.peerUid, sourcePath, thumbPath, v.fileTime ?? 0, v.thumbWidth ?? 0, v.thumbHeight ?? 0)
+        const msgInfoBytes = Buffer.from(result.msgInfo)
+        if (process.env.DEBUG_VIDEO) {
+          console.log('[video] sourceMsgInfo from server:', JSON.stringify(result.msgInfo, (_k, v) =>
+            Buffer.isBuffer(v) || v?.type === 'Buffer' ? `<Buffer ${v.length || v.data?.length}>` : v).slice(0, 1500))
+          console.log('[video] re-encoded MsgInfo bytes hex (first 200B):', Buffer.from(msgInfoBytes).slice(0, 200).toString('hex'))
+          console.log('[video] re-encoded length:', msgInfoBytes.length)
+        }
         // 注意：视频消息发送后服务端不返回 sequence（field 11 缺失），是已知行为。
-        // Lagrange 同样 SendMessageEventResp 的 sequence 此时为 0；真正的 seq 通过
-        // OlPush 推送（server 转码完成后）异步到达。
+        // 真正的 seq 通过 OlPush 推送（server 转码完成后）异步到达。
         elems.push({
           commonElem: {
             serviceType: 48,
@@ -229,6 +234,13 @@ export class NTQQMsgApi extends Service {
             businessType: isGroup ? 21 : 11,
           }
         })
+        // 老格式 VideoFile elem（field 19）— 手机 QQ 用这个显示封面+播放，
+        // 新版 commonElem 它认不全。compat bytes 是 server 给的 VideoFile 序列化结果，原样透传
+        if (result.compat && result.compat.length > 0) {
+          elems.push({
+            videoFile: Buffer.from(result.compat),
+          })
+        }
       } else if (elem.elementType === ElementType.Ptt) {
         const p = elem.pttElement
         const sourcePath = p.filePath
@@ -237,7 +249,7 @@ export class NTQQMsgApi extends Service {
         const result = isGroup
           ? await this.ctx.ntFileApi.uploadGroupPtt(peer.peerUid, sourcePath, p.duration ?? 1)
           : await this.ctx.ntFileApi.uploadC2CPtt(peer.peerUid, sourcePath, p.duration ?? 1)
-        const msgInfoBytes = Media.MsgInfo.encode(result.msgInfo)
+        const msgInfoBytes = Buffer.from(result.msgInfo)
         elems.push({
           commonElem: {
             serviceType: 48,

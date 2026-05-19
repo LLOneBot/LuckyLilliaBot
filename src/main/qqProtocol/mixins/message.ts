@@ -140,7 +140,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       elems: InferProtoModelInput<typeof Msg.Elem>[]
     }) {
       const random = randomBytes(4).readUInt32BE(0)
-      // Lagrange BotMessage.ClientSequence: Random.NextInt64(10000, 99999)
+      // BotMessage.ClientSequence: Random.NextInt64(10000, 99999)
       const clientSequence = 10000 + Math.floor(Math.random() * 90000)
       const data = Msg.PbSendMsg.encode({
         routingHead: opts.isGroup
@@ -156,7 +156,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       if (resp.resultCode !== 0) {
         throw new Error(`发送消息失败 (code=${resp.resultCode}): ${resp.errMsg || ''}`)
       }
-      // 参考 Lagrange：clientSequence 不为 0 用它，否则用 sequence
+      // clientSequence 不为 0 用它，否则用 sequence
       const seq = (resp.clientSequence && resp.clientSequence !== 0n)
         ? resp.clientSequence
         : resp.sequence

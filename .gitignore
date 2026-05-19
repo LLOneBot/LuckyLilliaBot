@@ -22,3 +22,6 @@ bash.exe.stackdump
 *.stackdump
 
 test/qr-code.png
+test/qq-session.json
+.tmp/
+v2-login-qr.png

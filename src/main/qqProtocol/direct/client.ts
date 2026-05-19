@@ -2,6 +2,7 @@ import { TcpConnection } from './connection'
 import { buildServicePacket, buildServicePacket13, parseServicePacket, EncryptType, PacketContext, SsoPacket } from './packet'
 import { generateEcdhKeyPair, EcdhKeyPair } from './ecdh'
 import { requestSign, SignResult } from './sign'
+import { AppInfo } from './appInfo'
 import { randomBytes, createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 
@@ -14,12 +15,11 @@ export interface DirectClientConfig {
   signUrl?: string
 }
 
-// Linux PC platform defaults
 const DEFAULT_CONFIG: DirectClientConfig = {
-  appId: 1600001615,
-  subAppId: 537345891,
-  ssoVersion: 19,
-  buildVer: '3.2.26-46494',
+  appId: AppInfo.appId,
+  subAppId: AppInfo.subAppId,
+  ssoVersion: AppInfo.ssoVersion,
+  buildVer: AppInfo.buildVer,
   useIPv6: false,
 }
 
@@ -134,6 +134,9 @@ export class DirectProtocolClient extends EventEmitter {
     let signResult: SignResult | null = null
     if (this.config.signUrl && this.SIGN_ALLOWLIST.has(cmd)) {
       signResult = await requestSign(this.config.signUrl, cmd, payload, seq)
+      if (process.env.DEBUG_SIGN) {
+        console.log(`[Sign] ${cmd} seq=${seq}: result=${signResult ? `sign=${signResult.sign.length}B token=${signResult.token.length}B extra=${signResult.extra.length}B` : 'null'}`)
+      }
     }
 
     const packet = buildServicePacket(seq, cmd, ctx, payload, enc, signResult)
