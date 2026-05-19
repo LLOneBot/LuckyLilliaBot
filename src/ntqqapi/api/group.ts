@@ -421,8 +421,11 @@ export class NTQQGroupApi extends Service {
     throw new Error('setGroupRemark 暂未实现 (直连模式)')
   }
 
-  async moveGroupFile(_groupId: string, _fileIdList: string[], _curFolderId: string, _dstFolderId: string): Promise<any> {
-    throw new Error('moveGroupFile 暂未实现 (直连模式)')
+  async moveGroupFile(groupId: string, fileIdList: string[], curFolderId: string, dstFolderId: string): Promise<any> {
+    await Promise.all(fileIdList.map((fileId) =>
+      this.ctx.qqProtocol.moveGroupFile(+groupId, fileId, curFolderId, dstFolderId)
+    ))
+    return { result: 0, errMsg: '' }
   }
 
   async getGroupShutUpMemberList(groupCode: string): Promise<GroupMember[]> {

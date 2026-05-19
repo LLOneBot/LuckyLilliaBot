@@ -141,6 +141,20 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return { result: 0 }
     }
 
+    /** 移动群文件到另一目录 */
+    async moveGroupFile(groupCode: number, fileId: string, parentDirectory: string, targetDirectory: string) {
+      const body = Oidb.GroupFileMoveReq.encode({
+        move: { groupCode, appId: 7, busId: 102, fileId, parentDirectory, targetDirectory },
+      })
+      const data = Oidb.Base.encode({ command: 0x6d6, subCommand: 5, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_5', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`moveGroupFile failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      return { result: 0 }
+    }
+
     /** 创建群文件夹，rootDirectory 为父目录 id（根目录用 "/"） */
     async createGroupFolder(groupCode: number, folderName: string, rootDirectory: string = '/') {
       const body = Oidb.GroupFolderCreateReq.encode({ create: { groupCode, rootDirectory, folderName } })

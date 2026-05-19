@@ -803,6 +803,18 @@ export namespace Oidb {
     }),
   })
 
+  /** OidbSvcTrpcTcp.0x6d6_5 - 移动群文件到另一文件夹 */
+  export const GroupFileMoveReq = ProtoMessage.of({
+    move: ProtoField(6, {
+      groupCode: ProtoField(1, 'uint32'),
+      appId: ProtoField(2, 'uint32'),       // 7
+      busId: ProtoField(3, 'uint32'),       // 102
+      fileId: ProtoField(4, 'string'),
+      parentDirectory: ProtoField(5, 'string'),
+      targetDirectory: ProtoField(6, 'string'),
+    }),
+  })
+
   /** OidbSvcTrpcTcp.0x6d7_0 - 创建群文件夹 */
   export const GroupFolderCreateReq = ProtoMessage.of({
     create: ProtoField(1, {
