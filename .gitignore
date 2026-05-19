@@ -25,3 +25,4 @@ test/qr-code.png
 test/qq-session.json
 .tmp/
 v2-login-qr.png
+sse-capture.jsonl
