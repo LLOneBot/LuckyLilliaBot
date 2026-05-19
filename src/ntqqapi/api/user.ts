@@ -239,7 +239,12 @@ export class NTQQUserApi extends Service {
   }
 
   async quitAccount(): Promise<any> {
-    throw new Error('quitAccount 暂未实现 (直连模式)')
+    // 直连协议没有 server 端"主动登出"接口；本地断开 TCP + 清除 session 即可
+    const client = this.ctx.qqProtocol.directClient
+    if (client?.isConnected) {
+      client.disconnect()
+    }
+    return { result: 0, errMsg: '' }
   }
 
   async modifySelfProfile(_profile: MiniProfile): Promise<any> {
