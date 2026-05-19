@@ -146,5 +146,31 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
       const { message } = Action.SetStatusResp.decode(Buffer.from(res.pb, 'hex'))
       return { message: message || '' }
     }
+
+    /** 拉 clientKey（用于换 web cookies）。OidbSvcTrpcTcp.0x102a_1 */
+    async fetchClientKey(): Promise<{ clientKey: string, expiration: number }> {
+      const body = Oidb.FetchCookiesReq.encode({})
+      const data = Oidb.Base.encode({ command: 0x102a, subCommand: 1, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x102a_1', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`fetchClientKey failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      const resp = Oidb.FetchCookiesResp.decode(Buffer.from(decoded.body))
+      return { clientKey: resp.clientKey, expiration: resp.expiration }
+    }
+
+    /** 拉指定 domain 的 PSkey 字典。OidbSvcTrpcTcp.0x102a_0 */
+    async fetchPSkey(domains: string[]): Promise<Record<string, string>> {
+      const body = Oidb.FetchCookiesReq.encode({ domain: domains })
+      const data = Oidb.Base.encode({ command: 0x102a, subCommand: 0, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x102a_0', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`fetchPSkey failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      const resp = Oidb.FetchCookiesResp.decode(Buffer.from(decoded.body))
+      return Object.fromEntries(resp.psKeys)
+    }
   }
 }

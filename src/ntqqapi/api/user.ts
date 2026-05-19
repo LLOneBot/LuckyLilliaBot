@@ -203,16 +203,24 @@ export class NTQQUserApi extends Service {
     return cookies
   }
 
-  async getPSkey(_domains: string[]): Promise<any> {
-    throw new Error('getPSkey 暂未实现 (直连模式)')
+  async getPSkey(domains: string[]): Promise<{ domainPskeyMap: Map<string, string> }> {
+    const psKeys = await this.ctx.qqProtocol.fetchPSkey(domains)
+    return { domainPskeyMap: new Map(Object.entries(psKeys)) }
   }
 
   async like(uid: string, count = 1): Promise<any> {
     return await this.ctx.qqProtocol.sendFriendLike(uid, count)
   }
 
-  async forceFetchClientKey(): Promise<any> {
-    throw new Error('forceFetchClientKey 暂未实现 (直连模式)')
+  async forceFetchClientKey(): Promise<{ result: number, errMsg: string, clientKey: string, expireTime: string, keyIndex: string }> {
+    const { clientKey, expiration } = await this.ctx.qqProtocol.fetchClientKey()
+    return {
+      result: 0,
+      errMsg: '',
+      clientKey,
+      expireTime: String(expiration),
+      keyIndex: '19',
+    }
   }
 
   async getSelfNick(refresh = true) {

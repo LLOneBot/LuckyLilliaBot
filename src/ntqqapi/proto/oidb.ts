@@ -754,6 +754,18 @@ export namespace Oidb {
     type: ProtoField(5, 'uint32'),
   })
 
+  /** OidbSvcTrpcTcp.0x102a_0 / 0x102a_1 - 拉 PSkey / clientKey */
+  export const FetchCookiesReq = ProtoMessage.of({
+    domain: ProtoField(1, 'string', 'repeated'),
+  })
+
+  export const FetchCookiesResp = ProtoMessage.of({
+    psKeys: ProtoField(1, ['string', 'string']),
+    keyType: ProtoField(2, 'int32'),
+    clientKey: ProtoField(3, 'string'),
+    expiration: ProtoField(4, 'uint32'),
+  })
+
   /** OidbSvcTrpcTcp.0x10c0_1 / 0x10c0_2 - 拉群通知 */
   export const FetchGroupNotifiesReq = ProtoMessage.of({
     count: ProtoField(1, 'uint32'),
