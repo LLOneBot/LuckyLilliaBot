@@ -290,8 +290,73 @@ export class NTQQGroupApi extends Service {
     throw new Error('deleteGroupFile 暂未实现 (直连模式)')
   }
 
-  async getGroupFileList(_groupId: string, _fileListForm: GetFileListParam): Promise<GroupFileInfo> {
-    throw new Error('getGroupFileList 暂未实现 (直连模式)')
+  async getGroupFileList(groupId: string, fileListForm: GetFileListParam): Promise<GroupFileInfo> {
+    const folderId = (fileListForm as any)?.folderId ?? '/'
+    const startIndex = (fileListForm as any)?.startIndex ?? 0
+    const fileCount = (fileListForm as any)?.fileCount ?? 20
+    const resp = await this.ctx.qqProtocol.getGroupFileList(+groupId, folderId, startIndex, fileCount)
+    const list = resp.listResp
+    const items: GroupFileInfo['item'] = []
+    for (const it of list?.items ?? []) {
+      if (it.folderInfo) {
+        items.push({
+          peerId: groupId,
+          type: 1,
+          folderInfo: {
+            folderId: it.folderInfo.folderId,
+            parentFolderId: it.folderInfo.parentDirectoryId,
+            folderName: it.folderInfo.folderName,
+            createTime: it.folderInfo.createTime,
+            modifyTime: it.folderInfo.modifiedTime,
+            createUin: String(it.folderInfo.creatorUin),
+            creatorName: it.folderInfo.creatorName,
+            totalFileCount: it.folderInfo.totalFileCount,
+            modifyUin: '',
+            modifyName: '',
+            usedSpace: '0',
+          },
+        } as any)
+      } else if (it.fileInfo) {
+        items.push({
+          peerId: groupId,
+          type: 2,
+          fileInfo: {
+            fileModelId: '',
+            fileId: it.fileInfo.fileId,
+            fileName: it.fileInfo.fileName,
+            fileSize: String(it.fileInfo.fileSize),
+            busId: it.fileInfo.busId,
+            uploadedSize: String(it.fileInfo.uploadedSize),
+            uploadTime: it.fileInfo.uploadedTime,
+            deadTime: it.fileInfo.expireTime,
+            modifyTime: it.fileInfo.modifiedTime,
+            downloadTimes: it.fileInfo.downloadedTimes,
+            sha: Buffer.from(it.fileInfo.fileSha1).toString('hex'),
+            sha3: '',
+            md5: Buffer.from(it.fileInfo.fileMd5).toString('hex'),
+            uploaderLocalPath: '',
+            uploaderName: it.fileInfo.uploaderName,
+            uploaderUin: String(it.fileInfo.uploaderUin),
+            parentFolderId: it.fileInfo.parentDirectory,
+            localPath: '',
+            transStatus: 0,
+            transType: 0,
+            elementId: '',
+            isFolder: false,
+          },
+        } as any)
+      }
+    }
+    return {
+      retCode: list?.retCode ?? 0,
+      retMsg: list?.retMsg ?? '',
+      clientWording: list?.clientWording ?? '',
+      isEnd: !!list?.isEnd,
+      item: items,
+      allFileCount: list?.allFileCount ?? items.length,
+      nextIndex: list?.nextIndex ?? 0,
+      reqId: 0,
+    }
   }
 
   async publishGroupBulletin(_groupCode: string, _req: PublishGroupBulletinReq): Promise<any> {
