@@ -207,8 +207,8 @@ export class NTQQUserApi extends Service {
     throw new Error('getPSkey 暂未实现 (直连模式)')
   }
 
-  async like(_uid: string, _count = 1): Promise<any> {
-    throw new Error('like 暂未实现 (直连模式)')
+  async like(uid: string, count = 1): Promise<any> {
+    return await this.ctx.qqProtocol.sendFriendLike(uid, count)
   }
 
   async forceFetchClientKey(): Promise<any> {

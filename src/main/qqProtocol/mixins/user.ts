@@ -121,5 +121,17 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
           ?.uint32_login_days ?? 0
       )
     }
+
+    /** 给好友点赞，count 1~20 表示一次点赞次数（QQ 协议限制每天 20 个） */
+    async sendFriendLike(targetUid: string, count: number = 1) {
+      const body = Oidb.FriendLikeReq.encode({ targetUid, field2: 71, count })
+      const data = Oidb.Base.encode({ command: 0x7e5, subCommand: 104, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x7e5_104', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`sendFriendLike failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      return { result: 0 }
+    }
   }
 }

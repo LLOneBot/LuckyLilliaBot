@@ -786,4 +786,11 @@ export namespace Oidb {
     }, 'repeated'),
     newLatestSequence: ProtoField(3, 'uint64', 'optional'),
   })
+
+  /** OidbSvcTrpcTcp.0x7e5_104 - 给好友点赞 */
+  export const FriendLikeReq = ProtoMessage.of({
+    targetUid: ProtoField(11, 'string'),
+    field2: ProtoField(12, 'uint32'),  // 固定 71
+    count: ProtoField(13, 'uint32'),
+  })
 }
