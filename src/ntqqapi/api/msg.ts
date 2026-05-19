@@ -46,8 +46,14 @@ export class NTQQMsgApi extends Service {
     return await this.ctx.qqProtocol.setGroupReaction(+peer.peerUid, +msgSeq, emojiId, setEmoji)
   }
 
-  async getMultiMsg(_peer: Peer, _rootMsgId: string, _parentMsgId: string): Promise<any> {
-    throw new Error('getMultiMsg 暂未实现 (直连模式)')
+  async getMultiMsg(peer: Peer, rootMsgId: string, _parentMsgId: string): Promise<any> {
+    // mixin 的 getMultiMsg(resId) 返回 PbMultiMsgItem[]：
+    //   [{ fileName: 'MultiMsg', buffer: { msg: Message[] } }, ...]
+    // 第一项是顶层聊天记录，其余是嵌套 forward 的展开结果
+    const items = await this.ctx.qqProtocol.getMultiMsg(rootMsgId)
+    const top = items?.find((x: any) => x.fileName === 'MultiMsg') ?? items?.[0]
+    const rawList = (top?.buffer?.msg ?? []) as any[]
+    return { msgList: this.toRawMessages(rawList, peer.chatType) }
   }
 
   async activateChat(_peer: Peer): Promise<any> {
