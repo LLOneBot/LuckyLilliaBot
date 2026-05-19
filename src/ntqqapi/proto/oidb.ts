@@ -802,4 +802,30 @@ export namespace Oidb {
       fileId: ProtoField(5, 'string'),
     }),
   })
+
+  /** OidbSvcTrpcTcp.0x6d7_0 - 创建群文件夹 */
+  export const GroupFolderCreateReq = ProtoMessage.of({
+    create: ProtoField(1, {
+      groupCode: ProtoField(1, 'uint32'),
+      rootDirectory: ProtoField(3, 'string'),  // 父目录 id，根 "/"
+      folderName: ProtoField(4, 'string'),
+    }),
+  })
+
+  /** OidbSvcTrpcTcp.0x6d7_1 - 删群文件夹 */
+  export const GroupFolderDeleteReq = ProtoMessage.of({
+    delete: ProtoField(2, {
+      groupCode: ProtoField(1, 'uint32'),
+      folderId: ProtoField(3, 'string'),
+    }),
+  })
+
+  /** OidbSvcTrpcTcp.0x6d7_2 - 重命名群文件夹 */
+  export const GroupFolderRenameReq = ProtoMessage.of({
+    rename: ProtoField(3, {
+      groupCode: ProtoField(1, 'uint32'),
+      folderId: ProtoField(3, 'string'),
+      newFolderName: ProtoField(4, 'string'),
+    }),
+  })
 }

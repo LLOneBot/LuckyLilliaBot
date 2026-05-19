@@ -141,6 +141,42 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return { result: 0 }
     }
 
+    /** 创建群文件夹，rootDirectory 为父目录 id（根目录用 "/"） */
+    async createGroupFolder(groupCode: number, folderName: string, rootDirectory: string = '/') {
+      const body = Oidb.GroupFolderCreateReq.encode({ create: { groupCode, rootDirectory, folderName } })
+      const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 0, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d7_0', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`createGroupFolder failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      return { result: 0 }
+    }
+
+    /** 删除群文件夹（一定要空文件夹否则 server 拒绝） */
+    async deleteGroupFolder(groupCode: number, folderId: string) {
+      const body = Oidb.GroupFolderDeleteReq.encode({ delete: { groupCode, folderId } })
+      const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 1, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d7_1', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`deleteGroupFolder failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      return { result: 0 }
+    }
+
+    /** 重命名群文件夹 */
+    async renameGroupFolder(groupCode: number, folderId: string, newFolderName: string) {
+      const body = Oidb.GroupFolderRenameReq.encode({ rename: { groupCode, folderId, newFolderName } })
+      const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 2, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d7_2', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`renameGroupFolder failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      return { result: 0 }
+    }
+
     async setGroupPin(groupCode: number, isPinned: boolean) {
       let timestamp
       if (isPinned) {

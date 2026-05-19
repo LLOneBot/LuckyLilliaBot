@@ -278,12 +278,14 @@ export class NTQQGroupApi extends Service {
     return { errCode: resp.errorCode, errMsg: resp.errorMsg }
   }
 
-  async createGroupFileFolder(_groupId: string, _folderName: string): Promise<any> {
-    throw new Error('createGroupFileFolder 暂未实现 (直连模式)')
+  async createGroupFileFolder(groupId: string, folderName: string): Promise<any> {
+    await this.ctx.qqProtocol.createGroupFolder(+groupId, folderName, '/')
+    return { result: 0, errMsg: '' }
   }
 
-  async deleteGroupFileFolder(_groupId: string, _folderId: string): Promise<any> {
-    throw new Error('deleteGroupFileFolder 暂未实现 (直连模式)')
+  async deleteGroupFileFolder(groupId: string, folderId: string): Promise<any> {
+    await this.ctx.qqProtocol.deleteGroupFolder(+groupId, folderId)
+    return { result: 0, errMsg: '' }
   }
 
   async deleteGroupFile(groupId: string, fileIdList: string[], busIdList: number[]): Promise<any> {
@@ -431,8 +433,9 @@ export class NTQQGroupApi extends Service {
       .map((m: any) => this.toGroupMember(m))
   }
 
-  async renameGroupFolder(_groupId: string, _folderId: string, _newFolderName: string): Promise<any> {
-    throw new Error('renameGroupFolder 暂未实现 (直连模式)')
+  async renameGroupFolder(groupId: string, folderId: string, newFolderName: string): Promise<any> {
+    await this.ctx.qqProtocol.renameGroupFolder(+groupId, folderId, newFolderName)
+    return { result: 0, errMsg: '' }
   }
 
   async setGroupFileForever(_groupId: string, _fileId: string): Promise<any> {
