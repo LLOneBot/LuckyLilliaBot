@@ -357,22 +357,101 @@ export class NTQQMsgApi extends Service {
     return out
   }
 
-  async forwardMultiMsg(_srcPeer: Peer, _destPeer: Peer, _msgIds: string[]): Promise<RawMessage> {
-    // 直连模式聚合转发的完整链路在 milky API 里已经实现了（见
-    // src/milky/transform/message/outgoing.ts 的 ForwardMessageEncoder
-    // + qqProtocol.uploadForward + ark element），milky 接口接的是用户
-    // 构造的虚拟 OutgoingForwardedMessage 节点。
-    //
-    // 这里 ntqqapi 的签名要求把 cache 里的真实历史消息反向编码回
-    // Msg.Message wire format，需要：(a) RawMessage.elements 整套反向
-    // 映射成 Msg.Elem（picElement/videoElement 等还得重新拉文件再上传到
-    // dest peer），(b) routingHead/contentHead 重建。工作量大且边界条件多。
-    // 推荐走 milky 的 send_forwarded_message 接口完成同样需求。
-    throw new Error('forwardMultiMsg via cache 暂未实现 (直连模式)；请走 milky send_forwarded_message')
+  async forwardMultiMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]): Promise<RawMessage> {
+    return this.multiForwardMsg(srcPeer, destPeer, msgIds)
   }
 
-  async multiForwardMsg(_srcPeer: Peer, _destPeer: Peer, _msgIds: string[]): Promise<RawMessage> {
-    throw new Error('multiForwardMsg via cache 暂未实现 (直连模式)；请走 milky send_forwarded_message')
+  async multiForwardMsg(srcPeer: Peer, destPeer: Peer, msgIds: string[]): Promise<RawMessage> {
+    // 从 cache 拉源消息，构造一个聚合转发卡片（com.tencent.multimsg ark）发到 dest
+    // 局限：cache 只保留 RawMessage（已解析过），无法 round-trip 原始 wire elem
+    // 字节，所以这里只 round-trip text/face；其他元素降级成占位文本
+    // （"[图片]" / "[视频]" / "[语音]" 等）。媒体保真转发请走 milky 接口
+    const store = this.ctx.get('store') as any
+    const isGroupSrc = srcPeer.chatType === ChatType.Group
+    const isGroupDest = destPeer.chatType === ChatType.Group
+    const messages: any[] = []
+    const news: { text: string }[] = []
+    let seq = (Date.now() & 0xffff) | 0x10000
+    for (const msgId of msgIds) {
+      const raw = store?.getMsgCache?.(msgId) as RawMessage | undefined
+      if (!raw) continue
+      const elems: any[] = []
+      let preview = ''
+      for (const e of raw.elements) {
+        if (e.textElement?.content) {
+          elems.push({ text: { str: e.textElement.content } })
+          preview += e.textElement.content
+        } else if (e.faceElement) {
+          elems.push({ face: { index: +(e.faceElement as any).faceIndex || 0 } })
+          preview += '[表情]'
+        } else if (e.picElement) {
+          elems.push({ text: { str: '[图片]' } })
+          preview += '[图片]'
+        } else if (e.videoElement) {
+          elems.push({ text: { str: '[视频]' } })
+          preview += '[视频]'
+        } else if (e.pttElement) {
+          elems.push({ text: { str: '[语音]' } })
+          preview += '[语音]'
+        } else if (e.arkElement) {
+          elems.push({ text: { str: '[卡片]' } })
+          preview += '[卡片]'
+        }
+      }
+      if (elems.length === 0) continue
+      const senderUin = +(raw.senderUin || selfInfo.uin || 0)
+      const senderName = raw.sendNickName || raw.sendMemberName || raw.peerName || String(senderUin)
+      messages.push({
+        routingHead: {
+          fromUin: senderUin,
+          c2c: isGroupSrc ? undefined : { friendName: senderName },
+          group: isGroupSrc ? { groupCode: +srcPeer.peerUid, groupCard: senderName } : undefined,
+        },
+        contentHead: {
+          msgType: isGroupSrc ? 82 : 9,
+          random: Math.floor(Math.random() * 0xfffffff0),
+          msgSeq: seq++,
+          msgTime: +raw.msgTime || Math.trunc(Date.now() / 1000),
+          pkgNum: 1, pkgIndex: 0, divSeq: 0,
+          forward: { field1: 0, field2: 0, field3: 0, field4: '', avatar: '' },
+        },
+        body: { richText: { elems } },
+      })
+      if (news.length < 4) news.push({ text: `${senderName}: ${preview.slice(0, 70)}` })
+    }
+    if (messages.length === 0) {
+      throw new Error(`multiForwardMsg: no source message in cache for ids=${msgIds.join(',')}`)
+    }
+    const destPeerUid = destPeer.peerUid
+    const destIsGroup = isGroupDest
+    const resid = await this.ctx.qqProtocol.uploadForward(destPeerUid, destIsGroup, [
+      { fileName: 'MultiMsg', buffer: { msg: messages } },
+    ])
+    const uniseq = require('node:crypto').randomUUID() as string
+    const arkJson = JSON.stringify({
+      app: 'com.tencent.multimsg',
+      config: { autosize: 1, forward: 1, round: 1, type: 'normal', width: 300 },
+      desc: '[聊天记录]',
+      extra: JSON.stringify({ filename: uniseq, tsum: messages.length }),
+      meta: {
+        detail: {
+          news,
+          resid,
+          source: destIsGroup ? '群聊的聊天记录' : '聊天记录',
+          summary: `查看${messages.length}条转发消息`,
+          uniseq,
+        },
+      },
+      prompt: '[聊天记录]',
+      ver: '0.0.0.5',
+      view: 'contact',
+    })
+    const arkElem: any = {
+      elementType: ElementType.Ark,
+      elementId: '',
+      arkElement: { bytesData: arkJson },
+    }
+    return await this.sendMsg(destPeer, [arkElem])
   }
 
   async getSingleMsg(peer: Peer, msgSeq: string) {
