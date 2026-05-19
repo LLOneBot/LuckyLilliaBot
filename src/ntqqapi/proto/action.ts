@@ -148,4 +148,74 @@ export namespace Action {
   export const SetStatusResp = ProtoMessage.of({
     message: ProtoField(2, 'string'),
   })
+
+  // ─── 群相册 (QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.GetAlbumList) ───
+  const QunAlbumPhotoUrl = ProtoMessage.of({
+    url: ProtoField(1, 'string'),
+    width: ProtoField(2, 'uint32'),
+    height: ProtoField(3, 'uint32'),
+  })
+
+  const QunAlbumThumbnail = ProtoMessage.of({
+    spec: ProtoField(1, 'uint32'),
+    url: ProtoField(2, QunAlbumPhotoUrl),
+  })
+
+  const QunAlbumImage = ProtoMessage.of({
+    lloc: ProtoField(3, 'string'),
+    photoUrls: ProtoField(4, QunAlbumThumbnail, 'repeated'),
+    defaultUrl: ProtoField(5, QunAlbumPhotoUrl, 'optional'),
+  })
+
+  const QunAlbumCover = ProtoMessage.of({
+    type: ProtoField(1, 'uint32'),
+    image: ProtoField(2, QunAlbumImage, 'optional'),
+  })
+
+  const QunAlbumCreator = ProtoMessage.of({
+    nick: ProtoField(2, 'string'),
+    uin: ProtoField(13, 'string'),
+  })
+
+  const QunAlbumRecord = ProtoMessage.of({
+    albumId: ProtoField(1, 'string'),
+    owner: ProtoField(2, 'string'),
+    name: ProtoField(3, 'string'),
+    desc: ProtoField(4, 'string'),
+    createTime: ProtoField(5, 'uint32'),
+    modifyTime: ProtoField(6, 'uint32'),
+    lastUploadTime: ProtoField(7, 'uint32'),
+    uploadNumber: ProtoField(8, 'uint32'),
+    cover: ProtoField(9, QunAlbumCover, 'optional'),
+    creator: ProtoField(10, QunAlbumCreator, 'optional'),
+    field11: ProtoField(11, 'uint32'),
+    field23: ProtoField(23, 'uint32'),
+    field33: ProtoField(33, 'uint32'),
+  })
+
+  const QunAlbumMetaHeader = ProtoMessage.of({
+    name: ProtoField(1, 'string'),
+    value: ProtoField(2, 'string'),
+  })
+
+  const QunAlbumReqBody = ProtoMessage.of({
+    groupCode: ProtoField(1, 'string'),
+    albumId: ProtoField(2, 'bytes'),
+  })
+
+  export const GetAlbumListReq = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    field2: ProtoField(2, 'bytes'),
+    field3: ProtoField(3, 'bytes'),
+    body: ProtoField(4, QunAlbumReqBody),
+    sessionId: ProtoField(5, 'string'),
+    headers: ProtoField(10, QunAlbumMetaHeader, 'repeated'),
+  })
+
+  export const GetAlbumListResp = ProtoMessage.of({
+    status: ProtoField(1, 'uint32'),
+    body: ProtoField(4, {
+      albums: ProtoField(1, QunAlbumRecord, 'repeated'),
+    }, 'optional'),
+  })
 }

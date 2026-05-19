@@ -460,8 +460,69 @@ export class NTQQGroupApi extends Service {
     return await this.ctx.qqProtocol.transGroupFile(groupCode, fileId)
   }
 
-  async getGroupAlbumList(_groupId: string): Promise<any> {
-    throw new Error('getGroupAlbumList 暂未实现 (直连模式)')
+  async getGroupAlbumList(groupId: string): Promise<any> {
+    const albums = await this.ctx.qqProtocol.fetchGroupAlbumList(+groupId)
+    const album_list = albums.map((a: any) => {
+      const photoUrls = a.cover?.image?.photoUrls ?? []
+      const defaultUrl = a.cover?.image?.defaultUrl
+      return {
+        album_id: a.albumId,
+        owner: a.owner,
+        name: a.name,
+        desc: a.desc ?? '',
+        create_time: String(a.createTime ?? 0),
+        modify_time: String(a.modifyTime ?? 0),
+        last_upload_time: String(a.lastUploadTime ?? 0),
+        upload_number: String(a.uploadNumber ?? 0),
+        cover: {
+          type: a.cover?.type ?? 0,
+          image: a.cover?.image ? {
+            name: '',
+            sloc: '',
+            lloc: a.cover.image.lloc ?? '',
+            photo_url: photoUrls.map((p: any) => ({
+              spec: p.spec,
+              url: { url: p.url?.url ?? '', width: p.url?.width ?? 0, height: p.url?.height ?? 0 },
+            })),
+            default_url: defaultUrl ? { url: defaultUrl.url ?? '', width: defaultUrl.width ?? 0, height: defaultUrl.height ?? 0 } : null,
+            is_gif: false,
+            has_raw: false,
+          } : null,
+          video: null,
+          desc: a.desc ?? '',
+          lbs: null,
+          uploader: '',
+          batch_id: '0',
+          upload_time: '0',
+          upload_order: 0,
+          like: null,
+          comment: null,
+          upload_user: null,
+          ext: [],
+          shoot_time: '0',
+          link_id: '0',
+          op_mask: [],
+          lbs_source: 0,
+        },
+        creator: {
+          uid: '',
+          nick: a.creator?.nick ?? '',
+          uin: a.creator?.uin ?? '',
+          yellow_info: null,
+          star_info: null,
+          is_sweet: false,
+          is_special: false,
+          is_super_like: false,
+          custom_id: '',
+          poly_id: '',
+          portrait: '',
+          can_follow: 0,
+          isfollowed: 0,
+          ditto_uin: '',
+        },
+      }
+    })
+    return { response: { result: 0, errMs: '', album_list } }
   }
 
   async createGroupAlbum(_groupId: string, _name: string, _desc: string): Promise<any> {

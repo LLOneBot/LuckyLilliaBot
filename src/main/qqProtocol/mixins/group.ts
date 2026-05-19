@@ -1,4 +1,4 @@
-import { Oidb } from '@/ntqqapi/proto'
+import { Action, Oidb } from '@/ntqqapi/proto'
 import { selfInfo } from '@/common/globalVars'
 import type { QQProtocolBase } from '../base'
 import { randomInt } from 'node:crypto'
@@ -450,6 +450,27 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const res = await this.sendPB(`OidbSvcTrpcTcp.0x6d9_0`, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.TransGroupFileResp.decode(oidbRespBody)
+    }
+
+    /** 拉群相册列表 (QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.GetAlbumList) */
+    async fetchGroupAlbumList(groupCode: number) {
+      const ts = new Date()
+      const pad = (n: number, w = 2) => n.toString().padStart(w, '0')
+      const sessionId = `_${pad(ts.getMonth() + 1)}${pad(ts.getDate())}${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}${pad(ts.getMilliseconds(), 3)}_${randomInt(10000, 99999)}`
+      const reqBytes = Action.GetAlbumListReq.encode({
+        field1: 0,
+        field2: Buffer.alloc(0),
+        field3: Buffer.alloc(0),
+        body: { groupCode: String(groupCode), albumId: Buffer.alloc(0) },
+        sessionId,
+        headers: [{ name: 'fc-appid', value: '100' }],
+      })
+      const res = await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.GetAlbumList', reqBytes)
+      const decoded = Action.GetAlbumListResp.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.status !== 0) {
+        throw new Error(`fetchGroupAlbumList failed: status=${decoded.status}`)
+      }
+      return decoded.body?.albums ?? []
     }
   }
 }
