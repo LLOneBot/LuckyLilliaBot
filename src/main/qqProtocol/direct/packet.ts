@@ -2,6 +2,7 @@ import { teaEncrypt, teaDecrypt } from './tea'
 import { buildSsoReservedField } from './ssoReserved'
 import type { SignResult } from './sign'
 import { randomBytes } from 'node:crypto'
+import { inflateSync } from 'node:zlib'
 
 export enum EncryptType {
   NoEncrypt = 0x00,
@@ -294,7 +295,17 @@ function parseSsoFrame12(data: Buffer): SsoPacket | null {
 
   if (offset + 4 > data.length) return null
   const bodyLen = data.readInt32BE(offset); offset += 4
-  const payload = Buffer.from(data.subarray(offset, offset + bodyLen - 4))
+  let payload = Buffer.from(data.subarray(offset, offset + bodyLen - 4))
+
+  // 服务器可能 zlib 压缩响应体（zlib magic: 0x78 0x01/0x9C/0xDA）
+  if (payload.length >= 2 && payload[0] === 0x78 && (payload[1] === 0x01 || payload[1] === 0x9C || payload[1] === 0xDA)) {
+    try {
+      const inflated = inflateSync(payload)
+      payload = Buffer.from(inflated)
+    } catch {
+      // 不是合法 zlib 流，原样返回
+    }
+  }
 
   return { seq, cmd, payload, retCode, extraMsg }
 }
