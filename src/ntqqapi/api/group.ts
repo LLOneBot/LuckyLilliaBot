@@ -106,7 +106,7 @@ export class NTQQGroupApi extends Service {
       if (m.id?.uid) infos.set(m.id.uid, this.toGroupMember(m))
     }
     this.memberCache.set(groupCode, infos)
-    return { result: { infos, finish: true, ids: [] } } as any
+    return { errCode: 0, errMsg: '', result: { infos, finish: true, ids: [] } } as any
   }
 
   async getGroupMember(groupCode: string, uid: string, forceUpdate = false, _timeout = 15000) {
@@ -276,7 +276,16 @@ export class NTQQGroupApi extends Service {
   }
 
   async getGroupRemainAtTimes(_groupCode: string): Promise<any> {
-    return { atInfo: { atAllRemainCount: 0, canAtAll: true } }
+    return {
+      errCode: 0,
+      errMsg: '',
+      atInfo: {
+        canAtAll: true,
+        RemainAtAllCountForGroup: 0,
+        RemainAtAllCountForUin: 0,
+        atAllRemainCount: 0,
+      },
+    }
   }
 
   async removeGroupEssence(groupCode: string, msgId: string): Promise<{ errCode: number, errMsg: string }> {
@@ -298,13 +307,24 @@ export class NTQQGroupApi extends Service {
   }
 
   async createGroupFileFolder(groupId: string, folderName: string): Promise<any> {
-    await this.ctx.qqProtocol.createGroupFolder(+groupId, folderName, '/')
-    return { result: 0, errMsg: '' }
+    const r = await this.ctx.qqProtocol.createGroupFolder(+groupId, folderName, '/')
+    return {
+      result: 0,
+      errMsg: '',
+      resultWithGroupItem: {
+        result: { retCode: r.result, retMsg: r.retMsg, clientWording: r.clientWording },
+        groupItem: { folderInfo: { folderId: r.folderId, folderName: r.folderName } },
+      },
+    }
   }
 
   async deleteGroupFileFolder(groupId: string, folderId: string): Promise<any> {
     await this.ctx.qqProtocol.deleteGroupFolder(+groupId, folderId)
-    return { result: 0, errMsg: '' }
+    return {
+      result: 0,
+      errMsg: '',
+      groupFileCommonResult: { retCode: 0, retMsg: '', clientWording: '' },
+    }
   }
 
   async deleteGroupFile(groupId: string, fileIdList: string[], busIdList: number[]): Promise<any> {
@@ -489,11 +509,15 @@ export class NTQQGroupApi extends Service {
   }
 
   async getGroupFileCount(_groupId: string): Promise<any> {
-    return { groupFileCounts: [0] }
+    return { result: 0, errMsg: '', groupFileCounts: [0] }
   }
 
   async getGroupFileSpace(_groupId: string): Promise<any> {
-    return { totalSpace: 0, usedSpace: 0, allUpload: 0, allDownload: 0 }
+    return {
+      result: 0,
+      errMsg: '',
+      groupSpaceResult: { totalSpace: 0, usedSpace: 0, allUpload: 0, allDownload: 0 },
+    }
   }
 
   async setGroupMsgMask(groupCode: number, msgMask: GroupMsgMask) {

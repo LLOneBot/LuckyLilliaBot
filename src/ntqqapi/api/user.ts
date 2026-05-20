@@ -259,7 +259,8 @@ export class NTQQUserApi extends Service {
 
   async setSelfStatus(status: number, extStatus: number, _batteryStatus: number): Promise<any> {
     // 直连协议没有独立的电池上报通道，batteryStatus 忽略
-    return await this.ctx.qqProtocol.setOnlineStatus(status, extStatus)
+    const r = await this.ctx.qqProtocol.setOnlineStatus(status, extStatus)
+    return { result: 0, errMsg: r?.message || '' }
   }
 
   async getProfileLike(uid: string, _start = 0, limit = 20): Promise<any> {
@@ -287,7 +288,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getRobotUinRange(): Promise<any> {
-    return { response: { robotUinRanges: [] } }
+    return { result: 0, errMsg: '', response: { robotUinRanges: [] } }
   }
 
   async quitAccount(): Promise<any> {

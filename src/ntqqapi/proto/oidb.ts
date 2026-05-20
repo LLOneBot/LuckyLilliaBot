@@ -844,6 +844,19 @@ export namespace Oidb {
     }),
   })
 
+  export const GroupFolderCreateResp = ProtoMessage.of({
+    create: ProtoField(1, {
+      retCode: ProtoField(1, 'int32', 'optional'),
+      retMsg: ProtoField(2, 'string', 'optional'),
+      clientWording: ProtoField(3, 'string', 'optional'),
+      folderInfo: ProtoField(4, {
+        folderId: ProtoField(1, 'string', 'optional'),
+        folderPath: ProtoField(2, 'string', 'optional'),
+        folderName: ProtoField(3, 'string', 'optional'),
+      }, 'optional'),
+    }, 'optional'),
+  })
+
   /** OidbSvcTrpcTcp.0x6d7_1 - 删群文件夹 */
   export const GroupFolderDeleteReq = ProtoMessage.of({
     delete: ProtoField(2, {

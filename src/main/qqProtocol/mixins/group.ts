@@ -176,7 +176,17 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       if (decoded.errorCode !== 0) {
         throw new Error(`createGroupFolder failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
       }
-      return { result: 0 }
+      const inner = Oidb.GroupFolderCreateResp.decode(decoded.body as Uint8Array)
+      const create = inner.create
+      const folderId = create?.folderInfo?.folderId || ''
+      return {
+        result: create?.retCode ?? 0,
+        retMsg: create?.retMsg || '',
+        clientWording: create?.clientWording || '',
+        folderId,
+        folderName: create?.folderInfo?.folderName || folderName,
+        folderPath: create?.folderInfo?.folderPath || '',
+      }
     }
 
     /** 删除群文件夹（一定要空文件夹否则 server 拒绝） */
