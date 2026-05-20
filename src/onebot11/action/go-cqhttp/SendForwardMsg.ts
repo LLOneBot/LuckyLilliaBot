@@ -226,6 +226,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
         },
       }], encoder.deleteAfterSentFiles)
       const msgShortId = this.ctx.store.createMsgShortId(msg)
+      this.ctx.store.addMsgCache(msg)
       return { message_id: msgShortId, forward_id: resid }
     } catch (e) {
       this.ctx.logger.error('合并转发失败', e)
@@ -328,11 +329,13 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
         },
       }], [])
       const msgShortId = this.ctx.store.createMsgShortId(sentMsg)
+      this.ctx.store.addMsgCache(sentMsg)
       return { message_id: msgShortId, forward_id: resid }
     } else {
       const msg = await this.ctx.ntMsgApi.multiForwardMsg(srcPeer, destPeer, msgIds)
       const resid = JSON.parse(msg.elements[0].arkElement!.bytesData).meta.detail.resid
       const msgShortId = this.ctx.store.createMsgShortId(msg)
+      this.ctx.store.addMsgCache(msg)
       return { message_id: msgShortId, forward_id: resid }
     }
   }

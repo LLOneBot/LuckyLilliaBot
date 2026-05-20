@@ -36,8 +36,8 @@ export class SetMsgEmojiLike extends BaseAction<Payload, null> {
       payload.emoji_id.toString(),
       this.set ?? payload.set
     )
-    if (res.result !== 0) {
-      throw new Error(res.errMsg)
+    if (res.errorCode !== 0) {
+      throw new Error(res.errorMsg)
     }
     return null
   }

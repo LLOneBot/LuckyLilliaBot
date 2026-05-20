@@ -1,7 +1,7 @@
 import { ChatType, ElementType, MessageElement, Peer, RawMessage, SendMessageElement } from '../types'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
-import { Media } from '../proto'
+import { Media, Msg } from '../proto'
 import { convertToRawMessage } from '../dispatcher'
 import { SendElement } from '../entities'
 
@@ -67,13 +67,27 @@ export class NTQQMsgApi extends Service {
   }
 
   async getMultiMsg(peer: Peer, rootMsgId: string, _parentMsgId: string): Promise<any> {
-    // mixin 的 getMultiMsg(resId) 返回 PbMultiMsgItem[]：
-    //   [{ fileName: 'MultiMsg', buffer: { msg: Message[] } }, ...]
-    // 第一项是顶层聊天记录，其余是嵌套 forward 的展开结果
-    const items = await this.ctx.qqProtocol.getMultiMsg(rootMsgId)
+    // 入参 rootMsgId 是 OB11 客户端给的 message_id（msgId/shortId 转出的）。
+    // SsoRecvLongMsg 需要 resid——从 cache 里拉出原消息的 ark JSON 解析 meta.detail.resid。
+    let resId = rootMsgId
+    const store = this.ctx.get('store') as any
+    const cached = store?.getMsgCache?.(rootMsgId) as RawMessage | undefined
+    if (cached) {
+      const arkElem = cached.elements?.find((e: any) => e.elementType === ElementType.Ark)
+      const bytesData = (arkElem as any)?.arkElement?.bytesData
+      if (bytesData) {
+        try {
+          const json = JSON.parse(bytesData)
+          if (json?.app === 'com.tencent.multimsg' && json?.meta?.detail?.resid) {
+            resId = json.meta.detail.resid
+          }
+        } catch {}
+      }
+    }
+    const items = await this.ctx.qqProtocol.getMultiMsg(resId)
     const top = items?.find((x: any) => x.fileName === 'MultiMsg') ?? items?.[0]
     const rawList = (top?.buffer?.msg ?? []) as any[]
-    return { msgList: this.toRawMessages(rawList, peer.chatType) }
+    return { result: 0, errMsg: '', msgList: this.toRawMessages(rawList, peer.chatType) }
   }
 
   async activateChat(_peer: Peer): Promise<any> {
@@ -216,12 +230,38 @@ export class NTQQMsgApi extends Service {
             if (uin) senderUin = +uin
           } catch {}
         }
+        // srcMsg.elems 是 bytes[] (repeated)，每项是序列化的原 Msg.Elem。
+        // 为空时接收端的引用预览只显示空白。从 cache 取原消息，把它的 elements 重新序列化成 Elem bytes
+        const srcElems: Buffer[] = []
+        try {
+          const store = this.ctx.get('store') as any
+          const original = r.replayMsgId ? store?.getMsgCache?.(r.replayMsgId) as RawMessage | undefined : undefined
+          if (original?.elements?.length) {
+            for (const oe of original.elements) {
+              if (oe.elementType === ElementType.Text && oe.textElement?.content) {
+                srcElems.push(Buffer.from(Msg.Elem.encode({ text: { str: oe.textElement.content } } as any)))
+              } else if (oe.elementType === ElementType.Pic) {
+                srcElems.push(Buffer.from(Msg.Elem.encode({ text: { str: '[图片]' } } as any)))
+              } else if (oe.elementType === ElementType.Face) {
+                srcElems.push(Buffer.from(Msg.Elem.encode({ face: { index: oe.faceElement?.faceIndex || 0 } } as any)))
+              } else if (oe.elementType === ElementType.Video) {
+                srcElems.push(Buffer.from(Msg.Elem.encode({ text: { str: '[视频]' } } as any)))
+              } else if (oe.elementType === ElementType.Ptt) {
+                srcElems.push(Buffer.from(Msg.Elem.encode({ text: { str: '[语音]' } } as any)))
+              } else if (oe.elementType === ElementType.File) {
+                srcElems.push(Buffer.from(Msg.Elem.encode({ text: { str: '[文件]' } } as any)))
+              }
+            }
+          }
+        } catch (e) {
+          this.ctx.logger.warn('build reply srcMsg.elems failed:', (e as Error).message)
+        }
         elems.push({
           srcMsg: {
             origSeqs: [+(r.replayMsgSeq ?? 0)],
             senderUin,
             time: +(r.replyMsgTime ?? 0),
-            elems: [],
+            elems: srcElems,
           }
         })
       } else if (elem.elementType === ElementType.Pic) {
@@ -309,6 +349,14 @@ export class NTQQMsgApi extends Service {
           })
         }
         // C2C 文件流程不同，需要 OfflineFileUpload 协议（trans 0x211），暂未支持
+      } else if (elem.elementType === ElementType.Ark) {
+        const ark = elem.arkElement
+        const json = ark?.bytesData
+        if (!json) continue
+        // lightApp.data = [0x01] + deflate(jsonBytes)
+        const { deflateSync } = await import('node:zlib')
+        const data = Buffer.concat([Buffer.from([0x01]), deflateSync(Buffer.from(json, 'utf-8'))])
+        elems.push({ lightApp: { data } })
       }
     }
 
@@ -339,7 +387,7 @@ export class NTQQMsgApi extends Service {
       sendStatus: 2,
       recallTime: '0',
       records: [],
-      elements: [],
+      elements: msgElements as unknown as MessageElement[],
       peerName: '',
       emojiLikesList: [],
       msgAttrs: new Map(),
@@ -521,7 +569,7 @@ export class NTQQMsgApi extends Service {
   }
 
   async fetchFavEmojiList(_count: number): Promise<any> {
-    return { emojiInfoList: [] }
+    return { result: 0, errMsg: '', emojiInfoList: [] }
   }
 
   async generateMsgUniqueId(_chatType: number) {

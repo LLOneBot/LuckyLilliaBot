@@ -98,10 +98,14 @@ export class MessageEncoder {
   }
 
   async packImage(msgInfo: InferProtoModelInput<typeof Media.MsgInfo>) {
+    // server 返回的 msgInfo 已经是 raw bytes，直接当 pbElem 透传，不再二次 encode
+    const pbElem = Buffer.isBuffer(msgInfo) || msgInfo instanceof Uint8Array
+      ? Buffer.from(msgInfo as Uint8Array)
+      : Media.MsgInfo.encode(msgInfo)
     return {
       commonElem: {
         serviceType: 48,
-        pbElem: Media.MsgInfo.encode(msgInfo),
+        pbElem,
         businessType: this.isGroup ? 20 : 10
       }
     }
@@ -147,10 +151,13 @@ export class MessageEncoder {
   }
 
   packVideo(msgInfo: InferProtoModelInput<typeof Media.MsgInfo>) {
+    const pbElem = Buffer.isBuffer(msgInfo) || msgInfo instanceof Uint8Array
+      ? Buffer.from(msgInfo as Uint8Array)
+      : Media.MsgInfo.encode(msgInfo)
     return {
       commonElem: {
         serviceType: 48,
-        pbElem: Media.MsgInfo.encode(msgInfo),
+        pbElem,
         businessType: this.isGroup ? 21 : 11
       }
     }
