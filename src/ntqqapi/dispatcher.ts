@@ -459,94 +459,56 @@ function walkProtoFields(buf: Buffer, path: number[]): Buffer | null {
 
 /**
  * 0x2DC subtype 17 - Group recall
- * Content layout: [4 bytes: groupUin][1 byte: ?][length-prefix: NotifyMessageBody bytes]
- * NotifyMessageBody contains GroupRecall in field varying by version.
+ * Content layout: [4 bytes BE: groupUin][1 byte: ?][2 bytes BE length][NotifyMessageBody bytes]
+ * NotifyMessageBody.field11 = GroupRecall (with repeated RecallMessages at field 3)
  */
 function handleGroupRecall(ctx: Context, msg: any, content: Buffer) {
   try {
-    // Skip leading 4 bytes group code + 1 byte unknown, then length-prefix wrapped
     if (content.length < 7) return
     const groupCode = content.readUInt32BE(0)
-    let offset = 5
-    // length prefix is varint, but typically small
-    let length = 0
-    let shift = 0
-    while (offset < content.length) {
-      const b = content[offset++]
-      length |= (b & 0x7f) << shift
-      if ((b & 0x80) === 0) break
-      shift += 7
-    }
-    const bodyBytes = content.subarray(offset, offset + length)
+    // skip 4 bytes groupUin + 1 byte flag, then uint16 BE length-prefixed NotifyMessageBody
+    const length = content.readUInt16BE(5)
+    const bodyBytes = content.subarray(7, 7 + length)
 
-    // Try to decode GroupRecall directly from extracted body
-    const decoded = tryDecodeGroupRecall(bodyBytes)
-    if (!decoded) return
+    const notifyBody = Notify.NotifyMessageBody.decode(bodyBytes)
+    const recall = notifyBody.recall
+    if (!recall || !recall.recallMessages || recall.recallMessages.length === 0) return
 
-    const operatorUid = decoded.operatorUid || ''
+    const operatorUid = recall.operatorUid || notifyBody.operatorUid || ''
     const peerUin = String(groupCode)
+    const store = (ctx as any).store
 
-    const recallMessage = buildRecallMessage({
-      msgSeq: String(decoded.info?.sequence || 0),
-      senderUid: decoded.info?.authorUid || '',
-      senderUin: '0',
-      peerUid: peerUin,
-      peerUin,
-      chatType: ChatType.Group,
-      msgTime: decoded.info?.time || msg.contentHead?.msgTime || 0,
-      tip: decoded.tipInfo?.tip || '消息已撤回',
-      operatorUid,
-      operatorUin: '0',
-    })
-
-    ctx.parallel('nt/raw/update-msg', [recallMessage])
+    for (const rm of recall.recallMessages) {
+      // 查 cache 找原消息，复用其 msgRandom/msgTime 让 shortId 与原消息一致
+      const seqStr = String(rm.sequence ?? 0)
+      const original = store?.findCachedMsgByPeerSeq?.(peerUin, seqStr)
+      const recallMessage = buildRecallMessage({
+        msgSeq: seqStr,
+        msgRandom: original?.msgRandom || '0',
+        senderUid: rm.authorUid || original?.senderUid || '',
+        senderUin: original?.senderUin || '0',
+        peerUid: peerUin,
+        peerUin,
+        chatType: ChatType.Group,
+        msgTime: original ? +original.msgTime : (rm.time || msg.contentHead?.msgTime || 0),
+        tip: recall.tipInfo?.tip || '消息已撤回',
+        operatorUid,
+        operatorUin: '0',
+      })
+      ctx.parallel('nt/raw/update-msg', [recallMessage])
+    }
   } catch (e) {
     ctx.logger('qqProtocol').warn('Failed to parse GroupRecall:', (e as Error).message)
   }
 }
 
 function tryDecodeGroupRecall(buf: Buffer): any | null {
-  // GroupRecall is wrapped under NotifyMessageBody.field11 in some versions.
-  // Try to find a length-delimited field that decodes as GroupRecall.
+  // 历史遗留：直接尝试 GroupRecall 解码（兼容老版本格式）
   try {
     return Notify.GroupRecall.decode(buf)
-  } catch {}
-
-  // Walk top-level fields and try each length-delimited child
-  let offset = 0
-  while (offset < buf.length) {
-    let tag = 0
-    let shift = 0
-    while (offset < buf.length) {
-      const b = buf[offset++]
-      tag |= (b & 0x7f) << shift
-      if ((b & 0x80) === 0) break
-      shift += 7
-    }
-    const wireType = tag & 0x07
-    if (wireType === 2) {
-      let len = 0
-      let lenShift = 0
-      while (offset < buf.length) {
-        const b = buf[offset++]
-        len |= (b & 0x7f) << lenShift
-        if ((b & 0x80) === 0) break
-        lenShift += 7
-      }
-      const child = buf.subarray(offset, offset + len)
-      offset += len
-      try {
-        const decoded = Notify.GroupRecall.decode(child)
-        if (decoded.info && decoded.info.sequence) return decoded
-      } catch {}
-    } else if (wireType === 0) {
-      while (offset < buf.length && (buf[offset] & 0x80) !== 0) offset++
-      offset++
-    } else if (wireType === 5) offset += 4
-    else if (wireType === 1) offset += 8
-    else break
+  } catch {
+    return null
   }
-  return null
 }
 
 // ---- Group join / invite ----
@@ -634,6 +596,7 @@ function handleGroupInvitation(ctx: Context, msg: any, msgType: number) {
 
 interface RecallParams {
   msgSeq: string
+  msgRandom?: string
   senderUid: string
   senderUin: string
   peerUid: string
@@ -652,7 +615,7 @@ function buildRecallMessage(p: RecallParams): RawMessage {
     subMsgType: 4,
     msgTime: String(p.msgTime || Math.floor(Date.now() / 1000)),
     msgSeq: p.msgSeq,
-    msgRandom: '0',
+    msgRandom: p.msgRandom ?? '0',
     senderUid: p.senderUid,
     senderUin: p.senderUin,
     peerUid: p.peerUid,

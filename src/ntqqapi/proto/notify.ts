@@ -56,12 +56,17 @@ export namespace Notify {
 
   export const GroupRecall = ProtoMessage.of({
     operatorUid: ProtoField(1, 'string', 'optional'),
-    info: ProtoField(3, {
+    recallMessages: ProtoField(3, {
       sequence: ProtoField(1, 'uint64'),
       time: ProtoField(2, 'uint32'),
       random: ProtoField(3, 'uint32'),
+      type: ProtoField(4, 'uint32'),
+      flag: ProtoField(5, 'uint32'),
       authorUid: ProtoField(6, 'string'),
-    }),
+    }, 'repeated'),
+    userDef: ProtoField(5, 'bytes', 'optional'),
+    groupType: ProtoField(6, 'uint32', 'optional'),
+    opType: ProtoField(7, 'uint32', 'optional'),
     tipInfo: ProtoField(9, {
       tip: ProtoField(2, 'string', 'optional')
     }, 'optional'),
@@ -143,14 +148,17 @@ export namespace Notify {
   })
 
   /**
-   * 0x2DC subtype 16/17/20 内部包装 (after 5-byte header [groupCode + 1 byte])
+   * 0x2DC subtype 16/17/20 内部包装 (after 5-byte header [groupCode + 1 byte] + uint16BE 长度)
+   * 字段编号参考 Lagrange.Core
    */
   export const NotifyMessageBody = ProtoMessage.of({
     notifyType: ProtoField(1, 'uint32', 'optional'),
-    groupCode: ProtoField(4, 'uint32', 'optional'),
-    operatorUid: ProtoField(11, 'string', 'optional'),
+    groupCode: ProtoField(4, 'uint64', 'optional'),
+    eventParam: ProtoField(5, 'bytes', 'optional'),
+    recall: ProtoField(11, GroupRecall, 'optional'),
     subType: ProtoField(13, 'uint32', 'optional'),
-    recall: ProtoField(11, 'bytes', 'optional'),
+    operatorUid: ProtoField(21, 'string', 'optional'),
+    msgSequence: ProtoField(37, 'uint64', 'optional'),
   })
 
   export const GroupEssenceChange = ProtoMessage.of({

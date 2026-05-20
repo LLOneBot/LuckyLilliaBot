@@ -222,6 +222,14 @@ class Store extends Service {
     return this.messages.get(msgId)
   }
 
+  /** 在内存 cache 中按 (peerUid, msgSeq) 查找消息（撤回事件用） */
+  findCachedMsgByPeerSeq(peerUid: string, msgSeq: string): RawMessage | undefined {
+    for (const m of this.messages.values()) {
+      if (m.peerUid === peerUid && m.msgSeq === msgSeq) return m
+    }
+    return undefined
+  }
+
   addMultiMsgInfo(rootMsgId: string, parentMsgId: string, peer: Peer) {
     this.ctx.database.upsert('forward', [{
       rootMsgId,
