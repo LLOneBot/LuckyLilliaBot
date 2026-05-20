@@ -31,8 +31,28 @@ export class NTQQMsgApi extends Service {
     return out
   }
 
-  async getTempChatInfo(_chatType: ChatType, _peerUid: string): Promise<any> {
-    throw new Error('getTempChatInfo 暂未实现 (直连模式)')
+  async getTempChatInfo(_chatType: ChatType, peerUid: string): Promise<any> {
+    // 直连模式没有专门的 OIDB；通过已缓存的群成员反查 peerUid 出现在哪个共同群
+    try {
+      const sharedGroupCode = (this.ctx.ntGroupApi as any).findSharedGroupByUid?.(peerUid)
+      if (sharedGroupCode) {
+        return { tmpChatInfo: { groupCode: String(sharedGroupCode), peerUid } }
+      }
+    } catch {}
+    // 没有缓存命中：扫一遍所有群拉成员
+    try {
+      const groups = await this.ctx.ntGroupApi.getGroups(false)
+      for (const g of groups) {
+        try {
+          const members: any = await this.ctx.ntGroupApi.getGroupMembers(String(g.groupCode))
+          if (members.result?.infos?.has(peerUid)) {
+            return { tmpChatInfo: { groupCode: String(g.groupCode), peerUid } }
+          }
+        } catch {}
+      }
+    } catch {}
+    // 没找到任何共同群
+    return { tmpChatInfo: {} }
   }
 
   private getEmojiIdType(emojiId: string) {

@@ -40,7 +40,7 @@ function makeSimpleInfoFromOidb(uid: string, info: any): SimpleInfo {
 }
 
 export class NTQQUserApi extends Service {
-  static inject = ['ntGroupApi', 'logger', 'qqProtocol']
+  static inject = { ntGroupApi: true, logger: true, qqProtocol: true, ntFriendApi: false }
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntUserApi')
@@ -87,6 +87,34 @@ export class NTQQUserApi extends Service {
       } catch (e) {
         this.ctx.logger.error('getUidByUin via group members failed', e)
       }
+    }
+    // 私聊场景没 groupCode：先从好友列表里找
+    try {
+      if (this.ctx.ntFriendApi) {
+        const result = await this.ctx.ntFriendApi.getFriends(false)
+        const found = result.friends?.find((f: any) => String(f.uin) === String(uin))
+        if (found?.uid) return found.uid
+      }
+    } catch (e) {
+      this.ctx.logger.error('getUidByUin via friend list failed', e)
+    }
+    // 不是好友：在所有已缓存的群成员里反查（覆盖临时会话场景）
+    try {
+      const cached = this.ctx.ntGroupApi?.findUidByUinFromCache?.(uin)
+      if (cached) return cached
+    } catch {}
+    // 还没缓存：拉一次群列表，逐个拉成员；找到一个就返
+    try {
+      const groups = await this.ctx.ntGroupApi.getGroups(false)
+      for (const g of groups) {
+        try {
+          const members: any = await this.ctx.ntGroupApi.getGroupMembers(String(g.groupCode))
+          const found = [...(members.result?.infos?.values() ?? [])].find((e: any) => String(e.uin) === String(uin))
+          if (found?.uid) return found.uid
+        } catch {}
+      }
+    } catch (e) {
+      this.ctx.logger.error('getUidByUin via group scan failed', e)
     }
     return ''
   }

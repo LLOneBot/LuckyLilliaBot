@@ -30,6 +30,24 @@ export class NTQQGroupApi extends Service {
     super(ctx, 'ntGroupApi')
   }
 
+  /** 在所有缓存的群成员里反查 uin→uid（不发包，只看 cache） */
+  findUidByUinFromCache(uin: string): string {
+    for (const members of this.memberCache.values()) {
+      for (const m of members.values()) {
+        if (String(m.uin) === String(uin)) return m.uid
+      }
+    }
+    return ''
+  }
+
+  /** 在所有缓存的群成员里反查包含此 uid 的某个共同群（不发包） */
+  findSharedGroupByUid(uid: string): string {
+    for (const [groupCode, members] of this.memberCache.entries()) {
+      if (members.has(uid)) return groupCode
+    }
+    return ''
+  }
+
   // TODO: 群组数量变更时刷新缓存
   async getGroups(forceUpdate: boolean) {
     if (forceUpdate || this.groupsCache.length === 0) {
