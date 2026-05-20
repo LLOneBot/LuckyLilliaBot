@@ -1,9 +1,14 @@
-import { DirectProtocolClient, registerOnline, loadSession, persistedToSessionInfo } from '../src/main/qqProtocol/direct'
+import { DirectProtocolClient, registerOnline, persistedToSessionInfo } from '../src/main/qqProtocol/direct'
+import type { PersistedSession } from '../src/main/qqProtocol/direct'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 async function main() {
   const SESSION_PATH = join(import.meta.dirname, '../data/qq-session.json')
-  const persisted = loadSession(SESSION_PATH)
+  let persisted: PersistedSession | null = null
+  if (existsSync(SESSION_PATH)) {
+    try { persisted = JSON.parse(readFileSync(SESSION_PATH, 'utf-8')) as PersistedSession } catch {}
+  }
   if (!persisted) {
     console.log('NO_SESSION')
     process.exit(2)

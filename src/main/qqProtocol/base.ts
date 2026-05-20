@@ -13,7 +13,7 @@ import type {
   ResListener,
 } from './types'
 import { Context, Service } from 'cordis'
-import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, registerOnline, startHeartbeat, getCorrectUin, QrCodeState, AppInfo, saveSession, loadSession, persistedToSessionInfo } from './direct'
+import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, registerOnline, startHeartbeat, getCorrectUin, QrCodeState, AppInfo, saveSession, loadSession, persistedToSessionInfo, getSpecifiedUin, getSessionFilePathForUin } from './direct'
 import type { QrCodeResult, QrPollResult } from './direct'
 
 type DisconnectCallback = (duration: number) => void
@@ -388,9 +388,15 @@ export class QQProtocolBase extends Service {
     })
 
     // Try to restore saved session
+    const specifiedUin = getSpecifiedUin()
+    if (specifiedUin) {
+      this.logger.info('Specified login uin via -q/--qq: %s, will try qq-session-%s.json', specifiedUin, specifiedUin)
+    } else {
+      this.logger.info('No -q/--qq specified, will perform fresh QR login (session will be saved as qq-session-<uin>.json)')
+    }
     const persisted = loadSession()
     if (persisted) {
-      this.logger.info('Found saved session for UIN %s, attempting restore...', persisted.uin)
+      this.logger.info('Found saved session for UIN %s (file: %s), attempting restore...', persisted.uin, getSessionFilePathForUin(persisted.uin))
       this.directClient.setGuid(Buffer.from(persisted.guid, 'hex'))
       await this.directClient.connect()
       const session = persistedToSessionInfo(persisted)

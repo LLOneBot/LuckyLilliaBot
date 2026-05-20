@@ -16,15 +16,33 @@ export interface PersistedSession {
   savedAt: number   // timestamp
 }
 
-const SESSION_FILE = join(DATA_DIR, 'qq-session.json')
+/**
+ * 从 process.argv 里解析 `-q <uin>` 或 `--qq=<uin>`。
+ * 用于多账号场景：指定一个 uin 后会读写对应的 qq-session-<uin>.json。
+ */
+export function getSpecifiedUin(argv: string[] = process.argv): string | undefined {
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '-q' && i + 1 < argv.length) return argv[i + 1]
+    if (a.startsWith('--qq=')) return a.slice('--qq='.length)
+  }
+  return undefined
+}
 
+/** session 文件统一按 uin 命名为 qq-session-<uin>.json。 */
+export function getSessionFilePathForUin(uin: string): string {
+  return join(DATA_DIR, `qq-session-${uin}.json`)
+}
+
+/**
+ * 把 session 写入 qq-session-<uin>.json（按 session 自身的 uin）。
+ */
 export function saveSession(
   session: SessionInfo,
   tgtgtKey: Buffer,
   guid: Buffer,
   tempPassword: Buffer,
   nick: string = '',
-  path: string = SESSION_FILE,
 ): void {
   const data: PersistedSession = {
     uin: session.uin,
@@ -38,10 +56,20 @@ export function saveSession(
     nick,
     savedAt: Date.now(),
   }
+  const path = getSessionFilePathForUin(session.uin)
   writeFileSync(path, JSON.stringify(data, null, 2))
 }
 
-export function loadSession(path: string = SESSION_FILE): PersistedSession | null {
+/**
+ * 加载 session：
+ * - 没传 `-q` → 返回 null，调用方走扫码登录
+ * - 传了 `-q <uin>` 且 qq-session-<uin>.json 存在 → 返回该 session
+ * - 传了 `-q <uin>` 但文件不存在/解析失败 → 返回 null，调用方走扫码登录
+ */
+export function loadSession(): PersistedSession | null {
+  const specifiedUin = getSpecifiedUin()
+  if (!specifiedUin) return null
+  const path = getSessionFilePathForUin(specifiedUin)
   if (!existsSync(path)) return null
   try {
     const raw = readFileSync(path, 'utf-8')
