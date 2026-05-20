@@ -258,12 +258,6 @@ export class NTQQMsgApi extends Service {
         }
         // 注意：视频消息发送后服务端不返回 sequence（field 11 缺失），是已知行为。
         // 真正的 seq 通过 OlPush 推送（server 转码完成后）异步到达。
-        // elem 顺序参照 v2 ImageEntity.Build：旧格式 compat 在前，新格式 commonElem 在后。
-        if (result.compat && result.compat.length > 0) {
-          elems.push({
-            videoFile: Buffer.from(result.compat),
-          })
-        }
         elems.push({
           commonElem: {
             serviceType: 48,
@@ -271,6 +265,13 @@ export class NTQQMsgApi extends Service {
             businessType: isGroup ? 21 : 11,
           }
         })
+        // 老格式 VideoFile elem（field 19）— 手机 QQ 用这个显示封面+播放，
+        // 新版 commonElem 它认不全。compat bytes 是 server 给的 VideoFile 序列化结果，原样透传
+        if (result.compat && result.compat.length > 0) {
+          elems.push({
+            videoFile: Buffer.from(result.compat),
+          })
+        }
       } else if (elem.elementType === ElementType.Ptt) {
         const p = elem.pttElement
         const sourcePath = p.filePath
