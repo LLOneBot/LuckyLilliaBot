@@ -51,7 +51,7 @@ export namespace SendElement {
     }
   }
 
-  export function reply(msgSeq: string, msgId: string, senderUid: string): SendReplyElement {
+  export function reply(msgSeq: string, msgId: string, senderUid: string, msgTime?: string): SendReplyElement {
     return {
       elementType: ElementType.Reply,
       elementId: '',
@@ -60,6 +60,7 @@ export namespace SendElement {
         replayMsgSeq: msgSeq,
         senderUid: senderUid,
         senderUidStr: senderUid,
+        replyMsgTime: msgTime ?? '0',
       },
     }
   }
