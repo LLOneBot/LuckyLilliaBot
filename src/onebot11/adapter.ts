@@ -35,7 +35,9 @@ import {
   OB11FlashFileUploadingEvent,
 } from '@/onebot11/event/notice/OB11FlashFileEvent'
 import {
+  OB11FriendPokeEvent,
   OB11FriendPokeRecallEvent,
+  OB11GroupPokeEvent,
   OB11GroupPokeRecallEvent,
 } from '@/onebot11/event/notice/OB11PokeEvent'
 import { OB11GroupDismissEvent } from '@/onebot11/event/notice/OB11GroupDismissEvent'
@@ -364,6 +366,31 @@ class Onebot11Adapter extends Service {
     })
     this.ctx.on('nt/friend-request', input => {
       this.handleFriendRequest(input)
+    })
+    this.ctx.on('nt/raw/group-poke', input => {
+      const groupId = +input.groupCode
+      const userId = +input.fromUin   // operator
+      const targetId = +input.toUin   // target
+      if (!groupId || !userId || !targetId) return
+      const rawInfo = [
+        { col: '1', nm: '', type: 'qq', uid: String(userId) },
+        { col: '1', txt: input.action || '戳了戳', type: 'nor' },
+        { col: '1', nm: '', type: 'qq', uid: String(targetId) },
+        ...(input.suffix ? [{ col: '1', txt: input.suffix, type: 'nor' }] : []),
+      ]
+      this.dispatch(new OB11GroupPokeEvent(groupId, userId, targetId, rawInfo))
+    })
+    this.ctx.on('nt/raw/friend-poke', input => {
+      const userId = +input.fromUin   // operator
+      const targetId = +input.toUin   // target
+      if (!userId || !targetId) return
+      const rawInfo = [
+        { col: '1', nm: '', type: 'qq', uid: String(userId) },
+        { col: '1', txt: input.action || '戳了戳', type: 'nor' },
+        { col: '1', nm: '', type: 'qq', uid: String(targetId) },
+        ...(input.suffix ? [{ col: '1', txt: input.suffix, type: 'nor' }] : []),
+      ]
+      this.dispatch(new OB11FriendPokeEvent(userId, targetId, rawInfo))
     })
     this.ctx.on('nt/system-message-created', async input => {
       const sysMsg = Msg.Message.decode(input)

@@ -169,14 +169,15 @@ function handleFriendDeleteOrPin(ctx: Context, content: Buffer) {
 function handleFriendGrayTip(ctx: Context, content: Buffer) {
   try {
     const decoded: any = Notify.GeneralGrayTip.decode(content)
-    if (decoded.bizType === 12) {
+    if (Number(decoded.bizType ?? 0) === 12) {
       const params: Record<string, string> = {}
       for (const p of decoded.templateParams || []) {
         params[p.key] = p.value
       }
       ctx.parallel('nt/raw/friend-poke', {
-        fromUin: params['uin_str2'] || '0',
-        toUin: params['uin_str1'] || '0',
+        // uin_str1 = 操作者，uin_str2 = 被戳的人
+        fromUin: params['uin_str1'] || '0',
+        toUin: params['uin_str2'] || '0',
         action: params['action_str'] || params['alt_str1'] || '',
         suffix: params['suffix_str'] || '',
         actionImg: params['action_img_url'] || '',
@@ -352,20 +353,25 @@ function tryDecodeReaction(buf: Buffer): { groupCode: string, msgSeq: number, op
 
 function handleGroupGrayTip(ctx: Context, content: Buffer) {
   try {
+    if (content.length < 7) return
+    const groupUin = content.readUInt32BE(0)
     const inner = unwrap0x2DCContent(content)
     if (!inner) return
-    const decoded: any = Notify.GeneralGrayTip.decode(inner)
-    const bizType = decoded.bizType
+    const notifyBody: any = Notify.NotifyMessageBody.decode(inner)
+    const grayTip = notifyBody.generalGrayTip
+    if (!grayTip) return
+    const bizType = Number(grayTip.bizType ?? 0)
     if (bizType === 12) {
-      // Poke
+      // Poke (group)
       const params: Record<string, string> = {}
-      for (const p of decoded.templateParams || []) {
+      for (const p of grayTip.templateParams || []) {
         params[p.key] = p.value
       }
       ctx.parallel('nt/raw/group-poke', {
-        groupCode: '0',
-        fromUin: params['uin_str2'] || '0',
-        toUin: params['uin_str1'] || '0',
+        groupCode: String(groupUin),
+        // uin_str1 = 操作者（fromUin），uin_str2 = 被戳的人（toUin）
+        fromUin: params['uin_str1'] || '0',
+        toUin: params['uin_str2'] || '0',
         action: params['action_str'] || params['alt_str1'] || '',
         suffix: params['suffix_str'] || '',
         actionImg: params['action_img_url'] || '',
@@ -397,17 +403,10 @@ function handleGroupEssenceChange(ctx: Context, content: Buffer) {
  * Returns the inner protobuf body.
  */
 function unwrap0x2DCContent(content: Buffer): Buffer | null {
+  // 0x2DC content: [4 bytes BE: groupUin][1 byte: ?][2 bytes BE: length][NotifyMessageBody bytes]
   if (content.length < 7) return null
-  let offset = 5
-  let length = 0
-  let shift = 0
-  while (offset < content.length) {
-    const b = content[offset++]
-    length |= (b & 0x7f) << shift
-    if ((b & 0x80) === 0) break
-    shift += 7
-  }
-  return content.subarray(offset, offset + length)
+  const length = content.readUInt16BE(5)
+  return content.subarray(7, 7 + length)
 }
 
 /**

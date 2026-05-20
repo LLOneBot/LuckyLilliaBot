@@ -109,11 +109,18 @@ export namespace Notify {
   })
 
   export const GeneralGrayTip = ProtoMessage.of({
-    bizType: ProtoField(1, 'uint32'),
+    bizType: ProtoField(1, 'uint64', 'optional'),
+    busiId: ProtoField(2, 'uint64', 'optional'),
+    ctrlFlag: ProtoField(3, 'uint32', 'optional'),
+    c2cType: ProtoField(4, 'uint32', 'optional'),
+    serviceType: ProtoField(5, 'uint32', 'optional'),
+    templId: ProtoField(6, 'uint64', 'optional'),
     templateParams: ProtoField(7, {
       key: ProtoField(1, 'string'),
       value: ProtoField(2, 'string'),
     }, 'repeated'),
+    content: ProtoField(8, 'string', 'optional'),
+    tipsSeqId: ProtoField(10, 'uint64', 'optional'),
   })
 
   export const GroupMute = ProtoMessage.of({
@@ -158,6 +165,7 @@ export namespace Notify {
     recall: ProtoField(11, GroupRecall, 'optional'),
     subType: ProtoField(13, 'uint32', 'optional'),
     operatorUid: ProtoField(21, 'string', 'optional'),
+    generalGrayTip: ProtoField(26, GeneralGrayTip, 'optional'),
     msgSequence: ProtoField(37, 'uint64', 'optional'),
   })
 
