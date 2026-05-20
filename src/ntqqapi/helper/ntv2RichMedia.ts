@@ -124,7 +124,12 @@ export namespace NTV2RichMedia {
     // upload.msgInfo 现在是 bytes（NTV2RichMediaResp.upload.msgInfo 改成 raw 透传），
     // 这里解析一次给 highway ext 用
     const msgInfoStruct = Media.MsgInfo.decode(Buffer.from(upload.msgInfo))
-    const index = msgInfoStruct.msgInfoBody[0].index
+    const head = msgInfoStruct.msgInfoBody[0]
+    if (!head?.index) {
+      // 服务端返回的 msgInfo 没有有效 fileInfo（常见原因：preflight 失败、非好友 c2c 拒绝上传等）
+      throw new Error(`NTV2 generateExt: server response 缺少 msgInfoBody[0].index，无法生成 highway ext (uKey=${upload.uKey ?? '?'}, msgInfoBody.length=${msgInfoStruct.msgInfoBody?.length ?? 0})`)
+    }
+    const index = head.index
     const initialSha1: Buffer[] = index.info?.sha1HexStr
       ? [Buffer.from(index.info.sha1HexStr, 'hex')]
       : [Buffer.alloc(0)]

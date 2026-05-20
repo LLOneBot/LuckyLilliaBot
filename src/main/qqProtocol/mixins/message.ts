@@ -156,10 +156,10 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       if (resp.resultCode !== 0) {
         throw new Error(`发送消息失败 (code=${resp.resultCode}): ${resp.errMsg || ''}`)
       }
-      // clientSequence 不为 0 用它，否则用 sequence
-      const seq = (resp.clientSequence && resp.clientSequence !== 0n)
-        ? resp.clientSequence
-        : resp.sequence
+      // group 用 server-assigned group msgSeq；C2C 用 clientSequence（C2C 没有 group seq 概念）
+      const seq = opts.isGroup
+        ? (resp.sequence || resp.clientSequence)
+        : ((resp.clientSequence && resp.clientSequence !== 0n) ? resp.clientSequence : resp.sequence)
       return {
         sequence: seq,
         timestamp: resp.sendTime,
