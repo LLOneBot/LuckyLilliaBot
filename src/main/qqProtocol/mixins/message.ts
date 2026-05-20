@@ -170,17 +170,15 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
     /** 拉取消息表情回应用户列表 (OidbSvcTrpcTcp.0x9083_1) */
     async fetchMsgEmojiLikes(groupCode: number, msgSeq: number, emojiCode: string, count: number) {
       const body = Oidb.FetchEmojiLikesReq.encode({
-        body: {
-          groupCode,
-          msgSeq,
-          chatType: 1,
-          emojiCode,
-          cookie: Buffer.alloc(0),
-          field7: 0,
-          count,
-        },
+        groupCode,
+        msgSeq,
+        chatType: 1,
+        emojiCode,
+        cookie: Buffer.alloc(0),
+        field7: 0,
+        count,
       })
-      const data = Oidb.Base.encode({ command: 0x9083, subCommand: 1, body, isReserved: 1 })
+      const data = Oidb.Base.encode({ command: 0x9083, subCommand: 1, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x9083_1', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       if (decoded.errorCode !== 0) {
@@ -188,9 +186,9 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       }
       const resp = Oidb.FetchEmojiLikesResp.decode(Buffer.from(decoded.body))
       return {
-        users: resp.body?.users ?? [],
-        totalCount: resp.body?.totalCount ?? 0,
-        hasMore: !!resp.body?.hasMore,
+        users: resp.users ?? [],
+        totalCount: resp.totalCount ?? 0,
+        hasMore: !!resp.hasMore,
       }
     }
   }
