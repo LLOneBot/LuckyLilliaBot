@@ -42,18 +42,17 @@ export interface WebuiServerConfig extends WebUIConfig {
 }
 
 export class WebuiServer extends Service {
-  static inject = {
-    ntLoginApi: true,
-    ntFriendApi: true,
-    ntGroupApi: true,
-    ntSystemApi: true,
-    ntMsgApi: true,
-    ntUserApi: true,
-    ntFileApi: true,
-    emailNotification: false,
-    logger: true,
-    qqProtocol: true
-  }
+  static inject = [
+    'ntLoginApi',
+    'ntFriendApi',
+    'ntGroupApi',
+    'ntSystemApi',
+    'ntMsgApi',
+    'ntUserApi',
+    'ntFileApi',
+    'logger',
+    'qqProtocol',
+  ]
 
   private server: ServerType | null = null
   private app: Hono = new Hono()
