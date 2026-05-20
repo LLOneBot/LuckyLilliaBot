@@ -213,9 +213,6 @@ async function onLoad() {
   // setFFMpegPath(config.ffmpeg || '')
   ctx.inject(['qqProtocol', 'config', 'logger'], (ctx) => {
     config = ctx.config.get()
-    config.milky.enable = false
-    config.satori.enable = false
-    config.ob11.enable = false
     ctx.plugin(WebuiServer, config.webui)
     if (useDirectProtocol) {
       ctx.qqProtocol.initDirectClient().then(() => {
