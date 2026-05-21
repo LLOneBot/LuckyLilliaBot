@@ -5,16 +5,65 @@ import {
 } from '../types'
 import path from 'node:path'
 import os from 'node:os'
-import { createReadStream } from 'node:fs'
+import { createReadStream, readFileSync } from 'node:fs'
 import { RkeyManager } from '@/ntqqapi/helper/rkey'
 import { calculateSha1StreamBytes, getFileType, getMd5HexFromFile, getSha1HexFromFile } from '@/common/utils/file'
 import { copyFile, mkdir, stat as fsStat } from 'node:fs/promises'
-import { randomUUID } from 'node:crypto'
+import { randomUUID, createHash } from 'node:crypto'
 import { Service, Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { FlashFileListItem, FlashFileSetInfo } from '@/ntqqapi/types/flashfile'
 import { HighwayHttpSession } from '../helper/highway'
 import { Media } from '../proto'
+
+const FLASH_TRANSFER_UPLOAD_URL = 'https://multimedia.qfile.qq.com/sliceupload'
+const FLASH_TRANSFER_CHUNK_SIZE = 1024 * 1024
+const FLASH_TRANSFER_APP_ID = 14901 // 闪传文件（封面用 14903）
+
+/**
+ * 闪传非秒传命中分支：分片上传到 multimedia.qfile.qq.com/sliceupload。
+ * 每片要带累计 sha1 列表（chunkSha1[0..i]），算法见 LagrangeV2 FlashTransferContext。
+ */
+async function flashTransferUpload(uKey: string, filePath: string, fileSize: number) {
+  const fileBytes = readFileSync(filePath)
+  const chunkCount = Math.ceil(fileSize / FLASH_TRANSFER_CHUNK_SIZE)
+  // 预先计算每个 chunk 边界处的累计 sha1（从文件头到 chunk 结尾）。最后一片直接用整文件 sha1。
+  const sha1State: Buffer[] = []
+  for (let i = 0; i < chunkCount; i++) {
+    const accLen = i === chunkCount - 1 ? fileSize : (i + 1) * FLASH_TRANSFER_CHUNK_SIZE
+    sha1State.push(createHash('sha1').update(fileBytes.subarray(0, accLen)).digest())
+  }
+
+  for (let i = 0; i < chunkCount; i++) {
+    const start = i * FLASH_TRANSFER_CHUNK_SIZE
+    const end = Math.min(fileSize, start + FLASH_TRANSFER_CHUNK_SIZE)
+    const chunk = fileBytes.subarray(start, end)
+    const payload = Media.FlashTransferUploadReq.encode({
+      fieId1: 0,
+      appId: FLASH_TRANSFER_APP_ID,
+      fileId3: 2,
+      body: {
+        fieId1: Buffer.alloc(0),
+        uKey,
+        start,
+        end: end - 1,
+        sha1: createHash('sha1').update(chunk).digest(),
+        sha1StateV: { state: sha1State },
+        body: chunk,
+      },
+    })
+    const resp = await fetch(FLASH_TRANSFER_UPLOAD_URL, {
+      method: 'POST',
+      headers: { 'Accept': '*/*', 'Connection': 'Keep-Alive' },
+      body: Buffer.from(payload),
+    })
+    const respBytes = Buffer.from(await resp.arrayBuffer())
+    const decoded = Media.FlashTransferUploadResp.decode(respBytes)
+    if (decoded.status !== 'success') {
+      throw new Error(`flashTransfer upload chunk ${i} failed: ${decoded.status}`)
+    }
+  }
+}
 
 declare module 'cordis' {
   interface Context {
@@ -145,7 +194,8 @@ export class NTQQFileApi extends Service {
         fileSize: f.size, sha1Hex: f.sha1, name: f.name, requestId: ++reqId, field103: 22,
       })
       if (pre.uKey) {
-        throw new Error(`uploadFlashFile: file ${f.name} 不在服务端缓存中（非秒传命中），highway 上传暂未实现`)
+        // 非秒传命中：走 multimedia.qfile.qq.com/sliceupload 分片上传，参考 LagrangeV2 FlashTransferContext
+        await flashTransferUpload(pre.uKey, f.path, f.size)
       }
       if (!pre.token) {
         throw new Error(`uploadFlashFile: preflight 没有返回 token (file ${f.name})`)
