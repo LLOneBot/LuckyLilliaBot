@@ -167,6 +167,57 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       }
     }
 
+    /** 发送 C2C 离线文件消息（trans 0x211 + FileExtra）。upload + feed by send-msg。 */
+    async sendC2CFileMessage(opts: {
+      toUin: number
+      toUid: string
+      fileUuid: string
+      fileName: string
+      fileSize: number
+      file10MMd5: Buffer
+      crcMedia: string
+    }) {
+      const random = randomBytes(4).readUInt32BE(0)
+      const clientSequence = 10000 + Math.floor(Math.random() * 90000)
+      const expireTime = Math.floor(Date.now() / 1000) + 7 * 24 * 3600
+      const msgContent = Msg.FileExtra.encode({
+        file: {
+          fileType: 0,
+          fileUuid: opts.fileUuid,
+          fileMd5: opts.file10MMd5,
+          fileName: opts.fileName,
+          fileSize: opts.fileSize,
+          subCmd: 1,
+          dangerLevel: 0,
+          expireTime,
+          fileIdCrcMedia: opts.crcMedia,
+        }
+      })
+      const data = Msg.PbSendMsg.encode({
+        routingHead: {
+          trans0X211: {
+            toUin: BigInt(opts.toUin),
+            ccCmd: 4,
+            uid: opts.toUid,
+          },
+        },
+        contentHead: { pkgNum: 1, pkgIndex: 0, divSeq: 0, autoReply: 0 },
+        body: { msgContent },
+        clientSequence,
+        random,
+      })
+      const res = await this.sendPB('MessageSvc.PbSendMsg', data)
+      const resp = Msg.PbSendMsgResp.decode(Buffer.from(res.pb, 'hex'))
+      if (resp.resultCode !== 0) {
+        throw new Error(`发送 C2C 文件消息失败 (code=${resp.resultCode}): ${resp.errMsg || ''}`)
+      }
+      return {
+        sequence: (resp.clientSequence && resp.clientSequence !== 0n) ? resp.clientSequence : resp.sequence,
+        timestamp: resp.sendTime,
+        random,
+      }
+    }
+
     /** 拉取消息表情回应用户列表 (OidbSvcTrpcTcp.0x9083_1) */
     async fetchMsgEmojiLikes(groupCode: number, msgSeq: number, emojiCode: string, count: number) {
       const body = Oidb.FetchEmojiLikesReq.encode({

@@ -493,6 +493,7 @@ export class NTQQFileApi extends Service {
     return {
       fileId: result.fileId,
       file10MMd5: result.md510MCheckSum,
+      fileSize: result.fileSize,
       crcMedia: result.crcMedia
     }
   }

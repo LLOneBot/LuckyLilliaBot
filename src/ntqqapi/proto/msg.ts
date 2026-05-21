@@ -292,6 +292,13 @@ export namespace Msg {
       group: ProtoField(2, {
         groupCode: ProtoField(1, 'uint32'),
       }, 'optional'),
+      // C2C 文件消息走这个：把上传得到的 fileUuid + 元数据塞进 body.msgContent，
+      // 配合 ccCmd=4 server 才会把它当作"离线文件"消息派发到对端。
+      trans0X211: ProtoField(15, {
+        toUin: ProtoField(1, 'uint64', 'optional'),
+        ccCmd: ProtoField(2, 'uint32', 'optional'),
+        uid: ProtoField(8, 'string', 'optional'),
+      }, 'optional'),
     }),
     contentHead: ProtoField(2, {
       // 注意：发送 PbSendMsg 时，contentHead 是 SendContentHead
@@ -304,7 +311,9 @@ export namespace Msg {
     body: ProtoField(3, {
       richText: ProtoField(1, {
         elems: ProtoField(2, Elem, 'repeated'),
-      }),
+      }, 'optional'),
+      // C2C 文件用 msgContent 携带 FileExtra 序列化结果
+      msgContent: ProtoField(2, 'bytes', 'optional'),
     }),
     clientSequence: ProtoField(4, 'uint32', 'optional'),
     random: ProtoField(5, 'uint32'),

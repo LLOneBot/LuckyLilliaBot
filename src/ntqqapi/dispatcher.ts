@@ -695,6 +695,35 @@ export function convertToRawMessage(msg: any, msgType: number): RawMessage | nul
 
   const elements = parseElements(body?.richText?.elems || [])
 
+  // C2C 离线文件（trans 0x211 + msgType=PrivateFile）：内容在 body.msgContent 而不是 richText.elems
+  if (msgType === MsgType.PrivateFile && body?.msgContent && elements.length === 0) {
+    try {
+      const fe = Msg.FileExtra.decode(Buffer.from(body.msgContent))
+      const nof = fe.file
+      if (nof) {
+        elements.push({
+          elementType: ElementType.File,
+          elementId: '',
+          extBufForUI: '',
+          fileElement: {
+            fileName: nof.fileName || '',
+            fileSize: String(nof.fileSize ?? 0),
+            fileMd5: nof.fileMd5 ? Buffer.from(nof.fileMd5).toString('hex') : '',
+            expireTime: String(nof.expireTime ?? 0),
+            fileId: nof.fileUuid || '',
+            fileUuid: nof.fileUuid || '',
+            fileSubId: '',
+            thumbFileSize: 0,
+            picThumbPath: new Map(),
+            fileBizId: 0,
+          },
+        } as any)
+      }
+    } catch (e) {
+      ctx.logger('qqProtocol').warn('PrivateFile FileExtra decode failed:', (e as Error).message)
+    }
+  }
+
   const senderUin = String(routingHead.fromUin || 0)
   const isSelfMsg = senderUin === selfInfo.uin
 

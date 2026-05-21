@@ -350,7 +350,20 @@ export class NTQQMsgApi extends Service {
           // 不能再走 PbSendMsg 带 groupFile elem，否则会双发或服务端拒收。这里直接 continue 跳过 elems push。
           continue
         }
-        // C2C 文件流程不同，需要 OfflineFileUpload 协议（trans 0x211），暂未支持
+        // C2C 文件：upload via 0xe37_1700 + highway，再用 PbSendMsg / trans 0x211 发离线文件消息
+        const peerUin = +(await this.ctx.ntUserApi.getUinByUid(peer.peerUid))
+        const upRes = await this.ctx.ntFileApi.uploadC2CFile(peer.peerUid, sourcePath, f.fileName)
+        f.fileUuid = upRes.fileId
+        await this.ctx.qqProtocol.sendC2CFileMessage({
+          toUin: peerUin,
+          toUid: peer.peerUid,
+          fileUuid: upRes.fileId,
+          fileName: f.fileName,
+          fileSize: upRes.fileSize,
+          file10MMd5: upRes.file10MMd5,
+          crcMedia: upRes.crcMedia,
+        })
+        continue
       } else if (elem.elementType === ElementType.Ark) {
         const ark = elem.arkElement
         const json = ark?.bytesData
