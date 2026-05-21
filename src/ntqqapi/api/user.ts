@@ -72,8 +72,34 @@ export class NTQQUserApi extends Service {
     return { uin: selfInfo.uin, uid: selfInfo.uid, nick: '' }
   }
 
-  async setSelfAvatar(_path: string): Promise<{ result: number, errMsg: string }> {
-    throw new Error('setSelfAvatar 暂未实现 (直连模式)')
+  async setSelfAvatar(filePath: string): Promise<{ result: number, errMsg: string }> {
+    const fs = await import('node:fs')
+    const { Readable } = await import('node:stream')
+    const { getMd5BufferFromFile } = await import('@/common/utils/file')
+    const { HighwayHttpSession } = await import('../helper/highway')
+    const stat = await fs.promises.stat(filePath)
+    const md5 = await getMd5BufferFromFile(filePath)
+    const session = await this.ctx.qqProtocol.getHighwaySession()
+    // service type 1 = 通用图片上传（端口 15000），与抓包一致
+    const server = session.highwayHostAndPorts[1]?.[0]
+    if (!server) return { result: -1, errMsg: 'no highway server (type=1)' }
+    const trans = {
+      uin: selfInfo.uin,
+      cmd: 90, // 自身头像 commandId（PMHQ 抓包 PicUp.DataUp + htcmd=0x6FF0087 验过）
+      readable: Readable.from(fs.createReadStream(filePath, { highWaterMark: 1024 * 1024 })),
+      sum: md5,
+      size: stat.size,
+      ticket: session.sigSession,
+      ext: Buffer.alloc(0),
+      server: server.host,
+      port: server.port,
+    }
+    try {
+      await new HighwayHttpSession(trans).upload()
+      return { result: 0, errMsg: '' }
+    } catch (e) {
+      return { result: -1, errMsg: (e as Error).message }
+    }
   }
 
   async getUidByUin(uin: string, groupCode?: string) {
