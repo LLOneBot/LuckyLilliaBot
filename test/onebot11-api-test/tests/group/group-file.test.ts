@@ -16,6 +16,8 @@ describe('group_file - 上传到指定文件夹', () => {
     let folderName: string | null = null;
     let fileId: string | null = null;
     let fileName: string | null = null;
+    // 用作上传内容 + 下载比对的 ground truth
+    const fileContent = Buffer.from(`upload-into-folder test content ${Date.now()} ${Math.random()}`)
 
     beforeAll(async () => {
         context = await setupMessageTest();
@@ -42,7 +44,7 @@ describe('group_file - 上传到指定文件夹', () => {
             throw new Error('上一步建文件夹失败');
         }
         const primaryClient = context.twoAccountTest.getClient('primary');
-        const content = Buffer.from('upload-into-folder test content').toString('base64');
+        const content = fileContent.toString('base64');
         fileName = `infolder-${Date.now()}.txt`;
         const res = await primaryClient.call(ActionName.GoCQHTTP_UploadGroupFile, {
             group_id: context.testGroupId,
@@ -83,7 +85,7 @@ describe('group_file - 上传到指定文件夹', () => {
         expect(leaked).toBeUndefined();
     }, 30000);
 
-    it('能拿到该文件的下载链接', async () => {
+    it('能拿到该文件的下载链接，且下载内容与上传一致', async () => {
         if (!fileId) {
             throw new Error('前置步骤失败');
         }
@@ -95,6 +97,13 @@ describe('group_file - 上传到指定文件夹', () => {
         Assertions.assertSuccess(res, 'get_group_file_url');
         Assertions.assertResponseHasFields(res, ['url']);
         expect(res.data.url).toBeTruthy();
+
+        // 真的把文件下载下来，比对字节
+        const downloadResp = await fetch(res.data.url);
+        expect(downloadResp.ok).toBe(true);
+        const downloaded = Buffer.from(await downloadResp.arrayBuffer());
+        expect(downloaded.length).toBe(fileContent.length);
+        expect(downloaded.equals(fileContent)).toBe(true);
     }, 30000);
 
     it('删除文件', async () => {
