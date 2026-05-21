@@ -80,7 +80,8 @@ class Store extends Service {
       msgTime: 'unsigned(10)',
       chatType: 'unsigned',
       elementType: 'unsigned',
-      md5HexStr: 'string(32)'
+      md5HexStr: 'string(32)',
+      originImageUrl: 'string'
     }, {
       primary: 'fileUuid',
       indexes: ['fileName']

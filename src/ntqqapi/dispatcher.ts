@@ -734,6 +734,11 @@ function parseElements(elems: any[]): MessageElement[] {
     if (elem.text) {
       const textElem = elem.text
       const isAt = textElem.attr6Buf && textElem.attr6Buf.length > 0
+      // attr6Buf 布局：[2B flag][2B reserved][2B text len][1B atType][4B target uin BE][2B reserved]
+      let atTargetUin = ''
+      if (isAt && textElem.attr6Buf.length >= 11 && textElem.attr6Buf[6] !== 1) {
+        atTargetUin = String((textElem.attr6Buf as Buffer).readUInt32BE(7))
+      }
       result.push({
         elementType: ElementType.Text,
         elementId: '',
@@ -741,7 +746,7 @@ function parseElements(elems: any[]): MessageElement[] {
         textElement: {
           content: textElem.str || '',
           atType: isAt ? (textElem.attr6Buf[6] === 1 ? 1 : 2) : 0,
-          atUid: '',
+          atUid: atTargetUin,
           atNtUid: '',
           atTinyId: '',
           subElementType: 0,

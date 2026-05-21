@@ -31,20 +31,35 @@ export class OCRImage extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload) {
-    let url
+    let url: string
     if (isHttpUrl(payload.image)) {
       url = payload.image
     } else {
-      const { errMsg, isLocal, path, success } = await uri2local(this.ctx, payload.image)
-      if (!success) {
-        throw new Error(errMsg)
+      // 先尝试用 fileName 在缓存中找已知图片（接收端调用 ocr_image 时常用 file 字段）
+      const cached = await this.ctx.store.getFileCacheByName(payload.image)
+      if (cached?.[0]?.originImageUrl) {
+        // QQ 图片 URL 含 rkey 会过期，每次取的时候重算
+        url = await this.ctx.ntFileApi.getImageUrl(cached[0].originImageUrl, cached[0].md5HexStr)
+      } else {
+        const { errMsg, isLocal, path, success } = await uri2local(this.ctx, payload.image)
+        if (!success) {
+          throw new Error(errMsg)
+        }
+        const result = await this.ctx.ntFileApi.uploadC2CImage(selfInfo.uid, path)
+        if (!isLocal) {
+          unlink(path).catch(noop)
+        }
+        // result.msgInfo 在直连模式下是 raw bytes（commonElem 透传），需要 decode
+        const Media = (await import('@/ntqqapi/proto')).Media
+        const msgInfoBytes = (result.msgInfo instanceof Uint8Array || Buffer.isBuffer(result.msgInfo))
+          ? Buffer.from(result.msgInfo as Uint8Array)
+          : null
+        if (!msgInfoBytes) throw new Error('uploadC2CImage 返回的 msgInfo 不是 bytes')
+        const decoded = Media.MsgInfo.decode(msgInfoBytes)
+        const head = decoded.msgInfoBody?.[0]
+        if (!head?.pic || !head.index) throw new Error('上传图片返回无效')
+        url = await this.ctx.ntFileApi.getImageUrl(head.pic.urlPath + (head.pic.ext?.originalParam || ''), head.index.info.md5HexStr)
       }
-      const { msgInfo } = await this.ctx.ntFileApi.uploadC2CImage(selfInfo.uid, path)
-      if (!isLocal) {
-        unlink(path).catch(noop)
-      }
-      const { pic, index } = msgInfo.msgInfoBody[0]
-      url = await this.ctx.ntFileApi.getImageUrl(pic!.urlPath + pic!.ext.originalParam, index.info.md5HexStr)
     }
 
     const { textDetections, language } = await this.ctx.ntFileApi.ocrImage(url)

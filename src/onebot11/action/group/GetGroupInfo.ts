@@ -12,7 +12,8 @@ class GetGroupInfo extends BaseAction<Payload, OB11Group> {
   actionName = ActionName.GetGroupInfo
   payloadSchema = Schema.object({
     group_id: Schema.union([Number, String]).required(),
-    no_cache: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false)
+    // 默认刷新缓存以保证返回的群信息（特别是群名）是最新的
+    no_cache: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(true)
   })
 
   protected async _handle(payload: Payload) {

@@ -56,37 +56,45 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
       try {
         const { replayMsgSeq, replyMsgTime, sourceMsgIdInRecords, senderUidStr } = replyElement
         const record = message.records.find(msgRecord => msgRecord.msgId === sourceMsgIdInRecords)
-        const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, replayMsgSeq, replyMsgTime, senderUidStr ? [senderUidStr] : [])
-
         let replyMsg: RawMessage | undefined
-        if (record && record.msgRandom !== '0') {
-          replyMsg = msgList.find((msg: RawMessage) => msg.msgRandom === record.msgRandom)
-        } else {
-          if (msgList.length > 0) {
+        try {
+          const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, replayMsgSeq, replyMsgTime, senderUidStr ? [senderUidStr] : [])
+          if (record && record.msgRandom !== '0') {
+            replyMsg = msgList.find((msg: RawMessage) => msg.msgRandom === record.msgRandom)
+          } else if (msgList.length > 0) {
             replyMsg = msgList[0]
-          } else if (record) {
-            if (record.senderUin && record.senderUin !== '0') {
-              peer.chatType = record.chatType
-              peer.peerUid = record.peerUid
-              ctx.store.addMsgCache(record)
-            }
-            ctx.logger.info('msgList is empty, use record', replyElement, record)
-            replyMsg = record
           }
+        } catch {}
+
+        if (!replyMsg) {
+          replyMsg = ctx.store.findCachedMsgByPeerSeq?.(peer.peerUid, String(replayMsgSeq))
+        }
+        if (!replyMsg && record) {
+          if (record.senderUin && record.senderUin !== '0') {
+            peer.chatType = record.chatType
+            peer.peerUid = record.peerUid
+            ctx.store.addMsgCache(record)
+          }
+          ctx.logger.info('msgList is empty, use record', replyElement, record)
+          replyMsg = record
         }
         if (!replyMsg) {
-          ctx.logger.error('获取不到引用的消息', replyElement, record)
-          continue
-        }
-
-        messageSegment = {
-          type: OB11MessageDataType.Reply,
-          data: {
-            id: ctx.store.createMsgShortId(replyMsg).toString()
+          // 没找到原消息也得发出 reply 段，否则客户端看不到这是一条回复。用 msgSeq 当占位 id
+          ctx.logger.warn('reply 原消息未命中 cache，使用占位 id', replyElement)
+          messageSegment = {
+            type: OB11MessageDataType.Reply,
+            data: { id: String(replayMsgSeq || 0) }
+          }
+        } else {
+          messageSegment = {
+            type: OB11MessageDataType.Reply,
+            data: {
+              id: ctx.store.createMsgShortId(replyMsg).toString()
+            }
           }
         }
       } catch (e) {
-        ctx.logger.error('获取不到引用的消息', e, replyElement, (e as Error).stack)
+        ctx.logger.error('解析 reply 失败', e, replyElement, (e as Error).stack)
         continue
       }
     }
@@ -110,6 +118,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         fileUuid: picElement.fileUuid,
         fileSize,
         md5HexStr: picElement.md5HexStr,
+        originImageUrl: picElement.originImageUrl,
       })
     }
     else if (element.videoElement) {
