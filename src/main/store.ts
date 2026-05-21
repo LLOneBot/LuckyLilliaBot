@@ -82,8 +82,6 @@ class Store extends Service {
       elementType: 'unsigned',
       md5HexStr: 'string(32)',
       originImageUrl: 'string',
-      fileHash: 'string',
-      senderUid: 'string'
     }, {
       primary: 'fileUuid',
       indexes: ['fileName']

@@ -165,8 +165,6 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         fileUuid: fileElement.fileUuid,
         fileSize,
         md5HexStr: fileElement.fileMd5,
-        fileHash: (fileElement as any).fileHash || '',
-        senderUid: message.senderUid || '',
       })
     }
     else if (element.pttElement) {

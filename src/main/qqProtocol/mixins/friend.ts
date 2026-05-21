@@ -1,4 +1,5 @@
 import { Oidb } from '@/ntqqapi/proto'
+import { selfInfo } from '@/common/globalVars'
 import type { QQProtocolBase } from '../base'
 
 export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
@@ -17,20 +18,17 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
     }
 
     /**
-     * 取私聊文件下载 url。
-     * @param receiverUid 接收方（query 发起者）自己的 uid。验过 PMHQ 抓包：field 10 是 self uid，不是发件人。
-     * @param fileUuid 文件 id
-     * @param fileHash NotOnlineFile.fileIdCrcMedia (field 57)；接收方查时必传，发送方查可空
+     * 取私聊文件下载 url。field 10 是 query 发起者自己的 uid（PMHQ 抓包验过）。
      */
-    async getPrivateFileUrl(receiverUid: string, fileUuid: string, fileHash = '') {
+    async getPrivateFileUrl(fileUuid: string) {
       const body = Oidb.GetPrivateFileReq.encode({
         subCommand: 1200,
         field2: 1,
         body: {
-          receiverUid,
+          receiverUid: selfInfo.uid,
           fileUuid,
           type: 2,
-          fileHash,
+          fileHash: '',
           t2: 0,
         },
         field101: 3,
