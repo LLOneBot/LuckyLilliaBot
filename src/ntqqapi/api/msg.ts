@@ -13,7 +13,7 @@ declare module 'cordis' {
 }
 
 export class NTQQMsgApi extends Service {
-  static inject = ['ntUserApi', 'ntFileApi', 'logger', 'qqProtocol']
+  static inject = ['ntUserApi', 'ntFileApi', 'logger', 'qqProtocol', 'store']
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntMsgApi')
