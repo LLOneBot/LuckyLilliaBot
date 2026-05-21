@@ -427,6 +427,9 @@ export class NTQQFileApi extends Service {
       }
       await new HighwayHttpSession(trans).upload()
     }
+    // 上传完成后必须 feed（0x6d9_4），否则文件只在群文件区里、群聊消息里看不到
+    const random = Math.floor(Math.random() * 0xffffffff)
+    await this.ctx.qqProtocol.feedGroupFile(+groupCode, result.fileId, random)
     return {
       fileId: result.fileId,
       fileMd5: result.md5.toString('hex')

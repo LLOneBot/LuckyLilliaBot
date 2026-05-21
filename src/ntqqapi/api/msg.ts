@@ -346,13 +346,9 @@ export class NTQQMsgApi extends Service {
           // 把 server 返回的 fileId / md5 写回 element，供上层（upload_group_file action）读 fileUuid 返回给客户端
           f.fileUuid = result.fileId
           f.fileMd5 = result.fileMd5
-          elems.push({
-            groupFile: {
-              filename: f.fileName,
-              fileSize: BigInt(f.fileSize ?? 0),
-              fileId: Buffer.from(result.fileId),
-            }
-          })
+          // 注意：群文件的"发到群聊"是 uploadGroupFile 内部调 0x6d9_4 feed 完成的，
+          // 不能再走 PbSendMsg 带 groupFile elem，否则会双发或服务端拒收。这里直接 continue 跳过 elems push。
+          continue
         }
         // C2C 文件流程不同，需要 OfflineFileUpload 协议（trans 0x211），暂未支持
       } else if (elem.elementType === ElementType.Ark) {
@@ -367,6 +363,37 @@ export class NTQQMsgApi extends Service {
     }
 
     const isGroup = peer.chatType === ChatType.Group
+    // 群文件单独走 0x6d9_4 feed，不会进 elems。如果整条消息只有 File 元素，elems 为空，
+    // 这时候不能调 PbSendMsg（server 会拒收空消息）。直接构造 returnMsg 返回。
+    if (elems.length === 0) {
+      const now = Math.floor(Date.now() / 1000)
+      const fakeRandom = Math.floor(Math.random() * 0xffffffff)
+      return {
+        msgId: String(fakeRandom),
+        msgType: 2,
+        subMsgType: 0,
+        msgTime: String(now),
+        msgSeq: '0',
+        msgRandom: String(fakeRandom),
+        senderUid: selfInfo.uid,
+        senderUin: selfInfo.uin,
+        peerUid: peer.peerUid,
+        peerUin: peer.peerUid,
+        guildId: '',
+        sendNickName: '',
+        sendMemberName: '',
+        sendRemarkName: '',
+        chatType: peer.chatType,
+        sendStatus: 2,
+        recallTime: '0',
+        records: [],
+        elements: msgElements as unknown as MessageElement[],
+        peerName: '',
+        emojiLikesList: [],
+        msgAttrs: new Map(),
+        isOnlineMsg: true,
+      } as RawMessage
+    }
     const ret = await this.ctx.qqProtocol.sendMessage({
       isGroup,
       groupCode: isGroup ? +peer.peerUid : undefined,

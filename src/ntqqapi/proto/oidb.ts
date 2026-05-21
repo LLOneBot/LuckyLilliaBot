@@ -245,6 +245,27 @@ export namespace Oidb {
     })
   })
 
+  /** OidbSvcTrpcTcp.0x6d9_4 - 群文件 feeds（上传完后发布到群聊里） */
+  export const GroupFileFeedReq = ProtoMessage.of({
+    feedsInfoReq: ProtoField(5, {
+      groupCode: ProtoField(1, 'uint64'),
+      appId: ProtoField(2, 'uint32'),
+      feedsInfoList: ProtoField(3, {
+        busId: ProtoField(1, 'uint32'),
+        fileId: ProtoField(2, 'string'),
+        msgRandom: ProtoField(3, 'uint32'),
+        feedFlag: ProtoField(5, 'uint32'),
+      }, 'repeated'),
+    }),
+  })
+
+  export const GroupFileFeedResp = ProtoMessage.of({
+    feedsInfoRsp: ProtoField(5, {
+      retCode: ProtoField(1, 'int32', 'optional'),
+      retMsg: ProtoField(2, 'string', 'optional'),
+    }, 'optional'),
+  })
+
   /** OidbSvcTrpcTcp.0xe37_1700 */
   export const OfflineFileUploadReq = ProtoMessage.of({
     command: ProtoField(1, 'uint32'),

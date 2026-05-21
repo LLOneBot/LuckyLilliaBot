@@ -129,6 +129,29 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return Oidb.GetGroupFileListResp.decode(oidbRespBody)
     }
 
+    /** 群文件 feed（0x6d9_4）—— upload 完成后调用，server 才会把文件作为聊天消息发到群里 */
+    async feedGroupFile(groupCode: number, fileId: string, msgRandom: number, busId: number = 102) {
+      const body = Oidb.GroupFileFeedReq.encode({
+        feedsInfoReq: {
+          groupCode: BigInt(groupCode),
+          appId: 2,
+          feedsInfoList: [{
+            busId,
+            fileId,
+            msgRandom,
+            feedFlag: 1,
+          }],
+        },
+      })
+      const data = Oidb.Base.encode({ command: 0x6d9, subCommand: 4, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d9_4', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`feedGroupFile failed: errorCode=${decoded.errorCode}, errorMsg=${decoded.errorMsg}`)
+      }
+      return Oidb.GroupFileFeedResp.decode(Buffer.from(decoded.body))
+    }
+
     /** 删除群文件，busId 一般为 102（v1 默认），fileId 是 list 接口返回的 fileId */
     async deleteGroupFile(groupCode: number, fileId: string, busId: number = 102) {
       const body = Oidb.GroupFileDeleteReq.encode({ delete: { groupCode, busId, fileId } })
