@@ -245,19 +245,19 @@ export class EventListener {
    * @param event 事件对象
    */
   private handleEvent(event: OB11Event): void {
-    // 将事件添加到队列
-    this.eventQueue.push(event);
-
-    // 检查是否有匹配的事件处理器
+    // 先看有没有挂起的 handler 想要这个事件——有就消费掉，不要把它塞进队列
+    // （否则同一事件会同时塞队列 + resolve handler，下一个 waitForEvent 还能从队列里把它再捞出来一次）
     for (let i = this.eventHandlers.length - 1; i >= 0; i--) {
       const handler = this.eventHandlers[i];
       if (this.matchesFilter(event, handler.filter) && (!handler.customFilter || handler.customFilter(event))) {
-        // 找到匹配的处理器
         clearTimeout(handler.timeout);
         this.eventHandlers.splice(i, 1);
         handler.resolve(event);
+        return
       }
     }
+    // 没有 handler 想要 → 进队列等之后调 waitForEvent 的人来取
+    this.eventQueue.push(event);
   }
 
   /**
@@ -336,14 +336,14 @@ export class EventListener {
    * 等待特定事件
    * @param filter 事件过滤器
    * @param customFilter 自定义过滤函数，用于更复杂的匹配逻辑
-   * @param timeout 超时时间（毫秒），默认 10000ms
+   * @param timeout 超时时间（毫秒），默认 20000ms
    * @returns Promise，解析为匹配的事件
    * @throws {TimeoutError} 等待超时
    */
   async waitForEvent(
     filter: EventFilter,
     customFilter?: (event: OB11Event) => boolean,
-    timeout: number = 10000
+    timeout: number = 20000
   ): Promise<OB11Event> {
     // 首先检查事件队列中是否已有匹配的事件
     for (let i = 0; i < this.eventQueue.length; i++) {
@@ -403,6 +403,6 @@ export class EventListener {
    * 清空事件队列
    */
   clearQueue(): void {
-    this.eventQueue = [];
+    this.eventQueue = []
   }
 }
