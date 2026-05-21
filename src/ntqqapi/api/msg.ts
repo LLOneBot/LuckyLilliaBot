@@ -681,8 +681,58 @@ export class NTQQMsgApi extends Service {
     return { msgList: target ? [target] : [] }
   }
 
-  async translatePtt2Text(_msgId: string, _peer: Peer, _voiceMsgElement: MessageElement): Promise<string> {
-    throw new Error('translatePtt2Text 暂未实现 (直连模式)')
+  async translatePtt2Text(msgId: string, peer: Peer, voiceMsgElement: MessageElement): Promise<string> {
+    const ptt = voiceMsgElement.pttElement
+    if (!ptt) throw new Error('translatePtt2Text: 不是语音消息')
+    if (peer.chatType !== ChatType.Group && peer.chatType !== ChatType.C2C) {
+      throw new Error('translatePtt2Text: 只支持群和私聊语音')
+    }
+
+    // 拿原语音发送者 uin（pttTrans 请求里要传原发送者，不是当前 bot）
+    let msg = this.ctx.store.getMsgCache(msgId) as RawMessage | undefined
+    if (!msg) {
+      const fetched = await this.getMsgsByMsgId(peer, [msgId])
+      msg = fetched.msgList[0]
+    }
+    if (!msg) throw new Error('translatePtt2Text: 找不到消息')
+    const senderUin = +msg.senderUin || +(await this.ctx.ntUserApi.getUinByUid(msg.senderUid).catch(() => '0'))
+    if (!senderUin) throw new Error('translatePtt2Text: 无法获取语音发送者 uin')
+
+    // 监听异步推送结果（按 msgUid 匹配），同时立刻发提交请求
+    const result = new Promise<string>((resolve, reject) => {
+      const dispose = this.ctx.on('nt/raw/ptt-trans-result', (input) => {
+        if (input.msgUid !== msgId) return
+        clearTimeout(timer)
+        dispose()
+        resolve(input.text)
+      })
+      const timer = setTimeout(() => {
+        dispose()
+        reject(new Error('translatePtt2Text 超时（30s 未收到转写结果）'))
+      }, 30_000)
+    })
+
+    const md5 = (ptt.md5HexStr || '').toLowerCase()
+    if (peer.chatType === ChatType.Group) {
+      await this.ctx.qqProtocol.pttTransGroupReq({
+        msgUid: BigInt(msgId),
+        senderUin,
+        groupUin: +peer.peerUid,
+        voiceMd5Hex: md5,
+        voiceFileId: ptt.fileUuid,
+      })
+    } else {
+      // C2C: receiverUin 是 query 发起者自己（即 bot）
+      await this.ctx.qqProtocol.pttTransC2CReq({
+        msgUid: BigInt(msgId),
+        senderUin,
+        receiverUin: +selfInfo.uin,
+        voiceMd5Hex: md5,
+        voiceFileId: ptt.fileUuid,
+      })
+    }
+
+    return result
   }
 
   async fetchGetHitEmotionsByWord(_word: string, _count: number): Promise<any> {

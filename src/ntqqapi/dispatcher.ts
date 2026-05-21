@@ -29,6 +29,7 @@ const enum MsgType {
 const enum Event0x210Sub {
   FriendRequest = 35,
   FriendDeleteOrPinChanged = 39,
+  PttTransResult = 61,
   FriendRecall = 138,
   FriendSelfRecall = 139,
   FriendGrayTip = 290,
@@ -144,6 +145,10 @@ function handle0x210(ctx: Context, msg: any, subType: number) {
       handleFriendGrayTip(ctx, content)
       break
 
+    case Event0x210Sub.PttTransResult:
+      handlePttTransResult(ctx, content)
+      break
+
     default:
       forwardSystemMessage(ctx, msg)
       break
@@ -185,6 +190,26 @@ function handleFriendGrayTip(ctx: Context, content: Buffer) {
     }
   } catch (e) {
     ctx.logger('qqProtocol').warn('FriendGrayTip parse error:', (e as Error).message)
+  }
+}
+
+function handlePttTransResult(ctx: Context, content: Buffer) {
+  try {
+    const decoded = Msg.PttTransResultPush.decode(content)
+    const body = decoded.body
+    if (!body) return
+    // pttTrans 服务自己用的 chatType（1=group, 2=c2c）跟项目里的 ChatType 枚举（C2C=1, Group=2）刚好反过来，转一下
+    const rawType = Number(body.chatType ?? 0)
+    const chatType = rawType === 1 ? ChatType.Group : rawType === 2 ? ChatType.C2C : ChatType.C2C
+    ctx.parallel('nt/raw/ptt-trans-result', {
+      msgUid: String(body.msgUid ?? 0),
+      chatType,
+      peerUin: String(body.groupOrReceiverUin ?? 0),
+      senderUin: String(body.senderUin ?? 0),
+      text: body.text || '',
+    })
+  } catch (e) {
+    console.warn('PttTransResult parse error:', (e as Error).message)
   }
 }
 

@@ -112,6 +112,66 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       await this.sendPB('trpc.msg.msg_svc.MsgService.SsoGroupRecallMsg', data)
     }
 
+    /**
+     * 群语音转文字（提交请求）。服务端立即返回 ack；转写文字通过 MsgPush msgType=528 subType=61 异步推回。
+     * 调用方负责监听 `nt/ptt-trans-result` 事件，按 msgUid 匹配。
+     */
+    async pttTransGroupReq(opts: {
+      msgUid: bigint
+      senderUin: number
+      groupUin: number
+      voiceMd5Hex: string
+      voiceFileId: string
+    }) {
+      const data = Msg.PttTransGroupReq.encode({
+        field1: 1,
+        body: {
+          msgUid: opts.msgUid,
+          senderUin: opts.senderUin,
+          groupUin: opts.groupUin,
+          field4: 0,
+          voiceMd5Hex: opts.voiceMd5Hex,
+          field6: 3,
+          field7: 5142, // 抓包看到的常量；版本相关
+          field8: 1,
+          voiceFileId: opts.voiceFileId,
+          field10: 0,
+        },
+        field5: 1,
+        field6: 1,
+        field10: 0,
+      })
+      await this.sendPB('pttTrans.TransGroupPttReq', data)
+    }
+
+    /** 私聊语音转文字。结果同样走 MsgPush msgType=528 subType=61。 */
+    async pttTransC2CReq(opts: {
+      msgUid: bigint
+      senderUin: number
+      receiverUin: number
+      voiceMd5Hex: string
+      voiceFileId: string
+    }) {
+      const data = Msg.PttTransC2CReq.encode({
+        field1: 2,
+        body: {
+          msgUid: opts.msgUid,
+          senderUin: opts.senderUin,
+          receiverUin: opts.receiverUin,
+          voiceFileId: opts.voiceFileId,
+          field5: 7,
+          field6: 14144, // 抓包看到的常量
+          field7: 1,
+          field8: 0,
+          voiceMd5Hex: opts.voiceMd5Hex,
+        },
+        field5: 1,
+        field6: 1,
+        field10: 0,
+      })
+      await this.sendPB('pttTrans.TransC2CPttReq', data)
+    }
+
     /** 撤回私聊消息 */
     async recallC2CMessage(targetUid: string, clientSequence: number, random: number, timestamp: number, ntMsgSeq: number) {
       const data = Action.SsoC2CRecallMsgReq.encode({

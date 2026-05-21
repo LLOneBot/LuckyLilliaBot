@@ -79,6 +79,8 @@ declare module 'cordis' {
     // Friend events
     'nt/raw/friend-poke': (input: { fromUin: string, toUin: string, action: string, suffix: string, actionImg: string }) => void
     'nt/raw/friend-pin-changed': (input: { uid: string, isPinned: boolean }) => void
+    /** 群/私聊语音转写文字结果异步推送（pttTrans.TransGroupPttReq/TransC2CPttReq 提交后由这条 event 喂结果） */
+    'nt/raw/ptt-trans-result': (input: { msgUid: string, chatType: ChatType, peerUin: string, senderUin: string, text: string }) => void
   }
 }
 

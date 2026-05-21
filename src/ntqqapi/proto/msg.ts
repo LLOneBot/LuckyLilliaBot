@@ -335,4 +335,69 @@ export namespace Msg {
     /** 客户端提交的序号 */
     clientSequence: ProtoField(14, 'uint64', 'optional'),
   })
+
+  /**
+   * SSO `pttTrans.TransGroupPttReq`：群语音转文字。
+   * 客户端提交后服务器立即返回 ack，转写结果通过 MsgPush msgType=528 subType=61 异步推回。
+   */
+  export const PttTransGroupReq = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    body: ProtoField(2, {
+      msgUid: ProtoField(1, 'uint64'),
+      senderUin: ProtoField(2, 'uint32'),
+      groupUin: ProtoField(3, 'uint32'),
+      field4: ProtoField(4, 'uint32'),
+      voiceMd5Hex: ProtoField(5, 'string'),
+      field6: ProtoField(6, 'uint32'),
+      field7: ProtoField(7, 'uint32'),
+      field8: ProtoField(8, 'uint32'),
+      voiceFileId: ProtoField(9, 'string'),
+      field10: ProtoField(10, 'uint32'),
+    }),
+    field5: ProtoField(5, 'uint32'),
+    field6: ProtoField(6, 'uint32'),
+    field10: ProtoField(10, 'uint32'),
+  })
+
+  /** SSO `pttTrans.TransC2CPttReq`：私聊语音转文字。 */
+  export const PttTransC2CReq = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    body: ProtoField(3, {
+      msgUid: ProtoField(1, 'uint64'),
+      senderUin: ProtoField(2, 'uint32'),
+      receiverUin: ProtoField(3, 'uint32'),
+      voiceFileId: ProtoField(4, 'string'),
+      field5: ProtoField(5, 'uint32'),
+      field6: ProtoField(6, 'uint32'),
+      field7: ProtoField(7, 'uint32'),
+      field8: ProtoField(8, 'uint32'),
+      voiceMd5Hex: ProtoField(9, 'string'),
+    }),
+    field5: ProtoField(5, 'uint32'),
+    field6: ProtoField(6, 'uint32'),
+    field10: ProtoField(10, 'uint32'),
+  })
+
+  /**
+   * MsgPush msgType=528 subType=61 推送的转写结果（msg.body.msgContent 解析成这个）。
+   * Group / C2C 共用此 push schema，仅靠 msgUid 关联到原请求即可。
+   */
+  export const PttTransResultPush = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    body: ProtoField(2, {
+      msgUid: ProtoField(1, 'uint64'),
+      /** 1 = group, 2 = c2c */
+      chatType: ProtoField(2, 'uint32'),
+      field3: ProtoField(3, 'uint32'),
+      field4: ProtoField(4, 'uint32'),
+      field5: ProtoField(5, 'uint32'),
+      field6: ProtoField(6, 'uint32'),
+      field7: ProtoField(7, 'uint32'),
+      /** 转写文字 */
+      text: ProtoField(8, 'string'),
+      senderUin: ProtoField(9, 'uint32'),
+      /** group: groupCode；c2c: 收件人 uin */
+      groupOrReceiverUin: ProtoField(10, 'uint32'),
+    }),
+  })
 }
