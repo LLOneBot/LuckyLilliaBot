@@ -400,4 +400,94 @@ export namespace Msg {
       groupOrReceiverUin: ProtoField(10, 'uint32'),
     }),
   })
+
+  /** SSO `Faceroam.OpReq` 收藏表情列表/删除请求 */
+  export const FaceroamOpReq = ProtoMessage.of({
+    comm: ProtoField(1, {
+      imPlat: ProtoField(1, 'uint32'),
+      osVersion: ProtoField(2, 'string'),
+      qVersion: ProtoField(3, 'string', 'optional'),
+    }),
+    selfUin: ProtoField(2, 'uint64'),
+    /** 1 = 列表, 2 = 删除 */
+    subCmd: ProtoField(3, 'uint32'),
+    /** 删除时填要删的 emoji_id 列表 */
+    deleteList: ProtoField(5, {
+      emojiId: ProtoField(1, 'string'),
+    }, 'repeated'),
+    field6: ProtoField(6, 'uint32', 'optional'),
+  })
+
+  /** Faceroam.OpReq 列表响应 */
+  export const FaceroamListResp = ProtoMessage.of({
+    retCode: ProtoField(1, 'uint32'),
+    errMsg: ProtoField(2, 'string'),
+    subCmd: ProtoField(3, 'uint32'),
+    userInfo: ProtoField(4, {
+      fileName: ProtoField(1, 'string', 'repeated'),
+      deleteFile: ProtoField(2, 'string', 'repeated'),
+      bid: ProtoField(3, 'string'),
+      maxRoamSize: ProtoField(4, 'uint32'),
+    }),
+    /** 每个 emoji 对应的 type（与 fileName 等长） */
+    emojiType: ProtoField(5, 'uint32', 'repeated'),
+  })
+
+  /** Faceroam.OpReq 删除响应 */
+  export const FaceroamDeleteResp = ProtoMessage.of({
+    retCode: ProtoField(1, 'uint32'),
+    errMsg: ProtoField(2, 'string'),
+    subCmd: ProtoField(3, 'uint32'),
+    results: ProtoField(5, {
+      emojiId: ProtoField(1, 'string'),
+      status: ProtoField(2, 'uint32'),
+    }, 'repeated'),
+  })
+
+  /** SSO `ImgStore.BDHExpressionRoam` 收藏表情上传请求（add）。 */
+  export const BDHExpressionRoamReq = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    field2: ProtoField(2, 'uint32'),
+    body: ProtoField(3, {
+      field1: ProtoField(1, 'uint32'),
+      uin: ProtoField(2, 'uint64'),
+      field3: ProtoField(3, 'uint32'),
+      /** 表情图 md5（16 字节二进制，不是 hex 字符串） */
+      md5: ProtoField(4, 'bytes'),
+      fileSize: ProtoField(5, 'uint32'),
+      field7: ProtoField(7, 'uint32'),
+      field8: ProtoField(8, 'uint32'),
+      field9: ProtoField(9, 'uint32'),
+      version: ProtoField(13, 'string'),
+      field16: ProtoField(16, 'uint32'),
+    }),
+    /** 对应 highway commandId（add 走 cmd=9） */
+    commandId: ProtoField(7, 'uint32'),
+    extension: ProtoField(1001, 'bytes', 'optional'),
+  })
+
+  /** ImgStore.BDHExpressionRoam 响应：含 uKey + 上传服务器列表 + 最终 emoji 路径 */
+  export const BDHExpressionRoamResp = ProtoMessage.of({
+    field1: ProtoField(1, 'uint64'),
+    field2: ProtoField(2, 'uint32'),
+    body: ProtoField(3, {
+      retCode: ProtoField(1, 'uint32'),
+      field2: ProtoField(2, 'uint32'),
+      field4: ProtoField(4, 'uint32'),
+      uploadIps: ProtoField(6, 'uint32', 'repeated'),
+      uploadPorts: ProtoField(7, 'uint32', 'repeated'),
+      /** highway upload 用的 ticket */
+      uKey: ProtoField(8, 'bytes', 'optional'),
+      field9: ProtoField(9, 'uint32', 'optional'),
+      field10: ProtoField(10, 'uint32', 'optional'),
+      field11: ProtoField(11, 'uint32', 'optional'),
+      field12: ProtoField(12, 'uint32', 'optional'),
+      ext: ProtoField(1018, {
+        domain: ProtoField(1, 'string'),
+        path1: ProtoField(2, 'string', 'optional'),
+        path2: ProtoField(3, 'string', 'optional'),
+        emojiId: ProtoField(5, 'string'),
+      }, 'optional'),
+    }),
+  })
 }

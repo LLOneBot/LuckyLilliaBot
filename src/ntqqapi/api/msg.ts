@@ -5,6 +5,10 @@ import { Media, Msg } from '../proto'
 import { convertToRawMessage } from '../dispatcher'
 import { SendElement } from '../entities'
 import { deflateSync } from 'node:zlib'
+import { createReadStream, promises as fsp } from 'node:fs'
+import { getMd5BufferFromFile } from '@/common/utils/file'
+import { uint32ToIPV4Addr } from '@/common/utils'
+import { HighwayHttpSession } from '../helper/highway'
 
 declare module 'cordis' {
   interface Context {
@@ -615,7 +619,20 @@ export class NTQQMsgApi extends Service {
   }
 
   async fetchFavEmojiList(_count: number): Promise<any> {
-    return { result: 0, errMsg: '', emojiInfoList: [] }
+    const resp = await this.ctx.qqProtocol.listFavEmojis()
+    if (resp.retCode !== 0) {
+      return { result: resp.retCode, errMsg: resp.errMsg || '', emojiInfoList: [] }
+    }
+    const ui = resp.userInfo
+    if (!ui) return { result: 0, errMsg: '', emojiInfoList: [] }
+    const bid = ui.bid || 'qq_expression'
+    const uin = selfInfo.uin
+    // 路径格式 PMHQ 抓包验过：https://p.qpic.cn/{bid}/{uin}/{emoji_id}/0
+    const emojiInfoList = (ui.fileName || []).map(emojiId => ({
+      emojiId,
+      url: `https://p.qpic.cn/${bid}/${uin}/${emojiId}/0`,
+    }))
+    return { result: 0, errMsg: '', emojiInfoList }
   }
 
   async generateMsgUniqueId(_chatType: number) {
@@ -739,12 +756,41 @@ export class NTQQMsgApi extends Service {
     return { emotionList: [] }
   }
 
-  async addFavEmoji(_emojiPath: string): Promise<any> {
-    throw new Error('addFavEmoji 暂未实现 (直连模式)')
+  async addFavEmoji(emojiPath: string): Promise<any> {
+    const stat = await fsp.stat(emojiPath)
+    const md5 = await getMd5BufferFromFile(emojiPath)
+    // 1. 申请上传，拿 uKey + 服务器地址 + emoji_id
+    const prep = await this.ctx.qqProtocol.addFavEmojiPrep({ md5, fileSize: stat.size })
+    const body = prep.body
+    if (!body || body.retCode !== 0) {
+      return { result: body?.retCode ?? -1, errMsg: '', emojiId: '' }
+    }
+    const emojiId = body.ext?.emojiId || ''
+    // 2. 如果服务器没给 uKey 说明已经在缓存里（秒传命中），直接落地
+    if (!body.uKey || body.uKey.length === 0) {
+      return { result: 0, errMsg: '', emojiId }
+    }
+    // 3. 走 highway 上传到 servers[0]:15000，cmd=9
+    const ips = body.uploadIps || []
+    if (ips.length === 0) return { result: -1, errMsg: 'no upload server returned', emojiId }
+    const server = uint32ToIPV4Addr(ips[0])
+    await new HighwayHttpSession({
+      uin: selfInfo.uin,
+      cmd: 9,
+      readable: createReadStream(emojiPath, { highWaterMark: 1024 * 1024 }),
+      sum: md5,
+      size: stat.size,
+      ticket: Buffer.from(body.uKey),
+      ext: Buffer.alloc(0),
+      server,
+      port: 15000,
+    }).upload()
+    return { result: 0, errMsg: '', emojiId }
   }
 
-  async deleteFavEmoji(_emojiIds: string[]): Promise<any> {
-    throw new Error('deleteFavEmoji 暂未实现 (直连模式)')
+  async deleteFavEmoji(emojiIds: string[]): Promise<any> {
+    const resp = await this.ctx.qqProtocol.deleteFavEmojis(emojiIds)
+    return { result: resp.retCode, errMsg: resp.errMsg || '' }
   }
 
   async setContactLocalTop(peer: Peer, isTop: boolean): Promise<{ result: number, errMsg: string }> {

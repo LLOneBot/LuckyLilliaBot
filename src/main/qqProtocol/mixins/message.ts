@@ -3,6 +3,7 @@ import { selfInfo } from '@/common/globalVars'
 import { randomBytes } from 'node:crypto'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { InferProtoModelInput } from '@saltify/typeproto'
+import { AppInfo, DeviceInfo } from '../direct/appInfo'
 import type { QQProtocolBase } from '../base'
 
 export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
@@ -170,6 +171,58 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
         field10: 0,
       })
       await this.sendPB('pttTrans.TransC2CPttReq', data)
+    }
+
+    /** 收藏表情列表（Faceroam.OpReq subCmd=1）。返回每个表情的 emoji_id（含 md5）+ bid + 配额。 */
+    async listFavEmojis() {
+      const data = Msg.FaceroamOpReq.encode({
+        comm: { imPlat: 1, osVersion: DeviceInfo.osVer, qVersion: AppInfo.currentVersion },
+        selfUin: BigInt(selfInfo.uin),
+        subCmd: 1,
+        field6: 1,
+      })
+      const res = await this.sendPB('Faceroam.OpReq', data)
+      return Msg.FaceroamListResp.decode(Buffer.from(res.pb, 'hex'))
+    }
+
+    /** 删除收藏表情（Faceroam.OpReq subCmd=2）。emojiIds 形如 `{uin}_0_0_0_{MD5_HEX_UPPER}_0_0`。 */
+    async deleteFavEmojis(emojiIds: string[]) {
+      const data = Msg.FaceroamOpReq.encode({
+        comm: { imPlat: 1, osVersion: DeviceInfo.osVer },
+        selfUin: BigInt(selfInfo.uin),
+        subCmd: 2,
+        deleteList: emojiIds.map(id => ({ emojiId: id })),
+      })
+      const res = await this.sendPB('Faceroam.OpReq', data)
+      return Msg.FaceroamDeleteResp.decode(Buffer.from(res.pb, 'hex'))
+    }
+
+    /**
+     * 申请上传收藏表情。返回 uKey + 上传服务器 IP/端口 + 最终 emoji_id。
+     * 拿到后用 HighwayHttpSession（cmd=9, ticket=uKey）上传图片字节流。
+     * 服务端收到完整文件后会自动加进用户收藏列表。
+     */
+    async addFavEmojiPrep(opts: { md5: Buffer, fileSize: number }) {
+      const data = Msg.BDHExpressionRoamReq.encode({
+        field1: 3,
+        field2: 1,
+        body: {
+          field1: 0,
+          uin: BigInt(selfInfo.uin),
+          field3: 0,
+          md5: opts.md5,
+          fileSize: opts.fileSize,
+          field7: 2,
+          field8: 8,
+          field9: 1,
+          version: '1.0.0',
+          field16: 1,
+        },
+        commandId: 9,
+        extension: Buffer.from('0a07080010001a01301001', 'hex'), // 抓包看到的常量子结构
+      })
+      const res = await this.sendPB('ImgStore.BDHExpressionRoam', data)
+      return Msg.BDHExpressionRoamResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     /** 撤回私聊消息 */
