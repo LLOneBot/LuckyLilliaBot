@@ -338,7 +338,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
     async muteGroupMember(groupCode: number, memberUid: string, durationSec: number) {
       const body = Oidb.MuteMemberReq.encode({
         groupCode,
-        type: 0,
+        type: 1,
         body: { targetUid: memberUid, duration: durationSec },
       })
       return await this.sendOidb(0x1253, 1, body)
