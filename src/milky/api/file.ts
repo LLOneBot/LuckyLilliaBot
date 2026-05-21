@@ -68,10 +68,7 @@ const GetPrivateFileDownloadUrl = defineApi(
   GetPrivateFileDownloadUrlInput,
   GetPrivateFileDownloadUrlOutput,
   async (ctx, payload) => {
-    const { state, url } = await ctx.qqProtocol.getPrivateFileUrl(
-      selfInfo.uid,
-      payload.file_id
-    )
+    const { state, url } = await ctx.qqProtocol.getPrivateFileUrl(payload.file_id)
     if (state !== 'ok') {
       return Failed(-500, state)
     }

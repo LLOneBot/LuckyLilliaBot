@@ -1127,70 +1127,63 @@ export namespace Oidb {
 
   /** OidbSvcTrpcTcp.0x93cf_1 - 闪传：创建 fileSet（返回 fileSetId + shareLink） */
   export const CreateFlashFileSetReq = ProtoMessage.of({
-    body: ProtoField(4, {
-      totalFileCount: ProtoField(1, 'uint32'),
-      meta: ProtoField(2, {
-        title: ProtoField(2, 'string'),
-        subtitle: ProtoField(3, 'string'),
-        field4: ProtoField(4, 'uint32'),
-        totalFileSize: ProtoField(5, 'uint32'),
-        uploader: ProtoField(10, {
-          uin: ProtoField(1, 'string'),
-          nickname: ProtoField(2, 'string'),
-          uid: ProtoField(3, 'string'),
-          field4: ProtoField(4, 'bytes'),
-        }),
-        field16: ProtoField(16, 'uint32'),
-        field20: ProtoField(20, 'uint32'),
-        field21: ProtoField(21, 'uint32'),
-        field23: ProtoField(23, 'uint32'),
+    totalFileCount: ProtoField(1, 'uint32'),
+    meta: ProtoField(2, {
+      title: ProtoField(2, 'string'),
+      subtitle: ProtoField(3, 'string'),
+      field4: ProtoField(4, 'uint32'),
+      totalFileSize: ProtoField(5, 'uint32'),
+      uploader: ProtoField(10, {
+        uin: ProtoField(1, 'string'),
+        nickname: ProtoField(2, 'string'),
+        uid: ProtoField(3, 'string'),
+        field4: ProtoField(4, 'bytes'),
       }),
-      field3: ProtoField(3, 'uint32'),
+      field16: ProtoField(16, 'uint32'),
+      field20: ProtoField(20, 'uint32'),
+      field21: ProtoField(21, 'uint32'),
+      field23: ProtoField(23, 'uint32'),
     }),
+    field3: ProtoField(3, 'uint32'),
+    field12: ProtoField(12, 'uint32'),
   })
 
   export const CreateFlashFileSetResp = ProtoMessage.of({
-    body: ProtoField(4, {
-      fileSetId: ProtoField(1, 'string'),
-      fileSetIdEcho: ProtoField(2, 'string'),
-      shareLink: ProtoField(3, 'string'),
-      expireTime: ProtoField(4, 'uint32'),
-      expireLeftTime: ProtoField(5, 'uint32'),
-    }),
+    fileSetId: ProtoField(1, 'string'),
+    fileSetIdEcho: ProtoField(2, 'string'),
+    shareLink: ProtoField(3, 'string'),
+    expireTime: ProtoField(4, 'uint32'),
+    expireLeftTime: ProtoField(5, 'uint32'),
   })
 
   /** OidbSvcTrpcTcp.0x93d0_1 - 闪传：把单个文件元数据登记到 fileSet */
   export const RegisterFlashFileReq = ProtoMessage.of({
-    body: ProtoField(4, {
-      field1: ProtoField(1, 'uint32'),
-      fileSetId: ProtoField(2, 'string'),
-      fileSetIdEcho: ProtoField(3, 'string'),
-      file: ProtoField(4, {
-        fileSetId: ProtoField(1, 'string'),
-        fileUuid: ProtoField(2, 'string'),
-        field3: ProtoField(3, 'uint32'),
-        field4: ProtoField(4, 'bytes'),
-        field5: ProtoField(5, 'uint32'),
-        field6: ProtoField(6, 'uint32'),
-        field7: ProtoField(7, 'uint32'),
-        name: ProtoField(8, 'string'),
-        name2: ProtoField(9, 'string'),
-        field10: ProtoField(10, 'uint32'),
-        fileSize: ProtoField(11, 'uint32'),
-        field12: ProtoField(12, 'uint32'),
-        field24: ProtoField(24, 'bytes'),
-      }),
+    field1: ProtoField(1, 'uint32'),
+    fileSetId: ProtoField(2, 'string'),
+    fileSetIdEcho: ProtoField(3, 'string'),
+    file: ProtoField(4, {
+      fileSetId: ProtoField(1, 'string'),
+      fileUuid: ProtoField(2, 'string'),
+      field3: ProtoField(3, 'uint32'),
+      field4: ProtoField(4, 'bytes'),
       field5: ProtoField(5, 'uint32'),
       field6: ProtoField(6, 'uint32'),
+      field7: ProtoField(7, 'uint32'),
+      name: ProtoField(8, 'string'),
+      name2: ProtoField(9, 'string'),
+      field10: ProtoField(10, 'uint32'),
+      fileSize: ProtoField(11, 'uint32'),
+      field12: ProtoField(12, 'uint32'),
+      field24: ProtoField(24, 'bytes', 'optional'),
     }),
+    field6: ProtoField(6, 'uint32'),
+    field12: ProtoField(12, 'uint32'),
   })
 
   /** OidbSvcTrpcTcp.0x93db_1 - 闪传：fileSet prep（在 12a9 上传前调用） */
   export const PrepFlashFileSetReq = ProtoMessage.of({
-    body: ProtoField(4, {
-      fileSetId: ProtoField(1, 'string'),
-      field2: ProtoField(2, 'bytes'),
-    }),
+    fileSetId: ProtoField(1, 'string'),
+    field2: ProtoField(2, 'bytes'),
   })
 
   /** OidbSvcTrpcTcp.0x12a9_100 - 闪传：highway 上传 preflight（NTV2RichMedia 风格，但 sceneType=5 businessType=4） */

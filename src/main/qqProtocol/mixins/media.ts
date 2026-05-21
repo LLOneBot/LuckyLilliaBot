@@ -498,26 +498,26 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
      * + 0x12a9_100/103 highway 上传 + 0x93d1_1 finalize 才能把实际文件放进 fileSet。 */
     async createFlashFileSet(opts: { title: string, subtitle?: string, totalFileCount: number, totalFileSize: number, uploaderUin: string, uploaderNick: string, uploaderUid: string }) {
       const body = Oidb.CreateFlashFileSetReq.encode({
-        body: {
-          totalFileCount: opts.totalFileCount,
-          meta: {
-            title: opts.title,
-            subtitle: opts.subtitle ?? opts.title,
-            field4: 1,
-            totalFileSize: opts.totalFileSize,
-            uploader: {
-              uin: opts.uploaderUin,
-              nickname: opts.uploaderNick,
-              uid: opts.uploaderUid,
-              field4: Buffer.alloc(0),
-            },
-            field16: 1,
-            field20: 0,
-            field21: 0,
-            field23: 0,
+        totalFileCount: opts.totalFileCount,
+        meta: {
+          title: opts.title,
+          subtitle: opts.subtitle ?? opts.title,
+          field4: 1,
+          totalFileSize: opts.totalFileSize,
+          uploader: {
+            uin: opts.uploaderUin,
+            nickname: opts.uploaderNick,
+            uid: opts.uploaderUid,
+            field4: Buffer.alloc(0),
           },
-          field3: 1,
+          field16: 1,
+          field20: 0,
+          field21: 0,
+          field23: 0,
         },
+        // PMHQ 抓的常量；改 1 会被服务器拒 errorCode=100000 "加载失败，请稍后重试"
+        field3: 20,
+        field12: 1,
       })
       const data = Oidb.Base.encode({ command: 0x93cf, subCommand: 1, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x93cf_1', data)
@@ -526,34 +526,32 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         throw new Error(`createFlashFileSet failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
       }
       const resp = Oidb.CreateFlashFileSetResp.decode(Buffer.from(decoded.body))
-      return resp.body
+      return resp
     }
 
     /** 闪传：登记单个文件元数据 (OidbSvcTrpcTcp.0x93d0_1) */
     async registerFlashFile(fileSetId: string, file: { fileUuid: string, name: string, fileSize: number }) {
       const body = Oidb.RegisterFlashFileReq.encode({
-        body: {
-          field1: 1,
+        field1: 1,
+        fileSetId,
+        fileSetIdEcho: fileSetId,
+        file: {
           fileSetId,
-          fileSetIdEcho: fileSetId,
-          file: {
-            fileSetId,
-            fileUuid: file.fileUuid,
-            field3: 0,
-            field4: Buffer.alloc(0),
-            field5: 1,
-            field6: 1,
-            field7: 26,
-            name: file.name,
-            name2: file.name,
-            field10: 0,
-            fileSize: file.fileSize,
-            field12: 0,
-            field24: Buffer.alloc(0),
-          },
+          fileUuid: file.fileUuid,
+          field3: 0,
+          field4: Buffer.alloc(0),
           field5: 1,
           field6: 1,
+          field7: 11, // PMHQ 抓的常量（之前写 26 是错的）
+          name: file.name,
+          name2: file.name,
+          field10: 0,
+          fileSize: file.fileSize,
+          field12: 0,
+          field24: Buffer.alloc(0),
         },
+        field6: 1,
+        field12: 1,
       })
       const data = Oidb.Base.encode({ command: 0x93d0, subCommand: 1, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x93d0_1', data)
@@ -567,7 +565,8 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
     /** 闪传：fileSet upload prep (OidbSvcTrpcTcp.0x93db_1) */
     async prepFlashFileSet(fileSetId: string) {
       const body = Oidb.PrepFlashFileSetReq.encode({
-        body: { fileSetId, field2: Buffer.alloc(0) },
+        fileSetId,
+        field2: Buffer.alloc(0),
       })
       const data = Oidb.Base.encode({ command: 0x93db, subCommand: 1, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x93db_1', data)
