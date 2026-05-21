@@ -333,7 +333,11 @@ export class NTQQGroupApi extends Service {
       this.ctx.qqProtocol.deleteGroupFile(+groupId, fileId, busIdList?.[i] ?? 102)
     )
     await Promise.all(tasks)
-    return { result: 0, errMsg: '' }
+    return {
+      result: 0,
+      errMsg: '',
+      transGroupFileResult: { result: { retCode: 0, retMsg: '', clientWording: '' } },
+    }
   }
 
   async getGroupFileList(groupId: string, fileListForm: GetFileListParam): Promise<GroupFileInfo> {

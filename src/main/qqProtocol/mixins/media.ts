@@ -241,6 +241,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           entrance: 6,
           parentFolderId,
           fileName,
+          localPath: `/${fileName}`,
           fileSize,
           sha: await getSha1BufferFromFile(filePath),
           md5,

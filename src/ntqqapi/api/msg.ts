@@ -334,12 +334,18 @@ export class NTQQMsgApi extends Service {
         if (!sourcePath || !f.fileName) continue
         const isGroup = peer.chatType === ChatType.Group
         if (isGroup) {
+          // 群文件 server 端 parentFolderId 不接受 createGroupFolder 返回时带的前导 "/"，
+          // 否则它会无视这个值把文件丢到根目录。统一去掉。
+          const folderId = (f.folderId ?? '/').replace(/^\/+/, '') || '/'
           const result = await this.ctx.ntFileApi.uploadGroupFile(
             peer.peerUid,
             sourcePath,
             f.fileName,
-            f.folderId ?? '/'
+            folderId,
           )
+          // 把 server 返回的 fileId / md5 写回 element，供上层（upload_group_file action）读 fileUuid 返回给客户端
+          f.fileUuid = result.fileId
+          f.fileMd5 = result.fileMd5
           elems.push({
             groupFile: {
               filename: f.fileName,
