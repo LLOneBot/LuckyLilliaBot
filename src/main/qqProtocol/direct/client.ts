@@ -207,4 +207,8 @@ export class DirectProtocolClient extends EventEmitter {
     this.session = session
     this.emit('login', session)
   }
+
+  clearSession(): void {
+    this.session = null
+  }
 }

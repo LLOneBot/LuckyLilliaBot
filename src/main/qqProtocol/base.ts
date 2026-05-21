@@ -413,6 +413,7 @@ export class QQProtocolBase extends Service {
         return
       } catch (e) {
         this.logger.info('Saved session expired, will need QR login: %s', (e as Error).message)
+        this.directClient.clearSession()
         this.directClient.disconnect()
       }
     }
