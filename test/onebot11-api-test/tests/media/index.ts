@@ -101,6 +101,7 @@ export const MediaPaths = {
   testAudio2Url: getMediaFileUrl('test2.mp3'),
   testGifUrl: getMediaFileUrl('test.gif'),
   testImageUrl: getMediaFileUrl('test.gif'),
+  testOcrImageUrl: getMediaFileUrl('test_ocr.png'),
   // 视频用 ffmpeg 现生成（同一进程复用一个文件），避免服务端针对固定 md5 的异常缓存状态
   get testVideoUrl() { return getFreshVideoUrl(); },
   get testVideoPath() { return generateFreshVideo(); },

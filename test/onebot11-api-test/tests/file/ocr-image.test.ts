@@ -7,6 +7,7 @@ import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../se
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llbot/onebot11/types';
+import { MediaPaths } from '@/tests/media';
 
 describe('ocr_image - 图片 OCR 识别', () => {
   let context: MessageTestContext;
@@ -28,7 +29,7 @@ describe('ocr_image - 图片 OCR 识别', () => {
       {
         type: OB11MessageDataType.Image,
         data: {
-          file: "http://i0.hdslb.com/bfs/archive/c8fd97a40bf79f03e7b76cbc87236f612caef7b2.png"
+          file: MediaPaths.testOcrImageUrl
         }
       }
     ];
