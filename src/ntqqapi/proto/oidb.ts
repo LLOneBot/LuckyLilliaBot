@@ -166,6 +166,7 @@ export namespace Oidb {
     subCommand: ProtoField(1, 'uint32'),
     field2: ProtoField(2, 'uint32'),
     body: ProtoField(14, {
+      // 接收方（query 发起者）自己的 uid。PMHQ 抓包验过。
       receiverUid: ProtoField(10, 'string'),
       fileUuid: ProtoField(20, 'string'),
       type: ProtoField(30, 'uint32'),

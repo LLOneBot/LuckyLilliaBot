@@ -157,4 +157,8 @@ export interface FileCache {
   md5HexStr: string
   /** 图片专用：原始 URL 路径（不含 rkey），获取时通过 getImageUrl 拼新鲜 rkey */
   originImageUrl?: string
+  /** 私聊文件专用：NotOnlineFile.fileIdCrcMedia（field 57）；查 url 时作 fileHash 传给 OIDB 0xe37_1200 */
+  fileHash?: string
+  /** 私聊文件专用：发送方 uid，查 url 时作 receiverUid */
+  senderUid?: string
 }

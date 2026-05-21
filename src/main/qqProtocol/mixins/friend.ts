@@ -16,7 +16,13 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
       return await this.sendPB('OidbSvcTrpcTcp.0xed3_1', data)
     }
 
-    async getPrivateFileUrl(receiverUid: string, fileUuid: string) {
+    /**
+     * 取私聊文件下载 url。
+     * @param receiverUid 接收方（query 发起者）自己的 uid。验过 PMHQ 抓包：field 10 是 self uid，不是发件人。
+     * @param fileUuid 文件 id
+     * @param fileHash NotOnlineFile.fileIdCrcMedia (field 57)；接收方查时必传，发送方查可空
+     */
+    async getPrivateFileUrl(receiverUid: string, fileUuid: string, fileHash = '') {
       const body = Oidb.GetPrivateFileReq.encode({
         subCommand: 1200,
         field2: 1,
@@ -24,10 +30,11 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
           receiverUid,
           fileUuid,
           type: 2,
+          fileHash,
           t2: 0,
         },
         field101: 3,
-        field102: 103,
+        field102: 1,
         field200: 1,
         field99999: Buffer.from([0xc0, 0x85, 0x2c, 0x01]),
       })

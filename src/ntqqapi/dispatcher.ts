@@ -716,6 +716,10 @@ export function convertToRawMessage(msg: any, msgType: number): RawMessage | nul
             thumbFileSize: 0,
             picThumbPath: new Map(),
             fileBizId: 0,
+            // 接收方查 OIDB 0xe37_1200 拿下载链接时需要这俩：
+            //   fileHash 来自 NotOnlineFile.fileIdCrcMedia (field 57)
+            //   senderUid 是消息的 fromUid，由调用方填
+            fileHash: nof.fileIdCrcMedia || '',
           },
         } as any)
       }
