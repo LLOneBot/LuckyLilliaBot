@@ -120,7 +120,6 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
     }
 
     async getHighwaySession() {
-      // 老版本（wrapper 模式）写法：loginSigType=1，不传 loginSigTicket
       const data = Media.HighwaySessionReq.encode({
         reqBody: {
           uin: 0,

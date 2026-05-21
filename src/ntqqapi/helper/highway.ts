@@ -59,6 +59,7 @@ abstract class AbstractHighwaySession {
       timestamp: 0,
       msgLoginSigHead: {
         uint32LoginSigType: 8,
+        bytesLoginSig: Buffer.alloc(0),
         appId: AppInfo.appId,
       } as any,
     })
@@ -85,6 +86,40 @@ abstract class AbstractHighwaySession {
   abstract upload(): Promise<void>
 }
 
+/**
+ * 挖 bytesRspExtendInfo 里的错误字符串。highway 服务器在权限不足等场景下，
+ * outer errorCode/segRetCode 都是 0，但会把真正的拒绝原因（如 "No Perm"）
+ * 塞在 bytesRspExtendInfo 嵌套 protobuf 的 field 4 里。
+ */
+function extractRspExtErrorMsg(buf: Buffer): string | null {
+  let p = 0
+  while (p < buf.length) {
+    const tag = buf[p++]
+    const wire = tag & 7
+    const fn = tag >> 3
+    if (wire === 0) {
+      while (p < buf.length && (buf[p++] & 0x80)) { }
+    } else if (wire === 2) {
+      let len = 0, sh = 0
+      while (p < buf.length) {
+        const b = buf[p++]
+        len |= (b & 0x7f) << sh
+        if (!(b & 0x80)) break
+        sh += 7
+      }
+      const value = buf.subarray(p, p + len)
+      p += len
+      if (fn === 4) {
+        const s = value.toString('utf-8')
+        if (s && /^[\x20-\x7e一-鿿]+$/.test(s)) return s
+      }
+    } else {
+      return null
+    }
+  }
+  return null
+}
+
 export class HighwayHttpSession extends AbstractHighwaySession {
   override async upload() {
     let offset = 0
@@ -106,6 +141,17 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     const payload = this.buildPicUpHead(offset, block.length, chunkMd5)
     const frame = this.packFrame(payload, block)
 
+    if (process.env.DEBUG_HIGHWAY) {
+      console.log('[HTTP highway] block req:', JSON.stringify({
+        offset,
+        cmd: this.trans.cmd,
+        bodyLen: block.length,
+        ticketLen: this.trans.ticket?.length || 0,
+        extLen: this.trans.ext?.length || 0,
+        headHex: payload.toString('hex'),
+        extHex: this.trans.ext?.toString('hex') || '',
+      }))
+    }
     const resp = await this.httpPostHighwayContent(frame,
       `http://${this.trans.server}:${this.trans.port}/cgi-bin/httpconn?htcmd=0x6FF0087&uin=${this.trans.uin}`,
       isEnd)
@@ -116,6 +162,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       console.log('[HTTP highway] block resp:', JSON.stringify({
         offset,
         isEnd,
+        cmd: this.trans.cmd,
         errorCode: headData.errorCode,
         seg: headData.msgSegHead ? {
           retCode: headData.msgSegHead.retCode,
@@ -126,6 +173,17 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       }))
     }
     if (headData.errorCode !== 0) throw new Error(`HTTP Upload failed with code ${headData.errorCode}`)
+    const segRet = headData.msgSegHead?.retCode
+    if (segRet !== undefined && segRet !== 0) {
+      throw new Error(`HTTP Upload seg retCode=${segRet}`)
+    }
+    // 服务器有时把真正的拒绝原因放在 bytesRspExtendInfo.field4（字符串），outer errorCode 仍是 0。
+    // 例：群头像无权限时返回 "No Perm"。挖出来当 error 抛，免得用户以为成功。
+    const ext = headData.bytesRspExtendInfo
+    if (ext && ext.length > 0) {
+      const reason = extractRspExtErrorMsg(Buffer.from(ext))
+      if (reason) throw new Error(`HTTP Upload rejected: ${reason}`)
+    }
   }
 
   private async httpPostHighwayContent(frame: Buffer, serverURL: string, isEnd: boolean): Promise<Buffer> {

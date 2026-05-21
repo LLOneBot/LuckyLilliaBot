@@ -365,5 +365,16 @@ export namespace Media {
     }),
     unknown200: ProtoField(200, 'int32', 'optional')
   })
+
+  /** 群头像上传 ext (PicUp.DataUp + cmd=3000) */
+  export const GroupAvatarExtra = ProtoMessage.of({
+    type: ProtoField(1, 'uint32'),
+    groupUin: ProtoField(2, 'uint32'),
+    field3: ProtoField(3, {
+      field1: ProtoField(1, 'uint32'),
+    }),
+    field5: ProtoField(5, 'uint32'),
+    field6: ProtoField(6, 'uint32'),
+  })
 }
 

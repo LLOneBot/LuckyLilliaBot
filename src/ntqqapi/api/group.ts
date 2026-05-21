@@ -13,6 +13,10 @@ import {
   Group,
 } from '../types'
 import { Service, Context } from 'cordis'
+import { createReadStream, promises as fsp } from 'node:fs'
+import { getMd5BufferFromFile } from '@/common/utils/file'
+import { HighwayHttpSession } from '../helper/highway'
+import { Media } from '../proto'
 
 declare module 'cordis' {
   interface Context {
@@ -497,8 +501,42 @@ export class NTQQGroupApi extends Service {
     } as GroupBulletinListResult
   }
 
-  async setGroupAvatar(_groupCode: string, _path: string): Promise<any> {
-    throw new Error('setGroupAvatar 暂未实现 (直连模式)')
+  /**
+   * 设群头像。请求结构跟 PMHQ 抓的 NTQQ Windows 客户端一致（PicUp.DataUp + cmd=3000 +
+   * GroupAvatarExtra），但服务器把 Linux bot appId (1600001615) 在 highway 上的群主操作
+   * 权限关掉了——即使本号确实是群主，server 仍返回 "No Perm"（藏在 bytesRspExtendInfo.field4 里）。
+   * 同账号通过 OIDB 改群名是正常的。这是 server 侧策略，客户端无法绕过。
+   */
+  async setGroupAvatar(groupCode: string, filePath: string): Promise<{ result: number, errMsg: string }> {
+    const stat = await fsp.stat(filePath)
+    const md5 = await getMd5BufferFromFile(filePath)
+    const session = await this.ctx.qqProtocol.getHighwaySession()
+    const server = session.highwayHostAndPorts[1]?.[0]
+    if (!server) return { result: -1, errMsg: 'no highway server (type=1)' }
+    const ext = Media.GroupAvatarExtra.encode({
+      type: 101,
+      groupUin: +groupCode,
+      field3: { field1: 1 },
+      field5: 3,
+      field6: 1,
+    })
+    const trans = {
+      uin: selfInfo.uin,
+      cmd: 3000, // 群头像 commandId（PMHQ 抓包验过：与自身头像同走 PicUp.DataUp，仅 cmd 与 ext 不同）
+      readable: createReadStream(filePath, { highWaterMark: 1024 * 1024 }),
+      sum: md5,
+      size: stat.size,
+      ticket: session.sigSession,
+      ext: Buffer.from(ext),
+      server: server.host,
+      port: server.port,
+    }
+    try {
+      await new HighwayHttpSession(trans).upload()
+      return { result: 0, errMsg: '' }
+    } catch (e) {
+      return { result: -1, errMsg: (e as Error).message }
+    }
   }
 
   async searchMember(groupCode: string, keyword: string) {
