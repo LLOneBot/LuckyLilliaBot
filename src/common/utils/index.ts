@@ -1,5 +1,5 @@
 export * from './file'
 export * from './misc'
-export * from './misc'
+export * from './group'
 export { getVideoInfo } from './video'
 export { encodeSilk } from './audio'

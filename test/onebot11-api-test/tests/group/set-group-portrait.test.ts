@@ -14,9 +14,7 @@ describe('set_group_portrait', () => {
         teardownMessageTest(context);
     });
 
-    // server 把 Linux bot appId 在 highway cmd=3000 上的权限关掉了，
-    // 即使本号是群主也会返回 "No Perm"。客户端无法绕过。
-    it.skip('should set group portrait (server-side blocks Linux bot appId)', async () => {
+    it('should set group portrait', async () => {
         const primaryClient = context.twoAccountTest.getClient('primary');
 
         const response = await primaryClient.call(ActionName.GoCQHTTP_SetGroupPortrait, {

@@ -15,6 +15,7 @@ import {
 import { Service, Context } from 'cordis'
 import { createReadStream, promises as fsp } from 'node:fs'
 import { getMd5BufferFromFile } from '@/common/utils/file'
+import { groupCodeToGroupUin } from '@/common/utils'
 import { HighwayHttpSession } from '../helper/highway'
 import { Media } from '../proto'
 
@@ -502,10 +503,11 @@ export class NTQQGroupApi extends Service {
   }
 
   /**
-   * 设群头像。请求结构跟 PMHQ 抓的 NTQQ Windows 客户端一致（PicUp.DataUp + cmd=3000 +
-   * GroupAvatarExtra），但服务器把 Linux bot appId (1600001615) 在 highway 上的群主操作
-   * 权限关掉了——即使本号确实是群主，server 仍返回 "No Perm"（藏在 bytesRspExtendInfo.field4 里）。
-   * 同账号通过 OIDB 改群名是正常的。这是 server 侧策略，客户端无法绕过。
+   * 设群头像。HTTP-only 上传：PicUp.DataUp + cmd=3000 + GroupAvatarExtra（含 groupUin），
+   * 字节级匹配 PMHQ 抓的 NTQQ Windows 客户端。
+   *
+   * 关键坑：GroupAvatarExtra.groupUin 是**内部 groupUin**，不是用户看到的 groupCode。
+   * 错传 groupCode 会被服务器拒绝 "No Perm"（藏在 bytesRspExtendInfo.field4，outer errorCode 是 0）。
    */
   async setGroupAvatar(groupCode: string, filePath: string): Promise<{ result: number, errMsg: string }> {
     const stat = await fsp.stat(filePath)
@@ -515,7 +517,7 @@ export class NTQQGroupApi extends Service {
     if (!server) return { result: -1, errMsg: 'no highway server (type=1)' }
     const ext = Media.GroupAvatarExtra.encode({
       type: 101,
-      groupUin: +groupCode,
+      groupUin: groupCodeToGroupUin(+groupCode),
       field3: { field1: 1 },
       field5: 3,
       field6: 1,
