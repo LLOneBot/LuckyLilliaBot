@@ -1,6 +1,7 @@
 import { deepConvertMap, deepStringifyMap } from './util'
 import { selfInfo } from '@/common/globalVars'
 import { randomUUID } from 'node:crypto'
+import { Oidb } from '@/ntqqapi/proto'
 import type {
   PMHQRes,
   PMHQReq,
@@ -341,7 +342,6 @@ export class QQProtocolBase extends Service {
     body: Uint8Array,
     cmdSuffix?: string,
   ): Promise<{ errorCode: number, errorMsg: string, body: Uint8Array }> {
-    const Oidb = (await import('@/ntqqapi/proto')).Oidb
     const reqBytes = Oidb.Base.encode({ command, subCommand, body: Buffer.from(body) })
     const cmd = cmdSuffix ?? `OidbSvcTrpcTcp.0x${command.toString(16)}_${subCommand}`
     const resp = await this.sendPB(cmd, reqBytes)

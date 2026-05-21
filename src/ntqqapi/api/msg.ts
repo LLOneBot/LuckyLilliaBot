@@ -4,6 +4,7 @@ import { selfInfo } from '@/common/globalVars'
 import { Media, Msg } from '../proto'
 import { convertToRawMessage } from '../dispatcher'
 import { SendElement } from '../entities'
+import { deflateSync } from 'node:zlib'
 
 declare module 'cordis' {
   interface Context {
@@ -369,7 +370,6 @@ export class NTQQMsgApi extends Service {
         const json = ark?.bytesData
         if (!json) continue
         // lightApp.data = [0x01] + deflate(jsonBytes)
-        const { deflateSync } = await import('node:zlib')
         const data = Buffer.concat([Buffer.from([0x01]), deflateSync(Buffer.from(json, 'utf-8'))])
         elems.push({ lightApp: { data } })
       }

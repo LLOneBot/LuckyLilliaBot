@@ -5,6 +5,7 @@ import { uri2local } from '@/common/utils/file'
 import { unlink } from 'node:fs/promises'
 import { isHttpUrl } from '@/common/utils'
 import { selfInfo } from '@/common/globalVars'
+import { Media } from '@/ntqqapi/proto'
 
 interface Payload {
   image: string
@@ -50,7 +51,6 @@ export class OCRImage extends BaseAction<Payload, Response> {
           unlink(path).catch(noop)
         }
         // result.msgInfo 在直连模式下是 raw bytes（commonElem 透传），需要 decode
-        const Media = (await import('@/ntqqapi/proto')).Media
         const msgInfoBytes = (result.msgInfo instanceof Uint8Array || Buffer.isBuffer(result.msgInfo))
           ? Buffer.from(result.msgInfo as Uint8Array)
           : null

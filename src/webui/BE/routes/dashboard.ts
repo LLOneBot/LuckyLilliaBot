@@ -1,5 +1,6 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
+import os from 'node:os'
 
 export function createDashboardRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -22,7 +23,6 @@ export function createDashboardRoutes(ctx: Context): Hono {
       const qqMemoryPercent = (qqMemory / qqTotalMem) * 100
 
       // Bot 进程资源
-      const os = await import('os')
       const botTotalMem = os.totalmem()
       const cpuCores = os.cpus().length
       const memUsage = process.memoryUsage()

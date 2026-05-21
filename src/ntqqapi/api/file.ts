@@ -4,10 +4,12 @@ import {
   IMAGE_HTTP_HOST_NT,
 } from '../types'
 import path from 'node:path'
+import os from 'node:os'
 import { createReadStream } from 'node:fs'
 import { RkeyManager } from '@/ntqqapi/helper/rkey'
 import { calculateSha1StreamBytes, getFileType, getMd5HexFromFile, getSha1HexFromFile } from '@/common/utils/file'
-import { copyFile } from 'node:fs/promises'
+import { copyFile, mkdir, stat as fsStat } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { Service, Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { FlashFileListItem, FlashFileSetInfo } from '@/ntqqapi/types/flashfile'
@@ -52,10 +54,8 @@ export class NTQQFileApi extends Service {
 
   async getRichMediaFilePath(_md5HexStr: string, fileName: string, _elementType: ElementType, _elementSubType = 0) {
     // 直连模式：在系统临时目录下创建路径
-    const os = await import('node:os')
-    const fs = await import('node:fs/promises')
     const dir = path.join(os.tmpdir(), 'lucky-lillia-media')
-    await fs.mkdir(dir, { recursive: true })
+    await mkdir(dir, { recursive: true })
     return path.join(dir, fileName)
   }
 
@@ -111,17 +111,14 @@ export class NTQQFileApi extends Service {
 
   async uploadFlashFile(title: string, filePaths: string[]): Promise<any> {
     if (filePaths.length === 0) throw new Error('uploadFlashFile: filePaths empty')
-    const fs = await import('node:fs/promises')
-    const pathMod = await import('node:path')
-    const cryptoMod = await import('node:crypto')
     type FileMeta = { path: string, name: string, size: number, sha1: string, fileUuid: string }
     const files: FileMeta[] = []
     let totalSize = 0
     for (const p of filePaths) {
-      const stat = await fs.stat(p)
+      const st = await fsStat(p)
       const sha1 = await getSha1HexFromFile(p)
-      files.push({ path: p, name: pathMod.basename(p), size: stat.size, sha1, fileUuid: cryptoMod.randomUUID() })
-      totalSize += stat.size
+      files.push({ path: p, name: path.basename(p), size: st.size, sha1, fileUuid: randomUUID() })
+      totalSize += st.size
     }
     // 1. 创建 fileSet
     const fset = await this.ctx.qqProtocol.createFlashFileSet({
@@ -227,7 +224,6 @@ export class NTQQFileApi extends Service {
   }
 
   async reshareFlashFile(fileSetId: string): Promise<any> {
-    const cryptoMod = await import('node:crypto')
     const sourceFiles = await this.ctx.qqProtocol.getFlashFileList(fileSetId)
     if (sourceFiles.length === 0) throw new Error('reshareFlashFile: 源 fileSet 无文件')
     const sourceInfo = await this.ctx.qqProtocol.getFlashFileInfo(fileSetId)
@@ -246,7 +242,7 @@ export class NTQQFileApi extends Service {
     // 2. 注册每个文件（用源文件的元信息）+ prep + 秒传 commit
     for (const f of sourceFiles as any[]) {
       await this.ctx.qqProtocol.registerFlashFile(newFileSetId, {
-        fileUuid: cryptoMod.randomUUID(),
+        fileUuid: randomUUID(),
         name: f.name ?? '',
         fileSize: f.fileSize ?? 0,
       })

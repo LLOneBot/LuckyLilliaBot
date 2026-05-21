@@ -1,9 +1,11 @@
 import { Context } from 'cordis'
 import path from 'path'
+import os from 'node:os'
 import { existsSync } from 'node:fs'
+import { access, readFile, unlink, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { decodeSilk } from '@/common/utils/audio'
 import { Hono } from 'hono'
-import { readFile } from 'node:fs/promises'
 
 export function createProxyRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -121,18 +123,13 @@ export function createProxyRoutes(ctx: Context): Hono {
 
       ctx.logger.info('语音代理请求:', { fileUuid, filePath, isGroup })
 
-      const fs = await import('fs/promises')
-      const pathModule = await import('path')
-      const os = await import('os')
-      const { randomUUID } = await import('crypto')
-
       let audioFilePath: string = ''
 
       // 优先使用本地文件路径
       if (filePath) {
         const decodedPath = decodeURIComponent(filePath)
         try {
-          await fs.access(decodedPath)
+          await access(decodedPath)
           audioFilePath = decodedPath
           ctx.logger.info('使用本地文件:', audioFilePath)
         } catch {
@@ -162,21 +159,20 @@ export function createProxyRoutes(ctx: Context): Hono {
 
         const audioBuffer = Buffer.from(await response.arrayBuffer())
         const tempDir = os.tmpdir()
-        audioFilePath = pathModule.join(tempDir, `ptt_${randomUUID()}.silk`)
-        await fs.writeFile(audioFilePath, audioBuffer)
+        audioFilePath = path.join(tempDir, `ptt_${randomUUID()}.silk`)
+        await writeFile(audioFilePath, audioBuffer)
       }
 
       // 转换为 mp3
       try {
         const mp3Path = await decodeSilk(ctx, audioFilePath, 'mp3')
-        const mp3Buffer = await fs.readFile(mp3Path)
+        const mp3Buffer = await readFile(mp3Path)
 
         // 清理临时文件
-        const os = await import('os')
         if (audioFilePath.includes(os.tmpdir())) {
-          fs.unlink(audioFilePath).catch(() => { })
+          unlink(audioFilePath).catch(() => { })
         }
-        fs.unlink(mp3Path).catch(() => { })
+        unlink(mp3Path).catch(() => { })
 
         c.header('Content-Type', 'audio/mpeg')
         c.header('Cache-Control', 'public, max-age=86400')
