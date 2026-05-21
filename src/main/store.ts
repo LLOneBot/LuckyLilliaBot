@@ -104,7 +104,10 @@ class Store extends Service {
   }
 
   getUniqueMsgId(msg: RawMessage): string {
-    return `${msg.chatType}-${msg.peerUid}-${msg.msgSeq}-${msg.msgRandom}-${msg.msgTime}`
+    // 注意：msgTime 不能进 hash —— PbSendMsg 同步响应里的 sendTime 偶尔会比真正广播的
+    // contentHead.msgTime 晚 1 秒，发送方和接收方算出不同的 shortId，下游 reply / get_msg 就匹配不上。
+    // (chatType, peerUid, msgSeq, msgRandom) 已经能唯一标识一条消息。
+    return `${msg.chatType}-${msg.peerUid}-${msg.msgSeq}-${msg.msgRandom}`
   }
 
   createMsgShortId(msg: RawMessage): number {
