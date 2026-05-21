@@ -869,8 +869,12 @@ function parseElements(elems: any[]): MessageElement[] {
       continue
     }
 
-    // Old format video
+    // Old format video（仅在没有 commonElem(serviceType=48,businessType=21|11) 视频时使用，
+    // 否则会出现重复的 video 段）
     if (elem.videoFile) {
+      const hasCommonVideo = elems.some((e: any) =>
+        e?.commonElem?.serviceType === 48 && (e.commonElem.businessType === 21 || e.commonElem.businessType === 11))
+      if (hasCommonVideo) continue
       const v = Msg.VideoFileMsg.decode(Buffer.from(elem.videoFile))
       result.push({
         elementType: ElementType.Video,
