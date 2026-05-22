@@ -64,14 +64,10 @@ describe('group_album - 群相册操作', () => {
       const response = await primaryClient.call(ActionName.UploadGroupAlbum, {
         group_id: context.testGroupId,
         album_id: albumId,
-        file: MediaPaths.testGifUrl
+        files: [MediaPaths.testGifUrl],
       });
 
-      if (response.retcode === 0) {
-        Assertions.assertSuccess(response, 'upload_group_album');
-      } else {
-        console.log('上传群相册图片失败:', response.message);
-      }
+      Assertions.assertSuccess(response, 'upload_group_album');
     } else {
       console.log('未找到可用相册，跳过测试');
     }
