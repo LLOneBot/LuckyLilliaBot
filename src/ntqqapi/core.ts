@@ -147,39 +147,6 @@ class Core extends Service {
       logSummaryMessage(this.ctx, message).then()
       this.ctx.parallel('nt/message-created', message)
     }
-
-    // 自动清理新消息文件
-    if (!this.config.autoDeleteFile) {
-      return
-    }
-
-    // 使用一个定时器处理所有文件，而不是为每个元素创建定时器
-    const allPaths: string[] = []
-    for (const message of msgList) {
-      for (const msgElement of message.elements) {
-        const picPath = msgElement.picElement?.sourcePath
-        const picThumbPath = [...(msgElement.picElement?.thumbPath ?? []).values()]
-        const pttPath = msgElement.pttElement?.filePath
-        const filePath = msgElement.fileElement?.filePath
-        const videoPath = msgElement.videoElement?.filePath
-        const videoThumbPath = [...(msgElement.videoElement?.thumbPath ?? []).values()]
-        const pathList = [picPath, ...picThumbPath, pttPath, filePath, videoPath, ...videoThumbPath]
-        if (msgElement.picElement) {
-          pathList.push(...Object.values(msgElement.picElement.thumbPath))
-        }
-        allPaths.push(...pathList.filter((path): path is string => path !== undefined && path !== null))
-      }
-    }
-
-    if (allPaths.length > 0) {
-      setTimeout(() => {
-        for (const path of allPaths) {
-          if (path) {
-            unlink(path).then(() => this.ctx.logger.info('删除文件成功', path)).catch(noop)
-          }
-        }
-      }, this.config.autoDeleteFileSecond! * 1000)
-    }
   }
 
   private registerListener() {

@@ -28,26 +28,24 @@ export async function transformOutgoingMessage(
       if (segment.type === 'text') {
         elements.push(SendElement.text(segment.data.text))
       } else if (segment.type === 'mention' && isGroup) {
-        const memberUin = segment.data.user_id.toString()
-        const memberUid = await ctx.ntUserApi.getUidByUin(memberUin, peerUid)
-        const info = await ctx.ntGroupApi.getGroupMember(peerUid, memberUid)
-        elements.push(SendElement.at(memberUin, memberUid, AtType.One, `@${info.cardName || info.nick}`))
+        const memberUin = segment.data.user_id
+        const info = await ctx.ntGroupApi.getGroupMemberByUin(+peerUid, memberUin, false)
+        elements.push(SendElement.at(memberUin, AtType.One, `@${info?.cardName || info?.nick || ''}`))
       } else if (segment.type === 'mention_all' && isGroup) {
-        elements.push(SendElement.at('', '', AtType.All, '@全体成员'))
+        elements.push(SendElement.at(0, AtType.All, '@全体成员'))
       } else if (segment.type === 'face') {
         elements.push(SendElement.face(+segment.data.face_id, segment.data.is_large ? 3 : undefined))
       } else if (segment.type === 'reply') {
-        const replyMsgSeq = segment.data.message_seq.toString()
         const peer = {
           chatType: isGroup ? 2 : 1,
           peerUid,
           guildId: ''
         }
-        const source = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq)
+        const source = await ctx.ntMsgApi.getSingleMsg(peer, segment.data.message_seq.toString())
         if (source.msgList.length === 0) {
           throw new Error('被回复的消息未找到')
         }
-        elements.push(SendElement.reply(replyMsgSeq, source.msgList[0].msgId, source.msgList[0].senderUid))
+        elements.push(SendElement.reply(segment.data.message_seq, +source.msgList[0].senderUin, +source.msgList[0].msgTime))
       } else if (segment.type === 'image') {
         const imageBuffer = await resolveMilkyUri(segment.data.uri)
         // Save to temp file and upload

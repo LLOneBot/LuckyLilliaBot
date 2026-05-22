@@ -1,7 +1,7 @@
 import { noop } from 'cosmokit'
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
-import { uri2local } from '@/common/utils/file'
+import { getImageSize, uri2local } from '@/common/utils/file'
 import { unlink } from 'node:fs/promises'
 import { isHttpUrl } from '@/common/utils'
 import { selfInfo } from '@/common/globalVars'
@@ -46,7 +46,8 @@ export class OCRImage extends BaseAction<Payload, Response> {
         if (!success) {
           throw new Error(errMsg)
         }
-        const result = await this.ctx.ntFileApi.uploadC2CImage(selfInfo.uid, path)
+        const size = await getImageSize(path)
+        const result = await this.ctx.ntFileApi.uploadC2CImage(selfInfo.uid, path, size.width, size.height, '', 0)
         if (!isLocal) {
           unlink(path).catch(noop)
         }
@@ -58,20 +59,22 @@ export class OCRImage extends BaseAction<Payload, Response> {
         const decoded = Media.MsgInfo.decode(msgInfoBytes)
         const head = decoded.msgInfoBody?.[0]
         if (!head?.pic || !head.index) throw new Error('上传图片返回无效')
-        url = await this.ctx.ntFileApi.getImageUrl(head.pic.urlPath + (head.pic.ext?.originalParam || ''), head.index.info.md5HexStr)
+        url = await this.ctx.ntFileApi.getImageUrl(head.pic.urlPath + head.pic.ext.originalParam, head.index.info.md5HexStr)
       }
     }
 
-    const { textDetections, language } = await this.ctx.ntFileApi.ocrImage(url)
+    const result = await this.ctx.ntFileApi.ocrImage(url)
+    if (result.retCode) {
+      throw new Error(result.wording)
+    }
 
-    // 图片没文字时 server 返回空 textDetections，按友好的 OneBot 约定输出空 texts 数组
     return {
-      texts: (textDetections || []).map(item => ({
+      texts: result.ocrRspBody.textDetections.map(item => ({
         text: item.detectedText,
         confidence: item.confidence,
         coordinates: item.polygon?.coordinates ?? []
       })),
-      language: language || ''
+      language: result.ocrRspBody.language
     }
   }
 }

@@ -55,17 +55,11 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
   for (const v of data.elements) {
     if (v.textElement && v.textElement.atType !== NT.AtType.Unknown) {
       // at
-      const { atNtUid, atUid, atType, content } = v.textElement
+      const { atUin, atType, content } = v.textElement
       if (atType === NT.AtType.All) {
         buffer.push(h.at(undefined, { type: 'all' }))
       } else if (atType === NT.AtType.One) {
-        let id: string
-        if (atUid && atUid !== '0') {
-          id = atUid
-        } else {
-          id = await ctx.ntUserApi.getUinByUid(atNtUid)
-        }
-        buffer.push(h.at(id, { name: content.replace('@', '') }))
+        buffer.push(h.at(atUin.toString(), { name: content.replace('@', '') }))
       }
     } else if (v.textElement && v.textElement.content) {
       // text
@@ -81,17 +75,11 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
         guildId: ''
       }
       try {
-        const { replayMsgSeq, replyMsgTime, sourceMsgIdInRecords, senderUidStr } = v.replyElement
-        const record = data.records.find(msgRecord => msgRecord.msgId === sourceMsgIdInRecords)
-        const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, replayMsgSeq, replyMsgTime, senderUidStr ? [senderUidStr] : [])
-        let replyMsg: NT.RawMessage | undefined
-        if (record && record.msgRandom !== '0') {
-          replyMsg = msgList.find(msg => msg.msgRandom === record.msgRandom)
-        } else {
-          replyMsg = msgList[0]
-        }
+        const { replyMsgSeq } = v.replyElement
+        const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq.toString())
+        const replyMsg = msgList[0]
         if (!replyMsg) {
-          ctx.logger.warn('引用消息获取失败', v.replyElement, record)
+          ctx.logger.warn('引用消息获取失败', v.replyElement)
           continue
         }
         const elements = await decodeElement(ctx, replyMsg, true)
@@ -117,16 +105,15 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       buffer.push(h.video(src))
     } else if (v.marketFaceElement) {
       // llonebot:market-face
-      const { emojiId, supportSize } = v.marketFaceElement
-      const { width = 300, height = 300 } = supportSize?.[0] ?? {}
+      const { emojiId, imageWidth, imageHeight } = v.marketFaceElement
       const dir = emojiId.substring(0, 2)
-      const src = `https://gxh.vip.qq.com/club/item/parcel/item/${dir}/${emojiId}/raw${width}.gif`
+      const src = `https://gxh.vip.qq.com/club/item/parcel/item/${dir}/${emojiId}/raw${imageWidth}.gif`
       buffer.push(h('llonebot:market-face', {
         emojiPackageId: v.marketFaceElement.emojiPackageId,
         emojiId,
         key: v.marketFaceElement.key,
         summary: v.marketFaceElement.faceName
-      }, [h.image(src, { width, height })]))
+      }, [h.image(src, { width: imageWidth, height: imageHeight })]))
     } else if (v.faceElement) {
       // face
       const { faceIndex, faceType } = v.faceElement

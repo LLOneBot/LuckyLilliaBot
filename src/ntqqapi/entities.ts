@@ -4,7 +4,6 @@ import {
   AtType,
   ElementType,
   FaceIndex,
-  PicType,
   SendArkElement,
   SendFaceElement,
   SendFileElement,
@@ -16,7 +15,7 @@ import {
   SendVideoElement,
 } from './types'
 import { stat, copyFile, unlink, mkdir } from 'node:fs/promises'
-import { getFileType, getImageSize, getMd5HexFromFile } from '../common/utils/file'
+import { getImageSize, getMd5HexFromFile } from '../common/utils/file'
 import { createThumb, getVideoInfo } from '../common/utils/video'
 import { encodeSilk } from '../common/utils/audio'
 import { Context } from 'cordis'
@@ -27,91 +26,66 @@ export namespace SendElement {
   export function text(content: string): SendTextElement {
     return {
       elementType: ElementType.Text,
-      elementId: '',
       textElement: {
         content,
         atType: AtType.Unknown,
-        atUid: '',
-        atTinyId: '',
-        atNtUid: '',
+        atUin: 0
       },
     }
   }
 
-  export function at(atUid: string, atNtUid: string, atType: AtType, display: string): SendTextElement {
+  export function at(atUin: number, atType: AtType, display: string): SendTextElement {
     return {
       elementType: ElementType.Text,
-      elementId: '',
       textElement: {
         content: display,
         atType,
-        atUid,
-        atTinyId: '',
-        atNtUid,
+        atUin
       },
     }
   }
 
-  export function reply(msgSeq: string, msgId: string, senderUid: string, msgTime?: string): SendReplyElement {
+  export function reply(msgSeq: number, senderUin: number, msgTime: number): SendReplyElement {
     return {
       elementType: ElementType.Reply,
-      elementId: '',
       replyElement: {
-        replayMsgId: msgId,
-        replayMsgSeq: msgSeq,
-        senderUid: senderUid,
-        senderUidStr: senderUid,
-        replyMsgTime: msgTime ?? '0',
+        replyMsgSeq: msgSeq,
+        senderUin,
+        replyMsgTime: msgTime,
       },
     }
   }
 
-  export async function pic(ctx: Context, picPath: string, summary = '', subType: number = 0, isFlashPic?: boolean): Promise<SendPicElement> {
+  export async function pic(ctx: Context, picPath: string, summary = '', subType = 0): Promise<SendPicElement> {
     const fileSize = (await stat(picPath)).size
     if (fileSize === 0) {
       throw new Error(`文件异常，大小为 0: ${picPath}`)
     }
-    const fileType = await getFileType(picPath)
     const size = await getImageSize(picPath)
-    const picElement = {
-      md5HexStr: await getMd5HexFromFile(picPath),
-      fileSize: fileSize.toString(),
-      picWidth: size.width,
-      picHeight: size.height,
-      fileName: pathLib.basename(picPath),
-      sourcePath: picPath,
-      original: true,
-      picType: fileType.ext === 'gif' ? PicType.GIF : PicType.JPEG,
-      picSubType: subType,
-      fileUuid: '',
-      fileSubId: '',
-      thumbFileSize: 0,
-      summary,
-      isFlashPic,
-    }
-    ctx.logger.info('图片信息', picElement)
     return {
       elementType: ElementType.Pic,
-      elementId: '',
-      picElement,
+      picElement: {
+        picWidth: size.width,
+        picHeight: size.height,
+        sourcePath: picPath,
+        picSubType: subType,
+        summary,
+      },
     }
   }
 
   export async function file(ctx: Context, filePath: string, fileName: string, folderId?: string): Promise<SendFileElement> {
-    const fileSize = (await stat(filePath)).size.toString()
-    if (fileSize === '0') {
+    const fileSize = (await stat(filePath)).size
+    if (fileSize === 0) {
       ctx.logger.warn(`文件${fileName}异常，大小为 0`)
       throw new Error('文件异常，大小为 0')
     }
     const element: SendFileElement = {
       elementType: ElementType.File,
-      elementId: '',
       fileElement: {
         fileName,
         folderId,
-        fileBizId: undefined,
         filePath,
-        fileSize,
       },
     }
     return element
@@ -152,23 +126,15 @@ export namespace SendElement {
       unlink(path).catch(noop)
     }
     const thumbPath = new Map()
-    const thumbSize = (await stat(thumbFilePath)).size
     thumbPath.set(0, thumbFilePath)
-    const thumbMd5 = await getMd5HexFromFile(thumbFilePath)
     const element: SendVideoElement = {
       elementType: ElementType.Video,
-      elementId: '',
       videoElement: {
-        fileName: pathLib.basename(filePath),
         filePath,
-        videoMd5: md5,
-        thumbMd5,
         fileTime: Math.trunc(videoInfo.time),
         thumbPath: thumbPath,
-        thumbSize,
         thumbWidth: videoInfo.width,
         thumbHeight: videoInfo.height,
-        fileSize: String(fileSize),
       },
     }
     ctx.logger.info('videoElement', element)
@@ -183,25 +149,9 @@ export namespace SendElement {
     }
     return {
       elementType: ElementType.Ptt,
-      elementId: '',
       pttElement: {
-        fileName: pathLib.basename(silkPath),
         filePath: silkPath,
-        md5HexStr: await getMd5HexFromFile(silkPath),
-        fileSize: String(fileSize),
         duration: duration,
-        formatType: 1,
-        voiceType: 1,
-        voiceChangeType: 0,
-        canConvert2Text: true,
-        waveAmplitudes: [0, 18, 9, 23, 16, 17, 16, 15, 44, 17, 24, 20, 14, 15, 17],
-        fileSubId: '',
-        playState: 1,
-        autoConvertText: 0,
-        storeID: 0,
-        otherBusinessInfo: {
-          aiVoiceType: 0
-        }
       },
     }
   }
@@ -225,15 +175,13 @@ export namespace SendElement {
     }
     return {
       elementType: ElementType.Face,
-      elementId: '',
       faceElement: {
         faceIndex: faceId,
         faceType,
-        faceText: face?.QDes,
+        faceText: face?.QDes ?? '',
         stickerId: face?.AniStickerId,
         stickerType: face?.AniStickerType,
         packId: face?.AniStickerPackId,
-        sourceType: 1,
       },
     }
   }
@@ -241,7 +189,6 @@ export namespace SendElement {
   export function mface(emojiPackageId: number, emojiId: string, key: string, summary?: string): SendMarketFaceElement {
     return {
       elementType: ElementType.MarketFace,
-      elementId: '',
       marketFaceElement: {
         imageWidth: 300,
         imageHeight: 300,
@@ -259,18 +206,14 @@ export namespace SendElement {
     if (isNullable(resultId)) resultId = Math.floor(Math.random() * 6) + 1
     return {
       elementType: ElementType.Face,
-      elementId: '',
       faceElement: {
         faceIndex: FaceIndex.Dice,
         faceType: 3,
         faceText: '[骰子]',
         packId: '1',
         stickerId: '33',
-        sourceType: 1,
         stickerType: 2,
         resultId: resultId.toString(),
-        surpriseId: '',
-        // "randomType": 1,
       },
     }
   }
@@ -281,18 +224,14 @@ export namespace SendElement {
     if (isNullable(resultId)) resultId = Math.floor(Math.random() * 3) + 1
     return {
       elementType: ElementType.Face,
-      elementId: '',
       faceElement: {
         faceIndex: FaceIndex.RPS,
         faceText: '[包剪锤]',
         faceType: 3,
         packId: '1',
         stickerId: '34',
-        sourceType: 1,
         stickerType: 2,
         resultId: resultId.toString(),
-        surpriseId: '',
-        // "randomType": 1,
       },
     }
   }
@@ -300,11 +239,8 @@ export namespace SendElement {
   export function ark(data: string): SendArkElement {
     return {
       elementType: ElementType.Ark,
-      elementId: '',
       arkElement: {
         bytesData: data,
-        linkInfo: null,
-        subElementType: null,
       },
     }
   }
@@ -312,10 +248,10 @@ export namespace SendElement {
   export function shake(): SendFaceElement {
     return {
       elementType: ElementType.Face,
-      elementId: '',
       faceElement: {
         faceIndex: 1,
         faceType: 5,
+        faceText: '',
         pokeType: 1,
       },
     }

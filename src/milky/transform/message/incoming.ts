@@ -73,7 +73,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
           segments.push({
             type: 'mention',
             data: {
-              user_id: +element.textElement.atUid,
+              user_id: element.textElement.atUin,
               name: element.textElement.content.slice(1)
             },
           })
@@ -101,9 +101,9 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         segments.push({
           type: 'reply',
           data: {
-            message_seq: +element.replyElement!.replayMsgSeq,
-            sender_id: +element.replyElement!.senderUid,
-            time: +element.replyElement!.replyMsgTime,
+            message_seq: element.replyElement!.replyMsgSeq,
+            sender_id: element.replyElement!.senderUin,
+            time: element.replyElement!.replyMsgTime,
             segments: message.records[0] ? await transformIncomingSegments(ctx, message.records[0]) : []
           },
         })

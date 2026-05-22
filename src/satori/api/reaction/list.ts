@@ -21,7 +21,7 @@ export const getReactionList: Handler<List<User>, Payload> = async (ctx, payload
   if (data.result !== 0) {
     throw new Error(data.errMsg)
   }
-  const uids = await Promise.all(data.emojiLikesList.map(e => ctx.ntUserApi.getUidByUin(e.tinyId, peer.chatType === 2 ? peer.peerUid : undefined)))
+  const uids = await Promise.all(data.emojiLikesList.map((e: any) => ctx.ntUserApi.getUidByUin(e.tinyId, peer.chatType === 2 ? peer.peerUid : undefined)))
   const raw = await ctx.ntUserApi.getCoreAndBaseInfo(filterNullable(uids))
   return {
     data: raw.values().map(e => decodeUser(e.coreInfo)).toArray()

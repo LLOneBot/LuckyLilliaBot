@@ -22,7 +22,7 @@ export class ScanQRCode extends BaseAction<Payload, ScanResultItem[]> {
       throw new Error(errMsg)
     }
     const scanResult = await this.ctx.ntSystemApi.scanQRCode(localPath)
-    return scanResult.infos.map(i => {
+    return scanResult.infos.map((i: any) => {
       return { text: i.text }
     })
   }

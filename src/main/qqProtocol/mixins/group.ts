@@ -199,7 +199,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       if (decoded.errorCode !== 0) {
         throw new Error(`createGroupFolder failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
       }
-      const inner = Oidb.GroupFolderCreateResp.decode(decoded.body as Uint8Array)
+      const inner = Oidb.GroupFolderCreateResp.decode(decoded.body)
       const create = inner.create
       const folderId = create?.folderInfo?.folderId || ''
       return {

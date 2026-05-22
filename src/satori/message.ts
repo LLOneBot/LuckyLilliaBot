@@ -265,7 +265,6 @@ export class MessageEncoder {
       if (this.stack[1].type === 'multiForward') {
         this.stack[1].children.push([{
           elementType: 10,
-          elementId: '',
           arkElement: {
             bytesData: content
           }
@@ -279,7 +278,6 @@ export class MessageEncoder {
       } else {
         const sent = await this.ctx.app.sendMessage(this.ctx, this.peer, [{
           elementType: 10,
-          elementId: '',
           arkElement: {
             bytesData: content
           }
@@ -380,17 +378,17 @@ export class MessageEncoder {
         return
       }
       if (attrs.type === 'all') {
-        this.elements.push(SendElement.at('', '', NT.AtType.All, '@全体成员'))
+        this.elements.push(SendElement.at(0, NT.AtType.All, '@全体成员'))
       } else {
-        const uid = await this.ctx.ntUserApi.getUidByUin(attrs.id, this.peer.peerUid)
+        const uin = +attrs.id
         let display
         if (attrs.name) {
           display = `@${attrs.name}`
         } else {
-          const info = await this.ctx.ntGroupApi.getGroupMember(this.peer.peerUid, uid)
-          display = `@${info.cardName || info.nick}`
+          const info = await this.ctx.ntGroupApi.getGroupMemberByUin(+this.peer.peerUid, uin, false)
+          display = `@${info?.cardName || info?.nick || ''}`
         }
-        this.elements.push(SendElement.at(attrs.id, uid, NT.AtType.One, display))
+        this.elements.push(SendElement.at(uin, NT.AtType.One, display))
       }
     } else if (type === 'a') {
       await this.render(children)
@@ -473,7 +471,7 @@ export class MessageEncoder {
       this.peer ??= await getPeer(this.ctx, this.channelId)
       const source = (await this.ctx.ntMsgApi.getMsgsByMsgId(this.peer, [attrs.id])).msgList[0]
       if (source) {
-        this.elements.push(SendElement.reply(source.msgSeq, source.msgId, source.senderUid))
+        this.elements.push(SendElement.reply(+source.msgSeq, +source.senderUin, +source.msgTime))
       }
     } else if (type === 'face') {
       this.elements.push(SendElement.face(+attrs.id, +attrs.type))

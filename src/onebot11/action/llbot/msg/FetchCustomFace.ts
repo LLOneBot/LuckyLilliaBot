@@ -16,6 +16,6 @@ export class FetchCustomFace extends BaseAction<Payload, string[]> {
     if (ret.result !== 0) {
       throw new Error(ret.errMsg)
     }
-    return ret.emojiInfoList.map(e => e.url)
+    return ret.emojiInfoList.map((e: any) => e.url)
   }
 }

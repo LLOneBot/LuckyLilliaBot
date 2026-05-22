@@ -127,11 +127,7 @@ export class NTQQFileApi extends Service {
   }
 
   async ocrImage(imageUrl: string) {
-    const res = await this.ctx.qqProtocol.imageOcr(imageUrl)
-    if (res.retCode) {
-      throw new Error(res.wording)
-    }
-    return res.ocrRspBody
+    return await this.ctx.qqProtocol.imageOcr(imageUrl)
   }
 
   async uploadFlashFile(title: string, filePaths: string[]): Promise<any> {
@@ -189,7 +185,7 @@ export class NTQQFileApi extends Service {
       })
     }
     // 5. finalize
-    await this.ctx.qqProtocol.downloadFlashFile(fileSetId, 6).catch(() => {})
+    await this.ctx.qqProtocol.downloadFlashFile(fileSetId, 6).catch(() => { })
     return {
       result: 0,
       errMsg: '',
@@ -298,7 +294,7 @@ export class NTQQFileApi extends Service {
         token: pre.token, time: pre.time, ttl: pre.ttl, requestId: ++reqId, field103: 22,
       })
     }
-    await this.ctx.qqProtocol.downloadFlashFile(newFileSetId, 6).catch(() => {})
+    await this.ctx.qqProtocol.downloadFlashFile(newFileSetId, 6).catch(() => { })
     return {
       result: 0,
       errMsg: '',
@@ -311,7 +307,7 @@ export class NTQQFileApi extends Service {
     }
   }
 
-  async uploadGroupVideo(groupCode: string, filePath: string, thumbPath: string, duration: number = 0, width: number = 0, height: number = 0) {
+  async uploadGroupVideo(groupCode: string, filePath: string, thumbPath: string, duration: number, width: number, height: number) {
     const result = await this.ctx.qqProtocol.getGroupVideoUploadInfo(groupCode, filePath, thumbPath, duration, width, height)
     if (process.env.DEBUG_VIDEO_UPLOAD) {
       const idxMain = result.ext?.msgInfoBody?.[0]?.index
@@ -359,7 +355,7 @@ export class NTQQFileApi extends Service {
     }
   }
 
-  async uploadC2CVideo(peerUid: string, filePath: string, thumbPath: string, duration: number = 0, width: number = 0, height: number = 0) {
+  async uploadC2CVideo(peerUid: string, filePath: string, thumbPath: string, duration: number, width: number, height: number) {
     const result = await this.ctx.qqProtocol.getC2CVideoUploadInfo(peerUid, filePath, thumbPath, duration, width, height)
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const maxBlockSize = 1024 * 1024
@@ -527,8 +523,8 @@ export class NTQQFileApi extends Service {
     }
   }
 
-  async uploadGroupImage(groupCode: string, filePath: string) {
-    const result = await this.ctx.qqProtocol.getGroupImageUploadInfo(groupCode, filePath)
+  async uploadGroupImage(groupCode: string, filePath: string, width: number, height: number, summary: string, bizType: number) {
+    const result = await this.ctx.qqProtocol.getGroupImageUploadInfo(groupCode, filePath, width, height, summary, bizType)
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
@@ -552,8 +548,8 @@ export class NTQQFileApi extends Service {
     }
   }
 
-  async uploadC2CImage(peerUid: string, filePath: string) {
-    const result = await this.ctx.qqProtocol.getC2CImageUploadInfo(peerUid, filePath)
+  async uploadC2CImage(peerUid: string, filePath: string, width: number, height: number, summary: string, bizType: number) {
+    const result = await this.ctx.qqProtocol.getC2CImageUploadInfo(peerUid, filePath, width, height, summary, bizType)
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {

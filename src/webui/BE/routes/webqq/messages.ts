@@ -109,40 +109,30 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
         if (item.type === 'reply' && item.msgId && item.msgSeq) {
           elements.push({
             elementType: ElementType.Reply,
-            elementId: '',
             replyElement: {
-              replayMsgId: item.msgId,
-              replayMsgSeq: item.msgSeq,
-              sourceMsgText: '',
-              senderUid: '',
-              senderUidStr: ''
+              replyMsgSeq: Number(item.msgSeq),
+              replyMsgTime: 0,
+              senderUin: Number(item.uin ?? 0)
             }
           })
         } else if (item.type === 'text' && item.text) {
           elements.push({
             elementType: ElementType.Text,
-            elementId: '',
             textElement: {
               content: item.text,
               atType: 0,
-              atUid: '',
-              atTinyId: '',
-              atNtUid: ''
+              atUin: 0
             }
           })
         } else if (item.type === 'at' && item.uid) {
-          const atUid = item.uid
           const atUin = item.uin || ''
           const display = item.name ? `@${item.name}` : '@'
           elements.push({
             elementType: ElementType.Text,
-            elementId: '',
             textElement: {
               content: display,
               atType: 2,
-              atUid: atUin,
-              atTinyId: '',
-              atNtUid: atUid
+              atUin: +atUin
             }
           })
         } else if (item.type === 'image' && item.imagePath) {

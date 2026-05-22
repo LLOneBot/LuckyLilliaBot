@@ -33,7 +33,7 @@ export class GetEssenceMsgList extends BaseAction<Payload, EssenceMsg[]> {
     const data: EssenceMsg[] = []
     for (const item of essence.items) {
       const { msgList } = await this.ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, String(item.msgSeq), '0', [await this.ctx.ntUserApi.getUidByUin(item.msgSenderUin, groupCode)])
-      const sourceMsg = msgList.find(e => e.msgRandom === String(item.msgRandom))
+      const sourceMsg = msgList.find((e: any) => e.msgRandom === String(item.msgRandom))
       if (!sourceMsg) continue
       data.push({
         sender_id: +item.msgSenderUin,

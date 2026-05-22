@@ -46,7 +46,7 @@ class GetGroupMemberList extends BaseAction<Payload, OB11GroupMember[]> {
       }
     }
     const groupId = Number(payload.group_id)
-    return result.infos.values().map(e => OB11Entities.groupMember(groupId, e)).toArray()
+    return result.infos.values().map((e: any) => OB11Entities.groupMember(groupId, e)).toArray()
   }
 }
 

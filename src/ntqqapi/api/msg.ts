@@ -27,7 +27,7 @@ export class NTQQMsgApi extends Service {
   private toRawMessages(decodedMessages: any[], chatType: ChatType): RawMessage[] {
     const msgType = chatType === ChatType.Group ? 82
       : chatType === ChatType.TempC2CFromGroup ? 141
-      : 166
+        : 166
     const out: RawMessage[] = []
     for (const m of decodedMessages) {
       const r = convertToRawMessage(m, msgType)
@@ -43,7 +43,7 @@ export class NTQQMsgApi extends Service {
       if (sharedGroupCode) {
         return { tmpChatInfo: { groupCode: String(sharedGroupCode), peerUid } }
       }
-    } catch {}
+    } catch { }
     // 没有缓存命中：扫一遍所有群拉成员
     try {
       const groups = await this.ctx.ntGroupApi.getGroups(false)
@@ -53,9 +53,9 @@ export class NTQQMsgApi extends Service {
           if (members.result?.infos?.has(peerUid)) {
             return { tmpChatInfo: { groupCode: String(g.groupCode), peerUid } }
           }
-        } catch {}
+        } catch { }
       }
-    } catch {}
+    } catch { }
     // 没找到任何共同群
     return { tmpChatInfo: {} }
   }
@@ -86,7 +86,7 @@ export class NTQQMsgApi extends Service {
           if (json?.app === 'com.tencent.multimsg' && json?.meta?.detail?.resid) {
             resId = json.meta.detail.resid
           }
-        } catch {}
+        } catch { }
       }
     }
     const items = await this.ctx.qqProtocol.getMultiMsg(resId)
@@ -116,7 +116,7 @@ export class NTQQMsgApi extends Service {
         if (msg) msgList.push(msg)
       }
     }
-    return { msgList } as any
+    return { msgList }
   }
 
   async getMsgHistory(peer: Peer, msgId: string, cnt: number, queryOrder = false) {
@@ -196,13 +196,12 @@ export class NTQQMsgApi extends Service {
           const attr6 = Buffer.from([0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00])
           elems.push({ text: { str: t.content || '@全体成员', attr6Buf: attr6 } })
         } else if (t.atType === 2 /* AtType.One */) {
-          const targetUin = t.atUid && /^\d+$/.test(t.atUid) ? +t.atUid : 0
           const attr6 = Buffer.alloc(20)
           attr6.writeUInt16BE(0x0001, 0)
           attr6.writeUInt16BE(0x0000, 2)
           attr6.writeUInt16BE((t.content || '').length, 4)
           attr6.writeUInt8(0x00, 6)
-          attr6.writeUInt32BE(targetUin, 7)
+          attr6.writeUInt32BE(t.atUin, 7)
           attr6.writeUInt16BE(0x0000, 11)
           elems.push({ text: { str: t.content || '', attr6Buf: attr6 } })
         } else {
@@ -227,17 +226,9 @@ export class NTQQMsgApi extends Service {
         })
       } else if (elem.elementType === ElementType.Reply) {
         const r = elem.replyElement
-        // r.senderUid 是 UID 字符串（如 "u_xxx"），srcMsg.senderUin 需要数字 UIN，需要查一下
-        let senderUin = 0
-        if (r.senderUid) {
-          try {
-            const uin = await this.ctx.ntUserApi.getUinByUid(r.senderUid)
-            if (uin) senderUin = +uin
-          } catch {}
-        }
         // srcMsg.elems 是 bytes[] (repeated)，每项是序列化的原 Msg.Elem。
         // 为空时接收端的引用预览只显示空白。从 cache 取原消息，把它的 elements 重新序列化成 Elem bytes
-        const srcElems: Buffer[] = []
+        /*const srcElems: Buffer[] = []
         try {
           const store = this.ctx.get('store') as any
           const original = r.replayMsgId ? store?.getMsgCache?.(r.replayMsgId) as RawMessage | undefined : undefined
@@ -260,23 +251,21 @@ export class NTQQMsgApi extends Service {
           }
         } catch (e) {
           this.ctx.logger.warn('build reply srcMsg.elems failed:', (e as Error).message)
-        }
+        }*/
         elems.push({
           srcMsg: {
-            origSeqs: [+(r.replayMsgSeq ?? 0)],
-            senderUin,
-            time: +(r.replyMsgTime ?? 0),
-            elems: srcElems,
+            origSeqs: [+r.replyMsgSeq],
+            senderUin: r.senderUin,
+            time: r.replyMsgTime,
+            //elems: srcElems,
           }
         })
       } else if (elem.elementType === ElementType.Pic) {
         const p = elem.picElement
-        const sourcePath = p.sourcePath
-        if (!sourcePath) continue
         const isGroup = peer.chatType === ChatType.Group
         const result = isGroup
-          ? await this.ctx.ntFileApi.uploadGroupImage(peer.peerUid, sourcePath)
-          : await this.ctx.ntFileApi.uploadC2CImage(peer.peerUid, sourcePath)
+          ? await this.ctx.ntFileApi.uploadGroupImage(peer.peerUid, p.sourcePath!, p.picWidth!, p.picHeight!, p.summary!, p.picSubType!)
+          : await this.ctx.ntFileApi.uploadC2CImage(peer.peerUid, p.sourcePath!, p.picWidth!, p.picHeight!, p.summary!, p.picSubType!)
         const msgInfoBytes = Buffer.from(result.msgInfo)
         elems.push({
           commonElem: {
@@ -585,7 +574,7 @@ export class NTQQMsgApi extends Service {
     const decoded = peer.chatType === ChatType.Group
       ? await this.ctx.qqProtocol.getGroupMessages(+peer.peerUid, seq, seq)
       : await this.ctx.qqProtocol.getC2CMessages(peer.peerUid, seq, seq)
-    return { msgList: this.toRawMessages(decoded, peer.chatType) } as any
+    return { msgList: this.toRawMessages(decoded, peer.chatType) }
   }
 
   async queryFirstMsgBySeq(peer: Peer, msgSeq: string) {

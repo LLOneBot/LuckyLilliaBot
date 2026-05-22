@@ -30,55 +30,46 @@ export enum ElementType {
 
 export interface SendTextElement {
   elementType: ElementType.Text
-  elementId: ''
   textElement: TextElement
 }
 
 export interface SendPttElement {
   elementType: ElementType.Ptt
-  elementId: ''
   pttElement: Partial<PttElement>
 }
 
 export interface SendPicElement {
   elementType: ElementType.Pic
-  elementId: ''
   picElement: Partial<PicElement>
 }
 
 export interface SendReplyElement {
   elementType: ElementType.Reply
-  elementId: ''
-  replyElement: Partial<ReplyElement>
+  replyElement: ReplyElement
 }
 
 export interface SendFaceElement {
   elementType: ElementType.Face
-  elementId: ''
   faceElement: FaceElement
 }
 
 export interface SendMarketFaceElement {
   elementType: ElementType.MarketFace
-  elementId: ''
   marketFaceElement: MarketFaceElement
 }
 
 export interface SendFileElement {
   elementType: ElementType.File
-  elementId: ''
   fileElement: Partial<FileElement>
 }
 
 export interface SendVideoElement {
   elementType: ElementType.Video
-  elementId: ''
   videoElement: Partial<VideoElement>
 }
 
 export interface SendArkElement {
   elementType: ElementType.Ark
-  elementId: ''
   arkElement: Partial<ArkElement>
 }
 
@@ -102,90 +93,37 @@ export enum AtType {
 export interface TextElement {
   content: string
   atType: AtType
-  atUid: string
-  atTinyId: string
-  atNtUid: string
+  atUin: number
 }
 
 export interface ReplyElement {
-  replayMsgId: string
-  replayMsgSeq: string
-  replayMsgRootSeq: string
-  replayMsgRootMsgId: string
-  replayMsgRootCommentCnt: string
-  sourceMsgIdInRecords: string
-  sourceMsgText: string
-  sourceMsgTextElems: {
-    replyAbsElemType: number
-    textElemContent: string
-    faceElem: unknown
-    picElem: unknown
-  }[]
-  senderUid: string
-  senderUidStr: string
-  replyMsgClientSeq: string
-  replyMsgTime: string
-  replyMsgRevokeType: number
-  sourceMsgIsIncPic: boolean
-  sourceMsgExpired: boolean
-  anonymousNickName: unknown
-  originalMsgState: unknown
+  replyMsgSeq: number
+  replyMsgTime: number
+  senderUin: number
 }
 
 export interface FileElement {
   fileMd5: string
   fileName: string
   filePath: string
-  fileSize: string
-  picHeight?: number
-  picWidth?: number
-  folderId?: string
-  picThumbPath?: Map<number, string>
-  file10MMd5?: string
-  fileSha?: string
-  fileSha3?: string
+  fileSize: number
+  folderId: string
   fileUuid: string
-  fileSubId?: string
-  thumbFileSize?: number
-  fileBizId?: number
+  fileBizId: number
 }
 
 export interface PttElement {
-  canConvert2Text: boolean
   duration: number // 秒数
-  fileBizId: null
-  fileId: number // 0
   fileName: string // "e4d09c784d5a2abcb2f9980bdc7acfe6.amr"
   filePath: string // "/Users//Library/Containers/com.tencent.qq/Data/Library/Application Support/QQ/nt_qq_a6b15c9820595d25a56c1633ce19ad40/nt_data/Ptt/2023-11/Ori/e4d09c784d5a2abcb2f9980bdc7acfe6.amr"
-  fileSize: string // "4261"
-  fileSubId: string // "0"
+  fileSize: number // "4261"
   fileUuid: string // "90j3z7rmRphDPrdVgP9udFBaYar#oK0TWZIV"
   formatType: number // 1
-  invalidState: number // 0
   md5HexStr: string // "e4d09c784d5a2abcb2f9980bdc7acfe6"
-  playState: number // 0
-  progress: number // 0
-  text: string // ""
-  transferStatus: number // 0
-  translateStatus: number // 0
-  voiceChangeType: number // 0
-  voiceType: number // 0
-  waveAmplitudes: number[]
-  autoConvertText: number
-  storeID: number
-  otherBusinessInfo: {
-    aiVoiceType: number
-  }
 }
 
 export interface ArkElement {
   bytesData: string
-  linkInfo: unknown | null
-  subElementType: unknown | null
-  buildMultiMsgReqInfo: {
-    srcMsgIds: unknown
-    srcContact: unknown
-  } | null
 }
 
 export const IMAGE_HTTP_HOST = 'https://gchat.qpic.cn'
@@ -202,48 +140,17 @@ export enum PicSubType {
 }
 
 export interface PicElement {
-  picSubType: PicSubType
   fileName: string
-  fileSize: string
+  fileSize: number
   picWidth: number
   picHeight: number
-  original: boolean
   md5HexStr: string
   sourcePath: string
-  thumbPath: Map<number, string>
-  transferStatus: number
-  progress: number
   picType: PicType
-  invalidState: number
+  picSubType: PicSubType
   fileUuid: string
-  fileSubId: string
-  thumbFileSize: number
-  fileBizId: unknown
-  downloadIndex: unknown
   summary: string
-  emojiFrom: unknown
-  emojiWebUrl: unknown
-  emojiAd: {
-    url: string
-    desc: string
-  },
-  emojiMall: {
-    packageId: number
-    emojiId: number
-  },
-  emojiZplan: {
-    actionId: number
-    actionName: string
-    actionType: number
-    playerNumber: number
-    peerUid: string
-    bytesReserveInfo: string
-  },
-  originImageMd5: string
   originImageUrl: string
-  import_rich_media_context: unknown
-  isFlashPic: unknown
-  storeID: number
 }
 
 export interface TipAioOpGrayTipElement {
@@ -405,14 +312,10 @@ export enum FaceType {
 export interface FaceElement {
   faceIndex: number
   faceType: FaceType
-  faceText?: string
+  faceText: string
   packId?: string
   stickerId?: string
-  sourceType?: number
   stickerType?: number
-  resultId?: string
-  surpriseId?: string
-  randomType?: number
   pokeType?: number
 }
 
@@ -421,38 +324,21 @@ export interface MarketFaceElement {
   faceName: string
   emojiId: string
   key: string
-  imageWidth?: number
-  imageHeight?: number
-  supportSize?: {
-    width: number
-    height: number
-  }[]
+  imageWidth: number
+  imageHeight: number
 }
 
 export interface VideoElement {
   filePath: string
   fileName: string
   videoMd5: string
-  thumbMd5: string
   fileTime: number
-  thumbSize: number
   fileFormat: number
-  fileSize: string
+  fileSize: number
   thumbWidth: number
   thumbHeight: number
-  busiType: number
-  subBusiType: number
   thumbPath: Map<number, string>
-  transferStatus: number
-  progress: number
-  invalidState: number
   fileUuid: string
-  fileSubId: string
-  fileBizId: unknown
-  originVideoMd5: string
-  import_rich_media_context: unknown
-  sourceVideoCodecFormat: number
-  storeID: number
 }
 
 export interface MarkdownElement {
@@ -675,8 +561,6 @@ export interface Peer {
 
 export interface MessageElement {
   elementType: ElementType
-  elementId: string
-  extBufForUI: string //"0x"
   textElement?: TextElement
   faceElement?: FaceElement
   marketFaceElement?: MarketFaceElement

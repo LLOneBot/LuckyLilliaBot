@@ -9,8 +9,8 @@ interface Entity {
   type: 'video' | 'image' | 'voice'
   filePath: string
   duration?: number  // for voice (seconds), or video (seconds)
-  width?: number     // for video (px)
-  height?: number    // for video (px)
+  width?: number     // for video (px), or image (px)
+  height?: number    // for video (px), or image (px)
 }
 
 export namespace NTV2RichMedia {
@@ -86,15 +86,14 @@ export namespace NTV2RichMedia {
       width = entity.width ?? 0
       height = entity.height ?? 0
     } else if (entity.type === 'image') {
-      const { width: w, height: h } = await getImageSize(entity.filePath)
       const { ext } = await getFileType(entity.filePath)
       fileName = `${md5HexStr}.${ext}`
       fileType = {
         type: 1,
         picFormat: ext === 'gif' ? 2000 : 1000
       }
-      width = w
-      height = h
+      width = entity.width ?? 0
+      height = entity.height ?? 0
       original = 1
     } else if (entity.type === 'voice') {
       fileName = `${md5HexStr}.amr`

@@ -18,12 +18,8 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
       if (element.textElement.atType === AtType.All) {
         qq = 'all'
       } else {
-        const { atNtUid, atUid, content } = element.textElement
-        if (atUid && atUid !== '0') {
-          qq = atUid
-        } else {
-          qq = await ctx.ntUserApi.getUinByUid(atNtUid)
-        }
+        const { atUin, content } = element.textElement
+        qq = atUin.toString()
         name = content.replace('@', '')
       }
       messageSegment = {
@@ -54,36 +50,22 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         guildId: ''
       }
       try {
-        const { replayMsgSeq, replyMsgTime, sourceMsgIdInRecords, senderUidStr } = replyElement
-        const record = message.records.find(msgRecord => msgRecord.msgId === sourceMsgIdInRecords)
+        const { replyMsgSeq } = replyElement
         let replyMsg: RawMessage | undefined
         try {
-          const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, replayMsgSeq, replyMsgTime, senderUidStr ? [senderUidStr] : [])
-          if (record && record.msgRandom !== '0') {
-            replyMsg = msgList.find((msg: RawMessage) => msg.msgRandom === record.msgRandom)
-          } else if (msgList.length > 0) {
-            replyMsg = msgList[0]
-          }
-        } catch {}
+          const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, String(replyMsgSeq))
+          replyMsg = msgList[0]
+        } catch { }
 
         if (!replyMsg) {
-          replyMsg = ctx.store.findCachedMsgByPeerSeq?.(peer.peerUid, String(replayMsgSeq))
-        }
-        if (!replyMsg && record) {
-          if (record.senderUin && record.senderUin !== '0') {
-            peer.chatType = record.chatType
-            peer.peerUid = record.peerUid
-            ctx.store.addMsgCache(record)
-          }
-          ctx.logger.info('msgList is empty, use record', replyElement, record)
-          replyMsg = record
+          replyMsg = ctx.store.findCachedMsgByPeerSeq?.(peer.peerUid, String(replyMsgSeq))
         }
         if (!replyMsg) {
           // 没找到原消息也得发出 reply 段，否则客户端看不到这是一条回复。用 msgSeq 当占位 id
           ctx.logger.warn('reply 原消息未命中 cache，使用占位 id', replyElement)
           messageSegment = {
             type: OB11MessageDataType.Reply,
-            data: { id: String(replayMsgSeq || 0) }
+            data: { id: String(replyMsgSeq || 0) }
           }
         } else {
           messageSegment = {
@@ -100,7 +82,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
     }
     else if (element.picElement) {
       const { picElement } = element
-      const fileSize = picElement.fileSize ?? '0'
+      const fileSize = picElement.fileSize.toString()
       messageSegment = {
         type: OB11MessageDataType.Image,
         data: {
@@ -124,7 +106,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
     else if (element.videoElement) {
       const { videoElement } = element
       const videoUrl = await ctx.ntFileApi.getVideoUrl(videoElement.fileUuid, message.chatType === ChatType.Group)
-      const fileSize = videoElement.fileSize ?? '0'
+      const fileSize = videoElement.fileSize.toString()
       messageSegment = {
         type: OB11MessageDataType.Video,
         data: {
@@ -146,7 +128,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
     }
     else if (element.fileElement) {
       const { fileElement } = element
-      const fileSize = fileElement.fileSize ?? '0'
+      const fileSize = fileElement.fileSize.toString()
       messageSegment = {
         type: OB11MessageDataType.File,
         data: {
@@ -169,7 +151,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
     }
     else if (element.pttElement) {
       const { pttElement } = element
-      const fileSize = pttElement.fileSize ?? '0'
+      const fileSize = pttElement.fileSize.toString()
       messageSegment = {
         type: OB11MessageDataType.Record,
         data: {

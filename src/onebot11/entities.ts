@@ -200,7 +200,7 @@ export namespace OB11Entities {
           id: element.fileElement.fileUuid!,
           name: element.fileElement.fileName,
           size: +element.fileElement.fileSize,
-          busid: element.fileElement.fileBizId ?? 0,
+          busid: element.fileElement.fileBizId,
         })
       } else if (element.grayTipElement) {
         const grayTipElement = element.grayTipElement

@@ -131,6 +131,24 @@ export class NTQQGroupApi extends Service {
     return this.toGroupMember({ id: { uid, uin: 0 } })
   }
 
+  async getGroupMemberByUin(groupCode: number, uin: number, forceUpdate: boolean) {
+    let cache = this.memberCache.get(groupCode.toString())
+    const member = cache?.values().find(e => e.uin === uin.toString())
+    if (forceUpdate || !member) {
+      const members = await this.ctx.qqProtocol.fetchGroupMembers(+groupCode)
+      cache = new Map()
+      for (const m of members) {
+        const memberUid = m.id?.uid
+        if (!memberUid) continue
+        cache.set(memberUid, this.toGroupMember(m))
+      }
+      this.memberCache.set(groupCode.toString(), cache)
+    } else {
+      return member
+    }
+    return cache.values().find(e => e.uin === uin.toString())
+  }
+
   private toGroupMember(m: any): GroupMember {
     const role = m.permission === 1 ? GroupMemberRole.Owner
       : m.permission === 2 ? GroupMemberRole.Admin

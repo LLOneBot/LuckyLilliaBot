@@ -3,6 +3,8 @@ import { ChatType, ElementType, RawMessage, MessageElement, GrayTipElementSubTyp
 import type { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { unzipSync } from 'node:zlib'
+import { InferProtoModel } from '@saltify/typeproto'
+import faceConfig from './helper/face_config.json'
 
 const MSG_PUSH_CMD = 'trpc.msg.olpush.OlPushService.MsgPush'
 const KICK_CMD = 'trpc.qq_new_tech.status_svc.StatusService.KickNT'
@@ -779,8 +781,8 @@ export function convertToRawMessage(msg: any, msgType: number): RawMessage | nul
   }
 }
 
-function parseElements(elems: any[]): MessageElement[] {
-  const result: any[] = []
+function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): MessageElement[] {
+  const result: MessageElement[] = []
 
   for (const elem of elems) {
     if (!elem) continue
@@ -789,56 +791,37 @@ function parseElements(elems: any[]): MessageElement[] {
       const textElem = elem.text
       const isAt = textElem.attr6Buf && textElem.attr6Buf.length > 0
       // attr6Buf 布局：[2B flag][2B reserved][2B text len][1B atType][4B target uin BE][2B reserved]
-      let atTargetUin = ''
-      if (isAt && textElem.attr6Buf.length >= 11 && textElem.attr6Buf[6] !== 1) {
-        atTargetUin = String((textElem.attr6Buf as Buffer).readUInt32BE(7))
+      let atTargetUin = 0
+      if (isAt && textElem.attr6Buf!.length >= 11 && textElem.attr6Buf![6] !== 1) {
+        atTargetUin = (textElem.attr6Buf as Buffer).readUInt32BE(7)
       }
       result.push({
         elementType: ElementType.Text,
-        elementId: '',
-        extBufForUI: '',
         textElement: {
-          content: textElem.str || '',
-          atType: isAt ? (textElem.attr6Buf[6] === 1 ? 1 : 2) : 0,
-          atUid: atTargetUin,
-          atNtUid: '',
-          atTinyId: '',
-          subElementType: 0,
-          atChannelId: '',
+          content: textElem.str,
+          atType: isAt ? (textElem.attr6Buf![6] === 1 ? 1 : 2) : 0,
+          atUin: atTargetUin,
         },
       })
       continue
     }
 
     if (elem.face) {
+      const faceIndex = elem.face.index
+      const face = faceConfig.sysface.find(face => face.QSid === faceIndex.toString())
       result.push({
         elementType: ElementType.Face,
-        elementId: '',
-        extBufForUI: '',
         faceElement: {
-          faceIndex: elem.face.index,
+          faceIndex,
           faceType: 1,
-          faceText: '',
-          stickerId: '',
-          stickerType: 0,
-          packId: '',
-          sourceType: 0,
-          resultId: '',
-          superisedId: '',
-          randomType: 0,
-          imageType: 0,
-          pokeType: 0,
-          spokeSummary: '',
-          doubleHit: 0,
-          vaspiPath: '',
-          surpriseId: '',
+          faceText: face?.QDes ?? '',
         },
       })
       continue
     }
 
     // Old format C2C image
-    if (elem.notOnlineImage) {
+    /*if (elem.notOnlineImage) {
       const img = elem.notOnlineImage
       result.push({
         elementType: ElementType.Pic,
@@ -864,10 +847,10 @@ function parseElements(elems: any[]): MessageElement[] {
         },
       })
       continue
-    }
+    }*/
 
     // Group image / animated face
-    if (elem.customFace) {
+    /*if (elem.customFace) {
       const cf = elem.customFace
       result.push({
         elementType: ElementType.Pic,
@@ -893,31 +876,20 @@ function parseElements(elems: any[]): MessageElement[] {
         },
       })
       continue
-    }
+    }*/
 
     // Market face / sticker
     if (elem.marketFace) {
       const mf = elem.marketFace
       result.push({
         elementType: ElementType.MarketFace,
-        elementId: '',
-        extBufForUI: '',
         marketFaceElement: {
-          itemType: mf.itemType || 0,
-          faceInfo: 0,
-          emojiPackageId: mf.tabId || 0,
-          subType: mf.subType || 0,
-          mediaType: 0,
-          imageWidth: mf.width || 0,
-          imageHeight: mf.height || 0,
-          faceName: mf.summary || '',
+          emojiPackageId: mf.tabId ?? 0,
+          imageWidth: mf.width ?? 0,
+          imageHeight: mf.height ?? 0,
+          faceName: mf.summary ?? '',
           emojiId: mf.faceId ? Buffer.from(mf.faceId).toString('hex') : '',
-          key: mf.key || '',
-          param: '',
-          mobileParam: '',
-          dynamicImg: { name: '', md5: '', uuid: '' },
-          staticImg: { name: '', md5: '', uuid: '' },
-          subElementType: 0,
+          key: mf.key ?? '',
         },
       })
       continue
@@ -925,7 +897,7 @@ function parseElements(elems: any[]): MessageElement[] {
 
     // Old format video（仅在没有 commonElem(serviceType=48,businessType=21|11) 视频时使用，
     // 否则会出现重复的 video 段）
-    if (elem.videoFile) {
+    /*if (elem.videoFile) {
       const hasCommonVideo = elems.some((e: any) =>
         e?.commonElem?.serviceType === 48 && (e.commonElem.businessType === 21 || e.commonElem.businessType === 11))
       if (hasCommonVideo) continue
@@ -960,7 +932,7 @@ function parseElements(elems: any[]): MessageElement[] {
         },
       })
       continue
-    }
+    }*/
 
     if (elem.richMsg) {
       // serviceId 35 = forward message, others are ark
@@ -972,20 +944,20 @@ function parseElements(elems: any[]): MessageElement[] {
           template = unzipSync(buf.subarray(1)).toString()
         }
       } catch {
-        template = elem.richMsg.template?.toString() || ''
+        template = elem.richMsg.template?.toString() ?? ''
       }
       if (isForward) {
+        const resid = template.match(/m_resid="([^"]+)"/)?.[1]
+        const fileName = template.match(/m_fileName="([^"]+)"/)?.[1]
         result.push({
           elementType: ElementType.MultiForward,
-          elementId: '',
-          extBufForUI: '',
           multiForwardMsgElement: {
             xmlContent: template,
-            resId: '',
-            fileName: '',
+            resId: resid ?? '',
+            fileName: fileName ?? '',
           },
         })
-      } else {
+      }/* else {
         result.push({
           elementType: ElementType.Ark,
           elementId: '',
@@ -996,35 +968,34 @@ function parseElements(elems: any[]): MessageElement[] {
             subElementType: null,
           },
         })
-      }
+      }*/
       continue
     }
 
-    // Group file
-    if (elem.groupFile) {
-      const gf = elem.groupFile
-      result.push({
-        elementType: ElementType.File,
-        elementId: '',
-        extBufForUI: '',
-        fileElement: {
-          fileName: gf.filename || '',
-          fileSize: String(gf.fileSize || 0),
-          fileMd5: '',
-          expireTime: '0',
-          fileId: gf.fileId ? Buffer.from(gf.fileId).toString() : '',
-          fileUuid: '',
-          fileSubId: '',
-          thumbFileSize: 0,
-          picThumbPath: new Map(),
-          fileBizId: 0,
-        },
-      })
-      continue
+    if (elem.transElemInfo) {
+      if (elem.transElemInfo.elemType === 24) {
+        const buf = elem.transElemInfo.elemValue
+        const length = buf.readInt16BE(1)
+        const data = buf.subarray(3, 3 + length)
+        const { inner } = Msg.GroupFileExtra.decode(data)
+        result.push({
+          elementType: ElementType.File,
+          fileElement: {
+            fileName: inner.info.fileName,
+            fileSize: inner.info.fileSize,
+            fileMd5: inner.info.fileMd5,
+            fileUuid: inner.info.fileId,
+            fileBizId: inner.info.busId,
+            folderId: '',
+            filePath: '',
+          },
+        })
+        continue
+      }
     }
 
     // @ mention extra info
-    if (elem.extraInfo) {
+    /*if (elem.extraInfo) {
       const last = result[result.length - 1]
       // If previous element is a Text @ mention, fill in nick/uin
       if (last?.textElement?.atType) {
@@ -1034,7 +1005,7 @@ function parseElements(elems: any[]): MessageElement[] {
         }
       }
       continue
-    }
+    }*/
 
     if (elem.lightApp) {
       let jsonStr = ''
@@ -1047,12 +1018,8 @@ function parseElements(elems: any[]): MessageElement[] {
       }
       result.push({
         elementType: ElementType.Ark,
-        elementId: '',
-        extBufForUI: '',
         arkElement: {
           bytesData: jsonStr,
-          linkInfo: null,
-          subElementType: null,
         },
       })
       continue
@@ -1061,15 +1028,10 @@ function parseElements(elems: any[]): MessageElement[] {
     if (elem.srcMsg) {
       result.push({
         elementType: ElementType.Reply,
-        elementId: '',
-        extBufForUI: '',
         replyElement: {
-          replayMsgId: '',
-          replayMsgSeq: String(elem.srcMsg.origSeqs?.[0] || 0),
-          senderUid: String(elem.srcMsg.senderUin || 0),
-          senderUidStr: '',
-          replyMsgTime: String(elem.srcMsg.time || 0),
-          sourceMsgIdInRecords: '',
+          replyMsgSeq: elem.srcMsg.origSeqs?.[0] ?? 0,
+          replyMsgTime: elem.srcMsg.time,
+          senderUin: elem.srcMsg.senderUin,
         },
       })
       continue
@@ -1098,106 +1060,76 @@ function parseElements(elems: any[]): MessageElement[] {
  * Parse commonElem.pbElem (MsgInfo protobuf) for serviceType=48.
  * bizType: 10/20=image, 11/21=video, 12/22=voice
  */
-function parseMsgInfoElement(pbElem: Buffer, bizType: number): any | null {
+function parseMsgInfoElement(pbElem: Buffer, bizType: number): MessageElement | null {
   try {
-    const msgInfo: any = Media.MsgInfo.decode(pbElem)
-    const body = msgInfo.msgInfoBody?.[0]
+    const msgInfo = Media.MsgInfo.decode(pbElem)
+    const body = msgInfo.msgInfoBody[0]
     if (!body) return null
 
-    const fileInfo = body.index?.info
-    const picInfo = body.pic
-    const fileUuid = body.index?.fileUuid || ''
-    const fileSize = String(fileInfo?.fileSize || 0)
-    const fileName = fileInfo?.fileName || ''
-    const md5 = fileInfo?.md5HexStr || ''
-    const sha1 = fileInfo?.sha1HexStr || ''
-    const width = fileInfo?.width || 0
-    const height = fileInfo?.height || 0
+    const fileInfo = body.index.info
+    const fileUuid = body.index.fileUuid
+    const fileSize = fileInfo.fileSize
+    const fileName = fileInfo.fileName
+    const md5 = fileInfo.md5HexStr
 
     if (bizType === 10 || bizType === 20) {
       // Image
-      let url = ''
+      const picInfo = body.pic
+      let originImageUrl = ''
       if (picInfo?.urlPath) {
-        const domain = picInfo.domain || 'https://multimedia.nt.qq.com.cn'
-        url = (domain.startsWith('http') ? domain : 'https://' + domain) + picInfo.urlPath
+        originImageUrl = picInfo.urlPath
         if (picInfo.ext?.originalParam) {
-          url += picInfo.ext.originalParam
+          originImageUrl += picInfo.ext.originalParam
         }
       }
       return {
         elementType: ElementType.Pic,
-        elementId: '',
-        extBufForUI: '',
         picElement: {
           fileName,
           fileSize,
-          picWidth: width,
-          picHeight: height,
-          original: false,
+          picWidth: fileInfo.width,
+          picHeight: fileInfo.height,
           md5HexStr: md5,
           sourcePath: '',
-          thumbPath: new Map(),
-          picType: 0,
-          picSubType: 0,
+          picType: fileInfo.fileType.picFormat,
+          picSubType: msgInfo.extBizInfo.pic.bizType,
           fileUuid,
-          fileSubId: '',
-          thumbFileSize: 0,
-          originImageUrl: url,
+          originImageUrl,
+          summary: msgInfo.extBizInfo.pic.summary
         },
       }
     } else if (bizType === 12 || bizType === 22) {
       // Voice
       return {
         elementType: ElementType.Ptt,
-        elementId: '',
-        extBufForUI: '',
         pttElement: {
           fileName,
           filePath: '',
           md5HexStr: md5,
           fileSize,
-          duration: fileInfo?.time || 0,
-          formatType: fileInfo?.fileType?.pttFormat || 1,
-          voiceType: 1,
-          voiceChangeType: 0,
-          canConvert2Text: false,
-          fileId: 0,
+          duration: fileInfo.time,
+          formatType: fileInfo.fileType.pttFormat,
           fileUuid,
-          text: '',
         },
       }
     } else if (bizType === 11 || bizType === 21) {
       // Video
       return {
         elementType: ElementType.Video,
-        elementId: '',
-        extBufForUI: '',
         videoElement: {
           filePath: '',
           fileName,
           videoMd5: md5,
-          thumbMd5: '',
           fileTime: fileInfo?.time || 0,
-          thumbSize: 0,
           fileFormat: fileInfo?.fileType?.videoFormat || 0,
           fileSize,
           thumbWidth: 0,
           thumbHeight: 0,
-          busiType: 0,
-          subBusiType: 0,
           thumbPath: new Map(),
-          transferStatus: 0,
-          progress: 0,
-          invalidState: 0,
           fileUuid,
-          fileSubId: '',
-          fileBizId: 0,
-          originVideoMd5: '',
-          import_rich_media_context: null,
-          sourceVideoCodecFormat: 0,
         },
       }
     }
-  } catch {}
+  } catch { }
   return null
 }

@@ -199,7 +199,7 @@ const GetGroupMemberList = defineApi(
       return Failed(-500, (e as Error).message)
     }
     return Ok({
-      members: result.infos.values().map(e => transformGroupMember(e, payload.group_id)).toArray(),
+      members: result.infos.values().map((e: any) => transformGroupMember(e, payload.group_id)).toArray(),
     })
   }
 )
@@ -358,7 +358,7 @@ const GetCustomFaceUrlList = defineApi(
       return Failed(-500, result.errMsg)
     }
     return Ok({
-      urls: result.emojiInfoList.map(e => e.url)
+      urls: result.emojiInfoList.map((e: any) => e.url)
     })
   }
 )

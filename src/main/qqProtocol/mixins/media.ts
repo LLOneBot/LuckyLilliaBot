@@ -168,7 +168,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
 
-    async getGroupVideoUploadInfo(groupCode: string, filePath: string, thumbFilePath: string, duration: number = 0, width: number = 0, height: number = 0) {
+    async getGroupVideoUploadInfo(groupCode: string, filePath: string, thumbFilePath: string, duration: number, width: number, height: number) {
       const peer = {
         chatType: ChatType.Group,
         peerUid: groupCode,
@@ -196,7 +196,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
     }
 
-    async getC2CVideoUploadInfo(peerUid: string, filePath: string, thumbFilePath: string, duration: number = 0, width: number = 0, height: number = 0) {
+    async getC2CVideoUploadInfo(peerUid: string, filePath: string, thumbFilePath: string, duration: number, width: number, height: number) {
       const peer = {
         chatType: ChatType.C2C,
         peerUid,
@@ -303,7 +303,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
     }
 
-    async getGroupImageUploadInfo(groupCode: string, filePath: string) {
+    async getGroupImageUploadInfo(groupCode: string, filePath: string, width: number, height: number, summary: string, bizType: number) {
       const peer = {
         chatType: ChatType.Group,
         peerUid: groupCode,
@@ -311,10 +311,11 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
       const body = await NTV2RichMedia.buildUploadReq(
         peer,
-        { type: 'image', filePath },
+        { type: 'image', filePath, width, height },
         {
           pic: {
-            summary: '[图片]',
+            bizType,
+            summary,
             bytesPbReserveC2c: Buffer.from([0x08, 0x00, 0x18, 0x00, 0x20, 0x00, 0x4A, 0x00, 0x50, 0x00, 0x62, 0x00, 0x92, 0x01, 0x00, 0x9A, 0x01, 0x00, 0xAA, 0x01, 0x0C, 0x08, 0x00, 0x12, 0x00, 0x18, 0x00, 0x20, 0x00, 0x28, 0x00, 0x3A, 0x00])
           }
         },
@@ -330,7 +331,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
     }
 
-    async getC2CImageUploadInfo(peerUid: string, filePath: string) {
+    async getC2CImageUploadInfo(peerUid: string, filePath: string, width: number, height: number, summary: string, bizType: number) {
       const peer = {
         chatType: ChatType.C2C,
         peerUid,
@@ -338,10 +339,11 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
       const body = await NTV2RichMedia.buildUploadReq(
         peer,
-        { type: 'image', filePath },
+        { type: 'image', filePath, width, height },
         {
           pic: {
-            summary: '[图片]',
+            bizType,
+            summary,
             bytesPbReserveC2c: Buffer.from([0x08, 0x00, 0x18, 0x00, 0x20, 0x00, 0x4A, 0x00, 0x50, 0x00, 0x62, 0x00, 0x92, 0x01, 0x00, 0x9A, 0x01, 0x00, 0xAA, 0x01, 0x0C, 0x08, 0x00, 0x12, 0x00, 0x18, 0x00, 0x20, 0x00, 0x28, 0x00, 0x3A, 0x00])
           }
         },

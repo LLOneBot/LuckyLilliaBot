@@ -194,7 +194,6 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     try {
       const msg = await this.ctx.app.sendMessage(this.ctx, peer, [{
         elementType: 10,
-        elementId: '',
         arkElement: {
           bytesData: JSON.stringify({
             app: 'com.tencent.multimsg',
@@ -323,7 +322,6 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
       }
       const sentMsg = await this.ctx.app.sendMessage(this.ctx, destPeer, [{
         elementType: 10,
-        elementId: '',
         arkElement: {
           bytesData: JSON.stringify(arkData),
         },

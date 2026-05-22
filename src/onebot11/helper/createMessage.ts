@@ -44,8 +44,7 @@ export async function createSendElements(
           continue
         }
         if (segment.data?.qq) {
-          const atQQ = String(segment.data.qq)
-          if (atQQ === 'all') {
+          if (segment.data.qq === 'all') {
             const groupCode = peer.peerUid
             let remainAtAllCount = 1
             let isAdmin: boolean = true
@@ -60,19 +59,19 @@ export async function createSendElements(
               }
             }
             if (isAdmin && remainAtAllCount > 0) {
-              sendElements.push(SendElement.at(atQQ, atQQ, AtType.All, '@全体成员'))
+              sendElements.push(SendElement.at(0, AtType.All, '@全体成员'))
             }
           }
           else if (peer.chatType === ChatType.Group) {
-            const uid = await ctx.ntUserApi.getUidByUin(atQQ, peer.peerUid)
+            const uin = +segment.data.qq
             let display
             if (segment.data.name) {
               display = `@${segment.data.name}`
             } else {
-              const info = await ctx.ntGroupApi.getGroupMember(peer.peerUid, uid)
-              display = `@${info.cardName || info.nick}`
+              const info = await ctx.ntGroupApi.getGroupMemberByUin(+peer.peerUid, uin, false)
+              display = `@${info?.cardName || info?.nick || ''}`
             }
-            sendElements.push(SendElement.at(atQQ, uid, AtType.One, display))
+            sendElements.push(SendElement.at(uin, AtType.One, display))
           }
         }
       }
@@ -86,7 +85,7 @@ export async function createSendElements(
           }
           const source = (await ctx.ntMsgApi.getMsgsByMsgId(info.peer, [info.msgId])).msgList[0]
           if (source) {
-            sendElements.push(SendElement.reply(source.msgSeq, source.msgId, source.senderUid, source.msgTime))
+            sendElements.push(SendElement.reply(+source.msgSeq, +source.senderUin, +source.msgTime))
           }
         }
       }
@@ -115,8 +114,7 @@ export async function createSendElements(
           ctx,
           (await handleOb11RichMedia(ctx, segment, deleteAfterSentFiles)).path,
           segment.data.summary ?? '',
-          Number(segment.data.subType) || 0,
-          segment.data.type === 'flash'
+          Number(segment.data.subType) || 0
         )
         sendElements.push(res)
       }

@@ -61,7 +61,7 @@ export class GetForwardMsg extends BaseAction<Payload, Response> {
       throw new Error(data.errMsg)
     }
     const messages: (OB11ForwardMessage | undefined)[] = await Promise.all(
-      data.msgList.map(async (msg) => {
+      data.msgList.map(async (msg: any) => {
         const res = await OB11Entities.message(this.ctx, msg, config)
         if (res) {
           const segments = message2List(res.message)
