@@ -7,6 +7,7 @@
  * - group_upload（群文件上传）
  * - group_essence（精华）
  * - group_msg_emoji_like（表情回应）
+ * - group_title（群头衔变更，notice_type=notify sub_type=title）
  *
  * 已覆盖的（在别处）：group_recall、notify(poke)、notify(profile_like)
  *
@@ -14,7 +15,6 @@
  * - friend_add（需要 unfriend → re-add）
  * - group_increase / group_decrease（需要 kick / re-invite，会破坏测试群成员关系）
  * - group_dismiss（解散群，破坏性）
- * - group_title（需要专属头衔——QQ Plus 才能给群头衔）
  * - flash_file（依赖闪传上传成功，目前 prep 阶段被服务器拦）
  */
 
@@ -225,5 +225,35 @@ describe('notice 事件覆盖', () => {
       notice_type: 'group_msg_emoji_like',
       group_id: Number(context.testGroupId),
     }, undefined, 15000);
+  }, 60000);
+
+  it('group_title — primary（群主）给 secondary 设/清除群头衔，secondary 收到 notify.title', async () => {
+    context.twoAccountTest.clearAllQueues();
+    const primary = context.twoAccountTest.getClient('primary');
+    const title = `t${Date.now() % 100000}`; // 群头衔最多 6 字符
+
+    await primary.call(ActionName.GoCQHTTP_SetGroupSpecialTitle, {
+      group_id: context.testGroupId,
+      user_id: context.secondaryUserId,
+      special_title: title,
+    });
+    await context.twoAccountTest.secondaryListener.waitForEvent(
+      {
+        post_type: 'notice',
+        notice_type: 'notify',
+        sub_type: 'title',
+        group_id: Number(context.testGroupId),
+        user_id: Number(context.secondaryUserId),
+      },
+      (event: any) => event.title === title,
+      15000,
+    );
+
+    // 还原：清空头衔
+    await primary.call(ActionName.GoCQHTTP_SetGroupSpecialTitle, {
+      group_id: context.testGroupId,
+      user_id: context.secondaryUserId,
+      special_title: '',
+    });
   }, 60000);
 });
