@@ -9,6 +9,7 @@ import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../se
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 import { OB11MessageData, OB11MessageDataType } from '@llbot/onebot11/types';
+import { MediaPaths } from '../media';
 
 async function sendAndExpectSegment(
   context: MessageTestContext,
@@ -143,4 +144,37 @@ describe('消息段类型覆盖（额外）', () => {
       OB11MessageDataType.Music,
     );
   }, 60000);
+
+  it('file — 私聊 file segment', async () => {
+    context.twoAccountTest.clearAllQueues();
+    const primary = context.twoAccountTest.getClient('primary');
+    const fileName = `seg-file-${Date.now()}.txt`;
+    const sendResp = await primary.call(ActionName.SendPrivateMsg, {
+      user_id: context.secondaryUserId,
+      message: [{
+        type: OB11MessageDataType.File,
+        data: { file: MediaPaths.getPath('test_ocr.png'), name: fileName },
+      } as any],
+    });
+    Assertions.assertSuccess(sendResp, 'send_private_msg');
+    await context.twoAccountTest.secondaryListener.waitForEvent(
+      {
+        post_type: 'message',
+        message_type: 'private',
+        message_id: sendResp.data.message_id,
+      },
+      (event: any) => {
+        const msg: OB11MessageData[] = Array.isArray(event.message) ? event.message : [];
+        return msg.some(m => m.type === OB11MessageDataType.File);
+      },
+      30000,
+    );
+  }, 60000);
+
+  // mface 需要 server 签发的 key（无法自己生成有效的），自动化里只能从入站 mface 里
+  // 抓取再回放——先 skip，等有合适 fixture 再启用。
+  it.skip('mface — 商城表情', async () => {
+    void context;
+    void OB11MessageDataType;
+  });
 });
