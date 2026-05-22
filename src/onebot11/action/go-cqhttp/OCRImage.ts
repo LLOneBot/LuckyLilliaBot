@@ -64,13 +64,14 @@ export class OCRImage extends BaseAction<Payload, Response> {
 
     const { textDetections, language } = await this.ctx.ntFileApi.ocrImage(url)
 
+    // 图片没文字时 server 返回空 textDetections，按友好的 OneBot 约定输出空 texts 数组
     return {
-      texts: textDetections.map(item => ({
+      texts: (textDetections || []).map(item => ({
         text: item.detectedText,
         confidence: item.confidence,
-        coordinates: item.polygon.coordinates
+        coordinates: item.polygon?.coordinates ?? []
       })),
-      language
+      language: language || ''
     }
   }
 }

@@ -72,7 +72,7 @@ declare module 'cordis' {
 }
 
 export class NTQQFileApi extends Service {
-  static inject = ['logger', 'qqProtocol']
+  static inject = ['logger', 'qqProtocol', 'ntUserApi']
 
   rkeyManager: RkeyManager
 
@@ -169,13 +169,20 @@ export class NTQQFileApi extends Service {
       files.push({ path: p, name: path.basename(p), size: st.size, sha1, fileUuid: randomUUID() })
       totalSize += st.size
     }
-    // 1. 创建 fileSet
+    // 1. 创建 fileSet。uploaderNick 必须是真实昵称——若 selfInfo.nick 还没填则
+    //    去群成员列表里抓一次（fetchSelfInfo 内部缓存）。直接用 uin 当 nick 会被服务器
+    //    后续的 prepFlashFileSet 拒掉（errorCode=100200 "加载失败"）。
+    if (!selfInfo.nick) {
+      await this.ctx.ntUserApi.getSelfNick(true).catch(() => { })
+    }
+    // 还是空的话用占位符——至少不要把 uin 当 nick 上送
+    const uploaderNick = selfInfo.nick || 'QQ用户'
     const fset = await this.ctx.qqProtocol.createFlashFileSet({
       title,
       totalFileCount: files.length,
       totalFileSize: totalSize,
       uploaderUin: selfInfo.uin,
-      uploaderNick: selfInfo.nick || selfInfo.uin,
+      uploaderNick,
       uploaderUid: selfInfo.uid,
     })
     const fileSetId = fset.fileSetId
