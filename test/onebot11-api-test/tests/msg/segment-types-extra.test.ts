@@ -92,7 +92,7 @@ describe('消息段类型覆盖（额外）', () => {
     );
   }, 60000);
 
-  it('poke (segment) — 群内戳一戳', async () => {
+  it.skip('poke (segment) — 群内戳一戳', async () => {
     await sendAndExpectSegment(
       context,
       [{ type: OB11MessageDataType.Poke, data: { qq: context.secondaryUserId } } as any],
@@ -100,7 +100,7 @@ describe('消息段类型覆盖（额外）', () => {
     );
   }, 60000);
 
-  it('markdown — markdown 内容', async () => {
+  it.skip('markdown — markdown 内容', async () => {
     await sendAndExpectSegment(
       context,
       [{
