@@ -84,19 +84,14 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
 
-    async getGroupVideoUrl(node: any, groupId = 0) {
-      // BuildDownloadReq 传 entity.MsgInfo.MsgInfoBody[0].Index 整个 IndexNode
-      // 不能只传 fileUuid，否则 server 报 file does not exist
-      const indexNode = typeof node === 'string'
-        ? { fileUuid: node, storeID: 1, uploadTime: 0, expire: 0, type: 0 }
-        : node
+    async getGroupVideoUrl(fileUuid: string) {
       const body = Media.NTV2RichMediaReq.encode({
         reqHead: {
           common: { requestId: 1, command: 200 },
-          scene: { requestType: 2, businessType: 2, field103: 0, sceneType: 2, group: { groupId } },
+          scene: { requestType: 2, businessType: 2, field103: 0, sceneType: 2, group: { groupId: 0 } },
           client: { agentType: 2 },
         },
-        download: { node: indexNode },
+        download: { node: { fileUuid, storeID: 1, uploadTime: 0, expire: 0, type: 0 } },
       })
       const data = Oidb.Base.encode({ command: 0x11ea, subCommand: 200, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x11ea_200', data)

@@ -402,7 +402,6 @@ export class MessageEncoder {
       const url = attrs.src ?? attrs.url
       const path = await this.fetchFile(url)
       const element = await SendElement.pic(this.ctx, path)
-      this.deleteAfterSentFiles.push(element.picElement.sourcePath!)
       this.elements.push(element)
     } else if (type === 'audio') {
       await this.flush()
@@ -419,7 +418,6 @@ export class MessageEncoder {
         thumb = await this.fetchFile(attrs.poster)
       }
       const element = await SendElement.video(this.ctx, path, thumb)
-      this.deleteAfterSentFiles.push(element.videoElement.filePath!)
       this.elements.push(element)
       await this.flush()
     } else if (type === 'file') {

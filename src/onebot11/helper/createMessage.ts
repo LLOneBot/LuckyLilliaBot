@@ -118,7 +118,6 @@ export async function createSendElements(
           Number(segment.data.subType) || 0,
           segment.data.type === 'flash'
         )
-        deleteAfterSentFiles.push(res.picElement.sourcePath!)
         sendElements.push(res)
       }
         break
@@ -142,7 +141,6 @@ export async function createSendElements(
           }
         }
         const res = await SendElement.video(ctx, path, thumb)
-        deleteAfterSentFiles.push(res.videoElement.filePath!)
         sendElements.push(res)
       }
         break

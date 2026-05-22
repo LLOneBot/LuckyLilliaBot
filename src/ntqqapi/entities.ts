@@ -21,6 +21,7 @@ import { createThumb, getVideoInfo } from '../common/utils/video'
 import { encodeSilk } from '../common/utils/audio'
 import { Context } from 'cordis'
 import { isNullable, noop } from 'cosmokit'
+import { TEMP_DIR } from '@/common/globalVars'
 
 export namespace SendElement {
   export function text(content: string): SendTextElement {
@@ -70,16 +71,15 @@ export namespace SendElement {
     if (fileSize === 0) {
       throw new Error(`文件异常，大小为 0: ${picPath}`)
     }
-    const { md5, fileName, path } = await ctx.ntFileApi.uploadFile(picPath, ElementType.Pic, subType)
     const fileType = await getFileType(picPath)
     const size = await getImageSize(picPath)
     const picElement = {
-      md5HexStr: md5,
+      md5HexStr: await getMd5HexFromFile(picPath),
       fileSize: fileSize.toString(),
       picWidth: size.width,
       picHeight: size.height,
-      fileName: fileName,
-      sourcePath: path,
+      fileName: pathLib.basename(picPath),
+      sourcePath: picPath,
       original: true,
       picType: fileType.ext === 'gif' ? PicType.GIF : PicType.JPEG,
       picSubType: subType,
@@ -126,7 +126,6 @@ export namespace SendElement {
     if (fileSize > 1024 * 1024 * maxMB) {
       throw new Error(`视频过大，最大支持${maxMB}MB，当前文件大小${fileSize}B`)
     }
-    const { fileName, path, md5 } = await ctx.ntFileApi.uploadFile(filePath, ElementType.Video)
     let videoInfo = {
       width: 1920,
       height: 1080,
@@ -136,12 +135,13 @@ export namespace SendElement {
       filePath,
     }
     try {
-      videoInfo = await getVideoInfo(path)
+      videoInfo = await getVideoInfo(filePath)
       ctx.logger.info('视频信息', videoInfo)
     } catch (e) {
       ctx.logger.info('获取视频信息失败', e)
     }
-    const thumbDir = pathLib.dirname(path.replaceAll('\\', '/').replace(`/Ori/`, `/Thumb/`))
+    const md5 = await getMd5HexFromFile(filePath)
+    const thumbDir = TEMP_DIR
     const thumbFilePath = pathLib.join(thumbDir, `${md5}_0.png`)
     await mkdir(thumbDir, { recursive: true })
     if (diyThumbPath) {
@@ -159,8 +159,8 @@ export namespace SendElement {
       elementType: ElementType.Video,
       elementId: '',
       videoElement: {
-        fileName,
-        filePath: path,
+        fileName: pathLib.basename(filePath),
+        filePath,
         videoMd5: md5,
         thumbMd5,
         fileTime: Math.trunc(videoInfo.time),
@@ -181,17 +181,13 @@ export namespace SendElement {
     if (fileSize === 0) {
       throw new Error(`文件异常，大小为 0: ${silkPath}`)
     }
-    const { md5, fileName, path } = await ctx.ntFileApi.uploadFile(silkPath, ElementType.Ptt)
-    if (converted) {
-      unlink(silkPath).catch(noop)
-    }
     return {
       elementType: ElementType.Ptt,
       elementId: '',
       pttElement: {
-        fileName: fileName,
-        filePath: path,
-        md5HexStr: md5,
+        fileName: pathLib.basename(silkPath),
+        filePath: silkPath,
+        md5HexStr: await getMd5HexFromFile(silkPath),
         fileSize: String(fileSize),
         duration: duration,
         formatType: 1,

@@ -101,30 +101,6 @@ export class NTQQFileApi extends Service {
     }
   }
 
-  async getRichMediaFilePath(_md5HexStr: string, fileName: string, _elementType: ElementType, _elementSubType = 0) {
-    // 直连模式：在系统临时目录下创建路径
-    const dir = path.join(os.tmpdir(), 'lucky-lillia-media')
-    await mkdir(dir, { recursive: true })
-    return path.join(dir, fileName)
-  }
-
-  /** 上传文件到 QQ 的文件夹 */
-  async uploadFile(filePath: string, elementType = ElementType.Pic, elementSubType = 0) {
-    const fileMd5 = await getMd5HexFromFile(filePath)
-    let fileName = path.basename(filePath)
-    if (!fileName.includes('.')) {
-      const ext = (await getFileType(filePath))?.ext
-      fileName += ext ? '.' + ext : ''
-    }
-    const mediaPath = await this.getRichMediaFilePath(fileMd5, fileName, elementType, elementSubType)
-    await copyFile(filePath, mediaPath)
-    return {
-      md5: fileMd5,
-      fileName,
-      path: mediaPath,
-    }
-  }
-
   async getImageUrl(originImageUrl: string, md5HexStr: string) {
     const url = originImageUrl
 
