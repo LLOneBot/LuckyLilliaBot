@@ -336,12 +336,11 @@ function handle0x2DC(ctx: Context, msg: any, subType: number) {
 
 function handleGroupMute(ctx: Context, content: Buffer) {
   try {
-    if (content.length < 7) return
-    const groupUin = content.readUInt32BE(0)
-    const inner = unwrap0x2DCContent(content)
-    if (!inner) return
-    const decoded: any = Notify.GroupMute.decode(inner)
-    const groupCode = String(decoded.groupCode || groupUin)
+    // GroupMute (0x2DC subType=12) 的 msgContent 直接是 GroupMute proto，
+    // 不像 subType=16/20/21 那样有 [4B groupUin + 1B + 2B len] TLV 包头。
+    // 老代码错误地走 unwrap0x2DCContent，导致 field 1 (groupCode) 解出来是错的内部 ID。
+    const decoded: any = Notify.GroupMute.decode(content)
+    const groupCode = String(decoded.groupCode || 0)
     const operatorUid = decoded.operatorUid || ''
     const targetUid = decoded.info?.state?.targetUid
     const duration = decoded.info?.state?.duration || 0
@@ -359,13 +358,48 @@ function handleGroupMute(ctx: Context, content: Buffer) {
 function handleGroupGeneralEvent(ctx: Context, content: Buffer) {
   try {
     if (content.length < 7) return
-    const groupUin = content.readUInt32BE(0)
+    const groupUinFromTLV = content.readUInt32BE(0)
     const inner = unwrap0x2DCContent(content)
     if (!inner) return
-    const reaction = tryDecodeReaction(inner)
-    if (reaction) {
-      reaction.groupCode = String(groupUin)
-      ctx.parallel('nt/raw/group-reaction', reaction)
+    let groupCode = String(groupUinFromTLV)
+    let notifyBody: any = null
+    try {
+      notifyBody = Notify.NotifyMessageBody.decode(inner)
+      if (notifyBody.groupCode) groupCode = String(notifyBody.groupCode)
+    } catch { /* ignore */ }
+    // 0x2DC subType=16 通过 field13 区分子事件：
+    //   6 = GroupMemberSpecialTitle, 12 = GroupNameChange, 23 = GroupTodo, 35 = GroupReaction
+    const field13 = Number(notifyBody?.subType ?? 0)
+    if (field13 === 35 || field13 === 0) {
+      const reaction = tryDecodeReaction(inner)
+      if (reaction) {
+        reaction.groupCode = groupCode
+        ctx.parallel('nt/raw/group-reaction', reaction)
+        return
+      }
+    }
+    if (field13 === 6) {
+      // 群成员获得头衔（GroupMemberSpecialTitle）。eventParam (field 5) 是一个 proto，
+      // 内部 field 2 是带 JSON 模板的灰条文字，形如：
+      //   恭喜<{"cmd":5,"data":"<uin>","text":"<nick>"}>获得群主授予的<{"cmd":1,"text":"<title>",...}>头衔
+      const eventParam = notifyBody?.eventParam
+      if (!eventParam) return
+      const tipBytes = walkProtoFields(Buffer.from(eventParam), [2])
+      if (!tipBytes) return
+      const tipText = tipBytes.toString('utf8')
+      // cmd=5 是用户引用，data 是 uin；cmd=1 是带链接的文本，text 是真正的头衔
+      const userMatch = tipText.match(/\{"cmd":5,"data":"(\d+)"/)
+      const titleMatch = tipText.match(/\{"cmd":1,[^}]*?"text":"([^"]+)"/)
+      const memberUin = userMatch?.[1] || '0'
+      const title = titleMatch?.[1] || ''
+      if (memberUin !== '0' && title) {
+        ctx.parallel('nt/raw/group-title-changed', { groupCode, memberUin, title })
+      }
+      return
+    }
+    // 兜底：未识别的 subType=16 事件
+    if (field13 !== 0) {
+      ctx.logger('qqProtocol').debug('[Group0x2DC sub16] unhandled field13:', field13, 'groupCode:', groupCode)
     }
   } catch (e) {
     ctx.logger('qqProtocol').warn('GroupGeneralEvent parse error:', (e as Error).message)
@@ -396,12 +430,14 @@ function tryDecodeReaction(buf: Buffer): { groupCode: string, msgSeq: number, op
 function handleGroupGrayTip(ctx: Context, msg: any, content: Buffer) {
   try {
     if (content.length < 7) return
-    const groupUin = content.readUInt32BE(0)
+    const groupUinFromTLV = content.readUInt32BE(0)
     const inner = unwrap0x2DCContent(content)
     if (!inner) return
     const notifyBody: any = Notify.NotifyMessageBody.decode(inner)
     const grayTip = notifyBody.generalGrayTip
     if (!grayTip) return
+    // 优先用 NotifyMessageBody.groupCode (field 4)，fallback 用 TLV 头 4 字节
+    const groupCode = String(notifyBody.groupCode || groupUinFromTLV)
     const bizType = Number(grayTip.bizType ?? 0)
     const busiId = Number(grayTip.busiId ?? 0)
     const params: Record<string, string> = {}
@@ -412,7 +448,7 @@ function handleGroupGrayTip(ctx: Context, msg: any, content: Buffer) {
     if (bizType === 12) {
       // Poke (group)
       ctx.parallel('nt/raw/group-poke', {
-        groupCode: String(groupUin),
+        groupCode,
         // uin_str1 = 操作者（fromUin），uin_str2 = 被戳的人（toUin）
         fromUin: params['uin_str1'] || '0',
         toUin: params['uin_str2'] || '0',
@@ -422,15 +458,13 @@ function handleGroupGrayTip(ctx: Context, msg: any, content: Buffer) {
         msgUid,
       })
     } else if (busiId === 2407) {
-      // 群成员获得头衔
-      // templateParams 一般含 mqq_uin / member_uin / uin 等指代成员的 key，
-      // 以及 title / new_title / honor 指代头衔的 key
+      // 群成员获得头衔（旧版本通过 subType=20 推送的 fallback 路径，新版本走 subType=16 field13=6）
       const memberUin = params['mqq_uin'] || params['member_uin']
         || params['uin'] || params['target_uin'] || '0'
       const title = params['title'] || params['new_title'] || params['honor'] || ''
       if (memberUin !== '0' && title) {
         ctx.parallel('nt/raw/group-title-changed', {
-          groupCode: String(groupUin),
+          groupCode,
           memberUin,
           title,
         })
@@ -447,9 +481,13 @@ function handleGroupEssenceChange(ctx: Context, content: Buffer) {
     const groupUin = content.readUInt32BE(0)
     const inner = unwrap0x2DCContent(content)
     if (!inner) return
-    const decoded: any = Notify.GroupEssenceChange.decode(inner)
+    // 0x2DC 内层是 NotifyMessageBody 结构，groupUin 在 field 4，typed event 在 field 33
+    const notifyBody: any = Notify.NotifyMessageBody.decode(inner)
+    const essenceField = walkProtoFields(inner, [33])
+    if (!essenceField) return
+    const decoded: any = Notify.GroupEssenceChange.decode(essenceField)
     ctx.parallel('nt/raw/group-essence-change', {
-      groupCode: String(decoded.groupCode || groupUin),
+      groupCode: String(notifyBody.groupCode || decoded.groupCode || groupUin),
       msgSequence: decoded.msgSequence || 0,
       operatorUin: String(decoded.operatorUin || 0),
       isAdd: decoded.setFlag === 1,
