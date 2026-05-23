@@ -35,7 +35,9 @@ describe('notice 事件覆盖', () => {
     teardownMessageTest(context);
   });
 
-  it('friend_recall — primary 发私聊给 secondary 后撤回，secondary 收到 friend_recall', async () => {
+  it('friend_recall — primary 发私聊给 secondary 后撤回，自己 (primary) 收到 friend_recall (sub=139)', async () => {
+    // 直连模式当前观测：QQ server 不向接收方下发 0x210 sub=138（FriendRecall）；
+    // 只有撤回方自己会收到 sub=139（FriendSelfRecall）。所以这里在 primary 端断言。
     context.twoAccountTest.clearAllQueues();
     const primary = context.twoAccountTest.getClient('primary');
     const sendResp = await primary.call(ActionName.SendPrivateMsg, {
@@ -55,7 +57,7 @@ describe('notice 事件覆盖', () => {
     const delResp = await primary.call(ActionName.DeleteMsg, { message_id: messageId });
     Assertions.assertSuccess(delResp, 'delete_msg');
 
-    await context.twoAccountTest.secondaryListener.waitForEvent({
+    await context.twoAccountTest.primaryListener.waitForEvent({
       post_type: 'notice',
       notice_type: 'friend_recall',
       message_id: messageId,

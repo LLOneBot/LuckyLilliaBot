@@ -1,9 +1,10 @@
-import { Peer, RawMessage } from '@/ntqqapi/types'
+import { ChatType, Peer, RawMessage } from '@/ntqqapi/types'
 import { createHash } from 'node:crypto'
 import { BidiMap } from '@/common/utils/table'
 import { FileCache } from '@/common/types'
 import { Context, Service } from 'cordis'
 import { noop } from 'cosmokit'
+import { selfInfo } from '@/common/globalVars'
 
 declare module 'cordis' {
   interface Context {
@@ -107,6 +108,17 @@ class Store extends Service {
     // 注意：msgTime 不能进 hash —— PbSendMsg 同步响应里的 sendTime 偶尔会比真正广播的
     // contentHead.msgTime 晚 1 秒，发送方和接收方算出不同的 shortId，下游 reply / get_msg 就匹配不上。
     // (chatType, peerUid, msgSeq, msgRandom) 已经能唯一标识一条消息。
+    //
+    // C2C 双向：发送方拿的 msgSeq 是 server-resp.sequence，接收方拿的是
+    // contentHead.msgSeq（server 广播版本，跟前者不一定相等）。msgRandom 是 32-bit
+    // server 在两端都广播一致的字段，单独配合 (selfUid, otherUid) 排序后的 pair
+    // 当 hash key，两端就一致了。
+    if (msg.chatType === ChatType.C2C || msg.chatType === ChatType.TempC2CFromGroup) {
+      const me = selfInfo.uid
+      const other = msg.senderUid === me ? msg.peerUid : msg.senderUid
+      const pair = me < other ? `${me}|${other}` : `${other}|${me}`
+      return `${msg.chatType}-${pair}-${msg.msgRandom}`
+    }
     return `${msg.chatType}-${msg.peerUid}-${msg.msgSeq}-${msg.msgRandom}`
   }
 

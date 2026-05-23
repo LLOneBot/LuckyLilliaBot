@@ -269,10 +269,12 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       if (resp.resultCode !== 0) {
         throw new Error(`发送消息失败 (code=${resp.resultCode}): ${resp.errMsg || ''}`)
       }
-      // group 用 server-assigned group msgSeq；C2C 用 clientSequence（C2C 没有 group seq 概念）
+      // group 用 server-assigned group msgSeq；C2C 用我们本地生成的 clientSequence
+      // （server 广播给接收方时 contentHead.msgSeq = clientSequence；resp.sequence 是另一个 ID，
+      // 不能拿来当 OneBot message_id 的 hash 输入，否则两端算出的 shortId 不一致）
       const seq = opts.isGroup
         ? (resp.sequence || resp.clientSequence)
-        : ((resp.clientSequence && resp.clientSequence !== 0n) ? resp.clientSequence : resp.sequence)
+        : clientSequence
       return {
         sequence: seq,
         timestamp: resp.sendTime,

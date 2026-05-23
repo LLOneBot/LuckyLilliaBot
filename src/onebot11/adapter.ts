@@ -568,6 +568,22 @@ class Onebot11Adapter extends Service {
         this.ctx.logger.warn('friend-added bridge error:', (e as Error).message)
       }
     })
+    this.ctx.on('nt/raw/group-card-changed', async input => {
+      const groupId = +input.groupCode
+      if (!groupId || !input.targetUid) return
+      try {
+        const targetUin = await this.ctx.ntUserApi.getUinByUid(input.targetUid)
+        const userId = +targetUin
+        if (!userId) return
+        const oldCard = await this.ctx.store.getGroupMemberCard(String(groupId), String(userId)) ?? ''
+        await this.ctx.store.setGroupMemberCard(String(groupId), String(userId), input.newCard)
+        if (oldCard !== input.newCard) {
+          this.dispatch(new OB11GroupCardEvent(groupId, userId, input.newCard, oldCard))
+        }
+      } catch (e) {
+        this.ctx.logger.warn('group-card-changed bridge error:', (e as Error).message)
+      }
+    })
     this.ctx.on('nt/system-message-created', async input => {
       const sysMsg = Msg.Message.decode(input)
       if (!sysMsg.body) {

@@ -160,17 +160,90 @@ function handle0x210(ctx: Context, msg: any, subType: number) {
 function handleFriendDeleteOrPin(ctx: Context, msg: any, content: Buffer) {
   try {
     const decoded: any = Notify.FriendDeleteOrPinChange.decode(content)
+    const type = Number(decoded.body?.type ?? 0)
     const pinChanged = decoded.body?.pinChanged
     if (pinChanged) {
       const uid = pinChanged.body?.uid || ''
       ctx.parallel('nt/raw/friend-pin-changed', { uid, isPinned: true })
-    } else {
-      // Profile like or other; forward full Msg.Message so adapter can decode contentHead
-      forwardSystemMessage(ctx, msg)
+      return
     }
+    if (type === 81) {
+      // 群成员名片变更。body 结构：
+      //   field 13 = 嵌套，含 operator/target uid + 新名片
+      //   group uin 在 nested 的某个 varint 字段（不同 QQ 版本可能位置略有不同），
+      //   服务器实际下发只有一个大整数字段，多个候选位置兜底。
+      const body = walkProtoFields(content, [1])
+      if (!body) return
+      const nested = walkProtoFields(body, [13])
+      if (!nested) return
+      const operatorUid = walkProtoFields(nested, [1])?.toString('utf8') || ''
+      const targetUid = walkProtoFields(nested, [2])?.toString('utf8') || ''
+      const newCard = walkProtoFields(nested, [3, 2])?.toString('utf8') || ''
+      let groupUin = 0
+      for (const fieldIdx of [4, 5, 6, 7, 8, 9, 10, 11, 12, 14]) {
+        const v = extractVarintField(nested, [], fieldIdx)
+        if (v && v > 1_000_000) { groupUin = v; break }
+      }
+      if (operatorUid && targetUid && groupUin > 0) {
+        ctx.parallel('nt/raw/group-card-changed', {
+          groupCode: String(groupUin),
+          targetUid,
+          operatorUid,
+          newCard,
+        })
+      }
+      return
+    }
+    // 其他 type；forward 完整 Msg.Message 让 adapter 处理（profile_like 走这里）
+    forwardSystemMessage(ctx, msg)
   } catch (e) {
     ctx.logger('qqProtocol').warn('FriendDeleteOrPin parse error:', (e as Error).message)
   }
+}
+
+/** 从 protobuf buffer 走 path 找到指定 field 的 varint 值。 */
+function extractVarintField(buf: Buffer, pathLD: number[], targetField: number): number | null {
+  let current: Buffer | null = buf
+  for (const f of pathLD) {
+    if (!current) return null
+    current = walkProtoFields(current, [f])
+  }
+  if (!current) return null
+  let offset = 0
+  while (offset < current.length) {
+    let tag = 0, shift = 0
+    while (offset < current.length) {
+      const b = current[offset++]
+      tag |= (b & 0x7f) << shift
+      if ((b & 0x80) === 0) break
+      shift += 7
+    }
+    const fieldNum = tag >>> 3
+    const wireType = tag & 0x07
+    if (wireType === 0) {
+      // varint
+      let v = 0, vshift = 0
+      while (offset < current.length) {
+        const b = current[offset++]
+        v |= (b & 0x7f) << vshift
+        if ((b & 0x80) === 0) break
+        vshift += 7
+      }
+      if (fieldNum === targetField) return v >>> 0
+    } else if (wireType === 2) {
+      let len = 0, lshift = 0
+      while (offset < current.length) {
+        const b = current[offset++]
+        len |= (b & 0x7f) << lshift
+        if ((b & 0x80) === 0) break
+        lshift += 7
+      }
+      offset += len
+    } else {
+      return null
+    }
+  }
+  return null
 }
 
 function handleFriendGrayTip(ctx: Context, msg: any, content: Buffer) {
@@ -276,19 +349,29 @@ function handleFriendRecall(ctx: Context, msg: any, content: Buffer) {
     if (!body) return
 
     const tip = body.tipInfo?.tip || '消息已撤回'
-    const senderUid = body.fromUid
-    const senderUin = String(msg.routingHead?.fromUin || 0)
-    const peerUid = body.toUid
-    const peerUin = String(msg.routingHead?.toUin || 0)
+    const fromUid = body.fromUid || ''
+    const toUid = body.toUid || ''
+    // 在 C2C 会话里，peerUid 是"对话另一端"。
+    // - bot 收到对方撤回：body.fromUid=对方, body.toUid=自己 → peerUid=fromUid
+    // - bot 自己撤回时 server 会回声同一条 push：body.fromUid=自己, body.toUid=对方 → peerUid=toUid
+    const peerUid = fromUid === selfInfo.uid ? toUid : fromUid
+    const seqStr = String(body.sequence || 0)
+    const store = (ctx as any).store
+    const original = store?.findCachedMsgByPeerSeq?.(peerUid, seqStr)
+    // 复用 cache 里原消息的 msgRandom / senderUin，确保 shortId 与原消息一致
+    const senderUid = original?.senderUid || fromUid
+    const senderUin = original?.senderUin || String(msg.routingHead?.fromUin || 0)
+    const peerUin = original?.peerUin || String(msg.routingHead?.toUin || 0)
 
     const recallMessage = buildRecallMessage({
-      msgSeq: String(body.sequence || 0),
+      msgSeq: seqStr,
+      msgRandom: original?.msgRandom || '0',
       senderUid,
       senderUin,
       peerUid,
       peerUin,
       chatType: ChatType.C2C,
-      msgTime: msg.contentHead?.msgTime || 0,
+      msgTime: original ? +original.msgTime : (msg.contentHead?.msgTime || 0),
       tip,
       operatorUid: senderUid,
       operatorUin: senderUin,
@@ -787,12 +870,23 @@ export function convertToRawMessage(msg: any, msgType: number): RawMessage | nul
     sendMemberName = routingHead.group?.groupCard || ''
   } else if (msgType === MsgType.TempMessage) {
     chatType = ChatType.TempC2CFromGroup
-    peerUin = String(routingHead.fromUin || 0)
-    peerUid = routingHead.fromUid || ''
+    // 对话另一端：自己发的消息 server 回声里 fromUid=自己，要用 toUid 当 peer
+    if (routingHead.fromUid === selfInfo.uid && routingHead.toUid) {
+      peerUin = String(routingHead.toUin || 0)
+      peerUid = routingHead.toUid
+    } else {
+      peerUin = String(routingHead.fromUin || 0)
+      peerUid = routingHead.fromUid || ''
+    }
   } else {
     chatType = ChatType.C2C
-    peerUin = String(routingHead.fromUin || 0)
-    peerUid = routingHead.fromUid || ''
+    if (routingHead.fromUid === selfInfo.uid && routingHead.toUid) {
+      peerUin = String(routingHead.toUin || 0)
+      peerUid = routingHead.toUid
+    } else {
+      peerUin = String(routingHead.fromUin || 0)
+      peerUid = routingHead.fromUid || ''
+    }
   }
 
   const elements = parseElements(body?.richText?.elems || [])
