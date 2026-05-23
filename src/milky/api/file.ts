@@ -24,10 +24,11 @@ import { defineApi, Failed, MilkyApiHandler, Ok } from '@/milky/common/api'
 import { resolveMilkyUri } from '@/milky/common/download'
 import { transformGroupFileList } from '@/milky/transform/entity'
 import { selfInfo, TEMP_DIR } from '@/common/globalVars'
-import { writeFile } from 'node:fs/promises'
+import { unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { SendElement } from '@/ntqqapi/entities'
+import { noop } from 'cosmokit'
 
 const UploadPrivateFile = defineApi(
   'upload_private_file',
@@ -37,14 +38,25 @@ const UploadPrivateFile = defineApi(
     const data = await resolveMilkyUri(payload.file_uri)
     const tempPath = path.join(TEMP_DIR, `file-${randomUUID()}`)
     await writeFile(tempPath, data)
-    const file = await SendElement.file(ctx, tempPath, payload.file_name)
     const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
     if (!uid) {
       return Failed(-404, 'User not found')
     }
-    const peer = { chatType: 1, peerUid: uid, guildId: '' }
-    const result = await ctx.app.sendMessage(ctx, peer, [file], [tempPath])
-    return Ok({ file_id: result.elements[0].fileElement!.fileUuid })
+    const info = await ctx.ntFileApi.uploadPrivateFile(uid, tempPath, payload.file_name)
+    unlink(tempPath).catch(noop)
+    const result = await ctx.ntMsgApi.sendPrivateFileMessage({
+      toUin: payload.user_id,
+      toUid: uid,
+      fileUuid: info.fileId,
+      fileName: payload.file_name,
+      fileSize: info.fileSize,
+      file10MMd5: info.file10MMd5,
+      crcMedia: info.crcMedia,
+    })
+    if (result.resultCode !== 0) {
+      return Failed(-500, result.errMsg ?? '')
+    }
+    return Ok({ file_id: info.fileId })
   }
 )
 
@@ -56,10 +68,13 @@ const UploadGroupFile = defineApi(
     const data = await resolveMilkyUri(payload.file_uri)
     const tempPath = path.join(TEMP_DIR, `file-${randomUUID()}`)
     await writeFile(tempPath, data)
-    const file = await SendElement.file(ctx, tempPath, payload.file_name, payload.parent_folder_id)
-    const peer = { chatType: 2, peerUid: payload.group_id.toString(), guildId: '' }
-    const result = await ctx.app.sendMessage(ctx, peer, [file], [tempPath])
-    return Ok({ file_id: result.elements[0].fileElement!.fileUuid })
+    const info = await ctx.ntFileApi.uploadGroupFile(payload.group_id, tempPath, payload.file_name, payload.parent_folder_id)
+    unlink(tempPath).catch(noop)
+    const result = await ctx.ntMsgApi.sendGroupFileMessage(payload.group_id, info.fileId)
+    if (result.retCode !== 0) {
+      return Failed(-500, result.retMsg)
+    }
+    return Ok({ file_id: info.fileId })
   }
 )
 

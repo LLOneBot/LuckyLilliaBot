@@ -249,7 +249,7 @@ export namespace Oidb {
   /** OidbSvcTrpcTcp.0x6d9_4 - 群文件 feeds（上传完后发布到群聊里） */
   export const GroupFileFeedReq = ProtoMessage.of({
     feedsInfoReq: ProtoField(5, {
-      groupCode: ProtoField(1, 'uint64'),
+      groupCode: ProtoField(1, 'uint32'),
       appId: ProtoField(2, 'uint32'),
       feedsInfoList: ProtoField(3, {
         busId: ProtoField(1, 'uint32'),
@@ -262,9 +262,9 @@ export namespace Oidb {
 
   export const GroupFileFeedResp = ProtoMessage.of({
     feedsInfoRsp: ProtoField(5, {
-      retCode: ProtoField(1, 'int32', 'optional'),
-      retMsg: ProtoField(2, 'string', 'optional'),
-    }, 'optional'),
+      retCode: ProtoField(1, 'int32'),
+      retMsg: ProtoField(2, 'string'),
+    }),
   })
 
   /** OidbSvcTrpcTcp.0xe37_1700 */

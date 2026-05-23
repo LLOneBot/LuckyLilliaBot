@@ -321,10 +321,9 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       })
       const res = await this.sendPB('MessageSvc.PbSendMsg', data)
       const resp = Msg.PbSendMsgResp.decode(Buffer.from(res.pb, 'hex'))
-      if (resp.resultCode !== 0) {
-        throw new Error(`发送 C2C 文件消息失败 (code=${resp.resultCode}): ${resp.errMsg || ''}`)
-      }
       return {
+        resultCode: resp.resultCode,
+        errMsg: resp.errMsg,
         sequence: (resp.clientSequence && resp.clientSequence !== 0n) ? resp.clientSequence : resp.sequence,
         timestamp: resp.sendTime,
         random,

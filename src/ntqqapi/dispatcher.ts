@@ -1125,7 +1125,7 @@ function parseMsgInfoElement(pbElem: Buffer, bizType: number): MessageElement | 
           fileSize,
           thumbWidth: 0,
           thumbHeight: 0,
-          thumbPath: new Map(),
+          thumbPath: '',
           fileUuid,
         },
       }

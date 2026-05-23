@@ -1,8 +1,8 @@
+import { unlink } from 'node:fs/promises'
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
-import { SendElement } from '@/ntqqapi/entities'
 import { uri2local } from '@/common/utils'
-import { createPeer, CreatePeerMode } from '../../helper/createMessage'
+import { noop } from 'cosmokit'
 
 interface Payload {
   group_id: number | string
@@ -27,7 +27,7 @@ export class UploadGroupFile extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload) {
-    const { success, errMsg, path, fileName } = await uri2local(this.ctx, payload.file)
+    const { success, errMsg, path, fileName, isLocal } = await uri2local(this.ctx, payload.file)
     if (!success) {
       throw new Error(errMsg)
     }
@@ -35,11 +35,16 @@ export class UploadGroupFile extends BaseAction<Payload, Response> {
     if (name.includes('/') || name.includes('\\')) {
       throw new Error(`文件名 ${name} 不合法`)
     }
-    const file = await SendElement.file(this.ctx, path, name, payload.folder ?? payload.folder_id)
-    const peer = await createPeer(this.ctx, payload, CreatePeerMode.Group)
-    const msg = await this.ctx.app.sendMessage(this.ctx, peer, [file], [])
+    const info = await this.ctx.ntFileApi.uploadGroupFile(+payload.group_id, path, name, payload.folder ?? payload.folder_id)
+    if (!isLocal) {
+      unlink(path).catch(noop)
+    }
+    const result = await this.ctx.ntMsgApi.sendGroupFileMessage(+payload.group_id, info.fileId)
+    if (result.retCode !== 0) {
+      throw new Error(result.retMsg)
+    }
     return {
-      file_id: msg!.elements[0].fileElement!.fileUuid
+      file_id: info.fileId
     }
   }
 }

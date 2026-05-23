@@ -355,7 +355,7 @@ export class NTQQFileApi extends Service {
     }
   }
 
-  async uploadC2CVideo(peerUid: string, filePath: string, thumbPath: string, duration: number, width: number, height: number) {
+  async uploadPrivateVideo(peerUid: string, filePath: string, thumbPath: string, duration: number, width: number, height: number) {
     const result = await this.ctx.qqProtocol.getC2CVideoUploadInfo(peerUid, filePath, thumbPath, duration, width, height)
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const maxBlockSize = 1024 * 1024
@@ -397,7 +397,7 @@ export class NTQQFileApi extends Service {
     }
   }
 
-  async uploadGroupFile(groupCode: string, filePath: string, fileName: string, parentFolderId = '/') {
+  async uploadGroupFile(groupCode: number, filePath: string, fileName: string, parentFolderId = '/') {
     const result = await this.ctx.qqProtocol.getGroupFileUploadInfo(groupCode, filePath, fileName, parentFolderId)
     if (!result.fileExist) {
       const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
@@ -407,8 +407,8 @@ export class NTQQFileApi extends Service {
         entry: {
           busiBuff: {
             senderUin: +selfInfo.uin,
-            receiverUin: +groupCode,
-            groupCode: +groupCode
+            receiverUin: groupCode,
+            groupCode: groupCode
           },
           fileEntry: {
             fileSize: result.fileSize,
@@ -452,16 +452,13 @@ export class NTQQFileApi extends Service {
       }
       await new HighwayHttpSession(trans).upload()
     }
-    // 上传完成后必须 feed（0x6d9_4），否则文件只在群文件区里、群聊消息里看不到
-    const random = Math.floor(Math.random() * 0xffffffff)
-    await this.ctx.qqProtocol.feedGroupFile(+groupCode, result.fileId, random)
     return {
       fileId: result.fileId,
       fileMd5: result.md5.toString('hex')
     }
   }
 
-  async uploadC2CFile(peerUid: string, filePath: string, fileName: string) {
+  async uploadPrivateFile(peerUid: string, filePath: string, fileName: string) {
     const result = await this.ctx.qqProtocol.getC2CFileUploadInfo(peerUid, filePath, fileName)
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const ext = Media.FileUploadExt.encode({
@@ -548,7 +545,7 @@ export class NTQQFileApi extends Service {
     }
   }
 
-  async uploadC2CImage(peerUid: string, filePath: string, width: number, height: number, summary: string, bizType: number) {
+  async uploadPrivateImage(peerUid: string, filePath: string, width: number, height: number, summary: string, bizType: number) {
     const result = await this.ctx.qqProtocol.getC2CImageUploadInfo(peerUid, filePath, width, height, summary, bizType)
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const maxBlockSize = 1024 * 1024
@@ -595,7 +592,7 @@ export class NTQQFileApi extends Service {
     return { msgInfo: result.info, compat: result.compat }
   }
 
-  async uploadC2CPtt(peerUid: string, filePath: string, duration: number) {
+  async uploadPrivatePtt(peerUid: string, filePath: string, duration: number) {
     const result = await this.ctx.qqProtocol.getC2CPttUploadInfo(peerUid, filePath, duration)
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const maxBlockSize = 1024 * 1024

@@ -47,7 +47,7 @@ export class OCRImage extends BaseAction<Payload, Response> {
           throw new Error(errMsg)
         }
         const size = await getImageSize(path)
-        const result = await this.ctx.ntFileApi.uploadC2CImage(selfInfo.uid, path, size.width, size.height, '', 0)
+        const result = await this.ctx.ntFileApi.uploadPrivateImage(selfInfo.uid, path, size.width, size.height, '', 0)
         if (!isLocal) {
           unlink(path).catch(noop)
         }

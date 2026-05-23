@@ -182,7 +182,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
             pbReserve: Buffer.from([0x80, 0x01, 0x00])
           }
         },
-        [[100, { type: 'image', filePath: thumbFilePath }]]
+        [[100, { type: 'image', filePath: thumbFilePath, width, height }]]
       )
       const data = Oidb.Base.encode({ command: 0x11ea, subCommand: 100, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x11ea_100', data)
@@ -210,7 +210,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
             pbReserve: Buffer.from([0x80, 0x01, 0x00])
           }
         },
-        [[100, { type: 'image', filePath: thumbFilePath }]]
+        [[100, { type: 'image', filePath: thumbFilePath, width, height }]]
       )
       const data = Oidb.Base.encode({ command: 0x11e9, subCommand: 100, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x11e9_100', data)
@@ -224,12 +224,12 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
     }
 
-    async getGroupFileUploadInfo(groupCode: string, filePath: string, fileName: string, parentFolderId: string) {
+    async getGroupFileUploadInfo(groupCode: number, filePath: string, fileName: string, parentFolderId: string) {
       const fileSize = (await stat(filePath)).size
       const md5 = await getMd5BufferFromFile(filePath)
       const body = Oidb.GroupFileReq.encode({
         uploadFileReq: {
-          groupCode: +groupCode,
+          groupCode,
           appId: 7,
           busId: 102,
           entrance: 6,

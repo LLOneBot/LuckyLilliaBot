@@ -3,6 +3,8 @@ import { ActionName } from '../types'
 import { SendElement } from '@/ntqqapi/entities'
 import { uri2local } from '@/common/utils'
 import { createPeer, CreatePeerMode } from '../../helper/createMessage'
+import { unlink } from 'node:fs/promises'
+import { noop } from 'cosmokit'
 
 interface Payload {
   user_id: number | string
@@ -23,7 +25,7 @@ export class UploadPrivateFile extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload) {
-    const { success, errMsg, path, fileName } = await uri2local(this.ctx, payload.file)
+    const { success, errMsg, path, fileName, isLocal } = await uri2local(this.ctx, payload.file)
     if (!success) {
       throw new Error(errMsg)
     }
@@ -31,11 +33,28 @@ export class UploadPrivateFile extends BaseAction<Payload, Response> {
     if (name.includes('/') || name.includes('\\')) {
       throw new Error(`文件名 ${name} 不合法`)
     }
-    const sendFileEle = await SendElement.file(this.ctx, path, name)
-    const peer = await createPeer(this.ctx, payload, CreatePeerMode.Private)
-    const msg = await this.ctx.app.sendMessage(this.ctx, peer, [sendFileEle], [])
+    const uid = await this.ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    if (!uid) {
+      throw new Error('无法获取用户信息')
+    }
+    const info = await this.ctx.ntFileApi.uploadPrivateFile(uid, path, name)
+    if (!isLocal) {
+      unlink(path).catch(noop)
+    }
+    const result = await this.ctx.ntMsgApi.sendPrivateFileMessage({
+      toUin: +payload.user_id,
+      toUid: uid,
+      fileUuid: info.fileId,
+      fileName: name,
+      fileSize: info.fileSize,
+      file10MMd5: info.file10MMd5,
+      crcMedia: info.crcMedia,
+    })
+    if (result.resultCode !== 0) {
+      throw new Error(result.errMsg ?? '')
+    }
     return {
-      file_id: msg.elements[0].fileElement!.fileUuid
+      file_id: info.fileId
     }
   }
 }

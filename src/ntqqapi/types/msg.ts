@@ -80,7 +80,6 @@ export type SendMessageElement =
   | SendReplyElement
   | SendFaceElement
   | SendMarketFaceElement
-  | SendFileElement
   | SendVideoElement
   | SendArkElement
 
@@ -337,7 +336,7 @@ export interface VideoElement {
   fileSize: number
   thumbWidth: number
   thumbHeight: number
-  thumbPath: Map<number, string>
+  thumbPath: string
   fileUuid: string
 }
 

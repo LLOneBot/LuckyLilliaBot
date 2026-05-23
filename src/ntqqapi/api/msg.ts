@@ -9,6 +9,7 @@ import { createReadStream, promises as fsp } from 'node:fs'
 import { getMd5BufferFromFile } from '@/common/utils/file'
 import { uint32ToIPV4Addr } from '@/common/utils'
 import { HighwayHttpSession } from '../helper/highway'
+import { MessageBuilding } from '../helper/messageBuilding'
 
 declare module 'cordis' {
   interface Context {
@@ -179,194 +180,8 @@ export class NTQQMsgApi extends Service {
     return { result: lastErr ? -1 : 0, errMsg: lastErr }
   }
 
-  async sendMsg(peer: Peer, msgElements: SendMessageElement[]) {
-    return await this.sendMsgViaPbSendMsg(peer, msgElements)
-  }
-
-  /**
-   * 直连模式发消息：构造 Msg.Elem[]，对图片等媒体先走 highway 上传
-   */
-  private async sendMsgViaPbSendMsg(peer: Peer, msgElements: SendMessageElement[]): Promise<RawMessage> {
-    const elems: any[] = []
-
-    for (const elem of msgElements) {
-      if (elem.elementType === ElementType.Text) {
-        const t = elem.textElement
-        if (t.atType === 1 /* AtType.All */) {
-          const attr6 = Buffer.from([0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00])
-          elems.push({ text: { str: t.content || '@全体成员', attr6Buf: attr6 } })
-        } else if (t.atType === 2 /* AtType.One */) {
-          const attr6 = Buffer.alloc(20)
-          attr6.writeUInt16BE(0x0001, 0)
-          attr6.writeUInt16BE(0x0000, 2)
-          attr6.writeUInt16BE((t.content || '').length, 4)
-          attr6.writeUInt8(0x00, 6)
-          attr6.writeUInt32BE(t.atUin, 7)
-          attr6.writeUInt16BE(0x0000, 11)
-          elems.push({ text: { str: t.content || '', attr6Buf: attr6 } })
-        } else {
-          elems.push({ text: { str: t.content || '' } })
-        }
-      } else if (elem.elementType === ElementType.Face) {
-        elems.push({ face: { index: elem.faceElement.faceIndex } })
-      } else if (elem.elementType === ElementType.MarketFace) {
-        const m = elem.marketFaceElement
-        elems.push({
-          marketFace: {
-            summary: m.faceName,
-            itemType: 6,
-            info: 1,
-            faceId: Buffer.from(m.emojiId, 'hex'),
-            tabId: m.emojiPackageId,
-            subType: 3,
-            key: m.key,
-            width: m.imageWidth ?? 200,
-            height: m.imageHeight ?? 200,
-          }
-        })
-      } else if (elem.elementType === ElementType.Reply) {
-        const r = elem.replyElement
-        // srcMsg.elems 是 bytes[] (repeated)，每项是序列化的原 Msg.Elem。
-        // 为空时接收端的引用预览只显示空白。从 cache 取原消息，把它的 elements 重新序列化成 Elem bytes
-        /*const srcElems: Buffer[] = []
-        try {
-          const store = this.ctx.get('store') as any
-          const original = r.replayMsgId ? store?.getMsgCache?.(r.replayMsgId) as RawMessage | undefined : undefined
-          if (original?.elements?.length) {
-            for (const oe of original.elements) {
-              if (oe.elementType === ElementType.Text && oe.textElement?.content) {
-                srcElems.push(Buffer.from(Msg.Elem.encode({ text: { str: oe.textElement.content } } as any)))
-              } else if (oe.elementType === ElementType.Pic) {
-                srcElems.push(Buffer.from(Msg.Elem.encode({ text: { str: '[图片]' } } as any)))
-              } else if (oe.elementType === ElementType.Face) {
-                srcElems.push(Buffer.from(Msg.Elem.encode({ face: { index: oe.faceElement?.faceIndex || 0 } } as any)))
-              } else if (oe.elementType === ElementType.Video) {
-                srcElems.push(Buffer.from(Msg.Elem.encode({ text: { str: '[视频]' } } as any)))
-              } else if (oe.elementType === ElementType.Ptt) {
-                srcElems.push(Buffer.from(Msg.Elem.encode({ text: { str: '[语音]' } } as any)))
-              } else if (oe.elementType === ElementType.File) {
-                srcElems.push(Buffer.from(Msg.Elem.encode({ text: { str: '[文件]' } } as any)))
-              }
-            }
-          }
-        } catch (e) {
-          this.ctx.logger.warn('build reply srcMsg.elems failed:', (e as Error).message)
-        }*/
-        elems.push({
-          srcMsg: {
-            origSeqs: [+r.replyMsgSeq],
-            senderUin: r.senderUin,
-            time: r.replyMsgTime,
-            //elems: srcElems,
-          }
-        })
-      } else if (elem.elementType === ElementType.Pic) {
-        const p = elem.picElement
-        const isGroup = peer.chatType === ChatType.Group
-        const result = isGroup
-          ? await this.ctx.ntFileApi.uploadGroupImage(peer.peerUid, p.sourcePath!, p.picWidth!, p.picHeight!, p.summary!, p.picSubType!)
-          : await this.ctx.ntFileApi.uploadC2CImage(peer.peerUid, p.sourcePath!, p.picWidth!, p.picHeight!, p.summary!, p.picSubType!)
-        const msgInfoBytes = Buffer.from(result.msgInfo)
-        elems.push({
-          commonElem: {
-            serviceType: 48,
-            pbElem: Buffer.from(msgInfoBytes),
-            businessType: isGroup ? 20 : 10,
-          }
-        })
-      } else if (elem.elementType === ElementType.Video) {
-        const v = elem.videoElement
-        const sourcePath = v.filePath
-        const thumbPath = v.thumbPath instanceof Map ? [...v.thumbPath.values()][0] : ''
-        if (!sourcePath || !thumbPath) continue
-        const isGroup = peer.chatType === ChatType.Group
-        const result = isGroup
-          ? await this.ctx.ntFileApi.uploadGroupVideo(peer.peerUid, sourcePath, thumbPath, v.fileTime ?? 0, v.thumbWidth ?? 0, v.thumbHeight ?? 0)
-          : await this.ctx.ntFileApi.uploadC2CVideo(peer.peerUid, sourcePath, thumbPath, v.fileTime ?? 0, v.thumbWidth ?? 0, v.thumbHeight ?? 0)
-        const msgInfoBytes = Buffer.from(result.msgInfo)
-        if (process.env.DEBUG_VIDEO) {
-          console.log('[video] sourceMsgInfo from server:', JSON.stringify(result.msgInfo, (_k, v) =>
-            Buffer.isBuffer(v) || v?.type === 'Buffer' ? `<Buffer ${v.length || v.data?.length}>` : v).slice(0, 1500))
-          console.log('[video] re-encoded MsgInfo bytes hex (first 200B):', Buffer.from(msgInfoBytes).slice(0, 200).toString('hex'))
-          console.log('[video] re-encoded length:', msgInfoBytes.length)
-        }
-        // 注意：视频消息发送后服务端不返回 sequence（field 11 缺失），是已知行为。
-        // 真正的 seq 通过 OlPush 推送（server 转码完成后）异步到达。
-        elems.push({
-          commonElem: {
-            serviceType: 48,
-            pbElem: Buffer.from(msgInfoBytes),
-            businessType: isGroup ? 21 : 11,
-          }
-        })
-        // 老格式 VideoFile elem（field 19）— 手机 QQ 用这个显示封面+播放，
-        // 新版 commonElem 它认不全。compat bytes 是 server 给的 VideoFile 序列化结果，原样透传
-        if (result.compat && result.compat.length > 0) {
-          elems.push({
-            videoFile: Buffer.from(result.compat),
-          })
-        }
-      } else if (elem.elementType === ElementType.Ptt) {
-        const p = elem.pttElement
-        const sourcePath = p.filePath
-        if (!sourcePath) continue
-        const isGroup = peer.chatType === ChatType.Group
-        const result = isGroup
-          ? await this.ctx.ntFileApi.uploadGroupPtt(peer.peerUid, sourcePath, p.duration ?? 1)
-          : await this.ctx.ntFileApi.uploadC2CPtt(peer.peerUid, sourcePath, p.duration ?? 1)
-        const msgInfoBytes = Buffer.from(result.msgInfo)
-        elems.push({
-          commonElem: {
-            serviceType: 48,
-            pbElem: Buffer.from(msgInfoBytes),
-            businessType: isGroup ? 22 : 12,
-          }
-        })
-      } else if (elem.elementType === ElementType.File) {
-        const f = elem.fileElement
-        const sourcePath = f.filePath
-        if (!sourcePath || !f.fileName) continue
-        const isGroup = peer.chatType === ChatType.Group
-        if (isGroup) {
-          // 群文件 server 端 parentFolderId 不接受 createGroupFolder 返回时带的前导 "/"，
-          // 否则它会无视这个值把文件丢到根目录。统一去掉。
-          const folderId = (f.folderId ?? '/').replace(/^\/+/, '') || '/'
-          const result = await this.ctx.ntFileApi.uploadGroupFile(
-            peer.peerUid,
-            sourcePath,
-            f.fileName,
-            folderId,
-          )
-          // 把 server 返回的 fileId / md5 写回 element，供上层（upload_group_file action）读 fileUuid 返回给客户端
-          f.fileUuid = result.fileId
-          f.fileMd5 = result.fileMd5
-          // 注意：群文件的"发到群聊"是 uploadGroupFile 内部调 0x6d9_4 feed 完成的，
-          // 不能再走 PbSendMsg 带 groupFile elem，否则会双发或服务端拒收。这里直接 continue 跳过 elems push。
-          continue
-        }
-        // C2C 文件：upload via 0xe37_1700 + highway，再用 PbSendMsg / trans 0x211 发离线文件消息
-        const peerUin = +(await this.ctx.ntUserApi.getUinByUid(peer.peerUid))
-        const upRes = await this.ctx.ntFileApi.uploadC2CFile(peer.peerUid, sourcePath, f.fileName)
-        f.fileUuid = upRes.fileId
-        await this.ctx.qqProtocol.sendC2CFileMessage({
-          toUin: peerUin,
-          toUid: peer.peerUid,
-          fileUuid: upRes.fileId,
-          fileName: f.fileName,
-          fileSize: upRes.fileSize,
-          file10MMd5: upRes.file10MMd5,
-          crcMedia: upRes.crcMedia,
-        })
-        continue
-      } else if (elem.elementType === ElementType.Ark) {
-        const ark = elem.arkElement
-        const json = ark?.bytesData
-        if (!json) continue
-        // lightApp.data = [0x01] + deflate(jsonBytes)
-        const data = Buffer.concat([Buffer.from([0x01]), deflateSync(Buffer.from(json, 'utf-8'))])
-        elems.push({ lightApp: { data } })
-      }
-    }
+  async sendMsg(peer: Peer, msgElements: SendMessageElement[]): Promise<RawMessage> {
+    const elems = await new MessageBuilding(this.ctx, msgElements, peer.chatType, peer.peerUid).build()
 
     const isGroup = peer.chatType === ChatType.Group
     // 群文件单独走 0x6d9_4 feed，不会进 elems。如果整条消息只有 File 元素，elems 为空，
@@ -797,5 +612,23 @@ export class NTQQMsgApi extends Service {
 
   async getPins() {
     return await this.ctx.qqProtocol.fetchPins()
+  }
+
+  async sendPrivateFileMessage(opts: {
+    toUin: number
+    toUid: string
+    fileUuid: string
+    fileName: string
+    fileSize: number
+    file10MMd5: Buffer
+    crcMedia: string
+  }) {
+    return await this.ctx.qqProtocol.sendC2CFileMessage(opts)
+  }
+
+  async sendGroupFileMessage(groupCode: number, fileId: string) {
+    const random = Math.floor(Math.random() * 0xffffffff)
+    const res = await this.ctx.qqProtocol.feedGroupFile(groupCode, fileId, random)
+    return res.feedsInfoRsp
   }
 }

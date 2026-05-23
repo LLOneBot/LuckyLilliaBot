@@ -6,7 +6,6 @@ import {
   FaceIndex,
   SendArkElement,
   SendFaceElement,
-  SendFileElement,
   SendMarketFaceElement,
   SendPicElement,
   SendPttElement,
@@ -74,23 +73,6 @@ export namespace SendElement {
     }
   }
 
-  export async function file(ctx: Context, filePath: string, fileName: string, folderId?: string): Promise<SendFileElement> {
-    const fileSize = (await stat(filePath)).size
-    if (fileSize === 0) {
-      ctx.logger.warn(`文件${fileName}异常，大小为 0`)
-      throw new Error('文件异常，大小为 0')
-    }
-    const element: SendFileElement = {
-      elementType: ElementType.File,
-      fileElement: {
-        fileName,
-        folderId,
-        filePath,
-      },
-    }
-    return element
-  }
-
   export async function video(ctx: Context, filePath: string, diyThumbPath?: string): Promise<SendVideoElement> {
     const fileSize = (await stat(filePath)).size
     if (fileSize === 0) {
@@ -125,14 +107,12 @@ export namespace SendElement {
       await copyFile(path, thumbFilePath)
       unlink(path).catch(noop)
     }
-    const thumbPath = new Map()
-    thumbPath.set(0, thumbFilePath)
     const element: SendVideoElement = {
       elementType: ElementType.Video,
       videoElement: {
         filePath,
         fileTime: Math.trunc(videoInfo.time),
-        thumbPath: thumbPath,
+        thumbPath: thumbFilePath,
         thumbWidth: videoInfo.width,
         thumbHeight: videoInfo.height,
       },
