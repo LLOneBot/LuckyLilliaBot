@@ -6,7 +6,8 @@ import {
   OB11GroupRequestInviteBotEvent,
 } from '../event/request/OB11GroupRequest'
 import { GroupRequestOperateTypes } from '@/ntqqapi/types'
-import { message2List, createSendElements, createPeer, CreatePeerMode } from '../helper/createMessage'
+import { transformOutgoingSegments } from '../transform/message/outgoing'
+import { message2List, createPeer, CreatePeerMode } from '../utils'
 import { isNullable } from 'cosmokit'
 import { Context } from 'cordis'
 
@@ -86,7 +87,7 @@ async function handleMsg(ctx: Context, msg: OB11Message, quickAction: QuickOpera
       }
     }
     replyMessage = replyMessage.concat(message2List(reply, quickAction.auto_escape))
-    const { sendElements, deleteAfterSentFiles } = await createSendElements(ctx, replyMessage, peer)
+    const { sendElements, deleteAfterSentFiles } = await transformOutgoingSegments(ctx, replyMessage, peer)
     ctx.app.sendMessage(ctx, peer, sendElements, deleteAfterSentFiles).catch(e => ctx.logger.error(e))
   }
   if (msg.message_type === 'group') {

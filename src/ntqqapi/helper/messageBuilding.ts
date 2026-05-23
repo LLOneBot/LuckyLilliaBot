@@ -1,5 +1,5 @@
 import { InferProtoModelInput } from '@saltify/typeproto'
-import { ChatType, ElementType, SendArkElement, SendFaceElement, SendMarketFaceElement, SendMessageElement, SendPicElement, SendPttElement, SendReplyElement, SendTextElement, SendVideoElement } from '../types'
+import { ChatType, ElementType, SendArkElement, SendFaceElement, SendMarketFaceElement, SendMessageElement, SendMultiForwardMsgElement, SendPicElement, SendPttElement, SendReplyElement, SendTextElement, SendVideoElement } from '../types'
 import { Msg } from '../proto'
 import { Context } from 'cordis'
 import { deflateSync } from 'node:zlib'
@@ -10,13 +10,21 @@ export class MessageBuilding {
   private outputElems: InferProtoModelInput<typeof Msg.Elem>[]
   private chatType: ChatType
   private peerUid: string
+  private nestedForwardTrace: Map<string, InferProtoModelInput<typeof Msg.Message>[]>
 
-  constructor(ctx: Context, elements: SendMessageElement[], chatType: ChatType, peerUid: string) {
+  constructor(
+    ctx: Context,
+    elements: SendMessageElement[],
+    chatType: ChatType,
+    peerUid: string,
+    nestedForwardTrace = new Map()
+  ) {
     this.ctx = ctx
     this.inputElems = elements
     this.outputElems = []
     this.chatType = chatType
     this.peerUid = peerUid
+    this.nestedForwardTrace = nestedForwardTrace
   }
 
   private async [ElementType.Text](data: SendTextElement) {
@@ -123,6 +131,127 @@ export class MessageBuilding {
     this.outputElems.push({
       lightApp: {
         data: Buffer.concat([Buffer.from([0x01]), deflateSync(Buffer.from(arkElement.bytesData!, 'utf-8'))])
+      }
+    })
+  }
+
+  private async [ElementType.MultiForward](data: SendMultiForwardMsgElement) {
+    const { multiForwardMsgElement } = data
+    const messages: InferProtoModelInput<typeof Msg.Message>[] = []
+    let seq = Math.trunc(Math.random() * 65430)
+    const preview = multiForwardMsgElement.preview ?? []
+    const needGeneratePreview = preview.length === 0
+    const isGroup = this.chatType === ChatType.Group
+    for (const node of multiForwardMsgElement.nodes!) {
+      if (needGeneratePreview && preview.length < 4) {
+        const content = node.elements.reduce((acc, curr) => {
+          let preview
+          if (curr.elementType === ElementType.Text) {
+            preview = curr.textElement.content.slice(0, 70)
+          } else if (curr.elementType === ElementType.Face) {
+            preview = curr.faceElement.faceText
+          } else if (curr.elementType === ElementType.MarketFace) {
+            preview = curr.marketFaceElement.faceName
+          } else if (curr.elementType === ElementType.Pic) {
+            preview = curr.picElement.summary || '[图片]'
+          } else if (curr.elementType === ElementType.Video) {
+            preview = '[视频]'
+          } else if (curr.elementType === ElementType.Ptt) {
+            preview = '[语音]'
+          } else if (curr.elementType === ElementType.Ark) {
+            const match = curr.arkElement.bytesData!.match(/"prompt"\s*:\s*"([^"]*)"/)
+            preview = match?.[1] ?? ''
+          } else if (curr.elementType === ElementType.MultiForward) {
+            preview = '[合并转发]'
+          }
+          return acc + preview
+        }, '')
+        preview.push(`${node.senderName}: ${content}`)
+      }
+      const elems = await new MessageBuilding(this.ctx, node.elements, this.chatType, this.peerUid, this.nestedForwardTrace).build()
+      messages.push({
+        routingHead: {
+          fromUin: node.senderUin,
+          c2c: isGroup ? undefined : {
+            friendName: node.senderName
+          },
+          group: isGroup ? {
+            groupCode: 284840486,
+            groupCard: node.senderName
+          } : undefined
+        },
+        contentHead: {
+          msgType: isGroup ? 82 : 9,
+          random: Math.floor(Math.random() * 4294967290),
+          msgSeq: seq,
+          msgTime: Math.trunc(Date.now() / 1000),
+          pkgNum: 1,
+          pkgIndex: 0,
+          divSeq: 0,
+          forward: {
+            field1: 0,
+            field2: 0,
+            field3: 0,
+            field4: '',
+            avatar: ''
+          }
+        },
+        body: {
+          richText: {
+            elems
+          }
+        }
+      })
+      seq++
+    }
+    const items = [{
+      fileName: 'MultiMsg',
+      buffer: {
+        msg: messages
+      }
+    }]
+    for (const [key, value] of this.nestedForwardTrace) {
+      items.push({
+        fileName: key,
+        buffer: {
+          msg: value
+        }
+      })
+    }
+    const resid = await this.ctx.qqProtocol.uploadForward(this.peerUid, isGroup, items)
+    const id = crypto.randomUUID()
+    this.nestedForwardTrace.set(id, messages)
+    const prompt = multiForwardMsgElement.prompt ?? '[聊天记录]'
+    const content = JSON.stringify({
+      app: 'com.tencent.multimsg',
+      config: {
+        autosize: 1,
+        forward: 1,
+        round: 1,
+        type: 'normal',
+        width: 300
+      },
+      desc: prompt,
+      extra: JSON.stringify({
+        filename: id,
+        tsum: 0,
+      }),
+      meta: {
+        detail: {
+          news: preview.map(e => ({ text: e })),
+          resid,
+          source: multiForwardMsgElement.title ?? isGroup ? '群聊的聊天记录' : '聊天记录',
+          summary: multiForwardMsgElement.summary ?? `查看${multiForwardMsgElement.nodes!.length}条转发消息`,
+          uniseq: id,
+        }
+      },
+      prompt,
+      ver: '0.0.0.5',
+      view: 'contact'
+    })
+    this.outputElems.push({
+      lightApp: {
+        data: Buffer.concat([Buffer.from([1]), deflateSync(Buffer.from(content, 'utf-8'))])
       }
     })
   }

@@ -1,7 +1,7 @@
 import { RawMessage } from '@/ntqqapi/types'
 import { BaseAction, Schema } from '../../BaseAction'
 import { ActionName } from '../../types'
-import { createPeer } from '@/onebot11/helper/createMessage'
+import { createPeer } from '@/onebot11/utils'
 
 interface Payload {
   message_id: number | string

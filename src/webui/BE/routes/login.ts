@@ -37,16 +37,7 @@ export function createLoginRoutes(ctx: Context): Hono {
     if (!uin) {
       return c.json({ success: false, message: '没有选择QQ号' }, 400)
     }
-    try {
-      const data = await ctx.ntLoginApi.quickLoginWithUin(uin)
-      return c.json({
-        success: true,
-        data,
-        message: data.loginErrorInfo.errMsg,
-      })
-    } catch (e) {
-      return c.json({ success: false, message: '快速登录失败', error: e }, 500)
-    }
+    return c.json({ success: false, message: '快速登录失败，直连模式自动恢复 session', error: {} }, 500)
   })
 
   // 获取账号信息

@@ -8,18 +8,17 @@ import {
   OB11MessageData,
   OB11MessageDataType,
   OB11MessageFileBase,
-  OB11MessageMixType
-} from '../types'
-import { decodeCQCode } from '../cqcode'
+} from '../../types'
 import { Peer } from '@/ntqqapi/types/msg'
 import { SendElement } from '@/ntqqapi/entities'
 import { selfInfo } from '@/common/globalVars'
 import { uri2local, isNumeric } from '@/common/utils'
-import { Context, Service } from 'cordis'
+import { Context } from 'cordis'
 import { MusicSign } from '@/common/utils/sign'
 import { randomUUID } from 'node:crypto'
+import { message2List } from '@/onebot11/utils'
 
-export async function createSendElements(
+export async function transformOutgoingSegments(
   ctx: Context,
   messageData: OB11MessageData[],
   peer: Peer,
@@ -27,6 +26,12 @@ export async function createSendElements(
 ) {
   const sendElements: SendMessageElement[] = []
   const deleteAfterSentFiles: string[] = []
+  const nodes: {
+    senderUin: number
+    senderName: string
+    elements: SendMessageElement[]
+  }[] = []
+
   for (const segment of messageData) {
     if (ignoreTypes.includes(segment.type)) {
       continue
@@ -117,11 +122,6 @@ export async function createSendElements(
           Number(segment.data.subType) || 0
         )
         sendElements.push(res)
-      }
-        break
-      case OB11MessageDataType.File: {
-        const { path, fileName } = await handleOb11RichMedia(ctx, segment, deleteAfterSentFiles)
-        sendElements.push(await SendElement.file(ctx, path, fileName))
       }
         break
       case OB11MessageDataType.Video: {
@@ -257,7 +257,21 @@ export async function createSendElements(
         sendElements.push(SendElement.ark(content))
       }
         break
+      case OB11MessageDataType.Node: {
+        const content = segment.data.content ? message2List(segment.data.content) : []
+        const inner = await transformOutgoingSegments(ctx, content, peer)
+        deleteAfterSentFiles.push(...inner.deleteAfterSentFiles)
+        nodes.push({
+          senderUin: Number(segment.data.uin ?? segment.data.user_id ?? selfInfo.uin),
+          senderName: segment.data.name ?? segment.data.nickname ?? selfInfo.nick,
+          elements: inner.sendElements
+        })
+      }
     }
+  }
+
+  if (nodes.length > 0) {
+    sendElements.push(SendElement.forward(nodes))
   }
 
   return {
@@ -266,69 +280,7 @@ export async function createSendElements(
   }
 }
 
-export function message2List(message: OB11MessageMixType, autoEscape = false) {
-  if (typeof message === 'string') {
-    if (autoEscape === true) {
-      return [
-        {
-          type: OB11MessageDataType.Text,
-          data: {
-            text: message,
-          },
-        },
-      ] as OB11MessageData[]
-    } else {
-      return decodeCQCode(message)
-    }
-  } else if (!Array.isArray(message)) {
-    return [message]
-  }
-  return message
-}
-
-export interface CreatePeerPayload {
-  group_id?: string | number
-  user_id?: string | number
-}
-
-export enum CreatePeerMode {
-  Normal = 0,
-  Private = 1,
-  Group = 2
-}
-
-export async function createPeer(ctx: Context, payload: CreatePeerPayload, mode = CreatePeerMode.Normal): Promise<Peer> {
-  if ((mode === CreatePeerMode.Group || mode === CreatePeerMode.Normal) && payload.group_id) {
-    return {
-      chatType: ChatType.Group,
-      peerUid: payload.group_id.toString(),
-      guildId: ''
-    }
-  }
-  if ((mode === CreatePeerMode.Private || mode === CreatePeerMode.Normal) && payload.user_id) {
-    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), payload.group_id?.toString())
-    if (!uid) throw new Error('无法获取用户信息')
-    const isBuddy = await ctx.ntFriendApi.isFriend(uid)
-    if (!isBuddy) {
-      const res = await ctx.ntMsgApi.getTempChatInfo(ChatType.TempC2CFromGroup, uid)
-      if (res.tmpChatInfo.groupCode) {
-        return {
-          chatType: ChatType.TempC2CFromGroup,
-          peerUid: uid,
-          guildId: ''
-        }
-      }
-    }
-    return {
-      chatType: ChatType.C2C,
-      peerUid: uid,
-      guildId: ''
-    }
-  }
-  throw new Error('请指定 group_id 或 user_id')
-}
-
-export async function handleOb11RichMedia(ctx: Context, segment: OB11MessageFileBase, deleteAfterSentFiles: string[]) {
+async function handleOb11RichMedia(ctx: Context, segment: OB11MessageFileBase, deleteAfterSentFiles: string[]) {
   const res = await uri2local(ctx, segment.data.url || segment.data.file)
 
   if (!res.success) {

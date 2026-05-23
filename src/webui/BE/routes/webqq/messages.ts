@@ -145,8 +145,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
           elements.push(SendElement.face(item.faceId))
         } else if (item.type === 'file' && item.filePath && item.fileName) {
           uploadedFiles.push(item.filePath)
-          const fileElement = await SendElement.file(ctx, item.filePath, item.fileName)
-          elements.push(fileElement)
+          // TODO: 走独立的文件上传接口，如 ntFileApi.uploadGroupFile + ntMsgApi.sendGroupFileMessage
         }
       }
 

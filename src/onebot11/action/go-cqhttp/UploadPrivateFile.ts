@@ -1,8 +1,6 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
-import { SendElement } from '@/ntqqapi/entities'
 import { uri2local } from '@/common/utils'
-import { createPeer, CreatePeerMode } from '../../helper/createMessage'
 import { unlink } from 'node:fs/promises'
 import { noop } from 'cosmokit'
 

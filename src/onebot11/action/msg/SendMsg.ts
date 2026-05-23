@@ -4,8 +4,9 @@ import {
 } from '../../types'
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
-import { message2List, createSendElements, createPeer, CreatePeerMode } from '../../helper/createMessage'
+import { transformOutgoingSegments } from '../../transform/message/outgoing'
 import { parseBool } from '@/common/utils/misc'
+import { createPeer, CreatePeerMode, message2List } from '@/onebot11/utils'
 
 interface ReturnData {
   message_id: number
@@ -33,16 +34,8 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
     if (messages.some(e => e.type === OB11MessageDataType.Node)) {
       throw new Error('请使用 /send_group_forward_msg 或 /send_private_forward_msg 进行合并转发')
     }
-    const { sendElements, deleteAfterSentFiles } = await createSendElements(this.ctx, messages, peer)
-    if (sendElements.length === 1) {
-      if (sendElements[0] === null) {
-        return { message_id: 0 }
-      }
-    }
+    const { sendElements, deleteAfterSentFiles } = await transformOutgoingSegments(this.ctx, messages, peer)
     const returnMsg = await this.ctx.app.sendMessage(this.ctx, peer, sendElements, deleteAfterSentFiles)
-    if (!returnMsg) {
-      throw new Error('消息发送失败')
-    }
     const msgShortId = this.ctx.store.createMsgShortId(returnMsg)
     // 把自己刚发出的消息放进 cache，使后续 reply 查询（getMsgsByMsgId）能命中。
     // 收到服务器回推时 dispatcher 会用 msgUid 作为 msgId 重新缓存一份；shortId 由 uniqueMsgId 决定故仍稳定。

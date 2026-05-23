@@ -7,6 +7,8 @@ import {
   SendArkElement,
   SendFaceElement,
   SendMarketFaceElement,
+  SendMessageElement,
+  SendMultiForwardMsgElement,
   SendPicElement,
   SendPttElement,
   SendReplyElement,
@@ -234,6 +236,29 @@ export namespace SendElement {
         faceText: '',
         pokeType: 1,
       },
+    }
+  }
+
+  export function forward(
+    nodes: {
+      senderUin: number
+      senderName: string
+      elements: SendMessageElement[]
+    }[],
+    title?: string | null,
+    preview?: string[] | null,
+    summary?: string | null,
+    prompt?: string | null
+  ): SendMultiForwardMsgElement {
+    return {
+      elementType: ElementType.MultiForward,
+      multiForwardMsgElement: {
+        nodes,
+        title,
+        preview,
+        summary,
+        prompt
+      }
     }
   }
 }

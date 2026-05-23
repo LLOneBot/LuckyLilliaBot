@@ -10,6 +10,8 @@ import { getMd5BufferFromFile } from '@/common/utils/file'
 import { uint32ToIPV4Addr } from '@/common/utils'
 import { HighwayHttpSession } from '../helper/highway'
 import { MessageBuilding } from '../helper/messageBuilding'
+import { parseElements } from '../helper/messageParsing'
+import { InferProtoModel } from '@saltify/typeproto'
 
 declare module 'cordis' {
   interface Context {
@@ -184,37 +186,6 @@ export class NTQQMsgApi extends Service {
     const elems = await new MessageBuilding(this.ctx, msgElements, peer.chatType, peer.peerUid).build()
 
     const isGroup = peer.chatType === ChatType.Group
-    // 群文件单独走 0x6d9_4 feed，不会进 elems。如果整条消息只有 File 元素，elems 为空，
-    // 这时候不能调 PbSendMsg（server 会拒收空消息）。直接构造 returnMsg 返回。
-    if (elems.length === 0) {
-      const now = Math.floor(Date.now() / 1000)
-      const fakeRandom = Math.floor(Math.random() * 0xffffffff)
-      return {
-        msgId: String(fakeRandom),
-        msgType: 2,
-        subMsgType: 0,
-        msgTime: String(now),
-        msgSeq: '0',
-        msgRandom: String(fakeRandom),
-        senderUid: selfInfo.uid,
-        senderUin: selfInfo.uin,
-        peerUid: peer.peerUid,
-        peerUin: peer.peerUid,
-        guildId: '',
-        sendNickName: '',
-        sendMemberName: '',
-        sendRemarkName: '',
-        chatType: peer.chatType,
-        sendStatus: 2,
-        recallTime: '0',
-        records: [],
-        elements: msgElements as unknown as MessageElement[],
-        peerName: '',
-        emojiLikesList: [],
-        msgAttrs: new Map(),
-        isOnlineMsg: true,
-      } as RawMessage
-    }
     const ret = await this.ctx.qqProtocol.sendMessage({
       isGroup,
       groupCode: isGroup ? +peer.peerUid : undefined,
@@ -241,7 +212,7 @@ export class NTQQMsgApi extends Service {
       sendStatus: 2,
       recallTime: '0',
       records: [],
-      elements: msgElements as unknown as MessageElement[],
+      elements: parseElements(elems as InferProtoModel<typeof Msg.Elem>[]),
       peerName: '',
       emojiLikesList: [],
       msgAttrs: new Map(),

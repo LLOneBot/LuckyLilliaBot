@@ -58,11 +58,6 @@ export interface SendMarketFaceElement {
   marketFaceElement: MarketFaceElement
 }
 
-export interface SendFileElement {
-  elementType: ElementType.File
-  fileElement: Partial<FileElement>
-}
-
 export interface SendVideoElement {
   elementType: ElementType.Video
   videoElement: Partial<VideoElement>
@@ -71,6 +66,11 @@ export interface SendVideoElement {
 export interface SendArkElement {
   elementType: ElementType.Ark
   arkElement: Partial<ArkElement>
+}
+
+export interface SendMultiForwardMsgElement {
+  elementType: ElementType.MultiForward
+  multiForwardMsgElement: Partial<MultiForwardMsgElement>
 }
 
 export type SendMessageElement =
@@ -82,6 +82,7 @@ export type SendMessageElement =
   | SendMarketFaceElement
   | SendVideoElement
   | SendArkElement
+  | SendMultiForwardMsgElement
 
 export enum AtType {
   Unknown,
@@ -315,6 +316,7 @@ export interface FaceElement {
   packId?: string
   stickerId?: string
   stickerType?: number
+  resultId?: string
   pokeType?: number
 }
 
@@ -381,6 +383,15 @@ export interface MultiForwardMsgElement {
   xmlContent: string // xml格式的消息内容
   resId: string
   fileName: string
+  nodes: {
+    senderUin: number
+    senderName: string
+    elements: SendMessageElement[]
+  }[]
+  title: string | null
+  preview: string[] | null
+  summary: string | null
+  prompt: string | null
 }
 
 export enum ChatType {

@@ -3,7 +3,7 @@ import { OB11ForwardMessage, OB11MessageDataType } from '../../types'
 import { OB11Entities } from '../../entities'
 import { ActionName } from '../types'
 import { filterNullable } from '@/common/utils/misc'
-import { message2List } from '@/onebot11/helper/createMessage'
+import { message2List } from '@/onebot11/utils'
 import { decodeMultiMessage } from '@/onebot11/helper/decodeMultiMessage'
 import { ParseMessageConfig } from '@/onebot11/types'
 
