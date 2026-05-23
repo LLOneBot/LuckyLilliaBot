@@ -80,29 +80,19 @@ const GetUserProfile = defineApi(
   GetUserProfileInput,
   GetUserProfileOutput,
   async (ctx, payload) => {
-    const userInfo = await ctx.ntUserApi.getUserDetailInfoByUin(payload.user_id.toString())
-    if (userInfo.result !== 0) {
-      return Failed(-500, userInfo.errMsg)
-    }
-    const profile = {
-      nickname: userInfo.detail.simpleInfo.coreInfo.nick,
-      qid: userInfo.detail.simpleInfo.baseInfo.qid,
-      age: userInfo.detail.simpleInfo.baseInfo.age,
-      sex: transformGender(userInfo.detail.simpleInfo.baseInfo.sex),
-      remark: userInfo.detail.simpleInfo.coreInfo.remark,
-      bio: userInfo.detail.simpleInfo.baseInfo.longNick,
-      level: userInfo.detail.commonExt?.qqLevel ?
-        (userInfo.detail.commonExt.qqLevel.penguinNum * 256 + userInfo.detail.commonExt.qqLevel.crownNum * 64 +
-          userInfo.detail.commonExt.qqLevel.sunNum * 16 + userInfo.detail.commonExt.qqLevel.moonNum * 4 +
-          userInfo.detail.commonExt.qqLevel.starNum) : 0,
-      country: userInfo.detail.commonExt?.country || '',
-      city: userInfo.detail.commonExt?.city || '',
-      school: userInfo.detail.commonExt?.college || '',
-    }
-    if (profile.level === 0) {
-      profile.level = (await ctx.pmhq.fetchUserInfo(payload.user_id)).level
-    }
-    return Ok(profile)
+    const info = await ctx.pmhq.fetchUserInfo(payload.user_id)
+    return Ok({
+      nickname: info.nick,
+      qid: info.qid,
+      age: info.age,
+      sex: transformGender(info.sex),
+      remark: info.remark,
+      bio: info.longNick,
+      level: info.level,
+      country: info.country,
+      city: info.city,
+      school: info.school,
+    })
   }
 )
 
@@ -110,23 +100,11 @@ const GetFriendList = defineApi(
   'get_friend_list',
   GetFriendListInput,
   GetFriendListOutput,
-  async (ctx) => {
-    const friends = await ctx.ntFriendApi.getBuddyList()
-    const category: Map<number, {
-      categoryId: number
-      categorySortId: number
-      categroyName: string
-      categroyMbCount: number
-      onlineCount: number
-      buddyUids: string[]
-    }> = new Map()
+  async (ctx, payload) => {
+    const result = await ctx.ntFriendApi.getFriendList(payload.no_cache)
     const friendList = []
-    for (const friend of friends) {
-      const { categoryId } = friend.baseInfo
-      if (!category.has(categoryId)) {
-        category.set(categoryId, await ctx.ntFriendApi.getCategoryById(categoryId))
-      }
-      friendList.push(transformFriend(friend, category.get(categoryId)!))
+    for (const friend of result.friends) {
+      friendList.push(transformFriend(friend, result.categories.get(friend.categoryId)!))
     }
     return Ok({
       friends: friendList,
@@ -139,14 +117,12 @@ const GetFriendInfo = defineApi(
   GetFriendInfoInput,
   GetFriendInfoOutput,
   async (ctx, payload) => {
-    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
-    if (!uid) {
-      return Failed(-404, 'User not found')
+    const result = await ctx.ntFriendApi.getFriendInfoByUin(payload.user_id, payload.no_cache)
+    if (!result) {
+      return Failed(-404, 'Friend not found')
     }
-    const friend = await ctx.ntUserApi.getUserSimpleInfo(uid, payload.no_cache)
-    const category = await ctx.ntFriendApi.getCategoryById(friend.baseInfo.categoryId)
     return Ok({
-      friend: transformFriend(friend, category),
+      friend: transformFriend(result.friend, result.category),
     })
   }
 )
@@ -255,39 +231,20 @@ const GetPeerPins = defineApi(
   z.object({}),
   GetPeerPinsOutput,
   async (ctx) => {
-    const friends = await ctx.ntFriendApi.getBuddyList()
-    const category: Map<number, {
-      categoryId: number
-      categorySortId: number
-      categroyName: string
-      categroyMbCount: number
-      onlineCount: number
-      buddyUids: string[]
-    }> = new Map()
-    const { groups } = await ctx.pmhq.fetchGroups()
+    const result = await ctx.ntSystemApi.getPins()
     return Ok({
       friends: await Promise.all(
-        friends.filter(e => e.relationFlags && e.relationFlags.topTime !== '0').map(async e => {
-          const { categoryId } = e.baseInfo
-          if (!category.has(categoryId)) {
-            category.set(categoryId, await ctx.ntFriendApi.getCategoryById(categoryId))
-          }
-          return transformFriend(e, category.get(categoryId)!)
+        result.friends.map(async (e) => {
+          const info = await ctx.ntFriendApi.getFriendInfoByUid(e.uid, false)
+          return transformFriend(info!.friend, info!.category)
         })
       ),
-      groups: groups.filter(e => e.info.topTime).map(e => {
-        return {
-          group_id: e.groupCode,
-          group_name: e.info.groupName,
-          member_count: e.info.memberCount,
-          max_member_count: e.info.memberMax,
-          remark: e.customInfo.remark ?? '',
-          created_time: e.info.createdTime,
-          description: e.info.richDescription ?? '',
-          question: e.info.question ?? '',
-          announcement: e.info.announcement ?? ''
-        }
-      })
+      groups: await Promise.all(
+        result.groups.map(async (e) => {
+          const info = await ctx.ntGroupApi.getGroupDetailInfo(e.groupCode.toString())
+          return transformGroup(info)
+        })
+      )
     })
   }
 )

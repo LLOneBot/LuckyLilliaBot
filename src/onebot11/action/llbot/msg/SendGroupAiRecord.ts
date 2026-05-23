@@ -22,7 +22,16 @@ export class SendGroupAiRecord extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload) {
-    await this.ctx.pmhq.getGroupGenerateAiRecord(+payload.group_id, payload.character, payload.text, +payload.chat_type)
-    return { message_id: 0 }
+    const res = await this.ctx.pmhq.getGroupGenerateAiRecord(+payload.group_id, payload.character, payload.text, +payload.chat_type)
+    const targetMsgRandom = res.msgRandom.toString()
+    const { promise, resolve } = Promise.withResolvers<Response>()
+    const dispose = this.ctx.on('nt/message-created', (msg) => {
+      if (msg.msgRandom === targetMsgRandom) {
+        dispose()
+        const shortId = this.ctx.store.createMsgShortId(msg)
+        resolve({ message_id: shortId })
+      }
+    })
+    return promise
   }
 }

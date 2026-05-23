@@ -9,7 +9,6 @@ interface Category {
   categorySortId: number
   categoryName: string
   categoryMbCount: number
-  onlineCount: number
   buddyList: OB11User[]
 }
 
@@ -17,37 +16,17 @@ export class GetFriendWithCategory extends BaseAction<{}, Category[]> {
   actionName = ActionName.GetFriendsWithCategory
 
   protected async _handle() {
-    const res = await this.ctx.ntFriendApi.getBuddyV2(true)
-    if (res.result !== 0) {
-      throw new Error(res.errMsg)
-    }
-    const buddyList = await this.ctx.ntFriendApi.getBuddyList()
-    const buddyMap = new Map<string, SimpleInfo>()
-    for (const buddy of buddyList) {
-      buddyMap.set(buddy.uid!, buddy)
-    }
-    const category: CategoryFriend[] = []
-    for (const item of res.data) {
-      const buddyList = []
-      for (const uid of item.buddyUids) {
-        buddyList.push(buddyMap.get(uid)!)
-      }
-      category.push({
-        ...item,
-        buddyList
-      })
-    }
-    return category.map(item => {
-      return {
-        categoryId: item.categoryId,
-        categorySortId: item.categorySortId,
-        categoryName: item.categroyName,
-        categoryMbCount: item.categroyMbCount,
-        onlineCount: item.onlineCount,
-        buddyList: item.buddyList!.map(buddy => {
-          return OB11Entities.friend(buddy)
+    const result = await this.ctx.ntFriendApi.getFriendList(true)
+    return result.categories.values().map(item => ({
+      categoryId: item.categoryId,
+      categorySortId: item.categorySortId,
+      categoryName: item.categoryName,
+      categoryMbCount: item.categoryMemberCount,
+      buddyList: result.friends
+        .filter(friend => friend.categoryId === item.categoryId)
+        .map(friend => {
+          return OB11Entities.friend(friend)
         })
-      }
-    })
+    })).toArray()
   }
 }

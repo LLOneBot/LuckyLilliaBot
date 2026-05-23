@@ -941,6 +941,10 @@ function App() {
       <SettingsDialog
         visible={showSettingsDialog}
         onClose={() => setShowSettingsDialog(false)}
+        onLogout={() => {
+          deleteCookie('webui_token')
+          window.location.reload()
+        }}
       />
     </div>
   );

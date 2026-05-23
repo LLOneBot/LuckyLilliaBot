@@ -21,7 +21,25 @@ export async function transformIncomingPrivateMessage(
     sender_id: +message.senderUin,
     time: +message.msgTime,
     segments: await transformIncomingSegments(ctx, message),
-    friend: transformFriend(friend, category),
+    friend: transformFriend({
+      uid: friend.uid,
+      uin: +friend.uin,
+      categoryId: friend.baseInfo.categoryId,
+      nick: friend.coreInfo.nick,
+      longNick: friend.baseInfo.longNick,
+      remark: friend.coreInfo.remark,
+      qid: friend.baseInfo.qid,
+      age: friend.baseInfo.age,
+      sex: friend.baseInfo.sex,
+      birthdayYear: friend.baseInfo.birthday_year,
+      birthdayMonth: friend.baseInfo.birthday_month,
+      birthdayDay: friend.baseInfo.birthday_day,
+    }, {
+      categoryId: category.categoryId,
+      categoryName: category.categroyName,
+      categoryMemberCount: category.categroyMbCount,
+      categorySortId: category.categorySortId,
+    }),
   }
 }
 
@@ -115,7 +133,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
           type: 'image',
           data: {
             resource_id: element.picElement!.fileUuid,
-            temp_url: await ctx.ntFileApi.getImageUrl(element.picElement!),
+            temp_url: await ctx.ntFileApi.getImageUrl(element.picElement!.originImageUrl, element.picElement!.md5HexStr),
             width: element.picElement!.picWidth,
             height: element.picElement!.picHeight,
             summary: element.picElement!.summary || '[图片]',
@@ -140,7 +158,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
           type: 'video',
           data: {
             resource_id: element.videoElement!.fileUuid,
-            temp_url: await ctx.ntFileApi.getVideoUrlByPacket(element.videoElement!.fileUuid, message.chatType === ChatType.Group),
+            temp_url: await ctx.ntFileApi.getVideoUrl(element.videoElement!.fileUuid, message.chatType === ChatType.Group),
             width: element.videoElement!.thumbWidth,
             height: element.videoElement!.thumbHeight,
             duration: element.videoElement!.fileTime,
@@ -189,25 +207,28 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
 
       case ElementType.Ark: {
         const { arkElement } = element
-        const data = JSON.parse(arkElement!.bytesData)
-        if (data.app === 'com.tencent.multimsg' && data.meta.detail.resid) {
-          segments.push({
-            type: 'forward',
-            data: {
-              forward_id: data.meta.detail.resid,
-              title: data.meta.detail.source,
-              preview: data.meta.detail.news.map((item: { text: string }) => item.text),
-              summary: data.meta.detail.summary,
-            },
-          })
-        } else {
-          segments.push({
-            type: 'light_app',
-            data: {
-              app_name: data.app,
-              json_payload: arkElement!.bytesData,
-            },
-          })
+        const match = arkElement!.bytesData.match(/"app"\s*:\s*"([^"]*)"/)
+        if (match?.[1]) {
+          if (match[1] === 'com.tencent.multimsg') {
+            const data = JSON.parse(arkElement!.bytesData)
+            segments.push({
+              type: 'forward',
+              data: {
+                forward_id: data.meta.detail.resid,
+                title: data.meta.detail.source,
+                preview: data.meta.detail.news.map((item: { text: string }) => item.text),
+                summary: data.meta.detail.summary,
+              },
+            })
+          } else {
+            segments.push({
+              type: 'light_app',
+              data: {
+                app_name: match[1],
+                json_payload: arkElement!.bytesData,
+              },
+            })
+          }
         }
         break
       }
@@ -260,7 +281,7 @@ export async function transformIncomingForwardedMessage(ctx: Context, message: I
         } else if (serviceType === 48 && (businessType === 11 || businessType === 21)) {
           const { msgInfoBody } = Media.MsgInfo.decode(elem.commonElem.pbElem)
           const { index } = msgInfoBody[0]
-          const url = await ctx.ntFileApi.getVideoUrlByPacket(index.fileUuid, businessType === 21)
+          const url = await ctx.ntFileApi.getVideoUrl(index.fileUuid, businessType === 21)
           segments.push({
             type: 'video',
             data: {

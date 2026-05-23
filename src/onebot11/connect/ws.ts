@@ -78,7 +78,7 @@ class OB11WebSocket {
       if (emitEvent && socket.readyState === WebSocket.OPEN) {
         socket.send(JSON.stringify(event))
         const eventName = event.getSummaryEventName()
-        this.ctx.logger.info('WebSocket 事件上报', socket.url ?? '', eventName)
+        this.ctx.logger.info('WebSocket 事件上报', eventName)
       }
     })
   }
@@ -116,7 +116,7 @@ class OB11WebSocket {
     }
     socket.send(JSON.stringify(data))
     if ('post_type' in data) {
-      this.ctx.logger.info('WebSocket 事件上报', socket.url ?? '', data.post_type)
+      this.ctx.logger.info('WebSocket 事件上报', data.post_type)
     }
   }
 
@@ -181,7 +181,6 @@ class OB11WebSocket {
 
       const disposeHeartBeat = this.ctx.interval(() => {
         const event = new OB11HeartbeatEvent(selfInfo.online!, true, this.config.heartInterval)
-        if (!matchEventFilter(this.config.filter, event)) return
         this.reply(socket, event)
       }, this.config.heartInterval)
 
@@ -337,7 +336,6 @@ class OB11WebSocketReverse {
     const disposeHeartBeat = this.ctx.interval(() => {
       if (this.wsClient) {
         const event = new OB11HeartbeatEvent(selfInfo.online!, true, this.config.heartInterval)
-        if (!matchEventFilter(this.config.filter, event)) return
         this.reply(this.wsClient, event)
       }
     }, this.config.heartInterval)

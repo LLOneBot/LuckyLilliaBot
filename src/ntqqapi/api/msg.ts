@@ -290,7 +290,7 @@ export class NTQQMsgApi extends Service {
         chatInfo: peer,
         filterMsgType: [],
         filterSendersUid,
-        filterMsgToTime: filterMsgTime,
+        filterMsgToTime: String(filterMsgTime + 1),  // 获取到的消息时间可能比 replyMsgTime 多一毫秒
         filterMsgFromTime: filterMsgTime,
         isReverseOrder: true,
         isIncludeCurrent: true,

@@ -2,13 +2,13 @@ import { MilkyHttpConfig } from '@/common/types'
 import { MilkyAdapter } from '@/milky/adapter'
 import { Failed } from '@/milky/common/api'
 import { Context } from 'cordis'
-import { createNodeWebSocket } from '@hono/node-ws'
-import { HttpBindings, serve, ServerType } from '@hono/node-server'
+import { HttpBindings, serve, ServerType, upgradeWebSocket } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { SSEStreamingApi, streamSSE } from 'hono/streaming'
 import { WSContext } from 'hono/ws'
 import { constants } from 'node:buffer'
+import { WebSocketServer } from 'ws'
 
 class MilkyHttpHandler {
   readonly eventPushClients = new Set<WSContext>()
@@ -97,10 +97,6 @@ class MilkyHttpHandler {
       return c.json(response)
     })
 
-    // TODO: 待 https://github.com/honojs/middleware/pull/1808 通过后，将 maxPayload 指定为 constants.MAX_STRING_LENGTH
-    // 默认的 maxPayload 为 100 MiB
-    const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app: this.app })
-
     this.app.get(`${this.config.prefix}/event`,
       upgradeWebSocket((c) => {
         return {
@@ -150,8 +146,13 @@ class MilkyHttpHandler {
       }
     )
 
+    const wss = new WebSocketServer({
+      noServer: true,
+      maxPayload: constants.MAX_STRING_LENGTH
+    })
     this.httpServer = serve({
       fetch: this.app.fetch,
+      websocket: { server: wss },
       port: this.config.port,
       hostname: this.config.host
     }, () => {
@@ -161,7 +162,6 @@ class MilkyHttpHandler {
         `HTTP server started at ${displayHost}:${this.config.port}${this.config.prefix}`
       )
     })
-    injectWebSocket(this.httpServer)
   }
 
   stop() {

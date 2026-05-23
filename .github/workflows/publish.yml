@@ -44,8 +44,8 @@ jobs:
 
       - name: Build
         run: |
-          npm run build
-          npm run build-webui
+          yarn build
+          yarn build-webui
 
       - name: Compress dist
         run: |

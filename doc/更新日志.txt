@@ -1,3 +1,68 @@
+V7.12.14
+更新时间 2026-05-16
+
+* Milky 修复 get_history_messages API 获取包含 ark 的消息时可能报错
+
+=================
+V7.12.13
+更新时间 2026-05-05
+
+* OneBot 修复 get_forward_msg API 获取包含视频的聊天记录时报错
+* OneBot 修复设置事件过滤器后导致反向 WS 频繁断线重连
+
+=================
+V7.12.11
+更新时间 2026-05-03
+
+* OneBot 修复 send_group_ai_record API 返回无效的 message_id
+
+=================
+V7.12.10
+更新时间 2026-04-30
+
+* 修复偶现获取不到引用的消息
+* 修复发送的 at 消息可能显示为空白
+* 修复 get_stranger_info API 获取的会员相关信息不正确
+* 支持退出 WebUI 登录
+
+=================
+V7.12.9
+更新时间 2026-04-29
+
+* OneBot 修复 get_group_member_info API 可能获取不到性别与年龄
+* OneBot 支持 get_stranger_info API 获取是否会员、是否年费会员、会员等级、备注
+
+=================
+V7.12.8
+更新时间 2026-04-28
+
+* OneBot 支持 _get_group_notice API 获取群公告是否发送给新成员
+* OneBot 支持 _send_group_notice API 设置群公告是否发送给新成员
+
+=================
+V7.12.6
+更新时间 2026-04-28
+
+* OneBot 修复 _get_group_notice API 获取不到发给新成员的公告
+* OneBot 支持 _get_group_notice API 获取群公告是否置顶
+
+=================
+V7.12.5
+更新时间 2026-04-27
+
+* OneBot 支持 upload_group_album API 上传视频
+* OneBot 支持 _send_group_notice API 设置群公告是否弹窗展示、引导修改群昵称
+* OneBot 支持 _get_group_notice API 获取群公告相关设置
+
+=================
+V7.12.4
+更新时间 2026-04-25
+
+* OneBot 修复发送合并转发包含 `reply` 消息段时可能无法查看合并转发内消息
+* OneBot 修复 get_stranger_info API 偶现报错
+* Milky 修复临时会话没有上报消息撤回事件
+
+=================
 V7.12.3
 更新时间 2026-04-24
 

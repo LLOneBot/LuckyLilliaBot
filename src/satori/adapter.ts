@@ -23,10 +23,9 @@ declare module 'cordis' {
 
 class SatoriAdapter extends Service {
   static inject = [
-    'ntMsgApi', 'ntFileApi', 'ntFileCacheApi',
-    'ntFriendApi', 'ntGroupApi', 'ntUserApi',
-    'ntWebApi', 'store', 'app', 'logger',
-    'pmhq'
+    'ntMsgApi', 'ntFileApi', 'ntFriendApi',
+    'ntGroupApi', 'ntUserApi', 'ntWebApi',
+    'store', 'app', 'logger', 'pmhq'
   ]
   private selfId: string
   private server: SatoriServer

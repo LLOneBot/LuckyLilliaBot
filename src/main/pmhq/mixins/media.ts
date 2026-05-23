@@ -66,8 +66,7 @@ export function MediaMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
       const data = Oidb.Base.encode({ command: 0x126d, subCommand: 200, body })
       const res = await this.httpSendPB('OidbSvcTrpcTcp.0x126d_200', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-      const { download } = Media.NTV2RichMediaResp.decode(oidbRespBody)
-      return `https://${download?.info?.domain}${download?.info?.urlPath}${download?.rKeyParam}`
+      return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
 
     async getGroupPttUrl(fileUuid: string) {
@@ -82,8 +81,7 @@ export function MediaMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
       const data = Oidb.Base.encode({ command: 0x126e, subCommand: 200, body })
       const res = await this.httpSendPB('OidbSvcTrpcTcp.0x126e_200', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-      const { download } = Media.NTV2RichMediaResp.decode(oidbRespBody)
-      return `https://${download!.info.domain}${download!.info.urlPath}${download!.rKeyParam}`
+      return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
 
     async getGroupVideoUrl(fileUuid: string) {
@@ -98,8 +96,7 @@ export function MediaMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
       const data = Oidb.Base.encode({ command: 0x11ea, subCommand: 200, body })
       const res = await this.httpSendPB('OidbSvcTrpcTcp.0x11ea_200', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-      const { download } = Media.NTV2RichMediaResp.decode(oidbRespBody)
-      return `https://${download!.info.domain}${download!.info.urlPath}${download!.rKeyParam}`
+      return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
 
     async getPrivateVideoUrl(fileUuid: string) {
@@ -114,8 +111,7 @@ export function MediaMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
       const data = Oidb.Base.encode({ command: 0x11e9, subCommand: 200, body })
       const res = await this.httpSendPB('OidbSvcTrpcTcp.0x11e9_200', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-      const { download } = Media.NTV2RichMediaResp.decode(oidbRespBody)
-      return `https://${download!.info.domain}${download!.info.urlPath}${download!.rKeyParam}`
+      return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
 
     async getHighwaySession() {
@@ -283,6 +279,81 @@ export function MediaMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) 
         md5CheckSum,
         sha3CheckSum,
       }
+    }
+
+    async getGroupImageUploadInfo(groupCode: string, filePath: string) {
+      const peer = {
+        chatType: ChatType.Group,
+        peerUid: groupCode,
+        guildId: ''
+      }
+      const body = await NTV2RichMedia.buildUploadReq(
+        peer,
+        { type: 'image', filePath },
+        {
+          pic: {
+            summary: '[图片]',
+            bytesPbReserveC2c: Buffer.from([0x08, 0x00, 0x18, 0x00, 0x20, 0x00, 0x4A, 0x00, 0x50, 0x00, 0x62, 0x00, 0x92, 0x01, 0x00, 0x9A, 0x01, 0x00, 0xAA, 0x01, 0x0C, 0x08, 0x00, 0x12, 0x00, 0x18, 0x00, 0x20, 0x00, 0x28, 0x00, 0x3A, 0x00])
+          }
+        },
+      )
+      const data = Oidb.Base.encode({ command: 0x11c4, subCommand: 100, body })
+      const res = await this.httpSendPB('OidbSvcTrpcTcp.0x11c4_100', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
+      return {
+        info: upload.msgInfo,
+        compat: upload.compatQMsg,
+        ext: NTV2RichMedia.generateExt(upload)
+      }
+    }
+
+    async getC2CImageUploadInfo(peerUid: string, filePath: string) {
+      const peer = {
+        chatType: ChatType.C2C,
+        peerUid,
+        guildId: ''
+      }
+      const body = await NTV2RichMedia.buildUploadReq(
+        peer,
+        { type: 'image', filePath },
+        {
+          pic: {
+            summary: '[图片]',
+            bytesPbReserveC2c: Buffer.from([0x08, 0x00, 0x18, 0x00, 0x20, 0x00, 0x4A, 0x00, 0x50, 0x00, 0x62, 0x00, 0x92, 0x01, 0x00, 0x9A, 0x01, 0x00, 0xAA, 0x01, 0x0C, 0x08, 0x00, 0x12, 0x00, 0x18, 0x00, 0x20, 0x00, 0x28, 0x00, 0x3A, 0x00])
+          }
+        },
+      )
+      const data = Oidb.Base.encode({ command: 0x11c5, subCommand: 100, body })
+      const res = await this.httpSendPB('OidbSvcTrpcTcp.0x11c5_100', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
+      return {
+        info: upload.msgInfo,
+        compat: upload.compatQMsg,
+        ext: NTV2RichMedia.generateExt(upload)
+      }
+    }
+
+    async imageOcr(imageUrl: string) {
+      const body = Oidb.ImageOcrReq.encode({
+        version: 1,
+        client: 0,
+        entrance: 1,
+        ocrReqBody: {
+          imageUrl,
+          originMd5: '',
+          afterCompressMd5: '',
+          afterCompressFileSize: '',
+          afterCompressWeight: '',
+          afterCompressHeight: '',
+          isCut: false
+        }
+      })
+      const data = Oidb.Base.encode({ command: 0xe07, subCommand: 0, body })
+      const res = await this.httpSendPB('OidbSvcTrpcTcp.0xe07_0', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.ImageOcrResp.decode(oidbRespBody)
     }
   }
 }

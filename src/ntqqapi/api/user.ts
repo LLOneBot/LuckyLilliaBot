@@ -73,7 +73,7 @@ export class NTQQUserApi extends Service {
         return (await this.ctx.pmhq.invoke('nodeIKernelUixConvertService/getUin', [[uid]])).uinInfo.get(uid)
       },
       async () => {
-        return (await this.fetchUserDetailInfo(uid)).detail.get(uid)?.uin
+        return (await this.getUserSimpleInfo(uid)).uin
       },
     ]
 
@@ -91,7 +91,7 @@ export class NTQQUserApi extends Service {
     return ''
   }
 
-  // 这个会从服务器拉取，比较可靠
+  /** 始终会从服务器拉取 */
   async fetchUserDetailInfo(uid: string) {
     return await this.ctx.pmhq.invoke(
       'nodeIKernelProfileService/fetchUserDetailInfo',
@@ -119,6 +119,7 @@ export class NTQQUserApi extends Service {
     return result
   }
 
+  /** 无缓存时会从服务器拉取 */
   async getUserSimpleInfo(uid: string, force = true) {
     const data = await this.ctx.pmhq.invoke<Map<string, SimpleInfo>>(
       'nodeIKernelProfileService/getUserSimpleInfo',
@@ -134,6 +135,7 @@ export class NTQQUserApi extends Service {
     return data.get(uid)!
   }
 
+  /** 无缓存时会获取不到用户信息 */
   async getCoreAndBaseInfo(uids: string[]) {
     return await this.ctx.pmhq.invoke(
       'nodeIKernelProfileService/getCoreAndBaseInfo',
@@ -144,13 +146,9 @@ export class NTQQUserApi extends Service {
     )
   }
 
-  async getBuddyNick(uid: string): Promise<string> {
+  async getBuddyNick(uid: string) {
     const data = await this.ctx.pmhq.invoke('nodeIKernelBuddyService/getBuddyNick', [[uid]])
-    const nick = data.get(uid)
-    if (nick === undefined) {
-      this.ctx.logger.warn(`获取昵称失败, uid: ${uid}`)
-    }
-    return nick ?? ''
+    return data.get(uid)
   }
 
   async getCookies(domain: string) {
@@ -190,8 +188,11 @@ export class NTQQUserApi extends Service {
 
   async getSelfNick(refresh = true) {
     if ((refresh || !selfInfo.nick) && selfInfo.uid) {
-      // const data = await this.getUserSimpleInfo(selfInfo.uid, refresh)
-      selfInfo.nick = await this.getBuddyNick(selfInfo.uid)
+      let nick = await this.getBuddyNick(selfInfo.uid)
+      if (nick === undefined) {
+        nick = (await this.getUserSimpleInfo(selfInfo.uid, refresh)).coreInfo.nick
+      }
+      selfInfo.nick = nick
     }
     return selfInfo.nick
   }

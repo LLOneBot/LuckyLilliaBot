@@ -3,7 +3,9 @@ import { HttpUtil } from '@/common/utils/request'
 import { Context, Service } from 'cordis'
 import { Dict } from 'cosmokit'
 import fs from 'node:fs/promises'
-import { getMd5HexFromFile } from '@/common/utils'
+import { getMd5HexFromBuffer, getSha1HexFromBuffer } from '@/common/utils'
+import { fileTypeFromBuffer } from 'file-type'
+import { createThumb } from '@/common/utils/video'
 
 declare module 'cordis' {
   interface Context {
@@ -229,66 +231,128 @@ export class NTQQWebApi extends Service {
       // 读取文件并计算 MD5
       const fileBuffer = await fs.readFile(filePath)
       const fileSize = fileBuffer.length
-      const checksum = await getMd5HexFromFile(filePath)
-
-      const getSessionUrl = `https://${domain}/webapp/json/sliceUpload/FileBatchControl/${checksum}?g_tk=${gtk}`
+      const fileType = await fileTypeFromBuffer(fileBuffer)
       const timestamp = Math.floor(Date.now() / 1000)
+      const isVideo = fileType?.mime.startsWith('video')
 
-      const getSessionPostData = {
-        'control_req': [{
-          'uin': selfInfo.uin,
-          'token': {
-            'type': 4,
-            'data': cookiesObject.p_skey,
-            'appid': 5,
-          },
-          'appid': 'qun',
-          'checksum': checksum,
-          'check_type': 0,
-          'file_len': fileSize,
-          'env': { 'refer': 'qzone', 'deviceInfo': 'h5' },
-          'model': 0,
-          'biz_req': {
-            'sPicTitle': '',
-            'sPicDesc': '',
-            // 'sAlbumName': albumName,
-            'sAlbumName': '',
-            'sAlbumID': albumID,
-            'iAlbumTypeID': 0,
-            'iBitmap': 0,
-            'iUploadType': 0,
-            'iUpPicType': 0,
-            'iBatchID': iBatchID,
-            'sPicPath': '',
-            'iPicWidth': 0,
-            'iPicHight': 0,
-            'iWaterType': 0,
-            'iDistinctUse': 0,
-            'iNeedFeeds': 1,
-            'iUploadTime': timestamp,
-            'mapExt': { 'appid': 'qun', 'userid': groupCode },
-            'stExtendInfo': {
-              'mapParams': {
-                'photo_num': fileLen,
-                'video_num': '0',
+      let res
+      if (isVideo) {
+        const checksum = getSha1HexFromBuffer(fileBuffer)
+        const getSessionUrl = `https://${domain}/webapp/json/sliceUpload/FileBatchControl/${checksum}?g_tk=${gtk}`
+        const getSessionPostData = {
+          'control_req': [{
+            'uin': selfInfo.uin,
+            'token': {
+              'type': 4,
+              'data': cookiesObject.p_skey,
+              'appid': 5
+            },
+            'appid': 'video_qun',
+            'checksum': checksum,
+            'check_type': 1,
+            'file_len': fileSize,
+            'env': {
+              'refer': 'qzone',
+              'deviceInfo': 'h5'
+            },
+            'model': 0,
+            'biz_req': {
+              'sPicTitle': '',
+              'sPicDesc': '',
+              'sAlbumName': '',
+              'sAlbumID': '',
+              'iAlbumTypeID': 0,
+              'iBitmap': 0,
+              'iUploadType': 3,
+              'iUpPicType': 0,
+              'iBatchID': 0,
+              'sPicPath': '',
+              'iPicWidth': 0,
+              'iPicHight': 0,
+              'iWaterType': 0,
+              'iDistinctUse': 0,
+              'sTitle': '',
+              'sDesc': '',
+              'iFlag': 0,
+              'iUploadTime': timestamp,
+              'iPlayTime': 0,
+              'sCoverUrl': '',
+              'iIsNew': 111,
+              'iIsOriginalVideo': 0,
+              'iIsFormatF20': 0,
+              'extend_info': {
+                'video_type': '3',
+                'domainid': '5',
+                'photo_num': '0',
+                'video_num': fileLen,
                 'batch_num': fileLen,
+                'qun_id': groupCode
+              }
+            },
+            'session': '',
+            'asy_upload': 0,
+            'cmd': 'FileUploadVideo'
+          }]
+        }
+        res = await HttpUtil.post(getSessionUrl, getSessionPostData, this.cookieToString(cookiesObject))
+      } else {
+        const checksum = getMd5HexFromBuffer(fileBuffer)
+        const getSessionUrl = `https://${domain}/webapp/json/sliceUpload/FileBatchControl/${checksum}?g_tk=${gtk}`
+        const getSessionPostData = {
+          'control_req': [{
+            'uin': selfInfo.uin,
+            'token': {
+              'type': 4,
+              'data': cookiesObject.p_skey,
+              'appid': 5,
+            },
+            'appid': 'qun',
+            'checksum': checksum,
+            'check_type': 0,
+            'file_len': fileSize,
+            'env': { 'refer': 'qzone', 'deviceInfo': 'h5' },
+            'model': 0,
+            'biz_req': {
+              'sPicTitle': '',
+              'sPicDesc': '',
+              // 'sAlbumName': albumName,
+              'sAlbumName': '',
+              'sAlbumID': albumID,
+              'iAlbumTypeID': 0,
+              'iBitmap': 0,
+              'iUploadType': 0,
+              'iUpPicType': 0,
+              'iBatchID': iBatchID,
+              'sPicPath': '',
+              'iPicWidth': 0,
+              'iPicHight': 0,
+              'iWaterType': 0,
+              'iDistinctUse': 0,
+              'iNeedFeeds': 1,
+              'iUploadTime': timestamp,
+              'mapExt': { 'appid': 'qun', 'userid': groupCode },
+              'stExtendInfo': {
+                'mapParams': {
+                  'photo_num': fileLen,
+                  'video_num': '0',
+                  'batch_num': fileLen,
+                },
+              },
+              'mutliPicInfo': {
+                'iBatUploadNum': fileLen,
+                'iCurUpload': i,
+                'iSuccNum': 0,
+                'iFailNum': 0,
               },
             },
-            'mutliPicInfo': {
-              'iBatUploadNum': fileLen,
-              'iCurUpload': i,
-              'iSuccNum': 0,
-              'iFailNum': 0,
-            },
-          },
-          'session': '',
-          'asy_upload': 0,
-          'cmd': 'FileUpload',
-        }],
+            'session': '',
+            'asy_upload': 0,
+            'cmd': 'FileUpload',
+          }],
+        }
+        res = await HttpUtil.post(getSessionUrl, getSessionPostData, this.cookieToString(cookiesObject))
       }
 
-      // 获取 session
-      const res = await HttpUtil.post(getSessionUrl, getSessionPostData, this.cookieToString(cookiesObject))
       const resJson: {
         ret: number,
         msg: string
@@ -304,44 +368,39 @@ export class NTQQWebApi extends Service {
         continue
       }
 
-      const sessionId = resJson.data.session
       const sliceSize = resJson.data.slice_size
       // 分片上传文件 - 并发上传
       let offset = 0
       let seq = 1
       const concurrency = 10
-
-      // 生成所有分片任务
-      const slices: Array<{ offset: number; end: number; seq: number; chunk: Buffer }> = []
-      while (offset < fileSize) {
-        const end = Math.min(offset + sliceSize, fileSize)
-        const chunk = fileBuffer.subarray(offset, end)
-        slices.push({ offset, end, seq, chunk })
-        offset = end
-        seq++
-      }
-
-      // 进度跟踪
-      // let completedSlices = 0
-      // const totalSlices = slices.length
+      let sVid
 
       // 并发上传函数
-      const uploadSlice = async (slice: { offset: number; end: number; seq: number; chunk: Buffer }) => {
-        const uploadUrl = `https://${domain}/webapp/json/sliceUpload/FileUpload?seq=${slice.seq}&retry=0&offset=${slice.offset}&end=${slice.end}&total=${fileSize}&type=form&g_tk=${gtk}`
+      const uploadSlice = async (slice: {
+        offset: number,
+        end: number,
+        seq: number,
+        chunk: Buffer,
+        isVideo: boolean,
+        sessionId: string,
+        sliceSize: string
+      }) => {
+        const cmd = slice.isVideo ? 'FileUploadVideo' : 'FileUpload'
+        const uploadUrl = `https://${domain}/webapp/json/sliceUpload/${cmd}?seq=${slice.seq}&retry=0&offset=${slice.offset}&end=${slice.end}&total=${fileSize}&type=form&g_tk=${gtk}`
 
         const formData = new FormData()
         formData.append('uin', selfInfo.uin)
-        formData.append('appid', 'qun')
+        formData.append('appid', slice.isVideo ? 'video_qun' : 'qun')
         formData.append('data', new Blob([Uint8Array.from(slice.chunk)]))
-        formData.append('session', sessionId)
+        formData.append('session', slice.sessionId)
         formData.append('offset', slice.offset.toString())
         formData.append('checksum', '')
         formData.append('check_type', '0')
         formData.append('retry', '0')
         formData.append('seq', slice.seq.toString())
         formData.append('end', slice.end.toString())
-        formData.append('cmd', 'FileUpload')
-        formData.append('slice_size', sliceSize.toString())
+        formData.append('cmd', cmd)
+        formData.append('slice_size', slice.sliceSize)
         formData.append('biz_req.iUploadType', '0')
 
         const uploadRes = await fetch(uploadUrl, {
@@ -358,11 +417,35 @@ export class NTQQWebApi extends Service {
             errIndexList.push(i)
           }
           throw new Error(`群相册分片上传失败 (seq: ${slice.seq}): ${uploadResJson.msg}, file: ${filePath}`)
+        } else if (uploadResJson.data.biz.sVid) {
+          sVid = uploadResJson.data.biz.sVid
         }
+      }
 
-        // completedSlices++
-        // const progress = Math.round((completedSlices / totalSlices) * 100)
-        // this.ctx.logger.info(`群相册上传进度: ${completedSlices}/${totalSlices} 片 (${progress}%)`)
+      // 生成所有分片任务
+      const slices: Array<{
+        offset: number,
+        end: number,
+        seq: number,
+        chunk: Buffer,
+        isVideo: boolean,
+        sessionId: string,
+        sliceSize: string
+      }> = []
+      while (offset < fileSize) {
+        const end = Math.min(offset + sliceSize, fileSize)
+        const chunk = fileBuffer.subarray(offset, end)
+        slices.push({
+          offset,
+          end,
+          seq,
+          chunk,
+          isVideo: !!isVideo,
+          sessionId: resJson.data.session,
+          sliceSize: sliceSize.toString()
+        })
+        offset = end
+        seq++
       }
 
       // 使用并发控制上传
@@ -374,6 +457,143 @@ export class NTQQWebApi extends Service {
           this.ctx.logger.error(e)
         }
       }
+
+      if (sVid) {
+        const filePath = await createThumb(this.ctx, filePathList[i])
+        // 读取文件并计算 MD5
+        const fileBuffer = await fs.readFile(filePath)
+        const fileSize = fileBuffer.length
+        const timestamp = Math.floor(Date.now() / 1000)
+
+        const checksum = getMd5HexFromBuffer(fileBuffer)
+        const getSessionUrl = `https://${domain}/webapp/json/sliceUpload/FileBatchControl/${checksum}?g_tk=${gtk}`
+        const getSessionPostData = {
+          'control_req': [{
+            'uin': selfInfo.uin,
+            'token': {
+              'type': 4,
+              'data': cookiesObject.p_skey,
+              'appid': 5
+            },
+            'appid': 'qun',
+            'checksum': checksum,
+            'check_type': 0,
+            'file_len': fileSize,
+            'env': {
+              'refer': 'huodong',
+              'deviceInfo': 'h5'
+            },
+            'model': 0,
+            'biz_req': {
+              'sPicTitle': '',
+              'sPicDesc': '',
+              'sAlbumName': '',
+              'sAlbumID': albumID,
+              'iAlbumTypeID': 0,
+              'iBitmap': 0,
+              'iUploadType': 2,
+              'iUpPicType': 0,
+              'iBatchID': iBatchID,
+              'sPicPath': '',
+              'iPicWidth': 0,
+              'iPicHight': 0,
+              'iWaterType': 0,
+              'iDistinctUse': 0,
+              'mutliPicInfo': {
+                'iBatUploadNum': fileLen,
+                'iCurUpload': i,
+                'iSuccNum': 0,
+                'iFailNum': 0
+              },
+              'iNeedFeeds': 1,
+              'iUploadTime': timestamp,
+              'stExtendInfo': {
+                'mapParams': {
+                  'vid': sVid,
+                  'photo_num': '0',
+                  'video_num': fileLen,
+                  'batch_num': fileLen
+                }
+              },
+              'stExternalMapExt': {
+                'is_client_upload_cover': '1',
+                'is_pic_video_mix_feeds': '1'
+              },
+              'mapExt': {
+                'appid': 'qun',
+                'userid': groupCode
+              },
+              'sExif_CameraMaker': '',
+              'sExif_CameraModel': '',
+              'sExif_Time': '',
+              'sExif_LatitudeRef': '',
+              'sExif_Latitude': '',
+              'sExif_LongitudeRef': '',
+              'sExif_Longitude': ''
+            },
+            'session': '',
+            'asy_upload': 0
+          }]
+        }
+        const res = await HttpUtil.post(getSessionUrl, getSessionPostData, this.cookieToString(cookiesObject))
+
+        const resJson: {
+          ret: number,
+          msg: string
+          data: {
+            session: string,
+            slice_size: number
+          }
+        } = await res.json()
+
+        if (resJson.ret !== 0) {
+          this.ctx.logger.error(`获取群相册上传 session 失败: ${resJson.msg}`)
+          errIndexList.push(i)
+          continue
+        }
+
+        const sliceSize = resJson.data.slice_size
+        // 分片上传文件 - 并发上传
+        let offset = 0
+        let seq = 1
+        const concurrency = 10
+
+        // 生成所有分片任务
+        const slices: Array<{
+          offset: number,
+          end: number,
+          seq: number,
+          chunk: Buffer,
+          isVideo: boolean,
+          sessionId: string,
+          sliceSize: string
+        }> = []
+        while (offset < fileSize) {
+          const end = Math.min(offset + sliceSize, fileSize)
+          const chunk = fileBuffer.subarray(offset, end)
+          slices.push({
+            offset,
+            end,
+            seq,
+            chunk,
+            isVideo: false,
+            sessionId: resJson.data.session,
+            sliceSize: sliceSize.toString()
+          })
+          offset = end
+          seq++
+        }
+
+        // 使用并发控制上传
+        for (let i = 0; i < slices.length; i += concurrency) {
+          const batch = slices.slice(i, i + concurrency)
+          try {
+            await Promise.all(batch.map(slice => uploadSlice(slice)))
+          } catch (e) {
+            this.ctx.logger.error(e)
+          }
+        }
+      }
     }
     this.ctx.logger.info('群相册上传完成')
     return {
@@ -381,5 +601,55 @@ export class NTQQWebApi extends Service {
       fail_count: errIndexList.length,
       fail_indexes: errIndexList,
     }
+  }
+
+  async publishGroupBulletin(
+    groupCode: string,
+    text: string,
+    pinned: number,
+    type: number,
+    isShowEditCard: number,
+    tipWindowType: number,
+    confirmRequired: number,
+    picId?: string,
+    imgWidth?: number,
+    imgHeight?: number
+  ) {
+    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    const bkn = this.genBkn(cookieObject.skey)
+
+    const picInfo = {
+      pic: picId,
+      imgWidth: imgWidth?.toString(),
+      imgHeight: imgHeight?.toString()
+    }
+
+    const url = type === 20 ? 'https://web.qun.qq.com/cgi-bin/announce/add_qun_instruction' : 'https://web.qun.qq.com/cgi-bin/announce/add_qun_notice'
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Cookie': this.cookieToString(cookieObject)
+      },
+      body: new URLSearchParams({
+        qid: groupCode,
+        bkn,
+        text,
+        pinned: pinned.toString(),
+        type: type.toString(),
+        settings: JSON.stringify({
+          is_show_edit_card: isShowEditCard,
+          tip_window_type: tipWindowType,
+          confirm_required: confirmRequired,
+        }),
+        ...(picId ? picInfo : {})
+      })
+    })
+
+    if (!res.ok) {
+      throw new Error(`HTTP error! Status: ${res.status}`)
+    }
+
+    return await res.json()
   }
 }

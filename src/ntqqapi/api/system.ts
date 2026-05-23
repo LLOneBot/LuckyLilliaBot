@@ -42,7 +42,11 @@ export class NTQQSystemApi extends Service {
     }>('getDeviceInfo', [])
   }
 
-  async scanQRCode(path: string){
+  async scanQRCode(path: string) {
     return await this.ctx.pmhq.invoke('nodeIKernelNodeMiscService/scanQBar', [path])
+  }
+
+  async getPins() {
+    return await this.ctx.pmhq.fetchPins()
   }
 }

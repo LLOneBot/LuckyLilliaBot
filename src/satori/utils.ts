@@ -3,10 +3,9 @@ import * as NT from '@/ntqqapi/types'
 import * as Universal from '@satorijs/protocol'
 import { Context } from 'cordis'
 import { ObjectToSnake } from 'ts-case-convert'
-import { pathToFileURL } from 'node:url'
 
 interface User {
-  uin: string
+  uin: number | string
   nick: string
   remark?: string
 }
@@ -36,10 +35,10 @@ const robotUinRanges = [
 
 export function decodeUser(user: User): ObjectToSnake<Universal.User> {
   return {
-    id: user.uin,
+    id: user.uin.toString(),
     name: user.nick,
     avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${user.uin}&spec=640`,
-    is_bot: robotUinRanges.some(e => user.uin >= e.minUin && user.uin <= e.maxUin)
+    is_bot: robotUinRanges.some(e => +user.uin >= +e.minUin && +user.uin <= +e.maxUin)
   }
 }
 
@@ -102,7 +101,7 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       }
     } else if (v.picElement) {
       // img
-      const src = await ctx.ntFileApi.getImageUrl(v.picElement)
+      const src = await ctx.ntFileApi.getImageUrl(v.picElement.originImageUrl, v.picElement.md5HexStr)
       buffer.push(h.img(src, {
         width: v.picElement.picWidth,
         height: v.picElement.picHeight,
@@ -114,11 +113,7 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       buffer.push(h.audio(src, { duration: v.pttElement.duration }))
     } else if (v.videoElement) {
       // video
-      const src = (await ctx.ntFileApi.getVideoUrl({
-        chatType: data.chatType,
-        peerUid: data.peerUid,
-        guildId: ''
-      }, data.msgId, v.elementId)) || pathToFileURL(v.videoElement.filePath).href
+      const src = await ctx.ntFileApi.getVideoUrl(v.videoElement.fileUuid, data.chatType === NT.ChatType.Group)
       buffer.push(h.video(src))
     } else if (v.marketFaceElement) {
       // llonebot:market-face
@@ -229,7 +224,7 @@ export async function getPeer(ctx: Context, channelId: string): Promise<NT.Peer>
     const uin = channelId.replace('private:', '')
     const uid = await ctx.ntUserApi.getUidByUin(uin)
     if (!uid) throw new Error('无法获取用户信息')
-    const isBuddy = await ctx.ntFriendApi.isBuddy(uid)
+    const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
       const res = await ctx.ntMsgApi.getTempChatInfo(NT.ChatType.TempC2CFromGroup, uid)
       if (res.tmpChatInfo.groupCode) {

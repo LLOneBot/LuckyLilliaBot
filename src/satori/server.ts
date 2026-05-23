@@ -9,10 +9,10 @@ import { OB11Response } from '@/onebot11/action/OB11Response'
 import { ParseMessageConfig } from '@/onebot11/types'
 import { Hono, Context as HonoContext, Next } from 'hono'
 import { cors } from 'hono/cors'
-import { serve, ServerType } from '@hono/node-server'
+import { serve, ServerType, upgradeWebSocket } from '@hono/node-server'
 import { WSContext } from 'hono/ws'
-import { createNodeWebSocket, NodeWebSocket } from '@hono/node-ws'
 import { Dict } from 'cosmokit'
+import { constants } from 'node:buffer'
 
 export class SatoriServer {
   private app: Hono
@@ -21,7 +21,6 @@ export class SatoriServer {
   private wsClients: WSContext[] = []
   private actionMap?: Map<string, { handle: (params: Dict, config: ParseMessageConfig) => Promise<any> }>
   private routesRegistered = false
-  private injectWebSocket?: NodeWebSocket['injectWebSocket']
 
   constructor(private ctx: Context, private config: SatoriServer.Config) {
     this.app = new Hono()
@@ -64,22 +63,21 @@ export class SatoriServer {
     }
 
     const { host, port } = this.config
+    const wss = new WebSocketServer({
+      noServer: true,
+      maxPayload: constants.MAX_STRING_LENGTH
+    })
     this.httpServer = serve({
       fetch: this.app.fetch,
+      websocket: { server: wss },
       port: port,
       hostname: host
     }, () => {
       this.ctx.logger.info(`Satori server started ${host || '0.0.0.0'}:${port}`)
     })
-    this.injectWebSocket?.(this.httpServer)
   }
 
   private registerRoutes() {
-    // TODO: 待 https://github.com/honojs/middleware/pull/1808 通过后，将 maxPayload 指定为 constants.MAX_STRING_LENGTH
-    // 默认的 maxPayload 为 100 MiB
-    const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app: this.app })
-    this.injectWebSocket = injectWebSocket
-
     this.app.get('/v1/events',
       upgradeWebSocket((c) => {
         return {

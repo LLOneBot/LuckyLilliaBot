@@ -54,10 +54,10 @@ declare module 'cordis' {
 
 class Onebot11Adapter extends Service {
   static inject = [
-    'ntMsgApi', 'ntFileApi', 'ntFileCacheApi',
-    'ntFriendApi', 'ntGroupApi', 'ntUserApi',
-    'ntWebApi', 'ntSystemApi', 'store', 'app',
-    'logger', 'pmhq', 'timer', 'config'
+    'ntMsgApi', 'ntFileApi', 'ntFriendApi',
+    'ntGroupApi', 'ntUserApi', 'ntWebApi',
+    'ntSystemApi', 'store', 'app', 'logger',
+    'pmhq', 'timer', 'config'
   ]
   private connect: (OB11Http | OB11HttpPost | OB11WebSocket | OB11WebSocketReverse)[]
   private actionMap: Map<string, BaseAction<unknown, unknown>>
@@ -261,7 +261,7 @@ class Onebot11Adapter extends Service {
 
   private async handleFriendRequest(req: FriendRequest) {
     const uin = await this.ctx.ntUserApi.getUinByUid(req.friendUid)
-    const flag = req.friendUid + '|' + req.reqTime
+    const flag = req.friendUid
     const friendRequestEvent = new OB11FriendRequestEvent(
       +uin,
       req.extWords,

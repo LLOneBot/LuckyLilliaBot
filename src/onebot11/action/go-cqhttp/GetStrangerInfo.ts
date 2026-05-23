@@ -16,6 +16,10 @@ interface Response extends OB11User {
   city: string
   country: string
   labels: string[]
+  is_vip: boolean
+  is_years_vip: boolean
+  vip_level: number
+  remark: string
 }
 
 export class GetStrangerInfo extends BaseAction<Payload, Response> {
@@ -43,7 +47,11 @@ export class GetStrangerInfo extends BaseAction<Payload, Response> {
       birthday_year: info.birthdayYear,
       birthday_month: info.birthdayMonth,
       birthday_day: info.birthdayDay,
-      labels: info.labels
+      labels: info.labels,
+      is_vip: info.isVip,
+      is_years_vip: info.isYearsVip,
+      vip_level: info.vipLevel,
+      remark: info.remark
     }
   }
 }

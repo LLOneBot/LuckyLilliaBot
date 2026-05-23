@@ -9,12 +9,15 @@ export function UserMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) {
         uin,
         keys: [
           { key: 102 },  // 个性签名
+          { key: 103 },  // 备注
           { key: 104 },  // 标签
           { key: 105 },  // 等级
+          { key: 107 },  // 业务列表
           { key: 20002 },  // 昵称
           { key: 20003 },  // 国家
           { key: 20009 },  // 性别
           { key: 20020 },  // 城市
+          { key: 20021 },  // 学校
           { key: 20026 },  // 注册时间
           { key: 20031 },  // 生日
           { key: 20037 },  // 年龄
@@ -32,6 +35,8 @@ export function UserMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) {
       const info = Oidb.FetchUserInfoResp.decode(oidbRespBody)
       const numbers = Object.fromEntries(info.body.properties.numberProperties.map(p => [p.key, p.value]))
       const bytes = Object.fromEntries(info.body.properties.bytesProperties.map(p => [p.key, p.value]))
+      const business = bytes[107] ? Misc.UserInfoBusiness.decode(bytes[107]) : undefined
+      const vipInfo = business?.body.lists.find((e) => e.type === 1)
       return {
         uin: info.body.uin,
         nick: bytes[20002]?.toString() ?? '',
@@ -40,13 +45,18 @@ export function UserMixin<T extends new (...args: any[]) => PMHQBase>(Base: T) {
         qid: bytes[27394]?.toString() ?? '',
         level: numbers[105],
         regTime: numbers[20026] ?? 0,
-        longNick: bytes[102].toString(),
+        longNick: bytes[102]?.toString() ?? '',
         city: bytes[20020]?.toString() ?? '',
         country: bytes[20003]?.toString() ?? '',
         birthdayYear: (bytes[20031]?.[0] << 8) | bytes[20031]?.[1],
         birthdayMonth: bytes[20031]?.[2] ?? 0,
         birthdayDay: bytes[20031]?.[3] ?? 0,
         labels: bytes[104] ? Misc.UserInfoLabel.decode(bytes[104]).labels.map(e => e.content) : [],
+        school: bytes[20021]?.toString() ?? '',
+        remark: bytes[103]?.toString() ?? '',
+        isVip: !!vipInfo,
+        isYearsVip: !!vipInfo?.isYear,
+        vipLevel: vipInfo?.level ?? 0
       }
     }
 

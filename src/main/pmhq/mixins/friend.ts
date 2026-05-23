@@ -46,5 +46,68 @@ export function FriendMixin<T extends new (...args: any[]) => PMHQBase>(Base: T)
         url: `https://${download.downloadDns}/ftn_handler/${download.downloadUrl.toString('hex')}/?fname=${encodeURIComponent(fileName)}`
       }
     }
+
+    async setFriendRequest(targetUid: string, accept: number) {
+      const body = Oidb.SetFriendRequestReq.encode({
+        targetUid,
+        accept,
+      })
+      const data = Oidb.Base.encode({
+        command: 0xb5d,
+        subCommand: 44,
+        body,
+      })
+      await this.httpSendPB('OidbSvcTrpcTcp.0xb5d_44', data)
+    }
+
+    async setFilteredFriendRequestReq(selfUid: string, requestUid: string) {
+      const body = Oidb.SetFilteredFriendRequestReq.encode({
+        selfUid,
+        requestUid,
+      })
+      const data = Oidb.Base.encode({
+        command: 0xd72,
+        subCommand: 0,
+        body,
+      })
+      await this.httpSendPB('OidbSvcTrpcTcp.0xd72_0', data)
+    }
+
+    async fetchFriends() {
+      const body = Oidb.IncPullReq.encode({
+        reqCount: 500,
+        flag: 1,
+        requestBiz: [{
+          bizType: 1,
+          bizData: {
+            extBusi: [102, 103, 20002, 20009, 20031, 20037, 27394]
+          }
+        }]
+      })
+      const data = Oidb.Base.encode({
+        command: 0xfd4,
+        subCommand: 1,
+        body,
+      })
+      const res = await this.httpSendPB('OidbSvcTrpcTcp.0xfd4_1', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.IncPullResp.decode(oidbRespBody)
+    }
+
+    async getFriendRecommendContactArk(uin: number) {
+      const body = Oidb.GetFriendRecommendContactArkReq.encode({
+        uin,
+        phoneNumber: '-',
+        jumpUrl: `mqqapi://card/show_pslcard?src_type=internal&source=sharecard&version=1&uin=${uin}`,
+      })
+      const data = Oidb.Base.encode({
+        command: 0x12b6,
+        subCommand: 0,
+        body,
+      })
+      const res = await this.httpSendPB('OidbSvcTrpcTcp.0x12b6_0', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.GetFriendRecommendContactArkResp.decode(oidbRespBody)
+    }
   }
 }
