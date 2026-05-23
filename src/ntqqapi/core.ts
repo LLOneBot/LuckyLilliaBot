@@ -75,10 +75,12 @@ declare module 'cordis' {
     'nt/raw/group-mute-all': (input: { groupCode: string, operatorUid: string, isMute: boolean }) => void
     'nt/raw/group-essence-change': (input: { groupCode: string, msgSequence: number, operatorUin: string, isAdd: boolean }) => void
     'nt/raw/group-reaction': (input: { groupCode: string, msgSeq: number, operatorUid: string, code: string, isAdd: boolean, count: number }) => void
-    'nt/raw/group-poke': (input: { groupCode: string, fromUin: string, toUin: string, action: string, suffix: string, actionImg: string }) => void
+    'nt/raw/group-poke': (input: { groupCode: string, fromUin: string, toUin: string, action: string, suffix: string, actionImg: string, msgUid?: string }) => void
+    'nt/raw/group-title-changed': (input: { groupCode: string, memberUin: string, title: string }) => void
     // Friend events
-    'nt/raw/friend-poke': (input: { fromUin: string, toUin: string, action: string, suffix: string, actionImg: string }) => void
+    'nt/raw/friend-poke': (input: { fromUin: string, toUin: string, action: string, suffix: string, actionImg: string, msgUid?: string }) => void
     'nt/raw/friend-pin-changed': (input: { uid: string, isPinned: boolean }) => void
+    'nt/raw/friend-added': (input: { peerUin: string, peerUid: string }) => void
     /** 群/私聊语音转写文字结果异步推送（pttTrans.TransGroupPttReq/TransC2CPttReq 提交后由这条 event 喂结果） */
     'nt/raw/ptt-trans-result': (input: { msgUid: string, chatType: ChatType, peerUin: string, senderUin: string, text: string }) => void
   }
@@ -242,6 +244,7 @@ class Core extends Service {
       }
     })
 
+    const friendRequestSeen: string[] = []
     this.ctx.on('nt/raw/friend-request', payload => {
       this.ctx.ntFriendApi.clearBuddyReqUnreadCnt().catch(e => this.ctx.logger.error(`清除好友申请未读数失败`, e))
       for (const req of payload.buddyReqs) {
@@ -250,6 +253,16 @@ class Core extends Service {
         }
         if (+req.reqTime < this.startupTime) {
           continue
+        }
+        // 去重：同一 friend 在 30s 内的多次 request 推送当成同一事件
+        // (服务器有时会通过 0x210 + InfoSync 双推同一申请)
+        const dedupeKey = `${req.friendUid}|${req.reqTime}`
+        if (friendRequestSeen.includes(dedupeKey)) {
+          continue
+        }
+        friendRequestSeen.push(dedupeKey)
+        if (friendRequestSeen.length > 200) {
+          friendRequestSeen.shift()
         }
         this.ctx.parallel('nt/friend-request', req)
       }

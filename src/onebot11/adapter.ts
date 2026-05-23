@@ -45,6 +45,9 @@ import { BaseAction } from './action/BaseAction'
 import { cloneObj } from '@/common/utils'
 import { OB11GroupMsgEmojiLikeEvent } from './event/notice/OB11MsgEmojiLikeEvent'
 import { GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent'
+import { GroupBanEvent } from './event/notice/OB11GroupBanEvent'
+import { OB11GroupTitleEvent } from './event/notice/OB11GroupTitleEvent'
+import { OB11FriendAddNoticeEvent } from './event/notice/OB11FriendAddNoticeEvent'
 import { OB11GroupCardEvent } from './event/notice/OB11GroupCardEvent'
 import { noop } from 'cosmokit'
 
@@ -65,6 +68,14 @@ class Onebot11Adapter extends Service {
   private actionMap: Map<string, BaseAction<unknown, unknown>>
   private reportOfflineMessage: boolean
   private reportSelfMessage: boolean
+  // 直连模式下的 poke 缓存：msgUid → poke 事件信息，撤回时（nt/message-deleted）回查
+  private pokeCache = new Map<string, {
+    chatType: 'group' | 'friend'
+    groupId?: number
+    userId: number
+    targetId: number
+    rawInfo: unknown
+  }>()
 
   constructor(public ctx: Context, public config: Onebot11Adapter.Config) {
     super(ctx, 'onebot')
@@ -232,7 +243,22 @@ class Onebot11Adapter extends Service {
       chatType: message.chatType,
       guildId: ''
     }
-    // 解析撤回戳一戳
+    // 直连模式：撤回戳一戳走 nt/raw/delete-msg → 这里 message.msgId 对应 contentHead.msgUid，
+    // 命中 pokeCache 直接出 recall 事件
+    const cachedPoke = this.pokeCache.get(message.msgId)
+    if (cachedPoke) {
+      this.pokeCache.delete(message.msgId)
+      if (cachedPoke.chatType === 'group' && cachedPoke.groupId) {
+        return this.dispatch(new OB11GroupPokeRecallEvent(
+          cachedPoke.groupId, cachedPoke.userId, cachedPoke.targetId, cachedPoke.rawInfo,
+        ))
+      } else if (cachedPoke.chatType === 'friend') {
+        return this.dispatch(new OB11FriendPokeRecallEvent(
+          cachedPoke.userId, cachedPoke.targetId, cachedPoke.rawInfo,
+        ))
+      }
+    }
+    // 解析撤回戳一戳（wrapper 模式：通过 grayTipElement 拿到 poke 详情）
     const grayTipElement = message.elements.find(el => el.grayTipElement)?.grayTipElement
     if (grayTipElement && grayTipElement.jsonGrayTipElement?.busiId == JsonGrayTipBusId.Poke) {
       const json = JSON.parse(grayTipElement.jsonGrayTipElement.jsonStr)
@@ -357,6 +383,25 @@ class Onebot11Adapter extends Service {
     this.ctx.on('nt/message-deleted', input => {
       this.handleRecallMsg(input)
     })
+    // 直连模式下 poke 没有对应的 RawMessage，core 那边 getMsgsByMsgId 会失败、永远到不了 nt/message-deleted。
+    // 这里直接监听 raw 层的 delete-msg，命中 pokeCache 就出撤回戳一戳事件。
+    this.ctx.on('nt/raw/delete-msg', payload => {
+      const [, msgIds] = payload
+      for (const msgId of msgIds) {
+        const cached = this.pokeCache.get(msgId)
+        if (!cached) continue
+        this.pokeCache.delete(msgId)
+        if (cached.chatType === 'group' && cached.groupId) {
+          this.dispatch(new OB11GroupPokeRecallEvent(
+            cached.groupId, cached.userId, cached.targetId, cached.rawInfo,
+          ))
+        } else if (cached.chatType === 'friend') {
+          this.dispatch(new OB11FriendPokeRecallEvent(
+            cached.userId, cached.targetId, cached.rawInfo,
+          ))
+        }
+      }
+    })
     this.ctx.on('nt/message-sent', input => {
       this.handleMsg(input, true, false)
     })
@@ -372,25 +417,156 @@ class Onebot11Adapter extends Service {
       const userId = +input.fromUin   // operator
       const targetId = +input.toUin   // target
       if (!groupId || !userId || !targetId) return
-      const rawInfo = [
-        { col: '1', nm: '', type: 'qq', uid: String(userId) },
-        { col: '1', txt: input.action || '戳了戳', type: 'nor' },
-        { col: '1', nm: '', type: 'qq', uid: String(targetId) },
-        ...(input.suffix ? [{ col: '1', txt: input.suffix, type: 'nor' }] : []),
+      const rawInfo: Record<string, unknown>[] = [
+        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: String(userId) },
+        { col: '1', jp: '', txt: input.action || '戳了戳', type: 'nor' },
+        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: String(targetId) },
       ]
+      if (input.suffix) {
+        rawInfo.push({ col: '1', jp: '', txt: input.suffix, type: 'nor' })
+      }
+      if (input.actionImg) {
+        rawInfo.push({ src: input.actionImg, type: 'img' })
+      }
+      if (input.msgUid && input.msgUid !== '0') {
+        this.pokeCache.set(input.msgUid, { chatType: 'group', groupId, userId, targetId, rawInfo })
+        if (this.pokeCache.size > 500) {
+          const firstKey = this.pokeCache.keys().next().value
+          if (firstKey) this.pokeCache.delete(firstKey)
+        }
+      }
       this.dispatch(new OB11GroupPokeEvent(groupId, userId, targetId, rawInfo))
     })
     this.ctx.on('nt/raw/friend-poke', input => {
       const userId = +input.fromUin   // operator
       const targetId = +input.toUin   // target
       if (!userId || !targetId) return
-      const rawInfo = [
-        { col: '1', nm: '', type: 'qq', uid: String(userId) },
-        { col: '1', txt: input.action || '戳了戳', type: 'nor' },
-        { col: '1', nm: '', type: 'qq', uid: String(targetId) },
-        ...(input.suffix ? [{ col: '1', txt: input.suffix, type: 'nor' }] : []),
+      const rawInfo: Record<string, unknown>[] = [
+        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: String(userId) },
+        { col: '1', jp: '', txt: input.action || '戳了戳', type: 'nor' },
+        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: String(targetId) },
       ]
+      if (input.suffix) {
+        rawInfo.push({ col: '1', jp: '', txt: input.suffix, type: 'nor' })
+      }
+      if (input.actionImg) {
+        rawInfo.push({ src: input.actionImg, type: 'img' })
+      }
+      if (input.msgUid && input.msgUid !== '0') {
+        this.pokeCache.set(input.msgUid, { chatType: 'friend', userId, targetId, rawInfo })
+        if (this.pokeCache.size > 500) {
+          const firstKey = this.pokeCache.keys().next().value
+          if (firstKey) this.pokeCache.delete(firstKey)
+        }
+      }
       this.dispatch(new OB11FriendPokeEvent(userId, targetId, rawInfo))
+    })
+    this.ctx.on('nt/raw/group-reaction', async input => {
+      const groupId = +input.groupCode
+      if (!groupId) return
+      try {
+        const operatorUin = input.operatorUid
+          ? await this.ctx.ntUserApi.getUinByUid(input.operatorUid)
+          : '0'
+        const peerUid = String(groupId)
+        const cached = this.ctx.store.findCachedMsgByPeerSeq(peerUid, String(input.msgSeq))
+        let messageId = 0
+        if (cached) {
+          messageId = this.ctx.store.createMsgShortId(cached)
+        }
+        this.dispatch(new OB11GroupMsgEmojiLikeEvent(
+          groupId,
+          +operatorUin,
+          messageId,
+          [{ emoji_id: input.code, count: input.count }],
+          input.isAdd,
+        ))
+      } catch (e) {
+        this.ctx.logger.warn('group-reaction bridge error:', (e as Error).message)
+      }
+    })
+    this.ctx.on('nt/raw/group-mute', async input => {
+      const groupId = +input.groupCode
+      if (!groupId) return
+      try {
+        const targetUin = input.targetUid
+          ? await this.ctx.ntUserApi.getUinByUid(input.targetUid)
+          : '0'
+        const operatorUin = input.operatorUid
+          ? await this.ctx.ntUserApi.getUinByUid(input.operatorUid)
+          : '0'
+        const subType = input.duration > 0 ? 'ban' : 'lift_ban'
+        this.dispatch(new GroupBanEvent(groupId, +targetUin, +operatorUin, input.duration, subType))
+      } catch (e) {
+        this.ctx.logger.warn('group-mute bridge error:', (e as Error).message)
+      }
+    })
+    this.ctx.on('nt/raw/group-mute-all', async input => {
+      const groupId = +input.groupCode
+      if (!groupId) return
+      try {
+        const operatorUin = input.operatorUid
+          ? await this.ctx.ntUserApi.getUinByUid(input.operatorUid)
+          : '0'
+        // 0 表示全员禁言。开启用 -1，解除用 0（OB11 约定）
+        const duration = input.isMute ? -1 : 0
+        const subType = input.isMute ? 'ban' : 'lift_ban'
+        this.dispatch(new GroupBanEvent(groupId, 0, +operatorUin, duration, subType))
+      } catch (e) {
+        this.ctx.logger.warn('group-mute-all bridge error:', (e as Error).message)
+      }
+    })
+    this.ctx.on('nt/raw/group-essence-change', async input => {
+      const groupId = +input.groupCode
+      if (!groupId) return
+      try {
+        const peerUid = String(groupId)
+        const cached = this.ctx.store.findCachedMsgByPeerSeq(peerUid, String(input.msgSequence))
+        let messageId = 0
+        let senderId = 0
+        if (cached) {
+          messageId = this.ctx.store.createMsgShortId(cached)
+          senderId = +(cached.senderUin || 0)
+        }
+        this.dispatch(new GroupEssenceEvent(
+          groupId,
+          messageId,
+          senderId,
+          +input.operatorUin,
+          input.isAdd ? 'add' : 'delete',
+        ))
+      } catch (e) {
+        this.ctx.logger.warn('group-essence-change bridge error:', (e as Error).message)
+      }
+    })
+    this.ctx.on('nt/raw/group-title-changed', async input => {
+      const groupId = +input.groupCode
+      if (!groupId) return
+      try {
+        // memberUin 在 templateParams 里有可能是 uin，也有可能是 uid，统一兜底处理
+        let userId = +input.memberUin
+        if (!userId && input.memberUin?.startsWith('u_')) {
+          const uin = await this.ctx.ntUserApi.getUinByUid(input.memberUin)
+          userId = +uin
+        }
+        if (!userId) return
+        this.dispatch(new OB11GroupTitleEvent(groupId, userId, input.title))
+      } catch (e) {
+        this.ctx.logger.warn('group-title-changed bridge error:', (e as Error).message)
+      }
+    })
+    this.ctx.on('nt/raw/friend-added', async input => {
+      try {
+        let userId = +input.peerUin
+        if (!userId && input.peerUid) {
+          const uin = await this.ctx.ntUserApi.getUinByUid(input.peerUid)
+          userId = +uin
+        }
+        if (!userId) return
+        this.dispatch(new OB11FriendAddNoticeEvent(userId))
+      } catch (e) {
+        this.ctx.logger.warn('friend-added bridge error:', (e as Error).message)
+      }
     })
     this.ctx.on('nt/system-message-created', async input => {
       const sysMsg = Msg.Message.decode(input)
@@ -438,6 +614,20 @@ class Onebot11Adapter extends Service {
             adminUin = await this.ctx.ntUserApi.getUinByUid(adminUid)
           }
           const event = new OB11GroupDecreaseEvent(tip.groupCode, +memberUin, +adminUin, 'kick')
+          this.dispatch(event)
+        } else if (tip.type === 3) {
+          // bot 自己被踢出群（群解散时也会触发 type=3，operatorUid 是群主）
+          this.ctx.logger.info('bot 被踢出群/群解散', tip)
+          let adminUin = '0'
+          let adminUid = tip.adminUid
+          if (adminUid) {
+            const adminUidMatch = tip.adminUid.match(/\x18([^\x18\x10]+)\x10/)
+            if (adminUidMatch) {
+              adminUid = adminUidMatch[1]
+            }
+            adminUin = await this.ctx.ntUserApi.getUinByUid(adminUid)
+          }
+          const event = new OB11GroupDecreaseEvent(tip.groupCode, +selfInfo.uin, +adminUin, 'kick_me')
           this.dispatch(event)
         }
       }

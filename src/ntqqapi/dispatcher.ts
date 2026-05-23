@@ -140,11 +140,11 @@ function handle0x210(ctx: Context, msg: any, subType: number) {
       break
 
     case Event0x210Sub.FriendDeleteOrPinChanged:
-      handleFriendDeleteOrPin(ctx, content)
+      handleFriendDeleteOrPin(ctx, msg, content)
       break
 
     case Event0x210Sub.FriendGrayTip:
-      handleFriendGrayTip(ctx, content)
+      handleFriendGrayTip(ctx, msg, content)
       break
 
     case Event0x210Sub.PttTransResult:
@@ -157,7 +157,7 @@ function handle0x210(ctx: Context, msg: any, subType: number) {
   }
 }
 
-function handleFriendDeleteOrPin(ctx: Context, content: Buffer) {
+function handleFriendDeleteOrPin(ctx: Context, msg: any, content: Buffer) {
   try {
     const decoded: any = Notify.FriendDeleteOrPinChange.decode(content)
     const pinChanged = decoded.body?.pinChanged
@@ -165,22 +165,26 @@ function handleFriendDeleteOrPin(ctx: Context, content: Buffer) {
       const uid = pinChanged.body?.uid || ''
       ctx.parallel('nt/raw/friend-pin-changed', { uid, isPinned: true })
     } else {
-      // Profile like or other; forward as is
-      ctx.parallel('nt/system-message-created', content)
+      // Profile like or other; forward full Msg.Message so adapter can decode contentHead
+      forwardSystemMessage(ctx, msg)
     }
   } catch (e) {
     ctx.logger('qqProtocol').warn('FriendDeleteOrPin parse error:', (e as Error).message)
   }
 }
 
-function handleFriendGrayTip(ctx: Context, content: Buffer) {
+function handleFriendGrayTip(ctx: Context, msg: any, content: Buffer) {
   try {
     const decoded: any = Notify.GeneralGrayTip.decode(content)
-    if (Number(decoded.bizType ?? 0) === 12) {
-      const params: Record<string, string> = {}
-      for (const p of decoded.templateParams || []) {
-        params[p.key] = p.value
-      }
+    const bizType = Number(decoded.bizType ?? 0)
+    const busiId = Number(decoded.busiId ?? 0)
+    const templId = Number(decoded.templId ?? 0)
+    const params: Record<string, string> = {}
+    for (const p of decoded.templateParams || []) {
+      params[p.key] = p.value
+    }
+    const msgUid = String(msg?.contentHead?.msgUid || 0)
+    if (bizType === 12) {
       ctx.parallel('nt/raw/friend-poke', {
         // uin_str1 = 操作者，uin_str2 = 被戳的人
         fromUin: params['uin_str1'] || '0',
@@ -188,7 +192,14 @@ function handleFriendGrayTip(ctx: Context, content: Buffer) {
         action: params['action_str'] || params['alt_str1'] || '',
         suffix: params['suffix_str'] || '',
         actionImg: params['action_img_url'] || '',
+        msgUid,
       })
+    } else if (busiId === 19324 || templId === 10229) {
+      // 你已添加X为好友
+      const peerUin = params['peer_uin'] || params['friend_uin']
+        || params['uin'] || params['target_uin'] || '0'
+      const peerUid = params['peer_uid'] || params['friend_uid'] || ''
+      ctx.parallel('nt/raw/friend-added', { peerUin, peerUid })
     }
   } catch (e) {
     ctx.logger('qqProtocol').warn('FriendGrayTip parse error:', (e as Error).message)
@@ -310,7 +321,7 @@ function handle0x2DC(ctx: Context, msg: any, subType: number) {
       break
 
     case Event0x2DCSub.GroupGrayTip:
-      handleGroupGrayTip(ctx, content)
+      handleGroupGrayTip(ctx, msg, content)
       break
 
     case Event0x2DCSub.GroupEssenceChange:
@@ -325,10 +336,12 @@ function handle0x2DC(ctx: Context, msg: any, subType: number) {
 
 function handleGroupMute(ctx: Context, content: Buffer) {
   try {
+    if (content.length < 7) return
+    const groupUin = content.readUInt32BE(0)
     const inner = unwrap0x2DCContent(content)
     if (!inner) return
     const decoded: any = Notify.GroupMute.decode(inner)
-    const groupCode = String(decoded.groupCode || 0)
+    const groupCode = String(decoded.groupCode || groupUin)
     const operatorUid = decoded.operatorUid || ''
     const targetUid = decoded.info?.state?.targetUid
     const duration = decoded.info?.state?.duration || 0
@@ -345,11 +358,13 @@ function handleGroupMute(ctx: Context, content: Buffer) {
 
 function handleGroupGeneralEvent(ctx: Context, content: Buffer) {
   try {
+    if (content.length < 7) return
+    const groupUin = content.readUInt32BE(0)
     const inner = unwrap0x2DCContent(content)
     if (!inner) return
-    // Try GroupReaction first (most common subtype 16 use case)
     const reaction = tryDecodeReaction(inner)
     if (reaction) {
+      reaction.groupCode = String(groupUin)
       ctx.parallel('nt/raw/group-reaction', reaction)
     }
   } catch (e) {
@@ -378,7 +393,7 @@ function tryDecodeReaction(buf: Buffer): { groupCode: string, msgSeq: number, op
   }
 }
 
-function handleGroupGrayTip(ctx: Context, content: Buffer) {
+function handleGroupGrayTip(ctx: Context, msg: any, content: Buffer) {
   try {
     if (content.length < 7) return
     const groupUin = content.readUInt32BE(0)
@@ -388,12 +403,14 @@ function handleGroupGrayTip(ctx: Context, content: Buffer) {
     const grayTip = notifyBody.generalGrayTip
     if (!grayTip) return
     const bizType = Number(grayTip.bizType ?? 0)
+    const busiId = Number(grayTip.busiId ?? 0)
+    const params: Record<string, string> = {}
+    for (const p of grayTip.templateParams || []) {
+      params[p.key] = p.value
+    }
+    const msgUid = String(msg?.contentHead?.msgUid || 0)
     if (bizType === 12) {
       // Poke (group)
-      const params: Record<string, string> = {}
-      for (const p of grayTip.templateParams || []) {
-        params[p.key] = p.value
-      }
       ctx.parallel('nt/raw/group-poke', {
         groupCode: String(groupUin),
         // uin_str1 = 操作者（fromUin），uin_str2 = 被戳的人（toUin）
@@ -402,7 +419,22 @@ function handleGroupGrayTip(ctx: Context, content: Buffer) {
         action: params['action_str'] || params['alt_str1'] || '',
         suffix: params['suffix_str'] || '',
         actionImg: params['action_img_url'] || '',
+        msgUid,
       })
+    } else if (busiId === 2407) {
+      // 群成员获得头衔
+      // templateParams 一般含 mqq_uin / member_uin / uin 等指代成员的 key，
+      // 以及 title / new_title / honor 指代头衔的 key
+      const memberUin = params['mqq_uin'] || params['member_uin']
+        || params['uin'] || params['target_uin'] || '0'
+      const title = params['title'] || params['new_title'] || params['honor'] || ''
+      if (memberUin !== '0' && title) {
+        ctx.parallel('nt/raw/group-title-changed', {
+          groupCode: String(groupUin),
+          memberUin,
+          title,
+        })
+      }
     }
   } catch (e) {
     ctx.logger('qqProtocol').warn('GroupGrayTip parse error:', (e as Error).message)
@@ -411,11 +443,13 @@ function handleGroupGrayTip(ctx: Context, content: Buffer) {
 
 function handleGroupEssenceChange(ctx: Context, content: Buffer) {
   try {
+    if (content.length < 7) return
+    const groupUin = content.readUInt32BE(0)
     const inner = unwrap0x2DCContent(content)
     if (!inner) return
     const decoded: any = Notify.GroupEssenceChange.decode(inner)
     ctx.parallel('nt/raw/group-essence-change', {
-      groupCode: String(decoded.groupCode || 0),
+      groupCode: String(decoded.groupCode || groupUin),
       msgSequence: decoded.msgSequence || 0,
       operatorUin: String(decoded.operatorUin || 0),
       isAdd: decoded.setFlag === 1,
@@ -546,8 +580,11 @@ function handleGroupJoinRequest(ctx: Context, msg: any) {
     if (!content) return
     const decoded = Notify.GroupJoinRequest.decode(content)
 
+    // core.ts 用 +notify.seq / 1000 / 1000 当 unix 秒过滤启动前的旧 notify，
+    // 这里用 Date.now()*1000 (微秒) 保证能过启动时间检查
+    const seq = String(Date.now() * 1000)
     const notify = {
-      seq: String(msg.contentHead?.msgSeq || Date.now()),
+      seq,
       type: GroupNotifyType.RequestJoinNeedAdminiStratorPass,
       status: GroupNotifyStatus.Unhandle,
       group: { groupCode: String(decoded.groupCode), groupName: '' },
@@ -595,7 +632,7 @@ function handleGroupInvitation(ctx: Context, msg: any, msgType: number) {
     }
 
     const notify = {
-      seq: String(msg.contentHead?.msgSeq || Date.now()),
+      seq: String(Date.now() * 1000),
       type: GroupNotifyType.InvitedByMember,
       status: GroupNotifyStatus.Unhandle,
       group: { groupCode, groupName: '' },

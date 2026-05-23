@@ -129,7 +129,9 @@ export namespace OB11Entities {
     if (msg.chatType !== ChatType.C2C) {
       return
     }
-    if (msg.msgType !== 5 && msg.msgType !== 11) {
+    // wrapper 模式：msgType=5 是 GrayTip, 11 是 ArkStruct
+    // 直连模式：所有消息都映射为 msgType=2，靠 element 判别
+    if (msg.msgType !== 5 && msg.msgType !== 11 && msg.msgType !== 2) {
       return
     }
 
@@ -190,7 +192,9 @@ export namespace OB11Entities {
     if (msg.chatType !== ChatType.Group) {
       return
     }
-    if (msg.msgType !== 5 && msg.msgType !== 3) {
+    // wrapper 模式：msgType=5 是 GrayTip, 3 是 File
+    // 直连模式：所有消息都映射为 msgType=2，靠 element 判别
+    if (msg.msgType !== 5 && msg.msgType !== 3 && msg.msgType !== 2) {
       return
     }
 
