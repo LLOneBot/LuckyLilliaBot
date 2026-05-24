@@ -32,6 +32,10 @@ declare module 'minato' {
       groupId: string
       userId: string
       card: string
+    },
+    uix: {
+      uid: string
+      uin: number
     }
   }
 }
@@ -101,6 +105,13 @@ class Store extends Service {
       card: 'string(60)'
     }, {
       primary: ['groupId', 'userId']
+    })
+    this.ctx.model.extend('uix', {
+      uid: 'string(24)',
+      uin: 'unsigned(10)'
+    }, {
+      primary: 'uid',
+      indexes: ['uin']
     })
   }
 
@@ -271,6 +282,20 @@ class Store extends Service {
       userId,
       card
     }])
+  }
+
+  async addUix(uix: { uid: string, uin: number }[]) {
+    return await this.ctx.database.upsert('uix', uix)
+  }
+
+  async getUinByUid(uid: string): Promise<number | undefined> {
+    const items = await this.ctx.database.get('uix', { uid })
+    return items[0]?.uin
+  }
+
+  async getUidByUin(uin: number): Promise<string | undefined> {
+    const items = await this.ctx.database.get('uix', { uin })
+    return items[0]?.uid
   }
 }
 

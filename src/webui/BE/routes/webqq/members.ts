@@ -14,23 +14,21 @@ export function createMembersRoutes(ctx: Context): Hono {
         return c.json({ success: false, message: '缺少群号参数' }, 400)
       }
 
-      const result = await ctx.ntGroupApi.getGroupMembers(groupCode)
+      const result = await ctx.ntGroupApi.getGroupMembers(+groupCode, false)
       const members: Dict[] = []
 
-      if (result?.result?.infos) {
-        for (const [uid, member] of result.result.infos) {
-          const role = member.role === 4 ? 'owner' : member.role === 3 ? 'admin' : 'member'
-          members.push({
-            uid: member.uid,
-            uin: member.uin,
-            nickname: member.nick,
-            card: member.cardName || '',
-            avatar: `https://q1.qlogo.cn/g?b=qq&nk=${member.uin}&s=640`,
-            role,
-            level: member.memberRealLevel || member.memberLevel || 0,
-            specialTitle: member.memberSpecialTitle || ''
-          })
-        }
+      for (const [uid, member] of result) {
+        const role = member.role === 1 ? 'owner' : member.role === 2 ? 'admin' : 'member'
+        members.push({
+          uid: member.uid,
+          uin: member.uin.toString(),
+          nickname: member.nick,
+          card: member.cardName || '',
+          avatar: `https://q1.qlogo.cn/g?b=qq&nk=${member.uin}&s=640`,
+          role,
+          level: member.level,
+          specialTitle: member.specialTitle
+        })
       }
 
       // 按角色排序：群主 > 管理员 > 成员

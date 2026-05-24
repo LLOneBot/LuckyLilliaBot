@@ -23,12 +23,12 @@ export default class SetGroupAdmin extends BaseAction<Payload, null> {
     const uid = await this.ctx.ntUserApi.getUidByUin(uin, groupCode)
     if (!uid) throw new Error('无法获取用户信息')
     const res = await this.ctx.ntGroupApi.setMemberRole(
-      groupCode,
+      +payload.group_id,
       uid,
-      payload.enable ? GroupMemberRole.Admin : GroupMemberRole.Normal
+      payload.enable
     )
-    if (res.result !== 0) {
-      throw new Error(res.errMsg)
+    if (res.errorCode !== 0) {
+      throw new Error(res.errorMsg)
     }
     return null
   }

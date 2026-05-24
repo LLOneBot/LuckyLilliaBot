@@ -10,6 +10,7 @@ import {
   Friend,
   GrayTipElementSubType,
   GroupMember,
+  GroupMemberRole,
   JsonGrayTipBusId,
   Peer,
   RawMessage,
@@ -84,11 +85,11 @@ export namespace OB11Entities {
       // 284840486: 合并转发内部
       if (msg.peerUin !== '284840486') {
         try {
-          const member = await ctx.ntGroupApi.getGroupMember(msg.peerUin, msg.senderUid)
-          resMsg.sender.nickname = member.nick
-          resMsg.sender.role = groupMemberRole(member.role)
-          resMsg.sender.level = member.memberRealLevel.toString()
-          resMsg.sender.title = member.memberSpecialTitle
+          const member = await ctx.ntGroupApi.getGroupMemberByUid(+msg.peerUin, msg.senderUid, false)
+          resMsg.sender.nickname = member!.nick
+          resMsg.sender.role = groupMemberRole(member!.role)
+          resMsg.sender.level = member!.level.toString()
+          resMsg.sender.title = member!.specialTitle
         } catch {
           resMsg.sender.nickname = msg.sendMemberName || msg.sendNickName
         }
@@ -323,12 +324,10 @@ export namespace OB11Entities {
     return raw.map(friend)
   }
 
-  export function groupMemberRole(role: number): OB11GroupMemberRole {
-    return {
-      4: OB11GroupMemberRole.Owner,
-      3: OB11GroupMemberRole.Admin,
-      2: OB11GroupMemberRole.Member,
-    }[role] ?? OB11GroupMemberRole.Member
+  export function groupMemberRole(role: GroupMemberRole): OB11GroupMemberRole {
+    if (role === GroupMemberRole.Owner) return OB11GroupMemberRole.Owner
+    if (role === GroupMemberRole.Admin) return OB11GroupMemberRole.Admin
+    return OB11GroupMemberRole.Member
   }
 
   export function sex(sex: Sex): OB11UserSex {
@@ -342,26 +341,48 @@ export namespace OB11Entities {
   }
 
   export function groupMember(groupId: number, member: GroupMember): OB11GroupMember {
+    const robotUinRanges = [
+      {
+        minUin: 3328144510,
+        maxUin: 3328144510
+      },
+      {
+        minUin: 2854196301,
+        maxUin: 2854216399
+      },
+      {
+        minUin: 66600000,
+        maxUin: 66600000
+      },
+      {
+        minUin: 3889000000,
+        maxUin: 3889999999
+      },
+      {
+        minUin: 4010000000,
+        maxUin: 4019999999
+      }
+    ]
     return {
       group_id: groupId,
-      user_id: +member.uin,
+      user_id: member.uin,
       nickname: member.nick,
       card: member.cardName,
       card_or_nickname: member.cardName || member.nick,
       sex: OB11UserSex.Unknown,
       age: 0,
       area: '',
-      level: String(member.memberRealLevel),
+      level: String(member.level),
       qq_level: 0,
-      join_time: member.joinTime,
-      last_sent_time: member.lastSpeakTime,
+      join_time: member.joinedAt,
+      last_sent_time: member.lastSpokeAt,
       title_expire_time: 0,
       unfriendly: false,
       card_changeable: true,
-      is_robot: member.isRobot,
-      shut_up_timestamp: member.shutUpTime,
+      is_robot: robotUinRanges.some(e => member.uin >= e.minUin && member.uin <= e.maxUin),
+      shut_up_timestamp: member.shutupExpireTime,
       role: groupMemberRole(member.role),
-      title: member.memberSpecialTitle,
+      title: member.specialTitle,
     }
   }
 }

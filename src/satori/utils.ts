@@ -186,13 +186,13 @@ export function decodeGuildMember(data: NT.GroupMember): ObjectToSnake<Universal
     user: decodeUser(data),
     nick: data.cardName || data.nick,
     avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${data.uin}&spec=640`,
-    joined_at: data.joinTime * 1000,
+    joined_at: data.joinedAt * 1000,
     roles: [{
       id: data.role.toString(),
       name: {
-        4: 'owner',
-        3: 'admin',
-        2: 'member',
+        [NT.GroupMemberRole.Owner]: 'owner',
+        [NT.GroupMemberRole.Admin]: 'admin',
+        [NT.GroupMemberRole.Normal]: 'member',
       }[data.role]
     }]
   }

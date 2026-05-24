@@ -38,9 +38,9 @@ export async function transformGroupMessageCreated(
   try {
     if (!message.senderUid || message.peerUin === message.senderUid) return null
     const group = await ctx.ntGroupApi.getGroup(+message.peerUid, false)
-    const member = await ctx.ntGroupApi.getGroupMember(message.peerUin, message.senderUid)
+    const member = await ctx.ntGroupApi.getGroupMemberByUid(+message.peerUin, message.senderUid, false)
 
-    const transformedMessage = await transformIncomingGroupMessage(ctx, group, member, message)
+    const transformedMessage = await transformIncomingGroupMessage(ctx, group, member!, message)
     if (transformedMessage.segments.length === 0) {
       return null
     }

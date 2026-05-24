@@ -55,53 +55,6 @@ export enum GroupStatus {
   Disable
 }
 
-export enum GroupMemberRole {
-  Normal = 2,
-  Admin = 3,
-  Owner = 4,
-}
-
-export interface GroupMember {
-  uid: string
-  qid: string
-  uin: string
-  nick: string
-  remark: string
-  cardType: number
-  cardName: string
-  role: GroupMemberRole
-  avatarPath: string
-  shutUpTime: number
-  isDelete: boolean
-  isSpecialConcerned: boolean
-  isSpecialShield: boolean
-  isRobot: boolean
-  groupHonor: Uint8Array
-  memberRealLevel: number
-  memberLevel: number
-  globalGroupLevel: number
-  globalGroupPoint: number
-  memberTitleId: number
-  memberSpecialTitle: string
-  specialTitleExpireTime: string
-  userShowFlag: number
-  userShowFlagNew: number
-  richFlag: number
-  mssVipType: number
-  bigClubLevel: number
-  bigClubFlag: number
-  autoRemark: string
-  creditLevel: number
-  joinTime: number
-  lastSpeakTime: number
-  memberFlag: number
-  memberFlagExt: number
-  memberMobileFlag: number
-  memberFlagExt2: number
-  isSpecialShielded: boolean
-  cardNameId: number
-}
-
 export interface PublishGroupBulletinReq {
   text: string
   picInfo?: {
@@ -423,4 +376,23 @@ export interface Group {
   isPin: boolean
   groupShutupExpireTime: number
   personShutupExpireTime: number
+}
+
+export enum GroupMemberRole {
+  Normal = 0,
+  Admin = 2,
+  Owner = 1
+}
+
+export interface GroupMember {
+  uin: number
+  uid: string
+  nick: string
+  cardName: string
+  specialTitle: string
+  level: number
+  joinedAt: number
+  lastSpokeAt: number
+  shutupExpireTime: number
+  role: GroupMemberRole
 }

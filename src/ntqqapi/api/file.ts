@@ -1,14 +1,9 @@
-import {
-  ElementType,
-  IMAGE_HTTP_HOST,
-  IMAGE_HTTP_HOST_NT,
-} from '../types'
+import { IMAGE_HTTP_HOST, IMAGE_HTTP_HOST_NT } from '../types'
 import path from 'node:path'
-import os from 'node:os'
 import { createReadStream, readFileSync } from 'node:fs'
 import { RkeyManager } from '@/ntqqapi/helper/rkey'
-import { calculateSha1StreamBytes, getFileType, getMd5HexFromFile, getSha1HexFromFile } from '@/common/utils/file'
-import { copyFile, mkdir, stat as fsStat } from 'node:fs/promises'
+import { calculateSha1StreamBytes, getSha1HexFromFile } from '@/common/utils/file'
+import { stat as fsStat } from 'node:fs/promises'
 import { randomUUID, createHash } from 'node:crypto'
 import { Service, Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'

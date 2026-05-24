@@ -654,7 +654,7 @@ export class NTQQWebApi extends Service {
   }
 
   /** 拉群公告列表 — web.qun.qq.com/cgi-bin/announce/list_announce */
-  async getGroupBulletinList(groupCode: string): Promise<any> {
+  async getGroupBulletinList(groupCode: string) {
     const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
     const url = `https://web.qun.qq.com/cgi-bin/announce/list_announce?qid=${groupCode}&bkn=${bkn}&ft=23&s=-1&n=20&ni=1&i=1`

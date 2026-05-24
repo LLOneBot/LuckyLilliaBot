@@ -105,15 +105,17 @@ const SetGroupMemberAdmin = defineApi(
   SetGroupMemberAdminInput,
   z.object({}),
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
-    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
-    const result = await ctx.ntGroupApi.setMemberRole(
-      groupCode,
-      memberUid,
-      payload.is_set ? 3 : 2
+    const memberUid = await ctx.ntUserApi.getUidByUin(
+      payload.user_id.toString(),
+      payload.group_id.toString()
     )
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    const result = await ctx.ntGroupApi.setMemberRole(
+      payload.group_id,
+      memberUid,
+      payload.is_set
+    )
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }

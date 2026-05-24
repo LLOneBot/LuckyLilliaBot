@@ -348,10 +348,7 @@ export class QQProtocolBase extends Service {
     const decoded = Oidb.Base.decode(Buffer.from(resp.pb, 'hex'))
     const errorCode = decoded.errorCode ?? 0
     const errorMsg = decoded.errorMsg ?? ''
-    if (errorCode !== 0) {
-      throw new Error(`OIDB ${cmd} failed: errorCode=${errorCode}, errorMsg=${errorMsg}`)
-    }
-    return { errorCode, errorMsg, body: decoded.body as Uint8Array }
+    return { errorCode, errorMsg, body: decoded.body }
   }
 
   startHook() {

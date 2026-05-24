@@ -2,6 +2,7 @@ import { Action, Oidb } from '@/ntqqapi/proto'
 import { selfInfo } from '@/common/globalVars'
 import type { QQProtocolBase } from '../base'
 import { randomInt } from 'node:crypto'
+import { InferProtoModel } from '@saltify/typeproto'
 
 export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
   return class extends Base {
@@ -287,39 +288,31 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return Oidb.FetchGroupResp.decode(oidbRespBody)
     }
 
-    async fetchGroupMembers(groupCode: number) {
-      const all: any[] = []
-      let cookie: Buffer | undefined = undefined
-      while (true) {
-        const body = Oidb.FetchGroupMembersReq.encode({
-          groupCode,
-          field2: 5,
-          field3: 2,
-          body: {
-            memberName: true,
-            memberCard: true,
-            level: true,
-            specialTitle: true,
-            joinTimestamp: true,
-            lastMsgTimestamp: true,
-            shutUpTimestamp: true,
-            permission: true,
-          },
-          cookie,
-        })
-        const data = Oidb.Base.encode({
-          command: 0xfe7,
-          subCommand: 3,
-          body,
-        })
-        const res = await this.sendPB('OidbSvcTrpcTcp.0xfe7_3', data)
-        const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-        const decoded = Oidb.FetchGroupMembersResp.decode(oidbRespBody)
-        all.push(...(decoded.members || []))
-        if (!decoded.cookie || decoded.cookie.length === 0) break
-        cookie = Buffer.from(decoded.cookie)
-      }
-      return all
+    async fetchGroupMembers(groupCode: number, cookie?: Buffer) {
+      const body = Oidb.FetchGroupMembersReq.encode({
+        groupCode,
+        field2: 5,
+        field3: 2,
+        body: {
+          memberName: true,
+          memberCard: true,
+          level: true,
+          specialTitle: true,
+          joinTimestamp: true,
+          lastMsgTimestamp: true,
+          shutUpTimestamp: true,
+          permission: true,
+        },
+        cookie,
+      })
+      const data = Oidb.Base.encode({
+        command: 0xfe7,
+        subCommand: 3,
+        body,
+      })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0xfe7_3', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.FetchGroupMembersResp.decode(oidbRespBody)
     }
 
     async kickGroupMember(groupCode: number, memberUid: string, rejectSubsequentRequests = false, reason = '') {
@@ -412,18 +405,6 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const res = await this.sendPB(`OidbSvcTrpcTcp.0x10c0_${subCommand}`, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchGroupNotifiesResp.decode(oidbRespBody)
-    }
-
-    /** 通过拉全成员然后本地过滤实现 searchMember */
-    async searchGroupMember(groupCode: number, keyword: string) {
-      const all = await this.fetchGroupMembers(groupCode)
-      const lower = keyword.toLowerCase()
-      return all.filter((m: any) => {
-        const name = m.memberName?.toLowerCase() || ''
-        const card = m.memberCard?.memberCard?.toLowerCase() || ''
-        const uin = String(m.id?.uin || '')
-        return name.includes(lower) || card.includes(lower) || uin.includes(keyword)
-      })
     }
 
     async getGroupRecommendContactArk(groupCode: number) {

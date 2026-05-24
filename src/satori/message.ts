@@ -6,13 +6,10 @@ import { Message } from '@satorijs/protocol'
 import { SendElement } from '@/ntqqapi/entities'
 import { decodeMessage, getPeer } from './utils'
 import { ObjectToSnake } from 'ts-case-convert'
-import { sleep, uri2local } from '@/common/utils'
+import { uri2local } from '@/common/utils'
 import { unlink } from 'node:fs/promises'
-import { selfInfo } from '@/common/globalVars'
-import { InferProtoModelInput } from '@saltify/typeproto'
-import { Media, Msg } from '@/ntqqapi/proto'
-import { deflateSync } from 'node:zlib'
 import { noop } from 'cosmokit'
+import { selfInfo } from '@/common/globalVars'
 
 interface Author {
   id?: string
@@ -23,7 +20,6 @@ interface Author {
 class State {
   author: Author = {}
   children: (NT.SendMessageElement[] | string)[] = []
-  subMultiMsgItems: InferProtoModelInput<typeof Msg.PbMultiMsgItem>[] = []
 
   constructor(public type: 'message' | 'multiForward') { }
 }
@@ -126,245 +122,73 @@ export class MessageEncoder {
     }
   }
 
-  private async forward(msgId: string, srcPeer: NT.Peer, destPeer: NT.Peer) {
-    const msg = await this.ctx.ntMsgApi.forwardMsg(srcPeer, destPeer, [msgId])
-    return msg
-  }
-
   private async multiForward() {
     if (!this.stack[0].children.length) return
 
-    let needFake = false
-    const isMix = this.stack[0].children.some(v => typeof v !== typeof this.stack[0].children[0])
-    if (isMix) {
-      needFake = true
-    } else if (typeof this.stack[0].children[0] === 'object') {
-      needFake = true
-    }
-    if (Object.keys(this.stack[0].author).length > 0) {
-      needFake = true
-    }
+    this.peer ??= await getPeer(this.ctx, this.channelId)
+    const nodes: {
+      senderUin: number
+      senderName: string
+      elements: NT.SendMessageElement[]
+    }[] = []
 
-    if (needFake) {
-      this.peer ??= await getPeer(this.ctx, this.channelId)
-      const messages = []
-      const news = []
-      let seq = Math.trunc(Math.random() * 65430)
-      let tsum = 0
-      for (const item of this.stack[0].children) {
-        let msgContent
-        let preview = ''
-        const elems = []
-
-        let ntElems
-        if (typeof item === 'string') {
-          const info = await this.getPeerAndElementsFromMsgId(item)
-          if (!info) {
-            this.ctx.logger.warn('转发消息失败，未找到消息', item)
-            continue
-          }
-          ntElems = info.elements
-        } else {
-          ntElems = item
-        }
-
-        for (const item of ntElems) {
-          const converted = await ntToProto(this.ctx, item as NT.SendMessageElement, this.peer)
-          if (converted) {
-            if (converted.content) {
-              msgContent = converted.content
-            } else {
-              elems.push(converted.element!)
-            }
-            preview += converted.preview
-          }
-        }
-
-        const isGroup = this.peer.chatType === NT.ChatType.Group
-        const nick = this.stack[0].author.name ?? selfInfo.nick
-        const uin = this.stack[0].author.id ?? selfInfo.uin
-        messages.push({
-          routingHead: {
-            fromUin: +uin, // 或 1094950020
-            c2c: isGroup ? undefined : {
-              friendName: nick
-            },
-            group: isGroup ? {
-              groupCode: 284840486,
-              groupCard: nick
-            } : undefined
-          },
-          contentHead: {
-            msgType: isGroup ? 82 : 9,
-            random: Math.floor(Math.random() * 4294967290),
-            msgSeq: seq,
-            msgTime: Math.trunc(Date.now() / 1000),
-            pkgNum: 1,
-            pkgIndex: 0,
-            divSeq: 0,
-            forward: {
-              field1: 0,
-              field2: 0,
-              field3: 0,
-              field4: '',
-              avatar: ''
-            }
-          },
-          body: {
-            richText: {
-              elems
-            },
-            msgContent
-          }
-        })
-        if (news.length < 4) {
-          news.push({
-            text: `${nick}: ${preview}`
-          })
-        }
-        seq++
-        tsum++
-      }
-
-      const multiMsgItems = [{
-        fileName: 'MultiMsg',
-        buffer: {
-          msg: messages
-        }
-      }, ...this.stack[0].subMultiMsgItems]
-      const resid = await this.ctx.qqProtocol.uploadForward(this.peer.peerUid, this.peer.chatType === NT.ChatType.Group, multiMsgItems)
-      const id = crypto.randomUUID()
-      const isGroup = this.peer.chatType === NT.ChatType.Group
-      const content = JSON.stringify({
-        app: 'com.tencent.multimsg',
-        config: {
-          autosize: 1,
-          forward: 1,
-          round: 1,
-          type: 'normal',
-          width: 300
-        },
-        desc: '[聊天记录]',
-        extra: JSON.stringify({
-          filename: id,
-          tsum,
-        }),
-        meta: {
-          detail: {
-            news,
-            resid,
-            source: isGroup ? '群聊的聊天记录' : '聊天记录',
-            summary: `查看${tsum}条转发消息`,
-            uniseq: id,
-          }
-        },
-        prompt: '[聊天记录]',
-        ver: '0.0.0.5',
-        view: 'contact'
-      })
-      if (this.stack[1].type === 'multiForward') {
-        this.stack[1].children.push([{
-          elementType: 10,
-          arkElement: {
-            bytesData: content
-          }
-        }])
-        this.stack[1].subMultiMsgItems.push({
-          fileName: id,
-          buffer: {
-            msg: messages
-          }
-        })
-      } else {
-        const sent = await this.ctx.app.sendMessage(this.ctx, this.peer, [{
-          elementType: 10,
-          arkElement: {
-            bytesData: content
-          }
-        }], this.deleteAfterSentFiles)
-        const result = await decodeMessage(this.ctx, sent)
-        if (result) {
-          this.results.push(result)
-        }
-        this.deleteAfterSentFiles = []
-      }
-      return
-    }
-
-    const selfPeer: NT.Peer = {
-      chatType: NT.ChatType.C2C,
-      peerUid: selfInfo.uid,
-      guildId: ''
-    }
-    const nodeMsgIds: { msgId: string, peer: NT.Peer }[] = []
-    for (const node of this.stack[0].children) {
-      if (typeof node === 'string') {
-        if (node.length !== 19) {
-          this.ctx.logger.warn('转发消息失败，消息 ID 不合法', node)
-          continue
-        }
-        const info = await this.getPeerAndElementsFromMsgId(node)
+    for (const item of this.stack[0].children) {
+      let ntElems = []
+      if (typeof item === 'string') {
+        const info = await this.getPeerAndElementsFromMsgId(item)
         if (!info) {
-          this.ctx.logger.warn('转发消息失败，未找到消息', node)
+          this.ctx.logger.warn('转发消息失败，未找到消息', item)
           continue
         }
-        nodeMsgIds.push({ msgId: node, peer: info.peer })
-      }
-    }
-
-    let srcPeer: NT.Peer
-    let needSendSelf = false
-    for (const { peer } of nodeMsgIds) {
-      srcPeer ??= {
-        chatType: peer.chatType,
-        peerUid: peer.peerUid,
-        guildId: ''
-      }
-      if (srcPeer.peerUid !== peer.peerUid) {
-        needSendSelf = true
-        break
-      }
-    }
-    let retMsgIds: string[] = []
-    if (needSendSelf) {
-      for (const { msgId, peer } of nodeMsgIds) {
-        const srcPeer = {
-          peerUid: peer.peerUid,
-          chatType: peer.chatType,
-          guildId: ''
-        }
-        const clonedMsg = await this.forward(msgId, srcPeer, selfPeer)
-        if (clonedMsg) {
-          retMsgIds.push(clonedMsg.msgId)
-        }
-        await sleep(100)
-      }
-      srcPeer = selfPeer
-    } else {
-      retMsgIds = nodeMsgIds.map(e => e.msgId)
-    }
-    if (retMsgIds.length === 0) {
-      throw Error('转发消息失败，节点为空')
-    }
-
-    if (this.stack[1].type === 'multiForward') {
-      this.peer ??= await getPeer(this.ctx, this.channelId)
-      const msg = await this.ctx.ntMsgApi.multiForwardMsg(srcPeer!, selfPeer, retMsgIds)
-      const { resid, uniseq } = JSON.parse(msg.elements[0].arkElement!.bytesData).meta.detail
-      this.stack[1].children.push([...msg.elements as NT.SendMessageElement[]])
-      this.stack[1].subMultiMsgItems.push(...(await this.ctx.qqProtocol.getMultiMsg(resid)).map(e => {
-        if (e.fileName === 'MultiMsg') {
-          return {
-            fileName: uniseq,
-            buffer: e.buffer
+        const isGroup = this.peer.chatType === NT.ChatType.Group
+        for (const element of info.elements) {
+          if (element.elementType === NT.ElementType.Text) {
+            ntElems.push(element as NT.SendTextElement)
+          } else if (element.elementType === NT.ElementType.Pic) {
+            const { originImageUrl, md5HexStr } = element.picElement!
+            const url = await this.ctx.ntFileApi.getImageUrl(originImageUrl, md5HexStr)
+            const path = await this.fetchFile(url)
+            ntElems.push(await SendElement.pic(this.ctx, path))
+          } else if (element.elementType === NT.ElementType.Ptt) {
+            const { fileUuid } = element.pttElement!
+            const url = await this.ctx.ntFileApi.getPttUrl(fileUuid, isGroup)
+            const path = await this.fetchFile(url)
+            ntElems.push(await SendElement.ptt(this.ctx, path))
+          } else if (element.elementType === NT.ElementType.Video) {
+            const { fileUuid } = element.videoElement!
+            const url = await this.ctx.ntFileApi.getVideoUrl(fileUuid, isGroup)
+            const path = await this.fetchFile(url)
+            ntElems.push(await SendElement.video(this.ctx, path))
+          } else if (element.elementType === NT.ElementType.Reply) {
+            ntElems.push(element as NT.SendReplyElement)
+          } else if (element.elementType === NT.ElementType.Face) {
+            ntElems.push(element as NT.SendFaceElement)
+          } else if (element.elementType === NT.ElementType.MarketFace) {
+            ntElems.push(element as NT.SendMarketFaceElement)
           }
         }
-        return e
-      }))
+      } else {
+        ntElems = item
+      }
+      const nick = this.stack[0].author.name ?? selfInfo.nick
+      const uin = this.stack[0].author.id ?? selfInfo.uin
+      nodes.push({
+        senderUin: +uin,
+        senderName: nick,
+        elements: ntElems
+      })
+    }
+
+    const forward = SendElement.forward(nodes)
+    if (this.stack[1].type === 'multiForward') {
+      this.stack[1].children.push([forward])
     } else {
-      this.peer ??= await getPeer(this.ctx, this.channelId)
-      await this.ctx.ntMsgApi.multiForwardMsg(srcPeer!, this.peer, retMsgIds)
-      this.ctx.logger.info('消息发送', this.peer)
+      const sent = await this.ctx.app.sendMessage(this.ctx, this.peer, [forward], this.deleteAfterSentFiles)
+      const result = await decodeMessage(this.ctx, sent)
+      if (result) {
+        this.results.push(result)
+      }
+      this.deleteAfterSentFiles = []
     }
   }
 
@@ -423,7 +247,7 @@ export class MessageEncoder {
       const url = attrs.src ?? attrs.url
       const path = await this.fetchFile(url)
       const fileName = attrs.title ?? pathLib.basename(path)
-      this.elements.push(await SendElement.file(this.ctx, path, fileName))
+      // TODO: 走独立的文件上传接口，如 ntFileApi.uploadGroupFile + ntMsgApi.sendGroupFileMessage
       await this.flush()
     } else if (type === 'br') {
       this.elements.push(SendElement.text('\n'))
@@ -439,7 +263,7 @@ export class MessageEncoder {
       await this.render(children)
       this.pLength = this.elements.push(SendElement.text('\n'))
     } else if (type === 'message') {
-      if (attrs.id && attrs.forward) {
+      /*if (attrs.id && attrs.forward) {
         await this.flush()
         const info = await this.getPeerAndElementsFromMsgId(attrs.id)
         if (info) {
@@ -454,7 +278,7 @@ export class MessageEncoder {
             }
           }
         }
-      } else if (attrs.forward) {
+      } else*/ if (attrs.forward) {
         await this.flush()
         this.stack.unshift(new State('multiForward'))
         await this.render(children)
@@ -506,122 +330,6 @@ export class MessageEncoder {
       throw new AggregateError(this.errors)
     } else {
       return this.results
-    }
-  }
-}
-
-interface NTToProtoOutput {
-  element?: InferProtoModelInput<typeof Msg.Elem>
-  content?: Buffer
-  preview: string
-}
-
-async function ntToProto(ctx: Context, input: NT.SendMessageElement, peer: NT.Peer): Promise<NTToProtoOutput | undefined> {
-  if (input.elementType === NT.ElementType.Text) {
-    return {
-      element: {
-        text: {
-          str: input.textElement.content
-        }
-      },
-      preview: input.textElement.content.slice(0, 70)
-    }
-  } else if (input.elementType === NT.ElementType.Pic) {
-    const isGroup = peer.chatType === NT.ChatType.Group
-    const path = input.picElement.sourcePath!
-    let data
-    if (isGroup) {
-      data = await ctx.ntFileApi.uploadGroupImage(peer.peerUid, path)
-    } else {
-      data = await ctx.ntFileApi.uploadC2CImage(peer.peerUid, path)
-    }
-    return {
-      element: {
-        commonElem: {
-          serviceType: 48,
-          pbElem: Media.MsgInfo.encode(data.msgInfo),
-          businessType: isGroup ? 20 : 10
-        }
-      },
-      preview: input.picElement.picSubType === 1 ? '[动画表情]' : '[图片]'
-    }
-  } else if (input.elementType === NT.ElementType.Video) {
-    const filePath = input.videoElement.filePath!
-    const thumbPath = input.videoElement.thumbPath!.get(0)!
-    let data
-    if (peer.chatType === NT.ChatType.Group) {
-      data = await ctx.ntFileApi.uploadGroupVideo(peer.peerUid, filePath, thumbPath)
-    } else {
-      data = await ctx.ntFileApi.uploadC2CVideo(peer.peerUid, filePath, thumbPath)
-    }
-    return {
-      element: {
-        commonElem: {
-          serviceType: 48,
-          pbElem: Media.MsgInfo.encode(data.msgInfo),
-          businessType: peer.chatType === NT.ChatType.Group ? 21 : 11
-        }
-      },
-      preview: '[视频]'
-    }
-  } else if (input.elementType === NT.ElementType.File) {
-    const path = input.fileElement.filePath!
-    const fileName = input.fileElement.fileName!
-    if (peer.chatType === NT.ChatType.Group) {
-      const data = await ctx.ntFileApi.uploadGroupFile(peer.peerUid, path, fileName)
-      const extra = Msg.GroupFileExtra.encode({
-        field1: 6,
-        fileName,
-        inner: {
-          info: {
-            busId: 102,
-            fileId: data.fileId,
-            fileSize: +input.fileElement.fileSize!,
-            fileName,
-            fileMd5: data.fileMd5,
-          },
-        },
-      })
-      const lenBuf = Buffer.alloc(2)
-      lenBuf.writeUInt16BE(extra.length)
-      return {
-        element: {
-          transElemInfo: {
-            elemType: 24,
-            elemValue: Buffer.concat([Buffer.from([0x01]), lenBuf, extra]),
-          }
-        },
-        preview: `[文件] ${fileName}`
-      }
-    } else {
-      const data = await ctx.ntFileApi.uploadC2CFile(peer.peerUid, path, fileName)
-      const extra = Msg.FileExtra.encode({
-        file: {
-          fileType: 0,
-          fileUuid: data.fileId,
-          fileMd5: data.file10MMd5,
-          fileName,
-          fileSize: +input.fileElement.fileSize!,
-          subCmd: 1,
-          dangerLevel: 0,
-          expireTime: Math.floor((Date.now() / 1000) + 7 * 24 * 60 * 60),
-          fileIdCrcMedia: data.crcMedia
-        }
-      })
-      return {
-        content: extra,
-        preview: `[文件] ${fileName}`
-      }
-    }
-  } else if (input.elementType === NT.ElementType.Ark) {
-    const content = input.arkElement.bytesData!
-    return {
-      element: {
-        lightApp: {
-          data: Buffer.concat([Buffer.from([1]), deflateSync(Buffer.from(content, 'utf-8'))])
-        }
-      },
-      preview: JSON.parse(content).prompt
     }
   }
 }

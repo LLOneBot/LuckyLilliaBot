@@ -88,7 +88,7 @@ declare module 'cordis' {
 }
 
 class Core extends Service {
-  static inject = ['ntMsgApi', 'ntFriendApi', 'ntGroupApi', 'store', 'ntUserApi', 'ntFileApi', 'logger', 'qqProtocol']
+  static inject = ['ntMsgApi', 'ntFriendApi', 'store', 'ntFileApi', 'logger', 'qqProtocol']
   public startupTime = 0
   public messageReceivedCount = 0
   public messageSentCount = 0
@@ -247,7 +247,6 @@ class Core extends Service {
 
     const friendRequestSeen: string[] = []
     this.ctx.on('nt/raw/friend-request', payload => {
-      this.ctx.ntFriendApi.clearBuddyReqUnreadCnt().catch(e => this.ctx.logger.error(`清除好友申请未读数失败`, e))
       for (const req of payload.buddyReqs) {
         if (!req.isUnread || req.isInitiator || (req.isDecide && req.reqType !== BuddyReqType.MeInitiatorWaitPeerConfirm)) {
           continue

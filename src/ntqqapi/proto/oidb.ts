@@ -98,20 +98,20 @@ export namespace Oidb {
         uid: ProtoField(2, 'string'),
         uin: ProtoField(4, 'uint32'),
       }),
-      memberName: ProtoField(10, 'string', 'optional'),
+      memberName: ProtoField(10, 'string'),
       memberCard: ProtoField(11, {
         memberCard: ProtoField(2, 'string', 'optional'),
-      }, 'optional'),
+      }),
       level: ProtoField(12, {
         level: ProtoField(2, 'uint32', 'optional'),
       }, 'optional'),
       specialTitle: ProtoField(17, 'string', 'optional'),
-      joinTimestamp: ProtoField(100, 'uint32', 'optional'),
-      lastMsgTimestamp: ProtoField(101, 'uint32', 'optional'),
+      joinTimestamp: ProtoField(100, 'uint32'),
+      lastMsgTimestamp: ProtoField(101, 'uint32'),
       shutUpTimestamp: ProtoField(102, 'uint32', 'optional'),
       permission: ProtoField(107, 'uint32', 'optional'),
     }, 'repeated'),
-    memberCount: ProtoField(3, 'uint32', 'optional'),
+    memberCount: ProtoField(3, 'uint32'),
     cookie: ProtoField(15, 'bytes', 'optional'),
   })
 

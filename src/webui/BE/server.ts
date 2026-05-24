@@ -276,15 +276,8 @@ export class WebuiServer extends Service {
 
             let userName = userId
             try {
-              const membersResult = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
-              if (membersResult?.result?.infos) {
-                for (const [, member] of membersResult.result.infos) {
-                  if (member.uid === info.operatorUid || member.uin === userId) {
-                    userName = member.cardName || member.nick || userId
-                    break
-                  }
-                }
-              }
+              const member = await this.ctx.ntGroupApi.getGroupMemberByUid(+groupCode, info.operatorUid, false)
+              userName = member?.cardName || member?.nick || userId
             } catch { }
 
             this.broadcastMessage('message', {

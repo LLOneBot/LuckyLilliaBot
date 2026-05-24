@@ -20,11 +20,15 @@ class GetGroupMemberInfo extends BaseAction<Payload, OB11GroupMember> {
   })
 
   protected async _handle(payload: Payload) {
-    const groupCode = payload.group_id.toString()
-    const uid = await this.ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
-    if (!uid) throw new Error('无法获取用户信息')
-    const member = await this.ctx.ntGroupApi.getGroupMember(groupCode, uid, payload.no_cache)
-    const ret = OB11Entities.groupMember(+groupCode, member)
+    const member = await this.ctx.ntGroupApi.getGroupMemberByUin(
+      +payload.group_id,
+      +payload.user_id,
+      payload.no_cache
+    )
+    if (!member) {
+      throw new Error('群成员未找到')
+    }
+    const ret = OB11Entities.groupMember(+payload.group_id, member)
     let info: UserDetailInfo | undefined
     try {
       info = await this.ctx.ntUserApi.getUserDetailInfoWithBizInfo(member.uid)

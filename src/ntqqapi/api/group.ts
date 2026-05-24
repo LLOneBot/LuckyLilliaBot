@@ -4,13 +4,13 @@ import {
   GroupMemberRole,
   GroupRequestOperateTypes,
   GetFileListParam,
-  PublishGroupBulletinReq,
   GroupFileInfo,
-  GroupBulletinListResult,
   GroupMsgMask,
   GroupNotify,
   GroupNotifyType,
   Group,
+  PublishGroupBulletinReq,
+  GroupBulletinListResult,
 } from '../types'
 import { Service, Context } from 'cordis'
 import { createReadStream, promises as fsp } from 'node:fs'
@@ -26,31 +26,13 @@ declare module 'cordis' {
 }
 
 export class NTQQGroupApi extends Service {
-  static inject = { qqProtocol: true, ntWebApi: false }
+  static inject = ['qqProtocol']
   private groupsCache: Group[] = []
   private groupCache: Map<number, Group> = new Map()
-  private memberCache: Map<string, Map<string, GroupMember>> = new Map()
+  private membersCache: Map<number, Map<string, GroupMember>> = new Map()
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntGroupApi')
-  }
-
-  /** 在所有缓存的群成员里反查 uin→uid（不发包，只看 cache） */
-  findUidByUinFromCache(uin: string): string {
-    for (const members of this.memberCache.values()) {
-      for (const m of members.values()) {
-        if (String(m.uin) === String(uin)) return m.uid
-      }
-    }
-    return ''
-  }
-
-  /** 在所有缓存的群成员里反查包含此 uid 的某个共同群（不发包） */
-  findSharedGroupByUid(uid: string): string {
-    for (const [groupCode, members] of this.memberCache.entries()) {
-      if (members.has(uid)) return groupCode
-    }
-    return ''
   }
 
   // TODO: 群组数量变更时刷新缓存
@@ -104,87 +86,52 @@ export class NTQQGroupApi extends Service {
     return this.groupCache.get(groupCode)!
   }
 
-  async getGroupMembers(groupCode: string, _forceFetch: boolean = true) {
-    const all = await this.ctx.qqProtocol.fetchGroupMembers(+groupCode)
-    const infos = new Map<string, GroupMember>()
-    for (const m of all) {
-      if (m.id?.uid) infos.set(m.id.uid, this.toGroupMember(m))
+  // TODO: 群成员数量变更时刷新缓存
+  async getGroupMembers(groupCode: number, forceUpdate: boolean) {
+    if (forceUpdate || !this.membersCache.has(groupCode)) {
+      const infos = new Map<string, GroupMember>()
+      let cookie: Buffer | undefined = undefined
+      while (true) {
+        const res = await this.ctx.qqProtocol.fetchGroupMembers(groupCode, cookie)
+        for (const member of res.members) {
+          infos.set(member.id.uid, {
+            uin: member.id.uin,
+            uid: member.id.uid,
+            nick: member.memberName,
+            cardName: member.memberCard.memberCard ?? '',
+            specialTitle: member.specialTitle ?? '',
+            level: member.level?.level ?? 0,
+            joinedAt: member.joinTimestamp,
+            lastSpokeAt: member.lastMsgTimestamp,
+            shutupExpireTime: member.shutUpTimestamp ?? 0,
+            role: member.permission ?? 0
+          })
+        }
+        cookie = res.cookie
+        if (!cookie) break
+      }
+      this.membersCache.set(groupCode, infos)
     }
-    this.memberCache.set(groupCode, infos)
-    return { errCode: 0, errMsg: '', result: { infos, finish: true, ids: [] } } as any
+    return this.membersCache.get(groupCode)!
   }
 
-  async getGroupMember(groupCode: string, uid: string, forceUpdate = false, _timeout = 15000) {
-    let cache = this.memberCache.get(groupCode)
-    if (forceUpdate || !cache?.has(uid)) {
-      const members = await this.ctx.qqProtocol.fetchGroupMembers(+groupCode)
-      cache = new Map()
-      for (const m of members) {
-        const memberUid = m.id?.uid
-        if (!memberUid) continue
-        cache.set(memberUid, this.toGroupMember(m))
-      }
-      this.memberCache.set(groupCode, cache)
+  async getGroupMemberByUid(groupCode: number, uid: string, forceUpdate: boolean) {
+    let members = this.membersCache.get(groupCode)
+    if (forceUpdate || !members?.has(uid)) {
+      members = await this.getGroupMembers(groupCode, true)
     }
-    const member = cache.get(uid)
-    if (member) return member
-    return this.toGroupMember({ id: { uid, uin: 0 } })
+    return members.get(uid)
   }
 
   async getGroupMemberByUin(groupCode: number, uin: number, forceUpdate: boolean) {
-    let cache = this.memberCache.get(groupCode.toString())
-    const member = cache?.values().find(e => e.uin === uin.toString())
+    let members = this.membersCache.get(groupCode)
+    const member = members?.values().find(e => e.uin === uin)
     if (forceUpdate || !member) {
-      const members = await this.ctx.qqProtocol.fetchGroupMembers(+groupCode)
-      cache = new Map()
-      for (const m of members) {
-        const memberUid = m.id?.uid
-        if (!memberUid) continue
-        cache.set(memberUid, this.toGroupMember(m))
-      }
-      this.memberCache.set(groupCode.toString(), cache)
+      members = await this.getGroupMembers(groupCode, true)
     } else {
       return member
     }
-    return cache.values().find(e => e.uin === uin.toString())
-  }
-
-  private toGroupMember(m: any): GroupMember {
-    const role = m.permission === 1 ? GroupMemberRole.Owner
-      : m.permission === 2 ? GroupMemberRole.Admin
-        : GroupMemberRole.Normal
-    return {
-      uid: m.id?.uid || '',
-      qid: '',
-      uin: String(m.id?.uin || 0),
-      nick: m.memberName || '',
-      remark: '',
-      cardType: 0,
-      cardName: m.memberCard?.memberCard || '',
-      role,
-      avatarPath: '',
-      shutUpTime: m.shutUpTimestamp || 0,
-      isDelete: false,
-      isSpecialConcerned: false,
-      isSpecialShield: false,
-      isRobot: false,
-      groupHonor: new Uint8Array(),
-      memberRealLevel: m.level?.level || 0,
-      memberLevel: m.level?.level || 0,
-      globalGroupLevel: 0,
-      globalGroupPoint: 0,
-      memberTitleId: 0,
-      memberSpecialTitle: m.specialTitle || '',
-      specialTitleExpireTime: '0',
-      userShowFlag: 0,
-      userShowFlagNew: 0,
-      richFlag: 0,
-      mssVipType: 0,
-      bigClubLevel: 0,
-      bigClubFlag: 0,
-      autoRemark: '',
-      creditLevel: 0,
-    } as GroupMember
+    return members.values().find(e => e.uin === uin)
   }
 
   async getSingleScreenNotifies(doubt: boolean, number: number, _startSeq = '') {
@@ -288,9 +235,8 @@ export class NTQQGroupApi extends Service {
     return { result: resp.errorCode, errMsg: resp.errorMsg }
   }
 
-  async setMemberRole(groupCode: string, memberUid: string, role: GroupMemberRole): Promise<{ result: number, errMsg: string }> {
-    const resp = await this.ctx.qqProtocol.setGroupMemberAdmin(+groupCode, memberUid, role === GroupMemberRole.Admin)
-    return { result: resp.errorCode, errMsg: resp.errorMsg }
+  async setMemberRole(groupCode: number, memberUid: string, isSet: boolean) {
+    return await this.ctx.qqProtocol.setGroupMemberAdmin(groupCode, memberUid, isSet)
   }
 
   async setGroupName(groupCode: string, groupName: string): Promise<{ result: number, errMsg: string }> {
@@ -559,17 +505,6 @@ export class NTQQGroupApi extends Service {
     }
   }
 
-  async searchMember(groupCode: string, keyword: string) {
-    const matched = await this.ctx.qqProtocol.searchGroupMember(+groupCode, keyword)
-    const result = new Map<string, GroupMember>()
-    for (const m of matched) {
-      const uid = m.id?.uid
-      if (!uid) continue
-      result.set(uid, this.toGroupMember(m))
-    }
-    return result
-  }
-
   async getGroupFileCount(_groupId: string): Promise<any> {
     return { result: 0, errMsg: '', groupFileCounts: [0] }
   }
@@ -597,14 +532,6 @@ export class NTQQGroupApi extends Service {
       this.ctx.qqProtocol.moveGroupFile(+groupId, fileId, curFolderId, dstFolderId)
     ))
     return { result: 0, errMsg: '' }
-  }
-
-  async getGroupShutUpMemberList(groupCode: string): Promise<GroupMember[]> {
-    const all = await this.ctx.qqProtocol.fetchGroupMembers(+groupCode)
-    const now = Math.floor(Date.now() / 1000)
-    return all
-      .filter((m: any) => m.shutUpTimestamp && m.shutUpTimestamp > now)
-      .map((m: any) => this.toGroupMember(m))
   }
 
   async renameGroupFolder(groupId: string, folderId: string, newFolderName: string): Promise<any> {

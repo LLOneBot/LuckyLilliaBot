@@ -105,10 +105,6 @@ export class NTQQFriendApi extends Service {
     return await this.ctx.qqProtocol.setFriendCategory(uid, categoryId)
   }
 
-  async clearBuddyReqUnreadCnt() {
-    // 直连模式：无需清理（NT 内部状态）
-  }
-
   async getFriendRequests(limit: number) {
     const { info } = await this.ctx.qqProtocol.fetchFriendRequests(selfInfo.uid, limit)
     return info.requests

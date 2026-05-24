@@ -12,12 +12,9 @@ export const setGuildMemberRole: Handler<Dict<never>, Payload> = async (ctx, pay
   if (!uid) {
     throw new Error('无法获取用户信息')
   }
-  if (payload.role_id !== '2' && payload.role_id !== '3') {
-    throw new Error('role_id 仅可以为 2 或 3')
-  }
-  const res = await ctx.ntGroupApi.setMemberRole(payload.guild_id, uid, +payload.role_id)
-  if (res.result !== 0) {
-    throw new Error(res.errMsg)
+  const res = await ctx.ntGroupApi.setMemberRole(+payload.guild_id, uid, payload.role_id === '2')
+  if (res.errorCode !== 0) {
+    throw new Error(res.errorMsg)
   }
   return {}
 }
