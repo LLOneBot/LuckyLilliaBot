@@ -74,3 +74,7 @@ export function sleep(ms = 0) {
 export function isHttpUrl(str: string) {
   return /^https?:\/\/.+/.test(str)
 }
+
+export function formatYYYYMMDD(date = new Date()) {
+  return date.toISOString().slice(0, 10).replace(/-/g, '')
+}

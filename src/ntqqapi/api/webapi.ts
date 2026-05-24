@@ -3,7 +3,7 @@ import { HttpUtil } from '@/common/utils/request'
 import { Context, Service } from 'cordis'
 import { Dict } from 'cosmokit'
 import fs from 'node:fs/promises'
-import { getMd5HexFromBuffer, getSha1HexFromBuffer } from '@/common/utils'
+import { formatYYYYMMDD, getMd5HexFromBuffer, getSha1HexFromBuffer } from '@/common/utils'
 import { fileTypeFromBuffer } from 'file-type'
 import { createThumb } from '@/common/utils/video'
 
@@ -717,5 +717,25 @@ export class NTQQWebApi extends Service {
       errMsg: '',
       picInfo: { id: info.id, width: +info.w, height: +info.h },
     }
+  }
+
+  async getDaySignedList(groupCode: number) {
+    const pSkey = (await this.ctx.ntUserApi.getPSkey(['qun.qq.com'])).domainPskeyMap.get('qun.qq.com')!
+    const cookie = `p_uin=o${selfInfo.uin}; p_skey=${pSkey}; uin=o${selfInfo.uin}`
+    const res = await fetch(`https://qun.qq.com/v2/signin/trpc/GetDaySignedList?g_tk=${this.genBkn(pSkey)}`, {
+      method: 'POST',
+      headers: {
+        'Cookie': cookie,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        dayYmd: formatYYYYMMDD(),
+        offset: 0,
+        limit: 100,
+        uid: selfInfo.uin,
+        groupId: groupCode.toString()
+      }),
+    })
+    return await res.json()
   }
 }
