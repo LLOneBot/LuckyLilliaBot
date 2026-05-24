@@ -719,7 +719,7 @@ export class NTQQWebApi extends Service {
     }
   }
 
-  async getDaySignedList(groupCode: number) {
+  async getDaySignedList(groupId: string) {
     const pSkey = (await this.ctx.ntUserApi.getPSkey(['qun.qq.com'])).domainPskeyMap.get('qun.qq.com')!
     const cookie = `p_uin=o${selfInfo.uin}; p_skey=${pSkey}; uin=o${selfInfo.uin}`
     const res = await fetch(`https://qun.qq.com/v2/signin/trpc/GetDaySignedList?g_tk=${this.genBkn(pSkey)}`, {
@@ -733,9 +733,29 @@ export class NTQQWebApi extends Service {
         offset: 0,
         limit: 100,
         uid: selfInfo.uin,
-        groupId: groupCode.toString()
+        groupId
       }),
     })
-    return await res.json()
+    return await res.json() as {
+      retCode: number,
+      costTime: number,
+      response: {
+        ret?: {
+          code: string,
+          msg: string
+        },
+        page?: {
+          infos?: {
+            uid: string,
+            uidGroupNick: string,
+            signedTimeStamp: string,
+            signInRank: number
+          }[],
+          offset: number,
+          total: number
+        }[]
+      },
+      funcCode: number
+    }
   }
 }

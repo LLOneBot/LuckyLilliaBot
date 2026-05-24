@@ -64,6 +64,7 @@ export enum ActionName {
   SendPoke = 'send_poke',
   SetInputStatus = 'set_input_status',
   GetGroupAlbumMediaList = 'get_group_album_media_list',
+  GetGroupSignedList = 'get_group_signed_list',
   // onebot 11
   SendLike = 'send_like',
   GetLoginInfo = 'get_login_info',

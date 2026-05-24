@@ -118,6 +118,7 @@ import { ScanQRCode } from '@/onebot11/action/llbot/system/ScanQRCode'
 import { SendPoke } from './llbot/msg/SendPoke'
 import { SetInputStatus } from './llbot/user/SetInputStatus'
 import { GetGroupAlbumMediaList } from './llbot/group/GroupAlbum/GetGroupAlbumMediaList'
+import { GetGroupSignedList } from './llbot/group/GetGroupSignedList'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -174,6 +175,7 @@ export function initActionMap(adapter: Adapter) {
     new SendPoke(adapter),
     new SetInputStatus(adapter),
     new GetGroupAlbumMediaList(adapter),
+    new GetGroupSignedList(adapter),
     // onebot11
     new SendLike(adapter),
     new GetMsg(adapter),
