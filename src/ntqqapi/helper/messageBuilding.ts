@@ -173,7 +173,7 @@ export class MessageBuilding {
         routingHead: {
           fromUin: node.senderUin,
           c2c: isGroup ? undefined : {
-            friendName: node.senderName
+            name: node.senderName
           },
           group: isGroup ? {
             groupCode: 284840486,

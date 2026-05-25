@@ -63,7 +63,7 @@ export async function decodeMultiMessage(ctx: Context, items: InferProtoModel<ty
     return {
       content,
       sender: {
-        nickname: routingHead?.group ? routingHead.group.groupCard! : routingHead!.c2c!.friendName!,
+        nickname: routingHead?.group ? routingHead.group.groupCard! : routingHead!.c2c!.name!,
         user_id: routingHead!.fromUin!
       },
       time: contentHead!.msgTime!,

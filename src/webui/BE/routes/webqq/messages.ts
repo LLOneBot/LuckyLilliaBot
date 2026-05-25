@@ -246,7 +246,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
         const isGroup = contentHead?.msgType === 82
         const senderName = isGroup
           ? routingHead?.group?.groupCard || ''
-          : routingHead?.c2c?.friendName || ''
+          : routingHead?.c2c?.name || ''
 
         return {
           senderName,

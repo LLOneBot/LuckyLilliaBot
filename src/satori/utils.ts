@@ -215,13 +215,10 @@ export async function getPeer(ctx: Context, channelId: string): Promise<NT.Peer>
     if (!uid) throw new Error('无法获取用户信息')
     const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
-      const res = await ctx.ntMsgApi.getTempChatInfo(NT.ChatType.TempC2CFromGroup, uid)
-      if (res.tmpChatInfo.groupCode) {
-        return {
-          chatType: NT.ChatType.TempC2CFromGroup,
-          peerUid: uid,
-          guildId: ''
-        }
+      return {
+        chatType: NT.ChatType.TempC2CFromGroup,
+        peerUid: uid,
+        guildId: ''
       }
     }
     return {

@@ -282,7 +282,7 @@ export async function transformIncomingForwardedMessage(ctx: Context, message: I
           data: {
             message_seq: elem.srcMsg.origSeqs[0],
             sender_id: elem.srcMsg.senderUin,
-            sender_name: contentHead.msgType === 82 ? routingHead.group.groupCard : routingHead.c2c.friendName,
+            sender_name: contentHead.msgType === 82 ? routingHead.group.groupCard : routingHead.c2c.name,
             time: elem.srcMsg.time,
             segments: await transformSegments(elems)
           }
@@ -309,7 +309,7 @@ export async function transformIncomingForwardedMessage(ctx: Context, message: I
   }
   return {
     message_seq: contentHead.msgSeq,
-    sender_name: contentHead.msgType === 82 ? routingHead.group.groupCard : routingHead.c2c.friendName,
+    sender_name: contentHead.msgType === 82 ? routingHead.group.groupCard : routingHead.c2c.name,
     avatar_url: contentHead.forward!.avatar,
     time: contentHead.msgTime,
     segments: await transformSegments(body!.richText.elems)

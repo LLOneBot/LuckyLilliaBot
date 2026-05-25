@@ -435,6 +435,7 @@ export interface RawMessage {
   }[]
   msgAttrs: Map<number, MsgAttr>
   isOnlineMsg: boolean // 是否为在线消息，灰条消息会被判定为非在线消息
+  tempFromGroupCode: number
 }
 
 // VAS 消息信息（气泡、字体等）

@@ -127,7 +127,12 @@ export namespace Msg {
       toUin: ProtoField(5, 'uint64'),
       toUid: ProtoField(6, 'string'),
       c2c: ProtoField(7, {
-        friendName: ProtoField(6, 'string')
+        c2cType: ProtoField(1, 'int32'),
+        serviceType: ProtoField(2, 'int32'),
+        sig: ProtoField(3, 'bytes', 'optional'),
+        fromTinyId: ProtoField(4, 'uint32'),
+        toTinyId: ProtoField(5, 'uint32'),
+        name: ProtoField(6, 'string')
       }),
       group: ProtoField(8, {
         groupCode: ProtoField(1, 'uint32'),
@@ -291,6 +296,10 @@ export namespace Msg {
       }, 'optional'),
       group: ProtoField(2, {
         groupCode: ProtoField(1, 'uint32'),
+      }, 'optional'),
+      groupTemp: ProtoField(3, {
+        groupCode: ProtoField(3, 'uint32'),
+        toUid: ProtoField(4, 'string'),
       }, 'optional'),
       // C2C 文件消息走这个：把上传得到的 fileUuid + 元数据塞进 body.msgContent，
       // 配合 ccCmd=4 server 才会把它当作"离线文件"消息派发到对端。

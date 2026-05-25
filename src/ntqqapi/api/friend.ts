@@ -65,9 +65,6 @@ export class NTQQFriendApi extends Service {
       const result = await this.getFriends(true)
       friend = result.friends.find(e => e.uin === uin)
     }
-    if (!friend) {
-      return
-    }
     return friend
   }
 
@@ -78,14 +75,12 @@ export class NTQQFriendApi extends Service {
       const result = await this.getFriends(true)
       friend = result.friends.find(e => e.uid === uid)
     }
-    if (!friend) {
-      return
-    }
     return friend
   }
 
-  async isFriend(uid: string): Promise<boolean> {
-    return (await this.getFriendByUid(uid, false)) !== undefined
+  async isFriend(uid: string) {
+    const result = await this.getFriends(false)
+    return result.friends.some(e => e.uid === uid)
   }
 
   async getFriendRecommendContactArk(uin: number) {

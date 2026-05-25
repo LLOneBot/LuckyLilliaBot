@@ -37,6 +37,10 @@ declare module 'minato' {
       uid: string
       uin: number
     }
+    temp_chat_info: {
+      peerUid: string
+      groupCode: number
+    }
   }
 }
 
@@ -112,6 +116,12 @@ class Store extends Service {
     }, {
       primary: 'uid',
       indexes: ['uin']
+    })
+    this.ctx.model.extend('temp_chat_info', {
+      peerUid: 'string(24)',
+      groupCode: 'unsigned(10)'
+    }, {
+      primary: 'peerUid'
     })
   }
 
@@ -296,6 +306,18 @@ class Store extends Service {
   async getUidByUin(uin: number): Promise<string | undefined> {
     const items = await this.ctx.database.get('uix', { uin })
     return items[0]?.uid
+  }
+
+  async addTempChatInfo(info: { peerUid: string, groupCode: number }) {
+    return await this.ctx.database.upsert('temp_chat_info', [info])
+  }
+
+  async getTempChatInfo(peerUid: string): Promise<{
+    peerUid: string
+    groupCode: number
+  } | undefined> {
+    const items = await this.ctx.database.get('temp_chat_info', { peerUid })
+    return items[0]
   }
 }
 

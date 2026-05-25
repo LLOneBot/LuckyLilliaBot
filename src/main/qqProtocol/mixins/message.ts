@@ -246,7 +246,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
 
     /** 发消息（仅文本/At/表情/回复，不含媒体） */
     async sendMessage(opts: {
-      isGroup: boolean
+      chatType: number
       groupCode?: number
       toUin?: number
       toUid?: string
@@ -256,9 +256,11 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       // BotMessage.ClientSequence: Random.NextInt64(10000, 99999)
       const clientSequence = 10000 + Math.floor(Math.random() * 90000)
       const data = Msg.PbSendMsg.encode({
-        routingHead: opts.isGroup
-          ? { group: { groupCode: opts.groupCode! } }
-          : { c2c: { toUin: opts.toUin, toUid: opts.toUid } },
+        routingHead: {
+          1: { c2c: { toUin: opts.toUin, toUid: opts.toUid } },
+          2: { group: { groupCode: opts.groupCode } },
+          100: { groupTemp: { groupCode: opts.groupCode, toUid: opts.toUid } }
+        }[opts.chatType],
         contentHead: { pkgNum: 1, pkgIndex: 0, divSeq: 0, autoReply: 0 },
         body: { richText: { elems: opts.elems } },
         clientSequence,
@@ -272,7 +274,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       // group 用 server-assigned group msgSeq；C2C 用我们本地生成的 clientSequence
       // （server 广播给接收方时 contentHead.msgSeq = clientSequence；resp.sequence 是另一个 ID，
       // 不能拿来当 OneBot message_id 的 hash 输入，否则两端算出的 shortId 不一致）
-      const seq = opts.isGroup
+      const seq = opts.chatType === 2
         ? (resp.sequence || resp.clientSequence)
         : clientSequence
       return {

@@ -39,30 +39,6 @@ export class NTQQMsgApi extends Service {
     return out
   }
 
-  async getTempChatInfo(_chatType: ChatType, peerUid: string): Promise<any> {
-    // 直连模式没有专门的 OIDB；通过已缓存的群成员反查 peerUid 出现在哪个共同群
-    try {
-      const sharedGroupCode = (this.ctx.ntGroupApi as any).findSharedGroupByUid?.(peerUid)
-      if (sharedGroupCode) {
-        return { tmpChatInfo: { groupCode: String(sharedGroupCode), peerUid } }
-      }
-    } catch { }
-    // 没有缓存命中：扫一遍所有群拉成员
-    try {
-      const groups = await this.ctx.ntGroupApi.getGroups(false)
-      for (const g of groups) {
-        try {
-          const members: any = await this.ctx.ntGroupApi.getGroupMembers(String(g.groupCode))
-          if (members.result?.infos?.has(peerUid)) {
-            return { tmpChatInfo: { groupCode: String(g.groupCode), peerUid } }
-          }
-        } catch { }
-      }
-    } catch { }
-    // 没找到任何共同群
-    return { tmpChatInfo: {} }
-  }
-
   async setEmojiLike(peer: Peer, msgSeq: string, emojiId: string, setEmoji: boolean, _emojiType?: string) {
     if (peer.chatType !== ChatType.Group) {
       throw new Error('setEmojiLike 仅支持群聊 (直连模式)')
@@ -181,11 +157,22 @@ export class NTQQMsgApi extends Service {
   async sendMsg(peer: Peer, msgElements: SendMessageElement[]): Promise<RawMessage> {
     const elems = await new MessageBuilding(this.ctx, msgElements, peer.chatType, peer.peerUid).build()
 
-    const isGroup = peer.chatType === ChatType.Group
+    let chatType = peer.chatType
+    let groupCode
+    if (peer.chatType === ChatType.Group) {
+      groupCode = +peer.peerUid
+    } else if (peer.chatType === ChatType.TempC2CFromGroup) {
+      const tempChatInfo = await this.ctx.store.getTempChatInfo(peer.peerUid)
+      if (tempChatInfo) {
+        groupCode = tempChatInfo.groupCode
+      } else {
+        chatType = ChatType.C2C
+      }
+    }
     const ret = await this.ctx.qqProtocol.sendMessage({
-      isGroup,
-      groupCode: isGroup ? +peer.peerUid : undefined,
-      toUid: !isGroup ? peer.peerUid : undefined,
+      chatType,
+      groupCode,
+      toUid: peer.chatType !== ChatType.Group ? peer.peerUid : undefined,
       elems,
     })
 
@@ -213,7 +200,8 @@ export class NTQQMsgApi extends Service {
       emojiLikesList: [],
       msgAttrs: new Map(),
       isOnlineMsg: true,
-    } as RawMessage
+      tempFromGroupCode: 0
+    }
   }
 
   async getSingleMsg(peer: Peer, msgSeq: string) {

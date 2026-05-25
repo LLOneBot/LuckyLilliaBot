@@ -27,13 +27,10 @@ export async function createPeer(ctx: Context, payload: CreatePeerPayload, mode 
     if (!uid) throw new Error('无法获取用户信息')
     const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
-      const res = await ctx.ntMsgApi.getTempChatInfo(ChatType.TempC2CFromGroup, uid)
-      if (res.tmpChatInfo.groupCode) {
-        return {
-          chatType: ChatType.TempC2CFromGroup,
-          peerUid: uid,
-          guildId: ''
-        }
+      return {
+        chatType: ChatType.TempC2CFromGroup,
+        peerUid: uid,
+        guildId: ''
       }
     }
     return {

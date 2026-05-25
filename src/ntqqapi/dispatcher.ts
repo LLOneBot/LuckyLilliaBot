@@ -3,6 +3,8 @@ import { ChatType, ElementType, RawMessage, GrayTipElementSubType, GroupNotify, 
 import type { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { parseElements } from './helper/messageParsing'
+import { InferProtoModel } from '@saltify/typeproto'
+import { noop } from 'cosmokit'
 
 const MSG_PUSH_CMD = 'trpc.msg.olpush.OlPushService.MsgPush'
 const KICK_CMD = 'trpc.qq_new_tech.status_svc.StatusService.KickNT'
@@ -833,10 +835,24 @@ function buildRecallMessage(p: RecallParams): RawMessage {
     emojiLikesList: [],
     msgAttrs: new Map(),
     isOnlineMsg: true,
-  } as RawMessage
+    tempFromGroupCode: 0
+  }
 }
 
-function handleChatMessage(ctx: Context, msg: any, msgType: number) {
+function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, msgType: number) {
+  if (msgType === MsgType.TempMessage) {
+    let peerUid
+    const routingHead = msg.routingHead
+    if (routingHead.fromUid === selfInfo.uid && routingHead.toUid) {
+      peerUid = routingHead.toUid
+    } else {
+      peerUid = routingHead.fromUid
+    }
+    ctx.store.addTempChatInfo({
+      peerUid,
+      groupCode: routingHead.c2c.fromTinyId
+    }).catch(noop)
+  }
   const rawMessage = convertToRawMessage(msg, msgType)
   if (!rawMessage) return
   const isSelfMsg = rawMessage.senderUin === selfInfo.uin
@@ -849,7 +865,7 @@ function handleChatMessage(ctx: Context, msg: any, msgType: number) {
 }
 
 /** 把 Msg.Message protobuf 转换为上层用的 RawMessage（OlPush 推送和 SsoGetGroupMsg 拉历史共用） */
-export function convertToRawMessage(msg: any, msgType: number): RawMessage | null {
+export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, msgType: number): RawMessage | null {
   const routingHead = msg.routingHead
   const contentHead = msg.contentHead
   const body = msg.body
@@ -860,6 +876,7 @@ export function convertToRawMessage(msg: any, msgType: number): RawMessage | nul
   let peerUin: string
   let peerUid: string
   let sendMemberName = ''
+  let tempFromGroupCode = 0
 
   if (msgType === MsgType.GroupMessage) {
     chatType = ChatType.Group
@@ -876,6 +893,7 @@ export function convertToRawMessage(msg: any, msgType: number): RawMessage | nul
       peerUin = String(routingHead.fromUin || 0)
       peerUid = routingHead.fromUid || ''
     }
+    tempFromGroupCode = routingHead.c2c.fromTinyId
   } else {
     chatType = ChatType.C2C
     if (routingHead.fromUid === selfInfo.uid && routingHead.toUid) {
@@ -933,7 +951,7 @@ export function convertToRawMessage(msg: any, msgType: number): RawMessage | nul
     peerUid,
     peerUin,
     guildId: '',
-    sendNickName: routingHead.c2c?.friendName || sendMemberName || '',
+    sendNickName: routingHead.c2c?.name || sendMemberName || '',
     sendMemberName,
     sendRemarkName: '',
     chatType,
@@ -945,5 +963,6 @@ export function convertToRawMessage(msg: any, msgType: number): RawMessage | nul
     emojiLikesList: [],
     msgAttrs: new Map(),
     isOnlineMsg: true,
+    tempFromGroupCode
   }
 }

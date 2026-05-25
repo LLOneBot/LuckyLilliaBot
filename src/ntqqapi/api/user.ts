@@ -67,7 +67,7 @@ export class NTQQUserApi extends Service {
             selfInfo.nick = me.nick
             return { uin: selfInfo.uin, uid: selfInfo.uid, nick: me.nick }
           }
-        } catch {}
+        } catch { }
       }
     } catch (e) {
       this.ctx.logger.error('fetchSelfInfo via groups failed', e)
@@ -106,9 +106,8 @@ export class NTQQUserApi extends Service {
     // 通过群成员列表查（最直接）
     if (groupCode) {
       try {
-        const groupMembers: any = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
-        const found = [...groupMembers.result?.infos?.values() ?? []].find((e: any) => String(e.uin) === String(uin))
-        if (found?.uid) return found.uid
+        const member = await this.ctx.ntGroupApi.getGroupMemberByUin(+groupCode, +uin, false)
+        if (member?.uid) return member.uid
       } catch (e) {
         this.ctx.logger.error('getUidByUin via group members failed', e)
       }
@@ -127,7 +126,7 @@ export class NTQQUserApi extends Service {
     try {
       const cached = this.ctx.ntGroupApi?.findUidByUinFromCache?.(uin)
       if (cached) return cached
-    } catch {}
+    } catch { }
     // 还没缓存：拉一次群列表，逐个拉成员；找到一个就返
     try {
       const groups = await this.ctx.ntGroupApi.getGroups(false)
@@ -136,7 +135,7 @@ export class NTQQUserApi extends Service {
           const members: any = await this.ctx.ntGroupApi.getGroupMembers(String(g.groupCode))
           const found = [...(members.result?.infos?.values() ?? [])].find((e: any) => String(e.uin) === String(uin))
           if (found?.uid) return found.uid
-        } catch {}
+        } catch { }
       }
     } catch (e) {
       this.ctx.logger.error('getUidByUin via group scan failed', e)

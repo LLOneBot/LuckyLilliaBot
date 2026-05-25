@@ -34,10 +34,7 @@ const SendPrivateMessage = defineApi(
     const peer = { chatType: 1, peerUid: uid, guildId: '' }
     const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
-      const result = await ctx.ntMsgApi.getTempChatInfo(100, uid)
-      if (result.tmpChatInfo.groupCode) {
         peer.chatType = 100
-      }
     }
 
     const { elements, deleteAfterSentFiles } = await transformOutgoingMessage(
@@ -100,10 +97,7 @@ const RecallPrivateMessage = defineApi(
     const peer = { chatType: 1, peerUid: uid, guildId: '' }
     const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
-      const result = await ctx.ntMsgApi.getTempChatInfo(100, uid)
-      if (result.tmpChatInfo.groupCode) {
         peer.chatType = 100
-      }
     }
     const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
       peer,
@@ -184,8 +178,7 @@ const GetMessage = defineApi(
       const member = await ctx.ntGroupApi.getGroupMemberByUid(+rawMsg.peerUin, rawMsg.senderUid, false)
       message = await transformIncomingGroupMessage(ctx, group, member!, rawMsg)
     } else {
-      const { tmpChatInfo } = await ctx.ntMsgApi.getTempChatInfo(100, rawMsg.peerUid)
-      const group = await ctx.ntGroupApi.getGroup(+tmpChatInfo.groupCode, false)
+      const group = await ctx.ntGroupApi.getGroup(rawMsg.tempFromGroupCode, false)
       message = await transformIncomingTempMessage(ctx, group, rawMsg)
     }
     if (message.segments.length === 0) {
@@ -249,9 +242,9 @@ const GetHistoryMessages = defineApi(
         transformedMessages.push(await transformIncomingGroupMessage(ctx, group, member!, msg))
       }
     } else {
-      const { tmpChatInfo } = await ctx.ntMsgApi.getTempChatInfo(100, filteredMsgList[0].peerUid)
-      const group = await ctx.ntGroupApi.getGroup(+tmpChatInfo.groupCode, false)
+      let group
       for (const msg of filteredMsgList) {
+        group ??= await ctx.ntGroupApi.getGroup(msg.tempFromGroupCode, false)
         transformedMessages.push(await transformIncomingTempMessage(ctx, group, msg))
       }
     }
