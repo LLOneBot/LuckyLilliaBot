@@ -70,10 +70,9 @@ const SetGroupMemberCard = defineApi(
   SetGroupMemberCardInput,
   z.object({}),
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
-    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
+    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.group_id)
     const result = await ctx.ntGroupApi.setMemberCard(
-      groupCode,
+      payload.group_id.toString(),
       memberUid,
       payload.card
     )
@@ -90,7 +89,7 @@ const SetGroupMemberSpecialTitle = defineApi(
   z.object({}),
   async (ctx, payload) => {
     // Use PMHQ to set special title
-    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), payload.group_id.toString())
+    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.group_id)
     await ctx.qqProtocol.setSpecialTitle(
       payload.group_id,
       memberUid,
@@ -106,8 +105,8 @@ const SetGroupMemberAdmin = defineApi(
   z.object({}),
   async (ctx, payload) => {
     const memberUid = await ctx.ntUserApi.getUidByUin(
-      payload.user_id.toString(),
-      payload.group_id.toString()
+      payload.user_id,
+      payload.group_id
     )
     const result = await ctx.ntGroupApi.setMemberRole(
       payload.group_id,
@@ -126,10 +125,9 @@ const SetGroupMemberMute = defineApi(
   SetGroupMemberMuteInput,
   z.object({}),
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
-    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.group_id)
     const result = await ctx.ntGroupApi.banMember(
-      groupCode,
+      payload.group_id.toString(),
       [{ uid, timeStamp: payload.duration }]
     )
     if (result.result !== 0) {
@@ -157,10 +155,9 @@ const KickGroupMember = defineApi(
   KickGroupMemberInput,
   z.object({}),
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
-    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
+    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.group_id)
     const result = await ctx.ntGroupApi.kickMember(
-      groupCode,
+      payload.group_id.toString(),
       [memberUid],
       payload.reject_add_request
     )

@@ -32,7 +32,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
 
       let peerUid = peerId
       if (chatTypeNum === ChatType.C2C || chatTypeNum === ChatType.TempC2CFromGroup) {
-        const uid = await ctx.ntUserApi.getUidByUin(peerId)
+        const uid = await ctx.ntUserApi.getUidByUin(+peerId)
         if (!uid) {
           return c.json({ success: false, message: '无法获取用户信息' }, 400)
         }
@@ -91,7 +91,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
 
       let peerUid = peerId
       if (chatTypeNum === ChatType.C2C || chatTypeNum === ChatType.TempC2CFromGroup) {
-        const uid = await ctx.ntUserApi.getUidByUin(peerId)
+        const uid = await ctx.ntUserApi.getUidByUin(+peerId)
         if (!uid) {
           return c.json({ success: false, message: '无法获取用户信息' }, 400)
         }

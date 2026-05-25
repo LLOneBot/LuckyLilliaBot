@@ -22,18 +22,17 @@ export class GroupBanEvent extends OB11GroupNoticeEvent {
   static async parse(ctx: Context, groupElement: TipGroupElement, groupCode: string) {
     const memberUid = groupElement.shutUp?.member.uid
     const adminUid = groupElement.shutUp?.admin.uid
-    let memberUin = ''
+    let memberUin = 0
     let duration = Number(groupElement.shutUp?.duration)
     if (memberUid) {
       memberUin = await ctx.ntUserApi.getUinByUid(memberUid)
     } else {
-      memberUin = '0' // 0表示全员禁言
       if (duration > 0) {
         duration = -1
       }
     }
     const adminUin = await ctx.ntUserApi.getUinByUid(adminUid!)
     const subType = duration > 0 ? 'ban' : 'lift_ban'
-    return new GroupBanEvent(+groupCode, +memberUin, +adminUin, duration, subType)
+    return new GroupBanEvent(+groupCode, memberUin, +adminUin, duration, subType)
   }
 }

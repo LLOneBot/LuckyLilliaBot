@@ -211,7 +211,7 @@ export function decodeGuild(
 export async function getPeer(ctx: Context, channelId: string): Promise<NT.Peer> {
   if (channelId.startsWith('private:')) {
     const uin = channelId.replace('private:', '')
-    const uid = await ctx.ntUserApi.getUidByUin(uin)
+    const uid = await ctx.ntUserApi.getUidByUin(+uin)
     if (!uid) throw new Error('无法获取用户信息')
     const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {

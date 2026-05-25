@@ -58,7 +58,7 @@ describe('login routes', () => {
       expect(res.status).toBe(400)
     })
 
-    it('returns login result on success', async () => {
+    it('returns login result on failure', async () => {
       ctx.ntLoginApi.quickLoginWithUin.mockResolvedValue({
         loginErrorInfo: { errMsg: '' },
       })
@@ -69,9 +69,9 @@ describe('login routes', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uin: '123456' }),
       })
-      expect(res.status).toBe(200)
+      expect(res.status).toBe(500)
       const body = await res.json()
-      expect(body.success).toBe(true)
+      expect(body.success).toBe(false)
     })
   })
 

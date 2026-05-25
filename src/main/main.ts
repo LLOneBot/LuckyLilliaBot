@@ -9,8 +9,8 @@ import Core from '../ntqqapi/core'
 import OneBot11Adapter from '../onebot11/adapter'
 import SatoriAdapter from '../satori/adapter'
 import MilkyAdapter from '../milky/adapter'
-import Database from 'minato'
-import SQLiteDriver from '@minatojs/driver-sqlite'
+import Database from '@cordisjs/plugin-database'
+import SQLiteDriver from '@cordisjs/plugin-database-sqlite'
 import Store from './store'
 import { Config as LLBotConfig } from '../common/types'
 import { Context } from 'cordis'
@@ -34,7 +34,7 @@ import { EmailConfig } from '@/common/emailConfig'
 import { isDockerEnvironment } from '@/common/utils/environment'
 import { pathToFileURL } from 'node:url'
 import { QQProtocolClient } from './qqProtocol'
-import LoggerService from '@cordisjs/plugin-logger'
+import LoggerConsole from '@cordisjs/plugin-logger-console'
 import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
 
@@ -54,11 +54,10 @@ async function onLoad() {
     mkdirSync(TEMP_DIR)
   }
 
-  const ctx = new Context()
+  const ctx = new Context().intercept('logger', { level: 2 })
 
-  ctx.plugin(LoggerService, {
-    bufferSize: 0,
-  })
+  ctx.plugin(Log)
+  ctx.plugin(LoggerConsole)
   ctx.plugin(TimerService)
   ctx.plugin(ConfigService)
   ctx.plugin(QQProtocolClient)
@@ -172,7 +171,7 @@ async function onLoad() {
       if (!selfInfo.uin) {
         for (let i = 0; i < 5; i++) {
           try {
-            selfInfo.uin = await ctx.ntUserApi.getUinByUid(selfInfo.uid)
+            selfInfo.uin = String(await ctx.ntUserApi.getUinByUid(selfInfo.uid))
             break
           } catch (e) {
             await sleep(1000)
@@ -205,13 +204,9 @@ async function onLoad() {
     loadPluginAfterLogin()
   }
 
-  ctx.inject(['logger'], (ctx) => {
-    ctx.logger.exporter(new Log(ctx, true))
+  ctx.inject(['qqProtocol', 'config'], (ctx) => {
     ctx.logger.info(`LLBot ${version}`)
     ctx.logger.info(process.argv)
-  })
-  // setFFMpegPath(config.ffmpeg || '')
-  ctx.inject(['qqProtocol', 'config', 'logger'], (ctx) => {
     config = ctx.config.get()
     ctx.plugin(WebuiServer, config.webui)
     if (useDirectProtocol) {

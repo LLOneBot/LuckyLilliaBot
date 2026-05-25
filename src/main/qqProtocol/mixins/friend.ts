@@ -78,9 +78,10 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
       await this.sendPB('OidbSvcTrpcTcp.0xd72_0', data)
     }
 
-    async fetchFriends() {
+    async fetchFriends(cookie?: Buffer) {
       const body = Oidb.IncPullReq.encode({
         reqCount: 500,
+        cookie,
         flag: 1,
         requestBiz: [{
           bizType: 1,

@@ -14,12 +14,12 @@ export class BatchDeleteGroupMember extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    const groupCode = payload.group_id.toString()
-    const memberUinList = payload.user_ids.map(id => id.toString())
+    const groupCode = +payload.group_id
+    const memberUinList = payload.user_ids.map(id => +id)
     const memberUids = await Promise.all(memberUinList.map(async uin => {
       return await this.ctx.ntUserApi.getUidByUin(uin, groupCode)
     }))
-    const res = await this.ctx.ntGroupApi.kickMember(groupCode, memberUids)
+    const res = await this.ctx.ntGroupApi.kickMember(payload.group_id.toString(), memberUids)
     if (res.errCode !== 0) {
       throw new Error(res.errMsg)
     }

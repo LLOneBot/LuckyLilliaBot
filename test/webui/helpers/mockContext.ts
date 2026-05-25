@@ -19,7 +19,7 @@ export function createMockContext() {
     },
     ntGroupApi: {
       getGroups: vi.fn(() => Promise.resolve([])),
-      getGroupMembers: vi.fn(() => Promise.resolve({ result: { infos: new Map() } })),
+      getGroupMembers: vi.fn(() => Promise.resolve(new Map())),
       getGroupRequest: vi.fn(() => Promise.resolve({ notifies: [], normalCount: 0 })),
       handleGroupRequest: vi.fn(() => Promise.resolve()),
     },

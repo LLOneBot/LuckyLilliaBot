@@ -48,7 +48,7 @@ export class GetFriendMsgHistory extends BaseAction<Payload, Response> {
   }
 
   async _handle(payload: Payload, config: ParseMessageConfig): Promise<Response> {
-    const uid = await this.ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id)
     if (!uid) throw new Error(`无法获取用户信息`)
     const isBuddy = await this.ctx.ntFriendApi.isFriend(uid)
     const peer: Peer = {

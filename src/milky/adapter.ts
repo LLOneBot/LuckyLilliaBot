@@ -34,7 +34,7 @@ declare module 'cordis' {
 }
 
 export class MilkyAdapter extends Service {
-  static inject = ['ntUserApi', 'ntFriendApi', 'ntGroupApi', 'ntMsgApi', 'ntFileApi', 'ntSystemApi', 'ntWebApi', 'app', 'logger', 'qqProtocol']
+  static inject = ['ntUserApi', 'ntFriendApi', 'ntGroupApi', 'ntMsgApi', 'ntFileApi', 'ntSystemApi', 'ntWebApi', 'app', 'qqProtocol']
 
   readonly apiCollection!: MilkyApiCollection
   readonly httpHandler!: MilkyHttpHandler

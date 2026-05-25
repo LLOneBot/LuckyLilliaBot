@@ -9,7 +9,7 @@ declare module 'cordis' {
 }
 
 export class NTQQFriendApi extends Service {
-  static inject = ['ntUserApi', 'ntSystemApi', 'qqProtocol']
+  static inject = ['qqProtocol', 'store']
   private friendsCache: Friend[] = []
   private categoriesCache: Map<number, Category> = new Map()
 
@@ -20,37 +20,51 @@ export class NTQQFriendApi extends Service {
   // TODO: 好友数量变更时刷新缓存
   async getFriends(forceUpdate: boolean) {
     if (forceUpdate || this.friendsCache.length === 0) {
-      const res = await this.ctx.qqProtocol.fetchFriends()
-      this.categoriesCache.clear()
-      for (const cat of res.category) {
-        this.categoriesCache.set(cat.categoryId, cat)
+      const friends = []
+      const categories = new Map<number, Category>()
+      const ids = []
+      let cookie: Buffer | undefined
+      while (true) {
+        const res = await this.ctx.qqProtocol.fetchFriends(cookie)
+        for (const cat of res.category) {
+          categories.set(cat.categoryId, cat)
+        }
+        for (const friend of res.friendList) {
+          const biz = friend.subBiz.get(1)!
+          let statusId = biz.numData.get(27372)!
+          if (statusId >= 268435456) {
+            statusId -= 268435456
+          }
+          if (statusId > 14878464) {
+            statusId -= 14878464
+          }
+          friends.push({
+            uid: friend.uid,
+            uin: friend.uin,
+            categoryId: friend.categoryId,
+            categoryName: categories.get(friend.categoryId)!.categoryName,
+            nick: biz.data.get(20002)!.toString(),
+            longNick: biz.data.get(102)!.toString(),
+            remark: biz.data.get(103)!.toString(),
+            qid: biz.data.get(27394)!.toString(),
+            age: biz.numData.get(20037)!,
+            sex: biz.numData.get(20009)!,
+            birthdayYear: (biz.data.get(20031)![0] << 8) | biz.data.get(20031)![1],
+            birthdayMonth: biz.data.get(20031)![2],
+            birthdayDay: biz.data.get(20031)![3],
+            status: statusId
+          })
+          ids.push({
+            uid: friend.uid,
+            uin: friend.uin
+          })
+        }
+        cookie = res.cookie
+        if (!cookie) break
       }
-      this.friendsCache = res.friendList.map(friend => {
-        const biz = friend.subBiz.get(1)!
-        let statusId = biz.numData.get(27372)!
-        if (statusId >= 268435456) {
-          statusId -= 268435456
-        }
-        if (statusId > 14878464) {
-          statusId -= 14878464
-        }
-        return {
-          uid: friend.uid,
-          uin: friend.uin,
-          categoryId: friend.categoryId,
-          categoryName: this.categoriesCache.get(friend.categoryId)!.categoryName,
-          nick: biz.data.get(20002)!.toString(),
-          longNick: biz.data.get(102)!.toString(),
-          remark: biz.data.get(103)!.toString(),
-          qid: biz.data.get(27394)!.toString(),
-          age: biz.numData.get(20037)!,
-          sex: biz.numData.get(20009)!,
-          birthdayYear: (biz.data.get(20031)![0] << 8) | biz.data.get(20031)![1],
-          birthdayMonth: biz.data.get(20031)![2],
-          birthdayDay: biz.data.get(20031)![3],
-          status: statusId === 0 ? 20 : statusId * 10
-        }
-      })
+      this.ctx.store.addUix(ids).catch(e => this.ctx.logger.warn(e))
+      this.friendsCache = friends
+      this.categoriesCache = categories
     }
     return {
       friends: this.friendsCache,

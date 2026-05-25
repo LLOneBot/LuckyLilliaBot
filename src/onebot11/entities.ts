@@ -277,11 +277,11 @@ export namespace OB11Entities {
     if (msg.chatType === ChatType.Group) {
       let operatorUin
       if (revokeElement.operatorUid === revokeElement.origMsgSenderUid) {
-        operatorUin = msg.senderUin
+        operatorUin = +msg.senderUin
       } else {
         operatorUin = await ctx.ntUserApi.getUinByUid(revokeElement.operatorUid)
       }
-      let senderUin = msg.senderUin
+      let senderUin = +msg.senderUin
       if (msg.senderUin === '0') {
         senderUin = await ctx.ntUserApi.getUinByUid(revokeElement.origMsgSenderUid)
         if (revokeElement.operatorUid === revokeElement.origMsgSenderUid) {
@@ -289,9 +289,9 @@ export namespace OB11Entities {
         }
       }
       return new OB11GroupRecallNoticeEvent(
-        Number(msg.peerUid),
-        Number(senderUin),
-        Number(operatorUin),
+        +msg.peerUid,
+        senderUin,
+        operatorUin,
         shortId,
       )
     }

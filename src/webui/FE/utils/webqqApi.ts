@@ -69,7 +69,7 @@ export async function getFriends(): Promise<FriendCategory[]> {
         nickname: friend.nick,
         remark: friend.remark,
         avatar: getUserAvatar(friend.uin),
-        online: friend.status !== 20
+        online: friend.status !== 0
       }))
 
     return {
@@ -113,7 +113,7 @@ export async function getPins(): Promise<{ friends: string[], groups: string[] }
 
 // 获取最近会话列表
 export async function getRecentChats(): Promise<RecentChatItem[]> {
-  const result = await ntCall<{ info: { changedList: any[] } }>('ntUserApi', 'getRecentContactListSnapShot', [50])
+  /*const result = await ntCall<{ info: { changedList: any[] } }>('ntUserApi', 'getRecentContactListSnapShot', [50])
 
   // 获取群列表和好友列表的置顶信息
   const [groupsData, friendsData, pinsData] = await Promise.all([
@@ -223,7 +223,8 @@ export async function getRecentChats(): Promise<RecentChatItem[]> {
     return b.lastTime - a.lastTime
   })
 
-  return recentChats
+  return recentChats*/
+  return []
 }
 
 // 提取消息摘要
@@ -517,8 +518,8 @@ export async function getUserProfile(uid?: string, uin?: string, groupCode?: str
   }
 
   // fetchUserDetailInfo 返回 { detail: { [uid]: UserDetailInfo } }（Map 已被序列化为对象）
-  const result = await ntCall<{ detail: Record<string, any> }>('ntUserApi', 'fetchUserDetailInfo', [targetUid])
-  const userInfo = result.detail[targetUid]
+  const result = await ntCall<any>('ntUserApi', 'fetchUserDetailInfo', [targetUid])
+  const userInfo = result
 
   if (!userInfo) {
     throw new Error('用户不存在')
@@ -772,7 +773,7 @@ export interface GroupProfile {
 
 // 获取群详细资料
 export async function getGroupProfile(groupCode: string): Promise<GroupProfile> {
-  const groupAll = await ntCall<any>('ntGroupApi', 'getGroupAllInfo', [groupCode])
+  const groupAll = await ntCall<any>('ntGroupApi', 'getGroup', [+groupCode, false])
 
   // 打印群介绍调试
   console.log('[WebQQ] 群资料:', {

@@ -27,14 +27,14 @@ const SendPrivateMessage = defineApi(
   SendPrivateMessageInput,
   SendPrivateMessageOutput,
   async (ctx, payload) => {
-    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id)
     if (!uid) {
       return Failed(-404, 'User not found')
     }
     const peer = { chatType: 1, peerUid: uid, guildId: '' }
     const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
-        peer.chatType = 100
+      peer.chatType = 100
     }
 
     const { elements, deleteAfterSentFiles } = await transformOutgoingMessage(
@@ -90,14 +90,14 @@ const RecallPrivateMessage = defineApi(
   RecallPrivateMessageInput,
   z.object({}),
   async (ctx, payload) => {
-    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id)
     if (!uid) {
       return Failed(-404, 'User not found')
     }
     const peer = { chatType: 1, peerUid: uid, guildId: '' }
     const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
-        peer.chatType = 100
+      peer.chatType = 100
     }
     const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
       peer,
@@ -156,7 +156,7 @@ const GetMessage = defineApi(
       guildId: ''
     }
     if (peer.chatType === ChatType.C2C || peer.chatType === ChatType.TempC2CFromGroup) {
-      const uid = await ctx.ntUserApi.getUidByUin(peer.peerUid)
+      const uid = await ctx.ntUserApi.getUidByUin(+peer.peerUid)
       if (!uid) {
         return Failed(-404, 'User not found')
       }
@@ -203,7 +203,7 @@ const GetHistoryMessages = defineApi(
       guildId: ''
     }
     if (peer.chatType === 1 || peer.chatType === 100) {
-      const uid = await ctx.ntUserApi.getUidByUin(peer.peerUid)
+      const uid = await ctx.ntUserApi.getUidByUin(+peer.peerUid)
       if (!uid) {
         return Failed(-404, 'User not found')
       }
@@ -320,7 +320,7 @@ const MarkMessageAsRead = defineApi(
       guildId: ''
     }
     if (peer.chatType === 1 || peer.chatType === 100) {
-      const uid = await ctx.ntUserApi.getUidByUin(peer.peerUid)
+      const uid = await ctx.ntUserApi.getUidByUin(+peer.peerUid)
       if (!uid) {
         return Failed(-404, 'User not found')
       }

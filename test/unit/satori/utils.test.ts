@@ -46,26 +46,26 @@ describe('Satori Utils', () => {
         nick: '昵称',
         cardName: '群名片',
         role: 2,
-        joinTime: 1700000000,
+        joinedAt: 1700000000,
       } as any)
 
       expect(member.nick).toBe('群名片')
       expect(member.user!.id).toBe('12345')
       expect(member.joined_at).toBe(1700000000000)
       expect(member.roles![0].id).toBe('2')
-      expect(member.roles![0].name).toBe('member')
+      expect(member.roles![0].name).toBe('admin')
     })
 
     it('管理员角色', () => {
       const member = decodeGuildMember({
-        uin: '12345', nick: '管理', cardName: '', role: 3, joinTime: 0,
+        uin: '12345', nick: '管理', cardName: '', role: 2, joinTime: 0,
       } as any)
       expect(member.roles![0].name).toBe('admin')
     })
 
     it('群主角色', () => {
       const member = decodeGuildMember({
-        uin: '12345', nick: '群主', cardName: '', role: 4, joinTime: 0,
+        uin: '12345', nick: '群主', cardName: '', role: 1, joinTime: 0,
       } as any)
       expect(member.roles![0].name).toBe('owner')
     })

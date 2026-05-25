@@ -411,7 +411,7 @@ export async function transformSystemMessageEvent(
       } else if (tip.type === 131) {
         if (tip.memberUid === selfInfo.uid) return null
         const memberUin = await ctx.ntUserApi.getUinByUid(tip.memberUid)
-        let adminUin = '0'
+        let adminUin = 0
         let adminUid = tip.adminUid
         if (adminUid) {
           const adminUidMatch = tip.adminUid.match(/\x18([^\x18\x10]+)\x10/)
@@ -425,7 +425,7 @@ export async function transformSystemMessageEvent(
           data: {
             group_id: tip.groupCode,
             user_id: +memberUin,
-            operator_id: +adminUin
+            operator_id: adminUin
           } satisfies MilkyEventTypes['group_member_decrease']
         }
       }

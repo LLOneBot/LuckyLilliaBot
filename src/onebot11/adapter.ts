@@ -61,7 +61,7 @@ class Onebot11Adapter extends Service {
   static inject = [
     'ntMsgApi', 'ntFileApi', 'ntFriendApi',
     'ntGroupApi', 'ntUserApi', 'ntWebApi',
-    'ntSystemApi', 'store', 'app', 'logger',
+    'ntSystemApi', 'store', 'app',
     'qqProtocol', 'timer', 'config'
   ]
   private connect: (OB11Http | OB11HttpPost | OB11WebSocket | OB11WebSocketReverse)[]
@@ -568,22 +568,6 @@ class Onebot11Adapter extends Service {
         this.ctx.logger.warn('friend-added bridge error:', (e as Error).message)
       }
     })
-    this.ctx.on('nt/raw/group-card-changed', async input => {
-      const groupId = +input.groupCode
-      if (!groupId || !input.targetUid) return
-      try {
-        const targetUin = await this.ctx.ntUserApi.getUinByUid(input.targetUid)
-        const userId = +targetUin
-        if (!userId) return
-        const oldCard = await this.ctx.store.getGroupMemberCard(String(groupId), String(userId)) ?? ''
-        await this.ctx.store.setGroupMemberCard(String(groupId), String(userId), input.newCard)
-        if (oldCard !== input.newCard) {
-          this.dispatch(new OB11GroupCardEvent(groupId, userId, input.newCard, oldCard))
-        }
-      } catch (e) {
-        this.ctx.logger.warn('group-card-changed bridge error:', (e as Error).message)
-      }
-    })
     this.ctx.on('nt/system-message-created', async input => {
       const sysMsg = Msg.Message.decode(input)
       if (!sysMsg.body) {
@@ -620,7 +604,7 @@ class Onebot11Adapter extends Service {
           if (tip.memberUid === selfInfo.uid) return
           this.ctx.logger.info('有群成员被踢', tip)
           const memberUin = await this.ctx.ntUserApi.getUinByUid(tip.memberUid)
-          let adminUin = '0'
+          let adminUin = 0
           let adminUid = tip.adminUid
           if (adminUid) {
             const adminUidMatch = tip.adminUid.match(/\x18([^\x18\x10]+)\x10/)
@@ -629,12 +613,12 @@ class Onebot11Adapter extends Service {
             }
             adminUin = await this.ctx.ntUserApi.getUinByUid(adminUid)
           }
-          const event = new OB11GroupDecreaseEvent(tip.groupCode, +memberUin, +adminUin, 'kick')
+          const event = new OB11GroupDecreaseEvent(tip.groupCode, +memberUin, adminUin, 'kick')
           this.dispatch(event)
         } else if (tip.type === 3) {
           // bot 自己被踢出群（群解散时也会触发 type=3，operatorUid 是群主）
           this.ctx.logger.info('bot 被踢出群/群解散', tip)
-          let adminUin = '0'
+          let adminUin = 0
           let adminUid = tip.adminUid
           if (adminUid) {
             const adminUidMatch = tip.adminUid.match(/\x18([^\x18\x10]+)\x10/)
@@ -643,7 +627,7 @@ class Onebot11Adapter extends Service {
             }
             adminUin = await this.ctx.ntUserApi.getUinByUid(adminUid)
           }
-          const event = new OB11GroupDecreaseEvent(tip.groupCode, +selfInfo.uin, +adminUin, 'kick_me')
+          const event = new OB11GroupDecreaseEvent(tip.groupCode, +selfInfo.uin, adminUin, 'kick_me')
           this.dispatch(event)
         }
       }

@@ -223,12 +223,12 @@ const SetPeerPin = defineApi(
   z.object({}),
   async (ctx, payload) => {
     if (payload.message_scene === 'friend') {
-      const uid = await ctx.ntUserApi.getUidByUin(payload.peer_id.toString())
+      const uid = await ctx.ntUserApi.getUidByUin(payload.peer_id)
       await ctx.ntFriendApi.setFriendPin(uid, payload.is_pinned)
     } else if (payload.message_scene === 'group') {
       await ctx.ntGroupApi.setGroupPin(payload.peer_id, payload.is_pinned)
     } else if (payload.message_scene === 'temp') {
-      const uid = await ctx.ntUserApi.getUidByUin(payload.peer_id.toString())
+      const uid = await ctx.ntUserApi.getUidByUin(payload.peer_id)
       const result = await ctx.ntMsgApi.setContactLocalTop({
         chatType: ChatType.TempC2CFromGroup,
         peerUid: uid,

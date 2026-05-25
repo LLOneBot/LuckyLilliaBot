@@ -68,7 +68,7 @@ describe('messages routes', () => {
       const app = makeApp()
 
       await app.request('/messages?chatType=1&peerId=123456')
-      expect(ctx.ntUserApi.getUidByUin).toHaveBeenCalledWith('123456')
+      expect(ctx.ntUserApi.getUidByUin).toHaveBeenCalledWith(123456)
     })
 
     it('fetches messages before given seq', async () => {

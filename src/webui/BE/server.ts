@@ -42,17 +42,17 @@ export interface WebuiServerConfig extends WebUIConfig {
 }
 
 export class WebuiServer extends Service {
-  static inject = [
-    'ntLoginApi',
-    'ntFriendApi',
-    'ntGroupApi',
-    'ntSystemApi',
-    'ntMsgApi',
-    'ntUserApi',
-    'ntFileApi',
-    'logger',
-    'qqProtocol',
-  ]
+  static inject = {
+    ntLoginApi: true,
+    ntFriendApi: true,
+    ntGroupApi: true,
+    ntSystemApi: true,
+    ntMsgApi: true,
+    ntUserApi: true,
+    ntFileApi: true,
+    qqProtocol: true,
+    emailNotification: false
+  }
 
   private server: ServerType | null = null
   private app: Hono = new Hono()
@@ -251,7 +251,7 @@ export class WebuiServer extends Service {
     if (message.chatType === ChatType.C2C && (!message.peerUin || message.peerUin === '0') && message.peerUid) {
       const uin = await this.ctx.ntUserApi.getUinByUid(message.peerUid)
       if (uin) {
-        message.peerUin = uin
+        message.peerUin = uin.toString()
       }
     }
   }
@@ -274,10 +274,10 @@ export class WebuiServer extends Service {
             const groupCode = String(notify.groupCode)
             const userId = await this.ctx.ntUserApi.getUinByUid(info.operatorUid)
 
-            let userName = userId
+            let userName = userId.toString()
             try {
               const member = await this.ctx.ntGroupApi.getGroupMemberByUid(+groupCode, info.operatorUid, false)
-              userName = member?.cardName || member?.nick || userId
+              userName = member?.cardName || member?.nick || userId.toString()
             } catch { }
 
             this.broadcastMessage('message', {

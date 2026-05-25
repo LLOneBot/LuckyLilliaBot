@@ -1,7 +1,6 @@
 import { selfInfo } from '@/common/globalVars'
 import {
   GroupMember,
-  GroupMemberRole,
   GroupRequestOperateTypes,
   GetFileListParam,
   GroupFileInfo,
@@ -26,7 +25,7 @@ declare module 'cordis' {
 }
 
 export class NTQQGroupApi extends Service {
-  static inject = ['qqProtocol']
+  static inject = ['qqProtocol', 'store']
   private groupsCache: Group[] = []
   private groupCache: Map<number, Group> = new Map()
   private membersCache: Map<number, Map<string, GroupMember>> = new Map()
@@ -90,7 +89,8 @@ export class NTQQGroupApi extends Service {
   async getGroupMembers(groupCode: number, forceUpdate: boolean) {
     if (forceUpdate || !this.membersCache.has(groupCode)) {
       const infos = new Map<string, GroupMember>()
-      let cookie: Buffer | undefined = undefined
+      const ids = []
+      let cookie: Buffer | undefined
       while (true) {
         const res = await this.ctx.qqProtocol.fetchGroupMembers(groupCode, cookie)
         for (const member of res.members) {
@@ -106,10 +106,12 @@ export class NTQQGroupApi extends Service {
             shutupExpireTime: member.shutUpTimestamp ?? 0,
             role: member.permission ?? 0
           })
+          ids.push(member.id)
         }
         cookie = res.cookie
         if (!cookie) break
       }
+      this.ctx.store.addUix(ids).catch(e => this.ctx.logger.warn(e))
       this.membersCache.set(groupCode, infos)
     }
     return this.membersCache.get(groupCode)!

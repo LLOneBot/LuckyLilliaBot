@@ -43,36 +43,10 @@ function makeSimpleInfoFromOidb(uid: string, info: any): SimpleInfo {
 }
 
 export class NTQQUserApi extends Service {
-  static inject = { ntGroupApi: true, logger: true, qqProtocol: true, ntFriendApi: false }
+  static inject = ['ntGroupApi', 'qqProtocol', 'store', 'ntFriendApi']
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntUserApi')
-  }
-
-  /** OIDB 0xfe1_1 / 0xfe1_2 都拒绝自查（errorCode=62）。
-   * 自己的昵称在登录时从 wtlogin TLV 0x11A 拿到（保存在 selfInfo.nick）。
-   * 兜底从群成员列表里找自己。 */
-  private async fetchSelfInfo(): Promise<{ uin: string, uid: string, nick: string } | null> {
-    if (!selfInfo.uid) return null
-    if (selfInfo.nick) {
-      return { uin: selfInfo.uin, uid: selfInfo.uid, nick: selfInfo.nick }
-    }
-    try {
-      const groups = await this.ctx.ntGroupApi.getGroups(false)
-      for (const g of groups) {
-        try {
-          const members: any = await this.ctx.ntGroupApi.getGroupMembers(String(g.groupCode))
-          const me = members.result?.infos?.get(selfInfo.uid)
-          if (me?.nick) {
-            selfInfo.nick = me.nick
-            return { uin: selfInfo.uin, uid: selfInfo.uid, nick: me.nick }
-          }
-        } catch { }
-      }
-    } catch (e) {
-      this.ctx.logger.error('fetchSelfInfo via groups failed', e)
-    }
-    return { uin: selfInfo.uin, uid: selfInfo.uid, nick: '' }
   }
 
   async setSelfAvatar(filePath: string): Promise<{ result: number, errMsg: string }> {
@@ -101,12 +75,18 @@ export class NTQQUserApi extends Service {
     }
   }
 
-  async getUidByUin(uin: string, groupCode?: string) {
-    if (uin === selfInfo.uin) return selfInfo.uid
+  async getUidByUin(uin: number, groupCode?: number) {
+    if (uin === +selfInfo.uin) return selfInfo.uid
+    try {
+      const uid = await this.ctx.store.getUidByUin(uin)
+      if (uid) return uid
+    } catch (e) {
+      this.ctx.logger.error('getUidByUin via store failed', e)
+    }
     // 通过群成员列表查（最直接）
     if (groupCode) {
       try {
-        const member = await this.ctx.ntGroupApi.getGroupMemberByUin(+groupCode, +uin, false)
+        const member = await this.ctx.ntGroupApi.getGroupMemberByUin(+groupCode, uin, true)
         if (member?.uid) return member.uid
       } catch (e) {
         this.ctx.logger.error('getUidByUin via group members failed', e)
@@ -114,27 +94,18 @@ export class NTQQUserApi extends Service {
     }
     // 私聊场景没 groupCode：先从好友列表里找
     try {
-      if (this.ctx.ntFriendApi) {
-        const result = await this.ctx.ntFriendApi.getFriends(false)
-        const found = result.friends?.find((f: any) => String(f.uin) === String(uin))
-        if (found?.uid) return found.uid
-      }
+      const friend = await this.ctx.ntFriendApi.getFriendByUin(uin, true)
+      if (friend?.uid) return friend.uid
     } catch (e) {
-      this.ctx.logger.error('getUidByUin via friend list failed', e)
+      this.ctx.logger.error('getUidByUin via friends failed', e)
     }
-    // 不是好友：在所有已缓存的群成员里反查（覆盖临时会话场景）
-    try {
-      const cached = this.ctx.ntGroupApi?.findUidByUinFromCache?.(uin)
-      if (cached) return cached
-    } catch { }
-    // 还没缓存：拉一次群列表，逐个拉成员；找到一个就返
+    // 临时会话：拉一次群列表，逐个拉成员；找到一个就返
     try {
       const groups = await this.ctx.ntGroupApi.getGroups(false)
       for (const g of groups) {
         try {
-          const members: any = await this.ctx.ntGroupApi.getGroupMembers(String(g.groupCode))
-          const found = [...(members.result?.infos?.values() ?? [])].find((e: any) => String(e.uin) === String(uin))
-          if (found?.uid) return found.uid
+          const member = await this.ctx.ntGroupApi.getGroupMemberByUin(g.groupCode, uin, true)
+          if (member?.uid) return member.uid
         } catch { }
       }
     } catch (e) {
@@ -143,21 +114,24 @@ export class NTQQUserApi extends Service {
     return ''
   }
 
-  async getUserDetailInfoByUin(uin: string) {
-    if (uin === selfInfo.uin) {
-      const self = await this.fetchSelfInfo()
-      return {
-        detail: {
-          uid: self?.uid ?? '',
-          uin: self?.uin ?? uin,
-          nick: self?.nick ?? '',
-          sex: 0,
-          age: 0,
-          longNick: '',
-          level: 0,
-        },
-      }
+  async getUinByUid(uid: string) {
+    if (uid === selfInfo.uid) return +selfInfo.uin
+    try {
+      const uin = await this.ctx.store.getUinByUid(uid)
+      if (uin) return uin
+    } catch (e) {
+      this.ctx.logger.error('getUidByUin via store failed', e)
     }
+    try {
+      const user = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+      return user.uin
+    } catch (e) {
+      this.ctx.logger.error('getUidByUin via user failed', e)
+    }
+    return 0
+  }
+
+  async getUserDetailInfoByUin(uin: string) {
     const info = await this.ctx.qqProtocol.fetchUserInfo(+uin)
     return {
       detail: {
@@ -172,22 +146,8 @@ export class NTQQUserApi extends Service {
     }
   }
 
-  async getUinByUid(uid: string): Promise<string> {
-    if (!uid) return ''
-    if (uid === selfInfo.uid && selfInfo.uin) return selfInfo.uin
-    const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-    return String(info.uin || '')
-  }
-
   /** 始终会从服务器拉取 */
   async fetchUserDetailInfo(uid: string) {
-    if (uid === selfInfo.uid) {
-      const self = await this.fetchSelfInfo()
-      return {
-        simpleInfo: makeSimpleInfoFromOidb(uid, { uin: self?.uin, nick: self?.nick }),
-        commonExt: null,
-      }
-    }
     const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
     return {
       simpleInfo: makeSimpleInfoFromOidb(uid, info),
@@ -202,10 +162,6 @@ export class NTQQUserApi extends Service {
 
   /** 无缓存时会从服务器拉取 */
   async getUserSimpleInfo(uid: string, _force = true) {
-    if (uid === selfInfo.uid) {
-      const self = await this.fetchSelfInfo()
-      return makeSimpleInfoFromOidb(uid, { uin: self?.uin, nick: self?.nick })
-    }
     const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
     return makeSimpleInfoFromOidb(uid, info)
   }
@@ -215,13 +171,8 @@ export class NTQQUserApi extends Service {
     const result = new Map<string, SimpleInfo>()
     for (const uid of uids) {
       try {
-        if (uid === selfInfo.uid) {
-          const self = await this.fetchSelfInfo()
-          result.set(uid, makeSimpleInfoFromOidb(uid, { uin: self?.uin, nick: self?.nick }))
-        } else {
-          const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-          result.set(uid, makeSimpleInfoFromOidb(uid, info))
-        }
+        const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+        result.set(uid, makeSimpleInfoFromOidb(uid, info))
       } catch (e) {
         this.ctx.logger.error('getCoreAndBaseInfo failed for uid', uid, e)
       }
@@ -231,10 +182,6 @@ export class NTQQUserApi extends Service {
 
   async getBuddyNick(uid: string) {
     if (!uid) return ''
-    if (uid === selfInfo.uid) {
-      const self = await this.fetchSelfInfo()
-      return self?.nick ?? ''
-    }
     try {
       const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
       return info.nick
@@ -277,8 +224,10 @@ export class NTQQUserApi extends Service {
 
   async getSelfNick(refresh = true) {
     if (!refresh && selfInfo.nick) return selfInfo.nick
-    const self = await this.fetchSelfInfo()
-    return self?.nick ?? selfInfo.nick
+    const self = await this.getUserSimpleInfo(selfInfo.uid)
+    const nick = self.coreInfo.nick
+    selfInfo.nick = nick
+    return nick
   }
 
   async setSelfStatus(status: number, extStatus: number, _batteryStatus: number): Promise<any> {

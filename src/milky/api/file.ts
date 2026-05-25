@@ -23,11 +23,10 @@ import z from 'zod'
 import { defineApi, Failed, MilkyApiHandler, Ok } from '@/milky/common/api'
 import { resolveMilkyUri } from '@/milky/common/download'
 import { transformGroupFileList } from '@/milky/transform/entity'
-import { selfInfo, TEMP_DIR } from '@/common/globalVars'
+import { TEMP_DIR } from '@/common/globalVars'
 import { unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
-import { SendElement } from '@/ntqqapi/entities'
 import { noop } from 'cosmokit'
 
 const UploadPrivateFile = defineApi(
@@ -38,7 +37,7 @@ const UploadPrivateFile = defineApi(
     const data = await resolveMilkyUri(payload.file_uri)
     const tempPath = path.join(TEMP_DIR, `file-${randomUUID()}`)
     await writeFile(tempPath, data)
-    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id)
     if (!uid) {
       return Failed(-404, 'User not found')
     }

@@ -18,12 +18,11 @@ export default class SetGroupAdmin extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    const groupCode = payload.group_id.toString()
-    const uin = payload.user_id.toString()
-    const uid = await this.ctx.ntUserApi.getUidByUin(uin, groupCode)
+    const groupCode = +payload.group_id
+    const uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id, groupCode)
     if (!uid) throw new Error('无法获取用户信息')
     const res = await this.ctx.ntGroupApi.setMemberRole(
-      +payload.group_id,
+      groupCode,
       uid,
       payload.enable
     )

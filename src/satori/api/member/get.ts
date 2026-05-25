@@ -8,7 +8,7 @@ interface Payload {
 }
 
 export const getGuildMember: Handler<GuildMember, Payload> = async (ctx, payload) => {
-  const uid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.guild_id)
+  const uid = await ctx.ntUserApi.getUidByUin(+payload.user_id, +payload.guild_id)
   if (!uid) throw new Error('无法获取用户信息')
   const member = await ctx.ntGroupApi.getGroupMemberByUid(+payload.guild_id, uid, true)
   if (!member) throw new Error('群组成员未找到')

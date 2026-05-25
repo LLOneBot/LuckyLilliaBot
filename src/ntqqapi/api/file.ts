@@ -67,7 +67,7 @@ declare module 'cordis' {
 }
 
 export class NTQQFileApi extends Service {
-  static inject = ['logger', 'qqProtocol', 'ntUserApi']
+  static inject = ['qqProtocol', 'ntUserApi']
 
   rkeyManager: RkeyManager
 

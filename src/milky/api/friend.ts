@@ -28,7 +28,7 @@ const SendProfileLike = defineApi(
   SendProfileLikeInput,
   z.object({}),
   async (ctx, payload) => {
-    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id)
     if (!uid) {
       return Failed(-404, 'User not found')
     }
@@ -45,7 +45,7 @@ const DeleteFriend = defineApi(
   DeleteFriendInput,
   z.object({}),
   async (ctx, payload) => {
-    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id)
     if (!uid) {
       return Failed(-404, 'User not found')
     }

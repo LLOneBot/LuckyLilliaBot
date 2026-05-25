@@ -31,7 +31,7 @@ export class UploadPrivateFile extends BaseAction<Payload, Response> {
     if (name.includes('/') || name.includes('\\')) {
       throw new Error(`文件名 ${name} 不合法`)
     }
-    const uid = await this.ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id)
     if (!uid) {
       throw new Error('无法获取用户信息')
     }

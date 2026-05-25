@@ -15,8 +15,6 @@ declare module 'cordis' {
 }
 
 export default class Config extends Service {
-  static inject = ['logger']
-
   private configPath: string | undefined
   private config: LLBotConfig | null = null
   private watch = false

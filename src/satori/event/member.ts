@@ -12,7 +12,7 @@ export async function parseGuildMemberAdded(bot: SatoriAdapter, input: RawMessag
     const json = JSON.parse(input.elements[0].grayTipElement.jsonGrayTipElement.jsonStr)
     const uin = new URL(json.items[2].jp).searchParams.get('robot_uin')
     if (!uin) return
-    memberUid = await bot.ctx.ntUserApi.getUidByUin(uin, input.peerUid)
+    memberUid = await bot.ctx.ntUserApi.getUidByUin(+uin, +input.peerUid)
   } else {
     const iterator = input.elements[0].grayTipElement?.xmlElement?.members.keys()
     iterator?.next()

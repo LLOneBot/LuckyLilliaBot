@@ -12,7 +12,7 @@ declare module 'cordis' {
   }
 }
 
-declare module 'minato' {
+declare module '@cordisjs/plugin-database' {
   interface Tables {
     message: {
       shortId: number
@@ -50,7 +50,7 @@ export interface MsgInfo {
 }
 
 class Store extends Service {
-  static inject = ['database', 'model', 'logger']
+  static inject = ['database', 'model']
   private cache: BidiMap<string, number>
   private messages: Map<string, RawMessage>
 
@@ -168,7 +168,7 @@ class Store extends Service {
       shortId,
       chatType: peer.chatType,
       peerUid: peer.peerUid
-    }], ['shortId']).then().catch(e => this.ctx.logger.error('createMsgShortId database error:', e))
+    }], ['shortId']).catch(e => this.ctx.logger.warn(e))
     return shortId
   }
 
@@ -224,8 +224,8 @@ class Store extends Service {
     if (existingFile.length) {
       return existingFile
     }
-    this.ctx.database.upsert('file', [data], 'fileUuid').then()
-      .catch(e => this.ctx.logger.error('addFileCache database error:', e))
+    this.ctx.database.upsert('file', [data], 'fileUuid')
+      .catch(e => this.ctx.logger.warn(e))
   }
 
   getFileCacheByName(fileName: string) {
@@ -273,8 +273,8 @@ class Store extends Service {
       parentMsgId,
       chatType: peer.chatType,
       peerUid: peer.peerUid
-    }]).then()
-      .catch(e => this.ctx.logger.error('addMultiMsgInfo database error:', e))
+    }])
+      .catch(e => this.ctx.logger.warn(e))
   }
 
   getMultiMsgInfo(parentMsgId: string) {
@@ -286,8 +286,8 @@ class Store extends Service {
     return items[0]?.card
   }
 
-  setGroupMemberCard(groupId: string, userId: string, card: string) {
-    return this.ctx.database.upsert('group_member', [{
+  async setGroupMemberCard(groupId: string, userId: string, card: string) {
+    return await this.ctx.database.upsert('group_member', [{
       groupId,
       userId,
       card

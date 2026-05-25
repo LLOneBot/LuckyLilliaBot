@@ -77,7 +77,6 @@ declare module 'cordis' {
     'nt/raw/group-reaction': (input: { groupCode: string, msgSeq: number, operatorUid: string, code: string, isAdd: boolean, count: number }) => void
     'nt/raw/group-poke': (input: { groupCode: string, fromUin: string, toUin: string, action: string, suffix: string, actionImg: string, msgUid?: string }) => void
     'nt/raw/group-title-changed': (input: { groupCode: string, memberUin: string, title: string }) => void
-    'nt/raw/group-card-changed': (input: { groupCode: string, targetUid: string, operatorUid: string, newCard: string }) => void
     // Friend events
     'nt/raw/friend-poke': (input: { fromUin: string, toUin: string, action: string, suffix: string, actionImg: string, msgUid?: string }) => void
     'nt/raw/friend-pin-changed': (input: { uid: string, isPinned: boolean }) => void
@@ -88,7 +87,7 @@ declare module 'cordis' {
 }
 
 class Core extends Service {
-  static inject = ['ntMsgApi', 'ntFriendApi', 'store', 'ntFileApi', 'logger', 'qqProtocol']
+  static inject = ['ntMsgApi', 'ntFriendApi', 'store', 'ntFileApi', 'qqProtocol']
   public startupTime = 0
   public messageReceivedCount = 0
   public messageSentCount = 0
@@ -125,7 +124,6 @@ class Core extends Service {
     }
     const returnMsg = await ctx.ntMsgApi.sendMsg(peer, sendElements)
     this.messageSentCount++
-    ctx.logger.info('消息发送', peer)
     deleteAfterSentFiles.forEach(path => {
       unlink(path).catch(noop)
     })

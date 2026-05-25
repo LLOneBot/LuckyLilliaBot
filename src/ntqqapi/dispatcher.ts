@@ -159,39 +159,11 @@ function handle0x210(ctx: Context, msg: any, subType: number) {
 
 function handleFriendDeleteOrPin(ctx: Context, msg: any, content: Buffer) {
   try {
-    const decoded: any = Notify.FriendDeleteOrPinChange.decode(content)
-    const type = Number(decoded.body?.type ?? 0)
+    const decoded = Notify.FriendDeleteOrPinChange.decode(content)
     const pinChanged = decoded.body?.pinChanged
     if (pinChanged) {
       const uid = pinChanged.body?.uid || ''
       ctx.parallel('nt/raw/friend-pin-changed', { uid, isPinned: true })
-      return
-    }
-    if (type === 81) {
-      // 群成员名片变更。body 结构：
-      //   field 13 = 嵌套，含 operator/target uid + 新名片
-      //   group uin 在 nested 的某个 varint 字段（不同 QQ 版本可能位置略有不同），
-      //   服务器实际下发只有一个大整数字段，多个候选位置兜底。
-      const body = walkProtoFields(content, [1])
-      if (!body) return
-      const nested = walkProtoFields(body, [13])
-      if (!nested) return
-      const operatorUid = walkProtoFields(nested, [1])?.toString('utf8') || ''
-      const targetUid = walkProtoFields(nested, [2])?.toString('utf8') || ''
-      const newCard = walkProtoFields(nested, [3, 2])?.toString('utf8') || ''
-      let groupUin = 0
-      for (const fieldIdx of [4, 5, 6, 7, 8, 9, 10, 11, 12, 14]) {
-        const v = extractVarintField(nested, [], fieldIdx)
-        if (v && v > 1_000_000) { groupUin = v; break }
-      }
-      if (operatorUid && targetUid && groupUin > 0) {
-        ctx.parallel('nt/raw/group-card-changed', {
-          groupCode: String(groupUin),
-          targetUid,
-          operatorUid,
-          newCard,
-        })
-      }
       return
     }
     // 其他 type；forward 完整 Msg.Message 让 adapter 处理（profile_like 走这里）
@@ -851,7 +823,7 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
     ctx.store.addTempChatInfo({
       peerUid,
       groupCode: routingHead.c2c.fromTinyId
-    }).catch(noop)
+    }).catch(e => ctx.logger.warn(e))
   }
   const rawMessage = convertToRawMessage(msg, msgType)
   if (!rawMessage) return

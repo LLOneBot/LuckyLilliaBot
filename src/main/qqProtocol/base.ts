@@ -26,7 +26,7 @@ interface DisconnectCallbackInfo {
 }
 
 export class QQProtocolBase extends Service {
-  static inject = ['logger', 'config']
+  static inject = ['config']
 
   private reconnectTimer: NodeJS.Timeout | undefined
   protected httpUrl: string = 'http://127.0.0.1:13000'

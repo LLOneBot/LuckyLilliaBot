@@ -14,8 +14,7 @@ export default class SendLike extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    const uin = payload.user_id.toString()
-    const uid = await this.ctx.ntUserApi.getUidByUin(uin)
+    const uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id)
     if (!uid) throw new Error('无法获取用户信息')
     const result = await this.ctx.ntUserApi.like(uid, +payload.times)
     if (result.result !== 0) {

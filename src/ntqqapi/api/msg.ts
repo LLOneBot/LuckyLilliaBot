@@ -1,10 +1,8 @@
 import { ChatType, ElementType, MessageElement, Peer, RawMessage, SendMessageElement } from '../types'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
-import { Media, Msg } from '../proto'
+import { Msg } from '../proto'
 import { convertToRawMessage } from '../dispatcher'
-import { SendElement } from '../entities'
-import { deflateSync } from 'node:zlib'
 import { createReadStream, promises as fsp } from 'node:fs'
 import { getMd5BufferFromFile } from '@/common/utils/file'
 import { uint32ToIPV4Addr } from '@/common/utils'
@@ -20,7 +18,7 @@ declare module 'cordis' {
 }
 
 export class NTQQMsgApi extends Service {
-  static inject = ['ntUserApi', 'ntFileApi', 'logger', 'qqProtocol', 'store']
+  static inject = ['ntUserApi', 'ntFileApi', 'qqProtocol', 'store']
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntMsgApi')
@@ -169,6 +167,7 @@ export class NTQQMsgApi extends Service {
         chatType = ChatType.C2C
       }
     }
+
     const ret = await this.ctx.qqProtocol.sendMessage({
       chatType,
       groupCode,
@@ -191,7 +190,7 @@ export class NTQQMsgApi extends Service {
       sendNickName: '',
       sendMemberName: '',
       sendRemarkName: '',
-      chatType: peer.chatType,
+      chatType,
       sendStatus: 2,
       recallTime: '0',
       records: [],
@@ -200,7 +199,7 @@ export class NTQQMsgApi extends Service {
       emojiLikesList: [],
       msgAttrs: new Map(),
       isOnlineMsg: true,
-      tempFromGroupCode: 0
+      tempFromGroupCode: chatType === ChatType.TempC2CFromGroup ? groupCode! : 0
     }
   }
 
@@ -229,7 +228,7 @@ export class NTQQMsgApi extends Service {
   async getMsgEmojiLikesList(peer: Peer, msgSeq: string, emojiId: string, count: number): Promise<any> {
     const r = await this.ctx.qqProtocol.fetchMsgEmojiLikes(+peer.peerUid, +msgSeq, emojiId, count)
     const emojiLikesList = await Promise.all(r.users.map(async (u: any) => ({
-      uid: await this.ctx.ntUserApi.getUidByUin(String(u.uin), peer.peerUid).catch(() => ''),
+      uid: await this.ctx.ntUserApi.getUidByUin(u.uin, +peer.peerUid).catch(() => ''),
       uin: String(u.uin),
       nickName: '',
       headUrl: `https://q1.qlogo.cn/g?b=qq&nk=${u.uin}&s=640`,
