@@ -1,5 +1,5 @@
 import { MilkyEventTypes } from '@/milky/common/event'
-import { RawMessage, GroupNotify, FriendRequest, GroupNotifyType, GroupNotifyStatus } from '@/ntqqapi/types'
+import { RawMessage, FriendRequest } from '@/ntqqapi/types'
 import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingTempMessage } from './message/incoming'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'

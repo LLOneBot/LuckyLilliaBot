@@ -94,8 +94,16 @@ export namespace Msg {
     extraInfo: ProtoField(16, {
       nick: ProtoField(1, 'string', 'optional'),
       groupCard: ProtoField(2, 'string', 'optional'),
-      level: ProtoField(3, 'uint32', 'optional'),
-      uin: ProtoField(9, 'uint64', 'optional'),
+      level: ProtoField(3, 'int32'),
+      flags: ProtoField(4, 'int32'),
+      groupMask: ProtoField(5, 'int32'),
+      msgTailId: ProtoField(6, 'int32', 'optional'),
+      senderTitle: ProtoField(7, 'string'),
+      apnsTips: ProtoField(8, 'string', 'optional'),
+      uin: ProtoField(9, 'uint32', 'optional'),
+      msgStateFlag: ProtoField(10, 'int32', 'optional'),
+      apnsSoundType: ProtoField(11, 'int32', 'optional'),
+      newGroupFlag: ProtoField(12, 'int32', 'optional')
     }, 'optional'),
     videoFile: ProtoField(19, 'bytes', 'optional'),
     srcMsg: ProtoField(45, {

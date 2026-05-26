@@ -160,26 +160,6 @@ export namespace OB11Entities {
           const uin = +msg.peerUin || +(await ctx.ntUserApi.getUinByUid(msg.peerUid))
           return new OB11FriendAddNoticeEvent(uin)
         }
-      } else if (element.arkElement) {
-        const data = JSON.parse(element.arkElement.bytesData)
-        if (data.app === 'com.tencent.qun.invite' || (data.app === 'com.tencent.tuwen.lua' && data.bizsrc === 'qun.invite')) {
-          const params = new URLSearchParams(data.meta.news.jumpUrl)
-          const receiverUin = params.get('receiveruin')
-          const senderUin = params.get('senderuin')
-          if (receiverUin !== selfInfo.uin || senderUin !== msg.senderUin) {
-            return
-          }
-          ctx.logger.info('收到邀请我加群消息', JSON.stringify(data))
-          const groupCode = params.get('groupcode')
-          const seq = params.get('msgseq')
-          const flag = `${groupCode}|${seq}|1|0`
-          return new OB11GroupRequestInviteBotEvent(
-            Number(groupCode),
-            Number(senderUin),
-            flag,
-            data.meta.news.desc,
-          )
-        }
       }
     }
   }

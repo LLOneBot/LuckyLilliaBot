@@ -17,7 +17,7 @@ export function createMembersRoutes(ctx: Context): Hono {
       const result = await ctx.ntGroupApi.getGroupMembers(+groupCode, false)
       const members: Dict[] = []
 
-      for (const [uid, member] of result) {
+      for (const member of result) {
         const role = member.role === 1 ? 'owner' : member.role === 2 ? 'admin' : 'member'
         members.push({
           uid: member.uid,

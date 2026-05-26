@@ -28,7 +28,6 @@ export class GetGroupShutList extends BaseAction<Payload, GroupMember[]> {
     const members = await this.ctx.ntGroupApi.getGroupMembers(+payload.group_id, true)
     const now = Math.floor(Date.now() / 1000)
     return members
-      .values()
       .filter(member => member.shutupExpireTime > now)
       .map(member => ({
         uid: member.uid,
@@ -44,6 +43,5 @@ export class GetGroupShutList extends BaseAction<Payload, GroupMember[]> {
         joinTime: member.joinedAt,
         lastSpeakTime: member.lastSpokeAt
       }))
-      .toArray()
   }
 }

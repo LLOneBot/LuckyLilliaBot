@@ -1,6 +1,5 @@
 import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
-import { GroupNotify, GroupNotifyStatus, GroupNotifyType } from '@/ntqqapi/types'
 
 interface Response {
   invited_requests: {

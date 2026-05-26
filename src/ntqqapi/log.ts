@@ -48,7 +48,7 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
       }
     }
   }
-  if (!summary){
+  if (!summary) {
     return
   }
   let peerName = ''
@@ -58,10 +58,10 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
   else if (message.chatType == ChatType.C2C) {
     try {
       const userUid = message.peerUid
-      const userInfo = (await ctx.ntUserApi.getUserDetailInfoWithBizInfo(userUid)).simpleInfo.coreInfo
-      sender = userInfo.remark || userInfo.nick
-      peerName = `私] ${sender}(${userInfo.uin})`
-    }catch (e) {
+      const userInfo = await ctx.ntFriendApi.getFriendByUid(userUid, false)
+      sender = userInfo!.remark || userInfo!.nick
+      peerName = `私] ${sender}(${message.peerUin})`
+    } catch (e) {
       return
     }
   }

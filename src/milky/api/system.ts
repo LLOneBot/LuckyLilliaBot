@@ -170,7 +170,7 @@ const GetGroupMemberList = defineApi(
   async (ctx, payload) => {
     const result = await ctx.ntGroupApi.getGroupMembers(payload.group_id, payload.no_cache)
     return Ok({
-      members: result.values().map(e => transformGroupMember(e, payload.group_id)).toArray(),
+      members: result.map(e => transformGroupMember(e, payload.group_id)),
     })
   }
 )

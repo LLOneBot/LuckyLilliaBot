@@ -15,49 +15,6 @@ export enum GroupNotifyType {
   TransferGroupNotifyOldowner,
   TransferGroupNotifyAdmin
 }
-
-export interface GroupNotifies {
-  doubt: boolean
-  nextStartSeq: string
-  notifies: GroupNotify[]
-}
-
-export enum GroupNotifyStatus {
-  Init, // 初始化
-  Unhandle, // 未处理
-  Agreed, // 同意
-  Refused, // 拒绝
-  Ignored // 忽略
-}
-
-export interface GroupNotify {
-  seq: string // 唯一标识符，转成数字再除以1000应该就是时间戳？
-  type: GroupNotifyType
-  status: GroupNotifyStatus
-  group: { groupCode: string, groupName: string }
-  user1: { uid: string, nickName: string } // 入群请求发起者、被设置管理员的人、主动退群者
-  user2: { uid: string, nickName: string } // 入群请求邀请者、设置管理员操作者、群成员被移除操作者
-  actionUser: { uid: string, nickName: string } // 入群请求操作者
-  actionTime: string
-  invitationExt: {
-    srcType: number
-    groupCode: string
-    waitStatus: number
-    invitorRole: number
-  }
-  postscript: string // 加群用户填写的验证信息
-  repeatSeqs: string[]
-  warningTips: string
-  templateSeq: string
-  groupFlagExt3: number
-  joinGroupTransInfo: {}
-  operateTransInfo: Record<number, number>
-  showModuleMsg: string
-  originMsgType: number
-  joinGroupSuspiciousCode: string
-  localCategoryFlag: number
-}
-
 export enum GroupRequestOperateTypes {
   Approve = 1,
   Reject = 2,
@@ -112,3 +69,81 @@ export interface FriendRequestNotify {
   unreadNums: number
   buddyReqs: FriendRequest[]
 }
+
+export enum GroupNotificationType {
+  JoinRequest,
+  AdminChange,
+  Kick,
+  Quit,
+  InvitedJoinRequest,
+  Invitation
+}
+
+export enum RequestState {
+  Init, // 初始化
+  Unhandle, // 未处理
+  Agreed, // 同意
+  Refused, // 拒绝
+  Ignored // 忽略
+}
+
+export interface GroupJoinRequest {
+  notificationType: GroupNotificationType.JoinRequest
+  groupCode: number
+  notificationSeq: number
+  initiatorUid: string
+  state: RequestState
+  operatorUid?: string
+  comment: string
+}
+
+export interface GroupAdminChange {
+  notificationType: GroupNotificationType.AdminChange
+  groupCode: number
+  notificationSeq: number
+  targetUserUid: string
+  isSet: boolean
+  operatorUid: string
+}
+
+export interface GroupKick {
+  notificationType: GroupNotificationType.Kick
+  groupCode: number
+  notificationSeq: number
+  targetUserUid: string
+  operatorUid: string
+}
+
+export interface GroupQuit {
+  notificationType: GroupNotificationType.Quit
+  groupCode: number
+  notificationSeq: number
+  targetUserUid: string
+}
+
+export interface GroupInvitedJoinRequest {
+  notificationType: GroupNotificationType.InvitedJoinRequest
+  groupCode: number
+  notificationSeq: number
+  initiatorUid: string
+  targetUserUid: string
+  state: RequestState
+  operatorUid?: string
+}
+
+export interface GroupInvitation {
+  notificationType: GroupNotificationType.Invitation
+  groupCode: number
+  notificationSeq: number
+  initiatorUid: string
+  state: RequestState
+  sourceGroupCode: number
+}
+
+export type GroupNotification =
+  | GroupJoinRequest
+  | GroupAdminChange
+  | GroupKick
+  | GroupQuit
+  | GroupInvitedJoinRequest
+  | GroupInvitation

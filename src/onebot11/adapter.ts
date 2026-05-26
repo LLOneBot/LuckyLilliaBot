@@ -3,9 +3,6 @@ import { OB11Entities } from './entities'
 import {
   ChatType,
   FriendRequest,
-  GroupNotify,
-  GroupNotifyStatus,
-  GroupNotifyType,
   JsonGrayTipBusId,
   Peer,
   RawMessage,
@@ -127,51 +124,6 @@ class Onebot11Adapter extends Service {
     for (const item of this.connect) {
       // 这里不 copy 出来的话，更改了 msg.message 会影响下一个 connect
       item.emitMessageLikeEvent(cloneObj(event), self, offline)
-    }
-  }
-
-  private async handleGroupNotify(notify: GroupNotify, doubt: boolean) {
-    try {
-      const flag = `${notify.group.groupCode}|${notify.seq}|${notify.type}|${doubt ? '1' : '0'}`
-      if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
-        this.ctx.logger.info('有加群请求')
-        const requestUin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
-        const event = new OB11GroupRequestAddEvent(
-          +notify.group.groupCode,
-          +requestUin,
-          flag,
-          notify.postscript,
-        )
-        this.dispatch(event)
-      }
-      else if (notify.type === GroupNotifyType.InvitedByMember && notify.status === GroupNotifyStatus.Unhandle) {
-        this.ctx.logger.info('收到邀请我加群通知, 邀请人uid:', notify.user2.uid)
-        const userId = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
-        this.ctx.logger.info('收到邀请我加群通知, 邀请人uin:', userId)
-        const event = new OB11GroupRequestInviteBotEvent(
-          +notify.group.groupCode,
-          +userId,
-          flag,
-          notify.postscript,
-          +notify.invitationExt.groupCode,
-        )
-        this.dispatch(event)
-      }
-      else if (notify.type === GroupNotifyType.InvitedNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
-        this.ctx.logger.info('收到群员邀请加群通知')
-        const userId = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
-        const invitorId = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
-        const event = new OB11GroupRequestAddEvent(
-          +notify.group.groupCode,
-          +userId,
-          flag,
-          notify.postscript,
-          +invitorId,
-        )
-        this.dispatch(event)
-      }
-    } catch (e) {
-      this.ctx.logger.error('解析群通知失败', (e as Error).stack)
     }
   }
 
@@ -404,10 +356,6 @@ class Onebot11Adapter extends Service {
     })
     this.ctx.on('nt/message-sent', input => {
       this.handleMsg(input, true, false)
-    })
-    this.ctx.on('nt/group-notify', input => {
-      const { doubt, notify } = input
-      this.handleGroupNotify(notify, doubt)
     })
     this.ctx.on('nt/friend-request', input => {
       this.handleFriendRequest(input)
@@ -836,6 +784,41 @@ class Onebot11Adapter extends Service {
       } catch (e) {
         this.ctx.logger.error('handling incoming olpush events', e)
       }
+    })
+
+    this.ctx.on('nt/group-join-request', async (data) => {
+      const userId = await this.ctx.ntUserApi.getUinByUid(data.initiatorUid)
+      const event = new OB11GroupRequestAddEvent(
+        data.groupCode,
+        userId,
+        `${data.groupCode}|${data.notificationSeq}|1|${data.isDoubt ? 1 : 0}`,
+        data.comment,
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-invited-join-request', async (data) => {
+      const userId = await this.ctx.ntUserApi.getUinByUid(data.targetUserUid)
+      const invitorId = await this.ctx.ntUserApi.getUinByUid(data.initiatorUid)
+      const event = new OB11GroupRequestAddEvent(
+        data.groupCode,
+        userId,
+        `${data.groupCode}|${data.notificationSeq}|22|0`,
+        '',
+        invitorId,
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-invitation', async (data) => {
+      const userId = await this.ctx.ntUserApi.getUinByUid(data.initiatorUid)
+      const event = new OB11GroupRequestInviteBotEvent(
+        data.groupCode,
+        userId,
+        `${data.groupCode}|${data.invitationSeq}|2|0`,
+        ''
+      )
+      this.dispatch(event)
     })
   }
 }

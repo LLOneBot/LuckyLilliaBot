@@ -1,10 +1,8 @@
 import { unlink } from 'node:fs/promises'
 import { Service, Context } from 'cordis'
-import { ReceiveCmdS } from './hook'
 import { Config as LLOBConfig } from '../common/types'
 import {
   RawMessage,
-  GroupNotify,
   FriendRequestNotify,
   FriendRequest,
   BuddyReqType,
@@ -24,7 +22,6 @@ import {
 } from '@/ntqqapi/types/flashfile'
 import { logSummaryMessage } from '@/ntqqapi/log'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
-import { OnQRCodeLoginSucceedParameter } from '@/ntqqapi/listeners/NodeIKernelLoginListener'
 import { GroupDetailInfo, LocalExitGroupReason } from '@/ntqqapi/types'
 import { registerDispatcher } from './dispatcher'
 import { noop } from 'cosmokit'
@@ -35,12 +32,10 @@ declare module 'cordis' {
   }
 
   interface Events {
-    'nt/login-qrcode': (input: OnQRCodeLoginSucceedParameter) => void
     'nt/message-created': (input: RawMessage) => void
     'nt/offline-message-created': (input: RawMessage) => void
     'nt/message-deleted': (input: RawMessage) => void
     'nt/message-sent': (input: RawMessage) => void
-    'nt/group-notify': (input: { notify: GroupNotify, doubt: boolean }) => void
     'nt/group-dismiss': (input: GroupDetailInfo) => void
     'nt/group-quit': (input: GroupDetailInfo) => void // 主动退群
     'nt/friend-request': (input: FriendRequest) => void
@@ -55,13 +50,11 @@ declare module 'cordis' {
     'qq/raw': (input: { cmd: string, payload: Buffer }) => void
 
     // Raw events parsed from QQ protocol push
-    'nt/raw/login-qr-code': (input: OnQRCodeLoginSucceedParameter) => void
     'nt/raw/self-status': (input: { status: number }) => void
     'nt/raw/new-msg': (input: RawMessage[]) => void
     'nt/raw/update-msg': (input: RawMessage[]) => void
     'nt/raw/delete-msg': (input: [Peer, string[]]) => void
     'nt/raw/self-send-msg': (input: RawMessage) => void
-    'nt/raw/group-notifies-updated': (input: [doubt: boolean, notifies: GroupNotify[]]) => void
     'nt/raw/friend-request': (input: FriendRequestNotify) => void
     'nt/raw/sys-msg': (input: Buffer) => void
     'nt/raw/group-detail-update': (input: GroupDetailInfo) => void
@@ -83,11 +76,15 @@ declare module 'cordis' {
     'nt/raw/friend-added': (input: { peerUin: string, peerUid: string }) => void
     /** 群/私聊语音转写文字结果异步推送（pttTrans.TransGroupPttReq/TransC2CPttReq 提交后由这条 event 喂结果） */
     'nt/raw/ptt-trans-result': (input: { msgUid: string, chatType: ChatType, peerUin: string, senderUin: string, text: string }) => void
+
+    'nt/group-join-request': (input: { groupCode: number, initiatorUid: string, notificationSeq: number, isDoubt: boolean, comment: string }) => void
+    'nt/group-invited-join-request': (input: { groupCode: number, initiatorUid: string, targetUserUid: string, notificationSeq: number }) => void
+    'nt/group-invitation': (input: { groupCode: number, initiatorUid: string, invitationSeq: number, sourceGroupCode?: number }) => void
   }
 }
 
 class Core extends Service {
-  static inject = ['ntMsgApi', 'ntFriendApi', 'store', 'ntFileApi', 'qqProtocol']
+  static inject = ['ntMsgApi', 'ntFriendApi', 'store', 'ntFileApi', 'qqProtocol', 'ntGroupApi']
   public startupTime = 0
   public messageReceivedCount = 0
   public messageSentCount = 0
@@ -151,11 +148,6 @@ class Core extends Service {
   }
 
   private registerListener() {
-
-    this.ctx.on('nt/raw/login-qr-code', (data) => {
-      this.ctx.parallel('nt/login-qrcode', data)
-    })
-
     this.ctx.on('nt/raw/self-status', (info) => {
       Object.assign(selfInfo, { online: info.status !== 20 })
     })
@@ -225,22 +217,6 @@ class Core extends Service {
 
     this.ctx.on('nt/raw/self-send-msg', payload => {
       sentMsgIds.set(payload.msgId, true)
-    })
-
-    const groupNotifyIgnore: string[] = []
-    this.ctx.on('nt/raw/group-notifies-updated', async (payload) => {
-      const [doubt, notifies] = payload
-      for (const notify of notifies) {
-        const notifyTime = Math.trunc(+notify.seq / 1000 / 1000)
-        if (groupNotifyIgnore.includes(notify.seq) || notifyTime < this.startupTime) {
-          continue
-        }
-        groupNotifyIgnore.push(notify.seq)
-        if (groupNotifyIgnore.length > 1000) {
-          groupNotifyIgnore.shift()
-        }
-        this.ctx.parallel('nt/group-notify', { notify, doubt: doubt })
-      }
     })
 
     const friendRequestSeen: string[] = []

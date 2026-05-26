@@ -265,7 +265,7 @@ export interface Friend {
   status: number
 }
 
-export interface Category {
+export interface FriendCategory {
   categoryId: number
   categoryName: string
   categoryMemberCount: number

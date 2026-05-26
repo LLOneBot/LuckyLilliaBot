@@ -398,8 +398,8 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
     }
 
     /** filtered: true=拉过滤掉的通知（来自陌生人的入群申请等） */
-    async fetchGroupNotifies(count = 20, filtered = false) {
-      const body = Oidb.FetchGroupNotifiesReq.encode({ count })
+    async fetchGroupNotifies(count: number, filtered: boolean, startSequence?: bigint) {
+      const body = Oidb.FetchGroupNotifiesReq.encode({ count, startSequence })
       const subCommand = filtered ? 2 : 1
       const data = Oidb.Base.encode({ command: 0x10c0, subCommand, body })
       const res = await this.sendPB(`OidbSvcTrpcTcp.0x10c0_${subCommand}`, data)

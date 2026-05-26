@@ -19,7 +19,7 @@ class GetGroupMemberList extends BaseAction<Payload, OB11GroupMember[]> {
   protected async _handle(payload: Payload) {
     const groupId = +payload.group_id
     const result = await this.ctx.ntGroupApi.getGroupMembers(groupId, payload.no_cache)
-    return result.values().map(e => OB11Entities.groupMember(groupId, e)).toArray()
+    return result.map(e => OB11Entities.groupMember(groupId, e))
   }
 }
 

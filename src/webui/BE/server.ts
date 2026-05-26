@@ -172,31 +172,7 @@ export class WebuiServer extends Service {
     // 监听表情回应事件
     this.setupEmojiReactionListener()
 
-    // 监听群通知事件（加群申请、邀请入群、被踢等）
-    this.ctx.on('nt/group-notify', async ({ notify, doubt }) => {
-      if (this.sseClients.size === 0) return
-      try {
-        const user1Uin = notify.user1.uid ? await this.ctx.ntUserApi.getUinByUid(notify.user1.uid).catch(() => '') : ''
-        const user2Uin = notify.user2.uid ? await this.ctx.ntUserApi.getUinByUid(notify.user2.uid).catch(() => '') : ''
-        this.broadcastMessage('message', {
-          type: 'group-notify',
-          data: {
-            seq: notify.seq,
-            notifyType: notify.type,
-            status: notify.status,
-            doubt,
-            group: notify.group,
-            user1: { ...notify.user1, uin: user1Uin },
-            user2: { ...notify.user2, uin: user2Uin },
-            postscript: notify.postscript,
-            actionTime: notify.actionTime,
-            flag: `${notify.group.groupCode}|${notify.seq}|${notify.type}|${doubt ? '1' : '0'}`
-          }
-        })
-      } catch (e) {
-        this.ctx.logger.error('处理群通知事件失败:', e)
-      }
-    })
+    // TODO: 监听群通知事件（加群申请、邀请入群、被踢等）
 
     // 监听好友申请事件
     this.ctx.on('nt/friend-request', async (req: FriendRequest) => {

@@ -31,7 +31,7 @@ import { TEMP_DIR } from '@/common/globalVars'
 import { unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
-import { GroupNotifyStatus, GroupNotifyType } from '@/ntqqapi/types'
+import { GroupNotificationType, RequestState } from '@/ntqqapi/types'
 import { transformIncomingSegments } from '../transform/message'
 import { noop } from 'cosmokit'
 
@@ -382,83 +382,75 @@ const GetGroupNotifications = defineApi(
   GetGroupNotificationsInput,
   GetGroupNotificationsOutput,
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.getSingleScreenNotifies(
+    const result = await ctx.ntGroupApi.getGroupNotifications(
       payload.is_filtered,
       payload.limit,
-      payload.start_notification_seq ? payload.start_notification_seq.toString() : ''
+      payload.start_notification_seq ? payload.start_notification_seq : undefined
     )
-    let notifies = result.notifies
-    if (notifies.length > payload.limit) {
-      notifies = notifies.slice(0, payload.limit)
-    }
     const notifications = []
-    for (const notify of notifies) {
-      if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass) {
+    for (const n of result.notifications) {
+      if (n.notificationType === GroupNotificationType.JoinRequest) {
         notifications.push({
           type: 'join_request' as const,
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          is_filtered: result.doubt,
-          initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
+          group_id: n.groupCode,
+          notification_seq: n.notificationSeq,
+          is_filtered: payload.is_filtered,
+          initiator_id: await ctx.ntUserApi.getUinByUid(n.initiatorUid),
           state: ({
-            [GroupNotifyStatus.Init]: 'pending',
-            [GroupNotifyStatus.Unhandle]: 'pending',
-            [GroupNotifyStatus.Agreed]: 'accepted',
-            [GroupNotifyStatus.Refused]: 'rejected',
-            [GroupNotifyStatus.Ignored]: 'ignored'
-          } as const)[notify.status],
-          operator_id: notify.actionUser.uid ? Number(await ctx.ntUserApi.getUinByUid(notify.actionUser.uid)) : undefined,
-          comment: notify.postscript
+            [RequestState.Init]: 'pending',
+            [RequestState.Unhandle]: 'pending',
+            [RequestState.Agreed]: 'accepted',
+            [RequestState.Refused]: 'rejected',
+            [RequestState.Ignored]: 'ignored'
+          } as const)[n.state],
+          operator_id: n.operatorUid ? await ctx.ntUserApi.getUinByUid(n.operatorUid) : undefined,
+          comment: n.comment
         })
-      } else if ([
-        GroupNotifyType.SetAdmin,
-        GroupNotifyType.CancelAdminNotifyCanceled,
-        GroupNotifyType.CancelAdminNotifyAdmin,
-      ].includes(notify.type)) {
+      } else if (n.notificationType === GroupNotificationType.AdminChange) {
         notifications.push({
           type: 'admin_change' as const,
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
-          is_set: notify.type === GroupNotifyType.SetAdmin,
-          operator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid))
+          group_id: n.groupCode,
+          notification_seq: n.notificationSeq,
+          target_user_id: await ctx.ntUserApi.getUinByUid(n.targetUserUid),
+          is_set: n.isSet,
+          operator_id: await ctx.ntUserApi.getUinByUid(n.operatorUid)
         })
-      } else if (notify.type === GroupNotifyType.KickMemberNotifyAdmin) {
+      } else if (n.notificationType === GroupNotificationType.Kick) {
         notifications.push({
           type: 'kick' as const,
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
-          operator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid))
+          group_id: n.groupCode,
+          notification_seq: n.notificationSeq,
+          target_user_id: await ctx.ntUserApi.getUinByUid(n.targetUserUid),
+          operator_id: await ctx.ntUserApi.getUinByUid(n.operatorUid)
         })
-      } else if (notify.type === GroupNotifyType.MemberLeaveNotifyAdmin) {
+      } else if (n.notificationType === GroupNotificationType.Quit) {
         notifications.push({
           type: 'quit' as const,
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid))
+          group_id: n.groupCode,
+          notification_seq: n.notificationSeq,
+          target_user_id: await ctx.ntUserApi.getUinByUid(n.targetUserUid)
         })
-      } else if (notify.type === GroupNotifyType.InvitedNeedAdminiStratorPass) {
+      } else if (n.notificationType === GroupNotificationType.InvitedJoinRequest) {
         notifications.push({
           type: 'invited_join_request' as const,
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid)),
-          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
+          group_id: n.groupCode,
+          notification_seq: n.notificationSeq,
+          initiator_id: await ctx.ntUserApi.getUinByUid(n.initiatorUid),
+          target_user_id: await ctx.ntUserApi.getUinByUid(n.targetUserUid),
           state: ({
-            [GroupNotifyStatus.Init]: 'pending',
-            [GroupNotifyStatus.Unhandle]: 'pending',
-            [GroupNotifyStatus.Agreed]: 'accepted',
-            [GroupNotifyStatus.Refused]: 'rejected',
-            [GroupNotifyStatus.Ignored]: 'ignored'
-          } as const)[notify.status],
-          operator_id: notify.actionUser.uid ? Number(await ctx.ntUserApi.getUinByUid(notify.actionUser.uid)) : undefined
+            [RequestState.Init]: 'pending',
+            [RequestState.Unhandle]: 'pending',
+            [RequestState.Agreed]: 'accepted',
+            [RequestState.Refused]: 'rejected',
+            [RequestState.Ignored]: 'ignored'
+          } as const)[n.state],
+          operator_id: n.operatorUid ? await ctx.ntUserApi.getUinByUid(n.operatorUid) : undefined
         })
       }
     }
     return Ok({
       notifications,
-      next_notification_seq: result.nextStartSeq !== '0' ? Number(result.nextStartSeq) : undefined,
+      next_notification_seq: result.nextStartSeq,
     })
   }
 )

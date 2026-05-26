@@ -791,7 +791,7 @@ export namespace Oidb {
   /** OidbSvcTrpcTcp.0x10c0_1 / 0x10c0_2 - 拉群通知 */
   export const FetchGroupNotifiesReq = ProtoMessage.of({
     count: ProtoField(1, 'uint32'),
-    nextSequence: ProtoField(2, 'uint64', 'optional'),
+    startSequence: ProtoField(2, 'uint64', 'optional'),
   })
 
   export const FetchGroupNotifiesResp = ProtoMessage.of({

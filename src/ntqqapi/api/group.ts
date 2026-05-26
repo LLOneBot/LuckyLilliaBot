@@ -5,11 +5,11 @@ import {
   GetFileListParam,
   GroupFileInfo,
   GroupMsgMask,
-  GroupNotify,
-  GroupNotifyType,
   Group,
   PublishGroupBulletinReq,
   GroupBulletinListResult,
+  GroupNotification,
+  GroupNotificationType,
 } from '../types'
 import { Service, Context } from 'cordis'
 import { createReadStream, promises as fsp } from 'node:fs'
@@ -28,7 +28,7 @@ export class NTQQGroupApi extends Service {
   static inject = ['qqProtocol', 'store']
   private groupsCache: Group[] = []
   private groupCache: Map<number, Group> = new Map()
-  private membersCache: Map<number, Map<string, GroupMember>> = new Map()
+  private membersCache: Map<number, GroupMember[]> = new Map()
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntGroupApi')
@@ -88,13 +88,13 @@ export class NTQQGroupApi extends Service {
   // TODO: 群成员数量变更时刷新缓存
   async getGroupMembers(groupCode: number, forceUpdate: boolean) {
     if (forceUpdate || !this.membersCache.has(groupCode)) {
-      const infos = new Map<string, GroupMember>()
+      const members = []
       const ids = []
       let cookie: Buffer | undefined
       while (true) {
         const res = await this.ctx.qqProtocol.fetchGroupMembers(groupCode, cookie)
         for (const member of res.members) {
-          infos.set(member.id.uid, {
+          members.push({
             uin: member.id.uin,
             uid: member.id.uid,
             nick: member.memberName,
@@ -112,53 +112,95 @@ export class NTQQGroupApi extends Service {
         if (!cookie) break
       }
       this.ctx.store.addUix(ids).catch(e => this.ctx.logger.warn(e))
-      this.membersCache.set(groupCode, infos)
+      this.membersCache.set(groupCode, members)
     }
     return this.membersCache.get(groupCode)!
   }
 
   async getGroupMemberByUid(groupCode: number, uid: string, forceUpdate: boolean) {
     let members = this.membersCache.get(groupCode)
-    if (forceUpdate || !members?.has(uid)) {
-      members = await this.getGroupMembers(groupCode, true)
-    }
-    return members.get(uid)
-  }
-
-  async getGroupMemberByUin(groupCode: number, uin: number, forceUpdate: boolean) {
-    let members = this.membersCache.get(groupCode)
-    const member = members?.values().find(e => e.uin === uin)
+    const member = members?.find(e => e.uid === uid)
     if (forceUpdate || !member) {
       members = await this.getGroupMembers(groupCode, true)
     } else {
       return member
     }
-    return members.values().find(e => e.uin === uin)
+    return members.find(e => e.uid === uid)
   }
 
-  async getSingleScreenNotifies(doubt: boolean, number: number, _startSeq = '') {
-    const res = await this.ctx.qqProtocol.fetchGroupNotifies(number, doubt)
-    const notifies: GroupNotify[] = (res.requests || []).map((r: any) => ({
-      seq: String(r.sequence),
-      type: r.notifyType,
-      status: r.requestState,
-      group: { groupCode: String(r.group?.groupCode), groupName: r.group?.groupName || '' },
-      user1: { uid: r.user1?.uid || '', nickName: r.user1?.nickname || '' },
-      user2: { uid: r.user2?.uid || '', nickName: r.user2?.nickname || '' },
-      actionUser: { uid: r.user3?.uid || '', nickName: r.user3?.nickname || '' },
-      actionTime: String(r.time || 0),
-      invitationExt: { srcType: 0, groupCode: '', waitStatus: 0, invitorRole: 0 },
-      postscript: r.comment || '',
-      repeatSeqs: [],
-      warningTips: '',
-      templateSeq: '',
-      groupFlagExt3: 0,
-      joinGroupTransInfo: {},
-    }) as unknown as GroupNotify)
+  async getGroupMemberByUin(groupCode: number, uin: number, forceUpdate: boolean) {
+    let members = this.membersCache.get(groupCode)
+    const member = members?.find(e => e.uin === uin)
+    if (forceUpdate || !member) {
+      members = await this.getGroupMembers(groupCode, true)
+    } else {
+      return member
+    }
+    return members.find(e => e.uin === uin)
+  }
+
+  async getGroupNotifications(doubt: boolean, count: number, startSeq?: number) {
+    const res = await this.ctx.qqProtocol.fetchGroupNotifies(count, doubt, startSeq ? BigInt(startSeq) : undefined)
+    const notifications: GroupNotification[] = []
+    for (const r of res.requests) {
+      if (r.notifyType === 1) {
+        notifications.push({
+          notificationType: GroupNotificationType.JoinRequest,
+          groupCode: r.group.groupCode,
+          notificationSeq: Number(r.sequence),
+          initiatorUid: r.user1.uid,
+          state: r.requestState,
+          operatorUid: r.user2?.uid,
+          comment: r.comment ?? ''
+        })
+      } else if (r.notifyType === 2) {
+        notifications.push({
+          notificationType: GroupNotificationType.Invitation,
+          groupCode: r.group.groupCode,
+          notificationSeq: Number(r.sequence),
+          initiatorUid: r.user2!.uid,
+          state: r.requestState,
+          sourceGroupCode: 0 // TODO: 需抓取
+        })
+      } else if (r.notifyType === 3 || r.notifyType === 16) {
+        notifications.push({
+          notificationType: GroupNotificationType.AdminChange,
+          groupCode: r.group.groupCode,
+          notificationSeq: Number(r.sequence),
+          targetUserUid: r.user1.uid,
+          isSet: r.notifyType === 3,
+          operatorUid: r.user2!.uid
+        })
+      } else if (r.notifyType === 6) {
+        notifications.push({
+          notificationType: GroupNotificationType.Kick,
+          groupCode: r.group.groupCode,
+          notificationSeq: Number(r.sequence),
+          targetUserUid: r.user1.uid,
+          operatorUid: r.user2?.uid ?? r.user3!.uid
+        })
+      } else if (r.notifyType === 13) {
+        notifications.push({
+          notificationType: GroupNotificationType.Quit,
+          groupCode: r.group.groupCode,
+          notificationSeq: Number(r.sequence),
+          targetUserUid: r.user1.uid
+        })
+      } else if (r.notifyType === 22) {
+        notifications.push({
+          notificationType: GroupNotificationType.InvitedJoinRequest,
+          groupCode: r.group.groupCode,
+          notificationSeq: Number(r.sequence),
+          initiatorUid: r.user2!.uid,
+          targetUserUid: r.user1.uid,
+          state: r.requestState,
+          operatorUid: r.user3?.uid
+        })
+      }
+    }
     return {
-      doubt,
-      nextStartSeq: String(res.newLatestSequence || 0),
-      notifies,
+      nextStartSeq: Number(res.newLatestSequence),
+      notifications
     }
   }
 

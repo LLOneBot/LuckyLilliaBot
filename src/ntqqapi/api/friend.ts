@@ -1,4 +1,4 @@
-import { Category, Friend } from '../types'
+import { FriendCategory, Friend } from '../types'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 
@@ -11,7 +11,7 @@ declare module 'cordis' {
 export class NTQQFriendApi extends Service {
   static inject = ['qqProtocol', 'store']
   private friendsCache: Friend[] = []
-  private categoriesCache: Map<number, Category> = new Map()
+  private categoriesCache: Map<number, FriendCategory> = new Map()
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntFriendApi')
@@ -21,7 +21,7 @@ export class NTQQFriendApi extends Service {
   async getFriends(forceUpdate: boolean) {
     if (forceUpdate || this.friendsCache.length === 0) {
       const friends = []
-      const categories = new Map<number, Category>()
+      const categories = new Map<number, FriendCategory>()
       const ids = []
       let cookie: Buffer | undefined
       while (true) {

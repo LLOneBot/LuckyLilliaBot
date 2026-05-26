@@ -1,10 +1,10 @@
 import { Msg, Notify } from '@/ntqqapi/proto'
-import { ChatType, ElementType, RawMessage, GrayTipElementSubType, GroupNotify, GroupNotifyType, GroupNotifyStatus, FriendRequestNotify, BuddyReqType } from '@/ntqqapi/types'
+import { ChatType, ElementType, RawMessage, GrayTipElementSubType, FriendRequestNotify, BuddyReqType, GroupNotificationType, RequestState } from '@/ntqqapi/types'
 import type { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { parseElements } from './helper/messageParsing'
 import { InferProtoModel } from '@saltify/typeproto'
-import { noop } from 'cosmokit'
+import { unzipSync } from 'node:zlib'
 
 const MSG_PUSH_CMD = 'trpc.msg.olpush.OlPushService.MsgPush'
 const KICK_CMD = 'trpc.qq_new_tech.status_svc.StatusService.KickNT'
@@ -23,7 +23,7 @@ const enum MsgType {
   GroupAdminChange = 44,
   GroupJoinRequest = 84,
   GroupInvitation = 87,
-  Event0x20D = 525,
+  GroupInvitedJoinRequest = 525,
   Event0x210 = 528,
   Event0x2DC = 732,
 }
@@ -70,7 +70,7 @@ export function registerDispatcher(ctx: Context) {
           break
       }
     } catch (e) {
-      ctx.logger('qqProtocol').warn('dispatch error:', (e as Error).message)
+      ctx.logger.warn('dispatch error:', (e as Error).message)
     }
   })
 }
@@ -112,7 +112,7 @@ function handleMsgPush(ctx: Context, payload: Buffer) {
       break
 
     case MsgType.GroupInvitation:
-    case MsgType.Event0x20D:
+    case MsgType.GroupInvitedJoinRequest:
       handleGroupInvitation(ctx, msg, msgType)
       break
   }
@@ -185,53 +185,8 @@ function handleFriendDeleteOrPin(ctx: Context, msg: any, content: Buffer) {
     // 其他 type；forward 完整 Msg.Message 让 adapter 处理（profile_like 走这里）
     forwardSystemMessage(ctx, msg)
   } catch (e) {
-    ctx.logger('qqProtocol').warn('FriendDeleteOrPin parse error:', (e as Error).message)
+    ctx.logger.warn('FriendDeleteOrPin parse error:', (e as Error).message)
   }
-}
-
-/** 从 protobuf buffer 走 path 找到指定 field 的 varint 值。 */
-function extractVarintField(buf: Buffer, pathLD: number[], targetField: number): number | null {
-  let current: Buffer | null = buf
-  for (const f of pathLD) {
-    if (!current) return null
-    current = walkProtoFields(current, [f])
-  }
-  if (!current) return null
-  let offset = 0
-  while (offset < current.length) {
-    let tag = 0, shift = 0
-    while (offset < current.length) {
-      const b = current[offset++]
-      tag |= (b & 0x7f) << shift
-      if ((b & 0x80) === 0) break
-      shift += 7
-    }
-    const fieldNum = tag >>> 3
-    const wireType = tag & 0x07
-    if (wireType === 0) {
-      // varint
-      let v = 0, vshift = 0
-      while (offset < current.length) {
-        const b = current[offset++]
-        v |= (b & 0x7f) << vshift
-        if ((b & 0x80) === 0) break
-        vshift += 7
-      }
-      if (fieldNum === targetField) return v >>> 0
-    } else if (wireType === 2) {
-      let len = 0, lshift = 0
-      while (offset < current.length) {
-        const b = current[offset++]
-        len |= (b & 0x7f) << lshift
-        if ((b & 0x80) === 0) break
-        lshift += 7
-      }
-      offset += len
-    } else {
-      return null
-    }
-  }
-  return null
 }
 
 function handleFriendGrayTip(ctx: Context, msg: any, content: Buffer) {
@@ -263,7 +218,7 @@ function handleFriendGrayTip(ctx: Context, msg: any, content: Buffer) {
       ctx.parallel('nt/raw/friend-added', { peerUin, peerUid })
     }
   } catch (e) {
-    ctx.logger('qqProtocol').warn('FriendGrayTip parse error:', (e as Error).message)
+    ctx.logger.warn('FriendGrayTip parse error:', (e as Error).message)
   }
 }
 
@@ -283,7 +238,7 @@ function handlePttTransResult(ctx: Context, content: Buffer) {
       text: body.text || '',
     })
   } catch (e) {
-    console.warn('PttTransResult parse error:', (e as Error).message)
+    ctx.logger.warn('PttTransResult parse error:', (e as Error).message)
   }
 }
 
@@ -326,7 +281,7 @@ function handleFriendRequest(ctx: Context, msg: any, content: Buffer) {
 
     ctx.parallel('nt/raw/friend-request', notify)
   } catch (e) {
-    ctx.logger('qqProtocol').warn('Failed to parse FriendRequest:', (e as Error).message)
+    ctx.logger.warn('Failed to parse FriendRequest:', (e as Error).message)
   }
 }
 
@@ -367,7 +322,7 @@ function handleFriendRecall(ctx: Context, msg: any, content: Buffer) {
 
     ctx.parallel('nt/raw/update-msg', [recallMessage])
   } catch (e) {
-    ctx.logger('qqProtocol').warn('Failed to parse FriendRecall:', (e as Error).message)
+    ctx.logger.warn('Failed to parse FriendRecall:', (e as Error).message)
   }
 }
 
@@ -422,7 +377,7 @@ function handleGroupMute(ctx: Context, content: Buffer) {
       ctx.parallel('nt/raw/group-mute-all', { groupCode, operatorUid, isMute: duration !== 0 })
     }
   } catch (e) {
-    ctx.logger('qqProtocol').warn('GroupMute parse error:', (e as Error).message)
+    ctx.logger.warn('GroupMute parse error:', (e as Error).message)
   }
 }
 
@@ -470,10 +425,10 @@ function handleGroupGeneralEvent(ctx: Context, content: Buffer) {
     }
     // 兜底：未识别的 subType=16 事件
     if (field13 !== 0) {
-      ctx.logger('qqProtocol').debug('[Group0x2DC sub16] unhandled field13:', field13, 'groupCode:', groupCode)
+      ctx.logger.debug('[Group0x2DC sub16] unhandled field13:', field13, 'groupCode:', groupCode)
     }
   } catch (e) {
-    ctx.logger('qqProtocol').warn('GroupGeneralEvent parse error:', (e as Error).message)
+    ctx.logger.warn('GroupGeneralEvent parse error:', (e as Error).message)
   }
 }
 
@@ -542,7 +497,7 @@ function handleGroupGrayTip(ctx: Context, msg: any, content: Buffer) {
       }
     }
   } catch (e) {
-    ctx.logger('qqProtocol').warn('GroupGrayTip parse error:', (e as Error).message)
+    ctx.logger.warn('GroupGrayTip parse error:', (e as Error).message)
   }
 }
 
@@ -564,7 +519,7 @@ function handleGroupEssenceChange(ctx: Context, content: Buffer) {
       isAdd: decoded.setFlag === 1,
     })
   } catch (e) {
-    ctx.logger('qqProtocol').warn('GroupEssenceChange parse error:', (e as Error).message)
+    ctx.logger.warn('GroupEssenceChange parse error:', (e as Error).message)
   }
 }
 
@@ -667,100 +622,97 @@ function handleGroupRecall(ctx: Context, msg: any, content: Buffer) {
       ctx.parallel('nt/raw/update-msg', [recallMessage])
     }
   } catch (e) {
-    ctx.logger('qqProtocol').warn('Failed to parse GroupRecall:', (e as Error).message)
-  }
-}
-
-function tryDecodeGroupRecall(buf: Buffer): any | null {
-  // 历史遗留：直接尝试 GroupRecall 解码（兼容老版本格式）
-  try {
-    return Notify.GroupRecall.decode(buf)
-  } catch {
-    return null
+    ctx.logger.warn('Failed to parse GroupRecall:', (e as Error).message)
   }
 }
 
 // ---- Group join / invite ----
 
-function handleGroupJoinRequest(ctx: Context, msg: any) {
+async function handleGroupJoinRequest(ctx: Context, msg: InferProtoModel<typeof Msg.Message>) {
   // MsgType 84: 入群申请通知
   try {
-    const content = msg.body?.msgContent
-    if (!content) return
-    const decoded = Notify.GroupJoinRequest.decode(content)
-
-    // core.ts 用 +notify.seq / 1000 / 1000 当 unix 秒过滤启动前的旧 notify，
-    // 这里用 Date.now()*1000 (微秒) 保证能过启动时间检查
-    const seq = String(Date.now() * 1000)
-    const notify = {
-      seq,
-      type: GroupNotifyType.RequestJoinNeedAdminiStratorPass,
-      status: GroupNotifyStatus.Unhandle,
-      group: { groupCode: String(decoded.groupCode), groupName: '' },
-      user1: { uid: decoded.memberUid, nickName: '' },
-      user2: { uid: '', nickName: '' },
-      actionUser: { uid: '', nickName: '' },
-      actionTime: String(msg.contentHead?.msgTime || 0),
-      invitationExt: { srcType: 0, groupCode: '', waitStatus: 0, invitorRole: 0 },
-      postscript: '',
-      repeatSeqs: [],
-      warningTips: '',
-      templateSeq: '',
-      groupFlagExt3: 0,
-      joinGroupTransInfo: {},
-    } as unknown as GroupNotify
-
-    ctx.parallel('nt/raw/group-notifies-updated', [false, [notify]])
+    const decoded = Notify.GroupJoinRequest.decode(msg.body!.msgContent)
+    let notificationSeq, commit
+    let isDoubt = false
+    const res = await ctx.ntGroupApi.getGroupNotifications(false, 20)
+    const notification = res.notifications
+      .filter(e => e.notificationType === GroupNotificationType.JoinRequest)
+      .find(e => e.groupCode === decoded.groupCode
+        && e.initiatorUid === decoded.memberUid
+        && e.state === RequestState.Unhandle
+      )
+    if (notification) {
+      notificationSeq = notification.notificationSeq
+      commit = notification.comment
+    } else {
+      const res = await ctx.ntGroupApi.getGroupNotifications(true, 10)
+      const notification = res.notifications
+        .filter(e => e.notificationType === GroupNotificationType.JoinRequest)
+        .find(e => e.groupCode === decoded.groupCode
+          && e.initiatorUid === decoded.memberUid
+          && e.state === RequestState.Unhandle
+        )
+      if (notification) {
+        isDoubt = true
+        notificationSeq = notification.notificationSeq
+        commit = notification.comment
+      }
+    }
+    if (notificationSeq) {
+      ctx.parallel('nt/group-join-request', {
+        groupCode: decoded.groupCode,
+        initiatorUid: decoded.memberUid,
+        notificationSeq,
+        isDoubt,
+        comment: commit!
+      })
+    }
   } catch (e) {
-    ctx.logger('qqProtocol').warn('Failed to parse GroupJoinRequest:', (e as Error).message)
+    ctx.logger.warn('Failed to parse GroupJoinRequest:', (e as Error).message)
   }
 }
 
-function handleGroupInvitation(ctx: Context, msg: any, msgType: number) {
+async function handleGroupInvitation(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, msgType: number) {
   try {
-    const content = msg.body?.msgContent
-    if (!content) return
-
-    let groupCode = '0'
-    let invitorUid = ''
-    let targetUid = ''
-
-    if (msgType === MsgType.GroupInvitation) {
+    const content = msg.body!.msgContent
+    if (msgType === MsgType.GroupInvitedJoinRequest) {
       const decoded = Notify.GroupInvitedJoinRequest.decode(content)
-      const inner = decoded.info?.inner
-      if (inner) {
-        groupCode = String(inner.groupCode)
-        invitorUid = inner.invitorUid
-        targetUid = inner.targetUid
+      const { inner } = decoded.info
+      const res = await ctx.ntGroupApi.getGroupNotifications(false, 20)
+      const notification = res.notifications
+        .filter(e => e.notificationType === GroupNotificationType.InvitedJoinRequest)
+        .find(e => e.groupCode === inner.groupCode
+          && e.initiatorUid === inner.invitorUid
+          && e.targetUserUid === inner.targetUid
+          && e.state === RequestState.Unhandle
+        )
+      if (notification) {
+        ctx.parallel('nt/group-invited-join-request', {
+          groupCode: inner.groupCode,
+          initiatorUid: inner.invitorUid,
+          targetUserUid: inner.targetUid,
+          notificationSeq: notification.notificationSeq
+        })
       }
     } else {
       const decoded = Notify.GroupInvitation.decode(content)
-      groupCode = String(decoded.groupCode)
-      invitorUid = decoded.invitorUid
-      targetUid = selfInfo.uid
+      const res = await ctx.ntGroupApi.getGroupNotifications(false, 20)
+      const notification = res.notifications
+        .filter(e => e.notificationType === GroupNotificationType.Invitation)
+        .find(e => e.groupCode === decoded.groupCode
+          && e.initiatorUid === decoded.invitorUid
+          && e.state === RequestState.Unhandle
+        )
+      if (notification) {
+        ctx.parallel('nt/group-invitation', {
+          groupCode: decoded.groupCode,
+          initiatorUid: decoded.invitorUid,
+          invitationSeq: notification.notificationSeq
+        })
+      }
     }
-
-    const notify = {
-      seq: String(Date.now() * 1000),
-      type: GroupNotifyType.InvitedByMember,
-      status: GroupNotifyStatus.Unhandle,
-      group: { groupCode, groupName: '' },
-      user1: { uid: targetUid, nickName: '' },
-      user2: { uid: invitorUid, nickName: '' },
-      actionUser: { uid: invitorUid, nickName: '' },
-      actionTime: String(msg.contentHead?.msgTime || 0),
-      invitationExt: { srcType: 0, groupCode, waitStatus: 0, invitorRole: 0 },
-      postscript: '',
-      repeatSeqs: [],
-      warningTips: '',
-      templateSeq: '',
-      groupFlagExt3: 0,
-      joinGroupTransInfo: {},
-    } as unknown as GroupNotify
-
-    ctx.parallel('nt/raw/group-notifies-updated', [false, [notify]])
   } catch (e) {
-    ctx.logger('qqProtocol').warn('Failed to parse GroupInvitation:', (e as Error).message)
+    ctx.logger.warn('Failed to parse GroupInvitation:', (e as Error).message)
   }
 }
 
@@ -840,6 +792,28 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
       peerUid,
       groupCode: routingHead.c2c.fromTinyId
     }).catch(e => ctx.logger.warn(e))
+  } else if (msgType === MsgType.PrivateMessage) {
+    if (msg.body?.richText.elems[0]?.lightApp) {
+      const { data } = msg.body.richText.elems[0].lightApp
+      const json = unzipSync(data.subarray(1)).toString()
+      const regex = /(?=.*?"app"\s*:\s*"com\.tencent\.tuwen\.lua")(?=.*?"bizsrc"\s*:\s*"qun\.invite")[\s\S]*?"jumpUrl"\s*:\s*"([^"]*)"/
+      const jumpUrlMatch = json.match(regex)
+      if (jumpUrlMatch?.[1]) {
+        const params = new URLSearchParams(jumpUrlMatch[1])
+        const receiverUin = params.get('receiveruin')
+        const senderUin = params.get('senderuin')
+        const msgFromUin = msg.routingHead.fromUin.toString()
+        if (receiverUin === selfInfo.uin && senderUin === msgFromUin) {
+          const groupCode = params.get('groupcode')!
+          const seq = params.get('msgseq')!
+          ctx.parallel('nt/group-invitation', {
+            groupCode: +groupCode,
+            initiatorUid: msg.routingHead.fromUid,
+            invitationSeq: +seq
+          })
+        }
+      }
+    }
   }
   const rawMessage = convertToRawMessage(msg, msgType)
   if (!rawMessage) return
