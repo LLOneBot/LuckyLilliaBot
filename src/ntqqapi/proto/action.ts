@@ -105,6 +105,23 @@ export namespace Action {
     messages: ProtoField(7, 'bytes', 'repeated'),
   })
 
+  /** trpc.msg.register_proxy.RegisterProxy.SsoGetRoamMsg - 私聊漫游消息（按时间拉取，可拿"最新 N 条"） */
+  export const SsoGetRoamMsgReq = ProtoMessage.of({
+    peerUid: ProtoField(1, 'string'),
+    time: ProtoField(2, 'uint32'),       // 0 表示从当前时间起
+    random: ProtoField(3, 'uint32'),     // 0 即可
+    count: ProtoField(4, 'uint32'),      // 最大 30
+    direction: ProtoField(5, 'uint32'),  // 1=向上(更新)；2=向下(更早)
+  })
+
+  export const SsoGetRoamMsgResp = ProtoMessage.of({
+    peerUid: ProtoField(3, 'string', 'optional'),
+    isComplete: ProtoField(4, 'bool', 'optional'),
+    timestamp: ProtoField(5, 'uint32', 'optional'),
+    random: ProtoField(6, 'uint32', 'optional'),
+    messages: ProtoField(7, 'bytes', 'repeated'),
+  })
+
   /** trpc.msg.msg_svc.MsgService.SsoGroupRecallMsg - 撤回群消息 */
   export const SsoGroupRecallMsgReq = ProtoMessage.of({
     type: ProtoField(1, 'uint32'),

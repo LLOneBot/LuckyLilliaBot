@@ -352,9 +352,6 @@ export class WebuiServer extends Service {
       return
     }
     this.port = await this.startServer()
-    this.ctx.qqProtocol.tellPort(this.port).catch((err: Error) => {
-      this.ctx.logger.error('记录 WebUI 端口失败:', err)
-    })
   }
 
   private async startWithPort(forcePort?: number): Promise<void> {
@@ -362,8 +359,5 @@ export class WebuiServer extends Service {
       return
     }
     this.port = await this.startServer(forcePort)
-    this.ctx.qqProtocol.tellPort(this.port).catch((err: Error) => {
-      this.ctx.logger.error('记录 WebUI 端口失败:', err)
-    })
   }
 }

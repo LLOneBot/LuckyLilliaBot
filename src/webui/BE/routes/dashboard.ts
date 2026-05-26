@@ -15,15 +15,10 @@ export function createDashboardRoutes(ctx: Context): Hono {
       const friends = await ctx.ntFriendApi.getFriends(false)
       const groups = await ctx.ntGroupApi.getGroups(false)
 
-      // 获取 QQ 进程资源
-      let qqInfo
-      if (process.env.QQ_USE_PMHQ) {
-        qqInfo = await ctx.qqProtocol.getProcessInfo()
-      }
-      const qqMemory = qqInfo?.memory?.rss || 0
-      const qqCpu = qqInfo?.cpu?.percent || 0
-      const qqTotalMem = qqInfo?.memory?.totalMem || 1
-      const qqMemoryPercent = (qqMemory / qqTotalMem) * 100
+      // 直连 / PMHQ 模式都没有独立 QQ 进程的 RPC，QQ 资源占用拿不到
+      const qqMemory = 0
+      const qqCpu = 0
+      const qqMemoryPercent = 0
 
       // Bot 进程资源
       const botTotalMem = os.totalmem()
@@ -50,7 +45,7 @@ export function createDashboardRoutes(ctx: Context): Hono {
           },
           qq: {
             memory: qqMemory,
-            totalMemory: qqTotalMem,
+            totalMemory: 0,
             memoryPercent: qqMemoryPercent,
             cpu: qqCpu,
           },

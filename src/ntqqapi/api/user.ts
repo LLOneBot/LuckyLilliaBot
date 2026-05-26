@@ -76,7 +76,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getUidByUin(uin: number, groupCode?: number) {
-    if (uin === +selfInfo.uin) return selfInfo.uid
+    if (uin === +selfInfo.uin && selfInfo.uid) return selfInfo.uid
     try {
       const uid = await this.ctx.store.getUidByUin(uin)
       if (uid) return uid
@@ -115,7 +115,7 @@ export class NTQQUserApi extends Service {
   }
 
   async getUinByUid(uid: string) {
-    if (uid === selfInfo.uid) return +selfInfo.uin
+    if (uid === selfInfo.uid && selfInfo.uin) return +selfInfo.uin
     try {
       const uin = await this.ctx.store.getUinByUid(uid)
       if (uin) return uin

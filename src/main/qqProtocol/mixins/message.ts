@@ -103,6 +103,24 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       return (decoded.messages || []).map((buf: Uint8Array) => Msg.Message.decode(Buffer.from(buf)))
     }
 
+    /**
+     * 拉私聊漫游消息（按时间）。SsoGetC2CMsg 必须传 seq，不知道 seq 时走这个：
+     *   time=now、direction=1（"向上滚 = 看更早的"）即可拿到"最新 N 条"。
+     * count 上限 30。
+     */
+    async getC2CRoamMessages(peerUid: string, time: number, count: number, direction: 1 | 2 = 1) {
+      const data = Action.SsoGetRoamMsgReq.encode({
+        peerUid,
+        time,
+        random: 0,
+        count: Math.min(count, 30),
+        direction,
+      })
+      const res = await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoGetRoamMsg', data)
+      const decoded = Action.SsoGetRoamMsgResp.decode(Buffer.from(res.pb, 'hex'))
+      return (decoded.messages || []).map((buf: Uint8Array) => Msg.Message.decode(Buffer.from(buf)))
+    }
+
     /** 撤回群消息 */
     async recallGroupMessage(groupCode: number, sequence: number) {
       const data = Action.SsoGroupRecallMsgReq.encode({

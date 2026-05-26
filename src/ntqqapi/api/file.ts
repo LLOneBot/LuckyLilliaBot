@@ -17,7 +17,7 @@ const FLASH_TRANSFER_APP_ID = 14901 // 闪传文件（封面用 14903）
 
 /**
  * 闪传非秒传命中分支：分片上传到 multimedia.qfile.qq.com/sliceupload。
- * 每片要带累计 sha1 列表（chunkSha1[0..i]），算法见 LagrangeV2 FlashTransferContext。
+ * 每片要带累计 sha1 列表（chunkSha1[0..i]）。
  */
 async function flashTransferUpload(uKey: string, filePath: string, fileSize: number) {
   const fileBytes = readFileSync(filePath)
@@ -168,7 +168,7 @@ export class NTQQFileApi extends Service {
         fileSize: f.size, sha1Hex: f.sha1, name: f.name, requestId: ++reqId, field103: 22,
       })
       if (pre.uKey) {
-        // 非秒传命中：走 multimedia.qfile.qq.com/sliceupload 分片上传，参考 LagrangeV2 FlashTransferContext
+        // 非秒传命中：走 multimedia.qfile.qq.com/sliceupload 分片上传
         await flashTransferUpload(pre.uKey, f.path, f.size)
       }
       if (!pre.token) {

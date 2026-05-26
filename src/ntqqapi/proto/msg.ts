@@ -499,4 +499,16 @@ export namespace Msg {
       }, 'optional'),
     }),
   })
+
+  /** trpc.msg.register_proxy.RegisterProxy.InfoSyncPush 内 GroupNode（每个群的最新 seq 等） */
+  export const InfoSyncPushGroupNode = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint64'),
+    groupSeq: ProtoField(2, 'uint64'),
+    readMsgSeq: ProtoField(3, 'uint64', 'optional'),
+    latestMsgTime: ProtoField(8, 'uint64', 'optional'),
+  })
+
+  export const InfoSyncPush = ProtoMessage.of({
+    groupNodes: ProtoField(6, InfoSyncPushGroupNode, 'repeated'),
+  })
 }

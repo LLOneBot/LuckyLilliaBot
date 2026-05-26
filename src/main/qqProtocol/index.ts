@@ -3,19 +3,11 @@ import { FriendMixin, GroupMixin, MediaMixin, MessageMixin, SystemMixin, UserMix
 
 export type {
   PBData,
-  CallResultData,
-  OnListenerData,
   PMHQResSendPB,
   PMHQResRecvPB,
-  PMHQResOn,
-  PMHQResCall,
   PMHQReqSendPB,
-  PMHQReqCall,
-  PMHQReqTellPort,
-  PMHQResTellPort,
   PMHQRes,
   PMHQReq,
-  QQProcessInfo,
   ResListener,
 } from './types'
 

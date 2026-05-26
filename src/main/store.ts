@@ -53,11 +53,13 @@ class Store extends Service {
   static inject = ['database', 'model']
   private cache: BidiMap<string, number>
   private messages: Map<string, RawMessage>
+  private latestPeerSeq: Map<string, number>
 
   constructor(protected ctx: Context, public config: Store.Config) {
     super(ctx, 'store')
     this.cache = new BidiMap(1000)
     this.messages = new Map()
+    this.latestPeerSeq = new Map()
   }
 
   async [Service.init]() {
@@ -257,6 +259,18 @@ class Store extends Service {
 
   getMsgCache(msgId: string) {
     return this.messages.get(msgId)
+  }
+
+  /** 记录某个会话的最新 msgSeq —— 没存 server 端 seq 时拉"最新 N 条"用 */
+  setLatestPeerSeq(chatType: ChatType, peerUid: string, seq: number) {
+    if (!seq || seq <= 0) return
+    const key = `${chatType}:${peerUid}`
+    const prev = this.latestPeerSeq.get(key) || 0
+    if (seq > prev) this.latestPeerSeq.set(key, seq)
+  }
+
+  getLatestPeerSeq(chatType: ChatType, peerUid: string): number | undefined {
+    return this.latestPeerSeq.get(`${chatType}:${peerUid}`)
   }
 
   /** 在内存 cache 中按 (peerUid, msgSeq) 查找消息（撤回事件用） */

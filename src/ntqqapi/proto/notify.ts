@@ -156,7 +156,6 @@ export namespace Notify {
 
   /**
    * 0x2DC subtype 16/17/20 内部包装 (after 5-byte header [groupCode + 1 byte] + uint16BE 长度)
-   * 字段编号参考 Lagrange.Core
    */
   export const NotifyMessageBody = ProtoMessage.of({
     notifyType: ProtoField(1, 'uint32', 'optional'),

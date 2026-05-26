@@ -7,14 +7,29 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Dev",
+            "name": "Dev (直连协议)",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "runtimeExecutable": "tsx",
+            "args": ["watch", "src/main/main.ts"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Dev (PMHQ)",
             "skipFiles": [
                 "<node_internals>/**"
             ],
             "runtimeExecutable": "tsx",
             "args": ["watch", "src/main/main.ts", "--pmhq-port=${input:pmhqPort}"],
             "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "env": {
+                "QQ_USE_PMHQ": "1"
+            }
         },
         {
             "type": "node",

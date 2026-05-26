@@ -1,20 +1,16 @@
 import { deepConvertMap, deepStringifyMap } from './util'
 import { selfInfo } from '@/common/globalVars'
-import { randomUUID } from 'node:crypto'
-import { Oidb } from '@/ntqqapi/proto'
+import { randomUUID, createHash } from 'node:crypto'
+import { Oidb, Msg } from '@/ntqqapi/proto'
 import type {
   PMHQRes,
   PMHQReq,
   PMHQResSendPB,
-  PMHQResCall,
-  PMHQReqCall,
-  PMHQReqTellPort,
   PBData,
-  QQProcessInfo,
   ResListener,
 } from './types'
 import { Context, Service } from 'cordis'
-import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, registerOnline, startHeartbeat, getCorrectUin, QrCodeState, AppInfo, saveSession, loadSession, persistedToSessionInfo, getSpecifiedUin, getSessionFilePathForUin } from './direct'
+import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, registerOnline, startHeartbeat, getCorrectUin, QrCodeState, AppInfo, saveSession, loadSession, persistedToSessionInfo, getSpecifiedUin, getSessionFilePathForUin, buildSsoInfoSync } from './direct'
 import type { QrCodeResult, QrPollResult } from './direct'
 
 type DisconnectCallback = (duration: number) => void
@@ -23,6 +19,15 @@ interface DisconnectCallbackInfo {
   timeout: number
   callback: DisconnectCallback
   triggered: boolean
+}
+
+declare module 'cordis' {
+  interface Events {
+    /** QQ 登录成功（uid/uin 都齐了），main.ts 监听该事件加载上层插件 */
+    'qq/online': () => void
+    /** 协议层断开（WS / TCP 掉了）。上层一般不需要卸插件，等协议层重连后会再次 emit `qq/online` */
+    'protocol/disconnect': () => void
+  }
 }
 
 export class QQProtocolBase extends Service {
@@ -40,8 +45,12 @@ export class QQProtocolBase extends Service {
   private hasLoggedConnectionError: boolean = false
   public msgPBMap: Map<string, string> = new Map<string, string>()
   private logger
+  // 探测会话的取消令牌：每次 WS open 启动一次新的探测，token 自增；
+  // 任何 setTimeout/listener 回调发现自己的 token 不是当前 token 就什么都不做并主动清理。
+  private pmhqProbeToken: number = 0
+  private pmhqProbeListenerId: string = ''
+  private onlineEmitted: boolean = false
 
-  // Direct protocol client
   public directClient: DirectProtocolClient | null = null
   private directQrResult: QrCodeResult | null = null
   private directPollResult: QrPollResult | null = null
@@ -56,6 +65,152 @@ export class QQProtocolBase extends Service {
     if (process.env.QQ_USE_PMHQ) {
       this.connectWebSocket().then()
     }
+  }
+
+  private maybeEmitOnline() {
+    if (this.onlineEmitted) return
+    if (!selfInfo.online) return
+    if (!selfInfo.uid && !selfInfo.uin) return
+    this.onlineEmitted = true
+    this.ctx.parallel('qq/online')
+    if (process.env.QQ_USE_PMHQ) {
+      this.triggerInfoSyncPush().catch(e => {
+        this.logger.warn('triggerInfoSyncPush 失败', (e as Error).message)
+      })
+    }
+  }
+
+  /**
+   * PMHQ 模式下 LLBot 是寄生在 QQ NT 上的，QQ NT 早就登录过了，开机时的 InfoSyncPush 也早处理完。
+   * LLBot 想要群最新 seq（拉历史用）就得自己主动触发一次：发 SsoInfoSync，server 看到注册请求就回一发 InfoSyncPush。
+   * isFirstRegisterProxyOnline=0 + 派生 guid（基于 uid，每个号固定）尽量避免和 QQ NT 的注册项冲突。
+   */
+  private async triggerInfoSyncPush() {
+    const seed = selfInfo.uid || selfInfo.uin || 'llbot'
+    const guid: Buffer = createHash('md5').update(`llbot-${seed}`).digest().subarray(0, 16)
+    const payload = buildSsoInfoSync(guid, false)
+    await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoInfoSync', payload, 5000)
+    this.logger.info('已主动触发 InfoSyncPush（PMHQ 模式拉群最新 seq 用）')
+  }
+
+  private resetPmhqState() {
+    const wasOnline = this.onlineEmitted
+    selfInfo.online = false
+    selfInfo.uid = ''
+    selfInfo.uin = ''
+    selfInfo.nick = ''
+    if (this.pmhqProbeListenerId) {
+      this.removeResListener(this.pmhqProbeListenerId)
+      this.pmhqProbeListenerId = ''
+    }
+    this.pmhqProbeToken++
+    this.onlineEmitted = false
+    if (wasOnline) {
+      this.ctx.parallel('protocol/disconnect')
+    }
+  }
+
+  /**
+   * PMHQ 模式：周期 SsoHeartBeat 探测登录；同时挂 recv listener 抠 self uid/uin。
+   * 重连后会被 onopen 再次调用，所以必须先 reset 旧状态再启动新一轮。
+   */
+  private startPmhqLoginProbe() {
+    this.resetPmhqState()
+    const myToken = ++this.pmhqProbeToken
+
+    const detach = () => {
+      if (this.pmhqProbeListenerId) {
+        this.removeResListener(this.pmhqProbeListenerId)
+        this.pmhqProbeListenerId = ''
+      }
+    }
+    this.pmhqProbeListenerId = this.addResListener((data: any) => {
+      if (this.pmhqProbeToken !== myToken) return
+      if (data?.type !== 'recv' || !data.data?.cmd || !data.data?.pb) return
+
+      if (!selfInfo.uid || !selfInfo.uin) {
+        try {
+          const buf = Buffer.from(data.data.pb, 'hex')
+          const decoded = Msg.PushMsg.decode(buf)
+          const rh = decoded?.message?.routingHead
+          if (rh?.toUid && !selfInfo.uid) selfInfo.uid = String(rh.toUid)
+          if (rh?.toUin && !selfInfo.uin) selfInfo.uin = String(rh.toUin)
+        } catch {
+          try {
+            const buf = Buffer.from(data.data.pb, 'hex')
+            const decoded = Msg.Message.decode(buf)
+            const rh = (decoded as any)?.routingHead
+            if (rh?.toUid && !selfInfo.uid) selfInfo.uid = String(rh.toUid)
+            if (rh?.toUin && !selfInfo.uin) selfInfo.uin = String(rh.toUin)
+          } catch { /* try next */ }
+        }
+      }
+
+      // 登录态：wtlogin.* / trpc.login.* 是登录过程包，不算成功；
+      // 见到 MsgPush / SsoInfoSync / ConfigPushSvc 等只在登录后才出现的 cmd 才算
+      if (!selfInfo.online) {
+        const cmd: string = data.data.cmd
+        const isLoginPhase = cmd.startsWith('wtlogin.') || cmd.startsWith('trpc.login.')
+        const isPostLogin =
+          cmd.includes('OlPushService.MsgPush') ||
+          cmd.includes('RegisterProxy.SsoInfoSync') ||
+          cmd.includes('RegisterProxy.PushParams') ||
+          cmd.includes('ConfigPushSvc.PushReq') ||
+          cmd.startsWith('OidbSvcTrpcTcp.') ||
+          cmd.includes('MessageSvc.')
+        if (!isLoginPhase && isPostLogin) {
+          this.logger.info('QQ 登录成功')
+          selfInfo.online = true
+        }
+      }
+
+      this.maybeEmitOnline()
+
+      if (selfInfo.online && selfInfo.uid && selfInfo.uin) {
+        detach()
+      }
+    })
+
+    let warnedNotLoggedIn = false
+    const probe = async () => {
+      if (this.pmhqProbeToken !== myToken) return
+      try {
+        const payload = Buffer.from([0x08, 0x04]) // field 1 = 4
+        await this.sendPB('trpc.qq_new_tech.status_svc.StatusService.SsoHeartBeat', payload, 3000)
+        if (this.pmhqProbeToken !== myToken) return
+        if (!selfInfo.online) {
+          this.logger.info('QQ 登录成功')
+        }
+        selfInfo.online = true
+        // fetchFriends 响应里的 selfUin 就是 bot 自己；uid 没有 oidb 互转命令，靠上面的 listener 抠
+        if (!selfInfo.uin) {
+          try {
+            const resp = await (this as any).fetchFriends()
+            if (this.pmhqProbeToken === myToken && resp?.selfUin) {
+              selfInfo.uin = String(resp.selfUin)
+            }
+          } catch (e) {
+            this.logger.warn('fetchFriends 拿 selfUin 失败:', (e as Error).message)
+          }
+        }
+        this.maybeEmitOnline()
+      } catch (e) {
+        if (this.pmhqProbeToken !== myToken) return
+        if (selfInfo.online) {
+          this.logger.warn('SsoHeartBeat 失败，停止登录探测', (e as Error).message)
+          detach()
+          return
+        }
+        if (!warnedNotLoggedIn) {
+          this.logger.info('QQ 未登录，等待登录中...')
+          warnedNotLoggedIn = true
+        }
+      }
+      if (this.pmhqProbeToken !== myToken) return
+      if (selfInfo.online) return
+      setTimeout(probe, 3_000)
+    }
+    probe()
   }
 
   public get_is_connected() {
@@ -166,6 +321,7 @@ export class QQProtocolBase extends Service {
 
     this.ws.onerror = () => {
       selfInfo.online = false
+      this.resetPmhqState()
 
       if (!this.hasLoggedConnectionError) {
         this.logger.error('PMHQ WebSocket 连接错误，可能 QQ 未启动，正在等待 QQ 启动进行重连...')
@@ -177,6 +333,7 @@ export class QQProtocolBase extends Service {
 
     this.ws.onclose = () => {
       selfInfo.online = false
+      this.resetPmhqState()
 
       if (!this.hasLoggedConnectionError) {
         this.logger.info('PMHQ WebSocket 连接关闭，准备重连...')
@@ -193,16 +350,9 @@ export class QQProtocolBase extends Service {
         this.hasConnectedOnce = true
         this.startDisconnectMonitoring()
       }
+      // 每次（重）连成功后重新走一遍登录探测
+      this.startPmhqLoginProbe()
     }
-  }
-
-  public async call(func: string, args: unknown[], timeout = 10000) {
-    const payload: PMHQReqCall = {
-      type: 'call',
-      data: { func, args },
-    }
-    const result = ((await this.wsSend(payload, timeout)) as PMHQResCall).data?.result
-    return result
   }
 
   public async waitConnected() {
@@ -216,15 +366,6 @@ export class QQProtocolBase extends Service {
       }
       check()
     })
-  }
-
-  public async tellPort(webuiPort: number) {
-    const echo = randomUUID()
-    const payload: PMHQReqTellPort = {
-      type: 'broadcast_event',
-      data: { echo, type: 'llbot_web_ui_port', data: { echo, port: webuiPort } },
-    }
-    return await this.wsSend(payload, 5000)
   }
 
   public async wsSend<R extends PMHQRes>(data: PMHQReq, timeout = 15000): Promise<R> {
@@ -271,11 +412,11 @@ export class QQProtocolBase extends Service {
     return result
   }
 
-  public async sendPB(cmd: string, pb: Uint8Array): Promise<PBData> {
+  public async sendPB(cmd: string, pb: Uint8Array, timeout = 15000): Promise<PBData> {
     // Direct mode: send through TCP directly
     if (this.directClient?.isLoggedIn) {
       const buf = Buffer.from(pb)
-      const resp = await this.directClient.sendCommand(cmd, buf)
+      const resp = await this.directClient.sendCommand(cmd, buf, undefined, timeout)
       return {
         cmd,
         pb: resp.payload.toString('hex'),
@@ -287,7 +428,7 @@ export class QQProtocolBase extends Service {
         await this.wsSend<PMHQResSendPB>({
           type: 'send',
           data: { cmd, pb: hex },
-        })
+        }, timeout)
       ).data
     }
     return (
@@ -321,14 +462,6 @@ export class QQProtocolBase extends Service {
         data: { cmd, pb: hex },
       })
     ).data
-  }
-
-  async getProcessInfo(): Promise<QQProcessInfo | null> {
-    try {
-      return await this.call('getProcessInfo', [])
-    } catch {
-      return null
-    }
   }
 
   /**
@@ -374,10 +507,15 @@ export class QQProtocolBase extends Service {
       this.logger.warn('Direct client error:', err.message)
     })
     this.directClient.on('close', () => {
+      const wasOnline = this.onlineEmitted
       selfInfo.online = false
       if (this.directStopHeartbeat) {
         this.directStopHeartbeat()
         this.directStopHeartbeat = null
+      }
+      this.onlineEmitted = false
+      if (wasOnline) {
+        this.ctx.parallel('protocol/disconnect')
       }
     })
     this.directClient.on('push', (packet: { cmd: string; payload: Buffer }) => {
@@ -407,6 +545,7 @@ export class QQProtocolBase extends Service {
         if (persisted.nick) selfInfo.nick = persisted.nick
         selfInfo.online = true
         this.directStopHeartbeat = startHeartbeat(this.directClient)
+        this.maybeEmitOnline()
         return
       } catch (e) {
         this.logger.info('Saved session expired, will need QR login: %s', (e as Error).message)
@@ -532,5 +671,6 @@ export class QQProtocolBase extends Service {
     selfInfo.uid = loginResult.uid
     selfInfo.nick = loginResult.nick
     selfInfo.online = true
+    this.maybeEmitOnline()
   }
 }

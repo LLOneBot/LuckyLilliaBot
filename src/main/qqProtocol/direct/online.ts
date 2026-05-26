@@ -57,12 +57,12 @@ function buildRegisterDeviceInfo(): Buffer {
   return Buffer.concat(parts)
 }
 
-function buildRegisterInfo(guid: Buffer): Buffer {
+function buildRegisterInfo(guid: Buffer, isFirstOnline: boolean = true): Buffer {
   const parts: Buffer[] = []
   parts.push(protoStringField(1, guid.toString('hex')))
   parts.push(protoVarintField(2, 0))
   parts.push(protoStringField(3, AppInfo.currentVersion))
-  parts.push(protoVarintField(4, 1))
+  parts.push(protoVarintField(4, isFirstOnline ? 1 : 0))
   parts.push(protoVarintField(5, 2052))
   parts.push(protoMessageField(6, buildRegisterDeviceInfo()))
   parts.push(protoVarintField(7, 0))
@@ -82,7 +82,7 @@ function buildC2cMsgCookie(): Buffer {
   return protoVarintField(1, 0n)
 }
 
-function buildSsoInfoSync(guid: Buffer): Buffer {
+export function buildSsoInfoSync(guid: Buffer, isFirstOnline: boolean = true): Buffer {
   const parts: Buffer[] = []
   parts.push(protoVarintField(1, 735))
   parts.push(protoVarintField(2, Math.floor(Math.random() * 0xFFFFFFFF)))
@@ -96,7 +96,7 @@ function buildSsoInfoSync(guid: Buffer): Buffer {
   ])
   parts.push(protoMessageField(6, c2cSync))
 
-  parts.push(protoMessageField(9, buildRegisterInfo(guid)))
+  parts.push(protoMessageField(9, buildRegisterInfo(guid, isFirstOnline)))
 
   const unknown = Buffer.concat([
     protoVarintField(1, 0),

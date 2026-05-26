@@ -71,8 +71,12 @@ async function onLoad() {
   ctx.plugin(NTQQSystemApi)
 
   let config: LLBotConfig
+  // 上层会话插件只加载一次，重连后不重新加载（断线时上层服务希望透明渡过短时断网）
+  let sessionLoaded = false
 
   const loadPluginAfterLogin = () => {
+    if (sessionLoaded) return
+    sessionLoaded = true
     ctx.plugin(Database)
     ctx.plugin(SQLiteDriver, {
       path: pathToFileURL(path.join(dbDir, `${selfInfo.uin}.v2.db`)).href,
@@ -102,12 +106,7 @@ async function onLoad() {
 
   const printLoginQrCode = async () => {
     try {
-      let data: { qrcodeUrl: string; pngBase64QrcodeData: string }
-      if (useDirectProtocol) {
-        data = await ctx.qqProtocol.getDirectLoginQrCode()
-      } else {
-        data = await ctx.ntLoginApi.getLoginQrCode()
-      }
+      const data = await ctx.qqProtocol.getDirectLoginQrCode()
 
       const qrText = await QRCode.toString(data.qrcodeUrl, { type: 'terminal', small: true })
       console.log('\n========== 请使用手机QQ扫描二维码登录 ==========')
@@ -131,61 +130,55 @@ async function onLoad() {
     }
   }
 
-  const checkLogin = async () => {
-    if (useDirectProtocol) {
-      const info = ctx.qqProtocol.getDirectSelfInfo()
-      if (!info.online) {
-        const now = Date.now()
-        if (now - lastQrCodeTime > 120_000) {
-          lastQrCodeTime = now
-          printLoginQrCode()
+  const directLoginLoop = async () => {
+    if (selfInfo.online) return
+    const info = ctx.qqProtocol.getDirectSelfInfo()
+    if (!info.online) {
+      const now = Date.now()
+      if (now - lastQrCodeTime > 120_000) {
+        lastQrCodeTime = now
+        printLoginQrCode()
+      }
+      setTimeout(directLoginLoop, 1000)
+    }
+  }
+
+  const ensurePmhqMissingFields = async (userCtx: Context) => {
+    if (!selfInfo.uid && selfInfo.uin) {
+      for (let i = 0; i < 5; i++) {
+        try {
+          selfInfo.uid = String(await userCtx.ntUserApi.getUidByUin(+selfInfo.uin))
+          if (selfInfo.uid) break
+        } catch (e) {
+          await sleep(1000)
         }
-        setTimeout(checkLogin, 1000)
-        return
-      }
-      selfInfo.uin = info.uin
-      selfInfo.uid = info.uid
-      selfInfo.nick = info.nick
-      selfInfo.online = true
-    } else {
-      let pmhqSelfInfo = { ...selfInfo }
-      try {
-        pmhqSelfInfo = await ctx.qqProtocol.call('getSelfInfo', [])
-      } catch (e) {
-        ctx.logger.info('获取账号信息状态失败', e)
-        setTimeout(checkLogin, 1000)
-        return
-      }
-      if (!pmhqSelfInfo.online) {
-        const now = Date.now()
-        if (isDocker && now - lastQrCodeTime > 120_000) {
-          lastQrCodeTime = now
-          printLoginQrCode()
-        }
-        setTimeout(checkLogin, 1000)
-        return
-      }
-      selfInfo.uin = pmhqSelfInfo.uin
-      selfInfo.uid = pmhqSelfInfo.uid
-      selfInfo.nick = pmhqSelfInfo.nick
-      if (!selfInfo.uin) {
-        for (let i = 0; i < 5; i++) {
-          try {
-            selfInfo.uin = String(await ctx.ntUserApi.getUinByUid(selfInfo.uid))
-            break
-          } catch (e) {
-            await sleep(1000)
-          }
-        }
-      }
-      selfInfo.online = true
-      if (!selfInfo.nick) {
-        await ctx.ntUserApi.getSelfNick(true).catch(e => {
-          ctx.logger.warn('获取登录号昵称失败', e)
-        })
       }
     }
-    console.log(`
+    if (!selfInfo.uin && selfInfo.uid) {
+      for (let i = 0; i < 5; i++) {
+        try {
+          selfInfo.uin = String(await userCtx.ntUserApi.getUinByUid(selfInfo.uid))
+          if (selfInfo.uin) break
+        } catch (e) {
+          await sleep(1000)
+        }
+      }
+    }
+    if (!selfInfo.nick && selfInfo.uid) {
+      await userCtx.ntUserApi.getSelfNick(true).catch(e => {
+        userCtx.logger.warn('获取登录号昵称失败', e)
+      })
+    }
+  }
+
+  ctx.inject(['qqProtocol', 'config'], (ctx) => {
+    ctx.logger.info(`LLBot ${version}`)
+    ctx.logger.info(process.argv)
+    config = ctx.config.get()
+    ctx.plugin(WebuiServer, config.webui)
+
+    const handleOnline = async () => {
+      console.log(`
   _                _            _     _ _ _ _
  | |    _   _  ___| | ___   _  | |   (_) | (_) __ _
  | |   | | | |/ __| |/ / | | | | |   | | | | |/ _\` |
@@ -194,27 +187,39 @@ async function onLoad() {
                         |___/
                                         UIN: ${selfInfo.uin}
 `)
+      if (!sessionLoaded) {
+        config = ctx.config.get(false)
+        ctx.config.listenChange(c => {
+          ctx.parallel('llob/config-updated', c)
+        })
+        ctx.parallel('llob/config-updated', config)
+      }
+      loadPluginAfterLogin()
+    }
+    ctx.on('qq/online', handleOnline)
+    // 协议层可能在 inject callback 之前就 emit 过 qq/online，那一次 emit 会丢，得 catch up 一下
+    if (selfInfo.online && (selfInfo.uid || selfInfo.uin)) {
+      handleOnline()
+    }
 
-    config = ctx.config.get(false)
-    ctx.config.listenChange(c => {
-      ctx.parallel('llob/config-updated', c)
+    // PMHQ 模式：plugin 加载完后 ntUserApi 才就绪，那时再补 uid/nick
+    if (!useDirectProtocol) {
+      ctx.inject(['ntUserApi'], async (userCtx) => {
+        if (selfInfo.online) {
+          await ensurePmhqMissingFields(userCtx)
+        }
+      })
+    }
+
+    ctx.on('protocol/disconnect', () => {
+      ctx.logger.info('协议层断开，等待重连…')
     })
-    ctx.parallel('llob/config-updated', config)
 
-    loadPluginAfterLogin()
-  }
-
-  ctx.inject(['qqProtocol', 'config'], (ctx) => {
-    ctx.logger.info(`LLBot ${version}`)
-    ctx.logger.info(process.argv)
-    config = ctx.config.get()
-    ctx.plugin(WebuiServer, config.webui)
     if (useDirectProtocol) {
       ctx.qqProtocol.initDirectClient().then(() => {
-        checkLogin()
+        directLoginLoop()
       })
     } else {
-      checkLogin()
       ctx.qqProtocol.startHook()
     }
   })

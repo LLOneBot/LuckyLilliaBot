@@ -76,8 +76,8 @@ export class NTQQMsgApi extends Service {
     return await this.getMsgHistory(peer, '0', cnt, true)
   }
 
-  async getAioFirstViewLatestMsgs(_peer: Peer, _cnt: number): Promise<any> {
-    return { msgList: [] }
+  async getAioFirstViewLatestMsgs(peer: Peer, cnt: number): Promise<any> {
+    return await this.getMsgHistory(peer, '0', cnt, true)
   }
 
   async getMsgsByMsgId(_peer: Peer, msgIds: string[]) {
@@ -101,15 +101,25 @@ export class NTQQMsgApi extends Service {
       if (cached) endSeq = +cached.msgSeq
     }
     if (!endSeq) {
-      // 不知道 seq 时尝试拉最新的 cnt 条（端点 seq=0 由协议侧处理）
-      try {
-        const decoded = peer.chatType === ChatType.Group
-          ? await this.ctx.qqProtocol.getGroupMessages(+peer.peerUid, 0, cnt)
-          : await this.ctx.qqProtocol.getC2CMessages(peer.peerUid, 0, cnt)
-        const messages = this.toRawMessages(decoded, peer.chatType)
-        return { msgList: queryOrder ? messages : messages.reverse() } as any
-      } catch (e) {
-        this.ctx.logger.error('getMsgHistory failed', e)
+      // C2C: SsoGetC2CMsg 必须传真实 seq；不知道时走漫游 API 按时间拉最新 N 条
+      if (peer.chatType !== ChatType.Group) {
+        try {
+          const now = Math.floor(Date.now() / 1000)
+          const decoded = await this.ctx.qqProtocol.getC2CRoamMessages(peer.peerUid, now, cnt, 1)
+          const messages = this.toRawMessages(decoded, peer.chatType)
+          messages.sort((a, b) => +a.msgSeq - +b.msgSeq)
+          return { msgList: queryOrder ? messages : messages.reverse() } as any
+        } catch (e) {
+          this.ctx.logger.error('getMsgHistory (C2C roam) failed', e)
+          return { msgList: [] } as any
+        }
+      }
+      // Group: 用 store 缓存的最新 seq 当 endSeq
+      const cachedSeq = this.ctx.store.getLatestPeerSeq?.(ChatType.Group, peer.peerUid)
+      if (cachedSeq) {
+        endSeq = cachedSeq
+      } else {
+        // 完全没缓存（开机后还没收到该群消息）—— SsoGetGroupMsg 必须传真实 seq，没法盲拉
         return { msgList: [] } as any
       }
     }
