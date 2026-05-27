@@ -374,15 +374,19 @@ export class NTQQGroupApi extends Service {
     }
   }
 
-  async getGroupFileCount(_groupId: string): Promise<any> {
-    return { result: 0, errMsg: '', groupFileCounts: [0] }
+  async getGroupFileCount(groupId: string): Promise<{ fileCount: number, limitCount: number }> {
+    const r = await this.ctx.qqProtocol.getGroupFileCount(+groupId)
+    return {
+      fileCount: r?.fileCount ?? 0,
+      limitCount: r?.limitCount ?? 10000,
+    }
   }
 
-  async getGroupFileSpace(_groupId: string): Promise<any> {
+  async getGroupFileSpace(groupId: string): Promise<{ totalSpace: number, usedSpace: number }> {
+    const r = await this.ctx.qqProtocol.getGroupFileSpace(+groupId)
     return {
-      result: 0,
-      errMsg: '',
-      groupSpaceResult: { totalSpace: 0, usedSpace: 0, allUpload: 0, allDownload: 0 },
+      totalSpace: Number(r?.totalSpace ?? 0n),
+      usedSpace: Number(r?.usedSpace ?? 0n),
     }
   }
 
