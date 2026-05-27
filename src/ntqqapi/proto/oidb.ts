@@ -1361,4 +1361,21 @@ export namespace Oidb {
       }, 'optional'),
     }, 'optional'),
   })
+
+  /** OidbSvcTrpcTcp.0x8a7_0 */
+  export const FetchGroupAtAllRemainReq = ProtoMessage.of({
+    subCmd: ProtoField(1, 'uint32'),
+    limitIntervalTypeForUin: ProtoField(2, 'uint32'),
+    limitIntervalTypeForGroup: ProtoField(3, 'uint32'),
+    uin: ProtoField(4, 'uint32'),
+    groupCode: ProtoField(5, 'uint32'),
+  })
+
+  export const FetchGroupAtAllRemainResp = ProtoMessage.of({
+    canAtAll: ProtoField(1, 'bool'),
+    remainAtAllCountForUin: ProtoField(2, 'uint32'),
+    remainAtAllCountForGroup: ProtoField(3, 'uint32'),
+    atTimesMsg: ProtoField(4, 'string'),
+    canNotAtAllMsg: ProtoField(5, 'string', 'optional'),
+  })
 }

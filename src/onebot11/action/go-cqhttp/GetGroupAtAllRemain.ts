@@ -18,14 +18,11 @@ export class GetGroupAtAllRemain extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload) {
-    const data = await this.ctx.ntGroupApi.getGroupRemainAtTimes(payload.group_id.toString())
-    if (data.errCode !== 0) {
-      throw new Error(data.errMsg)
-    }
+    const data = await this.ctx.ntGroupApi.getGroupRemainAtTimes(+payload.group_id)
     return {
-      can_at_all: data.atInfo.canAtAll,
-      remain_at_all_count_for_group: data.atInfo.RemainAtAllCountForGroup,
-      remain_at_all_count_for_uin: data.atInfo.RemainAtAllCountForUin
+      can_at_all: data.canAtAll,
+      remain_at_all_count_for_group: data.remainAtAllCountForGroup,
+      remain_at_all_count_for_uin: data.remainAtAllCountForUin
     }
   }
 }

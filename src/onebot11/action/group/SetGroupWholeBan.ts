@@ -15,9 +15,9 @@ export default class SetGroupWholeBan extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    const res = await this.ctx.ntGroupApi.banGroup(payload.group_id.toString(), payload.enable)
-    if (res.result !== 0) {
-      throw new Error(res.errMsg)
+    const res = await this.ctx.ntGroupApi.muteGroup(+payload.group_id, payload.enable)
+    if (res.errorCode !== 0) {
+      throw new Error(res.errorMsg)
     }
     return null
   }

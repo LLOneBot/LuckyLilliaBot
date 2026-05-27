@@ -40,9 +40,9 @@ const SetGroupName = defineApi(
   SetGroupNameInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.setGroupName(payload.group_id.toString(), payload.new_group_name)
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    const result = await ctx.ntGroupApi.setGroupName(payload.group_id, payload.new_group_name)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -71,13 +71,13 @@ const SetGroupMemberCard = defineApi(
   z.object({}),
   async (ctx, payload) => {
     const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.group_id)
-    const result = await ctx.ntGroupApi.setMemberCard(
-      payload.group_id.toString(),
+    const result = await ctx.ntGroupApi.setGroupMemberCard(
+      payload.group_id,
       memberUid,
       payload.card
     )
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -108,7 +108,7 @@ const SetGroupMemberAdmin = defineApi(
       payload.user_id,
       payload.group_id
     )
-    const result = await ctx.ntGroupApi.setMemberRole(
+    const result = await ctx.ntGroupApi.setGroupMemberAdmin(
       payload.group_id,
       memberUid,
       payload.is_set
@@ -142,9 +142,9 @@ const SetGroupWholeMute = defineApi(
   SetGroupWholeMuteInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.banGroup(payload.group_id.toString(), payload.is_mute)
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    const result = await ctx.ntGroupApi.muteGroup(payload.group_id, payload.is_mute)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }

@@ -177,36 +177,24 @@ export class NTQQGroupApi extends Service {
     return await this.ctx.qqProtocol.muteGroupMember(+groupCode, memList)
   }
 
-  async banGroup(groupCode: string, shutUp: boolean): Promise<{ result: number, errMsg: string }> {
-    const resp = await this.ctx.qqProtocol.muteAllGroupMembers(+groupCode, shutUp)
-    return { result: resp.errorCode, errMsg: resp.errorMsg }
+  async muteGroup(groupCode: number, shutUp: boolean) {
+    return await this.ctx.qqProtocol.muteAllGroupMembers(groupCode, shutUp)
   }
 
-  async setMemberCard(groupCode: string, memberUid: string, cardName: string): Promise<{ result: number, errMsg: string }> {
-    const resp = await this.ctx.qqProtocol.setGroupMemberCard(+groupCode, memberUid, cardName)
-    return { result: resp.errorCode, errMsg: resp.errorMsg }
+  async setGroupMemberCard(groupCode: number, memberUid: string, cardName: string) {
+    return await this.ctx.qqProtocol.setGroupMemberCard(groupCode, memberUid, cardName)
   }
 
-  async setMemberRole(groupCode: number, memberUid: string, isSet: boolean) {
+  async setGroupMemberAdmin(groupCode: number, memberUid: string, isSet: boolean) {
     return await this.ctx.qqProtocol.setGroupMemberAdmin(groupCode, memberUid, isSet)
   }
 
-  async setGroupName(groupCode: string, groupName: string): Promise<{ result: number, errMsg: string }> {
-    const resp = await this.ctx.qqProtocol.setGroupName(+groupCode, groupName)
-    return { result: resp.errorCode, errMsg: resp.errorMsg }
+  async setGroupName(groupCode: number, groupName: string) {
+    return await this.ctx.qqProtocol.setGroupName(groupCode, groupName)
   }
 
-  async getGroupRemainAtTimes(_groupCode: string): Promise<any> {
-    return {
-      errCode: 0,
-      errMsg: '',
-      atInfo: {
-        canAtAll: true,
-        RemainAtAllCountForGroup: 0,
-        RemainAtAllCountForUin: 0,
-        atAllRemainCount: 0,
-      },
-    }
+  async getGroupRemainAtTimes(groupCode: number) {
+    return await this.ctx.qqProtocol.fetchGroupAtAllRemain(+selfInfo.uin, groupCode)
   }
 
   async removeGroupEssence(groupCode: string, msgId: string): Promise<{ errCode: number, errMsg: string }> {
