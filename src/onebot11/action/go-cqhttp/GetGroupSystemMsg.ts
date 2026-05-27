@@ -1,3 +1,4 @@
+import { GroupNotificationType, RequestState } from '@/ntqqapi/types'
 import { BaseAction } from '../BaseAction'
 import { ActionName } from '../types'
 
@@ -26,37 +27,38 @@ interface Response {
 export class GetGroupSystemMsg extends BaseAction<{}, Response> {
   actionName = ActionName.GoCQHTTP_GetGroupSystemMsg
 
-  private async parse(notifies: GroupNotify[]) {
+  async _handle() {
+    let notifications
+    const normal = await this.ctx.ntGroupApi.getGroupNotifications(false, 50)
+    notifications = normal.notifications
+    const doubt = await this.ctx.ntGroupApi.getGroupNotifications(true, 50)
+    notifications.push(...doubt.notifications)
+
     const data: Response = { invited_requests: [], join_requests: [] }
-    for (const notify of notifies) {
-      if (notify.type === GroupNotifyType.InvitedByMember) {
+    for (const n of notifications) {
+      if (n.notificationType === GroupNotificationType.Invitation) {
         data.invited_requests.push({
-          request_id: +notify.seq,
-          invitor_uin: Number(await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)),
-          invitor_nick: notify.user1.nickName,
-          group_id: +notify.group.groupCode,
-          group_name: notify.group.groupName,
-          checked: notify.status !== GroupNotifyStatus.Unhandle,
-          actor: notify.user2?.uid ? Number(await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)) : 0
+          request_id: n.notificationSeq,
+          invitor_uin: await this.ctx.ntUserApi.getUinByUid(n.initiatorUid),
+          invitor_nick: n.initiatorNick,
+          group_id: n.groupCode,
+          group_name: n.groupName,
+          checked: n.state !== RequestState.Unhandle,
+          actor: n.operatorUid ? await this.ctx.ntUserApi.getUinByUid(n.operatorUid) : 0
         })
-      } else if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass) {
+      } else if (n.notificationType === GroupNotificationType.JoinRequest) {
         data.join_requests.push({
-          request_id: +notify.seq,
-          requester_uin: Number(await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)),
-          requester_nick: notify.user1.nickName,
-          message: notify.postscript,
-          group_id: +notify.group.groupCode,
-          group_name: notify.group.groupName,
-          checked: notify.status !== GroupNotifyStatus.Unhandle,
-          actor: notify.user2?.uid ? Number(await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)) : 0
+          request_id: n.notificationSeq,
+          requester_uin: await this.ctx.ntUserApi.getUinByUid(n.initiatorUid),
+          requester_nick: n.initiatorNick,
+          message: n.comment,
+          group_id: n.groupCode,
+          group_name: n.groupName,
+          checked: n.state !== RequestState.Unhandle,
+          actor: n.operatorUid ? await this.ctx.ntUserApi.getUinByUid(n.operatorUid) : 0
         })
       }
     }
     return data
-  }
-
-  async _handle() {
-    const res = await this.ctx.ntGroupApi.getGroupRequest()
-    return await this.parse(res.notifies)
   }
 }

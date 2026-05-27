@@ -12,6 +12,9 @@ import {
   SendMessageElement,
   KickedOffLineInfo,
   MsgType,
+  GroupJoinRequestEvent,
+  GroupInvitedJoinRequestEvent,
+  GroupInvitationEvent,
 } from './types'
 import { selfInfo } from '../common/globalVars'
 import {
@@ -77,9 +80,9 @@ declare module 'cordis' {
     /** 群/私聊语音转写文字结果异步推送（pttTrans.TransGroupPttReq/TransC2CPttReq 提交后由这条 event 喂结果） */
     'nt/raw/ptt-trans-result': (input: { msgUid: string, chatType: ChatType, peerUin: string, senderUin: string, text: string }) => void
 
-    'nt/group-join-request': (input: { groupCode: number, initiatorUid: string, notificationSeq: number, isDoubt: boolean, comment: string }) => void
-    'nt/group-invited-join-request': (input: { groupCode: number, initiatorUid: string, targetUserUid: string, notificationSeq: number }) => void
-    'nt/group-invitation': (input: { groupCode: number, initiatorUid: string, invitationSeq: number, sourceGroupCode?: number }) => void
+    'nt/group-join-request': (input: GroupJoinRequestEvent) => void
+    'nt/group-invited-join-request': (input: GroupInvitedJoinRequestEvent) => void
+    'nt/group-invitation': (input: GroupInvitationEvent) => void
   }
 }
 

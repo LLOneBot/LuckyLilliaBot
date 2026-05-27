@@ -90,54 +90,73 @@ export enum RequestState {
 export interface GroupJoinRequest {
   notificationType: GroupNotificationType.JoinRequest
   groupCode: number
+  groupName: string
   notificationSeq: number
   initiatorUid: string
+  initiatorNick: string
   state: RequestState
   operatorUid?: string
+  operatorNick?: string
   comment: string
 }
 
 export interface GroupAdminChange {
   notificationType: GroupNotificationType.AdminChange
   groupCode: number
+  groupName: string
   notificationSeq: number
   targetUserUid: string
+  targetUserNick: string
   isSet: boolean
   operatorUid: string
+  operatorNick: string
 }
 
 export interface GroupKick {
   notificationType: GroupNotificationType.Kick
   groupCode: number
+  groupName: string
   notificationSeq: number
   targetUserUid: string
+  targetUserNick: string
   operatorUid: string
+  operatorNick: string
 }
 
 export interface GroupQuit {
   notificationType: GroupNotificationType.Quit
   groupCode: number
+  groupName: string
   notificationSeq: number
   targetUserUid: string
+  targetUserNick: string
 }
 
 export interface GroupInvitedJoinRequest {
   notificationType: GroupNotificationType.InvitedJoinRequest
   groupCode: number
+  groupName: string
   notificationSeq: number
   initiatorUid: string
+  initiatorNick: string
   targetUserUid: string
+  targetUserNick: string
   state: RequestState
   operatorUid?: string
+  operatorNick?: string
 }
 
 export interface GroupInvitation {
   notificationType: GroupNotificationType.Invitation
   groupCode: number
+  groupName: string
   notificationSeq: number
   initiatorUid: string
+  initiatorNick: string
   state: RequestState
   sourceGroupCode: number
+  operatorUid?: string
+  operatorNick?: string
 }
 
 export type GroupNotification =

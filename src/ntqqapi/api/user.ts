@@ -120,13 +120,18 @@ export class NTQQUserApi extends Service {
       const uin = await this.ctx.store.getUinByUid(uid)
       if (uin) return uin
     } catch (e) {
-      this.ctx.logger.error('getUidByUin via store failed', e)
+      this.ctx.logger.error('getUinByUid via store failed', e)
     }
     try {
+      // TODO: 迁移至 getUserByUid
       const user = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+      this.ctx.store.addUix([{
+        uid: user.uid,
+        uin: user.uin
+      }]).catch(e => this.ctx.logger.warn(e))
       return user.uin
     } catch (e) {
-      this.ctx.logger.error('getUidByUin via user failed', e)
+      this.ctx.logger.error('getUinByUid via user failed', e)
     }
     return 0
   }

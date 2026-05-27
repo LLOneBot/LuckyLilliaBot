@@ -15,7 +15,6 @@ import {
   transformGroupMessageCreated,
   transformPrivateMessageDeleted,
   transformGroupMessageDeleted,
-  transformGroupNotify,
   transformFriendRequestEvent,
   transformSystemMessageEvent,
   transformGroupMessageEvent,
@@ -23,6 +22,9 @@ import {
   transformOlpushEvent,
   transformTempMessageCreated,
   transformTempMessageDeleted,
+  transformGroupJoinRequestEvent,
+  transformGroupInvitedJoinRequestEvent,
+  transformGroupInvitationEvent,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
 import { noop } from 'cosmokit'
@@ -197,14 +199,6 @@ export class MilkyAdapter extends Service {
       }
     })
 
-    // Listen to NTQQ group notify events
-    this.ctx.on('nt/group-notify', async ({ notify, doubt }) => {
-      const result = await transformGroupNotify(this.ctx, notify, doubt)
-      if (result) {
-        this.emitEvent(result.eventType, result.data)
-      }
-    })
-
     // Listen to NTQQ friend request events
     this.ctx.on('nt/friend-request', async (request) => {
       const eventData = await transformFriendRequestEvent(this.ctx, request)
@@ -232,6 +226,27 @@ export class MilkyAdapter extends Service {
         if (result) {
           this.emitEvent(result.eventType, result.data)
         }
+      }
+    })
+
+    this.ctx.on('nt/group-join-request', async (data) => {
+      const eventData = await transformGroupJoinRequestEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_join_request', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-invited-join-request', async (data) => {
+      const eventData = await transformGroupInvitedJoinRequestEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_invited_join_request', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-invitation', async (data) => {
+      const eventData = await transformGroupInvitationEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_invitation', eventData)
       }
     })
   }

@@ -8,25 +8,7 @@ export function createNotificationRoutes(ctx: Context): Hono {
   // 获取群通知列表
   router.get('/notifications/group', async (c) => {
     try {
-      const { notifies, normalCount } = await ctx.ntGroupApi.getGroupRequest()
-      const enriched = await Promise.all(notifies.map(async (notify, index) => {
-        const isDoubt = index >= normalCount
-        const user1Uin = notify.user1.uid ? await ctx.ntUserApi.getUinByUid(notify.user1.uid).catch(() => '') : ''
-        const user2Uin = notify.user2.uid ? await ctx.ntUserApi.getUinByUid(notify.user2.uid).catch(() => '') : ''
-        return {
-          seq: notify.seq,
-          notifyType: notify.type,
-          status: notify.status,
-          doubt: isDoubt,
-          group: notify.group,
-          user1: { ...notify.user1, uin: user1Uin },
-          user2: { ...notify.user2, uin: user2Uin },
-          postscript: notify.postscript,
-          actionTime: notify.actionTime,
-          flag: `${notify.group.groupCode}|${notify.seq}|${notify.type}|${isDoubt ? '1' : '0'}`
-        }
-      }))
-      return c.json({ success: true, data: enriched })
+      throw new Error('暂未实现') // TODO: 实现它
     } catch (e) {
       ctx.logger.error('获取群通知失败:', e)
       return c.json({ success: false, message: '获取群通知失败', error: (e as Error).message }, 500)

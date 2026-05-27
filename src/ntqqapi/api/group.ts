@@ -147,54 +147,73 @@ export class NTQQGroupApi extends Service {
         notifications.push({
           notificationType: GroupNotificationType.JoinRequest,
           groupCode: r.group.groupCode,
+          groupName: r.group.groupName,
           notificationSeq: Number(r.sequence),
           initiatorUid: r.user1.uid,
+          initiatorNick: r.user1.nickname,
           state: r.requestState,
           operatorUid: r.user2?.uid,
+          operatorNick: r.user2?.nickname,
           comment: r.comment ?? ''
         })
       } else if (r.notifyType === 2) {
         notifications.push({
           notificationType: GroupNotificationType.Invitation,
           groupCode: r.group.groupCode,
+          groupName: r.group.groupName,
           notificationSeq: Number(r.sequence),
           initiatorUid: r.user2!.uid,
+          initiatorNick: r.user2!.nickname,
           state: r.requestState,
-          sourceGroupCode: 0 // TODO: 需抓取
+          sourceGroupCode: 0, // TODO: 需抓取
+          operatorUid: r.user3?.uid,
+          operatorNick: r.user3?.nickname
         })
       } else if (r.notifyType === 3 || r.notifyType === 16) {
         notifications.push({
           notificationType: GroupNotificationType.AdminChange,
           groupCode: r.group.groupCode,
+          groupName: r.group.groupName,
           notificationSeq: Number(r.sequence),
           targetUserUid: r.user1.uid,
+          targetUserNick: r.user1.nickname,
           isSet: r.notifyType === 3,
-          operatorUid: r.user2!.uid
+          operatorUid: r.user2!.uid,
+          operatorNick: r.user2!.nickname
         })
       } else if (r.notifyType === 6) {
         notifications.push({
           notificationType: GroupNotificationType.Kick,
           groupCode: r.group.groupCode,
+          groupName: r.group.groupName,
           notificationSeq: Number(r.sequence),
           targetUserUid: r.user1.uid,
-          operatorUid: r.user2?.uid ?? r.user3!.uid
+          targetUserNick: r.user1.nickname,
+          operatorUid: r.user2?.uid ?? r.user3!.uid,
+          operatorNick: r.user2?.nickname ?? r.user3!.nickname
         })
       } else if (r.notifyType === 13) {
         notifications.push({
           notificationType: GroupNotificationType.Quit,
           groupCode: r.group.groupCode,
+          groupName: r.group.groupName,
           notificationSeq: Number(r.sequence),
-          targetUserUid: r.user1.uid
+          targetUserUid: r.user1.uid,
+          targetUserNick: r.user1.nickname
         })
       } else if (r.notifyType === 22) {
         notifications.push({
           notificationType: GroupNotificationType.InvitedJoinRequest,
           groupCode: r.group.groupCode,
+          groupName: r.group.groupName,
           notificationSeq: Number(r.sequence),
           initiatorUid: r.user2!.uid,
+          initiatorNick: r.user2!.nickname,
           targetUserUid: r.user1.uid,
+          targetUserNick: r.user1.nickname,
           state: r.requestState,
-          operatorUid: r.user3?.uid
+          operatorUid: r.user3?.uid,
+          operatorNick: r.user3?.nickname
         })
       }
     }
@@ -204,21 +223,13 @@ export class NTQQGroupApi extends Service {
     }
   }
 
-  async getGroupRequest(): Promise<{ notifies: GroupNotify[], normalCount: number }> {
-    const normal = await this.getSingleScreenNotifies(false, 50)
-    const normalCount = normal.notifies.length
-    const doubt = await this.getSingleScreenNotifies(true, 50)
-    normal.notifies.push(...doubt.notifies)
-    return { notifies: normal.notifies, normalCount }
-  }
-
   async operateSysNotify(
     doubt: boolean,
     operateMsg: {
       operateType: GroupRequestOperateTypes
       targetMsg: {
         seq: string
-        type: GroupNotifyType
+        type: number
         groupCode: string
         postscript: string
       }

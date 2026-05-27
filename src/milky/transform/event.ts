@@ -1,5 +1,5 @@
 import { MilkyEventTypes } from '@/milky/common/event'
-import { RawMessage, FriendRequest } from '@/ntqqapi/types'
+import { RawMessage, FriendRequest, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent } from '@/ntqqapi/types'
 import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingTempMessage } from './message/incoming'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -169,54 +169,57 @@ export async function transformFriendRequestEvent(
   }
 }
 
-/**
- * Transform NTQQ group-notify event to Milky group notification events
- */
-export async function transformGroupNotify(
+export async function transformGroupJoinRequestEvent(
   ctx: Context,
-  notify: GroupNotify,
-  doubt: boolean
-): Promise<{ eventType: keyof MilkyEventTypes, data: Event['data'] } | null> {
+  data: GroupJoinRequestEvent
+): Promise<MilkyEventTypes['group_join_request'] | null> {
   try {
-    if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
-      return {
-        eventType: 'group_join_request',
-        data: {
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          is_filtered: doubt,
-          initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
-          comment: notify.postscript
-        } satisfies MilkyEventTypes['group_join_request']
-      }
-    }
-    else if (notify.type === GroupNotifyType.InvitedNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
-      return {
-        eventType: 'group_invited_join_request',
-        data: {
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid)),
-          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid))
-        } satisfies MilkyEventTypes['group_invited_join_request']
-      }
-    }
-    else if (notify.type === GroupNotifyType.InvitedByMember && notify.status === GroupNotifyStatus.Unhandle) {
-      return {
-        eventType: 'group_invitation',
-        data: {
-          group_id: Number(notify.group.groupCode),
-          invitation_seq: Number(notify.seq),
-          initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid)),
-          source_group_id: Number(notify.invitationExt.groupCode)
-        } satisfies MilkyEventTypes['group_invitation']
-      }
-    }
-    else {
-      return null
+    const initiatorId = await ctx.ntUserApi.getUinByUid(data.initiatorUid)
+    return {
+      group_id: data.groupCode,
+      notification_seq: data.notificationSeq,
+      is_filtered: data.isDoubt,
+      initiator_id: initiatorId,
+      comment: data.comment
     }
   } catch (error) {
-    ctx.logger.error('Failed to transform group notify event:', error)
+    ctx.logger.error('Failed to transform group join request event:', error)
+    return null
+  }
+}
+
+export async function transformGroupInvitedJoinRequestEvent(
+  ctx: Context,
+  data: GroupInvitedJoinRequestEvent
+): Promise<MilkyEventTypes['group_invited_join_request'] | null> {
+  try {
+    const initiatorId = await ctx.ntUserApi.getUinByUid(data.initiatorUid)
+    const targetUserId = await ctx.ntUserApi.getUinByUid(data.targetUserUid)
+    return {
+      group_id: data.groupCode,
+      notification_seq: data.notificationSeq,
+      initiator_id: initiatorId,
+      target_user_id: targetUserId
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group invited join request event:', error)
+    return null
+  }
+}
+
+export async function transformGroupInvitationEvent(
+  ctx: Context,
+  data: GroupInvitationEvent
+): Promise<MilkyEventTypes['group_invitation'] | null> {
+  try {
+    const initiatorId = await ctx.ntUserApi.getUinByUid(data.initiatorUid)
+    return {
+      group_id: data.groupCode,
+      invitation_seq: data.invitationSeq,
+      initiator_id: initiatorId
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group invitation event:', error)
     return null
   }
 }
@@ -252,26 +255,6 @@ export async function transformPrivateMessageEvent(
             file_hash: '', // 拿不到
             is_self: message.senderUin === selfInfo.uin
           } satisfies MilkyEventTypes['friend_file_upload']
-        }
-      } else if (element.arkElement) {
-        const data = JSON.parse(element.arkElement.bytesData)
-        if (data.app === 'com.tencent.qun.invite' || (data.app === 'com.tencent.tuwen.lua' && data.bizsrc === 'qun.invite')) {
-          const params = new URLSearchParams(data.meta.news.jumpUrl)
-          const receiverUin = params.get('receiveruin')
-          const senderUin = params.get('senderuin')
-          if (receiverUin !== selfInfo.uin || senderUin !== message.senderUin) {
-            return null
-          }
-          const groupCode = params.get('groupcode')!
-          const seq = params.get('msgseq')!
-          return {
-            eventType: 'group_invitation',
-            data: {
-              group_id: +groupCode,
-              invitation_seq: +seq,
-              initiator_id: +senderUin
-            } satisfies MilkyEventTypes['group_invitation']
-          }
         }
       }
     }
