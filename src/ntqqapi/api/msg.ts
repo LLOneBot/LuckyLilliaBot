@@ -4,6 +4,7 @@ import { selfInfo } from '@/common/globalVars'
 import { Msg } from '../proto'
 import { convertToRawMessage } from '../dispatcher'
 import { createReadStream, promises as fsp } from 'node:fs'
+import { randomBytes } from 'node:crypto'
 import { getMd5BufferFromFile } from '@/common/utils/file'
 import { uint32ToIPV4Addr } from '@/common/utils'
 import { HighwayHttpSession } from '../helper/highway'
@@ -178,6 +179,27 @@ export class NTQQMsgApi extends Service {
     return { result: lastErr ? -1 : 0, errMsg: lastErr }
   }
 
+  /**
+   * 挂一次性 listener 等 OlPush 推回我们刚发出去那条消息的回声。
+   * 用 (peerUid, msgRandom) 匹配——random 是发送方在 PbSendMsg 里自己造、server 原样
+   * 广播给所有人的 32-bit 值，两端唯一可靠对得上的字段。msgSeq 偶尔会差 1-N 个槽。
+   */
+  private waitForSelfEcho(peer: Peer, random: number, timeoutMs: number): Promise<RawMessage> {
+    return new Promise((resolve, reject) => {
+      const dispose = this.ctx.on('nt/raw/self-send-msg', (msg) => {
+        if (msg.peerUid !== peer.peerUid) return
+        if (+msg.msgRandom !== random) return
+        clearTimeout(timer)
+        dispose()
+        resolve(msg)
+      })
+      const timer = setTimeout(() => {
+        dispose()
+        reject(new Error('waitForSelfEcho timeout'))
+      }, timeoutMs)
+    })
+  }
+
   async sendMsg(peer: Peer, msgElements: SendMessageElement[]): Promise<RawMessage> {
     const elems = await new MessageBuilding(this.ctx, msgElements, peer.chatType, peer.peerUid).build()
 
@@ -194,27 +216,36 @@ export class NTQQMsgApi extends Service {
       }
     }
 
+    // 先生成 random + 挂 listener，再发 PbSendMsg：
+    // server 广播 OlPush 回声理论可能比 PbSendMsg 同步响应还早到（极少），listener 先就位避免漏。
+    // OlPush.contentHead.random === 我们这边的 random，是两端唯一可靠的匹配 key（msgSeq 偶尔差几槽）。
+    const random = randomBytes(4).readUInt32BE(0)
+    const echoP = this.waitForSelfEcho(peer, random, 5000)
+
     const ret = await this.ctx.qqProtocol.sendMessage({
       chatType,
       groupCode,
       toUid: peer.chatType !== ChatType.Group ? peer.peerUid : undefined,
       elems,
+      random,
     })
 
+    const echoed = await echoP.catch(() => undefined)
+
     return {
-      msgId: String(ret.random),
+      msgId: echoed?.msgId ?? String(ret.random),
       msgType: 2,
       subMsgType: 0,
-      msgTime: String(ret.timestamp || Math.floor(Date.now() / 1000)),
-      msgSeq: String(ret.sequence || 0),
+      msgTime: echoed?.msgTime ?? String(ret.timestamp || Math.floor(Date.now() / 1000)),
+      msgSeq: echoed?.msgSeq ?? String(ret.sequence || 0),
       msgRandom: String(ret.random),
       senderUid: selfInfo.uid,
       senderUin: selfInfo.uin,
       peerUid: peer.peerUid,
       peerUin: peer.peerUid,
       guildId: '',
-      sendNickName: '',
-      sendMemberName: '',
+      sendNickName: echoed?.sendNickName ?? '',
+      sendMemberName: echoed?.sendMemberName ?? '',
       sendRemarkName: '',
       chatType,
       sendStatus: 2,

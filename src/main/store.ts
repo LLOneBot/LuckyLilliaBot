@@ -131,18 +131,17 @@ class Store extends Service {
   }
 
   getUniqueMsgId(msg: RawMessage): string {
-    // msgSeq 不能进 hash —— 发送方 PbSendMsgResp.sequence 跟接收方 OlPush.contentHead.msgSeq
-    // 不一定相等（forward / 自身回声等场景特别明显），同一条消息算出来的 shortId 会两头对不上。
-    // peerUid + msgRandom 已经能唯一定位（msgRandom 是 server 在两端都广播一致的 32-bit 值）。
-    // C2C 双向时发送方 senderUid 是自己、对方 senderUid 是对方，所以另用 (selfUid, otherUid)
-    // 排序后的 pair + msgRandom 作为 key。
+    // (peerUid, msgSeq) 已经能唯一定位群消息；msgRandom 锦上添花，防极端竞态。
+    // 之前发送方 PbSendMsgResp.sequence 跟接收方 OlPush.contentHead.msgSeq 偶尔差几槽
+    // 导致两端算出不同 shortId —— ntMsgApi.sendMsg 现在等 OlPush 回声拿到真实 msgSeq 才返回，
+    // 两端从一开始就一致，可以放心把 msgSeq 进 hash。
     if (msg.chatType === ChatType.C2C || msg.chatType === ChatType.TempC2CFromGroup) {
       const me = selfInfo.uid
       const other = msg.senderUid === me ? msg.peerUid : msg.senderUid
       const pair = me < other ? `${me}|${other}` : `${other}|${me}`
-      return `${msg.chatType}-${pair}-${msg.msgRandom}`
+      return `${msg.chatType}-${pair}-${msg.msgSeq}-${msg.msgRandom}`
     }
-    return `${msg.chatType}-${msg.peerUid}-${msg.msgRandom}`
+    return `${msg.chatType}-${msg.peerUid}-${msg.msgSeq}-${msg.msgRandom}`
   }
 
   createMsgShortId(msg: RawMessage): number {

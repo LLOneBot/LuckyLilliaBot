@@ -269,8 +269,10 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       toUin?: number
       toUid?: string
       elems: InferProtoModelInput<typeof Msg.Elem>[]
+      /** 上层可以提前生成 random 自己挂 listener 等 OlPush 回声，匹配 contentHead.random */
+      random?: number
     }) {
-      const random = randomBytes(4).readUInt32BE(0)
+      const random = opts.random ?? randomBytes(4).readUInt32BE(0)
       // BotMessage.ClientSequence: Random.NextInt64(10000, 99999)
       const clientSequence = 10000 + Math.floor(Math.random() * 90000)
       const data = Msg.PbSendMsg.encode({
