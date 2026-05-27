@@ -64,9 +64,10 @@ describe('notice 事件覆盖', () => {
     }, undefined, 15000);
   }, 60000);
 
-  it('group_card — primary 改 secondary 的群名片，secondary 收到 group_card', async () => {
+  it('group_card — primary 改 secondary 的群名片，secondary 在群里发言后收到 group_card', async () => {
     context.twoAccountTest.clearAllQueues();
     const primary = context.twoAccountTest.getClient('primary');
+    const secondary = context.twoAccountTest.getClient('secondary');
     const newCard = `card-test-${Date.now()}`;
 
     const resp = await primary.call(ActionName.SetGroupCard, {
@@ -75,6 +76,13 @@ describe('notice 事件覆盖', () => {
       card: newCard,
     });
     Assertions.assertSuccess(resp, 'set_group_card');
+
+    // QQ NT 直连协议没有"名片变更"专属推送，secondary 端要先在群里说一句话
+    // 让 sendMemberName 流回来，bot 才能对比 cache 触发 group_card 事件。
+    await secondary.call(ActionName.SendGroupMsg, {
+      group_id: context.testGroupId,
+      message: 'group_card-trigger',
+    });
 
     await context.twoAccountTest.secondaryListener.waitForEvent({
       post_type: 'notice',

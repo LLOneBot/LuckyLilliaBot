@@ -29,7 +29,7 @@ export class GetEssenceMsgList extends BaseAction<Payload, EssenceMsg[]> {
       chatType: ChatType.Group,
       peerUid: groupCode
     }
-    const essence = await this.ctx.ntGroupApi.queryCachedEssenceMsg(groupCode)
+    const essence = await this.ctx.ntWebApi.listGroupEssence(groupCode)
     const data: EssenceMsg[] = []
     for (const item of essence.items) {
       const { msgList } = await this.ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, String(item.msgSeq), '0', [])

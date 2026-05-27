@@ -371,7 +371,7 @@ export namespace Oidb {
     }, 'repeated')
   })
 
-  /** OidbSvcTrpcTcp.0x6d8_1 */
+  /** OidbSvcTrpcTcp.0x6d8_1 - 列表 */
   export const GetGroupFileListReq = ProtoMessage.of({
     listReq: ProtoField(2, {
       groupCode: ProtoField(1, 'uint32'),
@@ -382,6 +382,23 @@ export namespace Oidb {
       startIndex: ProtoField(13, 'uint32'),
       field17: ProtoField(17, 'uint32'),
       field18: ProtoField(18, 'uint32')
+    })
+  })
+
+  /** OidbSvcTrpcTcp.0x6d8_1 - 文件数 */
+  export const GetGroupFileCountReq = ProtoMessage.of({
+    countReq: ProtoField(3, {
+      groupCode: ProtoField(1, 'uint32'),
+      appId: ProtoField(2, 'uint32'),
+      busId: ProtoField(3, 'uint32'),
+    })
+  })
+
+  /** OidbSvcTrpcTcp.0x6d8_1 - 空间使用 */
+  export const GetGroupFileSpaceReq = ProtoMessage.of({
+    spaceReq: ProtoField(4, {
+      groupCode: ProtoField(1, 'uint32'),
+      appId: ProtoField(2, 'uint32'),
     })
   })
 
@@ -426,7 +443,16 @@ export namespace Oidb {
       items: ProtoField(5, GetGroupFileListRespItem, 'repeated'),
       allFileCount: ProtoField(7, 'uint32'),
       nextIndex: ProtoField(13, 'uint32')
-    })
+    }),
+    countResp: ProtoField(3, {
+      fileCount: ProtoField(4, 'uint32'),
+      limitCount: ProtoField(6, 'uint32'),
+      isFull: ProtoField(7, 'bool'),
+    }, 'optional'),
+    spaceResp: ProtoField(4, {
+      totalSpace: ProtoField(4, 'uint64'),
+      usedSpace: ProtoField(5, 'uint64'),
+    }, 'optional'),
   })
 
   /** OidbSvcTrpcTcp.0xe07_0 */

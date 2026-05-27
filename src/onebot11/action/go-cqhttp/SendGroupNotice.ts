@@ -37,7 +37,7 @@ export class SendGroupNotice extends BaseAction<Payload, null> {
       if (!success) {
         throw new Error(`获取图片文件失败, 错误信息: ${errMsg}`)
       }
-      const result = await this.ctx.ntGroupApi.uploadGroupBulletinPic(groupCode, path)
+      const result = await this.ctx.ntWebApi.uploadGroupBulletinPic(groupCode, path)
       if (result.errCode !== 0) {
         throw new Error(`上传群公告图片失败, 错误信息: ${result.errMsg}`)
       }

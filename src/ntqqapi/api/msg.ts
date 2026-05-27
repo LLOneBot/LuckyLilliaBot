@@ -45,22 +45,31 @@ export class NTQQMsgApi extends Service {
   }
 
   async getMultiMsg(peer: Peer, rootMsgId: string, _parentMsgId: string): Promise<any> {
-    // 入参 rootMsgId 是 OB11 客户端给的 message_id（msgId/shortId 转出的）。
-    // SsoRecvLongMsg 需要 resid——从 cache 里拉出原消息的 ark JSON 解析 meta.detail.resid。
-    let resId = rootMsgId
-    const store = this.ctx.get('store') as any
-    const cached = store?.getMsgCache?.(rootMsgId) as RawMessage | undefined
-    if (cached) {
-      const arkElem = cached.elements?.find((e: any) => e.elementType === ElementType.Ark)
-      const bytesData = (arkElem as any)?.arkElement?.bytesData
-      if (bytesData) {
-        try {
-          const json = JSON.parse(bytesData)
-          if (json?.app === 'com.tencent.multimsg' && json?.meta?.detail?.resid) {
-            resId = json.meta.detail.resid
-          }
-        } catch { }
+    // SsoRecvLongMsg 只接受 resid。原消息可能以两种形态出现：
+    // - 自己刚发出去的回声 / lightApp 内嵌：ark JSON 里有 meta.detail.resid
+    // - 服务器拉历史时回放的 richMsg(serviceId=35)：messageParsing 已经把它转成
+    //   ElementType.MultiForward 并把 resid 抠到 multiForwardMsgElement.resId
+    const { msgList } = await this.getMsgsByMsgId(peer, [rootMsgId])
+    const msg = msgList[0]
+    let resId = ''
+    const arkElem: any = msg?.elements?.find((e: any) => e.elementType === ElementType.Ark)
+    const bytesData = arkElem?.arkElement?.bytesData
+    if (bytesData) {
+      try {
+        const json = JSON.parse(bytesData)
+        if (json?.app === 'com.tencent.multimsg' && json?.meta?.detail?.resid) {
+          resId = json.meta.detail.resid
+        }
+      } catch { }
+    }
+    if (!resId) {
+      const mfElem: any = msg?.elements?.find((e: any) => e.elementType === ElementType.MultiForward)
+      if (mfElem?.multiForwardMsgElement?.resId) {
+        resId = mfElem.multiForwardMsgElement.resId
       }
+    }
+    if (!resId) {
+      return { result: 2, errMsg: '找不到合并转发消息', msgList: [] }
     }
     const items = await this.ctx.qqProtocol.getMultiMsg(resId)
     const top = items?.find((x: any) => x.fileName === 'MultiMsg') ?? items?.[0]
@@ -80,13 +89,22 @@ export class NTQQMsgApi extends Service {
     return await this.getMsgHistory(peer, '0', cnt, true)
   }
 
-  async getMsgsByMsgId(_peer: Peer, msgIds: string[]) {
-    const store = this.ctx.get('store') as any
+  async getMsgsByMsgId(peer: Peer, msgIds: string[]) {
     const msgList: RawMessage[] = []
-    if (store?.getMsgCache) {
-      for (const id of msgIds) {
-        const msg = store.getMsgCache(id)
-        if (msg) msgList.push(msg)
+    for (const id of msgIds) {
+      const cached = this.ctx.store.getMsgCache(id)
+      if (cached) {
+        msgList.push(cached)
+        continue
+      }
+      // cache miss：直连协议没有 by-msgId 接口，靠 store.message 表存的 seq 远程拉
+      const seq = await this.ctx.store.getMsgSeqByMsgId(id)
+      if (!seq || !peer?.peerUid) continue
+      try {
+        const r = await this.getSingleMsg(peer, seq)
+        if (r.msgList[0]) msgList.push(r.msgList[0])
+      } catch (e) {
+        this.ctx.logger.warn('getMsgsByMsgId fallback fetch failed', e)
       }
     }
     return { msgList }
@@ -96,8 +114,7 @@ export class NTQQMsgApi extends Service {
     // 通过 SsoGetGroupMsg / SsoGetC2CMsg 按 seq 拉
     let endSeq = 0
     if (msgId && msgId !== '0') {
-      const store = this.ctx.get('store') as any
-      const cached = store?.getMsgCache?.(msgId) as RawMessage | undefined
+      const cached = this.ctx.store.getMsgCache(msgId)
       if (cached) endSeq = +cached.msgSeq
     }
     if (!endSeq) {
@@ -137,11 +154,10 @@ export class NTQQMsgApi extends Service {
   }
 
   async recallMsg(peer: Peer, msgIds: string[]): Promise<{ result: number, errMsg: string }> {
-    const store = this.ctx.get('store') as any
     const isGroup = peer.chatType === ChatType.Group
     let lastErr = ''
     for (const id of msgIds) {
-      const msg = store?.getMsgCache?.(id) as RawMessage | undefined
+      const msg = this.ctx.store.getMsgCache(id)
       if (!msg) {
         lastErr = `msg ${id} not in cache`
         continue
@@ -276,15 +292,10 @@ export class NTQQMsgApi extends Service {
   }
 
   async queryMsgsById(chatType: ChatType, msgId: string): Promise<any> {
-    // 直连模式没有 server 端按 msgId 索引的接口；从本地 cache 找
-    // （cache 由 dispatcher 在收到 / 自己发出的消息时填充）
-    const store = this.ctx.get('store') as any
-    const cached = store?.getMsgCache?.(msgId) as RawMessage | undefined
+    // 直连协议没有按 msgId 索引的查询接口，先查 cache，没有就靠 store.message 表里存的 seq 拉
+    const cached = this.ctx.store.getMsgCache(msgId)
     if (cached) {
-      // 校验 chatType 一致性，避免拉到别的会话的消息
-      if (chatType != null && cached.chatType !== chatType) {
-        return { msgList: [] }
-      }
+      if (chatType != null && cached.chatType !== chatType) return { msgList: [] }
       return { msgList: [cached] }
     }
     return { msgList: [] }
@@ -313,21 +324,13 @@ export class NTQQMsgApi extends Service {
     }
   }
 
-  async getSourceOfReplyMsgByClientSeqAndTime(peer: Peer, clientSeq: string, msgTime: string, sourceMsgIdInRecords: string): Promise<any> {
-    // 直连模式：先从本地 cache 查 sourceMsgId（reply elem 里通常带这个）；
-    // 没找到再按 clientSeq + msgTime 在 cache 里筛
-    const store = this.ctx.get('store') as any
+  async getSourceOfReplyMsgByClientSeqAndTime(peer: Peer, clientSeq: string, _msgTime: string, sourceMsgIdInRecords: string): Promise<any> {
+    // 直连模式：先按 sourceMsgId 直接查 cache；没有的话按 (peerUid, msgSeq) 兜底
     if (sourceMsgIdInRecords) {
-      const cached = store?.getMsgCache?.(sourceMsgIdInRecords) as RawMessage | undefined
+      const cached = this.ctx.store.getMsgCache(sourceMsgIdInRecords)
       if (cached) return { msgList: [cached] }
     }
-    const all: RawMessage[] = store?.getAllMsgCache?.() ?? []
-    const target = all.find((m) =>
-      m.peerUid === peer.peerUid &&
-      m.chatType === peer.chatType &&
-      String((m as any).clientSeq ?? m.msgSeq) === String(clientSeq) &&
-      String(m.msgTime) === String(msgTime)
-    )
+    const target = this.ctx.store.findCachedMsgByPeerSeq(peer.peerUid, clientSeq)
     return { msgList: target ? [target] : [] }
   }
 

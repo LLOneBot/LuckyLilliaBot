@@ -173,7 +173,7 @@ const GetGroupAnnouncements = defineApi(
   GetGroupAnnouncementsInput,
   GetGroupAnnouncementsOutput,
   async (ctx, payload) => {
-    const data = await ctx.ntGroupApi.getGroupBulletinList(payload.group_id.toString())
+    const data = await ctx.ntWebApi.listGroupBulletin(payload.group_id.toString())
     return Ok({
       announcements: data.feeds.map(e => {
         return {
@@ -200,14 +200,14 @@ const SendGroupAnnouncement = defineApi(
       const imageBuffer = await resolveMilkyUri(payload.image_uri)
       const tempPath = path.join(TEMP_DIR, `group-announcement-${randomUUID()}`)
       await writeFile(tempPath, imageBuffer)
-      const result = await ctx.ntGroupApi.uploadGroupBulletinPic(groupCode, tempPath)
+      const result = await ctx.ntWebApi.uploadGroupBulletinPic(groupCode, tempPath)
       unlink(tempPath).catch(noop)
       if (result.errCode !== 0) {
         return Failed(-500, result.errMsg)
       }
       picInfo = result.picInfo
     }
-    const result = await ctx.ntGroupApi.publishGroupBulletin(
+    const result = await ctx.ntWebApi.publishGroupBulletinFromReq(
       groupCode,
       {
         text: encodeURIComponent(payload.content),
@@ -229,9 +229,9 @@ const DeleteGroupAnnouncement = defineApi(
   DeleteGroupAnnouncementInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.deleteGroupBulletin(payload.group_id.toString(), payload.announcement_id)
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    const result = await ctx.ntWebApi.deleteGroupBulletin(payload.group_id.toString(), payload.announcement_id)
+    if (result.ec !== 0) {
+      return Failed(-500, result.em || 'delete bulletin failed')
     }
     return Ok({})
   }
@@ -248,7 +248,7 @@ const GetGroupEssenceMessages = defineApi(
       chatType: 2,
       peerUid: groupCode
     }
-    const essence = await ctx.ntGroupApi.queryCachedEssenceMsg(groupCode)
+    const essence = await ctx.ntWebApi.listGroupEssence(groupCode)
     let isEnd = true
     let items = essence.items
     let start = ((payload.page_index + 1) * payload.page_size) - 1

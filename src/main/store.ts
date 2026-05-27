@@ -20,6 +20,7 @@ declare module '@cordisjs/plugin-database' {
       uniqueMsgId: string
       chatType: number
       peerUid: string
+      msgSeq: string
     }
     file: FileCache
     forward: {
@@ -46,6 +47,7 @@ declare module '@cordisjs/plugin-database' {
 
 export interface MsgInfo {
   msgId: string
+  msgSeq?: string
   peer: Peer
 }
 
@@ -80,7 +82,8 @@ class Store extends Service {
       chatType: 'unsigned',
       msgId: 'string(24)',
       uniqueMsgId: 'string(64)',
-      peerUid: 'string(24)'
+      peerUid: 'string(24)',
+      msgSeq: 'string(20)'
     }, {
       primary: 'shortId'
     })
@@ -128,21 +131,18 @@ class Store extends Service {
   }
 
   getUniqueMsgId(msg: RawMessage): string {
-    // 注意：msgTime 不能进 hash —— PbSendMsg 同步响应里的 sendTime 偶尔会比真正广播的
-    // contentHead.msgTime 晚 1 秒，发送方和接收方算出不同的 shortId，下游 reply / get_msg 就匹配不上。
-    // (chatType, peerUid, msgSeq, msgRandom) 已经能唯一标识一条消息。
-    //
-    // C2C 双向：发送方拿的 msgSeq 是 server-resp.sequence，接收方拿的是
-    // contentHead.msgSeq（server 广播版本，跟前者不一定相等）。msgRandom 是 32-bit
-    // server 在两端都广播一致的字段，单独配合 (selfUid, otherUid) 排序后的 pair
-    // 当 hash key，两端就一致了。
+    // msgSeq 不能进 hash —— 发送方 PbSendMsgResp.sequence 跟接收方 OlPush.contentHead.msgSeq
+    // 不一定相等（forward / 自身回声等场景特别明显），同一条消息算出来的 shortId 会两头对不上。
+    // peerUid + msgRandom 已经能唯一定位（msgRandom 是 server 在两端都广播一致的 32-bit 值）。
+    // C2C 双向时发送方 senderUid 是自己、对方 senderUid 是对方，所以另用 (selfUid, otherUid)
+    // 排序后的 pair + msgRandom 作为 key。
     if (msg.chatType === ChatType.C2C || msg.chatType === ChatType.TempC2CFromGroup) {
       const me = selfInfo.uid
       const other = msg.senderUid === me ? msg.peerUid : msg.senderUid
       const pair = me < other ? `${me}|${other}` : `${other}|${me}`
       return `${msg.chatType}-${pair}-${msg.msgRandom}`
     }
-    return `${msg.chatType}-${msg.peerUid}-${msg.msgSeq}-${msg.msgRandom}`
+    return `${msg.chatType}-${msg.peerUid}-${msg.msgRandom}`
   }
 
   createMsgShortId(msg: RawMessage): number {
@@ -169,7 +169,8 @@ class Store extends Service {
       uniqueMsgId,
       shortId,
       chatType: peer.chatType,
-      peerUid: peer.peerUid
+      peerUid: peer.peerUid,
+      msgSeq: msg.msgSeq
     }], ['shortId']).catch(e => this.ctx.logger.warn(e))
     return shortId
   }
@@ -178,8 +179,10 @@ class Store extends Service {
     const data = this.cache.getKey(shortId)
     if (data) {
       const [msgId, chatTypeStr, peerUid] = data.split('|')
+      const item = (await this.ctx.database.get('message', { shortId }))[0]
       return {
         msgId,
+        msgSeq: item?.msgSeq,
         peer: {
           chatType: +chatTypeStr,
           peerUid,
@@ -189,9 +192,10 @@ class Store extends Service {
     }
     const items = await this.ctx.database.get('message', { shortId })
     if (items?.length) {
-      const { msgId, chatType, peerUid } = items[0]
+      const { msgId, chatType, peerUid, msgSeq } = items[0]
       return {
         msgId,
+        msgSeq,
         peer: {
           chatType,
           peerUid,
@@ -203,6 +207,11 @@ class Store extends Service {
 
   async getShortIdByMsgId(msgId: string): Promise<number | undefined> {
     return (await this.ctx.database.get('message', { msgId }))[0]?.shortId
+  }
+
+  async getMsgSeqByMsgId(msgId: string): Promise<string | undefined> {
+    const seq = (await this.ctx.database.get('message', { msgId }))[0]?.msgSeq
+    return seq && +seq > 0 ? seq : undefined
   }
 
   async getShortIdByUniqueMsgId(uniqueMsgId: string): Promise<number | undefined> {

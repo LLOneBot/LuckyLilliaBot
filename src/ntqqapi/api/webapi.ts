@@ -6,6 +6,7 @@ import fs from 'node:fs/promises'
 import { formatYYYYMMDD, getMd5HexFromBuffer, getSha1HexFromBuffer } from '@/common/utils'
 import { fileTypeFromBuffer } from 'file-type'
 import { createThumb } from '@/common/utils/video'
+import { GroupBulletinListResult, PublishGroupBulletinReq } from '../types'
 
 declare module 'cordis' {
   interface Context {
@@ -757,5 +758,83 @@ export class NTQQWebApi extends Service {
       },
       funcCode: number
     }
+  }
+
+  /** OB11 send_group_notice 包装：拼参数调 publishGroupBulletin */
+  async publishGroupBulletinFromReq(groupCode: string, req: PublishGroupBulletinReq): Promise<any> {
+    return await this.publishGroupBulletin(
+      groupCode,
+      req.text,
+      req.pinned,
+      0,
+      0,
+      0,
+      req.confirmRequired,
+      req.picInfo?.id,
+      req.picInfo?.width,
+      req.picInfo?.height,
+    )
+  }
+
+  /** 拉精华消息列表（按 OB11 字段名整理） */
+  async listGroupEssence(groupCode: string): Promise<any> {
+    const r = await this.queryCachedEssenceMsg(groupCode)
+    const items = (r?.data?.msg_list ?? []).map((m: any) => ({
+      msgSeq: m.msg_seq,
+      msgRandom: m.msg_random,
+      msgSenderUin: m.sender_uin,
+      msgSenderNick: m.sender_nick,
+      opUin: m.add_digest_uin,
+      opNick: m.add_digest_nick,
+      opTime: m.add_digest_time,
+      canBeRemoved: m.can_be_removed,
+    }))
+    return { items }
+  }
+
+  /** 拉群公告列表（按 OB11 字段名整理） */
+  async listGroupBulletin(groupCode: string): Promise<GroupBulletinListResult> {
+    const r = await this.getGroupBulletinList(groupCode) as any
+    const mapFeed = (f: any): any => ({
+      uin: String(f.u),
+      feedId: f.fid,
+      publishTime: String(f.pubt),
+      msg: {
+        text: f.msg?.text ?? '',
+        textFace: f.msg?.text_face ?? '',
+        pics: (f.msg?.pics ?? []).map((p: any) => ({ id: p.id, width: +p.w, height: +p.h })),
+        title: f.msg?.title ?? '',
+      },
+      type: f.type ?? 0,
+      fn: f.fn ?? 0,
+      cn: f.cn ?? 0,
+      vn: f.vn ?? 0,
+      settings: {
+        isShowEditCard: f.settings?.is_show_edit_card ?? 0,
+        remindTs: f.settings?.remind_ts ?? 0,
+        tipWindowType: f.settings?.tip_window_type ?? 0,
+        confirmRequired: f.settings?.confirm_required ?? 0,
+      },
+      pinned: f.pinned ?? 0,
+      readNum: f.read_num ?? 0,
+      is_read: f.is_read ?? 0,
+      is_all_confirm: f.is_all_confirm ?? 0,
+    })
+    return {
+      groupCode,
+      srvCode: r.srv_code ?? 0,
+      readOnly: r.read_only ?? 0,
+      role: r.role ?? 0,
+      inst: (r.inst ?? []).map(mapFeed),
+      feeds: (r.feeds ?? []).map(mapFeed),
+      groupInfo: { groupCode, classId: r.group?.class_ext ?? 0 },
+      gln: r.gln ?? 0,
+      tst: r.tst ?? 0,
+      publisherInfos: [],
+      server_time: String(r.server_time ?? 0),
+      svrt: String(r.svrt ?? 0),
+      nextIndex: r.next_index ?? 0,
+      jointime: String(r.jointime ?? 0),
+    } as GroupBulletinListResult
   }
 }

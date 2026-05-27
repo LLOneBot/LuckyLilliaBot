@@ -22,6 +22,7 @@ class OB11Http {
   private server?: ServerType
   private sseClients: Set<SSEStreamingApi> = new Set()
   private activated: boolean = false
+  private disposeHeartbeat?: () => void
 
   constructor(protected ctx: Context, public config: OB11Http.Config) {
   }
@@ -52,6 +53,13 @@ class OB11Http {
 
     this.app.use('/:endpoint', this.handleRequest.bind(this))
 
+    // 给 SSE 客户端推心跳：OneBot 11 spec 没强制要求 HTTP 模式有 heartbeat，但是部分上层框架
+    // （特别是基于 ws-listen 实现的）会等心跳判活，所以这里固定 5s 推一发，简单透明。
+    const HEARTBEAT_INTERVAL = 5000
+    this.disposeHeartbeat = this.ctx.interval(() => {
+      this.emitEvent(new OB11HeartbeatEvent(selfInfo.online!, true, HEARTBEAT_INTERVAL))
+    }, HEARTBEAT_INTERVAL)
+
     const displayHost = this.config.host || '0.0.0.0'
     this.server = serve({
       fetch: this.app.fetch,
@@ -67,6 +75,8 @@ class OB11Http {
 
   public stop() {
     return new Promise<boolean>((resolve) => {
+      this.disposeHeartbeat?.()
+      this.disposeHeartbeat = undefined
       if (this.server) {
         this.ctx.logger.info('OneBot V11 HTTP Server closing...')
         const server = this.server as Server

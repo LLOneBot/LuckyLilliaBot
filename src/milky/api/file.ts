@@ -160,15 +160,12 @@ const RenameGroupFile = defineApi(
   RenameGroupFileInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.renameGroupFile(
+    await ctx.ntGroupApi.renameGroupFile(
       payload.group_id.toString(),
       payload.file_id,
       payload.parent_folder_id,
       payload.new_file_name
     )
-    if (result.renameGroupFileResult.result.retCode !== 0) {
-      return Failed(-500, result.renameGroupFileResult.result.clientWording)
-    }
     return Ok({})
   }
 )

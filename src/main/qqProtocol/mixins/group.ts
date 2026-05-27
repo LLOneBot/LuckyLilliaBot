@@ -130,6 +130,28 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return Oidb.GetGroupFileListResp.decode(oidbRespBody)
     }
 
+    /** 群文件总数（OidbSvcTrpcTcp.0x6d8_2） */
+    async getGroupFileCount(groupCode: number, busId: number = 6) {
+      const body = Oidb.GetGroupFileCountReq.encode({
+        countReq: { groupCode, appId: 7, busId },
+      })
+      const data = Oidb.Base.encode({ command: 0x6d8, subCommand: 2, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d8_2', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.GetGroupFileListResp.decode(oidbRespBody).countResp
+    }
+
+    /** 群文件总空间 / 已用空间（OidbSvcTrpcTcp.0x6d8_3） */
+    async getGroupFileSpace(groupCode: number) {
+      const body = Oidb.GetGroupFileSpaceReq.encode({
+        spaceReq: { groupCode, appId: 7 },
+      })
+      const data = Oidb.Base.encode({ command: 0x6d8, subCommand: 3, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d8_3', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.GetGroupFileListResp.decode(oidbRespBody).spaceResp
+    }
+
     /** 群文件 feed（0x6d9_4）—— upload 完成后调用，server 才会把文件作为聊天消息发到群里 */
     async feedGroupFile(groupCode: number, fileId: string, msgRandom: number, busId: number = 102) {
       const body = Oidb.GroupFileFeedReq.encode({
