@@ -19,12 +19,12 @@ export class CreateGroupFileFolder extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload) {
-    const res = await this.ctx.ntGroupApi.createGroupFileFolder(payload.group_id.toString(), payload.name)
-    if (res.resultWithGroupItem.result.retCode !== 0) {
-      throw new Error(res.resultWithGroupItem.result.clientWording)
+    const res = await this.ctx.ntGroupApi.createGroupFileFolder(+payload.group_id, payload.name)
+    if (res.retCode !== 0) {
+      throw new Error(res.clientWording)
     }
     return {
-      folder_id: res.resultWithGroupItem.groupItem.folderInfo.folderId
+      folder_id: res.folderId
     }
   }
 }

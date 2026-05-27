@@ -17,11 +17,11 @@ export class DeleteEssenceMsg extends BaseAction<Payload, null> {
       throw new Error('msg not found')
     }
     const res = await this.ctx.ntGroupApi.removeGroupEssence(
-      msg.peer.peerUid,
-      msg.msgId,
+      +msg.peer.peerUid,
+      +msg.msgSeq!,
     )
-    if (res.errCode !== 0) {
-      throw new Error(res.errMsg)
+    if (res.errorCode !== 0) {
+      throw new Error(res.errorMsg)
     }
     return null
   }

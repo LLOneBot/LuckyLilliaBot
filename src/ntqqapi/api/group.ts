@@ -5,6 +5,7 @@ import {
   GroupFileInfo,
   GroupMsgMask,
   Group,
+  ChatType,
 } from '../types'
 import { Service, Context } from 'cordis'
 import { createReadStream, promises as fsp } from 'node:fs'
@@ -197,125 +198,40 @@ export class NTQQGroupApi extends Service {
     return await this.ctx.qqProtocol.fetchGroupAtAllRemain(+selfInfo.uin, groupCode)
   }
 
-  async removeGroupEssence(groupCode: string, msgId: string): Promise<{ errCode: number, errMsg: string }> {
+  async removeGroupEssence(groupCode: number, msgSeq: number) {
     const ntMsgApi = this.ctx.get('ntMsgApi')!
-    const data = await ntMsgApi.getMsgHistory({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
-    const msgRandom = Number(data?.msgList[0].msgRandom)
-    const msgSeq = Number(data?.msgList[0].msgSeq)
-    const resp = await this.ctx.qqProtocol.setGroupEssence(+groupCode, msgSeq, msgRandom, false)
-    return { errCode: resp.errorCode, errMsg: resp.errorMsg }
+    const { msgList } = await ntMsgApi.getSingleMsg({
+      chatType: ChatType.Group,
+      peerUid: groupCode.toString(),
+      guildId: ''
+    }, msgSeq.toString()) // TODO: 如果咱有 msgRandom 呢？
+    return await this.ctx.qqProtocol.setGroupEssence(groupCode, msgSeq, +msgList[0].msgRandom, false)
   }
 
-  async addGroupEssence(groupCode: string, msgId: string): Promise<{ errCode: number, errMsg: string }> {
+  async addGroupEssence(groupCode: number, msgSeq: number) {
     const ntMsgApi = this.ctx.get('ntMsgApi')!
-    const data = await ntMsgApi.getMsgHistory({ chatType: 2, guildId: '', peerUid: groupCode }, msgId, 1, false)
-    const msgRandom = Number(data?.msgList[0].msgRandom)
-    const msgSeq = Number(data?.msgList[0].msgSeq)
-    const resp = await this.ctx.qqProtocol.setGroupEssence(+groupCode, msgSeq, msgRandom, true)
-    return { errCode: resp.errorCode, errMsg: resp.errorMsg }
+    const { msgList } = await ntMsgApi.getSingleMsg({
+      chatType: ChatType.Group,
+      peerUid: groupCode.toString(),
+      guildId: ''
+    }, msgSeq.toString()) // TODO: 如果咱有 msgRandom 呢？
+    return await this.ctx.qqProtocol.setGroupEssence(groupCode, msgSeq, +msgList[0].msgRandom, true)
   }
 
-  async createGroupFileFolder(groupId: string, folderName: string): Promise<any> {
-    const r = await this.ctx.qqProtocol.createGroupFolder(+groupId, folderName, '/')
-    return {
-      result: 0,
-      errMsg: '',
-      resultWithGroupItem: {
-        result: { retCode: r.result, retMsg: r.retMsg, clientWording: r.clientWording },
-        groupItem: { folderInfo: { folderId: r.folderId, folderName: r.folderName } },
-      },
-    }
+  async createGroupFileFolder(groupCode: number, folderName: string) {
+    return await this.ctx.qqProtocol.createGroupFolder(groupCode, folderName, '/')
   }
 
-  async deleteGroupFileFolder(groupId: string, folderId: string): Promise<any> {
-    await this.ctx.qqProtocol.deleteGroupFolder(+groupId, folderId)
-    return {
-      result: 0,
-      errMsg: '',
-      groupFileCommonResult: { retCode: 0, retMsg: '', clientWording: '' },
-    }
+  async deleteGroupFileFolder(groupCode: number, folderId: string) {
+    return await this.ctx.qqProtocol.deleteGroupFolder(groupCode, folderId)
   }
 
-  async deleteGroupFile(groupId: string, fileIdList: string[], busIdList: number[]): Promise<any> {
-    // 协议是单个 fileId 一次调用，多个用 Promise.all 并行删
-    const tasks = fileIdList.map((fileId, i) =>
-      this.ctx.qqProtocol.deleteGroupFile(+groupId, fileId, busIdList?.[i] ?? 102)
-    )
-    await Promise.all(tasks)
-    return {
-      result: 0,
-      errMsg: '',
-      transGroupFileResult: { result: { retCode: 0, retMsg: '', clientWording: '' } },
-    }
+  async deleteGroupFile(groupCode: number, fileId: string, busId = 102) {
+    return await this.ctx.qqProtocol.deleteGroupFile(groupCode, fileId, busId)
   }
 
-  async getGroupFileList(groupId: string, fileListForm: GetFileListParam): Promise<GroupFileInfo> {
-    const folderId = (fileListForm as any)?.folderId ?? '/'
-    const startIndex = (fileListForm as any)?.startIndex ?? 0
-    const fileCount = (fileListForm as any)?.fileCount ?? 20
-    const resp = await this.ctx.qqProtocol.getGroupFileList(+groupId, folderId, startIndex, fileCount)
-    const list = resp.listResp
-    const items: GroupFileInfo['item'] = []
-    for (const it of list?.items ?? []) {
-      if (it.folderInfo) {
-        items.push({
-          peerId: groupId,
-          type: 1,
-          folderInfo: {
-            folderId: it.folderInfo.folderId,
-            parentFolderId: it.folderInfo.parentDirectoryId,
-            folderName: it.folderInfo.folderName,
-            createTime: it.folderInfo.createTime,
-            modifyTime: it.folderInfo.modifiedTime,
-            createUin: String(it.folderInfo.creatorUin),
-            creatorName: it.folderInfo.creatorName,
-            totalFileCount: it.folderInfo.totalFileCount,
-            modifyUin: '',
-            modifyName: '',
-            usedSpace: '0',
-          },
-        } as any)
-      } else if (it.fileInfo) {
-        items.push({
-          peerId: groupId,
-          type: 2,
-          fileInfo: {
-            fileModelId: '',
-            fileId: it.fileInfo.fileId,
-            fileName: it.fileInfo.fileName,
-            fileSize: String(it.fileInfo.fileSize),
-            busId: it.fileInfo.busId,
-            uploadedSize: String(it.fileInfo.uploadedSize),
-            uploadTime: it.fileInfo.uploadedTime,
-            deadTime: it.fileInfo.expireTime,
-            modifyTime: it.fileInfo.modifiedTime,
-            downloadTimes: it.fileInfo.downloadedTimes,
-            sha: Buffer.from(it.fileInfo.fileSha1).toString('hex'),
-            sha3: '',
-            md5: Buffer.from(it.fileInfo.fileMd5).toString('hex'),
-            uploaderLocalPath: '',
-            uploaderName: it.fileInfo.uploaderName,
-            uploaderUin: String(it.fileInfo.uploaderUin),
-            parentFolderId: it.fileInfo.parentDirectory,
-            localPath: '',
-            transStatus: 0,
-            transType: 0,
-            elementId: '',
-            isFolder: false,
-          },
-        } as any)
-      }
-    }
-    return {
-      retCode: list?.retCode ?? 0,
-      retMsg: list?.retMsg ?? '',
-      clientWording: list?.clientWording ?? '',
-      isEnd: !!list?.isEnd,
-      item: items,
-      allFileCount: list?.allFileCount ?? items.length,
-      nextIndex: list?.nextIndex ?? 0,
-      reqId: 0,
-    }
+  async getGroupFileList(groupCode: number, folderId: string, fileCount: number, startIndex: number) {
+    return await this.ctx.qqProtocol.getGroupFileList(groupCode, folderId, startIndex, fileCount)
   }
 
   async getGroupRecommendContactArk(groupCode: number) {
@@ -362,37 +278,27 @@ export class NTQQGroupApi extends Service {
     }
   }
 
-  async getGroupFileCount(groupId: string): Promise<{ fileCount: number, limitCount: number }> {
-    const r = await this.ctx.qqProtocol.getGroupFileCount(+groupId)
-    return {
-      fileCount: r?.fileCount ?? 0,
-      limitCount: r?.limitCount ?? 10000,
-    }
+  async getGroupFileCount(groupCode: number) {
+    const { countResp } = await this.ctx.qqProtocol.getGroupFileCount(groupCode)
+    return countResp!
   }
 
-  async getGroupFileSpace(groupId: string): Promise<{ totalSpace: number, usedSpace: number }> {
-    const r = await this.ctx.qqProtocol.getGroupFileSpace(+groupId)
-    return {
-      totalSpace: Number(r?.totalSpace ?? 0n),
-      usedSpace: Number(r?.usedSpace ?? 0n),
-    }
+  async getGroupFileSpace(groupCode: number) {
+    const { spaceResp } = await this.ctx.qqProtocol.getGroupFileSpace(groupCode)
+    return spaceResp!
   }
 
   async setGroupMsgMask(groupCode: number, msgMask: GroupMsgMask) {
     const { body } = await this.ctx.qqProtocol.setGroupMsgMask(groupCode, selfInfo.uid, msgMask)
-    return { errCode: body.errCode }
+    return body
   }
 
   async setGroupRemark(groupCode: string, groupRemark = ''): Promise<any> {
-    await this.ctx.qqProtocol.setGroupRemark(+groupCode, groupRemark)
-    return { result: 0, errMsg: '' }
+    return await this.ctx.qqProtocol.setGroupRemark(+groupCode, groupRemark)
   }
 
-  async moveGroupFile(groupId: string, fileIdList: string[], curFolderId: string, dstFolderId: string): Promise<any> {
-    await Promise.all(fileIdList.map((fileId) =>
-      this.ctx.qqProtocol.moveGroupFile(+groupId, fileId, curFolderId, dstFolderId)
-    ))
-    return { result: 0, errMsg: '' }
+  async moveGroupFile(groupCode: number, fileId: string, curFolderId: string, dstFolderId: string) {
+    return await this.ctx.qqProtocol.moveGroupFile(groupCode, fileId, curFolderId, dstFolderId)
   }
 
   async renameGroupFolder(groupId: string, folderId: string, newFolderName: string): Promise<any> {

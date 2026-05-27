@@ -55,8 +55,8 @@ export async function transformOutgoingSegments(
             let isAdmin: boolean = true
             if (groupCode) {
               try {
-                remainAtAllCount = (await ctx.ntGroupApi.getGroupRemainAtTimes(groupCode)).atInfo
-                  .RemainAtAllCountForUin
+                remainAtAllCount = (await ctx.ntGroupApi.getGroupRemainAtTimes(+groupCode))
+                  .remainAtAllCountForUin
                 ctx.logger.info(`群${groupCode}剩余at全体次数`, remainAtAllCount)
                 const self = await ctx.ntGroupApi.getGroupMemberByUid(+groupCode, selfInfo.uid, false)
                 isAdmin = self?.role === GroupMemberRole.Admin || self?.role === GroupMemberRole.Owner

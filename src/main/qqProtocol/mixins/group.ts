@@ -138,7 +138,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const data = Oidb.Base.encode({ command: 0x6d8, subCommand: 2, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x6d8_2', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-      return Oidb.GetGroupFileListResp.decode(oidbRespBody).countResp
+      return Oidb.GetGroupFileListResp.decode(oidbRespBody)
     }
 
     /** 群文件总空间 / 已用空间（OidbSvcTrpcTcp.0x6d8_3） */
@@ -149,7 +149,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const data = Oidb.Base.encode({ command: 0x6d8, subCommand: 3, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x6d8_3', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-      return Oidb.GetGroupFileListResp.decode(oidbRespBody).spaceResp
+      return Oidb.GetGroupFileListResp.decode(oidbRespBody)
     }
 
     /** 群文件 feed（0x6d9_4）—— upload 完成后调用，server 才会把文件作为聊天消息发到群里 */
@@ -175,13 +175,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
     /** 删除群文件，busId 一般为 102（v1 默认），fileId 是 list 接口返回的 fileId */
     async deleteGroupFile(groupCode: number, fileId: string, busId: number = 102) {
       const body = Oidb.GroupFileDeleteReq.encode({ delete: { groupCode, busId, fileId } })
-      const data = Oidb.Base.encode({ command: 0x6d6, subCommand: 3, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_3', data)
-      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`deleteGroupFile failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      return { result: 0 }
+      return await this.sendOidb(0x6d6, 3, body)
     }
 
     /** 移动群文件到另一目录 */
@@ -189,25 +183,13 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const body = Oidb.GroupFileMoveReq.encode({
         move: { groupCode, appId: 7, busId: 102, fileId, parentDirectory, targetDirectory },
       })
-      const data = Oidb.Base.encode({ command: 0x6d6, subCommand: 5, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_5', data)
-      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`moveGroupFile failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      return { result: 0 }
+      return await this.sendOidb(0x6d6, 5, body)
     }
 
     /** 设置本地群备注（只自己看见，对群成员不可见） */
     async setGroupRemark(groupCode: number, remark: string) {
       const body = Oidb.GroupRemarkReq.encode({ body: { groupCode, targetRemark: remark } })
-      const data = Oidb.Base.encode({ command: 0xf16, subCommand: 1, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0xf16_1', data)
-      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`setGroupRemark failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      return { result: 0 }
+      return await this.sendOidb(0xf16, 1, body)
     }
 
     /** 创建群文件夹，rootDirectory 为父目录 id（根目录用 "/"） */
@@ -216,32 +198,22 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 0, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x6d7_0', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`createGroupFolder failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
       const inner = Oidb.GroupFolderCreateResp.decode(decoded.body)
       const create = inner.create
-      const folderId = create?.folderInfo?.folderId || ''
       return {
-        result: create?.retCode ?? 0,
-        retMsg: create?.retMsg || '',
-        clientWording: create?.clientWording || '',
-        folderId,
+        retCode: create?.retCode ?? 0,
+        retMsg: create?.retMsg ?? '',
+        clientWording: create?.clientWording ?? '',
+        folderId: create?.folderInfo?.folderId ?? '',
         folderName: create?.folderInfo?.folderName || folderName,
-        folderPath: create?.folderInfo?.folderPath || '',
+        folderPath: create?.folderInfo?.folderPath ?? '',
       }
     }
 
     /** 删除群文件夹（一定要空文件夹否则 server 拒绝） */
     async deleteGroupFolder(groupCode: number, folderId: string) {
       const body = Oidb.GroupFolderDeleteReq.encode({ delete: { groupCode, folderId } })
-      const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 1, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d7_1', data)
-      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`deleteGroupFolder failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      return { result: 0 }
+      return await this.sendOidb(0x6d7, 1, body)
     }
 
     /** 重命名群文件夹 */

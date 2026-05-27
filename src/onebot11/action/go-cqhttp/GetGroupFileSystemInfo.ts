@@ -19,7 +19,7 @@ export class GetGroupFileSystemInfo extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload) {
-    const groupId = payload.group_id.toString()
+    const groupId = +payload.group_id
     const [count, space] = await Promise.all([
       this.ctx.ntGroupApi.getGroupFileCount(groupId),
       this.ctx.ntGroupApi.getGroupFileSpace(groupId),
@@ -27,8 +27,8 @@ export class GetGroupFileSystemInfo extends BaseAction<Payload, Response> {
     return {
       file_count: count.fileCount,
       limit_count: count.limitCount,
-      used_space: space.usedSpace,
-      total_space: space.totalSpace,
+      used_space: Number(space.usedSpace),
+      total_space: Number(space.totalSpace),
     }
   }
 }

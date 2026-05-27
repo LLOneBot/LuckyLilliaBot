@@ -28,8 +28,7 @@ export class GetGroupFileUrl extends BaseAction<Payload, Response> {
     if (file.length > 0) {
       return { url: url + encodeURIComponent(file[0].fileName) }
     } else {
-      const groupId = payload.group_id.toString()
-      const fileName = await this.search(groupId, payload.file_id)
+      const fileName = await this.search(+payload.group_id, payload.file_id)
       if (fileName) {
         return { url: url + encodeURIComponent(fileName) }
       } else {
@@ -38,26 +37,24 @@ export class GetGroupFileUrl extends BaseAction<Payload, Response> {
     }
   }
 
-  private async search(groupId: string, fileId: string, folderId?: string) {
+  private async search(groupId: number, fileId: string, folderId?: string) {
     let fileName: string | undefined
     let nextIndex: number | undefined
-    const folders: GroupFileInfo['item'] = []
+    const folders = []
     while (nextIndex !== 0) {
-      const res = await this.ctx.ntGroupApi.getGroupFileList(groupId, {
-        sortType: 1,
-        fileCount: 100,
-        startIndex: nextIndex ?? 0,
-        sortOrder: 2,
-        showOnlinedocFolder: 0,
-        folderId
-      })
-      const file = res.item.find(item => item.fileInfo?.fileId === fileId)
+      const res = await this.ctx.ntGroupApi.getGroupFileList(
+        groupId,
+        folderId ?? '/',
+        100,
+        nextIndex ?? 0
+      )
+      const file = res.listResp.items.find(item => item.fileInfo?.fileId === fileId)
       if (file) {
         fileName = file.fileInfo?.fileName
         break
       }
-      folders.push(...res.item.filter(item => item.folderInfo?.totalFileCount))
-      nextIndex = res.nextIndex
+      folders.push(...res.listResp.items.filter(item => item.folderInfo?.totalFileCount))
+      nextIndex = res.listResp.nextIndex
     }
     if (!fileName) {
       for (const item of folders) {

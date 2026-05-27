@@ -117,7 +117,7 @@ const GetGroupFiles = defineApi(
 
     let nextIndex: number | undefined
     while (nextIndex !== 0) {
-      const data = await ctx.qqProtocol.getGroupFileList(payload.group_id, payload.parent_folder_id, nextIndex ?? 0, 100)
+      const data = await ctx.ntGroupApi.getGroupFileList(payload.group_id, payload.parent_folder_id, nextIndex ?? 0, 100)
       if (data.listResp.retCode !== 0) {
         if (data.listResp.retCode === -3) {
           throw new Error('你没有加入该群聊')
@@ -143,13 +143,13 @@ const MoveGroupFile = defineApi(
   z.object({}),
   async (ctx, payload) => {
     const result = await ctx.ntGroupApi.moveGroupFile(
-      payload.group_id.toString(),
-      [payload.file_id],
+      payload.group_id,
+      payload.file_id,
       payload.parent_folder_id,
       payload.target_folder_id
     )
-    if (result.moveGroupFileResult.result.retCode !== 0) {
-      return Failed(-500, result.moveGroupFileResult.result.clientWording)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -176,12 +176,11 @@ const DeleteGroupFile = defineApi(
   z.object({}),
   async (ctx, payload) => {
     const result = await ctx.ntGroupApi.deleteGroupFile(
-      payload.group_id.toString(),
-      [payload.file_id],
-      [102] // busId for group files
+      payload.group_id,
+      payload.file_id
     )
-    if (result.transGroupFileResult.result.retCode !== 0) {
-      return Failed(-500, result.transGroupFileResult.result.clientWording)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -193,13 +192,13 @@ const CreateGroupFolder = defineApi(
   CreateGroupFolderOutput,
   async (ctx, payload) => {
     const result = await ctx.ntGroupApi.createGroupFileFolder(
-      payload.group_id.toString(),
+      payload.group_id,
       payload.folder_name
     )
-    if (result.resultWithGroupItem.result.retCode !== 0) {
-      return Failed(-500, result.resultWithGroupItem.result.clientWording)
+    if (result.retCode !== 0) {
+      return Failed(-500, result.clientWording)
     }
-    return Ok({ folder_id: result.resultWithGroupItem.groupItem.folderInfo.folderId })
+    return Ok({ folder_id: result.folderId })
   }
 )
 
@@ -226,11 +225,11 @@ const DeleteGroupFolder = defineApi(
   z.object({}),
   async (ctx, payload) => {
     const result = await ctx.ntGroupApi.deleteGroupFileFolder(
-      payload.group_id.toString(),
+      payload.group_id,
       payload.folder_id
     )
-    if (result.groupFileCommonResult.retCode !== 0) {
-      return Failed(-500, result.groupFileCommonResult.clientWording)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }

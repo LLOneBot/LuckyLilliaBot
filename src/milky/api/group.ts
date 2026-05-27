@@ -295,31 +295,15 @@ const SetGroupEssenceMessage = defineApi(
   SetGroupEssenceMessageInput,
   z.object({}),
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
-    const peer = {
-      guildId: '',
-      chatType: 2,
-      peerUid: groupCode
-    }
-    const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
-      peer,
-      payload.message_seq.toString(),
-      1,
-      true,
-      true
-    )
-    if (msg.msgList.length === 0) {
-      return Failed(-404, 'Message not found')
-    }
     if (payload.is_set) {
-      const result = await ctx.ntGroupApi.addGroupEssence(groupCode, msg.msgList[0].msgId)
-      if (result.errCode !== 0) {
-        return Failed(-500, result.errMsg)
+      const result = await ctx.ntGroupApi.addGroupEssence(payload.group_id, payload.message_seq)
+      if (result.errorCode !== 0) {
+        return Failed(-500, result.errorMsg)
       }
     } else {
-      const result = await ctx.ntGroupApi.removeGroupEssence(groupCode, msg.msgList[0].msgId)
-      if (result.errCode !== 0) {
-        return Failed(-500, result.errMsg)
+      const result = await ctx.ntGroupApi.removeGroupEssence(payload.group_id, payload.message_seq)
+      if (result.errorCode !== 0) {
+        return Failed(-500, result.errorMsg)
       }
     }
     return Ok({})

@@ -1,8 +1,6 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
 import { OB11GroupFile, OB11GroupFileFolder } from '@/onebot11/types'
-import { InferProtoModel } from '@saltify/typeproto'
-import { Oidb } from '@/ntqqapi/proto'
 
 interface Payload {
   group_id: number | string
@@ -23,11 +21,11 @@ export class GetGroupFilesByFolder extends BaseAction<Payload, Response> {
 
   async _handle(payload: Payload) {
     const groupId = +payload.group_id
-    const data: InferProtoModel<typeof Oidb.GetGroupFileListRespItem>[] = []
+    const data = []
 
     let nextIndex: number | undefined
     while (nextIndex !== 0) {
-      const res = await this.ctx.qqProtocol.getGroupFileList(groupId, payload.folder_id, nextIndex ?? 0, 100)
+      const res = await this.ctx.ntGroupApi.getGroupFileList(groupId, payload.folder_id, nextIndex ?? 0, 100)
       if (res.listResp.retCode !== 0) {
         if (res.listResp.retCode === -3) {
           throw new Error('你没有加入该群聊')

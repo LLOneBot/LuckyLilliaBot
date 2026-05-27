@@ -18,10 +18,10 @@ export class MoveGroupFile extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    const groupId = payload.group_id.toString()
-    const res = await this.ctx.ntGroupApi.moveGroupFile(groupId, [payload.file_id], payload.parent_directory, payload.target_directory)
-    if (res.moveGroupFileResult.result.retCode !== 0) {
-      throw new Error(res.moveGroupFileResult.result.clientWording)
+    const groupId = +payload.group_id
+    const res = await this.ctx.ntGroupApi.moveGroupFile(groupId, payload.file_id, payload.parent_directory, payload.target_directory)
+    if (res.errorCode !== 0) {
+      throw new Error(res.errorMsg)
     }
     return null
   }
