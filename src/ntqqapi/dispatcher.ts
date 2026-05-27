@@ -903,7 +903,7 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, ms
   const isSelfMsg = senderUin === selfInfo.uin
 
   return {
-    msgId: String(contentHead.msgUid || contentHead.msgSeq || Date.now()),
+    msgId: String(contentHead.msgUid || (contentHead as any).msgUidAlt || contentHead.msgSeq || Date.now()),
     msgType: 2,
     subMsgType: 0,
     msgTime: String(contentHead.msgTime || Math.floor(Date.now() / 1000)),

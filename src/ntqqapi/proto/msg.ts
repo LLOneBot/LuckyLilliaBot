@@ -167,6 +167,12 @@ export namespace Msg {
       autoReply: ProtoField(10, 'uint32'),
       ntMsgSeq: ProtoField(11, 'uint64'),
       msgUid: ProtoField(12, 'uint64'),
+      /**
+       * SsoGetGroupMsg 拉历史时，server 不填 field 12 的 msgUid，
+       * 而是把同样语义的 64-bit id 放在 field 32（PC NT 客户端协议特有的）。
+       * convertToRawMessage 里 fallback 到这个字段，msgId 才能拿到稳定的全局唯一值。
+       */
+      msgUidAlt: ProtoField(32, 'uint64', 'optional'),
       forward: ProtoField(15, {
         field1: ProtoField(1, 'uint32'),
         field2: ProtoField(2, 'uint32'),

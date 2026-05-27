@@ -12,7 +12,7 @@
                 "<node_internals>/**"
             ],
             "runtimeExecutable": "tsx",
-            "args": ["watch", "src/main/main.ts"],
+            "args": ["watch", "src/main/main.ts", "-q", "${input:directUin}"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal"
         },
@@ -48,6 +48,12 @@
         }
     ],
     "inputs": [
+        {
+            "id": "directUin",
+            "type": "promptString",
+            "description": "QQ 号（直连模式快速登录用，留空则走扫码）",
+            "default": ""
+        },
         {
             "id": "pmhqPort",
             "type": "promptString",
