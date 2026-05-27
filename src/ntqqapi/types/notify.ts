@@ -71,12 +71,13 @@ export interface FriendRequestNotify {
 }
 
 export enum GroupNotificationType {
-  JoinRequest,
-  AdminChange,
-  Kick,
-  Quit,
-  InvitedJoinRequest,
-  Invitation
+  JoinRequest = 1,
+  Invitation = 2,
+  SetAdmin = 3,
+  Kick = 6,
+  Quit = 13,
+  UnsetAdmin = 16,
+  InvitedJoinRequest = 22
 }
 
 export enum RequestState {
@@ -86,83 +87,3 @@ export enum RequestState {
   Refused, // 拒绝
   Ignored // 忽略
 }
-
-export interface GroupJoinRequest {
-  notificationType: GroupNotificationType.JoinRequest
-  groupCode: number
-  groupName: string
-  notificationSeq: number
-  initiatorUid: string
-  initiatorNick: string
-  state: RequestState
-  operatorUid?: string
-  operatorNick?: string
-  comment: string
-}
-
-export interface GroupAdminChange {
-  notificationType: GroupNotificationType.AdminChange
-  groupCode: number
-  groupName: string
-  notificationSeq: number
-  targetUserUid: string
-  targetUserNick: string
-  isSet: boolean
-  operatorUid: string
-  operatorNick: string
-}
-
-export interface GroupKick {
-  notificationType: GroupNotificationType.Kick
-  groupCode: number
-  groupName: string
-  notificationSeq: number
-  targetUserUid: string
-  targetUserNick: string
-  operatorUid: string
-  operatorNick: string
-}
-
-export interface GroupQuit {
-  notificationType: GroupNotificationType.Quit
-  groupCode: number
-  groupName: string
-  notificationSeq: number
-  targetUserUid: string
-  targetUserNick: string
-}
-
-export interface GroupInvitedJoinRequest {
-  notificationType: GroupNotificationType.InvitedJoinRequest
-  groupCode: number
-  groupName: string
-  notificationSeq: number
-  initiatorUid: string
-  initiatorNick: string
-  targetUserUid: string
-  targetUserNick: string
-  state: RequestState
-  operatorUid?: string
-  operatorNick?: string
-}
-
-export interface GroupInvitation {
-  notificationType: GroupNotificationType.Invitation
-  groupCode: number
-  groupName: string
-  notificationSeq: number
-  initiatorUid: string
-  initiatorNick: string
-  state: RequestState
-  sourceGroupCode: number
-  operatorUid?: string
-  operatorNick?: string
-}
-
-export type GroupNotification =
-  | GroupJoinRequest
-  | GroupAdminChange
-  | GroupKick
-  | GroupQuit
-  | GroupInvitedJoinRequest
-  | GroupInvitation

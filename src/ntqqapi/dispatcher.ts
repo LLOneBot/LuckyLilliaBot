@@ -636,25 +636,25 @@ async function handleGroupJoinRequest(ctx: Context, msg: InferProtoModel<typeof 
     let isDoubt = false
     const res = await ctx.ntGroupApi.getGroupNotifications(false, 20)
     const notification = res.notifications
-      .filter(e => e.notificationType === GroupNotificationType.JoinRequest)
-      .find(e => e.groupCode === decoded.groupCode
-        && e.initiatorUid === decoded.memberUid
-        && e.state === RequestState.Unhandle
+      .filter(e => e.type === GroupNotificationType.JoinRequest)
+      .find(e => e.group.groupCode === decoded.groupCode
+        && e.user1.uid === decoded.memberUid
+        && e.requestState === RequestState.Unhandle
       )
     if (notification) {
-      notificationSeq = notification.notificationSeq
+      notificationSeq = notification.sequence
       commit = notification.comment
     } else {
       const res = await ctx.ntGroupApi.getGroupNotifications(true, 10)
       const notification = res.notifications
-        .filter(e => e.notificationType === GroupNotificationType.JoinRequest)
-        .find(e => e.groupCode === decoded.groupCode
-          && e.initiatorUid === decoded.memberUid
-          && e.state === RequestState.Unhandle
+        .filter(e => e.type === GroupNotificationType.JoinRequest)
+        .find(e => e.group.groupCode === decoded.groupCode
+          && e.user1.uid === decoded.memberUid
+          && e.requestState === RequestState.Unhandle
         )
       if (notification) {
         isDoubt = true
-        notificationSeq = notification.notificationSeq
+        notificationSeq = notification.sequence
         commit = notification.comment
       }
     }
@@ -680,34 +680,34 @@ async function handleGroupInvitation(ctx: Context, msg: InferProtoModel<typeof M
       const { inner } = decoded.info
       const res = await ctx.ntGroupApi.getGroupNotifications(false, 20)
       const notification = res.notifications
-        .filter(e => e.notificationType === GroupNotificationType.InvitedJoinRequest)
-        .find(e => e.groupCode === inner.groupCode
-          && e.initiatorUid === inner.invitorUid
-          && e.targetUserUid === inner.targetUid
-          && e.state === RequestState.Unhandle
+        .filter(e => e.type === GroupNotificationType.InvitedJoinRequest)
+        .find(e => e.group.groupCode === inner.groupCode
+          && e.user2!.uid === inner.invitorUid
+          && e.user1.uid === inner.targetUid
+          && e.requestState === RequestState.Unhandle
         )
       if (notification) {
         ctx.parallel('nt/group-invited-join-request', {
           groupCode: inner.groupCode,
           initiatorUid: inner.invitorUid,
           targetUserUid: inner.targetUid,
-          notificationSeq: notification.notificationSeq
+          notificationSeq: notification.sequence
         })
       }
     } else {
       const decoded = Notify.GroupInvitation.decode(content)
       const res = await ctx.ntGroupApi.getGroupNotifications(false, 20)
       const notification = res.notifications
-        .filter(e => e.notificationType === GroupNotificationType.Invitation)
-        .find(e => e.groupCode === decoded.groupCode
-          && e.initiatorUid === decoded.invitorUid
-          && e.state === RequestState.Unhandle
+        .filter(e => e.type === GroupNotificationType.Invitation)
+        .find(e => e.group.groupCode === decoded.groupCode
+          && e.user2!.uid === decoded.invitorUid
+          && e.requestState === RequestState.Unhandle
         )
       if (notification) {
         ctx.parallel('nt/group-invitation', {
           groupCode: decoded.groupCode,
           initiatorUid: decoded.invitorUid,
-          invitationSeq: notification.notificationSeq
+          invitationSeq: notification.sequence
         })
       }
     }
@@ -809,7 +809,7 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
           ctx.parallel('nt/group-invitation', {
             groupCode: +groupCode,
             initiatorUid: msg.routingHead.fromUid,
-            invitationSeq: +seq
+            invitationSeq: BigInt(seq)
           })
         }
       }

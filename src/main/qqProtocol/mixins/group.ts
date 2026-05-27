@@ -315,21 +315,21 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return Oidb.FetchGroupMembersResp.decode(oidbRespBody)
     }
 
-    async kickGroupMember(groupCode: number, memberUid: string, rejectSubsequentRequests = false, reason = '') {
+    async kickGroupMember(groupCode: number, kickUids: string[], rejectSubsequentRequests: boolean, reason: string) {
       const body = Oidb.KickMemberReq.encode({
         groupCode,
-        memberUid,
+        kickUids,
         rejectSubsequentRequests,
         reason,
       })
       return await this.sendOidb(0x8a0, 1, body)
     }
 
-    async muteGroupMember(groupCode: number, memberUid: string, durationSec: number) {
+    async muteGroupMember(groupCode: number, memList: { uid: string, duration: number }[]) {
       const body = Oidb.MuteMemberReq.encode({
         groupCode,
-        type: 1,
-        body: { targetUid: memberUid, duration: durationSec },
+        memCount: memList.length,
+        memList,
       })
       return await this.sendOidb(0x1253, 1, body)
     }

@@ -1,15 +1,12 @@
 import { selfInfo } from '@/common/globalVars'
 import {
   GroupMember,
-  GroupRequestOperateTypes,
   GetFileListParam,
   GroupFileInfo,
   GroupMsgMask,
   Group,
   PublishGroupBulletinReq,
   GroupBulletinListResult,
-  GroupNotification,
-  GroupNotificationType,
 } from '../types'
 import { Service, Context } from 'cordis'
 import { createReadStream, promises as fsp } from 'node:fs'
@@ -139,145 +136,47 @@ export class NTQQGroupApi extends Service {
     return members.find(e => e.uin === uin)
   }
 
-  async getGroupNotifications(doubt: boolean, count: number, startSeq?: number) {
-    const res = await this.ctx.qqProtocol.fetchGroupNotifies(count, doubt, startSeq ? BigInt(startSeq) : undefined)
-    const notifications: GroupNotification[] = []
-    for (const r of res.requests) {
-      if (r.notifyType === 1) {
-        notifications.push({
-          notificationType: GroupNotificationType.JoinRequest,
-          groupCode: r.group.groupCode,
-          groupName: r.group.groupName,
-          notificationSeq: Number(r.sequence),
-          initiatorUid: r.user1.uid,
-          initiatorNick: r.user1.nickname,
-          state: r.requestState,
-          operatorUid: r.user2?.uid,
-          operatorNick: r.user2?.nickname,
-          comment: r.comment ?? ''
-        })
-      } else if (r.notifyType === 2) {
-        notifications.push({
-          notificationType: GroupNotificationType.Invitation,
-          groupCode: r.group.groupCode,
-          groupName: r.group.groupName,
-          notificationSeq: Number(r.sequence),
-          initiatorUid: r.user2!.uid,
-          initiatorNick: r.user2!.nickname,
-          state: r.requestState,
-          sourceGroupCode: 0, // TODO: 需抓取
-          operatorUid: r.user3?.uid,
-          operatorNick: r.user3?.nickname
-        })
-      } else if (r.notifyType === 3 || r.notifyType === 16) {
-        notifications.push({
-          notificationType: GroupNotificationType.AdminChange,
-          groupCode: r.group.groupCode,
-          groupName: r.group.groupName,
-          notificationSeq: Number(r.sequence),
-          targetUserUid: r.user1.uid,
-          targetUserNick: r.user1.nickname,
-          isSet: r.notifyType === 3,
-          operatorUid: r.user2!.uid,
-          operatorNick: r.user2!.nickname
-        })
-      } else if (r.notifyType === 6) {
-        notifications.push({
-          notificationType: GroupNotificationType.Kick,
-          groupCode: r.group.groupCode,
-          groupName: r.group.groupName,
-          notificationSeq: Number(r.sequence),
-          targetUserUid: r.user1.uid,
-          targetUserNick: r.user1.nickname,
-          operatorUid: r.user2?.uid ?? r.user3!.uid,
-          operatorNick: r.user2?.nickname ?? r.user3!.nickname
-        })
-      } else if (r.notifyType === 13) {
-        notifications.push({
-          notificationType: GroupNotificationType.Quit,
-          groupCode: r.group.groupCode,
-          groupName: r.group.groupName,
-          notificationSeq: Number(r.sequence),
-          targetUserUid: r.user1.uid,
-          targetUserNick: r.user1.nickname
-        })
-      } else if (r.notifyType === 22) {
-        notifications.push({
-          notificationType: GroupNotificationType.InvitedJoinRequest,
-          groupCode: r.group.groupCode,
-          groupName: r.group.groupName,
-          notificationSeq: Number(r.sequence),
-          initiatorUid: r.user2!.uid,
-          initiatorNick: r.user2!.nickname,
-          targetUserUid: r.user1.uid,
-          targetUserNick: r.user1.nickname,
-          state: r.requestState,
-          operatorUid: r.user3?.uid,
-          operatorNick: r.user3?.nickname
-        })
-      }
-    }
+  async getGroupNotifications(doubt: boolean, count: number, startSeq?: bigint) {
+    const res = await this.ctx.qqProtocol.fetchGroupNotifies(
+      count,
+      doubt,
+      startSeq ? BigInt(startSeq) : undefined
+    )
     return {
-      nextStartSeq: Number(res.newLatestSequence),
-      notifications
+      nextStartSeq: res.newLatestSequence,
+      notifications: res.requests
     }
   }
 
-  async operateSysNotify(
+  async setGroupRequest(
     doubt: boolean,
-    operateMsg: {
-      operateType: GroupRequestOperateTypes
-      targetMsg: {
-        seq: string
-        type: number
-        groupCode: string
-        postscript: string
-      }
-    }
-  ): Promise<{ result: number, errMsg: string }> {
-    const operation = operateMsg.operateType === GroupRequestOperateTypes.Approve ? 1 : 2
-    const resp = await this.ctx.qqProtocol.handleGroupRequest(
-      BigInt(operateMsg.targetMsg.seq),
-      operateMsg.targetMsg.type,
-      +operateMsg.targetMsg.groupCode,
-      operation,
-      operateMsg.targetMsg.postscript || '',
+    groupCode: number,
+    seq: number,
+    type: number,
+    accept: boolean,
+    reason = ''
+  ) {
+    return await this.ctx.qqProtocol.handleGroupRequest(
+      BigInt(seq),
+      type,
+      groupCode,
+      accept ? 1 : 2,
+      reason,
       doubt,
     )
-    return { result: resp.errorCode, errMsg: resp.errorMsg }
   }
 
-  async handleGroupRequest(flag: string, operateType: GroupRequestOperateTypes, reason?: string): Promise<{ result: number, errMsg: string }> {
-    const flagitem = flag.split('|')
-    const groupCode = flagitem[0]
-    const seq = flagitem[1]
-    const type = +flagitem[2]
-    const doubt = flagitem[3] === '1'
-    const operation = operateType === GroupRequestOperateTypes.Approve ? 1 : 2
-    const resp = await this.ctx.qqProtocol.handleGroupRequest(BigInt(seq), type, +groupCode, operation, reason || '', doubt)
-    return { result: resp.errorCode, errMsg: resp.errorMsg }
+  async quitGroup(groupCode: number) {
+    return await this.ctx.qqProtocol.leaveGroup(groupCode)
   }
 
-  async quitGroup(groupCode: string): Promise<{ result: number, errMsg: string }> {
-    const resp = await this.ctx.qqProtocol.leaveGroup(+groupCode)
-    return { result: resp.errorCode, errMsg: resp.errorMsg }
+  async kickGroupMember(groupCode: number, kickUids: string[], refuseForever = false, kickReason = '') {
+    return await this.ctx.qqProtocol.kickGroupMember(groupCode, kickUids, refuseForever, kickReason)
   }
 
-  async kickMember(groupCode: string, kickUids: string[], refuseForever = false, kickReason = ''): Promise<{ errCode: number, errMsg: string }> {
-    let last = { errorCode: 0, errorMsg: '' } as { errorCode: number, errorMsg: string }
-    for (const uid of kickUids) {
-      last = await this.ctx.qqProtocol.kickGroupMember(+groupCode, uid, refuseForever, kickReason)
-    }
-    return { errCode: last.errorCode, errMsg: last.errorMsg }
-  }
-
-  /** timeStamp为秒数, 0为解除禁言 */
-  async banMember(groupCode: string, memList: Array<{ uid: string, timeStamp: number }>): Promise<{ result: number, errMsg: string }> {
-    let last = { errorCode: 0, errorMsg: '' } as { errorCode: number, errorMsg: string }
-    for (const m of memList) {
-      last = await this.ctx.qqProtocol.muteGroupMember(+groupCode, m.uid, m.timeStamp)
-    }
-    return { result: last.errorCode, errMsg: last.errorMsg }
+  /** duration 为秒数，为 0 时解除禁言 */
+  async muteGroupMember(groupCode: number, memList: { uid: string, duration: number }[]) {
+    return await this.ctx.qqProtocol.muteGroupMember(+groupCode, memList)
   }
 
   async banGroup(groupCode: string, shutUp: boolean): Promise<{ result: number, errMsg: string }> {

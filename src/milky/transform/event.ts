@@ -177,7 +177,7 @@ export async function transformGroupJoinRequestEvent(
     const initiatorId = await ctx.ntUserApi.getUinByUid(data.initiatorUid)
     return {
       group_id: data.groupCode,
-      notification_seq: data.notificationSeq,
+      notification_seq: Number(data.notificationSeq),
       is_filtered: data.isDoubt,
       initiator_id: initiatorId,
       comment: data.comment
@@ -197,7 +197,7 @@ export async function transformGroupInvitedJoinRequestEvent(
     const targetUserId = await ctx.ntUserApi.getUinByUid(data.targetUserUid)
     return {
       group_id: data.groupCode,
-      notification_seq: data.notificationSeq,
+      notification_seq: Number(data.notificationSeq),
       initiator_id: initiatorId,
       target_user_id: targetUserId
     }
@@ -215,7 +215,7 @@ export async function transformGroupInvitationEvent(
     const initiatorId = await ctx.ntUserApi.getUinByUid(data.initiatorUid)
     return {
       group_id: data.groupCode,
-      invitation_seq: data.invitationSeq,
+      invitation_seq: Number(data.invitationSeq),
       initiator_id: initiatorId
     }
   } catch (error) {

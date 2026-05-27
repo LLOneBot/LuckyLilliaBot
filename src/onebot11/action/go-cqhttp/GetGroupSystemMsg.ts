@@ -36,26 +36,26 @@ export class GetGroupSystemMsg extends BaseAction<{}, Response> {
 
     const data: Response = { invited_requests: [], join_requests: [] }
     for (const n of notifications) {
-      if (n.notificationType === GroupNotificationType.Invitation) {
+      if (n.type === GroupNotificationType.Invitation) {
         data.invited_requests.push({
-          request_id: n.notificationSeq,
-          invitor_uin: await this.ctx.ntUserApi.getUinByUid(n.initiatorUid),
-          invitor_nick: n.initiatorNick,
-          group_id: n.groupCode,
-          group_name: n.groupName,
-          checked: n.state !== RequestState.Unhandle,
-          actor: n.operatorUid ? await this.ctx.ntUserApi.getUinByUid(n.operatorUid) : 0
+          request_id: Number(n.sequence),
+          invitor_uin: await this.ctx.ntUserApi.getUinByUid(n.user2!.uid),
+          invitor_nick: n.user2!.nickName,
+          group_id: n.group.groupCode,
+          group_name: n.group.groupName,
+          checked: n.requestState !== RequestState.Unhandle,
+          actor: n.user3?.uid ? await this.ctx.ntUserApi.getUinByUid(n.user3.uid) : 0
         })
-      } else if (n.notificationType === GroupNotificationType.JoinRequest) {
+      } else if (n.type === GroupNotificationType.JoinRequest) {
         data.join_requests.push({
-          request_id: n.notificationSeq,
-          requester_uin: await this.ctx.ntUserApi.getUinByUid(n.initiatorUid),
-          requester_nick: n.initiatorNick,
-          message: n.comment,
-          group_id: n.groupCode,
-          group_name: n.groupName,
-          checked: n.state !== RequestState.Unhandle,
-          actor: n.operatorUid ? await this.ctx.ntUserApi.getUinByUid(n.operatorUid) : 0
+          request_id: Number(n.sequence),
+          requester_uin: await this.ctx.ntUserApi.getUinByUid(n.user1.uid),
+          requester_nick: n.user1.nickName,
+          message: n.comment ?? '',
+          group_id: n.group.groupCode,
+          group_name: n.group.groupName,
+          checked: n.requestState !== RequestState.Unhandle,
+          actor: n.user2?.uid ? await this.ctx.ntUserApi.getUinByUid(n.user2.uid) : 0
         })
       }
     }

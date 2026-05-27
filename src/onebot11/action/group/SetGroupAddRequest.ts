@@ -1,7 +1,7 @@
 import { BaseAction, Schema } from '../BaseAction'
-import { GroupNotificationType, GroupRequestOperateTypes } from '@/ntqqapi/types'
 import { ActionName } from '../types'
 import { isNumeric, parseBool } from '@/common/utils/misc'
+import { decodeGroupRequestFlag } from '@/onebot11/utils'
 
 interface Payload {
   flag: string
@@ -17,32 +17,22 @@ export default class SetGroupAddRequest extends BaseAction<Payload, null> {
     reason: Schema.string()
   })
 
-  private getRequestType(notificationType: GroupNotificationType) {
-    if (notificationType === GroupNotificationType.JoinRequest) {
-      return 1
-    } else if (notificationType === GroupNotificationType.Invitation) {
-      return 2
-    } else if (notificationType === GroupNotificationType.InvitedJoinRequest) {
-      return 22
-    }
-  }
-
   protected async _handle(payload: Payload) {
     let flag = payload.flag
     if (isNumeric(flag)) {
-      const seq = +flag
+      const seq = BigInt(flag)
       const res = await this.ctx.ntGroupApi.getGroupNotifications(false, 50)
       for (const v of res.notifications) {
-        if (seq === v.notificationSeq) {
-          flag = `${v.groupCode}|${v.notificationSeq}|${this.getRequestType(v.notificationType)}|0`
+        if (seq === v.sequence) {
+          flag = `${v.group.groupCode}|${v.sequence}|${v.type}|0`
           break
         }
       }
       if (flag === payload.flag) {
         const res = await this.ctx.ntGroupApi.getGroupNotifications(true, 50)
         for (const v of res.notifications) {
-          if (seq === v.notificationSeq) {
-            flag = `${v.groupCode}|${v.notificationSeq}|${this.getRequestType(v.notificationType)}|1`
+          if (seq === v.sequence) {
+            flag = `${v.group.groupCode}|${v.sequence}|${v.type}|1`
             break
           }
         }
@@ -51,13 +41,17 @@ export default class SetGroupAddRequest extends BaseAction<Payload, null> {
         }
       }
     }
-    const res = await this.ctx.ntGroupApi.handleGroupRequest(
-      flag,
-      payload.approve ? GroupRequestOperateTypes.Approve : GroupRequestOperateTypes.Reject,
+    const decoded = decodeGroupRequestFlag(flag)
+    const res = await this.ctx.ntGroupApi.setGroupRequest(
+      decoded.doubt,
+      decoded.groupCode,
+      Number(decoded.seq),
+      decoded.type,
+      payload.approve,
       payload.reason
     )
-    if (res.result !== 0) {
-      throw new Error(res.errMsg)
+    if (res.errorCode !== 0) {
+      throw new Error(res.errorMsg)
     }
     return null
   }

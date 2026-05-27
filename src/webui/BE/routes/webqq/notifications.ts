@@ -1,6 +1,7 @@
 import { Context } from 'cordis'
-import { BuddyReqType, GroupRequestOperateTypes } from '@/ntqqapi/types'
+import { BuddyReqType } from '@/ntqqapi/types'
 import { Hono } from 'hono'
+import { decodeGroupRequestFlag, encodeGroupRequestFlag } from '../../utils'
 
 export function createNotificationRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -8,7 +9,27 @@ export function createNotificationRoutes(ctx: Context): Hono {
   // 获取群通知列表
   router.get('/notifications/group', async (c) => {
     try {
-      throw new Error('暂未实现') // TODO: 实现它
+      const { notifications } = await ctx.ntGroupApi.getGroupNotifications(false, 50)
+      const enriched = await Promise.all(notifications.map(async (notify) => {
+        const user1Uin = notify.user1.uid ? await ctx.ntUserApi.getUinByUid(notify.user1.uid).catch(() => '') : ''
+        const user2Uin = notify.user2?.uid ? await ctx.ntUserApi.getUinByUid(notify.user2.uid).catch(() => '') : ''
+        return {
+          seq: notify.sequence.toString(),
+          notifyType: notify.type,
+          status: notify.requestState,
+          doubt: false,
+          group: {
+            groupCode: notify.group.groupCode.toString(),
+            groupName: notify.group.groupName
+          },
+          user1: { ...notify.user1, uin: user1Uin.toString() },
+          user2: { ...notify.user2, uin: user2Uin.toString() },
+          postscript: notify.comment ?? '',
+          actionTime: notify.time ?? '0',
+          flag: encodeGroupRequestFlag(notify.group.groupCode, notify.sequence, notify.type, false)
+        }
+      }))
+      return c.json({ success: true, data: enriched })
     } catch (e) {
       ctx.logger.error('获取群通知失败:', e)
       return c.json({ success: false, message: '获取群通知失败', error: (e as Error).message }, 500)
@@ -89,10 +110,15 @@ export function createNotificationRoutes(ctx: Context): Hono {
       if (!flag || !action) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      const operateType = action === 'approve'
-        ? GroupRequestOperateTypes.Approve
-        : GroupRequestOperateTypes.Reject
-      await ctx.ntGroupApi.handleGroupRequest(flag, operateType, reason)
+      const decoded = decodeGroupRequestFlag(flag)
+      await ctx.ntGroupApi.setGroupRequest(
+        decoded.doubt,
+        decoded.groupCode,
+        Number(decoded.seq),
+        decoded.type,
+        action === 'approve',
+        reason
+      )
       return c.json({ success: true })
     } catch (e) {
       ctx.logger.error('处理群通知失败:', e)

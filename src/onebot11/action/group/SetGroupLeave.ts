@@ -13,9 +13,9 @@ export default class SetGroupLeave extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    const res = await this.ctx.ntGroupApi.quitGroup(payload.group_id.toString())
-    if (res.result !== 0) {
-      throw new Error(res.errMsg)
+    const res = await this.ctx.ntGroupApi.quitGroup(+payload.group_id)
+    if (res.errorCode !== 0) {
+      throw new Error(res.errorMsg)
     }
     return null
   }

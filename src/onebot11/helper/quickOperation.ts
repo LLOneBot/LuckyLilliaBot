@@ -5,9 +5,8 @@ import {
   OB11GroupRequestEvent,
   OB11GroupRequestInviteBotEvent,
 } from '../event/request/OB11GroupRequest'
-import { GroupRequestOperateTypes } from '@/ntqqapi/types'
 import { transformOutgoingSegments } from '../transform/message/outgoing'
-import { message2List, createPeer, CreatePeerMode } from '../utils'
+import { message2List, createPeer, CreatePeerMode, decodeGroupRequestFlag } from '../utils'
 import { isNullable } from 'cosmokit'
 import { Context } from 'cordis'
 
@@ -100,14 +99,14 @@ async function handleMsg(ctx: Context, msg: OB11Message, quickAction: QuickOpera
     }
     if (groupMsgQuickAction.kick) {
       const { msgList } = await ctx.ntMsgApi.getMsgsByMsgId(peer, [rawMessage.msgId])
-      ctx.ntGroupApi.kickMember(peer.peerUid, [msgList[0].senderUid]).catch(e => ctx.logger.error(e))
+      ctx.ntGroupApi.kickGroupMember(+peer.peerUid, [msgList[0].senderUid]).catch(e => ctx.logger.error(e))
     }
     if (groupMsgQuickAction.ban) {
       const { msgList } = await ctx.ntMsgApi.getMsgsByMsgId(peer, [rawMessage.msgId])
-      ctx.ntGroupApi.banMember(peer.peerUid, [
+      ctx.ntGroupApi.muteGroupMember(+peer.peerUid, [
         {
           uid: msgList[0].senderUid,
-          timeStamp: groupMsgQuickAction.ban_duration || 60 * 30,
+          duration: groupMsgQuickAction.ban_duration || 60 * 30,
         },
       ]).catch(e => ctx.logger.error(e))
     }
@@ -126,9 +125,13 @@ async function handleFriendRequest(ctx: Context, request: OB11FriendRequestEvent
 
 async function handleGroupRequest(ctx: Context, request: OB11GroupRequestEvent, quickAction: QuickOperationGroupRequest) {
   if (!isNullable(quickAction.approve)) {
-    ctx.ntGroupApi.handleGroupRequest(
-      request.flag,
-      quickAction.approve ? GroupRequestOperateTypes.Approve : GroupRequestOperateTypes.Reject,
+    const decoded = decodeGroupRequestFlag(request.flag)
+    ctx.ntGroupApi.setGroupRequest(
+      decoded.doubt,
+      decoded.groupCode,
+      Number(decoded.seq),
+      decoded.type,
+      quickAction.approve,
       quickAction.reason,
     ).catch(e => ctx.logger.error(e))
   }

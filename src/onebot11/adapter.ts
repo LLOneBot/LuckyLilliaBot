@@ -3,6 +3,7 @@ import { OB11Entities } from './entities'
 import {
   ChatType,
   FriendRequest,
+  GroupNotificationType,
   JsonGrayTipBusId,
   Peer,
   RawMessage,
@@ -47,6 +48,7 @@ import { OB11GroupTitleEvent } from './event/notice/OB11GroupTitleEvent'
 import { OB11FriendAddNoticeEvent } from './event/notice/OB11FriendAddNoticeEvent'
 import { OB11GroupCardEvent } from './event/notice/OB11GroupCardEvent'
 import { noop } from 'cosmokit'
+import { encodeGroupRequestFlag } from './utils'
 
 declare module 'cordis' {
   interface Context {
@@ -791,7 +793,7 @@ class Onebot11Adapter extends Service {
       const event = new OB11GroupRequestAddEvent(
         data.groupCode,
         userId,
-        `${data.groupCode}|${data.notificationSeq}|1|${data.isDoubt ? 1 : 0}`,
+        encodeGroupRequestFlag(data.groupCode, data.notificationSeq, GroupNotificationType.JoinRequest, data.isDoubt),
         data.comment,
       )
       this.dispatch(event)
@@ -803,7 +805,7 @@ class Onebot11Adapter extends Service {
       const event = new OB11GroupRequestAddEvent(
         data.groupCode,
         userId,
-        `${data.groupCode}|${data.notificationSeq}|22|0`,
+        encodeGroupRequestFlag(data.groupCode, data.notificationSeq, GroupNotificationType.InvitedJoinRequest, false),
         '',
         invitorId,
       )
@@ -815,7 +817,7 @@ class Onebot11Adapter extends Service {
       const event = new OB11GroupRequestInviteBotEvent(
         data.groupCode,
         userId,
-        `${data.groupCode}|${data.invitationSeq}|2|0`,
+        encodeGroupRequestFlag(data.groupCode, data.invitationSeq, GroupNotificationType.Invitation, false),
         ''
       )
       this.dispatch(event)

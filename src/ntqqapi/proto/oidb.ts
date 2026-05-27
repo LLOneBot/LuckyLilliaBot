@@ -698,7 +698,7 @@ export namespace Oidb {
   /** OidbSvcTrpcTcp.0x8a0_1 - 踢人 */
   export const KickMemberReq = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
-    memberUid: ProtoField(3, 'string'),
+    kickUids: ProtoField(3, 'string', 'repeated'),
     rejectSubsequentRequests: ProtoField(4, 'bool'),
     reason: ProtoField(5, 'string', 'optional'),
   })
@@ -706,11 +706,11 @@ export namespace Oidb {
   /** OidbSvcTrpcTcp.0x1253_1 - 禁言成员 */
   export const MuteMemberReq = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
-    type: ProtoField(2, 'uint32'),
-    body: ProtoField(3, {
-      targetUid: ProtoField(1, 'string'),
+    memCount: ProtoField(2, 'uint32'),
+    memList: ProtoField(3, {
+      uid: ProtoField(1, 'string'),
       duration: ProtoField(2, 'uint32'),
-    }),
+    }, 'repeated'),
   })
 
   /** OidbSvcTrpcTcp.0x89a_0 - 全员禁言 */
@@ -797,7 +797,7 @@ export namespace Oidb {
   export const FetchGroupNotifiesResp = ProtoMessage.of({
     requests: ProtoField(1, {
       sequence: ProtoField(1, 'uint64'),
-      notifyType: ProtoField(2, 'uint32'),
+      type: ProtoField(2, 'uint32'),
       requestState: ProtoField(3, 'uint32'),
       group: ProtoField(4, {
         groupCode: ProtoField(1, 'uint32'),
@@ -805,15 +805,15 @@ export namespace Oidb {
       }),
       user1: ProtoField(5, {
         uid: ProtoField(1, 'string'),
-        nickname: ProtoField(2, 'string'),
+        nickName: ProtoField(2, 'string'),
       }),
       user2: ProtoField(6, {
         uid: ProtoField(1, 'string'),
-        nickname: ProtoField(2, 'string'),
+        nickName: ProtoField(2, 'string'),
       }, 'optional'),
       user3: ProtoField(7, {
         uid: ProtoField(1, 'string'),
-        nickname: ProtoField(2, 'string'),
+        nickName: ProtoField(2, 'string'),
       }, 'optional'),
       time: ProtoField(8, 'uint32', 'optional'),
       comment: ProtoField(10, 'string', 'optional'),

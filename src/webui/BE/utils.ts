@@ -22,3 +22,21 @@ export function serializeResult(result: unknown): unknown {
   }
   return result
 }
+
+export function encodeGroupRequestFlag(groupCode: number, seq: bigint, type: number, doubt: boolean) {
+  return `${groupCode}|${seq}|${type}|${doubt ? 1 : 0}`
+}
+
+export function decodeGroupRequestFlag(flag: string) {
+  const flagitem = flag.split('|')
+  const groupCode = +flagitem[0]
+  const seq = BigInt(flagitem[1])
+  const type = +flagitem[2]
+  const doubt = flagitem[3] === '1'
+  return {
+    groupCode,
+    seq,
+    type,
+    doubt
+  }
+}
