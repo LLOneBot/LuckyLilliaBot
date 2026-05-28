@@ -45,8 +45,8 @@ export class GetGroupFileUrl extends BaseAction<Payload, Response> {
       const res = await this.ctx.ntGroupApi.getGroupFileList(
         groupId,
         folderId ?? '/',
-        100,
-        nextIndex ?? 0
+        nextIndex ?? 0,
+        100
       )
       const file = res.listResp.items.find(item => item.fileInfo?.fileId === fileId)
       if (file) {

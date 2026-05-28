@@ -269,7 +269,7 @@ export class NTQQGroupApi extends Service {
     return await this.ctx.qqProtocol.setGroupRemark(+groupCode, groupRemark)
   }
 
-  async getGroupFileList(groupCode: number, folderId: string, fileCount: number, startIndex: number) {
+  async getGroupFileList(groupCode: number, folderId: string, startIndex: number, fileCount: number) {
     return await this.ctx.qqProtocol.getGroupFileList(groupCode, folderId, startIndex, fileCount)
   }
 
