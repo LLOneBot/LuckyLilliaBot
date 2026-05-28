@@ -496,7 +496,7 @@ export class QQProtocolBase extends Service {
    * Call this in place of (or alongside) connectWebSocket when using direct protocol.
    */
   async initDirectClient(signUrl?: string): Promise<void> {
-    const url = signUrl || process.env.QQ_SIGN_URL || 'http://127.0.0.1:8080'
+    const url = signUrl || process.env.QQ_SIGN_URL || 'https://sign.luckylillia.com'
     this.directClient = new DirectProtocolClient({ signUrl: url })
 
     this.directClient.on('error', (err: Error) => {

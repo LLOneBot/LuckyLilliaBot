@@ -278,6 +278,27 @@ export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): Messag
           continue
         }
       }
+      // commonElem(serviceType=37) = LargeFaceExtra（dice / rps / 超级表情）
+      if (svcType === 37 && pbElem) {
+        try {
+          const ext = Msg.LargeFaceExtra.decode(pbElem)
+          const faceIndex = Number(ext.faceId ?? 0)
+          const face = faceConfig.sysface.find(f => f.QSid === String(faceIndex))
+          result.push({
+            elementType: ElementType.Face,
+            faceElement: {
+              faceIndex,
+              faceType: 3,
+              faceText: face?.QDes ?? '',
+              packId: ext.aniStickerPackId,
+              stickerId: ext.aniStickerId,
+              stickerType: ext.aniStickerType,
+              resultId: ext.resultId !== undefined ? String(ext.resultId) : undefined,
+            } as any,
+          })
+          continue
+        } catch { }
+      }
     }
   }
 

@@ -59,9 +59,7 @@ describe('消息段类型覆盖（额外）', () => {
     );
   }, 60000);
 
-  // QQ NT 服务端不会把 dice/rps 的 face 索引透传给接收端（特殊表情走另外一套通道），
-  // 协议层无对应 SSO 命令，先 skip。
-  it.skip('dice — 骰子', async () => {
+  it('dice — 骰子', async () => {
     await sendAndExpectSegment(
       context,
       [{ type: OB11MessageDataType.Dice, data: {} } as any],
@@ -69,7 +67,7 @@ describe('消息段类型覆盖（额外）', () => {
     );
   }, 60000);
 
-  it.skip('rps — 猜拳', async () => {
+  it('rps — 猜拳', async () => {
     await sendAndExpectSegment(
       context,
       [{ type: OB11MessageDataType.Rps, data: {} } as any],

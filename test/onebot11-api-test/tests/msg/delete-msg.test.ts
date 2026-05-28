@@ -55,11 +55,18 @@ describe('delete_msg - 撤回消息', () => {
 
     Assertions.assertSuccess(deleteResponse, 'delete_msg');
 
-    // 等待撤回通知
-    await context.twoAccountTest.secondaryListener.waitForEvent({
-      post_type: 'notice',
-      notice_type: 'group_recall',
-      message_id: messageId,
-    }, undefined, 10000);
+    // 等待撤回通知 — 群聊撤回 server 给所有人广播 0x2DC sub=17，撤回方和接收方都应收到
+    await Promise.all([
+      context.twoAccountTest.primaryListener.waitForEvent({
+        post_type: 'notice',
+        notice_type: 'group_recall',
+        message_id: messageId,
+      }, undefined, 10000),
+      context.twoAccountTest.secondaryListener.waitForEvent({
+        post_type: 'notice',
+        notice_type: 'group_recall',
+        message_id: messageId,
+      }, undefined, 10000),
+    ]);
   }, 60000);
 });

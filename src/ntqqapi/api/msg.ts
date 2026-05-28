@@ -119,11 +119,13 @@ export class NTQQMsgApi extends Service {
       if (cached) endSeq = +cached.msgSeq
     }
     if (!endSeq) {
-      // C2C: SsoGetC2CMsg 必须传真实 seq；不知道时走漫游 API 按时间拉最新 N 条
+      // C2C: SsoGetC2CMsg 必须传真实 seq；不知道时走漫游 API 按时间拉最新 N 条。
+      // time 给一个远未来值（~2106 年）= 让 server 把所有已存在的消息当 cutoff 之前的，
+      // 配合 direction=1 拉到绝对最新的 N 条。这样避开本地时钟漂移和 send-then-query 的
+      // TOCTOU（用 Date.now() 当 time 时同秒到的新消息会被切掉）。
       if (peer.chatType !== ChatType.Group) {
         try {
-          const now = Math.floor(Date.now() / 1000)
-          const decoded = await this.ctx.qqProtocol.getC2CRoamMessages(peer.peerUid, now, cnt, 1)
+          const decoded = await this.ctx.qqProtocol.getC2CRoamMessages(peer.peerUid, 0xFFFFFFFA, cnt, 1)
           const messages = this.toRawMessages(decoded, peer.chatType)
           messages.sort((a, b) => +a.msgSeq - +b.msgSeq)
           return { msgList: queryOrder ? messages : messages.reverse() } as any
@@ -167,9 +169,15 @@ export class NTQQMsgApi extends Service {
       if (isGroup) {
         await this.ctx.qqProtocol.recallGroupMessage(+peer.peerUid, +msg.msgSeq)
       } else {
+        // SsoC2CRecallMsg.info 里两个 sequence 字段含义不同：
+        //   field 1 (clientSequence) ← client 发送时自己生成的 random 范围 10000-99999，存 msgAttrs
+        //   field 6 (ntMsgSeq)       ← PbSendMsgResp.clientSequence(field14)，即 server 给本端 c2c
+        //                                会话流分配的真 msgSeq —— 我们存在 msg.msgSeq
+        // 两个都必须用发送时的真值传回去，server 才能定位被撤回的消息并向对方推 sub=138
+        const clientSeqStr = msg.msgAttrs?.get('clientSequence')
         await this.ctx.qqProtocol.recallC2CMessage(
           peer.peerUid,
-          +msg.msgSeq,
+          clientSeqStr ? +clientSeqStr : +msg.msgSeq,
           +msg.msgRandom,
           +msg.msgTime,
           +msg.msgSeq,
@@ -200,6 +208,11 @@ export class NTQQMsgApi extends Service {
     })
   }
 
+  /**
+   * C2C 发完 PbSendMsg 后用 SsoGetRoamMsg 反查刚发的那条，拿真 msgSeq + msgUid。
+   * 匹配条件：random 一致 + msgTime 跟 PbSendMsgResp.sendTime 同秒附近（防同 random 撞）。
+   * 加重试是因为 server 入库 c2c 历史流稍滞后（~50-200ms）。
+   */
   async sendMsg(peer: Peer, msgElements: SendMessageElement[]): Promise<RawMessage> {
     const elems = await new MessageBuilding(this.ctx, msgElements, peer.chatType, peer.peerUid).build()
 
@@ -216,11 +229,17 @@ export class NTQQMsgApi extends Service {
       }
     }
 
-    // 先生成 random + 挂 listener，再发 PbSendMsg：
-    // server 广播 OlPush 回声理论可能比 PbSendMsg 同步响应还早到（极少），listener 先就位避免漏。
-    // OlPush.contentHead.random === 我们这边的 random，是两端唯一可靠的匹配 key（msgSeq 偶尔差几槽）。
+    // 群消息：server 会把消息原样回声（OlPush msgType=82）给发送方自己，contentHead.msgSeq 跟广播给
+    // 群里所有人的相等。我们在 PbSendMsg 之前挂 listener、按 (peerUid, msgRandom) 匹配，等回声拿到真实
+    // msgSeq + msgUid，sender / receiver 两端 createMsgShortId 算出来的 shortId 永远一致。
+    //
+    // C2C：server 不推 self-echo，PbSendMsgResp 也不给真 msgSeq。但 server 端的 msgUid 跟客户端 random
+    // 一一对应（msgUid = (0x01000000 << 32) | random，实测样本验过），所以 msgId 本地直接算，不需 RTT；
+    // msgSeq 留 '0'。代价：发送端 createMsgShortId 算出的 shortId 跟接收端不一致（接收端 msgSeq 是真值）,
+    // 不过两端各自存自己的，本地 DB 内仍然唯一。
     const random = randomBytes(4).readUInt32BE(0)
-    const echoP = this.waitForSelfEcho(peer, random, 5000)
+    const isGroup = peer.chatType === ChatType.Group
+    const echoP = isGroup ? this.waitForSelfEcho(peer, random, 5000) : null
 
     const ret = await this.ctx.qqProtocol.sendMessage({
       chatType,
@@ -230,13 +249,21 @@ export class NTQQMsgApi extends Service {
       random,
     })
 
-    const echoed = await echoP.catch(() => undefined)
+    const echoed = echoP ? await echoP.catch(() => undefined) : undefined
+    // C2C 本地算 msgUid（高 32 位固定 0x01000000，低 32 位 = random）
+    const localMsgId = isGroup
+      ? String(ret.random)
+      : ((0x01000000n << 32n) | BigInt(ret.random)).toString()
 
     return {
-      msgId: echoed?.msgId ?? String(ret.random),
+      msgId: echoed?.msgId ?? localMsgId,
       msgType: 2,
       subMsgType: 0,
       msgTime: echoed?.msgTime ?? String(ret.timestamp || Math.floor(Date.now() / 1000)),
+      // 群聊：ret.sequence = PbSendMsgResp.sequence (field 11)，server 给整个群的 msgSeq，双方一致。
+      // C2C：ret.sequence = PbSendMsgResp.clientSequence (field 14)，server 给本端(我→对方)流的
+      //   ntMsgSeq；接收方 OlPush 里看到的 msgSeq 是另一组(对方→我)流的，双方不相等。
+      //   撤回 C2C 时这个值要塞 SsoC2CRecallMsg.info.ntMsgSeq。
       msgSeq: echoed?.msgSeq ?? String(ret.sequence || 0),
       msgRandom: String(ret.random),
       senderUid: selfInfo.uid,
@@ -254,7 +281,10 @@ export class NTQQMsgApi extends Service {
       elements: parseElements(elems as InferProtoModel<typeof Msg.Elem>[]),
       peerName: '',
       emojiLikesList: [],
-      msgAttrs: new Map(),
+      // 私聊撤回需要发送时 client 自己生成的 clientSequence（10000-99999），proto field 1 用
+      msgAttrs: !isGroup && ret.clientSequence
+        ? new Map([['clientSequence', String(ret.clientSequence)]])
+        : new Map(),
       isOnlineMsg: true,
       tempFromGroupCode: chatType === ChatType.TempC2CFromGroup ? groupCode! : 0
     }

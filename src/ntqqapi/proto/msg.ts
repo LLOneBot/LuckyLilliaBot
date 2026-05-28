@@ -218,6 +218,17 @@ export namespace Msg {
     message: ProtoField(1, Message)
   })
 
+  /** trpc.qq_new_tech.status_svc.StatusService.KickNT 推送：账号被踢下线 */
+  export const KickNTPush = ProtoMessage.of({
+    uin: ProtoField(1, 'uint32', 'optional'),
+    tipsDesc: ProtoField(3, 'string', 'optional'),
+    tipsTitle: ProtoField(4, 'string', 'optional'),
+    /** 1001 = 异地登录顶号；2001 = 服务端主动踢出 */
+    code: ProtoField(5, 'uint32', 'optional'),
+    /** 时间戳或某种 token */
+    field6: ProtoField(6, 'uint32', 'optional'),
+  })
+
   export const NotifyMessageBody = ProtoMessage.of({
     type: ProtoField(1, 'uint32'),
     groupCode: ProtoField(4, 'uint32'),
@@ -257,6 +268,20 @@ export namespace Msg {
     faceId: ProtoField(1, 'uint32'),
     text: ProtoField(2, 'string'),
     compatText: ProtoField(3, 'string')
+  })
+
+  /** commonElem(serviceType=37) 包装的"超级表情" / dice / rps 等动态贴纸 */
+  export const LargeFaceExtra = ProtoMessage.of({
+    aniStickerPackId: ProtoField(1, 'string', 'optional'),
+    aniStickerId: ProtoField(2, 'string', 'optional'),
+    faceId: ProtoField(3, 'int32', 'optional'),
+    field4: ProtoField(4, 'int32', 'optional'),
+    aniStickerType: ProtoField(5, 'int32', 'optional'),
+    field6: ProtoField(6, 'string', 'optional'),
+    preview: ProtoField(7, 'string', 'optional'),
+    field9: ProtoField(9, 'int32', 'optional'),
+    /** dice/rps 才有：1-6 / 1-3 表示骰子点数或猜拳手势 */
+    resultId: ProtoField(11, 'int32', 'optional'),
   })
 
   export const GroupFileExtra = ProtoMessage.of({
@@ -353,9 +378,19 @@ export namespace Msg {
     errMsg: ProtoField(2, 'string', 'optional'),
     sendTime: ProtoField(3, 'int64', 'optional'),
     msgInfoFlag: ProtoField(10, 'uint32', 'optional'),
-    /** 真正的消息序号（群和私聊都用这个 field） */
+    /**
+     * 群聊：server 给整个群分配的 msgSeq，所有人视角一致——发送方拿到的值跟接收方
+     *   OlPush msgType=82 contentHead.msgSeq 相等。
+     * 私聊：恒为 0/空——server 不在 PbSendMsg 这个 cmd 上回 c2c 的 msgSeq。
+     */
     sequence: ProtoField(11, 'uint64', 'optional'),
-    /** 客户端提交的序号 */
+    /**
+     * 群聊：通常空，群消息以 sequence 为准。
+     * 私聊：server 给本端 (我视角→对方) c2c 流分配的 ntMsgSeq，单调 +1 递增。
+     *   ⚠️ 名字误导，不是回声 client 提交的 clientSequence。
+     *   ⚠️ 发送方和接收方拿到的不一样：server 给 (我→对方) 流和 (对方→我) 流是两组独立
+     *   计数器，发送方这里的值跟接收方 OlPush.contentHead.msgSeq 完全不相等。
+     */
     clientSequence: ProtoField(14, 'uint64', 'optional'),
   })
 

@@ -57,7 +57,7 @@ export function registerDispatcher(ctx: Context) {
           handleMsgPush(ctx, payload)
           break
         case KICK_CMD:
-          ctx.parallel('nt/kicked-offLine', { tipsTitle: 'KickNT', tipsDesc: 'Kicked by server' } as any)
+          handleKickNT(ctx, payload)
           break
         case INFO_SYNC_PUSH_CMD:
           handleInfoSyncPush(ctx, payload)
@@ -121,6 +121,31 @@ function handleMsgPush(ctx: Context, payload: Buffer) {
 function forwardSystemMessage(ctx: Context, msg: any) {
   const messageBytes = Msg.Message.encode(msg)
   ctx.parallel('nt/system-message-created', Buffer.from(messageBytes))
+}
+
+/** 解析 KickNT 被踢下线推送，emit 'nt/kicked-offLine' */
+function handleKickNT(ctx: Context, payload: Buffer) {
+  let info = {
+    appId: 0,
+    instanceId: 0,
+    sameDevice: false,
+    tipsDesc: 'Kicked by server',
+    tipsTitle: '下线通知',
+    kickedType: 0,
+    securityKickedType: 0,
+  }
+  try {
+    const decoded = Msg.KickNTPush.decode(payload)
+    info = {
+      ...info,
+      tipsDesc: decoded.tipsDesc || info.tipsDesc,
+      tipsTitle: decoded.tipsTitle || info.tipsTitle,
+      kickedType: Number(decoded.code ?? 0),
+    }
+  } catch (e) {
+    ctx.logger.warn('KickNT parse error:', (e as Error).message)
+  }
+  ctx.parallel('nt/raw/kicked-offline', info)
 }
 
 /** 解析 InfoSyncPush，把每个群的 GroupSeq（最新 msgSeq）记到 store —— 拉群历史"最新 N 条"用 */
@@ -298,17 +323,21 @@ function handleFriendRecall(ctx: Context, msg: any, content: Buffer) {
     // - bot 收到对方撤回：body.fromUid=对方, body.toUid=自己 → peerUid=fromUid
     // - bot 自己撤回时 server 会回声同一条 push：body.fromUid=自己, body.toUid=对方 → peerUid=toUid
     const peerUid = fromUid === selfInfo.uid ? toUid : fromUid
-    const seqStr = String(body.sequence || 0)
+    // FriendRecall.body.random (field 6) 是被撤回消息的 32-bit msgRandom，server 在两端一致广播。
+    // body.sequence (field 20) 在 self-recall 里恒为 0，不可靠；body.msgUid (field 4) = (0x01000000<<32)|random。
+    const random = String(body.random || (body.msgUid ? Number(BigInt(body.msgUid) & 0xFFFFFFFFn) : 0))
     const store = (ctx as any).store
-    const original = store?.findCachedMsgByPeerSeq?.(peerUid, seqStr)
-    // 复用 cache 里原消息的 msgRandom / senderUin，确保 shortId 与原消息一致
+    const original = random !== '0'
+      ? store?.findCachedMsgByPeerRandom?.(peerUid, random)
+      : undefined
+    // 复用 cache 里原消息的字段，确保 shortId 与原消息一致
     const senderUid = original?.senderUid || fromUid
     const senderUin = original?.senderUin || String(msg.routingHead?.fromUin || 0)
     const peerUin = original?.peerUin || String(msg.routingHead?.toUin || 0)
 
     const recallMessage = buildRecallMessage({
-      msgSeq: seqStr,
-      msgRandom: original?.msgRandom || '0',
+      msgSeq: original?.msgSeq || '0',
+      msgRandom: original?.msgRandom || random,
       senderUid,
       senderUin,
       peerUid,

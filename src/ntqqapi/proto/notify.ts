@@ -77,6 +77,10 @@ export namespace Notify {
       fromUid: ProtoField(1, 'string'),
       toUid: ProtoField(2, 'string'),
       clientSequence: ProtoField(3, 'uint32'),
+      /** 被撤回消息的 msgUid（C2C 公式 (0x01000000<<32)|random） */
+      msgUid: ProtoField(4, 'uint64', 'optional'),
+      /** 被撤回消息的 32-bit random，server 跨双端一致 */
+      random: ProtoField(6, 'uint32', 'optional'),
       sequence: ProtoField(20, 'uint64'),
       tipInfo: ProtoField(13, {
         tip: ProtoField(2, 'string', 'optional')

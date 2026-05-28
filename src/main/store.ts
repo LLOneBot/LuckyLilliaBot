@@ -131,15 +131,18 @@ class Store extends Service {
   }
 
   getUniqueMsgId(msg: RawMessage): string {
-    // (peerUid, msgSeq) 已经能唯一定位群消息；msgRandom 锦上添花，防极端竞态。
-    // 之前发送方 PbSendMsgResp.sequence 跟接收方 OlPush.contentHead.msgSeq 偶尔差几槽
-    // 导致两端算出不同 shortId —— ntMsgApi.sendMsg 现在等 OlPush 回声拿到真实 msgSeq 才返回，
-    // 两端从一开始就一致，可以放心把 msgSeq 进 hash。
+    // 群消息：peerUid + msgSeq 都是 server 全局分配，两端一致；msgSeq 单调递增天然唯一。
+    //   叠 msgRandom 锦上添花防极端竞态。
+    // C2C：两端的 peerUid 是各自视角的对方 uid，不同；msgSeq 也不同（自己发的恒为 '0'，对方
+    //   发的是真值）。要让两端 createMsgShortId 算同一个 shortId（OB11 message_id 反查必需），
+    //   必须用两端都一致的字段：(selfUid,otherUid) 排序对 + msgRandom（server 在两端原样广播）。
+    //   msgRandom 32-bit 单独 birthday 撞概率 ~6.5w 条 50%，但 OB11 message_id 本身就是
+    //   int32（spec 定的 32-bit），shortId 空间撞概率不会比 random 小，所以无需再叠时间。
     if (msg.chatType === ChatType.C2C || msg.chatType === ChatType.TempC2CFromGroup) {
       const me = selfInfo.uid
       const other = msg.senderUid === me ? msg.peerUid : msg.senderUid
       const pair = me < other ? `${me}|${other}` : `${other}|${me}`
-      return `${msg.chatType}-${pair}-${msg.msgSeq}-${msg.msgRandom}`
+      return `${msg.chatType}-${pair}-${msg.msgRandom}`
     }
     return `${msg.chatType}-${msg.peerUid}-${msg.msgSeq}-${msg.msgRandom}`
   }
@@ -285,6 +288,16 @@ class Store extends Service {
   findCachedMsgByPeerSeq(peerUid: string, msgSeq: string): RawMessage | undefined {
     for (const m of this.messages.values()) {
       if (m.peerUid === peerUid && m.msgSeq === msgSeq) return m
+    }
+    return undefined
+  }
+
+  /** 在内存 cache 中按 (peerUid, msgRandom) 查找消息（C2C self-recall 反查用：
+   *  自己发的私聊 msgSeq 一直是 0，但 random 是发送时生成的且写进了 msgUid，撤回 push
+   *  里 server 把 msgUid 塞 body.sequence，我们能反推出 random 找到原消息） */
+  findCachedMsgByPeerRandom(peerUid: string, msgRandom: string): RawMessage | undefined {
+    for (const m of this.messages.values()) {
+      if (m.peerUid === peerUid && m.msgRandom === msgRandom) return m
     }
     return undefined
   }

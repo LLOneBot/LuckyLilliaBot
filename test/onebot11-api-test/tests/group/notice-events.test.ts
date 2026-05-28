@@ -35,9 +35,9 @@ describe('notice 事件覆盖', () => {
     teardownMessageTest(context);
   });
 
-  it('friend_recall — primary 发私聊给 secondary 后撤回，自己 (primary) 收到 friend_recall (sub=139)', async () => {
-    // 直连模式当前观测：QQ server 不向接收方下发 0x210 sub=138（FriendRecall）；
-    // 只有撤回方自己会收到 sub=139（FriendSelfRecall）。所以这里在 primary 端断言。
+  it('friend_recall — primary 发私聊给 secondary 后撤回，双方都收到 friend_recall', async () => {
+    // 撤回方收到 0x210 sub=139 (FriendSelfRecall)，接收方收到 sub=138 (FriendRecall)。
+    // 双方算出的 shortId 一致（C2C uniqueMsgId 用 (uid pair, msgRandom) 哈希，双端可对齐）。
     context.twoAccountTest.clearAllQueues();
     const primary = context.twoAccountTest.getClient('primary');
     const sendResp = await primary.call(ActionName.SendPrivateMsg, {
@@ -57,11 +57,18 @@ describe('notice 事件覆盖', () => {
     const delResp = await primary.call(ActionName.DeleteMsg, { message_id: messageId });
     Assertions.assertSuccess(delResp, 'delete_msg');
 
-    await context.twoAccountTest.primaryListener.waitForEvent({
-      post_type: 'notice',
-      notice_type: 'friend_recall',
-      message_id: messageId,
-    }, undefined, 15000);
+    await Promise.all([
+      context.twoAccountTest.primaryListener.waitForEvent({
+        post_type: 'notice',
+        notice_type: 'friend_recall',
+        message_id: messageId,
+      }, undefined, 15000),
+      context.twoAccountTest.secondaryListener.waitForEvent({
+        post_type: 'notice',
+        notice_type: 'friend_recall',
+        message_id: messageId,
+      }, undefined, 15000),
+    ]);
   }, 60000);
 
   it('group_card — primary 改 secondary 的群名片，secondary 在群里发言后收到 group_card', async () => {

@@ -107,6 +107,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
      * 拉私聊漫游消息（按时间）。SsoGetC2CMsg 必须传 seq，不知道 seq 时走这个：
      *   time=now、direction=1（"向上滚 = 看更早的"）即可拿到"最新 N 条"。
      * count 上限 30。
+     * 拿"绝对最新 N 条"建议传 time=0xFFFFFFFA（远未来）避开本地时钟漂移与 TOCTOU。
      */
     async getC2CRoamMessages(peerUid: string, time: number, count: number, direction: 1 | 2 = 1) {
       const data = Action.SsoGetRoamMsgReq.encode({
@@ -291,16 +292,16 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       if (resp.resultCode !== 0) {
         throw new Error(`发送消息失败 (code=${resp.resultCode}): ${resp.errMsg || ''}`)
       }
-      // group 用 server-assigned group msgSeq；C2C 用我们本地生成的 clientSequence
-      // （server 广播给接收方时 contentHead.msgSeq = clientSequence；resp.sequence 是另一个 ID，
-      // 不能拿来当 OneBot message_id 的 hash 输入，否则两端算出的 shortId 不一致）
-      const seq = opts.chatType === 2
-        ? (resp.sequence || resp.clientSequence)
-        : clientSequence
+      // 群消息：resp.sequence (field 11) 是 server 给整个群的 msgSeq，发送方和接收方视角一致。
+      // C2C：resp.clientSequence (field 14) 是 server 给本端 (我→对方) c2c 流分配的 ntMsgSeq，
+      //   单调 +1 递增；名字误导，不是 client 提交的那个 clientSequence。
+      //   ⚠️ 发送方拿到的值跟接收方 OlPush.contentHead.msgSeq 不相等——双向是两组独立计数器。
+      const seq = resp.sequence || resp.clientSequence
       return {
         sequence: seq,
         timestamp: resp.sendTime,
         random,
+        clientSequence,
       }
     }
 
