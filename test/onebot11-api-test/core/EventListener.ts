@@ -2,6 +2,7 @@ import WebSocket from 'ws';
 import axios from 'axios';
 import { isDeepStrictEqual } from 'node:util';
 import { ApiClient, TimeoutError } from './ApiClient.js';
+import { IApiClient, IEventListener } from '../../test-framework/src/index.js';
 // 使用源码中定义的事件类型，避免重复定义
 import type { OB11Event } from '../../../src/onebot11/event/index.js';
 
@@ -27,8 +28,8 @@ export type { OB11Event };
  * 事件监听器
  * 支持 HTTP SSE 和 WebSocket 两种协议监听事件
  */
-export class EventListener {
-  private client: ApiClient;
+export class EventListener implements IEventListener<OB11Event, EventFilter> {
+  private client: IApiClient;
   private protocol: 'http' | 'ws';
   private ws: WebSocket | null = null;
   private sseAbortController: AbortController | null = null;
@@ -46,10 +47,10 @@ export class EventListener {
    * 构造函数
    * @param client API 客户端实例
    */
-  constructor(client: ApiClient) {
+  constructor(client: IApiClient) {
     this.client = client;
     const config = this.client.getConfig();
-    this.protocol = config.protocol;
+    this.protocol = config.protocol as 'http' | 'ws';
   }
 
   /**
