@@ -111,7 +111,13 @@ export namespace Msg {
       senderUin: ProtoField(2, 'uint32'),
       time: ProtoField(3, 'int32'),
       elems: ProtoField(5, 'bytes', 'repeated'),
-      pbReserve: ProtoField(8, 'bytes'),
+      attr: ProtoField(8, {
+        oriMsgType: ProtoField(2, 'uint32', 'optional'),
+        sourceMsgId: ProtoField(3, 'uint64'),
+        senderUid: ProtoField(6, 'string'),
+        receiverUid: ProtoField(7, 'string', 'optional'),
+        ntMsgSeq: ProtoField(8, 'uint32', 'optional')
+      }),
       srcMsg: ProtoField(9, 'bytes', 'optional'), // 仅在合并转发内存在
       toUin: ProtoField(10, 'uint32')
     }, 'optional'),
@@ -132,7 +138,7 @@ export namespace Msg {
       fromUid: ProtoField(2, 'string'),
       fromAppid: ProtoField(3, 'uint32'),
       fromInstid: ProtoField(4, 'uint32'),
-      toUin: ProtoField(5, 'uint64'),
+      toUin: ProtoField(5, 'uint32'),
       toUid: ProtoField(6, 'string'),
       c2c: ProtoField(7, {
         c2cType: ProtoField(1, 'int32'),
@@ -165,7 +171,7 @@ export namespace Msg {
       pkgIndex: ProtoField(8, 'uint32'),
       divSeq: ProtoField(9, 'uint32'),
       autoReply: ProtoField(10, 'uint32'),
-      ntMsgSeq: ProtoField(11, 'uint64'),
+      ntMsgSeq: ProtoField(11, 'uint32'),
       msgUid: ProtoField(12, 'uint64'),
       /**
        * SsoGetGroupMsg 拉历史时，server 不填 field 12 的 msgUid，
@@ -383,15 +389,14 @@ export namespace Msg {
      *   OlPush msgType=82 contentHead.msgSeq 相等。
      * 私聊：恒为 0/空——server 不在 PbSendMsg 这个 cmd 上回 c2c 的 msgSeq。
      */
-    sequence: ProtoField(11, 'uint64', 'optional'),
+    sequence: ProtoField(11, 'uint32', 'optional'),
     /**
      * 群聊：通常空，群消息以 sequence 为准。
      * 私聊：server 给本端 (我视角→对方) c2c 流分配的 ntMsgSeq，单调 +1 递增。
-     *   ⚠️ 名字误导，不是回声 client 提交的 clientSequence。
      *   ⚠️ 发送方和接收方拿到的不一样：server 给 (我→对方) 流和 (对方→我) 流是两组独立
      *   计数器，发送方这里的值跟接收方 OlPush.contentHead.msgSeq 完全不相等。
      */
-    clientSequence: ProtoField(14, 'uint64', 'optional'),
+    ntMsgSeq: ProtoField(14, 'uint32', 'optional'),
   })
 
   /**

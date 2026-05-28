@@ -22,7 +22,6 @@ export class NTQQFriendApi extends Service {
     if (forceUpdate || this.friendsCache.length === 0) {
       const friends = []
       const categories = new Map<number, FriendCategory>()
-      const ids = []
       let cookie: Buffer | undefined
       while (true) {
         const res = await this.ctx.qqProtocol.fetchFriends(cookie)
@@ -54,15 +53,10 @@ export class NTQQFriendApi extends Service {
             birthdayDay: biz.data.get(20031)![3],
             status: statusId
           })
-          ids.push({
-            uid: friend.uid,
-            uin: friend.uin
-          })
         }
         cookie = res.cookie
         if (!cookie) break
       }
-      this.ctx.store.addUix(ids).catch(e => this.ctx.logger.warn(e))
       this.friendsCache = friends
       this.categoriesCache = categories
     }

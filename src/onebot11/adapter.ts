@@ -418,11 +418,18 @@ class Onebot11Adapter extends Service {
         const operatorUin = input.operatorUid
           ? await this.ctx.ntUserApi.getUinByUid(input.operatorUid)
           : '0'
-        const peerUid = String(groupId)
-        const cached = this.ctx.store.findCachedMsgByPeerSeq(peerUid, String(input.msgSeq))
-        let messageId = 0
+        const peer = {
+          chatType: ChatType.Group,
+          peerUid: groupId.toString(),
+          guildId: ''
+        }
+        const cached = this.ctx.store.getMsgBySeq(peer, input.msgSeq)
+        let messageId
         if (cached) {
           messageId = this.ctx.store.createMsgShortId(cached)
+        } else {
+          const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(peer, input.msgSeq)
+          messageId = this.ctx.store.createMsgShortId(msgList[0])
         }
         this.dispatch(new OB11GroupMsgEmojiLikeEvent(
           groupId,
@@ -470,13 +477,20 @@ class Onebot11Adapter extends Service {
       const groupId = +input.groupCode
       if (!groupId) return
       try {
-        const peerUid = String(groupId)
-        const cached = this.ctx.store.findCachedMsgByPeerSeq(peerUid, String(input.msgSequence))
-        let messageId = 0
-        let senderId = 0
+        const peer = {
+          chatType: ChatType.Group,
+          peerUid: groupId.toString(),
+          guildId: ''
+        }
+        const cached = this.ctx.store.getMsgBySeq(peer, input.msgSequence)
+        let messageId, senderId
         if (cached) {
           messageId = this.ctx.store.createMsgShortId(cached)
-          senderId = +(cached.senderUin || 0)
+          senderId = +cached.senderUin
+        } else {
+          const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(peer, input.msgSequence)
+          messageId = this.ctx.store.createMsgShortId(msgList[0])
+          senderId = +msgList[0].senderUin
         }
         this.dispatch(new GroupEssenceEvent(
           groupId,
@@ -717,75 +731,6 @@ class Onebot11Adapter extends Service {
         Number(selfInfo.uin),
       )
       this.dispatch(event)
-    })
-
-    this.ctx.qqProtocol.addResListener(async data => {
-      try {
-        if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
-          const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
-          if (!pushMsg.message.body) {
-            return null
-          }
-          const { msgType, subType } = pushMsg.message.contentHead
-          if (msgType === 732 && subType === 16) {
-            const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
-            if (notify.field13 === 35) {
-              this.ctx.logger.info('群表情回应', notify.groupCode, notify.reaction.data.body)
-              const info = notify.reaction.data.body.info
-              const target = notify.reaction.data.body.target
-              const userId = Number(await this.ctx.ntUserApi.getUinByUid(info.operatorUid))
-              const peer: Peer = {
-                chatType: 2,
-                peerUid: String(notify.groupCode),
-                guildId: ''
-              }
-              const seqStr = String(target.sequence)
-              const targetMsg = await this.ctx.ntMsgApi.getSingleMsg(peer, seqStr)
-              const msg0 = targetMsg.msgList[0]
-              if (!msg0) {
-                this.ctx.logger.error('解析群表情回应失败：未找到消息')
-                return
-              }
-              const messageId = this.ctx.store.createMsgShortId(msg0)
-              const event = new OB11GroupMsgEmojiLikeEvent(
-                notify.groupCode,
-                userId,
-                messageId,
-                [{
-                  emoji_id: info.code,
-                  count: info.count,
-                }],
-                info.actionType === 1
-              )
-              this.dispatch(event)
-            }
-          } else if (msgType === 732 && subType === 21) {
-            const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
-            if (notify.type === 27) {
-              this.ctx.logger.info('收到群精华消息通知', notify)
-              const peer = {
-                chatType: ChatType.Group,
-                peerUid: notify.groupCode.toString(),
-                guildId: ''
-              }
-              const msg = await this.ctx.ntMsgApi.queryFirstMsgBySeq(peer, notify.essenceMessage.msgSequence.toString())
-              if (msg.msgList.length === 0) {
-                return
-              }
-              const event = new GroupEssenceEvent(
-                notify.groupCode,
-                this.ctx.store.createMsgShortId(msg.msgList[0]),
-                notify.essenceMessage.memberUin,
-                notify.essenceMessage.operatorUin,
-                notify.essenceMessage.setFlag === 1 ? 'add' : 'delete'
-              )
-              this.dispatch(event)
-            }
-          }
-        }
-      } catch (e) {
-        this.ctx.logger.error('handling incoming olpush events', e)
-      }
     })
 
     this.ctx.on('nt/group-join-request', async (data) => {

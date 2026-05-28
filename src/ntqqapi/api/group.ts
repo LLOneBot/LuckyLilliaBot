@@ -23,6 +23,7 @@ export class NTQQGroupApi extends Service {
   private groupsCache: Group[] = []
   private groupCache: Map<number, Group> = new Map()
   private membersCache: Map<number, GroupMember[]> = new Map()
+  private refreshingMembers: Map<number, Promise<void>> = new Map()
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntGroupApi')
@@ -81,9 +82,12 @@ export class NTQQGroupApi extends Service {
 
   // TODO: 群成员数量变更时刷新缓存
   async getGroupMembers(groupCode: number, forceUpdate: boolean) {
-    if (forceUpdate || !this.membersCache.has(groupCode)) {
+    if (this.refreshingMembers.has(groupCode)) {
+      await this.refreshingMembers.get(groupCode)
+    } else if (forceUpdate || !this.membersCache.has(groupCode)) {
+      const { promise, resolve } = Promise.withResolvers<void>()
+      this.refreshingMembers.set(groupCode, promise)
       const members = []
-      const ids = []
       let cookie: Buffer | undefined
       while (true) {
         const res = await this.ctx.qqProtocol.fetchGroupMembers(groupCode, cookie)
@@ -100,13 +104,13 @@ export class NTQQGroupApi extends Service {
             shutupExpireTime: member.shutUpTimestamp ?? 0,
             role: member.permission ?? 0
           })
-          ids.push(member.id)
         }
         cookie = res.cookie
         if (!cookie) break
       }
-      this.ctx.store.addUix(ids).catch(e => this.ctx.logger.warn(e))
       this.membersCache.set(groupCode, members)
+      resolve()
+      this.refreshingMembers.delete(groupCode)
     }
     return this.membersCache.get(groupCode)!
   }
@@ -196,24 +200,12 @@ export class NTQQGroupApi extends Service {
     return await this.ctx.qqProtocol.fetchGroupAtAllRemain(+selfInfo.uin, groupCode)
   }
 
-  async removeGroupEssence(groupCode: number, msgSeq: number) {
-    const ntMsgApi = this.ctx.get('ntMsgApi')!
-    const { msgList } = await ntMsgApi.getSingleMsg({
-      chatType: ChatType.Group,
-      peerUid: groupCode.toString(),
-      guildId: ''
-    }, msgSeq.toString()) // TODO: 如果咱有 msgRandom 呢？
-    return await this.ctx.qqProtocol.setGroupEssence(groupCode, msgSeq, +msgList[0].msgRandom, false)
+  async removeGroupEssence(groupCode: number, msgSeq: number, msgRandom: number) {
+    return await this.ctx.qqProtocol.setGroupEssence(groupCode, msgSeq, msgRandom, false)
   }
 
-  async addGroupEssence(groupCode: number, msgSeq: number) {
-    const ntMsgApi = this.ctx.get('ntMsgApi')!
-    const { msgList } = await ntMsgApi.getSingleMsg({
-      chatType: ChatType.Group,
-      peerUid: groupCode.toString(),
-      guildId: ''
-    }, msgSeq.toString()) // TODO: 如果咱有 msgRandom 呢？
-    return await this.ctx.qqProtocol.setGroupEssence(groupCode, msgSeq, +msgList[0].msgRandom, true)
+  async addGroupEssence(groupCode: number, msgSeq: number, msgRandom: number) {
+    return await this.ctx.qqProtocol.setGroupEssence(groupCode, msgSeq, msgRandom, true)
   }
 
   async getGroupRecommendContactArk(groupCode: number) {

@@ -79,7 +79,7 @@ async function onLoad() {
     sessionLoaded = true
     ctx.plugin(Database)
     ctx.plugin(SQLiteDriver, {
-      path: pathToFileURL(path.join(dbDir, `${selfInfo.uin}.v2.db`)).href,
+      path: pathToFileURL(path.join(dbDir, `${selfInfo.uin}.v3.db`)).href,
     })
     ctx.plugin(Core, config)
     ctx.plugin(OneBot11Adapter, {

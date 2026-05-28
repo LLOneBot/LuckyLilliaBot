@@ -34,9 +34,6 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       })
       const res = await this.sendPB('trpc.group.long_msg_interface.MsgService.SsoRecvLongMsg', data)
       const payload = Action.RecvLongMsgResp.decode(Buffer.from(res.pb, 'hex')).result.payload
-      if (payload.length === 0) {
-        throw new Error('获取合并转发消息内容失败')
-      }
       const inflate = gunzipSync(payload)
       return Msg.PbMultiMsgTransmit.decode(inflate).pbItemList
     }
@@ -84,23 +81,14 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
         filter: 1,
       })
       const res = await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoGetGroupMsg', data)
-      const decoded = Action.SsoGetGroupMsgResp.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.retcode !== 0) {
-        throw new Error(`获取群消息失败: ${decoded.errorMsg}`)
-      }
-      // body.messages 是 bytes[]，每个是序列化的 Msg.Message，需要再解一次
-      return (decoded.body.messages || []).map((buf: Uint8Array) => Msg.Message.decode(Buffer.from(buf)))
+      return Action.SsoGetGroupMsgResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     /** 拉私聊历史消息（按 seq 范围） */
     async getC2CMessages(peerUid: string, startSequence: number, endSequence: number) {
       const data = Action.SsoGetC2CMsgReq.encode({ peerUid, startSequence, endSequence })
-      const res = await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoGetC2CMsg', data)
-      const decoded = Action.SsoGetC2CMsgResp.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.retcode !== 0) {
-        throw new Error(`获取私聊消息失败: ${decoded.errorMsg}`)
-      }
-      return (decoded.messages || []).map((buf: Uint8Array) => Msg.Message.decode(Buffer.from(buf)))
+      const res = await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoGetC2cMsg', data)
+      return Action.SsoGetC2CMsgResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     /**
@@ -118,8 +106,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
         direction,
       })
       const res = await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoGetRoamMsg', data)
-      const decoded = Action.SsoGetRoamMsgResp.decode(Buffer.from(res.pb, 'hex'))
-      return (decoded.messages || []).map((buf: Uint8Array) => Msg.Message.decode(Buffer.from(buf)))
+      return Action.SsoGetRoamMsgResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     /** 撤回群消息 */
@@ -294,9 +281,8 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       }
       // 群消息：resp.sequence (field 11) 是 server 给整个群的 msgSeq，发送方和接收方视角一致。
       // C2C：resp.clientSequence (field 14) 是 server 给本端 (我→对方) c2c 流分配的 ntMsgSeq，
-      //   单调 +1 递增；名字误导，不是 client 提交的那个 clientSequence。
       //   ⚠️ 发送方拿到的值跟接收方 OlPush.contentHead.msgSeq 不相等——双向是两组独立计数器。
-      const seq = resp.sequence || resp.clientSequence
+      const seq = resp.sequence || resp.ntMsgSeq!
       return {
         sequence: seq,
         timestamp: resp.sendTime,
@@ -349,7 +335,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       return {
         resultCode: resp.resultCode,
         errMsg: resp.errMsg,
-        sequence: (resp.clientSequence && resp.clientSequence !== 0n) ? resp.clientSequence : resp.sequence,
+        sequence: resp.ntMsgSeq,
         timestamp: resp.sendTime,
         random,
       }

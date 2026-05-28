@@ -1,4 +1,4 @@
-import { Oidb } from '@/ntqqapi/proto'
+import { Action, Oidb } from '@/ntqqapi/proto'
 import { selfInfo } from '@/common/globalVars'
 import type { QQProtocolBase } from '../base'
 
@@ -231,6 +231,14 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
         body,
       })
       await this.sendPB('OidbSvcTrpcTcp.0x5d6_18', data)
+    }
+
+    async getFriendLatestSequence(peerUid: string) {
+      const data = Action.SsoGetPeerSeqReq.encode({
+        peerUid
+      })
+      const res = await this.sendPB('trpc.msg.msg_svc.MsgService.SsoGetPeerSeq', data)
+      return Action.SsoGetPeerSeqResp.decode(Buffer.from(res.pb, 'hex'))
     }
   }
 }

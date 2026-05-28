@@ -51,14 +51,10 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
       }
       try {
         const { replyMsgSeq } = replyElement
-        let replyMsg: RawMessage | undefined
-        try {
-          const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, String(replyMsgSeq))
-          replyMsg = msgList[0]
-        } catch { }
-
+        let replyMsg = ctx.store.getMsgBySeq(peer, replyMsgSeq)
         if (!replyMsg) {
-          replyMsg = ctx.store.findCachedMsgByPeerSeq?.(peer.peerUid, String(replyMsgSeq))
+          const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq)
+          replyMsg = msgList[0]
         }
         if (!replyMsg) {
           // 没找到原消息也得发出 reply 段，否则客户端看不到这是一条回复。用 msgSeq 当占位 id
@@ -173,24 +169,12 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
     }
     else if (element.arkElement) {
       const { arkElement } = element
-      try {
-        const data = JSON.parse(arkElement.bytesData)
-        if (data.app === 'com.tencent.multimsg') {
-          messageSegment = {
-            type: OB11MessageDataType.Forward,
-            data: {
-              id: message.msgId
-            }
-          }
-        } else {
-          messageSegment = {
-            type: OB11MessageDataType.Json,
-            data: {
-              data: arkElement.bytesData
-            }
-          }
+      messageSegment = {
+        type: OB11MessageDataType.Json,
+        data: {
+          data: arkElement.bytesData
         }
-      } catch { }
+      }
     }
     else if (element.faceElement) {
       const { faceElement } = element
@@ -297,7 +281,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
       messageSegment = {
         type: OB11MessageDataType.Forward,
         data: {
-          id: message.msgId
+          id: element.multiForwardMsgElement.resId
         }
       }
     } else if (element.inlineKeyboardElement) {

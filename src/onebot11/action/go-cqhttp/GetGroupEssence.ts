@@ -32,17 +32,20 @@ export class GetEssenceMsgList extends BaseAction<Payload, EssenceMsg[]> {
     const essence = await this.ctx.ntWebApi.listGroupEssence(groupCode)
     const data: EssenceMsg[] = []
     for (const item of essence.items) {
-      const { msgList } = await this.ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, String(item.msgSeq), '0', [])
-      const sourceMsg = msgList.find((e: any) => e.msgRandom === String(item.msgRandom))
-      if (!sourceMsg) continue
+      let msg = this.ctx.store.getMsgBySeq(peer, item.msgSeq)
+      if (!msg) {
+        const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(peer, item.msgSeq)
+        msg = msgList[0]
+      }
+      if (!msg) continue
       data.push({
         sender_id: +item.msgSenderUin,
         sender_nick: item.msgSenderNick,
-        sender_time: +sourceMsg.msgTime,
+        sender_time: +msg.msgTime,
         operator_id: +item.opUin,
         operator_nick: item.opNick,
         operator_time: item.opTime,
-        message_id: this.ctx.store.createMsgShortId(sourceMsg)
+        message_id: this.ctx.store.createMsgShortId(msg)
       })
     }
     return data

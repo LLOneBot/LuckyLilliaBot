@@ -101,7 +101,7 @@ export namespace OB11Entities {
         resMsg.sender.nickname = 'QQ用户'
       } else {
         try {
-          resMsg.sender.nickname = (await ctx.ntUserApi.getCoreAndBaseInfo([msg.senderUid])).get(msg.senderUid)!.coreInfo.nick
+          resMsg.sender.nickname = (await ctx.ntFriendApi.getFriendByUid(msg.senderUid, false))!.nick
         } catch {
           resMsg.sender.nickname = msg.sendNickName || msg.senderUin
         }

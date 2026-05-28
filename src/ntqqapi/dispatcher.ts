@@ -60,7 +60,6 @@ export function registerDispatcher(ctx: Context) {
           handleKickNT(ctx, payload)
           break
         case INFO_SYNC_PUSH_CMD:
-          handleInfoSyncPush(ctx, payload)
           break
         case PUSH_PARAMS_CMD:
           // 多端在线参数推送，业务上不需要处理
@@ -146,22 +145,6 @@ function handleKickNT(ctx: Context, payload: Buffer) {
     ctx.logger.warn('KickNT parse error:', (e as Error).message)
   }
   ctx.parallel('nt/raw/kicked-offline', info)
-}
-
-/** 解析 InfoSyncPush，把每个群的 GroupSeq（最新 msgSeq）记到 store —— 拉群历史"最新 N 条"用 */
-function handleInfoSyncPush(ctx: Context, payload: Buffer) {
-  try {
-    const decoded = Msg.InfoSyncPush.decode(payload)
-    for (const node of decoded.groupNodes || []) {
-      const groupCode = String(node.groupCode)
-      const seq = Number(node.groupSeq)
-      if (groupCode && seq) {
-        ctx.store.setLatestPeerSeq(ChatType.Group, groupCode, seq)
-      }
-    }
-  } catch (e) {
-    ctx.logger('qqProtocol').warn('InfoSyncPush parse error:', (e as Error).message)
-  }
 }
 
 // ---- MsgType 528 (Event0x210) - Friend events ----
@@ -767,8 +750,8 @@ function buildRecallMessage(p: RecallParams): RawMessage {
     msgType: 5,
     subMsgType: 4,
     msgTime: String(p.msgTime || Math.floor(Date.now() / 1000)),
-    msgSeq: p.msgSeq,
-    msgRandom: p.msgRandom ?? '0',
+    msgSeq: +p.msgSeq,
+    msgRandom: Number(p.msgRandom ?? '0'),
     senderUid: p.senderUid,
     senderUin: p.senderUin,
     peerUid: p.peerUid,
@@ -802,16 +785,20 @@ function buildRecallMessage(p: RecallParams): RawMessage {
     }] as any,
     peerName: '',
     emojiLikesList: [],
-    msgAttrs: new Map(),
     isOnlineMsg: true,
-    tempFromGroupCode: 0
+    tempFromGroupCode: 0,
+    clientSeq: 0
   }
 }
 
 function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, msgType: number) {
+  const routingHead = msg.routingHead
+  ctx.store.addUix([{
+    uid: routingHead.fromUid,
+    uin: routingHead.fromUin
+  }]).catch(e => ctx.logger.warn(e))
   if (msgType === MsgType.TempMessage) {
     let peerUid
-    const routingHead = msg.routingHead
     if (routingHead.fromUid === selfInfo.uid && routingHead.toUid) {
       peerUid = routingHead.toUid
     } else {
@@ -844,9 +831,8 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
       }
     }
   }
-  const rawMessage = convertToRawMessage(msg, msgType)
+  const rawMessage = convertToRawMessage(msg)
   if (!rawMessage) return
-  ctx.store.setLatestPeerSeq(rawMessage.chatType, rawMessage.peerUid, +rawMessage.msgSeq)
   const isSelfMsg = rawMessage.senderUin === selfInfo.uin
   if (isSelfMsg) {
     ctx.parallel('nt/raw/self-send-msg', rawMessage)
@@ -857,10 +843,11 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
 }
 
 /** 把 Msg.Message protobuf 转换为上层用的 RawMessage（OlPush 推送和 SsoGetGroupMsg 拉历史共用） */
-export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, msgType: number): RawMessage | null {
+export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>): RawMessage | null {
   const routingHead = msg.routingHead
   const contentHead = msg.contentHead
   const body = msg.body
+  const msgType = contentHead.msgType
 
   if (!routingHead || !contentHead) return null
 
@@ -936,8 +923,8 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, ms
     msgType: 2,
     subMsgType: 0,
     msgTime: String(contentHead.msgTime || Math.floor(Date.now() / 1000)),
-    msgSeq: String(contentHead.msgSeq || 0),
-    msgRandom: String(contentHead.random || 0),
+    msgSeq: contentHead.ntMsgSeq || contentHead.msgSeq,
+    msgRandom: contentHead.random,
     senderUid: routingHead.fromUid || '',
     senderUin,
     peerUid,
@@ -953,8 +940,8 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, ms
     elements,
     peerName: routingHead.group?.groupName || '',
     emojiLikesList: [],
-    msgAttrs: new Map(),
     isOnlineMsg: true,
-    tempFromGroupCode
+    tempFromGroupCode,
+    clientSeq: contentHead.ntMsgSeq ? contentHead.msgSeq : 0
   }
 }

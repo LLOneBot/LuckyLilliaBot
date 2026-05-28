@@ -1378,4 +1378,24 @@ export namespace Oidb {
     atTimesMsg: ProtoField(4, 'string'),
     canNotAtAllMsg: ProtoField(5, 'string', 'optional'),
   })
+
+  /** OidbSvcTrpcTcp.0x88d_0 */
+  export const FetchGroupExtraReq = ProtoMessage.of({
+    random: ProtoField(1, 'uint32'),
+    config: ProtoField(2, {
+      groupCode: ProtoField(1, 'uint32'),
+      flags: ProtoField(2, {
+        latestMessageSeq: ProtoField(22, 'bool')
+      })
+    })
+  })
+
+  export const FetchGroupExtraResp = ProtoMessage.of({
+    info: ProtoField(1, {
+      groupCode: ProtoField(1, 'uint32'),
+      results: ProtoField(3, {
+        latestMessageSeq: ProtoField(22, 'uint32')
+      })
+    })
+  })
 }

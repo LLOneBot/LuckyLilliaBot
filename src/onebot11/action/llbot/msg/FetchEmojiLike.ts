@@ -19,7 +19,11 @@ export class FetchEmojiLike extends BaseAction<Payload, Dict> {
   async _handle(payload: Payload) {
     const msgInfo = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
     if (!msgInfo) throw new Error('消息不存在')
-    const { msgSeq } = (await this.ctx.ntMsgApi.getMsgsByMsgId(msgInfo.peer, [msgInfo.msgId])).msgList[0]
-    return await this.ctx.ntMsgApi.getMsgEmojiLikesList(msgInfo.peer, msgSeq, payload.emoji_id, +payload.count)
+    return await this.ctx.ntMsgApi.getMsgEmojiLikesList(
+      msgInfo.peer,
+      msgInfo.msgSeq.toString(),
+      payload.emoji_id,
+      +payload.count
+    )
   }
 }

@@ -88,9 +88,12 @@ export async function transformOutgoingSegments(
             ctx.logger.warn('回复消息不存在', info)
             continue
           }
-          const source = (await ctx.ntMsgApi.getMsgsByMsgId(info.peer, [info.msgId])).msgList[0]
-          if (source) {
-            sendElements.push(SendElement.reply(+source.msgSeq, +source.senderUin, +source.msgTime))
+          let msg = ctx.store.getMsgByMsgId(info.msgId)
+          if (!msg) {
+            msg = (await ctx.ntMsgApi.getSingleMsg(info.peer, info.msgSeq)).msgList[0]
+          }
+          if (msg) {
+            sendElements.push(SendElement.reply(msg.msgSeq, +msg.senderUin, +msg.msgTime, msg.clientSeq))
           }
         }
       }
@@ -205,10 +208,6 @@ export async function transformOutgoingSegments(
         }]
         let summary = '查看转发消息'
         if (isNumeric(segment.data.id)) {
-          const shortId = await ctx.store.getShortIdByMsgId(segment.data.id)
-          if (!shortId) {
-            throw new Error('msg not found')
-          }
           const rootMsg = await ctx.store.getMsgInfoByShortId(shortId)
           if (!rootMsg) {
             throw new Error('msg not found')

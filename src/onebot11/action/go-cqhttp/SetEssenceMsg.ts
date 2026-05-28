@@ -12,11 +12,20 @@ export class SetEssenceMsg extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    const msg = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
-    if (!msg) {
+    const info = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
+    if (!info) {
       throw new Error('msg not found')
     }
-    const res = await this.ctx.ntGroupApi.addGroupEssence(+msg.peer.peerUid, +msg.msgSeq!)
+    let msg = this.ctx.store.getMsgByMsgId(info.msgId)
+    if (!msg) {
+      const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(info.peer, info.msgSeq)
+      msg = msgList[0]
+    }
+    const res = await this.ctx.ntGroupApi.addGroupEssence(
+      +info.peer.peerUid,
+      info.msgSeq,
+      msg.msgRandom
+    )
     if (res.errorCode !== 0) {
       throw new Error(res.errorMsg)
     }

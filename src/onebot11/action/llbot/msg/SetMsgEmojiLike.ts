@@ -26,13 +26,9 @@ export class SetMsgEmojiLike extends BaseAction<Payload, null> {
     if (msg.peer.chatType !== ChatType.Group) {
       throw new Error('只支持群聊消息')
     }
-    const msgData = (await this.ctx.ntMsgApi.getMsgsByMsgId(msg.peer, [msg.msgId])).msgList
-    if (!msgData || msgData.length == 0 || !msgData[0].msgSeq) {
-      throw new Error('find msg by msgid error')
-    }
-    const res = await this.ctx.ntMsgApi.setEmojiLike(
-      msg.peer,
-      msgData[0].msgSeq,
+    const res = await this.ctx.ntMsgApi.setGroupMsgReaction(
+      +msg.peer.peerUid,
+      msg.msgSeq,
       payload.emoji_id.toString(),
       this.set ?? payload.set
     )

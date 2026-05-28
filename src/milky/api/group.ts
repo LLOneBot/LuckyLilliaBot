@@ -31,7 +31,7 @@ import { TEMP_DIR } from '@/common/globalVars'
 import { unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
-import { GroupNotificationType, RequestState } from '@/ntqqapi/types'
+import { ChatType, GroupNotificationType, RequestState } from '@/ntqqapi/types'
 import { transformIncomingSegments } from '../transform/message'
 import { noop } from 'cosmokit'
 
@@ -262,25 +262,22 @@ const GetGroupEssenceMessages = defineApi(
     }
     const messages: GetGroupEssenceMessagesOutput['messages'] = []
     for (const item of items) {
-      const { msgList } = await ctx.ntMsgApi.getMsgsBySeqAndCount(
-        peer,
-        item.msgSeq.toString(),
-        1,
-        true,
-        true
-      )
-      const sourceMsg = msgList.find((e) => e.msgRandom === item.msgRandom.toString())
-      if (!sourceMsg) continue
+      let msg = ctx.store.getMsgBySeq(peer, item.msgSeq)
+      if (!msg) {
+        const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, item.msgSeq)
+        msg = msgList[0]
+      }
+      if (!msg) continue
       messages.push({
         group_id: +item.groupCode,
         message_seq: item.msgSeq,
-        message_time: +sourceMsg.msgTime,
+        message_time: +msg.msgTime,
         sender_id: +item.msgSenderUin,
         sender_name: item.msgSenderNick,
         operator_id: +item.opUin,
         operator_name: item.opNick,
         operation_time: item.opTime,
-        segments: await transformIncomingSegments(ctx, sourceMsg)
+        segments: await transformIncomingSegments(ctx, msg)
       })
     }
     return Ok({
@@ -295,13 +292,31 @@ const SetGroupEssenceMessage = defineApi(
   SetGroupEssenceMessageInput,
   z.object({}),
   async (ctx, payload) => {
+    const peer = {
+      chatType: ChatType.Group,
+      peerUid: payload.group_id.toString(),
+      guildId: ''
+    }
+    let msg = ctx.store.getMsgBySeq(peer, payload.message_seq)
+    if (!msg) {
+      const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq)
+      msg = msgList[0]
+    }
     if (payload.is_set) {
-      const result = await ctx.ntGroupApi.addGroupEssence(payload.group_id, payload.message_seq)
+      const result = await ctx.ntGroupApi.addGroupEssence(
+        payload.group_id,
+        payload.message_seq,
+        msg.msgRandom
+      )
       if (result.errorCode !== 0) {
         return Failed(-500, result.errorMsg)
       }
     } else {
-      const result = await ctx.ntGroupApi.removeGroupEssence(payload.group_id, payload.message_seq)
+      const result = await ctx.ntGroupApi.removeGroupEssence(
+        payload.group_id,
+        payload.message_seq,
+        msg.msgRandom
+      )
       if (result.errorCode !== 0) {
         return Failed(-500, result.errorMsg)
       }
@@ -333,14 +348,14 @@ const SendGroupMessageReaction = defineApi(
       peerUid: payload.group_id.toString(),
       guildId: ''
     }
-    const result = await ctx.ntMsgApi.setEmojiLike(
-      peer,
-      payload.message_seq.toString(),
+    const result = await ctx.ntMsgApi.setGroupMsgReaction(
+      payload.group_id,
+      payload.message_seq,
       payload.reaction,
       payload.is_add,
       {
-        face: '1',
-        emoji: '2'
+        face: 1,
+        emoji: 2
       }[payload.reaction_type]
     )
     if (result.errorCode !== 0) {

@@ -101,9 +101,8 @@ const RecallPrivateMessage = defineApi(
     }
     const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
       peer,
-      payload.message_seq.toString(),
+      payload.message_seq,
       1,
-      true,
       true
     )
     if (msg.msgList.length === 0) {
@@ -125,9 +124,8 @@ const RecallGroupMessage = defineApi(
     const peer = { chatType: 2, peerUid: payload.group_id.toString(), guildId: '' } // ChatType.Group = 2
     const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
       peer,
-      payload.message_seq.toString(),
+      payload.message_seq,
       1,
-      true,
       true
     )
     if (msg.msgList.length === 0) {
@@ -163,7 +161,7 @@ const GetMessage = defineApi(
       peer.peerUid = uid
     }
 
-    const msgResult = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq.toString())
+    const msgResult = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq)
     if (msgResult.msgList.length === 0) {
       return Failed(-404, 'Message not found')
     }
@@ -212,9 +210,10 @@ const GetHistoryMessages = defineApi(
 
     let msgList: RawMessage[]
     if (!payload.start_message_seq) {
-      msgList = (await ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, payload.limit)).msgList
+      const latestSeq = await ctx.ntMsgApi.getLatestMsgSeq(peer)
+      msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, latestSeq, payload.limit, false)).msgList
     } else {
-      msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, payload.start_message_seq.toString(), payload.limit, true, true)).msgList
+      msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, payload.start_message_seq, payload.limit, true)).msgList
     }
 
     const filteredMsgList = msgList.filter(msg => {

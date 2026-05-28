@@ -91,21 +91,27 @@ async function handleMsg(ctx: Context, msg: OB11Message, quickAction: QuickOpera
   }
   if (msg.message_type === 'group') {
     const groupMsgQuickAction = quickAction as QuickOperationGroupMessage
-    const rawMessage = await ctx.store.getMsgInfoByShortId(+(msg.message_id ?? 0))
-    if (!rawMessage) return
+    const info = await ctx.store.getMsgInfoByShortId(msg.message_id)
+    if (!info) return
     // handle group msg
     if (groupMsgQuickAction.delete) {
-      ctx.ntMsgApi.recallMsg(peer, [rawMessage.msgId]).catch(e => ctx.logger.error(e))
+      ctx.ntMsgApi.recallMsg(peer, [info.msgId]).catch(e => ctx.logger.error(e))
     }
     if (groupMsgQuickAction.kick) {
-      const { msgList } = await ctx.ntMsgApi.getMsgsByMsgId(peer, [rawMessage.msgId])
-      ctx.ntGroupApi.kickGroupMember(+peer.peerUid, [msgList[0].senderUid]).catch(e => ctx.logger.error(e))
+      let msg = ctx.store.getMsgByMsgId(info.msgId)
+      if (!msg) {
+        msg = (await ctx.ntMsgApi.getSingleMsg(info.peer, info.msgSeq)).msgList[0]
+      }
+      ctx.ntGroupApi.kickGroupMember(+peer.peerUid, [msg.senderUid]).catch(e => ctx.logger.error(e))
     }
     if (groupMsgQuickAction.ban) {
-      const { msgList } = await ctx.ntMsgApi.getMsgsByMsgId(peer, [rawMessage.msgId])
+      let msg = ctx.store.getMsgByMsgId(info.msgId)
+      if (!msg) {
+        msg = (await ctx.ntMsgApi.getSingleMsg(info.peer, info.msgSeq)).msgList[0]
+      }
       ctx.ntGroupApi.muteGroupMember(+peer.peerUid, [
         {
-          uid: msgList[0].senderUid,
+          uid: msg.senderUid,
           duration: groupMsgQuickAction.ban_duration || 60 * 30,
         },
       ]).catch(e => ctx.logger.error(e))

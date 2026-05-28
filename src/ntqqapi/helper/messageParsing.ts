@@ -257,9 +257,10 @@ export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): Messag
       result.push({
         elementType: ElementType.Reply,
         replyElement: {
-          replyMsgSeq: elem.srcMsg.origSeqs?.[0] ?? 0,
+          replyMsgSeq: elem.srcMsg.attr.ntMsgSeq ?? elem.srcMsg.origSeqs[0],
           replyMsgTime: elem.srcMsg.time,
           senderUin: elem.srcMsg.senderUin,
+          replyMsgClientSeq: elem.srcMsg.attr.ntMsgSeq ? elem.srcMsg.origSeqs[0] : 0
         },
       })
       continue
@@ -294,7 +295,7 @@ export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): Messag
               stickerId: ext.aniStickerId,
               stickerType: ext.aniStickerType,
               resultId: ext.resultId !== undefined ? String(ext.resultId) : undefined,
-            } as any,
+            },
           })
           continue
         } catch { }

@@ -26,29 +26,23 @@ abstract class ForwardSingleMsg extends BaseAction<Payload, Response> {
   private deleteAfterSentFiles: string[] = []
 
   protected async _handle(payload: Payload) {
-    // 判断长id
-    if (!(+payload.message_id >= -2147483648 && +payload.message_id <= 2147483647)) {
-      const short_msg_id = await this.ctx.store.getShortIdByMsgId(String(payload.message_id))
-      if (!short_msg_id) {
-        throw new Error(`无法找到长id消息${payload.message_id}`)
-      }
-      payload.message_id = short_msg_id
-    }
-
     // 获取源消息判断是否存在
-    const msg = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
-    if (!msg) {
+    const info = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
+    if (!info) {
       throw new Error(`无法找到消息${payload.message_id}`)
     }
 
     // 获取源消息内容
-    const { msgList } = await this.ctx.ntMsgApi.getMsgsByMsgId(msg.peer, [msg.msgId])
-    if (msgList.length === 0) {
+    let msg = this.ctx.store.getMsgByMsgId(info.msgId)
+    if (!msg) {
+      msg = (await this.ctx.ntMsgApi.getSingleMsg(info.peer, info.msgSeq)).msgList[0]
+    }
+    if (!msg) {
       throw new Error(`无法找到消息内容${payload.message_id}`)
     }
 
     // 转换消息元素
-    const elements = await this.rawElementsToSend(msgList[0].elements, msgList[0].chatType === ChatType.Group)
+    const elements = await this.rawElementsToSend(msg.elements, msg.chatType === ChatType.Group)
 
     // 发送目标的peer
     const peer = await createPeer(this.ctx, payload)

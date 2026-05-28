@@ -545,5 +545,25 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchGroupAtAllRemainResp.decode(oidbRespBody)
     }
+
+    async fetchGroupExtra(groupCode: number) {
+      const body = Oidb.FetchGroupExtraReq.encode({
+        random: randomInt(0, 0x7fffffff),
+        config: {
+          groupCode,
+          flags: {
+            latestMessageSeq: true
+          },
+        },
+      })
+      const data = Oidb.Base.encode({
+        command: 0x88d,
+        subCommand: 0,
+        body,
+      })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x88d_0', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.FetchGroupExtraResp.decode(oidbRespBody)
+    }
   }
 }

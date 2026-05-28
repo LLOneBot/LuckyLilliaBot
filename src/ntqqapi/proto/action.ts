@@ -1,4 +1,5 @@
 import { ProtoField, ProtoMessage } from '@saltify/typeproto'
+import { Msg } from './msg'
 
 export namespace Action {
   const LongMsgPeer = ProtoMessage.of({
@@ -88,7 +89,7 @@ export namespace Action {
       groupCode: ProtoField(3, 'uint32'),
       startSequence: ProtoField(4, 'uint32'),
       endSequence: ProtoField(5, 'uint32'),
-      messages: ProtoField(6, 'bytes', 'repeated'),
+      messages: ProtoField(6, Msg.Message, 'repeated'),
     }),
   })
 
@@ -102,7 +103,7 @@ export namespace Action {
   export const SsoGetC2CMsgResp = ProtoMessage.of({
     retcode: ProtoField(1, 'uint32'),
     errorMsg: ProtoField(2, 'string', 'optional'),
-    messages: ProtoField(7, 'bytes', 'repeated'),
+    messages: ProtoField(7, Msg.Message, 'repeated'),
   })
 
   /** trpc.msg.register_proxy.RegisterProxy.SsoGetRoamMsg - 私聊漫游消息（按时间拉取，可拿"最新 N 条"） */
@@ -119,7 +120,7 @@ export namespace Action {
     isComplete: ProtoField(4, 'bool', 'optional'),
     timestamp: ProtoField(5, 'uint32', 'optional'),
     random: ProtoField(6, 'uint32', 'optional'),
-    messages: ProtoField(7, 'bytes', 'repeated'),
+    messages: ProtoField(7, Msg.Message, 'repeated'),
   })
 
   /** trpc.msg.msg_svc.MsgService.SsoGroupRecallMsg - 撤回群消息 */
@@ -320,5 +321,15 @@ export namespace Action {
       album: ProtoField(1, QunAlbumRecord, 'optional'),
       mediaList: ProtoField(3, QunMediaItem, 'repeated'),
     }, 'optional'),
+  })
+
+  export const SsoGetPeerSeqReq = ProtoMessage.of({
+    peerUid: ProtoField(1, 'string'),
+  })
+
+  export const SsoGetPeerSeqResp = ProtoMessage.of({
+    seq1: ProtoField(3, 'uint32'),
+    seq2: ProtoField(4, 'uint32'),
+    latestMsgTime: ProtoField(5, 'uint32'),
   })
 }

@@ -65,12 +65,12 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
       }[] = []
       for (const item of nodes) {
         if (item.data.id) {
-          const msgInfo = await this.ctx.store.getMsgInfoByShortId(+item.data.id!)
+          const msgInfo = await this.ctx.store.getMsgInfoByShortId(+item.data.id)
           if (!msgInfo) {
             this.ctx.logger.warn(`消息 ${item.data.id} 未找到`)
             continue
           }
-          const node = await this.getMessageNode(msgInfo)
+          const node = await this.getMessageNode(msgInfo, +item.data.id)
           convertedNodes.push(node)
         } else {
           convertedNodes.push(item)
@@ -88,13 +88,12 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     }
   }
 
-  private async getMessageNode(msgInfo: MsgInfo) {
-    let msg = this.ctx.store.getMsgCache(msgInfo.msgId)
+  private async getMessageNode(msgInfo: MsgInfo, shortId: number) {
+    let msg = this.ctx.store.getMsgByMsgId(msgInfo.msgId)
     if (!msg) {
-      const res = await this.ctx.ntMsgApi.getMsgsByMsgId(msgInfo.peer, [msgInfo.msgId])
+      const res = await this.ctx.ntMsgApi.getSingleMsg(msgInfo.peer, msgInfo.msgSeq)
       if (res.msgList.length === 0) {
-        const shortId = await this.ctx.store.getShortIdByMsgId(msgInfo.msgId)
-        throw new Error(`无法获取消息 ${shortId ?? ''}`)
+        throw new Error(`无法获取消息 ${shortId}`)
       }
       msg = res.msgList[0]
     }

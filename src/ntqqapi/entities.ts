@@ -46,13 +46,14 @@ export namespace SendElement {
     }
   }
 
-  export function reply(msgSeq: number, senderUin: number, msgTime: number): SendReplyElement {
+  export function reply(msgSeq: number, senderUin: number, msgTime: number, clientSeq: number): SendReplyElement {
     return {
       elementType: ElementType.Reply,
       replyElement: {
         replyMsgSeq: msgSeq,
         senderUin,
         replyMsgTime: msgTime,
+        replyMsgClientSeq: clientSeq
       },
     }
   }

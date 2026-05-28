@@ -134,10 +134,7 @@ class Core extends Service {
     for (const message of msgList) {
       const msgTime = +message.msgTime
       if (msgTime < this.startupTime || ('isOnlineMsg' in message && !message.isOnlineMsg && message.msgType !== MsgType.GrayTips)) {
-        const existing = await this.ctx.store.checkMsgExist(message)
-        if (!existing) {
-          this.ctx.parallel('nt/offline-message-created', message)
-        }
+        this.ctx.parallel('nt/offline-message-created', message)
         continue
       }
       if (message.senderUin && message.senderUin !== '0') {
@@ -202,7 +199,7 @@ class Core extends Service {
       // 撤回戳一戳会经过这里
       const [peer, msgIds] = payload;
       for (const msgId of msgIds) {
-        const msg = this.ctx.store.getMsgCache(msgId)
+        const msg = this.ctx.store.getMsgByMsgId(msgId)
         if (!msg) {
           this.ctx.ntMsgApi.getMsgsByMsgId(peer, [msgId]).then(r => {
             for (const _msg of r.msgList) {

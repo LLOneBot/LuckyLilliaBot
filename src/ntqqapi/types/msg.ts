@@ -100,6 +100,7 @@ export interface ReplyElement {
   replyMsgSeq: number
   replyMsgTime: number
   senderUin: number
+  replyMsgClientSeq: number
 }
 
 export interface FileElement {
@@ -405,8 +406,8 @@ export interface RawMessage {
   msgType: MsgType
   subMsgType: number
   msgTime: string // 时间戳，秒
-  msgSeq: string
-  msgRandom: string
+  msgSeq: number
+  msgRandom: number
   senderUid: string
   senderUin: string // 发送者QQ号
   peerUid: string // 群号 或者 QQ uid
@@ -433,9 +434,9 @@ export interface RawMessage {
     likesCnt: string
     isClicked: boolean
   }[]
-  msgAttrs: Map<number, MsgAttr>
   isOnlineMsg: boolean // 是否为在线消息，灰条消息会被判定为非在线消息
   tempFromGroupCode: number
+  clientSeq: number
 }
 
 // VAS 消息信息（气泡、字体等）

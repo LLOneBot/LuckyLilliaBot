@@ -29,15 +29,16 @@ export class GetFriendMsgHistory extends BaseAction<Payload, Response> {
   private async getMessage(config: ParseMessageConfig, peer: Peer, count: number, seq?: number | string) {
     let msgList: RawMessage[]
     if (!seq || +seq === 0) {
-      msgList = (await this.ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, count)).msgList
+      const latestSeq = await this.ctx.ntMsgApi.getLatestMsgSeq(peer)
+      msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, latestSeq, count, false)).msgList
     } else {
-      msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, String(seq), count, true, true)).msgList
+      msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, +seq, count, true)).msgList
     }
     if (!msgList?.length) return
     const ob11MsgList = await Promise.all(msgList.map(msg => {
       let rawMsg = msg
       if (rawMsg.recallTime !== '0') {
-        const msg = this.ctx.store.getMsgCache(rawMsg.msgId)
+        const msg = this.ctx.store.getMsgByMsgId(rawMsg.msgId)
         if (msg) {
           rawMsg = msg
         }

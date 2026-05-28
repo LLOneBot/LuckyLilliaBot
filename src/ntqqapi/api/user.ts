@@ -87,7 +87,13 @@ export class NTQQUserApi extends Service {
     if (groupCode) {
       try {
         const member = await this.ctx.ntGroupApi.getGroupMemberByUin(+groupCode, uin, true)
-        if (member?.uid) return member.uid
+        if (member) {
+          this.ctx.store.addUix([{
+            uid: member.uid,
+            uin: member.uin
+          }]).catch(e => this.ctx.logger.warn(e))
+          return member.uid
+        }
       } catch (e) {
         this.ctx.logger.error('getUidByUin via group members failed', e)
       }
@@ -95,7 +101,13 @@ export class NTQQUserApi extends Service {
     // 私聊场景没 groupCode：先从好友列表里找
     try {
       const friend = await this.ctx.ntFriendApi.getFriendByUin(uin, true)
-      if (friend?.uid) return friend.uid
+      if (friend) {
+        this.ctx.store.addUix([{
+          uid: friend.uid,
+          uin: friend.uin
+        }]).catch(e => this.ctx.logger.warn(e))
+        return friend.uid
+      }
     } catch (e) {
       this.ctx.logger.error('getUidByUin via friends failed', e)
     }
@@ -105,7 +117,13 @@ export class NTQQUserApi extends Service {
       for (const g of groups) {
         try {
           const member = await this.ctx.ntGroupApi.getGroupMemberByUin(g.groupCode, uin, true)
-          if (member?.uid) return member.uid
+          if (member) {
+            this.ctx.store.addUix([{
+              uid: member.uid,
+              uin: member.uin
+            }]).catch(e => this.ctx.logger.warn(e))
+            return member.uid
+          }
         } catch { }
       }
     } catch (e) {
@@ -123,7 +141,6 @@ export class NTQQUserApi extends Service {
       this.ctx.logger.error('getUinByUid via store failed', e)
     }
     try {
-      // TODO: 迁移至 getUserByUid
       const user = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
       this.ctx.store.addUix([{
         uid: user.uid,
