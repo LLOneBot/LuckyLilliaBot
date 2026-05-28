@@ -269,7 +269,7 @@ const GetGroupEssenceMessages = defineApi(
         true,
         true
       )
-      const sourceMsg = msgList.find((e: any) => e.msgRandom === item.msgRandom.toString())
+      const sourceMsg = msgList.find((e) => e.msgRandom === item.msgRandom.toString())
       if (!sourceMsg) continue
       messages.push({
         group_id: +item.groupCode,

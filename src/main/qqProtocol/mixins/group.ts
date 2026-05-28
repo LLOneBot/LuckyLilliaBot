@@ -219,13 +219,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
     /** 重命名群文件夹 */
     async renameGroupFolder(groupCode: number, folderId: string, newFolderName: string) {
       const body = Oidb.GroupFolderRenameReq.encode({ rename: { groupCode, folderId, newFolderName } })
-      const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 2, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d7_2', data)
-      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`renameGroupFolder failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      return { result: 0 }
+      return await this.sendOidb(0x6d7, 2, body)
     }
 
     async setGroupPin(groupCode: number, isPinned: boolean) {
@@ -471,11 +465,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         headers: [{ name: 'fc-appid', value: '100' }],
       })
       const res = await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.GetAlbumList', reqBytes)
-      const decoded = Action.GetAlbumListResp.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.status !== 0) {
-        throw new Error(`fetchGroupAlbumList failed: status=${decoded.status}`)
-      }
-      return decoded.body?.albums ?? []
+      return Action.GetAlbumListResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     /** 重命名群文件 (OidbSvcTrpcTcp.0x6d6_4) */
@@ -486,10 +476,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const data = Oidb.Base.encode({ command: 0x6d6, subCommand: 4, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_4', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`renameGroupFile failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      return { result: 0 }
+      return { errorCode: decoded.errorCode, errorMsg: decoded.errorMsg }
     }
 
     private genQunAlbumSession(): string {
@@ -509,12 +496,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         headers: [{ name: 'fc-appid', value: '100' }],
       })
       const res = await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.AddAlbum', reqBytes)
-      const decoded = Action.AddAlbumResp.decode(Buffer.from(res.pb, 'hex'))
-      const album = decoded.body?.info
-      if (!album?.albumId) {
-        throw new Error('createGroupAlbum failed: server returned no albumId')
-      }
-      return album
+      return Action.AddAlbumResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     /** 删群相册 (QunAlbum.DeleteAlbum) */
@@ -528,7 +510,6 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         headers: [{ name: 'fc-appid', value: '100' }],
       })
       await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.DeleteAlbum', reqBytes)
-      return { result: 0 }
     }
 
     /** 拉群相册媒体列表 (QunAlbum.GetMediaList) */
@@ -548,14 +529,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         headers: [{ name: 'fc-appid', value: '100' }],
       })
       const res = await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.GetMediaList', reqBytes)
-      const decoded = Action.GetMediaListResp.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.status !== 0) {
-        throw new Error(`fetchGroupAlbumMediaList failed: status=${decoded.status}`)
-      }
-      return {
-        album: decoded.body?.album,
-        mediaList: decoded.body?.mediaList ?? [],
-      }
+      return Action.GetMediaListResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     async fetchGroupAtAllRemain(uin: number, groupCode: number) {

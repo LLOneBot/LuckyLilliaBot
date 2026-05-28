@@ -15,11 +15,7 @@ export class NTLoginApi extends Service {
   }
 
   async getQuickLoginList(){
-    return { LocalLoginInfoList: selfInfo.uin ? [{ uin: selfInfo.uin, uid: selfInfo.uid, isQuickLogin: true }] : [] } as any
-  }
-
-  async quickLoginWithUin(uin: string){
-    throw new Error('quickLoginWithUin: 直连模式自动恢复 session，无需此接口')
+    return { LocalLoginInfoList: selfInfo.uin ? [{ uin: selfInfo.uin, uid: selfInfo.uid, isQuickLogin: true }] : [] }
   }
 
   async getLoginQrCode(){

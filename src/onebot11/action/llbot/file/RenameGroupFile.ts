@@ -18,8 +18,15 @@ export class RenameGroupFile extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    const groupId = payload.group_id.toString()
-    await this.ctx.ntGroupApi.renameGroupFile(groupId, payload.file_id, payload.current_parent_directory, payload.new_name)
+    const result = await this.ctx.ntGroupApi.renameGroupFile(
+      +payload.group_id,
+      payload.file_id,
+      payload.current_parent_directory,
+      payload.new_name
+    )
+    if (result.errorCode !== 0) {
+      throw new Error(result.errorMsg)
+    }
     return null
   }
 }

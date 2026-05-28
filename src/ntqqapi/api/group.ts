@@ -1,8 +1,6 @@
 import { selfInfo } from '@/common/globalVars'
 import {
   GroupMember,
-  GetFileListParam,
-  GroupFileInfo,
   GroupMsgMask,
   Group,
   ChatType,
@@ -218,22 +216,6 @@ export class NTQQGroupApi extends Service {
     return await this.ctx.qqProtocol.setGroupEssence(groupCode, msgSeq, +msgList[0].msgRandom, true)
   }
 
-  async createGroupFileFolder(groupCode: number, folderName: string) {
-    return await this.ctx.qqProtocol.createGroupFolder(groupCode, folderName, '/')
-  }
-
-  async deleteGroupFileFolder(groupCode: number, folderId: string) {
-    return await this.ctx.qqProtocol.deleteGroupFolder(groupCode, folderId)
-  }
-
-  async deleteGroupFile(groupCode: number, fileId: string, busId = 102) {
-    return await this.ctx.qqProtocol.deleteGroupFile(groupCode, fileId, busId)
-  }
-
-  async getGroupFileList(groupCode: number, folderId: string, fileCount: number, startIndex: number) {
-    return await this.ctx.qqProtocol.getGroupFileList(groupCode, folderId, startIndex, fileCount)
-  }
-
   async getGroupRecommendContactArk(groupCode: number) {
     const { ark } = await this.ctx.qqProtocol.getGroupRecommendContactArk(groupCode)
     return ark
@@ -278,6 +260,19 @@ export class NTQQGroupApi extends Service {
     }
   }
 
+  async setGroupMsgMask(groupCode: number, msgMask: GroupMsgMask) {
+    const { body } = await this.ctx.qqProtocol.setGroupMsgMask(groupCode, selfInfo.uid, msgMask)
+    return body
+  }
+
+  async setGroupRemark(groupCode: string, groupRemark = ''): Promise<any> {
+    return await this.ctx.qqProtocol.setGroupRemark(+groupCode, groupRemark)
+  }
+
+  async getGroupFileList(groupCode: number, folderId: string, fileCount: number, startIndex: number) {
+    return await this.ctx.qqProtocol.getGroupFileList(groupCode, folderId, startIndex, fileCount)
+  }
+
   async getGroupFileCount(groupCode: number) {
     const { countResp } = await this.ctx.qqProtocol.getGroupFileCount(groupCode)
     return countResp!
@@ -288,134 +283,53 @@ export class NTQQGroupApi extends Service {
     return spaceResp!
   }
 
-  async setGroupMsgMask(groupCode: number, msgMask: GroupMsgMask) {
-    const { body } = await this.ctx.qqProtocol.setGroupMsgMask(groupCode, selfInfo.uid, msgMask)
-    return body
-  }
-
-  async setGroupRemark(groupCode: string, groupRemark = ''): Promise<any> {
-    return await this.ctx.qqProtocol.setGroupRemark(+groupCode, groupRemark)
+  async deleteGroupFile(groupCode: number, fileId: string, busId = 102) {
+    return await this.ctx.qqProtocol.deleteGroupFile(groupCode, fileId, busId)
   }
 
   async moveGroupFile(groupCode: number, fileId: string, curFolderId: string, dstFolderId: string) {
     return await this.ctx.qqProtocol.moveGroupFile(groupCode, fileId, curFolderId, dstFolderId)
   }
 
-  async renameGroupFolder(groupId: string, folderId: string, newFolderName: string): Promise<any> {
-    await this.ctx.qqProtocol.renameGroupFolder(+groupId, folderId, newFolderName)
-    return { result: 0, errMsg: '' }
-  }
-
   async persistGroupFile(groupCode: number, fileId: string) {
     return await this.ctx.qqProtocol.transGroupFile(groupCode, fileId)
   }
 
-  async getGroupAlbumList(groupId: string): Promise<any> {
-    const albums = await this.ctx.qqProtocol.fetchGroupAlbumList(+groupId)
-    const album_list = albums.map((a: any) => {
-      const photoUrls = a.cover?.image?.photoUrls ?? []
-      const defaultUrl = a.cover?.image?.defaultUrl
-      return {
-        album_id: a.albumId,
-        owner: a.owner,
-        name: a.name,
-        desc: a.desc ?? '',
-        create_time: String(a.createTime ?? 0),
-        modify_time: String(a.modifyTime ?? 0),
-        last_upload_time: String(a.lastUploadTime ?? 0),
-        upload_number: String(a.uploadNumber ?? 0),
-        cover: {
-          type: a.cover?.type ?? 0,
-          image: a.cover?.image ? {
-            name: '',
-            sloc: '',
-            lloc: a.cover.image.lloc ?? '',
-            photo_url: photoUrls.map((p: any) => ({
-              spec: p.spec,
-              url: { url: p.url?.url ?? '', width: p.url?.width ?? 0, height: p.url?.height ?? 0 },
-            })),
-            default_url: defaultUrl ? { url: defaultUrl.url ?? '', width: defaultUrl.width ?? 0, height: defaultUrl.height ?? 0 } : null,
-            is_gif: false,
-            has_raw: false,
-          } : null,
-          video: null,
-          desc: a.desc ?? '',
-          lbs: null,
-          uploader: '',
-          batch_id: '0',
-          upload_time: '0',
-          upload_order: 0,
-          like: null,
-          comment: null,
-          upload_user: null,
-          ext: [],
-          shoot_time: '0',
-          link_id: '0',
-          op_mask: [],
-          lbs_source: 0,
-        },
-        creator: {
-          uid: '',
-          nick: a.creator?.nick ?? '',
-          uin: a.creator?.uin ?? '',
-          yellow_info: null,
-          star_info: null,
-          is_sweet: false,
-          is_special: false,
-          is_super_like: false,
-          custom_id: '',
-          poly_id: '',
-          portrait: '',
-          can_follow: 0,
-          isfollowed: 0,
-          ditto_uin: '',
-        },
-      }
-    })
-    return { response: { result: 0, errMs: '', album_list } }
+  async renameGroupFile(groupCode: number, fileId: string, parentFolderId: string, newFileName: string) {
+    return await this.ctx.qqProtocol.renameGroupFile(groupCode, fileId, parentFolderId, newFileName)
   }
 
-  async createGroupAlbum(groupId: string, name: string, desc: string): Promise<any> {
-    const album = await this.ctx.qqProtocol.createGroupAlbum(+groupId, name, desc)
-    return { response: { result: 0, errMs: '', album_id: album.albumId, name: album.name, desc: album.desc } }
+  async createGroupFolder(groupCode: number, folderName: string) {
+    return await this.ctx.qqProtocol.createGroupFolder(groupCode, folderName, '/')
   }
 
-  async deleteGroupAlbum(groupId: string, albumId: string): Promise<any> {
-    return await this.ctx.qqProtocol.deleteGroupAlbum(+groupId, albumId)
+  async deleteGroupFolder(groupCode: number, folderId: string) {
+    return await this.ctx.qqProtocol.deleteGroupFolder(groupCode, folderId)
   }
 
-  async renameGroupFile(groupId: string, fileId: string, parentFolderId: string, newFileName: string): Promise<any> {
-    return await this.ctx.qqProtocol.renameGroupFile(+groupId, fileId, parentFolderId, newFileName)
+  async renameGroupFolder(groupCode: number, folderId: string, newFolderName: string) {
+    return await this.ctx.qqProtocol.renameGroupFolder(groupCode, folderId, newFolderName)
   }
 
-  async checkGroupMemberCache(_groupCodes: string[]): Promise<any> {
-    return { result: 0, errMsg: '' }
+  async getGroupAlbumList(groupCode: number) {
+    const { status, body } = await this.ctx.qqProtocol.fetchGroupAlbumList(groupCode)
+    return {
+      status,
+      albumList: body?.albums ?? []
+    }
   }
 
-  async getGroupAlbumMediaList(groupCode: string, albumId: string, _attachInfo = ''): Promise<any> {
-    const r = await this.ctx.qqProtocol.fetchGroupAlbumMediaList(+groupCode, albumId)
-    const album = r.album
-    const albumOut = album ? {
-      album_id: album.albumId, owner: album.owner, name: album.name, desc: album.desc ?? '',
-      create_time: String(album.createTime ?? 0), modify_time: String(album.modifyTime ?? 0),
-      last_upload_time: String(album.lastUploadTime ?? 0), upload_number: String(album.uploadNumber ?? 0),
-      creator: { uid: '', nick: album.creator?.nick ?? '', uin: album.creator?.uin ?? '' },
-    } : null
-    const media_list = r.mediaList.map((m: any) => ({
-      type: m.type ?? 0,
-      image: m.image ? {
-        name: '', sloc: '', lloc: m.image.lloc ?? '',
-        photo_url: (m.image.photoUrls ?? []).map((p: any) => ({
-          spec: p.spec, url: { url: p.url?.url ?? '', width: p.url?.width ?? 0, height: p.url?.height ?? 0 },
-        })),
-        default_url: m.image.defaultUrl ? { url: m.image.defaultUrl.url ?? '', width: m.image.defaultUrl.width ?? 0, height: m.image.defaultUrl.height ?? 0 } : null,
-        is_gif: false, has_raw: false,
-      } : null,
-      video: null, desc: m.desc ?? '', uploader: '', upload_user: { uin: m.uploaderUin ?? '' },
-      upload_time: String(m.uploadTime ?? 0), shoot_time: '0',
-      batch_id: m.batchId?.key ?? '0',
-    }))
-    return { response: { result: 0, errMs: '', album: albumOut, media_list, next_attach_info: '', next_has_more: false } }
+  async createGroupAlbum(groupCode: number, name: string, desc: string) {
+    const { body } = await this.ctx.qqProtocol.createGroupAlbum(groupCode, name, desc)
+    return body?.info
+  }
+
+  async deleteGroupAlbum(groupCode: number, albumId: string) {
+    return await this.ctx.qqProtocol.deleteGroupAlbum(groupCode, albumId)
+  }
+
+  async getGroupAlbumMediaList(groupCode: number, albumId: string) {
+    return await this.ctx.qqProtocol.fetchGroupAlbumMediaList(groupCode, albumId)
   }
 
   async setGroupPin(groupCode: number, isPinned: boolean) {

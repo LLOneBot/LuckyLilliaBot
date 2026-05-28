@@ -16,14 +16,19 @@ export class CreateGroupAlbum extends BaseAction<Payload, unknown> {
   })
 
   protected async _handle(payload: Payload): Promise<unknown> {
-    const res = await this.ctx.ntGroupApi.createGroupAlbum(
-      payload.group_id.toString(),
+    const result = await this.ctx.ntGroupApi.createGroupAlbum(
+      +payload.group_id,
       payload.name,
       payload.desc,
     )
-    if (res.result !== 0) {
-      throw new Error(res.errMs)
+    if (!result?.albumId) {
+      throw new Error('create group album failed: server returned no album_id')
     }
-    return res.album_info
+    return {
+      album_id: result.albumId,
+      owner: result.groupCode,
+      name: result.name,
+      desc: result.desc
+    }
   }
 }

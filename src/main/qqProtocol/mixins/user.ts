@@ -194,7 +194,7 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
       const resp = Oidb.FetchProfileLikeResp.decode(Buffer.from(decoded.body))
       const detail = resp.body?.detail
       // 把 uint64 字段转成 Number，下游 JSON.stringify 不会因 BigInt 报错
-      const users = (detail?.users ?? []).map((u: any) => ({
+      const users = (detail?.users ?? []).map((u) => ({
         ...u,
         latestTime: u.latestTime != null ? Number(u.latestTime) : 0,
         lastCharged: u.lastCharged != null ? Number(u.lastCharged) : 0,

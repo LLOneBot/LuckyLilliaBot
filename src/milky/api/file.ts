@@ -160,12 +160,15 @@ const RenameGroupFile = defineApi(
   RenameGroupFileInput,
   z.object({}),
   async (ctx, payload) => {
-    await ctx.ntGroupApi.renameGroupFile(
-      payload.group_id.toString(),
+    const result = await ctx.ntGroupApi.renameGroupFile(
+      payload.group_id,
       payload.file_id,
       payload.parent_folder_id,
       payload.new_file_name
     )
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
+    }
     return Ok({})
   }
 )
@@ -191,7 +194,7 @@ const CreateGroupFolder = defineApi(
   CreateGroupFolderInput,
   CreateGroupFolderOutput,
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.createGroupFileFolder(
+    const result = await ctx.ntGroupApi.createGroupFolder(
       payload.group_id,
       payload.folder_name
     )
@@ -208,12 +211,12 @@ const RenameGroupFolder = defineApi(
   z.object({}),
   async (ctx, payload) => {
     const result = await ctx.ntGroupApi.renameGroupFolder(
-      payload.group_id.toString(),
+      payload.group_id,
       payload.folder_id,
       payload.new_folder_name
     )
-    if (result.resultWithGroupItem.result.retCode !== 0) {
-      return Failed(-500, result.resultWithGroupItem.result.clientWording)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -224,7 +227,7 @@ const DeleteGroupFolder = defineApi(
   DeleteGroupFolderInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.deleteGroupFileFolder(
+    const result = await ctx.ntGroupApi.deleteGroupFolder(
       payload.group_id,
       payload.folder_id
     )

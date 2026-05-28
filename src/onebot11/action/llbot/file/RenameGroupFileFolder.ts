@@ -16,10 +16,13 @@ export class RenameGroupFileFolder extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    const groupId = payload.group_id.toString()
-    const res = await this.ctx.ntGroupApi.renameGroupFolder(groupId, payload.folder_id, payload.new_folder_name)
-    if (res.resultWithGroupItem.result.retCode !== 0) {
-      throw new Error(res.resultWithGroupItem.result.clientWording)
+    const result = await this.ctx.ntGroupApi.renameGroupFolder(
+      +payload.group_id,
+      payload.folder_id,
+      payload.new_folder_name
+    )
+    if (result.errorCode !== 0) {
+      throw new Error(result.errorMsg)
     }
     return null
   }

@@ -465,8 +465,7 @@ export class QQProtocolBase extends Service {
   }
 
   /**
-   * 发送 OIDB 命令，自动 encode Oidb.Base、发送、decode 响应、检查 errorCode。
-   * - errorCode === 0 时返回 { errorCode: 0, errorMsg: '' }
+   * 发送 OIDB 命令，自动 encode Oidb.Base、发送、decode 响应。
    */
   public async sendOidb(
     command: number,
@@ -478,9 +477,7 @@ export class QQProtocolBase extends Service {
     const cmd = cmdSuffix ?? `OidbSvcTrpcTcp.0x${command.toString(16)}_${subCommand}`
     const resp = await this.sendPB(cmd, reqBytes)
     const decoded = Oidb.Base.decode(Buffer.from(resp.pb, 'hex'))
-    const errorCode = decoded.errorCode ?? 0
-    const errorMsg = decoded.errorMsg ?? ''
-    return { errorCode, errorMsg }
+    return { errorCode: decoded.errorCode, errorMsg: decoded.errorMsg }
   }
 
   startHook() {

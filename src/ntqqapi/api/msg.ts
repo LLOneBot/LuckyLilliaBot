@@ -348,7 +348,7 @@ export class NTQQMsgApi extends Service {
       const decoded = peer.chatType === ChatType.Group
         ? await this.ctx.qqProtocol.getGroupMessages(+peer.peerUid, startSeq, endSeq)
         : await this.ctx.qqProtocol.getC2CMessages(peer.peerUid, startSeq, endSeq)
-      return { msgList: this.toRawMessages(decoded, peer.chatType) } as any
+      return { msgList: this.toRawMessages(decoded, peer.chatType) }
     } catch (e) {
       this.ctx.logger.error('getMsgsBySeqAndCount failed', e)
       return { msgList: [] }
