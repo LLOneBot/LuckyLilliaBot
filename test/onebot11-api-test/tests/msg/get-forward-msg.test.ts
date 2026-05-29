@@ -66,8 +66,10 @@ describe('get_forward_msg - 获取合并转发消息内容', () => {
     }
 
     // 获取合并转发消息内容
+    // gocq 风格：get_forward_msg 的 message_id 必须是 send 返回的 forward_id（resId
+    // 字符串），不是消息 shortId。所以这里用 sendResponse.data.forward_id。
     const getResponse = await primaryClient.call(ActionName.GoCQHTTP_GetForwardMsg, {
-      message_id: sendResponse.data.message_id.toString()
+      message_id: sendResponse.data.forward_id
     });
 
     Assertions.assertSuccess(getResponse, 'get_forward_msg');

@@ -11,6 +11,12 @@ export class MessageBuilding {
   private chatType: ChatType
   private peerUid: string
   private nestedForwardTrace: Map<string, InferProtoModelInput<typeof Msg.Message>[]>
+  /**
+   * 顶层合并转发节点的 resid（multiForward 元素 build 时由 server 上传分配）。
+   * 自己发出去的合并转发 OlPush 回声里 elements 是 lightApp，不带 ark 字段，
+   * 上层（如 SendForwardMsg）想要回 forward_id 给客户端时只能从这里拿。
+   */
+  multiForwardResid?: string
 
   constructor(
     ctx: Context,
@@ -245,6 +251,12 @@ export class MessageBuilding {
       })
     }
     const resid = await this.ctx.qqProtocol.uploadForward(this.peerUid, isGroup, items)
+    // 顶层（非嵌套）合并转发的 resid 暴露给上层 — 自己发出去的群合并转发 OlPush 回声
+    // 里 elements 只有 lightApp 没有 ark，上层用这个字段拿 forward_id 比从 RawMessage
+    // 反挖 ark 稳定。嵌套场景 nestedForwardTrace 非空，那种内部 resid 不暴露。
+    if (this.nestedForwardTrace.size === 0) {
+      this.multiForwardResid = resid
+    }
     const id = crypto.randomUUID()
     this.nestedForwardTrace.set(id, messages)
     const prompt = multiForwardMsgElement.prompt ?? '[聊天记录]'

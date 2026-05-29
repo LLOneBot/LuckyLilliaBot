@@ -24,30 +24,13 @@ export class GetForwardMsg extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload, config: ParseMessageConfig) {
-    // gocq 兼容：message_id 既可以直接是 forward resId（外部用户传 send 时返回的
-    // forward_id 字符串），也可以是消息的 shortId（gocq 习惯：send 完回 message_id
-    // 然后用同一个值取转发内容）。这里两种都接：先按 shortId 查 store，找不到再
-    // 当作 resId 直接拉。
-    const idOrResId = payload.id || payload.message_id
-    if (!idOrResId) {
+    // gocq 标准：get_forward_msg 的 message_id（或 id）就是 send_forward_msg 返回的
+    // forward_id 字符串（resId），直接透传给 server。客户端不应该把 send 返回的
+    // 整数 message_id 用在这里 —— 那个是消息的 shortId，跟 forward resId 是两个东西。
+    const resId = payload.id || payload.message_id
+    if (!resId) {
       throw new Error('message_id 不能为空')
     }
-    let resId: string | undefined
-    const asShortId = Number(idOrResId)
-    if (Number.isInteger(asShortId)) {
-      const msgInfo = await this.ctx.store.getMsgInfoByShortId(asShortId)
-      const msg = msgInfo ? this.ctx.store.getMsgByMsgId(msgInfo.msgId) : undefined
-      const arkElement = msg?.elements.find(e => e.arkElement)?.arkElement
-      if (arkElement?.bytesData) {
-        try {
-          const data = JSON.parse(arkElement.bytesData)
-          if (data.app === 'com.tencent.multimsg') {
-            resId = data.meta?.detail?.resid
-          }
-        } catch { /* 不是合并转发 ark，下面 fallback */ }
-      }
-    }
-    resId = resId || idOrResId
     const data = await this.ctx.ntMsgApi.getForwardedMsgs(resId)
     const messages: (OB11ForwardMessage | undefined)[] = await Promise.all(
       data.msgList.map(async (msg) => {
