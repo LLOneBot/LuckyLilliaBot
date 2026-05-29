@@ -308,7 +308,7 @@ export async function transformIncomingForwardedMessage(ctx: Context, message: I
     return segments
   }
   return {
-    message_seq: contentHead.msgSeq,
+    message_seq: contentHead.c2cMsgSeq || contentHead.groupMsgSeqOrC2cClientSeq,
     sender_name: contentHead.msgType === 82 ? routingHead.group.groupCard : routingHead.c2c.name,
     avatar_url: contentHead.forward!.avatar,
     time: contentHead.msgTime,

@@ -920,11 +920,13 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>): R
   const isSelfMsg = senderUin === selfInfo.uin
 
   return {
-    msgId: String(contentHead.msgUid || (contentHead as any).msgUidAlt || contentHead.msgSeq || Date.now()),
+    msgId: String(contentHead.msgUid || (contentHead as any).msgUidAlt || contentHead.groupMsgSeqOrC2cClientSeq || Date.now()),
     msgType: 2,
     subMsgType: 0,
     msgTime: String(contentHead.msgTime || Math.floor(Date.now() / 1000)),
-    msgSeq: contentHead.ntMsgSeq || contentHead.msgSeq,
+    // 取"双端一致的 server seq"：群聊用 contentHead.groupMsgSeqOrC2cClientSeq (field 5)；
+    // 私聊用 contentHead.c2cMsgSeq (field 11)，私聊时它非空，群聊时它为 0 走 fallback。
+    msgSeq: contentHead.c2cMsgSeq || contentHead.groupMsgSeqOrC2cClientSeq,
     msgRandom: contentHead.random,
     senderUid: routingHead.fromUid || '',
     senderUin,
@@ -943,6 +945,11 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>): R
     emojiLikesList: [],
     isOnlineMsg: true,
     tempFromGroupCode,
-    clientSeq: contentHead.ntMsgSeq ? contentHead.msgSeq : 0
+    // 私聊时 RawMessage.clientSeq = contentHead.groupMsgSeqOrC2cClientSeq (field 5)
+    //   = 发送方 PbSendMsg 时提交的 client `clientSequence` (10000-99999 临时号)，
+    //     server 原样转发到接收方。撤回（SsoC2CRecallMsg.info.clientSequence f1）和
+    //     reply（srcMsg.origSeqs[0]）都用它定位被引用的 c2c 消息。
+    // 群聊时此字段无意义，置 0。
+    clientSeq: contentHead.c2cMsgSeq ? contentHead.groupMsgSeqOrC2cClientSeq : 0
   }
 }

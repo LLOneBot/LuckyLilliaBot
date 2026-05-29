@@ -40,9 +40,9 @@ export class NTQQMsgApi extends Service {
       await this.ctx.qqProtocol.recallGroupMessage(+peer.peerUid, msgSeq)
     } else {
       // SsoC2CRecallMsg.info 里两个 sequence 字段含义不同：
-      //   field 1 (clientSequence) ← client 发送时自己生成的 random 范围 10000-99999，存 msgAttrs
-      //   field 6 (ntMsgSeq)       ← PbSendMsgResp.clientSequence(field14)，即 server 给本端 c2c
-      //                                会话流分配的真 msgSeq —— 我们存在 msg.msgSeq
+      //   field 1 (clientSequence) ← client 发送时自己生成的 10000-99999 临时号
+      //   field 6 (c2cMsgSeq)      ← PbSendMsgResp.c2cMsgSeq (field 14)，即 server 给这条
+      //                                c2c 消息分配的 c2cMsgSeq（全局双端一致） —— 由调用方在 msgSeq 传入
       // 两个都必须用发送时的真值传回去，server 才能定位被撤回的消息并向对方推 sub=138
       await this.ctx.qqProtocol.recallC2CMessage(
         peer.peerUid,
@@ -96,14 +96,15 @@ export class NTQQMsgApi extends Service {
       }
     }
 
-    // 群消息：server 会把消息原样回声（OlPush msgType=82）给发送方自己，contentHead.msgSeq 跟广播给
-    // 群里所有人的相等。我们在 PbSendMsg 之前挂 listener、按 (peerUid, msgRandom) 匹配，等回声拿到真实
-    // msgSeq + msgUid，sender / receiver 两端 createMsgShortId 算出来的 shortId 永远一致。
+    // 群消息：server 会把消息原样回声（OlPush msgType=82）给发送方自己，
+    //   contentHead.groupMsgSeqOrC2cClientSeq (field 5) 跟广播给群里所有人的相等。我们在 PbSendMsg 之前挂 listener、
+    //   按 (peerUid, msgRandom) 匹配，等回声拿到真实 groupMsgSeq + msgUid，sender / receiver
+    //   两端 createMsgShortId 算出来的 shortId 永远一致。
     //
-    // C2C：server 不推 self-echo，PbSendMsgResp 也不给真 msgSeq。但 server 端的 msgUid 跟客户端 random
-    // 一一对应（msgUid = (0x01000000 << 32) | random，实测样本验过），所以 msgId 本地直接算，不需 RTT；
-    // msgSeq 留 '0'。代价：发送端 createMsgShortId 算出的 shortId 跟接收端不一致（接收端 msgSeq 是真值）,
-    // 不过两端各自存自己的，本地 DB 内仍然唯一。
+    // C2C：server 不推 self-echo，但 server 端的 msgUid 跟客户端 random 一一对应
+    //   （msgUid = (0x01000000 << 32) | random，实测样本验过），所以 msgId 本地直接算，不需 RTT。
+    //   PbSendMsgResp.c2cMsgSeq (field 14) = server 给这条 c2c 消息的 c2cMsgSeq（全局双端一致），
+    //   接收方在 OlPush msgType=166 contentHead.c2cMsgSeq (field 11) 拿到同样的值。
     const random = randomBytes(4).readUInt32BE(0)
     const isGroup = peer.chatType === ChatType.Group
     const echoP = isGroup ? this.waitForSelfEcho(peer, random, 5000) : null
@@ -127,10 +128,10 @@ export class NTQQMsgApi extends Service {
       msgType: 2,
       subMsgType: 0,
       msgTime: String(ret.timestamp),
-      // 群聊：ret.sequence = PbSendMsgResp.sequence (field 11)，server 给整个群的 msgSeq，双方一致。
-      // C2C：ret.sequence = PbSendMsgResp.clientSequence (field 14)，server 给本端(我→对方)流的
-      //   ntMsgSeq；接收方 OlPush 里看到的 msgSeq 是另一组(对方→我)流的，双方不相等。
-      //   撤回 C2C 时这个值要塞 SsoC2CRecallMsg.info.ntMsgSeq。
+      // 群聊：ret.sequence = PbSendMsgResp.groupMsgSeq (field 11)，server 给整个群的 groupMsgSeq，双端一致。
+      // C2C：ret.sequence = PbSendMsgResp.c2cMsgSeq   (field 14)，server 给这条 c2c 消息的 c2cMsgSeq，
+      //   双端一致：接收方在 OlPush msgType=166 contentHead.c2cMsgSeq (field 11) 拿到同样的值。
+      //   撤回 C2C 时这个值要塞 SsoC2CRecallMsg.info.c2cMsgSeq (field 6)。
       msgSeq: ret.sequence,
       msgRandom: ret.random,
       senderUid: selfInfo.uid,

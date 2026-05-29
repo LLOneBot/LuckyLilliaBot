@@ -233,6 +233,18 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
       await this.sendPB('OidbSvcTrpcTcp.0x5d6_18', data)
     }
 
+    /**
+     * 拉取与某个**好友**之间的最新 c2cMsgSeq。
+     *
+     * server cmd: trpc.msg.msg_svc.MsgService.SsoGetPeerSeq
+     * 入参：只接受 user uid（u_xxx 格式），不能传群 code（server 内部要把 peerUid 转 uin，
+     *       群 code 转换失败会返回 "rsp uid convert to uin all fail"，全 0）。
+     * 返回 (实测)：
+     *   seq1, seq2 = 双端一致的 c2cMsgSeq；多数情况下相等，偶尔差 1（可能分别是发/收方向的最后一条）。
+     *   latestMsgTime = 跟该 peer 最后一条消息的时间戳。
+     *
+     * 群聊场景请改用 fetchGroupExtra → info.results.latestMessageSeq（OidbSvcTrpcTcp.0xfe5_2）。
+     */
     async getFriendLatestSequence(peerUid: string) {
       const data = Action.SsoGetPeerSeqReq.encode({
         peerUid

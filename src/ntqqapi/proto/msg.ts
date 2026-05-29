@@ -160,18 +160,46 @@ export namespace Msg {
         msgFlag: ProtoField(9, 'uint32')
       })
     }),
+    /**
+     * OlPush.MsgPush 推下来的消息头。**注意：跟 send 时的 SendContentHead 字段布局不同。**
+     *
+     * 关于 "msgSeq" —— field 5 和 field 11 的语义因 chatType 不同：
+     *
+     *   群聊 (msgType=82)：
+     *     - field 5  (groupMsgSeqOrC2cClientSeq) = server 给整群分配的 msgSeq，**双端 / 群里所有人一致**，
+     *                                跟发送方 PbSendMsgResp.groupMsgSeq (field 11) 相等。
+     *     - field 11 (c2cMsgSeq)   = 0 / 空（群聊不用）。
+     *
+     *   私聊 (msgType=166)：
+     *     - field 5  (groupMsgSeqOrC2cClientSeq) = **不是 msgSeq**——server 把发送方 PbSendMsg 时填的
+     *                                client `clientSequence` (10000-99999 临时号) 原样转发给
+     *                                接收方。实测 bot1 固定 clientSequence=55555 时 bot2 收
+     *                                到的此字段恒为 55555。撤回 / reply 引用 c2c 消息都用它。
+     *     - field 11 (c2cMsgSeq)   = server 给这条消息分配的 **c2cMsgSeq**（全局，
+     *                                跨 c2c 会话单调递增），**双端一致**，跟发送方
+     *                                PbSendMsgResp.c2cMsgSeq (field 14) 相等。
+     *
+     * 转 RawMessage 时按 chatType 选取：群用 field 5，私聊用 field 11。
+     */
     contentHead: ProtoField(2, {
       msgType: ProtoField(1, 'uint32'),
       subType: ProtoField(2, 'uint32'),
       c2cCmd: ProtoField(3, 'uint32'),
+      /** client 在 PbSendMsg 提交的 32-bit random，server 在两端原样广播。 */
       random: ProtoField(4, 'uint32'),
-      msgSeq: ProtoField(5, 'uint32'),
+      /** 群聊：双端一致的群 msgSeq（= PbSendMsgResp.groupMsgSeq）。
+       *  私聊：发送方 PbSendMsg 时填的 client `clientSequence` (10000-99999)，
+       *        server 原样转发给接收方；撤回 / reply 时回传给 server。 */
+      groupMsgSeqOrC2cClientSeq: ProtoField(5, 'uint32'),
       msgTime: ProtoField(6, 'uint32'),
       pkgNum: ProtoField(7, 'uint32'),
       pkgIndex: ProtoField(8, 'uint32'),
       divSeq: ProtoField(9, 'uint32'),
       autoReply: ProtoField(10, 'uint32'),
-      ntMsgSeq: ProtoField(11, 'uint32'),
+      /** 群聊：通常 0/空。
+       *  私聊：双端一致的 c2cMsgSeq（= PbSendMsgResp.c2cMsgSeq）。 */
+      c2cMsgSeq: ProtoField(11, 'uint32'),
+      /** 消息全局 64-bit msgUid。client 端可由 (0x01000000<<32)|random 推出来。 */
       msgUid: ProtoField(12, 'uint64'),
       /**
        * SsoGetGroupMsg 拉历史时，server 不填 field 12 的 msgUid，
@@ -379,24 +407,29 @@ export namespace Msg {
     multiSendSeq: ProtoField(14, 'uint32', 'optional'),
   })
 
+  /**
+   * MessageSvc.PbSendMsg 的响应。
+   *
+   * server 在群聊和私聊场景下分别用两个不同的 wire field 回 "这条消息的双端一致 msgSeq"——
+   * 互斥填充，永远只填其中一个：
+   *   - 群聊  → field 11 (groupMsgSeq)：server 给整个群分配的 groupMsgSeq，群里所有人视角相同。
+   *                                     接收方在 OlPush msgType=82 的 contentHead.field5 拿到同样的值。
+   *   - 私聊  → field 14 (c2cMsgSeq)：server 给这条 c2c 消息分配的 c2cMsgSeq（全局，跨 c2c
+   *                                     会话单调递增）。
+   *                                     接收方在 OlPush msgType=166 的 contentHead.field11 拿到同样的值。
+   *                                     ⚠️ 不要跟 contentHead.field5（私聊里是发送方 PbSendMsg
+   *                                        提交的 client clientSequence，跟 c2cMsgSeq 完全
+   *                                        是两个东西）混淆。
+   */
   export const PbSendMsgResp = ProtoMessage.of({
     resultCode: ProtoField(1, 'int32'),
     errMsg: ProtoField(2, 'string', 'optional'),
     sendTime: ProtoField(3, 'int64', 'optional'),
     msgInfoFlag: ProtoField(10, 'uint32', 'optional'),
-    /**
-     * 群聊：server 给整个群分配的 msgSeq，所有人视角一致——发送方拿到的值跟接收方
-     *   OlPush msgType=82 contentHead.msgSeq 相等。
-     * 私聊：恒为 0/空——server 不在 PbSendMsg 这个 cmd 上回 c2c 的 msgSeq。
-     */
-    sequence: ProtoField(11, 'uint32', 'optional'),
-    /**
-     * 群聊：通常空，群消息以 sequence 为准。
-     * 私聊：server 给本端 (我视角→对方) c2c 流分配的 ntMsgSeq，单调 +1 递增。
-     *   ⚠️ 发送方和接收方拿到的不一样：server 给 (我→对方) 流和 (对方→我) 流是两组独立
-     *   计数器，发送方这里的值跟接收方 OlPush.contentHead.msgSeq 完全不相等。
-     */
-    ntMsgSeq: ProtoField(14, 'uint32', 'optional'),
+    /** 群聊用：双端一致的群 msgSeq；私聊为空。 */
+    groupMsgSeq: ProtoField(11, 'uint32', 'optional'),
+    /** 私聊用：双端一致的 c2c ntMsgSeq；群聊为空。 */
+    c2cMsgSeq: ProtoField(14, 'uint32', 'optional'),
   })
 
   /**

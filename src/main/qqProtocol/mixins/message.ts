@@ -232,7 +232,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
     }
 
     /** 撤回私聊消息 */
-    async recallC2CMessage(targetUid: string, clientSequence: number, random: number, timestamp: number, ntMsgSeq: number) {
+    async recallC2CMessage(targetUid: string, clientSequence: number, random: number, timestamp: number, c2cMsgSeq: number) {
       const data = Action.SsoC2CRecallMsgReq.encode({
         type: 1,
         targetUid,
@@ -242,7 +242,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
           messageUid: (BigInt(0x01000000) << 32n) | BigInt(random),
           timestamp,
           field5: 0,
-          ntMsgSeq,
+          c2cMsgSeq,
         },
         field5: { field1: 0, field2: 0 },
         field6: 0,
@@ -279,10 +279,11 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       if (resp.resultCode !== 0) {
         throw new Error(`发送消息失败 (code=${resp.resultCode}): ${resp.errMsg || ''}`)
       }
-      // 群消息：resp.sequence (field 11) 是 server 给整个群的 msgSeq，发送方和接收方视角一致。
-      // C2C：resp.clientSequence (field 14) 是 server 给本端 (我→对方) c2c 流分配的 ntMsgSeq，
-      //   ⚠️ 发送方拿到的值跟接收方 OlPush.contentHead.msgSeq 不相等——双向是两组独立计数器。
-      const seq = resp.sequence || resp.ntMsgSeq!
+      // 群聊：resp.groupMsgSeq (field 11) = server 给整个群的 msgSeq，群里所有人视角一致。
+      //   接收方在 OlPush msgType=82 contentHead.groupMsgSeqOrC2cClientSeq (field 5) 拿到同样的值。
+      // 私聊：resp.c2cMsgSeq (field 14) = server 给这条 c2c 消息分配的 c2cMsgSeq（全局，双端一致）。
+      //   接收方在 OlPush msgType=166 contentHead.c2cMsgSeq (field 11) 拿到同样的值。
+      const seq = resp.groupMsgSeq || resp.c2cMsgSeq!
       return {
         sequence: seq,
         timestamp: resp.sendTime,
@@ -335,7 +336,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       return {
         resultCode: resp.resultCode,
         errMsg: resp.errMsg,
-        sequence: resp.ntMsgSeq,
+        sequence: resp.c2cMsgSeq,
         timestamp: resp.sendTime,
         random,
       }

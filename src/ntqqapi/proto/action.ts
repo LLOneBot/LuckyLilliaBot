@@ -137,12 +137,17 @@ export namespace Action {
     type: ProtoField(1, 'uint32'),
     targetUid: ProtoField(3, 'string'),
     info: ProtoField(4, {
+      /** client 发送时自造的 10000-99999 临时号（PbSendMsg 时塞的那个 clientSequence） */
       clientSequence: ProtoField(1, 'uint32'),
+      /** client 发送时自造的 32-bit random（双端一致） */
       random: ProtoField(2, 'uint32'),
+      /** (0x01000000<<32) | random */
       messageUid: ProtoField(3, 'uint64'),
+      /** PbSendMsgResp.sendTime */
       timestamp: ProtoField(4, 'uint32'),
       field5: ProtoField(5, 'uint32'),
-      ntMsgSeq: ProtoField(6, 'uint32'),
+      /** = PbSendMsgResp.c2cMsgSeq (server 给这条 c2c 消息分配的 c2cMsgSeq，双端一致) */
+      c2cMsgSeq: ProtoField(6, 'uint32'),
     }),
     field5: ProtoField(5, {
       field1: ProtoField(1, 'uint32'),
@@ -323,13 +328,21 @@ export namespace Action {
     }, 'optional'),
   })
 
+  /**
+   * trpc.msg.msg_svc.MsgService.SsoGetPeerSeq —— 拉取与某 c2c peer 的最新 c2cMsgSeq。
+   * **只支持私聊**：server 内部要把 peerUid 转 uin，群 code 转换失败 → 全 0 + 错误描述。
+   * 群聊场景请改用 fetchGroupExtra → info.results.latestMessageSeq。
+   */
   export const SsoGetPeerSeqReq = ProtoMessage.of({
     peerUid: ProtoField(1, 'string'),
   })
 
   export const SsoGetPeerSeqResp = ProtoMessage.of({
+    /** 实测 = c2cMsgSeq（双端一致那个）；通常 = seq2 */
     seq1: ProtoField(3, 'uint32'),
+    /** 实测 = c2cMsgSeq；偶尔比 seq1 大 1（可能发/收两个方向的最后一条 c2cMsgSeq） */
     seq2: ProtoField(4, 'uint32'),
+    /** 跟该 peer 最后一条消息的时间戳 */
     latestMsgTime: ProtoField(5, 'uint32'),
   })
 }

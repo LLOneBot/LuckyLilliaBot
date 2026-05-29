@@ -117,8 +117,11 @@ class Store extends Service {
    * 群消息：peerUid (= groupCode) 和 msgSeq 是 server 全局分配，所有人视角一致；msgRandom
    *   server 在两端原样广播也一致。msgId（contentHead.msgUid）在 OlPush 推回 vs SsoGetGroupMsg
    *   拉历史时**不一样**，不能放进 hash 输入。
-   * C2C：peerUid 是各自视角对方的 uid（双端不同），msgSeq 是双向独立的 ntMsgSeq（双端不同）。
-   *   只能用两端都一致的字段：(selfUid, otherUid) 排序对 + msgRandom。
+   * C2C：peerUid 是各自视角对方的 uid（双端不同），不能进 hash。RawMessage.msgSeq 在私聊里
+   *   语义是 c2cMsgSeq（server 给这条消息的全局 c2c msgSeq，双端理论上一致），但本端 send
+   *   时还没拿到它（PbSendMsgResp 同步返回有，但收到 self-echo 之前 store 里这条消息字段
+   *   不一定齐），所以稳妥起见 hash 输入只用两端都立刻能拿到的 (selfUid, otherUid) 排序对
+   *   + msgRandom（client 自造，server 在两端原样广播，永远一致）。
    */
   private buildShortIdKey(msg: RawMessage): string {
     if (msg.chatType === ChatType.C2C || msg.chatType === ChatType.TempC2CFromGroup) {
