@@ -19,11 +19,23 @@ export class FetchEmojiLike extends BaseAction<Payload, Dict> {
   async _handle(payload: Payload) {
     const msgInfo = await this.ctx.store.getMsgInfoByShortId(+payload.message_id)
     if (!msgInfo) throw new Error('消息不存在')
-    return await this.ctx.ntMsgApi.getMsgEmojiLikesList(
+    const result = await this.ctx.ntMsgApi.getMsgReactionList(
       msgInfo.peer,
-      msgInfo.msgSeq.toString(),
+      msgInfo.msgSeq,
       payload.emoji_id,
       +payload.count
     )
+    const emojiLikesList = await Promise.all(result.users.map(async (u) => ({
+      uid: await this.ctx.ntUserApi.getUidByUin(u.uin, +msgInfo.peer.peerUid),
+      uin: u.uin.toString(),
+      nickName: '',
+      headUrl: `https://q1.qlogo.cn/g?b=qq&nk=${u.uin}&s=640`,
+    })))
+    return {
+      emojiLikesList,
+      cookie: '',
+      isLastPage: !result.hasMore,
+      isFirstPage: true,
+    }
   }
 }

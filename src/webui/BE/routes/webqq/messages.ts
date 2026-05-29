@@ -47,11 +47,12 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
 
       let result
       if (afterMsgSeq) {
-        result = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, afterMsgSeq, parseInt(limit), false, true)
+        result = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, +afterMsgSeq, +limit, false)
       } else if (beforeMsgSeq && beforeMsgSeq !== '0') {
-        result = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, beforeMsgSeq, parseInt(limit), true, true)
+        result = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, +beforeMsgSeq, +limit, true)
       } else {
-        result = await ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, parseInt(limit))
+        const latestSeq = await ctx.ntMsgApi.getLatestMsgSeq(peer)
+        result = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, latestSeq, +limit, false)
       }
 
       const messages = result?.msgList || []
@@ -112,7 +113,8 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
             replyElement: {
               replyMsgSeq: Number(item.msgSeq),
               replyMsgTime: 0,
-              senderUin: Number(item.uin ?? 0)
+              senderUin: Number(item.uin ?? 0),
+              replyMsgClientSeq: 0
             }
           })
         } else if (item.type === 'text' && item.text) {

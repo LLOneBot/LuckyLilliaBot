@@ -345,4 +345,17 @@ export namespace Action {
     /** 跟该 peer 最后一条消息的时间戳 */
     latestMsgTime: ProtoField(5, 'uint32'),
   })
+
+  /** trpc.msg.msg_svc.MsgService.SsoReadedReport */
+  export const SsoReadedReportReq = ProtoMessage.of({
+    group: ProtoField(1, {
+      groupCode: ProtoField(1, 'uint32'),
+      startSequence: ProtoField(2, 'uint32')
+    }, 'optional'),
+    c2c: ProtoField(2, {
+      targetUid: ProtoField(2, 'string'),
+      time: ProtoField(3, 'uint32'),
+      startSequence: ProtoField(4, 'uint32')
+    }, 'optional')
+  })
 }

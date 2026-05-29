@@ -276,15 +276,14 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       })
       const res = await this.sendPB('MessageSvc.PbSendMsg', data)
       const resp = Msg.PbSendMsgResp.decode(Buffer.from(res.pb, 'hex'))
-      if (resp.resultCode !== 0) {
-        throw new Error(`发送消息失败 (code=${resp.resultCode}): ${resp.errMsg || ''}`)
-      }
       // 群聊：resp.groupMsgSeq (field 11) = server 给整个群的 msgSeq，群里所有人视角一致。
       //   接收方在 OlPush msgType=82 contentHead.groupMsgSeqOrC2cClientSeq (field 5) 拿到同样的值。
       // 私聊：resp.c2cMsgSeq (field 14) = server 给这条 c2c 消息分配的 c2cMsgSeq（全局，双端一致）。
       //   接收方在 OlPush msgType=166 contentHead.c2cMsgSeq (field 11) 拿到同样的值。
       const seq = resp.groupMsgSeq || resp.c2cMsgSeq!
       return {
+        resultCode: resp.resultCode,
+        errMsg: resp.errMsg ?? '',
         sequence: seq,
         timestamp: resp.sendTime,
         random,
@@ -356,15 +355,22 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       const data = Oidb.Base.encode({ command: 0x9083, subCommand: 1, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x9083_1', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`fetchMsgEmojiLikes failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      const resp = Oidb.FetchEmojiLikesResp.decode(Buffer.from(decoded.body))
-      return {
-        users: resp.users ?? [],
-        totalCount: resp.totalCount ?? 0,
-        hasMore: !!resp.hasMore,
-      }
+      return Oidb.FetchEmojiLikesResp.decode(Buffer.from(decoded.body))
+    }
+
+    async reportMessageRead(chatType: number, peerUid: string, startSequence: number) {
+      const isGroup = chatType === 2
+      const data = Action.SsoReadedReportReq.encode({
+        group: isGroup ? {
+          groupCode: +peerUid,
+          startSequence
+        } : undefined,
+        c2c: !isGroup ? {
+          targetUid: peerUid,
+          startSequence
+        } : undefined
+      })
+      await this.sendPB('trpc.msg.msg_svc.MsgService.SsoReadedReport', data)
     }
   }
 }

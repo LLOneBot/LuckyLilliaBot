@@ -320,10 +320,7 @@ const MarkMessageAsRead = defineApi(
       }
       peer.peerUid = uid
     }
-    const result = await ctx.ntMsgApi.setMsgRead(peer)
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
-    }
+    await ctx.ntMsgApi.setMsgRead(peer, payload.message_seq)
     return Ok({})
   }
 )

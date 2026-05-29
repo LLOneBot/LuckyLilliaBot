@@ -860,28 +860,28 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>): R
 
   if (msgType === MsgType.GroupMessage) {
     chatType = ChatType.Group
-    peerUin = String(routingHead.group?.groupCode || 0)
+    peerUin = String(routingHead.group.groupCode)
     peerUid = peerUin
-    sendMemberName = routingHead.group?.groupCard || ''
+    sendMemberName = routingHead.group.groupCard
   } else if (msgType === MsgType.TempMessage) {
     chatType = ChatType.TempC2CFromGroup
     // 对话另一端：自己发的消息 server 回声里 fromUid=自己，要用 toUid 当 peer
     if (routingHead.fromUid === selfInfo.uid && routingHead.toUid) {
-      peerUin = String(routingHead.toUin || 0)
+      peerUin = String(routingHead.toUin)
       peerUid = routingHead.toUid
     } else {
-      peerUin = String(routingHead.fromUin || 0)
-      peerUid = routingHead.fromUid || ''
+      peerUin = String(routingHead.fromUin)
+      peerUid = routingHead.fromUid
     }
     tempFromGroupCode = routingHead.c2c.fromTinyId
   } else {
     chatType = ChatType.C2C
     if (routingHead.fromUid === selfInfo.uid && routingHead.toUid) {
-      peerUin = String(routingHead.toUin || 0)
+      peerUin = String(routingHead.toUin)
       peerUid = routingHead.toUid
     } else {
-      peerUin = String(routingHead.fromUin || 0)
-      peerUid = routingHead.fromUid || ''
+      peerUin = String(routingHead.fromUin)
+      peerUid = routingHead.fromUid
     }
   }
 
@@ -920,7 +920,7 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>): R
   const isSelfMsg = senderUin === selfInfo.uin
 
   return {
-    msgId: String(contentHead.msgUid || (contentHead as any).msgUidAlt || contentHead.groupMsgSeqOrC2cClientSeq || Date.now()),
+    msgId: String(contentHead.msgUid || contentHead.msgUidAlt || ((0x01000000n << 32n) | BigInt(contentHead.random))),
     msgType: 2,
     subMsgType: 0,
     msgTime: String(contentHead.msgTime || Math.floor(Date.now() / 1000)),
@@ -928,12 +928,12 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>): R
     // 私聊用 contentHead.c2cMsgSeq (field 11)，私聊时它非空，群聊时它为 0 走 fallback。
     msgSeq: contentHead.c2cMsgSeq || contentHead.groupMsgSeqOrC2cClientSeq,
     msgRandom: contentHead.random,
-    senderUid: routingHead.fromUid || '',
+    senderUid: routingHead.fromUid,
     senderUin,
     peerUid,
     peerUin,
     guildId: '',
-    sendNickName: routingHead.c2c?.name || sendMemberName || '',
+    sendNickName: routingHead.c2c?.name || sendMemberName,
     sendMemberName,
     sendRemarkName: '',
     chatType,

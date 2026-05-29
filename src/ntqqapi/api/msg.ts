@@ -29,10 +29,13 @@ export class NTQQMsgApi extends Service {
     return await this.ctx.qqProtocol.setGroupReaction(groupCode, msgSeq, emojiId, setEmoji, emojiType)
   }
 
-  async getForwardedMsgs(resId: string) {
-    const items = await this.ctx.qqProtocol.getMultiMsg(resId)
-    const top = items.find((x) => x.fileName === 'MultiMsg') ?? items[0]
-    return { msgList: filterNullable(top.buffer.msg.map(e => convertToRawMessage(e))) }
+  async getMsgReactionList(peer: Peer, msgSeq: number, emojiId: string, count: number) {
+    const resp = await this.ctx.qqProtocol.fetchMsgEmojiLikes(+peer.peerUid, msgSeq, emojiId, count)
+    return {
+      users: resp.users ?? [],
+      totalCount: resp.totalCount ?? 0,
+      hasMore: !!resp.hasMore,
+    }
   }
 
   async recallMsg(peer: Peer, msgSeq: number, clientSeq?: number, msgRandom?: number, msgTime?: number) {
@@ -48,7 +51,7 @@ export class NTQQMsgApi extends Service {
         peer.peerUid,
         clientSeq!,
         msgRandom!,
-        msgTime!,
+        msgTime!, // 这个可以填 Date.now()，副作用未知
         msgSeq!,
       )
     }
@@ -107,7 +110,7 @@ export class NTQQMsgApi extends Service {
     //   接收方在 OlPush msgType=166 contentHead.c2cMsgSeq (field 11) 拿到同样的值。
     const random = randomBytes(4).readUInt32BE(0)
     const isGroup = peer.chatType === ChatType.Group
-    const echoP = isGroup ? this.waitForSelfEcho(peer, random, 5000) : null
+    const echoP = isGroup ? this.waitForSelfEcho(peer, random, 5000).catch(() => undefined) : null
 
     const ret = await this.ctx.qqProtocol.sendMessage({
       chatType,
@@ -117,14 +120,15 @@ export class NTQQMsgApi extends Service {
       random,
     })
 
-    const echoed = echoP ? await echoP.catch(() => undefined) : undefined
-    // C2C 本地算 msgUid（高 32 位固定 0x01000000，低 32 位 = random）
-    const localMsgId = isGroup
-      ? String(ret.random)
-      : ((0x01000000n << 32n) | BigInt(ret.random)).toString()
+    if (ret.resultCode !== 0) {
+      throw new Error(`发送消息失败 (code=${ret.resultCode}): ${ret.errMsg}`)
+    }
+
+    const echoed = echoP ? await echoP : undefined
 
     return echoed ?? {
-      msgId: localMsgId,
+      // C2C 本地算 msgUid（高 32 位固定 0x01000000，低 32 位 = random）
+      msgId: ((0x01000000n << 32n) | BigInt(ret.random)).toString(),
       msgType: 2,
       subMsgType: 0,
       msgTime: String(ret.timestamp),
@@ -155,6 +159,12 @@ export class NTQQMsgApi extends Service {
     }
   }
 
+  async getForwardedMsgs(resId: string) {
+    const items = await this.ctx.qqProtocol.getMultiMsg(resId)
+    const top = items.find((x) => x.fileName === 'MultiMsg') ?? items[0]
+    return { msgList: filterNullable(top.buffer.msg.map(e => convertToRawMessage(e))) }
+  }
+
   async getSingleMsg(peer: Peer, msgSeq: number) {
     let retcode, errorMsg, messages
     if (peer.chatType === ChatType.Group) {
@@ -175,7 +185,6 @@ export class NTQQMsgApi extends Service {
     }
   }
 
-  // TODO: 将只拉取一条消息的调用迁移至 getSingleMsg
   async getMsgsBySeqAndCount(peer: Peer, msgSeq: number, cnt: number, queryOrder: boolean) {
     const startSeq = queryOrder ? msgSeq : Math.max(1, msgSeq - cnt + 1)
     const endSeq = queryOrder ? msgSeq + cnt - 1 : msgSeq
@@ -198,43 +207,58 @@ export class NTQQMsgApi extends Service {
     }
   }
 
-  async setMsgRead(_peer: Peer): Promise<{ result: number, errMsg: string }> {
-    // 直连模式：服务器无明确 ack，返回 result=0 表示本地已发出
-    // 真实失败会从 sendPB 抛出
-    return { result: 0, errMsg: '' }
+  async setMsgRead(peer: Peer, startSeq: number) {
+    return await this.ctx.qqProtocol.reportMessageRead(peer.chatType, peer.peerUid, startSeq)
   }
 
-  async getMsgEmojiLikesList(peer: Peer, msgSeq: string, emojiId: string, count: number): Promise<any> {
-    const r = await this.ctx.qqProtocol.fetchMsgEmojiLikes(+peer.peerUid, +msgSeq, emojiId, count)
-    const emojiLikesList = await Promise.all(r.users.map(async (u: any) => ({
-      uid: await this.ctx.ntUserApi.getUidByUin(u.uin, +peer.peerUid).catch(() => ''),
-      uin: String(u.uin),
-      nickName: '',
-      headUrl: `https://q1.qlogo.cn/g?b=qq&nk=${u.uin}&s=640`,
-    })))
-    return {
-      emojiLikesList,
-      cookie: '',
-      isLastPage: !r.hasMore,
-      isFirstPage: true,
-    }
-  }
-
-  async fetchFavEmojiList(_count: number): Promise<any> {
+  async getCustomFaceList() {
     const resp = await this.ctx.qqProtocol.listFavEmojis()
-    if (resp.retCode !== 0) {
-      return { result: resp.retCode, errMsg: resp.errMsg || '', emojiInfoList: [] }
-    }
     const ui = resp.userInfo
-    if (!ui) return { result: 0, errMsg: '', emojiInfoList: [] }
     const bid = ui.bid || 'qq_expression'
     const uin = selfInfo.uin
     // 路径格式 PMHQ 抓包验过：https://p.qpic.cn/{bid}/{uin}/{emoji_id}/0
-    const emojiInfoList = (ui.fileName || []).map(emojiId => ({
+    const emojiInfoList = ui.fileName.map(emojiId => ({
       emojiId,
       url: `https://p.qpic.cn/${bid}/${uin}/${emojiId}/0`,
     }))
-    return { result: 0, errMsg: '', emojiInfoList }
+    return { retCode: resp.retCode, errMsg: resp.errMsg, emojiInfoList }
+  }
+
+  async addFavEmoji(emojiPath: string): Promise<any> {
+    const stat = await fsp.stat(emojiPath)
+    const md5 = await getMd5BufferFromFile(emojiPath)
+    // 1. 申请上传，拿 uKey + 服务器地址 + emoji_id
+    const prep = await this.ctx.qqProtocol.addFavEmojiPrep({ md5, fileSize: stat.size })
+    const body = prep.body
+    if (!body || body.retCode !== 0) {
+      return { result: body?.retCode ?? -1, errMsg: '', emojiId: '' }
+    }
+    const emojiId = body.ext?.emojiId || ''
+    // 2. 如果服务器没给 uKey 说明已经在缓存里（秒传命中），直接落地
+    if (!body.uKey || body.uKey.length === 0) {
+      return { result: 0, errMsg: '', emojiId }
+    }
+    // 3. 走 highway 上传到 servers[0]:15000，cmd=9
+    const ips = body.uploadIps || []
+    if (ips.length === 0) return { result: -1, errMsg: 'no upload server returned', emojiId }
+    const server = uint32ToIPV4Addr(ips[0])
+    await new HighwayHttpSession({
+      uin: selfInfo.uin,
+      cmd: 9,
+      readable: createReadStream(emojiPath, { highWaterMark: 1024 * 1024 }),
+      sum: md5,
+      size: stat.size,
+      ticket: Buffer.from(body.uKey),
+      ext: Buffer.alloc(0),
+      server,
+      port: 15000,
+    }).upload()
+    return { result: 0, errMsg: '', emojiId }
+  }
+
+  async deleteFavEmoji(emojiIds: string[]): Promise<any> {
+    const resp = await this.ctx.qqProtocol.deleteFavEmojis(emojiIds)
+    return { result: resp.retCode, errMsg: resp.errMsg || '' }
   }
 
   async generateMsgUniqueId(_chatType: number) {
@@ -304,43 +328,6 @@ export class NTQQMsgApi extends Service {
 
   async fetchGetHitEmotionsByWord(_word: string, _count: number): Promise<any> {
     return { emotionList: [] }
-  }
-
-  async addFavEmoji(emojiPath: string): Promise<any> {
-    const stat = await fsp.stat(emojiPath)
-    const md5 = await getMd5BufferFromFile(emojiPath)
-    // 1. 申请上传，拿 uKey + 服务器地址 + emoji_id
-    const prep = await this.ctx.qqProtocol.addFavEmojiPrep({ md5, fileSize: stat.size })
-    const body = prep.body
-    if (!body || body.retCode !== 0) {
-      return { result: body?.retCode ?? -1, errMsg: '', emojiId: '' }
-    }
-    const emojiId = body.ext?.emojiId || ''
-    // 2. 如果服务器没给 uKey 说明已经在缓存里（秒传命中），直接落地
-    if (!body.uKey || body.uKey.length === 0) {
-      return { result: 0, errMsg: '', emojiId }
-    }
-    // 3. 走 highway 上传到 servers[0]:15000，cmd=9
-    const ips = body.uploadIps || []
-    if (ips.length === 0) return { result: -1, errMsg: 'no upload server returned', emojiId }
-    const server = uint32ToIPV4Addr(ips[0])
-    await new HighwayHttpSession({
-      uin: selfInfo.uin,
-      cmd: 9,
-      readable: createReadStream(emojiPath, { highWaterMark: 1024 * 1024 }),
-      sum: md5,
-      size: stat.size,
-      ticket: Buffer.from(body.uKey),
-      ext: Buffer.alloc(0),
-      server,
-      port: 15000,
-    }).upload()
-    return { result: 0, errMsg: '', emojiId }
-  }
-
-  async deleteFavEmoji(emojiIds: string[]): Promise<any> {
-    const resp = await this.ctx.qqProtocol.deleteFavEmojis(emojiIds)
-    return { result: resp.retCode, errMsg: resp.errMsg || '' }
   }
 
   async setContactLocalTop(peer: Peer, isTop: boolean): Promise<{ result: number, errMsg: string }> {

@@ -207,7 +207,7 @@ export class MessageBuilding {
         contentHead: {
           msgType: isGroup ? 82 : 9,
           random: Math.floor(Math.random() * 4294967290),
-          msgSeq: seq,
+          groupMsgSeqOrC2cClientSeq: seq,
           msgTime: Math.trunc(Date.now() / 1000),
           pkgNum: 1,
           pkgIndex: 0,

@@ -322,12 +322,12 @@ const GetCustomFaceUrlList = defineApi(
   z.object({}),
   GetCustomFaceUrlListOutput,
   async (ctx) => {
-    const result = await ctx.ntMsgApi.fetchFavEmojiList(200)
-    if (result.result !== 0) {
+    const result = await ctx.ntMsgApi.getCustomFaceList()
+    if (result.retCode !== 0) {
       return Failed(-500, result.errMsg)
     }
     return Ok({
-      urls: result.emojiInfoList.map((e: any) => e.url)
+      urls: result.emojiInfoList.map((e) => e.url)
     })
   }
 )
