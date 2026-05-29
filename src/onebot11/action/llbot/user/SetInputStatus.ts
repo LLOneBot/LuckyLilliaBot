@@ -17,9 +17,9 @@ export class SetInputStatus extends BaseAction<Payload, null> {
   protected async _handle(payload: Payload) {
     const uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id)
     if (!uid) throw new Error('无法获取用户信息')
-    const result = await this.ctx.ntMsgApi.sendShowInputStatusReq(ChatType.C2C, +payload.event_type, uid)
-    if (result.result !== 0) {
-      throw new Error(result.errMsg)
+    const result = await this.ctx.ntMsgApi.setPrivateInputStatus(uid, +payload.event_type)
+    if (result.retCode !== 0) {
+      throw new Error('设置输入状态失败')
     }
     return null
   }

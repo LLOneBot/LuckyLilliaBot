@@ -33,12 +33,11 @@ export class VoiceMsg2Text extends BaseAction<Payload, Response> {
     if (!voiceElement) {
       throw new Error('该消息不是语音消息')
     }
-    const text = await this.ctx.ntMsgApi.translatePtt2Text(msgInfo.msgId, msgInfo.peer, +msg!.senderUin, voiceElement)
+    const text = await this.ctx.ntMsgApi.translatePtt2Text(msgInfo.msgId, msgInfo.peer, +msg.senderUin, voiceElement)
     if (!text) {
-      throw new Error('无法转换语音消息为文本')
+      throw new Error('未识别到文字')
     }
     return { text }
   }
-
 }
 

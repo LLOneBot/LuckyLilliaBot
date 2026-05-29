@@ -243,7 +243,7 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
      *   seq1, seq2 = 双端一致的 c2cMsgSeq；多数情况下相等，偶尔差 1（可能分别是发/收方向的最后一条）。
      *   latestMsgTime = 跟该 peer 最后一条消息的时间戳。
      *
-     * 群聊场景请改用 fetchGroupExtra → info.results.latestMessageSeq（OidbSvcTrpcTcp.0xfe5_2）。
+     * 群聊场景请改用 fetchGroupExtra → info.results.latestMessageSeq（OidbSvcTrpcTcp.0x88d_0）。
      */
     async getFriendLatestSequence(peerUid: string) {
       const data = Action.SsoGetPeerSeqReq.encode({

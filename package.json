@@ -39,7 +39,7 @@
     "hono": "^4.12.23",
     "image-size": "^2.0.2",
     "json5": "^2.2.3",
-    "nodemailer": "^8.0.8",
+    "nodemailer": "^8.0.10",
     "qrcode": "^1.5.4",
     "schemastery": "^3.18.0",
     "sift": "^17.1.3",

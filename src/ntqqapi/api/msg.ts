@@ -224,23 +224,23 @@ export class NTQQMsgApi extends Service {
     return { retCode: resp.retCode, errMsg: resp.errMsg, emojiInfoList }
   }
 
-  async addFavEmoji(emojiPath: string): Promise<any> {
+  async addCustomFace(emojiPath: string) {
     const stat = await fsp.stat(emojiPath)
     const md5 = await getMd5BufferFromFile(emojiPath)
     // 1. 申请上传，拿 uKey + 服务器地址 + emoji_id
     const prep = await this.ctx.qqProtocol.addFavEmojiPrep({ md5, fileSize: stat.size })
     const body = prep.body
     if (!body || body.retCode !== 0) {
-      return { result: body?.retCode ?? -1, errMsg: '', emojiId: '' }
+      return { retCode: body?.retCode ?? -1, errMsg: '', emojiId: '' }
     }
     const emojiId = body.ext?.emojiId || ''
     // 2. 如果服务器没给 uKey 说明已经在缓存里（秒传命中），直接落地
     if (!body.uKey || body.uKey.length === 0) {
-      return { result: 0, errMsg: '', emojiId }
+      return { retCode: 0, errMsg: '', emojiId }
     }
     // 3. 走 highway 上传到 servers[0]:15000，cmd=9
     const ips = body.uploadIps || []
-    if (ips.length === 0) return { result: -1, errMsg: 'no upload server returned', emojiId }
+    if (ips.length === 0) return { retCode: -1, errMsg: 'no upload server returned', emojiId }
     const server = uint32ToIPV4Addr(ips[0])
     await new HighwayHttpSession({
       uin: selfInfo.uin,
@@ -253,40 +253,14 @@ export class NTQQMsgApi extends Service {
       server,
       port: 15000,
     }).upload()
-    return { result: 0, errMsg: '', emojiId }
+    return { retCode: 0, errMsg: '', emojiId }
   }
 
-  async deleteFavEmoji(emojiIds: string[]): Promise<any> {
-    const resp = await this.ctx.qqProtocol.deleteFavEmojis(emojiIds)
-    return { result: resp.retCode, errMsg: resp.errMsg || '' }
+  async deleteCustomFace(emojiIds: string[]) {
+    return await this.ctx.qqProtocol.deleteFavEmojis(emojiIds)
   }
 
-  async generateMsgUniqueId(_chatType: number) {
-    // 简单本地生成：时间(秒) << 32 | random
-    const time = BigInt(Math.floor(Date.now() / 1000))
-    const random = BigInt(Math.floor(Math.random() * 0xffffffff))
-    return String((time << 32n) | random)
-  }
-
-  async queryMsgsById(chatType: ChatType, msgId: string): Promise<any> {
-    // 直连协议没有按 msgId 索引的查询接口，先查 cache，没有就靠 store.message 表里存的 seq 拉
-    const cached = this.ctx.store.getMsgByMsgId(msgId)
-    if (cached) {
-      if (chatType != null && cached.chatType !== chatType) return { msgList: [] }
-      return { msgList: [cached] }
-    }
-    return { msgList: [] }
-  }
-
-  getMsgTimeFromId(msgId: string) {
-    return String(BigInt(msgId) >> 32n)
-  }
-
-  async getServerTime() {
-    return String(Math.floor(Date.now() / 1000))
-  }
-
-  async translatePtt2Text(msgId: string, peer: Peer, senderUin: number, voiceMsgElement: MessageElement): Promise<string> {
+  async translatePtt2Text(msgId: string, peer: Peer, senderUin: number, voiceMsgElement: MessageElement) {
     const ptt = voiceMsgElement.pttElement!
 
     // 监听异步推送结果（按 msgUid 匹配），同时立刻发提交请求
@@ -303,13 +277,12 @@ export class NTQQMsgApi extends Service {
       }, 30_000)
     })
 
-    const md5 = (ptt.md5HexStr || '').toLowerCase()
     if (peer.chatType === ChatType.Group) {
       await this.ctx.qqProtocol.pttTransGroupReq({
         msgUid: BigInt(msgId),
         senderUin,
         groupUin: +peer.peerUid,
-        voiceMd5Hex: md5,
+        voiceMd5Hex: ptt.md5HexStr,
         voiceFileId: ptt.fileUuid,
       })
     } else {
@@ -318,7 +291,7 @@ export class NTQQMsgApi extends Service {
         msgUid: BigInt(msgId),
         senderUin,
         receiverUin: +selfInfo.uin,
-        voiceMd5Hex: md5,
+        voiceMd5Hex: ptt.md5HexStr,
         voiceFileId: ptt.fileUuid,
       })
     }
@@ -326,21 +299,9 @@ export class NTQQMsgApi extends Service {
     return result
   }
 
-  async fetchGetHitEmotionsByWord(_word: string, _count: number): Promise<any> {
-    return { emotionList: [] }
-  }
-
-  async setContactLocalTop(peer: Peer, isTop: boolean): Promise<{ result: number, errMsg: string }> {
-    if (peer.chatType === ChatType.Group) {
-      await this.ctx.qqProtocol.setGroupPin(+peer.peerUid, isTop)
-    } else {
-      await this.ctx.qqProtocol.setFriendPin(peer.peerUid, isTop)
-    }
-    return { result: 0, errMsg: '' }
-  }
-
-  async sendShowInputStatusReq(_chatType: ChatType, _eventType: number, _toUid: string): Promise<any> {
-    return { result: 0, errMsg: '' }
+  async setPrivateInputStatus(toUid: string, eventType: number) {
+    const { body } = await this.ctx.qqProtocol.setInputStatus(toUid, eventType)
+    return body
   }
 
   async getPins() {

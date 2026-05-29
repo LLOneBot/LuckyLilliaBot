@@ -1398,4 +1398,19 @@ export namespace Oidb {
       })
     })
   })
+
+  /** OidbSvcTrpcTcp.0xcd4_1 */
+  export const SetInputStatusReq = ProtoMessage.of({
+    body: ProtoField(1, {
+      toUid: ProtoField(1, 'string'),
+      field2: ProtoField(2, 'uint32'),
+      eventType: ProtoField(3, 'uint32')
+    })
+  })
+
+  export const SetInputStatusResp = ProtoMessage.of({
+    body: ProtoField(1, {
+      retCode: ProtoField(1, 'uint32')
+    })
+  })
 }

@@ -355,7 +355,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       const data = Oidb.Base.encode({ command: 0x9083, subCommand: 1, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x9083_1', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      return Oidb.FetchEmojiLikesResp.decode(Buffer.from(decoded.body))
+      return Oidb.FetchEmojiLikesResp.decode(decoded.body)
     }
 
     async reportMessageRead(chatType: number, peerUid: string, startSequence: number) {
@@ -371,6 +371,20 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
         } : undefined
       })
       await this.sendPB('trpc.msg.msg_svc.MsgService.SsoReadedReport', data)
+    }
+
+    async setInputStatus(toUid: string, eventType: number) {
+      const body = Oidb.SetInputStatusReq.encode({
+        body: {
+          toUid,
+          field2: 0,
+          eventType
+        }
+      })
+      const data = Oidb.Base.encode({ command: 0xcd4, subCommand: 1, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0xcd4_1', data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.SetInputStatusResp.decode(oidbRespBody)
     }
   }
 }

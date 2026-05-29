@@ -227,16 +227,8 @@ const SetPeerPin = defineApi(
       await ctx.ntFriendApi.setFriendPin(uid, payload.is_pinned)
     } else if (payload.message_scene === 'group') {
       await ctx.ntGroupApi.setGroupPin(payload.peer_id, payload.is_pinned)
-    } else if (payload.message_scene === 'temp') {
-      const uid = await ctx.ntUserApi.getUidByUin(payload.peer_id)
-      const result = await ctx.ntMsgApi.setContactLocalTop({
-        chatType: ChatType.TempC2CFromGroup,
-        peerUid: uid,
-        guildId: ''
-      }, payload.is_pinned)
-      if (result.result !== 0) {
-        return Failed(-500, result.errMsg)
-      }
+    } else {
+      return Failed(-400, `Unknown message scene: ${payload.message_scene}`)
     }
     return Ok({})
   }
