@@ -29,29 +29,10 @@ class GetGroupMemberInfo extends BaseAction<Payload, OB11GroupMember> {
       throw new Error('群成员未找到')
     }
     const ret = OB11Entities.groupMember(+payload.group_id, member)
-    let info: UserDetailInfo | undefined
-    try {
-      info = await this.ctx.ntUserApi.getUserDetailInfoWithBizInfo(member.uid)
-    } catch (e) {
-      try {
-        const fetchInfo = await this.ctx.ntUserApi.fetchUserDetailInfo(member.uid)
-        info = fetchInfo as unknown as UserDetailInfo
-      } catch (e) {
-      }
-    }
-    if (info?.commonExt) {
-      ret.sex = OB11Entities.sex(info.simpleInfo.baseInfo.sex)
-      ret.qq_level = calcQQLevel(info.commonExt.qqLevel)
-      ret.age = info.simpleInfo.baseInfo.age
-      if (ret.qq_level === 0) {
-        ret.qq_level = (await this.ctx.qqProtocol.fetchUserInfo(+payload.user_id)).level
-      }
-    } else {
-      const info = await this.ctx.qqProtocol.fetchUserInfo(+payload.user_id)
-      ret.sex = OB11Entities.sex(info.sex)
-      ret.qq_level = info.level
-      ret.age = info.age
-    }
+    const info = await this.ctx.ntUserApi.getUserByUin(+payload.user_id)
+    ret.sex = OB11Entities.sex(info.gender)
+    ret.qq_level = info.level
+    ret.age = info.age
     return ret
   }
 }

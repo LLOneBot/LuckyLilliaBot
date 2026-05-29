@@ -14,7 +14,7 @@ export function transformFriend(friend: Friend): FriendEntity {
   return {
     user_id: friend.uin,
     nickname: friend.nick,
-    sex: transformGender(friend.sex),
+    sex: transformGender(friend.gender),
     qid: friend.qid,
     remark: friend.remark,
     category: {

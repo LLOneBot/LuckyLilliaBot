@@ -30,18 +30,18 @@ export class GetStrangerInfo extends BaseAction<Payload, Response> {
 
   protected async _handle(payload: Payload) {
     const uin = +payload.user_id
-    const info = await this.ctx.qqProtocol.fetchUserInfo(uin)
+    const info = await this.ctx.ntUserApi.getUserByUin(uin)
     const loginDays = await this.ctx.qqProtocol.fetchUserLoginDays(uin)
     return {
       user_id: info.uin,
       nickname: info.nick,
-      sex: OB11Entities.sex(info.sex),
+      sex: OB11Entities.sex(info.gender),
       age: info.age,
       qid: info.qid,
       level: info.level,
       login_days: loginDays,
-      reg_time: info.regTime,
-      long_nick: info.longNick,
+      reg_time: info.registerTime,
+      long_nick: info.bio,
       city: info.city,
       country: info.country,
       birthday_year: info.birthdayYear,

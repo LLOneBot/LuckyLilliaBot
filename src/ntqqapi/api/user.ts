@@ -1,44 +1,14 @@
-import { MiniProfile, ProfileBizType, SimpleInfo, UserDetailInfo, UserDetailSource, Sex } from '../types'
-import { HttpUtil } from '@/common/utils/request'
+import { User } from '../types'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { createReadStream, promises as fsp } from 'node:fs'
 import { getMd5BufferFromFile } from '@/common/utils/file'
 import { HighwayHttpSession } from '../helper/highway'
+import { Misc } from '../proto'
 
 declare module 'cordis' {
   interface Context {
     ntUserApi: NTQQUserApi
-  }
-}
-
-function makeSimpleInfoFromOidb(uid: string, info: any): SimpleInfo {
-  return {
-    uid,
-    uin: String(info.uin || 0),
-    coreInfo: {
-      uid,
-      uin: String(info.uin || 0),
-      nick: info.nick || '',
-      remark: info.remark || '',
-    },
-    baseInfo: {
-      qid: info.qid || '',
-      longNick: info.longNick || '',
-      birthday_year: 0,
-      birthday_month: 0,
-      birthday_day: 0,
-      age: info.age || 0,
-      sex: (info.sex || 0) as Sex,
-      eMail: '',
-      phoneNum: '',
-      categoryId: 0,
-    } as any,
-    status: null,
-    vasInfo: null,
-    relationFlags: null,
-    otherFlags: null,
-    intimate: null,
   }
 }
 
@@ -49,7 +19,7 @@ export class NTQQUserApi extends Service {
     super(ctx, 'ntUserApi')
   }
 
-  async setSelfAvatar(filePath: string): Promise<{ result: number, errMsg: string }> {
+  async setSelfAvatar(filePath: string) {
     const stat = await fsp.stat(filePath)
     const md5 = await getMd5BufferFromFile(filePath)
     const session = await this.ctx.qqProtocol.getHighwaySession()
@@ -141,9 +111,9 @@ export class NTQQUserApi extends Service {
       this.ctx.logger.error('getUinByUid via store failed', e)
     }
     try {
-      const user = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+      const user = await this.getUserByUid(uid)
       this.ctx.store.addUix([{
-        uid: user.uid,
+        uid,
         uin: user.uin
       }]).catch(e => this.ctx.logger.warn(e))
       return user.uin
@@ -153,75 +123,64 @@ export class NTQQUserApi extends Service {
     return 0
   }
 
-  async getUserDetailInfoByUin(uin: string) {
-    const info = await this.ctx.qqProtocol.fetchUserInfo(+uin)
-    return {
-      detail: {
-        uid: '',
-        uin: String(info.uin),
-        nick: info.nick,
-        sex: info.sex,
-        age: info.age,
-        longNick: info.longNick,
-        level: info.level,
-      },
+  async getUserByUin(uin: number) {
+    const resp = await this.ctx.qqProtocol.fetchUserInfoByUin(uin)
+    const numbers = resp.body.properties.numberProperties
+    const bytes = resp.body.properties.bytesProperties
+    const business = bytes.has(107) ? Misc.UserInfoBusiness.decode(bytes.get(107)!) : undefined
+    const vipInfo = business?.body.lists.find((e) => e.type === 1)
+    const info: User = {
+      uin: resp.body.uin,
+      nick: bytes.get(20002)?.toString() ?? '',
+      gender: numbers.get(20009) ?? 0,
+      age: numbers.get(20037) ?? 0,
+      qid: bytes.get(27394)?.toString() ?? '',
+      level: numbers.get(105) ?? 0,
+      registerTime: numbers.get(20026) ?? 0,
+      bio: bytes.get(102)?.toString() ?? '',
+      city: bytes.get(20020)?.toString() ?? '',
+      country: bytes.get(20003)?.toString() ?? '',
+      birthdayYear: bytes.has(20031) ? (bytes.get(20031)![0] << 8) | bytes.get(20031)![1] : 0,
+      birthdayMonth: bytes.get(20031)?.[2] ?? 0,
+      birthdayDay: bytes.get(20031)?.[3] ?? 0,
+      labels: bytes.has(104) ? Misc.UserInfoLabel.decode(bytes.get(104)!).labels.map(e => e.content) : [],
+      school: bytes.get(20021)?.toString() ?? '',
+      remark: bytes.get(103)?.toString() ?? '',
+      isVip: !!vipInfo,
+      isYearsVip: !!vipInfo?.isYear,
+      vipLevel: vipInfo?.level ?? 0
     }
+    return info
   }
 
-  /** 始终会从服务器拉取 */
-  async fetchUserDetailInfo(uid: string) {
-    const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-    return {
-      simpleInfo: makeSimpleInfoFromOidb(uid, info),
-      commonExt: null,
+  async getUserByUid(uid: string) {
+    const resp = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+    const numbers = resp.body.properties.numberProperties
+    const bytes = resp.body.properties.bytesProperties
+    const business = bytes.has(107) ? Misc.UserInfoBusiness.decode(bytes.get(107)!) : undefined
+    const vipInfo = business?.body.lists.find((e) => e.type === 1)
+    const info: User = {
+      uin: resp.body.uin,
+      nick: bytes.get(20002)?.toString() ?? '',
+      gender: numbers.get(20009) ?? 0,
+      age: numbers.get(20037) ?? 0,
+      qid: bytes.get(27394)?.toString() ?? '',
+      level: numbers.get(105) ?? 0,
+      registerTime: numbers.get(20026) ?? 0,
+      bio: bytes.get(102)?.toString() ?? '',
+      city: bytes.get(20020)?.toString() ?? '',
+      country: bytes.get(20003)?.toString() ?? '',
+      birthdayYear: bytes.has(20031) ? (bytes.get(20031)![0] << 8) | bytes.get(20031)![1] : 0,
+      birthdayMonth: bytes.get(20031)?.[2] ?? 0,
+      birthdayDay: bytes.get(20031)?.[3] ?? 0,
+      labels: bytes.has(104) ? Misc.UserInfoLabel.decode(bytes.get(104)!).labels.map(e => e.content) : [],
+      school: bytes.get(20021)?.toString() ?? '',
+      remark: bytes.get(103)?.toString() ?? '',
+      isVip: !!vipInfo,
+      isYearsVip: !!vipInfo?.isYear,
+      vipLevel: vipInfo?.level ?? 0
     }
-  }
-
-  async getUserDetailInfoWithBizInfo(uid: string) {
-    const r = await this.fetchUserDetailInfo(uid)
-    return r as unknown as UserDetailInfo
-  }
-
-  /** 无缓存时会从服务器拉取 */
-  async getUserSimpleInfo(uid: string, _force = true) {
-    const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-    return makeSimpleInfoFromOidb(uid, info)
-  }
-
-  /** 无缓存时会获取不到用户信息 */
-  async getCoreAndBaseInfo(uids: string[]) {
-    const result = new Map<string, SimpleInfo>()
-    for (const uid of uids) {
-      try {
-        const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-        result.set(uid, makeSimpleInfoFromOidb(uid, info))
-      } catch (e) {
-        this.ctx.logger.error('getCoreAndBaseInfo failed for uid', uid, e)
-      }
-    }
-    return result
-  }
-
-  async getBuddyNick(uid: string) {
-    if (!uid) return ''
-    try {
-      const info = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
-      return info.nick
-    } catch (e) {
-      this.ctx.logger.error('getBuddyNick failed', e)
-      return ''
-    }
-  }
-
-  async getCookies(domain: string) {
-    const clientKeyData = await this.forceFetchClientKey()
-    if (clientKeyData?.result !== 0) {
-      throw new Error('获取clientKey失败')
-    }
-    const uin = selfInfo.uin
-    const requestUrl = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + uin + '&clientkey=' + clientKeyData.clientKey + '&u1=https%3A%2F%2F' + domain + '%2F' + uin + '%2Finfocenter&keyindex=19%27'
-    const cookies: { [key: string]: string } = await HttpUtil.getCookies(requestUrl)
-    return cookies
+    return info
   }
 
   async getPSkey(domains: string[]): Promise<{ domainPskeyMap: Map<string, string> }> {
@@ -246,8 +205,8 @@ export class NTQQUserApi extends Service {
 
   async getSelfNick(refresh = true) {
     if (!refresh && selfInfo.nick) return selfInfo.nick
-    const self = await this.getUserSimpleInfo(selfInfo.uid)
-    const nick = self.coreInfo.nick
+    const self = await this.getUserByUid(selfInfo.uid)
+    const nick = self.nick
     selfInfo.nick = nick
     return nick
   }
@@ -295,29 +254,21 @@ export class NTQQUserApi extends Service {
     return { result: 0, errMsg: '' }
   }
 
-  async modifySelfProfile(profile: MiniProfile): Promise<{ result: number, errMsg: string }> {
-    await this.ctx.qqProtocol.modifySelfProfile({
+  async modifySelfProfile(profile: {
+    nick?: string
+    bio?: string
+    gender?: number
+    birthdayYear?: number
+    birthdayMonth?: number
+    birthdayDay?: number
+  }) {
+    return await this.ctx.qqProtocol.modifySelfProfile({
       nick: profile.nick,
-      longNick: profile.longNick,
-      sex: profile.sex,
-      birthdayYear: profile.birthday?.birthday_year,
-      birthdayMonth: profile.birthday?.birthday_month,
-      birthdayDay: profile.birthday?.birthday_day,
+      longNick: profile.bio,
+      sex: profile.gender,
+      birthdayYear: profile.birthdayYear,
+      birthdayMonth: profile.birthdayMonth,
+      birthdayDay: profile.birthdayDay,
     })
-    return { result: 0, errMsg: '' }
-  }
-
-  async getRecentContactListSnapShot(_count: number): Promise<any> {
-    return { contacts: [] }
-  }
-
-  async getUserInfoCompatible(uid: string) {
-    try {
-      const res = await this.getUserSimpleInfo(uid, true)
-      if (res) return res
-    } catch (e) {
-      this.ctx.logger.error('getUserInfoCompatible failed', e)
-    }
-    throw new Error(`获取用户信息失败, uid: ${uid}`)
   }
 }

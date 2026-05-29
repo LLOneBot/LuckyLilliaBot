@@ -78,7 +78,7 @@ export class NTQQWebApi extends Service {
     }
 
     const honorInfo: Dict = { group_id: groupCode }
-    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    const cookieObject = await this.getCookies('qun.qq.com')
     const cookieStr = this.cookieToString(cookieObject)
 
     if (getType === WebHonorType.TALKACTIVE || getType === WebHonorType.ALL) {
@@ -174,7 +174,7 @@ export class NTQQWebApi extends Service {
 
 
   async batchDeleteGroupMember(groupCode: string, memberUinList: string[]) {
-    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
     const url = `https://qun.qq.com/cgi-bin/qun_mgr/delete_group_member?bkn=${bkn}&ts=${Date.now()}`
     const cookieStr = this.cookieToString(cookieObject)
@@ -222,7 +222,7 @@ export class NTQQWebApi extends Service {
 
   async uploadGroupAlbum(groupCode: string, filePathList: string[], albumID: string) {
     const domain = 'h5.qzone.qq.com'
-    const cookiesObject = await this.ctx.ntUserApi.getCookies(domain)
+    const cookiesObject = await this.getCookies(domain)
     const gtk = this.genBkn(cookiesObject.skey)
     const errIndexList: number[] = []
     const fileLen = filePathList.length.toString()
@@ -616,7 +616,7 @@ export class NTQQWebApi extends Service {
     imgWidth?: number,
     imgHeight?: number
   ) {
-    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
 
     const picInfo = {
@@ -656,7 +656,7 @@ export class NTQQWebApi extends Service {
 
   /** 拉群公告列表 — web.qun.qq.com/cgi-bin/announce/list_announce */
   async getGroupBulletinList(groupCode: string) {
-    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
     const url = `https://web.qun.qq.com/cgi-bin/announce/list_announce?qid=${groupCode}&bkn=${bkn}&ft=23&s=-1&n=20&ni=1&i=1`
     const res = await fetch(url, { method: 'GET', headers: { 'Cookie': this.cookieToString(cookieObject) } })
@@ -666,7 +666,7 @@ export class NTQQWebApi extends Service {
 
   /** 删群公告 — web.qun.qq.com/cgi-bin/announce/del_feed */
   async deleteGroupBulletin(groupCode: string, feedsId: string): Promise<any> {
-    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
     const res = await fetch('https://web.qun.qq.com/cgi-bin/announce/del_feed', {
       method: 'POST',
@@ -682,7 +682,7 @@ export class NTQQWebApi extends Service {
 
   /** 拉群精华消息 — qun.qq.com/cgi-bin/group_digest/digest_list */
   async queryCachedEssenceMsg(groupCode: string, pageStart = 0, pageLimit = 20): Promise<any> {
-    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
     const url = `https://qun.qq.com/cgi-bin/group_digest/digest_list?bkn=${bkn}&group_code=${groupCode}&page_start=${pageStart}&page_limit=${pageLimit}`
     const res = await fetch(url, { method: 'GET', headers: { 'Cookie': this.cookieToString(cookieObject) } })
@@ -692,7 +692,7 @@ export class NTQQWebApi extends Service {
 
   /** 上传群公告图片 — web.qun.qq.com/cgi-bin/announce/upload_img */
   async uploadGroupBulletinPic(groupCode: string, filePath: string): Promise<{ errCode: number, errMsg: string, picInfo?: { id: string, width: number, height: number } }> {
-    const cookieObject = await this.ctx.ntUserApi.getCookies('qun.qq.com')
+    const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
     const buf = await fs.readFile(filePath)
     const ft = await fileTypeFromBuffer(buf)
@@ -836,5 +836,16 @@ export class NTQQWebApi extends Service {
       nextIndex: r.next_index ?? 0,
       jointime: String(r.jointime ?? 0),
     } as GroupBulletinListResult
+  }
+
+  async getCookies(domain: string) {
+    const clientKeyData = await this.ctx.ntUserApi.forceFetchClientKey()
+    if (clientKeyData?.result !== 0) {
+      throw new Error('获取clientKey失败')
+    }
+    const uin = selfInfo.uin
+    const requestUrl = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + uin + '&clientkey=' + clientKeyData.clientKey + '&u1=https%3A%2F%2F' + domain + '%2F' + uin + '%2Finfocenter&keyindex=19%27'
+    const cookies: { [key: string]: string } = await HttpUtil.getCookies(requestUrl)
+    return cookies
   }
 }

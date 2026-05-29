@@ -1,12 +1,12 @@
-import { Action, Misc, Oidb } from '@/ntqqapi/proto'
+import { Action, Oidb } from '@/ntqqapi/proto'
 import type { QQProtocolBase } from '../base'
-import { Dict } from 'cosmokit'
+import { Dict, isNonNullable } from 'cosmokit'
 import { selfInfo } from '@/common/globalVars'
 
 export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
   return class extends Base {
-    async fetchUserInfo(uin: number) {
-      const body = Oidb.FetchUserInfoReq.encode({
+    async fetchUserInfoByUin(uin: number) {
+      const body = Oidb.FetchUserInfoByUinReq.encode({
         uin,
         keys: [
           { key: 102 },  // 个性签名
@@ -34,50 +34,27 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
       })
       const res = await this.sendPB('OidbSvcTrpcTcp.0xfe1_2', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`fetchUserInfo(uin=${uin}) failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      const info = Oidb.FetchUserInfoResp.decode(Buffer.from(decoded.body))
-      const numbers = Object.fromEntries(info.body.properties.numberProperties.map(p => [p.key, p.value]))
-      const bytes = Object.fromEntries(info.body.properties.bytesProperties.map(p => [p.key, p.value]))
-      const business = bytes[107] ? Misc.UserInfoBusiness.decode(bytes[107]) : undefined
-      const vipInfo = business?.body.lists.find((e) => e.type === 1)
-      return {
-        uin: info.body.uin,
-        nick: bytes[20002]?.toString() ?? '',
-        sex: numbers[20009] ?? 0,
-        age: numbers[20037] ?? 0,
-        qid: bytes[27394]?.toString() ?? '',
-        level: numbers[105],
-        regTime: numbers[20026] ?? 0,
-        longNick: bytes[102]?.toString() ?? '',
-        city: bytes[20020]?.toString() ?? '',
-        country: bytes[20003]?.toString() ?? '',
-        birthdayYear: (bytes[20031]?.[0] << 8) | bytes[20031]?.[1],
-        birthdayMonth: bytes[20031]?.[2] ?? 0,
-        birthdayDay: bytes[20031]?.[3] ?? 0,
-        labels: bytes[104] ? Misc.UserInfoLabel.decode(bytes[104]).labels.map(e => e.content) : [],
-        school: bytes[20021]?.toString() ?? '',
-        remark: bytes[103]?.toString() ?? '',
-        isVip: !!vipInfo,
-        isYearsVip: !!vipInfo?.isYear,
-        vipLevel: vipInfo?.level ?? 0
-      }
+      return Oidb.FetchUserInfoResp.decode(decoded.body)
     }
 
     async fetchUserInfoByUid(uid: string) {
       const body = Oidb.FetchUserInfoByUidReq.encode({
         uid,
         keys: [
-          { key: 102 },
-          { key: 103 },
-          { key: 104 },
-          { key: 105 },
-          { key: 107 },
-          { key: 20002 },
-          { key: 20009 },
-          { key: 20037 },
-          { key: 27394 },
+          { key: 102 },  // 个性签名
+          { key: 103 },  // 备注
+          { key: 104 },  // 标签
+          { key: 105 },  // 等级
+          { key: 107 },  // 业务列表
+          { key: 20002 },  // 昵称
+          { key: 20003 },  // 国家
+          { key: 20009 },  // 性别
+          { key: 20020 },  // 城市
+          { key: 20021 },  // 学校
+          { key: 20026 },  // 注册时间
+          { key: 20031 },  // 生日
+          { key: 20037 },  // 年龄
+          { key: 27394 },  // QID
         ],
       })
       // 注意：by-UID 不能加 isReserved=1（FetchStrangerService 路径）
@@ -88,23 +65,7 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
       })
       const res = await this.sendPB('OidbSvcTrpcTcp.0xfe1_2', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`fetchUserInfoByUid(uid=${uid}) failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      const info = Oidb.FetchUserInfoResp.decode(Buffer.from(decoded.body))
-      const numbers = Object.fromEntries(info.body.properties.numberProperties.map(p => [p.key, p.value]))
-      const bytes = Object.fromEntries(info.body.properties.bytesProperties.map(p => [p.key, p.value]))
-      return {
-        uid,
-        uin: info.body.uin,
-        nick: bytes[20002]?.toString() ?? '',
-        sex: numbers[20009] ?? 0,
-        age: numbers[20037] ?? 0,
-        qid: bytes[27394]?.toString() ?? '',
-        level: numbers[105] ?? 0,
-        longNick: bytes[102]?.toString() ?? '',
-        remark: bytes[103]?.toString() ?? '',
-      }
+      return Oidb.FetchUserInfoResp.decode(decoded.body)
     }
 
     async fetchUserLoginDays(uin: number): Promise<number> {
@@ -209,12 +170,12 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
     async modifySelfProfile(profile: { nick?: string, longNick?: string, sex?: number, birthdayYear?: number, birthdayMonth?: number, birthdayDay?: number }) {
       const bytesProperties: { key: number, value: Buffer }[] = []
       const numberProperties: { key: number, value: number }[] = []
-      if (profile.longNick != null) bytesProperties.push({ key: 102, value: Buffer.from(profile.longNick, 'utf-8') })
-      if (profile.nick != null) bytesProperties.push({ key: 20002, value: Buffer.from(profile.nick, 'utf-8') })
+      if (isNonNullable(profile.longNick)) bytesProperties.push({ key: 102, value: Buffer.from(profile.longNick, 'utf-8') })
+      if (isNonNullable(profile.nick)) bytesProperties.push({ key: 20002, value: Buffer.from(profile.nick, 'utf-8') })
       // 20032 是 location，复杂结构，目前只用 12 字节零（清空）
       bytesProperties.push({ key: 20032, value: Buffer.alloc(12) })
-      if (profile.sex != null) numberProperties.push({ key: 20009, value: profile.sex })
-      if (profile.birthdayYear != null) {
+      if (isNonNullable(profile.sex)) numberProperties.push({ key: 20009, value: profile.sex })
+      if (isNonNullable(profile.birthdayYear)) {
         const packed = ((profile.birthdayYear & 0xffff) << 16) | (((profile.birthdayMonth ?? 0) & 0xff) << 8) | ((profile.birthdayDay ?? 0) & 0xff)
         numberProperties.push({ key: 20031, value: packed })
       }
@@ -223,13 +184,7 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
         bytesProperties,
         numberProperties,
       })
-      const data = Oidb.Base.encode({ command: 0x112a, subCommand: 2, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x112a_2', data)
-      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`modifySelfProfile failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      return { result: 0 }
+      return await this.sendOidb(0x112a, 2, body)
     }
   }
 }

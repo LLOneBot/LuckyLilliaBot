@@ -41,28 +41,12 @@ export namespace Oidb {
   })
 
   /** OidbSvcTrpcTcp.0xfe1_2 */
-  export const FetchUserInfoReq = ProtoMessage.of({
+  export const FetchUserInfoByUinReq = ProtoMessage.of({
     uin: ProtoField(1, 'uint32'),
     field2: ProtoField(2, 'uint32'),
     keys: ProtoField(3, {
       key: ProtoField(1, 'uint32')
     }, 'repeated')
-  })
-
-  export const FetchUserInfoResp = ProtoMessage.of({
-    body: ProtoField(1, {
-      properties: ProtoField(2, {
-        numberProperties: ProtoField(1, {
-          key: ProtoField(1, 'uint32'),
-          value: ProtoField(2, 'uint32')
-        }, 'repeated'),
-        bytesProperties: ProtoField(2, {
-          key: ProtoField(1, 'uint32'),
-          value: ProtoField(2, 'bytes')
-        }, 'repeated')
-      }),
-      uin: ProtoField(3, 'uint32')
-    })
   })
 
   /** OidbSvcTrpcTcp.0xfe1_2 - 通过 UID 查 stranger，返回里包含 UIN */
@@ -71,6 +55,16 @@ export namespace Oidb {
     keys: ProtoField(3, {
       key: ProtoField(1, 'uint32')
     }, 'repeated')
+  })
+
+  export const FetchUserInfoResp = ProtoMessage.of({
+    body: ProtoField(1, {
+      properties: ProtoField(2, {
+        numberProperties: ProtoField(1, ['uint32', 'uint32']),
+        bytesProperties: ProtoField(2, ['uint32', 'bytes'])
+      }),
+      uin: ProtoField(3, 'uint32')
+    })
   })
 
   /** OidbSvcTrpcTcp.0xfe7_3 - 拉群成员列表 */

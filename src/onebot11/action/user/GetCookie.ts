@@ -21,7 +21,7 @@ export class GetCookies extends BaseAction<Payload, Response> {
     if (blackList.includes(payload.domain)) {
       throw new Error('该域名禁止获取cookie')
     }
-    const cookiesObject = await this.ctx.ntUserApi.getCookies(payload.domain)
+    const cookiesObject = await this.ctx.ntWebApi.getCookies(payload.domain)
     if (!cookiesObject.p_skey) {
       const pSkey = (await this.ctx.ntUserApi.getPSkey([payload.domain])).domainPskeyMap.get(payload.domain)
       if (pSkey) {

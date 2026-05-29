@@ -231,34 +231,17 @@ export enum ProfileBizType {
   KOTHER
 }
 
-export interface MiniProfile {
-  nick: string
-  longNick: string
-  sex: number
-  birthday: {
-    birthday_year: number
-    birthday_month: number
-    birthday_day: number
-  }
-  location: {
-    country: string
-    province: string
-    city: string
-    zone: string
-  }
-}
-
 export interface Friend {
   uid: string
   uin: number
   categoryId: number
   categoryName: string
   nick: string
-  longNick: string
+  bio: string
   remark: string
   qid: string
   age: number
-  sex: number
+  gender: number
   birthdayYear: number
   birthdayMonth: number
   birthdayDay: number
@@ -270,4 +253,26 @@ export interface FriendCategory {
   categoryName: string
   categoryMemberCount: number
   categorySortId: number
+}
+
+export interface User {
+  uin: number
+  nick: string
+  bio: string
+  gender: number
+  remark: string
+  level: number
+  country: string
+  city: string
+  school: string
+  registerTime: number
+  age: number
+  qid: string
+  birthdayYear: number
+  birthdayMonth: number
+  birthdayDay: number
+  labels: string[]
+  isVip: boolean
+  isYearsVip: boolean
+  vipLevel: number
 }

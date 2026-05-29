@@ -80,14 +80,14 @@ const GetUserProfile = defineApi(
   GetUserProfileInput,
   GetUserProfileOutput,
   async (ctx, payload) => {
-    const info = await ctx.qqProtocol.fetchUserInfo(payload.user_id)
+    const info = await ctx.ntUserApi.getUserByUin(payload.user_id)
     return Ok({
       nickname: info.nick,
       qid: info.qid,
       age: info.age,
-      sex: transformGender(info.sex),
+      sex: transformGender(info.gender),
       remark: info.remark,
-      bio: info.longNick,
+      bio: info.bio,
       level: info.level,
       country: info.country,
       city: info.city,
@@ -256,25 +256,11 @@ const SetNickname = defineApi(
   SetNicknameInput,
   z.object({}),
   async (ctx, payload) => {
-    const old = (await ctx.ntUserApi.getUserDetailInfoWithBizInfo(selfInfo.uid)).simpleInfo
     const result = await ctx.ntUserApi.modifySelfProfile({
-      nick: payload.new_nickname,
-      longNick: old.baseInfo.longNick,
-      sex: old.baseInfo.sex,
-      birthday: {
-        birthday_year: old.baseInfo.birthday_year,
-        birthday_month: old.baseInfo.birthday_month,
-        birthday_day: old.baseInfo.birthday_day,
-      },
-      location: {
-        country: '',
-        province: '',
-        city: '',
-        zone: ''
-      },
+      nick: payload.new_nickname
     })
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -285,25 +271,11 @@ const SetBio = defineApi(
   SetBioInput,
   z.object({}),
   async (ctx, payload) => {
-    const old = (await ctx.ntUserApi.getUserDetailInfoWithBizInfo(selfInfo.uid)).simpleInfo
     const result = await ctx.ntUserApi.modifySelfProfile({
-      nick: old.coreInfo.nick,
-      longNick: payload.new_bio,
-      sex: old.baseInfo.sex,
-      birthday: {
-        birthday_year: old.baseInfo.birthday_year,
-        birthday_month: old.baseInfo.birthday_month,
-        birthday_day: old.baseInfo.birthday_day,
-      },
-      location: {
-        country: '',
-        province: '',
-        city: '',
-        zone: ''
-      },
+      bio: payload.new_bio
     })
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -333,7 +305,7 @@ const GetCookies = defineApi(
     if (blackList.includes(payload.domain)) {
       throw new Error('该域名禁止获取cookie')
     }
-    const cookiesObject = await ctx.ntUserApi.getCookies(payload.domain)
+    const cookiesObject = await ctx.ntWebApi.getCookies(payload.domain)
     if (!cookiesObject.p_skey) {
       const pSkey = (await ctx.ntUserApi.getPSkey([payload.domain])).domainPskeyMap.get(payload.domain)
       if (pSkey) {
@@ -351,7 +323,7 @@ const GetCSRFToken = defineApi(
   z.object({}),
   GetCSRFTokenOutput,
   async (ctx) => {
-    const cookiesObject = await ctx.ntUserApi.getCookies('h5.qzone.qq.com')
+    const cookiesObject = await ctx.ntWebApi.getCookies('h5.qzone.qq.com')
     const csrfToken = ctx.ntWebApi.genBkn(cookiesObject.skey)
     return Ok({ csrf_token: csrfToken })
   }

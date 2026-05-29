@@ -113,7 +113,7 @@ export namespace OB11Entities {
       if (msg.senderUin === '1094950020') {
         resMsg.sender.nickname = 'QQ用户'
       } else {
-        resMsg.sender.nickname = (await ctx.ntUserApi.getCoreAndBaseInfo([msg.senderUid])).get(msg.senderUid)!.coreInfo.nick
+        resMsg.sender.nickname = (await ctx.ntUserApi.getUserByUid(msg.senderUid)).nick
       }
       resMsg.sender.group_id = msg.tempFromGroupCode
     }
@@ -285,13 +285,13 @@ export namespace OB11Entities {
       user_id: raw.uin,
       nickname: raw.nick,
       remark: raw.remark,
-      sex: sex(raw.sex),
+      sex: sex(raw.gender),
       birthday_year: raw.birthdayYear,
       birthday_month: raw.birthdayMonth,
       birthday_day: raw.birthdayDay,
       age: raw.age,
       qid: raw.qid,
-      long_nick: raw.longNick,
+      long_nick: raw.bio,
     }
   }
 
