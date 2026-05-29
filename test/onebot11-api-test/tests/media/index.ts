@@ -76,8 +76,10 @@ function generateFreshVideo(): string {
   const out = path.join(generatedDir, `big-${ts}.mp4`);
   // 1280x720@30fps 5 秒视频；噪点+时间戳水印保证视频唯一（每个进程一个）
   // 同一进程内两次发送会触发服务端秒传（fresh + 秒传 一并测）
-  // ⚠️ drawtext 必须显式带 fontfile，否则在没装 fontconfig 的 Windows ffmpeg 下会
-  //   "Cannot load default config file" 报错。
+  // ⚠️ drawtext 必须显式带 fontfile，否则在 gyan.dev portable Windows ffmpeg 下：
+  //   - 没装 fontconfig：直接 "Cannot load default config file"
+  //   - 装了 fontconfig（fonts.conf + FONTCONFIG_PATH 都正确）：fontsize≥80 仍 segfault
+  //   两条路都试过，唯一稳的就是 fontfile= 跳过 fontconfig 字体匹配。
   const fontfile = process.platform === 'win32'
     ? `'C\\:/Windows/Fonts/arial.ttf'`
     : `'/System/Library/Fonts/Helvetica.ttc'`
