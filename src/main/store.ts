@@ -1,9 +1,10 @@
-import { Peer, RawMessage } from '@/ntqqapi/types'
+import { ChatType, Peer, RawMessage } from '@/ntqqapi/types'
 import { createHash } from 'node:crypto'
 import { BidiMap } from '@/common/utils/table'
 import { FileCache } from '@/common/types'
 import { Context, Service } from 'cordis'
 import { noop } from 'cosmokit'
+import { selfInfo } from '@/common/globalVars'
 
 declare module 'cordis' {
   interface Context {
@@ -111,8 +112,27 @@ class Store extends Service {
     })
   }
 
+  /**
+   * shortId hash 输入。要保证同一条消息在不同时机/不同视角算出来一致。
+   *
+   * 群消息：peerUid (= groupCode) 和 msgSeq 是 server 全局分配，所有人视角一致；msgRandom
+   *   server 在两端原样广播也一致。msgId（contentHead.msgUid）在 OlPush 推回 vs SsoGetGroupMsg
+   *   拉历史时**不一样**，不能放进 hash 输入。
+   * C2C：peerUid 是各自视角对方的 uid（双端不同），msgSeq 是双向独立的 ntMsgSeq（双端不同）。
+   *   只能用两端都一致的字段：(selfUid, otherUid) 排序对 + msgRandom。
+   */
+  private buildShortIdKey(msg: RawMessage): string {
+    if (msg.chatType === ChatType.C2C || msg.chatType === ChatType.TempC2CFromGroup) {
+      const me = selfInfo.uid
+      const other = msg.senderUid === me ? msg.peerUid : msg.senderUid
+      const pair = me < other ? `${me}|${other}` : `${other}|${me}`
+      return `${msg.chatType}-${pair}-${msg.msgRandom}`
+    }
+    return `${msg.chatType}-${msg.peerUid}-${msg.msgSeq}-${msg.msgRandom}`
+  }
+
   createMsgShortId(msg: RawMessage): number {
-    const cacheKey = `${msg.msgId}|${msg.msgSeq}|${msg.chatType}|${msg.peerUid}`
+    const cacheKey = this.buildShortIdKey(msg)
     const existingShortId = this.cache.getValue(cacheKey)
     if (existingShortId) {
       return existingShortId
@@ -131,19 +151,7 @@ class Store extends Service {
   }
 
   async getMsgInfoByShortId(shortId: number): Promise<MsgInfo | undefined> {
-    const data = this.cache.getKey(shortId)
-    if (data) {
-      const [msgId, msgSeq, chatTypeStr, peerUid] = data.split('|')
-      return {
-        msgId,
-        msgSeq: +msgSeq,
-        peer: {
-          chatType: +chatTypeStr,
-          peerUid,
-          guildId: ''
-        }
-      }
-    }
+    // 始终走 DB —— cache 的 key 用规范化字符串（C2C 用 uid-pair-random），不再可逆。
     const items = await this.ctx.database.get('message', { shortId })
     if (items.length) {
       const { msgId, chatType, peerUid, msgSeq } = items[0]
@@ -157,11 +165,19 @@ class Store extends Service {
         }
       }
     }
+    return undefined
   }
 
   getMsgBySeq(peer: Peer, msgSeq: number) {
     return this.messages.values()
       .find(e => e.peerUid === peer.peerUid && e.chatType === peer.chatType && e.msgSeq === msgSeq)
+  }
+
+  /** 按 (peerUid, msgRandom) 反查 cache —— C2C 撤回 push 里 sequence/msgSeq 不可靠，random 是
+   *  server 在两端原样广播的 32-bit 值，是双端唯一对得上的 key。 */
+  getMsgByRandom(peerUid: string, msgRandom: number) {
+    return this.messages.values()
+      .find(e => e.peerUid === peerUid && e.msgRandom === msgRandom)
   }
 
   getMsgByMsgId(msgId: string) {

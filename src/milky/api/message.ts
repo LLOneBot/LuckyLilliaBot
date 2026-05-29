@@ -205,9 +205,11 @@ const GetHistoryMessages = defineApi(
 
     let msgList: RawMessage[]
     if (!payload.start_message_seq) {
-      msgList = (await ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, payload.limit)).msgList
+      // 没传起点：用 getLatestMsgSeq 拿当前最新 seq，再倒拉 N 条
+      const latestSeq = await ctx.ntMsgApi.getLatestMsgSeq(peer)
+      msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, latestSeq, payload.limit, false)).msgList
     } else {
-      msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, payload.start_message_seq.toString(), payload.limit, true, true)).msgList
+      msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, payload.start_message_seq, payload.limit, true)).msgList
     }
 
     const filteredMsgList = msgList.filter(msg => {

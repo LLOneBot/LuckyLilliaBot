@@ -308,19 +308,16 @@ function handleFriendRecall(ctx: Context, msg: any, content: Buffer) {
     const peerUid = fromUid === selfInfo.uid ? toUid : fromUid
     // FriendRecall.body.random (field 6) 是被撤回消息的 32-bit msgRandom，server 在两端一致广播。
     // body.sequence (field 20) 在 self-recall 里恒为 0，不可靠；body.msgUid (field 4) = (0x01000000<<32)|random。
-    const random = String(body.random || (body.msgUid ? Number(BigInt(body.msgUid) & 0xFFFFFFFFn) : 0))
-    const store = (ctx as any).store
-    const original = random !== '0'
-      ? store?.findCachedMsgByPeerRandom?.(peerUid, random)
-      : undefined
-    // 复用 cache 里原消息的字段，确保 shortId 与原消息一致
+    const random = body.random || (body.msgUid ? Number(BigInt(body.msgUid) & 0xFFFFFFFFn) : 0)
+    const original = random ? ctx.store.getMsgByRandom(peerUid, random) : undefined
+    // 复用 cache 里原消息的字段（特别是 msgId），确保撤回事件 shortId 跟 send 时一致
     const senderUid = original?.senderUid || fromUid
     const senderUin = original?.senderUin || String(msg.routingHead?.fromUin || 0)
     const peerUin = original?.peerUin || String(msg.routingHead?.toUin || 0)
 
     const recallMessage = buildRecallMessage({
-      msgSeq: original?.msgSeq || '0',
-      msgRandom: original?.msgRandom || random,
+      msgSeq: String(original?.msgSeq || 0),
+      msgRandom: String(original?.msgRandom || random),
       senderUid,
       senderUin,
       peerUid,
@@ -330,6 +327,7 @@ function handleFriendRecall(ctx: Context, msg: any, content: Buffer) {
       tip,
       operatorUid: senderUid,
       operatorUin: senderUin,
+      origMsgId: original?.msgId,
     })
 
     ctx.parallel('nt/raw/update-msg', [recallMessage])
@@ -612,15 +610,17 @@ function handleGroupRecall(ctx: Context, msg: any, content: Buffer) {
 
     const operatorUid = recall.operatorUid || notifyBody.operatorUid || ''
     const peerUin = String(groupCode)
-    const store = (ctx as any).store
 
     for (const rm of recall.recallMessages) {
-      // 查 cache 找原消息，复用其 msgRandom/msgTime 让 shortId 与原消息一致
-      const seqStr = String(rm.sequence ?? 0)
-      const original = store?.findCachedMsgByPeerSeq?.(peerUin, seqStr)
+      // 查 cache 找原消息，复用其 msgId / msgRandom / msgTime 让 shortId 与原消息一致
+      const seq = Number(rm.sequence ?? 0)
+      const original = ctx.store.getMsgBySeq(
+        { chatType: ChatType.Group, peerUid: peerUin, guildId: '' },
+        seq,
+      )
       const recallMessage = buildRecallMessage({
-        msgSeq: seqStr,
-        msgRandom: original?.msgRandom || '0',
+        msgSeq: String(seq),
+        msgRandom: String(original?.msgRandom || 0),
         senderUid: rm.authorUid || original?.senderUid || '',
         senderUin: original?.senderUin || '0',
         peerUid: peerUin,
@@ -630,6 +630,7 @@ function handleGroupRecall(ctx: Context, msg: any, content: Buffer) {
         tip: recall.tipInfo?.tip || '消息已撤回',
         operatorUid,
         operatorUin: '0',
+        origMsgId: original?.msgId,
       })
       ctx.parallel('nt/raw/update-msg', [recallMessage])
     }
@@ -742,11 +743,14 @@ interface RecallParams {
   tip: string
   operatorUid: string
   operatorUin: string
+  /** 撤回事件复用原消息的 msgId（cache 里的 msgUid），让两端 createMsgShortId 算出同一个 shortId
+   *  跟 send 时返回的 message_id 对得上。否则用合成的 'recall_xxx_${Date.now()}' 每次都不同。 */
+  origMsgId?: string
 }
 
 function buildRecallMessage(p: RecallParams): RawMessage {
   return {
-    msgId: `recall_${p.msgSeq}_${Date.now()}`,
+    msgId: p.origMsgId || `recall_${p.msgSeq}_${Date.now()}`,
     msgType: 5,
     subMsgType: 4,
     msgTime: String(p.msgTime || Math.floor(Date.now() / 1000)),
