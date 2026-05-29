@@ -126,7 +126,16 @@ export class NTQQMsgApi extends Service {
 
     const echoed = echoP ? await echoP : undefined
 
-    return echoed ?? {
+    // 本地 elements：parseElements 用我们刚提交给 server 的元素列表反序列化，结构跟
+    // PbSendMsg input 完全对齐（保留 arkElement.bytesData / picElement.summary 等
+    // 上层后续依赖的字段）。echo 的 elements 是 dispatcher 从 OlPush 反构的，合并转发等
+    // 场景里实测会丢字段（群合并转发 echo 不带 ark），所以即便 echo 命中，elements 也
+    // 优先用本地版本；msgSeq / msgUid 等 server-allocated 字段保留 echo 的真值。
+    const localElements = parseElements(elems as InferProtoModel<typeof Msg.Elem>[])
+    if (echoed) {
+      return { ...echoed, elements: localElements }
+    }
+    return {
       // C2C 本地算 msgUid（高 32 位固定 0x01000000，低 32 位 = random）
       msgId: ((0x01000000n << 32n) | BigInt(ret.random)).toString(),
       msgType: 2,
@@ -150,7 +159,7 @@ export class NTQQMsgApi extends Service {
       sendStatus: 2,
       recallTime: '0',
       records: [],
-      elements: parseElements(elems as InferProtoModel<typeof Msg.Elem>[]),
+      elements: localElements,
       peerName: '',
       emojiLikesList: [],
       isOnlineMsg: true,

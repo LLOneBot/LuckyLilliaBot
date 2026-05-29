@@ -82,9 +82,18 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     const { sendElements, deleteAfterSentFiles } = await transformOutgoingSegments(this.ctx, nodes, peer)
     const returnMsg = await this.ctx.app.sendMessage(this.ctx, peer, sendElements, deleteAfterSentFiles)
     const msgShortId = this.ctx.store.createMsgShortId(returnMsg)
+    // e525d1a8 之后 sendMessage 等 OlPush echo 才返回，echo 反构出来的
+    // RawMessage.elements 里 ark 不一定在 [0]。直接找 arkElement 元素。
+    const arkElement = returnMsg.elements.find(e => e.arkElement)?.arkElement
+    if (!arkElement?.bytesData) {
+      throw new Error('合并转发发送成功但响应里没有 ark 元素，无法提取 forward_id')
+    }
+    // 缓存进 store，让后续 get_forward_msg(message_id=shortId) 能由 shortId → msgId →
+    // RawMessage 拿到 ark 里的 resid。普通 send_msg 走 SendMsg 已经做过同样的事。
+    this.ctx.store.addMsgCache(returnMsg)
     return {
       message_id: msgShortId,
-      forward_id: JSON.parse(returnMsg.elements[0].arkElement!.bytesData).meta.detail.resid
+      forward_id: JSON.parse(arkElement.bytesData).meta.detail.resid
     }
   }
 
