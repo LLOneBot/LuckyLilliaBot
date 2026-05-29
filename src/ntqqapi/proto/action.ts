@@ -158,9 +158,9 @@ export namespace Action {
 
   /** trpc.qq_new_tech.status_svc.StatusService.SetStatus */
   export const SetStatusReq = ProtoMessage.of({
-    field1: ProtoField(1, 'uint32'),    // 10 (or 0 per v1)
-    status: ProtoField(2, 'uint32'),
-    extStatus: ProtoField(3, 'uint32'),
+    status: ProtoField(1, 'uint32'),
+    extStatus: ProtoField(2, 'uint32'),
+    batteryStatus: ProtoField(3, 'uint32'),
     customExt: ProtoField(4, {
       faceId: ProtoField(1, 'uint32'),
       text: ProtoField(2, 'string'),
@@ -169,6 +169,7 @@ export namespace Action {
   })
 
   export const SetStatusResp = ProtoMessage.of({
+    retCode: ProtoField(1, 'uint32'),
     message: ProtoField(2, 'string'),
   })
 

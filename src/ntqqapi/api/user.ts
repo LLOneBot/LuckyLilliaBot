@@ -183,23 +183,16 @@ export class NTQQUserApi extends Service {
     return info
   }
 
-  async getPSkey(domains: string[]): Promise<{ domainPskeyMap: Map<string, string> }> {
-    const psKeys = await this.ctx.qqProtocol.fetchPSkey(domains)
-    return { domainPskeyMap: new Map(Object.entries(psKeys)) }
+  async getPSkey(domains: string[]) {
+    const { psKeys } = await this.ctx.qqProtocol.fetchPSkey(domains)
+    return psKeys
   }
 
-  async like(uid: string, count = 1): Promise<any> {
-    return await this.ctx.qqProtocol.sendFriendLike(uid, count)
-  }
-
-  async forceFetchClientKey(): Promise<{ result: number, errMsg: string, clientKey: string, expireTime: string, keyIndex: string }> {
+  async getClientKey() {
     const { clientKey, expiration } = await this.ctx.qqProtocol.fetchClientKey()
     return {
-      result: 0,
-      errMsg: '',
       clientKey,
-      expireTime: String(expiration),
-      keyIndex: '19',
+      expiration
     }
   }
 
@@ -211,10 +204,12 @@ export class NTQQUserApi extends Service {
     return nick
   }
 
-  async setSelfStatus(status: number, extStatus: number, _batteryStatus: number): Promise<any> {
-    // 直连协议没有独立的电池上报通道，batteryStatus 忽略
-    const r = await this.ctx.qqProtocol.setOnlineStatus(status, extStatus)
-    return { result: 0, errMsg: r?.message || '' }
+  async setSelfStatus(status: number, extStatus: number, batteryStatus: number) {
+    return await this.ctx.qqProtocol.setOnlineStatus(status, extStatus, batteryStatus)
+  }
+
+  async sendProfileLike(uid: string, count = 1) {
+    return await this.ctx.qqProtocol.sendFriendLike(uid, count)
   }
 
   async getProfileLike(uid: string, _start = 0, limit = 20): Promise<any> {

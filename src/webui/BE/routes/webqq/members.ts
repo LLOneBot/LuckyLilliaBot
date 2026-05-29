@@ -51,16 +51,16 @@ export function createMembersRoutes(ctx: Context): Hono {
         return c.json({ success: false, message: '缺少 uid 参数' }, 400)
       }
 
-      const userInfo = await ctx.ntUserApi.getUserSimpleInfo(uid, false)
+      const userInfo = await ctx.ntUserApi.getUserByUid(uid)
       const uin = await ctx.ntUserApi.getUinByUid(uid)
 
       return c.json({
         success: true,
         data: {
-          uid: userInfo.uid,
-          uin: uin || '',
-          nickname: userInfo.coreInfo?.nick || '',
-          remark: userInfo.coreInfo?.remark || ''
+          uid: uid,
+          uin: uin.toString(),
+          nickname: userInfo.nick,
+          remark: userInfo.remark
         }
       })
     } catch (e) {

@@ -87,52 +87,37 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
     /** 给好友点赞，count 1~20 表示一次点赞次数（QQ 协议限制每天 20 个） */
     async sendFriendLike(targetUid: string, count: number = 1) {
       const body = Oidb.FriendLikeReq.encode({ targetUid, field2: 71, count })
-      const data = Oidb.Base.encode({ command: 0x7e5, subCommand: 104, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x7e5_104', data)
-      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`sendFriendLike failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      return { result: 0 }
+      return await this.sendOidb(0x7e5, 104, body)
     }
 
-    /** 设置在线状态。status: 在线状态码（11=在线, 31=离开, 41=隐身, 50=忙碌, 60=Q我, 70=请勿打扰）；extStatus 通常 0 */
-    async setOnlineStatus(status: number, extStatus: number = 0, customFaceId?: number, customText?: string) {
+    /** 设置在线状态。status: 在线状态码（10=在线, 30=离开, 40=隐身, 50=忙碌, 60=Q我, 70=请勿打扰）；extStatus 通常 0 */
+    async setOnlineStatus(status: number, extStatus: number, batteryStatus: number, customFaceId?: number, customText?: string) {
       const body = Action.SetStatusReq.encode({
-        field1: 10,
         status,
         extStatus,
-        customExt: customFaceId != null ? { faceId: customFaceId, text: customText ?? '', field3: 1 } : undefined,
+        batteryStatus,
+        customExt: customFaceId ? { faceId: customFaceId, text: customText ?? '', field3: 1 } : undefined,
       })
       const res = await this.sendPB('trpc.qq_new_tech.status_svc.StatusService.SetStatus', body)
-      const { message } = Action.SetStatusResp.decode(Buffer.from(res.pb, 'hex'))
-      return { message: message || '' }
+      return Action.SetStatusResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     /** 拉 clientKey（用于换 web cookies）。OidbSvcTrpcTcp.0x102a_1 */
-    async fetchClientKey(): Promise<{ clientKey: string, expiration: number }> {
+    async fetchClientKey() {
       const body = Oidb.FetchCookiesReq.encode({})
       const data = Oidb.Base.encode({ command: 0x102a, subCommand: 1, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x102a_1', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`fetchClientKey failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      const resp = Oidb.FetchCookiesResp.decode(Buffer.from(decoded.body))
-      return { clientKey: resp.clientKey, expiration: resp.expiration }
+      return Oidb.FetchCookiesResp.decode(decoded.body)
     }
 
     /** 拉指定 domain 的 PSkey 字典。OidbSvcTrpcTcp.0x102a_0 */
-    async fetchPSkey(domains: string[]): Promise<Record<string, string>> {
+    async fetchPSkey(domains: string[]) {
       const body = Oidb.FetchCookiesReq.encode({ domain: domains })
       const data = Oidb.Base.encode({ command: 0x102a, subCommand: 0, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x102a_0', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`fetchPSkey failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      const resp = Oidb.FetchCookiesResp.decode(Buffer.from(decoded.body))
-      return Object.fromEntries(resp.psKeys)
+      return Oidb.FetchCookiesResp.decode(decoded.body)
     }
 
     /** 获取赞过我或我赞过的列表。direction: 0=我赞过的, 1=赞过我的。OidbSvcTrpcTcp.0x7ed_13 */

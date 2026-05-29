@@ -32,9 +32,9 @@ const SendProfileLike = defineApi(
     if (!uid) {
       return Failed(-404, 'User not found')
     }
-    const result = await ctx.ntUserApi.like(uid, payload.count)
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    const result = await ctx.ntUserApi.sendProfileLike(uid, payload.count)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }

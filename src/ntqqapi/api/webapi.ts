@@ -206,7 +206,7 @@ export class NTQQWebApi extends Service {
   }
 
   async getExpertInfo(uin: string): Promise<ExpertInfo> {
-    const pSkey = (await this.ctx.ntUserApi.getPSkey(['vip.qq.com'])).domainPskeyMap.get('vip.qq.com')!
+    const pSkey = (await this.ctx.ntUserApi.getPSkey(['vip.qq.com'])).get('vip.qq.com')!
     const bkn = this.genBkn(pSkey)
     const url = `https://cgi.vip.qq.com/card/getExpertInfo?ps_tk=${bkn}&fuin=${uin}&g_tk=${bkn}`
     const cookie = `p_uin=o${selfInfo.uin}; p_skey=${pSkey}; uin=o${selfInfo.uin}`
@@ -721,7 +721,7 @@ export class NTQQWebApi extends Service {
   }
 
   async getDaySignedList(groupId: string) {
-    const pSkey = (await this.ctx.ntUserApi.getPSkey(['qun.qq.com'])).domainPskeyMap.get('qun.qq.com')!
+    const pSkey = (await this.ctx.ntUserApi.getPSkey(['qun.qq.com'])).get('qun.qq.com')!
     const cookie = `p_uin=o${selfInfo.uin}; p_skey=${pSkey}; uin=o${selfInfo.uin}`
     const res = await fetch(`https://qun.qq.com/v2/signin/trpc/GetDaySignedList?g_tk=${this.genBkn(pSkey)}`, {
       method: 'POST',
@@ -839,10 +839,7 @@ export class NTQQWebApi extends Service {
   }
 
   async getCookies(domain: string) {
-    const clientKeyData = await this.ctx.ntUserApi.forceFetchClientKey()
-    if (clientKeyData?.result !== 0) {
-      throw new Error('获取clientKey失败')
-    }
+    const clientKeyData = await this.ctx.ntUserApi.getClientKey()
     const uin = selfInfo.uin
     const requestUrl = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + uin + '&clientkey=' + clientKeyData.clientKey + '&u1=https%3A%2F%2F' + domain + '%2F' + uin + '%2Finfocenter&keyindex=19%27'
     const cookies: { [key: string]: string } = await HttpUtil.getCookies(requestUrl)

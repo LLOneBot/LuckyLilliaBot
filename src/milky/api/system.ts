@@ -307,7 +307,7 @@ const GetCookies = defineApi(
     }
     const cookiesObject = await ctx.ntWebApi.getCookies(payload.domain)
     if (!cookiesObject.p_skey) {
-      const pSkey = (await ctx.ntUserApi.getPSkey([payload.domain])).domainPskeyMap.get(payload.domain)
+      const pSkey = (await ctx.ntUserApi.getPSkey([payload.domain])).get(payload.domain)
       if (pSkey) {
         cookiesObject.p_skey = pSkey
       }
