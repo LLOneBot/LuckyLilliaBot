@@ -36,7 +36,6 @@ import { unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { sleep } from '@/common/utils'
-import { ChatType } from '@/ntqqapi/types'
 import { noop } from 'cosmokit'
 
 const GetLoginInfo = defineApi(

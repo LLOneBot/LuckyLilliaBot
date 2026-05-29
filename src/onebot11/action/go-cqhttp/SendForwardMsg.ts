@@ -5,6 +5,7 @@ import { transformOutgoingSegments } from '../../transform/message/outgoing'
 import { message2List, createPeer, CreatePeerMode } from '../../utils'
 import { MsgInfo } from '../../../main/store'
 import { OB11Entities } from '@/onebot11/entities'
+import { ChatType } from '@/ntqqapi/types'
 
 interface Payload {
   user_id?: string | number
@@ -82,12 +83,13 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     const { sendElements, deleteAfterSentFiles } = await transformOutgoingSegments(this.ctx, nodes, peer)
     const returnMsg = await this.ctx.app.sendMessage(this.ctx, peer, sendElements, deleteAfterSentFiles)
     const msgShortId = this.ctx.store.createMsgShortId(returnMsg)
-    // 自己发出去的合并转发，OlPush 推回来的 elements 是 lightApp 不是 ark（这是 QQ NT
-    // 的正常行为：自己看不到自己发的合并转发的 ark 卡片）。所以不能从 returnMsg.elements
-    // 里反挖 forward_id —— 在 sendMsg 内部用 building.multiForwardResid 直接透出来。
-    const forwardId = returnMsg.multiForwardResid
-    if (!forwardId) {
-      throw new Error('合并转发发送成功但 sendMsg 没回传 multiForwardResid，无法提取 forward_id')
+    // 自己发出去的群聊合并转发，OlPush 推回来的 elements 是 multiForwardMsgElement 不是 arkElement（这是 QQ NT
+    // 的正常行为），而发出去的私聊合并转发没有 OlPush 推回来，故其 elements 采用输入的 elements，为 arkElement
+    let forwardId
+    if (peer.chatType === ChatType.Group) {
+      forwardId = returnMsg.elements[0].multiForwardMsgElement!.resId
+    } else {
+      forwardId = JSON.parse(returnMsg.elements[0].arkElement!.bytesData).meta.detail.resid
     }
     // 缓存进 store，让 get_forward_msg(message_id=shortId) 这条 gocq 兼容路径能 shortId
     // → msgId → RawMessage 找消息（其它消息也都需要这条；普通 send_msg 走 SendMsg 已做）。

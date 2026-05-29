@@ -158,12 +158,6 @@ export class NTQQMsgApi extends Service {
       tempFromGroupCode: chatType === ChatType.TempC2CFromGroup ? groupCode! : 0,
       clientSeq: ret.clientSequence
     }
-    // 自己发出去的合并转发：echo 的 elements 是 lightApp 不带 ark；本地 parseElements
-    // 出来的 outputElems 也没把 multiForward upload 的 resid 拼回 element 里。直接把
-    // building 实例采集到的 resid 透出，让 SendForwardMsg 等上层稳定拿到 forward_id。
-    if (building.multiForwardResid) {
-      result.multiForwardResid = building.multiForwardResid
-    }
     return result
   }
 

@@ -437,12 +437,6 @@ export interface RawMessage {
   isOnlineMsg: boolean // 是否为在线消息，灰条消息会被判定为非在线消息
   tempFromGroupCode: number
   clientSeq: number
-  /**
-   * 仅 sendMsg 返回值上有：当本次发送包含合并转发节点时，由 server 上传分配的 forward
-   * resid。OB11 / Milky 等上层用它回 forward_id 给客户端（自己发的合并转发 OlPush 回声里
-   * elements 是 lightApp，不带 ark，从 RawMessage 反挖不到 resid）。
-   */
-  multiForwardResid?: string
 }
 
 // VAS 消息信息（气泡、字体等）
