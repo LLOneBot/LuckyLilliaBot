@@ -76,9 +76,14 @@ function generateFreshVideo(): string {
   const out = path.join(generatedDir, `big-${ts}.mp4`);
   // 1280x720@30fps 5 秒视频；噪点+时间戳水印保证视频唯一（每个进程一个）
   // 同一进程内两次发送会触发服务端秒传（fresh + 秒传 一并测）
+  // ⚠️ drawtext 必须显式带 fontfile，否则在没装 fontconfig 的 Windows ffmpeg 下会
+  //   "Cannot load default config file" 报错。
+  const fontfile = process.platform === 'win32'
+    ? `'C\\:/Windows/Fonts/arial.ttf'`
+    : `'/System/Library/Fonts/Helvetica.ttc'`
   const cmd = [
     'ffmpeg', '-hide_banner', '-loglevel', 'error',
-    '-f', 'lavfi', '-i', `"color=c=black:s=1280x720:r=30:d=5,format=yuv420p,noise=alls=80:allf=t+u,drawtext=text='UID-${ts}':fontcolor=white:fontsize=80:x=20:y=20"`,
+    '-f', 'lavfi', '-i', `"color=c=black:s=1280x720:r=30:d=5,format=yuv420p,noise=alls=80:allf=t+u,drawtext=fontfile=${fontfile}:text='UID-${ts}':fontcolor=white:fontsize=80:x=20:y=20"`,
     '-f', 'lavfi', '-i', '"anullsrc=channel_layout=stereo:sample_rate=44100"',
     '-shortest', '-c:v', 'libx264', '-b:v', '2500k', '-maxrate', '3000k', '-bufsize', '6000k',
     '-c:a', 'aac', '-b:a', '128k', '-f', 'mp4',
