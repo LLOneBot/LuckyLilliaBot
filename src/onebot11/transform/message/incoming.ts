@@ -51,7 +51,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
       }
       try {
         const { replyMsgSeq } = replyElement
-        let replyMsg = ctx.store.getMsgBySeq(peer, replyMsgSeq)
+        let replyMsg = ctx.store.getMsgBySeq(peer.peerUid, replyMsgSeq)
         if (!replyMsg) {
           const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq)
           replyMsg = msgList[0]

@@ -262,7 +262,7 @@ const GetGroupEssenceMessages = defineApi(
     }
     const messages: GetGroupEssenceMessagesOutput['messages'] = []
     for (const item of items) {
-      let msg = ctx.store.getMsgBySeq(peer, item.msgSeq)
+      let msg = ctx.store.getMsgBySeq(peer.peerUid, item.msgSeq)
       if (!msg) {
         const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, item.msgSeq)
         msg = msgList[0]
@@ -297,7 +297,7 @@ const SetGroupEssenceMessage = defineApi(
       peerUid: payload.group_id.toString(),
       guildId: ''
     }
-    let msg = ctx.store.getMsgBySeq(peer, payload.message_seq)
+    let msg = ctx.store.getMsgBySeq(peer.peerUid, payload.message_seq)
     if (!msg) {
       const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq)
       msg = msgList[0]

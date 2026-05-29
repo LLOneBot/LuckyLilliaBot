@@ -95,7 +95,7 @@ async function handleMsg(ctx: Context, msg: OB11Message, quickAction: QuickOpera
     if (!info) return
     // handle group msg
     if (groupMsgQuickAction.delete) {
-      ctx.ntMsgApi.recallMsg(peer, [info.msgId]).catch(e => ctx.logger.error(e))
+      ctx.ntMsgApi.recallMsg(peer, info.msgSeq).catch(e => ctx.logger.error(e))
     }
     if (groupMsgQuickAction.kick) {
       let msg = ctx.store.getMsgByMsgId(info.msgId)

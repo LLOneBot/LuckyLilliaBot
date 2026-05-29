@@ -98,22 +98,22 @@ const RecallPrivateMessage = defineApi(
     if (!uid) {
       return Failed(-404, 'User not found')
     }
-    const peer = { chatType: 1, peerUid: uid, guildId: '' }
+    const peer = {
+      chatType: ChatType.C2C,
+      peerUid: uid,
+      guildId: ''
+    }
     const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
-      peer.chatType = 100
+      peer.chatType = ChatType.TempC2CFromGroup
     }
-    // 跟 OneBot11 的 DeleteMsg.ts 一样：通过 store 反查自己 send 时缓存的 RawMessage，
-    // recallMsg 内部根据 cache 里的 (clientSequence, random, msgTime) 字段构 SsoC2CRecallMsg。
-    // C2C 没有 server self-echo，只有自己刚 send 时显式 addMsgCache 的消息能撤回。
-    const cached = ctx.store.getMsgBySeq(peer as any, payload.message_seq)
-    if (!cached) {
-      return Failed(-404, 'Message not found in cache (only self-sent messages can be recalled)')
+    let msg = ctx.store.getMsgBySeq(peer.peerUid, payload.message_seq)
+    if (!msg) {
+      // 从服务器拉取的消息可以用
+      const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq)
+      msg = msgList[0]
     }
-    const result = await ctx.ntMsgApi.recallMsg(peer, [cached.msgId])
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
-    }
+    await ctx.ntMsgApi.recallMsg(peer, msg.msgSeq, msg.clientSeq, msg.msgRandom, +msg.msgTime)
     return Ok({})
   }
 )
@@ -123,14 +123,13 @@ const RecallGroupMessage = defineApi(
   RecallGroupMessageInput,
   z.object({}),
   async (ctx, payload) => {
-    // 群消息撤回只需要 (groupCode, msgSeq)，没必要拉历史再查 msgCache
-    // (msgCache 只缓存本地刚发的消息，拉历史的不命中会误报 'not in cache')
-    try {
-      await ctx.qqProtocol.recallGroupMessage(+payload.group_id, +payload.message_seq)
-      return Ok({})
-    } catch (e) {
-      return Failed(-500, (e as Error).message)
+    const peer = {
+      chatType: ChatType.Group,
+      peerUid: payload.group_id.toString(),
+      guildId: ''
     }
+    await ctx.ntMsgApi.recallMsg(peer, payload.message_seq)
+    return Ok({})
   }
 )
 
@@ -156,7 +155,7 @@ const GetMessage = defineApi(
       peer.peerUid = uid
     }
 
-    const msgResult = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq.toString())
+    const msgResult = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq)
     if (msgResult.msgList.length === 0) {
       return Failed(-404, 'Message not found')
     }

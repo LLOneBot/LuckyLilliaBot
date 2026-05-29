@@ -32,7 +32,7 @@ export class GetEssenceMsgList extends BaseAction<Payload, EssenceMsg[]> {
     const essence = await this.ctx.ntWebApi.listGroupEssence(groupCode)
     const data: EssenceMsg[] = []
     for (const item of essence.items) {
-      let msg = this.ctx.store.getMsgBySeq(peer, item.msgSeq)
+      let msg = this.ctx.store.getMsgBySeq(peer.peerUid, item.msgSeq)
       if (!msg) {
         const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(peer, item.msgSeq)
         msg = msgList[0]

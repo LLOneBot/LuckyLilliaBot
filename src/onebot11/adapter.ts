@@ -423,7 +423,7 @@ class Onebot11Adapter extends Service {
           peerUid: groupId.toString(),
           guildId: ''
         }
-        const cached = this.ctx.store.getMsgBySeq(peer, input.msgSeq)
+        const cached = this.ctx.store.getMsgBySeq(peer.peerUid, input.msgSeq)
         let messageId
         if (cached) {
           messageId = this.ctx.store.createMsgShortId(cached)
@@ -482,7 +482,7 @@ class Onebot11Adapter extends Service {
           peerUid: groupId.toString(),
           guildId: ''
         }
-        const cached = this.ctx.store.getMsgBySeq(peer, input.msgSequence)
+        const cached = this.ctx.store.getMsgBySeq(peer.peerUid, input.msgSequence)
         let messageId, senderId
         if (cached) {
           messageId = this.ctx.store.createMsgShortId(cached)

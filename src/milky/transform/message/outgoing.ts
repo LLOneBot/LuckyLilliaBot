@@ -41,7 +41,7 @@ export async function transformOutgoingMessage(
           peerUid,
           guildId: ''
         }
-        let msg = ctx.store.getMsgBySeq(peer, segment.data.message_seq)
+        let msg = ctx.store.getMsgBySeq(peer.peerUid, segment.data.message_seq)
         if (!msg) {
           const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, segment.data.message_seq)
           msg = msgList[0]

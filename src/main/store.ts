@@ -1,6 +1,5 @@
 import { ChatType, Peer, RawMessage } from '@/ntqqapi/types'
 import { createHash } from 'node:crypto'
-import { BidiMap } from '@/common/utils/table'
 import { FileCache } from '@/common/types'
 import { Context, Service } from 'cordis'
 import { noop } from 'cosmokit'
@@ -46,12 +45,12 @@ export interface MsgInfo {
 
 class Store extends Service {
   static inject = ['database', 'model']
-  private cache: BidiMap<string, number>
+  private ids: Map<string, number>
   private messages: Map<string, RawMessage>
 
   constructor(protected ctx: Context, public config: Store.Config) {
     super(ctx, 'store')
-    this.cache = new BidiMap(1000)
+    this.ids = new Map()
     this.messages = new Map()
   }
 
@@ -133,13 +132,18 @@ class Store extends Service {
 
   createMsgShortId(msg: RawMessage): number {
     const cacheKey = this.buildShortIdKey(msg)
-    const existingShortId = this.cache.getValue(cacheKey)
+    const existingShortId = this.ids.get(cacheKey)
     if (existingShortId) {
       return existingShortId
     }
     const hash = createHash('md5').update(cacheKey).digest()
     const shortId = hash.readInt32BE() // OneBot 11 要求 message_id 为 int32
-    this.cache.set(cacheKey, shortId)
+    this.ids.set(cacheKey, shortId)
+    if (this.ids.size > 1000) {
+      // 如果缓存超过1000条，清理最早的
+      const firstKey = this.ids.keys().next().value
+      this.ids.delete(firstKey!)
+    }
     this.ctx.database.upsert('message', [{
       msgId: msg.msgId,
       shortId,
@@ -165,12 +169,11 @@ class Store extends Service {
         }
       }
     }
-    return undefined
   }
 
-  getMsgBySeq(peer: Peer, msgSeq: number) {
+  getMsgBySeq(peerUid: string, msgSeq: number) {
     return this.messages.values()
-      .find(e => e.peerUid === peer.peerUid && e.chatType === peer.chatType && e.msgSeq === msgSeq)
+      .find(e => e.peerUid === peerUid && e.msgSeq === msgSeq)
   }
 
   /** 按 (peerUid, msgRandom) 反查 cache —— C2C 撤回 push 里 sequence/msgSeq 不可靠，random 是

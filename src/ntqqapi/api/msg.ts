@@ -35,34 +35,23 @@ export class NTQQMsgApi extends Service {
     return { msgList: filterNullable(top.buffer.msg.map(e => convertToRawMessage(e))) }
   }
 
-  async recallMsg(peer: Peer, msgIds: string[]): Promise<{ result: number, errMsg: string }> {
-    const isGroup = peer.chatType === ChatType.Group
-    let lastErr = ''
-    for (const id of msgIds) {
-      const msg = this.ctx.store.getMsgByMsgId(id)
-      if (!msg) {
-        lastErr = `msg ${id} not in cache`
-        continue
-      }
-      // 失败时底层 sendCommand 会抛 retCode != 0 的 SSO 错误，由调用方 try/catch 处理
-      if (isGroup) {
-        await this.ctx.qqProtocol.recallGroupMessage(+peer.peerUid, +msg.msgSeq)
-      } else {
-        // SsoC2CRecallMsg.info 里两个 sequence 字段含义不同：
-        //   field 1 (clientSequence) ← client 发送时自己生成的 random 范围 10000-99999，存 msgAttrs
-        //   field 6 (ntMsgSeq)       ← PbSendMsgResp.clientSequence(field14)，即 server 给本端 c2c
-        //                                会话流分配的真 msgSeq —— 我们存在 msg.msgSeq
-        // 两个都必须用发送时的真值传回去，server 才能定位被撤回的消息并向对方推 sub=138
-        await this.ctx.qqProtocol.recallC2CMessage(
-          peer.peerUid,
-          msg.clientSeq ? msg.clientSeq : msg.msgSeq,
-          msg.msgRandom,
-          +msg.msgTime,
-          msg.msgSeq,
-        )
-      }
+  async recallMsg(peer: Peer, msgSeq: number, clientSeq?: number, msgRandom?: number, msgTime?: number) {
+    if (peer.chatType === ChatType.Group) {
+      await this.ctx.qqProtocol.recallGroupMessage(+peer.peerUid, msgSeq)
+    } else {
+      // SsoC2CRecallMsg.info 里两个 sequence 字段含义不同：
+      //   field 1 (clientSequence) ← client 发送时自己生成的 random 范围 10000-99999，存 msgAttrs
+      //   field 6 (ntMsgSeq)       ← PbSendMsgResp.clientSequence(field14)，即 server 给本端 c2c
+      //                                会话流分配的真 msgSeq —— 我们存在 msg.msgSeq
+      // 两个都必须用发送时的真值传回去，server 才能定位被撤回的消息并向对方推 sub=138
+      await this.ctx.qqProtocol.recallC2CMessage(
+        peer.peerUid,
+        clientSeq!,
+        msgRandom!,
+        msgTime!,
+        msgSeq!,
+      )
     }
-    return { result: lastErr ? -1 : 0, errMsg: lastErr }
   }
 
   /**

@@ -614,10 +614,7 @@ function handleGroupRecall(ctx: Context, msg: any, content: Buffer) {
     for (const rm of recall.recallMessages) {
       // 查 cache 找原消息，复用其 msgId / msgRandom / msgTime 让 shortId 与原消息一致
       const seq = Number(rm.sequence ?? 0)
-      const original = ctx.store.getMsgBySeq(
-        { chatType: ChatType.Group, peerUid: peerUin, guildId: '' },
-        seq,
-      )
+      const original = ctx.store.getMsgBySeq(peerUin, seq)
       const recallMessage = buildRecallMessage({
         msgSeq: String(seq),
         msgRandom: String(original?.msgRandom || 0),
