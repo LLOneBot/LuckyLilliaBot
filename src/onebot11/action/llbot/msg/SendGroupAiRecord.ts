@@ -28,7 +28,9 @@ export class SendGroupAiRecord extends BaseAction<Payload, Response> {
     let targetMsgRandom: string | null = null
     const { promise, resolve } = Promise.withResolvers<Response>()
     const checkAndResolve = (msg: any) => {
-      if (targetMsgRandom !== null && msg.msgRandom === targetMsgRandom) {
+      // msg.msgRandom 来自 dispatcher 反构 RawMessage（contentHead.random，uint32），
+      // 类型可能是 number 或 string。OIDB 返回的 res.msgRandom 是 number。统一成 string 比对。
+      if (targetMsgRandom !== null && String(msg.msgRandom) === targetMsgRandom) {
         dispose()
         const shortId = this.ctx.store.createMsgShortId(msg)
         resolve({ message_id: shortId })
