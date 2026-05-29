@@ -49,6 +49,10 @@ const SendPrivateMessage = defineApi(
       elements,
       deleteAfterSentFiles
     )
+    // C2C 没有 server self-echo，自己发出去的消息不会通过 nt/message-created 进 cache，
+    // 这里显式塞一份。后续 recall_private_message 才能按 (peerUid, msgSeq) 找回 client 当时
+    // 生成的 (clientSequence, random, msgTime) 来构 SsoC2CRecallMsg。
+    ctx.store.addMsgCache(result)
 
     return Ok({
       message_seq: +result.msgSeq,
@@ -99,16 +103,14 @@ const RecallPrivateMessage = defineApi(
     if (!isBuddy) {
       peer.chatType = 100
     }
-    const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
-      peer,
-      payload.message_seq,
-      1,
-      true
-    )
-    if (msg.msgList.length === 0) {
-      return Failed(-404, 'Message not found')
+    // C2C 撤回必须命中本地 msgCache（cache 里有本地 send 时生成的 clientSequence/random/time，
+    // 撤回 SsoC2CRecallMsg 要这些字段定位消息）。直接按 (peerUid, msgSeq) 在内存 cache 里查；
+    // 拉历史得到的 RawMessage 没有 clientSequence，对接 recallMsg 会失败。
+    const cached = ctx.store.findCachedMsgByPeerSeq(uid, payload.message_seq.toString())
+    if (!cached) {
+      return Failed(-404, 'Message not found in cache (only self-sent messages can be recalled)')
     }
-    const result = await ctx.ntMsgApi.recallMsg(peer, [msg.msgList[0].msgId])
+    const result = await ctx.ntMsgApi.recallMsg(peer, [cached.msgId])
     if (result.result !== 0) {
       return Failed(-500, result.errMsg)
     }
@@ -121,21 +123,14 @@ const RecallGroupMessage = defineApi(
   RecallGroupMessageInput,
   z.object({}),
   async (ctx, payload) => {
-    const peer = { chatType: 2, peerUid: payload.group_id.toString(), guildId: '' } // ChatType.Group = 2
-    const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
-      peer,
-      payload.message_seq,
-      1,
-      true
-    )
-    if (msg.msgList.length === 0) {
-      return Failed(-404, 'Message not found')
+    // 群消息撤回只需要 (groupCode, msgSeq)，没必要拉历史再查 msgCache
+    // (msgCache 只缓存本地刚发的消息，拉历史的不命中会误报 'not in cache')
+    try {
+      await ctx.qqProtocol.recallGroupMessage(+payload.group_id, +payload.message_seq)
+      return Ok({})
+    } catch (e) {
+      return Failed(-500, (e as Error).message)
     }
-    const result = await ctx.ntMsgApi.recallMsg(peer, [msg.msgList[0].msgId])
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
-    }
-    return Ok({})
   }
 )
 
@@ -161,7 +156,7 @@ const GetMessage = defineApi(
       peer.peerUid = uid
     }
 
-    const msgResult = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq)
+    const msgResult = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq.toString())
     if (msgResult.msgList.length === 0) {
       return Failed(-404, 'Message not found')
     }
@@ -210,10 +205,9 @@ const GetHistoryMessages = defineApi(
 
     let msgList: RawMessage[]
     if (!payload.start_message_seq) {
-      const latestSeq = await ctx.ntMsgApi.getLatestMsgSeq(peer)
-      msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, latestSeq, payload.limit, false)).msgList
+      msgList = (await ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, payload.limit)).msgList
     } else {
-      msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, payload.start_message_seq, payload.limit, true)).msgList
+      msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, payload.start_message_seq.toString(), payload.limit, true, true)).msgList
     }
 
     const filteredMsgList = msgList.filter(msg => {

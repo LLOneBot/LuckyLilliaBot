@@ -12,11 +12,7 @@ describe('Milky 撤回消息', () => {
     teardownMilkyTest(ctx)
   })
 
-  // skip 原因：milky 的 recall_*_message 在调 ntMsgApi.recallMsg 前用 message_seq 拉消息，
-  //   再用拉回的 msgId 去 store.getMsgCache(msgId) 找 client 自己生的 (clientSequence, random)，
-  //   这个 cache 只在自己刚发出去时填，拉历史的不会命中 → 'msg <id> not in cache'。
-  //   要修是 milky 端 recall 实现的事，先把测试占位骨架挂上。
-  it.skip('recall_private_message: primary 撤回后双方都收到 message_recall (friend)', async () => {
+  it('recall_private_message: primary 撤回后双方都收到 message_recall (friend)', async () => {
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
     const text = `milky-recall-priv-${Date.now()}`
@@ -69,7 +65,7 @@ describe('Milky 撤回消息', () => {
     ])
   }, 60000)
 
-  it.skip('recall_group_message: primary 撤回群消息后双方都收到 message_recall (group)', async () => {
+  it('recall_group_message: primary 撤回群消息后双方都收到 message_recall (group)', async () => {
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
     const text = `milky-recall-grp-${Date.now()}`
