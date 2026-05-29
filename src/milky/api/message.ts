@@ -49,9 +49,9 @@ const SendPrivateMessage = defineApi(
       elements,
       deleteAfterSentFiles
     )
-    // C2C 没有 server self-echo，自己发出去的消息不会通过 nt/message-created 进 cache，
-    // 这里显式塞一份。后续 recall_private_message 才能按 (peerUid, msgSeq) 找回 client 当时
-    // 生成的 (clientSequence, random, msgTime) 来构 SsoC2CRecallMsg。
+    // 跟 OneBot11 的 SendMsg.ts:42 一样，把自己刚发的消息塞 msgCache，
+    // 后续 recall_private_message 通过 (peerUid, msgSeq) 反查时能命中。
+    // C2C 没有 server self-echo，不存就永远进不了 cache。
     ctx.store.addMsgCache(result)
 
     return Ok({
@@ -103,10 +103,10 @@ const RecallPrivateMessage = defineApi(
     if (!isBuddy) {
       peer.chatType = 100
     }
-    // C2C 撤回必须命中本地 msgCache（cache 里有本地 send 时生成的 clientSequence/random/time，
-    // 撤回 SsoC2CRecallMsg 要这些字段定位消息）。直接按 (peerUid, msgSeq) 在内存 cache 里查；
-    // 拉历史得到的 RawMessage 没有 clientSequence，对接 recallMsg 会失败。
-    const cached = ctx.store.findCachedMsgByPeerSeq(uid, payload.message_seq.toString())
+    // 跟 OneBot11 的 DeleteMsg.ts 一样：cache 里有 send 时本地生成的
+    // (clientSequence, random, msgTime)，recallMsg 内部根据这些字段构 SsoC2CRecallMsg。
+    // 走拉历史这条路 server 不认（实测 resp 看似 ok 但实际没真撤）。
+    const cached = ctx.store.getMsgBySeq(peer as any, payload.message_seq)
     if (!cached) {
       return Failed(-404, 'Message not found in cache (only self-sent messages can be recalled)')
     }
