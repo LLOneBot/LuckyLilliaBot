@@ -103,9 +103,9 @@ const RecallPrivateMessage = defineApi(
     if (!isBuddy) {
       peer.chatType = 100
     }
-    // 跟 OneBot11 的 DeleteMsg.ts 一样：cache 里有 send 时本地生成的
-    // (clientSequence, random, msgTime)，recallMsg 内部根据这些字段构 SsoC2CRecallMsg。
-    // 走拉历史这条路 server 不认（实测 resp 看似 ok 但实际没真撤）。
+    // 跟 OneBot11 的 DeleteMsg.ts 一样：通过 store 反查自己 send 时缓存的 RawMessage，
+    // recallMsg 内部根据 cache 里的 (clientSequence, random, msgTime) 字段构 SsoC2CRecallMsg。
+    // C2C 没有 server self-echo，只有自己刚 send 时显式 addMsgCache 的消息能撤回。
     const cached = ctx.store.getMsgBySeq(peer as any, payload.message_seq)
     if (!cached) {
       return Failed(-404, 'Message not found in cache (only self-sent messages can be recalled)')
