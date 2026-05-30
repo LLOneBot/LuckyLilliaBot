@@ -131,11 +131,17 @@ describe('Milky 事件覆盖', () => {
     }).catch(() => undefined)
   }, 60000)
 
-  it.skip('group_name_change — server 不下发本端 grayTip / 系统消息，等服务端行为变了再启用', async () => {
-    // 注：milky transform 已实现（grayTipElement.groupElement.type === 5），但 server
-    // 改群名后既不给操作发起人下发 grayTip，也不给群里其它成员下发 nt/raw/group-name-update
-    // 之类细粒度事件。OB11 端也没暴露这个 notice，整条链路是死的。
-  })
+  it('group_name_change — primary 改群名，secondary 收到 group_name_change', async () => {
+    ctx.twoAccountTest.clearAllQueues()
+    const primary = ctx.twoAccountTest.getClient('primary')
+    const newName = `MilkyEvt_${Date.now()}`
+    const res = await primary.call('set_group_name', { group_id: ctx.testGroupId, new_group_name: newName })
+    Assertions.assertSuccess(res, 'set_group_name')
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'group_name_change', group_id: ctx.testGroupId, new_group_name: newName, operator_id: ctx.primaryUserId },
+      undefined, 15000,
+    )
+  }, 30000)
 
   it('group_admin_change — primary 设/取消 secondary 管理员，secondary 都收到 group_admin_change', async () => {
     ctx.twoAccountTest.clearAllQueues()
@@ -261,11 +267,37 @@ describe('Milky 事件覆盖', () => {
     )
   }, 90000)
 
-  it.skip('peer_pin_change — server 不下发本端会话置顶变更系统消息', async () => {
-    // 注：milky transformSystemMessageEvent 已实现（msgType=528 subType=39 + body.type=7），
-    // 但 set_peer_pin API 调用成功后 server 不下发对应系统消息给本端 (实测两端都收不到)。
-    // 等 server 行为或 nt 协议层暴露独立事件后再启用。
-  })
+  it('peer_pin_change — primary 设/取消会话置顶，自己收到 peer_pin_change', async () => {
+    // peer_pin_change 走 server → bot1 自己端（OlPush msgType=528 subType=39 body.type=7）。
+    // dispatcher.handleFriendDeleteOrPin 同时 emit nt/raw/friend-pin-changed 和
+    // forward sysmsg；milky transformSystemMessageEvent 用 sysmsg 路径产出 peer_pin_change。
+    ctx.twoAccountTest.clearAllQueues()
+    const primary = ctx.twoAccountTest.getClient('primary')
+
+    const pinRes = await primary.call('set_peer_pin', {
+      message_scene: 'friend',
+      peer_id: ctx.secondaryUserId,
+      is_pinned: true,
+    })
+    Assertions.assertSuccess(pinRes, 'set_peer_pin (pin)')
+    await ctx.twoAccountTest.primaryListener.waitForEvent(
+      { event_type: 'peer_pin_change', message_scene: 'friend', peer_id: ctx.secondaryUserId, is_pinned: true },
+      undefined, 15000,
+    )
+    await new Promise(r => setTimeout(r, 800))
+
+    ctx.twoAccountTest.clearAllQueues()
+    const unpinRes = await primary.call('set_peer_pin', {
+      message_scene: 'friend',
+      peer_id: ctx.secondaryUserId,
+      is_pinned: false,
+    })
+    Assertions.assertSuccess(unpinRes, 'set_peer_pin (unpin)')
+    await ctx.twoAccountTest.primaryListener.waitForEvent(
+      { event_type: 'peer_pin_change', message_scene: 'friend', peer_id: ctx.secondaryUserId, is_pinned: false },
+      undefined, 15000,
+    )
+  }, 30000)
 
   it('group_file_upload — primary 上群文件，secondary 收到 group_file_upload', async () => {
     ctx.twoAccountTest.clearAllQueues()

@@ -73,6 +73,7 @@ declare module 'cordis' {
     'nt/raw/group-reaction': (input: { groupCode: string, msgSeq: number, operatorUid: string, code: string, isAdd: boolean, count: number }) => void
     'nt/raw/group-poke': (input: { groupCode: string, fromUin: string, toUin: string, action: string, suffix: string, actionImg: string, msgUid?: string }) => void
     'nt/raw/group-title-changed': (input: { groupCode: string, memberUin: string, title: string }) => void
+    'nt/raw/group-name-changed': (input: { groupCode: string, newName: string, operatorUid: string }) => void
     // Friend events
     'nt/raw/friend-poke': (input: { fromUin: string, toUin: string, action: string, suffix: string, actionImg: string, msgUid?: string }) => void
     'nt/raw/friend-pin-changed': (input: { uid: string, isPinned: boolean }) => void

@@ -314,6 +314,23 @@ export class MilkyAdapter extends Service {
       }
     })
 
+    this.ctx.on('nt/raw/group-name-changed', async (input) => {
+      const groupId = +input.groupCode
+      if (!groupId) return
+      try {
+        const operatorId = input.operatorUid
+          ? Number(await this.ctx.ntUserApi.getUinByUid(input.operatorUid))
+          : 0
+        this.emitEvent('group_name_change', {
+          group_id: groupId,
+          new_group_name: input.newName,
+          operator_id: operatorId,
+        } as MilkyEventTypes['group_name_change'])
+      } catch (e) {
+        this.ctx.logger.warn('milky group-name-change bridge error:', (e as Error).message)
+      }
+    })
+
     this.ctx.on('nt/raw/group-reaction', async (input) => {
       const groupId = +input.groupCode
       if (!groupId) return

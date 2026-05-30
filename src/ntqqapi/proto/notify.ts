@@ -180,4 +180,15 @@ export namespace Notify {
     memberUin: ProtoField(5, 'uint32'),
     operatorUin: ProtoField(6, 'uint32'),
   })
+
+  /**
+   * 0x2DC subType=16 + field13=12 = GroupNameChange。
+   * 实测 push 把 NotifyMessageBody.eventParam (field 5) 设成这个 sub-msg 的 bytes。
+   *   field 1 (uint32)  = 1 (常量?)
+   *   field 2 (string)  = 新群名 ← 我们要的
+   */
+  export const GroupNameChangeBody = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32', 'optional'),
+    newName: ProtoField(2, 'string'),
+  })
 }

@@ -187,7 +187,12 @@ function handleFriendDeleteOrPin(ctx: Context, msg: any, content: Buffer) {
     const pinChanged = decoded.body?.pinChanged
     if (pinChanged) {
       const uid = pinChanged.body?.uid || ''
-      ctx.parallel('nt/raw/friend-pin-changed', { uid, isPinned: true })
+      // info.timestamp 非空 = pin，空 = unpin（实测 server 行为）
+      const isPinned = (pinChanged.body?.info?.timestamp?.length ?? 0) !== 0
+      ctx.parallel('nt/raw/friend-pin-changed', { uid, isPinned })
+      // 同时 forward 完整 sysmsg：milky transformSystemMessageEvent 走这条路径
+      // 来产出 peer_pin_change（msgType=528 subType=39 + body.type=7）。
+      forwardSystemMessage(ctx, msg)
       return
     }
     // 其他 type；forward 完整 Msg.Message 让 adapter 处理（profile_like 走这里）
@@ -430,6 +435,25 @@ function handleGroupGeneralEvent(ctx: Context, content: Buffer) {
       const title = titleMatch?.[1] || ''
       if (memberUin !== '0' && title) {
         ctx.parallel('nt/raw/group-title-changed', { groupCode, memberUin, title })
+      }
+      return
+    }
+    if (field13 === 12) {
+      // GroupNameChange：eventParam 是 GroupNameChangeBody（field 1=1, field 2=新群名）。
+      // operatorUid 在 NotifyMessageBody.field 21 (notifyBody.operatorUid)。
+      const eventParam = notifyBody?.eventParam
+      if (!eventParam) return
+      try {
+        const body = Notify.GroupNameChangeBody.decode(Buffer.from(eventParam))
+        if (body.newName) {
+          ctx.parallel('nt/raw/group-name-changed', {
+            groupCode,
+            newName: body.newName,
+            operatorUid: notifyBody?.operatorUid || '',
+          })
+        }
+      } catch (e) {
+        ctx.logger.warn('[Group0x2DC field13=12] decode err:', (e as Error).message)
       }
       return
     }
