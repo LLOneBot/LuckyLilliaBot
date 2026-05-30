@@ -259,4 +259,47 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
     ])
     expect(segs.some((s: any) => s.type === 'reply' && s.data?.message_seq === baseRes.data!.message_seq)).toBe(true)
   }, 60000)
+
+  it('forward 段：私聊合并转发', async () => {
+    ctx.twoAccountTest.clearAllQueues()
+    const primary = ctx.twoAccountTest.getClient('primary')
+    const ts = Date.now()
+    const sendRes = await primary.call<{ forward_id?: string; message_seq?: number }>(
+      'send_private_message',
+      {
+        user_id: ctx.secondaryUserId,
+        message: [
+          {
+            type: 'forward',
+            data: {
+              messages: [
+                {
+                  user_id: ctx.primaryUserId,
+                  sender_name: 'milky-test',
+                  segments: [{ type: 'text', data: { text: `priv-fwd-1-${ts}` } }],
+                },
+                {
+                  user_id: ctx.primaryUserId,
+                  sender_name: 'milky-test',
+                  segments: [{ type: 'text', data: { text: `priv-fwd-2-${ts}` } }],
+                },
+              ],
+            },
+          },
+        ],
+      },
+    )
+    Assertions.assertSuccess(sendRes, 'send_private_message (forward)')
+    expect(typeof sendRes.data?.forward_id === 'string' || sendRes.data?.message_seq).toBeTruthy()
+
+    if (sendRes.data?.message_seq) {
+      const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
+        { event_type: 'message_receive', message_scene: 'friend', sender_id: ctx.primaryUserId },
+        (e) => e.data?.message_seq === sendRes.data!.message_seq,
+        15000,
+      )
+      const segs = ev.data?.segments ?? []
+      expect(segs.some((s: any) => s.type === 'forward')).toBe(true)
+    }
+  }, 60000)
 })
