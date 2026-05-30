@@ -134,21 +134,7 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
       const data = Oidb.Base.encode({ command: 0x7ed, subCommand: 13, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x7ed_13', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      if (decoded.errorCode !== 0) {
-        throw new Error(`fetchProfileLikes failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
-      }
-      const resp = Oidb.FetchProfileLikeResp.decode(Buffer.from(decoded.body))
-      const detail = resp.body?.detail
-      // 把 uint64 字段转成 Number，下游 JSON.stringify 不会因 BigInt 报错
-      const users = (detail?.users ?? []).map((u) => ({
-        ...u,
-        latestTime: u.latestTime != null ? Number(u.latestTime) : 0,
-        lastCharged: u.lastCharged != null ? Number(u.lastCharged) : 0,
-      }))
-      return {
-        nextStart: detail?.nextStart ?? 0,
-        users,
-      }
+      return Oidb.FetchProfileLikeResp.decode(decoded.body)
     }
 
     /** 修改自己的资料 (OidbSvcTrpcTcp.0x112a_2) */

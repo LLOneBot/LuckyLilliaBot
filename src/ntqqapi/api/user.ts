@@ -212,41 +212,12 @@ export class NTQQUserApi extends Service {
     return await this.ctx.qqProtocol.sendFriendLike(uid, count)
   }
 
-  async getProfileLike(uid: string, _start = 0, limit = 20): Promise<any> {
-    const r = await this.ctx.qqProtocol.fetchProfileLikes(uid, 0, limit)
-    return {
-      result: 0,
-      errMsg: '',
-      info: {
-        start: r.nextStart,
-        userLikeInfos: [{ favoriteInfo: { userInfos: r.users } }],
-      },
-    }
+  async getProfileLike(uid: string, limit = 20) {
+    return await this.ctx.qqProtocol.fetchProfileLikes(uid, 0, limit)
   }
 
-  async getProfileLikeMe(uid: string, _start = 0, limit = 20): Promise<any> {
-    const r = await this.ctx.qqProtocol.fetchProfileLikes(uid, 1, limit)
-    return {
-      result: 0,
-      errMsg: '',
-      info: {
-        start: r.nextStart,
-        userLikeInfos: [{ voteInfo: { userInfos: r.users } }],
-      },
-    }
-  }
-
-  async getRobotUinRange(): Promise<any> {
-    return { result: 0, errMsg: '', response: { robotUinRanges: [] } }
-  }
-
-  async quitAccount(): Promise<any> {
-    // 直连协议没有 server 端"主动登出"接口；本地断开 TCP + 清除 session 即可
-    const client = this.ctx.qqProtocol.directClient
-    if (client?.isConnected) {
-      client.disconnect()
-    }
-    return { result: 0, errMsg: '' }
+  async getProfileLikeMe(uid: string, limit = 20) {
+    return await this.ctx.qqProtocol.fetchProfileLikes(uid, 1, limit)
   }
 
   async modifySelfProfile(profile: {

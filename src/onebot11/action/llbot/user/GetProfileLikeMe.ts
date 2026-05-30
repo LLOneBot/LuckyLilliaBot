@@ -21,14 +21,13 @@ export class GetProfileLikeMe extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload): Promise<Response> {
-    const ret = await this.ctx.ntUserApi.getProfileLikeMe(selfInfo.uid, +payload.start, +payload.count)
-    if (ret.result !== 0) {
-      throw new Error(ret.errMsg)
-    }
-    const users = ret.info.userLikeInfos[0].voteInfo.userInfos
+    const ret = await this.ctx.ntUserApi.getProfileLikeMe(selfInfo.uid, +payload.count)
+    const users = ret.body.detail?.users ?? []
     for (const item of users) {
-      item.uin = Number(await this.ctx.ntUserApi.getUinByUid(item.uid))
+      Object.assign(item, {
+        uin: await this.ctx.ntUserApi.getUinByUid(item.uid)
+      })
     }
-    return { users: users, nextStart: ret.info.start }
+    return { users: users, nextStart: ret.body.detail?.nextStart ?? 0 }
   }
 }
