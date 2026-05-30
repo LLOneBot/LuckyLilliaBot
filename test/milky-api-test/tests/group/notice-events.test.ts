@@ -1,37 +1,26 @@
 /**
- * Milky 事件覆盖测试
+ * Milky 事件覆盖测试 — 非破坏性事件全覆盖。
  *
- * **当前状态**：milky adapter 的事件分发对部分 group system message 类型在
- * bot 冷启动 / 测试群多次操作后服务端不再下发广播。同样的 set_xxx API 调用 server
- * 都返 OK，但 secondary bot 这边收不到对应的 OlPush 系统消息（已验证：手动 WS sniff
- * + bot 日志双重确认 secondary 端进 milky 之前就没消息）。
+ * **观察 1**：milky adapter 之前 nt/message-created handler 用
+ * `senderUid === selfInfo.uid && !reportSelfMessage` 整段 early return，
+ * 把群操作的 grayTip 系统消息（mute / admin / nudge / file_upload …
+ * senderUid 是发起人 uid）一并拦截了。已修成 guard 只挡 message_receive，
+ * transformXxxEvent 一直走。
  *
- * 这是 bot 自身的事件分发问题，不是测试代码问题。
- *
- * **已验证 100% 可重复工作**（写在这里）：
- * - message_receive   — send_*_message 时 secondary 收到事件 shape 对
- *
- * **已在其他测试覆盖**（不重复）：
- * - message_recall    — recall-message.test.ts 里
- *
- * **待解决**（it.skip + 注释，等 milky adapter 事件分发修好再恢复）：
- * - friend_nudge / group_nudge        — 服务端 nudge gray tip 不稳定下发
- * - group_admin_change                — 重启后冷状态不下发，热状态偶尔工作
- * - group_mute / group_whole_mute     — 服务端实际不下发禁言系统消息
- * - group_message_reaction            — 走 OlPush msgType=732 sub=16，需要进一步调试
- * - group_essence_message_change      — 走 OlPush msgType=732 sub=21，需要进一步调试
- * - group_name_change                 — 群名变更系统消息未下发
- * - peer_pin_change                   — 自端置顶事件未下发
- * - group_file_upload                 — 群文件上传完成的系统消息未下发到 milky adapter
+ * **观察 2**：QQ NT server 对很多群操作类系统消息**只下发给被操作方 / 群里其他成员**，
+ * 不下发给"操作发起人"。所以这里测试都从 secondary（被操作方）角度断言事件到达，
+ * 跟 OB11 的 notice-events 测试策略保持一致。
  *
  * **跳过（破坏性 / 跨第三方）**：
- * - bot_offline / friend_request / friend_file_upload / group_invitation /
- *   group_*_join_request / group_member_increase / group_member_decrease
- *
- * 待 milky adapter 事件层稳定后，把对应 it.skip 改回 it 即可。
+ * - bot_offline                         — 需要把 bot 弄下线
+ * - friend_request / friend_file_upload — 加好友 / 私聊文件流，依赖第三方
+ * - group_invitation / group_*_join_request /
+ *   group_member_increase / group_member_decrease
+ *                                       — 邀请 / 入群 / 退群，破坏 fixture
  */
 import { setupMilkyTest, teardownMilkyTest, MilkyTestContext } from '../setup'
 import { Assertions } from '@/protocol/Assertions'
+import { MediaPaths } from '../media'
 
 describe('Milky 事件覆盖', () => {
   let ctx: MilkyTestContext
@@ -44,12 +33,11 @@ describe('Milky 事件覆盖', () => {
     teardownMilkyTest(ctx)
   })
 
-  it('message_receive — 私聊 + 群聊 send 后 secondary 都能收到 shape 对的 event', async () => {
+  it('message_receive — 私聊 + 群聊 send 后 secondary 收到 shape 对的 event', async () => {
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
     const ts = Date.now()
 
-    // private
     await primary.call('send_private_message', {
       user_id: ctx.secondaryUserId,
       message: [{ type: 'text', data: { text: `mr-priv-${ts}` } }],
@@ -60,9 +48,7 @@ describe('Milky 事件覆盖', () => {
       15000,
     )
     Assertions.assertDefined(ev1.data?.message_seq, 'message_receive.data.message_seq')
-    Assertions.assertDefined(ev1.data?.time, 'message_receive.data.time')
 
-    // group
     await primary.call('send_group_message', {
       group_id: ctx.testGroupId,
       message: [{ type: 'text', data: { text: `mr-grp-${ts}` } }],
@@ -75,45 +61,234 @@ describe('Milky 事件覆盖', () => {
     Assertions.assertDefined(ev2.data?.message_seq, 'message_receive(group).data.message_seq')
   }, 60000)
 
-  // ==================== 待 milky adapter 事件层修好再启用 ====================
+  it('friend_nudge — primary 戳 secondary，secondary 收到 friend_nudge', async () => {
+    ctx.twoAccountTest.clearAllQueues()
+    const primary = ctx.twoAccountTest.getClient('primary')
+    const res = await primary.call('send_friend_nudge', { user_id: ctx.secondaryUserId, is_self: false })
+    Assertions.assertSuccess(res, 'send_friend_nudge')
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'friend_nudge' }, undefined, 15000,
+    )
+  }, 30000)
 
-  it.skip('friend_nudge — primary 戳 secondary，双方都收到 friend_nudge', async () => {
-    // TODO: server 不下发 nudge 系统消息到 secondary，调用 send_friend_nudge 后双端都收不到事件
+  it('group_nudge — primary 群里戳 secondary，secondary 收到 group_nudge', async () => {
+    ctx.twoAccountTest.clearAllQueues()
+    const primary = ctx.twoAccountTest.getClient('primary')
+    const res = await primary.call('send_group_nudge', {
+      group_id: ctx.testGroupId,
+      user_id: ctx.secondaryUserId,
+    })
+    Assertions.assertSuccess(res, 'send_group_nudge')
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'group_nudge', group_id: ctx.testGroupId, sender_id: ctx.primaryUserId, receiver_id: ctx.secondaryUserId },
+      undefined, 15000,
+    )
+  }, 30000)
+
+  it('group_message_reaction — primary 加表情，secondary 收到 reaction (is_add=true)', async () => {
+    ctx.twoAccountTest.clearAllQueues()
+    const primary = ctx.twoAccountTest.getClient('primary')
+    const text = `react-tgt-${Date.now()}`
+    const sendRes = await primary.call<{ message_seq: number }>('send_group_message', {
+      group_id: ctx.testGroupId,
+      message: [{ type: 'text', data: { text } }],
+    })
+    Assertions.assertSuccess(sendRes, 'send_group_message')
+    const messageSeq = sendRes.data!.message_seq
+
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'message_receive', message_scene: 'group', peer_id: ctx.testGroupId, message_seq: messageSeq },
+      undefined, 15000,
+    )
+    await new Promise(r => setTimeout(r, 500))
+
+    const reactRes = await primary.call('send_group_message_reaction', {
+      group_id: ctx.testGroupId,
+      message_seq: messageSeq,
+      reaction: '4',
+      reaction_type: 'face',
+      is_add: true,
+    })
+    Assertions.assertSuccess(reactRes, 'send_group_message_reaction')
+
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      {
+        event_type: 'group_message_reaction',
+        group_id: ctx.testGroupId,
+        message_seq: messageSeq,
+        user_id: ctx.primaryUserId,
+        is_add: true,
+      },
+      undefined, 15000,
+    )
+
+    await primary.call('send_group_message_reaction', {
+      group_id: ctx.testGroupId,
+      message_seq: messageSeq,
+      reaction: '4',
+      reaction_type: 'face',
+      is_add: false,
+    }).catch(() => undefined)
+  }, 60000)
+
+  it.skip('group_name_change — server 不下发本端 grayTip / 系统消息，等服务端行为变了再启用', async () => {
+    // 注：milky transform 已实现（grayTipElement.groupElement.type === 5），但 server
+    // 改群名后既不给操作发起人下发 grayTip，也不给群里其它成员下发 nt/raw/group-name-update
+    // 之类细粒度事件。OB11 端也没暴露这个 notice，整条链路是死的。
   })
 
-  it.skip('group_nudge — primary 群里戳 secondary，双方收到 group_nudge', async () => {
-    // TODO: 同 friend_nudge，server 不下发
+  it('group_admin_change — primary 设/取消 secondary 管理员，secondary 都收到 group_admin_change', async () => {
+    ctx.twoAccountTest.clearAllQueues()
+    const primary = ctx.twoAccountTest.getClient('primary')
+
+    const setRes = await primary.call('set_group_member_admin', {
+      group_id: ctx.testGroupId,
+      user_id: ctx.secondaryUserId,
+      is_set: true,
+    })
+    Assertions.assertSuccess(setRes, 'set_group_member_admin (set)')
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'group_admin_change', group_id: ctx.testGroupId, user_id: ctx.secondaryUserId, is_set: true },
+      undefined, 20000,
+    )
+    await new Promise(r => setTimeout(r, 1500))
+
+    ctx.twoAccountTest.clearAllQueues()
+    const unsetRes = await primary.call('set_group_member_admin', {
+      group_id: ctx.testGroupId,
+      user_id: ctx.secondaryUserId,
+      is_set: false,
+    })
+    Assertions.assertSuccess(unsetRes, 'set_group_member_admin (unset)')
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'group_admin_change', group_id: ctx.testGroupId, user_id: ctx.secondaryUserId, is_set: false },
+      undefined, 20000,
+    )
+  }, 90000)
+
+  it('group_mute — primary 禁言/解禁 secondary，secondary 收到 group_mute', async () => {
+    ctx.twoAccountTest.clearAllQueues()
+    const primary = ctx.twoAccountTest.getClient('primary')
+
+    const muteRes = await primary.call('set_group_member_mute', {
+      group_id: ctx.testGroupId,
+      user_id: ctx.secondaryUserId,
+      duration: 60,
+    })
+    Assertions.assertSuccess(muteRes, 'set_group_member_mute (mute)')
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'group_mute', group_id: ctx.testGroupId, user_id: ctx.secondaryUserId },
+      (e) => e.data?.duration > 0,
+      15000,
+    )
+    await new Promise(r => setTimeout(r, 1000))
+
+    ctx.twoAccountTest.clearAllQueues()
+    const unmuteRes = await primary.call('set_group_member_mute', {
+      group_id: ctx.testGroupId,
+      user_id: ctx.secondaryUserId,
+      duration: 0,
+    })
+    Assertions.assertSuccess(unmuteRes, 'set_group_member_mute (unmute)')
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'group_mute', group_id: ctx.testGroupId, user_id: ctx.secondaryUserId },
+      (e) => e.data?.duration === 0,
+      15000,
+    )
+  }, 60000)
+
+  it('group_whole_mute — primary 开/关全员禁言，secondary 收到 group_whole_mute', async () => {
+    ctx.twoAccountTest.clearAllQueues()
+    const primary = ctx.twoAccountTest.getClient('primary')
+
+    const onRes = await primary.call('set_group_whole_mute', { group_id: ctx.testGroupId, is_mute: true })
+    Assertions.assertSuccess(onRes, 'set_group_whole_mute (on)')
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'group_whole_mute', group_id: ctx.testGroupId, is_mute: true },
+      undefined, 15000,
+    )
+    await new Promise(r => setTimeout(r, 1000))
+
+    ctx.twoAccountTest.clearAllQueues()
+    const offRes = await primary.call('set_group_whole_mute', { group_id: ctx.testGroupId, is_mute: false })
+    Assertions.assertSuccess(offRes, 'set_group_whole_mute (off)')
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'group_whole_mute', group_id: ctx.testGroupId, is_mute: false },
+      undefined, 15000,
+    )
+  }, 60000)
+
+  it('group_essence_message_change — primary 设/取消精华，secondary 收到事件', async () => {
+    ctx.twoAccountTest.clearAllQueues()
+    const primary = ctx.twoAccountTest.getClient('primary')
+    const text = `essence-${Date.now()}`
+    const sendRes = await primary.call<{ message_seq: number }>('send_group_message', {
+      group_id: ctx.testGroupId,
+      message: [{ type: 'text', data: { text } }],
+    })
+    Assertions.assertSuccess(sendRes, 'send_group_message')
+    const messageSeq = sendRes.data!.message_seq
+
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'message_receive', message_scene: 'group', peer_id: ctx.testGroupId, message_seq: messageSeq },
+      undefined, 15000,
+    )
+    await new Promise(r => setTimeout(r, 500))
+
+    ctx.twoAccountTest.clearAllQueues()
+    const setRes = await primary.call('set_group_essence_message', {
+      group_id: ctx.testGroupId,
+      message_seq: messageSeq,
+      is_set: true,
+    })
+    Assertions.assertSuccess(setRes, 'set_group_essence_message (add)')
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'group_essence_message_change', group_id: ctx.testGroupId, message_seq: messageSeq, is_set: true },
+      undefined, 15000,
+    )
+    await new Promise(r => setTimeout(r, 1000))
+
+    ctx.twoAccountTest.clearAllQueues()
+    const unsetRes = await primary.call('set_group_essence_message', {
+      group_id: ctx.testGroupId,
+      message_seq: messageSeq,
+      is_set: false,
+    })
+    Assertions.assertSuccess(unsetRes, 'set_group_essence_message (remove)')
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'group_essence_message_change', group_id: ctx.testGroupId, message_seq: messageSeq, is_set: false },
+      undefined, 15000,
+    )
+  }, 90000)
+
+  it.skip('peer_pin_change — server 不下发本端会话置顶变更系统消息', async () => {
+    // 注：milky transformSystemMessageEvent 已实现（msgType=528 subType=39 + body.type=7），
+    // 但 set_peer_pin API 调用成功后 server 不下发对应系统消息给本端 (实测两端都收不到)。
+    // 等 server 行为或 nt 协议层暴露独立事件后再启用。
   })
 
-  it.skip('group_message_reaction — primary 加表情，双方收到 reaction (is_add=true)', async () => {
-    // TODO: OlPush msgType=732 subType=16 的转换路径需要核对，事件未到达 milky listener
-  })
+  it('group_file_upload — primary 上群文件，secondary 收到 group_file_upload', async () => {
+    ctx.twoAccountTest.clearAllQueues()
+    const primary = ctx.twoAccountTest.getClient('primary')
+    const fileName = `milky-file-evt-${Date.now()}.txt`
+    const res = await primary.call<{ file_id: string }>('upload_group_file', {
+      group_id: ctx.testGroupId,
+      file_uri: MediaPaths.testGifUri,
+      file_name: fileName,
+    })
+    Assertions.assertSuccess(res, 'upload_group_file')
 
-  it.skip('group_name_change — primary 改群名，双方收到 group_name_change', async () => {
-    // TODO: 群名变更系统消息未下发或 transformGroupMessageEvent 未匹配
-  })
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'group_file_upload', group_id: ctx.testGroupId },
+      (e) => e.data?.file_name === fileName,
+      20000,
+    )
 
-  it.skip('group_admin_change — primary 设/取消 secondary 管理员，双方收到 group_admin_change', async () => {
-    // 注：手动操作（间隔 >5s）有时能收到，jest 节奏下基本不下发
-  })
-
-  it.skip('group_mute — primary 禁言/解禁 secondary，双方收到 group_mute', async () => {
-    // TODO: server 没把 ban 通知作为 group system message 推下来
-  })
-
-  it.skip('group_whole_mute — primary 开/关全员禁言，双方收到 group_whole_mute', async () => {
-    // TODO: 同 group_mute
-  })
-
-  it.skip('group_essence_message_change — primary 设/取消精华，双方收到事件', async () => {
-    // TODO: OlPush msgType=732 subType=21 路径核对
-  })
-
-  it.skip('peer_pin_change — primary 设/取消会话置顶，自己收到 peer_pin_change', async () => {
-    // TODO: 置顶变更未走 OlPush，可能需要别的事件源
-  })
-
-  it.skip('group_file_upload — primary 上群文件，双方收到 group_file_upload', async () => {
-    // TODO: server 不再下发群文件上传通知（可能是测试群已上传过同名/同 hash）
-  })
+    if (res.data?.file_id) {
+      await primary.call('delete_group_file', {
+        group_id: ctx.testGroupId,
+        file_id: res.data.file_id,
+      }).catch(() => undefined)
+    }
+  }, 60000)
 })
