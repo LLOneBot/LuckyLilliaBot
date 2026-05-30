@@ -191,4 +191,13 @@ export namespace Notify {
     field1: ProtoField(1, 'uint32', 'optional'),
     newName: ProtoField(2, 'string'),
   })
+
+  export const GroupRemoved = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32')
+  })
+
+  export const GroupJoined = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32'),
+    adminUid: ProtoField(3, 'string')
+  })
 }

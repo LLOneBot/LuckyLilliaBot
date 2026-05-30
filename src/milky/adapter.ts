@@ -25,6 +25,7 @@ import {
   transformGroupJoinRequestEvent,
   transformGroupInvitedJoinRequestEvent,
   transformGroupInvitationEvent,
+  transformGroupMemberIncreaseEvent,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
 import { noop } from 'cosmokit'
@@ -254,6 +255,13 @@ export class MilkyAdapter extends Service {
       const eventData = await transformGroupInvitationEvent(this.ctx, data)
       if (eventData) {
         this.emitEvent('group_invitation', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-member-added', async (data) => {
+      const eventData = await transformGroupMemberIncreaseEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_member_increase', eventData)
       }
     })
 

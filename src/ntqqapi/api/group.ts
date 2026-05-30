@@ -27,9 +27,14 @@ export class NTQQGroupApi extends Service {
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntGroupApi')
+    ctx.on('nt/group-added', () => {
+      this.getGroups(true)
+    })
+    ctx.on('nt/group-removed', () => {
+      this.getGroups(true)
+    })
   }
 
-  // TODO: 群组数量变更时刷新缓存
   async getGroups(forceUpdate: boolean) {
     if (forceUpdate || this.groupsCache.length === 0) {
       const res = await this.ctx.qqProtocol.fetchGroups()

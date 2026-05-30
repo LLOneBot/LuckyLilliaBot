@@ -14,6 +14,9 @@ import {
   GroupInvitedJoinRequestEvent,
   GroupInvitationEvent,
   MessageDeleteEvent,
+  GroupRemovedEvent,
+  GroupAddedEvent,
+  GroupMemberAddedEvent,
 } from './types'
 import { selfInfo } from '../common/globalVars'
 import {
@@ -38,7 +41,6 @@ declare module 'cordis' {
     'nt/offline-message-created': (input: RawMessage) => void
     'nt/message-sent': (input: RawMessage) => void
     'nt/group-dismiss': (input: GroupDetailInfo) => void
-    'nt/group-quit': (input: GroupDetailInfo) => void // 主动退群
     'nt/friend-request': (input: FriendRequest) => void
     'nt/system-message-created': (input: Buffer) => void
     'nt/flash-file-uploading': (input: { fileSet: FlashFileSetInfo } & FlashFileUploadingInfo) => void
@@ -57,7 +59,6 @@ declare module 'cordis' {
     'nt/raw/self-send-msg': (input: RawMessage) => void
     'nt/raw/friend-request': (input: FriendRequestNotify) => void
     'nt/raw/sys-msg': (input: Buffer) => void
-    'nt/raw/group-detail-update': (input: GroupDetailInfo) => void
     'nt/raw/kicked-offline': (input: KickedOffLineInfo) => void
     'nt/raw/flash-file-download-status': (input: [status: number, errCodeOrFileSetId: number | string, fileSetIdOrInfo: string | unknown]) => void
     'nt/raw/flash-file-upload-status': (input: FlashFileSetInfo) => void
@@ -82,6 +83,9 @@ declare module 'cordis' {
     'nt/group-invited-join-request': (input: GroupInvitedJoinRequestEvent) => void
     'nt/group-invitation': (input: GroupInvitationEvent) => void
     'nt/message-deleted': (input: MessageDeleteEvent) => void
+    'nt/group-removed': (input: GroupRemovedEvent) => void
+    'nt/group-added': (input: GroupAddedEvent) => void
+    'nt/group-member-added': (input: GroupMemberAddedEvent) => void
   }
 }
 
@@ -218,23 +222,6 @@ class Core extends Service {
 
     this.ctx.on('nt/raw/flash-file-uploading', payload => {
       this.ctx.parallel('nt/flash-file-uploading', payload)
-    })
-
-    const group_dismiss_codes: string[] = []  // 不知是否是 QQ 的 bug，退群的时候会上报一个以前解散的群，这里用于避免重复上报
-    this.ctx.on('nt/raw/group-detail-update', async data => {
-      if (data.localExitGroupReason === LocalExitGroupReason.DISMISS
-        && !group_dismiss_codes.includes(data.groupCode)
-        && data.cmdUinJoinTime > this.startupTime
-      ) {
-        group_dismiss_codes.push(data.groupCode)
-        if (group_dismiss_codes.length > 1000) {
-          group_dismiss_codes.shift()
-        }
-        this.ctx.parallel('nt/group-dismiss', data)
-      }
-      else if (data.localExitGroupReason === LocalExitGroupReason.SELF_QUIT) {
-        this.ctx.parallel('nt/group-quit', data)
-      }
     })
 
     this.ctx.on('nt/raw/kicked-offline', info => {

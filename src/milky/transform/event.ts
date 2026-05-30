@@ -1,5 +1,5 @@
 import { MilkyEventTypes } from '@/milky/common/event'
-import { RawMessage, FriendRequest, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeleteEvent } from '@/ntqqapi/types'
+import { RawMessage, FriendRequest, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeleteEvent, GroupMemberAddedEvent } from '@/ntqqapi/types'
 import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingTempMessage } from './message/incoming'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -211,6 +211,23 @@ export async function transformGroupInvitationEvent(
   }
 }
 
+export async function transformGroupMemberIncreaseEvent(
+  ctx: Context,
+  data: GroupMemberAddedEvent
+): Promise<MilkyEventTypes['group_member_increase'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      user_id: data.memberUin,
+      operator_id: data.operatorUin,
+      invitor_id: data.invitorUin
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group member increase event:', error)
+    return null
+  }
+}
+
 export async function transformPrivateMessageEvent(
   ctx: Context,
   message: RawMessage
@@ -259,32 +276,7 @@ export async function transformGroupMessageEvent(
 ): Promise<{ eventType: keyof MilkyEventTypes, data: Event['data'] } | { eventType: keyof MilkyEventTypes, data: Event['data'] }[] | null> {
   try {
     for (const element of message.elements) {
-      if (
-        element.grayTipElement?.xmlElement?.busiId === '10145' ||
-        element.grayTipElement?.xmlElement?.busiId === '10146'
-      ) {
-        const invitor = element.grayTipElement.xmlElement.templParam.get('invitor')!
-        const invitee = element.grayTipElement.xmlElement.templParam.get('invitee')!
-        return {
-          eventType: 'group_member_increase',
-          data: {
-            group_id: +message.peerUid,
-            user_id: +invitee,
-            invitor_id: +invitor
-          } satisfies MilkyEventTypes['group_member_increase']
-        }
-      } else if (element.grayTipElement?.xmlElement?.busiId === '19373') {
-        const invitor = element.grayTipElement.xmlElement.templParam.get('invitor')!
-        const invitees = element.grayTipElement.xmlElement.templParam.get('invitees_dynamic')!.matchAll(/jp="([^"]+)"/g)
-        return invitees.map(e => ({
-          eventType: 'group_member_increase' as const,
-          data: {
-            group_id: +message.peerUid,
-            user_id: +e[1],
-            invitor_id: +invitor
-          } satisfies MilkyEventTypes['group_member_increase']
-        })).toArray()
-      } else if (element.grayTipElement?.groupElement?.type === 8) {
+      if (element.grayTipElement?.groupElement?.type === 8) {
         if (element.grayTipElement.groupElement.shutUp?.member.uid) {
           return {
             eventType: 'group_mute',
@@ -357,19 +349,7 @@ export async function transformSystemMessageEvent(
       return null
     }
     const { msgType, subType } = sysMsg.contentHead
-    if (msgType === 33) {
-      const tip = Notify.GroupMemberChange.decode(sysMsg.body.msgContent)
-      if (tip.type !== 130) return null
-      return {
-        eventType: 'group_member_increase',
-        data: {
-          group_id: tip.groupCode,
-          user_id: Number(await ctx.ntUserApi.getUinByUid(tip.memberUid)),
-          operator_id: Number(await ctx.ntUserApi.getUinByUid(tip.adminUid))
-        } satisfies MilkyEventTypes['group_member_increase']
-      }
-    }
-    else if (msgType === 34) {
+    if (msgType === 34) {
       const tip = Notify.GroupMemberChange.decode(sysMsg.body.msgContent)
       if (tip.type === 130) {
         return {

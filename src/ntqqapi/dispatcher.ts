@@ -22,6 +22,7 @@ const enum MsgType {
   GroupMemberDecrease = 34,
   GroupAdminChange = 44,
   GroupJoinRequest = 84,
+  GroupJoined = 85,
   GroupInvitation = 87,
   GroupInvitedJoinRequest = 525,
   Event0x210 = 528,
@@ -34,6 +35,7 @@ const enum Event0x210Sub {
   PttTransResult = 61,
   FriendRecall = 138,
   FriendSelfRecall = 139,
+  GroupRemoved = 212,
   FriendGrayTip = 290,
 }
 
@@ -92,6 +94,9 @@ function handleMsgPush(ctx: Context, payload: Buffer) {
       break
 
     case MsgType.GroupMemberIncrease:
+      handleGroupMemberIncrease(ctx, msg)
+      break
+
     case MsgType.GroupMemberDecrease:
     case MsgType.GroupAdminChange:
       // Forward to OB11 adapter which already handles these via Msg.Message.decode
@@ -114,10 +119,51 @@ function handleMsgPush(ctx: Context, payload: Buffer) {
     case MsgType.GroupInvitedJoinRequest:
       handleGroupInvitation(ctx, msg, msgType)
       break
+
+    case MsgType.GroupJoined:
+      handleGroupJoined(ctx, msg)
+      break
   }
 }
 
-function forwardSystemMessage(ctx: Context, msg: any) {
+async function handleGroupMemberIncrease(ctx: Context, msg: InferProtoModel<typeof Msg.Message>) {
+  const content = msg.body?.msgContent
+  if (!content) return
+  const decoded = Notify.GroupMemberChange.decode(content)
+  if (decoded.memberUid === selfInfo.uid && decoded.type === 131) {
+    ctx.parallel('nt/group-added', {
+      groupCode: decoded.groupCode
+    })
+  }
+  if (decoded.type === 130) {
+    ctx.parallel('nt/group-member-added', {
+      groupCode: decoded.groupCode,
+      memberUid: decoded.memberUid,
+      memberUin: await ctx.ntUserApi.getUinByUid(decoded.memberUid),
+      operatorUid: decoded.adminUid,
+      operatorUin: await ctx.ntUserApi.getUinByUid(decoded.adminUid)
+    })
+  } else if (decoded.type === 131) {
+    ctx.parallel('nt/group-member-added', {
+      groupCode: decoded.groupCode,
+      memberUid: decoded.memberUid,
+      memberUin: await ctx.ntUserApi.getUinByUid(decoded.memberUid),
+      invitorUid: decoded.adminUid,
+      invitorUin: await ctx.ntUserApi.getUinByUid(decoded.adminUid)
+    })
+  }
+}
+
+function handleGroupJoined(ctx: Context, msg: InferProtoModel<typeof Msg.Message>) {
+  const content = msg.body?.msgContent
+  if (!content) return
+  const decoded = Notify.GroupJoined.decode(content)
+  ctx.parallel('nt/group-added', {
+    groupCode: decoded.groupCode
+  })
+}
+
+function forwardSystemMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message>) {
   const messageBytes = Msg.Message.encode(msg)
   ctx.parallel('nt/system-message-created', Buffer.from(messageBytes))
 }
@@ -147,9 +193,7 @@ function handleKickNT(ctx: Context, payload: Buffer) {
   ctx.parallel('nt/raw/kicked-offline', info)
 }
 
-// ---- MsgType 528 (Event0x210) - Friend events ----
-
-function handle0x210(ctx: Context, msg: any, subType: number) {
+function handle0x210(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, subType: number) {
   const content = msg.body?.msgContent
   if (!content) return
 
@@ -175,13 +219,22 @@ function handle0x210(ctx: Context, msg: any, subType: number) {
       handlePttTransResult(ctx, content)
       break
 
+    case Event0x210Sub.GroupRemoved:
+      handleGroupRemoved(ctx, content)
+      break
+
     default:
       forwardSystemMessage(ctx, msg)
       break
   }
 }
 
-function handleFriendDeleteOrPin(ctx: Context, msg: any, content: Buffer) {
+function handleGroupRemoved(ctx: Context, content: Buffer) {
+  const decoded = Notify.GroupRemoved.decode(content)
+  ctx.parallel('nt/group-removed', decoded)
+}
+
+function handleFriendDeleteOrPin(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
   try {
     const decoded = Notify.FriendDeleteOrPinChange.decode(content)
     const pinChanged = decoded.body?.pinChanged
@@ -202,7 +255,7 @@ function handleFriendDeleteOrPin(ctx: Context, msg: any, content: Buffer) {
   }
 }
 
-function handleFriendGrayTip(ctx: Context, msg: any, content: Buffer) {
+function handleFriendGrayTip(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
   try {
     const decoded: any = Notify.GeneralGrayTip.decode(content)
     const bizType = Number(decoded.bizType ?? 0)
@@ -255,7 +308,7 @@ function handlePttTransResult(ctx: Context, content: Buffer) {
   }
 }
 
-function handleFriendRequest(ctx: Context, msg: any, content: Buffer) {
+function handleFriendRequest(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
   try {
     const decoded = Notify.FriendRequest.decode(content)
     const fromUid = decoded.body?.fromUid || ''
@@ -334,7 +387,7 @@ async function handleFriendRecall(ctx: Context, msg: InferProtoModel<typeof Msg.
 
 // ---- MsgType 732 (Event0x2DC) - Group events ----
 
-function handle0x2DC(ctx: Context, msg: any, subType: number) {
+function handle0x2DC(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, subType: number) {
   const content = msg.body?.msgContent
   if (!content) return
 
@@ -478,7 +531,7 @@ function tryDecodeReaction(buf: Buffer): { groupCode: string, msgSeq: number, op
   }
 }
 
-function handleGroupGrayTip(ctx: Context, msg: any, content: Buffer) {
+function handleGroupGrayTip(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
   try {
     if (content.length < 7) return
     const groupUinFromTLV = content.readUInt32BE(0)

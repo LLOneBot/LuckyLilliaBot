@@ -21,7 +21,6 @@ import { initActionMap } from './action'
 import { OB11GroupAdminNoticeEvent } from './event/notice/OB11GroupAdminNoticeEvent'
 import { OB11ProfileLikeEvent } from './event/notice/OB11ProfileLikeEvent'
 import { Msg, Notify } from '@/ntqqapi/proto'
-import { OB11GroupIncreaseEvent } from './event/notice/OB11GroupIncreaseEvent'
 import { FlashFileDownloadStatus, FlashFileUploadStatus } from '@/ntqqapi/types/flashfile'
 import {
   OB11FlashFile,
@@ -47,6 +46,7 @@ import { noop } from 'cosmokit'
 import { encodeGroupRequestFlag } from './utils'
 import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNoticeEvent'
 import { OB11FriendRecallNoticeEvent } from './event/notice/OB11FriendRecallNoticeEvent'
+import { OB11GroupIncreaseEvent } from './event'
 
 declare module 'cordis' {
   interface Context {
@@ -473,15 +473,6 @@ class Onebot11Adapter extends Service {
         const event = new OB11ProfileLikeEvent(detail.uin, detail.nickname, +times)
         this.dispatch(event)
       }
-      else if (msgType === 33) {
-        const tip = Notify.GroupMemberChange.decode(sysMsg.body.msgContent)
-        if (tip.type !== 130) return
-        this.ctx.logger.info('群成员增加', tip)
-        const memberUin = await this.ctx.ntUserApi.getUinByUid(tip.memberUid)
-        const operatorUin = await this.ctx.ntUserApi.getUinByUid(tip.adminUid)
-        const event = new OB11GroupIncreaseEvent(tip.groupCode, +memberUin, +operatorUin)
-        this.dispatch(event)
-      }
       else if (msgType === 34) {
         const tip = Notify.GroupMemberChange.decode(sysMsg.body.msgContent)
         if (tip.type === 130) {
@@ -650,15 +641,6 @@ class Onebot11Adapter extends Service {
       this.dispatch(event)
     })
 
-    this.ctx.on('nt/group-quit', async (group) => {
-      const event = new OB11GroupDecreaseEvent(
-        Number(group.groupCode),
-        Number(selfInfo.uin),
-        Number(selfInfo.uin),
-      )
-      this.dispatch(event)
-    })
-
     this.ctx.on('nt/group-join-request', (data) => {
       const event = new OB11GroupRequestAddEvent(
         data.groupCode,
@@ -703,6 +685,16 @@ class Onebot11Adapter extends Service {
       } else {
         event = new OB11FriendRecallNoticeEvent(data.senderUin, shortId)
       }
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-member-added', (data) => {
+      const event = new OB11GroupIncreaseEvent(
+        data.groupCode,
+        data.memberUin,
+        data.operatorUin ?? data.invitorUin!,
+        data.operatorUid ? 'approve' : 'invite'
+      )
       this.dispatch(event)
     })
   }
