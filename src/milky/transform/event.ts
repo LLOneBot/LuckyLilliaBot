@@ -252,7 +252,8 @@ export async function transformPrivateMessageEvent(
             file_id: element.fileElement.fileUuid,
             file_name: element.fileElement.fileName,
             file_size: +element.fileElement.fileSize,
-            file_hash: '', // 拿不到
+            // FileElement.fileMd5 即文件 md5（hex），milky 协议 file_hash 字段就是它。
+            file_hash: element.fileElement.fileMd5 ?? '',
             is_self: message.senderUin === selfInfo.uin
           } satisfies MilkyEventTypes['friend_file_upload']
         }

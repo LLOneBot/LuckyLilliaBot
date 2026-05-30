@@ -13,23 +13,42 @@ describe('Milky 文件操作', () => {
     teardownMilkyTest(ctx)
   })
 
-  // milky 协议：upload_private_file 只返 file_id，没有 file_hash；
-  // get_private_file_download_url 需要 file_hash（接收方从 friend_file_upload 事件里拿）。
-  // 双账号自调测场景下 sender 拿不到 hash，测试用 it.skip 占位。
-  it.skip('upload_private_file → get_private_file_download_url: 双账号场景受限', async () => {
-    // TODO: 在 secondary 端监听 friend_file_upload 事件拿到 file_hash 再调用 download_url
-  })
-
-  it('upload_private_file: 上传成功并返回 file_id', async () => {
+  it('upload_private_file → friend_file_upload event → get_private_file_download_url', async () => {
+    // 双账号端到端：
+    //   1. primary 上传文件给 secondary，拿 file_id
+    //   2. secondary 收到 friend_file_upload 事件（file_hash 在事件 payload 里，
+    //      milky transform 现在直接取 fileElement.fileMd5）
+    //   3. primary 用 file_id + secondary 拿到的 hash 调 get_private_file_download_url
+    ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
     const fileName = `milky-priv-${Date.now()}.gif`
+
     const uploadRes = await primary.call<{ file_id: string }>('upload_private_file', {
       user_id: ctx.secondaryUserId,
       file_uri: MediaPaths.testGifUri,
       file_name: fileName,
     })
     Assertions.assertSuccess(uploadRes, 'upload_private_file')
-    Assertions.assertDefined(uploadRes.data?.file_id, 'upload_private_file.data.file_id')
+    const fileId = uploadRes.data?.file_id
+    Assertions.assertDefined(fileId, 'upload_private_file.data.file_id')
+
+    const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'friend_file_upload' },
+      (e) => e.data?.file_id === fileId,
+      20000,
+    )
+    const fileHash = ev.data?.file_hash as string
+    Assertions.assertDefined(fileHash, 'friend_file_upload.data.file_hash')
+    expect(fileHash.length).toBeGreaterThan(0)
+
+    const urlRes = await primary.call<{ download_url: string }>('get_private_file_download_url', {
+      user_id: ctx.secondaryUserId,
+      file_id: fileId!,
+      file_hash: fileHash,
+    })
+    Assertions.assertSuccess(urlRes, 'get_private_file_download_url')
+    expect(typeof urlRes.data?.download_url).toBe('string')
+    expect((urlRes.data?.download_url ?? '').length).toBeGreaterThan(0)
   }, 60000)
 
   it('upload_group_file + get_group_files + get_group_file_download_url + delete_group_file', async () => {
