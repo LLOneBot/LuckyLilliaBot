@@ -1,0 +1,12 @@
+{
+  "name": "satori-api-test",
+  "version": "1.0.0",
+  "description": "Automated testing for Satori protocol (built on @llbot-test/framework)",
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:serial": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand"
+  },
+  "keywords": ["satori", "test", "api"],
+  "license": "MIT"
+}
