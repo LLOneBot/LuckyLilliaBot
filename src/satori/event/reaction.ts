@@ -22,14 +22,14 @@ export async function parseReactionAdded(
     return
   }
 
-  const user = await bot.ctx.ntUserApi.getUserSimpleInfo(info.operatorUid)
+  const user = await bot.ctx.ntUserApi.getUserByUid(info.operatorUid)
   const group = await bot.ctx.ntGroupApi.getGroup(input.groupCode, false)
 
   return bot.event('reaction-added', {
     message: {
       id: targetMsg.msgList[0].msgId
     },
-    user: decodeUser(user.coreInfo),
+    user: decodeUser(user),
     channel: {
       id: group.groupCode.toString(),
       name: group.groupName,
@@ -59,14 +59,14 @@ export async function parseReactionRemoved(
     return
   }
 
-  const user = await bot.ctx.ntUserApi.getUserSimpleInfo(info.operatorUid)
+  const user = await bot.ctx.ntUserApi.getUserByUid(info.operatorUid)
   const group = await bot.ctx.ntGroupApi.getGroup(input.groupCode, false)
 
   return bot.event('reaction-removed', {
     message: {
       id: targetMsg.msgList[0].msgId
     },
-    user: decodeUser(user.coreInfo),
+    user: decodeUser(user),
     channel: {
       id: group.groupCode.toString(),
       name: group.groupName,

@@ -52,6 +52,9 @@ export class MessageEncoder {
     const sent = await this.ctx.ntMsgApi.sendMsg(this.peer, this.elements)
     if (sent) {
       this.ctx.logger.info('消息发送', this.peer)
+      // 缓存进 store，让 message.get / message.delete 这些按 msgId 查询的接口能命中。
+      // 普通 OB11 send_msg 也是同样这步（src/onebot11/action/msg/SendMsg.ts:42）。
+      this.ctx.store.addMsgCache(sent)
       const result = await decodeMessage(this.ctx, sent)
       if (result) {
         this.results.push(result)
@@ -86,7 +89,7 @@ export class MessageEncoder {
         elements: msg[0].elements
       }
     } else {
-      const cacheMsg = this.ctx.store.getMsgCache(msgId)
+      const cacheMsg = this.ctx.store.getMsgByMsgId(msgId)
       if (cacheMsg) {
         return {
           peer: {

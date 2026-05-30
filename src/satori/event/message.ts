@@ -17,7 +17,7 @@ export async function parseMessageCreated(bot: SatoriAdapter, input: RawMessage)
 }
 
 export async function parseMessageDeleted(bot: SatoriAdapter, input: RawMessage) {
-  const origin = bot.ctx.store.getMsgCache(input.msgId)
+  const origin = bot.ctx.store.getMsgByMsgId(input.msgId)
   if (!origin) return
   const message = await decodeMessage(bot.ctx, origin)
   if (!message) return
@@ -26,7 +26,7 @@ export async function parseMessageDeleted(bot: SatoriAdapter, input: RawMessage)
   if (revokeElement.operatorUid === revokeElement.origMsgSenderUid) {
     operator = message.user!
   } else {
-    operator = decodeUser((await bot.ctx.ntUserApi.getUserSimpleInfo(revokeElement.operatorUid)).coreInfo)
+    operator = decodeUser(await bot.ctx.ntUserApi.getUserByUid(revokeElement.operatorUid))
   }
 
   return bot.event('message-deleted', {

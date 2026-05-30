@@ -159,12 +159,12 @@ export async function decodeMessage(
   }
   message.created_at = +data.msgTime * 1000
   if (!message.user.name) {
-    const { coreInfo } = await ctx.ntUserApi.getUserSimpleInfo(data.senderUid)
-    message.user.name = coreInfo.nick
+    const u = await ctx.ntUserApi.getUserByUid(data.senderUid)
+    message.user.name = u.nick
   }
   if (!message.channel.name && message.channel.type === Universal.Channel.Type.DIRECT) {
-    const { coreInfo } = await ctx.ntUserApi.getUserSimpleInfo(data.peerUid)
-    message.channel.name = coreInfo.nick
+    const u = await ctx.ntUserApi.getUserByUid(data.peerUid)
+    message.channel.name = u.nick
   }
   if (guildId) {
     message.guild = {
