@@ -275,16 +275,27 @@ export async function transformIncomingForwardedMessage(ctx: Context, message: I
           })
         }
       } else if (elem.srcMsg) {
-        const elems = elem.srcMsg.elems.map(e => Msg.Elem.decode(e))
-        const { contentHead, routingHead } = Msg.Message.decode(elem.srcMsg.srcMsg!)
+        // 合并转发 inline 节点里的 reply：server 不一定下发 srcMsg.srcMsg / srcMsg.elems
+        // （reply 锚点对历史快照没意义），需要每个字段都防御性读取，否则 .map / .decode
+        // 直接炸 "Cannot read properties of undefined (reading 'length')"。
+        const innerElems = (elem.srcMsg.elems ?? []).map(e => Msg.Elem.decode(e))
+        let replySenderName = ''
+        if (elem.srcMsg.srcMsg) {
+          try {
+            const decoded = Msg.Message.decode(elem.srcMsg.srcMsg)
+            replySenderName = decoded.contentHead.msgType === 82
+              ? (decoded.routingHead.group?.groupCard ?? '')
+              : (decoded.routingHead.c2c?.name ?? '')
+          } catch { /* 忽略 srcMsg 解码失败 */ }
+        }
         segments.push({
           type: 'reply',
           data: {
-            message_seq: elem.srcMsg.origSeqs[0],
-            sender_id: elem.srcMsg.senderUin,
-            sender_name: contentHead.msgType === 82 ? routingHead.group.groupCard : routingHead.c2c.name,
-            time: elem.srcMsg.time,
-            segments: await transformSegments(elems)
+            message_seq: elem.srcMsg.origSeqs?.[0] ?? 0,
+            sender_id: elem.srcMsg.senderUin ?? 0,
+            sender_name: replySenderName,
+            time: elem.srcMsg.time ?? 0,
+            segments: await transformSegments(innerElems)
           }
         })
       } else if (elem.richMsg && elem.richMsg.serviceId === 35) {

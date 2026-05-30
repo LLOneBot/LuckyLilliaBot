@@ -89,12 +89,34 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
   }, 30000)
 
   it('mention_all 段：@全体成员', async () => {
+    // server 对 @全体成员每天每群有次数上限（实测错信 "code=121"），反复跑测试会撞顶。
+    // 这里捕获该错误后跳过 — 跟 send_profile_like 每日点赞上限同类的 server 限流。
     const text = `seg-mention_all-${Date.now()}`
-    const segs = await sendGroupAndAwait([
-      { type: 'mention_all', data: {} },
-      { type: 'text', data: { text: ` ${text}` } },
-    ])
-    expect(segs.some((s: any) => s.type === 'mention_all')).toBe(true)
+    ctx.twoAccountTest.clearAllQueues()
+    const primary = ctx.twoAccountTest.getClient('primary')
+    const sendRes = await primary.call<{ message_seq: number }>('send_group_message', {
+      group_id: ctx.testGroupId,
+      message: [
+        { type: 'mention_all', data: {} },
+        { type: 'text', data: { text: ` ${text}` } },
+      ],
+    })
+    if (sendRes.status !== 'ok' && /code=121/.test(sendRes.message ?? '')) {
+      console.log('skip assertion: server hit daily @everyone cap')
+      return
+    }
+    Assertions.assertSuccess(sendRes, 'send_group_message (mention_all)')
+    const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      {
+        event_type: 'message_receive',
+        message_scene: 'group',
+        peer_id: ctx.testGroupId,
+        sender_id: ctx.primaryUserId,
+        message_seq: sendRes.data!.message_seq,
+      },
+      undefined, 15000,
+    )
+    expect((ev.data?.segments ?? []).some((s: any) => s.type === 'mention_all')).toBe(true)
   }, 30000)
 
   it('face 段：QQ 表情', async () => {
@@ -179,16 +201,30 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
     expect(segs.some((s: any) => s.type === 'reply' && s.data?.message_seq === baseRes.data!.message_seq)).toBe(true)
   }, 60000)
 
-  it('forward 段：发合并转发（含混合 inline：text/mention/face/image），核对各节点都被 server 收下', async () => {
+  it('forward 段：发合并转发（含混合 inline：text/mention/face/image/reply/video），核对各节点都被 server 收下', async () => {
     // 合并转发的 inline segments 在 server 端会有"快照归一化"行为：
     //   - mention 段 → 退化成普通文本 "@<对方群名片>"（@ 实时定位失去意义）
     //   - face 段 → 通常被 server 直接 drop（合并转发不展示动态表情）
-    //   - text / image 都保留
-    // 所以这里测试 inline 各节点 sender_name + text/image 必到，不再死板要求
-    // 节点里 face/mention 段以 segment.type 形式回来。
+    //   - reply 段 → server 可能保留（关联消息变为快照内的 stub），也可能丢；text 后缀总能保留
+    //   - text / image / video 都保留
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
     const ts = Date.now()
+
+    // 先造一条"被回复"的群消息，拿到 message_seq 给 reply inline 节点用
+    const baseRes = await primary.call<{ message_seq: number }>('send_group_message', {
+      group_id: ctx.testGroupId,
+      message: [{ type: 'text', data: { text: `fwd-reply-base-${ts}` } }],
+    })
+    Assertions.assertSuccess(baseRes, 'send_group_message (forward reply base)')
+    const baseSeq = baseRes.data!.message_seq
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'message_receive', message_scene: 'group', peer_id: ctx.testGroupId, message_seq: baseSeq },
+      undefined, 15000,
+    )
+    await new Promise(r => setTimeout(r, 500))
+    ctx.twoAccountTest.clearAllQueues()
+
     const inlineNodes = [
       {
         user_id: ctx.primaryUserId,
@@ -219,6 +255,26 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
           { type: 'text', data: { text: ` inline-image-${ts}` } },
         ],
       },
+      {
+        user_id: ctx.primaryUserId,
+        sender_name: 'milky-test-reply',
+        segments: [
+          { type: 'reply', data: { message_seq: baseSeq } },
+          { type: 'text', data: { text: `inline-reply-${ts}` } },
+        ],
+        // 注：reply 段在合并转发里能不能保留被回复消息的预览，取决于 server 当时
+        // 是否能在群历史里拿到 baseSeq 那条消息：
+        //   - 拿得到 → forward 卡片里被回复段渲染成 "@<sender_name> <text>" 预览
+        //   - 拿不到（消息已过去太久 / 跨群域 / 已撤回）→ 渲染 "[原消息已过期]"
+        // 测试只断言 inline-reply-${ts} 这条 text 后缀必到，不强制 reply 预览成功。
+      },
+      {
+        user_id: ctx.primaryUserId,
+        sender_name: 'milky-test-video',
+        segments: [
+          { type: 'video', data: { uri: MediaPaths.freshVideoUri } },
+        ],
+      },
     ]
     const sendRes = await primary.call<{ forward_id?: string; message_seq?: number }>(
       'send_group_message',
@@ -232,7 +288,7 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
 
     const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
       { event_type: 'message_receive', message_scene: 'group', peer_id: ctx.testGroupId, message_seq: sendRes.data!.message_seq },
-      undefined, 15000,
+      undefined, 20000,
     )
     const fwd = (ev.data?.segments ?? []).find((s: any) => s.type === 'forward')
     expect(fwd).toBeDefined()
@@ -251,12 +307,13 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
     expect(messages[1].sender_name).toBe('milky-test-mention')
     expect(messages[2].sender_name).toBe('milky-test-face')
     expect(messages[3].sender_name).toBe('milky-test-image')
+    expect(messages[4].sender_name).toBe('milky-test-reply')
+    expect(messages[5].sender_name).toBe('milky-test-video')
 
     // 节点 0：纯 text 完整保留
     expect(messages[0].segments.some((s: any) => s.type === 'text' && s.data?.text === `inline-text-${ts}`)).toBe(true)
 
     // 节点 1：mention 段被 server 退化成 text "@xxx"，但 text 后缀必须保留
-    // （如果 server 行为变了能保留 mention，这两条都过；任一过即 OK）
     const node1Texts = messages[1].segments.filter((s: any) => s.type === 'text').map((s: any) => s.data?.text).join('')
     expect(node1Texts).toContain(`inline-mention-${ts}`)
 
@@ -271,7 +328,25 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
     expect(imgSeg.data.resource_id.length).toBeGreaterThan(0)
     const node3Texts = messages[3].segments.filter((s: any) => s.type === 'text').map((s: any) => s.data?.text).join('')
     expect(node3Texts).toContain(`inline-image-${ts}`)
-  }, 90000)
+
+    // 节点 4：reply 段（inline 引用群里 baseSeq）
+    //   - 协议层：reply 段以 type='reply' 形式保留，message_seq 等于 baseSeq
+    //   - segments 子数组：server 通常不在合并转发的 reply 段里内联被回复消息的预览
+    //     （客户端 UI 显示时会去 get_message 拉一次，拉不到才显示"[原消息已过期]"）
+    //   - text 后缀始终保留
+    const node4Texts = messages[4].segments.filter((s: any) => s.type === 'text').map((s: any) => s.data?.text).join('')
+    expect(node4Texts).toContain(`inline-reply-${ts}`)
+    const replySeg = messages[4].segments.find((s: any) => s.type === 'reply')
+    expect(replySeg).toBeDefined()
+    expect(replySeg.data?.message_seq).toBe(baseSeq)
+    expect(replySeg.data?.sender_id).toBe(ctx.primaryUserId)
+
+    // 节点 5：video 段必须有 + 真 resource_id（合并转发里 video 跟 image 一样保留得很完整）
+    const vidSeg = messages[5].segments.find((s: any) => s.type === 'video')
+    expect(vidSeg).toBeDefined()
+    expect(typeof vidSeg.data?.resource_id).toBe('string')
+    expect(vidSeg.data.resource_id.length).toBeGreaterThan(0)
+  }, 120000)
 
   // ---------- 私聊 ----------
 
@@ -351,11 +426,27 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
     expect(segs.some((s: any) => s.type === 'reply' && s.data?.message_seq === baseRes.data!.message_seq)).toBe(true)
   }, 60000)
 
-  it('forward 段：私聊合并转发（含混合 inline：text/face/image），核对各节点内容到位', async () => {
-    // 同群聊：face 段在合并转发里被 server drop，text/image 完整保留。
+  it('forward 段：私聊合并转发（含混合 inline：text/face/image/reply/video），核对各节点内容到位', async () => {
+    // 同群聊：face 段在合并转发里被 server drop，text/image/video 完整保留。
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
     const ts = Date.now()
+
+    // 先发一条私聊文本作为 reply 锚点
+    const baseRes = await primary.call<{ message_seq: number }>('send_private_message', {
+      user_id: ctx.secondaryUserId,
+      message: [{ type: 'text', data: { text: `priv-fwd-reply-base-${ts}` } }],
+    })
+    Assertions.assertSuccess(baseRes, 'send_private_message (forward reply base)')
+    const baseSeq = baseRes.data!.message_seq
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { event_type: 'message_receive', message_scene: 'friend', sender_id: ctx.primaryUserId },
+      (e) => e.data?.message_seq === baseSeq,
+      15000,
+    )
+    await new Promise(r => setTimeout(r, 500))
+    ctx.twoAccountTest.clearAllQueues()
+
     const inlineNodes = [
       {
         user_id: ctx.primaryUserId,
@@ -378,6 +469,21 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
           { type: 'text', data: { text: ` priv-fwd-image-${ts}` } },
         ],
       },
+      {
+        user_id: ctx.primaryUserId,
+        sender_name: 'milky-test-reply',
+        segments: [
+          { type: 'reply', data: { message_seq: baseSeq } },
+          { type: 'text', data: { text: `priv-fwd-reply-${ts}` } },
+        ],
+      },
+      {
+        user_id: ctx.primaryUserId,
+        sender_name: 'milky-test-video',
+        segments: [
+          { type: 'video', data: { uri: MediaPaths.freshVideoUri } },
+        ],
+      },
     ]
     const sendRes = await primary.call<{ forward_id?: string; message_seq?: number }>(
       'send_private_message',
@@ -392,7 +498,7 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
     const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
       { event_type: 'message_receive', message_scene: 'friend', sender_id: ctx.primaryUserId },
       (e) => e.data?.message_seq === sendRes.data!.message_seq,
-      15000,
+      20000,
     )
     const fwd = (ev.data?.segments ?? []).find((s: any) => s.type === 'forward')
     expect(fwd).toBeDefined()
@@ -409,6 +515,8 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
     expect(messages[0].sender_name).toBe('milky-test-text')
     expect(messages[1].sender_name).toBe('milky-test-face')
     expect(messages[2].sender_name).toBe('milky-test-image')
+    expect(messages[3].sender_name).toBe('milky-test-reply')
+    expect(messages[4].sender_name).toBe('milky-test-video')
 
     expect(messages[0].segments.some((s: any) => s.type === 'text' && s.data?.text === `priv-fwd-text-${ts}`)).toBe(true)
 
@@ -421,5 +529,21 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
     expect(imgSeg.data.resource_id.length).toBeGreaterThan(0)
     const node2Texts = messages[2].segments.filter((s: any) => s.type === 'text').map((s: any) => s.data?.text).join('')
     expect(node2Texts).toContain(`priv-fwd-image-${ts}`)
-  }, 90000)
+
+    // 节点 3：reply 段（inline 引用私聊 baseSeq）
+    //   - 私聊 c2c message_seq 在不同接口的取值不一致（send 返回 c2cMsgSeq vs 合并转发包
+    //     里 reply.message_seq 可能对应另一个 seq 维度），不强校验数值，但段必须以
+    //     type='reply' 形式保留。
+    const node3Texts = messages[3].segments.filter((s: any) => s.type === 'text').map((s: any) => s.data?.text).join('')
+    expect(node3Texts).toContain(`priv-fwd-reply-${ts}`)
+    const replySeg = messages[3].segments.find((s: any) => s.type === 'reply')
+    expect(replySeg).toBeDefined()
+    expect(typeof replySeg.data?.message_seq).toBe('number')
+
+    // 节点 4：video 段必须有 + 真 resource_id
+    const vidSeg = messages[4].segments.find((s: any) => s.type === 'video')
+    expect(vidSeg).toBeDefined()
+    expect(typeof vidSeg.data?.resource_id).toBe('string')
+    expect(vidSeg.data.resource_id.length).toBeGreaterThan(0)
+  }, 120000)
 })
