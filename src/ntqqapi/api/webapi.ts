@@ -667,7 +667,8 @@ export class NTQQWebApi extends Service {
       srv_code: number
       read_only: number
       role: number
-      inst: {
+      // 没有未读公告时 server 不下发该字段，所以是 optional
+      inst?: {
         u: number
         fid: string
         pubt: number
@@ -696,7 +697,8 @@ export class NTQQWebApi extends Service {
         is_read: number
         is_all_confirm: number
       }[]
-      feeds: {
+      // 群没公告时 server 不下发 feeds 字段，所以是 optional
+      feeds?: {
         u: number
         fid: string
         pubt: number

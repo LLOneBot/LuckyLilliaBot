@@ -177,8 +177,13 @@ const GetGroupAnnouncements = defineApi(
     if (result.ec !== 0) {
       return Failed(-500, result.em)
     }
+    // server 在没有未读公告 / 群没公告时分别省略 inst / feeds 字段（实测都会
+    // 是 undefined）。spread 这两个字段前必须 `?? []` 兜底，否则群一空就 500
+    // "result.inst is not iterable" / "result.feeds is not iterable"。
+    const feeds = result.feeds ?? []
+    const inst = result.inst ?? []
     const announcements = []
-    for (const e of [...result.feeds, ...result.inst]) {
+    for (const e of [...feeds, ...inst]) {
       announcements.push({
         group_id: payload.group_id,
         announcement_id: e.fid,
@@ -188,7 +193,7 @@ const GetGroupAnnouncements = defineApi(
         image_url: e.msg.pics?.[0] ? `https://gdynamic.qpic.cn/gdynamic/${e.msg.pics[0].id}/0` : undefined
       })
     }
-    if (result.inst.length) {
+    if (inst.length) {
       announcements.sort((a, b) => b.time - a.time)
     }
     return Ok({
