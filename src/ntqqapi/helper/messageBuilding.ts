@@ -11,13 +11,22 @@ export class MessageBuilding {
   private chatType: ChatType
   private peerUid: string
   private nestedForwardTrace: Map<string, InferProtoModelInput<typeof Msg.Message>[]>
+  /**
+   * true 表示当前 build 的元素属于合并转发包内某一节点。
+   * 合并转发包是 server 给 client 的"离线快照"，client 看 reply 段时不会再去拉
+   * 锚点消息原文 — 必须在编码时把锚点的 elements 快照塞进 srcMsg.elems / srcMsg.srcMsg，
+   * 否则客户端永远显示 "[原消息已过期]"。普通群/私聊消息的 reply 不需要这俩字段
+   * （server 会自己保留引用让 client 拉一次）。
+   */
+  private isInsideForward: boolean
 
   constructor(
     ctx: Context,
     elements: SendMessageElement[],
     chatType: ChatType,
     peerUid: string,
-    nestedForwardTrace = new Map()
+    nestedForwardTrace = new Map(),
+    isInsideForward = false,
   ) {
     this.ctx = ctx
     this.inputElems = elements
@@ -25,6 +34,7 @@ export class MessageBuilding {
     this.chatType = chatType
     this.peerUid = peerUid
     this.nestedForwardTrace = nestedForwardTrace
+    this.isInsideForward = isInsideForward
   }
 
   private async [ElementType.Text](data: SendTextElement) {
@@ -91,16 +101,66 @@ export class MessageBuilding {
 
   private async [ElementType.Reply](data: SendReplyElement) {
     const { replyElement } = data
-    this.outputElems.push({
-      srcMsg: {
-        origSeqs: [replyElement.replyMsgClientSeq || replyElement.replyMsgSeq],
-        senderUin: replyElement.senderUin,
-        time: replyElement.replyMsgTime,
-        attr: {
-          ntMsgSeq: replyElement.replyMsgClientSeq ? replyElement.replyMsgSeq : undefined
-        }
+    const srcMsg: any = {
+      origSeqs: [replyElement.replyMsgClientSeq || replyElement.replyMsgSeq],
+      senderUin: replyElement.senderUin,
+      time: replyElement.replyMsgTime,
+      attr: {
+        ntMsgSeq: replyElement.replyMsgClientSeq ? replyElement.replyMsgSeq : undefined
       }
-    })
+    }
+    // 普通群/私聊消息的 reply 段，server 会保留引用让 client 渲染时再去拉一次锚点。
+    // 但合并转发包是离线快照，client 不会再拉 —— 必须把锚点的 elements 内联进 srcMsg.elems
+    // （field 5 bytes[]，每个是 Msg.Elem.encode 的结果），否则 client 渲染合并转发卡片
+    // 里的 reply 段会显示 "[原消息已过期]"。
+    //
+    // 实测 QQ 客户端手动转发时也是这样填的（拉合并转发反查 reply.data.segments 里能看到
+    // 锚点消息的完整文本内容）。
+    if (this.isInsideForward) {
+      try {
+        const peer = { chatType: this.chatType, peerUid: this.peerUid, guildId: '' }
+        let anchor = this.ctx.store.getMsgBySeq(this.peerUid, replyElement.replyMsgSeq)
+        if (!anchor) {
+          const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(peer, replyElement.replyMsgSeq)
+          anchor = msgList[0]
+        }
+        if (anchor) {
+          // 把锚点的 elements 转成简化的 text Msg.Elem 列表内联进 srcMsg.elems。
+          // 复杂段（image/video/face/...）退化成占位文本，至少让 client 渲染时
+          // 不再显示 "[原消息已过期]" —— 跟 server 端对 mention 段做的归一化是一样的思路。
+          const elemBytes: Buffer[] = []
+          for (const el of anchor.elements ?? []) {
+            let str: string | undefined
+            if (el.elementType === ElementType.Text) {
+              str = el.textElement?.content
+            } else if (el.elementType === ElementType.Pic) {
+              str = el.picElement?.summary || '[图片]'
+            } else if (el.elementType === ElementType.Video) {
+              str = '[视频]'
+            } else if (el.elementType === ElementType.Ptt) {
+              str = '[语音]'
+            } else if (el.elementType === ElementType.Face) {
+              str = el.faceElement?.faceText || '[表情]'
+            } else if (el.elementType === ElementType.MarketFace) {
+              str = el.marketFaceElement?.faceName || '[商城表情]'
+            } else if (el.elementType === ElementType.Ark) {
+              str = '[卡片]'
+            } else if (el.elementType === ElementType.MultiForward) {
+              str = '[合并转发]'
+            }
+            if (str) {
+              elemBytes.push(Buffer.from(Msg.Elem.encode({ text: { str } })))
+            }
+          }
+          if (elemBytes.length > 0) {
+            srcMsg.elems = elemBytes
+          }
+        }
+      } catch (e) {
+        this.ctx.logger.warn('[forward-reply] failed to embed anchor snapshot:', (e as Error).message)
+      }
+    }
+    this.outputElems.push({ srcMsg })
   }
 
   private async [ElementType.Pic](data: SendPicElement) {
@@ -192,7 +252,14 @@ export class MessageBuilding {
         }, '')
         preview.push(`${node.senderName}: ${content}`)
       }
-      const elems = await new MessageBuilding(this.ctx, node.elements, this.chatType, this.peerUid, this.nestedForwardTrace).build()
+      const elems = await new MessageBuilding(
+        this.ctx,
+        node.elements,
+        this.chatType,
+        this.peerUid,
+        this.nestedForwardTrace,
+        true, // 子节点 → 合并转发内部，开启快照编码
+      ).build()
       messages.push({
         routingHead: {
           fromUin: node.senderUin,
