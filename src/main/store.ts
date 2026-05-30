@@ -22,8 +22,8 @@ declare module '@cordisjs/plugin-database' {
     }
     file: FileCache
     group_member: {
-      groupId: string
-      userId: string
+      groupCode: number
+      uin: number
       card: string
     }
     uix: {
@@ -90,11 +90,11 @@ class Store extends Service {
       indexes: ['fileName']
     })
     this.ctx.model.extend('group_member', {
-      groupId: 'string(10)',
-      userId: 'string(10)',
+      groupCode: 'unsigned(10)',
+      uin: 'unsigned(10)',
       card: 'string(60)'
     }, {
-      primary: ['groupId', 'userId']
+      primary: ['groupCode', 'uin']
     })
     this.ctx.model.extend('uix', {
       uid: 'string(24)',
@@ -123,18 +123,32 @@ class Store extends Service {
    *   不一定齐），所以稳妥起见 hash 输入只用两端都立刻能拿到的 (selfUid, otherUid) 排序对
    *   + msgRandom（client 自造，server 在两端原样广播，永远一致）。
    */
-  private buildShortIdKey(msg: RawMessage): string {
-    if (msg.chatType === ChatType.C2C || msg.chatType === ChatType.TempC2CFromGroup) {
+  private buildShortIdKey(meta: {
+    msgId: string
+    msgSeq: number
+    msgRandom: number
+    peerUid: string
+    senderUid: string
+    chatType: ChatType
+  }): string {
+    if (meta.chatType === ChatType.C2C || meta.chatType === ChatType.TempC2CFromGroup) {
       const me = selfInfo.uid
-      const other = msg.senderUid === me ? msg.peerUid : msg.senderUid
+      const other = meta.senderUid === me ? meta.peerUid : meta.senderUid
       const pair = me < other ? `${me}|${other}` : `${other}|${me}`
-      return `${msg.chatType}-${pair}-${msg.msgRandom}`
+      return `${meta.chatType}-${pair}-${meta.msgRandom}`
     }
-    return `${msg.chatType}-${msg.peerUid}-${msg.msgSeq}-${msg.msgRandom}`
+    return `${meta.chatType}-${meta.peerUid}-${meta.msgSeq}-${meta.msgRandom}`
   }
 
-  createMsgShortId(msg: RawMessage): number {
-    const cacheKey = this.buildShortIdKey(msg)
+  createMsgShortId(meta: {
+    msgId: string
+    msgSeq: number
+    msgRandom: number
+    peerUid: string
+    senderUid: string
+    chatType: ChatType
+  }): number {
+    const cacheKey = this.buildShortIdKey(meta)
     const existingShortId = this.ids.get(cacheKey)
     if (existingShortId) {
       return existingShortId
@@ -148,11 +162,11 @@ class Store extends Service {
       this.ids.delete(firstKey!)
     }
     this.ctx.database.upsert('message', [{
-      msgId: msg.msgId,
+      msgId: meta.msgId,
       shortId,
-      chatType: msg.chatType,
-      peerUid: msg.peerUid,
-      msgSeq: msg.msgSeq
+      chatType: meta.chatType,
+      peerUid: meta.peerUid,
+      msgSeq: meta.msgSeq
     }], ['shortId']).catch(e => this.ctx.logger.warn(e))
     return shortId
   }
@@ -167,8 +181,7 @@ class Store extends Service {
         msgSeq,
         peer: {
           chatType,
-          peerUid,
-          guildId: ''
+          peerUid
         }
       }
     }
@@ -227,15 +240,15 @@ class Store extends Service {
     }, expire * 1000)
   }
 
-  async getGroupMemberCard(groupId: string, userId: string): Promise<string | undefined> {
-    const items = await this.ctx.database.get('group_member', { groupId, userId })
+  async getGroupMemberCard(groupCode: number, uin: number): Promise<string | undefined> {
+    const items = await this.ctx.database.get('group_member', { groupCode, uin })
     return items[0]?.card
   }
 
-  async setGroupMemberCard(groupId: string, userId: string, card: string) {
+  async setGroupMemberCard(groupCode: number, uin: number, card: string) {
     return await this.ctx.database.upsert('group_member', [{
-      groupId,
-      userId,
+      groupCode,
+      uin,
       card
     }])
   }

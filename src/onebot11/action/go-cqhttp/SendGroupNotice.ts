@@ -29,15 +29,13 @@ export class SendGroupNotice extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    const groupCode = payload.group_id.toString()
-
     let picInfo: { id: string, width: number, height: number } | undefined
     if (payload.image) {
       const { path, isLocal, success, errMsg } = await uri2local(this.ctx, payload.image, true)
       if (!success) {
         throw new Error(`获取图片文件失败, 错误信息: ${errMsg}`)
       }
-      const result = await this.ctx.ntWebApi.uploadGroupBulletinPic(groupCode, path)
+      const result = await this.ctx.ntWebApi.uploadGroupBulletinPic(+payload.group_id, path)
       if (result.errCode !== 0) {
         throw new Error(`上传群公告图片失败, 错误信息: ${result.errMsg}`)
       }
@@ -48,7 +46,7 @@ export class SendGroupNotice extends BaseAction<Payload, null> {
     }
 
     const res = await this.ctx.ntWebApi.publishGroupBulletin(
-      groupCode,
+      +payload.group_id,
       payload.content,
       +payload.pinned,
       payload.send_new_member ? 20 : 1,

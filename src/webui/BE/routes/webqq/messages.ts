@@ -56,7 +56,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       }
 
       const messages = result?.msgList || []
-      messages.sort((a: RawMessage, b: RawMessage) => parseInt(a.msgTime) - parseInt(b.msgTime))
+      messages.sort((a: RawMessage, b: RawMessage) => a.msgTime - b.msgTime)
 
       return c.json({
         success: true,

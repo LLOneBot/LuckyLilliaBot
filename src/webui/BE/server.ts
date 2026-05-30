@@ -149,22 +149,20 @@ export class WebuiServer extends Service {
     })
 
     // 监听消息撤回事件
-    this.ctx.on('nt/message-deleted', async (message: RawMessage) => {
+    this.ctx.on('nt/message-deleted', async (data) => {
       if (this.sseClients.size === 0) return
-      const revokeElement = message.elements[0]?.grayTipElement?.revokeElement
-      await this.fillPeerUin(message)
       this.broadcastMessage('message', {
         type: 'message-deleted',
         data: {
-          msgId: message.msgId,
-          msgSeq: message.msgSeq,
-          chatType: message.chatType,
-          peerUid: message.peerUid,
-          peerUin: message.peerUin,
-          operatorUid: revokeElement?.operatorUid,
+          msgId: data.msgId,
+          msgSeq: data.msgSeq,
+          chatType: data.chatType,
+          peerUid: data.peerUid,
+          peerUin: data.peerUin,
+          operatorUid: data.operatorUid,
           operatorNick: revokeElement?.operatorNick || revokeElement?.operatorMemRemark || revokeElement?.operatorRemark,
-          isSelfOperate: revokeElement?.isSelfOperate,
-          wording: revokeElement?.wording
+          isSelfOperate: data.senderUin === data.operatorUin,
+          wording: data.displaySuffix
         }
       })
     })

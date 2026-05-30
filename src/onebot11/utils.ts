@@ -18,8 +18,7 @@ export async function createPeer(ctx: Context, payload: CreatePeerPayload, mode 
   if ((mode === CreatePeerMode.Group || mode === CreatePeerMode.Normal) && payload.group_id) {
     return {
       chatType: ChatType.Group,
-      peerUid: payload.group_id.toString(),
-      guildId: ''
+      peerUid: payload.group_id.toString()
     }
   }
   if ((mode === CreatePeerMode.Private || mode === CreatePeerMode.Normal) && payload.user_id) {
@@ -29,14 +28,12 @@ export async function createPeer(ctx: Context, payload: CreatePeerPayload, mode 
     if (!isBuddy) {
       return {
         chatType: ChatType.TempC2CFromGroup,
-        peerUid: uid,
-        guildId: ''
+        peerUid: uid
       }
     }
     return {
       chatType: ChatType.C2C,
-      peerUid: uid,
-      guildId: ''
+      peerUid: uid
     }
   }
   throw new Error('请指定 group_id 或 user_id')

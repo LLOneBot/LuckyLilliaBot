@@ -164,20 +164,19 @@ export class MilkyAdapter extends Service {
     })
 
     // Listen to NTQQ message deleted events
-    this.ctx.on('nt/message-deleted', async (message) => {
-      if (!message.elements[0].grayTipElement?.revokeElement) return
-      if (message.chatType === ChatType.C2C) {
-        const eventData = await transformPrivateMessageDeleted(this.ctx, message)
+    this.ctx.on('nt/message-deleted', async (data) => {
+      if (data.chatType === ChatType.C2C) {
+        const eventData = await transformPrivateMessageDeleted(this.ctx, data)
         if (eventData) {
           this.emitEvent('message_recall', eventData)
         }
-      } else if (message.chatType === ChatType.Group) {
-        const eventData = await transformGroupMessageDeleted(this.ctx, message)
+      } else if (data.chatType === ChatType.Group) {
+        const eventData = await transformGroupMessageDeleted(this.ctx, data)
         if (eventData) {
           this.emitEvent('message_recall', eventData)
         }
-      } else if (message.chatType === ChatType.TempC2CFromGroup) {
-        const eventData = await transformTempMessageDeleted(this.ctx, message)
+      } else if (data.chatType === ChatType.TempC2CFromGroup) {
+        const eventData = await transformTempMessageDeleted(this.ctx, data)
         if (eventData) {
           this.emitEvent('message_recall', eventData)
         }

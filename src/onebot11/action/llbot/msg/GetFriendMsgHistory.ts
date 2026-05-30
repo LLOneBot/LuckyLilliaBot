@@ -36,14 +36,7 @@ export class GetFriendMsgHistory extends BaseAction<Payload, Response> {
     }
     if (!msgList?.length) return
     const ob11MsgList = await Promise.all(msgList.map(msg => {
-      let rawMsg = msg
-      if (rawMsg.recallTime !== '0') {
-        const msg = this.ctx.store.getMsgByMsgId(rawMsg.msgId)
-        if (msg) {
-          rawMsg = msg
-        }
-      }
-      return OB11Entities.message(this.ctx, rawMsg, config)
+      return OB11Entities.message(this.ctx, msg, config)
     }))
     return { list: filterNullable(ob11MsgList), seq: +msgList[0].msgSeq }
   }
@@ -54,8 +47,7 @@ export class GetFriendMsgHistory extends BaseAction<Payload, Response> {
     const isBuddy = await this.ctx.ntFriendApi.isFriend(uid)
     const peer: Peer = {
       chatType: isBuddy ? ChatType.C2C : ChatType.TempC2CFromGroup,
-      peerUid: uid,
-      guildId: ''
+      peerUid: uid
     }
 
     const messages: OB11Message[] = []

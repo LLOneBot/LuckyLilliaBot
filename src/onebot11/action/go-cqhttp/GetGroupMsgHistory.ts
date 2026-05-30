@@ -37,14 +37,7 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
     }
     if (!msgList?.length) return
     const ob11MsgList = await Promise.all(msgList.map(msg => {
-      let rawMsg = msg
-      if (rawMsg.recallTime !== '0') {
-        const msg = this.ctx.store.getMsgByMsgId(rawMsg.msgId)
-        if (msg) {
-          rawMsg = msg
-        }
-      }
-      return OB11Entities.message(this.ctx, rawMsg, config)
+      return OB11Entities.message(this.ctx, msg, config)
     }))
     return { list: filterNullable(ob11MsgList), seq: +msgList[0].msgSeq }
   }
@@ -52,8 +45,7 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
   protected async _handle(payload: Payload, config: ParseMessageConfig): Promise<Response> {
     const peer: Peer = {
       chatType: ChatType.Group,
-      peerUid: payload.group_id.toString(),
-      guildId: ''
+      peerUid: payload.group_id.toString()
     }
 
     const messages: OB11Message[] = []

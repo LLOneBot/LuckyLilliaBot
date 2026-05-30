@@ -298,44 +298,35 @@ function handleFriendRequest(ctx: Context, msg: any, content: Buffer) {
   }
 }
 
-function handleFriendRecall(ctx: Context, msg: any, content: Buffer) {
+async function handleFriendRecall(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
   try {
     const decoded = Notify.FriendRecall.decode(content)
     const body = decoded.body
     if (!body) return
 
-    const tip = body.tipInfo?.tip || '消息已撤回'
-    const fromUid = body.fromUid || ''
-    const toUid = body.toUid || ''
+    const fromUid = body.fromUid
+    const toUid = body.toUid
+    const fromUin = await ctx.ntUserApi.getUinByUid(fromUid)
+    const toUin = await ctx.ntUserApi.getUinByUid(toUid)
     // 在 C2C 会话里，peerUid 是"对话另一端"。
     // - bot 收到对方撤回：body.fromUid=对方, body.toUid=自己 → peerUid=fromUid
     // - bot 自己撤回时 server 会回声同一条 push：body.fromUid=自己, body.toUid=对方 → peerUid=toUid
     const peerUid = fromUid === selfInfo.uid ? toUid : fromUid
-    // FriendRecall.body.random (field 6) 是被撤回消息的 32-bit msgRandom，server 在两端一致广播。
-    // body.sequence (field 20) 在 self-recall 里恒为 0，不可靠；body.msgUid (field 4) = (0x01000000<<32)|random。
-    const random = body.random || (body.msgUid ? Number(BigInt(body.msgUid) & 0xFFFFFFFFn) : 0)
-    const original = random ? ctx.store.getMsgByRandom(peerUid, random) : undefined
-    // 复用 cache 里原消息的字段（特别是 msgId），确保撤回事件 shortId 跟 send 时一致
-    const senderUid = original?.senderUid || fromUid
-    const senderUin = original?.senderUin || String(msg.routingHead?.fromUin || 0)
-    const peerUin = original?.peerUin || String(msg.routingHead?.toUin || 0)
+    const peerUin = fromUid === selfInfo.uid ? toUin : fromUin
 
-    const recallMessage = buildRecallMessage({
-      msgSeq: String(original?.msgSeq || 0),
-      msgRandom: String(original?.msgRandom || random),
-      senderUid,
-      senderUin,
+    ctx.parallel('nt/message-deleted', {
+      chatType: await ctx.ntFriendApi.isFriend(peerUid) ? ChatType.C2C : ChatType.TempC2CFromGroup,
       peerUid,
       peerUin,
-      chatType: ChatType.C2C,
-      msgTime: original ? +original.msgTime : (msg.contentHead?.msgTime || 0),
-      tip,
-      operatorUid: senderUid,
-      operatorUin: senderUin,
-      origMsgId: original?.msgId,
+      msgId: body.msgUid.toString(),
+      msgSeq: body.sequence,
+      msgRandom: body.random,
+      senderUid: fromUid,
+      senderUin: fromUin,
+      operatorUid: fromUid,
+      operatorUin: fromUin,
+      displaySuffix: body.tipInfo?.tip ?? ''
     })
-
-    ctx.parallel('nt/raw/update-msg', [recallMessage])
   } catch (e) {
     ctx.logger.warn('Failed to parse FriendRecall:', (e as Error).message)
   }
@@ -620,7 +611,7 @@ function walkProtoFields(buf: Buffer, path: number[]): Buffer | null {
  * Content layout: [4 bytes BE: groupUin][1 byte: ?][2 bytes BE length][NotifyMessageBody bytes]
  * NotifyMessageBody.field11 = GroupRecall (with repeated RecallMessages at field 3)
  */
-function handleGroupRecall(ctx: Context, msg: any, content: Buffer) {
+async function handleGroupRecall(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
   try {
     if (content.length < 7) return
     const groupCode = content.readUInt32BE(0)
@@ -633,27 +624,22 @@ function handleGroupRecall(ctx: Context, msg: any, content: Buffer) {
     if (!recall || !recall.recallMessages || recall.recallMessages.length === 0) return
 
     const operatorUid = recall.operatorUid || notifyBody.operatorUid || ''
-    const peerUin = String(groupCode)
+    const operatorUin = await ctx.ntUserApi.getUinByUid(operatorUid)
 
     for (const rm of recall.recallMessages) {
-      // 查 cache 找原消息，复用其 msgId / msgRandom / msgTime 让 shortId 与原消息一致
-      const seq = Number(rm.sequence ?? 0)
-      const original = ctx.store.getMsgBySeq(peerUin, seq)
-      const recallMessage = buildRecallMessage({
-        msgSeq: String(seq),
-        msgRandom: String(original?.msgRandom || 0),
-        senderUid: rm.authorUid || original?.senderUid || '',
-        senderUin: original?.senderUin || '0',
-        peerUid: peerUin,
-        peerUin,
+      ctx.parallel('nt/message-deleted', {
         chatType: ChatType.Group,
-        msgTime: original ? +original.msgTime : (rm.time || msg.contentHead?.msgTime || 0),
-        tip: recall.tipInfo?.tip || '消息已撤回',
+        peerUid: groupCode.toString(),
+        peerUin: groupCode,
+        msgId: String((0x01000000n << 32n) | BigInt(rm.random)),
+        msgSeq: rm.sequence,
+        msgRandom: rm.random,
+        senderUid: rm.authorUid,
+        senderUin: await ctx.ntUserApi.getUinByUid(rm.authorUid),
         operatorUid,
-        operatorUin: '0',
-        origMsgId: original?.msgId,
+        operatorUin,
+        displaySuffix: recall.tipInfo?.tip ?? ''
       })
-      ctx.parallel('nt/raw/update-msg', [recallMessage])
     }
   } catch (e) {
     ctx.logger.warn('Failed to parse GroupRecall:', (e as Error).message)
@@ -696,6 +682,7 @@ async function handleGroupJoinRequest(ctx: Context, msg: InferProtoModel<typeof 
       ctx.parallel('nt/group-join-request', {
         groupCode: decoded.groupCode,
         initiatorUid: decoded.memberUid,
+        initiatorUin: await ctx.ntUserApi.getUinByUid(decoded.memberUid),
         notificationSeq,
         isDoubt,
         comment: commit!
@@ -724,7 +711,9 @@ async function handleGroupInvitation(ctx: Context, msg: InferProtoModel<typeof M
         ctx.parallel('nt/group-invited-join-request', {
           groupCode: inner.groupCode,
           initiatorUid: inner.invitorUid,
+          initiatorUin: await ctx.ntUserApi.getUinByUid(inner.invitorUid),
           targetUserUid: inner.targetUid,
+          targetUserUin: await ctx.ntUserApi.getUinByUid(inner.targetUid),
           notificationSeq: notification.sequence
         })
       }
@@ -741,78 +730,13 @@ async function handleGroupInvitation(ctx: Context, msg: InferProtoModel<typeof M
         ctx.parallel('nt/group-invitation', {
           groupCode: decoded.groupCode,
           initiatorUid: decoded.invitorUid,
+          initiatorUin: await ctx.ntUserApi.getUinByUid(decoded.invitorUid),
           invitationSeq: notification.sequence
         })
       }
     }
   } catch (e) {
     ctx.logger.warn('Failed to parse GroupInvitation:', (e as Error).message)
-  }
-}
-
-// ---- Common helpers ----
-
-interface RecallParams {
-  msgSeq: string
-  msgRandom?: string
-  senderUid: string
-  senderUin: string
-  peerUid: string
-  peerUin: string
-  chatType: ChatType
-  msgTime: number
-  tip: string
-  operatorUid: string
-  operatorUin: string
-  /** 撤回事件复用原消息的 msgId（cache 里的 msgUid），让两端 createMsgShortId 算出同一个 shortId
-   *  跟 send 时返回的 message_id 对得上。否则用合成的 'recall_xxx_${Date.now()}' 每次都不同。 */
-  origMsgId?: string
-}
-
-function buildRecallMessage(p: RecallParams): RawMessage {
-  return {
-    msgId: p.origMsgId || `recall_${p.msgSeq}_${Date.now()}`,
-    msgType: 5,
-    subMsgType: 4,
-    msgTime: String(p.msgTime || Math.floor(Date.now() / 1000)),
-    msgSeq: +p.msgSeq,
-    msgRandom: Number(p.msgRandom ?? '0'),
-    senderUid: p.senderUid,
-    senderUin: p.senderUin,
-    peerUid: p.peerUid,
-    peerUin: p.peerUin,
-    guildId: '',
-    sendNickName: '',
-    sendMemberName: '',
-    sendRemarkName: '',
-    chatType: p.chatType,
-    sendStatus: 2,
-    recallTime: String(Math.floor(Date.now() / 1000)),
-    records: [],
-    elements: [{
-      elementType: ElementType.GrayTip,
-      elementId: '',
-      extBufForUI: '',
-      grayTipElement: {
-        subElementType: GrayTipElementSubType.Revoke,
-        revokeElement: {
-          operatorTinyId: '',
-          operatorRole: '',
-          operatorUid: p.operatorUid,
-          operatorNick: '',
-          operatorRemark: '',
-          operatorMemRemark: '',
-          origMsgSenderUid: p.senderUid,
-          origMsgSenderNick: '',
-          origMsgSenderRemark: '',
-        },
-      },
-    }] as any,
-    peerName: '',
-    emojiLikesList: [],
-    isOnlineMsg: true,
-    tempFromGroupCode: 0,
-    clientSeq: 0
   }
 }
 
@@ -850,6 +774,7 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
           ctx.parallel('nt/group-invitation', {
             groupCode: +groupCode,
             initiatorUid: msg.routingHead.fromUid,
+            initiatorUin: msg.routingHead.fromUin,
             invitationSeq: BigInt(seq)
           })
         }
@@ -858,7 +783,7 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
   }
   const rawMessage = convertToRawMessage(msg)
   if (!rawMessage) return
-  const isSelfMsg = rawMessage.senderUin === selfInfo.uin
+  const isSelfMsg = rawMessage.senderUin === +selfInfo.uin
   if (isSelfMsg) {
     ctx.parallel('nt/raw/self-send-msg', rawMessage)
     ctx.parallel('nt/raw/update-msg', [rawMessage])
@@ -875,38 +800,48 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>): R
   const msgType = contentHead.msgType
 
   if (!routingHead || !contentHead) return null
+  if (!routingHead.fromUin) return null // 已删除的消息没有它
 
   let chatType: ChatType
-  let peerUin: string
+  let peerUin: number
   let peerUid: string
   let sendMemberName = ''
+  let sendNickName = ''
+  let peerName = ''
   let tempFromGroupCode = 0
 
   if (msgType === MsgType.GroupMessage) {
     chatType = ChatType.Group
-    peerUin = String(routingHead.group.groupCode)
-    peerUid = peerUin
-    sendMemberName = routingHead.group.groupCard
+    peerUin = routingHead.group.groupCode
+    peerUid = peerUin.toString()
+    if (routingHead.group.groupCardType === 1) {
+      sendMemberName = routingHead.group.groupCard
+    } else {
+      sendNickName = routingHead.group.groupCard
+    }
+    peerName = routingHead.group.groupName
   } else if (msgType === MsgType.TempMessage) {
     chatType = ChatType.TempC2CFromGroup
     // 对话另一端：自己发的消息 server 回声里 fromUid=自己，要用 toUid 当 peer
     if (routingHead.fromUid === selfInfo.uid && routingHead.toUid) {
-      peerUin = String(routingHead.toUin)
+      peerUin = routingHead.toUin
       peerUid = routingHead.toUid
     } else {
-      peerUin = String(routingHead.fromUin)
+      peerUin = routingHead.fromUin
       peerUid = routingHead.fromUid
     }
     tempFromGroupCode = routingHead.c2c.fromTinyId
+    sendNickName = routingHead.c2c.name // 似乎只在合并转发中存在
   } else {
     chatType = ChatType.C2C
     if (routingHead.fromUid === selfInfo.uid && routingHead.toUid) {
-      peerUin = String(routingHead.toUin)
+      peerUin = routingHead.toUin
       peerUid = routingHead.toUid
     } else {
-      peerUin = String(routingHead.fromUin)
+      peerUin = routingHead.fromUin
       peerUid = routingHead.fromUid
     }
+    sendNickName = routingHead.c2c.name // 似乎只在合并转发中存在
   }
 
   const elements = parseElements(body?.richText?.elems || [])
@@ -940,34 +875,22 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>): R
     }
   }
 
-  const senderUin = String(routingHead.fromUin || 0)
-  const isSelfMsg = senderUin === selfInfo.uin
-
   return {
-    msgId: String(contentHead.msgUid || contentHead.msgUidAlt || ((0x01000000n << 32n) | BigInt(contentHead.random))),
-    msgType: 2,
-    subMsgType: 0,
-    msgTime: String(contentHead.msgTime || Math.floor(Date.now() / 1000)),
+    msgId: String(contentHead.msgUid || ((0x01000000n << 32n) | BigInt(contentHead.random))),
+    msgTime: contentHead.msgTime,
     // 取"双端一致的 server seq"：群聊用 contentHead.groupMsgSeqOrC2cClientSeq (field 5)；
     // 私聊用 contentHead.c2cMsgSeq (field 11)，私聊时它非空，群聊时它为 0 走 fallback。
     msgSeq: contentHead.c2cMsgSeq || contentHead.groupMsgSeqOrC2cClientSeq,
     msgRandom: contentHead.random,
     senderUid: routingHead.fromUid,
-    senderUin,
+    senderUin: routingHead.fromUin,
     peerUid,
     peerUin,
-    guildId: '',
-    sendNickName: routingHead.c2c?.name || sendMemberName,
+    sendNickName,
     sendMemberName,
-    sendRemarkName: '',
     chatType,
-    sendStatus: isSelfMsg ? 2 : 0,
-    recallTime: '0',
-    records: [],
     elements,
-    peerName: routingHead.group?.groupName || '',
-    emojiLikesList: [],
-    isOnlineMsg: true,
+    peerName,
     tempFromGroupCode,
     // 私聊时 RawMessage.clientSeq = contentHead.groupMsgSeqOrC2cClientSeq (field 5)
     //   = 发送方 PbSendMsg 时提交的 client `clientSequence` (10000-99999 临时号)，

@@ -1,18 +1,12 @@
 import { resolveMilkyUri } from '@/milky/common/download'
 import type { Context } from 'cordis'
-import { OutgoingForwardedMessage, OutgoingSegment } from '@saltify/milky-types'
-import { AtType, Peer, RichMediaUploadCompleteNotify, RMBizType, SendMessageElement } from '@/ntqqapi/types'
+import { OutgoingSegment } from '@saltify/milky-types'
+import { AtType, SendMessageElement } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
-import { selfInfo, TEMP_DIR } from '@/common/globalVars'
-import { unlink, writeFile } from 'node:fs/promises'
+import { TEMP_DIR } from '@/common/globalVars'
+import { writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
-import { Msg, Media } from '@/ntqqapi/proto'
-import faceConfig from '@/ntqqapi/helper/face_config.json'
-import { deflateSync } from 'node:zlib'
-import { InferProtoModelInput } from '@saltify/typeproto'
-import { createThumb } from '@/common/utils/video'
-import { noop } from 'cosmokit'
 
 export async function transformOutgoingMessage(
   ctx: Context,

@@ -1,5 +1,5 @@
 import { MilkyEventTypes } from '@/milky/common/event'
-import { RawMessage, FriendRequest, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent } from '@/ntqqapi/types'
+import { RawMessage, FriendRequest, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeleteEvent } from '@/ntqqapi/types'
 import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingTempMessage } from './message/incoming'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -36,7 +36,7 @@ export async function transformGroupMessageCreated(
   message: RawMessage
 ): Promise<MilkyEventTypes['message_receive'] | null> {
   try {
-    if (!message.senderUid || message.peerUin === message.senderUid) return null
+    if (!message.senderUid) return null
     const group = await ctx.ntGroupApi.getGroup(+message.peerUid, false)
     const member = await ctx.ntGroupApi.getGroupMemberByUid(+message.peerUin, message.senderUid, false)
 
@@ -78,17 +78,16 @@ export async function transformTempMessageCreated(
  */
 export async function transformTempMessageDeleted(
   ctx: Context,
-  message: RawMessage
+  data: MessageDeleteEvent
 ): Promise<MilkyEventTypes['message_recall'] | null> {
   try {
-    const revokeElement = message.elements[0].grayTipElement!.revokeElement!
     return {
       message_scene: 'temp',
-      peer_id: Number(message.peerUin),
-      message_seq: Number(message.msgSeq),
-      sender_id: Number(message.senderUin),
-      operator_id: Number(message.senderUin),
-      display_suffix: revokeElement.wording,
+      peer_id: data.peerUin,
+      message_seq: data.msgSeq,
+      sender_id: data.senderUin,
+      operator_id: data.senderUin,
+      display_suffix: data.displaySuffix,
     }
   } catch (error) {
     ctx.logger.error('Failed to transform temp message deleted event:', error)
@@ -101,17 +100,16 @@ export async function transformTempMessageDeleted(
  */
 export async function transformPrivateMessageDeleted(
   ctx: Context,
-  message: RawMessage
+  data: MessageDeleteEvent
 ): Promise<MilkyEventTypes['message_recall'] | null> {
   try {
-    const revokeElement = message.elements[0].grayTipElement!.revokeElement!
     return {
       message_scene: 'friend',
-      peer_id: Number(message.peerUin),
-      message_seq: Number(message.msgSeq),
-      sender_id: Number(message.senderUin),
-      operator_id: Number(message.senderUin),
-      display_suffix: revokeElement.wording,
+      peer_id: data.peerUin,
+      message_seq: data.msgSeq,
+      sender_id: data.senderUin,
+      operator_id: data.senderUin,
+      display_suffix: data.displaySuffix,
     }
   } catch (error) {
     ctx.logger.error('Failed to transform private message deleted event:', error)
@@ -124,23 +122,16 @@ export async function transformPrivateMessageDeleted(
  */
 export async function transformGroupMessageDeleted(
   ctx: Context,
-  message: RawMessage
+  data: MessageDeleteEvent
 ): Promise<MilkyEventTypes['message_recall'] | null> {
   try {
-    const revokeElement = message.elements[0].grayTipElement!.revokeElement!
-    let operatorUin
-    if (revokeElement.operatorUid === revokeElement.origMsgSenderUid) {
-      operatorUin = message.senderUin
-    } else {
-      operatorUin = await ctx.ntUserApi.getUinByUid(revokeElement.operatorUid)
-    }
     return {
       message_scene: 'group',
-      peer_id: Number(message.peerUin),
-      message_seq: Number(message.msgSeq),
-      sender_id: Number(message.senderUin),
-      operator_id: Number(operatorUin),
-      display_suffix: revokeElement.wording,
+      peer_id: data.peerUin,
+      message_seq: data.msgSeq,
+      sender_id: data.senderUin,
+      operator_id: data.operatorUin,
+      display_suffix: data.displaySuffix,
     }
   } catch (error) {
     ctx.logger.error('Failed to transform group message deleted event:', error)
@@ -174,12 +165,11 @@ export async function transformGroupJoinRequestEvent(
   data: GroupJoinRequestEvent
 ): Promise<MilkyEventTypes['group_join_request'] | null> {
   try {
-    const initiatorId = await ctx.ntUserApi.getUinByUid(data.initiatorUid)
     return {
       group_id: data.groupCode,
       notification_seq: Number(data.notificationSeq),
       is_filtered: data.isDoubt,
-      initiator_id: initiatorId,
+      initiator_id: data.initiatorUin,
       comment: data.comment
     }
   } catch (error) {
@@ -193,13 +183,11 @@ export async function transformGroupInvitedJoinRequestEvent(
   data: GroupInvitedJoinRequestEvent
 ): Promise<MilkyEventTypes['group_invited_join_request'] | null> {
   try {
-    const initiatorId = await ctx.ntUserApi.getUinByUid(data.initiatorUid)
-    const targetUserId = await ctx.ntUserApi.getUinByUid(data.targetUserUid)
     return {
       group_id: data.groupCode,
       notification_seq: Number(data.notificationSeq),
-      initiator_id: initiatorId,
-      target_user_id: targetUserId
+      initiator_id: data.initiatorUin,
+      target_user_id: data.targetUserUin
     }
   } catch (error) {
     ctx.logger.error('Failed to transform group invited join request event:', error)
@@ -212,11 +200,10 @@ export async function transformGroupInvitationEvent(
   data: GroupInvitationEvent
 ): Promise<MilkyEventTypes['group_invitation'] | null> {
   try {
-    const initiatorId = await ctx.ntUserApi.getUinByUid(data.initiatorUid)
     return {
       group_id: data.groupCode,
       invitation_seq: Number(data.invitationSeq),
-      initiator_id: initiatorId
+      initiator_id: data.initiatorUin
     }
   } catch (error) {
     ctx.logger.error('Failed to transform group invitation event:', error)
@@ -254,7 +241,7 @@ export async function transformPrivateMessageEvent(
             file_size: +element.fileElement.fileSize,
             // FileElement.fileMd5 即文件 md5（hex），milky 协议 file_hash 字段就是它。
             file_hash: element.fileElement.fileMd5 ?? '',
-            is_self: message.senderUin === selfInfo.uin
+            is_self: message.senderUin === +selfInfo.uin
           } satisfies MilkyEventTypes['friend_file_upload']
         }
       }

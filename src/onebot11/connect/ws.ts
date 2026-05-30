@@ -255,6 +255,7 @@ class OB11WebSocketReverse {
       }
       if (!this.config.debug) {
         delete msg.raw
+        delete msg.raw_pb
       }
       if (this.config.messageFormat === 'string') {
         msg.message = msg.raw_message

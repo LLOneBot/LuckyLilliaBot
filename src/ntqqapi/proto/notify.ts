@@ -57,7 +57,7 @@ export namespace Notify {
   export const GroupRecall = ProtoMessage.of({
     operatorUid: ProtoField(1, 'string', 'optional'),
     recallMessages: ProtoField(3, {
-      sequence: ProtoField(1, 'uint64'),
+      sequence: ProtoField(1, 'uint32'),
       time: ProtoField(2, 'uint32'),
       random: ProtoField(3, 'uint32'),
       type: ProtoField(4, 'uint32'),
@@ -78,13 +78,13 @@ export namespace Notify {
       toUid: ProtoField(2, 'string'),
       clientSequence: ProtoField(3, 'uint32'),
       /** 被撤回消息的 msgUid（C2C 公式 (0x01000000<<32)|random） */
-      msgUid: ProtoField(4, 'uint64', 'optional'),
+      msgUid: ProtoField(4, 'uint64'),
       /** 被撤回消息的 32-bit random，server 跨双端一致 */
-      random: ProtoField(6, 'uint32', 'optional'),
-      sequence: ProtoField(20, 'uint64'),
+      random: ProtoField(6, 'uint32'),
       tipInfo: ProtoField(13, {
-        tip: ProtoField(2, 'string', 'optional')
+        tip: ProtoField(2, 'string')
       }, 'optional'),
+      sequence: ProtoField(20, 'uint32'),
     })
   })
 

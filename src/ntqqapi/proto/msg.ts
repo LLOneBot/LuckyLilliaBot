@@ -424,7 +424,7 @@ export namespace Msg {
   export const PbSendMsgResp = ProtoMessage.of({
     resultCode: ProtoField(1, 'int32'),
     errMsg: ProtoField(2, 'string', 'optional'),
-    sendTime: ProtoField(3, 'int64', 'optional'),
+    sendTime: ProtoField(3, 'uint32', 'optional'),
     msgInfoFlag: ProtoField(10, 'uint32', 'optional'),
     /** 群聊用：双端一致的群 msgSeq；私聊为空。 */
     groupMsgSeq: ProtoField(11, 'uint32', 'optional'),

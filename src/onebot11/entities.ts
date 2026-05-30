@@ -42,8 +42,7 @@ export namespace OB11Entities {
     ctx: Context,
     msg: RawMessage,
     config?: ParseMessageConfig
-  ): Promise<OB11Message | undefined> {
-    if (!msg.senderUin || msg.senderUin === '0' || msg.msgType === 1) return //跳过空消息
+  ): Promise<OB11Message> {
     const selfUin = selfInfo.uin
     const msgShortId = ctx.store.createMsgShortId(msg)
     const { segments, cqCode } = await transformIncomingSegments(ctx, msg)
@@ -63,7 +62,7 @@ export namespace OB11Entities {
       sub_type: 'friend',
       message: config?.messageFormat === 'string' ? cqCode : segments,
       message_format: config?.messageFormat === 'string' ? 'string' : 'array',
-      post_type: selfUin === msg.senderUin ? EventType.MESSAGE_SENT : EventType.MESSAGE,
+      post_type: +selfUin === msg.senderUin ? EventType.MESSAGE_SENT : EventType.MESSAGE,
       getSummaryEventName(): string {
         return this.post_type + '.' + this.message_type
       }
@@ -83,7 +82,7 @@ export namespace OB11Entities {
       resMsg.group_name = msg.peerName
       resMsg.sender.card = msg.sendMemberName
       // 284840486: 合并转发内部
-      if (msg.peerUin !== '284840486') {
+      if (msg.peerUin !== 284840486) {
         try {
           const member = await ctx.ntGroupApi.getGroupMemberByUid(+msg.peerUin, msg.senderUid, false)
           resMsg.sender.nickname = member!.nick
@@ -97,20 +96,20 @@ export namespace OB11Entities {
     }
     else if (msg.chatType === ChatType.C2C) {
       resMsg.sub_type = 'friend'
-      if (msg.senderUin === '1094950020') {
+      if (msg.senderUin === 1094950020) {
         resMsg.sender.nickname = 'QQ用户'
       } else {
         try {
           resMsg.sender.nickname = (await ctx.ntFriendApi.getFriendByUid(msg.senderUid, false))!.nick
         } catch {
-          resMsg.sender.nickname = msg.sendNickName || msg.senderUin
+          resMsg.sender.nickname = msg.sendNickName || msg.senderUin.toString()
         }
       }
     }
     else if (msg.chatType === ChatType.TempC2CFromGroup) {
       resMsg.sub_type = 'group'
       resMsg.temp_source = 0 //群聊
-      if (msg.senderUin === '1094950020') {
+      if (msg.senderUin === 1094950020) {
         resMsg.sender.nickname = 'QQ用户'
       } else {
         resMsg.sender.nickname = (await ctx.ntUserApi.getUserByUid(msg.senderUid)).nick
@@ -127,9 +126,6 @@ export namespace OB11Entities {
     }
     // wrapper 模式：msgType=5 是 GrayTip, 11 是 ArkStruct
     // 直连模式：所有消息都映射为 msgType=2，靠 element 判别
-    if (msg.msgType !== 5 && msg.msgType !== 11 && msg.msgType !== 2) {
-      return
-    }
 
     for (const element of msg.elements) {
       if (element.grayTipElement) {
@@ -170,9 +166,6 @@ export namespace OB11Entities {
     }
     // wrapper 模式：msgType=5 是 GrayTip, 3 是 File
     // 直连模式：所有消息都映射为 msgType=2，靠 element 判别
-    if (msg.msgType !== 5 && msg.msgType !== 3 && msg.msgType !== 2) {
-      return
-    }
 
     for (const element of msg.elements) {
       if (element.fileElement) {
@@ -245,38 +238,6 @@ export namespace OB11Entities {
           }
         }
       }
-    }
-  }
-
-  export async function recallEvent(
-    ctx: Context,
-    msg: RawMessage,
-    shortId: number
-  ): Promise<OB11FriendRecallNoticeEvent | OB11GroupRecallNoticeEvent> {
-    const revokeElement = msg.elements[0].grayTipElement!.revokeElement!
-    if (msg.chatType === ChatType.Group) {
-      let operatorUin
-      if (revokeElement.operatorUid === revokeElement.origMsgSenderUid) {
-        operatorUin = +msg.senderUin
-      } else {
-        operatorUin = await ctx.ntUserApi.getUinByUid(revokeElement.operatorUid)
-      }
-      let senderUin = +msg.senderUin
-      if (msg.senderUin === '0') {
-        senderUin = await ctx.ntUserApi.getUinByUid(revokeElement.origMsgSenderUid)
-        if (revokeElement.operatorUid === revokeElement.origMsgSenderUid) {
-          operatorUin = senderUin
-        }
-      }
-      return new OB11GroupRecallNoticeEvent(
-        +msg.peerUid,
-        senderUin,
-        operatorUin,
-        shortId,
-      )
-    }
-    else {
-      return new OB11FriendRecallNoticeEvent(+msg.senderUin, shortId)
     }
   }
 

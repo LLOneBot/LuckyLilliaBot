@@ -799,7 +799,7 @@ export class NTQQWebApi extends Service {
   }
 
   /** 上传群公告图片 — web.qun.qq.com/cgi-bin/announce/upload_img */
-  async uploadGroupBulletinPic(groupCode: number, filePath: string): Promise<{ errCode: number, errMsg: string, picInfo?: { id: string, width: number, height: number } }> {
+  async uploadGroupBulletinPic(groupCode: number, filePath: string) {
     const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
     const buf = await fs.readFile(filePath)
@@ -816,7 +816,11 @@ export class NTQQWebApi extends Service {
     if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
     const data = await res.json() as any
     if (data.ec !== 0) {
-      return { errCode: data.ec, errMsg: data.em || '' }
+      return {
+        errCode: data.ec,
+        errMsg: data.em,
+        picInfo: { id: '', width: 0, height: 0 }
+      }
     }
     // data.id is HTML-escaped JSON string: {"h":"147","id":"...","w":"147"}
     const decoded = data.id.replace(/&quot;/g, '"')

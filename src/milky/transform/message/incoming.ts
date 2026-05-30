@@ -97,17 +97,27 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         })
         break
 
-      case ElementType.Reply:
+      case ElementType.Reply: {
+        const { replyMsgSeq, senderUin, replyMsgTime } = element.replyElement!
+        let msg = ctx.store.getMsgBySeq(message.peerUid, replyMsgSeq)
+        if (!msg) {
+          const { msgList } = await ctx.ntMsgApi.getSingleMsg({
+            chatType: message.chatType,
+            peerUid: message.peerUid
+          }, replyMsgSeq)
+          msg = msgList[0]
+        }
         segments.push({
           type: 'reply',
           data: {
-            message_seq: element.replyElement!.replyMsgSeq,
-            sender_id: element.replyElement!.senderUin,
-            time: element.replyElement!.replyMsgTime,
-            segments: message.records[0] ? await transformIncomingSegments(ctx, message.records[0]) : []
+            message_seq: replyMsgSeq,
+            sender_id: senderUin,
+            time: replyMsgTime,
+            segments: msg ? await transformIncomingSegments(ctx, msg) : []
           },
         })
         break
+      }
 
       case ElementType.Pic:
         segments.push({

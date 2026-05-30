@@ -6,15 +6,14 @@ import {
   FriendRequestNotify,
   FriendRequest,
   BuddyReqType,
-  GrayTipElementSubType,
   ChatType,
   Peer,
   SendMessageElement,
   KickedOffLineInfo,
-  MsgType,
   GroupJoinRequestEvent,
   GroupInvitedJoinRequestEvent,
   GroupInvitationEvent,
+  MessageDeleteEvent,
 } from './types'
 import { selfInfo } from '../common/globalVars'
 import {
@@ -25,7 +24,7 @@ import {
 } from '@/ntqqapi/types/flashfile'
 import { logSummaryMessage } from '@/ntqqapi/log'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
-import { GroupDetailInfo, LocalExitGroupReason } from '@/ntqqapi/types'
+import { LocalExitGroupReason } from '@/ntqqapi/types'
 import { registerDispatcher } from './dispatcher'
 import { noop } from 'cosmokit'
 
@@ -37,7 +36,6 @@ declare module 'cordis' {
   interface Events {
     'nt/message-created': (input: RawMessage) => void
     'nt/offline-message-created': (input: RawMessage) => void
-    'nt/message-deleted': (input: RawMessage) => void
     'nt/message-sent': (input: RawMessage) => void
     'nt/group-dismiss': (input: GroupDetailInfo) => void
     'nt/group-quit': (input: GroupDetailInfo) => void // 主动退群
@@ -56,7 +54,6 @@ declare module 'cordis' {
     'nt/raw/self-status': (input: { status: number }) => void
     'nt/raw/new-msg': (input: RawMessage[]) => void
     'nt/raw/update-msg': (input: RawMessage[]) => void
-    'nt/raw/delete-msg': (input: [Peer, string[]]) => void
     'nt/raw/self-send-msg': (input: RawMessage) => void
     'nt/raw/friend-request': (input: FriendRequestNotify) => void
     'nt/raw/sys-msg': (input: Buffer) => void
@@ -84,11 +81,16 @@ declare module 'cordis' {
     'nt/group-join-request': (input: GroupJoinRequestEvent) => void
     'nt/group-invited-join-request': (input: GroupInvitedJoinRequestEvent) => void
     'nt/group-invitation': (input: GroupInvitationEvent) => void
+    'nt/message-deleted': (input: MessageDeleteEvent) => void
   }
 }
 
 class Core extends Service {
-  static inject = ['ntMsgApi', 'ntFriendApi', 'store', 'ntFileApi', 'qqProtocol', 'ntGroupApi']
+  static inject = [
+    'ntMsgApi', 'ntFriendApi', 'store',
+    'ntFileApi', 'qqProtocol', 'ntGroupApi',
+    'ntUserApi'
+  ]
   public startupTime = 0
   public messageReceivedCount = 0
   public messageSentCount = 0
@@ -134,11 +136,11 @@ class Core extends Service {
   private async handleMessage(msgList: RawMessage[]) {
     for (const message of msgList) {
       const msgTime = +message.msgTime
-      if (msgTime < this.startupTime || ('isOnlineMsg' in message && !message.isOnlineMsg && message.msgType !== MsgType.GrayTips)) {
+      if (msgTime < this.startupTime) {
         this.ctx.parallel('nt/offline-message-created', message)
         continue
       }
-      if (message.senderUin && message.senderUin !== '0') {
+      if (message.senderUin && message.senderUin !== 0) {
         this.ctx.store.addMsgCache(message)
       }
       this.lastMessageTime = msgTime
@@ -155,69 +157,6 @@ class Core extends Service {
 
     this.ctx.on('nt/raw/new-msg', payload => {
       this.handleMessage(payload)
-    })
-
-    const sentMsgIds = new Map<string, boolean>()
-    const recallMsgIds: string[] = [] // 避免重复上报
-
-    this.ctx.on('nt/raw/update-msg', payload => {
-      for (const msg of payload) {
-        if (
-          msg.recallTime !== '0' &&
-          msg.msgType === 5 &&
-          msg.subMsgType === 4 &&
-          msg.elements[0]?.grayTipElement?.subElementType === GrayTipElementSubType.Revoke &&
-          !recallMsgIds.includes(msg.msgId)
-        ) {
-
-          recallMsgIds.push(msg.msgId)
-          this.ctx.parallel('nt/message-deleted', msg)
-        }
-        else if (sentMsgIds.get(msg.msgId)) {
-          if (msg.sendStatus === 2) {
-            sentMsgIds.delete(msg.msgId)
-            logSummaryMessage(this.ctx, msg).then()
-            this.ctx.parallel('nt/message-sent', msg)
-          }
-        }
-      }
-
-      if (recallMsgIds.length > 1000) {
-        recallMsgIds.shift()
-      }
-
-      // 限制Map大小，防止内存泄露
-      if (sentMsgIds.size > 1000) {
-        const firstKey = sentMsgIds.keys().next().value
-        if (firstKey) {
-          sentMsgIds.delete(firstKey)
-        }
-      }
-    })
-
-    this.ctx.on('nt/raw/delete-msg', payload => {
-      // 撤回普通消息不会经过这里
-      // 撤回戳一戳会经过这里
-      const [peer, msgIds] = payload;
-      for (const msgId of msgIds) {
-        const msg = this.ctx.store.getMsgByMsgId(msgId)
-        if (!msg) {
-          this.ctx.ntMsgApi.getMsgsByMsgId(peer, [msgId]).then(r => {
-            for (const _msg of r.msgList) {
-              this.ctx.parallel('nt/message-deleted', _msg)
-            }
-          }).catch(e => {
-            this.ctx.logger.error('获取被撤回戳一戳消息失败', e, { peer, msgId })
-          })
-        }
-        else {
-          this.ctx.parallel('nt/message-deleted', msg)
-        }
-      }
-    })
-
-    this.ctx.on('nt/raw/self-send-msg', payload => {
-      sentMsgIds.set(payload.msgId, true)
     })
 
     const friendRequestSeen: string[] = []

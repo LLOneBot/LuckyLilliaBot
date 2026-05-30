@@ -1,6 +1,5 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
-import { GroupFileInfo } from '@/ntqqapi/types'
 
 export interface Payload {
   group_id: number | string

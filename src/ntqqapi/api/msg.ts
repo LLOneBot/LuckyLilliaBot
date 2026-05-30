@@ -1,4 +1,4 @@
-import { ChatType, ElementType, MessageElement, Peer, RawMessage, SendMessageElement } from '../types'
+import { ChatType, MessageElement, Peer, RawMessage, SendMessageElement } from '../types'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { Msg } from '../proto'
@@ -130,9 +130,7 @@ export class NTQQMsgApi extends Service {
     const result: RawMessage = echoed ?? {
       // C2C 本地算 msgUid（高 32 位固定 0x01000000，低 32 位 = random）
       msgId: ((0x01000000n << 32n) | BigInt(ret.random)).toString(),
-      msgType: 2,
-      subMsgType: 0,
-      msgTime: String(ret.timestamp),
+      msgTime: ret.timestamp!,
       // 群聊：ret.sequence = PbSendMsgResp.groupMsgSeq (field 11)，server 给整个群的 groupMsgSeq，双端一致。
       // C2C：ret.sequence = PbSendMsgResp.c2cMsgSeq   (field 14)，server 给这条 c2c 消息的 c2cMsgSeq，
       //   双端一致：接收方在 OlPush msgType=166 contentHead.c2cMsgSeq (field 11) 拿到同样的值。
@@ -140,21 +138,14 @@ export class NTQQMsgApi extends Service {
       msgSeq: ret.sequence,
       msgRandom: ret.random,
       senderUid: selfInfo.uid,
-      senderUin: selfInfo.uin,
+      senderUin: +selfInfo.uin,
       peerUid: peer.peerUid,
-      peerUin: peer.peerUid,
-      guildId: '',
+      peerUin: await this.ctx.ntUserApi.getUinByUid(peer.peerUid),
       sendNickName: '',
       sendMemberName: '',
-      sendRemarkName: '',
       chatType,
-      sendStatus: 2,
-      recallTime: '0',
-      records: [],
       elements: parseElements(elems as InferProtoModel<typeof Msg.Elem>[]),
       peerName: '',
-      emojiLikesList: [],
-      isOnlineMsg: true,
       tempFromGroupCode: chatType === ChatType.TempC2CFromGroup ? groupCode! : 0,
       clientSeq: ret.clientSequence
     }

@@ -4,7 +4,7 @@ import { ChatType, ElementType, RawMessage } from '@/ntqqapi/types'
 
 export async function logSummaryMessage(ctx: Context, message: RawMessage) {
   const direction = message.senderUid == selfInfo.uid ? '发' : '收'
-  let sender = message.sendMemberName || message.sendRemarkName || message.sendNickName
+  let sender = message.sendMemberName || message.sendNickName
   const senderUin = message.senderUin
   let summary = ''
   for (const msgEle of message.elements) {

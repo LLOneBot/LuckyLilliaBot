@@ -1,5 +1,4 @@
 import { Handler } from '../index'
-import { GroupRequestOperateTypes } from '@/ntqqapi/types'
 import { Dict } from 'cosmokit'
 
 interface Payload {

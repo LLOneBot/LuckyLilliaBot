@@ -1,25 +1,3 @@
-export enum GroupNotifyType {
-  InvitedByMember = 1,
-  RefuseInvited,
-  RefusedByAdminiStrator,
-  AgreedTojoinDirect, // 有人接受了邀请入群
-  InvitedNeedAdminiStratorPass, // 有人邀请了别人入群
-  AgreedToJoinByAdminiStrator,
-  RequestJoinNeedAdminiStratorPass,
-  SetAdmin,
-  KickMemberNotifyAdmin,
-  KickMemberNotifyKicked,
-  MemberLeaveNotifyAdmin, // 主动退出
-  CancelAdminNotifyCanceled, // 我被取消管理员
-  CancelAdminNotifyAdmin, // 其他人取消管理员
-  TransferGroupNotifyOldowner,
-  TransferGroupNotifyAdmin
-}
-export enum GroupRequestOperateTypes {
-  Approve = 1,
-  Reject = 2,
-}
-
 export enum BuddyReqType {
   MeInitiator,
   PeerInitiator,

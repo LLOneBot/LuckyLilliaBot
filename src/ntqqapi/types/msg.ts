@@ -403,23 +403,16 @@ export enum ChatType {
 
 export interface RawMessage {
   msgId: string
-  msgType: MsgType
-  subMsgType: number
-  msgTime: string // 时间戳，秒
+  msgTime: number // 时间戳，秒
   msgSeq: number
   msgRandom: number
   senderUid: string
-  senderUin: string // 发送者QQ号
+  senderUin: number // 发送者QQ号
   peerUid: string // 群号 或者 QQ uid
-  peerUin: string // 群号 或者 发送者QQ号
-  guildId: string
+  peerUin: number // 群号 或者 发送者QQ号
   sendNickName: string
   sendMemberName: string // 发送者群名片
-  sendRemarkName: string // 发送者好友备注
   chatType: ChatType
-  sendStatus?: number // 消息状态，别人发的2是已撤回，自己发的2是已发送
-  recallTime: string // 撤回时间, "0"是没有撤回
-  records: RawMessage[]
   elements: MessageElement[]
   peerName: string
   multiTransInfo?: {
@@ -428,147 +421,13 @@ export interface RawMessage {
     friendFlag: number
     fromFaceUrl: string
   }
-  emojiLikesList: {
-    emojiId: string
-    emojiType: string
-    likesCnt: string
-    isClicked: boolean
-  }[]
-  isOnlineMsg: boolean // 是否为在线消息，灰条消息会被判定为非在线消息
   tempFromGroupCode: number
   clientSeq: number
 }
 
-// VAS 消息信息（气泡、字体等）
-export interface VasMsgInfo {
-  msgNamePlateInfo?: {
-    msgVipType: number
-    msgVipLevel: number
-    msgBigClubFlag?: number | null
-    msgBigClubLevel: number
-    grayNamePlate: number
-    namePlateType: number
-    vipStarFlag?: number | null
-    namePlateId: number
-    carouselNamePlateIds: number[]
-    extendNamePlateId?: number | null
-    gameNamePlateId?: number | null
-  }
-  bubbleInfo?: {
-    bubbleId: number
-    bubbleDiyTextId: number
-    subBubbleId: number
-    canConvertToText?: boolean | null
-  }
-  avatarPendantInfo?: {
-    avatarId: number
-    pendantId: string
-    pendantDiyInfoId: number
-  }
-  vasFont?: {
-    fontId: number
-    subFontId?: number | null
-    diyFontCfgUpdateTime: number
-    diyFontImageId: number
-    magicFontType: number
-  }
-  iceBreakInfo?: {
-    templateID?: string | null
-    isIceBreakMsg?: boolean | null
-  }
-}
-
-// VAS 个人信息
-export interface VasPersonalInfo {
-  troopNameColorId?: number | null
-  vipNumbers: number[]
-  vaDataChangeRand: number
-  vasPersonalNamePlate?: unknown | null
-  extInfo?: unknown | null
-}
-
-// 群荣誉信息（等级、头衔）
-export interface GroupHonorInfo {
-  richFlag: number
-  honorIds: number[]
-  level: number
-  oldLevel?: number | null
-  rankSeq: string
-  titleId: number
-  uniqueTitle: string
-}
-
-// 王者荣誉信息
-export interface KingHonorInfo {
-  kingHonorLevel: number
-  groupInfoFlagEx4: number
-  groupMsgBusiBuf?: unknown | null
-}
-
-// 消息属性基础字段
-interface MsgAttrBase {
-  attrId: string
-  publicAccountAttrs?: unknown | null
-  sharedMsgInfo?: unknown | null
-  gameChatSession?: unknown | null
-  uinInfoAttr?: unknown | null
-  longMsgAttr?: unknown | null
-  robotExt?: unknown | null
-  zPlanMsgInfo?: unknown | null
-  qqConnectAttr?: unknown | null
-  extendBusiness?: unknown | null
-  sendMsgRspTransSvrInfo?: unknown | null
-  adelieMsgAttr?: unknown | null
-  feedBackStateInfo?: unknown | null
-  memoryStateMsgInfo?: unknown | null
-  attaReportData?: unknown | null
-  liteAction?: unknown | null
-  botMetaData?: unknown | null
-}
-
-// attrType 0: VAS 消息信息
-export interface MsgAttrVasMsg extends MsgAttrBase {
-  attrType: 0
-  vasMsgInfo: VasMsgInfo
-  vasPersonalInfo?: null
-  groupHonor?: null
-  kingHonor?: null
-}
-
-// attrType 1: VAS 个人信息
-export interface MsgAttrVasPersonal extends MsgAttrBase {
-  attrType: 1
-  vasMsgInfo?: null
-  vasPersonalInfo: VasPersonalInfo
-  groupHonor?: null
-  kingHonor?: null
-}
-
-// attrType 2: 群荣誉信息
-export interface MsgAttrGroupHonor extends MsgAttrBase {
-  attrType: 2
-  vasMsgInfo?: null
-  vasPersonalInfo?: null
-  groupHonor: GroupHonorInfo
-  kingHonor?: null
-}
-
-// attrType 3: 王者荣誉信息
-export interface MsgAttrKingHonor extends MsgAttrBase {
-  attrType: 3
-  vasMsgInfo?: null
-  vasPersonalInfo?: null
-  groupHonor?: null
-  kingHonor: KingHonorInfo
-}
-
-// 消息属性联合类型
-export type MsgAttr = MsgAttrVasMsg | MsgAttrVasPersonal | MsgAttrGroupHonor | MsgAttrKingHonor
-
 export interface Peer {
   chatType: ChatType
   peerUid: string  // 如果是群聊uid为群号，私聊uid就是加密的字符串
-  guildId: string
 }
 
 export interface MessageElement {
@@ -600,179 +459,4 @@ export interface MessageElement {
   taskTopMsgElement?: unknown
   recommendedMsgElement?: unknown
   actionBarElement?: unknown
-}
-
-export interface RichMediaDownloadCompleteNotify {
-  fileModelId: string
-  msgElementId: string
-  msgId: string
-  fileId: string
-  fileProgress: string  // '0'
-  fileSpeed: string  // '0'
-  fileErrCode: string  // '0'
-  fileErrMsg: string
-  fileDownType: number  // 暂时未知
-  thumbSize: number
-  filePath: string
-  totalSize: string
-  trasferStatus: number
-  step: number
-  commonFileInfo: unknown
-  fileSrvErrCode: string
-  clientMsg: string
-  businessId: number
-  userTotalSpacePerDay: unknown
-  userUsedSpacePerDay: unknown
-}
-
-export interface GroupFileInfo {
-  retCode: number
-  retMsg: string
-  clientWording: string
-  isEnd: boolean
-  item: {
-    peerId: string
-    type: number
-    folderInfo?: {
-      folderId: string
-      parentFolderId: string
-      folderName: string
-      createTime: number
-      modifyTime: number
-      createUin: string
-      creatorName: string
-      totalFileCount: number
-      modifyUin: string
-      modifyName: string
-      usedSpace: string
-    }
-    fileInfo?: {
-      fileModelId: string
-      fileId: string
-      fileName: string
-      fileSize: string
-      busId: number
-      uploadedSize: string
-      uploadTime: number
-      deadTime: number
-      modifyTime: number
-      downloadTimes: number
-      sha: string
-      sha3: string
-      md5: string
-      uploaderLocalPath: string
-      uploaderName: string
-      uploaderUin: string
-      parentFolderId: string
-      localPath: string
-      transStatus: number
-      transType: number
-      elementId: string
-      isFolder: boolean
-    }
-  }[]
-  allFileCount: number
-  nextIndex: number
-  reqId: number
-}
-
-export interface QueryMsgsParams {
-  chatInfo: Peer
-  filterMsgType?: []
-  filterSendersUid?: string[]
-  filterMsgFromTime: string
-  filterMsgToTime: string
-  pageLimit: number
-  isReverseOrder?: boolean
-  isIncludeCurrent: boolean
-}
-
-export interface GetFileListParam {
-  sortType: number
-  fileCount: number
-  startIndex: number
-  sortOrder: number
-  showOnlinedocFolder: number
-  folderId?: string
-}
-
-export interface RichMediaUploadCompleteNotify {
-  fileModelId: string
-  msgElementId: string
-  msgId: string
-  fileId: string
-  fileProgress: string
-  fileSpeed: string
-  fileErrCode: string
-  fileErrMsg: string
-  fileDownType: number
-  thumbSize: number
-  filePath: string
-  totalSize: string
-  trasferStatus: number
-  step: number
-  commonFileInfo: {
-    fileModelId: string
-    msgId: string
-    elemId: string
-    uuid: string
-    subId: string
-    fileName: string
-    fileSize: string
-    msgTime: string
-    peerUid: string
-    chatType: number
-    md5: string
-    md510m: string
-    sha: string
-    sha3: string
-    parent: unknown
-    favId: unknown
-    bizType: number
-    picThumbPath: unknown
-  },
-  fileSrvErrCode: string
-  clientMsg: string
-  businessId: number
-  userTotalSpacePerDay: unknown
-  userUsedSpacePerDay: unknown
-  msgRecord: unknown
-  chatType: number
-}
-
-export enum RMBizType {
-  Unknown,
-  C2CFile,
-  GroupFile,
-  C2CPic,
-  GroupPic,
-  DiscPic,
-  C2CVideo,
-  GroupVideo,
-  C2CPtt,
-  GroupPtt,
-}
-
-export enum MsgType {
-  ArkStruct = 11,
-  FaceBubble = 24,
-  File = 3,
-  Gift = 14,
-  Giphy = 13,
-  GrayTips = 5,
-  Mix = 2,
-  MultiMsgForward = 8,
-  Null = 1,
-  OnlineFile = 21,
-  OnlineFolder = 27,
-  Prologue = 29,
-  Ptt = 6,
-  Reply = 9,
-  ShareLocation = 25,
-  Struct = 4,
-  StructLongMsg = 12,
-  TextGift = 15,
-  Unknown = 0,
-  Video = 7,
-  Wallet = 10,
 }

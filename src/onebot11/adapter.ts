@@ -4,8 +4,6 @@ import {
   ChatType,
   FriendRequest,
   GroupNotificationType,
-  JsonGrayTipBusId,
-  Peer,
   RawMessage,
 } from '../ntqqapi/types'
 import {
@@ -34,9 +32,7 @@ import {
 } from '@/onebot11/event/notice/OB11FlashFileEvent'
 import {
   OB11FriendPokeEvent,
-  OB11FriendPokeRecallEvent,
   OB11GroupPokeEvent,
-  OB11GroupPokeRecallEvent,
 } from '@/onebot11/event/notice/OB11PokeEvent'
 import { OB11GroupDismissEvent } from '@/onebot11/event/notice/OB11GroupDismissEvent'
 import { BaseAction } from './action/BaseAction'
@@ -49,6 +45,8 @@ import { OB11FriendAddNoticeEvent } from './event/notice/OB11FriendAddNoticeEven
 import { OB11GroupCardEvent } from './event/notice/OB11GroupCardEvent'
 import { noop } from 'cosmokit'
 import { encodeGroupRequestFlag } from './utils'
+import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNoticeEvent'
+import { OB11FriendRecallNoticeEvent } from './event/notice/OB11FriendRecallNoticeEvent'
 
 declare module 'cordis' {
   interface Context {
@@ -168,17 +166,17 @@ class Onebot11Adapter extends Service {
 
     try {
       if (message.chatType === ChatType.Group) {
-        const oldCard = await this.ctx.store.getGroupMemberCard(message.peerUid, message.senderUin)
+        const oldCard = await this.ctx.store.getGroupMemberCard(message.peerUin, message.senderUin)
         if (oldCard === undefined) {
-          await this.ctx.store.setGroupMemberCard(message.peerUid, message.senderUin, message.sendMemberName)
+          await this.ctx.store.setGroupMemberCard(message.peerUin, message.senderUin, message.sendMemberName)
         } else {
-          const { peerName, peerUid, sendMemberName, sendNickName, senderUin } = message
+          const { peerName, peerUin, sendMemberName, sendNickName, senderUin } = message
           if (oldCard !== sendMemberName) {
-            await this.ctx.store.setGroupMemberCard(peerUid, senderUin, sendMemberName)
-            this.ctx.logger.info(`群 ${peerName}(${peerUid}) 的 ${sendMemberName || sendNickName}(${senderUin}) 更新了名片 ${oldCard} -> ${sendMemberName}`)
+            await this.ctx.store.setGroupMemberCard(peerUin, senderUin, sendMemberName)
+            this.ctx.logger.info(`群 ${peerName}(${peerUin}) 的 ${sendMemberName || sendNickName}(${senderUin}) 更新了名片 ${oldCard} -> ${sendMemberName}`)
             const groupCardEvent = new OB11GroupCardEvent(
-              +peerUid,
-              +senderUin,
+              peerUin,
+              senderUin,
               sendMemberName,
               oldCard
             )
@@ -189,56 +187,6 @@ class Onebot11Adapter extends Service {
     } catch (e) {
       this.ctx.logger.error('handling group member name card change events', e)
     }
-  }
-
-  private handleRecallMsg(message: RawMessage) {
-    const peer: Peer = {
-      peerUid: message.peerUid,
-      chatType: message.chatType,
-      guildId: ''
-    }
-    // 直连模式：撤回戳一戳走 nt/raw/delete-msg → 这里 message.msgId 对应 contentHead.msgUid，
-    // 命中 pokeCache 直接出 recall 事件
-    const cachedPoke = this.pokeCache.get(message.msgId)
-    if (cachedPoke) {
-      this.pokeCache.delete(message.msgId)
-      if (cachedPoke.chatType === 'group' && cachedPoke.groupId) {
-        return this.dispatch(new OB11GroupPokeRecallEvent(
-          cachedPoke.groupId, cachedPoke.userId, cachedPoke.targetId, cachedPoke.rawInfo,
-        ))
-      } else if (cachedPoke.chatType === 'friend') {
-        return this.dispatch(new OB11FriendPokeRecallEvent(
-          cachedPoke.userId, cachedPoke.targetId, cachedPoke.rawInfo,
-        ))
-      }
-    }
-    // 解析撤回戳一戳（wrapper 模式：通过 grayTipElement 拿到 poke 详情）
-    const grayTipElement = message.elements.find(el => el.grayTipElement)?.grayTipElement
-    if (grayTipElement && grayTipElement.jsonGrayTipElement?.busiId == JsonGrayTipBusId.Poke) {
-      const json = JSON.parse(grayTipElement.jsonGrayTipElement.jsonStr)
-      const templateParams = grayTipElement.jsonGrayTipElement?.xmlToJsonParam?.templParam
-      const fromUserUin = templateParams?.get('uin_str1') || '0'
-      const toUserUin = templateParams?.get('uin_str2') || '0'
-      let recallEvent: OB11FriendPokeRecallEvent | OB11GroupPokeRecallEvent;
-      if (peer.chatType === ChatType.Group) {
-        recallEvent = new OB11GroupPokeRecallEvent(+message.peerUid, +fromUserUin, +toUserUin, json)
-      }
-      else {
-        recallEvent = new OB11FriendPokeRecallEvent(+fromUserUin, +toUserUin, json)
-      }
-      return this.dispatch(recallEvent)
-    }
-    // OB11Entities.privateEvent(this.ctx, message).then(privateEvent => {
-    //   if (privateEvent?.sub_type === 'poke') {
-    //     (privateEvent as OB11FriendPokeEvent).sub_type = 'poke_recall'
-    //     this.dispatch(privateEvent)
-    //   }
-    // })
-    const shortId = this.ctx.store.createMsgShortId(message)
-
-    OB11Entities.recallEvent(this.ctx, message, shortId).then((recallEvent) => {
-      this.dispatch(recallEvent)
-    }).catch(e => this.ctx.logger.error('handling recall events', e))
   }
 
   private async handleFriendRequest(req: FriendRequest) {
@@ -332,28 +280,6 @@ class Onebot11Adapter extends Service {
       }
       else {
         this.handleMsg(input, false, true)
-      }
-    })
-    this.ctx.on('nt/message-deleted', input => {
-      this.handleRecallMsg(input)
-    })
-    // 直连模式下 poke 没有对应的 RawMessage，core 那边 getMsgsByMsgId 会失败、永远到不了 nt/message-deleted。
-    // 这里直接监听 raw 层的 delete-msg，命中 pokeCache 就出撤回戳一戳事件。
-    this.ctx.on('nt/raw/delete-msg', payload => {
-      const [, msgIds] = payload
-      for (const msgId of msgIds) {
-        const cached = this.pokeCache.get(msgId)
-        if (!cached) continue
-        this.pokeCache.delete(msgId)
-        if (cached.chatType === 'group' && cached.groupId) {
-          this.dispatch(new OB11GroupPokeRecallEvent(
-            cached.groupId, cached.userId, cached.targetId, cached.rawInfo,
-          ))
-        } else if (cached.chatType === 'friend') {
-          this.dispatch(new OB11FriendPokeRecallEvent(
-            cached.userId, cached.targetId, cached.rawInfo,
-          ))
-        }
       }
     })
     this.ctx.on('nt/message-sent', input => {
@@ -733,38 +659,50 @@ class Onebot11Adapter extends Service {
       this.dispatch(event)
     })
 
-    this.ctx.on('nt/group-join-request', async (data) => {
-      const userId = await this.ctx.ntUserApi.getUinByUid(data.initiatorUid)
+    this.ctx.on('nt/group-join-request', (data) => {
       const event = new OB11GroupRequestAddEvent(
         data.groupCode,
-        userId,
+        data.initiatorUin,
         encodeGroupRequestFlag(data.groupCode, data.notificationSeq, GroupNotificationType.JoinRequest, data.isDoubt),
         data.comment,
       )
       this.dispatch(event)
     })
 
-    this.ctx.on('nt/group-invited-join-request', async (data) => {
-      const userId = await this.ctx.ntUserApi.getUinByUid(data.targetUserUid)
-      const invitorId = await this.ctx.ntUserApi.getUinByUid(data.initiatorUid)
+    this.ctx.on('nt/group-invited-join-request', (data) => {
       const event = new OB11GroupRequestAddEvent(
         data.groupCode,
-        userId,
+        data.targetUserUin,
         encodeGroupRequestFlag(data.groupCode, data.notificationSeq, GroupNotificationType.InvitedJoinRequest, false),
         '',
-        invitorId,
+        data.initiatorUin,
       )
       this.dispatch(event)
     })
 
-    this.ctx.on('nt/group-invitation', async (data) => {
-      const userId = await this.ctx.ntUserApi.getUinByUid(data.initiatorUid)
+    this.ctx.on('nt/group-invitation', (data) => {
       const event = new OB11GroupRequestInviteBotEvent(
         data.groupCode,
-        userId,
+        data.initiatorUin,
         encodeGroupRequestFlag(data.groupCode, data.invitationSeq, GroupNotificationType.Invitation, false),
         ''
       )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/message-deleted', (data) => {
+      const shortId = this.ctx.store.createMsgShortId(data)
+      let event
+      if (data.chatType === ChatType.Group) {
+        event = new OB11GroupRecallNoticeEvent(
+          data.peerUin,
+          data.senderUin,
+          data.operatorUin,
+          shortId
+        )
+      } else {
+        event = new OB11FriendRecallNoticeEvent(data.senderUin, shortId)
+      }
       this.dispatch(event)
     })
   }
