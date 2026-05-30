@@ -112,15 +112,19 @@ export class MilkyAdapter extends Service {
 
     // Listen to NTQQ message created events
     this.ctx.on('nt/message-created', async (message) => {
-      // 其他终端自己发送的消息会进入这里
-      if (message.senderUid === selfInfo.uid && !this.config.reportSelfMessage) {
-        return
-      }
+      // 自己发送的消息（含其它终端 + 本端 OlPush 回声）：不要重复上报为 message_receive，
+      // 但群操作（mute / admin / nudge / file_upload …）的 grayTip 系统消息 senderUid
+      // 也是发起人的 uid，即 selfInfo.uid。这些必须照常走 transformXxxEvent —— 否则
+      // 自己触发的群事件，自己端永远收不到对应事件。
+      const isSelfSend = message.senderUid === selfInfo.uid
+      const skipMessageReceive = isSelfSend && !this.config.reportSelfMessage
       if (message.chatType === ChatType.C2C) {
         // Private message
-        const eventData = await transformPrivateMessageCreated(this.ctx, message)
-        if (eventData) {
-          this.emitEvent('message_receive', eventData)
+        if (!skipMessageReceive) {
+          const eventData = await transformPrivateMessageCreated(this.ctx, message)
+          if (eventData) {
+            this.emitEvent('message_receive', eventData)
+          }
         }
         const result = await transformPrivateMessageEvent(this.ctx, message)
         if (result) {
@@ -128,9 +132,11 @@ export class MilkyAdapter extends Service {
         }
       } else if (message.chatType === ChatType.Group) {
         // Group message
-        const eventData = await transformGroupMessageCreated(this.ctx, message)
-        if (eventData) {
-          this.emitEvent('message_receive', eventData)
+        if (!skipMessageReceive) {
+          const eventData = await transformGroupMessageCreated(this.ctx, message)
+          if (eventData) {
+            this.emitEvent('message_receive', eventData)
+          }
         }
         const result = await transformGroupMessageEvent(this.ctx, message)
         if (result) {
@@ -144,9 +150,11 @@ export class MilkyAdapter extends Service {
         }
       } else if (message.chatType === ChatType.TempC2CFromGroup) {
         // Temp message
-        const eventData = await transformTempMessageCreated(this.ctx, message)
-        if (eventData) {
-          this.emitEvent('message_receive', eventData)
+        if (!skipMessageReceive) {
+          const eventData = await transformTempMessageCreated(this.ctx, message)
+          if (eventData) {
+            this.emitEvent('message_receive', eventData)
+          }
         }
         const result = await transformPrivateMessageEvent(this.ctx, message)
         if (result) {
@@ -248,6 +256,114 @@ export class MilkyAdapter extends Service {
       if (eventData) {
         this.emitEvent('group_invitation', eventData)
       }
+    })
+
+    // ========== nt/raw/* 细粒度事件桥接 ==========
+    // dispatcher 把不同 OlPush 系统消息解成独立事件后单独发出来（OB11 一直监听这些），
+    // milky adapter 之前没接，导致 group_mute / group_essence_message_change /
+    // group_message_reaction / group_nudge / friend_nudge / group_name_change /
+    // friend_file_upload 这些事件全收不到。这里全部接上。
+
+    this.ctx.on('nt/raw/group-mute', async (input) => {
+      const groupId = +input.groupCode
+      if (!groupId) return
+      try {
+        const userIdRaw = input.targetUid ? await this.ctx.ntUserApi.getUinByUid(input.targetUid) : '0'
+        const opIdRaw = input.operatorUid ? await this.ctx.ntUserApi.getUinByUid(input.operatorUid) : '0'
+        if (input.targetUid) {
+          // 单人禁言
+          this.emitEvent('group_mute', {
+            group_id: groupId,
+            user_id: +userIdRaw,
+            operator_id: +opIdRaw,
+            duration: input.duration,
+          } as MilkyEventTypes['group_mute'])
+        }
+      } catch (e) {
+        this.ctx.logger.warn('milky group-mute bridge error:', (e as Error).message)
+      }
+    })
+
+    this.ctx.on('nt/raw/group-mute-all', async (input) => {
+      const groupId = +input.groupCode
+      if (!groupId) return
+      try {
+        const opIdRaw = input.operatorUid ? await this.ctx.ntUserApi.getUinByUid(input.operatorUid) : '0'
+        this.emitEvent('group_whole_mute', {
+          group_id: groupId,
+          operator_id: +opIdRaw,
+          is_mute: input.isMute,
+        } as MilkyEventTypes['group_whole_mute'])
+      } catch (e) {
+        this.ctx.logger.warn('milky group-mute-all bridge error:', (e as Error).message)
+      }
+    })
+
+    this.ctx.on('nt/raw/group-essence-change', async (input) => {
+      const groupId = +input.groupCode
+      if (!groupId) return
+      try {
+        this.emitEvent('group_essence_message_change', {
+          group_id: groupId,
+          message_seq: input.msgSequence,
+          operator_id: +input.operatorUin,
+          is_set: input.isAdd,
+        } as MilkyEventTypes['group_essence_message_change'])
+      } catch (e) {
+        this.ctx.logger.warn('milky group-essence-change bridge error:', (e as Error).message)
+      }
+    })
+
+    this.ctx.on('nt/raw/group-reaction', async (input) => {
+      const groupId = +input.groupCode
+      if (!groupId) return
+      try {
+        const userIdRaw = input.operatorUid ? await this.ctx.ntUserApi.getUinByUid(input.operatorUid) : '0'
+        // milky reaction_type 推断：emoji code 是单字符串，QQ 内置表情 face 反之
+        // 简单按 isDigit 区分
+        const reactionType: 'face' | 'emoji' = /^\d+$/.test(input.code) ? 'face' : 'emoji'
+        this.emitEvent('group_message_reaction', {
+          group_id: groupId,
+          user_id: +userIdRaw,
+          message_seq: input.msgSeq,
+          face_id: input.code,
+          reaction_type: reactionType,
+          is_add: input.isAdd,
+        } as MilkyEventTypes['group_message_reaction'])
+      } catch (e) {
+        this.ctx.logger.warn('milky group-reaction bridge error:', (e as Error).message)
+      }
+    })
+
+    this.ctx.on('nt/raw/group-poke', (input) => {
+      const groupId = +input.groupCode
+      if (!groupId) return
+      this.emitEvent('group_nudge', {
+        group_id: groupId,
+        sender_id: +input.fromUin,
+        receiver_id: +input.toUin,
+        display_action: input.action,
+        display_suffix: input.suffix,
+        display_action_img_url: input.actionImg,
+      } as MilkyEventTypes['group_nudge'])
+    })
+
+    this.ctx.on('nt/raw/friend-poke', (input) => {
+      // milky friend_nudge.data 形状跟 group_nudge 不一样：用 user_id + is_self_send / is_self_receive
+      // 而不是 sender_id / receiver_id。
+      const fromUin = +input.fromUin
+      const toUin = +input.toUin
+      const meUin = +selfInfo.uin
+      // user_id = 对方的 uin（不管自己是发起方还是接收方）
+      const userId = fromUin === meUin ? toUin : fromUin
+      this.emitEvent('friend_nudge', {
+        user_id: userId,
+        is_self_send: fromUin === meUin,
+        is_self_receive: toUin === meUin,
+        display_action: input.action,
+        display_suffix: input.suffix,
+        display_action_img_url: input.actionImg,
+      } as MilkyEventTypes['friend_nudge'])
     })
   }
 }
