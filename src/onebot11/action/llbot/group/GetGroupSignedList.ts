@@ -19,7 +19,7 @@ export class GetGroupSignedList extends BaseAction<Payload, Info[]> {
   })
 
   async _handle(payload: Payload) {
-    const data = await this.ctx.ntWebApi.getDaySignedList(payload.group_id.toString())
+    const data = await this.ctx.ntWebApi.getDaySignedList(+payload.group_id)
     if (!data.response.page) throw new Error('无法获取该群组打卡列表')
     return data.response.page[0]?.infos?.map(info => ({
       user_id: +info.uid,

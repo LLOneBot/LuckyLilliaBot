@@ -173,18 +173,26 @@ const GetGroupAnnouncements = defineApi(
   GetGroupAnnouncementsInput,
   GetGroupAnnouncementsOutput,
   async (ctx, payload) => {
-    const data = await ctx.ntWebApi.listGroupBulletin(payload.group_id.toString())
-    return Ok({
-      announcements: data.feeds.map(e => {
-        return {
-          group_id: payload.group_id,
-          announcement_id: e.feedId,
-          user_id: +e.uin,
-          time: +e.publishTime,
-          content: e.msg.text,
-          image_url: e.msg.pics[0] ? `https://gdynamic.qpic.cn/gdynamic/${e.msg.pics[0].id}/0` : undefined
-        }
+    const result = await ctx.ntWebApi.getGroupBulletinList(payload.group_id)
+    if (result.ec !== 0) {
+      return Failed(-500, result.em)
+    }
+    const announcements = []
+    for (const e of [...result.feeds, ...result.inst]) {
+      announcements.push({
+        group_id: payload.group_id,
+        announcement_id: e.fid,
+        user_id: e.u,
+        time: e.pubt,
+        content: e.msg.text,
+        image_url: e.msg.pics?.[0] ? `https://gdynamic.qpic.cn/gdynamic/${e.msg.pics[0].id}/0` : undefined
       })
+    }
+    if (result.inst.length) {
+      announcements.sort((a, b) => b.time - a.time)
+    }
+    return Ok({
+      announcements
     })
   }
 )
@@ -194,31 +202,32 @@ const SendGroupAnnouncement = defineApi(
   SendGroupAnnouncementInput,
   z.object({}),
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
     let picInfo: { id: string, width: number, height: number } | undefined
     if (payload.image_uri) {
       const imageBuffer = await resolveMilkyUri(payload.image_uri)
       const tempPath = path.join(TEMP_DIR, `group-announcement-${randomUUID()}`)
       await writeFile(tempPath, imageBuffer)
-      const result = await ctx.ntWebApi.uploadGroupBulletinPic(groupCode, tempPath)
+      const result = await ctx.ntWebApi.uploadGroupBulletinPic(payload.group_id, tempPath)
       unlink(tempPath).catch(noop)
       if (result.errCode !== 0) {
         return Failed(-500, result.errMsg)
       }
       picInfo = result.picInfo
     }
-    const result = await ctx.ntWebApi.publishGroupBulletinFromReq(
-      groupCode,
-      {
-        text: encodeURIComponent(payload.content),
-        oldFeedsId: '',
-        pinned: 0,
-        confirmRequired: 1,
-        picInfo
-      }
+    const result = await ctx.ntWebApi.publishGroupBulletin(
+      payload.group_id,
+      payload.content,
+      0,
+      0,
+      0,
+      0,
+      1,
+      picInfo?.id,
+      picInfo?.width,
+      picInfo?.height
     )
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.ec !== 0) {
+      return Failed(-500, result.em)
     }
     return Ok({})
   }
@@ -229,9 +238,9 @@ const DeleteGroupAnnouncement = defineApi(
   DeleteGroupAnnouncementInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntWebApi.deleteGroupBulletin(payload.group_id.toString(), payload.announcement_id)
+    const result = await ctx.ntWebApi.deleteGroupBulletin(payload.group_id, payload.announcement_id)
     if (result.ec !== 0) {
-      return Failed(-500, result.em || 'delete bulletin failed')
+      return Failed(-500, result.em)
     }
     return Ok({})
   }
@@ -248,41 +257,37 @@ const GetGroupEssenceMessages = defineApi(
       chatType: 2,
       peerUid: groupCode
     }
-    const essence = await ctx.ntWebApi.listGroupEssence(groupCode)
-    let isEnd = true
-    let items = essence.items
-    let start = ((payload.page_index + 1) * payload.page_size) - 1
-    if (start > items.length - 1) {
-      start = items.length - 1
-    }
-    items = items.slice(start)
-    if (items.length > payload.page_size) {
-      items = items.slice(0, payload.page_size)
-      isEnd = false
+    const result = await ctx.ntWebApi.getGroupEssenceList(
+      payload.group_id,
+      payload.page_index,
+      payload.page_size
+    )
+    if (result.retcode !== 0) {
+      return Failed(-500, result.retmsg)
     }
     const messages: GetGroupEssenceMessagesOutput['messages'] = []
-    for (const item of items) {
-      let msg = ctx.store.getMsgBySeq(peer.peerUid, item.msgSeq)
+    for (const item of result.data.msg_list) {
+      let msg = ctx.store.getMsgBySeq(peer.peerUid, item.msg_seq)
       if (!msg) {
-        const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, item.msgSeq)
+        const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, item.msg_seq)
         msg = msgList[0]
       }
       if (!msg) continue
       messages.push({
-        group_id: +item.groupCode,
-        message_seq: item.msgSeq,
+        group_id: +item.group_code,
+        message_seq: item.msg_seq,
         message_time: +msg.msgTime,
-        sender_id: +item.msgSenderUin,
-        sender_name: item.msgSenderNick,
-        operator_id: +item.opUin,
-        operator_name: item.opNick,
-        operation_time: item.opTime,
+        sender_id: +item.sender_uin,
+        sender_name: item.sender_nick,
+        operator_id: +item.add_digest_uin,
+        operator_name: item.add_digest_nick,
+        operation_time: item.add_digest_time,
         segments: await transformIncomingSegments(ctx, msg)
       })
     }
     return Ok({
       messages,
-      is_end: isEnd
+      is_end: result.data.is_end
     })
   }
 )

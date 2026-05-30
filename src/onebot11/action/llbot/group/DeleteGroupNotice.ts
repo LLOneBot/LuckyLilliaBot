@@ -14,9 +14,9 @@ export class DeleteGroupNotice extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    const res = await this.ctx.ntWebApi.deleteGroupBulletin(payload.group_id.toString(), payload.notice_id)
+    const res = await this.ctx.ntWebApi.deleteGroupBulletin(+payload.group_id, payload.notice_id)
     if (res.ec !== 0) {
-      throw new Error(res.em || 'delete bulletin failed')
+      throw new Error(res.em)
     }
     return null
   }

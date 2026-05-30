@@ -20,6 +20,6 @@ export class UploadGroupAlbum extends BaseAction<Payload, unknown> {
     const filePathList = await Promise.all(
       payload.files.map(async uri => (await uri2local(this.ctx, uri)).path || uri)
     )
-    return this.ctx.ntWebApi.uploadGroupAlbum(payload.group_id.toString(), filePathList, payload.album_id)
+    return this.ctx.ntWebApi.uploadGroupAlbum(+payload.group_id, filePathList, payload.album_id)
   }
 }

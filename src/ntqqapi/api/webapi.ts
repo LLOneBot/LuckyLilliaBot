@@ -6,7 +6,6 @@ import fs from 'node:fs/promises'
 import { formatYYYYMMDD, getMd5HexFromBuffer, getSha1HexFromBuffer } from '@/common/utils'
 import { fileTypeFromBuffer } from 'file-type'
 import { createThumb } from '@/common/utils/video'
-import { GroupBulletinListResult, PublishGroupBulletinReq } from '../types'
 
 declare module 'cordis' {
   interface Context {
@@ -55,8 +54,8 @@ export class NTQQWebApi extends Service {
   }
 
 
-  async getGroupHonorInfo(groupCode: string, getType: string) {
-    const getDataInternal = async (groupCode: string, type: number) => {
+  async getGroupHonorInfo(groupCode: number, getType: string) {
+    const getDataInternal = async (groupCode: number, type: number) => {
       const url = 'https://qun.qq.com/interactive/honorlist?gc=' + groupCode + '&type=' + type
       let resJson
       try {
@@ -173,7 +172,7 @@ export class NTQQWebApi extends Service {
   }
 
 
-  async batchDeleteGroupMember(groupCode: string, memberUinList: string[]) {
+  async batchDeleteGroupMember(groupCode: number, memberUinList: string[]) {
     const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
     const url = `https://qun.qq.com/cgi-bin/qun_mgr/delete_group_member?bkn=${bkn}&ts=${Date.now()}`
@@ -181,7 +180,7 @@ export class NTQQWebApi extends Service {
 
     // 创建 FormData 对象
     const formData = new FormData()
-    formData.append('gc', groupCode)
+    formData.append('gc', groupCode.toString())
     formData.append('ul', memberUinList.join('|'))
     formData.append('flag', '0')
     formData.append('bkn', bkn)
@@ -205,7 +204,7 @@ export class NTQQWebApi extends Service {
     // }
   }
 
-  async getExpertInfo(uin: string): Promise<ExpertInfo> {
+  async getExpertInfo(uin: number): Promise<ExpertInfo> {
     const pSkey = (await this.ctx.ntUserApi.getPSkey(['vip.qq.com'])).get('vip.qq.com')!
     const bkn = this.genBkn(pSkey)
     const url = `https://cgi.vip.qq.com/card/getExpertInfo?ps_tk=${bkn}&fuin=${uin}&g_tk=${bkn}`
@@ -220,7 +219,7 @@ export class NTQQWebApi extends Service {
     return await response.json()
   }
 
-  async uploadGroupAlbum(groupCode: string, filePathList: string[], albumID: string) {
+  async uploadGroupAlbum(groupCode: number, filePathList: string[], albumID: string) {
     const domain = 'h5.qzone.qq.com'
     const cookiesObject = await this.getCookies(domain)
     const gtk = this.genBkn(cookiesObject.skey)
@@ -287,7 +286,7 @@ export class NTQQWebApi extends Service {
                 'photo_num': '0',
                 'video_num': fileLen,
                 'batch_num': fileLen,
-                'qun_id': groupCode
+                'qun_id': groupCode.toString()
               }
             },
             'session': '',
@@ -331,7 +330,7 @@ export class NTQQWebApi extends Service {
               'iDistinctUse': 0,
               'iNeedFeeds': 1,
               'iUploadTime': timestamp,
-              'mapExt': { 'appid': 'qun', 'userid': groupCode },
+              'mapExt': { 'appid': 'qun', 'userid': groupCode.toString() },
               'stExtendInfo': {
                 'mapParams': {
                   'photo_num': fileLen,
@@ -522,7 +521,7 @@ export class NTQQWebApi extends Service {
               },
               'mapExt': {
                 'appid': 'qun',
-                'userid': groupCode
+                'userid': groupCode.toString()
               },
               'sExif_CameraMaker': '',
               'sExif_CameraModel': '',
@@ -605,7 +604,7 @@ export class NTQQWebApi extends Service {
   }
 
   async publishGroupBulletin(
-    groupCode: string,
+    groupCode: number,
     text: string,
     pinned: number,
     type: number,
@@ -633,7 +632,7 @@ export class NTQQWebApi extends Service {
         'Cookie': this.cookieToString(cookieObject)
       },
       body: new URLSearchParams({
-        qid: groupCode,
+        qid: groupCode.toString(),
         bkn,
         text,
         pinned: pinned.toString(),
@@ -655,17 +654,97 @@ export class NTQQWebApi extends Service {
   }
 
   /** 拉群公告列表 — web.qun.qq.com/cgi-bin/announce/list_announce */
-  async getGroupBulletinList(groupCode: string) {
+  async getGroupBulletinList(groupCode: number) {
     const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
     const url = `https://web.qun.qq.com/cgi-bin/announce/list_announce?qid=${groupCode}&bkn=${bkn}&ft=23&s=-1&n=20&ni=1&i=1`
     const res = await fetch(url, { method: 'GET', headers: { 'Cookie': this.cookieToString(cookieObject) } })
     if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
-    return await res.json()
+    return await res.json() as {
+      ec: number
+      em: string
+      ltsm: number
+      srv_code: number
+      read_only: number
+      role: number
+      inst: {
+        u: number
+        fid: string
+        pubt: number
+        msg: {
+          text: string
+          text_face: string
+          pics?: {
+            id: string
+            w: string
+            h: string
+          }[]
+          title: string
+        }
+        type: number
+        fn: number
+        cn: number
+        vn: number
+        settings: {
+          is_show_edit_card: number
+          remind_ts: number
+          tip_window_type: number
+          confirm_required: number
+        }
+        pinned: number
+        read_num: number
+        is_read: number
+        is_all_confirm: number
+      }[]
+      feeds: {
+        u: number
+        fid: string
+        pubt: number
+        msg: {
+          text: string
+          text_face: string
+          pics?: {
+            id: string
+            w: string
+            h: string
+          }[]
+          title: string
+        }
+        type: number
+        fn: number
+        cn: number
+        vn: number
+        settings: {
+          is_show_edit_card: number
+          remind_ts: number
+          tip_window_type: number
+          confirm_required: number
+        }
+        pinned: number
+        read_num: number
+        is_read: number
+        is_all_confirm: number
+      }[]
+      group: {
+        group_id: number
+        class_ext: number
+      }
+      sta: number
+      gln: number
+      tst: number
+      ui: Record<string, {
+        n: string
+        f: string
+      }>
+      server_time: number
+      svrt: number
+      next_index: unknown
+      jointime: number
+    }
   }
 
   /** 删群公告 — web.qun.qq.com/cgi-bin/announce/del_feed */
-  async deleteGroupBulletin(groupCode: string, feedsId: string): Promise<any> {
+  async deleteGroupBulletin(groupCode: number, feedsId: string) {
     const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
     const res = await fetch('https://web.qun.qq.com/cgi-bin/announce/del_feed', {
@@ -674,31 +753,58 @@ export class NTQQWebApi extends Service {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Cookie': this.cookieToString(cookieObject),
       },
-      body: new URLSearchParams({ qid: groupCode, bkn, fid: feedsId }),
+      body: new URLSearchParams({ qid: groupCode.toString(), bkn, fid: feedsId }),
     })
     if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
     return await res.json()
   }
 
   /** 拉群精华消息 — qun.qq.com/cgi-bin/group_digest/digest_list */
-  async queryCachedEssenceMsg(groupCode: string, pageStart = 0, pageLimit = 20): Promise<any> {
+  async getGroupEssenceList(groupCode: number, pageStart = 0, pageLimit = 20) {
     const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
     const url = `https://qun.qq.com/cgi-bin/group_digest/digest_list?bkn=${bkn}&group_code=${groupCode}&page_start=${pageStart}&page_limit=${pageLimit}`
     const res = await fetch(url, { method: 'GET', headers: { 'Cookie': this.cookieToString(cookieObject) } })
     if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
-    return await res.json()
+    return await res.json() as {
+      retcode: number
+      retmsg: string
+      data: {
+        msg_list: {
+          group_code: string
+          msg_seq: number
+          msg_random: number
+          sender_uin: string
+          sender_nick: string
+          sender_time: number
+          add_digest_uin: string
+          add_digest_nick: string
+          add_digest_time: number
+          msg_content: {
+            msg_type: number
+            text?: string
+            image_url?: string
+            image_thumbnail_url?: string
+          }[]
+          can_be_removed: boolean
+          disable_forward: boolean
+        }[]
+        is_end: boolean
+        group_role: number
+        config_page_url: string
+      }
+    }
   }
 
   /** 上传群公告图片 — web.qun.qq.com/cgi-bin/announce/upload_img */
-  async uploadGroupBulletinPic(groupCode: string, filePath: string): Promise<{ errCode: number, errMsg: string, picInfo?: { id: string, width: number, height: number } }> {
+  async uploadGroupBulletinPic(groupCode: number, filePath: string): Promise<{ errCode: number, errMsg: string, picInfo?: { id: string, width: number, height: number } }> {
     const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
     const buf = await fs.readFile(filePath)
     const ft = await fileTypeFromBuffer(buf)
     const formData = new FormData()
     formData.append('bkn', bkn)
-    formData.append('qid', groupCode)
+    formData.append('qid', groupCode.toString())
     formData.append('pic_up', new Blob([new Uint8Array(buf)], { type: ft?.mime || 'image/png' }), `pic.${ft?.ext || 'png'}`)
     const res = await fetch('https://web.qun.qq.com/cgi-bin/announce/upload_img', {
       method: 'POST',
@@ -720,7 +826,7 @@ export class NTQQWebApi extends Service {
     }
   }
 
-  async getDaySignedList(groupId: string) {
+  async getDaySignedList(groupCode: number) {
     const pSkey = (await this.ctx.ntUserApi.getPSkey(['qun.qq.com'])).get('qun.qq.com')!
     const cookie = `p_uin=o${selfInfo.uin}; p_skey=${pSkey}; uin=o${selfInfo.uin}`
     const res = await fetch(`https://qun.qq.com/v2/signin/trpc/GetDaySignedList?g_tk=${this.genBkn(pSkey)}`, {
@@ -734,7 +840,7 @@ export class NTQQWebApi extends Service {
         offset: 0,
         limit: 100,
         uid: selfInfo.uin,
-        groupId
+        groupId: groupCode.toString()
       }),
     })
     return await res.json() as {
@@ -758,84 +864,6 @@ export class NTQQWebApi extends Service {
       },
       funcCode: number
     }
-  }
-
-  /** OB11 send_group_notice 包装：拼参数调 publishGroupBulletin */
-  async publishGroupBulletinFromReq(groupCode: string, req: PublishGroupBulletinReq): Promise<any> {
-    return await this.publishGroupBulletin(
-      groupCode,
-      req.text,
-      req.pinned,
-      0,
-      0,
-      0,
-      req.confirmRequired,
-      req.picInfo?.id,
-      req.picInfo?.width,
-      req.picInfo?.height,
-    )
-  }
-
-  /** 拉精华消息列表（按 OB11 字段名整理） */
-  async listGroupEssence(groupCode: string): Promise<any> {
-    const r = await this.queryCachedEssenceMsg(groupCode)
-    const items = (r?.data?.msg_list ?? []).map((m: any) => ({
-      msgSeq: m.msg_seq,
-      msgRandom: m.msg_random,
-      msgSenderUin: m.sender_uin,
-      msgSenderNick: m.sender_nick,
-      opUin: m.add_digest_uin,
-      opNick: m.add_digest_nick,
-      opTime: m.add_digest_time,
-      canBeRemoved: m.can_be_removed,
-    }))
-    return { items }
-  }
-
-  /** 拉群公告列表（按 OB11 字段名整理） */
-  async listGroupBulletin(groupCode: string): Promise<GroupBulletinListResult> {
-    const r = await this.getGroupBulletinList(groupCode) as any
-    const mapFeed = (f: any): any => ({
-      uin: String(f.u),
-      feedId: f.fid,
-      publishTime: String(f.pubt),
-      msg: {
-        text: f.msg?.text ?? '',
-        textFace: f.msg?.text_face ?? '',
-        pics: (f.msg?.pics ?? []).map((p: any) => ({ id: p.id, width: +p.w, height: +p.h })),
-        title: f.msg?.title ?? '',
-      },
-      type: f.type ?? 0,
-      fn: f.fn ?? 0,
-      cn: f.cn ?? 0,
-      vn: f.vn ?? 0,
-      settings: {
-        isShowEditCard: f.settings?.is_show_edit_card ?? 0,
-        remindTs: f.settings?.remind_ts ?? 0,
-        tipWindowType: f.settings?.tip_window_type ?? 0,
-        confirmRequired: f.settings?.confirm_required ?? 0,
-      },
-      pinned: f.pinned ?? 0,
-      readNum: f.read_num ?? 0,
-      is_read: f.is_read ?? 0,
-      is_all_confirm: f.is_all_confirm ?? 0,
-    })
-    return {
-      groupCode,
-      srvCode: r.srv_code ?? 0,
-      readOnly: r.read_only ?? 0,
-      role: r.role ?? 0,
-      inst: (r.inst ?? []).map(mapFeed),
-      feeds: (r.feeds ?? []).map(mapFeed),
-      groupInfo: { groupCode, classId: r.group?.class_ext ?? 0 },
-      gln: r.gln ?? 0,
-      tst: r.tst ?? 0,
-      publisherInfos: [],
-      server_time: String(r.server_time ?? 0),
-      svrt: String(r.svrt ?? 0),
-      nextIndex: r.next_index ?? 0,
-      jointime: String(r.jointime ?? 0),
-    } as GroupBulletinListResult
   }
 
   async getCookies(domain: string) {

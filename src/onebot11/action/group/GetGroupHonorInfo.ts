@@ -14,6 +14,6 @@ export class GetGroupHonorInfo extends BaseAction<Payload, unknown> {
   })
 
   protected async _handle(payload: Payload) {
-    return await this.ctx.ntWebApi.getGroupHonorInfo(payload.group_id.toString(), payload.type)
+    return await this.ctx.ntWebApi.getGroupHonorInfo(+payload.group_id, payload.type)
   }
 }

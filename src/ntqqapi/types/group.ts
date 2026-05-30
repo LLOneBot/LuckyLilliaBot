@@ -109,60 +109,6 @@ export interface GroupAllInfo {
   isAllowModifyConfGroupName: number
 }
 
-interface GroupBulletinFeed {
-  uin: string
-  feedId: string
-  publishTime: string
-  msg: {
-    text: string
-    textFace: string
-    pics: {
-      id: string
-      width: number
-      height: number
-    }[]
-    title: string
-  }
-  type: number
-  fn: number
-  cn: number
-  vn: number
-  settings: {
-    isShowEditCard: number
-    remindTs: number
-    tipWindowType: number
-    confirmRequired: number
-  }
-  pinned: number
-  readNum: number
-  is_read: number
-  is_all_confirm: number
-}
-
-export interface GroupBulletinListResult {
-  groupCode: string
-  srvCode: number
-  readOnly: number
-  role: number
-  inst: GroupBulletinFeed[]
-  feeds: GroupBulletinFeed[]
-  groupInfo: {
-    groupCode: string
-    classId: number
-  }
-  gln: number
-  tst: number
-  publisherInfos: {
-    uin: string
-    nick: string
-    avatar: string
-  }[]
-  server_time: string
-  svrt: string
-  nextIndex: number
-  jointime: string
-}
-
 export enum GroupMsgMask {
   AllowNotify = 1,  // 允许提醒
   AllowNotNotify = 4,  // 接受消息不提醒
