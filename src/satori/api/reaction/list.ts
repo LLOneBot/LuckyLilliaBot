@@ -1,5 +1,6 @@
 import { List, User } from '@satorijs/protocol'
 import { Handler } from '../index'
+import { ChatType } from '@/ntqqapi/types'
 import { decodeUser, getPeer } from '../../utils'
 import { filterNullable } from '@/common/utils/misc'
 
@@ -14,14 +15,16 @@ export const getReactionList: Handler<List<User>, Payload> = async (ctx, payload
   const peer = await getPeer(ctx, payload.channel_id)
   const msg = ctx.store.getMsgByMsgId(payload.message_id)
   if (!msg) throw new Error('无法获取该消息')
-  const count = msg.emojiLikesList?.find(e => e.emojiId === payload.emoji_id)?.likesCnt ?? '50'
-  const data = await ctx.ntMsgApi.getMsgEmojiLikesList(peer, msg.msgSeq, payload.emoji_id, +count)
-  if (data.result !== 0) {
-    throw new Error(data.errMsg)
+  if (peer.chatType !== ChatType.Group) {
+    throw new Error('暂不支持私聊消息回应列表')
   }
-  const uids = await Promise.all(data.emojiLikesList.map((e: any) => ctx.ntUserApi.getUidByUin(e.tinyId, peer.chatType === 2 ? +peer.peerUid : undefined)))
-  const raw = await ctx.ntUserApi.getCoreAndBaseInfo(filterNullable(uids))
+  // FetchEmojiLikesResp.users 只有 uin；要拿 user 卡片必须先 uin -> uid -> NT.User
+  const data = await ctx.ntMsgApi.getMsgReactionList(peer, msg.msgSeq, payload.emoji_id, 50)
+  const uids = filterNullable(
+    await Promise.all(data.users.map(u => ctx.ntUserApi.getUidByUin(u.uin, +peer.peerUid)))
+  )
+  const users = await Promise.all(uids.map(uid => ctx.ntUserApi.getUserByUid(uid)))
   return {
-    data: raw.values().map(e => decodeUser(e.coreInfo)).toArray()
+    data: filterNullable(users).map(u => decodeUser(u))
   }
 }

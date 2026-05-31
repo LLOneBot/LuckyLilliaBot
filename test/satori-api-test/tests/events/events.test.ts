@@ -108,11 +108,7 @@ describe('Satori 事件覆盖', () => {
       message_id: messageId,
       emoji_id: '4',
     })
-    if (!reactRes.ok) {
-      // 可能 server-side 实现 bug，跳过
-      console.log('skip: reaction.create failed:', reactRes.message)
-      return
-    }
+    Assertions.assertSuccess(reactRes, 'reaction.create')
 
     await ctx.twoAccountTest.secondaryListener.waitForEvent(
       { type: 'reaction-added' },
@@ -122,12 +118,52 @@ describe('Satori 事件覆盖', () => {
         String(e.message?.id) === messageId,
       15000,
     )
+  }, 60000)
 
-    // 取消（避免污染）
-    await primary.call('reaction.delete', {
+  it('reaction-removed 事件：primary 取消刚加的表情，secondary 收到 reaction-removed', async () => {
+    ctx.twoAccountTest.clearAllQueues()
+    const primary = ctx.twoAccountTest.getClient('primary')
+    const text = `evt-unreact-${Date.now()}`
+    const sendRes = await primary.call<Array<{ id: string }>>('message.create', {
+      channel_id: ctx.testGroupId,
+      content: text,
+    })
+    Assertions.assertSuccess(sendRes, 'message.create (for reaction-removed)')
+    const messageId = sendRes.data![0].id
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { type: 'message-created' },
+      (e: any) => e.message?.content?.includes(text),
+      15000,
+    )
+    await new Promise(r => setTimeout(r, 500))
+
+    // 先加再取消
+    const addRes = await primary.call('reaction.create', {
       channel_id: ctx.testGroupId,
       message_id: messageId,
       emoji_id: '4',
-    }).catch(() => undefined)
+    })
+    Assertions.assertSuccess(addRes, 'reaction.create (preceding remove)')
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { type: 'reaction-added' },
+      (e: any) => String(e.message?.id) === messageId,
+      15000,
+    )
+
+    const delRes = await primary.call('reaction.delete', {
+      channel_id: ctx.testGroupId,
+      message_id: messageId,
+      emoji_id: '4',
+    })
+    Assertions.assertSuccess(delRes, 'reaction.delete')
+
+    await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { type: 'reaction-removed' },
+      (e: any) =>
+        String(e.channel?.id) === ctx.testGroupId &&
+        String(e.user?.id) === ctx.primaryUserId &&
+        String(e.message?.id) === messageId,
+      15000,
+    )
   }, 60000)
 })

@@ -12,7 +12,6 @@ import { parseMessageCreated, parseMessageDeleted } from './event/message'
 import { parseGuildAdded, parseGuildRemoved, parseGuildRequest } from './event/guild'
 import { parseGuildMemberAdded, parseGuildMemberRemoved, parseGuildMemberRequest } from './event/member'
 import { parseFriendRequest } from './event/user'
-import { Msg } from '@/ntqqapi/proto'
 import { parseReactionAdded, parseReactionRemoved } from './event/reaction'
 
 declare module 'cordis' {
@@ -190,31 +189,12 @@ class SatoriAdapter extends Service {
       }
     })
 
-    this.ctx.qqProtocol.addResListener(async data => {
-      if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
-        const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
-        if (!pushMsg.message.body) {
-          return
-        }
-        const { msgType, subType } = pushMsg.message.contentHead
-        if (msgType === 732 && subType === 16) {
-          const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
-          if (notify.field13 === 35) {
-            if (notify.reaction.data.body.info.actionType === 1) {
-              const event = await parseReactionAdded(this, notify)
-                .catch(e => this.ctx.logger.error(e))
-              if (event) {
-                this.server.dispatch(event)
-              }
-            } else {
-              const event = await parseReactionRemoved(this, notify)
-                .catch(e => this.ctx.logger.error(e))
-              if (event) {
-                this.server.dispatch(event)
-              }
-            }
-          }
-        }
+    this.ctx.on('nt/raw/group-reaction', async data => {
+      const event = data.isAdd
+        ? await parseReactionAdded(this, data).catch(e => this.ctx.logger.error(e))
+        : await parseReactionRemoved(this, data).catch(e => this.ctx.logger.error(e))
+      if (event) {
+        this.server.dispatch(event)
       }
     })
   }
