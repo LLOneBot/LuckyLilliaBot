@@ -122,14 +122,15 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
     expect(ev.message?.content).toMatch(/<audio[\s\S]*?src=/)
   }, 60000)
 
-  it('video 元素：发视频', async () => {
+  it('video 元素：发全新视频（hash 是 ffmpeg 现场生成的，server 端必走真上传路径）', async () => {
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
+    const freshUri = MediaPaths.newFreshVideoUri()
     const sendRes = await primary.call<Array<{ id: string }>>('message.create', {
       channel_id: ctx.testGroupId,
-      content: `<video src="${MediaPaths.testMp4Uri}"/>`,
+      content: `<video src="${freshUri}"/>`,
     })
-    Assertions.assertSuccess(sendRes, 'message.create (video)')
+    Assertions.assertSuccess(sendRes, 'message.create (fresh video)')
     const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
       { type: 'message-created' },
       (e: any) =>
@@ -139,7 +140,33 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
       60000,
     )
     expect(ev.message?.content).toMatch(/<video[\s\S]*?src=/)
-  }, 90000)
+  }, 120000)
+
+  it('video 元素：发秒传视频（同 hash 的 test.mp4 反复发，server 端命中秒传 cache）', async () => {
+    // 前面 'video 元素：发全新视频' 用例不命中秒传；这里用项目固定 fixture test.mp4 反复发 —
+    // 第一次发可能也走秒传 (因为别处早发过)，第二次以后必中秒传；两次都要广播。
+    // 历史上有过 server 把某个特定 hash 加进广播黑名单的事故 (见 memory:
+    // project_test_mp4_fixture_blacklisted)，重 generate test.mp4 即可解决。
+    const primary = ctx.twoAccountTest.getClient('primary')
+
+    for (let i = 0; i < 2; i++) {
+      ctx.twoAccountTest.clearAllQueues()
+      const sendRes = await primary.call<Array<{ id: string }>>('message.create', {
+        channel_id: ctx.testGroupId,
+        content: `<video src="${MediaPaths.testMp4Uri}"/>`,
+      })
+      Assertions.assertSuccess(sendRes, `message.create (秒传 video, run ${i + 1})`)
+      const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
+        { type: 'message-created' },
+        (e: any) =>
+          String(e.channel?.id) === ctx.testGroupId &&
+          typeof e.message?.content === 'string' &&
+          /<video[\s\S]*?src=/.test(e.message.content),
+        60000,
+      )
+      expect(ev.message?.content).toMatch(/<video[\s\S]*?src=/)
+    }
+  }, 180000)
 
   it('quote 元素：回复一条群消息', async () => {
     ctx.twoAccountTest.clearAllQueues()
@@ -277,14 +304,15 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
     expect(ev.message?.content).toMatch(/<audio[\s\S]*?src=/)
   }, 60000)
 
-  it('私聊 video 元素：发视频', async () => {
+  it('私聊 video 元素：发全新视频', async () => {
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
+    const freshUri = MediaPaths.newFreshVideoUri()
     const sendRes = await primary.call<Array<{ id: string }>>('message.create', {
       channel_id: `private:${ctx.secondaryUserId}`,
-      content: `<video src="${MediaPaths.testMp4Uri}"/>`,
+      content: `<video src="${freshUri}"/>`,
     })
-    Assertions.assertSuccess(sendRes, 'message.create (private video)')
+    Assertions.assertSuccess(sendRes, 'message.create (private fresh video)')
     const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
       { type: 'message-created' },
       (e: any) =>
@@ -294,5 +322,26 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
       60000,
     )
     expect(ev.message?.content).toMatch(/<video[\s\S]*?src=/)
-  }, 90000)
+  }, 120000)
+
+  it('私聊 video 元素：发秒传视频（同 hash test.mp4 反复发）', async () => {
+    const primary = ctx.twoAccountTest.getClient('primary')
+    for (let i = 0; i < 2; i++) {
+      ctx.twoAccountTest.clearAllQueues()
+      const sendRes = await primary.call<Array<{ id: string }>>('message.create', {
+        channel_id: `private:${ctx.secondaryUserId}`,
+        content: `<video src="${MediaPaths.testMp4Uri}"/>`,
+      })
+      Assertions.assertSuccess(sendRes, `message.create (private 秒传 video, run ${i + 1})`)
+      const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
+        { type: 'message-created' },
+        (e: any) =>
+          String(e.user?.id) === ctx.primaryUserId &&
+          typeof e.message?.content === 'string' &&
+          /<video[\s\S]*?src=/.test(e.message.content),
+        60000,
+      )
+      expect(ev.message?.content).toMatch(/<video[\s\S]*?src=/)
+    }
+  }, 180000)
 })
