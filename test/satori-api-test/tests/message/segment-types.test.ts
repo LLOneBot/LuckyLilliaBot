@@ -123,12 +123,11 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
   }, 60000)
 
   it('video 元素：发视频', async () => {
-    // 用 fresh 视频避开 server 秒传命中（test.mp4 是固定 fixture，反复发会撞秒传 cache）。
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
     const sendRes = await primary.call<Array<{ id: string }>>('message.create', {
       channel_id: ctx.testGroupId,
-      content: `<video src="${MediaPaths.freshVideoUri}"/>`,
+      content: `<video src="${MediaPaths.testMp4Uri}"/>`,
     })
     Assertions.assertSuccess(sendRes, 'message.create (video)')
     const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
@@ -283,7 +282,7 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
     const primary = ctx.twoAccountTest.getClient('primary')
     const sendRes = await primary.call<Array<{ id: string }>>('message.create', {
       channel_id: `private:${ctx.secondaryUserId}`,
-      content: `<video src="${MediaPaths.freshVideoUri}"/>`,
+      content: `<video src="${MediaPaths.testMp4Uri}"/>`,
     })
     Assertions.assertSuccess(sendRes, 'message.create (private video)')
     const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
