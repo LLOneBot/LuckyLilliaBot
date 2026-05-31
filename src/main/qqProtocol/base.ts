@@ -214,6 +214,11 @@ export class QQProtocolBase extends Service {
   }
 
   public get_is_connected() {
+    // 直连模式：看 directClient 是否登录在线
+    if (this.directClient) {
+      return this.directClient.isLoggedIn
+    }
+    // PMHQ 模式：看 ws
     return this.ws && this.ws.readyState === WebSocket.OPEN
   }
 
