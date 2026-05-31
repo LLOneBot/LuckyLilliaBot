@@ -569,17 +569,27 @@ class Onebot11Adapter extends Service {
     })
 
     this.ctx.on('nt/message-deleted', (data) => {
-      const shortId = this.ctx.store.createMsgShortId(data)
+      // 群撤回 push 里 GroupRecall.random 字段在新 server / refactor 后偶尔 0，shortId hash 含
+      // msgRandom，会跟发送端先前算出的 shortId 不一致。先按 (peerUid, msgSeq) 找原 msg 取真
+      // random，再算 shortId 才能跟发送时一致。
+      let resolved = data
+      if (data.chatType === ChatType.Group && data.msgRandom === 0) {
+        const original = this.ctx.store.getMsgBySeq(data.peerUid, data.msgSeq)
+        if (original) {
+          resolved = { ...data, msgRandom: original.msgRandom, msgId: original.msgId, senderUid: original.senderUid }
+        }
+      }
+      const shortId = this.ctx.store.createMsgShortId(resolved)
       let event
-      if (data.chatType === ChatType.Group) {
+      if (resolved.chatType === ChatType.Group) {
         event = new OB11GroupRecallNoticeEvent(
-          data.peerUin,
-          data.senderUin,
-          data.operatorUin,
+          resolved.peerUin,
+          resolved.senderUin,
+          resolved.operatorUin,
           shortId
         )
       } else {
-        event = new OB11FriendRecallNoticeEvent(data.senderUin, shortId)
+        event = new OB11FriendRecallNoticeEvent(resolved.senderUin, shortId)
       }
       this.dispatch(event)
     })

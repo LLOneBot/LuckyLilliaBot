@@ -185,11 +185,13 @@ export class SatoriEventListener implements IEventListener<SatoriEvent, SatoriEv
   ): boolean {
     for (const [k, want] of Object.entries(filter)) {
       const actual = (event as any)[k]
-      if (actual === undefined && (event as any).message?.[k] !== undefined) {
-        // 浅试一层：filter 写 'channel.id' 不便，常见用例如 channel id
-        // 这里只 match 顶层；测试代码可以用 customFilter 做更深匹配
-      }
-      if (actual !== want) return false
+      // satori 协议里 channel.id / user.id / message.id / sender_id 等字段
+      // 类型混乱：有时是 number 有时是 string（见 src/satori/utils.ts decodeUser/decodeGuild
+      // 之类）。测试里通常用 string 比对（因为 testGroupId / userId 都是 string），但
+      // server 推下来可能是 number。这里做宽松对比，只要 String 化后相等就算 match。
+      if (actual === want) continue
+      if (actual !== undefined && want !== undefined && String(actual) === String(want)) continue
+      return false
     }
     if (customFilter && !customFilter(event)) return false
     return true

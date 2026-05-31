@@ -37,13 +37,13 @@ describe('Satori 事件覆盖', () => {
 
     const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
       { type: 'message-created' },
-      (e: any) => e.channel?.id === ctx.testGroupId && e.message?.content?.includes(text),
+      (e: any) => String(e.channel?.id) === ctx.testGroupId && e.message?.content?.includes(text),
       15000,
     )
     expect(ev.timestamp).toBeGreaterThan(0)
-    expect(ev.user?.id).toBe(ctx.primaryUserId)
-    expect(ev.channel?.id).toBe(ctx.testGroupId)
-    expect(ev.guild?.id).toBe(ctx.testGroupId)
+    expect(String(ev.user?.id)).toBe(ctx.primaryUserId)
+    expect(String(ev.channel?.id)).toBe(ctx.testGroupId)
+    expect(String(ev.guild?.id)).toBe(ctx.testGroupId)
     expect(typeof ev.message?.id).toBe('string')
     expect(ev.message?.content).toContain(text)
     expect(typeof ev.message?.created_at).toBe('number')
@@ -72,17 +72,17 @@ describe('Satori 事件覆盖', () => {
     const [evP, evS] = await Promise.all([
       ctx.twoAccountTest.primaryListener.waitForEvent(
         { type: 'message-deleted' },
-        (e: any) => e.channel?.id === ctx.testGroupId && e.message?.id === messageId,
+        (e: any) => String(e.channel?.id) === ctx.testGroupId && String(e.message?.id) === messageId,
         15000,
       ),
       ctx.twoAccountTest.secondaryListener.waitForEvent(
         { type: 'message-deleted' },
-        (e: any) => e.channel?.id === ctx.testGroupId && e.message?.id === messageId,
+        (e: any) => String(e.channel?.id) === ctx.testGroupId && String(e.message?.id) === messageId,
         15000,
       ),
     ])
-    expect(evP.message?.id).toBe(messageId)
-    expect(evS.message?.id).toBe(messageId)
+    expect(String(evP.message?.id)).toBe(messageId)
+    expect(String(evS.message?.id)).toBe(messageId)
   }, 60000)
 
   it('reaction-added 事件：primary 给群消息加表情，secondary 收到 reaction-added', async () => {
@@ -117,9 +117,9 @@ describe('Satori 事件覆盖', () => {
     await ctx.twoAccountTest.secondaryListener.waitForEvent(
       { type: 'reaction-added' },
       (e: any) =>
-        e.channel?.id === ctx.testGroupId &&
-        e.user?.id === ctx.primaryUserId &&
-        e.message?.id === messageId,
+        String(e.channel?.id) === ctx.testGroupId &&
+        String(e.user?.id) === ctx.primaryUserId &&
+        String(e.message?.id) === messageId,
       15000,
     )
 

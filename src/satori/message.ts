@@ -82,45 +82,23 @@ export class MessageEncoder {
 
   private async getPeerAndElementsFromMsgId(msgId: string): Promise<{ peer: NT.Peer, elements: NT.MessageElement[] } | undefined> {
     this.peer ??= await getPeer(this.ctx, this.channelId)
-    const msg = (await this.ctx.ntMsgApi.getMsgsByMsgId(this.peer, [msgId])).msgList
-    if (msg.length > 0) {
+    // 直连模式没有 ntMsgApi.getMsgsByMsgId / queryMsgsById；走 store cache 取
+    let cacheMsg = this.ctx.store.getMsgByMsgId(msgId)
+    if (!cacheMsg) {
+      const asShortId = Number(msgId)
+      if (Number.isInteger(asShortId)) {
+        const info = await this.ctx.store.getMsgInfoByShortId(asShortId)
+        if (info) cacheMsg = this.ctx.store.getMsgByMsgId(info.msgId)
+      }
+    }
+    if (cacheMsg) {
       return {
-        peer: this.peer,
-        elements: msg[0].elements
-      }
-    } else {
-      const cacheMsg = this.ctx.store.getMsgByMsgId(msgId)
-      if (cacheMsg) {
-        return {
-          peer: {
-            peerUid: cacheMsg.peerUid,
-            chatType: cacheMsg.chatType,
-            guildId: ''
-          },
-          elements: cacheMsg.elements
-        }
-      }
-      const c2cMsg = await this.ctx.ntMsgApi.queryMsgsById(NT.ChatType.C2C, msgId)
-      if (c2cMsg.msgList.length) {
-        return {
-          peer: {
-            peerUid: c2cMsg.msgList[0].peerUid,
-            chatType: c2cMsg.msgList[0].chatType,
-            guildId: ''
-          },
-          elements: c2cMsg.msgList[0].elements
-        }
-      }
-      const groupMsg = await this.ctx.ntMsgApi.queryMsgsById(NT.ChatType.Group, msgId)
-      if (groupMsg.msgList.length) {
-        return {
-          peer: {
-            peerUid: groupMsg.msgList[0].peerUid,
-            chatType: groupMsg.msgList[0].chatType,
-            guildId: ''
-          },
-          elements: groupMsg.msgList[0].elements
-        }
+        peer: {
+          peerUid: cacheMsg.peerUid,
+          chatType: cacheMsg.chatType,
+          guildId: ''
+        },
+        elements: cacheMsg.elements
       }
     }
   }
@@ -296,7 +274,15 @@ export class MessageEncoder {
       }
     } else if (type === 'quote') {
       this.peer ??= await getPeer(this.ctx, this.channelId)
-      const source = (await this.ctx.ntMsgApi.getMsgsByMsgId(this.peer, [attrs.id])).msgList[0]
+      // 直连模式没有 ntMsgApi.getMsgsByMsgId（按 msgId 索引消息）这个 API；从 store cache 拿
+      let source = this.ctx.store.getMsgByMsgId(attrs.id)
+      if (!source) {
+        const asShortId = Number(attrs.id)
+        if (Number.isInteger(asShortId)) {
+          const info = await this.ctx.store.getMsgInfoByShortId(asShortId)
+          if (info) source = this.ctx.store.getMsgByMsgId(info.msgId)
+        }
+      }
       if (source) {
         this.elements.push(SendElement.reply(+source.msgSeq, +source.senderUin, +source.msgTime))
       }

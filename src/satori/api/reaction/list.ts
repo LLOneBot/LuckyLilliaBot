@@ -2,6 +2,7 @@ import { List, User } from '@satorijs/protocol'
 import { Handler } from '../index'
 import { decodeUser, getPeer } from '../../utils'
 import { filterNullable } from '@/common/utils/misc'
+import { resolveStoredMsg } from './_resolve'
 
 interface Payload {
   channel_id: string
@@ -12,12 +13,10 @@ interface Payload {
 
 export const getReactionList: Handler<List<User>, Payload> = async (ctx, payload) => {
   const peer = await getPeer(ctx, payload.channel_id)
-  const { msgList } = await ctx.ntMsgApi.getMsgsByMsgId(peer, [payload.message_id])
-  if (!msgList.length) {
-    throw new Error('无法获取该消息')
-  }
-  const count = msgList[0].emojiLikesList.find(e => e.emojiId === payload.emoji_id)?.likesCnt ?? '50'
-  const data = await ctx.ntMsgApi.getMsgEmojiLikesList(peer, msgList[0].msgSeq, payload.emoji_id, +count)
+  const msg = await resolveStoredMsg(ctx, payload.message_id)
+  if (!msg) throw new Error('无法获取该消息')
+  const count = msg.emojiLikesList?.find(e => e.emojiId === payload.emoji_id)?.likesCnt ?? '50'
+  const data = await ctx.ntMsgApi.getMsgEmojiLikesList(peer, msg.msgSeq, payload.emoji_id, +count)
   if (data.result !== 0) {
     throw new Error(data.errMsg)
   }

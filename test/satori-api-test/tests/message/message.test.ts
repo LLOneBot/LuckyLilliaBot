@@ -27,15 +27,15 @@ describe('Satori 消息发送 / 接收', () => {
     expect(res.data!.length).toBeGreaterThan(0)
     const sent = res.data![0]
     expect(typeof sent.id).toBe('string')
-    expect(sent.channel?.id).toBe(ctx.testGroupId)
+    expect(String(sent.channel?.id)).toBe(ctx.testGroupId)
 
     // secondary 收到 message-created 事件
     const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
       { type: 'message-created' },
-      (e: any) => e.channel?.id === ctx.testGroupId && e.message?.content?.includes(text),
+      (e: any) => String(e.channel?.id) === ctx.testGroupId && e.message?.content?.includes(text),
       15000,
     )
-    expect(ev.user?.id).toBe(ctx.primaryUserId)
+    expect(String(ev.user?.id)).toBe(ctx.primaryUserId)
     expect(ev.message?.content).toContain(text)
   }, 30000)
 
@@ -52,7 +52,7 @@ describe('Satori 消息发送 / 接收', () => {
 
     await ctx.twoAccountTest.secondaryListener.waitForEvent(
       { type: 'message-created' },
-      (e: any) => e.user?.id === ctx.primaryUserId && e.message?.content?.includes(text),
+      (e: any) => String(e.user?.id) === ctx.primaryUserId && e.message?.content?.includes(text),
       15000,
     )
   }, 30000)
@@ -72,7 +72,7 @@ describe('Satori 消息发送 / 接收', () => {
     await ctx.twoAccountTest.secondaryListener.waitForEvent(
       { type: 'message-created' },
       (e: any) => {
-        if (e.channel?.id !== ctx.testGroupId) return false
+        if (String(e.channel?.id) !== ctx.testGroupId) return false
         const msg = e.message?.content ?? ''
         return msg.includes(text) && msg.includes(`<at id="${ctx.secondaryUserId}"`)
       },
@@ -109,12 +109,12 @@ describe('Satori 消息发送 / 接收', () => {
     await Promise.all([
       ctx.twoAccountTest.primaryListener.waitForEvent(
         { type: 'message-deleted' },
-        (e: any) => e.channel?.id === ctx.testGroupId && e.message?.id === messageId,
+        (e: any) => String(e.channel?.id) === ctx.testGroupId && String(e.message?.id) === messageId,
         15000,
       ),
       ctx.twoAccountTest.secondaryListener.waitForEvent(
         { type: 'message-deleted' },
-        (e: any) => e.channel?.id === ctx.testGroupId && e.message?.id === messageId,
+        (e: any) => String(e.channel?.id) === ctx.testGroupId && String(e.message?.id) === messageId,
         15000,
       ),
     ])

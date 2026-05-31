@@ -86,12 +86,15 @@ describe('notice 事件覆盖', () => {
 
     // QQ NT 直连协议没有"名片变更"专属推送，secondary 端要先在群里说一句话
     // 让 sendMemberName 流回来，bot 才能对比 cache 触发 group_card 事件。
+    // 注意：secondary 自己发的群消息 QQ server 不回流给 secondary bot（self-echo 走 0x210 系统路径
+    // 不走 OlPush 的群消息推送），所以 group_card 检测只在 **primary 端**（primary 收到 secondary
+    // 的群消息时检测）触发。这里改用 primaryListener。
     await secondary.call(ActionName.SendGroupMsg, {
       group_id: context.testGroupId,
       message: 'group_card-trigger',
     });
 
-    await context.twoAccountTest.secondaryListener.waitForEvent({
+    await context.twoAccountTest.primaryListener.waitForEvent({
       post_type: 'notice',
       notice_type: 'group_card',
       group_id: Number(context.testGroupId),
