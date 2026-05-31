@@ -82,15 +82,9 @@ export class MessageEncoder {
 
   private async getPeerAndElementsFromMsgId(msgId: string): Promise<{ peer: NT.Peer, elements: NT.MessageElement[] } | undefined> {
     this.peer ??= await getPeer(this.ctx, this.channelId)
-    // 直连模式没有 ntMsgApi.getMsgsByMsgId / queryMsgsById；走 store cache 取
-    let cacheMsg = this.ctx.store.getMsgByMsgId(msgId)
-    if (!cacheMsg) {
-      const asShortId = Number(msgId)
-      if (Number.isInteger(asShortId)) {
-        const info = await this.ctx.store.getMsgInfoByShortId(asShortId)
-        if (info) cacheMsg = this.ctx.store.getMsgByMsgId(info.msgId)
-      }
-    }
+    // satori message.id 就是 NT 真 msgId（decodeMessage 里 message.id = data.msgId）；
+    // 直连模式没有 ntMsgApi.getMsgsByMsgId / queryMsgsById，只能走 store cache。
+    const cacheMsg = this.ctx.store.getMsgByMsgId(msgId)
     if (cacheMsg) {
       return {
         peer: {
@@ -275,14 +269,7 @@ export class MessageEncoder {
     } else if (type === 'quote') {
       this.peer ??= await getPeer(this.ctx, this.channelId)
       // 直连模式没有 ntMsgApi.getMsgsByMsgId（按 msgId 索引消息）这个 API；从 store cache 拿
-      let source = this.ctx.store.getMsgByMsgId(attrs.id)
-      if (!source) {
-        const asShortId = Number(attrs.id)
-        if (Number.isInteger(asShortId)) {
-          const info = await this.ctx.store.getMsgInfoByShortId(asShortId)
-          if (info) source = this.ctx.store.getMsgByMsgId(info.msgId)
-        }
-      }
+      const source = this.ctx.store.getMsgByMsgId(attrs.id)
       if (source) {
         this.elements.push(SendElement.reply(+source.msgSeq, +source.senderUin, +source.msgTime))
       }

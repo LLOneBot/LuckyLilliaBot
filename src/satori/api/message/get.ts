@@ -9,26 +9,10 @@ interface Payload {
 
 export const getMessage: Handler<Message, Payload> = async (ctx, payload) => {
   const peer = await getPeer(ctx, payload.channel_id)
-  // 直连模式没有 ntMsgApi.getMsgsByMsgId（按 msgId 索引消息）这个 API。
-  // store 里通常会有刚发的消息缓存（msgId → RawMessage）；如果没缓存：
-  //   - 数字 message_id 当 shortId 处理：先 store.getMsgInfoByShortId 拿 msgSeq，再 ntMsgApi.getSingleMsg
-  //   - 原始 msgId 拿不到时只能放弃
-  let raw = ctx.store.getMsgByMsgId(payload.message_id)
-  if (!raw) {
-    const asShortId = Number(payload.message_id)
-    if (Number.isInteger(asShortId)) {
-      const info = await ctx.store.getMsgInfoByShortId(asShortId)
-      if (info) {
-        const cached = ctx.store.getMsgByMsgId(info.msgId)
-        if (cached) {
-          raw = cached
-        } else {
-          const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, info.msgSeq)
-          raw = msgList[0]
-        }
-      }
-    }
-  }
+  // satori message.id 就是 NT 真 msgId（decodeMessage 里 message.id = data.msgId）。
+  // 直连模式没有 ntMsgApi.getMsgsByMsgId 按 msgId 反查 NT 的途径，全靠 store cache；
+  // store 里只缓存自己发出 / 收到 push 的消息——拉不到的就返回错。
+  const raw = ctx.store.getMsgByMsgId(payload.message_id)
   if (!raw) throw new Error('消息为空')
   const result = await decodeMessage(ctx, raw)
   if (!result) {
