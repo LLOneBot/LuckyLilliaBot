@@ -123,19 +123,24 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
   }, 60000)
 
   it('video 元素：发视频', async () => {
-    // 直连模式视频秒传 broadcast 不工作：命中秒传后 PbSendMsg 返回 ok 但接收端永远收不到，
-    // 是 server 行为。test.mp4 是固定 fixture，多次发会触发秒传，secondary 收不到 push。
-    // 这里只断言发送方成功（与 milky/satori 私聊视频用例一致），群侧接收用例跳过。
+    // 用 fresh 视频避开 server 秒传命中（test.mp4 是固定 fixture，反复发会撞秒传 cache）。
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
     const sendRes = await primary.call<Array<{ id: string }>>('message.create', {
       channel_id: ctx.testGroupId,
-      content: `<video src="${MediaPaths.testMp4Uri}"/>`,
+      content: `<video src="${MediaPaths.freshVideoUri}"/>`,
     })
     Assertions.assertSuccess(sendRes, 'message.create (video)')
-    expect(Array.isArray(sendRes.data)).toBe(true)
-    expect(sendRes.data!.length).toBeGreaterThan(0)
-  }, 60000)
+    const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
+      { type: 'message-created' },
+      (e: any) =>
+        String(e.channel?.id) === ctx.testGroupId &&
+        typeof e.message?.content === 'string' &&
+        /<video[\s\S]*?src=/.test(e.message.content),
+      60000,
+    )
+    expect(ev.message?.content).toMatch(/<video[\s\S]*?src=/)
+  }, 90000)
 
   it('quote 元素：回复一条群消息', async () => {
     ctx.twoAccountTest.clearAllQueues()
@@ -278,7 +283,7 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
     const primary = ctx.twoAccountTest.getClient('primary')
     const sendRes = await primary.call<Array<{ id: string }>>('message.create', {
       channel_id: `private:${ctx.secondaryUserId}`,
-      content: `<video src="${MediaPaths.testMp4Uri}"/>`,
+      content: `<video src="${MediaPaths.freshVideoUri}"/>`,
     })
     Assertions.assertSuccess(sendRes, 'message.create (private video)')
     const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
