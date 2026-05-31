@@ -88,3 +88,11 @@ export interface GroupMemberCardNameChangedEvent {
   oldCardName: string
   newCardName: string
 }
+
+/** 好友请求事件 */
+export interface FriendRequestEvent {
+  initiatorUin: number
+  initiatorUid: string
+  comment: string
+  via: string
+}

@@ -91,9 +91,9 @@ export namespace Notify {
   export const FriendRequest = ProtoMessage.of({
     body: ProtoField(1, {
       fromUid: ProtoField(2, 'string'),
-      message: ProtoField(10, 'string', 'optional'),
-      via: ProtoField(11, 'string', 'optional'),
-    })
+      message: ProtoField(10, 'string'),
+      via: ProtoField(11, 'string'),
+    }, 'optional')
   })
 
   export const GroupReaction = ProtoMessage.of({

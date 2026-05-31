@@ -165,18 +165,6 @@ class Onebot11Adapter extends Service {
     }).catch(e => this.ctx.logger.error('handling incoming buddy events', e))
   }
 
-  private async handleFriendRequest(req: FriendRequest) {
-    const uin = await this.ctx.ntUserApi.getUinByUid(req.friendUid)
-    const flag = req.friendUid
-    const friendRequestEvent = new OB11FriendRequestEvent(
-      +uin,
-      req.extWords,
-      flag,
-      req.addSource ?? ''
-    )
-    this.dispatch(friendRequestEvent)
-  }
-
   private async handleConfigUpdated(config: LLOBConfig) {
     for (const item of this.connect) {
       if (item.config.enable) {
@@ -260,9 +248,6 @@ class Onebot11Adapter extends Service {
     })
     this.ctx.on('nt/message-sent', input => {
       this.handleMsg(input, true, false)
-    })
-    this.ctx.on('nt/friend-request', input => {
-      this.handleFriendRequest(input)
     })
     this.ctx.on('nt/raw/group-poke', input => {
       const groupId = +input.groupCode
@@ -667,6 +652,16 @@ class Onebot11Adapter extends Service {
         data.uin,
         data.newCardName,
         data.oldCardName
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/friend-request', (data) => {
+      const event = new OB11FriendRequestEvent(
+        data.initiatorUin,
+        data.comment,
+        data.initiatorUid,
+        data.via
       )
       this.dispatch(event)
     })

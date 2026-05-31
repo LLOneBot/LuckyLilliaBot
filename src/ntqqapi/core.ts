@@ -20,6 +20,7 @@ import {
   GroupDisbandEvent,
   GroupMemberRemovedEvent,
   GroupMemberCardNameChangedEvent,
+  FriendRequestEvent,
 } from './types'
 import { selfInfo } from '../common/globalVars'
 import {
@@ -42,7 +43,6 @@ declare module 'cordis' {
     'nt/message-created': (input: RawMessage) => void
     'nt/offline-message-created': (input: RawMessage) => void
     'nt/message-sent': (input: RawMessage) => void
-    'nt/friend-request': (input: FriendRequest) => void
     'nt/system-message-created': (input: Buffer) => void
     'nt/flash-file-uploading': (input: { fileSet: FlashFileSetInfo } & FlashFileUploadingInfo) => void
     'nt/flash-file-upload-status': (input: FlashFileSetInfo) => void
@@ -58,7 +58,6 @@ declare module 'cordis' {
     'nt/raw/new-msg': (input: RawMessage[]) => void
     'nt/raw/update-msg': (input: RawMessage[]) => void
     'nt/raw/self-send-msg': (input: RawMessage) => void
-    'nt/raw/friend-request': (input: FriendRequestNotify) => void
     'nt/raw/sys-msg': (input: Buffer) => void
     'nt/raw/kicked-offline': (input: KickedOffLineInfo) => void
     'nt/raw/flash-file-download-status': (input: [status: number, errCodeOrFileSetId: number | string, fileSetIdOrInfo: string | unknown]) => void
@@ -90,6 +89,7 @@ declare module 'cordis' {
     'nt/group-member-added': (input: GroupMemberAddedEvent) => void
     'nt/group-member-removed': (input: GroupMemberRemovedEvent) => void
     'nt/group-member-card-name-changed': (input: GroupMemberCardNameChangedEvent) => void
+    'nt/friend-request': (input: FriendRequestEvent) => void
   }
 }
 
@@ -165,29 +165,6 @@ class Core extends Service {
 
     this.ctx.on('nt/raw/new-msg', payload => {
       this.handleMessage(payload)
-    })
-
-    const friendRequestSeen: string[] = []
-    this.ctx.on('nt/raw/friend-request', payload => {
-      for (const req of payload.buddyReqs) {
-        if (!req.isUnread || req.isInitiator || (req.isDecide && req.reqType !== BuddyReqType.MeInitiatorWaitPeerConfirm)) {
-          continue
-        }
-        if (+req.reqTime < this.startupTime) {
-          continue
-        }
-        // 去重：同一 friend 在 30s 内的多次 request 推送当成同一事件
-        // (服务器有时会通过 0x210 + InfoSync 双推同一申请)
-        const dedupeKey = `${req.friendUid}|${req.reqTime}`
-        if (friendRequestSeen.includes(dedupeKey)) {
-          continue
-        }
-        friendRequestSeen.push(dedupeKey)
-        if (friendRequestSeen.length > 200) {
-          friendRequestSeen.shift()
-        }
-        this.ctx.parallel('nt/friend-request', req)
-      }
     })
 
     this.ctx.on('nt/raw/sys-msg', payload => {

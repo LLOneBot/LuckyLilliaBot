@@ -237,7 +237,7 @@ function handle0x210(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, sub
 
     case Event0x210Sub.FriendRecall:
     case Event0x210Sub.FriendSelfRecall:
-      handleFriendRecall(ctx, msg, content)
+      handleFriendRecall(ctx, content)
       break
 
     case Event0x210Sub.FriendDeleteOrPinChanged:
@@ -342,49 +342,17 @@ function handlePttTransResult(ctx: Context, content: Buffer) {
 }
 
 function handleFriendRequest(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
-  try {
-    const decoded = Notify.FriendRequest.decode(content)
-    const fromUid = decoded.body?.fromUid || ''
-    const fromUin = msg.routingHead?.fromUin || 0
-    const message = decoded.body?.message || ''
-
-    const notify: FriendRequestNotify = {
-      unreadNums: 1,
-      buddyReqs: [{
-        isDecide: false,
-        isInitiator: false,
-        friendUid: fromUid,
-        reqType: BuddyReqType.PeerInitiator,
-        reqSubType: 0,
-        reqTime: String(msg.contentHead?.msgTime || Math.floor(Date.now() / 1000)),
-        extWords: message,
-        flag: 0,
-        preGroupingId: 0,
-        commFriendNum: 0,
-        curFriendMax: 0,
-        isShowCard: false,
-        isUnread: true,
-        isDoubt: false,
-        nameMore: '',
-        friendNick: String(fromUin),
-        friendAvatarUrl: '',
-        sourceId: 0,
-        groupCode: '0',
-        isBuddy: null,
-        isAgreed: false,
-        relation: 0,
-        addSource: decoded.body?.via || '',
-        sourceFlag: 0,
-      }],
-    }
-
-    ctx.parallel('nt/raw/friend-request', notify)
-  } catch (e) {
-    ctx.logger.warn('Failed to parse FriendRequest:', (e as Error).message)
-  }
+  const decoded = Notify.FriendRequest.decode(content)
+  if (!decoded.body) return
+  ctx.parallel('nt/friend-request', {
+    initiatorUid: decoded.body.fromUid,
+    initiatorUin: msg.routingHead.fromUin,
+    comment: decoded.body.message,
+    via: decoded.body.via
+  })
 }
 
-async function handleFriendRecall(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
+async function handleFriendRecall(ctx: Context, content: Buffer) {
   try {
     const decoded = Notify.FriendRecall.decode(content)
     const body = decoded.body
@@ -426,7 +394,7 @@ function handle0x2DC(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, sub
 
   switch (subType) {
     case Event0x2DCSub.GroupRecall:
-      handleGroupRecall(ctx, msg, content)
+      handleGroupRecall(ctx, content)
       break
 
     case Event0x2DCSub.GroupMute:
@@ -697,7 +665,7 @@ function walkProtoFields(buf: Buffer, path: number[]): Buffer | null {
  * Content layout: [4 bytes BE: groupUin][1 byte: ?][2 bytes BE length][NotifyMessageBody bytes]
  * NotifyMessageBody.field11 = GroupRecall (with repeated RecallMessages at field 3)
  */
-async function handleGroupRecall(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
+async function handleGroupRecall(ctx: Context, content: Buffer) {
   try {
     if (content.length < 7) return
     const groupCode = content.readUInt32BE(0)

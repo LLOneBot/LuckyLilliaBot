@@ -1,5 +1,5 @@
 import { MilkyEventTypes } from '@/milky/common/event'
-import { RawMessage, FriendRequest, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeleteEvent, GroupMemberAddedEvent, GroupMemberRemovedEvent } from '@/ntqqapi/types'
+import { RawMessage, FriendRequest, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeleteEvent, GroupMemberAddedEvent, GroupMemberRemovedEvent, FriendRequestEvent } from '@/ntqqapi/types'
 import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingTempMessage } from './message/incoming'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -73,10 +73,7 @@ export async function transformTempMessageCreated(
   }
 }
 
-/**
- * Transform NTQQ message-deleted event to Milky message_recall event (temp)
- */
-export async function transformTempMessageDeleted(
+export async function transformTempMessageRecall(
   ctx: Context,
   data: MessageDeleteEvent
 ): Promise<MilkyEventTypes['message_recall'] | null> {
@@ -95,10 +92,7 @@ export async function transformTempMessageDeleted(
   }
 }
 
-/**
- * Transform NTQQ message-deleted event to Milky message_recall event (private)
- */
-export async function transformPrivateMessageDeleted(
+export async function transformFriendMessageRecall(
   ctx: Context,
   data: MessageDeleteEvent
 ): Promise<MilkyEventTypes['message_recall'] | null> {
@@ -117,10 +111,7 @@ export async function transformPrivateMessageDeleted(
   }
 }
 
-/**
- * Transform NTQQ message-deleted event to Milky message_recall event (group)
- */
-export async function transformGroupMessageDeleted(
+export async function transformGroupMessageRecall(
   ctx: Context,
   data: MessageDeleteEvent
 ): Promise<MilkyEventTypes['message_recall'] | null> {
@@ -144,15 +135,14 @@ export async function transformGroupMessageDeleted(
  */
 export async function transformFriendRequestEvent(
   ctx: Context,
-  request: FriendRequest
+  data: FriendRequestEvent
 ): Promise<MilkyEventTypes['friend_request'] | null> {
   try {
-    const initiatorId = Number(await ctx.ntUserApi.getUinByUid(request.friendUid))
     return {
-      initiator_id: initiatorId,
-      initiator_uid: request.friendUid,
-      comment: request.extWords,
-      via: request.addSource ?? ''
+      initiator_id: data.initiatorUin,
+      initiator_uid: data.initiatorUid,
+      comment: data.comment,
+      via: data.via
     }
   } catch (error) {
     ctx.logger.error('Failed to transform friend request event:', error)

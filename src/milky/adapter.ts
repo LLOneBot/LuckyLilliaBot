@@ -13,20 +13,20 @@ import { selfInfo } from '@/common/globalVars'
 import {
   transformPrivateMessageCreated,
   transformGroupMessageCreated,
-  transformPrivateMessageDeleted,
-  transformGroupMessageDeleted,
   transformFriendRequestEvent,
   transformSystemMessageEvent,
   transformGroupMessageEvent,
   transformPrivateMessageEvent,
   transformOlpushEvent,
   transformTempMessageCreated,
-  transformTempMessageDeleted,
   transformGroupJoinRequestEvent,
   transformGroupInvitedJoinRequestEvent,
   transformGroupInvitationEvent,
   transformGroupMemberIncreaseEvent,
   transformGroupMemberDecreaseEvent,
+  transformFriendMessageRecall,
+  transformGroupMessageRecall,
+  transformTempMessageRecall,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
 import { noop } from 'cosmokit'
@@ -188,14 +188,6 @@ export class MilkyAdapter extends Service {
       }
     })
 
-    // Listen to NTQQ friend request events
-    this.ctx.on('nt/friend-request', async (request) => {
-      const eventData = await transformFriendRequestEvent(this.ctx, request)
-      if (eventData) {
-        this.emitEvent('friend_request', eventData)
-      }
-    })
-
     this.ctx.on('nt/system-message-created', async (data) => {
       const result = await transformSystemMessageEvent(this.ctx, data)
       if (result) {
@@ -345,17 +337,17 @@ export class MilkyAdapter extends Service {
 
     this.ctx.on('nt/message-deleted', async (data) => {
       if (data.chatType === ChatType.C2C) {
-        const eventData = await transformPrivateMessageDeleted(this.ctx, data)
+        const eventData = await transformFriendMessageRecall(this.ctx, data)
         if (eventData) {
           this.emitEvent('message_recall', eventData)
         }
       } else if (data.chatType === ChatType.Group) {
-        const eventData = await transformGroupMessageDeleted(this.ctx, data)
+        const eventData = await transformGroupMessageRecall(this.ctx, data)
         if (eventData) {
           this.emitEvent('message_recall', eventData)
         }
       } else if (data.chatType === ChatType.TempC2CFromGroup) {
-        const eventData = await transformTempMessageDeleted(this.ctx, data)
+        const eventData = await transformTempMessageRecall(this.ctx, data)
         if (eventData) {
           this.emitEvent('message_recall', eventData)
         }
@@ -394,6 +386,13 @@ export class MilkyAdapter extends Service {
       const eventData = await transformGroupMemberDecreaseEvent(this.ctx, data)
       if (eventData) {
         this.emitEvent('group_member_decrease', eventData)
+      }
+    })
+
+    this.ctx.on('nt/friend-request', async (data) => {
+      const eventData = await transformFriendRequestEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('friend_request', eventData)
       }
     })
   }
