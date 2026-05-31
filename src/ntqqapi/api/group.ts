@@ -28,10 +28,24 @@ export class NTQQGroupApi extends Service {
   constructor(protected ctx: Context) {
     super(ctx, 'ntGroupApi')
     ctx.on('nt/group-added', () => {
-      this.getGroups(true)
+      if (this.groupsCache.length > 0) {
+        this.getGroups(true)
+      }
     })
     ctx.on('nt/group-removed', () => {
-      this.getGroups(true)
+      if (this.groupsCache.length > 0) {
+        this.getGroups(true)
+      }
+    })
+    ctx.on('nt/group-member-added', (data) => {
+      if (this.membersCache.has(data.groupCode)) {
+        this.getGroupMembers(data.groupCode, true)
+      }
+    })
+    ctx.on('nt/group-member-removed', (data) => {
+      if (this.membersCache.has(data.groupCode)) {
+        this.getGroupMembers(data.groupCode, true)
+      }
     })
   }
 
@@ -85,7 +99,6 @@ export class NTQQGroupApi extends Service {
     return this.groupCache.get(groupCode)!
   }
 
-  // TODO: 群成员数量变更时刷新缓存
   async getGroupMembers(groupCode: number, forceUpdate: boolean) {
     if (this.refreshingMembers.has(groupCode)) {
       await this.refreshingMembers.get(groupCode)

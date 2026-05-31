@@ -1,5 +1,5 @@
 import { MilkyEventTypes } from '@/milky/common/event'
-import { RawMessage, FriendRequest, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeleteEvent, GroupMemberAddedEvent } from '@/ntqqapi/types'
+import { RawMessage, FriendRequest, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeleteEvent, GroupMemberAddedEvent, GroupMemberRemovedEvent } from '@/ntqqapi/types'
 import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingTempMessage } from './message/incoming'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -224,6 +224,22 @@ export async function transformGroupMemberIncreaseEvent(
     }
   } catch (error) {
     ctx.logger.error('Failed to transform group member increase event:', error)
+    return null
+  }
+}
+
+export async function transformGroupMemberDecreaseEvent(
+  ctx: Context,
+  data: GroupMemberRemovedEvent
+): Promise<MilkyEventTypes['group_member_decrease'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      user_id: data.memberUin,
+      operator_id: data.operatorUin
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group member decrease event:', error)
     return null
   }
 }

@@ -64,3 +64,27 @@ export interface GroupMemberAddedEvent {
   invitorUin?: number
   invitorUid?: string
 }
+
+/** 群成员减少事件 */
+export interface GroupMemberRemovedEvent {
+  groupCode: number
+  memberUin: number
+  memberUid: string
+  operatorUin?: number
+  operatorUid?: string
+}
+
+/** 群解散事件 */
+export interface GroupDisbandEvent {
+  groupCode: number
+  operatorUin: number
+  operatorUid: string
+}
+
+/** 群成员名片变更事件 */
+export interface GroupMemberCardNameChangedEvent {
+  groupCode: number
+  uin: number
+  oldCardName: string
+  newCardName: string
+}

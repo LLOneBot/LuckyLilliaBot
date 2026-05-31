@@ -24,7 +24,7 @@ declare module '@cordisjs/plugin-database' {
     group_member: {
       groupCode: number
       uin: number
-      card: string
+      cardName: string
     }
     uix: {
       uid: string
@@ -92,7 +92,7 @@ class Store extends Service {
     this.ctx.model.extend('group_member', {
       groupCode: 'unsigned(10)',
       uin: 'unsigned(10)',
-      card: 'string(60)'
+      cardName: 'string(60)'
     }, {
       primary: ['groupCode', 'uin']
     })
@@ -240,16 +240,16 @@ class Store extends Service {
     }, expire * 1000)
   }
 
-  async getGroupMemberCard(groupCode: number, uin: number): Promise<string | undefined> {
+  async getGroupMemberCardName(groupCode: number, uin: number): Promise<string | undefined> {
     const items = await this.ctx.database.get('group_member', { groupCode, uin })
-    return items[0]?.card
+    return items[0]?.cardName
   }
 
-  async setGroupMemberCard(groupCode: number, uin: number, card: string) {
+  async setGroupMemberCardName(groupCode: number, uin: number, cardName: string) {
     return await this.ctx.database.upsert('group_member', [{
       groupCode,
       uin,
-      card
+      cardName
     }])
   }
 

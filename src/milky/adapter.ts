@@ -26,6 +26,7 @@ import {
   transformGroupInvitedJoinRequestEvent,
   transformGroupInvitationEvent,
   transformGroupMemberIncreaseEvent,
+  transformGroupMemberDecreaseEvent,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
 import { noop } from 'cosmokit'
@@ -164,26 +165,6 @@ export class MilkyAdapter extends Service {
       }
     })
 
-    // Listen to NTQQ message deleted events
-    this.ctx.on('nt/message-deleted', async (data) => {
-      if (data.chatType === ChatType.C2C) {
-        const eventData = await transformPrivateMessageDeleted(this.ctx, data)
-        if (eventData) {
-          this.emitEvent('message_recall', eventData)
-        }
-      } else if (data.chatType === ChatType.Group) {
-        const eventData = await transformGroupMessageDeleted(this.ctx, data)
-        if (eventData) {
-          this.emitEvent('message_recall', eventData)
-        }
-      } else if (data.chatType === ChatType.TempC2CFromGroup) {
-        const eventData = await transformTempMessageDeleted(this.ctx, data)
-        if (eventData) {
-          this.emitEvent('message_recall', eventData)
-        }
-      }
-    })
-
     // Listen to NTQQ message sent events (self messages)
     this.ctx.on('nt/message-sent', async (message) => {
       if (!this.config.reportSelfMessage) {
@@ -234,34 +215,6 @@ export class MilkyAdapter extends Service {
         if (result) {
           this.emitEvent(result.eventType, result.data)
         }
-      }
-    })
-
-    this.ctx.on('nt/group-join-request', async (data) => {
-      const eventData = await transformGroupJoinRequestEvent(this.ctx, data)
-      if (eventData) {
-        this.emitEvent('group_join_request', eventData)
-      }
-    })
-
-    this.ctx.on('nt/group-invited-join-request', async (data) => {
-      const eventData = await transformGroupInvitedJoinRequestEvent(this.ctx, data)
-      if (eventData) {
-        this.emitEvent('group_invited_join_request', eventData)
-      }
-    })
-
-    this.ctx.on('nt/group-invitation', async (data) => {
-      const eventData = await transformGroupInvitationEvent(this.ctx, data)
-      if (eventData) {
-        this.emitEvent('group_invitation', eventData)
-      }
-    })
-
-    this.ctx.on('nt/group-member-added', async (data) => {
-      const eventData = await transformGroupMemberIncreaseEvent(this.ctx, data)
-      if (eventData) {
-        this.emitEvent('group_member_increase', eventData)
       }
     })
 
@@ -388,6 +341,60 @@ export class MilkyAdapter extends Service {
         display_suffix: input.suffix,
         display_action_img_url: input.actionImg,
       } as MilkyEventTypes['friend_nudge'])
+    })
+
+    this.ctx.on('nt/message-deleted', async (data) => {
+      if (data.chatType === ChatType.C2C) {
+        const eventData = await transformPrivateMessageDeleted(this.ctx, data)
+        if (eventData) {
+          this.emitEvent('message_recall', eventData)
+        }
+      } else if (data.chatType === ChatType.Group) {
+        const eventData = await transformGroupMessageDeleted(this.ctx, data)
+        if (eventData) {
+          this.emitEvent('message_recall', eventData)
+        }
+      } else if (data.chatType === ChatType.TempC2CFromGroup) {
+        const eventData = await transformTempMessageDeleted(this.ctx, data)
+        if (eventData) {
+          this.emitEvent('message_recall', eventData)
+        }
+      }
+    })
+
+    this.ctx.on('nt/group-join-request', async (data) => {
+      const eventData = await transformGroupJoinRequestEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_join_request', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-invited-join-request', async (data) => {
+      const eventData = await transformGroupInvitedJoinRequestEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_invited_join_request', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-invitation', async (data) => {
+      const eventData = await transformGroupInvitationEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_invitation', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-member-added', async (data) => {
+      const eventData = await transformGroupMemberIncreaseEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_member_increase', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-member-removed', async (data) => {
+      const eventData = await transformGroupMemberDecreaseEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_member_decrease', eventData)
+      }
     })
   }
 }

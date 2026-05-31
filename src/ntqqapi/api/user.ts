@@ -112,11 +112,14 @@ export class NTQQUserApi extends Service {
     }
     try {
       const user = await this.getUserByUid(uid)
-      this.ctx.store.addUix([{
-        uid,
-        uin: user.uin
-      }]).catch(e => this.ctx.logger.warn(e))
-      return user.uin
+      // 输入错误的 uid 时，返回的 uin 为 0
+      if (user.uin) {
+        this.ctx.store.addUix([{
+          uid,
+          uin: user.uin
+        }]).catch(e => this.ctx.logger.warn(e))
+        return user.uin
+      }
     } catch (e) {
       this.ctx.logger.error('getUinByUid via user failed', e)
     }

@@ -192,15 +192,6 @@ export namespace OB11Entities {
           if (groupElement.type === TipGroupElementType.ShutUp) {
             ctx.logger.info('收到群成员禁言提示', groupElement)
             return await GroupBanEvent.parse(ctx, groupElement, msg.peerUid)
-          } else if (groupElement.type === TipGroupElementType.Quitted) {
-            ctx.logger.info(`收到我被踢出或退群提示, 群${msg.peerUid}`, groupElement)
-            const { adminUid } = groupElement
-            return new OB11GroupDecreaseEvent(
-              Number(msg.peerUid),
-              Number(selfInfo.uin),
-              adminUid ? Number(await ctx.ntUserApi.getUinByUid(adminUid)) : 0,
-              adminUid ? 'kick_me' : 'leave'
-            )
           }
         }
       }

@@ -17,6 +17,9 @@ import {
   GroupRemovedEvent,
   GroupAddedEvent,
   GroupMemberAddedEvent,
+  GroupDisbandEvent,
+  GroupMemberRemovedEvent,
+  GroupMemberCardNameChangedEvent,
 } from './types'
 import { selfInfo } from '../common/globalVars'
 import {
@@ -27,7 +30,6 @@ import {
 } from '@/ntqqapi/types/flashfile'
 import { logSummaryMessage } from '@/ntqqapi/log'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
-import { LocalExitGroupReason } from '@/ntqqapi/types'
 import { registerDispatcher } from './dispatcher'
 import { noop } from 'cosmokit'
 
@@ -40,7 +42,6 @@ declare module 'cordis' {
     'nt/message-created': (input: RawMessage) => void
     'nt/offline-message-created': (input: RawMessage) => void
     'nt/message-sent': (input: RawMessage) => void
-    'nt/group-dismiss': (input: GroupDetailInfo) => void
     'nt/friend-request': (input: FriendRequest) => void
     'nt/system-message-created': (input: Buffer) => void
     'nt/flash-file-uploading': (input: { fileSet: FlashFileSetInfo } & FlashFileUploadingInfo) => void
@@ -79,13 +80,16 @@ declare module 'cordis' {
     /** 群/私聊语音转写文字结果异步推送（pttTrans.TransGroupPttReq/TransC2CPttReq 提交后由这条 event 喂结果） */
     'nt/raw/ptt-trans-result': (input: { msgUid: string, chatType: ChatType, peerUin: string, senderUin: string, text: string }) => void
 
+    'nt/message-deleted': (input: MessageDeleteEvent) => void
     'nt/group-join-request': (input: GroupJoinRequestEvent) => void
     'nt/group-invited-join-request': (input: GroupInvitedJoinRequestEvent) => void
     'nt/group-invitation': (input: GroupInvitationEvent) => void
-    'nt/message-deleted': (input: MessageDeleteEvent) => void
-    'nt/group-removed': (input: GroupRemovedEvent) => void
     'nt/group-added': (input: GroupAddedEvent) => void
+    'nt/group-removed': (input: GroupRemovedEvent) => void
+    'nt/group-disband': (input: GroupDisbandEvent) => void
     'nt/group-member-added': (input: GroupMemberAddedEvent) => void
+    'nt/group-member-removed': (input: GroupMemberRemovedEvent) => void
+    'nt/group-member-card-name-changed': (input: GroupMemberCardNameChangedEvent) => void
   }
 }
 

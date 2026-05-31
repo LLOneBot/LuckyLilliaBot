@@ -5,14 +5,6 @@ export enum GroupMsgMask {
   NotAllow = 3,  // 屏蔽
 }
 
-// TODO: 是否保留
-export enum LocalExitGroupReason {
-  NO_QUIT = 0,  // 没有退出群，正常状态
-  KICKED = 1,  // 被踢出
-  DISMISS = 2,  // 群解散
-  SELF_QUIT = 3  // 自己主动退出
-}
-
 export interface Group {
   groupCode: number
   groupName: string

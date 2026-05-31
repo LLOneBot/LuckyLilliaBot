@@ -98,6 +98,9 @@ function handleMsgPush(ctx: Context, payload: Buffer) {
       break
 
     case MsgType.GroupMemberDecrease:
+      handleGroupMemberDecrease(ctx, msg)
+      break
+
     case MsgType.GroupAdminChange:
       // Forward to OB11 adapter which already handles these via Msg.Message.decode
       forwardSystemMessage(ctx, msg)
@@ -123,6 +126,36 @@ function handleMsgPush(ctx: Context, payload: Buffer) {
     case MsgType.GroupJoined:
       handleGroupJoined(ctx, msg)
       break
+  }
+}
+
+async function handleGroupMemberDecrease(ctx: Context, msg: InferProtoModel<typeof Msg.Message>) {
+  const content = msg.body?.msgContent
+  if (!content) return
+  const decoded = Notify.GroupMemberChange.decode(content)
+  let adminUin
+  let adminUid
+  if (decoded.adminUid) {
+    const adminUidMatch = decoded.adminUid.match(/\x18([^\x18\x10]+)\x10/)
+    if (adminUidMatch) {
+      adminUid = adminUidMatch[1]
+      adminUin = await ctx.ntUserApi.getUinByUid(adminUid)
+    }
+  }
+  if (decoded.type === 129) {
+    ctx.parallel('nt/group-disband', {
+      groupCode: decoded.groupCode,
+      operatorUid: adminUid!,
+      operatorUin: adminUin!
+    })
+  } else {
+    ctx.parallel('nt/group-member-removed', {
+      groupCode: decoded.groupCode,
+      memberUid: decoded.memberUid,
+      memberUin: await ctx.ntUserApi.getUinByUid(decoded.memberUid),
+      operatorUid: adminUid,
+      operatorUin: adminUin
+    })
   }
 }
 
@@ -833,6 +866,28 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
         }
       }
     }
+  } else if (msgType === MsgType.GroupMessage) {
+    const peerUin = routingHead.group.groupCode
+    const senderUin = routingHead.fromUin
+    const sendMemberName = routingHead.group.groupCardType === 1 ?
+      routingHead.group.groupCard : ''
+    ctx.store.getGroupMemberCardName(peerUin, senderUin).then(oldCard => {
+      if (oldCard === undefined) {
+        ctx.store.setGroupMemberCardName(peerUin, senderUin, sendMemberName)
+          .catch(e => ctx.logger.warn(e))
+      } else {
+        if (oldCard !== sendMemberName) {
+          ctx.store.setGroupMemberCardName(peerUin, senderUin, sendMemberName)
+            .catch(e => ctx.logger.warn(e))
+          ctx.parallel('nt/group-member-card-name-changed', {
+            groupCode: peerUin,
+            uin: senderUin,
+            oldCardName: oldCard,
+            newCardName: sendMemberName
+          })
+        }
+      }
+    }).catch(e => ctx.logger.warn(e))
   }
   const rawMessage = convertToRawMessage(msg)
   if (!rawMessage) return

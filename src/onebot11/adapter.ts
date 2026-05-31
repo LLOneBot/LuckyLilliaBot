@@ -1,4 +1,4 @@
-import { Context, Inject, Service } from 'cordis'
+import { Context, Service } from 'cordis'
 import { OB11Entities } from './entities'
 import {
   ChatType,
@@ -11,7 +11,7 @@ import {
   OB11GroupRequestInviteBotEvent,
 } from './event/request/OB11GroupRequest'
 import { OB11FriendRequestEvent } from './event/request/OB11FriendRequest'
-import { OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
+import { GroupDecreaseSubType, OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
 import { selfInfo } from '../common/globalVars'
 import { Config as LLOBConfig, OB11Config } from '../common/types'
 import { OB11WebSocket, OB11WebSocketReverse } from './connect/ws'
@@ -46,7 +46,7 @@ import { noop } from 'cosmokit'
 import { encodeGroupRequestFlag } from './utils'
 import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNoticeEvent'
 import { OB11FriendRecallNoticeEvent } from './event/notice/OB11FriendRecallNoticeEvent'
-import { OB11GroupIncreaseEvent } from './event'
+import { OB11GroupIncreaseEvent } from './event/notice/OB11GroupIncreaseEvent'
 
 declare module 'cordis' {
   interface Context {
@@ -163,30 +163,6 @@ class Onebot11Adapter extends Service {
         this.dispatchMessageLike(privateEvent, self, offline)
       }
     }).catch(e => this.ctx.logger.error('handling incoming buddy events', e))
-
-    try {
-      if (message.chatType === ChatType.Group) {
-        const oldCard = await this.ctx.store.getGroupMemberCard(message.peerUin, message.senderUin)
-        if (oldCard === undefined) {
-          await this.ctx.store.setGroupMemberCard(message.peerUin, message.senderUin, message.sendMemberName)
-        } else {
-          const { peerName, peerUin, sendMemberName, sendNickName, senderUin } = message
-          if (oldCard !== sendMemberName) {
-            await this.ctx.store.setGroupMemberCard(peerUin, senderUin, sendMemberName)
-            this.ctx.logger.info(`群 ${peerName}(${peerUin}) 的 ${sendMemberName || sendNickName}(${senderUin}) 更新了名片 ${oldCard} -> ${sendMemberName}`)
-            const groupCardEvent = new OB11GroupCardEvent(
-              peerUin,
-              senderUin,
-              sendMemberName,
-              oldCard
-            )
-            this.dispatch(groupCardEvent)
-          }
-        }
-      }
-    } catch (e) {
-      this.ctx.logger.error('handling group member name card change events', e)
-    }
   }
 
   private async handleFriendRequest(req: FriendRequest) {
@@ -473,45 +449,6 @@ class Onebot11Adapter extends Service {
         const event = new OB11ProfileLikeEvent(detail.uin, detail.nickname, +times)
         this.dispatch(event)
       }
-      else if (msgType === 34) {
-        const tip = Notify.GroupMemberChange.decode(sysMsg.body.msgContent)
-        if (tip.type === 130) {
-          this.ctx.logger.info('群成员减少', tip)
-          const memberUin = await this.ctx.ntUserApi.getUinByUid(tip.memberUid)
-          const userId = Number(memberUin)
-          const event = new OB11GroupDecreaseEvent(tip.groupCode, userId, userId)
-          this.dispatch(event)
-        } else if (tip.type === 131) {
-          if (tip.memberUid === selfInfo.uid) return
-          this.ctx.logger.info('有群成员被踢', tip)
-          const memberUin = await this.ctx.ntUserApi.getUinByUid(tip.memberUid)
-          let adminUin = 0
-          let adminUid = tip.adminUid
-          if (adminUid) {
-            const adminUidMatch = tip.adminUid.match(/\x18([^\x18\x10]+)\x10/)
-            if (adminUidMatch) {
-              adminUid = adminUidMatch[1]
-            }
-            adminUin = await this.ctx.ntUserApi.getUinByUid(adminUid)
-          }
-          const event = new OB11GroupDecreaseEvent(tip.groupCode, +memberUin, adminUin, 'kick')
-          this.dispatch(event)
-        } else if (tip.type === 3) {
-          // bot 自己被踢出群（群解散时也会触发 type=3，operatorUid 是群主）
-          this.ctx.logger.info('bot 被踢出群/群解散', tip)
-          let adminUin = 0
-          let adminUid = tip.adminUid
-          if (adminUid) {
-            const adminUidMatch = tip.adminUid.match(/\x18([^\x18\x10]+)\x10/)
-            if (adminUidMatch) {
-              adminUid = adminUidMatch[1]
-            }
-            adminUin = await this.ctx.ntUserApi.getUinByUid(adminUid)
-          }
-          const event = new OB11GroupDecreaseEvent(tip.groupCode, +selfInfo.uin, adminUin, 'kick_me')
-          this.dispatch(event)
-        }
-      }
       else if (msgType === 528 && subType === 321) {
         // 私聊撤回戳一戳，不再从这里解析，应从 nt/message-deleted 事件中解析
       }
@@ -631,13 +568,19 @@ class Onebot11Adapter extends Service {
 
     })
 
-    this.ctx.on('nt/group-dismiss', async (group) => {
-      const groupInfo = await this.ctx.ntGroupApi.getGroup(+group.groupCode, false)
-      const ownerUin = await this.ctx.ntUserApi.getUinByUid(groupInfo.ownerUid)
-      const event = new OB11GroupDismissEvent(
-        +group.groupCode,
-        +ownerUin
-      )
+    this.ctx.on('nt/message-deleted', (data) => {
+      const shortId = this.ctx.store.createMsgShortId(data)
+      let event
+      if (data.chatType === ChatType.Group) {
+        event = new OB11GroupRecallNoticeEvent(
+          data.peerUin,
+          data.senderUin,
+          data.operatorUin,
+          shortId
+        )
+      } else {
+        event = new OB11FriendRecallNoticeEvent(data.senderUin, shortId)
+      }
       this.dispatch(event)
     })
 
@@ -672,19 +615,11 @@ class Onebot11Adapter extends Service {
       this.dispatch(event)
     })
 
-    this.ctx.on('nt/message-deleted', (data) => {
-      const shortId = this.ctx.store.createMsgShortId(data)
-      let event
-      if (data.chatType === ChatType.Group) {
-        event = new OB11GroupRecallNoticeEvent(
-          data.peerUin,
-          data.senderUin,
-          data.operatorUin,
-          shortId
-        )
-      } else {
-        event = new OB11FriendRecallNoticeEvent(data.senderUin, shortId)
-      }
+    this.ctx.on('nt/group-disband', async (data) => {
+      const event = new OB11GroupDismissEvent(
+        data.groupCode,
+        data.operatorUin
+      )
       this.dispatch(event)
     })
 
@@ -694,6 +629,34 @@ class Onebot11Adapter extends Service {
         data.memberUin,
         data.operatorUin ?? data.invitorUin!,
         data.operatorUid ? 'approve' : 'invite'
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-member-removed', (data) => {
+      let subType: GroupDecreaseSubType = 'leave'
+      if (data.operatorUin) {
+        if (data.memberUin === +selfInfo.uin) {
+          subType = 'kick_me'
+        } else {
+          subType = 'kick'
+        }
+      }
+      const event = new OB11GroupDecreaseEvent(
+        data.groupCode,
+        data.memberUin,
+        data.operatorUin ?? data.memberUin,
+        subType
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-member-card-name-changed', (data) => {
+      const event = new OB11GroupCardEvent(
+        data.groupCode,
+        data.uin,
+        data.newCardName,
+        data.oldCardName
       )
       this.dispatch(event)
     })
