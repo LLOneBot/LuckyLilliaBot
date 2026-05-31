@@ -140,7 +140,11 @@ export class NTQQMsgApi extends Service {
       senderUid: selfInfo.uid,
       senderUin: +selfInfo.uin,
       peerUid: peer.peerUid,
-      peerUin: await this.ctx.ntUserApi.getUinByUid(peer.peerUid),
+      // 群聊里 peerUid 已经是 groupCode 数字字符串，不能 getUinByUid 当 user 查（会得 0）。
+      // C2C/Temp 才需要把 uid 解析回 uin。
+      peerUin: peer.chatType === ChatType.Group
+        ? +peer.peerUid
+        : await this.ctx.ntUserApi.getUinByUid(peer.peerUid),
       sendNickName: '',
       sendMemberName: '',
       chatType,
