@@ -215,6 +215,8 @@ export class NTQQFileApi extends Service {
         downloadStatus: 0,
         filePhysicalSize: String(f.fileSize ?? 0),
         physical: { id: f.fileUuid, status: 2, localPath: '' },
+        sha1Hex: f.sha1Hex ?? '',
+        md5Hex: f.md5Hex ?? '',
       })),
       isEnd: true,
       isCache: false,
@@ -305,18 +307,19 @@ export class NTQQFileApi extends Service {
     await this.ctx.qqProtocol.prepFlashFileSet(newFileSetId)
     let reqId = 0
     for (const f of sourceFiles as any[]) {
-      const sha1Hex = f.download?.sha1 ?? ''
+      const sha1Hex = f.sha1Hex ?? ''
+      const fileName = f.name ?? ''
       const pre = await this.ctx.qqProtocol.flashFileUploadPreflight({
-        fileSize: f.fileSize ?? 0, sha1Hex, name: f.name ?? '', requestId: ++reqId, field103: 22,
+        fileSize: f.fileSize ?? 0, sha1Hex, name: fileName, requestId: ++reqId, field103: 22,
       })
       if (pre.uKey) {
         throw new Error(`reshareFlashFile: 源文件不再在服务端缓存中（非秒传命中），无法重新分享`)
       }
       if (!pre.token) {
-        throw new Error(`reshareFlashFile: preflight 没有返回 token (file ${f.name})`)
+        throw new Error(`reshareFlashFile: preflight 没有返回 token (file ${fileName})`)
       }
       await this.ctx.qqProtocol.flashFileUploadCommit({
-        fileSize: f.fileSize ?? 0, sha1Hex, name: f.name ?? '',
+        fileSize: f.fileSize ?? 0, sha1Hex, name: fileName,
         token: pre.token, time: pre.time, ttl: pre.ttl, requestId: ++reqId, field103: 22,
       })
     }

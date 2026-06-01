@@ -1093,17 +1093,7 @@ export namespace Oidb {
       }),
     }),
     field3: ProtoField(3, 'uint32'),
-  })
-
-  const FlashFileDownloadInfo = ProtoMessage.of({
-    token: ProtoField(1, 'string'),
-    download: ProtoField(2, {
-      kind: ProtoField(1, 'uint32'),
-      url: ProtoField(2, 'string'),
-    }, 'optional'),
-    sha1: ProtoField(3, 'string'),
-    fileSize: ProtoField(4, 'uint32'),
-    md5: ProtoField(5, 'string'),
+    field4: ProtoField(4, 'uint32'),
   })
 
   const FlashFileEntry = ProtoMessage.of({
@@ -1111,11 +1101,27 @@ export namespace Oidb {
     fileUuid: ProtoField(2, 'string'),
     field5: ProtoField(5, 'uint32'),
     field6: ProtoField(6, 'uint32'),
-    fileSize: ProtoField(7, 'uint32'),
+    fileTypeFlag: ProtoField(7, 'uint32'),  // = 11，跟 registerFlashFile.field7 一致
     name: ProtoField(8, 'string'),
     name2: ProtoField(9, 'string'),
-    fileSize2: ProtoField(11, 'uint32'),
-    download: ProtoField(13, FlashFileDownloadInfo, 'optional'),
+    fileSize: ProtoField(11, 'uint32'),
+    // f13 是 server 端 download kind/state 标记，server 不直接返完整 URL；
+    // 真要 URL 必须再调 0x12a9_200
+    field13: ProtoField(13, {
+      field2: ProtoField(2, {
+        kind: ProtoField(1, 'uint32'),
+      }),
+    }, 'optional'),
+    // 历史 commit token（base64），可作为 0x12a9_200 的 fileId 入参（server 实测不依赖）
+    historyToken: ProtoField(14, {
+      token: ProtoField(1, 'string'),
+      field3: ProtoField(3, 'uint32'),
+    }, 'optional'),
+    fileUuid2: ProtoField(15, 'string'),
+    field18: ProtoField(18, 'uint32'),
+    sha1Hex: ProtoField(20, 'string'),
+    fileSize2: ProtoField(21, 'uint32'),
+    md5Hex: ProtoField(25, 'string'),
   })
 
   export const FlashFileListResp = ProtoMessage.of({

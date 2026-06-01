@@ -465,6 +465,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           flags2: { field1: 0, field2: 0 },
         },
         field3: 1,
+        field4: 1,
       })
       const data = Oidb.Base.encode({ command: 0x93d4, subCommand: 1, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x93d4_1', data)
