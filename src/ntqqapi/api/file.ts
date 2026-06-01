@@ -163,6 +163,8 @@ export class NTQQFileApi extends Service {
     // 注：LLBot 对图片文件会先做一遍 field103=24 的"图像模式"上传（需要 NT 内部
     // 分配的 md5+ext 文件名），无法可靠复现；这里只做 field103=22 的通用文件模式。
     let reqId = 0
+    type DownloadInfo = { name: string, size: number, url: string, expire: number }
+    const downloads: DownloadInfo[] = []
     for (const f of files) {
       const pre = await this.ctx.qqProtocol.flashFileUploadPreflight({
         fileSize: f.size, sha1Hex: f.sha1, name: f.name, requestId: ++reqId, field103: 22,
@@ -178,9 +180,21 @@ export class NTQQFileApi extends Service {
         fileSize: f.size, sha1Hex: f.sha1, name: f.name,
         token: pre.token, time: pre.time, ttl: pre.ttl, requestId: ++reqId, field103: 22,
       })
+      // 立刻拿 download URL：preflight 给的 token 在这里当 fileId 用，server 拼 URL
+      // 时填进 fileid= 参数。Linux QQ 的 list 拿不到 fileId/sha1，所以必须在 upload
+      // 流程里一步到位拿 URL，事后没法重建。
+      // sha1/md5 不传也行（server 用 fileId 定位文件就够），传了反而某些 server 端会
+      // 把 sha1 当 string 解析报 invalid UTF-8（proto 是 bytes，但 server impl 用 string）。
+      const dl = await this.ctx.qqProtocol.flashFileDownloadUrl({
+        fileSetId,
+        fileUuid: f.fileUuid,
+        fileName: f.name,
+        fileSize: f.size,
+        fileId: pre.token,
+        requestId: ++reqId,
+      })
+      downloads.push({ name: f.name, size: f.size, url: dl.fullUrl, expire: dl.ttl })
     }
-    // 5. finalize
-    await this.ctx.qqProtocol.downloadFlashFile(fileSetId, 6).catch(() => { })
     return {
       result: 0,
       errMsg: '',
@@ -191,6 +205,9 @@ export class NTQQFileApi extends Service {
         expireTime: String(fset.expireTime),
         expireLeftTime: String(fset.expireLeftTime),
       },
+      // 上传一步到位拿到的每个文件 download URL（multimedia.qfile.qq.com 短期签名链接，
+      // 1 小时过期）。直接 https.get 可下；过期后只能上层用 share_link 走浏览器入口。
+      downloads,
     }
   }
 
@@ -246,6 +263,7 @@ export class NTQQFileApi extends Service {
     fileSize?: number,
     fileSha1Hex?: string,
     fileMd5Hex?: string,
+    fileId?: string,  // base64 token (from preflight resp.fastUploadInfo.summary.fileSummary.token)
   }): Promise<{ host: string, path: string, port: number, rkey: string, ttl: number, fullUrl: string }> {
     const requestId = Math.floor(Math.random() * 0x7fffffff) + 1
     return await this.ctx.qqProtocol.flashFileDownloadUrl({
@@ -255,6 +273,7 @@ export class NTQQFileApi extends Service {
       fileSize: opts.fileSize,
       fileSha1: opts.fileSha1Hex ? Buffer.from(opts.fileSha1Hex, 'hex') : undefined,
       fileMd5: opts.fileMd5Hex ? Buffer.from(opts.fileMd5Hex, 'hex') : undefined,
+      fileId: opts.fileId,
       requestId,
     })
   }
