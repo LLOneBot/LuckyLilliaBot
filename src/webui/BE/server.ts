@@ -3,7 +3,7 @@ import { Config, WebUIConfig } from '@/common/types'
 import { Context, Service } from 'cordis'
 import { TEMP_DIR } from '@/common/globalVars'
 import { getAvailablePort } from '@/common/utils/port'
-import { ChatType, RawMessage, FriendRequest } from '@/ntqqapi/types'
+import { ChatType, RawMessage } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
 import { existsSync, mkdirSync } from 'node:fs'
 import { authMiddleware } from './auth'
@@ -155,12 +155,12 @@ export class WebuiServer extends Service {
         type: 'message-deleted',
         data: {
           msgId: data.msgId,
-          msgSeq: data.msgSeq,
+          msgSeq: data.msgSeq.toString(),
           chatType: data.chatType,
           peerUid: data.peerUid,
-          peerUin: data.peerUin,
+          peerUin: data.peerUin.toString(),
           operatorUid: data.operatorUid,
-          operatorNick: revokeElement?.operatorNick || revokeElement?.operatorMemRemark || revokeElement?.operatorRemark,
+          operatorNick: '',
           isSelfOperate: data.senderUin === data.operatorUin,
           wording: data.displaySuffix
         }
@@ -172,60 +172,18 @@ export class WebuiServer extends Service {
 
     // TODO: 监听群通知事件（加群申请、邀请入群、被踢等）
 
-    // 监听好友申请事件
-    this.ctx.on('nt/friend-request', async (req: FriendRequest) => {
-      if (this.sseClients.size === 0) return
-      try {
-        const uin = await this.ctx.ntUserApi.getUinByUid(req.friendUid).catch(() => '')
-        this.broadcastMessage('message', {
-          type: 'friend-request',
-          data: {
-            friendUid: req.friendUid,
-            friendUin: uin,
-            friendNick: req.friendNick,
-            reqTime: req.reqTime,
-            extWords: req.extWords,
-            isDecide: req.isDecide,
-            reqType: req.reqType,
-            addSource: req.addSource || '',
-            flag: req.friendUid
-          }
-        })
-      } catch (e) {
-        this.ctx.logger.error('处理好友申请事件失败:', e)
-      }
-    })
+    // TODO: 监听好友申请事件
 
-    // 监听群解散事件
-    this.ctx.on('nt/group-dismiss', (data) => {
-      if (this.sseClients.size === 0) return
-      this.broadcastMessage('message', {
-        type: 'group-dismiss',
-        data: {
-          groupCode: data.groupCode,
-          groupName: data.groupName
-        }
-      })
-    })
+    // TODO: 监听群解散事件
 
-    // 监听主动退群事件
-    this.ctx.on('nt/group-quit', (data) => {
-      if (this.sseClients.size === 0) return
-      this.broadcastMessage('message', {
-        type: 'group-quit',
-        data: {
-          groupCode: data.groupCode,
-          groupName: data.groupName
-        }
-      })
-    })
+    // TODO: 监听主动退群事件（可能并没有这个事件）
   }
 
   private async fillPeerUin(message: RawMessage) {
-    if (message.chatType === ChatType.C2C && (!message.peerUin || message.peerUin === '0') && message.peerUid) {
+    if (message.chatType === ChatType.C2C && (!message.peerUin || message.peerUin === 0) && message.peerUid) {
       const uin = await this.ctx.ntUserApi.getUinByUid(message.peerUid)
       if (uin) {
-        message.peerUin = uin.toString()
+        message.peerUin = uin
       }
     }
   }

@@ -1,5 +1,3 @@
-import { GroupMemberRole } from './group'
-
 export enum ElementType {
   Text = 1,
   Pic = 2,
@@ -154,150 +152,6 @@ export interface PicElement {
   originImageUrl: string
 }
 
-export interface TipAioOpGrayTipElement {
-  operateType: number
-  peerUid: string
-  fromGrpCodeOfTmpChat: string
-}
-
-export enum TipGroupElementType {
-  Unknown,
-  MemberAdd,
-  Disbanded,
-  Quitted,
-  Created,
-  GroupNameModified,
-  Block,
-  Unblock,
-  ShutUp,
-  BeRecycled,
-  DisbandOrBeRecycled
-}
-
-export interface TipGroupElement {
-  type: TipGroupElementType // 1是表示有人加入群, 自己加入群也会收到这个
-  role: number
-  groupName: string
-  memberUid: string
-  memberNick: string
-  memberRemark: string
-  adminUid: string
-  adminNick: string
-  adminRemark: string
-  createGroup: null
-  memberAdd?: {
-    showType: number
-    otherAdd?: {
-      uid: string
-      name: string
-    }
-    otherAddByOtherQRCode?: unknown
-    otherAddByYourQRCode?: unknown
-    youAddByOtherQRCode?: unknown
-    otherInviteOther?: unknown
-    otherInviteYou?: unknown
-    youInviteOther?: unknown
-  }
-  shutUp?: {
-    curTime: string
-    duration: string // 禁言时间，秒
-    admin: {
-      uid: string
-      card: string
-      name: string
-      role: GroupMemberRole
-    }
-    member: {
-      uid: string
-      card: string
-      name: string
-      role: GroupMemberRole
-    }
-  }
-}
-
-export interface TipXmlElement {
-  busiType: string
-  busiId: string
-  c2cType: number
-  serviceType: number
-  ctrlFlag: number
-  content: string
-  templId: string
-  seqId: string,
-  templParam: Map<string, string>
-  pbReserv: Record<string, number>
-  members: Map<string, string> // uid -> remark
-}
-
-export enum GrayTipElementSubType {
-  Revoke = 1,
-  Proclamation = 2,
-  EmojiReply = 3,
-  Group = 4,
-  Buddy = 5,
-  Feed = 6,
-  Essence = 7,
-  GroupNotify = 8,
-  BuddyNotify = 9,
-  File = 10,
-  FeedChannelMsg = 11,
-  XmlMsg = 12,
-  LocalMsg = 13,
-  Block = 14,
-  AioOp = 15,
-  Wallet = 16,
-  JSON = 17,
-}
-
-export enum JsonGrayTipBusId {
-  AddedFriend = '19324',
-  Poke = '1061',
-  GroupMemberTitleChanged = '2407',
-  GroupEssenceMsg = '2401',
-  GroupNewMemberInvited = '19217',
-}
-
-export interface GrayTipElement {
-  subElementType: GrayTipElementSubType
-  revokeElement?: {
-    operatorTinyId: string
-    operatorRole: string
-    operatorUid: string
-    operatorNick: string
-    operatorRemark: string
-    operatorMemRemark: string
-    origMsgSenderUid: string
-    origMsgSenderNick: string
-    origMsgSenderRemark: string
-    origMsgSenderMemRemark: string
-    isSelfOperate: boolean
-    wording: string // 自定义的撤回提示语
-  }
-  aioOpGrayTipElement?: TipAioOpGrayTipElement
-  groupElement?: TipGroupElement
-  xmlElement?: TipXmlElement
-  jsonGrayTipElement?: {
-    busiId: JsonGrayTipBusId
-    jsonStr: string
-    recentAbstract: string
-    isServer: boolean
-    xmlToJsonParam: {
-      busiType: string
-      busiId: string
-      c2cType: number
-      serviceType: number
-      ctrlFlag: number
-      content: string
-      templId: string
-      seqId: string
-      templParam: Map<string, string>
-      pbReserv: {}
-      members: Map<string, string>
-    }
-  }
-}
-
 export enum FaceIndex {
   Dice = 358,
   RPS = 359, // 石头剪刀布
@@ -439,7 +293,7 @@ export interface MessageElement {
   picElement?: PicElement
   pttElement?: PttElement
   videoElement?: VideoElement
-  grayTipElement?: GrayTipElement
+  grayTipElement?: unknown
   arkElement?: ArkElement
   fileElement?: FileElement
   liveGiftElement?: unknown

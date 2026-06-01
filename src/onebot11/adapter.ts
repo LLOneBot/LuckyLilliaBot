@@ -65,14 +65,6 @@ class Onebot11Adapter extends Service {
   private actionMap: Map<string, BaseAction<unknown, unknown>>
   private reportOfflineMessage: boolean
   private reportSelfMessage: boolean
-  // 直连模式下的 poke 缓存：msgUid → poke 事件信息，撤回时（nt/message-deleted）回查
-  private pokeCache = new Map<string, {
-    chatType: 'group' | 'friend'
-    groupId?: number
-    userId: number
-    targetId: number
-    rawInfo: unknown
-  }>()
 
   constructor(public ctx: Context, public config: Onebot11Adapter.Config) {
     super(ctx, 'onebot')
@@ -157,12 +149,6 @@ class Onebot11Adapter extends Service {
         }
       }
     }).catch(e => this.ctx.logger.error('handling incoming group events', e))
-
-    OB11Entities.privateEvent(this.ctx, message).then(privateEvent => {
-      if (privateEvent) {
-        this.dispatchMessageLike(privateEvent, self, offline)
-      }
-    }).catch(e => this.ctx.logger.error('handling incoming buddy events', e))
   }
 
   private async handleConfigUpdated(config: LLOBConfig) {
@@ -249,55 +235,6 @@ class Onebot11Adapter extends Service {
     this.ctx.on('nt/message-sent', input => {
       this.handleMsg(input, true, false)
     })
-    this.ctx.on('nt/raw/group-poke', input => {
-      const groupId = +input.groupCode
-      const userId = +input.fromUin   // operator
-      const targetId = +input.toUin   // target
-      if (!groupId || !userId || !targetId) return
-      const rawInfo: Record<string, unknown>[] = [
-        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: String(userId) },
-        { col: '1', jp: '', txt: input.action || '戳了戳', type: 'nor' },
-        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: String(targetId) },
-      ]
-      if (input.suffix) {
-        rawInfo.push({ col: '1', jp: '', txt: input.suffix, type: 'nor' })
-      }
-      if (input.actionImg) {
-        rawInfo.push({ src: input.actionImg, type: 'img' })
-      }
-      if (input.msgUid && input.msgUid !== '0') {
-        this.pokeCache.set(input.msgUid, { chatType: 'group', groupId, userId, targetId, rawInfo })
-        if (this.pokeCache.size > 500) {
-          const firstKey = this.pokeCache.keys().next().value
-          if (firstKey) this.pokeCache.delete(firstKey)
-        }
-      }
-      this.dispatch(new OB11GroupPokeEvent(groupId, userId, targetId, rawInfo))
-    })
-    this.ctx.on('nt/raw/friend-poke', input => {
-      const userId = +input.fromUin   // operator
-      const targetId = +input.toUin   // target
-      if (!userId || !targetId) return
-      const rawInfo: Record<string, unknown>[] = [
-        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: String(userId) },
-        { col: '1', jp: '', txt: input.action || '戳了戳', type: 'nor' },
-        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: String(targetId) },
-      ]
-      if (input.suffix) {
-        rawInfo.push({ col: '1', jp: '', txt: input.suffix, type: 'nor' })
-      }
-      if (input.actionImg) {
-        rawInfo.push({ src: input.actionImg, type: 'img' })
-      }
-      if (input.msgUid && input.msgUid !== '0') {
-        this.pokeCache.set(input.msgUid, { chatType: 'friend', userId, targetId, rawInfo })
-        if (this.pokeCache.size > 500) {
-          const firstKey = this.pokeCache.keys().next().value
-          if (firstKey) this.pokeCache.delete(firstKey)
-        }
-      }
-      this.dispatch(new OB11FriendPokeEvent(userId, targetId, rawInfo))
-    })
     this.ctx.on('nt/raw/group-reaction', async input => {
       const groupId = +input.groupCode
       if (!groupId) return
@@ -329,37 +266,6 @@ class Onebot11Adapter extends Service {
         this.ctx.logger.warn('group-reaction bridge error:', (e as Error).message)
       }
     })
-    this.ctx.on('nt/raw/group-mute', async input => {
-      const groupId = +input.groupCode
-      if (!groupId) return
-      try {
-        const targetUin = input.targetUid
-          ? await this.ctx.ntUserApi.getUinByUid(input.targetUid)
-          : '0'
-        const operatorUin = input.operatorUid
-          ? await this.ctx.ntUserApi.getUinByUid(input.operatorUid)
-          : '0'
-        const subType = input.duration > 0 ? 'ban' : 'lift_ban'
-        this.dispatch(new GroupBanEvent(groupId, +targetUin, +operatorUin, input.duration, subType))
-      } catch (e) {
-        this.ctx.logger.warn('group-mute bridge error:', (e as Error).message)
-      }
-    })
-    this.ctx.on('nt/raw/group-mute-all', async input => {
-      const groupId = +input.groupCode
-      if (!groupId) return
-      try {
-        const operatorUin = input.operatorUid
-          ? await this.ctx.ntUserApi.getUinByUid(input.operatorUid)
-          : '0'
-        // 0 表示全员禁言。开启用 -1，解除用 0（OB11 约定）
-        const duration = input.isMute ? -1 : 0
-        const subType = input.isMute ? 'ban' : 'lift_ban'
-        this.dispatch(new GroupBanEvent(groupId, 0, +operatorUin, duration, subType))
-      } catch (e) {
-        this.ctx.logger.warn('group-mute-all bridge error:', (e as Error).message)
-      }
-    })
     this.ctx.on('nt/raw/group-essence-change', async input => {
       const groupId = +input.groupCode
       if (!groupId) return
@@ -388,35 +294,6 @@ class Onebot11Adapter extends Service {
         ))
       } catch (e) {
         this.ctx.logger.warn('group-essence-change bridge error:', (e as Error).message)
-      }
-    })
-    this.ctx.on('nt/raw/group-title-changed', async input => {
-      const groupId = +input.groupCode
-      if (!groupId) return
-      try {
-        // memberUin 在 templateParams 里有可能是 uin，也有可能是 uid，统一兜底处理
-        let userId = +input.memberUin
-        if (!userId && input.memberUin?.startsWith('u_')) {
-          const uin = await this.ctx.ntUserApi.getUinByUid(input.memberUin)
-          userId = +uin
-        }
-        if (!userId) return
-        this.dispatch(new OB11GroupTitleEvent(groupId, userId, input.title))
-      } catch (e) {
-        this.ctx.logger.warn('group-title-changed bridge error:', (e as Error).message)
-      }
-    })
-    this.ctx.on('nt/raw/friend-added', async input => {
-      try {
-        let userId = +input.peerUin
-        if (!userId && input.peerUid) {
-          const uin = await this.ctx.ntUserApi.getUinByUid(input.peerUid)
-          userId = +uin
-        }
-        if (!userId) return
-        this.dispatch(new OB11FriendAddNoticeEvent(userId))
-      } catch (e) {
-        this.ctx.logger.warn('friend-added bridge error:', (e as Error).message)
       }
     })
     this.ctx.on('nt/system-message-created', async input => {
@@ -561,7 +438,7 @@ class Onebot11Adapter extends Service {
       if (data.chatType === ChatType.Group && data.msgRandom === 0) {
         const original = this.ctx.store.getMsgBySeq(data.peerUid, data.msgSeq)
         if (original) {
-          resolved = { ...data, msgRandom: original.msgRandom, msgId: original.msgId, senderUid: original.senderUid }
+          resolved = { ...data, msgRandom: original.msgRandom, msgId: original.msgId }
         }
       }
       const shortId = this.ctx.store.createMsgShortId(resolved)
@@ -610,10 +487,56 @@ class Onebot11Adapter extends Service {
       this.dispatch(event)
     })
 
-    this.ctx.on('nt/group-disband', async (data) => {
+    this.ctx.on('nt/group-disband', (data) => {
       const event = new OB11GroupDismissEvent(
         data.groupCode,
         data.operatorUin
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-nudge', (data) => {
+      const userId = data.senderUin
+      const targetId = data.receiverUin
+      if (!userId || !targetId) return
+      const rawInfo: Record<string, unknown>[] = [
+        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: userId.toString() },
+        { col: '1', jp: '', txt: data.displayAction, type: 'nor' },
+        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: targetId.toString() },
+      ]
+      if (data.displaySuffix) {
+        rawInfo.push({ col: '1', jp: '', txt: data.displaySuffix, type: 'nor' })
+      }
+      if (data.displayActionImgUrl) {
+        rawInfo.push({ src: data.displayActionImgUrl, type: 'img' })
+      }
+      const event = new OB11GroupPokeEvent(
+        data.groupCode,
+        userId,
+        targetId,
+        rawInfo
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-whole-mute', (data) => {
+      const event = new GroupBanEvent(
+        data.groupCode,
+        0,
+        data.operatorUin,
+        data.isMute ? -1 : 0,
+        data.isMute ? 'ban' : 'lift_ban'
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-mute', (data) => {
+      const event = new GroupBanEvent(
+        data.groupCode,
+        data.memberUin,
+        data.operatorUin,
+        data.duration,
+        data.duration !== 0 ? 'ban' : 'lift_ban'
       )
       this.dispatch(event)
     })
@@ -656,6 +579,15 @@ class Onebot11Adapter extends Service {
       this.dispatch(event)
     })
 
+    this.ctx.on('nt/group-member-special-title-changed', (data) => {
+      const event = new OB11GroupTitleEvent(
+        data.groupCode,
+        data.uin,
+        data.newSpecialTitle
+      )
+      this.dispatch(event)
+    })
+
     this.ctx.on('nt/friend-request', (data) => {
       const event = new OB11FriendRequestEvent(
         data.initiatorUin,
@@ -664,6 +596,29 @@ class Onebot11Adapter extends Service {
         data.via
       )
       this.dispatch(event)
+    })
+
+    this.ctx.on('nt/friend-added', (data) => {
+      const event = new OB11FriendAddNoticeEvent(data.uin)
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/friend-nudge', (data) => {
+      const userId = data.uin
+      const targetId = data.isSelfReceive ? +selfInfo.uin : data.uin
+      if (!userId || !targetId) return
+      const rawInfo: Record<string, unknown>[] = [
+        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: userId.toString() },
+        { col: '1', jp: '', txt: data.displayAction, type: 'nor' },
+        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: targetId.toString() },
+      ]
+      if (data.displaySuffix) {
+        rawInfo.push({ col: '1', jp: '', txt: data.displaySuffix, type: 'nor' })
+      }
+      if (data.displayActionImgUrl) {
+        rawInfo.push({ src: data.displayActionImgUrl, type: 'img' })
+      }
+      this.dispatch(new OB11FriendPokeEvent(userId, targetId, rawInfo))
     })
   }
 }

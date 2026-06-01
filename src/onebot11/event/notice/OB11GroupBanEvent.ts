@@ -1,6 +1,4 @@
 import { OB11GroupNoticeEvent } from './OB11GroupNoticeEvent'
-import { TipGroupElement } from '@/ntqqapi/types'
-import { Context } from 'cordis'
 
 export class GroupBanEvent extends OB11GroupNoticeEvent {
   notice_type = 'group_ban'
@@ -17,22 +15,5 @@ export class GroupBanEvent extends OB11GroupNoticeEvent {
     this.user_id = userId
     this.duration = duration
     this.sub_type = sub_type
-  }
-
-  static async parse(ctx: Context, groupElement: TipGroupElement, groupCode: string) {
-    const memberUid = groupElement.shutUp?.member.uid
-    const adminUid = groupElement.shutUp?.admin.uid
-    let memberUin = 0
-    let duration = Number(groupElement.shutUp?.duration)
-    if (memberUid) {
-      memberUin = await ctx.ntUserApi.getUinByUid(memberUid)
-    } else {
-      if (duration > 0) {
-        duration = -1
-      }
-    }
-    const adminUin = await ctx.ntUserApi.getUinByUid(adminUid!)
-    const subType = duration > 0 ? 'ban' : 'lift_ban'
-    return new GroupBanEvent(+groupCode, memberUin, +adminUin, duration, subType)
   }
 }

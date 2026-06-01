@@ -15,9 +15,18 @@ export class NTQQFriendApi extends Service {
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntFriendApi')
+    ctx.on('nt/friend-added', () => {
+      if (this.friendsCache.length > 0) {
+        this.getFriends(true)
+      }
+    })
+    ctx.on('nt/friend-removed', () => {
+      if (this.friendsCache.length > 0) {
+        this.getFriends(true)
+      }
+    })
   }
 
-  // TODO: 好友数量变更时刷新缓存
   async getFriends(forceUpdate: boolean) {
     if (forceUpdate || this.friendsCache.length === 0) {
       const friends = []

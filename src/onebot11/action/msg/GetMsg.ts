@@ -24,7 +24,7 @@ class GetMsg extends BaseAction<PayloadType, OB11Message> {
     let status: 'normal' | 'deleted' = 'normal'
     let msg
     const res = await this.ctx.ntMsgApi.getSingleMsg(msgInfo.peer, msgInfo.msgSeq)
-    if (res.msgList.length === 0 || res.msgList[0].elements[0]?.grayTipElement?.revokeElement) {
+    if (res.msgList.length === 0) {
       const msgCache = this.ctx.store.getMsgByMsgId(msgInfo.msgId)
       if (msgCache) {
         msg = msgCache

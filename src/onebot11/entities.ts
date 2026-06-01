@@ -8,24 +8,15 @@ import {
 import {
   ChatType,
   Friend,
-  GrayTipElementSubType,
   GroupMember,
   GroupMemberRole,
-  JsonGrayTipBusId,
   RawMessage,
   Sex,
-  TipGroupElementType,
 } from '../ntqqapi/types'
 import { EventType } from './event/OB11BaseEvent'
 import { OB11GroupUploadNoticeEvent } from './event/notice/OB11GroupUploadNoticeEvent'
 import { OB11GroupNoticeEvent } from './event/notice/OB11GroupNoticeEvent'
-import { OB11GroupTitleEvent } from './event/notice/OB11GroupTitleEvent'
-import { OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
-import { OB11FriendAddNoticeEvent } from './event/notice/OB11FriendAddNoticeEvent'
-import { OB11FriendPokeEvent, OB11GroupPokeEvent } from './event/notice/OB11PokeEvent'
-import { OB11BaseNoticeEvent } from './event/notice/OB11BaseNoticeEvent'
 import { GroupBanEvent } from './event/notice/OB11GroupBanEvent'
-import { Dict } from 'cosmokit'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { ParseMessageConfig } from './types'
@@ -114,46 +105,6 @@ export namespace OB11Entities {
     return resMsg
   }
 
-  export async function privateEvent(ctx: Context, msg: RawMessage): Promise<OB11BaseNoticeEvent | void> {
-    if (msg.chatType !== ChatType.C2C) {
-      return
-    }
-    // wrapper 模式：msgType=5 是 GrayTip, 11 是 ArkStruct
-    // 直连模式：所有消息都映射为 msgType=2，靠 element 判别
-
-    for (const element of msg.elements) {
-      if (element.grayTipElement) {
-        const { grayTipElement } = element
-        if (grayTipElement.jsonGrayTipElement?.busiId === '1061') {
-          const json = JSON.parse(grayTipElement.jsonGrayTipElement.jsonStr)
-          const param = grayTipElement.jsonGrayTipElement.xmlToJsonParam
-          if (param) {
-            return new OB11FriendPokeEvent(
-              Number(param.templParam.get('uin_str1')),
-              Number(param.templParam.get('uin_str2')),
-              json.items
-            )
-          }
-          const pokedetail: Dict[] = json.items
-          //筛选item带有uid的元素
-          const poke_uid = pokedetail.filter(item => item.uid)
-          if (poke_uid.length === 2) {
-            return new OB11FriendPokeEvent(
-              Number(await ctx.ntUserApi.getUinByUid(poke_uid[0].uid)),
-              Number(await ctx.ntUserApi.getUinByUid(poke_uid[1].uid)),
-              pokedetail
-            )
-          }
-        }
-        if (grayTipElement.xmlElement?.templId === '10229' || grayTipElement.jsonGrayTipElement?.busiId === JsonGrayTipBusId.AddedFriend) {
-          ctx.logger.info('收到好友添加消息', msg.peerUid)
-          const uin = +msg.peerUin || +(await ctx.ntUserApi.getUinByUid(msg.peerUid))
-          return new OB11FriendAddNoticeEvent(uin)
-        }
-      }
-    }
-  }
-
   export async function groupEvent(ctx: Context, msg: RawMessage): Promise<OB11GroupNoticeEvent | OB11GroupNoticeEvent[] | void> {
     if (msg.chatType !== ChatType.Group) {
       return
@@ -169,31 +120,6 @@ export namespace OB11Entities {
           size: +element.fileElement.fileSize,
           busid: element.fileElement.fileBizId,
         })
-      } else if (element.grayTipElement) {
-        const grayTipElement = element.grayTipElement
-        if (grayTipElement.subElementType === GrayTipElementSubType.JSON) {
-          const json = JSON.parse(grayTipElement.jsonGrayTipElement!.jsonStr)
-          if (grayTipElement.jsonGrayTipElement?.busiId === '1061') {
-            const param = grayTipElement.jsonGrayTipElement.xmlToJsonParam!
-            return new OB11GroupPokeEvent(
-              Number(msg.peerUid),
-              Number(param.templParam.get('uin_str1')),
-              Number(param.templParam.get('uin_str2')),
-              json.items
-            )
-          } else if (grayTipElement.jsonGrayTipElement?.busiId === JsonGrayTipBusId.GroupMemberTitleChanged) {
-            ctx.logger.info('收到群成员新头衔消息', json)
-            const memberUin = json.items[1].param[0]
-            const title = json.items[3].txt
-            return new OB11GroupTitleEvent(+msg.peerUid, +memberUin, title)
-          }
-        } else if (grayTipElement.subElementType === GrayTipElementSubType.Group) {
-          const groupElement = grayTipElement.groupElement!
-          if (groupElement.type === TipGroupElementType.ShutUp) {
-            ctx.logger.info('收到群成员禁言提示', groupElement)
-            return await GroupBanEvent.parse(ctx, groupElement, msg.peerUid)
-          }
-        }
       }
     }
   }

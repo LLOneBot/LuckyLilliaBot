@@ -1,6 +1,6 @@
-import { Msg, Notify } from '@/ntqqapi/proto'
-import { ChatType, ElementType, RawMessage, GrayTipElementSubType, FriendRequestNotify, BuddyReqType, GroupNotificationType, RequestState } from '@/ntqqapi/types'
 import type { Context } from 'cordis'
+import { Msg, Notify } from '@/ntqqapi/proto'
+import { ChatType, ElementType, RawMessage, GroupNotificationType, RequestState } from '@/ntqqapi/types'
 import { selfInfo } from '@/common/globalVars'
 import { parseElements } from './helper/messageParsing'
 import { InferProtoModel } from '@saltify/typeproto'
@@ -35,6 +35,7 @@ const enum Event0x210Sub {
   PttTransResult = 61,
   FriendRecall = 138,
   FriendSelfRecall = 139,
+  FriendAdded = 179,
   GroupRemoved = 212,
   FriendGrayTip = 290,
 }
@@ -145,16 +146,16 @@ async function handleGroupMemberDecrease(ctx: Context, msg: InferProtoModel<type
   if (decoded.type === 129) {
     ctx.parallel('nt/group-disband', {
       groupCode: decoded.groupCode,
-      operatorUid: adminUid!,
-      operatorUin: adminUin!
+      operatorUin: adminUin!,
+      operatorUid: adminUid!
     })
   } else {
     ctx.parallel('nt/group-member-removed', {
       groupCode: decoded.groupCode,
-      memberUid: decoded.memberUid,
       memberUin: await ctx.ntUserApi.getUinByUid(decoded.memberUid),
-      operatorUid: adminUid,
-      operatorUin: adminUin
+      memberUid: decoded.memberUid,
+      operatorUin: adminUin,
+      operatorUid: adminUid
     })
   }
 }
@@ -171,18 +172,18 @@ async function handleGroupMemberIncrease(ctx: Context, msg: InferProtoModel<type
   if (decoded.type === 130) {
     ctx.parallel('nt/group-member-added', {
       groupCode: decoded.groupCode,
-      memberUid: decoded.memberUid,
       memberUin: await ctx.ntUserApi.getUinByUid(decoded.memberUid),
-      operatorUid: decoded.adminUid,
-      operatorUin: await ctx.ntUserApi.getUinByUid(decoded.adminUid)
+      memberUid: decoded.memberUid,
+      operatorUin: await ctx.ntUserApi.getUinByUid(decoded.adminUid),
+      operatorUid: decoded.adminUid
     })
   } else if (decoded.type === 131) {
     ctx.parallel('nt/group-member-added', {
       groupCode: decoded.groupCode,
-      memberUid: decoded.memberUid,
       memberUin: await ctx.ntUserApi.getUinByUid(decoded.memberUid),
-      invitorUid: decoded.adminUid,
-      invitorUin: await ctx.ntUserApi.getUinByUid(decoded.adminUid)
+      memberUid: decoded.memberUid,
+      invitorUin: await ctx.ntUserApi.getUinByUid(decoded.adminUid),
+      invitorUid: decoded.adminUid
     })
   }
 }
@@ -256,10 +257,22 @@ function handle0x210(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, sub
       handleGroupRemoved(ctx, content)
       break
 
+    case Event0x210Sub.FriendAdded:
+      handleFriendAdded(ctx, msg, content)
+      break
+
     default:
       forwardSystemMessage(ctx, msg)
       break
   }
+}
+
+function handleFriendAdded(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
+  const decoded = Notify.FriendAdded.decode(content)
+  ctx.parallel('nt/friend-added', {
+    uin: msg.routingHead.fromUin,
+    uid: decoded.body.friendUid
+  })
 }
 
 function handleGroupRemoved(ctx: Context, content: Buffer) {
@@ -267,9 +280,16 @@ function handleGroupRemoved(ctx: Context, content: Buffer) {
   ctx.parallel('nt/group-removed', decoded)
 }
 
-function handleFriendDeleteOrPin(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
+async function handleFriendDeleteOrPin(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
   try {
     const decoded = Notify.FriendDeleteOrPinChange.decode(content)
+    if (decoded.body.friendDeleted) {
+      const { uid } = decoded.body.friendDeleted
+      ctx.parallel('nt/friend-removed', {
+        uin: await ctx.ntUserApi.getUinByUid(uid),
+        uid
+      })
+    }
     const pinChanged = decoded.body?.pinChanged
     if (pinChanged) {
       const uid = pinChanged.body?.uid || ''
@@ -290,31 +310,17 @@ function handleFriendDeleteOrPin(ctx: Context, msg: InferProtoModel<typeof Msg.M
 
 function handleFriendGrayTip(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
   try {
-    const decoded: any = Notify.GeneralGrayTip.decode(content)
-    const bizType = Number(decoded.bizType ?? 0)
-    const busiId = Number(decoded.busiId ?? 0)
-    const templId = Number(decoded.templId ?? 0)
-    const params: Record<string, string> = {}
-    for (const p of decoded.templateParams || []) {
-      params[p.key] = p.value
-    }
-    const msgUid = String(msg?.contentHead?.msgUid || 0)
-    if (bizType === 12) {
-      ctx.parallel('nt/raw/friend-poke', {
-        // uin_str1 = 操作者，uin_str2 = 被戳的人
-        fromUin: params['uin_str1'] || '0',
-        toUin: params['uin_str2'] || '0',
-        action: params['action_str'] || params['alt_str1'] || '',
-        suffix: params['suffix_str'] || '',
-        actionImg: params['action_img_url'] || '',
-        msgUid,
+    const decoded = Notify.GeneralGrayTip.decode(content)
+    if (decoded.bizType === 12) {
+      ctx.parallel('nt/friend-nudge', {
+        uin: msg.routingHead.fromUin,
+        uid: msg.routingHead.fromUid,
+        isSelfSend: decoded.templParam.get('uin_str1') === selfInfo.uin,
+        isSelfReceive: decoded.templParam.get('uin_str2') === selfInfo.uin,
+        displayAction: decoded.templParam.get('action_str')!,
+        displaySuffix: decoded.templParam.get('suffix_str')!,
+        displayActionImgUrl: decoded.templParam.get('action_img_url')!
       })
-    } else if (busiId === 19324 || templId === 10229) {
-      // 你已添加X为好友
-      const peerUin = params['peer_uin'] || params['friend_uin']
-        || params['uin'] || params['target_uin'] || '0'
-      const peerUid = params['peer_uid'] || params['friend_uid'] || ''
-      ctx.parallel('nt/raw/friend-added', { peerUin, peerUid })
     }
   } catch (e) {
     ctx.logger.warn('FriendGrayTip parse error:', (e as Error).message)
@@ -345,8 +351,8 @@ function handleFriendRequest(ctx: Context, msg: InferProtoModel<typeof Msg.Messa
   const decoded = Notify.FriendRequest.decode(content)
   if (!decoded.body) return
   ctx.parallel('nt/friend-request', {
-    initiatorUid: decoded.body.fromUid,
     initiatorUin: msg.routingHead.fromUin,
+    initiatorUid: decoded.body.fromUid,
     comment: decoded.body.message,
     via: decoded.body.via
   })
@@ -370,15 +376,15 @@ async function handleFriendRecall(ctx: Context, content: Buffer) {
 
     ctx.parallel('nt/message-deleted', {
       chatType: await ctx.ntFriendApi.isFriend(peerUid) ? ChatType.C2C : ChatType.TempC2CFromGroup,
-      peerUid,
       peerUin,
+      peerUid,
       msgId: body.msgUid.toString(),
       msgSeq: body.sequence,
       msgRandom: body.random,
-      senderUid: fromUid,
       senderUin: fromUin,
-      operatorUid: fromUid,
+      senderUid: fromUid,
       operatorUin: fromUin,
+      operatorUid: fromUid,
       displaySuffix: body.tipInfo?.tip ?? ''
     })
   } catch (e) {
@@ -420,46 +426,52 @@ function handle0x2DC(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, sub
   }
 }
 
-function handleGroupMute(ctx: Context, content: Buffer) {
+async function handleGroupMute(ctx: Context, content: Buffer) {
   try {
     // GroupMute (0x2DC subType=12) 的 msgContent 直接是 GroupMute proto，
     // 不像 subType=16/20/21 那样有 [4B groupUin + 1B + 2B len] TLV 包头。
     // 老代码错误地走 unwrap0x2DCContent，导致 field 1 (groupCode) 解出来是错的内部 ID。
-    const decoded: any = Notify.GroupMute.decode(content)
-    const groupCode = String(decoded.groupCode || 0)
-    const operatorUid = decoded.operatorUid || ''
-    const targetUid = decoded.info?.state?.targetUid
-    const duration = decoded.info?.state?.duration || 0
+    const decoded = Notify.GroupMute.decode(content)
+    const { state } = decoded.info
 
-    if (targetUid) {
-      ctx.parallel('nt/raw/group-mute', { groupCode, operatorUid, targetUid, duration })
+    if (state.targetUid) {
+      ctx.parallel('nt/group-mute', {
+        groupCode: decoded.groupCode,
+        memberUin: await ctx.ntUserApi.getUinByUid(state.targetUid),
+        memberUid: state.targetUid,
+        operatorUin: await ctx.ntUserApi.getUinByUid(decoded.operatorUid),
+        operatorUid: decoded.operatorUid,
+        duration: state.duration
+      })
     } else {
-      ctx.parallel('nt/raw/group-mute-all', { groupCode, operatorUid, isMute: duration !== 0 })
+      ctx.parallel('nt/group-whole-mute', {
+        groupCode: decoded.groupCode,
+        operatorUin: await ctx.ntUserApi.getUinByUid(decoded.operatorUid),
+        operatorUid: decoded.operatorUid,
+        isMute: state.duration !== 0
+      })
     }
   } catch (e) {
     ctx.logger.warn('GroupMute parse error:', (e as Error).message)
   }
 }
 
-function handleGroupGeneralEvent(ctx: Context, content: Buffer) {
+async function handleGroupGeneralEvent(ctx: Context, content: Buffer) {
   try {
     if (content.length < 7) return
     const groupUinFromTLV = content.readUInt32BE(0)
     const inner = unwrap0x2DCContent(content)
     if (!inner) return
-    let groupCode = String(groupUinFromTLV)
-    let notifyBody: any = null
-    try {
-      notifyBody = Notify.NotifyMessageBody.decode(inner)
-      if (notifyBody.groupCode) groupCode = String(notifyBody.groupCode)
-    } catch { /* ignore */ }
+    let groupCode = groupUinFromTLV
+    let notifyBody = Notify.NotifyMessageBody.decode(inner)
+    if (notifyBody.groupCode) groupCode = notifyBody.groupCode
     // 0x2DC subType=16 通过 field13 区分子事件：
     //   6 = GroupMemberSpecialTitle, 12 = GroupNameChange, 23 = GroupTodo, 35 = GroupReaction
     const field13 = Number(notifyBody?.subType ?? 0)
     if (field13 === 35 || field13 === 0) {
       const reaction = tryDecodeReaction(inner)
       if (reaction) {
-        reaction.groupCode = groupCode
+        //reaction.groupCode = groupCode
         ctx.parallel('nt/raw/group-reaction', reaction)
         return
       }
@@ -470,36 +482,30 @@ function handleGroupGeneralEvent(ctx: Context, content: Buffer) {
       //   恭喜<{"cmd":5,"data":"<uin>","text":"<nick>"}>获得群主授予的<{"cmd":1,"text":"<title>",...}>头衔
       const eventParam = notifyBody?.eventParam
       if (!eventParam) return
-      const tipBytes = walkProtoFields(Buffer.from(eventParam), [2])
-      if (!tipBytes) return
-      const tipText = tipBytes.toString('utf8')
+      const decoded = Notify.GroupMemberSpecialTitleChange.decode(eventParam)
       // cmd=5 是用户引用，data 是 uin；cmd=1 是带链接的文本，text 是真正的头衔
-      const userMatch = tipText.match(/\{"cmd":5,"data":"(\d+)"/)
-      const titleMatch = tipText.match(/\{"cmd":1,[^}]*?"text":"([^"]+)"/)
-      const memberUin = userMatch?.[1] || '0'
-      const title = titleMatch?.[1] || ''
-      if (memberUin !== '0' && title) {
-        ctx.parallel('nt/raw/group-title-changed', { groupCode, memberUin, title })
-      }
+      const titleMatch = decoded.tipText.match(/\{"cmd":1,[^}]*?"text":"([^"]+)"/)
+      const title = titleMatch?.[1] ?? ''
+      ctx.parallel('nt/group-member-special-title-changed', {
+        groupCode,
+        uin: decoded.memberUin,
+        uid: await ctx.ntUserApi.getUidByUin(decoded.memberUin),
+        newSpecialTitle: title
+      })
       return
     }
     if (field13 === 12) {
       // GroupNameChange：eventParam 是 GroupNameChangeBody（field 1=1, field 2=新群名）。
       // operatorUid 在 NotifyMessageBody.field 21 (notifyBody.operatorUid)。
       const eventParam = notifyBody?.eventParam
-      if (!eventParam) return
-      try {
-        const body = Notify.GroupNameChangeBody.decode(Buffer.from(eventParam))
-        if (body.newName) {
-          ctx.parallel('nt/raw/group-name-changed', {
-            groupCode,
-            newName: body.newName,
-            operatorUid: notifyBody?.operatorUid || '',
-          })
-        }
-      } catch (e) {
-        ctx.logger.warn('[Group0x2DC field13=12] decode err:', (e as Error).message)
-      }
+      if (!eventParam || !notifyBody.operatorUid) return
+      const body = Notify.GroupNameChangeBody.decode(eventParam)
+      ctx.parallel('nt/group-name-changed', {
+        groupCode,
+        newGroupName: body.newName,
+        operatorUin: await ctx.ntUserApi.getUinByUid(notifyBody.operatorUid),
+        operatorUid: notifyBody.operatorUid
+      })
       return
     }
     // 兜底：未识别的 subType=16 事件
@@ -532,48 +538,30 @@ function tryDecodeReaction(buf: Buffer): { groupCode: string, msgSeq: number, op
   }
 }
 
-function handleGroupGrayTip(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
+async function handleGroupGrayTip(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
   try {
     if (content.length < 7) return
     const groupUinFromTLV = content.readUInt32BE(0)
     const inner = unwrap0x2DCContent(content)
     if (!inner) return
-    const notifyBody: any = Notify.NotifyMessageBody.decode(inner)
+    const notifyBody = Notify.NotifyMessageBody.decode(inner)
     const grayTip = notifyBody.generalGrayTip
     if (!grayTip) return
     // 优先用 NotifyMessageBody.groupCode (field 4)，fallback 用 TLV 头 4 字节
-    const groupCode = String(notifyBody.groupCode || groupUinFromTLV)
-    const bizType = Number(grayTip.bizType ?? 0)
-    const busiId = Number(grayTip.busiId ?? 0)
-    const params: Record<string, string> = {}
-    for (const p of grayTip.templateParams || []) {
-      params[p.key] = p.value
-    }
-    const msgUid = String(msg?.contentHead?.msgUid || 0)
-    if (bizType === 12) {
-      // Poke (group)
-      ctx.parallel('nt/raw/group-poke', {
+    const groupCode = notifyBody.groupCode || groupUinFromTLV
+    if (grayTip.bizType === 12) {
+      const uin1 = +grayTip.templParam.get('uin_str1')!
+      const uin2 = +grayTip.templParam.get('uin_str2')!
+      ctx.parallel('nt/group-nudge', {
         groupCode,
-        // uin_str1 = 操作者（fromUin），uin_str2 = 被戳的人（toUin）
-        fromUin: params['uin_str1'] || '0',
-        toUin: params['uin_str2'] || '0',
-        action: params['action_str'] || params['alt_str1'] || '',
-        suffix: params['suffix_str'] || '',
-        actionImg: params['action_img_url'] || '',
-        msgUid,
+        senderUin: uin1,
+        senderUid: await ctx.ntUserApi.getUidByUin(uin1, groupCode),
+        receiverUin: uin2,
+        receiverUid: await ctx.ntUserApi.getUidByUin(uin2, groupCode),
+        displayAction: grayTip.templParam.get('action_str')!,
+        displaySuffix: grayTip.templParam.get('suffix_str')!,
+        displayActionImgUrl: grayTip.templParam.get('action_img_url')!
       })
-    } else if (busiId === 2407) {
-      // 群成员获得头衔（旧版本通过 subType=20 推送的 fallback 路径，新版本走 subType=16 field13=6）
-      const memberUin = params['mqq_uin'] || params['member_uin']
-        || params['uin'] || params['target_uin'] || '0'
-      const title = params['title'] || params['new_title'] || params['honor'] || ''
-      if (memberUin !== '0' && title) {
-        ctx.parallel('nt/raw/group-title-changed', {
-          groupCode,
-          memberUin,
-          title,
-        })
-      }
     }
   } catch (e) {
     ctx.logger.warn('GroupGrayTip parse error:', (e as Error).message)
@@ -683,15 +671,15 @@ async function handleGroupRecall(ctx: Context, content: Buffer) {
     for (const rm of recall.recallMessages) {
       ctx.parallel('nt/message-deleted', {
         chatType: ChatType.Group,
-        peerUid: groupCode.toString(),
         peerUin: groupCode,
+        peerUid: groupCode.toString(),
         msgId: String((0x01000000n << 32n) | BigInt(rm.random)),
         msgSeq: rm.sequence,
         msgRandom: rm.random,
-        senderUid: rm.authorUid,
         senderUin: await ctx.ntUserApi.getUinByUid(rm.authorUid),
-        operatorUid,
+        senderUid: rm.authorUid,
         operatorUin,
+        operatorUid,
         displaySuffix: recall.tipInfo?.tip ?? ''
       })
     }
@@ -705,7 +693,8 @@ async function handleGroupRecall(ctx: Context, content: Buffer) {
 async function handleGroupJoinRequest(ctx: Context, msg: InferProtoModel<typeof Msg.Message>) {
   // MsgType 84: 入群申请通知
   try {
-    const decoded = Notify.GroupJoinRequest.decode(msg.body!.msgContent)
+    if (!msg.body) return
+    const decoded = Notify.GroupJoinRequest.decode(msg.body.msgContent)
     let notificationSeq, commit
     let isDoubt = false
     const res = await ctx.ntGroupApi.getGroupNotifications(false, 20)
@@ -735,8 +724,8 @@ async function handleGroupJoinRequest(ctx: Context, msg: InferProtoModel<typeof 
     if (notificationSeq) {
       ctx.parallel('nt/group-join-request', {
         groupCode: decoded.groupCode,
-        initiatorUid: decoded.memberUid,
         initiatorUin: await ctx.ntUserApi.getUinByUid(decoded.memberUid),
+        initiatorUid: decoded.memberUid,
         notificationSeq,
         isDoubt,
         comment: commit!
@@ -749,7 +738,8 @@ async function handleGroupJoinRequest(ctx: Context, msg: InferProtoModel<typeof 
 
 async function handleGroupInvitation(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, msgType: number) {
   try {
-    const content = msg.body!.msgContent
+    if (!msg.body) return
+    const content = msg.body.msgContent
     if (msgType === MsgType.GroupInvitedJoinRequest) {
       const decoded = Notify.GroupInvitedJoinRequest.decode(content)
       const { inner } = decoded.info
@@ -764,10 +754,10 @@ async function handleGroupInvitation(ctx: Context, msg: InferProtoModel<typeof M
       if (notification) {
         ctx.parallel('nt/group-invited-join-request', {
           groupCode: inner.groupCode,
-          initiatorUid: inner.invitorUid,
           initiatorUin: await ctx.ntUserApi.getUinByUid(inner.invitorUid),
-          targetUserUid: inner.targetUid,
+          initiatorUid: inner.invitorUid,
           targetUserUin: await ctx.ntUserApi.getUinByUid(inner.targetUid),
+          targetUserUid: inner.targetUid,
           notificationSeq: notification.sequence
         })
       }
@@ -783,8 +773,8 @@ async function handleGroupInvitation(ctx: Context, msg: InferProtoModel<typeof M
       if (notification) {
         ctx.parallel('nt/group-invitation', {
           groupCode: decoded.groupCode,
-          initiatorUid: decoded.invitorUid,
           initiatorUin: await ctx.ntUserApi.getUinByUid(decoded.invitorUid),
+          initiatorUid: decoded.invitorUid,
           invitationSeq: notification.sequence
         })
       }
@@ -827,8 +817,8 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
           const seq = params.get('msgseq')!
           ctx.parallel('nt/group-invitation', {
             groupCode: +groupCode,
-            initiatorUid: msg.routingHead.fromUid,
             initiatorUin: msg.routingHead.fromUin,
+            initiatorUid: msg.routingHead.fromUid,
             invitationSeq: BigInt(seq)
           })
         }
@@ -837,6 +827,7 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
   } else if (msgType === MsgType.GroupMessage) {
     const peerUin = routingHead.group.groupCode
     const senderUin = routingHead.fromUin
+    const senderUid = routingHead.fromUid
     const sendMemberName = routingHead.group.groupCardType === 1 ?
       routingHead.group.groupCard : ''
     ctx.store.getGroupMemberCardName(peerUin, senderUin).then(oldCard => {
@@ -850,6 +841,7 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
           ctx.parallel('nt/group-member-card-name-changed', {
             groupCode: peerUin,
             uin: senderUin,
+            uid: senderUid,
             oldCardName: oldCard,
             newCardName: sendMemberName
           })

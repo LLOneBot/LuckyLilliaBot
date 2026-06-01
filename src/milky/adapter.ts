@@ -27,6 +27,11 @@ import {
   transformFriendMessageRecall,
   transformGroupMessageRecall,
   transformTempMessageRecall,
+  transformFriendNudgeEvent,
+  transformGroupNudgeEvent,
+  transformGroupNameChangeEvent,
+  transformGroupWholeMuteEvent,
+  transformGroupMuteEvent,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
 import { noop } from 'cosmokit'
@@ -216,41 +221,6 @@ export class MilkyAdapter extends Service {
     // group_message_reaction / group_nudge / friend_nudge / group_name_change /
     // friend_file_upload 这些事件全收不到。这里全部接上。
 
-    this.ctx.on('nt/raw/group-mute', async (input) => {
-      const groupId = +input.groupCode
-      if (!groupId) return
-      try {
-        const userIdRaw = input.targetUid ? await this.ctx.ntUserApi.getUinByUid(input.targetUid) : '0'
-        const opIdRaw = input.operatorUid ? await this.ctx.ntUserApi.getUinByUid(input.operatorUid) : '0'
-        if (input.targetUid) {
-          // 单人禁言
-          this.emitEvent('group_mute', {
-            group_id: groupId,
-            user_id: +userIdRaw,
-            operator_id: +opIdRaw,
-            duration: input.duration,
-          } as MilkyEventTypes['group_mute'])
-        }
-      } catch (e) {
-        this.ctx.logger.warn('milky group-mute bridge error:', (e as Error).message)
-      }
-    })
-
-    this.ctx.on('nt/raw/group-mute-all', async (input) => {
-      const groupId = +input.groupCode
-      if (!groupId) return
-      try {
-        const opIdRaw = input.operatorUid ? await this.ctx.ntUserApi.getUinByUid(input.operatorUid) : '0'
-        this.emitEvent('group_whole_mute', {
-          group_id: groupId,
-          operator_id: +opIdRaw,
-          is_mute: input.isMute,
-        } as MilkyEventTypes['group_whole_mute'])
-      } catch (e) {
-        this.ctx.logger.warn('milky group-mute-all bridge error:', (e as Error).message)
-      }
-    })
-
     this.ctx.on('nt/raw/group-essence-change', async (input) => {
       const groupId = +input.groupCode
       if (!groupId) return
@@ -263,23 +233,6 @@ export class MilkyAdapter extends Service {
         } as MilkyEventTypes['group_essence_message_change'])
       } catch (e) {
         this.ctx.logger.warn('milky group-essence-change bridge error:', (e as Error).message)
-      }
-    })
-
-    this.ctx.on('nt/raw/group-name-changed', async (input) => {
-      const groupId = +input.groupCode
-      if (!groupId) return
-      try {
-        const operatorId = input.operatorUid
-          ? Number(await this.ctx.ntUserApi.getUinByUid(input.operatorUid))
-          : 0
-        this.emitEvent('group_name_change', {
-          group_id: groupId,
-          new_group_name: input.newName,
-          operator_id: operatorId,
-        } as MilkyEventTypes['group_name_change'])
-      } catch (e) {
-        this.ctx.logger.warn('milky group-name-change bridge error:', (e as Error).message)
       }
     })
 
@@ -302,37 +255,6 @@ export class MilkyAdapter extends Service {
       } catch (e) {
         this.ctx.logger.warn('milky group-reaction bridge error:', (e as Error).message)
       }
-    })
-
-    this.ctx.on('nt/raw/group-poke', (input) => {
-      const groupId = +input.groupCode
-      if (!groupId) return
-      this.emitEvent('group_nudge', {
-        group_id: groupId,
-        sender_id: +input.fromUin,
-        receiver_id: +input.toUin,
-        display_action: input.action,
-        display_suffix: input.suffix,
-        display_action_img_url: input.actionImg,
-      } as MilkyEventTypes['group_nudge'])
-    })
-
-    this.ctx.on('nt/raw/friend-poke', (input) => {
-      // milky friend_nudge.data 形状跟 group_nudge 不一样：用 user_id + is_self_send / is_self_receive
-      // 而不是 sender_id / receiver_id。
-      const fromUin = +input.fromUin
-      const toUin = +input.toUin
-      const meUin = +selfInfo.uin
-      // user_id = 对方的 uin（不管自己是发起方还是接收方）
-      const userId = fromUin === meUin ? toUin : fromUin
-      this.emitEvent('friend_nudge', {
-        user_id: userId,
-        is_self_send: fromUin === meUin,
-        is_self_receive: toUin === meUin,
-        display_action: input.action,
-        display_suffix: input.suffix,
-        display_action_img_url: input.actionImg,
-      } as MilkyEventTypes['friend_nudge'])
     })
 
     this.ctx.on('nt/message-deleted', async (data) => {
@@ -375,6 +297,34 @@ export class MilkyAdapter extends Service {
       }
     })
 
+    this.ctx.on('nt/group-nudge', async (data) => {
+      const eventData = await transformGroupNudgeEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_nudge', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-whole-mute', async (data) => {
+      const eventData = await transformGroupWholeMuteEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_whole_mute', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-mute', async (data) => {
+      const eventData = await transformGroupMuteEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_mute', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-name-changed', async (data) => {
+      const eventData = await transformGroupNameChangeEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_name_change', eventData)
+      }
+    })
+
     this.ctx.on('nt/group-member-added', async (data) => {
       const eventData = await transformGroupMemberIncreaseEvent(this.ctx, data)
       if (eventData) {
@@ -393,6 +343,13 @@ export class MilkyAdapter extends Service {
       const eventData = await transformFriendRequestEvent(this.ctx, data)
       if (eventData) {
         this.emitEvent('friend_request', eventData)
+      }
+    })
+
+    this.ctx.on('nt/friend-nudge', async (data) => {
+      const eventData = await transformFriendNudgeEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('friend_nudge', eventData)
       }
     })
   }

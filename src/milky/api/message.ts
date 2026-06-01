@@ -211,12 +211,7 @@ const GetHistoryMessages = defineApi(
       msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, payload.start_message_seq, payload.limit, true)).msgList
     }
 
-    const filteredMsgList = msgList.filter(msg => {
-      if (!msg.senderUid) return false
-      if (msg.elements[0].grayTipElement?.subElementType === 1) return false
-      return true
-    })
-    if (filteredMsgList.length === 0) {
+    if (msgList.length === 0) {
       return Ok({
         messages: [],
         next_message_seq: undefined,
@@ -225,19 +220,19 @@ const GetHistoryMessages = defineApi(
 
     const transformedMessages: GetHistoryMessagesOutput['messages'] = []
     if (payload.message_scene === 'friend') {
-      const friend = await ctx.ntFriendApi.getFriendByUid(filteredMsgList[0].peerUid, false)
-      for (const msg of filteredMsgList) {
+      const friend = await ctx.ntFriendApi.getFriendByUid(msgList[0].peerUid, false)
+      for (const msg of msgList) {
         transformedMessages.push(await transformIncomingPrivateMessage(ctx, friend!, msg))
       }
     } else if (payload.message_scene === 'group') {
       const group = await ctx.ntGroupApi.getGroup(payload.peer_id, false)
-      for (const msg of filteredMsgList) {
+      for (const msg of msgList) {
         const member = await ctx.ntGroupApi.getGroupMemberByUid(+msg.peerUid, msg.senderUid, false)
         transformedMessages.push(await transformIncomingGroupMessage(ctx, group, member!, msg))
       }
     } else {
       let group
-      for (const msg of filteredMsgList) {
+      for (const msg of msgList) {
         group ??= await ctx.ntGroupApi.getGroup(msg.tempFromGroupCode, false)
         transformedMessages.push(await transformIncomingTempMessage(ctx, group, msg))
       }

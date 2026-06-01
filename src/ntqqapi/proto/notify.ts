@@ -42,6 +42,9 @@ export namespace Notify {
   export const FriendDeleteOrPinChange = ProtoMessage.of({
     body: ProtoField(1, {
       type: ProtoField(2, 'uint32'),
+      friendDeleted: ProtoField(14, {
+        uid: ProtoField(1, 'string')
+      }, 'optional'),
       pinChanged: ProtoField(20, {
         body: ProtoField(1, {
           uid: ProtoField(1, 'string'),
@@ -113,23 +116,20 @@ export namespace Notify {
   })
 
   export const GeneralGrayTip = ProtoMessage.of({
-    bizType: ProtoField(1, 'uint64', 'optional'),
-    busiId: ProtoField(2, 'uint64', 'optional'),
-    ctrlFlag: ProtoField(3, 'uint32', 'optional'),
+    bizType: ProtoField(1, 'uint32'),
+    busiId: ProtoField(2, 'uint32'),
+    ctrlFlag: ProtoField(3, 'uint32'),
     c2cType: ProtoField(4, 'uint32', 'optional'),
     serviceType: ProtoField(5, 'uint32', 'optional'),
-    templId: ProtoField(6, 'uint64', 'optional'),
-    templateParams: ProtoField(7, {
-      key: ProtoField(1, 'string'),
-      value: ProtoField(2, 'string'),
-    }, 'repeated'),
-    content: ProtoField(8, 'string', 'optional'),
-    tipsSeqId: ProtoField(10, 'uint64', 'optional'),
+    templId: ProtoField(6, 'uint32'),
+    templParam: ProtoField(7, ['string', 'string']),
+    content: ProtoField(8, 'string'),
+    tipsSeqId: ProtoField(10, 'uint32'),
   })
 
   export const GroupMute = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
-    operatorUid: ProtoField(4, 'string', 'optional'),
+    operatorUid: ProtoField(4, 'string'),
     info: ProtoField(5, {
       state: ProtoField(3, {
         targetUid: ProtoField(1, 'string', 'optional'),
@@ -163,7 +163,7 @@ export namespace Notify {
    */
   export const NotifyMessageBody = ProtoMessage.of({
     notifyType: ProtoField(1, 'uint32', 'optional'),
-    groupCode: ProtoField(4, 'uint64', 'optional'),
+    groupCode: ProtoField(4, 'uint32', 'optional'),
     eventParam: ProtoField(5, 'bytes', 'optional'),
     recall: ProtoField(11, GroupRecall, 'optional'),
     subType: ProtoField(13, 'uint32', 'optional'),
@@ -199,5 +199,16 @@ export namespace Notify {
   export const GroupJoined = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
     adminUid: ProtoField(3, 'string')
+  })
+
+  export const FriendAdded = ProtoMessage.of({
+    body: ProtoField(2, {
+      friendUid: ProtoField(1, 'string')
+    })
+  })
+
+  export const GroupMemberSpecialTitleChange = ProtoMessage.of({
+    tipText: ProtoField(2, 'string'),
+    memberUin: ProtoField(5, 'uint32')
   })
 }

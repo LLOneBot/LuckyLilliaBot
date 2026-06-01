@@ -21,6 +21,14 @@ import {
   GroupMemberRemovedEvent,
   GroupMemberCardNameChangedEvent,
   FriendRequestEvent,
+  FriendRemovedEvent,
+  FriendAddedEvent,
+  FriendNudgeEvent,
+  GroupNudgeEvent,
+  GroupMemberSpecialTitleChangedEvent,
+  GroupNameChangedEvent,
+  GroupWholeMuteEvent,
+  GroupMuteEvent,
 } from './types'
 import { selfInfo } from '../common/globalVars'
 import {
@@ -65,17 +73,10 @@ declare module 'cordis' {
     'nt/raw/flash-file-downloading': (input: [fileSetId: string, info: FlashFileDownloadingInfo]) => void
     'nt/raw/flash-file-uploading': (input: { fileSet: FlashFileSetInfo } & FlashFileUploadingInfo) => void
     // Group events
-    'nt/raw/group-mute': (input: { groupCode: string, operatorUid: string, targetUid: string, duration: number }) => void
-    'nt/raw/group-mute-all': (input: { groupCode: string, operatorUid: string, isMute: boolean }) => void
     'nt/raw/group-essence-change': (input: { groupCode: string, msgSequence: number, operatorUin: string, isAdd: boolean }) => void
     'nt/raw/group-reaction': (input: { groupCode: string, msgSeq: number, operatorUid: string, code: string, isAdd: boolean, count: number }) => void
-    'nt/raw/group-poke': (input: { groupCode: string, fromUin: string, toUin: string, action: string, suffix: string, actionImg: string, msgUid?: string }) => void
-    'nt/raw/group-title-changed': (input: { groupCode: string, memberUin: string, title: string }) => void
-    'nt/raw/group-name-changed': (input: { groupCode: string, newName: string, operatorUid: string }) => void
     // Friend events
-    'nt/raw/friend-poke': (input: { fromUin: string, toUin: string, action: string, suffix: string, actionImg: string, msgUid?: string }) => void
     'nt/raw/friend-pin-changed': (input: { uid: string, isPinned: boolean }) => void
-    'nt/raw/friend-added': (input: { peerUin: string, peerUid: string }) => void
     /** 群/私聊语音转写文字结果异步推送（pttTrans.TransGroupPttReq/TransC2CPttReq 提交后由这条 event 喂结果） */
     'nt/raw/ptt-trans-result': (input: { msgUid: string, chatType: ChatType, peerUin: string, senderUin: string, text: string }) => void
 
@@ -86,10 +87,18 @@ declare module 'cordis' {
     'nt/group-added': (input: GroupAddedEvent) => void
     'nt/group-removed': (input: GroupRemovedEvent) => void
     'nt/group-disband': (input: GroupDisbandEvent) => void
+    'nt/group-nudge': (input: GroupNudgeEvent) => void
+    'nt/group-name-changed': (input: GroupNameChangedEvent) => void
+    'nt/group-whole-mute': (input: GroupWholeMuteEvent) => void
+    'nt/group-mute': (input: GroupMuteEvent) => void
     'nt/group-member-added': (input: GroupMemberAddedEvent) => void
     'nt/group-member-removed': (input: GroupMemberRemovedEvent) => void
     'nt/group-member-card-name-changed': (input: GroupMemberCardNameChangedEvent) => void
+    'nt/group-member-special-title-changed': (input: GroupMemberSpecialTitleChangedEvent) => void
     'nt/friend-request': (input: FriendRequestEvent) => void
+    'nt/friend-added': (input: FriendAddedEvent) => void
+    'nt/friend-removed': (input: FriendRemovedEvent) => void
+    'nt/friend-nudge': (input: FriendNudgeEvent) => void
   }
 }
 

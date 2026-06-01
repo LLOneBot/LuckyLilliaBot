@@ -1,5 +1,5 @@
 import { MilkyEventTypes } from '@/milky/common/event'
-import { RawMessage, FriendRequest, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeleteEvent, GroupMemberAddedEvent, GroupMemberRemovedEvent, FriendRequestEvent } from '@/ntqqapi/types'
+import { RawMessage, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeleteEvent, GroupMemberAddedEvent, GroupMemberRemovedEvent, FriendRequestEvent, FriendNudgeEvent, GroupNudgeEvent, GroupNameChangedEvent, GroupMuteEvent, GroupWholeMuteEvent } from '@/ntqqapi/types'
 import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingTempMessage } from './message/incoming'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -234,27 +234,100 @@ export async function transformGroupMemberDecreaseEvent(
   }
 }
 
+export async function transformFriendNudgeEvent(
+  ctx: Context,
+  data: FriendNudgeEvent
+): Promise<MilkyEventTypes['friend_nudge'] | null> {
+  try {
+    return {
+      user_id: data.uin,
+      is_self_send: data.isSelfSend,
+      is_self_receive: data.isSelfReceive,
+      display_action: data.displayAction,
+      display_suffix: data.displaySuffix,
+      display_action_img_url: data.displayActionImgUrl,
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform friend nudge event:', error)
+    return null
+  }
+}
+
+export async function transformGroupNudgeEvent(
+  ctx: Context,
+  data: GroupNudgeEvent
+): Promise<MilkyEventTypes['group_nudge'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      sender_id: data.senderUin,
+      receiver_id: data.receiverUin,
+      display_action: data.displayAction,
+      display_suffix: data.displaySuffix,
+      display_action_img_url: data.displayActionImgUrl,
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform friend nudge event:', error)
+    return null
+  }
+}
+
+export async function transformGroupNameChangeEvent(
+  ctx: Context,
+  data: GroupNameChangedEvent
+): Promise<MilkyEventTypes['group_name_change'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      new_group_name: data.newGroupName,
+      operator_id: data.operatorUin
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group name change event:', error)
+    return null
+  }
+}
+
+export async function transformGroupMuteEvent(
+  ctx: Context,
+  data: GroupMuteEvent
+): Promise<MilkyEventTypes['group_mute'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      user_id: data.memberUin,
+      operator_id: data.operatorUin,
+      duration: data.duration
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group mute event:', error)
+    return null
+  }
+}
+
+export async function transformGroupWholeMuteEvent(
+  ctx: Context,
+  data: GroupWholeMuteEvent
+): Promise<MilkyEventTypes['group_whole_mute'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      operator_id: data.operatorUin,
+      is_mute: data.isMute
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group mute event:', error)
+    return null
+  }
+}
+
 export async function transformPrivateMessageEvent(
   ctx: Context,
   message: RawMessage
 ): Promise<{ eventType: keyof MilkyEventTypes, data: Event['data'] } | null> {
   try {
     for (const element of message.elements) {
-      if (element.grayTipElement?.jsonGrayTipElement?.busiId === '1061') {
-        const { templParam } = element.grayTipElement.jsonGrayTipElement.xmlToJsonParam
-        const userId = +message.peerUin || +(await ctx.ntUserApi.getUinByUid(message.peerUid))
-        return {
-          eventType: 'friend_nudge',
-          data: {
-            user_id: userId,
-            is_self_send: templParam.get('uin_str1') === selfInfo.uin,
-            is_self_receive: templParam.get('uin_str2') === selfInfo.uin,
-            display_action: templParam.get('action_str') ?? '',
-            display_suffix: templParam.get('suffix_str') ?? '',
-            display_action_img_url: templParam.get('action_img_url') ?? ''
-          } satisfies MilkyEventTypes['friend_nudge']
-        }
-      } else if (element.fileElement) {
+      if (element.fileElement) {
         return {
           eventType: 'friend_file_upload',
           data: {
@@ -282,41 +355,7 @@ export async function transformGroupMessageEvent(
 ): Promise<{ eventType: keyof MilkyEventTypes, data: Event['data'] } | { eventType: keyof MilkyEventTypes, data: Event['data'] }[] | null> {
   try {
     for (const element of message.elements) {
-      if (element.grayTipElement?.groupElement?.type === 8) {
-        if (element.grayTipElement.groupElement.shutUp?.member.uid) {
-          return {
-            eventType: 'group_mute',
-            data: {
-              group_id: Number(message.peerUid),
-              user_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.shutUp!.member.uid)),
-              operator_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.shutUp!.admin.uid)),
-              duration: Number(element.grayTipElement.groupElement.shutUp!.duration)
-            } satisfies MilkyEventTypes['group_mute']
-          }
-        } else {
-          return {
-            eventType: 'group_whole_mute',
-            data: {
-              group_id: Number(message.peerUid),
-              operator_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.shutUp!.admin.uid)),
-              is_mute: Number(element.grayTipElement.groupElement.shutUp!.duration) > 0
-            } satisfies MilkyEventTypes['group_whole_mute']
-          }
-        }
-      } else if (element.grayTipElement?.jsonGrayTipElement?.busiId === '1061') {
-        const { templParam } = element.grayTipElement.jsonGrayTipElement.xmlToJsonParam
-        return {
-          eventType: 'group_nudge',
-          data: {
-            group_id: +message.peerUid,
-            sender_id: +templParam.get('uin_str1')!,
-            receiver_id: +templParam.get('uin_str2')!,
-            display_action: templParam.get('action_str') ?? '',
-            display_suffix: templParam.get('suffix_str') ?? '',
-            display_action_img_url: templParam.get('action_img_url') ?? ''
-          } satisfies MilkyEventTypes['group_nudge']
-        }
-      } else if (element.fileElement) {
+      if (element.fileElement) {
         return {
           eventType: 'group_file_upload',
           data: {
@@ -326,15 +365,6 @@ export async function transformGroupMessageEvent(
             file_name: element.fileElement.fileName,
             file_size: +element.fileElement.fileSize
           } satisfies MilkyEventTypes['group_file_upload']
-        }
-      } else if (element.grayTipElement?.groupElement?.type === 5) {
-        return {
-          eventType: 'group_name_change',
-          data: {
-            group_id: Number(message.peerUid),
-            new_group_name: element.grayTipElement.groupElement.groupName,
-            operator_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.memberUid))
-          } satisfies MilkyEventTypes['group_name_change']
         }
       }
     }
