@@ -191,6 +191,10 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       const req = request(
         serverURL, {
         method: 'POST',
+        // QQ 给的 highway IP 经常有挂掉的 (实测 15000 端口偶尔 SYN 丢), 默认 OS connect timeout
+        // 21s × 3 retry = 一分钟+，用户调用方 timeout 再叠 5 个 IP fallback 必然挂死。
+        // 设 8s connect/idle timeout 让上层 fallback 有机会跑下一个 IP。
+        timeout: 8000,
         headers: {
           // 最后一块 close，其他 keep-alive。server 用这个信号知道整体上传结束 → 触发归档
           'Connection': isEnd ? 'close' : 'keep-alive',
@@ -211,6 +215,9 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       )
       req.on('error', (error: Error) => {
         reject(error)
+      })
+      req.on('timeout', () => {
+        req.destroy(new Error(`Highway request timeout (8s) on ${serverURL}`))
       })
       req.write(frame)
       req.end()

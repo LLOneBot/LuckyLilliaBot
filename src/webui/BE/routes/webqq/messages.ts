@@ -422,7 +422,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       }
 
       // 跟 image-proxy 同一份白名单；防止把 BE 当通用代理用
-      const allowedHosts = ['gchat.qpic.cn', 'multimedia.nt.qq.com.cn', 'c2cpicdw.qpic.cn', 'p.qlogo.cn', 'q1.qlogo.cn']
+      const allowedHosts = ['gchat.qpic.cn', 'multimedia.nt.qq.com.cn', 'c2cpicdw.qpic.cn', 'p.qlogo.cn', 'q1.qlogo.cn', 'p.qpic.cn']
       if (!allowedHosts.some(host => parsedUrl.hostname.includes(host))) {
         return c.json({ success: false, message: '不允许下载此域名的图片' }, 403)
       }

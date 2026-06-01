@@ -54,18 +54,26 @@ export async function loadClient(): Promise<{ client: WebQQApiClient; config: Te
     password = webqqConfig.password
   }
 
-  // 真起 bot 时 webui port 可能跟配置文件不一样 (server.ts 用 getAvailablePort
-  // 如果配置端口被占就 +1 +2 ... 找空闲；用户也可能自己改过 webui port)。
-  // 先试配置端口, 拒连就 probe 一组常见候选 (config_port +1..+100, 还有 +10000 这种大跳变)。
+  // 真起 bot 时 webui port 可能跟配置文件不一样:
+  //   1) server.ts 用 getAvailablePort: 配置端口被占就 +1..+100 找空闲
+  //   2) 多 bot 同时跑时, 重启 bot1 期间 bot2 可能抢了 bot1 的 port (实测过)
+  // 所以 ECONNREFUSED 或 uin 不匹配都要 probe 一组候选 port, 找到跑 config.user_id
+  // 那个 bot 的 webui 才认.
   let client = new WebQQApiClient(config, password)
   let selfInfo: { uid: string; uin: string; nick?: string }
+  const isProbeWorthy = (err: unknown): boolean => {
+    const msg = (err as Error)?.message || ''
+    const cause = (err as { cause?: { code?: string } })?.cause
+    return (
+      msg.includes('ECONNREFUSED') ||
+      cause?.code === 'ECONNREFUSED' ||
+      msg.includes('当前登录 uin=')  // healthCheck uin 不匹配
+    )
+  }
   try {
     selfInfo = await client.healthCheck()
   } catch (e) {
-    const msg = (e as Error)?.message || ''
-    const cause = (e as { cause?: { code?: string } })?.cause
-    const isConnRefused = msg.includes('ECONNREFUSED') || cause?.code === 'ECONNREFUSED'
-    if (!isConnRefused) throw e
+    if (!isProbeWorthy(e)) throw e
 
     const url = new URL(config.host)
     const startPort = Number(url.port) || 80
@@ -85,14 +93,13 @@ export async function loadClient(): Promise<{ client: WebQQApiClient; config: Te
         client = probeClient
         break
       } catch (pe) {
-        const pcause = (pe as { cause?: { code?: string } })?.cause
-        if (!((pe as Error).message.includes('ECONNREFUSED') || pcause?.code === 'ECONNREFUSED')) throw pe
+        if (!isProbeWorthy(pe)) throw pe
       }
     }
     if (foundPort === null) {
       throw new Error(
-        `webui 在配置 port ${startPort} 没监听, 候选 port 也没找到。` +
-        '确认 bot 在跑且 webui 已启用, 或修正 test/test.config.json 的 bots.primary.webui_http。',
+        `webui (uin=${config.user_id}) 在配置 port ${startPort} 没监听, 候选 port 也没找到正确 bot。` +
+        '确认 bot 在跑且 webui 已启用, 或修正 test/test.config.json 的 bots.primary.webui_http / uin。',
       )
     }
     // eslint-disable-next-line no-console
