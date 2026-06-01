@@ -2,7 +2,11 @@ import { Context } from 'cordis'
 import { ChatType, ElementType, RawMessage, SendMessageElement, SendPicElement, MessageElement } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
 import { serializeResult } from '../../../BE/utils'
-import { unlink } from 'node:fs/promises'
+import { unlink, writeFile, mkdir } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { randomUUID } from 'node:crypto'
+import { TEMP_DIR } from '@/common/globalVars'
 import { Msg, Media } from '@/ntqqapi/proto'
 import { inflateSync } from 'node:zlib'
 import { Hono } from 'hono'
@@ -394,6 +398,77 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     } catch (e) {
       ctx.logger.error('添加收藏表情失败:', e)
       return c.json({ success: false, message: '添加收藏表情失败', error: (e as Error).message }, 500)
+    }
+  })
+
+  // 从 URL 下载图片并添加为收藏表情。专给 webui "右键聊天图片→添加到表情" 用：
+  // FE 把消息里 picElement.originImageUrl (拼好 host) 传过来，BE 复用 image-proxy
+  // 那套 (rkey 注入 + host 白名单 + fetch) 下到 temp 文件，再调 addCustomFace。
+  // cordis 直连模式没有 ntFileApi.downloadMedia，所以走 URL 路线最直接。
+  router.post('/fav-emoji/add-from-url', async (c) => {
+    let tempPath: string | null = null
+    try {
+      const { url: rawUrl } = await c.req.json() as { url: string }
+      if (!rawUrl) {
+        return c.json({ success: false, message: '缺少 url 参数' }, 400)
+      }
+
+      let url = rawUrl
+      let parsedUrl: URL
+      try {
+        parsedUrl = new URL(url)
+      } catch {
+        return c.json({ success: false, message: '无效的 URL' }, 400)
+      }
+
+      // 跟 image-proxy 同一份白名单；防止把 BE 当通用代理用
+      const allowedHosts = ['gchat.qpic.cn', 'multimedia.nt.qq.com.cn', 'c2cpicdw.qpic.cn', 'p.qlogo.cn', 'q1.qlogo.cn']
+      if (!allowedHosts.some(host => parsedUrl.hostname.includes(host))) {
+        return c.json({ success: false, message: '不允许下载此域名的图片' }, 403)
+      }
+
+      // 跟 image-proxy 同一份 rkey 注入（无 rkey 的群图/私图 URL 会 403）
+      if (!url.includes('rkey=') && (parsedUrl.hostname.includes('multimedia.nt.qq.com.cn') || parsedUrl.hostname.includes('gchat.qpic.cn'))) {
+        try {
+          const appid = parsedUrl.searchParams.get('appid')
+          if (appid && ['1406', '1407'].includes(appid)) {
+            const rkeyData = await ctx.ntFileApi.rkeyManager.getRkey()
+            const rkey = appid === '1406' ? rkeyData.private_rkey : rkeyData.group_rkey
+            if (rkey) url = url + rkey
+          }
+        } catch (e) {
+          ctx.logger.warn('add-from-url 添加 rkey 失败:', e)
+        }
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+        }
+      })
+      if (!response.ok) {
+        return c.json({ success: false, message: `下载图片失败: ${response.status} ${response.statusText}` }, 500)
+      }
+      const buffer = Buffer.from(await response.arrayBuffer())
+
+      if (!existsSync(TEMP_DIR)) {
+        await mkdir(TEMP_DIR, { recursive: true })
+      }
+      // 取扩展名：URL path 末尾片段优先；都没有就用 png 兜底（addCustomFace 实测扩展名只是给本地存文件用的）
+      const pathExt = parsedUrl.pathname.match(/\.([a-zA-Z0-9]{1,5})$/)?.[1] ?? 'png'
+      tempPath = join(TEMP_DIR, `fav-emoji-${randomUUID()}.${pathExt}`)
+      await writeFile(tempPath, buffer)
+
+      const result = await ctx.ntMsgApi.addCustomFace(tempPath)
+      return c.json({ success: true, data: serializeResult(result) })
+    } catch (e) {
+      ctx.logger.error('从 URL 添加收藏表情失败:', e)
+      return c.json({ success: false, message: '从 URL 添加收藏表情失败', error: (e as Error).message }, 500)
+    } finally {
+      if (tempPath) {
+        unlink(tempPath).catch(() => { })
+      }
     }
   })
 

@@ -494,6 +494,21 @@ export async function addFavEmoji(filePath: string): Promise<{ result: number; e
   return response.data!
 }
 
+// 从 URL 下载图片并添加为收藏表情。webui 右键聊天图片"添加到表情"用：
+// FE 把消息里的图片 URL (拼好 host 的 originImageUrl) 传给 BE，BE 复用 image-proxy 的
+// rkey 注入 + host 白名单逻辑下载图片到 temp 文件再调 addCustomFace。
+export async function addFavEmojiFromUrl(url: string): Promise<{ result: number; errMsg?: string; isExist?: boolean }> {
+  const response = await apiFetch<{ result: number; errMsg?: string; isExist?: boolean }>('/api/webqq/fav-emoji/add-from-url', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '添加收藏表情失败')
+  }
+  return response.data!
+}
+
 // 获取语音消息 URL（通过代理）
 export function getAudioProxyUrl(fileUuid: string, isGroup: boolean, filePath?: string): string {
   const token = getToken()

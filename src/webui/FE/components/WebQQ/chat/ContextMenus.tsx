@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Reply, Trash2, AtSign, Hand, User, UserMinus, VolumeX, Award, Smile, Shield, ShieldOff, Star } from 'lucide-react'
 import type { RawMessage, GroupMemberItem } from '../../../types/webqq'
-import { getSelfUid, recallMessage, sendPoke, setMemberAdmin } from '../../../utils/webqqApi'
+import { getSelfUid, recallMessage, sendPoke, setMemberAdmin, addFavEmojiFromUrl } from '../../../utils/webqqApi'
 import { showToast } from '../../common'
 
 // 计算菜单位置，确保不超出屏幕
@@ -94,9 +94,27 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
   const handleAddToFavEmoji = async () => {
     if (!contextMenu.elementId) return
     onClose()
-    // 注：旧版本是先 ntCall('ntFileApi','downloadMedia',...) 下载到本地再加收藏，
-    // 但当前 cordis 直连模式没有 downloadMedia 实现。本入口暂不可用，提示用户。
-    showToast('暂不支持从聊天记录添加到表情，请到 QQ 客户端操作', 'error')
+    try {
+      // 从 message.elements 找出右键命中的 picElement，取它的 originImageUrl
+      // (跟 MessageElements.tsx 里渲染图片用的同一份字段，host 拼接逻辑也跟它对齐)
+      const target = msg.elements.find((e: any) => e.elementId === contextMenu.elementId)
+      const pic = target?.picElement
+      const rawUrl: string = pic?.originImageUrl || ''
+      if (!rawUrl) {
+        showToast('图片地址为空，无法添加', 'error')
+        return
+      }
+      const url = rawUrl.startsWith('http') ? rawUrl : `https://gchat.qpic.cn${rawUrl}`
+
+      const result = await addFavEmojiFromUrl(url)
+      if (result.result === 0) {
+        showToast(result.isExist ? '表情已存在' : '已添加到表情', 'success')
+      } else {
+        showToast(result.errMsg || '添加失败', 'error')
+      }
+    } catch (e) {
+      showToast(e.message || '添加失败', 'error')
+    }
   }
 
   return createPortal(
