@@ -2,7 +2,7 @@ import { IMAGE_HTTP_HOST, IMAGE_HTTP_HOST_NT } from '../types'
 import path from 'node:path'
 import { createReadStream, readFileSync } from 'node:fs'
 import { RkeyManager } from '@/ntqqapi/helper/rkey'
-import { calculateSha1StreamBytes, getSha1HexFromFile } from '@/common/utils/file'
+import { calculateSha1StreamBytes, getSha1HexFromFile, getMd5HexFromFile } from '@/common/utils/file'
 import { stat as fsStat } from 'node:fs/promises'
 import { randomUUID, createHash } from 'node:crypto'
 import { Service, Context } from 'cordis'
@@ -127,13 +127,14 @@ export class NTQQFileApi extends Service {
 
   async uploadFlashFile(title: string, filePaths: string[]): Promise<any> {
     if (filePaths.length === 0) throw new Error('uploadFlashFile: filePaths empty')
-    type FileMeta = { path: string, name: string, size: number, sha1: string, fileUuid: string }
+    type FileMeta = { path: string, name: string, size: number, sha1: string, md5: string, fileUuid: string }
     const files: FileMeta[] = []
     let totalSize = 0
     for (const p of filePaths) {
       const st = await fsStat(p)
       const sha1 = await getSha1HexFromFile(p)
-      files.push({ path: p, name: path.basename(p), size: st.size, sha1, fileUuid: randomUUID() })
+      const md5 = await getMd5HexFromFile(p)
+      files.push({ path: p, name: path.basename(p), size: st.size, sha1, md5, fileUuid: randomUUID() })
       totalSize += st.size
     }
     // 1. 创建 fileSet。uploaderNick 必须是真实昵称——若 selfInfo.nick 还没填则
@@ -153,9 +154,13 @@ export class NTQQFileApi extends Service {
       uploaderUid: selfInfo.uid,
     })
     const fileSetId = fset.fileSetId
-    // 2. 注册每个文件
+    // 2. 注册每个文件 (sha1/md5 必传——不传 server 端 fileSet entry 不带这俩,
+    //    后续 list 永远拿不到，reshare/跨账号下载都会失败)
     for (const f of files) {
-      await this.ctx.qqProtocol.registerFlashFile(fileSetId, { fileUuid: f.fileUuid, name: f.name, fileSize: f.size })
+      await this.ctx.qqProtocol.registerFlashFile(fileSetId, {
+        fileUuid: f.fileUuid, name: f.name, fileSize: f.size,
+        sha1Hex: f.sha1, md5Hex: f.md5,
+      })
     }
     // 3. prep
     await this.ctx.qqProtocol.prepFlashFileSet(fileSetId)
@@ -349,6 +354,8 @@ export class NTQQFileApi extends Service {
         fileUuid: randomUUID(),
         name: f.name ?? '',
         fileSize: f.fileSize ?? 0,
+        sha1Hex: f.sha1Hex,
+        md5Hex: f.md5Hex,
       })
     }
     await this.ctx.qqProtocol.prepFlashFileSet(newFileSetId)

@@ -1200,7 +1200,12 @@ export namespace Oidb {
       field10: ProtoField(10, 'uint32'),
       fileSize: ProtoField(11, 'uint32'),
       field12: ProtoField(12, 'uint32'),
+      // sha1Hex/md5Hex 必传，否则 server 端这条 entry 不带 sha1，
+      // 后续 0x93d4_1 (list) 永远拿不到 sha1/md5/historyToken (即使 field3=2)。
+      // 这两个字段是 hex string，跟 f8/f9 (name) 同 string 类型。
+      sha1Hex: ProtoField(20, 'string', 'optional'),
       field24: ProtoField(24, 'bytes', 'optional'),
+      md5Hex: ProtoField(25, 'string', 'optional'),
     }),
     // 抓包外层 body 顺序: f5=1, f6=1（没有 f12，f12 是 OIDB Base 的 isReserved）
     field5: ProtoField(5, 'uint32'),

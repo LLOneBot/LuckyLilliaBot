@@ -530,7 +530,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
     }
 
     /** 闪传：登记单个文件元数据 (OidbSvcTrpcTcp.0x93d0_1) */
-    async registerFlashFile(fileSetId: string, file: { fileUuid: string, name: string, fileSize: number }) {
+    async registerFlashFile(fileSetId: string, file: { fileUuid: string, name: string, fileSize: number, sha1Hex?: string, md5Hex?: string }) {
       const body = Oidb.RegisterFlashFileReq.encode({
         field1: 1,
         fileSetId,
@@ -548,7 +548,11 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           field10: 0,
           fileSize: file.fileSize,
           field12: 0,
+          // sha1/md5 必传——不传 server 端 fileSet entry 不带这俩，后续 list 永远拿不到
+          // (Windows QQ 抓包确认: f20=sha1Hex, f25=md5Hex)
+          sha1Hex: file.sha1Hex,
           field24: Buffer.alloc(0),
+          md5Hex: file.md5Hex,
         },
         field5: 1,
         field6: 1,
