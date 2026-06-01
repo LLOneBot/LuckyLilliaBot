@@ -14,7 +14,6 @@ import {
   createLoginRoutes,
   createLogsRoutes,
   createWebQQRoutes,
-  createNtCallRoutes,
   createEmailRoutes
 } from './routes'
 import { Msg } from '@/ntqqapi/proto'
@@ -100,7 +99,6 @@ export class WebuiServer extends Service {
     this.app.route('/api', createLoginRoutes(this.ctx))
     this.app.route('/api', createDashboardRoutes(this.ctx))
     this.app.route('/api', createLogsRoutes(this.ctx))
-    this.app.route('/api', createNtCallRoutes(this.ctx))
     this.app.route('/api/email', createEmailRoutes(this.ctx))
     this.app.route('/api/webqq', createWebQQRoutes(this.ctx, {
       uploadDir: this.uploadDir,

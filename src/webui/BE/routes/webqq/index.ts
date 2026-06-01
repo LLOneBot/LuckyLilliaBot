@@ -4,7 +4,8 @@ import { createUploadRoutes } from './upload'
 import { createProxyRoutes } from './proxy'
 import { createMembersRoutes } from './members'
 import { createNotificationRoutes } from './notifications'
-import { createNtCallRoutes } from './ntcall'
+import { createChatsRoutes } from './chats'
+import { createActionsRoutes } from './actions'
 import { Hono } from 'hono'
 import { SSEStreamingApi, streamSSE } from 'hono/streaming'
 import { SendPicElement } from '@/ntqqapi/types'
@@ -34,6 +35,12 @@ export function createWebQQRoutes(ctx: Context, options: WebQQRoutesOptions): Ho
   // 通知相关路由（好友申请、群通知）
   router.route('/', createNotificationRoutes(ctx))
 
+  // 列表型查询（friends / groups / pins）
+  router.route('/', createChatsRoutes(ctx))
+
+  // 修改型操作（kick / ban / poke / setRole / ...）
+  router.route('/', createActionsRoutes(ctx))
+
   // SSE 实时消息推送
   router.get('/events', async (c) => {
     return streamSSE(c, async (stream) => {
@@ -53,5 +60,3 @@ export function createWebQQRoutes(ctx: Context, options: WebQQRoutesOptions): Ho
 
   return router
 }
-
-export { createNtCallRoutes }

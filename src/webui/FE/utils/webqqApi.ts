@@ -53,11 +53,16 @@ export async function getLoginInfo(): Promise<{ uid: string; uin: string; nick: 
 
 // 获取好友列表（带分组）
 export async function getFriends(): Promise<FriendCategory[]> {
-  // 获取带分组的好友列表
-  const result = await ntCall<{
+  // BE 端 /api/webqq/friends 调 ntFriendApi.getFriends(true)，返
+  // { friends: any[], categories: Record<number, any> }
+  const response = await apiFetch<{
     friends: any[],
     categories: Record<number, any>
-  }>('ntFriendApi', 'getFriends', [true])
+  }>('/api/webqq/friends')
+  if (!response.success) {
+    throw new Error(response.message || '获取好友列表失败')
+  }
+  const result = response.data!
 
   // 构建分组数据
   const categories = Object.values(result.categories).map((category) => {
@@ -90,7 +95,11 @@ export async function getFriends(): Promise<FriendCategory[]> {
 
 // 获取群组列表
 export async function getGroups(): Promise<GroupItem[]> {
-  const groups = await ntCall<any[]>('ntGroupApi', 'getGroups', [false])
+  const response = await apiFetch<any[]>('/api/webqq/groups')
+  if (!response.success) {
+    throw new Error(response.message || '获取群组列表失败')
+  }
+  const groups = response.data || []
   return groups.map(group => ({
     groupCode: group.groupCode,
     groupName: group.groupName,
@@ -104,7 +113,11 @@ export async function getGroups(): Promise<GroupItem[]> {
 
 // 获取置顶列表
 export async function getPins(): Promise<{ friends: string[], groups: string[] }> {
-  const pins = await ntCall<{ friends: any[], groups: any[] }>('ntMsgApi', 'getPins')
+  const response = await apiFetch<{ friends: any[], groups: any[] }>('/api/webqq/pins')
+  if (!response.success) {
+    throw new Error(response.message || '获取置顶列表失败')
+  }
+  const pins = response.data!
   return {
     friends: pins.friends.map(item => item.uid),
     groups: pins.groups.map(item => item.groupCode.toString())
@@ -112,174 +125,11 @@ export async function getPins(): Promise<{ friends: string[], groups: string[] }
 }
 
 // 获取最近会话列表
+//
+// 之前依赖 ntUserApi.getRecentContactListSnapShot 反射调用，那块逻辑已废弃 (老
+// wrapper 模式专属)。当前直接返回空，FE 的最近会话由前端 SSE 实时累积维护。
 export async function getRecentChats(): Promise<RecentChatItem[]> {
-  /*const result = await ntCall<{ info: { changedList: any[] } }>('ntUserApi', 'getRecentContactListSnapShot', [50])
-
-  // 获取群列表和好友列表的置顶信息
-  const [groupsData, friendsData, pinsData] = await Promise.all([
-    getGroups(),
-    getFriends(),
-    getPins()
-  ])
-
-  // 创建置顶信息映射
-  const topMap = new Map<string, boolean>()
-
-  // 群聊置顶信息（排除 msgMask === 2 的群）
-  const toppedGroups: any[] = []
-  groupsData.forEach(group => {
-    // 群助手的群（msgMask === 2）不应该出现在最近联系列表
-    if (group.msgMask === 2) {
-      return
-    }
-    topMap.set(`2_${group.groupCode}`, group.isTop)
-    if (group.isTop) {
-      toppedGroups.push(group)
-    }
-  })
-
-  // 好友置顶信息
-  const toppedFriends: any[] = []
-  friendsData.forEach(category => {
-    category.friends.forEach(friend => {
-      const isTop = pinsData.friends.includes(friend.uid)
-      topMap.set(`1_${friend.uin}`, isTop)
-      if (isTop) {
-        toppedFriends.push(friend)
-      }
-    })
-  })
-
-  // 创建已存在的会话 ID 集合
-  const existingChatIds = new Set<string>()
-
-  // 处理最近联系列表中的会话
-  const recentChats = result.info.changedList
-    .filter(item => {
-      const peerId = item.peerUin || item.peerUid
-      return peerId && peerId !== '0' && peerId !== ''
-    })
-    .map(item => {
-      const chatType = item.chatType as 1 | 2 | 100
-      const isGroup = chatType === 2
-      const peerId = isGroup ? (item.peerUin || item.peerUid) : item.peerUin
-
-      existingChatIds.add(`${chatType}_${peerId}`)
-
-      // 从群列表或好友列表获取置顶状态
-      const topKey = `${chatType}_${peerId}`
-      const pinned = topMap.get(topKey) || false
-
-      return {
-        chatType,
-        peerId,
-        peerName: item.peerName || item.remark || item.peerUin,
-        peerAvatar: isGroup ? getGroupAvatar(peerId) : getUserAvatar(item.peerUin),
-        lastMessage: extractAbstractContent(item.abstractContent),
-        lastTime: parseInt(item.msgTime) * 1000,
-        unreadCount: parseInt(item.unreadCnt) || 0,
-        pinned
-      }
-    })
-
-  // 添加置顶但不在最近联系列表中的群聊（排除群助手的群）
-  toppedGroups.forEach(group => {
-    const chatId = `2_${group.groupCode}`
-    if (!existingChatIds.has(chatId)) {
-      recentChats.push({
-        chatType: 2,
-        peerId: group.groupCode,
-        peerName: group.groupName,
-        peerAvatar: getGroupAvatar(group.groupCode),
-        lastMessage: '',
-        lastTime: Date.now(),
-        unreadCount: 0,
-        pinned: true
-      })
-    }
-  })
-
-  // 添加置顶但不在最近联系列表中的好友
-  toppedFriends.forEach(friend => {
-    const chatId = `1_${friend.uin}`
-    if (!existingChatIds.has(chatId)) {
-      recentChats.push({
-        chatType: 1,
-        peerId: friend.uin,
-        peerName: friend.remark || friend.nickname,
-        peerAvatar: getUserAvatar(friend.uin),
-        lastMessage: '',
-        lastTime: Date.now(),
-        unreadCount: 0,
-        pinned: true
-      })
-    }
-  })
-
-  // 排序：置顶的在前，然后按时间排序
-  recentChats.sort((a, b) => {
-    if (a.pinned && !b.pinned) return -1
-    if (!a.pinned && b.pinned) return 1
-    return b.lastTime - a.lastTime
-  })
-
-  return recentChats*/
   return []
-}
-
-// 提取消息摘要
-function extractAbstractContent(abstractContent: unknown): string {
-  const extractFromItem = (item: any): string => {
-    if (!item) return ''
-    if (typeof item === 'string') return item
-
-    const textContent =
-      item.content ||
-      item.text ||
-      item.recentAbstract ||
-      item.textElement?.content ||
-      item.grayTipElement?.jsonGrayTipElement?.recentAbstract
-    if (typeof textContent === 'string' && textContent.trim()) {
-      return textContent
-    }
-
-    if (item.picElement || item.imageElement || item.type === 2 || item.elementType === 2) {
-      return '[图片]'
-    }
-    if (item.faceElement || item.marketFaceElement || item.type === 3 || item.elementType === 6) {
-      return '[表情]'
-    }
-    if (item.fileElement || item.type === 6 || item.elementType === 3) {
-      return '[文件]'
-    }
-    if (item.pttElement || item.voiceElement || item.elementType === 4) {
-      return '[语音]'
-    }
-    if (item.videoElement || item.elementType === 5) {
-      return '[视频]'
-    }
-    if (item.multiForwardMsgElement || item.elementType === 16) {
-      return '[聊天记录]'
-    }
-    if (item.arkElement || item.elementType === 10) {
-      try {
-        const arkData = JSON.parse(item.arkElement?.bytesData || '{}')
-        if (arkData.app === 'com.tencent.multimsg') return '[聊天记录]'
-      } catch { /* ignore */ }
-    }
-
-    return ''
-  }
-
-  if (!abstractContent) return '[消息]'
-
-  if (Array.isArray(abstractContent)) {
-    const content = abstractContent.map(extractFromItem).filter(Boolean).join('')
-    return content || '[消息]'
-  }
-
-  const singleContent = extractFromItem(abstractContent)
-  return singleContent || '[消息]'
 }
 
 // 获取消息历史
@@ -383,84 +233,265 @@ export async function getUserInfo(uid: string): Promise<{ uid: string; uin: stri
   return response.data!
 }
 
-// 通用 NT API 调用
-export async function ntCall<T = any>(service: string, method: string, args: unknown[] = []): Promise<T> {
-  const response = await apiFetch<T>(`/api/ntcall/${service}/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ args })
-  })
-  if (!response.success) {
-    throw new Error(response.message || 'NT API 调用失败')
-  }
-  return response.data!
-}
+// 通用 NT API 调用 已删除：FE 不再通过反射调任意服务方法。
+// 所有功能改成调 webqqApi 暴露的 typed 函数 (背后是具体的 BE endpoint)。
 
 // 获取视频播放 URL
-export async function getVideoUrl(chatType: number, peerUid: string, msgId: string, elementId: string): Promise<string> {
-  const peer = { chatType, peerUid, guildId: '' }
-  return await ntCall<string>('ntFileApi', 'getVideoUrl', [peer, msgId, elementId])
+export async function getVideoUrl(_chatType: number, _peerUid: string, _msgId: string, _elementId: string, fileUuid?: string, isGroup?: boolean): Promise<string> {
+  // BE 端 ntFileApi.getVideoUrl(fileUuid, isGroup) — 注意旧版本 FE 传的 (peer, msgId, elementId) 是错的，
+  // 真实签名要 fileUuid。FE 调用方需要改成传 videoElement.fileUuid。
+  if (!fileUuid) {
+    throw new Error('getVideoUrl: 需要 fileUuid (旧签名 peer/msgId/elementId 已废弃)')
+  }
+  const params = new URLSearchParams({
+    fileUuid,
+    isGroup: String(isGroup ?? false)
+  })
+  const response = await apiFetch<string>(`/api/webqq/video-url?${params}`)
+  if (!response.success) {
+    throw new Error(response.message || '获取视频 URL 失败')
+  }
+  return response.data || ''
 }
 
 // 撤回消息
 export async function recallMessage(chatType: number, peerUid: string, msgId: string): Promise<void> {
-  const peer = { chatType, peerUid, guildId: '' }
-  await ntCall('ntMsgApi', 'recallMsg', [peer, [msgId]])
+  const response = await apiFetch<void>('/api/webqq/messages/recall', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatType, peerUid, msgId })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '撤回失败')
+  }
+}
+
+// 贴表情（QQ 表情用 faceId 数字字符串，Unicode emoji 用码点字符串）
+export async function setEmojiLike(chatType: number, peerUid: string, msgSeq: number, emojiId: string, set: boolean): Promise<void> {
+  // BE 端用的是 setGroupMsgReaction（虽然名字带 group，但 server 端对私聊也用同 cmd）
+  // groupCode 取自 peerUid（群聊 peerUid 本来就是 groupCode；私聊 peerUid 是 uid，setGroupMsgReaction 内部会拒）
+  const groupCode = chatType === 2 ? peerUid : peerUid
+  const response = await apiFetch<void>('/api/webqq/messages/emoji-like', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupCode, msgSeq, emojiId, set })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '贴表情失败')
+  }
+}
+
+// 用户简略信息（用于 getUserDisplayName 这种轻量查询）
+interface UserSimple {
+  uid: string
+  uin: string
+  nick: string
+  remark: string
+  level: number
+  registerTime: number
+  bio: string
+  qid: string
+  gender: number
+  age: number
+  birthdayYear: number
+  birthdayMonth: number
+  birthdayDay: number
+  labels: string[]
+  city: string
+  country: string
+  school: string
+  isVip: boolean
+  isYearsVip: boolean
+  vipLevel: number
+}
+
+// 群成员简略信息
+interface GroupMemberFull {
+  uid: string
+  uin: number
+  nick: string
+  cardName?: string
+  role: number
+  memberSpecialTitle?: string
+  memberLevel?: number
+  memberRealLevel?: number
+  joinTime?: number
+  lastSpeakTime?: number
+}
+
+// 获取群单个成员
+async function getGroupMemberDetail(groupCode: string, uid: string): Promise<GroupMemberFull | null> {
+  const params = new URLSearchParams({ groupCode, uid })
+  const response = await apiFetch<GroupMemberFull | null>(`/api/webqq/group-member?${params}`)
+  if (!response.success) {
+    throw new Error(response.message || '获取群成员失败')
+  }
+  return response.data ?? null
+}
+
+// 获取用户详情
+async function getUser(uid?: string, uin?: string): Promise<UserSimple> {
+  const params = new URLSearchParams()
+  if (uid) params.set('uid', uid)
+  if (uin) params.set('uin', uin)
+  const response = await apiFetch<UserSimple>(`/api/webqq/user?${params}`)
+  if (!response.success) {
+    throw new Error(response.message || '获取用户详情失败')
+  }
+  return response.data!
+}
+
+// uin → uid
+async function uin2uid(uin: string, groupCode?: string): Promise<string> {
+  const params = new URLSearchParams({ uin })
+  if (groupCode) params.set('groupCode', groupCode)
+  const response = await apiFetch<string>(`/api/webqq/uid?${params}`)
+  if (!response.success) {
+    throw new Error(response.message || 'uin 转 uid 失败')
+  }
+  return response.data || ''
+}
+
+// uid → uin
+async function uid2uin(uid: string): Promise<string> {
+  const params = new URLSearchParams({ uid })
+  const response = await apiFetch<string>(`/api/webqq/uin?${params}`)
+  if (!response.success) {
+    throw new Error(response.message || 'uid 转 uin 失败')
+  }
+  return response.data || ''
 }
 
 // 获取用户显示名称（群聊用群名片，私聊用备注）
 export async function getUserDisplayName(uid: string, groupCode?: string): Promise<string> {
   try {
     if (groupCode) {
-      // 群聊：获取单个群成员信息，优先显示群名片
-      const memberInfo = await ntCall<{ nick: string; cardName?: string } | null>('ntGroupApi', 'getGroupMember', [groupCode, uid, false])
-      if (memberInfo) {
-        return memberInfo.cardName || memberInfo.nick || '未知用户'
+      const member = await getGroupMemberDetail(groupCode, uid)
+      if (member) {
+        return member.cardName || member.nick || '未知用户'
       }
     }
-    // 私聊或群成员未找到：获取好友信息，优先显示备注
-    const userInfo = await ntCall<{ coreInfo?: { nick?: string; remark?: string } }>('ntUserApi', 'getUserSimpleInfo', [uid, false])
-    return userInfo?.coreInfo?.remark || userInfo?.coreInfo?.nick || '未知用户'
+    const user = await getUser(uid)
+    return user.remark || user.nick || '未知用户'
   } catch {
     return '未知用户'
   }
 }
 
-// 戳一戳 - 使用 pmhq 服务
+// 戳一戳
 export async function sendPoke(chatType: number, targetUin: number, groupCode?: number): Promise<void> {
-  if (chatType === 2 && groupCode) {
-    // 群聊戳一戳
-    await ntCall('qqProtocol', 'sendGroupPoke', [Number(groupCode), Number(targetUin)])
-  } else {
-    // 私聊戳一戳
-    await ntCall('qqProtocol', 'sendFriendPoke', [Number(targetUin)])
+  const url = chatType === 2 ? '/api/webqq/group/poke' : '/api/webqq/friend/poke'
+  const body = chatType === 2 ? { groupCode, uin: targetUin } : { uin: targetUin }
+  const response = await apiFetch<void>(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  })
+  if (!response.success) {
+    throw new Error(response.message || '戳一戳失败')
   }
 }
 
 // 语音转文字
-export async function translatePttToText(msgId: string, chatType: number, peerUid: string, voiceElement: unknown): Promise<string> {
-  const peer = { chatType, peerUid, guildId: '' }
-  const text = await ntCall<string>('ntMsgApi', 'translatePtt2Text', [msgId, peer, voiceElement])
-  return text || ''
+export async function translatePttToText(msgId: string, chatType: number, peerUid: string, _voiceElement: unknown): Promise<string> {
+  // BE 端从 store 自己取 voiceElement，不需要 FE 再传
+  const response = await apiFetch<string>('/api/webqq/messages/ptt-to-text', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ msgId, chatType, peerUid })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '语音转文字失败')
+  }
+  return response.data || ''
 }
 
-// 踢出群成员 - 使用 ntGroupApi
+// 踢出群成员
 export async function kickGroupMember(groupCode: string, uid: string, refuseForever = false): Promise<void> {
-  const result = await ntCall('ntGroupApi', 'kickMember', [groupCode, [uid], refuseForever, ''])
-  if (result?.errCode !== 0) {
-    throw new Error(result?.errMsg || '踢出失败')
+  const response = await apiFetch<void>('/api/webqq/group/kick', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupCode, uid, refuseForever })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '踢出失败')
   }
 }
 
-// 禁言群成员 - 使用 ntGroupApi
-// duration 为秒数，0 为解除禁言
+// 禁言群成员（duration 秒数，0 解禁）
 export async function muteGroupMember(groupCode: string, uid: string, duration: number): Promise<void> {
-  await ntCall('ntGroupApi', 'banMember', [groupCode, [{ uid, timeStamp: duration }]])
+  const response = await apiFetch<void>('/api/webqq/group/ban', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupCode, uid, duration })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '禁言失败')
+  }
 }
 
-// 设置群成员头衔 - 使用 pmhq（仅群主可用）
+// 设置群成员头衔（仅群主可用）
 export async function setMemberTitle(groupCode: string, uid: string, title: string): Promise<void> {
-  await ntCall('qqProtocol', 'setSpecialTitle', [parseInt(groupCode), uid, title])
+  const response = await apiFetch<void>('/api/webqq/group/special-title', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupCode, uid, title })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '设置头衔失败')
+  }
+}
+
+// 设置/取消群管理员
+export async function setMemberAdmin(groupCode: string, uid: string, isAdmin: boolean): Promise<void> {
+  const response = await apiFetch<void>('/api/webqq/group/member-role', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupCode, uid, isAdmin })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '设置管理员失败')
+  }
+}
+
+// 收藏表情
+export interface FavEmojiInfo {
+  emoId: number
+  resId: string
+  url: string
+  desc: string
+}
+
+export async function fetchFavEmojiList(): Promise<FavEmojiInfo[]> {
+  const response = await apiFetch<{ emojiInfoList: FavEmojiInfo[] }>('/api/webqq/fav-emoji')
+  if (!response.success) {
+    throw new Error(response.message || '获取收藏表情失败')
+  }
+  return response.data?.emojiInfoList || []
+}
+
+export async function deleteFavEmoji(resId: string): Promise<{ result: number; errMsg: string }> {
+  const response = await apiFetch<{ result: number; errMsg: string }>('/api/webqq/fav-emoji/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ emojiIds: [resId] })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '删除收藏表情失败')
+  }
+  return response.data!
+}
+
+export async function addFavEmoji(filePath: string): Promise<{ result: number; errMsg?: string; isExist?: boolean }> {
+  const response = await apiFetch<{ result: number; errMsg?: string; isExist?: boolean }>('/api/webqq/fav-emoji/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ filePath })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '添加收藏表情失败')
+  }
+  return response.data!
 }
 
 // 获取语音消息 URL（通过代理）
@@ -475,9 +506,13 @@ export function getAudioProxyUrl(fileUuid: string, isGroup: boolean, filePath?: 
 
 // 退出群聊（群主调用则解散群）
 export async function quitGroup(groupCode: string): Promise<void> {
-  const result = await ntCall<{ result: number; errMsg: string }>('ntGroupApi', 'quitGroup', [groupCode])
-  if (result?.result !== 0) {
-    throw new Error(result?.errMsg || '退群失败')
+  const response = await apiFetch<void>('/api/webqq/group/quit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupCode })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '退群失败')
   }
 }
 
@@ -504,86 +539,53 @@ export interface UserProfile {
   lastSpeakTime?: number    // 最后发言时间
 }
 
-// 获取用户详细资料 - 使用 ntUserApi
+// 获取用户详细资料
+//
+// 注意：之前 FE 直接 ntCall 'fetchUserDetailInfo' 拿的是嵌套很深的
+// { simpleInfo: { coreInfo, baseInfo }, commonExt: { qqLevel } } 结构 (NT 内部 wrapper)。
+// 现在 BE /user endpoint 走的是 ntUserApi.getUserByUid/getUserByUin，返已经解析好的 User 对象
+// (含 nick / remark / level / registerTime / qid / labels 等扁平字段)。FE 直接用这个 shape。
 export async function getUserProfile(uid?: string, uin?: string, groupCode?: string): Promise<UserProfile> {
   let targetUid = uid
 
-  // 如果只有 uin，先转换为 uid
+  // 如果只有 uin，先转换为 uid（BE /uid endpoint）
   if (!targetUid && uin) {
-    targetUid = await ntCall<string>('ntUserApi', 'getUidByUin', [uin])
+    targetUid = await uin2uid(uin)
   }
 
   if (!targetUid) {
     throw new Error('无法获取用户信息')
   }
 
-  // fetchUserDetailInfo 返回 { detail: { [uid]: UserDetailInfo } }（Map 已被序列化为对象）
-  const result = await ntCall<any>('ntUserApi', 'fetchUserDetailInfo', [targetUid])
-  const userInfo = result
-
-  if (!userInfo) {
-    throw new Error('用户不存在')
-  }
-
-  // 获取 uin
-  let targetUin = uin || userInfo.uin
-  if (!targetUin) {
-    targetUin = await ntCall<string>('ntUserApi', 'getUinByUid', [targetUid])
-  }
-
-  const simpleInfo = userInfo.simpleInfo
-  const coreInfo = simpleInfo?.coreInfo
-  const baseInfo = simpleInfo?.baseInfo
-  const commonExt = userInfo.commonExt
-
-  // 获取 QQ 等级
-  let level = commonExt?.qqLevel?.level || 0
-  // 如果等级为 0，通过 pmhq.fetchUserLevel 获取
-  if (level === 0 && targetUin) {
-    try {
-      level = await ntCall<number>('qqProtocol', 'fetchUserLevel', [parseInt(targetUin)])
-    } catch {
-      // 获取等级失败，忽略
-    }
-  }
+  const user = await getUser(targetUid)
+  const targetUin = uin || user.uin || (await uid2uin(targetUid))
 
   const profile: UserProfile = {
     uid: targetUid,
     uin: targetUin || '',
-    nickname: coreInfo?.nick || '',
-    remark: coreInfo?.remark || '',
-    signature: baseInfo?.longNick || '',
-    sex: baseInfo?.sex ?? 0,
-    birthday: baseInfo?.birthday_year ? `${baseInfo.birthday_year}-${baseInfo.birthday_month}-${baseInfo.birthday_day}` : '',
-    location: '',
-    qid: baseInfo?.qid || '',
-    level,
-    regTime: commonExt?.regTime || undefined,
+    nickname: user.nick || '',
+    remark: user.remark || '',
+    signature: user.bio || '',
+    sex: user.gender ?? 0,
+    birthday: user.birthdayYear ? `${user.birthdayYear}-${user.birthdayMonth}-${user.birthdayDay}` : '',
+    location: [user.country, user.city].filter(Boolean).join(' ') || '',
+    qid: user.qid || '',
+    level: user.level || 0,
+    regTime: user.registerTime || undefined,
     avatar: `https://q1.qlogo.cn/g?b=qq&nk=${targetUin}&s=640`
   }
 
   // 如果是群聊，获取群成员信息
   if (groupCode) {
     try {
-      const memberInfo = await ntCall<{
-        nick: string
-        cardName?: string
-        role: number
-        memberSpecialTitle?: string
-        memberLevel?: number
-        memberRealLevel?: number
-        joinTime?: number
-        lastSpeakTime?: number
-      } | null>('ntGroupApi', 'getGroupMember', [groupCode, targetUid, false])
-
-      if (memberInfo) {
-        profile.groupCard = memberInfo.cardName || ''
-        profile.groupRole = memberInfo.role === 4 ? 'owner' : memberInfo.role === 3 ? 'admin' : 'member'
-        profile.groupTitle = memberInfo.memberSpecialTitle || ''
-        // 优先使用 memberRealLevel，如果没有则使用 memberLevel
-        profile.groupLevel = memberInfo.memberRealLevel || memberInfo.memberLevel || 0
-        profile.joinTime = memberInfo.joinTime
-        profile.lastSpeakTime = memberInfo.lastSpeakTime
+      const member = await getGroupMemberDetail(groupCode, targetUid)
+      if (member) {
+        profile.groupCard = member.cardName || ''
+        profile.groupRole = member.role === 4 ? 'owner' : member.role === 3 ? 'admin' : 'member'
+        profile.groupTitle = member.memberSpecialTitle || ''
+        profile.groupLevel = member.memberRealLevel || member.memberLevel || 0
+        profile.joinTime = member.joinTime
+        profile.lastSpeakTime = member.lastSpeakTime
       }
     } catch {
       // 获取群成员信息失败，忽略
@@ -772,44 +774,53 @@ export interface GroupProfile {
 }
 
 // 获取群详细资料
+//
+// BE /group-detail 调 ntGroupApi.getGroup() 返回的是已经简化好的 Group 对象
+// (扁平字段：groupCode/groupName/ownerUid/createdAt/maxMemberCount/memberCount/
+//  description/announcementPreview)。FE 直接用这个 shape，不再像旧版本通过 ntCall
+// 拿 wrapper 内部的 fingerMemo/groupMemo/cmdUinJoinTime 等原始字段。
 export async function getGroupProfile(groupCode: string): Promise<GroupProfile> {
-  const groupAll = await ntCall<any>('ntGroupApi', 'getGroup', [+groupCode, false])
-
-  // 打印群介绍调试
-  console.log('[WebQQ] 群资料:', {
-    groupCode: groupAll.groupCode,
-    groupName: groupAll.groupName,
-    fingerMemo: groupAll.fingerMemo,
-    fingerMemoLength: groupAll.fingerMemo?.length,
-    groupMemo: groupAll.groupMemo,
-    groupMemoLength: groupAll.groupMemo?.length,
-    richFingerMemo: groupAll.richFingerMemo,
-  })
+  const response = await apiFetch<{
+    groupCode: number
+    groupName: string
+    ownerUid: string
+    createdAt?: number
+    maxMemberCount?: number
+    memberCount?: number
+    description?: string
+    announcementPreview?: string
+    remark?: string
+  }>(`/api/webqq/group-detail?groupCode=${groupCode}`)
+  if (!response.success) {
+    throw new Error(response.message || '获取群详情失败')
+  }
+  const groupAll = response.data!
 
   // 获取群主信息
   let ownerName = ''
+  let ownerUinStr = ''
   if (groupAll.ownerUid) {
     try {
-      const ownerUin = await ntCall<string>('ntUserApi', 'getUinByUid', [groupAll.ownerUid])
-      const ownerInfo = await ntCall<{ coreInfo?: { nick?: string } }>('ntUserApi', 'getUserSimpleInfo', [groupAll.ownerUid, false])
-      ownerName = ownerInfo?.coreInfo?.nick || ownerUin || ''
+      ownerUinStr = await uid2uin(groupAll.ownerUid)
+      const ownerUser = await getUser(groupAll.ownerUid)
+      ownerName = ownerUser.nick || ownerUinStr || ''
     } catch {
       // 忽略错误
     }
   }
 
   return {
-    groupCode: groupAll.groupCode,
+    groupCode: String(groupAll.groupCode),
     groupName: groupAll.groupName,
-    remarkName: groupAll.remarkName || '',
-    avatar: getGroupAvatar(groupAll.groupCode),
-    memberCount: groupAll.memberNum,
-    maxMemberCount: groupAll.maxMemberNum,
-    ownerUin: groupAll.ownerUid ? await ntCall<string>('ntUserApi', 'getUinByUid', [groupAll.ownerUid]).catch(() => '') : '',
+    remarkName: groupAll.remark || '',
+    avatar: getGroupAvatar(String(groupAll.groupCode)),
+    memberCount: groupAll.memberCount ?? 0,
+    maxMemberCount: groupAll.maxMemberCount,
+    ownerUin: ownerUinStr,
     ownerName,
-    createTime: groupAll.cmdUinJoinTime || undefined,
-    description: groupAll.richFingerMemo || groupAll.fingerMemo || '',
-    announcement: groupAll.groupMemo || ''
+    createTime: groupAll.createdAt || undefined,
+    description: groupAll.description || '',
+    announcement: groupAll.announcementPreview || ''
   }
 }
 
@@ -841,25 +852,39 @@ export function formatMessageTime(timestamp: number): string {
 
 // 删除好友
 export async function deleteFriend(uid: string): Promise<void> {
-  const result = await ntCall<{ result: number; errMsg: string }>('ntFriendApi', 'delBuddy', [uid])
-  if (result?.result !== 0) {
-    throw new Error(result?.errMsg || '删除好友失败')
+  const response = await apiFetch<void>('/api/webqq/friend/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ uid })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '删除好友失败')
   }
 }
 
 // 设置会话置顶
 export async function setRecentChatTop(chatType: number, peerId: string, isTop: boolean): Promise<void> {
   if (chatType === 2) {
-    // 群聊使用 GroupService.setTop
-    const result = await ntCall<{ result: number; errMsg: string }>('ntGroupApi', 'setTop', [peerId, isTop])
-    if (result?.result !== 0) {
-      throw new Error(result?.errMsg || '设置置顶失败')
+    // 群聊
+    const response = await apiFetch<void>('/api/webqq/group/set-top', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupCode: peerId, isTop })
+    })
+    if (!response.success) {
+      throw new Error(response.message || '设置置顶失败')
     }
   } else {
-    // 私聊和临时会话使用 BuddyService.setTop
-    const result = await ntCall<{ result: number; errMsg: string }>('ntFriendApi', 'setTop', [peerId, isTop])
-    if (result?.result !== 0) {
-      throw new Error(result?.errMsg || '设置置顶失败')
+    // 私聊：peerId 是 uin → 先转 uid (BE 端 setFriendPin 需要 uid)
+    const uid = await uin2uid(peerId)
+    if (!uid) throw new Error('无法获取用户信息')
+    const response = await apiFetch<void>('/api/webqq/friend/set-top', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uid, isTop })
+    })
+    if (!response.success) {
+      throw new Error(response.message || '设置置顶失败')
     }
   }
 }
@@ -874,9 +899,13 @@ export enum GroupMsgMask {
 
 // 设置群消息接收方式
 export async function setGroupMsgMask(groupCode: string, msgMask: GroupMsgMask): Promise<void> {
-  const result = await ntCall<{ result: number; errMsg: string }>('ntGroupApi', 'setGroupMsgMask', [groupCode, msgMask])
-  if (result?.result !== 0) {
-    throw new Error(result?.errMsg || '设置消息接收方式失败')
+  const response = await apiFetch<void>('/api/webqq/group/msg-mask', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupCode, msgMask })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '设置消息接收方式失败')
   }
 }
 

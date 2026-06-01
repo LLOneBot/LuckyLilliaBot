@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Loader2, Trash2 } from 'lucide-react'
-import { ntCall } from '../../../utils/webqqApi'
+import { fetchFavEmojiList, deleteFavEmoji as apiDeleteFavEmoji } from '../../../utils/webqqApi'
 import { showToast } from '../../common'
 
 export interface FavEmoji {
@@ -114,9 +114,8 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
 
     const loadEmojis = async () => {
       try {
-        const result = await ntCall<{ emojiInfoList: any[] }>('ntMsgApi', 'fetchFavEmojiList', [1000])
-        const list = result.emojiInfoList || []
-        const emojiList = list.map(item => ({
+        const list = await fetchFavEmojiList()
+        const emojiList = list.map((item: any) => ({
           emoId: item.emoId,
           resId: item.resId || '',
           url: item.url,
@@ -167,7 +166,7 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
     setContextMenu(null)
 
     try {
-      const result = await ntCall<{ result: number; errMsg: string }>('ntMsgApi', 'deleteFavEmoji', [[emoji.resId]])
+      const result = await apiDeleteFavEmoji(emoji.resId)
       if (result.result === 0) {
         showToast('已删除', 'success')
         // 更新列表

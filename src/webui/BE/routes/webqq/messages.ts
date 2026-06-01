@@ -1,5 +1,5 @@
 import { Context } from 'cordis'
-import { ChatType, ElementType, RawMessage, SendMessageElement, SendPicElement } from '@/ntqqapi/types'
+import { ChatType, ElementType, RawMessage, SendMessageElement, SendPicElement, MessageElement } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
 import { serializeResult } from '../../../BE/utils'
 import { unlink } from 'node:fs/promises'
@@ -262,6 +262,138 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     } catch (e) {
       ctx.logger.error('获取合并转发消息失败:', e)
       return c.json({ success: false, message: '获取合并转发消息失败', error: (e as Error).message }, 500)
+    }
+  })
+
+  // 视频播放 URL
+  router.get('/video-url', async (c) => {
+    try {
+      const { fileUuid, isGroup } = c.req.query() as { fileUuid: string, isGroup: string }
+      if (!fileUuid) {
+        return c.json({ success: false, message: '缺少 fileUuid 参数' }, 400)
+      }
+      const url = await ctx.ntFileApi.getVideoUrl(fileUuid, isGroup === 'true')
+      return c.json({ success: true, data: url })
+    } catch (e) {
+      ctx.logger.error('获取视频 URL 失败:', e)
+      return c.json({ success: false, message: '获取视频 URL 失败', error: (e as Error).message }, 500)
+    }
+  })
+
+  // 撤回消息（统一按 msgId 找原消息，自动取 msgSeq/clientSeq/msgRandom/msgTime）
+  router.post('/messages/recall', async (c) => {
+    try {
+      const { msgId, chatType, peerUid } = await c.req.json() as {
+        msgId: string
+        chatType: number
+        peerUid: string
+      }
+      if (!msgId || chatType === undefined || !peerUid) {
+        return c.json({ success: false, message: '缺少必要参数' }, 400)
+      }
+      const peer = { chatType, peerUid, guildId: '' }
+      const msg = ctx.store.getMsgByMsgId(msgId)
+      if (!msg) {
+        return c.json({ success: false, message: '找不到要撤回的消息（可能 store 缓存丢了）' }, 400)
+      }
+      if (chatType === ChatType.Group) {
+        await ctx.ntMsgApi.recallMsg(peer, msg.msgSeq)
+      } else {
+        await ctx.ntMsgApi.recallMsg(peer, msg.msgSeq, msg.clientSeq, msg.msgRandom, +msg.msgTime)
+      }
+      return c.json({ success: true })
+    } catch (e) {
+      ctx.logger.error('撤回消息失败:', e)
+      return c.json({ success: false, message: '撤回消息失败', error: (e as Error).message }, 500)
+    }
+  })
+
+  // 贴表情 (setGroupMsgReaction; 实际 server 端对群和私聊都用同一个)
+  router.post('/messages/emoji-like', async (c) => {
+    try {
+      const { groupCode, msgSeq, emojiId, set } = await c.req.json() as {
+        groupCode: string | number
+        msgSeq: number
+        emojiId: string
+        set: boolean
+      }
+      if (!groupCode || msgSeq === undefined || !emojiId || set === undefined) {
+        return c.json({ success: false, message: '缺少必要参数' }, 400)
+      }
+      await ctx.ntMsgApi.setGroupMsgReaction(+groupCode, +msgSeq, emojiId, set)
+      return c.json({ success: true })
+    } catch (e) {
+      ctx.logger.error('贴表情失败:', e)
+      return c.json({ success: false, message: '贴表情失败', error: (e as Error).message }, 500)
+    }
+  })
+
+  // 语音转文字
+  router.post('/messages/ptt-to-text', async (c) => {
+    try {
+      const { msgId, chatType, peerUid } = await c.req.json() as {
+        msgId: string
+        chatType: number
+        peerUid: string
+      }
+      if (!msgId || chatType === undefined || !peerUid) {
+        return c.json({ success: false, message: '缺少必要参数' }, 400)
+      }
+      const peer = { chatType, peerUid, guildId: '' }
+      const msg = ctx.store.getMsgByMsgId(msgId)
+      if (!msg) {
+        return c.json({ success: false, message: '找不到原消息（store 缓存丢了）' }, 400)
+      }
+      const voiceElement = msg.elements.find((e: MessageElement) => e.elementType === ElementType.Ptt)
+      if (!voiceElement) {
+        return c.json({ success: false, message: '该消息不是语音消息' }, 400)
+      }
+      const text = await ctx.ntMsgApi.translatePtt2Text(msgId, peer, +msg.senderUin, voiceElement)
+      return c.json({ success: true, data: text || '' })
+    } catch (e) {
+      ctx.logger.error('语音转文字失败:', e)
+      return c.json({ success: false, message: '语音转文字失败', error: (e as Error).message }, 500)
+    }
+  })
+
+  // 收藏表情列表 (getCustomFaceList)
+  router.get('/fav-emoji', async (c) => {
+    try {
+      const result = await ctx.ntMsgApi.getCustomFaceList()
+      return c.json({ success: true, data: serializeResult(result) })
+    } catch (e) {
+      ctx.logger.error('获取收藏表情失败:', e)
+      return c.json({ success: false, message: '获取收藏表情失败', error: (e as Error).message }, 500)
+    }
+  })
+
+  // 删除收藏表情 (deleteCustomFace)
+  router.post('/fav-emoji/delete', async (c) => {
+    try {
+      const { emojiIds } = await c.req.json() as { emojiIds: string[] }
+      if (!emojiIds || !emojiIds.length) {
+        return c.json({ success: false, message: '缺少 emojiIds 参数' }, 400)
+      }
+      const result = await ctx.ntMsgApi.deleteCustomFace(emojiIds)
+      return c.json({ success: true, data: serializeResult(result) })
+    } catch (e) {
+      ctx.logger.error('删除收藏表情失败:', e)
+      return c.json({ success: false, message: '删除收藏表情失败', error: (e as Error).message }, 500)
+    }
+  })
+
+  // 添加收藏表情（filePath 是 bot 端可访问的本地图片路径）
+  router.post('/fav-emoji/add', async (c) => {
+    try {
+      const { filePath } = await c.req.json() as { filePath: string }
+      if (!filePath) {
+        return c.json({ success: false, message: '缺少 filePath 参数' }, 400)
+      }
+      const result = await ctx.ntMsgApi.addCustomFace(filePath)
+      return c.json({ success: true, data: serializeResult(result) })
+    } catch (e) {
+      ctx.logger.error('添加收藏表情失败:', e)
+      return c.json({ success: false, message: '添加收藏表情失败', error: (e as Error).message }, 500)
     }
   })
 

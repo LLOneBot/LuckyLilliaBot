@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Reply, Trash2, AtSign, Hand, User, UserMinus, VolumeX, Award, Smile, Shield, ShieldOff, Star } from 'lucide-react'
 import type { RawMessage, GroupMemberItem } from '../../../types/webqq'
-import { getSelfUid, recallMessage, sendPoke, ntCall } from '../../../utils/webqqApi'
+import { getSelfUid, recallMessage, sendPoke, setMemberAdmin } from '../../../utils/webqqApi'
 import { showToast } from '../../common'
 
 // 计算菜单位置，确保不超出屏幕
@@ -94,31 +94,9 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
   const handleAddToFavEmoji = async () => {
     if (!contextMenu.elementId) return
     onClose()
-    try {
-      // 先下载图片，downloadMedia 直接返回 filePath 字符串
-      const filePath = await ntCall('ntFileApi', 'downloadMedia', [
-        msg.msgId,
-        msg.chatType,
-        msg.peerUid,
-        contextMenu.elementId,
-        '',
-        ''
-      ])
-
-      if (!filePath) {
-        showToast('图片下载失败', 'error')
-        return
-      }
-
-      const result = await ntCall('ntMsgApi', 'addFavEmoji', [filePath])
-      if (result.result === 0) {
-        showToast(result.isExist ? '表情已存在' : '已添加到表情', 'success')
-      } else {
-        showToast(result.errMsg || '添加失败', 'error')
-      }
-    } catch (e) {
-      showToast(e.message || '添加失败', 'error')
-    }
+    // 注：旧版本是先 ntCall('ntFileApi','downloadMedia',...) 下载到本地再加收藏，
+    // 但当前 cordis 直连模式没有 downloadMedia 实现。本入口暂不可用，提示用户。
+    showToast('暂不支持从聊天记录添加到表情，请到 QQ 客户端操作', 'error')
   }
 
   return createPortal(
@@ -232,9 +210,8 @@ export const AvatarContextMenu: React.FC<AvatarContextMenuProps> = ({
     const info = avatarContextMenu
     onClose()
     try {
-      // GroupMemberRole: Normal = 2, Admin = 3, Owner = 4
-      const newRole = targetIsAdmin ? 2 : 3
-      await ntCall('ntGroupApi', 'setMemberRole', [info.groupCode, info.senderUid, newRole])
+      // targetIsAdmin 表示目前已经是管理员；点击后切换：是 → 取消，不是 → 设为
+      await setMemberAdmin(info.groupCode, info.senderUid, !targetIsAdmin)
       showToast(targetIsAdmin ? '已取消管理员' : '已设为管理员', 'success')
       onAdminChanged?.()
     } catch (e) {
