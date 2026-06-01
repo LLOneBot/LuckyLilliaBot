@@ -114,5 +114,6 @@ export async function loadClient(): Promise<{ client: WebQQApiClient; config: Te
   return cached
 }
 
-/** destructive 测试守卫: 只有显式 RUN_DESTRUCTIVE=1 才跑 */
-export const isDestructiveEnabled = process.env.RUN_DESTRUCTIVE === '1'
+/** destructive 测试现在不再用全局开关. 真危险的 (kick/ban/quit) 写死 test.skip;
+ *  轻量副作用 (戳一戳) 默认就跑. fav-emoji/add-from-url 走 highway 网络通常不通,
+ *  也写死 test.skip. 见 actions.test.ts / fav-emoji.test.ts. */
