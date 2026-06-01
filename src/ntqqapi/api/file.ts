@@ -302,24 +302,49 @@ export class NTQQFileApi extends Service {
     } as FlashFileSetInfo
   }
 
+  /** 闪传：基于已有 fileSet 重新分享，拿到全新 share_link + 14 天有效期。
+   *
+   * 跟 Windows QQ 客户端"重新分享"按钮一样的事，但**不需要本地有原文件**——
+   * 直接从老 fileSet 的 list resp 抓 sha1/size/name，喂给上传链路 preflight 走秒传命中。
+   * 跟 Windows QQ 抓包对比，少了开头的 0x93e5_4 (老→新 fileSet 关联)，QQ 端"重新分享"
+   * 按钮其实也是普通上传链路，0x93e5_4 只是 server 端做"重新分享"统计/审计用，去掉不影响。
+   *
+   * 流程：
+   *   fileSetId → 0x93d4_1 (field3=2) → 每条 entry 的 sha1Hex/size/name
+   *   → 0x93cf_1 createFlashFileSet (新 fileSetId + 新 share_link)
+   *   → 0x93d0_1 registerFlashFile per file
+   *   → 0x93db_1 prepFlashFileSet
+   *   → 0x12a9_100 preflight (用 list 拿到的 sha1) → 秒传命中
+   *   → 0x12a9_103 commit
+   *   → 0x93d1_1 finalize
+   *
+   * 限制：老 fileSet 必须没过期；过期后 list 调不通拿不到 sha1。 */
   async reshareFlashFile(fileSetId: string): Promise<any> {
     const sourceFiles = await this.ctx.qqProtocol.getFlashFileList(fileSetId)
     if (sourceFiles.length === 0) throw new Error('reshareFlashFile: 源 fileSet 无文件')
-    const sourceInfo = await this.ctx.qqProtocol.getFlashFileInfo(fileSetId)
-    if (!sourceInfo) throw new Error('reshareFlashFile: 无法获取源 fileSet 信息')
-    const totalSize = sourceFiles.reduce((s: number, f: any) => s + (f.fileSize ?? 0), 0)
+    // info 拿 title — 拿不到（fileSet 已过期等）就用首文件名兜底，不让重新分享因为这个失败
+    const sourceInfo = await this.ctx.qqProtocol.getFlashFileInfo(fileSetId).catch(() => null)
+    // 跳过没 sha1 的 entry（封面占位等，size=1712 的默认头像那种），server 没法秒传它们
+    const reusable = (sourceFiles as any[]).filter(f => f.sha1Hex && f.fileSize)
+    if (reusable.length === 0) throw new Error('reshareFlashFile: 源 fileSet 没有可秒传的文件 (list 没返 sha1)')
+    const totalSize = reusable.reduce((s: number, f: any) => s + (f.fileSize ?? 0), 0)
+    // uploaderNick 必须真实昵称——若 selfInfo.nick 还没填则去抓一次 (跟 uploadFlashFile 一致)
+    if (!selfInfo.nick) {
+      await this.ctx.ntUserApi.getSelfNick(true).catch(() => { })
+    }
+    const uploaderNick = selfInfo.nick || 'QQ用户'
     // 1. 创建新 fileSet
     const fset = await this.ctx.qqProtocol.createFlashFileSet({
-      title: sourceInfo.title ?? '',
-      totalFileCount: sourceFiles.length,
+      title: sourceInfo?.title ?? reusable[0].name ?? '',
+      totalFileCount: reusable.length,
       totalFileSize: totalSize,
       uploaderUin: selfInfo.uin,
-      uploaderNick: selfInfo.nick || selfInfo.uin,
+      uploaderNick,
       uploaderUid: selfInfo.uid,
     })
     const newFileSetId = fset.fileSetId
     // 2. 注册每个文件（用源文件的元信息）+ prep + 秒传 commit
-    for (const f of sourceFiles as any[]) {
+    for (const f of reusable) {
       await this.ctx.qqProtocol.registerFlashFile(newFileSetId, {
         fileUuid: randomUUID(),
         name: f.name ?? '',
@@ -328,7 +353,7 @@ export class NTQQFileApi extends Service {
     }
     await this.ctx.qqProtocol.prepFlashFileSet(newFileSetId)
     let reqId = 0
-    for (const f of sourceFiles as any[]) {
+    for (const f of reusable) {
       const sha1Hex = f.sha1Hex ?? ''
       const fileName = f.name ?? ''
       const pre = await this.ctx.qqProtocol.flashFileUploadPreflight({
