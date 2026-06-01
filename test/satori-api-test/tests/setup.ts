@@ -1,9 +1,12 @@
+import * as fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   ConfigLoader,
   AccountManager,
   TwoAccountTest,
+  UnifiedConfigLoader,
+  type TestConfig,
 } from '../../test-framework/src/index.js'
 import { SatoriApiClient } from '../protocol/ApiClient.js'
 import { SatoriEventListener } from '../protocol/EventListener.js'
@@ -19,8 +22,18 @@ export interface SatoriTestContext {
   secondaryUserId: string
 }
 
+/** 加载配置: 优先 satori-api-test/config/test.config.json (向后兼容), fallback 项目级 test/test.config.json */
+function loadSatoriConfig(): TestConfig {
+  const legacyPath = path.resolve(__dirname, '../config/test.config.json')
+  if (fs.existsSync(legacyPath)) {
+    return ConfigLoader.load(legacyPath)
+  }
+  const { config: unified } = UnifiedConfigLoader.loadUnified()
+  return UnifiedConfigLoader.forSatori(unified)
+}
+
 export async function setupSatoriTest(): Promise<SatoriTestContext> {
-  const config = ConfigLoader.load(path.resolve(__dirname, '../config/test.config.json'))
+  const config = loadSatoriConfig()
   const accountManager = new AccountManager<SatoriApiClient>(
     config,
     (account, retries) => new SatoriApiClient(account, retries),

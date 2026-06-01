@@ -27,3 +27,6 @@ test/qq-session.json
 v2-login-qr.png
 sse-capture.jsonl
 test/fixtures/pmhq-flash/
+
+# 测试时 nohup tsx watch 输出
+logs/

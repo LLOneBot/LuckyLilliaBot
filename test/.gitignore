@@ -1,0 +1,2 @@
+# 项目根级统一测试配置（含敏感信息：webui 密码 / token / 群号 / QQ 号等）
+test.config.json
