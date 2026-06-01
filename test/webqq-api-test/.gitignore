@@ -1,0 +1,5 @@
+node_modules/
+dist/
+config/test.config.json
+test-report.html
+*.log
