@@ -3,8 +3,12 @@ import crypto from 'node:crypto'
 export interface TestConfig {
   /** WebUI HTTP base, 例如 http://127.0.0.1:3080。不要带尾斜线。 */
   host: string
-  /** WebUI 登录密码（明文）。client 算 sha256 当 X-Webui-Token 发。 */
-  password: string
+  /** WebUI 登录密码（明文）。client 算 sha256 当 X-Webui-Token 发。
+   *  二选一: 直接填明文密码, 或留空但填 password_file 由 client 自己读 (例如 data/webui_token.txt) */
+  password?: string
+  /** 从指定文件读取明文密码 (相对 test.config.json 所在目录解析)。优先级低于 password 字段。
+   *  典型用法: { "password_file": "../../data/webui_token.txt" } */
+  password_file?: string
   /** bot 自己的 QQ 号，用于断言 GET /login-info 的 selfInfo。 */
   user_id: string
   /** 用于查询型测试的群号 (GET /group-detail / /members 等)。 */
@@ -44,9 +48,9 @@ export class WebQQApiClient {
   private hashedToken: string
   private host: string
 
-  constructor(private config: TestConfig) {
+  constructor(private config: TestConfig, password: string) {
     this.host = config.host.replace(/\/$/, '')
-    this.hashedToken = crypto.createHash('sha256').update(config.password).digest('hex')
+    this.hashedToken = crypto.createHash('sha256').update(password).digest('hex')
   }
 
   async get<R = unknown>(path: string, query: Record<string, string | number> = {}): Promise<R> {
@@ -72,13 +76,14 @@ export class WebQQApiClient {
     return this.handle<R>(path, res)
   }
 
-  /** 健康检查：能拿到 selfInfo + uin 匹配 config.user_id 才算 bot 在线 + 鉴权过 */
+  /** 健康检查：能拿到 selfInfo + uin 非空才算 bot 在线 + 鉴权过。
+   *  如果 config.user_id 已显式给且跟实际不符就 throw；没给就接受任意 uin。 */
   async healthCheck(): Promise<{ uid: string; uin: string; nick?: string }> {
     const data = await this.get<{ uid: string; uin: string; nick?: string }>('/api/login-info')
     if (!data.uin) {
       throw new Error('healthCheck: bot 未登录 (login-info.uin 空)')
     }
-    if (data.uin !== this.config.user_id) {
+    if (this.config.user_id && data.uin !== this.config.user_id) {
       throw new Error(`healthCheck: bot 当前登录 uin=${data.uin}，但 config.user_id=${this.config.user_id}`)
     }
     return data
