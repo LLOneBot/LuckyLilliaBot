@@ -1105,14 +1105,23 @@ export namespace Oidb {
     name: ProtoField(8, 'string'),
     name2: ProtoField(9, 'string'),
     fileSize: ProtoField(11, 'uint32'),
-    // f13 是 server 端 download kind/state 标记，server 不直接返完整 URL；
-    // 真要 URL 必须再调 0x12a9_200
-    field13: ProtoField(13, {
-      field2: ProtoField(2, {
-        kind: ProtoField(1, 'uint32'),
+    // f13 是 server 端 download token + 校验信息（list req f3=2 时 server 才会返这部分）
+    downloadToken: ProtoField(13, {
+      // 100 字符 base64 token，可作为 0x12a9_200 send 的 download.info.fileId 入参
+      // (跟下面的 historyToken 是同一份 token 的不同长度版本)
+      token: ProtoField(1, 'string'),
+      tokenWithKind: ProtoField(2, {
+        kind: ProtoField(1, 'uint32'),  // = 2 (host kind)
+        // 在 Windows QQ session 下这里会带完整 download URL；Linux QQ session 只返 token
+        token: ProtoField(2, 'string'),
       }),
+      sha1Hex: ProtoField(3, 'string'),
+      field4: ProtoField(4, 'uint32'),
+      md5Hex: ProtoField(5, 'string'),
+      field6: ProtoField(6, 'uint32'),
+      field7: ProtoField(7, 'uint32'),
     }, 'optional'),
-    // 历史 commit token（base64），可作为 0x12a9_200 的 fileId 入参（server 实测不依赖）
+    // 102 字符 base64 token (commit token)，是 0x12a9_200 实际识别用的 fileId
     historyToken: ProtoField(14, {
       token: ProtoField(1, 'string'),
       field3: ProtoField(3, 'uint32'),

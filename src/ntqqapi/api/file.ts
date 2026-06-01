@@ -234,6 +234,9 @@ export class NTQQFileApi extends Service {
         physical: { id: f.fileUuid, status: 2, localPath: '' },
         sha1Hex: f.sha1Hex ?? '',
         md5Hex: f.md5Hex ?? '',
+        // 102 字符 base64 commit token，作为 0x12a9_200 download 的 fileId 入参，
+        // server 拼出来的 URL 里 fileid= 字段就是这个值
+        fileId: f.historyToken?.token ?? '',
       })),
       isEnd: true,
       isCache: false,

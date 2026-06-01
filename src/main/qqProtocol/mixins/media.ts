@@ -464,7 +464,10 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           flags1: { field1: 0 },
           flags2: { field1: 0, field2: 0 },
         },
-        field3: 1,
+        // f3 = 2 是 Windows QQ 客户端的发法。f3 = 1 (Linux QQ 客户端默认值) server 只
+        // 返 name/size 等基础字段，f13/f14 (download token + URL) / f20 (sha1) / f25 (md5) 都被剥空；
+        // 用 f3 = 2 时 server 把完整字段都给回来，可以基于 list resp 直接拿到 download URL。
+        field3: 2,
         field4: 1,
       })
       const data = Oidb.Base.encode({ command: 0x93d4, subCommand: 1, body, isReserved: 1 })
