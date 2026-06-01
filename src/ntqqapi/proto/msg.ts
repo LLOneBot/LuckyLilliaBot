@@ -263,41 +263,6 @@ export namespace Msg {
     field6: ProtoField(6, 'uint32', 'optional'),
   })
 
-  export const NotifyMessageBody = ProtoMessage.of({
-    type: ProtoField(1, 'uint32'),
-    groupCode: ProtoField(4, 'uint32'),
-    field13: ProtoField(13, 'uint32'),
-    essenceMessage: ProtoField(33, {
-      groupCode: ProtoField(1, 'uint32'),
-      msgSequence: ProtoField(2, 'uint32'),
-      random: ProtoField(3, 'uint32'),
-      setFlag: ProtoField(4, 'uint32'),
-      memberUin: ProtoField(5, 'uint32'),
-      operatorUin: ProtoField(6, 'uint32'),
-      timeStamp: ProtoField(7, 'uint32'),
-      msgSequence2: ProtoField(8, 'uint32'),
-      operatorNickName: ProtoField(9, 'string'),
-      memberNickName: ProtoField(10, 'string'),
-      setFlag2: ProtoField(11, 'uint32')
-    }),
-    reaction: ProtoField(44, {
-      data: ProtoField(1, {
-        body: ProtoField(1, {
-          target: ProtoField(2, {
-            sequence: ProtoField(1, 'uint32'),
-          }),
-          info: ProtoField(3, {
-            code: ProtoField(1, 'string'),
-            reactionType: ProtoField(2, 'uint32'),
-            count: ProtoField(3, 'uint32'),
-            operatorUid: ProtoField(4, 'string'),
-            actionType: ProtoField(5, 'uint32')
-          })
-        })
-      })
-    })
-  })
-
   export const QSmallFaceExtra = ProtoMessage.of({
     faceId: ProtoField(1, 'uint32'),
     text: ProtoField(2, 'string'),

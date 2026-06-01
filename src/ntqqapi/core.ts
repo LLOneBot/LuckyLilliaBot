@@ -3,9 +3,6 @@ import { Service, Context } from 'cordis'
 import { Config as LLOBConfig } from '../common/types'
 import {
   RawMessage,
-  FriendRequestNotify,
-  FriendRequest,
-  BuddyReqType,
   ChatType,
   Peer,
   SendMessageElement,
@@ -29,6 +26,10 @@ import {
   GroupNameChangedEvent,
   GroupWholeMuteEvent,
   GroupMuteEvent,
+  GroupAdminChangedEvent,
+  PinChangedEvent,
+  GroupMessageReactionEvent,
+  GroupEssenceMessageChangedEvent,
 } from './types'
 import { selfInfo } from '../common/globalVars'
 import {
@@ -73,10 +74,6 @@ declare module 'cordis' {
     'nt/raw/flash-file-downloading': (input: [fileSetId: string, info: FlashFileDownloadingInfo]) => void
     'nt/raw/flash-file-uploading': (input: { fileSet: FlashFileSetInfo } & FlashFileUploadingInfo) => void
     // Group events
-    'nt/raw/group-essence-change': (input: { groupCode: string, msgSequence: number, operatorUin: string, isAdd: boolean }) => void
-    'nt/raw/group-reaction': (input: { groupCode: string, msgSeq: number, operatorUid: string, code: string, isAdd: boolean, count: number }) => void
-    // Friend events
-    'nt/raw/friend-pin-changed': (input: { uid: string, isPinned: boolean }) => void
     /** 群/私聊语音转写文字结果异步推送（pttTrans.TransGroupPttReq/TransC2CPttReq 提交后由这条 event 喂结果） */
     'nt/raw/ptt-trans-result': (input: { msgUid: string, chatType: ChatType, peerUin: string, senderUin: string, text: string }) => void
 
@@ -89,6 +86,9 @@ declare module 'cordis' {
     'nt/group-disband': (input: GroupDisbandEvent) => void
     'nt/group-nudge': (input: GroupNudgeEvent) => void
     'nt/group-name-changed': (input: GroupNameChangedEvent) => void
+    'nt/group-admin-changed': (input: GroupAdminChangedEvent) => void
+    'nt/group-message-reaction': (input: GroupMessageReactionEvent) => void
+    'nt/group-essence-message-changed': (input: GroupEssenceMessageChangedEvent) => void
     'nt/group-whole-mute': (input: GroupWholeMuteEvent) => void
     'nt/group-mute': (input: GroupMuteEvent) => void
     'nt/group-member-added': (input: GroupMemberAddedEvent) => void
@@ -99,6 +99,7 @@ declare module 'cordis' {
     'nt/friend-added': (input: FriendAddedEvent) => void
     'nt/friend-removed': (input: FriendRemovedEvent) => void
     'nt/friend-nudge': (input: FriendNudgeEvent) => void
+    'nt/pin-changed': (input: PinChangedEvent) => void
   }
 }
 

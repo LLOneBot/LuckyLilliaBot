@@ -103,8 +103,7 @@ function handleMsgPush(ctx: Context, payload: Buffer) {
       break
 
     case MsgType.GroupAdminChange:
-      // Forward to OB11 adapter which already handles these via Msg.Message.decode
-      forwardSystemMessage(ctx, msg)
+      handleGroupAdminChange(ctx, msg)
       break
 
     case MsgType.Event0x210:
@@ -128,6 +127,23 @@ function handleMsgPush(ctx: Context, payload: Buffer) {
       handleGroupJoined(ctx, msg)
       break
   }
+}
+
+async function handleGroupAdminChange(ctx: Context, msg: InferProtoModel<typeof Msg.Message>) {
+  const content = msg.body?.msgContent
+  if (!content) return
+  const decoded = Notify.GroupAdminChange.decode(content)
+  const adminUid = decoded.isPromote ? decoded.body.extraEnable?.adminUid : decoded.body.extraDisable?.adminUid
+  if (!adminUid) return null
+  const group = await ctx.ntGroupApi.getGroup(decoded.groupCode, false)
+  ctx.parallel('nt/group-admin-changed', {
+    groupCode: decoded.groupCode,
+    targetUin: await ctx.ntUserApi.getUinByUid(adminUid),
+    targetUid: adminUid,
+    operatorUin: await ctx.ntUserApi.getUinByUid(group.ownerUid),
+    operatorUid: group.ownerUid,
+    isSet: decoded.isPromote
+  })
 }
 
 async function handleGroupMemberDecrease(ctx: Context, msg: InferProtoModel<typeof Msg.Message>) {
@@ -289,20 +305,15 @@ async function handleFriendDeleteOrPin(ctx: Context, msg: InferProtoModel<typeof
         uin: await ctx.ntUserApi.getUinByUid(uid),
         uid
       })
+    } else if (decoded.body.pinChanged) {
+      const { body } = decoded.body.pinChanged
+      ctx.parallel('nt/pin-changed', {
+        chatType: body.groupCode ? ChatType.Group : ChatType.C2C,
+        peerUin: body.groupCode ?? await ctx.ntUserApi.getUinByUid(body.uid),
+        peerUid: body.groupCode ? body.groupCode.toString() : body.uid,
+        isPinned: body.info.timestamp.length !== 0
+      })
     }
-    const pinChanged = decoded.body?.pinChanged
-    if (pinChanged) {
-      const uid = pinChanged.body?.uid || ''
-      // info.timestamp 非空 = pin，空 = unpin（实测 server 行为）
-      const isPinned = (pinChanged.body?.info?.timestamp?.length ?? 0) !== 0
-      ctx.parallel('nt/raw/friend-pin-changed', { uid, isPinned })
-      // 同时 forward 完整 sysmsg：milky transformSystemMessageEvent 走这条路径
-      // 来产出 peer_pin_change（msgType=528 subType=39 + body.type=7）。
-      forwardSystemMessage(ctx, msg)
-      return
-    }
-    // 其他 type；forward 完整 Msg.Message 让 adapter 处理（profile_like 走这里）
-    forwardSystemMessage(ctx, msg)
   } catch (e) {
     ctx.logger.warn('FriendDeleteOrPin parse error:', (e as Error).message)
   }
@@ -467,16 +478,20 @@ async function handleGroupGeneralEvent(ctx: Context, content: Buffer) {
     if (notifyBody.groupCode) groupCode = notifyBody.groupCode
     // 0x2DC subType=16 通过 field13 区分子事件：
     //   6 = GroupMemberSpecialTitle, 12 = GroupNameChange, 23 = GroupTodo, 35 = GroupReaction
-    const field13 = Number(notifyBody?.subType ?? 0)
-    if (field13 === 35 || field13 === 0) {
-      const reaction = tryDecodeReaction(inner)
-      if (reaction) {
-        //reaction.groupCode = groupCode
-        ctx.parallel('nt/raw/group-reaction', reaction)
-        return
-      }
-    }
-    if (field13 === 6) {
+    const field13 = notifyBody.subType ?? 0
+    if (field13 === 35) {
+      const { data } = notifyBody.reaction!.data
+      ctx.parallel('nt/group-message-reaction', {
+        groupCode,
+        operatorUin: await ctx.ntUserApi.getUinByUid(data.data.operatorUid),
+        operatorUid: data.data.operatorUid,
+        msgSeq: data.target.sequence,
+        faceId: data.data.code,
+        count: data.data.count,
+        type: data.data.reactionType,
+        isAdd: data.data.actionType === 1
+      })
+    } else if (field13 === 6) {
       // 群成员获得头衔（GroupMemberSpecialTitle）。eventParam (field 5) 是一个 proto，
       // 内部 field 2 是带 JSON 模板的灰条文字，形如：
       //   恭喜<{"cmd":5,"data":"<uin>","text":"<nick>"}>获得群主授予的<{"cmd":1,"text":"<title>",...}>头衔
@@ -489,12 +504,10 @@ async function handleGroupGeneralEvent(ctx: Context, content: Buffer) {
       ctx.parallel('nt/group-member-special-title-changed', {
         groupCode,
         uin: decoded.memberUin,
-        uid: await ctx.ntUserApi.getUidByUin(decoded.memberUin),
+        uid: await ctx.ntUserApi.getUidByUin(decoded.memberUin, groupCode),
         newSpecialTitle: title
       })
-      return
-    }
-    if (field13 === 12) {
+    } else if (field13 === 12) {
       // GroupNameChange：eventParam 是 GroupNameChangeBody（field 1=1, field 2=新群名）。
       // operatorUid 在 NotifyMessageBody.field 21 (notifyBody.operatorUid)。
       const eventParam = notifyBody?.eventParam
@@ -506,35 +519,9 @@ async function handleGroupGeneralEvent(ctx: Context, content: Buffer) {
         operatorUin: await ctx.ntUserApi.getUinByUid(notifyBody.operatorUid),
         operatorUid: notifyBody.operatorUid
       })
-      return
-    }
-    // 兜底：未识别的 subType=16 事件
-    if (field13 !== 0) {
-      ctx.logger.debug('[Group0x2DC sub16] unhandled field13:', field13, 'groupCode:', groupCode)
     }
   } catch (e) {
     ctx.logger.warn('GroupGeneralEvent parse error:', (e as Error).message)
-  }
-}
-
-function tryDecodeReaction(buf: Buffer): { groupCode: string, msgSeq: number, operatorUid: string, code: string, isAdd: boolean, count: number } | null {
-  try {
-    // GroupReaction is wrapped: NotifyMessageBody.field44 → GroupReaction.data.data.target/data
-    const groupReaction: any = walkProtoFields(buf, [44])
-    if (!groupReaction) return null
-    const decoded: any = Notify.GroupReaction.decode(groupReaction)
-    const data = decoded.data?.data
-    if (!data) return null
-    return {
-      groupCode: '0',
-      msgSeq: data.target?.sequence || 0,
-      operatorUid: data.data?.operatorUid || '',
-      code: data.data?.code || '',
-      isAdd: data.data?.type === 1,
-      count: data.data?.count || 0,
-    }
-  } catch {
-    return null
   }
 }
 
@@ -568,22 +555,26 @@ async function handleGroupGrayTip(ctx: Context, msg: InferProtoModel<typeof Msg.
   }
 }
 
-function handleGroupEssenceChange(ctx: Context, content: Buffer) {
+async function handleGroupEssenceChange(ctx: Context, content: Buffer) {
   try {
     if (content.length < 7) return
     const groupUin = content.readUInt32BE(0)
     const inner = unwrap0x2DCContent(content)
     if (!inner) return
     // 0x2DC 内层是 NotifyMessageBody 结构，groupUin 在 field 4，typed event 在 field 33
-    const notifyBody: any = Notify.NotifyMessageBody.decode(inner)
-    const essenceField = walkProtoFields(inner, [33])
-    if (!essenceField) return
-    const decoded: any = Notify.GroupEssenceChange.decode(essenceField)
-    ctx.parallel('nt/raw/group-essence-change', {
-      groupCode: String(notifyBody.groupCode || decoded.groupCode || groupUin),
-      msgSequence: decoded.msgSequence || 0,
-      operatorUin: String(decoded.operatorUin || 0),
-      isAdd: decoded.setFlag === 1,
+    const notifyBody = Notify.NotifyMessageBody.decode(inner)
+    const groupCode = notifyBody.groupCode || groupUin
+    const info = notifyBody.essenceMessage!
+    ctx.parallel('nt/group-essence-message-changed', {
+      groupCode,
+      msgId: String((0x01000000n << 32n) | BigInt(info.random)),
+      msgSeq: info.msgSequence,
+      msgRandom: info.random,
+      senderUin: info.memberUin,
+      senderUid: await ctx.ntUserApi.getUidByUin(info.memberUin, groupCode),
+      operatorUin: info.operatorUin,
+      operatorUid: await ctx.ntUserApi.getUidByUin(info.operatorUin, groupCode),
+      isSet: info.setFlag === 1
     })
   } catch (e) {
     ctx.logger.warn('GroupEssenceChange parse error:', (e as Error).message)

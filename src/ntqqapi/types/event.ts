@@ -81,6 +81,41 @@ export interface GroupNameChangedEvent {
   operatorUid: string
 }
 
+/** 群管理员变更事件 */
+export interface GroupAdminChangedEvent {
+  groupCode: number
+  targetUin: number
+  targetUid: string
+  operatorUin: number
+  operatorUid: string
+  isSet: boolean
+}
+
+/** 群消息表情回应事件 */
+export interface GroupMessageReactionEvent {
+  groupCode: number
+  operatorUin: number
+  operatorUid: string
+  msgSeq: number
+  faceId: string
+  count: number
+  type: number
+  isAdd: boolean
+}
+
+/** 群精华消息变更事件 */
+export interface GroupEssenceMessageChangedEvent {
+  groupCode: number
+  msgId: string
+  msgSeq: number
+  msgRandom: number
+  senderUin: number
+  senderUid: string
+  operatorUin: number
+  operatorUid: string
+  isSet: boolean
+}
+
 /** 群全体禁言事件 */
 export interface GroupWholeMuteEvent {
   groupCode: number
@@ -165,4 +200,12 @@ export interface FriendNudgeEvent {
   displayAction: string
   displaySuffix: string
   displayActionImgUrl: string
+}
+
+/** 好友或群聊置顶状态变更事件 */
+export interface PinChangedEvent {
+  chatType: ChatType
+  peerUin: number
+  peerUid: string
+  isPinned: boolean
 }

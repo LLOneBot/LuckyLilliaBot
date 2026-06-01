@@ -235,67 +235,6 @@ class Onebot11Adapter extends Service {
     this.ctx.on('nt/message-sent', input => {
       this.handleMsg(input, true, false)
     })
-    this.ctx.on('nt/raw/group-reaction', async input => {
-      const groupId = +input.groupCode
-      if (!groupId) return
-      try {
-        const operatorUin = input.operatorUid
-          ? await this.ctx.ntUserApi.getUinByUid(input.operatorUid)
-          : '0'
-        const peer = {
-          chatType: ChatType.Group,
-          peerUid: groupId.toString(),
-          guildId: ''
-        }
-        const cached = this.ctx.store.getMsgBySeq(peer.peerUid, input.msgSeq)
-        let messageId
-        if (cached) {
-          messageId = this.ctx.store.createMsgShortId(cached)
-        } else {
-          const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(peer, input.msgSeq)
-          messageId = this.ctx.store.createMsgShortId(msgList[0])
-        }
-        this.dispatch(new OB11GroupMsgEmojiLikeEvent(
-          groupId,
-          +operatorUin,
-          messageId,
-          [{ emoji_id: input.code, count: input.count }],
-          input.isAdd,
-        ))
-      } catch (e) {
-        this.ctx.logger.warn('group-reaction bridge error:', (e as Error).message)
-      }
-    })
-    this.ctx.on('nt/raw/group-essence-change', async input => {
-      const groupId = +input.groupCode
-      if (!groupId) return
-      try {
-        const peer = {
-          chatType: ChatType.Group,
-          peerUid: groupId.toString(),
-          guildId: ''
-        }
-        const cached = this.ctx.store.getMsgBySeq(peer.peerUid, input.msgSequence)
-        let messageId, senderId
-        if (cached) {
-          messageId = this.ctx.store.createMsgShortId(cached)
-          senderId = +cached.senderUin
-        } else {
-          const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(peer, input.msgSequence)
-          messageId = this.ctx.store.createMsgShortId(msgList[0])
-          senderId = +msgList[0].senderUin
-        }
-        this.dispatch(new GroupEssenceEvent(
-          groupId,
-          messageId,
-          senderId,
-          +input.operatorUin,
-          input.isAdd ? 'add' : 'delete',
-        ))
-      } catch (e) {
-        this.ctx.logger.warn('group-essence-change bridge error:', (e as Error).message)
-      }
-    })
     this.ctx.on('nt/system-message-created', async input => {
       const sysMsg = Msg.Message.decode(input)
       if (!sysMsg.body) {
@@ -316,18 +255,6 @@ class Onebot11Adapter extends Service {
       }
       else if (msgType === 732 && subType === 21) {
         // 撤回群戳一戳，不再从这里解析，应从 nt/message-deleted 事件中解析
-      } else if (msgType === 44) {
-        const tip = Notify.GroupAdminChange.decode(sysMsg.body.msgContent)
-        this.ctx.logger.info('收到管理员变动通知', tip)
-        const uid = tip.isPromote ? tip.body.extraEnable?.adminUid : tip.body.extraDisable?.adminUid
-        if (!uid) return null
-        const uin = await this.ctx.ntUserApi.getUinByUid(uid)
-        const event = new OB11GroupAdminNoticeEvent(
-          tip.isPromote ? 'set' : 'unset',
-          tip.groupCode,
-          +uin,
-        )
-        this.dispatch(event)
       }
     })
 
@@ -430,15 +357,23 @@ class Onebot11Adapter extends Service {
 
     })
 
-    this.ctx.on('nt/message-deleted', (data) => {
+    this.ctx.on('nt/message-deleted', async (data) => {
       // 群撤回 push 里 GroupRecall.random 字段在新 server / refactor 后偶尔 0，shortId hash 含
       // msgRandom，会跟发送端先前算出的 shortId 不一致。先按 (peerUid, msgSeq) 找原 msg 取真
       // random，再算 shortId 才能跟发送时一致。
       let resolved = data
       if (data.chatType === ChatType.Group && data.msgRandom === 0) {
-        const original = this.ctx.store.getMsgBySeq(data.peerUid, data.msgSeq)
-        if (original) {
-          resolved = { ...data, msgRandom: original.msgRandom, msgId: original.msgId }
+        const cached = this.ctx.store.getMsgBySeq(data.peerUid, data.msgSeq)
+        if (cached) {
+          resolved = { ...data, msgRandom: cached.msgRandom, msgId: cached.msgId }
+        } else {
+          const peer = {
+            chatType: ChatType.Group,
+            peerUid: data.peerUid,
+            guildId: ''
+          }
+          const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(peer, data.msgSeq)
+          resolved = { ...data, msgRandom: msgList[0].msgRandom, msgId: msgList[0].msgId }
         }
       }
       const shortId = this.ctx.store.createMsgShortId(resolved)
@@ -515,6 +450,60 @@ class Onebot11Adapter extends Service {
         userId,
         targetId,
         rawInfo
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-admin-changed', (data) => {
+      const event = new OB11GroupAdminNoticeEvent(
+        data.isSet ? 'set' : 'unset',
+        data.groupCode,
+        data.targetUin
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-message-reaction', async (data) => {
+      const peer = {
+        chatType: ChatType.Group,
+        peerUid: data.groupCode.toString()
+      }
+      const cached = this.ctx.store.getMsgBySeq(peer.peerUid, data.msgSeq)
+      let messageId
+      if (cached) {
+        messageId = this.ctx.store.createMsgShortId(cached)
+      } else {
+        const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(peer, data.msgSeq)
+        messageId = this.ctx.store.createMsgShortId(msgList[0])
+      }
+      const event = new OB11GroupMsgEmojiLikeEvent(
+        data.groupCode,
+        data.operatorUin,
+        messageId,
+        [{
+          emoji_id: data.faceId,
+          count: data.count
+        }],
+        data.isAdd
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-essence-message-changed', (data) => {
+      const messageId = this.ctx.store.createMsgShortId({
+        msgId: data.msgId,
+        msgSeq: data.msgSeq,
+        msgRandom: data.msgRandom,
+        peerUid: data.groupCode.toString(),
+        senderUid: data.senderUid,
+        chatType: ChatType.Group
+      })
+      const event = new GroupEssenceEvent(
+        data.groupCode,
+        messageId,
+        data.senderUin,
+        data.operatorUin,
+        data.isSet ? 'add' : 'delete',
       )
       this.dispatch(event)
     })

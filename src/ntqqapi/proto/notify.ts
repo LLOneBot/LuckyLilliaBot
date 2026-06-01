@@ -103,13 +103,14 @@ export namespace Notify {
     data: ProtoField(1, {
       data: ProtoField(1, {
         target: ProtoField(2, {
-          sequence: ProtoField(1, 'uint32')
+          sequence: ProtoField(1, 'uint32'),
         }),
         data: ProtoField(3, {
           code: ProtoField(1, 'string'),
-          count: ProtoField(3, 'uint32', 'optional'),
+          reactionType: ProtoField(2, 'uint32'),
+          count: ProtoField(3, 'uint32'),
           operatorUid: ProtoField(4, 'string'),
-          type: ProtoField(5, 'uint32'),
+          actionType: ProtoField(5, 'uint32'),
         }),
       }),
     }),
@@ -158,6 +159,20 @@ export namespace Notify {
     }),
   })
 
+  export const GroupEssenceChange = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint32'),
+    msgSequence: ProtoField(2, 'uint32'),
+    random: ProtoField(3, 'uint32'),
+    setFlag: ProtoField(4, 'uint32'),
+    memberUin: ProtoField(5, 'uint32'),
+    operatorUin: ProtoField(6, 'uint32'),
+    timeStamp: ProtoField(7, 'uint32'),
+    msgSequence2: ProtoField(8, 'uint32'),
+    operatorNickName: ProtoField(9, 'string'),
+    memberNickName: ProtoField(10, 'string'),
+    setFlag2: ProtoField(11, 'uint32'),
+  })
+
   /**
    * 0x2DC subtype 16/17/20 内部包装 (after 5-byte header [groupCode + 1 byte] + uint16BE 长度)
    */
@@ -169,16 +184,9 @@ export namespace Notify {
     subType: ProtoField(13, 'uint32', 'optional'),
     operatorUid: ProtoField(21, 'string', 'optional'),
     generalGrayTip: ProtoField(26, GeneralGrayTip, 'optional'),
+    essenceMessage: ProtoField(33, GroupEssenceChange, 'optional'),
     msgSequence: ProtoField(37, 'uint64', 'optional'),
-  })
-
-  export const GroupEssenceChange = ProtoMessage.of({
-    groupCode: ProtoField(1, 'uint32'),
-    msgSequence: ProtoField(2, 'uint32'),
-    random: ProtoField(3, 'uint32'),
-    setFlag: ProtoField(4, 'uint32'),
-    memberUin: ProtoField(5, 'uint32'),
-    operatorUin: ProtoField(6, 'uint32'),
+    reaction: ProtoField(44, GroupReaction, 'optional'),
   })
 
   /**

@@ -14,10 +14,8 @@ import {
   transformPrivateMessageCreated,
   transformGroupMessageCreated,
   transformFriendRequestEvent,
-  transformSystemMessageEvent,
   transformGroupMessageEvent,
   transformPrivateMessageEvent,
-  transformOlpushEvent,
   transformTempMessageCreated,
   transformGroupJoinRequestEvent,
   transformGroupInvitedJoinRequestEvent,
@@ -32,6 +30,10 @@ import {
   transformGroupNameChangeEvent,
   transformGroupWholeMuteEvent,
   transformGroupMuteEvent,
+  transformGroupAdminChangeEvent,
+  transformPeerPinChangeEvent,
+  transformGroupEssenceMessageChangeEvent,
+  transformGroupMessageReactionEvent,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
 import { noop } from 'cosmokit'
@@ -193,68 +195,10 @@ export class MilkyAdapter extends Service {
       }
     })
 
-    this.ctx.on('nt/system-message-created', async (data) => {
-      const result = await transformSystemMessageEvent(this.ctx, data)
-      if (result) {
-        this.emitEvent(result.eventType, result.data)
-      }
-    })
-
     this.ctx.on('nt/kicked-offLine', async (info) => {
       this.emitEvent('bot_offline', {
         reason: info.tipsDesc
       })
-    })
-
-    this.ctx.qqProtocol.addResListener(async (data) => {
-      if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
-        const result = await transformOlpushEvent(this.ctx, Buffer.from(data.data.pb, 'hex'))
-        if (result) {
-          this.emitEvent(result.eventType, result.data)
-        }
-      }
-    })
-
-    // ========== nt/raw/* 细粒度事件桥接 ==========
-    // dispatcher 把不同 OlPush 系统消息解成独立事件后单独发出来（OB11 一直监听这些），
-    // milky adapter 之前没接，导致 group_mute / group_essence_message_change /
-    // group_message_reaction / group_nudge / friend_nudge / group_name_change /
-    // friend_file_upload 这些事件全收不到。这里全部接上。
-
-    this.ctx.on('nt/raw/group-essence-change', async (input) => {
-      const groupId = +input.groupCode
-      if (!groupId) return
-      try {
-        this.emitEvent('group_essence_message_change', {
-          group_id: groupId,
-          message_seq: input.msgSequence,
-          operator_id: +input.operatorUin,
-          is_set: input.isAdd,
-        } as MilkyEventTypes['group_essence_message_change'])
-      } catch (e) {
-        this.ctx.logger.warn('milky group-essence-change bridge error:', (e as Error).message)
-      }
-    })
-
-    this.ctx.on('nt/raw/group-reaction', async (input) => {
-      const groupId = +input.groupCode
-      if (!groupId) return
-      try {
-        const userIdRaw = input.operatorUid ? await this.ctx.ntUserApi.getUinByUid(input.operatorUid) : '0'
-        // milky reaction_type 推断：emoji code 是单字符串，QQ 内置表情 face 反之
-        // 简单按 isDigit 区分
-        const reactionType: 'face' | 'emoji' = /^\d+$/.test(input.code) ? 'face' : 'emoji'
-        this.emitEvent('group_message_reaction', {
-          group_id: groupId,
-          user_id: +userIdRaw,
-          message_seq: input.msgSeq,
-          face_id: input.code,
-          reaction_type: reactionType,
-          is_add: input.isAdd,
-        } as MilkyEventTypes['group_message_reaction'])
-      } catch (e) {
-        this.ctx.logger.warn('milky group-reaction bridge error:', (e as Error).message)
-      }
     })
 
     this.ctx.on('nt/message-deleted', async (data) => {
@@ -304,6 +248,20 @@ export class MilkyAdapter extends Service {
       }
     })
 
+    this.ctx.on('nt/group-message-reaction', async (data) => {
+      const eventData = await transformGroupMessageReactionEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_message_reaction', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-essence-message-changed', async (data) => {
+      const eventData = await transformGroupEssenceMessageChangeEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_essence_message_change', eventData)
+      }
+    })
+
     this.ctx.on('nt/group-whole-mute', async (data) => {
       const eventData = await transformGroupWholeMuteEvent(this.ctx, data)
       if (eventData) {
@@ -322,6 +280,13 @@ export class MilkyAdapter extends Service {
       const eventData = await transformGroupNameChangeEvent(this.ctx, data)
       if (eventData) {
         this.emitEvent('group_name_change', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-admin-changed', async (data) => {
+      const eventData = await transformGroupAdminChangeEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_admin_change', eventData)
       }
     })
 
@@ -350,6 +315,13 @@ export class MilkyAdapter extends Service {
       const eventData = await transformFriendNudgeEvent(this.ctx, data)
       if (eventData) {
         this.emitEvent('friend_nudge', eventData)
+      }
+    })
+
+    this.ctx.on('nt/pin-changed', async (data) => {
+      const eventData = await transformPeerPinChangeEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('peer_pin_change', eventData)
       }
     })
   }
