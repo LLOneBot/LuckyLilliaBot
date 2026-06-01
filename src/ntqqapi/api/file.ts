@@ -184,6 +184,7 @@ export class NTQQFileApi extends Service {
       await this.ctx.qqProtocol.flashFileUploadCommit({
         fileSize: f.size, sha1Hex: f.sha1, name: f.name,
         token: pre.token, time: pre.time, ttl: pre.ttl, requestId: ++reqId, field103: 22,
+        fileSetId, fileUuid: f.fileUuid,
       })
       // 立刻拿 download URL：preflight 给的 token 在这里当 fileId 用，server 拼 URL
       // 时填进 fileid= 参数。Linux QQ 的 list 拿不到 fileId/sha1，所以必须在 upload
@@ -374,9 +375,12 @@ export class NTQQFileApi extends Service {
     })
     const newFileSetId = fset.fileSetId
     // 2. 注册每个文件（用源文件的元信息）+ prep + 秒传 commit
-    for (const f of reusable) {
+    // newFileUuid per file 在 register/commit 都要用上，所以先生成存起来
+    const newFileUuids = reusable.map(() => randomUUID())
+    for (let i = 0; i < reusable.length; i++) {
+      const f = reusable[i]
       await this.ctx.qqProtocol.registerFlashFile(newFileSetId, {
-        fileUuid: randomUUID(),
+        fileUuid: newFileUuids[i],
         name: f.name,
         fileSize: f.fileSize,
         sha1Hex: f.sha1Hex,
@@ -385,7 +389,8 @@ export class NTQQFileApi extends Service {
     }
     await this.ctx.qqProtocol.prepFlashFileSet(newFileSetId)
     let reqId = 0
-    for (const f of reusable) {
+    for (let i = 0; i < reusable.length; i++) {
+      const f = reusable[i]
       const sha1Hex = f.sha1Hex ?? ''
       const fileName = f.name ?? ''
       const pre = await this.ctx.qqProtocol.flashFileUploadPreflight({
@@ -400,6 +405,7 @@ export class NTQQFileApi extends Service {
       await this.ctx.qqProtocol.flashFileUploadCommit({
         fileSize: f.fileSize ?? 0, sha1Hex, name: fileName,
         token: pre.token, time: pre.time, ttl: pre.ttl, requestId: ++reqId, field103: 22,
+        fileSetId: newFileSetId, fileUuid: newFileUuids[i],
       })
     }
     await this.ctx.qqProtocol.downloadFlashFile(newFileSetId, 6).catch(() => { })

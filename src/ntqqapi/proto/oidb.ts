@@ -1341,6 +1341,26 @@ export namespace Oidb {
         field1: ProtoField(1, 'uint32'),
         field2: ProtoField(2, 'uint32'),
       }),
+      // fileset 上下文——必传，少了 server 就不把这次 commit 关联到 fileset 上，
+      // 表面 commit 返 success 但 fileset 实际停在"待上传"状态 (Windows QQ 客户端打开
+      // share_link 显示"待上传"，list/0x93e5_4 也不返 sha1/md5/historyToken)。
+      // 抓包字段对应: f1=fileSetId f2=fileSetId(重复) f3=fileUuid f7=fileTypeFlag(=11)
+      target: ProtoField(10, {
+        fileSetId: ProtoField(1, 'string'),
+        fileSetId2: ProtoField(2, 'string'),
+        fileUuid: ProtoField(3, 'string'),
+        field4: ProtoField(4, 'uint32'),
+        field5: ProtoField(5, 'uint32'),
+        field6: ProtoField(6, 'uint32'),
+        fileTypeFlag: ProtoField(7, 'uint32'),
+        field8: ProtoField(8, 'bytes'),
+        field9: ProtoField(9, 'uint32'),
+        field10: ProtoField(10, 'uint32'),
+        field11: ProtoField(11, 'uint32'),
+        field12: ProtoField(12, 'uint32'),
+        field13: ProtoField(13, 'uint32'),
+        field14: ProtoField(14, 'uint32'),
+      }),
     }),
   })
 

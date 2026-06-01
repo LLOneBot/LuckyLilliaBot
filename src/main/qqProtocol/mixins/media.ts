@@ -655,8 +655,10 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
     }
 
-    /** 闪传：upload commit (OidbSvcTrpcTcp.0x12a9_103) — 在 preflight 秒传命中后立即调用 */
-    async flashFileUploadCommit(opts: { fileSize: number, sha1Hex: string, name: string, token: string, time: number, ttl: number, requestId: number, field103?: number }) {
+    /** 闪传：upload commit (OidbSvcTrpcTcp.0x12a9_103) — 在 preflight 秒传命中后立即调用。
+     * fileSetId + fileUuid 必传——这是告诉 server 这次 commit 属于哪个 fileset 的哪个文件。
+     * 漏了这俩 server 表面返 success 但实际不把文件挂到 fileset 上，fileset 卡在"待上传"。 */
+    async flashFileUploadCommit(opts: { fileSize: number, sha1Hex: string, name: string, token: string, time: number, ttl: number, requestId: number, fileSetId: string, fileUuid: string, field103?: number, fileTypeFlag?: number }) {
       const body = Oidb.FlashFileUploadCommitReq.encode({
         head: {
           common: { requestId: opts.requestId, command: 103 },
@@ -684,6 +686,16 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           },
           field2: { field1: 2 },
           field3: { field1: 0, field2: 0 },
+          target: {
+            fileSetId: opts.fileSetId,
+            fileSetId2: opts.fileSetId,
+            fileUuid: opts.fileUuid,
+            field4: 1,
+            field5: 0, field6: 0,
+            fileTypeFlag: opts.fileTypeFlag ?? 11,
+            field8: Buffer.alloc(0),
+            field9: 0, field10: 0, field11: 0, field12: 0, field13: 0, field14: 0,
+          },
         },
       })
       const data = Oidb.Base.encode({ command: 0x12a9, subCommand: 103, body })
