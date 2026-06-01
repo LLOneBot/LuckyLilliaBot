@@ -19,6 +19,7 @@ export enum ActionName {
   BatchDeleteGroupMember = 'batch_delete_group_member',
   GetFlashFileInfo = 'get_flash_file_info',
   DownloadFlashFile = 'download_flash_file',
+  GetFlashFileDownloadUrls = 'get_flash_file_download_urls',
   UploadFlashFile = 'upload_flash_file',
   ReShareFlashFile = 'reshare_flash_file',
   GetRKey = "get_rkey",

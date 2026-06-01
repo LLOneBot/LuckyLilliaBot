@@ -428,7 +428,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
 
     /** 闪传：通过 share code 解析 fileSetId (OidbSvcTrpcTcp.0x93eb_1) */
     async getFlashFileSetIdByCode(code: string): Promise<string> {
-      const body = Oidb.FlashFileSetIdByCodeReq.encode({ body: { code } })
+      const body = Oidb.FlashFileSetIdByCodeReq.encode({ code })
       const data = Oidb.Base.encode({ command: 0x93eb, subCommand: 1, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x93eb_1', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
@@ -436,12 +436,12 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         throw new Error(`getFlashFileSetIdByCode failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
       }
       const resp = Oidb.FlashFileSetIdByCodeResp.decode(Buffer.from(decoded.body))
-      return resp.body?.fileSetId ?? ''
+      return resp.fileSetId ?? ''
     }
 
     /** 闪传：取 fileSet 基本信息 (OidbSvcTrpcTcp.0x93d3_1) */
     async getFlashFileInfo(fileSetId: string) {
-      const body = Oidb.FlashFileInfoReq.encode({ body: { fileSetId, field2: 1 } })
+      const body = Oidb.FlashFileInfoReq.encode({ fileSetId, field2: 1 })
       const data = Oidb.Base.encode({ command: 0x93d3, subCommand: 1, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x93d3_1', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
@@ -449,24 +449,22 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         throw new Error(`getFlashFileInfo failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
       }
       const resp = Oidb.FlashFileInfoResp.decode(Buffer.from(decoded.body))
-      return resp.body?.info
+      return resp.info
     }
 
     /** 闪传：取 fileSet 中文件列表 (OidbSvcTrpcTcp.0x93d4_1) */
     async getFlashFileList(fileSetId: string) {
       const body = Oidb.FlashFileListReq.encode({
-        body: {
-          fileSetId,
-          paging: {
-            cookie: Buffer.alloc(0),
-            field2: 1,
-            count: 18,
-            field4: Buffer.alloc(0),
-            flags1: { field1: 0 },
-            flags2: { field1: 0, field2: 0 },
-          },
-          field3: 1,
+        fileSetId,
+        paging: {
+          cookie: Buffer.alloc(0),
+          field2: 1,
+          count: 18,
+          field4: Buffer.alloc(0),
+          flags1: { field1: 0 },
+          flags2: { field1: 0, field2: 0 },
         },
+        field3: 1,
       })
       const data = Oidb.Base.encode({ command: 0x93d4, subCommand: 1, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x93d4_1', data)
@@ -475,12 +473,12 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         throw new Error(`getFlashFileList failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
       }
       const resp = Oidb.FlashFileListResp.decode(Buffer.from(decoded.body))
-      return resp.body?.result?.files ?? []
+      return resp.result?.files ?? []
     }
 
     /** 闪传：发起下载（OidbSvcTrpcTcp.0x93d1_1） */
     async downloadFlashFile(fileSetId: string, sceneType: number = 6) {
-      const body = Oidb.FlashFileDownloadReq.encode({ body: { fileSetId, sceneType } })
+      const body = Oidb.FlashFileDownloadReq.encode({ fileSetId, sceneType })
       const data = Oidb.Base.encode({ command: 0x93d1, subCommand: 1, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x93d1_1', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
@@ -511,10 +509,11 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           field20: 0,
           field21: 0,
           field23: 0,
+          // PMHQ 抓的常量（meta.f24），不送 server 会拒 prepFlashFileSet (errorCode=100200)
+          field24: { field2: 0, field3: Buffer.alloc(0) },
         },
         // PMHQ 抓的常量；改 1 会被服务器拒 errorCode=100000 "加载失败，请稍后重试"
         field3: 20,
-        field12: 1,
       })
       const data = Oidb.Base.encode({ command: 0x93cf, subCommand: 1, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x93cf_1', data)
@@ -547,8 +546,8 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           field12: 0,
           field24: Buffer.alloc(0),
         },
+        field5: 1,
         field6: 1,
-        field12: 1,
       })
       const data = Oidb.Base.encode({ command: 0x93d0, subCommand: 1, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x93d0_1', data)
@@ -695,8 +694,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
               fileSize: opts.fileSize ?? 0,
               md5: opts.fileMd5 ?? Buffer.alloc(0),
               sha1: opts.fileSha1 ?? Buffer.alloc(0),
-              // Windows 客户端会在原文件名前加 "RA" 前缀；保持一致以贴近抓包，server 不在意
-              name: 'RA' + opts.fileName,
+              name: opts.fileName,
               fileType: { field1: 0, field2: 0, field3: 0, field4: 0 },
               width: 0,
               height: 0,

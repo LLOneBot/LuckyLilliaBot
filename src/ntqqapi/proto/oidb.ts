@@ -1045,23 +1045,17 @@ export namespace Oidb {
 
   /** OidbSvcTrpcTcp.0x93eb_1 - 闪传：通过 code 解析 fileSetId */
   export const FlashFileSetIdByCodeReq = ProtoMessage.of({
-    body: ProtoField(4, {
-      code: ProtoField(1, 'string'),
-    }),
+    code: ProtoField(1, 'string'),
   })
 
   export const FlashFileSetIdByCodeResp = ProtoMessage.of({
-    body: ProtoField(4, {
-      fileSetId: ProtoField(1, 'string'),
-    }),
+    fileSetId: ProtoField(1, 'string'),
   })
 
   /** OidbSvcTrpcTcp.0x93d3_1 - 闪传：取 fileSet 基本信息 */
   export const FlashFileInfoReq = ProtoMessage.of({
-    body: ProtoField(4, {
-      fileSetId: ProtoField(1, 'string'),
-      field2: ProtoField(2, 'uint32'),
-    }),
+    fileSetId: ProtoField(1, 'string'),
+    field2: ProtoField(2, 'uint32'),
   })
 
   const FlashFileShareLink = ProtoMessage.of({
@@ -1069,40 +1063,36 @@ export namespace Oidb {
   })
 
   export const FlashFileInfoResp = ProtoMessage.of({
-    body: ProtoField(4, {
-      info: ProtoField(1, {
-        fileSetId: ProtoField(1, 'string'),
-        title: ProtoField(2, 'string'),
-        subtitle: ProtoField(3, 'string'),
-        field4: ProtoField(4, 'uint32'),
-        totalSize: ProtoField(5, 'uint32'),
-        shareInfo: ProtoField(8, FlashFileShareLink, 'optional'),
-        field11: ProtoField(11, 'uint32'),
-        createTime: ProtoField(13, 'uint32'),
-        expireTime: ProtoField(14, 'uint32'),
-      }, 'optional'),
+    info: ProtoField(1, {
+      fileSetId: ProtoField(1, 'string'),
+      title: ProtoField(2, 'string'),
+      subtitle: ProtoField(3, 'string'),
+      field4: ProtoField(4, 'uint32'),
+      totalSize: ProtoField(5, 'uint32'),
+      shareInfo: ProtoField(8, FlashFileShareLink, 'optional'),
+      field11: ProtoField(11, 'uint32'),
+      createTime: ProtoField(13, 'uint32'),
+      expireTime: ProtoField(14, 'uint32'),
     }, 'optional'),
   })
 
   /** OidbSvcTrpcTcp.0x93d4_1 - 闪传：取 fileSet 中文件列表 */
   export const FlashFileListReq = ProtoMessage.of({
-    body: ProtoField(4, {
-      fileSetId: ProtoField(1, 'string'),
-      paging: ProtoField(2, {
-        cookie: ProtoField(1, 'bytes'),
-        field2: ProtoField(2, 'uint32'),
-        count: ProtoField(3, 'uint32'),
-        field4: ProtoField(4, 'bytes'),
-        flags1: ProtoField(5, {
-          field1: ProtoField(1, 'uint32'),
-        }),
-        flags2: ProtoField(6, {
-          field1: ProtoField(1, 'uint32'),
-          field2: ProtoField(2, 'uint32'),
-        }),
+    fileSetId: ProtoField(1, 'string'),
+    paging: ProtoField(2, {
+      cookie: ProtoField(1, 'bytes'),
+      field2: ProtoField(2, 'uint32'),
+      count: ProtoField(3, 'uint32'),
+      field4: ProtoField(4, 'bytes'),
+      flags1: ProtoField(5, {
+        field1: ProtoField(1, 'uint32'),
       }),
-      field3: ProtoField(3, 'uint32'),
+      flags2: ProtoField(6, {
+        field1: ProtoField(1, 'uint32'),
+        field2: ProtoField(2, 'uint32'),
+      }),
     }),
+    field3: ProtoField(3, 'uint32'),
   })
 
   const FlashFileDownloadInfo = ProtoMessage.of({
@@ -1129,20 +1119,16 @@ export namespace Oidb {
   })
 
   export const FlashFileListResp = ProtoMessage.of({
-    body: ProtoField(4, {
-      result: ProtoField(1, {
-        field2: ProtoField(2, 'uint32'),
-        files: ProtoField(3, FlashFileEntry, 'repeated'),
-      }, 'optional'),
+    result: ProtoField(1, {
+      field2: ProtoField(2, 'uint32'),
+      files: ProtoField(3, FlashFileEntry, 'repeated'),
     }, 'optional'),
   })
 
   /** OidbSvcTrpcTcp.0x93d1_1 - 闪传：发起下载（注册下载意图，实际 URL 由 getFlashFileList 返回） */
   export const FlashFileDownloadReq = ProtoMessage.of({
-    body: ProtoField(4, {
-      fileSetId: ProtoField(1, 'string'),
-      sceneType: ProtoField(2, 'uint32'),
-    }),
+    fileSetId: ProtoField(1, 'string'),
+    sceneType: ProtoField(2, 'uint32'),
   })
 
   /** OidbSvcTrpcTcp.0x93cf_1 - 闪传：创建 fileSet（返回 fileSetId + shareLink） */
@@ -1163,6 +1149,11 @@ export namespace Oidb {
       field20: ProtoField(20, 'uint32'),
       field21: ProtoField(21, 'uint32'),
       field23: ProtoField(23, 'uint32'),
+      // 抓包：meta.field24 = { f2: 0, f3: "" }，少了 server 会拒（prepFlashFileSet 100200）
+      field24: ProtoField(24, {
+        field2: ProtoField(2, 'uint32'),
+        field3: ProtoField(3, 'bytes'),
+      }, 'optional'),
     }),
     field3: ProtoField(3, 'uint32'),
     field12: ProtoField(12, 'uint32'),
@@ -1196,8 +1187,9 @@ export namespace Oidb {
       field12: ProtoField(12, 'uint32'),
       field24: ProtoField(24, 'bytes', 'optional'),
     }),
+    // 抓包外层 body 顺序: f5=1, f6=1（没有 f12，f12 是 OIDB Base 的 isReserved）
+    field5: ProtoField(5, 'uint32'),
     field6: ProtoField(6, 'uint32'),
-    field12: ProtoField(12, 'uint32'),
   })
 
   /** OidbSvcTrpcTcp.0x93db_1 - 闪传：fileSet prep（在 12a9 上传前调用） */

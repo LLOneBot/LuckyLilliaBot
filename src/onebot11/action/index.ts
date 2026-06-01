@@ -101,6 +101,7 @@ import { ReShareFlashFile } from '@/onebot11/action/llbot/file/ReShareFlashFile'
 import { GetQQAvatar } from '@/onebot11/action/llbot/user/GetQQAvatar'
 import { DownloadFlashFile } from '@/onebot11/action/llbot/file/DownloadFlashFile'
 import { GetFlashFileInfo } from '@/onebot11/action/llbot/file/GetFlashFileInfo'
+import { GetFlashFileDownloadUrls } from '@/onebot11/action/llbot/file/GetFlashFileDownloadUrls'
 import { GetRecommendFace } from './llbot/msg/GetRecommendFace'
 import { BatchDeleteGroupMember } from '@/onebot11/action/llbot/group/BatchDeleteGroupMember'
 import { GetAiCharacters } from './llbot/msg/GetAiCharacters'
@@ -132,6 +133,7 @@ export function initActionMap(adapter: Adapter) {
     new BatchDeleteGroupMember(adapter),
     new GetFlashFileInfo(adapter),
     new DownloadFlashFile(adapter),
+    new GetFlashFileDownloadUrls(adapter),
     new UploadFlashFile(adapter),
     new ReShareFlashFile(adapter),
     new GetRKey(adapter),
