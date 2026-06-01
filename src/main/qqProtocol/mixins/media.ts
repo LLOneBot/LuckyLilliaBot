@@ -667,5 +667,88 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
       return { result: 0 }
     }
+
+    /** 闪传：拿单个文件的下载 URL (OidbSvcTrpcTcp.0x12a9_200)。
+     * 流程：fileSetId → getFlashFileList 拿到 file 的 fileUuid/sha1/name → 这里换 HTTPS URL。
+     * server 用 (fileSetId, fileUuid) 真正定位文件（download.info.fileId 是历史 token，不传也行）。
+     * 上层用 `https://${host}${path}${rkey}` 直接下载（rkey 已经带 & 前缀）。 */
+    async flashFileDownloadUrl(opts: {
+      fileSetId: string,
+      fileUuid: string,         // 来自 getFlashFileList file.fileUuid
+      fileName: string,
+      fileSha1?: Buffer,
+      fileMd5?: Buffer,
+      fileSize?: number,
+      fileId?: string,          // base64 token（可选；server 实测不依赖它）
+      fileTypeFlag?: number,    // = 11 跟 registerFlashFile.field7 一致
+      requestId: number,
+    }): Promise<{ host: string, path: string, port: number, rkey: string, ttl: number, fullUrl: string }> {
+      const body = Oidb.FlashFileDownloadPreReq.encode({
+        head: {
+          common: { requestId: opts.requestId, command: 200 },
+          scene: { requestType: 2, businessType: 4, field103: 22, sceneType: 5 },
+          client: { agentType: 1 },
+        },
+        download: {
+          info: {
+            fileInfo: {
+              fileSize: opts.fileSize ?? 0,
+              md5: opts.fileMd5 ?? Buffer.alloc(0),
+              sha1: opts.fileSha1 ?? Buffer.alloc(0),
+              // Windows 客户端会在原文件名前加 "RA" 前缀；保持一致以贴近抓包，server 不在意
+              name: 'RA' + opts.fileName,
+              fileType: { field1: 0, field2: 0, field3: 0, field4: 0 },
+              width: 0,
+              height: 0,
+              field8: 0,
+              field9: 0,
+            },
+            fileId: opts.fileId ?? '',
+            field3: 0,
+            field4: 0,
+            field5: 0,
+            field6: 0,
+          },
+          clientCaps: {
+            // 抓包里这堆 placeholder 是 Windows 客户端的能力声明，server 校验它们存在但值不在意
+            capsBody: {
+              field1: 0xfffffffe,
+              field3: 0xffffffff,
+              field5: 111,
+              field6: { field1: 3409274228, field2: Buffer.alloc(0), field3: Buffer.alloc(0), field4: 0 },
+            },
+            smallFlag: { field1: 0 },
+            // 真正定位文件的字段
+            target: {
+              fileSetId: opts.fileSetId,
+              fileUuid: opts.fileUuid,
+              field3: opts.fileTypeFlag ?? 11,
+              fileUuid2: opts.fileUuid,
+            },
+          },
+          field3: 0,
+        },
+      })
+      const data = Oidb.Base.encode({ command: 0x12a9, subCommand: 200, body, isReserved: 1 })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x12a9_200', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`flashFileDownloadUrl failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      const resp = Oidb.FlashFileDownloadPreResp.decode(Buffer.from(decoded.body))
+      const u = resp.body?.url
+      if (!u || !u.host) {
+        throw new Error('flashFileDownloadUrl: server did not return URL')
+      }
+      const fullUrl = `https://${u.host}${u.path}${resp.body!.rkey ?? ''}`
+      return {
+        host: u.host,
+        path: u.path,
+        port: u.port,
+        rkey: resp.body!.rkey ?? '',
+        ttl: resp.body!.ttl ?? 0,
+        fullUrl,
+      }
+    }
   }
 }

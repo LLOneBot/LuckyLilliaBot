@@ -1356,6 +1356,105 @@ export namespace Oidb {
     }, 'optional'),
   })
 
+  /** OidbSvcTrpcTcp.0x12a9_200 - 闪传：下载 preflight，返回 HTTPS 下载 URL（multimedia.qfile.qq.com）。
+   * 跟 0x12a9_100/103 同一个 NTV2RichMedia trpc，但 command=200 = download mode。
+   * 直接拿 host + path，bot 上层用 https.get 下载就够 — 不需要进度 polling (0x93e1_0)
+   * 也不需要下载完成确认 (0x93d9_1) 那两步是 Windows 客户端 UI 用的。 */
+  export const FlashFileDownloadPreReq = ProtoMessage.of({
+    head: ProtoField(1, {
+      common: ProtoField(1, {
+        requestId: ProtoField(1, 'uint32'),
+        command: ProtoField(2, 'uint32'),  // 200
+      }),
+      scene: ProtoField(2, {
+        requestType: ProtoField(101, 'uint32'),  // 2
+        businessType: ProtoField(102, 'uint32'),  // 4
+        field103: ProtoField(103, 'uint32'),  // 22
+        sceneType: ProtoField(200, 'uint32'),  // 5
+      }),
+      client: ProtoField(3, {
+        agentType: ProtoField(1, 'uint32'),  // 1
+      }),
+    }),
+    download: ProtoField(3, {
+      // 真正的 fileId token 是 commit 时拿到的，这里再传一次定位文件
+      info: ProtoField(1, {
+        fileInfo: ProtoField(1, {
+          fileSize: ProtoField(1, 'uint32'),  // 0 OK
+          md5: ProtoField(2, 'bytes'),
+          sha1: ProtoField(3, 'bytes'),
+          // 0x12a9_200 里 name 是直接 string（跟 0x93d0 register 时的 nested {f10:string} 不一样）。
+          // 抓包里 Windows 客户端会在原文件名前加 "RA" 前缀（猜：Resource-Access prefix），
+          // 但实测 server 用 (fileSetId, fileUuid) 定位文件，name 字段名可以随便填。
+          name: ProtoField(4, 'string'),
+          fileType: ProtoField(5, {
+            field1: ProtoField(1, 'uint32'),
+            field2: ProtoField(2, 'uint32'),
+            field3: ProtoField(3, 'uint32'),
+            field4: ProtoField(4, 'uint32'),
+          }),
+          width: ProtoField(6, 'uint32'),
+          height: ProtoField(7, 'uint32'),
+          field8: ProtoField(8, 'uint32'),
+          field9: ProtoField(9, 'uint32'),
+        }),
+        // base64 fileId（来自 0x12a9_103 commit 或文件 list 里 download.fileId）
+        fileId: ProtoField(2, 'string'),
+        field3: ProtoField(3, 'uint32'),
+        field4: ProtoField(4, 'uint32'),
+        field5: ProtoField(5, 'uint32'),
+        field6: ProtoField(6, 'uint32'),
+      }),
+      // 客户端能力声明 — 抓包里看到一堆 uint32max 的 placeholder
+      clientCaps: ProtoField(2, {
+        // 抓包外层 f2 直接就是 caps body（不是再嵌一层）
+        capsBody: ProtoField(2, {
+          field1: ProtoField(1, 'uint32'),
+          field3: ProtoField(3, 'uint32'),
+          field5: ProtoField(5, 'uint32'),
+          field6: ProtoField(6, {
+            field1: ProtoField(1, 'uint32'),
+            field2: ProtoField(2, 'bytes'),
+            field3: ProtoField(3, 'bytes'),
+            field4: ProtoField(4, 'uint32'),
+          }),
+        }),
+        smallFlag: ProtoField(4, {
+          field1: ProtoField(1, 'uint32'),
+        }),
+        // 真正定位文件的 ID — server 用这两个 UUID 而不是上面 download.info.fileId
+        target: ProtoField(10, {
+          fileSetId: ProtoField(1, 'string'),
+          fileUuid: ProtoField(2, 'string'),
+          field3: ProtoField(3, 'uint32'),  // = 11，跟 registerFlashFile.field7 一样
+          fileUuid2: ProtoField(4, 'string'),  // 同 fileUuid
+        }),
+      }),
+      // download msg 末尾的 placeholder uint32（抓包 = 0）
+      field3: ProtoField(3, 'uint32'),
+    }),
+  })
+
+  /** OidbSvcTrpcTcp.0x12a9_200 response */
+  export const FlashFileDownloadPreResp = ProtoMessage.of({
+    head: ProtoField(1, {
+      common: ProtoField(1, {
+        requestId: ProtoField(1, 'uint32'),
+        command: ProtoField(2, 'uint32'),
+      }),
+      retCode: ProtoField(3, 'string', 'optional'),
+    }),
+    body: ProtoField(3, {
+      rkey: ProtoField(1, 'string'),  // "&rkey=CAQS..."  跟 url 拼一起
+      ttl: ProtoField(2, 'uint32'),  // 通常 3600
+      url: ProtoField(3, {
+        host: ProtoField(1, 'string'),  // multimedia.qfile.qq.com
+        path: ProtoField(2, 'string'),  // /download?appid=...&fileid=...&fldc=...
+        port: ProtoField(3, 'uint32'),  // 443
+      }),
+    }, 'optional'),
+  })
+
   /** OidbSvcTrpcTcp.0x8a7_0 */
   export const FetchGroupAtAllRemainReq = ProtoMessage.of({
     subCmd: ProtoField(1, 'uint32'),

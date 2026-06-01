@@ -226,6 +226,37 @@ export class NTQQFileApi extends Service {
     return { result: 0, errMsg: '', fileSetId }
   }
 
+  /** 闪传：拿单个文件的 HTTPS 下载 URL（NTV2 0x12a9_200）。
+   * 用法：`getFlashFileSetIdByCode(code)` → fileSetId → `getFlashFileList(fileSetId)` 拿到
+   * file 列表 → 选中文件后从 `file.fileUuid` / `file.name` / `file.fileSize` 喂进来。
+   * 返回带签名的 multimedia.qfile.qq.com URL，1 小时过期。
+   *
+   * server 用 (fileSetId, fileUuid) 真正定位文件，不依赖 download.info.fileId 那个 token —
+   * 那个 token 是 Windows 客户端从老 commit cache 里翻出来的，传不传都行。
+   *
+   * 不需要：0x93d1_1 (registerDownload) / 0x93e1_0 (progress polling) /
+   * 0x93d9_1 (download complete) — 那些是 Windows QQ UI 用来更新自己界面的，bot 上层
+   * 拿到 URL 直接 https.get 就行。 */
+  async getFlashFileDownloadUrl(opts: {
+    fileSetId: string,
+    fileUuid: string,
+    fileName: string,
+    fileSize?: number,
+    fileSha1Hex?: string,
+    fileMd5Hex?: string,
+  }): Promise<{ host: string, path: string, port: number, rkey: string, ttl: number, fullUrl: string }> {
+    const requestId = Math.floor(Math.random() * 0x7fffffff) + 1
+    return await this.ctx.qqProtocol.flashFileDownloadUrl({
+      fileSetId: opts.fileSetId,
+      fileUuid: opts.fileUuid,
+      fileName: opts.fileName,
+      fileSize: opts.fileSize,
+      fileSha1: opts.fileSha1Hex ? Buffer.from(opts.fileSha1Hex, 'hex') : undefined,
+      fileMd5: opts.fileMd5Hex ? Buffer.from(opts.fileMd5Hex, 'hex') : undefined,
+      requestId,
+    })
+  }
+
   flashFileInfoCache = new Map<string, FlashFileSetInfo>()
 
   async getFlashFileInfo(fileSetId: string, _force = true): Promise<FlashFileSetInfo> {
