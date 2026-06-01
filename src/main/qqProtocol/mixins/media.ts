@@ -687,6 +687,9 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         head: {
           common: { requestId: opts.requestId, command: 200 },
           scene: { requestType: 2, businessType: 4, field103: 22, sceneType: 5 },
+          // agentType=1 跟 PMHQ 抓 Windows QQ 一致。注：闪传 server 总是给
+          // multimedia.qfile.qq.com + appid=14901 的 URL（businessType=4 写死了
+          // Windows 端身份），改 agentType=2 没用 — 实测改不了 server 拼的 host/appid
           client: { agentType: 1 },
         },
         download: {
