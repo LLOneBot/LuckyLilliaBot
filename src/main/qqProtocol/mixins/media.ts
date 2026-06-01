@@ -439,9 +439,10 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return resp.fileSetId ?? ''
     }
 
-    /** 闪传：取 fileSet 基本信息 (OidbSvcTrpcTcp.0x93d3_1) */
+    /** 闪传：取 fileSet 基本信息 (OidbSvcTrpcTcp.0x93d3_1)。
+     * field2 = 7 对应 Windows QQ 重新分享时的 send (1 是早期值，对自己 fileset 拿的字段更少)。 */
     async getFlashFileInfo(fileSetId: string) {
-      const body = Oidb.FlashFileInfoReq.encode({ fileSetId, field2: 1 })
+      const body = Oidb.FlashFileInfoReq.encode({ fileSetId, field2: 7 })
       const data = Oidb.Base.encode({ command: 0x93d3, subCommand: 1, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x93d3_1', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
@@ -480,7 +481,24 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return resp.result?.files ?? []
     }
 
-    /** 闪传：发起下载（OidbSvcTrpcTcp.0x93d1_1） */
+    /** 闪传：取单个老文件的完整元数据 (OidbSvcTrpcTcp.0x93e5_4)。
+     * 跟 list (0x93d4_1) 不同——对 bot 自己 own 的 fileSet 也能拿到 sha1/md5/historyToken，
+     * 没有 list 的 ownership 限制。是 Windows QQ "重新分享" 按钮的第一步。 */
+    async getFlashFileEntryFull(fileSetId: string, fileUuid: string) {
+      const body = Oidb.FlashFileGetFileInfoReq.encode({ fileUuid, fileSetId, field3: 1 })
+      const data = Oidb.Base.encode({ command: 0x93e5, subCommand: 4, body, isReserved: 1 })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x93e5_4', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      if (decoded.errorCode !== 0) {
+        throw new Error(`getFlashFileEntryFull failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
+      }
+      const resp = Oidb.FlashFileGetFileInfoResp.decode(Buffer.from(decoded.body))
+      return resp.wrap?.file
+    }
+
+    /** 闪传：finalize fileSet 状态 (OidbSvcTrpcTcp.0x93d1_1)。
+     * 名字看起来像 download，但抓包看 Windows QQ 是 commit 后用它 finalize fileset。
+     * sceneType=6 是 finalize；上传完成必调，跟齐 Windows QQ 客户端流程。 */
     async downloadFlashFile(fileSetId: string, sceneType: number = 6) {
       const body = Oidb.FlashFileDownloadReq.encode({ fileSetId, sceneType })
       const data = Oidb.Base.encode({ command: 0x93d1, subCommand: 1, body, isReserved: 1 })
@@ -494,8 +512,11 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
 
     /** 闪传：创建 fileSet 并拿到 shareLink (OidbSvcTrpcTcp.0x93cf_1)。
      * 这只是 uploadFlashFile 多步流程的第一步——还需 0x93d0_1 注册文件 + 0x93db_1 prep
-     * + 0x12a9_100/103 highway 上传 + 0x93d1_1 finalize 才能把实际文件放进 fileSet。 */
-    async createFlashFileSet(opts: { title: string, subtitle?: string, totalFileCount: number, totalFileSize: number, uploaderUin: string, uploaderNick: string, uploaderUid: string }) {
+     * + 0x12a9_100/103 highway 上传 + 0x93d1_1 finalize 才能把实际文件放进 fileSet。
+     *
+     * field3 = 20 (普通上传)，21 (Windows QQ 重新分享场景；实测对 server 行为无区别)。
+     * 用 1 server 直接拒 errorCode=100000 "加载失败，请稍后重试"。 */
+    async createFlashFileSet(opts: { title: string, subtitle?: string, totalFileCount: number, totalFileSize: number, uploaderUin: string, uploaderNick: string, uploaderUid: string, scene?: number }) {
       const body = Oidb.CreateFlashFileSetReq.encode({
         totalFileCount: opts.totalFileCount,
         meta: {
@@ -516,8 +537,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           // PMHQ 抓的常量（meta.f24），不送 server 会拒 prepFlashFileSet (errorCode=100200)
           field24: { field2: 0, field3: Buffer.alloc(0) },
         },
-        // PMHQ 抓的常量；改 1 会被服务器拒 errorCode=100000 "加载失败，请稍后重试"
-        field3: 20,
+        field3: opts.scene ?? 20,
       })
       const data = Oidb.Base.encode({ command: 0x93cf, subCommand: 1, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x93cf_1', data)

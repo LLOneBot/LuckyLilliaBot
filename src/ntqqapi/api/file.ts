@@ -1,12 +1,12 @@
 import { IMAGE_HTTP_HOST, IMAGE_HTTP_HOST_NT } from '../types'
 import path from 'node:path'
-import { createReadStream, readFileSync } from 'node:fs'
+import { createReadStream, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { RkeyManager } from '@/ntqqapi/helper/rkey'
 import { calculateSha1StreamBytes, getSha1HexFromFile, getMd5HexFromFile } from '@/common/utils/file'
 import { stat as fsStat } from 'node:fs/promises'
 import { randomUUID, createHash } from 'node:crypto'
 import { Service, Context } from 'cordis'
-import { selfInfo } from '@/common/globalVars'
+import { selfInfo, DATA_DIR } from '@/common/globalVars'
 import { FlashFileListItem, FlashFileSetInfo } from '@/ntqqapi/types/flashfile'
 import { HighwayHttpSession } from '../helper/highway'
 import { Media } from '../proto'
@@ -200,6 +200,10 @@ export class NTQQFileApi extends Service {
       })
       downloads.push({ name: f.name, size: f.size, url: dl.fullUrl, expire: dl.ttl })
     }
+    // 5. finalize: 把 fileSet 状态推到 server 端 (sceneType=6)。Windows QQ 抓包看完成
+    //    上传后必调；bot 之前漏了。注：实测调了之后 server 还是不给 list/0x93e5_4 返
+    //    sha1/md5/historyToken (Linux QQ session 限制)，但仍跟齐 Windows QQ 流程。
+    await this.ctx.qqProtocol.downloadFlashFile(fileSetId, 6).catch(() => { })
     return {
       result: 0,
       errMsg: '',
@@ -309,30 +313,51 @@ export class NTQQFileApi extends Service {
 
   /** 闪传：基于已有 fileSet 重新分享，拿到全新 share_link + 14 天有效期。
    *
-   * 跟 Windows QQ 客户端"重新分享"按钮一样的事，但**不需要本地有原文件**——
-   * 直接从老 fileSet 的 list resp 抓 sha1/size/name，喂给上传链路 preflight 走秒传命中。
-   * 跟 Windows QQ 抓包对比，少了开头的 0x93e5_4 (老→新 fileSet 关联)，QQ 端"重新分享"
-   * 按钮其实也是普通上传链路，0x93e5_4 只是 server 端做"重新分享"统计/审计用，去掉不影响。
+   * 跟 Windows QQ 客户端"重新分享"按钮一样的事——抓包确认 Windows QQ 也是这个流程，
+   * 但有个我之前漏的关键步骤 0x93e5_4：取每个老文件的完整元数据 (含 sha1/md5/historyToken)。
+   *
+   * 为啥需要 0x93e5_4：list (0x93d4_1) 对 bot 自己 own 的 fileSet 即使 field3=2
+   * 也只返 name/size/uuid，sha1/md5/historyToken 全空——这是 server 端 ownership
+   * 限制 (大概 server 觉得 client 自己的文件 client 自己有数据)。0x93e5_4 没这限制，
+   * 对自己的 fileSet 也返完整字段，所以重新分享必经它。
    *
    * 流程：
-   *   fileSetId → 0x93d4_1 (field3=2) → 每条 entry 的 sha1Hex/size/name
+   *   fileSetId → 0x93d4_1 (list) → 拿每个文件的 fileUuid (基础字段)
+   *   for fileUuid in fileSet:
+   *     → 0x93e5_4 → 完整 entry (sha1Hex/md5Hex/historyToken/name/size)
    *   → 0x93cf_1 createFlashFileSet (新 fileSetId + 新 share_link)
-   *   → 0x93d0_1 registerFlashFile per file
+   *   → 0x93d0_1 registerFlashFile per file (带 sha1/md5)
    *   → 0x93db_1 prepFlashFileSet
-   *   → 0x12a9_100 preflight (用 list 拿到的 sha1) → 秒传命中
+   *   → 0x12a9_100 preflight (用 0x93e5_4 拿到的 sha1) → server 秒传命中
    *   → 0x12a9_103 commit
    *   → 0x93d1_1 finalize
    *
-   * 限制：老 fileSet 必须没过期；过期后 list 调不通拿不到 sha1。 */
+   * 限制：老 fileSet 必须没过期。 */
   async reshareFlashFile(fileSetId: string): Promise<any> {
     const sourceFiles = await this.ctx.qqProtocol.getFlashFileList(fileSetId)
     if (sourceFiles.length === 0) throw new Error('reshareFlashFile: 源 fileSet 无文件')
     // info 拿 title — 拿不到（fileSet 已过期等）就用首文件名兜底，不让重新分享因为这个失败
     const sourceInfo = await this.ctx.qqProtocol.getFlashFileInfo(fileSetId).catch(() => null)
-    // 跳过没 sha1 的 entry（封面占位等，size=1712 的默认头像那种），server 没法秒传它们
-    const reusable = (sourceFiles as any[]).filter(f => f.sha1Hex && f.fileSize)
-    if (reusable.length === 0) throw new Error('reshareFlashFile: 源 fileSet 没有可秒传的文件 (list 没返 sha1)')
-    const totalSize = reusable.reduce((s: number, f: any) => s + (f.fileSize ?? 0), 0)
+    // 用 0x93e5_4 给每个文件取完整元数据 (含 sha1/md5)，list 自己 own 的 fileSet 不返这些字段
+    type FullEntry = { fileUuid: string, name: string, fileSize: number, sha1Hex?: string, md5Hex?: string }
+    const reusable: FullEntry[] = []
+    for (const f of sourceFiles as any[]) {
+      const fileUuid = f.fileUuid as string | undefined
+      if (!fileUuid) continue
+      const full = await this.ctx.qqProtocol.getFlashFileEntryFull(fileSetId, fileUuid).catch(() => null) as any
+      if (!full) continue
+      // 跳过没 sha1 的 entry（封面占位等，size=1712 的默认头像那种），server 没法秒传它们
+      if (!full.sha1Hex || !full.fileSize) continue
+      reusable.push({
+        fileUuid,
+        name: full.name ?? f.name ?? '',
+        fileSize: full.fileSize ?? f.fileSize ?? 0,
+        sha1Hex: full.sha1Hex,
+        md5Hex: full.md5Hex,
+      })
+    }
+    if (reusable.length === 0) throw new Error('reshareFlashFile: 源 fileSet 没有可秒传的文件 (0x93e5_4 没返 sha1)')
+    const totalSize = reusable.reduce((s, f) => s + (f.fileSize ?? 0), 0)
     // uploaderNick 必须真实昵称——若 selfInfo.nick 还没填则去抓一次 (跟 uploadFlashFile 一致)
     if (!selfInfo.nick) {
       await this.ctx.ntUserApi.getSelfNick(true).catch(() => { })
@@ -352,8 +377,8 @@ export class NTQQFileApi extends Service {
     for (const f of reusable) {
       await this.ctx.qqProtocol.registerFlashFile(newFileSetId, {
         fileUuid: randomUUID(),
-        name: f.name ?? '',
-        fileSize: f.fileSize ?? 0,
+        name: f.name,
+        fileSize: f.fileSize,
         sha1Hex: f.sha1Hex,
         md5Hex: f.md5Hex,
       })

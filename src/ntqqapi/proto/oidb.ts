@@ -1140,6 +1140,28 @@ export namespace Oidb {
     }, 'optional'),
   })
 
+  /** OidbSvcTrpcTcp.0x93e5_4 - 闪传：取老文件完整元数据（重新分享必经的第一步）。
+   * Windows QQ "重新分享" 按钮的真正实现：先调这个 cmd 一次拿到老文件 sha1/md5/historyToken，
+   * 然后走完整 upload 链路 (createFlashFileSet → register → preflight 秒传 → commit)。
+   *
+   * 关键：跟 0x93d4_1 (list) 的 ownership 限制不一样——这个 cmd 对自己上传的 fileSet
+   * 也返完整字段（list 对自己 fileset 永远剥光 sha1/md5/historyToken）。
+   *
+   * Req 顶层 (OIDB Base body): { f1 = 老fileUuid, f2 = 老fileSetId, f3 = 1 }
+   * Resp 顶层 body: { f1 = { f1 = fileUuid, f2 = FlashFileEntry } } 含完整字段。 */
+  export const FlashFileGetFileInfoReq = ProtoMessage.of({
+    fileUuid: ProtoField(1, 'string'),
+    fileSetId: ProtoField(2, 'string'),
+    field3: ProtoField(3, 'uint32'),
+  })
+
+  export const FlashFileGetFileInfoResp = ProtoMessage.of({
+    wrap: ProtoField(1, {
+      fileUuid: ProtoField(1, 'string'),
+      file: ProtoField(2, FlashFileEntry, 'optional'),
+    }, 'optional'),
+  })
+
   /** OidbSvcTrpcTcp.0x93d1_1 - 闪传：发起下载（注册下载意图，实际 URL 由 getFlashFileList 返回） */
   export const FlashFileDownloadReq = ProtoMessage.of({
     fileSetId: ProtoField(1, 'string'),
