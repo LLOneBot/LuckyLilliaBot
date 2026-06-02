@@ -368,7 +368,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           ptt: {
             bytesPbReserve: Buffer.from([0x08, 0x00, 0x38, 0x00]),
             bytesGeneralFlags: Buffer.from([0x9a, 0x01, 0x07, 0xaa, 0x03, 0x04, 0x08, 0x08, 0x12, 0x00]),
-          } as any,
+          },
         },
       )
       const data = Oidb.Base.encode({ command: 0x126e, subCommand: 100, body })
@@ -391,7 +391,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           ptt: {
             bytesPbReserve: Buffer.from([0x08, 0x00, 0x38, 0x00]),
             bytesGeneralFlags: Buffer.from([0x9a, 0x01, 0x07, 0xaa, 0x03, 0x04, 0x08, 0x08, 0x12, 0x00]),
-          } as any,
+          },
         },
       )
       const data = Oidb.Base.encode({ command: 0x126d, subCommand: 100, body })

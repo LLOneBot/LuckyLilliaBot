@@ -25,7 +25,7 @@ class DeleteMsg extends BaseAction<Payload, null> {
         const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(info.peer, info.msgSeq)
         msg = msgList[0]
       }
-      await this.ctx.ntMsgApi.recallMsg(info.peer, msg.msgSeq, msg.clientSeq, msg.msgRandom, +msg.msgTime)
+      await this.ctx.ntMsgApi.recallMsg(info.peer, msg.msgSeq, msg.clientSeq, msg.msgRandom, msg.msgTime)
     }
     return null
   }

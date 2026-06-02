@@ -814,7 +814,7 @@ export class NTQQWebApi extends Service {
       body: formData,
     })
     if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
-    const data = await res.json() as any
+    const data = await res.json()
     if (data.ec !== 0) {
       return {
         errCode: data.ec,

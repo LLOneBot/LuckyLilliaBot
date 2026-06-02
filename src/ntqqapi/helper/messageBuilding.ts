@@ -101,13 +101,14 @@ export class MessageBuilding {
 
   private async [ElementType.Reply](data: SendReplyElement) {
     const { replyElement } = data
-    const srcMsg: any = {
+    const srcMsg = {
       origSeqs: [replyElement.replyMsgClientSeq || replyElement.replyMsgSeq],
       senderUin: replyElement.senderUin,
       time: replyElement.replyMsgTime,
       attr: {
         ntMsgSeq: replyElement.replyMsgClientSeq ? replyElement.replyMsgSeq : undefined
-      }
+      },
+      elems: undefined as undefined | Buffer[]
     }
     // 普通群/私聊消息的 reply 段，server 会保留引用让 client 渲染时再去拉一次锚点。
     // 但合并转发包是离线快照，client 不会再拉 —— 必须把锚点的 elements 内联进 srcMsg.elems

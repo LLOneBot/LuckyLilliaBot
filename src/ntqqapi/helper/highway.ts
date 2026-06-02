@@ -43,7 +43,7 @@ abstract class AbstractHighwaySession {
         appId: AppInfo.appId,
         dataFlag: 16,
         commandId: this.trans.cmd,
-      } as any,
+      },
       msgSegHead: {
         serviceId: 0,
         filesize: this.trans.size,
@@ -54,14 +54,14 @@ abstract class AbstractHighwaySession {
         fileMd5: this.trans.sum,
         cacheAddr: 0,
         cachePort: 0,
-      } as any,
+      },
       bytesReqExtendInfo: this.trans.ext,
       timestamp: 0,
       msgLoginSigHead: {
         uint32LoginSigType: 8,
         bytesLoginSig: Buffer.alloc(0),
         appId: AppInfo.appId,
-      } as any,
+      },
     })
   }
 

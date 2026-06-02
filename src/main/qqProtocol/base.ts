@@ -124,7 +124,7 @@ export class QQProtocolBase extends Service {
         this.pmhqProbeListenerId = ''
       }
     }
-    this.pmhqProbeListenerId = this.addResListener((data: any) => {
+    this.pmhqProbeListenerId = this.addResListener((data) => {
       if (this.pmhqProbeToken !== myToken) return
       if (data?.type !== 'recv' || !data.data?.cmd || !data.data?.pb) return
 
@@ -139,7 +139,7 @@ export class QQProtocolBase extends Service {
           try {
             const buf = Buffer.from(data.data.pb, 'hex')
             const decoded = Msg.Message.decode(buf)
-            const rh = (decoded as any)?.routingHead
+            const rh = decoded?.routingHead
             if (rh?.toUid && !selfInfo.uid) selfInfo.uid = String(rh.toUid)
             if (rh?.toUin && !selfInfo.uin) selfInfo.uin = String(rh.toUin)
           } catch { /* try next */ }

@@ -116,8 +116,8 @@ export namespace NTV2RichMedia {
   }
 
   export function generateExt(
-    upload: any,
-    subFileInfo?: any
+    upload: InferProtoModel<typeof Media.NTV2RichMediaResp>['upload'],
+    subFileInfo?: InferProtoModel<typeof Media.NTV2RichMediaResp>['upload']['subFileInfos'][0]
   ) {
     const blockSize = 1024 * 1024
     // upload.msgInfo 现在是 bytes（NTV2RichMediaResp.upload.msgInfo 改成 raw 透传），

@@ -9,7 +9,7 @@ import {
   OB11MessageDataType,
   OB11MessageFileBase,
 } from '../../types'
-import { Peer } from '@/ntqqapi/types/msg'
+import { ElementType, Peer } from '@/ntqqapi/types/msg'
 import { SendElement } from '@/ntqqapi/entities'
 import { selfInfo } from '@/common/globalVars'
 import { uri2local, isNumeric } from '@/common/utils'
@@ -200,32 +200,42 @@ export async function transformOutgoingSegments(
       }
         break
       case OB11MessageDataType.Forward: {
-        let resid
-        let filename
-        let source = '聊天记录'
-        let news = [{
-          text: '查看转发消息'
-        }]
-        let summary = '查看转发消息'
-        if (isNumeric(segment.data.id)) {
-          const rootMsg = await ctx.store.getMsgInfoByShortId(shortId)
-          if (!rootMsg) {
-            throw new Error('msg not found')
-          }
-          const msg = await ctx.ntMsgApi.getMsgsByMsgId(rootMsg.peer, [rootMsg.msgId])
-          const { multiForwardMsgElement } = msg.msgList[0].elements[0]
-          resid = multiForwardMsgElement!.resId
-          filename = multiForwardMsgElement!.fileName
-          const { xmlContent } = multiForwardMsgElement!
-          const titles = Array.from(xmlContent.matchAll(/<title[^>]*>([^<]*)<\/title>/g))
-          source = titles[0][1]
-          news = titles.slice(1).map(e => {
-            return { text: e[1] }
-          })
-          summary = xmlContent.match(/<summary[^>]*>([^<]*)<\/summary>/)![1]
+        const resid = segment.data.id
+        const filename = randomUUID()
+        const { msgList } = await ctx.ntMsgApi.getForwardedMsgs(resid)
+        if (msgList.length === 0) {
+          continue
         }
-        resid ??= segment.data.id
-        filename ??= randomUUID()
+        const source = msgList[0].chatType === ChatType.Group ?
+          '群聊的聊天记录' : '聊天记录'
+        const summary = `查看${msgList.length}条转发消息`
+        const news = []
+        for (const msg of msgList) {
+          if (news.length === 4) continue
+          const content = msg.elements.reduce((acc, curr) => {
+            let preview
+            if (curr.elementType === ElementType.Text) {
+              preview = curr.textElement!.content.slice(0, 70)
+            } else if (curr.elementType === ElementType.Face) {
+              preview = curr.faceElement!.faceText
+            } else if (curr.elementType === ElementType.MarketFace) {
+              preview = curr.marketFaceElement!.faceName
+            } else if (curr.elementType === ElementType.Pic) {
+              preview = curr.picElement!.summary || '[图片]'
+            } else if (curr.elementType === ElementType.Video) {
+              preview = '[视频]'
+            } else if (curr.elementType === ElementType.Ptt) {
+              preview = '[语音]'
+            } else if (curr.elementType === ElementType.Ark) {
+              const match = curr.arkElement!.bytesData!.match(/"prompt"\s*:\s*"([^"]*)"/)
+              preview = match?.[1] ?? ''
+            } else if (curr.elementType === ElementType.MultiForward) {
+              preview = '[合并转发]'
+            }
+            return acc + preview
+          }, '')
+          news.push({ text: `${msg.sendNickName}: ${content}` })
+        }
         const content = JSON.stringify({
           app: 'com.tencent.multimsg',
           config: {

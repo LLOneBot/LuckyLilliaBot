@@ -16,15 +16,10 @@ export class SetEssenceMsg extends BaseAction<Payload, null> {
     if (!info) {
       throw new Error('msg not found')
     }
-    let msg = this.ctx.store.getMsgByMsgId(info.msgId)
-    if (!msg) {
-      const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(info.peer, info.msgSeq)
-      msg = msgList[0]
-    }
     const res = await this.ctx.ntGroupApi.addGroupEssence(
       +info.peer.peerUid,
       info.msgSeq,
-      msg.msgRandom
+      Number(BigInt(info.msgId) & 0xFFFFFFFFn)
     )
     if (res.errorCode !== 0) {
       throw new Error(res.errorMsg)

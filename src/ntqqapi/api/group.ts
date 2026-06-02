@@ -218,12 +218,12 @@ export class NTQQGroupApi extends Service {
     return await this.ctx.qqProtocol.fetchGroupAtAllRemain(+selfInfo.uin, groupCode)
   }
 
-  async removeGroupEssence(groupCode: number, msgSeq: number, msgRandom: number) {
-    return await this.ctx.qqProtocol.setGroupEssence(groupCode, msgSeq, msgRandom, false)
-  }
-
   async addGroupEssence(groupCode: number, msgSeq: number, msgRandom: number) {
     return await this.ctx.qqProtocol.setGroupEssence(groupCode, msgSeq, msgRandom, true)
+  }
+
+  async removeGroupEssence(groupCode: number, msgSeq: number, msgRandom: number) {
+    return await this.ctx.qqProtocol.setGroupEssence(groupCode, msgSeq, msgRandom, false)
   }
 
   async getGroupRecommendContactArk(groupCode: number) {
