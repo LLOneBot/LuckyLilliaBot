@@ -6,7 +6,7 @@ export interface MessageCreatedEvent {
 }
 
 /** 消息撤回事件 */
-export interface MessageDeleteEvent {
+export interface MessageDeletedEvent {
   chatType: ChatType
   peerUin: number
   peerUid: string

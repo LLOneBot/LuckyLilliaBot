@@ -1,5 +1,5 @@
 import { MilkyEventTypes } from '@/milky/common/event'
-import { RawMessage, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeleteEvent, GroupMemberAddedEvent, GroupMemberRemovedEvent, FriendRequestEvent, FriendNudgeEvent, GroupNudgeEvent, GroupNameChangedEvent, GroupMuteEvent, GroupWholeMuteEvent, GroupAdminChangedEvent, PinChangedEvent, ChatType, GroupMessageReactionEvent, GroupEssenceMessageChangedEvent, KickedOfflineEvent } from '@/ntqqapi/types'
+import { RawMessage, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeletedEvent, GroupMemberAddedEvent, GroupMemberRemovedEvent, FriendRequestEvent, FriendNudgeEvent, GroupNudgeEvent, GroupNameChangedEvent, GroupMuteEvent, GroupWholeMuteEvent, GroupAdminChangedEvent, PinChangedEvent, ChatType, GroupMessageReactionEvent, GroupEssenceMessageChangedEvent, KickedOfflineEvent } from '@/ntqqapi/types'
 import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingTempMessage } from './message/incoming'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -13,7 +13,6 @@ export async function transformPrivateMessageCreated(
   message: RawMessage
 ): Promise<MilkyEventTypes['message_receive'] | null> {
   try {
-    if (!message.senderUid) return null
     const friend = await ctx.ntFriendApi.getFriendByUid(message.senderUid, false)
 
     const transformedMessage = await transformIncomingPrivateMessage(ctx, friend!, message)
@@ -35,7 +34,6 @@ export async function transformGroupMessageCreated(
   message: RawMessage
 ): Promise<MilkyEventTypes['message_receive'] | null> {
   try {
-    if (!message.senderUid) return null
     const group = await ctx.ntGroupApi.getGroup(+message.peerUid, false)
     const member = await ctx.ntGroupApi.getGroupMemberByUid(+message.peerUin, message.senderUid, false)
 
@@ -58,7 +56,6 @@ export async function transformTempMessageCreated(
   message: RawMessage
 ): Promise<MilkyEventTypes['message_receive'] | null> {
   try {
-    if (!message.senderUid) return null
     const group = await ctx.ntGroupApi.getGroup(message.tempFromGroupCode, false)
 
     const transformedMessage = await transformIncomingTempMessage(ctx, group, message)
@@ -74,7 +71,7 @@ export async function transformTempMessageCreated(
 
 export async function transformTempMessageRecall(
   ctx: Context,
-  data: MessageDeleteEvent
+  data: MessageDeletedEvent
 ): Promise<MilkyEventTypes['message_recall'] | null> {
   try {
     return {
@@ -93,7 +90,7 @@ export async function transformTempMessageRecall(
 
 export async function transformFriendMessageRecall(
   ctx: Context,
-  data: MessageDeleteEvent
+  data: MessageDeletedEvent
 ): Promise<MilkyEventTypes['message_recall'] | null> {
   try {
     return {
@@ -112,7 +109,7 @@ export async function transformFriendMessageRecall(
 
 export async function transformGroupMessageRecall(
   ctx: Context,
-  data: MessageDeleteEvent
+  data: MessageDeletedEvent
 ): Promise<MilkyEventTypes['message_recall'] | null> {
   try {
     return {

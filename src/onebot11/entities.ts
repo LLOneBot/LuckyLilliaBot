@@ -16,7 +16,6 @@ import {
 import { EventType } from './event/OB11BaseEvent'
 import { OB11GroupUploadNoticeEvent } from './event/notice/OB11GroupUploadNoticeEvent'
 import { OB11GroupNoticeEvent } from './event/notice/OB11GroupNoticeEvent'
-import { GroupBanEvent } from './event/notice/OB11GroupBanEvent'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { ParseMessageConfig } from './types'

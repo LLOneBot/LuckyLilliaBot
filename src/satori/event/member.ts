@@ -1,59 +1,70 @@
+import * as NT from '@/ntqqapi/types'
 import SatoriAdapter from '../adapter'
-import { RawMessage, GroupNotify } from '@/ntqqapi/types'
-import { decodeGuild, decodeUser } from '../utils'
+import { encodeGroupRequestFlag } from '../utils'
 
-export async function parseGuildMemberAdded(bot: SatoriAdapter, input: RawMessage) {
-  const group = await bot.ctx.ntGroupApi.getGroup(+input.peerUid,false)
-
-  let memberUid: string | undefined
-  if (input.elements[0].grayTipElement?.groupElement) {
-    memberUid = input.elements[0].grayTipElement.groupElement.memberUid
-  } else if (input.elements[0].grayTipElement?.jsonGrayTipElement) {
-    const json = JSON.parse(input.elements[0].grayTipElement.jsonGrayTipElement.jsonStr)
-    const uin = new URL(json.items[2].jp).searchParams.get('robot_uin')
-    if (!uin) return
-    memberUid = await bot.ctx.ntUserApi.getUidByUin(+uin, +input.peerUid)
-  } else {
-    const iterator = input.elements[0].grayTipElement?.xmlElement?.members.keys()
-    iterator?.next()
-    memberUid = iterator?.next().value
-  }
-  if (!memberUid) return
-
-  const user = decodeUser(await bot.ctx.ntUserApi.getUserByUid(memberUid))
-
+export async function parseGuildMemberAdded(
+  bot: SatoriAdapter,
+  data: NT.GroupMemberAddedEvent
+) {
   return bot.event('guild-member-added', {
-    guild: decodeGuild(group),
-    user,
+    guild: {
+      id: data.groupCode.toString()
+    },
+    user: {
+      id: data.memberUin.toString()
+    },
     member: {
-      user,
-      nick: ''
+      user: {
+        id: data.memberUin.toString()
+      }
     }
   })
 }
 
-export async function parseGuildMemberRemoved(bot: SatoriAdapter, input: GroupNotify) {
-  const user = decodeUser(await bot.ctx.ntUserApi.getUserByUid(input.user1.uid))
-
+export async function parseGuildMemberRemoved(
+  bot: SatoriAdapter,
+  data: NT.GroupMemberRemovedEvent
+) {
   return bot.event('guild-member-removed', {
-    guild: decodeGuild(input.group),
-    user,
+    guild: {
+      id: data.groupCode.toString()
+    },
+    user: {
+      id: data.memberUin.toString()
+    },
     member: {
-      user,
-      nick: ''
+      user: {
+        id: data.memberUin.toString()
+      }
     }
   })
 }
 
-export async function parseGuildMemberRequest(bot: SatoriAdapter, input: GroupNotify, doubt: boolean) {
-  const groupCode = input.group.groupCode
-  const flag = `${groupCode}|${input.seq}|${input.type}|${doubt === true ? '1' : '0'}`
-
+export async function parseGuildMemberRequest(
+  bot: SatoriAdapter,
+  data: NT.GroupJoinRequestEvent | NT.GroupInvitedJoinRequestEvent,
+  type: number
+) {
   return bot.event('guild-member-request', {
-    guild: decodeGuild(input.group),
+    guild: {
+      id: data.groupCode.toString()
+    },
+    member: {
+      user: {
+        id: data.initiatorUin.toString()
+      }
+    },
+    user: {
+      id: data.initiatorUin.toString()
+    },
     message: {
-      id: flag,
-      content: input.postscript
+      id: encodeGroupRequestFlag(
+        data.groupCode,
+        data.notificationSeq,
+        type,
+        'isDoubt' in data ? data.isDoubt : false
+      ),
+      content: 'comment' in data ? data.comment : ''
     }
   })
 }

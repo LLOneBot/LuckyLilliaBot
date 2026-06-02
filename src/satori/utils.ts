@@ -12,24 +12,24 @@ interface User {
 
 const robotUinRanges = [
   {
-    minUin: '3328144510',
-    maxUin: '3328144510'
+    minUin: 3328144510,
+    maxUin: 3328144510
   },
   {
-    minUin: '2854196301',
-    maxUin: '2854216399'
+    minUin: 2854196301,
+    maxUin: 2854216399
   },
   {
-    minUin: '66600000',
-    maxUin: '66600000'
+    minUin: 66600000,
+    maxUin: 66600000
   },
   {
-    minUin: '3889000000',
-    maxUin: '3889999999'
+    minUin: 3889000000,
+    maxUin: 3889999999
   },
   {
-    minUin: '4010000000',
-    maxUin: '4019999999'
+    minUin: 4010000000,
+    maxUin: 4019999999
   }
 ]
 
@@ -42,9 +42,13 @@ export function decodeUser(user: User): ObjectToSnake<Universal.User> {
   }
 }
 
-function decodeGuildChannelId(data: NT.RawMessage) {
+export function decodeGuildChannelId(data: {
+  chatType: NT.ChatType,
+  peerUid: string,
+  peerUin: number
+}): [string | undefined, string] {
   if (data.chatType === NT.ChatType.Group) {
-    return [data.peerUin, data.peerUin]
+    return [data.peerUid, data.peerUid]
   } else {
     return [undefined, 'private:' + data.peerUin]
   }
@@ -66,9 +70,6 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       buffer.push(h.text(v.textElement.content))
     } else if (v.replyElement && !quoted) {
       // quote
-      if (data.multiTransInfo) {
-        continue
-      }
       const peer = {
         chatType: data.chatType,
         peerUid: data.peerUid,
@@ -76,7 +77,7 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       }
       try {
         const { replyMsgSeq } = v.replyElement
-        const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq.toString())
+        const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq)
         const replyMsg = msgList[0]
         if (!replyMsg) {
           ctx.logger.warn('引用消息获取失败', v.replyElement)
@@ -137,14 +138,12 @@ export async function decodeMessage(
   data: NT.RawMessage,
   message: ObjectToSnake<Universal.Message> = {}
 ) {
-  if (!data.senderUin || data.senderUin === '0') return //跳过空消息
-
   const [guildId, channelId] = decodeGuildChannelId(data)
   const elements = await decodeElement(ctx, data)
 
   if (elements.length === 0) return
 
-  message.id = data.msgId
+  message.id = encodeMessageId(data.chatType, data.peerUid, data.msgSeq)
   message.content = elements.join('')
   message.channel = {
     id: channelId!,
@@ -152,7 +151,7 @@ export async function decodeMessage(
     type: guildId ? Universal.Channel.Type.TEXT : Universal.Channel.Type.DIRECT
   }
   message.user = {
-    id: data.senderUin,
+    id: data.senderUin.toString(),
     name: data.sendNickName,
     avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${data.senderUin}&spec=640`,
     is_bot: robotUinRanges.some(e => data.senderUin >= e.minUin && data.senderUin <= e.maxUin)
@@ -217,20 +216,48 @@ export async function getPeer(ctx: Context, channelId: string): Promise<NT.Peer>
     if (!isBuddy) {
       return {
         chatType: NT.ChatType.TempC2CFromGroup,
-        peerUid: uid,
-        guildId: ''
+        peerUid: uid
       }
     }
     return {
       chatType: NT.ChatType.C2C,
-      peerUid: uid,
-      guildId: ''
+      peerUid: uid
     }
   } else {
     return {
       chatType: NT.ChatType.Group,
-      peerUid: channelId,
-      guildId: ''
+      peerUid: channelId
     }
+  }
+}
+
+export function encodeMessageId(chatType: NT.ChatType, peerUid: string, msgSeq: number) {
+  return `${chatType}|${peerUid}|${msgSeq}`
+}
+
+export function decodeMessageId(messageId: string) {
+  const [chatType, peerUid, msgSeq] = messageId.split('|')
+  return {
+    chatType: +chatType as NT.ChatType,
+    peerUid,
+    msgSeq: +msgSeq
+  }
+}
+
+export function encodeGroupRequestFlag(groupCode: number, seq: bigint, type: number, doubt: boolean) {
+  return `${groupCode}|${seq}|${type}|${doubt ? 1 : 0}`
+}
+
+export function decodeGroupRequestFlag(flag: string) {
+  const flagitem = flag.split('|')
+  const groupCode = +flagitem[0]
+  const seq = BigInt(flagitem[1])
+  const type = +flagitem[2]
+  const doubt = flagitem[3] === '1'
+  return {
+    groupCode,
+    seq,
+    type,
+    doubt
   }
 }

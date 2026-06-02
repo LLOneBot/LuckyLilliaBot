@@ -2,13 +2,12 @@ import { unlink } from 'node:fs/promises'
 import { Service, Context } from 'cordis'
 import { Config as LLOBConfig } from '../common/types'
 import {
-  RawMessage,
   Peer,
   SendMessageElement,
   GroupJoinRequestEvent,
   GroupInvitedJoinRequestEvent,
   GroupInvitationEvent,
-  MessageDeleteEvent,
+  MessageDeletedEvent,
   GroupRemovedEvent,
   GroupAddedEvent,
   GroupMemberAddedEvent,
@@ -36,7 +35,6 @@ import {
   MessageSentEvent,
   StatusChangedEvent,
 } from './types'
-import { selfInfo } from '../common/globalVars'
 import { logSummaryMessage } from '@/ntqqapi/log'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
 import { registerDispatcher } from './dispatcher'
@@ -52,7 +50,7 @@ declare module 'cordis' {
     'qq/raw': (input: { cmd: string, payload: Buffer }) => void
 
     'nt/message-created': (input: MessageCreatedEvent) => void
-    'nt/message-deleted': (input: MessageDeleteEvent) => void
+    'nt/message-deleted': (input: MessageDeletedEvent) => void
     'nt/message-sent': (input: MessageSentEvent) => void
     'nt/group-join-request': (input: GroupJoinRequestEvent) => void
     'nt/group-invited-join-request': (input: GroupInvitedJoinRequestEvent) => void

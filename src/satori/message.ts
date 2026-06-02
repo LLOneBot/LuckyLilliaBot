@@ -4,11 +4,9 @@ import * as NT from '@/ntqqapi/types'
 import { Context } from 'cordis'
 import { Message } from '@satorijs/protocol'
 import { SendElement } from '@/ntqqapi/entities'
-import { decodeMessage, getPeer } from './utils'
+import { decodeMessage, decodeMessageId, getPeer } from './utils'
 import { ObjectToSnake } from 'ts-case-convert'
 import { uri2local } from '@/common/utils'
-import { unlink } from 'node:fs/promises'
-import { noop } from 'cosmokit'
 import { selfInfo } from '@/common/globalVars'
 
 interface Author {
@@ -49,13 +47,16 @@ export class MessageEncoder {
     }
 
     this.peer ??= await getPeer(this.ctx, this.channelId)
-    const sent = await this.ctx.app.sendMessage(this.ctx, this.peer, this.elements, this.deleteAfterSentFiles)
-    if (sent) {
-      this.ctx.logger.info('消息发送', this.peer)
-      const result = await decodeMessage(this.ctx, sent)
-      if (result) {
-        this.results.push(result)
-      }
+    const sent = await this.ctx.app.sendMessage(
+      this.ctx,
+      this.peer,
+      this.elements,
+      this.deleteAfterSentFiles
+    )
+    this.ctx.logger.info('消息发送', this.peer)
+    const result = await decodeMessage(this.ctx, sent)
+    if (result) {
+      this.results.push(result)
     }
     this.deleteAfterSentFiles = []
     this.elements = []
@@ -74,19 +75,29 @@ export class MessageEncoder {
     return res.path
   }
 
-  private async getPeerAndElementsFromMsgId(msgId: string): Promise<{ peer: NT.Peer, elements: NT.MessageElement[] } | undefined> {
+  private async getPeerAndElementsFromMsgSeq(
+    peerUid: string,
+    msgSeq: number
+  ): Promise<{ peer: NT.Peer, elements: NT.MessageElement[] } | undefined> {
     this.peer ??= await getPeer(this.ctx, this.channelId)
-    // satori message.id 就是 NT 真 msgId（decodeMessage 里 message.id = data.msgId）；
-    // 直连模式没有 ntMsgApi.getMsgsByMsgId / queryMsgsById，只能走 store cache。
-    const cacheMsg = this.ctx.store.getMsgByMsgId(msgId)
+    const cacheMsg = this.ctx.store.getMsgBySeq(peerUid, msgSeq)
     if (cacheMsg) {
       return {
         peer: {
           peerUid: cacheMsg.peerUid,
           chatType: cacheMsg.chatType,
-          guildId: ''
         },
         elements: cacheMsg.elements
+      }
+    }
+    const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(this.peer, msgSeq)
+    if (msgList[0]) {
+      return {
+        peer: {
+          peerUid: msgList[0].peerUid,
+          chatType: msgList[0].chatType,
+        },
+        elements: msgList[0].elements
       }
     }
   }
@@ -104,7 +115,8 @@ export class MessageEncoder {
     for (const item of this.stack[0].children) {
       let ntElems = []
       if (typeof item === 'string') {
-        const info = await this.getPeerAndElementsFromMsgId(item)
+        const { peerUid, msgSeq } = decodeMessageId(item)
+        const info = await this.getPeerAndElementsFromMsgSeq(peerUid, msgSeq)
         if (!info) {
           this.ctx.logger.warn('转发消息失败，未找到消息', item)
           continue
@@ -262,10 +274,19 @@ export class MessageEncoder {
       }
     } else if (type === 'quote') {
       this.peer ??= await getPeer(this.ctx, this.channelId)
-      // 直连模式没有 ntMsgApi.getMsgsByMsgId（按 msgId 索引消息）这个 API；从 store cache 拿
-      const source = this.ctx.store.getMsgByMsgId(attrs.id)
+      const { peerUid, msgSeq } = decodeMessageId(attrs.id)
+      let source = this.ctx.store.getMsgBySeq(peerUid, msgSeq)
+      if (!source) {
+        const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(this.peer, msgSeq)
+        source = msgList[0]
+      }
       if (source) {
-        this.elements.push(SendElement.reply(+source.msgSeq, +source.senderUin, +source.msgTime))
+        this.elements.push(SendElement.reply(
+          source.msgSeq,
+          source.senderUin,
+          source.msgTime,
+          source.clientSeq
+        ))
       }
     } else if (type === 'face') {
       this.elements.push(SendElement.face(+attrs.id, +attrs.type))
