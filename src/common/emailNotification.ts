@@ -1,7 +1,6 @@
 import { Context, Inject, Service } from 'cordis'
 import { EmailService, BotInfo } from './emailService.js'
 import { EmailConfigManager } from './emailConfig.js'
-import { KickedOffLineInfo } from '@/ntqqapi/types/index.js'
 import { selfInfo } from '@/common/globalVars.js'
 import { DATA_DIR } from '@/common/globalVars.js'
 import { watch } from 'node:fs'
@@ -65,9 +64,9 @@ export class EmailNotificationService extends Service {
 
     let wasOffline = false
 
-    this.ctx.on('nt/kicked-offLine', (info: KickedOffLineInfo) => {
+    this.ctx.on('nt/kicked-offline', (data) => {
       wasOffline = true
-      this.onOffline(info.tipsDesc || info.tipsTitle)
+      this.onOffline(data.tipsDesc || data.tipsTitle)
     })
 
     this.checkLoginStatus = setInterval(() => {

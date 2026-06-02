@@ -3,10 +3,8 @@ import { Service, Context } from 'cordis'
 import { Config as LLOBConfig } from '../common/types'
 import {
   RawMessage,
-  ChatType,
   Peer,
   SendMessageElement,
-  KickedOffLineInfo,
   GroupJoinRequestEvent,
   GroupInvitedJoinRequestEvent,
   GroupInvitationEvent,
@@ -32,6 +30,11 @@ import {
   GroupEssenceMessageChangedEvent,
   ProfileLikeEvent,
   PttTransResultEvent,
+  KickedOfflineEvent,
+  MessageCreatedEvent,
+  ChatType,
+  MessageSentEvent,
+  StatusChangedEvent,
 } from './types'
 import { selfInfo } from '../common/globalVars'
 import { logSummaryMessage } from '@/ntqqapi/log'
@@ -45,22 +48,12 @@ declare module 'cordis' {
   }
 
   interface Events {
-    'nt/message-created': (input: RawMessage) => void
-    'nt/offline-message-created': (input: RawMessage) => void
-    'nt/message-sent': (input: RawMessage) => void
-    'nt/kicked-offLine': (input: KickedOffLineInfo) => void
-
     // Raw QQ protocol push: { cmd, payload } from PMHQ recv or direct push
     'qq/raw': (input: { cmd: string, payload: Buffer }) => void
 
-    // Raw events parsed from QQ protocol push
-    'nt/raw/self-status': (input: { status: number }) => void
-    'nt/raw/new-msg': (input: RawMessage[]) => void
-    'nt/raw/update-msg': (input: RawMessage[]) => void
-    'nt/raw/self-send-msg': (input: RawMessage) => void
-    'nt/raw/kicked-offline': (input: KickedOffLineInfo) => void
-
+    'nt/message-created': (input: MessageCreatedEvent) => void
     'nt/message-deleted': (input: MessageDeleteEvent) => void
+    'nt/message-sent': (input: MessageSentEvent) => void
     'nt/group-join-request': (input: GroupJoinRequestEvent) => void
     'nt/group-invited-join-request': (input: GroupInvitedJoinRequestEvent) => void
     'nt/group-invitation': (input: GroupInvitationEvent) => void
@@ -85,6 +78,8 @@ declare module 'cordis' {
     'nt/profile-like': (input: ProfileLikeEvent) => void
     'nt/pin-changed': (input: PinChangedEvent) => void
     'nt/ptt-trans-result': (input: PttTransResultEvent) => void
+    'nt/kicked-offline': (input: KickedOfflineEvent) => void
+    'nt/status-changed': (input: StatusChangedEvent) => void
   }
 }
 
@@ -133,37 +128,26 @@ class Core extends Service {
     deleteAfterSentFiles.forEach(path => {
       unlink(path).catch(noop)
     })
+    if (returnMsg.chatType !== ChatType.Group) {
+      // 由于私聊消息发送后没有回声，不会触发 nt/message-sent，所以补一个
+      // 而且，该事件不能早于 ntMsgApi.waitForSelfEcho 上报
+      this.ctx.parallel('nt/message-sent', {
+        message: returnMsg
+      })
+    }
     return returnMsg
   }
 
-  private async handleMessage(msgList: RawMessage[]) {
-    for (const message of msgList) {
-      const msgTime = +message.msgTime
-      if (msgTime < this.startupTime) {
-        this.ctx.parallel('nt/offline-message-created', message)
-        continue
-      }
-      if (message.senderUin && message.senderUin !== 0) {
-        this.ctx.store.addMsgCache(message)
-      }
-      this.lastMessageTime = msgTime
-      this.messageReceivedCount++
-      logSummaryMessage(this.ctx, message).then()
-      this.ctx.parallel('nt/message-created', message)
-    }
-  }
-
   private registerListener() {
-    this.ctx.on('nt/raw/self-status', (info) => {
-      Object.assign(selfInfo, { online: info.status !== 20 })
+    this.ctx.on('nt/message-created', (data) => {
+      this.ctx.store.addMsgCache(data.message)
+      this.lastMessageTime = data.message.msgTime
+      this.messageReceivedCount++
+      logSummaryMessage(this.ctx, data.message)
     })
 
-    this.ctx.on('nt/raw/new-msg', payload => {
-      this.handleMessage(payload)
-    })
-
-    this.ctx.on('nt/raw/kicked-offline', info => {
-      this.ctx.parallel('nt/kicked-offLine', info)
+    this.ctx.on('nt/message-sent', (data) => {
+      this.ctx.store.addMsgCache(data.message)
     })
   }
 }

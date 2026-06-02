@@ -37,9 +37,6 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
     const { sendElements, deleteAfterSentFiles } = await transformOutgoingSegments(this.ctx, messages, peer)
     const returnMsg = await this.ctx.app.sendMessage(this.ctx, peer, sendElements, deleteAfterSentFiles)
     const msgShortId = this.ctx.store.createMsgShortId(returnMsg)
-    // 把自己刚发出的消息放进 cache，使后续 reply 查询（getMsgsByMsgId）能命中。
-    // 收到服务器回推时 dispatcher 会用 msgUid 作为 msgId 重新缓存一份；shortId 由 uniqueMsgId 决定故仍稳定。
-    this.ctx.store.addMsgCache(returnMsg)
     return { message_id: msgShortId }
   }
 }

@@ -64,7 +64,8 @@ export class NTQQMsgApi extends Service {
    */
   private waitForSelfEcho(peer: Peer, random: number, timeoutMs: number): Promise<RawMessage> {
     return new Promise((resolve, reject) => {
-      const dispose = this.ctx.on('nt/raw/self-send-msg', (msg) => {
+      const dispose = this.ctx.on('nt/message-sent', (data) => {
+        const msg = data.message
         if (msg.peerUid !== peer.peerUid) return
         if (+msg.msgRandom !== random) return
         clearTimeout(timer)

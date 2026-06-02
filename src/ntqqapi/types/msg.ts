@@ -107,6 +107,7 @@ export interface FileElement {
   filePath: string
   fileSize: number
   folderId: string
+  expireTime: number
   fileUuid: string
   fileBizId: number
 }

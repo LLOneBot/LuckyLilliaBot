@@ -49,10 +49,6 @@ const SendPrivateMessage = defineApi(
       elements,
       deleteAfterSentFiles
     )
-    // 跟 OneBot11 的 SendMsg.ts:42 一样，把自己刚发的消息塞 msgCache，
-    // 后续 recall_private_message 通过 (peerUid, msgSeq) 反查时能命中。
-    // C2C 没有 server self-echo，不存就永远进不了 cache。
-    ctx.store.addMsgCache(result)
 
     return Ok({
       message_seq: +result.msgSeq,

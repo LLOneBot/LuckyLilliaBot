@@ -1,4 +1,9 @@
-import { ChatType } from './msg'
+import { ChatType, RawMessage } from './msg'
+
+/** 消息接收事件 */
+export interface MessageCreatedEvent {
+  message: RawMessage
+}
 
 /** 消息撤回事件 */
 export interface MessageDeleteEvent {
@@ -13,6 +18,11 @@ export interface MessageDeleteEvent {
   operatorUin: number
   operatorUid: string
   displaySuffix: string
+}
+
+/** 消息发送事件 */
+export interface MessageSentEvent {
+  message: RawMessage
 }
 
 /** 入群请求事件 */
@@ -222,4 +232,16 @@ export interface PinChangedEvent {
 export interface PttTransResultEvent {
   msgId: string
   text: string
+}
+
+/** 自身被踢下线事件 */
+export interface KickedOfflineEvent {
+  tipsDesc: string
+  tipsTitle: string
+  kickedType: number
+}
+
+/** 自身在线状态变更事件 */
+export interface StatusChangedEvent {
+  status: number
 }

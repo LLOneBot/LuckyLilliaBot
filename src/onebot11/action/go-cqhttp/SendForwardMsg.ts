@@ -91,9 +91,6 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     } else {
       forwardId = JSON.parse(returnMsg.elements[0].arkElement!.bytesData).meta.detail.resid
     }
-    // 缓存进 store，让 get_forward_msg(message_id=shortId) 这条 gocq 兼容路径能 shortId
-    // → msgId → RawMessage 找消息（其它消息也都需要这条；普通 send_msg 走 SendMsg 已做）。
-    this.ctx.store.addMsgCache(returnMsg)
     return {
       message_id: msgShortId,
       forward_id: forwardId,

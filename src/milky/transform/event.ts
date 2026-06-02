@@ -1,5 +1,5 @@
 import { MilkyEventTypes } from '@/milky/common/event'
-import { RawMessage, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeleteEvent, GroupMemberAddedEvent, GroupMemberRemovedEvent, FriendRequestEvent, FriendNudgeEvent, GroupNudgeEvent, GroupNameChangedEvent, GroupMuteEvent, GroupWholeMuteEvent, GroupAdminChangedEvent, PinChangedEvent, ChatType, GroupMessageReactionEvent, GroupEssenceMessageChangedEvent } from '@/ntqqapi/types'
+import { RawMessage, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeleteEvent, GroupMemberAddedEvent, GroupMemberRemovedEvent, FriendRequestEvent, FriendNudgeEvent, GroupNudgeEvent, GroupNameChangedEvent, GroupMuteEvent, GroupWholeMuteEvent, GroupAdminChangedEvent, PinChangedEvent, ChatType, GroupMessageReactionEvent, GroupEssenceMessageChangedEvent, KickedOfflineEvent } from '@/ntqqapi/types'
 import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingTempMessage } from './message/incoming'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -389,6 +389,20 @@ export async function transformGroupEssenceMessageChangeEvent(
   }
 }
 
+export async function transformBotOfflineEvent(
+  ctx: Context,
+  data: KickedOfflineEvent
+): Promise<MilkyEventTypes['bot_offline'] | null> {
+  try {
+    return {
+      reason: data.tipsDesc
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform bot offline event:', error)
+    return null
+  }
+}
+
 export async function transformPrivateMessageEvent(
   ctx: Context,
   message: RawMessage
@@ -420,7 +434,7 @@ export async function transformPrivateMessageEvent(
 export async function transformGroupMessageEvent(
   ctx: Context,
   message: RawMessage
-): Promise<{ eventType: keyof MilkyEventTypes, data: Event['data'] } | { eventType: keyof MilkyEventTypes, data: Event['data'] }[] | null> {
+): Promise<{ eventType: keyof MilkyEventTypes, data: Event['data'] } | null> {
   try {
     for (const element of message.elements) {
       if (element.fileElement) {

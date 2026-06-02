@@ -34,6 +34,7 @@ import {
   transformPeerPinChangeEvent,
   transformGroupEssenceMessageChangeEvent,
   transformGroupMessageReactionEvent,
+  transformBotOfflineEvent,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
 import { noop } from 'cosmokit'
@@ -119,86 +120,39 @@ export class MilkyAdapter extends Service {
     if (this.listenedEvent) return
     this.listenedEvent = true
 
-    // Listen to NTQQ message created events
-    this.ctx.on('nt/message-created', async (message) => {
-      // 自己发送的消息（含其它终端 + 本端 OlPush 回声）：不要重复上报为 message_receive，
-      // 但群操作（mute / admin / nudge / file_upload …）的 grayTip 系统消息 senderUid
-      // 也是发起人的 uid，即 selfInfo.uid。这些必须照常走 transformXxxEvent —— 否则
-      // 自己触发的群事件，自己端永远收不到对应事件。
-      const isSelfSend = message.senderUid === selfInfo.uid
-      const skipMessageReceive = isSelfSend && !this.config.reportSelfMessage
-      if (message.chatType === ChatType.C2C) {
+    this.ctx.on('nt/message-created', async (data) => {
+      // 自己发送的消息不会进这里，而是走 nt/message-sent
+      if (data.message.chatType === ChatType.C2C) {
         // Private message
-        if (!skipMessageReceive) {
-          const eventData = await transformPrivateMessageCreated(this.ctx, message)
-          if (eventData) {
-            this.emitEvent('message_receive', eventData)
-          }
+        const eventData = await transformPrivateMessageCreated(this.ctx, data.message)
+        if (eventData) {
+          this.emitEvent('message_receive', eventData)
         }
-        const result = await transformPrivateMessageEvent(this.ctx, message)
+        const result = await transformPrivateMessageEvent(this.ctx, data.message)
         if (result) {
           this.emitEvent(result.eventType, result.data)
         }
-      } else if (message.chatType === ChatType.Group) {
+      } else if (data.message.chatType === ChatType.Group) {
         // Group message
-        if (!skipMessageReceive) {
-          const eventData = await transformGroupMessageCreated(this.ctx, message)
-          if (eventData) {
-            this.emitEvent('message_receive', eventData)
-          }
+        const eventData = await transformGroupMessageCreated(this.ctx, data.message)
+        if (eventData) {
+          this.emitEvent('message_receive', eventData)
         }
-        const result = await transformGroupMessageEvent(this.ctx, message)
+        const result = await transformGroupMessageEvent(this.ctx, data.message)
         if (result) {
-          if (Array.isArray(result)) {
-            for (const item of result) {
-              this.emitEvent(item.eventType, item.data)
-            }
-          } else {
-            this.emitEvent(result.eventType, result.data)
-          }
+          this.emitEvent(result.eventType, result.data)
         }
-      } else if (message.chatType === ChatType.TempC2CFromGroup) {
+      } else if (data.message.chatType === ChatType.TempC2CFromGroup) {
         // Temp message
-        if (!skipMessageReceive) {
-          const eventData = await transformTempMessageCreated(this.ctx, message)
-          if (eventData) {
-            this.emitEvent('message_receive', eventData)
-          }
+        const eventData = await transformTempMessageCreated(this.ctx, data.message)
+        if (eventData) {
+          this.emitEvent('message_receive', eventData)
         }
-        const result = await transformPrivateMessageEvent(this.ctx, message)
+        const result = await transformPrivateMessageEvent(this.ctx, data.message)
         if (result) {
           this.emitEvent(result.eventType, result.data)
         }
       }
-    })
-
-    // Listen to NTQQ message sent events (self messages)
-    this.ctx.on('nt/message-sent', async (message) => {
-      if (!this.config.reportSelfMessage) {
-        return
-      }
-      if (message.chatType === ChatType.C2C) {
-        const eventData = await transformPrivateMessageCreated(this.ctx, message)
-        if (eventData) {
-          this.emitEvent('message_receive', eventData)
-        }
-      } else if (message.chatType === ChatType.Group) {
-        const eventData = await transformGroupMessageCreated(this.ctx, message)
-        if (eventData) {
-          this.emitEvent('message_receive', eventData)
-        }
-      } else if (message.chatType === ChatType.TempC2CFromGroup) {
-        const eventData = await transformTempMessageCreated(this.ctx, message)
-        if (eventData) {
-          this.emitEvent('message_receive', eventData)
-        }
-      }
-    })
-
-    this.ctx.on('nt/kicked-offLine', async (info) => {
-      this.emitEvent('bot_offline', {
-        reason: info.tipsDesc
-      })
     })
 
     this.ctx.on('nt/message-deleted', async (data) => {
@@ -216,6 +170,28 @@ export class MilkyAdapter extends Service {
         const eventData = await transformTempMessageRecall(this.ctx, data)
         if (eventData) {
           this.emitEvent('message_recall', eventData)
+        }
+      }
+    })
+
+    this.ctx.on('nt/message-sent', async (data) => {
+      if (!this.config.reportSelfMessage) {
+        return
+      }
+      if (data.message.chatType === ChatType.C2C) {
+        const eventData = await transformPrivateMessageCreated(this.ctx, data.message)
+        if (eventData) {
+          this.emitEvent('message_receive', eventData)
+        }
+      } else if (data.message.chatType === ChatType.Group) {
+        const eventData = await transformGroupMessageCreated(this.ctx, data.message)
+        if (eventData) {
+          this.emitEvent('message_receive', eventData)
+        }
+      } else if (data.message.chatType === ChatType.TempC2CFromGroup) {
+        const eventData = await transformTempMessageCreated(this.ctx, data.message)
+        if (eventData) {
+          this.emitEvent('message_receive', eventData)
         }
       }
     })
@@ -322,6 +298,13 @@ export class MilkyAdapter extends Service {
       const eventData = await transformPeerPinChangeEvent(this.ctx, data)
       if (eventData) {
         this.emitEvent('peer_pin_change', eventData)
+      }
+    })
+
+    this.ctx.on('nt/kicked-offline', async (data) => {
+      const eventData = await transformBotOfflineEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('bot_offline', eventData)
       }
     })
   }

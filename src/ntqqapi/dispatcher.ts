@@ -213,29 +213,14 @@ function handleGroupJoined(ctx: Context, msg: InferProtoModel<typeof Msg.Message
   })
 }
 
-/** 解析 KickNT 被踢下线推送，emit 'nt/kicked-offLine' */
+/** 解析 KickNT 被踢下线推送 */
 function handleKickNT(ctx: Context, payload: Buffer) {
-  let info = {
-    appId: 0,
-    instanceId: 0,
-    sameDevice: false,
-    tipsDesc: 'Kicked by server',
-    tipsTitle: '下线通知',
-    kickedType: 0,
-    securityKickedType: 0,
-  }
-  try {
-    const decoded = Msg.KickNTPush.decode(payload)
-    info = {
-      ...info,
-      tipsDesc: decoded.tipsDesc || info.tipsDesc,
-      tipsTitle: decoded.tipsTitle || info.tipsTitle,
-      kickedType: Number(decoded.code ?? 0),
-    }
-  } catch (e) {
-    ctx.logger.warn('KickNT parse error:', (e as Error).message)
-  }
-  ctx.parallel('nt/raw/kicked-offline', info)
+  const decoded = Msg.KickNTPush.decode(payload)
+  ctx.parallel('nt/kicked-offline', {
+    tipsDesc: decoded.tipsDesc,
+    tipsTitle: decoded.tipsTitle,
+    kickedType: decoded.code
+  })
 }
 
 function handle0x210(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, subType: number) {
@@ -337,7 +322,7 @@ function handleFriendGrayTip(ctx: Context, msg: InferProtoModel<typeof Msg.Messa
   }
 }
 
-async function handlePttTransResult(ctx: Context, content: Buffer) {
+function handlePttTransResult(ctx: Context, content: Buffer) {
   try {
     const decoded = Msg.PttTransResultPush.decode(content)
     const body = decoded.body
@@ -851,11 +836,10 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
   if (!rawMessage) return
   const isSelfMsg = rawMessage.senderUin === +selfInfo.uin
   if (isSelfMsg) {
-    ctx.parallel('nt/raw/self-send-msg', rawMessage)
-    ctx.parallel('nt/raw/update-msg', [rawMessage])
+    ctx.parallel('nt/message-sent', { message: rawMessage })
     return
   }
-  ctx.parallel('nt/raw/new-msg', [rawMessage])
+  ctx.parallel('nt/message-created', { message: rawMessage })
 }
 
 /** 把 Msg.Message protobuf 转换为上层用的 RawMessage（OlPush 推送和 SsoGetGroupMsg 拉历史共用） */
@@ -920,21 +904,17 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>): R
       if (nof) {
         elements.push({
           elementType: ElementType.File,
-          elementId: '',
-          extBufForUI: '',
           fileElement: {
-            fileName: nof.fileName || '',
-            fileSize: String(nof.fileSize ?? 0),
+            fileName: nof.fileName,
+            fileSize: nof.fileSize,
             fileMd5: nof.fileMd5 ? Buffer.from(nof.fileMd5).toString('hex') : '',
-            expireTime: String(nof.expireTime ?? 0),
-            fileId: nof.fileUuid || '',
-            fileUuid: nof.fileUuid || '',
-            fileSubId: '',
-            thumbFileSize: 0,
-            picThumbPath: new Map(),
+            expireTime: nof.expireTime,
+            fileUuid: nof.fileUuid,
             fileBizId: 0,
+            filePath: '',
+            folderId: ''
           },
-        } as any)
+        })
       }
     } catch (e) {
       console.warn('PrivateFile FileExtra decode failed:', (e as Error).message)

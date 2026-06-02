@@ -216,6 +216,7 @@ export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): Messag
             fileBizId: inner.info.busId,
             folderId: '',
             filePath: '',
+            expireTime: 0,
           },
         })
         continue

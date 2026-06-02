@@ -205,26 +205,10 @@ class Onebot11Adapter extends Service {
     this.ctx.on('llob/config-updated', input => {
       this.handleConfigUpdated(input).catch(noop)
     })
-    this.ctx.on('nt/message-created', (input: RawMessage) => {
-      // 其他终端自己发送的消息会进入这里
-      if (input.senderUid === selfInfo.uid) {
-        this.handleMsg(input, true, false)
-      }
-      else {
-        this.handleMsg(input, false, false)
-      }
-    })
-    this.ctx.on('nt/offline-message-created', (input: RawMessage) => {
-      // 其他终端自己发送的消息会进入这里
-      if (input.senderUid === selfInfo.uid) {
-        this.handleMsg(input, true, true)
-      }
-      else {
-        this.handleMsg(input, false, true)
-      }
-    })
-    this.ctx.on('nt/message-sent', input => {
-      this.handleMsg(input, true, false)
+
+    this.ctx.on('nt/message-created', (data) => {
+      // 自己发送的消息不会进这里，而是走 nt/message-sent
+      this.handleMsg(data.message, false, false)
     })
 
     this.ctx.on('nt/message-deleted', async (data) => {
@@ -253,6 +237,10 @@ class Onebot11Adapter extends Service {
         event = new OB11FriendRecallNoticeEvent(resolved.senderUin, shortId)
       }
       this.dispatch(event)
+    })
+
+    this.ctx.on('nt/message-sent', (data) => {
+      this.handleMsg(data.message, true, false)
     })
 
     this.ctx.on('nt/group-join-request', (data) => {

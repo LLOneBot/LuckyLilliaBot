@@ -254,13 +254,13 @@ export namespace Msg {
 
   /** trpc.qq_new_tech.status_svc.StatusService.KickNT 推送：账号被踢下线 */
   export const KickNTPush = ProtoMessage.of({
-    uin: ProtoField(1, 'uint32', 'optional'),
-    tipsDesc: ProtoField(3, 'string', 'optional'),
-    tipsTitle: ProtoField(4, 'string', 'optional'),
+    uin: ProtoField(1, 'uint32'),
+    tipsDesc: ProtoField(3, 'string'),
+    tipsTitle: ProtoField(4, 'string'),
     /** 1001 = 异地登录顶号；2001 = 服务端主动踢出 */
-    code: ProtoField(5, 'uint32', 'optional'),
+    code: ProtoField(5, 'uint32'),
     /** 时间戳或某种 token */
-    field6: ProtoField(6, 'uint32', 'optional'),
+    field6: ProtoField(6, 'uint32'),
   })
 
   export const QSmallFaceExtra = ProtoMessage.of({
