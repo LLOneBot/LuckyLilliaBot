@@ -274,6 +274,12 @@ class Onebot11Adapter extends Service {
             guildId: ''
           }
           const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(peer, data.msgSeq)
+          if (!msgList || msgList.length === 0) {
+            // 撤回事件来时消息已经从 server 端被清理 (TTL 到了 / store 没拿到), 没法恢复 msgRandom
+            // 跳过这条 — 上层 dispatch 拿不到正确 msgId, 但起码 bot 不崩
+            this.ctx.logger.warn(`[recall] 群消息 ${data.peerUid}/${data.msgSeq} 在 store 和 server 都找不到, 跳过`)
+            return
+          }
           resolved = { ...data, msgRandom: msgList[0].msgRandom, msgId: msgList[0].msgId }
         }
       }

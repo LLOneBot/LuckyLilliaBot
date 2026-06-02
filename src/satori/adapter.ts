@@ -189,7 +189,7 @@ class SatoriAdapter extends Service {
       }
     })
 
-    this.ctx.on('nt/raw/group-reaction', async data => {
+    this.ctx.on('nt/group-message-reaction', async data => {
       const event = data.isAdd
         ? await parseReactionAdded(this, data).catch(e => this.ctx.logger.error(e))
         : await parseReactionRemoved(this, data).catch(e => this.ctx.logger.error(e))
