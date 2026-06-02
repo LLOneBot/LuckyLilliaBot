@@ -53,10 +53,6 @@ declare module 'cordis' {
     'nt/offline-message-created': (input: RawMessage) => void
     'nt/message-sent': (input: RawMessage) => void
     'nt/system-message-created': (input: Buffer) => void
-    'nt/flash-file-uploading': (input: { fileSet: FlashFileSetInfo } & FlashFileUploadingInfo) => void
-    'nt/flash-file-upload-status': (input: FlashFileSetInfo) => void
-    'nt/flash-file-download-status': (input: { status: FlashFileDownloadStatus, info: FlashFileSetInfo }) => void
-    'nt/flash-file-downloading': (input: [fileSetId: string, info: FlashFileDownloadingInfo]) => void
     'nt/kicked-offLine': (input: KickedOffLineInfo) => void
 
     // Raw QQ protocol push: { cmd, payload } from PMHQ recv or direct push
@@ -69,10 +65,6 @@ declare module 'cordis' {
     'nt/raw/self-send-msg': (input: RawMessage) => void
     'nt/raw/sys-msg': (input: Buffer) => void
     'nt/raw/kicked-offline': (input: KickedOffLineInfo) => void
-    'nt/raw/flash-file-download-status': (input: [status: number, errCodeOrFileSetId: number | string, fileSetIdOrInfo: string | unknown]) => void
-    'nt/raw/flash-file-upload-status': (input: FlashFileSetInfo) => void
-    'nt/raw/flash-file-downloading': (input: [fileSetId: string, info: FlashFileDownloadingInfo]) => void
-    'nt/raw/flash-file-uploading': (input: { fileSet: FlashFileSetInfo } & FlashFileUploadingInfo) => void
     // Group events
     /** 群/私聊语音转写文字结果异步推送（pttTrans.TransGroupPttReq/TransC2CPttReq 提交后由这条 event 喂结果） */
     'nt/raw/ptt-trans-result': (input: { msgUid: string, chatType: ChatType, peerUin: string, senderUin: string, text: string }) => void
@@ -179,40 +171,6 @@ class Core extends Service {
 
     this.ctx.on('nt/raw/sys-msg', payload => {
       this.ctx.parallel('nt/system-message-created', payload)
-    })
-
-    this.ctx.on('nt/raw/flash-file-download-status', payload => {
-      // 旧版本 QQ 会把 fileSetId 放在第 2 个参数
-      // 新版本 QQ 会把 fileSetId 放在第 3 个参数
-      const [status, errCodeOrFileSetId, fileSetIdOrFileInfo] = payload
-      let fileSetId: string;
-      if (typeof fileSetIdOrFileInfo !== 'string') {
-        fileSetId = errCodeOrFileSetId as string
-      }
-      else {
-        fileSetId = fileSetIdOrFileInfo as string
-      }
-      this.ctx.ntFileApi.getFlashFileInfo(fileSetId).then(info => {
-        this.ctx.parallel('nt/flash-file-download-status', {
-          status,
-          info
-        })
-      }).catch(err => {
-        this.ctx.logger.error(err, { fileSetId })
-      })
-    })
-
-    this.ctx.on('nt/raw/flash-file-upload-status', payload => {
-      this.ctx.parallel('nt/flash-file-upload-status', payload)
-    })
-
-    this.ctx.on('nt/raw/flash-file-downloading', payload => {
-      const [fileSetId, info] = payload
-      this.ctx.parallel('nt/flash-file-downloading', [fileSetId, info])
-    })
-
-    this.ctx.on('nt/raw/flash-file-uploading', payload => {
-      this.ctx.parallel('nt/flash-file-uploading', payload)
     })
 
     this.ctx.on('nt/raw/kicked-offline', info => {
