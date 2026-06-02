@@ -31,7 +31,7 @@ const enum MsgType {
 
 const enum Event0x210Sub {
   FriendRequest = 35,
-  FriendDeleteOrPinChanged = 39,
+  FriendRelatedOrPinChanged = 39,
   PttTransResult = 61,
   FriendRecall = 138,
   FriendSelfRecall = 139,
@@ -213,11 +213,6 @@ function handleGroupJoined(ctx: Context, msg: InferProtoModel<typeof Msg.Message
   })
 }
 
-function forwardSystemMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message>) {
-  const messageBytes = Msg.Message.encode(msg)
-  ctx.parallel('nt/system-message-created', Buffer.from(messageBytes))
-}
-
 /** 解析 KickNT 被踢下线推送，emit 'nt/kicked-offLine' */
 function handleKickNT(ctx: Context, payload: Buffer) {
   let info = {
@@ -257,8 +252,8 @@ function handle0x210(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, sub
       handleFriendRecall(ctx, content)
       break
 
-    case Event0x210Sub.FriendDeleteOrPinChanged:
-      handleFriendDeleteOrPin(ctx, msg, content)
+    case Event0x210Sub.FriendRelatedOrPinChanged:
+      handleFriendRelatedOrPin(ctx, msg, content)
       break
 
     case Event0x210Sub.FriendGrayTip:
@@ -276,10 +271,6 @@ function handle0x210(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, sub
     case Event0x210Sub.FriendAdded:
       handleFriendAdded(ctx, msg, content)
       break
-
-    default:
-      forwardSystemMessage(ctx, msg)
-      break
   }
 }
 
@@ -296,9 +287,9 @@ function handleGroupRemoved(ctx: Context, content: Buffer) {
   ctx.parallel('nt/group-removed', decoded)
 }
 
-async function handleFriendDeleteOrPin(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
+async function handleFriendRelatedOrPin(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, content: Buffer) {
   try {
-    const decoded = Notify.FriendDeleteOrPinChange.decode(content)
+    const decoded = Notify.FriendRelatedOrPinChange.decode(content)
     if (decoded.body.friendDeleted) {
       const { uid } = decoded.body.friendDeleted
       ctx.parallel('nt/friend-removed', {
@@ -313,9 +304,17 @@ async function handleFriendDeleteOrPin(ctx: Context, msg: InferProtoModel<typeof
         peerUid: body.groupCode ? body.groupCode.toString() : body.uid,
         isPinned: body.info.timestamp.length !== 0
       })
+    } else if (decoded.body.profileLike) {
+      const { msg } = decoded.body.profileLike
+      ctx.parallel('nt/profile-like', {
+        uin: msg.detail.uin,
+        uid: await ctx.ntUserApi.getUidByUin(msg.detail.uin),
+        nick: msg.detail.nickname,
+        times: Number(msg.detail.txt?.match(/\d+/)?.[0] ?? 0)
+      })
     }
   } catch (e) {
-    ctx.logger.warn('FriendDeleteOrPin parse error:', (e as Error).message)
+    ctx.logger.warn('FriendRelatedOrPin parse error:', (e as Error).message)
   }
 }
 
@@ -338,20 +337,14 @@ function handleFriendGrayTip(ctx: Context, msg: InferProtoModel<typeof Msg.Messa
   }
 }
 
-function handlePttTransResult(ctx: Context, content: Buffer) {
+async function handlePttTransResult(ctx: Context, content: Buffer) {
   try {
     const decoded = Msg.PttTransResultPush.decode(content)
     const body = decoded.body
     if (!body) return
-    // pttTrans 服务自己用的 chatType（1=group, 2=c2c）跟项目里的 ChatType 枚举（C2C=1, Group=2）刚好反过来，转一下
-    const rawType = Number(body.chatType ?? 0)
-    const chatType = rawType === 1 ? ChatType.Group : rawType === 2 ? ChatType.C2C : ChatType.C2C
-    ctx.parallel('nt/raw/ptt-trans-result', {
-      msgUid: String(body.msgUid ?? 0),
-      chatType,
-      peerUin: String(body.groupOrReceiverUin ?? 0),
-      senderUin: String(body.senderUin ?? 0),
-      text: body.text || '',
+    ctx.parallel('nt/ptt-trans-result', {
+      msgId: body.msgUid.toString(),
+      text: body.text,
     })
   } catch (e) {
     ctx.logger.warn('PttTransResult parse error:', (e as Error).message)
@@ -429,10 +422,6 @@ function handle0x2DC(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, sub
 
     case Event0x2DCSub.GroupEssenceChange:
       handleGroupEssenceChange(ctx, content)
-      break
-
-    default:
-      forwardSystemMessage(ctx, msg)
       break
   }
 }

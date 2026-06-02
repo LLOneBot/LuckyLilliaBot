@@ -30,14 +30,10 @@ import {
   PinChangedEvent,
   GroupMessageReactionEvent,
   GroupEssenceMessageChangedEvent,
+  ProfileLikeEvent,
+  PttTransResultEvent,
 } from './types'
 import { selfInfo } from '../common/globalVars'
-import {
-  FlashFileDownloadingInfo,
-  FlashFileDownloadStatus,
-  FlashFileSetInfo,
-  FlashFileUploadingInfo,
-} from '@/ntqqapi/types/flashfile'
 import { logSummaryMessage } from '@/ntqqapi/log'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
 import { registerDispatcher } from './dispatcher'
@@ -52,7 +48,6 @@ declare module 'cordis' {
     'nt/message-created': (input: RawMessage) => void
     'nt/offline-message-created': (input: RawMessage) => void
     'nt/message-sent': (input: RawMessage) => void
-    'nt/system-message-created': (input: Buffer) => void
     'nt/kicked-offLine': (input: KickedOffLineInfo) => void
 
     // Raw QQ protocol push: { cmd, payload } from PMHQ recv or direct push
@@ -63,11 +58,7 @@ declare module 'cordis' {
     'nt/raw/new-msg': (input: RawMessage[]) => void
     'nt/raw/update-msg': (input: RawMessage[]) => void
     'nt/raw/self-send-msg': (input: RawMessage) => void
-    'nt/raw/sys-msg': (input: Buffer) => void
     'nt/raw/kicked-offline': (input: KickedOffLineInfo) => void
-    // Group events
-    /** 群/私聊语音转写文字结果异步推送（pttTrans.TransGroupPttReq/TransC2CPttReq 提交后由这条 event 喂结果） */
-    'nt/raw/ptt-trans-result': (input: { msgUid: string, chatType: ChatType, peerUin: string, senderUin: string, text: string }) => void
 
     'nt/message-deleted': (input: MessageDeleteEvent) => void
     'nt/group-join-request': (input: GroupJoinRequestEvent) => void
@@ -91,7 +82,9 @@ declare module 'cordis' {
     'nt/friend-added': (input: FriendAddedEvent) => void
     'nt/friend-removed': (input: FriendRemovedEvent) => void
     'nt/friend-nudge': (input: FriendNudgeEvent) => void
+    'nt/profile-like': (input: ProfileLikeEvent) => void
     'nt/pin-changed': (input: PinChangedEvent) => void
+    'nt/ptt-trans-result': (input: PttTransResultEvent) => void
   }
 }
 
@@ -167,10 +160,6 @@ class Core extends Service {
 
     this.ctx.on('nt/raw/new-msg', payload => {
       this.handleMessage(payload)
-    })
-
-    this.ctx.on('nt/raw/sys-msg', payload => {
-      this.ctx.parallel('nt/system-message-created', payload)
     })
 
     this.ctx.on('nt/raw/kicked-offline', info => {

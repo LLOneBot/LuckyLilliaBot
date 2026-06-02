@@ -8,22 +8,6 @@ export namespace Notify {
     adminUid: ProtoField(5, 'string')
   })
 
-  export const ProfileLike = ProtoMessage.of({
-    msgType: ProtoField(1, 'uint32'),
-    subType: ProtoField(2, 'uint32'),
-    content: ProtoField(203, {
-      msg: ProtoField(14, {
-        count: ProtoField(1, 'uint32'),
-        time: ProtoField(2, 'uint32'),
-        detail: ProtoField(3, {
-          txt: ProtoField(1, 'string'),
-          uin: ProtoField(3, 'uint32'),
-          nickname: ProtoField(5, 'string')
-        })
-      })
-    })
-  })
-
   const GroupAdminExtra = ProtoMessage.of({
     adminUid: ProtoField(1, 'string'),
     isPromote: ProtoField(2, 'bool')
@@ -39,7 +23,7 @@ export namespace Notify {
     })
   })
 
-  export const FriendDeleteOrPinChange = ProtoMessage.of({
+  export const FriendRelatedOrPinChange = ProtoMessage.of({
     body: ProtoField(1, {
       type: ProtoField(2, 'uint32'),
       friendDeleted: ProtoField(14, {
@@ -50,7 +34,18 @@ export namespace Notify {
           uid: ProtoField(1, 'string'),
           groupCode: ProtoField(2, 'uint32', 'optional'),
           info: ProtoField(400, {
-            timestamp: ProtoField(2, 'bytes'),
+            timestamp: ProtoField(2, 'bytes')
+          })
+        })
+      }, 'optional'),
+      profileLike: ProtoField(203, {
+        msg: ProtoField(14, {
+          count: ProtoField(1, 'uint32'),
+          time: ProtoField(2, 'uint32'),
+          detail: ProtoField(3, {
+            txt: ProtoField(1, 'string'),
+            uin: ProtoField(3, 'uint32'),
+            nickname: ProtoField(5, 'string')
           })
         })
       }, 'optional')

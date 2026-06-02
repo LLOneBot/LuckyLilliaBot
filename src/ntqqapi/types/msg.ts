@@ -269,12 +269,6 @@ export interface RawMessage {
   chatType: ChatType
   elements: MessageElement[]
   peerName: string
-  multiTransInfo?: {
-    status: number
-    msgId: number
-    friendFlag: number
-    fromFaceUrl: string
-  }
   tempFromGroupCode: number
   clientSeq: number
 }

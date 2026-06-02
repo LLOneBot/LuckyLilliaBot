@@ -2,7 +2,6 @@ import { Context, Service } from 'cordis'
 import { OB11Entities } from './entities'
 import {
   ChatType,
-  FriendRequest,
   GroupNotificationType,
   RawMessage,
 } from '../ntqqapi/types'
@@ -21,14 +20,6 @@ import { initActionMap } from './action'
 import { OB11GroupAdminNoticeEvent } from './event/notice/OB11GroupAdminNoticeEvent'
 import { OB11ProfileLikeEvent } from './event/notice/OB11ProfileLikeEvent'
 import { Msg, Notify } from '@/ntqqapi/proto'
-import { FlashFileDownloadStatus, FlashFileUploadStatus } from '@/ntqqapi/types/flashfile'
-import {
-  OB11FlashFile,
-  OB11FlashFileDownloadedEvent,
-  OB11FlashFileDownloadingEvent,
-  OB11FlashFileUploadedEvent,
-  OB11FlashFileUploadingEvent,
-} from '@/onebot11/event/notice/OB11FlashFileEvent'
 import {
   OB11FriendPokeEvent,
   OB11GroupPokeEvent,
@@ -235,28 +226,6 @@ class Onebot11Adapter extends Service {
     this.ctx.on('nt/message-sent', input => {
       this.handleMsg(input, true, false)
     })
-    this.ctx.on('nt/system-message-created', async input => {
-      const sysMsg = Msg.Message.decode(input)
-      if (!sysMsg.body) {
-        return
-      }
-      const { msgType, subType } = sysMsg.contentHead
-      if (msgType === 528 && subType === 39) {
-        const tip = Notify.ProfileLike.decode(sysMsg.body.msgContent)
-        if (tip.msgType !== 0 || tip.subType !== 203) return
-        const detail = tip.content?.msg?.detail
-        if (!detail) return
-        const [times] = detail.txt?.match(/\d+/) ?? ['0']
-        const event = new OB11ProfileLikeEvent(detail.uin, detail.nickname, +times)
-        this.dispatch(event)
-      }
-      else if (msgType === 528 && subType === 321) {
-        // 私聊撤回戳一戳，不再从这里解析，应从 nt/message-deleted 事件中解析
-      }
-      else if (msgType === 732 && subType === 21) {
-        // 撤回群戳一戳，不再从这里解析，应从 nt/message-deleted 事件中解析
-      }
-    })
 
     this.ctx.on('nt/message-deleted', async (data) => {
       // 群撤回 push 里 GroupRecall.random 字段在新 server / refactor 后偶尔 0，shortId hash 含
@@ -268,19 +237,7 @@ class Onebot11Adapter extends Service {
         if (cached) {
           resolved = { ...data, msgRandom: cached.msgRandom, msgId: cached.msgId }
         } else {
-          const peer = {
-            chatType: ChatType.Group,
-            peerUid: data.peerUid,
-            guildId: ''
-          }
-          const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(peer, data.msgSeq)
-          if (!msgList || msgList.length === 0) {
-            // 撤回事件来时消息已经从 server 端被清理 (TTL 到了 / store 没拿到), 没法恢复 msgRandom
-            // 跳过这条 — 上层 dispatch 拿不到正确 msgId, 但起码 bot 不崩
-            this.ctx.logger.warn(`[recall] 群消息 ${data.peerUid}/${data.msgSeq} 在 store 和 server 都找不到, 跳过`)
-            return
-          }
-          resolved = { ...data, msgRandom: msgList[0].msgRandom, msgId: msgList[0].msgId }
+          return
         }
       }
       const shortId = this.ctx.store.createMsgShortId(resolved)
@@ -515,6 +472,15 @@ class Onebot11Adapter extends Service {
         rawInfo.push({ src: data.displayActionImgUrl, type: 'img' })
       }
       this.dispatch(new OB11FriendPokeEvent(userId, targetId, rawInfo))
+    })
+
+    this.ctx.on('nt/profile-like', (data) => {
+      const event = new OB11ProfileLikeEvent(
+        data.uin,
+        data.nick,
+        data.times
+      )
+      this.dispatch(event)
     })
   }
 }

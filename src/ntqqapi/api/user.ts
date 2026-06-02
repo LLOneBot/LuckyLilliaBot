@@ -56,7 +56,7 @@ export class NTQQUserApi extends Service {
     // 通过群成员列表查（最直接）
     if (groupCode) {
       try {
-        const member = await this.ctx.ntGroupApi.getGroupMemberByUin(+groupCode, uin, true)
+        const member = await this.ctx.ntGroupApi.getGroupMemberByUin(+groupCode, uin, false)
         if (member) {
           this.ctx.store.addUix([{
             uid: member.uid,
@@ -70,7 +70,7 @@ export class NTQQUserApi extends Service {
     }
     // 私聊场景没 groupCode：先从好友列表里找
     try {
-      const friend = await this.ctx.ntFriendApi.getFriendByUin(uin, true)
+      const friend = await this.ctx.ntFriendApi.getFriendByUin(uin, false)
       if (friend) {
         this.ctx.store.addUix([{
           uid: friend.uid,
@@ -86,7 +86,7 @@ export class NTQQUserApi extends Service {
       const groups = await this.ctx.ntGroupApi.getGroups(false)
       for (const g of groups) {
         try {
-          const member = await this.ctx.ntGroupApi.getGroupMemberByUin(g.groupCode, uin, true)
+          const member = await this.ctx.ntGroupApi.getGroupMemberByUin(g.groupCode, uin, false)
           if (member) {
             this.ctx.store.addUix([{
               uid: member.uid,

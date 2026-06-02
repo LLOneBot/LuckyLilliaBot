@@ -272,10 +272,10 @@ export class NTQQMsgApi extends Service {
   async translatePtt2Text(msgId: string, peer: Peer, senderUin: number, voiceMsgElement: MessageElement) {
     const ptt = voiceMsgElement.pttElement!
 
-    // 监听异步推送结果（按 msgUid 匹配），同时立刻发提交请求
+    // 监听异步推送结果（按 msgId 匹配），同时立刻发提交请求
     const result = new Promise<string>((resolve, reject) => {
-      const dispose = this.ctx.on('nt/raw/ptt-trans-result', (input) => {
-        if (input.msgUid !== msgId) return
+      const dispose = this.ctx.on('nt/ptt-trans-result', (input) => {
+        if (input.msgId !== msgId) return
         clearTimeout(timer)
         dispose()
         resolve(input.text)

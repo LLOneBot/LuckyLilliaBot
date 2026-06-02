@@ -202,10 +202,24 @@ export interface FriendNudgeEvent {
   displayActionImgUrl: string
 }
 
+/** 主页赞事件 */
+export interface ProfileLikeEvent {
+  uin: number
+  uid: string
+  nick: string
+  times: number
+}
+
 /** 好友或群聊置顶状态变更事件 */
 export interface PinChangedEvent {
   chatType: ChatType
   peerUin: number
   peerUid: string
   isPinned: boolean
+}
+
+/** 语音转写结果事件 */
+export interface PttTransResultEvent {
+  msgId: string
+  text: string
 }
