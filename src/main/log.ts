@@ -43,6 +43,8 @@ export default class Log implements Exporter {
   currentSize: number
   colors: number | false
   showTime: string
+  levels: Record<string, number>
+  maxLength?: number // 默认 10240
   label?: {
     width?: number
     margin?: number
@@ -56,6 +58,9 @@ export default class Log implements Exporter {
     this.currentSize = 0
     this.colors = false
     this.showTime = 'yyyy-MM-dd hh:mm:ss '
+    this.levels = {
+      default: 2
+    }
 
     // 获取现有文件大小
     stat(this.currentFile, (err, stats) => {

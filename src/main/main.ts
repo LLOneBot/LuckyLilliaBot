@@ -54,10 +54,14 @@ async function onLoad() {
     mkdirSync(TEMP_DIR)
   }
 
-  const ctx = new Context().intercept('logger', { level: 2 })
+  const ctx = new Context()
 
   ctx.plugin(Log)
-  ctx.plugin(LoggerConsole)
+  ctx.plugin(LoggerConsole, {
+    levels: {
+      default: 2
+    }
+  })
   ctx.plugin(TimerService)
   ctx.plugin(ConfigService)
   ctx.plugin(QQProtocolClient)

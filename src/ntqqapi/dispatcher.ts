@@ -585,53 +585,6 @@ function unwrap0x2DCContent(content: Buffer): Buffer | null {
 }
 
 /**
- * Walk a protobuf buffer to find a length-delimited field by field number path.
- * Returns the bytes of the deepest matched field.
- */
-function walkProtoFields(buf: Buffer, path: number[]): Buffer | null {
-  let current = buf
-  for (const target of path) {
-    let offset = 0
-    let found: Buffer | null = null
-    while (offset < current.length) {
-      let tag = 0
-      let shift = 0
-      while (offset < current.length) {
-        const b = current[offset++]
-        tag |= (b & 0x7f) << shift
-        if ((b & 0x80) === 0) break
-        shift += 7
-      }
-      const fieldNum = tag >>> 3
-      const wireType = tag & 0x07
-      if (wireType === 2) {
-        let len = 0
-        let lenShift = 0
-        while (offset < current.length) {
-          const b = current[offset++]
-          len |= (b & 0x7f) << lenShift
-          if ((b & 0x80) === 0) break
-          lenShift += 7
-        }
-        if (fieldNum === target) {
-          found = current.subarray(offset, offset + len)
-          break
-        }
-        offset += len
-      } else if (wireType === 0) {
-        while (offset < current.length && (current[offset] & 0x80) !== 0) offset++
-        offset++
-      } else if (wireType === 5) offset += 4
-      else if (wireType === 1) offset += 8
-      else break
-    }
-    if (!found) return null
-    current = found
-  }
-  return current
-}
-
-/**
  * 0x2DC subtype 17 - Group recall
  * Content layout: [4 bytes BE: groupUin][1 byte: ?][2 bytes BE length][NotifyMessageBody bytes]
  * NotifyMessageBody.field11 = GroupRecall (with repeated RecallMessages at field 3)
