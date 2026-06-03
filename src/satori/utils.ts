@@ -77,14 +77,21 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       }
       try {
         const { replyMsgSeq } = v.replyElement
-        const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq)
-        const replyMsg = msgList[0]
+        let replyMsg = ctx.store.getMsgBySeq(peer.peerUid, replyMsgSeq)
+        if (!replyMsg) {
+          const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq)
+          replyMsg = msgList[0]
+        }
         if (!replyMsg) {
           ctx.logger.warn('引用消息获取失败', v.replyElement)
           continue
         }
         const elements = await decodeElement(ctx, replyMsg, true)
-        buffer.push(h('quote', { id: replyMsg.msgId }, elements))
+        buffer.push(h('quote', { id: encodeMessageId(
+          peer.chatType,
+          peer.peerUid,
+          replyMsg.msgSeq
+        ) }, elements))
       } catch (e) {
         ctx.logger.error('获取不到引用的消息', e, v.replyElement, (e as Error).stack)
       }
@@ -244,14 +251,14 @@ export function decodeMessageId(messageId: string) {
   }
 }
 
-export function encodeGroupRequestFlag(groupCode: number, seq: bigint, type: number, doubt: boolean) {
+export function encodeGroupRequestFlag(groupCode: number, seq: number, type: number, doubt: boolean) {
   return `${groupCode}|${seq}|${type}|${doubt ? 1 : 0}`
 }
 
 export function decodeGroupRequestFlag(flag: string) {
   const flagitem = flag.split('|')
   const groupCode = +flagitem[0]
-  const seq = BigInt(flagitem[1])
+  const seq = +flagitem[1]
   const type = +flagitem[2]
   const doubt = flagitem[3] === '1'
   return {

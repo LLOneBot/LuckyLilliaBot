@@ -8,6 +8,9 @@ interface Payload {
 export const deleteFriend: Handler<Dict<never>, Payload> = async (ctx, payload) => {
   const uid = await ctx.ntUserApi.getUidByUin(+payload.user_id)
   if (!uid) throw new Error('无法获取用户信息')
-  await ctx.ntFriendApi.deleteFriend(uid)
+  const result = await ctx.ntFriendApi.deleteFriend(uid)
+  if (result.errorCode !== 0) {
+    throw new Error(result.errorMsg)
+  }
   return {}
 }

@@ -10,15 +10,15 @@ export const getGuildRoleList: Handler<List<Partial<GuildRole>>, Payload> = () =
   return {
     data: [
       {
-        id: '4',
+        id: '1',
         name: 'owner'
       },
       {
-        id: '3',
+        id: '2',
         name: 'admin'
       },
       {
-        id: '2',
+        id: '0',
         name: 'member'
       }
     ]
