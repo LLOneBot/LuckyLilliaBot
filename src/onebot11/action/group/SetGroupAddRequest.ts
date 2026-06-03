@@ -45,7 +45,7 @@ export default class SetGroupAddRequest extends BaseAction<Payload, null> {
     const res = await this.ctx.ntGroupApi.setGroupRequest(
       decoded.doubt,
       decoded.groupCode,
-      Number(decoded.seq),
+      decoded.seq,
       decoded.type,
       payload.approve,
       payload.reason

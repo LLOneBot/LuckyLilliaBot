@@ -272,6 +272,7 @@ export interface RawMessage {
   peerName: string
   tempFromGroupCode: number
   clientSeq: number
+  forwardAvatar: string
 }
 
 export interface Peer {

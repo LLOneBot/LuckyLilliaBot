@@ -135,7 +135,7 @@ async function handleGroupRequest(ctx: Context, request: OB11GroupRequestEvent, 
     ctx.ntGroupApi.setGroupRequest(
       decoded.doubt,
       decoded.groupCode,
-      Number(decoded.seq),
+      decoded.seq,
       decoded.type,
       quickAction.approve,
       quickAction.reason,

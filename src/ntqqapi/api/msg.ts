@@ -10,7 +10,7 @@ import { filterNullable, uint32ToIPV4Addr } from '@/common/utils'
 import { HighwayHttpSession } from '../helper/highway'
 import { MessageBuilding } from '../helper/messageBuilding'
 import { parseElements } from '../helper/messageParsing'
-import { InferProtoModel } from '@saltify/typeproto'
+import { InferProtoModel, InferProtoModelInput } from '@saltify/typeproto'
 
 declare module 'cordis' {
   interface Context {
@@ -152,14 +152,15 @@ export class NTQQMsgApi extends Service {
       elements: parseElements(elems as InferProtoModel<typeof Msg.Elem>[]),
       peerName: '',
       tempFromGroupCode: chatType === ChatType.TempC2CFromGroup ? groupCode! : 0,
-      clientSeq: ret.clientSequence
+      clientSeq: ret.clientSequence,
+      forwardAvatar: ''
     }
     return result
   }
 
   async getForwardedMsgs(resId: string) {
-    const items = await this.ctx.qqProtocol.getMultiMsg(resId)
-    const top = items.find((x) => x.fileName === 'MultiMsg') ?? items[0]
+    const { pbItemList } = await this.ctx.qqProtocol.getMultiMsg(resId)
+    const top = pbItemList.find((x) => x.fileName === 'MultiMsg') ?? pbItemList[0]
     return { msgList: filterNullable(top.buffer.msg.map(e => convertToRawMessage(e))) }
   }
 
@@ -347,5 +348,18 @@ export class NTQQMsgApi extends Service {
       const { seq1, seq2 } = await this.ctx.qqProtocol.getFriendLatestSequence(peer.peerUid)
       return Math.max(seq1, seq2)
     }
+  }
+
+  async uploadForwardMsgs(
+    peerUid: string,
+    isGroup: boolean,
+    items: InferProtoModelInput<typeof Msg.PbMultiMsgItem>[]
+  ) {
+    const res = await this.ctx.qqProtocol.uploadForward(peerUid, isGroup, items)
+    return res.result.resId
+  }
+
+  async getRecommendFace(word: string) {
+    return await this.ctx.qqProtocol.pullPics(word)
   }
 }

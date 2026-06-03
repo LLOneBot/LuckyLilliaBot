@@ -281,10 +281,10 @@ const GetForwardedMessages = defineApi(
   GetForwardedMessagesInput,
   GetForwardedMessagesOutput,
   async (ctx, payload) => {
-    const result = await ctx.qqProtocol.getMultiMsg(payload.forward_id)
+    const result = await ctx.ntMsgApi.getForwardedMsgs(payload.forward_id)
     return Ok({
       messages: await Promise.all(
-        result[0].buffer.msg.map(async e => await transformIncomingForwardedMessage(ctx, e))
+        result.msgList.map(e => transformIncomingForwardedMessage(ctx, e))
       )
     })
   }
@@ -311,7 +311,10 @@ const MarkMessageAsRead = defineApi(
       }
       peer.peerUid = uid
     }
-    await ctx.ntMsgApi.setMsgRead(peer, payload.message_seq)
+    const result = await ctx.ntMsgApi.setMsgRead(peer, payload.message_seq)
+    if (result.retCode !== 0) {
+      return Failed(-500, result.retMsg)
+    }
     return Ok({})
   }
 )

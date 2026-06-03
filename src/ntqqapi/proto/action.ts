@@ -370,4 +370,9 @@ export namespace Action {
       startSequence: ProtoField(4, 'uint32')
     }, 'optional')
   })
+
+  export const SsoReadedReportResp = ProtoMessage.of({
+    retCode: ProtoField(1, 'uint32'),
+    retMsg: ProtoField(2, 'string')
+  })
 }

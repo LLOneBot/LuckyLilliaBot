@@ -312,7 +312,7 @@ export class MessageBuilding {
         }
       })
     }
-    const resid = await this.ctx.qqProtocol.uploadForward(this.peerUid, isGroup, items)
+    const resid = await this.ctx.ntMsgApi.uploadForwardMsgs(this.peerUid, isGroup, items)
     const id = crypto.randomUUID()
     this.nestedForwardTrace.set(id, messages)
     const prompt = multiForwardMsgElement.prompt ?? '[聊天记录]'

@@ -876,6 +876,7 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>): R
     //     server 原样转发到接收方。撤回（SsoC2CRecallMsg.info.clientSequence f1）和
     //     reply（srcMsg.origSeqs[0]）都用它定位被引用的 c2c 消息。
     // 群聊时此字段无意义，置 0。
-    clientSeq: contentHead.c2cMsgSeq ? contentHead.groupMsgSeqOrC2cClientSeq : 0
+    clientSeq: contentHead.c2cMsgSeq ? contentHead.groupMsgSeqOrC2cClientSeq : 0,
+    forwardAvatar: contentHead.forward?.avatar ?? ''
   }
 }

@@ -117,7 +117,7 @@ export function createNotificationRoutes(ctx: Context): Hono {
       await ctx.ntGroupApi.setGroupRequest(
         decoded.doubt,
         decoded.groupCode,
-        Number(decoded.seq),
+        decoded.seq,
         decoded.type,
         action === 'approve',
         reason

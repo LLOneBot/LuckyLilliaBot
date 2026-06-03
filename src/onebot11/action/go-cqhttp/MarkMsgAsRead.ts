@@ -16,7 +16,10 @@ export class MarkMsgAsRead extends BaseAction<Payload, null> {
     if (!info) {
       throw new Error('msg not found')
     }
-    await this.ctx.ntMsgApi.setMsgRead(info.peer, info.msgSeq)
+    const result = await this.ctx.ntMsgApi.setMsgRead(info.peer, info.msgSeq)
+    if (result.retCode !== 0) {
+      throw new Error(result.retMsg)
+    }
     return null
   }
 }

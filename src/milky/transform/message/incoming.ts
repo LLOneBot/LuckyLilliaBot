@@ -229,110 +229,12 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
   return segments
 }
 
-export async function transformIncomingForwardedMessage(ctx: Context, message: InferProtoModel<typeof Msg.Message>): Promise<IncomingForwardedMessage> {
-  const { body, contentHead, routingHead } = message
-  const transformSegments = async (elems: InferProtoModel<typeof Msg.Elem>[]) => {
-    const segments: IncomingSegment[] = []
-    for (const elem of elems) {
-      if (elem.text) {
-        segments.push({
-          type: 'text',
-          data: {
-            text: elem.text.str
-          }
-        })
-      } else if (elem.commonElem) {
-        const { businessType, serviceType } = elem.commonElem
-        if (serviceType === 33) {
-          const { faceId } = Msg.QSmallFaceExtra.decode(elem.commonElem.pbElem)
-          segments.push({
-            type: 'face',
-            data: {
-              face_id: faceId.toString(),
-              is_large: false
-            }
-          })
-        } else if (serviceType === 48 && (businessType === 10 || businessType === 20)) {
-          const { extBizInfo, msgInfoBody } = Media.MsgInfo.decode(elem.commonElem.pbElem)
-          const { index, pic } = msgInfoBody[0]
-          const rkeyData = await ctx.ntFileApi.rkeyManager.getRkey()
-          const rkey = businessType === 10 ? rkeyData.private_rkey : rkeyData.group_rkey
-          const url = `https://${pic!.domain}${pic!.urlPath}&spec=0${rkey}`
-          segments.push({
-            type: 'image',
-            data: {
-              resource_id: index.fileUuid,
-              temp_url: url,
-              width: index.info.width,
-              height: index.info.height,
-              summary: extBizInfo.pic.summary || '[图片]',
-              sub_type: extBizInfo.pic.bizType === 0 ? 'normal' : 'sticker'
-            }
-          })
-        } else if (serviceType === 48 && (businessType === 11 || businessType === 21)) {
-          const { msgInfoBody } = Media.MsgInfo.decode(elem.commonElem.pbElem)
-          const { index } = msgInfoBody[0]
-          const url = await ctx.ntFileApi.getVideoUrl(index.fileUuid, businessType === 21)
-          segments.push({
-            type: 'video',
-            data: {
-              resource_id: index.fileUuid,
-              temp_url: url,
-              width: index.info.width,
-              height: index.info.height,
-              duration: index.info.time
-            }
-          })
-        }
-      } else if (elem.srcMsg) {
-        // 合并转发 inline 节点里的 reply：server 不一定下发 srcMsg.srcMsg / srcMsg.elems
-        // （reply 锚点对历史快照没意义），需要每个字段都防御性读取，否则 .map / .decode
-        // 直接炸 "Cannot read properties of undefined (reading 'length')"。
-        const innerElems = (elem.srcMsg.elems ?? []).map(e => Msg.Elem.decode(e))
-        let replySenderName = ''
-        if (elem.srcMsg.srcMsg) {
-          try {
-            const decoded = Msg.Message.decode(elem.srcMsg.srcMsg)
-            replySenderName = decoded.contentHead.msgType === 82
-              ? (decoded.routingHead.group?.groupCard ?? '')
-              : (decoded.routingHead.c2c?.name ?? '')
-          } catch { /* 忽略 srcMsg 解码失败 */ }
-        }
-        segments.push({
-          type: 'reply',
-          data: {
-            message_seq: elem.srcMsg.origSeqs?.[0] ?? 0,
-            sender_id: elem.srcMsg.senderUin ?? 0,
-            sender_name: replySenderName,
-            time: elem.srcMsg.time ?? 0,
-            segments: await transformSegments(innerElems)
-          }
-        })
-      } else if (elem.richMsg && elem.richMsg.serviceId === 35) {
-        const xml = inflateSync(elem.richMsg.template.subarray(1)).toString()
-        const resId = xml.match(/m_resid="([^"]+)"/)?.[1]
-        if (resId) {
-          const parser = new XMLParser()
-          const content = parser.parse(xml)
-          segments.push({
-            type: 'forward',
-            data: {
-              forward_id: resId,
-              title: content.msg.item.title[0],
-              preview: content.msg.item.title.slice(1),
-              summary: content.msg.item.summary
-            }
-          })
-        }
-      }
-    }
-    return segments
-  }
+export async function transformIncomingForwardedMessage(ctx: Context, message: RawMessage): Promise<IncomingForwardedMessage> {
   return {
-    message_seq: contentHead.c2cMsgSeq || contentHead.groupMsgSeqOrC2cClientSeq,
-    sender_name: contentHead.msgType === 82 ? routingHead.group.groupCard : routingHead.c2c.name,
-    avatar_url: contentHead.forward!.avatar,
-    time: contentHead.msgTime,
-    segments: await transformSegments(body!.richText.elems)
+    message_seq: message.msgSeq,
+    sender_name: message.sendNickName,
+    avatar_url: message.forwardAvatar,
+    time: message.msgTime,
+    segments: await transformIncomingSegments(ctx, message)
   }
 }

@@ -20,7 +20,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
         settings: { field1: 4, field2: 1, field3: 7, field4: 0 },
       })
       const res = await this.sendPB('trpc.group.long_msg_interface.MsgService.SsoSendLongMsg', data)
-      return Action.SendLongMsgResp.decode(Buffer.from(res.pb, 'hex')).result!.resId!
+      return Action.SendLongMsgResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     async getMultiMsg(resId: string) {
@@ -35,7 +35,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       const res = await this.sendPB('trpc.group.long_msg_interface.MsgService.SsoRecvLongMsg', data)
       const payload = Action.RecvLongMsgResp.decode(Buffer.from(res.pb, 'hex')).result.payload
       const inflate = gunzipSync(payload)
-      return Msg.PbMultiMsgTransmit.decode(inflate).pbItemList
+      return Msg.PbMultiMsgTransmit.decode(inflate)
     }
 
     async pullPics(word: string) {
@@ -370,7 +370,8 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
           startSequence
         } : undefined
       })
-      await this.sendPB('trpc.msg.msg_svc.MsgService.SsoReadedReport', data)
+      const res = await this.sendPB('trpc.msg.msg_svc.MsgService.SsoReadedReport', data)
+      return Action.SsoReadedReportResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     async setInputStatus(toUid: string, eventType: number) {

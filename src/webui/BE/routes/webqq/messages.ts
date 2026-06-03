@@ -187,7 +187,8 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
   })
 
   // 获取合并转发消息内容
-  router.get('/forward-msg', async (c) => {
+  // TODO: 迁移至 ntMsgApi.getForwardedMsgs
+  /**router.get('/forward-msg', async (c) => {
     try {
       const { resId } = c.req.query() as { resId: string }
       if (!resId) {
@@ -212,7 +213,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
               try {
                 const { faceId } = Msg.QSmallFaceExtra.decode(elem.commonElem.pbElem)
                 segments.push({ type: 'face', data: { faceId } })
-              } catch { /* ignore */ }
+              } catch {  }
             } else if (serviceType === 48 && (businessType === 10 || businessType === 20)) {
               try {
                 const { extBizInfo, msgInfoBody } = Media.MsgInfo.decode(elem.commonElem.pbElem)
@@ -228,7 +229,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
                     height: index.info.height,
                   }
                 })
-              } catch { /* ignore */ }
+              } catch {  }
             }
           } else if (elem.richMsg && elem.richMsg.serviceId === 35) {
             // 嵌套的合并转发
@@ -245,7 +246,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
                   }
                 })
               }
-            } catch { /* ignore */ }
+            } catch {  }
           }
         }
 
@@ -267,7 +268,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       ctx.logger.error('获取合并转发消息失败:', e)
       return c.json({ success: false, message: '获取合并转发消息失败', error: (e as Error).message }, 500)
     }
-  })
+  })*/
 
   // 视频播放 URL
   router.get('/video-url', async (c) => {
