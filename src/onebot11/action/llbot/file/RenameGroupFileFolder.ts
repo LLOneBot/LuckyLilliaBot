@@ -21,8 +21,8 @@ export class RenameGroupFileFolder extends BaseAction<Payload, null> {
       payload.folder_id,
       payload.new_folder_name
     )
-    if (result.errorCode !== 0) {
-      throw new Error(result.errorMsg)
+    if (result.retCode !== 0) {
+      throw new Error(result.clientWording)
     }
     return null
   }

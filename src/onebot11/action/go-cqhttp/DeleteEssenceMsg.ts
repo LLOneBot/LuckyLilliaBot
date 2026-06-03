@@ -21,8 +21,8 @@ export class DeleteEssenceMsg extends BaseAction<Payload, null> {
       info.msgSeq,
       Number(BigInt(info.msgId) & 0xFFFFFFFFn)
     )
-    if (res.errorCode !== 0) {
-      throw new Error(res.errorMsg)
+    if (res.retCode !== 0) {
+      throw new Error(res.retMsg)
     }
     return null
   }

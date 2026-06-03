@@ -20,8 +20,8 @@ export class GetGroupAlbumMediaList extends BaseAction<Payload, unknown> {
       +payload.group_id,
       payload.album_id
     )
-    if (result.status !== 0) {
-      throw new Error(`fetch group album media list failed: status=${result.status}`)
+    if (result.retCode !== 0) {
+      throw new Error(result.retMsg)
     }
     const album = result.body?.album
     const mediaList = result.body?.mediaList ?? []

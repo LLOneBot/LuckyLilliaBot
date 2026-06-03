@@ -20,7 +20,7 @@ export default class SetGroupAddRequest extends BaseAction<Payload, null> {
   protected async _handle(payload: Payload) {
     let flag = payload.flag
     if (isNumeric(flag)) {
-      const seq = BigInt(flag)
+      const seq = +flag
       const res = await this.ctx.ntGroupApi.getGroupNotifications(false, 50)
       for (const v of res.notifications) {
         if (seq === v.sequence) {

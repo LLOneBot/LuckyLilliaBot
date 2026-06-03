@@ -237,7 +237,8 @@ export namespace Action {
   })
 
   export const GetAlbumListResp = ProtoMessage.of({
-    status: ProtoField(1, 'uint32'),
+    retCode: ProtoField(2, 'uint32'),
+    retMsg: ProtoField(3, 'string'),
     body: ProtoField(4, {
       albums: ProtoField(1, QunAlbumRecord, 'repeated'),
     }, 'optional'),
@@ -262,6 +263,8 @@ export namespace Action {
 
   export const AddAlbumResp = ProtoMessage.of({
     requestId: ProtoField(1, 'uint32'),
+    retCode: ProtoField(2, 'uint32'),
+    retMsg: ProtoField(3, 'string'),
     body: ProtoField(4, {
       info: ProtoField(1, {
         albumId: ProtoField(1, 'string'),
@@ -283,6 +286,11 @@ export namespace Action {
     }),
     sessionId: ProtoField(5, 'string'),
     headers: ProtoField(10, QunAlbumMetaHeader, 'repeated'),
+  })
+
+  export const DeleteAlbumResp = ProtoMessage.of({
+    retCode: ProtoField(2, 'uint32'),
+    retMsg: ProtoField(3, 'string'),
   })
 
   const QunMediaImage = ProtoMessage.of({
@@ -322,7 +330,8 @@ export namespace Action {
   })
 
   export const GetMediaListResp = ProtoMessage.of({
-    status: ProtoField(1, 'uint32'),
+    retCode: ProtoField(2, 'uint32'),
+    retMsg: ProtoField(3, 'string'),
     body: ProtoField(4, {
       album: ProtoField(1, QunAlbumRecord, 'optional'),
       mediaList: ProtoField(3, QunMediaItem, 'repeated'),

@@ -24,8 +24,8 @@ export class RenameGroupFile extends BaseAction<Payload, null> {
       payload.current_parent_directory,
       payload.new_name
     )
-    if (result.errorCode !== 0) {
-      throw new Error(result.errorMsg)
+    if (result.retCode !== 0) {
+      throw new Error(result.retMsg)
     }
     return null
   }

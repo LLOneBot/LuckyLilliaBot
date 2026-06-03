@@ -38,7 +38,7 @@ export class GetGroupSystemMsg extends BaseAction<{}, Response> {
     for (const n of notifications) {
       if (n.type === GroupNotificationType.Invitation) {
         data.invited_requests.push({
-          request_id: Number(n.sequence),
+          request_id: n.sequence,
           invitor_uin: await this.ctx.ntUserApi.getUinByUid(n.user2!.uid),
           invitor_nick: n.user2!.nickName,
           group_id: n.group.groupCode,
@@ -48,7 +48,7 @@ export class GetGroupSystemMsg extends BaseAction<{}, Response> {
         })
       } else if (n.type === GroupNotificationType.JoinRequest) {
         data.join_requests.push({
-          request_id: Number(n.sequence),
+          request_id: n.sequence,
           requester_uin: await this.ctx.ntUserApi.getUinByUid(n.user1.uid),
           requester_nick: n.user1.nickName,
           message: n.comment ?? '',

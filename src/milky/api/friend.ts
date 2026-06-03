@@ -81,11 +81,8 @@ const GetFriendRequests = defineApi(
       })
     } else {
       const result = await ctx.ntFriendApi.getFriendRequests(payload.limit)
-      if (result.errorCode !== 0) {
-        return Failed(-500, result.errorMsg)
-      }
       return Ok({
-        requests: await Promise.all(result.requests.map(async e => {
+        requests: await Promise.all(result.map(async e => {
           const friendId = Number(await ctx.ntUserApi.getUinByUid(e.friendUid))
           const selfId = Number(selfInfo.uin)
           return {

@@ -132,19 +132,9 @@ export class WebuiServer extends Service {
   }
 
   private setupMessageListener() {
-    // 监听新消息事件
-    this.ctx.on('nt/message-created', async (message: RawMessage) => {
-      if (this.sseClients.size === 0) return
-      await this.fillPeerUin(message)
-      this.broadcastMessage('message', { type: 'message-created', data: message })
-    })
+    // TODO: 监听新消息事件
 
-    // 监听自己发送的消息
-    this.ctx.on('nt/message-sent', async (message: RawMessage) => {
-      if (this.sseClients.size === 0) return
-      await this.fillPeerUin(message)
-      this.broadcastMessage('message', { type: 'message-sent', data: message })
-    })
+    // TODO: 监听自己发送的消息
 
     // 监听消息撤回事件
     this.ctx.on('nt/message-deleted', async (data) => {
@@ -165,8 +155,7 @@ export class WebuiServer extends Service {
       })
     })
 
-    // 监听表情回应事件
-    this.setupEmojiReactionListener()
+    // TODO: 监听表情回应事件
 
     // TODO: 监听群通知事件（加群申请、邀请入群、被踢等）
 
@@ -184,49 +173,6 @@ export class WebuiServer extends Service {
         message.peerUin = uin
       }
     }
-  }
-
-  private setupEmojiReactionListener() {
-    this.ctx.qqProtocol.addResListener(async data => {
-      if (this.sseClients.size === 0) return
-      if (data.type !== 'recv' || data.data.cmd !== 'trpc.msg.olpush.OlPushService.MsgPush') return
-
-      try {
-        const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
-        if (!pushMsg.message?.body) return
-
-        const { msgType, subType } = pushMsg.message?.contentHead ?? {}
-        if (msgType === 732 && subType === 16) {
-          const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
-          if (notify.field13 === 35) {
-            const info = notify.reaction.data.body.info
-            const target = notify.reaction.data.body.target
-            const groupCode = String(notify.groupCode)
-            const userId = await this.ctx.ntUserApi.getUinByUid(info.operatorUid)
-
-            let userName = userId.toString()
-            try {
-              const member = await this.ctx.ntGroupApi.getGroupMemberByUid(+groupCode, info.operatorUid, false)
-              userName = member?.cardName || member?.nick || userId.toString()
-            } catch { }
-
-            this.broadcastMessage('message', {
-              type: 'emoji-reaction',
-              data: {
-                groupCode,
-                msgSeq: String(target.sequence),
-                emojiId: info.code,
-                userId,
-                userName,
-                isAdd: info.actionType === 1
-              }
-            })
-          }
-        }
-      } catch (e) {
-        // 忽略解析错误
-      }
-    })
   }
 
   private getHostPort(): { host: string; port: number } {

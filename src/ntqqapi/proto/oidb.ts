@@ -796,6 +796,11 @@ export namespace Oidb {
     msgRandom: ProtoField(3, 'uint32'),
   })
 
+  export const GroupEssenceResp = ProtoMessage.of({
+    retMsg: ProtoField(1, 'string'),
+    retCode: ProtoField(10, 'uint32')
+  })
+
   /** OidbSvcTrpcTcp.0x9082_1 / 0x9082_2 - 群表情回应（添加 / 移除） */
   export const GroupReactionReq = ProtoMessage.of({
     groupCode: ProtoField(2, 'uint32'),
@@ -948,6 +953,14 @@ export namespace Oidb {
     }),
   })
 
+  export const GroupFolderRenameResp = ProtoMessage.of({
+    rename: ProtoField(3, {
+      retCode: ProtoField(1, 'int64'),
+      retMsg: ProtoField(2, 'string'),
+      clientWording: ProtoField(3, 'string'),
+    }),
+  })
+
   /** OidbSvcTrpcTcp.0x8b7_5 */
   export const GetGroupRecommendContactArkReq = ProtoMessage.of({
     field1: ProtoField(1, 'uint32'),
@@ -1040,6 +1053,14 @@ export namespace Oidb {
       fileId: ProtoField(4, 'string'),
       parentDirectory: ProtoField(5, 'string'),
       newFileName: ProtoField(6, 'string'),
+    }),
+  })
+
+  export const RenameGroupFileResp = ProtoMessage.of({
+    rename: ProtoField(5, {
+      retCode: ProtoField(1, 'int64'),
+      retMsg: ProtoField(2, 'string'),
+      clientWording: ProtoField(3, 'string'),
     }),
   })
 

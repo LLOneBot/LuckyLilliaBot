@@ -155,15 +155,18 @@ export class NTQQGroupApi extends Service {
     return members.find(e => e.uin === uin)
   }
 
-  async getGroupNotifications(doubt: boolean, count: number, startSeq?: bigint) {
+  async getGroupNotifications(doubt: boolean, count: number, startSeq?: number) {
     const res = await this.ctx.qqProtocol.fetchGroupNotifies(
       count,
       doubt,
       startSeq ? BigInt(startSeq) : undefined
     )
     return {
-      nextStartSeq: res.newLatestSequence,
-      notifications: res.requests
+      nextStartSeq: Number(res.newLatestSequence),
+      notifications: res.requests.map(e => ({
+        ...e,
+        sequence: Number(e.sequence)
+      }))
     }
   }
 
@@ -321,11 +324,19 @@ export class NTQQGroupApi extends Service {
   }
 
   async persistGroupFile(groupCode: number, fileId: string) {
-    return await this.ctx.qqProtocol.transGroupFile(groupCode, fileId)
+    const res = await this.ctx.qqProtocol.transGroupFile(groupCode, fileId)
+    return {
+      ...res,
+      retCode: Number(res.retCode)
+    }
   }
 
   async renameGroupFile(groupCode: number, fileId: string, parentFolderId: string, newFileName: string) {
-    return await this.ctx.qqProtocol.renameGroupFile(groupCode, fileId, parentFolderId, newFileName)
+    const res = await this.ctx.qqProtocol.renameGroupFile(groupCode, fileId, parentFolderId, newFileName)
+    return {
+      ...res.rename,
+      retCode: Number(res.rename.retCode)
+    }
   }
 
   async createGroupFolder(groupCode: number, folderName: string) {
@@ -345,20 +356,29 @@ export class NTQQGroupApi extends Service {
   }
 
   async renameGroupFolder(groupCode: number, folderId: string, newFolderName: string) {
-    return await this.ctx.qqProtocol.renameGroupFolder(groupCode, folderId, newFolderName)
+    const res = await this.ctx.qqProtocol.renameGroupFolder(groupCode, folderId, newFolderName)
+    return {
+      ...res.rename,
+      retCode: Number(res.rename.retCode)
+    }
   }
 
   async getGroupAlbumList(groupCode: number) {
-    const { status, body } = await this.ctx.qqProtocol.fetchGroupAlbumList(groupCode)
+    const res = await this.ctx.qqProtocol.fetchGroupAlbumList(groupCode)
     return {
-      status,
-      albumList: body?.albums ?? []
+      retCode: res.retCode,
+      retMsg: res.retMsg,
+      albumList: res.body?.albums ?? []
     }
   }
 
   async createGroupAlbum(groupCode: number, name: string, desc: string) {
-    const { body } = await this.ctx.qqProtocol.createGroupAlbum(groupCode, name, desc)
-    return body?.info
+    const res = await this.ctx.qqProtocol.createGroupAlbum(groupCode, name, desc)
+    return {
+      retCode: res.retCode,
+      retMsg: res.retMsg,
+      info: res.body?.info
+    }
   }
 
   async deleteGroupAlbum(groupCode: number, albumId: string) {

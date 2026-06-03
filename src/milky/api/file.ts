@@ -162,8 +162,8 @@ const RenameGroupFile = defineApi(
       payload.parent_folder_id,
       payload.new_file_name
     )
-    if (result.errorCode !== 0) {
-      return Failed(-500, result.errorMsg)
+    if (result.retCode !== 0) {
+      return Failed(-500, result.retMsg)
     }
     return Ok({})
   }
@@ -211,8 +211,8 @@ const RenameGroupFolder = defineApi(
       payload.folder_id,
       payload.new_folder_name
     )
-    if (result.errorCode !== 0) {
-      return Failed(-500, result.errorMsg)
+    if (result.retCode !== 0) {
+      return Failed(-500, result.clientWording)
     }
     return Ok({})
   }

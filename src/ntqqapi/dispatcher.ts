@@ -735,7 +735,7 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
             groupCode: +groupCode,
             initiatorUin: msg.routingHead.fromUin,
             initiatorUid: msg.routingHead.fromUid,
-            invitationSeq: BigInt(seq)
+            invitationSeq: +seq
           })
         }
       }

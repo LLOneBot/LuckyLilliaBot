@@ -21,14 +21,17 @@ export class CreateGroupAlbum extends BaseAction<Payload, unknown> {
       payload.name,
       payload.desc,
     )
-    if (!result?.albumId) {
+    if (result.retCode !== 0) {
+      throw new Error(result.retMsg)
+    }
+    if (!result.info?.albumId) {
       throw new Error('create group album failed: server returned no album_id')
     }
     return {
-      album_id: result.albumId,
-      owner: result.groupCode,
-      name: result.name,
-      desc: result.desc
+      album_id: result.info.albumId,
+      owner: result.info.groupCode,
+      name: result.info.name,
+      desc: result.info.desc
     }
   }
 }

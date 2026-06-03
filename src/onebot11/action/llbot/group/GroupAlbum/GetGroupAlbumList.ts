@@ -13,8 +13,8 @@ export class GetGroupAlbumList extends BaseAction<Payload, unknown> {
 
   protected async _handle(payload: Payload) {
     const result = await this.ctx.ntGroupApi.getGroupAlbumList(+payload.group_id)
-    if (result.status !== 0) {
-      throw new Error(`fetch group album list failed: status=${result.status}`)
+    if (result.retCode !== 0) {
+      throw new Error(result.retMsg)
     }
     return result.albumList.map((a) => {
       const photoUrls = a.cover?.image?.photoUrls ?? []

@@ -747,4 +747,13 @@ export class NTQQFileApi extends Service {
     }
     return { msgInfo: result.info, compat: result.compat }
   }
+
+  async getRKey() {
+    const { result } = await this.ctx.qqProtocol.getRKey()
+    return {
+      privateRKey: result.rkeyItems[0].rkey!,
+      groupRKey: result.rkeyItems[1].rkey!,
+      expiredTime: result.rkeyItems[0].createTime! + result.rkeyItems[0].ttlSec!,
+    }
+  }
 }

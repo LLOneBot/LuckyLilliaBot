@@ -320,8 +320,8 @@ const SetGroupEssenceMessage = defineApi(
         payload.message_seq,
         msg.msgRandom
       )
-      if (result.errorCode !== 0) {
-        return Failed(-500, result.errorMsg)
+      if (result.retCode !== 0) {
+        return Failed(-500, result.retMsg)
       }
     } else {
       const result = await ctx.ntGroupApi.removeGroupEssence(
@@ -329,8 +329,8 @@ const SetGroupEssenceMessage = defineApi(
         payload.message_seq,
         msg.msgRandom
       )
-      if (result.errorCode !== 0) {
-        return Failed(-500, result.errorMsg)
+      if (result.retCode !== 0) {
+        return Failed(-500, result.retMsg)
       }
     }
     return Ok({})
@@ -398,7 +398,7 @@ const GetGroupNotifications = defineApi(
     const result = await ctx.ntGroupApi.getGroupNotifications(
       payload.is_filtered,
       payload.limit,
-      payload.start_notification_seq ? BigInt(payload.start_notification_seq) : undefined
+      payload.start_notification_seq ?? undefined
     )
     const notifications = []
     for (const n of result.notifications) {
@@ -406,7 +406,7 @@ const GetGroupNotifications = defineApi(
         notifications.push({
           type: 'join_request' as const,
           group_id: n.group.groupCode,
-          notification_seq: Number(n.sequence),
+          notification_seq: n.sequence,
           is_filtered: payload.is_filtered,
           initiator_id: await ctx.ntUserApi.getUinByUid(n.user1.uid),
           state: ({
@@ -423,7 +423,7 @@ const GetGroupNotifications = defineApi(
         notifications.push({
           type: 'admin_change' as const,
           group_id: n.group.groupCode,
-          notification_seq: Number(n.sequence),
+          notification_seq: n.sequence,
           target_user_id: await ctx.ntUserApi.getUinByUid(n.user1.uid),
           is_set: n.type === GroupNotificationType.SetAdmin,
           operator_id: await ctx.ntUserApi.getUinByUid(n.user2!.uid)
@@ -432,7 +432,7 @@ const GetGroupNotifications = defineApi(
         notifications.push({
           type: 'kick' as const,
           group_id: n.group.groupCode,
-          notification_seq: Number(n.sequence),
+          notification_seq: n.sequence,
           target_user_id: await ctx.ntUserApi.getUinByUid(n.user1.uid),
           operator_id: await ctx.ntUserApi.getUinByUid(n.user2?.uid ?? n.user3!.uid)
         })
@@ -440,14 +440,14 @@ const GetGroupNotifications = defineApi(
         notifications.push({
           type: 'quit' as const,
           group_id: n.group.groupCode,
-          notification_seq: Number(n.sequence),
+          notification_seq: n.sequence,
           target_user_id: await ctx.ntUserApi.getUinByUid(n.user1.uid)
         })
       } else if (n.type === GroupNotificationType.InvitedJoinRequest) {
         notifications.push({
           type: 'invited_join_request' as const,
           group_id: n.group.groupCode,
-          notification_seq: Number(n.sequence),
+          notification_seq: n.sequence,
           initiator_id: await ctx.ntUserApi.getUinByUid(n.user2!.uid),
           target_user_id: await ctx.ntUserApi.getUinByUid(n.user1.uid),
           state: ({

@@ -199,7 +199,10 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
     /** 重命名群文件夹 */
     async renameGroupFolder(groupCode: number, folderId: string, newFolderName: string) {
       const body = Oidb.GroupFolderRenameReq.encode({ rename: { groupCode, folderId, newFolderName } })
-      return await this.sendOidb(0x6d7, 2, body)
+      const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 2, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d7_2', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      return Oidb.GroupFolderRenameResp.decode(decoded.body)
     }
 
     async setGroupPin(groupCode: number, isPinned: boolean) {
@@ -349,7 +352,14 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
     async setGroupEssence(groupCode: number, msgSequence: number, msgRandom: number, isAdd: boolean) {
       const body = Oidb.GroupEssenceReq.encode({ groupCode, msgSequence, msgRandom })
       const subCommand = isAdd ? 1 : 2
-      return await this.sendOidb(0xeac, subCommand, body)
+      const data = Oidb.Base.encode({
+        command: 0xeac,
+        subCommand,
+        body,
+      })
+      const res = await this.sendPB(`OidbSvcTrpcTcp.0xeac_${subCommand}`, data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.GroupEssenceResp.decode(oidbRespBody)
     }
 
     /** type: 1=face(QQ表情)，2=emoji(unicode)。默认按 code 长度推断（≤3 当 face，否则 emoji） */
@@ -451,7 +461,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const data = Oidb.Base.encode({ command: 0x6d6, subCommand: 4, body, isReserved: 1 })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_4', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      return { errorCode: decoded.errorCode, errorMsg: decoded.errorMsg }
+      return Oidb.RenameGroupFileResp.decode(decoded.body)
     }
 
     private genQunAlbumSession(): string {
@@ -484,7 +494,8 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         sessionId: this.genQunAlbumSession(),
         headers: [{ name: 'fc-appid', value: '100' }],
       })
-      await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.DeleteAlbum', reqBytes)
+      const res = await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.DeleteAlbum', reqBytes)
+      return Action.DeleteAlbumResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     /** 拉群相册媒体列表 (QunAlbum.GetMediaList) */

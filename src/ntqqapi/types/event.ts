@@ -30,7 +30,7 @@ export interface GroupJoinRequestEvent {
   groupCode: number
   initiatorUin: number
   initiatorUid: string
-  notificationSeq: bigint
+  notificationSeq: number
   isDoubt: boolean
   comment: string
 }
@@ -42,7 +42,7 @@ export interface GroupInvitedJoinRequestEvent {
   initiatorUid: string
   targetUserUin: number
   targetUserUid: string
-  notificationSeq: bigint
+  notificationSeq: number
 }
 
 /** 他人邀请自身入群事件 */
@@ -50,7 +50,7 @@ export interface GroupInvitationEvent {
   groupCode: number
   initiatorUin: number
   initiatorUid: string
-  invitationSeq: bigint
+  invitationSeq: number
   sourceGroupCode?: number
 }
 
