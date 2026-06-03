@@ -88,13 +88,15 @@ const SetGroupMemberSpecialTitle = defineApi(
   SetGroupMemberSpecialTitleInput,
   z.object({}),
   async (ctx, payload) => {
-    // Use PMHQ to set special title
     const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.group_id)
-    await ctx.qqProtocol.setSpecialTitle(
+    const result = await ctx.ntGroupApi.setGroupMemberSpecialTitle(
       payload.group_id,
       memberUid,
       payload.special_title
     )
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
+    }
     return Ok({})
   }
 )
@@ -380,8 +382,10 @@ const SendGroupNudge = defineApi(
   SendGroupNudgeInput,
   z.object({}),
   async (ctx, payload) => {
-    // Use PMHQ to send group poke
-    await ctx.qqProtocol.sendGroupPoke(payload.group_id, payload.user_id)
+    const result = await ctx.ntGroupApi.sendGroupNudge(payload.group_id, payload.user_id)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
+    }
     return Ok({})
   }
 )

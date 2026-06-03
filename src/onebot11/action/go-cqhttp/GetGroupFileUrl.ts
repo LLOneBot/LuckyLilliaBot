@@ -19,7 +19,6 @@ export class GetGroupFileUrl extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload) {
-    const file = await this.ctx.store.getFileCacheById(payload.file_id)
     const result = await this.ctx.ntFileApi.getFileUrl(
       payload.file_id,
       true,
@@ -28,15 +27,11 @@ export class GetGroupFileUrl extends BaseAction<Payload, Response> {
     if (result.retCode !== 0) {
       throw new Error(result.retMsg)
     }
+    const file = await this.ctx.store.getFileCacheById(payload.file_id)
     if (file.length > 0) {
       return { url: result.url + encodeURIComponent(file[0].fileName) }
     } else {
-      const fileName = await this.search(+payload.group_id, payload.file_id)
-      if (fileName) {
-        return { url: result.url + encodeURIComponent(fileName) }
-      } else {
-        return { url: result.url }
-      }
+      return { url: result.url }
     }
   }
 

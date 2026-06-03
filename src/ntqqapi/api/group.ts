@@ -210,6 +210,10 @@ export class NTQQGroupApi extends Service {
     return await this.ctx.qqProtocol.setGroupMemberAdmin(groupCode, memberUid, isSet)
   }
 
+  async setGroupMemberSpecialTitle(groupCode: number, memberUid: string, specialTitle: string) {
+    return await this.ctx.qqProtocol.setSpecialTitle(groupCode, memberUid, specialTitle)
+  }
+
   async setGroupName(groupCode: number, groupName: string) {
     return await this.ctx.qqProtocol.setGroupName(groupCode, groupName)
   }
@@ -344,5 +348,9 @@ export class NTQQGroupApi extends Service {
 
   async setGroupPin(groupCode: number, isPinned: boolean) {
     return await this.ctx.qqProtocol.setGroupPin(groupCode, isPinned)
+  }
+
+  async sendGroupNudge(groupCode: number, targetUin: number) {
+    return await this.ctx.qqProtocol.sendGroupPoke(groupCode, targetUin)
   }
 }

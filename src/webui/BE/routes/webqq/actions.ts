@@ -137,7 +137,10 @@ export function createActionsRoutes(ctx: Context): Hono {
       if (!groupCode || !uid || title === undefined) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      await ctx.qqProtocol.setSpecialTitle(+groupCode, uid, title)
+      const result = await ctx.ntGroupApi.setGroupMemberSpecialTitle(+groupCode, uid, title)
+      if (result.errorCode !== 0) {
+        return c.json({ success: false, message: result.errorMsg }, 500)
+      }
       return c.json({ success: true })
     } catch (e) {
       ctx.logger.error('设置群头衔失败:', e)
@@ -155,7 +158,10 @@ export function createActionsRoutes(ctx: Context): Hono {
       if (!groupCode || !uin) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      await ctx.qqProtocol.sendGroupPoke(+groupCode, +uin)
+      const result = await ctx.ntGroupApi.sendGroupNudge(+groupCode, +uin)
+      if (result.errorCode !== 0) {
+        return c.json({ success: false, message: result.errorMsg }, 500)
+      }
       return c.json({ success: true })
     } catch (e) {
       ctx.logger.error('群戳一戳失败:', e)

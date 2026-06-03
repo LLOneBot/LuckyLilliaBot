@@ -21,7 +21,14 @@ export class SetGroupSpecialTitle extends BaseAction<Payload, null> {
     const groupCode = +payload.group_id
     const uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id, groupCode)
     if (!uid) throw new Error(`用户信息获取失败`)
-    await this.ctx.qqProtocol.setSpecialTitle(groupCode, uid, payload.special_title)
+    const result = await this.ctx.ntGroupApi.setGroupMemberSpecialTitle(
+      groupCode,
+      uid,
+      payload.special_title
+    )
+    if (result.errorCode !== 0) {
+      throw new Error(result.errorMsg)
+    }
     return null
   }
 }

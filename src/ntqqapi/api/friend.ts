@@ -118,8 +118,12 @@ export class NTQQFriendApi extends Service {
   }
 
   async getFriendRequests(limit: number) {
-    const { info } = await this.ctx.qqProtocol.fetchFriendRequests(selfInfo.uid, limit)
-    return info.requests
+    const res = await this.ctx.qqProtocol.fetchFriendRequests(selfInfo.uid, limit)
+    return {
+      errorCode: res.errorCode,
+      errorMsg: res.errorMsg,
+      requests: res.body.info.requests
+    }
   }
 
   async getDoubtFriendRequests(limit: number) {

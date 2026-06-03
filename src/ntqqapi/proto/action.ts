@@ -339,6 +339,8 @@ export namespace Action {
   })
 
   export const SsoGetPeerSeqResp = ProtoMessage.of({
+    retCode: ProtoField(1, 'uint32'),
+    retMsg: ProtoField(2, 'string'),
     /** 实测 = c2cMsgSeq（双端一致那个）；通常 = seq2 */
     seq1: ProtoField(3, 'uint32'),
     /** 实测 = c2cMsgSeq；偶尔比 seq1 大 1（可能发/收两个方向的最后一条 c2cMsgSeq） */

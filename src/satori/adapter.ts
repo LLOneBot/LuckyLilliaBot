@@ -24,7 +24,7 @@ class SatoriAdapter extends Service {
   static inject = [
     'ntMsgApi', 'ntFileApi', 'ntFriendApi',
     'ntGroupApi', 'ntUserApi', 'ntWebApi',
-    'store', 'app', 'qqProtocol'
+    'store', 'app'
   ]
   private selfId: string
   private server: SatoriServer

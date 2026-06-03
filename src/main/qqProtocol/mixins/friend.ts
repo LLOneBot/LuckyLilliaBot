@@ -149,8 +149,12 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
         body,
       })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x5cf_11', data)
-      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-      return Oidb.FetchFriendRequestsResp.decode(oidbRespBody)
+      const oidbResp = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      return {
+        errorCode: oidbResp.errorCode,
+        errorMsg: oidbResp.errorMsg,
+        body: Oidb.FetchFriendRequestsResp.decode(oidbResp.body)
+      }
     }
 
     async fetchFilteredFriendRequests(count: number) {
@@ -189,12 +193,7 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
           },
         },
       })
-      const data = Oidb.Base.encode({
-        command: 0x5d6,
-        subCommand: 18,
-        body,
-      })
-      await this.sendPB('OidbSvcTrpcTcp.0x5d6_18', data)
+      return await this.sendOidb(0x5d6, 18, body)
     }
 
     /**

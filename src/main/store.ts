@@ -207,7 +207,7 @@ class Store extends Service {
     // 判断 fileUuid 是否存在
     const existingFile = await this.ctx.database.get('file', { fileUuid: data.fileUuid })
     if (existingFile.length) {
-      return existingFile
+      return
     }
     this.ctx.database.upsert('file', [data], 'fileUuid')
       .catch(e => this.ctx.logger.warn(e))

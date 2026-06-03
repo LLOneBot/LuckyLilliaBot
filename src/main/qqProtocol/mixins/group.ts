@@ -10,12 +10,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
         toUin: memberUin,
         groupCode,
       })
-      const data = Oidb.Base.encode({
-        command: 0xed3,
-        subCommand: 1,
-        body,
-      })
-      return await this.sendPB('OidbSvcTrpcTcp.0xed3_1', data)
+      return await this.sendOidb(0xed3, 1, body)
     }
 
     async setSpecialTitle(groupCode: number, memberUid: string, title: string) {
@@ -28,12 +23,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           expireTime: -1,
         },
       })
-      const data = Oidb.Base.encode({
-        command: 0x8fc,
-        subCommand: 2,
-        body,
-      })
-      return await this.sendPB('OidbSvcTrpcTcp.0x8fc_2', data)
+      return await this.sendOidb(0x8fc, 2, body)
     }
 
     async groupClockIn(groupCode: string) {
@@ -236,12 +226,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           },
         },
       })
-      const data = Oidb.Base.encode({
-        command: 0x5d6,
-        subCommand: 1,
-        body,
-      })
-      await this.sendPB('OidbSvcTrpcTcp.0x5d6_1', data)
+      return await this.sendOidb(0x5d6, 1, body)
     }
 
     async fetchGroup(groupCode: number) {

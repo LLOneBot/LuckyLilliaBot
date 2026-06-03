@@ -17,14 +17,15 @@ export class SendPoke extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
+    let result
     if (payload.group_id) {
-      await this.ctx.qqProtocol.sendGroupPoke(+payload.group_id, +payload.user_id)
+      result = await this.ctx.ntGroupApi.sendGroupNudge(+payload.group_id, +payload.user_id)
     } else {
       const isSelf = payload.target_id ? payload.target_id.toString() === selfInfo.uin : false
-      const result = await this.ctx.ntFriendApi.sendFriendNudge(+payload.user_id, isSelf)
-      if (result.errorCode !== 0) {
-        throw new Error(result.errorMsg)
-      }
+      result = await this.ctx.ntFriendApi.sendFriendNudge(+payload.user_id, isSelf)
+    }
+    if (result.errorCode !== 0) {
+      throw new Error(result.errorMsg)
     }
     return null
   }
