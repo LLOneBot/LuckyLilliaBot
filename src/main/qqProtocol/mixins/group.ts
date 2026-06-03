@@ -67,11 +67,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_2', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-      const { download } = Oidb.GetGroupFileResp.decode(oidbRespBody)
-      return {
-        clientWording: download.clientWording,
-        url: `https://${download.downloadDns}/ftn_handler/${download.downloadUrl.toString('hex')}/?fname=`,
-      }
+      return Oidb.GetGroupFileResp.decode(oidbRespBody)
     }
 
     async fetchGroups() {

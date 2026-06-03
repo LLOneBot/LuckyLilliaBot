@@ -9,12 +9,7 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
         toUin,
         friendUin,
       })
-      const data = Oidb.Base.encode({
-        command: 0xed3,
-        subCommand: 1,
-        body,
-      })
-      return await this.sendPB('OidbSvcTrpcTcp.0xed3_1', data)
+      return await this.sendOidb(0xed3, 1, body)
     }
 
     /**
@@ -43,13 +38,7 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
       })
       const res = await this.sendPB('OidbSvcTrpcTcp.0xe37_1200', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-      const file = Oidb.GetPrivateFileResp.decode(oidbRespBody)
-      const { download } = file.body.result.extra
-      const { fileName } = file.body.metadata
-      return {
-        state: file.body.state,
-        url: `https://${download.downloadDns}/ftn_handler/${download.downloadUrl.toString('hex')}/?fname=${encodeURIComponent(fileName)}`
-      }
+      return Oidb.GetPrivateFileResp.decode(oidbRespBody)
     }
 
     async setFriendRequest(targetUid: string, accept: number) {
@@ -57,12 +46,7 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
         targetUid,
         accept,
       })
-      const data = Oidb.Base.encode({
-        command: 0xb5d,
-        subCommand: 44,
-        body,
-      })
-      await this.sendPB('OidbSvcTrpcTcp.0xb5d_44', data)
+      return await this.sendOidb(0xb5d, 44, body)
     }
 
     async setFilteredFriendRequestReq(selfUid: string, requestUid: string) {
@@ -70,12 +54,7 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
         selfUid,
         requestUid,
       })
-      const data = Oidb.Base.encode({
-        command: 0xd72,
-        subCommand: 0,
-        body,
-      })
-      await this.sendPB('OidbSvcTrpcTcp.0xd72_0', data)
+      return await this.sendOidb(0xd72, 0, body)
     }
 
     async fetchFriends(cookie?: Buffer) {
@@ -121,12 +100,7 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
         uid,
         remark,
       })
-      const data = Oidb.Base.encode({
-        command: 0x10cc,
-        subCommand: 1,
-        body,
-      })
-      await this.sendPB('OidbSvcTrpcTcp.0x10cc_1', data)
+      return await this.sendOidb(0x10cc, 1, body)
     }
 
     async deleteFriend(targetUid: string, block: boolean, bothDelete: boolean) {
@@ -146,12 +120,7 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
           bothDelete
         },
       })
-      const data = Oidb.Base.encode({
-        command: 0x126b,
-        subCommand: 0,
-        body,
-      })
-      await this.sendPB('OidbSvcTrpcTcp.0x126b_0', data)
+      return await this.sendOidb(0x126b, 0, body)
     }
 
     async setFriendCategory(uid: string, categoryId: number) {
@@ -159,12 +128,7 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
         uid,
         categoryId,
       })
-      const data = Oidb.Base.encode({
-        command: 0x10eb,
-        subCommand: 1,
-        body,
-      })
-      await this.sendPB('OidbSvcTrpcTcp.0x10eb_1', data)
+      return await this.sendOidb(0x10eb, 1, body)
     }
 
     async fetchFriendRequests(selfUid: string, reqNum: number) {

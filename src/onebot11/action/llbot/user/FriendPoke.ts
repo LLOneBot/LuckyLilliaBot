@@ -1,3 +1,4 @@
+import { selfInfo } from '@/common/globalVars'
 import { BaseAction, Schema } from '../../BaseAction'
 import { ActionName } from '../../types'
 
@@ -14,7 +15,11 @@ export class FriendPoke extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    await this.ctx.qqProtocol.sendFriendPoke(+payload.user_id, payload.target_id ? +payload.target_id : +payload.user_id)
+    const isSelf = payload.target_id ? payload.target_id.toString() === selfInfo.uin : false
+    const result = await this.ctx.ntFriendApi.sendFriendNudge(+payload.user_id, isSelf)
+    if (result.errorCode !== 0) {
+      throw new Error(result.errorMsg)
+    }
     return null
   }
 }

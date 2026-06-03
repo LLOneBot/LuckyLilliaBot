@@ -82,11 +82,11 @@ const GetPrivateFileDownloadUrl = defineApi(
   GetPrivateFileDownloadUrlInput,
   GetPrivateFileDownloadUrlOutput,
   async (ctx, payload) => {
-    const { state, url } = await ctx.qqProtocol.getPrivateFileUrl(payload.file_id)
-    if (state !== 'ok') {
-      return Failed(-500, state)
+    const result = await ctx.ntFileApi.getFileUrl(payload.file_id, false)
+    if (result.retCode !== 0) {
+      return Failed(-500, result.retMsg)
     }
-    return Ok({ download_url: url })
+    return Ok({ download_url: result.url })
   }
 )
 
@@ -95,15 +95,15 @@ const GetGroupFileDownloadUrl = defineApi(
   GetGroupFileDownloadUrlInput,
   GetGroupFileDownloadUrlOutput,
   async (ctx, payload) => {
-    // Use pmhq API to get group file download URL
-    const { clientWording, url } = await ctx.qqProtocol.getGroupFileUrl(
-      Number(payload.group_id),
-      payload.file_id
+    const result = await ctx.ntFileApi.getFileUrl(
+      payload.file_id,
+      true,
+      payload.group_id
     )
-    if (clientWording) {
-      return Failed(-500, clientWording)
+    if (result.retCode !== 0) {
+      return Failed(-500, result.retMsg)
     }
-    return Ok({ download_url: url })
+    return Ok({ download_url: result.url })
   }
 )
 

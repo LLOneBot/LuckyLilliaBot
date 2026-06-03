@@ -128,7 +128,7 @@ export class NTQQFriendApi extends Service {
   }
 
   async approvalFriendRequest(friendUid: string, accept: boolean) {
-    await this.ctx.qqProtocol.setFriendRequest(friendUid, accept ? 3 : 5)
+    return await this.ctx.qqProtocol.setFriendRequest(friendUid, accept ? 3 : 5)
   }
 
   async approvalDoubtFriendRequest(requestUid: string) {
@@ -137,5 +137,10 @@ export class NTQQFriendApi extends Service {
 
   async setFriendPin(friendUid: string, isPinned: boolean) {
     return await this.ctx.qqProtocol.setFriendPin(friendUid, isPinned)
+  }
+
+  async sendFriendNudge(friendUin: number, isSelf: boolean) {
+    const toUin = isSelf ? +selfInfo.uin : friendUin
+    return await this.ctx.qqProtocol.sendFriendPoke(friendUin, toUin)
   }
 }

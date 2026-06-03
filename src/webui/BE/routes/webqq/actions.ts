@@ -172,7 +172,10 @@ export function createActionsRoutes(ctx: Context): Hono {
       if (!uid) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      await ctx.ntFriendApi.deleteFriend(uid)
+      const result = await ctx.ntFriendApi.deleteFriend(uid)
+      if (result.errorCode !== 0) {
+        return c.json({ success: false, message: result.errorMsg }, 500)
+      }
       return c.json({ success: true })
     } catch (e) {
       ctx.logger.error('删除好友失败:', e)
@@ -205,8 +208,10 @@ export function createActionsRoutes(ctx: Context): Hono {
       if (!uin) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      // sendFriendPoke(friendUin, toUin) — 戳自己时 friendUin === toUin
-      await ctx.qqProtocol.sendFriendPoke(+uin, +uin)
+      const result = await ctx.ntFriendApi.sendFriendNudge(+uin, false)
+      if (result.errorCode !== 0) {
+        return c.json({ success: false, message: result.errorMsg }, 500)
+      }
       return c.json({ success: true })
     } catch (e) {
       ctx.logger.error('好友戳一戳失败:', e)

@@ -91,7 +91,10 @@ export function createNotificationRoutes(ctx: Context): Hono {
       if (!uid) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      await ctx.ntFriendApi.approvalDoubtFriendRequest(uid)
+      const result = await ctx.ntFriendApi.approvalDoubtFriendRequest(uid)
+      if (result.errorCode !== 0) {
+        return c.json({ success: false, message: result.errorMsg }, 500)
+      }
       return c.json({ success: true })
     } catch (e) {
       ctx.logger.error('处理被过滤好友申请失败:', e)
@@ -136,7 +139,10 @@ export function createNotificationRoutes(ctx: Context): Hono {
       if (!flag || !action) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      await ctx.ntFriendApi.approvalFriendRequest(flag, action === 'approve')
+      const result = await ctx.ntFriendApi.approvalFriendRequest(flag, action === 'approve')
+      if (result.errorCode !== 0) {
+        return c.json({ success: false, message: result.errorMsg }, 500)
+      }
       return c.json({ success: true })
     } catch (e) {
       ctx.logger.error('处理好友申请失败:', e)

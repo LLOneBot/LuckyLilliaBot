@@ -16,10 +16,10 @@ export class GetPrivateFileUrl extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload) {
-    const { state, url } = await this.ctx.qqProtocol.getPrivateFileUrl(payload.file_id)
-    if (state !== 'ok') {
-      throw new Error(state || '获取私聊文件 URL 失败')
+    const result = await this.ctx.ntFileApi.getFileUrl(payload.file_id, false)
+    if (result.retCode !== 0) {
+      throw new Error(result.retMsg)
     }
-    return { url }
+    return { url: result.url }
   }
 }

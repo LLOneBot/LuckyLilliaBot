@@ -444,30 +444,11 @@ async function handleGroupMute(ctx: Context, content: Buffer) {
 async function handleGroupGeneralEvent(ctx: Context, content: Buffer) {
   try {
     if (content.length < 7) return
-    // 旧路径假设 content 是 [4B groupUin][1B ?][2B len][NotifyMessageBody bytes] (TLV)。
-    // 实测 reaction 推送 (subType=16+field13=35) 直接是 NotifyMessageBody proto, 没 TLV 头。
-    // 先试 unwrap, decode 失败就直接拿原 content 当 NotifyMessageBody decode。
-    let groupUinFromTLV = 0
-    try {
-      groupUinFromTLV = content.readUInt32BE(0)
-    } catch { /* ignore */ }
-    let notifyBody: ReturnType<typeof Notify.NotifyMessageBody.decode> | null = null
+    // 实测 reaction 推送 (subType=16+field13=35) 有 TLV 头。
+    const groupUinFromTLV = content.readUInt32BE(0)
     const inner = unwrap0x2DCContent(content)
-    if (inner) {
-      try {
-        notifyBody = Notify.NotifyMessageBody.decode(inner)
-      } catch { /* unwrap 不对, fallback */ }
-    }
-    if (!notifyBody || (!notifyBody.subType && !notifyBody.groupCode && !notifyBody.notifyType)) {
-      // unwrap 出来的不像 NotifyMessageBody，直接用原 buffer
-      try {
-        notifyBody = Notify.NotifyMessageBody.decode(content)
-      } catch (e) {
-        ctx.logger.warn('handleGroupGeneralEvent: 都解不动, content=', content.toString('hex').slice(0, 200))
-        return
-      }
-    }
-    let groupCode = notifyBody.groupCode || groupUinFromTLV
+    const notifyBody = Notify.NotifyMessageBody.decode(inner)
+    const groupCode = notifyBody.groupCode || groupUinFromTLV
     // 0x2DC subType=16 通过 field13 区分子事件：
     //   6 = GroupMemberSpecialTitle, 12 = GroupNameChange, 23 = GroupTodo, 35 = GroupReaction
     const field13 = notifyBody.subType ?? 0
@@ -487,7 +468,7 @@ async function handleGroupGeneralEvent(ctx: Context, content: Buffer) {
       // 群成员获得头衔（GroupMemberSpecialTitle）。eventParam (field 5) 是一个 proto，
       // 内部 field 2 是带 JSON 模板的灰条文字，形如：
       //   恭喜<{"cmd":5,"data":"<uin>","text":"<nick>"}>获得群主授予的<{"cmd":1,"text":"<title>",...}>头衔
-      const eventParam = notifyBody?.eventParam
+      const eventParam = notifyBody.eventParam
       if (!eventParam) return
       const decoded = Notify.GroupMemberSpecialTitleChange.decode(eventParam)
       // cmd=5 是用户引用，data 是 uin；cmd=1 是带链接的文本，text 是真正的头衔
@@ -502,7 +483,7 @@ async function handleGroupGeneralEvent(ctx: Context, content: Buffer) {
     } else if (field13 === 12) {
       // GroupNameChange：eventParam 是 GroupNameChangeBody（field 1=1, field 2=新群名）。
       // operatorUid 在 NotifyMessageBody.field 21 (notifyBody.operatorUid)。
-      const eventParam = notifyBody?.eventParam
+      const eventParam = notifyBody.eventParam
       if (!eventParam || !notifyBody.operatorUid) return
       const body = Notify.GroupNameChangeBody.decode(eventParam)
       ctx.parallel('nt/group-name-changed', {
@@ -577,9 +558,8 @@ async function handleGroupEssenceChange(ctx: Context, content: Buffer) {
  * Strip the leading [4 bytes group code + 1 byte unknown + length-prefix] from 0x2DC content.
  * Returns the inner protobuf body.
  */
-function unwrap0x2DCContent(content: Buffer): Buffer | null {
+function unwrap0x2DCContent(content: Buffer) {
   // 0x2DC content: [4 bytes BE: groupUin][1 byte: ?][2 bytes BE: length][NotifyMessageBody bytes]
-  if (content.length < 7) return null
   const length = content.readUInt16BE(5)
   return content.subarray(7, 7 + length)
 }

@@ -17,8 +17,10 @@ const SendFriendNudge = defineApi(
   SendFriendNudgeInput,
   z.object({}),
   async (ctx, payload) => {
-    // Use PMHQ to send friend poke
-    await ctx.qqProtocol.sendFriendPoke(payload.user_id, payload.is_self ? +selfInfo.uin : payload.user_id)
+    const result = await ctx.ntFriendApi.sendFriendNudge(payload.user_id, payload.is_self)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
+    }
     return Ok({})
   }
 )
@@ -49,7 +51,10 @@ const DeleteFriend = defineApi(
     if (!uid) {
       return Failed(-404, 'User not found')
     }
-    await ctx.ntFriendApi.deleteFriend(uid)
+    const result = await ctx.ntFriendApi.deleteFriend(uid)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
+    }
     return Ok({})
   }
 )
@@ -111,10 +116,14 @@ const AcceptFriendRequest = defineApi(
   AcceptFriendRequestInput,
   z.object({}),
   async (ctx, payload) => {
+    let result
     if (payload.is_filtered) {
-      await ctx.ntFriendApi.approvalDoubtFriendRequest(payload.initiator_uid)
+      result = await ctx.ntFriendApi.approvalDoubtFriendRequest(payload.initiator_uid)
     } else {
-      await ctx.ntFriendApi.approvalFriendRequest(payload.initiator_uid, true)
+      result = await ctx.ntFriendApi.approvalFriendRequest(payload.initiator_uid, true)
+    }
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -126,7 +135,10 @@ const RejectFriendRequest = defineApi(
   z.object({}),
   async (ctx, payload) => {
     if (!payload.is_filtered) {
-      await ctx.ntFriendApi.approvalFriendRequest(payload.initiator_uid, false)
+      const result = await ctx.ntFriendApi.approvalFriendRequest(payload.initiator_uid, false)
+      if (result.errorCode !== 0) {
+        return Failed(-500, result.errorMsg)
+      }
     }
     return Ok({})
   }

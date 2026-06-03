@@ -149,6 +149,7 @@ export namespace Oidb {
 
   export const GetGroupFileResp = ProtoMessage.of({
     download: ProtoField(3, {
+      retCode: ProtoField(1, 'int64'),
       clientWording: ProtoField(3, 'string'),
       downloadDns: ProtoField(5, 'string'),
       downloadUrl: ProtoField(6, 'bytes')
@@ -177,7 +178,7 @@ export namespace Oidb {
     command: ProtoField(1, 'uint32'),
     subCommand: ProtoField(2, 'uint32'),
     body: ProtoField(14, {
-      field10: ProtoField(10, 'uint32'),
+      retCode: ProtoField(10, 'int64'),
       state: ProtoField(20, 'string'),
       result: ProtoField(30, {
         extra: ProtoField(120, {

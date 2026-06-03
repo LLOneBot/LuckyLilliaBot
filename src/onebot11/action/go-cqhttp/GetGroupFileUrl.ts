@@ -20,18 +20,22 @@ export class GetGroupFileUrl extends BaseAction<Payload, Response> {
 
   protected async _handle(payload: Payload) {
     const file = await this.ctx.store.getFileCacheById(payload.file_id)
-    const { clientWording, url } = await this.ctx.qqProtocol.getGroupFileUrl(+payload.group_id, payload.file_id)
-    if (clientWording) {
-      throw new Error(clientWording)
+    const result = await this.ctx.ntFileApi.getFileUrl(
+      payload.file_id,
+      true,
+      +payload.group_id
+    )
+    if (result.retCode !== 0) {
+      throw new Error(result.retMsg)
     }
     if (file.length > 0) {
-      return { url: url + encodeURIComponent(file[0].fileName) }
+      return { url: result.url + encodeURIComponent(file[0].fileName) }
     } else {
       const fileName = await this.search(+payload.group_id, payload.file_id)
       if (fileName) {
-        return { url: url + encodeURIComponent(fileName) }
+        return { url: result.url + encodeURIComponent(fileName) }
       } else {
-        return { url }
+        return { url: result.url }
       }
     }
   }

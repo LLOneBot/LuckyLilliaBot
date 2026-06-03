@@ -96,6 +96,26 @@ export class NTQQFileApi extends Service {
     }
   }
 
+  async getFileUrl(fileUuid: string, isGroup: boolean, groupCode?: number) {
+    if (isGroup) {
+      const { download } = await this.ctx.qqProtocol.getGroupFileUrl(groupCode!, fileUuid)
+      return {
+        retCode: Number(download.retCode),
+        retMsg: download.clientWording,
+        url: `https://${download.downloadDns}/ftn_handler/${download.downloadUrl.toString('hex')}/?fname=`,
+      }
+    } else {
+      const { body } = await this.ctx.qqProtocol.getPrivateFileUrl(fileUuid)
+      const { download } = body.result.extra
+      const { fileName } = body.metadata
+      return {
+        retCode: Number(body.retCode),
+        retMsg: body.state,
+        url: `https://${download.downloadDns}/ftn_handler/${download.downloadUrl.toString('hex')}/?fname=${encodeURIComponent(fileName)}`
+      }
+    }
+  }
+
   async getImageUrl(originImageUrl: string, md5HexStr: string) {
     const url = originImageUrl
 
