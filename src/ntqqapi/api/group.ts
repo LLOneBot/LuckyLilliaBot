@@ -275,8 +275,8 @@ export class NTQQGroupApi extends Service {
   }
 
   async setGroupMsgMask(groupCode: number, msgMask: GroupMsgMask) {
-    const { body } = await this.ctx.qqProtocol.setGroupMsgMask(groupCode, selfInfo.uid, msgMask)
-    return body
+    const res = await this.ctx.qqProtocol.setGroupMsgMask(groupCode, selfInfo.uid, msgMask)
+    return res.body
   }
 
   async setGroupRemark(groupCode: string, groupRemark = ''): Promise<any> {
@@ -284,25 +284,40 @@ export class NTQQGroupApi extends Service {
   }
 
   async getGroupFileList(groupCode: number, folderId: string, startIndex: number, fileCount: number) {
-    return await this.ctx.qqProtocol.getGroupFileList(groupCode, folderId, startIndex, fileCount)
+    const res = await this.ctx.qqProtocol.getGroupFileList(groupCode, folderId, startIndex, fileCount)
+    return {
+      ...res.listResp,
+      retCode: Number(res.listResp.retCode)
+    }
   }
 
   async getGroupFileCount(groupCode: number) {
-    const { countResp } = await this.ctx.qqProtocol.getGroupFileCount(groupCode)
-    return countResp!
+    const res = await this.ctx.qqProtocol.getGroupFileCount(groupCode)
+    return res.countResp
   }
 
   async getGroupFileSpace(groupCode: number) {
-    const { spaceResp } = await this.ctx.qqProtocol.getGroupFileSpace(groupCode)
-    return spaceResp!
+    const res = await this.ctx.qqProtocol.getGroupFileSpace(groupCode)
+    return {
+      totalSpace: Number(res.spaceResp.totalSpace),
+      usedSpace: Number(res.spaceResp.usedSpace)
+    }
   }
 
   async deleteGroupFile(groupCode: number, fileId: string, busId = 102) {
-    return await this.ctx.qqProtocol.deleteGroupFile(groupCode, fileId, busId)
+    const res = await this.ctx.qqProtocol.deleteGroupFile(groupCode, fileId, busId)
+    return {
+      ...res.delete,
+      retCode: Number(res.delete.retCode)
+    }
   }
 
   async moveGroupFile(groupCode: number, fileId: string, curFolderId: string, dstFolderId: string) {
-    return await this.ctx.qqProtocol.moveGroupFile(groupCode, fileId, curFolderId, dstFolderId)
+    const res = await this.ctx.qqProtocol.moveGroupFile(groupCode, fileId, curFolderId, dstFolderId)
+    return {
+      ...res.move,
+      retCode: Number(res.move.retCode)
+    }
   }
 
   async persistGroupFile(groupCode: number, fileId: string) {
@@ -314,11 +329,19 @@ export class NTQQGroupApi extends Service {
   }
 
   async createGroupFolder(groupCode: number, folderName: string) {
-    return await this.ctx.qqProtocol.createGroupFolder(groupCode, folderName, '/')
+    const res = await this.ctx.qqProtocol.createGroupFolder(groupCode, folderName, '/')
+    return {
+      ...res.create,
+      retCode: Number(res.create.retCode)
+    }
   }
 
   async deleteGroupFolder(groupCode: number, folderId: string) {
-    return await this.ctx.qqProtocol.deleteGroupFolder(groupCode, folderId)
+    const res = await this.ctx.qqProtocol.deleteGroupFolder(groupCode, folderId)
+    return {
+      ...res.delete,
+      retCode: Number(res.delete.retCode)
+    }
   }
 
   async renameGroupFolder(groupCode: number, folderId: string, newFolderName: string) {
@@ -352,5 +375,9 @@ export class NTQQGroupApi extends Service {
 
   async sendGroupNudge(groupCode: number, targetUin: number) {
     return await this.ctx.qqProtocol.sendGroupPoke(groupCode, targetUin)
+  }
+
+  async groupClockIn(groupCode: number) {
+    return await this.ctx.qqProtocol.groupClockIn(groupCode.toString())
   }
 }

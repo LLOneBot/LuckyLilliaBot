@@ -24,7 +24,7 @@ export class CreateGroupFileFolder extends BaseAction<Payload, Response> {
       throw new Error(result.clientWording)
     }
     return {
-      folder_id: result.folderId
+      folder_id: result.folderInfo.folderId
     }
   }
 }

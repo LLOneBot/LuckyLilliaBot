@@ -34,35 +34,4 @@ export class GetGroupFileUrl extends BaseAction<Payload, Response> {
       return { url: result.url }
     }
   }
-
-  private async search(groupId: number, fileId: string, folderId?: string) {
-    let fileName: string | undefined
-    let nextIndex: number | undefined
-    const folders = []
-    while (nextIndex !== 0) {
-      const res = await this.ctx.ntGroupApi.getGroupFileList(
-        groupId,
-        folderId ?? '/',
-        nextIndex ?? 0,
-        100
-      )
-      const file = res.listResp.items.find(item => item.fileInfo?.fileId === fileId)
-      if (file) {
-        fileName = file.fileInfo?.fileName
-        break
-      }
-      folders.push(...res.listResp.items.filter(item => item.folderInfo?.totalFileCount))
-      nextIndex = res.listResp.nextIndex
-    }
-    if (!fileName) {
-      for (const item of folders) {
-        const res = await this.search(groupId, fileId, item.folderInfo?.folderId)
-        if (res) {
-          fileName = res
-          break
-        }
-      }
-    }
-    return fileName
-  }
 }

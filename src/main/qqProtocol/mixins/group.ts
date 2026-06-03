@@ -33,12 +33,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
           groupCode,
         },
       })
-      const data = Oidb.Base.encode({
-        command: 0xeb7,
-        subCommand: 1,
-        body,
-      })
-      await this.sendPB('OidbSvcTrpcTcp.0xeb7_1', data)
+      return await this.sendOidb(0xeb7, 1, body)
     }
 
     async getGroupFileUrl(groupCode: number, fileId: string) {
@@ -123,7 +118,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const data = Oidb.Base.encode({ command: 0x6d8, subCommand: 2, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x6d8_2', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-      return Oidb.GetGroupFileListResp.decode(oidbRespBody)
+      return Oidb.GetGroupFileCountResp.decode(oidbRespBody)
     }
 
     /** 群文件总空间 / 已用空间（OidbSvcTrpcTcp.0x6d8_3） */
@@ -134,7 +129,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const data = Oidb.Base.encode({ command: 0x6d8, subCommand: 3, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x6d8_3', data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
-      return Oidb.GetGroupFileListResp.decode(oidbRespBody)
+      return Oidb.GetGroupFileSpaceResp.decode(oidbRespBody)
     }
 
     /** 群文件 feed（0x6d9_4）—— upload 完成后调用，server 才会把文件作为聊天消息发到群里 */
@@ -160,7 +155,10 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
     /** 删除群文件，busId 一般为 102（v1 默认），fileId 是 list 接口返回的 fileId */
     async deleteGroupFile(groupCode: number, fileId: string, busId: number = 102) {
       const body = Oidb.GroupFileDeleteReq.encode({ delete: { groupCode, busId, fileId } })
-      return await this.sendOidb(0x6d6, 3, body)
+      const data = Oidb.Base.encode({ command: 0x6d6, subCommand: 3, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_3', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      return Oidb.GroupFileDeleteResp.decode(decoded.body)
     }
 
     /** 移动群文件到另一目录 */
@@ -168,7 +166,10 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const body = Oidb.GroupFileMoveReq.encode({
         move: { groupCode, appId: 7, busId: 102, fileId, parentDirectory, targetDirectory },
       })
-      return await this.sendOidb(0x6d6, 5, body)
+      const data = Oidb.Base.encode({ command: 0x6d6, subCommand: 5, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_5', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      return Oidb.GroupFileMoveResp.decode(decoded.body)
     }
 
     /** 设置本地群备注（只自己看见，对群成员不可见） */
@@ -183,22 +184,16 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 0, body })
       const res = await this.sendPB('OidbSvcTrpcTcp.0x6d7_0', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
-      const inner = Oidb.GroupFolderCreateResp.decode(decoded.body)
-      const create = inner.create
-      return {
-        retCode: create?.retCode ?? 0,
-        retMsg: create?.retMsg ?? '',
-        clientWording: create?.clientWording ?? '',
-        folderId: create?.folderInfo?.folderId ?? '',
-        folderName: create?.folderInfo?.folderName || folderName,
-        folderPath: create?.folderInfo?.folderPath ?? '',
-      }
+      return Oidb.GroupFolderCreateResp.decode(decoded.body)
     }
 
     /** 删除群文件夹（一定要空文件夹否则 server 拒绝） */
     async deleteGroupFolder(groupCode: number, folderId: string) {
       const body = Oidb.GroupFolderDeleteReq.encode({ delete: { groupCode, folderId } })
-      return await this.sendOidb(0x6d7, 1, body)
+      const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 1, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d7_1', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      return Oidb.GroupFolderDeleteResp.decode(decoded.body)
     }
 
     /** 重命名群文件夹 */

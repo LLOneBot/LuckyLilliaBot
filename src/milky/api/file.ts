@@ -118,19 +118,15 @@ const GetGroupFiles = defineApi(
     let nextIndex: number | undefined
     while (nextIndex !== 0) {
       const data = await ctx.ntGroupApi.getGroupFileList(payload.group_id, payload.parent_folder_id, nextIndex ?? 0, 100)
-      if (data.listResp.retCode !== 0) {
-        if (data.listResp.retCode === -3) {
-          throw new Error('你没有加入该群聊')
-        } else {
-          throw new Error(data.listResp.clientWording)
-        }
+      if (data.retCode !== 0) {
+        return Failed(-500, data.clientWording)
       }
 
-      const { files, folders } = transformGroupFileList(data.listResp.items, payload.group_id)
+      const { files, folders } = transformGroupFileList(data.items, payload.group_id)
       allFiles.push(...files)
       allFolders.push(...folders)
 
-      nextIndex = data.listResp.nextIndex
+      nextIndex = data.nextIndex
     }
 
     return Ok({ files: allFiles, folders: allFolders })
@@ -148,8 +144,8 @@ const MoveGroupFile = defineApi(
       payload.parent_folder_id,
       payload.target_folder_id
     )
-    if (result.errorCode !== 0) {
-      return Failed(-500, result.errorMsg)
+    if (result.retCode !== 0) {
+      return Failed(-500, result.clientWording)
     }
     return Ok({})
   }
@@ -182,8 +178,8 @@ const DeleteGroupFile = defineApi(
       payload.group_id,
       payload.file_id
     )
-    if (result.errorCode !== 0) {
-      return Failed(-500, result.errorMsg)
+    if (result.retCode !== 0) {
+      return Failed(-500, result.clientWording)
     }
     return Ok({})
   }
@@ -201,7 +197,7 @@ const CreateGroupFolder = defineApi(
     if (result.retCode !== 0) {
       return Failed(-500, result.clientWording)
     }
-    return Ok({ folder_id: result.folderId })
+    return Ok({ folder_id: result.folderInfo.folderId })
   }
 )
 
@@ -231,8 +227,8 @@ const DeleteGroupFolder = defineApi(
       payload.group_id,
       payload.folder_id
     )
-    if (result.errorCode !== 0) {
-      return Failed(-500, result.errorMsg)
+    if (result.retCode !== 0) {
+      return Failed(-500, result.clientWording)
     }
     return Ok({})
   }

@@ -27,8 +27,8 @@ export class GetGroupFileSystemInfo extends BaseAction<Payload, Response> {
     return {
       file_count: count.fileCount,
       limit_count: count.limitCount,
-      used_space: Number(space.usedSpace),
-      total_space: Number(space.totalSpace),
+      used_space: space.usedSpace,
+      total_space: space.totalSpace,
     }
   }
 }

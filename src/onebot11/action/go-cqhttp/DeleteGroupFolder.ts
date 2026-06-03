@@ -15,8 +15,8 @@ export class DeleteGroupFolder extends BaseAction<Payload, null> {
 
   async _handle(payload: Payload) {
     const result = await this.ctx.ntGroupApi.deleteGroupFolder(+payload.group_id, payload.folder_id)
-    if (result.errorCode !== 0) {
-      throw new Error(result.errorMsg)
+    if (result.retCode !== 0) {
+      throw new Error(result.clientWording)
     }
     return null
   }

@@ -333,7 +333,10 @@ export class NTQQMsgApi extends Service {
   async sendGroupFileMessage(groupCode: number, fileId: string) {
     const random = Math.floor(Math.random() * 0xffffffff)
     const res = await this.ctx.qqProtocol.feedGroupFile(groupCode, fileId, random)
-    return res.feedsInfoRsp
+    return {
+      ...res.feedsInfoRsp,
+      retCode: Number(res.feedsInfoRsp.retCode)
+    }
   }
 
   async getLatestMsgSeq(peer: Peer) {

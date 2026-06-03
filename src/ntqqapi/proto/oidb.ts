@@ -257,8 +257,9 @@ export namespace Oidb {
 
   export const GroupFileFeedResp = ProtoMessage.of({
     feedsInfoRsp: ProtoField(5, {
-      retCode: ProtoField(1, 'int32'),
+      retCode: ProtoField(1, 'int64'),
       retMsg: ProtoField(2, 'string'),
+      clientWording: ProtoField(3, 'string')
     }),
   })
 
@@ -366,7 +367,7 @@ export namespace Oidb {
     }, 'repeated')
   })
 
-  /** OidbSvcTrpcTcp.0x6d8_1 - 列表 */
+  /** OidbSvcTrpcTcp.0x6d8_1 */
   export const GetGroupFileListReq = ProtoMessage.of({
     listReq: ProtoField(2, {
       groupCode: ProtoField(1, 'uint32'),
@@ -377,23 +378,6 @@ export namespace Oidb {
       startIndex: ProtoField(13, 'uint32'),
       field17: ProtoField(17, 'uint32'),
       field18: ProtoField(18, 'uint32')
-    })
-  })
-
-  /** OidbSvcTrpcTcp.0x6d8_1 - 文件数 */
-  export const GetGroupFileCountReq = ProtoMessage.of({
-    countReq: ProtoField(3, {
-      groupCode: ProtoField(1, 'uint32'),
-      appId: ProtoField(2, 'uint32'),
-      busId: ProtoField(3, 'uint32'),
-    })
-  })
-
-  /** OidbSvcTrpcTcp.0x6d8_1 - 空间使用 */
-  export const GetGroupFileSpaceReq = ProtoMessage.of({
-    spaceReq: ProtoField(4, {
-      groupCode: ProtoField(1, 'uint32'),
-      appId: ProtoField(2, 'uint32'),
     })
   })
 
@@ -431,23 +415,46 @@ export namespace Oidb {
 
   export const GetGroupFileListResp = ProtoMessage.of({
     listResp: ProtoField(2, {
-      retCode: ProtoField(1, 'int32'),
+      retCode: ProtoField(1, 'int64'),
       retMsg: ProtoField(2, 'string'),
       clientWording: ProtoField(3, 'string'),
       isEnd: ProtoField(4, 'bool'),
       items: ProtoField(5, GetGroupFileListRespItem, 'repeated'),
       allFileCount: ProtoField(7, 'uint32'),
       nextIndex: ProtoField(13, 'uint32')
-    }),
+    })
+  })
+
+  /** OidbSvcTrpcTcp.0x6d8_2 */
+  export const GetGroupFileCountReq = ProtoMessage.of({
+    countReq: ProtoField(3, {
+      groupCode: ProtoField(1, 'uint32'),
+      appId: ProtoField(2, 'uint32'),
+      busId: ProtoField(3, 'uint32'),
+    })
+  })
+
+  export const GetGroupFileCountResp = ProtoMessage.of({
     countResp: ProtoField(3, {
       fileCount: ProtoField(4, 'uint32'),
       limitCount: ProtoField(6, 'uint32'),
       isFull: ProtoField(7, 'bool'),
-    }, 'optional'),
+    }),
+  })
+
+  /** OidbSvcTrpcTcp.0x6d8_3 */
+  export const GetGroupFileSpaceReq = ProtoMessage.of({
+    spaceReq: ProtoField(4, {
+      groupCode: ProtoField(1, 'uint32'),
+      appId: ProtoField(2, 'uint32'),
+    })
+  })
+
+  export const GetGroupFileSpaceResp = ProtoMessage.of({
     spaceResp: ProtoField(4, {
       totalSpace: ProtoField(4, 'uint64'),
       usedSpace: ProtoField(5, 'uint64'),
-    }, 'optional'),
+    }),
   })
 
   /** OidbSvcTrpcTcp.0xe07_0 */
@@ -858,6 +865,14 @@ export namespace Oidb {
     }),
   })
 
+  export const GroupFileDeleteResp = ProtoMessage.of({
+    delete: ProtoField(4, {
+      retCode: ProtoField(1, 'int64'),
+      retMsg: ProtoField(2, 'string'),
+      clientWording: ProtoField(3, 'string'),
+    }),
+  })
+
   /** OidbSvcTrpcTcp.0x6d6_5 - 移动群文件到另一文件夹 */
   export const GroupFileMoveReq = ProtoMessage.of({
     move: ProtoField(6, {
@@ -867,6 +882,14 @@ export namespace Oidb {
       fileId: ProtoField(4, 'string'),
       parentDirectory: ProtoField(5, 'string'),
       targetDirectory: ProtoField(6, 'string'),
+    }),
+  })
+
+  export const GroupFileMoveResp = ProtoMessage.of({
+    move: ProtoField(6, {
+      retCode: ProtoField(1, 'int64'),
+      retMsg: ProtoField(2, 'string'),
+      clientWording: ProtoField(3, 'string'),
     }),
   })
 
@@ -889,15 +912,15 @@ export namespace Oidb {
 
   export const GroupFolderCreateResp = ProtoMessage.of({
     create: ProtoField(1, {
-      retCode: ProtoField(1, 'int32', 'optional'),
-      retMsg: ProtoField(2, 'string', 'optional'),
-      clientWording: ProtoField(3, 'string', 'optional'),
+      retCode: ProtoField(1, 'int64'),
+      retMsg: ProtoField(2, 'string'),
+      clientWording: ProtoField(3, 'string'),
       folderInfo: ProtoField(4, {
-        folderId: ProtoField(1, 'string', 'optional'),
-        folderPath: ProtoField(2, 'string', 'optional'),
-        folderName: ProtoField(3, 'string', 'optional'),
-      }, 'optional'),
-    }, 'optional'),
+        folderId: ProtoField(1, 'string'),
+        folderPath: ProtoField(2, 'string'),
+        folderName: ProtoField(3, 'string'),
+      }),
+    }),
   })
 
   /** OidbSvcTrpcTcp.0x6d7_1 - 删群文件夹 */
@@ -905,6 +928,14 @@ export namespace Oidb {
     delete: ProtoField(2, {
       groupCode: ProtoField(1, 'uint32'),
       folderId: ProtoField(3, 'string'),
+    }),
+  })
+
+  export const GroupFolderDeleteResp = ProtoMessage.of({
+    delete: ProtoField(2, {
+      retCode: ProtoField(1, 'int64'),
+      retMsg: ProtoField(2, 'string'),
+      clientWording: ProtoField(3, 'string'),
     }),
   })
 

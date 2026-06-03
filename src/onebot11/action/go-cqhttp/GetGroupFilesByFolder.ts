@@ -26,15 +26,11 @@ export class GetGroupFilesByFolder extends BaseAction<Payload, Response> {
     let nextIndex: number | undefined
     while (nextIndex !== 0) {
       const res = await this.ctx.ntGroupApi.getGroupFileList(groupId, payload.folder_id, nextIndex ?? 0, 100)
-      if (res.listResp.retCode !== 0) {
-        if (res.listResp.retCode === -3) {
-          throw new Error('你没有加入该群聊')
-        } else {
-          throw new Error(res.listResp.clientWording)
-        }
+      if (res.retCode !== 0) {
+        throw new Error(res.clientWording)
       }
-      data.push(...res.listResp.items)
-      nextIndex = res.listResp.nextIndex
+      data.push(...res.items)
+      nextIndex = res.nextIndex
     }
 
     return {
