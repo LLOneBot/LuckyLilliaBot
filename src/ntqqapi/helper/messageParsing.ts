@@ -273,33 +273,36 @@ export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): Messag
       const bizType = elem.commonElem.businessType
       const pbElem = elem.commonElem.pbElem
 
-      if (svcType === 48 && pbElem) {
+      // commonElem(serviceType=37) = LargeFaceExtra（dice / rps / 超级表情）
+      if (svcType === 37) {
+        const ext = Msg.LargeFaceExtra.decode(pbElem)
+        const faceIndex = Number(ext.faceId ?? 0)
+        const face = faceConfig.sysface.find(f => f.QSid === String(faceIndex))
+        result.push({
+          elementType: ElementType.Face,
+          faceElement: {
+            faceIndex,
+            faceType: 3,
+            faceText: face?.QDes ?? '',
+            packId: ext.aniStickerPackId,
+            stickerId: ext.aniStickerId,
+            stickerType: ext.aniStickerType,
+            resultId: ext.resultId !== undefined ? String(ext.resultId) : undefined,
+          },
+        })
+      } else if (svcType === 45) {
+        const ext = Msg.MarkdownExtra.decode(pbElem)
+        result.push({
+          elementType: ElementType.Markdown,
+          markdownElement: {
+            content: ext.content,
+          },
+        })
+      } else if (svcType === 48) {
         const parsed = parseMsgInfoElement(pbElem, bizType)
         if (parsed) {
           result.push(parsed)
-          continue
         }
-      }
-      // commonElem(serviceType=37) = LargeFaceExtra（dice / rps / 超级表情）
-      if (svcType === 37 && pbElem) {
-        try {
-          const ext = Msg.LargeFaceExtra.decode(pbElem)
-          const faceIndex = Number(ext.faceId ?? 0)
-          const face = faceConfig.sysface.find(f => f.QSid === String(faceIndex))
-          result.push({
-            elementType: ElementType.Face,
-            faceElement: {
-              faceIndex,
-              faceType: 3,
-              faceText: face?.QDes ?? '',
-              packId: ext.aniStickerPackId,
-              stickerId: ext.aniStickerId,
-              stickerType: ext.aniStickerType,
-              resultId: ext.resultId !== undefined ? String(ext.resultId) : undefined,
-            },
-          })
-          continue
-        } catch { }
       }
     }
   }
@@ -312,75 +315,73 @@ export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): Messag
  * bizType: 10/20=image, 11/21=video, 12/22=voice
  */
 function parseMsgInfoElement(pbElem: Buffer, bizType: number): MessageElement | null {
-  try {
-    const msgInfo = Media.MsgInfo.decode(pbElem)
-    const body = msgInfo.msgInfoBody[0]
-    if (!body) return null
+  const msgInfo = Media.MsgInfo.decode(pbElem)
+  const body = msgInfo.msgInfoBody[0]
+  if (!body) return null
 
-    const fileInfo = body.index.info
-    const fileUuid = body.index.fileUuid
-    const fileSize = fileInfo.fileSize
-    const fileName = fileInfo.fileName
-    const md5 = fileInfo.md5HexStr
+  const fileInfo = body.index.info
+  const fileUuid = body.index.fileUuid
+  const fileSize = fileInfo.fileSize
+  const fileName = fileInfo.fileName
+  const md5 = fileInfo.md5HexStr
 
-    if (bizType === 10 || bizType === 20) {
-      // Image
-      const picInfo = body.pic
-      let originImageUrl = ''
-      if (picInfo?.urlPath) {
-        originImageUrl = picInfo.urlPath
-        if (picInfo.ext?.originalParam) {
-          originImageUrl += picInfo.ext.originalParam
-        }
-      }
-      return {
-        elementType: ElementType.Pic,
-        picElement: {
-          fileName,
-          fileSize,
-          picWidth: fileInfo.width,
-          picHeight: fileInfo.height,
-          md5HexStr: md5,
-          sourcePath: '',
-          picType: fileInfo.fileType.picFormat,
-          picSubType: msgInfo.extBizInfo.pic.bizType,
-          fileUuid,
-          originImageUrl,
-          summary: msgInfo.extBizInfo.pic.summary
-        },
-      }
-    } else if (bizType === 12 || bizType === 22) {
-      // Voice
-      return {
-        elementType: ElementType.Ptt,
-        pttElement: {
-          fileName,
-          filePath: '',
-          md5HexStr: md5,
-          fileSize,
-          duration: fileInfo.time,
-          formatType: fileInfo.fileType.pttFormat,
-          fileUuid,
-        },
-      }
-    } else if (bizType === 11 || bizType === 21) {
-      // Video
-      return {
-        elementType: ElementType.Video,
-        videoElement: {
-          filePath: '',
-          fileName,
-          videoMd5: md5,
-          fileTime: fileInfo?.time || 0,
-          fileFormat: fileInfo?.fileType?.videoFormat || 0,
-          fileSize,
-          thumbWidth: 0,
-          thumbHeight: 0,
-          thumbPath: '',
-          fileUuid,
-        },
+  if (bizType === 10 || bizType === 20) {
+    // Image
+    const picInfo = body.pic
+    let originImageUrl = ''
+    if (picInfo?.urlPath) {
+      originImageUrl = picInfo.urlPath
+      if (picInfo.ext?.originalParam) {
+        originImageUrl += picInfo.ext.originalParam
       }
     }
-  } catch { }
+    return {
+      elementType: ElementType.Pic,
+      picElement: {
+        fileName,
+        fileSize,
+        picWidth: fileInfo.width,
+        picHeight: fileInfo.height,
+        md5HexStr: md5,
+        sourcePath: '',
+        picType: fileInfo.fileType.picFormat,
+        picSubType: msgInfo.extBizInfo.pic.bizType,
+        fileUuid,
+        originImageUrl,
+        summary: msgInfo.extBizInfo.pic.summary
+      },
+    }
+  } else if (bizType === 12 || bizType === 22) {
+    // Voice
+    return {
+      elementType: ElementType.Ptt,
+      pttElement: {
+        fileName,
+        filePath: '',
+        md5HexStr: md5,
+        fileSize,
+        duration: fileInfo.time,
+        formatType: fileInfo.fileType.pttFormat,
+        fileUuid,
+      },
+    }
+  } else if (bizType === 11 || bizType === 21) {
+    // Video
+    return {
+      elementType: ElementType.Video,
+      videoElement: {
+        filePath: '',
+        fileName,
+        videoMd5: md5,
+        fileTime: fileInfo?.time || 0,
+        fileFormat: fileInfo?.fileType?.videoFormat || 0,
+        fileSize,
+        thumbWidth: 0,
+        thumbHeight: 0,
+        thumbPath: '',
+        fileUuid,
+      },
+    }
+  }
   return null
 }

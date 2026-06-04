@@ -18,6 +18,7 @@ import {
   UploadPrivateFileOutput,
   GetPrivateFileDownloadUrlInput,
   GetPrivateFileDownloadUrlOutput,
+  PersistGroupFileInput,
 } from '../generated/schema'
 import z from 'zod'
 import { defineApi, Failed, MilkyApiHandler, Ok } from '@/milky/common/api'
@@ -185,6 +186,22 @@ const DeleteGroupFile = defineApi(
   }
 )
 
+const PersistGroupFile = defineApi(
+  'persist_group_file',
+  PersistGroupFileInput,
+  z.object({}),
+  async (ctx, payload) => {
+    const result = await ctx.ntGroupApi.persistGroupFile(
+      payload.group_id,
+      payload.file_id
+    )
+    if (result.retCode !== 0) {
+      return Failed(-500, result.clientWording)
+    }
+    return Ok({})
+  }
+)
+
 const CreateGroupFolder = defineApi(
   'create_group_folder',
   CreateGroupFolderInput,
@@ -243,6 +260,7 @@ export const FileApi: MilkyApiHandler[] = [
   MoveGroupFile,
   RenameGroupFile,
   DeleteGroupFile,
+  PersistGroupFile,
   CreateGroupFolder,
   RenameGroupFolder,
   DeleteGroupFolder,

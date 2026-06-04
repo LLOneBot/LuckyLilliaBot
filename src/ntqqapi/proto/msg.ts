@@ -563,4 +563,8 @@ export namespace Msg {
   export const InfoSyncPush = ProtoMessage.of({
     groupNodes: ProtoField(6, InfoSyncPushGroupNode, 'repeated'),
   })
+
+  export const MarkdownExtra = ProtoMessage.of({
+    content: ProtoField(1, 'string')
+  })
 }

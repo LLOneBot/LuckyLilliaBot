@@ -28,6 +28,7 @@ import {
   GetCustomFaceUrlListOutput,
   GetPeerPinsOutput,
   SetPeerPinInput,
+  milkyVersion,
 } from '../generated/schema'
 import z from 'zod'
 import { selfInfo, TEMP_DIR } from '@/common/globalVars'
@@ -69,7 +70,7 @@ const GetImplInfo = defineApi(
       impl_version: version,
       qq_protocol_version: deviceInfo.buildVer,
       qq_protocol_type: transformProtocolOsType(deviceInfo.devType),
-      milky_version: '1.2',
+      milky_version: milkyVersion,
     })
   },
 )

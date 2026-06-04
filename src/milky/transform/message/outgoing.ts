@@ -80,6 +80,7 @@ export async function transformOutgoingMessage(
           senderUin: number
           senderName: string
           elements: SendMessageElement[]
+          msgTime?: number
         }[] = []
         for (const item of data.messages) {
           const res = await transformOutgoingMessage(ctx, item.segments as OutgoingSegment[], peerUid, isGroup)
@@ -87,7 +88,8 @@ export async function transformOutgoingMessage(
           nodes.push({
             senderUin: item.user_id,
             senderName: item.sender_name,
-            elements: res.elements
+            elements: res.elements,
+            msgTime: item.time ?? undefined
           })
         }
         elements.push(SendElement.forward(nodes, data.title, data.preview, data.summary, data.prompt))

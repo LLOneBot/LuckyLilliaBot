@@ -35,6 +35,7 @@ import {
   transformGroupEssenceMessageChangeEvent,
   transformGroupMessageReactionEvent,
   transformBotOfflineEvent,
+  transformGroupDisbandEvent,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
 import { noop } from 'cosmokit'
@@ -218,6 +219,13 @@ export class MilkyAdapter extends Service {
       const eventData = await transformGroupInvitationEvent(this.ctx, data)
       if (eventData) {
         this.emitEvent('group_invitation', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-disband', async (data) => {
+      const eventData = await transformGroupDisbandEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_disband', eventData)
       }
     })
 

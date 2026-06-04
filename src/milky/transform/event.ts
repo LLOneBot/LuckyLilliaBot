@@ -1,5 +1,5 @@
 import { MilkyEventTypes } from '@/milky/common/event'
-import { RawMessage, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeletedEvent, GroupMemberAddedEvent, GroupMemberRemovedEvent, FriendRequestEvent, FriendNudgeEvent, GroupNudgeEvent, GroupNameChangedEvent, GroupMuteEvent, GroupWholeMuteEvent, GroupAdminChangedEvent, PinChangedEvent, ChatType, GroupMessageReactionEvent, GroupEssenceMessageChangedEvent, KickedOfflineEvent } from '@/ntqqapi/types'
+import { RawMessage, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeletedEvent, GroupMemberAddedEvent, GroupMemberRemovedEvent, FriendRequestEvent, FriendNudgeEvent, GroupNudgeEvent, GroupNameChangedEvent, GroupMuteEvent, GroupWholeMuteEvent, GroupAdminChangedEvent, PinChangedEvent, ChatType, GroupMessageReactionEvent, GroupEssenceMessageChangedEvent, KickedOfflineEvent, GroupDisbandEvent } from '@/ntqqapi/types'
 import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingTempMessage } from './message/incoming'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
@@ -396,6 +396,21 @@ export async function transformBotOfflineEvent(
     }
   } catch (error) {
     ctx.logger.error('Failed to transform bot offline event:', error)
+    return null
+  }
+}
+
+export async function transformGroupDisbandEvent(
+  ctx: Context,
+  data: GroupDisbandEvent
+): Promise<MilkyEventTypes['group_disband'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      operator_id: data.operatorUin
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group disband event:', error)
     return null
   }
 }

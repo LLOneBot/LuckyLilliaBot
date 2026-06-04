@@ -3,9 +3,6 @@ import { transformFriend, transformGroup, transformGroupMember } from '@/milky/t
 import { RawMessage, ElementType, AtType, ChatType, Group } from '@/ntqqapi/types'
 import { Friend, GroupMember } from '@/ntqqapi/types'
 import { Context } from 'cordis'
-import { InferProtoModel } from '@saltify/typeproto'
-import { Media, Msg } from '@/ntqqapi/proto'
-import { inflateSync } from 'node:zlib'
 import { XMLParser } from 'fast-xml-parser'
 
 export async function transformIncomingPrivateMessage(
@@ -223,6 +220,15 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         }
         break
       }
+
+      case ElementType.Markdown:
+        segments.push({
+          type: 'markdown',
+          data: {
+            content: element.markdownElement!.content
+          }
+        })
+        break
     }
   }
 

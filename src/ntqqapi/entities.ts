@@ -245,6 +245,7 @@ export namespace SendElement {
       senderUin: number
       senderName: string
       elements: SendMessageElement[]
+      msgTime?: number
     }[],
     title?: string | null,
     preview?: string[] | null,

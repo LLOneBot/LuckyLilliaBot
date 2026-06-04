@@ -243,6 +243,7 @@ export interface MultiForwardMsgElement {
     senderUin: number
     senderName: string
     elements: SendMessageElement[]
+    msgTime?: number
   }[]
   title: string | null
   preview: string[] | null
