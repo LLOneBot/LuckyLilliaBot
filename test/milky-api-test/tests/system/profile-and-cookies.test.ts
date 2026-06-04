@@ -66,7 +66,8 @@ describe('Milky 用户资料 / 列表 / 自身设置', () => {
     Assertions.assertSuccess(unpin, 'set_peer_pin (unpin)')
   }, 15000)
 
-  it('set_nickname 改成原名 (no-op) 应成功', async () => {
+  // set_nickname 即便是改成原名 (no-op) server 也常返 UpdateUdcFail (账号风控/限流), 不进全量回归
+  it.skip('set_nickname 改成原名 (no-op) 应成功', async () => {
     const primary = ctx.twoAccountTest.getClient('primary')
     const info = await primary.call<{ nickname: string }>('get_login_info', {})
     Assertions.assertSuccess(info, 'get_login_info')

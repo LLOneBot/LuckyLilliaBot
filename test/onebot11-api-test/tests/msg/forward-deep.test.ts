@@ -209,7 +209,7 @@ describe('OB11 合并转发深度测试', () => {
 
   it('嵌套合并转发：forward 里嵌套 forward 节点', async () => {
     const ts = Date.now();
-    const { forwardId } = await sendForwardAndGetId([
+    const result = await sendForwardAndGetId([
       {
         type: 'node',
         data: {
@@ -248,7 +248,8 @@ describe('OB11 合并转发深度测试', () => {
       console.log('skip nested forward inline (OB11 inline forward not supported):', (e as Error).message);
       return null;
     });
-    if (!forwardId) return;
+    if (!result) return;
+    const { forwardId } = result;
     const messages = await pullForward(forwardId);
     expect(messages.length).toBe(2);
     expect(messages[0].content.some((s: any) =>

@@ -20,8 +20,9 @@ describe('set_qq_profile - 设置 QQ 资料', () => {
     teardownMessageTest(context);
   });
 
-  it('测试设置 QQ 资料 (跳过以避免误操作)', async () => {
-    // 此测试会实际修改 QQ 资料，默认跳过
+  // 这条接口会真把账号昵称/签名改了，且 server 端经常返 UpdateUdcFail 风控；
+  // 不进全量回归，本地手动测时把 .skip 去掉
+  it.skip('测试设置 QQ 资料 (会修改账号资料)', async () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
 
     const response = await primaryClient.call(ActionName.GoCQHTTP_SetQQProfile, {

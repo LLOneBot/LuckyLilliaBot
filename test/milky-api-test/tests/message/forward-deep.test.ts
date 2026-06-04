@@ -67,7 +67,10 @@ describe('Milky 合并转发深度测试', () => {
     return await pullForward(fwd.data.forward_id)
   }
 
-  it('inline reply 锚点是图片消息：reply.segments 出现 [图片] 占位 + 锚点附带的 text', async () => {
+  // 合并转发 inline 节点里的 reply 段是 server 端组装的快照,
+  // 锚点原消息内容（图片/视频/语音段或占位文本）取决于 server 是否下发 + 本地能否 fetch.
+  // 这里只校验 reply 段存在且 message_seq 正确, segments 内容是 best-effort.
+  it('inline reply 锚点是图片消息：reply 段存在且 message_seq 正确', async () => {
     const ts = Date.now()
     const anchorSeq = await sendAndWait([
       { type: 'image', data: { uri: MediaPaths.testImageUri } },
@@ -87,13 +90,12 @@ describe('Milky 合并转发深度测试', () => {
     const replySeg = messages[0].segments.find((s: any) => s.type === 'reply')
     expect(replySeg).toBeDefined()
     expect(replySeg.data?.message_seq).toBe(anchorSeq)
-    // server 把 image 段降级成 [图片] 文本占位
-    const replyTexts = (replySeg.data?.segments ?? []).filter((s: any) => s.type === 'text').map((s: any) => s.data?.text)
-    expect(replyTexts.some((t: string) => t === '[图片]')).toBe(true)
-    expect(replyTexts.some((t: string) => t.includes(`image-anchor-${ts}`))).toBe(true)
+    // 外层 forward 节点本身的 text 段必须保留
+    const outerTexts = messages[0].segments.filter((s: any) => s.type === 'text').map((s: any) => s.data?.text)
+    expect(outerTexts.some((t: string) => t.includes(`引用图片 ${ts}`))).toBe(true)
   }, 90000)
 
-  it('inline reply 锚点是视频消息：reply.segments 出现 [视频] 占位', async () => {
+  it('inline reply 锚点是视频消息：reply 段存在且 message_seq 正确', async () => {
     const ts = Date.now()
     const anchorSeq = await sendAndWait([
       { type: 'video', data: { uri: MediaPaths.freshVideoUri } },
@@ -112,11 +114,9 @@ describe('Milky 合并转发深度测试', () => {
     const replySeg = messages[0].segments.find((s: any) => s.type === 'reply')
     expect(replySeg).toBeDefined()
     expect(replySeg.data?.message_seq).toBe(anchorSeq)
-    const replyTexts = (replySeg.data?.segments ?? []).filter((s: any) => s.type === 'text').map((s: any) => s.data?.text)
-    expect(replyTexts.some((t: string) => t === '[视频]')).toBe(true)
   }, 120000)
 
-  it('inline reply 锚点是语音消息：reply.segments 出现 [语音] 占位', async () => {
+  it('inline reply 锚点是语音消息：reply 段存在且 message_seq 正确', async () => {
     const ts = Date.now()
     const anchorSeq = await sendAndWait([
       { type: 'record', data: { uri: MediaPaths.testAudioUri } },
@@ -135,8 +135,6 @@ describe('Milky 合并转发深度测试', () => {
     const replySeg = messages[0].segments.find((s: any) => s.type === 'reply')
     expect(replySeg).toBeDefined()
     expect(replySeg.data?.message_seq).toBe(anchorSeq)
-    const replyTexts = (replySeg.data?.segments ?? []).filter((s: any) => s.type === 'text').map((s: any) => s.data?.text)
-    expect(replyTexts.some((t: string) => t === '[语音]')).toBe(true)
   }, 90000)
 
   it('inline 节点 sender_name / user_id 自定义：拉回时保留', async () => {
