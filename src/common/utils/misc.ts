@@ -1,14 +1,8 @@
-import { QQLevel } from '@/ntqqapi/types'
 import { Dict, isNonNullable } from 'cosmokit'
 import { defineProperty } from 'cosmokit'
 
 export function isNumeric(str: string) {
   return /^\d+$/.test(str)
-}
-
-export function calcQQLevel(level: QQLevel) {
-  const { penguinNum, crownNum, sunNum, moonNum, starNum } = level
-  return (penguinNum ?? 0) * 256 + crownNum * 64 + sunNum * 16 + moonNum * 4 + starNum
 }
 
 /** 在保证老对象已有的属性不变化的情况下将新对象的属性复制到老对象 */

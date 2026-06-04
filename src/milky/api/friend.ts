@@ -10,7 +10,7 @@ import {
 } from '@saltify/milky-types'
 import z from 'zod'
 import { selfInfo } from '@/common/globalVars'
-import { BuddyReqType } from '@/ntqqapi/types'
+import { FriendReqType } from '@/ntqqapi/types'
 
 const SendFriendNudge = defineApi(
   'send_friend_nudge',
@@ -92,14 +92,14 @@ const GetFriendRequests = defineApi(
             target_user_id: e.isInitiator ? friendId : selfId,
             target_user_uid: e.isInitiator ? e.friendUid : selfInfo.uid,
             state: ({
-              [BuddyReqType.PeerInitiator]: 'pending',
-              [BuddyReqType.MeInitiatorWaitPeerConfirm]: 'pending',
-              [BuddyReqType.MeAgreed]: 'accepted',
-              [BuddyReqType.MeAgreedAndAdded]: 'accepted',
-              [BuddyReqType.PeerAgreed]: 'accepted',
-              [BuddyReqType.PeerAgreedAndAdded]: 'accepted',
-              [BuddyReqType.PeerRefused]: 'rejected',
-              [BuddyReqType.MeRefused]: 'rejected'
+              [FriendReqType.PeerInitiator]: 'pending',
+              [FriendReqType.MeInitiatorWaitPeerConfirm]: 'pending',
+              [FriendReqType.MeAgreed]: 'accepted',
+              [FriendReqType.MeAgreedAndAdded]: 'accepted',
+              [FriendReqType.PeerAgreed]: 'accepted',
+              [FriendReqType.PeerAgreedAndAdded]: 'accepted',
+              [FriendReqType.PeerRefused]: 'rejected',
+              [FriendReqType.MeRefused]: 'rejected'
             } as const)[e.state] ?? 'pending',
             comment: e.comment,
             via: e.source,

@@ -1,5 +1,5 @@
 import { Context } from 'cordis'
-import { BuddyReqType } from '@/ntqqapi/types'
+import { FriendReqType } from '@/ntqqapi/types'
 import { Hono } from 'hono'
 import { decodeGroupRequestFlag, encodeGroupRequestFlag } from '../../utils'
 
@@ -50,7 +50,7 @@ export function createNotificationRoutes(ctx: Context): Hono {
           friendNick: nick,
           reqTime: reqItem.timestamp.toString(),
           extWords: reqItem.comment,
-          isDecide: ![BuddyReqType.PeerInitiator, BuddyReqType.MeInitiatorWaitPeerConfirm].includes(reqItem.state),
+          isDecide: ![FriendReqType.PeerInitiator, FriendReqType.MeInitiatorWaitPeerConfirm].includes(reqItem.state),
           reqType: reqItem.state,
           addSource: reqItem.source,
           flag: reqItem.friendUid

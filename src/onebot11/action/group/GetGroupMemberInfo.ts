@@ -2,8 +2,7 @@ import { BaseAction, Schema } from '../BaseAction'
 import { OB11GroupMember } from '../../types'
 import { OB11Entities } from '../../entities'
 import { ActionName } from '../types'
-import { calcQQLevel, parseBool } from '@/common/utils/misc'
-import { UserDetailInfo } from '@/ntqqapi/types'
+import { parseBool } from '@/common/utils/misc'
 
 interface Payload {
   group_id: number | string

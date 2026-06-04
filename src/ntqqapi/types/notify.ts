@@ -1,4 +1,4 @@
-export enum BuddyReqType {
+export enum FriendReqType {
   MeInitiator,
   PeerInitiator,
   MeAgreed,
@@ -13,39 +13,6 @@ export enum BuddyReqType {
   MeAgreeAndAddFailed,
   MsgInfo,
   MeInitiatorWaitPeerConfirm,
-}
-
-export interface FriendRequest {
-  isDecide: boolean
-  isInitiator: boolean
-  friendUid: string
-  reqType: BuddyReqType
-  reqSubType: number
-  reqTime: string
-  extWords: string
-  flag: number
-  preGroupingId: number
-  commFriendNum: number
-  curFriendMax: number
-  isShowCard: boolean
-  isUnread: boolean
-  isDoubt: boolean
-  nameMore: string
-  friendNick: string
-  friendAvatarUrl: string
-  sourceId: number
-  groupCode: string
-  isBuddy: boolean | null
-  isAgreed: boolean
-  relation: number
-  /** 该字段从 9.9.26-44498 开始存在 */
-  addSource: string
-  sourceFlag: number
-}
-
-export interface FriendRequestNotify {
-  unreadNums: number
-  buddyReqs: FriendRequest[]
 }
 
 export enum GroupNotificationType {
