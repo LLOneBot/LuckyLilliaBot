@@ -25,7 +25,7 @@ import {
   GetGroupEssenceMessagesInput,
   GetGroupEssenceMessagesOutput,
   SetGroupEssenceMessageInput,
-} from '@saltify/milky-types'
+} from '../generated/schema'
 import z from 'zod'
 import { TEMP_DIR } from '@/common/globalVars'
 import { unlink, writeFile } from 'node:fs/promises'

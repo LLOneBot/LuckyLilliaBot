@@ -3,7 +3,7 @@ import { RawMessage, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupI
 import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingTempMessage } from './message/incoming'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
-import { Event } from '@saltify/milky-types'
+import { Event } from '../generated/schema'
 
 /**
  * Transform NTQQ message-created event to Milky message_receive event (private)

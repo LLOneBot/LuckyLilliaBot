@@ -28,7 +28,7 @@ import {
   GetCustomFaceUrlListOutput,
   GetPeerPinsOutput,
   SetPeerPinInput,
-} from '@saltify/milky-types'
+} from '../generated/schema'
 import z from 'zod'
 import { selfInfo, TEMP_DIR } from '@/common/globalVars'
 import { resolveMilkyUri } from '@/milky/common/download'

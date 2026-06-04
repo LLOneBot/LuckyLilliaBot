@@ -1,4 +1,4 @@
-import { GetImplInfoOutput } from '@saltify/milky-types'
+import { GetImplInfoOutput } from '../generated/schema'
 
 export function transformProtocolOsType(type: string): GetImplInfoOutput['qq_protocol_type'] {
   if (type === 'Linux') {

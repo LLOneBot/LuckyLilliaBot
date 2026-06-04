@@ -17,7 +17,7 @@ import {
   MarkMessageAsReadInput,
   GetForwardedMessagesInput,
   GetForwardedMessagesOutput,
-} from '@saltify/milky-types'
+} from '../generated/schema'
 import z from 'zod'
 import { ChatType, IMAGE_HTTP_HOST_NT, RawMessage } from '@/ntqqapi/types'
 import { Media } from '@/ntqqapi/proto'

@@ -18,7 +18,7 @@ import {
   UploadPrivateFileOutput,
   GetPrivateFileDownloadUrlInput,
   GetPrivateFileDownloadUrlOutput,
-} from '@saltify/milky-types'
+} from '../generated/schema'
 import z from 'zod'
 import { defineApi, Failed, MilkyApiHandler, Ok } from '@/milky/common/api'
 import { resolveMilkyUri } from '@/milky/common/download'

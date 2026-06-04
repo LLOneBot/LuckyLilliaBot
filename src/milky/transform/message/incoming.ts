@@ -1,4 +1,4 @@
-import { IncomingMessage, IncomingSegment, IncomingForwardedMessage } from '@saltify/milky-types'
+import { IncomingMessage, IncomingSegment, IncomingForwardedMessage } from '@/milky/generated/schema'
 import { transformFriend, transformGroup, transformGroupMember } from '@/milky/transform/entity'
 import { RawMessage, ElementType, AtType, ChatType, Group } from '@/ntqqapi/types'
 import { Friend, GroupMember } from '@/ntqqapi/types'

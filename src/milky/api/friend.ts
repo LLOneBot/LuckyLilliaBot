@@ -7,7 +7,7 @@ import {
   AcceptFriendRequestInput,
   RejectFriendRequestInput,
   DeleteFriendInput,
-} from '@saltify/milky-types'
+} from '../generated/schema'
 import z from 'zod'
 import { selfInfo } from '@/common/globalVars'
 import { FriendReqType } from '@/ntqqapi/types'

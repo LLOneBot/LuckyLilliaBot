@@ -1,6 +1,6 @@
 import { resolveMilkyUri } from '@/milky/common/download'
 import type { Context } from 'cordis'
-import { OutgoingSegment } from '@saltify/milky-types'
+import { OutgoingSegment } from '@/milky/generated/schema'
 import { AtType, SendMessageElement } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
 import { TEMP_DIR } from '@/common/globalVars'

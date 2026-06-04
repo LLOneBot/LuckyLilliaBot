@@ -1,4 +1,4 @@
-import { FriendEntity, GroupEntity, GroupFileEntity, GroupFolderEntity, GroupMemberEntity } from '@saltify/milky-types'
+import { FriendEntity, GroupEntity, GroupFileEntity, GroupFolderEntity, GroupMemberEntity } from '../generated/schema'
 import { Friend, Group, GroupMemberRole, Sex } from '@/ntqqapi/types'
 import { GroupMember } from '@/ntqqapi/types'
 import { InferProtoModel } from '@saltify/typeproto'

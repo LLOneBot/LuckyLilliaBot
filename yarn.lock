@@ -565,15 +565,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@saltify/milky-types@npm:^1.2.2":
-  version: 1.2.2
-  resolution: "@saltify/milky-types@npm:1.2.2"
-  dependencies:
-    zod: "npm:^4.3.6"
-  checksum: 10c0/771708f99e4690d18f282b5de099199dba89800e5a2f971cf7d40d92b34f026e209a7cd16166e5b4308d6bd5646b96447d8ebf04c30fedc1e1bdcb4ef25c5447
-  languageName: node
-  linkType: hard
-
 "@saltify/typeproto@npm:^0.4.1":
   version: 0.4.1
   resolution: "@saltify/typeproto@npm:0.4.1"
@@ -1509,7 +1500,6 @@ __metadata:
     "@cordisjs/plugin-logger-console": "npm:^1.0.0"
     "@cordisjs/plugin-timer": "npm:^1.1.2"
     "@hono/node-server": "npm:^2.0.4"
-    "@saltify/milky-types": "npm:^1.2.2"
     "@saltify/typeproto": "npm:^0.4.1"
     "@satorijs/element": "npm:^3.2.0"
     "@satorijs/protocol": "npm:^1.7.0"
@@ -1528,6 +1518,7 @@ __metadata:
     hono: "npm:^4.12.23"
     image-size: "npm:^2.0.2"
     json5: "npm:^2.2.3"
+    milkygen: "npm:^0.3.3"
     nodemailer: "npm:^8.0.10"
     qrcode: "npm:^1.5.4"
     schemastery: "npm:^3.18.0"
@@ -1550,6 +1541,15 @@ __metadata:
   dependencies:
     "@jridgewell/sourcemap-codec": "npm:^1.5.5"
   checksum: 10c0/299378e38f9a270069fc62358522ddfb44e94244baa0d6a8980ab2a9b2490a1d03b236b447eee309e17eb3bddfa482c61259d47960eb018a904f0ded52780c4a
+  languageName: node
+  linkType: hard
+
+"milkygen@npm:^0.3.3":
+  version: 0.3.3
+  resolution: "milkygen@npm:0.3.3"
+  bin:
+    milkygen: dist/cli.mjs
+  checksum: 10c0/e3200b8afba4c779a54ed13aaddf1004e1396ae4819e37ac5ba7e7629c653f22f528dc262d7407d6952626d6675e569cddc654f3f0f4d2cd02c743928e295cb2
   languageName: node
   linkType: hard
 
@@ -2443,7 +2443,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^4.3.6, zod@npm:^4.4.3":
+"zod@npm:^4.4.3":
   version: 4.4.3
   resolution: "zod@npm:4.4.3"
   checksum: 10c0/7ea31b558e88f9faf44f31dd185e2e1cbf51fed3081787fb96cc2534749b50c0acfc6da7f0922a7353ed092dd358c7d50c28ea96c94d04af64191bd33152eca3
