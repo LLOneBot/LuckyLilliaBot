@@ -9,7 +9,7 @@ declare module 'cordis' {
 }
 
 export class NTQQFriendApi extends Service {
-  static inject = ['qqProtocol', 'store']
+  static inject = ['qqProtocol']
   private friendsCache: Friend[] = []
   private categoriesCache: Map<number, FriendCategory> = new Map()
 

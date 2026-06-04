@@ -19,7 +19,7 @@ declare module 'cordis' {
 }
 
 export class NTQQGroupApi extends Service {
-  static inject = ['qqProtocol', 'store']
+  static inject = ['qqProtocol']
   private groupsCache: Group[] = []
   private groupCache: Map<number, Group> = new Map()
   private membersCache: Map<number, GroupMember[]> = new Map()
