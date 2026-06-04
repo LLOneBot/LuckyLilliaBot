@@ -1613,4 +1613,19 @@ export namespace Oidb {
       retCode: ProtoField(1, 'uint32')
     })
   })
+
+  export const GetFriendsStatusReq = ProtoMessage.of({
+    selfUid: ProtoField(1, 'string'),
+    field5: ProtoField(5, 'uint32'),
+    field7: ProtoField(7, 'uint32'),
+    field100: ProtoField(100, 'uint32'),
+    field101: ProtoField(101, 'uint32')
+  })
+
+  export const GetFriendsStatusResp = ProtoMessage.of({
+    list: ProtoField(5, {
+      uid: ProtoField(1, 'string'),
+      status: ProtoField(2, 'uint32')
+    }, 'repeated')
+  })
 }

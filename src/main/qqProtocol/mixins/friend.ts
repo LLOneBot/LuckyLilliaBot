@@ -65,7 +65,7 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
         requestBiz: [{
           bizType: 1,
           bizData: {
-            extBusi: [102, 103, 20002, 20009, 20031, 20037, 27372, 27394]
+            extBusi: [102, 103, 20002, 20009, 20031, 20037, 27394]
           }
         }]
       })
@@ -210,6 +210,24 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
       })
       const res = await this.sendPB('trpc.msg.msg_svc.MsgService.SsoGetPeerSeq', data)
       return Action.SsoGetPeerSeqResp.decode(Buffer.from(res.pb, 'hex'))
+    }
+
+    async getFriendsStatus(selfUid: string) {
+      const body = Oidb.GetFriendsStatusReq.encode({
+        selfUid,
+        field5: 1,
+        field7: 0,
+        field100: 0,
+        field101: 400
+      })
+      const data = Oidb.Base.encode({
+        command: 0x116d,
+        subCommand: 1,
+        body,
+      })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x116d_1', data)
+      const oidbResp = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      return Oidb.GetFriendsStatusResp.decode(oidbResp.body)
     }
   }
 }

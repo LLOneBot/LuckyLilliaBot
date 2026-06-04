@@ -39,13 +39,6 @@ export class NTQQFriendApi extends Service {
         }
         for (const friend of res.friendList) {
           const biz = friend.subBiz.get(1)!
-          let statusId = biz.numData.get(27372)!
-          if (statusId >= 268435456) {
-            statusId -= 268435456
-          }
-          if (statusId > 14878464) {
-            statusId -= 14878464
-          }
           friends.push({
             uid: friend.uid,
             uin: friend.uin,
@@ -59,8 +52,7 @@ export class NTQQFriendApi extends Service {
             gender: biz.numData.get(20009)!,
             birthdayYear: (biz.data.get(20031)![0] << 8) | biz.data.get(20031)![1],
             birthdayMonth: biz.data.get(20031)![2],
-            birthdayDay: biz.data.get(20031)![3],
-            status: statusId
+            birthdayDay: biz.data.get(20031)![3]
           })
         }
         cookie = res.cookie
@@ -142,5 +134,10 @@ export class NTQQFriendApi extends Service {
   async sendFriendNudge(friendUin: number, isSelf: boolean) {
     const toUin = isSelf ? +selfInfo.uin : friendUin
     return await this.ctx.qqProtocol.sendFriendPoke(friendUin, toUin)
+  }
+
+  async getFriendsStatus() {
+    const res = await this.ctx.qqProtocol.getFriendsStatus(selfInfo.uid)
+    return res.list
   }
 }
