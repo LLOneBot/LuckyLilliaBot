@@ -9,7 +9,7 @@ import { createThumb } from '@/common/utils/video'
 
 declare module 'cordis' {
   interface Context {
-    ntWebApi: NTQQWebApi
+    ntWebApi: NTWebApi
   }
 }
 
@@ -32,7 +32,7 @@ export enum WebHonorType {
   EMOTION = 'emotion'
 }
 
-export class NTQQWebApi extends Service {
+export class NTWebApi extends Service {
   static inject = ['ntUserApi']
 
   constructor(protected ctx: Context) {

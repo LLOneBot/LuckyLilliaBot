@@ -8,11 +8,11 @@ import { Misc } from '../proto'
 
 declare module 'cordis' {
   interface Context {
-    ntUserApi: NTQQUserApi
+    ntUserApi: NTUserApi
   }
 }
 
-export class NTQQUserApi extends Service {
+export class NTUserApi extends Service {
   static inject = ['ntGroupApi', 'qqProtocol', 'store', 'ntFriendApi']
 
   constructor(protected ctx: Context) {

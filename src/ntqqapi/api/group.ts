@@ -14,11 +14,11 @@ import { Media } from '../proto'
 
 declare module 'cordis' {
   interface Context {
-    ntGroupApi: NTQQGroupApi
+    ntGroupApi: NTGroupApi
   }
 }
 
-export class NTQQGroupApi extends Service {
+export class NTGroupApi extends Service {
   static inject = ['qqProtocol']
   private groupsCache: Group[] = []
   private groupCache: Map<number, Group> = new Map()

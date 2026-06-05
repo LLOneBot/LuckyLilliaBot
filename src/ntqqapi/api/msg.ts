@@ -14,11 +14,11 @@ import { InferProtoModel, InferProtoModelInput } from '@saltify/typeproto'
 
 declare module 'cordis' {
   interface Context {
-    ntMsgApi: NTQQMsgApi
+    ntMsgApi: NTMsgApi
   }
 }
 
-export class NTQQMsgApi extends Service {
+export class NTMsgApi extends Service {
   static inject = ['ntUserApi', 'qqProtocol', 'store']
 
   constructor(protected ctx: Context) {

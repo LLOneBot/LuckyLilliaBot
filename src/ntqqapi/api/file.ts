@@ -62,11 +62,11 @@ async function flashTransferUpload(uKey: string, filePath: string, fileSize: num
 
 declare module 'cordis' {
   interface Context {
-    ntFileApi: NTQQFileApi
+    ntFileApi: NTFileApi
   }
 }
 
-export class NTQQFileApi extends Service {
+export class NTFileApi extends Service {
   static inject = ['qqProtocol', 'ntUserApi']
 
   rkeyManager: RkeyManager

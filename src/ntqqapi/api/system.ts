@@ -2,11 +2,11 @@ import { Context, Service } from 'cordis'
 
 declare module 'cordis' {
   interface Context {
-    ntSystemApi: NTQQSystemApi
+    ntSystemApi: NTSystemApi
   }
 }
 
-export class NTQQSystemApi extends Service {
+export class NTSystemApi extends Service {
   static inject = ['qqProtocol']
 
   constructor(protected ctx: Context) {

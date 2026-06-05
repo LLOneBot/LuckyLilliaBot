@@ -16,14 +16,14 @@ import { Config as LLBotConfig } from '../common/types'
 import { Context } from 'cordis'
 import { selfInfo, LOG_DIR, TEMP_DIR, dbDir } from '../common/globalVars'
 import {
-  NTQQFileApi,
-  NTQQFriendApi,
-  NTQQGroupApi,
+  NTFileApi,
+  NTFriendApi,
+  NTGroupApi,
   NTLoginApi,
-  NTQQMsgApi,
-  NTQQUserApi,
-  NTQQWebApi,
-  NTQQSystemApi,
+  NTMsgApi,
+  NTUserApi,
+  NTWebApi,
+  NTSystemApi,
 } from '../ntqqapi/api'
 import { existsSync, mkdirSync } from 'node:fs'
 import { version } from '../version'
@@ -65,14 +65,14 @@ async function onLoad() {
   ctx.plugin(TimerService)
   ctx.plugin(ConfigService)
   ctx.plugin(QQProtocolClient)
-  ctx.plugin(NTQQFileApi)
-  ctx.plugin(NTQQFriendApi)
-  ctx.plugin(NTQQGroupApi)
+  ctx.plugin(NTFileApi)
+  ctx.plugin(NTFriendApi)
+  ctx.plugin(NTGroupApi)
   ctx.plugin(NTLoginApi)
-  ctx.plugin(NTQQMsgApi)
-  ctx.plugin(NTQQUserApi)
-  ctx.plugin(NTQQWebApi)
-  ctx.plugin(NTQQSystemApi)
+  ctx.plugin(NTMsgApi)
+  ctx.plugin(NTUserApi)
+  ctx.plugin(NTWebApi)
+  ctx.plugin(NTSystemApi)
 
   let config: LLBotConfig
   // 上层会话插件只加载一次，重连后不重新加载（断线时上层服务希望透明渡过短时断网）

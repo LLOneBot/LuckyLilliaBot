@@ -4,11 +4,11 @@ import { selfInfo } from '@/common/globalVars'
 
 declare module 'cordis' {
   interface Context {
-    ntFriendApi: NTQQFriendApi
+    ntFriendApi: NTFriendApi
   }
 }
 
-export class NTQQFriendApi extends Service {
+export class NTFriendApi extends Service {
   static inject = ['qqProtocol']
   private friendsCache: Friend[] = []
   private categoriesCache: Map<number, FriendCategory> = new Map()
