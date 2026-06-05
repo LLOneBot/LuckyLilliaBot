@@ -285,3 +285,42 @@ class WebUITokenUtil {
 }
 
 export const webuiTokenUtil = new WebUITokenUtil(path.join(DATA_DIR, 'webui_token.txt'))
+
+// data/sign_token.txt -- 用户从 manager-web 一键生成后粘贴; 每次 sign 请求带在
+// Authorization: Bearer 头. 没 token 所有 sign cmd 都会 401, 必须配.
+class SignTokenUtil {
+  private token: string = ''
+  private loaded = false
+
+  constructor(private readonly tokenPath: string) {
+    this.tokenPath = tokenPath
+  }
+
+  getToken() {
+    if (!this.loaded) {
+      if (fs.existsSync(this.tokenPath)) {
+        this.token = fs.readFileSync(this.tokenPath, 'utf-8').trim()
+      }
+      this.loaded = true
+    }
+    return this.token
+  }
+
+  /** 绝对路径, 给报错提示直接告诉用户去哪贴 token. */
+  getPath() {
+    return path.resolve(this.tokenPath)
+  }
+
+  setToken(token: string) {
+    this.token = token.trim()
+    fs.writeFileSync(this.tokenPath, this.token, 'utf-8')
+    this.loaded = true
+  }
+
+  reload() {
+    this.loaded = false
+    return this.getToken()
+  }
+}
+
+export const signTokenUtil = new SignTokenUtil(path.join(DATA_DIR, 'sign_token.txt'))

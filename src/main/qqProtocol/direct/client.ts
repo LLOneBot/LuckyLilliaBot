@@ -1,7 +1,7 @@
 import { TcpConnection } from './connection'
 import { buildServicePacket, buildServicePacket13, parseServicePacket, EncryptType, PacketContext, SsoPacket } from './packet'
 import { generateEcdhKeyPair, EcdhKeyPair } from './ecdh'
-import { requestSign, SignResult } from './sign'
+import { requestSign, preflightSign, SignResult, PreflightLogger } from './sign'
 import { AppInfo } from './appInfo'
 import { randomBytes, createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
@@ -13,6 +13,8 @@ export interface DirectClientConfig {
   buildVer: string
   useIPv6?: boolean
   signUrl?: string
+  /** 一次性 token, 由用户在 manager-web 生成后粘贴到 data/sign_token.txt. 跟 sign 请求一起发. */
+  signToken?: string
 }
 
 const DEFAULT_CONFIG: DirectClientConfig = {
@@ -65,6 +67,26 @@ export class DirectProtocolClient extends EventEmitter {
 
     // Send initial heartbeat (required before other commands)
     await this.sendHeartbeat()
+  }
+
+  /**
+   * 调一次 sign 服务确认链路通. 启动前先跑这个, 任一环节不通直接 throw,
+   * 不让 connect / login / 恢复 session 在没 sign 的情况下白跑.
+   *
+   * 失败抛 Error, message 里带原因 ('token unauthorized' / 'no sign backend' /
+   * 'sign-service down' / network 错误). 调用方 try/catch 决定是不是 fatal.
+   *
+   * 前置条件: signUrl + signToken 必须已配 (caller 在 new 之前应已校验).
+   */
+  async preflightSign(logger: PreflightLogger): Promise<void> {
+    if (!this.config.signUrl || !this.config.signToken) {
+      throw new Error('signUrl/signToken not configured')
+    }
+    const err = await preflightSign(this.config.signUrl, this.config.signToken, AppInfo.qua, logger)
+    if (err) {
+      throw new Error(`sign preflight failed: ${err}`)
+    }
+    logger.info('[Sign Preflight] OK (manager=%s qua=%s)', this.config.signUrl, AppInfo.qua)
   }
 
   async sendHeartbeat(): Promise<void> {
@@ -134,7 +156,7 @@ export class DirectProtocolClient extends EventEmitter {
 
     let signResult: SignResult | null = null
     if (this.config.signUrl && this.SIGN_ALLOWLIST.has(cmd)) {
-      signResult = await requestSign(this.config.signUrl, cmd, payload, seq, this.guid)
+      signResult = await requestSign(this.config.signUrl, cmd, payload, seq, this.guid, this.config.signToken, AppInfo.qua)
       if (process.env.DEBUG_SIGN) {
         console.log(`[Sign] ${cmd} seq=${seq}: result=${signResult ? `sign=${signResult.sign.length}B token=${signResult.token.length}B extra=${signResult.extra.length}B` : 'null'}`)
       }

@@ -1,6 +1,7 @@
 import { deepConvertMap, deepStringifyMap } from './util'
 import { selfInfo } from '@/common/globalVars'
 import { randomUUID, createHash } from 'node:crypto'
+import path from 'node:path'
 import { Oidb, Msg } from '@/ntqqapi/proto'
 import type {
   PMHQRes,
@@ -12,6 +13,7 @@ import type {
 import { Context, Service } from 'cordis'
 import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, registerOnline, startHeartbeat, getCorrectUin, QrCodeState, AppInfo, saveSession, loadSession, persistedToSessionInfo, getSpecifiedUin, getSessionFilePathForUin, buildSsoInfoSync } from './direct'
 import type { QrCodeResult, QrPollResult } from './direct'
+import { signTokenUtil } from '../config'
 
 type DisconnectCallback = (duration: number) => void
 
@@ -499,10 +501,27 @@ export class QQProtocolBase extends Service {
   /**
    * Initialize direct protocol client and attempt session restore.
    * Call this in place of (or alongside) connectWebSocket when using direct protocol.
+   *
+   * 启动前 client.preflightSign() 一次: token / 鉴权 / 远端 sign-service 任一不通,
+   * 直接 throw, 不让后续 connect / register / restore 跑下去.
    */
   async initDirectClient(signUrl?: string): Promise<void> {
     const url = signUrl || process.env.QQ_SIGN_URL || 'https://sign.luckylillia.com'
-    this.directClient = new DirectProtocolClient({ signUrl: url })
+    const signToken = signTokenUtil.getToken() || process.env.QQ_SIGN_TOKEN || undefined
+    if (!signToken) {
+      const tokenPath = signTokenUtil.getPath()
+      const tokenFile = path.basename(tokenPath)
+      this.logger.error(
+        `[Sign Preflight] sign_token 未设置 (文件 ${tokenPath} 为空 / 不存在). ` +
+        `请到 https://sign.luckylillia.com 获取 token, 粘贴到 ${tokenFile}, 然后重启.`
+      )
+      throw new Error('sign token not configured')
+    }
+
+    this.directClient = new DirectProtocolClient({ signUrl: url, signToken })
+
+    // preflight: 失败直接抛, 上层不要继续走登录 / 恢复 session
+    await this.directClient.preflightSign(this.logger)
 
     this.directClient.on('error', (err: Error) => {
       this.logger.warn('Direct client error:', err.message)

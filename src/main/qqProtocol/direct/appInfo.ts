@@ -18,6 +18,10 @@ export const AppInfo = {
   subSigMap: 0x10400,
   ntLoginType: 1,
   appClientVersion: 48517,
+  // QUA: 客户端版本指纹, 让 manager-server 路由到对应 sign-service 后端.
+  // 格式: V1_<plat>_NQ_<ver>_<build>_GW_B. plat: LNX(Linux) / WIN(Windows) / MAC(Mac).
+  // 升级 NTQQ 时改 currentVersion / buildVer / appClientVersion 后这里跟着更新.
+  qua: 'V1_LNX_NQ_3.2.28_48517_GW_B',
 }
 
 export const DeviceInfo = {
