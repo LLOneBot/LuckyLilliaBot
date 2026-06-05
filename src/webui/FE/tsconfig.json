@@ -4,6 +4,8 @@
     "paths": {
       "@common/types": ["../../common/types"],
       "@ntqqapi/types": ["../../ntqqapi/types"],
+      "@/common/types": ["../../common/types"],
+      "@/ntqqapi/types": ["../../ntqqapi/types"],
       "@/*": ["./*"]
     },
     "types": ["vite/client"],
@@ -13,6 +15,13 @@
     "module": "esnext",
     "noEmit": true
   },
-  "include": ["./**/*", "../../**/*"],
+  "include": [
+    "./**/*",
+    "../../common/types.ts",
+    "../../ntqqapi/types/**/*",
+    "../../version.ts",
+    "../../main/config/defaultConfig.ts",
+    "../BE/types.ts"
+  ],
   "exclude": ["node_modules"]
 }

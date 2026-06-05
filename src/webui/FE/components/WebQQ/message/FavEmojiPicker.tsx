@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Loader2, Trash2 } from 'lucide-react'
 import { fetchFavEmojiList, deleteFavEmoji as apiDeleteFavEmoji } from '../../../utils/webqqApi'
+import { getCurrentUin } from '../../../utils/currentUin'
 import { showToast } from '../../common'
 
 export interface FavEmoji {
@@ -23,7 +24,7 @@ const RECENT_FAV_EMOJI_BASE_KEY = 'webqq_recent_fav_emojis'
 const MAX_RECENT = 10
 
 function getRecentFavEmojiKey() {
-  const uin = localStorage.getItem('current-uin') || ''
+  const uin = getCurrentUin()
   return uin ? `${uin}-${RECENT_FAV_EMOJI_BASE_KEY}` : RECENT_FAV_EMOJI_BASE_KEY
 }
 

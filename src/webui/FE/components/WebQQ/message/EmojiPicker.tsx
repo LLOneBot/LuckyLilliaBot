@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { getCurrentUin } from '../../../utils/currentUin'
 
 // 可用的 QQ 表情 ID 列表（基于 public/face 目录）
 const FACE_IDS = [
@@ -93,7 +94,7 @@ const EMOJI_LIST: { codePoint: number; char: string }[] = [
 
 const RECENT_EMOJI_BASE_KEY = 'webqq_recent_emojis'
 function getRecentEmojiKey() {
-  const uin = localStorage.getItem('current-uin') || ''
+  const uin = getCurrentUin()
   return uin ? `${uin}-${RECENT_EMOJI_BASE_KEY}` : RECENT_EMOJI_BASE_KEY
 }
 const MAX_RECENT = 10

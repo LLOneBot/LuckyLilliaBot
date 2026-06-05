@@ -3,10 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type { FriendCategory, GroupItem, RecentChatItem, ChatSession, GroupMemberItem, NotificationItem } from '../types/webqq'
 import { getFriends, getGroups, getRecentChats, getGroupNotifications, getFriendRequests, getDoubtBuddyRequests, getGroupMembers, setRecentChatTop } from '../utils/webqqApi'
 import { GroupNotifyType, GroupNotifyStatus } from '../types/webqq'
-
-function getCurrentUin() {
-  return localStorage.getItem('current-uin') || ''
-}
+import { getCurrentUin } from '../utils/currentUin'
 
 const accountStorage = createJSONStorage(() => ({
   getItem: (name: string) => localStorage.getItem(`${getCurrentUin()}-${name}`),

@@ -1,7 +1,14 @@
 // IndexedDB 消息缓存
+//
+// DB 命名: `webqq-messages-${uin}` -- 每个账号一个独立库, 同一浏览器多账号切换时不会串数据.
+// 切换账号 (current-uin 变化) 时旧 db handle 失效自动重开, 不影响数据完整性.
+//
+// 历史: 之前固定用 `webqq-messages` 一个库, 多账号会互相覆盖; 启动时 fire-and-forget 删一次以避免残留.
 import type { RawMessage } from '../types/webqq'
+import { getCurrentUin } from './currentUin'
 
-const DB_NAME = 'webqq-messages'
+const DB_NAME_LEGACY = 'webqq-messages'
+const DB_NAME_PREFIX = 'webqq-messages-'
 const DB_VERSION = 1
 const STORE_NAME = 'messages'
 
@@ -9,21 +16,42 @@ const STORE_NAME = 'messages'
 const CACHE_MAX_MESSAGES = 100
 
 let db: IDBDatabase | null = null
+let dbUin: string = ''
+
+function dbNameForUin(uin: string): string {
+  return `${DB_NAME_PREFIX}${uin || 'anon'}`
+}
+
+// 一次性清掉老的固定名 db (历史多账号串数据残留). 失败不报错.
+let legacyCleanupDone = false
+function cleanupLegacyDb() {
+  if (legacyCleanupDone) return
+  legacyCleanupDone = true
+  try { indexedDB.deleteDatabase(DB_NAME_LEGACY) } catch { /* ignore */ }
+}
 
 // 初始化数据库
 function openDb(): Promise<IDBDatabase> {
+  cleanupLegacyDb()
+  const uin = getCurrentUin()
+  // 切账号: 关旧 handle, 重新开按当前 uin 命名的库
+  if (db && dbUin !== uin) {
+    try { db.close() } catch { /* ignore */ }
+    db = null
+  }
   if (db) return Promise.resolve(db)
-  
+
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION)
-    
+    const request = indexedDB.open(dbNameForUin(uin), DB_VERSION)
+
     request.onerror = () => reject(request.error)
-    
+
     request.onsuccess = () => {
       db = request.result
+      dbUin = uin
       resolve(db)
     }
-    
+
     request.onupgradeneeded = (event) => {
       const database = (event.target as IDBOpenDBRequest).result
       if (!database.objectStoreNames.contains(STORE_NAME)) {

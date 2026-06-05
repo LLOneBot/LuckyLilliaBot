@@ -17,6 +17,7 @@ import { WebQQPage, WebQQFullscreen } from './components/WebQQ';
 import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
 import { deleteCookie } from './utils/cookie';
+import { setCurrentUin } from './utils/currentUin';
 import { Save, Loader2, Eye, EyeOff, Plus, Trash2, Menu, Cpu, Milk, ExternalLink } from 'lucide-react';
 import { defaultConfig } from '../../main/config/defaultConfig'
 import { version } from '../../version'
@@ -114,7 +115,7 @@ function App() {
             nick: response.data.selfInfo.nick || '',
             uin: response.data.selfInfo.uin,
           });
-          localStorage.setItem('current-uin', response.data.selfInfo.uin);
+          setCurrentUin(response.data.selfInfo.uin);
 
           // 获取主配置
           setConfig(response.data.config);
