@@ -56,28 +56,38 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
     let nodes = this.parseNodeContent(messages)
 
     if (nodes.some(e => e.data.id)) {
-      const convertedNodes: {
-        type: OB11MessageDataType.Node
-        data: {
-          name?: string
-          uin?: number | string
-          content: OB11MessageData[] | undefined
+      const processedIds = new Set<string>()
+      const nodesWithSeq: {
+        node: {
+          type: OB11MessageDataType.Node
+          data: {
+            name?: string
+            uin?: number | string
+            content: OB11MessageData[] | undefined
+          }
         }
+        msgSeq: number
       }[] = []
       for (const item of nodes) {
         if (item.data.id) {
+          const idStr = item.data.id.toString()
+          if (processedIds.has(idStr)) {
+            continue
+          }
+          processedIds.add(idStr)
           const msgInfo = await this.ctx.store.getMsgInfoByShortId(+item.data.id)
           if (!msgInfo) {
             this.ctx.logger.warn(`消息 ${item.data.id} 未找到`)
             continue
           }
           const node = await this.getMessageNode(msgInfo, +item.data.id)
-          convertedNodes.push(node)
+          nodesWithSeq.push({ node, msgSeq: msgInfo.msgSeq })
         } else {
-          convertedNodes.push(item)
+          nodesWithSeq.push({ node: item, msgSeq: Number.MAX_SAFE_INTEGER })
         }
       }
-      nodes = convertedNodes
+      nodesWithSeq.sort((a, b) => a.msgSeq - b.msgSeq)
+      nodes = nodesWithSeq.map(x => x.node)
     }
 
     const { sendElements, deleteAfterSentFiles } = await transformOutgoingSegments(this.ctx, nodes, peer)

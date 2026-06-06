@@ -124,6 +124,7 @@ export class DirectProtocolClient extends EventEmitter {
     'trpc.o3.ecdh_access.EcdhAccess.SsoSecureAccess',
     'MessageSvc.PbSendMsg',
     'trpc.login.ecdh.EcdhService.SsoKeyExchange',
+    'OidbSvcTrpcTcp.0x6d9_4'
   ])
 
   async sendCommand(cmd: string, payload: Buffer, encryptType?: EncryptType, timeout = 15000): Promise<SsoPacket> {

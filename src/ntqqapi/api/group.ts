@@ -47,6 +47,16 @@ export class NTGroupApi extends Service {
         this.getGroupMembers(data.groupCode, true)
       }
     })
+    ctx.on('nt/group-mute', (data) => {
+      if (this.groupsCache.length > 0 && data.memberUid === selfInfo.uid) {
+        this.getGroups(true)
+      }
+    })
+    ctx.on('nt/group-whole-mute', () => {
+      if (this.groupsCache.length > 0) {
+        this.getGroups(true)
+      }
+    })
   }
 
   async getGroups(forceUpdate: boolean) {

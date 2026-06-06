@@ -117,6 +117,13 @@ class Core extends Service {
     sendElements: SendMessageElement[],
     deleteAfterSentFiles: string[],
   ) {
+    if (peer.chatType === ChatType.Group) {
+      const info = await ctx.ntGroupApi.getGroup(+peer.peerUid, false)
+      if (info.personShutupExpireTime * 1000 > Date.now()
+        || info.groupShutupExpireTime * 1000 > Date.now()) {
+        throw new Error('当前处于被禁言状态')
+      }
+    }
     if (!sendElements.length) {
       throw new Error('消息体无法解析，请检查是否发送了不支持的消息类型')
     }
