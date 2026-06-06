@@ -44,15 +44,15 @@ export class NTFriendApi extends Service {
             uin: friend.uin,
             categoryId: friend.categoryId,
             categoryName: categories.get(friend.categoryId)!.categoryName,
-            nick: biz.data.get(20002)!.toString(),
-            bio: biz.data.get(102)!.toString(),
-            remark: biz.data.get(103)!.toString(),
-            qid: biz.data.get(27394)!.toString(),
-            age: biz.numData.get(20037)!,
-            gender: biz.numData.get(20009)!,
-            birthdayYear: (biz.data.get(20031)![0] << 8) | biz.data.get(20031)![1],
-            birthdayMonth: biz.data.get(20031)![2],
-            birthdayDay: biz.data.get(20031)![3]
+            nick: biz.data.get(20002)?.toString() ?? '',
+            bio: biz.data.get(102)?.toString() ?? '',
+            remark: biz.data.get(103)?.toString() ?? '',
+            qid: biz.data.get(27394)?.toString() ?? '',
+            age: biz.numData.get(20037) ?? 0,
+            gender: biz.numData.get(20009) ?? 0,
+            birthdayYear: biz.data.has(20031) ? (biz.data.get(20031)![0] << 8) | biz.data.get(20031)![1] : 0,
+            birthdayMonth: biz.data.get(20031)?.[2] ?? 0,
+            birthdayDay: biz.data.get(20031)?.[3] ?? 0
           })
         }
         cookie = res.cookie
