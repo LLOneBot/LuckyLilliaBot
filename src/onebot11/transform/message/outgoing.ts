@@ -1,6 +1,7 @@
 import {
   AtType,
-  ChatType, FaceType,
+  ChatType,
+  FaceType,
   GroupMemberRole,
   SendMessageElement,
 } from '@/ntqqapi/types'
@@ -12,7 +13,7 @@ import {
 import { ElementType, Peer } from '@/ntqqapi/types/msg'
 import { SendElement } from '@/ntqqapi/entities'
 import { selfInfo } from '@/common/globalVars'
-import { uri2local, isNumeric } from '@/common/utils'
+import { uri2local } from '@/common/utils'
 import { Context } from 'cordis'
 import { MusicSign } from '@/common/utils/sign'
 import { randomUUID } from 'node:crypto'
@@ -30,6 +31,7 @@ export async function transformOutgoingSegments(
     senderUin: number
     senderName: string
     elements: SendMessageElement[]
+    msgTime?: number
   }[] = []
 
   for (const segment of messageData) {
@@ -273,7 +275,8 @@ export async function transformOutgoingSegments(
         nodes.push({
           senderUin: Number(segment.data.uin ?? segment.data.user_id ?? selfInfo.uin),
           senderName: segment.data.name ?? segment.data.nickname ?? selfInfo.nick,
-          elements: inner.sendElements
+          elements: inner.sendElements,
+          msgTime: segment.data.time ? +segment.data.time : undefined
         })
       }
     }
