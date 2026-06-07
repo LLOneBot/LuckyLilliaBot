@@ -78,15 +78,15 @@ export class DirectProtocolClient extends EventEmitter {
    *
    * 前置条件: signUrl + signToken 必须已配 (caller 在 new 之前应已校验).
    */
-  async preflightSign(logger: PreflightLogger): Promise<void> {
+  async preflightSign(logger: PreflightLogger, uin?: number): Promise<void> {
     if (!this.config.signUrl || !this.config.signToken) {
       throw new Error('signUrl/signToken not configured')
     }
-    const err = await preflightSign(this.config.signUrl, this.config.signToken, AppInfo.qua, logger)
+    const err = await preflightSign(this.config.signUrl, this.config.signToken, AppInfo.qua, logger, uin)
     if (err) {
       throw new Error(`sign preflight failed: ${err}`)
     }
-    logger.info('[Sign Preflight] OK (manager=%s qua=%s)', this.config.signUrl, AppInfo.qua)
+    logger.info('[Sign Preflight] OK (manager=%s qua=%s uin=%s)', this.config.signUrl, AppInfo.qua, uin ?? '<unset>')
   }
 
   async sendHeartbeat(): Promise<void> {
@@ -156,9 +156,17 @@ export class DirectProtocolClient extends EventEmitter {
 
     let signResult: SignResult | null = null
     if (this.config.signUrl && this.SIGN_ALLOWLIST.has(cmd)) {
-      signResult = await requestSign(this.config.signUrl, cmd, payload, seq, this.guid, this.config.signToken, AppInfo.qua)
+      // wtlogin.login 服务端从 body[9..13] 抠 uin, 不读这字段; trans_emp 还没登录没 uin.
+      // 其它 cmd manager 端必须 uin in allowed_uins.
+      const uin = this.session?.uin ? Number(this.session.uin) : undefined
+      signResult = await requestSign(this.config.signUrl, cmd, payload, seq, this.guid, this.config.signToken, AppInfo.qua, uin)
       if (process.env.DEBUG_SIGN) {
         console.log(`[Sign] ${cmd} seq=${seq}: result=${signResult ? `sign=${signResult.sign.length}B token=${signResult.token.length}B extra=${signResult.extra.length}B` : 'null'}`)
+      }
+      // sign 是协议必需字段, 拿不到就别送 unsigned 包出去 -- server 不一定 reject 但行为没保证.
+      // requestSign 内部已经按 status 打过具体错因 (401/403/502/503), 这里只丢异常中断 cmd.
+      if (!signResult) {
+        throw new Error(`sign failed for ${cmd}; see [Sign] log above`)
       }
     }
 

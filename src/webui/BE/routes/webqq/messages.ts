@@ -7,8 +7,6 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
 import { TEMP_DIR } from '@/common/globalVars'
-import { Msg, Media } from '@/ntqqapi/proto'
-import { inflateSync } from 'node:zlib'
 import { Hono } from 'hono'
 
 export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath: string) => Promise<SendPicElement | null>): Hono {
@@ -186,89 +184,75 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 获取合并转发消息内容
-  // TODO: 迁移至 ntMsgApi.getForwardedMsgs
-  /**router.get('/forward-msg', async (c) => {
+  // 获取合并转发消息内容. 返回的 segment 跟 FE 的 ForwardMessageSegment 对齐:
+  // 只覆盖 text / image / face / forward 四类, 其他类型暂时降级成 [类型] 文本占位.
+  router.get('/forward-msg', async (c) => {
     try {
       const { resId } = c.req.query() as { resId: string }
       if (!resId) {
         return c.json({ success: false, message: '缺少 resId 参数' }, 400)
       }
 
-      const items = await ctx.qqProtocol.getMultiMsg(resId)
-      const messages = items[0]?.buffer?.msg || []
+      const { msgList } = await ctx.ntMsgApi.getForwardedMsgs(resId)
 
-      const transformedMessages = await Promise.all(messages.map(async (msg) => {
-        const { body, contentHead, routingHead } = msg
-        const segments = []
-
-        for (const elem of body?.richText?.elems || []) {
-          if (elem.text) {
-            segments.push({ type: 'text', data: { text: elem.text.str } })
-          } else if (elem.face) {
-            segments.push({ type: 'face', data: { faceId: elem.face.index } })
-          } else if (elem.commonElem) {
-            const { businessType, serviceType } = elem.commonElem
-            if (serviceType === 33) {
-              try {
-                const { faceId } = Msg.QSmallFaceExtra.decode(elem.commonElem.pbElem)
-                segments.push({ type: 'face', data: { faceId } })
-              } catch {  }
-            } else if (serviceType === 48 && (businessType === 10 || businessType === 20)) {
-              try {
-                const { extBizInfo, msgInfoBody } = Media.MsgInfo.decode(elem.commonElem.pbElem)
-                const { index, pic } = msgInfoBody[0]
-                const rkeyData = await ctx.ntFileApi.rkeyManager.getRkey()
-                const rkey = businessType === 10 ? rkeyData.private_rkey : rkeyData.group_rkey
-                const url = `https://${pic!.domain}${pic!.urlPath}&spec=0${rkey}`
-                segments.push({
-                  type: 'image',
-                  data: {
-                    url,
-                    width: index.info.width,
-                    height: index.info.height,
-                  }
-                })
-              } catch {  }
-            }
-          } else if (elem.richMsg && elem.richMsg.serviceId === 35) {
-            // 嵌套的合并转发
+      const transformed = await Promise.all(msgList.map(async (msg) => {
+        const segments: any[] = []
+        for (const elem of msg.elements ?? []) {
+          if (elem.elementType === ElementType.Text && elem.textElement?.content) {
+            segments.push({ type: 'text', data: { text: elem.textElement.content } })
+          } else if (elem.elementType === ElementType.Pic && elem.picElement) {
+            const p = elem.picElement
             try {
-              const xml = inflateSync(elem.richMsg.template.subarray(1)).toString()
-              const nestedResId = xml.match(/m_resid="([^"]+)"/)?.[1]
-              if (nestedResId) {
-                const titleMatch = xml.match(/brief="([^"]+)"/)?.[1]
-                segments.push({
-                  type: 'forward',
-                  data: {
-                    resId: nestedResId,
-                    title: titleMatch || '[聊天记录]',
-                  }
-                })
+              const url = await ctx.ntFileApi.getImageUrl(p.originImageUrl ?? '', p.md5HexStr ?? '')
+              segments.push({
+                type: 'image',
+                data: { url, width: p.picWidth, height: p.picHeight }
+              })
+            } catch {
+              segments.push({ type: 'text', data: { text: '[图片]' } })
+            }
+          } else if (elem.elementType === ElementType.Face && elem.faceElement) {
+            segments.push({ type: 'face', data: { faceId: elem.faceElement.faceIndex } })
+          } else if (elem.elementType === ElementType.MarketFace && (elem as any).marketFaceElement) {
+            const mf = (elem as any).marketFaceElement
+            segments.push({ type: 'text', data: { text: mf.faceName || '[表情]' } })
+          } else if (elem.elementType === ElementType.Video) {
+            segments.push({ type: 'text', data: { text: '[视频]' } })
+          } else if (elem.elementType === ElementType.Ptt) {
+            segments.push({ type: 'text', data: { text: '[语音]' } })
+          } else if (elem.elementType === ElementType.File) {
+            segments.push({ type: 'text', data: { text: '[文件]' } })
+          } else if (elem.elementType === ElementType.MultiForward && elem.multiForwardMsgElement) {
+            // 嵌套合并转发: 直接拿 multiForwardMsgElement.resId, brief 从 xmlContent 抠
+            const mf = elem.multiForwardMsgElement
+            const briefMatch = mf.xmlContent?.match(/brief="([^"]+)"/)
+            segments.push({
+              type: 'forward',
+              data: {
+                resId: mf.resId,
+                title: briefMatch?.[1] || '[聊天记录]',
               }
-            } catch {  }
+            })
+          } else if (elem.elementType === ElementType.Ark && (elem as any).arkElement?.bytesData) {
+            // 嵌套合并转发也是 ark 形态. 不解析 ark JSON 里的 m_resid (字段名/位置因 ark 类型而异),
+            // 给 FE 发个占位 forward 段, 不带 resId; FE 识别 resId 缺失就显示 "[聊天记录]" 不可点.
+            segments.push({ type: 'forward', data: { title: '[聊天记录]' } })
           }
         }
-
-        const isGroup = contentHead?.msgType === 82
-        const senderName = isGroup
-          ? routingHead?.group?.groupCard || ''
-          : routingHead?.c2c?.name || ''
-
         return {
-          senderName,
-          senderUin: routingHead?.fromUin || 0,
-          time: contentHead?.msgTime || 0,
+          senderName: msg.sendMemberName || msg.sendNickName || '',
+          senderUin: Number(msg.senderUin) || 0,
+          time: Number(msg.msgTime) || 0,
           segments,
         }
       }))
 
-      return c.json({ success: true, data: transformedMessages })
+      return c.json({ success: true, data: transformed })
     } catch (e) {
       ctx.logger.error('获取合并转发消息失败:', e)
       return c.json({ success: false, message: '获取合并转发消息失败', error: (e as Error).message }, 500)
     }
-  })*/
+  })
 
   // 视频播放 URL
   router.get('/video-url', async (c) => {

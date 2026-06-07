@@ -513,7 +513,7 @@ export class QQProtocolBase extends Service {
       const tokenFile = path.basename(tokenPath)
       this.logger.error(
         `[Sign Preflight] sign_token 未设置 (文件 ${tokenPath} 为空 / 不存在). ` +
-        `请到 https://sign.luckylillia.com 获取 token, 粘贴到 ${tokenFile}, 然后重启.`
+        `请到 ${url} 获取 token, 粘贴到 ${tokenFile}, 然后重启.`
       )
       throw new Error('sign token not configured')
     }
@@ -521,7 +521,10 @@ export class QQProtocolBase extends Service {
     this.directClient = new DirectProtocolClient({ signUrl: url, signToken })
 
     // preflight: 失败直接抛, 上层不要继续走登录 / 恢复 session
-    await this.directClient.preflightSign(this.logger)
+    // uin: 命令行 -q 指定的 (server 端要 i64, 转成 number); 没指定就空
+    const specifiedUinStr = getSpecifiedUin()
+    const specifiedUinNum = specifiedUinStr ? Number(specifiedUinStr) : undefined
+    await this.directClient.preflightSign(this.logger, specifiedUinNum)
 
     this.directClient.on('error', (err: Error) => {
       this.logger.warn('Direct client error:', err.message)
