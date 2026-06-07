@@ -25,7 +25,7 @@ export class RenameGroupFile extends BaseAction<Payload, null> {
       payload.new_name
     )
     if (result.retCode !== 0) {
-      throw new Error(result.retMsg)
+      throw new Error(result.clientWording)
     }
     return null
   }

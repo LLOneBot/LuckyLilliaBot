@@ -72,7 +72,7 @@ const UploadGroupFile = defineApi(
     unlink(tempPath).catch(noop)
     const result = await ctx.ntMsgApi.sendGroupFileMessage(payload.group_id, info.fileId)
     if (result.retCode !== 0) {
-      return Failed(-500, result.retMsg)
+      return Failed(-500, result.clientWording)
     }
     return Ok({ file_id: info.fileId })
   }
@@ -164,7 +164,7 @@ const RenameGroupFile = defineApi(
       payload.new_file_name
     )
     if (result.retCode !== 0) {
-      return Failed(-500, result.retMsg)
+      return Failed(-500, result.clientWording)
     }
     return Ok({})
   }

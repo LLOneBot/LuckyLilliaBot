@@ -41,7 +41,7 @@ export class UploadGroupFile extends BaseAction<Payload, Response> {
     }
     const result = await this.ctx.ntMsgApi.sendGroupFileMessage(+payload.group_id, info.fileId)
     if (result.retCode !== 0) {
-      throw new Error(result.retMsg)
+      throw new Error(result.clientWording)
     }
     return {
       file_id: info.fileId

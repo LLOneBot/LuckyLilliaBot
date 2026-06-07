@@ -259,7 +259,16 @@ export namespace Oidb {
     feedsInfoRsp: ProtoField(5, {
       retCode: ProtoField(1, 'int64'),
       retMsg: ProtoField(2, 'string'),
-      clientWording: ProtoField(3, 'string')
+      clientWording: ProtoField(3, 'string'),
+      feedsResultList: ProtoField(4, {
+        retCode: ProtoField(1, 'int64'),
+        detail: ProtoField(2, 'string'),
+        fileId: ProtoField(3, 'string'),
+        busId: ProtoField(4, 'uint32'),
+        deadTime: ProtoField(5, 'uint32'),
+        msgSeq: ProtoField(6, 'uint32'),
+      }, 'repeated'),
+      svrBusyWaitTime: ProtoField(5, 'uint32'),
     }),
   })
 

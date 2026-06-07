@@ -336,7 +336,11 @@ export class NTMsgApi extends Service {
     const res = await this.ctx.qqProtocol.feedGroupFile(groupCode, fileId, random)
     return {
       ...res.feedsInfoRsp,
-      retCode: Number(res.feedsInfoRsp.retCode)
+      retCode: Number(res.feedsInfoRsp.retCode),
+      feedsResultList: res.feedsInfoRsp.feedsResultList.map(e => ({
+        ...e,
+        retCode: Number(e.retCode)
+      }))
     }
   }
 
