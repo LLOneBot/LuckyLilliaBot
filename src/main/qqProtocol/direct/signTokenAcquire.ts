@@ -116,12 +116,37 @@ export async function acquireSignToken(
 //   field 2 LEN 1306 : opaque big blob (GCM)
 //   field 3 LEN 32   : session id (== ESK.field 6)
 //
-// Phase 2 实施: 短期可以 hardcode 一份 trace 喂出去看 server 反应;
-// 长期需要逆向 GCM blob 用什么 key (hook AES_gcm_256_encrypt 入口).
+// Phase 2 实施: SsoKeyExchange request crypto 已**完整逆向**(见 NTQQSign repo
+// memory/sso-keyexchange-request-key-derivation.md), 关键常量在下方 EMBEDDED_*. 但
+// SsoEstablishShareKey / SsoSecureAccess 的 GCM key 来源还没逆 (推测 share-key,
+// 等 SsoKeyExchange 跑通后再 hook 验证).
 // 详细 schema 在 NTQQSign repo 的 sso-request-pb-schema memory 里.
 
+// 嵌入在 wrapper.node 里的 server P-256 公钥 (uncompressed octet, 65B), 解码自
+// xmmword_ACEB5B/6B/7B/8B + 0xE8 (SSE swap-nibbles + sequential XOR 混淆).
+// SsoKeyExchange field 3 GCM blob 的 key = ECDH(client_priv, EMBEDDED_SERVER_PUB).
+const EMBEDDED_SERVER_PUB_HEX =
+  '049d1423332735980edabe7e9ea451b3395b6f35250db8fc56f25889f628cbae' +
+  '3e8e73077914071eeebc108f4e0170057792bb17aa303af652313d17c1ac815e79'
+
+// 嵌入的 32B AES-256-GCM key, 解码自 xmmword_A13990 + xmmword_A139A0.
+// SsoKeyExchange field 5 GCM blob 的 key = EMBEDDED_KEY32.
+// blob5 plaintext = SHA256(client_pub || u32_LE(0x01000000) || blob3_full || u64_BE(ts))
+const EMBEDDED_KEY32_HEX =
+  'e2733bf403149913cbf80c7a95168bd4ca6935ee53cd39764beebe2e007e3aee'
+
 async function sendKex(_client: DirectProtocolClient, _clientPub: Buffer): Promise<Buffer> {
-  throw new NotImplementedError('SsoKeyExchange request: opaque field 3/5 GCM key 待逆向')
+  // TODO Phase 2.1: 实装 SsoKeyExchange request 构造
+  //   1. share_key = ecdh.computeSecret(EMBEDDED_SERVER_PUB) -- raw X 32B no KDF
+  //   2. v68_inner = pb.encode({ f1: uin_string, f2: ??? })  -- 内层 PB
+  //   3. blob3 = randomIV(12) || AES-256-GCM(v68, share_key, iv).enc.tag
+  //   4. v39 = client_pub_octet || u32_LE(0x01000000) || blob3 || u64_BE(unix_ts)
+  //   5. blob5 = randomIV(12) || AES-256-GCM(sha256(v39), EMBEDDED_KEY32, iv).enc.tag
+  //   6. body = pb.encode({ f1: client_pub, f2: 1, f3: blob3, f4: ts, f5: blob5 })
+  //   7. await client.sendCommand('trpc.login.ecdh.EcdhService.SsoKeyExchange', body)
+  //   8. return resp.body  // ~308B
+  void EMBEDDED_SERVER_PUB_HEX; void EMBEDDED_KEY32_HEX
+  throw new NotImplementedError('SsoKeyExchange request: 完整公式已逆向, 待实装 (见上方注释)')
 }
 
 async function sendEstablishShareKey(
