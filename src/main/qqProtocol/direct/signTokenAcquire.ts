@@ -95,15 +95,33 @@ export async function acquireSignToken(
 
 // ---- 三步握手 stub ---------------------------------------------------------
 //
-// 这三个函数当前都抛 NotImplementedError. 要补:
-// 1. 找出 SsoKeyExchange request 的 protobuf field layout
-//    (从 trace dump 抓现成 hex hardcode 进来即可, 或 sniff 一次实机包)
-// 2. SsoEstablishShareKey / SsoSecureAccess 的 request 用 share-key AES-GCM 加密的
-//    payload 也是同样路子 -- 要么 hardcode 一份能跑通的 (短期), 要么把这部分密码学
-//    搬到 manager-server (跟 token 解密放一起, Bot 只负责 wire transport)
+// 已知 (来自 LuckyLillia.Sign/traces/sso_dump_20260608-135044.jsonl):
+//
+// SsoKeyExchange request 196B PB:
+//   field 1 LEN 65 : client P-256 pub octet (0x04 || X(32) || Y(32))
+//   field 2 VARINT : 1 (constant, possibly version)
+//   field 3 LEN 57 : opaque blob (12 IV + 29 ct + 16 tag), key 来源未知
+//   field 4 VARINT : unix sec timestamp
+//   field 5 LEN 60 : opaque blob (12 IV + 32 ct + 16 tag), 同上
+//
+// SsoEstablishShareKey request 1489B PB:
+//   field 1 LEN 8    : "getToken" ASCII
+//   field 2 LEN 33   : 0x02 || X(32) compressed P-256 (另一个 keypair?)
+//   field 4 LEN 66   : ASCII hex of field 2 (冗余)
+//   field 5 LEN 1339 : opaque big blob (GCM)
+//   field 6 LEN 32   : session id (== SecureAccess.field 3)
+//
+// SsoSecureAccess request 1353B PB:
+//   field 1 LEN 8    : "getToken" ASCII
+//   field 2 LEN 1306 : opaque big blob (GCM)
+//   field 3 LEN 32   : session id (== ESK.field 6)
+//
+// Phase 2 实施: 短期可以 hardcode 一份 trace 喂出去看 server 反应;
+// 长期需要逆向 GCM blob 用什么 key (hook AES_gcm_256_encrypt 入口).
+// 详细 schema 在 NTQQSign repo 的 sso-request-pb-schema memory 里.
 
 async function sendKex(_client: DirectProtocolClient, _clientPub: Buffer): Promise<Buffer> {
-  throw new NotImplementedError('SsoKeyExchange request PB schema 待逆向')
+  throw new NotImplementedError('SsoKeyExchange request: opaque field 3/5 GCM key 待逆向')
 }
 
 async function sendEstablishShareKey(
@@ -112,7 +130,7 @@ async function sendEstablishShareKey(
   _clientPub: Buffer,
   _kexResp: Buffer,
 ): Promise<Buffer> {
-  throw new NotImplementedError('SsoEstablishShareKey request PB schema 待逆向')
+  throw new NotImplementedError('SsoEstablishShareKey request: field 5 (1339B) GCM key 待逆向')
 }
 
 async function sendSecureAccess(
@@ -121,5 +139,5 @@ async function sendSecureAccess(
   _clientPub: Buffer,
   _kexResp: Buffer,
 ): Promise<Buffer> {
-  throw new NotImplementedError('SsoSecureAccess request PB schema 待逆向')
+  throw new NotImplementedError('SsoSecureAccess request: field 2 (1306B) GCM key 待逆向')
 }
