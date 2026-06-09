@@ -34,6 +34,11 @@ export interface SessionInfo {
   a2: Buffer
   a2Key: Buffer
   sKey: Buffer
+  // QQ 协议层 12B ASCII sign-token (e.g. "aUIOeuqqqfxm"), 来自 ECDH/AES-GCM 三步握手.
+  // 为空 = 未获取到 (Phase 1 骨架阶段是常态), 现有 sign 路径自动退回空 token.
+  // 跟 DirectClientConfig.signToken (manager JWT) 完全两个东西.
+  signToken12B?: string
+  signTokenExpiresAt?: number
 }
 
 export class DirectProtocolClient extends EventEmitter {
@@ -159,7 +164,7 @@ export class DirectProtocolClient extends EventEmitter {
       // wtlogin.login 服务端从 body[9..13] 抠 uin, 不读这字段; trans_emp 还没登录没 uin.
       // 其它 cmd manager 端必须 uin in allowed_uins.
       const uin = this.session?.uin ? Number(this.session.uin) : undefined
-      signResult = await requestSign(this.config.signUrl, cmd, payload, seq, this.guid, this.config.signToken, AppInfo.qua, uin)
+      signResult = await requestSign(this.config.signUrl, cmd, payload, seq, this.guid, this.config.signToken, AppInfo.qua, uin, this.session?.signToken12B)
       if (process.env.DEBUG_SIGN) {
         console.log(`[Sign] ${cmd} seq=${seq}: result=${signResult ? `sign=${signResult.sign.length}B token=${signResult.token.length}B extra=${signResult.extra.length}B` : 'null'}`)
       }
@@ -237,6 +242,43 @@ export class DirectProtocolClient extends EventEmitter {
   setSession(session: SessionInfo): void {
     this.session = session
     this.emit('login', session)
+    // best-effort: 跑 ECDH 三步握手拿 12B 协议层 sign-token. 失败不阻塞登录,
+    // sign 路径自动退回空 token (跟当前默认行为一致).
+    void this.tryAcquireSignToken()
+  }
+
+  /**
+   * 跑 sign-token 三步握手. 失败 swallow + warn, 让 login 继续.
+   * Phase 1 骨架: 三个 SSO cmd 的 request PB schema 还没逆出来, 必抛
+   * NotImplementedError. 等补完 schema 后会自动跑通.
+   */
+  private async tryAcquireSignToken(): Promise<void> {
+    if (!this.session || !this.config.signUrl || !this.config.signToken) return
+    const uin = Number(this.session.uin)
+    if (!Number.isFinite(uin) || uin <= 0) return
+
+    try {
+      const { acquireSignToken } = await import('./signTokenAcquire')
+      const { token, expiresAt } = await acquireSignToken(
+        this,
+        this.config.signUrl,
+        this.config.signToken,
+        uin,
+      )
+      if (this.session) {
+        this.session.signToken12B = token
+        this.session.signTokenExpiresAt = expiresAt
+      }
+      console.log(`[SignToken] acquired 12B token (expires ${new Date(expiresAt * 1000).toISOString()})`)
+    } catch (e) {
+      const msg = (e as Error).message
+      // NotImplementedError 是 Phase 1 预期路径, debug 打印就够; 其他错误正经 warn.
+      if ((e as Error).name === 'NotImplementedError') {
+        console.log(`[SignToken] skipped (${msg}); sign 用空 token 继续`)
+      } else {
+        console.warn(`[SignToken] acquire failed: ${msg}; sign 用空 token 继续`)
+      }
+    }
   }
 
   clearSession(): void {

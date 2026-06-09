@@ -19,6 +19,12 @@ export async function requestSign(
   signToken?: string,
   qua?: string,
   uin?: number,
+  /**
+   * QQ 协议层 12B ASCII sign-token (e.g. "aUIOeuqqqfxm"). sign 算法第一步
+   * MD5(token + extra + body) 的 token 输入. 当前 Bot 拿不到 (Phase 1 骨架),
+   * 全留空 -- sign-service 端按空 token 算, server 也接受.
+   */
+  protocolToken12B?: string,
 ): Promise<SignResult | null> {
   // sign server 现在要求所有 cmd (包括 trans_emp) 都带 client JWT.
   // 没 token 就早 fail, 不浪费一次 HTTP.
@@ -42,6 +48,9 @@ export async function requestSign(
     ...(qua ? { qua } : {}),
     // uin: server 端校验 token 上下文 (token 里的 uin 白名单要包含这个 uin) 用
     ...(uin ? { uin } : {}),
+    // 12B 协议层 token: ASCII 直接转 hex (24 hex chars), sign-service 端 hex 解码
+    // 后当 raw 12B 喂给 MD5(token + extra + body). 不带 = 空 token, 跟现状一致.
+    ...(protocolToken12B ? { token: Buffer.from(protocolToken12B, 'utf-8').toString('hex') } : {}),
   }
 
   let res: Response
