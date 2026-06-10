@@ -264,11 +264,18 @@ function aesGcmSeal(key: Buffer, iv: Buffer, plain: Buffer): Buffer {
 //   field 2 LEN 1306 : opaque GCM blob
 //   field 3 LEN 32   : session_id (== ESK.field 6)
 //
-// 推测 field 5/2 的 GCM key 来源:
-//   ECDH(esk_client_priv, server_eph_pubkey_from_kex_response)
-// 但还没反编译验证. 等 sendKex 实测能从 server 拿到 KeyExchange response 之后,
-// hook 自己进程的 AES_gcm_256_encrypt (sub_2D4E6B0) 看 key 来源 -- frida script
-// 在 NTQQSign repo frida_scripts/hook_gcm_encrypt.py.
+// ★ 2026-06-10 实测 frida hook 确认 (NTQQSign repo full_chain_20260610-104911.jsonl):
+//
+//   - KEX response 解开后, 客户端拿 server_eph_pub 重做一次 ECDH:
+//       share_key_2 = ECDH(client_priv, server_eph_pub)
+//   - share_key_2 用于解密 ESK response 的 138B GCM blob
+//   - ESK plain.field1 (32B) = ★ session_key
+//   - **session_key** 用于:
+//       (a) 加密 SecureAccess request 的 GCM blob
+//       (b) 解密 SecureAccess response 的 GCM blob (出 12B token)
+//       (c) 后续所有业务 cmd request/response GCM 操作
+//   - ESK request 是否需要加密 GCM blob: 老的 sso_dump trace 看到 1339B blob (QR login),
+//     新的 fast-login 直接没看到 ESK request encrypt 调用, 可能没必要发. 需进一步确认.
 
 async function sendEstablishShareKey(
   _client: DirectProtocolClient,
@@ -277,7 +284,7 @@ async function sendEstablishShareKey(
   _kexResp: Buffer,
 ): Promise<Buffer> {
   void SSO_CMD_ESK
-  throw new NotImplementedError('SsoEstablishShareKey: GCM key 来源待逆向 (推测 ECDH(esk_priv, server_eph))')
+  throw new NotImplementedError('SsoEstablishShareKey: 实装顺序待确定 (实测 fast-login 直接跳过 ESK encrypt)')
 }
 
 async function sendSecureAccess(
