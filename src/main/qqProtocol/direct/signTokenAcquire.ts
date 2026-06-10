@@ -8,18 +8,22 @@
 //   - signToken (Bearer)   = manager-server 颁发的 client JWT, 证明 "我是合法 Bot"
 //   - 12B sign-token       = QQ server 颁发, MD5(token + extra + body) 喂给 sign 算法
 //
-// ## Phase 1 status
+// ## Phase 2 status (本文件状态)
 //
-// manager-server endpoint 已实装 + 9 unit test pass, 但 Bot 侧三个 SSO cmd 的
-// **request body PB schema 还没逆向出来** (我们只 trace 到了 response, request 是
-// 加密 protobuf). 所以 acquireSignToken() 当前是 "Phase 1 骨架" -- 调用方应捕获
-// `NotImplementedError` 然后 fallback 到空 token (跟当前行为一致, 不阻塞登录).
+// - sendKex: ★ **已实装**. 完整公式来自 NTQQSign repo
+//   memory/sso-keyexchange-request-key-derivation.md, 跟 Rust 端
+//   sign-token-protocol::build_kex_request_body 是同一份算法的 TypeScript port.
+// - sendEstablishShareKey / sendSecureAccess: 还是 stub. 这俩 cmd 的 request
+//   GCM blob 用什么 key 还没反编译 (推测 share_key + 嵌套 keypair, 见末尾 README).
 //
-// 后续补 schema 后, 把 buildKex/Esk/SecureAccessRequest 三个函数填掉就能跑通.
+// 当前 acquireSignToken 进展到第 1/3 步就会 throw. 等 ESK/SecureAccess 补完,
+// 整个三步握手就跑通了.
 
-import { randomBytes } from 'node:crypto'
+import { createECDH, createHash, randomBytes } from 'node:crypto'
 import { DirectProtocolClient } from './client'
 import { generateP256KeyPair } from './signTokenEcdh'
+import { loadMachineGuid } from './machineGuid'
+import { pbBytes, pbVarint } from './pbCodec'
 
 export class NotImplementedError extends Error {
   constructor(msg: string) {
@@ -39,9 +43,41 @@ interface TokenExchangeResp {
   token?: string
 }
 
+interface TokenCacheResp {
+  code: number
+  message: string
+  token?: string | null
+  ttl_secs?: number | null
+}
+
+// ---- 嵌入常量 (来自 wrapper.node, SSE 解码后) -------------------------------
+//
+// SsoKeyExchange field 3 GCM key = ECDH(client_priv, EMBEDDED_SERVER_PUB).
+// SsoKeyExchange field 5 GCM key = EMBEDDED_KEY32 (静态 binding-MAC key).
+// 详细解码过程 + IDA 偏移见 NTQQSign repo
+// memory/sso-keyexchange-request-key-derivation.md.
+const EMBEDDED_SERVER_PUB = Buffer.from(
+  '049d1423332735980edabe7e9ea451b3395b6f35250db8fc56f25889f628cbae' +
+  '3e8e73077914071eeebc108f4e0170057792bb17aa303af652313d17c1ac815e79',
+  'hex',
+)
+const EMBEDDED_KEY32 = Buffer.from(
+  'e2733bf403149913cbf80c7a95168bd4ca6935ee53cd39764beebe2e007e3aee',
+  'hex',
+)
+// (int)&byte_1000000 截断 LE 4B; 来自 sub_2D5E150 v41 = (int)&byte_1000000
+const V41_LE_BYTES = Buffer.from([0x00, 0x00, 0x00, 0x01])
+
+const SSO_CMD_KEX = 'trpc.login.ecdh.EcdhService.SsoKeyExchange'
+const SSO_CMD_ESK = 'trpc.o3.ecdh_access.EcdhAccess.SsoEstablishShareKey'
+const SSO_CMD_SECURE = 'trpc.o3.ecdh_access.EcdhAccess.SsoSecureAccess'
+
 /**
  * 跑三步握手 + 调 manager /api/sign/token-exchange. 失败抛异常, 调用方决定是否
  * fatal -- 推荐 swallow 后让 sign 用空 token (现有行为).
+ *
+ * 启动时优先查 manager 端 /api/sign/token-cache, 命中 (i.e. 25 分钟内已经跑过
+ * 一次握手) 就直接返回, 不重头跑 -- 避免 server-side ECDH session 浪费.
  */
 export async function acquireSignToken(
   client: DirectProtocolClient,
@@ -49,11 +85,19 @@ export async function acquireSignToken(
   signToken: string,
   uin: number,
 ): Promise<AcquireResult> {
+  // Step 0: cache hit?
+  const cached = await checkTokenCache(signUrl, signToken, uin)
+  if (cached) {
+    return cached
+  }
+
   const { privKey, pubOctet } = generateP256KeyPair()
 
-  // ★ Phase 1: 三个 SSO cmd request body 的 PB schema 还没逆向. 任一句调用没填好都会
-  // 抛 NotImplementedError, login 路径 catch 后退回空 token.
-  const kexResp = await sendKex(client, pubOctet)
+  // Step 1: SsoKeyExchange (已实装)
+  const kexResp = await sendKex(client, privKey, pubOctet, uin)
+
+  // Step 2/3: ESK + SecureAccess (尚未实装) -- 抛 NotImplementedError
+  // 让 caller swallow.
   const eskResp = await sendEstablishShareKey(client, privKey, pubOctet, kexResp)
   const secureResp = await sendSecureAccess(client, privKey, pubOctet, kexResp)
 
@@ -93,65 +137,138 @@ export async function acquireSignToken(
   return { token: json.token, expiresAt: Math.floor(Date.now() / 1000) + 25 * 60 }
 }
 
-// ---- 三步握手 stub ---------------------------------------------------------
+async function checkTokenCache(signUrl: string, signToken: string, uin: number): Promise<AcquireResult | null> {
+  const url = signUrl.endsWith('/')
+    ? `${signUrl}api/sign/token-cache?uin=${uin}`
+    : `${signUrl}/api/sign/token-cache?uin=${uin}`
+  let res: Response
+  try {
+    res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${signToken}` },
+      signal: AbortSignal.timeout(3000),
+    })
+  } catch {
+    return null  // cache 不可用不致命, 继续走完整握手
+  }
+  if (!res.ok) return null
+  const json = (await res.json().catch(() => null)) as TokenCacheResp | null
+  if (!json || json.code !== 0 || !json.token) return null
+  const ttl = json.ttl_secs ?? 0
+  return {
+    token: json.token,
+    expiresAt: Math.floor(Date.now() / 1000) + (ttl > 0 ? ttl : 25 * 60),
+  }
+}
+
+// ---- Step 1: SsoKeyExchange (已实装) ---------------------------------------
 //
-// 已知 (来自 LuckyLillia.Sign/traces/sso_dump_20260608-135044.jsonl):
+// 完整公式 (跟 sign-token-protocol::build_kex_request_body 镜像):
+//   1. share_key = ECDH(client_priv, EMBEDDED_SERVER_PUB)  (raw X 32B, 无 KDF)
+//   2. v68 = pb({ f1: uin_string, f2: machine_guid_16B })
+//   3. blob3 = iv12 || AES-256-GCM(v68, share_key, iv12).enc.tag
+//   4. v39 = client_pub || u32_LE(0x01000000) || blob3 || u64_BE(unix_ts)
+//   5. blob5 = iv12 || AES-256-GCM(sha256(v39), EMBEDDED_KEY32, iv12).enc.tag
+//   6. body = pb({ f1: client_pub, f2: 1, f3: blob3, f4: ts, f5: blob5 })
+
+/**
+ * Pure 函数: 构造 SsoKeyExchange request body. 不发包不读盘, 方便 unit test.
+ * IV 由 caller 传 (生产代码用 randomBytes(12), 测试用 deterministic).
+ */
+export function buildKexRequestBody(args: {
+  clientPriv: Buffer
+  clientPub: Buffer
+  uin: number | string
+  machineGuid: Buffer
+  ts: number
+  iv3: Buffer
+  iv5: Buffer
+}): Buffer {
+  const { clientPriv, clientPub, uin, machineGuid, ts, iv3, iv5 } = args
+  if (clientPub.length !== 65 || clientPub[0] !== 0x04) {
+    throw new Error(`clientPub must be 65B uncompressed (got len=${clientPub.length} prefix=0x${clientPub[0]?.toString(16) ?? '?'})`)
+  }
+  if (machineGuid.length !== 16) throw new Error(`machineGuid must be 16B`)
+  if (iv3.length !== 12 || iv5.length !== 12) throw new Error('iv3/iv5 must be 12B each')
+
+  const ecdh = createECDH('prime256v1')
+  ecdh.setPrivateKey(clientPriv)
+  const shareKey = ecdh.computeSecret(EMBEDDED_SERVER_PUB)
+
+  const v68 = Buffer.concat([
+    pbBytes(1, Buffer.from(String(uin), 'utf-8')),
+    pbBytes(2, machineGuid),
+  ])
+  const blob3 = aesGcmSeal(shareKey, iv3, v68)
+
+  const tsBuf = Buffer.alloc(8)
+  tsBuf.writeBigUInt64BE(BigInt(ts))
+  const v39 = Buffer.concat([clientPub, V41_LE_BYTES, blob3, tsBuf])
+
+  const sha = createHash('sha256').update(v39).digest()
+  const blob5 = aesGcmSeal(EMBEDDED_KEY32, iv5, sha)
+
+  return Buffer.concat([
+    pbBytes(1, clientPub),
+    pbVarint(2, 1),
+    pbBytes(3, blob3),
+    pbVarint(4, ts),
+    pbBytes(5, blob5),
+  ])
+}
+
+async function sendKex(
+  client: DirectProtocolClient,
+  clientPriv: Buffer,
+  clientPub: Buffer,
+  uin: number,
+): Promise<Buffer> {
+  const body = buildKexRequestBody({
+    clientPriv,
+    clientPub,
+    uin,
+    machineGuid: await loadMachineGuid(),
+    ts: Math.floor(Date.now() / 1000),
+    iv3: randomBytes(12),
+    iv5: randomBytes(12),
+  })
+  const resp = await client.sendCommand(SSO_CMD_KEX, body)
+  if (resp.retCode !== undefined && resp.retCode !== 0) {
+    throw new Error(`SsoKeyExchange retCode=${resp.retCode} extra=${resp.extraMsg ?? ''}`)
+  }
+  return resp.payload
+}
+
+function aesGcmSeal(key: Buffer, iv: Buffer, plain: Buffer): Buffer {
+  // dynamic require 避免 cipher 名不规范导致编译期错; createCipheriv 直接走
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { createCipheriv } = require('node:crypto') as typeof import('node:crypto')
+  const cipher = createCipheriv('aes-256-gcm', key, iv)
+  const ct = Buffer.concat([cipher.update(plain), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return Buffer.concat([iv, ct, tag])
+}
+
+// ---- Step 2/3: stub (待逆向 GCM key 来源) ----------------------------------
 //
-// SsoKeyExchange request 196B PB:
-//   field 1 LEN 65 : client P-256 pub octet (0x04 || X(32) || Y(32))
-//   field 2 VARINT : 1 (constant, possibly version)
-//   field 3 LEN 57 : opaque blob (12 IV + 29 ct + 16 tag), key 来源未知
-//   field 4 VARINT : unix sec timestamp
-//   field 5 LEN 60 : opaque blob (12 IV + 32 ct + 16 tag), 同上
+// 已知 (来自 LuckyLillia.Sign trace sso_dump_20260608-135044.jsonl):
 //
 // SsoEstablishShareKey request 1489B PB:
 //   field 1 LEN 8    : "getToken" ASCII
-//   field 2 LEN 33   : 0x02 || X(32) compressed P-256 (另一个 keypair?)
-//   field 4 LEN 66   : ASCII hex of field 2 (冗余)
-//   field 5 LEN 1339 : opaque big blob (GCM)
-//   field 6 LEN 32   : session id (== SecureAccess.field 3)
+//   field 2 LEN 33   : 0x02 || X(32) compressed P-256 (ESK 自己的 keypair, 跟 KEX 不共享)
+//   field 4 LEN 66   : ASCII hex of 33B (跟 field 2 不一样的另一个 33B blob)
+//   field 5 LEN 1339 : opaque GCM blob
+//   field 6 LEN 32   : session_id (== SecureAccess.field 3, 来自 KeyExchange.response)
 //
 // SsoSecureAccess request 1353B PB:
 //   field 1 LEN 8    : "getToken" ASCII
-//   field 2 LEN 1306 : opaque big blob (GCM)
-//   field 3 LEN 32   : session id (== ESK.field 6)
+//   field 2 LEN 1306 : opaque GCM blob
+//   field 3 LEN 32   : session_id (== ESK.field 6)
 //
-// Phase 2 实施: SsoKeyExchange request crypto 已**完整逆向**(见 NTQQSign repo
-// memory/sso-keyexchange-request-key-derivation.md), 关键常量在下方 EMBEDDED_*. 但
-// SsoEstablishShareKey / SsoSecureAccess 的 GCM key 来源还没逆 (推测 share-key,
-// 等 SsoKeyExchange 跑通后再 hook 验证).
-// 详细 schema 在 NTQQSign repo 的 sso-request-pb-schema memory 里.
-
-// 嵌入在 wrapper.node 里的 server P-256 公钥 (uncompressed octet, 65B), 解码自
-// xmmword_ACEB5B/6B/7B/8B + 0xE8 (SSE swap-nibbles + sequential XOR 混淆).
-// SsoKeyExchange field 3 GCM blob 的 key = ECDH(client_priv, EMBEDDED_SERVER_PUB).
-const EMBEDDED_SERVER_PUB_HEX =
-  '049d1423332735980edabe7e9ea451b3395b6f35250db8fc56f25889f628cbae' +
-  '3e8e73077914071eeebc108f4e0170057792bb17aa303af652313d17c1ac815e79'
-
-// 嵌入的 32B AES-256-GCM key, 解码自 xmmword_A13990 + xmmword_A139A0.
-// SsoKeyExchange field 5 GCM blob 的 key = EMBEDDED_KEY32.
-// blob5 plaintext = SHA256(client_pub || u32_LE(0x01000000) || blob3_full || u64_BE(ts))
-const EMBEDDED_KEY32_HEX =
-  'e2733bf403149913cbf80c7a95168bd4ca6935ee53cd39764beebe2e007e3aee'
-
-async function sendKex(_client: DirectProtocolClient, _clientPub: Buffer): Promise<Buffer> {
-  // TODO Phase 2.1: 实装 SsoKeyExchange request 构造
-  //   1. share_key = ecdh.computeSecret(EMBEDDED_SERVER_PUB) -- raw X 32B no KDF
-  //   2. v68_inner = pb.encode({
-  //        f1 LEN: uin_string,        // "123456789"
-  //        f2 LEN: machine_guid_16B   // sub_76D5D70 持久化文件; Bot 端可生成 16B random
-  //                                      并存到 data/machine_guid.bin 一致使用
-  //      })
-  //   3. blob3 = randomIV(12) || AES-256-GCM(v68, share_key, iv).enc.tag
-  //   4. v39 = client_pub_octet || u32_LE(0x01000000) || blob3 || u64_BE(unix_ts)
-  //   5. blob5 = randomIV(12) || AES-256-GCM(sha256(v39), EMBEDDED_KEY32, iv).enc.tag
-  //   6. body = pb.encode({ f1: client_pub, f2: 1, f3: blob3, f4: ts, f5: blob5 })
-  //   7. await client.sendCommand('trpc.login.ecdh.EcdhService.SsoKeyExchange', body)
-  //   8. return resp.body  // ~308B
-  void EMBEDDED_SERVER_PUB_HEX; void EMBEDDED_KEY32_HEX
-  throw new NotImplementedError('SsoKeyExchange request: 完整公式已逆向, 待实装 (见上方注释)')
-}
+// 推测 field 5/2 的 GCM key 来源:
+//   ECDH(esk_client_priv, server_eph_pubkey_from_kex_response)
+// 但还没反编译验证. 等 sendKex 实测能从 server 拿到 KeyExchange response 之后,
+// hook 自己进程的 AES_gcm_256_encrypt (sub_2D4E6B0) 看 key 来源 -- frida script
+// 在 NTQQSign repo frida_scripts/hook_gcm_encrypt.py.
 
 async function sendEstablishShareKey(
   _client: DirectProtocolClient,
@@ -159,7 +276,8 @@ async function sendEstablishShareKey(
   _clientPub: Buffer,
   _kexResp: Buffer,
 ): Promise<Buffer> {
-  throw new NotImplementedError('SsoEstablishShareKey request: field 5 (1339B) GCM key 待逆向')
+  void SSO_CMD_ESK
+  throw new NotImplementedError('SsoEstablishShareKey: GCM key 来源待逆向 (推测 ECDH(esk_priv, server_eph))')
 }
 
 async function sendSecureAccess(
@@ -168,5 +286,6 @@ async function sendSecureAccess(
   _clientPub: Buffer,
   _kexResp: Buffer,
 ): Promise<Buffer> {
-  throw new NotImplementedError('SsoSecureAccess request: field 2 (1306B) GCM key 待逆向')
+  void SSO_CMD_SECURE
+  throw new NotImplementedError('SsoSecureAccess: GCM key 来源待逆向 (推测同 ESK)')
 }
