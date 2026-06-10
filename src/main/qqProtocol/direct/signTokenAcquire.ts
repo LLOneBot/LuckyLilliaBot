@@ -138,7 +138,11 @@ const EMBEDDED_KEY32_HEX =
 async function sendKex(_client: DirectProtocolClient, _clientPub: Buffer): Promise<Buffer> {
   // TODO Phase 2.1: 实装 SsoKeyExchange request 构造
   //   1. share_key = ecdh.computeSecret(EMBEDDED_SERVER_PUB) -- raw X 32B no KDF
-  //   2. v68_inner = pb.encode({ f1: uin_string, f2: ??? })  -- 内层 PB
+  //   2. v68_inner = pb.encode({
+  //        f1 LEN: uin_string,        // "123456789"
+  //        f2 LEN: machine_guid_16B   // sub_76D5D70 持久化文件; Bot 端可生成 16B random
+  //                                      并存到 data/machine_guid.bin 一致使用
+  //      })
   //   3. blob3 = randomIV(12) || AES-256-GCM(v68, share_key, iv).enc.tag
   //   4. v39 = client_pub_octet || u32_LE(0x01000000) || blob3 || u64_BE(unix_ts)
   //   5. blob5 = randomIV(12) || AES-256-GCM(sha256(v39), EMBEDDED_KEY32, iv).enc.tag
