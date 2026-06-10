@@ -1,23 +1,29 @@
-// 跑 sign-token 三步握手 (P-256 ECDH + AES-256-GCM) 拿 12B ASCII 协议层 token.
+// 跑 sign-token 协议握手 (P-256 ECDH + AES-256-GCM) 拿 32B session_key.
 //
-// 结构是: Bot 跟 QQ server 三个 SSO cmd 拿 raw response PB blob, 一次性把
-// (client_priv, 3 个 response) 喂给 manager-server /api/sign/token-exchange,
-// manager 端跑 P-256 ECDH 算 share-key + AES-256-GCM 解密返回 12B token.
+// ## ★ 重大澄清 (2026-06-10 实测后)
 //
-// 协议层 token 跟 manager-server JWT signToken 完全是两个东西:
-//   - signToken (Bearer)   = manager-server 颁发的 client JWT, 证明 "我是合法 Bot"
-//   - 12B sign-token       = QQ server 颁发, MD5(token + extra + body) 喂给 sign 算法
+// 老的设想是: Bot 跑完 KEX/ESK/SecureAccess 三步握手, 把 raw response 喂给
+// manager-server, manager 解出 12B ASCII sign-token (e.g. "aUIOeuqqqfxm").
 //
-// ## Phase 2 status (本文件状态)
+// 但实测 (NTQQSign repo full_chain_20260610-110943.jsonl) 显示:
+//   - 整个登录流程只有 5 次 AES-GCM 操作 (3 enc + 2 dec)
+//   - SsoEstablishShareKey 1339B / SsoSecureAccess 1306B blob 不通过 GCM 路径产生
+//   - 12B 协议层 sign-token 不在任何 GCM blob plain 里
+//   - 12B token 实际存在于 sign-context C++ struct + 48 字段, 由 QQ NT 客户端内部维护
 //
-// - sendKex: ★ **已实装**. 完整公式来自 NTQQSign repo
-//   memory/sso-keyexchange-request-key-derivation.md, 跟 Rust 端
-//   sign-token-protocol::build_kex_request_body 是同一份算法的 TypeScript port.
-// - sendEstablishShareKey / sendSecureAccess: 还是 stub. 这俩 cmd 的 request
-//   GCM blob 用什么 key 还没反编译 (推测 share_key + 嵌套 keypair, 见末尾 README).
+// 也就是说**Bot 自己跑握手取不到 12B token**. 真正能稳定拿到 12B token 的方法:
+//   1. (现状) 完全不要 12B token, sign 算法用 empty token, 大多数 cmd 服务器接受
+//   2. manager-server 端跑一份独立 QQ 实例 + frida hook find_token.py 读, 通过
+//      sign-service 接口下发 -- 但那是 manager 后端的事, 跟 Bot 无关
+//   3. Bot 自身 hook 不可能 (Bot 不是 QQ 进程)
 //
-// 当前 acquireSignToken 进展到第 1/3 步就会 throw. 等 ESK/SecureAccess 补完,
-// 整个三步握手就跑通了.
+// 所以本文件实际职责缩小到:
+//   - sendKex 实装 (已完成, 用于实测验证 manager-server 的 ECDH 公式)
+//   - 跟 manager 同步一些 session-level 状态 (share_key_2, session_key) 留作后续用途
+//   - **不再尝试**端到端获取 12B token. 现有 sign 调用继续用 empty token.
+//
+// 这个文件保留下来的价值: 给 manager-server `decrypt_session()` 提供输入, 让我们能
+// 实测确认 ECDH + ESK 路径在生产里能跑通. 12B token 获取问题等找到非 GCM 路径之后再回来.
 
 import { createECDH, createHash, randomBytes } from 'node:crypto'
 import { DirectProtocolClient } from './client'
@@ -32,25 +38,83 @@ export class NotImplementedError extends Error {
   }
 }
 
-export interface AcquireResult {
-  token: string  // 12B ASCII e.g. "aUIOeuqqqfxm"
-  expiresAt: number  // unix sec
+/**
+ * 实测 ECDH 完成后能拿到的所有上下文.
+ * - shareKey2 = ECDH(client_priv, server_eph_pub_from_KEX_response). 用于解 ESK response.
+ * - sessionKey = ESK plain.field1 (32B). 用于加密 NTLoginEasyLogin / 后续业务 cmd 的 GCM blob.
+ *
+ * 注意: 12B 协议层 sign-token 不包含在这个上下文里 (见文件顶部注释).
+ */
+export interface SessionContext {
+  shareKey2: Buffer
+  sessionKey: Buffer
+  eskPlain: Buffer
 }
 
-interface TokenExchangeResp {
+interface SessionContextResp {
   code: number
   message: string
-  token?: string
+  share_key_2?: string
+  session_key?: string
+  esk_plain?: string
 }
 
-interface TokenCacheResp {
-  code: number
-  message: string
-  token?: string | null
-  ttl_secs?: number | null
-}
+/**
+ * 跑 SsoKeyExchange + SsoEstablishShareKey 两步握手, 把 (client_priv, kex_resp, esk_resp)
+ * 喂给 manager-server /api/sign/session-context, 拿到 32B session_key + share_key_2.
+ *
+ * 失败抛异常. 调用方决定是否 fatal -- 推荐 swallow, 因为现状 sign 流程用 empty token
+ * 也能跑大多数 cmd. 这个握手主要用来做端到端协议验证.
+ */
+export async function acquireSessionContext(
+  client: DirectProtocolClient,
+  signUrl: string,
+  signToken: string,
+  uin: number,
+): Promise<SessionContext> {
+  const { privKey, pubOctet } = generateP256KeyPair()
 
-// ---- 嵌入常量 (来自 wrapper.node, SSE 解码后) -------------------------------
+  const kexResp = await sendKex(client, privKey, pubOctet, uin)
+  const eskResp = await sendEstablishShareKey(client, privKey, pubOctet, kexResp)
+
+  const url = signUrl.endsWith('/')
+    ? signUrl + 'api/sign/session-context'
+    : signUrl + '/api/sign/session-context'
+
+  const reqBody = {
+    client_priv: privKey.toString('hex'),
+    kex_resp: kexResp.toString('hex'),
+    esk_resp: eskResp.toString('hex'),
+    uin,
+    ts: Math.floor(Date.now() / 1000),
+    nonce: randomBytes(16).toString('hex'),
+  }
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${signToken}`,
+    },
+    body: JSON.stringify(reqBody),
+  })
+
+  if (!res.ok) {
+    let detail = ''
+    try { detail = await res.text() } catch { /* ignore */ }
+    throw new Error(`session-context HTTP ${res.status}: ${detail}`)
+  }
+  const json = await res.json() as SessionContextResp
+  if (json.code !== 0 || !json.session_key) {
+    throw new Error(`session-context code=${json.code} msg=${json.message}`)
+  }
+
+  return {
+    shareKey2: Buffer.from(json.share_key_2!, 'hex'),
+    sessionKey: Buffer.from(json.session_key, 'hex'),
+    eskPlain: Buffer.from(json.esk_plain!, 'hex'),
+  }
+}
 //
 // SsoKeyExchange field 3 GCM key = ECDH(client_priv, EMBEDDED_SERVER_PUB).
 // SsoKeyExchange field 5 GCM key = EMBEDDED_KEY32 (静态 binding-MAC key).
@@ -71,94 +135,6 @@ const V41_LE_BYTES = Buffer.from([0x00, 0x00, 0x00, 0x01])
 const SSO_CMD_KEX = 'trpc.login.ecdh.EcdhService.SsoKeyExchange'
 const SSO_CMD_ESK = 'trpc.o3.ecdh_access.EcdhAccess.SsoEstablishShareKey'
 const SSO_CMD_SECURE = 'trpc.o3.ecdh_access.EcdhAccess.SsoSecureAccess'
-
-/**
- * 跑三步握手 + 调 manager /api/sign/token-exchange. 失败抛异常, 调用方决定是否
- * fatal -- 推荐 swallow 后让 sign 用空 token (现有行为).
- *
- * 启动时优先查 manager 端 /api/sign/token-cache, 命中 (i.e. 25 分钟内已经跑过
- * 一次握手) 就直接返回, 不重头跑 -- 避免 server-side ECDH session 浪费.
- */
-export async function acquireSignToken(
-  client: DirectProtocolClient,
-  signUrl: string,
-  signToken: string,
-  uin: number,
-): Promise<AcquireResult> {
-  // Step 0: cache hit?
-  const cached = await checkTokenCache(signUrl, signToken, uin)
-  if (cached) {
-    return cached
-  }
-
-  const { privKey, pubOctet } = generateP256KeyPair()
-
-  // Step 1: SsoKeyExchange (已实装)
-  const kexResp = await sendKex(client, privKey, pubOctet, uin)
-
-  // Step 2/3: ESK + SecureAccess (尚未实装) -- 抛 NotImplementedError
-  // 让 caller swallow.
-  const eskResp = await sendEstablishShareKey(client, privKey, pubOctet, kexResp)
-  const secureResp = await sendSecureAccess(client, privKey, pubOctet, kexResp)
-
-  const exchangeUrl = signUrl.endsWith('/')
-    ? signUrl + 'api/sign/token-exchange'
-    : signUrl + '/api/sign/token-exchange'
-
-  const reqBody = {
-    client_priv: privKey.toString('hex'),
-    kex_resp: kexResp.toString('hex'),
-    esk_resp: eskResp.toString('hex'),
-    secure_resp: secureResp.toString('hex'),
-    uin,
-    ts: Math.floor(Date.now() / 1000),
-    nonce: randomBytes(16).toString('hex'),
-  }
-
-  const res = await fetch(exchangeUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${signToken}`,
-    },
-    body: JSON.stringify(reqBody),
-  })
-
-  if (!res.ok) {
-    let detail = ''
-    try { detail = await res.text() } catch { /* ignore */ }
-    throw new Error(`token-exchange HTTP ${res.status}: ${detail}`)
-  }
-  const json = await res.json() as TokenExchangeResp
-  if (json.code !== 0 || !json.token) {
-    throw new Error(`token-exchange code=${json.code} msg=${json.message}`)
-  }
-  // 缓存 25min, 跟 manager-server 那边 redis TTL 对齐
-  return { token: json.token, expiresAt: Math.floor(Date.now() / 1000) + 25 * 60 }
-}
-
-async function checkTokenCache(signUrl: string, signToken: string, uin: number): Promise<AcquireResult | null> {
-  const url = signUrl.endsWith('/')
-    ? `${signUrl}api/sign/token-cache?uin=${uin}`
-    : `${signUrl}/api/sign/token-cache?uin=${uin}`
-  let res: Response
-  try {
-    res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${signToken}` },
-      signal: AbortSignal.timeout(3000),
-    })
-  } catch {
-    return null  // cache 不可用不致命, 继续走完整握手
-  }
-  if (!res.ok) return null
-  const json = (await res.json().catch(() => null)) as TokenCacheResp | null
-  if (!json || json.code !== 0 || !json.token) return null
-  const ttl = json.ttl_secs ?? 0
-  return {
-    token: json.token,
-    expiresAt: Math.floor(Date.now() / 1000) + (ttl > 0 ? ttl : 25 * 60),
-  }
-}
 
 // ---- Step 1: SsoKeyExchange (已实装) ---------------------------------------
 //

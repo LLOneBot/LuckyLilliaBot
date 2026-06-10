@@ -242,37 +242,40 @@ export class DirectProtocolClient extends EventEmitter {
   setSession(session: SessionInfo): void {
     this.session = session
     this.emit('login', session)
-    // best-effort: 跑 ECDH 三步握手拿 12B 协议层 sign-token. 失败不阻塞登录,
-    // sign 路径自动退回空 token (跟当前默认行为一致).
-    void this.tryAcquireSignToken()
+    // best-effort: 跑 ECDH 握手验证 manager-server 那边的协议公式. 不影响 sign --
+    // sign 路径继续用 empty token (12B 协议层 token 不在 GCM 路径里, 我们拿不到, 见
+    // signTokenAcquire.ts 顶部注释).
+    void this.trySessionContext()
   }
 
   /**
-   * 跑 sign-token 三步握手. 失败 swallow + warn, 让 login 继续.
-   * Phase 1 骨架: 三个 SSO cmd 的 request PB schema 还没逆出来, 必抛
-   * NotImplementedError. 等补完 schema 后会自动跑通.
+   * 跑 SsoKeyExchange + SsoEstablishShareKey 两步握手, 把 raw response 喂给
+   * manager /api/sign/session-context. 失败 swallow + log.
+   *
+   * 当前主要价值: 端到端验证 manager-server 的 ECDH + GCM 公式跟实机一致 (live
+   * sanity check). session_key 拿到后暂时不消费 -- 因为 12B 协议层 sign-token
+   * 不通过这条 GCM 路径流转.
    */
-  private async tryAcquireSignToken(): Promise<void> {
+  private async trySessionContext(): Promise<void> {
     if (!this.session || !this.config.signUrl || !this.config.signToken) return
     const uin = Number(this.session.uin)
     if (!Number.isFinite(uin) || uin <= 0) return
 
     try {
-      const { acquireSignToken } = await import('./signTokenAcquire')
-      const { token, expiresAt } = await acquireSignToken(
+      const { acquireSessionContext } = await import('./signTokenAcquire')
+      const ctx = await acquireSessionContext(
         this,
         this.config.signUrl,
         this.config.signToken,
         uin,
       )
-      if (this.session) {
-        this.session.signToken12B = token
-        this.session.signTokenExpiresAt = expiresAt
-      }
-      console.log(`[SignToken] acquired 12B token (expires ${new Date(expiresAt * 1000).toISOString()})`)
+      console.log(
+        `[SignToken] ECDH session ok: share_key_2=${ctx.shareKey2.toString('hex').slice(0, 16)}... ` +
+        `session_key=${ctx.sessionKey.toString('hex').slice(0, 16)}... ` +
+        `(esk_plain ${ctx.eskPlain.length}B)`
+      )
     } catch (e) {
       const msg = (e as Error).message
-      // NotImplementedError 是 Phase 1 预期路径, debug 打印就够; 其他错误正经 warn.
       if ((e as Error).name === 'NotImplementedError') {
         console.log(`[SignToken] skipped (${msg}); sign 用空 token 继续`)
       } else {
