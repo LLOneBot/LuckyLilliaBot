@@ -116,7 +116,8 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
               replyMsgSeq: Number(item.msgSeq),
               replyMsgTime: 0,
               senderUin: Number(item.uin ?? 0),
-              replyMsgClientSeq: 0
+              replyMsgClientSeq: 0,
+              elements: []
             }
           })
         } else if (item.type === 'text' && item.text) {

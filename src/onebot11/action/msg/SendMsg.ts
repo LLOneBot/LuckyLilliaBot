@@ -34,7 +34,7 @@ export class SendMsg extends BaseAction<OB11PostSendMsg, ReturnData> {
     if (messages.some(e => e.type === OB11MessageDataType.Node)) {
       throw new Error('请使用 /send_group_forward_msg 或 /send_private_forward_msg 进行合并转发')
     }
-    const { sendElements, deleteAfterSentFiles } = await transformOutgoingSegments(this.ctx, messages, peer)
+    const { sendElements, deleteAfterSentFiles } = await transformOutgoingSegments(this.ctx, messages, peer, false)
     const returnMsg = await this.ctx.app.sendMessage(this.ctx, peer, sendElements, deleteAfterSentFiles)
     const msgShortId = this.ctx.store.createMsgShortId(returnMsg)
     return { message_id: msgShortId }

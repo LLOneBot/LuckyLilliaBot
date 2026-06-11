@@ -99,6 +99,7 @@ export interface ReplyElement {
   replyMsgTime: number
   senderUin: number
   replyMsgClientSeq: number
+  elements: MessageElement[]
 }
 
 export interface FileElement {

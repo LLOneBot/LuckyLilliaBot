@@ -23,7 +23,7 @@ export async function transformOutgoingSegments(
   ctx: Context,
   messageData: OB11MessageData[],
   peer: Peer,
-  ignoreTypes: OB11MessageDataType[] = [],
+  isInsideForward: boolean
 ) {
   const sendElements: SendMessageElement[] = []
   const deleteAfterSentFiles: string[] = []
@@ -35,9 +35,6 @@ export async function transformOutgoingSegments(
   }[] = []
 
   for (const segment of messageData) {
-    if (ignoreTypes.includes(segment.type)) {
-      continue
-    }
     switch (segment.type) {
       case OB11MessageDataType.Text: {
         const text = segment.data?.text
@@ -95,7 +92,8 @@ export async function transformOutgoingSegments(
             msg = (await ctx.ntMsgApi.getSingleMsg(info.peer, info.msgSeq)).msgList[0]
           }
           if (msg) {
-            sendElements.push(SendElement.reply(msg.msgSeq, +msg.senderUin, +msg.msgTime, msg.clientSeq))
+            const elements = isInsideForward ? msg.elements : []
+            sendElements.push(SendElement.reply(msg.msgSeq, +msg.senderUin, +msg.msgTime, msg.clientSeq, elements))
           }
         }
       }
@@ -270,7 +268,7 @@ export async function transformOutgoingSegments(
         break
       case OB11MessageDataType.Node: {
         const content = segment.data.content ? message2List(segment.data.content) : []
-        const inner = await transformOutgoingSegments(ctx, content, peer)
+        const inner = await transformOutgoingSegments(ctx, content, peer, true)
         deleteAfterSentFiles.push(...inner.deleteAfterSentFiles)
         nodes.push({
           senderUin: Number(segment.data.uin ?? segment.data.user_id ?? selfInfo.uin),

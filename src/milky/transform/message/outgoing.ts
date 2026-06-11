@@ -12,7 +12,8 @@ export async function transformOutgoingMessage(
   ctx: Context,
   segments: OutgoingSegment[],
   peerUid: string,
-  isGroup: boolean = false,
+  isGroup: boolean,
+  isInsideForward: boolean
 ) {
   const elements: SendMessageElement[] = []
   const deleteAfterSentFiles: string[] = []
@@ -43,7 +44,8 @@ export async function transformOutgoingMessage(
         if (!msg) {
           throw new Error('被回复的消息未找到')
         }
-        elements.push(SendElement.reply(segment.data.message_seq, +msg.senderUin, +msg.msgTime, msg.clientSeq))
+        const elements = isInsideForward ? msg.elements : []
+        elements.push(SendElement.reply(segment.data.message_seq, +msg.senderUin, +msg.msgTime, msg.clientSeq, elements))
       } else if (segment.type === 'image') {
         const imageBuffer = await resolveMilkyUri(segment.data.uri)
         // Save to temp file and upload
@@ -83,7 +85,7 @@ export async function transformOutgoingMessage(
           msgTime?: number
         }[] = []
         for (const item of data.messages) {
-          const res = await transformOutgoingMessage(ctx, item.segments as OutgoingSegment[], peerUid, isGroup)
+          const res = await transformOutgoingMessage(ctx, item.segments as OutgoingSegment[], peerUid, isGroup, true)
           deleteAfterSentFiles.push(...res.deleteAfterSentFiles)
           nodes.push({
             senderUin: item.user_id,

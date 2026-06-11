@@ -285,7 +285,8 @@ export class MessageEncoder {
           source.msgSeq,
           source.senderUin,
           source.msgTime,
-          source.clientSeq
+          source.clientSeq,
+          []
         ))
       }
     } else if (type === 'face') {

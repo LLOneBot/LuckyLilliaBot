@@ -567,4 +567,11 @@ export namespace Msg {
   export const MarkdownExtra = ProtoMessage.of({
     content: ProtoField(1, 'string')
   })
+
+  export const TextResvAttr = ProtoMessage.of({
+    atType: ProtoField(3, 'uint32'),
+    atMemberUin: ProtoField(4, 'uint32', 'optional'),
+    atMemberTinyid: ProtoField(5, 'uint32', 'optional'),
+    atMemberUid: ProtoField(9, 'string'),
+  })
 }

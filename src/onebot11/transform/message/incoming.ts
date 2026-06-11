@@ -57,12 +57,8 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
           replyMsg = msgList[0]
         }
         if (!replyMsg) {
-          // 没找到原消息也得发出 reply 段，否则客户端看不到这是一条回复。用 msgSeq 当占位 id
-          ctx.logger.warn('reply 原消息未命中 cache，使用占位 id', replyElement)
-          messageSegment = {
-            type: OB11MessageDataType.Reply,
-            data: { id: String(replyMsgSeq || 0) }
-          }
+          ctx.logger.warn('reply 原消息未找到', replyElement)
+          continue
         } else {
           messageSegment = {
             type: OB11MessageDataType.Reply,
