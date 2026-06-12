@@ -91,22 +91,8 @@ export class MessageBuilding {
 
   private async [ElementType.Reply](data: SendReplyElement) {
     const { replyElement } = data
-    const srcMsg = {
-      origSeqs: [replyElement.replyMsgClientSeq || replyElement.replyMsgSeq],
-      senderUin: replyElement.senderUin,
-      time: replyElement.replyMsgTime,
-      attr: {
-        ntMsgSeq: replyElement.replyMsgClientSeq ? replyElement.replyMsgSeq : undefined
-      },
-      elems: undefined as undefined | Buffer[]
-    }
-    // 普通群/私聊消息的 reply 段，server 会保留引用让 client 渲染时再去拉一次锚点。
-    // 但合并转发包是离线快照，client 不会再拉 —— 必须把锚点的 elements 内联进 srcMsg.elems
-    // （field 5 bytes[]，每个是 Msg.Elem.encode 的结果），否则 client 渲染合并转发卡片
-    // 里的 reply 段会显示 "[原消息已过期]"。
-    //
-    // 实测 QQ 客户端手动转发时也是这样填的（拉合并转发反查 reply.data.segments 里能看到
-    // 锚点消息的完整文本内容）。
+    // 有了 srcMsg，不需要提供 elems
+    /**let elems
     if (replyElement.elements.length > 0) {
       // 把锚点的 elements 转成简化的 text Msg.Elem 列表内联进 srcMsg.elems。
       // 复杂段（image/video/face/...）退化成占位文本，至少让 client 渲染时
@@ -144,10 +130,20 @@ export class MessageBuilding {
         }
       }
       if (elemBytes.length > 0) {
-        srcMsg.elems = elemBytes
+        elems = elemBytes
       }
-    }
-    this.outputElems.push({ srcMsg })
+    }*/
+    this.outputElems.push({
+      srcMsg: {
+        origSeqs: [replyElement.replyMsgClientSeq || replyElement.replyMsgSeq],
+        senderUin: replyElement.senderUin,
+        time: replyElement.replyMsgTime,
+        attr: {
+          ntMsgSeq: replyElement.replyMsgClientSeq ? replyElement.replyMsgSeq : undefined
+        },
+        srcMsg: replyElement.srcMsg
+      }
+    })
   }
 
   private async [ElementType.Pic](data: SendPicElement) {

@@ -52,7 +52,7 @@ export namespace SendElement {
     senderUin: number,
     msgTime: number,
     clientSeq: number,
-    elements: MessageElement[]
+    srcMsg?: Buffer
   ): SendReplyElement {
     return {
       elementType: ElementType.Reply,
@@ -61,7 +61,7 @@ export namespace SendElement {
         senderUin,
         replyMsgTime: msgTime,
         replyMsgClientSeq: clientSeq,
-        elements
+        srcMsg,
       },
     }
   }

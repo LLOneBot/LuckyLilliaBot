@@ -37,15 +37,22 @@ export async function transformOutgoingMessage(
           guildId: ''
         }
         let msg = ctx.store.getMsgBySeq(peer.peerUid, segment.data.message_seq)
+        let srcMsg
         if (!msg) {
-          const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, segment.data.message_seq)
+          const { msgList, msgByteList } = await ctx.ntMsgApi.getSingleMsg(peer, segment.data.message_seq)
           msg = msgList[0]
+          if (isInsideForward) {
+            srcMsg = msgByteList[0]
+          }
         }
         if (!msg) {
           throw new Error('被回复的消息未找到')
         }
-        const elements = isInsideForward ? msg.elements : []
-        elements.push(SendElement.reply(segment.data.message_seq, +msg.senderUin, +msg.msgTime, msg.clientSeq, elements))
+        if (isInsideForward && !srcMsg) {
+          const { msgByteList } = await ctx.ntMsgApi.getSingleMsg(peer, segment.data.message_seq)
+          srcMsg = msgByteList[0]
+        }
+        elements.push(SendElement.reply(segment.data.message_seq, +msg.senderUin, +msg.msgTime, msg.clientSeq, srcMsg))
       } else if (segment.type === 'image') {
         const imageBuffer = await resolveMilkyUri(segment.data.uri)
         // Save to temp file and upload

@@ -158,12 +158,6 @@ export class NTMsgApi extends Service {
     return result
   }
 
-  async getForwardedMsgs(resId: string) {
-    const { pbItemList } = await this.ctx.qqProtocol.getMultiMsg(resId)
-    const top = pbItemList.find((x) => x.fileName === 'MultiMsg') ?? pbItemList[0]
-    return { msgList: filterNullable(top.buffer.msg.map(e => convertToRawMessage(e))) }
-  }
-
   async getSingleMsg(peer: Peer, msgSeq: number) {
     let retcode, errorMsg, messages
     if (peer.chatType === ChatType.Group) {
@@ -180,7 +174,8 @@ export class NTMsgApi extends Service {
     return {
       retcode,
       errorMsg,
-      msgList: filterNullable(messages.map(e => convertToRawMessage(e)))
+      msgList: filterNullable(messages.map(e => convertToRawMessage(Msg.Message.decode(e)))),
+      msgByteList: messages
     }
   }
 
@@ -202,7 +197,8 @@ export class NTMsgApi extends Service {
     return {
       retcode,
       errorMsg,
-      msgList: filterNullable(messages.map(e => convertToRawMessage(e)))
+      msgList: filterNullable(messages.map(e => convertToRawMessage(Msg.Message.decode(e)))),
+      msgByteList: messages
     }
   }
 
@@ -352,6 +348,12 @@ export class NTMsgApi extends Service {
       const { seq1, seq2 } = await this.ctx.qqProtocol.getFriendLatestSequence(peer.peerUid)
       return Math.max(seq1, seq2)
     }
+  }
+
+  async getForwardedMsgs(resId: string) {
+    const { pbItemList } = await this.ctx.qqProtocol.getMultiMsg(resId)
+    const top = pbItemList.find((x) => x.fileName === 'MultiMsg') ?? pbItemList[0]
+    return { msgList: filterNullable(top.buffer.msg.map(e => convertToRawMessage(e))) }
   }
 
   async uploadForwardMsgs(

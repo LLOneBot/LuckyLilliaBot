@@ -99,7 +99,7 @@ export interface ReplyElement {
   replyMsgTime: number
   senderUin: number
   replyMsgClientSeq: number
-  elements: MessageElement[]
+  srcMsg?: Buffer
 }
 
 export interface FileElement {
