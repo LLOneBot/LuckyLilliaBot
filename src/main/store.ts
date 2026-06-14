@@ -60,7 +60,7 @@ class Store extends Service {
   }
 
   start() {
-    this.initDatabase().then().catch(console.error)
+    this.initDatabase().catch(e => this.ctx.logger.error(e))
     this.ctx.on('llob/config-updated', async input => {
       this.config = { msgCacheExpire: input.msgCacheExpire! }
     })
