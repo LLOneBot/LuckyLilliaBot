@@ -22,10 +22,21 @@ export default class Config extends Service {
   private defaultConfigPath = path.join(import.meta.dirname, 'default_config.json')
   private logger
   private readonly WATCH_DEBOUNCE_MS = 2000
+  /** 保存 fs.watchFile 的回调引用，用于 unwatchFile 清理 */
+  private watchFileListener?: (curr: fs.Stats, prev: fs.Stats) => void
 
   constructor(ctx: Context) {
     super(ctx, 'config')
     this.logger = ctx.logger('config')
+  }
+
+  async [Service.init]() {
+    return () => {
+      if (this.configPath && this.watchFileListener) {
+        fs.unwatchFile(this.configPath, this.watchFileListener)
+        this.watchFileListener = undefined
+      }
+    }
   }
 
   listenChange(cb: (config: LLBotConfig) => void) {
@@ -34,7 +45,7 @@ export default class Config extends Service {
     this.config = this.get()
     if (this.configPath) {
       let lastReloadTime = 0
-      fs.watchFile(this.configPath, { persistent: true, interval: 1000 }, () => {
+      this.watchFileListener = () => {
         if (!this.watching) return
         if (this.skipNextWatch) {
           this.skipNextWatch = false
@@ -47,7 +58,8 @@ export default class Config extends Service {
         this.logger.info('配置重載')
         const c = this.reloadConfig()
         cb(c)
-      })
+      }
+      fs.watchFile(this.configPath, { persistent: false, interval: 1000 }, this.watchFileListener)
       setTimeout(() => this.watching = true, 1500)
     }
   }
