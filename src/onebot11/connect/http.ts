@@ -57,6 +57,7 @@ class OB11Http {
     // （特别是基于 ws-listen 实现的）会等心跳判活，所以这里固定 5s 推一发，简单透明。
     const HEARTBEAT_INTERVAL = 5000
     this.disposeHeartbeat = this.ctx.interval(() => {
+      if (this.sseClients.size === 0) return
       this.emitEvent(new OB11HeartbeatEvent(selfInfo.online!, true, HEARTBEAT_INTERVAL))
     }, HEARTBEAT_INTERVAL)
 
@@ -99,9 +100,9 @@ class OB11Http {
   }
 
   public async emitEvent(event: OB11BaseEvent) {
+    if (!this.activated) return
     if (!matchEventFilter(this.config.filter, event)) return
     postHttpEvent(event)
-    if (!this.activated) return
     if (this.sseClients.size === 0) {
       return
     }

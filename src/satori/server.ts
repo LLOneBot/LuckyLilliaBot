@@ -109,7 +109,10 @@ export class SatoriServer {
                 body: {},
               } satisfies Universal.ServerPayload))
             }
-          }
+          },
+          onClose: (_evt, ws) => {
+            this.wsClients = this.wsClients.filter(c => c !== ws)
+          },
         }
       })
     )

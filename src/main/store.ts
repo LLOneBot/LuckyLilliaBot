@@ -44,14 +44,17 @@ export interface MsgInfo {
 }
 
 class Store extends Service {
-  static inject = ['database', 'model']
+  static inject = ['database', 'model', 'timer']
   private ids: Map<string, number>
   private messages: Map<string, RawMessage>
+  private msgTimestamps: Map<string, number>
+  private sweepTimer?: () => void
 
   constructor(protected ctx: Context, public config: Store.Config) {
     super(ctx, 'store')
     this.ids = new Map()
     this.messages = new Map()
+    this.msgTimestamps = new Map()
   }
 
   async [Service.init]() {
@@ -230,14 +233,35 @@ class Store extends Service {
     }
     const id = msg.msgId
     this.messages.set(id, msg)
+    // 本地时间可能跟消息时间存在差异，以本地时间为准
+    this.msgTimestamps.set(id, Date.now())
     if (this.messages.size > 10000) {
       // 如果缓存超过10000条，清理最早的
       const firstKey = this.messages.keys().next().value
       this.messages.delete(firstKey!)
+      this.msgTimestamps.delete(firstKey!)
     }
-    setTimeout(() => {
-      this.messages.delete(id)
-    }, expire * 1000)
+    if (!this.sweepTimer) {
+      const sweepMs = Math.max(5000, expire * 200)
+      this.sweepTimer = this.ctx.interval(() => this.sweepExpired(), sweepMs)
+    }
+  }
+
+  private sweepExpired() {
+    const now = Date.now()
+    const expireMs = this.config.msgCacheExpire * 1000
+    for (const [id, ts] of this.msgTimestamps) {
+      if (now - ts >= expireMs) {
+        this.messages.delete(id)
+        this.msgTimestamps.delete(id)
+      } else {
+        break
+      }
+    }
+    if (this.messages.size === 0 && this.sweepTimer) {
+      this.sweepTimer()
+      this.sweepTimer = undefined
+    }
   }
 
   async getGroupMemberCardName(groupCode: number, uin: number): Promise<string | undefined> {

@@ -21,7 +21,7 @@ export interface LogRecord {
 }
 
 // 日志缓存
-const LOG_CACHE_SIZE = 1000
+const LOG_CACHE_SIZE = 800
 const logCache: LogRecord[] = []
 
 export function getLogCache(): LogRecord[] {
