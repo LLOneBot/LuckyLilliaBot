@@ -35,6 +35,7 @@ export const defaultConfig: Config = {
   milky: milkyDefault,
   satori: satoriDefault,
   ob11: ob11Default,
+  remotePathMappings: [],
   enableLocalFile2Url: false,
   log: true,
   autoDeleteFile: false,

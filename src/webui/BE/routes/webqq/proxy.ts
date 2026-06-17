@@ -16,7 +16,7 @@ export function createProxyRoutes(ctx: Context): Hono {
         return c.json({ success: false, message: '缺少文件路径参数' }, 400)
       }
 
-      const normalizedPath = path.normalize(filePath)
+      const normalizedPath = path.normalize(ctx.ntFileApi.remotePathToLocal(filePath))
       if (!existsSync(normalizedPath)) {
         return c.json({ success: false, message: '文件不存在' }, 404)
       }
@@ -130,7 +130,7 @@ export function createProxyRoutes(ctx: Context): Hono {
 
       // 优先使用本地文件路径
       if (filePath) {
-        const decodedPath = decodeURIComponent(filePath)
+        const decodedPath = ctx.ntFileApi.remotePathToLocal(decodeURIComponent(filePath))
         try {
           await fs.access(decodedPath)
           audioFilePath = decodedPath

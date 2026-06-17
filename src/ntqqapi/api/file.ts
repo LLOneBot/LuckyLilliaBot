@@ -14,6 +14,8 @@ import { selfInfo } from '@/common/globalVars'
 import { FlashFileListItem, FlashFileSetInfo } from '@/ntqqapi/types/flashfile'
 import { HighwayHttpSession, HighwayTcpSession } from '../helper/highway'
 import { Media } from '../proto'
+import { RemotePathMapping } from '@/common/types'
+import { mapLocalPathToRemote, mapRemotePathToLocal, NormalizedRemotePathMapping, normalizeRemotePathMappings } from '@/common/utils/pathMapping'
 
 declare module 'cordis' {
   interface Context {
@@ -22,13 +24,30 @@ declare module 'cordis' {
 }
 
 export class NTQQFileApi extends Service {
-  static inject = ['logger', 'pmhq']
+  static inject = ['logger', 'pmhq', 'config']
 
   rkeyManager: RkeyManager
+  private remotePathMappings: NormalizedRemotePathMapping[] = []
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntFileApi')
     this.rkeyManager = new RkeyManager(ctx, 'https://llob.linyuchen.net/rkey')
+    this.setRemotePathMappings(ctx.config.get().remotePathMappings)
+    ctx.on('llob/config-updated', input => {
+      this.setRemotePathMappings(input.remotePathMappings)
+    })
+  }
+
+  setRemotePathMappings(mappings: readonly RemotePathMapping[] = []) {
+    this.remotePathMappings = normalizeRemotePathMappings(mappings)
+  }
+
+  remotePathToLocal(filePath: string) {
+    return mapRemotePathToLocal(filePath, this.remotePathMappings)
+  }
+
+  localPathToRemote(filePath: string) {
+    return mapLocalPathToRemote(filePath, this.remotePathMappings)
   }
 
   async getVideoUrl(fileUuid: string, isGroup: boolean) {
@@ -75,11 +94,13 @@ export class NTQQFileApi extends Service {
       fileName += ext ? '.' + ext : ''
     }
     const mediaPath = await this.getRichMediaFilePath(fileMd5, fileName, elementType, elementSubType)
-    await copyFile(filePath, mediaPath)
+    const localMediaPath = this.remotePathToLocal(mediaPath)
+    await copyFile(filePath, localMediaPath)
     return {
       md5: fileMd5,
       fileName,
       path: mediaPath,
+      localPath: localMediaPath,
     }
   }
 
@@ -274,16 +295,18 @@ export class NTQQFileApi extends Service {
   }
 
   async uploadGroupVideo(groupCode: string, filePath: string, thumbPath: string) {
-    const result = await this.ctx.pmhq.getGroupVideoUploadInfo(groupCode, filePath, thumbPath)
+    const localFilePath = this.remotePathToLocal(filePath)
+    const localThumbPath = this.remotePathToLocal(thumbPath)
+    const result = await this.ctx.pmhq.getGroupVideoUploadInfo(groupCode, localFilePath, localThumbPath)
     const highwaySession = await this.ctx.pmhq.getHighwaySession()
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
-      result.ext.hash.fileSha1 = await calculateSha1StreamBytes(filePath)
+      result.ext.hash.fileSha1 = await calculateSha1StreamBytes(localFilePath)
       const trans = {
         uin: selfInfo.uin,
         cmd: 1005,
-        readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
+        readable: createReadStream(localFilePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
@@ -299,11 +322,11 @@ export class NTQQFileApi extends Service {
     }
     if (result.subExt.uKey) {
       const { index } = result.subExt.msgInfoBody[1]
-      result.subExt.hash.fileSha1 = await calculateSha1StreamBytes(thumbPath)
+      result.subExt.hash.fileSha1 = await calculateSha1StreamBytes(localThumbPath)
       const trans = {
         uin: selfInfo.uin,
         cmd: 1006,
-        readable: createReadStream(thumbPath, { highWaterMark: maxBlockSize }),
+        readable: createReadStream(localThumbPath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
@@ -324,16 +347,18 @@ export class NTQQFileApi extends Service {
   }
 
   async uploadC2CVideo(peerUid: string, filePath: string, thumbPath: string) {
-    const result = await this.ctx.pmhq.getC2CVideoUploadInfo(peerUid, filePath, thumbPath)
+    const localFilePath = this.remotePathToLocal(filePath)
+    const localThumbPath = this.remotePathToLocal(thumbPath)
+    const result = await this.ctx.pmhq.getC2CVideoUploadInfo(peerUid, localFilePath, localThumbPath)
     const highwaySession = await this.ctx.pmhq.getHighwaySession()
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
-      result.ext.hash.fileSha1 = await calculateSha1StreamBytes(filePath)
+      result.ext.hash.fileSha1 = await calculateSha1StreamBytes(localFilePath)
       const trans = {
         uin: selfInfo.uin,
         cmd: 1001,
-        readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
+        readable: createReadStream(localFilePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
@@ -349,11 +374,11 @@ export class NTQQFileApi extends Service {
     }
     if (result.subExt.uKey) {
       const { index } = result.subExt.msgInfoBody[1]
-      result.subExt.hash.fileSha1 = await calculateSha1StreamBytes(thumbPath)
+      result.subExt.hash.fileSha1 = await calculateSha1StreamBytes(localThumbPath)
       const trans = {
         uin: selfInfo.uin,
         cmd: 1002,
-        readable: createReadStream(thumbPath, { highWaterMark: maxBlockSize }),
+        readable: createReadStream(localThumbPath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
@@ -374,7 +399,8 @@ export class NTQQFileApi extends Service {
   }
 
   async uploadGroupFile(groupCode: string, filePath: string, fileName: string, parentFolderId = '/') {
-    const result = await this.ctx.pmhq.getGroupFileUploadInfo(groupCode, filePath, fileName, parentFolderId)
+    const localFilePath = this.remotePathToLocal(filePath)
+    const result = await this.ctx.pmhq.getGroupFileUploadInfo(groupCode, localFilePath, fileName, parentFolderId)
     if (!result.fileExist) {
       const highwaySession = await this.ctx.pmhq.getHighwaySession()
       const ext = Media.FileUploadExt.encode({
@@ -418,7 +444,7 @@ export class NTQQFileApi extends Service {
       const trans = {
         uin: selfInfo.uin,
         cmd: 71,
-        readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
+        readable: createReadStream(localFilePath, { highWaterMark: maxBlockSize }),
         sum: result.md5,
         size: result.fileSize,
         ticket: highwaySession.sigSession,
@@ -439,7 +465,8 @@ export class NTQQFileApi extends Service {
   }
 
   async uploadC2CFile(peerUid: string, filePath: string, fileName: string) {
-    const result = await this.ctx.pmhq.getC2CFileUploadInfo(peerUid, filePath, fileName)
+    const localFilePath = this.remotePathToLocal(filePath)
+    const result = await this.ctx.pmhq.getC2CFileUploadInfo(peerUid, localFilePath, fileName)
     const highwaySession = await this.ctx.pmhq.getHighwaySession()
     const ext = Media.FileUploadExt.encode({
       unknown1: 100,
@@ -483,7 +510,7 @@ export class NTQQFileApi extends Service {
     const trans = {
       uin: selfInfo.uin,
       cmd: 95,
-      readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
+      readable: createReadStream(localFilePath, { highWaterMark: maxBlockSize }),
       sum: result.md5CheckSum,
       size: result.fileSize,
       ticket: highwaySession.sigSession,
@@ -504,7 +531,8 @@ export class NTQQFileApi extends Service {
   }
 
   async uploadGroupImage(groupCode: string, filePath: string) {
-    const result = await this.ctx.pmhq.getGroupImageUploadInfo(groupCode, filePath)
+    const localFilePath = this.remotePathToLocal(filePath)
+    const result = await this.ctx.pmhq.getGroupImageUploadInfo(groupCode, localFilePath)
     const highwaySession = await this.ctx.pmhq.getHighwaySession()
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
@@ -512,7 +540,7 @@ export class NTQQFileApi extends Service {
       const trans = {
         uin: selfInfo.uin,
         cmd: 1004,
-        readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
+        readable: createReadStream(localFilePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
@@ -533,7 +561,8 @@ export class NTQQFileApi extends Service {
   }
 
   async uploadC2CImage(peerUid: string, filePath: string) {
-    const result = await this.ctx.pmhq.getC2CImageUploadInfo(peerUid, filePath)
+    const localFilePath = this.remotePathToLocal(filePath)
+    const result = await this.ctx.pmhq.getC2CImageUploadInfo(peerUid, localFilePath)
     const highwaySession = await this.ctx.pmhq.getHighwaySession()
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
@@ -541,7 +570,7 @@ export class NTQQFileApi extends Service {
       const trans = {
         uin: selfInfo.uin,
         cmd: 1003,
-        readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
+        readable: createReadStream(localFilePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
