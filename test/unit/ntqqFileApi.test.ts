@@ -29,9 +29,36 @@ describe('NTQQFileApi', () => {
 
       expect(uploaded.path).toBe(remotePath)
       expect(uploaded.localPath).toBe(localMediaPath)
+      expect(api.localPathToRemote(localMediaPath)).toBe(remotePath)
       expect(await readFile(localMediaPath, 'utf8')).toBe('mapped-media')
     } finally {
       await rm(tempDir, { recursive: true, force: true })
     }
+  })
+
+  it('rebuilds its path mapper when remotePathMappings change', () => {
+    const api = Object.create(NTQQFileApi.prototype) as NTQQFileApi
+
+    ;(api as any).setRemotePathMappings([{
+      remotePrefix: '/root/.config/QQ',
+      localPrefix: '/host/qq',
+      remoteStyle: 'posix',
+      localStyle: 'posix',
+    }])
+    expect(api.remotePathToLocal('/root/.config/QQ/nt_data/Pic/Ori/a.png'))
+      .toBe('/host/qq/nt_data/Pic/Ori/a.png')
+    expect(api.localPathToRemote('/host/qq/nt_data/Pic/Ori/a.png'))
+      .toBe('/root/.config/QQ/nt_data/Pic/Ori/a.png')
+
+    ;(api as any).setRemotePathMappings([{
+      remotePrefix: '/root/.config/QQ',
+      localPrefix: 'D:\\QQProfile',
+      remoteStyle: 'posix',
+      localStyle: 'win32',
+    }])
+    expect(api.remotePathToLocal('/root/.config/QQ/nt_data/Pic/Ori/a.png'))
+      .toBe('D:\\QQProfile\\nt_data\\Pic\\Ori\\a.png')
+    expect(api.localPathToRemote('d:\\qqprofile\\nt_data\\Pic\\Ori\\a.png'))
+      .toBe('/root/.config/QQ/nt_data/Pic/Ori/a.png')
   })
 })

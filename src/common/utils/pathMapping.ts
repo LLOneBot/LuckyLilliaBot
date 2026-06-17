@@ -20,6 +20,11 @@ interface Direction {
   targetStyle: PathStyle
 }
 
+export interface RemotePathMapper {
+  remotePathToLocal(filePath: string): string
+  localPathToRemote(filePath: string): string
+}
+
 export function normalizeRemotePathMappings(mappings: readonly RemotePathMapping[] = []): NormalizedRemotePathMapping[] {
   return mappings.map(mapping => {
     const remoteStyle = mapping.remoteStyle
@@ -35,22 +40,37 @@ export function normalizeRemotePathMappings(mappings: readonly RemotePathMapping
   })
 }
 
-export function mapRemotePathToLocal(filePath: string, mappings: readonly RemotePathMapping[] = []): string {
-  return mapPath(filePath, normalizeRemotePathMappings(mappings).map(mapping => ({
+export function createRemotePathMapper(mappings: readonly RemotePathMapping[] = []): RemotePathMapper {
+  const normalizedMappings = normalizeRemotePathMappings(mappings)
+  const remoteToLocalDirections = normalizedMappings.map(mapping => ({
     sourcePrefix: mapping.remotePrefix,
     sourceStyle: mapping.remoteStyle,
     targetPrefix: mapping.localPrefix,
     targetStyle: mapping.localStyle,
-  })))
-}
-
-export function mapLocalPathToRemote(filePath: string, mappings: readonly RemotePathMapping[] = []): string {
-  return mapPath(filePath, normalizeRemotePathMappings(mappings).map(mapping => ({
+  }))
+  const localToRemoteDirections = normalizedMappings.map(mapping => ({
     sourcePrefix: mapping.localPrefix,
     sourceStyle: mapping.localStyle,
     targetPrefix: mapping.remotePrefix,
     targetStyle: mapping.remoteStyle,
-  })))
+  }))
+
+  return {
+    remotePathToLocal(filePath: string) {
+      return mapPath(filePath, remoteToLocalDirections)
+    },
+    localPathToRemote(filePath: string) {
+      return mapPath(filePath, localToRemoteDirections)
+    },
+  }
+}
+
+export function mapRemotePathToLocal(filePath: string, mappings: readonly RemotePathMapping[] = []): string {
+  return createRemotePathMapper(mappings).remotePathToLocal(filePath)
+}
+
+export function mapLocalPathToRemote(filePath: string, mappings: readonly RemotePathMapping[] = []): string {
+  return createRemotePathMapper(mappings).localPathToRemote(filePath)
 }
 
 function normalizePrefix(prefix: string, style: PathStyle, fieldName: string) {

@@ -15,7 +15,7 @@ import { FlashFileListItem, FlashFileSetInfo } from '@/ntqqapi/types/flashfile'
 import { HighwayHttpSession, HighwayTcpSession } from '../helper/highway'
 import { Media } from '../proto'
 import { RemotePathMapping } from '@/common/types'
-import { mapLocalPathToRemote, mapRemotePathToLocal, NormalizedRemotePathMapping, normalizeRemotePathMappings } from '@/common/utils/pathMapping'
+import { createRemotePathMapper, RemotePathMapper } from '@/common/utils/pathMapping'
 
 declare module 'cordis' {
   interface Context {
@@ -27,7 +27,7 @@ export class NTQQFileApi extends Service {
   static inject = ['logger', 'pmhq', 'config']
 
   rkeyManager: RkeyManager
-  private remotePathMappings: NormalizedRemotePathMapping[] = []
+  private remotePathMapper: RemotePathMapper = createRemotePathMapper()
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntFileApi')
@@ -39,15 +39,15 @@ export class NTQQFileApi extends Service {
   }
 
   setRemotePathMappings(mappings: readonly RemotePathMapping[] = []) {
-    this.remotePathMappings = normalizeRemotePathMappings(mappings)
+    this.remotePathMapper = createRemotePathMapper(mappings)
   }
 
   remotePathToLocal(filePath: string) {
-    return mapRemotePathToLocal(filePath, this.remotePathMappings)
+    return this.remotePathMapper.remotePathToLocal(filePath)
   }
 
   localPathToRemote(filePath: string) {
-    return mapLocalPathToRemote(filePath, this.remotePathMappings)
+    return this.remotePathMapper.localPathToRemote(filePath)
   }
 
   async getVideoUrl(fileUuid: string, isGroup: boolean) {

@@ -27,10 +27,10 @@ export class SetConfigAction extends BaseAction<Config, null> {
     msgCacheExpire: Schema.number(),
     remotePathMappings: Schema.array(Schema.object({
       name: Schema.string(),
-      remotePrefix: Schema.string(),
-      localPrefix: Schema.string(),
-      remoteStyle: Schema.union(['posix', 'win32']),
-      localStyle: Schema.union(['posix', 'win32']),
+      remotePrefix: Schema.string().required(),
+      localPrefix: Schema.string().required(),
+      remoteStyle: Schema.union(['posix', 'win32']).required(),
+      localStyle: Schema.union(['posix', 'win32']).required(),
     })),
     rawMsgPB: Schema.boolean()
   })
