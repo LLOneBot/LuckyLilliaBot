@@ -14,9 +14,15 @@
 
 [LagrangeV2](https://github.com/LagrangeDev/LagrangeV2)
 
-## Stargazers over time
+## Star History
 
-[![Stargazers over time](https://starchart.cc/LLOneBot/LuckyLilliaBot.svg?variant=adaptive)](https://starchart.cc/LLOneBot/LuckyLilliaBot)
+<a href="https://www.star-history.com/?repos=LLOneBot%2FLuckyLilliaBot&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=LLOneBot/LuckyLilliaBot&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=LLOneBot/LuckyLilliaBot&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=LLOneBot/LuckyLilliaBot&type=date&legend=top-left" />
+ </picture>
+</a>
 
 TG Group：<https://t.me/luckylillia>
 
