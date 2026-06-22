@@ -119,12 +119,23 @@ export interface EmailConfig {
   to: string
 }
 
+export type PathStyle = 'posix' | 'win32'
+
+export interface RemotePathMapping {
+  name?: string
+  remotePrefix: string
+  localPrefix: string
+  remoteStyle: PathStyle
+  localStyle: PathStyle
+}
+
 export interface Config {
   milky: MilkyConfig
   satori: SatoriConfig
   ob11: OB11Config
   webui: WebUIConfig
   email?: EmailConfig
+  remotePathMappings: RemotePathMapping[]
   // onlyLocalhost: boolean
   enableLocalFile2Url?: boolean // 开启后，本地文件路径图片会转成http链接, 语音会转成base64
   log?: boolean

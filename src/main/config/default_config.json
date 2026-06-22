@@ -75,6 +75,7 @@
       }
     ]
   },
+  "remotePathMappings": [],
   "enableLocalFile2Url": false,
   "log": true,
   "autoDeleteFile": false,

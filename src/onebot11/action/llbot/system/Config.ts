@@ -25,6 +25,13 @@ export class SetConfigAction extends BaseAction<Config, null> {
     ffmpeg: Schema.string(),
     musicSignUrl: Schema.string(),
     msgCacheExpire: Schema.number(),
+    remotePathMappings: Schema.array(Schema.object({
+      name: Schema.string(),
+      remotePrefix: Schema.string().required(),
+      localPrefix: Schema.string().required(),
+      remoteStyle: Schema.union(['posix', 'win32']).required(),
+      localStyle: Schema.union(['posix', 'win32']).required(),
+    })),
     rawMsgPB: Schema.boolean()
   })
 

@@ -100,7 +100,7 @@ class Core extends Service {
     this.messageSentCount++
     ctx.logger.info('消息发送', peer)
     deleteAfterSentFiles.forEach(path => {
-      unlink(path).catch(noop)
+      unlink(ctx.ntFileApi.remotePathToLocal(path)).catch(noop)
     })
     return returnMsg
   }
@@ -151,7 +151,8 @@ class Core extends Service {
       setTimeout(() => {
         for (const path of allPaths) {
           if (path) {
-            unlink(path).then(() => this.ctx.logger.info('删除文件成功', path)).catch(noop)
+            const localPath = this.ctx.ntFileApi.remotePathToLocal(path)
+            unlink(localPath).then(() => this.ctx.logger.info('删除文件成功', localPath)).catch(noop)
           }
         }
       }, this.config.autoDeleteFileSecond! * 1000)

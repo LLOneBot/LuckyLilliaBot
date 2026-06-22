@@ -62,7 +62,7 @@ export class MessageEncoder {
       }
     }
     this.deleteAfterSentFiles.forEach(path => {
-      unlink(path).catch(noop)
+      unlink(this.ctx.ntFileApi.remotePathToLocal(path)).catch(noop)
     })
     this.deleteAfterSentFiles = []
     this.elements = []

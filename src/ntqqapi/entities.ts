@@ -125,35 +125,36 @@ export namespace SendElement {
     if (fileSize > 1024 * 1024 * maxMB) {
       throw new Error(`视频过大，最大支持${maxMB}MB，当前文件大小${fileSize}B`)
     }
-    const { fileName, path, md5 } = await ctx.ntFileApi.uploadFile(filePath, ElementType.Video)
+    const { fileName, path, localPath, md5 } = await ctx.ntFileApi.uploadFile(filePath, ElementType.Video)
     let videoInfo = {
       width: 1920,
       height: 1080,
       time: 15,
       format: 'mp4',
       size: fileSize,
-      filePath,
+      filePath: localPath,
     }
     try {
-      videoInfo = await getVideoInfo(path)
+      videoInfo = await getVideoInfo(localPath)
       ctx.logger.info('视频信息', videoInfo)
     } catch (e) {
       ctx.logger.info('获取视频信息失败', e)
     }
     const thumbDir = pathLib.dirname(path.replaceAll('\\', '/').replace(`/Ori/`, `/Thumb/`))
     const thumbFilePath = pathLib.join(thumbDir, `${md5}_0.png`)
-    await mkdir(thumbDir, { recursive: true })
+    const localThumbFilePath = ctx.ntFileApi.remotePathToLocal(thumbFilePath)
+    await mkdir(pathLib.dirname(localThumbFilePath), { recursive: true })
     if (diyThumbPath) {
-      await copyFile(diyThumbPath, thumbFilePath)
+      await copyFile(diyThumbPath, localThumbFilePath)
     } else {
       const path = await createThumb(ctx, videoInfo.filePath)
-      await copyFile(path, thumbFilePath)
+      await copyFile(path, localThumbFilePath)
       unlink(path).catch(noop)
     }
     const thumbPath = new Map()
-    const thumbSize = (await stat(thumbFilePath)).size
+    const thumbSize = (await stat(localThumbFilePath)).size
     thumbPath.set(0, thumbFilePath)
-    const thumbMd5 = await getMd5HexFromFile(thumbFilePath)
+    const thumbMd5 = await getMd5HexFromFile(localThumbFilePath)
     const element: SendVideoElement = {
       elementType: ElementType.Video,
       elementId: '',

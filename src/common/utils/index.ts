@@ -1,4 +1,5 @@
 export * from './file'
+export * from './pathMapping'
 export * from './misc'
 export * from './misc'
 export { getVideoInfo } from './video'
