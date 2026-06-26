@@ -1,5 +1,7 @@
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { join, dirname } from 'node:path'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -17,6 +19,50 @@ function pickTriple(): string {
   throw new Error(`sign-proxy: unsupported platform ${p}-${a}; rebuild lucky-lillia-sign-proxy on this target and drop the .node into ${here}`)
 }
 
+/**
+ * 读同目录 package.json 拿到当前 .node 版本号 (跟 SignProxy crate 那边手动同步).
+ * 版本号塞进 tmpdir 文件名 -- 每次升级版本号都生成新文件, 运行中的 Bot 锁着旧版
+ * 也不影响新副本被写入 (Windows 上正在 require 的 .node 不能覆盖, 但可以并存新文件).
+ */
+function pickVersion(): string {
+  try {
+    const pkg = JSON.parse(readFileSync(join(here, 'package.json'), 'utf-8'))
+    return typeof pkg.version === 'string' && pkg.version.length > 0 ? pkg.version : '0.0.0'
+  } catch {
+    return '0.0.0'
+  }
+}
+
+/**
+ * 把同目录的 .node 拷到 tmpdir/lucky-lillia-sign-proxy/sign-proxy.<triple>.<version>.node 再 require.
+ *
+ * 为什么转一道: Bot 跑着时 require 的 .node 文件被 OS 锁定 (Windows 尤甚), 无法被
+ * `npm run build:dev-bot` / 外部部署脚本覆盖 -- 等于阻止热更新. 转 tmpdir + 把版本号
+ * 串进文件名后, 升级时 src/ 目录 .node 随便覆盖 (它没被 require), 重启 Bot 时
+ * version bump -> 新 tmpdir 路径 -> 新文件被复制并 require, 旧 tmpdir 副本留着不影响.
+ *
+ * 复制策略 (existsSync 优先, copy 失败 swallow):
+ *   1. 目标已存在 -> 直接用, 不复制 (这是 99% 的情况, 同一版本第二次起 Bot)
+ *   2. 不存在 -> copyFileSync; 失败 (e.g. tmpdir 写不进) -> fallback 到原路径加载
+ *      (开发场景方便; 生产 tmpdir 总该可写)
+ */
+function ensureLoadablePath(srcPath: string, version: string, triple: string): string {
+  const cacheRoot = join(tmpdir(), 'lucky-lillia-sign-proxy')
+  const cachedName = `sign-proxy.${triple}.${version}.node`
+  const cachedPath = join(cacheRoot, cachedName)
+
+  if (existsSync(cachedPath)) return cachedPath
+
+  try {
+    mkdirSync(cacheRoot, { recursive: true })
+    copyFileSync(srcPath, cachedPath)
+    return cachedPath
+  } catch (e) {
+    console.warn(`[sign-proxy] hot-update copy failed (${(e as Error).message}); falling back to ${srcPath}`)
+    return srcPath
+  }
+}
+
 interface Native {
   init(args: InitArgs, sendPacket: (p: RelayPacket) => Promise<Buffer>, logger: (log: SignLog) => void): Promise<void>
   ping(): string
@@ -30,12 +76,14 @@ interface Native {
 }
 
 const triple = pickTriple()
-const binPath = join(here, `sign-proxy.${triple}.node`)
+const version = pickVersion()
+const srcPath = join(here, `sign-proxy.${triple}.node`)
+const loadPath = ensureLoadablePath(srcPath, version, triple)
 let native: Native
 try {
-  native = requireBin(binPath) as Native
+  native = requireBin(loadPath) as Native
 } catch (e) {
-  throw new Error(`sign-proxy: failed to load ${binPath}: ${(e as Error).message}`)
+  throw new Error(`sign-proxy: failed to load ${loadPath}: ${(e as Error).message}`)
 }
 
 export interface InitArgs {
