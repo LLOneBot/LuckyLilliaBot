@@ -30,3 +30,6 @@ test/fixtures/pmhq-flash/
 
 # 测试时 nohup tsx watch 输出
 logs/
+
+# native sign-proxy 二进制 (per-platform, 由 SignProxy build 后 sync 进来; loader index.ts 仍纳管)
+src/main/qqProtocol/direct/sign-proxy/*.node

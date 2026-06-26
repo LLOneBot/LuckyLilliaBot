@@ -1,223 +1,183 @@
+import {
+  init as nativeInit,
+  preflight as nativePreflight,
+  signRequest as nativeSignRequest,
+  acquireSignToken as nativeAcquireSignToken,
+  setAuthToken as nativeSetAuthToken,
+  setMachineGuid as nativeSetMachineGuid,
+  type RelayPacket,
+  type SignLog,
+} from './sign-proxy'
+
 export interface SignResult {
   sign: Buffer
   token: Buffer
   extra: Buffer
 }
 
-interface SignErrResp { code?: number; message?: string }
-interface SignOkResp {
-  code: number
-  value: { sign: string; extra: string; token: string; sec_sign?: string; sec_token?: string; sec_extra?: string }
-}
-
-export async function requestSign(
-  signUrl: string,
-  cmd: string,
-  src: Buffer,
-  seq: number,
-  guid?: Buffer,
-  signToken?: string,
-  qua?: string,
-  uin?: number,
-  /**
-   * QQ 协议层 12B ASCII sign-token (e.g. "aUIOeuqqqfxm"). sign 算法第一步
-   * MD5(token + extra + body) 的 token 输入. 当前 Bot 拿不到 (Phase 1 骨架),
-   * 全留空 -- sign-service 端按空 token 算, server 也接受.
-   */
-  protocolToken12B?: string,
-): Promise<SignResult | null> {
-  // sign server 现在要求所有 cmd (包括 trans_emp) 都带 client JWT.
-  // 没 token 就早 fail, 不浪费一次 HTTP.
-  if (!signToken) {
-    console.error('[Sign] No signToken configured; set data/sign_token.txt or QQ_SIGN_TOKEN env. All sign requests require auth.')
-    return null
-  }
-
-  const url = signUrl.endsWith('/') ? signUrl + 'api/sign/sec-sign' : signUrl + '/api/sign/sec-sign'
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${signToken}`,
-  }
-  const body = {
-    command: cmd,
-    body: src.toString('hex'),
-    seq,
-    // sign server 接收 32 字符 hex (= 16B raw 的 hex), 跟 SSO 包头里的 guid 字符串一致
-    ...(guid ? { guid: guid.toString('hex') } : {}),
-    // qua 让 manager-server 路由到对应 sign-service 后端 (不同 NTQQ 版本不同实例)
-    ...(qua ? { qua } : {}),
-    // uin: server 端校验 token 上下文 (token 里的 uin 白名单要包含这个 uin) 用
-    ...(uin ? { uin } : {}),
-    // 12B 协议层 token: ASCII 直接转 hex (24 hex chars), sign-service 端 hex 解码
-    // 后当 raw 12B 喂给 MD5(token + extra + body). 不带 = 空 token, 跟现状一致.
-    ...(protocolToken12B ? { token: Buffer.from(protocolToken12B, 'utf-8').toString('hex') } : {}),
-  }
-
-  let res: Response
-  try {
-    res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) })
-  } catch (e) {
-    console.error(`[Sign] Network error to ${url}:`, (e as Error).message)
-    return null
-  }
-
-  // 出错路径: 把 sign server 的 message 抓出来打, 并把 signUrl 显式贴出来让用户知道去哪改
-  if (!res.ok) {
-    const detail = await readErrorMessage(res)
-    switch (res.status) {
-      case 401:
-        console.error(`[Sign] Unauthorized (cmd=${cmd}): ${detail}. signToken 无效或已撤销, 到 ${signUrl} 重新生成`)
-        break
-      case 403:
-        console.error(`[Sign] Forbidden (cmd=${cmd}): ${detail}. 当前 QQ 不在 token 的 uin 白名单, 到 ${signUrl} 添加`)
-        break
-      case 502:
-        console.error(`[Sign] Bad Gateway (cmd=${cmd}): ${detail}. 上游 sign-service 进程不可用 (${signUrl} 调它失败)`)
-        break
-      case 503:
-        console.error(`[Sign] Service Unavailable (cmd=${cmd}): ${detail}. 没有匹配的 sign 后端 (qua=${qua ?? '<empty>'})`)
-        break
-      default:
-        console.error(`[Sign] HTTP ${res.status} (cmd=${cmd}): ${detail}`)
-    }
-    return null
-  }
-
-  let json: SignOkResp
-  try {
-    json = await res.json() as SignOkResp
-  } catch (e) {
-    console.error(`[Sign] Failed to parse response (cmd=${cmd}):`, (e as Error).message)
-    return null
-  }
-  if (json.code !== 0) {
-    console.error(`[Sign] Server returned non-zero code ${json.code} (cmd=${cmd})`)
-    return null
-  }
-  const v = json.value
-  return {
-    sign: Buffer.from(v.sec_sign || v.sign || '', 'hex'),
-    token: Buffer.from(v.sec_token || v.token || '', 'hex'),
-    extra: Buffer.from(v.sec_extra || v.extra || '', 'hex'),
-  }
-}
-
-async function readErrorMessage(res: Response): Promise<string> {
-  try {
-    const j = await res.json() as SignErrResp
-    return j.message ?? `code=${j.code ?? 'n/a'}`
-  } catch {
-    try { return await res.text() } catch { return '<no body>' }
-  }
-}
-
-/**
- * Preflight: 启动时调一次 sign 服务, 确认 token / 路由 / sign-service 全链路通.
- *
- * 用 wtlogin.trans_emp 作为 canary cmd, 因为它是登录第一步, 服务端必然要支持.
- * 用 1B body 让 sign-service 真跑一次 compute_sign, 而不是探到 HTTP 层就停.
- *
- * 返回 null = 成功; 返回字符串 = 失败原因 (caller 抛 throw 中断启动).
- */
 export interface PreflightLogger {
   info: (...args: unknown[]) => void
   warn: (...args: unknown[]) => void
   error: (...args: unknown[]) => void
 }
 
-/**
- * 构造一个最小的 wtlogin.login frame 用于 preflight: 只需要前 13 字节布局正确,
- * 让 sign server 能从 body[9..13] 抠到 uin 做 token 上下文校验. ECDH 加密体填 0
- * (sign server 只算 hash, 不解析内容). 这个 buffer 不会发到 QQ server.
- *
- * 跟 login.ts 的 buildWtLoginFrame layout 对齐:
- *   frame[0]    = 0x02 prefix
- *   frame[1..3] = uint16 length
- *   frame[3..5] = 8001
- *   frame[5..7] = cmdId (2064 = wtlogin.login)
- *   frame[7..9] = 0
- *   frame[9..13]= uin (uint32 BE) <- sign server 看这里
- */
-function buildPreflightLoginBody(uin: number): Buffer {
-  const innerBody = Buffer.alloc(64)
-  let off = 0
-  innerBody.writeUInt16BE(8001, off); off += 2
-  innerBody.writeUInt16BE(2064, off); off += 2  // wtlogin.login cmdId
-  innerBody.writeUInt16BE(0, off); off += 2
-  innerBody.writeUInt32BE(uin, off); off += 4   // uin in frame[9..13]
-  innerBody[innerBody.length - 1] = 0x03
+let inited = false
 
-  const frame = Buffer.alloc(1 + 2 + innerBody.length)
-  frame.writeUInt8(0x02, 0)
-  frame.writeUInt16BE(innerBody.length + 3, 1)
-  innerBody.copy(frame, 3)
-  return frame
+export async function setupSign(opts: {
+  botVersion: string
+  authToken: string
+  /** 16B device GUID. 跟 wtlogin client.guid 同源. */
+  machineGuid: Buffer
+  /** 当前账号 uin, 可选. */
+  uin?: number
+  sendPacket: (p: RelayPacket) => Promise<Buffer>
+  logger?: (log: SignLog) => void
+}): Promise<void> {
+  if (opts.machineGuid.length !== 16) {
+    throw new Error(`setupSign expected 16B machineGuid, got ${opts.machineGuid.length}B`)
+  }
+  // native init 是 async: 传了 uin 时它内部 await /api/bu bind 完成才 resolve, bind 失败 reject.
+  await nativeInit(
+    {
+      botVersion: opts.botVersion,
+      authToken: opts.authToken,
+      machineGuidHex: opts.machineGuid.toString('hex'),
+      uin: opts.uin,
+    },
+    opts.sendPacket,
+    opts.logger ?? defaultLogger,
+  )
+  inited = true
+}
+
+/** 运行中切换 16B device GUID. 老版 .node 没这个 export 时 warn 并 noop. */
+export function setSignMachineGuid(guid: Buffer): void {
+  if (guid.length !== 16) {
+    console.warn(`[Sign] setSignMachineGuid expected 16B GUID, got ${guid.length}B -- skip`)
+    return
+  }
+  if (!inited) return
+  if (typeof nativeSetMachineGuid !== 'function') {
+    console.warn('[Sign] sign-proxy 未导出 setMachineGuid (老版 .node), GUID 切换不会生效.')
+    return
+  }
+  try {
+    nativeSetMachineGuid(guid.toString('hex'))
+  } catch (e) {
+    console.warn(`[Sign] setMachineGuid failed: ${(e as Error).message}`)
+  }
+}
+
+function defaultLogger(log: SignLog): void {
+  const out = log.level === 'error' ? console.error : console.warn
+  out(`[Sign/${log.level}] ${log.message}`)
+}
+
+export async function updateAuthToken(authToken: string): Promise<void> {
+  if (inited) await nativeSetAuthToken(authToken)
 }
 
 export async function preflightSign(
-  signUrl: string,
-  signToken: string,
-  qua: string,
-  logger: PreflightLogger,
-  uin?: number,
+  logger: PreflightLogger = console,
 ): Promise<string | null> {
-  const url = signUrl.endsWith('/') ? signUrl + 'api/sign/sec-sign' : signUrl + '/api/sign/sec-sign'
-  // 没拿到 uin 时退回 trans_emp 探活 (扫码阶段, server 不需要 uin); 拿到 uin 就发 wtlogin.login
-  // 让 sign server 真按登录路径走一遍 token 上下文校验
-  const reqBody = uin
-    ? { command: 'wtlogin.login', body: buildPreflightLoginBody(uin).toString('hex'), seq: 0, qua, uin }
-    : { command: 'wtlogin.trans_emp', body: '00', seq: 0, qua }
-  let res: Response
+  if (!inited) return 'sign not initialized'
+
+  let reason: string | null
   try {
-    res = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${signToken}`,
-      },
-      body: JSON.stringify(reqBody),
-      signal: AbortSignal.timeout(5000),
-    })
+    reason = await nativePreflight()
   } catch (e) {
     const msg = (e as Error).message
-    logger.error(`[Sign Preflight] 连不上 sign server (${url}): ${msg}.`)
-    return `cannot reach ${url}: ${msg}`
+    logger.error(`[Sign Preflight] native call failed: ${msg}`)
+    return `native: ${msg}`
+  }
+  if (!reason) return null
+  // 401/403 不会到这里 -- SDK 内部 logger error + process.exit. 剩下的是 5xx/network/etc.
+  logger.error(`[Sign Preflight] ${reason}`)
+  return reason
+}
+
+export async function requestSign(
+  cmd: string,
+  src: Buffer,
+  seq: number,
+  guid?: Buffer,
+  qua?: string,
+  uin?: number,
+  protocolToken12B?: string,
+): Promise<SignResult | null> {
+  if (!inited) {
+    console.error('[Sign] sign 未初始化 (auth_token 未配?); set data/auth_token.txt or AUTH_TOKEN env.')
+    return null
   }
 
-  if (res.status === 401) {
-    const detail = await readErrorMessage(res)
-    logger.error(`[Sign Preflight] 401 Unauthorized: ${detail}. signToken 无效或已撤销, 到 ${signUrl} 重新生成.`)
-    return 'token unauthorized'
-  }
-  if (res.status === 503) {
-    const detail = await readErrorMessage(res)
-    logger.error(`[Sign Preflight] 503 Service Unavailable: ${detail}. 没有匹配 qua=${qua} 的 sign 后端.`)
-    return 'no sign backend'
-  }
-  if (res.status === 502) {
-    const detail = await readErrorMessage(res)
-    logger.error(`[Sign Preflight] 502 Bad Gateway: ${detail}. ${signUrl} 上游 sign-service 不可用.`)
-    return 'sign-service down'
-  }
-  if (!res.ok) {
-    const detail = await readErrorMessage(res)
-    logger.error(`[Sign Preflight] HTTP ${res.status}: ${detail}`)
-    return `http ${res.status}`
-  }
   try {
-    const json = await res.json() as SignOkResp
-    if (json.code !== 0) {
-      logger.error(`[Sign Preflight] ${signUrl} 返回 code=${json.code}, sign 链路不可用`)
-      return `code=${json.code}`
+    const r = await nativeSignRequest({
+      cmd,
+      bodyHex: src.toString('hex'),
+      seq,
+      guidHex: guid?.toString('hex') ?? '',
+      qua: qua ?? '',
+      uin: uin ?? 0,
+      protocolTokenHex: protocolToken12B
+        ? Buffer.from(protocolToken12B, 'utf-8').toString('hex')
+        : '',
+    })
+    if (process.env.DEBUG_SIGN) {
+      console.log(`[Sign] ${cmd} seq=${seq}: sign=${r.sign.length}B token=${r.token.length}B extra=${r.extra.length}B`)
     }
-    const sign = json.value?.sec_sign || json.value?.sign
-    if (!sign || sign.length !== 64) {
-      logger.error(`[Sign Preflight] sign hex 格式错 (len=${sign?.length}), 后端响应畸形`)
-      return 'malformed sign'
-    }
-    return null
+    return { sign: r.sign, token: r.token, extra: r.extra }
   } catch (e) {
-    logger.error(`[Sign Preflight] 解响应失败: ${(e as Error).message}`)
-    return 'response parse error'
+    formatNativeSignError(cmd, qua, e as Error)
+    return null
   }
+}
+
+export async function acquireSignToken(uin: number, qua: string): Promise<{ token: string; ttlSecs: number }> {
+  if (!inited) throw new Error('sign not initialized')
+  const r = await nativeAcquireSignToken({ uin, qua })
+  return { token: r.token.toString('utf-8'), ttlSecs: r.ttlSecs }
+}
+
+function formatNativeSignError(cmd: string, qua: string | undefined, e: Error): void {
+  const msg = e.message
+  const m = /^http (\d+):\s*(.*)$/.exec(msg)
+  if (m) {
+    const code = Number(m[1])
+    const detail = m[2]
+    switch (code) {
+      case 401:
+        console.error(`[Sign] Unauthorized (cmd=${cmd}): ${detail}. auth_token 无效或已撤销, 到 manager 重新生成`)
+        return
+      case 403:
+        console.error(`[Sign] Forbidden (cmd=${cmd}): ${detail}. 当前 QQ 不在 token 的 uin 白名单, 到 manager 添加`)
+        return
+      case 502:
+        console.error(`[Sign] Bad Gateway (cmd=${cmd}): ${detail}. 上游 sign-service 进程不可用`)
+        return
+      case 503:
+        console.error(`[Sign] Service Unavailable (cmd=${cmd}): ${detail}. 没有匹配的 sign 后端 (qua=${qua ?? '<empty>'})`)
+        return
+      default:
+        console.error(`[Sign] HTTP ${code} (cmd=${cmd}): ${detail}`)
+        return
+    }
+  }
+  if (msg.startsWith('network:')) {
+    console.error(`[Sign] Network error (cmd=${cmd}): ${msg.slice('network: '.length)}`)
+    return
+  }
+  if (msg === 'not initialized; call init() first') {
+    console.error(`[Sign] ${msg} (cmd=${cmd})`)
+    return
+  }
+  if (msg.startsWith('malformed response:')) {
+    console.error(`[Sign] Failed to parse response (cmd=${cmd}): ${msg.slice('malformed response: '.length)}`)
+    return
+  }
+  if (msg.startsWith('server returned non-zero code:')) {
+    const code = msg.slice('server returned non-zero code: '.length)
+    console.error(`[Sign] Server returned non-zero code ${code} (cmd=${cmd})`)
+    return
+  }
+  console.error(`[Sign] ${msg} (cmd=${cmd})`)
 }

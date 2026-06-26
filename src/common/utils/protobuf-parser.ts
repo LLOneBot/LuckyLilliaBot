@@ -3,7 +3,7 @@
  * 将任意 Protobuf 二进制数据解析为 {field_number: value} 格式
  */
 
-type ParsedValue = number | bigint | string | Record<number, ParsedValue> | ParsedValue[]
+type ParsedValue = number | bigint | string | { [field: number]: ParsedValue } | ParsedValue[]
 
 // Wire types
 const enum WireType {

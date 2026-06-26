@@ -1,9 +1,9 @@
 import { TcpConnection } from './connection'
 import { buildServicePacket, buildServicePacket13, parseServicePacket, EncryptType, PacketContext, SsoPacket } from './packet'
 import { generateEcdhKeyPair, EcdhKeyPair } from './ecdh'
-import { requestSign, preflightSign, SignResult, PreflightLogger } from './sign'
+import { requestSign, setupSign, setSignMachineGuid, preflightSign, acquireSignToken, SignResult } from './sign'
 import { AppInfo } from './appInfo'
-import { randomBytes, createHash } from 'node:crypto'
+import { loadMachineGuidSync } from './machineGuid'
 import { EventEmitter } from 'node:events'
 
 export interface DirectClientConfig {
@@ -12,9 +12,14 @@ export interface DirectClientConfig {
   ssoVersion: number
   buildVer: string
   useIPv6?: boolean
-  signUrl?: string
-  /** 一次性 token, 由用户在 manager-web 生成后粘贴到 data/sign_token.txt. 跟 sign 请求一起发. */
-  signToken?: string
+  /** 一次性 token, 由用户在 manager-web 生成后粘贴到 data/auth_token.txt. 跟 sign 请求一起发. */
+  authToken?: string
+  /** LuckyLillia.Bot 版本号 (env-report 带上). */
+  botVersion?: string
+  /** 数据目录 (存 device_ids.json 等跨重启稳定指纹). 默认 'data'. */
+  dataDir?: string
+  /** 当前账号 uin, 可选. */
+  uin?: number
 }
 
 const DEFAULT_CONFIG: DirectClientConfig = {
@@ -34,9 +39,7 @@ export interface SessionInfo {
   a2: Buffer
   a2Key: Buffer
   sKey: Buffer
-  // QQ 协议层 12B ASCII sign-token (e.g. "aUIOeuqqqfxm"), 来自 ECDH/AES-GCM 三步握手.
-  // 为空 = 未获取到 (Phase 1 骨架阶段是常态), 现有 sign 路径自动退回空 token.
-  // 跟 DirectClientConfig.signToken (manager JWT) 完全两个东西.
+  /** 12B ASCII sign-token, 走 SignProxy.acquireSignToken 拿到. 跟 authToken 不是一个东西. */
   signToken12B?: string
   signTokenExpiresAt?: number
 }
@@ -48,25 +51,61 @@ export class DirectProtocolClient extends EventEmitter {
   private guid: Buffer
   private seq = (Math.random() * 0x00FFFFFF) >>> 0
   private session: SessionInfo | null = null
+  private signPreflighted = false
+  private signSetupDone = false
   private pendingPackets: Map<number, {
     resolve: (packet: SsoPacket) => void
     reject: (err: Error) => void
     timeout: NodeJS.Timeout
   }> = new Map()
+  private signTokenRefreshInflight: Promise<void> | null = null
+  private signTokenLastFetchAt = 0
 
   constructor(config: Partial<DirectClientConfig> = {}) {
     super()
     this.config = { ...DEFAULT_CONFIG, ...config }
+    this.guid = loadMachineGuidSync()
+    // sign 初始化不在构造函数里做 -- native init 现在是 async (传 uin 时 await /api/bu bind),
+    // 构造函数没法 await. 挪到 connect() 顶部, 由调用方 await. 见 ensureSignSetup.
     this.conn = new TcpConnection()
     this.ecdhKeyPair = generateEcdhKeyPair()
-    this.guid = randomBytes(16)
 
     this.conn.on('packet', (frame: Buffer) => this.handlePacket(frame))
     this.conn.on('error', (err) => this.emit('error', err))
     this.conn.on('close', () => this.emit('close'))
   }
 
+  /**
+   * 起 sign 链路: 建 native Client + 注册 send_packet/logger; 配置里带了 uin 时 await /api/bu bind.
+   * native init 是 async, 必须在能 await 的地方跑 (不能塞构造函数) -- 故由 connect() 调.
+   * 幂等: 二次调直接返回 (native init 二次也是 no-op). bind 失败时 reject 会从 connect() 冒出去.
+   */
+  private async ensureSignSetup(): Promise<void> {
+    if (this.signSetupDone || !this.config.authToken) return
+    this.signSetupDone = true
+    await setupSign({
+      botVersion: this.config.botVersion ?? 'unknown',
+      authToken: this.config.authToken,
+      machineGuid: this.guid,
+      uin: this.config.uin,
+      sendPacket: async ({ cmd, body }) => {
+        const resp = (await this.sendCommand(cmd, Buffer.from(body))).payload
+        if (process.env.DEBUG_SIGN) {
+          console.log(`[Sign relay] ${cmd}: req=${body.length}B resp=${resp.length}B hex=${resp.toString('hex')}`)
+        }
+        return resp
+      },
+    })
+  }
+
   async connect(): Promise<void> {
+    // 必须在 preflight 之前: preflight 依赖 native Client 已 init.
+    await this.ensureSignSetup()
+    if (!this.signPreflighted && this.config.authToken) {
+      this.signPreflighted = true
+      const reason = await preflightSign()
+      if (reason) throw new Error(`sign preflight failed: ${reason}`)
+    }
     await this.conn.connect({ useIPv6: this.config.useIPv6 })
     this.emit('connected')
 
@@ -74,25 +113,6 @@ export class DirectProtocolClient extends EventEmitter {
     await this.sendHeartbeat()
   }
 
-  /**
-   * 调一次 sign 服务确认链路通. 启动前先跑这个, 任一环节不通直接 throw,
-   * 不让 connect / login / 恢复 session 在没 sign 的情况下白跑.
-   *
-   * 失败抛 Error, message 里带原因 ('token unauthorized' / 'no sign backend' /
-   * 'sign-service down' / network 错误). 调用方 try/catch 决定是不是 fatal.
-   *
-   * 前置条件: signUrl + signToken 必须已配 (caller 在 new 之前应已校验).
-   */
-  async preflightSign(logger: PreflightLogger, uin?: number): Promise<void> {
-    if (!this.config.signUrl || !this.config.signToken) {
-      throw new Error('signUrl/signToken not configured')
-    }
-    const err = await preflightSign(this.config.signUrl, this.config.signToken, AppInfo.qua, logger, uin)
-    if (err) {
-      throw new Error(`sign preflight failed: ${err}`)
-    }
-    logger.info('[Sign Preflight] OK (manager=%s qua=%s uin=%s)', this.config.signUrl, AppInfo.qua, uin ?? '<unset>')
-  }
 
   async sendHeartbeat(): Promise<void> {
     const seq = this.nextSeq()
@@ -150,7 +170,6 @@ export class DirectProtocolClient extends EventEmitter {
     'trpc.o3.ecdh_access.EcdhAccess.SsoEstablishShareKey',
     'trpc.o3.ecdh_access.EcdhAccess.SsoSecureAccess',
     'MessageSvc.PbSendMsg',
-    'trpc.login.ecdh.EcdhService.SsoKeyExchange',
     'OidbSvcTrpcTcp.0x6d9_4'
   ])
 
@@ -160,22 +179,28 @@ export class DirectProtocolClient extends EventEmitter {
     const enc = encryptType ?? (this.session ? EncryptType.EncryptD2Key : EncryptType.EncryptEmpty)
 
     let signResult: SignResult | null = null
-    if (this.config.signUrl && this.SIGN_ALLOWLIST.has(cmd)) {
-      // wtlogin.login 服务端从 body[9..13] 抠 uin, 不读这字段; trans_emp 还没登录没 uin.
-      // 其它 cmd manager 端必须 uin in allowed_uins.
+    if (this.config.authToken && this.SIGN_ALLOWLIST.has(cmd)) {
       const uin = this.session?.uin ? Number(this.session.uin) : undefined
-      signResult = await requestSign(this.config.signUrl, cmd, payload, seq, this.guid, this.config.signToken, AppInfo.qua, uin, this.session?.signToken12B)
+      await this.ensureSignTokenFresh(uin)
+      signResult = await requestSign(cmd, payload, seq, this.guid, AppInfo.qua, uin, this.session?.signToken12B)
       if (process.env.DEBUG_SIGN) {
         console.log(`[Sign] ${cmd} seq=${seq}: result=${signResult ? `sign=${signResult.sign.length}B token=${signResult.token.length}B extra=${signResult.extra.length}B` : 'null'}`)
       }
-      // sign 是协议必需字段, 拿不到就别送 unsigned 包出去 -- server 不一定 reject 但行为没保证.
-      // requestSign 内部已经按 status 打过具体错因 (401/403/502/503), 这里只丢异常中断 cmd.
+      // sign 是协议必需字段, 拿不到就别送 unsigned 包出去. requestSign 内部已经按 status
+      // 打过具体错因 (401/403/502/503), 这里只丢异常中断 cmd.
       if (!signResult) {
         throw new Error(`sign failed for ${cmd}; see [Sign] log above`)
       }
     }
 
     const packet = buildServicePacket(seq, cmd, ctx, payload, enc, signResult)
+
+    if (process.env.DEBUG_SIGN) {
+      // 调试用: 出网前 dump SSO frame, 跟真机抓包对照定位 sign 不一致的字节差异.
+      if (cmd.includes('o3.ecdh_access') || cmd === 'wtlogin.login' || cmd === 'wtlogin.trans_emp') {
+        console.log(`[Bot SSO send] ${cmd} seq=${seq} frame=${packet.length}B hex=${packet.toString('hex')}`)
+      }
+    }
 
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -225,6 +250,7 @@ export class DirectProtocolClient extends EventEmitter {
 
   setGuid(guid: Buffer): void {
     this.guid = guid
+    setSignMachineGuid(guid)
   }
 
   getSession(): SessionInfo | null {
@@ -242,46 +268,64 @@ export class DirectProtocolClient extends EventEmitter {
   setSession(session: SessionInfo): void {
     this.session = session
     this.emit('login', session)
-    // best-effort: 跑 ECDH 握手验证 manager-server 那边的协议公式. 不影响 sign --
-    // sign 路径继续用 empty token (12B 协议层 token 不在 GCM 路径里, 我们拿不到, 见
-    // signTokenAcquire.ts 顶部注释).
-    void this.trySessionContext()
+    void this.tryAcquireSignToken()
   }
 
   /**
-   * 跑 SsoKeyExchange + SsoEstablishShareKey 两步握手, 把 raw response 喂给
-   * manager /api/sign/session-context. 失败 swallow + log.
-   *
-   * 当前主要价值: 端到端验证 manager-server 的 ECDH + GCM 公式跟实机一致 (live
-   * sanity check). session_key 拿到后暂时不消费 -- 因为 12B 协议层 sign-token
-   * 不通过这条 GCM 路径流转.
+   * 登录后主动拉一次 sign-token. 转给 ensureSignTokenFresh 走共享 in-flight lock,
+   * 避免启动期跟首次 sendCommand 并发开两个 acquire。
    */
-  private async trySessionContext(): Promise<void> {
-    if (!this.session || !this.config.signUrl || !this.config.signToken) return
+  private async tryAcquireSignToken(): Promise<void> {
+    if (!this.session || !this.config.authToken) return
     const uin = Number(this.session.uin)
     if (!Number.isFinite(uin) || uin <= 0) return
+    await this.ensureSignTokenFresh(uin)
+  }
 
-    try {
-      const { acquireSessionContext } = await import('./signTokenAcquire')
-      const ctx = await acquireSessionContext(
-        this,
-        this.config.signUrl,
-        this.config.signToken,
-        uin,
-      )
-      console.log(
-        `[SignToken] ECDH session ok: share_key_2=${ctx.shareKey2.toString('hex').slice(0, 16)}... ` +
-        `session_key=${ctx.sessionKey.toString('hex').slice(0, 16)}... ` +
-        `(esk_plain ${ctx.eskPlain.length}B)`
-      )
-    } catch (e) {
-      const msg = (e as Error).message
-      if ((e as Error).name === 'NotImplementedError') {
-        console.log(`[SignToken] skipped (${msg}); sign 用空 token 继续`)
-      } else {
-        console.warn(`[SignToken] acquire failed: ${msg}; sign 用空 token 继续`)
-      }
+  /**
+   * sendCommand 前调. 三种触发场景:
+   *   1. 已有 token 但 expiresAt 临期 (60s 内) / 过期 -> 重拉
+   *   2. 没 token (启动时尝试失败) 且距离上次尝试 > 60s -> 重试
+   *   3. 没 session 或没 uin -> noop
+   * in-flight lock 防并发雪崩, lastFetchAt 节流防 acquire 失败时每个 cmd 都重试。
+   */
+  private async ensureSignTokenFresh(uin: number | undefined): Promise<void> {
+    if (!this.session || !uin || !this.config.authToken) return
+    const expiresAt = this.session.signTokenExpiresAt
+    const hasToken = !!this.session.signToken12B
+    const needRefresh = hasToken
+      ? (!expiresAt || expiresAt - Date.now() <= 60_000)
+      : (Date.now() - this.signTokenLastFetchAt > 60_000)
+    if (!needRefresh) return
+
+    if (this.signTokenRefreshInflight) {
+      await this.signTokenRefreshInflight
+      return
     }
+    this.signTokenRefreshInflight = (async () => {
+      try {
+        this.signTokenLastFetchAt = Date.now()
+        const { token, ttlSecs } = await acquireSignToken(uin, AppInfo.qua)
+        if (this.session) {
+          // 用 QQ 下发的真实 TTL (ESK field 3); 拿不到 (0) 回退 20min 保守值
+          const ttlMs = ttlSecs > 0 ? ttlSecs * 1000 : 20 * 60 * 1000
+          this.session.signToken12B = token
+          this.session.signTokenExpiresAt = Date.now() + ttlMs
+          console.log(`[SignToken] lazy refresh "${token}" ttl=${ttlSecs > 0 ? ttlSecs + 's' : 'default'}`)
+        }
+      } catch (e) {
+        if (this.session && hasToken && expiresAt && expiresAt < Date.now()) {
+          this.session.signToken12B = undefined
+          this.session.signTokenExpiresAt = undefined
+          console.warn(`[SignToken] refresh failed (${(e as Error).message}), 清掉过期 token`)
+        } else {
+          console.warn(`[SignToken] refresh failed: ${(e as Error).message}`)
+        }
+      } finally {
+        this.signTokenRefreshInflight = null
+      }
+    })()
+    await this.signTokenRefreshInflight
   }
 
   clearSession(): void {

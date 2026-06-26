@@ -37,6 +37,8 @@ export type LoginResult = {
   nick: string
   age: number
   gender: number
+  /** A2Key 候选 (path D 实验). 当前默认 TLV 0x10D, 真实位置端到端验证后改正. */
+  a2Key: Buffer
 } | {
   success: false
   state: number
@@ -287,7 +289,7 @@ export async function loginWithQrResult(
       d2Key: result.d2Key,
       tgt: result.tgt,
       a2: result.tgt,
-      a2Key: Buffer.alloc(16),
+      a2Key: result.a2Key,
       sKey: Buffer.alloc(0),
     })
   }
@@ -588,6 +590,24 @@ function parseLoginResponse(data: Buffer, shareKey: Buffer, tgtgtKey: Buffer): L
   const tgt = nestedTlvs.get(0x10A) || Buffer.alloc(0)
   const tempPassword = nestedTlvs.get(0x106) || Buffer.alloc(0)
 
+  // A2Key 候选: 探多个 TLV ID, debug log 出来. path D (SsoSecureA2Access) 需要它解 server response.
+  // 常见 A2 相关 TLV (按 QQ NT 协议慣例):
+  //   0x10C: A1 transport (password login), 不是这条路
+  //   0x10D: A2 key on legacy, 现在很少
+  //   0x10E: ST key (signal token key)
+  //   0x10A: TGT (已用)
+  //   0x163, 0x16A, 0x16D: 其他可能
+  if (process.env.DEBUG_A2KEY) {
+    const seenIds = Array.from(nestedTlvs.keys()).sort((a, b) => a - b).map(x => '0x' + x.toString(16))
+    console.log(`[A2Key probe] nested TLVs in 0x119: ${seenIds.join(', ')}`)
+    for (const cand of [0x10C, 0x10D, 0x10E, 0x163, 0x16A, 0x16D, 0x172, 0x16E]) {
+      const v = nestedTlvs.get(cand)
+      if (v) console.log(`  TLV 0x${cand.toString(16)}: ${v.length}B = ${v.subarray(0, Math.min(32, v.length)).toString('hex')}${v.length > 32 ? '...' : ''}`)
+    }
+  }
+  // 最可能候选: 0x10D (legacy A2 key) — 留作 stub, 端到端 path D 验证后改正确 ID
+  const a2Key = nestedTlvs.get(0x10D) || Buffer.alloc(16)
+
   // TLV 0x11A: FaceId(2B) + Age(1B) + Gender(1B) + nickLen(1B) + nick(utf8)
   let nick = '', age = 0, gender = 0
   const tlv11a = nestedTlvs.get(0x11A)
@@ -607,7 +627,7 @@ function parseLoginResponse(data: Buffer, shareKey: Buffer, tgtgtKey: Buffer): L
     uid = parseUidFromTlv543(tlv543)
   }
 
-  return { success: true, uid, d2, d2Key, tgt, tempPassword, nick, age, gender }
+  return { success: true, uid, d2, d2Key, tgt, tempPassword, nick, age, gender, a2Key }
 }
 
 function parseUidFromTlv543(data: Buffer): string {

@@ -29,6 +29,19 @@ export function getSpecifiedUin(argv: string[] = process.argv): string | undefin
   return undefined
 }
 
+/**
+ * 从 process.argv 里解析 `--sign-host <url>` 或 `--sign-host=<url>`。
+ * 优先级高于 `QQ_SIGN_URL` 环境变量, 用于本地起 sign-service (e.g. http://localhost:8080) 调试.
+ */
+export function getSpecifiedSignHost(argv: string[] = process.argv): string | undefined {
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '--sign-host' && i + 1 < argv.length) return argv[i + 1]
+    if (a.startsWith('--sign-host=')) return a.slice('--sign-host='.length)
+  }
+  return undefined
+}
+
 /** session 文件统一按 uin 命名为 qq-session-<uin>.json。 */
 export function getSessionFilePathForUin(uin: string): string {
   return join(DATA_DIR, `qq-session-${uin}.json`)

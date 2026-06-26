@@ -2,6 +2,7 @@ import { deepConvertMap, deepStringifyMap } from './util'
 import { selfInfo } from '@/common/globalVars'
 import { randomUUID, createHash } from 'node:crypto'
 import path from 'node:path'
+import { createRequire } from 'node:module'
 import { Oidb, Msg } from '@/ntqqapi/proto'
 import type {
   PMHQRes,
@@ -11,9 +12,20 @@ import type {
   ResListener,
 } from './types'
 import { Context, Service } from 'cordis'
-import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, registerOnline, startHeartbeat, getCorrectUin, QrCodeState, AppInfo, saveSession, loadSession, persistedToSessionInfo, getSpecifiedUin, getSessionFilePathForUin, buildSsoInfoSync } from './direct'
+import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, registerOnline, startHeartbeat, getCorrectUin, QrCodeState, AppInfo, saveSession, loadSession, persistedToSessionInfo, getSpecifiedUin, getSpecifiedSignHost, getSessionFilePathForUin, buildSsoInfoSync } from './direct'
 import type { QrCodeResult, QrPollResult } from './direct'
-import { signTokenUtil } from '../config'
+import { overwriteMachineGuid } from './direct/machineGuid'
+import { authTokenUtil } from '../config'
+
+const requireForVersion = createRequire(import.meta.url)
+function readBotVersion(): string {
+  try {
+    const pkg = requireForVersion('../../../../package.json') as { version?: string }
+    return pkg.version ?? 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
 
 type DisconnectCallback = (duration: number) => void
 
@@ -505,26 +517,40 @@ export class QQProtocolBase extends Service {
    * 启动前 client.preflightSign() 一次: token / 鉴权 / 远端 sign-service 任一不通,
    * 直接 throw, 不让后续 connect / register / restore 跑下去.
    */
-  async initDirectClient(signUrl?: string): Promise<void> {
-    const url = signUrl || process.env.QQ_SIGN_URL || 'https://sign.luckylillia.com'
-    const signToken = signTokenUtil.getToken() || process.env.QQ_SIGN_TOKEN || undefined
-    if (!signToken) {
-      const tokenPath = signTokenUtil.getPath()
+  async initDirectClient(): Promise<void> {
+    const authToken = authTokenUtil.getToken() || process.env.AUTH_TOKEN || undefined
+    if (!authToken) {
+      const tokenPath = authTokenUtil.getPath()
       const tokenFile = path.basename(tokenPath)
       this.logger.error(
-        `[Sign Preflight] sign_token 未设置 (文件 ${tokenPath} 为空 / 不存在). ` +
-        `请到 ${url} 获取 token, 粘贴到 ${tokenFile}, 然后重启.`
+        `[Sign Preflight] auth_token 未设置 (文件 ${tokenPath} 为空 / 不存在). ` +
+        `请到 https://auth.luckylillia.com 获取 token, 粘贴到 ${tokenFile}, 然后重启.`
       )
-      throw new Error('sign token not configured')
+      throw new Error('auth token not configured')
     }
 
-    this.directClient = new DirectProtocolClient({ signUrl: url, signToken })
+    // 先 loadSession 拿 (uin, guid), 再 new DirectProtocolClient -- 让 sign 那侧
+    // init 时就拿到 uin 和 device GUID, 不用后续补救.
+    const specifiedUin = getSpecifiedUin()
+    if (specifiedUin) {
+      this.logger.info('Specified login uin via -q/--qq: %s, will try qq-session-%s.json', specifiedUin, specifiedUin)
+    } else {
+      this.logger.info('No -q/--qq specified, will perform fresh QR login (session will be saved as qq-session-<uin>.json)')
+    }
+    const persisted = loadSession()
 
-    // preflight: 失败直接抛, 上层不要继续走登录 / 恢复 session
-    // uin: 命令行 -q 指定的 (server 端要 i64, 转成 number); 没指定就空
-    const specifiedUinStr = getSpecifiedUin()
-    const specifiedUinNum = specifiedUinStr ? Number(specifiedUinStr) : undefined
-    await this.directClient.preflightSign(this.logger, specifiedUinNum)
+    // session.guid 跟 machine_guid.bin 不一致时以 session 为准, 落盘同步,
+    // 保证 new Client 构造里 loadMachineGuidSync 读到的就是它.
+    if (persisted) {
+      overwriteMachineGuid(Buffer.from(persisted.guid, 'hex'))
+    }
+
+    const uinForInit = persisted ? Number(persisted.uin) : undefined
+    this.directClient = new DirectProtocolClient({
+      authToken: authToken,
+      botVersion: readBotVersion(),
+      uin: Number.isFinite(uinForInit) && (uinForInit as number) > 0 ? uinForInit : undefined,
+    })
 
     this.directClient.on('error', (err: Error) => {
       this.logger.warn('Direct client error:', err.message)
@@ -545,17 +571,8 @@ export class QQProtocolBase extends Service {
       this.ctx.parallel('qq/raw', { cmd: packet.cmd, payload: packet.payload })
     })
 
-    // Try to restore saved session
-    const specifiedUin = getSpecifiedUin()
-    if (specifiedUin) {
-      this.logger.info('Specified login uin via -q/--qq: %s, will try qq-session-%s.json', specifiedUin, specifiedUin)
-    } else {
-      this.logger.info('No -q/--qq specified, will perform fresh QR login (session will be saved as qq-session-<uin>.json)')
-    }
-    const persisted = loadSession()
     if (persisted) {
       this.logger.info('Found saved session for UIN %s (file: %s), attempting restore...', persisted.uin, getSessionFilePathForUin(persisted.uin))
-      this.directClient.setGuid(Buffer.from(persisted.guid, 'hex'))
       await this.directClient.connect()
       const session = persistedToSessionInfo(persisted)
       this.directClient.setSession(session)
