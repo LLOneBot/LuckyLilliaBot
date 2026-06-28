@@ -81,6 +81,10 @@ export default defineConfig({
             { src: './package-dist.json', dest: 'dist/', rename: 'package.json' },
             { src: './doc/使用说明.txt', dest: 'dist/' },
             { src: './doc/更新日志.txt', dest: 'dist/' },
+            // sign-proxy native: bundle 后 llbot.js 里 here=dist/, requireBin 拼出来的
+            // 路径是 dist/sign-proxy.<triple>.node, 必须扁平拷到 dist 根目录.
+            // 用 glob 一次性带上所有平台的 .node, 缺哪个就 build 哪个 platform 时再补.
+            { src: './src/main/qqProtocol/direct/sign-proxy/*.node', dest: 'dist/', flatten: true },
           ],
         }),
       ],
