@@ -85,6 +85,9 @@ export default defineConfig({
             // 路径是 dist/sign-proxy.<triple>.node, 必须扁平拷到 dist 根目录.
             // 用 glob 一次性带上所有平台的 .node, 缺哪个就 build 哪个 platform 时再补.
             { src: './src/main/qqProtocol/direct/sign-proxy/*.node', dest: 'dist/', flatten: true },
+            // sign-proxy 自己的 package.json: pickVersion() 在 prod 状态下需要拿到 sign-proxy
+            // 的真版本号 (不是 Bot 主 package.json 那个), 改名避撞.
+            { src: './src/main/qqProtocol/direct/sign-proxy/package.json', dest: 'dist/', rename: 'sign-proxy.package.json' },
           ],
         }),
       ],

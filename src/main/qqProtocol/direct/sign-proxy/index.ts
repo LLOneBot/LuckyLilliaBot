@@ -20,17 +20,23 @@ function pickTriple(): string {
 }
 
 /**
- * 读同目录 package.json 拿到当前 .node 版本号 (跟 SignProxy crate 那边手动同步).
- * 版本号塞进 tmpdir 文件名 -- 每次升级版本号都生成新文件, 运行中的 Bot 锁着旧版
- * 也不影响新副本被写入 (Windows 上正在 require 的 .node 不能覆盖, 但可以并存新文件).
+ * 读 sign-proxy 版本号. dev 跑 tsx 时 here=src/.../sign-proxy/, package.json 就在旁边;
+ * prod bundle 里 here=dist/, 跟 Bot 主 package.json 同名会撞, vite 时把它改名拷成
+ * sign-proxy.package.json, 这里也试一下. 都不通就 fallback '0.0.0' (热更新失效但不影响加载).
  */
 function pickVersion(): string {
-  try {
-    const pkg = JSON.parse(readFileSync(join(here, 'package.json'), 'utf-8'))
-    return typeof pkg.version === 'string' && pkg.version.length > 0 ? pkg.version : '0.0.0'
-  } catch {
-    return '0.0.0'
+  for (const name of ['package.json', 'sign-proxy.package.json']) {
+    try {
+      const raw = readFileSync(join(here, name), 'utf-8')
+      const pkg = JSON.parse(raw)
+      // 主 package.json 命中时校验 name, 防 prod 误读到 Bot 主 package.json
+      if (pkg.name && pkg.name !== '@lucky-lillia/sign-proxy-loader') continue
+      if (typeof pkg.version === 'string' && pkg.version.length > 0) return pkg.version
+    } catch {
+      // continue
+    }
   }
+  return '0.0.0'
 }
 
 /**
