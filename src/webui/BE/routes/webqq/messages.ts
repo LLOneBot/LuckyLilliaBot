@@ -108,6 +108,11 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       }
 
       const elements: SendMessageElement[] = []
+      // 文件发送是独立 API (uploadGroupFile/uploadPrivateFile + sendGroupFileMessage/
+      // sendPrivateFileMessage), 不走 sendMsg(elements). content 里有 file 项就累计
+      // 到这里, 循环走完后单独发. 当前 FE handleFileSelect 一次只发一个 file, 且不跟
+      // text/image 混发, 所以这里也按"file 项不跟 elements 共存"处理.
+      const files: { filePath: string; fileName: string }[] = []
       for (const item of content) {
         if (item.type === 'reply' && item.msgId && item.msgSeq) {
           elements.push({
@@ -149,8 +154,54 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
           elements.push(SendElement.face(item.faceId))
         } else if (item.type === 'file' && item.filePath && item.fileName) {
           uploadedFiles.push(item.filePath)
-          // TODO: 走独立的文件上传接口，如 ntFileApi.uploadGroupFile + ntMsgApi.sendGroupFileMessage
+          files.push({ filePath: item.filePath, fileName: item.fileName })
         }
+      }
+
+      // 文件分支: content 全是 file (FE 当前用法). 一次 request 发一个文件.
+      if (files.length > 0) {
+        if (elements.length > 0) {
+          return c.json({ success: false, message: '文件不能和文字/图片/表情一起发送' }, 400)
+        }
+        const sentMsgIds: string[] = []
+        for (const f of files) {
+          if (chatTypeNum === ChatType.Group) {
+            const info = await ctx.ntFileApi.uploadGroupFile(+peerId, f.filePath, f.fileName)
+            const result = await ctx.ntMsgApi.sendGroupFileMessage(+peerId, info.fileId)
+            if (result.retCode !== 0) {
+              return c.json({ success: false, message: '发送群文件失败', error: result.clientWording || '' }, 500)
+            }
+            sentMsgIds.push(info.fileId)
+          } else {
+            // C2C / TempC2CFromGroup: peerUid 上面已经解出 (line 95-102), peerId 是 Uin.
+            const info = await ctx.ntFileApi.uploadPrivateFile(peerUid, f.filePath, f.fileName)
+            const result = await ctx.ntMsgApi.sendPrivateFileMessage({
+              toUin: +peerId,
+              toUid: peerUid,
+              fileUuid: info.fileId,
+              fileName: f.fileName,
+              fileSize: info.fileSize,
+              file10MMd5: info.file10MMd5,
+              crcMedia: info.crcMedia,
+            })
+            if (result.resultCode !== 0) {
+              return c.json({ success: false, message: '发送私聊文件失败', error: result.errMsg ?? '' }, 500)
+            }
+            sentMsgIds.push(info.fileId)
+          }
+        }
+
+        // 发送成功后清理上传的临时文件
+        for (const filePath of uploadedFiles) {
+          unlink(filePath).catch(err => {
+            ctx.logger.warn(`清理临时文件失败: ${filePath}`, err)
+          })
+        }
+
+        return c.json({
+          success: true,
+          data: { msgId: sentMsgIds[0] }
+        })
       }
 
       if (elements.length === 0) {

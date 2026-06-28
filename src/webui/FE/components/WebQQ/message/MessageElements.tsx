@@ -1,5 +1,5 @@
 import React, { useState, memo, useRef } from 'react'
-import { Loader2, Mic, Play, Pause, ChevronRight, X } from 'lucide-react'
+import { Loader2, Mic, Play, Pause, ChevronRight, X, FileText } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import type { MessageElement, RawMessage } from '../../../types/webqq'
 import { getToken } from '../../../utils/api'
@@ -115,7 +115,7 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
       />
     )
   }
-  if (element.fileElement) return <span>[文件: {element.fileElement.fileName}]</span>
+  if (element.fileElement) return <FileElementCard fileName={element.fileElement.fileName} fileSize={element.fileElement.fileSize} />
   if (element.pttElement) {
     return <PttElementRenderer element={element} message={message} />
   }
@@ -253,6 +253,35 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
   }
   return null
 })
+
+// 文件卡片. 跟图片/视频一样作为独立元素渲染, 不含状态文字 ("已发送"等),
+// 状态由外层 MessageBubble 决定要不要展示.
+const FileElementCard = memo<{ fileName: string; fileSize: number }>(({ fileName, fileSize }) => {
+  const sizeText = formatFileSize(fileSize)
+  return (
+    <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/5 dark:bg-white/5 border border-white/10 min-w-[220px] max-w-[280px]">
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium leading-snug line-clamp-2 break-all">{fileName}</div>
+        {sizeText && <div className="text-xs opacity-60 mt-1">{sizeText}</div>}
+      </div>
+      <div className="flex-shrink-0 w-10 h-10 rounded bg-white/10 flex items-center justify-center">
+        <FileText className="w-5 h-5 opacity-70" />
+      </div>
+    </div>
+  )
+})
+
+function formatFileSize(bytes: number): string {
+  if (!bytes || bytes <= 0) return ''
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let i = 0
+  let n = bytes
+  while (n >= 1024 && i < units.length - 1) {
+    n /= 1024
+    i++
+  }
+  return `${n.toFixed(n >= 100 || i === 0 ? 0 : n >= 10 ? 1 : 2)} ${units[i]}`
+}
 
 // 检查元素是否有有效内容
 export const hasValidContent = (element: MessageElement): boolean => {

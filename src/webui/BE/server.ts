@@ -132,9 +132,20 @@ export class WebuiServer extends Service {
   }
 
   private setupMessageListener() {
-    // TODO: 监听新消息事件
+    // 收到的消息 (别人发 / 自己在其它客户端发).
+    this.ctx.on('nt/message-created', async (data) => {
+      if (this.sseClients.size === 0) return
+      await this.fillPeerUin(data.message)
+      this.broadcastMessage('message', { type: 'message-created', data: data.message })
+    })
 
-    // TODO: 监听自己发送的消息
+    // 自己通过 WebQQ (或 ntMsgApi.sendMsg 任何调用方) 发的消息.
+    // 没这条 SSE, FE ChatInput 发完会 onTempMessageRemove 把临时消息清掉但等不到真消息回填 -> 界面空白.
+    this.ctx.on('nt/message-sent', async (data) => {
+      if (this.sseClients.size === 0) return
+      await this.fillPeerUin(data.message)
+      this.broadcastMessage('message', { type: 'message-sent', data: data.message })
+    })
 
     // 监听消息撤回事件
     this.ctx.on('nt/message-deleted', async (data) => {
