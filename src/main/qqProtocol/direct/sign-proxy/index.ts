@@ -19,22 +19,13 @@ function pickTriple(): string {
   throw new Error(`sign-proxy: unsupported platform ${p}-${a}; rebuild lucky-lillia-sign-proxy on this target and drop the .node into ${here}`)
 }
 
-/**
- * 读 sign-proxy 版本号. dev 跑 tsx 时 here=src/.../sign-proxy/, package.json 就在旁边;
- * prod bundle 里 here=dist/, 跟 Bot 主 package.json 同名会撞, vite 时把它改名拷成
- * sign-proxy.package.json, 这里也试一下. 都不通就 fallback '0.0.0' (热更新失效但不影响加载).
- */
+/** 读 sign-proxy 版本号. 版本号塞进 tmpdir 文件名做 .node 热更新缓存 key. */
 function pickVersion(): string {
-  for (const name of ['package.json', 'sign-proxy.package.json']) {
-    try {
-      const raw = readFileSync(join(here, name), 'utf-8')
-      const pkg = JSON.parse(raw)
-      // 主 package.json 命中时校验 name, 防 prod 误读到 Bot 主 package.json
-      if (pkg.name && pkg.name !== '@lucky-lillia/sign-proxy-loader') continue
-      if (typeof pkg.version === 'string' && pkg.version.length > 0) return pkg.version
-    } catch {
-      // continue
-    }
+  try {
+    const pkg = JSON.parse(readFileSync(join(here, 'sign-proxy.package.json'), 'utf-8'))
+    if (typeof pkg.version === 'string' && pkg.version.length > 0) return pkg.version
+  } catch {
+    // 读不到就 fallback, 热更新失效但不影响加载
   }
   return '0.0.0'
 }
