@@ -12,7 +12,8 @@ export async function transformOutgoingMessage(
   ctx: Context,
   segments: OutgoingSegment[],
   peerUid: string,
-  isGroup: boolean = false,
+  isGroup: boolean,
+  isInsideForward: boolean
 ) {
   const elements: SendMessageElement[] = []
   const deleteAfterSentFiles: string[] = []
@@ -36,14 +37,22 @@ export async function transformOutgoingMessage(
           guildId: ''
         }
         let msg = ctx.store.getMsgBySeq(peer.peerUid, segment.data.message_seq)
+        let srcMsg
         if (!msg) {
-          const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, segment.data.message_seq)
+          const { msgList, msgByteList } = await ctx.ntMsgApi.getSingleMsg(peer, segment.data.message_seq)
           msg = msgList[0]
+          if (isInsideForward) {
+            srcMsg = msgByteList[0]
+          }
         }
         if (!msg) {
           throw new Error('被回复的消息未找到')
         }
-        elements.push(SendElement.reply(segment.data.message_seq, +msg.senderUin, +msg.msgTime, msg.clientSeq))
+        if (isInsideForward && !srcMsg) {
+          const { msgByteList } = await ctx.ntMsgApi.getSingleMsg(peer, segment.data.message_seq)
+          srcMsg = msgByteList[0]
+        }
+        elements.push(SendElement.reply(segment.data.message_seq, +msg.senderUin, +msg.msgTime, msg.clientSeq, srcMsg))
       } else if (segment.type === 'image') {
         const imageBuffer = await resolveMilkyUri(segment.data.uri)
         // Save to temp file and upload
@@ -83,7 +92,7 @@ export async function transformOutgoingMessage(
           msgTime?: number
         }[] = []
         for (const item of data.messages) {
-          const res = await transformOutgoingMessage(ctx, item.segments as OutgoingSegment[], peerUid, isGroup)
+          const res = await transformOutgoingMessage(ctx, item.segments as OutgoingSegment[], peerUid, isGroup, true)
           deleteAfterSentFiles.push(...res.deleteAfterSentFiles)
           nodes.push({
             senderUin: item.user_id,

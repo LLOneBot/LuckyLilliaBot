@@ -104,6 +104,10 @@ class Onebot11Adapter extends Service {
   }
 
   public dispatchMessageLike(event: OB11BaseEvent, self: boolean, offline: boolean) {
+    if (this.connect.length === 1) {
+      this.connect[0].emitMessageLikeEvent(event, self, offline)
+      return
+    }
     for (const item of this.connect) {
       // 这里不 copy 出来的话，更改了 msg.message 会影响下一个 connect
       item.emitMessageLikeEvent(cloneObj(event), self, offline)

@@ -63,7 +63,11 @@ export function createProxyRoutes(ctx: Context): Hono {
       }
 
       const allowedHosts = ['gchat.qpic.cn', 'multimedia.nt.qq.com.cn', 'c2cpicdw.qpic.cn', 'p.qlogo.cn', 'q1.qlogo.cn']
-      if (!allowedHosts.some(host => parsedUrl.hostname.includes(host))) {
+      const hostname = parsedUrl.hostname.toLowerCase()
+      const isAllowed = allowedHosts.some(host =>
+        hostname === host || hostname.endsWith('.' + host)
+      )
+      if (!isAllowed) {
         return c.json({ success: false, message: '不允许代理此域名的图片' }, 403)
       }
 

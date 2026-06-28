@@ -6,9 +6,10 @@ import faceConfig from '../helper/face_config.json'
 
 export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): MessageElement[] {
   const result: MessageElement[] = []
+  let skipIndex
 
-  for (const elem of elems) {
-    if (!elem) continue
+  for (const [index, elem] of elems.entries()) {
+    if (index === skipIndex) continue
 
     if (elem.text) {
       const textElem = elem.text
@@ -16,7 +17,13 @@ export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): Messag
       // attr6Buf 布局：[2B flag][2B reserved][2B text len][1B atType][4B target uin BE][2B reserved]
       let atTargetUin = 0
       if (isAt && textElem.attr6Buf!.length >= 11 && textElem.attr6Buf![6] !== 1) {
-        atTargetUin = (textElem.attr6Buf as Buffer).readUInt32BE(7)
+        const attr = Msg.TextResvAttr.decode(elem.text.pbReserve!)
+        // 引用消息会有两个 at，其中一个 atMemberUin 为 0
+        if (attr.atType === 2 && attr.atMemberUin === 0) {
+          skipIndex = index + 1 // 跳过附加的空格
+          continue
+        }
+        atTargetUin = textElem.attr6Buf!.readUInt32BE(7)
       }
       result.push({
         elementType: ElementType.Text,
@@ -261,7 +268,7 @@ export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): Messag
           replyMsgSeq: elem.srcMsg.attr.ntMsgSeq ?? elem.srcMsg.origSeqs[0],
           replyMsgTime: elem.srcMsg.time,
           senderUin: elem.srcMsg.senderUin,
-          replyMsgClientSeq: elem.srcMsg.attr.ntMsgSeq ? elem.srcMsg.origSeqs[0] : 0
+          replyMsgClientSeq: elem.srcMsg.attr.ntMsgSeq ? elem.srcMsg.origSeqs[0] : 0,
         },
       })
       continue

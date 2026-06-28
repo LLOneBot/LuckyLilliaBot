@@ -230,8 +230,4 @@ async function onLoad() {
 }
 
 
-try {
-  onLoad().then().catch(e => console.log(e))
-} catch (e) {
-  console.error(e)
-}
+onLoad().catch(e => console.error(e))

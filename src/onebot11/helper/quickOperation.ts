@@ -86,7 +86,7 @@ async function handleMsg(ctx: Context, msg: OB11Message, quickAction: QuickOpera
       }
     }
     replyMessage = replyMessage.concat(message2List(reply, quickAction.auto_escape))
-    const { sendElements, deleteAfterSentFiles } = await transformOutgoingSegments(ctx, replyMessage, peer)
+    const { sendElements, deleteAfterSentFiles } = await transformOutgoingSegments(ctx, replyMessage, peer, false)
     ctx.app.sendMessage(ctx, peer, sendElements, deleteAfterSentFiles).catch(e => ctx.logger.error(e))
   }
   if (msg.message_type === 'group') {

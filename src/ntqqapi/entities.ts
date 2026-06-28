@@ -4,6 +4,7 @@ import {
   AtType,
   ElementType,
   FaceIndex,
+  MessageElement,
   SendArkElement,
   SendFaceElement,
   SendMarketFaceElement,
@@ -46,14 +47,21 @@ export namespace SendElement {
     }
   }
 
-  export function reply(msgSeq: number, senderUin: number, msgTime: number, clientSeq: number): SendReplyElement {
+  export function reply(
+    msgSeq: number,
+    senderUin: number,
+    msgTime: number,
+    clientSeq: number,
+    srcMsg?: Buffer
+  ): SendReplyElement {
     return {
       elementType: ElementType.Reply,
       replyElement: {
         replyMsgSeq: msgSeq,
         senderUin,
         replyMsgTime: msgTime,
-        replyMsgClientSeq: clientSeq
+        replyMsgClientSeq: clientSeq,
+        srcMsg,
       },
     }
   }

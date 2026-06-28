@@ -1,19 +1,22 @@
-import { defineConfig } from 'vite'
+import { defineConfig, Plugin } from 'vite'
 import { builtinModules } from 'module'
 import cp from 'vite-plugin-cp'
 import { version } from './src/version'
 import path from 'node:path'
 import fs from 'node:fs'
 
-function writeVersion() {
-  const pkgJsonPath = './package-dist.json'
-  const pkgJsonRaw = fs.readFileSync(pkgJsonPath, 'utf8')
-  const packageJson = JSON.parse(pkgJsonRaw)
-  packageJson.version = version
-  fs.writeFileSync(pkgJsonPath, JSON.stringify(packageJson), 'utf8')
+function writeVersion(): Plugin {
+  return {
+    name: 'write-version',
+    buildStart() {
+      const pkgJsonPath = './package-dist.json'
+      const pkgJsonRaw = fs.readFileSync(pkgJsonPath, 'utf8')
+      const packageJson = JSON.parse(pkgJsonRaw)
+      packageJson.version = version
+      fs.writeFileSync(pkgJsonPath, JSON.stringify(packageJson), 'utf8')
+    }
+  }
 }
-
-writeVersion()
 
 function getModuleDependencies(moduleName: string, basePath = path.join(__dirname, 'node_modules'), seen = new Set<string>()) {
   if (seen.has(moduleName)) {
@@ -47,12 +50,9 @@ const external = [
   ...getModuleDependencies('file-type'),
 ]
 
-// console.log(external)
-
 function genCpModule(module: string | RegExp) {
   return { src: `./node_modules/${module}`, dest: `dist/node_modules/${module}`, flatten: false }
 }
-
 
 export default defineConfig({
   define: {
@@ -99,4 +99,5 @@ export default defineConfig({
     },
     tsconfigPaths: true
   },
+  plugins: [writeVersion()],
 })

@@ -17,30 +17,50 @@ declare module 'cordis' {
 export default class Config extends Service {
   private configPath: string | undefined
   private config: LLBotConfig | null = null
-  private watch = false
+  private watching = false
+  private skipNextWatch = false
   private defaultConfigPath = path.join(import.meta.dirname, 'default_config.json')
   private logger
+  private readonly WATCH_DEBOUNCE_MS = 2000
+  /** 保存 fs.watchFile 的回调引用，用于 unwatchFile 清理 */
+  private watchFileListener?: (curr: fs.Stats, prev: fs.Stats) => void
 
   constructor(ctx: Context) {
     super(ctx, 'config')
     this.logger = ctx.logger('config')
   }
 
+  async [Service.init]() {
+    return () => {
+      if (this.configPath && this.watchFileListener) {
+        fs.unwatchFile(this.configPath, this.watchFileListener)
+        this.watchFileListener = undefined
+      }
+    }
+  }
+
   listenChange(cb: (config: LLBotConfig) => void) {
     this.logger.info('配置文件位于', this.configPath)
 
-    // 初始化时不写入文件，只加载配置
     this.config = this.get()
     if (this.configPath) {
-      fs.watchFile(this.configPath, { persistent: true, interval: 1000 }, () => {
-        if (!this.watch) {
+      let lastReloadTime = 0
+      this.watchFileListener = () => {
+        if (!this.watching) return
+        if (this.skipNextWatch) {
+          this.skipNextWatch = false
           return
         }
+        // 防止 fs.watchFile 短时间内多次触发
+        const now = Date.now()
+        if (now - lastReloadTime < this.WATCH_DEBOUNCE_MS) return
+        lastReloadTime = now
         this.logger.info('配置重載')
         const c = this.reloadConfig()
         cb(c)
-      })
-      setTimeout(() => this.watch = true, 1500)
+      }
+      fs.watchFile(this.configPath, { persistent: false, interval: 1000 }, this.watchFileListener)
+      setTimeout(() => this.watching = true, 1500)
     }
   }
 
@@ -109,13 +129,9 @@ export default class Config extends Service {
     if (!this.configPath) {
       return
     }
-    // 暂时关闭监听，避免触发自己写入的变化
-    this.watch = false
+    // 跳过本次自身写入触发的 watchFile 回调
+    this.skipNextWatch = true
     fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), 'utf-8')
-    // 延迟重新启用监听
-    setTimeout(() => {
-      this.watch = true
-    }, 1500)
   }
 
 

@@ -41,6 +41,7 @@ const SendPrivateMessage = defineApi(
       ctx,
       payload.message,
       uid,
+      false,
       false
     )
     const result = await ctx.app.sendMessage(
@@ -69,7 +70,8 @@ const SendGroupMessage = defineApi(
       ctx,
       payload.message,
       groupCode,
-      true
+      true,
+      false
     )
     const result = await ctx.app.sendMessage(
       ctx,

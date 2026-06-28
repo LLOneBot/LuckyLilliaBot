@@ -10,22 +10,22 @@
     "check": "tsc"
   },
   "dependencies": {
-    "@tanstack/react-virtual": "^3.13.24",
+    "@tanstack/react-virtual": "^3.14.2",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.11.0",
-    "react": "^19.2.5",
-    "react-dom": "^19.2.5",
-    "zustand": "^5.0.12"
+    "lucide-react": "^1.18.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.2.4",
-    "@types/react": "^19.2.14",
+    "@tailwindcss/postcss": "^4.3.1",
+    "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.1",
+    "@vitejs/plugin-react": "^6.0.2",
     "autoprefixer": "^10.5.0",
-    "postcss": "^8.5.12",
-    "tailwindcss": "^4.2.4",
+    "postcss": "^8.5.15",
+    "tailwindcss": "^4.3.1",
     "typescript": "^6.0.3",
-    "vite": "^8.0.10"
+    "vite": "^8.0.16"
   }
 }

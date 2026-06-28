@@ -122,7 +122,7 @@ export namespace NTV2RichMedia {
     const blockSize = 1024 * 1024
     // upload.msgInfo 现在是 bytes（NTV2RichMediaResp.upload.msgInfo 改成 raw 透传），
     // 这里解析一次给 highway ext 用
-    const msgInfoStruct = Media.MsgInfo.decode(Buffer.from(upload.msgInfo))
+    const msgInfoStruct = Media.MsgInfo.decode(upload.msgInfo)
     const head = msgInfoStruct.msgInfoBody[0]
     if (!head?.index) {
       // 服务端返回的 msgInfo 没有有效 fileInfo（常见原因：preflight 失败、非好友 c2c 拒绝上传等）

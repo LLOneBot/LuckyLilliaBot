@@ -90,7 +90,7 @@ export class SendForwardMsg extends BaseAction<Payload, Response> {
       nodes = nodesWithSeq.map(x => x.node)
     }
 
-    const { sendElements, deleteAfterSentFiles } = await transformOutgoingSegments(this.ctx, nodes, peer)
+    const { sendElements, deleteAfterSentFiles } = await transformOutgoingSegments(this.ctx, nodes, peer, true)
     const returnMsg = await this.ctx.app.sendMessage(this.ctx, peer, sendElements, deleteAfterSentFiles)
     const msgShortId = this.ctx.store.createMsgShortId(returnMsg)
     // 自己发出去的群聊合并转发，OlPush 推回来的 elements 是 multiForwardMsgElement 不是 arkElement（这是 QQ NT

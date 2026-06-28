@@ -1,4 +1,4 @@
-import { Context, Inject, Service } from 'cordis'
+import { Context, Service } from 'cordis'
 import { EmailService, BotInfo } from './emailService.js'
 import { EmailConfigManager } from './emailConfig.js'
 import { selfInfo } from '@/common/globalVars.js'
@@ -108,36 +108,34 @@ export class EmailNotificationService extends Service {
       return
     }
 
-    this.ctx.logger.info('[EmailNotification] Bot went offline, sending notification')
-    this.sendOfflineNotification(reason)
+    this.ctx.logger.info('[EmailNotification] Bot offline, sending notification')
+    this.sendOfflineNotification(reason).catch(e => {
+      this.ctx.logger.error('[EmailNotification] sendOfflineNotification error:', e)
+    })
   }
 
   private async sendOfflineNotification(reason?: string) {
-    try {
-      const config = this.configManager.getConfig()
+    const config = this.configManager.getConfig()
 
-      if (!config.enabled) {
-        this.ctx.logger.debug('[EmailNotification] Email notifications are disabled')
-        return
-      }
+    if (!config.enabled) {
+      this.ctx.logger.debug('[EmailNotification] Email notifications are disabled')
+      return
+    }
 
-      const botInfo: BotInfo = {
-        uin: selfInfo.uin,
-        uid: selfInfo.uid,
-        nick: selfInfo.nick,
-        timestamp: new Date(),
-      }
+    const botInfo: BotInfo = {
+      uin: selfInfo.uin,
+      uid: selfInfo.uid,
+      nick: selfInfo.nick,
+      timestamp: new Date(),
+    }
 
-      const result = await this.emailService.sendOfflineNotification(botInfo, reason)
+    const result = await this.emailService.sendOfflineNotification(botInfo, reason)
 
-      if (result.success) {
-        this.notificationSent = true
-        this.ctx.logger.info('[EmailNotification] Offline notification sent successfully')
-      } else {
-        this.ctx.logger.error('[EmailNotification] Failed to send notification:', result.error)
-      }
-    } catch (error) {
-      this.ctx.logger.error('[EmailNotification] Error sending notification:', error)
+    if (result.success) {
+      this.notificationSent = true
+      this.ctx.logger.info('[EmailNotification] Offline notification sent successfully')
+    } else {
+      this.ctx.logger.error('[EmailNotification] Failed to send notification:', result.error)
     }
   }
 
