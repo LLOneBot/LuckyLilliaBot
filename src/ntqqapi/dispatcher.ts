@@ -54,9 +54,22 @@ const enum Event0x2DCSub {
  */
 export function registerDispatcher(ctx: Context) {
   ctx.on('qq/raw', ({ cmd, payload }) => {
+    if (process.env.DEBUG_RAW_PUSH) {
+      console.log(`[RawPush] cmd=${cmd} bodyLen=${payload.length} bodyHex=${payload.toString('hex').slice(0, 400)}`)
+    }
     try {
       switch (cmd) {
         case MSG_PUSH_CMD:
+          if (process.env.DEBUG_RAW_PUSH) {
+            try {
+              const decoded = Msg.PushMsg.decode(payload)
+              const m = decoded.message
+              const rh = m?.routingHead
+              console.log(`[RawPush] MsgPush msgType=${m?.contentHead.msgType} subType=${m?.contentHead.subType} fromUid=${rh?.fromUid ?? '?'} fromUin=${rh?.fromUin ?? '?'} groupCode=${rh?.group?.groupCode ?? '?'}`)
+            } catch (e) {
+              console.log(`[RawPush] MsgPush decode failed: ${(e as Error).message}`)
+            }
+          }
           handleMsgPush(ctx, payload)
           break
         case KICK_CMD:
@@ -767,8 +780,15 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
   }
   const rawMessage = convertToRawMessage(msg)
   if (!rawMessage) return
+  if (process.env.DEBUG_RAW_PUSH) {
+    const elemSummary = rawMessage.elements.map(e => `type=${e.elementType}` + (e.fileElement ? ` file=${e.fileElement.fileName}` : '') + (e.textElement ? ` text="${e.textElement.content?.slice(0, 30)}"` : '')).join(', ')
+    console.log(`[RawPush] convertedRawMsg msgId=${rawMessage.msgId} chatType=${rawMessage.chatType} peerUin=${rawMessage.peerUin} senderUin=${rawMessage.senderUin} elementsLen=${rawMessage.elements.length} [${elemSummary}]`)
+  }
   const isSelfMsg = rawMessage.senderUin === +selfInfo.uin
   if (isSelfMsg) {
+    if (process.env.DEBUG_RAW_PUSH) {
+      console.log(`[RawPush] emit nt/message-sent msgId=${rawMessage.msgId}`)
+    }
     ctx.parallel('nt/message-sent', { message: rawMessage })
     return
   }
