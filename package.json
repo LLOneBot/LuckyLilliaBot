@@ -5,7 +5,7 @@
   "description": "",
   "main": "dist/llbot.js",
   "scripts": {
-    "dev": "tsx src/main/main.ts",
+    "dev": "tsx watch src/main/main.ts",
     "build": "vite build",
     "dev-webui": "npm --prefix src/webui/FE run dev",
     "build-webui": "npm --prefix src/webui/FE run build",
