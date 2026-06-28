@@ -283,18 +283,19 @@ export class DirectProtocolClient extends EventEmitter {
   }
 
   /**
-   * sendCommand 前调. 三种触发场景:
-   *   1. 已有 token 但 expiresAt 临期 (60s 内) / 过期 -> 重拉
-   *   2. 没 token (启动时尝试失败) 且距离上次尝试 > 60s -> 重试
+   * sendCommand 前调. 触发场景:
+   *   1. 有 expiresAt 且临期 (60s 内) / 过期 -> 重拉
+   *   2. 从来没拉过 (expiresAt 是 undefined) 且距离上次尝试 > 60s -> 重试
    *   3. 没 session 或没 uin -> noop
-   * in-flight lock 防并发雪崩, lastFetchAt 节流防 acquire 失败时每个 cmd 都重试。
+   * 注: token 可能是空字符串 (manager 403 软降级 / uin 不在白名单), 这时
+   * server 仍下发 TTL, 我们尊重它 -- 30min 内反复重试也是空, 没意义.
+   * in-flight lock 防并发雪崩, lastFetchAt 兜底防 expiresAt 永远拿不到时的死循环.
    */
   private async ensureSignTokenFresh(uin: number | undefined): Promise<void> {
     if (!this.session || !uin || !this.config.authToken) return
     const expiresAt = this.session.signTokenExpiresAt
-    const hasToken = !!this.session.signToken12B
-    const needRefresh = hasToken
-      ? (!expiresAt || expiresAt - Date.now() <= 60_000)
+    const needRefresh = expiresAt
+      ? expiresAt - Date.now() <= 60_000
       : (Date.now() - this.signTokenLastFetchAt > 60_000)
     if (!needRefresh) return
 
@@ -307,14 +308,15 @@ export class DirectProtocolClient extends EventEmitter {
         this.signTokenLastFetchAt = Date.now()
         const { token, ttlSecs } = await acquireSignToken(uin, AppInfo.qua)
         if (this.session) {
-          // 用 QQ 下发的真实 TTL (ESK field 3); 拿不到 (0) 回退 20min 保守值
+          // 用 QQ 下发的真实 TTL (ESK field 3); 拿不到 (0) 回退 20min 保守值.
+          // token 空也尊重 TTL -- 空是 server 业务态 (没权 / 没绑), 30min 内再问也是空.
           const ttlMs = ttlSecs > 0 ? ttlSecs * 1000 : 20 * 60 * 1000
           this.session.signToken12B = token
           this.session.signTokenExpiresAt = Date.now() + ttlMs
           console.log(`[SignToken] lazy refresh "${token}" ttl=${ttlSecs > 0 ? ttlSecs + 's' : 'default'}`)
         }
       } catch (e) {
-        if (this.session && hasToken && expiresAt && expiresAt < Date.now()) {
+        if (this.session && expiresAt && expiresAt < Date.now()) {
           this.session.signToken12B = undefined
           this.session.signTokenExpiresAt = undefined
           console.warn(`[SignToken] refresh failed (${(e as Error).message}), 清掉过期 token`)
