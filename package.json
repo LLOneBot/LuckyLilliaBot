@@ -1,6 +1,6 @@
 {
   "name": "lucky-lillia-bot",
-  "version": "7.0.0",
+  "version": "8.0.0",
   "type": "module",
   "description": "",
   "main": "dist/llbot.js",
