@@ -37,6 +37,7 @@ import { QQProtocolClient } from './qqProtocol'
 import LoggerConsole from '@cordisjs/plugin-logger-console'
 import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
+import { startIpcServer, setLoginState, getCurrentLoginState } from './llbot-ipc'
 
 declare module 'cordis' {
   interface Events {
@@ -112,6 +113,9 @@ async function onLoad() {
     try {
       const data = await ctx.qqProtocol.getDirectLoginQrCode()
 
+      // 推给 Desktop (无头模式扫码登录对话框)
+      setLoginState({ state: 'need_qrcode', qrcode_png_base64: data.pngBase64QrcodeData })
+
       const qrText = await QRCode.toString(data.qrcodeUrl, { type: 'terminal', small: true })
       console.log('\n========== 请使用手机QQ扫描二维码登录 ==========')
       console.log(qrText)
@@ -139,7 +143,10 @@ async function onLoad() {
     const info = ctx.qqProtocol.getDirectSelfInfo()
     if (!info.online) {
       const now = Date.now()
-      if (now - lastQrCodeTime > 120_000) {
+      // 二维码过期 / 被取消时立即重新获取 (Desktop 扫码界面才能及时刷新), 否则按 120s 节流刷新
+      const st = getCurrentLoginState().state
+      const needRefresh = st === 'expired' || st === 'cancelled'
+      if (needRefresh || now - lastQrCodeTime > 120_000) {
         lastQrCodeTime = now
         printLoginQrCode()
       }
@@ -191,6 +198,21 @@ async function onLoad() {
                         |___/
                                         UIN: ${selfInfo.uin}
 `)
+      setLoginState({ state: 'logged_in', uin: selfInfo.uin, nickname: selfInfo.nick })
+      // 直连模式登录后 nick 可能为空 (session 无 nick / TLV 0x11A 缺失), 异步补查后更新给 Desktop
+      if (useDirectProtocol && !selfInfo.nick && selfInfo.uid) {
+        ctx.inject(['ntUserApi'], async (userCtx) => {
+          try {
+            const nick = await userCtx.ntUserApi.getSelfNick(true)
+            if (nick) {
+              selfInfo.nick = nick
+              setLoginState({ nickname: nick })
+            }
+          } catch (e) {
+            ctx.logger.warn('补查登录号昵称失败', e)
+          }
+        })
+      }
       if (!sessionLoaded) {
         config = ctx.config.get(false)
         ctx.config.listenChange(c => {
@@ -211,6 +233,8 @@ async function onLoad() {
       ctx.inject(['ntUserApi'], async (userCtx) => {
         if (selfInfo.online) {
           await ensurePmhqMissingFields(userCtx)
+          // 补全后把 uin/昵称同步给 Desktop (PMHQ 模式登录时 nick 常常还没就绪)
+          setLoginState({ state: 'logged_in', uin: selfInfo.uin, nickname: selfInfo.nick })
         }
       })
     }
@@ -219,6 +243,9 @@ async function onLoad() {
       ctx.logger.info('协议层断开，等待重连…')
     })
 
+    // 两种模式都启动 IPC server: Desktop 统一通过 IPC 拿 uin/昵称 (有头 PMHQ 模式也需要)
+    startIpcServer()
+    setLoginState({ state: 'initializing' })
     if (useDirectProtocol) {
       ctx.qqProtocol.initDirectClient().then(() => {
         directLoginLoop()

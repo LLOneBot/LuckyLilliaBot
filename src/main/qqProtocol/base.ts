@@ -16,6 +16,7 @@ import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, regis
 import type { QrCodeResult, QrPollResult } from './direct'
 import { overwriteMachineGuid } from './direct/machineGuid'
 import { authTokenUtil } from '../config'
+import { setLoginState } from '../llbot-ipc'
 
 const requireForVersion = createRequire(import.meta.url)
 function readBotVersion(): string {
@@ -660,7 +661,14 @@ export class QQProtocolBase extends Service {
           return
         }
 
+        if (result.state === QrCodeState.WaitingForConfirm) {
+          // 已扫码, 等手机确认 (Desktop 显示"请在手机上确认登录")
+          setLoginState({ state: 'waiting_confirm' })
+        }
+
         if (result.state === QrCodeState.Expired || result.state === QrCodeState.Cancelled) {
+          // 失效后置状态并清掉旧码; main.ts directLoginLoop 会立即重新拉新码 -> need_qrcode
+          setLoginState({ state: result.state === QrCodeState.Expired ? 'expired' : 'cancelled' })
           this.directQrResult = null
           return
         }
