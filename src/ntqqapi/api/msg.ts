@@ -112,7 +112,7 @@ export class NTMsgApi extends Service {
     //   接收方在 OlPush msgType=166 contentHead.c2cMsgSeq (field 11) 拿到同样的值。
     const random = randomBytes(4).readUInt32BE(0)
     const isGroup = peer.chatType === ChatType.Group
-    const echoP = isGroup ? this.waitForSelfEcho(peer, random, 5000).catch(() => undefined) : null
+    const echoP = isGroup ? this.waitForSelfEcho(peer, random, 5000) : null
 
     const ret = await this.ctx.qqProtocol.sendMessage({
       chatType,

@@ -252,7 +252,8 @@ export class MessageBuilding {
           },
           group: isGroup ? {
             groupCode: 284840486,
-            groupCard: node.senderName
+            groupCard: node.senderName,
+            groupCardType: 2
           } : undefined
         },
         contentHead: {
