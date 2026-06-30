@@ -249,6 +249,10 @@ async function onLoad() {
     if (useDirectProtocol) {
       ctx.qqProtocol.initDirectClient().then(() => {
         directLoginLoop()
+      }).catch(e => {
+        // 不 catch 的话 reject 会变成 unhandled rejection, directLoginLoop 不跑,
+        // 状态停在 initializing, Desktop 一直显示"登录中"却没有任何线索.
+        ctx.logger.error('直连协议初始化失败 (initDirectClient):', e)
       })
     } else {
       ctx.qqProtocol.startHook()

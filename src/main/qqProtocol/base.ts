@@ -105,7 +105,9 @@ export class QQProtocolBase extends Service {
     const guid: Buffer = createHash('md5').update(`llbot-${seed}`).digest().subarray(0, 16)
     const payload = buildSsoInfoSync(guid, false)
     await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoInfoSync', payload, 5000)
-    this.logger.info('已主动触发 InfoSyncPush（PMHQ 模式拉群最新 seq 用）')
+    // 注意: 触发的 InfoSyncPush 响应当前在 dispatcher 里被丢弃 (没 decode/消费),
+    // 群最新 seq 实际走 fetchGroupExtra。保留这次注册仅防潜在服务端副作用; 日志降到 debug。
+    this.logger.debug('已主动触发 RegisterProxy.SsoInfoSync（PMHQ）')
   }
 
   private resetPmhqState() {
@@ -432,6 +434,23 @@ export class QQProtocolBase extends Service {
     return result
   }
 
+  /**
+   * 解包 PMHQ active-send 响应。echo 只用于关联请求, 不能"echo 匹配就算成功":
+   * PMHQ 即使发包失败 / QQ 未登录, 也会回一条 echo 匹配但 code 非 0 的响应。
+   * 成败一律看 code: 0 = QQ 真回包(已登录); 非 0(-100 未登录/KernelMsgService 缺失/管道未连,
+   * 或 QQ app error) 一律抛错, 不让上层拿空 pb 去 decode。
+   */
+  private unwrapPmhqRes(res: PMHQResSendPB, cmd: string): PBData {
+    if (res.code != null && res.code !== 0) {
+      // 带上响应 pb 做诊断: 非空 = 服务器回了 OIDB 错误体(可 decode 看 errorMsg);
+      // 空 = QQ NT 客户端侧就拒了(多半 sign / 命令校验), 根本没到服务器。
+      const pb = res.data?.pb ?? ''
+      const detail = pb ? ` pb=${pb.slice(0, 160)}` : ' pb=<empty>'
+      throw new Error(`PMHQ send failed: cmd=${cmd} code=${res.code} ${res.message ?? ''}${detail}`.trim())
+    }
+    return res.data
+  }
+
   public async sendPB(cmd: string, pb: Uint8Array, timeout = 15000): Promise<PBData> {
     // Direct mode: send through TCP directly
     if (this.directClient?.isLoggedIn) {
@@ -444,19 +463,15 @@ export class QQProtocolBase extends Service {
     }
     const hex = Buffer.from(pb).toString('hex')
     if (this.ws?.readyState === WebSocket.OPEN) {
-      return (
-        await this.wsSend<PMHQResSendPB>({
-          type: 'send',
-          data: { cmd, pb: hex },
-        }, timeout)
-      ).data
+      return this.unwrapPmhqRes(
+        await this.wsSend<PMHQResSendPB>({ type: 'send', data: { cmd, pb: hex } }, timeout),
+        cmd,
+      )
     }
-    return (
-      await this.httpSend<PMHQResSendPB>({
-        type: 'send',
-        data: { cmd, pb: hex },
-      })
-    ).data
+    return this.unwrapPmhqRes(
+      await this.httpSend<PMHQResSendPB>({ type: 'send', data: { cmd, pb: hex } }),
+      cmd,
+    )
   }
 
   public async sendPBHex(cmd: string, hex: string): Promise<PBData> {
@@ -469,19 +484,15 @@ export class QQProtocolBase extends Service {
       } as PBData
     }
     if (this.ws?.readyState === WebSocket.OPEN) {
-      return (
-        await this.wsSend<PMHQResSendPB>({
-          type: 'send',
-          data: { cmd, pb: hex },
-        })
-      ).data
+      return this.unwrapPmhqRes(
+        await this.wsSend<PMHQResSendPB>({ type: 'send', data: { cmd, pb: hex } }),
+        cmd,
+      )
     }
-    return (
-      await this.httpSend<PMHQResSendPB>({
-        type: 'send',
-        data: { cmd, pb: hex },
-      })
-    ).data
+    return this.unwrapPmhqRes(
+      await this.httpSend<PMHQResSendPB>({ type: 'send', data: { cmd, pb: hex } }),
+      cmd,
+    )
   }
 
   /**

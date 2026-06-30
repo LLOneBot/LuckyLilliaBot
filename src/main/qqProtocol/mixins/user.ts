@@ -57,11 +57,13 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
           { key: 27394 },  // QID
         ],
       })
-      // 注意：by-UID 不能加 isReserved=1（FetchStrangerService 路径）
+      // 直连模式 by-UID 不能加 isReserved=1（FetchStrangerService 路径）；
+      // 但 PMHQ active_send 模式下不加会被 QQ 拒（code 316），按模式区分。
       const data = Oidb.Base.encode({
         command: 0xfe1,
         subCommand: 2,
         body,
+        ...(process.env.QQ_USE_PMHQ ? { isReserved: 1 } : {}),
       })
       const res = await this.sendPB('OidbSvcTrpcTcp.0xfe1_2', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))

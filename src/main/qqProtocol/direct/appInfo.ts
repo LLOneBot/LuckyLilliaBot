@@ -1,3 +1,6 @@
+import { createHash } from 'node:crypto'
+import { loadMachineGuidSync } from './machineGuid'
+
 export const AppInfo = {
   os: 'Linux',
   kernel: 'Linux',
@@ -26,7 +29,13 @@ export const AppInfo = {
 
 export const DeviceInfo = {
   devType: 'Linux',
-  devName: 'LLBot',
+  // 设备名带机器指纹, 同一号在多台机器登录时手机QQ"登录设备"列表能区分开.
+  // 指纹源 = device guid (data/machine_guid.bin), 跟 wtlogin/SSO/sign 上报的设备身份同源.
+  // 惰性 getter: 只在登录/上线时被读, 那一刻 guid 已确定 (session 恢复也已同步进 cache),
+  // 所以不锁初始值; loadMachineGuidSync 命中 cache, 开销可忽略.
+  get devName(): string {
+    return `LuckyLillia-${createHash('sha256').update(loadMachineGuidSync()).digest('hex').slice(0, 6)}`
+  },
   osVer: 'Ubuntu 22.04 LTS',
   vendorName: '',
   vendorOsName: 'linux',
