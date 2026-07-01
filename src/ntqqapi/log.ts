@@ -61,8 +61,9 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
       const userInfo = await ctx.ntFriendApi.getFriendByUid(userUid, false)
       sender = userInfo!.remark || userInfo!.nick
       peerName = `私] ${sender}(${message.peerUin})`
-    } catch (e) {
-      return
+    } catch {
+      // 非好友 (被删/单向) 或好友列表拉取失败也要留痕, 静默 return 会让私聊日志凭空消失
+      peerName = `私] ${sender}(${message.peerUin})`
     }
   }
   else if (message.chatType == ChatType.TempC2CFromGroup) {
