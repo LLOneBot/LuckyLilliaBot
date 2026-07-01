@@ -43,7 +43,7 @@ export class NTFriendApi extends Service {
             uid: friend.uid,
             uin: friend.uin,
             categoryId: friend.categoryId,
-            categoryName: categories.get(friend.categoryId)!.categoryName,
+            categoryName: categories.get(friend.categoryId)?.categoryName ?? '',
             nick: biz.data.get(20002)?.toString() ?? '',
             bio: biz.data.get(102)?.toString() ?? '',
             remark: biz.data.get(103)?.toString() ?? '',
