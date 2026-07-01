@@ -63,7 +63,6 @@ export class QQProtocolBase extends Service {
   // 探测会话的取消令牌：每次 WS open 启动一次新的探测，token 自增；
   // 任何 setTimeout/listener 回调发现自己的 token 不是当前 token 就什么都不做并主动清理。
   private pmhqProbeToken: number = 0
-  private pmhqProbeListenerId: string = ''
   private onlineEmitted: boolean = false
 
   public directClient: DirectProtocolClient | null = null
@@ -85,6 +84,7 @@ export class QQProtocolBase extends Service {
   private maybeEmitOnline() {
     if (this.onlineEmitted) return
     if (!selfInfo.online) return
+    if (!selfInfo.uid && !selfInfo.uin) return
     this.onlineEmitted = true
     this.ctx.parallel('qq/online')
   }
@@ -110,10 +110,6 @@ export class QQProtocolBase extends Service {
     selfInfo.uid = ''
     selfInfo.uin = ''
     selfInfo.nick = ''
-    if (this.pmhqProbeListenerId) {
-      this.removeResListener(this.pmhqProbeListenerId)
-      this.pmhqProbeListenerId = ''
-    }
     this.pmhqProbeToken++
     this.onlineEmitted = false
     if (wasOnline) {
@@ -129,68 +125,33 @@ export class QQProtocolBase extends Service {
     this.resetPmhqState()
     const myToken = ++this.pmhqProbeToken
 
-    const detach = () => {
-      if (this.pmhqProbeListenerId) {
-        this.removeResListener(this.pmhqProbeListenerId)
-        this.pmhqProbeListenerId = ''
-      }
-    }
-    this.pmhqProbeListenerId = this.addResListener((data) => {
-      if (this.pmhqProbeToken !== myToken) return
-      if (data?.type !== 'recv' || !data.data?.cmd || !data.data?.pb) return
-
-      // 登录态：wtlogin.* / trpc.login.* 是登录过程包，不算成功；
-      // 见到 MsgPush / SsoInfoSync / ConfigPushSvc 等只在登录后才出现的 cmd 才算
-      if (!selfInfo.online) {
-        const cmd: string = data.data.cmd
-        const isLoginPhase = cmd.startsWith('wtlogin.') || cmd.startsWith('trpc.login.')
-        const isPostLogin =
-          cmd.includes('OlPushService.MsgPush') ||
-          cmd.includes('RegisterProxy.SsoInfoSync') ||
-          cmd.includes('RegisterProxy.PushParams') ||
-          cmd.includes('ConfigPushSvc.PushReq') ||
-          cmd.startsWith('OidbSvcTrpcTcp.') ||
-          cmd.includes('MessageSvc.')
-        if (!isLoginPhase && isPostLogin) {
-          this.logger.info('QQ 登录成功')
-          selfInfo.online = true
-        }
-      }
-
-      this.maybeEmitOnline()
-
-      if (selfInfo.online) {
-        detach()
-      }
-    })
-
     let warnedNotLoggedIn = false
     const probe = async () => {
       if (this.pmhqProbeToken !== myToken) return
-      try {
-        const payload = Buffer.from([0x08, 0x04]) // field 1 = 4
-        await this.sendPB('trpc.qq_new_tech.status_svc.StatusService.SsoHeartBeat', payload, 3000)
-        if (this.pmhqProbeToken !== myToken) return
-        if (!selfInfo.online) {
-          this.logger.info('QQ 登录成功')
-        }
-        selfInfo.online = true
-        this.maybeEmitOnline()
-      } catch (e) {
-        if (this.pmhqProbeToken !== myToken) return
-        if (selfInfo.online) {
-          this.logger.warn('SsoHeartBeat 失败，停止登录探测', (e as Error).message)
-          detach()
-          return
-        }
-        if (!warnedNotLoggedIn) {
-          this.logger.info('QQ 未登录，等待登录中...')
-          warnedNotLoggedIn = true
+      const ntFriendApi = this.ctx.get('ntFriendApi')
+      if (ntFriendApi) {
+        try {
+          const info = (await ntFriendApi.getFriends(true)).friends.find(e => e.isSelf)
+          if (this.pmhqProbeToken !== myToken) return
+          selfInfo.uid = info!.uid
+          selfInfo.uin = info!.uin.toString()
+          selfInfo.nick = info!.nick
+          if (!selfInfo.online) {
+            this.logger.info('QQ 登录成功')
+          }
+          selfInfo.online = true
+          this.maybeEmitOnline()
+        } catch (e) {
+          if (this.pmhqProbeToken !== myToken) return
+          if (!warnedNotLoggedIn && !(e as Error).message.includes('(QQ DLL not connected)')) {
+            this.logger.info('QQ 未登录，等待登录中...')
+            warnedNotLoggedIn = true
+          }
         }
       }
       if (this.pmhqProbeToken !== myToken) return
       if (selfInfo.online) return
-      setTimeout(probe, 3_000)
+      setTimeout(probe, 600)
     }
     probe()
   }

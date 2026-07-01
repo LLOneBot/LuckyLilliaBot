@@ -194,30 +194,10 @@ async function onLoad() {
       }
       loadPluginAfterLogin()
     }
-    ctx.on('qq/online', () => {
-      if (selfInfo.uid) {
-        handleOnline()
-      } else {
-        ctx.inject(['ntFriendApi'], async (ctx) => {
-          const info = (await ctx.ntFriendApi.getFriends(false)).friends.find(e => e.isSelf)
-          selfInfo.uid = info!.uid
-          selfInfo.uin = info!.uin.toString()
-          selfInfo.nick = info!.nick
-          handleOnline()
-        })
-      }
-    })
+    ctx.on('qq/online', handleOnline)
     // 协议层可能在 inject callback 之前就 emit 过 qq/online，那一次 emit 会丢，得 catch up 一下
     if (selfInfo.online && selfInfo.uid) {
       handleOnline()
-    } else if (selfInfo.online) {
-      ctx.inject(['ntFriendApi'], async (ctx) => {
-        const info = (await ctx.ntFriendApi.getFriends(false)).friends.find(e => e.isSelf)
-        selfInfo.uid = info!.uid
-        selfInfo.uin = info!.uin.toString()
-        selfInfo.nick = info!.nick
-        handleOnline()
-      })
     }
 
     ctx.on('protocol/disconnect', () => {
