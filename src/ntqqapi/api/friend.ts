@@ -52,7 +52,8 @@ export class NTFriendApi extends Service {
             gender: biz.numData.get(20009) ?? 0,
             birthdayYear: biz.data.has(20031) ? (biz.data.get(20031)![0] << 8) | biz.data.get(20031)![1] : 0,
             birthdayMonth: biz.data.get(20031)?.[2] ?? 0,
-            birthdayDay: biz.data.get(20031)?.[3] ?? 0
+            birthdayDay: biz.data.get(20031)?.[3] ?? 0,
+            isSelf: friend.uin === res.selfUin
           })
         }
         cookie = res.cookie

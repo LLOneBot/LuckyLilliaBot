@@ -26,6 +26,7 @@ export interface Friend {
   birthdayYear: number
   birthdayMonth: number
   birthdayDay: number
+  isSelf: boolean
 }
 
 export interface FriendCategory {

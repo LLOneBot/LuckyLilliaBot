@@ -85,14 +85,8 @@ export class QQProtocolBase extends Service {
   private maybeEmitOnline() {
     if (this.onlineEmitted) return
     if (!selfInfo.online) return
-    if (!selfInfo.uid && !selfInfo.uin) return
     this.onlineEmitted = true
     this.ctx.parallel('qq/online')
-    if (process.env.QQ_USE_PMHQ) {
-      this.triggerInfoSyncPush().catch(e => {
-        this.logger.warn('triggerInfoSyncPush 失败', (e as Error).message)
-      })
-    }
   }
 
   /**
@@ -145,24 +139,6 @@ export class QQProtocolBase extends Service {
       if (this.pmhqProbeToken !== myToken) return
       if (data?.type !== 'recv' || !data.data?.cmd || !data.data?.pb) return
 
-      if (!selfInfo.uid || !selfInfo.uin) {
-        try {
-          const buf = Buffer.from(data.data.pb, 'hex')
-          const decoded = Msg.PushMsg.decode(buf)
-          const rh = decoded?.message?.routingHead
-          if (rh?.toUid && !selfInfo.uid) selfInfo.uid = String(rh.toUid)
-          if (rh?.toUin && !selfInfo.uin) selfInfo.uin = String(rh.toUin)
-        } catch {
-          try {
-            const buf = Buffer.from(data.data.pb, 'hex')
-            const decoded = Msg.Message.decode(buf)
-            const rh = decoded?.routingHead
-            if (rh?.toUid && !selfInfo.uid) selfInfo.uid = String(rh.toUid)
-            if (rh?.toUin && !selfInfo.uin) selfInfo.uin = String(rh.toUin)
-          } catch { /* try next */ }
-        }
-      }
-
       // 登录态：wtlogin.* / trpc.login.* 是登录过程包，不算成功；
       // 见到 MsgPush / SsoInfoSync / ConfigPushSvc 等只在登录后才出现的 cmd 才算
       if (!selfInfo.online) {
@@ -183,7 +159,7 @@ export class QQProtocolBase extends Service {
 
       this.maybeEmitOnline()
 
-      if (selfInfo.online && selfInfo.uid && selfInfo.uin) {
+      if (selfInfo.online) {
         detach()
       }
     })
@@ -199,17 +175,6 @@ export class QQProtocolBase extends Service {
           this.logger.info('QQ 登录成功')
         }
         selfInfo.online = true
-        // fetchFriends 响应里的 selfUin 就是 bot 自己；uid 没有 oidb 互转命令，靠上面的 listener 抠
-        if (!selfInfo.uin) {
-          try {
-            const resp = await (this as any).fetchFriends()
-            if (this.pmhqProbeToken === myToken && resp?.selfUin) {
-              selfInfo.uin = String(resp.selfUin)
-            }
-          } catch (e) {
-            this.logger.warn('fetchFriends 拿 selfUin 失败:', (e as Error).message)
-          }
-        }
         this.maybeEmitOnline()
       } catch (e) {
         if (this.pmhqProbeToken !== myToken) return

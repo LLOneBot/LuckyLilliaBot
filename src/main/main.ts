@@ -154,34 +154,6 @@ async function onLoad() {
     }
   }
 
-  const ensurePmhqMissingFields = async (userCtx: Context) => {
-    if (!selfInfo.uid && selfInfo.uin) {
-      for (let i = 0; i < 5; i++) {
-        try {
-          selfInfo.uid = String(await userCtx.ntUserApi.getUidByUin(+selfInfo.uin))
-          if (selfInfo.uid) break
-        } catch (e) {
-          await sleep(1000)
-        }
-      }
-    }
-    if (!selfInfo.uin && selfInfo.uid) {
-      for (let i = 0; i < 5; i++) {
-        try {
-          selfInfo.uin = String(await userCtx.ntUserApi.getUinByUid(selfInfo.uid))
-          if (selfInfo.uin) break
-        } catch (e) {
-          await sleep(1000)
-        }
-      }
-    }
-    if (!selfInfo.nick && selfInfo.uid) {
-      await userCtx.ntUserApi.getSelfNick(true).catch(e => {
-        userCtx.logger.warn('获取登录号昵称失败', e)
-      })
-    }
-  }
-
   ctx.inject(['qqProtocol', 'config'], (ctx) => {
     ctx.logger.info(`LLBot ${version}`)
     ctx.logger.info(process.argv)
@@ -200,7 +172,7 @@ async function onLoad() {
 `)
       setLoginState({ state: 'logged_in', uin: selfInfo.uin, nickname: selfInfo.nick })
       // 直连模式登录后 nick 可能为空 (session 无 nick / TLV 0x11A 缺失), 异步补查后更新给 Desktop
-      if (useDirectProtocol && !selfInfo.nick && selfInfo.uid) {
+      if (useDirectProtocol && !selfInfo.nick) {
         ctx.inject(['ntUserApi'], async (userCtx) => {
           try {
             const nick = await userCtx.ntUserApi.getSelfNick(true)
@@ -222,20 +194,29 @@ async function onLoad() {
       }
       loadPluginAfterLogin()
     }
-    ctx.on('qq/online', handleOnline)
+    ctx.on('qq/online', () => {
+      if (selfInfo.uid) {
+        handleOnline()
+      } else {
+        ctx.inject(['ntFriendApi'], async (ctx) => {
+          const info = (await ctx.ntFriendApi.getFriends(false)).friends.find(e => e.isSelf)
+          selfInfo.uid = info!.uid
+          selfInfo.uin = info!.uin.toString()
+          selfInfo.nick = info!.nick
+          handleOnline()
+        })
+      }
+    })
     // 协议层可能在 inject callback 之前就 emit 过 qq/online，那一次 emit 会丢，得 catch up 一下
-    if (selfInfo.online && (selfInfo.uid || selfInfo.uin)) {
+    if (selfInfo.online && selfInfo.uid) {
       handleOnline()
-    }
-
-    // PMHQ 模式：plugin 加载完后 ntUserApi 才就绪，那时再补 uid/nick
-    if (!useDirectProtocol) {
-      ctx.inject(['ntUserApi'], async (userCtx) => {
-        if (selfInfo.online) {
-          await ensurePmhqMissingFields(userCtx)
-          // 补全后把 uin/昵称同步给 Desktop (PMHQ 模式登录时 nick 常常还没就绪)
-          setLoginState({ state: 'logged_in', uin: selfInfo.uin, nickname: selfInfo.nick })
-        }
+    } else if (selfInfo.online) {
+      ctx.inject(['ntFriendApi'], async (ctx) => {
+        const info = (await ctx.ntFriendApi.getFriends(false)).friends.find(e => e.isSelf)
+        selfInfo.uid = info!.uid
+        selfInfo.uin = info!.uin.toString()
+        selfInfo.nick = info!.nick
+        handleOnline()
       })
     }
 
