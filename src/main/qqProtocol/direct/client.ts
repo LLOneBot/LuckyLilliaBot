@@ -183,6 +183,9 @@ export class DirectProtocolClient extends EventEmitter {
       const uin = this.session?.uin ? Number(this.session.uin) : undefined
       await this.ensureSignTokenFresh(uin)
       signResult = await requestSign(cmd, payload, seq, this.guid, AppInfo.qua, uin, this.session?.signToken12B)
+      if (signResult?.token.length === 0) {
+        signResult.token = Buffer.from(this.session?.signToken12B ?? '')
+      }
       if (process.env.DEBUG_SIGN) {
         console.log(`[Sign] ${cmd} seq=${seq}: result=${signResult ? `sign=${signResult.sign.length}B token=${signResult.token.length}B extra=${signResult.extra.length}B` : 'null'}`)
       }
