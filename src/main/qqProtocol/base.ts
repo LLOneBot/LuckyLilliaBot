@@ -377,41 +377,20 @@ export class QQProtocolBase extends Service {
     return res.data
   }
 
-  public async sendPB(cmd: string, pb: Uint8Array, timeout = 15000): Promise<PBData> {
+  public async sendPB(cmd: string, pb: Buffer | string, timeout = 15000): Promise<PBData> {
     // Direct mode: send through TCP directly
     if (this.directClient?.isLoggedIn) {
-      const buf = Buffer.from(pb)
+      const buf = Buffer.isBuffer(pb) ? pb : Buffer.from(pb, 'hex')
       const resp = await this.directClient.sendCommand(cmd, buf, undefined, timeout)
       return {
         cmd,
         pb: resp.payload.toString('hex'),
       }
     }
-    const hex = Buffer.from(pb).toString('hex')
+    const hex = Buffer.isBuffer(pb) ? pb.toString('hex') : pb
     if (this.ws?.readyState === WebSocket.OPEN) {
       return this.unwrapPmhqRes(
         await this.wsSend<PMHQResSendPB>({ type: 'send', data: { cmd, pb: hex } }, timeout),
-        cmd,
-      )
-    }
-    return this.unwrapPmhqRes(
-      await this.httpSend<PMHQResSendPB>({ type: 'send', data: { cmd, pb: hex } }),
-      cmd,
-    )
-  }
-
-  public async sendPBHex(cmd: string, hex: string): Promise<PBData> {
-    if (this.directClient?.isLoggedIn) {
-      const buf = Buffer.from(hex, 'hex')
-      const resp = await this.directClient.sendCommand(cmd, buf)
-      return {
-        cmd,
-        pb: resp.payload.toString('hex'),
-      } as PBData
-    }
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      return this.unwrapPmhqRes(
-        await this.wsSend<PMHQResSendPB>({ type: 'send', data: { cmd, pb: hex } }),
         cmd,
       )
     }
