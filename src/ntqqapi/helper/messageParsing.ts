@@ -50,63 +50,49 @@ export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): Messag
       continue
     }
 
-    // Old format C2C image
-    /*if (elem.notOnlineImage) {
+    // Old(TIM) format C2C image
+    if (elem.notOnlineImage) {
       const img = elem.notOnlineImage
       result.push({
         elementType: ElementType.Pic,
-        elementId: '',
-        extBufForUI: '',
         picElement: {
-          fileName: img.filePath || '',
-          fileSize: String(img.fileLen || 0),
-          picWidth: img.picWidth || 0,
-          picHeight: img.picHeight || 0,
-          original: img.original === 1,
-          md5HexStr: img.picMd5 ? Buffer.from(img.picMd5).toString('hex') : '',
+          fileName: img.filePath,
+          fileSize: img.fileLen,
+          picWidth: img.picWidth,
+          picHeight: img.picHeight,
+          md5HexStr: img.picMd5.toString('hex'),
           sourcePath: '',
-          thumbPath: new Map(),
-          picType: 0,
-          picSubType: 0,
-          fileUuid: img.resId || '',
-          fileSubId: '',
-          thumbFileSize: 0,
-          originImageUrl: img.origUrl || '',
-          thumbUrl: img.thumbUrl || '',
-          bigUrl: img.bigUrl || '',
+          picType: img.imgType,
+          picSubType: img.bizType,
+          fileUuid: img.resId.split('-')[1],
+          originImageUrl: img.origUrl,
+          summary: ''
         },
       })
       continue
-    }*/
+    }
 
-    // Group image / animated face
-    /*if (elem.customFace) {
+    // Old(TIM) format group image
+    if (elem.customFace) {
       const cf = elem.customFace
       result.push({
         elementType: ElementType.Pic,
-        elementId: '',
-        extBufForUI: '',
         picElement: {
-          fileName: cf.filePath || '',
-          fileSize: String(cf.size || 0),
-          picWidth: cf.width || 0,
-          picHeight: cf.height || 0,
-          original: false,
-          md5HexStr: cf.md5 ? Buffer.from(cf.md5).toString('hex') : '',
+          fileName: cf.filePath,
+          fileSize: cf.size,
+          picWidth: cf.width,
+          picHeight: cf.height,
+          md5HexStr: cf.md5.toString('hex'),
           sourcePath: '',
-          thumbPath: new Map(),
-          picType: 0,
-          picSubType: 0,
-          fileUuid: '',
-          fileSubId: '',
-          thumbFileSize: 0,
-          originImageUrl: cf.origUrl || '',
-          thumbUrl: cf.thumbUrl || '',
-          bigUrl: cf.bigUrl || '',
+          picSubType: cf.bizType,
+          fileUuid: cf.fileId.toString(),
+          originImageUrl: cf.origUrl,
+          picType: cf.imageType,
+          summary: ''
         },
       })
       continue
-    }*/
+    }
 
     // Market face / sticker
     if (elem.marketFace) {
