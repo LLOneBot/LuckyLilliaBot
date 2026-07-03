@@ -113,6 +113,10 @@ export class NTMsgApi extends Service {
     const random = randomBytes(4).readUInt32BE(0)
     const isGroup = peer.chatType === ChatType.Group
     const echoP = isGroup ? this.waitForSelfEcho(peer, random, 7000) : null
+    // send 失败/禁言等会在下面 await echoP 之前就 throw，此时 echoP 变 orphaned promise，
+    // 7s 后其 timer reject 无人接 -> unhandledRejection -> 崩进程。挂 no-op catch 标记为已处理，
+    // 不影响后面 await echoP 的正常 resolve/reject。
+    echoP?.catch(() => {})
 
     const ret = await this.ctx.qqProtocol.sendMessage({
       chatType,

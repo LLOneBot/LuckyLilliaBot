@@ -222,4 +222,14 @@ async function onLoad() {
 }
 
 
+// 全局兜底：单个 orphaned rejection / 未捕获异常不该拖垮整个 bot 进程。
+// 典型来源见 ntMsgApi.sendMsg：群发失败提前 throw 后，echoP 的 7s timer 仍会 reject。
+// 这里只 log 不退出（保 bot 存活）；若想让 docker 拉起干净进程可改成 process.exit(1)。
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason)
+})
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err)
+})
+
 onLoad().catch(e => console.error(e))
