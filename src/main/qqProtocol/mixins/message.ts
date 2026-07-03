@@ -259,18 +259,30 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       elems: InferProtoModelInput<typeof Msg.Elem>[]
       /** 上层可以提前生成 random 自己挂 listener 等 OlPush 回声，匹配 contentHead.random */
       random?: number
+      content?: Buffer
     }) {
       const random = opts.random ?? randomBytes(4).readUInt32BE(0)
       // BotMessage.ClientSequence: Random.NextInt64(10000, 99999)
       const clientSequence = 10000 + Math.floor(Math.random() * 90000)
       const data = Msg.PbSendMsg.encode({
-        routingHead: {
+        routingHead: opts.content ? {
+          trans0X211: {
+            toUin: opts.toUin,
+            ccCmd: 4,
+            uid: opts.toUid,
+          }
+        } : {
           1: { c2c: { toUin: opts.toUin, toUid: opts.toUid } },
           2: { group: { groupCode: opts.groupCode } },
           100: { groupTemp: { groupCode: opts.groupCode, toUid: opts.toUid } }
         }[opts.chatType],
         contentHead: { pkgNum: 1, pkgIndex: 0, divSeq: 0, autoReply: 0 },
-        body: { richText: { elems: opts.elems } },
+        body: {
+          richText: {
+            elems: opts.elems
+          },
+          msgContent: opts.content
+        },
         clientSequence,
         random,
       })
@@ -320,7 +332,7 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       const data = Msg.PbSendMsg.encode({
         routingHead: {
           trans0X211: {
-            toUin: BigInt(opts.toUin),
+            toUin: opts.toUin,
             ccCmd: 4,
             uid: opts.toUid,
           },

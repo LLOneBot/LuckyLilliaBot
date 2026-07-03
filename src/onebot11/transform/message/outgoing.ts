@@ -285,6 +285,12 @@ export async function transformOutgoingSegments(
           msgTime: segment.data.time ? +segment.data.time : undefined
         })
       }
+        break
+      case OB11MessageDataType.File: {
+        const { path, fileName } = await handleOb11RichMedia(ctx, segment, deleteAfterSentFiles)
+        sendElements.push(await SendElement.file(ctx, path, fileName))
+      }
+        break
     }
   }
 

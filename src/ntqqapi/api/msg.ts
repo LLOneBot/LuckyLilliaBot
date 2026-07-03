@@ -86,7 +86,7 @@ export class NTMsgApi extends Service {
    */
   async sendMsg(peer: Peer, msgElements: SendMessageElement[]): Promise<RawMessage> {
     const building = new MessageBuilding(this.ctx, msgElements, peer.chatType, peer.peerUid)
-    const elems = await building.build()
+    const { elems, content } = await building.build()
 
     let chatType = peer.chatType
     let groupCode
@@ -116,7 +116,18 @@ export class NTMsgApi extends Service {
     // send 失败/禁言等会在下面 await echoP 之前就 throw，此时 echoP 变 orphaned promise，
     // 7s 后其 timer reject 无人接 -> unhandledRejection -> 崩进程。挂 no-op catch 标记为已处理，
     // 不影响后面 await echoP 的正常 resolve/reject。
-    echoP?.catch(() => {})
+    echoP?.catch(() => { })
+
+    const fileElem = elems.find(e => e.transElemInfo?.elemType === 24)
+    if (fileElem) {
+      const buf = fileElem.transElemInfo!.elemValue!.subarray(3)
+      const extra = Msg.GroupFileExtra.decode(buf)
+      const ret = await this.ctx.qqProtocol.feedGroupFile(groupCode!, extra.inner.info.fileId, random)
+      if (ret.feedsInfoRsp.retCode !== 0n) {
+        throw new Error(`发送文件失败 (code=${ret.feedsInfoRsp.retCode}): ${ret.feedsInfoRsp.clientWording}`)
+      }
+      return await echoP!
+    }
 
     const ret = await this.ctx.qqProtocol.sendMessage({
       chatType,
@@ -124,6 +135,7 @@ export class NTMsgApi extends Service {
       toUid: peer.chatType !== ChatType.Group ? peer.peerUid : undefined,
       elems,
       random,
+      content,
     })
 
     if (ret.resultCode !== 0) {

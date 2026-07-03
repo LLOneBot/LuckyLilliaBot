@@ -588,6 +588,7 @@ export class NTFileApi extends Service {
     }
     return {
       fileId: result.fileId,
+      fileSize: result.fileSize,
       fileMd5: result.md5.toString('hex')
     }
   }
