@@ -2,7 +2,7 @@ import { deepConvertMap, deepStringifyMap } from './util'
 import { selfInfo } from '@/common/globalVars'
 import { randomUUID, createHash } from 'node:crypto'
 import path from 'node:path'
-import { createRequire } from 'node:module'
+import { version } from '../../version'
 import { Oidb, Msg } from '@/ntqqapi/proto'
 import type {
   PMHQRes,
@@ -17,16 +17,6 @@ import type { QrCodeResult, QrPollResult } from './direct'
 import { overwriteMachineGuid } from './direct/machineGuid'
 import { authTokenUtil } from '../config'
 import { setLoginState } from '../llbot-ipc'
-
-const requireForVersion = createRequire(import.meta.url)
-function readBotVersion(): string {
-  try {
-    const pkg = requireForVersion('../../../../package.json') as { version?: string }
-    return pkg.version ?? 'unknown'
-  } catch {
-    return 'unknown'
-  }
-}
 
 type DisconnectCallback = (duration: number) => void
 
@@ -465,7 +455,7 @@ export class QQProtocolBase extends Service {
     const uinForInit = persisted ? Number(persisted.uin) : undefined
     this.directClient = new DirectProtocolClient({
       authToken: authToken,
-      botVersion: readBotVersion(),
+      botVersion: `LLBot_${version}`,
       uin: Number.isFinite(uinForInit) && (uinForInit as number) > 0 ? uinForInit : undefined,
     })
 
