@@ -1069,6 +1069,19 @@ export namespace Oidb {
     }),
   })
 
+  /** OidbSvcTrpcTcp.0x7ed_12 */
+  export const FetchProfileLikeCountReq = ProtoMessage.of({
+    uid: ProtoField(1, 'string'),
+  })
+
+  export const FetchProfileLikeCountResp = ProtoMessage.of({
+    body: ProtoField(1, {
+      voteInfo: ProtoField(4, {
+        totalCount: ProtoField(1, 'uint32'),
+      }),
+    }),
+  })
+
   /** OidbSvcTrpcTcp.0x6d6_4 - 重命名群文件 */
   export const RenameGroupFileReq = ProtoMessage.of({
     rename: ProtoField(5, {

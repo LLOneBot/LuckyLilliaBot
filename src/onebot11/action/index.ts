@@ -120,6 +120,7 @@ import { SendPoke } from './llbot/msg/SendPoke'
 import { SetInputStatus } from './llbot/user/SetInputStatus'
 import { GetGroupAlbumMediaList } from './llbot/group/GroupAlbum/GetGroupAlbumMediaList'
 import { GetGroupSignedList } from './llbot/group/GetGroupSignedList'
+import { GetProfileLikeCount } from './llbot/user/GetProfileLikeCount'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -178,6 +179,7 @@ export function initActionMap(adapter: Adapter) {
     new SetInputStatus(adapter),
     new GetGroupAlbumMediaList(adapter),
     new GetGroupSignedList(adapter),
+    new GetProfileLikeCount(adapter),
     // onebot11
     new SendLike(adapter),
     new GetMsg(adapter),
