@@ -1031,10 +1031,7 @@ export namespace Oidb {
     body: ProtoField(1, {
       targetUid: ProtoField(1, 'string'),
       field2: ProtoField(2, 'uint32'),
-      detail: ProtoField(3, {
-        field1: ProtoField(1, 'uint32'),
-        field2: ProtoField(2, 'uint32'),
-        nextStart: ProtoField(3, 'uint32'),
+      favoriteInfo: ProtoField(3, {
         users: ProtoField(4, {
           uid: ProtoField(1, 'string'),
           src: ProtoField(2, 'uint32'),
@@ -1050,7 +1047,25 @@ export namespace Oidb {
           isvip: ProtoField(105, 'bool'),
           isSvip: ProtoField(106, 'bool'),
         }, 'repeated'),
-      }, 'optional'),
+      }),
+      voteInfo: ProtoField(4, {
+        totalCount: ProtoField(1, 'uint32'),
+        users: ProtoField(5, {
+          uid: ProtoField(1, 'string'),
+          src: ProtoField(2, 'uint32'),
+          latestTime: ProtoField(3, 'uint32'),
+          count: ProtoField(4, 'uint32'),
+          giftCount: ProtoField(5, 'uint32'),
+          customId: ProtoField(6, 'uint32'),
+          lastCharged: ProtoField(8, 'uint32'),
+          bTodayVotedCnt: ProtoField(22, 'uint32'),
+          nick: ProtoField(101, 'string'),
+          gender: ProtoField(102, 'uint32'),
+          age: ProtoField(103, 'uint32'),
+          isvip: ProtoField(105, 'bool'),
+          isSvip: ProtoField(106, 'bool'),
+        }, 'repeated'),
+      }),
     }),
   })
 
