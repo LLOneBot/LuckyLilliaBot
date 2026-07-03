@@ -33,14 +33,14 @@ export class MessageBuilding {
       const attr6 = Buffer.from([0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00])
       this.outputElems.push({ text: { str: textElement.content, attr6Buf: attr6 } })
     } else if (textElement.atType === 2 /* AtType.One */) {
-      const attr6 = Buffer.alloc(20)
-      attr6.writeUInt16BE(0x0001, 0)
-      attr6.writeUInt16BE(0x0000, 2)
-      attr6.writeUInt16BE((textElement.content).length, 4)
-      attr6.writeUInt8(0x00, 6)
-      attr6.writeUInt32BE(textElement.atUin, 7)
-      attr6.writeUInt16BE(0x0000, 11)
-      this.outputElems.push({ text: { str: textElement.content, attr6Buf: attr6 } })
+      const attr6Buf = Buffer.alloc(20)
+      attr6Buf.writeUInt16BE(0x0001, 0)
+      attr6Buf.writeUInt16BE(0x0000, 2)
+      attr6Buf.writeUInt16BE((textElement.content).length, 4)
+      attr6Buf.writeUInt8(0x00, 6)
+      attr6Buf.writeUInt32BE(textElement.atUin, 7)
+      attr6Buf.writeUInt16BE(0x0000, 11)
+      this.outputElems.push({ text: { str: textElement.content, attr6Buf } })
     } else {
       this.outputElems.push({ text: { str: textElement.content } })
     }
@@ -142,6 +142,27 @@ export class MessageBuilding {
           ntMsgSeq: replyElement.replyMsgClientSeq ? replyElement.replyMsgSeq : undefined
         },
         srcMsg: replyElement.srcMsg
+      }
+    })
+    const attr6Buf = Buffer.alloc(20)
+    attr6Buf.writeUInt16BE(0x0001, 0)
+    attr6Buf.writeUInt16BE(0x0000, 2)
+    attr6Buf.writeUInt16BE('@'.length, 4)
+    attr6Buf.writeUInt8(0x00, 6)
+    attr6Buf.writeUInt32BE(replyElement.senderUin, 7)
+    attr6Buf.writeUInt16BE(0x0000, 11)
+    const pbReserve = Msg.TextResvAttr.encode({
+      atMemberUin: 0
+    })
+    this.outputElems.push({
+      text: {
+        str: '@',
+        attr6Buf,
+        pbReserve
+      }
+    }, {
+      text: {
+        str: ' '
       }
     })
   }
