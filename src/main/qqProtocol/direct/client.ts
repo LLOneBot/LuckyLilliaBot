@@ -170,7 +170,36 @@ export class DirectProtocolClient extends EventEmitter {
     'trpc.o3.ecdh_access.EcdhAccess.SsoEstablishShareKey',
     'trpc.o3.ecdh_access.EcdhAccess.SsoSecureAccess',
     'MessageSvc.PbSendMsg',
-    'OidbSvcTrpcTcp.0x6d9_4'
+    'OidbSvcTrpcTcp.0x6d9_4',
+    'OidbSvcTrpcTcp.0x929b_0',
+    'OidbSvcTrpcTcp.0xfe1_2',
+    'OidbSvcTrpcTcp.0xfe1_8',
+    'OidbSvcTrpcTcp.0x102a_1',
+    'OidbSvcTrpcTcp.0x102a_0',
+    'OidbSvcTrpcTcp.0xfd4_1', // friend list (增量更新)
+    'OidbSvcTrpcTcp.0xfe5_2', // group list (增量更新)
+
+    // V2 白名单 ∩ V1 已有命令（从 AndroidBotSignProvider 增量同步，仅补 V1 存在的）
+    'OidbSvcTrpcTcp.0x5cf_11', // fetch friend requests
+    'OidbSvcTrpcTcp.0x10c0_1', // fetch group requests
+    'OidbSvcTrpcTcp.0x10c0_2', // fetch filtered group requests
+    'OidbSvcTrpcTcp.0x10c8_1', // set group request
+    'OidbSvcTrpcTcp.0x972_6', // friend search
+    'OidbSvcTrpcTcp.0x8fc_3', // rename group member
+    'OidbSvcTrpcTcp.0x6d6_2', // group file download
+    'OidbSvcTrpcTcp.0x6d6_3', // group file delete
+    'OidbSvcTrpcTcp.0xe37_1700', // private file upload
+    'OidbSvcTrpcTcp.0xe37_1200', // private file download
+    'OidbSvcTrpcTcp.0x11c5_100', // image upload (c2c)
+    'OidbSvcTrpcTcp.0x11c5_200', // image download (c2c)
+    'OidbSvcTrpcTcp.0x11c4_100', // image upload (group)
+    'OidbSvcTrpcTcp.0x11c4_200', // image download (group)
+    'OidbSvcTrpcTcp.0x11e9_100', // video upload
+    'OidbSvcTrpcTcp.0x11e9_200', // video download
+    'OidbSvcTrpcTcp.0x126d_200', // record download (c2c)
+    'OidbSvcTrpcTcp.0x126e_200', // record download (group)
+    'trpc.group.long_msg_interface.MsgService.SsoRecvLongMsg', // recv long msg
+    'OidbSvcTrpcTcp.0x88d_0', // fetch group detail
   ])
 
   async sendCommand(cmd: string, payload: Buffer, encryptType?: EncryptType, timeout = 15000): Promise<SsoPacket> {
