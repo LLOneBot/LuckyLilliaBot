@@ -50,6 +50,7 @@ export namespace SendElement {
   export function reply(
     msgSeq: number,
     senderUin: number,
+    senderUid: string,
     msgTime: number,
     clientSeq: number,
     srcMsg?: Buffer
@@ -59,6 +60,7 @@ export namespace SendElement {
       replyElement: {
         replyMsgSeq: msgSeq,
         senderUin,
+        senderUid,
         replyMsgTime: msgTime,
         replyMsgClientSeq: clientSeq,
         srcMsg,

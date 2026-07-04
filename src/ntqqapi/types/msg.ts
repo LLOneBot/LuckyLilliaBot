@@ -104,6 +104,7 @@ export interface ReplyElement {
   replyMsgSeq: number
   replyMsgTime: number
   senderUin: number
+  senderUid: string
   replyMsgClientSeq: number
   srcMsg?: Buffer
 }

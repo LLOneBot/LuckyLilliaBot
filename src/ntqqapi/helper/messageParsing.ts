@@ -254,6 +254,7 @@ export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): Messag
           replyMsgSeq: elem.srcMsg.attr.ntMsgSeq ?? elem.srcMsg.origSeqs[0],
           replyMsgTime: elem.srcMsg.time,
           senderUin: elem.srcMsg.senderUin,
+          senderUid: elem.srcMsg.attr.senderUid,
           replyMsgClientSeq: elem.srcMsg.attr.ntMsgSeq ? elem.srcMsg.origSeqs[0] : 0,
         },
       })

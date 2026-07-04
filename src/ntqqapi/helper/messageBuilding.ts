@@ -140,32 +140,37 @@ export class MessageBuilding {
         senderUin: replyElement.senderUin,
         time: replyElement.replyMsgTime,
         attr: {
+          senderUid: replyElement.senderUid,
           ntMsgSeq: replyElement.replyMsgClientSeq ? replyElement.replyMsgSeq : undefined
         },
         srcMsg: replyElement.srcMsg
       }
     })
-    const attr6Buf = Buffer.alloc(20)
-    attr6Buf.writeUInt16BE(0x0001, 0)
-    attr6Buf.writeUInt16BE(0x0000, 2)
-    attr6Buf.writeUInt16BE('@'.length, 4)
-    attr6Buf.writeUInt8(0x00, 6)
-    attr6Buf.writeUInt32BE(replyElement.senderUin, 7)
-    attr6Buf.writeUInt16BE(0x0000, 11)
-    const pbReserve = Msg.TextResvAttr.encode({
-      atMemberUin: 0
-    })
-    this.outputElems.push({
-      text: {
-        str: '@',
-        attr6Buf,
-        pbReserve
-      }
-    }, {
-      text: {
-        str: ' '
-      }
-    })
+    if (this.chatType === ChatType.Group) {
+      const attr6Buf = Buffer.alloc(20)
+      attr6Buf.writeUInt16BE(0x0001, 0)
+      attr6Buf.writeUInt16BE(0x0000, 2)
+      attr6Buf.writeUInt16BE('@'.length, 4)
+      attr6Buf.writeUInt8(0x00, 6)
+      attr6Buf.writeUInt32BE(replyElement.senderUin, 7)
+      attr6Buf.writeUInt16BE(0x0000, 11)
+      const pbReserve = Msg.TextResvAttr.encode({
+        atType: 2,
+        atMemberUin: 0,
+        atMemberUid: replyElement.senderUid
+      })
+      this.outputElems.push({
+        text: {
+          str: '@',
+          attr6Buf,
+          pbReserve
+        }
+      }, {
+        text: {
+          str: ' '
+        }
+      })
+    }
   }
 
   private async [ElementType.Pic](data: SendPicElement) {

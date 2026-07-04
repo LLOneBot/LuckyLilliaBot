@@ -121,6 +121,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
               replyMsgSeq: Number(item.msgSeq),
               replyMsgTime: 0,
               senderUin: Number(item.uin ?? 0),
+              senderUid: item.uid ?? '',
               replyMsgClientSeq: 0
             }
           })

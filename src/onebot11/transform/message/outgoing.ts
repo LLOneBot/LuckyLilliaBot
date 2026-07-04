@@ -101,7 +101,14 @@ export async function transformOutgoingSegments(
               const { msgByteList } = await ctx.ntMsgApi.getSingleMsg(info.peer, info.msgSeq)
               srcMsg = msgByteList[0]
             }
-            sendElements.push(SendElement.reply(msg.msgSeq, +msg.senderUin, +msg.msgTime, msg.clientSeq, srcMsg))
+            sendElements.push(SendElement.reply(
+              msg.msgSeq,
+              msg.senderUin,
+              msg.senderUid,
+              msg.msgTime,
+              msg.clientSeq,
+              srcMsg
+            ))
           }
         }
       }

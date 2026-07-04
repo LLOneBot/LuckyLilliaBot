@@ -284,6 +284,7 @@ export class MessageEncoder {
         this.elements.push(SendElement.reply(
           source.msgSeq,
           source.senderUin,
+          source.senderUid,
           source.msgTime,
           source.clientSeq
         ))
