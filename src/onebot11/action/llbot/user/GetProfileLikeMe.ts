@@ -25,7 +25,8 @@ export class GetProfileLikeMe extends BaseAction<Payload, Response> {
     const users = ret.body.voteInfo.users ?? []
     for (const item of users) {
       Object.assign(item, {
-        uin: await this.ctx.ntUserApi.getUinByUid(item.uid)
+        uin: await this.ctx.ntUserApi.getUinByUid(item.uid),
+        isFriend: await this.ctx.ntFriendApi.isFriend(item.uid)
       })
     }
     return { users, nextStart: 0 }
