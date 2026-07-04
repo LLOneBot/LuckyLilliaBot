@@ -1018,7 +1018,7 @@ export namespace Oidb {
 
   /** OidbSvcTrpcTcp.0x7ed_13 - 获取赞过我/我赞过的列表 */
   export const FetchProfileLikeReq = ProtoMessage.of({
-    targetUid: ProtoField(1, 'string'),
+    selfUid: ProtoField(1, 'string'),
     field2: ProtoField(2, 'uint32'),
     direction: ProtoField(3, 'uint32'),  // 0=我点赞过的, 1=赞过我的
     field4: ProtoField(4, 'uint32'),
