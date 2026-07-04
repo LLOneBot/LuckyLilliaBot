@@ -1,10 +1,11 @@
-import React, { useState, memo, useRef } from 'react'
+import React, { useState, useEffect, memo, useRef } from 'react'
 import { Loader2, Mic, Play, Pause, ChevronRight, X, FileText } from 'lucide-react'
 import { createPortal } from 'react-dom'
 import type { MessageElement, RawMessage } from '../../../types/webqq'
 import { getToken } from '../../../utils/api'
 import { translatePttToText, getAudioProxyUrl, getForwardMessages } from '../../../utils/webqqApi'
 import type { ForwardMessageItem, ForwardMessageSegment } from '../../../utils/webqqApi'
+import { useImageRkeyStore } from '../../../stores/imageRkeyStore'
 
 // 图片预览上下文
 export const ImagePreviewContext = React.createContext<{
@@ -21,11 +22,24 @@ export const ImageContextMenuContext = React.createContext<{
   showMenu: (e: React.MouseEvent, message: RawMessage, elementId: string) => void
 } | null>(null)
 
-export const getProxyImageUrl = (url: string | undefined): string => {
+// QQ 图片直连：按 appid 把全局 rkey 拼在 originImageUrl 后面（跟 BE image-proxy 的注入逻辑一致），
+// 配合 <img referrerPolicy="no-referrer"> 直连 CDN，不再走 BE 代理。rkey 由调用方从 useImageRkeyStore 取。
+export const getProxyImageUrl = (
+  url: string | undefined,
+  rkeys?: { privateRkey: string; groupRkey: string },
+): string => {
   if (!url) return ''
   if (url.startsWith('blob:')) return url
   if (url.includes('qpic.cn') || url.includes('multimedia.nt.qq.com.cn')) {
-    return `/api/webqq/image-proxy?url=${encodeURIComponent(url)}&token=${encodeURIComponent(getToken() || '')}`
+    if (url.includes('rkey=')) return url
+    try {
+      const appid = new URL(url).searchParams.get('appid')
+      if (appid === '1406' && rkeys?.privateRkey) return url + rkeys.privateRkey
+      if (appid === '1407' && rkeys?.groupRkey) return url + rkeys.groupRkey
+    } catch {
+      // URL 解析失败就原样返回
+    }
+    return url
   }
   return url
 }
@@ -38,12 +52,17 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
   const previewContext = React.useContext(ImagePreviewContext)
   const videoPreviewContext = React.useContext(VideoPreviewContext)
   const imageContextMenuContext = React.useContext(ImageContextMenuContext)
+  const privateRkey = useImageRkeyStore((s) => s.privateRkey)
+  const groupRkey = useImageRkeyStore((s) => s.groupRkey)
+  useEffect(() => {
+    if (element.picElement) useImageRkeyStore.getState().ensureRkey()
+  }, [element])
 
   if (element.textElement) return <span className="whitespace-pre-wrap break-all" style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>{element.textElement.content}</span>
   if (element.picElement) {
     const pic = element.picElement
     const url = pic.originImageUrl ? (pic.originImageUrl.startsWith('http') ? pic.originImageUrl : `https://gchat.qpic.cn${pic.originImageUrl}`) : ''
-    const proxyUrl = getProxyImageUrl(url)
+    const proxyUrl = getProxyImageUrl(url, { privateRkey, groupRkey })
 
     const maxHeight = 200
     const maxWidth = 300
@@ -87,9 +106,10 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
           src={proxyUrl}
           alt="图片"
           loading="lazy"
+          referrerPolicy="no-referrer"
           className={`w-full h-full object-cover transition-opacity ${imageLoaded ? 'opacity-100' : 'opacity-0'}`}
           onLoad={() => setImageLoaded(true)}
-          onError={() => setImageError(true)}
+          onError={() => { setImageError(true); useImageRkeyStore.getState().refresh() }}
         />
       </div>
     )
@@ -458,19 +478,26 @@ const PttElementRenderer: React.FC<{ element: MessageElement; message?: RawMessa
 // 合并转发消息内容渲染（用于弹窗内显示）
 const ForwardSegmentRenderer: React.FC<{ segment: ForwardMessageSegment }> = ({ segment }) => {
   const previewContext = React.useContext(ImagePreviewContext)
+  const privateRkey = useImageRkeyStore((s) => s.privateRkey)
+  const groupRkey = useImageRkeyStore((s) => s.groupRkey)
+  useEffect(() => {
+    if (segment.type === 'image') useImageRkeyStore.getState().ensureRkey()
+  }, [segment])
 
   if (segment.type === 'text' && segment.data.text) {
     return <span className="whitespace-pre-wrap break-all" style={{ overflowWrap: 'anywhere' }}>{segment.data.text}</span>
   }
   if (segment.type === 'image' && segment.data.url) {
-    const proxyUrl = getProxyImageUrl(segment.data.url)
+    const proxyUrl = getProxyImageUrl(segment.data.url, { privateRkey, groupRkey })
     return (
       <img
         src={proxyUrl}
         alt="图片"
         loading="lazy"
+        referrerPolicy="no-referrer"
         className="max-w-[200px] max-h-[150px] rounded-lg cursor-pointer object-cover"
         onClick={() => previewContext?.showPreview(proxyUrl)}
+        onError={() => useImageRkeyStore.getState().refresh()}
       />
     )
   }

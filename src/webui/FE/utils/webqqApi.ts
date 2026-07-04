@@ -39,6 +39,15 @@ export function getGroupAvatar(groupCode: string): string {
   return `https://p.qlogo.cn/gh/${groupCode}/${groupCode}/640/`
 }
 
+// 获取图片 rkey（前端直连 QQ 图片 CDN 用，拼在 originImageUrl 后面）
+export async function getImageRkey(): Promise<{ private_rkey: string; group_rkey: string }> {
+  const response = await apiFetch<{ private_rkey: string; group_rkey: string }>('/api/webqq/rkey')
+  if (!response.success) {
+    throw new Error(response.message || '获取 rkey 失败')
+  }
+  return response.data!
+}
+
 // 获取登录信息
 export async function getLoginInfo(): Promise<{ uid: string; uin: string; nick: string }> {
   const response = await apiFetch<{ uid: string; uin: string; nick: string }>('/api/login-info')

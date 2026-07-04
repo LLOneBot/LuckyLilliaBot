@@ -114,6 +114,25 @@ export function createProxyRoutes(ctx: Context): Hono {
     }
   })
 
+  // rkey 接口 - 给 WebQQ 前端直连 QQ 图片 CDN 用（前端自己拼 originImageUrl + rkey +
+  // <img referrerPolicy="no-referrer">，不再走 image-proxy 中转）。rkey 是全局两个值、
+  // 会过期，前端按 TTL / onError 重拉。
+  router.get('/rkey', async (c) => {
+    try {
+      const rkeyData = await ctx.ntFileApi.rkeyManager.getRkey()
+      return c.json({
+        success: true,
+        data: {
+          private_rkey: rkeyData.private_rkey || '',
+          group_rkey: rkeyData.group_rkey || '',
+        },
+      })
+    } catch (e) {
+      ctx.logger.warn('获取 rkey 失败:', e)
+      return c.json({ success: false, message: '获取 rkey 失败' }, 500)
+    }
+  })
+
   // 语音代理接口 - 获取语音并转换为浏览器可播放格式
   router.get('/audio-proxy', async (c) => {
     try {
