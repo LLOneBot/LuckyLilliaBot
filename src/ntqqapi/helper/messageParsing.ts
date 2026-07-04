@@ -252,7 +252,6 @@ export function parseElements(
     }
 
     if (elem.srcMsg) {
-      console.log(elem.srcMsg)
       result.push({
         elementType: ElementType.Reply,
         replyElement: {
@@ -307,7 +306,7 @@ export function parseElements(
   }
 
   if (isGroup) {
-    // TIM 群聊会在引用消息段的前面有一个隐藏的 @，需要去掉
+    // TIM 群聊的引用消息段前面有一个隐藏的 @，需要去掉
     if (result[0]?.textElement && result[2]?.replyElement) {
       result = result.slice(2)
     }
