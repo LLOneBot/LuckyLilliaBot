@@ -50,11 +50,15 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         guildId: ''
       }
       try {
-        const { replyMsgSeq } = replyElement
+        const { replyMsgSeq, replyMsgTime, replyMsgClientSeq } = replyElement
         let replyMsg = ctx.store.getMsgBySeq(peer.peerUid, replyMsgSeq)
         if (!replyMsg) {
           const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq)
           replyMsg = msgList[0]
+        }
+        if (!replyMsg && peer.chatType !== ChatType.Group) {
+          const { msgList } = await ctx.ntMsgApi.getC2CMsgsByTimeAndCount(peer, replyMsgTime + 1, 3, false)
+          replyMsg = msgList.find(e => e.clientSeq === replyMsgClientSeq)
         }
         if (!replyMsg) {
           ctx.logger.warn('reply 原消息未找到', replyElement)

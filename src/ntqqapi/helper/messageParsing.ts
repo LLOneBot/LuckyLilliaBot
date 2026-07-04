@@ -3,9 +3,13 @@ import { ElementType, MessageElement } from '../types'
 import { Media, Msg } from '../proto'
 import { unzipSync } from 'node:zlib'
 import faceConfig from '../helper/face_config.json'
+import { moveElement } from '@/common/utils'
 
-export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): MessageElement[] {
-  const result: MessageElement[] = []
+export function parseElements(
+  elems: InferProtoModel<typeof Msg.Elem>[],
+  isGroup: boolean
+): MessageElement[] {
+  let result: MessageElement[] = []
   let skipIndex
 
   for (const [index, elem] of elems.entries()) {
@@ -248,14 +252,15 @@ export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): Messag
     }
 
     if (elem.srcMsg) {
+      console.log(elem.srcMsg)
       result.push({
         elementType: ElementType.Reply,
         replyElement: {
-          replyMsgSeq: elem.srcMsg.attr.ntMsgSeq ?? elem.srcMsg.origSeqs[0],
+          replyMsgSeq: isGroup ? elem.srcMsg.origSeqs[0] : (elem.srcMsg.attr.ntMsgSeq ?? 0),
           replyMsgTime: elem.srcMsg.time,
           senderUin: elem.srcMsg.senderUin,
           senderUid: elem.srcMsg.attr.senderUid,
-          replyMsgClientSeq: elem.srcMsg.attr.ntMsgSeq ? elem.srcMsg.origSeqs[0] : 0,
+          replyMsgClientSeq: isGroup ? 0 : elem.srcMsg.origSeqs[0],
         },
       })
       continue
@@ -298,6 +303,19 @@ export function parseElements(elems: InferProtoModel<typeof Msg.Elem>[]): Messag
           result.push(parsed)
         }
       }
+    }
+  }
+
+  if (isGroup) {
+    // TIM 群聊会在引用消息段的前面有一个隐藏的 @，需要去掉
+    if (result[0]?.textElement && result[2]?.replyElement) {
+      result = result.slice(2)
+    }
+  } else {
+    // TIM 私聊的引用消息段在后面，需要调整顺序
+    const index = result.findIndex(e => e.replyElement)
+    if (index !== -1 && index !== 0) {
+      moveElement(result, index, 0)
     }
   }
 

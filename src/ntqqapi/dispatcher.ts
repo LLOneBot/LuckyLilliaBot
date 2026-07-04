@@ -847,7 +847,7 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>): R
     sendNickName = routingHead.c2c.name // 似乎只在合并转发中存在
   }
 
-  const elements = parseElements(body?.richText?.elems || [])
+  const elements = parseElements(body?.richText?.elems || [], chatType === ChatType.Group)
 
   // C2C 离线文件（trans 0x211 + msgType=PrivateFile）：内容在 body.msgContent 而不是 richText.elems
   if (msgType === MsgType.PrivateFile && body?.msgContent && elements.length === 0) {

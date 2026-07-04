@@ -95,14 +95,19 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         break
 
       case ElementType.Reply: {
-        const { replyMsgSeq, senderUin, replyMsgTime } = element.replyElement!
+        const { replyMsgSeq, senderUin, replyMsgTime, replyMsgClientSeq } = element.replyElement!
+        const peer = {
+          chatType: message.chatType,
+          peerUid: message.peerUid
+        }
         let msg = ctx.store.getMsgBySeq(message.peerUid, replyMsgSeq)
         if (!msg) {
-          const { msgList } = await ctx.ntMsgApi.getSingleMsg({
-            chatType: message.chatType,
-            peerUid: message.peerUid
-          }, replyMsgSeq)
+          const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq)
           msg = msgList[0]
+        }
+        if (!msg && peer.chatType !== ChatType.Group) {
+          const { msgList } = await ctx.ntMsgApi.getC2CMsgsByTimeAndCount(peer, replyMsgTime + 1, 3, false)
+          msg = msgList.find(e => e.clientSeq === replyMsgClientSeq)
         }
         segments.push({
           type: 'reply',

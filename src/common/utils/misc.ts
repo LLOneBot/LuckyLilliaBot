@@ -72,3 +72,19 @@ export function isHttpUrl(str: string) {
 export function formatYYYYMMDD(date = new Date()) {
   return date.toISOString().slice(0, 10).replace(/-/g, '')
 }
+
+/**
+ * 将数组中指定 index 的元素移动到另一个 index 位置
+ * @param arr 目标数组 (原地修改)
+ * @param from 源元素 index
+ * @param to 目标 index
+ * @returns 修改后的原数组
+ */
+export function moveElement<T>(arr: T[], from: number, to: number): T[] {
+  if (arr.length === 0) return arr
+  if (from === to) return arr
+
+  const [item] = arr.splice(from, 1)
+  arr.splice(to, 0, item)
+  return arr
+}
