@@ -150,6 +150,7 @@ export class NTUserApi extends Service {
       school: bytes.get(20021)?.toString() ?? '',
       remark: bytes.get(103)?.toString() ?? '',
       isVip: !!vipInfo,
+      isSvip: !!vipInfo?.isPro,
       isYearsVip: !!vipInfo?.isYear,
       vipLevel: vipInfo?.level ?? 0
     }
@@ -180,6 +181,7 @@ export class NTUserApi extends Service {
       school: bytes.get(20021)?.toString() ?? '',
       remark: bytes.get(103)?.toString() ?? '',
       isVip: !!vipInfo,
+      isSvip: !!vipInfo?.isPro,
       isYearsVip: !!vipInfo?.isYear,
       vipLevel: vipInfo?.level ?? 0
     }
