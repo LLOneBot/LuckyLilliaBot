@@ -4,9 +4,9 @@ import {
   AtType,
   ElementType,
   FaceIndex,
-  MessageElement,
   SendArkElement,
   SendFaceElement,
+  SendFileElement,
   SendMarketFaceElement,
   SendMessageElement,
   SendMultiForwardMsgElement,
@@ -270,5 +270,21 @@ export namespace SendElement {
         prompt
       }
     }
+  }
+
+  export async function file(ctx: Context, filePath: string, fileName: string): Promise<SendFileElement> {
+    const fileSize = (await stat(filePath)).size
+    if (fileSize === 0) {
+      throw new Error('文件异常，大小为 0')
+    }
+    const element: SendFileElement = {
+      elementType: ElementType.File,
+      fileElement: {
+        fileName,
+        filePath,
+        fileSize,
+      },
+    }
+    return element
   }
 }

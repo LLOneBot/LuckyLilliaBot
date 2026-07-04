@@ -401,7 +401,7 @@ export namespace Msg {
       // C2C 文件消息走这个：把上传得到的 fileUuid + 元数据塞进 body.msgContent，
       // 配合 ccCmd=4 server 才会把它当作"离线文件"消息派发到对端。
       trans0X211: ProtoField(15, {
-        toUin: ProtoField(1, 'uint64', 'optional'),
+        toUin: ProtoField(1, 'uint32', 'optional'),
         ccCmd: ProtoField(2, 'uint32', 'optional'),
         uid: ProtoField(8, 'string', 'optional'),
       }, 'optional'),

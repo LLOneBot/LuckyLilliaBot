@@ -1,5 +1,5 @@
 import { InferProtoModelInput } from '@saltify/typeproto'
-import { ChatType, ElementType, FaceType, SendArkElement, SendFaceElement, SendMarketFaceElement, SendMessageElement, SendMultiForwardMsgElement, SendPicElement, SendPttElement, SendReplyElement, SendTextElement, SendVideoElement } from '../types'
+import { ChatType, ElementType, SendArkElement, SendFaceElement, SendFileElement, SendMarketFaceElement, SendMessageElement, SendMultiForwardMsgElement, SendPicElement, SendPttElement, SendReplyElement, SendTextElement, SendVideoElement } from '../types'
 import { Msg } from '../proto'
 import { Context } from 'cordis'
 import { deflateSync } from 'node:zlib'
@@ -11,6 +11,7 @@ export class MessageBuilding {
   private chatType: ChatType
   private peerUid: string
   private nestedForwardTrace: Map<string, InferProtoModelInput<typeof Msg.Message>[]>
+  private content?: Buffer
 
   constructor(
     ctx: Context,
@@ -258,7 +259,7 @@ export class MessageBuilding {
         }, '')
         preview.push(`${node.senderName}: ${content}`)
       }
-      const elems = await new MessageBuilding(
+      const { elems, content } = await new MessageBuilding(
         this.ctx,
         node.elements,
         this.chatType,
@@ -298,7 +299,8 @@ export class MessageBuilding {
         body: {
           richText: {
             elems
-          }
+          },
+          msgContent: content
         }
       })
       seq++
@@ -355,11 +357,58 @@ export class MessageBuilding {
     })
   }
 
+  private async [ElementType.File](data: SendFileElement) {
+    const fileName = data.fileElement.fileName!
+    if (this.chatType === ChatType.Group) {
+      const uploaded = await this.ctx.ntFileApi.uploadGroupFile(+this.peerUid, data.fileElement.filePath!, fileName)
+      const extra = Msg.GroupFileExtra.encode({
+        field1: 6,
+        fileName,
+        inner: {
+          info: {
+            busId: 102,
+            fileId: uploaded.fileId,
+            fileSize: uploaded.fileSize,
+            fileName,
+            fileMd5: uploaded.fileMd5,
+          },
+        },
+      })
+      const lenBuf = Buffer.alloc(2)
+      lenBuf.writeUInt16BE(extra.length)
+      this.outputElems.push({
+        transElemInfo: {
+          elemType: 24,
+          elemValue: Buffer.concat([Buffer.from([0x01]), lenBuf, extra]),
+        }
+      })
+    } else {
+      const uploaded = await this.ctx.ntFileApi.uploadPrivateFile(this.peerUid, data.fileElement.filePath!, fileName)
+      const extra = Msg.FileExtra.encode({
+        file: {
+          fileType: 0,
+          fileUuid: uploaded.fileId,
+          fileMd5: uploaded.file10MMd5,
+          fileName,
+          fileSize: uploaded.fileSize,
+          subCmd: 1,
+          dangerLevel: 0,
+          expireTime: Math.floor((Date.now() / 1000) + 7 * 24 * 60 * 60),
+          fileIdCrcMedia: uploaded.crcMedia
+        }
+      })
+      this.content = extra
+    }
+  }
+
   async build() {
     for (const element of this.inputElems) {
       const handler = this[element.elementType] as (data: SendMessageElement) => Promise<void>
       await handler.call(this, element)
     }
-    return this.outputElems
+    return {
+      elems: this.outputElems,
+      content: this.content
+    }
   }
 }

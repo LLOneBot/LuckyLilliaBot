@@ -71,6 +71,11 @@ export interface SendMultiForwardMsgElement {
   multiForwardMsgElement: Partial<MultiForwardMsgElement>
 }
 
+export interface SendFileElement {
+  elementType: ElementType.File
+  fileElement: Partial<FileElement>
+}
+
 export type SendMessageElement =
   | SendTextElement
   | SendPttElement
@@ -81,6 +86,7 @@ export type SendMessageElement =
   | SendVideoElement
   | SendArkElement
   | SendMultiForwardMsgElement
+  | SendFileElement
 
 export enum AtType {
   Unknown,

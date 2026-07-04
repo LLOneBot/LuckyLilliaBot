@@ -121,9 +121,9 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
     }
 
     /** 获取赞过我或我赞过的列表。direction: 0=我赞过的, 1=赞过我的。OidbSvcTrpcTcp.0x7ed_13 */
-    async fetchProfileLikes(targetUid: string, direction: 0 | 1, count: number) {
+    async fetchProfileLikes(selfUid: string, direction: 0 | 1, count: number) {
       const body = Oidb.FetchProfileLikeReq.encode({
-        targetUid,
+        selfUid,
         field2: 1,
         direction,
         field4: direction === 0 ? 1 : 0,
@@ -135,6 +135,16 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
       const res = await this.sendPB('OidbSvcTrpcTcp.0x7ed_13', data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.FetchProfileLikeResp.decode(decoded.body)
+    }
+
+    async fetchProfileLikeCount(uid: string) {
+      const body = Oidb.FetchProfileLikeCountReq.encode({
+        uid,
+      })
+      const data = Oidb.Base.encode({ command: 0x7ed, subCommand: 12, body })
+      const res = await this.sendPB('OidbSvcTrpcTcp.0x7ed_12', data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      return Oidb.FetchProfileLikeCountResp.decode(decoded.body)
     }
 
     /** 修改自己的资料 (OidbSvcTrpcTcp.0x112a_2) */

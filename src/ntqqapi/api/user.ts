@@ -235,6 +235,10 @@ export class NTUserApi extends Service {
     return await this.ctx.qqProtocol.fetchProfileLikes(uid, 1, limit)
   }
 
+  async getProfileLikeCount(uid: string) {
+    return await this.ctx.qqProtocol.fetchProfileLikeCount(uid)
+  }
+
   async modifySelfProfile(profile: {
     nick?: string
     bio?: string
