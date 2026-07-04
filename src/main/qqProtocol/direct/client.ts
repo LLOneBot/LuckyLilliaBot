@@ -315,18 +315,26 @@ export class DirectProtocolClient extends EventEmitter {
   }
 
   /**
-   * sendCommand 前调. 刷新机制暂时禁用 -> 只首拉一次, 拉到后整个进程生命周期不再刷:
+   * sendCommand 前调. 按服务端下发的 TTL 续期:
    *   1. 没 session / 没 uin -> noop
-   *   2. 从没拉过 (expiresAt undefined) -> 拉一次
-   *   3. 已拉到过 (有 expiresAt, 含 403 软降级的空 token) -> 不刷
+   *   2. 从没拉过 (expiresAt undefined) -> 首拉一次
+   *   3. 有非空 token 且未过期 -> 复用不刷
+   *   4. 有非空 token 但已过期 -> 重新 acquire 续期 (续期失败按 lastFetchAt 限最小重试间隔)
+   *   5. 空 token (403 软降级) -> 不刷, 免得 403 情况每次发包都去重试 acquire
    * signToken12B/expiresAt 不落盘 (见 session.ts), 每次启动/恢复都从 undefined 起,
    * 故登录后 tryAcquireSignToken 必首拉一次。in-flight lock 防并发雪崩。
-   * 代价: 12B token 服务端有 TTL, 过期后本地不续 -> sign 失败, 需重启 bot 重新登录。
    */
   private async ensureSignTokenFresh(uin: number | undefined): Promise<void> {
     if (!this.session || !uin || !this.config.authToken) return
-    // 暂时禁用刷新: 不看 TTL/时间, 拉到过 (有 expiresAt, 含 403 软降级的空 token) 就不再刷。
-    if (this.session.signTokenExpiresAt) return
+    // 有 token 且未过期 -> 复用不刷; 有 token 但已过期 -> 往下重新 acquire 续期 (TTL 生效)。
+    if (this.session.signTokenExpiresAt) {
+      const expired = Date.now() >= this.session.signTokenExpiresAt
+      // 空 token (403 软降级) 或未过期: 不刷。前者免得 403 每次发包都重试 acquire。
+      if (!this.session.signToken12B || !expired) return
+      // 已过期要续: 续期失败会让 expiresAt 停在旧值, 导致每条命令都想续 -> 用 lastFetchAt 限最小
+      // 重试间隔, 免得续不上时 acquire 风暴 (正常续期间隔 = TTL, 远大于此, 不受影响)。
+      if (Date.now() - this.signTokenLastFetchAt < 30_000) return
+    }
     // 防重入死锁 (关键, 别改回 await): acquire 一个 token 内部要发 ecdh_access 包, 那些包走
     // sendCommand 又重入到这里。inflight 已在跑就直接放行 -- 让本次发包用当前空 token sign
     // (此刻本来也没 token)。改成 await inflight 就是去等那个正等本次发包返回的 promise = 等自己,
@@ -337,8 +345,8 @@ export class DirectProtocolClient extends EventEmitter {
         this.signTokenLastFetchAt = Date.now()
         const { token, ttlSecs } = await acquireSignToken(uin, AppInfo.qua)
         if (this.session) {
-          // ttl 只用来填 expiresAt 当"已拉到过"的标记 (拿不到回退 20min); 不再触发刷新, 上面
-          // early return 不看时间。token 空 (403 软降级) 也照设标记, 不重拉。
+          // ttl 填 expiresAt 当过期时间 (拿不到回退 20min): 到期后上面判定过期 -> 重新 acquire
+          // 续期。token 空 (403 软降级) 也设标记, 但上面对空 token 不续 (避免 403 反复重试)。
           const ttlMs = ttlSecs > 0 ? ttlSecs * 1000 : 20 * 60 * 1000
           this.session.signToken12B = token
           this.session.signTokenExpiresAt = Date.now() + ttlMs
