@@ -52,7 +52,14 @@ export async function transformOutgoingMessage(
           const { msgByteList } = await ctx.ntMsgApi.getSingleMsg(peer, segment.data.message_seq)
           srcMsg = msgByteList[0]
         }
-        elements.push(SendElement.reply(segment.data.message_seq, +msg.senderUin, +msg.msgTime, msg.clientSeq, srcMsg))
+        elements.push(SendElement.reply(
+          segment.data.message_seq,
+          msg.senderUin,
+          msg.senderUid,
+          msg.msgTime,
+          msg.clientSeq,
+          srcMsg
+        ))
       } else if (segment.type === 'image') {
         const imageBuffer = await resolveMilkyUri(segment.data.uri)
         // Save to temp file and upload

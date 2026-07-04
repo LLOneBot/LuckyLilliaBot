@@ -54,6 +54,7 @@ export interface User {
   birthdayDay: number
   labels: string[]
   isVip: boolean
+  isSvip: boolean
   isYearsVip: boolean
   vipLevel: number
 }
