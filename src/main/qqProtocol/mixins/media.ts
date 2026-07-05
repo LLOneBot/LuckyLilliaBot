@@ -159,9 +159,9 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
     }
 
-    async getC2CVideoUploadInfo(peerUid: string, filePath: string, thumbFilePath: string, duration: number, width: number, height: number) {
+    async getC2CVideoUploadInfo(chatType: ChatType, peerUid: string, filePath: string, thumbFilePath: string, duration: number, width: number, height: number) {
       const peer = {
-        chatType: ChatType.C2C,
+        chatType,
         peerUid,
         guildId: ''
       }
@@ -222,7 +222,7 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
     }
 
-    async getC2CFileUploadInfo(peerUid: string, filePath: string, fileName: string) {
+    async getC2CFileUploadInfo(chatType: ChatType, peerUid: string, filePath: string, fileName: string) {
       const fileSize = (await stat(filePath)).size
       const md510MCheckSum = await readAndHash10M(filePath)
       const sha1CheckSum = await getSha1BufferFromFile(filePath)
@@ -293,9 +293,9 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
     }
 
-    async getC2CImageUploadInfo(peerUid: string, filePath: string, width: number, height: number, summary: string, bizType: number) {
+    async getC2CImageUploadInfo(chatType: ChatType, peerUid: string, filePath: string, width: number, height: number, summary: string, bizType: number) {
       const peer = {
-        chatType: ChatType.C2C,
+        chatType,
         peerUid,
         guildId: ''
       }
@@ -343,8 +343,8 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
     }
 
-    async getC2CPttUploadInfo(peerUid: string, filePath: string, duration: number) {
-      const peer = { chatType: ChatType.C2C, peerUid, guildId: '' }
+    async getC2CPttUploadInfo(chatType: ChatType, peerUid: string, filePath: string, duration: number) {
+      const peer = { chatType, peerUid, guildId: '' }
       const body = await NTV2RichMedia.buildUploadReq(
         peer,
         { type: 'voice', filePath, duration },

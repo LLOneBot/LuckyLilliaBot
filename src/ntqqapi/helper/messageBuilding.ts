@@ -178,7 +178,7 @@ export class MessageBuilding {
     const isGroup = this.chatType === ChatType.Group
     const result = isGroup
       ? await this.ctx.ntFileApi.uploadGroupImage(this.peerUid, p.sourcePath!, p.picWidth!, p.picHeight!, p.summary!, p.picSubType!)
-      : await this.ctx.ntFileApi.uploadPrivateImage(this.peerUid, p.sourcePath!, p.picWidth!, p.picHeight!, p.summary!, p.picSubType!)
+      : await this.ctx.ntFileApi.uploadPrivateImage(this.chatType, this.peerUid, p.sourcePath!, p.picWidth!, p.picHeight!, p.summary!, p.picSubType!)
     this.outputElems.push({
       commonElem: {
         serviceType: 48,
@@ -193,7 +193,7 @@ export class MessageBuilding {
     const isGroup = this.chatType === ChatType.Group
     const result = isGroup
       ? await this.ctx.ntFileApi.uploadGroupVideo(this.peerUid, v.filePath!, v.thumbPath!, v.fileTime!, v.thumbWidth!, v.thumbHeight!)
-      : await this.ctx.ntFileApi.uploadPrivateVideo(this.peerUid, v.filePath!, v.thumbPath!, v.fileTime!, v.thumbWidth!, v.thumbHeight!)
+      : await this.ctx.ntFileApi.uploadPrivateVideo(this.chatType, this.peerUid, v.filePath!, v.thumbPath!, v.fileTime!, v.thumbWidth!, v.thumbHeight!)
     // 注意：视频消息发送后服务端不返回 sequence（field 11 缺失），是已知行为。
     // 真正的 seq 通过 OlPush 推送（server 转码完成后）异步到达。
     this.outputElems.push({
@@ -210,7 +210,7 @@ export class MessageBuilding {
     const isGroup = this.chatType === ChatType.Group
     const result = isGroup
       ? await this.ctx.ntFileApi.uploadGroupPtt(this.peerUid, p.filePath!, p.duration!)
-      : await this.ctx.ntFileApi.uploadPrivatePtt(this.peerUid, p.filePath!, p.duration!)
+      : await this.ctx.ntFileApi.uploadPrivatePtt(this.chatType, this.peerUid, p.filePath!, p.duration!)
     this.outputElems.push({
       commonElem: {
         serviceType: 48,
@@ -388,7 +388,7 @@ export class MessageBuilding {
         }
       })
     } else {
-      const uploaded = await this.ctx.ntFileApi.uploadPrivateFile(this.peerUid, data.fileElement.filePath!, fileName)
+      const uploaded = await this.ctx.ntFileApi.uploadPrivateFile(this.chatType, this.peerUid, data.fileElement.filePath!, fileName)
       const extra = Msg.FileExtra.encode({
         file: {
           fileType: 0,

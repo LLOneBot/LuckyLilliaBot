@@ -85,9 +85,6 @@ export class NTMsgApi extends Service {
    * 加重试是因为 server 入库 c2c 历史流稍滞后（~50-200ms）。
    */
   async sendMsg(peer: Peer, msgElements: SendMessageElement[]): Promise<RawMessage> {
-    const building = new MessageBuilding(this.ctx, msgElements, peer.chatType, peer.peerUid)
-    const { elems, content } = await building.build()
-
     let chatType = peer.chatType
     let groupCode
     if (peer.chatType === ChatType.Group) {
@@ -101,6 +98,9 @@ export class NTMsgApi extends Service {
       }
     }
 
+    const building = new MessageBuilding(this.ctx, msgElements, chatType, peer.peerUid)
+    const { elems, content } = await building.build()
+
     // 群消息：server 会把消息原样回声（OlPush msgType=82）给发送方自己，
     //   contentHead.groupMsgSeqOrC2cClientSeq (field 5) 跟广播给群里所有人的相等。我们在 PbSendMsg 之前挂 listener、
     //   按 (peerUid, msgRandom) 匹配，等回声拿到真实 groupMsgSeq + msgUid，sender / receiver
@@ -111,8 +111,8 @@ export class NTMsgApi extends Service {
     //   PbSendMsgResp.c2cMsgSeq (field 14) = server 给这条 c2c 消息的 c2cMsgSeq（全局双端一致），
     //   接收方在 OlPush msgType=166 contentHead.c2cMsgSeq (field 11) 拿到同样的值。
     const random = randomBytes(4).readUInt32BE(0)
-    const isGroup = peer.chatType === ChatType.Group
-    const echoP = isGroup ? this.waitForSelfEcho(peer, random, 7000) : null
+    const isGroup = chatType === ChatType.Group
+    const echoP = isGroup ? this.waitForSelfEcho(peer, random, 10000) : null
     // send 失败/禁言等会在下面 await echoP 之前就 throw，此时 echoP 变 orphaned promise，
     // 7s 后其 timer reject 无人接 -> unhandledRejection -> 崩进程。挂 no-op catch 标记为已处理，
     // 不影响后面 await echoP 的正常 resolve/reject。
@@ -132,7 +132,7 @@ export class NTMsgApi extends Service {
     const ret = await this.ctx.qqProtocol.sendMessage({
       chatType,
       groupCode,
-      toUid: peer.chatType !== ChatType.Group ? peer.peerUid : undefined,
+      toUid: chatType !== ChatType.Group ? peer.peerUid : undefined,
       elems,
       random,
       content,
@@ -159,13 +159,13 @@ export class NTMsgApi extends Service {
       peerUid: peer.peerUid,
       // 群聊里 peerUid 已经是 groupCode 数字字符串，不能 getUinByUid 当 user 查（会得 0）。
       // C2C/Temp 才需要把 uid 解析回 uin。
-      peerUin: peer.chatType === ChatType.Group
+      peerUin: chatType === ChatType.Group
         ? +peer.peerUid
         : await this.ctx.ntUserApi.getUinByUid(peer.peerUid),
       sendNickName: '',
       sendMemberName: '',
       chatType,
-      elements: parseElements(elems as InferProtoModel<typeof Msg.Elem>[]),
+      elements: parseElements(elems as InferProtoModel<typeof Msg.Elem>[], chatType === ChatType.Group),
       peerName: '',
       tempFromGroupCode: chatType === ChatType.TempC2CFromGroup ? groupCode! : 0,
       clientSeq: ret.clientSequence,
@@ -215,6 +215,19 @@ export class NTMsgApi extends Service {
       errorMsg,
       msgList: filterNullable(messages.map(e => convertToRawMessage(Msg.Message.decode(e)))),
       msgByteList: messages
+    }
+  }
+
+  async getC2CMsgsByTimeAndCount(peer: Peer, msgTime: number, cnt: number, queryOrder: boolean) {
+    const res = await this.ctx.qqProtocol.getC2CRoamMessages(
+      peer.peerUid,
+      msgTime,
+      cnt,
+      queryOrder ? 2 : 1
+    )
+    return {
+      msgList: filterNullable(res.messages.map(e => convertToRawMessage(Msg.Message.decode(e)))),
+      msgByteList: res.messages
     }
   }
 

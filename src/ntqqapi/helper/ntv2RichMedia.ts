@@ -42,8 +42,16 @@ export namespace NTV2RichMedia {
           requestType,
           businessType,
           sceneType: isGroup ? 2 : 1,
-          group: isGroup ? { groupId: +peer.peerUid } : undefined,
-          c2c: !isGroup ? { accountType: 2, targetUid: peer.peerUid } : undefined
+          c2c: !isGroup ? {
+            accountType: 2,
+            targetUid: peer.peerUid,
+            tmpInfo: peer.chatType === ChatType.TempC2CFromGroup ? {
+              body: {
+                targetUid: peer.peerUid
+              }
+            } : undefined
+          } : undefined,
+          group: isGroup ? { groupId: +peer.peerUid } : undefined
         },
         client: {
           agentType: 2

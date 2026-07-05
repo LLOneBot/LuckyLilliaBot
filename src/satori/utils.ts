@@ -76,22 +76,28 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
         guildId: ''
       }
       try {
-        const { replyMsgSeq } = v.replyElement
+        const { replyMsgSeq, replyMsgTime, replyMsgClientSeq } = v.replyElement
         let replyMsg = ctx.store.getMsgBySeq(peer.peerUid, replyMsgSeq)
         if (!replyMsg) {
           const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq)
           replyMsg = msgList[0]
+        }
+        if (!replyMsg && peer.chatType !== NT.ChatType.Group) {
+          const { msgList } = await ctx.ntMsgApi.getC2CMsgsByTimeAndCount(peer, replyMsgTime + 1, 3, false)
+          replyMsg = msgList.find(e => e.clientSeq === replyMsgClientSeq)
         }
         if (!replyMsg) {
           ctx.logger.warn('引用消息获取失败', v.replyElement)
           continue
         }
         const elements = await decodeElement(ctx, replyMsg, true)
-        buffer.push(h('quote', { id: encodeMessageId(
-          peer.chatType,
-          peer.peerUid,
-          replyMsg.msgSeq
-        ) }, elements))
+        buffer.push(h('quote', {
+          id: encodeMessageId(
+            peer.chatType,
+            peer.peerUid,
+            replyMsg.msgSeq
+          )
+        }, elements))
       } catch (e) {
         ctx.logger.error('获取不到引用的消息', e, v.replyElement, (e as Error).stack)
       }

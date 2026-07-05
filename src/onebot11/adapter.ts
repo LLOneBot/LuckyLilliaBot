@@ -19,7 +19,6 @@ import { OB11BaseEvent } from './event/OB11BaseEvent'
 import { initActionMap } from './action'
 import { OB11GroupAdminNoticeEvent } from './event/notice/OB11GroupAdminNoticeEvent'
 import { OB11ProfileLikeEvent } from './event/notice/OB11ProfileLikeEvent'
-import { Msg, Notify } from '@/ntqqapi/proto'
 import {
   OB11FriendPokeEvent,
   OB11GroupPokeEvent,

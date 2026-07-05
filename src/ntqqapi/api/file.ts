@@ -1,4 +1,4 @@
-import { IMAGE_HTTP_HOST, IMAGE_HTTP_HOST_NT } from '../types'
+import { ChatType, IMAGE_HTTP_HOST, IMAGE_HTTP_HOST_NT } from '../types'
 import path from 'node:path'
 import { createReadStream, readFileSync } from 'node:fs'
 import { RkeyManager } from '@/ntqqapi/helper/rkey'
@@ -489,8 +489,8 @@ export class NTFileApi extends Service {
     }
   }
 
-  async uploadPrivateVideo(peerUid: string, filePath: string, thumbPath: string, duration: number, width: number, height: number) {
-    const result = await this.ctx.qqProtocol.getC2CVideoUploadInfo(peerUid, filePath, thumbPath, duration, width, height)
+  async uploadPrivateVideo(chatType: ChatType, peerUid: string, filePath: string, thumbPath: string, duration: number, width: number, height: number) {
+    const result = await this.ctx.qqProtocol.getC2CVideoUploadInfo(chatType, peerUid, filePath, thumbPath, duration, width, height)
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
@@ -593,8 +593,8 @@ export class NTFileApi extends Service {
     }
   }
 
-  async uploadPrivateFile(peerUid: string, filePath: string, fileName: string) {
-    const result = await this.ctx.qqProtocol.getC2CFileUploadInfo(peerUid, filePath, fileName)
+  async uploadPrivateFile(chatType: ChatType, peerUid: string, filePath: string, fileName: string) {
+    const result = await this.ctx.qqProtocol.getC2CFileUploadInfo(chatType, peerUid, filePath, fileName)
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const ext = Media.FileUploadExt.encode({
       unknown1: 100,
@@ -680,8 +680,8 @@ export class NTFileApi extends Service {
     }
   }
 
-  async uploadPrivateImage(peerUid: string, filePath: string, width: number, height: number, summary: string, bizType: number) {
-    const result = await this.ctx.qqProtocol.getC2CImageUploadInfo(peerUid, filePath, width, height, summary, bizType)
+  async uploadPrivateImage(chatType: ChatType, peerUid: string, filePath: string, width: number, height: number, summary: string, bizType: number) {
+    const result = await this.ctx.qqProtocol.getC2CImageUploadInfo(chatType, peerUid, filePath, width, height, summary, bizType)
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {
@@ -727,8 +727,8 @@ export class NTFileApi extends Service {
     return { msgInfo: result.info, compat: result.compat }
   }
 
-  async uploadPrivatePtt(peerUid: string, filePath: string, duration: number) {
-    const result = await this.ctx.qqProtocol.getC2CPttUploadInfo(peerUid, filePath, duration)
+  async uploadPrivatePtt(chatType: ChatType, peerUid: string, filePath: string, duration: number) {
+    const result = await this.ctx.qqProtocol.getC2CPttUploadInfo(chatType, peerUid, filePath, duration)
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const maxBlockSize = 1024 * 1024
     if (result.ext.uKey) {

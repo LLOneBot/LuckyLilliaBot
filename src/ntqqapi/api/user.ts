@@ -229,12 +229,12 @@ export class NTUserApi extends Service {
     return await this.ctx.qqProtocol.sendFriendLike(uid, count)
   }
 
-  async getProfileLike(uid: string, limit = 20) {
-    return await this.ctx.qqProtocol.fetchProfileLikes(uid, 0, limit)
+  async getProfileLike(uid: string, start: number, limit: number) {
+    return await this.ctx.qqProtocol.fetchProfileLikes(uid, 0, BigInt(start), limit)
   }
 
-  async getProfileLikeMe(uid: string, limit = 20) {
-    return await this.ctx.qqProtocol.fetchProfileLikes(uid, 1, limit)
+  async getProfileLikeMe(uid: string, start: number, limit: number) {
+    return await this.ctx.qqProtocol.fetchProfileLikes(uid, 1, BigInt(start), limit)
   }
 
   async getProfileLikeCount(uid: string) {

@@ -69,7 +69,13 @@ export namespace Media {
         sceneType: ProtoField(200, 'uint32'),
         c2c: ProtoField(201, {
           accountType: ProtoField(1, 'uint32'),
-          targetUid: ProtoField(2, 'string')
+          targetUid: ProtoField(2, 'string'),
+          tmpInfo: ProtoField(3, {
+            body: ProtoField(3, {
+              groupCode: ProtoField(3, 'uint32'),
+              targetUid: ProtoField(2, 'string')
+            })
+          }, 'optional')
         }),
         group: ProtoField(202, {
           groupId: ProtoField(1, 'uint32')

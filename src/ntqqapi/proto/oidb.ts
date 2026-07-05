@@ -1020,15 +1020,15 @@ export namespace Oidb {
   export const FetchProfileLikeReq = ProtoMessage.of({
     selfUid: ProtoField(1, 'string'),
     field2: ProtoField(2, 'uint32'),
-    direction: ProtoField(3, 'uint32'),  // 0=我点赞过的, 1=赞过我的
+    field3: ProtoField(3, 'uint32'),  // 0=我点赞过的, 1=赞过我的
     field4: ProtoField(4, 'uint32'),
     field101: ProtoField(101, 'uint32'),
-    field102: ProtoField(102, 'uint32'),
+    start: ProtoField(102, 'int64'),
     count: ProtoField(103, 'uint32'),
   })
 
   export const FetchProfileLikeResp = ProtoMessage.of({
-    body: ProtoField(1, {
+    userLikeInfo: ProtoField(1, {
       targetUid: ProtoField(1, 'string'),
       field2: ProtoField(2, 'uint32'),
       favoriteInfo: ProtoField(3, {
@@ -1067,6 +1067,7 @@ export namespace Oidb {
         }, 'repeated'),
       }),
     }),
+    start: ProtoField(101, 'uint32')
   })
 
   /** OidbSvcTrpcTcp.0x7ed_12 */

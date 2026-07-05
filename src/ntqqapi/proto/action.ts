@@ -1,5 +1,4 @@
 import { ProtoField, ProtoMessage } from '@saltify/typeproto'
-import { Msg } from './msg'
 
 export namespace Action {
   const LongMsgPeer = ProtoMessage.of({
@@ -120,7 +119,7 @@ export namespace Action {
     isComplete: ProtoField(4, 'bool', 'optional'),
     timestamp: ProtoField(5, 'uint32', 'optional'),
     random: ProtoField(6, 'uint32', 'optional'),
-    messages: ProtoField(7, Msg.Message, 'repeated'),
+    messages: ProtoField(7, 'bytes', 'repeated'),
   })
 
   /** trpc.msg.msg_svc.MsgService.SsoGroupRecallMsg - 撤回群消息 */

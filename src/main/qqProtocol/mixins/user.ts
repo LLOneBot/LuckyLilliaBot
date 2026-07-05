@@ -121,14 +121,14 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
     }
 
     /** 获取赞过我或我赞过的列表。direction: 0=我赞过的, 1=赞过我的。OidbSvcTrpcTcp.0x7ed_13 */
-    async fetchProfileLikes(selfUid: string, direction: 0 | 1, count: number) {
+    async fetchProfileLikes(selfUid: string, direction: 0 | 1, start: bigint, count: number) {
       const body = Oidb.FetchProfileLikeReq.encode({
         selfUid,
         field2: 1,
-        direction,
+        field3: direction,
         field4: direction === 0 ? 1 : 0,
         field101: 1,
-        field102: 0,
+        start,
         count,
       })
       const data = Oidb.Base.encode({ command: 0x7ed, subCommand: 13, body })
