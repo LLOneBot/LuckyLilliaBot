@@ -21,11 +21,13 @@ export function parseElements(
       // attr6Buf 布局：[2B flag][2B reserved][2B text len][1B atType][4B target uin BE][2B reserved]
       let atTargetUin = 0
       if (isAt && textElem.attr6Buf!.length >= 11 && textElem.attr6Buf![6] !== 1) {
-        const attr = Msg.TextResvAttr.decode(elem.text.pbReserve!)
-        // 引用消息会有两个 at，其中一个 atMemberUin 为 0
-        if (attr.atType === 2 && attr.atMemberUin === 0) {
-          skipIndex = index + 1 // 跳过附加的空格
-          continue
+        if (elem.text.pbReserve) {
+          const attr = Msg.TextResvAttr.decode(elem.text.pbReserve)
+          // 引用消息会有两个 at，其中一个 atMemberUin 为 0
+          if (attr.atType === 2 && attr.atMemberUin === 0) {
+            skipIndex = index + 1 // 跳过附加的空格
+            continue
+          }
         }
         atTargetUin = textElem.attr6Buf!.readUInt32BE(7)
       }
