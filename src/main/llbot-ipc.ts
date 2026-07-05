@@ -1,8 +1,11 @@
 import net from 'node:net'
+import fs from 'node:fs'
 
-// LLBot <-> Desktop 命名管道 IPC (仅 Windows, 仅直连/无头模式).
+// LLBot <-> Desktop IPC (仅直连/无头模式).
+// - Windows: 命名管道. LL_IPC_PIPE 是短名 (不含 \\.\pipe\ 前缀), 这里拼上前缀 listen.
+// - macOS/Linux: Unix Domain Socket. LL_IPC_PIPE 是 socket 文件绝对路径, 直接 listen (Node.js 会按路径判断).
 // LLBot 是 server, Desktop 是 client 轮询 get_login_state.
-// Desktop 通过环境变量 LL_IPC_PIPE 传入管道名 (非无头模式不传, 这里直接跳过).
+// Desktop 通过环境变量 LL_IPC_PIPE 传入连接标识 (非无头模式不传, 这里直接跳过).
 // 协议: JSON Lines, UTF-8, '\n' 分隔.
 //   Desktop -> LLBot: {"type":"request","id":"1","method":"get_login_state"}
 //   LLBot   -> Desktop: {"type":"response","id":"1","data":{state, qrcode_png_base64?, uin?, nickname?}}
@@ -35,7 +38,7 @@ export function getCurrentLoginState(): LoginState {
 
 export function startIpcServer(): void {
   const pipeName = process.env.LL_IPC_PIPE
-  if (!pipeName || process.platform !== 'win32') return
+  if (!pipeName) return
   if (server) return
 
   server = net.createServer((socket) => {
@@ -54,13 +57,32 @@ export function startIpcServer(): void {
     socket.on('error', () => { })
   })
 
-  const pipePath = `\\\\.\\pipe\\${pipeName}`
-  server.listen(pipePath, () => {
-    console.log(`[LL_IPC] listening on ${pipePath}`)
+  // Windows: LL_IPC_PIPE 是短名, 拼 \\.\pipe\ 前缀; 其他系统: 直接当 UDS 路径.
+  // UDS 上 listen 前需要清掉残留的旧 socket 文件, 否则 EADDRINUSE.
+  let listenPath: string
+  if (process.platform === 'win32') {
+    listenPath = `\\\\.\\pipe\\${pipeName}`
+  } else {
+    listenPath = pipeName
+    try { fs.unlinkSync(listenPath) } catch { /* 文件不存在 = 正常 */ }
+  }
+
+  server.listen(listenPath, () => {
+    console.log(`[LL_IPC] listening on ${listenPath}`)
   })
   server.on('error', (e: Error) => {
     console.warn(`[LL_IPC] server error: ${e.message}`)
   })
+
+  // 进程退出时清理 UDS 文件, 避免下次启动残留导致 EADDRINUSE (Windows 命名管道内核托管, 不需要).
+  if (process.platform !== 'win32') {
+    const cleanup = () => {
+      try { fs.unlinkSync(listenPath) } catch { }
+    }
+    process.once('exit', cleanup)
+    process.once('SIGINT', () => { cleanup(); process.exit(0) })
+    process.once('SIGTERM', () => { cleanup(); process.exit(0) })
+  }
 }
 
 function handleLine(socket: net.Socket, line: string): void {
