@@ -127,11 +127,27 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       const block = chunk as Buffer
       // 最后一块用 Connection: close（让 server 知道 upload 结束 → 归档）
       const isEnd = offset + block.length >= this.trans.size
-      try {
-        await this.uploadBlock(block, offset, isEnd)
-      } catch (err) {
-        throw new Error(`[Highway] httpUpload Error uploading block at offset ${offset}: ${err}`)
+      let retries = 0
+      const upload = async () => {
+        try {
+          await this.uploadBlock(block, offset, isEnd)
+        } catch (err) {
+          const { message } = err as Error
+          if (
+            (
+              message.includes('Highway request timeout')
+              || message.includes('read ECONNRESET')
+            )
+            && retries < 3
+          ) {
+            retries++
+            await upload()
+          } else {
+            throw new Error(`[Highway] httpUpload Error uploading block at offset ${offset}: ${message}`)
+          }
+        }
       }
+      await upload()
       offset += block.length
     }
   }

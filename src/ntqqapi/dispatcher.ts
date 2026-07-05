@@ -85,7 +85,7 @@ export function registerDispatcher(ctx: Context) {
           break
       }
     } catch (e) {
-      ctx.logger.warn('dispatch error:', (e as Error).message)
+      ctx.logger.warn('dispatch error:', e)
     }
   })
 }

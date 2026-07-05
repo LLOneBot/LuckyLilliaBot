@@ -1,16 +1,15 @@
 import path from 'node:path'
-import { Context, Logger } from 'cordis'
+import { Context, Formatter, Logger } from 'cordis'
 import { appendFile, stat } from 'node:fs'
 import { LOG_DIR } from '@/common/globalVars'
 import { noop, Time } from 'cosmokit'
 import { Exporter, Message } from 'cordis'
+import { inspect } from 'node:util'
 
-// 日志切片配置
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
-const MAX_ENTRIES = 10000
-
-function generateLogFilename(): string {
-  return `llbot-${new Date().toLocaleString('zh-CN')}.log`.replace(/\//g, '-').replace(/:/g, '-')
+declare module 'cordis' {
+  interface Events {
+    'llob/log': (record: LogRecord) => void
+  }
 }
 
 export interface LogRecord {
@@ -18,6 +17,14 @@ export interface LogRecord {
   type: string
   content: string
   dateTimeStr: string
+}
+
+// 日志切片配置
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_ENTRIES = 10000
+
+function generateLogFilename(): string {
+  return `llbot-${new Date().toLocaleString('zh-CN')}.log`.replace(/\//g, '-').replace(/:/g, '-')
 }
 
 // 日志缓存
@@ -28,10 +35,8 @@ export function getLogCache(): LogRecord[] {
   return logCache
 }
 
-declare module 'cordis' {
-  interface Events {
-    'llob/log': (record: LogRecord) => void
-  }
+const inspectFormatter: Formatter = (value, target) => {
+  return inspect(value, { colors: !!target.colors, depth: Infinity, compact: true, breakLength: Infinity })
 }
 
 export default class Log implements Exporter {
@@ -50,6 +55,7 @@ export default class Log implements Exporter {
     margin?: number
     align?: 'left' | 'right'
   }
+  formatters: Record<string, Formatter>
 
   constructor(public ctx: Context) {
     this.exportFile = true
@@ -60,6 +66,10 @@ export default class Log implements Exporter {
     this.showTime = 'yyyy-MM-dd hh:mm:ss '
     this.levels = {
       default: 2
+    }
+    this.formatters = {
+      o: inspectFormatter,
+      O: inspectFormatter,
     }
 
     // 获取现有文件大小
