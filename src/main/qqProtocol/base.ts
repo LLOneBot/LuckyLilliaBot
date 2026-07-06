@@ -17,6 +17,7 @@ import type { QrCodeResult, QrPollResult } from './direct'
 import { overwriteMachineGuid } from './direct/machineGuid'
 import { authTokenUtil } from '../config'
 import { setLoginState } from '../llbot-ipc'
+import { isPmhqMode } from '@/common/utils/environment'
 
 type DisconnectCallback = (duration: number) => void
 
@@ -66,7 +67,7 @@ export class QQProtocolBase extends Service {
     const { pmhqHost, pmhqPort } = this.getPMHQHostPort()
     this.httpUrl = `http://${pmhqHost}:${pmhqPort}/`
     this.wsUrl = `ws://${pmhqHost}:${pmhqPort}/ws`
-    if (process.env.QQ_USE_PMHQ) {
+    if (isPmhqMode()) {
       this.connectWebSocket().then()
     }
   }
@@ -84,6 +85,23 @@ export class QQProtocolBase extends Service {
    * LLBot 想要群最新 seq（拉历史用）就得自己主动触发一次：发 SsoInfoSync，server 看到注册请求就回一发 InfoSyncPush。
    * isFirstRegisterProxyOnline=0 + 派生 guid（基于 uid，每个号固定）尽量避免和 QQ NT 的注册项冲突。
    */
+  /**
+   * emit qq/online 之后 ntUserApi 才会随插件加载. 用 ctx.inject 等它 ready 再拉一次 nick;
+   * 拿到就写 selfInfo.nick, 失败就 warn 一下留空。
+   */
+  private scheduleFetchSelfNick(myToken: number) {
+    this.ctx.inject(['ntUserApi'], async (ctx) => {
+      if (this.pmhqProbeToken !== myToken) return
+      try {
+        const nick = await ctx.ntUserApi.getSelfNick(false)
+        this.logger.info(`getSelfNick -> ${JSON.stringify(nick)}`)
+        if (nick) selfInfo.nick = nick
+      } catch (e) {
+        this.logger.warn(`getSelfNick threw: ${(e as Error).message}`)
+      }
+    })
+  }
+
   private async triggerInfoSyncPush() {
     const seed = selfInfo.uid || selfInfo.uin || 'llbot'
     const guid: Buffer = createHash('md5').update(`llbot-${seed}`).digest().subarray(0, 16)
@@ -108,7 +126,9 @@ export class QQProtocolBase extends Service {
   }
 
   /**
-   * PMHQ 模式：周期 SsoHeartBeat 探测登录；同时挂 recv listener 抠 self uid/uin。
+   * PMHQ 模式：轮询 /health 拿 self uin/uid（DLL 从 QQ 内存直接读 uin,
+   * injector 侧扫 recv pb 抠 uid, 都写到 /health）。拿到 uin+uid 后主动调
+   * ntUserApi.getSelfNick 拉 nick, 最多试 5 次, 都失败就空字符串（不阻塞 online）。
    * 重连后会被 onopen 再次调用，所以必须先 reset 旧状态再启动新一轮。
    */
   private startPmhqLoginProbe() {
@@ -118,25 +138,33 @@ export class QQProtocolBase extends Service {
     let warnedNotLoggedIn = false
     const probe = async () => {
       if (this.pmhqProbeToken !== myToken) return
-      const ntFriendApi = this.ctx.get('ntFriendApi')
-      if (ntFriendApi) {
-        try {
-          const info = (await ntFriendApi.getFriends(true)).friends.find(e => e.isSelf)
-          if (this.pmhqProbeToken !== myToken) return
-          selfInfo.uid = info!.uid
-          selfInfo.uin = info!.uin.toString()
-          selfInfo.nick = info!.nick
+      try {
+        const resp = await fetch(`${this.httpUrl}health`)
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+        const health = await resp.json() as { uin?: number | null; uid?: string | null }
+        if (this.pmhqProbeToken !== myToken) return
+
+        if (health.uin && health.uid) {
+          selfInfo.uid = health.uid
+          selfInfo.uin = String(health.uin)
+          this.ctx.logger.info(`Self info ${selfInfo.nick || '<pending>'}(${selfInfo.uin}) uid=${selfInfo.uid}`)
           if (!selfInfo.online) {
             this.logger.info('QQ 登录成功')
           }
           selfInfo.online = true
           this.maybeEmitOnline()
-        } catch (e) {
-          if (this.pmhqProbeToken !== myToken) return
-          if (!warnedNotLoggedIn && !(e as Error).message.includes('(QQ DLL not connected)')) {
-            this.logger.info('QQ 未登录，等待登录中...')
-            warnedNotLoggedIn = true
-          }
+          // nick 得 emit online 之后再拉: ntUserApi 服务在 qq/online 触发的插件里才注册,
+          // 在这之前 ctx.get('ntUserApi') 是 undefined。用 ctx.inject 等它 ready, 拉到就写。
+          this.scheduleFetchSelfNick(myToken)
+        } else if (!warnedNotLoggedIn) {
+          this.logger.info('QQ 未登录，等待登录中...')
+          warnedNotLoggedIn = true
+        }
+      } catch (e) {
+        if (this.pmhqProbeToken !== myToken) return
+        if (!warnedNotLoggedIn) {
+          this.logger.info('PMHQ /health probe failed (QQ 未启动?), 继续等待: %s', (e as Error).message)
+          warnedNotLoggedIn = true
         }
       }
       if (this.pmhqProbeToken !== myToken) return
