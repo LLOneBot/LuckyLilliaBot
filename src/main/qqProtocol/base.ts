@@ -118,25 +118,50 @@ export class QQProtocolBase extends Service {
     let warnedNotLoggedIn = false
     const probe = async () => {
       if (this.pmhqProbeToken !== myToken) return
-      const ntFriendApi = this.ctx.get('ntFriendApi')
-      if (ntFriendApi) {
-        try {
-          const info = (await ntFriendApi.getFriends(true)).friends.find(e => e.isSelf)
-          if (this.pmhqProbeToken !== myToken) return
-          selfInfo.uid = info!.uid
-          selfInfo.uin = info!.uin.toString()
-          selfInfo.nick = info!.nick
-          if (!selfInfo.online) {
-            this.logger.info('QQ 登录成功')
+      try {
+        let cookie: Buffer | undefined
+        let baseInfo: {
+          uid: string
+          uin: number
+          nick: string
+        } | undefined
+        let selfUin: number
+        while (true) {
+          const resp = await this.ctx.qqProtocol.fetchFriends(cookie)
+          selfUin = resp.selfUin
+          const self = resp.friendList.find(e => e.uin === resp.selfUin)
+          if (self) {
+            const biz = self.subBiz.get(1)!
+            baseInfo = {
+              uid: self.uid,
+              uin: self.uin,
+              nick: biz.data.get(20002)?.toString() ?? ''
+            }
           }
-          selfInfo.online = true
-          this.maybeEmitOnline()
-        } catch (e) {
-          if (this.pmhqProbeToken !== myToken) return
-          if (!warnedNotLoggedIn && !(e as Error).message.includes('(QQ DLL not connected)')) {
-            this.logger.info('QQ 未登录，等待登录中...')
-            warnedNotLoggedIn = true
-          }
+          cookie = resp.cookie
+          if (!cookie || baseInfo) break
+        }
+        if (this.pmhqProbeToken !== myToken) return
+        if (baseInfo) {
+          selfInfo.uid = baseInfo.uid
+          selfInfo.uin = baseInfo.uin.toString()
+          selfInfo.nick = baseInfo.nick
+        } else {
+          selfInfo.uin = selfUin.toString()
+          const resp = await this.ctx.qqProtocol.fetchUserInfoByUin(selfUin)
+          const bytes = resp.body.properties.bytesProperties
+          selfInfo.nick = bytes.get(20002)?.toString() ?? ''
+        }
+        if (!selfInfo.online) {
+          this.logger.info('QQ 登录成功')
+        }
+        selfInfo.online = true
+        this.maybeEmitOnline()
+      } catch (e) {
+        if (this.pmhqProbeToken !== myToken) return
+        if (!warnedNotLoggedIn && !(e as Error).message.includes('(QQ DLL not connected)')) {
+          this.logger.info('QQ 未登录，等待登录中...')
+          warnedNotLoggedIn = true
         }
       }
       if (this.pmhqProbeToken !== myToken) return
