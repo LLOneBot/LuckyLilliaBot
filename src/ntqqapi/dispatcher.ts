@@ -60,16 +60,6 @@ export function registerDispatcher(ctx: Context) {
     try {
       switch (cmd) {
         case MSG_PUSH_CMD:
-          if (process.env.DEBUG_RAW_PUSH) {
-            try {
-              const decoded = Msg.PushMsg.decode(payload)
-              const m = decoded.message
-              const rh = m?.routingHead
-              console.log(`[RawPush] MsgPush msgType=${m?.contentHead.msgType} subType=${m?.contentHead.subType} fromUid=${rh?.fromUid ?? '?'} fromUin=${rh?.fromUin ?? '?'} groupCode=${rh?.group?.groupCode ?? '?'}`)
-            } catch (e) {
-              console.log(`[RawPush] MsgPush decode failed: ${(e as Error).message}`)
-            }
-          }
           handleMsgPush(ctx, payload)
           break
         case KICK_CMD:
@@ -93,6 +83,11 @@ export function registerDispatcher(ctx: Context) {
 function handleMsgPush(ctx: Context, payload: Buffer) {
   const pushMsg = Msg.PushMsg.decode(payload)
   const msg = pushMsg.message
+  if (process.env.DEBUG_RAW_PUSH) {
+    const m = msg
+    const rh = m?.routingHead
+    console.log(`[RawPush] MsgPush msgType=${m?.contentHead.msgType} subType=${m?.contentHead.subType} fromUid=${rh?.fromUid ?? '?'} fromUin=${rh?.fromUin ?? '?'} groupCode=${rh?.group?.groupCode ?? '?'}`)
+  }
   if (!msg) return
 
   const msgType = msg.contentHead.msgType
