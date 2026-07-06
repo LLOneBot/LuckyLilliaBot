@@ -273,8 +273,18 @@ export function parseElements(
       const bizType = elem.commonElem.businessType
       const pbElem = elem.commonElem.pbElem
 
-      // commonElem(serviceType=37) = LargeFaceExtra（dice / rps / 超级表情）
-      if (svcType === 37) {
+      if (svcType === 33) {
+        const ext = Msg.QSmallFaceExtra.decode(pbElem)
+        result.push({
+          elementType: ElementType.Face,
+          faceElement: {
+            faceIndex: ext.faceId,
+            faceType: 2,
+            faceText: ext.text,
+          },
+        })
+      } else if (svcType === 37) {
+        // commonElem(serviceType=37) = LargeFaceExtra（dice / rps / 超级表情）
         const ext = Msg.LargeFaceExtra.decode(pbElem)
         const faceIndex = Number(ext.faceId ?? 0)
         const face = faceConfig.sysface.find(f => f.QSid === String(faceIndex))
