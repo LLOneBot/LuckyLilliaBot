@@ -3,6 +3,7 @@ import { ActionName } from '../types'
 import { uri2local } from '@/common/utils'
 import { unlink } from 'node:fs/promises'
 import { noop } from 'cosmokit'
+import { ChatType } from '@/ntqqapi/types'
 
 interface Payload {
   user_id: number | string
@@ -35,7 +36,7 @@ export class UploadPrivateFile extends BaseAction<Payload, Response> {
     if (!uid) {
       throw new Error('无法获取用户信息')
     }
-    const info = await this.ctx.ntFileApi.uploadPrivateFile(uid, path, name)
+    const info = await this.ctx.ntFileApi.uploadPrivateFile(ChatType.C2C, uid, path, name)
     if (!isLocal) {
       unlink(path).catch(noop)
     }

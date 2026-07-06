@@ -29,6 +29,7 @@ import { unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { noop } from 'cosmokit'
+import { ChatType } from '@/ntqqapi/types'
 
 const UploadPrivateFile = defineApi(
   'upload_private_file',
@@ -42,7 +43,7 @@ const UploadPrivateFile = defineApi(
     if (!uid) {
       return Failed(-404, 'User not found')
     }
-    const info = await ctx.ntFileApi.uploadPrivateFile(uid, tempPath, payload.file_name)
+    const info = await ctx.ntFileApi.uploadPrivateFile(ChatType.C2C, uid, tempPath, payload.file_name)
     unlink(tempPath).catch(noop)
     const result = await ctx.ntMsgApi.sendPrivateFileMessage({
       toUin: payload.user_id,

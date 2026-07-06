@@ -81,11 +81,6 @@ export class QQProtocolBase extends Service {
   }
 
   /**
-   * PMHQ 模式下 LLBot 是寄生在 QQ NT 上的，QQ NT 早就登录过了，开机时的 InfoSyncPush 也早处理完。
-   * LLBot 想要群最新 seq（拉历史用）就得自己主动触发一次：发 SsoInfoSync，server 看到注册请求就回一发 InfoSyncPush。
-   * isFirstRegisterProxyOnline=0 + 派生 guid（基于 uid，每个号固定）尽量避免和 QQ NT 的注册项冲突。
-   */
-  /**
    * emit qq/online 之后 ntUserApi 才会随插件加载. 用 ctx.inject 等它 ready 再拉一次 nick;
    * 拿到就写 selfInfo.nick, 失败就 warn 一下留空。
    */
@@ -102,6 +97,11 @@ export class QQProtocolBase extends Service {
     })
   }
 
+  /**
+   * PMHQ 模式下 LLBot 是寄生在 QQ NT 上的，QQ NT 早就登录过了，开机时的 InfoSyncPush 也早处理完。
+   * LLBot 想要群最新 seq（拉历史用）就得自己主动触发一次：发 SsoInfoSync，server 看到注册请求就回一发 InfoSyncPush。
+   * isFirstRegisterProxyOnline=0 + 派生 guid（基于 uid，每个号固定）尽量避免和 QQ NT 的注册项冲突。
+   */
   private async triggerInfoSyncPush() {
     const seed = selfInfo.uid || selfInfo.uin || 'llbot'
     const guid: Buffer = createHash('md5').update(`llbot-${seed}`).digest().subarray(0, 16)
@@ -127,8 +127,8 @@ export class QQProtocolBase extends Service {
 
   /**
    * PMHQ 模式：轮询 /health 拿 self uin/uid（DLL 从 QQ 内存直接读 uin,
-   * injector 侧扫 recv pb 抠 uid, 都写到 /health）。拿到 uin+uid 后主动调
-   * ntUserApi.getSelfNick 拉 nick, 最多试 5 次, 都失败就空字符串（不阻塞 online）。
+   * injector 侧扫 recv pb 抠 uid, 都写到 /health）。拿到 uin+uid 立即 emit online,
+   * nick 通过 scheduleFetchSelfNick 异步等 ntUserApi 服务 ready 后再拉。
    * 重连后会被 onopen 再次调用，所以必须先 reset 旧状态再启动新一轮。
    */
   private startPmhqLoginProbe() {
