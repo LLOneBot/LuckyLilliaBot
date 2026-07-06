@@ -203,9 +203,6 @@ export class NTUserApi extends Service {
 
   async getSelfNick(refresh = true) {
     if (!refresh && selfInfo.nick) return selfInfo.nick
-    // 查自己优先走 by-uin (0xfe1_2 + isReserved=1, 通用 user-detail 路径); by-uid 走
-    // FetchStrangerService, 查自身会被 QQ 拒 (code 316). 且 uin 来自 fetchFriends.selfUin
-    // 权威值, uid 是 getUidByUin 模糊反查可能不准。by-uin 抛错再退回 by-uid。
     let nick = ''
     if (selfInfo.uin) {
       try {

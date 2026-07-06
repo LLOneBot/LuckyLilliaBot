@@ -31,7 +31,7 @@ import { WebuiServer } from '../webui/BE/server'
 import { sleep } from '@/common/utils'
 import EmailNotificationService from '@/common/emailNotification'
 import { EmailConfig } from '@/common/emailConfig'
-import { isDockerEnvironment } from '@/common/utils/environment'
+import { isDockerEnvironment, isPmhqMode } from '@/common/utils/environment'
 import { pathToFileURL } from 'node:url'
 import { QQProtocolClient } from './qqProtocol'
 import LoggerConsole from '@cordisjs/plugin-logger-console'
@@ -107,7 +107,7 @@ async function onLoad() {
   let lastQrCodeTime = 0
 
   const isDocker = isDockerEnvironment()
-  const useDirectProtocol = !process.env.QQ_USE_PMHQ
+  const useDirectProtocol = !isPmhqMode()
 
   const printLoginQrCode = async () => {
     try {
