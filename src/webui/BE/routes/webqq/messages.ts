@@ -175,7 +175,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
             sentMsgIds.push(info.fileId)
           } else {
             // C2C / TempC2CFromGroup: peerUid 上面已经解出 (line 95-102), peerId 是 Uin.
-            const info = await ctx.ntFileApi.uploadPrivateFile(peerUid, f.filePath, f.fileName)
+            const info = await ctx.ntFileApi.uploadPrivateFile(ChatType.C2C, peerUid, f.filePath, f.fileName)
             const result = await ctx.ntMsgApi.sendPrivateFileMessage({
               toUin: +peerId,
               toUid: peerUid,
