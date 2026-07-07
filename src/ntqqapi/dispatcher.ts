@@ -652,7 +652,7 @@ async function handleGroupJoinRequest(ctx: Context, msg: InferProtoModel<typeof 
         initiatorUid: decoded.memberUid,
         notificationSeq,
         isDoubt,
-        comment: commit!
+        comment: commit ?? ''
       })
     }
   } catch (e) {
