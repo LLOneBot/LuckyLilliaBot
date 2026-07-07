@@ -354,13 +354,13 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
     }
 
     /** 拉取消息表情回应用户列表 (OidbSvcTrpcTcp.0x9083_1) */
-    async fetchMsgEmojiLikes(groupCode: number, msgSeq: number, emojiCode: string, count: number) {
+    async fetchMsgEmojiLikes(groupCode: number, msgSeq: number, emojiCode: string, count: number, cookie: string) {
       const body = Oidb.FetchEmojiLikesReq.encode({
         groupCode,
         msgSeq,
         chatType: 1,
         emojiCode,
-        cookie: Buffer.alloc(0),
+        cookie,
         field7: 0,
         count,
       })

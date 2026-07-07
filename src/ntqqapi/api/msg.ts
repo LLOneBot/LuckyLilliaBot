@@ -29,13 +29,8 @@ export class NTMsgApi extends Service {
     return await this.ctx.qqProtocol.setGroupReaction(groupCode, msgSeq, emojiId, setEmoji, emojiType)
   }
 
-  async getMsgReactionList(peer: Peer, msgSeq: number, emojiId: string, count: number) {
-    const resp = await this.ctx.qqProtocol.fetchMsgEmojiLikes(+peer.peerUid, msgSeq, emojiId, count)
-    return {
-      users: resp.users ?? [],
-      totalCount: resp.totalCount ?? 0,
-      hasMore: !!resp.hasMore,
-    }
+  async getMsgReactionList(peer: Peer, msgSeq: number, emojiId: string, count: number, cookie: string) {
+    return await this.ctx.qqProtocol.fetchMsgEmojiLikes(+peer.peerUid, msgSeq, emojiId, count, cookie)
   }
 
   async recallMsg(peer: Peer, msgSeq: number, clientSeq?: number, msgRandom?: number, msgTime?: number) {

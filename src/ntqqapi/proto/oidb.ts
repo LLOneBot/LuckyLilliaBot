@@ -1121,7 +1121,7 @@ export namespace Oidb {
     msgSeq: ProtoField(3, 'uint32'),
     chatType: ProtoField(4, 'uint32'),
     emojiCode: ProtoField(5, 'string'),
-    cookie: ProtoField(6, 'bytes'),
+    cookie: ProtoField(6, 'string'),
     field7: ProtoField(7, 'uint32'),
     count: ProtoField(8, 'uint32'),
   })
@@ -1130,8 +1130,9 @@ export namespace Oidb {
     users: ProtoField(1, {
       uin: ProtoField(1, 'uint32'),
     }, 'repeated'),
-    totalCount: ProtoField(3, 'uint32', 'optional'),
-    hasMore: ProtoField(4, 'uint32', 'optional'),
+    cookie: ProtoField(2, 'string'),
+    isLastPage: ProtoField(3, 'bool'),
+    isFirstPage: ProtoField(4, 'bool'),
   })
 
   /** OidbSvcTrpcTcp.0x93eb_1 - 闪传：通过 code 解析 fileSetId */
