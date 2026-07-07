@@ -26,10 +26,7 @@
             "runtimeExecutable": "tsx",
             "args": ["watch", "src/main/main.ts", "--pmhq-port=${input:pmhqPort}"],
             "cwd": "${workspaceFolder}",
-            "console": "integratedTerminal",
-            "env": {
-                "QQ_USE_PMHQ": "1"
-            }
+            "console": "integratedTerminal"
         },
         {
             "type": "node",
