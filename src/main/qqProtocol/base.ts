@@ -33,6 +33,7 @@ declare module 'cordis' {
     'qq/online': () => void
     /** 协议层断开（WS / TCP 掉了）。上层一般不需要卸插件，等协议层重连后会再次 emit `qq/online` */
     'protocol/disconnect': () => void
+    'llbot/self-nick-changed': (info: { nick: string }) => void
   }
 }
 
@@ -90,7 +91,10 @@ export class QQProtocolBase extends Service {
       try {
         const nick = await ctx.ntUserApi.getSelfNick(false)
         this.logger.info(`getSelfNick -> ${JSON.stringify(nick)}`)
-        if (nick) selfInfo.nick = nick
+        if (nick) {
+          selfInfo.nick = nick
+          ctx.parallel('llbot/self-nick-changed', { nick })
+        }
       } catch (e) {
         this.logger.warn(`getSelfNick threw: ${(e as Error).message}`)
       }

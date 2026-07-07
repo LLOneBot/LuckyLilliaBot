@@ -200,6 +200,10 @@ async function onLoad() {
       handleOnline()
     }
 
+    ctx.on('llbot/self-nick-changed', (info) => {
+      setLoginState({ nickname: info.nick })
+    })
+
     ctx.on('protocol/disconnect', () => {
       ctx.logger.info('协议层断开，等待重连…')
     })
