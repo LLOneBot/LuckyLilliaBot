@@ -842,12 +842,9 @@ export class DirectProtocolClient extends EventEmitter {
         this.signTokenLastFetchAt = Date.now()
         const { token, ttlSecs } = await acquireSignToken(uin, AppInfo.qua)
         if (this.session) {
-          // ttl 填 expiresAt 当过期时间 (拿不到回退 20min): 到期后上面判定过期 -> 重新 acquire
-          // 续期。token 空 (403 软降级) 也设标记, 但上面对空 token 不续 (避免 403 反复重试)。
-          const ttlMs = ttlSecs > 0 ? ttlSecs * 1000 : 20 * 60 * 1000
           this.session.signToken12B = token
-          this.session.signTokenExpiresAt = Date.now() + ttlMs
-          console.log(`[SignToken] acquired "${token}" ttl=${ttlSecs > 0 ? ttlSecs + 's' : 'default'}`)
+          this.session.signTokenExpiresAt = Date.now() + ttlSecs * 1000
+          console.log(`[SignToken] acquired "${token}" ttl=${ttlSecs}s`)
         }
       } catch (e) {
         // 首拉失败: expiresAt 仍 undefined, 下条 allowlist 命令会再试一次首拉。

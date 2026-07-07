@@ -135,7 +135,7 @@ export async function requestSign(
 export async function acquireSignToken(uin: number, qua: string): Promise<{ token: string; ttlSecs: number }> {
   if (!inited) throw new Error('sign not initialized')
   const r = await nativeAcquireSignToken({ uin, qua })
-  return { token: r.token.toString('utf-8'), ttlSecs: r.ttlSecs }
+  return { token: r.token.toString('utf-8'), ttlSecs: 24 * 60 * 60 }
 }
 
 function formatNativeSignError(cmd: string, qua: string | undefined, e: Error): void {
