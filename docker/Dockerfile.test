@@ -1,6 +1,8 @@
-FROM node:24-alpine3.23
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
-    apk add --no-cache ffmpeg curl
+# 必须用 glibc 基础镜像 (debian): 直连模式的 sign-proxy .node 是 glibc 链接的, alpine/musl 加载不了
+FROM node:24-bookworm-slim
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ffmpeg curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 WORKDIR /app/llbot
 COPY dist/ .
 COPY docker/startup.sh /startup.sh

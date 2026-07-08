@@ -1,26 +1,20 @@
-FROM node:24-alpine3.23
+# 必须用 glibc 基础镜像 (debian): 直连模式的 sign-proxy .node 是 glibc 链接的, alpine/musl 加载不了
+FROM node:24-bookworm-slim
 
 ARG LLBOT_VERSION
 
 RUN set -eux; \
-    # 获取当前系统 Alpine 主要版本 (如 3.19)
-    ALPINE_VERSION=$(cut -d '.' -f1,2 /etc/alpine-release); \
-    # 检查版本号是否有效
-    [ -n "$ALPINE_VERSION" ] || { echo "Error: Failed to get Alpine version"; exit 1; }; \
-    # 配置阿里云镜像源
-#    echo "https://mirrors.aliyun.com/alpine/v$ALPINE_VERSION/main" > /etc/apk/repositories; \
-#    echo "https://mirrors.aliyun.com/alpine/v$ALPINE_VERSION/community" >> /etc/apk/repositories; \
-    # 更新索引
-    apk update; \
-    # 安装时区工具
-    apk add --no-cache tzdata ffmpeg unzip wget; \
-    # 设置时区为上海
-    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
+    # 国内构建可打开 apt 镜像源
+    # sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends tzdata ffmpeg unzip wget ca-certificates; \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
     echo "Asia/Shanghai" > /etc/timezone; \
-    # 清理缓存减少镜像体积
-    rm -rf /var/cache/apk/*
+    rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app/llonebot
+ENV TZ=Asia/Shanghai
+
+WORKDIR /app/llbot
 
 COPY docker/startup.sh /startup.sh
 

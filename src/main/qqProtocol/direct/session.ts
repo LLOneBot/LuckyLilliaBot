@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { execSync } from 'node:child_process'
 import { DATA_DIR } from '@/common/globalVars'
+import { isDockerEnvironment } from '@/common/utils/environment'
 import type { SessionInfo } from './client'
 
 export interface PersistedSession {
@@ -24,9 +25,35 @@ export interface PersistedSession {
 // ---- session 敏感字段加密 (机器绑定) ----
 // 密钥来自 OS machine id (不随 session 文件走), 所以 session 拷到别的机器无法解密。
 // 注意: 不能用 session.guid (它明文存在文件里, 等于密钥泄露)。
+// 容器例外: /etc/machine-id 随容器重建而变, 绑它会导致每次重建都要重新扫码,
+// 所以容器里改用 data 卷内持久化的独立随机 key (data/session-key.bin, 跟着 volume 走)。
+// 同样不能复用 machine_guid.bin: 它的值 == session 文件里明文的 guid 字段, 拿它做 key 等于明文密钥。
 let _machineKey: Buffer | null = null
+
+/**
+ * 容器内 session 加密 key: data/session-key.bin (独立 32B 随机, 首次生成后落盘)。
+ * 跟着 data volume 持久化, 容器重建不失效; 与明文的 machine_guid.bin / session.guid 不同源。
+ */
+function loadOrCreateContainerKey(): Buffer {
+  const keyPath = join(DATA_DIR, 'session-key.bin')
+  try {
+    const buf = readFileSync(keyPath)
+    if (buf.length === 32) return buf
+  } catch {
+    // 不存在 / 读失败 -> 下面重新生成
+  }
+  const key = randomBytes(32)
+  writeFileSync(keyPath, key)
+  return key
+}
+
 function getMachineKey(): Buffer {
   if (_machineKey) return _machineKey
+  // 容器: 用 data 卷内持久化的独立随机 key, 不依赖会随重建而变的 /etc/machine-id
+  if (isDockerEnvironment()) {
+    _machineKey = loadOrCreateContainerKey()
+    return _machineKey
+  }
   let machineId = ''
   try {
     if (process.platform === 'win32') {

@@ -1,21 +1,18 @@
-FROM node:lts-alpine
-
-ARG LLONEBOT_VERSION
+# 必须用 glibc 基础镜像 (debian): 直连模式的 sign-proxy .node 是 glibc 链接的, alpine/musl 加载不了
+FROM node:24-bookworm-slim
 
 RUN set -eux; \
-    ALPINE_VERSION=$(grep -oE '[0-9]+\.[0-9]+' /etc/alpine-release); \
-    [ -n "$ALPINE_VERSION" ] || { echo "Error: Failed to get Alpine version"; exit 1; }; \
-    echo "https://mirrors.aliyun.com/alpine/v$ALPINE_VERSION/main" > /etc/apk/repositories; \
-    echo "https://mirrors.aliyun.com/alpine/v$ALPINE_VERSION/community" >> /etc/apk/repositories; \
-    apk update; \
-    apk add --no-cache tzdata ffmpeg; \
-    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
+    # 国内构建可打开 apt 镜像源
+    # sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends tzdata ffmpeg; \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
     echo "Asia/Shanghai" > /etc/timezone; \
-    rm -rf /var/cache/apk/*
+    rm -rf /var/lib/apt/lists/*
 
-RUN apk add unzip
+ENV TZ=Asia/Shanghai
 
-WORKDIR /app/llonebot
+WORKDIR /app/llbot
 
 COPY docker/startup.sh /startup.sh
 
@@ -23,11 +20,6 @@ RUN chmod +x /startup.sh
 
 RUN touch /.dockerenv
 
-#RUN wget https://github.com/LLOneBot/LLOneBot/releases/download/v$LLONEBOT_VERSION/LLOneBot.zip -O /app/llonebot.zip
-
-COPY /dist /app/llonebot
-
-#RUN unzip /app/llonebot.zip -d /app/llonebot \
-#    && rm /app/llonebot.zip
+COPY /dist /app/llbot
 
 ENTRYPOINT ["/startup.sh"]

@@ -1,6 +1,10 @@
 # Shell scripts must use LF line endings
 *.sh text eol=lf
 
+# Dockerfiles: CRLF breaks backslash line continuations in RUN
+Dockerfile* text eol=lf
+*.Dockerfile text eol=lf
+
 # Batch files use CRLF
 *.bat text eol=crlf
 *.cmd text eol=crlf

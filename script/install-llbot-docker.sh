@@ -20,7 +20,6 @@ if [ "$config_mode" == "1" ]; then
 fi
 
 declare -A SERVICE_PORTS
-ENABLE_HEADLESS="false"
 
 # WebUI 配置（默认启用）
 ENABLE_WEBUI="true"
@@ -45,6 +44,44 @@ while true; do
     break
 done
 
+# ---- Auth Token (直连登录必需, 部署时先验证一遍, 避免起容器才发现 token 错/网络不通) ----
+# 验证契约复现 Desktop AuthTokenValidator / SecureSDK preflight:
+#   GET /api/sign/info + Authorization: Bearer <token>
+#   2xx=有效 / 401,403=无效 / 其他状态码、网络失败、超时=无法判定(宽松放行)
+AUTH_API="https://api-auth.luckylillia.com/api/sign/info"
+
+echo ""
+echo "Auth Token 配置（直连登录必需）："
+echo "获取地址: https://auth.luckylillia.com"
+AUTH_TOKEN=""
+while [ -z "$AUTH_TOKEN" ]; do
+    read -p "请输入 Auth Token（必填）: " input_token
+    input_token=$(printf '%s' "$input_token" | tr -d '[:space:]')
+    [ -z "$input_token" ] && { echo "错误：Auth Token 不能为空！"; continue; }
+
+    echo "正在验证 Auth Token..."
+    code=$(curl -sS -o /dev/null -m 15 -w "%{http_code}" -H "Authorization: Bearer ${input_token}" "$AUTH_API" 2>/dev/null)
+    code=${code:-000}
+    case "$code" in
+        2??)
+            echo "[OK] Auth Token 验证通过 (HTTP $code)"
+            AUTH_TOKEN="$input_token"
+            ;;
+        401|403)
+            echo "[ERROR] Auth Token 无效、已失效或无权限 (HTTP $code)，请重新获取后再输入"
+            ;;
+        *)
+            if [ "$code" == "000" ]; then
+                echo "[WARN] 无法连接验证服务器（网络问题），无法判定 Token 是否有效"
+            else
+                echo "[WARN] 验证服务器返回 HTTP $code，无法判定 Token 是否有效"
+            fi
+            read -p "是否跳过验证并继续使用该 Token (y/n): " skip_validate
+            [[ "$skip_validate" =~ ^[yY]$ ]] && AUTH_TOKEN="$input_token"
+            ;;
+    esac
+done
+
 # 如果选择稍后配置，跳过协议配置
 if [ "$config_mode" == "2" ]; then
     protocol_choices=""
@@ -65,7 +102,7 @@ declare -a OB11_CONNECTS
 
 if [[ "$protocol_choices" =~ 1 ]]; then
     ENABLE_OB11="true"
-    
+
     while :; do
         echo ""
         echo "OneBot 11 连接配置："
@@ -75,7 +112,7 @@ if [[ "$protocol_choices" =~ 1 ]]; then
         echo "4) WebHook"
         echo "0) 完成 OneBot 11 配置"
         read -p "选择连接类型: " ob11_type
-        
+
         case $ob11_type in
             0) break ;;
             1)
@@ -121,7 +158,7 @@ MILKY_WEBHOOK_TOKEN=""
 
 if [[ "$protocol_choices" =~ 2 ]]; then
     ENABLE_MILKY="true"
-    
+
     echo ""
     echo "Milky HTTP 配置："
     while true; do
@@ -132,14 +169,14 @@ if [[ "$protocol_choices" =~ 2 ]]; then
         SERVICE_PORTS["$MILKY_HTTP_PORT"]=1
         break
     done
-    
+
     read -p "HTTP 路径前缀 (默认 /milky): " prefix
     MILKY_HTTP_PREFIX=${prefix:-/milky}
-    
+
     while [ -z "$MILKY_HTTP_TOKEN" ]; do
         read -p "Access Token (必填): " MILKY_HTTP_TOKEN
     done
-    
+
     echo ""
     read -p "是否配置 WebHook (y/n): " enable_webhook
     if [[ "$enable_webhook" =~ ^[yY]$ ]]; then
@@ -151,7 +188,7 @@ if [[ "$protocol_choices" =~ 2 ]]; then
             MILKY_WEBHOOK_URLS+="\"${URLS[$i]}\""
         done
         MILKY_WEBHOOK_URLS+="]"
-        
+
         read -p "WebHook Access Token (可选): " MILKY_WEBHOOK_TOKEN
     fi
 fi
@@ -164,7 +201,7 @@ SATORI_TOKEN=""
 
 if [[ "$protocol_choices" =~ 3 ]]; then
     ENABLE_SATORI="true"
-    
+
     echo ""
     echo "Satori 配置："
     while true; do
@@ -175,17 +212,10 @@ if [[ "$protocol_choices" =~ 3 ]]; then
         SERVICE_PORTS["$SATORI_PORT"]=1
         break
     done
-    
+
     while [ -z "$SATORI_TOKEN" ]; do
         read -p "Token (必填): " SATORI_TOKEN
     done
-fi
-
-# 其他选项（仅在完整配置模式下询问）
-if [ "$config_mode" == "1" ]; then
-    echo ""
-    read -p "是否启用无头模式，有头稳定，无头省内存但是可能掉线 (y/n): " enable_headless
-    [[ "$enable_headless" =~ ^[yY]$ ]] && ENABLE_HEADLESS="true"
 fi
 
 # 生成 config JSON
@@ -245,6 +275,10 @@ fi
 echo "$WEBUI_TOKEN" > "llbot_config/webui_token.txt"
 echo "WebUI 密码文件已生成: llbot_config/webui_token.txt"
 
+# 创建 auth_token.txt (Bot 读 data/auth_token.txt 做 sign 鉴权)
+echo "$AUTH_TOKEN" > "llbot_config/auth_token.txt"
+echo "Auth Token 文件已生成: llbot_config/auth_token.txt"
+
 # 设置配置目录权限，确保 Docker 容器可以读写
 chmod -R 777 llbot_config
 
@@ -252,7 +286,6 @@ echo ""
 read -p "是否使用 Docker 镜像源 (y/n): " use_docker_mirror
 
 docker_mirror=""
-PMHQ_TAG="latest"
 LLBOT_TAG="latest"
 
 # 从 npm registry 获取版本号
@@ -276,15 +309,6 @@ if [ -n "$LLBOT_TAG" ]; then
 else
   echo "无法获取 LLBot 版本，将使用 latest"
   LLBOT_TAG="latest"
-fi
-
-# 获取 PMHQ 版本
-PMHQ_TAG=$(get_npm_version "pmhq-dist-win-x64")
-if [ -n "$PMHQ_TAG" ]; then
-  echo "PMHQ 最新版本: $PMHQ_TAG"
-else
-  echo "无法获取 PMHQ 版本，将使用 latest"
-  PMHQ_TAG="latest"
 fi
 
 if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
@@ -312,52 +336,29 @@ if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
     return 1
   }
 
-  # 查找可用的镜像源
+  # 查找可用的镜像源（只需要 llbot 镜像）
   find_available_mirror() {
     local llbot_tag=$1
-    local pmhq_tag=$2
-    
+
     for mirror in "${DOCKER_MIRRORS[@]}"; do
-      # 测试 llbot 镜像
       if test_mirror "$mirror" "llbot" "$llbot_tag"; then
-        # 测试 pmhq 镜像
-        if test_mirror "$mirror" "pmhq" "$pmhq_tag"; then
-          echo "找到可用镜像源: ${mirror}" >&2
-          echo "${mirror}/"
-          return 0
-        fi
+        echo "找到可用镜像源: ${mirror}" >&2
+        echo "${mirror}/"
+        return 0
       fi
       echo "镜像源 ${mirror} 不可用或版本不存在" >&2
     done
-    
+
     echo "所有镜像源均不可用或不支持该版本" >&2
     echo "将回退到 Docker 官方源使用 latest 标签" >&2
     LLBOT_TAG="latest"
-    PMHQ_TAG="latest"
     echo ""
     return 1
   }
 
   echo ""
   echo "正在检测可用的镜像源..."
-  docker_mirror=$(find_available_mirror "$LLBOT_TAG" "$PMHQ_TAG")
-fi
-# 生成 PMHQ 环境变量
-if [ "$config_mode" == "2" ]; then
-    PMHQ_ENV="      - ENABLE_HEADLESS=false"
-else
-    PMHQ_ENV="      - ENABLE_HEADLESS=${ENABLE_HEADLESS}
-      - AUTO_LOGIN_QQ=${AUTO_LOGIN_QQ}"
-fi
-
-# 生成 LLBot volumes
-if [ "$config_mode" == "2" ]; then
-    LLBOT_VOLUMES="      - qq_volume:/root/.config/QQ
-      - ./llbot_config:/app/llbot/data:rw"
-else
-    # 完整配置模式也使用 rw，允许 WebUI 修改配置
-    LLBOT_VOLUMES="      - qq_volume:/root/.config/QQ
-      - ./llbot_config:/app/llbot/data:rw"
+  docker_mirror=$(find_available_mirror "$LLBOT_TAG")
 fi
 
 # 生成 ports 配置
@@ -370,55 +371,36 @@ if [ ${#SERVICE_PORTS[@]} -gt 0 ]; then
     done
 fi
 
-# 生成 docker-compose.yml
-cat << EOF > docker-compose.yml
-services:
-  pmhq:
-    image: ${docker_mirror}linyuchen/pmhq:${PMHQ_TAG}
-    privileged: true
-    environment:
-${PMHQ_ENV}
-    networks:
-      - app_network
-    volumes:
-      - qq_volume:/root/.config/QQ
-      - ./llbot_config:/app/llbot/data:rw
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:13000/health"]
+# llbot 健康检查：探测 WebUI HTTP（镜像是 debian slim，无 ps/curl，用 node 自带 fetch）
+LLBOT_HEALTHCHECK="    healthcheck:
+      test:
+        - CMD-SHELL
+        - node -e \"fetch('http://127.0.0.1:'+(process.env.WEBUI_PORT||3080)).then(()=>process.exit(0),()=>process.exit(1))\"
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 40s
+      start_period: 40s"
 
+# 直连模式：只有 llbot 一个服务，QQ_UIN 用于重启后恢复 session（稍后配置模式登录后自动发现）
+LLBOT_ENV="      - WEBUI_PORT=${WEBUI_PORT}"
+if [ -n "$AUTO_LOGIN_QQ" ]; then
+    LLBOT_ENV="${LLBOT_ENV}
+      - QQ_UIN=${AUTO_LOGIN_QQ}"
+fi
+
+cat << EOF > docker-compose.yml
+services:
   llbot:
     image: ${docker_mirror}linyuchen/llbot:${LLBOT_TAG}
 ${PORTS_CONFIG}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:
-      - PMHQ_HOST=pmhq
-      - WEBUI_PORT=${WEBUI_PORT}
-    networks:
-      - app_network
+${LLBOT_ENV}
     volumes:
-${LLBOT_VOLUMES}
-    depends_on:
-      - pmhq
+      - ./llbot_config:/app/llbot/data:rw
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "sh", "-c", "ps | grep '[n]ode'"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-volumes:
-  qq_volume:
-
-networks:
-  app_network:
-    driver: bridge
+${LLBOT_HEALTHCHECK}
 EOF
 
 echo ""
@@ -435,10 +417,14 @@ printLogin(){
         echo "  - llbot_config/config_${AUTO_LOGIN_QQ}.json"
     fi
     echo "  - llbot_config/webui_token.txt"
+    echo "  - llbot_config/auth_token.txt"
     echo "  - docker-compose.yml"
     echo ""
     echo "WebUI 访问地址: http://localhost:${WEBUI_PORT}"
     echo "WebUI 密码: ${WEBUI_TOKEN}"
+    echo ""
+    echo "登录方式: 启动后打开 WebUI 扫码登录，"
+    echo "          或运行 sudo docker compose logs -f llbot 在日志中查看二维码"
     if [ "$config_mode" == "2" ]; then
         echo ""
         echo "提示: 您选择了稍后配置模式"

@@ -1,4 +1,4 @@
-FROM node:24-alpine3.23 AS builder
+FROM node:24-bookworm-slim AS builder
 
 WORKDIR /app
 
@@ -19,14 +19,17 @@ RUN yarn build-webui
 RUN yarn build
 
 
-FROM node:24-alpine3.23 AS production
+# 必须用 glibc 基础镜像 (debian): 直连模式的 sign-proxy .node 是 glibc 链接的, alpine/musl 加载不了
+FROM node:24-bookworm-slim AS production
 
 RUN set -eux; \
-    apk update; \
-    apk add --no-cache tzdata ffmpeg; \
-    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends tzdata ffmpeg; \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
     echo "Asia/Shanghai" > /etc/timezone; \
-    rm -rf /var/cache/apk/*
+    rm -rf /var/lib/apt/lists/*
+
+ENV TZ=Asia/Shanghai
 
 WORKDIR /app/llbot
 
