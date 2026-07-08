@@ -114,6 +114,7 @@ export function parseElements(
           key: mf.key ?? '',
         },
       })
+      skipIndex = index + 1 // 跳过附加的 summary 文字
       continue
     }
 
