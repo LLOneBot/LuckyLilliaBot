@@ -19,6 +19,7 @@ export interface Group {
   isPin: boolean
   groupShutupExpireTime: number
   personShutupExpireTime: number
+  memberRole: GroupMemberRole
 }
 
 export enum GroupMemberRole {

@@ -3,7 +3,7 @@ import {
   GroupMember,
   GroupMsgMask,
   Group,
-  ChatType,
+  GroupMemberRole,
 } from '../types'
 import { Service, Context } from 'cordis'
 import { createReadStream, promises as fsp } from 'node:fs'
@@ -57,6 +57,11 @@ export class NTGroupApi extends Service {
         this.getGroups(true)
       }
     })
+    ctx.on('nt/group-admin-changed', (data) => {
+      if (this.groupsCache.length > 0 && data.targetUid === selfInfo.uid) {
+        this.getGroups(true)
+      }
+    })
   }
 
   async getGroups(forceUpdate: boolean) {
@@ -75,7 +80,12 @@ export class NTGroupApi extends Service {
         remark: group.personInfo.remark ?? '',
         isPin: !!group.info.topTime,
         groupShutupExpireTime: group.info.groupShutupExpireTime ?? 0,
-        personShutupExpireTime: group.personInfo.personShutupExpireTime ?? 0
+        personShutupExpireTime: group.personInfo.personShutupExpireTime ?? 0,
+        memberRole: {
+          2: GroupMemberRole.Normal,
+          3: GroupMemberRole.Admin,
+          4: GroupMemberRole.Owner
+        }[group.personInfo.memberRole] ?? GroupMemberRole.Normal
       }))
     }
     return this.groupsCache
@@ -101,7 +111,8 @@ export class NTGroupApi extends Service {
         remark: '',
         isPin: false,
         groupShutupExpireTime: 0,
-        personShutupExpireTime: info.results.shutUpMeTimestamp
+        personShutupExpireTime: info.results.shutUpMeTimestamp,
+        memberRole: GroupMemberRole.Normal
       }
       this.groupCache.set(group.groupCode, group)
       return group

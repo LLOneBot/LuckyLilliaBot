@@ -34,6 +34,7 @@ import {
   ChatType,
   MessageSentEvent,
   StatusChangedEvent,
+  GroupMemberRole,
 } from './types'
 import { logSummaryMessage } from '@/ntqqapi/log'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
@@ -119,8 +120,11 @@ class Core extends Service {
   ) {
     if (peer.chatType === ChatType.Group) {
       const info = await ctx.ntGroupApi.getGroup(+peer.peerUid, false)
-      if (info.personShutupExpireTime * 1000 > Date.now()
-        || info.groupShutupExpireTime * 1000 > Date.now()) {
+      if (
+        info.personShutupExpireTime * 1000 > Date.now()
+        || (info.groupShutupExpireTime * 1000 > Date.now()
+          && info.memberRole === GroupMemberRole.Normal)
+      ) {
         throw new Error('当前处于被禁言状态')
       }
     }

@@ -345,6 +345,7 @@ export namespace Oidb {
         announcement: ProtoField(30, 'bool'),
       }),
       config2: ProtoField(2, {
+        memberRole: ProtoField(2, 'bool'),
         remark: ProtoField(3, 'bool'),
         personShutupExpireTime: ProtoField(4, 'bool')
       })
@@ -370,6 +371,7 @@ export namespace Oidb {
         announcement: ProtoField(30, 'string', 'optional')
       }),
       personInfo: ProtoField(5, {
+        memberRole: ProtoField(2, 'uint32'),
         remark: ProtoField(3, 'string', 'optional'),
         personShutupExpireTime: ProtoField(4, 'uint32', 'optional')
       })

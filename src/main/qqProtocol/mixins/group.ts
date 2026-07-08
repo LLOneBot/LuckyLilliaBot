@@ -72,6 +72,7 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
             announcement: true,
           },
           config2: {
+            memberRole: true,
             remark: true,
             personShutupExpireTime: true
           },
