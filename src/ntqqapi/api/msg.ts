@@ -257,34 +257,26 @@ export class NTMsgApi extends Service {
     if (!body.uKey || body.uKey.length === 0) {
       return { retCode: 0, errMsg: '', emojiId }
     }
-    // 3. 走 highway 上传到 ips[i]:15000，cmd=9
-    //    server 返一组 IP, 但其中可能有失效的 (实测 ETIMEDOUT)。轮流试，第一个连通就 OK。
-    //    每次循环重建 read stream — Readable 用完一次就废了。
-    const ips = body.uploadIps || []
+    const ips = body.uploadIps
+    const ports = body.uploadPorts // 全部为 80 端口
     if (ips.length === 0) return { retCode: -1, errMsg: 'no upload server returned', emojiId }
-    const errors: string[] = []
-    for (let i = 0; i < ips.length; i++) {
-      const server = uint32ToIPV4Addr(ips[i])
-      try {
-        await new HighwayHttpSession({
-          uin: selfInfo.uin,
-          cmd: 9,
-          readable: createReadStream(emojiPath, { highWaterMark: 1024 * 1024 }),
-          sum: md5,
-          size: stat.size,
-          ticket: Buffer.from(body.uKey),
-          ext: Buffer.alloc(0),
-          server,
-          port: 15000,
-        }).upload()
-        return { retCode: 0, errMsg: '', emojiId }
-      } catch (e) {
-        const msg = (e as Error).message || String(e)
-        errors.push(`${server}:15000 - ${msg}`)
-        // 继续试下一个 IP
-      }
+    const server = []
+    for (const [index, ip] of ips.entries()) {
+      // 究竟哪个是正确的呢？
+      server.push(`${uint32ToIPV4Addr(ip)}:15000`)
+      //server.push(`${uint32ToIPV4Addr(ip)}:${ports[index]}`)
     }
-    return { retCode: -1, errMsg: `所有 highway IP 都连不通: ${errors.join('; ')}`, emojiId }
+    await new HighwayHttpSession({
+      uin: selfInfo.uin,
+      cmd: 9,
+      readable: createReadStream(emojiPath, { highWaterMark: 1024 * 1024 }),
+      sum: md5,
+      size: stat.size,
+      ticket: body.uKey,
+      ext: Buffer.alloc(0),
+      server,
+    }).upload()
+    return { retCode: 0, errMsg: '', emojiId }
   }
 
   async deleteCustomFace(emojiIds: string[]) {

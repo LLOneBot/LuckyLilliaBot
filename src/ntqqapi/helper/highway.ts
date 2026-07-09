@@ -12,13 +12,14 @@ interface HighwayTrans {
   size: number
   ticket: Buffer
   ext: Buffer
-  server: string
-  port: number
+  server: string[]
 }
 
 abstract class AbstractHighwaySession {
   /** 单调递增的 block seq */
   protected nextSeq = 1
+  protected retryTimes = 0
+  protected availableServer = 0
 
   constructor(
     protected readonly trans: HighwayTrans
@@ -39,7 +40,7 @@ abstract class AbstractHighwaySession {
         uin: this.trans.uin,
         command: 'PicUp.DataUp',
         seq: this.nextSeq++,
-        retryTimes: 0,
+        retryTimes: this.retryTimes,
         appId: AppInfo.appId,
         dataFlag: 16,
         commandId: this.trans.cmd,
@@ -127,10 +128,11 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       const block = chunk as Buffer
       // 最后一块用 Connection: close（让 server 知道 upload 结束 → 归档）
       const isEnd = offset + block.length >= this.trans.size
-      let retries = 0
       const upload = async () => {
         try {
           await this.uploadBlock(block, offset, isEnd)
+          this.availableServer = this.retryTimes
+          this.retryTimes = 0
         } catch (err) {
           const { message } = err as Error
           if (
@@ -138,9 +140,9 @@ export class HighwayHttpSession extends AbstractHighwaySession {
               message.includes('Highway request timeout')
               || message.includes('read ECONNRESET')
             )
-            && retries < 3
+            && this.retryTimes < this.trans.server.length - 1
           ) {
-            retries++
+            this.retryTimes++
             await upload()
           } else {
             throw new Error(`[Highway] httpUpload Error uploading block at offset ${offset}: ${message}`)
@@ -168,8 +170,9 @@ export class HighwayHttpSession extends AbstractHighwaySession {
         extHex: this.trans.ext?.toString('hex') || '',
       }))
     }
+    const server = this.availableServer ? this.trans.server[this.availableServer] : this.trans.server[this.retryTimes]
     const resp = await this.httpPostHighwayContent(frame,
-      `http://${this.trans.server}:${this.trans.port}/cgi-bin/httpconn?htcmd=0x6FF0087&uin=${this.trans.uin}`,
+      `http://${server}/cgi-bin/httpconn?htcmd=0x6FF0087&uin=${this.trans.uin}`,
       isEnd)
     const [head, body] = this.unpackFrame(resp)
 
@@ -207,9 +210,6 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       const req = request(
         serverURL, {
         method: 'POST',
-        // QQ 给的 highway IP 经常有挂掉的 (实测 15000 端口偶尔 SYN 丢), 默认 OS connect timeout
-        // 21s × 3 retry = 一分钟+，用户调用方 timeout 再叠 5 个 IP fallback 必然挂死。
-        // 设 8s connect/idle timeout 让上层 fallback 有机会跑下一个 IP。
         timeout: 8000,
         headers: {
           // 最后一块 close，其他 keep-alive。server 用这个信号知道整体上传结束 → 触发归档

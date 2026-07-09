@@ -23,9 +23,6 @@ export class NTUserApi extends Service {
     const stat = await fsp.stat(filePath)
     const md5 = await getMd5BufferFromFile(filePath)
     const session = await this.ctx.qqProtocol.getHighwaySession()
-    // service type 1 = 通用图片上传（端口 15000），与抓包一致
-    const server = session.highwayHostAndPorts[1]?.[0]
-    if (!server) return { result: -1, errMsg: 'no highway server (type=1)' }
     const trans = {
       uin: selfInfo.uin,
       cmd: 90, // 自身头像 commandId（PMHQ 抓包 PicUp.DataUp + htcmd=0x6FF0087 验过）
@@ -34,8 +31,7 @@ export class NTUserApi extends Service {
       size: stat.size,
       ticket: session.sigSession,
       ext: Buffer.alloc(0),
-      server: server.host,
-      port: server.port,
+      server: session.highwayHostAndPorts[1],
     }
     try {
       await new HighwayHttpSession(trans).upload()

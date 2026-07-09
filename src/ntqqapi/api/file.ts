@@ -462,8 +462,7 @@ export class NTFileApi extends Service {
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
         ext: Media.NTV2RichMediaHighwayExt.encode(result.ext),
-        server: highwaySession.highwayHostAndPorts[1][0].host,
-        port: highwaySession.highwayHostAndPorts[1][0].port
+        server: highwaySession.highwayHostAndPorts[1]
       }
       await new HighwayHttpSession(trans).upload()
     }
@@ -478,8 +477,7 @@ export class NTFileApi extends Service {
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
         ext: Media.NTV2RichMediaHighwayExt.encode(result.subExt),
-        server: highwaySession.highwayHostAndPorts[1][0].host,
-        port: highwaySession.highwayHostAndPorts[1][0].port
+        server: highwaySession.highwayHostAndPorts[1]
       }
       await new HighwayHttpSession(trans).upload()
     }
@@ -504,8 +502,7 @@ export class NTFileApi extends Service {
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
         ext: Media.NTV2RichMediaHighwayExt.encode(result.ext),
-        server: highwaySession.highwayHostAndPorts[1][0].host,
-        port: highwaySession.highwayHostAndPorts[1][0].port
+        server: highwaySession.highwayHostAndPorts[1]
       }
       await new HighwayHttpSession(trans).upload()
     }
@@ -520,8 +517,7 @@ export class NTFileApi extends Service {
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
         ext: Media.NTV2RichMediaHighwayExt.encode(result.subExt),
-        server: highwaySession.highwayHostAndPorts[1][0].host,
-        port: highwaySession.highwayHostAndPorts[1][0].port
+        server: highwaySession.highwayHostAndPorts[1]
       }
       await new HighwayHttpSession(trans).upload()
     }
@@ -581,8 +577,7 @@ export class NTFileApi extends Service {
         size: result.fileSize,
         ticket: highwaySession.sigSession,
         ext,
-        server: highwaySession.highwayHostAndPorts[1][0].host,
-        port: highwaySession.highwayHostAndPorts[1][0].port
+        server: highwaySession.highwayHostAndPorts[1]
       }
       await new HighwayHttpSession(trans).upload()
     }
@@ -643,8 +638,7 @@ export class NTFileApi extends Service {
       size: result.fileSize,
       ticket: highwaySession.sigSession,
       ext,
-      server: highwaySession.highwayHostAndPorts[1][0].host,
-      port: highwaySession.highwayHostAndPorts[1][0].port
+      server: highwaySession.highwayHostAndPorts[1]
     }
     await new HighwayHttpSession(trans).upload()
     return {
@@ -669,8 +663,7 @@ export class NTFileApi extends Service {
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
         ext: Media.NTV2RichMediaHighwayExt.encode(result.ext),
-        server: highwaySession.highwayHostAndPorts[1][0].host,
-        port: highwaySession.highwayHostAndPorts[1][0].port
+        server: highwaySession.highwayHostAndPorts[1]
       }
       await new HighwayHttpSession(trans).upload()
     }
@@ -694,8 +687,7 @@ export class NTFileApi extends Service {
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
         ext: Media.NTV2RichMediaHighwayExt.encode(result.ext),
-        server: highwaySession.highwayHostAndPorts[1][0].host,
-        port: highwaySession.highwayHostAndPorts[1][0].port
+        server: highwaySession.highwayHostAndPorts[1]
       }
       await new HighwayHttpSession(trans).upload()
     }
@@ -719,8 +711,7 @@ export class NTFileApi extends Service {
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
         ext: Media.NTV2RichMediaHighwayExt.encode(result.ext),
-        server: highwaySession.highwayHostAndPorts[1][0].host,
-        port: highwaySession.highwayHostAndPorts[1][0].port
+        server: highwaySession.highwayHostAndPorts[1]
       }
       await new HighwayHttpSession(trans).upload()
     }
@@ -741,8 +732,7 @@ export class NTFileApi extends Service {
         size: index.info.fileSize,
         ticket: highwaySession.sigSession,
         ext: Media.NTV2RichMediaHighwayExt.encode(result.ext),
-        server: highwaySession.highwayHostAndPorts[1][0].host,
-        port: highwaySession.highwayHostAndPorts[1][0].port
+        server: highwaySession.highwayHostAndPorts[1]
       }
       await new HighwayHttpSession(trans).upload()
     }

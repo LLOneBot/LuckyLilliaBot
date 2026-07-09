@@ -270,8 +270,6 @@ export class NTGroupApi extends Service {
     const stat = await fsp.stat(filePath)
     const md5 = await getMd5BufferFromFile(filePath)
     const session = await this.ctx.qqProtocol.getHighwaySession()
-    const server = session.highwayHostAndPorts[1]?.[0]
-    if (!server) return { result: -1, errMsg: 'no highway server (type=1)' }
     const ext = Media.GroupAvatarExtra.encode({
       type: 101,
       groupUin: groupCodeToGroupUin(+groupCode),
@@ -286,9 +284,8 @@ export class NTGroupApi extends Service {
       sum: md5,
       size: stat.size,
       ticket: session.sigSession,
-      ext: Buffer.from(ext),
-      server: server.host,
-      port: server.port,
+      ext,
+      server: session.highwayHostAndPorts[1],
     }
     try {
       await new HighwayHttpSession(trans).upload()
