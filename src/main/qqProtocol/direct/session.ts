@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { execSync } from 'node:child_process'
@@ -142,13 +142,13 @@ export function saveSession(
 }
 
 /**
- * 加载 session：
- * - 没传 `-q` → 返回 null，调用方走扫码登录
- * - 传了 `-q <uin>` 且 qq-session-<uin>.json 存在 → 解密敏感字段后返回该 session
- * - 文件不存在 / 解析失败 / 解密失败 (换机器) → 返回 null，调用方走扫码登录
+ * 加载 session:
+ * - 传了 uin (WebUI 快速登录) 或 argv 里有 -q <uin> → 尝试对应 qq-session-<uin>.json
+ * - 两者都没有 → 返回 null, 调用方走扫码登录
+ * - 文件不存在 / 解析失败 / 解密失败 (换机器) → 返回 null
  */
-export function loadSession(): PersistedSession | null {
-  const specifiedUin = getSpecifiedUin()
+export function loadSession(uinArg?: string): PersistedSession | null {
+  const specifiedUin = uinArg || getSpecifiedUin()
   if (!specifiedUin) return null
   const path = getSessionFilePathForUin(specifiedUin)
   if (!existsSync(path)) return null
@@ -173,6 +173,40 @@ export function loadSession(): PersistedSession | null {
   } catch {
     return null
   }
+}
+
+/**
+ * 扫 data/qq-session-*.json, 返回可用快速登录账号的明文元数据 (uin/uid/nick).
+ * 只列**有 enc** 的 session (旧明文/无凭证的一律跳过, 快速登录用不上); 不做实际解密,
+ * 换机后不能 quick-login 但会展示 -- 用户选到后 registerOnline 阶段会失败并 fallback 扫码.
+ */
+export function listAvailableSessions(): Array<{ uin: string; uid: string; nick: string; savedAt: number }> {
+  let entries: string[]
+  try {
+    entries = readdirSync(DATA_DIR)
+  } catch {
+    return []
+  }
+  const out: Array<{ uin: string; uid: string; nick: string; savedAt: number }> = []
+  for (const name of entries) {
+    const m = /^qq-session-(\d+)\.json$/.exec(name)
+    if (!m) continue
+    try {
+      const raw = readFileSync(join(DATA_DIR, name), 'utf-8')
+      const data = JSON.parse(raw) as PersistedSession
+      if (!data.enc || !data.uin) continue
+      out.push({
+        uin: data.uin,
+        uid: data.uid || '',
+        nick: data.nick || '',
+        savedAt: data.savedAt || 0,
+      })
+    } catch {
+      // skip malformed
+    }
+  }
+  // 按 savedAt 倒序 (最近登过的在前)
+  return out.sort((a, b) => b.savedAt - a.savedAt)
 }
 
 export function persistedToSessionInfo(persisted: PersistedSession): SessionInfo {

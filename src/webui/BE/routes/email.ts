@@ -5,13 +5,17 @@ import { Hono } from 'hono'
 export function createEmailRoutes(ctx: Context): Hono {
   const router = new Hono()
 
+  // WebuiServer 现在没把 emailNotification 声明进 inject (它登录后才 plugin, 早声明会阻塞 WebUI 提前起).
+  // 因此不能直接读 ctx.emailNotification (cordis 严格模式会抛 "cannot get property without inject"),
+  // 要用 ctx.get('emailNotification') 绕过检查, 未 ready 时返 undefined.
+  const getEmail = () => ctx.get('emailNotification' as never) as Context['emailNotification'] | undefined
+
   router.get('/config', async (c) => {
     try {
-      if (!ctx.emailNotification) {
+      const emailService = getEmail()
+      if (!emailService) {
         return c.json({ success: false, message: '邮件服务未初始化，请等待登录完成' }, 503)
       }
-
-      const emailService = ctx.emailNotification
 
       const config = emailService.getConfigManager().getConfig()
 
@@ -41,11 +45,10 @@ export function createEmailRoutes(ctx: Context): Hono {
 
   router.post('/config', async (c) => {
     try {
-      if (!ctx.emailNotification) {
+      const emailService = getEmail()
+      if (!emailService) {
         return c.json({ success: false, message: '邮件服务未初始化，请等待登录完成' }, 503)
       }
-
-      const emailService = ctx.emailNotification
 
       const emailConfig: EmailConfig = await c.req.json()
 
@@ -89,11 +92,10 @@ export function createEmailRoutes(ctx: Context): Hono {
 
   router.post('/test', async (c) => {
     try {
-      if (!ctx.emailNotification) {
+      const emailService = getEmail()
+      if (!emailService) {
         return c.json({ success: false, message: '邮件服务未初始化，请等待登录完成' }, 503)
       }
-
-      const emailService = ctx.emailNotification
 
       const { config: testConfig } = await c.req.json() as { config?: EmailConfig }
 

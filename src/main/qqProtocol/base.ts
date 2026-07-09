@@ -57,6 +57,23 @@ export abstract class QQProtocolBase extends Service {
   public abstract getLoginQrCode(): Promise<{ qrcodeUrl: string; pngBase64QrcodeData: string }>
 
   /**
+   * 列出本地可快速登录的账号. **仅 Direct 模式实现** -- 直连持有 data/qq-session-*.json 是唯一可靠来源.
+   * PMHQ 模式下 QQ NT 已登过, WebUI 不复用它的快速登录列表(那是 Desktop 的路径), 走 base 默认返空,
+   * FE 拿到空列表会自动切扫码模式. 别在 PMHQ 里补真正的实现.
+   */
+  public listQuickLoginAccounts(): Array<{ uin: string; uid: string; nick: string; savedAt: number }> {
+    return []
+  }
+
+  /**
+   * 以指定 uin 快速登录. **仅 Direct 模式实现** -- 依赖 qq-session-<uin>.json 的加密凭证.
+   * PMHQ 走 base 默认直接抛; 上层路由收到 500 后 FE 会 fallback 到扫码.
+   */
+  public async quickLogin(_uin: string): Promise<void> {
+    throw new Error('quickLogin not supported in this mode')
+  }
+
+  /**
    * 模式启动入口. cordis Service.init 里 await 一次:
    * - PMHQ: 起 WS 连接 + 登录探测
    * - Direct: 起 authTokenWatcher, 校验通过后拉起扫码 loop

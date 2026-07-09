@@ -31,13 +31,24 @@ export function createLoginRoutes(ctx: Context): Hono {
     }
   })
 
-  // 快速登录
+  // 快速登录: 用指定 uin 从 data/qq-session-<uin>.json 恢复 (Direct 模式).
+  // 结果由 FE 后续轮询 /api/login-info 的 online 字段判定, 这里只负责触发.
   router.post('/quick-login', async (c) => {
     const { uin } = await c.req.json()
     if (!uin) {
       return c.json({ success: false, message: '没有选择QQ号' }, 400)
     }
-    return c.json({ success: false, message: '快速登录失败，直连模式自动恢复 session', error: {} }, 500)
+    try {
+      await ctx.qqProtocol.quickLogin(String(uin))
+      // FE 现有代码 (QQLogin.tsx) 会检查 data.result === '0' 判成功, 保持兼容
+      return c.json({ success: true, data: { result: '0', loginErrorInfo: { errMsg: '' } } })
+    } catch (e) {
+      return c.json({
+        success: false,
+        message: (e as Error).message || '快速登录失败',
+        data: { result: '-1', loginErrorInfo: { errMsg: (e as Error).message || '快速登录失败' } },
+      }, 500)
+    }
   })
 
   // 获取账号信息

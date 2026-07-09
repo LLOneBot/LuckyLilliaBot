@@ -17,6 +17,7 @@ import {
   AppInfo,
   saveSession,
   loadSession,
+  listAvailableSessions,
   persistedToSessionInfo,
   getSpecifiedUin,
   getSessionFilePathForUin,
@@ -52,6 +53,9 @@ export class DirectQQProtocol extends QQProtocolBase {
 
   // 扫码 loop 状态: 之前在 main.ts 作为闭包变量; 现在归实例.
   private loopRunning = false
+  // 运行时指定要恢复的 session uin (WebUI 快速登录设一次, 下一次 initDirectClient 用它 loadSession).
+  // 不影响 argv 的 -q, 只是补充: WebUI 需要用户运行时选账号
+  private runtimeUinOverride: string | null = null
 
   constructor(ctx: Context) {
     super(ctx)
@@ -74,6 +78,29 @@ export class DirectQQProtocol extends QQProtocolBase {
     const buf = Buffer.isBuffer(pb) ? pb : Buffer.from(pb, 'hex')
     const resp = await this.directClient.sendCommand(cmd, buf, undefined, timeout)
     return { cmd, pb: resp.payload.toString('hex') }
+  }
+
+  /**
+   * 列出本地可快速登录的账号 (对应 data/qq-session-<uin>.json). 用于 WebUI 快速登录列表.
+   * 直连模式无 QQ NT 进程可问, 只能从本地 session 文件推断; 换机场景对应 session 已解不开,
+   * 但此处只列明文元数据, 换机时 quickLogin 阶段 registerOnline 会失败并 fallback 扫码.
+   */
+  public listQuickLoginAccounts(): Array<{ uin: string; uid: string; nick: string; savedAt: number }> {
+    return listAvailableSessions()
+  }
+
+  /**
+   * WebUI 请求以某个已保存 session 快速登录. 设置 runtime override 后重新 initDirectClient,
+   * 走 loadSession(uin) 恢复通道 (等价于用户带 -q <uin> 启动).
+   * 已在线时 no-op. 未登录且已有 auth_token 时才会真正拉起.
+   */
+  public async quickLogin(uin: string): Promise<void> {
+    if (selfInfo.online) return
+    if (!/^\d+$/.test(uin)) throw new Error('invalid uin')
+    this.runtimeUinOverride = uin
+    // 走 initDirectClient (会用 runtimeUinOverride) . 无 auth_token 时它自己 return; 有则登录.
+    await this.initDirectClient()
+    this.ensureDirectLoginLoop()
   }
 
   /**
@@ -249,14 +276,14 @@ export class DirectQQProtocol extends QQProtocolBase {
     // native sign 若已 init (上次用了旧/无效 token), 热切换到最新 token; 未 init 时 no-op
     await updateAuthToken(authToken).catch((e) => this.logger.warn('[Sign] updateAuthToken failed:', (e as Error).message))
 
-    // 先 loadSession 拿 (uin, guid), 再 new DirectProtocolClient
-    const specifiedUin = getSpecifiedUin()
+    // 先 loadSession 拿 (uin, guid), 再 new DirectProtocolClient. 运行时 override 优先于 argv -q.
+    const specifiedUin = this.runtimeUinOverride || getSpecifiedUin()
     if (specifiedUin) {
-      this.logger.info('Specified login uin via -q/--qq: %s, will try qq-session-%s.json', specifiedUin, specifiedUin)
+      this.logger.info('Specified login uin: %s, will try qq-session-%s.json', specifiedUin, specifiedUin)
     } else {
-      this.logger.info('No -q/--qq specified, will perform fresh QR login (session will be saved as qq-session-<uin>.json)')
+      this.logger.info('No uin specified, will perform fresh QR login (session will be saved as qq-session-<uin>.json)')
     }
-    const persisted = loadSession()
+    const persisted = loadSession(this.runtimeUinOverride ?? undefined)
 
     // session.guid 跟 machine_guid.bin 不一致时以 session 为准, 落盘同步
     if (persisted) {
