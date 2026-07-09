@@ -92,13 +92,18 @@ export class DirectQQProtocol extends QQProtocolBase {
   /**
    * WebUI 请求以某个已保存 session 快速登录. 设置 runtime override 后重新 initDirectClient,
    * 走 loadSession(uin) 恢复通道 (等价于用户带 -q <uin> 启动).
-   * 已在线时 no-op. 未登录且已有 auth_token 时才会真正拉起.
+   * 已在线时 no-op. session 解不开 (换机) 会抛错让 FE 弹提示, 用户可切扫码登录.
    */
   public async quickLogin(uin: string): Promise<void> {
     if (selfInfo.online) return
     if (!/^\d+$/.test(uin)) throw new Error('invalid uin')
+    // 提前 loadSession 探一下: 快速登录必须能解密敏感字段. 解不开就报错让 FE 提示换机 / 切扫码,
+    // 不能悄悄降级到 QR 让用户面对无提示的扫码页.
+    const preload = loadSession(uin)
+    if (!preload) {
+      throw new Error('session 已失效(可能换了机器或加密 key 变了), 请扫码重新登录')
+    }
     this.runtimeUinOverride = uin
-    // 走 initDirectClient (会用 runtimeUinOverride) . 无 auth_token 时它自己 return; 有则登录.
     await this.initDirectClient()
     this.ensureDirectLoginLoop()
   }
@@ -268,15 +273,13 @@ export class DirectQQProtocol extends QQProtocolBase {
   }
 
   private async doInitDirectClient(authToken: string): Promise<void> {
-    // 重入清理: 上一次残留的 client (无效 token / 掉线) 先拆掉再重建, 避免连接泄漏
-    if (this.directClient) {
-      try { this.directClient.disconnect() } catch {}
-      this.directClient = null
-    }
-    // native sign 若已 init (上次用了旧/无效 token), 热切换到最新 token; 未 init 时 no-op
+    // 换账号 / 重试时取消上一轮残留的 QR poll loop (qrPollToken 变 -> 旧 poll 循环下一 tick 自退)
+    this.qrPollToken++
+
+    // native sign 已 init 时热切换到最新 token; 未 init (首次) 时 no-op, token 由 new client 的 config 带入
     await updateAuthToken(authToken).catch((e) => this.logger.warn('[Sign] updateAuthToken failed:', (e as Error).message))
 
-    // 先 loadSession 拿 (uin, guid), 再 new DirectProtocolClient. 运行时 override 优先于 argv -q.
+    // 先 loadSession 拿 (uin, guid). 运行时 override 优先于 argv -q.
     const specifiedUin = this.runtimeUinOverride || getSpecifiedUin()
     if (specifiedUin) {
       this.logger.info('Specified login uin: %s, will try qq-session-%s.json', specifiedUin, specifiedUin)
@@ -290,37 +293,33 @@ export class DirectQQProtocol extends QQProtocolBase {
       overwriteMachineGuid(Buffer.from(persisted.guid, 'hex'))
     }
 
-    const uinForInit = persisted ? Number(persisted.uin) : undefined
-    this.directClient = new DirectProtocolClient({
-      authToken: authToken,
-      botVersion: `LLBot_${version}`,
-      uin: Number.isFinite(uinForInit) && (uinForInit as number) > 0 ? uinForInit : undefined,
-    })
+    // native sign 首次 init 需要 uin 才能签握手命令 (服务器 400 'missing uin'). 优先级:
+    //   1) 有持久化 session -> session.uin  2) 快速登录/argv -q 指定 -> 用它  3) fresh 扫码 -> undefined
+    const uinCandidate = persisted?.uin || specifiedUin || ''
+    const uinForInit = uinCandidate ? Number(uinCandidate) : undefined
+    const uinArg = Number.isFinite(uinForInit) && (uinForInit as number) > 0 ? (uinForInit as number) : undefined
 
-    this.directClient.on('error', (err: Error) => {
-      this.logger.warn('Direct client error:', err.message)
-    })
-    // native 连接建立 -> 更新 lastConnectedTime, 让 startDisconnectMonitoring 从此刻起监控
-    this.directClient.on('connected', () => {
-      this.lastConnectedTime = Date.now()
-    })
-    this.directClient.on('close', () => {
-      const wasOnline = this.onlineEmitted
-      selfInfo.online = false
-      if (this.directStopHeartbeat) {
-        this.directStopHeartbeat()
-        this.directStopHeartbeat = null
+    // 复用单 client: native sign 是进程单例, relay (SENDER OnceCell) 只在首个 client 首次 connect 时
+    // 绑定且无法重绑. 重建 client 会让 relay 悬空 -> token-acquire 的 ESK relay 发到已死的旧 client
+    // (session=null) -> sign 缺 uin -> 服务器 400. 所以全程只用一个 client: 首次建立并挂事件, 之后复用,
+    // 换 token/账号只热切换配置 (setAuthToken/setUin/setGuid), 绝不重建.
+    if (!this.directClient) {
+      this.directClient = new DirectProtocolClient({
+        authToken,
+        botVersion: `LLBot_${version}`,
+        uin: uinArg,
+      })
+      this.bindDirectClientEvents(this.directClient)
+    } else {
+      this.directClient.setAuthToken(authToken)
+      this.directClient.setUin(uinArg)
+      this.directClient.clearSession() // 换账号: 丢掉上一账号 session, 下面 restore/fresh 从干净态走
+      // 换到不同 guid 的 session (换机导入的账号) 时, 同步 client + native sign 的 device 指纹
+      if (persisted) {
+        const g = Buffer.from(persisted.guid, 'hex')
+        if (!g.equals(this.directClient.getGuid())) this.directClient.setGuid(g)
       }
-      this.onlineEmitted = false
-      if (wasOnline) {
-        this.ctx.parallel('protocol/disconnect')
-      }
-    })
-    this.directClient.on('push', (packet: { cmd: string; payload: Buffer }) => {
-      // 收到包 = 连着; 顺带刷新 lastConnectedTime
-      this.lastConnectedTime = Date.now()
-      this.ctx.parallel('qq/raw', { cmd: packet.cmd, payload: packet.payload })
-    })
+    }
 
     if (persisted) {
       // 预检 persisted uin 是否在 token 授权列表: 不在的话 registerOnline 真 uin 签名会命中 compute 403
@@ -332,7 +331,7 @@ export class DirectQQProtocol extends QQProtocolBase {
         return
       }
       this.logger.info('Found saved session for UIN %s (file: %s), attempting restore...', persisted.uin, getSessionFilePathForUin(persisted.uin))
-      await this.directClient.connect()
+      if (!this.directClient.isConnected) await this.directClient.connect()
       const session = persistedToSessionInfo(persisted)
       this.directClient.setSession(session)
 
@@ -349,14 +348,43 @@ export class DirectQQProtocol extends QQProtocolBase {
         if (!selfInfo.nick) this.scheduleFetchSelfNick()
         return
       } catch (e) {
+        // 恢复失败 (session 过期): 清 session, 但保留 TCP 连接复用给扫码 -- 不 disconnect, 否则会触发
+        // close 事件且 native sign relay 目标断链, 下面 fresh 分支直接用现连接拉码.
         this.logger.info('Saved session expired, will need QR login: %s', (e as Error).message)
         this.directClient.clearSession()
-        this.directClient.disconnect()
       }
     }
 
-    // Connect fresh (will need QR login)
-    await this.directClient.connect()
+    // Fresh QR: 复用现有连接, 未连才连
+    if (!this.directClient.isConnected) await this.directClient.connect()
+  }
+
+  /** 给 client 挂事件 (error/connected/close/push). 只在首次建立 client 时调一次 -- 复用 client 不重挂. */
+  private bindDirectClientEvents(client: DirectProtocolClient): void {
+    client.on('error', (err: Error) => {
+      this.logger.warn('Direct client error:', err.message)
+    })
+    // native 连接建立 -> 更新 lastConnectedTime, 让 startDisconnectMonitoring 从此刻起监控
+    client.on('connected', () => {
+      this.lastConnectedTime = Date.now()
+    })
+    client.on('close', () => {
+      const wasOnline = this.onlineEmitted
+      selfInfo.online = false
+      if (this.directStopHeartbeat) {
+        this.directStopHeartbeat()
+        this.directStopHeartbeat = null
+      }
+      this.onlineEmitted = false
+      if (wasOnline) {
+        this.ctx.parallel('protocol/disconnect')
+      }
+    })
+    client.on('push', (packet: { cmd: string; payload: Buffer }) => {
+      // 收到包 = 连着; 顺带刷新 lastConnectedTime
+      this.lastConnectedTime = Date.now()
+      this.ctx.parallel('qq/raw', { cmd: packet.cmd, payload: packet.payload })
+    })
   }
 
   // ---- 内部: 扫码轮询 + 登录收尾 ----

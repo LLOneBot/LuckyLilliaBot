@@ -702,7 +702,10 @@ export class DirectProtocolClient extends EventEmitter {
 
     let signResult: SignResult | null = null
     if (this.config.authToken && this.SIGN_ALLOWLIST.has(cmd)) {
-      const uin = this.session?.uin ? Number(this.session.uin) : undefined
+      // uin 优先 session (登录成功后), 未登录时 fallback 到构造时传的 config.uin.
+      // 快速登录场景 session 解不开时 session 为 null, 但 config.uin 已从明文元数据 / -q 拿到,
+      // 缺了它 sign 服务器会 400 'missing uin' 直接拒
+      const uin = this.session?.uin ? Number(this.session.uin) : (this.config.uin || undefined)
       await this.ensureSignTokenFresh(uin)
       signResult = await requestSign(cmd, payload, seq, this.guid, AppInfo.qua, uin, this.session?.signToken12B)
       if (signResult?.token.length === 0) {
@@ -776,6 +779,18 @@ export class DirectProtocolClient extends EventEmitter {
   setGuid(guid: Buffer): void {
     this.guid = guid
     setSignMachineGuid(guid)
+  }
+
+  /**
+   * 复用同一 client 时热更新配置 (换 token / 换账号 uin). native sign 是进程单例, relay 只绑首个
+   * client, 所以不能靠重建 client 换配置 -- 只能在活着的这一个上原地更新. 见 direct-mode doInitDirectClient.
+   */
+  setAuthToken(token: string): void {
+    this.config.authToken = token
+  }
+
+  setUin(uin?: number): void {
+    this.config.uin = uin
   }
 
   getSession(): SessionInfo | null {

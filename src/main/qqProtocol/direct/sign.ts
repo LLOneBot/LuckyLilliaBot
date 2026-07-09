@@ -38,6 +38,7 @@ export async function setupSign(opts: {
     throw new Error(`setupSign expected 16B machineGuid, got ${opts.machineGuid.length}B`)
   }
   // native init 是 async: 传了 uin 时它内部 await /api/bu bind 完成才 resolve, bind 失败 reject.
+  // 注意: native init 幂等, 二次调 no-op, uin 无法通过 re-init 更新.
   await nativeInit(
     {
       botVersion: opts.botVersion,
