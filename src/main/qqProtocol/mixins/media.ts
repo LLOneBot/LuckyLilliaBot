@@ -7,8 +7,8 @@ import { NTV2RichMedia } from '@/ntqqapi/helper/ntv2RichMedia'
 import { ChatType } from '@/ntqqapi/types'
 import { stat } from 'fs/promises'
 
-export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
-  return class extends Base {
+export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocolBase>(Base: T) {
+  abstract class Mixed extends Base {
     async getRKey() {
       const hexStr = '08e7a00210ca01221c0a130a05080110ca011206a80602b006011a02080122050a030a1400'
       const data = Buffer.from(hexStr, 'hex')
@@ -752,4 +752,5 @@ export function MediaMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       }
     }
   }
+  return Mixed
 }

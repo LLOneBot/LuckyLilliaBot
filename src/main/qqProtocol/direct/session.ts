@@ -79,13 +79,15 @@ function decryptSensitive(b64: string): SensitiveFields {
 }
 
 /**
- * 从 process.argv 里解析 `-q <uin>` 或 `--qq=<uin>`。
- * 用于多账号场景：指定一个 uin 后会读写对应的 qq-session-<uin>.json。
+ * 从 process.argv 里解析指定 uin. 支持 4 种写法:
+ *   -q <uin> / -q=<uin> / --qq <uin> / --qq=<uin>
+ * 用于多账号场景: 指定一个 uin 后会读写对应的 qq-session-<uin>.json。
  */
 export function getSpecifiedUin(argv: string[] = process.argv): string | undefined {
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '-q' && i + 1 < argv.length) return argv[i + 1]
+    if ((a === '-q' || a === '--qq') && i + 1 < argv.length) return argv[i + 1]
+    if (a.startsWith('-q=')) return a.slice('-q='.length)
     if (a.startsWith('--qq=')) return a.slice('--qq='.length)
   }
   return undefined

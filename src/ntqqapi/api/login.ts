@@ -19,6 +19,6 @@ export class NTLoginApi extends Service {
   }
 
   async getLoginQrCode(){
-    return await this.ctx.qqProtocol.getDirectLoginQrCode()
+    return await this.ctx.qqProtocol.getLoginQrCode()
   }
 }

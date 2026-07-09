@@ -2,8 +2,8 @@ import { Action, Oidb } from '@/ntqqapi/proto'
 import { selfInfo } from '@/common/globalVars'
 import type { QQProtocolBase } from '../base'
 
-export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
-  return class extends Base {
+export function FriendMixin<T extends abstract new (...args: any[]) => QQProtocolBase>(Base: T) {
+  abstract class Mixed extends Base {
     async sendFriendPoke(friendUin: number, toUin: number) {
       const body = Oidb.SendPokeReq.encode({
         toUin,
@@ -230,4 +230,5 @@ export function FriendMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
       return Oidb.GetFriendsStatusResp.decode(oidbResp.body)
     }
   }
+  return Mixed
 }

@@ -1,8 +1,8 @@
 import { Oidb } from '@/ntqqapi/proto'
 import type { QQProtocolBase } from '../base'
 
-export function SystemMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
-  return class extends Base {
+export function SystemMixin<T extends abstract new (...args: any[]) => QQProtocolBase>(Base: T) {
+  abstract class Mixed extends Base {
     async fetchPins() {
       const data = Oidb.Base.encode({
         command: 0x12b3,
@@ -14,4 +14,5 @@ export function SystemMixin<T extends new (...args: any[]) => QQProtocolBase>(Ba
       return Oidb.FetchPinsResp.decode(oidbRespBody)
     }
   }
+  return Mixed
 }

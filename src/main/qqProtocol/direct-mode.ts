@@ -1,0 +1,414 @@
+import path from 'node:path'
+import { existsSync, mkdirSync } from 'node:fs'
+import { writeFile } from 'node:fs/promises'
+import { Context } from 'cordis'
+import QRCode from 'qrcode'
+import { selfInfo, authTokenStatus, TEMP_DIR } from '@/common/globalVars'
+import type { PBData } from './types'
+import {
+  DirectProtocolClient,
+  fetchQrCode,
+  pollQrCode,
+  loginWithQrResult,
+  registerOnline,
+  startHeartbeat,
+  getCorrectUin,
+  QrCodeState,
+  AppInfo,
+  saveSession,
+  loadSession,
+  persistedToSessionInfo,
+  getSpecifiedUin,
+  getSessionFilePathForUin,
+} from './direct'
+import type { QrCodeResult, QrPollResult } from './direct'
+import { overwriteMachineGuid } from './direct/machineGuid'
+import { updateAuthToken } from './direct/sign'
+import { authTokenUtil, getAllowedUins } from '../config'
+import { setLoginState, getCurrentLoginState } from '../llbot-ipc'
+import { version } from '../../version'
+import { startAuthTokenWatcher } from './direct/authTokenWatcher'
+import { QQProtocolBase } from './base'
+
+/**
+ * Direct 模式实现: 走 native sign + TCP 直连. QQ 未登录 -> WebUI 扫码.
+ * 内部持有一个低层 native `DirectProtocolClient` (direct/client.ts, 不要跟本类混淆).
+ */
+export class DirectQQProtocol extends QQProtocolBase {
+  private directClient: DirectProtocolClient | null = null
+  private directInitInFlight: boolean = false
+  private directPendingToken: string = ''
+  private directQrResult: QrCodeResult | null = null
+  private directPollResult: QrPollResult | null = null
+  private directStopHeartbeat: (() => void) | null = null
+  // 每次 fetchQrCode 都 ++, 旧 poll 循环发现 token 变了就自动退出, 避免刷新二维码后累积多条并行 poll 链
+  private qrPollToken: number = 0
+
+  // 扫码 loop 状态: 之前在 main.ts 作为闭包变量; 现在归实例.
+  private lastQrCodeTime = 0
+  private loopRunning = false
+
+  constructor(ctx: Context) {
+    super(ctx)
+  }
+
+  protected async start(): Promise<void> {
+    // 监听 data/auth_token.txt: 启动即读一次 + 文件变化时读取 -> 校验 -> 通过则触发登录.
+    // 没有 token 时只提示, 不再直接 init (无效 token 交给 native sign 会 process.exit 崩溃循环).
+    startAuthTokenWatcher(this.onAuthTokenValid.bind(this), this.logger)
+  }
+
+  public get_is_connected(): boolean {
+    return !!this.directClient?.isLoggedIn
+  }
+
+  public async sendPB(cmd: string, pb: Buffer | string, timeout = 15000): Promise<PBData> {
+    if (!this.directClient?.isLoggedIn) {
+      throw new Error('Direct client not logged in')
+    }
+    const buf = Buffer.isBuffer(pb) ? pb : Buffer.from(pb, 'hex')
+    const resp = await this.directClient.sendCommand(cmd, buf, undefined, timeout)
+    return { cmd, pb: resp.payload.toString('hex') }
+  }
+
+  /**
+   * 拉登录二维码, 内部启动一个 QR 状态轮询. 供 WebUI 前端 + 终端 QR 打印使用.
+   */
+  public async getLoginQrCode(): Promise<{ qrcodeUrl: string; pngBase64QrcodeData: string; expireTime: number; pollTimeInterval: number }> {
+    if (!this.directClient) {
+      throw new Error('Direct client not initialized')
+    }
+    const qr = await fetchQrCode(this.directClient)
+    this.directQrResult = qr
+    this.startDirectQrPolling()
+    return {
+      qrcodeUrl: qr.url,
+      pngBase64QrcodeData: qr.image.length > 0
+        ? 'data:image/png;base64,' + qr.image.toString('base64')
+        : '',
+      // QQ 二维码有效期约 180s (native 侧不返, 硬编默认); 前端到点会自动置 expired 出现"点击刷新"覆盖层.
+      expireTime: 180,
+      // 前端 pollLoginStatus 已按 3s 自轮询, 这个字段仅为兼容 QRCodeData 形状不再用.
+      pollTimeInterval: 3,
+    }
+  }
+
+  // ---- 内部: authTokenWatcher 回调 + 登录 loop ----
+
+  /**
+   * authTokenWatcher 校验通过 token 后回调本方法. 登录/sign 阶段的错误写回
+   * authTokenStatus.loginError 供 WebUI 展示; init 抛错的话交给 watcher 定时重试自愈.
+   */
+  private async onAuthTokenValid(token: string): Promise<void> {
+    if (selfInfo.online) return
+    try {
+      await this.initDirectClient(token)
+      this.lastQrCodeTime = 0
+      this.ensureDirectLoginLoop()
+    } catch (e) {
+      authTokenStatus.loginError = (e as Error)?.message || String(e)
+      this.logger.error('[Sign] auth_token 校验通过但登录初始化失败:', e)
+      throw e  // 交给 watcher: init 抛错(通常是 transient connect/网络)才定时重试自愈
+    }
+  }
+
+  /** 幂等启动扫码 loop: 已在运行则不再起新链, 避免多条 setTimeout 链并行拉码 */
+  private ensureDirectLoginLoop() {
+    if (this.loopRunning) return
+    this.directLoginLoop()
+  }
+
+  private directLoginLoop = async () => {
+    if (selfInfo.online) { this.loopRunning = false; return }
+    this.loopRunning = true
+    if (!this.directClient?.isLoggedIn) {
+      const now = Date.now()
+      // 二维码过期 / 被取消时立即重新获取, 否则按 120s 节流刷新
+      const st = getCurrentLoginState().state
+      const needRefresh = st === 'expired' || st === 'cancelled'
+      if (needRefresh || now - this.lastQrCodeTime > 120_000) {
+        this.lastQrCodeTime = now
+        this.printLoginQrCode()
+      }
+      setTimeout(this.directLoginLoop, 1000)
+    } else {
+      // isLoggedIn 为真但 selfInfo.online 未置 (登录中 / register 失败清 session 前的中间态):
+      // 继续轮询别停, 否则 register 失败 clearSession 后没有新码. 真在线由顶部 guard 停 loop.
+      setTimeout(this.directLoginLoop, 1000)
+    }
+  }
+
+  /**
+   * 拉二维码 + 打印到终端 (ASCII) + 落盘 png + 推给 Desktop.
+   * 之前放 main.ts, 现在归本类.
+   */
+  private async printLoginQrCode() {
+    try {
+      const data = await this.getLoginQrCode()
+
+      // 推给 Desktop (无头模式扫码登录对话框)
+      setLoginState({ state: 'need_qrcode', qrcode_png_base64: data.pngBase64QrcodeData })
+
+      const qrText = await QRCode.toString(data.qrcodeUrl, { type: 'terminal', small: true })
+      console.log('\n========== 请使用手机QQ扫描二维码登录 ==========')
+      console.log(qrText)
+      console.log('================================================\n')
+
+      if (data.pngBase64QrcodeData) {
+        const base64Data = data.pngBase64QrcodeData.replace(/^data:image\/png;base64,/, '')
+        const qrFilePath = path.join(TEMP_DIR, 'login-qrcode.png')
+        if (!existsSync(TEMP_DIR)) {
+          mkdirSync(TEMP_DIR, { recursive: true })
+        }
+        await writeFile(qrFilePath, Buffer.from(base64Data, 'base64'))
+        this.logger.info(`二维码文件已保存: ${qrFilePath}`)
+      }
+
+      const qrWebUrl = `https://api.2dcode.biz/v1/create-qr-code?data=${encodeURIComponent(data.qrcodeUrl)}`
+      this.logger.info(`或浏览器打开二维码网址: ${qrWebUrl}`)
+    } catch (e) {
+      this.logger.warn('获取登录二维码失败', e)
+    }
+  }
+
+  // ---- 内部: 底层 client 初始化 + 会话恢复 ----
+
+  /**
+   * Initialize direct protocol client and attempt session restore.
+   *
+   * auth_token 未配置时不再 throw: 直接 return, 让进程/WebUI 正常起来. token 校验通过后
+   * 由 authTokenWatcher 调 onAuthTokenValid -> 本方法(带已校验的 token)开始登录.
+   * token 有效性校验在 watcher 里 (validateAuthToken), 这里不再做 preflight.
+   * 可重入: 二次调用先拆掉上一个 client, 并把最新 token 热切换进 native sign。
+   */
+  private async initDirectClient(tokenArg?: string): Promise<void> {
+    // 优先用调用方 (watcher) 已校验过的 token; 没传才回退读文件. 保证交给 native sign 的
+    // 就是 validateAuthToken 校验通过的那一份, 不因期间文件被外部改写而分叉.
+    let authToken = (tokenArg || authTokenUtil.reload() || process.env.AUTH_TOKEN || '').trim()
+    if (!authToken) {
+      const tokenPath = authTokenUtil.getPath()
+      this.logger.warn(
+        `[Sign] auth_token 未配置 (${tokenPath} 为空 / 不存在). ` +
+        `请在 WebUI 中录入, 或到 https://auth.luckylillia.com 获取后填入; 录入验证通过后会自动开始登录.`
+      )
+      return
+    }
+    // 重入合并: 已有 init 在跑时不丢弃, 记下最新 token, 当前这次结束后用它再跑一次
+    if (this.directInitInFlight) {
+      this.directPendingToken = authToken
+      return
+    }
+    this.directInitInFlight = true
+    let lastErr: unknown = null
+    try {
+      do {
+        this.directPendingToken = ''
+        try {
+          lastErr = null
+          await this.doInitDirectClient(authToken)
+        } catch (e) {
+          lastErr = e
+        }
+        authToken = this.directPendingToken
+      } while (authToken)
+    } finally {
+      this.directInitInFlight = false
+      this.directPendingToken = ''
+    }
+    if (lastErr) throw lastErr
+  }
+
+  private async doInitDirectClient(authToken: string): Promise<void> {
+    // 重入清理: 上一次残留的 client (无效 token / 掉线) 先拆掉再重建, 避免连接泄漏
+    if (this.directClient) {
+      try { this.directClient.disconnect() } catch {}
+      this.directClient = null
+    }
+    // native sign 若已 init (上次用了旧/无效 token), 热切换到最新 token; 未 init 时 no-op
+    await updateAuthToken(authToken).catch((e) => this.logger.warn('[Sign] updateAuthToken failed:', (e as Error).message))
+
+    // 先 loadSession 拿 (uin, guid), 再 new DirectProtocolClient
+    const specifiedUin = getSpecifiedUin()
+    if (specifiedUin) {
+      this.logger.info('Specified login uin via -q/--qq: %s, will try qq-session-%s.json', specifiedUin, specifiedUin)
+    } else {
+      this.logger.info('No -q/--qq specified, will perform fresh QR login (session will be saved as qq-session-<uin>.json)')
+    }
+    const persisted = loadSession()
+
+    // session.guid 跟 machine_guid.bin 不一致时以 session 为准, 落盘同步
+    if (persisted) {
+      overwriteMachineGuid(Buffer.from(persisted.guid, 'hex'))
+    }
+
+    const uinForInit = persisted ? Number(persisted.uin) : undefined
+    this.directClient = new DirectProtocolClient({
+      authToken: authToken,
+      botVersion: `LLBot_${version}`,
+      uin: Number.isFinite(uinForInit) && (uinForInit as number) > 0 ? uinForInit : undefined,
+    })
+
+    this.directClient.on('error', (err: Error) => {
+      this.logger.warn('Direct client error:', err.message)
+    })
+    // native 连接建立 -> 更新 lastConnectedTime, 让 startDisconnectMonitoring 从此刻起监控
+    this.directClient.on('connected', () => {
+      this.lastConnectedTime = Date.now()
+    })
+    this.directClient.on('close', () => {
+      const wasOnline = this.onlineEmitted
+      selfInfo.online = false
+      if (this.directStopHeartbeat) {
+        this.directStopHeartbeat()
+        this.directStopHeartbeat = null
+      }
+      this.onlineEmitted = false
+      if (wasOnline) {
+        this.ctx.parallel('protocol/disconnect')
+      }
+    })
+    this.directClient.on('push', (packet: { cmd: string; payload: Buffer }) => {
+      // 收到包 = 连着; 顺带刷新 lastConnectedTime
+      this.lastConnectedTime = Date.now()
+      this.ctx.parallel('qq/raw', { cmd: packet.cmd, payload: packet.payload })
+    })
+
+    if (persisted) {
+      // 预检 persisted uin 是否在 token 授权列表: 不在的话 registerOnline 真 uin 签名会命中 compute 403
+      // -> native process.exit. (native init 幂等, 重试时第二次 init 会跳过软失败的 /api/bu bind, 兜不住)
+      const allowedRestore = await getAllowedUins(authToken)
+      if (allowedRestore && !allowedRestore.includes(Number(persisted.uin))) {
+        this.logger.error(`[Sign] persisted uin ${persisted.uin} 不在 auth_token 的 allowed_uins 中, 中止恢复登录`)
+        authTokenStatus.loginError = `当前 QQ ${persisted.uin} 无法使用此 Auth Token（可能已达可用 QQ 数量上限）`
+        return
+      }
+      this.logger.info('Found saved session for UIN %s (file: %s), attempting restore...', persisted.uin, getSessionFilePathForUin(persisted.uin))
+      await this.directClient.connect()
+      const session = persistedToSessionInfo(persisted)
+      this.directClient.setSession(session)
+
+      try {
+        await registerOnline(this.directClient)
+        console.log('[QQ Server] Online registered!')
+        selfInfo.uin = persisted.uin
+        selfInfo.uid = persisted.uid
+        if (persisted.nick) selfInfo.nick = persisted.nick
+        selfInfo.online = true
+        this.directStopHeartbeat = startHeartbeat(this.directClient)
+        this.maybeEmitOnline()
+        // 直连 session 恢复后 nick 可能为空; 异步补查
+        if (!selfInfo.nick) this.scheduleFetchSelfNick()
+        return
+      } catch (e) {
+        this.logger.info('Saved session expired, will need QR login: %s', (e as Error).message)
+        this.directClient.clearSession()
+        this.directClient.disconnect()
+      }
+    }
+
+    // Connect fresh (will need QR login)
+    await this.directClient.connect()
+  }
+
+  // ---- 内部: 扫码轮询 + 登录收尾 ----
+
+  private startDirectQrPolling() {
+    if (!this.directClient || !this.directQrResult) return
+    const myToken = ++this.qrPollToken
+
+    const poll = async () => {
+      if (this.qrPollToken !== myToken) return  // 已被新一轮刷新取消
+      if (!this.directClient || !this.directQrResult) return
+      if (this.directClient.isLoggedIn) return
+
+      try {
+        const result = await pollQrCode(this.directClient, this.directQrResult.sig)
+        if (this.qrPollToken !== myToken) return
+        this.directPollResult = result
+
+        if (result.state === QrCodeState.Confirmed) {
+          await this.completeDirectLogin()
+          return
+        }
+
+        if (result.state === QrCodeState.WaitingForConfirm) {
+          // 已扫码, 等手机确认 (Desktop 显示"请在手机上确认登录")
+          setLoginState({ state: 'waiting_confirm' })
+        }
+
+        if (result.state === QrCodeState.Expired || result.state === QrCodeState.Cancelled) {
+          // 失效后置状态并清掉旧码; directLoginLoop 会立即重新拉新码 -> need_qrcode
+          setLoginState({ state: result.state === QrCodeState.Expired ? 'expired' : 'cancelled' })
+          this.directQrResult = null
+          return
+        }
+      } catch (e) {
+        this.logger.warn('QR poll error:', (e as Error).message)
+      }
+
+      if (this.qrPollToken !== myToken) return
+      setTimeout(poll, 2000)
+    }
+
+    setTimeout(poll, 2000)
+  }
+
+  private async completeDirectLogin() {
+    if (!this.directClient || !this.directPollResult || !this.directQrResult) return
+
+    // Get UIN
+    const urlParams = new URL(this.directQrResult.url).searchParams
+    const qrSig = urlParams.get('k') || ''
+    const uin = await getCorrectUin(AppInfo.appId, qrSig)
+    this.directPollResult.uin = String(uin)
+
+    // 预检: 当前 uin 是否在 token 的 allowed_uins 里. 不在的话, 稍后 registerOnline 用真 uin 签名
+    // 会命中 /api/sign/compute 403, native SDK 直接 process.exit 崩进程 -- 所以在任何真 uin 签名前
+    // 就拦下, 把原因回传 WebUI. 拿不到列表 (网络失败) 时放行, 交给后续流程.
+    const allowed = await getAllowedUins(authTokenUtil.getToken())
+    if (allowed && !allowed.includes(Number(uin))) {
+      this.logger.error(`[Sign] uin ${uin} 不在 auth_token 的 allowed_uins 中, 中止登录`)
+      authTokenStatus.loginError = `当前 QQ ${uin} 无法使用此 Auth Token（可能已达可用 QQ 数量上限）`
+      return
+    }
+
+    // wtlogin.login
+    const loginResult = await loginWithQrResult(this.directClient, this.directPollResult)
+    if (!loginResult.success) {
+      this.logger.error(`Login failed: state=${loginResult.state} ${loginResult.tag} ${loginResult.message}`)
+      // 登录失败原因回传 WebUI (如 auth_token 可用 QQ 数量已达上限)
+      authTokenStatus.loginError = `登录失败: ${[loginResult.tag, loginResult.message].filter(Boolean).join(' ')}`.trim()
+      return
+    }
+
+    this.logger.info(`Login successful! UID: ${loginResult.uid}, nick: "${loginResult.nick}"`)
+
+    // Save session
+    const session = this.directClient.getSession()!
+    saveSession(session, this.directPollResult.tgtgtKey!, this.directClient.getGuid(), loginResult.tempPassword, loginResult.nick)
+
+    // Register online: 失败视为登录未完成, 不标记在线, 报错回 WebUI. 必须清掉半成品 session
+    // (loginWithQrResult 已 setSession -> isLoggedIn=true), 否则扫码 loop 认为已登录会停, 不出新码,
+    // 变成收不到 MsgPush 的"假在线". 连接保留复用, 下一轮 loop 直接拉新码.
+    try {
+      await registerOnline(this.directClient)
+    } catch (e) {
+      const msg = (e as Error).message
+      this.logger.error('Register online failed:', msg)
+      authTokenStatus.loginError = `上线注册失败: ${msg}`
+      this.directClient.clearSession()
+      return
+    }
+
+    // Start heartbeat
+    this.directStopHeartbeat = startHeartbeat(this.directClient)
+
+    // Update global state
+    selfInfo.uin = String(uin)
+    selfInfo.uid = loginResult.uid
+    selfInfo.nick = loginResult.nick
+    selfInfo.online = true
+    this.maybeEmitOnline()
+    if (!selfInfo.nick) this.scheduleFetchSelfNick()
+  }
+}

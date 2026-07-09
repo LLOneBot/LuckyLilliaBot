@@ -6,8 +6,8 @@ import { InferProtoModelInput } from '@saltify/typeproto'
 import { AppInfo, DeviceInfo } from '../direct/appInfo'
 import type { QQProtocolBase } from '../base'
 
-export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
-  return class extends Base {
+export function MessageMixin<T extends abstract new (...args: any[]) => QQProtocolBase>(Base: T) {
+  abstract class Mixed extends Base {
     async uploadForward(peerUid: string, isGroup: boolean, items: InferProtoModelInput<typeof Msg.PbMultiMsgItem>[]) {
       const transmit = Msg.PbMultiMsgTransmit.encode({ pbItemList: items })
       const data = Action.SendLongMsgReq.encode({
@@ -400,4 +400,5 @@ export function MessageMixin<T extends new (...args: any[]) => QQProtocolBase>(B
       return Oidb.SetInputStatusResp.decode(oidbRespBody)
     }
   }
+  return Mixed
 }

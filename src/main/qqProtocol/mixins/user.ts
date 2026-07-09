@@ -3,8 +3,8 @@ import type { QQProtocolBase } from '../base'
 import { Dict, isNonNullable } from 'cosmokit'
 import { selfInfo } from '@/common/globalVars'
 
-export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
-  return class extends Base {
+export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolBase>(Base: T) {
+  abstract class Mixed extends Base {
     async fetchUserInfoByUin(uin: number) {
       const body = Oidb.FetchUserInfoByUinReq.encode({
         uin,
@@ -168,4 +168,5 @@ export function UserMixin<T extends new (...args: any[]) => QQProtocolBase>(Base
       return await this.sendOidb(0x112a, 2, body)
     }
   }
+  return Mixed
 }

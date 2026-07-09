@@ -3,8 +3,8 @@ import { selfInfo } from '@/common/globalVars'
 import type { QQProtocolBase } from '../base'
 import { randomInt } from 'node:crypto'
 
-export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Base: T) {
-  return class extends Base {
+export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocolBase>(Base: T) {
+  abstract class Mixed extends Base {
     async sendGroupPoke(groupCode: number, memberUin: number) {
       const body = Oidb.SendPokeReq.encode({
         toUin: memberUin,
@@ -552,4 +552,5 @@ export function GroupMixin<T extends new (...args: any[]) => QQProtocolBase>(Bas
       return Oidb.FetchGroupExtraResp.decode(oidbRespBody)
     }
   }
+  return Mixed
 }
