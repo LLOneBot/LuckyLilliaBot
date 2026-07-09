@@ -1,6 +1,9 @@
 import { Context } from 'cordis'
-import { selfInfo } from '@/common/globalVars'
+import { selfInfo, DATA_DIR } from '@/common/globalVars'
 import { Hono } from 'hono'
+import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
+import JSON5 from 'json5'
 
 export function createLoginRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -51,9 +54,31 @@ export function createLoginRoutes(ctx: Context): Hono {
     }
   })
 
-  // 获取账号信息
+  // 获取账号信息 + 该账号最终生效的 WebUI 配置.
+  // 登录成功后会加载 config_<uin>.json, 里面可能关闭 WebUI (enable=false) 或改了端口 -- 那样后端
+  // 会自行 restart/关停, FE 若直接跳主页就会一路 502. 这里直接读 config_<uin>.json (磁盘上的最终值,
+  // 且从一开始就在) 而非 webuiServer 运行态, 避开 "online 先于 config 加载" 的竞态: FE 在第一次
+  // 拿到 online=true (此时后端还没关) 就能读到最终 webui 配置, 据此决定跳主页 / 提示已关闭 / 跳新端口.
   router.get('/login-info', (c) => {
-    return c.json({ success: true, data: selfInfo })
+    let webui: { enable: boolean; host: string; port: number } | undefined
+    if (selfInfo.online && selfInfo.uin) {
+      try {
+        const p = path.join(DATA_DIR, `config_${selfInfo.uin}.json`)
+        if (existsSync(p)) {
+          const cfg = JSON5.parse(readFileSync(p, 'utf-8'))
+          if (cfg?.webui) {
+            webui = {
+              enable: cfg.webui.enable !== false,
+              host: cfg.webui.host ?? '',
+              port: Number(cfg.webui.port) || 0,
+            }
+          }
+        }
+      } catch {
+        // 读不出就不带 webui, FE 回退到默认跳主页逻辑
+      }
+    }
+    return c.json({ success: true, data: { ...selfInfo, webui } })
   })
 
   return router

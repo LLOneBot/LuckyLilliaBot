@@ -4,6 +4,9 @@ import { apiFetch } from '../../utils/api';
 import { SelfInfo } from '../../types';
 import { showToast } from '../common';
 
+// Vite define 注入: dev 模式下 Vite 代理指向的后端端口 (见 FE vite.config.ts)
+declare const __WEBUI_DEV_PORT__: string;
+
 interface Account {
   uin: string;
   uid: string;
@@ -51,6 +54,9 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
   const hasFetchedRef = useRef(false);
   const generateQrCodeRef = useRef<(() => void) | undefined>(undefined);
   const [authLoginError, setAuthLoginError] = useState('');
+  // 登录成功但账号配置里 WebUI 被关闭 (enable=false): 不跳主页 (跳过去也是 502), 展示提示卡片
+  const [webuiClosed, setWebuiClosed] = useState<null | { uin: string; host: string; port: number }>(null);
+  const webuiClosedRef = useRef(false);
 
   const qrStatusText = {
     scanning: '扫描成功，请在手机上确认',
@@ -85,9 +91,34 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
       attempts++;
 
       try {
-        const result = await apiFetch<SelfInfo>('/api/login-info');
+        const result = await apiFetch<SelfInfo & { webui?: { enable: boolean; host: string; port: number } }>('/api/login-info');
         if (result.success && result.data.online === true) {
           stopLoginPolling();
+          const webui = result.data.webui;
+          // 账号配置关闭了 WebUI -> 不跳主页 (后端即将关停, 跳过去只会 502), 展示提示
+          if (webui && webui.enable === false) {
+            webuiClosedRef.current = true;
+            setWebuiClosed({ uin: result.data.uin || '', host: webui.host, port: webui.port });
+            return;
+          }
+          // 账号配置改了端口/host -> 后端会迁移, 当前入口即将失联, 跳到新地址.
+          // 前端当前"实际连到的后端端口": prod 下前端与 API 同源 = window.location.port;
+          // dev 下走 Vite 代理, window.location.port 是 Vite 的 15173, 真正的后端端口是代理目标
+          // __WEBUI_DEV_PORT__ (见 vite.config.ts define). 用它比较才不会在 dev 正常登录时误跳.
+          if (webui && webui.enable) {
+            const curHost = window.location.hostname;
+            const curBackendPort = import.meta.env.DEV
+              ? __WEBUI_DEV_PORT__
+              : (window.location.port || (window.location.protocol === 'https:' ? '443' : '80'));
+            const newHost = webui.host && webui.host !== '0.0.0.0' ? webui.host : curHost;
+            if (String(webui.port) !== curBackendPort || newHost !== curHost) {
+              showToast(`WebUI 地址已变更, 正在跳转到 ${newHost}:${webui.port}...`, 'success');
+              setTimeout(() => {
+                window.location.href = `${window.location.protocol}//${newHost}:${webui.port}${window.location.pathname}`;
+              }, 1500);
+              return;
+            }
+          }
           showToast('登录成功！正在跳转到主页面...', 'success');
           if (loginMode === 'qr') setQrStatus('success');
           setTimeout(() => onLoginSuccess(), 1000);
@@ -226,6 +257,8 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
   useEffect(() => {
     let stopped = false;
     const poll = async () => {
+      // WebUI 已被账号配置关闭: 后端即将关停, 别再轮询 (否则 502 刷屏)
+      if (stopped || webuiClosedRef.current) return;
       try {
         const res = await apiFetch<{ loginError: string; validation: string; message: string }>('/api/auth-token/status');
         if (!stopped && res.success) {
@@ -235,11 +268,27 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
       } catch {
         // ignore
       }
-      if (!stopped) setTimeout(poll, 3000);
+      if (!stopped && !webuiClosedRef.current) setTimeout(poll, 3000);
     };
     poll();
     return () => { stopped = true; };
   }, []);
+
+  if (webuiClosed) {
+    return (
+      <div className="relative min-h-screen flex flex-col items-center justify-center p-5">
+        <div className="bg-white/50 dark:bg-neutral-800/70 backdrop-blur-2xl rounded-3xl p-10 shadow-xl border border-white/30 dark:border-neutral-700/50 max-w-md text-center relative z-10">
+          <div className="text-lg font-medium text-theme mb-3">登录成功</div>
+          <div className="text-theme-secondary text-sm leading-relaxed text-left">
+            账号 <span className="font-medium">{webuiClosed.uin}</span> 的配置中 WebUI 已关闭
+            (<code className="px-1 rounded bg-black/10 dark:bg-white/10">webui.enable = false</code>)，网页管理界面不可用。
+            <br /><br />
+            如需继续使用，请在 <code className="px-1 rounded bg-black/10 dark:bg-white/10">data/config_{webuiClosed.uin}.json</code> 里把 <code className="px-1 rounded bg-black/10 dark:bg-white/10">webui.enable</code> 设为 <code className="px-1 rounded bg-black/10 dark:bg-white/10">true</code> 后重启。
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center p-5">
