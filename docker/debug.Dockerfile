@@ -22,4 +22,7 @@ RUN touch /.dockerenv
 
 COPY /dist /app/llbot
 
+# data 持久化: 声明为卷, 未显式挂载时也走匿名卷 (compose 重建/镜像更新可复用), 不落容器可写层
+VOLUME ["/app/llbot/data"]
+
 ENTRYPOINT ["/startup.sh"]

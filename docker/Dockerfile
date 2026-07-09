@@ -27,4 +27,7 @@ RUN wget https://github.com/LLOneBot/LuckyLilliaBot/releases/download/v$LLBOT_VE
 RUN unzip /app/llbot.zip -d /app/llbot \
     && rm /app/llbot.zip
 
+# data 持久化: 声明为卷, 未显式挂载时也走匿名卷 (compose 重建/镜像更新可复用), 不落容器可写层
+VOLUME ["/app/llbot/data"]
+
 ENTRYPOINT ["/startup.sh"]
