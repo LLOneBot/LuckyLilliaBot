@@ -339,3 +339,57 @@ class AuthTokenUtil {
 }
 
 export const authTokenUtil = new AuthTokenUtil(path.join(DATA_DIR, 'auth_token.txt'))
+
+// auth token 校验服务 (契约同 Desktop preflight / install 脚本): GET + Authorization: Bearer
+export const AUTH_VALIDATE_API = 'https://api-auth.luckylillia.com/api/sign/info'
+
+/**
+ * 校验 auth token 是否有效.
+ * 2xx=valid, 401/403=invalid (失效/无权限), 网络失败/超时/其它状态=error (无法判定).
+ * 纯 HTTP 探测, 不依赖 native sign 初始化, 未登录时也能用.
+ */
+export async function validateAuthToken(token: string): Promise<'valid' | 'invalid' | 'error'> {
+  const t = token.trim()
+  if (!t) return 'invalid'
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 15000)
+  try {
+    const res = await fetch(AUTH_VALIDATE_API, {
+      headers: { Authorization: `Bearer ${t}` },
+      signal: controller.signal,
+    })
+    if (res.ok) return 'valid'
+    if (res.status === 401 || res.status === 403) return 'invalid'
+    return 'error'
+  } catch {
+    return 'error'
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * 拉取 token 的 allowed_uins (GET /api/sign/info 返回体里带). 用于登录前预检当前 uin 是否被授权:
+ * 不在列表里的 uin 一旦走真 uin 签名 (/api/sign/compute), native SDK 对 403 会 process.exit 崩进程,
+ * 所以必须在签名前用这个列表拦截. 拿不到 (网络失败/非 2xx/解析失败) 返回 null, 调用方应放行不拦截.
+ */
+export async function getAllowedUins(token: string): Promise<number[] | null> {
+  const t = token.trim()
+  if (!t) return null
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 15000)
+  try {
+    const res = await fetch(AUTH_VALIDATE_API, {
+      headers: { Authorization: `Bearer ${t}` },
+      signal: controller.signal,
+    })
+    if (!res.ok) return null
+    const data = await res.json() as { allowed_uins?: unknown }
+    if (!Array.isArray(data.allowed_uins)) return null
+    return data.allowed_uins.map((x) => Number(x)).filter((n) => Number.isFinite(n))
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}

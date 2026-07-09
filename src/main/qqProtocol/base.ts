@@ -1,5 +1,5 @@
 import { deepConvertMap, deepStringifyMap } from './util'
-import { selfInfo } from '@/common/globalVars'
+import { selfInfo, authTokenStatus } from '@/common/globalVars'
 import { randomUUID, createHash } from 'node:crypto'
 import path from 'node:path'
 import { version } from '../../version'
@@ -15,7 +15,8 @@ import { Context, Service } from 'cordis'
 import { DirectProtocolClient, fetchQrCode, pollQrCode, loginWithQrResult, registerOnline, startHeartbeat, getCorrectUin, QrCodeState, AppInfo, saveSession, loadSession, persistedToSessionInfo, getSpecifiedUin, getSpecifiedSignHost, getSessionFilePathForUin, buildSsoInfoSync } from './direct'
 import type { QrCodeResult, QrPollResult } from './direct'
 import { overwriteMachineGuid } from './direct/machineGuid'
-import { authTokenUtil } from '../config'
+import { updateAuthToken } from './direct/sign'
+import { authTokenUtil, getAllowedUins } from '../config'
 import { setLoginState } from '../llbot-ipc'
 import { isPmhqMode } from '@/common/utils/environment'
 
@@ -58,6 +59,8 @@ export class QQProtocolBase extends Service {
   private onlineEmitted: boolean = false
 
   public directClient: DirectProtocolClient | null = null
+  private directInitInFlight: boolean = false
+  private directPendingToken: string = ''
   private directQrResult: QrCodeResult | null = null
   private directPollResult: QrPollResult | null = null
   private directStopHeartbeat: (() => void) | null = null
@@ -78,6 +81,7 @@ export class QQProtocolBase extends Service {
     if (!selfInfo.online) return
     if (!selfInfo.uid && !selfInfo.uin) return
     this.onlineEmitted = true
+    authTokenStatus.loginError = '' // 登录成功, 清掉登录错误
     this.ctx.parallel('qq/online')
   }
 
@@ -453,20 +457,56 @@ export class QQProtocolBase extends Service {
    * Initialize direct protocol client and attempt session restore.
    * Call this in place of (or alongside) connectWebSocket when using direct protocol.
    *
-   * 启动前 client.preflightSign() 一次: token / 鉴权 / 远端 sign-service 任一不通,
-   * 直接 throw, 不让后续 connect / register / restore 跑下去.
+   * auth_token 未配置时不再 throw: 直接 return, 让进程/WebUI 正常起来. token 校验通过后
+   * 由 authTokenWatcher 调 onAuthTokenValid -> 本方法(带已校验的 token)开始登录.
+   * token 有效性校验在 watcher 里 (validateAuthToken), 这里不再做 preflight.
+   * 可重入: 二次调用先拆掉上一个 client, 并把最新 token 热切换进 native sign。
    */
-  async initDirectClient(): Promise<void> {
-    const authToken = authTokenUtil.getToken() || process.env.AUTH_TOKEN || undefined
+  async initDirectClient(tokenArg?: string): Promise<void> {
+    // 优先用调用方 (watcher) 已校验过的 token; 没传才回退读文件. 保证交给 native sign 的
+    // 就是 validateAuthToken 校验通过的那一份, 不因期间文件被外部改写而分叉.
+    let authToken = (tokenArg || authTokenUtil.reload() || process.env.AUTH_TOKEN || '').trim()
     if (!authToken) {
       const tokenPath = authTokenUtil.getPath()
-      const tokenFile = path.basename(tokenPath)
-      this.logger.error(
-        `[Sign Preflight] auth_token 未设置 (文件 ${tokenPath} 为空 / 不存在). ` +
-        `请到 https://auth.luckylillia.com 获取 token, 粘贴到 ${tokenFile}, 然后重启.`
+      this.logger.warn(
+        `[Sign] auth_token 未配置 (${tokenPath} 为空 / 不存在). ` +
+        `请在 WebUI 中录入, 或到 https://auth.luckylillia.com 获取后填入; 录入验证通过后会自动开始登录.`
       )
-      throw new Error('auth token not configured')
+      return
     }
+    // 重入合并: 已有 init 在跑时不丢弃, 记下最新 token, 当前这次结束后用它再跑一次
+    if (this.directInitInFlight) {
+      this.directPendingToken = authToken
+      return
+    }
+    this.directInitInFlight = true
+    let lastErr: unknown = null
+    try {
+      do {
+        this.directPendingToken = ''
+        try {
+          lastErr = null
+          await this.doInitDirectClient(authToken)
+        } catch (e) {
+          lastErr = e
+        }
+        authToken = this.directPendingToken
+      } while (authToken)
+    } finally {
+      this.directInitInFlight = false
+      this.directPendingToken = ''
+    }
+    if (lastErr) throw lastErr
+  }
+
+  private async doInitDirectClient(authToken: string): Promise<void> {
+    // 重入清理: 上一次残留的 client (无效 token / 掉线) 先拆掉再重建, 避免连接泄漏
+    if (this.directClient) {
+      try { this.directClient.disconnect() } catch {}
+      this.directClient = null
+    }
+    // native sign 若已 init (上次用了旧/无效 token), 热切换到最新 token; 未 init 时 no-op
+    await updateAuthToken(authToken).catch((e) => this.logger.warn('[Sign] updateAuthToken failed:', (e as Error).message))
 
     // 先 loadSession 拿 (uin, guid), 再 new DirectProtocolClient -- 让 sign 那侧
     // init 时就拿到 uin 和 device GUID, 不用后续补救.
@@ -511,6 +551,14 @@ export class QQProtocolBase extends Service {
     })
 
     if (persisted) {
+      // 预检 persisted uin 是否在 token 授权列表: 不在的话 registerOnline 真 uin 签名会命中 compute 403
+      // -> native process.exit. (native init 幂等, 重试时第二次 init 会跳过软失败的 /api/bu bind, 兜不住)
+      const allowedRestore = await getAllowedUins(authToken)
+      if (allowedRestore && !allowedRestore.includes(Number(persisted.uin))) {
+        this.logger.error(`[Sign] persisted uin ${persisted.uin} 不在 auth_token 的 allowed_uins 中, 中止恢复登录`)
+        authTokenStatus.loginError = `当前 QQ ${persisted.uin} 无法使用此 Auth Token（可能已达可用 QQ 数量上限）`
+        return
+      }
       this.logger.info('Found saved session for UIN %s (file: %s), attempting restore...', persisted.uin, getSessionFilePathForUin(persisted.uin))
       await this.directClient.connect()
       const session = persistedToSessionInfo(persisted)
@@ -629,10 +677,22 @@ export class QQProtocolBase extends Service {
     const uin = await getCorrectUin(AppInfo.appId, qrSig)
     this.directPollResult.uin = String(uin)
 
+    // 预检: 当前 uin 是否在 token 的 allowed_uins 里. 不在的话, 稍后 registerOnline 用真 uin 签名
+    // 会命中 /api/sign/compute 403, native SDK 直接 process.exit 崩进程 -- 所以在任何真 uin 签名前
+    // 就拦下, 把原因回传 WebUI. 拿不到列表 (网络失败) 时放行, 交给后续流程.
+    const allowed = await getAllowedUins(authTokenUtil.getToken())
+    if (allowed && !allowed.includes(Number(uin))) {
+      this.logger.error(`[Sign] uin ${uin} 不在 auth_token 的 allowed_uins 中, 中止登录`)
+      authTokenStatus.loginError = `当前 QQ ${uin} 无法使用此 Auth Token（可能已达可用 QQ 数量上限）`
+      return
+    }
+
     // wtlogin.login
     const loginResult = await loginWithQrResult(this.directClient, this.directPollResult)
     if (!loginResult.success) {
       this.logger.error(`Login failed: state=${loginResult.state} ${loginResult.tag} ${loginResult.message}`)
+      // 登录失败原因回传 WebUI (如 auth_token 可用 QQ 数量已达上限)
+      authTokenStatus.loginError = `登录失败: ${[loginResult.tag, loginResult.message].filter(Boolean).join(' ')}`.trim()
       return
     }
 
@@ -642,11 +702,17 @@ export class QQProtocolBase extends Service {
     const session = this.directClient.getSession()!
     saveSession(session, this.directPollResult.tgtgtKey!, this.directClient.getGuid(), loginResult.tempPassword, loginResult.nick)
 
-    // Register online
+    // Register online: 失败视为登录未完成, 不标记在线, 报错回 WebUI. 必须清掉半成品 session
+    // (loginWithQrResult 已 setSession -> isLoggedIn=true), 否则扫码 loop 认为已登录会停, 不出新码,
+    // 变成收不到 MsgPush 的"假在线". 连接保留复用, 下一轮 loop 直接拉新码.
     try {
       await registerOnline(this.directClient)
     } catch (e) {
-      this.logger.warn('Register:', (e as Error).message)
+      const msg = (e as Error).message
+      this.logger.error('Register online failed:', msg)
+      authTokenStatus.loginError = `上线注册失败: ${msg}`
+      this.directClient.clearSession()
+      return
     }
 
     // Start heartbeat

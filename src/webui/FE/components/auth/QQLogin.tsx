@@ -49,6 +49,8 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
   const loginPollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPollingLoginRef = useRef(false);
   const hasFetchedRef = useRef(false);
+  const generateQrCodeRef = useRef<(() => void) | undefined>(undefined);
+  const [authLoginError, setAuthLoginError] = useState('');
 
   const qrStatusText = {
     scanning: '扫描成功，请在手机上确认',
@@ -137,8 +139,9 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
       } else {
         throw new Error(result.message || '获取二维码失败');
       }
-    } catch (error) {
-      showToast(error.message || '获取二维码失败', 'error');
+    } catch {
+      // 直连 client 可能刚录入 token 正在初始化, 二维码还没就绪 -> 慢速静默重试, 成功即停
+      setTimeout(() => generateQrCodeRef.current?.(), 3000);
     }
   }, [displayQrCode, pollLoginStatus, stopLoginPolling]);
 
@@ -205,6 +208,29 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
   }, []);
 
   useEffect(() => {
+    generateQrCodeRef.current = generateQrCode;
+  }, [generateQrCode]);
+
+  // 轮询 auth token 状态: 展示登录/sign 错误 (如可用 QQ 数量上限) 及验证服务不可达提示; 自愈后自动清除
+  useEffect(() => {
+    let stopped = false;
+    const poll = async () => {
+      try {
+        const res = await apiFetch<{ loginError: string; validation: string; message: string }>('/api/auth-token/status');
+        if (!stopped && res.success) {
+          const d = res.data;
+          setAuthLoginError(d.loginError || (d.validation === 'error' ? (d.message || '') : ''));
+        }
+      } catch {
+        // ignore
+      }
+      if (!stopped) setTimeout(poll, 3000);
+    };
+    poll();
+    return () => { stopped = true; };
+  }, []);
+
+  useEffect(() => {
     if (loginMode === 'qr') {
       setTimeout(() => generateQrCode(), 100);
     } else if (qrRefreshIntervalRef.current) {
@@ -218,6 +244,11 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center p-5">
       <div className="bg-white/50 dark:bg-neutral-800/70 backdrop-blur-2xl rounded-3xl p-10 shadow-xl border border-white/30 dark:border-neutral-700/50 min-w-[320px] text-center relative z-10">
+        {authLoginError && (
+          <div className="mb-5 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm text-left">
+            {authLoginError}
+          </div>
+        )}
         {/* Quick Login Mode */}
         {loginMode === 'quick' && (
           <div className="flex flex-col items-center gap-6">

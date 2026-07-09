@@ -3,42 +3,6 @@
 echo "=========================================="
 echo "LLBot Docker 安装配置向导"
 echo "=========================================="
-
-# Auth Token 验证（第一步，位于所有流程之上；验证失败或网络失败直接中断安装）
-AUTH_API="https://api-auth.luckylillia.com/api/sign/info"
-
-echo ""
-echo "请输入 Auth Token"
-echo "获取地址: https://auth.luckylillia.com"
-read -p "请输入 Auth Token（必填）: " input_token
-input_token=$(printf '%s' "$input_token" | tr -d '[:space:]')
-if [ -z "$input_token" ]; then
-    echo "[ERROR] Auth Token 不能为空，安装中断"
-    exit 1
-fi
-
-echo "正在验证 Auth Token..."
-code=$(curl -sS -o /dev/null -m 15 -w "%{http_code}" -H "Authorization: Bearer ${input_token}" "$AUTH_API" 2>/dev/null)
-code=${code:-000}
-case "$code" in
-    2??)
-        echo "[OK] Auth Token 验证通过 (HTTP $code)"
-        AUTH_TOKEN="$input_token"
-        ;;
-    401|403)
-        echo "[ERROR] Auth Token 无效、已失效或无权限 (HTTP $code)，安装中断"
-        exit 1
-        ;;
-    000)
-        echo "[ERROR] 无法连接验证服务器（网络问题），安装中断"
-        exit 1
-        ;;
-    *)
-        echo "[ERROR] 验证服务器返回 HTTP $code，无法验证 Token，安装中断"
-        exit 1
-        ;;
-esac
-
 echo ""
 echo "请选择配置方式："
 echo "1) 现在配置（命令行配置所有选项）"
@@ -47,11 +11,24 @@ echo ""
 read -p "请选择 (1/2): " config_mode
 
 AUTO_LOGIN_QQ=""
+# Auth Token: 仅命令行配置(mode 1)时询问; 稍后配置(mode 2)由用户在 WebUI 中录入, 这里留空
+AUTH_TOKEN=""
 if [ "$config_mode" == "1" ]; then
     while [ -z "$AUTO_LOGIN_QQ" ]; do
         read -p "请输入 QQ 号（必填）: " AUTO_LOGIN_QQ
         [[ "$AUTO_LOGIN_QQ" =~ ^[0-9]+$ ]] || { echo "错误：QQ 号必须是数字！"; AUTO_LOGIN_QQ=""; continue; }
     done
+
+    # Auth Token (命令行配置必填; 此处不做校验, 有效性在登录/WebUI 侧判定)
+    echo ""
+    echo "Auth Token（必填）"
+    echo "获取地址: https://auth.luckylillia.com"
+    while [ -z "$AUTH_TOKEN" ]; do
+        read -p "请输入 Auth Token（必填）: " input_token
+        AUTH_TOKEN=$(printf '%s' "$input_token" | tr -d '[:space:]')
+        [ -z "$AUTH_TOKEN" ] && echo "错误：Auth Token 不能为空！"
+    done
+    echo "[OK] 已记录 Auth Token，将写入 auth_token.txt"
 fi
 
 declare -A SERVICE_PORTS

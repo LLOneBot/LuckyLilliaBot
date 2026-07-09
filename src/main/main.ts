@@ -14,7 +14,7 @@ import SQLiteDriver from '@cordisjs/plugin-database-sqlite'
 import Store from './store'
 import { Config as LLBotConfig } from '../common/types'
 import { Context } from 'cordis'
-import { selfInfo, LOG_DIR, TEMP_DIR, dbDir } from '../common/globalVars'
+import { selfInfo, authTokenStatus, LOG_DIR, TEMP_DIR, dbDir } from '../common/globalVars'
 import {
   NTFileApi,
   NTFriendApi,
@@ -34,6 +34,7 @@ import { EmailConfig } from '@/common/emailConfig'
 import { isDockerEnvironment, isPmhqMode } from '@/common/utils/environment'
 import { pathToFileURL } from 'node:url'
 import { QQProtocolClient } from './qqProtocol'
+import { startAuthTokenWatcher } from './qqProtocol/direct/authTokenWatcher'
 import LoggerConsole from '@cordisjs/plugin-logger-console'
 import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
@@ -105,6 +106,7 @@ async function onLoad() {
   }
 
   let lastQrCodeTime = 0
+  let directLoopRunning = false
 
   const isDocker = isDockerEnvironment()
   const useDirectProtocol = !isPmhqMode()
@@ -139,7 +141,8 @@ async function onLoad() {
   }
 
   const directLoginLoop = async () => {
-    if (selfInfo.online) return
+    if (selfInfo.online) { directLoopRunning = false; return }
+    directLoopRunning = true
     const info = ctx.qqProtocol.getDirectSelfInfo()
     if (!info.online) {
       const now = Date.now()
@@ -151,6 +154,31 @@ async function onLoad() {
         printLoginQrCode()
       }
       setTimeout(directLoginLoop, 1000)
+    } else {
+      // isLoggedIn 为真但 selfInfo.online 未置 (登录中 / register 失败清 session 前的中间态):
+      // 继续轮询别停, 否则 register 失败 clearSession 后没有新码. 真在线由顶部 guard 停 loop.
+      setTimeout(directLoginLoop, 1000)
+    }
+  }
+
+  // 幂等启动扫码 loop: 已在运行则不再起新链, 避免多条 setTimeout 链并行拉码
+  const ensureDirectLoginLoop = () => {
+    if (directLoopRunning) return
+    directLoginLoop()
+  }
+
+  // auth_token 校验通过后 (由 authTokenWatcher 调): 重建直连并拉起扫码 loop;
+  // 登录/sign 阶段的错误写回 authTokenStatus.loginError 给 WebUI 展示
+  const onAuthTokenValid = async (token: string) => {
+    if (selfInfo.online) return
+    try {
+      await ctx.qqProtocol.initDirectClient(token)
+      lastQrCodeTime = 0
+      ensureDirectLoginLoop()
+    } catch (e) {
+      authTokenStatus.loginError = (e as Error)?.message || String(e)
+      ctx.logger.error('[Sign] auth_token 校验通过但登录初始化失败:', e)
+      throw e  // 交给 authTokenWatcher: init 抛错(通常是 transient connect/网络)才定时重试自愈
     }
   }
 
@@ -212,13 +240,9 @@ async function onLoad() {
     startIpcServer()
     setLoginState({ state: 'initializing' })
     if (useDirectProtocol) {
-      ctx.qqProtocol.initDirectClient().then(() => {
-        directLoginLoop()
-      }).catch(e => {
-        // 不 catch 的话 reject 会变成 unhandled rejection, directLoginLoop 不跑,
-        // 状态停在 initializing, Desktop 一直显示"登录中"却没有任何线索.
-        ctx.logger.error('直连协议初始化失败 (initDirectClient):', e)
-      })
+      // 监听 data/auth_token.txt: 启动即读一次 + 文件变化时读取 -> 校验 -> 通过则 onAuthTokenValid 登录.
+      // 没有 token 时只提示, 不再直接 init (无效 token 交给 native sign 会 process.exit 崩溃循环).
+      startAuthTokenWatcher(onAuthTokenValid, ctx.logger)
     } else {
       ctx.qqProtocol.startHook()
     }

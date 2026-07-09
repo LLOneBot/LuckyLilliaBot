@@ -1,4 +1,5 @@
 export { createConfigRoutes } from './config'
+export { createAuthTokenRoutes } from './authToken'
 export { createDashboardRoutes } from './dashboard'
 export { createLoginRoutes } from './login'
 export { createLogsRoutes } from './logs'

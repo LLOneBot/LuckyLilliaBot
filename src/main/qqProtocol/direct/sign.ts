@@ -8,6 +8,7 @@ import {
   type RelayPacket,
   type SignLog,
 } from './sign-proxy'
+import { authTokenStatus } from '@/common/globalVars'
 
 export interface SignResult {
   sign: Buffer
@@ -149,7 +150,10 @@ function formatNativeSignError(cmd: string, qua: string | undefined, e: Error): 
         console.error(`[Sign] Unauthorized (cmd=${cmd}): ${detail}. auth_token 无效或已撤销, 到 manager 重新生成`)
         return
       case 403:
-        console.error(`[Sign] Forbidden (cmd=${cmd}): ${detail}. 当前 QQ 不在 token 的 uin 白名单, 到 manager 添加`)
+        // 理论到不了这里: native SDK 对 /api/sign/compute 的 403 会先 process.exit.
+        // 真正拦"可用 QQ 数量上限"的是 completeDirectLogin 里的 getAllowedUins 预检. 这里仅兜底.
+        console.error(`[Sign] Forbidden (cmd=${cmd}): ${detail}`)
+        authTokenStatus.loginError = detail || 'auth_token 无权限 (HTTP 403)'
         return
       case 502:
         console.error(`[Sign] Bad Gateway (cmd=${cmd}): ${detail}. 上游 sign-service 进程不可用`)

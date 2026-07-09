@@ -1,7 +1,7 @@
 import { TcpConnection } from './connection'
 import { buildServicePacket, buildServicePacket13, parseServicePacket, EncryptType, PacketContext, SsoPacket } from './packet'
 import { generateEcdhKeyPair, EcdhKeyPair } from './ecdh'
-import { requestSign, setupSign, setSignMachineGuid, preflightSign, acquireSignToken, SignResult } from './sign'
+import { requestSign, setupSign, setSignMachineGuid, acquireSignToken, SignResult } from './sign'
 import { AppInfo } from './appInfo'
 import { loadMachineGuidSync } from './machineGuid'
 import { EventEmitter } from 'node:events'
@@ -51,7 +51,6 @@ export class DirectProtocolClient extends EventEmitter {
   private guid: Buffer
   private seq = (Math.random() * 0x00FFFFFF) >>> 0
   private session: SessionInfo | null = null
-  private signPreflighted = false
   private signSetupDone = false
   private pendingPackets: Map<number, {
     resolve: (packet: SsoPacket) => void
@@ -99,13 +98,10 @@ export class DirectProtocolClient extends EventEmitter {
   }
 
   async connect(): Promise<void> {
-    // 必须在 preflight 之前: preflight 依赖 native Client 已 init.
+    // sign 链路 init (signRequest 依赖); token 有效性不在此 preflight —— 已移到 WebUI 侧
+    // 的 HTTP 校验 (validateAuthToken). 旧 preflightSign 在 token 无效(401/403)时会触发
+    // native SDK 内部 process.exit, 会把整个 bot 进程带崩, 故移除.
     await this.ensureSignSetup()
-    if (!this.signPreflighted && this.config.authToken) {
-      this.signPreflighted = true
-      const reason = await preflightSign()
-      if (reason) throw new Error(`sign preflight failed: ${reason}`)
-    }
     await this.conn.connect({ useIPv6: this.config.useIPv6 })
     this.emit('connected')
 

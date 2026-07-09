@@ -10,6 +10,7 @@ import { authMiddleware } from './auth'
 import { serializeResult } from './utils'
 import {
   createConfigRoutes,
+  createAuthTokenRoutes,
   createDashboardRoutes,
   createLoginRoutes,
   createLogsRoutes,
@@ -96,6 +97,7 @@ export class WebuiServer extends Service {
 
     // 注册路由
     this.app.route('/api', createConfigRoutes(this.ctx))
+    this.app.route('/api', createAuthTokenRoutes())
     this.app.route('/api', createLoginRoutes(this.ctx))
     this.app.route('/api', createDashboardRoutes(this.ctx))
     this.app.route('/api', createLogsRoutes(this.ctx))
