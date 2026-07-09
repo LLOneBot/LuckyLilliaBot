@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { apiFetch } from '../../utils/api'
-import { Users, UsersRound, MessageSquare, Send, Clock, Cpu, HardDrive, Zap, Bot, MessageCircle } from 'lucide-react'
+import { Users, UsersRound, MessageSquare, Send, Clock, Cpu, HardDrive, Zap, Bot, MessageCircle, Server } from 'lucide-react'
 
 interface DashboardStats {
   friendCount: number
@@ -20,6 +20,15 @@ interface DashboardStats {
     totalMemory: number
     memoryPercent: number
     cpu: number
+  }
+  // Direct 模式无独立 QQ 进程, 后端返回整机资源, 首张卡显示为 "系统资源"
+  mode?: 'direct' | 'pmhq'
+  system?: {
+    memory: number
+    totalMemory: number
+    memoryPercent: number
+    cpu: number
+    label?: string
   }
 }
 
@@ -309,20 +318,37 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <ResourceCard
-          title="QQ 资源"
-          version={qqVersion}
-          icon={<MessageCircle size={16} className="text-white" />}
-          gradient="bg-gradient-to-br from-cyan-500 to-teal-500"
-          cpu={stats.qq.cpu}
-          memory={stats.qq.memory}
-          totalMemory={stats.qq.totalMemory}
-          memoryPercent={stats.qq.memoryPercent}
-          cpuGradientId="qqCpuGradient"
-          memGradientId="qqMemGradient"
-          cpuColors={['#06b6d4', '#14b8a6']}
-          memColors={['#0ea5e9', '#22d3ee']}
-        />
+        {stats.mode === 'direct' && stats.system ? (
+          <ResourceCard
+            title="系统资源"
+            version={stats.system.label}
+            icon={<Server size={16} className="text-white" />}
+            gradient="bg-gradient-to-br from-cyan-500 to-teal-500"
+            cpu={stats.system.cpu}
+            memory={stats.system.memory}
+            totalMemory={stats.system.totalMemory}
+            memoryPercent={stats.system.memoryPercent}
+            cpuGradientId="qqCpuGradient"
+            memGradientId="qqMemGradient"
+            cpuColors={['#06b6d4', '#14b8a6']}
+            memColors={['#0ea5e9', '#22d3ee']}
+          />
+        ) : (
+          <ResourceCard
+            title="QQ 资源"
+            version={qqVersion}
+            icon={<MessageCircle size={16} className="text-white" />}
+            gradient="bg-gradient-to-br from-cyan-500 to-teal-500"
+            cpu={stats.qq.cpu}
+            memory={stats.qq.memory}
+            totalMemory={stats.qq.totalMemory}
+            memoryPercent={stats.qq.memoryPercent}
+            cpuGradientId="qqCpuGradient"
+            memGradientId="qqMemGradient"
+            cpuColors={['#06b6d4', '#14b8a6']}
+            memColors={['#0ea5e9', '#22d3ee']}
+          />
+        )}
         <ResourceCard
           title="LLBot 资源"
           version={llbotVersion}

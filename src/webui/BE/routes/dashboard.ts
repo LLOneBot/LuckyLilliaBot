@@ -1,6 +1,29 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
 import os from 'node:os'
+import { isPmhqMode } from '@/common/utils/environment'
+
+// 整机 CPU 使用率: os.cpus() 给的是自开机累计时间, 需两次采样求增量占比 (瞬时值).
+// os.loadavg() 在 Windows 恒为 [0,0,0] 不可用, 故手动算.
+function readCpuTimes(): { idle: number; total: number } {
+  let idle = 0
+  let total = 0
+  for (const c of os.cpus()) {
+    idle += c.times.idle
+    total += c.times.user + c.times.nice + c.times.sys + c.times.idle + c.times.irq
+  }
+  return { idle, total }
+}
+
+async function sampleSystemCpuPercent(sampleMs = 150): Promise<number> {
+  const a = readCpuTimes()
+  await new Promise((r) => setTimeout(r, sampleMs))
+  const b = readCpuTimes()
+  const totalDelta = b.total - a.total
+  const idleDelta = b.idle - a.idle
+  if (totalDelta <= 0) return 0
+  return Math.min(100, Math.max(0, (1 - idleDelta / totalDelta) * 100))
+}
 
 export function createDashboardRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -28,6 +51,12 @@ export function createDashboardRoutes(ctx: Context): Hono {
       const botCpuPercent = ((cpuUsage.user + cpuUsage.system) / 1000000 / process.uptime() / cpuCores) * 100
       const botMemoryPercent = (memUsage.rss / botTotalMem) * 100
 
+      // 系统 (整机) 资源: Direct 模式无独立 QQ 进程, 前端把 "QQ 资源" 卡换成 "系统资源" 展示这个
+      const sysTotalMem = os.totalmem()
+      const sysUsedMem = sysTotalMem - os.freemem()
+      const sysMemPercent = (sysUsedMem / sysTotalMem) * 100
+      const sysCpuPercent = await sampleSystemCpuPercent()
+
       return c.json({
         success: true,
         data: {
@@ -37,6 +66,8 @@ export function createDashboardRoutes(ctx: Context): Hono {
           messageSent: app.messageSentCount,
           startupTime: app.startupTime,
           lastMessageTime: app.lastMessageTime,
+          // Direct 模式无 QQ 进程 -> 前端据此把首张卡显示为 "系统资源"; PMHQ 保留 "QQ 资源"
+          mode: isPmhqMode() ? 'pmhq' : 'direct',
           bot: {
             memory: memUsage.rss,
             totalMemory: botTotalMem,
@@ -48,6 +79,13 @@ export function createDashboardRoutes(ctx: Context): Hono {
             totalMemory: 0,
             memoryPercent: qqMemoryPercent,
             cpu: qqCpu,
+          },
+          system: {
+            memory: sysUsedMem,
+            totalMemory: sysTotalMem,
+            memoryPercent: sysMemPercent,
+            cpu: sysCpuPercent,
+            label: `${cpuCores} 核`,
           },
         },
       })
