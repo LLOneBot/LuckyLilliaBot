@@ -19,20 +19,20 @@ pmhq 模式代码本身还在 (非 docker 场景 CLI/Desktop 仍可用, 靠 `--p
 见 `isPmhqMode()`)。若以后要恢复 docker pmhq: startup.sh 加回 `PROTOCOL_MODE` 分发 +
 `--pmhq-port/--pmhq-host`, install 脚本加回协议选择和 pmhq+llbot 双服务 compose 分支。
 
-## session 加密 key: 容器内用 data/session-key.bin (直连 session 存活的关键)
+## session 加密 key: 容器内从 data/machine_guid.bin 派生 (直连 session 存活的关键)
 
 直连 session 的敏感字段 (d2/tgt 等) 落盘前用 AES-256-GCM 加密, key 由 getMachineKey()
-提供 (`src/main/qqProtocol/direct/session.ts`)。非容器绑 OS machine id;**容器里 machine id
-随重建而变, 绑它 = 每次重建都要重新扫码**, 所以 `isDockerEnvironment()` 为真时改用
-`data/session-key.bin` (首次 32B 随机, 落盘, 跟着 data volume 走)。startup.sh 不碰 /etc/machine-id。
+提供 (`src/main/qqProtocol/direct/session.ts`)。非容器绑 OS machine id;**容器里
+/etc/machine-id 随重建而变, 绑它 = 每次重建都要重新扫码**, 所以 `isDockerEnvironment()`
+为真时改从 `data/machine_guid.bin` (设备 GUID, machineGuid.ts 管理, 随 data volume
+持久化) 派生。startup.sh 不碰 /etc/machine-id, 也没有额外的 key 文件。
 
-坑: **不能拿 `data/machine_guid.bin` 当加密 key** —— 它的值 == session 文件里明文的 `guid`
-字段 (machineGuid.ts overwriteMachineGuid <-> saveSession 双向同步), 等于密钥明文躺在密文旁边。
-所以 session-key.bin 必须是跟 guid 无关的独立随机值。
-
-安全权衡: key 与密文同在 data 卷 → 防线从"机器绑定"降为"data 卷绑定" (拷走整个 data 即可解密)。
-对自部署工具可接受 (session.guid 本就明文、docker 卷本就要可迁移备份); 换来 data 卷可整体迁移/备份恢复免重登。
-备份 data 时记得连 `session-key.bin` 一起 (它就在 data 里, 整体备份即包含)。
+权衡 (**有意取舍, 别改回去**): machine_guid.bin 的值 == session 文件里明文的 `guid` 字段
+(machineGuid.ts overwriteMachineGuid <-> saveSession 双向同步), 拿到 session 文件即可还原
+key —— 容器场景这层加密不防"单独泄露 session 文件", 防线实为整个 data 卷的访问边界。
+曾实现过独立随机 `session-key.bin` 来堵这一点, 按维护者决定撤掉了: 卷内多一个 key 文件
+与密文同卷, 实际防线相同, 不值得多一套文件/逻辑。收益: 备份/迁移整个 data 卷后 session
+直接可用, 免重新扫码。
 
 ## healthcheck
 
