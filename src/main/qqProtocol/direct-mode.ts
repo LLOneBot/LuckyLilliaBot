@@ -25,7 +25,7 @@ import type { QrCodeResult, QrPollResult } from './direct'
 import { overwriteMachineGuid } from './direct/machineGuid'
 import { updateAuthToken } from './direct/sign'
 import { authTokenUtil, getAllowedUins } from '../config'
-import { setLoginState, getCurrentLoginState } from '../llbot-ipc'
+import { setLoginState } from '../llbot-ipc'
 import { version } from '../../version'
 import { startAuthTokenWatcher } from './direct/authTokenWatcher'
 import { QQProtocolBase } from './base'
@@ -43,9 +43,14 @@ export class DirectQQProtocol extends QQProtocolBase {
   private directStopHeartbeat: (() => void) | null = null
   // 每次 fetchQrCode 都 ++, 旧 poll 循环发现 token 变了就自动退出, 避免刷新二维码后累积多条并行 poll 链
   private qrPollToken: number = 0
+  // QR 缓存 -- 后端是唯一持有者, WebUI 只拉缓存, 不触发新 fetch. TTL 到期或 pollQrCode 报 Expired/Cancelled
+  // 后由 refreshQrCodeIfStale() 主动向 QQ 服务器拉新码, 保持终端 QR / WebUI QR 两侧一致.
+  private qrFetchedAt: number = 0
+  private static readonly QR_TTL_MS = 180_000
+  // 上次已打印到终端的 QR sig, 用于去重: 后端每次拉到新码才重新打印, 避免刷新 loop 多次 dump 同一张
+  private lastPrintedQrSig: string = ''
 
   // 扫码 loop 状态: 之前在 main.ts 作为闭包变量; 现在归实例.
-  private lastQrCodeTime = 0
   private loopRunning = false
 
   constructor(ctx: Context) {
@@ -72,25 +77,44 @@ export class DirectQQProtocol extends QQProtocolBase {
   }
 
   /**
-   * 拉登录二维码, 内部启动一个 QR 状态轮询. 供 WebUI 前端 + 终端 QR 打印使用.
+   * WebUI / 外部拉登录二维码 -- 只返回后端当前缓存的那张, **不会**向 QQ 服务器发新请求.
+   * 缓存为空/过期时先由后端 refreshQrCodeIfStale() 拉一次. 保证终端 QR / WebUI QR 是同一张.
    */
   public async getLoginQrCode(): Promise<{ qrcodeUrl: string; pngBase64QrcodeData: string; expireTime: number; pollTimeInterval: number }> {
     if (!this.directClient) {
       throw new Error('Direct client not initialized')
     }
-    const qr = await fetchQrCode(this.directClient)
-    this.directQrResult = qr
-    this.startDirectQrPolling()
+    await this.refreshQrCodeIfStale()
+    const qr = this.directQrResult
+    if (!qr) throw new Error('QR code unavailable')
+    const remainingMs = Math.max(0, DirectQQProtocol.QR_TTL_MS - (Date.now() - this.qrFetchedAt))
     return {
       qrcodeUrl: qr.url,
       pngBase64QrcodeData: qr.image.length > 0
         ? 'data:image/png;base64,' + qr.image.toString('base64')
         : '',
-      // QQ 二维码有效期约 180s (native 侧不返, 硬编默认); 前端到点会自动置 expired 出现"点击刷新"覆盖层.
-      expireTime: 180,
-      // 前端 pollLoginStatus 已按 3s 自轮询, 这个字段仅为兼容 QRCodeData 形状不再用.
+      // 二维码剩余有效秒数 (WebUI FE 拿它 setTimeout 置 expired 显示"点击刷新")
+      expireTime: Math.max(1, Math.floor(remainingMs / 1000)),
+      // 兼容 FE QRCodeData 形状 (现无 use)
       pollTimeInterval: 3,
     }
+  }
+
+  /** 缓存无 / TTL 过期时向 QQ 服务器拉一张新码; 否则复用. WebUI 与后端 loop 都走这条. */
+  private async refreshQrCodeIfStale(): Promise<void> {
+    if (!this.directClient) return
+    const fresh = this.directQrResult && Date.now() - this.qrFetchedAt < DirectQQProtocol.QR_TTL_MS
+    if (fresh) return
+    const qr = await fetchQrCode(this.directClient)
+    this.directQrResult = qr
+    this.qrFetchedAt = Date.now()
+    this.startDirectQrPolling()
+  }
+
+  /** 让缓存立即过期. pollQrCode 检测到 Expired/Cancelled 时调, 下次 getLoginQrCode 就会拉新码. */
+  private invalidateQrCache(): void {
+    this.directQrResult = null
+    this.qrFetchedAt = 0
   }
 
   // ---- 内部: authTokenWatcher 回调 + 登录 loop ----
@@ -103,7 +127,6 @@ export class DirectQQProtocol extends QQProtocolBase {
     if (selfInfo.online) return
     try {
       await this.initDirectClient(token)
-      this.lastQrCodeTime = 0
       this.ensureDirectLoginLoop()
     } catch (e) {
       authTokenStatus.loginError = (e as Error)?.message || String(e)
@@ -122,14 +145,10 @@ export class DirectQQProtocol extends QQProtocolBase {
     if (selfInfo.online) { this.loopRunning = false; return }
     this.loopRunning = true
     if (!this.directClient?.isLoggedIn) {
-      const now = Date.now()
-      // 二维码过期 / 被取消时立即重新获取, 否则按 120s 节流刷新
-      const st = getCurrentLoginState().state
-      const needRefresh = st === 'expired' || st === 'cancelled'
-      if (needRefresh || now - this.lastQrCodeTime > 120_000) {
-        this.lastQrCodeTime = now
-        this.printLoginQrCode()
-      }
+      // 后端每秒 tick 一次, 但真正拉新码的节流由 refreshQrCodeIfStale 的 TTL (180s) 说了算.
+      // 二维码有 sig 就复用, 到期或被 pollQrCode 主动 invalidate 才 fetch 新的 -- 保证同一时间
+      // 全局只有一张 QR (终端 / png / Desktop / WebUI 拉到的都同源).
+      this.printLoginQrCode()
       setTimeout(this.directLoginLoop, 1000)
     } else {
       // isLoggedIn 为真但 selfInfo.online 未置 (登录中 / register 失败清 session 前的中间态):
@@ -139,12 +158,15 @@ export class DirectQQProtocol extends QQProtocolBase {
   }
 
   /**
-   * 拉二维码 + 打印到终端 (ASCII) + 落盘 png + 推给 Desktop.
-   * 之前放 main.ts, 现在归本类.
+   * 拉二维码 + 打印到终端 (ASCII) + 落盘 png + 推给 Desktop. 已按 sig 去重: 同一张码只打印一次,
+   * 到期或被 poll invalidate 才会拿到新 sig 从而再次输出.
    */
   private async printLoginQrCode() {
     try {
       const data = await this.getLoginQrCode()
+      const sig = this.directQrResult?.sig.toString('hex') || ''
+      if (!sig || sig === this.lastPrintedQrSig) return
+      this.lastPrintedQrSig = sig
 
       // 推给 Desktop (无头模式扫码登录对话框)
       setLoginState({ state: 'need_qrcode', qrcode_png_base64: data.pngBase64QrcodeData })
@@ -337,9 +359,9 @@ export class DirectQQProtocol extends QQProtocolBase {
         }
 
         if (result.state === QrCodeState.Expired || result.state === QrCodeState.Cancelled) {
-          // 失效后置状态并清掉旧码; directLoginLoop 会立即重新拉新码 -> need_qrcode
+          // 让缓存立即失效, directLoginLoop 下一 tick 就会通过 refreshQrCodeIfStale 拉新码
           setLoginState({ state: result.state === QrCodeState.Expired ? 'expired' : 'cancelled' })
-          this.directQrResult = null
+          this.invalidateQrCache()
           return
         }
       } catch (e) {

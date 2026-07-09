@@ -125,7 +125,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
         displayQrCode(result.data.pngBase64QrcodeData);
 
         const expireTime = result.data.expireTime * 1000;
-        if (qrRefreshIntervalRef.current) clearInterval(qrRefreshIntervalRef.current);
+        if (qrRefreshIntervalRef.current) clearTimeout(qrRefreshIntervalRef.current);
         qrRefreshIntervalRef.current = setTimeout(() => {
           setQrExpired(true);
           setQrStatus('expired');
@@ -202,10 +202,21 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
   useEffect(() => {
     if (!hasFetchedRef.current) fetchQuickLoginList();
     return () => {
-      if (qrRefreshIntervalRef.current) clearInterval(qrRefreshIntervalRef.current);
+      if (qrRefreshIntervalRef.current) clearTimeout(qrRefreshIntervalRef.current);
       stopLoginPolling();
     };
   }, []);
+
+  useEffect(() => {
+    if (loginMode === 'qr') {
+      setTimeout(() => generateQrCode(), 100);
+    } else if (qrRefreshIntervalRef.current) {
+      clearTimeout(qrRefreshIntervalRef.current);
+    }
+    if (loginMode === 'quick' && accounts.length === 0 && !hasFetchedRef.current) {
+      fetchQuickLoginList();
+    }
+  }, [loginMode, accounts.length, generateQrCode]);
 
   useEffect(() => {
     generateQrCodeRef.current = generateQrCode;
@@ -229,17 +240,6 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
     poll();
     return () => { stopped = true; };
   }, []);
-
-  useEffect(() => {
-    if (loginMode === 'qr') {
-      setTimeout(() => generateQrCode(), 100);
-    } else if (qrRefreshIntervalRef.current) {
-      clearInterval(qrRefreshIntervalRef.current);
-    }
-    if (loginMode === 'quick' && accounts.length === 0 && !hasFetchedRef.current) {
-      fetchQuickLoginList();
-    }
-  }, [loginMode, accounts.length, generateQrCode]);
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center p-5">
