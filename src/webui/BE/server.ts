@@ -38,6 +38,29 @@ declare module 'cordis' {
   }
 }
 
+// WebuiServer 只 inject 了登录前就绪的 qqProtocol/ntLoginApi (见下方 static inject 注释), 但 dashboard/
+// webqq 等登录后的路由要用 nt* / store / config / ntSystemApi 等服务, 它们依赖 store->database, 登录后才
+// 加载. cordis 严格模式下直接 ctx.ntGroupApi 会抛 "cannot get property without inject". 这里包一层代理:
+//   - 服务名 (LAZY_SERVICES) 走 ctx.get(name) 绕过严格检查 (未就绪返 undefined, 登录后路由被调时已就绪)
+//   - 其余内建成员 (logger/on/parallel/get 等) 透传, 且把函数绑回真 ctx, 避免 this 指向代理破坏 cordis 内部
+// 好处: 路由里 ctx.ntGroupApi.xxx 的写法和类型都不用动, 只在 server.ts 注册处包一次.
+const LAZY_SERVICES = new Set([
+  'ntGroupApi', 'ntUserApi', 'ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntSystemApi', 'ntWebApi',
+  'store', 'config', 'app', 'emailNotification',
+])
+
+function lazyServiceContext(ctx: Context): Context {
+  return new Proxy(ctx, {
+    get(target, prop) {
+      if (typeof prop === 'string' && LAZY_SERVICES.has(prop)) {
+        return (target as unknown as { get(n: string): unknown }).get(prop)
+      }
+      const v = Reflect.get(target, prop, target)
+      return typeof v === 'function' ? v.bind(target) : v
+    },
+  }) as Context
+}
+
 export interface WebuiServerConfig extends WebUIConfig {
 }
 
@@ -89,14 +112,17 @@ export class WebuiServer extends Service {
   private initServer() {
     this.app.use('/api/*', authMiddleware)
 
+    // 用懒服务代理 ctx: 登录后才就绪的 nt*/store/config 等服务在路由里直接 ctx.xxx 访问不再抛 without-inject
+    const ctx = lazyServiceContext(this.ctx)
+
     // 注册路由
-    this.app.route('/api', createConfigRoutes(this.ctx))
+    this.app.route('/api', createConfigRoutes(ctx))
     this.app.route('/api', createAuthTokenRoutes())
-    this.app.route('/api', createLoginRoutes(this.ctx))
-    this.app.route('/api', createDashboardRoutes(this.ctx))
-    this.app.route('/api', createLogsRoutes(this.ctx))
-    this.app.route('/api/email', createEmailRoutes(this.ctx))
-    this.app.route('/api/webqq', createWebQQRoutes(this.ctx, {
+    this.app.route('/api', createLoginRoutes(ctx))
+    this.app.route('/api', createDashboardRoutes(ctx))
+    this.app.route('/api', createLogsRoutes(ctx))
+    this.app.route('/api/email', createEmailRoutes(ctx))
+    this.app.route('/api/webqq', createWebQQRoutes(ctx, {
       uploadDir: this.uploadDir,
       sseClients: this.sseClients,
       createPicElement: this.createPicElement.bind(this)
@@ -175,7 +201,9 @@ export class WebuiServer extends Service {
 
   private async fillPeerUin(message: RawMessage) {
     if (message.chatType === ChatType.C2C && (!message.peerUin || message.peerUin === 0) && message.peerUid) {
-      const uin = await this.ctx.ntUserApi.getUinByUid(message.peerUid)
+      // ntUserApi 未 inject (登录后才就绪), 用 ctx.get 绕过严格检查
+      const ntUserApi = this.ctx.get('ntUserApi' as never) as Context['ntUserApi'] | undefined
+      const uin = await ntUserApi?.getUinByUid(message.peerUid)
       if (uin) {
         message.peerUin = uin
       }
