@@ -33,7 +33,7 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
       const latestSeq = await this.ctx.ntMsgApi.getLatestMsgSeq(peer)
       msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, latestSeq, count, false)).msgList
     } else {
-      msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, +seq, count, true)).msgList
+      msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, +seq, count, false)).msgList
     }
     if (!msgList?.length) return
     const ob11MsgList = await Promise.all(msgList.map(msg => {
