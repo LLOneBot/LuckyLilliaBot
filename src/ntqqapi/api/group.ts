@@ -11,6 +11,7 @@ import { getMd5BufferFromFile } from '@/common/utils/file'
 import { groupCodeToGroupUin } from '@/common/utils'
 import { HighwayHttpSession } from '../helper/highway'
 import { Media } from '../proto'
+import { noop } from 'cosmokit'
 
 declare module 'cordis' {
   interface Context {
@@ -124,28 +125,35 @@ export class NTGroupApi extends Service {
     if (this.refreshingMembers.has(groupCode)) {
       await this.refreshingMembers.get(groupCode)
     } else if (forceUpdate || !this.membersCache.has(groupCode)) {
-      const { promise, resolve } = Promise.withResolvers<void>()
+      const { promise, resolve, reject } = Promise.withResolvers<void>()
       this.refreshingMembers.set(groupCode, promise)
       const members = []
       let cookie: Buffer | undefined
-      while (true) {
-        const res = await this.ctx.qqProtocol.fetchGroupMembers(groupCode, cookie)
-        for (const member of res.members) {
-          members.push({
-            uin: member.id.uin,
-            uid: member.id.uid,
-            nick: member.memberName,
-            cardName: member.memberCard.memberCard ?? '',
-            specialTitle: member.specialTitle ?? '',
-            level: member.level?.level ?? 0,
-            joinedAt: member.joinTimestamp,
-            lastSpokeAt: member.lastMsgTimestamp,
-            shutupExpireTime: member.shutUpTimestamp ?? 0,
-            role: member.permission ?? 0
-          })
+      try {
+        while (true) {
+          const res = await this.ctx.qqProtocol.fetchGroupMembers(groupCode, cookie)
+          for (const member of res.members) {
+            members.push({
+              uin: member.id.uin,
+              uid: member.id.uid,
+              nick: member.memberName,
+              cardName: member.memberCard.memberCard ?? '',
+              specialTitle: member.specialTitle ?? '',
+              level: member.level?.level ?? 0,
+              joinedAt: member.joinTimestamp,
+              lastSpokeAt: member.lastMsgTimestamp,
+              shutupExpireTime: member.shutUpTimestamp ?? 0,
+              role: member.permission ?? 0
+            })
+          }
+          cookie = res.cookie
+          if (!cookie) break
         }
-        cookie = res.cookie
-        if (!cookie) break
+      } catch (e) {
+        promise.catch(noop) // 防止出现 unhandledRejection
+        reject(e)
+        this.refreshingMembers.delete(groupCode)
+        throw e
       }
       this.membersCache.set(groupCode, members)
       resolve()

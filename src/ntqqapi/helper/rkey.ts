@@ -1,4 +1,5 @@
 import { Context } from 'cordis'
+import { noop } from 'cosmokit'
 
 interface ServerRkeyData {
   group_rkey: string
@@ -39,7 +40,7 @@ export class RkeyManager {
     if (this.pull) {
       return this.pull
     }
-    const { promise, resolve } = Promise.withResolvers<void>()
+    const { promise, resolve, reject } = Promise.withResolvers<void>()
     this.pull = promise
     try {
       const { privateRKey, groupRKey, expiredTime } = await this.ctx.ntFileApi.getRKey()
@@ -54,9 +55,16 @@ export class RkeyManager {
     }
     catch (e) {
       this.ctx.logger.warn(`发包获取rkey失败 ${e}，开始获取远程rkey`)
-      this.rkeyData = await this.fetchServerRkey()
-      resolve()
-      this.pull = undefined
+      try {
+        this.rkeyData = await this.fetchServerRkey()
+        resolve()
+        this.pull = undefined
+      } catch (e) {
+        promise.catch(noop) // 防止出现 unhandledRejection
+        reject(e)
+        this.pull = undefined
+        throw e
+      }
     }
   }
 
