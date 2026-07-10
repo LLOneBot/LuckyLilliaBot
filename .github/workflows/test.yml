@@ -60,7 +60,7 @@ jobs:
           npm run build-webui
 
       - name: Build PR LLBot image
-        run: docker build -f docker/Dockerfile.test -t llbot-pr-test .
+        run: docker build -f docker/debug.Dockerfile -t llbot-pr-test .
 
       - name: Write configs
         run: |

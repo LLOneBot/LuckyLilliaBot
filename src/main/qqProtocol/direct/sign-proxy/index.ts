@@ -8,13 +8,24 @@ import { fileURLToPath } from 'node:url'
 const here = dirname(fileURLToPath(import.meta.url))
 const requireBin = createRequire(import.meta.url)
 
+// alpine/musl 判据: glibc 的 node report 带 glibcVersionRuntime, musl 上没有 (napi-rs 同款).
+// 兜底再看 alpine 标志文件 / musl 动态加载器. 直连 sign-proxy .node 分 glibc / musl 两套 (ABI 不通用).
+function isMusl(): boolean {
+  if (process.platform !== 'linux') return false
+  try {
+    const report = (process.report?.getReport?.() ?? {}) as { header?: { glibcVersionRuntime?: string } }
+    if (report.header && 'glibcVersionRuntime' in report.header) return !report.header.glibcVersionRuntime
+  } catch { /* 忽略, 走下面兜底 */ }
+  return existsSync('/etc/alpine-release') || existsSync('/lib/ld-musl-x86_64.so.1') || existsSync('/lib/ld-musl-aarch64.so.1')
+}
+
 function pickTriple(): string {
   const p = process.platform
   const a = process.arch
   if (p === 'win32' && a === 'x64') return 'win-x64'
   if (p === 'win32' && a === 'arm64') return 'win-arm64'
-  if (p === 'linux' && a === 'x64') return 'linux-x64'
-  if (p === 'linux' && a === 'arm64') return 'linux-arm64'
+  if (p === 'linux' && a === 'x64') return isMusl() ? 'linux-x64-musl' : 'linux-x64'
+  if (p === 'linux' && a === 'arm64') return isMusl() ? 'linux-arm64-musl' : 'linux-arm64'
   if (p === 'darwin' && a === 'x64') return 'darwin-x64'
   if (p === 'darwin' && a === 'arm64') return 'darwin-arm64'
   throw new Error(`sign-proxy: unsupported platform ${p}-${a}; rebuild lucky-lillia-sign-proxy on this target and drop the .node into ${here}`)

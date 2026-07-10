@@ -21,24 +21,22 @@ RUN yarn build-webui
 RUN yarn build
 
 
-# 必须用 glibc 基础镜像 (debian): 直连模式的 sign-proxy .node 是 glibc 链接的, alpine/musl 加载不了
-FROM node:24-bookworm-slim AS production
+# alpine (musl) runtime: dist 里带 glibc + musl 两颗 sign-proxy .node, loader (pickTriple)
+# 在 musl 上自动选 musl 版, 所以能用 alpine base, 镜像比 debian 小一半。
+# builder 保持 debian: 只跑 yarn/tsc/vite, 产物 dist 是可移植的 JS + 两颗 .node, 与 runtime OS 无关。
+FROM node:24-alpine AS production
 
-# 默认空 = 用官方 deb.debian.org (CI/海外不受影响); 国内构建可传
-# --build-arg APT_MIRROR=mirrors.tuna.tsinghua.edu.cn (或 aliyun/ustc) 换源, 免得 apt 卡死。
-ARG APT_MIRROR=""
+# 国内构建可传 --build-arg ALPINE_MIRROR=mirrors.tuna.tsinghua.edu.cn (或 aliyun/ustc) 换 apk 源。
+ARG ALPINE_MIRROR=""
 
 RUN set -eux; \
-    if [ -n "$APT_MIRROR" ]; then \
-      for f in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
-        [ -f "$f" ] && sed -i "s|deb.debian.org|${APT_MIRROR}|g; s|security.debian.org|${APT_MIRROR}|g" "$f"; \
-      done; \
+    if [ -n "$ALPINE_MIRROR" ]; then \
+      sed -i "s|dl-cdn.alpinelinux.org|${ALPINE_MIRROR}|g" /etc/apk/repositories; \
     fi; \
-    apt-get -o Acquire::Retries=5 update; \
-    apt-get -o Acquire::Retries=5 install -y --no-install-recommends tzdata ffmpeg; \
+    # sed: alpine 自带 busybox sed 不认 startup.sh 里的 \s (GNU 扩展), 装 GNU sed 覆盖。
+    apk add --no-cache ffmpeg tzdata sed; \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
-    echo "Asia/Shanghai" > /etc/timezone; \
-    rm -rf /var/lib/apt/lists/*
+    echo "Asia/Shanghai" > /etc/timezone
 
 ENV TZ=Asia/Shanghai
 
@@ -49,6 +47,8 @@ COPY --from=builder /app/dist .
 COPY docker/startup.sh /startup.sh
 RUN chmod +x /startup.sh
 
+# /.dockerenv: Docker daemon 运行时会自动建, 但 podman/nerdctl 等不一定; 显式 touch 保证
+# isDockerEnvironment() 恒真 (session.ts 的 machine-guid 处理依赖它)。
 RUN touch /.dockerenv
 
 # data 持久化: 声明为卷, 未显式挂载时也走匿名卷 (compose 重建/镜像更新可复用), 不落容器可写层

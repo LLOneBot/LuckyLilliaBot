@@ -1,14 +1,18 @@
-# 必须用 glibc 基础镜像 (debian): 直连模式的 sign-proxy .node 是 glibc 链接的, alpine/musl 加载不了
-FROM node:24-bookworm-slim
+# alpine (musl): COPY 本机预构建的 dist (含 musl sign-proxy .node) 直接打包, 不在容器里 build。
+# 本地快速出包/调试用: 先 `yarn build-webui && yarn build` 出 dist, 再 docker/debug-build-amd64.ps1。
+# loader (pickTriple) 在 musl 上自动选 sign-proxy.linux-x64-musl.node, 所以 alpine 能跑。
+FROM node:24-alpine
 
+# 国内构建可传 --build-arg ALPINE_MIRROR=mirrors.tuna.tsinghua.edu.cn (或 aliyun/ustc) 换 apk 源。
+ARG ALPINE_MIRROR=""
 RUN set -eux; \
-    # 国内构建可打开 apt 镜像源
-    # sed -i 's|deb.debian.org|mirrors.aliyun.com|g' /etc/apt/sources.list.d/debian.sources; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends tzdata ffmpeg; \
+    if [ -n "$ALPINE_MIRROR" ]; then \
+      sed -i "s|dl-cdn.alpinelinux.org|${ALPINE_MIRROR}|g" /etc/apk/repositories; \
+    fi; \
+    # sed: alpine 自带 busybox sed 不认 startup.sh 里的 \s (GNU 扩展), 装 GNU sed 覆盖。
+    apk add --no-cache ffmpeg tzdata sed; \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
-    echo "Asia/Shanghai" > /etc/timezone; \
-    rm -rf /var/lib/apt/lists/*
+    echo "Asia/Shanghai" > /etc/timezone
 
 ENV TZ=Asia/Shanghai
 
