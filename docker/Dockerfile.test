@@ -1,7 +1,16 @@
 # 必须用 glibc 基础镜像 (debian): 直连模式的 sign-proxy .node 是 glibc 链接的, alpine/musl 加载不了
 FROM node:24-bookworm-slim
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg curl ca-certificates && \
+# 默认空 = 官方 deb.debian.org (CI/海外不受影响); 国内构建可传
+# --build-arg APT_MIRROR=mirrors.tuna.tsinghua.edu.cn (或 aliyun/ustc) 换源, 免得 apt 卡死。
+ARG APT_MIRROR=""
+RUN set -eux; \
+    if [ -n "$APT_MIRROR" ]; then \
+      for f in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        [ -f "$f" ] && sed -i "s|deb.debian.org|${APT_MIRROR}|g; s|security.debian.org|${APT_MIRROR}|g" "$f"; \
+      done; \
+    fi; \
+    apt-get -o Acquire::Retries=5 update; \
+    apt-get -o Acquire::Retries=5 install -y --no-install-recommends ffmpeg curl ca-certificates; \
     rm -rf /var/lib/apt/lists/*
 WORKDIR /app/llbot
 COPY dist/ .

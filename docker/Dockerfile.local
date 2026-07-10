@@ -6,10 +6,12 @@ RUN corepack enable && corepack prepare yarn@4.12.0 --activate
 
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn .yarn
+# 根 package.json 的 postinstall 会跑 `npm --prefix src/webui/FE install`, 所以 FE 的
+# package.json 必须在 yarn install 之前就位, 否则 postinstall 找不到目录 -> exit 254。
+COPY src/webui/FE/package.json src/webui/FE/
 
 RUN yarn install --immutable
 
-COPY src/webui/FE/package.json src/webui/FE/
 RUN cd src/webui/FE && npm install
 
 COPY . .
@@ -22,9 +24,18 @@ RUN yarn build
 # 必须用 glibc 基础镜像 (debian): 直连模式的 sign-proxy .node 是 glibc 链接的, alpine/musl 加载不了
 FROM node:24-bookworm-slim AS production
 
+# 默认空 = 用官方 deb.debian.org (CI/海外不受影响); 国内构建可传
+# --build-arg APT_MIRROR=mirrors.tuna.tsinghua.edu.cn (或 aliyun/ustc) 换源, 免得 apt 卡死。
+ARG APT_MIRROR=""
+
 RUN set -eux; \
-    apt-get update; \
-    apt-get install -y --no-install-recommends tzdata ffmpeg; \
+    if [ -n "$APT_MIRROR" ]; then \
+      for f in /etc/apt/sources.list /etc/apt/sources.list.d/debian.sources; do \
+        [ -f "$f" ] && sed -i "s|deb.debian.org|${APT_MIRROR}|g; s|security.debian.org|${APT_MIRROR}|g" "$f"; \
+      done; \
+    fi; \
+    apt-get -o Acquire::Retries=5 update; \
+    apt-get -o Acquire::Retries=5 install -y --no-install-recommends tzdata ffmpeg; \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
     echo "Asia/Shanghai" > /etc/timezone; \
     rm -rf /var/lib/apt/lists/*
