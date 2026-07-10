@@ -633,4 +633,9 @@ export namespace Msg {
     atMemberTinyid: ProtoField(5, 'uint32', 'optional'),
     atMemberUid: ProtoField(9, 'string'),
   })
+
+  export const PokeExtra = ProtoMessage.of({
+    type: ProtoField(1, 'uint32'),
+    strength: ProtoField(7, 'uint32'),
+  })
 }

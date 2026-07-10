@@ -1,7 +1,5 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
-import { selfInfo } from '@/common/globalVars'
-import { GroupMemberRole } from '@/ntqqapi/types'
 
 interface Payload {
   group_id: number | string

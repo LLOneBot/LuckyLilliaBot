@@ -94,13 +94,13 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       })
       const res = await this.sendPB('HttpConn.0x6ff_501', data)
       const { rspBody } = Media.HighwaySessionResp.decode(Buffer.from(res.pb, 'hex'))
-      const highwayHostAndPorts: Record<number, { host: string, port: number }[]> = {}
+      const highwayHostAndPorts: Record<number, string[]> = {}
       for (const srvAddr of rspBody.addrs) {
-        const addresses: { host: string, port: number }[] = []
+        const addresses = []
         for (const addr of srvAddr.addrs) {
           const ip = uint32ToIPV4Addr(addr.ip)
           const port = addr.port
-          addresses.push({ host: ip, port })
+          addresses.push(`${ip}:${port}`)
         }
         highwayHostAndPorts[srvAddr.serviceType] = addresses
       }

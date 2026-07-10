@@ -49,10 +49,19 @@ export class MessageBuilding {
 
   private async [ElementType.Face](data: SendFaceElement) {
     const { faceElement } = data
-    // dice / rps / 其他 sticker 类（faceType=3，stickerType=2）：QQ NT 协议要把它打包成
-    // commonElem(serviceType=37, LargeFaceExtra)，否则 server 收下后接收方只看到一个普通 face id
-    // —— 这是 dice/rps 测试一直跑不过的根因。
-    if (faceElement.faceType === 3) {
+    if (faceElement.faceType === 5) {
+      const f = faceElement
+      const pbElem = Msg.PokeExtra.encode({
+        type: f.faceIndex,
+      })
+      this.outputElems.push({
+        commonElem: {
+          serviceType: 2,
+          pbElem,
+          businessType: f.faceIndex,
+        },
+      })
+    } else if (faceElement.faceType === 3) {
       const f = faceElement
       const pbElem = Msg.LargeFaceExtra.encode({
         aniStickerPackId: f.packId ? String(f.packId) : '1',

@@ -72,6 +72,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
             announcement: true,
           },
           config2: {
+            memberRole: true,
             remark: true,
             personShutupExpireTime: true
           },

@@ -3,7 +3,7 @@ import {
   GroupMember,
   GroupMsgMask,
   Group,
-  ChatType,
+  GroupMemberRole,
 } from '../types'
 import { Service, Context } from 'cordis'
 import { createReadStream, promises as fsp } from 'node:fs'
@@ -11,6 +11,7 @@ import { getMd5BufferFromFile } from '@/common/utils/file'
 import { groupCodeToGroupUin } from '@/common/utils'
 import { HighwayHttpSession } from '../helper/highway'
 import { Media } from '../proto'
+import { noop } from 'cosmokit'
 
 declare module 'cordis' {
   interface Context {
@@ -57,6 +58,11 @@ export class NTGroupApi extends Service {
         this.getGroups(true)
       }
     })
+    ctx.on('nt/group-admin-changed', (data) => {
+      if (this.groupsCache.length > 0 && data.targetUid === selfInfo.uid) {
+        this.getGroups(true)
+      }
+    })
   }
 
   async getGroups(forceUpdate: boolean) {
@@ -75,7 +81,12 @@ export class NTGroupApi extends Service {
         remark: group.personInfo.remark ?? '',
         isPin: !!group.info.topTime,
         groupShutupExpireTime: group.info.groupShutupExpireTime ?? 0,
-        personShutupExpireTime: group.personInfo.personShutupExpireTime ?? 0
+        personShutupExpireTime: group.personInfo.personShutupExpireTime ?? 0,
+        memberRole: {
+          2: GroupMemberRole.Normal,
+          3: GroupMemberRole.Admin,
+          4: GroupMemberRole.Owner
+        }[group.personInfo.memberRole] ?? GroupMemberRole.Normal
       }))
     }
     return this.groupsCache
@@ -101,7 +112,8 @@ export class NTGroupApi extends Service {
         remark: '',
         isPin: false,
         groupShutupExpireTime: 0,
-        personShutupExpireTime: info.results.shutUpMeTimestamp
+        personShutupExpireTime: info.results.shutUpMeTimestamp,
+        memberRole: GroupMemberRole.Normal
       }
       this.groupCache.set(group.groupCode, group)
       return group
@@ -113,28 +125,35 @@ export class NTGroupApi extends Service {
     if (this.refreshingMembers.has(groupCode)) {
       await this.refreshingMembers.get(groupCode)
     } else if (forceUpdate || !this.membersCache.has(groupCode)) {
-      const { promise, resolve } = Promise.withResolvers<void>()
+      const { promise, resolve, reject } = Promise.withResolvers<void>()
       this.refreshingMembers.set(groupCode, promise)
       const members = []
       let cookie: Buffer | undefined
-      while (true) {
-        const res = await this.ctx.qqProtocol.fetchGroupMembers(groupCode, cookie)
-        for (const member of res.members) {
-          members.push({
-            uin: member.id.uin,
-            uid: member.id.uid,
-            nick: member.memberName,
-            cardName: member.memberCard.memberCard ?? '',
-            specialTitle: member.specialTitle ?? '',
-            level: member.level?.level ?? 0,
-            joinedAt: member.joinTimestamp,
-            lastSpokeAt: member.lastMsgTimestamp,
-            shutupExpireTime: member.shutUpTimestamp ?? 0,
-            role: member.permission ?? 0
-          })
+      try {
+        while (true) {
+          const res = await this.ctx.qqProtocol.fetchGroupMembers(groupCode, cookie)
+          for (const member of res.members) {
+            members.push({
+              uin: member.id.uin,
+              uid: member.id.uid,
+              nick: member.memberName,
+              cardName: member.memberCard.memberCard ?? '',
+              specialTitle: member.specialTitle ?? '',
+              level: member.level?.level ?? 0,
+              joinedAt: member.joinTimestamp,
+              lastSpokeAt: member.lastMsgTimestamp,
+              shutupExpireTime: member.shutUpTimestamp ?? 0,
+              role: member.permission ?? 0
+            })
+          }
+          cookie = res.cookie
+          if (!cookie) break
         }
-        cookie = res.cookie
-        if (!cookie) break
+      } catch (e) {
+        promise.catch(noop) // 防止出现 unhandledRejection
+        reject(e)
+        this.refreshingMembers.delete(groupCode)
+        throw e
       }
       this.membersCache.set(groupCode, members)
       resolve()
@@ -259,8 +278,6 @@ export class NTGroupApi extends Service {
     const stat = await fsp.stat(filePath)
     const md5 = await getMd5BufferFromFile(filePath)
     const session = await this.ctx.qqProtocol.getHighwaySession()
-    const server = session.highwayHostAndPorts[1]?.[0]
-    if (!server) return { result: -1, errMsg: 'no highway server (type=1)' }
     const ext = Media.GroupAvatarExtra.encode({
       type: 101,
       groupUin: groupCodeToGroupUin(+groupCode),
@@ -275,9 +292,8 @@ export class NTGroupApi extends Service {
       sum: md5,
       size: stat.size,
       ticket: session.sigSession,
-      ext: Buffer.from(ext),
-      server: server.host,
-      port: server.port,
+      ext,
+      server: session.highwayHostAndPorts[1],
     }
     try {
       await new HighwayHttpSession(trans).upload()
