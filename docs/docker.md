@@ -12,8 +12,14 @@ alpine 里启动即崩 (即便只跑非直连模式也一样, require 在 import
 ## 容器只跑直连模式
 
 Docker 暂时去掉了 pmhq (不再生成 pmhq 服务 / 不带 --pmhq-port)。startup.sh 纯直连:
-`node llbot.js [-q <uin>]`。`QQ_UIN` env 指定恢复哪个 session;
-没配时 startup.sh 扫 `data/qq-session-*.json`, 恰好一个就自动用它 (稍后配置模式扫码登录后重启免扫码)。
+`node llbot.js [-q <uin>]`。**启动哪个号由用户决定**, 两条路:
+- `QQ` env 设了 → `-q <uin>` 恢复该号 (无头部署重启后免扫码自动恢复);
+- 没设 → 起在 WebUI 登录页, 用户从快速登录列表点选账号 (或扫码)。
+
+install 脚本生成的 compose 里始终带 `QQ=`(留空), 方便用户后填。
+
+**不再** "data 里恰好一个 session 就自动用它" (2026-07 改): 那是替用户做了选择,
+跟 WebUI 快速登录列表的设计冲突。
 
 pmhq 模式代码本身还在 (非 docker 场景 CLI/Desktop 仍可用, 靠 `--pmhq-port` argv 触发,
 见 `isPmhqMode()`)。若以后要恢复 docker pmhq: startup.sh 加回 `PROTOCOL_MODE` 分发 +

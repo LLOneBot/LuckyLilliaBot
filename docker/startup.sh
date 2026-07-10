@@ -17,22 +17,11 @@ sed -i "s|\"ffmpeg\":\s*\"\"|\"ffmpeg\": \"/usr/bin/ffmpeg\"|g" "$FILE"
 
 mkdir -p /app/llbot/data
 
-# 直连模式: 不带 --pmhq-port 启动即直连; -q <uin> 用于重启后恢复对应 session
-uin="$QQ_UIN"
-if [ -z "$uin" ]; then
-  # 没配 QQ 号时, data 下恰好只有一个 session 文件就用它恢复
-  count=0
-  for f in /app/llbot/data/qq-session-*.json; do
-    [ -e "$f" ] || continue
-    count=$((count + 1))
-    only="$f"
-  done
-  if [ "$count" = "1" ]; then
-    uin=$(basename "$only" .json)
-    uin="${uin#qq-session-}"
-  fi
-fi
-if [ -n "$uin" ]; then
-  exec node --enable-source-maps ./llbot.js -q "$uin"
+# 直连模式: 不带 --pmhq-port 启动即直连.
+# QQ 显式指定要恢复的账号 (-q): 无头部署重启后自动免扫码恢复该号。
+# 不设 QQ 则起在 WebUI 登录页, 由用户从快速登录列表点选账号 (或扫码) --
+# 不再"data 里恰好一个 session 就自动用它", 那是替用户做了选择。
+if [ -n "$QQ" ]; then
+  exec node --enable-source-maps ./llbot.js -q "$QQ"
 fi
 exec node --enable-source-maps ./llbot.js

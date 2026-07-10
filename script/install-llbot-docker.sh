@@ -355,12 +355,12 @@ LLBOT_HEALTHCHECK="    healthcheck:
       retries: 3
       start_period: 40s"
 
-# 直连模式：只有 llbot 一个服务，QQ_UIN 用于重启后恢复 session（稍后配置模式登录后自动发现）
-LLBOT_ENV="      - WEBUI_PORT=${WEBUI_PORT}"
-if [ -n "$AUTO_LOGIN_QQ" ]; then
-    LLBOT_ENV="${LLBOT_ENV}
-      - QQ_UIN=${AUTO_LOGIN_QQ}"
-fi
+# 直连模式：只有 llbot 一个服务。QQ 始终写进 compose 方便配置：
+# 留空 = 起在 WebUI 登录页由用户点选账号；填 QQ 号 = 重启后自动恢复该号（无头部署免扫码）。
+# 命令行配置模式会把选的号预填进 AUTO_LOGIN_QQ。
+LLBOT_ENV="      - WEBUI_PORT=${WEBUI_PORT}
+      # QQ 留空=WebUI 登录页点选账号; 填 QQ 号=重启自动恢复该号 (无头免扫码)
+      - QQ=${AUTO_LOGIN_QQ}"
 
 cat << EOF > docker-compose.yml
 services:
