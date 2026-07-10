@@ -79,7 +79,13 @@ const Sidebar: React.FC<SidebarProps> = ({
         <div className='p-6 border-b border-theme-divider relative'>
           <div className='flex items-center gap-4'>
             <div className='w-12 h-12 rounded-2xl overflow-hidden shadow-lg flex-shrink-0'>
-              <img src='/logo.jpg' alt='Logo' className='w-full h-full object-cover' />
+              <img
+                src='/logo-128.webp'
+                srcSet='/logo-64.webp 64w, /logo-128.webp 128w, /logo-192.webp 192w, /logo-256.webp 256w'
+                sizes='48px'
+                alt='Logo'
+                className='w-full h-full object-cover'
+              />
             </div>
             <div className='flex-1 min-w-0'>
               <h1 className='text-xl font-bold text-theme truncate'>LLBot</h1>

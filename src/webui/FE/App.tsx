@@ -332,7 +332,13 @@ function App() {
             <Menu size={24} />
           </button>
           <div className="flex items-center gap-2">
-            <img src="/logo.jpg" alt="Logo" className="w-8 h-8 rounded-lg" />
+            <img
+              src="/logo-64.webp"
+              srcSet="/logo-64.webp 64w, /logo-128.webp 128w, /logo-192.webp 192w"
+              sizes="32px"
+              alt="Logo"
+              className="w-8 h-8 rounded-lg"
+            />
             <span className="font-semibold text-theme">LLBot</span>
           </div>
         </div>
@@ -838,7 +844,13 @@ function App() {
               {/* 项目信息 */}
               <div className="card p-8 text-center">
                 <div className="w-20 h-20 rounded-3xl overflow-hidden mx-auto mb-6 shadow-lg">
-                  <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
+                  <img
+                    src="/logo-192.webp"
+                    srcSet="/logo-128.webp 128w, /logo-192.webp 192w, /logo-256.webp 256w"
+                    sizes="80px"
+                    alt="Logo"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <h1 className="text-3xl font-bold text-theme mb-2">Lucky Lillia Bot</h1>
                 <p className="text-theme-secondary mb-6">使你的 QQNT 支持 OneBot 11 协议、Satori 协议、Milky 协议进行 QQ 机器人开发</p>
