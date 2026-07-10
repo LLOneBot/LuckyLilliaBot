@@ -1,3 +1,4 @@
+import { getLogger } from '@/common/logger'
 import {
   init as nativeInit,
   preflight as nativePreflight,
@@ -8,6 +9,8 @@ import {
   type RelayPacket,
   type SignLog,
 } from './sign-proxy'
+
+const logger = getLogger('sign')
 import { authTokenStatus } from '@/common/globalVars'
 
 export interface SignResult {
@@ -55,23 +58,23 @@ export async function setupSign(opts: {
 /** 运行中切换 16B device GUID. 老版 .node 没这个 export 时 warn 并 noop. */
 export function setSignMachineGuid(guid: Buffer): void {
   if (guid.length !== 16) {
-    console.warn(`[Sign] setSignMachineGuid expected 16B GUID, got ${guid.length}B -- skip`)
+    logger.warn(`[Sign] setSignMachineGuid expected 16B GUID, got ${guid.length}B -- skip`)
     return
   }
   if (!inited) return
   if (typeof nativeSetMachineGuid !== 'function') {
-    console.warn('[Sign] sign-proxy 未导出 setMachineGuid (老版 .node), GUID 切换不会生效.')
+    logger.warn('[Sign] sign-proxy 未导出 setMachineGuid (老版 .node), GUID 切换不会生效.')
     return
   }
   try {
     nativeSetMachineGuid(guid.toString('hex'))
   } catch (e) {
-    console.warn(`[Sign] setMachineGuid failed: ${(e as Error).message}`)
+    logger.warn(`[Sign] setMachineGuid failed: ${(e as Error).message}`)
   }
 }
 
 function defaultLogger(log: SignLog): void {
-  const out = log.level === 'error' ? console.error : console.warn
+  const out = log.level === 'error' ? logger.error : logger.warn
   out(`[Sign/${log.level}] ${log.message}`)
 }
 
@@ -108,7 +111,7 @@ export async function requestSign(
   protocolToken12B?: string,
 ): Promise<SignResult | null> {
   if (!inited) {
-    console.error('[Sign] sign 未初始化 (auth_token 未配?); set data/auth_token.txt or AUTH_TOKEN env.')
+    logger.error('[Sign] sign 未初始化 (auth_token 未配?); set data/auth_token.txt or AUTH_TOKEN env.')
     return null
   }
 
@@ -124,9 +127,7 @@ export async function requestSign(
         ? Buffer.from(protocolToken12B, 'utf-8').toString('hex')
         : '',
     })
-    if (process.env.DEBUG_SIGN) {
-      console.log(`[Sign] ${cmd} seq=${seq}: sign=${r.sign.length}B token=${r.token.length}B extra=${r.extra.length}B`)
-    }
+    logger.debug(`${cmd} seq=${seq}: sign=${r.sign.length}B token=${r.token.length}B extra=${r.extra.length}B`)
     return { sign: r.sign, token: r.token, extra: r.extra }
   } catch (e) {
     formatNativeSignError(cmd, qua, e as Error)
@@ -148,41 +149,41 @@ function formatNativeSignError(cmd: string, qua: string | undefined, e: Error): 
     const detail = m[2]
     switch (code) {
       case 401:
-        console.error(`[Sign] Unauthorized (cmd=${cmd}): ${detail}. auth_token 无效或已撤销, 到 manager 重新生成`)
+        logger.error(`[Sign] Unauthorized (cmd=${cmd}): ${detail}. auth_token 无效或已撤销, 到 manager 重新生成`)
         return
       case 403:
         // 理论到不了这里: native SDK 对 /api/sign/compute 的 403 会先 process.exit.
         // 真正拦"可用 QQ 数量上限"的是 completeDirectLogin 里的 getAllowedUins 预检. 这里仅兜底.
-        console.error(`[Sign] Forbidden (cmd=${cmd}): ${detail}`)
+        logger.error(`[Sign] Forbidden (cmd=${cmd}): ${detail}`)
         authTokenStatus.loginError = detail || 'auth_token 无权限 (HTTP 403)'
         return
       case 502:
-        console.error(`[Sign] Bad Gateway (cmd=${cmd}): ${detail}. 上游 sign-service 进程不可用`)
+        logger.error(`[Sign] Bad Gateway (cmd=${cmd}): ${detail}. 上游 sign-service 进程不可用`)
         return
       case 503:
-        console.error(`[Sign] Service Unavailable (cmd=${cmd}): ${detail}. 没有匹配的 sign 后端 (qua=${qua ?? '<empty>'})`)
+        logger.error(`[Sign] Service Unavailable (cmd=${cmd}): ${detail}. 没有匹配的 sign 后端 (qua=${qua ?? '<empty>'})`)
         return
       default:
-        console.error(`[Sign] HTTP ${code} (cmd=${cmd}): ${detail}`)
+        logger.error(`[Sign] HTTP ${code} (cmd=${cmd}): ${detail}`)
         return
     }
   }
   if (msg.startsWith('network:')) {
-    console.error(`[Sign] Network error (cmd=${cmd}): ${msg.slice('network: '.length)}`)
+    logger.error(`[Sign] Network error (cmd=${cmd}): ${msg.slice('network: '.length)}`)
     return
   }
   if (msg === 'not initialized; call init() first') {
-    console.error(`[Sign] ${msg} (cmd=${cmd})`)
+    logger.error(`[Sign] ${msg} (cmd=${cmd})`)
     return
   }
   if (msg.startsWith('malformed response:')) {
-    console.error(`[Sign] Failed to parse response (cmd=${cmd}): ${msg.slice('malformed response: '.length)}`)
+    logger.error(`[Sign] Failed to parse response (cmd=${cmd}): ${msg.slice('malformed response: '.length)}`)
     return
   }
   if (msg.startsWith('server returned non-zero code:')) {
     const code = msg.slice('server returned non-zero code: '.length)
-    console.error(`[Sign] Server returned non-zero code ${code} (cmd=${cmd})`)
+    logger.error(`[Sign] Server returned non-zero code ${code} (cmd=${cmd})`)
     return
   }
-  console.error(`[Sign] ${msg} (cmd=${cmd})`)
+  logger.error(`[Sign] ${msg} (cmd=${cmd})`)
 }

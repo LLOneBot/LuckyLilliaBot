@@ -29,6 +29,7 @@ import { WebuiServer } from '../webui/BE/server'
 import EmailNotificationService from '@/common/emailNotification'
 import { EmailConfig } from '@/common/emailConfig'
 import { isPmhqMode } from '@/common/utils/environment'
+import { setConfigLogLevel, isDebugEnabled, bindLoggerFactory, getLogger } from '@/common/logger'
 import { pathToFileURL } from 'node:url'
 import { DirectQQProtocolClient, PmhqQQProtocolClient } from './qqProtocol'
 import LoggerConsole from '@cordisjs/plugin-logger-console'
@@ -41,6 +42,16 @@ declare module 'cordis' {
     'llob/config-updated': (input: LLBotConfig) => void
     'llbot/email-config-updated': (input: EmailConfig) => void
   }
+}
+
+// 按当前 debug 状态 (--debug 或 config logLevel) 调整所有 logger exporter 的显示阈值:
+// DEBUG(3) 才显示底层详情日志, 否则 WARN(2). config 热更新时重调.
+function applyDebugLevel(ctx: Context): void {
+  const level = isDebugEnabled() ? 3 : 2
+  const svc = ctx.logger as unknown as { exporters?: Map<number, { levels?: Record<string, number> }> }
+  svc.exporters?.forEach((exp) => {
+    exp.levels = { ...(exp.levels ?? {}), default: level }
+  })
 }
 
 async function onLoad() {
@@ -56,10 +67,14 @@ async function onLoad() {
 
   ctx.plugin(Log)
   ctx.plugin(LoggerConsole, {
+    // 2 = WARN(含 error/info/warn), 3 = DEBUG. --debug 启动即抬到 DEBUG; 配置文件 logLevel
+    // 触发的运行时切换由 applyDebugLevel() 直接改各 exporter 的 levels.
     levels: {
-      default: 2
+      default: isDebugEnabled() ? 3 : 2
     }
   })
+  // 让无 ctx 的底层模块 (client/sign/connection 等) 经 getLogger 也走统一 cordis logger
+  bindLoggerFactory((name) => ctx.logger(name))
   ctx.plugin(TimerService)
   ctx.plugin(ConfigService)
   // 模式二选一: PMHQ 走 WS/HTTP, Direct 走 native sign + TCP + WebUI 扫码.
@@ -107,6 +122,9 @@ async function onLoad() {
     ctx.logger.info(`LLBot ${version}`)
     ctx.logger.info(process.argv)
     config = ctx.config.get()
+    setConfigLogLevel(config.logLevel)
+    applyDebugLevel(ctx)
+    ctx.on('llob/config-updated', c => { setConfigLogLevel(c.logLevel); applyDebugLevel(ctx) })
     ctx.plugin(WebuiServer, config.webui)
 
     const handleOnline = async () => {
@@ -160,4 +178,4 @@ async function onLoad() {
   })
 }
 
-onLoad().catch(e => console.error(e))
+onLoad().catch(e => getLogger('main').error(e))

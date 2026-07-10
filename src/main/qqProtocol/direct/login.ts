@@ -1,4 +1,7 @@
+import { getLogger } from '@/common/logger'
 import { DirectProtocolClient } from './client'
+
+const logger = getLogger('login')
 import { EncryptType } from './packet'
 import { TlvWriter, tlvUnpack, writeBytes16, writeString16 } from './tlv'
 import { teaEncrypt, teaDecrypt } from './tea'
@@ -597,13 +600,14 @@ function parseLoginResponse(data: Buffer, shareKey: Buffer, tgtgtKey: Buffer): L
   //   0x10E: ST key (signal token key)
   //   0x10A: TGT (已用)
   //   0x163, 0x16A, 0x16D: 其他可能
-  if (process.env.DEBUG_A2KEY) {
+  {
     const seenIds = Array.from(nestedTlvs.keys()).sort((a, b) => a - b).map(x => '0x' + x.toString(16))
-    console.log(`[A2Key probe] nested TLVs in 0x119: ${seenIds.join(', ')}`)
+    const lines = [`nested TLVs in 0x119: ${seenIds.join(', ')}`]
     for (const cand of [0x10C, 0x10D, 0x10E, 0x163, 0x16A, 0x16D, 0x172, 0x16E]) {
       const v = nestedTlvs.get(cand)
-      if (v) console.log(`  TLV 0x${cand.toString(16)}: ${v.length}B = ${v.subarray(0, Math.min(32, v.length)).toString('hex')}${v.length > 32 ? '...' : ''}`)
+      if (v) lines.push(`  TLV 0x${cand.toString(16)}: ${v.length}B = ${v.subarray(0, Math.min(32, v.length)).toString('hex')}${v.length > 32 ? '...' : ''}`)
     }
+    logger.debug(lines.join('\n'))
   }
   // 最可能候选: 0x10D (legacy A2 key) — 留作 stub, 端到端 path D 验证后改正确 ID
   const a2Key = nestedTlvs.get(0x10D) || Buffer.alloc(16)

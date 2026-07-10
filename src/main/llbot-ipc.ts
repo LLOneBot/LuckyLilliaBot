@@ -1,4 +1,7 @@
 import net from 'node:net'
+import { getLogger } from '@/common/logger'
+
+const logger = getLogger('llbot-ipc')
 import fs from 'node:fs'
 
 // LLBot <-> Desktop IPC (仅直连/无头模式).
@@ -68,10 +71,10 @@ export function startIpcServer(): void {
   }
 
   server.listen(listenPath, () => {
-    console.log(`[LL_IPC] listening on ${listenPath}`)
+    logger.info(`[LL_IPC] listening on ${listenPath}`)
   })
   server.on('error', (e: Error) => {
-    console.warn(`[LL_IPC] server error: ${e.message}`)
+    logger.warn(`[LL_IPC] server error: ${e.message}`)
   })
 
   // 进程退出时清理 UDS 文件, 避免下次启动残留导致 EADDRINUSE (Windows 命名管道内核托管, 不需要).

@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { getLogger } from '@/common/logger'
 import fsPromise from 'node:fs/promises'
 import path from 'node:path'
 import * as fileType from 'file-type'
@@ -212,7 +213,7 @@ export async function getFileType(filePath: string) {
       ext: type.ext,
     }
   } catch (error) {
-    console.error('Error detecting file type:', error)
+    getLogger('file-util').error('Error detecting file type:', error)
     return {
       mime: '',
       ext: '',

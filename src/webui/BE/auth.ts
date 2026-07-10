@@ -1,4 +1,5 @@
 import { appendFileSync } from 'node:fs'
+import { getLogger } from '@/common/logger'
 import path from 'path'
 import { LOG_DIR } from '@/common/globalVars'
 import { hashPassword } from './passwordHash'
@@ -28,7 +29,7 @@ export function logAccess(ip: string, method: string, path: string, status: numb
   try {
     appendFileSync(accessLogPath, logEntry)
   } catch (err) {
-    console.error('写入访问日志失败:', err)
+    getLogger('webui-auth').error('写入访问日志失败:', err)
   }
 }
 

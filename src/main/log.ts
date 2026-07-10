@@ -5,6 +5,7 @@ import { LOG_DIR } from '@/common/globalVars'
 import { noop, Time } from 'cosmokit'
 import { Exporter, Message } from 'cordis'
 import { inspect } from 'node:util'
+import { isDebugEnabled } from '@/common/logger'
 
 declare module 'cordis' {
   interface Events {
@@ -64,8 +65,10 @@ export default class Log implements Exporter {
     this.currentSize = 0
     this.colors = false
     this.showTime = 'yyyy-MM-dd hh:mm:ss '
+    // 2 = WARN (含 error/info/warn), 3 = DEBUG. --debug 时抬到 DEBUG 让底层详情落盘;
+    // 配置文件 logLevel 触发的运行时切换由 main.ts applyDebugLevel 直接改本 exporter 的 levels.
     this.levels = {
-      default: 2
+      default: isDebugEnabled() ? 3 : 2
     }
     this.formatters = {
       o: inspectFormatter,

@@ -1,6 +1,9 @@
 import { request } from 'node:http'
+import { getLogger } from '@/common/logger'
 import { Readable } from 'node:stream'
 import { Media } from '../proto'
+
+const logger = getLogger('highway')
 import { getMd5BufferFromBuffer } from '@/common/utils'
 import { AppInfo } from '../../main/qqProtocol/direct/appInfo'
 
@@ -25,14 +28,12 @@ abstract class AbstractHighwaySession {
   ) { }
 
   buildPicUpHead(offset: number, bodyLength: number, bodyMd5: Buffer) {
-    if (process.env.DEBUG_HIGHWAY) {
-      console.log('[highway] buildPicUpHead:', {
-        offset, bodyLength,
-        ticketLen: this.trans.ticket?.length || 0,
-        cmd: this.trans.cmd,
-        appId: AppInfo.appId,
-      })
-    }
+    logger.debug('buildPicUpHead:', {
+      offset, bodyLength,
+      ticketLen: this.trans.ticket?.length || 0,
+      cmd: this.trans.cmd,
+      appId: AppInfo.appId,
+    })
     return Media.ReqDataHighwayHead.encode({
       msgBaseHead: {
         version: 1,
@@ -157,37 +158,33 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     const payload = this.buildPicUpHead(offset, block.length, chunkMd5)
     const frame = this.packFrame(payload, block)
 
-    if (process.env.DEBUG_HIGHWAY) {
-      console.log('[HTTP highway] block req:', JSON.stringify({
-        offset,
-        cmd: this.trans.cmd,
-        bodyLen: block.length,
-        ticketLen: this.trans.ticket?.length || 0,
-        extLen: this.trans.ext?.length || 0,
-        headHex: payload.toString('hex'),
-        extHex: this.trans.ext?.toString('hex') || '',
-      }))
-    }
+    logger.debug('HTTP block req:', {
+      offset,
+      cmd: this.trans.cmd,
+      bodyLen: block.length,
+      ticketLen: this.trans.ticket?.length || 0,
+      extLen: this.trans.ext?.length || 0,
+      headHex: payload.toString('hex'),
+      extHex: this.trans.ext?.toString('hex') || '',
+    })
     const resp = await this.httpPostHighwayContent(frame,
       `http://${this.trans.server}:${this.trans.port}/cgi-bin/httpconn?htcmd=0x6FF0087&uin=${this.trans.uin}`,
       isEnd)
     const [head, body] = this.unpackFrame(resp)
 
     const headData = Media.RespDataHighwayHead.decode(head)
-    if (process.env.DEBUG_HIGHWAY) {
-      console.log('[HTTP highway] block resp:', JSON.stringify({
-        offset,
-        isEnd,
-        cmd: this.trans.cmd,
-        errorCode: headData.errorCode,
-        seg: headData.msgSegHead ? {
-          retCode: headData.msgSegHead.retCode,
-          dataOffset: headData.msgSegHead.dataOffset,
-          dataLength: headData.msgSegHead.dataLength,
-        } : null,
-        bodyHex: body.toString('hex').slice(0, 200),
-      }))
-    }
+    logger.debug('HTTP block resp:', {
+      offset,
+      isEnd,
+      cmd: this.trans.cmd,
+      errorCode: headData.errorCode,
+      seg: headData.msgSegHead ? {
+        retCode: headData.msgSegHead.retCode,
+        dataOffset: headData.msgSegHead.dataOffset,
+        dataLength: headData.msgSegHead.dataLength,
+      } : null,
+      bodyHex: body.toString('hex').slice(0, 200),
+    })
     if (headData.errorCode !== 0) throw new Error(`HTTP Upload failed with code ${headData.errorCode}`)
     const segRet = headData.msgSegHead?.retCode
     if (segRet !== undefined && segRet !== 0) {

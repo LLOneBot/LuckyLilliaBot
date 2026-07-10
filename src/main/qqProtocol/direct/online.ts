@@ -1,4 +1,5 @@
 import { DirectProtocolClient } from './client'
+import { getLogger } from '@/common/logger'
 import { AppInfo, DeviceInfo } from './appInfo'
 
 // --- Protobuf encoding helpers ---
@@ -198,7 +199,7 @@ export function startHeartbeat(client: DirectProtocolClient): () => void {
     try {
       await sendHeartbeat(client)
     } catch (e) {
-      console.error('[Heartbeat] Failed:', (e as Error).message)
+      getLogger('heartbeat').error('[Heartbeat] Failed:', (e as Error).message)
     }
   }, INTERVAL)
 

@@ -443,11 +443,11 @@ export class NTFileApi extends Service {
 
   async uploadGroupVideo(groupCode: string, filePath: string, thumbPath: string, duration: number, width: number, height: number) {
     const result = await this.ctx.qqProtocol.getGroupVideoUploadInfo(groupCode, filePath, thumbPath, duration, width, height)
-    if (process.env.DEBUG_VIDEO_UPLOAD) {
+    {
       const idxMain = result.ext?.msgInfoBody?.[0]?.index
       const idxThumb = result.subExt?.msgInfoBody?.[1]?.index
-      console.log(`[uploadGroupVideo] main fileUuid=${idxMain?.fileUuid?.slice(0, 60)}... mainUKey=${result.ext?.uKey ? 'set' : 'EMPTY'}`)
-      console.log(`[uploadGroupVideo] thumb fileUuid=${idxThumb?.fileUuid?.slice(0, 60)}... thumbUKey=${result.subExt?.uKey ? 'set' : 'EMPTY'}`)
+      this.ctx.logger.debug(`uploadGroupVideo main fileUuid=${idxMain?.fileUuid?.slice(0, 60)}... mainUKey=${result.ext?.uKey ? 'set' : 'EMPTY'}\n`
+        + `thumb fileUuid=${idxThumb?.fileUuid?.slice(0, 60)}... thumbUKey=${result.subExt?.uKey ? 'set' : 'EMPTY'}`)
     }
     const highwaySession = await this.ctx.qqProtocol.getHighwaySession()
     const maxBlockSize = 1024 * 1024

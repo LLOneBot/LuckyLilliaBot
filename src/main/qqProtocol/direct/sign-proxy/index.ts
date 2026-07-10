@@ -1,4 +1,5 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { getLogger } from '@/common/logger'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -55,7 +56,7 @@ function ensureLoadablePath(srcPath: string, version: string, triple: string): s
     copyFileSync(srcPath, cachedPath)
     return cachedPath
   } catch (e) {
-    console.warn(`[sign-proxy] hot-update copy failed (${(e as Error).message}); falling back to ${srcPath}`)
+    getLogger('sign-proxy').warn(`[sign-proxy] hot-update copy failed (${(e as Error).message}); falling back to ${srcPath}`)
     return srcPath
   }
 }

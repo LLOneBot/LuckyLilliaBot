@@ -1,10 +1,13 @@
 import type { Context } from 'cordis'
+import { getLogger } from '@/common/logger'
 import { Msg, Notify } from '@/ntqqapi/proto'
 import { ChatType, ElementType, RawMessage, GroupNotificationType, RequestState } from '@/ntqqapi/types'
 import { selfInfo } from '@/common/globalVars'
 import { parseElements } from './helper/messageParsing'
 import { InferProtoModel } from '@saltify/typeproto'
 import { unzipSync } from 'node:zlib'
+
+const logger = getLogger('dispatcher')
 
 const MSG_PUSH_CMD = 'trpc.msg.olpush.OlPushService.MsgPush'
 const KICK_CMD = 'trpc.qq_new_tech.status_svc.StatusService.KickNT'
@@ -54,9 +57,7 @@ const enum Event0x2DCSub {
  */
 export function registerDispatcher(ctx: Context) {
   ctx.on('qq/raw', ({ cmd, payload }) => {
-    if (process.env.DEBUG_RAW_PUSH) {
-      console.log(`[RawPush] cmd=${cmd} bodyLen=${payload.length} bodyHex=${payload.toString('hex').slice(0, 400)}`)
-    }
+    logger.debug(`cmd=${cmd} bodyLen=${payload.length} bodyHex=%h`, payload)
     try {
       switch (cmd) {
         case MSG_PUSH_CMD:
@@ -83,11 +84,7 @@ export function registerDispatcher(ctx: Context) {
 function handleMsgPush(ctx: Context, payload: Buffer) {
   const pushMsg = Msg.PushMsg.decode(payload)
   const msg = pushMsg.message
-  if (process.env.DEBUG_RAW_PUSH) {
-    const m = msg
-    const rh = m?.routingHead
-    console.log(`[RawPush] MsgPush msgType=${m?.contentHead.msgType} subType=${m?.contentHead.subType} fromUid=${rh?.fromUid ?? '?'} fromUin=${rh?.fromUin ?? '?'} groupCode=${rh?.group?.groupCode ?? '?'}`)
-  }
+  logger.debug(`MsgPush msgType=${msg?.contentHead.msgType} subType=${msg?.contentHead.subType} fromUid=${msg?.routingHead?.fromUid ?? '?'} fromUin=${msg?.routingHead?.fromUin ?? '?'} groupCode=${msg?.routingHead?.group?.groupCode ?? '?'}`)
   if (!msg) return
 
   const msgType = msg.contentHead.msgType
@@ -775,15 +772,13 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
   }
   const rawMessage = convertToRawMessage(msg)
   if (!rawMessage) return
-  if (process.env.DEBUG_RAW_PUSH) {
+  {
     const elemSummary = rawMessage.elements.map(e => `type=${e.elementType}` + (e.fileElement ? ` file=${e.fileElement.fileName}` : '') + (e.textElement ? ` text="${e.textElement.content?.slice(0, 30)}"` : '')).join(', ')
-    console.log(`[RawPush] convertedRawMsg msgId=${rawMessage.msgId} chatType=${rawMessage.chatType} peerUin=${rawMessage.peerUin} senderUin=${rawMessage.senderUin} elementsLen=${rawMessage.elements.length} [${elemSummary}]`)
+    logger.debug(`convertedRawMsg msgId=${rawMessage.msgId} chatType=${rawMessage.chatType} peerUin=${rawMessage.peerUin} senderUin=${rawMessage.senderUin} elementsLen=${rawMessage.elements.length} [${elemSummary}]`)
   }
   const isSelfMsg = rawMessage.senderUin === +selfInfo.uin
   if (isSelfMsg) {
-    if (process.env.DEBUG_RAW_PUSH) {
-      console.log(`[RawPush] emit nt/message-sent msgId=${rawMessage.msgId}`)
-    }
+    logger.debug(`emit nt/message-sent msgId=${rawMessage.msgId}`)
     ctx.parallel('nt/message-sent', { message: rawMessage })
     return
   }
@@ -865,7 +860,7 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>): R
         })
       }
     } catch (e) {
-      console.warn('PrivateFile FileExtra decode failed:', (e as Error).message)
+      logger.warn('PrivateFile FileExtra decode failed:', (e as Error).message)
     }
   }
 

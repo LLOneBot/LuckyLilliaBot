@@ -5,6 +5,9 @@
 import { randomBytes } from 'node:crypto'
 import { promises as fs, readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'node:fs'
 import * as path from 'node:path'
+import { getLogger } from '@/common/logger'
+
+const logger = getLogger('machine-guid')
 
 const DEFAULT_FILE = path.resolve('data/machine_guid.bin')
 
@@ -26,7 +29,7 @@ export async function loadMachineGuid(filePath: string = DEFAULT_FILE): Promise<
     }
     const backup = `${resolved}.bad-${Date.now()}`
     await fs.rename(resolved, backup).catch(() => {})
-    console.warn(`[MachineGuid] ${resolved} length=${buf.length} (expect 16), backed up to ${backup}, regenerating`)
+    logger.warn(`[MachineGuid] ${resolved} length=${buf.length} (expect 16), backed up to ${backup}, regenerating`)
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code !== 'ENOENT') {
       throw e
@@ -35,7 +38,7 @@ export async function loadMachineGuid(filePath: string = DEFAULT_FILE): Promise<
   const guid = randomBytes(16)
   await fs.mkdir(path.dirname(resolved), { recursive: true }).catch(() => {})
   await fs.writeFile(resolved, guid)
-  console.log(`[MachineGuid] generated new 16B GUID -> ${resolved}`)
+  logger.info(`[MachineGuid] generated new 16B GUID -> ${resolved}`)
   cache.set(resolved, guid)
   return guid
 }
@@ -53,12 +56,12 @@ export function loadMachineGuidSync(filePath: string = DEFAULT_FILE): Buffer {
     }
     const backup = `${resolved}.bad-${Date.now()}`
     try { renameSync(resolved, backup) } catch {}
-    console.warn(`[MachineGuid] ${resolved} length=${buf.length} (expect 16), backed up to ${backup}, regenerating`)
+    logger.warn(`[MachineGuid] ${resolved} length=${buf.length} (expect 16), backed up to ${backup}, regenerating`)
   }
   const guid = randomBytes(16)
   try { mkdirSync(path.dirname(resolved), { recursive: true }) } catch {}
   writeFileSync(resolved, guid)
-  console.log(`[MachineGuid] generated new 16B GUID -> ${resolved}`)
+  logger.info(`[MachineGuid] generated new 16B GUID -> ${resolved}`)
   cache.set(resolved, guid)
   return guid
 }

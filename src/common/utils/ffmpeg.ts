@@ -1,4 +1,5 @@
 import ffmpeg from 'fluent-ffmpeg'
+import { getLogger } from '@/common/logger'
 import path from 'node:path'
 import fs from 'node:fs'
 
@@ -27,7 +28,7 @@ export function setFFMpegPath(ffmpegPath: string) {
   for (const p of paths) {
     if (fs.existsSync(p)) {
       ffmpeg.setFfmpegPath(p)
-      console.log('set ffmpeg successfully', p)
+      getLogger('ffmpeg').info('set ffmpeg successfully', p)
       break
     }
   }

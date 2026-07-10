@@ -1,3 +1,4 @@
+import { getLogger } from '@/common/logger'
 import { TcpConnection } from './connection'
 import { buildServicePacket, buildServicePacket13, parseServicePacket, EncryptType, PacketContext, SsoPacket } from './packet'
 import { generateEcdhKeyPair, EcdhKeyPair } from './ecdh'
@@ -5,6 +6,8 @@ import { requestSign, setupSign, setSignMachineGuid, acquireSignToken, SignResul
 import { AppInfo } from './appInfo'
 import { loadMachineGuidSync } from './machineGuid'
 import { EventEmitter } from 'node:events'
+
+const logger = getLogger('direct')
 
 export interface DirectClientConfig {
   appId: number
@@ -89,9 +92,7 @@ export class DirectProtocolClient extends EventEmitter {
       uin: this.config.uin,
       sendPacket: async ({ cmd, body }) => {
         const resp = (await this.sendCommand(cmd, Buffer.from(body))).payload
-        if (process.env.DEBUG_SIGN) {
-          console.log(`[Sign relay] ${cmd}: req=${body.length}B resp=${resp.length}B hex=${resp.toString('hex')}`)
-        }
+        logger.debug(`[relay] ${cmd}: req=${body.length}B resp=${resp.length}B hex=%h`, resp)
         return resp
       },
     })
@@ -711,9 +712,7 @@ export class DirectProtocolClient extends EventEmitter {
       if (signResult?.token.length === 0) {
         signResult.token = Buffer.from(this.session?.signToken12B ?? '')
       }
-      if (process.env.DEBUG_SIGN) {
-        console.log(`[Sign] ${cmd} seq=${seq}: result=${signResult ? `sign=${signResult.sign.length}B token=${signResult.token.length}B extra=${signResult.extra.length}B` : 'null'}`)
-      }
+      logger.debug(`[sign] ${cmd} seq=${seq}: result=${signResult ? `sign=${signResult.sign.length}B token=${signResult.token.length}B extra=${signResult.extra.length}B` : 'null'}`)
       // sign 是协议必需字段, 拿不到就别送 unsigned 包出去. requestSign 内部已经按 status
       // 打过具体错因 (401/403/502/503), 这里只丢异常中断 cmd.
       if (!signResult) {
@@ -723,11 +722,9 @@ export class DirectProtocolClient extends EventEmitter {
 
     const packet = buildServicePacket(seq, cmd, ctx, payload, enc, signResult)
 
-    if (process.env.DEBUG_SIGN) {
-      // 调试用: 出网前 dump SSO frame, 跟真机抓包对照定位 sign 不一致的字节差异.
-      if (cmd.includes('o3.ecdh_access') || cmd === 'wtlogin.login' || cmd === 'wtlogin.trans_emp') {
-        console.log(`[Bot SSO send] ${cmd} seq=${seq} frame=${packet.length}B hex=${packet.toString('hex')}`)
-      }
+    // 调试用: 出网前 dump SSO frame, 跟真机抓包对照定位 sign 不一致的字节差异.
+    if (cmd.includes('o3.ecdh_access') || cmd === 'wtlogin.login' || cmd === 'wtlogin.trans_emp') {
+      logger.debug(`[SSO send] ${cmd} seq=${seq} frame=${packet.length}B hex=%h`, packet)
     }
 
     return new Promise((resolve, reject) => {
@@ -855,11 +852,11 @@ export class DirectProtocolClient extends EventEmitter {
         if (this.session) {
           this.session.signToken12B = token
           this.session.signTokenExpiresAt = Date.now() + ttlSecs * 1000
-          console.log(`[SignToken] acquired "${token}" ttl=${ttlSecs}s`)
+          logger.info(`[SignToken] acquired "${token}" ttl=${ttlSecs}s`)
         }
       } catch (e) {
         // 首拉失败: expiresAt 仍 undefined, 下条 allowlist 命令会再试一次首拉。
-        console.warn(`[SignToken] acquire failed: ${(e as Error).message}`)
+        logger.warn(`[SignToken] acquire failed: ${(e as Error).message}`)
       } finally {
         this.signTokenRefreshInflight = null
       }

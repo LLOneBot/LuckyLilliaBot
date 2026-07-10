@@ -337,7 +337,7 @@ export class DirectQQProtocol extends QQProtocolBase {
 
       try {
         await registerOnline(this.directClient)
-        console.log('[QQ Server] Online registered!')
+        this.logger.info('[QQ Server] Online registered!')
         selfInfo.uin = persisted.uin
         selfInfo.uid = persisted.uid
         if (persisted.nick) selfInfo.nick = persisted.nick
