@@ -19,6 +19,9 @@ let processing = false
 let pending = false
 // 上次校验通过的 token: 内容没变且已 valid 时不重复触发登录
 let lastValidToken = ''
+// 已提示过"无 token": 启动时初始检查 + watchFile 对不存在文件的首次触发会连调两遍 processOnce,
+// 不去重就重复打印同一条 warning。进入无 token 状态只提示一次, 有 token 后重置。
+let warnedNoToken = false
 let retryTimer: NodeJS.Timeout | null = null
 let onValidCb: OnValid = () => {}
 let log: WatcherLogger = console
@@ -66,13 +69,17 @@ async function processOnce(): Promise<void> {
     authTokenStatus.hasToken = false
     authTokenStatus.validation = 'idle'
     authTokenStatus.message = ''
-    log.warn(
-      '[Sign] auth_token 未配置: 请到 https://auth.luckylillia.com 获取 Auth Token, ' +
-      '在 WebUI 中录入或写入 data/auth_token.txt (录入后会自动校验并登录)'
-    )
+    if (!warnedNoToken) {
+      warnedNoToken = true
+      log.warn(
+        '[Sign] auth_token 未配置: 请到 https://auth.luckylillia.com 获取 Auth Token, ' +
+        '在 WebUI 中录入或写入 data/auth_token.txt (录入后会自动校验并登录)'
+      )
+    }
     return
   }
 
+  warnedNoToken = false
   authTokenStatus.hasToken = true
   // 已验证通过且内容没变 -> 不重复登录 (避免 watchFile 抖动重复触发)
   if (token === lastValidToken && authTokenStatus.validation === 'valid') {
