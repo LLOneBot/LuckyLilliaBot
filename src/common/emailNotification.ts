@@ -1,7 +1,6 @@
-import { Context, Inject, Service } from 'cordis'
+import { Context, Service } from 'cordis'
 import { EmailService, BotInfo } from './emailService.js'
 import { EmailConfigManager } from './emailConfig.js'
-import { KickedOffLineInfo } from '@/ntqqapi/types/index.js'
 import { selfInfo } from '@/common/globalVars.js'
 import { DATA_DIR } from '@/common/globalVars.js'
 import { watch } from 'node:fs'
@@ -14,7 +13,7 @@ declare module 'cordis' {
 }
 
 export class EmailNotificationService extends Service {
-  static inject = ['logger', 'pmhq']
+  static inject = ['qqProtocol']
 
   private emailService: EmailService
   private configManager: EmailConfigManager
@@ -46,7 +45,7 @@ export class EmailNotificationService extends Service {
         this.fileWatcher.close()
       }
       if (this.pmhqDisconnectId) {
-        this.ctx.pmhq.offDisconnect(this.pmhqDisconnectId)
+        this.ctx.qqProtocol.offDisconnect(this.pmhqDisconnectId)
       }
     }
   }
@@ -65,9 +64,9 @@ export class EmailNotificationService extends Service {
 
     let wasOffline = false
 
-    this.ctx.on('nt/kicked-offLine', (info: KickedOffLineInfo) => {
+    this.ctx.on('nt/kicked-offline', (data) => {
       wasOffline = true
-      this.onOffline(info.tipsDesc || info.tipsTitle)
+      this.onOffline(data.tipsDesc || data.tipsTitle)
     })
 
     this.checkLoginStatus = setInterval(() => {
@@ -92,7 +91,7 @@ export class EmailNotificationService extends Service {
   }
 
   private registerPmhqDisconnectCallback() {
-    this.pmhqDisconnectId = this.ctx.pmhq.onDisconnect(10000, (duration) => {
+    this.pmhqDisconnectId = this.ctx.qqProtocol.onDisconnect(10000, (duration) => {
       if (!this.notificationSent && this.hasLoggedIn) {
         this.ctx.logger.warn(`[EmailNotification] PMHQ disconnected for ${duration}ms`)
         this.onOffline('可能 QQ 已经有点死了')
@@ -109,36 +108,34 @@ export class EmailNotificationService extends Service {
       return
     }
 
-    this.ctx.logger.info('[EmailNotification] Bot went offline, sending notification')
-    this.sendOfflineNotification(reason)
+    this.ctx.logger.info('[EmailNotification] Bot offline, sending notification')
+    this.sendOfflineNotification(reason).catch(e => {
+      this.ctx.logger.error('[EmailNotification] sendOfflineNotification error:', e)
+    })
   }
 
   private async sendOfflineNotification(reason?: string) {
-    try {
-      const config = this.configManager.getConfig()
+    const config = this.configManager.getConfig()
 
-      if (!config.enabled) {
-        this.ctx.logger.debug('[EmailNotification] Email notifications are disabled')
-        return
-      }
+    if (!config.enabled) {
+      this.ctx.logger.debug('[EmailNotification] Email notifications are disabled')
+      return
+    }
 
-      const botInfo: BotInfo = {
-        uin: selfInfo.uin,
-        uid: selfInfo.uid,
-        nick: selfInfo.nick,
-        timestamp: new Date(),
-      }
+    const botInfo: BotInfo = {
+      uin: selfInfo.uin,
+      uid: selfInfo.uid,
+      nick: selfInfo.nick,
+      timestamp: new Date(),
+    }
 
-      const result = await this.emailService.sendOfflineNotification(botInfo, reason)
+    const result = await this.emailService.sendOfflineNotification(botInfo, reason)
 
-      if (result.success) {
-        this.notificationSent = true
-        this.ctx.logger.info('[EmailNotification] Offline notification sent successfully')
-      } else {
-        this.ctx.logger.error('[EmailNotification] Failed to send notification:', result.error)
-      }
-    } catch (error) {
-      this.ctx.logger.error('[EmailNotification] Error sending notification:', error)
+    if (result.success) {
+      this.notificationSent = true
+      this.ctx.logger.info('[EmailNotification] Offline notification sent successfully')
+    } else {
+      this.ctx.logger.error('[EmailNotification] Failed to send notification:', result.error)
     }
   }
 

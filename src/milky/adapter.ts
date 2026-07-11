@@ -13,16 +13,29 @@ import { selfInfo } from '@/common/globalVars'
 import {
   transformPrivateMessageCreated,
   transformGroupMessageCreated,
-  transformPrivateMessageDeleted,
-  transformGroupMessageDeleted,
-  transformGroupNotify,
   transformFriendRequestEvent,
-  transformSystemMessageEvent,
   transformGroupMessageEvent,
   transformPrivateMessageEvent,
-  transformOlpushEvent,
   transformTempMessageCreated,
-  transformTempMessageDeleted,
+  transformGroupJoinRequestEvent,
+  transformGroupInvitedJoinRequestEvent,
+  transformGroupInvitationEvent,
+  transformGroupMemberIncreaseEvent,
+  transformGroupMemberDecreaseEvent,
+  transformFriendMessageRecall,
+  transformGroupMessageRecall,
+  transformTempMessageRecall,
+  transformFriendNudgeEvent,
+  transformGroupNudgeEvent,
+  transformGroupNameChangeEvent,
+  transformGroupWholeMuteEvent,
+  transformGroupMuteEvent,
+  transformGroupAdminChangeEvent,
+  transformPeerPinChangeEvent,
+  transformGroupEssenceMessageChangeEvent,
+  transformGroupMessageReactionEvent,
+  transformBotOfflineEvent,
+  transformGroupDisbandEvent,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
 import { noop } from 'cosmokit'
@@ -34,7 +47,11 @@ declare module 'cordis' {
 }
 
 export class MilkyAdapter extends Service {
-  static inject = ['ntUserApi', 'ntFriendApi', 'ntGroupApi', 'ntMsgApi', 'ntFileApi', 'ntSystemApi', 'ntWebApi', 'app', 'logger', 'pmhq']
+  static inject = [
+    'ntUserApi', 'ntFriendApi', 'ntGroupApi',
+    'ntMsgApi', 'ntFileApi', 'ntSystemApi',
+    'ntWebApi', 'app', 'store'
+  ]
 
   readonly apiCollection!: MilkyApiCollection
   readonly httpHandler!: MilkyHttpHandler
@@ -108,130 +125,198 @@ export class MilkyAdapter extends Service {
     if (this.listenedEvent) return
     this.listenedEvent = true
 
-    // Listen to NTQQ message created events
-    this.ctx.on('nt/message-created', async (message) => {
-      // 其他终端自己发送的消息会进入这里
-      if (message.senderUid === selfInfo.uid && !this.config.reportSelfMessage) {
-        return
-      }
-      if (message.chatType === ChatType.C2C) {
+    this.ctx.on('nt/message-created', async (data) => {
+      // 自己发送的消息不会进这里，而是走 nt/message-sent
+      if (data.message.chatType === ChatType.C2C) {
         // Private message
-        const eventData = await transformPrivateMessageCreated(this.ctx, message)
+        const eventData = await transformPrivateMessageCreated(this.ctx, data.message)
         if (eventData) {
           this.emitEvent('message_receive', eventData)
         }
-        const result = await transformPrivateMessageEvent(this.ctx, message)
+        const result = await transformPrivateMessageEvent(this.ctx, data.message)
         if (result) {
           this.emitEvent(result.eventType, result.data)
         }
-      } else if (message.chatType === ChatType.Group) {
+      } else if (data.message.chatType === ChatType.Group) {
         // Group message
-        const eventData = await transformGroupMessageCreated(this.ctx, message)
+        const eventData = await transformGroupMessageCreated(this.ctx, data.message)
         if (eventData) {
           this.emitEvent('message_receive', eventData)
         }
-        const result = await transformGroupMessageEvent(this.ctx, message)
+        const result = await transformGroupMessageEvent(this.ctx, data.message)
         if (result) {
-          if (Array.isArray(result)) {
-            for (const item of result) {
-              this.emitEvent(item.eventType, item.data)
-            }
-          } else {
-            this.emitEvent(result.eventType, result.data)
-          }
+          this.emitEvent(result.eventType, result.data)
         }
-      } else if (message.chatType === ChatType.TempC2CFromGroup) {
+      } else if (data.message.chatType === ChatType.TempC2CFromGroup) {
         // Temp message
-        const eventData = await transformTempMessageCreated(this.ctx, message)
+        const eventData = await transformTempMessageCreated(this.ctx, data.message)
         if (eventData) {
           this.emitEvent('message_receive', eventData)
         }
-        const result = await transformPrivateMessageEvent(this.ctx, message)
+        const result = await transformPrivateMessageEvent(this.ctx, data.message)
         if (result) {
           this.emitEvent(result.eventType, result.data)
         }
       }
     })
 
-    // Listen to NTQQ message deleted events
-    this.ctx.on('nt/message-deleted', async (message) => {
-      if (!message.elements[0].grayTipElement?.revokeElement) return
-      if (message.chatType === ChatType.C2C) {
-        const eventData = await transformPrivateMessageDeleted(this.ctx, message)
+    this.ctx.on('nt/message-deleted', async (data) => {
+      if (data.chatType === ChatType.C2C) {
+        const eventData = await transformFriendMessageRecall(this.ctx, data)
         if (eventData) {
           this.emitEvent('message_recall', eventData)
         }
-      } else if (message.chatType === ChatType.Group) {
-        const eventData = await transformGroupMessageDeleted(this.ctx, message)
+      } else if (data.chatType === ChatType.Group) {
+        const eventData = await transformGroupMessageRecall(this.ctx, data)
         if (eventData) {
           this.emitEvent('message_recall', eventData)
         }
-      } else if (message.chatType === ChatType.TempC2CFromGroup) {
-        const eventData = await transformTempMessageDeleted(this.ctx, message)
+      } else if (data.chatType === ChatType.TempC2CFromGroup) {
+        const eventData = await transformTempMessageRecall(this.ctx, data)
         if (eventData) {
           this.emitEvent('message_recall', eventData)
         }
       }
     })
 
-    // Listen to NTQQ message sent events (self messages)
-    this.ctx.on('nt/message-sent', async (message) => {
+    this.ctx.on('nt/message-sent', async (data) => {
       if (!this.config.reportSelfMessage) {
         return
       }
-      if (message.chatType === ChatType.C2C) {
-        const eventData = await transformPrivateMessageCreated(this.ctx, message)
+      if (data.message.chatType === ChatType.C2C) {
+        const eventData = await transformPrivateMessageCreated(this.ctx, data.message)
         if (eventData) {
           this.emitEvent('message_receive', eventData)
         }
-      } else if (message.chatType === ChatType.Group) {
-        const eventData = await transformGroupMessageCreated(this.ctx, message)
+      } else if (data.message.chatType === ChatType.Group) {
+        const eventData = await transformGroupMessageCreated(this.ctx, data.message)
         if (eventData) {
           this.emitEvent('message_receive', eventData)
         }
-      } else if (message.chatType === ChatType.TempC2CFromGroup) {
-        const eventData = await transformTempMessageCreated(this.ctx, message)
+      } else if (data.message.chatType === ChatType.TempC2CFromGroup) {
+        const eventData = await transformTempMessageCreated(this.ctx, data.message)
         if (eventData) {
           this.emitEvent('message_receive', eventData)
         }
       }
     })
 
-    // Listen to NTQQ group notify events
-    this.ctx.on('nt/group-notify', async ({ notify, doubt }) => {
-      const result = await transformGroupNotify(this.ctx, notify, doubt)
-      if (result) {
-        this.emitEvent(result.eventType, result.data)
+    this.ctx.on('nt/group-join-request', async (data) => {
+      const eventData = await transformGroupJoinRequestEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_join_request', eventData)
       }
     })
 
-    // Listen to NTQQ friend request events
-    this.ctx.on('nt/friend-request', async (request) => {
-      const eventData = await transformFriendRequestEvent(this.ctx, request)
+    this.ctx.on('nt/group-invited-join-request', async (data) => {
+      const eventData = await transformGroupInvitedJoinRequestEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_invited_join_request', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-invitation', async (data) => {
+      const eventData = await transformGroupInvitationEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_invitation', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-disband', async (data) => {
+      const eventData = await transformGroupDisbandEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_disband', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-nudge', async (data) => {
+      const eventData = await transformGroupNudgeEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_nudge', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-message-reaction', async (data) => {
+      const eventData = await transformGroupMessageReactionEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_message_reaction', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-essence-message-changed', async (data) => {
+      const eventData = await transformGroupEssenceMessageChangeEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_essence_message_change', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-whole-mute', async (data) => {
+      const eventData = await transformGroupWholeMuteEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_whole_mute', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-mute', async (data) => {
+      const eventData = await transformGroupMuteEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_mute', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-name-changed', async (data) => {
+      const eventData = await transformGroupNameChangeEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_name_change', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-admin-changed', async (data) => {
+      const eventData = await transformGroupAdminChangeEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_admin_change', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-member-added', async (data) => {
+      const eventData = await transformGroupMemberIncreaseEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_member_increase', eventData)
+      }
+    })
+
+    this.ctx.on('nt/group-member-removed', async (data) => {
+      const eventData = await transformGroupMemberDecreaseEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('group_member_decrease', eventData)
+      }
+    })
+
+    this.ctx.on('nt/friend-request', async (data) => {
+      const eventData = await transformFriendRequestEvent(this.ctx, data)
       if (eventData) {
         this.emitEvent('friend_request', eventData)
       }
     })
 
-    this.ctx.on('nt/system-message-created', async (data) => {
-      const result = await transformSystemMessageEvent(this.ctx, data)
-      if (result) {
-        this.emitEvent(result.eventType, result.data)
+    this.ctx.on('nt/friend-nudge', async (data) => {
+      const eventData = await transformFriendNudgeEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('friend_nudge', eventData)
       }
     })
 
-    this.ctx.on('nt/kicked-offLine', async (info) => {
-      this.emitEvent('bot_offline', {
-        reason: info.tipsDesc
-      })
+    this.ctx.on('nt/pin-changed', async (data) => {
+      const eventData = await transformPeerPinChangeEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('peer_pin_change', eventData)
+      }
     })
 
-    this.ctx.pmhq.addResListener(async (data) => {
-      if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
-        const result = await transformOlpushEvent(this.ctx, Buffer.from(data.data.pb, 'hex'))
-        if (result) {
-          this.emitEvent(result.eventType, result.data)
-        }
+    this.ctx.on('nt/kicked-offline', async (data) => {
+      const eventData = await transformBotOfflineEvent(this.ctx, data)
+      if (eventData) {
+        this.emitEvent('bot_offline', eventData)
       }
     })
   }

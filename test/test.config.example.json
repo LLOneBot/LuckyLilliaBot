@@ -1,0 +1,39 @@
+{
+  "_comment": "项目级统一测试配置。所有测试套件 (onebot11-api-test / milky-api-test / satori-api-test / webqq-api-test) 都从这里读。复制为 test.config.json 并填实际值。WebUI 密码自动从 data/webui_token.txt 读, 不在 config 里。",
+
+  "bots": {
+    "primary": {
+      "_comment": "用作 OB11/Milky/Satori 的 primary 账号 + WebQQ 唯一目标",
+      "uin": "1412971608",
+
+      "ob11_http": "http://127.0.0.1:53000",
+      "ob11_ws": "ws://127.0.0.1:3001",
+      "ob11_token": "",
+
+      "milky_http": "http://127.0.0.1:53100",
+      "milky_token": "",
+
+      "satori_http": "http://127.0.0.1:53200",
+      "satori_token": "123",
+
+      "webui_http": "http://127.0.0.1:3080"
+    },
+    "secondary": {
+      "_comment": "用作 OB11/Milky/Satori 的 secondary 账号 + WebQQ 测试目标 uin。如果只跑 webqq 单账号测试可以省略此节",
+      "uin": "721011692",
+
+      "ob11_http": "http://127.0.0.1:53001",
+      "ob11_token": "123",
+
+      "milky_http": "http://127.0.0.1:53101",
+      "milky_token": "",
+
+      "satori_http": "http://127.0.0.1:53201",
+      "satori_token": "123"
+    }
+  },
+
+  "test_group_id": "164461995",
+  "timeout": 30000,
+  "retryAttempts": 3
+}

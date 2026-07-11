@@ -17,7 +17,7 @@ export class GetCredentials extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload) {
-    const cookiesObject = await this.ctx.ntUserApi.getCookies(payload.domain)
+    const cookiesObject = await this.ctx.ntWebApi.getCookies(payload.domain)
     //把获取到的cookiesObject转换成 k=v; 格式字符串拼接在一起
     const cookies = Object.entries(cookiesObject).map(([key, value]) => `${key}=${value}`).join('; ')
     const bkn = cookiesObject.skey ? this.ctx.ntWebApi.genBkn(cookiesObject.skey) : ''

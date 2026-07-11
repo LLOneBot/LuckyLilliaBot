@@ -3,18 +3,18 @@ import { Config, WebUIConfig } from '@/common/types'
 import { Context, Service } from 'cordis'
 import { TEMP_DIR } from '@/common/globalVars'
 import { getAvailablePort } from '@/common/utils/port'
-import { ChatType, RawMessage, FriendRequest } from '@/ntqqapi/types'
+import { ChatType, RawMessage } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
 import { existsSync, mkdirSync } from 'node:fs'
 import { authMiddleware } from './auth'
 import { serializeResult } from './utils'
 import {
   createConfigRoutes,
+  createAuthTokenRoutes,
   createDashboardRoutes,
   createLoginRoutes,
   createLogsRoutes,
   createWebQQRoutes,
-  createNtCallRoutes,
   createEmailRoutes
 } from './routes'
 import { Msg } from '@/ntqqapi/proto'
@@ -38,22 +38,38 @@ declare module 'cordis' {
   }
 }
 
+// WebuiServer 只 inject 了登录前就绪的 qqProtocol/ntLoginApi (见下方 static inject 注释), 但 dashboard/
+// webqq 等登录后的路由要用 nt* / store / config / ntSystemApi 等服务, 它们依赖 store->database, 登录后才
+// 加载. cordis 严格模式下直接 ctx.ntGroupApi 会抛 "cannot get property without inject". 这里包一层代理:
+//   - 服务名 (LAZY_SERVICES) 走 ctx.get(name) 绕过严格检查 (未就绪返 undefined, 登录后路由被调时已就绪)
+//   - 其余内建成员 (logger/on/parallel/get 等) 透传, 且把函数绑回真 ctx, 避免 this 指向代理破坏 cordis 内部
+// 好处: 路由里 ctx.ntGroupApi.xxx 的写法和类型都不用动, 只在 server.ts 注册处包一次.
+const LAZY_SERVICES = new Set([
+  'ntGroupApi', 'ntUserApi', 'ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntSystemApi', 'ntWebApi',
+  'store', 'config', 'app', 'emailNotification',
+])
+
+function lazyServiceContext(ctx: Context): Context {
+  return new Proxy(ctx, {
+    get(target, prop) {
+      if (typeof prop === 'string' && LAZY_SERVICES.has(prop)) {
+        return (target as unknown as { get(n: string): unknown }).get(prop)
+      }
+      const v = Reflect.get(target, prop, target)
+      return typeof v === 'function' ? v.bind(target) : v
+    },
+  }) as Context
+}
+
 export interface WebuiServerConfig extends WebUIConfig {
 }
 
 export class WebuiServer extends Service {
-  static inject = {
-    ntLoginApi: true,
-    ntFriendApi: true,
-    ntGroupApi: true,
-    ntSystemApi: true,
-    ntMsgApi: true,
-    ntUserApi: true,
-    ntFileApi: true,
-    emailNotification: false,
-    logger: true,
-    pmhq: true
-  }
+  // 登录前 WebUI 也要能起 (要给用户看/输 auth_token / 扫码), 所以只把登录前就能 ready 的依赖标 required.
+  // 其余 nt* API 依赖 store, 而 store 又依赖 database, database 只在 loadPluginAfterLogin 才加载;
+  // 若列进 inject 会一直卡到登录成功才启动. cordis object-form inject 里 value 无论 true/false
+  // 都算 required, 所以真正 optional 的依赖必须从 inject 里彻底移除, handler 里按需 ctx.get(...) 拿.
+  static inject = ['qqProtocol', 'ntLoginApi']
 
   private server: ServerType | null = null
   private app: Hono = new Hono()
@@ -96,14 +112,17 @@ export class WebuiServer extends Service {
   private initServer() {
     this.app.use('/api/*', authMiddleware)
 
+    // 用懒服务代理 ctx: 登录后才就绪的 nt*/store/config 等服务在路由里直接 ctx.xxx 访问不再抛 without-inject
+    const ctx = lazyServiceContext(this.ctx)
+
     // 注册路由
-    this.app.route('/api', createConfigRoutes(this.ctx))
-    this.app.route('/api', createLoginRoutes(this.ctx))
-    this.app.route('/api', createDashboardRoutes(this.ctx))
-    this.app.route('/api', createLogsRoutes(this.ctx))
-    this.app.route('/api', createNtCallRoutes(this.ctx))
-    this.app.route('/api/email', createEmailRoutes(this.ctx))
-    this.app.route('/api/webqq', createWebQQRoutes(this.ctx, {
+    this.app.route('/api', createConfigRoutes(ctx))
+    this.app.route('/api', createAuthTokenRoutes())
+    this.app.route('/api', createLoginRoutes(ctx))
+    this.app.route('/api', createDashboardRoutes(ctx))
+    this.app.route('/api', createLogsRoutes(ctx))
+    this.app.route('/api/email', createEmailRoutes(ctx))
+    this.app.route('/api/webqq', createWebQQRoutes(ctx, {
       uploadDir: this.uploadDir,
       sseClients: this.sseClients,
       createPicElement: this.createPicElement.bind(this)
@@ -135,176 +154,60 @@ export class WebuiServer extends Service {
   }
 
   private setupMessageListener() {
-    // 监听新消息事件
-    this.ctx.on('nt/message-created', async (message: RawMessage) => {
+    // 收到的消息 (别人发 / 自己在其它客户端发).
+    this.ctx.on('nt/message-created', async (data) => {
       if (this.sseClients.size === 0) return
-      await this.fillPeerUin(message)
-      this.broadcastMessage('message', { type: 'message-created', data: message })
+      await this.fillPeerUin(data.message)
+      this.broadcastMessage('message', { type: 'message-created', data: data.message })
     })
 
-    // 监听自己发送的消息
-    this.ctx.on('nt/message-sent', async (message: RawMessage) => {
+    // 自己通过 WebQQ (或 ntMsgApi.sendMsg 任何调用方) 发的消息.
+    // 没这条 SSE, FE ChatInput 发完会 onTempMessageRemove 把临时消息清掉但等不到真消息回填 -> 界面空白.
+    this.ctx.on('nt/message-sent', async (data) => {
       if (this.sseClients.size === 0) return
-      await this.fillPeerUin(message)
-      this.broadcastMessage('message', { type: 'message-sent', data: message })
+      await this.fillPeerUin(data.message)
+      this.broadcastMessage('message', { type: 'message-sent', data: data.message })
     })
 
     // 监听消息撤回事件
-    this.ctx.on('nt/message-deleted', async (message: RawMessage) => {
+    this.ctx.on('nt/message-deleted', async (data) => {
       if (this.sseClients.size === 0) return
-      const revokeElement = message.elements[0]?.grayTipElement?.revokeElement
-      await this.fillPeerUin(message)
       this.broadcastMessage('message', {
         type: 'message-deleted',
         data: {
-          msgId: message.msgId,
-          msgSeq: message.msgSeq,
-          chatType: message.chatType,
-          peerUid: message.peerUid,
-          peerUin: message.peerUin,
-          operatorUid: revokeElement?.operatorUid,
-          operatorNick: revokeElement?.operatorNick || revokeElement?.operatorMemRemark || revokeElement?.operatorRemark,
-          isSelfOperate: revokeElement?.isSelfOperate,
-          wording: revokeElement?.wording
+          msgId: data.msgId,
+          msgSeq: data.msgSeq.toString(),
+          chatType: data.chatType,
+          peerUid: data.peerUid,
+          peerUin: data.peerUin.toString(),
+          operatorUid: data.operatorUid,
+          operatorNick: '',
+          isSelfOperate: data.senderUin === data.operatorUin,
+          wording: data.displaySuffix
         }
       })
     })
 
-    // 监听表情回应事件
-    this.setupEmojiReactionListener()
+    // TODO: 监听表情回应事件
 
-    // 监听群通知事件（加群申请、邀请入群、被踢等）
-    this.ctx.on('nt/group-notify', async ({ notify, doubt }) => {
-      if (this.sseClients.size === 0) return
-      try {
-        const user1Uin = notify.user1.uid ? await this.ctx.ntUserApi.getUinByUid(notify.user1.uid).catch(() => '') : ''
-        const user2Uin = notify.user2.uid ? await this.ctx.ntUserApi.getUinByUid(notify.user2.uid).catch(() => '') : ''
-        this.broadcastMessage('message', {
-          type: 'group-notify',
-          data: {
-            seq: notify.seq,
-            notifyType: notify.type,
-            status: notify.status,
-            doubt,
-            group: notify.group,
-            user1: { ...notify.user1, uin: user1Uin },
-            user2: { ...notify.user2, uin: user2Uin },
-            postscript: notify.postscript,
-            actionTime: notify.actionTime,
-            flag: `${notify.group.groupCode}|${notify.seq}|${notify.type}|${doubt ? '1' : '0'}`
-          }
-        })
-      } catch (e) {
-        this.ctx.logger.error('处理群通知事件失败:', e)
-      }
-    })
+    // TODO: 监听群通知事件（加群申请、邀请入群、被踢等）
 
-    // 监听好友申请事件
-    this.ctx.on('nt/friend-request', async (req: FriendRequest) => {
-      if (this.sseClients.size === 0) return
-      try {
-        const uin = await this.ctx.ntUserApi.getUinByUid(req.friendUid).catch(() => '')
-        this.broadcastMessage('message', {
-          type: 'friend-request',
-          data: {
-            friendUid: req.friendUid,
-            friendUin: uin,
-            friendNick: req.friendNick,
-            reqTime: req.reqTime,
-            extWords: req.extWords,
-            isDecide: req.isDecide,
-            reqType: req.reqType,
-            addSource: req.addSource || '',
-            flag: req.friendUid
-          }
-        })
-      } catch (e) {
-        this.ctx.logger.error('处理好友申请事件失败:', e)
-      }
-    })
+    // TODO: 监听好友申请事件
 
-    // 监听群解散事件
-    this.ctx.on('nt/group-dismiss', (data) => {
-      if (this.sseClients.size === 0) return
-      this.broadcastMessage('message', {
-        type: 'group-dismiss',
-        data: {
-          groupCode: data.groupCode,
-          groupName: data.groupName
-        }
-      })
-    })
+    // TODO: 监听群解散事件
 
-    // 监听主动退群事件
-    this.ctx.on('nt/group-quit', (data) => {
-      if (this.sseClients.size === 0) return
-      this.broadcastMessage('message', {
-        type: 'group-quit',
-        data: {
-          groupCode: data.groupCode,
-          groupName: data.groupName
-        }
-      })
-    })
+    // TODO: 监听主动退群事件（可能并没有这个事件）
   }
 
   private async fillPeerUin(message: RawMessage) {
-    if (message.chatType === ChatType.C2C && (!message.peerUin || message.peerUin === '0') && message.peerUid) {
-      const uin = await this.ctx.ntUserApi.getUinByUid(message.peerUid)
+    if (message.chatType === ChatType.C2C && (!message.peerUin || message.peerUin === 0) && message.peerUid) {
+      // ntUserApi 未 inject (登录后才就绪), 用 ctx.get 绕过严格检查
+      const ntUserApi = this.ctx.get('ntUserApi' as never) as Context['ntUserApi'] | undefined
+      const uin = await ntUserApi?.getUinByUid(message.peerUid)
       if (uin) {
         message.peerUin = uin
       }
     }
-  }
-
-  private setupEmojiReactionListener() {
-    this.ctx.pmhq.addResListener(async data => {
-      if (this.sseClients.size === 0) return
-      if (data.type !== 'recv' || data.data.cmd !== 'trpc.msg.olpush.OlPushService.MsgPush') return
-
-      try {
-        const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
-        if (!pushMsg.message?.body) return
-
-        const { msgType, subType } = pushMsg.message?.contentHead ?? {}
-        if (msgType === 732 && subType === 16) {
-          const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
-          if (notify.field13 === 35) {
-            const info = notify.reaction.data.body.info
-            const target = notify.reaction.data.body.target
-            const groupCode = String(notify.groupCode)
-            const userId = await this.ctx.ntUserApi.getUinByUid(info.operatorUid)
-
-            let userName = userId
-            try {
-              const membersResult = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
-              if (membersResult?.result?.infos) {
-                for (const [, member] of membersResult.result.infos) {
-                  if (member.uid === info.operatorUid || member.uin === userId) {
-                    userName = member.cardName || member.nick || userId
-                    break
-                  }
-                }
-              }
-            } catch { }
-
-            this.broadcastMessage('message', {
-              type: 'emoji-reaction',
-              data: {
-                groupCode,
-                msgSeq: String(target.sequence),
-                emojiId: info.code,
-                userId,
-                userName,
-                isAdd: info.actionType === 1
-              }
-            })
-          }
-        }
-      } catch (e) {
-        // 忽略解析错误
-      }
-    })
   }
 
   private getHostPort(): { host: string; port: number } {
@@ -360,9 +263,6 @@ export class WebuiServer extends Service {
       return
     }
     this.port = await this.startServer()
-    this.ctx.pmhq.tellPort(this.port).catch((err: Error) => {
-      this.ctx.logger.error('记录 WebUI 端口失败:', err)
-    })
   }
 
   private async startWithPort(forcePort?: number): Promise<void> {
@@ -370,8 +270,5 @@ export class WebuiServer extends Service {
       return
     }
     this.port = await this.startServer(forcePort)
-    this.ctx.pmhq.tellPort(this.port).catch((err: Error) => {
-      this.ctx.logger.error('记录 WebUI 端口失败:', err)
-    })
   }
 }

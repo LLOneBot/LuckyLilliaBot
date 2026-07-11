@@ -8,6 +8,7 @@ import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llbot/onebot11/types';
 import { MediaPaths } from '../media';
+import { existsSync, statSync, readFileSync } from 'node:fs';
 
 describe('get_record - 获取语音信息', () => {
   let context: MessageTestContext;
@@ -59,12 +60,25 @@ describe('get_record - 获取语音信息', () => {
       throw new Error('未找到语音消息');
     }
 
-    // 测试 get_record
+    // 测试 get_record（默认 mp3 输出）
     const recordResponse = await context.twoAccountTest.getClient('secondary').call(ActionName.GetRecord, {
       file: recordMsg.data.file
     });
 
     Assertions.assertSuccess(recordResponse, 'get_record');
-    Assertions.assertResponseHasFields(recordResponse, ['file']);
+    Assertions.assertResponseHasFields(recordResponse, ['file', 'file_name', 'file_size']);
+
+    // 真的去看下输出文件：存在、非空、是合法的 mp3（前 3 字节 ID3 或 FF FB 帧头）
+    const outPath = recordResponse.data.file;
+    expect(existsSync(outPath)).toBe(true);
+    const reportedSize = Number(recordResponse.data.file_size);
+    const actualSize = statSync(outPath).size;
+    expect(actualSize).toBe(reportedSize);
+    expect(actualSize).toBeGreaterThan(0);
+    const head = readFileSync(outPath).subarray(0, 3);
+    const isId3 = head[0] === 0x49 && head[1] === 0x44 && head[2] === 0x33; // 'ID3'
+    const isMp3Frame = head[0] === 0xFF && (head[1] & 0xE0) === 0xE0;       // MPEG sync 11 bits
+    expect(isId3 || isMp3Frame).toBe(true);
   }, 180000);
 });
+

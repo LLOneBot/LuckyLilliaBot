@@ -1,14 +1,8 @@
-import { QQLevel } from '@/ntqqapi/types'
 import { Dict, isNonNullable } from 'cosmokit'
 import { defineProperty } from 'cosmokit'
 
 export function isNumeric(str: string) {
   return /^\d+$/.test(str)
-}
-
-export function calcQQLevel(level: QQLevel) {
-  const { penguinNum, crownNum, sunNum, moonNum, starNum } = level
-  return (penguinNum ?? 0) * 256 + crownNum * 64 + sunNum * 16 + moonNum * 4 + starNum
 }
 
 /** 在保证老对象已有的属性不变化的情况下将新对象的属性复制到老对象 */
@@ -73,4 +67,24 @@ export function sleep(ms = 0) {
 
 export function isHttpUrl(str: string) {
   return /^https?:\/\/.+/.test(str)
+}
+
+export function formatYYYYMMDD(date = new Date()) {
+  return date.toISOString().slice(0, 10).replace(/-/g, '')
+}
+
+/**
+ * 将数组中指定 index 的元素移动到另一个 index 位置
+ * @param arr 目标数组 (原地修改)
+ * @param from 源元素 index
+ * @param to 目标 index
+ * @returns 修改后的原数组
+ */
+export function moveElement<T>(arr: T[], from: number, to: number): T[] {
+  if (arr.length === 0) return arr
+  if (from === to) return arr
+
+  const [item] = arr.splice(from, 1)
+  arr.splice(to, 0, item)
+  return arr
 }

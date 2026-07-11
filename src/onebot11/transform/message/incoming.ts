@@ -18,12 +18,8 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
       if (element.textElement.atType === AtType.All) {
         qq = 'all'
       } else {
-        const { atNtUid, atUid, content } = element.textElement
-        if (atUid && atUid !== '0') {
-          qq = atUid
-        } else {
-          qq = await ctx.ntUserApi.getUinByUid(atNtUid)
-        }
+        const { atUin, content } = element.textElement
+        qq = atUin.toString()
         name = content.replace('@', '')
       }
       messageSegment = {
@@ -54,45 +50,35 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         guildId: ''
       }
       try {
-        const { replayMsgSeq, replyMsgTime, sourceMsgIdInRecords, senderUidStr } = replyElement
-        const record = message.records.find(msgRecord => msgRecord.msgId === sourceMsgIdInRecords)
-        const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, replayMsgSeq, replyMsgTime, senderUidStr ? [senderUidStr] : [])
-
-        let replyMsg: RawMessage | undefined
-        if (record && record.msgRandom !== '0') {
-          replyMsg = msgList.find((msg: RawMessage) => msg.msgRandom === record.msgRandom)
-        } else {
-          if (msgList.length > 0) {
-            replyMsg = msgList[0]
-          } else if (record) {
-            if (record.senderUin && record.senderUin !== '0') {
-              peer.chatType = record.chatType
-              peer.peerUid = record.peerUid
-              ctx.store.addMsgCache(record)
-            }
-            ctx.logger.info('msgList is empty, use record', replyElement, record)
-            replyMsg = record
-          }
+        const { replyMsgSeq, replyMsgTime, replyMsgClientSeq } = replyElement
+        let replyMsg = ctx.store.getMsgBySeq(peer.peerUid, replyMsgSeq)
+        if (!replyMsg) {
+          const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq)
+          replyMsg = msgList[0]
+        }
+        if (!replyMsg && peer.chatType !== ChatType.Group) {
+          const { msgList } = await ctx.ntMsgApi.getC2CMsgsByTimeAndCount(peer, replyMsgTime + 1, 3, false)
+          replyMsg = msgList.find(e => e.clientSeq === replyMsgClientSeq)
         }
         if (!replyMsg) {
-          ctx.logger.error('获取不到引用的消息', replyElement, record)
+          ctx.logger.warn('reply 原消息未找到', replyElement)
           continue
-        }
-
-        messageSegment = {
-          type: OB11MessageDataType.Reply,
-          data: {
-            id: ctx.store.createMsgShortId(replyMsg).toString()
+        } else {
+          messageSegment = {
+            type: OB11MessageDataType.Reply,
+            data: {
+              id: ctx.store.createMsgShortId(replyMsg).toString()
+            }
           }
         }
       } catch (e) {
-        ctx.logger.error('获取不到引用的消息', e, replyElement, (e as Error).stack)
+        ctx.logger.error('解析 reply 失败', e, replyElement, (e as Error).stack)
         continue
       }
     }
     else if (element.picElement) {
       const { picElement } = element
-      const fileSize = picElement.fileSize ?? '0'
+      const fileSize = picElement.fileSize.toString()
       messageSegment = {
         type: OB11MessageDataType.Image,
         data: {
@@ -110,12 +96,13 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         fileUuid: picElement.fileUuid,
         fileSize,
         md5HexStr: picElement.md5HexStr,
+        originImageUrl: picElement.originImageUrl,
       })
     }
     else if (element.videoElement) {
       const { videoElement } = element
       const videoUrl = await ctx.ntFileApi.getVideoUrl(videoElement.fileUuid, message.chatType === ChatType.Group)
-      const fileSize = videoElement.fileSize ?? '0'
+      const fileSize = videoElement.fileSize.toString()
       messageSegment = {
         type: OB11MessageDataType.Video,
         data: {
@@ -137,7 +124,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
     }
     else if (element.fileElement) {
       const { fileElement } = element
-      const fileSize = fileElement.fileSize ?? '0'
+      const fileSize = fileElement.fileSize.toString()
       messageSegment = {
         type: OB11MessageDataType.File,
         data: {
@@ -155,12 +142,12 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         fileName: fileElement.fileName,
         fileUuid: fileElement.fileUuid,
         fileSize,
-        md5HexStr: fileElement.fileMd5
+        md5HexStr: fileElement.fileMd5,
       })
     }
     else if (element.pttElement) {
       const { pttElement } = element
-      const fileSize = pttElement.fileSize ?? '0'
+      const fileSize = pttElement.fileSize.toString()
       messageSegment = {
         type: OB11MessageDataType.Record,
         data: {
@@ -182,24 +169,12 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
     }
     else if (element.arkElement) {
       const { arkElement } = element
-      try {
-        const data = JSON.parse(arkElement.bytesData)
-        if (data.app === 'com.tencent.multimsg') {
-          messageSegment = {
-            type: OB11MessageDataType.Forward,
-            data: {
-              id: message.msgId
-            }
-          }
-        } else {
-          messageSegment = {
-            type: OB11MessageDataType.Json,
-            data: {
-              data: arkElement.bytesData
-            }
-          }
+      messageSegment = {
+        type: OB11MessageDataType.Json,
+        data: {
+          data: arkElement.bytesData
         }
-      } catch { }
+      }
     }
     else if (element.faceElement) {
       const { faceElement } = element
@@ -306,7 +281,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
       messageSegment = {
         type: OB11MessageDataType.Forward,
         data: {
-          id: message.msgId
+          id: element.multiForwardMsgElement.resId
         }
       }
     } else if (element.inlineKeyboardElement) {

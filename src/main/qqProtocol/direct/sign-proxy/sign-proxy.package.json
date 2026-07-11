@@ -1,0 +1,7 @@
+{
+  "name": "@lucky-lillia/sign-proxy-loader",
+  "version": "0.1.0-20260711155903",
+  "private": true,
+  "description": "Loader for the bundled lucky-lillia-sign-proxy .node. Bump version on every .node sync so Bot copies to a fresh path (the running process locks the prior file).",
+  "main": "index.ts"
+}

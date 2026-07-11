@@ -1,33 +1,25 @@
-#!/bin/ash
+#!/bin/sh
 
 cd /app/llbot
 
 FILE="default_config.json"
+WEBUI_PORT="${WEBUI_PORT:-3080}"
 
 sed -i "/\"webui\": {/,/}/ {
-    s/\"port\":\s*3080/\"port\": ${WEBUI_PORT}/g
+    s/\"port\":[[:space:]]*3080/\"port\": ${WEBUI_PORT}/g
 }" "$FILE"
 
 sed -i "/\"webui\": {/,/}/ {
-    s/\"host\":\s*\"127.0.0.1\"/\"host\": \"\"/g
+    s/\"host\":[[:space:]]*\"127.0.0.1\"/\"host\": \"\"/g
 }" "$FILE"
 
-sed -i "s|\"ffmpeg\":\s*\"\"|\"ffmpeg\": \"/usr/bin/ffmpeg\"|g" "$FILE"
+sed -i "s|\"ffmpeg\":[[:space:]]*\"\"|\"ffmpeg\": \"/usr/bin/ffmpeg\"|g" "$FILE"
 
+mkdir -p /app/llbot/data
 
-# Check dir
-if [ ! -d "/app/llbot/data" ]; then
-  mkdir /app/llbot/data
+# 指定 QQ 重启后自动免扫码自动快速登录。
+# 不设 QQ 则起在 WebUI 登录页, 由用户从快速登录列表点选账号 (或扫码)
+if [ -n "$QQ" ]; then
+  exec node --enable-source-maps ./llbot.js -q "$QQ"
 fi
-
-
-port="13000"
-host="pmhq"
-if [ -n "$pmhq_port" ]; then
-  port="$pmhq_port"
-fi
-if [ -n "$pmhq_host" ]; then
-  host="$pmhq_host"
-fi
-
-node --enable-source-maps ./llbot.js --pmhq-port=$port --pmhq-host=$host
+exec node --enable-source-maps ./llbot.js

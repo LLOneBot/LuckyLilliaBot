@@ -1,10 +1,21 @@
 import { BaseAction, Schema } from '../../BaseAction'
 import { ActionName } from '../../types'
-import { GroupMember } from '@/ntqqapi/types'
-import { DetailedError } from '@/common/utils'
 
 interface Payload {
   group_id: number | string
+}
+
+export interface GroupMember {
+  uid: string
+  uin: string
+  nick: string
+  cardName: string
+  role: number
+  shutUpTime: number
+  memberRealLevel: number
+  memberSpecialTitle: string
+  joinTime: number
+  lastSpeakTime: number
 }
 
 export class GetGroupShutList extends BaseAction<Payload, GroupMember[]> {
@@ -14,18 +25,23 @@ export class GetGroupShutList extends BaseAction<Payload, GroupMember[]> {
   })
 
   async _handle(payload: Payload) {
-    try {
-      const groupCode = payload.group_id.toString()
-      return await this.ctx.ntGroupApi.getGroupShutUpMemberList(groupCode)
-    } catch (e) {
-      if (e instanceof DetailedError) {
-        if (e.data.result === 120271006) {
-          return []
-        } else {
-          throw new Error(e.data.errMsg)
-        }
-      }
-      throw e
-    }
+    const members = await this.ctx.ntGroupApi.getGroupMembers(+payload.group_id, true)
+    const now = Math.floor(Date.now() / 1000)
+    return members
+      .filter(member => member.shutupExpireTime > now)
+      .map(member => ({
+        uid: member.uid,
+        uin: member.uin.toString(),
+        nick: member.nick,
+        cardName: member.cardName,
+        role: member.role === 1 ? 4
+          : member.role === 2 ? 3
+            : 2,
+        shutUpTime: member.shutupExpireTime,
+        memberRealLevel: member.level,
+        memberSpecialTitle: member.specialTitle,
+        joinTime: member.joinedAt,
+        lastSpeakTime: member.lastSpokeAt
+      }))
   }
 }

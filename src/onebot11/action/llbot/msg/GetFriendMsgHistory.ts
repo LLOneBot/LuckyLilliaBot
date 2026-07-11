@@ -29,32 +29,25 @@ export class GetFriendMsgHistory extends BaseAction<Payload, Response> {
   private async getMessage(config: ParseMessageConfig, peer: Peer, count: number, seq?: number | string) {
     let msgList: RawMessage[]
     if (!seq || +seq === 0) {
-      msgList = (await this.ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, count)).msgList
+      const latestSeq = await this.ctx.ntMsgApi.getLatestMsgSeq(peer)
+      msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, latestSeq, count, false)).msgList
     } else {
-      msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, String(seq), count, true, true)).msgList
+      msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, +seq, count, false)).msgList
     }
     if (!msgList?.length) return
     const ob11MsgList = await Promise.all(msgList.map(msg => {
-      let rawMsg = msg
-      if (rawMsg.recallTime !== '0') {
-        const msg = this.ctx.store.getMsgCache(rawMsg.msgId)
-        if (msg) {
-          rawMsg = msg
-        }
-      }
-      return OB11Entities.message(this.ctx, rawMsg, config)
+      return OB11Entities.message(this.ctx, msg, config)
     }))
     return { list: filterNullable(ob11MsgList), seq: +msgList[0].msgSeq }
   }
 
   async _handle(payload: Payload, config: ParseMessageConfig): Promise<Response> {
-    const uid = await this.ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id)
     if (!uid) throw new Error(`无法获取用户信息`)
     const isBuddy = await this.ctx.ntFriendApi.isFriend(uid)
     const peer: Peer = {
       chatType: isBuddy ? ChatType.C2C : ChatType.TempC2CFromGroup,
-      peerUid: uid,
-      guildId: ''
+      peerUid: uid
     }
 
     const messages: OB11Message[] = []

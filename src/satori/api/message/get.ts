@@ -1,6 +1,6 @@
 import { Message } from '@satorijs/protocol'
 import { Handler } from '../index'
-import { decodeMessage, getPeer } from '../../utils'
+import { decodeMessage, decodeMessageId } from '../../utils'
 
 interface Payload {
   channel_id: string
@@ -8,9 +8,14 @@ interface Payload {
 }
 
 export const getMessage: Handler<Message, Payload> = async (ctx, payload) => {
-  const peer = await getPeer(ctx, payload.channel_id)
-  const raw = ctx.store.getMsgCache(payload.message_id) ?? (await ctx.ntMsgApi.getMsgsByMsgId(peer, [payload.message_id])).msgList[0]
-  const result = await decodeMessage(ctx, raw)
+  const info = decodeMessageId(payload.message_id)
+  let msg = ctx.store.getMsgBySeq(info.peerUid, info.msgSeq)
+  if (!msg) {
+    const { msgList } = await ctx.ntMsgApi.getSingleMsg(info, info.msgSeq)
+    msg = msgList[0]
+  }
+  if (!msg) throw new Error('获取不到消息')
+  const result = await decodeMessage(ctx, msg)
   if (!result) {
     throw new Error('消息为空')
   }

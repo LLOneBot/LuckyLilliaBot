@@ -1,5 +1,3 @@
-import { GroupMemberRole } from './group'
-
 export enum ElementType {
   Text = 1,
   Pic = 2,
@@ -30,56 +28,52 @@ export enum ElementType {
 
 export interface SendTextElement {
   elementType: ElementType.Text
-  elementId: ''
   textElement: TextElement
 }
 
 export interface SendPttElement {
   elementType: ElementType.Ptt
-  elementId: ''
   pttElement: Partial<PttElement>
 }
 
 export interface SendPicElement {
   elementType: ElementType.Pic
-  elementId: ''
   picElement: Partial<PicElement>
 }
 
 export interface SendReplyElement {
   elementType: ElementType.Reply
-  elementId: ''
-  replyElement: Partial<ReplyElement>
+  replyElement: ReplyElement
 }
 
 export interface SendFaceElement {
   elementType: ElementType.Face
-  elementId: ''
   faceElement: FaceElement
 }
 
 export interface SendMarketFaceElement {
   elementType: ElementType.MarketFace
-  elementId: ''
   marketFaceElement: MarketFaceElement
-}
-
-export interface SendFileElement {
-  elementType: ElementType.File
-  elementId: ''
-  fileElement: Partial<FileElement>
 }
 
 export interface SendVideoElement {
   elementType: ElementType.Video
-  elementId: ''
   videoElement: Partial<VideoElement>
 }
 
 export interface SendArkElement {
   elementType: ElementType.Ark
-  elementId: ''
   arkElement: Partial<ArkElement>
+}
+
+export interface SendMultiForwardMsgElement {
+  elementType: ElementType.MultiForward
+  multiForwardMsgElement: Partial<MultiForwardMsgElement>
+}
+
+export interface SendFileElement {
+  elementType: ElementType.File
+  fileElement: Partial<FileElement>
 }
 
 export type SendMessageElement =
@@ -89,9 +83,10 @@ export type SendMessageElement =
   | SendReplyElement
   | SendFaceElement
   | SendMarketFaceElement
-  | SendFileElement
   | SendVideoElement
   | SendArkElement
+  | SendMultiForwardMsgElement
+  | SendFileElement
 
 export enum AtType {
   Unknown,
@@ -102,90 +97,41 @@ export enum AtType {
 export interface TextElement {
   content: string
   atType: AtType
-  atUid: string
-  atTinyId: string
-  atNtUid: string
+  atUin: number
 }
 
 export interface ReplyElement {
-  replayMsgId: string
-  replayMsgSeq: string
-  replayMsgRootSeq: string
-  replayMsgRootMsgId: string
-  replayMsgRootCommentCnt: string
-  sourceMsgIdInRecords: string
-  sourceMsgText: string
-  sourceMsgTextElems: {
-    replyAbsElemType: number
-    textElemContent: string
-    faceElem: unknown
-    picElem: unknown
-  }[]
+  replyMsgSeq: number
+  replyMsgTime: number
+  senderUin: number
   senderUid: string
-  senderUidStr: string
-  replyMsgClientSeq: string
-  replyMsgTime: string
-  replyMsgRevokeType: number
-  sourceMsgIsIncPic: boolean
-  sourceMsgExpired: boolean
-  anonymousNickName: unknown
-  originalMsgState: unknown
+  replyMsgClientSeq: number
+  srcMsg?: Buffer
 }
 
 export interface FileElement {
   fileMd5: string
   fileName: string
   filePath: string
-  fileSize: string
-  picHeight?: number
-  picWidth?: number
-  folderId?: string
-  picThumbPath?: Map<number, string>
-  file10MMd5?: string
-  fileSha?: string
-  fileSha3?: string
+  fileSize: number
+  folderId: string
+  expireTime: number
   fileUuid: string
-  fileSubId?: string
-  thumbFileSize?: number
-  fileBizId?: number
+  fileBizId: number
 }
 
 export interface PttElement {
-  canConvert2Text: boolean
   duration: number // 秒数
-  fileBizId: null
-  fileId: number // 0
   fileName: string // "e4d09c784d5a2abcb2f9980bdc7acfe6.amr"
   filePath: string // "/Users//Library/Containers/com.tencent.qq/Data/Library/Application Support/QQ/nt_qq_a6b15c9820595d25a56c1633ce19ad40/nt_data/Ptt/2023-11/Ori/e4d09c784d5a2abcb2f9980bdc7acfe6.amr"
-  fileSize: string // "4261"
-  fileSubId: string // "0"
+  fileSize: number // "4261"
   fileUuid: string // "90j3z7rmRphDPrdVgP9udFBaYar#oK0TWZIV"
   formatType: number // 1
-  invalidState: number // 0
   md5HexStr: string // "e4d09c784d5a2abcb2f9980bdc7acfe6"
-  playState: number // 0
-  progress: number // 0
-  text: string // ""
-  transferStatus: number // 0
-  translateStatus: number // 0
-  voiceChangeType: number // 0
-  voiceType: number // 0
-  waveAmplitudes: number[]
-  autoConvertText: number
-  storeID: number
-  otherBusinessInfo: {
-    aiVoiceType: number
-  }
 }
 
 export interface ArkElement {
   bytesData: string
-  linkInfo: unknown | null
-  subElementType: unknown | null
-  buildMultiMsgReqInfo: {
-    srcMsgIds: unknown
-    srcContact: unknown
-  } | null
 }
 
 export const IMAGE_HTTP_HOST = 'https://gchat.qpic.cn'
@@ -202,192 +148,17 @@ export enum PicSubType {
 }
 
 export interface PicElement {
-  picSubType: PicSubType
   fileName: string
-  fileSize: string
+  fileSize: number
   picWidth: number
   picHeight: number
-  original: boolean
   md5HexStr: string
   sourcePath: string
-  thumbPath: Map<number, string>
-  transferStatus: number
-  progress: number
   picType: PicType
-  invalidState: number
+  picSubType: PicSubType
   fileUuid: string
-  fileSubId: string
-  thumbFileSize: number
-  fileBizId: unknown
-  downloadIndex: unknown
   summary: string
-  emojiFrom: unknown
-  emojiWebUrl: unknown
-  emojiAd: {
-    url: string
-    desc: string
-  },
-  emojiMall: {
-    packageId: number
-    emojiId: number
-  },
-  emojiZplan: {
-    actionId: number
-    actionName: string
-    actionType: number
-    playerNumber: number
-    peerUid: string
-    bytesReserveInfo: string
-  },
-  originImageMd5: string
   originImageUrl: string
-  import_rich_media_context: unknown
-  isFlashPic: unknown
-  storeID: number
-}
-
-export interface TipAioOpGrayTipElement {
-  operateType: number
-  peerUid: string
-  fromGrpCodeOfTmpChat: string
-}
-
-export enum TipGroupElementType {
-  Unknown,
-  MemberAdd,
-  Disbanded,
-  Quitted,
-  Created,
-  GroupNameModified,
-  Block,
-  Unblock,
-  ShutUp,
-  BeRecycled,
-  DisbandOrBeRecycled
-}
-
-export interface TipGroupElement {
-  type: TipGroupElementType // 1是表示有人加入群, 自己加入群也会收到这个
-  role: number
-  groupName: string
-  memberUid: string
-  memberNick: string
-  memberRemark: string
-  adminUid: string
-  adminNick: string
-  adminRemark: string
-  createGroup: null
-  memberAdd?: {
-    showType: number
-    otherAdd?: {
-      uid: string
-      name: string
-    }
-    otherAddByOtherQRCode?: unknown
-    otherAddByYourQRCode?: unknown
-    youAddByOtherQRCode?: unknown
-    otherInviteOther?: unknown
-    otherInviteYou?: unknown
-    youInviteOther?: unknown
-  }
-  shutUp?: {
-    curTime: string
-    duration: string // 禁言时间，秒
-    admin: {
-      uid: string
-      card: string
-      name: string
-      role: GroupMemberRole
-    }
-    member: {
-      uid: string
-      card: string
-      name: string
-      role: GroupMemberRole
-    }
-  }
-}
-
-export interface TipXmlElement {
-  busiType: string
-  busiId: string
-  c2cType: number
-  serviceType: number
-  ctrlFlag: number
-  content: string
-  templId: string
-  seqId: string,
-  templParam: Map<string, string>
-  pbReserv: Record<string, number>
-  members: Map<string, string> // uid -> remark
-}
-
-export enum GrayTipElementSubType {
-  Revoke = 1,
-  Proclamation = 2,
-  EmojiReply = 3,
-  Group = 4,
-  Buddy = 5,
-  Feed = 6,
-  Essence = 7,
-  GroupNotify = 8,
-  BuddyNotify = 9,
-  File = 10,
-  FeedChannelMsg = 11,
-  XmlMsg = 12,
-  LocalMsg = 13,
-  Block = 14,
-  AioOp = 15,
-  Wallet = 16,
-  JSON = 17,
-}
-
-export enum JsonGrayTipBusId {
-  AddedFriend = '19324',
-  Poke = '1061',
-  GroupMemberTitleChanged = '2407',
-  GroupEssenceMsg = '2401',
-  GroupNewMemberInvited = '19217',
-}
-
-export interface GrayTipElement {
-  subElementType: GrayTipElementSubType
-  revokeElement?: {
-    operatorTinyId: string
-    operatorRole: string
-    operatorUid: string
-    operatorNick: string
-    operatorRemark: string
-    operatorMemRemark: string
-    origMsgSenderUid: string
-    origMsgSenderNick: string
-    origMsgSenderRemark: string
-    origMsgSenderMemRemark: string
-    isSelfOperate: boolean
-    wording: string // 自定义的撤回提示语
-  }
-  aioOpGrayTipElement?: TipAioOpGrayTipElement
-  groupElement?: TipGroupElement
-  xmlElement?: TipXmlElement
-  jsonGrayTipElement?: {
-    busiId: JsonGrayTipBusId
-    jsonStr: string
-    recentAbstract: string
-    isServer: boolean
-    xmlToJsonParam: {
-      busiType: string
-      busiId: string
-      c2cType: number
-      serviceType: number
-      ctrlFlag: number
-      content: string
-      templId: string
-      seqId: string
-      templParam: Map<string, string>
-      pbReserv: {}
-      members: Map<string, string>
-    }
-  }
 }
 
 export enum FaceIndex {
@@ -405,14 +176,11 @@ export enum FaceType {
 export interface FaceElement {
   faceIndex: number
   faceType: FaceType
-  faceText?: string
+  faceText: string
   packId?: string
   stickerId?: string
-  sourceType?: number
   stickerType?: number
   resultId?: string
-  surpriseId?: string
-  randomType?: number
   pokeType?: number
 }
 
@@ -421,38 +189,21 @@ export interface MarketFaceElement {
   faceName: string
   emojiId: string
   key: string
-  imageWidth?: number
-  imageHeight?: number
-  supportSize?: {
-    width: number
-    height: number
-  }[]
+  imageWidth: number
+  imageHeight: number
 }
 
 export interface VideoElement {
   filePath: string
   fileName: string
   videoMd5: string
-  thumbMd5: string
   fileTime: number
-  thumbSize: number
   fileFormat: number
-  fileSize: string
+  fileSize: number
   thumbWidth: number
   thumbHeight: number
-  busiType: number
-  subBusiType: number
-  thumbPath: Map<number, string>
-  transferStatus: number
-  progress: number
-  invalidState: number
+  thumbPath: string
   fileUuid: string
-  fileSubId: string
-  fileBizId: unknown
-  originVideoMd5: string
-  import_rich_media_context: unknown
-  sourceVideoCodecFormat: number
-  storeID: number
 }
 
 export interface MarkdownElement {
@@ -496,6 +247,16 @@ export interface MultiForwardMsgElement {
   xmlContent: string // xml格式的消息内容
   resId: string
   fileName: string
+  nodes: {
+    senderUin: number
+    senderName: string
+    elements: SendMessageElement[]
+    msgTime?: number
+  }[]
+  title: string | null
+  preview: string[] | null
+  summary: string | null
+  prompt: string | null
 }
 
 export enum ChatType {
@@ -506,177 +267,30 @@ export enum ChatType {
 
 export interface RawMessage {
   msgId: string
-  msgType: MsgType
-  subMsgType: number
-  msgTime: string // 时间戳，秒
-  msgSeq: string
-  msgRandom: string
+  msgTime: number // 时间戳，秒
+  msgSeq: number
+  msgRandom: number
   senderUid: string
-  senderUin: string // 发送者QQ号
+  senderUin: number // 发送者QQ号
   peerUid: string // 群号 或者 QQ uid
-  peerUin: string // 群号 或者 发送者QQ号
-  guildId: string
+  peerUin: number // 群号 或者 发送者QQ号
   sendNickName: string
   sendMemberName: string // 发送者群名片
-  sendRemarkName: string // 发送者好友备注
   chatType: ChatType
-  sendStatus?: number // 消息状态，别人发的2是已撤回，自己发的2是已发送
-  recallTime: string // 撤回时间, "0"是没有撤回
-  records: RawMessage[]
   elements: MessageElement[]
   peerName: string
-  multiTransInfo?: {
-    status: number
-    msgId: number
-    friendFlag: number
-    fromFaceUrl: string
-  }
-  emojiLikesList: {
-    emojiId: string
-    emojiType: string
-    likesCnt: string
-    isClicked: boolean
-  }[]
-  msgAttrs: Map<number, MsgAttr>
-  isOnlineMsg: boolean // 是否为在线消息，灰条消息会被判定为非在线消息
+  tempFromGroupCode: number
+  clientSeq: number
+  forwardAvatar: string
 }
-
-// VAS 消息信息（气泡、字体等）
-export interface VasMsgInfo {
-  msgNamePlateInfo?: {
-    msgVipType: number
-    msgVipLevel: number
-    msgBigClubFlag?: number | null
-    msgBigClubLevel: number
-    grayNamePlate: number
-    namePlateType: number
-    vipStarFlag?: number | null
-    namePlateId: number
-    carouselNamePlateIds: number[]
-    extendNamePlateId?: number | null
-    gameNamePlateId?: number | null
-  }
-  bubbleInfo?: {
-    bubbleId: number
-    bubbleDiyTextId: number
-    subBubbleId: number
-    canConvertToText?: boolean | null
-  }
-  avatarPendantInfo?: {
-    avatarId: number
-    pendantId: string
-    pendantDiyInfoId: number
-  }
-  vasFont?: {
-    fontId: number
-    subFontId?: number | null
-    diyFontCfgUpdateTime: number
-    diyFontImageId: number
-    magicFontType: number
-  }
-  iceBreakInfo?: {
-    templateID?: string | null
-    isIceBreakMsg?: boolean | null
-  }
-}
-
-// VAS 个人信息
-export interface VasPersonalInfo {
-  troopNameColorId?: number | null
-  vipNumbers: number[]
-  vaDataChangeRand: number
-  vasPersonalNamePlate?: unknown | null
-  extInfo?: unknown | null
-}
-
-// 群荣誉信息（等级、头衔）
-export interface GroupHonorInfo {
-  richFlag: number
-  honorIds: number[]
-  level: number
-  oldLevel?: number | null
-  rankSeq: string
-  titleId: number
-  uniqueTitle: string
-}
-
-// 王者荣誉信息
-export interface KingHonorInfo {
-  kingHonorLevel: number
-  groupInfoFlagEx4: number
-  groupMsgBusiBuf?: unknown | null
-}
-
-// 消息属性基础字段
-interface MsgAttrBase {
-  attrId: string
-  publicAccountAttrs?: unknown | null
-  sharedMsgInfo?: unknown | null
-  gameChatSession?: unknown | null
-  uinInfoAttr?: unknown | null
-  longMsgAttr?: unknown | null
-  robotExt?: unknown | null
-  zPlanMsgInfo?: unknown | null
-  qqConnectAttr?: unknown | null
-  extendBusiness?: unknown | null
-  sendMsgRspTransSvrInfo?: unknown | null
-  adelieMsgAttr?: unknown | null
-  feedBackStateInfo?: unknown | null
-  memoryStateMsgInfo?: unknown | null
-  attaReportData?: unknown | null
-  liteAction?: unknown | null
-  botMetaData?: unknown | null
-}
-
-// attrType 0: VAS 消息信息
-export interface MsgAttrVasMsg extends MsgAttrBase {
-  attrType: 0
-  vasMsgInfo: VasMsgInfo
-  vasPersonalInfo?: null
-  groupHonor?: null
-  kingHonor?: null
-}
-
-// attrType 1: VAS 个人信息
-export interface MsgAttrVasPersonal extends MsgAttrBase {
-  attrType: 1
-  vasMsgInfo?: null
-  vasPersonalInfo: VasPersonalInfo
-  groupHonor?: null
-  kingHonor?: null
-}
-
-// attrType 2: 群荣誉信息
-export interface MsgAttrGroupHonor extends MsgAttrBase {
-  attrType: 2
-  vasMsgInfo?: null
-  vasPersonalInfo?: null
-  groupHonor: GroupHonorInfo
-  kingHonor?: null
-}
-
-// attrType 3: 王者荣誉信息
-export interface MsgAttrKingHonor extends MsgAttrBase {
-  attrType: 3
-  vasMsgInfo?: null
-  vasPersonalInfo?: null
-  groupHonor?: null
-  kingHonor: KingHonorInfo
-}
-
-// 消息属性联合类型
-export type MsgAttr = MsgAttrVasMsg | MsgAttrVasPersonal | MsgAttrGroupHonor | MsgAttrKingHonor
 
 export interface Peer {
   chatType: ChatType
   peerUid: string  // 如果是群聊uid为群号，私聊uid就是加密的字符串
-  guildId: string
 }
 
 export interface MessageElement {
   elementType: ElementType
-  elementId: string
-  extBufForUI: string //"0x"
   textElement?: TextElement
   faceElement?: FaceElement
   marketFaceElement?: MarketFaceElement
@@ -684,7 +298,7 @@ export interface MessageElement {
   picElement?: PicElement
   pttElement?: PttElement
   videoElement?: VideoElement
-  grayTipElement?: GrayTipElement
+  grayTipElement?: unknown
   arkElement?: ArkElement
   fileElement?: FileElement
   liveGiftElement?: unknown
@@ -704,179 +318,4 @@ export interface MessageElement {
   taskTopMsgElement?: unknown
   recommendedMsgElement?: unknown
   actionBarElement?: unknown
-}
-
-export interface RichMediaDownloadCompleteNotify {
-  fileModelId: string
-  msgElementId: string
-  msgId: string
-  fileId: string
-  fileProgress: string  // '0'
-  fileSpeed: string  // '0'
-  fileErrCode: string  // '0'
-  fileErrMsg: string
-  fileDownType: number  // 暂时未知
-  thumbSize: number
-  filePath: string
-  totalSize: string
-  trasferStatus: number
-  step: number
-  commonFileInfo: unknown
-  fileSrvErrCode: string
-  clientMsg: string
-  businessId: number
-  userTotalSpacePerDay: unknown
-  userUsedSpacePerDay: unknown
-}
-
-export interface GroupFileInfo {
-  retCode: number
-  retMsg: string
-  clientWording: string
-  isEnd: boolean
-  item: {
-    peerId: string
-    type: number
-    folderInfo?: {
-      folderId: string
-      parentFolderId: string
-      folderName: string
-      createTime: number
-      modifyTime: number
-      createUin: string
-      creatorName: string
-      totalFileCount: number
-      modifyUin: string
-      modifyName: string
-      usedSpace: string
-    }
-    fileInfo?: {
-      fileModelId: string
-      fileId: string
-      fileName: string
-      fileSize: string
-      busId: number
-      uploadedSize: string
-      uploadTime: number
-      deadTime: number
-      modifyTime: number
-      downloadTimes: number
-      sha: string
-      sha3: string
-      md5: string
-      uploaderLocalPath: string
-      uploaderName: string
-      uploaderUin: string
-      parentFolderId: string
-      localPath: string
-      transStatus: number
-      transType: number
-      elementId: string
-      isFolder: boolean
-    }
-  }[]
-  allFileCount: number
-  nextIndex: number
-  reqId: number
-}
-
-export interface QueryMsgsParams {
-  chatInfo: Peer
-  filterMsgType?: []
-  filterSendersUid?: string[]
-  filterMsgFromTime: string
-  filterMsgToTime: string
-  pageLimit: number
-  isReverseOrder?: boolean
-  isIncludeCurrent: boolean
-}
-
-export interface GetFileListParam {
-  sortType: number
-  fileCount: number
-  startIndex: number
-  sortOrder: number
-  showOnlinedocFolder: number
-  folderId?: string
-}
-
-export interface RichMediaUploadCompleteNotify {
-  fileModelId: string
-  msgElementId: string
-  msgId: string
-  fileId: string
-  fileProgress: string
-  fileSpeed: string
-  fileErrCode: string
-  fileErrMsg: string
-  fileDownType: number
-  thumbSize: number
-  filePath: string
-  totalSize: string
-  trasferStatus: number
-  step: number
-  commonFileInfo: {
-    fileModelId: string
-    msgId: string
-    elemId: string
-    uuid: string
-    subId: string
-    fileName: string
-    fileSize: string
-    msgTime: string
-    peerUid: string
-    chatType: number
-    md5: string
-    md510m: string
-    sha: string
-    sha3: string
-    parent: unknown
-    favId: unknown
-    bizType: number
-    picThumbPath: unknown
-  },
-  fileSrvErrCode: string
-  clientMsg: string
-  businessId: number
-  userTotalSpacePerDay: unknown
-  userUsedSpacePerDay: unknown
-  msgRecord: unknown
-  chatType: number
-}
-
-export enum RMBizType {
-  Unknown,
-  C2CFile,
-  GroupFile,
-  C2CPic,
-  GroupPic,
-  DiscPic,
-  C2CVideo,
-  GroupVideo,
-  C2CPtt,
-  GroupPtt,
-}
-
-export enum MsgType {
-  ArkStruct = 11,
-  FaceBubble = 24,
-  File = 3,
-  Gift = 14,
-  Giphy = 13,
-  GrayTips = 5,
-  Mix = 2,
-  MultiMsgForward = 8,
-  Null = 1,
-  OnlineFile = 21,
-  OnlineFolder = 27,
-  Prologue = 29,
-  Ptt = 6,
-  Reply = 9,
-  ShareLocation = 25,
-  Struct = 4,
-  StructLongMsg = 12,
-  TextGift = 15,
-  Unknown = 0,
-  Video = 7,
-  Wallet = 10,
 }

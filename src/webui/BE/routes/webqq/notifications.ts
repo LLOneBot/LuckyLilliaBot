@@ -1,6 +1,7 @@
 import { Context } from 'cordis'
-import { BuddyReqType, GroupRequestOperateTypes } from '@/ntqqapi/types'
+import { FriendReqType } from '@/ntqqapi/types'
 import { Hono } from 'hono'
+import { decodeGroupRequestFlag, encodeGroupRequestFlag } from '../../utils'
 
 export function createNotificationRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -8,22 +9,24 @@ export function createNotificationRoutes(ctx: Context): Hono {
   // 获取群通知列表
   router.get('/notifications/group', async (c) => {
     try {
-      const { notifies, normalCount } = await ctx.ntGroupApi.getGroupRequest()
-      const enriched = await Promise.all(notifies.map(async (notify, index) => {
-        const isDoubt = index >= normalCount
+      const { notifications } = await ctx.ntGroupApi.getGroupNotifications(false, 50)
+      const enriched = await Promise.all(notifications.map(async (notify) => {
         const user1Uin = notify.user1.uid ? await ctx.ntUserApi.getUinByUid(notify.user1.uid).catch(() => '') : ''
-        const user2Uin = notify.user2.uid ? await ctx.ntUserApi.getUinByUid(notify.user2.uid).catch(() => '') : ''
+        const user2Uin = notify.user2?.uid ? await ctx.ntUserApi.getUinByUid(notify.user2.uid).catch(() => '') : ''
         return {
-          seq: notify.seq,
+          seq: notify.sequence.toString(),
           notifyType: notify.type,
-          status: notify.status,
-          doubt: isDoubt,
-          group: notify.group,
-          user1: { ...notify.user1, uin: user1Uin },
-          user2: { ...notify.user2, uin: user2Uin },
-          postscript: notify.postscript,
-          actionTime: notify.actionTime,
-          flag: `${notify.group.groupCode}|${notify.seq}|${notify.type}|${isDoubt ? '1' : '0'}`
+          status: notify.requestState,
+          doubt: false,
+          group: {
+            groupCode: notify.group.groupCode.toString(),
+            groupName: notify.group.groupName
+          },
+          user1: { ...notify.user1, uin: user1Uin.toString() },
+          user2: { ...notify.user2, uin: user2Uin.toString() },
+          postscript: notify.comment ?? '',
+          actionTime: notify.time ?? '0',
+          flag: encodeGroupRequestFlag(notify.group.groupCode, notify.sequence, notify.type, false)
         }
       }))
       return c.json({ success: true, data: enriched })
@@ -40,14 +43,14 @@ export function createNotificationRoutes(ctx: Context): Hono {
       const buddyReqs = result.filter((reqItem) => !reqItem.isInitiator)
       const enriched = await Promise.all(buddyReqs.map(async (reqItem) => {
         const uin = await ctx.ntUserApi.getUinByUid(reqItem.friendUid).catch(() => '')
-        const nick = await ctx.ntUserApi.getUserSimpleInfo(reqItem.friendUid).then(e => e.coreInfo.nick).catch(() => '')
+        const nick = await ctx.ntUserApi.getUserByUid(reqItem.friendUid).then(e => e.nick).catch(() => '')
         return {
           friendUid: reqItem.friendUid,
           friendUin: uin,
           friendNick: nick,
           reqTime: reqItem.timestamp.toString(),
           extWords: reqItem.comment,
-          isDecide: ![BuddyReqType.PeerInitiator, BuddyReqType.MeInitiatorWaitPeerConfirm].includes(reqItem.state),
+          isDecide: ![FriendReqType.PeerInitiator, FriendReqType.MeInitiatorWaitPeerConfirm].includes(reqItem.state),
           reqType: reqItem.state,
           addSource: reqItem.source,
           flag: reqItem.friendUid
@@ -88,7 +91,10 @@ export function createNotificationRoutes(ctx: Context): Hono {
       if (!uid) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      await ctx.ntFriendApi.approvalDoubtFriendRequest(uid)
+      const result = await ctx.ntFriendApi.approvalDoubtFriendRequest(uid)
+      if (result.errorCode !== 0) {
+        return c.json({ success: false, message: result.errorMsg }, 500)
+      }
       return c.json({ success: true })
     } catch (e) {
       ctx.logger.error('处理被过滤好友申请失败:', e)
@@ -107,10 +113,15 @@ export function createNotificationRoutes(ctx: Context): Hono {
       if (!flag || !action) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      const operateType = action === 'approve'
-        ? GroupRequestOperateTypes.Approve
-        : GroupRequestOperateTypes.Reject
-      await ctx.ntGroupApi.handleGroupRequest(flag, operateType, reason)
+      const decoded = decodeGroupRequestFlag(flag)
+      await ctx.ntGroupApi.setGroupRequest(
+        decoded.doubt,
+        decoded.groupCode,
+        decoded.seq,
+        decoded.type,
+        action === 'approve',
+        reason
+      )
       return c.json({ success: true })
     } catch (e) {
       ctx.logger.error('处理群通知失败:', e)
@@ -128,7 +139,10 @@ export function createNotificationRoutes(ctx: Context): Hono {
       if (!flag || !action) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      await ctx.ntFriendApi.approvalFriendRequest(flag, action === 'approve')
+      const result = await ctx.ntFriendApi.approvalFriendRequest(flag, action === 'approve')
+      if (result.errorCode !== 0) {
+        return c.json({ success: false, message: result.errorMsg }, 500)
+      }
       return c.json({ success: true })
     } catch (e) {
       ctx.logger.error('处理好友申请失败:', e)

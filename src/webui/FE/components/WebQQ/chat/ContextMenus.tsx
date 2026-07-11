@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Reply, Trash2, AtSign, Hand, User, UserMinus, VolumeX, Award, Smile, Shield, ShieldOff, Star } from 'lucide-react'
 import type { RawMessage, GroupMemberItem } from '../../../types/webqq'
-import { getSelfUid, recallMessage, sendPoke, ntCall } from '../../../utils/webqqApi'
+import { getSelfUid, recallMessage, sendPoke, setMemberAdmin, addFavEmojiFromUrl } from '../../../utils/webqqApi'
 import { showToast } from '../../common'
 
 // 计算菜单位置，确保不超出屏幕
@@ -95,22 +95,18 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
     if (!contextMenu.elementId) return
     onClose()
     try {
-      // 先下载图片，downloadMedia 直接返回 filePath 字符串
-      const filePath = await ntCall('ntFileApi', 'downloadMedia', [
-        msg.msgId,
-        msg.chatType,
-        msg.peerUid,
-        contextMenu.elementId,
-        '',
-        ''
-      ])
-
-      if (!filePath) {
-        showToast('图片下载失败', 'error')
+      // 从 message.elements 找出右键命中的 picElement，取它的 originImageUrl
+      // (跟 MessageElements.tsx 里渲染图片用的同一份字段，host 拼接逻辑也跟它对齐)
+      const target = msg.elements.find((e: any) => e.elementId === contextMenu.elementId)
+      const pic = target?.picElement
+      const rawUrl: string = pic?.originImageUrl || ''
+      if (!rawUrl) {
+        showToast('图片地址为空，无法添加', 'error')
         return
       }
+      const url = rawUrl.startsWith('http') ? rawUrl : `https://gchat.qpic.cn${rawUrl}`
 
-      const result = await ntCall('ntMsgApi', 'addFavEmoji', [filePath])
+      const result = await addFavEmojiFromUrl(url)
       if (result.result === 0) {
         showToast(result.isExist ? '表情已存在' : '已添加到表情', 'success')
       } else {
@@ -232,9 +228,8 @@ export const AvatarContextMenu: React.FC<AvatarContextMenuProps> = ({
     const info = avatarContextMenu
     onClose()
     try {
-      // GroupMemberRole: Normal = 2, Admin = 3, Owner = 4
-      const newRole = targetIsAdmin ? 2 : 3
-      await ntCall('ntGroupApi', 'setMemberRole', [info.groupCode, info.senderUid, newRole])
+      // targetIsAdmin 表示目前已经是管理员；点击后切换：是 → 取消，不是 → 设为
+      await setMemberAdmin(info.groupCode, info.senderUid, !targetIsAdmin)
       showToast(targetIsAdmin ? '已取消管理员' : '已设为管理员', 'success')
       onAdminChanged?.()
     } catch (e) {

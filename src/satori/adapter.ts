@@ -9,10 +9,9 @@ import { selfInfo } from '@/common/globalVars'
 import { ObjectToSnake } from 'ts-case-convert'
 import { isDeepStrictEqual } from 'node:util'
 import { parseMessageCreated, parseMessageDeleted } from './event/message'
-import { parseGuildAdded, parseGuildRemoved, parseGuildRequest } from './event/guild'
+import { parseGuildAdded, parseGuildRemoved, parseGuildRequest, parseGuildUpdated } from './event/guild'
 import { parseGuildMemberAdded, parseGuildMemberRemoved, parseGuildMemberRequest } from './event/member'
-import { parseFriendRequest } from './event/user'
-import { Msg } from '@/ntqqapi/proto'
+import { parseFriendRequest } from './event/friend'
 import { parseReactionAdded, parseReactionRemoved } from './event/reaction'
 
 declare module 'cordis' {
@@ -25,7 +24,7 @@ class SatoriAdapter extends Service {
   static inject = [
     'ntMsgApi', 'ntFileApi', 'ntFriendApi',
     'ntGroupApi', 'ntUserApi', 'ntWebApi',
-    'store', 'app', 'logger', 'pmhq'
+    'store', 'app'
   ]
   private selfId: string
   private server: SatoriServer
@@ -46,91 +45,6 @@ class SatoriAdapter extends Service {
     return noop
   }
 
-  async handleMessage(input: NT.RawMessage) {
-    if (
-      input.msgType === 5 &&
-      input.subMsgType === 8 &&
-      input.elements[0]?.grayTipElement?.groupElement?.type === 1 &&
-      input.elements[0].grayTipElement.groupElement.memberUid === selfInfo.uid
-    ) {
-      // 自身主动申请
-      return await parseGuildAdded(this, input)
-    } else if (
-      input.msgType === 5 &&
-      input.subMsgType === 12 &&
-      input.elements[0]?.grayTipElement?.xmlElement?.templId === '10179' &&
-      input.elements[0].grayTipElement.xmlElement.templParam.get('invitee') === selfInfo.uin
-    ) {
-      // 自身被邀请
-      return await parseGuildAdded(this, input)
-    } else if (
-      input.msgType === 5 &&
-      input.subMsgType === 8 &&
-      input.elements[0]?.grayTipElement?.groupElement?.type === 3
-    ) {
-      // 自身被踢出
-      return await parseGuildRemoved(this, input)
-    } else if (
-      input.msgType === 5 &&
-      input.subMsgType === 8 &&
-      input.elements[0]?.grayTipElement?.groupElement?.type === 1
-    ) {
-      // 他人主动申请
-      return await parseGuildMemberAdded(this, input)
-    } else if (
-      input.msgType === 5 &&
-      input.subMsgType === 12 &&
-      input.elements[0]?.grayTipElement?.xmlElement?.templId === '10179'
-    ) {
-      // 他人被邀请
-      return await parseGuildMemberAdded(this, input)
-    } else if (
-      input.msgType === 5 &&
-      input.subMsgType === 12 &&
-      input.elements[0]?.grayTipElement?.jsonGrayTipElement?.busiId === '19217'
-    ) {
-      // 机器人被邀请
-      return await parseGuildMemberAdded(this, input)
-    } else if (
-      input.msgType === 5 &&
-      input.subMsgType === 12 &&
-      input.elements[0]?.grayTipElement?.xmlElement?.templId === '10382'
-    ) {
-      // 机器人被表情回应
-    } else {
-      // 普通的消息
-      return await parseMessageCreated(this, input)
-    }
-  }
-
-  async handleGroupNotify(input: NT.GroupNotify, doubt: boolean) {
-    if (
-      input.type === NT.GroupNotifyType.InvitedByMember &&
-      input.status === NT.GroupNotifyStatus.Unhandle
-    ) {
-      // 自身被邀请，需自身同意
-      return await parseGuildRequest(this, input)
-    } else if (
-      input.type === NT.GroupNotifyType.MemberLeaveNotifyAdmin ||
-      input.type === NT.GroupNotifyType.KickMemberNotifyAdmin
-    ) {
-      // 他人主动退出或被踢
-      return await parseGuildMemberRemoved(this, input)
-    } else if (
-      input.type === NT.GroupNotifyType.RequestJoinNeedAdminiStratorPass &&
-      input.status === NT.GroupNotifyStatus.Unhandle
-    ) {
-      // 他人主动申请，需管理员同意
-      return await parseGuildMemberRequest(this, input, doubt)
-    } else if (
-      input.type === NT.GroupNotifyType.InvitedNeedAdminiStratorPass &&
-      input.status === NT.GroupNotifyStatus.Unhandle
-    ) {
-      // 他人被邀请，需管理员同意
-      return await parseGuildMemberRequest(this, input, doubt)
-    }
-  }
-
   start() {
     this.ctx.on('llob/config-updated', async input => {
       const old = omit(this.config, ['ffmpeg'])
@@ -147,8 +61,7 @@ class SatoriAdapter extends Service {
     })
     if (this.config.enable) {
       this.server.start()
-    }
-    else {
+    } else {
       return
     }
     this.listenEvent()
@@ -157,64 +70,103 @@ class SatoriAdapter extends Service {
   listenEvent() {
     if (this.listenedEvent) return
     this.listenedEvent = true
-    this.ctx.on('nt/message-created', async input => {
-      const event = await this.handleMessage(input)
+
+    this.ctx.on('nt/message-created', async (data) => {
+      const event = await parseMessageCreated(this, data)
         .catch(e => this.ctx.logger.error(e))
       if (event) {
         this.server.dispatch(event)
       }
     })
 
-    this.ctx.on('nt/group-notify', async input => {
-      const { doubt, notify } = input
-      const event = await this.handleGroupNotify(notify, doubt)
+    this.ctx.on('nt/message-deleted', async (data) => {
+      const event = await parseMessageDeleted(this, data)
         .catch(e => this.ctx.logger.error(e))
       if (event) {
         this.server.dispatch(event)
       }
     })
 
-    this.ctx.on('nt/message-deleted', async input => {
-      const event = await parseMessageDeleted(this, input)
+    this.ctx.on('nt/group-join-request', async (data) => {
+      const type = NT.GroupNotificationType.JoinRequest
+      const event = await parseGuildMemberRequest(this, data, type)
         .catch(e => this.ctx.logger.error(e))
       if (event) {
         this.server.dispatch(event)
       }
     })
 
-    this.ctx.on('nt/friend-request', async input => {
-      const event = await parseFriendRequest(this, input)
+    this.ctx.on('nt/group-invited-join-request', async (data) => {
+      const type = NT.GroupNotificationType.InvitedJoinRequest
+      const event = await parseGuildMemberRequest(this, data, type)
         .catch(e => this.ctx.logger.error(e))
       if (event) {
         this.server.dispatch(event)
       }
     })
 
-    this.ctx.pmhq.addResListener(async data => {
-      if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
-        const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
-        if (!pushMsg.message.body) {
-          return
-        }
-        const { msgType, subType } = pushMsg.message.contentHead
-        if (msgType === 732 && subType === 16) {
-          const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
-          if (notify.field13 === 35) {
-            if (notify.reaction.data.body.info.actionType === 1) {
-              const event = await parseReactionAdded(this, notify)
-                .catch(e => this.ctx.logger.error(e))
-              if (event) {
-                this.server.dispatch(event)
-              }
-            } else {
-              const event = await parseReactionRemoved(this, notify)
-                .catch(e => this.ctx.logger.error(e))
-              if (event) {
-                this.server.dispatch(event)
-              }
-            }
-          }
-        }
+    this.ctx.on('nt/group-invitation', async (data) => {
+      const event = await parseGuildRequest(this, data)
+        .catch(e => this.ctx.logger.error(e))
+      if (event) {
+        this.server.dispatch(event)
+      }
+    })
+
+    this.ctx.on('nt/group-added', async (data) => {
+      const event = await parseGuildAdded(this, data)
+        .catch(e => this.ctx.logger.error(e))
+      if (event) {
+        this.server.dispatch(event)
+      }
+    })
+
+    this.ctx.on('nt/group-removed', async (data) => {
+      const event = await parseGuildRemoved(this, data)
+        .catch(e => this.ctx.logger.error(e))
+      if (event) {
+        this.server.dispatch(event)
+      }
+    })
+
+    this.ctx.on('nt/group-name-changed', async (data) => {
+      const event = await parseGuildUpdated(this, data)
+        .catch(e => this.ctx.logger.error(e))
+      if (event) {
+        this.server.dispatch(event)
+      }
+    })
+
+    this.ctx.on('nt/group-message-reaction', async (data) => {
+      const event = data.isAdd
+        ? await parseReactionAdded(this, data).catch(e => this.ctx.logger.error(e))
+        : await parseReactionRemoved(this, data).catch(e => this.ctx.logger.error(e))
+      if (event) {
+        this.server.dispatch(event)
+      }
+    })
+
+    this.ctx.on('nt/group-member-added', async (data) => {
+      const event = await parseGuildMemberAdded(this, data)
+        .catch(e => this.ctx.logger.error(e))
+      if (event) {
+        this.server.dispatch(event)
+      }
+    })
+
+    this.ctx.on('nt/group-member-removed', async (data) => {
+      const event = await parseGuildMemberRemoved(this, data)
+        .catch(e => this.ctx.logger.error(e))
+      if (event) {
+        this.server.dispatch(event)
+      }
+    })
+
+    this.ctx.on('nt/friend-request', async (data) => {
+      const event = await parseFriendRequest(this, data)
+        .catch(e => this.ctx.logger.error(e))
+      if (event) {
+        this.server.dispatch(event)
       }
     })
   }

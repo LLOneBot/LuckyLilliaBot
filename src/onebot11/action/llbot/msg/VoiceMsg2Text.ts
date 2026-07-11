@@ -21,24 +21,23 @@ export class VoiceMsg2Text extends BaseAction<Payload, Response> {
     if (!msgInfo) {
       throw new Error('消息不存在')
     }
-    let msg = this.ctx.store.getMsgCache(msgInfo.msgId)
+    let msg = this.ctx.store.getMsgByMsgId(msgInfo.msgId)
     if (!msg) {
-      const res = await this.ctx.ntMsgApi.getMsgsByMsgId(msgInfo.peer, [msgInfo.msgId])
+      const res = await this.ctx.ntMsgApi.getSingleMsg(msgInfo.peer, msgInfo.msgSeq)
       if (res.msgList.length === 0) {
         throw new Error('无法获取该消息')
       }
       msg = res.msgList[0]
     }
-    const voiceElement = msg.elements.find(e => e.elementType === ElementType.Ptt)
+    const voiceElement = msg?.elements.find(e => e.elementType === ElementType.Ptt)
     if (!voiceElement) {
       throw new Error('该消息不是语音消息')
     }
-    const text = await this.ctx.ntMsgApi.translatePtt2Text(msgInfo.msgId, msgInfo.peer, voiceElement)
+    const text = await this.ctx.ntMsgApi.translatePtt2Text(msgInfo.msgId, msgInfo.peer, +msg.senderUin, voiceElement)
     if (!text) {
-      throw new Error('无法转换语音消息为文本')
+      throw new Error('未识别到文字')
     }
     return { text }
   }
-
 }
 

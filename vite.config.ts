@@ -1,19 +1,22 @@
-import { defineConfig } from 'vite'
+import { defineConfig, Plugin } from 'vite'
 import { builtinModules } from 'module'
 import cp from 'vite-plugin-cp'
 import { version } from './src/version'
 import path from 'node:path'
 import fs from 'node:fs'
 
-function writeVersion() {
-  const pkgJsonPath = './package-dist.json'
-  const pkgJsonRaw = fs.readFileSync(pkgJsonPath, 'utf8')
-  const packageJson = JSON.parse(pkgJsonRaw)
-  packageJson.version = version
-  fs.writeFileSync(pkgJsonPath, JSON.stringify(packageJson), 'utf8')
+function writeVersion(): Plugin {
+  return {
+    name: 'write-version',
+    buildStart() {
+      const pkgJsonPath = './package-dist.json'
+      const pkgJsonRaw = fs.readFileSync(pkgJsonPath, 'utf8')
+      const packageJson = JSON.parse(pkgJsonRaw)
+      packageJson.version = version
+      fs.writeFileSync(pkgJsonPath, JSON.stringify(packageJson), 'utf8')
+    }
+  }
 }
-
-writeVersion()
 
 function getModuleDependencies(moduleName: string, basePath = path.join(__dirname, 'node_modules'), seen = new Set<string>()) {
   if (seen.has(moduleName)) {
@@ -47,12 +50,9 @@ const external = [
   ...getModuleDependencies('file-type'),
 ]
 
-// console.log(external)
-
 function genCpModule(module: string | RegExp) {
   return { src: `./node_modules/${module}`, dest: `dist/node_modules/${module}`, flatten: false }
 }
-
 
 export default defineConfig({
   define: {
@@ -81,6 +81,13 @@ export default defineConfig({
             { src: './package-dist.json', dest: 'dist/', rename: 'package.json' },
             { src: './doc/使用说明.txt', dest: 'dist/' },
             { src: './doc/更新日志.txt', dest: 'dist/' },
+            // sign-proxy native: bundle 后 llbot.js 里 here=dist/, requireBin 拼出来的
+            // 路径是 dist/sign-proxy.<triple>.node, 必须扁平拷到 dist 根目录.
+            // 用 glob 一次性带上所有平台的 .node, 缺哪个就 build 哪个 platform 时再补.
+            { src: './src/main/qqProtocol/direct/sign-proxy/*.node', dest: 'dist/', flatten: true },
+            // sign-proxy 版本号: pickVersion() 直接读 sign-proxy.package.json (源头就是这个名,
+            // 不跟 Bot 主 package.json 撞), dev / prod 同一份代码同一个文件名.
+            { src: './src/main/qqProtocol/direct/sign-proxy/sign-proxy.package.json', dest: 'dist/' },
           ],
         }),
       ],
@@ -92,4 +99,5 @@ export default defineConfig({
     },
     tsconfigPaths: true
   },
+  plugins: [writeVersion()],
 })

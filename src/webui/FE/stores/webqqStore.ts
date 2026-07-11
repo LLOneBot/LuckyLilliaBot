@@ -1,8 +1,15 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type { FriendCategory, GroupItem, RecentChatItem, ChatSession, GroupMemberItem, NotificationItem } from '../types/webqq'
 import { getFriends, getGroups, getRecentChats, getGroupNotifications, getFriendRequests, getDoubtBuddyRequests, getGroupMembers, setRecentChatTop } from '../utils/webqqApi'
 import { GroupNotifyType, GroupNotifyStatus } from '../types/webqq'
+import { getCurrentUin } from '../utils/currentUin'
+
+const accountStorage = createJSONStorage(() => ({
+  getItem: (name: string) => localStorage.getItem(`${getCurrentUin()}-${name}`),
+  setItem: (name: string, value: string) => localStorage.setItem(`${getCurrentUin()}-${name}`, value),
+  removeItem: (name: string) => localStorage.removeItem(`${getCurrentUin()}-${name}`),
+}))
 
 // 缓存过期时间（1小时）
 const CACHE_EXPIRY_MS = 60 * 60 * 1000
@@ -781,6 +788,7 @@ export const useWebQQStore = create<WebQQState>()(
     }),
     {
       name: 'webqq-storage',
+      storage: accountStorage,
       partialize: (state) => ({
         // 只持久化这些字段（不包含消息缓存，太大了）
         friendCategories: state.friendCategories,

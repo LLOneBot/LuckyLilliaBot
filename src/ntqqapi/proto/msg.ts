@@ -1,6 +1,32 @@
 import { ProtoField, ProtoMessage } from '@saltify/typeproto'
 
 export namespace Msg {
+  export const VideoFileMsg = ProtoMessage.of({
+    fileUuid: ProtoField(1, 'string', 'optional'),
+    fileMd5: ProtoField(2, 'bytes', 'optional'),
+    fileName: ProtoField(3, 'string', 'optional'),
+    fileFormat: ProtoField(4, 'uint32', 'optional'),
+    fileTime: ProtoField(5, 'uint32', 'optional'),
+    fileSize: ProtoField(6, 'uint32', 'optional'),
+    thumbWidth: ProtoField(7, 'uint32', 'optional'),
+    thumbHeight: ProtoField(8, 'uint32', 'optional'),
+    thumbFileMd5: ProtoField(9, 'bytes', 'optional'),
+    source: ProtoField(10, 'bytes', 'optional'),
+    thumbFileSize: ProtoField(11, 'uint32', 'optional'),
+    busiType: ProtoField(12, 'uint32', 'optional'),
+    fromChatType: ProtoField(13, 'uint32', 'optional'),
+    toChatType: ProtoField(14, 'uint32', 'optional'),
+    boolSupportProgressive: ProtoField(15, 'bool', 'optional'),
+    fileWidth: ProtoField(16, 'uint32', 'optional'),
+    fileHeight: ProtoField(17, 'uint32', 'optional'),
+    subBusiType: ProtoField(18, 'uint32', 'optional'),
+    videoAttr: ProtoField(19, 'uint32', 'optional'),
+    bytesThumbFileUrls: ProtoField(20, 'bytes', 'repeated'),
+    bytesVideoFileUrls: ProtoField(21, 'bytes', 'repeated'),
+    thumbDownloadFlag: ProtoField(22, 'uint32', 'optional'),
+    fileDownloadFlag: ProtoField(23, 'uint32', 'optional'),
+  })
+
   export const Elem = ProtoMessage.of({
     text: ProtoField(1, {
       str: ProtoField(1, 'string'),
@@ -15,20 +41,142 @@ export namespace Msg {
       old: ProtoField(2, 'bytes'),
       buf: ProtoField(11, 'bytes', 'optional')
     }, 'optional'),
+    notOnlineImage: ProtoField(4, {
+      filePath: ProtoField(1, 'string'),
+      fileLen: ProtoField(2, 'uint32'),
+      downloadPath: ProtoField(3, 'bytes'),
+      oldVerSendFile: ProtoField(4, 'bytes'),
+      imgType: ProtoField(5, 'uint32'),
+      previewsImage: ProtoField(6, 'bytes'),
+      picMd5: ProtoField(7, 'bytes'),
+      picHeight: ProtoField(8, 'uint32'),
+      picWidth: ProtoField(9, 'uint32'),
+      resId: ProtoField(10, 'string'),
+      flag: ProtoField(11, 'bytes'),
+      thumbUrl: ProtoField(12, 'string'),
+      original: ProtoField(13, 'uint32'),
+      bigUrl: ProtoField(14, 'string'),
+      origUrl: ProtoField(15, 'string'),
+      bizType: ProtoField(16, 'uint32'),
+      result: ProtoField(17, 'uint32'),
+      index: ProtoField(18, 'uint32'),
+      opFaceBuf: ProtoField(19, 'bytes'),
+      oldPicMd5: ProtoField(20, 'bool'),
+      thumbWidth: ProtoField(21, 'uint32'),
+      thumbHeight: ProtoField(22, 'uint32'),
+      fileId: ProtoField(23, 'uint32'),
+      showLen: ProtoField(24, 'uint32'),
+      downloadLen: ProtoField(25, 'uint32'),
+      url400: ProtoField(26, 'string'),
+      width400: ProtoField(27, 'uint32'),
+      height400: ProtoField(28, 'uint32'),
+      pbReserve: ProtoField(29, 'bytes'),
+    }, 'optional'),
     transElemInfo: ProtoField(5, {
       elemType: ProtoField(1, 'uint32'),
       elemValue: ProtoField(2, 'bytes')
+    }, 'optional'),
+    marketFace: ProtoField(6, {
+      summary: ProtoField(1, 'string', 'optional'),
+      itemType: ProtoField(2, 'uint32', 'optional'),
+      info: ProtoField(3, 'uint32', 'optional'),
+      faceId: ProtoField(4, 'bytes', 'optional'),
+      tabId: ProtoField(5, 'uint32', 'optional'),
+      subType: ProtoField(6, 'uint32', 'optional'),
+      key: ProtoField(7, 'string', 'optional'),
+      width: ProtoField(10, 'uint32', 'optional'),
+      height: ProtoField(11, 'uint32', 'optional'),
+    }, 'optional'),
+    customFace: ProtoField(8, {
+      guid: ProtoField(1, 'bytes'),
+      filePath: ProtoField(2, 'string'),
+      shortcut: ProtoField(3, 'string'),
+      buffer: ProtoField(4, 'bytes'),
+      flag: ProtoField(5, 'bytes'),
+      oldData: ProtoField(6, 'bytes', 'optional'),
+      fileId: ProtoField(7, 'uint32'),
+      serverIp: ProtoField(8, 'int32', 'optional'),
+      serverPort: ProtoField(9, 'int32', 'optional'),
+      fileType: ProtoField(10, 'int32'),
+      signature: ProtoField(11, 'bytes'),
+      useful: ProtoField(12, 'int32'),
+      md5: ProtoField(13, 'bytes'),
+      thumbUrl: ProtoField(14, 'string'),
+      bigUrl: ProtoField(15, 'string'),
+      origUrl: ProtoField(16, 'string'),
+      bizType: ProtoField(17, 'int32'),
+      repeatIndex: ProtoField(18, 'int32'),
+      repeatImage: ProtoField(19, 'int32'),
+      imageType: ProtoField(20, 'int32'),
+      index: ProtoField(21, 'int32'),
+      width: ProtoField(22, 'int32'),
+      height: ProtoField(23, 'int32'),
+      source: ProtoField(24, 'int32'),
+      size: ProtoField(25, 'uint32'),
+      origin: ProtoField(26, 'int32'),
+      thumbWidth: ProtoField(27, 'int32', 'optional'),
+      thumbHeight: ProtoField(28, 'int32', 'optional'),
+      showLen: ProtoField(29, 'int32'),
+      downloadLen: ProtoField(30, 'int32'),
+      x400Url: ProtoField(31, 'string', 'optional'),
+      x400Width: ProtoField(32, 'int32'),
+      x400Height: ProtoField(33, 'int32'),
+      pbReserve: ProtoField(34, {
+        subType: ProtoField(1, 'int32'),
+        field3: ProtoField(3, 'int32'),
+        field4: ProtoField(4, 'int32'),
+        summary: ProtoField(9, 'string'),
+        field10: ProtoField(10, 'int32'),
+        field21: ProtoField(21, {
+          field1: ProtoField(1, 'int32'),
+          field2: ProtoField(2, 'string'),
+          field3: ProtoField(3, 'int32'),
+          field4: ProtoField(4, 'int32'),
+          field5: ProtoField(5, 'int32'),
+          md5Str: ProtoField(7, 'string'),
+        }),
+        field31: ProtoField(31, 'string'),
+      }, 'optional'),
     }, 'optional'),
     richMsg: ProtoField(12, {
       template: ProtoField(1, 'bytes'),
       serviceId: ProtoField(2, 'int32')
     }, 'optional'),
+    groupFile: ProtoField(13, {
+      filename: ProtoField(1, 'string', 'optional'),
+      fileSize: ProtoField(2, 'uint64', 'optional'),
+      fileId: ProtoField(3, 'bytes', 'optional'),
+      batchId: ProtoField(4, 'bytes', 'optional'),
+      fileKey: ProtoField(5, 'bytes', 'optional'),
+      sequence: ProtoField(7, 'uint64', 'optional'),
+    }, 'optional'),
+    extraInfo: ProtoField(16, {
+      nick: ProtoField(1, 'string', 'optional'),
+      groupCard: ProtoField(2, 'string', 'optional'),
+      level: ProtoField(3, 'int32'),
+      flags: ProtoField(4, 'int32'),
+      groupMask: ProtoField(5, 'int32'),
+      msgTailId: ProtoField(6, 'int32', 'optional'),
+      senderTitle: ProtoField(7, 'string'),
+      apnsTips: ProtoField(8, 'string', 'optional'),
+      uin: ProtoField(9, 'uint32', 'optional'),
+      msgStateFlag: ProtoField(10, 'int32', 'optional'),
+      apnsSoundType: ProtoField(11, 'int32', 'optional'),
+      newGroupFlag: ProtoField(12, 'int32', 'optional')
+    }, 'optional'),
+    videoFile: ProtoField(19, 'bytes', 'optional'),
     srcMsg: ProtoField(45, {
       origSeqs: ProtoField(1, 'uint32', 'repeated'),
       senderUin: ProtoField(2, 'uint32'),
       time: ProtoField(3, 'int32'),
       elems: ProtoField(5, 'bytes', 'repeated'),
-      pbReserve: ProtoField(8, 'bytes'),
+      attr: ProtoField(8, {
+        oriMsgType: ProtoField(2, 'uint32', 'optional'),
+        sourceMsgId: ProtoField(3, 'uint64'),
+        senderUid: ProtoField(6, 'string'),
+        receiverUid: ProtoField(7, 'string', 'optional'),
+        ntMsgSeq: ProtoField(8, 'uint32', 'optional')
+      }),
       srcMsg: ProtoField(9, 'bytes', 'optional'), // 仅在合并转发内存在
       toUin: ProtoField(10, 'uint32')
     }, 'optional'),
@@ -49,10 +197,15 @@ export namespace Msg {
       fromUid: ProtoField(2, 'string'),
       fromAppid: ProtoField(3, 'uint32'),
       fromInstid: ProtoField(4, 'uint32'),
-      toUin: ProtoField(5, 'uint64'),
+      toUin: ProtoField(5, 'uint32'),
       toUid: ProtoField(6, 'string'),
       c2c: ProtoField(7, {
-        friendName: ProtoField(6, 'string')
+        c2cType: ProtoField(1, 'int32'),
+        serviceType: ProtoField(2, 'int32'),
+        sig: ProtoField(3, 'bytes', 'optional'),
+        fromTinyId: ProtoField(4, 'uint32'),
+        toTinyId: ProtoField(5, 'uint32'),
+        name: ProtoField(6, 'string')
       }),
       group: ProtoField(8, {
         groupCode: ProtoField(1, 'uint32'),
@@ -66,19 +219,53 @@ export namespace Msg {
         msgFlag: ProtoField(9, 'uint32')
       })
     }),
+    /**
+     * OlPush.MsgPush 推下来的消息头。**注意：跟 send 时的 SendContentHead 字段布局不同。**
+     *
+     * 关于 "msgSeq" —— field 5 和 field 11 的语义因 chatType 不同：
+     *
+     *   群聊 (msgType=82)：
+     *     - field 5  (groupMsgSeqOrC2cClientSeq) = server 给整群分配的 msgSeq，**双端 / 群里所有人一致**，
+     *                                跟发送方 PbSendMsgResp.groupMsgSeq (field 11) 相等。
+     *     - field 11 (c2cMsgSeq)   = 0 / 空（群聊不用）。
+     *
+     *   私聊 (msgType=166)：
+     *     - field 5  (groupMsgSeqOrC2cClientSeq) = **不是 msgSeq**——server 把发送方 PbSendMsg 时填的
+     *                                client `clientSequence` (10000-99999 临时号) 原样转发给
+     *                                接收方。实测 bot1 固定 clientSequence=55555 时 bot2 收
+     *                                到的此字段恒为 55555。撤回 / reply 引用 c2c 消息都用它。
+     *     - field 11 (c2cMsgSeq)   = server 给这条消息分配的 **c2cMsgSeq**（全局，
+     *                                跨 c2c 会话单调递增），**双端一致**，跟发送方
+     *                                PbSendMsgResp.c2cMsgSeq (field 14) 相等。
+     *
+     * 转 RawMessage 时按 chatType 选取：群用 field 5，私聊用 field 11。
+     */
     contentHead: ProtoField(2, {
       msgType: ProtoField(1, 'uint32'),
       subType: ProtoField(2, 'uint32'),
       c2cCmd: ProtoField(3, 'uint32'),
+      /** client 在 PbSendMsg 提交的 32-bit random，server 在两端原样广播。 */
       random: ProtoField(4, 'uint32'),
-      msgSeq: ProtoField(5, 'uint32'),
+      /** 群聊：双端一致的群 msgSeq（= PbSendMsgResp.groupMsgSeq）。
+       *  私聊：发送方 PbSendMsg 时填的 client `clientSequence` (10000-99999)，
+       *        server 原样转发给接收方；撤回 / reply 时回传给 server。 */
+      groupMsgSeqOrC2cClientSeq: ProtoField(5, 'uint32'),
       msgTime: ProtoField(6, 'uint32'),
       pkgNum: ProtoField(7, 'uint32'),
       pkgIndex: ProtoField(8, 'uint32'),
       divSeq: ProtoField(9, 'uint32'),
       autoReply: ProtoField(10, 'uint32'),
-      ntMsgSeq: ProtoField(11, 'uint64'),
+      /** 群聊：通常 0/空。
+       *  私聊：双端一致的 c2cMsgSeq（= PbSendMsgResp.c2cMsgSeq）。 */
+      c2cMsgSeq: ProtoField(11, 'uint32'),
+      /** 消息全局 64-bit msgUid。client 端可由 (0x01000000<<32)|random 推出来。 */
       msgUid: ProtoField(12, 'uint64'),
+      /**
+       * SsoGetGroupMsg 拉历史时，server 不填 field 12 的 msgUid，
+       * 而是把同样语义的 64-bit id 放在 field 32（PC NT 客户端协议特有的）。
+       * convertToRawMessage 里 fallback 到这个字段，msgId 才能拿到稳定的全局唯一值。
+       */
+      msgUidAlt: ProtoField(32, 'uint64', 'optional'),
       forward: ProtoField(15, {
         field1: ProtoField(1, 'uint32'),
         field2: ProtoField(2, 'uint32'),
@@ -124,45 +311,35 @@ export namespace Msg {
     message: ProtoField(1, Message)
   })
 
-  export const NotifyMessageBody = ProtoMessage.of({
-    type: ProtoField(1, 'uint32'),
-    groupCode: ProtoField(4, 'uint32'),
-    field13: ProtoField(13, 'uint32'),
-    essenceMessage: ProtoField(33, {
-      groupCode: ProtoField(1, 'uint32'),
-      msgSequence: ProtoField(2, 'uint32'),
-      random: ProtoField(3, 'uint32'),
-      setFlag: ProtoField(4, 'uint32'),
-      memberUin: ProtoField(5, 'uint32'),
-      operatorUin: ProtoField(6, 'uint32'),
-      timeStamp: ProtoField(7, 'uint32'),
-      msgSequence2: ProtoField(8, 'uint32'),
-      operatorNickName: ProtoField(9, 'string'),
-      memberNickName: ProtoField(10, 'string'),
-      setFlag2: ProtoField(11, 'uint32')
-    }),
-    reaction: ProtoField(44, {
-      data: ProtoField(1, {
-        body: ProtoField(1, {
-          target: ProtoField(2, {
-            sequence: ProtoField(1, 'uint32'),
-          }),
-          info: ProtoField(3, {
-            code: ProtoField(1, 'string'),
-            reactionType: ProtoField(2, 'uint32'),
-            count: ProtoField(3, 'uint32'),
-            operatorUid: ProtoField(4, 'string'),
-            actionType: ProtoField(5, 'uint32')
-          })
-        })
-      })
-    })
+  /** trpc.qq_new_tech.status_svc.StatusService.KickNT 推送：账号被踢下线 */
+  export const KickNTPush = ProtoMessage.of({
+    uin: ProtoField(1, 'uint32'),
+    tipsDesc: ProtoField(3, 'string'),
+    tipsTitle: ProtoField(4, 'string'),
+    /** 1001 = 异地登录顶号；2001 = 服务端主动踢出 */
+    code: ProtoField(5, 'uint32'),
+    /** 时间戳或某种 token */
+    field6: ProtoField(6, 'uint32'),
   })
 
   export const QSmallFaceExtra = ProtoMessage.of({
     faceId: ProtoField(1, 'uint32'),
     text: ProtoField(2, 'string'),
     compatText: ProtoField(3, 'string')
+  })
+
+  /** commonElem(serviceType=37) 包装的"超级表情" / dice / rps 等动态贴纸 */
+  export const LargeFaceExtra = ProtoMessage.of({
+    aniStickerPackId: ProtoField(1, 'string', 'optional'),
+    aniStickerId: ProtoField(2, 'string', 'optional'),
+    faceId: ProtoField(3, 'int32', 'optional'),
+    field4: ProtoField(4, 'int32', 'optional'),
+    aniStickerType: ProtoField(5, 'int32', 'optional'),
+    field6: ProtoField(6, 'string', 'optional'),
+    preview: ProtoField(7, 'string', 'optional'),
+    field9: ProtoField(9, 'int32', 'optional'),
+    /** dice/rps 才有：1-6 / 1-3 表示骰子点数或猜拳手势 */
+    resultId: ProtoField(11, 'int32', 'optional'),
   })
 
   export const GroupFileExtra = ProtoMessage.of({
@@ -205,5 +382,260 @@ export namespace Msg {
       pbReserve: ProtoField(56, 'bytes', 'optional'),
       fileIdCrcMedia: ProtoField(57, 'string')
     })
+  })
+
+  /** MessageSvc.PbSendMsg - 发消息请求 */
+  export const PbSendMsg = ProtoMessage.of({
+    routingHead: ProtoField(1, {
+      c2c: ProtoField(1, {
+        toUin: ProtoField(1, 'uint32', 'optional'),
+        toUid: ProtoField(2, 'string', 'optional'),
+      }, 'optional'),
+      group: ProtoField(2, {
+        groupCode: ProtoField(1, 'uint32'),
+      }, 'optional'),
+      groupTemp: ProtoField(3, {
+        groupCode: ProtoField(3, 'uint32'),
+        toUid: ProtoField(4, 'string'),
+      }, 'optional'),
+      // C2C 文件消息走这个：把上传得到的 fileUuid + 元数据塞进 body.msgContent，
+      // 配合 ccCmd=4 server 才会把它当作"离线文件"消息派发到对端。
+      trans0X211: ProtoField(15, {
+        toUin: ProtoField(1, 'uint32', 'optional'),
+        ccCmd: ProtoField(2, 'uint32', 'optional'),
+        uid: ProtoField(8, 'string', 'optional'),
+      }, 'optional'),
+    }),
+    contentHead: ProtoField(2, {
+      // 注意：发送 PbSendMsg 时，contentHead 是 SendContentHead
+      // 而不是 OlPush 收到的 ContentHead（field 1=msgType）
+      pkgNum: ProtoField(1, 'uint32', 'optional'),
+      pkgIndex: ProtoField(2, 'uint32', 'optional'),
+      divSeq: ProtoField(3, 'uint32', 'optional'),
+      autoReply: ProtoField(4, 'uint32', 'optional'),
+    }, 'optional'),
+    body: ProtoField(3, {
+      richText: ProtoField(1, {
+        elems: ProtoField(2, Elem, 'repeated'),
+      }, 'optional'),
+      // C2C 文件用 msgContent 携带 FileExtra 序列化结果
+      msgContent: ProtoField(2, 'bytes', 'optional'),
+    }),
+    clientSequence: ProtoField(4, 'uint32', 'optional'),
+    random: ProtoField(5, 'uint32'),
+    syncCookie: ProtoField(6, 'bytes', 'optional'),
+    via: ProtoField(8, 'uint32', 'optional'),
+    control: ProtoField(12, {
+      msgFlag: ProtoField(1, 'uint32'),
+    }, 'optional'),
+    multiSendSeq: ProtoField(14, 'uint32', 'optional'),
+  })
+
+  /**
+   * MessageSvc.PbSendMsg 的响应。
+   *
+   * server 在群聊和私聊场景下分别用两个不同的 wire field 回 "这条消息的双端一致 msgSeq"——
+   * 互斥填充，永远只填其中一个：
+   *   - 群聊  → field 11 (groupMsgSeq)：server 给整个群分配的 groupMsgSeq，群里所有人视角相同。
+   *                                     接收方在 OlPush msgType=82 的 contentHead.field5 拿到同样的值。
+   *   - 私聊  → field 14 (c2cMsgSeq)：server 给这条 c2c 消息分配的 c2cMsgSeq（全局，跨 c2c
+   *                                     会话单调递增）。
+   *                                     接收方在 OlPush msgType=166 的 contentHead.field11 拿到同样的值。
+   *                                     ⚠️ 不要跟 contentHead.field5（私聊里是发送方 PbSendMsg
+   *                                        提交的 client clientSequence，跟 c2cMsgSeq 完全
+   *                                        是两个东西）混淆。
+   */
+  export const PbSendMsgResp = ProtoMessage.of({
+    resultCode: ProtoField(1, 'int32'),
+    errMsg: ProtoField(2, 'string', 'optional'),
+    sendTime: ProtoField(3, 'uint32', 'optional'),
+    msgInfoFlag: ProtoField(10, 'uint32', 'optional'),
+    /** 群聊用：双端一致的群 msgSeq；私聊为空。 */
+    groupMsgSeq: ProtoField(11, 'uint32', 'optional'),
+    /** 私聊用：双端一致的 c2c ntMsgSeq；群聊为空。 */
+    c2cMsgSeq: ProtoField(14, 'uint32', 'optional'),
+  })
+
+  /**
+   * SSO `pttTrans.TransGroupPttReq`：群语音转文字。
+   * 客户端提交后服务器立即返回 ack，转写结果通过 MsgPush msgType=528 subType=61 异步推回。
+   */
+  export const PttTransGroupReq = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    body: ProtoField(2, {
+      msgUid: ProtoField(1, 'uint64'),
+      senderUin: ProtoField(2, 'uint32'),
+      groupUin: ProtoField(3, 'uint32'),
+      field4: ProtoField(4, 'uint32'),
+      voiceMd5Hex: ProtoField(5, 'string'),
+      field6: ProtoField(6, 'uint32'),
+      field7: ProtoField(7, 'uint32'),
+      field8: ProtoField(8, 'uint32'),
+      voiceFileId: ProtoField(9, 'string'),
+      field10: ProtoField(10, 'uint32'),
+    }),
+    field5: ProtoField(5, 'uint32'),
+    field6: ProtoField(6, 'uint32'),
+    field10: ProtoField(10, 'uint32'),
+  })
+
+  /** SSO `pttTrans.TransC2CPttReq`：私聊语音转文字。 */
+  export const PttTransC2CReq = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    body: ProtoField(3, {
+      msgUid: ProtoField(1, 'uint64'),
+      senderUin: ProtoField(2, 'uint32'),
+      receiverUin: ProtoField(3, 'uint32'),
+      voiceFileId: ProtoField(4, 'string'),
+      field5: ProtoField(5, 'uint32'),
+      field6: ProtoField(6, 'uint32'),
+      field7: ProtoField(7, 'uint32'),
+      field8: ProtoField(8, 'uint32'),
+      voiceMd5Hex: ProtoField(9, 'string'),
+    }),
+    field5: ProtoField(5, 'uint32'),
+    field6: ProtoField(6, 'uint32'),
+    field10: ProtoField(10, 'uint32'),
+  })
+
+  /**
+   * MsgPush msgType=528 subType=61 推送的转写结果（msg.body.msgContent 解析成这个）。
+   * Group / C2C 共用此 push schema，仅靠 msgUid 关联到原请求即可。
+   */
+  export const PttTransResultPush = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    body: ProtoField(2, {
+      msgUid: ProtoField(1, 'uint64'),
+      /** 1 = group, 2 = c2c */
+      chatType: ProtoField(2, 'uint32'),
+      field3: ProtoField(3, 'uint32'),
+      field4: ProtoField(4, 'uint32'),
+      field5: ProtoField(5, 'uint32'),
+      field6: ProtoField(6, 'uint32'),
+      field7: ProtoField(7, 'uint32'),
+      /** 转写文字 */
+      text: ProtoField(8, 'string'),
+      senderUin: ProtoField(9, 'uint32'),
+      /** group: groupCode；c2c: 收件人 uin */
+      groupOrReceiverUin: ProtoField(10, 'uint32'),
+    }),
+  })
+
+  /** SSO `Faceroam.OpReq` 收藏表情列表/删除请求 */
+  export const FaceroamOpReq = ProtoMessage.of({
+    comm: ProtoField(1, {
+      imPlat: ProtoField(1, 'uint32'),
+      osVersion: ProtoField(2, 'string'),
+      qVersion: ProtoField(3, 'string', 'optional'),
+    }),
+    selfUin: ProtoField(2, 'uint64'),
+    /** 1 = 列表, 2 = 删除 */
+    subCmd: ProtoField(3, 'uint32'),
+    /** 删除时填要删的 emoji_id 列表 */
+    deleteList: ProtoField(5, {
+      emojiId: ProtoField(1, 'string'),
+    }, 'repeated'),
+    field6: ProtoField(6, 'uint32', 'optional'),
+  })
+
+  /** Faceroam.OpReq 列表响应 */
+  export const FaceroamListResp = ProtoMessage.of({
+    retCode: ProtoField(1, 'uint32'),
+    errMsg: ProtoField(2, 'string'),
+    subCmd: ProtoField(3, 'uint32'),
+    userInfo: ProtoField(4, {
+      fileName: ProtoField(1, 'string', 'repeated'),
+      deleteFile: ProtoField(2, 'string', 'repeated'),
+      bid: ProtoField(3, 'string'),
+      maxRoamSize: ProtoField(4, 'uint32'),
+    }),
+    /** 每个 emoji 对应的 type（与 fileName 等长） */
+    emojiType: ProtoField(5, 'uint32', 'repeated'),
+  })
+
+  /** Faceroam.OpReq 删除响应 */
+  export const FaceroamDeleteResp = ProtoMessage.of({
+    retCode: ProtoField(1, 'uint32'),
+    errMsg: ProtoField(2, 'string'),
+    subCmd: ProtoField(3, 'uint32'),
+    results: ProtoField(5, {
+      emojiId: ProtoField(1, 'string'),
+      status: ProtoField(2, 'uint32'),
+    }, 'repeated'),
+  })
+
+  /** SSO `ImgStore.BDHExpressionRoam` 收藏表情上传请求（add）。 */
+  export const BDHExpressionRoamReq = ProtoMessage.of({
+    field1: ProtoField(1, 'uint32'),
+    field2: ProtoField(2, 'uint32'),
+    body: ProtoField(3, {
+      field1: ProtoField(1, 'uint32'),
+      uin: ProtoField(2, 'uint64'),
+      field3: ProtoField(3, 'uint32'),
+      /** 表情图 md5（16 字节二进制，不是 hex 字符串） */
+      md5: ProtoField(4, 'bytes'),
+      fileSize: ProtoField(5, 'uint32'),
+      field7: ProtoField(7, 'uint32'),
+      field8: ProtoField(8, 'uint32'),
+      field9: ProtoField(9, 'uint32'),
+      version: ProtoField(13, 'string'),
+      field16: ProtoField(16, 'uint32'),
+    }),
+    /** 对应 highway commandId（add 走 cmd=9） */
+    commandId: ProtoField(7, 'uint32'),
+    extension: ProtoField(1001, 'bytes', 'optional'),
+  })
+
+  /** ImgStore.BDHExpressionRoam 响应：含 uKey + 上传服务器列表 + 最终 emoji 路径 */
+  export const BDHExpressionRoamResp = ProtoMessage.of({
+    field1: ProtoField(1, 'uint64'),
+    field2: ProtoField(2, 'uint32'),
+    body: ProtoField(3, {
+      retCode: ProtoField(1, 'uint32'),
+      field2: ProtoField(2, 'uint32'),
+      field4: ProtoField(4, 'uint32'),
+      uploadIps: ProtoField(6, 'uint32', 'repeated'),
+      uploadPorts: ProtoField(7, 'uint32', 'repeated'),
+      /** highway upload 用的 ticket */
+      uKey: ProtoField(8, 'bytes', 'optional'),
+      field9: ProtoField(9, 'uint32', 'optional'),
+      field10: ProtoField(10, 'uint32', 'optional'),
+      field11: ProtoField(11, 'uint32', 'optional'),
+      field12: ProtoField(12, 'uint32', 'optional'),
+      ext: ProtoField(1018, {
+        domain: ProtoField(1, 'string'),
+        path1: ProtoField(2, 'string', 'optional'),
+        path2: ProtoField(3, 'string', 'optional'),
+        emojiId: ProtoField(5, 'string'),
+      }, 'optional'),
+    }),
+  })
+
+  /** trpc.msg.register_proxy.RegisterProxy.InfoSyncPush 内 GroupNode（每个群的最新 seq 等） */
+  export const InfoSyncPushGroupNode = ProtoMessage.of({
+    groupCode: ProtoField(1, 'uint64'),
+    groupSeq: ProtoField(2, 'uint64'),
+    readMsgSeq: ProtoField(3, 'uint64', 'optional'),
+    latestMsgTime: ProtoField(8, 'uint64', 'optional'),
+  })
+
+  export const InfoSyncPush = ProtoMessage.of({
+    groupNodes: ProtoField(6, InfoSyncPushGroupNode, 'repeated'),
+  })
+
+  export const MarkdownExtra = ProtoMessage.of({
+    content: ProtoField(1, 'string')
+  })
+
+  export const TextResvAttr = ProtoMessage.of({
+    atType: ProtoField(3, 'uint32'),
+    atMemberUin: ProtoField(4, 'uint32', 'optional'),
+    atMemberTinyid: ProtoField(5, 'uint32', 'optional'),
+    atMemberUid: ProtoField(9, 'string'),
+  })
+
+  export const PokeExtra = ProtoMessage.of({
+    type: ProtoField(1, 'uint32'),
+    strength: ProtoField(7, 'uint32'),
   })
 }

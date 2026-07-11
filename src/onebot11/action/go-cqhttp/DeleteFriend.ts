@@ -12,10 +12,12 @@ export class DeleteFriend extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    const uin = payload.user_id.toString()
-    const uid = await this.ctx.ntUserApi.getUidByUin(uin)
+    const uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id)
     if (!uid) throw new Error('无法获取用户信息')
-    await this.ctx.ntFriendApi.deleteFriend(uid)
+    const result = await this.ctx.ntFriendApi.deleteFriend(uid)
+    if (result.errorCode !== 0) {
+      throw new Error(result.errorMsg)
+    }
     return null
   }
 }

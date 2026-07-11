@@ -15,34 +15,52 @@ declare module 'cordis' {
 }
 
 export default class Config extends Service {
-  static inject = ['logger']
-
   private configPath: string | undefined
   private config: LLBotConfig | null = null
-  private watch = false
+  private watching = false
+  private skipNextWatch = false
   private defaultConfigPath = path.join(import.meta.dirname, 'default_config.json')
   private logger
+  private readonly WATCH_DEBOUNCE_MS = 2000
+  /** 保存 fs.watchFile 的回调引用，用于 unwatchFile 清理 */
+  private watchFileListener?: (curr: fs.Stats, prev: fs.Stats) => void
 
   constructor(ctx: Context) {
     super(ctx, 'config')
     this.logger = ctx.logger('config')
   }
 
+  async [Service.init]() {
+    return () => {
+      if (this.configPath && this.watchFileListener) {
+        fs.unwatchFile(this.configPath, this.watchFileListener)
+        this.watchFileListener = undefined
+      }
+    }
+  }
+
   listenChange(cb: (config: LLBotConfig) => void) {
     this.logger.info('配置文件位于', this.configPath)
 
-    // 初始化时不写入文件，只加载配置
     this.config = this.get()
     if (this.configPath) {
-      fs.watchFile(this.configPath, { persistent: true, interval: 1000 }, () => {
-        if (!this.watch) {
+      let lastReloadTime = 0
+      this.watchFileListener = () => {
+        if (!this.watching) return
+        if (this.skipNextWatch) {
+          this.skipNextWatch = false
           return
         }
+        // 防止 fs.watchFile 短时间内多次触发
+        const now = Date.now()
+        if (now - lastReloadTime < this.WATCH_DEBOUNCE_MS) return
+        lastReloadTime = now
         this.logger.info('配置重載')
         const c = this.reloadConfig()
         cb(c)
-      })
-      setTimeout(() => this.watch = true, 1500)
+      }
+      fs.watchFile(this.configPath, { persistent: false, interval: 1000 }, this.watchFileListener)
+      setTimeout(() => this.watching = true, 1500)
     }
   }
 
@@ -111,13 +129,9 @@ export default class Config extends Service {
     if (!this.configPath) {
       return
     }
-    // 暂时关闭监听，避免触发自己写入的变化
-    this.watch = false
+    // 跳过本次自身写入触发的 watchFile 回调
+    this.skipNextWatch = true
     fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), 'utf-8')
-    // 延迟重新启用监听
-    setTimeout(() => {
-      this.watch = true
-    }, 1500)
   }
 
 
@@ -287,3 +301,95 @@ class WebUITokenUtil {
 }
 
 export const webuiTokenUtil = new WebUITokenUtil(path.join(DATA_DIR, 'webui_token.txt'))
+
+// data/auth_token.txt
+class AuthTokenUtil {
+  private token: string = ''
+  private loaded = false
+
+  constructor(private readonly tokenPath: string) {
+    this.tokenPath = tokenPath
+  }
+
+  getToken() {
+    if (!this.loaded) {
+      if (fs.existsSync(this.tokenPath)) {
+        this.token = fs.readFileSync(this.tokenPath, 'utf-8').trim()
+      }
+      this.loaded = true
+    }
+    return this.token
+  }
+
+  /** 绝对路径, 给报错提示直接告诉用户去哪贴 token. */
+  getPath() {
+    return path.resolve(this.tokenPath)
+  }
+
+  setToken(token: string) {
+    this.token = token.trim()
+    fs.writeFileSync(this.tokenPath, this.token, 'utf-8')
+    this.loaded = true
+  }
+
+  reload() {
+    this.loaded = false
+    return this.getToken()
+  }
+}
+
+export const authTokenUtil = new AuthTokenUtil(path.join(DATA_DIR, 'auth_token.txt'))
+
+// auth token 校验服务 (契约同 Desktop preflight / install 脚本): GET + Authorization: Bearer
+export const AUTH_VALIDATE_API = 'https://api-auth.luckylillia.com/api/sign/info'
+
+/**
+ * 校验 auth token 是否有效.
+ * 2xx=valid, 401/403=invalid (失效/无权限), 网络失败/超时/其它状态=error (无法判定).
+ * 纯 HTTP 探测, 不依赖 native sign 初始化, 未登录时也能用.
+ */
+export async function validateAuthToken(token: string): Promise<'valid' | 'invalid' | 'error'> {
+  const t = token.trim()
+  if (!t) return 'invalid'
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 15000)
+  try {
+    const res = await fetch(AUTH_VALIDATE_API, {
+      headers: { Authorization: `Bearer ${t}` },
+      signal: controller.signal,
+    })
+    if (res.ok) return 'valid'
+    if (res.status === 401 || res.status === 403) return 'invalid'
+    return 'error'
+  } catch {
+    return 'error'
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
+ * 拉取 token 的 allowed_uins (GET /api/sign/info 返回体里带). 用于登录前预检当前 uin 是否被授权:
+ * 不在列表里的 uin 一旦走真 uin 签名 (/api/sign/compute), native SDK 对 403 会 process.exit 崩进程,
+ * 所以必须在签名前用这个列表拦截. 拿不到 (网络失败/非 2xx/解析失败) 返回 null, 调用方应放行不拦截.
+ */
+export async function getAllowedUins(token: string): Promise<number[] | null> {
+  const t = token.trim()
+  if (!t) return null
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 15000)
+  try {
+    const res = await fetch(AUTH_VALIDATE_API, {
+      headers: { Authorization: `Bearer ${t}` },
+      signal: controller.signal,
+    })
+    if (!res.ok) return null
+    const data = await res.json() as { allowed_uins?: unknown }
+    if (!Array.isArray(data.allowed_uins)) return null
+    return data.allowed_uins.map((x) => Number(x)).filter((n) => Number.isFinite(n))
+  } catch {
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}

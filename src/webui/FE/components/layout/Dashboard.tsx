@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { apiFetch } from '../../utils/api'
-import { Users, UsersRound, MessageSquare, Send, Clock, Cpu, HardDrive, Zap, Bot, MessageCircle } from 'lucide-react'
+import { Users, UsersRound, MessageSquare, Send, Clock, Cpu, HardDrive, Zap, Bot, MessageCircle, Server } from 'lucide-react'
 
 interface DashboardStats {
   friendCount: number
@@ -21,6 +21,15 @@ interface DashboardStats {
     memoryPercent: number
     cpu: number
   }
+  // Direct 模式无独立 QQ 进程, 后端返回整机资源, 首张卡显示为 "系统资源"
+  mode?: 'direct' | 'pmhq'
+  system?: {
+    memory: number
+    totalMemory: number
+    memoryPercent: number
+    cpu: number
+    label?: string
+  }
 }
 
 interface DashboardProps {
@@ -29,6 +38,17 @@ interface DashboardProps {
 }
 
 const USE_MOCK_DATA = false
+
+// Tile fills stay in the 400/500 candy register, where white glyphs top out around 2.3:1.
+// The shadow buys back the missing contrast without darkening the tiles.
+const GLYPH = 'text-white drop-shadow-[0_1px_1.4px_rgba(0,0,0,0.5)]'
+
+// Decoupled from the ring: ring hues run down to 2.28:1 under a white glyph, rose holds 3.67:1.
+const CHIP_GRADIENT = 'linear-gradient(135deg, #f43f5e, #ec4899)'
+
+// Rings encode the metric, not the card, so every resource card draws CPU and memory the same way.
+const CPU_RING: [string, string] = ['#ec4899', '#f43f5e']
+const MEM_RING: [string, string] = ['#f43f5e', '#fb7185']
 
 const generateMockStats = (): DashboardStats => ({
   friendCount: 128,
@@ -136,7 +156,7 @@ const PieChart: React.FC<{
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center shadow-md"
-            style={{ background: `linear-gradient(135deg, ${gradientColors[0]}, ${gradientColors[1]})` }}
+            style={{ background: CHIP_GRADIENT }}
           >
             {icon}
           </div>
@@ -183,7 +203,7 @@ const ResourceCard: React.FC<{
           gradientColors={cpuColors}
           label="CPU"
           displayValue={`${cpu.toFixed(1)}%`}
-          icon={<Cpu size={16} className="text-white" />}
+          icon={<Cpu size={16} className={GLYPH} />}
         />
         <PieChart
           value={memoryPercent}
@@ -191,7 +211,7 @@ const ResourceCard: React.FC<{
           gradientColors={memColors}
           label="内存"
           displayValue={`${formatBytes(memory)} / ${formatBytes(totalMemory)}`}
-          icon={<HardDrive size={16} className="text-white" />}
+          icon={<HardDrive size={16} className={GLYPH} />}
         />
       </div>
     </div>
@@ -255,7 +275,7 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
         <div className="card p-4 flex flex-col">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-xl gradient-primary-br flex items-center justify-center shadow-md">
-              <Clock size={20} className="text-white" />
+              <Clock size={20} className={GLYPH} />
             </div>
             <h3 className="text-base font-semibold text-theme">运行时间</h3>
             <div className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full bg-green-500/20 text-green-500 dark:text-green-400 text-xs font-medium">
@@ -279,28 +299,28 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
 
         <div className="card p-4 space-y-3">
           <StatItem
-            icon={<Users size={20} className="text-white" />}
+            icon={<Users size={20} className={GLYPH} />}
             label="好友数量"
             value={stats.friendCount.toLocaleString()}
-            gradient="bg-gradient-to-br from-sky-500 to-blue-500"
+            gradient="bg-gradient-to-br from-[#f43f5e] to-[#ec4899]"
           />
           <StatItem
-            icon={<UsersRound size={20} className="text-white" />}
+            icon={<UsersRound size={20} className={GLYPH} />}
             label="群组数量"
             value={stats.groupCount.toLocaleString()}
-            gradient="bg-gradient-to-br from-violet-500 to-purple-500"
+            gradient="bg-gradient-to-br from-[#14b8a6] to-[#06b6d4]"
           />
         </div>
 
         <div className="card p-4 space-y-3">
           <StatItem
-            icon={<MessageSquare size={20} className="text-white" />}
+            icon={<MessageSquare size={20} className={GLYPH} />}
             label="收到消息"
             value={stats.messageReceived.toLocaleString()}
             gradient="bg-gradient-to-br from-green-500 to-emerald-500"
           />
           <StatItem
-            icon={<Send size={20} className="text-white" />}
+            icon={<Send size={20} className={GLYPH} />}
             label="发送消息"
             value={stats.messageSent.toLocaleString()}
             gradient="bg-gradient-to-br from-orange-500 to-amber-500"
@@ -309,33 +329,50 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <ResourceCard
-          title="QQ 资源"
-          version={qqVersion}
-          icon={<MessageCircle size={16} className="text-white" />}
-          gradient="bg-gradient-to-br from-cyan-500 to-teal-500"
-          cpu={stats.qq.cpu}
-          memory={stats.qq.memory}
-          totalMemory={stats.qq.totalMemory}
-          memoryPercent={stats.qq.memoryPercent}
-          cpuGradientId="qqCpuGradient"
-          memGradientId="qqMemGradient"
-          cpuColors={['#06b6d4', '#14b8a6']}
-          memColors={['#0ea5e9', '#22d3ee']}
-        />
+        {stats.mode === 'direct' && stats.system ? (
+          <ResourceCard
+            title="系统资源"
+            version={stats.system.label}
+            icon={<Server size={16} className={GLYPH} />}
+            gradient="bg-gradient-to-br from-[#14b8a6] to-[#10b981]"
+            cpu={stats.system.cpu}
+            memory={stats.system.memory}
+            totalMemory={stats.system.totalMemory}
+            memoryPercent={stats.system.memoryPercent}
+            cpuGradientId="qqCpuGradient"
+            memGradientId="qqMemGradient"
+            cpuColors={CPU_RING}
+            memColors={MEM_RING}
+          />
+        ) : (
+          <ResourceCard
+            title="QQ 资源"
+            version={qqVersion}
+            icon={<MessageCircle size={16} className={GLYPH} />}
+            gradient="bg-gradient-to-br from-[#14b8a6] to-[#10b981]"
+            cpu={stats.qq.cpu}
+            memory={stats.qq.memory}
+            totalMemory={stats.qq.totalMemory}
+            memoryPercent={stats.qq.memoryPercent}
+            cpuGradientId="qqCpuGradient"
+            memGradientId="qqMemGradient"
+            cpuColors={CPU_RING}
+            memColors={MEM_RING}
+          />
+        )}
         <ResourceCard
           title="LLBot 资源"
           version={llbotVersion}
-          icon={<Bot size={16} className="text-white" />}
-          gradient="bg-gradient-to-br from-fuchsia-500 to-pink-500"
+          icon={<Bot size={16} className={GLYPH} />}
+          gradient="bg-gradient-to-br from-[#ec4899] to-[#f43f5e]"
           cpu={stats.bot.cpu}
           memory={stats.bot.memory}
           totalMemory={stats.bot.totalMemory}
           memoryPercent={stats.bot.memoryPercent}
           cpuGradientId="botCpuGradient"
           memGradientId="botMemGradient"
-          cpuColors={['#d946ef', '#ec4899']}
-          memColors={['#a855f7', '#d946ef']}
+          cpuColors={CPU_RING}
+          memColors={MEM_RING}
         />
       </div>
     </div>

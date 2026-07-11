@@ -6,6 +6,7 @@ import {
   OneBotConfigNew,
   OtherConfig,
   TokenDialog,
+  AuthTokenDialog,
   ChangePasswordDialog,
   QQLogin,
   ToastContainer,
@@ -17,6 +18,7 @@ import { WebQQPage, WebQQFullscreen } from './components/WebQQ';
 import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
 import { deleteCookie } from './utils/cookie';
+import { setCurrentUin } from './utils/currentUin';
 import { Save, Loader2, Eye, EyeOff, Plus, Trash2, Menu, Cpu, Milk, ExternalLink } from 'lucide-react';
 import { defaultConfig } from '../../main/config/defaultConfig'
 import { version } from '../../version'
@@ -47,6 +49,8 @@ function App() {
   const [showMilkyToken, setShowMilkyToken] = useState(false);
   const [showMilkyWebhookToken, setShowMilkyWebhookToken] = useState(false);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
+  const [showAuthTokenDialog, setShowAuthTokenDialog] = useState(false);
+  const [authTokenReason, setAuthTokenReason] = useState<'missing' | 'invalid'>('missing');
   const [qqVersion, setQqVersion] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -114,6 +118,7 @@ function App() {
             nick: response.data.selfInfo.nick || '',
             uin: response.data.selfInfo.uin,
           });
+          setCurrentUin(response.data.selfInfo.uin);
 
           // 获取主配置
           setConfig(response.data.config);
@@ -149,6 +154,33 @@ function App() {
     };
     checkLoginStatus();
   }, []);
+
+  // 未登录时轮询 auth token 状态: 只在缺失/无效时弹强制录入框; 自愈(转 valid/validating)或登录中则关掉,
+  // 避免弹框盖住二维码造成软锁死. 网络错误(error)不阻塞, 由 QQLogin 横幅提示. 在线则刷新进主界面.
+  useEffect(() => {
+    if (isLoggedIn || checkingLogin) return;
+    let stop = false;
+    const poll = async () => {
+      try {
+        const st = await apiFetch<{ applicable: boolean; online: boolean; hasToken: boolean; validation: string }>('/api/auth-token/status');
+        if (!stop && st.success) {
+          const d = st.data;
+          if (d.online) { window.location.reload(); return; }
+          if (d.applicable && (!d.hasToken || d.validation === 'invalid')) {
+            setAuthTokenReason(d.validation === 'invalid' ? 'invalid' : 'missing');
+            setShowAuthTokenDialog(true);
+          } else if (d.validation === 'valid') {
+            // 自愈/登录中: 关掉弹框露出二维码. validating/error 不动 (交给对话框自身轮询/QQLogin 横幅),
+            // 避免把用户正在提交的弹框中途关掉.
+            setShowAuthTokenDialog(false);
+          }
+        }
+      } catch { /* ignore */ }
+      if (!stop) setTimeout(poll, 3000);
+    };
+    poll();
+    return () => { stop = true; };
+  }, [isLoggedIn, checkingLogin]);
 
   // 保存配置
   const handleSave = useCallback(async (configToSave?: Config, emailConfigToSave?: EmailConfig | null) => {
@@ -232,6 +264,13 @@ function App() {
         {/* QQLogin 组件内部已有自己的背景 */}
         <QQLogin onLoginSuccess={handleLoginSuccess} />
 
+        {/* Auth Token 强制录入弹框 - 未登录且 token 缺失/无效时挡在扫码界面之上 */}
+        <AuthTokenDialog
+          visible={showAuthTokenDialog}
+          reason={authTokenReason}
+          onSuccess={() => window.location.reload()}
+        />
+
         {/* Password Dialog - 支持 401 设置密码 */}
         <TokenDialog
           visible={showPasswordDialog}
@@ -293,7 +332,13 @@ function App() {
             <Menu size={24} />
           </button>
           <div className="flex items-center gap-2">
-            <img src="/logo.jpg" alt="Logo" className="w-8 h-8 rounded-lg" />
+            <img
+              src="/logo-64.webp"
+              srcSet="/logo-64.webp 64w, /logo-128.webp 128w, /logo-192.webp 192w"
+              sizes="32px"
+              alt="Logo"
+              className="w-8 h-8 rounded-lg"
+            />
             <span className="font-semibold text-theme">LLBot</span>
           </div>
         </div>
@@ -799,7 +844,13 @@ function App() {
               {/* 项目信息 */}
               <div className="card p-8 text-center">
                 <div className="w-20 h-20 rounded-3xl overflow-hidden mx-auto mb-6 shadow-lg">
-                  <img src="/logo.jpg" alt="Logo" className="w-full h-full object-cover" />
+                  <img
+                    src="/logo-192.webp"
+                    srcSet="/logo-128.webp 128w, /logo-192.webp 192w, /logo-256.webp 256w"
+                    sizes="80px"
+                    alt="Logo"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
                 <h1 className="text-3xl font-bold text-theme mb-2">Lucky Lillia Bot</h1>
                 <p className="text-theme-secondary mb-6">使你的 QQNT 支持 OneBot 11 协议、Satori 协议、Milky 协议进行 QQ 机器人开发</p>

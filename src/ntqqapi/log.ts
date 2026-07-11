@@ -4,7 +4,7 @@ import { ChatType, ElementType, RawMessage } from '@/ntqqapi/types'
 
 export async function logSummaryMessage(ctx: Context, message: RawMessage) {
   const direction = message.senderUid == selfInfo.uid ? '发' : '收'
-  let sender = message.sendMemberName || message.sendRemarkName || message.sendNickName
+  let sender = message.sendMemberName || message.sendNickName
   const senderUin = message.senderUin
   let summary = ''
   for (const msgEle of message.elements) {
@@ -48,7 +48,7 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
       }
     }
   }
-  if (!summary){
+  if (!summary) {
     return
   }
   let peerName = ''
@@ -58,16 +58,17 @@ export async function logSummaryMessage(ctx: Context, message: RawMessage) {
   else if (message.chatType == ChatType.C2C) {
     try {
       const userUid = message.peerUid
-      const userInfo = (await ctx.ntUserApi.getUserDetailInfoWithBizInfo(userUid)).simpleInfo.coreInfo
-      sender = userInfo.remark || userInfo.nick
-      peerName = `私] ${sender}(${userInfo.uin})`
-    }catch (e) {
-      return
+      const userInfo = await ctx.ntFriendApi.getFriendByUid(userUid, false)
+      sender = userInfo!.remark || userInfo!.nick
+      peerName = `私] ${sender}(${message.peerUin})`
+    } catch {
+      // 非好友 (被删/单向) 或好友列表拉取失败也要留痕, 静默 return 会让私聊日志凭空消失
+      peerName = `私] ${sender}(${message.peerUin})`
     }
   }
   else if (message.chatType == ChatType.TempC2CFromGroup) {
     peerName = `临] ${message.peerName}(${message.peerUin})`
   }
-  const logMsg = `[${direction}-${peerName}：\n${summary}`
+  const logMsg = `[${direction}-${peerName}：${summary}`
   ctx.logger.info(logMsg)
 }

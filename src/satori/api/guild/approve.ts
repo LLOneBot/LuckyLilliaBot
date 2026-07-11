@@ -1,5 +1,5 @@
+import { decodeGroupRequestFlag } from '../../utils'
 import { Handler } from '../index'
-import { GroupRequestOperateTypes } from '@/ntqqapi/types'
 import { Dict } from 'cosmokit'
 
 interface Payload {
@@ -9,13 +9,17 @@ interface Payload {
 }
 
 export const handleGuildRequest: Handler<Dict<never>, Payload> = async (ctx, payload) => {
-  const res = await ctx.ntGroupApi.handleGroupRequest(
-    payload.message_id,
-    payload.approve ? GroupRequestOperateTypes.Approve : GroupRequestOperateTypes.Reject,
+  const info = decodeGroupRequestFlag(payload.message_id)
+  const result = await ctx.ntGroupApi.setGroupRequest(
+    info.doubt,
+    info.groupCode,
+    info.seq,
+    info.type,
+    payload.approve,
     payload.comment
   )
-  if (res.result !== 0) {
-    throw new Error(res.errMsg)
+  if (result.errorCode !== 0) {
+    throw new Error(result.errorMsg)
   }
   return {}
 }

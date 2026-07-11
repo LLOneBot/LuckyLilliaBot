@@ -832,7 +832,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
                   }
                   const profile = await getUserProfile(uid || undefined, session.peerId)
                   setUserProfile({ profile, loading: false, position: { x, y } })
-                } catch {
+                } catch(e) {
+                  console.log(e)
                   setUserProfile(null)
                   showToast('获取用户资料失败', 'error')
                 }

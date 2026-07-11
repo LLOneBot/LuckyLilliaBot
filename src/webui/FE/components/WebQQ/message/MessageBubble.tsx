@@ -1,7 +1,7 @@
 import React, { useState, useEffect, memo } from 'react'
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
 import type { RawMessage, GroupMemberItem } from '../../../types/webqq'
-import { formatMessageTime, getSelfUid, getSelfUin, getUserDisplayName, ntCall } from '../../../utils/webqqApi'
+import { formatMessageTime, getSelfUid, getSelfUin, getUserDisplayName, setEmojiLike } from '../../../utils/webqqApi'
 import { MessageElementRenderer, hasValidContent, isSystemTipMessage } from './MessageElements'
 import { showToast } from '../../common'
 
@@ -390,9 +390,8 @@ const EmojiReactionList = memo<{ message: RawMessage; isSelf: boolean }>(({ mess
     if (loading) return
     setLoading(emojiId)
     try {
-      const peer = { chatType: message.chatType, peerUid: message.peerUin, guildId: '' }
       // isClicked 为 true 表示自己已贴过，点击取消；否则点击添加
-      await ntCall('ntMsgApi', 'setEmojiLike', [peer, message.msgSeq, emojiId, !isClicked])
+      await setEmojiLike(message.chatType, message.peerUin, message.msgSeq, emojiId, !isClicked)
     } catch (e) {
       showToast(e.message || '操作失败', 'error')
     } finally {

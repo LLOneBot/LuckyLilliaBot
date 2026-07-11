@@ -12,10 +12,47 @@ export class GetGroupAlbumList extends BaseAction<Payload, unknown> {
   })
 
   protected async _handle(payload: Payload) {
-    const res = await this.ctx.ntGroupApi.getGroupAlbumList(payload.group_id.toString())
-    if (res.response.result !== 0) {
-      throw new Error(res.response.errMs)
+    const result = await this.ctx.ntGroupApi.getGroupAlbumList(+payload.group_id)
+    if (result.retCode !== 0) {
+      throw new Error(result.retMsg)
     }
-    return res.response.album_list
+    return result.albumList.map((a) => {
+      const photoUrls = a.cover?.image?.photoUrls ?? []
+      const defaultUrl = a.cover?.image?.defaultUrl
+      return {
+        album_id: a.albumId,
+        owner: a.owner,
+        name: a.name,
+        desc: a.desc,
+        create_time: String(a.createTime),
+        modify_time: String(a.modifyTime),
+        last_upload_time: String(a.lastUploadTime),
+        upload_number: String(a.uploadNumber),
+        cover: {
+          type: a.cover?.type ?? 0,
+          image: a.cover?.image ? {
+            lloc: a.cover.image.lloc,
+            photo_url: photoUrls.map((p) => ({
+              spec: p.spec,
+              url: {
+                url: p.url.url,
+                width: p.url.width,
+                height: p.url.height
+              },
+            })),
+            default_url: defaultUrl ? {
+              url: defaultUrl.url,
+              width: defaultUrl.width,
+              height: defaultUrl.height
+            } : null,
+          } : null,
+          desc: a.desc,
+        },
+        creator: {
+          nick: a.creator?.nick ?? '',
+          uin: a.creator?.uin ?? '',
+        },
+      }
+    })
   }
 }

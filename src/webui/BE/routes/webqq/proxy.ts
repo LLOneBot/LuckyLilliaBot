@@ -1,9 +1,11 @@
 import { Context } from 'cordis'
 import path from 'path'
+import os from 'node:os'
 import { existsSync } from 'node:fs'
+import { access, readFile, unlink, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
 import { decodeSilk } from '@/common/utils/audio'
 import { Hono } from 'hono'
-import { readFile } from 'node:fs/promises'
 
 export function createProxyRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -61,7 +63,11 @@ export function createProxyRoutes(ctx: Context): Hono {
       }
 
       const allowedHosts = ['gchat.qpic.cn', 'multimedia.nt.qq.com.cn', 'c2cpicdw.qpic.cn', 'p.qlogo.cn', 'q1.qlogo.cn']
-      if (!allowedHosts.some(host => parsedUrl.hostname.includes(host))) {
+      const hostname = parsedUrl.hostname.toLowerCase()
+      const isAllowed = allowedHosts.some(host =>
+        hostname === host || hostname.endsWith('.' + host)
+      )
+      if (!isAllowed) {
         return c.json({ success: false, message: '不允许代理此域名的图片' }, 403)
       }
 
@@ -108,6 +114,25 @@ export function createProxyRoutes(ctx: Context): Hono {
     }
   })
 
+  // rkey 接口 - 给 WebQQ 前端直连 QQ 图片 CDN 用（前端自己拼 originImageUrl + rkey +
+  // <img referrerPolicy="no-referrer">，不再走 image-proxy 中转）。rkey 是全局两个值、
+  // 会过期，前端按 TTL / onError 重拉。
+  router.get('/rkey', async (c) => {
+    try {
+      const rkeyData = await ctx.ntFileApi.rkeyManager.getRkey()
+      return c.json({
+        success: true,
+        data: {
+          private_rkey: rkeyData.private_rkey || '',
+          group_rkey: rkeyData.group_rkey || '',
+        },
+      })
+    } catch (e) {
+      ctx.logger.warn('获取 rkey 失败:', e)
+      return c.json({ success: false, message: '获取 rkey 失败' }, 500)
+    }
+  })
+
   // 语音代理接口 - 获取语音并转换为浏览器可播放格式
   router.get('/audio-proxy', async (c) => {
     try {
@@ -121,18 +146,13 @@ export function createProxyRoutes(ctx: Context): Hono {
 
       ctx.logger.info('语音代理请求:', { fileUuid, filePath, isGroup })
 
-      const fs = await import('fs/promises')
-      const pathModule = await import('path')
-      const os = await import('os')
-      const { randomUUID } = await import('crypto')
-
       let audioFilePath: string = ''
 
       // 优先使用本地文件路径
       if (filePath) {
         const decodedPath = decodeURIComponent(filePath)
         try {
-          await fs.access(decodedPath)
+          await access(decodedPath)
           audioFilePath = decodedPath
           ctx.logger.info('使用本地文件:', audioFilePath)
         } catch {
@@ -162,21 +182,20 @@ export function createProxyRoutes(ctx: Context): Hono {
 
         const audioBuffer = Buffer.from(await response.arrayBuffer())
         const tempDir = os.tmpdir()
-        audioFilePath = pathModule.join(tempDir, `ptt_${randomUUID()}.silk`)
-        await fs.writeFile(audioFilePath, audioBuffer)
+        audioFilePath = path.join(tempDir, `ptt_${randomUUID()}.silk`)
+        await writeFile(audioFilePath, audioBuffer)
       }
 
       // 转换为 mp3
       try {
         const mp3Path = await decodeSilk(ctx, audioFilePath, 'mp3')
-        const mp3Buffer = await fs.readFile(mp3Path)
+        const mp3Buffer = await readFile(mp3Path)
 
         // 清理临时文件
-        const os = await import('os')
         if (audioFilePath.includes(os.tmpdir())) {
-          fs.unlink(audioFilePath).catch(() => { })
+          unlink(audioFilePath).catch(() => { })
         }
-        fs.unlink(mp3Path).catch(() => { })
+        unlink(mp3Path).catch(() => { })
 
         c.header('Content-Type', 'audio/mpeg')
         c.header('Cache-Control', 'public, max-age=86400')

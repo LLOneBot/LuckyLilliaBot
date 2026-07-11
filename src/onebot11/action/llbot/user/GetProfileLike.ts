@@ -23,13 +23,13 @@ export class GetProfileLike extends BaseAction<Payload, Response> {
 
   async _handle(payload: Payload) {
     const ret = await this.ctx.ntUserApi.getProfileLike(selfInfo.uid, +payload.start, +payload.count)
-    if (ret.result !== 0) {
-      throw new Error(ret.errMsg)
-    }
-    const users = ret.info.userLikeInfos[0].favoriteInfo.userInfos
+    const users = ret.userLikeInfo.favoriteInfo.users ?? []
     for (const item of users) {
-      item.uin = Number(await this.ctx.ntUserApi.getUinByUid(item.uid))
+      Object.assign(item, {
+        uin: await this.ctx.ntUserApi.getUinByUid(item.uid),
+        isFriend: await this.ctx.ntFriendApi.isFriend(item.uid)
+      })
     }
-    return { users, nextStart: ret.info.start }
+    return { users, nextStart: ret.start }
   }
 }

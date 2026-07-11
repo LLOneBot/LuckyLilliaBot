@@ -1,8 +1,27 @@
-FROM node:24-alpine3.23
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories && \
-    apk add --no-cache ffmpeg curl
+FROM node:24-alpine
+
+ARG BUILD_PROXY=http://192.168.1.101:7890
+
+RUN set -eux; \
+    export http_proxy="$BUILD_PROXY" https_proxy="$BUILD_PROXY"; \
+    apk add --no-cache ffmpeg tzdata; \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
+    echo "Asia/Shanghai" > /etc/timezone
+
+ENV TZ=Asia/Shanghai
+
 WORKDIR /app/llbot
-COPY dist/ .
+
 COPY docker/startup.sh /startup.sh
 RUN chmod +x /startup.sh
+
+RUN touch /.dockerenv
+
+COPY dist/ .
+
+# alpine 只加载 musl 变体, 删掉其它平台/ABI 的 sign-proxy .node (darwin/win/glibc) 瘦身
+RUN for f in sign-proxy.*.node; do case "$f" in *-musl.node) ;; *) rm -f "$f" ;; esac; done
+
+VOLUME ["/app/llbot/data"]
+
 ENTRYPOINT ["/startup.sh"]

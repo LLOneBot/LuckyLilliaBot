@@ -1,32 +1,59 @@
+import * as NT from '@/ntqqapi/types'
 import SatoriAdapter from '../adapter'
-import { RawMessage, GroupNotify } from '@/ntqqapi/types'
-import { decodeGuild } from '../utils'
+import { encodeGroupRequestFlag } from '../utils'
 
-export async function parseGuildAdded(bot: SatoriAdapter, input: RawMessage) {
-  const groupAll = await bot.ctx.ntGroupApi.getGroupAllInfo(input.peerUid)
-
+export async function parseGuildAdded(
+  bot: SatoriAdapter,
+  data: NT.GroupAddedEvent
+) {
   return bot.event('guild-added', {
-    guild: decodeGuild(groupAll)
+    guild: {
+      id: data.groupCode.toString()
+    }
   })
 }
 
-export async function parseGuildRemoved(bot: SatoriAdapter, input: RawMessage) {
-  const groupAll = await bot.ctx.ntGroupApi.getGroupAllInfo(input.peerUid)
+export async function parseGuildUpdated(
+  bot: SatoriAdapter,
+  data: NT.GroupNameChangedEvent
+) {
+  return bot.event('guild-updated', {
+    guild: {
+      id: data.groupCode.toString(),
+      name: data.newGroupName
+    }
+  })
+}
 
+export async function parseGuildRemoved(
+  bot: SatoriAdapter,
+  data: NT.GroupRemovedEvent
+) {
   return bot.event('guild-removed', {
-    guild: decodeGuild(groupAll)
+    guild: {
+      id: data.groupCode.toString()
+    }
   })
 }
 
-export async function parseGuildRequest(bot: SatoriAdapter, notify: GroupNotify) {
-  const groupCode = notify.group.groupCode
-  const flag = groupCode + '|' + notify.seq + '|' + notify.type
-
+export async function parseGuildRequest(
+  bot: SatoriAdapter,
+  data: NT.GroupInvitationEvent
+) {
   return bot.event('guild-request', {
-    guild: decodeGuild(notify.group),
+    guild: {
+      id: data.groupCode.toString()
+    },
     message: {
-      id: flag,
-      content: notify.postscript
+      id: encodeGroupRequestFlag(
+        data.groupCode,
+        data.invitationSeq,
+        NT.GroupNotificationType.Invitation,
+        false
+      )
+    },
+    operator: {
+      id: data.initiatorUin.toString()
     }
   })
 }

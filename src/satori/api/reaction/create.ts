@@ -1,6 +1,7 @@
+import * as NT from '@/ntqqapi/types'
 import { Handler } from '../index'
 import { Dict } from 'cosmokit'
-import { getPeer } from '../../utils'
+import { decodeMessageId } from '../../utils'
 
 interface Payload {
   channel_id: string
@@ -9,14 +10,18 @@ interface Payload {
 }
 
 export const createReaction: Handler<Dict<never>, Payload> = async (ctx, payload) => {
-  const peer = await getPeer(ctx, payload.channel_id)
-  const { msgList } = await ctx.ntMsgApi.getMsgsByMsgId(peer, [payload.message_id])
-  if (!msgList.length) {
-    throw new Error('无法获取该消息')
+  const info = decodeMessageId(payload.message_id)
+  if (info.chatType !== NT.ChatType.Group) {
+    throw new Error('暂不支持私聊消息回应')
   }
-  const res = await ctx.ntMsgApi.setEmojiLike(peer, msgList[0].msgSeq, payload.emoji_id, true)
-  if (res.result !== 0) {
-    throw new Error(res.errMsg)
+  const result = await ctx.ntMsgApi.setGroupMsgReaction(
+    +info.peerUid,
+    info.msgSeq,
+    payload.emoji_id,
+    true
+  )
+  if (result.errorCode !== 0) {
+    throw new Error(result.errorMsg)
   }
   return {}
 }

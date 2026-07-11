@@ -1,57 +1,66 @@
-import { Category, Friend } from '../types'
+import { FriendCategory, Friend } from '../types'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 
 declare module 'cordis' {
   interface Context {
-    ntFriendApi: NTQQFriendApi
+    ntFriendApi: NTFriendApi
   }
 }
 
-export class NTQQFriendApi extends Service {
-  static inject = ['ntUserApi', 'ntSystemApi', 'pmhq']
+export class NTFriendApi extends Service {
+  static inject = ['qqProtocol']
   private friendsCache: Friend[] = []
-  private categoriesCache: Map<number, Category> = new Map()
+  private categoriesCache: Map<number, FriendCategory> = new Map()
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntFriendApi')
+    ctx.on('nt/friend-added', () => {
+      if (this.friendsCache.length > 0) {
+        this.getFriends(true)
+      }
+    })
+    ctx.on('nt/friend-removed', () => {
+      if (this.friendsCache.length > 0) {
+        this.getFriends(true)
+      }
+    })
   }
 
-  async getFriendList(forceUpdate: boolean) {
+  async getFriends(forceUpdate: boolean) {
     if (forceUpdate || this.friendsCache.length === 0) {
-      const res = await this.ctx.pmhq.fetchFriends()
-      this.friendsCache = res.friendList.map(friend => {
-        const biz = friend.subBiz.get(1)!
-        let statusId = biz.numData.get(27372)!
-        if (statusId >= 268435456) {
-          statusId -= 268435456
+      const friends = []
+      const categories = new Map<number, FriendCategory>()
+      let cookie: Buffer | undefined
+      while (true) {
+        const res = await this.ctx.qqProtocol.fetchFriends(cookie)
+        for (const cat of res.category) {
+          categories.set(cat.categoryId, cat)
         }
-        if (statusId > 14878464) {
-          statusId -= 14878464
+        for (const friend of res.friendList) {
+          const biz = friend.subBiz.get(1)!
+          friends.push({
+            uid: friend.uid,
+            uin: friend.uin,
+            categoryId: friend.categoryId,
+            categoryName: categories.get(friend.categoryId)?.categoryName ?? '',
+            nick: biz.data.get(20002)?.toString() ?? '',
+            bio: biz.data.get(102)?.toString() ?? '',
+            remark: biz.data.get(103)?.toString() ?? '',
+            qid: biz.data.get(27394)?.toString() ?? '',
+            age: biz.numData.get(20037) ?? 0,
+            gender: biz.numData.get(20009) ?? 0,
+            birthdayYear: biz.data.has(20031) ? (biz.data.get(20031)![0] << 8) | biz.data.get(20031)![1] : 0,
+            birthdayMonth: biz.data.get(20031)?.[2] ?? 0,
+            birthdayDay: biz.data.get(20031)?.[3] ?? 0,
+            isSelf: friend.uin === res.selfUin
+          })
         }
-        if (statusId === 0) {
-          statusId = 2
-        }
-        return {
-          uid: friend.uid,
-          uin: friend.uin,
-          categoryId: friend.categoryId,
-          nick: biz.data.get(20002)!.toString(),
-          longNick: biz.data.get(102)!.toString(),
-          remark: biz.data.get(103)!.toString(),
-          qid: biz.data.get(27394)!.toString(),
-          age: biz.numData.get(20037)!,
-          sex: biz.numData.get(20009)!,
-          birthdayYear: (biz.data.get(20031)![0] << 8) | biz.data.get(20031)![1],
-          birthdayMonth: biz.data.get(20031)![2],
-          birthdayDay: biz.data.get(20031)![3],
-          status: statusId * 10
-        }
-      })
-      this.categoriesCache.clear()
-      for (const cat of res.category) {
-        this.categoriesCache.set(cat.categoryId, cat)
+        cookie = res.cookie
+        if (!cookie) break
       }
+      this.friendsCache = friends
+      this.categoriesCache = categories
     }
     return {
       friends: this.friendsCache,
@@ -59,92 +68,77 @@ export class NTQQFriendApi extends Service {
     }
   }
 
-  async getFriendInfoByUin(uin: number, forceUpdate: boolean) {
-    const result = await this.getFriendList(forceUpdate)
-    let categories = result.categories
+  async getFriendByUin(uin: number, forceUpdate: boolean) {
+    const result = await this.getFriends(forceUpdate)
     let friend = result.friends.find(e => e.uin === uin)
     if (!friend) {
-      const result = await this.getFriendList(true)
-      categories = result.categories
+      const result = await this.getFriends(true)
       friend = result.friends.find(e => e.uin === uin)
     }
-    if (!friend) {
-      return
-    }
-    const category = categories.get(friend.categoryId)!
-    return {
-      friend,
-      category
-    }
+    return friend
   }
 
-  async getFriendInfoByUid(uid: string, forceUpdate: boolean) {
-    const result = await this.getFriendList(forceUpdate)
-    let categories = result.categories
+  async getFriendByUid(uid: string, forceUpdate: boolean) {
+    const result = await this.getFriends(forceUpdate)
     let friend = result.friends.find(e => e.uid === uid)
     if (!friend) {
-      const result = await this.getFriendList(true)
-      categories = result.categories
+      const result = await this.getFriends(true)
       friend = result.friends.find(e => e.uid === uid)
     }
-    if (!friend) {
-      return
-    }
-    const category = categories.get(friend.categoryId)!
-    return {
-      friend,
-      category
-    }
+    return friend
   }
 
-  async isFriend(uid: string): Promise<boolean> {
-    return (await this.getFriendInfoByUid(uid, false)) !== undefined
+  async isFriend(uid: string) {
+    const result = await this.getFriends(false)
+    return result.friends.some(e => e.uid === uid)
   }
 
   async getFriendRecommendContactArk(uin: number) {
-    const { ark } = await this.ctx.pmhq.getFriendRecommendContactArk(uin)
+    const { ark } = await this.ctx.qqProtocol.getFriendRecommendContactArk(uin)
     return ark
   }
 
   async setFriendRemark(uid: string, remark = '') {
-    return await this.ctx.pmhq.setFriendRemark(uid, remark)
+    return await this.ctx.qqProtocol.setFriendRemark(uid, remark)
   }
 
   async deleteFriend(targetUid: string, block = false, bothDelete = true) {
-    return await this.ctx.pmhq.deleteFriend(targetUid, block, bothDelete)
+    return await this.ctx.qqProtocol.deleteFriend(targetUid, block, bothDelete)
   }
 
   async setFriendCategory(uid: string, categoryId: number) {
-    return await this.ctx.pmhq.setFriendCategory(uid, categoryId)
-  }
-
-  async clearBuddyReqUnreadCnt() {
-    return await this.ctx.pmhq.invoke('nodeIKernelBuddyService/clearBuddyReqUnreadCnt', [])
+    return await this.ctx.qqProtocol.setFriendCategory(uid, categoryId)
   }
 
   async getFriendRequests(limit: number) {
-    const { info } = await this.ctx.pmhq.fetchFriendRequests(selfInfo.uid, limit)
-    return info.requests
+    const res = await this.ctx.qqProtocol.fetchFriendRequests(selfInfo.uid, limit)
+    return res.info.requests
   }
 
   async getDoubtFriendRequests(limit: number) {
-    const { info } = await this.ctx.pmhq.fetchFilteredFriendRequests(limit)
+    const { info } = await this.ctx.qqProtocol.fetchFilteredFriendRequests(limit)
     return info.requests
   }
 
   async approvalFriendRequest(friendUid: string, accept: boolean) {
-    await this.ctx.pmhq.setFriendRequest(friendUid, accept ? 3 : 5)
+    return await this.ctx.qqProtocol.setFriendRequest(friendUid, accept ? 3 : 5)
   }
 
   async approvalDoubtFriendRequest(requestUid: string) {
-    return await this.ctx.pmhq.setFilteredFriendRequestReq(selfInfo.uid, requestUid)
+    return await this.ctx.qqProtocol.setFilteredFriendRequestReq(selfInfo.uid, requestUid)
   }
 
-  async getCategoryById(categoryId: number) {
-    return await this.ctx.pmhq.invoke('nodeIKernelBuddyService/getCategoryById', [categoryId])
+  async setFriendPin(friendUid: string, isPinned: boolean) {
+    return await this.ctx.qqProtocol.setFriendPin(friendUid, isPinned)
   }
 
-  async setTop(uid: string, isTop: boolean) {
-    return await this.ctx.pmhq.invoke('nodeIKernelBuddyService/setTop', [uid, isTop])
+  async sendFriendNudge(friendUin: number, isSelf: boolean) {
+    const toUin = isSelf ? +selfInfo.uin : friendUin
+    return await this.ctx.qqProtocol.sendFriendPoke(friendUin, toUin)
+  }
+
+  async getFriendsStatus() {
+    const res = await this.ctx.qqProtocol.getFriendsStatus(selfInfo.uid)
+    return res.list
   }
 }

@@ -19,11 +19,11 @@ describe('members routes', () => {
 
     it('returns sorted member list', async () => {
       const infos = new Map([
-        ['uid1', { uid: 'uid1', uin: '111', nick: 'Admin', cardName: '', role: 3, memberRealLevel: 5, memberLevel: 0, memberSpecialTitle: '' }],
-        ['uid2', { uid: 'uid2', uin: '222', nick: 'Owner', cardName: 'Boss', role: 4, memberRealLevel: 10, memberLevel: 0, memberSpecialTitle: '' }],
-        ['uid3', { uid: 'uid3', uin: '333', nick: 'Member', cardName: '', role: 2, memberRealLevel: 1, memberLevel: 0, memberSpecialTitle: '' }],
+        ['uid1', { uid: 'uid1', uin: '111', nick: 'Admin', cardName: '', role: 2, memberRealLevel: 5, memberLevel: 0, memberSpecialTitle: '' }],
+        ['uid2', { uid: 'uid2', uin: '222', nick: 'Owner', cardName: 'Boss', role: 1, memberRealLevel: 10, memberLevel: 0, memberSpecialTitle: '' }],
+        ['uid3', { uid: 'uid3', uin: '333', nick: 'Member', cardName: '', role: 0, memberRealLevel: 1, memberLevel: 0, memberSpecialTitle: '' }],
       ])
-      ctx.ntGroupApi.getGroupMembers.mockResolvedValue({ result: { infos } })
+      ctx.ntGroupApi.getGroupMembers.mockResolvedValue(infos)
       const app = createTestApp(createMembersRoutes(ctx))
 
       const res = await app.request('/members?groupCode=12345')

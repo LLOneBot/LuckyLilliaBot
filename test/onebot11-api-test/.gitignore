@@ -5,3 +5,4 @@ test-report.html
 *.log
 .DS_Store
 config/test.config.json
+tests/media/generated/

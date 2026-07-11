@@ -17,6 +17,7 @@ interface Response extends OB11User {
   country: string
   labels: string[]
   is_vip: boolean
+  is_svip: boolean
   is_years_vip: boolean
   vip_level: number
   remark: string
@@ -30,18 +31,18 @@ export class GetStrangerInfo extends BaseAction<Payload, Response> {
 
   protected async _handle(payload: Payload) {
     const uin = +payload.user_id
-    const info = await this.ctx.pmhq.fetchUserInfo(uin)
-    const loginDays = await this.ctx.pmhq.fetchUserLoginDays(uin)
+    const info = await this.ctx.ntUserApi.getUserByUin(uin)
+    const loginDays = await this.ctx.qqProtocol.fetchUserLoginDays(uin)
     return {
       user_id: info.uin,
       nickname: info.nick,
-      sex: OB11Entities.sex(info.sex),
+      sex: OB11Entities.sex(info.gender),
       age: info.age,
       qid: info.qid,
       level: info.level,
       login_days: loginDays,
-      reg_time: info.regTime,
-      long_nick: info.longNick,
+      reg_time: info.registerTime,
+      long_nick: info.bio,
       city: info.city,
       country: info.country,
       birthday_year: info.birthdayYear,
@@ -49,6 +50,7 @@ export class GetStrangerInfo extends BaseAction<Payload, Response> {
       birthday_day: info.birthdayDay,
       labels: info.labels,
       is_vip: info.isVip,
+      is_svip: info.isSvip,
       is_years_vip: info.isYearsVip,
       vip_level: info.vipLevel,
       remark: info.remark

@@ -1,3 +1,4 @@
+import { selfInfo } from '@/common/globalVars'
 import { BaseAction, Schema } from '../../BaseAction'
 import { ActionName } from '../../types'
 
@@ -16,10 +17,15 @@ export class SendPoke extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
+    let result
     if (payload.group_id) {
-      await this.ctx.pmhq.sendGroupPoke(+payload.group_id, +payload.user_id)
+      result = await this.ctx.ntGroupApi.sendGroupNudge(+payload.group_id, +payload.user_id)
     } else {
-      await this.ctx.pmhq.sendFriendPoke(+payload.user_id, payload.target_id ? +payload.target_id : +payload.user_id)
+      const isSelf = payload.target_id ? payload.target_id.toString() === selfInfo.uin : false
+      result = await this.ctx.ntFriendApi.sendFriendNudge(+payload.user_id, isSelf)
+    }
+    if (result.errorCode !== 0) {
+      throw new Error(result.errorMsg)
     }
     return null
   }

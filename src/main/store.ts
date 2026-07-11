@@ -1,9 +1,9 @@
-import { Peer, RawMessage } from '@/ntqqapi/types'
+import { ChatType, Peer, RawMessage } from '@/ntqqapi/types'
 import { createHash } from 'node:crypto'
-import { BidiMap } from '@/common/utils/table'
 import { FileCache } from '@/common/types'
 import { Context, Service } from 'cordis'
 import { noop } from 'cosmokit'
+import { selfInfo } from '@/common/globalVars'
 
 declare module 'cordis' {
   interface Context {
@@ -11,44 +11,50 @@ declare module 'cordis' {
   }
 }
 
-declare module 'minato' {
+declare module '@cordisjs/plugin-database' {
   interface Tables {
     message: {
       shortId: number
       msgId: string
-      uniqueMsgId: string
       chatType: number
       peerUid: string
+      msgSeq: number
     }
     file: FileCache
-    forward: {
-      rootMsgId: string
-      parentMsgId: string
-      chatType: number
-      peerUid: string
-    },
     group_member: {
-      groupId: string
-      userId: string
-      card: string
+      groupCode: number
+      uin: number
+      cardName: string
+    }
+    uix: {
+      uid: string
+      uin: number
+    }
+    temp_chat_info: {
+      peerUid: string
+      groupCode: number
     }
   }
 }
 
 export interface MsgInfo {
   msgId: string
+  msgSeq: number
   peer: Peer
 }
 
 class Store extends Service {
-  static inject = ['database', 'model', 'logger']
-  private cache: BidiMap<string, number>
+  static inject = ['database', 'model', 'timer']
+  private ids: Map<string, number>
   private messages: Map<string, RawMessage>
+  private msgTimestamps: Map<string, number>
+  private sweepTimer?: () => void
 
   constructor(protected ctx: Context, public config: Store.Config) {
     super(ctx, 'store')
-    this.cache = new BidiMap(1000)
+    this.ids = new Map()
     this.messages = new Map()
+    this.msgTimestamps = new Map()
   }
 
   async [Service.init]() {
@@ -57,7 +63,7 @@ class Store extends Service {
   }
 
   start() {
-    this.initDatabase().then().catch(console.error)
+    this.initDatabase().catch(e => this.ctx.logger.error(e))
     this.ctx.on('llob/config-updated', async input => {
       this.config = { msgCacheExpire: input.msgCacheExpire! }
     })
@@ -68,8 +74,8 @@ class Store extends Service {
       shortId: 'integer(10)',
       chatType: 'unsigned',
       msgId: 'string(24)',
-      uniqueMsgId: 'string(64)',
-      peerUid: 'string(24)'
+      peerUid: 'string(24)',
+      msgSeq: 'unsigned(10)'
     }, {
       primary: 'shortId'
     })
@@ -80,115 +86,134 @@ class Store extends Service {
       msgTime: 'unsigned(10)',
       chatType: 'unsigned',
       elementType: 'unsigned',
-      md5HexStr: 'string(32)'
+      md5HexStr: 'string(32)',
+      originImageUrl: 'string'
     }, {
       primary: 'fileUuid',
       indexes: ['fileName']
     })
-    this.ctx.model.extend('forward', {
-      rootMsgId: 'string(24)',
-      parentMsgId: 'string(24)',
-      chatType: 'unsigned',
-      peerUid: 'string(24)'
-    }, {
-      primary: 'parentMsgId'
-    })
     this.ctx.model.extend('group_member', {
-      groupId: 'string(10)',
-      userId: 'string(10)',
-      card: 'string(60)'
+      groupCode: 'unsigned(10)',
+      uin: 'unsigned(10)',
+      cardName: 'string(60)'
     }, {
-      primary: ['groupId', 'userId']
+      primary: ['groupCode', 'uin']
+    })
+    this.ctx.model.extend('uix', {
+      uid: 'string(24)',
+      uin: 'unsigned(10)'
+    }, {
+      primary: 'uid',
+      indexes: ['uin']
+    })
+    this.ctx.model.extend('temp_chat_info', {
+      peerUid: 'string(24)',
+      groupCode: 'unsigned(10)'
+    }, {
+      primary: 'peerUid'
     })
   }
 
-  getUniqueMsgId(msg: RawMessage): string {
-    return `${msg.chatType}-${msg.peerUid}-${msg.msgSeq}-${msg.msgRandom}-${msg.msgTime}`
+  /**
+   * shortId hash 输入。要保证同一条消息在不同时机/不同视角算出来一致。
+   *
+   * 群消息：peerUid (= groupCode) 和 msgSeq 是 server 全局分配，所有人视角一致；msgRandom
+   *   server 在两端原样广播也一致。msgId（contentHead.msgUid）在 OlPush 推回 vs SsoGetGroupMsg
+   *   拉历史时**不一样**，不能放进 hash 输入。
+   * C2C：peerUid 是各自视角对方的 uid（双端不同），不能进 hash。RawMessage.msgSeq 在私聊里
+   *   语义是 c2cMsgSeq（server 给这条消息的全局 c2c msgSeq，双端理论上一致），但本端 send
+   *   时还没拿到它（PbSendMsgResp 同步返回有，但收到 self-echo 之前 store 里这条消息字段
+   *   不一定齐），所以稳妥起见 hash 输入只用两端都立刻能拿到的 (selfUid, otherUid) 排序对
+   *   + msgRandom（client 自造，server 在两端原样广播，永远一致）。
+   */
+  private buildShortIdKey(meta: {
+    msgId: string
+    msgSeq: number
+    msgRandom: number
+    peerUid: string
+    senderUid: string
+    chatType: ChatType
+  }): string {
+    if (meta.chatType === ChatType.C2C || meta.chatType === ChatType.TempC2CFromGroup) {
+      const me = selfInfo.uid
+      const other = meta.senderUid === me ? meta.peerUid : meta.senderUid
+      const pair = me < other ? `${me}|${other}` : `${other}|${me}`
+      return `${meta.chatType}-${pair}-${meta.msgRandom}`
+    }
+    return `${meta.chatType}-${meta.peerUid}-${meta.msgSeq}-${meta.msgRandom}`
   }
 
-  createMsgShortId(msg: RawMessage): number {
-    const peer = {
-      chatType: msg.chatType,
-      peerUid: msg.peerUid,
-      guildId: ''
-    }
-    const existingShortId = this.getShortIdByMsgInfo(peer, msg.msgId)
+  createMsgShortId(meta: {
+    msgId: string
+    msgSeq: number
+    msgRandom: number
+    peerUid: string
+    senderUid: string
+    chatType: ChatType
+  }): number {
+    const cacheKey = this.buildShortIdKey(meta)
+    const existingShortId = this.ids.get(cacheKey)
     if (existingShortId) {
       return existingShortId
     }
-    // QQ 本地给的 msgId 是和 Protobuf 给的不一致
-    // 并且本地的 msgId 是根据一个本地保存的随机字符串 + 某种算法生成的，如果将 QQ 数据库清空了，这个随机字符串会变
-    // 这就导致每次清空数据库后收到的同一条消息的 msgId 都不一样
-    // 所以这里改成用 msgSeq + msgRandom 来生成 shortId，保证清空 QQ 数据库后收到同一条消息收到 shortId 都一致
-    const uniqueMsgId = this.getUniqueMsgId(msg)
-    const hash = createHash('md5').update(uniqueMsgId).digest()
+    const hash = createHash('md5').update(cacheKey).digest()
     const shortId = hash.readInt32BE() // OneBot 11 要求 message_id 为 int32
-    const cacheKey = `${msg.msgId}|${peer.chatType}|${peer.peerUid}`
-    this.cache.set(cacheKey, shortId)
+    this.ids.set(cacheKey, shortId)
+    if (this.ids.size > 1000) {
+      // 如果缓存超过1000条，清理最早的
+      const firstKey = this.ids.keys().next().value
+      this.ids.delete(firstKey!)
+    }
     this.ctx.database.upsert('message', [{
-      msgId: msg.msgId,
-      uniqueMsgId,
+      msgId: meta.msgId,
       shortId,
-      chatType: peer.chatType,
-      peerUid: peer.peerUid
-    }], ['shortId']).then().catch(e => this.ctx.logger.error('createMsgShortId database error:', e))
+      chatType: meta.chatType,
+      peerUid: meta.peerUid,
+      msgSeq: meta.msgSeq
+    }], ['shortId']).catch(e => this.ctx.logger.warn(e))
     return shortId
   }
 
   async getMsgInfoByShortId(shortId: number): Promise<MsgInfo | undefined> {
-    const data = this.cache.getKey(shortId)
-    if (data) {
-      const [msgId, chatTypeStr, peerUid] = data.split('|')
-      return {
-        msgId,
-        peer: {
-          chatType: +chatTypeStr,
-          peerUid,
-          guildId: ''
-        }
-      }
-    }
+    // 始终走 DB —— cache 的 key 用规范化字符串（C2C 用 uid-pair-random），不再可逆。
     const items = await this.ctx.database.get('message', { shortId })
-    if (items?.length) {
-      const { msgId, chatType, peerUid } = items[0]
+    if (items.length) {
+      const { msgId, chatType, peerUid, msgSeq } = items[0]
       return {
         msgId,
+        msgSeq,
         peer: {
           chatType,
-          peerUid,
-          guildId: ''
+          peerUid
         }
       }
     }
   }
 
-  async getShortIdByMsgId(msgId: string): Promise<number | undefined> {
-    return (await this.ctx.database.get('message', { msgId }))[0]?.shortId
+  getMsgBySeq(peerUid: string, msgSeq: number) {
+    return this.messages.values()
+      .find(e => e.peerUid === peerUid && e.msgSeq === msgSeq)
   }
 
-  async getShortIdByUniqueMsgId(uniqueMsgId: string): Promise<number | undefined> {
-    return (await this.ctx.database.get('message', { uniqueMsgId }))[0]?.shortId
+  /** 按 (peerUid, msgRandom) 反查 cache —— C2C 撤回 push 里 sequence/msgSeq 不可靠，random 是
+   *  server 在两端原样广播的 32-bit 值，是双端唯一对得上的 key。 */
+  getMsgByRandom(peerUid: string, msgRandom: number) {
+    return this.messages.values()
+      .find(e => e.peerUid === peerUid && e.msgRandom === msgRandom)
   }
 
-  async checkMsgExist(msg: RawMessage): Promise<boolean> {
-    const uniqueMsgId = this.getUniqueMsgId(msg)
-    const existingShortId = await this.getShortIdByUniqueMsgId(uniqueMsgId)
-    return !!existingShortId
-  }
-
-  getShortIdByMsgInfo(peer: Peer, msgId: string) {
-    const cacheKey = `${msgId}|${peer.chatType}|${peer.peerUid}`
-    return this.cache.getValue(cacheKey)
+  getMsgByMsgId(msgId: string) {
+    return this.messages.get(msgId)
   }
 
   async addFileCache(data: FileCache) {
     // 判断 fileUuid 是否存在
     const existingFile = await this.ctx.database.get('file', { fileUuid: data.fileUuid })
     if (existingFile.length) {
-      return existingFile
+      return
     }
-    this.ctx.database.upsert('file', [data], 'fileUuid').then()
-      .catch(e => this.ctx.logger.error('addFileCache database error:', e))
+    this.ctx.database.upsert('file', [data], 'fileUuid')
+      .catch(e => this.ctx.logger.warn(e))
   }
 
   getFileCacheByName(fileName: string) {
@@ -208,45 +233,74 @@ class Store extends Service {
     }
     const id = msg.msgId
     this.messages.set(id, msg)
+    // 本地时间可能跟消息时间存在差异，以本地时间为准
+    this.msgTimestamps.set(id, Date.now())
     if (this.messages.size > 10000) {
       // 如果缓存超过10000条，清理最早的
       const firstKey = this.messages.keys().next().value
       this.messages.delete(firstKey!)
+      this.msgTimestamps.delete(firstKey!)
     }
-    setTimeout(() => {
-      this.messages.delete(id)
-    }, expire * 1000)
+    if (!this.sweepTimer) {
+      const sweepMs = Math.max(5000, expire * 200)
+      this.sweepTimer = this.ctx.interval(() => this.sweepExpired(), sweepMs)
+    }
   }
 
-  getMsgCache(msgId: string) {
-    return this.messages.get(msgId)
+  private sweepExpired() {
+    const now = Date.now()
+    const expireMs = this.config.msgCacheExpire * 1000
+    for (const [id, ts] of this.msgTimestamps) {
+      if (now - ts >= expireMs) {
+        this.messages.delete(id)
+        this.msgTimestamps.delete(id)
+      } else {
+        break
+      }
+    }
+    if (this.messages.size === 0 && this.sweepTimer) {
+      this.sweepTimer()
+      this.sweepTimer = undefined
+    }
   }
 
-  addMultiMsgInfo(rootMsgId: string, parentMsgId: string, peer: Peer) {
-    this.ctx.database.upsert('forward', [{
-      rootMsgId,
-      parentMsgId,
-      chatType: peer.chatType,
-      peerUid: peer.peerUid
-    }]).then()
-      .catch(e => this.ctx.logger.error('addMultiMsgInfo database error:', e))
+  async getGroupMemberCardName(groupCode: number, uin: number): Promise<string | undefined> {
+    const items = await this.ctx.database.get('group_member', { groupCode, uin })
+    return items[0]?.cardName
   }
 
-  getMultiMsgInfo(parentMsgId: string) {
-    return this.ctx.database.get('forward', { parentMsgId })
-  }
-
-  async getGroupMemberCard(groupId: string, userId: string): Promise<string | undefined> {
-    const items = await this.ctx.database.get('group_member', { groupId, userId })
-    return items[0]?.card
-  }
-
-  setGroupMemberCard(groupId: string, userId: string, card: string) {
-    return this.ctx.database.upsert('group_member', [{
-      groupId,
-      userId,
-      card
+  async setGroupMemberCardName(groupCode: number, uin: number, cardName: string) {
+    return await this.ctx.database.upsert('group_member', [{
+      groupCode,
+      uin,
+      cardName
     }])
+  }
+
+  async addUix(uix: { uid: string, uin: number }[]) {
+    return await this.ctx.database.upsert('uix', uix)
+  }
+
+  async getUinByUid(uid: string): Promise<number | undefined> {
+    const items = await this.ctx.database.get('uix', { uid })
+    return items[0]?.uin
+  }
+
+  async getUidByUin(uin: number): Promise<string | undefined> {
+    const items = await this.ctx.database.get('uix', { uin })
+    return items[0]?.uid
+  }
+
+  async addTempChatInfo(info: { peerUid: string, groupCode: number }) {
+    return await this.ctx.database.upsert('temp_chat_info', [info])
+  }
+
+  async getTempChatInfo(peerUid: string): Promise<{
+    peerUid: string
+    groupCode: number
+  } | undefined> {
+    const items = await this.ctx.database.get('temp_chat_info', { peerUid })
+    return items[0]
   }
 }
 

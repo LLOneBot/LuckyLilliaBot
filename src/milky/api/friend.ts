@@ -7,18 +7,20 @@ import {
   AcceptFriendRequestInput,
   RejectFriendRequestInput,
   DeleteFriendInput,
-} from '@saltify/milky-types'
+} from '../generated/schema'
 import z from 'zod'
 import { selfInfo } from '@/common/globalVars'
-import { BuddyReqType } from '@/ntqqapi/types'
+import { FriendReqType } from '@/ntqqapi/types'
 
 const SendFriendNudge = defineApi(
   'send_friend_nudge',
   SendFriendNudgeInput,
   z.object({}),
   async (ctx, payload) => {
-    // Use PMHQ to send friend poke
-    await ctx.pmhq.sendFriendPoke(payload.user_id, payload.is_self ? +selfInfo.uin : payload.user_id)
+    const result = await ctx.ntFriendApi.sendFriendNudge(payload.user_id, payload.is_self)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
+    }
     return Ok({})
   }
 )
@@ -28,13 +30,13 @@ const SendProfileLike = defineApi(
   SendProfileLikeInput,
   z.object({}),
   async (ctx, payload) => {
-    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id)
     if (!uid) {
       return Failed(-404, 'User not found')
     }
-    const result = await ctx.ntUserApi.like(uid, payload.count)
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    const result = await ctx.ntUserApi.sendProfileLike(uid, payload.count)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -45,11 +47,14 @@ const DeleteFriend = defineApi(
   DeleteFriendInput,
   z.object({}),
   async (ctx, payload) => {
-    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id)
     if (!uid) {
       return Failed(-404, 'User not found')
     }
-    await ctx.ntFriendApi.deleteFriend(uid)
+    const result = await ctx.ntFriendApi.deleteFriend(uid)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
+    }
     return Ok({})
   }
 )
@@ -87,14 +92,14 @@ const GetFriendRequests = defineApi(
             target_user_id: e.isInitiator ? friendId : selfId,
             target_user_uid: e.isInitiator ? e.friendUid : selfInfo.uid,
             state: ({
-              [BuddyReqType.PeerInitiator]: 'pending',
-              [BuddyReqType.MeInitiatorWaitPeerConfirm]: 'pending',
-              [BuddyReqType.MeAgreed]: 'accepted',
-              [BuddyReqType.MeAgreedAndAdded]: 'accepted',
-              [BuddyReqType.PeerAgreed]: 'accepted',
-              [BuddyReqType.PeerAgreedAndAdded]: 'accepted',
-              [BuddyReqType.PeerRefused]: 'rejected',
-              [BuddyReqType.MeRefused]: 'rejected'
+              [FriendReqType.PeerInitiator]: 'pending',
+              [FriendReqType.MeInitiatorWaitPeerConfirm]: 'pending',
+              [FriendReqType.MeAgreed]: 'accepted',
+              [FriendReqType.MeAgreedAndAdded]: 'accepted',
+              [FriendReqType.PeerAgreed]: 'accepted',
+              [FriendReqType.PeerAgreedAndAdded]: 'accepted',
+              [FriendReqType.PeerRefused]: 'rejected',
+              [FriendReqType.MeRefused]: 'rejected'
             } as const)[e.state] ?? 'pending',
             comment: e.comment,
             via: e.source,
@@ -111,10 +116,14 @@ const AcceptFriendRequest = defineApi(
   AcceptFriendRequestInput,
   z.object({}),
   async (ctx, payload) => {
+    let result
     if (payload.is_filtered) {
-      await ctx.ntFriendApi.approvalDoubtFriendRequest(payload.initiator_uid)
+      result = await ctx.ntFriendApi.approvalDoubtFriendRequest(payload.initiator_uid)
     } else {
-      await ctx.ntFriendApi.approvalFriendRequest(payload.initiator_uid, true)
+      result = await ctx.ntFriendApi.approvalFriendRequest(payload.initiator_uid, true)
+    }
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -126,7 +135,10 @@ const RejectFriendRequest = defineApi(
   z.object({}),
   async (ctx, payload) => {
     if (!payload.is_filtered) {
-      await ctx.ntFriendApi.approvalFriendRequest(payload.initiator_uid, false)
+      const result = await ctx.ntFriendApi.approvalFriendRequest(payload.initiator_uid, false)
+      if (result.errorCode !== 0) {
+        return Failed(-500, result.errorMsg)
+      }
     }
     return Ok({})
   }

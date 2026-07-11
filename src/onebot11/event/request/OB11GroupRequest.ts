@@ -12,14 +12,14 @@ export class OB11GroupRequestAddEvent extends OB11BaseNoticeEvent {
   // 当有 invitor_id 时表示有邀请人
   invitor_id: number // https://github.com/Mrs4s/go-cqhttp/blob/master/coolq/event.go#L566
 
-  constructor(groupId: number, userId: number, flag: string, comment: string, invitor_id: number = 0) {
+  constructor(groupId: number, userId: number, flag: string, comment: string, invitorId: number = 0) {
     super()
     this.group_id = groupId
     this.user_id = userId
     this.comment = comment
     this.flag = flag
     this.sub_type = 'add'
-    this.invitor_id = invitor_id
+    this.invitor_id = invitorId
   }
 }
 

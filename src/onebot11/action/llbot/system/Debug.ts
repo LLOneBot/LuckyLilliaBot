@@ -16,8 +16,10 @@ export default class Debug extends BaseAction<Payload, unknown> {
   })
 
   protected async _handle(payload: Payload) {
-    this.ctx.logger.info('debug call ntqq api', payload)
+    this.ctx.logger.info('debug request', payload)
     const api = this.ctx.get(payload.apiClass)
-    return await api[payload.method](...payload.args)
+    const res = await api[payload.method](...payload.args)
+    this.ctx.logger.info('debug response', res)
+    return res
   }
 }

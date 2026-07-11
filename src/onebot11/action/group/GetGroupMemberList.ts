@@ -16,37 +16,10 @@ class GetGroupMemberList extends BaseAction<Payload, OB11GroupMember[]> {
     no_cache: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(false)
   })
 
-  private async getMembers(groupCode: string, forceFetch: boolean) {
-    const res = await this.ctx.ntGroupApi.getGroupMembers(groupCode, forceFetch)
-    if (res.errCode !== 0) {
-      throw new Error(res.errMsg)
-    }
-    return res.result
-  }
-
   protected async _handle(payload: Payload) {
-    const groupCode = payload.group_id.toString()
-    let result
-    if (payload.no_cache) {
-      result = await this.getMembers(groupCode, true)
-    } else {
-      let cached = false
-      try {
-        result = await this.getMembers(groupCode, false)
-        cached = true
-      } catch {
-        result = await this.getMembers(groupCode, true)
-      }
-      if (cached) {
-        const { memberNum } = await this.ctx.ntGroupApi.getGroupAllInfo(groupCode)
-        // 使用缓存可能导致群成员列表不完整
-        if (memberNum !== result.infos.size) {
-          result = await this.getMembers(groupCode, true)
-        }
-      }
-    }
-    const groupId = Number(payload.group_id)
-    return result.infos.values().map(e => OB11Entities.groupMember(groupId, e)).toArray()
+    const groupId = +payload.group_id
+    const result = await this.ctx.ntGroupApi.getGroupMembers(groupId, payload.no_cache)
+    return result.map(e => OB11Entities.groupMember(groupId, e))
   }
 }
 

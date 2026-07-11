@@ -1,13 +1,8 @@
-import { Context, Inject, Service } from 'cordis'
+import { Context, Service } from 'cordis'
 import { OB11Entities } from './entities'
 import {
   ChatType,
-  FriendRequest,
-  GroupNotify,
-  GroupNotifyStatus,
-  GroupNotifyType,
-  JsonGrayTipBusId,
-  Peer,
+  GroupNotificationType,
   RawMessage,
 } from '../ntqqapi/types'
 import {
@@ -15,7 +10,7 @@ import {
   OB11GroupRequestInviteBotEvent,
 } from './event/request/OB11GroupRequest'
 import { OB11FriendRequestEvent } from './event/request/OB11FriendRequest'
-import { OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
+import { GroupDecreaseSubType, OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
 import { selfInfo } from '../common/globalVars'
 import { Config as LLOBConfig, OB11Config } from '../common/types'
 import { OB11WebSocket, OB11WebSocketReverse } from './connect/ws'
@@ -24,27 +19,24 @@ import { OB11BaseEvent } from './event/OB11BaseEvent'
 import { initActionMap } from './action'
 import { OB11GroupAdminNoticeEvent } from './event/notice/OB11GroupAdminNoticeEvent'
 import { OB11ProfileLikeEvent } from './event/notice/OB11ProfileLikeEvent'
-import { Msg, Notify } from '@/ntqqapi/proto'
-import { OB11GroupIncreaseEvent } from './event/notice/OB11GroupIncreaseEvent'
-import { FlashFileDownloadStatus, FlashFileUploadStatus } from '@/ntqqapi/types/flashfile'
 import {
-  OB11FlashFile,
-  OB11FlashFileDownloadedEvent,
-  OB11FlashFileDownloadingEvent,
-  OB11FlashFileUploadedEvent,
-  OB11FlashFileUploadingEvent,
-} from '@/onebot11/event/notice/OB11FlashFileEvent'
-import {
-  OB11FriendPokeRecallEvent,
-  OB11GroupPokeRecallEvent,
+  OB11FriendPokeEvent,
+  OB11GroupPokeEvent,
 } from '@/onebot11/event/notice/OB11PokeEvent'
 import { OB11GroupDismissEvent } from '@/onebot11/event/notice/OB11GroupDismissEvent'
 import { BaseAction } from './action/BaseAction'
 import { cloneObj } from '@/common/utils'
 import { OB11GroupMsgEmojiLikeEvent } from './event/notice/OB11MsgEmojiLikeEvent'
 import { GroupEssenceEvent } from './event/notice/OB11GroupEssenceEvent'
+import { GroupBanEvent } from './event/notice/OB11GroupBanEvent'
+import { OB11GroupTitleEvent } from './event/notice/OB11GroupTitleEvent'
+import { OB11FriendAddNoticeEvent } from './event/notice/OB11FriendAddNoticeEvent'
 import { OB11GroupCardEvent } from './event/notice/OB11GroupCardEvent'
 import { noop } from 'cosmokit'
+import { encodeGroupRequestFlag } from './utils'
+import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNoticeEvent'
+import { OB11FriendRecallNoticeEvent } from './event/notice/OB11FriendRecallNoticeEvent'
+import { OB11GroupIncreaseEvent } from './event/notice/OB11GroupIncreaseEvent'
 
 declare module 'cordis' {
   interface Context {
@@ -56,8 +48,8 @@ class Onebot11Adapter extends Service {
   static inject = [
     'ntMsgApi', 'ntFileApi', 'ntFriendApi',
     'ntGroupApi', 'ntUserApi', 'ntWebApi',
-    'ntSystemApi', 'store', 'app', 'logger',
-    'pmhq', 'timer', 'config'
+    'ntSystemApi', 'store', 'app',
+    'qqProtocol', 'timer', 'config'
   ]
   private connect: (OB11Http | OB11HttpPost | OB11WebSocket | OB11WebSocketReverse)[]
   private actionMap: Map<string, BaseAction<unknown, unknown>>
@@ -111,54 +103,13 @@ class Onebot11Adapter extends Service {
   }
 
   public dispatchMessageLike(event: OB11BaseEvent, self: boolean, offline: boolean) {
+    if (this.connect.length === 1) {
+      this.connect[0].emitMessageLikeEvent(event, self, offline)
+      return
+    }
     for (const item of this.connect) {
       // 这里不 copy 出来的话，更改了 msg.message 会影响下一个 connect
       item.emitMessageLikeEvent(cloneObj(event), self, offline)
-    }
-  }
-
-  private async handleGroupNotify(notify: GroupNotify, doubt: boolean) {
-    try {
-      const flag = `${notify.group.groupCode}|${notify.seq}|${notify.type}|${doubt ? '1' : '0'}`
-      if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
-        this.ctx.logger.info('有加群请求')
-        const requestUin = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
-        const event = new OB11GroupRequestAddEvent(
-          +notify.group.groupCode,
-          +requestUin,
-          flag,
-          notify.postscript,
-        )
-        this.dispatch(event)
-      }
-      else if (notify.type === GroupNotifyType.InvitedByMember && notify.status === GroupNotifyStatus.Unhandle) {
-        this.ctx.logger.info('收到邀请我加群通知, 邀请人uid:', notify.user2.uid)
-        const userId = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
-        this.ctx.logger.info('收到邀请我加群通知, 邀请人uin:', userId)
-        const event = new OB11GroupRequestInviteBotEvent(
-          +notify.group.groupCode,
-          +userId,
-          flag,
-          notify.postscript,
-          +notify.invitationExt.groupCode,
-        )
-        this.dispatch(event)
-      }
-      else if (notify.type === GroupNotifyType.InvitedNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
-        this.ctx.logger.info('收到群员邀请加群通知')
-        const userId = await this.ctx.ntUserApi.getUinByUid(notify.user1.uid)
-        const invitorId = await this.ctx.ntUserApi.getUinByUid(notify.user2.uid)
-        const event = new OB11GroupRequestAddEvent(
-          +notify.group.groupCode,
-          +userId,
-          flag,
-          notify.postscript,
-          +invitorId,
-        )
-        this.dispatch(event)
-      }
-    } catch (e) {
-      this.ctx.logger.error('解析群通知失败', (e as Error).stack)
     }
   }
 
@@ -192,83 +143,6 @@ class Onebot11Adapter extends Service {
         }
       }
     }).catch(e => this.ctx.logger.error('handling incoming group events', e))
-
-    OB11Entities.privateEvent(this.ctx, message).then(privateEvent => {
-      if (privateEvent) {
-        this.dispatchMessageLike(privateEvent, self, offline)
-      }
-    }).catch(e => this.ctx.logger.error('handling incoming buddy events', e))
-
-    try {
-      if (message.chatType === ChatType.Group) {
-        const oldCard = await this.ctx.store.getGroupMemberCard(message.peerUid, message.senderUin)
-        if (oldCard === undefined) {
-          await this.ctx.store.setGroupMemberCard(message.peerUid, message.senderUin, message.sendMemberName)
-        } else {
-          const { peerName, peerUid, sendMemberName, sendNickName, senderUin } = message
-          if (oldCard !== sendMemberName) {
-            await this.ctx.store.setGroupMemberCard(peerUid, senderUin, sendMemberName)
-            this.ctx.logger.info(`群 ${peerName}(${peerUid}) 的 ${sendMemberName || sendNickName}(${senderUin}) 更新了名片 ${oldCard} -> ${sendMemberName}`)
-            const groupCardEvent = new OB11GroupCardEvent(
-              +peerUid,
-              +senderUin,
-              sendMemberName,
-              oldCard
-            )
-            this.dispatch(groupCardEvent)
-          }
-        }
-      }
-    } catch (e) {
-      this.ctx.logger.error('handling group member name card change events', e)
-    }
-  }
-
-  private handleRecallMsg(message: RawMessage) {
-    const peer: Peer = {
-      peerUid: message.peerUid,
-      chatType: message.chatType,
-      guildId: ''
-    }
-    // 解析撤回戳一戳
-    const grayTipElement = message.elements.find(el => el.grayTipElement)?.grayTipElement
-    if (grayTipElement && grayTipElement.jsonGrayTipElement?.busiId == JsonGrayTipBusId.Poke) {
-      const json = JSON.parse(grayTipElement.jsonGrayTipElement.jsonStr)
-      const templateParams = grayTipElement.jsonGrayTipElement?.xmlToJsonParam?.templParam
-      const fromUserUin = templateParams?.get('uin_str1') || '0'
-      const toUserUin = templateParams?.get('uin_str2') || '0'
-      let recallEvent: OB11FriendPokeRecallEvent | OB11GroupPokeRecallEvent;
-      if (peer.chatType === ChatType.Group) {
-        recallEvent = new OB11GroupPokeRecallEvent(+message.peerUid, +fromUserUin, +toUserUin, json)
-      }
-      else {
-        recallEvent = new OB11FriendPokeRecallEvent(+fromUserUin, +toUserUin, json)
-      }
-      return this.dispatch(recallEvent)
-    }
-    // OB11Entities.privateEvent(this.ctx, message).then(privateEvent => {
-    //   if (privateEvent?.sub_type === 'poke') {
-    //     (privateEvent as OB11FriendPokeEvent).sub_type = 'poke_recall'
-    //     this.dispatch(privateEvent)
-    //   }
-    // })
-    const shortId = this.ctx.store.createMsgShortId(message)
-
-    OB11Entities.recallEvent(this.ctx, message, shortId).then((recallEvent) => {
-      this.dispatch(recallEvent)
-    }).catch(e => this.ctx.logger.error('handling recall events', e))
-  }
-
-  private async handleFriendRequest(req: FriendRequest) {
-    const uin = await this.ctx.ntUserApi.getUinByUid(req.friendUid)
-    const flag = req.friendUid
-    const friendRequestEvent = new OB11FriendRequestEvent(
-      +uin,
-      req.extWords,
-      flag,
-      req.addSource ?? ''
-    )
-    this.dispatch(friendRequestEvent)
   }
 
   private async handleConfigUpdated(config: LLOBConfig) {
@@ -334,291 +208,270 @@ class Onebot11Adapter extends Service {
     this.ctx.on('llob/config-updated', input => {
       this.handleConfigUpdated(input).catch(noop)
     })
-    this.ctx.on('nt/message-created', (input: RawMessage) => {
-      // 其他终端自己发送的消息会进入这里
-      if (input.senderUid === selfInfo.uid) {
-        this.handleMsg(input, true, false)
-      }
-      else {
-        this.handleMsg(input, false, false)
-      }
+
+    this.ctx.on('nt/message-created', (data) => {
+      // 自己发送的消息不会进这里，而是走 nt/message-sent
+      this.handleMsg(data.message, false, false)
     })
-    this.ctx.on('nt/offline-message-created', (input: RawMessage) => {
-      // 其他终端自己发送的消息会进入这里
-      if (input.senderUid === selfInfo.uid) {
-        this.handleMsg(input, true, true)
-      }
-      else {
-        this.handleMsg(input, false, true)
-      }
-    })
-    this.ctx.on('nt/message-deleted', input => {
-      this.handleRecallMsg(input)
-    })
-    this.ctx.on('nt/message-sent', input => {
-      this.handleMsg(input, true, false)
-    })
-    this.ctx.on('nt/group-notify', input => {
-      const { doubt, notify } = input
-      this.handleGroupNotify(notify, doubt)
-    })
-    this.ctx.on('nt/friend-request', input => {
-      this.handleFriendRequest(input)
-    })
-    this.ctx.on('nt/system-message-created', async input => {
-      const sysMsg = Msg.Message.decode(input)
-      if (!sysMsg.body) {
-        return
-      }
-      const { msgType, subType } = sysMsg.contentHead
-      if (msgType === 528 && subType === 39) {
-        const tip = Notify.ProfileLike.decode(sysMsg.body.msgContent)
-        if (tip.msgType !== 0 || tip.subType !== 203) return
-        const detail = tip.content?.msg?.detail
-        if (!detail) return
-        const [times] = detail.txt?.match(/\d+/) ?? ['0']
-        const event = new OB11ProfileLikeEvent(detail.uin, detail.nickname, +times)
-        this.dispatch(event)
-      }
-      else if (msgType === 33) {
-        const tip = Notify.GroupMemberChange.decode(sysMsg.body.msgContent)
-        if (tip.type !== 130) return
-        this.ctx.logger.info('群成员增加', tip)
-        const memberUin = await this.ctx.ntUserApi.getUinByUid(tip.memberUid)
-        const operatorUin = await this.ctx.ntUserApi.getUinByUid(tip.adminUid)
-        const event = new OB11GroupIncreaseEvent(tip.groupCode, +memberUin, +operatorUin)
-        this.dispatch(event)
-      }
-      else if (msgType === 34) {
-        const tip = Notify.GroupMemberChange.decode(sysMsg.body.msgContent)
-        if (tip.type === 130) {
-          this.ctx.logger.info('群成员减少', tip)
-          const memberUin = await this.ctx.ntUserApi.getUinByUid(tip.memberUid)
-          const userId = Number(memberUin)
-          const event = new OB11GroupDecreaseEvent(tip.groupCode, userId, userId)
-          this.dispatch(event)
-        } else if (tip.type === 131) {
-          if (tip.memberUid === selfInfo.uid) return
-          this.ctx.logger.info('有群成员被踢', tip)
-          const memberUin = await this.ctx.ntUserApi.getUinByUid(tip.memberUid)
-          let adminUin = '0'
-          let adminUid = tip.adminUid
-          if (adminUid) {
-            const adminUidMatch = tip.adminUid.match(/\x18([^\x18\x10]+)\x10/)
-            if (adminUidMatch) {
-              adminUid = adminUidMatch[1]
-            }
-            adminUin = await this.ctx.ntUserApi.getUinByUid(adminUid)
-          }
-          const event = new OB11GroupDecreaseEvent(tip.groupCode, +memberUin, +adminUin, 'kick')
-          this.dispatch(event)
+
+    this.ctx.on('nt/message-deleted', async (data) => {
+      // 群撤回 push 里 GroupRecall.random 字段在新 server / refactor 后偶尔 0，shortId hash 含
+      // msgRandom，会跟发送端先前算出的 shortId 不一致。先按 (peerUid, msgSeq) 找原 msg 取真
+      // random，再算 shortId 才能跟发送时一致。
+      let resolved = data
+      if (data.chatType === ChatType.Group && data.msgRandom === 0) {
+        const cached = this.ctx.store.getMsgBySeq(data.peerUid, data.msgSeq)
+        if (cached) {
+          resolved = { ...data, msgRandom: cached.msgRandom, msgId: cached.msgId }
+        } else {
+          return
         }
       }
-      else if (msgType === 528 && subType === 321) {
-        // 私聊撤回戳一戳，不再从这里解析，应从 nt/message-deleted 事件中解析
-      }
-      else if (msgType === 732 && subType === 21) {
-        // 撤回群戳一戳，不再从这里解析，应从 nt/message-deleted 事件中解析
-      } else if (msgType === 44) {
-        const tip = Notify.GroupAdminChange.decode(sysMsg.body.msgContent)
-        this.ctx.logger.info('收到管理员变动通知', tip)
-        const uid = tip.isPromote ? tip.body.extraEnable?.adminUid : tip.body.extraDisable?.adminUid
-        if (!uid) return null
-        const uin = await this.ctx.ntUserApi.getUinByUid(uid)
-        const event = new OB11GroupAdminNoticeEvent(
-          tip.isPromote ? 'set' : 'unset',
-          tip.groupCode,
-          +uin,
+      const shortId = this.ctx.store.createMsgShortId(resolved)
+      let event
+      if (resolved.chatType === ChatType.Group) {
+        event = new OB11GroupRecallNoticeEvent(
+          resolved.peerUin,
+          resolved.senderUin,
+          resolved.operatorUin,
+          shortId
         )
-        this.dispatch(event)
+      } else {
+        event = new OB11FriendRecallNoticeEvent(resolved.senderUin, shortId)
       }
+      this.dispatch(event)
     })
 
-    this.ctx.on('nt/flash-file-download-status', input => {
-      if (input.status === FlashFileDownloadStatus.DOWNLOADED) {
-        const files: OB11FlashFile[] = []
-        this.ctx.ntFileApi.getFlashFileList(input.info.fileSetId).then((res) => {
-          for (const file of res) {
-            for (const file2 of file.fileList) {
-              files.push({
-                name: file2.name,
-                size: +file2.filePhysicalSize,
-                path: file2.saveFilePath,
-              })
-            }
-          }
-          const event = new OB11FlashFileDownloadedEvent(
-            input.info.name,
-            input.info.shareInfo.shareLink,
-            input.info.fileSetId,
-          )
-          this.dispatch(event)
-        }).catch((err) => {
-          this.ctx.logger.error(err, { fileSetId: input.info.fileSetId })
-        })
-
-      }
+    this.ctx.on('nt/message-sent', (data) => {
+      this.handleMsg(data.message, true, false)
     })
 
-    this.ctx.on('nt/flash-file-upload-status', fileSetInfo => {
-      if (fileSetInfo.uploadStatus === FlashFileUploadStatus.UPLOADED) {
-        const event = new OB11FlashFileUploadedEvent(
-          fileSetInfo.name,
-          fileSetInfo.shareInfo.shareLink,
-          fileSetInfo.fileSetId,
-        )
-        this.dispatch(event)
-      }
+    this.ctx.on('nt/group-join-request', (data) => {
+      const event = new OB11GroupRequestAddEvent(
+        data.groupCode,
+        data.initiatorUin,
+        encodeGroupRequestFlag(data.groupCode, data.notificationSeq, GroupNotificationType.JoinRequest, data.isDoubt),
+        data.comment,
+      )
+      this.dispatch(event)
     })
 
-    this.ctx.on('nt/flash-file-downloading', input => {
-      const [fileSetId, downloadingInfo] = input
-      this.ctx.ntFileApi.getFlashFileInfo(fileSetId, false).then((res) => {
-        this.ctx.ntFileApi.getFlashFileList(fileSetId, false).then((fileList) => {
-          const files: OB11FlashFile[] = []
-          for (const file of fileList) {
-            for (const file2 of file.fileList) {
-              files.push({
-                name: file2.name,
-                size: +file2.filePhysicalSize,
-                path: file2.saveFilePath,
-              })
-            }
-          }
-          const event = new OB11FlashFileDownloadingEvent(
-            res.name,
-            res.shareInfo.shareLink,
-            fileSetId,
-            +downloadingInfo.curDownLoadedBytes,
-            +downloadingInfo.totalDownLoadedBytes,
-            downloadingInfo.curSpeedBps,
-            downloadingInfo.remainDownLoadSeconds,
-            files,
-          )
-          this.dispatch(event)
-        }).catch((err) => {
-          this.ctx.logger.error(err)
-        })
-
-      }).catch((err) => {
-        this.ctx.logger.error(err)
-      })
+    this.ctx.on('nt/group-invited-join-request', (data) => {
+      const event = new OB11GroupRequestAddEvent(
+        data.groupCode,
+        data.targetUserUin,
+        encodeGroupRequestFlag(data.groupCode, data.notificationSeq, GroupNotificationType.InvitedJoinRequest, false),
+        '',
+        data.initiatorUin,
+      )
+      this.dispatch(event)
     })
 
-    this.ctx.on('nt/flash-file-uploading', info => {
-      this.ctx.ntFileApi.getFlashFileList(info.fileSet.fileSetId, false).then(fileList => {
-        const files: OB11FlashFile[] = []
-        for (const file of fileList) {
-          for (const file2 of file.fileList) {
-            files.push({
-              name: file2.name,
-              size: +file2.filePhysicalSize,
-              path: file2.physical.localPath,
-            })
-          }
-        }
-
-        const event = new OB11FlashFileUploadingEvent(
-          info.fileSet.name,
-          info.fileSet.shareInfo.shareLink,
-          info.fileSet.fileSetId,
-          +info.uploadedFileSize,
-          +info.fileSet.totalFileSize,
-          +info.uploadSpeed,
-          +info.timeRemain,
-          files,
-        )
-        this.dispatch(event)
-      })
-
+    this.ctx.on('nt/group-invitation', (data) => {
+      const event = new OB11GroupRequestInviteBotEvent(
+        data.groupCode,
+        data.initiatorUin,
+        encodeGroupRequestFlag(data.groupCode, data.invitationSeq, GroupNotificationType.Invitation, false),
+        ''
+      )
+      this.dispatch(event)
     })
 
-    this.ctx.on('nt/group-dismiss', async (group) => {
-      const groupInfo = await this.ctx.ntGroupApi.getGroupAllInfo(group.groupCode)
-      const ownerUin = await this.ctx.ntUserApi.getUinByUid(groupInfo.ownerUid)
+    this.ctx.on('nt/group-disband', (data) => {
       const event = new OB11GroupDismissEvent(
-        +group.groupCode,
-        +ownerUin
+        data.groupCode,
+        data.operatorUin
       )
       this.dispatch(event)
     })
 
-    this.ctx.on('nt/group-quit', async (group) => {
-      const event = new OB11GroupDecreaseEvent(
-        Number(group.groupCode),
-        Number(selfInfo.uin),
-        Number(selfInfo.uin),
-      )
-      this.dispatch(event)
-    })
-
-    this.ctx.pmhq.addResListener(async data => {
-      try {
-        if (data.type === 'recv' && data.data.cmd === 'trpc.msg.olpush.OlPushService.MsgPush') {
-          const pushMsg = Msg.PushMsg.decode(Buffer.from(data.data.pb, 'hex'))
-          if (!pushMsg.message.body) {
-            return null
-          }
-          const { msgType, subType } = pushMsg.message.contentHead
-          if (msgType === 732 && subType === 16) {
-            const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
-            if (notify.field13 === 35) {
-              this.ctx.logger.info('群表情回应', notify.groupCode, notify.reaction.data.body)
-              const info = notify.reaction.data.body.info
-              const target = notify.reaction.data.body.target
-              const userId = Number(await this.ctx.ntUserApi.getUinByUid(info.operatorUid))
-              const peer: Peer = {
-                chatType: 2,
-                peerUid: String(notify.groupCode),
-                guildId: ''
-              }
-              const seqStr = String(target.sequence)
-              const targetMsg = await this.ctx.ntMsgApi.getSingleMsg(peer, seqStr)
-              const msg0 = targetMsg.msgList[0]
-              if (!msg0) {
-                this.ctx.logger.error('解析群表情回应失败：未找到消息')
-                return
-              }
-              const messageId = this.ctx.store.createMsgShortId(msg0)
-              const event = new OB11GroupMsgEmojiLikeEvent(
-                notify.groupCode,
-                userId,
-                messageId,
-                [{
-                  emoji_id: info.code,
-                  count: info.count,
-                }],
-                info.actionType === 1
-              )
-              this.dispatch(event)
-            }
-          } else if (msgType === 732 && subType === 21) {
-            const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
-            if (notify.type === 27) {
-              this.ctx.logger.info('收到群精华消息通知', notify)
-              const peer = {
-                chatType: ChatType.Group,
-                peerUid: notify.groupCode.toString(),
-                guildId: ''
-              }
-              const msg = await this.ctx.ntMsgApi.queryFirstMsgBySeq(peer, notify.essenceMessage.msgSequence.toString())
-              if (msg.msgList.length === 0) {
-                return
-              }
-              const event = new GroupEssenceEvent(
-                notify.groupCode,
-                this.ctx.store.createMsgShortId(msg.msgList[0]),
-                notify.essenceMessage.memberUin,
-                notify.essenceMessage.operatorUin,
-                notify.essenceMessage.setFlag === 1 ? 'add' : 'delete'
-              )
-              this.dispatch(event)
-            }
-          }
-        }
-      } catch (e) {
-        this.ctx.logger.error('handling incoming olpush events', e)
+    this.ctx.on('nt/group-nudge', (data) => {
+      const userId = data.senderUin
+      const targetId = data.receiverUin
+      if (!userId || !targetId) return
+      const rawInfo: Record<string, unknown>[] = [
+        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: userId.toString() },
+        { col: '1', jp: '', txt: data.displayAction, type: 'nor' },
+        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: targetId.toString() },
+      ]
+      if (data.displaySuffix) {
+        rawInfo.push({ col: '1', jp: '', txt: data.displaySuffix, type: 'nor' })
       }
+      if (data.displayActionImgUrl) {
+        rawInfo.push({ src: data.displayActionImgUrl, type: 'img' })
+      }
+      const event = new OB11GroupPokeEvent(
+        data.groupCode,
+        userId,
+        targetId,
+        rawInfo
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-admin-changed', (data) => {
+      const event = new OB11GroupAdminNoticeEvent(
+        data.isSet ? 'set' : 'unset',
+        data.groupCode,
+        data.targetUin
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-message-reaction', async (data) => {
+      const peer = {
+        chatType: ChatType.Group,
+        peerUid: data.groupCode.toString()
+      }
+      const cached = this.ctx.store.getMsgBySeq(peer.peerUid, data.msgSeq)
+      let messageId
+      if (cached) {
+        messageId = this.ctx.store.createMsgShortId(cached)
+      } else {
+        const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(peer, data.msgSeq)
+        messageId = this.ctx.store.createMsgShortId(msgList[0])
+      }
+      const event = new OB11GroupMsgEmojiLikeEvent(
+        data.groupCode,
+        data.operatorUin,
+        messageId,
+        [{
+          emoji_id: data.faceId,
+          count: data.count
+        }],
+        data.isAdd
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-essence-message-changed', (data) => {
+      const messageId = this.ctx.store.createMsgShortId({
+        msgId: data.msgId,
+        msgSeq: data.msgSeq,
+        msgRandom: data.msgRandom,
+        peerUid: data.groupCode.toString(),
+        senderUid: data.senderUid,
+        chatType: ChatType.Group
+      })
+      const event = new GroupEssenceEvent(
+        data.groupCode,
+        messageId,
+        data.senderUin,
+        data.operatorUin,
+        data.isSet ? 'add' : 'delete',
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-whole-mute', (data) => {
+      const event = new GroupBanEvent(
+        data.groupCode,
+        0,
+        data.operatorUin,
+        data.isMute ? -1 : 0,
+        data.isMute ? 'ban' : 'lift_ban'
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-mute', (data) => {
+      const event = new GroupBanEvent(
+        data.groupCode,
+        data.memberUin,
+        data.operatorUin,
+        data.duration,
+        data.duration !== 0 ? 'ban' : 'lift_ban'
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-member-added', (data) => {
+      const event = new OB11GroupIncreaseEvent(
+        data.groupCode,
+        data.memberUin,
+        data.operatorUin ?? data.invitorUin!,
+        data.operatorUid ? 'approve' : 'invite'
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-member-removed', (data) => {
+      let subType: GroupDecreaseSubType = 'leave'
+      if (data.operatorUin) {
+        if (data.memberUin === +selfInfo.uin) {
+          subType = 'kick_me'
+        } else {
+          subType = 'kick'
+        }
+      }
+      const event = new OB11GroupDecreaseEvent(
+        data.groupCode,
+        data.memberUin,
+        data.operatorUin ?? data.memberUin,
+        subType
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-member-card-name-changed', (data) => {
+      const event = new OB11GroupCardEvent(
+        data.groupCode,
+        data.uin,
+        data.newCardName,
+        data.oldCardName
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/group-member-special-title-changed', (data) => {
+      const event = new OB11GroupTitleEvent(
+        data.groupCode,
+        data.uin,
+        data.newSpecialTitle
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/friend-request', (data) => {
+      const event = new OB11FriendRequestEvent(
+        data.initiatorUin,
+        data.comment,
+        data.initiatorUid,
+        data.via
+      )
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/friend-added', (data) => {
+      const event = new OB11FriendAddNoticeEvent(data.uin)
+      this.dispatch(event)
+    })
+
+    this.ctx.on('nt/friend-nudge', (data) => {
+      const userId = data.uin
+      const targetId = data.isSelfReceive ? +selfInfo.uin : data.uin
+      if (!userId || !targetId) return
+      const rawInfo: Record<string, unknown>[] = [
+        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: userId.toString() },
+        { col: '1', jp: '', txt: data.displayAction, type: 'nor' },
+        { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: targetId.toString() },
+      ]
+      if (data.displaySuffix) {
+        rawInfo.push({ col: '1', jp: '', txt: data.displaySuffix, type: 'nor' })
+      }
+      if (data.displayActionImgUrl) {
+        rawInfo.push({ src: data.displayActionImgUrl, type: 'img' })
+      }
+      this.dispatch(new OB11FriendPokeEvent(userId, targetId, rawInfo))
+    })
+
+    this.ctx.on('nt/profile-like', (data) => {
+      const event = new OB11ProfileLikeEvent(
+        data.uin,
+        data.nick,
+        data.times
+      )
+      this.dispatch(event)
     })
   }
 }

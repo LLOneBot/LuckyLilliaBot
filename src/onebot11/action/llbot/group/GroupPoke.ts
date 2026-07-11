@@ -14,7 +14,10 @@ export class GroupPoke extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    await this.ctx.pmhq.sendGroupPoke(+payload.group_id, +payload.user_id)
+    const result = await this.ctx.ntGroupApi.sendGroupNudge(+payload.group_id, +payload.user_id)
+    if (result.errorCode !== 0) {
+      throw new Error(result.errorMsg)
+    }
     return null
   }
 }

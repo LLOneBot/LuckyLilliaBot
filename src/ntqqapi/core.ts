@@ -1,31 +1,44 @@
 import { unlink } from 'node:fs/promises'
 import { Service, Context } from 'cordis'
-import { ReceiveCmdS } from './hook'
 import { Config as LLOBConfig } from '../common/types'
 import {
-  RawMessage,
-  GroupNotify,
-  FriendRequestNotify,
-  FriendRequest,
-  BuddyReqType,
-  GrayTipElementSubType,
-  ChatType,
   Peer,
   SendMessageElement,
-  KickedOffLineInfo,
-  MsgType,
+  GroupJoinRequestEvent,
+  GroupInvitedJoinRequestEvent,
+  GroupInvitationEvent,
+  MessageDeletedEvent,
+  GroupRemovedEvent,
+  GroupAddedEvent,
+  GroupMemberAddedEvent,
+  GroupDisbandEvent,
+  GroupMemberRemovedEvent,
+  GroupMemberCardNameChangedEvent,
+  FriendRequestEvent,
+  FriendRemovedEvent,
+  FriendAddedEvent,
+  FriendNudgeEvent,
+  GroupNudgeEvent,
+  GroupMemberSpecialTitleChangedEvent,
+  GroupNameChangedEvent,
+  GroupWholeMuteEvent,
+  GroupMuteEvent,
+  GroupAdminChangedEvent,
+  PinChangedEvent,
+  GroupMessageReactionEvent,
+  GroupEssenceMessageChangedEvent,
+  ProfileLikeEvent,
+  PttTransResultEvent,
+  KickedOfflineEvent,
+  MessageCreatedEvent,
+  ChatType,
+  MessageSentEvent,
+  StatusChangedEvent,
+  GroupMemberRole,
 } from './types'
-import { selfInfo } from '../common/globalVars'
-import {
-  FlashFileDownloadingInfo,
-  FlashFileDownloadStatus,
-  FlashFileSetInfo,
-  FlashFileUploadingInfo,
-} from '@/ntqqapi/types/flashfile'
 import { logSummaryMessage } from '@/ntqqapi/log'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
-import { OnQRCodeLoginSucceedParameter } from '@/ntqqapi/listeners/NodeIKernelLoginListener'
-import { GroupDetailInfo, LocalExitGroupReason } from '@/ntqqapi/types'
+import { registerDispatcher } from './dispatcher'
 import { noop } from 'cosmokit'
 
 declare module 'cordis' {
@@ -34,26 +47,46 @@ declare module 'cordis' {
   }
 
   interface Events {
-    'nt/login-qrcode': (input: OnQRCodeLoginSucceedParameter) => void
-    'nt/message-created': (input: RawMessage) => void
-    'nt/offline-message-created': (input: RawMessage) => void
-    'nt/message-deleted': (input: RawMessage) => void
-    'nt/message-sent': (input: RawMessage) => void
-    'nt/group-notify': (input: { notify: GroupNotify, doubt: boolean }) => void
-    'nt/group-dismiss': (input: GroupDetailInfo) => void
-    'nt/group-quit': (input: GroupDetailInfo) => void // 主动退群
-    'nt/friend-request': (input: FriendRequest) => void
-    'nt/system-message-created': (input: Buffer) => void
-    'nt/flash-file-uploading': (input: { fileSet: FlashFileSetInfo } & FlashFileUploadingInfo) => void
-    'nt/flash-file-upload-status': (input: FlashFileSetInfo) => void
-    'nt/flash-file-download-status': (input: { status: FlashFileDownloadStatus, info: FlashFileSetInfo }) => void
-    'nt/flash-file-downloading': (input: [fileSetId: string, info: FlashFileDownloadingInfo]) => void
-    'nt/kicked-offLine': (input: KickedOffLineInfo) => void
+    // Raw QQ protocol push: { cmd, payload } from PMHQ recv or direct push
+    'qq/raw': (input: { cmd: string, payload: Buffer }) => void
+
+    'nt/message-created': (input: MessageCreatedEvent) => void
+    'nt/message-deleted': (input: MessageDeletedEvent) => void
+    'nt/message-sent': (input: MessageSentEvent) => void
+    'nt/group-join-request': (input: GroupJoinRequestEvent) => void
+    'nt/group-invited-join-request': (input: GroupInvitedJoinRequestEvent) => void
+    'nt/group-invitation': (input: GroupInvitationEvent) => void
+    'nt/group-added': (input: GroupAddedEvent) => void
+    'nt/group-removed': (input: GroupRemovedEvent) => void
+    'nt/group-disband': (input: GroupDisbandEvent) => void
+    'nt/group-nudge': (input: GroupNudgeEvent) => void
+    'nt/group-name-changed': (input: GroupNameChangedEvent) => void
+    'nt/group-admin-changed': (input: GroupAdminChangedEvent) => void
+    'nt/group-message-reaction': (input: GroupMessageReactionEvent) => void
+    'nt/group-essence-message-changed': (input: GroupEssenceMessageChangedEvent) => void
+    'nt/group-whole-mute': (input: GroupWholeMuteEvent) => void
+    'nt/group-mute': (input: GroupMuteEvent) => void
+    'nt/group-member-added': (input: GroupMemberAddedEvent) => void
+    'nt/group-member-removed': (input: GroupMemberRemovedEvent) => void
+    'nt/group-member-card-name-changed': (input: GroupMemberCardNameChangedEvent) => void
+    'nt/group-member-special-title-changed': (input: GroupMemberSpecialTitleChangedEvent) => void
+    'nt/friend-request': (input: FriendRequestEvent) => void
+    'nt/friend-added': (input: FriendAddedEvent) => void
+    'nt/friend-removed': (input: FriendRemovedEvent) => void
+    'nt/friend-nudge': (input: FriendNudgeEvent) => void
+    'nt/profile-like': (input: ProfileLikeEvent) => void
+    'nt/pin-changed': (input: PinChangedEvent) => void
+    'nt/ptt-trans-result': (input: PttTransResultEvent) => void
+    'nt/kicked-offline': (input: KickedOfflineEvent) => void
+    'nt/status-changed': (input: StatusChangedEvent) => void
   }
 }
 
 class Core extends Service {
-  static inject = ['ntMsgApi', 'ntFriendApi', 'ntGroupApi', 'store', 'ntUserApi', 'ntFileApi', 'logger', 'pmhq']
+  static inject = [
+    'ntMsgApi', 'ntFriendApi', 'store',
+    'ntFileApi', 'ntGroupApi', 'ntUserApi'
+  ]
   public startupTime = 0
   public messageReceivedCount = 0
   public messageSentCount = 0
@@ -71,6 +104,7 @@ class Core extends Service {
   public start() {
     this.startupTime = Math.trunc(Date.now() / 1000)
     this.registerListener()
+    registerDispatcher(this.ctx)
     setFFMpegPath('')
     this.ctx.on('llob/config-updated', input => {
       Object.assign(this.config, input)
@@ -85,11 +119,12 @@ class Core extends Service {
     deleteAfterSentFiles: string[],
   ) {
     if (peer.chatType === ChatType.Group) {
-      // todo: 优化成不要每次都调用，本地缓存一个禁言标志
-      const info = await ctx.ntGroupApi.getGroupAllInfo(peer.peerUid)
-        .catch(() => undefined)
-      const shutUpMeTimestamp = info?.shutUpMeTimestamp
-      if (shutUpMeTimestamp && shutUpMeTimestamp * 1000 > Date.now()) {
+      const info = await ctx.ntGroupApi.getGroup(+peer.peerUid, false)
+      if (
+        info.personShutupExpireTime * 1000 > Date.now()
+        || (info.groupShutupExpireTime * 1000 > Date.now()
+          && info.memberRole === GroupMemberRole.Normal)
+      ) {
         throw new Error('当前处于被禁言状态')
       }
     }
@@ -98,233 +133,29 @@ class Core extends Service {
     }
     const returnMsg = await ctx.ntMsgApi.sendMsg(peer, sendElements)
     this.messageSentCount++
-    ctx.logger.info('消息发送', peer)
     deleteAfterSentFiles.forEach(path => {
       unlink(path).catch(noop)
     })
+    if (returnMsg.chatType !== ChatType.Group) {
+      // 由于私聊消息发送后没有回声，不会触发 nt/message-sent，所以补一个
+      // 而且，该事件不能早于 ntMsgApi.waitForSelfEcho 上报
+      this.ctx.parallel('nt/message-sent', {
+        message: returnMsg
+      })
+    }
     return returnMsg
   }
 
-  private async handleMessage(msgList: RawMessage[]) {
-    for (const message of msgList) {
-      const msgTime = +message.msgTime
-      if (msgTime < this.startupTime || ('isOnlineMsg' in message && !message.isOnlineMsg && message.msgType !== MsgType.GrayTips)) {
-        const existing = await this.ctx.store.checkMsgExist(message)
-        if (!existing) {
-          this.ctx.parallel('nt/offline-message-created', message)
-        }
-        continue
-      }
-      if (message.senderUin && message.senderUin !== '0') {
-        this.ctx.store.addMsgCache(message)
-      }
-      this.lastMessageTime = msgTime
-      this.messageReceivedCount++
-      logSummaryMessage(this.ctx, message).then()
-      this.ctx.parallel('nt/message-created', message)
-    }
-
-    // 自动清理新消息文件
-    if (!this.config.autoDeleteFile) {
-      return
-    }
-
-    // 使用一个定时器处理所有文件，而不是为每个元素创建定时器
-    const allPaths: string[] = []
-    for (const message of msgList) {
-      for (const msgElement of message.elements) {
-        const picPath = msgElement.picElement?.sourcePath
-        const picThumbPath = [...(msgElement.picElement?.thumbPath ?? []).values()]
-        const pttPath = msgElement.pttElement?.filePath
-        const filePath = msgElement.fileElement?.filePath
-        const videoPath = msgElement.videoElement?.filePath
-        const videoThumbPath = [...(msgElement.videoElement?.thumbPath ?? []).values()]
-        const pathList = [picPath, ...picThumbPath, pttPath, filePath, videoPath, ...videoThumbPath]
-        if (msgElement.picElement) {
-          pathList.push(...Object.values(msgElement.picElement.thumbPath))
-        }
-        allPaths.push(...pathList.filter((path): path is string => path !== undefined && path !== null))
-      }
-    }
-
-    if (allPaths.length > 0) {
-      setTimeout(() => {
-        for (const path of allPaths) {
-          if (path) {
-            unlink(path).then(() => this.ctx.logger.info('删除文件成功', path)).catch(noop)
-          }
-        }
-      }, this.config.autoDeleteFileSecond! * 1000)
-    }
-  }
-
   private registerListener() {
-
-    this.ctx.pmhq.registerReceiveHook(ReceiveCmdS.LOGIN_QR_CODE, (data) => {
-      this.ctx.parallel('nt/login-qrcode', data)
+    this.ctx.on('nt/message-created', (data) => {
+      this.ctx.store.addMsgCache(data.message)
+      this.lastMessageTime = data.message.msgTime
+      this.messageReceivedCount++
+      logSummaryMessage(this.ctx, data.message)
     })
 
-    this.ctx.pmhq.registerReceiveHook<{ status: number }>(ReceiveCmdS.SELF_STATUS, (info) => {
-      Object.assign(selfInfo, { online: info.status !== 20 })
-    })
-
-    this.ctx.pmhq.registerReceiveHook<RawMessage[]>(ReceiveCmdS.NEW_MSG, payload => {
-      this.handleMessage(payload)
-    })
-
-    const sentMsgIds = new Map<string, boolean>()
-    const recallMsgIds: string[] = [] // 避免重复上报
-
-    this.ctx.pmhq.registerReceiveHook<RawMessage[]>([ReceiveCmdS.UPDATE_MSG], payload => {
-      for (const msg of payload) {
-        if (
-          msg.recallTime !== '0' &&
-          msg.msgType === 5 &&
-          msg.subMsgType === 4 &&
-          msg.elements[0]?.grayTipElement?.subElementType === GrayTipElementSubType.Revoke &&
-          !recallMsgIds.includes(msg.msgId)
-        ) {
-
-          recallMsgIds.push(msg.msgId)
-          this.ctx.parallel('nt/message-deleted', msg)
-        }
-        else if (sentMsgIds.get(msg.msgId)) {
-          if (msg.sendStatus === 2) {
-            sentMsgIds.delete(msg.msgId)
-            logSummaryMessage(this.ctx, msg).then()
-            this.ctx.parallel('nt/message-sent', msg)
-          }
-        }
-      }
-
-      if (recallMsgIds.length > 1000) {
-        recallMsgIds.shift()
-      }
-
-      // 限制Map大小，防止内存泄露
-      if (sentMsgIds.size > 1000) {
-        const firstKey = sentMsgIds.keys().next().value
-        if (firstKey) {
-          sentMsgIds.delete(firstKey)
-        }
-      }
-    })
-
-    this.ctx.pmhq.registerReceiveHook<[Peer, string[]]>(ReceiveCmdS.DELETE_MSG, payload => {
-      // 撤回普通消息不会经过这里
-      // 撤回戳一戳会经过这里
-      const [peer, msgIds] = payload;
-      for (const msgId of msgIds) {
-        const msg = this.ctx.store.getMsgCache(msgId)
-        if (!msg) {
-          this.ctx.ntMsgApi.getMsgsByMsgId(peer, [msgId]).then(r => {
-            for (const _msg of r.msgList) {
-              this.ctx.parallel('nt/message-deleted', _msg)
-            }
-          }).catch(e => {
-            this.ctx.logger.error('获取被撤回戳一戳消息失败', e, { peer, msgId })
-          })
-        }
-        else {
-          this.ctx.parallel('nt/message-deleted', msg)
-        }
-      }
-    })
-
-    this.ctx.pmhq.registerReceiveHook<RawMessage>(ReceiveCmdS.SELF_SEND_MSG, payload => {
-      sentMsgIds.set(payload.msgId, true)
-    })
-
-    const groupNotifyIgnore: string[] = []
-    this.ctx.pmhq.registerReceiveHook<[
-      doubt: boolean,
-      notifies: GroupNotify[]
-    ]>('nodeIKernelGroupListener/onGroupNotifiesUpdated', async (payload) => {
-      const [doubt, notifies] = payload
-      for (const notify of notifies) {
-        const notifyTime = Math.trunc(+notify.seq / 1000 / 1000)
-        if (groupNotifyIgnore.includes(notify.seq) || notifyTime < this.startupTime) {
-          continue
-        }
-        groupNotifyIgnore.push(notify.seq)
-        if (groupNotifyIgnore.length > 1000) {
-          groupNotifyIgnore.shift()
-        }
-        this.ctx.parallel('nt/group-notify', { notify, doubt: doubt })
-      }
-    })
-
-    this.ctx.pmhq.registerReceiveHook<FriendRequestNotify>(ReceiveCmdS.FRIEND_REQUEST, payload => {
-      this.ctx.ntFriendApi.clearBuddyReqUnreadCnt().catch(e => this.ctx.logger.error(`清除好友申请未读数失败`, e))
-      for (const req of payload.buddyReqs) {
-        if (!req.isUnread || req.isInitiator || (req.isDecide && req.reqType !== BuddyReqType.MeInitiatorWaitPeerConfirm)) {
-          continue
-        }
-        if (+req.reqTime < this.startupTime) {
-          continue
-        }
-        this.ctx.parallel('nt/friend-request', req)
-      }
-    })
-
-    this.ctx.pmhq.registerReceiveHook<number[]>('nodeIKernelMsgListener/onRecvSysMsg', payload => {
-      this.ctx.parallel('nt/system-message-created', Buffer.from(payload))
-    })
-
-    this.ctx.pmhq.registerReceiveHook<[status: number, errCode: number | string, fileSetId: string | unknown]>(ReceiveCmdS.FLASH_FILE_DOWNLOAD_STATUS, payload => {
-      // 旧版本 QQ 会把 fileSetId 放在第 2 个参数
-      // 新版本 QQ 会把 fileSetId 放在第 3 个参数
-      const [status, errCodeOrFileSetId, fileSetIdOrFileInfo] = payload
-      let fileSetId: string;
-      // 没有精力一个个版本测试了，只能靠类型判断了
-      if (typeof fileSetIdOrFileInfo !== 'string') {
-        fileSetId = errCodeOrFileSetId as string
-      }
-      else {
-        fileSetId = fileSetIdOrFileInfo as string
-      }
-      this.ctx.ntFileApi.getFlashFileInfo(fileSetId).then(info => {
-        this.ctx.parallel('nt/flash-file-download-status', {
-          status,
-          info
-        })
-      }).catch(err => {
-        this.ctx.logger.error(err, { fileSetId })
-      })
-    })
-
-    this.ctx.pmhq.registerReceiveHook<FlashFileSetInfo>(ReceiveCmdS.FLASH_FILE_UPLOAD_STATUS, payload => {
-      this.ctx.parallel('nt/flash-file-upload-status', payload)
-    })
-
-    this.ctx.pmhq.registerReceiveHook<[fileSetId: string, info: FlashFileDownloadingInfo]>(ReceiveCmdS.FLASH_FILE_DOWNLOADING, payload => {
-      const [fileSetId, info] = payload
-      this.ctx.parallel('nt/flash-file-downloading', [fileSetId, info])
-    })
-
-    this.ctx.pmhq.registerReceiveHook<{ fileSet: FlashFileSetInfo } & FlashFileUploadingInfo>(ReceiveCmdS.FLASH_FILE_UPLOADING, payload => {
-      this.ctx.parallel('nt/flash-file-uploading', payload)
-    })
-
-    const group_dismiss_codes: string[] = []  // 不知是否是 QQ 的 bug，退群的时候会上报一个以前解散的群，这里用于避免重复上报
-    this.ctx.pmhq.registerReceiveHook<GroupDetailInfo>(ReceiveCmdS.GROUP_DETAIL_INFO_UPDATE, async data => {
-      if (data.localExitGroupReason === LocalExitGroupReason.DISMISS
-        && !group_dismiss_codes.includes(data.groupCode)
-        && data.cmdUinJoinTime > this.startupTime
-      ) {
-        group_dismiss_codes.push(data.groupCode)
-        if (group_dismiss_codes.length > 1000) {
-          group_dismiss_codes.shift()
-        }
-        this.ctx.parallel('nt/group-dismiss', data)
-      }
-      else if (data.localExitGroupReason === LocalExitGroupReason.SELF_QUIT) {
-        this.ctx.parallel('nt/group-quit', data)
-      }
-    })
-
-    this.ctx.pmhq.registerReceiveHook<KickedOffLineInfo>('nodeIKernelMsgListener/onKickedOffLine', info => {
-      this.ctx.parallel('nt/kicked-offLine', info)
+    this.ctx.on('nt/message-sent', (data) => {
+      this.ctx.store.addMsgCache(data.message)
     })
   }
 }

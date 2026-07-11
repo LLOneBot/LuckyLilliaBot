@@ -1,10 +1,9 @@
 import { MilkyEventTypes } from '@/milky/common/event'
-import { RawMessage, GroupNotify, FriendRequest, GroupNotifyType, GroupNotifyStatus } from '@/ntqqapi/types'
+import { RawMessage, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeletedEvent, GroupMemberAddedEvent, GroupMemberRemovedEvent, FriendRequestEvent, FriendNudgeEvent, GroupNudgeEvent, GroupNameChangedEvent, GroupMuteEvent, GroupWholeMuteEvent, GroupAdminChangedEvent, PinChangedEvent, ChatType, GroupMessageReactionEvent, GroupEssenceMessageChangedEvent, KickedOfflineEvent, GroupDisbandEvent } from '@/ntqqapi/types'
 import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingTempMessage } from './message/incoming'
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
-import { Msg, Notify } from '@/ntqqapi/proto'
-import { Event } from '@saltify/milky-types'
+import { Event } from '../generated/schema'
 
 /**
  * Transform NTQQ message-created event to Milky message_receive event (private)
@@ -14,11 +13,9 @@ export async function transformPrivateMessageCreated(
   message: RawMessage
 ): Promise<MilkyEventTypes['message_receive'] | null> {
   try {
-    if (!message.senderUid) return null
-    const friend = await ctx.ntUserApi.getUserSimpleInfo(message.senderUid)
-    const category = await ctx.ntFriendApi.getCategoryById(friend.baseInfo.categoryId)
+    const friend = await ctx.ntFriendApi.getFriendByUid(message.senderUid, false)
 
-    const transformedMessage = await transformIncomingPrivateMessage(ctx, friend, category, message)
+    const transformedMessage = await transformIncomingPrivateMessage(ctx, friend!, message)
     if (transformedMessage.segments.length === 0) {
       return null
     }
@@ -37,11 +34,10 @@ export async function transformGroupMessageCreated(
   message: RawMessage
 ): Promise<MilkyEventTypes['message_receive'] | null> {
   try {
-    if (!message.senderUid || message.peerUin === message.senderUid) return null
-    const group = await ctx.ntGroupApi.getGroupDetailInfo(message.peerUid)
-    const member = await ctx.ntGroupApi.getGroupMember(message.peerUin, message.senderUid)
+    const group = await ctx.ntGroupApi.getGroup(+message.peerUid, false)
+    const member = await ctx.ntGroupApi.getGroupMemberByUid(+message.peerUin, message.senderUid, false)
 
-    const transformedMessage = await transformIncomingGroupMessage(ctx, group, member, message)
+    const transformedMessage = await transformIncomingGroupMessage(ctx, group, member!, message)
     if (transformedMessage.segments.length === 0) {
       return null
     }
@@ -60,9 +56,7 @@ export async function transformTempMessageCreated(
   message: RawMessage
 ): Promise<MilkyEventTypes['message_receive'] | null> {
   try {
-    if (!message.senderUid) return null
-    const { tmpChatInfo } = await ctx.ntMsgApi.getTempChatInfo(100, message.peerUid)
-    const group = await ctx.ntGroupApi.getGroupDetailInfo(tmpChatInfo.groupCode)
+    const group = await ctx.ntGroupApi.getGroup(message.tempFromGroupCode, false)
 
     const transformedMessage = await transformIncomingTempMessage(ctx, group, message)
     if (transformedMessage.segments.length === 0) {
@@ -75,22 +69,18 @@ export async function transformTempMessageCreated(
   }
 }
 
-/**
- * Transform NTQQ message-deleted event to Milky message_recall event (temp)
- */
-export async function transformTempMessageDeleted(
+export async function transformTempMessageRecall(
   ctx: Context,
-  message: RawMessage
+  data: MessageDeletedEvent
 ): Promise<MilkyEventTypes['message_recall'] | null> {
   try {
-    const revokeElement = message.elements[0].grayTipElement!.revokeElement!
     return {
       message_scene: 'temp',
-      peer_id: Number(message.peerUin),
-      message_seq: Number(message.msgSeq),
-      sender_id: Number(message.senderUin),
-      operator_id: Number(message.senderUin),
-      display_suffix: revokeElement.wording,
+      peer_id: data.peerUin,
+      message_seq: data.msgSeq,
+      sender_id: data.senderUin,
+      operator_id: data.senderUin,
+      display_suffix: data.displaySuffix,
     }
   } catch (error) {
     ctx.logger.error('Failed to transform temp message deleted event:', error)
@@ -98,22 +88,18 @@ export async function transformTempMessageDeleted(
   }
 }
 
-/**
- * Transform NTQQ message-deleted event to Milky message_recall event (private)
- */
-export async function transformPrivateMessageDeleted(
+export async function transformFriendMessageRecall(
   ctx: Context,
-  message: RawMessage
+  data: MessageDeletedEvent
 ): Promise<MilkyEventTypes['message_recall'] | null> {
   try {
-    const revokeElement = message.elements[0].grayTipElement!.revokeElement!
     return {
       message_scene: 'friend',
-      peer_id: Number(message.peerUin),
-      message_seq: Number(message.msgSeq),
-      sender_id: Number(message.senderUin),
-      operator_id: Number(message.senderUin),
-      display_suffix: revokeElement.wording,
+      peer_id: data.peerUin,
+      message_seq: data.msgSeq,
+      sender_id: data.senderUin,
+      operator_id: data.senderUin,
+      display_suffix: data.displaySuffix,
     }
   } catch (error) {
     ctx.logger.error('Failed to transform private message deleted event:', error)
@@ -121,28 +107,18 @@ export async function transformPrivateMessageDeleted(
   }
 }
 
-/**
- * Transform NTQQ message-deleted event to Milky message_recall event (group)
- */
-export async function transformGroupMessageDeleted(
+export async function transformGroupMessageRecall(
   ctx: Context,
-  message: RawMessage
+  data: MessageDeletedEvent
 ): Promise<MilkyEventTypes['message_recall'] | null> {
   try {
-    const revokeElement = message.elements[0].grayTipElement!.revokeElement!
-    let operatorUin
-    if (revokeElement.operatorUid === revokeElement.origMsgSenderUid) {
-      operatorUin = message.senderUin
-    } else {
-      operatorUin = await ctx.ntUserApi.getUinByUid(revokeElement.operatorUid)
-    }
     return {
       message_scene: 'group',
-      peer_id: Number(message.peerUin),
-      message_seq: Number(message.msgSeq),
-      sender_id: Number(message.senderUin),
-      operator_id: Number(operatorUin),
-      display_suffix: revokeElement.wording,
+      peer_id: data.peerUin,
+      message_seq: data.msgSeq,
+      sender_id: data.senderUin,
+      operator_id: data.operatorUin,
+      display_suffix: data.displaySuffix,
     }
   } catch (error) {
     ctx.logger.error('Failed to transform group message deleted event:', error)
@@ -155,15 +131,14 @@ export async function transformGroupMessageDeleted(
  */
 export async function transformFriendRequestEvent(
   ctx: Context,
-  request: FriendRequest
+  data: FriendRequestEvent
 ): Promise<MilkyEventTypes['friend_request'] | null> {
   try {
-    const initiatorId = Number(await ctx.ntUserApi.getUinByUid(request.friendUid))
     return {
-      initiator_id: initiatorId,
-      initiator_uid: request.friendUid,
-      comment: request.extWords,
-      via: request.addSource ?? ''
+      initiator_id: data.initiatorUin,
+      initiator_uid: data.initiatorUid,
+      comment: data.comment,
+      via: data.via
     }
   } catch (error) {
     ctx.logger.error('Failed to transform friend request event:', error)
@@ -171,54 +146,271 @@ export async function transformFriendRequestEvent(
   }
 }
 
-/**
- * Transform NTQQ group-notify event to Milky group notification events
- */
-export async function transformGroupNotify(
+export async function transformGroupJoinRequestEvent(
   ctx: Context,
-  notify: GroupNotify,
-  doubt: boolean
-): Promise<{ eventType: keyof MilkyEventTypes, data: Event['data'] } | null> {
+  data: GroupJoinRequestEvent
+): Promise<MilkyEventTypes['group_join_request'] | null> {
   try {
-    if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
-      return {
-        eventType: 'group_join_request',
-        data: {
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          is_filtered: doubt,
-          initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
-          comment: notify.postscript
-        } satisfies MilkyEventTypes['group_join_request']
-      }
-    }
-    else if (notify.type === GroupNotifyType.InvitedNeedAdminiStratorPass && notify.status === GroupNotifyStatus.Unhandle) {
-      return {
-        eventType: 'group_invited_join_request',
-        data: {
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid)),
-          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid))
-        } satisfies MilkyEventTypes['group_invited_join_request']
-      }
-    }
-    else if (notify.type === GroupNotifyType.InvitedByMember && notify.status === GroupNotifyStatus.Unhandle) {
-      return {
-        eventType: 'group_invitation',
-        data: {
-          group_id: Number(notify.group.groupCode),
-          invitation_seq: Number(notify.seq),
-          initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid)),
-          source_group_id: Number(notify.invitationExt.groupCode)
-        } satisfies MilkyEventTypes['group_invitation']
-      }
-    }
-    else {
-      return null
+    return {
+      group_id: data.groupCode,
+      notification_seq: Number(data.notificationSeq),
+      is_filtered: data.isDoubt,
+      initiator_id: data.initiatorUin,
+      comment: data.comment
     }
   } catch (error) {
-    ctx.logger.error('Failed to transform group notify event:', error)
+    ctx.logger.error('Failed to transform group join request event:', error)
+    return null
+  }
+}
+
+export async function transformGroupInvitedJoinRequestEvent(
+  ctx: Context,
+  data: GroupInvitedJoinRequestEvent
+): Promise<MilkyEventTypes['group_invited_join_request'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      notification_seq: Number(data.notificationSeq),
+      initiator_id: data.initiatorUin,
+      target_user_id: data.targetUserUin
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group invited join request event:', error)
+    return null
+  }
+}
+
+export async function transformGroupInvitationEvent(
+  ctx: Context,
+  data: GroupInvitationEvent
+): Promise<MilkyEventTypes['group_invitation'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      invitation_seq: Number(data.invitationSeq),
+      initiator_id: data.initiatorUin
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group invitation event:', error)
+    return null
+  }
+}
+
+export async function transformGroupMemberIncreaseEvent(
+  ctx: Context,
+  data: GroupMemberAddedEvent
+): Promise<MilkyEventTypes['group_member_increase'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      user_id: data.memberUin,
+      operator_id: data.operatorUin,
+      invitor_id: data.invitorUin
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group member increase event:', error)
+    return null
+  }
+}
+
+export async function transformGroupMemberDecreaseEvent(
+  ctx: Context,
+  data: GroupMemberRemovedEvent
+): Promise<MilkyEventTypes['group_member_decrease'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      user_id: data.memberUin,
+      operator_id: data.operatorUin
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group member decrease event:', error)
+    return null
+  }
+}
+
+export async function transformFriendNudgeEvent(
+  ctx: Context,
+  data: FriendNudgeEvent
+): Promise<MilkyEventTypes['friend_nudge'] | null> {
+  try {
+    return {
+      user_id: data.uin,
+      is_self_send: data.isSelfSend,
+      is_self_receive: data.isSelfReceive,
+      display_action: data.displayAction,
+      display_suffix: data.displaySuffix,
+      display_action_img_url: data.displayActionImgUrl,
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform friend nudge event:', error)
+    return null
+  }
+}
+
+export async function transformGroupNudgeEvent(
+  ctx: Context,
+  data: GroupNudgeEvent
+): Promise<MilkyEventTypes['group_nudge'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      sender_id: data.senderUin,
+      receiver_id: data.receiverUin,
+      display_action: data.displayAction,
+      display_suffix: data.displaySuffix,
+      display_action_img_url: data.displayActionImgUrl,
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group nudge event:', error)
+    return null
+  }
+}
+
+export async function transformGroupNameChangeEvent(
+  ctx: Context,
+  data: GroupNameChangedEvent
+): Promise<MilkyEventTypes['group_name_change'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      new_group_name: data.newGroupName,
+      operator_id: data.operatorUin
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group name change event:', error)
+    return null
+  }
+}
+
+export async function transformGroupMuteEvent(
+  ctx: Context,
+  data: GroupMuteEvent
+): Promise<MilkyEventTypes['group_mute'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      user_id: data.memberUin,
+      operator_id: data.operatorUin,
+      duration: data.duration
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group mute event:', error)
+    return null
+  }
+}
+
+export async function transformGroupWholeMuteEvent(
+  ctx: Context,
+  data: GroupWholeMuteEvent
+): Promise<MilkyEventTypes['group_whole_mute'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      operator_id: data.operatorUin,
+      is_mute: data.isMute
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group mute event:', error)
+    return null
+  }
+}
+
+export async function transformGroupAdminChangeEvent(
+  ctx: Context,
+  data: GroupAdminChangedEvent
+): Promise<MilkyEventTypes['group_admin_change'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      user_id: data.targetUin,
+      operator_id: data.operatorUin,
+      is_set: data.isSet
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group admin change event:', error)
+    return null
+  }
+}
+
+export async function transformPeerPinChangeEvent(
+  ctx: Context,
+  data: PinChangedEvent
+): Promise<MilkyEventTypes['peer_pin_change'] | null> {
+  try {
+    return {
+      message_scene: data.chatType === ChatType.Group ? 'group' : 'friend',
+      peer_id: data.peerUin,
+      is_pinned: data.isPinned
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform peer pin change event:', error)
+    return null
+  }
+}
+
+export async function transformGroupMessageReactionEvent(
+  ctx: Context,
+  data: GroupMessageReactionEvent
+): Promise<MilkyEventTypes['group_message_reaction'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      user_id: data.operatorUin,
+      message_seq: data.msgSeq,
+      face_id: data.faceId,
+      reaction_type: data.type === 2 ? 'emoji' : 'face',
+      is_add: data.isAdd
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group message reaction event:', error)
+    return null
+  }
+}
+
+export async function transformGroupEssenceMessageChangeEvent(
+  ctx: Context,
+  data: GroupEssenceMessageChangedEvent
+): Promise<MilkyEventTypes['group_essence_message_change'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      message_seq: data.msgSeq,
+      operator_id: data.operatorUin,
+      is_set: data.isSet
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group essence message change event:', error)
+    return null
+  }
+}
+
+export async function transformBotOfflineEvent(
+  ctx: Context,
+  data: KickedOfflineEvent
+): Promise<MilkyEventTypes['bot_offline'] | null> {
+  try {
+    return {
+      reason: data.tipsDesc
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform bot offline event:', error)
+    return null
+  }
+}
+
+export async function transformGroupDisbandEvent(
+  ctx: Context,
+  data: GroupDisbandEvent
+): Promise<MilkyEventTypes['group_disband'] | null> {
+  try {
+    return {
+      group_id: data.groupCode,
+      operator_id: data.operatorUin
+    }
+  } catch (error) {
+    ctx.logger.error('Failed to transform group disband event:', error)
     return null
   }
 }
@@ -229,21 +421,7 @@ export async function transformPrivateMessageEvent(
 ): Promise<{ eventType: keyof MilkyEventTypes, data: Event['data'] } | null> {
   try {
     for (const element of message.elements) {
-      if (element.grayTipElement?.jsonGrayTipElement?.busiId === '1061') {
-        const { templParam } = element.grayTipElement.jsonGrayTipElement.xmlToJsonParam
-        const userId = +message.peerUin || +(await ctx.ntUserApi.getUinByUid(message.peerUid))
-        return {
-          eventType: 'friend_nudge',
-          data: {
-            user_id: userId,
-            is_self_send: templParam.get('uin_str1') === selfInfo.uin,
-            is_self_receive: templParam.get('uin_str2') === selfInfo.uin,
-            display_action: templParam.get('action_str') ?? '',
-            display_suffix: templParam.get('suffix_str') ?? '',
-            display_action_img_url: templParam.get('action_img_url') ?? ''
-          } satisfies MilkyEventTypes['friend_nudge']
-        }
-      } else if (element.fileElement) {
+      if (element.fileElement) {
         return {
           eventType: 'friend_file_upload',
           data: {
@@ -251,29 +429,10 @@ export async function transformPrivateMessageEvent(
             file_id: element.fileElement.fileUuid,
             file_name: element.fileElement.fileName,
             file_size: +element.fileElement.fileSize,
-            file_hash: '', // 拿不到
-            is_self: message.senderUin === selfInfo.uin
+            // FileElement.fileMd5 即文件 md5（hex），milky 协议 file_hash 字段就是它。
+            file_hash: element.fileElement.fileMd5 ?? '',
+            is_self: message.senderUin === +selfInfo.uin
           } satisfies MilkyEventTypes['friend_file_upload']
-        }
-      } else if (element.arkElement) {
-        const data = JSON.parse(element.arkElement.bytesData)
-        if (data.app === 'com.tencent.qun.invite' || (data.app === 'com.tencent.tuwen.lua' && data.bizsrc === 'qun.invite')) {
-          const params = new URLSearchParams(data.meta.news.jumpUrl)
-          const receiverUin = params.get('receiveruin')
-          const senderUin = params.get('senderuin')
-          if (receiverUin !== selfInfo.uin || senderUin !== message.senderUin) {
-            return null
-          }
-          const groupCode = params.get('groupcode')!
-          const seq = params.get('msgseq')!
-          return {
-            eventType: 'group_invitation',
-            data: {
-              group_id: +groupCode,
-              invitation_seq: +seq,
-              initiator_id: +senderUin
-            } satisfies MilkyEventTypes['group_invitation']
-          }
         }
       }
     }
@@ -287,69 +446,10 @@ export async function transformPrivateMessageEvent(
 export async function transformGroupMessageEvent(
   ctx: Context,
   message: RawMessage
-): Promise<{ eventType: keyof MilkyEventTypes, data: Event['data'] } | { eventType: keyof MilkyEventTypes, data: Event['data'] }[] | null> {
+): Promise<{ eventType: keyof MilkyEventTypes, data: Event['data'] } | null> {
   try {
     for (const element of message.elements) {
-      if (
-        element.grayTipElement?.xmlElement?.busiId === '10145' ||
-        element.grayTipElement?.xmlElement?.busiId === '10146'
-      ) {
-        const invitor = element.grayTipElement.xmlElement.templParam.get('invitor')!
-        const invitee = element.grayTipElement.xmlElement.templParam.get('invitee')!
-        return {
-          eventType: 'group_member_increase',
-          data: {
-            group_id: +message.peerUid,
-            user_id: +invitee,
-            invitor_id: +invitor
-          } satisfies MilkyEventTypes['group_member_increase']
-        }
-      } else if (element.grayTipElement?.xmlElement?.busiId === '19373') {
-        const invitor = element.grayTipElement.xmlElement.templParam.get('invitor')!
-        const invitees = element.grayTipElement.xmlElement.templParam.get('invitees_dynamic')!.matchAll(/jp="([^"]+)"/g)
-        return invitees.map(e => ({
-          eventType: 'group_member_increase' as const,
-          data: {
-            group_id: +message.peerUid,
-            user_id: +e[1],
-            invitor_id: +invitor
-          } satisfies MilkyEventTypes['group_member_increase']
-        })).toArray()
-      } else if (element.grayTipElement?.groupElement?.type === 8) {
-        if (element.grayTipElement.groupElement.shutUp?.member.uid) {
-          return {
-            eventType: 'group_mute',
-            data: {
-              group_id: Number(message.peerUid),
-              user_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.shutUp!.member.uid)),
-              operator_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.shutUp!.admin.uid)),
-              duration: Number(element.grayTipElement.groupElement.shutUp!.duration)
-            } satisfies MilkyEventTypes['group_mute']
-          }
-        } else {
-          return {
-            eventType: 'group_whole_mute',
-            data: {
-              group_id: Number(message.peerUid),
-              operator_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.shutUp!.admin.uid)),
-              is_mute: Number(element.grayTipElement.groupElement.shutUp!.duration) > 0
-            } satisfies MilkyEventTypes['group_whole_mute']
-          }
-        }
-      } else if (element.grayTipElement?.jsonGrayTipElement?.busiId === '1061') {
-        const { templParam } = element.grayTipElement.jsonGrayTipElement.xmlToJsonParam
-        return {
-          eventType: 'group_nudge',
-          data: {
-            group_id: +message.peerUid,
-            sender_id: +templParam.get('uin_str1')!,
-            receiver_id: +templParam.get('uin_str2')!,
-            display_action: templParam.get('action_str') ?? '',
-            display_suffix: templParam.get('suffix_str') ?? '',
-            display_action_img_url: templParam.get('action_img_url') ?? ''
-          } satisfies MilkyEventTypes['group_nudge']
-        }
-      } else if (element.fileElement) {
+      if (element.fileElement) {
         return {
           eventType: 'group_file_upload',
           data: {
@@ -360,161 +460,11 @@ export async function transformGroupMessageEvent(
             file_size: +element.fileElement.fileSize
           } satisfies MilkyEventTypes['group_file_upload']
         }
-      } else if (element.grayTipElement?.groupElement?.type === 5) {
-        return {
-          eventType: 'group_name_change',
-          data: {
-            group_id: Number(message.peerUid),
-            new_group_name: element.grayTipElement.groupElement.groupName,
-            operator_id: Number(await ctx.ntUserApi.getUinByUid(element.grayTipElement.groupElement.memberUid))
-          } satisfies MilkyEventTypes['group_name_change']
-        }
       }
     }
     return null
   } catch (error) {
     ctx.logger.error('Failed to transform group message event:', error)
-    return null
-  }
-}
-
-export async function transformSystemMessageEvent(
-  ctx: Context,
-  data: Buffer
-): Promise<{ eventType: keyof MilkyEventTypes, data: Event['data'] } | null> {
-  try {
-    const sysMsg = Msg.Message.decode(data)
-    if (!sysMsg.body) {
-      return null
-    }
-    const { msgType, subType } = sysMsg.contentHead
-    if (msgType === 33) {
-      const tip = Notify.GroupMemberChange.decode(sysMsg.body.msgContent)
-      if (tip.type !== 130) return null
-      return {
-        eventType: 'group_member_increase',
-        data: {
-          group_id: tip.groupCode,
-          user_id: Number(await ctx.ntUserApi.getUinByUid(tip.memberUid)),
-          operator_id: Number(await ctx.ntUserApi.getUinByUid(tip.adminUid))
-        } satisfies MilkyEventTypes['group_member_increase']
-      }
-    }
-    else if (msgType === 34) {
-      const tip = Notify.GroupMemberChange.decode(sysMsg.body.msgContent)
-      if (tip.type === 130) {
-        return {
-          eventType: 'group_member_decrease',
-          data: {
-            group_id: tip.groupCode,
-            user_id: Number(await ctx.ntUserApi.getUinByUid(tip.memberUid))
-          } satisfies MilkyEventTypes['group_member_decrease']
-        }
-      } else if (tip.type === 131) {
-        if (tip.memberUid === selfInfo.uid) return null
-        const memberUin = await ctx.ntUserApi.getUinByUid(tip.memberUid)
-        let adminUin = '0'
-        let adminUid = tip.adminUid
-        if (adminUid) {
-          const adminUidMatch = tip.adminUid.match(/\x18([^\x18\x10]+)\x10/)
-          if (adminUidMatch) {
-            adminUid = adminUidMatch[1]
-          }
-          adminUin = await ctx.ntUserApi.getUinByUid(adminUid)
-        }
-        return {
-          eventType: 'group_member_decrease',
-          data: {
-            group_id: tip.groupCode,
-            user_id: +memberUin,
-            operator_id: +adminUin
-          } satisfies MilkyEventTypes['group_member_decrease']
-        }
-      }
-    } else if (msgType === 44) {
-      const tip = Notify.GroupAdminChange.decode(sysMsg.body.msgContent)
-      const adminUid = tip.isPromote ? tip.body.extraEnable?.adminUid : tip.body.extraDisable?.adminUid
-      if (!adminUid) return null
-      const groupAllInfo = await ctx.ntGroupApi.getGroupAllInfo(tip.groupCode.toString())
-      return {
-        eventType: 'group_admin_change',
-        data: {
-          group_id: tip.groupCode,
-          user_id: Number(await ctx.ntUserApi.getUinByUid(adminUid)),
-          operator_id: Number(await ctx.ntUserApi.getUinByUid(groupAllInfo.ownerUid)),
-          is_set: tip.isPromote
-        } satisfies MilkyEventTypes['group_admin_change']
-      }
-    } else if (msgType === 528 && subType === 39) {
-      const tip = Notify.FriendDeleteOrPinChange.decode(sysMsg.body.msgContent)
-      if (tip.body.type !== 7) return null
-      const messageScene = tip.body.pinChanged?.body.groupCode ? 'group' : 'friend'
-      const peerId = messageScene === 'group' ? tip.body.pinChanged!.body.groupCode! : Number(await ctx.ntUserApi.getUinByUid(tip.body.pinChanged!.body.uid))
-      const isPinned = tip.body.pinChanged?.body.info.timestamp.length !== 0
-      return {
-        eventType: 'peer_pin_change',
-        data: {
-          message_scene: messageScene,
-          peer_id: peerId,
-          is_pinned: isPinned
-        } satisfies MilkyEventTypes['peer_pin_change']
-      }
-    }
-    return null
-  } catch (error) {
-    ctx.logger.error('Failed to transform system message event:', error)
-    return null
-  }
-}
-
-export async function transformOlpushEvent(
-  ctx: Context,
-  data: Buffer
-): Promise<{ eventType: keyof MilkyEventTypes, data: Event['data'] } | null> {
-  try {
-    const pushMsg = Msg.PushMsg.decode(data)
-    if (!pushMsg.message.body) {
-      return null
-    }
-    const { msgType, subType } = pushMsg.message.contentHead
-    if (msgType === 732 && subType === 16) {
-      const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
-      if (notify.field13 === 35) {
-        const info = notify.reaction.data.body.info
-        const target = notify.reaction.data.body.target
-        const userId = Number(await ctx.ntUserApi.getUinByUid(info.operatorUid))
-        return {
-          eventType: 'group_message_reaction',
-          data: {
-            group_id: notify.groupCode,
-            user_id: userId,
-            message_seq: target.sequence,
-            face_id: info.code,
-            reaction_type: {
-              1: 'face',
-              2: 'emoji'
-            }[info.reactionType] as 'face' | 'emoji',
-            is_add: info.actionType === 1
-          } satisfies MilkyEventTypes['group_message_reaction']
-        }
-      }
-    } else if (msgType === 732 && subType === 21) {
-      const notify = Msg.NotifyMessageBody.decode(pushMsg.message.body.msgContent.subarray(7))
-      if (notify.type === 27) {
-        return {
-          eventType: 'group_essence_message_change',
-          data: {
-            group_id: notify.groupCode,
-            message_seq: notify.essenceMessage.msgSequence,
-            operator_id: notify.essenceMessage.operatorUin,
-            is_set: notify.essenceMessage.setFlag === 1
-          } satisfies MilkyEventTypes['group_essence_message_change']
-        }
-      }
-    }
-    return null
-  } catch (error) {
-    ctx.logger.error('Failed to transform olpush event:', error)
     return null
   }
 }

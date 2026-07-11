@@ -1,287 +1,254 @@
-import { MiniProfile, ProfileBizType, SimpleInfo, UserDetailInfo, UserDetailSource } from '../types'
-import { HttpUtil } from '@/common/utils/request'
-import { Time } from 'cosmokit'
+import { User } from '../types'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
-import { ReceiveCmdS } from '../hook'
+import { createReadStream, promises as fsp } from 'node:fs'
+import { getMd5BufferFromFile } from '@/common/utils/file'
+import { HighwayHttpSession } from '../helper/highway'
+import { Misc } from '../proto'
 
 declare module 'cordis' {
   interface Context {
-    ntUserApi: NTQQUserApi
+    ntUserApi: NTUserApi
   }
 }
 
-export class NTQQUserApi extends Service {
-  static inject = ['ntGroupApi', 'logger', 'pmhq']
+export class NTUserApi extends Service {
+  static inject = ['ntGroupApi', 'qqProtocol', 'store', 'ntFriendApi']
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntUserApi')
   }
 
-  async setSelfAvatar(path: string) {
-    return await this.ctx.pmhq.invoke(
-      'nodeIKernelProfileService/setHeader',
-      [path],
-      {
-        timeout: 10 * Time.second, // 10秒不一定够？
-      },
-    )
+  async setSelfAvatar(filePath: string) {
+    const stat = await fsp.stat(filePath)
+    const md5 = await getMd5BufferFromFile(filePath)
+    const session = await this.ctx.qqProtocol.getHighwaySession()
+    const trans = {
+      uin: selfInfo.uin,
+      cmd: 90, // 自身头像 commandId（PMHQ 抓包 PicUp.DataUp + htcmd=0x6FF0087 验过）
+      readable: createReadStream(filePath, { highWaterMark: 1024 * 1024 }),
+      sum: md5,
+      size: stat.size,
+      ticket: session.sigSession,
+      ext: Buffer.alloc(0),
+      server: session.highwayHostAndPorts[1],
+    }
+    try {
+      await new HighwayHttpSession(trans).upload()
+      return { result: 0, errMsg: '' }
+    } catch (e) {
+      return { result: -1, errMsg: (e as Error).message }
+    }
   }
 
-  async getUidByUin(uin: string, groupCode?: string) {
-    const funcs = [
-      async () => {
-        return (await this.ctx.pmhq.invoke('nodeIKernelUixConvertService/getUid', [[uin]])).uidInfo.get(uin)
-      },
-      async () => {
-        return (await this.ctx.pmhq.invoke('nodeIKernelGroupService/getUidByUins', [[uin]])).uids.get(uin)
-      },
-      async () => {
-        return (await this.ctx.pmhq.invoke('nodeIKernelProfileService/getUidByUin', ['FriendsServiceImpl', [uin]])).get(uin)
-      },
-      async () => {
-        return (await this.getUserDetailInfoByUin(uin)).detail.uid
-      },
-      async () => {
-        if (groupCode) {
-          const groupMembers = await this.ctx.ntGroupApi.getGroupMembers(groupCode)
-          return groupMembers.result.infos.values().find(e => e.uin === uin)?.uid
-        }
-      }
-    ]
-
-    for (const f of funcs) {
+  async getUidByUin(uin: number, groupCode?: number) {
+    if (uin === +selfInfo.uin && selfInfo.uid) return selfInfo.uid
+    try {
+      const uid = await this.ctx.store.getUidByUin(uin)
+      if (uid) return uid
+    } catch (e) {
+      this.ctx.logger.error('getUidByUin via store failed', e)
+    }
+    // 通过群成员列表查（最直接）
+    if (groupCode) {
       try {
-        const uid = await f()
-        if (uid && !uid.includes('****')) {
-          return uid
+        const member = await this.ctx.ntGroupApi.getGroupMemberByUin(+groupCode, uin, false)
+        if (member) {
+          this.ctx.store.addUix([{
+            uid: member.uid,
+            uin: member.uin
+          }]).catch(e => this.ctx.logger.warn(e))
+          return member.uid
         }
       } catch (e) {
-        this.ctx.logger.error('get uid by uin filed', e)
+        this.ctx.logger.error('getUidByUin via group members failed', e)
       }
+    }
+    // 私聊场景没 groupCode：先从好友列表里找
+    try {
+      const friend = await this.ctx.ntFriendApi.getFriendByUin(uin, false)
+      if (friend) {
+        this.ctx.store.addUix([{
+          uid: friend.uid,
+          uin: friend.uin
+        }]).catch(e => this.ctx.logger.warn(e))
+        return friend.uid
+      }
+    } catch (e) {
+      this.ctx.logger.error('getUidByUin via friends failed', e)
+    }
+    // 临时会话：拉一次群列表，逐个拉成员；找到一个就返
+    try {
+      const groups = await this.ctx.ntGroupApi.getGroups(false)
+      for (const g of groups) {
+        try {
+          const member = await this.ctx.ntGroupApi.getGroupMemberByUin(g.groupCode, uin, false)
+          if (member) {
+            this.ctx.store.addUix([{
+              uid: member.uid,
+              uin: member.uin
+            }]).catch(e => this.ctx.logger.warn(e))
+            return member.uid
+          }
+        } catch { }
+      }
+    } catch (e) {
+      this.ctx.logger.error('getUidByUin via group scan failed', e)
     }
     return ''
   }
 
-  async getUserDetailInfoByUin(uin: string) {
-    return await this.ctx.pmhq.invoke('nodeIKernelProfileService/getUserDetailInfoByUin', [uin])
-  }
-
-  async getUinByUid(uid: string): Promise<string> {
-    const funcs = [
-      async () => {
-        return (await this.ctx.pmhq.invoke('nodeIKernelUixConvertService/getUin', [[uid]])).uinInfo.get(uid)
-      },
-      async () => {
-        return (await this.getUserSimpleInfo(uid)).uin
-      },
-    ]
-
-    for (const f of funcs) {
-      try {
-        const result = await f()
-        if (result) {
-          return result
-        }
-      } catch (e) {
-        this.ctx.logger.error('get uin filed', e)
+  async getUinByUid(uid: string) {
+    if (uid === selfInfo.uid && selfInfo.uin) return +selfInfo.uin
+    try {
+      const uin = await this.ctx.store.getUinByUid(uid)
+      if (uin) return uin
+    } catch (e) {
+      this.ctx.logger.error('getUinByUid via store failed', e)
+    }
+    try {
+      const user = await this.getUserByUid(uid)
+      // 输入错误的 uid 时，返回的 uin 为 0
+      if (user.uin) {
+        this.ctx.store.addUix([{
+          uid,
+          uin: user.uin
+        }]).catch(e => this.ctx.logger.warn(e))
+        return user.uin
       }
+    } catch (e) {
+      this.ctx.logger.error('getUinByUid via user failed', e)
     }
-
-    return ''
+    return 0
   }
 
-  /** 始终会从服务器拉取 */
-  async fetchUserDetailInfo(uid: string) {
-    return await this.ctx.pmhq.invoke(
-      'nodeIKernelProfileService/fetchUserDetailInfo',
-      [
-        'BuddyProfileStore', // callFrom
-        [uid],
-        UserDetailSource.KSERVER, // source
-        [ProfileBizType.KALL], //bizList
-      ],
-    )
-  }
-
-  async getUserDetailInfoWithBizInfo(uid: string) {
-    const result = await this.ctx.pmhq.invoke<UserDetailInfo>(
-      'nodeIKernelProfileService/getUserDetailInfoWithBizInfo',
-      [
-        uid,
-        [0],
-      ],
-      {
-        resultCmd: 'nodeIKernelProfileListener/onUserDetailInfoChanged',
-        resultCb: payload => payload.simpleInfo.uid === uid,
-      },
-    )
-    return result
-  }
-
-  /** 无缓存时会从服务器拉取 */
-  async getUserSimpleInfo(uid: string, force = true) {
-    const data = await this.ctx.pmhq.invoke<Map<string, SimpleInfo>>(
-      'nodeIKernelProfileService/getUserSimpleInfo',
-      [
-        force,
-        [uid],
-      ],
-      {
-        resultCmd: ReceiveCmdS.USER_INFO,
-        resultCb: payload => payload.has(uid),
-      },
-    )
-    return data.get(uid)!
-  }
-
-  /** 无缓存时会获取不到用户信息 */
-  async getCoreAndBaseInfo(uids: string[]) {
-    return await this.ctx.pmhq.invoke(
-      'nodeIKernelProfileService/getCoreAndBaseInfo',
-      [
-        'nodeStore',
-        uids,
-      ],
-    )
-  }
-
-  async getBuddyNick(uid: string) {
-    const data = await this.ctx.pmhq.invoke('nodeIKernelBuddyService/getBuddyNick', [[uid]])
-    return data.get(uid)
-  }
-
-  async getCookies(domain: string) {
-    const clientKeyData = await this.forceFetchClientKey()
-    if (clientKeyData?.result !== 0) {
-      throw new Error('获取clientKey失败')
+  async getUserByUin(uin: number) {
+    const resp = await this.ctx.qqProtocol.fetchUserInfoByUin(uin)
+    const numbers = resp.body.properties.numberProperties
+    const bytes = resp.body.properties.bytesProperties
+    const business = bytes.has(107) ? Misc.UserInfoBusiness.decode(bytes.get(107)!) : undefined
+    const vipInfo = business?.body.lists.find((e) => e.type === 1)
+    const info: User = {
+      uin: resp.body.uin,
+      nick: bytes.get(20002)?.toString() ?? '',
+      gender: numbers.get(20009) ?? 0,
+      age: numbers.get(20037) ?? 0,
+      qid: bytes.get(27394)?.toString() ?? '',
+      level: numbers.get(105) ?? 0,
+      registerTime: numbers.get(20026) ?? 0,
+      bio: bytes.get(102)?.toString() ?? '',
+      city: bytes.get(20020)?.toString() ?? '',
+      country: bytes.get(20003)?.toString() ?? '',
+      birthdayYear: bytes.has(20031) ? (bytes.get(20031)![0] << 8) | bytes.get(20031)![1] : 0,
+      birthdayMonth: bytes.get(20031)?.[2] ?? 0,
+      birthdayDay: bytes.get(20031)?.[3] ?? 0,
+      labels: bytes.has(104) ? Misc.UserInfoLabel.decode(bytes.get(104)!).labels.map(e => e.content) : [],
+      school: bytes.get(20021)?.toString() ?? '',
+      remark: bytes.get(103)?.toString() ?? '',
+      isVip: !!vipInfo,
+      isSvip: !!vipInfo?.isPro,
+      isYearsVip: !!vipInfo?.isYear,
+      vipLevel: vipInfo?.level ?? 0
     }
-    const uin = selfInfo.uin
-    const requestUrl = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + uin + '&clientkey=' + clientKeyData.clientKey + '&u1=https%3A%2F%2F' + domain + '%2F' + uin + '%2Finfocenter&keyindex=19%27'
-    const cookies: { [key: string]: string } = await HttpUtil.getCookies(requestUrl)
-    return cookies
+    return info
+  }
+
+  async getUserByUid(uid: string) {
+    const resp = await this.ctx.qqProtocol.fetchUserInfoByUid(uid)
+    const numbers = resp.body.properties.numberProperties
+    const bytes = resp.body.properties.bytesProperties
+    const business = bytes.has(107) ? Misc.UserInfoBusiness.decode(bytes.get(107)!) : undefined
+    const vipInfo = business?.body.lists.find((e) => e.type === 1)
+    const info: User = {
+      uin: resp.body.uin,
+      nick: bytes.get(20002)?.toString() ?? '',
+      gender: numbers.get(20009) ?? 0,
+      age: numbers.get(20037) ?? 0,
+      qid: bytes.get(27394)?.toString() ?? '',
+      level: numbers.get(105) ?? 0,
+      registerTime: numbers.get(20026) ?? 0,
+      bio: bytes.get(102)?.toString() ?? '',
+      city: bytes.get(20020)?.toString() ?? '',
+      country: bytes.get(20003)?.toString() ?? '',
+      birthdayYear: bytes.has(20031) ? (bytes.get(20031)![0] << 8) | bytes.get(20031)![1] : 0,
+      birthdayMonth: bytes.get(20031)?.[2] ?? 0,
+      birthdayDay: bytes.get(20031)?.[3] ?? 0,
+      labels: bytes.has(104) ? Misc.UserInfoLabel.decode(bytes.get(104)!).labels.map(e => e.content) : [],
+      school: bytes.get(20021)?.toString() ?? '',
+      remark: bytes.get(103)?.toString() ?? '',
+      isVip: !!vipInfo,
+      isSvip: !!vipInfo?.isPro,
+      isYearsVip: !!vipInfo?.isYear,
+      vipLevel: vipInfo?.level ?? 0
+    }
+    return info
   }
 
   async getPSkey(domains: string[]) {
-    return await this.ctx.pmhq.invoke('nodeIKernelTipOffService/getPskey', [
-      domains,
-      true, // isFromNewPCQQ
-    ])
+    const { psKeys } = await this.ctx.qqProtocol.fetchPSkey(domains)
+    return psKeys
   }
 
-  async like(uid: string, count = 1) {
-    return await this.ctx.pmhq.invoke(
-      'nodeIKernelProfileLikeService/setBuddyProfileLike',
-      [{
-
-        friendUid: uid,
-        sourceId: 71,
-        doLikeCount: count,
-        doLikeTollCount: 0,
-      }],
-    )
-  }
-
-  async forceFetchClientKey() {
-    return await this.ctx.pmhq.invoke('nodeIKernelTicketService/forceFetchClientKey', [''])
+  async getClientKey() {
+    const { clientKey, expiration } = await this.ctx.qqProtocol.fetchClientKey()
+    return {
+      clientKey,
+      expiration
+    }
   }
 
   async getSelfNick(refresh = true) {
-    if ((refresh || !selfInfo.nick) && selfInfo.uid) {
-      let nick = await this.getBuddyNick(selfInfo.uid)
-      if (nick === undefined) {
-        nick = (await this.getUserSimpleInfo(selfInfo.uid, refresh)).coreInfo.nick
+    if (!refresh && selfInfo.nick) return selfInfo.nick
+    let nick = ''
+    if (selfInfo.uin) {
+      try {
+        nick = (await this.getUserByUin(+selfInfo.uin)).nick
+      } catch (e) {
+        if (!selfInfo.uid) throw e
       }
-      selfInfo.nick = nick
     }
-    return selfInfo.nick
+    if (!nick && selfInfo.uid) {
+      nick = (await this.getUserByUid(selfInfo.uid)).nick
+    }
+    selfInfo.nick = nick
+    return nick
   }
 
   async setSelfStatus(status: number, extStatus: number, batteryStatus: number) {
-    return await this.ctx.pmhq.invoke('nodeIKernelMsgService/setStatus', [
-      {
-        status,
-        extStatus,
-        batteryStatus,
-      },
-    ])
+    return await this.ctx.qqProtocol.setOnlineStatus(status, extStatus, batteryStatus)
   }
 
-  async getProfileLike(uid: string, start = 0, limit = 20) {
-    return await this.ctx.pmhq.invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
-      {
-        friendUids: [uid],
-        basic: 1,
-        vote: 0,
-        favorite: 1,
-        userProfile: 1,
-        type: 3,
-        start,
-        limit,
-      },
-    ])
+  async sendProfileLike(uid: string, count = 1) {
+    return await this.ctx.qqProtocol.sendFriendLike(uid, count)
   }
 
-  async getProfileLikeMe(uid: string, start = 0, limit = 20) {
-    return await this.ctx.pmhq.invoke('nodeIKernelProfileLikeService/getBuddyProfileLike', [
-      {
-        friendUids: [uid],
-        basic: 1,
-        vote: 1,
-        favorite: 0,
-        userProfile: 1,
-        type: 2,
-        start,
-        limit,
-      },
-    ])
+  async getProfileLike(uid: string, start: number, limit: number) {
+    return await this.ctx.qqProtocol.fetchProfileLikes(uid, 0, BigInt(start), limit)
   }
 
-  async getRobotUinRange() {
-    return await this.ctx.pmhq.invoke(
-      'nodeIKernelRobotService/getRobotUinRange',
-      [
-        {
-          justFetchMsgConfig: '1',
-          type: 1,
-          version: 0,
-          aioKeywordVersion: 0,
-        },
-      ],
-    )
+  async getProfileLikeMe(uid: string, start: number, limit: number) {
+    return await this.ctx.qqProtocol.fetchProfileLikes(uid, 1, BigInt(start), limit)
   }
 
-  async quitAccount() {
-    return await this.ctx.pmhq.invoke(
-      'quitAccount',
-      [],
-    )
+  async getProfileLikeCount(uid: string) {
+    return await this.ctx.qqProtocol.fetchProfileLikeCount(uid)
   }
 
-  async modifySelfProfile(profile: MiniProfile) {
-    return await this.ctx.pmhq.invoke('nodeIKernelProfileService/modifyDesktopMiniProfile', [profile])
-  }
-
-  async getRecentContactListSnapShot(count: number) {
-    return await this.ctx.pmhq.invoke('nodeIKernelRecentContactService/getRecentContactListSnapShot', [count])
-  }
-
-  async getUserInfoCompatible(uid: string) {
-    const funcs = [
-      () => this.getUserSimpleInfo(uid, false),
-      () => this.getUserSimpleInfo(uid, true),
-      async () => (await this.fetchUserDetailInfo(uid)).detail.get(uid)?.simpleInfo,
-      async () => (await this.getUserDetailInfoWithBizInfo(uid)).simpleInfo,
-      async () => (await this.getCoreAndBaseInfo([uid])).get(uid)
-    ]
-    for (const func of funcs) {
-      try {
-        const res = await func()
-        if (res) return res
-      } catch (e) {
-
-      }
-    }
-    throw new Error(`获取用户信息失败, uid: ${uid}`)
+  async modifySelfProfile(profile: {
+    nick?: string
+    bio?: string
+    gender?: number
+    birthdayYear?: number
+    birthdayMonth?: number
+    birthdayDay?: number
+  }) {
+    return await this.ctx.qqProtocol.modifySelfProfile({
+      nick: profile.nick,
+      longNick: profile.bio,
+      sex: profile.gender,
+      birthdayYear: profile.birthdayYear,
+      birthdayMonth: profile.birthdayMonth,
+      birthdayDay: profile.birthdayDay,
+    })
   }
 }

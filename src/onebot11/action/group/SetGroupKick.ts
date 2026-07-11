@@ -17,13 +17,11 @@ export default class SetGroupKick extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    const groupCode = payload.group_id.toString()
-    const uin = payload.user_id.toString()
-    const uid = await this.ctx.ntUserApi.getUidByUin(uin, groupCode)
+    const uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id, +payload.group_id)
     if (!uid) throw new Error('无法获取用户信息')
-    const res = await this.ctx.ntGroupApi.kickMember(groupCode, [uid], payload.reject_add_request)
-    if (res.errCode !== 0) {
-      throw new Error(res.errMsg)
+    const res = await this.ctx.ntGroupApi.kickGroupMember(+payload.group_id, [uid], payload.reject_add_request)
+    if (res.errorCode !== 0) {
+      throw new Error(res.errorMsg)
     }
     return null
   }

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Loader2, Trash2 } from 'lucide-react'
-import { ntCall } from '../../../utils/webqqApi'
+import { fetchFavEmojiList, deleteFavEmoji as apiDeleteFavEmoji } from '../../../utils/webqqApi'
+import { getCurrentUin } from '../../../utils/currentUin'
 import { showToast } from '../../common'
 
 export interface FavEmoji {
@@ -19,12 +20,17 @@ export const clearFavEmojiCache = () => {
   cachedEmojis = null
 }
 
-const RECENT_FAV_EMOJI_KEY = 'webqq_recent_fav_emojis'
+const RECENT_FAV_EMOJI_BASE_KEY = 'webqq_recent_fav_emojis'
 const MAX_RECENT = 10
+
+function getRecentFavEmojiKey() {
+  const uin = getCurrentUin()
+  return uin ? `${uin}-${RECENT_FAV_EMOJI_BASE_KEY}` : RECENT_FAV_EMOJI_BASE_KEY
+}
 
 function getRecentFavEmojis(): FavEmoji[] {
   try {
-    const stored = localStorage.getItem(RECENT_FAV_EMOJI_KEY)
+    const stored = localStorage.getItem(getRecentFavEmojiKey())
     return stored ? JSON.parse(stored) : []
   } catch {
     return []
@@ -34,12 +40,12 @@ function getRecentFavEmojis(): FavEmoji[] {
 function addRecentFavEmoji(emoji: FavEmoji) {
   const recent = getRecentFavEmojis().filter(e => e.emoId !== emoji.emoId)
   recent.unshift(emoji)
-  localStorage.setItem(RECENT_FAV_EMOJI_KEY, JSON.stringify(recent.slice(0, MAX_RECENT)))
+  localStorage.setItem(getRecentFavEmojiKey(), JSON.stringify(recent.slice(0, MAX_RECENT)))
 }
 
 function removeRecentFavEmoji(emoId: number) {
   const recent = getRecentFavEmojis().filter(e => e.emoId !== emoId)
-  localStorage.setItem(RECENT_FAV_EMOJI_KEY, JSON.stringify(recent))
+  localStorage.setItem(getRecentFavEmojiKey(), JSON.stringify(recent))
 }
 
 // 表情右键菜单
@@ -109,9 +115,8 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
 
     const loadEmojis = async () => {
       try {
-        const result = await ntCall<{ emojiInfoList: any[] }>('ntMsgApi', 'fetchFavEmojiList', [1000])
-        const list = result.emojiInfoList || []
-        const emojiList = list.map(item => ({
+        const list = await fetchFavEmojiList()
+        const emojiList = list.map((item: any) => ({
           emoId: item.emoId,
           resId: item.resId || '',
           url: item.url,
@@ -162,7 +167,7 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
     setContextMenu(null)
 
     try {
-      const result = await ntCall<{ result: number; errMsg: string }>('ntMsgApi', 'deleteFavEmoji', [[emoji.resId]])
+      const result = await apiDeleteFavEmoji(emoji.resId)
       if (result.result === 0) {
         showToast('已删除', 'success')
         // 更新列表

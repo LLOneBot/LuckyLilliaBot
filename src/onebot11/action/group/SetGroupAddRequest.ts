@@ -1,7 +1,7 @@
 import { BaseAction, Schema } from '../BaseAction'
-import { GroupRequestOperateTypes } from '@/ntqqapi/types'
 import { ActionName } from '../types'
 import { isNumeric, parseBool } from '@/common/utils/misc'
+import { decodeGroupRequestFlag } from '@/onebot11/utils'
 
 interface Payload {
   flag: string
@@ -20,25 +20,38 @@ export default class SetGroupAddRequest extends BaseAction<Payload, null> {
   protected async _handle(payload: Payload) {
     let flag = payload.flag
     if (isNumeric(flag)) {
-      const res = await this.ctx.ntGroupApi.getGroupRequest()
-      const normalEnd = res.normalCount - 1
-      for (const [i, v] of res.notifies.entries()) {
-        if (flag === v.seq) {
-          flag = `${v.group.groupCode}|${v.seq}|${v.type}|${i > normalEnd ? '1' : '0'}`
+      const seq = +flag
+      const res = await this.ctx.ntGroupApi.getGroupNotifications(false, 50)
+      for (const v of res.notifications) {
+        if (seq === v.sequence) {
+          flag = `${v.group.groupCode}|${v.sequence}|${v.type}|0`
           break
         }
       }
       if (flag === payload.flag) {
-        throw new Error('flag 不存在')
+        const res = await this.ctx.ntGroupApi.getGroupNotifications(true, 50)
+        for (const v of res.notifications) {
+          if (seq === v.sequence) {
+            flag = `${v.group.groupCode}|${v.sequence}|${v.type}|1`
+            break
+          }
+        }
+        if (flag === payload.flag) {
+          throw new Error('flag 不存在')
+        }
       }
     }
-    const res = await this.ctx.ntGroupApi.handleGroupRequest(
-      flag,
-      payload.approve ? GroupRequestOperateTypes.Approve : GroupRequestOperateTypes.Reject,
+    const decoded = decodeGroupRequestFlag(flag)
+    const res = await this.ctx.ntGroupApi.setGroupRequest(
+      decoded.doubt,
+      decoded.groupCode,
+      decoded.seq,
+      decoded.type,
+      payload.approve,
       payload.reason
     )
-    if (res.result !== 0) {
-      throw new Error(res.errMsg)
+    if (res.errorCode !== 0) {
+      throw new Error(res.errorMsg)
     }
     return null
   }

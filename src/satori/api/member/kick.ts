@@ -8,11 +8,15 @@ interface Payload {
 }
 
 export const kickGuildMember: Handler<Dict<never>, Payload> = async (ctx, payload) => {
-  const uid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.guild_id)
+  const uid = await ctx.ntUserApi.getUidByUin(+payload.user_id, +payload.guild_id)
   if (!uid) throw new Error('无法获取用户信息')
-  const res = await ctx.ntGroupApi.kickMember(payload.guild_id, [uid], Boolean(payload.permanent))
-  if (res.errCode !== 0) {
-    throw new Error(res.errMsg)
+  const result = await ctx.ntGroupApi.kickGroupMember(
+    +payload.guild_id,
+    [uid],
+    Boolean(payload.permanent)
+  )
+  if (result.errorCode !== 0) {
+    throw new Error(result.errorMsg)
   }
   return {}
 }

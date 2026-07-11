@@ -12,7 +12,10 @@ export class SendGroupSign extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    await this.ctx.pmhq.groupClockIn(String(payload.group_id))
+    const result = await this.ctx.ntGroupApi.groupClockIn(+payload.group_id)
+    if (result.errorCode !== 0) {
+      throw new Error(result.errorMsg)
+    }
     return null
   }
 }

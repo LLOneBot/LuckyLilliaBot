@@ -29,20 +29,26 @@ export class GetEssenceMsgList extends BaseAction<Payload, EssenceMsg[]> {
       chatType: ChatType.Group,
       peerUid: groupCode
     }
-    const essence = await this.ctx.ntGroupApi.queryCachedEssenceMsg(groupCode)
+    const result = await this.ctx.ntWebApi.getGroupEssenceList(+payload.group_id)
+    if (result.retcode !== 0) {
+      throw new Error(result.retmsg)
+    }
     const data: EssenceMsg[] = []
-    for (const item of essence.items) {
-      const { msgList } = await this.ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, String(item.msgSeq), '0', [await this.ctx.ntUserApi.getUidByUin(item.msgSenderUin, groupCode)])
-      const sourceMsg = msgList.find(e => e.msgRandom === String(item.msgRandom))
-      if (!sourceMsg) continue
+    for (const item of result.data.msg_list) {
+      let msg = this.ctx.store.getMsgBySeq(peer.peerUid, item.msg_seq)
+      if (!msg) {
+        const { msgList } = await this.ctx.ntMsgApi.getSingleMsg(peer, item.msg_seq)
+        msg = msgList[0]
+      }
+      if (!msg) continue
       data.push({
-        sender_id: +item.msgSenderUin,
-        sender_nick: item.msgSenderNick,
-        sender_time: +sourceMsg.msgTime,
-        operator_id: +item.opUin,
-        operator_nick: item.opNick,
-        operator_time: item.opTime,
-        message_id: this.ctx.store.createMsgShortId(sourceMsg)
+        sender_id: +item.sender_uin,
+        sender_nick: item.sender_nick,
+        sender_time: +msg.msgTime,
+        operator_id: +item.add_digest_uin,
+        operator_nick: item.add_digest_nick,
+        operator_time: item.add_digest_time,
+        message_id: this.ctx.store.createMsgShortId(msg)
       })
     }
     return data

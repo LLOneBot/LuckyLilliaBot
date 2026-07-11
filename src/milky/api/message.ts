@@ -17,7 +17,7 @@ import {
   MarkMessageAsReadInput,
   GetForwardedMessagesInput,
   GetForwardedMessagesOutput,
-} from '@saltify/milky-types'
+} from '../generated/schema'
 import z from 'zod'
 import { ChatType, IMAGE_HTTP_HOST_NT, RawMessage } from '@/ntqqapi/types'
 import { Media } from '@/ntqqapi/proto'
@@ -27,23 +27,21 @@ const SendPrivateMessage = defineApi(
   SendPrivateMessageInput,
   SendPrivateMessageOutput,
   async (ctx, payload) => {
-    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id)
     if (!uid) {
       return Failed(-404, 'User not found')
     }
     const peer = { chatType: 1, peerUid: uid, guildId: '' }
     const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
-      const result = await ctx.ntMsgApi.getTempChatInfo(100, uid)
-      if (result.tmpChatInfo.groupCode) {
-        peer.chatType = 100
-      }
+      peer.chatType = 100
     }
 
     const { elements, deleteAfterSentFiles } = await transformOutgoingMessage(
       ctx,
       payload.message,
       uid,
+      false,
       false
     )
     const result = await ctx.app.sendMessage(
@@ -72,7 +70,8 @@ const SendGroupMessage = defineApi(
       ctx,
       payload.message,
       groupCode,
-      true
+      true,
+      false
     )
     const result = await ctx.app.sendMessage(
       ctx,
@@ -93,32 +92,26 @@ const RecallPrivateMessage = defineApi(
   RecallPrivateMessageInput,
   z.object({}),
   async (ctx, payload) => {
-    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id)
     if (!uid) {
       return Failed(-404, 'User not found')
     }
-    const peer = { chatType: 1, peerUid: uid, guildId: '' }
+    const peer = {
+      chatType: ChatType.C2C,
+      peerUid: uid,
+      guildId: ''
+    }
     const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
-      const result = await ctx.ntMsgApi.getTempChatInfo(100, uid)
-      if (result.tmpChatInfo.groupCode) {
-        peer.chatType = 100
-      }
+      peer.chatType = ChatType.TempC2CFromGroup
     }
-    const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
-      peer,
-      payload.message_seq.toString(),
-      1,
-      true,
-      true
-    )
-    if (msg.msgList.length === 0) {
-      return Failed(-404, 'Message not found')
+    let msg = ctx.store.getMsgBySeq(peer.peerUid, payload.message_seq)
+    if (!msg) {
+      // 从服务器拉取的消息可以用
+      const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq)
+      msg = msgList[0]
     }
-    const result = await ctx.ntMsgApi.recallMsg(peer, [msg.msgList[0].msgId])
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
-    }
+    await ctx.ntMsgApi.recallMsg(peer, msg.msgSeq, msg.clientSeq, msg.msgRandom, +msg.msgTime)
     return Ok({})
   }
 )
@@ -128,21 +121,12 @@ const RecallGroupMessage = defineApi(
   RecallGroupMessageInput,
   z.object({}),
   async (ctx, payload) => {
-    const peer = { chatType: 2, peerUid: payload.group_id.toString(), guildId: '' } // ChatType.Group = 2
-    const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
-      peer,
-      payload.message_seq.toString(),
-      1,
-      true,
-      true
-    )
-    if (msg.msgList.length === 0) {
-      return Failed(-404, 'Message not found')
+    const peer = {
+      chatType: ChatType.Group,
+      peerUid: payload.group_id.toString(),
+      guildId: ''
     }
-    const result = await ctx.ntMsgApi.recallMsg(peer, [msg.msgList[0].msgId])
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
-    }
+    await ctx.ntMsgApi.recallMsg(peer, payload.message_seq)
     return Ok({})
   }
 )
@@ -162,14 +146,14 @@ const GetMessage = defineApi(
       guildId: ''
     }
     if (peer.chatType === ChatType.C2C || peer.chatType === ChatType.TempC2CFromGroup) {
-      const uid = await ctx.ntUserApi.getUidByUin(peer.peerUid)
+      const uid = await ctx.ntUserApi.getUidByUin(+peer.peerUid)
       if (!uid) {
         return Failed(-404, 'User not found')
       }
       peer.peerUid = uid
     }
 
-    const msgResult = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq.toString())
+    const msgResult = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq)
     if (msgResult.msgList.length === 0) {
       return Failed(-404, 'Message not found')
     }
@@ -177,16 +161,14 @@ const GetMessage = defineApi(
 
     let message
     if (payload.message_scene === 'friend') {
-      const friend = await ctx.ntUserApi.getUserSimpleInfo(rawMsg.senderUid)
-      const category = await ctx.ntFriendApi.getCategoryById(friend.baseInfo.categoryId)
-      message = await transformIncomingPrivateMessage(ctx, friend, category, rawMsg)
+      const friend = await ctx.ntFriendApi.getFriendByUid(rawMsg.senderUid, false)
+      message = await transformIncomingPrivateMessage(ctx, friend!, rawMsg)
     } else if (payload.message_scene === 'group') {
-      const group = await ctx.ntGroupApi.getGroupDetailInfo(rawMsg.peerUid)
-      const member = await ctx.ntGroupApi.getGroupMember(rawMsg.peerUin, rawMsg.senderUid)
-      message = await transformIncomingGroupMessage(ctx, group, member, rawMsg)
+      const group = await ctx.ntGroupApi.getGroup(+rawMsg.peerUid, false)
+      const member = await ctx.ntGroupApi.getGroupMemberByUid(+rawMsg.peerUin, rawMsg.senderUid, false)
+      message = await transformIncomingGroupMessage(ctx, group, member!, rawMsg)
     } else {
-      const { tmpChatInfo } = await ctx.ntMsgApi.getTempChatInfo(100, rawMsg.peerUid)
-      const group = await ctx.ntGroupApi.getGroupDetailInfo(tmpChatInfo.groupCode)
+      const group = await ctx.ntGroupApi.getGroup(rawMsg.tempFromGroupCode, false)
       message = await transformIncomingTempMessage(ctx, group, rawMsg)
     }
     if (message.segments.length === 0) {
@@ -211,7 +193,7 @@ const GetHistoryMessages = defineApi(
       guildId: ''
     }
     if (peer.chatType === 1 || peer.chatType === 100) {
-      const uid = await ctx.ntUserApi.getUidByUin(peer.peerUid)
+      const uid = await ctx.ntUserApi.getUidByUin(+peer.peerUid)
       if (!uid) {
         return Failed(-404, 'User not found')
       }
@@ -220,17 +202,14 @@ const GetHistoryMessages = defineApi(
 
     let msgList: RawMessage[]
     if (!payload.start_message_seq) {
-      msgList = (await ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, payload.limit)).msgList
+      // 没传起点：用 getLatestMsgSeq 拿当前最新 seq，再倒拉 N 条
+      const latestSeq = await ctx.ntMsgApi.getLatestMsgSeq(peer)
+      msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, latestSeq, payload.limit, false)).msgList
     } else {
-      msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, payload.start_message_seq.toString(), payload.limit, true, true)).msgList
+      msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, payload.start_message_seq, payload.limit, true)).msgList
     }
 
-    const filteredMsgList = msgList.filter(msg => {
-      if (!msg.senderUid) return false
-      if (msg.elements[0].grayTipElement?.subElementType === 1) return false
-      return true
-    })
-    if (filteredMsgList.length === 0) {
+    if (msgList.length === 0) {
       return Ok({
         messages: [],
         next_message_seq: undefined,
@@ -239,21 +218,20 @@ const GetHistoryMessages = defineApi(
 
     const transformedMessages: GetHistoryMessagesOutput['messages'] = []
     if (payload.message_scene === 'friend') {
-      const friend = await ctx.ntUserApi.getUserSimpleInfo(filteredMsgList[0].peerUid)
-      const category = await ctx.ntFriendApi.getCategoryById(friend.baseInfo.categoryId)
-      for (const msg of filteredMsgList) {
-        transformedMessages.push(await transformIncomingPrivateMessage(ctx, friend, category, msg))
+      const friend = await ctx.ntFriendApi.getFriendByUid(msgList[0].peerUid, false)
+      for (const msg of msgList) {
+        transformedMessages.push(await transformIncomingPrivateMessage(ctx, friend!, msg))
       }
     } else if (payload.message_scene === 'group') {
-      const group = await ctx.ntGroupApi.getGroupDetailInfo(payload.peer_id.toString())
-      for (const msg of filteredMsgList) {
-        const member = await ctx.ntGroupApi.getGroupMember(msg.peerUid, msg.senderUid)
-        transformedMessages.push(await transformIncomingGroupMessage(ctx, group, member, msg))
+      const group = await ctx.ntGroupApi.getGroup(payload.peer_id, false)
+      for (const msg of msgList) {
+        const member = await ctx.ntGroupApi.getGroupMemberByUid(+msg.peerUid, msg.senderUid, false)
+        transformedMessages.push(await transformIncomingGroupMessage(ctx, group, member!, msg))
       }
     } else {
-      const { tmpChatInfo } = await ctx.ntMsgApi.getTempChatInfo(100, filteredMsgList[0].peerUid)
-      const group = await ctx.ntGroupApi.getGroupDetailInfo(tmpChatInfo.groupCode)
-      for (const msg of filteredMsgList) {
+      let group
+      for (const msg of msgList) {
+        group ??= await ctx.ntGroupApi.getGroup(msg.tempFromGroupCode, false)
         transformedMessages.push(await transformIncomingTempMessage(ctx, group, msg))
       }
     }
@@ -305,10 +283,10 @@ const GetForwardedMessages = defineApi(
   GetForwardedMessagesInput,
   GetForwardedMessagesOutput,
   async (ctx, payload) => {
-    const result = await ctx.pmhq.getMultiMsg(payload.forward_id)
+    const result = await ctx.ntMsgApi.getForwardedMsgs(payload.forward_id)
     return Ok({
       messages: await Promise.all(
-        result[0].buffer.msg.map(async e => await transformIncomingForwardedMessage(ctx, e))
+        result.msgList.map(e => transformIncomingForwardedMessage(ctx, e))
       )
     })
   }
@@ -329,15 +307,15 @@ const MarkMessageAsRead = defineApi(
       guildId: ''
     }
     if (peer.chatType === 1 || peer.chatType === 100) {
-      const uid = await ctx.ntUserApi.getUidByUin(peer.peerUid)
+      const uid = await ctx.ntUserApi.getUidByUin(+peer.peerUid)
       if (!uid) {
         return Failed(-404, 'User not found')
       }
       peer.peerUid = uid
     }
-    const result = await ctx.ntMsgApi.setMsgRead(peer)
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    const result = await ctx.ntMsgApi.setMsgRead(peer, payload.message_seq)
+    if (result.retCode !== 0) {
+      return Failed(-500, result.retMsg)
     }
     return Ok({})
   }

@@ -101,6 +101,7 @@ import { ReShareFlashFile } from '@/onebot11/action/llbot/file/ReShareFlashFile'
 import { GetQQAvatar } from '@/onebot11/action/llbot/user/GetQQAvatar'
 import { DownloadFlashFile } from '@/onebot11/action/llbot/file/DownloadFlashFile'
 import { GetFlashFileInfo } from '@/onebot11/action/llbot/file/GetFlashFileInfo'
+import { GetFlashFileDownloadUrls } from '@/onebot11/action/llbot/file/GetFlashFileDownloadUrls'
 import { GetRecommendFace } from './llbot/msg/GetRecommendFace'
 import { BatchDeleteGroupMember } from '@/onebot11/action/llbot/group/BatchDeleteGroupMember'
 import { GetAiCharacters } from './llbot/msg/GetAiCharacters'
@@ -118,6 +119,8 @@ import { ScanQRCode } from '@/onebot11/action/llbot/system/ScanQRCode'
 import { SendPoke } from './llbot/msg/SendPoke'
 import { SetInputStatus } from './llbot/user/SetInputStatus'
 import { GetGroupAlbumMediaList } from './llbot/group/GroupAlbum/GetGroupAlbumMediaList'
+import { GetGroupSignedList } from './llbot/group/GetGroupSignedList'
+import { GetProfileLikeCount } from './llbot/user/GetProfileLikeCount'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -131,6 +134,7 @@ export function initActionMap(adapter: Adapter) {
     new BatchDeleteGroupMember(adapter),
     new GetFlashFileInfo(adapter),
     new DownloadFlashFile(adapter),
+    new GetFlashFileDownloadUrls(adapter),
     new UploadFlashFile(adapter),
     new ReShareFlashFile(adapter),
     new GetRKey(adapter),
@@ -174,6 +178,8 @@ export function initActionMap(adapter: Adapter) {
     new SendPoke(adapter),
     new SetInputStatus(adapter),
     new GetGroupAlbumMediaList(adapter),
+    new GetGroupSignedList(adapter),
+    new GetProfileLikeCount(adapter),
     // onebot11
     new SendLike(adapter),
     new GetMsg(adapter),

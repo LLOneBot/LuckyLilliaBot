@@ -1,6 +1,5 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
-import { GroupFileInfo } from '@/ntqqapi/types'
 
 export interface Payload {
   group_id: number | string
@@ -20,54 +19,19 @@ export class GetGroupFileUrl extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload) {
+    const result = await this.ctx.ntFileApi.getFileUrl(
+      payload.file_id,
+      true,
+      +payload.group_id
+    )
+    if (result.retCode !== 0) {
+      throw new Error(result.retMsg)
+    }
     const file = await this.ctx.store.getFileCacheById(payload.file_id)
-    const { clientWording, url } = await this.ctx.pmhq.getGroupFileUrl(+payload.group_id, payload.file_id)
-    if (clientWording) {
-      throw new Error(clientWording)
-    }
     if (file.length > 0) {
-      return { url: url + encodeURIComponent(file[0].fileName) }
+      return { url: result.url + encodeURIComponent(file[0].fileName) }
     } else {
-      const groupId = payload.group_id.toString()
-      const fileName = await this.search(groupId, payload.file_id)
-      if (fileName) {
-        return { url: url + encodeURIComponent(fileName) }
-      } else {
-        return { url }
-      }
+      return { url: result.url }
     }
-  }
-
-  private async search(groupId: string, fileId: string, folderId?: string) {
-    let fileName: string | undefined
-    let nextIndex: number | undefined
-    const folders: GroupFileInfo['item'] = []
-    while (nextIndex !== 0) {
-      const res = await this.ctx.ntGroupApi.getGroupFileList(groupId, {
-        sortType: 1,
-        fileCount: 100,
-        startIndex: nextIndex ?? 0,
-        sortOrder: 2,
-        showOnlinedocFolder: 0,
-        folderId
-      })
-      const file = res.item.find(item => item.fileInfo?.fileId === fileId)
-      if (file) {
-        fileName = file.fileInfo?.fileName
-        break
-      }
-      folders.push(...res.item.filter(item => item.folderInfo?.totalFileCount))
-      nextIndex = res.nextIndex
-    }
-    if (!fileName) {
-      for (const item of folders) {
-        const res = await this.search(groupId, fileId, item.folderInfo?.folderId)
-        if (res) {
-          fileName = res
-          break
-        }
-      }
-    }
-    return fileName
   }
 }

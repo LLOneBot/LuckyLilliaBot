@@ -1,6 +1,4 @@
 import path from 'node:path'
-import { writeFile } from 'node:fs/promises'
-import QRCode from 'qrcode'
 
 // fluent-ffmpeg 需要用到这个
 globalThis.__dirname = import.meta.dirname
@@ -9,40 +7,51 @@ import Core from '../ntqqapi/core'
 import OneBot11Adapter from '../onebot11/adapter'
 import SatoriAdapter from '../satori/adapter'
 import MilkyAdapter from '../milky/adapter'
-import Database from 'minato'
-import SQLiteDriver from '@minatojs/driver-sqlite'
+import Database from '@cordisjs/plugin-database'
+import SQLiteDriver from '@cordisjs/plugin-database-sqlite'
 import Store from './store'
 import { Config as LLBotConfig } from '../common/types'
 import { Context } from 'cordis'
 import { selfInfo, LOG_DIR, TEMP_DIR, dbDir } from '../common/globalVars'
 import {
-  NTQQFileApi,
-  NTQQFriendApi,
-  NTQQGroupApi,
+  NTFileApi,
+  NTFriendApi,
+  NTGroupApi,
   NTLoginApi,
-  NTQQMsgApi,
-  NTQQUserApi,
-  NTQQWebApi,
-  NTQQSystemApi,
+  NTMsgApi,
+  NTUserApi,
+  NTWebApi,
+  NTSystemApi,
 } from '../ntqqapi/api'
 import { existsSync, mkdirSync } from 'node:fs'
 import { version } from '../version'
 import { WebuiServer } from '../webui/BE/server'
-import { sleep } from '@/common/utils'
 import EmailNotificationService from '@/common/emailNotification'
 import { EmailConfig } from '@/common/emailConfig'
-import { isDockerEnvironment } from '@/common/utils/environment'
+import { isPmhqMode } from '@/common/utils/environment'
+import { setConfigLogLevel, isDebugEnabled, bindLoggerFactory, getLogger } from '@/common/logger'
 import { pathToFileURL } from 'node:url'
-import { PMHQ } from './pmhq'
-import LoggerService from '@cordisjs/plugin-logger'
+import { DirectQQProtocolClient, PmhqQQProtocolClient } from './qqProtocol'
+import LoggerConsole from '@cordisjs/plugin-logger-console'
 import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
+import { startIpcServer, setLoginState } from './llbot-ipc'
 
 declare module 'cordis' {
   interface Events {
     'llob/config-updated': (input: LLBotConfig) => void
     'llbot/email-config-updated': (input: EmailConfig) => void
   }
+}
+
+// 按当前 debug 状态 (--debug 或 config logLevel) 调整所有 logger exporter 的显示阈值:
+// DEBUG(3) 才显示底层详情日志, 否则 WARN(2). config 热更新时重调.
+function applyDebugLevel(ctx: Context): void {
+  const level = isDebugEnabled() ? 3 : 2
+  const svc = ctx.logger as unknown as { exporters?: Map<number, { levels?: Record<string, number> }> }
+  svc.exporters?.forEach((exp) => {
+    exp.levels = { ...(exp.levels ?? {}), default: level }
+  })
 }
 
 async function onLoad() {
@@ -56,27 +65,40 @@ async function onLoad() {
 
   const ctx = new Context()
 
-  ctx.plugin(LoggerService, {
-    bufferSize: 0
+  ctx.plugin(Log)
+  ctx.plugin(LoggerConsole, {
+    // 2 = WARN(含 error/info/warn), 3 = DEBUG. --debug 启动即抬到 DEBUG; 配置文件 logLevel
+    // 触发的运行时切换由 applyDebugLevel() 直接改各 exporter 的 levels.
+    levels: {
+      default: isDebugEnabled() ? 3 : 2
+    }
   })
+  // 让无 ctx 的底层模块 (client/sign/connection 等) 经 getLogger 也走统一 cordis logger
+  bindLoggerFactory((name) => ctx.logger(name))
   ctx.plugin(TimerService)
   ctx.plugin(ConfigService)
-  ctx.plugin(PMHQ)
-  ctx.plugin(NTQQFileApi)
-  ctx.plugin(NTQQFriendApi)
-  ctx.plugin(NTQQGroupApi)
+  // 模式二选一: PMHQ 走 WS/HTTP, Direct 走 native sign + TCP + WebUI 扫码.
+  // 之后 ctx.qqProtocol 就是选中的实现, 上层代码不感知模式.
+  ctx.plugin(isPmhqMode() ? PmhqQQProtocolClient : DirectQQProtocolClient)
+  ctx.plugin(NTFileApi)
+  ctx.plugin(NTFriendApi)
+  ctx.plugin(NTGroupApi)
   ctx.plugin(NTLoginApi)
-  ctx.plugin(NTQQMsgApi)
-  ctx.plugin(NTQQUserApi)
-  ctx.plugin(NTQQWebApi)
-  ctx.plugin(NTQQSystemApi)
+  ctx.plugin(NTMsgApi)
+  ctx.plugin(NTUserApi)
+  ctx.plugin(NTWebApi)
+  ctx.plugin(NTSystemApi)
 
   let config: LLBotConfig
+  // 上层会话插件只加载一次，重连后不重新加载（断线时上层服务希望透明渡过短时断网）
+  let sessionLoaded = false
 
   const loadPluginAfterLogin = () => {
+    if (sessionLoaded) return
+    sessionLoaded = true
     ctx.plugin(Database)
     ctx.plugin(SQLiteDriver, {
-      path: pathToFileURL(path.join(dbDir, `${selfInfo.uin}.v2.db`)).href,
+      path: pathToFileURL(path.join(dbDir, `${selfInfo.uin}.v3.db`)).href,
     })
     ctx.plugin(Core, config)
     ctx.plugin(OneBot11Adapter, {
@@ -96,98 +118,64 @@ async function onLoad() {
     ctx.plugin(EmailNotificationService)
   }
 
-  const isDocker = isDockerEnvironment()
-  let lastQrCodeTime = 0
-
-  const printLoginQrCode = async () => {
-    try {
-      const data = await ctx.ntLoginApi.getLoginQrCode()
-
-      const qrText = await QRCode.toString(data.qrcodeUrl, { type: 'terminal', small: true })
-      console.log('\n========== 请使用手机QQ扫描二维码登录 ==========')
-      console.log(qrText)
-      console.log('================================================\n')
-
-      const base64Data = data.pngBase64QrcodeData.replace(/^data:image\/png;base64,/, '')
-      const qrFilePath = path.join(TEMP_DIR, 'login-qrcode.png')
-      if (!existsSync(TEMP_DIR)) {
-        mkdirSync(TEMP_DIR, { recursive: true })
-      }
-      await writeFile(qrFilePath, Buffer.from(base64Data, 'base64'))
-      ctx.logger.info(`二维码文件已保存: ${qrFilePath}`)
-
-      const qrWebUrl = `https://api.2dcode.biz/v1/create-qr-code?data=${encodeURIComponent(data.qrcodeUrl)}`
-      ctx.logger.info(`或浏览器打开二维码网址: ${qrWebUrl}`)
-    } catch (e) {
-      ctx.logger.warn('获取登录二维码失败', e)
-    }
-  }
-
-  const checkLogin = async () => {
-    let pmhqSelfInfo = { ...selfInfo }
-    try {
-      pmhqSelfInfo = await ctx.pmhq.call('getSelfInfo', [])
-    } catch (e) {
-      ctx.logger.info('获取账号信息状态失败', e)
-      setTimeout(checkLogin, 1000)
-      return
-    }
-    if (!pmhqSelfInfo.online) {
-      const now = Date.now()
-      if (isDocker && now - lastQrCodeTime > 120_000) {
-        lastQrCodeTime = now
-        printLoginQrCode()
-      }
-      setTimeout(checkLogin, 1000)
-      return
-    }
-    selfInfo.uin = pmhqSelfInfo.uin
-    selfInfo.uid = pmhqSelfInfo.uid
-    selfInfo.nick = pmhqSelfInfo.nick
-    if (!selfInfo.uin) {
-      for (let i = 0; i < 5; i++) {
-        try {
-          selfInfo.uin = await ctx.ntUserApi.getUinByUid(selfInfo.uid)
-          break
-        } catch (e) {
-          await sleep(1000)
-        }
-      }
-    }
-    selfInfo.online = true
-    if (!selfInfo.nick) {
-      await ctx.ntUserApi.getSelfNick(true).catch(e => {
-        ctx.logger.warn('获取登录号昵称失败', e)
-      })
-    }
-    config = ctx.config.get(false)
-    ctx.config.listenChange(c => {
-      ctx.parallel('llob/config-updated', c)
-    })
-    ctx.parallel('llob/config-updated', config)
-    loadPluginAfterLogin()
-  }
-
-  ctx.inject(['logger'], (ctx) => {
-    ctx.logger.exporter(new Log(ctx, true))
+  ctx.inject(['qqProtocol', 'config'], (ctx) => {
     ctx.logger.info(`LLBot ${version}`)
     ctx.logger.info(process.argv)
-  })
-  // setFFMpegPath(config.ffmpeg || '')
-  ctx.inject(['pmhq', 'config', 'logger'], (ctx) => {
     config = ctx.config.get()
-    config.milky.enable = false
-    config.satori.enable = false
-    config.ob11.enable = false
+    setConfigLogLevel(config.logLevel)
+    applyDebugLevel(ctx)
+    ctx.on('llob/config-updated', c => { setConfigLogLevel(c.logLevel); applyDebugLevel(ctx) })
     ctx.plugin(WebuiServer, config.webui)
-    checkLogin()
-    ctx.pmhq.startHook()
+
+    const handleOnline = async () => {
+      console.log(`
+  _                _            _     _ _ _ _
+ | |    _   _  ___| | ___   _  | |   (_) | (_) __ _
+ | |   | | | |/ __| |/ / | | | | |   | | | | |/ _\` |
+ | |___| |_| | (__|   <| |_| | | |___| | | | | (_| |
+ |_____|\\__,_|\\___|_|\\_\\\\__, | |_____|_|_|_|_|\\__,_|
+                        |___/
+                                        UIN: ${selfInfo.uin}
+`)
+      setLoginState({ state: 'logged_in', uin: selfInfo.uin, nickname: selfInfo.nick })
+      if (!sessionLoaded) {
+        config = ctx.config.get(false)
+        ctx.config.listenChange(c => {
+          ctx.parallel('llob/config-updated', c)
+        })
+        ctx.parallel('llob/config-updated', config)
+      }
+      loadPluginAfterLogin()
+    }
+    ctx.on('qq/online', handleOnline)
+    // 协议层可能在 inject callback 之前就 emit 过 qq/online，那一次 emit 会丢，得 catch up 一下
+    if (selfInfo.online && selfInfo.uid) {
+      handleOnline()
+    }
+
+    ctx.on('llbot/self-nick-changed', (info) => {
+      setLoginState({ nickname: info.nick })
+    })
+
+    ctx.on('protocol/disconnect', () => {
+      ctx.logger.info('协议层断开，等待重连…')
+    })
+
+    // 两种模式都启动 IPC server: Desktop 统一通过 IPC 拿 uin/昵称
+    startIpcServer()
+    setLoginState({ state: 'initializing' })
+    // 具体登录流程 (PMHQ 探测 / Direct 扫码 loop) 都在 impl 的 Service.init 里跑, main.ts 不管
+  })
+
+  // 全局兜底：单个 orphaned rejection / 未捕获异常不该拖垮整个 bot 进程。
+  // 典型来源见 ntMsgApi.sendMsg：群发失败提前 throw 后，echoP 的 7s timer 仍会 reject。
+  // 这里只 log 不退出（保 bot 存活）；若想让 docker 拉起干净进程可改成 process.exit(1)。
+  process.on('unhandledRejection', (reason) => {
+    ctx.logger.error('[unhandledRejection]', reason)
+  })
+  process.on('uncaughtException', (err) => {
+    ctx.logger.error('[uncaughtException]', err)
   })
 }
 
-
-try {
-  onLoad().then().catch(e => console.log(e))
-} catch (e) {
-  console.error(e)
-}
+onLoad().catch(e => getLogger('main').error(e))

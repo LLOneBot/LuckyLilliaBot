@@ -1,6 +1,5 @@
 import { BaseAction, Schema } from '../../../BaseAction'
 import { ActionName } from '../../../types'
-import { pick } from 'cosmokit'
 
 interface Payload {
   group_id: number | string
@@ -17,14 +16,55 @@ export class GetGroupAlbumMediaList extends BaseAction<Payload, unknown> {
   })
 
   protected async _handle(payload: Payload) {
-    const res = await this.ctx.ntGroupApi.getGroupAlbumMediaList(
-      payload.group_id.toString(),
-      payload.album_id,
-      payload.attach_info
+    const result = await this.ctx.ntGroupApi.getGroupAlbumMediaList(
+      +payload.group_id,
+      payload.album_id
     )
-    if (res.response.result !== 0) {
-      throw new Error(res.response.errMs)
+    if (result.retCode !== 0) {
+      throw new Error(result.retMsg)
     }
-    return pick(res.response, ['album', 'media_list', 'next_attach_info', 'next_has_more'])
+    const album = result.body?.album
+    const mediaList = result.body?.mediaList ?? []
+    return {
+      album: album ? {
+        album_id: album.albumId,
+        owner: album.owner,
+        name: album.name,
+        desc: album.desc,
+        create_time: String(album.createTime),
+        modify_time: String(album.modifyTime),
+        last_upload_time: String(album.lastUploadTime),
+        upload_number: String(album.uploadNumber),
+        creator: {
+          nick: album.creator?.nick ?? '',
+          uin: album.creator?.uin ?? ''
+        },
+      } : null,
+      media_list: mediaList.map((m) => ({
+        type: m.type,
+        image: m.image ? {
+          lloc: m.image.lloc,
+          photo_url: m.image.photoUrls.map((p) => ({
+            spec: p.spec,
+            url: {
+              url: p.url.url,
+              width: p.url.width,
+              height: p.url.height
+            },
+          })),
+          default_url: m.image.defaultUrl ? {
+            url: m.image.defaultUrl.url,
+            width: m.image.defaultUrl.width,
+            height: m.image.defaultUrl.height
+          } : null,
+        } : null,
+        desc: m.desc,
+        upload_user: {
+          uin: m.uploaderUin
+        },
+        upload_time: String(m.uploadTime),
+        batch_id: m.batchId?.key ?? '0',
+      }))
+    }
   }
 }

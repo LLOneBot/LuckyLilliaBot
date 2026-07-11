@@ -1,5 +1,5 @@
-import { FriendEntity, GroupEntity, GroupFileEntity, GroupFolderEntity, GroupMemberEntity } from '@saltify/milky-types'
-import { Category, Friend, GroupDetailInfo, Sex } from '@/ntqqapi/types'
+import { FriendEntity, GroupEntity, GroupFileEntity, GroupFolderEntity, GroupMemberEntity } from '../generated/schema'
+import { Friend, Group, GroupMemberRole, Sex } from '@/ntqqapi/types'
 import { GroupMember } from '@/ntqqapi/types'
 import { InferProtoModel } from '@saltify/typeproto'
 import { Oidb } from '@/ntqqapi/proto'
@@ -10,56 +10,53 @@ export function transformGender(gender: Sex): 'male' | 'female' | 'unknown' {
   return 'unknown'
 }
 
-export function transformFriend(
-  friend: Friend,
-  category: Category
-): FriendEntity {
+export function transformFriend(friend: Friend): FriendEntity {
   return {
     user_id: friend.uin,
     nickname: friend.nick,
-    sex: transformGender(friend.sex),
+    sex: transformGender(friend.gender),
     qid: friend.qid,
     remark: friend.remark,
     category: {
-      category_id: category.categoryId,
-      category_name: category.categoryName,
+      category_id: friend.categoryId,
+      category_name: friend.categoryName,
     },
   }
 }
 
-export function transformGroup(group: GroupDetailInfo): GroupEntity {
+export function transformGroup(group: Group): GroupEntity {
   return {
-    group_id: +group.groupCode,
+    group_id: group.groupCode,
     group_name: group.groupName,
-    member_count: group.memberNum,
-    max_member_count: group.maxMemberNum,
-    remark: group.remarkName,
-    created_time: group.groupCreateTime,
-    description: group.richFingerMemo,
-    question: group.groupQuestion,
-    announcement: group.groupMemo,
+    member_count: group.memberCount,
+    max_member_count: group.maxMemberCount,
+    remark: group.remark,
+    created_time: group.createdAt,
+    description: group.description,
+    question: group.question,
+    announcement: group.announcementPreview,
   }
 }
 
-export function transformGroupMemberRole(role: number): GroupMemberEntity['role'] {
-  if (role === 4) return 'owner'  // 群主
-  if (role === 3) return 'admin'  // 管理员
+export function transformGroupMemberRole(role: GroupMemberRole): GroupMemberEntity['role'] {
+  if (role === GroupMemberRole.Owner) return 'owner'
+  if (role === GroupMemberRole.Admin) return 'admin'
   return 'member'
 }
 
 export function transformGroupMember(member: GroupMember, groupId: number): GroupMemberEntity {
   return {
-    user_id: +member.uin,
+    user_id: member.uin,
     nickname: member.nick,
     sex: 'unknown',
     group_id: groupId,
     card: member.cardName,
-    title: member.memberSpecialTitle,
-    level: member.memberRealLevel,
+    title: member.specialTitle,
+    level: member.level,
     role: transformGroupMemberRole(member.role),
-    join_time: member.joinTime,
-    last_sent_time: member.lastSpeakTime,
-    shut_up_end_time: member.shutUpTime || undefined,
+    join_time: member.joinedAt,
+    last_sent_time: member.lastSpokeAt,
+    shut_up_end_time: member.shutupExpireTime || undefined,
   }
 }
 

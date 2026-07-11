@@ -1,0 +1,21 @@
+{
+  "name": "webqq-api-test",
+  "version": "1.0.0",
+  "description": "Integration tests for WebQQ webui REST API (HTTP, single-account)",
+  "type": "module",
+  "scripts": {
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:serial": "node --experimental-vm-modules node_modules/jest/bin/jest.js --runInBand",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch"
+  },
+  "keywords": ["webqq", "webui", "test", "api"],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^29.5.12",
+    "@types/node": "^22.0.0",
+    "jest": "^29.7.0",
+    "jest-html-reporter": "^3.10.2",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.4.5"
+  }
+}

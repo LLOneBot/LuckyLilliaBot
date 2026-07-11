@@ -12,24 +12,24 @@ interface User {
 
 const robotUinRanges = [
   {
-    minUin: '3328144510',
-    maxUin: '3328144510'
+    minUin: 3328144510,
+    maxUin: 3328144510
   },
   {
-    minUin: '2854196301',
-    maxUin: '2854216399'
+    minUin: 2854196301,
+    maxUin: 2854216399
   },
   {
-    minUin: '66600000',
-    maxUin: '66600000'
+    minUin: 66600000,
+    maxUin: 66600000
   },
   {
-    minUin: '3889000000',
-    maxUin: '3889999999'
+    minUin: 3889000000,
+    maxUin: 3889999999
   },
   {
-    minUin: '4010000000',
-    maxUin: '4019999999'
+    minUin: 4010000000,
+    maxUin: 4019999999
   }
 ]
 
@@ -42,9 +42,13 @@ export function decodeUser(user: User): ObjectToSnake<Universal.User> {
   }
 }
 
-function decodeGuildChannelId(data: NT.RawMessage) {
+export function decodeGuildChannelId(data: {
+  chatType: NT.ChatType,
+  peerUid: string,
+  peerUin: number
+}): [string | undefined, string] {
   if (data.chatType === NT.ChatType.Group) {
-    return [data.peerUin, data.peerUin]
+    return [data.peerUid, data.peerUid]
   } else {
     return [undefined, 'private:' + data.peerUin]
   }
@@ -55,47 +59,45 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
   for (const v of data.elements) {
     if (v.textElement && v.textElement.atType !== NT.AtType.Unknown) {
       // at
-      const { atNtUid, atUid, atType, content } = v.textElement
+      const { atUin, atType, content } = v.textElement
       if (atType === NT.AtType.All) {
         buffer.push(h.at(undefined, { type: 'all' }))
       } else if (atType === NT.AtType.One) {
-        let id: string
-        if (atUid && atUid !== '0') {
-          id = atUid
-        } else {
-          id = await ctx.ntUserApi.getUinByUid(atNtUid)
-        }
-        buffer.push(h.at(id, { name: content.replace('@', '') }))
+        buffer.push(h.at(atUin.toString(), { name: content.replace('@', '') }))
       }
     } else if (v.textElement && v.textElement.content) {
       // text
       buffer.push(h.text(v.textElement.content))
     } else if (v.replyElement && !quoted) {
       // quote
-      if (data.multiTransInfo) {
-        continue
-      }
       const peer = {
         chatType: data.chatType,
         peerUid: data.peerUid,
         guildId: ''
       }
       try {
-        const { replayMsgSeq, replyMsgTime, sourceMsgIdInRecords, senderUidStr } = v.replyElement
-        const record = data.records.find(msgRecord => msgRecord.msgId === sourceMsgIdInRecords)
-        const { msgList } = await ctx.ntMsgApi.queryMsgsWithFilterExBySeq(peer, replayMsgSeq, replyMsgTime, senderUidStr ? [senderUidStr] : [])
-        let replyMsg: NT.RawMessage | undefined
-        if (record && record.msgRandom !== '0') {
-          replyMsg = msgList.find(msg => msg.msgRandom === record.msgRandom)
-        } else {
+        const { replyMsgSeq, replyMsgTime, replyMsgClientSeq } = v.replyElement
+        let replyMsg = ctx.store.getMsgBySeq(peer.peerUid, replyMsgSeq)
+        if (!replyMsg) {
+          const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq)
           replyMsg = msgList[0]
         }
+        if (!replyMsg && peer.chatType !== NT.ChatType.Group) {
+          const { msgList } = await ctx.ntMsgApi.getC2CMsgsByTimeAndCount(peer, replyMsgTime + 1, 3, false)
+          replyMsg = msgList.find(e => e.clientSeq === replyMsgClientSeq)
+        }
         if (!replyMsg) {
-          ctx.logger.warn('引用消息获取失败', v.replyElement, record)
+          ctx.logger.warn('引用消息获取失败', v.replyElement)
           continue
         }
         const elements = await decodeElement(ctx, replyMsg, true)
-        buffer.push(h('quote', { id: replyMsg.msgId }, elements))
+        buffer.push(h('quote', {
+          id: encodeMessageId(
+            peer.chatType,
+            peer.peerUid,
+            replyMsg.msgSeq
+          )
+        }, elements))
       } catch (e) {
         ctx.logger.error('获取不到引用的消息', e, v.replyElement, (e as Error).stack)
       }
@@ -117,16 +119,15 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       buffer.push(h.video(src))
     } else if (v.marketFaceElement) {
       // llonebot:market-face
-      const { emojiId, supportSize } = v.marketFaceElement
-      const { width = 300, height = 300 } = supportSize?.[0] ?? {}
+      const { emojiId, imageWidth, imageHeight } = v.marketFaceElement
       const dir = emojiId.substring(0, 2)
-      const src = `https://gxh.vip.qq.com/club/item/parcel/item/${dir}/${emojiId}/raw${width}.gif`
+      const src = `https://gxh.vip.qq.com/club/item/parcel/item/${dir}/${emojiId}/raw${imageWidth}.gif`
       buffer.push(h('llonebot:market-face', {
         emojiPackageId: v.marketFaceElement.emojiPackageId,
         emojiId,
         key: v.marketFaceElement.key,
         summary: v.marketFaceElement.faceName
-      }, [h.image(src, { width, height })]))
+      }, [h.image(src, { width: imageWidth, height: imageHeight })]))
     } else if (v.faceElement) {
       // face
       const { faceIndex, faceType } = v.faceElement
@@ -150,14 +151,12 @@ export async function decodeMessage(
   data: NT.RawMessage,
   message: ObjectToSnake<Universal.Message> = {}
 ) {
-  if (!data.senderUin || data.senderUin === '0') return //跳过空消息
-
   const [guildId, channelId] = decodeGuildChannelId(data)
   const elements = await decodeElement(ctx, data)
 
   if (elements.length === 0) return
 
-  message.id = data.msgId
+  message.id = encodeMessageId(data.chatType, data.peerUid, data.msgSeq)
   message.content = elements.join('')
   message.channel = {
     id: channelId!,
@@ -165,19 +164,19 @@ export async function decodeMessage(
     type: guildId ? Universal.Channel.Type.TEXT : Universal.Channel.Type.DIRECT
   }
   message.user = {
-    id: data.senderUin,
+    id: data.senderUin.toString(),
     name: data.sendNickName,
     avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${data.senderUin}&spec=640`,
     is_bot: robotUinRanges.some(e => data.senderUin >= e.minUin && data.senderUin <= e.maxUin)
   }
   message.created_at = +data.msgTime * 1000
   if (!message.user.name) {
-    const { coreInfo } = await ctx.ntUserApi.getUserSimpleInfo(data.senderUid)
-    message.user.name = coreInfo.nick
+    const u = await ctx.ntUserApi.getUserByUid(data.senderUid)
+    message.user.name = u.nick
   }
   if (!message.channel.name && message.channel.type === Universal.Channel.Type.DIRECT) {
-    const { coreInfo } = await ctx.ntUserApi.getUserSimpleInfo(data.peerUid)
-    message.channel.name = coreInfo.nick
+    const u = await ctx.ntUserApi.getUserByUid(data.peerUid)
+    message.channel.name = u.nick
   }
   if (guildId) {
     message.guild = {
@@ -199,21 +198,23 @@ export function decodeGuildMember(data: NT.GroupMember): ObjectToSnake<Universal
     user: decodeUser(data),
     nick: data.cardName || data.nick,
     avatar: `http://q.qlogo.cn/headimg_dl?dst_uin=${data.uin}&spec=640`,
-    joined_at: data.joinTime * 1000,
+    joined_at: data.joinedAt * 1000,
     roles: [{
       id: data.role.toString(),
       name: {
-        4: 'owner',
-        3: 'admin',
-        2: 'member',
+        [NT.GroupMemberRole.Owner]: 'owner',
+        [NT.GroupMemberRole.Admin]: 'admin',
+        [NT.GroupMemberRole.Normal]: 'member',
       }[data.role]
     }]
   }
 }
 
-export function decodeGuild(data: Record<'groupCode' | 'groupName', string>): ObjectToSnake<Universal.Guild> {
+export function decodeGuild(
+  data: { groupCode: string | number, groupName: string }
+): ObjectToSnake<Universal.Guild> {
   return {
-    id: data.groupCode,
+    id: data.groupCode.toString(),
     name: data.groupName,
     avatar: `https://p.qlogo.cn/gh/${data.groupCode}/${data.groupCode}/640`
   }
@@ -222,29 +223,54 @@ export function decodeGuild(data: Record<'groupCode' | 'groupName', string>): Ob
 export async function getPeer(ctx: Context, channelId: string): Promise<NT.Peer> {
   if (channelId.startsWith('private:')) {
     const uin = channelId.replace('private:', '')
-    const uid = await ctx.ntUserApi.getUidByUin(uin)
+    const uid = await ctx.ntUserApi.getUidByUin(+uin)
     if (!uid) throw new Error('无法获取用户信息')
     const isBuddy = await ctx.ntFriendApi.isFriend(uid)
     if (!isBuddy) {
-      const res = await ctx.ntMsgApi.getTempChatInfo(NT.ChatType.TempC2CFromGroup, uid)
-      if (res.tmpChatInfo.groupCode) {
-        return {
-          chatType: NT.ChatType.TempC2CFromGroup,
-          peerUid: uid,
-          guildId: ''
-        }
+      return {
+        chatType: NT.ChatType.TempC2CFromGroup,
+        peerUid: uid
       }
     }
     return {
       chatType: NT.ChatType.C2C,
-      peerUid: uid,
-      guildId: ''
+      peerUid: uid
     }
   } else {
     return {
       chatType: NT.ChatType.Group,
-      peerUid: channelId,
-      guildId: ''
+      peerUid: channelId
     }
+  }
+}
+
+export function encodeMessageId(chatType: NT.ChatType, peerUid: string, msgSeq: number) {
+  return `${chatType}|${peerUid}|${msgSeq}`
+}
+
+export function decodeMessageId(messageId: string) {
+  const [chatType, peerUid, msgSeq] = messageId.split('|')
+  return {
+    chatType: +chatType as NT.ChatType,
+    peerUid,
+    msgSeq: +msgSeq
+  }
+}
+
+export function encodeGroupRequestFlag(groupCode: number, seq: number, type: number, doubt: boolean) {
+  return `${groupCode}|${seq}|${type}|${doubt ? 1 : 0}`
+}
+
+export function decodeGroupRequestFlag(flag: string) {
+  const flagitem = flag.split('|')
+  const groupCode = +flagitem[0]
+  const seq = +flagitem[1]
+  const type = +flagitem[2]
+  const doubt = flagitem[3] === '1'
+  return {
+    groupCode,
+    seq,
+    type,
+    doubt
   }
 }

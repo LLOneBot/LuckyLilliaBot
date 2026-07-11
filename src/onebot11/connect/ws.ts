@@ -167,6 +167,8 @@ class OB11WebSocket {
 
   private connect(socket: WebSocket, req: IncomingMessage) {
     const url = req.url?.split('?').shift()
+    let disposeHeartBeat: (() => void) | undefined
+
     if (['/api', '/api/', '/', undefined].includes(url)) {
       socket.on('message', data => {
         this.handleAction(socket, data)
@@ -179,16 +181,17 @@ class OB11WebSocket {
         this.ctx.logger.error('发送生命周期失败', e)
       }
 
-      const disposeHeartBeat = this.ctx.interval(() => {
+      disposeHeartBeat = this.ctx.interval(() => {
         const event = new OB11HeartbeatEvent(selfInfo.online!, true, this.config.heartInterval)
         this.reply(socket, event)
       }, this.config.heartInterval)
-
-      socket.on('close', () => {
-        disposeHeartBeat()
-        this.ctx.logger.info('有一个 Websocket 连接断开')
-      })
     }
+
+    socket.on('close', () => {
+      disposeHeartBeat?.()
+      this.wsClients = this.wsClients.filter(c => c.socket !== socket)
+      this.ctx.logger.info('有一个 Websocket 连接断开')
+    })
 
     socket.on('error', err => this.ctx.logger.error(err.message))
 
@@ -255,6 +258,7 @@ class OB11WebSocketReverse {
       }
       if (!this.config.debug) {
         delete msg.raw
+        delete msg.raw_pb
       }
       if (this.config.messageFormat === 'string') {
         msg.message = msg.raw_message

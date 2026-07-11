@@ -1,17 +1,13 @@
-import { IncomingMessage, IncomingSegment, IncomingForwardedMessage } from '@saltify/milky-types'
+import { IncomingMessage, IncomingSegment, IncomingForwardedMessage } from '@/milky/generated/schema'
 import { transformFriend, transformGroup, transformGroupMember } from '@/milky/transform/entity'
-import { RawMessage, ElementType, AtType, GroupDetailInfo, ChatType } from '@/ntqqapi/types'
-import { SimpleInfo, CategoryFriend, GroupMember } from '@/ntqqapi/types'
+import { RawMessage, ElementType, AtType, ChatType, Group } from '@/ntqqapi/types'
+import { Friend, GroupMember } from '@/ntqqapi/types'
 import { Context } from 'cordis'
-import { InferProtoModel } from '@saltify/typeproto'
-import { Media, Msg } from '@/ntqqapi/proto'
-import { inflateSync } from 'node:zlib'
 import { XMLParser } from 'fast-xml-parser'
 
 export async function transformIncomingPrivateMessage(
   ctx: Context,
-  friend: SimpleInfo,
-  category: CategoryFriend,
+  friend: Friend,
   message: RawMessage,
 ): Promise<IncomingMessage> {
   return {
@@ -21,31 +17,13 @@ export async function transformIncomingPrivateMessage(
     sender_id: +message.senderUin,
     time: +message.msgTime,
     segments: await transformIncomingSegments(ctx, message),
-    friend: transformFriend({
-      uid: friend.uid,
-      uin: +friend.uin,
-      categoryId: friend.baseInfo.categoryId,
-      nick: friend.coreInfo.nick,
-      longNick: friend.baseInfo.longNick,
-      remark: friend.coreInfo.remark,
-      qid: friend.baseInfo.qid,
-      age: friend.baseInfo.age,
-      sex: friend.baseInfo.sex,
-      birthdayYear: friend.baseInfo.birthday_year,
-      birthdayMonth: friend.baseInfo.birthday_month,
-      birthdayDay: friend.baseInfo.birthday_day,
-    }, {
-      categoryId: category.categoryId,
-      categoryName: category.categroyName,
-      categoryMemberCount: category.categroyMbCount,
-      categorySortId: category.categorySortId,
-    }),
+    friend: transformFriend(friend),
   }
 }
 
 export async function transformIncomingGroupMessage(
   ctx: Context,
-  group: GroupDetailInfo,
+  group: Group,
   member: GroupMember,
   message: RawMessage,
 ): Promise<IncomingMessage> {
@@ -63,7 +41,7 @@ export async function transformIncomingGroupMessage(
 
 export async function transformIncomingTempMessage(
   ctx: Context,
-  group: GroupDetailInfo,
+  group: Group,
   message: RawMessage,
 ): Promise<IncomingMessage> {
   return {
@@ -92,7 +70,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
           segments.push({
             type: 'mention',
             data: {
-              user_id: +element.textElement.atUid,
+              user_id: element.textElement.atUin,
               name: element.textElement.content.slice(1)
             },
           })
@@ -116,17 +94,32 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         })
         break
 
-      case ElementType.Reply:
+      case ElementType.Reply: {
+        const { replyMsgSeq, senderUin, replyMsgTime, replyMsgClientSeq } = element.replyElement!
+        const peer = {
+          chatType: message.chatType,
+          peerUid: message.peerUid
+        }
+        let msg = ctx.store.getMsgBySeq(message.peerUid, replyMsgSeq)
+        if (!msg) {
+          const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq)
+          msg = msgList[0]
+        }
+        if (!msg && peer.chatType !== ChatType.Group) {
+          const { msgList } = await ctx.ntMsgApi.getC2CMsgsByTimeAndCount(peer, replyMsgTime + 1, 3, false)
+          msg = msgList.find(e => e.clientSeq === replyMsgClientSeq)
+        }
         segments.push({
           type: 'reply',
           data: {
-            message_seq: +element.replyElement!.replayMsgSeq,
-            sender_id: +element.replyElement!.senderUid,
-            time: +element.replyElement!.replyMsgTime,
-            segments: message.records[0] ? await transformIncomingSegments(ctx, message.records[0]) : []
+            message_seq: replyMsgSeq,
+            sender_id: senderUin,
+            time: replyMsgTime,
+            segments: msg ? await transformIncomingSegments(ctx, msg) : []
           },
         })
         break
+      }
 
       case ElementType.Pic:
         segments.push({
@@ -232,105 +225,27 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         }
         break
       }
+
+      case ElementType.Markdown:
+        segments.push({
+          type: 'markdown',
+          data: {
+            content: element.markdownElement!.content
+          }
+        })
+        break
     }
   }
 
   return segments
 }
 
-export async function transformIncomingForwardedMessage(ctx: Context, message: InferProtoModel<typeof Msg.Message>): Promise<IncomingForwardedMessage> {
-  const { body, contentHead, routingHead } = message
-  const transformSegments = async (elems: InferProtoModel<typeof Msg.Elem>[]) => {
-    const segments: IncomingSegment[] = []
-    for (const elem of elems) {
-      if (elem.text) {
-        segments.push({
-          type: 'text',
-          data: {
-            text: elem.text.str
-          }
-        })
-      } else if (elem.commonElem) {
-        const { businessType, serviceType } = elem.commonElem
-        if (serviceType === 33) {
-          const { faceId } = Msg.QSmallFaceExtra.decode(elem.commonElem.pbElem)
-          segments.push({
-            type: 'face',
-            data: {
-              face_id: faceId.toString(),
-              is_large: false
-            }
-          })
-        } else if (serviceType === 48 && (businessType === 10 || businessType === 20)) {
-          const { extBizInfo, msgInfoBody } = Media.MsgInfo.decode(elem.commonElem.pbElem)
-          const { index, pic } = msgInfoBody[0]
-          const rkeyData = await ctx.ntFileApi.rkeyManager.getRkey()
-          const rkey = businessType === 10 ? rkeyData.private_rkey : rkeyData.group_rkey
-          const url = `https://${pic!.domain}${pic!.urlPath}&spec=0${rkey}`
-          segments.push({
-            type: 'image',
-            data: {
-              resource_id: index.fileUuid,
-              temp_url: url,
-              width: index.info.width,
-              height: index.info.height,
-              summary: extBizInfo.pic.summary || '[图片]',
-              sub_type: extBizInfo.pic.bizType === 0 ? 'normal' : 'sticker'
-            }
-          })
-        } else if (serviceType === 48 && (businessType === 11 || businessType === 21)) {
-          const { msgInfoBody } = Media.MsgInfo.decode(elem.commonElem.pbElem)
-          const { index } = msgInfoBody[0]
-          const url = await ctx.ntFileApi.getVideoUrl(index.fileUuid, businessType === 21)
-          segments.push({
-            type: 'video',
-            data: {
-              resource_id: index.fileUuid,
-              temp_url: url,
-              width: index.info.width,
-              height: index.info.height,
-              duration: index.info.time
-            }
-          })
-        }
-      } else if (elem.srcMsg) {
-        const elems = elem.srcMsg.elems.map(e => Msg.Elem.decode(e))
-        const { contentHead, routingHead } = Msg.Message.decode(elem.srcMsg.srcMsg!)
-        segments.push({
-          type: 'reply',
-          data: {
-            message_seq: elem.srcMsg.origSeqs[0],
-            sender_id: elem.srcMsg.senderUin,
-            sender_name: contentHead.msgType === 82 ? routingHead.group.groupCard : routingHead.c2c.friendName,
-            time: elem.srcMsg.time,
-            segments: await transformSegments(elems)
-          }
-        })
-      } else if (elem.richMsg && elem.richMsg.serviceId === 35) {
-        const xml = inflateSync(elem.richMsg.template.subarray(1)).toString()
-        const resId = xml.match(/m_resid="([^"]+)"/)?.[1]
-        if (resId) {
-          const parser = new XMLParser()
-          const content = parser.parse(xml)
-          segments.push({
-            type: 'forward',
-            data: {
-              forward_id: resId,
-              title: content.msg.item.title[0],
-              preview: content.msg.item.title.slice(1),
-              summary: content.msg.item.summary
-            }
-          })
-        }
-      }
-    }
-    return segments
-  }
+export async function transformIncomingForwardedMessage(ctx: Context, message: RawMessage): Promise<IncomingForwardedMessage> {
   return {
-    message_seq: contentHead.msgSeq,
-    sender_name: contentHead.msgType === 82 ? routingHead.group.groupCard : routingHead.c2c.friendName,
-    avatar_url: contentHead.forward!.avatar,
-    time: contentHead.msgTime,
-    segments: await transformSegments(body!.richText.elems)
+    message_seq: message.msgSeq,
+    sender_name: message.sendNickName,
+    avatar_url: message.forwardAvatar,
+    time: message.msgTime,
+    segments: await transformIncomingSegments(ctx, message)
   }
 }

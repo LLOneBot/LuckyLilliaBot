@@ -1,0 +1,8 @@
+{
+  "host": "http://127.0.0.1:3080",
+  "password": "your-webui-password",
+  "user_id": "1412971608",
+  "test_group_id": "164461995",
+  "test_user_id": "1412971608",
+  "timeout": 30000
+}

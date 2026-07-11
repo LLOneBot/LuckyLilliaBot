@@ -28,7 +28,7 @@ export class GetDoubtFriendsAddRequest extends BaseAction<Payload, Item[]> {
     return await Promise.all(res.map(async e => {
       return {
         flag: e.sourceUid,
-        uin: await this.ctx.ntUserApi.getUinByUid(e.sourceUid),
+        uin: String(await this.ctx.ntUserApi.getUinByUid(e.sourceUid)),
         nick: e.sourceNickname,
         source: e.source,
         reason: e.warningInfo,

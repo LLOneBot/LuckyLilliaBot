@@ -17,7 +17,7 @@ interface Response {
   }>
 }
 
-export class GetFlashFileInfoBase<R> extends BaseAction<GetFlashFilePayload, R> {
+export abstract class GetFlashFileInfoBase<R> extends BaseAction<GetFlashFilePayload, R> {
   actionName = ActionName.GetFlashFileInfo
   payloadSchema = Schema.object({
     share_link: Schema.string(),
@@ -44,10 +44,6 @@ export class GetFlashFileInfoBase<R> extends BaseAction<GetFlashFilePayload, R> 
       throw new Error('请提供有效的 share_link 或 file_set_id')
     }
     return file_set_id
-  }
-
-  async _handle(payload: GetFlashFilePayload): Promise<R> {
-    throw new Error('Method not implemented.')
   }
 }
 

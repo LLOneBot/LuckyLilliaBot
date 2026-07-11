@@ -17,9 +17,15 @@ export default class SetFriendAddRequest extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    await this.ctx.ntFriendApi.approvalFriendRequest(payload.flag, payload.approve)
+    const result = await this.ctx.ntFriendApi.approvalFriendRequest(payload.flag, payload.approve)
+    if (result.errorCode !== 0) {
+      throw new Error(result.errorMsg)
+    }
     if (payload.remark) {
-      await this.ctx.ntFriendApi.setFriendRemark(payload.flag, payload.remark)
+      const result = await this.ctx.ntFriendApi.setFriendRemark(payload.flag, payload.remark)
+      if (result.errorCode !== 0) {
+        throw new Error(result.errorMsg)
+      }
     }
     return null
   }

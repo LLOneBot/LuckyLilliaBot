@@ -15,8 +15,8 @@ export class SetGroupRemark extends BaseAction<Payload, null> {
 
   protected async _handle(payload: Payload) {
     const res = await this.ctx.ntGroupApi.setGroupRemark(payload.group_id.toString(), payload.remark)
-    if (res.result !== 0) {
-      throw new Error(res.errMsg)
+    if (res.errorCode !== 0) {
+      throw new Error(res.errorMsg)
     }
     return null
   }

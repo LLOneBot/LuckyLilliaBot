@@ -14,10 +14,9 @@ export class SetGroupFileForever extends BaseAction<Payload, null> {
   })
 
   async _handle(payload: Payload) {
-    const groupId = payload.group_id.toString()
-    const res = await this.ctx.ntGroupApi.setGroupFileForever(groupId, payload.file_id)
-    if (res.transGroupFileResult.result.retCode !== 0) {
-      throw new Error(res.transGroupFileResult.result.clientWording)
+    const res = await this.ctx.ntGroupApi.persistGroupFile(+payload.group_id, payload.file_id)
+    if (res.retCode !== 0) {
+      throw new Error(res.clientWording)
     }
     return null
   }

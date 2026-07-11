@@ -7,7 +7,19 @@
         {
             "type": "node",
             "request": "launch",
-            "name": "Dev",
+            "name": "Dev (直连协议)",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "runtimeExecutable": "tsx",
+            "args": ["watch", "src/main/main.ts", "-q", "${input:directUin}"],
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal"
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Dev (PMHQ)",
             "skipFiles": [
                 "<node_internals>/**"
             ],
@@ -33,6 +45,12 @@
         }
     ],
     "inputs": [
+        {
+            "id": "directUin",
+            "type": "promptString",
+            "description": "QQ 号（直连模式快速登录用，留空则走扫码）",
+            "default": ""
+        },
         {
             "id": "pmhqPort",
             "type": "promptString",

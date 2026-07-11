@@ -28,7 +28,8 @@ import {
   GetCustomFaceUrlListOutput,
   GetPeerPinsOutput,
   SetPeerPinInput,
-} from '@saltify/milky-types'
+  milkyVersion,
+} from '../generated/schema'
 import z from 'zod'
 import { selfInfo, TEMP_DIR } from '@/common/globalVars'
 import { resolveMilkyUri } from '@/milky/common/download'
@@ -36,7 +37,6 @@ import { unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { sleep } from '@/common/utils'
-import { ChatType } from '@/ntqqapi/types'
 import { noop } from 'cosmokit'
 
 const GetLoginInfo = defineApi(
@@ -70,7 +70,7 @@ const GetImplInfo = defineApi(
       impl_version: version,
       qq_protocol_version: deviceInfo.buildVer,
       qq_protocol_type: transformProtocolOsType(deviceInfo.devType),
-      milky_version: '1.2',
+      milky_version: milkyVersion,
     })
   },
 )
@@ -80,14 +80,14 @@ const GetUserProfile = defineApi(
   GetUserProfileInput,
   GetUserProfileOutput,
   async (ctx, payload) => {
-    const info = await ctx.pmhq.fetchUserInfo(payload.user_id)
+    const info = await ctx.ntUserApi.getUserByUin(payload.user_id)
     return Ok({
       nickname: info.nick,
       qid: info.qid,
       age: info.age,
-      sex: transformGender(info.sex),
+      sex: transformGender(info.gender),
       remark: info.remark,
-      bio: info.longNick,
+      bio: info.bio,
       level: info.level,
       country: info.country,
       city: info.city,
@@ -101,10 +101,10 @@ const GetFriendList = defineApi(
   GetFriendListInput,
   GetFriendListOutput,
   async (ctx, payload) => {
-    const result = await ctx.ntFriendApi.getFriendList(payload.no_cache)
+    const result = await ctx.ntFriendApi.getFriends(payload.no_cache)
     const friendList = []
     for (const friend of result.friends) {
-      friendList.push(transformFriend(friend, result.categories.get(friend.categoryId)!))
+      friendList.push(transformFriend(friend))
     }
     return Ok({
       friends: friendList,
@@ -117,12 +117,12 @@ const GetFriendInfo = defineApi(
   GetFriendInfoInput,
   GetFriendInfoOutput,
   async (ctx, payload) => {
-    const result = await ctx.ntFriendApi.getFriendInfoByUin(payload.user_id, payload.no_cache)
+    const result = await ctx.ntFriendApi.getFriendByUin(payload.user_id, payload.no_cache)
     if (!result) {
       return Failed(-404, 'Friend not found')
     }
     return Ok({
-      friend: transformFriend(result.friend, result.category),
+      friend: transformFriend(result),
     })
   }
 )
@@ -131,20 +131,20 @@ const GetGroupList = defineApi(
   'get_group_list',
   GetGroupListInput,
   GetGroupListOutput,
-  async (ctx) => {
-    const { groups } = await ctx.pmhq.fetchGroups()
+  async (ctx, payload) => {
+    const result = await ctx.ntGroupApi.getGroups(payload.no_cache)
     return Ok({
-      groups: groups.map(e => {
+      groups: result.map(e => {
         return {
           group_id: e.groupCode,
-          group_name: e.info.groupName,
-          member_count: e.info.memberCount,
-          max_member_count: e.info.memberMax,
-          remark: e.customInfo.remark ?? '',
-          created_time: e.info.createdTime,
-          description: e.info.richDescription ?? '',
-          question: e.info.question ?? '',
-          announcement: e.info.announcement ?? ''
+          group_name: e.groupName,
+          member_count: e.memberCount,
+          max_member_count: e.maxMemberCount,
+          remark: e.remark,
+          created_time: e.createdAt,
+          description: e.description,
+          question: e.question,
+          announcement: e.announcementPreview
         }
       }),
     })
@@ -156,7 +156,7 @@ const GetGroupInfo = defineApi(
   GetGroupInfoInput,
   GetGroupInfoOutput,
   async (ctx, payload) => {
-    const group = await ctx.ntGroupApi.getGroupDetailInfo(payload.group_id.toString())
+    const group = await ctx.ntGroupApi.getGroup(payload.group_id, payload.no_cache)
     return Ok({
       group: transformGroup(group),
     })
@@ -168,39 +168,9 @@ const GetGroupMemberList = defineApi(
   GetGroupMemberListInput,
   GetGroupMemberListOutput,
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
-    async function getMembers(forceFetch: boolean) {
-      const res = await ctx.ntGroupApi.getGroupMembers(groupCode, forceFetch)
-      if (res.errCode !== 0) {
-        throw new Error(res.errMsg)
-      }
-      return res.result
-    }
-    let result
-    try {
-      if (payload.no_cache) {
-        result = await getMembers(true)
-      } else {
-        let cached = false
-        try {
-          result = await getMembers(false)
-          cached = true
-        } catch {
-          result = await getMembers(true)
-        }
-        if (cached) {
-          const { memberNum } = await ctx.ntGroupApi.getGroupAllInfo(groupCode)
-          // 使用缓存可能导致群成员列表不完整
-          if (memberNum !== result.infos.size) {
-            result = await getMembers(true)
-          }
-        }
-      }
-    } catch (e) {
-      return Failed(-500, (e as Error).message)
-    }
+    const result = await ctx.ntGroupApi.getGroupMembers(payload.group_id, payload.no_cache)
     return Ok({
-      members: result.infos.values().map(e => transformGroupMember(e, payload.group_id)).toArray(),
+      members: result.map(e => transformGroupMember(e, payload.group_id)),
     })
   }
 )
@@ -210,16 +180,14 @@ const GetGroupMemberInfo = defineApi(
   GetGroupMemberInfoInput,
   GetGroupMemberInfoOutput,
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
-    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
-    if (!memberUid) {
-      return Failed(-404, 'Member not found')
-    }
-    const member = await ctx.ntGroupApi.getGroupMember(
-      groupCode,
-      memberUid,
+    const member = await ctx.ntGroupApi.getGroupMemberByUin(
+      payload.group_id,
+      payload.user_id,
       payload.no_cache
     )
+    if (!member) {
+      return Failed(-404, 'Member not found')
+    }
     return Ok({
       member: transformGroupMember(member, payload.group_id),
     })
@@ -235,13 +203,13 @@ const GetPeerPins = defineApi(
     return Ok({
       friends: await Promise.all(
         result.friends.map(async (e) => {
-          const info = await ctx.ntFriendApi.getFriendInfoByUid(e.uid, false)
-          return transformFriend(info!.friend, info!.category)
+          const info = await ctx.ntFriendApi.getFriendByUid(e.uid, false)
+          return transformFriend(info!)
         })
       ),
       groups: await Promise.all(
         result.groups.map(async (e) => {
-          const info = await ctx.ntGroupApi.getGroupDetailInfo(e.groupCode.toString())
+          const info = await ctx.ntGroupApi.getGroup(e.groupCode, false)
           return transformGroup(info)
         })
       )
@@ -255,26 +223,12 @@ const SetPeerPin = defineApi(
   z.object({}),
   async (ctx, payload) => {
     if (payload.message_scene === 'friend') {
-      const uid = await ctx.ntUserApi.getUidByUin(payload.peer_id.toString())
-      const result = await ctx.ntFriendApi.setTop(uid, payload.is_pinned)
-      if (result.result !== 0) {
-        return Failed(-500, result.errMsg)
-      }
+      const uid = await ctx.ntUserApi.getUidByUin(payload.peer_id)
+      await ctx.ntFriendApi.setFriendPin(uid, payload.is_pinned)
     } else if (payload.message_scene === 'group') {
-      const result = await ctx.ntGroupApi.setTop(payload.peer_id.toString(), payload.is_pinned)
-      if (result.result !== 0) {
-        return Failed(-500, result.errMsg)
-      }
-    } else if (payload.message_scene === 'temp') {
-      const uid = await ctx.ntUserApi.getUidByUin(payload.peer_id.toString())
-      const result = await ctx.ntMsgApi.setContactLocalTop({
-        chatType: ChatType.TempC2CFromGroup,
-        peerUid: uid,
-        guildId: ''
-      }, payload.is_pinned)
-      if (result.result !== 0) {
-        return Failed(-500, result.errMsg)
-      }
+      await ctx.ntGroupApi.setGroupPin(payload.peer_id, payload.is_pinned)
+    } else {
+      return Failed(-400, `Unknown message scene: ${payload.message_scene}`)
     }
     return Ok({})
   }
@@ -302,25 +256,11 @@ const SetNickname = defineApi(
   SetNicknameInput,
   z.object({}),
   async (ctx, payload) => {
-    const old = (await ctx.ntUserApi.getUserDetailInfoWithBizInfo(selfInfo.uid)).simpleInfo
     const result = await ctx.ntUserApi.modifySelfProfile({
-      nick: payload.new_nickname,
-      longNick: old.baseInfo.longNick,
-      sex: old.baseInfo.sex,
-      birthday: {
-        birthday_year: old.baseInfo.birthday_year,
-        birthday_month: old.baseInfo.birthday_month,
-        birthday_day: old.baseInfo.birthday_day,
-      },
-      location: {
-        country: '',
-        province: '',
-        city: '',
-        zone: ''
-      },
+      nick: payload.new_nickname
     })
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -331,25 +271,11 @@ const SetBio = defineApi(
   SetBioInput,
   z.object({}),
   async (ctx, payload) => {
-    const old = (await ctx.ntUserApi.getUserDetailInfoWithBizInfo(selfInfo.uid)).simpleInfo
     const result = await ctx.ntUserApi.modifySelfProfile({
-      nick: old.coreInfo.nick,
-      longNick: payload.new_bio,
-      sex: old.baseInfo.sex,
-      birthday: {
-        birthday_year: old.baseInfo.birthday_year,
-        birthday_month: old.baseInfo.birthday_month,
-        birthday_day: old.baseInfo.birthday_day,
-      },
-      location: {
-        country: '',
-        province: '',
-        city: '',
-        zone: ''
-      },
+      bio: payload.new_bio
     })
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -360,12 +286,12 @@ const GetCustomFaceUrlList = defineApi(
   z.object({}),
   GetCustomFaceUrlListOutput,
   async (ctx) => {
-    const result = await ctx.ntMsgApi.fetchFavEmojiList(200)
-    if (result.result !== 0) {
+    const result = await ctx.ntMsgApi.getCustomFaceList()
+    if (result.retCode !== 0) {
       return Failed(-500, result.errMsg)
     }
     return Ok({
-      urls: result.emojiInfoList.map(e => e.url)
+      urls: result.emojiInfoList.map((e) => e.url)
     })
   }
 )
@@ -379,9 +305,9 @@ const GetCookies = defineApi(
     if (blackList.includes(payload.domain)) {
       throw new Error('该域名禁止获取cookie')
     }
-    const cookiesObject = await ctx.ntUserApi.getCookies(payload.domain)
+    const cookiesObject = await ctx.ntWebApi.getCookies(payload.domain)
     if (!cookiesObject.p_skey) {
-      const pSkey = (await ctx.ntUserApi.getPSkey([payload.domain])).domainPskeyMap.get(payload.domain)
+      const pSkey = (await ctx.ntUserApi.getPSkey([payload.domain])).get(payload.domain)
       if (pSkey) {
         cookiesObject.p_skey = pSkey
       }
@@ -397,7 +323,7 @@ const GetCSRFToken = defineApi(
   z.object({}),
   GetCSRFTokenOutput,
   async (ctx) => {
-    const cookiesObject = await ctx.ntUserApi.getCookies('h5.qzone.qq.com')
+    const cookiesObject = await ctx.ntWebApi.getCookies('h5.qzone.qq.com')
     const csrfToken = ctx.ntWebApi.genBkn(cookiesObject.skey)
     return Ok({ csrf_token: csrfToken })
   }

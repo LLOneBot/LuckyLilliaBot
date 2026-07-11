@@ -1,3 +1,4 @@
+import { RawMessage } from '@/ntqqapi/types'
 import { BaseAction, Schema } from '../../BaseAction'
 import { ActionName } from '../../types'
 
@@ -22,16 +23,37 @@ export class SendGroupAiRecord extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload) {
-    const res = await this.ctx.pmhq.getGroupGenerateAiRecord(+payload.group_id, payload.character, payload.text, +payload.chat_type)
-    const targetMsgRandom = res.msgRandom.toString()
+    // 监听必须在 OIDB 调用之前注册：服务器 broadcast 可能在 OIDB 响应之前就到达。
+    // AI record 是自己触发的，回推会走 nt/raw/self-send-msg（不是 nt/message-created）。
+    const seen: RawMessage[] = []
+    let targetMsgRandom: number | null = null
     const { promise, resolve } = Promise.withResolvers<Response>()
-    const dispose = this.ctx.on('nt/message-created', (msg) => {
-      if (msg.msgRandom === targetMsgRandom) {
+    const checkAndResolve = (msg: RawMessage) => {
+      // msg.msgRandom 来自 dispatcher 反构 RawMessage（contentHead.random，uint32），
+      // 类型可能是 number 或 string。OIDB 返回的 res.msgRandom 是 number。统一成 string 比对。
+      if (targetMsgRandom !== null && msg.msgRandom === targetMsgRandom) {
         dispose()
         const shortId = this.ctx.store.createMsgShortId(msg)
         resolve({ message_id: shortId })
+        return true
+      }
+      return false
+    }
+    const dispose = this.ctx.on('nt/message-sent', (data) => {
+      if (!checkAndResolve(data.message)) {
+        seen.push(data.message)
       }
     })
+    try {
+      const res = await this.ctx.qqProtocol.getGroupGenerateAiRecord(+payload.group_id, payload.character, payload.text, +payload.chat_type)
+      targetMsgRandom = res.msgRandom
+      for (const msg of seen) {
+        if (checkAndResolve(msg)) break
+      }
+    } catch (e) {
+      dispose()
+      throw e
+    }
     return promise
   }
 }

@@ -5,8 +5,8 @@ import {
   OB11GroupRequestEvent,
   OB11GroupRequestInviteBotEvent,
 } from '../event/request/OB11GroupRequest'
-import { GroupRequestOperateTypes } from '@/ntqqapi/types'
-import { message2List, createSendElements, createPeer, CreatePeerMode } from '../helper/createMessage'
+import { transformOutgoingSegments } from '../transform/message/outgoing'
+import { message2List, createPeer, CreatePeerMode, decodeGroupRequestFlag } from '../utils'
 import { isNullable } from 'cosmokit'
 import { Context } from 'cordis'
 
@@ -86,27 +86,33 @@ async function handleMsg(ctx: Context, msg: OB11Message, quickAction: QuickOpera
       }
     }
     replyMessage = replyMessage.concat(message2List(reply, quickAction.auto_escape))
-    const { sendElements, deleteAfterSentFiles } = await createSendElements(ctx, replyMessage, peer)
+    const { sendElements, deleteAfterSentFiles } = await transformOutgoingSegments(ctx, replyMessage, peer, false)
     ctx.app.sendMessage(ctx, peer, sendElements, deleteAfterSentFiles).catch(e => ctx.logger.error(e))
   }
   if (msg.message_type === 'group') {
     const groupMsgQuickAction = quickAction as QuickOperationGroupMessage
-    const rawMessage = await ctx.store.getMsgInfoByShortId(+(msg.message_id ?? 0))
-    if (!rawMessage) return
+    const info = await ctx.store.getMsgInfoByShortId(msg.message_id)
+    if (!info) return
     // handle group msg
     if (groupMsgQuickAction.delete) {
-      ctx.ntMsgApi.recallMsg(peer, [rawMessage.msgId]).catch(e => ctx.logger.error(e))
+      ctx.ntMsgApi.recallMsg(peer, info.msgSeq).catch(e => ctx.logger.error(e))
     }
     if (groupMsgQuickAction.kick) {
-      const { msgList } = await ctx.ntMsgApi.getMsgsByMsgId(peer, [rawMessage.msgId])
-      ctx.ntGroupApi.kickMember(peer.peerUid, [msgList[0].senderUid]).catch(e => ctx.logger.error(e))
+      let msg = ctx.store.getMsgByMsgId(info.msgId)
+      if (!msg) {
+        msg = (await ctx.ntMsgApi.getSingleMsg(info.peer, info.msgSeq)).msgList[0]
+      }
+      ctx.ntGroupApi.kickGroupMember(+peer.peerUid, [msg.senderUid]).catch(e => ctx.logger.error(e))
     }
     if (groupMsgQuickAction.ban) {
-      const { msgList } = await ctx.ntMsgApi.getMsgsByMsgId(peer, [rawMessage.msgId])
-      ctx.ntGroupApi.banMember(peer.peerUid, [
+      let msg = ctx.store.getMsgByMsgId(info.msgId)
+      if (!msg) {
+        msg = (await ctx.ntMsgApi.getSingleMsg(info.peer, info.msgSeq)).msgList[0]
+      }
+      ctx.ntGroupApi.muteGroupMember(+peer.peerUid, [
         {
-          uid: msgList[0].senderUid,
-          timeStamp: groupMsgQuickAction.ban_duration || 60 * 30,
+          uid: msg.senderUid,
+          duration: groupMsgQuickAction.ban_duration || 60 * 30,
         },
       ]).catch(e => ctx.logger.error(e))
     }
@@ -125,9 +131,13 @@ async function handleFriendRequest(ctx: Context, request: OB11FriendRequestEvent
 
 async function handleGroupRequest(ctx: Context, request: OB11GroupRequestEvent, quickAction: QuickOperationGroupRequest) {
   if (!isNullable(quickAction.approve)) {
-    ctx.ntGroupApi.handleGroupRequest(
-      request.flag,
-      quickAction.approve ? GroupRequestOperateTypes.Approve : GroupRequestOperateTypes.Reject,
+    const decoded = decodeGroupRequestFlag(request.flag)
+    ctx.ntGroupApi.setGroupRequest(
+      decoded.doubt,
+      decoded.groupCode,
+      decoded.seq,
+      decoded.type,
+      quickAction.approve,
       quickAction.reason,
     ).catch(e => ctx.logger.error(e))
   }

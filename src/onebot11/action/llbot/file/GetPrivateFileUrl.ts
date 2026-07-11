@@ -1,6 +1,5 @@
 import { BaseAction, Schema } from '../../BaseAction'
 import { ActionName } from '../../types'
-import { selfInfo } from '@/common/globalVars'
 
 export interface Payload {
   file_id: string
@@ -17,10 +16,10 @@ export class GetPrivateFileUrl extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload) {
-    const { state, url } = await this.ctx.pmhq.getPrivateFileUrl(selfInfo.uid, payload.file_id)
-    if (state !== 'ok') {
-      throw new Error(state)
+    const result = await this.ctx.ntFileApi.getFileUrl(payload.file_id, false)
+    if (result.retCode !== 0) {
+      throw new Error(result.retMsg)
     }
-    return { url }
+    return { url: result.url }
   }
 }

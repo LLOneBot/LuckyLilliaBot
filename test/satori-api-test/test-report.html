@@ -1,0 +1,260 @@
+<html><head><meta charset="utf-8"/><title>Satori API Test Report</title><style type="text/css">html,
+body {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 1rem;
+  margin: 0;
+  padding: 0;
+  color: #333;
+}
+body {
+  padding: 2rem 1rem;
+  font-size: 0.85rem;
+}
+.jesthtml-content {
+  margin: 0 auto;
+  max-width: 70rem;
+}
+header {
+  display: flex;
+  align-items: center;
+}
+#title {
+  margin: 0;
+  flex-grow: 1;
+}
+#logo {
+  height: 4rem;
+}
+#timestamp {
+  color: #777;
+  margin-top: 0.5rem;
+}
+
+/** SUMMARY */
+#summary {
+  color: #333;
+  margin: 2rem 0;
+  display: flex;
+  font-family: monospace;
+  font-size: 1rem;
+}
+#summary > div {
+  margin-right: 2rem;
+  background: #eee;
+  padding: 1rem;
+  min-width: 15rem;
+}
+#summary > div:last-child {
+  margin-right: 0;
+}
+@media only screen and (max-width: 720px) {
+  #summary {
+    flex-direction: column;
+  }
+  #summary > div {
+    margin-right: 0;
+    margin-top: 2rem;
+  }
+  #summary > div:first-child {
+    margin-top: 0;
+  }
+}
+
+.summary-total {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+.summary-passed {
+  color: #4f8a10;
+  border-left: 0.4rem solid #4f8a10;
+  padding-left: 0.5rem;
+}
+.summary-failed,
+.summary-obsolete-snapshots {
+  color: #d8000c;
+  border-left: 0.4rem solid #d8000c;
+  padding-left: 0.5rem;
+}
+.summary-pending {
+  color: #9f6000;
+  border-left: 0.4rem solid #9f6000;
+  padding-left: 0.5rem;
+}
+.summary-empty {
+  color: #999;
+  border-left: 0.4rem solid #999;
+}
+
+.test-result {
+  padding: 1rem;
+  margin-bottom: 0.25rem;
+}
+.test-result:last-child {
+  border: 0;
+}
+.test-result.passed {
+  background-color: #dff2bf;
+  color: #4f8a10;
+}
+.test-result.failed {
+  background-color: #ffbaba;
+  color: #d8000c;
+}
+.test-result.pending {
+  background-color: #ffdf61;
+  color: #9f6000;
+}
+
+.test-info {
+  display: flex;
+  justify-content: space-between;
+}
+.test-suitename {
+  width: 20%;
+  text-align: left;
+  font-weight: bold;
+  word-break: break-word;
+}
+.test-title {
+  width: 40%;
+  text-align: left;
+  font-style: italic;
+}
+.test-status {
+  width: 20%;
+  text-align: right;
+}
+.test-duration {
+  width: 10%;
+  text-align: right;
+  font-size: 0.75rem;
+}
+
+.failureMessages {
+  padding: 0 1rem;
+  margin-top: 1rem;
+  border-top: 1px dashed #d8000c;
+}
+.failureMessages.suiteFailure {
+  border-top: none;
+}
+.failureMsg {
+  white-space: pre-wrap;
+  white-space: -moz-pre-wrap;
+  white-space: -pre-wrap;
+  white-space: -o-pre-wrap;
+  word-wrap: break-word;
+}
+
+.suite-container {
+  margin-bottom: 2rem;
+}
+.suite-container > input[type="checkbox"] {
+  position: absolute;
+  left: -100vw;
+}
+.suite-container label {
+  display: block;
+}
+.suite-container .suite-tests {
+  overflow-y: hidden;
+  height: 0;
+}
+.suite-container > input[type="checkbox"]:checked ~ .suite-tests {
+  height: auto;
+  overflow: visible;
+}
+.suite-info {
+  padding: 1rem;
+  background-color: #eee;
+  color: #777;
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.25rem;
+}
+.suite-info:hover {
+  background-color: #ddd;
+  cursor: pointer;
+}
+.suite-info .suite-path {
+  word-break: break-all;
+  flex-grow: 1;
+  font-family: monospace;
+  font-size: 1rem;
+}
+.suite-info .suite-time {
+  margin-left: 0.5rem;
+  padding: 0.2rem 0.3rem;
+  font-size: 0.75rem;
+}
+.suite-info .suite-time.warn {
+  background-color: #d8000c;
+  color: #fff;
+}
+.suite-info:before {
+  content: "\2303";
+  display: inline-block;
+  margin-right: 0.5rem;
+  transform: rotate(0deg);
+}
+.suite-container > input[type="checkbox"]:checked ~ label .suite-info:before {
+  transform: rotate(180deg);
+}
+
+/* CONSOLE LOGS */
+.suite-consolelog {
+  margin-bottom: 0.25rem;
+  padding: 1rem;
+  background-color: #efefef;
+}
+.suite-consolelog-header {
+  font-weight: bold;
+}
+.suite-consolelog-item {
+  padding: 0.5rem;
+}
+.suite-consolelog-item pre {
+  margin: 0.5rem 0;
+  white-space: pre-wrap;
+  white-space: -moz-pre-wrap;
+  white-space: -pre-wrap;
+  white-space: -o-pre-wrap;
+  word-wrap: break-word;
+}
+.suite-consolelog-item-origin {
+  color: #777;
+  font-weight: bold;
+}
+.suite-consolelog-item-message {
+  color: #000;
+  font-size: 1rem;
+  padding: 0 0.5rem;
+}
+
+/* OBSOLETE SNAPSHOTS */
+.suite-obsolete-snapshots {
+  margin-bottom: 0.25rem;
+  padding: 1rem;
+  background-color: #ffbaba;
+  color: #d8000c;
+}
+.suite-obsolete-snapshots-header {
+  font-weight: bold;
+}
+.suite-obsolete-snapshots-item {
+  padding: 0.5rem;
+}
+.suite-obsolete-snapshots-item pre {
+  margin: 0.5rem 0;
+  white-space: pre-wrap;
+  white-space: -moz-pre-wrap;
+  white-space: -pre-wrap;
+  white-space: -o-pre-wrap;
+  word-wrap: break-word;
+}
+.suite-obsolete-snapshots-item-message {
+  color: #000;
+  font-size: 1rem;
+  padding: 0 0.5rem;
+}
+</style></head><body><div class="jesthtml-content"><header><h1 id="title">Satori API Test Report</h1></header><div id="metadata-container"><div id="timestamp">Started: 2026-06-02 11:02:43</div><div id="summary"><div id="suite-summary"><div class="summary-total">Suites (6)</div><div class="summary-passed ">6 passed</div><div class="summary-failed  summary-empty">0 failed</div><div class="summary-pending  summary-empty">0 pending</div></div><div id="test-summary"><div class="summary-total">Tests (37)</div><div class="summary-passed ">37 passed</div><div class="summary-failed  summary-empty">0 failed</div><div class="summary-pending  summary-empty">0 pending</div></div></div></div><div id="suite-1" class="suite-container"><input id="collapsible-0" type="checkbox" class="toggle" checked="checked"/><label for="collapsible-0"><div class="suite-info"><div class="suite-path">D:\code\QQRobot\LuckyLillia\LuckyLillia.Bot\test\satori-api-test\tests\message\segment-types.test.ts</div><div class="suite-time warn">31.563s</div></div></label><div class="suite-tests"><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">text 元素：纯文本</div><div class="test-status">passed</div><div class="test-duration">0.604s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">at 元素：@ secondary（按 user id）</div><div class="test-status">passed</div><div class="test-duration">0.75s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">at 元素：@全体成员</div><div class="test-status">passed</div><div class="test-duration">0.668s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">face 元素：QQ 表情</div><div class="test-status">passed</div><div class="test-duration">0.591s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">img 元素：发图</div><div class="test-status">passed</div><div class="test-duration">1.105s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">audio 元素：发语音</div><div class="test-status">passed</div><div class="test-duration">6.111s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">video 元素：发全新视频（hash 是 ffmpeg 现场生成的，server 端必走真上传路径）</div><div class="test-status">passed</div><div class="test-duration">2.792s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">video 元素：发秒传视频（同 hash 的 test.mp4 反复发，server 端命中秒传 cache）</div><div class="test-status">passed</div><div class="test-duration">2.303s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">quote 元素：回复一条群消息</div><div class="test-status">passed</div><div class="test-duration">2.019s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">混合元素：text + at + face 一起发</div><div class="test-status">passed</div><div class="test-duration">0.721s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">私聊 text 元素：纯文本</div><div class="test-status">passed</div><div class="test-duration">0.712s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">私聊 img 元素：发图</div><div class="test-status">passed</div><div class="test-duration">0.782s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">私聊 face 元素：QQ 表情</div><div class="test-status">passed</div><div class="test-duration">0.646s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">私聊 audio 元素：发语音</div><div class="test-status">passed</div><div class="test-duration">5.909s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">私聊 video 元素：发全新视频</div><div class="test-status">passed</div><div class="test-duration">2.718s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息元素：多种 element 类型覆盖</div><div class="test-title">私聊 video 元素：发秒传视频（同 hash test.mp4 反复发）</div><div class="test-status">passed</div><div class="test-duration">2.36s</div></div></div></div></div><div id="suite-2" class="suite-container"><input id="collapsible-1" type="checkbox" class="toggle" checked="checked"/><label for="collapsible-1"><div class="suite-info"><div class="suite-path">D:\code\QQRobot\LuckyLillia\LuckyLillia.Bot\test\satori-api-test\tests\message\message.test.ts</div><div class="suite-time warn">5.217s</div></div></label><div class="suite-tests"><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息发送 / 接收</div><div class="test-title">message.create: 发群文本，secondary 收到 message-created 事件</div><div class="test-status">passed</div><div class="test-duration">0.613s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息发送 / 接收</div><div class="test-title">message.create: 发私聊文本（channel_id="private:&lt;uin&gt;"），secondary 收到</div><div class="test-status">passed</div><div class="test-duration">0.529s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息发送 / 接收</div><div class="test-title">message.create: 发 mention secondary，事件里包含 at 元素</div><div class="test-status">passed</div><div class="test-duration">0.627s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息发送 / 接收</div><div class="test-title">message.delete: 撤回自己刚发的群消息</div><div class="test-status">passed</div><div class="test-duration">1.754s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 消息发送 / 接收</div><div class="test-title">message.get: 用 channel_id + message_id 拉回刚发的消息</div><div class="test-status">passed</div><div class="test-duration">1.405s</div></div></div></div></div><div id="suite-3" class="suite-container"><input id="collapsible-2" type="checkbox" class="toggle" checked="checked"/><label for="collapsible-2"><div class="suite-info"><div class="suite-path">D:\code\QQRobot\LuckyLillia\LuckyLillia.Bot\test\satori-api-test\tests\events\events.test.ts</div><div class="suite-time warn">5.613s</div></div></label><div class="suite-tests"><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 事件覆盖</div><div class="test-title">message-created 事件 shape：含 channel/guild/user/message 必填字段</div><div class="test-status">passed</div><div class="test-duration">0.754s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 事件覆盖</div><div class="test-title">message-deleted 事件 shape：撤回后双方都收到，含 message.id</div><div class="test-status">passed</div><div class="test-duration">1.655s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 事件覆盖</div><div class="test-title">reaction-added 事件：primary 给群消息加表情，secondary 收到 reaction-added</div><div class="test-status">passed</div><div class="test-duration">1.401s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 事件覆盖</div><div class="test-title">reaction-removed 事件：primary 取消刚加的表情，secondary 收到 reaction-removed</div><div class="test-status">passed</div><div class="test-duration">1.506s</div></div></div></div></div><div id="suite-4" class="suite-container"><input id="collapsible-3" type="checkbox" class="toggle" checked="checked"/><label for="collapsible-3"><div class="suite-info"><div class="suite-path">D:\code\QQRobot\LuckyLillia\LuckyLillia.Bot\test\satori-api-test\tests\guild\guild.test.ts</div><div class="suite-time">0.883s</div></div></label><div class="suite-tests"><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 群 / 频道 / 成员（read-only）</div><div class="test-title">guild.get 返回测试群信息</div><div class="test-status">passed</div><div class="test-duration">0.113s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 群 / 频道 / 成员（read-only）</div><div class="test-title">channel.get 用 channel_id == guild_id 返回测试群</div><div class="test-status">passed</div><div class="test-duration">0.103s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 群 / 频道 / 成员（read-only）</div><div class="test-title">channel.list 拉测试群下的频道列表</div><div class="test-status">passed</div><div class="test-duration">0.111s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 群 / 频道 / 成员（read-only）</div><div class="test-title">guild.member.get 返回 secondary 的群成员信息</div><div class="test-status">passed</div><div class="test-duration">0.151s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 群 / 频道 / 成员（read-only）</div><div class="test-title">guild.member.list 返回测试群所有成员</div><div class="test-status">passed</div><div class="test-duration">0.101s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 群 / 频道 / 成员（read-only）</div><div class="test-title">guild.role.list 返回固定的三个角色 (owner/admin/member)</div><div class="test-status">passed</div><div class="test-duration">0.002s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 群 / 频道 / 成员（read-only）</div><div class="test-title">user.channel.create 返回 private:&lt;uid&gt; 的 direct channel</div><div class="test-status">passed</div><div class="test-duration">0.001s</div></div></div></div></div><div id="suite-5" class="suite-container"><input id="collapsible-4" type="checkbox" class="toggle" checked="checked"/><label for="collapsible-4"><div class="suite-info"><div class="suite-path">D:\code\QQRobot\LuckyLillia\LuckyLillia.Bot\test\satori-api-test\tests\system\login.test.ts</div><div class="suite-time">0.633s</div></div></label><div class="suite-tests"><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 登录 / smoke</div><div class="test-title">login.get 返回当前账号</div><div class="test-status">passed</div><div class="test-duration">0.126s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 登录 / smoke</div><div class="test-title">guild.list 包含测试群</div><div class="test-status">passed</div><div class="test-duration">0.131s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 登录 / smoke</div><div class="test-title">user.get 返回 secondary 资料</div><div class="test-status">passed</div><div class="test-duration">0.091s</div></div></div></div></div><div id="suite-6" class="suite-container"><input id="collapsible-5" type="checkbox" class="toggle" checked="checked"/><label for="collapsible-5"><div class="suite-info"><div class="suite-path">D:\code\QQRobot\LuckyLillia\LuckyLillia.Bot\test\satori-api-test\tests\friend\friend.test.ts</div><div class="suite-time">0.594s</div></div></label><div class="suite-tests"><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 好友 / 用户</div><div class="test-title">friend.list 至少包含 secondary</div><div class="test-status">passed</div><div class="test-duration">0.214s</div></div></div><div class="test-result passed"><div class="test-info"><div class="test-suitename">Satori 好友 / 用户</div><div class="test-title">user.get 返回 secondary 资料 (重复一遍 smoke 的，确认稳定)</div><div class="test-status">passed</div><div class="test-duration">0.08s</div></div></div></div></div></div></body></html>

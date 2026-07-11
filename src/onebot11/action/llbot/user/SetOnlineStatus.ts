@@ -21,8 +21,8 @@ export class SetOnlineStatus extends BaseAction<Payload, null> {
       Number(payload.ext_status),
       Number(payload.battery_status),
     )
-    if (ret.result !== 0) {
-      throw new Error(ret.errMsg)
+    if (ret.retCode !== 0) {
+      throw new Error(ret.message)
     }
     return null
   }

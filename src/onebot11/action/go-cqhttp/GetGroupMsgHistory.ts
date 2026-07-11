@@ -30,20 +30,14 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
   private async getMessage(config: ParseMessageConfig, peer: Peer, count: number, seq?: number | string) {
     let msgList: RawMessage[]
     if (!seq || +seq === 0) {
-      msgList = (await this.ctx.ntMsgApi.getAioFirstViewLatestMsgs(peer, count)).msgList
+      const latestSeq = await this.ctx.ntMsgApi.getLatestMsgSeq(peer)
+      msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, latestSeq, count, false)).msgList
     } else {
-      msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, String(seq), count, true, true)).msgList
+      msgList = (await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, +seq, count, false)).msgList
     }
     if (!msgList?.length) return
     const ob11MsgList = await Promise.all(msgList.map(msg => {
-      let rawMsg = msg
-      if (rawMsg.recallTime !== '0') {
-        const msg = this.ctx.store.getMsgCache(rawMsg.msgId)
-        if (msg) {
-          rawMsg = msg
-        }
-      }
-      return OB11Entities.message(this.ctx, rawMsg, config)
+      return OB11Entities.message(this.ctx, msg, config)
     }))
     return { list: filterNullable(ob11MsgList), seq: +msgList[0].msgSeq }
   }
@@ -51,11 +45,10 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
   protected async _handle(payload: Payload, config: ParseMessageConfig): Promise<Response> {
     const peer: Peer = {
       chatType: ChatType.Group,
-      peerUid: payload.group_id.toString(),
-      guildId: ''
+      peerUid: payload.group_id.toString()
     }
 
-    const messages: OB11Message[] = []
+    let messages: OB11Message[] = []
     let seq = payload.message_seq
     let count = +payload.count
 
@@ -65,6 +58,11 @@ export class GetGroupMsgHistory extends BaseAction<Payload, Response> {
       seq = res.seq - 1
       count -= res.list.length
       messages.unshift(...res.list)
+    }
+
+    if (messages.length > 0) {
+      const info = await this.ctx.ntGroupApi.getGroup(+payload.group_id, false)
+      messages = messages.map(e => ({ ...e, group_name: info.groupName }))
     }
 
     if (payload.reverseOrder) messages.reverse()

@@ -19,6 +19,7 @@ export enum ActionName {
   BatchDeleteGroupMember = 'batch_delete_group_member',
   GetFlashFileInfo = 'get_flash_file_info',
   DownloadFlashFile = 'download_flash_file',
+  GetFlashFileDownloadUrls = 'get_flash_file_download_urls',
   UploadFlashFile = 'upload_flash_file',
   ReShareFlashFile = 'reshare_flash_file',
   GetRKey = "get_rkey",
@@ -64,6 +65,8 @@ export enum ActionName {
   SendPoke = 'send_poke',
   SetInputStatus = 'set_input_status',
   GetGroupAlbumMediaList = 'get_group_album_media_list',
+  GetGroupSignedList = 'get_group_signed_list',
+  GetProfileLikeCount = 'get_profile_like_count',
   // onebot 11
   SendLike = 'send_like',
   GetLoginInfo = 'get_login_info',

@@ -1,36 +1,26 @@
-FROM node:24-alpine3.23
+FROM node:24-alpine
 
 ARG LLBOT_VERSION
 
 RUN set -eux; \
-    # 获取当前系统 Alpine 主要版本 (如 3.19)
-    ALPINE_VERSION=$(cut -d '.' -f1,2 /etc/alpine-release); \
-    # 检查版本号是否有效
-    [ -n "$ALPINE_VERSION" ] || { echo "Error: Failed to get Alpine version"; exit 1; }; \
-    # 配置阿里云镜像源
-#    echo "https://mirrors.aliyun.com/alpine/v$ALPINE_VERSION/main" > /etc/apk/repositories; \
-#    echo "https://mirrors.aliyun.com/alpine/v$ALPINE_VERSION/community" >> /etc/apk/repositories; \
-    # 更新索引
-    apk update; \
-    # 安装时区工具
-    apk add --no-cache tzdata ffmpeg unzip wget; \
-    # 设置时区为上海
-    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
-    echo "Asia/Shanghai" > /etc/timezone; \
-    # 清理缓存减少镜像体积
-    rm -rf /var/cache/apk/*
+    apk add --no-cache ffmpeg tzdata unzip wget ca-certificates; \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
+    echo "Asia/Shanghai" > /etc/timezone
 
-WORKDIR /app/llonebot
+ENV TZ=Asia/Shanghai
+
+WORKDIR /app/llbot
 
 COPY docker/startup.sh /startup.sh
-
 RUN chmod +x /startup.sh
 
-RUN wget https://github.com/LLOneBot/LuckyLilliaBot/releases/download/v$LLBOT_VERSION/LLBot.zip -O /app/llbot.zip
+RUN set -eux; \
+    wget "https://github.com/LLOneBot/LuckyLilliaBot/releases/download/v${LLBOT_VERSION}/LLBot.zip" -O /app/llbot.zip; \
+    unzip /app/llbot.zip -d /app/llbot; \
+    rm /app/llbot.zip; \
+    cd /app/llbot; \
+    for f in sign-proxy.*.node; do case "$f" in *-musl.node) ;; *) rm -f "$f" ;; esac; done
 
-#COPY /dist/llonebot.zip /app/llonebot.zip
-
-RUN unzip /app/llbot.zip -d /app/llbot \
-    && rm /app/llbot.zip
+VOLUME ["/app/llbot/data"]
 
 ENTRYPOINT ["/startup.sh"]

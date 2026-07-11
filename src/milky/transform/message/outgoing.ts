@@ -1,24 +1,19 @@
 import { resolveMilkyUri } from '@/milky/common/download'
 import type { Context } from 'cordis'
-import { OutgoingForwardedMessage, OutgoingSegment } from '@saltify/milky-types'
-import { AtType, Peer, RichMediaUploadCompleteNotify, RMBizType, SendMessageElement } from '@/ntqqapi/types'
+import { OutgoingSegment } from '@/milky/generated/schema'
+import { AtType, SendMessageElement } from '@/ntqqapi/types'
 import { SendElement } from '@/ntqqapi/entities'
-import { selfInfo, TEMP_DIR } from '@/common/globalVars'
-import { unlink, writeFile } from 'node:fs/promises'
+import { TEMP_DIR } from '@/common/globalVars'
+import { writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
-import { Msg, Media } from '@/ntqqapi/proto'
-import faceConfig from '@/ntqqapi/helper/face_config.json'
-import { deflateSync } from 'node:zlib'
-import { InferProtoModelInput } from '@saltify/typeproto'
-import { createThumb } from '@/common/utils/video'
-import { noop } from 'cosmokit'
 
 export async function transformOutgoingMessage(
   ctx: Context,
   segments: OutgoingSegment[],
   peerUid: string,
-  isGroup: boolean = false,
+  isGroup: boolean,
+  isInsideForward: boolean
 ) {
   const elements: SendMessageElement[] = []
   const deleteAfterSentFiles: string[] = []
@@ -28,26 +23,43 @@ export async function transformOutgoingMessage(
       if (segment.type === 'text') {
         elements.push(SendElement.text(segment.data.text))
       } else if (segment.type === 'mention' && isGroup) {
-        const memberUin = segment.data.user_id.toString()
-        const memberUid = await ctx.ntUserApi.getUidByUin(memberUin, peerUid)
-        const info = await ctx.ntGroupApi.getGroupMember(peerUid, memberUid)
-        elements.push(SendElement.at(memberUin, memberUid, AtType.One, `@${info.cardName || info.nick}`))
+        const memberUin = segment.data.user_id
+        const info = await ctx.ntGroupApi.getGroupMemberByUin(+peerUid, memberUin, false)
+        elements.push(SendElement.at(memberUin, AtType.One, `@${info?.cardName || info?.nick || ''}`))
       } else if (segment.type === 'mention_all' && isGroup) {
-        elements.push(SendElement.at('', '', AtType.All, '@全体成员'))
+        elements.push(SendElement.at(0, AtType.All, '@全体成员'))
       } else if (segment.type === 'face') {
         elements.push(SendElement.face(+segment.data.face_id, segment.data.is_large ? 3 : undefined))
       } else if (segment.type === 'reply') {
-        const replyMsgSeq = segment.data.message_seq.toString()
         const peer = {
           chatType: isGroup ? 2 : 1,
           peerUid,
           guildId: ''
         }
-        const source = await ctx.ntMsgApi.getSingleMsg(peer, replyMsgSeq)
-        if (source.msgList.length === 0) {
+        let msg = ctx.store.getMsgBySeq(peer.peerUid, segment.data.message_seq)
+        let srcMsg
+        if (!msg) {
+          const { msgList, msgByteList } = await ctx.ntMsgApi.getSingleMsg(peer, segment.data.message_seq)
+          msg = msgList[0]
+          if (isInsideForward) {
+            srcMsg = msgByteList[0]
+          }
+        }
+        if (!msg) {
           throw new Error('被回复的消息未找到')
         }
-        elements.push(SendElement.reply(replyMsgSeq, source.msgList[0].msgId, source.msgList[0].senderUid))
+        if (isInsideForward && !srcMsg) {
+          const { msgByteList } = await ctx.ntMsgApi.getSingleMsg(peer, segment.data.message_seq)
+          srcMsg = msgByteList[0]
+        }
+        elements.push(SendElement.reply(
+          segment.data.message_seq,
+          msg.senderUin,
+          msg.senderUid,
+          msg.msgTime,
+          msg.clientSeq,
+          srcMsg
+        ))
       } else if (segment.type === 'image') {
         const imageBuffer = await resolveMilkyUri(segment.data.uri)
         // Save to temp file and upload
@@ -79,50 +91,24 @@ export async function transformOutgoingMessage(
         elements.push(videoElement)
         deleteAfterSentFiles.push(tempPath)
       } else if (segment.type === 'forward') {
-        const forwardData = segment.data
-        const raw = await transformOutgoingForwardMessages(
-          ctx,
-          forwardData.messages as OutgoingForwardedMessage[],
-          peerUid,
-          isGroup,
-          {
-            title: forwardData.title,
-            preview: forwardData.preview,
-            summary: forwardData.summary,
-            prompt: forwardData.prompt
-          }
-        )
-        const resid = await ctx.pmhq.uploadForward(peerUid, isGroup, raw.multiMsgItems)
-        const uuid = randomUUID()
-        const prompt = raw.prompt
-        const arkElement = SendElement.ark(JSON.stringify({
-          app: 'com.tencent.multimsg',
-          config: {
-            autosize: 1,
-            forward: 1,
-            round: 1,
-            type: 'normal',
-            width: 300,
-          },
-          desc: prompt,
-          extra: JSON.stringify({
-            filename: uuid,
-            tsum: raw.tsum,
-          }),
-          meta: {
-            detail: {
-              news: raw.news,
-              resid,
-              source: raw.source,
-              summary: raw.summary,
-              uniseq: uuid,
-            },
-          },
-          prompt,
-          ver: '0.0.0.5',
-          view: 'contact',
-        }))
-        elements.push(arkElement)
+        const { data } = segment
+        const nodes: {
+          senderUin: number
+          senderName: string
+          elements: SendMessageElement[]
+          msgTime?: number
+        }[] = []
+        for (const item of data.messages) {
+          const res = await transformOutgoingMessage(ctx, item.segments as OutgoingSegment[], peerUid, isGroup, true)
+          deleteAfterSentFiles.push(...res.deleteAfterSentFiles)
+          nodes.push({
+            senderUin: item.user_id,
+            senderName: item.sender_name,
+            elements: res.elements,
+            msgTime: item.time ?? undefined
+          })
+        }
+        elements.push(SendElement.forward(nodes, data.title, data.preview, data.summary, data.prompt))
       } else if (segment.type === 'light_app') {
         const arkElement = SendElement.ark(segment.data.json_payload)
         elements.push(arkElement)
@@ -135,272 +121,5 @@ export async function transformOutgoingMessage(
   return {
     elements,
     deleteAfterSentFiles
-  }
-}
-
-export async function transformOutgoingForwardMessages(
-  ctx: Context,
-  messages: OutgoingForwardedMessage[],
-  peerUid: string,
-  isGroup: boolean,
-  options?: {
-    title: string | null | undefined
-    preview: string[] | null | undefined
-    summary: string | null | undefined
-    prompt: string | null | undefined
-  }
-) {
-  const encoder = new ForwardMessageEncoder(ctx, peerUid, isGroup)
-  return await encoder.generate(messages, options)
-}
-
-class ForwardMessageEncoder {
-  results: InferProtoModelInput<typeof Msg.Message>[]
-  children: InferProtoModelInput<typeof Msg.Elem>[]
-  seq: number
-  tsum: number
-  preview: string
-  news: { text: string }[]
-  name?: string
-  uin?: number
-  innerRaws: Awaited<ReturnType<ForwardMessageEncoder['generate']>>[] = []
-
-  constructor(private ctx: Context, private peerUid: string, private isGroup: boolean) {
-    this.results = []
-    this.children = []
-    this.seq = Math.trunc(Math.random() * 65430)
-    this.tsum = 0
-    this.preview = ''
-    this.news = []
-  }
-
-  async flush() {
-    if (this.children.length === 0) return
-
-    const nick = this.name ?? selfInfo.nick
-
-    if (this.news.length < 4) {
-      this.news.push({
-        text: `${nick}: ${this.preview}`
-      })
-    }
-
-    this.results.push({
-      routingHead: {
-        fromUin: this.uin ?? +selfInfo.uin, // 或 1094950020
-        c2c: this.isGroup ? undefined : {
-          friendName: nick
-        },
-        group: this.isGroup ? {
-          groupCode: 284840486,
-          groupCard: nick
-        } : undefined
-      },
-      contentHead: {
-        msgType: this.isGroup ? 82 : 9,
-        random: Math.floor(Math.random() * 4294967290),
-        msgSeq: this.seq,
-        msgTime: Math.trunc(Date.now() / 1000),
-        pkgNum: 1,
-        pkgIndex: 0,
-        divSeq: 0,
-        forward: {
-          field1: 0,
-          field2: 0,
-          field3: 0,
-          field4: '',
-          avatar: ''
-        }
-      },
-      body: {
-        richText: {
-          elems: this.children
-        }
-      }
-    })
-
-    this.seq++
-    this.tsum++
-    this.children = []
-    this.preview = ''
-  }
-
-  async packImage(msgInfo: InferProtoModelInput<typeof Media.MsgInfo>) {
-    return {
-      commonElem: {
-        serviceType: 48,
-        pbElem: Media.MsgInfo.encode(msgInfo),
-        businessType: this.isGroup ? 20 : 10
-      }
-    }
-  }
-
-  packForwardMessage(resid: string, uuid?: string, options?: { source?: string; news?: { text: string }[]; summary?: string; prompt?: string }) {
-    const id = uuid ?? crypto.randomUUID()
-    const prompt = options?.prompt ?? '[聊天记录]'
-    const content = JSON.stringify({
-      app: 'com.tencent.multimsg',
-      config: {
-        autosize: 1,
-        forward: 1,
-        round: 1,
-        type: 'normal',
-        width: 300
-      },
-      desc: prompt,
-      extra: JSON.stringify({
-        filename: id,
-        tsum: 0,
-      }),
-      meta: {
-        detail: {
-          news: options?.news ?? [{
-            text: '查看转发消息'
-          }],
-          resid,
-          source: options?.source ?? '聊天记录',
-          summary: options?.summary ?? '查看转发消息',
-          uniseq: id,
-        }
-      },
-      prompt,
-      ver: '0.0.0.5',
-      view: 'contact'
-    })
-    return {
-      lightApp: {
-        data: Buffer.concat([Buffer.from([1]), deflateSync(Buffer.from(content, 'utf-8'))])
-      }
-    }
-  }
-
-  packVideo(msgInfo: InferProtoModelInput<typeof Media.MsgInfo>) {
-    return {
-      commonElem: {
-        serviceType: 48,
-        pbElem: Media.MsgInfo.encode(msgInfo),
-        businessType: this.isGroup ? 21 : 11
-      }
-    }
-  }
-
-  async visit(content: OutgoingForwardedMessage) {
-    this.uin = content.user_id
-    this.name = content.sender_name
-    for (const segment of content.segments) {
-      const { type, data } = segment
-      if (type === 'text') {
-        this.children.push({
-          text: {
-            str: data.text
-          }
-        })
-        this.preview += data.text.slice(0, 70)
-      } else if (type === 'face') {
-        this.children.push({
-          face: {
-            index: +data.face_id
-          }
-        })
-        const face = faceConfig.sysface.find(e => e.QSid === data.face_id)
-        if (face) {
-          this.preview += face.QDes
-        }
-      } else if (type === 'image') {
-        const imageBuffer = await resolveMilkyUri(segment.data.uri)
-        const tempPath = path.join(TEMP_DIR, `image-${randomUUID()}`)
-        await writeFile(tempPath, imageBuffer)
-        let data
-        if (this.isGroup) {
-          data = await this.ctx.ntFileApi.uploadGroupImage(this.peerUid, tempPath)
-        } else {
-          data = await this.ctx.ntFileApi.uploadC2CImage(this.peerUid, tempPath)
-        }
-        const busiType = segment.data.sub_type === 'sticker' ? 1 : 0
-        this.children.push(await this.packImage(data.msgInfo))
-        this.preview += busiType === 1 ? '[动画表情]' : '[图片]'
-        unlink(tempPath).catch(noop)
-      } else if (type === 'forward') {
-        const encoder = new ForwardMessageEncoder(this.ctx, this.peerUid, this.isGroup)
-        const innerRaw = await encoder.generate(data.messages as OutgoingForwardedMessage[], {
-          title: data.title,
-          preview: data.preview,
-          summary: data.summary,
-          prompt: data.prompt
-        })
-        this.innerRaws.push(innerRaw)
-        const resid = await this.ctx.pmhq.uploadForward(this.peerUid, this.isGroup, innerRaw.multiMsgItems)
-        this.children.push(this.packForwardMessage(resid, innerRaw.uuid, innerRaw))
-        this.preview += '[聊天记录]'
-      } else if (type === 'video') {
-        const videoBuffer = await resolveMilkyUri(segment.data.uri)
-        const tempPath = path.join(TEMP_DIR, `video-${randomUUID()}`)
-        await writeFile(tempPath, videoBuffer)
-        let thumbTempPath
-        if (segment.data.thumb_uri) {
-          const thumbBuffer = await resolveMilkyUri(segment.data.thumb_uri)
-          thumbTempPath = path.join(TEMP_DIR, `thumb-${randomUUID()}`)
-          await writeFile(thumbTempPath, thumbBuffer)
-        } else {
-          thumbTempPath = await createThumb(this.ctx, tempPath)
-        }
-        let data
-        if (this.isGroup) {
-          data = await this.ctx.ntFileApi.uploadGroupVideo(this.peerUid, tempPath, thumbTempPath)
-        } else {
-          data = await this.ctx.ntFileApi.uploadC2CVideo(this.peerUid, tempPath, thumbTempPath)
-        }
-        this.children.push(this.packVideo(data.msgInfo))
-        this.preview += '[视频]'
-        unlink(tempPath).catch(noop)
-        unlink(thumbTempPath).catch(noop)
-      }
-    }
-    await this.flush()
-  }
-
-  async render(content: OutgoingForwardedMessage[]) {
-    for (const item of content) {
-      await this.visit(item)
-    }
-  }
-
-  async generate(content: OutgoingForwardedMessage[], options?: {
-    title: string | null | undefined
-    preview: string[] | null | undefined
-    summary: string | null | undefined
-    prompt: string | null | undefined
-  }) {
-    await this.render(content)
-    const msg = this.results
-    const tsum = this.tsum
-    const news = this.news
-    this.results = []
-    this.tsum = 0
-    this.news = []
-    const multiMsgItems = [{
-      fileName: 'MultiMsg',
-      buffer: {
-        msg
-      }
-    }]
-    for (const raw of this.innerRaws) {
-      for (const item of raw.multiMsgItems) {
-        multiMsgItems.push({
-          fileName: item.fileName === 'MultiMsg' ? raw.uuid : item.fileName,
-          buffer: item.buffer
-        })
-      }
-    }
-    this.innerRaws = []
-    return {
-      multiMsgItems,
-      tsum,
-      source: options?.title ?? (this.isGroup ? '群聊的聊天记录' : '聊天记录'),
-      summary: options?.summary ?? `查看${tsum}条转发消息`,
-      news: options?.preview?.map(e => ({ text: e })) ?? news,
-      prompt: options?.prompt ?? '[聊天记录]',
-      uuid: crypto.randomUUID()
-    }
   }
 }

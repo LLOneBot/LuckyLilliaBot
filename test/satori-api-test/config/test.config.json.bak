@@ -1,0 +1,19 @@
+{
+  "accounts": {
+    "primary": {
+      "host": "http://127.0.0.1:53200",
+      "apiKey": "123",
+      "protocol": "http",
+      "user_id": "1412971608"
+    },
+    "secondary": {
+      "host": "http://127.0.0.1:53201",
+      "apiKey": "123",
+      "protocol": "http",
+      "user_id": "721011692"
+    }
+  },
+  "test_group_id": "164461995",
+  "timeout": 30000,
+  "retryAttempts": 3
+}

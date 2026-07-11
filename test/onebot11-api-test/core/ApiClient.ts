@@ -1,7 +1,24 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import WebSocket from 'ws';
-import { AccountConfig } from '../config/ConfigLoader.js';
 import { ActionName } from '../../../src/onebot11/action/types.js';
+import {
+  IApiClient,
+  AccountConnectionConfig,
+  NetworkError,
+  TimeoutError,
+} from '../../test-framework/src/index.js';
+
+// 兼容旧 import
+export { NetworkError, TimeoutError };
+
+/**
+ * 兼容旧代码：AccountConfig 是 OB11 测试自己的别名，但底层就是 framework 的
+ * AccountConnectionConfig，加上 OB11 这里把 protocol 收紧到 'http' | 'ws'。
+ */
+export interface AccountConfig extends AccountConnectionConfig {
+  protocol: 'http' | 'ws'
+  apiKey: string
+}
 
 /**
  * API 响应接口
@@ -25,30 +42,10 @@ interface WsRequest {
 }
 
 /**
- * 网络错误
- */
-export class NetworkError extends Error {
-  constructor(message: string, public readonly cause?: Error) {
-    super(message);
-    this.name = 'NetworkError';
-  }
-}
-
-/**
- * 超时错误
- */
-export class TimeoutError extends Error {
-  constructor(message: string, public readonly duration: number) {
-    super(message);
-    this.name = 'TimeoutError';
-  }
-}
-
-/**
  * API 客户端
  * 支持 HTTP 和 WebSocket 两种协议调用 OneBot11 接口
  */
-export class ApiClient {
+export class ApiClient implements IApiClient {
   private config: AccountConfig;
   private httpClient: AxiosInstance;
   private retryAttempts: number;
@@ -371,14 +368,19 @@ export class ApiClient {
    * @param params 接口参数
    * @returns API 响应
    */
-  async call(action: ActionName, params: any = {}): Promise<ApiResponse> {
+  async call(action: ActionName | string, params: any = {}): Promise<ApiResponse> {
     if (this.config.protocol === 'http') {
-      return this.callHttp(action, params);
+      return this.callHttp(action as ActionName, params);
     } else if (this.config.protocol === 'ws') {
-      return this.callWs(action, params);
+      return this.callWs(action as ActionName, params);
     } else {
       throw new Error(`Unsupported protocol: ${this.config.protocol}`);
     }
+  }
+
+  /** IApiClient 接口要求：统一的连接关闭入口 */
+  disconnect(): void {
+    this.disconnectWs();
   }
 
   /**

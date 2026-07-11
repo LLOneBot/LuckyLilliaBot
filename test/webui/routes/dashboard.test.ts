@@ -29,10 +29,10 @@ describe('dashboard routes', () => {
           startupTime: Date.now(),
           lastMessageTime: Date.now(),
         }
-        if (key === 'pmhq') return ctx.pmhq
+        if (key === 'qqProtocol') return ctx.qqProtocol
         return undefined
       })
-      ctx.ntFriendApi.getFriendList.mockResolvedValue({
+      ctx.ntFriendApi.getFriends.mockResolvedValue({
         friends: [{}, {}, {}],
         categories: new Map()
       })

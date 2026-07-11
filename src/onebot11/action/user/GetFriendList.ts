@@ -7,7 +7,7 @@ export class GetFriendList extends BaseAction<{}, OB11User[]> {
   actionName = ActionName.GetFriendList
 
   protected async _handle() {
-    const result = await this.ctx.ntFriendApi.getFriendList(true)
+    const result = await this.ctx.ntFriendApi.getFriends(true)
     return OB11Entities.friends(result.friends)
   }
 }

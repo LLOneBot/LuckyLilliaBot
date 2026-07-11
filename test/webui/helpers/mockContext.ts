@@ -8,7 +8,7 @@ export function createMockContext() {
       quickLoginWithUin: vi.fn(),
     },
     ntFriendApi: {
-      getFriendList: vi.fn(() => Promise.resolve({
+      getFriends: vi.fn(() => Promise.resolve({
         friends: [],
         categories: new Map()
       })),
@@ -19,7 +19,7 @@ export function createMockContext() {
     },
     ntGroupApi: {
       getGroups: vi.fn(() => Promise.resolve([])),
-      getGroupMembers: vi.fn(() => Promise.resolve({ result: { infos: new Map() } })),
+      getGroupMembers: vi.fn(() => Promise.resolve(new Map())),
       getGroupRequest: vi.fn(() => Promise.resolve({ notifies: [], normalCount: 0 })),
       handleGroupRequest: vi.fn(() => Promise.resolve()),
     },
@@ -43,7 +43,7 @@ export function createMockContext() {
       rkeyManager: { getRkey: vi.fn(() => Promise.resolve({ private_rkey: '', group_rkey: '' })) },
       getPttUrl: vi.fn(),
     },
-    pmhq: {
+    qqProtocol: {
       getProcessInfo: vi.fn(() => Promise.resolve({
         memory: { rss: 100000000, totalMem: 8000000000 },
         cpu: { percent: 5.0 },

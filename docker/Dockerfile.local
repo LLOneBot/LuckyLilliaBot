@@ -1,4 +1,6 @@
-FROM node:24-alpine3.23 AS builder
+FROM node:24-bookworm-slim AS builder
+
+ARG BUILD_PROXY=http://192.168.1.101:7890
 
 WORKDIR /app
 
@@ -6,11 +8,14 @@ RUN corepack enable && corepack prepare yarn@4.12.0 --activate
 
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn .yarn
-
-RUN yarn install --immutable
-
+# FE package.json 必须在 yarn install 前就位: 根 postinstall 会 npm --prefix src/webui/FE install, 缺目录 -> exit 254
 COPY src/webui/FE/package.json src/webui/FE/
-RUN cd src/webui/FE && npm install
+
+RUN export http_proxy="$BUILD_PROXY" https_proxy="$BUILD_PROXY" HTTP_PROXY="$BUILD_PROXY" HTTPS_PROXY="$BUILD_PROXY"; \
+    yarn install --immutable
+
+RUN export http_proxy="$BUILD_PROXY" https_proxy="$BUILD_PROXY" HTTP_PROXY="$BUILD_PROXY" HTTPS_PROXY="$BUILD_PROXY"; \
+    cd src/webui/FE && npm install
 
 COPY . .
 
@@ -19,22 +24,30 @@ RUN yarn build-webui
 RUN yarn build
 
 
-FROM node:24-alpine3.23 AS production
+FROM node:24-alpine AS production
+
+ARG BUILD_PROXY=http://192.168.1.101:7890
 
 RUN set -eux; \
-    apk update; \
-    apk add --no-cache tzdata ffmpeg; \
-    cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
-    echo "Asia/Shanghai" > /etc/timezone; \
-    rm -rf /var/cache/apk/*
+    export http_proxy="$BUILD_PROXY" https_proxy="$BUILD_PROXY"; \
+    apk add --no-cache ffmpeg tzdata; \
+    ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
+    echo "Asia/Shanghai" > /etc/timezone
+
+ENV TZ=Asia/Shanghai
 
 WORKDIR /app/llbot
 
 COPY --from=builder /app/dist .
 
+# alpine 只加载 musl 变体, 删掉其它平台/ABI 的 sign-proxy .node (darwin/win/glibc) 瘦身
+RUN for f in sign-proxy.*.node; do case "$f" in *-musl.node) ;; *) rm -f "$f" ;; esac; done
+
 COPY docker/startup.sh /startup.sh
 RUN chmod +x /startup.sh
 
 RUN touch /.dockerenv
+
+VOLUME ["/app/llbot/data"]
 
 ENTRYPOINT ["/startup.sh"]

@@ -1,7 +1,7 @@
 import React from 'react'
 import { createPortal } from 'react-dom'
 import type { RawMessage } from '../../../types/webqq'
-import { ntCall } from '../../../utils/webqqApi'
+import { setEmojiLike } from '../../../utils/webqqApi'
 import { showToast } from '../../common'
 import { EmojiPicker } from './EmojiPicker'
 
@@ -17,8 +17,7 @@ export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({ target
     const msg = target.message
     onClose()
     try {
-      const peer = { chatType: msg.chatType, peerUid: msg.peerUin, guildId: '' }
-      await ntCall('ntMsgApi', 'setEmojiLike', [peer, msg.msgSeq, String(faceId), true])
+      await setEmojiLike(msg.chatType, msg.peerUin, msg.msgSeq, String(faceId), true)
     } catch (e) {
       showToast(e.message || '贴表情失败', 'error')
     }
@@ -29,14 +28,13 @@ export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({ target
     const msg = target.message
     onClose()
     try {
-      const peer = { chatType: msg.chatType, peerUid: msg.peerUin, guildId: '' }
       // 获取 emoji 的 Unicode 码点
       const codePoint = emoji.codePointAt(0)
       if (!codePoint) {
         showToast('无效的表情', 'error')
         return
       }
-      await ntCall('ntMsgApi', 'setEmojiLike', [peer, msg.msgSeq, String(codePoint), true])
+      await setEmojiLike(msg.chatType, msg.peerUin, msg.msgSeq, String(codePoint), true)
     } catch (e) {
       showToast(e.message || '贴表情失败', 'error')
     }

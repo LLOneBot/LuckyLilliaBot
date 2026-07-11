@@ -25,13 +25,13 @@ import {
   GetGroupEssenceMessagesInput,
   GetGroupEssenceMessagesOutput,
   SetGroupEssenceMessageInput,
-} from '@saltify/milky-types'
+} from '../generated/schema'
 import z from 'zod'
 import { TEMP_DIR } from '@/common/globalVars'
 import { unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
-import { GroupNotifyStatus, GroupNotifyType } from '@/ntqqapi/types'
+import { ChatType, GroupNotificationType, RequestState } from '@/ntqqapi/types'
 import { transformIncomingSegments } from '../transform/message'
 import { noop } from 'cosmokit'
 
@@ -40,9 +40,9 @@ const SetGroupName = defineApi(
   SetGroupNameInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.setGroupName(payload.group_id.toString(), payload.new_group_name)
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    const result = await ctx.ntGroupApi.setGroupName(payload.group_id, payload.new_group_name)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -70,15 +70,14 @@ const SetGroupMemberCard = defineApi(
   SetGroupMemberCardInput,
   z.object({}),
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
-    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
-    const result = await ctx.ntGroupApi.setMemberCard(
-      groupCode,
+    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.group_id)
+    const result = await ctx.ntGroupApi.setGroupMemberCard(
+      payload.group_id,
       memberUid,
       payload.card
     )
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -89,13 +88,15 @@ const SetGroupMemberSpecialTitle = defineApi(
   SetGroupMemberSpecialTitleInput,
   z.object({}),
   async (ctx, payload) => {
-    // Use PMHQ to set special title
-    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), payload.group_id.toString())
-    await ctx.pmhq.setSpecialTitle(
+    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.group_id)
+    const result = await ctx.ntGroupApi.setGroupMemberSpecialTitle(
       payload.group_id,
       memberUid,
       payload.special_title
     )
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
+    }
     return Ok({})
   }
 )
@@ -105,15 +106,17 @@ const SetGroupMemberAdmin = defineApi(
   SetGroupMemberAdminInput,
   z.object({}),
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
-    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
-    const result = await ctx.ntGroupApi.setMemberRole(
-      groupCode,
-      memberUid,
-      payload.is_set ? 3 : 2
+    const memberUid = await ctx.ntUserApi.getUidByUin(
+      payload.user_id,
+      payload.group_id
     )
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    const result = await ctx.ntGroupApi.setGroupMemberAdmin(
+      payload.group_id,
+      memberUid,
+      payload.is_set
+    )
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -124,14 +127,13 @@ const SetGroupMemberMute = defineApi(
   SetGroupMemberMuteInput,
   z.object({}),
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
-    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
-    const result = await ctx.ntGroupApi.banMember(
-      groupCode,
-      [{ uid, timeStamp: payload.duration }]
+    const uid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.group_id)
+    const result = await ctx.ntGroupApi.muteGroupMember(
+      payload.group_id,
+      [{ uid, duration: payload.duration }]
     )
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -142,9 +144,9 @@ const SetGroupWholeMute = defineApi(
   SetGroupWholeMuteInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.banGroup(payload.group_id.toString(), payload.is_mute)
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    const result = await ctx.ntGroupApi.muteGroup(payload.group_id, payload.is_mute)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -155,15 +157,14 @@ const KickGroupMember = defineApi(
   KickGroupMemberInput,
   z.object({}),
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
-    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id.toString(), groupCode)
-    const result = await ctx.ntGroupApi.kickMember(
-      groupCode,
+    const memberUid = await ctx.ntUserApi.getUidByUin(payload.user_id, payload.group_id)
+    const result = await ctx.ntGroupApi.kickGroupMember(
+      payload.group_id,
       [memberUid],
       payload.reject_add_request
     )
-    if (result.errCode !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -174,18 +175,31 @@ const GetGroupAnnouncements = defineApi(
   GetGroupAnnouncementsInput,
   GetGroupAnnouncementsOutput,
   async (ctx, payload) => {
-    const data = await ctx.ntGroupApi.getGroupBulletinList(payload.group_id.toString())
-    return Ok({
-      announcements: data.feeds.map(e => {
-        return {
-          group_id: payload.group_id,
-          announcement_id: e.feedId,
-          user_id: +e.uin,
-          time: +e.publishTime,
-          content: e.msg.text,
-          image_url: e.msg.pics[0] ? `https://gdynamic.qpic.cn/gdynamic/${e.msg.pics[0].id}/0` : undefined
-        }
+    const result = await ctx.ntWebApi.getGroupBulletinList(payload.group_id)
+    if (result.ec !== 0) {
+      return Failed(-500, result.em)
+    }
+    // server 在没有未读公告 / 群没公告时分别省略 inst / feeds 字段（实测都会
+    // 是 undefined）。spread 这两个字段前必须 `?? []` 兜底，否则群一空就 500
+    // "result.inst is not iterable" / "result.feeds is not iterable"。
+    const feeds = result.feeds ?? []
+    const inst = result.inst ?? []
+    const announcements = []
+    for (const e of [...feeds, ...inst]) {
+      announcements.push({
+        group_id: payload.group_id,
+        announcement_id: e.fid,
+        user_id: e.u,
+        time: e.pubt,
+        content: e.msg.text,
+        image_url: e.msg.pics?.[0] ? `https://gdynamic.qpic.cn/gdynamic/${e.msg.pics[0].id}/0` : undefined
       })
+    }
+    if (inst.length) {
+      announcements.sort((a, b) => b.time - a.time)
+    }
+    return Ok({
+      announcements
     })
   }
 )
@@ -195,31 +209,32 @@ const SendGroupAnnouncement = defineApi(
   SendGroupAnnouncementInput,
   z.object({}),
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
     let picInfo: { id: string, width: number, height: number } | undefined
     if (payload.image_uri) {
       const imageBuffer = await resolveMilkyUri(payload.image_uri)
       const tempPath = path.join(TEMP_DIR, `group-announcement-${randomUUID()}`)
       await writeFile(tempPath, imageBuffer)
-      const result = await ctx.ntGroupApi.uploadGroupBulletinPic(groupCode, tempPath)
+      const result = await ctx.ntWebApi.uploadGroupBulletinPic(payload.group_id, tempPath)
       unlink(tempPath).catch(noop)
       if (result.errCode !== 0) {
         return Failed(-500, result.errMsg)
       }
       picInfo = result.picInfo
     }
-    const result = await ctx.ntGroupApi.publishGroupBulletin(
-      groupCode,
-      {
-        text: encodeURIComponent(payload.content),
-        oldFeedsId: '',
-        pinned: 0,
-        confirmRequired: 1,
-        picInfo
-      }
+    const result = await ctx.ntWebApi.publishGroupBulletin(
+      payload.group_id,
+      payload.content,
+      0,
+      0,
+      0,
+      0,
+      1,
+      picInfo?.id,
+      picInfo?.width,
+      picInfo?.height
     )
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.ec !== 0) {
+      return Failed(-500, result.em)
     }
     return Ok({})
   }
@@ -230,9 +245,9 @@ const DeleteGroupAnnouncement = defineApi(
   DeleteGroupAnnouncementInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.deleteGroupBulletin(payload.group_id.toString(), payload.announcement_id)
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    const result = await ctx.ntWebApi.deleteGroupBulletin(payload.group_id, payload.announcement_id)
+    if (result.ec !== 0) {
+      return Failed(-500, result.em)
     }
     return Ok({})
   }
@@ -249,44 +264,37 @@ const GetGroupEssenceMessages = defineApi(
       chatType: 2,
       peerUid: groupCode
     }
-    const essence = await ctx.ntGroupApi.queryCachedEssenceMsg(groupCode)
-    let isEnd = true
-    let items = essence.items
-    let start = ((payload.page_index + 1) * payload.page_size) - 1
-    if (start > items.length - 1) {
-      start = items.length - 1
-    }
-    items = items.slice(start)
-    if (items.length > payload.page_size) {
-      items = items.slice(0, payload.page_size)
-      isEnd = false
+    const result = await ctx.ntWebApi.getGroupEssenceList(
+      payload.group_id,
+      payload.page_index,
+      payload.page_size
+    )
+    if (result.retcode !== 0) {
+      return Failed(-500, result.retmsg)
     }
     const messages: GetGroupEssenceMessagesOutput['messages'] = []
-    for (const item of items) {
-      const { msgList } = await ctx.ntMsgApi.getMsgsBySeqAndCount(
-        peer,
-        item.msgSeq.toString(),
-        1,
-        true,
-        true
-      )
-      const sourceMsg = msgList.find(e => e.msgRandom === item.msgRandom.toString())
-      if (!sourceMsg) continue
+    for (const item of result.data.msg_list) {
+      let msg = ctx.store.getMsgBySeq(peer.peerUid, item.msg_seq)
+      if (!msg) {
+        const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, item.msg_seq)
+        msg = msgList[0]
+      }
+      if (!msg) continue
       messages.push({
-        group_id: +item.groupCode,
-        message_seq: item.msgSeq,
-        message_time: +sourceMsg.msgTime,
-        sender_id: +item.msgSenderUin,
-        sender_name: item.msgSenderNick,
-        operator_id: +item.opUin,
-        operator_name: item.opNick,
-        operation_time: item.opTime,
-        segments: await transformIncomingSegments(ctx, sourceMsg)
+        group_id: +item.group_code,
+        message_seq: item.msg_seq,
+        message_time: +msg.msgTime,
+        sender_id: +item.sender_uin,
+        sender_name: item.sender_nick,
+        operator_id: +item.add_digest_uin,
+        operator_name: item.add_digest_nick,
+        operation_time: item.add_digest_time,
+        segments: await transformIncomingSegments(ctx, msg)
       })
     }
     return Ok({
       messages,
-      is_end: isEnd
+      is_end: result.data.is_end
     })
   }
 )
@@ -296,31 +304,33 @@ const SetGroupEssenceMessage = defineApi(
   SetGroupEssenceMessageInput,
   z.object({}),
   async (ctx, payload) => {
-    const groupCode = payload.group_id.toString()
     const peer = {
-      guildId: '',
-      chatType: 2,
-      peerUid: groupCode
+      chatType: ChatType.Group,
+      peerUid: payload.group_id.toString(),
+      guildId: ''
     }
-    const msg = await ctx.ntMsgApi.getMsgsBySeqAndCount(
-      peer,
-      payload.message_seq.toString(),
-      1,
-      true,
-      true
-    )
-    if (msg.msgList.length === 0) {
-      return Failed(-404, 'Message not found')
+    let msg = ctx.store.getMsgBySeq(peer.peerUid, payload.message_seq)
+    if (!msg) {
+      const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq)
+      msg = msgList[0]
     }
     if (payload.is_set) {
-      const result = await ctx.ntGroupApi.addGroupEssence(groupCode, msg.msgList[0].msgId)
-      if (result.errCode !== 0) {
-        return Failed(-500, result.errMsg)
+      const result = await ctx.ntGroupApi.addGroupEssence(
+        payload.group_id,
+        payload.message_seq,
+        msg.msgRandom
+      )
+      if (result.retCode !== 0) {
+        return Failed(-500, result.retMsg)
       }
     } else {
-      const result = await ctx.ntGroupApi.removeGroupEssence(groupCode, msg.msgList[0].msgId)
-      if (result.errCode !== 0) {
-        return Failed(-500, result.errMsg)
+      const result = await ctx.ntGroupApi.removeGroupEssence(
+        payload.group_id,
+        payload.message_seq,
+        msg.msgRandom
+      )
+      if (result.retCode !== 0) {
+        return Failed(-500, result.retMsg)
       }
     }
     return Ok({})
@@ -332,9 +342,9 @@ const QuitGroup = defineApi(
   QuitGroupInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.quitGroup(payload.group_id.toString())
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    const result = await ctx.ntGroupApi.quitGroup(payload.group_id)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -350,18 +360,18 @@ const SendGroupMessageReaction = defineApi(
       peerUid: payload.group_id.toString(),
       guildId: ''
     }
-    const result = await ctx.ntMsgApi.setEmojiLike(
-      peer,
-      payload.message_seq.toString(),
+    const result = await ctx.ntMsgApi.setGroupMsgReaction(
+      payload.group_id,
+      payload.message_seq,
       payload.reaction,
       payload.is_add,
       {
-        face: '1',
-        emoji: '2'
+        face: 1,
+        emoji: 2
       }[payload.reaction_type]
     )
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -372,8 +382,10 @@ const SendGroupNudge = defineApi(
   SendGroupNudgeInput,
   z.object({}),
   async (ctx, payload) => {
-    // Use PMHQ to send group poke
-    await ctx.pmhq.sendGroupPoke(payload.group_id, payload.user_id)
+    const result = await ctx.ntGroupApi.sendGroupNudge(payload.group_id, payload.user_id)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
+    }
     return Ok({})
   }
 )
@@ -383,83 +395,75 @@ const GetGroupNotifications = defineApi(
   GetGroupNotificationsInput,
   GetGroupNotificationsOutput,
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.getSingleScreenNotifies(
+    const result = await ctx.ntGroupApi.getGroupNotifications(
       payload.is_filtered,
       payload.limit,
-      payload.start_notification_seq ? payload.start_notification_seq.toString() : ''
+      payload.start_notification_seq ?? undefined
     )
-    let notifies = result.notifies
-    if (notifies.length > payload.limit) {
-      notifies = notifies.slice(0, payload.limit)
-    }
     const notifications = []
-    for (const notify of notifies) {
-      if (notify.type === GroupNotifyType.RequestJoinNeedAdminiStratorPass) {
+    for (const n of result.notifications) {
+      if (n.type === GroupNotificationType.JoinRequest) {
         notifications.push({
           type: 'join_request' as const,
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          is_filtered: result.doubt,
-          initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
+          group_id: n.group.groupCode,
+          notification_seq: n.sequence,
+          is_filtered: payload.is_filtered,
+          initiator_id: await ctx.ntUserApi.getUinByUid(n.user1.uid),
           state: ({
-            [GroupNotifyStatus.Init]: 'pending',
-            [GroupNotifyStatus.Unhandle]: 'pending',
-            [GroupNotifyStatus.Agreed]: 'accepted',
-            [GroupNotifyStatus.Refused]: 'rejected',
-            [GroupNotifyStatus.Ignored]: 'ignored'
-          } as const)[notify.status],
-          operator_id: notify.actionUser.uid ? Number(await ctx.ntUserApi.getUinByUid(notify.actionUser.uid)) : undefined,
-          comment: notify.postscript
+            [RequestState.Init]: 'pending',
+            [RequestState.Unhandle]: 'pending',
+            [RequestState.Agreed]: 'accepted',
+            [RequestState.Refused]: 'rejected',
+            [RequestState.Ignored]: 'ignored'
+          } as const)[n.requestState] ?? 'pending',
+          operator_id: n.user2?.uid ? await ctx.ntUserApi.getUinByUid(n.user2.uid) : undefined,
+          comment: n.comment ?? ''
         })
-      } else if ([
-        GroupNotifyType.SetAdmin,
-        GroupNotifyType.CancelAdminNotifyCanceled,
-        GroupNotifyType.CancelAdminNotifyAdmin,
-      ].includes(notify.type)) {
+      } else if (n.type === GroupNotificationType.SetAdmin || n.type === GroupNotificationType.UnsetAdmin) {
         notifications.push({
           type: 'admin_change' as const,
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
-          is_set: notify.type === GroupNotifyType.SetAdmin,
-          operator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid))
+          group_id: n.group.groupCode,
+          notification_seq: n.sequence,
+          target_user_id: await ctx.ntUserApi.getUinByUid(n.user1.uid),
+          is_set: n.type === GroupNotificationType.SetAdmin,
+          operator_id: await ctx.ntUserApi.getUinByUid(n.user2!.uid)
         })
-      } else if (notify.type === GroupNotifyType.KickMemberNotifyAdmin) {
+      } else if (n.type === GroupNotificationType.Kick) {
         notifications.push({
           type: 'kick' as const,
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
-          operator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid))
+          group_id: n.group.groupCode,
+          notification_seq: n.sequence,
+          target_user_id: await ctx.ntUserApi.getUinByUid(n.user1.uid),
+          operator_id: await ctx.ntUserApi.getUinByUid(n.user2?.uid ?? n.user3!.uid)
         })
-      } else if (notify.type === GroupNotifyType.MemberLeaveNotifyAdmin) {
+      } else if (n.type === GroupNotificationType.Quit) {
         notifications.push({
           type: 'quit' as const,
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid))
+          group_id: n.group.groupCode,
+          notification_seq: n.sequence,
+          target_user_id: await ctx.ntUserApi.getUinByUid(n.user1.uid)
         })
-      } else if (notify.type === GroupNotifyType.InvitedNeedAdminiStratorPass) {
+      } else if (n.type === GroupNotificationType.InvitedJoinRequest) {
         notifications.push({
           type: 'invited_join_request' as const,
-          group_id: Number(notify.group.groupCode),
-          notification_seq: Number(notify.seq),
-          initiator_id: Number(await ctx.ntUserApi.getUinByUid(notify.user2.uid)),
-          target_user_id: Number(await ctx.ntUserApi.getUinByUid(notify.user1.uid)),
+          group_id: n.group.groupCode,
+          notification_seq: n.sequence,
+          initiator_id: await ctx.ntUserApi.getUinByUid(n.user2!.uid),
+          target_user_id: await ctx.ntUserApi.getUinByUid(n.user1.uid),
           state: ({
-            [GroupNotifyStatus.Init]: 'pending',
-            [GroupNotifyStatus.Unhandle]: 'pending',
-            [GroupNotifyStatus.Agreed]: 'accepted',
-            [GroupNotifyStatus.Refused]: 'rejected',
-            [GroupNotifyStatus.Ignored]: 'ignored'
-          } as const)[notify.status],
-          operator_id: notify.actionUser.uid ? Number(await ctx.ntUserApi.getUinByUid(notify.actionUser.uid)) : undefined
+            [RequestState.Init]: 'pending',
+            [RequestState.Unhandle]: 'pending',
+            [RequestState.Agreed]: 'accepted',
+            [RequestState.Refused]: 'rejected',
+            [RequestState.Ignored]: 'ignored'
+          } as const)[n.requestState] ?? 'pending',
+          operator_id: n.user3?.uid ? await ctx.ntUserApi.getUinByUid(n.user3.uid) : undefined
         })
       }
     }
     return Ok({
       notifications,
-      next_notification_seq: result.nextStartSeq !== '0' ? Number(result.nextStartSeq) : undefined,
+      next_notification_seq: Number(result.nextStartSeq),
     })
   }
 )
@@ -469,20 +473,15 @@ const AcceptGroupRequest = defineApi(
   AcceptGroupRequestInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.operateSysNotify(
+    const result = await ctx.ntGroupApi.setGroupRequest(
       payload.is_filtered,
-      {
-        operateType: 1,
-        targetMsg: {
-          seq: payload.notification_seq.toString(),
-          type: payload.notification_type === 'join_request' ? 7 : 5,
-          groupCode: payload.group_id.toString(),
-          postscript: ''
-        }
-      }
+      payload.group_id,
+      payload.notification_seq,
+      payload.notification_type === 'join_request' ? GroupNotificationType.JoinRequest : GroupNotificationType.InvitedJoinRequest,
+      true
     )
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -493,20 +492,16 @@ const RejectGroupRequest = defineApi(
   RejectGroupRequestInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.operateSysNotify(
+    const result = await ctx.ntGroupApi.setGroupRequest(
       payload.is_filtered,
-      {
-        operateType: 2,
-        targetMsg: {
-          seq: payload.notification_seq.toString(),
-          type: payload.notification_type === 'join_request' ? 7 : 5,
-          groupCode: payload.group_id.toString(),
-          postscript: payload.reason ?? ''
-        }
-      }
+      payload.group_id,
+      payload.notification_seq,
+      payload.notification_type === 'join_request' ? GroupNotificationType.JoinRequest : GroupNotificationType.InvitedJoinRequest,
+      false,
+      payload.reason ?? undefined
     )
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -517,20 +512,15 @@ const AcceptGroupInvitation = defineApi(
   AcceptGroupInvitationInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.operateSysNotify(
+    const result = await ctx.ntGroupApi.setGroupRequest(
       false,
-      {
-        operateType: 1,
-        targetMsg: {
-          seq: payload.invitation_seq.toString(),
-          type: 1,
-          groupCode: payload.group_id.toString(),
-          postscript: ''
-        }
-      }
+      payload.group_id,
+      payload.invitation_seq,
+      GroupNotificationType.Invitation,
+      true
     )
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }
@@ -541,20 +531,15 @@ const RejectGroupInvitation = defineApi(
   RejectGroupInvitationInput,
   z.object({}),
   async (ctx, payload) => {
-    const result = await ctx.ntGroupApi.operateSysNotify(
+    const result = await ctx.ntGroupApi.setGroupRequest(
       false,
-      {
-        operateType: 2,
-        targetMsg: {
-          seq: payload.invitation_seq.toString(),
-          type: 1,
-          groupCode: payload.group_id.toString(),
-          postscript: ''
-        }
-      }
+      payload.group_id,
+      payload.invitation_seq,
+      GroupNotificationType.Invitation,
+      false
     )
-    if (result.result !== 0) {
-      return Failed(-500, result.errMsg)
+    if (result.errorCode !== 0) {
+      return Failed(-500, result.errorMsg)
     }
     return Ok({})
   }

@@ -14,9 +14,12 @@ export class SetFriendCategory extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    const uid = await this.ctx.ntUserApi.getUidByUin(payload.user_id.toString())
+    const uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id)
     if (!uid) throw new Error('无法获取好友信息')
-    await this.ctx.ntFriendApi.setFriendCategory(uid, +payload.category_id)
+    const result = await this.ctx.ntFriendApi.setFriendCategory(uid, +payload.category_id)
+    if (result.errorCode !== 0) {
+      throw new Error(result.errorMsg)
+    }
     return null
   }
 }

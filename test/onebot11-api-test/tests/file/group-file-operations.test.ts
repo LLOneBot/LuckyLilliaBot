@@ -11,6 +11,8 @@ describe('group_file_operations - 群文件操作', () => {
   let context: MessageTestContext;
   let uploadedFileId: string | null = null;
   let uploadedFileName: string | null = null;
+  // 上传内容 + 下载比对的 ground truth
+  const fileContent = Buffer.from(`Test group file content for operations ${Date.now()} ${Math.random()}`)
 
   beforeAll(async () => {
     context = await setupMessageTest();
@@ -23,8 +25,7 @@ describe('group_file_operations - 群文件操作', () => {
   it('测试上传群文件', async () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 创建一个测试文件内容
-    const testContent = Buffer.from('Test group file content for operations').toString('base64');
+    const testContent = fileContent.toString('base64');
     uploadedFileName = `test-file-${Date.now()}.txt`;
 
     const response = await primaryClient.call(ActionName.GoCQHTTP_UploadGroupFile, {
@@ -73,7 +74,7 @@ describe('group_file_operations - 群文件操作', () => {
     }
   }, 30000);
 
-  it('测试获取群文件下载链接', async () => {
+  it('测试获取群文件下载链接，并下载内容比对', async () => {
     if (!uploadedFileId) {
       console.log('⚠ 跳过：没有可用的 file_id');
       return;
@@ -89,9 +90,13 @@ describe('group_file_operations - 群文件操作', () => {
     Assertions.assertSuccess(response, 'get_group_file_url');
     Assertions.assertResponseHasFields(response, ['url']);
 
-    if (response.data && response.data.url) {
-      console.log('✓ 获取到文件下载链接:', response.data.url);
-    }
+    expect(response.data.url).toBeTruthy();
+    // 真的去下载，验证字节与上传一致
+    const downloadResp = await fetch(response.data.url);
+    expect(downloadResp.ok).toBe(true);
+    const downloaded = Buffer.from(await downloadResp.arrayBuffer());
+    expect(downloaded.length).toBe(fileContent.length);
+    expect(downloaded.equals(fileContent)).toBe(true);
   }, 30000);
 
   it('测试删除群文件', async () => {

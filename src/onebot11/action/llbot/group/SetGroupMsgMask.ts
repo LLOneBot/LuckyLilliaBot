@@ -14,9 +14,9 @@ export class SetGroupMsgMask extends BaseAction<Payload, null> {
   })
 
   protected async _handle(payload: Payload) {
-    const res = await this.ctx.ntGroupApi.setGroupMsgMask(payload.group_id.toString(), +payload.mask)
-    if (res.result !== 0) {
-      throw new Error(res.errMsg)
+    const res = await this.ctx.ntGroupApi.setGroupMsgMask(+payload.group_id, +payload.mask)
+    if (res.errCode !== 0) {
+      throw new Error('系统错误')
     }
     return null
   }
