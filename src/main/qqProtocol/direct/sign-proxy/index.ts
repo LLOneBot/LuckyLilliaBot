@@ -24,8 +24,8 @@ function pickTriple(): string {
   const a = process.arch
   if (p === 'win32' && a === 'x64') return 'win-x64'
   if (p === 'win32' && a === 'arm64') return 'win-arm64'
-  if (p === 'linux' && a === 'x64') return isMusl() ? 'linux-x64-musl' : 'linux-x64'
-  if (p === 'linux' && a === 'arm64') return isMusl() ? 'linux-arm64-musl' : 'linux-arm64'
+  if (p === 'linux' && a === 'x64') return isMusl() ? 'linux-x64-musl' : 'linux-x64-glibc'
+  if (p === 'linux' && a === 'arm64') return isMusl() ? 'linux-arm64-musl' : 'linux-arm64-glibc'
   if (p === 'darwin' && a === 'x64') return 'darwin-x64'
   if (p === 'darwin' && a === 'arm64') return 'darwin-arm64'
   throw new Error(`sign-proxy: unsupported platform ${p}-${a}; rebuild lucky-lillia-sign-proxy on this target and drop the .node into ${here}`)
