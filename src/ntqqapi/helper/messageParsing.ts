@@ -274,7 +274,18 @@ export function parseElements(
       const bizType = elem.commonElem.businessType
       const pbElem = elem.commonElem.pbElem
 
-      if (svcType === 33) {
+      if (svcType === 2) {
+        result.push({
+          elementType: ElementType.Face,
+          faceElement: {
+            faceIndex: bizType,
+            faceType: 5,
+            faceText: '',
+            pokeType: 1,
+          },
+        })
+        skipIndex = index + 1 // 跳过附加的文字提示
+      } else if (svcType === 33) {
         const ext = Msg.QSmallFaceExtra.decode(pbElem)
         result.push({
           elementType: ElementType.Face,
