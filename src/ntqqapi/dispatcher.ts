@@ -18,6 +18,7 @@ const CONFIG_PUSH_CMD = 'ConfigPushSvc.PushReq'
 const enum MsgType {
   GroupMessage = 82,
   PrivateMessage = 166,
+  PrivateBotMessage = 167,
   TempMessage = 141,
   PrivateRecord = 208,
   PrivateFile = 529,
@@ -93,6 +94,7 @@ function handleMsgPush(ctx: Context, payload: Buffer) {
   switch (msgType) {
     case MsgType.GroupMessage:
     case MsgType.PrivateMessage:
+    case MsgType.PrivateBotMessage:
     case MsgType.TempMessage:
     case MsgType.PrivateRecord:
     case MsgType.PrivateFile:
