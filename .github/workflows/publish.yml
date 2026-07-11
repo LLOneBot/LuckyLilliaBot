@@ -137,21 +137,12 @@ jobs:
           mkdir llbot-cli-macos-arm64
           cd llbot-cli-macos-arm64
           mkdir -p bin/llbot
-          mkdir -p bin/pmhq
           cp ../doc/使用说明-macos-cli.txt ./使用说明.txt
           cp ../script/start-mac.sh ./start.sh
           cp ../dist/更新日志.txt ./
           cp -r ../dist/* ./bin/llbot/
-          wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-macos-arm64.zip
-          unzip pmhq-macos-arm64.zip
-          rm pmhq-macos-arm64.zip
-          mv pmhq-macos-arm64 bin/pmhq/pmhq
-          mv libpmhq.dylib bin/pmhq/
           wget https://github.com/LLOneBot/exe/releases/latest/download/node-darwin-arm64 -O bin/llbot/node
           wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-macos-arm64 -O llbot
-          wget https://github.com/LLOneBot/exe/releases/download/0.0.0/QQ-macos.zip
-          unzip QQ-macos.zip -d bin/qq
-          rm QQ-macos.zip
           tar -cJvf ../LLBot-CLI-macos-arm64.tar.xz ./*
 
       - name: Compress for macOS Desktop arm64
