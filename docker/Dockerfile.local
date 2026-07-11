@@ -1,18 +1,21 @@
 FROM node:24-bookworm-slim AS builder
 
+ARG BUILD_PROXY=http://192.168.1.101:7890
+
 WORKDIR /app
 
 RUN corepack enable && corepack prepare yarn@4.12.0 --activate
 
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn .yarn
-# 根 package.json 的 postinstall 会跑 `npm --prefix src/webui/FE install`, 所以 FE 的
-# package.json 必须在 yarn install 之前就位, 否则 postinstall 找不到目录 -> exit 254。
+# FE package.json 必须在 yarn install 前就位: 根 postinstall 会 npm --prefix src/webui/FE install, 缺目录 -> exit 254
 COPY src/webui/FE/package.json src/webui/FE/
 
-RUN yarn install --immutable
+RUN export http_proxy="$BUILD_PROXY" https_proxy="$BUILD_PROXY" HTTP_PROXY="$BUILD_PROXY" HTTPS_PROXY="$BUILD_PROXY"; \
+    yarn install --immutable
 
-RUN cd src/webui/FE && npm install
+RUN export http_proxy="$BUILD_PROXY" https_proxy="$BUILD_PROXY" HTTP_PROXY="$BUILD_PROXY" HTTPS_PROXY="$BUILD_PROXY"; \
+    cd src/webui/FE && npm install
 
 COPY . .
 
@@ -21,20 +24,13 @@ RUN yarn build-webui
 RUN yarn build
 
 
-# alpine (musl) runtime: dist 里带 glibc + musl 两颗 sign-proxy .node, loader (pickTriple)
-# 在 musl 上自动选 musl 版, 所以能用 alpine base, 镜像比 debian 小一半。
-# builder 保持 debian: 只跑 yarn/tsc/vite, 产物 dist 是可移植的 JS + 两颗 .node, 与 runtime OS 无关。
 FROM node:24-alpine AS production
 
-# 国内构建可传 --build-arg ALPINE_MIRROR=mirrors.tuna.tsinghua.edu.cn (或 aliyun/ustc) 换 apk 源。
-ARG ALPINE_MIRROR=""
+ARG BUILD_PROXY=http://192.168.1.101:7890
 
 RUN set -eux; \
-    if [ -n "$ALPINE_MIRROR" ]; then \
-      sed -i "s|dl-cdn.alpinelinux.org|${ALPINE_MIRROR}|g" /etc/apk/repositories; \
-    fi; \
-    # sed: alpine 自带 busybox sed 不认 startup.sh 里的 \s (GNU 扩展), 装 GNU sed 覆盖。
-    apk add --no-cache ffmpeg tzdata sed; \
+    export http_proxy="$BUILD_PROXY" https_proxy="$BUILD_PROXY"; \
+    apk add --no-cache ffmpeg tzdata; \
     ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime; \
     echo "Asia/Shanghai" > /etc/timezone
 
@@ -44,14 +40,14 @@ WORKDIR /app/llbot
 
 COPY --from=builder /app/dist .
 
+# alpine 只加载 musl 变体, 删掉其它平台/ABI 的 sign-proxy .node (darwin/win/glibc) 瘦身
+RUN for f in sign-proxy.*.node; do case "$f" in *-musl.node) ;; *) rm -f "$f" ;; esac; done
+
 COPY docker/startup.sh /startup.sh
 RUN chmod +x /startup.sh
 
-# /.dockerenv: Docker daemon 运行时会自动建, 但 podman/nerdctl 等不一定; 显式 touch 保证
-# isDockerEnvironment() 恒真 (session.ts 的 machine-guid 处理依赖它)。
 RUN touch /.dockerenv
 
-# data 持久化: 声明为卷, 未显式挂载时也走匿名卷 (compose 重建/镜像更新可复用), 不落容器可写层
 VOLUME ["/app/llbot/data"]
 
 ENTRYPOINT ["/startup.sh"]

@@ -11,14 +11,14 @@ echo ""
 read -p "请选择 (1/2): " config_mode
 
 AUTO_LOGIN_QQ=""
+while [ -z "$AUTO_LOGIN_QQ" ]; do
+    read -p "请输入 QQ 号（必填）: " AUTO_LOGIN_QQ
+    [[ "$AUTO_LOGIN_QQ" =~ ^[-1-9]+$ ]] || { echo "错误：QQ 号必须是数字！"; AUTO_LOGIN_QQ=""; continue; }
+done
+
 # Auth Token: 仅命令行配置(mode 1)时询问; 稍后配置(mode 2)由用户在 WebUI 中录入, 这里留空
 AUTH_TOKEN=""
 if [ "$config_mode" == "1" ]; then
-    while [ -z "$AUTO_LOGIN_QQ" ]; do
-        read -p "请输入 QQ 号（必填）: " AUTO_LOGIN_QQ
-        [[ "$AUTO_LOGIN_QQ" =~ ^[0-9]+$ ]] || { echo "错误：QQ 号必须是数字！"; AUTO_LOGIN_QQ=""; continue; }
-    done
-
     # Auth Token (命令行配置必填; 此处不做校验, 有效性在登录/WebUI 侧判定)
     echo ""
     echo "Auth Token（必填）"
@@ -33,13 +33,11 @@ fi
 
 declare -A SERVICE_PORTS
 
-# WebUI 配置（默认启用）
 ENABLE_WEBUI="true"
 WEBUI_HOST=""
 WEBUI_PORT="3080"
 WEBUI_TOKEN=""
 
-# WebUI 密码配置（强制输入）
 echo ""
 echo "WebUI 配置："
 
@@ -288,14 +286,7 @@ fi
 if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
   # Docker 镜像源列表
   DOCKER_MIRRORS=(
-    "docker.1ms.run"
-    "docker.1panel.live"
-    "dockerproxy.net"
-    "hub.rat.dev"
-    "docker.m.daocloud.io"
-    "registry.cyou"
-    "proxy.vvvv.ee"
-    "001090.xyz"
+    "docker.gh-proxy.cn"
   )
 
   # 测试镜像源是否可用
@@ -355,11 +346,8 @@ LLBOT_HEALTHCHECK="    healthcheck:
       retries: 3
       start_period: 40s"
 
-# 直连模式：只有 llbot 一个服务。QQ 始终写进 compose 方便配置：
-# 留空 = 起在 WebUI 登录页由用户点选账号；填 QQ 号 = 重启后自动恢复该号（无头部署免扫码）。
-# 命令行配置模式会把选的号预填进 AUTO_LOGIN_QQ。
 LLBOT_ENV="      - WEBUI_PORT=${WEBUI_PORT}
-      # QQ 留空=WebUI 登录页点选账号; 填 QQ 号=重启自动恢复该号 (无头免扫码)
+      # QQ 留空=WebUI 登录页点选账号; 填 QQ 号=重启自动恢复该号 (免扫码)
       - QQ=${AUTO_LOGIN_QQ}"
 
 cat << EOF > docker-compose.yml
