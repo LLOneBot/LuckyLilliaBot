@@ -63,6 +63,7 @@ jobs:
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
           cp -r ../dist/* bin/llbot/
+          find bin/llbot -maxdepth 1 -name 'sign-proxy.*.node' ! -name 'sign-proxy.win-x64.node' -delete
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-win-x64.zip
           unzip pmhq-win-x64.zip
           mkdir -p bin/pmhq
@@ -85,6 +86,7 @@ jobs:
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
           cp -r ../dist/* ./bin/llbot/
+          find bin/llbot -maxdepth 1 -name 'sign-proxy.*.node' ! -name 'sign-proxy.win-x64.node' -delete
           wget https://github.com/LLOneBot/LuckyLilliaDesktop.Avalonia/releases/latest/download/lucky-lillia-desktop-win-x64.zip
           unzip lucky-lillia-desktop-win-x64.zip
           rm lucky-lillia-desktop-win-x64.zip
@@ -101,6 +103,7 @@ jobs:
           cp ../doc/使用说明-linux-cli.txt ./使用说明.txt
           cp ../dist/更新日志.txt ./
           cp -r ../dist/* ./bin/llbot/
+          find bin/llbot -maxdepth 1 -name 'sign-proxy.*.node' ! -name 'sign-proxy.linux-x64-*.node' -delete
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-linux-x64.zip
           unzip pmhq-linux-x64.zip
           rm pmhq-linux-x64.zip
@@ -121,6 +124,7 @@ jobs:
           cp ../doc/使用说明-linux-cli.txt ./使用说明.txt
           cp ../dist/更新日志.txt ./
           cp -r ../dist/* ./bin/llbot/
+          find bin/llbot -maxdepth 1 -name 'sign-proxy.*.node' ! -name 'sign-proxy.linux-arm64-*.node' -delete
           wget https://github.com/linyuchen/PMHQ/releases/latest/download/pmhq-linux-arm64.zip
           unzip pmhq-linux-arm64.zip
           rm pmhq-linux-arm64.zip
@@ -141,6 +145,7 @@ jobs:
           cp ../script/start-mac.sh ./start.sh
           cp ../dist/更新日志.txt ./
           cp -r ../dist/* ./bin/llbot/
+          find bin/llbot -maxdepth 1 -name 'sign-proxy.*.node' ! -name 'sign-proxy.darwin-arm64.node' -delete
           wget https://github.com/LLOneBot/exe/releases/latest/download/node-darwin-arm64 -O bin/llbot/node
           wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-macos-arm64 -O llbot
           tar -cJvf ../LLBot-CLI-macos-arm64.tar.xz ./*
@@ -154,6 +159,7 @@ jobs:
           cp ../doc/使用说明.txt ./使用说明.txt
           cp ../dist/更新日志.txt ./
           cp -r ../dist/* ./bin/llbot/
+          find bin/llbot -maxdepth 1 -name 'sign-proxy.*.node' ! -name 'sign-proxy.darwin-arm64.node' -delete
           wget https://github.com/LLOneBot/LuckyLilliaDesktop.Avalonia/releases/latest/download/lucky-lillia-desktop-macos-arm64.tar.gz
           tar -xzvf lucky-lillia-desktop-macos-arm64.tar.gz
           rm lucky-lillia-desktop-macos-arm64.tar.gz
