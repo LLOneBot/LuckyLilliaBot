@@ -13,7 +13,7 @@ read -p "请选择 (1/2): " config_mode
 AUTO_LOGIN_QQ=""
 while [ -z "$AUTO_LOGIN_QQ" ]; do
     read -p "请输入 QQ 号（必填）: " AUTO_LOGIN_QQ
-    [[ "$AUTO_LOGIN_QQ" =~ ^[-1-9]+$ ]] || { echo "错误：QQ 号必须是数字！"; AUTO_LOGIN_QQ=""; continue; }
+    [[ "$AUTO_LOGIN_QQ" =~ ^[0-9]+$ ]] || { echo "错误：QQ 号必须是数字！"; AUTO_LOGIN_QQ=""; continue; }
 done
 
 # Auth Token: 仅命令行配置(mode 1)时询问; 稍后配置(mode 2)由用户在 WebUI 中录入, 这里留空
