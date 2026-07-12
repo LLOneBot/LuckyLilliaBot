@@ -27,18 +27,18 @@ export namespace OB11Entities {
     msg: RawMessage,
     config?: ParseMessageConfig
   ): Promise<OB11Message> {
-    const selfUin = selfInfo.uin
+    const selfUin = +selfInfo.uin
     const msgShortId = ctx.store.createMsgShortId(msg)
     const { segments, cqCode } = await transformIncomingSegments(ctx, msg)
     const resMsg: OB11Message = {
-      self_id: Number(selfUin),
-      user_id: Number(msg.senderUin),
-      time: Number(msg.msgTime),
+      self_id: selfUin,
+      user_id: msg.senderUin,
+      time: msg.msgTime,
       message_id: msgShortId,
-      message_seq: Number(msg.msgSeq),
+      message_seq: msg.msgSeq,
       message_type: msg.chatType === ChatType.Group ? 'group' : 'private',
       sender: {
-        user_id: Number(msg.senderUin),
+        user_id: msg.senderUin,
         nickname: msg.sendNickName
       },
       raw_message: cqCode,
@@ -46,7 +46,7 @@ export namespace OB11Entities {
       sub_type: 'friend',
       message: config?.messageFormat === 'string' ? cqCode : segments,
       message_format: config?.messageFormat === 'string' ? 'string' : 'array',
-      post_type: +selfUin === msg.senderUin ? EventType.MESSAGE_SENT : EventType.MESSAGE,
+      post_type: selfUin === msg.senderUin ? EventType.MESSAGE_SENT : EventType.MESSAGE,
       getSummaryEventName(): string {
         return this.post_type + '.' + this.message_type
       }
@@ -62,13 +62,13 @@ export namespace OB11Entities {
     }
     if (msg.chatType === ChatType.Group) {
       resMsg.sub_type = 'normal'
-      resMsg.group_id = +msg.peerUin
+      resMsg.group_id = msg.peerUin
       resMsg.group_name = msg.peerName
       resMsg.sender.card = msg.sendMemberName
       // 284840486: 合并转发内部
       if (msg.peerUin !== 284840486) {
         try {
-          const member = await ctx.ntGroupApi.getGroupMemberByUid(+msg.peerUin, msg.senderUid, false)
+          const member = await ctx.ntGroupApi.getGroupMemberByUid(msg.peerUin, msg.senderUid, false)
           resMsg.sender.nickname = member!.nick
           resMsg.sender.role = groupMemberRole(member!.role)
           resMsg.sender.level = member!.level.toString()
@@ -113,10 +113,10 @@ export namespace OB11Entities {
 
     for (const element of msg.elements) {
       if (element.fileElement) {
-        return new OB11GroupUploadNoticeEvent(+msg.peerUid, +msg.senderUin!, {
+        return new OB11GroupUploadNoticeEvent(msg.peerUin, msg.senderUin, {
           id: element.fileElement.fileUuid!,
           name: element.fileElement.fileName,
-          size: +element.fileElement.fileSize,
+          size: element.fileElement.fileSize,
           busid: element.fileElement.fileBizId,
         })
       }
