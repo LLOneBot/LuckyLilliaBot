@@ -295,7 +295,7 @@ if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
     local image=$2
     local tag=$3
     echo "测试镜像源 ${mirror} 的 ${image}:${tag} ..." >&2
-    if timeout 10 docker manifest inspect "${mirror}/linyuchen/${image}:${tag}" > /dev/null 2>&1; then
+    if timeout 30 docker manifest inspect "${mirror}/linyuchen/${image}:${tag}" > /dev/null 2>&1; then
       return 0
     fi
     return 1
