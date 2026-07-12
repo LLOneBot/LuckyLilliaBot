@@ -246,11 +246,9 @@ export async function getUserInfo(uid: string): Promise<{ uid: string; uin: stri
 // 所有功能改成调 webqqApi 暴露的 typed 函数 (背后是具体的 BE endpoint)。
 
 // 获取视频播放 URL
-export async function getVideoUrl(_chatType: number, _peerUid: string, _msgId: string, _elementId: string, fileUuid?: string, isGroup?: boolean): Promise<string> {
-  // BE 端 ntFileApi.getVideoUrl(fileUuid, isGroup) — 注意旧版本 FE 传的 (peer, msgId, elementId) 是错的，
-  // 真实签名要 fileUuid。FE 调用方需要改成传 videoElement.fileUuid。
+export async function getVideoUrl(fileUuid: string, isGroup?: boolean): Promise<string> {
   if (!fileUuid) {
-    throw new Error('getVideoUrl: 需要 fileUuid (旧签名 peer/msgId/elementId 已废弃)')
+    throw new Error('getVideoUrl: 需要 fileUuid')
   }
   const params = new URLSearchParams({
     fileUuid,

@@ -31,7 +31,7 @@ export const ImagePreviewModal: React.FC<{ url: string | null; onClose: () => vo
 
 // 视频预览弹窗组件
 export const VideoPreviewModal: React.FC<{ 
-  videoInfo: { chatType: number; peerUid: string; msgId: string; elementId: string } | null
+  videoInfo: { fileUuid: string; isGroup: boolean } | null
   onClose: () => void 
 }> = ({ videoInfo, onClose }) => {
   const [url, setUrl] = useState<string | null>(null)
@@ -47,7 +47,7 @@ export const VideoPreviewModal: React.FC<{
     
     setLoading(true)
     setError(null)
-    getVideoUrl(videoInfo.chatType, videoInfo.peerUid, videoInfo.msgId, videoInfo.elementId)
+    getVideoUrl(videoInfo.fileUuid, videoInfo.isGroup)
       .then(setUrl)
       .catch(e => setError(e.message || '获取视频失败'))
       .finally(() => setLoading(false))
