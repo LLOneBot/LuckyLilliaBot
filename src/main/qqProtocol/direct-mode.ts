@@ -21,19 +21,19 @@ import {
   persistedToSessionInfo,
   getSpecifiedUin,
   getSessionFilePathForUin,
-} from './direct'
-import type { QrCodeResult, QrPollResult } from './direct'
-import { overwriteMachineGuid } from './direct/machineGuid'
-import { updateAuthToken } from './direct/sign'
+} from './direct-lib'
+import type { QrCodeResult, QrPollResult } from './direct-lib'
+import { overwriteMachineGuid } from './direct-lib/machineGuid'
+import { updateAuthToken } from './direct-lib/sign'
 import { authTokenUtil } from '../config'
 import { setLoginState } from '../llbot-ipc'
 import { version } from '../../version'
-import { startAuthTokenWatcher } from './direct/authTokenWatcher'
+import { startAuthTokenWatcher } from './direct-lib/authTokenWatcher'
 import { QQProtocolBase } from './base'
 
 /**
  * Direct 模式实现: 走 native sign + TCP 直连. QQ 未登录 -> WebUI 扫码.
- * 内部持有一个低层 native `DirectProtocolClient` (direct/client.ts, 不要跟本类混淆).
+ * 内部持有一个低层 native `DirectProtocolClient` (direct-lib/client.ts, 不要跟本类混淆).
  */
 export class DirectQQProtocol extends QQProtocolBase {
   private directClient: DirectProtocolClient | null = null

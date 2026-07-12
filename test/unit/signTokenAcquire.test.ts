@@ -12,8 +12,8 @@ import {
   createECDH,
   createHash,
 } from 'node:crypto'
-import { buildKexRequestBody } from '../../src/main/qqProtocol/direct/signTokenAcquire'
-import { pbDecode } from '../../src/main/qqProtocol/direct/pbCodec'
+import { buildKexRequestBody } from '../../src/main/qqProtocol/direct-lib/signTokenAcquire'
+import { pbDecode } from '../../src/main/qqProtocol/direct-lib/pbCodec'
 
 const EMBEDDED_SERVER_PUB = Buffer.from(
   '049d1423332735980edabe7e9ea451b3395b6f35250db8fc56f25889f628cbae' +

@@ -5,7 +5,7 @@ import { Media } from '../proto'
 
 const logger = getLogger('highway')
 import { getMd5BufferFromBuffer } from '@/common/utils'
-import { AppInfo } from '../../main/qqProtocol/direct/appInfo'
+import { AppInfo } from '../../main/qqProtocol/direct-lib/appInfo'
 
 interface HighwayTrans {
   uin: string
