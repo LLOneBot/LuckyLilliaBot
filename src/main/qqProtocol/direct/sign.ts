@@ -30,9 +30,7 @@ let inited = false
 export async function setupSign(opts: {
   botVersion: string
   authToken: string
-  /** 16B device GUID. 跟 wtlogin client.guid 同源. */
   machineGuid: Buffer
-  /** 当前账号 uin, 可选. */
   uin?: number
   sendPacket: (p: RelayPacket) => Promise<Buffer>
   logger?: (log: SignLog) => void
@@ -40,8 +38,6 @@ export async function setupSign(opts: {
   if (opts.machineGuid.length !== 16) {
     throw new Error(`setupSign expected 16B machineGuid, got ${opts.machineGuid.length}B`)
   }
-  // native init 是 async: 传了 uin 时它内部 await /api/bu bind 完成才 resolve, bind 失败 reject.
-  // 注意: native init 幂等, 二次调 no-op, uin 无法通过 re-init 更新.
   await nativeInit(
     {
       botVersion: opts.botVersion,
@@ -55,7 +51,6 @@ export async function setupSign(opts: {
   inited = true
 }
 
-/** 运行中切换 16B device GUID. 老版 .node 没这个 export 时 warn 并 noop. */
 export function setSignMachineGuid(guid: Buffer): void {
   if (guid.length !== 16) {
     logger.warn(`[Sign] setSignMachineGuid expected 16B GUID, got ${guid.length}B -- skip`)
@@ -96,7 +91,6 @@ export async function preflightSign(
     return `native: ${msg}`
   }
   if (!reason) return null
-  // 401/403 不会到这里 -- SDK 内部 logger error + process.exit. 剩下的是 5xx/network/etc.
   logger.error(`[Sign Preflight] ${reason}`)
   return reason
 }
@@ -152,8 +146,6 @@ function formatNativeSignError(cmd: string, qua: string | undefined, e: Error): 
         logger.error(`[Sign] Unauthorized (cmd=${cmd}): ${detail}. auth_token 无效或已撤销, 到 manager 重新生成`)
         return
       case 403:
-        // 理论到不了这里: native SDK 对 /api/sign/compute 的 403 会先 process.exit.
-        // 真正拦"可用 QQ 数量上限"的是 completeDirectLogin 里的 getAllowedUins 预检. 这里仅兜底.
         logger.error(`[Sign] Forbidden (cmd=${cmd}): ${detail}`)
         authTokenStatus.loginError = detail || 'auth_token 无权限 (HTTP 403)'
         return

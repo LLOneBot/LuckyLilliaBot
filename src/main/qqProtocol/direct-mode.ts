@@ -25,7 +25,7 @@ import {
 import type { QrCodeResult, QrPollResult } from './direct'
 import { overwriteMachineGuid } from './direct/machineGuid'
 import { updateAuthToken } from './direct/sign'
-import { authTokenUtil, getAllowedUins } from '../config'
+import { authTokenUtil } from '../config'
 import { setLoginState } from '../llbot-ipc'
 import { version } from '../../version'
 import { startAuthTokenWatcher } from './direct/authTokenWatcher'
@@ -322,14 +322,7 @@ export class DirectQQProtocol extends QQProtocolBase {
     }
 
     if (persisted) {
-      // 预检 persisted uin 是否在 token 授权列表: 不在的话 registerOnline 真 uin 签名会命中 compute 403
-      // -> native process.exit. (native init 幂等, 重试时第二次 init 会跳过软失败的 /api/bu bind, 兜不住)
-      const allowedRestore = await getAllowedUins(authToken)
-      if (allowedRestore && !allowedRestore.includes(Number(persisted.uin))) {
-        this.logger.error(`[Sign] persisted uin ${persisted.uin} 不在 auth_token 的 allowed_uins 中, 中止恢复登录`)
-        authTokenStatus.loginError = `当前 QQ ${persisted.uin} 无法使用此 Auth Token（可能已达可用 QQ 数量上限）`
-        return
-      }
+      // uin 授权/绑定由服务端判 (登录时按配额自动绑, 满了才 403); 本地不预检 allowed_uins.
       this.logger.info('Found saved session for UIN %s (file: %s), attempting restore...', persisted.uin, getSessionFilePathForUin(persisted.uin))
       if (!this.directClient.isConnected) await this.directClient.connect()
       const session = persistedToSessionInfo(persisted)
@@ -439,15 +432,7 @@ export class DirectQQProtocol extends QQProtocolBase {
     const uin = await getCorrectUin(AppInfo.appId, qrSig)
     this.directPollResult.uin = String(uin)
 
-    // 预检: 当前 uin 是否在 token 的 allowed_uins 里. 不在的话, 稍后 registerOnline 用真 uin 签名
-    // 会命中 /api/sign/compute 403, native SDK 直接 process.exit 崩进程 -- 所以在任何真 uin 签名前
-    // 就拦下, 把原因回传 WebUI. 拿不到列表 (网络失败) 时放行, 交给后续流程.
-    const allowed = await getAllowedUins(authTokenUtil.getToken())
-    if (allowed && !allowed.includes(Number(uin))) {
-      this.logger.error(`[Sign] uin ${uin} 不在 auth_token 的 allowed_uins 中, 中止登录`)
-      authTokenStatus.loginError = `当前 QQ ${uin} 无法使用此 Auth Token（可能已达可用 QQ 数量上限）`
-      return
-    }
+    // uin 授权/绑定由服务端判 (登录时按配额自动绑, 满了才 403); 本地不预检 allowed_uins.
 
     // wtlogin.login
     const loginResult = await loginWithQrResult(this.directClient, this.directPollResult)
