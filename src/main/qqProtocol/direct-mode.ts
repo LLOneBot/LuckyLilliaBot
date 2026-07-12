@@ -42,12 +42,14 @@ export class DirectQQProtocol extends QQProtocolBase {
   private directQrResult: QrCodeResult | null = null
   private directPollResult: QrPollResult | null = null
   private directStopHeartbeat: (() => void) | null = null
+  private reconnectTimer: NodeJS.Timeout | null = null
   // 每次 fetchQrCode 都 ++, 旧 poll 循环发现 token 变了就自动退出, 避免刷新二维码后累积多条并行 poll 链
   private qrPollToken: number = 0
   // QR 缓存 -- 后端是唯一持有者, WebUI 只拉缓存, 不触发新 fetch. TTL 到期或 pollQrCode 报 Expired/Cancelled
   // 后由 refreshQrCodeIfStale() 主动向 QQ 服务器拉新码, 保持终端 QR / WebUI QR 两侧一致.
   private qrFetchedAt: number = 0
   private static readonly QR_TTL_MS = 180_000
+  private static readonly RECONNECT_MS = 5_000
   // 上次已打印到终端的 QR sig, 用于去重: 后端每次拉到新码才重新打印, 避免刷新 loop 多次 dump 同一张
   private lastPrintedQrSig: string = ''
 
@@ -171,6 +173,22 @@ export class DirectQQProtocol extends QQProtocolBase {
   private ensureDirectLoginLoop() {
     if (this.loopRunning) return
     this.directLoginLoop()
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectTimer || selfInfo.online) return
+    if (!(authTokenUtil.reload() || process.env.AUTH_TOKEN || '').trim()) return
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null
+      if (selfInfo.online) return
+      try {
+        await this.initDirectClient()
+        this.ensureDirectLoginLoop()
+      } catch (e) {
+        this.logger.warn('[Direct] 重连失败, 稍后重试', e)
+      }
+      this.scheduleReconnect()
+    }, DirectQQProtocol.RECONNECT_MS)
   }
 
   private directLoginLoop = async () => {
@@ -371,6 +389,7 @@ export class DirectQQProtocol extends QQProtocolBase {
       this.onlineEmitted = false
       if (wasOnline) {
         this.ctx.parallel('protocol/disconnect')
+        this.scheduleReconnect()
       }
     })
     client.on('push', (packet: { cmd: string; payload: Buffer }) => {
