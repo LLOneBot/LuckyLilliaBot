@@ -223,6 +223,7 @@ function handleGroupJoined(ctx: Context, msg: InferProtoModel<typeof Msg.Message
 /** 解析 KickNT 被踢下线推送 */
 function handleKickNT(ctx: Context, payload: Buffer) {
   const decoded = Msg.KickNTPush.decode(payload)
+  selfInfo.online = false
   ctx.parallel('nt/kicked-offline', {
     tipsDesc: decoded.tipsDesc,
     tipsTitle: decoded.tipsTitle,
