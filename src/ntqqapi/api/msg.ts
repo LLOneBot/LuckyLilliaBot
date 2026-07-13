@@ -190,6 +190,7 @@ export class NTMsgApi extends Service {
     }
   }
 
+  /** 一次最多拉取 30 条消息 */
   async getMsgsBySeqAndCount(peer: Peer, msgSeq: number, cnt: number, queryOrder: boolean) {
     const startSeq = queryOrder ? msgSeq : Math.max(1, msgSeq - cnt + 1)
     const endSeq = queryOrder ? msgSeq + cnt - 1 : msgSeq

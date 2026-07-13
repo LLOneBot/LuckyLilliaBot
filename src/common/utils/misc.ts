@@ -65,6 +65,40 @@ export function sleep(ms = 0) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms))
 }
 
+/**
+ * 并发有界地执行异步任务，保持输出顺序与输入一致。
+ * @param items 输入数组
+ * @param concurrency 最大并发数
+ * @param fn 处理函数（按输入顺序返回位置对应的结果）
+ * @param shouldStop 可选中止判定：返回 true 时停止派发新任务（已 in-flight 的任务会自然完成，
+ *                   未启动的位置在结果数组中保持 undefined）。
+ */
+export async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<R>,
+  shouldStop?: (result: R, index: number) => boolean
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  if (items.length === 0) return results
+  const limit = Math.max(1, Math.min(concurrency, items.length))
+  let cursor = 0
+  let stopped = false
+  async function worker(): Promise<void> {
+    while (!stopped && cursor < items.length) {
+      const i = cursor++
+      const r = await fn(items[i], i)
+      results[i] = r
+      if (shouldStop?.(r, i)) {
+        stopped = true
+        break
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: limit }, () => worker()))
+  return results
+}
+
 export function isHttpUrl(str: string) {
   return /^https?:\/\/.+/.test(str)
 }
