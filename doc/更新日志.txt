@@ -6,6 +6,7 @@ V8.0.10
 * 优化 get_group_msg_history API 获取大量消息的速度
 * 优化 get_friend_msg_history API 获取大量消息的速度
 * 优化大体积富媒体上传速度
+* 支持无头模式断线重连
 
 =================
 V7.12.14
