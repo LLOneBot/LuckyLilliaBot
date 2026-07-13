@@ -54,6 +54,16 @@ export function createLoginRoutes(ctx: Context): Hono {
     }
   })
 
+  // 退出当前 QQ 登录, 回未登录 (need_qrcode); FE 轮询 login-info 的 online 转 false 后回登录页.
+  router.post('/logout', async (c) => {
+    try {
+      await ctx.qqProtocol.logout()
+      return c.json({ success: true })
+    } catch (e) {
+      return c.json({ success: false, message: (e as Error).message || '退出登录失败' }, 500)
+    }
+  })
+
   // 获取账号信息 + 该账号最终生效的 WebUI 配置.
   // 登录成功后会加载 config_<uin>.json, 里面可能关闭 WebUI (enable=false) 或改了端口 -- 那样后端
   // 会自行 restart/关停, FE 若直接跳主页就会一路 502. 这里直接读 config_<uin>.json (磁盘上的最终值,

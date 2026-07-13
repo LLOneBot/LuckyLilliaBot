@@ -73,6 +73,9 @@ export abstract class QQProtocolBase extends Service {
     throw new Error('quickLogin not supported in this mode')
   }
 
+  /** 退出当前 QQ 登录, 回未登录态. 仅 Direct 模式实现; PMHQ 走 base 默认 no-op. */
+  public async logout(): Promise<void> {}
+
   /**
    * 模式启动入口. cordis Service.init 里 await 一次:
    * - PMHQ: 起 WS 连接 + 登录探测

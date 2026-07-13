@@ -224,6 +224,8 @@ function handleGroupJoined(ctx: Context, msg: InferProtoModel<typeof Msg.Message
 function handleKickNT(ctx: Context, payload: Buffer) {
   const decoded = Msg.KickNTPush.decode(payload)
   selfInfo.online = false
+  const why = decoded.code === 1001 ? '异地登录顶号' : decoded.code === 2001 ? '服务端主动踢出' : '未知'
+  ctx.logger.warn(`[Kick] code=${decoded.code} (${why}) title="${decoded.tipsTitle}" desc="${decoded.tipsDesc}"`)
   ctx.parallel('nt/kicked-offline', {
     tipsDesc: decoded.tipsDesc,
     tipsTitle: decoded.tipsTitle,
