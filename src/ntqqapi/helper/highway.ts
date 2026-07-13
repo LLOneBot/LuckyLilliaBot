@@ -5,7 +5,7 @@ import { Media } from '../proto'
 
 const logger = getLogger('highway')
 import { getMd5BufferFromBuffer } from '@/common/utils'
-import { AppInfo } from '../../main/qqProtocol/direct/appInfo'
+import { AppInfo } from '../../main/qqProtocol/direct-lib/appInfo'
 
 interface HighwayTrans {
   uin: string
@@ -19,6 +19,7 @@ interface HighwayTrans {
 }
 
 abstract class AbstractHighwaySession {
+  readonly concurrency = 4
   /** 单调递增的 block seq */
   protected nextSeq = 1
   protected retryTimes = 0
@@ -28,7 +29,7 @@ abstract class AbstractHighwaySession {
     protected readonly trans: HighwayTrans
   ) { }
 
-  buildPicUpHead(offset: number, bodyLength: number, bodyMd5: Buffer) {
+  buildPicUpHead(offset: number, bodyLength: number, bodyMd5: Buffer, retryTimes = 0) {
     logger.debug('buildPicUpHead:', {
       offset, bodyLength,
       ticketLen: this.trans.ticket?.length || 0,
@@ -41,7 +42,7 @@ abstract class AbstractHighwaySession {
         uin: this.trans.uin,
         command: 'PicUp.DataUp',
         seq: this.nextSeq++,
-        retryTimes: this.retryTimes,
+        retryTimes,
         appId: AppInfo.appId,
         dataFlag: 16,
         commandId: this.trans.cmd,
@@ -124,14 +125,95 @@ function extractRspExtErrorMsg(buf: Buffer): string | null {
 
 export class HighwayHttpSession extends AbstractHighwaySession {
   override async upload() {
+    const concurrency = this.concurrency && this.concurrency > 1
+      ? this.concurrency
+      : 1
+    if (concurrency === 1) {
+      // 串行路径：保留原字节级行为 (实例 retryTimes/availableServer sticky 语义)，
+      // 老调用点 (不传 concurrency 或传 1) 完全等价。
+      await this.uploadSerial()
+      return
+    }
+    // 并发路径：所有块通过 dataOffset 自定位 (互相独立)，server 按 offset 累积重组，
+    // 不要求顺序到达。手写 producer-consumer pipeline：
+    //   - reader 协程持续 for-await 读流，不等上传完成 → 磁盘 IO 与网络真正重叠
+    //   - N 个 worker 协程从有界 queue 拉任务上传 → 背压把内存峰值卡在 concurrency × block
+    // 不用 mapWithConcurrency 的原因：它要求数组入参，必须先全读完流才并发派发，
+    // 既失去流水线收益又把整个文件 buffer 进内存 (群文件 100MB+ 危险)。
+    // queue 容量 = concurrency 才能让 reader 在 workers 跟不上时自然 pause (背压)。
+    const queue: { block: Buffer, offset: number }[] = []
+    let offset = 0
+    let done = false
+    const uploadError: Error[] = []
+    const queueReady: (() => void)[] = []
+    const slotFreed: (() => void)[] = []
+
+    const notifyQueueReady = () => {
+      while (queueReady.length > 0) queueReady.shift()!()
+    }
+    const notifySlotFreed = () => {
+      while (slotFreed.length > 0) slotFreed.shift()!()
+    }
+    const waitQueueReady = () => new Promise<void>((r) => queueReady.push(r))
+    const waitSlotFreed = () => new Promise<void>((r) => slotFreed.push(r))
+
+    // reader
+    const reader = (async () => {
+      try {
+        for await (const chunk of this.trans.readable) {
+          const block = chunk as Buffer
+          // 背压：queue 满时暂停读取，等 worker 取走
+          if (queue.length >= concurrency) await waitSlotFreed()
+          if (uploadError.length) return  // 已有上传失败，提前停读
+          queue.push({ block, offset })
+          offset += block.length
+          notifyQueueReady()
+        }
+      } finally {
+        done = true
+        notifyQueueReady()
+      }
+    })()
+
+    // worker
+    const worker = async () => {
+      while (true) {
+        if (uploadError.length) return
+        let item: { block: Buffer, offset: number } | undefined
+        while (!item && (queue.length > 0 || !done)) {
+          if (queue.length > 0) {
+            item = queue.shift()
+            notifySlotFreed()
+          } else {
+            await waitQueueReady()
+          }
+        }
+        if (!item) return
+        try {
+          await this.uploadBlockWithRetry(item.block, item.offset)
+        } catch (err) {
+          uploadError.push(err as Error)
+          // 唤醒所有可能卡在 waitQueueReady / waitSlotFreed 的协程，让它们检查 uploadError
+          notifyQueueReady()
+          notifySlotFreed()
+          return
+        }
+      }
+    }
+
+    const workers = Array.from({ length: concurrency }, () => worker())
+    await Promise.all([reader, ...workers])
+    if (uploadError.length) throw uploadError[0]
+  }
+
+  /** 串行实现：原 upload() 内容原样保留。 */
+  private async uploadSerial() {
     let offset = 0
     for await (const chunk of this.trans.readable) {
       const block = chunk as Buffer
-      // 最后一块用 Connection: close（让 server 知道 upload 结束 → 归档）
-      const isEnd = offset + block.length >= this.trans.size
       const upload = async () => {
         try {
-          await this.uploadBlock(block, offset, isEnd)
+          await this.uploadBlock(block, offset)
           this.availableServer = this.retryTimes
           this.retryTimes = 0
         } catch (err) {
@@ -155,9 +237,45 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     }
   }
 
-  private async uploadBlock(block: Buffer, offset: number, isEnd: boolean): Promise<void> {
+  /**
+   * 并发路径里单个块的重试逻辑。每个块独立维护自己的 retryTimes + availableServer
+   * (不能复用实例字段，否则并发块互串)。
+   */
+  private async uploadBlockWithRetry(block: Buffer, offset: number): Promise<void> {
+    let retryTimes = 0
+    let availableServer = 0
+    const upload = async () => {
+      try {
+        await this.uploadBlock(block, offset, retryTimes, availableServer)
+        availableServer = retryTimes
+        retryTimes = 0
+      } catch (err) {
+        const { message } = err as Error
+        if (
+          (
+            message.includes('Highway request timeout')
+            || message.includes('read ECONNRESET')
+          )
+          && retryTimes < this.trans.server.length - 1
+        ) {
+          retryTimes++
+          await upload()
+        } else {
+          throw new Error(`[Highway] httpUpload Error uploading block at offset ${offset}: ${message}`)
+        }
+      }
+    }
+    await upload()
+  }
+
+  private async uploadBlock(
+    block: Buffer,
+    offset: number,
+    retryTimes = this.retryTimes,
+    availableServer = this.availableServer,
+  ): Promise<void> {
     const chunkMd5 = getMd5BufferFromBuffer(block)
-    const payload = this.buildPicUpHead(offset, block.length, chunkMd5)
+    const payload = this.buildPicUpHead(offset, block.length, chunkMd5, retryTimes)
     const frame = this.packFrame(payload, block)
 
     logger.debug('HTTP block req:', {
@@ -169,16 +287,14 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       headHex: payload.toString('hex'),
       extHex: this.trans.ext?.toString('hex') || '',
     })
-    const server = this.availableServer ? this.trans.server[this.availableServer] : this.trans.server[this.retryTimes]
+    const server = availableServer ? this.trans.server[availableServer] : this.trans.server[retryTimes]
     const resp = await this.httpPostHighwayContent(frame,
-      `http://${server}/cgi-bin/httpconn?htcmd=0x6FF0087&uin=${this.trans.uin}`,
-      isEnd)
+      `http://${server}/cgi-bin/httpconn?htcmd=0x6FF0087&uin=${this.trans.uin}`)
     const [head, body] = this.unpackFrame(resp)
 
     const headData = Media.RespDataHighwayHead.decode(head)
     logger.debug('HTTP block resp:', {
       offset,
-      isEnd,
       cmd: this.trans.cmd,
       errorCode: headData.errorCode,
       seg: headData.msgSegHead ? {
@@ -202,15 +318,13 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     }
   }
 
-  private async httpPostHighwayContent(frame: Buffer, serverURL: string, isEnd: boolean): Promise<Buffer> {
+  private async httpPostHighwayContent(frame: Buffer, serverURL: string): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const req = request(
         serverURL, {
         method: 'POST',
         timeout: 8000,
         headers: {
-          // 最后一块 close，其他 keep-alive。server 用这个信号知道整体上传结束 → 触发归档
-          'Connection': isEnd ? 'close' : 'keep-alive',
           'Accept-Encoding': 'identity',
           'User-Agent': 'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2)',
           'Content-Length': frame.length.toString(),

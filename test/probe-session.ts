@@ -1,5 +1,5 @@
-import { DirectProtocolClient, registerOnline, persistedToSessionInfo } from '../src/main/qqProtocol/direct'
-import type { PersistedSession } from '../src/main/qqProtocol/direct'
+import { DirectProtocolClient, registerOnline, persistedToSessionInfo } from '../src/main/qqProtocol/direct-lib'
+import type { PersistedSession } from '../src/main/qqProtocol/direct-lib'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 

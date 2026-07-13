@@ -109,7 +109,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   const [loadingMore, setLoadingMore] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null)
-  const [previewVideoUrl, setPreviewVideoUrl] = useState<{ chatType: number; peerUid: string; msgId: string; elementId: string } | null>(null)
+  const [previewVideoUrl, setPreviewVideoUrl] = useState<{ fileUuid: string; isGroup: boolean } | null>(null)
   const [replyTo, setReplyTo] = useState<RawMessage | null>(null)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; message: RawMessage; elementId?: string } | null>(null)
   const [avatarContextMenu, setAvatarContextMenu] = useState<AvatarContextMenuInfo | null>(null)
@@ -128,8 +128,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   }), [])
 
   const videoPreviewContextValue = useMemo(() => ({
-    showPreview: (chatType: number, peerUid: string, msgId: string, elementId: string) =>
-      setPreviewVideoUrl({ chatType, peerUid, msgId, elementId })
+    showPreview: (fileUuid: string, isGroup: boolean) =>
+      setPreviewVideoUrl({ fileUuid, isGroup })
   }), [])
 
   const messageContextMenuValue = useMemo(() => ({

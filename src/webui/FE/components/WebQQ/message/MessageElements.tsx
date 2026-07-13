@@ -14,7 +14,7 @@ export const ImagePreviewContext = React.createContext<{
 
 // 视频预览上下文
 export const VideoPreviewContext = React.createContext<{
-  showPreview: (chatType: number, peerUid: string, msgId: string, elementId: string) => void
+  showPreview: (fileUuid: string, isGroup: boolean) => void
 } | null>(null)
 
 // 图片右键菜单上下文（用于添加到表情）
@@ -175,8 +175,8 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
     const durationStr = `${minutes}:${seconds.toString().padStart(2, '0')}`
 
     const handleClick = () => {
-      if (message && element.elementId) {
-        videoPreviewContext?.showPreview(message.chatType, message.peerUid, message.msgId, element.elementId)
+      if (video.fileUuid) {
+        videoPreviewContext?.showPreview(video.fileUuid, message?.chatType === 2)
       }
     }
 

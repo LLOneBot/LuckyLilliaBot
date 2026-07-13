@@ -21,19 +21,19 @@ import {
   persistedToSessionInfo,
   getSpecifiedUin,
   getSessionFilePathForUin,
-} from './direct'
-import type { QrCodeResult, QrPollResult } from './direct'
-import { overwriteMachineGuid } from './direct/machineGuid'
-import { updateAuthToken } from './direct/sign'
+} from './direct-lib'
+import type { QrCodeResult, QrPollResult } from './direct-lib'
+import { overwriteMachineGuid } from './direct-lib/machineGuid'
+import { updateAuthToken } from './direct-lib/sign'
 import { authTokenUtil } from '../config'
 import { setLoginState } from '../llbot-ipc'
 import { version } from '../../version'
-import { startAuthTokenWatcher } from './direct/authTokenWatcher'
+import { startAuthTokenWatcher } from './direct-lib/authTokenWatcher'
 import { QQProtocolBase } from './base'
 
 /**
  * Direct 模式实现: 走 native sign + TCP 直连. QQ 未登录 -> WebUI 扫码.
- * 内部持有一个低层 native `DirectProtocolClient` (direct/client.ts, 不要跟本类混淆).
+ * 内部持有一个低层 native `DirectProtocolClient` (direct-lib/client.ts, 不要跟本类混淆).
  */
 export class DirectQQProtocol extends QQProtocolBase {
   private directClient: DirectProtocolClient | null = null
@@ -42,12 +42,16 @@ export class DirectQQProtocol extends QQProtocolBase {
   private directQrResult: QrCodeResult | null = null
   private directPollResult: QrPollResult | null = null
   private directStopHeartbeat: (() => void) | null = null
+  private reconnectTimer: NodeJS.Timeout | null = null
+  private manualLogout = false
+  private lastKickAt = 0
   // 每次 fetchQrCode 都 ++, 旧 poll 循环发现 token 变了就自动退出, 避免刷新二维码后累积多条并行 poll 链
   private qrPollToken: number = 0
   // QR 缓存 -- 后端是唯一持有者, WebUI 只拉缓存, 不触发新 fetch. TTL 到期或 pollQrCode 报 Expired/Cancelled
   // 后由 refreshQrCodeIfStale() 主动向 QQ 服务器拉新码, 保持终端 QR / WebUI QR 两侧一致.
   private qrFetchedAt: number = 0
   private static readonly QR_TTL_MS = 180_000
+  private static readonly RECONNECT_MS = 5_000
   // 上次已打印到终端的 QR sig, 用于去重: 后端每次拉到新码才重新打印, 避免刷新 loop 多次 dump 同一张
   private lastPrintedQrSig: string = ''
 
@@ -62,6 +66,10 @@ export class DirectQQProtocol extends QQProtocolBase {
   }
 
   protected async start(): Promise<void> {
+    this.ctx.on('nt/kicked-offline', () => {
+      this.lastKickAt = Date.now()
+      if (this.directStopHeartbeat) { this.directStopHeartbeat(); this.directStopHeartbeat = null }
+    })
     // 监听 data/auth_token.txt: 启动即读一次 + 文件变化时读取 -> 校验 -> 通过则触发登录.
     // 没有 token 时只提示, 不再直接 init (无效 token 交给 native sign 会 process.exit 崩溃循环).
     startAuthTokenWatcher(this.onAuthTokenValid.bind(this), this.logger)
@@ -105,6 +113,21 @@ export class DirectQQProtocol extends QQProtocolBase {
     }
     this.runtimeUinOverride = uin
     await this.initDirectClient()
+    this.ensureDirectLoginLoop()
+  }
+
+  public async logout(): Promise<void> {
+    this.manualLogout = true
+    if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null }
+    this.directClient?.clearSession()
+    this.directClient?.disconnect()
+    selfInfo.online = false
+    selfInfo.uin = ''
+    selfInfo.uid = ''
+    selfInfo.nick = ''
+    this.onlineEmitted = false
+    this.runtimeUinOverride = null
+    setLoginState({ state: 'need_qrcode' })
     this.ensureDirectLoginLoop()
   }
 
@@ -171,6 +194,22 @@ export class DirectQQProtocol extends QQProtocolBase {
   private ensureDirectLoginLoop() {
     if (this.loopRunning) return
     this.directLoginLoop()
+  }
+
+  private scheduleReconnect() {
+    if (this.reconnectTimer || selfInfo.online) return
+    if (!(authTokenUtil.reload() || process.env.AUTH_TOKEN || '').trim()) return
+    this.reconnectTimer = setTimeout(async () => {
+      this.reconnectTimer = null
+      if (selfInfo.online) return
+      try {
+        await this.initDirectClient()
+        this.ensureDirectLoginLoop()
+      } catch (e) {
+        this.logger.warn('[Direct] 重连失败, 稍后重试', e)
+      }
+      this.scheduleReconnect()
+    }, DirectQQProtocol.RECONNECT_MS)
   }
 
   private directLoginLoop = async () => {
@@ -273,6 +312,7 @@ export class DirectQQProtocol extends QQProtocolBase {
   }
 
   private async doInitDirectClient(authToken: string): Promise<void> {
+    this.manualLogout = false
     // 换账号 / 重试时取消上一轮残留的 QR poll loop (qrPollToken 变 -> 旧 poll 循环下一 tick 自退)
     this.qrPollToken++
 
@@ -371,6 +411,9 @@ export class DirectQQProtocol extends QQProtocolBase {
       this.onlineEmitted = false
       if (wasOnline) {
         this.ctx.parallel('protocol/disconnect')
+        // 被踢(顶号)不重连: 重连只会跟对方互相顶下线死循环; 仅网络断开才自动重连
+        const kicked = Date.now() - this.lastKickAt < 5000
+        if (!this.manualLogout && !kicked) this.scheduleReconnect()
       }
     })
     client.on('push', (packet: { cmd: string; payload: Buffer }) => {
@@ -425,6 +468,7 @@ export class DirectQQProtocol extends QQProtocolBase {
 
   private async completeDirectLogin() {
     if (!this.directClient || !this.directPollResult || !this.directQrResult) return
+    this.manualLogout = false
 
     // Get UIN
     const urlParams = new URL(this.directQrResult.url).searchParams

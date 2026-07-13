@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import { isPmhqMode } from '@/common/utils/environment'
 import { authTokenUtil } from '../../../main/config'
 import { authTokenStatus, selfInfo } from '@/common/globalVars'
-import { triggerAuthTokenCheck } from '../../../main/qqProtocol/direct/authTokenWatcher'
+import { triggerAuthTokenCheck } from '../../../main/qqProtocol/direct-lib/authTokenWatcher'
 
 // QQ sign auth token 的查询/录入, 在 authMiddleware(WebUI 密码)之后.
 // 录入接口只写文件, 不做校验; 校验与登录由后端 authTokenWatcher 监听文件变化触发.

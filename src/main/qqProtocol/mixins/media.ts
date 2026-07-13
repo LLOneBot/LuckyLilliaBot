@@ -152,10 +152,10 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
       return {
-        info: upload.msgInfo,
-        compat: upload.compatQMsg,
+        info: upload!.msgInfo,
+        compat: upload!.compatQMsg,
         ext: NTV2RichMedia.generateExt(upload),
-        subExt: NTV2RichMedia.generateExt(upload, upload.subFileInfos[0]),
+        subExt: NTV2RichMedia.generateExt(upload, upload!.subFileInfos[0]),
       }
     }
 
@@ -180,10 +180,10 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
       return {
-        info: upload.msgInfo,
-        compat: upload.compatQMsg,
+        info: upload!.msgInfo,
+        compat: upload!.compatQMsg,
         ext: NTV2RichMedia.generateExt(upload),
-        subExt: NTV2RichMedia.generateExt(upload, upload.subFileInfos[0]),
+        subExt: NTV2RichMedia.generateExt(upload, upload!.subFileInfos[0]),
       }
     }
 
@@ -287,8 +287,8 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
       return {
-        info: upload.msgInfo,
-        compat: upload.compatQMsg,
+        info: upload!.msgInfo,
+        compat: upload!.compatQMsg,
         ext: NTV2RichMedia.generateExt(upload)
       }
     }
@@ -314,8 +314,8 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
       return {
-        info: upload.msgInfo,
-        compat: upload.compatQMsg,
+        info: upload!.msgInfo,
+        compat: upload!.compatQMsg,
         ext: NTV2RichMedia.generateExt(upload)
       }
     }
@@ -337,8 +337,8 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
       return {
-        info: upload.msgInfo,
-        compat: upload.compatQMsg,
+        info: upload!.msgInfo,
+        compat: upload!.compatQMsg,
         ext: NTV2RichMedia.generateExt(upload),
       }
     }
@@ -360,8 +360,8 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
       return {
-        info: upload.msgInfo,
-        compat: upload.compatQMsg,
+        info: upload!.msgInfo,
+        compat: upload!.compatQMsg,
         ext: NTV2RichMedia.generateExt(upload),
       }
     }

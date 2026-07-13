@@ -3,7 +3,7 @@ import { selfInfo } from '@/common/globalVars'
 import { randomBytes } from 'node:crypto'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { InferProtoModelInput } from '@saltify/typeproto'
-import { AppInfo, DeviceInfo } from '../direct/appInfo'
+import { AppInfo, DeviceInfo } from '../direct-lib/appInfo'
 import type { QQProtocolBase } from '../base'
 
 export function MessageMixin<T extends abstract new (...args: any[]) => QQProtocolBase>(Base: T) {

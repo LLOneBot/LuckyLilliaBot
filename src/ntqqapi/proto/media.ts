@@ -187,7 +187,7 @@ export namespace Media {
         ipv4s: ProtoField(4, IPv4, 'repeated'),
         ipv6s: ProtoField(5, IPv6, 'repeated'),
       }, 'repeated')
-    }),
+    }, 'optional'),
     download: ProtoField(3, {
       rKeyParam: ProtoField(1, 'string'),
       rKeyTtlSecond: ProtoField(2, 'uint32'),

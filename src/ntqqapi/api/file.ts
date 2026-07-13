@@ -79,10 +79,12 @@ export class NTFileApi extends Service {
   async getVideoUrl(fileUuid: string, isGroup: boolean) {
     if (isGroup) {
       const { download } = await this.ctx.qqProtocol.getGroupVideoUrl(fileUuid)
-      return `https://${download!.info.domain}${download!.info.urlPath}${download!.rKeyParam}`
+      if (!download) return ''
+      return `https://${download.info.domain}${download.info.urlPath}${download.rKeyParam}`
     } else {
       const { download } = await this.ctx.qqProtocol.getPrivateVideoUrl(fileUuid)
-      return `https://${download!.info.domain}${download!.info.urlPath}${download!.rKeyParam}`
+      if (!download) return ''
+      return `https://${download.info.domain}${download.info.urlPath}${download.rKeyParam}`
     }
   }
 

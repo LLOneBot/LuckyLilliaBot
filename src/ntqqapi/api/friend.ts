@@ -1,6 +1,7 @@
 import { FriendCategory, Friend } from '../types'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
+import { noop } from 'cosmokit'
 
 declare module 'cordis' {
   interface Context {
@@ -12,6 +13,7 @@ export class NTFriendApi extends Service {
   static inject = ['qqProtocol']
   private friendsCache: Friend[] = []
   private categoriesCache: Map<number, FriendCategory> = new Map()
+  private refreshingFriends?: Promise<void>
 
   constructor(protected ctx: Context) {
     super(ctx, 'ntFriendApi')
@@ -28,39 +30,52 @@ export class NTFriendApi extends Service {
   }
 
   async getFriends(forceUpdate: boolean) {
-    if (forceUpdate || this.friendsCache.length === 0) {
+    if (this.refreshingFriends) {
+      await this.refreshingFriends
+    } else if (forceUpdate || this.friendsCache.length === 0) {
+      const { promise, resolve, reject } = Promise.withResolvers<void>()
+      this.refreshingFriends = promise
       const friends = []
       const categories = new Map<number, FriendCategory>()
       let cookie: Buffer | undefined
-      while (true) {
-        const res = await this.ctx.qqProtocol.fetchFriends(cookie)
-        for (const cat of res.category) {
-          categories.set(cat.categoryId, cat)
+      try {
+        while (true) {
+          const res = await this.ctx.qqProtocol.fetchFriends(cookie)
+          for (const cat of res.category) {
+            categories.set(cat.categoryId, cat)
+          }
+          for (const friend of res.friendList) {
+            const biz = friend.subBiz.get(1)!
+            friends.push({
+              uid: friend.uid,
+              uin: friend.uin,
+              categoryId: friend.categoryId,
+              categoryName: categories.get(friend.categoryId)?.categoryName ?? '',
+              nick: biz.data.get(20002)?.toString() ?? '',
+              bio: biz.data.get(102)?.toString() ?? '',
+              remark: biz.data.get(103)?.toString() ?? '',
+              qid: biz.data.get(27394)?.toString() ?? '',
+              age: biz.numData.get(20037) ?? 0,
+              gender: biz.numData.get(20009) ?? 0,
+              birthdayYear: biz.data.has(20031) ? (biz.data.get(20031)![0] << 8) | biz.data.get(20031)![1] : 0,
+              birthdayMonth: biz.data.get(20031)?.[2] ?? 0,
+              birthdayDay: biz.data.get(20031)?.[3] ?? 0,
+              isSelf: friend.uin === res.selfUin
+            })
+          }
+          cookie = res.cookie
+          if (!cookie) break
         }
-        for (const friend of res.friendList) {
-          const biz = friend.subBiz.get(1)!
-          friends.push({
-            uid: friend.uid,
-            uin: friend.uin,
-            categoryId: friend.categoryId,
-            categoryName: categories.get(friend.categoryId)?.categoryName ?? '',
-            nick: biz.data.get(20002)?.toString() ?? '',
-            bio: biz.data.get(102)?.toString() ?? '',
-            remark: biz.data.get(103)?.toString() ?? '',
-            qid: biz.data.get(27394)?.toString() ?? '',
-            age: biz.numData.get(20037) ?? 0,
-            gender: biz.numData.get(20009) ?? 0,
-            birthdayYear: biz.data.has(20031) ? (biz.data.get(20031)![0] << 8) | biz.data.get(20031)![1] : 0,
-            birthdayMonth: biz.data.get(20031)?.[2] ?? 0,
-            birthdayDay: biz.data.get(20031)?.[3] ?? 0,
-            isSelf: friend.uin === res.selfUin
-          })
-        }
-        cookie = res.cookie
-        if (!cookie) break
+      } catch (e) {
+        promise.catch(noop) // 防止出现 unhandledRejection
+        reject(e)
+        this.refreshingFriends = undefined
+        throw e
       }
       this.friendsCache = friends
       this.categoriesCache = categories
+      resolve()
+      this.refreshingFriends = undefined
     }
     return {
       friends: this.friendsCache,

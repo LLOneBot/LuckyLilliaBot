@@ -21,7 +21,7 @@ export class EmailNotificationService extends Service {
   private hasLoggedIn: boolean = false
   private configPath: string
   private fileWatcher: ReturnType<typeof watch> | null = null
-  private pmhqDisconnectId: string | null = null
+  private disconnectId: string | null = null
   private checkLoginStatus: NodeJS.Timeout | null = null
 
   constructor(ctx: Context) {
@@ -33,7 +33,7 @@ export class EmailNotificationService extends Service {
 
     this.initializeConfig()
     this.registerEventListeners()
-    this.registerPmhqDisconnectCallback()
+    this.registerDisconnectCallback()
   }
 
   async [Service.init]() {
@@ -44,8 +44,8 @@ export class EmailNotificationService extends Service {
       if (this.fileWatcher) {
         this.fileWatcher.close()
       }
-      if (this.pmhqDisconnectId) {
-        this.ctx.qqProtocol.offDisconnect(this.pmhqDisconnectId)
+      if (this.disconnectId) {
+        this.ctx.qqProtocol.offDisconnect(this.disconnectId)
       }
     }
   }
@@ -90,10 +90,10 @@ export class EmailNotificationService extends Service {
     }
   }
 
-  private registerPmhqDisconnectCallback() {
-    this.pmhqDisconnectId = this.ctx.qqProtocol.onDisconnect(10000, (duration) => {
+  private registerDisconnectCallback() {
+    this.disconnectId = this.ctx.qqProtocol.onDisconnect(10000, (duration) => {
       if (!this.notificationSent && this.hasLoggedIn) {
-        this.ctx.logger.warn(`[EmailNotification] PMHQ disconnected for ${duration}ms`)
+        this.ctx.logger.warn(`[EmailNotification] QQ connection lost for ${duration}ms`)
         this.onOffline('可能 QQ 已经有点死了')
       }
     })

@@ -114,8 +114,7 @@ export function parseElements(
           key: mf.key ?? '',
         },
       })
-      skipIndex = index + 1 // 跳过附加的 summary 文字
-      continue
+      break
     }
 
     // Old format video（仅在没有 commonElem(serviceType=48,businessType=21|11) 视频时使用，
@@ -251,7 +250,7 @@ export function parseElements(
           bytesData: jsonStr,
         },
       })
-      continue
+      break
     }
 
     if (elem.srcMsg) {
@@ -284,7 +283,7 @@ export function parseElements(
             pokeType: 1,
           },
         })
-        skipIndex = index + 1 // 跳过附加的文字提示
+        break
       } else if (svcType === 33) {
         const ext = Msg.QSmallFaceExtra.decode(pbElem)
         result.push({

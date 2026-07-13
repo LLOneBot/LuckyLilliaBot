@@ -9,7 +9,7 @@ import type {
   ResListener,
 } from './types'
 import { Context } from 'cordis'
-import { buildSsoInfoSync } from './direct'
+import { buildSsoInfoSync } from './direct-lib'
 import { QQProtocolBase } from './base'
 
 /**
