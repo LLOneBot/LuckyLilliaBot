@@ -1199,19 +1199,19 @@ __metadata:
   languageName: node
   linkType: hard
 
-"fast-xml-parser@npm:^5.9.3":
-  version: 5.9.3
-  resolution: "fast-xml-parser@npm:5.9.3"
+"fast-xml-parser@npm:^5.10.0":
+  version: 5.10.0
+  resolution: "fast-xml-parser@npm:5.10.0"
   dependencies:
     "@nodable/entities": "npm:^2.2.0"
     fast-xml-builder: "npm:^1.2.0"
-    is-unsafe: "npm:^1.0.1"
-    path-expression-matcher: "npm:^1.5.0"
+    is-unsafe: "npm:^2.0.0"
+    path-expression-matcher: "npm:^1.6.2"
     strnum: "npm:^2.4.1"
-    xml-naming: "npm:^0.1.0"
+    xml-naming: "npm:^0.3.0"
   bin:
     fxparser: src/cli/cli.js
-  checksum: 10c0/0f4f4b98aec027334be1d4462c6e09649bda8dd8bd1c75f6e985f4000ce4a40ea4540745fa7ac081cd65bf462b0c22fce87da9abc5ede51c9727398c91cacd5f
+  checksum: 10c0/ca320dd7c3cf13bc982fc85f147f81ce41e150acea4580ba061f2130a30d627ac85ee25103f514077d747fb9a0444488ff7ff33b44c0130375221f73ce39f991
   languageName: node
   linkType: hard
 
@@ -1321,10 +1321,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"hono@npm:^4.12.28":
-  version: 4.12.28
-  resolution: "hono@npm:4.12.28"
-  checksum: 10c0/ae40349d1e2bbc3cd1f08083644287dc8cbdb9ca6ed8f1bcd5cd896a72763a79dd38a4153ef9bfb4102ae8f2203c36fa9033863f03431f9f52d21f4d720dbce5
+"hono@npm:^4.12.30":
+  version: 4.12.30
+  resolution: "hono@npm:4.12.30"
+  checksum: 10c0/3262ba275e44dc9515032e15aa6a88e8915bc65f5a4b9a1bc538f3ac2bdd19aa2235e6e2fdd6af3b0e5551c162856c3dccd4f353e721c43fe81e5f3268573dde
   languageName: node
   linkType: hard
 
@@ -1351,10 +1351,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"is-unsafe@npm:^1.0.1":
-  version: 1.0.1
-  resolution: "is-unsafe@npm:1.0.1"
-  checksum: 10c0/93c6d4784dee35f32357718bad5b39f9ec6cd051e2103885a803e673a9b408f46bd87c4776eed4f9742f9f35b0d83e6411549c6afcd01884ded1aa8fbbc651b9
+"is-unsafe@npm:^2.0.0":
+  version: 2.0.0
+  resolution: "is-unsafe@npm:2.0.0"
+  checksum: 10c0/d7f721ae13e1abcec419e31f375b9b0840afc790250af3650709160ac9301d9f73e357b2ff832282258529b4f2d3cd622fcddd648f99704e686b2673f4e76a16
   languageName: node
   linkType: hard
 
@@ -1550,11 +1550,11 @@ __metadata:
     compare-versions: "npm:^6.1.1"
     cordis: "npm:4.0.0-rc.6"
     cosmokit: "npm:^1.8.1"
-    fast-xml-parser: "npm:^5.9.3"
+    fast-xml-parser: "npm:^5.10.0"
     file-type: "npm:^22.0.1"
     fluent-ffmpeg: "npm:^2.1.3"
     get-port: "npm:^7.2.0"
-    hono: "npm:^4.12.28"
+    hono: "npm:^4.12.30"
     image-size: "npm:^2.0.2"
     json5: "npm:^2.2.3"
     milkygen: "npm:^0.3.3"
@@ -1564,7 +1564,7 @@ __metadata:
     sift: "npm:^17.1.3"
     silk-wasm: "npm:^3.7.1"
     ts-case-convert: "npm:^2.3.1"
-    tsx: "npm:^4.23.0"
+    tsx: "npm:^4.23.1"
     typescript: "npm:^7.0.2"
     vite: "npm:^8.1.4"
     vite-plugin-cp: "npm:^6.0.3"
@@ -1701,7 +1701,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"path-expression-matcher@npm:^1.5.0":
+"path-expression-matcher@npm:^1.5.0, path-expression-matcher@npm:^1.6.2":
   version: 1.6.2
   resolution: "path-expression-matcher@npm:1.6.2"
   checksum: 10c0/8241302f563de367a81acacd417055a22dd3792a84700569dc2a7888da31aa18eb01131c55f05200c92790b6c45b01fee1984b02540cc5f15726ba1b73a8a075
@@ -2021,9 +2021,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"tsx@npm:^4.23.0":
-  version: 4.23.0
-  resolution: "tsx@npm:4.23.0"
+"tsx@npm:^4.23.1":
+  version: 4.23.1
+  resolution: "tsx@npm:4.23.1"
   dependencies:
     esbuild: "npm:~0.28.0"
     fsevents: "npm:~2.3.3"
@@ -2032,7 +2032,7 @@ __metadata:
       optional: true
   bin:
     tsx: dist/cli.mjs
-  checksum: 10c0/e4fade6bf8a4447424652da3a68f5ab7b927d1cbe5f697dba876c626c5fb7bf7663c4f71777992c9cbbdc8148c63ee1ddcf15536ff9d1863f9fbea25247ee0a9
+  checksum: 10c0/2f7393c09ffd161701342c87141c6158945967c0fdb6476f157a72e53554cbc983b8e516b441beafde27c9840d8ffd619802acce6b6be5e9e197d693e111a55d
   languageName: node
   linkType: hard
 
@@ -2435,6 +2435,13 @@ __metadata:
   version: 0.1.0
   resolution: "xml-naming@npm:0.1.0"
   checksum: 10c0/8c7614865361bcb7e53e3e091dac21c567e2b92d447919b2f072775aa9dcfc94a5255bd52fbaa0fd53c93513e53a23a6a835218ad2af512451dbc678392f85fe
+  languageName: node
+  linkType: hard
+
+"xml-naming@npm:^0.3.0":
+  version: 0.3.0
+  resolution: "xml-naming@npm:0.3.0"
+  checksum: 10c0/48bfc4fe888cdf1c3eceb7853632ebce59e4aa71f0ae33c3f9ce1fbd3213caad293457de0a311114491f0d4efcfba70977dcba3a4f66dfed8c92edbb938056bf
   languageName: node
   linkType: hard
 
