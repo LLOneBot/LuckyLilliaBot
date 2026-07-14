@@ -57,9 +57,12 @@ export class GetGroupRootFiles extends BaseAction<Payload, Response> {
             folder_id: folder.folderId,
             folder_name: folder.folderName,
             create_time: folder.createTime,
-            creator: folder.creatorUin,
+            creator: folder.createUin,
             creator_name: folder.creatorName,
-            total_file_count: folder.totalFileCount
+            total_file_count: folder.totalFileCount,
+            modify_time: folder.modifyTime,
+            modifier: folder.modifyUin,
+            modifier_name: folder.modifyName
           }
         })
     }

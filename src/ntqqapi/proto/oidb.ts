@@ -396,13 +396,16 @@ export namespace Oidb {
     type: ProtoField(1, 'uint32'),
     folderInfo: ProtoField(2, {
       folderId: ProtoField(1, 'string'),
-      parentDirectoryId: ProtoField(2, 'string'),
+      parentFolderId: ProtoField(2, 'string'),
       folderName: ProtoField(3, 'string'),
       createTime: ProtoField(4, 'uint32'),
-      modifiedTime: ProtoField(5, 'uint32'),
-      creatorUin: ProtoField(6, 'uint32'),
+      modifyTime: ProtoField(5, 'uint32'),
+      createUin: ProtoField(6, 'uint32'),
       creatorName: ProtoField(7, 'string'),
-      totalFileCount: ProtoField(8, 'uint32')
+      totalFileCount: ProtoField(8, 'uint32'),
+      modifyUin: ProtoField(9, 'uint32'),
+      modifyName: ProtoField(10, 'string'),
+      usedSpace: ProtoField(11, 'uint32')
     }, 'optional'),
     fileInfo: ProtoField(3, {
       fileId: ProtoField(1, 'string'),
