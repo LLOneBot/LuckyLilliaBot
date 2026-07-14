@@ -430,6 +430,9 @@ export interface OB11GroupFileFolder {
   creator: number
   creator_name: string
   total_file_count: number
+  modify_time: number
+  modifier: number
+  modifier_name: string
 }
 
 export interface ParseMessageConfig {

@@ -31,7 +31,7 @@ export class MessageBuilding {
   private async [ElementType.Text](data: SendTextElement) {
     const { textElement } = data
     if (textElement.atType === 1 /* AtType.All */) {
-      const attr6 = Buffer.from([0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00])
+      const attr6 = Buffer.from([0x00, 0x01, 0x00, 0x00, 0x00, 0x05, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00])
       this.outputElems.push({ text: { str: textElement.content, attr6Buf: attr6 } })
     } else if (textElement.atType === 2 /* AtType.One */) {
       const attr6Buf = Buffer.alloc(20)
