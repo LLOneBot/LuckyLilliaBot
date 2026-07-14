@@ -125,25 +125,34 @@ class Core extends Service {
         || (info.groupShutupExpireTime * 1000 > Date.now()
           && info.memberRole === GroupMemberRole.Normal)
       ) {
+        deleteAfterSentFiles.forEach(path => {
+          unlink(path).catch(noop)
+        })
         throw new Error('当前处于被禁言状态')
       }
     }
     if (!sendElements.length) {
+      deleteAfterSentFiles.forEach(path => {
+        unlink(path).catch(noop)
+      })
       throw new Error('消息体无法解析，请检查是否发送了不支持的消息类型')
     }
-    const returnMsg = await ctx.ntMsgApi.sendMsg(peer, sendElements)
-    this.messageSentCount++
-    deleteAfterSentFiles.forEach(path => {
-      unlink(path).catch(noop)
-    })
-    if (returnMsg.chatType !== ChatType.Group) {
-      // 由于私聊消息发送后没有回声，不会触发 nt/message-sent，所以补一个
-      // 而且，该事件不能早于 ntMsgApi.waitForSelfEcho 上报
-      this.ctx.parallel('nt/message-sent', {
-        message: returnMsg
+    try {
+      const returnMsg = await ctx.ntMsgApi.sendMsg(peer, sendElements)
+      this.messageSentCount++
+      if (returnMsg.chatType !== ChatType.Group) {
+        // 由于私聊消息发送后没有回声，不会触发 nt/message-sent，所以补一个
+        // 而且，该事件不能早于 ntMsgApi.waitForSelfEcho 上报
+        this.ctx.parallel('nt/message-sent', {
+          message: returnMsg
+        })
+      }
+      return returnMsg
+    } finally {
+      deleteAfterSentFiles.forEach(path => {
+        unlink(path).catch(noop)
       })
     }
-    return returnMsg
   }
 
   private registerListener() {
