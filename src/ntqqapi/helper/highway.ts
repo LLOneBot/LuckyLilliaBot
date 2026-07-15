@@ -324,7 +324,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
           const { message } = err as Error
           if (
             (
-              message.includes('Highway request timeout')
+              message.includes('request timeout')
               || message.includes('read ECONNRESET')
               || message.includes('not a valid proto')
             )
@@ -358,7 +358,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
         const { message } = err as Error
         if (
           (
-            message.includes('Highway request timeout')
+            message.includes('request timeout')
             || message.includes('read ECONNRESET')
             || message.includes('not a valid proto')
           )
@@ -438,7 +438,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       const req = request(
         serverURL, {
         method: 'POST',
-        timeout: 8000,
+        timeout: 10 * 1000,
         headers: {
           // 最后一块 close，其他 keep-alive。server 用这个信号知道整体上传结束 → 触发归档
           'Connection': isEnd ? 'close' : 'keep-alive',
@@ -461,7 +461,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
         reject(error)
       })
       req.on('timeout', () => {
-        req.destroy(new Error(`Highway request timeout (8s) on ${serverURL}`))
+        req.destroy(new Error(`Highway request timeout (10s) on ${serverURL}`))
       })
       req.write(frame)
       req.end()
