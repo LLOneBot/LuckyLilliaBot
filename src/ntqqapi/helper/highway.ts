@@ -141,7 +141,14 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     // 不用 mapWithConcurrency 的原因：它要求数组入参，必须先全读完流才并发派发，
     // 既失去流水线收益又把整个文件 buffer 进内存 (群文件 100MB+ 危险)。
     // queue 容量 = concurrency 才能让 reader 在 workers 跟不上时自然 pause (背压)。
+    // 最后一块单独串行上传 (传 isEnd=true 触发归档)：
+    //   - 并发乱序下若把最后块当普通任务丢 queue，worker 可能在其他块还没落到 server
+    //     时就发掉它，server 收到 Connection: close 时文件还不完整 → 提前归档/拒绝。
+    //   - 因此 reader 把"可能是最后一块"暂存 pendingLast 而不入 queue；下一轮读到新块
+    //     时说明上一块不是最后，才放行上一块进 queue。流结束时 pendingLast 才是真正的最后块，
+    //     此时所有并发 worker 已处理完前面的块，再单独串行上传它 (isEnd=true)。
     const queue: { block: Buffer, offset: number }[] = []
+    let pendingLast: { block: Buffer, offset: number } | undefined
     let offset = 0
     let done = false
     const uploadError: Error[] = []
@@ -162,12 +169,17 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       try {
         for await (const chunk of this.trans.readable) {
           const block = chunk as Buffer
-          // 背压：queue 满时暂停读取，等 worker 取走
-          if (queue.length >= concurrency) await waitSlotFreed()
-          if (uploadError.length) return  // 已有上传失败，提前停读
-          queue.push({ block, offset })
+          // 当前读到的块暂存为"可能是最后一块"，把上一轮的 pendingLast 放行进并发 queue。
+          // 直到读到下一个块或流结束，才能确定谁才是真正的最后块。
+          if (pendingLast) {
+            // 背压：queue 满时暂停读取，等 worker 取走
+            if (queue.length >= concurrency) await waitSlotFreed()
+            if (uploadError.length) return  // 已有上传失败，提前停读
+            queue.push(pendingLast)
+            notifyQueueReady()
+          }
+          pendingLast = { block, offset }
           offset += block.length
-          notifyQueueReady()
         }
       } finally {
         done = true
@@ -175,7 +187,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       }
     })()
 
-    // worker
+    // worker：只处理并发 queue 里的块（全是 isEnd=false，non-end）。
     const worker = async () => {
       while (true) {
         if (uploadError.length) return
@@ -190,7 +202,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
         }
         if (!item) return
         try {
-          await this.uploadBlockWithRetry(item.block, item.offset)
+          await this.uploadBlockWithRetry(item.block, item.offset, false)
         } catch (err) {
           uploadError.push(err as Error)
           // 唤醒所有可能卡在 waitQueueReady / waitSlotFreed 的协程，让它们检查 uploadError
@@ -204,6 +216,11 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     const workers = Array.from({ length: concurrency }, () => worker())
     await Promise.all([reader, ...workers])
     if (uploadError.length) throw uploadError[0]
+    // 所有并发块全部成功后，单独串行上传真正的最后一块 (isEnd=true → Connection: close → 归档)。
+    // 此时 server 已收到完整文件的其余部分，最后一块补齐后再 close 不会触发提前归档。
+    if (pendingLast) {
+      await this.uploadBlockWithRetry(pendingLast.block, pendingLast.offset, true)
+    }
   }
 
   /** 串行实现：原 upload() 内容原样保留。 */
@@ -211,9 +228,11 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     let offset = 0
     for await (const chunk of this.trans.readable) {
       const block = chunk as Buffer
+      // 最后一块用 Connection: close（让 server 知道 upload 结束 → 归档）
+      const isEnd = offset + block.length >= this.trans.size
       const upload = async () => {
         try {
-          await this.uploadBlock(block, offset)
+          await this.uploadBlock(block, offset, undefined, undefined, isEnd)
           this.availableServer = this.retryTimes
           this.retryTimes = 0
         } catch (err) {
@@ -241,12 +260,12 @@ export class HighwayHttpSession extends AbstractHighwaySession {
    * 并发路径里单个块的重试逻辑。每个块独立维护自己的 retryTimes + availableServer
    * (不能复用实例字段，否则并发块互串)。
    */
-  private async uploadBlockWithRetry(block: Buffer, offset: number): Promise<void> {
+  private async uploadBlockWithRetry(block: Buffer, offset: number, isEnd: boolean): Promise<void> {
     let retryTimes = 0
     let availableServer = 0
     const upload = async () => {
       try {
-        await this.uploadBlock(block, offset, retryTimes, availableServer)
+        await this.uploadBlock(block, offset, retryTimes, availableServer, isEnd)
         availableServer = retryTimes
         retryTimes = 0
       } catch (err) {
@@ -273,6 +292,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     offset: number,
     retryTimes = this.retryTimes,
     availableServer = this.availableServer,
+    isEnd: boolean
   ): Promise<void> {
     const chunkMd5 = getMd5BufferFromBuffer(block)
     const payload = this.buildPicUpHead(offset, block.length, chunkMd5, retryTimes)
@@ -289,12 +309,14 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     })
     const server = availableServer ? this.trans.server[availableServer] : this.trans.server[retryTimes]
     const resp = await this.httpPostHighwayContent(frame,
-      `http://${server}/cgi-bin/httpconn?htcmd=0x6FF0087&uin=${this.trans.uin}`)
+      `http://${server}/cgi-bin/httpconn?htcmd=0x6FF0087&uin=${this.trans.uin}`,
+      isEnd)
     const [head, body] = this.unpackFrame(resp)
 
     const headData = Media.RespDataHighwayHead.decode(head)
     logger.debug('HTTP block resp:', {
       offset,
+      isEnd,
       cmd: this.trans.cmd,
       errorCode: headData.errorCode,
       seg: headData.msgSegHead ? {
@@ -318,13 +340,15 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     }
   }
 
-  private async httpPostHighwayContent(frame: Buffer, serverURL: string): Promise<Buffer> {
+  private async httpPostHighwayContent(frame: Buffer, serverURL: string, isEnd: boolean): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       const req = request(
         serverURL, {
         method: 'POST',
         timeout: 8000,
         headers: {
+          // 最后一块 close，其他 keep-alive。server 用这个信号知道整体上传结束 → 触发归档
+          'Connection': isEnd ? 'close' : 'keep-alive',
           'Accept-Encoding': 'identity',
           'User-Agent': 'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2)',
           'Content-Length': frame.length.toString(),
