@@ -780,7 +780,7 @@ export class DirectProtocolClient extends EventEmitter {
 
   /**
    * 复用同一 client 时热更新配置 (换 token / 换账号 uin). native sign 是进程单例, relay 只绑首个
-   * client, 所以不能靠重建 client 换配置 -- 只能在活着的这一个上原地更新. 见 direct-mode doInitDirectClient.
+   * client, 所以不能靠重建 client 换配置 -- 只能在活着的这一个上原地更新. 见 direct doInitDirectClient.
    */
   setAuthToken(token: string): void {
     this.config.authToken = token
