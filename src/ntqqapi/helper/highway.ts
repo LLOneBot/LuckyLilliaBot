@@ -123,6 +123,91 @@ function extractRspExtErrorMsg(buf: Buffer): string | null {
   return null
 }
 
+/**
+ * 校验 buffer 是否是结构合法的 protobuf 编码（wire-level 校验）。
+ *
+ * 校验规则（protobuf wire format）：
+ *   - tag varint 低 3 位 = wire type，必须 ∈ {0,1,2,5}（3/4=group 已废弃，6/7 非法）
+ *   - wire 0 (varint)          ：value varint 完整不越界（≤10 字节，protobuf 上限）
+ *   - wire 1 (fixed64)         ：剩余 ≥ 8 字节
+ *   - wire 2 (length-delimited)：length varint 合法且 offset+length ≤ buf.length
+ *   - wire 5 (fixed32)         ：剩余 ≥ 4 字节
+ *   - 整个 buffer 被完整消费，结束时 offset 恰好 = buf.length
+ * 返回 true 表示可安全交给 decode。
+ */
+function isValidProtoBuffer(buf: Buffer | undefined | null): boolean {
+  if (!buf || buf.length === 0) return false
+  const len = buf.length
+  let p = 0
+
+  // 读 tag varint（field number 最大 2^29-1，tag 最多 5 字节）。
+  // 返回 tag 值；越界/超长返回 -1。即使大 field number 让 val 在 JS 位运算里溢出，
+  // wireType = val & 7 仍取低 3 位合法，不影响 wire 校验。
+  const readTag = (): number => {
+    let val = 0
+    let shift = 0
+    for (;;) {
+      if (p >= len) return -1
+      const b = buf[p++]
+      val |= (b & 0x7f) << shift
+      if (!(b & 0x80)) return val
+      shift += 7
+      if (shift > 35) return -1  // tag varint 超 5 字节，非法
+    }
+  }
+
+  // 跳过 wire 0 的 value varint（uint64 最多 10 字节）。越界/超长返回 false。
+  const skipVarint = (): boolean => {
+    let shift = 0
+    for (;;) {
+      if (p >= len) return false
+      const b = buf[p++]
+      if (!(b & 0x80)) return true
+      shift += 7
+      if (shift > 63) return false  // value varint 超 10 字节，非法
+    }
+  }
+
+  // 读 wire 2 的 length varint，返回字段内容长度；越界/巨大返回 -1。
+  // length 是 uint32，限制 4 字节（最大 2^28-1 ≈ 268MB），既覆盖所有合理 head 大小，
+  // 又避免 JS 32 位位运算在 shift≥28 时溢出回绕成小值导致 `p + fieldLen <= len` 误判通过。
+  const readLength = (): number => {
+    let val = 0
+    let shift = 0
+    for (;;) {
+      if (p >= len) return -1
+      const b = buf[p++]
+      val |= (b & 0x7f) << shift
+      if (!(b & 0x80)) break
+      shift += 7
+      if (shift > 21) return -1  // length varint 超 4 字节，必然远超 buffer 实际长度
+    }
+    return val
+  }
+
+  while (p < len) {
+    const tag = readTag()
+    if (tag < 0) return false
+    const wireType = tag & 7
+    if (wireType === 0) {
+      if (!skipVarint()) return false
+    } else if (wireType === 1) {
+      if (p + 8 > len) return false
+      p += 8
+    } else if (wireType === 2) {
+      const fieldLen = readLength()
+      if (fieldLen < 0 || p + fieldLen > len) return false
+      p += fieldLen
+    } else if (wireType === 5) {
+      if (p + 4 > len) return false
+      p += 4
+    } else {
+      return false  // wireType 3/4 (group, deprecated) 或 6/7 (非法)
+    }
+  }
+  return p === len
+}
+
 export class HighwayHttpSession extends AbstractHighwaySession {
   override async upload() {
     const concurrency = this.concurrency && this.concurrency > 1
@@ -241,6 +326,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
             (
               message.includes('Highway request timeout')
               || message.includes('read ECONNRESET')
+              || message.includes('not a valid proto')
             )
             && this.retryTimes < this.trans.server.length - 1
           ) {
@@ -274,6 +360,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
           (
             message.includes('Highway request timeout')
             || message.includes('read ECONNRESET')
+            || message.includes('not a valid proto')
           )
           && retryTimes < this.trans.server.length - 1
         ) {
@@ -313,6 +400,12 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       isEnd)
     const [head, body] = this.unpackFrame(resp)
 
+    if (!isValidProtoBuffer(head)) {
+      logger.debug('HTTP block resp head invalid proto, raw hex:', {
+        offset, isEnd, headHex: head.toString('hex'),
+      })
+      throw new Error(`HTTP Upload response head is not a valid proto`)
+    }
     const headData = Media.RespDataHighwayHead.decode(head)
     logger.debug('HTTP block resp:', {
       offset,
