@@ -154,8 +154,8 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return {
         info: upload!.msgInfo,
         compat: upload!.compatQMsg,
-        ext: NTV2RichMedia.generateExt(upload),
-        subExt: NTV2RichMedia.generateExt(upload, upload!.subFileInfos[0]),
+        ext: NTV2RichMedia.generateExt(upload!),
+        subExt: NTV2RichMedia.generateExt(upload!, upload!.subFileInfos[0]),
       }
     }
 
@@ -182,8 +182,8 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return {
         info: upload!.msgInfo,
         compat: upload!.compatQMsg,
-        ext: NTV2RichMedia.generateExt(upload),
-        subExt: NTV2RichMedia.generateExt(upload, upload!.subFileInfos[0]),
+        ext: NTV2RichMedia.generateExt(upload!),
+        subExt: NTV2RichMedia.generateExt(upload!, upload!.subFileInfos[0]),
       }
     }
 
@@ -289,7 +289,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return {
         info: upload!.msgInfo,
         compat: upload!.compatQMsg,
-        ext: NTV2RichMedia.generateExt(upload)
+        ext: NTV2RichMedia.generateExt(upload!)
       }
     }
 
@@ -316,7 +316,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return {
         info: upload!.msgInfo,
         compat: upload!.compatQMsg,
-        ext: NTV2RichMedia.generateExt(upload)
+        ext: NTV2RichMedia.generateExt(upload!)
       }
     }
 
@@ -339,7 +339,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return {
         info: upload!.msgInfo,
         compat: upload!.compatQMsg,
-        ext: NTV2RichMedia.generateExt(upload),
+        ext: NTV2RichMedia.generateExt(upload!),
       }
     }
 
@@ -362,7 +362,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return {
         info: upload!.msgInfo,
         compat: upload!.compatQMsg,
-        ext: NTV2RichMedia.generateExt(upload),
+        ext: NTV2RichMedia.generateExt(upload!),
       }
     }
 

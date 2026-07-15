@@ -124,8 +124,8 @@ export namespace NTV2RichMedia {
   }
 
   export function generateExt(
-    upload: InferProtoModel<typeof Media.NTV2RichMediaResp>['upload'],
-    subFileInfo?: InferProtoModel<typeof Media.NTV2RichMediaResp>['upload']['subFileInfos'][0]
+    upload: NonNullable<InferProtoModel<typeof Media.NTV2RichMediaResp>['upload']>,
+    subFileInfo?: NonNullable<InferProtoModel<typeof Media.NTV2RichMediaResp>['upload']>['subFileInfos'][0]
   ) {
     const blockSize = 1024 * 1024
     // upload.msgInfo 现在是 bytes（NTV2RichMediaResp.upload.msgInfo 改成 raw 透传），
@@ -169,7 +169,7 @@ export namespace NTV2RichMedia {
     }
   }
 
-  function convertIPv4(ipv4s: InferProtoModel<typeof Media.NTV2RichMediaResp>['upload']['ipv4s']) {
+  function convertIPv4(ipv4s: NonNullable<InferProtoModel<typeof Media.NTV2RichMediaResp>['upload']>['ipv4s']) {
     return {
       ipv4s: ipv4s.map(ipv4 => ({
         domain: {

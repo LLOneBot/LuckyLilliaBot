@@ -1,6 +1,6 @@
 import { QQProtocolBase } from './base'
 import { PmhqQQProtocol } from './pmhq'
-import { DirectQQProtocol } from './direct-mode'
+import { DirectQQProtocol } from './direct'
 import { FriendMixin, GroupMixin, MediaMixin, MessageMixin, SystemMixin, UserMixin } from './mixins'
 
 export type {
@@ -15,7 +15,7 @@ export type {
 
 export { QQProtocolBase } from './base'
 export { PmhqQQProtocol } from './pmhq'
-export { DirectQQProtocol } from './direct-mode'
+export { DirectQQProtocol } from './direct'
 
 
 type Constructor<T = object> = abstract new (...args: any[]) => T

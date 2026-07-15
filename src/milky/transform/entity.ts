@@ -72,11 +72,11 @@ export function transformGroupFileList(items: InferProtoModel<typeof Oidb.GetGro
       folders.push({
         group_id: groupId,
         folder_id: item.folderInfo.folderId,
-        parent_folder_id: item.folderInfo.parentDirectoryId,
+        parent_folder_id: item.folderInfo.parentFolderId,
         folder_name: item.folderInfo.folderName,
         created_time: item.folderInfo.createTime,
-        last_modified_time: item.folderInfo.modifiedTime,
-        creator_id: item.folderInfo.creatorUin,
+        last_modified_time: item.folderInfo.modifyTime,
+        creator_id: item.folderInfo.createUin,
         file_count: item.folderInfo.totalFileCount,
       })
     } else if (item.fileInfo) {
