@@ -12,28 +12,28 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@cordisjs/plugin-database-sqlite@npm:^5.1.0":
-  version: 5.1.0
-  resolution: "@cordisjs/plugin-database-sqlite@npm:5.1.0"
+"@cordisjs/plugin-database-sqlite@npm:^5.1.1":
+  version: 5.1.1
+  resolution: "@cordisjs/plugin-database-sqlite@npm:5.1.1"
   dependencies:
-    "@cordisjs/sql-utils": "npm:^6.1.0"
+    "@cordisjs/sql-utils": "npm:^6.1.1"
     cosmokit: "npm:^1.8.1"
     schemastery: "npm:^3.18.0"
   peerDependencies:
-    "@cordisjs/plugin-database": ^4.1.0
-    cordis: ^4.0.0-rc.6
-  checksum: 10c0/07808d44723053b19f336d7732f0fb898256b68aa4a09c23d778ba577991d4eaea179b726d22c98fc38bfc6eff30729698faba7f2321d87342ca77e462f70a07
+    "@cordisjs/plugin-database": ^4.1.1
+    cordis: ^4.0.0-rc.7
+  checksum: 10c0/eeaa009cbed49b9f4316466904c2d1abf9c7750ae7f012f44924ca77e17ba457d46e0de22648653bfd194282136c6bbed5f2d44c8c1fed2551dc854b3fee3205
   languageName: node
   linkType: hard
 
-"@cordisjs/plugin-database@npm:^4.1.0":
-  version: 4.1.0
-  resolution: "@cordisjs/plugin-database@npm:4.1.0"
+"@cordisjs/plugin-database@npm:^4.1.1":
+  version: 4.1.1
+  resolution: "@cordisjs/plugin-database@npm:4.1.1"
   dependencies:
     cosmokit: "npm:^1.8.1"
   peerDependencies:
-    cordis: ^4.0.0-rc.6
-  checksum: 10c0/ab720ad60e7c9f91678ac433b21374e5bd28d7927c188ab183062a1727db0f351fdc045c6815370578e22bcb8952f3fb79a9774c900793e23d330bf41baedff0
+    cordis: ^4.0.0-rc.7
+  checksum: 10c0/600e02192b5f25a72413352e7c7ca519867e812ff10fefbf21b213d54f793a34b7dbe08c1715b6f41cdbff70a816a3cba46d4483e2a365227ed751b9f0b676b3
   languageName: node
   linkType: hard
 
@@ -61,14 +61,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@cordisjs/sql-utils@npm:^6.1.0":
-  version: 6.1.0
-  resolution: "@cordisjs/sql-utils@npm:6.1.0"
+"@cordisjs/sql-utils@npm:^6.1.1":
+  version: 6.1.1
+  resolution: "@cordisjs/sql-utils@npm:6.1.1"
   dependencies:
     cosmokit: "npm:^1.8.1"
   peerDependencies:
-    "@cordisjs/plugin-database": ^4.1.0
-  checksum: 10c0/886423d0f78a8441afc44db58547bbfbb943274a7fd999b3f5bcc16d7fc52027a1dfc425ce613f433b3218b8369e288ea338a23b6bf49545a590a586c4bdfbfd
+    "@cordisjs/plugin-database": ^4.1.1
+  checksum: 10c0/95274e31bad04a7d1a8562c389a48231d8344a4cb7ae54c5d4c70d6e85dde0318bd9b5a13ce0ed14d565bb714a63def13d15493c35683f3cef028c8dd786f845
   languageName: node
   linkType: hard
 
@@ -282,12 +282,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@hono/node-server@npm:^2.0.8":
-  version: 2.0.8
-  resolution: "@hono/node-server@npm:2.0.8"
+"@hono/node-server@npm:^2.0.9":
+  version: 2.0.9
+  resolution: "@hono/node-server@npm:2.0.9"
   peerDependencies:
     hono: ^4
-  checksum: 10c0/2284799e7ea8c3ea18dcd29fbc523792d7e42768f11dff8a937ce2e4ec965785552da4e9649354b00079243946bd9f65d23b8d9b923cef4984175e507398bb72
+  checksum: 10c0/019840873e6cfe6792aa8557fbddf07ddbc8052263d420d3f69a8ecd41dc586e5e61f696fb4f17e6674908b4fdfc9114c8174b769993011db43008d2e955df29
   languageName: node
   linkType: hard
 
@@ -989,15 +989,15 @@ __metadata:
   languageName: node
   linkType: hard
 
-"cordis@npm:4.0.0-rc.6":
-  version: 4.0.0-rc.6
-  resolution: "cordis@npm:4.0.0-rc.6"
+"cordis@npm:4.0.0-rc.7":
+  version: 4.0.0-rc.7
+  resolution: "cordis@npm:4.0.0-rc.7"
   dependencies:
     "@standard-schema/spec": "npm:^1.1.0"
     cosmokit: "npm:^1.8.1"
   peerDependencies:
     "@cordisjs/plugin-include": ^1.0.4
-    "@cordisjs/plugin-loader": ^1.0.0-rc.4
+    "@cordisjs/plugin-loader": ^1.0.0-rc.5
   peerDependenciesMeta:
     "@cordisjs/plugin-include":
       optional: true
@@ -1005,7 +1005,7 @@ __metadata:
       optional: true
   bin:
     cordis: bin.js
-  checksum: 10c0/29edd000a803c7eb61a1224820e12fc519384ae1f6af4a525a49fbf7fe41c1775dadcd3efbdcc9ca728cad5b445bd13ed56ef52fde175788cd9eff963d3ba2cc
+  checksum: 10c0/3ec6843ea362751476311f61d67f9789b1ac05eefafee06e184261a496450df5c77391df5690f2f50a6961c30e2eba5db35bda8c33cd4c5a022d9f204993657c
   languageName: node
   linkType: hard
 
@@ -1534,11 +1534,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "lucky-lillia-bot@workspace:."
   dependencies:
-    "@cordisjs/plugin-database": "npm:^4.1.0"
-    "@cordisjs/plugin-database-sqlite": "npm:^5.1.0"
+    "@cordisjs/plugin-database": "npm:^4.1.1"
+    "@cordisjs/plugin-database-sqlite": "npm:^5.1.1"
     "@cordisjs/plugin-logger-console": "npm:^1.0.0"
     "@cordisjs/plugin-timer": "npm:^1.1.2"
-    "@hono/node-server": "npm:^2.0.8"
+    "@hono/node-server": "npm:^2.0.9"
     "@saltify/typeproto": "npm:^0.4.1"
     "@satorijs/element": "npm:^3.2.0"
     "@satorijs/protocol": "npm:^1.7.0"
@@ -1548,7 +1548,7 @@ __metadata:
     "@types/qrcode": "npm:^1.5.6"
     "@types/ws": "npm:^8.18.1"
     compare-versions: "npm:^6.1.1"
-    cordis: "npm:4.0.0-rc.6"
+    cordis: "npm:4.0.0-rc.7"
     cosmokit: "npm:^1.8.1"
     fast-xml-parser: "npm:^5.10.0"
     file-type: "npm:^22.0.1"
@@ -1569,7 +1569,7 @@ __metadata:
     vite: "npm:^8.1.4"
     vite-plugin-cp: "npm:^6.0.3"
     vitest: "npm:^4.1.10"
-    ws: "npm:^8.21.0"
+    ws: "npm:^8.21.1"
     zod: "npm:^4.4.3"
   languageName: unknown
   linkType: soft
@@ -2416,9 +2416,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ws@npm:^8.21.0":
-  version: 8.21.0
-  resolution: "ws@npm:8.21.0"
+"ws@npm:^8.21.1":
+  version: 8.21.1
+  resolution: "ws@npm:8.21.1"
   peerDependencies:
     bufferutil: ^4.0.1
     utf-8-validate: ">=5.0.2"
@@ -2427,7 +2427,7 @@ __metadata:
       optional: true
     utf-8-validate:
       optional: true
-  checksum: 10c0/ef4a243476283fc49bc7550966c4af4aa0eef56273837211e700de3b664e08604a760cdddcb5ba43c049140e74ccfec5b0ee0bb439e08c2adf9138902fdde5f9
+  checksum: 10c0/c4c6f1d95f6d465262de2037c57c715725d67e078dd49420ede4e19115668aba159cb64d85c5e89c06eb2826be599e62e5095860ad6cc54ff42e8bd7684e1db8
   languageName: node
   linkType: hard
 
