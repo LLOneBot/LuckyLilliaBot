@@ -15,7 +15,7 @@ class GetGroupList extends BaseAction<Payload, OB11Group[]> {
 
   protected async _handle(payload: Payload) {
     const groups = await this.ctx.ntGroupApi.getGroups(payload.no_cache)
-    return await Promise.all(groups.map(async group => ({
+    return groups.map(group => ({
       group_id: group.groupCode,
       group_name: group.groupName,
       group_memo: group.description,
@@ -24,11 +24,11 @@ class GetGroupList extends BaseAction<Payload, OB11Group[]> {
       max_member_count: group.maxMemberCount,
       remark_name: group.remark,
       avatar_url: `https://p.qlogo.cn/gh/${group.groupCode}/${group.groupCode}/0`,
-      owner_id: Number(await this.ctx.ntUserApi.getUinByUid(group.ownerUid)),
+      owner_id: 0,
       is_top: group.isPin,
       shut_up_all_timestamp: group.groupShutupExpireTime,
       shut_up_me_timestamp: group.personShutupExpireTime
-    })))
+    }))
   }
 }
 
