@@ -18,7 +18,6 @@ data
 llonebot-dist.tgz
 script/ffmpeg/
 .claude/
-bash.exe.stackdump
 *.stackdump
 
 test/qr-code.png

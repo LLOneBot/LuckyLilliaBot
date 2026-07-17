@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { readdirSync, readFileSync, writeFileSync, existsSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { execSync } from 'node:child_process'
@@ -194,6 +194,11 @@ export function listAvailableSessions(): Array<{ uin: string; uid: string; nick:
   }
   // 按 savedAt 倒序 (最近登过的在前)
   return out.sort((a, b) => b.savedAt - a.savedAt)
+}
+
+/** 删除 qq-session-<uin>.json. 异地登录顶号后清掉失效凭证, 强制重新扫码. */
+export function deleteSession(uin: string): void {
+  try { unlinkSync(getSessionFilePathForUin(uin)) } catch {}
 }
 
 export function persistedToSessionInfo(persisted: PersistedSession): SessionInfo {

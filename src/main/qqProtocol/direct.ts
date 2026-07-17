@@ -17,13 +17,14 @@ import {
   AppInfo,
   saveSession,
   loadSession,
+  deleteSession,
   listAvailableSessions,
   persistedToSessionInfo,
   getSpecifiedUin,
   getSessionFilePathForUin,
 } from './direct-lib'
 import type { QrCodeResult, QrPollResult } from './direct-lib'
-import { overwriteMachineGuid } from './direct-lib/machineGuid'
+import { overwriteMachineGuid, deleteMachineGuid, loadMachineGuidSync } from './direct-lib/machineGuid'
 import { updateAuthToken } from './direct-lib/sign'
 import { authTokenUtil } from '../config'
 import { setLoginState } from '../llbot-ipc'
@@ -44,7 +45,6 @@ export class DirectQQProtocol extends QQProtocolBase {
   private directStopHeartbeat: (() => void) | null = null
   private reconnectTimer: NodeJS.Timeout | null = null
   private manualLogout = false
-  private lastKickAt = 0
   // 每次 fetchQrCode 都 ++, 旧 poll 循环发现 token 变了就自动退出, 避免刷新二维码后累积多条并行 poll 链
   private qrPollToken: number = 0
   // QR 缓存 -- 后端是唯一持有者, WebUI 只拉缓存, 不触发新 fetch. TTL 到期或 pollQrCode 报 Expired/Cancelled
@@ -67,8 +67,20 @@ export class DirectQQProtocol extends QQProtocolBase {
 
   protected async start(): Promise<void> {
     this.ctx.on('nt/kicked-offline', () => {
-      this.lastKickAt = Date.now()
       if (this.directStopHeartbeat) { this.directStopHeartbeat(); this.directStopHeartbeat = null }
+      // 异地登录顶号 = 密码/凭证可能已泄露. 清掉本机 session + 设备指纹, 强制换新设备身份重新扫码,
+      // 不用旧凭证快速登录 (旧凭证会跟顶号方互相顶下线). uin 优先取当前登录态.
+      const kickedUin = selfInfo.uin || this.runtimeUinOverride || getSpecifiedUin() || ''
+      if (kickedUin) deleteSession(kickedUin)
+      deleteMachineGuid()
+      // 复用的 client 内存里还持有旧 guid (clearSession 不动它), 重新生成一个并同步给 client + native
+      // sign, 否则同进程内不重启就换不掉设备指纹. loadMachineGuidSync 见文件已删会重新随机 + 落盘.
+      this.directClient?.setGuid(loadMachineGuidSync())
+      this.runtimeUinOverride = null
+      this.directClient?.clearSession()
+      // 主动断开触发 close -> scheduleReconnect: 顶号时服务器未必立刻断 TCP, 不断的话没有任何东西
+      // 会重启扫码 loop (在线时 loop 已停). session 已删, 重连会退回扫码拉新码等用户扫.
+      this.directClient?.disconnect()
     })
     // 监听 data/auth_token.txt: 启动即读一次 + 文件变化时读取 -> 校验 -> 通过则触发登录.
     // 没有 token 时只提示, 不再直接 init (无效 token 交给 native sign 会 process.exit 崩溃循环).
@@ -375,6 +387,8 @@ export class DirectQQProtocol extends QQProtocolBase {
         selfInfo.uid = persisted.uid
         if (persisted.nick) selfInfo.nick = persisted.nick
         selfInfo.online = true
+        // 记住已登录 uin: 断线重连走 initDirectClient() 时用它 loadSession 快速登录, 不退回扫码.
+        this.runtimeUinOverride = persisted.uin
         this.directStopHeartbeat = startHeartbeat(this.directClient)
         this.maybeEmitOnline()
         // 直连 session 恢复后 nick 可能为空; 异步补查
@@ -411,9 +425,10 @@ export class DirectQQProtocol extends QQProtocolBase {
       this.onlineEmitted = false
       if (wasOnline) {
         this.ctx.parallel('protocol/disconnect')
-        // 被踢(顶号)不重连: 重连只会跟对方互相顶下线死循环; 仅网络断开才自动重连
-        const kicked = Date.now() - this.lastKickAt < 5000
-        if (!this.manualLogout && !kicked) this.scheduleReconnect()
+        // 网络断开: 用保存的 session 快速重连 (runtimeUinOverride 已在登录成功时记下).
+        // 顶号(kick): nt/kicked-offline 已删 session + guid 并清 runtimeUinOverride, 故重连会退回
+        // 扫码 -- 不会用旧凭证跟顶号方互相顶下线, 安全. 两种都重连, 只有主动 logout 不重连.
+        if (!this.manualLogout) this.scheduleReconnect()
       }
     })
     client.on('push', (packet: { cmd: string; payload: Buffer }) => {
@@ -514,6 +529,8 @@ export class DirectQQProtocol extends QQProtocolBase {
     selfInfo.uid = loginResult.uid
     selfInfo.nick = loginResult.nick
     selfInfo.online = true
+    // 记住已登录 uin: 断线重连走 initDirectClient() 时用它 loadSession 快速登录, 不退回扫码.
+    this.runtimeUinOverride = String(uin)
     this.maybeEmitOnline()
     if (!selfInfo.nick) this.scheduleFetchSelfNick()
   }
