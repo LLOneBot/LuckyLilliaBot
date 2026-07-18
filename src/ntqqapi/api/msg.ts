@@ -219,7 +219,7 @@ export class NTMsgApi extends Service {
       peer.peerUid,
       msgTime,
       cnt,
-      queryOrder ? 2 : 1
+      queryOrder ? 1 : 2
     )
     return {
       msgList: filterNullable(res.messages.map(e => convertToRawMessage(Msg.Message.decode(e)))),

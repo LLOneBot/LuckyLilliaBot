@@ -106,7 +106,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
           msg = msgList[0]
         }
         if (!msg && peer.chatType !== ChatType.Group) {
-          const { msgList } = await ctx.ntMsgApi.getC2CMsgsByTimeAndCount(peer, replyMsgTime + 1, 3, false)
+          const { msgList } = await ctx.ntMsgApi.getC2CMsgsByTimeAndCount(peer, replyMsgTime + 1, 3, true)
           msg = msgList.find(e => e.clientSeq === replyMsgClientSeq)
         }
         segments.push({
