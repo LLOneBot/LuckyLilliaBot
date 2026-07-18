@@ -110,7 +110,7 @@ export async function getGroups(): Promise<GroupItem[]> {
   }
   const groups = response.data || []
   return groups.map(group => ({
-    groupCode: group.groupCode,
+    groupCode: group.groupCode.toString(),
     groupName: group.groupName,
     remarkName: group.remarkName || '',
     avatar: getGroupAvatar(group.groupCode),

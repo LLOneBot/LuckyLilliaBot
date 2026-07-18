@@ -62,6 +62,7 @@ export class DirectProtocolClient extends EventEmitter {
   }> = new Map()
   private signTokenRefreshInflight: Promise<void> | null = null
   private signTokenLastFetchAt = 0
+  private heartbeatAliveTimer: NodeJS.Timeout | null = null
 
   constructor(config: Partial<DirectClientConfig> = {}) {
     super()
@@ -74,7 +75,12 @@ export class DirectProtocolClient extends EventEmitter {
 
     this.conn.on('packet', (frame: Buffer) => this.handlePacket(frame))
     this.conn.on('error', (err) => this.emit('error', err))
-    this.conn.on('close', () => this.emit('close'))
+    this.conn.on('close', () => {
+      // 连接断开必须停 timer: client 是进程单例不重建, 不停的话断线期间会一直往死连接发包,
+      // 且重连 connect() 的幂等 guard 会误判"已在跑"而不重启. 停掉才能让重连干净重启.
+      this.stopHeartbeatAlive()
+      this.emit('close')
+    })
   }
 
   /**
@@ -108,6 +114,25 @@ export class DirectProtocolClient extends EventEmitter {
 
     // Send initial heartbeat (required before other commands)
     await this.sendHeartbeat()
+    this.startHeartbeatAlive()
+  }
+
+  /** 周期性发 Heartbeat.Alive 保活连接层. connect() 启动, disconnect()/close 清理. 幂等. */
+  private startHeartbeatAlive(): void {
+    if (this.heartbeatAliveTimer) return
+    const INTERVAL = 15 * 1000
+    this.heartbeatAliveTimer = setInterval(() => {
+      this.sendHeartbeat().catch((e) => {
+        logger.error('[Heartbeat.Alive] Failed:', (e as Error).message)
+      })
+    }, INTERVAL)
+  }
+
+  private stopHeartbeatAlive(): void {
+    if (this.heartbeatAliveTimer) {
+      clearInterval(this.heartbeatAliveTimer)
+      this.heartbeatAliveTimer = null
+    }
   }
 
 
@@ -135,6 +160,7 @@ export class DirectProtocolClient extends EventEmitter {
   }
 
   disconnect(): void {
+    this.stopHeartbeatAlive()
     this.conn.disconnect()
     for (const [, pending] of this.pendingPackets) {
       clearTimeout(pending.timeout)

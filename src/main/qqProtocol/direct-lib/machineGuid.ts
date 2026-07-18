@@ -3,7 +3,7 @@
 // 通路和 sign 通路对外是同一台设备. 文件不存在时随机生成 + 落盘 (跨重启稳定靠这个).
 
 import { randomBytes } from 'node:crypto'
-import { promises as fs, readFileSync, writeFileSync, existsSync, mkdirSync, renameSync } from 'node:fs'
+import { promises as fs, readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs'
 import * as path from 'node:path'
 import { getLogger } from '@/common/logger'
 
@@ -73,4 +73,14 @@ export function overwriteMachineGuid(guid: Buffer, filePath: string = DEFAULT_FI
   try { mkdirSync(path.dirname(resolved), { recursive: true }) } catch {}
   writeFileSync(resolved, guid)
   cache.set(resolved, guid)
+}
+
+/**
+ * 删除 machine_guid.bin -- 异地登录顶号(密码可能泄露)后清掉设备指纹, 下次重新随机生成一个,
+ * 换新设备身份重新扫码登录. 同步清 cache, 否则同进程内仍复用旧 guid.
+ */
+export function deleteMachineGuid(filePath: string = DEFAULT_FILE): void {
+  const resolved = path.resolve(filePath)
+  try { unlinkSync(resolved) } catch {}
+  cache.delete(resolved)
 }

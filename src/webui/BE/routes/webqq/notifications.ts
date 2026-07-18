@@ -40,7 +40,9 @@ export function createNotificationRoutes(ctx: Context): Hono {
   router.get('/notifications/friend', async (c) => {
     try {
       const result = await ctx.ntFriendApi.getFriendRequests(50)
-      const buddyReqs = result.filter((reqItem) => !reqItem.isInitiator)
+      const buddyReqs = result.filter((reqItem) =>
+        !reqItem.isInitiator && reqItem.state !== FriendReqType.MeInitiatorWaitPeerConfirm
+      )
       const enriched = await Promise.all(buddyReqs.map(async (reqItem) => {
         const uin = await ctx.ntUserApi.getUinByUid(reqItem.friendUid).catch(() => '')
         const nick = await ctx.ntUserApi.getUserByUid(reqItem.friendUid).then(e => e.nick).catch(() => '')

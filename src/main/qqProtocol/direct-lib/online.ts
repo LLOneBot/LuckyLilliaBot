@@ -193,7 +193,7 @@ export async function sendHeartbeat(client: DirectProtocolClient): Promise<void>
 }
 
 export function startHeartbeat(client: DirectProtocolClient): () => void {
-  const INTERVAL = 15 * 1000
+  const INTERVAL = 4.5 * 60 * 1000
 
   const timer = setInterval(async () => {
     try {
