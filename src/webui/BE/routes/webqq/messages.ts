@@ -54,7 +54,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
         result = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, +beforeMsgSeq, +limit, true)
       } else {
         const latestSeq = await ctx.ntMsgApi.getLatestMsgSeq(peer)
-        result = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, latestSeq, +limit, false)
+        result = await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, latestSeq, +limit, true)
       }
 
       const messages = result?.msgList || []

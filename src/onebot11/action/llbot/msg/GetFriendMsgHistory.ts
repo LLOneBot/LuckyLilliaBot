@@ -27,7 +27,7 @@ export class GetFriendMsgHistory extends BaseAction<Payload, Response> {
   })
 
   private async fetchRangeRaw(peer: Peer, startSeq: number, endSeq: number) {
-    const resp = await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, endSeq, endSeq - startSeq + 1, false)
+    const resp = await this.ctx.ntMsgApi.getMsgsBySeqAndCount(peer, endSeq, endSeq - startSeq + 1, true)
     return resp.msgList
   }
 
