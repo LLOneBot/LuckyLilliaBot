@@ -12,6 +12,7 @@ export class MessageBuilding {
   private peerUid: string
   private nestedForwardTrace: Map<string, InferProtoModelInput<typeof Msg.Message>[]>
   private content?: Buffer
+  private isInsideForward: boolean
 
   constructor(
     ctx: Context,
@@ -19,6 +20,7 @@ export class MessageBuilding {
     chatType: ChatType,
     peerUid: string,
     nestedForwardTrace = new Map(),
+    isInsideForward = false,
   ) {
     this.ctx = ctx
     this.inputElems = elements
@@ -26,6 +28,7 @@ export class MessageBuilding {
     this.chatType = chatType
     this.peerUid = peerUid
     this.nestedForwardTrace = nestedForwardTrace
+    this.isInsideForward = isInsideForward
   }
 
   private async [ElementType.Text](data: SendTextElement) {
@@ -169,7 +172,7 @@ export class MessageBuilding {
         srcMsg: replyElement.srcMsg
       }
     })
-    if (this.chatType === ChatType.Group) {
+    if (this.chatType === ChatType.Group && !this.isInsideForward) {
       const attr6Buf = Buffer.alloc(20)
       attr6Buf.writeUInt16BE(0x0001, 0)
       attr6Buf.writeUInt16BE(0x0000, 2)
@@ -293,6 +296,7 @@ export class MessageBuilding {
         this.chatType,
         this.peerUid,
         this.nestedForwardTrace,
+        true,
       ).build()
       messages.push({
         routingHead: {
