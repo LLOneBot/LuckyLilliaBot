@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Users, Loader2, ArrowLeft, ArrowDown } from 'lucide-react'
+import { Users, Loader2, ArrowLeft, ArrowDown, FolderOpen } from 'lucide-react'
 import type { ChatSession, RawMessage } from '../../types/webqq'
 import { getMessages, getSelfUid, getSelfUin, getUserProfile, UserProfile, kickGroupMember, getGroupProfile, GroupProfile, quitGroup, muteGroupMember, setMemberTitle } from '../../utils/webqqApi'
 import { useWebQQStore, hasVisitedChat, markChatVisited } from '../../stores/webqqStore'
@@ -11,7 +11,7 @@ import { showToast } from '../common'
 import { UserProfileCard } from './profile/UserProfileCard'
 import { GroupProfileCard } from './profile/GroupProfileCard'
 import { ImagePreviewModal, VideoPreviewModal } from './common/PreviewModals'
-import { ImagePreviewContext, VideoPreviewContext, ImageContextMenuContext } from './message/MessageElements'
+import { ImagePreviewContext, VideoPreviewContext, ImageContextMenuContext, FileCardContext } from './message/MessageElements'
 import { RawMessageBubble, TempMessageBubble, MessageContextMenuContext, AvatarContextMenuContext, ScrollToMessageContext, GroupMembersContext, FriendsContext } from './message/MessageBubble'
 import type { TempMessage, AvatarContextMenuInfo, FriendInfo } from './message/MessageBubble'
 import { MuteDialog, KickConfirmDialog, TitleDialog } from './chat/ChatDialogs'
@@ -90,6 +90,7 @@ const EmojiReactionTip: React.FC<{ tip: SystemTip; onScrollToMessage: (msgSeq: s
 interface ChatWindowProps {
   session: ChatSession | null
   onShowMembers?: () => void
+  onShowFiles?: (target?: { folderId: string; fileId: string }) => void
   onNewMessageCallback?: (callback: ((msg: RawMessage) => void) | null) => void
   onEmojiReactionCallback?: (callback: ((data: EmojiReactionData) => void) | null) => void
   onMessageRecalledCallback?: (callback: ((data: { msgId: string; msgSeq: string }) => void) | null) => void
@@ -101,7 +102,7 @@ interface ChatWindowProps {
 
 type MessageItem = { type: 'raw'; data: RawMessage } | { type: 'temp'; data: TempMessage } | { type: 'system'; data: SystemTip }
 
-const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMessageCallback, onEmojiReactionCallback, onMessageRecalledCallback, appendInputMention, onAppendInputMentionConsumed, onBack, showBackButton }) => {
+const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowFiles, onNewMessageCallback, onEmojiReactionCallback, onMessageRecalledCallback, appendInputMention, onAppendInputMentionConsumed, onBack, showBackButton }) => {
   const [messages, setMessages] = useState<RawMessage[]>([])
   const [tempMessages, setTempMessages] = useState<TempMessage[]>([])
   const [systemTips, setSystemTips] = useState<SystemTip[]>([])
@@ -132,6 +133,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
       setPreviewVideoUrl({ fileUuid, isGroup })
   }), [])
 
+  const fileCardContextValue = useMemo(() => ({
+    open: (t: { fileId: string; folderId: string }) => onShowFiles?.(t)
+  }), [onShowFiles])
+
   const messageContextMenuValue = useMemo(() => ({
     showMenu: (e: React.MouseEvent, message: RawMessage) => {
       setContextMenu({ x: e.clientX, y: e.clientY, message })
@@ -157,6 +162,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   const chatInputRef = useRef<any>(null)
   const sessionRef = useRef(session)
   const shouldScrollRef = useRef(true)
+  // 镜像 isScrollReady 给 IntersectionObserver 闭包读: 初始滚到底完成前, 不允许"滚到顶触发加载更多"
+  // (刷新后滚动条初始在顶部, 会误触发 loadMessages 拉历史, 一直循环)
+  const isScrollReadyRef = useRef(false)
   const prevSessionKeyRef = useRef<string | null>(null)
   const allItemsRef = useRef<MessageItem[]>([])
   const messageCacheRef = useRef<Map<string, RawMessage[]>>(new Map())
@@ -253,7 +261,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   }, [virtualizer])
 
   const [needScrollToBottom, setNeedScrollToBottom] = useState(false)
-  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bottomLockUntilRef = useRef(0)
   const bottomLockRafRef = useRef<number | null>(null)
 
@@ -284,25 +291,46 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     const currentKey = session ? `${session.chatType}_${session.peerId}` : null
     if (currentKey !== prevSessionKeyRef.current) {
       prevSessionKeyRef.current = currentKey
+      isScrollReadyRef.current = false
       setIsScrollReady(false)
       setNeedScrollToBottom(true)
     }
   }, [session?.chatType, session?.peerId])
 
+  // 初始滚到底: loading 结束后用 rAF 循环把列表锁到底, 直到"连续几帧确实到底"或超时兜底才放开 (置 isScrollReady,
+  // 该 flag 同时 gate 了"滚到顶加载更多"). 修复"刷新后停在最老消息、持续触发拉历史"死循环:
+  // - 必须等 loading=false: loading 期间列表区渲染 spinner 而非虚拟列表, 容器 scrollHeight=0.
+  // - 必须等 rendered (sh>0): 早期几帧 sh=ch=0 会把 "0-0-0<4" 误判成已到底而提前收尾, 消息还没渲染滚动就结束.
+  // - 不依赖 allItems.length (消息流式到达时反复变会打断脆弱定时器); scrollToBottom 含 scrollTop=scrollHeight 兜底.
   useEffect(() => {
-    if (allItems.length === 0 || !needScrollToBottom) return
-    if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current)
-    scrollTimerRef.current = setTimeout(() => {
-      setNeedScrollToBottom(false)
-      const scrollToEnd = () => virtualizer.scrollToIndex(allItems.length - 1, { align: 'end' })
-      requestAnimationFrame(() => {
-        scrollToEnd()
-        setTimeout(scrollToEnd, 50)
-        setTimeout(() => { scrollToEnd(); setIsScrollReady(true) }, 100)
-      })
-    }, 200)
-    return () => { if (scrollTimerRef.current) clearTimeout(scrollTimerRef.current) }
-  }, [allItems.length, needScrollToBottom, virtualizer])
+    if (!needScrollToBottom || loading) return
+    let raf = 0
+    let stableFrames = 0
+    const started = Date.now()
+    const MAX_MS = 5000
+    const tick = () => {
+      const container = parentRef.current
+      const ready = !!container && container.scrollHeight > 0 && allItemsRef.current.length > 0
+      if (ready) {
+        scrollToBottom()
+        // 内容不足一屏 (sh<=ch) 时顶即底; 否则要求真正滚到底
+        const atBottom = container!.scrollHeight <= container!.clientHeight
+          || container!.scrollHeight - container!.scrollTop - container!.clientHeight < 4
+        stableFrames = atBottom ? stableFrames + 1 : 0
+      } else {
+        stableFrames = 0
+      }
+      if ((ready && stableFrames >= 5) || Date.now() - started > MAX_MS) {
+        setNeedScrollToBottom(false)
+        isScrollReadyRef.current = true
+        setIsScrollReady(true)
+        return
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [needScrollToBottom, loading, scrollToBottom])
 
   useEffect(() => {
     return () => stopBottomLock()
@@ -703,8 +731,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0]
-        // 首次加载中不触发加载更多
-        if (entry.isIntersecting && hasMore && !isLoadingMoreRef.current && !loading && messages.length > 0) {
+        // 首次滚到底完成 (isScrollReadyRef) 前不触发加载更多: 刚渲染时滚动条在顶部, sentinel 会立刻进入
+        // 视口误触发拉历史, 一直循环. 必须等初始滚到底稳定后才允许"滚到顶加载更多".
+        if (entry.isIntersecting && isScrollReadyRef.current && hasMore && !isLoadingMoreRef.current && !loading && messages.length > 0) {
           const firstMsgSeq = messages[0]?.msgSeq
           if (firstMsgSeq) {
             isLoadingMoreRef.current = true
@@ -787,6 +816,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
   return (
     <ImagePreviewContext.Provider value={imagePreviewContextValue}>
     <VideoPreviewContext.Provider value={videoPreviewContextValue}>
+    <FileCardContext.Provider value={fileCardContextValue}>
     <ImageContextMenuContext.Provider value={imageContextMenuValue}>
     <MessageContextMenuContext.Provider value={messageContextMenuValue}>
     <AvatarContextMenuContext.Provider value={avatarContextMenuValue}>
@@ -870,10 +900,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
               </div>
             </div>
           </div>
-          {session.chatType === 2 && onShowMembers && (
-            <button onClick={onShowMembers} className="p-2 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg" title="查看群成员">
-              <Users size={20} />
-            </button>
+          {session.chatType === 2 && (
+            <div className="flex items-center flex-shrink-0">
+              {onShowFiles && (
+                <button onClick={() => onShowFiles()} className="p-2 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg" title="群文件">
+                  <FolderOpen size={20} />
+                </button>
+              )}
+              {onShowMembers && (
+                <button onClick={onShowMembers} className="p-2 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg" title="查看群成员">
+                  <Users size={20} />
+                </button>
+              )}
+            </div>
           )}
         </div>
 
@@ -1088,6 +1127,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onNewMe
     </AvatarContextMenuContext.Provider>
     </MessageContextMenuContext.Provider>
     </ImageContextMenuContext.Provider>
+    </FileCardContext.Provider>
     </VideoPreviewContext.Provider>
     </ImagePreviewContext.Provider>
   )

@@ -29,3 +29,6 @@ test/fixtures/pmhq-flash/
 
 # 测试时 nohup tsx watch 输出
 logs/
+
+# playwright-cli 运行产物 (console log / 页面快照)
+.playwright-cli/
