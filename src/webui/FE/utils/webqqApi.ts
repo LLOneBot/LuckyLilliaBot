@@ -181,6 +181,42 @@ export async function sendMessage(request: SendMessageRequest): Promise<{ msgId:
   return response.data || { msgId: '' }
 }
 
+// 转发目标 / 源会话标识
+export interface ForwardEndpoint {
+  chatType: number
+  peerId: string
+}
+
+// 单条转发 (re-send): 把源会话某条消息重新发到目标会话
+export async function forwardSingleMessage(src: ForwardEndpoint, msgSeq: number, target: ForwardEndpoint): Promise<void> {
+  const response = await apiFetch<{ msgId: string }>('/api/webqq/messages/forward', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      srcChatType: src.chatType, srcPeerId: src.peerId, msgSeq,
+      targetChatType: target.chatType, targetPeerId: target.peerId,
+    })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '转发失败')
+  }
+}
+
+// 多选合并转发: 把源会话多条消息合并成聊天记录卡片发到目标会话
+export async function forwardMultiMessages(src: ForwardEndpoint, msgSeqs: number[], target: ForwardEndpoint): Promise<void> {
+  const response = await apiFetch<{ msgId: string }>('/api/webqq/messages/forward-multi', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      srcChatType: src.chatType, srcPeerId: src.peerId, msgSeqs,
+      targetChatType: target.chatType, targetPeerId: target.peerId,
+    })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '合并转发失败')
+  }
+}
+
 // 上传图片
 export async function uploadImage(file: File): Promise<UploadResponse> {
   const formData = new FormData()

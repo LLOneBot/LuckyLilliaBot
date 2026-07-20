@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Users, Loader2, ArrowLeft, ArrowDown, FolderOpen } from 'lucide-react'
+import { Users, Loader2, ArrowLeft, ArrowDown, FolderOpen, Forward, X } from 'lucide-react'
 import type { ChatSession, RawMessage } from '../../types/webqq'
-import { getMessages, getSelfUid, getSelfUin, getUserProfile, UserProfile, kickGroupMember, getGroupProfile, GroupProfile, quitGroup, muteGroupMember, setMemberTitle } from '../../utils/webqqApi'
+import { getMessages, getSelfUid, getSelfUin, getUserProfile, UserProfile, kickGroupMember, getGroupProfile, GroupProfile, quitGroup, muteGroupMember, setMemberTitle, forwardSingleMessage, forwardMultiMessages } from '../../utils/webqqApi'
 import { useWebQQStore, hasVisitedChat, markChatVisited } from '../../stores/webqqStore'
 import { getCachedMessages, setCachedMessages, appendCachedMessage, removeCachedMessage } from '../../utils/messageDb'
 import { showToast } from '../common'
@@ -12,11 +12,12 @@ import { UserProfileCard } from './profile/UserProfileCard'
 import { GroupProfileCard } from './profile/GroupProfileCard'
 import { ImagePreviewModal, VideoPreviewModal } from './common/PreviewModals'
 import { ImagePreviewContext, VideoPreviewContext, ImageContextMenuContext, FileCardContext } from './message/MessageElements'
-import { RawMessageBubble, TempMessageBubble, MessageContextMenuContext, AvatarContextMenuContext, ScrollToMessageContext, GroupMembersContext, FriendsContext } from './message/MessageBubble'
+import { RawMessageBubble, TempMessageBubble, MessageContextMenuContext, AvatarContextMenuContext, ScrollToMessageContext, GroupMembersContext, FriendsContext, MultiSelectContext } from './message/MessageBubble'
 import type { TempMessage, AvatarContextMenuInfo, FriendInfo } from './message/MessageBubble'
 import { MuteDialog, KickConfirmDialog, TitleDialog } from './chat/ChatDialogs'
 import { MessageContextMenu, AvatarContextMenu } from './chat/ContextMenus'
 import { ChatInput } from './chat/ChatInput'
+import ForwardTargetPicker, { type ForwardTarget } from './chat/ForwardTargetPicker'
 import { EmojiReactionPicker } from './message/EmojiReactionPicker'
 
 interface EmojiReactionData {
@@ -123,6 +124,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
   const [titleDialog, setTitleDialog] = useState<{ uid: string; name: string; groupCode: string } | null>(null)
   const [emojiPickerTarget, setEmojiPickerTarget] = useState<{ message: RawMessage; x: number; y: number } | null>(null)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
+  // 转发: 多选模式 + 已选消息 + 会话选择器状态
+  const [multiSelectMode, setMultiSelectMode] = useState(false)
+  const [selectedMsgIds, setSelectedMsgIds] = useState<Set<string>>(new Set())
+  // 会话选择器: single=true 单条 re-send; single=false 多选合并转发. msgSeqs 为待转发消息的 msgSeq.
+  const [forwardPicker, setForwardPicker] = useState<{ single: boolean; msgSeqs: number[] } | null>(null)
+  const [forwarding, setForwarding] = useState(false)
 
   const imagePreviewContextValue = useMemo(() => ({
     showPreview: (url: string) => setPreviewImageUrl(url)
@@ -142,6 +149,55 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
       setContextMenu({ x: e.clientX, y: e.clientY, message })
     }
   }), [])
+
+  const toggleSelectMsg = useCallback((msgId: string) => {
+    setSelectedMsgIds(prev => {
+      const next = new Set(prev)
+      if (next.has(msgId)) next.delete(msgId); else next.add(msgId)
+      return next
+    })
+  }, [])
+
+  const multiSelectContextValue = useMemo(() => ({
+    enabled: multiSelectMode,
+    isSelected: (msgId: string) => selectedMsgIds.has(msgId),
+    toggle: toggleSelectMsg,
+  }), [multiSelectMode, selectedMsgIds, toggleSelectMsg])
+
+  const exitMultiSelect = useCallback(() => {
+    setMultiSelectMode(false)
+    setSelectedMsgIds(new Set())
+  }, [])
+
+  // 选中的 msgId 换成 msgSeq (转发后端按 msgSeq 反查源消息)
+  const selectedMsgSeqs = useCallback((): number[] => {
+    return messages
+      .filter(m => selectedMsgIds.has(m.msgId))
+      .map(m => Number(m.msgSeq))
+      .filter(n => Number.isFinite(n))
+  }, [messages, selectedMsgIds])
+
+  // 会话选择器选定目标后执行转发
+  const handleForwardTo = useCallback(async (target: ForwardTarget) => {
+    if (!forwardPicker || !session) return
+    setForwarding(true)
+    try {
+      const src = { chatType: Number(session.chatType), peerId: session.peerId }
+      const dst = { chatType: target.chatType, peerId: target.peerId }
+      if (forwardPicker.single) {
+        await forwardSingleMessage(src, forwardPicker.msgSeqs[0], dst)
+      } else {
+        await forwardMultiMessages(src, forwardPicker.msgSeqs, dst)
+      }
+      showToast(`已转发到 ${target.name}`, 'success')
+      setForwardPicker(null)
+      exitMultiSelect()
+    } catch (e) {
+      showToast((e as Error).message || '转发失败', 'error')
+    } finally {
+      setForwarding(false)
+    }
+  }, [forwardPicker, session, exitMultiSelect])
 
   const imageContextMenuValue = useMemo(() => ({
     showMenu: (e: React.MouseEvent, message: RawMessage, elementId: string) => {
@@ -295,6 +351,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
       setIsScrollReady(false)
       setNeedScrollToBottom(true)
     }
+  }, [session?.chatType, session?.peerId])
+
+  // 切换会话时退出多选/关闭转发选择器, 避免状态残留到新会话
+  useEffect(() => {
+    setMultiSelectMode(false)
+    setSelectedMsgIds(new Set())
+    setForwardPicker(null)
   }, [session?.chatType, session?.peerId])
 
   // 初始滚到底: loading 结束后用 rAF 循环把列表锁到底, 直到"连续几帧确实到底"或超时兜底才放开 (置 isScrollReady,
@@ -823,6 +886,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     <ScrollToMessageContext.Provider value={scrollToMessageContextValue}>
     <GroupMembersContext.Provider value={groupMembersContextValue}>
     <FriendsContext.Provider value={friendsContextValue}>
+    <MultiSelectContext.Provider value={multiSelectContextValue}>
       <div ref={chatWindowRef} className="flex flex-col h-full relative">
         {/* 头部 */}
         <div className="flex items-center justify-between px-2 md:px-4 py-3 border-b border-theme-divider bg-theme-card">
@@ -956,18 +1020,43 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
           </button>
         )}
 
-        {/* 输入区域 */}
-        <ChatInput
-          ref={chatInputRef}
-          session={session}
-          replyTo={replyTo}
-          onReplyCancel={() => setReplyTo(null)}
-          onSendStart={handleSendStart}
-          onSendEnd={handleSendEnd}
-          onTempMessage={handleTempMessage}
-          onTempMessageRemove={handleTempMessageRemove}
-          onTempMessageFail={handleTempMessageFail}
-        />
+        {/* 输入区域 / 多选转发操作栏 */}
+        {multiSelectMode ? (
+          <div className="border-t border-theme-divider bg-theme-card px-4 py-3 flex items-center justify-between gap-3">
+            <span className="text-sm text-theme-secondary">已选 {selectedMsgIds.size} 条</span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={exitMultiSelect}
+                className="px-4 py-1.5 text-sm text-theme-hint hover:text-theme transition-colors"
+              >
+                取消
+              </button>
+              <button
+                onClick={() => {
+                  const seqs = selectedMsgSeqs()
+                  if (seqs.length === 0) { showToast('请先选择消息', 'warning'); return }
+                  setForwardPicker({ single: false, msgSeqs: seqs })
+                }}
+                disabled={selectedMsgIds.size === 0}
+                className="px-4 py-1.5 text-sm gradient-primary text-white rounded-full font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-all"
+              >
+                <Forward size={15} /> 转发 ({selectedMsgIds.size})
+              </button>
+            </div>
+          </div>
+        ) : (
+          <ChatInput
+            ref={chatInputRef}
+            session={session}
+            replyTo={replyTo}
+            onReplyCancel={() => setReplyTo(null)}
+            onSendStart={handleSendStart}
+            onSendEnd={handleSendEnd}
+            onTempMessage={handleTempMessage}
+            onTempMessageRemove={handleTempMessageRemove}
+            onTempMessageFail={handleTempMessageFail}
+          />
+        )}
       </div>
 
       {/* 消息右键菜单 */}
@@ -988,6 +1077,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
               removeCachedMessage(session.chatType, session.peerId, msgId)
             }
           }}
+          onForward={(msg) => setForwardPicker({ single: true, msgSeqs: [Number(msg.msgSeq)] })}
+          onMultiSelect={(msg) => { setMultiSelectMode(true); setSelectedMsgIds(new Set([msg.msgId])) }}
         />
       )}
 
@@ -1121,6 +1212,17 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
 
       <ImagePreviewModal url={previewImageUrl} onClose={() => setPreviewImageUrl(null)} />
       <VideoPreviewModal videoInfo={previewVideoUrl} onClose={() => setPreviewVideoUrl(null)} />
+
+      {/* 转发目标选择器 */}
+      {forwardPicker && (
+        <ForwardTargetPicker
+          count={forwardPicker.msgSeqs.length}
+          sending={forwarding}
+          onSelect={handleForwardTo}
+          onClose={() => setForwardPicker(null)}
+        />
+      )}
+    </MultiSelectContext.Provider>
     </FriendsContext.Provider>
     </GroupMembersContext.Provider>
     </ScrollToMessageContext.Provider>

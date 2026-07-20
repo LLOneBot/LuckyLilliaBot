@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Reply, Trash2, AtSign, Hand, User, UserMinus, VolumeX, Award, Smile, Shield, ShieldOff, Star } from 'lucide-react'
+import { Reply, Trash2, AtSign, Hand, User, UserMinus, VolumeX, Award, Smile, Shield, ShieldOff, Star, Forward, ListChecks } from 'lucide-react'
 import type { RawMessage, GroupMemberItem } from '../../../types/webqq'
 import { getSelfUid, recallMessage, sendPoke, setMemberAdmin, addFavEmojiFromUrl } from '../../../utils/webqqApi'
 import { showToast } from '../../common'
@@ -60,6 +60,8 @@ interface MessageContextMenuProps {
   onReply: (message: RawMessage) => void
   onEmojiReaction: (message: RawMessage, x: number, y: number) => void
   onRecall: (msgId: string) => void
+  onForward: (message: RawMessage) => void
+  onMultiSelect: (message: RawMessage) => void
 }
 
 export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
@@ -69,7 +71,9 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
   onClose,
   onReply,
   onEmojiReaction,
-  onRecall
+  onRecall,
+  onForward,
+  onMultiSelect
 }) => {
   const msg = contextMenu.message
   const selfUid = getSelfUid()
@@ -132,6 +136,22 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
         >
           <Reply size={14} /> 回复
         </button>
+        {!isImageMenu && (
+          <>
+            <button
+              onClick={() => { onForward(msg); onClose() }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
+            >
+              <Forward size={14} /> 转发
+            </button>
+            <button
+              onClick={() => { onMultiSelect(msg); onClose() }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
+            >
+              <ListChecks size={14} /> 多选转发
+            </button>
+          </>
+        )}
         {session.chatType === 2 && (
           <button
             onClick={() => { onEmojiReaction(msg, contextMenu.x, contextMenu.y); onClose() }}
