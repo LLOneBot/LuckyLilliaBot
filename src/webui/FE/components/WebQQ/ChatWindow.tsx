@@ -130,6 +130,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
   // 会话选择器: single=true 单条 re-send; single=false 多选合并转发. msgSeqs 为待转发消息的 msgSeq.
   const [forwardPicker, setForwardPicker] = useState<{ single: boolean; msgSeqs: number[] } | null>(null)
   const [forwarding, setForwarding] = useState(false)
+  // 转发成功后的跳转确认框: 存目标会话, 点确认切过去
+  const [jumpConfirm, setJumpConfirm] = useState<ForwardTarget | null>(null)
 
   const imagePreviewContextValue = useMemo(() => ({
     showPreview: (url: string) => setPreviewImageUrl(url)
@@ -189,15 +191,28 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
       } else {
         await forwardMultiMessages(src, forwardPicker.msgSeqs, dst)
       }
-      showToast(`已转发到 ${target.name}`, 'success')
       setForwardPicker(null)
       exitMultiSelect()
+      // 转发到的是目标会话(通常非当前会话), 弹确认框问是否跳过去
+      setJumpConfirm(target)
     } catch (e) {
       showToast((e as Error).message || '转发失败', 'error')
     } finally {
       setForwarding(false)
     }
   }, [forwardPicker, session, exitMultiSelect])
+
+  // 确认框点"跳转": 切到目标会话
+  const handleJumpToTarget = useCallback(() => {
+    if (!jumpConfirm) return
+    useWebQQStore.getState().setCurrentChat({
+      chatType: jumpConfirm.chatType as 1 | 2 | 100,
+      peerId: jumpConfirm.peerId,
+      peerName: jumpConfirm.name,
+      peerAvatar: jumpConfirm.avatar,
+    })
+    setJumpConfirm(null)
+  }, [jumpConfirm])
 
   const imageContextMenuValue = useMemo(() => ({
     showMenu: (e: React.MouseEvent, message: RawMessage, elementId: string) => {
@@ -358,6 +373,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     setMultiSelectMode(false)
     setSelectedMsgIds(new Set())
     setForwardPicker(null)
+    setJumpConfirm(null)
   }, [session?.chatType, session?.peerId])
 
   // 初始滚到底: loading 结束后用 rAF 循环把列表锁到底, 直到"连续几帧确实到底"或超时兜底才放开 (置 isScrollReady,
@@ -1221,6 +1237,22 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
           onSelect={handleForwardTo}
           onClose={() => setForwardPicker(null)}
         />
+      )}
+
+      {/* 转发成功后的跳转确认框 */}
+      {jumpConfirm && createPortal(
+        <>
+          <div className="fixed inset-0 z-[60] bg-black/40" onClick={() => setJumpConfirm(null)} />
+          <div className="fixed z-[60] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-neutral-800 border border-theme-divider rounded-2xl shadow-xl p-5 w-80 max-w-[90vw]">
+            <div className="font-medium text-theme mb-2">转发成功</div>
+            <div className="text-sm text-theme-secondary mb-4 break-all">是否跳转到「{jumpConfirm.name}」？</div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setJumpConfirm(null)} className="px-4 py-1.5 text-sm text-theme-hint hover:text-theme transition-colors">留在当前</button>
+              <button onClick={handleJumpToTarget} className="px-4 py-1.5 text-sm gradient-primary text-white rounded-lg transition-all">跳转过去</button>
+            </div>
+          </div>
+        </>,
+        document.body
       )}
     </MultiSelectContext.Provider>
     </FriendsContext.Provider>

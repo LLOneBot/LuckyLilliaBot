@@ -10,12 +10,19 @@ import { randomUUID } from 'node:crypto'
 import { TEMP_DIR } from '@/common/globalVars'
 import { Hono } from 'hono'
 
+// 群聊 sendMsg 发出后会等 self-echo 拿真实 msgSeq, 超时抛此错 —— 但消息已发出, 转发场景不算失败.
+function isSelfEchoTimeout(e: unknown): boolean {
+  return e instanceof Error && e.message.includes('waitForSelfEcho timeout')
+}
+
 export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath: string) => Promise<SendPicElement | null>): Hono {
   const router = new Hono()
 
-  // 构造 Peer: C2C/临时会话先把 uin 解成 uid; 群聊 peerUid 即 groupCode
+  // 构造 Peer: C2C/临时会话先把 uin 解成 uid; 群聊 peerUid 即 groupCode.
+  // peerId 必须 String(): 前端 JSON 里群号可能是 number, 而 waitForSelfEcho 用 === 跟回声(string)比 peerUid,
+  // 类型不一致会导致群聊转发永远等不到 self-echo 而超时.
   const resolvePeer = async (chatType: number, peerId: string) => {
-    let peerUid = peerId
+    let peerUid = String(peerId)
     if (chatType === ChatType.C2C || chatType === ChatType.TempC2CFromGroup) {
       const uid = await ctx.ntUserApi.getUidByUin(+peerId)
       if (!uid) throw new Error('无法获取用户信息')
@@ -250,6 +257,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
 
   // 单条转发 (re-send): 读源消息 elements -> 重建 -> 发到目标会话
   router.post('/messages/forward', async (c) => {
+    let cleanup: string[] = []
     try {
       const { srcChatType, srcPeerId, msgSeq, targetChatType, targetPeerId } = await c.req.json() as {
         srcChatType: number; srcPeerId: string; msgSeq: number | string
@@ -265,18 +273,26 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       if (!msg) return c.json({ success: false, message: '找不到源消息' }, 404)
 
       const { elements, deleteAfterSentFiles } = await rawElementsToSend(ctx, msg.elements, srcPeer.chatType === ChatType.Group)
+      cleanup = deleteAfterSentFiles
       if (elements.length === 0) return c.json({ success: false, message: '该消息无可转发内容' }, 400)
       const result = await ctx.ntMsgApi.sendMsg(targetPeer, elements)
-      for (const f of deleteAfterSentFiles) unlink(f).catch(() => {})
       return c.json({ success: true, data: { msgId: result.msgId } })
     } catch (e) {
+      // 群聊 sendMsg 会等 self-echo 拿真实 msgSeq, 超时抛 waitForSelfEcho timeout —— 但此时消息已发出,
+      // 不算失败, 当成功返回 (前端不依赖返回的 msgSeq).
+      if (isSelfEchoTimeout(e)) {
+        return c.json({ success: true, data: { msgId: '' } })
+      }
       ctx.logger.error('转发消息失败:', e)
       return c.json({ success: false, message: '转发消息失败', error: (e as Error).message }, 500)
+    } finally {
+      for (const f of cleanup) unlink(f).catch(() => {})
     }
   })
 
   // 多选合并转发: 逐条取源消息组装 node -> SendElement.forward -> 发到目标会话 (聊天记录卡片)
   router.post('/messages/forward-multi', async (c) => {
+    const cleanup: string[] = []
     try {
       const { srcChatType, srcPeerId, msgSeqs, targetChatType, targetPeerId } = await c.req.json() as {
         srcChatType: number; srcPeerId: string; msgSeqs: (number | string)[]
@@ -290,7 +306,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       const isGroup = srcPeer.chatType === ChatType.Group
 
       const seqs = [...msgSeqs].map(Number).sort((a, b) => a - b)
-      const cleanup: string[] = []
       const nodes: { senderUin: number; senderName: string; elements: SendMessageElement[]; msgTime?: number }[] = []
       for (const seq of seqs) {
         const res = await ctx.ntMsgApi.getSingleMsg(srcPeer, seq)
@@ -310,11 +325,15 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
 
       const forwardElement = SendElement.forward(nodes)
       const result = await ctx.ntMsgApi.sendMsg(targetPeer, [forwardElement])
-      for (const f of cleanup) unlink(f).catch(() => {})
       return c.json({ success: true, data: { msgId: result.msgId } })
     } catch (e) {
+      if (isSelfEchoTimeout(e)) {
+        return c.json({ success: true, data: { msgId: '' } })
+      }
       ctx.logger.error('合并转发失败:', e)
       return c.json({ success: false, message: '合并转发失败', error: (e as Error).message }, 500)
+    } finally {
+      for (const f of cleanup) unlink(f).catch(() => {})
     }
   })
 

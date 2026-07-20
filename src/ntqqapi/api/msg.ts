@@ -61,7 +61,8 @@ export class NTMsgApi extends Service {
     return new Promise((resolve, reject) => {
       const dispose = this.ctx.on('nt/message-sent', (data) => {
         const msg = data.message
-        if (msg.peerUid !== peer.peerUid) return
+        // 用 String() 比 peerUid: 调用方(如 WebQQ 转发)可能传 number 群号, 回声里是 string, 严格 === 会漏配
+        if (String(msg.peerUid) !== String(peer.peerUid)) return
         if (+msg.msgRandom !== random) return
         clearTimeout(timer)
         dispose()
