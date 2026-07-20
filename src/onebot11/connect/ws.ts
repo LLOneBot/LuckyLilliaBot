@@ -142,7 +142,7 @@ class OB11WebSocket {
     }
     if (this.config.token && clientToken !== this.config.token) {
       this.reply(socket, OB11Response.res(null, 'failed', 1403, 'token验证失败'))
-      return socket.close()
+      return socket.close(1008, 'invalid access token')
     }
   }
 
