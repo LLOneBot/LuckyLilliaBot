@@ -2,6 +2,7 @@ import React, { useEffect, useCallback, useState } from 'react'
 import ContactList from './contact/ContactList'
 import ChatWindow from './ChatWindow'
 import GroupMemberPanel from './contact/GroupMemberPanel'
+import GroupFilePanel from './contact/GroupFilePanel'
 import type { ChatSession, FriendItem, GroupItem, RecentChatItem, RawMessage } from '../../types/webqq'
 import { createEventSource, getLoginInfo } from '../../utils/webqqApi'
 import { useWebQQStore, resetVisitedChats } from '../../stores/webqqStore'
@@ -113,6 +114,31 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
 
   // 用于从群成员面板 @ 成员
   const [appendInputMention, setAppendInputMention] = React.useState<{ uid: string; uin: string; name: string } | null>(null)
+  // 群文件面板显隐 (组件内 state, 不动 webqqStore). 与成员面板互斥, 避免右侧两个面板叠加
+  const [showFilePanel, setShowFilePanel] = React.useState(false)
+  // 点击聊天文件卡片时的定位目标 (folderId + fileId), 传给 GroupFilePanel 定位高亮
+  const [fileLocateTarget, setFileLocateTarget] = React.useState<{ folderId: string; fileId: string } | null>(null)
+
+  // 有 target: 从文件卡片点击, 强制打开面板并定位; 无参: 顶部按钮 toggle
+  const handleToggleFilePanel = useCallback((target?: { folderId: string; fileId: string }) => {
+    if (target) {
+      setFileLocateTarget(target)
+      setShowFilePanel(true)
+      setShowMemberPanel(false)
+      return
+    }
+    setFileLocateTarget(null)
+    setShowFilePanel(v => {
+      const next = !v
+      if (next) setShowMemberPanel(false)
+      return next
+    })
+  }, [setShowMemberPanel])
+
+  const handleToggleMemberPanel = useCallback(() => {
+    setShowMemberPanel(!showMemberPanel)
+    if (!showMemberPanel) setShowFilePanel(false)
+  }, [showMemberPanel, setShowMemberPanel])
 
   const handleAtMember = useCallback((member: { uid: string; uin: string; name: string }) => {
     setAppendInputMention(member)
@@ -299,8 +325,11 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
     pendingMessagesRef.current = []
     
     setCurrentChat(session)
+    // 切换会话清掉文件定位目标, 避免残留到新会话
+    setFileLocateTarget(null)
     if (session.chatType !== 2) {
       setShowMemberPanel(false)
+      setShowFilePanel(false)
     }
     
     const chatKey = `${session.chatType}_${session.peerId}`
@@ -412,7 +441,8 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
         `}>
           <ChatWindow
             session={currentChat}
-            onShowMembers={() => setShowMemberPanel(!showMemberPanel)}
+            onShowMembers={handleToggleMemberPanel}
+            onShowFiles={handleToggleFilePanel}
             onNewMessageCallback={handleSetNewMessageCallback}
             onEmojiReactionCallback={handleSetEmojiReactionCallback}
             onMessageRecalledCallback={handleSetMessageRecalledCallback}
@@ -426,10 +456,21 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
         {/* 群成员面板 - 桌面端侧边栏，移动端全屏覆盖 */}
         {showMemberPanel && currentChat?.chatType === 2 && (
           <div className="fixed inset-0 z-50 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-xl md:static md:inset-auto md:z-auto md:bg-transparent md:backdrop-blur-none md:w-64 md:border-l md:border-theme-divider md:flex-shrink-0">
-            <GroupMemberPanel 
-              groupCode={currentChat.peerId} 
-              onClose={() => setShowMemberPanel(false)} 
+            <GroupMemberPanel
+              groupCode={currentChat.peerId}
+              onClose={() => setShowMemberPanel(false)}
               onAtMember={handleAtMember}
+            />
+          </div>
+        )}
+
+        {/* 群文件面板 - 桌面端侧边栏，移动端全屏覆盖 */}
+        {showFilePanel && currentChat?.chatType === 2 && (
+          <div className="fixed inset-0 z-50 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-xl md:static md:inset-auto md:z-auto md:bg-transparent md:backdrop-blur-none md:w-80 md:border-l md:border-theme-divider md:flex-shrink-0">
+            <GroupFilePanel
+              groupCode={currentChat.peerId}
+              locateTarget={fileLocateTarget}
+              onClose={() => { setShowFilePanel(false); setFileLocateTarget(null) }}
             />
           </div>
         )}

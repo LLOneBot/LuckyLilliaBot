@@ -6,6 +6,7 @@ import { createMembersRoutes } from './members'
 import { createNotificationRoutes } from './notifications'
 import { createChatsRoutes } from './chats'
 import { createActionsRoutes } from './actions'
+import { createGroupFilesRoutes } from './groupFiles'
 import { Hono } from 'hono'
 import { SSEStreamingApi, streamSSE } from 'hono/streaming'
 import { SendPicElement } from '@/ntqqapi/types'
@@ -40,6 +41,9 @@ export function createWebQQRoutes(ctx: Context, options: WebQQRoutesOptions): Ho
 
   // 修改型操作（kick / ban / poke / setRole / ...）
   router.route('/', createActionsRoutes(ctx))
+
+  // 群文件（列表 / 上传 / 下载 / 删除 / 文件夹管理）
+  router.route('/', createGroupFilesRoutes(ctx))
 
   // SSE 实时消息推送
   router.get('/events', async (c) => {

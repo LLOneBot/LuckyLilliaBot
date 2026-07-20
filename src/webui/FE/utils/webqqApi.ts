@@ -538,6 +538,143 @@ export async function quitGroup(groupCode: string): Promise<void> {
   }
 }
 
+// ===== 群文件 =====
+
+export interface GroupFileItem {
+  fileId: string
+  fileName: string
+  fileSize: number
+  busId: number
+  uploadTime: number
+  deadTime: number
+  modifyTime: number
+  downloadTimes: number
+  uploaderUin: string
+  uploaderName: string
+}
+
+export interface GroupFolderItem {
+  folderId: string
+  folderName: string
+  createTime: number
+  creatorUin: string
+  creatorName: string
+  fileCount: number
+  modifyTime: number
+}
+
+export interface GroupFileList {
+  files: GroupFileItem[]
+  folders: GroupFolderItem[]
+}
+
+// 群文件列表（folderId 缺省为根目录 '/'）
+export async function getGroupFileList(groupCode: string, folderId = '/'): Promise<GroupFileList> {
+  const response = await apiFetch<GroupFileList>(
+    `/api/webqq/group-files?groupCode=${encodeURIComponent(groupCode)}&folderId=${encodeURIComponent(folderId)}`
+  )
+  if (!response.success) {
+    throw new Error(response.message || '获取群文件列表失败')
+  }
+  return response.data || { files: [], folders: [] }
+}
+
+// 群文件空间信息
+export async function getGroupFileSpace(groupCode: string): Promise<{ fileCount: number; limitCount: number; usedSpace: number; totalSpace: number }> {
+  const response = await apiFetch<{ fileCount: number; limitCount: number; usedSpace: number; totalSpace: number }>(
+    `/api/webqq/group-file-space?groupCode=${encodeURIComponent(groupCode)}`
+  )
+  if (!response.success) {
+    throw new Error(response.message || '获取群文件空间失败')
+  }
+  return response.data!
+}
+
+// 获取群文件下载链接（腾讯 CDN 直链）
+export async function getGroupFileUrl(groupCode: string, fileId: string): Promise<string> {
+  const response = await apiFetch<{ url: string }>(
+    `/api/webqq/group-file-url?groupCode=${encodeURIComponent(groupCode)}&fileId=${encodeURIComponent(fileId)}`
+  )
+  if (!response.success) {
+    throw new Error(response.message || '获取下载链接失败')
+  }
+  return response.data!.url
+}
+
+// 上传群文件：先经 /upload-file 拿 filePath，再调 group-file/upload 走 highway 上传 + feed 到群
+export async function uploadGroupFile(groupCode: string, file: File, folderId = '/'): Promise<string> {
+  const { filePath, fileName } = await uploadFile(file)
+  const response = await apiFetch<{ fileId: string }>('/api/webqq/group-file/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupCode, filePath, fileName, folderId })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '上传群文件失败')
+  }
+  return response.data!.fileId
+}
+
+// 删除群文件
+export async function deleteGroupFile(groupCode: string, fileId: string, busId: number): Promise<void> {
+  const response = await apiFetch<void>('/api/webqq/group-file/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupCode, fileId, busId })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '删除群文件失败')
+  }
+}
+
+// 重命名群文件
+export async function renameGroupFile(groupCode: string, fileId: string, parentFolderId: string, newName: string): Promise<void> {
+  const response = await apiFetch<void>('/api/webqq/group-file/rename', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupCode, fileId, parentFolderId, newName })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '重命名群文件失败')
+  }
+}
+
+// 新建文件夹（根目录）
+export async function createGroupFolder(groupCode: string, folderName: string): Promise<void> {
+  const response = await apiFetch<void>('/api/webqq/group-folder/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupCode, folderName })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '新建文件夹失败')
+  }
+}
+
+// 删除文件夹
+export async function deleteGroupFolder(groupCode: string, folderId: string): Promise<void> {
+  const response = await apiFetch<void>('/api/webqq/group-folder/delete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupCode, folderId })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '删除文件夹失败')
+  }
+}
+
+// 重命名文件夹
+export async function renameGroupFolder(groupCode: string, folderId: string, newName: string): Promise<void> {
+  const response = await apiFetch<void>('/api/webqq/group-folder/rename', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ groupCode, folderId, newName })
+  })
+  if (!response.success) {
+    throw new Error(response.message || '重命名文件夹失败')
+  }
+}
+
 // 用户资料
 export interface UserProfile {
   uid: string
