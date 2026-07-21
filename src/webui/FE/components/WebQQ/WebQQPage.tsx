@@ -4,7 +4,7 @@ import ChatWindow from './ChatWindow'
 import GroupMemberPanel from './contact/GroupMemberPanel'
 import GroupFilePanel from './contact/GroupFilePanel'
 import type { ChatSession, FriendItem, GroupItem, RecentChatItem, RawMessage } from '../../types/webqq'
-import { createEventSource, getLoginInfo } from '../../utils/webqqApi'
+import { createEventSource, getLoginInfo, getSelfUin } from '../../utils/webqqApi'
 import { useWebQQStore, resetVisitedChats } from '../../stores/webqqStore'
 import { appendCachedMessage, updateCachedMessageEmojiReaction, markCachedMessageAsRecalled } from '../../utils/messageDb'
 import { showToast } from '../common'
@@ -244,8 +244,11 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
         } else if (data.type === 'emoji-reaction') {
           // 处理表情回应事件
           const { groupCode, msgSeq, emojiId, userId, userName, isAdd } = data.data
+          // 自己贴的表情已在 ChatWindow 乐观更新过 (本地 messages + 缓存), server 也会把 self reaction
+          // 推回来 -> 这里若再处理会双重计数 (刷新后变 2). 所以自己的直接忽略.
+          if (userId && String(userId) === String(getSelfUin())) return
           const chat = currentChatRef.current
-          
+
           // 更新本地缓存
           updateCachedMessageEmojiReaction(2, groupCode, msgSeq, emojiId, isAdd)
           

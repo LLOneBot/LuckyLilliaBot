@@ -5,14 +5,14 @@ import { Users, Loader2, ArrowLeft, ArrowDown, FolderOpen, Forward, X } from 'lu
 import type { ChatSession, RawMessage } from '../../types/webqq'
 import { getMessages, getSelfUid, getSelfUin, getUserProfile, UserProfile, kickGroupMember, getGroupProfile, GroupProfile, quitGroup, muteGroupMember, setMemberTitle, forwardSingleMessage, forwardMultiMessages } from '../../utils/webqqApi'
 import { useWebQQStore, hasVisitedChat, markChatVisited } from '../../stores/webqqStore'
-import { getCachedMessages, setCachedMessages, appendCachedMessage, removeCachedMessage } from '../../utils/messageDb'
+import { getCachedMessages, setCachedMessages, appendCachedMessage, removeCachedMessage, updateCachedMessageEmojiReaction } from '../../utils/messageDb'
 import { showToast } from '../common'
 
 import { UserProfileCard } from './profile/UserProfileCard'
 import { GroupProfileCard } from './profile/GroupProfileCard'
 import { ImagePreviewModal, VideoPreviewModal } from './common/PreviewModals'
 import { ImagePreviewContext, VideoPreviewContext, ImageContextMenuContext, FileCardContext } from './message/MessageElements'
-import { RawMessageBubble, TempMessageBubble, MessageContextMenuContext, AvatarContextMenuContext, ScrollToMessageContext, GroupMembersContext, FriendsContext, MultiSelectContext } from './message/MessageBubble'
+import { RawMessageBubble, TempMessageBubble, MessageContextMenuContext, AvatarContextMenuContext, ScrollToMessageContext, GroupMembersContext, FriendsContext, MultiSelectContext, SelfReactionContext } from './message/MessageBubble'
 import type { TempMessage, AvatarContextMenuInfo, FriendInfo } from './message/MessageBubble'
 import { MuteDialog, KickConfirmDialog, TitleDialog } from './chat/ChatDialogs'
 import { MessageContextMenu, AvatarContextMenu } from './chat/ContextMenus'
@@ -456,70 +456,81 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     return () => { if (onNewMessageCallback) onNewMessageCallback(null) }
   }, [onNewMessageCallback])
 
+  // 应用一次表情回应到本地 messages (SSE 事件 + 自己贴表情的乐观更新共用).
+  const applyEmojiReaction = useCallback((data: EmojiReactionData) => {
+    const selfUin = getSelfUin()
+    const isSelf = !!selfUin && data.userId === selfUin
+
+    setMessages(prev => prev.map(m => {
+      if (String(m.msgSeq) !== String(data.msgSeq)) return m
+      const existingList = m.emojiLikesList || []
+
+      if (data.isAdd) {
+        const existingIndex = existingList.findIndex(e => e.emojiId === data.emojiId)
+        if (existingIndex >= 0) {
+          const newList = [...existingList]
+          newList[existingIndex] = {
+            ...newList[existingIndex],
+            likesCnt: String(parseInt(newList[existingIndex].likesCnt) + 1),
+            isClicked: newList[existingIndex].isClicked || isSelf
+          }
+          return { ...m, emojiLikesList: newList }
+        } else {
+          return {
+            ...m,
+            emojiLikesList: [...existingList, { emojiId: data.emojiId, emojiType: parseInt(data.emojiId) > 999 ? '2' : '1', likesCnt: '1', isClicked: isSelf }]
+          }
+        }
+      } else {
+        const existingIndex = existingList.findIndex(e => e.emojiId === data.emojiId)
+        if (existingIndex >= 0) {
+          const newList = [...existingList]
+          const newCount = parseInt(newList[existingIndex].likesCnt) - 1
+          if (newCount <= 0) {
+            newList.splice(existingIndex, 1)
+          } else {
+            newList[existingIndex] = {
+              ...newList[existingIndex],
+              likesCnt: String(newCount),
+              isClicked: isSelf ? false : newList[existingIndex].isClicked
+            }
+          }
+          return { ...m, emojiLikesList: newList }
+        }
+      }
+      return m
+    }))
+
+    // 系统提示只在别人添加表情时显示 (自己贴的不提示)
+    if (data.isAdd && !isSelf) {
+      const tip: SystemTip = {
+        id: `tip_${Date.now()}_${Math.random()}`,
+        type: 'emoji-reaction',
+        userName: data.userName,
+        emojiId: data.emojiId,
+        msgSeq: data.msgSeq,
+        timestamp: Date.now()
+      }
+      setSystemTips(prev => [...prev, tip])
+    }
+  }, [])
+
+  // 自己贴/取消表情后的乐观更新: 不等 SSE (server 未必推 self reaction), 立即更新本地 + 缓存
+  const applySelfReaction = useCallback((msgSeq: string | number, emojiId: string, isAdd: boolean, groupCode: string) => {
+    const selfUin = getSelfUin() || ''
+    applyEmojiReaction({ groupCode, msgSeq: String(msgSeq), emojiId, userId: selfUin, userName: '', isAdd })
+    updateCachedMessageEmojiReaction(2, groupCode, String(msgSeq), emojiId, isAdd, true)
+  }, [applyEmojiReaction])
+
+  const selfReactionContextValue = useMemo(() => ({
+    onSelfReact: applySelfReaction
+  }), [applySelfReaction])
+
   // 处理表情回应事件
   useEffect(() => {
     if (onEmojiReactionCallback) {
       const handleEmojiReaction = (data: EmojiReactionData) => {
-        const selfUin = getSelfUin()
-        const isSelf = selfUin && data.userId === selfUin
-
-        // 更新消息的表情列表
-        setMessages(prev => prev.map(m => {
-          if (m.msgSeq !== data.msgSeq) return m
-          const existingList = m.emojiLikesList || []
-
-          if (data.isAdd) {
-            // 添加表情
-            const existingIndex = existingList.findIndex(e => e.emojiId === data.emojiId)
-            if (existingIndex >= 0) {
-              const newList = [...existingList]
-              newList[existingIndex] = {
-                ...newList[existingIndex],
-                likesCnt: String(parseInt(newList[existingIndex].likesCnt) + 1),
-                // 如果是自己贴的，标记为已点击
-                isClicked: newList[existingIndex].isClicked || isSelf
-              }
-              return { ...m, emojiLikesList: newList }
-            } else {
-              return {
-                ...m,
-                emojiLikesList: [...existingList, { emojiId: data.emojiId, emojiType: parseInt(data.emojiId) > 999 ? '2' : '1', likesCnt: '1', isClicked: isSelf }]
-              }
-            }
-          } else {
-            // 移除表情
-            const existingIndex = existingList.findIndex(e => e.emojiId === data.emojiId)
-            if (existingIndex >= 0) {
-              const newList = [...existingList]
-              const newCount = parseInt(newList[existingIndex].likesCnt) - 1
-              if (newCount <= 0) {
-                newList.splice(existingIndex, 1)
-              } else {
-                newList[existingIndex] = {
-                  ...newList[existingIndex],
-                  likesCnt: String(newCount),
-                  // 如果是自己取消的，标记为未点击
-                  isClicked: isSelf ? false : newList[existingIndex].isClicked
-                }
-              }
-              return { ...m, emojiLikesList: newList }
-            }
-          }
-          return m
-        }))
-
-        // 添加系统提示消息（只在添加表情时显示，且不是自己的回应）
-        if (data.isAdd && !isSelf) {
-          const tip: SystemTip = {
-            id: `tip_${Date.now()}_${Math.random()}`,
-            type: 'emoji-reaction',
-            userName: data.userName,
-            emojiId: data.emojiId,
-            msgSeq: data.msgSeq,
-            timestamp: Date.now()
-          }
-          setSystemTips(prev => [...prev, tip])
-        }
+        applyEmojiReaction(data)
       }
       onEmojiReactionCallback(handleEmojiReaction)
     }
@@ -903,6 +914,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     <GroupMembersContext.Provider value={groupMembersContextValue}>
     <FriendsContext.Provider value={friendsContextValue}>
     <MultiSelectContext.Provider value={multiSelectContextValue}>
+    <SelfReactionContext.Provider value={selfReactionContextValue}>
       <div ref={chatWindowRef} className="flex flex-col h-full relative">
         {/* 头部 */}
         <div className="flex items-center justify-between px-2 md:px-4 py-3 border-b border-theme-divider bg-theme-card">
@@ -1103,6 +1115,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         <EmojiReactionPicker
           target={emojiPickerTarget}
           onClose={() => setEmojiPickerTarget(null)}
+          onReacted={(emojiId) => {
+            const m = emojiPickerTarget.message
+            applySelfReaction(m.msgSeq, emojiId, true, String(m.peerUin))
+          }}
           containerRef={chatWindowRef}
         />
       )}
@@ -1254,6 +1270,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         </>,
         document.body
       )}
+    </SelfReactionContext.Provider>
     </MultiSelectContext.Provider>
     </FriendsContext.Provider>
     </GroupMembersContext.Provider>

@@ -138,35 +138,37 @@ export async function removeCachedMessage(chatType: number, peerId: string, msgI
   }
 }
 
-// 更新消息的表情回应
+// 更新消息的表情回应. isSelf: 是否自己贴/取消的 (决定 isClicked, 影响点击时是加还是取消)
 export async function updateCachedMessageEmojiReaction(
-  chatType: number, 
-  peerId: string, 
-  msgSeq: string, 
-  emojiId: string, 
-  isAdd: boolean
+  chatType: number,
+  peerId: string,
+  msgSeq: string,
+  emojiId: string,
+  isAdd: boolean,
+  isSelf: boolean = false
 ): Promise<void> {
   try {
     const existing = await getCachedMessages(chatType, peerId)
     if (!existing) return
-    
+
     const messages = existing.map(m => {
-      if (m.msgSeq !== msgSeq) return m
+      if (String(m.msgSeq) !== String(msgSeq)) return m
       const existingList = m.emojiLikesList || []
-      
+
       if (isAdd) {
         const existingIndex = existingList.findIndex(e => e.emojiId === emojiId)
         if (existingIndex >= 0) {
           const newList = [...existingList]
           newList[existingIndex] = {
             ...newList[existingIndex],
-            likesCnt: String(parseInt(newList[existingIndex].likesCnt) + 1)
+            likesCnt: String(parseInt(newList[existingIndex].likesCnt) + 1),
+            isClicked: newList[existingIndex].isClicked || isSelf
           }
           return { ...m, emojiLikesList: newList }
         } else {
           return {
             ...m,
-            emojiLikesList: [...existingList, { emojiId, emojiType: parseInt(emojiId) > 999 ? '2' : '1', likesCnt: '1', isClicked: false }]
+            emojiLikesList: [...existingList, { emojiId, emojiType: parseInt(emojiId) > 999 ? '2' : '1', likesCnt: '1', isClicked: isSelf }]
           }
         }
       } else {
@@ -177,7 +179,11 @@ export async function updateCachedMessageEmojiReaction(
           if (newCount <= 0) {
             newList.splice(existingIndex, 1)
           } else {
-            newList[existingIndex] = { ...newList[existingIndex], likesCnt: String(newCount) }
+            newList[existingIndex] = {
+              ...newList[existingIndex],
+              likesCnt: String(newCount),
+              isClicked: isSelf ? false : newList[existingIndex].isClicked
+            }
           }
           return { ...m, emojiLikesList: newList }
         }

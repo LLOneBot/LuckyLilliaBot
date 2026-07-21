@@ -17,6 +17,11 @@ export const MultiSelectContext = React.createContext<{
   toggle: (msgId: string) => void
 } | null>(null)
 
+// 自己贴/取消表情后的乐观更新: EmojiReactionList 点击跟贴/取消时通知 ChatWindow 立即更新本地 (不等 SSE)
+export const SelfReactionContext = React.createContext<{
+  onSelfReact: (msgSeq: string | number, emojiId: string, isAdd: boolean, groupCode: string) => void
+} | null>(null)
+
 // 头像右键菜单信息
 export interface AvatarContextMenuInfo {
   x: number
@@ -411,6 +416,7 @@ function getEmojiImagePath(emojiId: string, emojiType: string): string {
 // 表情回应列表组件
 const EmojiReactionList = memo<{ message: RawMessage; isSelf: boolean }>(({ message, isSelf }) => {
   const [loading, setLoading] = useState<string | null>(null)
+  const selfReaction = React.useContext(SelfReactionContext)
 
   if (!message.emojiLikesList || message.emojiLikesList.length === 0) return null
 
@@ -420,6 +426,8 @@ const EmojiReactionList = memo<{ message: RawMessage; isSelf: boolean }>(({ mess
     try {
       // isClicked 为 true 表示自己已贴过，点击取消；否则点击添加
       await setEmojiLike(message.chatType, message.peerUin, message.msgSeq, emojiId, !isClicked)
+      // 乐观更新本地 (server 未必推 self reaction, 不然要刷新才生效)
+      selfReaction?.onSelfReact(message.msgSeq, emojiId, !isClicked, String(message.peerUin))
     } catch (e) {
       showToast(e.message || '操作失败', 'error')
     } finally {

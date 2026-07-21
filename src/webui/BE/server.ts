@@ -188,7 +188,25 @@ export class WebuiServer extends Service {
       })
     })
 
-    // TODO: 监听表情回应事件
+    // 表情回应事件 (群消息被贴表情). 转成 emoji-reaction SSE 推给 FE 实时更新气泡下方的表情.
+    this.ctx.on('nt/group-message-reaction', async (data) => {
+      if (this.sseClients.size === 0) return
+      let userName = ''
+      try {
+        userName = (await this.ctx.store.getGroupMemberCardName(data.groupCode, data.operatorUin)) || ''
+      } catch { /* 查不到名字就留空, 不影响表情显示 */ }
+      this.broadcastMessage('message', {
+        type: 'emoji-reaction',
+        data: {
+          groupCode: data.groupCode.toString(),
+          msgSeq: data.msgSeq.toString(),
+          emojiId: data.faceId.toString(),
+          userId: data.operatorUin.toString(),
+          userName,
+          isAdd: data.isAdd,
+        }
+      })
+    })
 
     // TODO: 监听群通知事件（加群申请、邀请入群、被踢等）
 
