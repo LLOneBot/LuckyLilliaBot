@@ -23,7 +23,7 @@ let lastValidToken = ''
 // 不去重就重复打印同一条 warning。进入无 token 状态只提示一次, 有 token 后重置。
 let warnedNoToken = false
 let retryTimer: NodeJS.Timeout | null = null
-let onValidCb: OnValid = () => {}
+let onValidCb: OnValid = () => { }
 let log: WatcherLogger = console
 const RETRY_MS = 15_000
 const POLL_MS = 1_000
@@ -118,6 +118,11 @@ async function processOnce(): Promise<void> {
     // 网络错误: 无法判定, 不冒险登录; 定时重试 (验证服务恢复后自动继续)
     authTokenStatus.validation = 'error'
     authTokenStatus.message = '无法连接验证服务器（网络问题），将自动重试'
+    if (result instanceof Error) {
+      log.warn('[Sign]', result.cause)
+    } else {
+      log.warn('[Sign] status code', result)
+    }
     log.warn('[Sign] auth_token 校验网络失败, 15s 后重试')
     scheduleRetry()
   }

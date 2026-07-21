@@ -345,10 +345,10 @@ export const AUTH_VALIDATE_API = 'https://api-auth.luckylillia.com/api/sign/info
 
 /**
  * 校验 auth token 是否有效.
- * 2xx=valid, 401/403=invalid (失效/无权限), 网络失败/超时/其它状态=error (无法判定).
+ * 2xx=valid, 401/403=invalid (失效/无权限).
  * 纯 HTTP 探测, 不依赖 native sign 初始化, 未登录时也能用.
  */
-export async function validateAuthToken(token: string): Promise<'valid' | 'invalid' | 'error'> {
+export async function validateAuthToken(token: string): Promise<'valid' | 'invalid' | number | Error> {
   const t = token.trim()
   if (!t) return 'invalid'
   const controller = new AbortController()
@@ -360,9 +360,9 @@ export async function validateAuthToken(token: string): Promise<'valid' | 'inval
     })
     if (res.ok) return 'valid'
     if (res.status === 401 || res.status === 403) return 'invalid'
-    return 'error'
-  } catch {
-    return 'error'
+    return res.status
+  } catch (e) {
+    return e as Error
   } finally {
     clearTimeout(timer)
   }
