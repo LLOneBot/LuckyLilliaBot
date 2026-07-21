@@ -743,6 +743,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
 
       // 重置加载状态
       isLoadingInitialRef.current = false
+      // 每次切会话先清掉上一会话残留的 loading: 快速连续切换时, 旧请求 finally 因 checkSession 失败
+      // 不会 setLoading(false), 若新会话又不触发 API 加载 (已 visited), loading 会永久停在 true -> 一直转圈.
+      // 在此无条件清零, 需要加载的分支下面会自己再 setLoading(true).
+      setLoading(false)
 
       // 先尝试从内存缓存读取
       const cachedInMemory = messageCacheRef.current.get(sessionKey)
