@@ -196,7 +196,10 @@ class MilkyHttpHandler {
     // Broadcast to SSE clients
     for (const stream of this.sseClients) {
       try {
-        stream.writeSSE({ data: msg })
+        stream.writeSSE({
+          data: msg,
+          event: 'milky_event'
+        })
       } catch (e) {
         this.ctx.logger.warn('MilkyHttp', `Failed to send SSE message: ${e}`)
         this.sseClients.delete(stream)
