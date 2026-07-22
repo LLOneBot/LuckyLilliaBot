@@ -44,21 +44,28 @@ musl 到 Bot):
 - `postbuild-rename.mjs` 特意**保留 -musl 后缀** (只折叠 gnu/msvc), 否则 linux-x64-musl 被改名成
   linux-x64 会覆盖掉 glibc 那颗。
 
-## 容器只跑直连模式
+## 容器连接模式: 直连 / PMHQ 有头 (install 脚本二选一)
 
-Docker 暂时去掉了 pmhq (不再生成 pmhq 服务 / 不带 --pmhq-port)。startup.sh 纯直连:
-`node llbot.js [-q <uin>]`。**启动哪个号由用户决定**, 两条路:
-- `QQ` env 设了 → `-q <uin>` 恢复该号 (无头部署重启后免扫码自动恢复);
-- 没设 → 起在 WebUI 登录页, 用户从快速登录列表点选账号 (或扫码)。
+install 脚本开头让用户选**连接模式** (存 `PROTOCOL_MODE`), startup.sh 按此 env 分发:
 
-install 脚本生成的 compose 里始终带 `QQ=`(留空), 方便用户后填。
+- **直连** (`PROTOCOL_MODE` 未设/非 pmhq): 纯代码复刻协议, 省内存。单 llbot 服务。
+  `node llbot.js [-q <uin>]`, **启动哪个号由用户决定**, 两条路:
+  - `QQ` env 设了 → `-q <uin>` 恢复该号 (无头部署重启后免扫码自动恢复);
+  - 没设 → 起在 WebUI 登录页, 用户从快速登录列表点选账号 (或扫码)。
+  install 脚本生成的 compose 里始终带 `QQ=`(留空), 方便用户后填。
+  **不再** "data 里恰好一个 session 就自动用它" (2026-07 改): 那是替用户做了选择,
+  跟 WebUI 快速登录列表的设计冲突。
 
-**不再** "data 里恰好一个 session 就自动用它" (2026-07 改): 那是替用户做了选择,
-跟 WebUI 快速登录列表的设计冲突。
-
-pmhq 模式代码本身还在 (非 docker 场景 CLI/Desktop 仍可用, 靠 `--pmhq-port` argv 触发,
-见 `isPmhqMode()`)。若以后要恢复 docker pmhq: startup.sh 加回 `PROTOCOL_MODE` 分发 +
-`--pmhq-port/--pmhq-host`, install 脚本加回协议选择和 pmhq+llbot 双服务 compose 分支。
+- **PMHQ 有头** (`PROTOCOL_MODE=pmhq`): 真实 QQ 客户端跑在独立 `linyuchen/pmhq` 容器
+  (有头, 收发 PB), 更稳不易掉线, 代价是吃内存 + 拉一个额外镜像。startup.sh 走
+  `node llbot.js --pmhq-port=$PMHQ_PORT --pmhq-host=$PMHQ_HOST` (缺省 13000 / pmhq),
+  参数名与 `pmhq.ts getPMHQHostPort()` 对齐, 代码侧靠 `isPmhqMode()` (检 `--pmhq-port=`
+  argv) 触发。compose 是 pmhq + llbot 双服务, 同 `app_network`, 共享 `./llbot_config` 卷;
+  llbot `depends_on: pmhq`。llbot 靠网络 (`--pmhq-host=pmhq`) 连 pmhq, 自身不挂 QQ 目录。
+  - PMHQ 分支**固定有头** (`ENABLE_HEADLESS=false` 写死), 不保留旧脚本的无头 y/n 问句
+    (无头虽省内存但易掉线, 想省内存的直接选直连模式)。
+  - 账号登录由 pmhq 容器的 `AUTO_LOGIN_QQ` 处理, llbot 侧**不传 `-q`**。
+  - 镜像源检测在 pmhq 模式下要求 llbot + pmhq 两个镜像都在该镜像源可用才命中。
 
 ## session 加密 key: 容器内从 data/machine_guid.bin 派生 (直连 session 存活的关键)
 
@@ -105,5 +112,5 @@ test.yml 的 e2e 构建就传 `--build-arg BUILD_PROXY=` 走直连。
 | `docker/Dockerfile` | 发布镜像 (alpine), 从 GitHub release 下载 LLBot.zip; 生产/CI 用, **无代理无注释**; release zip 须含 musl .node (v8.0.8+) |
 | `docker/Dockerfile.local` | 本地两阶段构建 (builder debian 跑 yarn build, production alpine); **走 BUILD_PROXY 代理** |
 | `docker/Dockerfile.test` | 本地测试, COPY 本机预构建 dist/ (需先 yarn build), alpine; **走 BUILD_PROXY 代理**; test-build-amd64.ps1 用 |
-| `docker/startup.sh` | 容器入口, 纯直连; **shebang 是 #!/bin/sh** (POSIX, alpine ash 兼容) |
-| `script/install-llbot-docker.sh` | 交互式向导, 生成单服务 (llbot) docker-compose.yml |
+| `docker/startup.sh` | 容器入口, 按 `PROTOCOL_MODE` 分发直连/PMHQ; **shebang 是 #!/bin/sh** (POSIX, alpine ash 兼容) |
+| `script/install-llbot-docker.sh` | 交互式向导, 连接模式二选一: 直连(单 llbot 服务) / PMHQ 有头(pmhq+llbot 双服务) |

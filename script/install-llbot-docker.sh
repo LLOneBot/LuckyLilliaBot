@@ -3,33 +3,41 @@
 echo "=========================================="
 echo "LLBot Docker 安装配置向导"
 echo "=========================================="
+
+# Auth Token (必填; 此处不做校验, 有效性在登录/WebUI 侧判定)
+AUTH_TOKEN=""
+echo ""
+echo "Auth Token（必填）"
+echo "获取地址: https://auth.luckylillia.com"
+while [ -z "$AUTH_TOKEN" ]; do
+    read -p "请输入 Auth Token（必填）: " input_token
+    AUTH_TOKEN=$(printf '%s' "$input_token" | tr -d '[:space:]')
+    [ -z "$AUTH_TOKEN" ] && echo "错误：Auth Token 不能为空！"
+done
+echo "[OK] 已记录 Auth Token，将写入 auth_token.txt"
+
+AUTO_LOGIN_QQ=""
+echo ""
+while [ -z "$AUTO_LOGIN_QQ" ]; do
+    read -p "请输入 QQ 号（必填）: " AUTO_LOGIN_QQ
+    [[ "$AUTO_LOGIN_QQ" =~ ^[0-9]+$ ]] || { echo "错误：QQ 号必须是数字！"; AUTO_LOGIN_QQ=""; continue; }
+done
+
+# 连接模式: direct=无头, 纯代码复刻协议(省内存); pmhq=有头, QQ 客户端跑在独立 pmhq 容器(更稳)
+PROTOCOL_MODE="direct"
+echo ""
+echo "连接模式："
+echo "1) 无头（纯协议，省内存）"
+echo "2) 有头（需 QQ 客户端容器）"
+read -p "请选择 (默认 1): " mode_choice
+[ "$mode_choice" == "2" ] && PROTOCOL_MODE="pmhq"
+
 echo ""
 echo "请选择配置方式："
 echo "1) 现在配置（命令行配置所有选项）"
 echo "2) 稍后配置（仅配置 WebUI，其他选项在 WebUI 中配置）"
 echo ""
 read -p "请选择 (1/2): " config_mode
-
-AUTO_LOGIN_QQ=""
-while [ -z "$AUTO_LOGIN_QQ" ]; do
-    read -p "请输入 QQ 号（必填）: " AUTO_LOGIN_QQ
-    [[ "$AUTO_LOGIN_QQ" =~ ^[0-9]+$ ]] || { echo "错误：QQ 号必须是数字！"; AUTO_LOGIN_QQ=""; continue; }
-done
-
-# Auth Token: 仅命令行配置(mode 1)时询问; 稍后配置(mode 2)由用户在 WebUI 中录入, 这里留空
-AUTH_TOKEN=""
-if [ "$config_mode" == "1" ]; then
-    # Auth Token (命令行配置必填; 此处不做校验, 有效性在登录/WebUI 侧判定)
-    echo ""
-    echo "Auth Token（必填）"
-    echo "获取地址: https://auth.luckylillia.com"
-    while [ -z "$AUTH_TOKEN" ]; do
-        read -p "请输入 Auth Token（必填）: " input_token
-        AUTH_TOKEN=$(printf '%s' "$input_token" | tr -d '[:space:]')
-        [ -z "$AUTH_TOKEN" ] && echo "错误：Auth Token 不能为空！"
-    done
-    echo "[OK] 已记录 Auth Token，将写入 auth_token.txt"
-fi
 
 declare -A SERVICE_PORTS
 
@@ -259,6 +267,7 @@ read -p "是否使用 Docker 镜像源 (y/n): " use_docker_mirror
 
 docker_mirror=""
 LLBOT_TAG="latest"
+PMHQ_TAG="latest"
 
 # 从 npm registry 获取版本号
 get_npm_version() {
@@ -283,6 +292,17 @@ else
   LLBOT_TAG="latest"
 fi
 
+# PMHQ 有头模式需要额外的 pmhq 镜像
+if [ "$PROTOCOL_MODE" == "pmhq" ]; then
+  PMHQ_TAG=$(get_npm_version "pmhq-dist-win-x64")
+  if [ -n "$PMHQ_TAG" ]; then
+    echo "PMHQ 最新版本: $PMHQ_TAG"
+  else
+    echo "无法获取 PMHQ 版本，将使用 latest"
+    PMHQ_TAG="latest"
+  fi
+fi
+
 if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
   # Docker 镜像源列表
   DOCKER_MIRRORS=(
@@ -301,12 +321,16 @@ if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
     return 1
   }
 
-  # 查找可用的镜像源（只需要 llbot 镜像）
+  # 查找可用的镜像源（pmhq 模式需要 llbot + pmhq 两个镜像都可用）
   find_available_mirror() {
     local llbot_tag=$1
 
     for mirror in "${DOCKER_MIRRORS[@]}"; do
       if test_mirror "$mirror" "llbot" "$llbot_tag"; then
+        if [ "$PROTOCOL_MODE" == "pmhq" ] && ! test_mirror "$mirror" "pmhq" "$PMHQ_TAG"; then
+          echo "镜像源 ${mirror} 缺少 pmhq 镜像" >&2
+          continue
+        fi
         echo "找到可用镜像源: ${mirror}" >&2
         echo "${mirror}/"
         return 0
@@ -317,6 +341,7 @@ if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
     echo "所有镜像源均不可用或不支持该版本" >&2
     echo "将回退到 Docker 官方源使用 latest 标签" >&2
     LLBOT_TAG="latest"
+    PMHQ_TAG="latest"
     echo ""
     return 1
   }
@@ -346,11 +371,59 @@ LLBOT_HEALTHCHECK="    healthcheck:
       retries: 3
       start_period: 40s"
 
-LLBOT_ENV="      - WEBUI_PORT=${WEBUI_PORT}
+if [ "$PROTOCOL_MODE" == "pmhq" ]; then
+    # PMHQ 有头模式: QQ 客户端跑在独立 pmhq 容器, 账号登录由 pmhq 的 AUTO_LOGIN_QQ 处理,
+    # llbot 侧不传 QQ (session 在 pmhq 的 qq_volume 里, 不在 llbot data)
+    LLBOT_ENV="      - WEBUI_PORT=${WEBUI_PORT}
+      - PROTOCOL_MODE=pmhq
+      - PMHQ_HOST=pmhq"
+
+    cat << EOF > docker-compose.yml
+services:
+  pmhq:
+    image: ${docker_mirror}linyuchen/pmhq:${PMHQ_TAG}
+    privileged: true
+    environment:
+      - ENABLE_HEADLESS=false
+      - AUTO_LOGIN_QQ=${AUTO_LOGIN_QQ}
+    networks:
+      - app_network
+    volumes:
+      - ./llbot_config:/app/llbot/data:rw
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:13000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  llbot:
+    image: ${docker_mirror}linyuchen/llbot:${LLBOT_TAG}
+${PORTS_CONFIG}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+${LLBOT_ENV}
+    networks:
+      - app_network
+    volumes:
+      - ./llbot_config:/app/llbot/data:rw
+    depends_on:
+      - pmhq
+    restart: unless-stopped
+${LLBOT_HEALTHCHECK}
+
+networks:
+  app_network:
+    driver: bridge
+EOF
+else
+    LLBOT_ENV="      - WEBUI_PORT=${WEBUI_PORT}
       # QQ 留空=WebUI 登录页点选账号; 填 QQ 号=重启自动恢复该号 (免扫码)
       - QQ=${AUTO_LOGIN_QQ}"
 
-cat << EOF > docker-compose.yml
+    cat << EOF > docker-compose.yml
 services:
   llbot:
     image: ${docker_mirror}linyuchen/llbot:${LLBOT_TAG}
@@ -364,6 +437,7 @@ ${LLBOT_ENV}
     restart: unless-stopped
 ${LLBOT_HEALTHCHECK}
 EOF
+fi
 
 echo ""
 echo "Docker Compose 配置已生成: docker-compose.yml"
@@ -385,6 +459,10 @@ printLogin(){
     echo "WebUI 访问地址: http://localhost:${WEBUI_PORT}"
     echo "WebUI 密码: ${WEBUI_TOKEN}"
     echo ""
+    if [ "$PROTOCOL_MODE" == "pmhq" ]; then
+        echo "连接模式: 有头 (QQ 客户端跑在 pmhq 容器内)"
+        echo ""
+    fi
     echo "登录方式: 启动后打开 WebUI 扫码登录，"
     echo "          或运行 sudo docker compose logs -f llbot 在日志中查看二维码"
     if [ "$config_mode" == "2" ]; then
