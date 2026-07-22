@@ -311,6 +311,7 @@ export function parseElements(
             resultId: ext.resultId !== undefined ? String(ext.resultId) : undefined,
           },
         })
+        break
       } else if (svcType === 45) {
         const ext = Msg.MarkdownExtra.decode(pbElem)
         result.push({
