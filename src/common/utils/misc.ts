@@ -1,8 +1,12 @@
 import { Dict, isNonNullable } from 'cosmokit'
 import { defineProperty } from 'cosmokit'
 
+// 预编译正则表达式以避免重复编译
+const NUMERIC_REGEX = /^\d+$/
+const HTTP_URL_REGEX = /^https?:\/\/.+/
+
 export function isNumeric(str: string) {
-  return /^\d+$/.test(str)
+  return NUMERIC_REGEX.test(str)
 }
 
 /** 在保证老对象已有的属性不变化的情况下将新对象的属性复制到老对象 */
@@ -110,7 +114,7 @@ export async function mapWithConcurrency<T, R>(
 }
 
 export function isHttpUrl(str: string) {
-  return /^https?:\/\/.+/.test(str)
+  return HTTP_URL_REGEX.test(str)
 }
 
 export function formatYYYYMMDD(date = new Date()) {
@@ -125,8 +129,7 @@ export function formatYYYYMMDD(date = new Date()) {
  * @returns 修改后的原数组
  */
 export function moveElement<T>(arr: T[], from: number, to: number): T[] {
-  if (arr.length === 0) return arr
-  if (from === to) return arr
+  if (arr.length === 0 || from === to) return arr
 
   const [item] = arr.splice(from, 1)
   arr.splice(to, 0, item)
