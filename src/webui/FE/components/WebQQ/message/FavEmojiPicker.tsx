@@ -23,14 +23,17 @@ export const clearFavEmojiCache = () => {
 const RECENT_FAV_EMOJI_BASE_KEY = 'webqq_recent_fav_emojis'
 const MAX_RECENT = 10
 
-function getRecentFavEmojiKey() {
+// 未登录时返回 null: 不能退化成无前缀的共享桶, 那会让不同账号的最近表情混在一起
+function getRecentFavEmojiKey(): string | null {
   const uin = getCurrentUin()
-  return uin ? `${uin}-${RECENT_FAV_EMOJI_BASE_KEY}` : RECENT_FAV_EMOJI_BASE_KEY
+  return uin ? `${uin}-${RECENT_FAV_EMOJI_BASE_KEY}` : null
 }
 
 function getRecentFavEmojis(): FavEmoji[] {
+  const key = getRecentFavEmojiKey()
+  if (!key) return []
   try {
-    const stored = localStorage.getItem(getRecentFavEmojiKey())
+    const stored = localStorage.getItem(key)
     return stored ? JSON.parse(stored) : []
   } catch {
     return []
@@ -38,14 +41,18 @@ function getRecentFavEmojis(): FavEmoji[] {
 }
 
 function addRecentFavEmoji(emoji: FavEmoji) {
+  const key = getRecentFavEmojiKey()
+  if (!key) return
   const recent = getRecentFavEmojis().filter(e => e.emoId !== emoji.emoId)
   recent.unshift(emoji)
-  localStorage.setItem(getRecentFavEmojiKey(), JSON.stringify(recent.slice(0, MAX_RECENT)))
+  localStorage.setItem(key, JSON.stringify(recent.slice(0, MAX_RECENT)))
 }
 
 function removeRecentFavEmoji(emoId: number) {
+  const key = getRecentFavEmojiKey()
+  if (!key) return
   const recent = getRecentFavEmojis().filter(e => e.emoId !== emoId)
-  localStorage.setItem(getRecentFavEmojiKey(), JSON.stringify(recent))
+  localStorage.setItem(key, JSON.stringify(recent))
 }
 
 // 表情右键菜单

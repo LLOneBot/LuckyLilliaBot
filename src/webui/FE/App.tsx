@@ -19,6 +19,7 @@ import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
 import { deleteCookie } from './utils/cookie';
 import { setCurrentUin } from './utils/currentUin';
+import { hydrateWebQQStore } from './stores/webqqStore';
 import { Save, Loader2, Eye, EyeOff, Plus, Trash2, Menu, Cpu, Milk, ExternalLink } from 'lucide-react';
 import { defaultConfig } from '../../main/config/defaultConfig'
 import { version } from '../../version'
@@ -119,6 +120,8 @@ function App() {
             uin: response.data.selfInfo.uin,
           });
           setCurrentUin(response.data.selfInfo.uin);
+          // uin 就位后才能加载 WebQQ 的按账号持久化数据 (store 是 skipHydration 的)
+          hydrateWebQQStore(response.data.selfInfo.uin);
 
           // 获取主配置
           setConfig(response.data.config);

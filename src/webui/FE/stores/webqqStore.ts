@@ -3,12 +3,23 @@ import { persist, createJSONStorage } from 'zustand/middleware'
 import type { FriendCategory, GroupItem, RecentChatItem, ChatSession, GroupMemberItem, NotificationItem } from '../types/webqq'
 import { getFriends, getGroups, getRecentChats, getGroupNotifications, getFriendRequests, getDoubtBuddyRequests, getGroupMembers, setRecentChatTop } from '../utils/webqqApi'
 import { GroupNotifyType, GroupNotifyStatus } from '../types/webqq'
-import { getCurrentUin } from '../utils/currentUin'
 
+const STORAGE_NAME = 'webqq-storage'
+
+// 分区键必须显式持有, 不能每次现读 localStorage['current-uin']:
+// 那个值在 hydrate 时刻还是上一个账号的 (setCurrentUin 要等 /api/config 返回),
+// 会读到旧号数据、再把旧号数据回写进新号的桶. 由 hydrateWebQQStore 赋值.
+let activeUin = ''
+
+// uin 未就位前一律空转 -- 宁可不持久化, 也不能读写到别的账号的桶
 const accountStorage = createJSONStorage(() => ({
-  getItem: (name: string) => localStorage.getItem(`${getCurrentUin()}-${name}`),
-  setItem: (name: string, value: string) => localStorage.setItem(`${getCurrentUin()}-${name}`, value),
-  removeItem: (name: string) => localStorage.removeItem(`${getCurrentUin()}-${name}`),
+  getItem: (name: string) => (activeUin ? localStorage.getItem(`${activeUin}-${name}`) : null),
+  setItem: (name: string, value: string) => {
+    if (activeUin) localStorage.setItem(`${activeUin}-${name}`, value)
+  },
+  removeItem: (name: string) => {
+    if (activeUin) localStorage.removeItem(`${activeUin}-${name}`)
+  },
 }))
 
 // 缓存过期时间（1小时）
@@ -182,28 +193,34 @@ interface WebQQState {
   isContactsCacheValid: () => boolean
 }
 
+// partialize 会持久化的字段及其初始值. 同时用于 store 初始状态和 merge,
+// 保证两边不会各自漂移 -- merge 靠它抹掉上一个账号残留在内存里的数据.
+const INITIAL_PERSISTED = {
+  friendCategories: [] as FriendCategory[],
+  groups: [] as GroupItem[],
+  recentChats: [] as RecentChatItem[],
+  groupLastTimeMap: {} as Record<string, number>,
+  groupLastMessageMap: {} as Record<string, string>,
+  expandedCategories: [] as number[],
+  membersCache: {} as Record<string, MembersCacheEntry>,
+  showMemberPanel: false,
+  scrollPositions: {} as Record<string, ScrollPosition>,
+  contactsCacheTimestamp: 0,
+  unreadCounts: {} as Record<string, number>,
+  activeTab: 'recent' as TabType,
+  currentChat: null as ChatSession | null,
+}
+
 export const useWebQQStore = create<WebQQState>()(
   persist(
     (set, get) => ({
       // 初始状态
-      friendCategories: [],
-      groups: [],
-      recentChats: [],
-      groupLastTimeMap: {},
-      groupLastMessageMap: {},
+      ...INITIAL_PERSISTED,
       contactsLoading: false,
       contactsError: null,
-      currentChat: null,
-      activeTab: 'recent',
       groupAssistantMode: 'normal',
-      unreadCounts: {},
-      expandedCategories: [],
-      membersCache: {},
-      showMemberPanel: false,
       notifications: [],
       notificationUnreadCount: 0,
-      scrollPositions: {},
-      contactsCacheTimestamp: 0,
 
       // 基础 setters
       setFriendCategories: (categories) => set({ friendCategories: categories }),
@@ -787,9 +804,13 @@ export const useWebQQStore = create<WebQQState>()(
       })
     }),
     {
-      name: 'webqq-storage',
+      name: STORAGE_NAME,
       storage: accountStorage,
+      // 不在 import 时 hydrate: 那时 uin 还是上一个账号的. 由 hydrateWebQQStore 显式触发
+      skipHydration: true,
       partialize: (state) => ({
+        // 数据属主. 用来识别历史遗留的跨账号污染 (旧版本写入的 payload 没有这个字段)
+        _uin: activeUin,
         // 只持久化这些字段（不包含消息缓存，太大了）
         friendCategories: state.friendCategories,
         groups: state.groups,
@@ -806,6 +827,12 @@ export const useWebQQStore = create<WebQQState>()(
         activeTab: state.activeTab,
         currentChat: state.currentChat
       }),
+      // persisted 为空时也要把上一个账号残留在内存里的字段抹掉:
+      // 默认 merge 是 {...current, ...persisted}, 新号没有存档时旧号数据会活下来
+      merge: (persisted, current) => {
+        const { _uin, ...rest } = (persisted ?? {}) as Record<string, unknown>
+        return { ...current, ...INITIAL_PERSISTED, ...rest } as WebQQState
+      },
       // 恢复数据时去重
       onRehydrateStorage: () => (state) => {
         if (state && state.recentChats) {
@@ -827,3 +854,27 @@ export const useWebQQStore = create<WebQQState>()(
     }
   )
 )
+
+/**
+ * 绑定账号并加载该账号的持久化数据。必须在拿到 uin 之后调用（App.tsx 登录态检查里）,
+ * store 是 skipHydration 的 -- import 时刻 localStorage['current-uin'] 还是上一个账号。
+ *
+ * 顺带清理历史遗留: 旧版本在 uin 就位前就 hydrate, 会把上一个账号的数据回写进当前 uin 的桶。
+ * 那些 payload 没有 _uin 标记, 一律丢弃, 否则新号会一直显示旧号的会话。
+ */
+export function hydrateWebQQStore(uin: string): void {
+  if (!uin || uin === activeUin) return
+  activeUin = uin
+
+  const key = `${uin}-${STORAGE_NAME}`
+  try {
+    const raw = localStorage.getItem(key)
+    if (raw && JSON.parse(raw)?.state?._uin !== uin) {
+      localStorage.removeItem(key)
+    }
+  } catch {
+    localStorage.removeItem(key)
+  }
+
+  void useWebQQStore.persist.rehydrate()
+}
