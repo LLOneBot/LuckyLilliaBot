@@ -846,23 +846,25 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, ra
   // C2C 离线文件（trans 0x211 + msgType=PrivateFile）：内容在 body.msgContent 而不是 richText.elems
   if (msgType === MsgType.PrivateFile && body?.msgContent && elements.length === 0) {
     try {
-      const fe = Msg.FileExtra.decode(Buffer.from(body.msgContent))
+      const fe = Msg.FileExtra.decode(body.msgContent)
       const nof = fe.file
-      if (nof) {
-        elements.push({
-          elementType: ElementType.File,
-          fileElement: {
-            fileName: nof.fileName,
-            fileSize: nof.fileSize,
-            fileMd5: nof.fileMd5 ? Buffer.from(nof.fileMd5).toString('hex') : '',
-            expireTime: nof.expireTime,
-            fileUuid: nof.fileUuid,
-            fileBizId: 0,
-            filePath: '',
-            folderId: ''
-          },
-        })
+      // 当 bot 自身发出的文件被对方下载后，会触发 fileType=1
+      if (nof.fileType !== 0) {
+        return null
       }
+      elements.push({
+        elementType: ElementType.File,
+        fileElement: {
+          fileName: nof.fileName,
+          fileSize: nof.fileSize,
+          fileMd5: nof.fileMd5 ? nof.fileMd5.toString('hex') : '',
+          expireTime: nof.expireTime,
+          fileUuid: nof.fileUuid,
+          fileBizId: 0,
+          filePath: '',
+          folderId: ''
+        }
+      })
     } catch (e) {
       logger.warn('PrivateFile FileExtra decode failed:', (e as Error).message)
     }

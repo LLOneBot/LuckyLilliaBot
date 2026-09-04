@@ -308,7 +308,7 @@ export function parseElements(
             packId: ext.aniStickerPackId,
             stickerId: ext.aniStickerId,
             stickerType: ext.aniStickerType,
-            resultId: ext.resultId !== undefined ? String(ext.resultId) : undefined,
+            resultId: ext.resultId,
           },
         })
         break

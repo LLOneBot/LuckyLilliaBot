@@ -385,11 +385,9 @@ export namespace Msg {
     faceId: ProtoField(3, 'int32', 'optional'),
     field4: ProtoField(4, 'int32', 'optional'),
     aniStickerType: ProtoField(5, 'int32', 'optional'),
-    field6: ProtoField(6, 'string', 'optional'),
+    resultId: ProtoField(6, 'string', 'optional'),
     preview: ProtoField(7, 'string', 'optional'),
     field9: ProtoField(9, 'int32', 'optional'),
-    /** dice/rps 才有：1-6 / 1-3 表示骰子点数或猜拳手势 */
-    resultId: ProtoField(11, 'int32', 'optional'),
   })
 
   export const GroupFileExtra = ProtoMessage.of({
