@@ -1,6 +1,7 @@
 import { DirectProtocolClient } from './client'
 import { getLogger } from '@/common/logger'
 import { AppInfo, DeviceInfo } from './appInfo'
+import { getActiveProfile } from './profiles'
 
 // --- Protobuf encoding helpers ---
 
@@ -52,7 +53,7 @@ function buildRegisterDeviceInfo(): Buffer {
   const parts: Buffer[] = []
   parts.push(protoStringField(1, DeviceInfo.devName))
   parts.push(protoStringField(2, AppInfo.kernel))
-  parts.push(protoStringField(3, '5.15.0'))
+  parts.push(protoStringField(3, getActiveProfile().systemKernel))
   parts.push(protoStringField(4, ''))
   parts.push(protoStringField(5, AppInfo.vendorOs))
   return Buffer.concat(parts)

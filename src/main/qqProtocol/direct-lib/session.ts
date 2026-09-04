@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { execSync } from 'node:child_process'
 import { DATA_DIR } from '@/common/globalVars'
-import { isDockerEnvironment, getSpecifiedUin } from '@/common/utils/environment'
+import { isDockerEnvironment, getSpecifiedUin, getProtocol, type ProtocolId } from '@/common/utils/environment'
 import { loadMachineGuidSync } from './machineGuid'
 import type { SessionInfo } from './client'
 
@@ -82,9 +82,15 @@ function decryptSensitive(b64: string): SensitiveFields {
   return JSON.parse(plain) as SensitiveFields
 }
 
-/** session 文件统一按 uin 命名为 qq-session-<uin>.json。 */
-export function getSessionFilePathForUin(uin: string): string {
-  return join(DATA_DIR, `qq-session-${uin}.json`)
+/**
+ * session 文件按 (uin, 协议) 命名。协议隔离: 换协议登录凭证不通用, 各存各的。
+ * Linux 保持无后缀 `qq-session-<uin>.json` (向后兼容, 老用户零迁移);
+ * 其余协议加后缀 `qq-session-<uin>-<protocol>.json` (如 qq-session-12345-windows.json)。
+ * protocol 默认取当前进程激活的协议 (--protocol), 调用方一般不用显式传。
+ */
+export function getSessionFilePathForUin(uin: string, protocol: ProtocolId = getProtocol()): string {
+  const suffix = protocol === 'linux' ? '' : `-${protocol}`
+  return join(DATA_DIR, `qq-session-${uin}${suffix}.json`)
 }
 
 /**
@@ -156,17 +162,22 @@ export function loadSession(uinArg?: string): PersistedSession | null {
  * 只列**有 enc** 的 session (旧明文/无凭证的一律跳过, 快速登录用不上); 不做实际解密,
  * 换机后不能 quick-login 但会展示 -- 用户选到后 registerOnline 阶段会失败并 fallback 扫码.
  */
-export function listAvailableSessions(): Array<{ uin: string; uid: string; nick: string; savedAt: number }> {
+export function listAvailableSessions(): Array<{ uin: string; uid: string; nick: string; savedAt: number; protocol: ProtocolId }> {
   let entries: string[]
   try {
     entries = readdirSync(DATA_DIR)
   } catch {
     return []
   }
-  const out: Array<{ uin: string; uid: string; nick: string; savedAt: number }> = []
+  // 只列**当前协议**的 session (一个 Bot 进程一个协议, 只能快速登录本协议的账号)。
+  const active = getProtocol()
+  const out: Array<{ uin: string; uid: string; nick: string; savedAt: number; protocol: ProtocolId }> = []
   for (const name of entries) {
-    const m = /^qq-session-(\d+)\.json$/.exec(name)
+    // 无后缀 = linux; 带后缀 = 对应协议
+    const m = /^qq-session-(\d+)(?:-(linux|windows|macos|watch))?\.json$/.exec(name)
     if (!m) continue
+    const fileProtocol = (m[2] as ProtocolId) || 'linux'
+    if (fileProtocol !== active) continue
     try {
       const raw = readFileSync(join(DATA_DIR, name), 'utf-8')
       const data = JSON.parse(raw) as PersistedSession
@@ -176,6 +187,7 @@ export function listAvailableSessions(): Array<{ uin: string; uid: string; nick:
         uid: data.uid || '',
         nick: data.nick || '',
         savedAt: data.savedAt || 0,
+        protocol: fileProtocol,
       })
     } catch {
       // skip malformed

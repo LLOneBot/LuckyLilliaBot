@@ -1,4 +1,5 @@
 import { Context, Service } from 'cordis'
+import { AppInfo, DeviceInfo } from '../../main/qqProtocol/direct-lib/appInfo'
 
 declare module 'cordis' {
   interface Context {
@@ -27,6 +28,7 @@ export class NTSystemApi extends Service {
   }
 
   async getDeviceInfo() {
-    return { devType: 'Linux', buildVer: '3.2.28-48517' }
+    // 跟随当前激活协议 (--protocol); 供 milky get_impl_info + WebUI dashboard 显示。
+    return { devType: DeviceInfo.devType, buildVer: AppInfo.buildVer }
   }
 }

@@ -22,6 +22,7 @@ import {
 import type { QrCodeResult, QrPollResult } from './direct-lib'
 import { getCdn } from '@/common/utils/environment'
 import { overwriteMachineGuid, deleteMachineGuid, loadMachineGuidSync } from './direct-lib/machineGuid'
+import { getActiveProfile } from './direct-lib/profiles'
 import { updateAuthToken } from './direct-lib/sign'
 import { authTokenUtil } from '../config'
 import { setLoginState } from '../llbot-ipc'
@@ -416,11 +417,20 @@ export class DirectQQProtocol extends QQProtocolBase {
     if (!this.directClient || !this.directPollResult || !this.directQrResult) return
     this.manualLogout = false
 
-    // Get UIN
-    const urlParams = new URL(this.directQrResult.url).searchParams
-    const qrSig = urlParams.get('k') || ''
-    const uin = await getCorrectUin(AppInfo.appId, qrSig)
-    this.directPollResult.uin = String(uin)
+    // Get UIN: watch 的 uin 内嵌在 poll confirm (已填入 directPollResult.uin); 桌面走 getCorrectUin。
+    let uin: number
+    if (getActiveProfile().family === 'watch') {
+      uin = Number(this.directPollResult.uin || 0)
+      if (!uin) {
+        this.logger.error('watch 登录: poll confirm 未拿到 uin, 无法继续')
+        return
+      }
+    } else {
+      const urlParams = new URL(this.directQrResult.url).searchParams
+      const qrSig = urlParams.get('k') || ''
+      uin = await getCorrectUin(AppInfo.appId, qrSig)
+      this.directPollResult.uin = String(uin)
+    }
 
     // uin 授权/绑定由服务端判 (登录时按配额自动绑, 满了才 403); 本地不预检 allowed_uins.
 

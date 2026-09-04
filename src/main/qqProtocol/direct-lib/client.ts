@@ -2,8 +2,10 @@ import { getLogger, isDebugEnabled } from '@/common/logger'
 import { TcpConnection } from './connection'
 import { buildServicePacket, buildServicePacket13, parseServicePacket, EncryptType, PacketContext, SsoPacket } from './packet'
 import { generateEcdhKeyPair, EcdhKeyPair } from './ecdh'
+import { generateWatchEcdhKeyPair } from './watch/ecdh'
 import { requestSign, setupSign, setSignMachineGuid, acquireSignToken, SignResult } from './sign'
 import { AppInfo } from './appInfo'
+import { getActiveProfile } from './profiles'
 import { loadMachineGuidSync } from './machineGuid'
 import { EventEmitter } from 'node:events'
 
@@ -79,7 +81,8 @@ export class DirectProtocolClient extends EventEmitter {
     // sign 初始化不在构造函数里做 -- native init 现在是 async (传 uin 时 await /api/bu bind),
     // 构造函数没法 await. 挪到 connect() 顶部, 由调用方 await. 见 ensureSignSetup.
     this.conn = new TcpConnection()
-    this.ecdhKeyPair = generateEcdhKeyPair()
+    // watch wtlogin 用 P-256, 桌面用 secp192k1
+    this.ecdhKeyPair = getActiveProfile().family === 'watch' ? generateWatchEcdhKeyPair() : generateEcdhKeyPair()
 
     this.conn.on('packet', (frame: Buffer) => this.handlePacket(frame))
     this.conn.on('error', (err) => this.emit('error', err))
@@ -754,7 +757,7 @@ export class DirectProtocolClient extends EventEmitter {
     'wtlogin_device.tran_sim_emp'
   ])
 
-  async sendCommand(cmd: string, payload: Buffer, encryptType?: EncryptType, timeout = 15000): Promise<SsoPacket> {
+  async sendCommand(cmd: string, payload: Buffer, encryptType?: EncryptType, timeout = 15000, skipSign = false): Promise<SsoPacket> {
     const seq = this.nextSeq()
     const ctx = this.getPacketContext()
     const enc = encryptType ?? (this.session ? EncryptType.EncryptD2Key : EncryptType.EncryptEmpty)
@@ -763,8 +766,9 @@ export class DirectProtocolClient extends EventEmitter {
     let tTokenDone = t0
     let tSignDone = t0
 
+    // watch trans_emp 必须不签名 (签了服务器拒扫码授权); 桌面 trans_emp 照常签。skipSign 由调用方按协议传。
     let signResult: SignResult | null = null
-    if (this.config.authToken && this.SIGN_ALLOWLIST.has(cmd)) {
+    if (!skipSign && this.config.authToken && this.SIGN_ALLOWLIST.has(cmd)) {
       // uin 优先 session (登录成功后), 未登录时 fallback 到构造时传的 config.uin.
       // 快速登录场景 session 解不开时 session 为 null, 但 config.uin 已从明文元数据 / -q 拿到,
       // 缺了它 sign 服务器会 400 'missing uin' 直接拒
