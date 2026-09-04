@@ -186,14 +186,14 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
 
   // 私聊时从好友列表获取备注或昵称
   if (message.chatType === 1 && !isSelf && friendsContext) {
-    const friend = friendsContext.getFriend(message.senderUin)
+    const friend = friendsContext.getFriend(String(message.senderUin))
     if (friend) {
       senderName = friend.remark || friend.nickname || senderName
     }
   }
 
   const senderAvatar = `https://q1.qlogo.cn/g?b=qq&nk=${message.senderUin}&s=640`
-  const timestamp = parseInt(message.msgTime) * 1000
+  const timestamp = Number(message.msgTime) * 1000
 
   // 从 msgAttrs 中获取群等级和头衔
   let memberLevel: number | undefined
@@ -224,8 +224,8 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
 
     // 从缓存的群成员信息获取角色
     if (groupMembersContext) {
-      const members = groupMembersContext.getMembers(message.peerUin)
-      const member = members?.find(m => m.uid === message.senderUid || m.uin === message.senderUin)
+      const members = groupMembersContext.getMembers(String(message.peerUin))
+      const member = members?.find(m => m.uid === message.senderUid || m.uin === String(message.senderUin))
       if (member) {
         memberRole = member.role
         // 如果 msgAttrs 没有等级信息，从成员缓存获取
@@ -425,7 +425,7 @@ const EmojiReactionList = memo<{ message: RawMessage; isSelf: boolean }>(({ mess
     setLoading(emojiId)
     try {
       // isClicked 为 true 表示自己已贴过，点击取消；否则点击添加
-      await setEmojiLike(message.chatType, message.peerUin, message.msgSeq, emojiId, !isClicked)
+      await setEmojiLike(message.chatType, String(message.peerUin), message.msgSeq, emojiId, !isClicked)
       // 乐观更新本地 (server 未必推 self reaction, 不然要刷新才生效)
       selfReaction?.onSelfReact(message.msgSeq, emojiId, !isClicked, String(message.peerUin))
     } catch (e) {

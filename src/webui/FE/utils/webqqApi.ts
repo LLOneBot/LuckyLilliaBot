@@ -145,9 +145,10 @@ export async function getRecentChats(): Promise<RecentChatItem[]> {
 export async function getMessages(
   chatType: number,
   peerId: string,
-  beforeMsgSeq?: string,
+  // msgSeq 在 RawMessage 里是 number, 调用方直接透传, 这里统一转成 query string
+  beforeMsgSeq?: string | number,
   limit: number = 20,
-  afterMsgSeq?: string
+  afterMsgSeq?: string | number
 ): Promise<MessagesResponse> {
   const params = new URLSearchParams({
     chatType: String(chatType),
@@ -155,10 +156,10 @@ export async function getMessages(
     limit: limit.toString()
   })
   if (beforeMsgSeq) {
-    params.append('beforeMsgSeq', beforeMsgSeq)
+    params.append('beforeMsgSeq', String(beforeMsgSeq))
   }
   if (afterMsgSeq) {
-    params.append('afterMsgSeq', afterMsgSeq)
+    params.append('afterMsgSeq', String(afterMsgSeq))
   }
 
   const response = await apiFetch<MessagesResponse>(`/api/webqq/messages?${params}`)

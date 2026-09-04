@@ -18,7 +18,7 @@ export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({ target
     const msg = target.message
     onClose()
     try {
-      await setEmojiLike(msg.chatType, msg.peerUin, msg.msgSeq, String(faceId), true)
+      await setEmojiLike(msg.chatType, String(msg.peerUin), msg.msgSeq, String(faceId), true)
       onReacted?.(String(faceId))
     } catch (e) {
       showToast(e.message || '贴表情失败', 'error')
@@ -36,7 +36,7 @@ export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({ target
         showToast('无效的表情', 'error')
         return
       }
-      await setEmojiLike(msg.chatType, msg.peerUin, msg.msgSeq, String(codePoint), true)
+      await setEmojiLike(msg.chatType, String(msg.peerUin), msg.msgSeq, String(codePoint), true)
       onReacted?.(String(codePoint))
     } catch (e) {
       showToast(e.message || '贴表情失败', 'error')

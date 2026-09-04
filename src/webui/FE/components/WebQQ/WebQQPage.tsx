@@ -205,13 +205,16 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
           }
 
           const chatType = rawMessage.chatType as 1 | 2 | 100
-          // peerUin 可能为空，优先用 peerUin，否则用 peerUid
-          const peerId = rawMessage.peerUin || rawMessage.peerUid
+          // peerUin 是 number (群号 / QQ 号), 为 0 时退回 peerUid.
+          // 必须转 string: ChatSession.peerId / RecentChatItem.peerId 都是 string,
+          // 不转的话下面 chat.peerId === peerId 恒为 false, 新消息进不了已打开的窗口.
+          // SSE 回调里 data 是 unknown, 类型检查兜不住这里, 只能靠这行保证.
+          const peerId = String(rawMessage.peerUin || rawMessage.peerUid)
           const chatKey = `${chatType}_${peerId}`
           const chat = currentChatRef.current
 
           // 无论是否匹配当前聊天，都要缓存消息
-          appendCachedMessage(chatType, peerId.toString(), rawMessage)
+          appendCachedMessage(chatType, peerId, rawMessage)
 
           if (chat && chat.chatType === chatType && chat.peerId === peerId) {
             if (onNewMessageRef.current) {
@@ -240,7 +243,7 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
             peerAvatar = `https://q1.qlogo.cn/g?b=qq&nk=${peerId}&s=640`
           }
 
-          updateRecentChat(chatType, peerId.toString(), lastMessage, rawMessage.msgTime * 1000, peerName, peerAvatar)
+          updateRecentChat(chatType, peerId, lastMessage, rawMessage.msgTime * 1000, peerName, peerAvatar)
         } else if (data.type === 'emoji-reaction') {
           // 处理表情回应事件
           const { groupCode, msgSeq, emojiId, userId, userName, isAdd } = data.data

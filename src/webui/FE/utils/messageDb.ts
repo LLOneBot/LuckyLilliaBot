@@ -211,7 +211,7 @@ export async function markCachedMessageAsRecalled(
     let found = false
     const messages = existing.map(m => {
       // 优先用 msgId 匹配，如果没有则用 msgSeq
-      if (m.msgId === msgId || (msgSeq && m.msgSeq === msgSeq)) {
+      if (m.msgId === msgId || (!!msgSeq && String(m.msgSeq) === String(msgSeq))) {
         found = true
         return { ...m, recallTime: String(Math.floor(Date.now() / 1000)) }
       }
