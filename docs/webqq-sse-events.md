@@ -13,6 +13,31 @@ FE 在 `WebQQPage.tsx` 的 `createEventSource` 回调里分发。
 
 前两类事件的 id 字段类型**不一致**, 这是踩过坑的地方。
 
+## 自己发的消息: 必须走 `ctx.app.sendMessage`
+
+`message-sent` 这条 SSE 的来源分两种:
+
+- **群聊** — server 会把消息原样回声回来 (OlPush msgType=82), `dispatcher.ts` 判定
+  `senderUin === selfInfo.uin` 后 emit `nt/message-sent`。
+- **C2C 私聊** — **server 不推 self-echo**。只有 `ctx.app.sendMessage`
+  (`src/ntqqapi/core.ts`) 会在 `ntMsgApi.sendMsg` 返回后补发一个 `nt/message-sent`。
+
+所以 **WebQQ 的 BE 路由发消息一律走 `ctx.app.sendMessage(ctx, peer, elements, [])`,
+不能直接调 `ctx.ntMsgApi.sendMsg`** (OneBot / Satori / Milky 也都走前者)。
+直接调的后果:
+
+1. 私聊发完不触发 `message-sent` SSE -> 会话不进最近列表; 且 `ChatInput` 发送成功后
+   会无条件删掉临时气泡等真消息回填, 等不到 -> **刚发的消息从窗口里消失**, 要切会话才看得到。
+2. OneBot / Satori / Milky 收不到"自己发的消息"事件 —— 从 WebQQ 发的私聊对它们不可见。
+3. 跳过群禁言预检 (被禁言时不再提前报错), 且 `groupMsgMask` 不会传给 `sendMsg`。
+4. `messageSentCount` 统计漏计。
+
+第 4 个参数 `deleteAfterSentFiles` 传 `[]` —— WebQQ 各路由自己在 `finally` 里清理临时文件,
+交给 `app.sendMessage` 会重复 unlink。
+
+回归测试: `test/webui/routes/webqq/messages.test.ts`
+"sends via app.sendMessage, never ntMsgApi.sendMsg directly"。
+
 ## 陷阱: number vs string
 
 FE 侧的 `ChatSession.peerId`、`RecentChatItem.peerId`、`GroupItem.groupCode`、

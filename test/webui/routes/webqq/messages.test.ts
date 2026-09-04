@@ -111,7 +111,7 @@ describe('messages routes', () => {
     })
 
     it('sends text message to group', async () => {
-      ctx.ntMsgApi.sendMsg.mockResolvedValue({ msgId: 'sent-1' })
+      ctx.app.sendMessage.mockResolvedValue({ msgId: 'sent-1' })
       const app = makeApp()
 
       const res = await app.request('/messages', {
@@ -127,6 +127,27 @@ describe('messages routes', () => {
       const body = await res.json()
       expect(body.success).toBe(true)
       expect(body.data.msgId).toBe('sent-1')
+    })
+
+    // 直接调 ntMsgApi.sendMsg 会绕过 C2C 的 nt/message-sent 补发,
+    // 私聊发完既不进最近会话也等不到真消息回填. 见 docs/webqq-sse-events.md
+    it('sends via app.sendMessage, never ntMsgApi.sendMsg directly', async () => {
+      ctx.app.sendMessage.mockResolvedValue({ msgId: 'sent-2' })
+      const app = makeApp()
+
+      const res = await app.request('/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatType: 1,
+          peerId: '654321',
+          content: [{ type: 'text', text: 'hi' }],
+        }),
+      })
+
+      expect(res.status).toBe(200)
+      expect(ctx.app.sendMessage).toHaveBeenCalledTimes(1)
+      expect(ctx.ntMsgApi.sendMsg).not.toHaveBeenCalled()
     })
 
     it('returns 400 when content produces no elements', async () => {
