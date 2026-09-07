@@ -122,6 +122,15 @@ export interface SignRequestArgs {
   uin: number
   /** QQ 12B session token 的 utf-8 hex (登录后由 acquireSignToken 拿到). 登录前传 "". */
   protocolTokenHex: string
+  /**
+   * watch 端设备身份: 32B per-install GUID 的 hex (64 chars). 仅 watch 协议需要 —— 后端据此
+   * 派生 device_blob 做设备绑定; **不传的话后端用空 blob = 模拟器身份, 真机服务器会拒**。
+   * Linux/macOS 省略即可。
+   *
+   * 注意: 这是手写 loader, 原生侧 napi `#[napi(object)]` 对未知字段是**静默丢弃**的 ——
+   * 声明加了但 .node 没重编的话, 传了也白传且不报错。加字段必须连带重编 + sync-to-bot。
+   */
+  device32Hex?: string
 }
 
 export interface SignResultJs {

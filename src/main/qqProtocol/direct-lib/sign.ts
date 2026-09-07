@@ -1,4 +1,7 @@
 import { getLogger } from '@/common/logger'
+import { getActiveProfile } from './profiles'
+import { loadMachineGuidSync } from './machineGuid'
+import { device32FromGuid } from './watch/device32'
 import {
   getSignProxy,
   type RelayPacket,
@@ -129,6 +132,11 @@ export async function requestSign(
       protocolTokenHex: protocolToken12B
         ? Buffer.from(protocolToken12B, 'utf-8').toString('hex')
         : '',
+      // watch sign 是设备绑定的: 后端拿 device32 派生 device_blob。不传 = 空 blob =
+      // 模拟器身份, 真机会拒。从持久化 machine guid 派生, 跟 wtlogin 用的是同一台设备。
+      device32Hex: getActiveProfile().family === 'watch'
+        ? device32FromGuid(loadMachineGuidSync()).toString('hex')
+        : undefined,
     })
     logger.debug(`${cmd} seq=${seq}: sign=${r.sign.length}B token=${r.token.length}B extra=${r.extra.length}B`)
     return { sign: r.sign, token: r.token, extra: r.extra }
