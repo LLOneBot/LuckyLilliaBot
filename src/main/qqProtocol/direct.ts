@@ -79,12 +79,16 @@ export class DirectQQProtocol extends QQProtocolBase {
     startAuthTokenWatcher(this.onAuthTokenValid.bind(this), this.logger)
   }
 
+  /**
+   * 掉线监控 (base.startDisconnectMonitoring) 的判据. 不能用 isLoggedIn -- 那只说本地有没有
+   * session 对象, 服务端作废凭据后它照样是 true, 监控永远测不到, 表现成"假在线".
+   */
   public get_is_connected(): boolean {
-    return !!this.directClient?.isLoggedIn
+    return !!this.directClient?.isConnected && !!this.directClient?.isSessionValid
   }
 
   public async sendPB(cmd: string, pb: Buffer | string, timeout = 15000): Promise<PBData> {
-    if (!this.directClient?.isLoggedIn) {
+    if (!this.directClient?.isSessionValid) {
       throw new Error('Direct client not logged in')
     }
     const buf = Buffer.isBuffer(pb) ? pb : Buffer.from(pb, 'hex')
@@ -362,6 +366,28 @@ export class DirectQQProtocol extends QQProtocolBase {
         // 扫码 -- 不会用旧凭证跟顶号方互相顶下线, 安全. 三种都重连, 只有主动 logout 不重连.
         if (!this.manualLogout) this.scheduleReconnect()
       }
+    })
+    // 服务端判定凭据作废 (retCode=-10001 "身份验证失败, 请你重新登录"): 本地这份 d2/tgt 已经是废的,
+    // 留着重连只会再被拒一次并停在"假在线". 删 session 退回扫码; 但设备指纹没泄露, 不动 guid
+    // (删了要重新过设备验证) -- 这点跟异地顶号(kickedType=1001)不同.
+    client.on('qq-session-expired', (info: { cmd: string; retCode: number; extraMsg: string }) => {
+      this.logger.error(`[Session] credentials invalidated by server (cmd=${info.cmd} retCode=${info.retCode} ${info.extraMsg}), QR login required`)
+      authTokenStatus.loginError = '登录凭据已失效, 请重新扫码登录'
+      if (this.directStopHeartbeat) { this.directStopHeartbeat(); this.directStopHeartbeat = null }
+      const uin = selfInfo.uin || this.runtimeUinOverride || getSpecifiedUin() || ''
+      if (uin) deleteSession(uin)
+      this.runtimeUinOverride = null
+      selfInfo.online = false
+      client.clearSession()
+      // 复用掉线事件通知邮件 / milky bot_offline. kickedType 用 retCode, 不会撞上顶号的 1001,
+      // 故本类自己那个 nt/kicked-offline 监听只会停心跳 + disconnect (都幂等), 不清设备指纹.
+      this.ctx.parallel('nt/kicked-offline', {
+        tipsTitle: '登录凭据已失效',
+        tipsDesc: `${info.extraMsg || '身份验证失败'}, 请重新扫码登录`,
+        kickedType: info.retCode,
+      })
+      // close -> scheduleReconnect 会重来一轮; session 已删, 必然退回扫码.
+      client.disconnect()
     })
     client.on('push', (packet: { cmd: string; payload: Buffer }) => {
       // 收到包 = 连着; 顺带刷新 lastConnectedTime

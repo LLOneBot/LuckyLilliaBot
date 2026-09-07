@@ -73,6 +73,10 @@ export class DirectProtocolClient extends EventEmitter {
   private maxLoopLag = 0
   private loopLagTimer: NodeJS.Timeout | null = null
   private lastLoopTick = 0
+  // 服务端明确判"凭据失效, 请重新登录"的 SSO retCode.
+  private static readonly SESSION_EXPIRED_RET_CODES = new Set([-10001])
+  // 服务端作废凭据后置 true. session 对象还在不代表还能用, 分开记才测得到.
+  private sessionExpired = false
 
   constructor(config: Partial<DirectClientConfig> = {}) {
     super()
@@ -830,6 +834,7 @@ export class DirectProtocolClient extends EventEmitter {
       return
     }
     if (isDebugEnabled()) this.frameArriveAt.set(parsed.seq, tArrive)
+    this.checkSessionExpired(parsed)
     const pending = this.pendingPackets.get(parsed.seq)
     if (pending) {
       clearTimeout(pending.timeout)
@@ -842,7 +847,29 @@ export class DirectProtocolClient extends EventEmitter {
       return
     }
 
+    // 无主错误帧不是业务推送, body 也不是有效 protobuf, 别喂给 dispatcher.
+    if (parsed.retCode && parsed.retCode !== 0) {
+      logger.warn(`[SSO] unmatched error frame cmd=${parsed.cmd} seq=${parsed.seq} retCode=${parsed.retCode} extraMsg=${parsed.extraMsg || ''}`)
+      return
+    }
+
     this.emit('push', parsed)
+  }
+
+  /**
+   * session 失效检测. 服务端作废凭据时回的错误帧 seq=0, 匹配不上任何在飞请求, 走 push 分支后 retCode
+   * 会被整个丢掉 -- 本地 session 对象还在, 心跳失败又只 log 不升级, 就成了收不到消息的"假在线".
+   * 故在分发前先认码; 善后 (删 session 退回扫码) 由 direct.ts 的 qq-session-expired 监听做.
+   */
+  private checkSessionExpired(parsed: SsoPacket): void {
+    if (!parsed.retCode || !DirectProtocolClient.SESSION_EXPIRED_RET_CODES.has(parsed.retCode)) return
+    if (this.sessionExpired) return
+    this.sessionExpired = true
+    logger.error(`[Session] server rejected credentials: cmd=${parsed.cmd} retCode=${parsed.retCode} extraMsg=${parsed.extraMsg || ''}`)
+    // 推迟到本帧处理完再 emit: 监听方会 disconnect() 清空 pendingPackets, 同步触发会把这条帧
+    // 对应请求的 reject 理由从 retCode 改写成 'Disconnected', 真错因又丢了.
+    const info = { cmd: parsed.cmd, retCode: parsed.retCode, extraMsg: parsed.extraMsg || '' }
+    queueMicrotask(() => this.emit('qq-session-expired', info))
   }
 
   get isConnected(): boolean {
@@ -851,6 +878,14 @@ export class DirectProtocolClient extends EventEmitter {
 
   get isLoggedIn(): boolean {
     return this.session !== null
+  }
+
+  /**
+   * 凭据是否还被服务端认. isLoggedIn 只说本地有没有 session 对象 -- 服务端作废后它仍是 true,
+   * 掉线监控拿它当判据就永远测不到失效. 要判"还能不能真发包"用这个.
+   */
+  get isSessionValid(): boolean {
+    return this.session !== null && !this.sessionExpired
   }
 
   getGuid(): Buffer {
@@ -888,6 +923,7 @@ export class DirectProtocolClient extends EventEmitter {
 
   setSession(session: SessionInfo): void {
     this.session = session
+    this.sessionExpired = false
     this.emit('login', session)
     void this.tryAcquireSignToken()
   }
@@ -950,5 +986,6 @@ export class DirectProtocolClient extends EventEmitter {
 
   clearSession(): void {
     this.session = null
+    this.sessionExpired = false
   }
 }
