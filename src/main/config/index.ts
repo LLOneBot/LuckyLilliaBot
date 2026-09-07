@@ -352,7 +352,10 @@ class AuthTokenUtil {
 export const authTokenUtil = new AuthTokenUtil(path.join(DATA_DIR, 'auth_token.txt'))
 
 // auth token 校验服务 (契约同 Desktop preflight / install 脚本): GET + Authorization: Bearer
-export const AUTH_VALIDATE_API = 'https://api-auth.luckylillia.com/api/sign/info'
+// dev 联调: 设 env AUTH_VALIDATE_API=http://localhost:8090/api/sign/info 指向本地 manager
+// (SignProxy 的 --features dev 只切 sign 链路的 base_url, 这个 TS 预检要单独指).
+export const AUTH_VALIDATE_API =
+  process.env.AUTH_VALIDATE_API?.trim() || 'https://api-auth.luckylillia.com/api/sign/info'
 
 /**
  * 校验 auth token 是否有效.
