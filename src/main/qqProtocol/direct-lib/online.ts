@@ -195,7 +195,7 @@ export async function sendHeartbeat(client: DirectProtocolClient): Promise<void>
 
 /**
  * 心跳 loop. 失败不能只 log 了事 -- 链路或凭据出问题时 selfInfo.online 会停在 true, 变成收不到
- * 消息的"假在线". 故失败后转 30s 快重试, 连挂 MAX_FAILURES 次 (或凭据已被判失效) 就主动断开,
+ * 消息的"假在线". 故失败后转 30s 快重试, 连挂 MAX_FAILURES 次 (或 session 已被判失效清掉) 就主动断开,
  * 交给 close -> scheduleReconnect 重建, 最坏约 5.5 分钟能测出来.
  */
 export function startHeartbeat(client: DirectProtocolClient): () => void {
@@ -221,7 +221,7 @@ export function startHeartbeat(client: DirectProtocolClient): () => void {
     } catch (e) {
       failures++
       logger.error(`[Heartbeat] Failed (${failures}/${MAX_FAILURES}):`, (e as Error).message)
-      if (failures >= MAX_FAILURES || !client.isSessionValid) {
+      if (failures >= MAX_FAILURES || !client.isLoggedIn) {
         stopped = true
         logger.error('[Heartbeat] giving up, disconnecting to force a reconnect')
         client.disconnect()

@@ -69,6 +69,11 @@ export class EmailNotificationService extends Service {
       this.onOffline(data.tipsDesc || data.tipsTitle)
     })
 
+    this.ctx.on('qq/session-expired', (reason) => {
+      wasOffline = true
+      this.onOffline(reason)
+    })
+
     this.checkLoginStatus = setInterval(() => {
       if (wasOffline && selfInfo.online) {
         this.notificationSent = false

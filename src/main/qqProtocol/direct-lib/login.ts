@@ -223,6 +223,8 @@ export async function pollQrCode(client: DirectProtocolClient, sig: Buffer): Pro
 export async function loginWithQrResult(
   client: DirectProtocolClient,
   qrResult: QrPollResult,
+  // Checked after the network response, before installing session credentials.
+  isCurrent?: () => boolean,
 ): Promise<LoginResult> {
   if (!qrResult.tempPassword || !qrResult.tgtgtKey || !qrResult.noPicSig || !qrResult.uin) {
     throw new Error('QR poll result incomplete')
@@ -315,6 +317,8 @@ export async function loginWithQrResult(
     15000,
   )
 
+  // A superseded QR attempt must not install credentials into the shared client.
+  if (isCurrent && !isCurrent()) throw new Error('QR login attempt was superseded')
   const result = parseLoginResponse(resp.payload, client.getEcdhShareKey(), qrResult.tgtgtKey)
   if (result.success) {
     client.setSession({

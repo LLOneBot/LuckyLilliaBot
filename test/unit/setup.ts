@@ -40,7 +40,11 @@ vi.mock('@/main/log', () => ({
   getLogCache: vi.fn(() => []),
 }))
 
+// getProtocol/getCdn 少了会让 direct-lib 在 import 期就炸 (appInfo -> getActiveProfile 直接读)
 vi.mock('@/common/utils/environment', () => ({
   isDockerEnvironment: vi.fn(() => false),
   isPmhqMode: vi.fn(() => false),
+  getProtocol: vi.fn(() => 'linux'),
+  getCdn: vi.fn(() => 'cf'),
+  getSpecifiedUin: vi.fn(() => undefined),
 }))

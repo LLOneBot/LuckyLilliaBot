@@ -73,10 +73,6 @@ export class DirectProtocolClient extends EventEmitter {
   private maxLoopLag = 0
   private loopLagTimer: NodeJS.Timeout | null = null
   private lastLoopTick = 0
-  // 服务端明确判"凭据失效, 请重新登录"的 SSO retCode.
-  private static readonly SESSION_EXPIRED_RET_CODES = new Set([-10001])
-  // 服务端作废凭据后置 true. session 对象还在不代表还能用, 分开记才测得到.
-  private sessionExpired = false
 
   constructor(config: Partial<DirectClientConfig> = {}) {
     super()
@@ -763,6 +759,7 @@ export class DirectProtocolClient extends EventEmitter {
 
   async sendCommand(cmd: string, payload: Buffer, encryptType?: EncryptType, timeout = 15000, skipSign = false): Promise<SsoPacket> {
     const seq = this.nextSeq()
+    const session = this.session
     const ctx = this.getPacketContext()
     const enc = encryptType ?? (this.session ? EncryptType.EncryptD2Key : EncryptType.EncryptEmpty)
 
@@ -792,6 +789,10 @@ export class DirectProtocolClient extends EventEmitter {
       }
     }
 
+    // Signing can still be in flight when another request invalidates the session.
+    if (this.session !== session) {
+      throw new Error('QQ session changed before the command could be sent')
+    }
     const packet = buildServicePacket(seq, cmd, ctx, payload, enc, signResult)
 
     // 调试用: 出网前 dump SSO frame, 跟真机抓包对照定位 sign 不一致的字节差异.
@@ -833,8 +834,23 @@ export class DirectProtocolClient extends EventEmitter {
       this.emit('error', new Error('Failed to parse incoming packet'))
       return
     }
+    // Authentication failures can have seq=0 and no command, so handle them before request matching.
+    if (parsed.retCode === -10001 && this.session) {
+      const uin = this.session.uin
+      const error = new Error(
+        `QQ session authentication failed: retCode=${parsed.retCode}, ${parsed.extraMsg || 'Please log in again'}`,
+      )
+      this.clearSession()
+      for (const pending of this.pendingPackets.values()) {
+        clearTimeout(pending.timeout)
+        pending.reject(error)
+      }
+      this.pendingPackets.clear()
+      this.frameArriveAt.clear()
+      this.emit('session-expired', uin, error)
+      return
+    }
     if (isDebugEnabled()) this.frameArriveAt.set(parsed.seq, tArrive)
-    this.checkSessionExpired(parsed)
     const pending = this.pendingPackets.get(parsed.seq)
     if (pending) {
       clearTimeout(pending.timeout)
@@ -856,36 +872,12 @@ export class DirectProtocolClient extends EventEmitter {
     this.emit('push', parsed)
   }
 
-  /**
-   * session 失效检测. 服务端作废凭据时回的错误帧 seq=0, 匹配不上任何在飞请求, 走 push 分支后 retCode
-   * 会被整个丢掉 -- 本地 session 对象还在, 心跳失败又只 log 不升级, 就成了收不到消息的"假在线".
-   * 故在分发前先认码; 善后 (删 session 退回扫码) 由 direct.ts 的 qq-session-expired 监听做.
-   */
-  private checkSessionExpired(parsed: SsoPacket): void {
-    if (!parsed.retCode || !DirectProtocolClient.SESSION_EXPIRED_RET_CODES.has(parsed.retCode)) return
-    if (this.sessionExpired) return
-    this.sessionExpired = true
-    logger.error(`[Session] server rejected credentials: cmd=${parsed.cmd} retCode=${parsed.retCode} extraMsg=${parsed.extraMsg || ''}`)
-    // 推迟到本帧处理完再 emit: 监听方会 disconnect() 清空 pendingPackets, 同步触发会把这条帧
-    // 对应请求的 reject 理由从 retCode 改写成 'Disconnected', 真错因又丢了.
-    const info = { cmd: parsed.cmd, retCode: parsed.retCode, extraMsg: parsed.extraMsg || '' }
-    queueMicrotask(() => this.emit('qq-session-expired', info))
-  }
-
   get isConnected(): boolean {
     return this.conn.isConnected
   }
 
   get isLoggedIn(): boolean {
     return this.session !== null
-  }
-
-  /**
-   * 凭据是否还被服务端认. isLoggedIn 只说本地有没有 session 对象 -- 服务端作废后它仍是 true,
-   * 掉线监控拿它当判据就永远测不到失效. 要判"还能不能真发包"用这个.
-   */
-  get isSessionValid(): boolean {
-    return this.session !== null && !this.sessionExpired
   }
 
   getGuid(): Buffer {
@@ -923,7 +915,6 @@ export class DirectProtocolClient extends EventEmitter {
 
   setSession(session: SessionInfo): void {
     this.session = session
-    this.sessionExpired = false
     this.emit('login', session)
     void this.tryAcquireSignToken()
   }
@@ -986,6 +977,5 @@ export class DirectProtocolClient extends EventEmitter {
 
   clearSession(): void {
     this.session = null
-    this.sessionExpired = false
   }
 }

@@ -319,6 +319,10 @@ export class MilkyAdapter extends Service {
         this.emitEvent('bot_offline', eventData)
       }
     })
+
+    this.ctx.on('qq/session-expired', (reason) => {
+      this.emitEvent('bot_offline', { reason })
+    })
   }
 }
 

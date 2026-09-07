@@ -23,6 +23,8 @@ declare module 'cordis' {
     'qq/online': () => void
     /** 协议层断开（WS / TCP 掉了）。上层一般不需要卸插件，等协议层重连后会再次 emit `qq/online` */
     'protocol/disconnect': () => void
+    /** An online QQ session was rejected; notify consumers without applying KickNT recovery. */
+    'qq/session-expired': (reason: string) => void
     'llbot/self-nick-changed': (info: { nick: string }) => void
   }
 }

@@ -80,15 +80,15 @@ export class DirectQQProtocol extends QQProtocolBase {
   }
 
   /**
-   * 掉线监控 (base.startDisconnectMonitoring) 的判据. 不能用 isLoggedIn -- 那只说本地有没有
-   * session 对象, 服务端作废凭据后它照样是 true, 监控永远测不到, 表现成"假在线".
+   * 掉线监控 (base.startDisconnectMonitoring) 的判据. session-expired 会 clearSession, 所以
+   * isLoggedIn 能反映凭据被作废; 再带上 TCP 状态, 覆盖"连接断了但 session 还在"那一档。
    */
   public get_is_connected(): boolean {
-    return !!this.directClient?.isConnected && !!this.directClient?.isSessionValid
+    return !!this.directClient?.isConnected && !!this.directClient?.isLoggedIn
   }
 
   public async sendPB(cmd: string, pb: Buffer | string, timeout = 15000): Promise<PBData> {
-    if (!this.directClient?.isSessionValid) {
+    if (!this.directClient?.isLoggedIn) {
       throw new Error('Direct client not logged in')
     }
     const buf = Buffer.isBuffer(pb) ? pb : Buffer.from(pb, 'hex')
@@ -126,6 +126,7 @@ export class DirectQQProtocol extends QQProtocolBase {
 
   public async logout(): Promise<void> {
     this.manualLogout = true
+    this.qrPollToken++
     if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null }
     this.directClient?.clearSession()
     this.directClient?.disconnect()
@@ -258,13 +259,14 @@ export class DirectQQProtocol extends QQProtocolBase {
   private async doInitDirectClient(authToken: string): Promise<void> {
     this.manualLogout = false
     // 换账号 / 重试时取消上一轮残留的 QR poll loop (qrPollToken 变 -> 旧 poll 循环下一 tick 自退)
-    this.qrPollToken++
+    const myToken = ++this.qrPollToken
     // 换账号/重建 client: 清 base 展示缓存, 否则 TTL 内会复用上一账号的旧码
     this.resetQrState()
     this.directQrResult = null
 
     // native sign 已 init 时热切换到最新 token; 未 init (首次) 时 no-op, token 由 new client 的 config 带入
     await updateAuthToken(authToken).catch((e) => this.logger.warn('[Sign] updateAuthToken failed:', (e as Error).message))
+    if (this.qrPollToken !== myToken) return
 
     // 先 loadSession 拿 (uin, guid). 运行时 override 优先于 argv -q.
     const specifiedUin = this.runtimeUinOverride || getSpecifiedUin()
@@ -313,11 +315,13 @@ export class DirectQQProtocol extends QQProtocolBase {
       // uin 授权/绑定由服务端判 (登录时按配额自动绑, 满了才 403); 本地不预检 allowed_uins.
       this.logger.info('Found saved session for UIN %s (file: %s), attempting restore...', persisted.uin, getSessionFilePathForUin(persisted.uin))
       if (!this.directClient.isConnected) await this.directClient.connect()
+      if (this.qrPollToken !== myToken) return
       const session = persistedToSessionInfo(persisted)
       this.directClient.setSession(session)
 
       try {
         await registerOnline(this.directClient)
+        if (this.qrPollToken !== myToken || this.directClient.getSession() !== session) return
         this.logger.info('[QQ Server] Online registered!')
         selfInfo.uin = persisted.uin
         selfInfo.uid = persisted.uid
@@ -328,9 +332,12 @@ export class DirectQQProtocol extends QQProtocolBase {
         this.directStopHeartbeat = startHeartbeat(this.directClient)
         this.maybeEmitOnline()
         // 直连 session 恢复后 nick 可能为空; 异步补查
-        if (!selfInfo.nick) this.scheduleFetchSelfNick()
+        if (!selfInfo.nick) {
+          this.scheduleFetchSelfNick(() => this.qrPollToken === myToken && this.directClient?.getSession() === session)
+        }
         return
       } catch (e) {
+        if (this.qrPollToken !== myToken || this.directClient.getSession() !== session) return
         // 恢复失败 (session 过期): 清 session, 但保留 TCP 连接复用给扫码 -- 不 disconnect, 否则会触发
         // close 事件且 native sign relay 目标断链, 下面 fresh 分支直接用现连接拉码.
         this.logger.info('Saved session expired, will need QR login: %s', (e as Error).message)
@@ -344,6 +351,34 @@ export class DirectQQProtocol extends QQProtocolBase {
 
   /** 给 client 挂事件 (error/connected/close/push). 只在首次建立 client 时调一次 -- 复用 client 不重挂. */
   private bindDirectClientEvents(client: DirectProtocolClient): void {
+    client.on('session-expired', (uin: string, error: Error) => {
+      const wasOnline = this.onlineEmitted
+      selfInfo.online = false
+      this.onlineEmitted = false
+      authTokenStatus.loginError = error.message
+      this.logger.warn('QQ session expired:', error.message)
+      if (this.directStopHeartbeat) {
+        this.directStopHeartbeat()
+        this.directStopHeartbeat = null
+      }
+      if (this.reconnectTimer) {
+        clearTimeout(this.reconnectTimer)
+        this.reconnectTimer = null
+      }
+      // Remove only the rejected account's credentials; retain the device identity and native client.
+      deleteSession(uin)
+      this.runtimeUinOverride = null
+      this.qrPollToken++
+      this.directQrResult = null
+      this.directPollResult = null
+      this.resetQrState()
+      setLoginState({ state: 'need_qrcode', qrcode_png_base64: undefined })
+      if (wasOnline) {
+        this.ctx.parallel('protocol/disconnect')
+        this.ctx.parallel('qq/session-expired', error.message)
+      }
+      this.ensureQrLoop()
+    })
     client.on('error', (err: Error) => {
       this.logger.warn('Direct client error:', err.message)
     })
@@ -367,31 +402,9 @@ export class DirectQQProtocol extends QQProtocolBase {
         if (!this.manualLogout) this.scheduleReconnect()
       }
     })
-    // 服务端判定凭据作废 (retCode=-10001 "身份验证失败, 请你重新登录"): 本地这份 d2/tgt 已经是废的,
-    // 留着重连只会再被拒一次并停在"假在线". 删 session 退回扫码; 但设备指纹没泄露, 不动 guid
-    // (删了要重新过设备验证) -- 这点跟异地顶号(kickedType=1001)不同.
-    client.on('qq-session-expired', (info: { cmd: string; retCode: number; extraMsg: string }) => {
-      this.logger.error(`[Session] credentials invalidated by server (cmd=${info.cmd} retCode=${info.retCode} ${info.extraMsg}), QR login required`)
-      authTokenStatus.loginError = '登录凭据已失效, 请重新扫码登录'
-      if (this.directStopHeartbeat) { this.directStopHeartbeat(); this.directStopHeartbeat = null }
-      const uin = selfInfo.uin || this.runtimeUinOverride || getSpecifiedUin() || ''
-      if (uin) deleteSession(uin)
-      this.runtimeUinOverride = null
-      selfInfo.online = false
-      client.clearSession()
-      // 复用掉线事件通知邮件 / milky bot_offline. kickedType 用 retCode, 不会撞上顶号的 1001,
-      // 故本类自己那个 nt/kicked-offline 监听只会停心跳 + disconnect (都幂等), 不清设备指纹.
-      this.ctx.parallel('nt/kicked-offline', {
-        tipsTitle: '登录凭据已失效',
-        tipsDesc: `${info.extraMsg || '身份验证失败'}, 请重新扫码登录`,
-        kickedType: info.retCode,
-      })
-      // close -> scheduleReconnect 会重来一轮; session 已删, 必然退回扫码.
-      client.disconnect()
-    })
     client.on('push', (packet: { cmd: string; payload: Buffer }) => {
-      // 收到包 = 连着; 顺带刷新 lastConnectedTime
-      this.lastConnectedTime = Date.now()
+      // Unauthenticated traffic must not postpone the disconnect notification.
+      if (client.isLoggedIn) this.lastConnectedTime = Date.now()
       this.ctx.parallel('qq/raw', { cmd: packet.cmd, payload: packet.payload })
     })
   }
@@ -413,7 +426,7 @@ export class DirectQQProtocol extends QQProtocolBase {
         this.directPollResult = result
 
         if (result.state === QrCodeState.Confirmed) {
-          await this.completeDirectLogin()
+          await this.completeDirectLogin(myToken)
           return
         }
 
@@ -429,6 +442,7 @@ export class DirectQQProtocol extends QQProtocolBase {
           return
         }
       } catch (e) {
+        if (this.qrPollToken !== myToken) return
         this.logger.warn('QR poll error:', (e as Error).message)
       }
 
@@ -439,29 +453,34 @@ export class DirectQQProtocol extends QQProtocolBase {
     setTimeout(poll, 2000)
   }
 
-  private async completeDirectLogin() {
-    if (!this.directClient || !this.directPollResult || !this.directQrResult) return
+  private async completeDirectLogin(myToken: number) {
+    const client = this.directClient
+    const pollResult = this.directPollResult
+    const qrResult = this.directQrResult
+    if (this.qrPollToken !== myToken || !client || !pollResult || !qrResult) return
     this.manualLogout = false
 
-    // Get UIN: watch 的 uin 内嵌在 poll confirm (已填入 directPollResult.uin); 桌面走 getCorrectUin。
+    // Get UIN: watch 的 uin 内嵌在 poll confirm (已填入 pollResult.uin); 桌面走 getCorrectUin。
     let uin: number
     if (getActiveProfile().family === 'watch') {
-      uin = Number(this.directPollResult.uin || 0)
+      uin = Number(pollResult.uin || 0)
       if (!uin) {
         this.logger.error('watch 登录: poll confirm 未拿到 uin, 无法继续')
         return
       }
     } else {
-      const urlParams = new URL(this.directQrResult.url).searchParams
+      const urlParams = new URL(qrResult.url).searchParams
       const qrSig = urlParams.get('k') || ''
       uin = await getCorrectUin(AppInfo.appId, qrSig)
-      this.directPollResult.uin = String(uin)
+      if (this.qrPollToken !== myToken) return
+      pollResult.uin = String(uin)
     }
 
     // uin 授权/绑定由服务端判 (登录时按配额自动绑, 满了才 403); 本地不预检 allowed_uins.
 
     // wtlogin.login
-    const loginResult = await loginWithQrResult(this.directClient, this.directPollResult)
+    const loginResult = await loginWithQrResult(client, pollResult, () => this.qrPollToken === myToken)
+    if (this.qrPollToken !== myToken) return
     if (!loginResult.success) {
       this.logger.error(`Login failed: state=${loginResult.state} ${loginResult.tag} ${loginResult.message}`)
       // 登录失败原因回传 WebUI (如 auth_token 可用 QQ 数量已达上限)
@@ -469,27 +488,30 @@ export class DirectQQProtocol extends QQProtocolBase {
       return
     }
 
-    this.logger.info(`Login successful! UID: ${loginResult.uid}, nick: "${loginResult.nick}"`)
-
-    // Save session
-    const session = this.directClient.getSession()!
-    saveSession(session, this.directPollResult.tgtgtKey!, this.directClient.getGuid(), loginResult.tempPassword, loginResult.nick)
+    const session = client.getSession()
+    if (!session) return
 
     // Register online: 失败视为登录未完成, 不标记在线, 报错回 WebUI. 必须清掉半成品 session
     // (loginWithQrResult 已 setSession -> isLoggedIn=true), 否则扫码 loop 认为已登录会停, 不出新码,
     // 变成收不到 MsgPush 的"假在线". 连接保留复用, 下一轮 loop 直接拉新码.
     try {
-      await registerOnline(this.directClient)
+      await registerOnline(client)
     } catch (e) {
+      if (this.qrPollToken !== myToken || client.getSession() !== session) return
       const msg = (e as Error).message
       this.logger.error('Register online failed:', msg)
       authTokenStatus.loginError = `上线注册失败: ${msg}`
-      this.directClient.clearSession()
+      client.clearSession()
       return
     }
+    // A completed request may resume after invalidation or a newer login attempt.
+    if (this.qrPollToken !== myToken || client.getSession() !== session) return
+
+    this.logger.info(`Login successful! UID: ${loginResult.uid}, nick: "${loginResult.nick}"`)
+    saveSession(session, pollResult.tgtgtKey!, client.getGuid(), loginResult.tempPassword, loginResult.nick)
 
     // Start heartbeat
-    this.directStopHeartbeat = startHeartbeat(this.directClient)
+    this.directStopHeartbeat = startHeartbeat(client)
 
     // Update global state
     selfInfo.uin = String(uin)
@@ -499,6 +521,8 @@ export class DirectQQProtocol extends QQProtocolBase {
     // 记住已登录 uin: 断线重连走 initDirectClient() 时用它 loadSession 快速登录, 不退回扫码.
     this.runtimeUinOverride = String(uin)
     this.maybeEmitOnline()
-    if (!selfInfo.nick) this.scheduleFetchSelfNick()
+    if (!selfInfo.nick) {
+      this.scheduleFetchSelfNick(() => this.qrPollToken === myToken && client.getSession() === session)
+    }
   }
 }
