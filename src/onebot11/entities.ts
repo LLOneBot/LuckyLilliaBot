@@ -63,14 +63,11 @@ export namespace OB11Entities {
       // 284840486: 合并转发内部
       if (msg.peerUin !== 284840486) {
         resMsg.sender.role = groupMemberRole(msg.memberRole)
-        try {
-          const member = await ctx.ntGroupApi.getGroupMemberByUid(msg.peerUin, msg.senderUid, false)
-          resMsg.sender.nickname = member!.nick
-          resMsg.sender.level = member!.level.toString()
-          resMsg.sender.title = member!.specialTitle
-        } catch {
-          resMsg.sender.nickname = msg.sendMemberName || msg.sendNickName
-        }
+        // 拿不到成员信息 (手表协议无此 cmd 权限) 时退回消息自带的发送者信息, 别丢整条消息
+        const member = await ctx.ntGroupApi.getGroupMemberOrFromMessage(msg)
+        resMsg.sender.nickname = member.nick || msg.sendMemberName || msg.sendNickName
+        resMsg.sender.level = member.level.toString()
+        resMsg.sender.title = member.specialTitle
       }
     }
     else if (msg.chatType === ChatType.C2C) {

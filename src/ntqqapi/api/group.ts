@@ -4,6 +4,7 @@ import {
   GroupMsgMask,
   Group,
   GroupMemberRole,
+  RawMessage,
 } from '../types'
 import { Service, Context } from 'cordis'
 import { createReadStream, promises as fsp } from 'node:fs'
@@ -12,6 +13,7 @@ import { groupCodeToGroupUin } from '@/common/utils'
 import { HighwayHttpSession } from '../helper/highway'
 import { Media } from '../proto'
 import { noop } from 'cosmokit'
+import { isCmdNotPermitted } from '@/common/protocolErrors'
 
 declare module 'cordis' {
   interface Context {
@@ -155,9 +157,17 @@ export class NTGroupApi extends Service {
           if (!cookie) break
         }
       } catch (e) {
+        this.refreshingMembers.delete(groupCode)
+        // 当前协议端没有拉成员列表的权限 (手表): 缓存空列表当作"已知没有", 否则每条群消息都会
+        // 再撞一次注定被拒的包并刷一行错误日志. resolve 掉让并发等待者也走空列表, 别各自抛.
+        if (isCmdNotPermitted(e)) {
+          this.ctx.logger.warn('[Group] member list unavailable on this protocol, degrading to message-carried info')
+          this.membersCache.set(groupCode, [])
+          resolve()
+          return []
+        }
         promise.catch(noop) // 防止出现 unhandledRejection
         reject(e)
-        this.refreshingMembers.delete(groupCode)
         throw e
       }
       this.membersCache.set(groupCode, members)
@@ -176,6 +186,34 @@ export class NTGroupApi extends Service {
       return member
     }
     return members.find(e => e.uid === uid)
+  }
+
+  /**
+   * 消息转换专用: 拿群成员信息, 拿不到就用消息自带的发送者信息凑一个。
+   *
+   * 手表协议没有拉成员列表的 cmd 权限 (-10122), 硬等这一步只能把整条消息丢掉。level / 特殊头衔 /
+   * 加群时间这些拿不到就留默认值 —— 少几个字段远好过消息不见。role 一律以消息里的为准, 它比
+   * 缓存新。
+   */
+  async getGroupMemberOrFromMessage(message: RawMessage): Promise<GroupMember> {
+    try {
+      const member = await this.getGroupMemberByUid(message.peerUin, message.senderUid, false)
+      if (member) return { ...member, role: message.memberRole }
+    } catch (e) {
+      this.ctx.logger.debug('[Group] member lookup failed, using message-carried sender info:', e)
+    }
+    return {
+      uin: message.senderUin,
+      uid: message.senderUid,
+      nick: message.sendNickName,
+      cardName: message.sendMemberName,
+      specialTitle: '',
+      level: 0,
+      joinedAt: 0,
+      lastSpokeAt: message.msgTime,
+      shutupExpireTime: 0,
+      role: message.memberRole,
+    }
   }
 
   async getGroupMemberByUin(groupCode: number, uin: number, forceUpdate: boolean) {
