@@ -52,6 +52,7 @@ function App() {
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
   const [showAuthTokenDialog, setShowAuthTokenDialog] = useState(false);
   const [authTokenReason, setAuthTokenReason] = useState<'missing' | 'invalid'>('missing');
+  const [authTokenPageUrl, setAuthTokenPageUrl] = useState('');
   const [qqVersion, setQqVersion] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -165,10 +166,11 @@ function App() {
     let stop = false;
     const poll = async () => {
       try {
-        const st = await apiFetch<{ applicable: boolean; online: boolean; hasToken: boolean; validation: string }>('/api/auth-token/status');
+        const st = await apiFetch<{ applicable: boolean; online: boolean; hasToken: boolean; validation: string; authTokenPageUrl?: string }>('/api/auth-token/status');
         if (!stop && st.success) {
           const d = st.data;
           if (d.online) { window.location.reload(); return; }
+          if (d.authTokenPageUrl) setAuthTokenPageUrl(d.authTokenPageUrl);
           if (d.applicable && (!d.hasToken || d.validation === 'invalid')) {
             setAuthTokenReason(d.validation === 'invalid' ? 'invalid' : 'missing');
             setShowAuthTokenDialog(true);
@@ -271,6 +273,7 @@ function App() {
         <AuthTokenDialog
           visible={showAuthTokenDialog}
           reason={authTokenReason}
+          authTokenPageUrl={authTokenPageUrl}
           onSuccess={() => window.location.reload()}
         />
 

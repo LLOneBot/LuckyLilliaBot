@@ -6,6 +6,8 @@ interface AuthTokenDialogProps {
   visible: boolean;
   // 缺失(missing) 还是 无效(invalid), 决定标题文案
   reason?: 'missing' | 'invalid';
+  // Follows the backend CDN setting; the link is hidden until the status poll delivers it.
+  authTokenPageUrl?: string;
   onSuccess: () => void;
 }
 
@@ -23,7 +25,7 @@ const POLL_MAX = 30; // ~45s 超时
 
 // 强制录入 QQ 登录所需的 auth token: 不可取消/关闭.
 // 提交只写文件 (POST), 校验由后端 watcher 做, 前端轮询 /api/auth-token/status 拿结果.
-const AuthTokenDialog: React.FC<AuthTokenDialogProps> = ({ visible, reason, onSuccess }) => {
+const AuthTokenDialog: React.FC<AuthTokenDialogProps> = ({ visible, reason, authTokenPageUrl, onSuccess }) => {
   const [token, setToken] = useState('');
   const [showToken, setShowToken] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -204,15 +206,17 @@ const AuthTokenDialog: React.FC<AuthTokenDialogProps> = ({ visible, reason, onSu
                 {showToken ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
             </div>
-            <a
-              href="https://auth.luckylillia.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs text-pink-500 hover:text-pink-600 hover:underline mt-2"
-            >
-              <ExternalLink size={14} />
-              获取 Auth Token
-            </a>
+            {authTokenPageUrl && (
+              <a
+                href={authTokenPageUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs text-pink-500 hover:text-pink-600 hover:underline mt-2"
+              >
+                <ExternalLink size={14} />
+                获取 Auth Token
+              </a>
+            )}
           </div>
         </div>
 

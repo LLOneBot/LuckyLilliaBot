@@ -351,34 +351,4 @@ class AuthTokenUtil {
 
 export const authTokenUtil = new AuthTokenUtil(path.join(DATA_DIR, 'auth_token.txt'))
 
-// auth token 校验服务 (契约同 Desktop preflight / install 脚本): GET + Authorization: Bearer
-// dev 联调: 设 env AUTH_VALIDATE_API=http://localhost:8090/api/sign/info 指向本地 manager
-// (SignProxy 的 --features dev 只切 sign 链路的 base_url, 这个 TS 预检要单独指).
-export const AUTH_VALIDATE_API =
-  process.env.AUTH_VALIDATE_API?.trim() || 'https://api-auth.luckylillia.com/api/sign/info'
-
-/**
- * 校验 auth token 是否有效.
- * 2xx=valid, 401/403=invalid (失效/无权限).
- * 纯 HTTP 探测, 不依赖 native sign 初始化, 未登录时也能用.
- */
-export async function validateAuthToken(token: string): Promise<'valid' | 'invalid' | number | Error> {
-  const t = token.trim()
-  if (!t) return 'invalid'
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 15000)
-  try {
-    const res = await fetch(AUTH_VALIDATE_API, {
-      headers: { Authorization: `Bearer ${t}` },
-      signal: controller.signal,
-    })
-    if (res.ok) return 'valid'
-    if (res.status === 401 || res.status === 403) return 'invalid'
-    return res.status
-  } catch (e) {
-    return e as Error
-  } finally {
-    clearTimeout(timer)
-  }
-}
 

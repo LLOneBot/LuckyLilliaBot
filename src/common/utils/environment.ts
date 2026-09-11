@@ -16,7 +16,7 @@ export function isPmhqMode(): boolean {
 /**
  * 从 process.argv 里解析指定 uin. 支持 4 种写法:
  *   -q <uin> / -q=<uin> / --qq <uin> / --qq=<uin>
- * 用于多账号场景: 指定一个 uin 后会读写对应的 qq-session-<uin>.json / config_<uin>.json。
+ * 用于多账号场景: 指定一个 uin 后会读写对应的 qq-session-<uin>[-<protocol>].json / config_<uin>.json。
  * 纯 argv 解析, 无依赖 (config service 也要用, 不能牵扯 native-sign 依赖链)。
  */
 export function getSpecifiedUin(argv: string[] = process.argv): string | undefined {
@@ -51,6 +51,15 @@ export function getCdn(argv: string[] = process.argv, env: NodeJS.ProcessEnv = p
         if (key) raw = env[key]
     }
     return raw?.trim().toLowerCase() === 'china' ? 'china' : 'cf'
+}
+
+/**
+ * Web page where users obtain an Auth Token, on the same access point as getCdn().
+ * This is the manager frontend host, not the API host SignProxy talks to; the two are
+ * deployed on separate domains (see ManagerServer deploy/deploy-edgeone-pages.sh).
+ */
+export function getAuthTokenPageUrl(cdn: Cdn = getCdn()): string {
+    return cdn === 'china' ? 'https://llbot.wumiao.wang' : 'https://auth.luckylillia.com'
 }
 
 export type ProtocolId = 'linux' | 'windows' | 'macos' | 'watch'
