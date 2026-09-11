@@ -35,7 +35,7 @@ export function createLoginRoutes(ctx: Context): Hono {
     }
   })
 
-  // 快速登录: 用指定 uin 从 data/qq-session-<uin>.json 恢复 (Direct 模式).
+  // 快速登录: 用指定 uin 从 data/qq-session-<uin>[-<protocol>].json 恢复 (Direct 模式).
   // 结果由 FE 后续轮询 /api/login-info 的 online 字段判定, 这里只负责触发.
   router.post('/quick-login', async (c) => {
     const { uin } = await c.req.json()

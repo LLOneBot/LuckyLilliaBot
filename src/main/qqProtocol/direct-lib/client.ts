@@ -3,11 +3,12 @@ import { TcpConnection } from './connection'
 import { buildServicePacket, buildServicePacket13, parseServicePacket, EncryptType, PacketContext, SsoPacket } from './packet'
 import { generateEcdhKeyPair, EcdhKeyPair } from './ecdh'
 import { generateWatchEcdhKeyPair } from './watch/ecdh'
-import { requestSign, setupSign, setSignMachineGuid, acquireSignToken, SignResult } from './sign'
+import { requestSign, setupSign, setSignMachineGuid, acquireSignToken, acquireMacosEskOnly, SignResult, type MacosEskState } from './sign'
 import { AppInfo } from './appInfo'
 import { getActiveProfile } from './profiles'
 import { loadMachineGuidSync } from './machineGuid'
 import { EventEmitter } from 'node:events'
+import { CmdNotPermittedError, CMD_NOT_PERMITTED_RET_CODE } from '@/common/protocolErrors'
 
 const logger = getLogger('direct')
 
@@ -66,6 +67,11 @@ export class DirectProtocolClient extends EventEmitter {
   }> = new Map()
   private signTokenRefreshInflight: Promise<void> | null = null
   private signTokenLastFetchAt = 0
+  // macOS ESK channel (token1 + keys), scoped to one TCP connection: dropped on close and
+  // re-established once its TTL lapses. See ensureMacosEsk / protocolTokenFor.
+  private macosEskState: MacosEskState | null = null
+  // Bumped on every close, so an ESK still in flight when its connection dies gets discarded.
+  private connEpoch = 0
   private heartbeatAliveTimer: NodeJS.Timeout | null = null
   // 计时诊断: 按 seq 记响应帧「进 handlePacket」的时刻, 拆 wire vs parse.
   private frameArriveAt: Map<number, number> = new Map()
@@ -73,6 +79,9 @@ export class DirectProtocolClient extends EventEmitter {
   private maxLoopLag = 0
   private loopLagTimer: NodeJS.Timeout | null = null
   private lastLoopTick = 0
+  // 撞过 -10122 的 cmd. 产品线权限是固定的, 记下来别每次都白发一遍 —— 拉历史这类调用方没有
+  // 自己的缓存, 不记的话 WebUI 每翻一页就多一个注定被拒的包.
+  private unsupportedCmds = new Set<string>()
 
   constructor(config: Partial<DirectClientConfig> = {}) {
     super()
@@ -90,6 +99,8 @@ export class DirectProtocolClient extends EventEmitter {
       // 连接断开必须停 timer: client 是进程单例不重建, 不停的话断线期间会一直往死连接发包,
       // 且重连 connect() 的幂等 guard 会误判"已在跑"而不重启. 停掉才能让重连干净重启.
       this.stopHeartbeatAlive()
+      this.connEpoch++
+      this.macosEskState = null
       this.emit('close')
     })
   }
@@ -128,6 +139,51 @@ export class DirectProtocolClient extends EventEmitter {
     // Send initial heartbeat (required before other commands)
     await this.sendHeartbeat()
     this.startHeartbeatAlive()
+  }
+
+  /**
+   * macOS: ESK after connect and before trans_emp / session restore, as real clients do (PoC
+   * main.rs 1322-1362). No-op on other protocols or while this connection's ESK is still live.
+   * Failures only warn; the post-login token acquire retries ESK.
+   */
+  async acquirePreLoginToken(): Promise<void> {
+    await this.ensureMacosEsk()
+  }
+
+  private liveMacosEsk(): MacosEskState | null {
+    const esk = this.macosEskState
+    return esk && Date.now() < esk.expiresAt ? esk : null
+  }
+
+  /** This connection's live ESK, running ESK first if there is none. null on other protocols or on failure. */
+  private async ensureMacosEsk(): Promise<MacosEskState | null> {
+    if (getActiveProfile().name !== 'macos' || !this.config.authToken) return null
+    const live = this.liveMacosEsk()
+    if (live) return live
+    const epoch = this.connEpoch
+    try {
+      const esk = await acquireMacosEskOnly(AppInfo.qua)
+      // The connection closed while ESK was in flight; its channel must not leak into the next one.
+      if (epoch !== this.connEpoch) return null
+      this.macosEskState = esk
+      logger.info(`[SignToken] macOS ESK acquired (token ${esk.token.length}B) ttl=${esk.ttlSecs}s`)
+      return esk
+    } catch (e) {
+      logger.warn(`[SignToken] macOS ESK failed: ${(e as Error).message}`)
+      return null
+    }
+  }
+
+  /**
+   * Device token for a sign request. macOS follows PoC main.rs send(): the o3 handshake cmds
+   * (ESK / A2 / SA2) always carry an empty one, and after login business cmds carry sa2_token,
+   * falling back to a live ESK token1 until SA2 lands. Other protocols keep the session token.
+   * signToken12B === '' is the 403 soft-degrade and must not fall back to ESK.
+   */
+  private protocolTokenFor(cmd: string): string | undefined {
+    if (getActiveProfile().name !== 'macos') return this.session?.signToken12B
+    if (!this.session || cmd.includes('ecdh_access')) return undefined
+    return this.session.signToken12B ?? this.liveMacosEsk()?.token
   }
 
   /** 周期性发 Heartbeat.Alive 保活连接层. connect() 启动, disconnect()/close 清理. 幂等. */
@@ -758,6 +814,7 @@ export class DirectProtocolClient extends EventEmitter {
   ])
 
   async sendCommand(cmd: string, payload: Buffer, encryptType?: EncryptType, timeout = 15000, skipSign = false): Promise<SsoPacket> {
+    if (this.unsupportedCmds.has(cmd)) throw new CmdNotPermittedError(cmd)
     const seq = this.nextSeq()
     const session = this.session
     const ctx = this.getPacketContext()
@@ -776,10 +833,11 @@ export class DirectProtocolClient extends EventEmitter {
       const uin = this.session?.uin ? Number(this.session.uin) : (this.config.uin || undefined)
       await this.ensureSignTokenFresh(uin)
       tTokenDone = Date.now()
-      signResult = await requestSign(cmd, payload, seq, this.guid, AppInfo.qua, uin, this.session?.signToken12B)
+      const protocolToken = this.protocolTokenFor(cmd)
+      signResult = await requestSign(cmd, payload, seq, this.guid, AppInfo.qua, uin, protocolToken)
       tSignDone = Date.now()
       if (signResult?.token.length === 0) {
-        signResult.token = Buffer.from(this.session?.signToken12B ?? '')
+        signResult.token = Buffer.from(protocolToken ?? '')
       }
       logger.debug(`[sign] ${cmd} seq=${seq}: result=${signResult ? `sign=${signResult.sign.length}B token=${signResult.token.length}B extra=${signResult.extra.length}B` : 'null'}`)
       // sign 是协议必需字段, 拿不到就别送 unsigned 包出去. requestSign 内部已经按 status
@@ -856,7 +914,7 @@ export class DirectProtocolClient extends EventEmitter {
       clearTimeout(pending.timeout)
       this.pendingPackets.delete(parsed.seq)
       if (parsed.retCode && parsed.retCode !== 0) {
-        pending.reject(new Error(`SSO ${parsed.cmd} failed: retCode=${parsed.retCode}, extraMsg=${parsed.extraMsg || ''}`))
+        pending.reject(this.toCommandError(parsed))
       } else {
         pending.resolve(parsed)
       }
@@ -870,6 +928,16 @@ export class DirectProtocolClient extends EventEmitter {
     }
 
     this.emit('push', parsed)
+  }
+
+  /** -10122 = 当前产品线没这个 cmd 的权限, 单独成型让调用方能降级而不是当普通故障重试. */
+  private toCommandError(parsed: SsoPacket): Error {
+    if (parsed.retCode === CMD_NOT_PERMITTED_RET_CODE) {
+      this.unsupportedCmds.add(parsed.cmd)
+      logger.warn(`[Protocol] ${parsed.cmd} not permitted for ${getActiveProfile().name}, will not retry it`)
+      return new CmdNotPermittedError(parsed.cmd, parsed.extraMsg || '')
+    }
+    return new Error(`SSO ${parsed.cmd} failed: retCode=${parsed.retCode}, extraMsg=${parsed.extraMsg || ''}`)
   }
 
   get isConnected(): boolean {
@@ -959,7 +1027,9 @@ export class DirectProtocolClient extends EventEmitter {
     this.signTokenRefreshInflight = (async () => {
       try {
         this.signTokenLastFetchAt = Date.now()
-        const { token, ttlSecs } = await acquireSignToken(uin, AppInfo.qua)
+        // macOS: A2+SA2 need this connection's ESK channel; a renewal past its TTL re-runs ESK first.
+        const esk = await this.ensureMacosEsk()
+        const { token, ttlSecs } = await acquireSignToken(uin, AppInfo.qua, esk)
         if (this.session) {
           this.session.signToken12B = token
           this.session.signTokenExpiresAt = Date.now() + ttlSecs * 1000

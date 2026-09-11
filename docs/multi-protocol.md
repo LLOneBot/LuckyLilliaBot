@@ -59,6 +59,71 @@ tsx watch src/main/main.ts --protocol windows -q 12345
 - `listAvailableSessions()` 只列当前协议的 session。
 - `machine_guid.bin` / `auth_token.txt` / `config_<uin>.json` **按账号共享** (与协议无关)。
 
+## 能力差异: 一律走 -10122, 不在上层判协议端
+
+各端 appid 对应服务端不同产品线, 能访问的 cmd 不是一套 (手表尤其窄)。请求没授权的 cmd,
+服务端回 `retCode=-10122` "Product does not have permission to access cmd"。
+
+**这类判断只有一个入口**: `client.toCommandError()` 认码 -> `CmdNotPermittedError`
+(`src/common/protocolErrors.ts`)。业务层**不要**写 `if (getProtocol() === 'watch')` 来决定
+要不要调某个 API —— 那种清单必须列全才有用, 漏一个就退回运行时探测, 且清单跟调用点分离,
+加新功能时必然失同步。
+
+调用方按性质分两类处理:
+
+| 场景 | 做法 | 例 |
+|------|------|-----|
+| 内部链路 (消息转换等) | 降级, 用手头信息凑合, 别让整条事件丢掉 | `getGroupMemberOrFromMessage()` 用消息自带的发送者信息 |
+| 用户主动请求的 API | 让错误冒上去原样展示 —— message 已是人话 | WebUI 翻历史 / OneBot action |
+
+`protocolErrors.ts` 里的 `CMD_LABELS` **只影响提示措辞**: 登记了给"手表协议不支持获取群成员列表",
+没登记给通用文案 + cmd 名。功能行为不依赖它完整, 撞到哪个提示不顺眼再补哪个 —— 别把它长成
+"能力清单"。
+
+已实测不支持 (watch):
+
+| cmd | 功能 |
+|-----|------|
+| `OidbSvcTrpcTcp.0xfe7_3` | 拉群成员列表 |
+| `trpc.msg.register_proxy.RegisterProxy.SsoGetC2cMsg` | 拉私聊历史消息 |
+
+### 什么**不**走这条路
+
+profile 里的东西是**发包内容**, 不是"能不能发", 跟 -10122 无关, 该判还得判:
+wtlogin 帧字节 / TLV 集 / ECDH 曲线 / `ssoProtocolVersion` / `imPlat` / systemKernel /
+watch 才传的 `device32Hex` / watch 的 uin 从 poll confirm 取 (`direct.ts` completeDirectLogin)。
+这些都在 `direct-lib/` 内, 登录期还没有 cmd 可撞。
+
+## sign token (device token) 各端取法
+
+即签名请求里的 `protocolTokenHex` (进 reserve f24 SecInfo 的 f2)。路由在 `sign.ts` 的
+`acquireSignToken`, 按 TTL 续期在 `client.ts` 的 `ensureSignTokenFresh`。
+
+| 端 | 取法 |
+|----|------|
+| linux | SignProxy 本地 ESK (`getLinuxEskToken`), 登录后拉 |
+| windows / watch | 经 manager 的老路。**别并进 linux**: 本地 ESK 是真往 QQ 发包 |
+| macos | o3 两步, 见下 |
+
+macOS 按真机时序拆成两步 (`LuckyLillia.Sign/src/macOS/PoC/src/main.rs` 1322-1515):
+
+1. **登录前 ESK** (`SsoEstablishShareKey`): 每条 TCP 连接一次, 在 trans_emp / session 恢复之前。
+   `direct.ts` 的 `fetchFreshQrCode` 和恢复分支都先调 `acquirePreLoginToken`。拿到 token1 和
+   通道密钥 (aesKey / shareId)。
+2. **登录后 A2Establish + SA2** (`SsoSecureA2Establish` / `SsoSecureA2Access`): 复用第 1 步的通道
+   拿业务 token。A2Establish 返空 = 没建成, SA2 退回 ESK 通道; `currentToken` 传 ESK 的 token1。
+
+ESK 状态跟连接绑定: 断线 (`close`) 就作废, ESK 在飞时断线的结果也丢掉 (`connEpoch`); 过了 TTL
+在下一次取 token 前重跑。签名时带哪个 device token (`client.protocolTokenFor`, 同 PoC `send()`):
+
+| macOS 命令 | device token |
+|------------|--------------|
+| 未登录时的任何命令 | 空 |
+| o3 握手 (`ecdh_access`: ESK / A2 / SA2) | 空, 登录后也是 (PoC 注释: 真机实测) |
+| 登录后的业务命令 | SA2 token; SA2 回来之前用未过期的 ESK token1 |
+
+其他端签名一律带 session 上的 token, 不区分命令。
+
 ## 端到端阻塞项 (本期 Bot 侧只完成"发对包 + 传对 QUA")
 
 1. **sign 后端**: Bot 把 QUA 转发给 manager-server 按 `qua_pattern` 路由。当前只有 Linux VM sign
