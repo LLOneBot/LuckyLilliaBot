@@ -79,9 +79,83 @@ interface Native {
   /** 运行中切换 16B device GUID (hex). 老版 .node 没这 export 时 swallow. */
   setMachineGuid?(guidHex: string): void
   preflight(): Promise<string | null>
+  /**
+   * 登录前软校验 auth_token (打 /api/sign/info, 401/403 不 exit)。base_url 跟 sign 链路同源。
+   * 返回 "valid" / "invalid" / "retry:<reason>"。老版 .node 没这 export 时为 undefined。
+   */
+  validateAuthToken?(args: ValidateAuthTokenArgs): Promise<string>
   signRequest(args: SignRequestArgs): Promise<SignResultJs>
   acquireSignToken(args: AcquireSignTokenArgs): Promise<AcquireSignTokenResult>
   postEnvelope(args: PostEnvelopeArgs): Promise<string>
+  /**
+   * Linux ESK: 用 SDK 采的设备事实本地组 device_pb + request, 走 bot 自己的 SSO 发, 本地解 token。
+   * 不经 manager (acquireSignToken 那条要打 manager 两趟 HTTP)。老 .node 没这个 export 时为 undefined。
+   */
+  getLinuxEskToken?(args: LinuxEskTokenArgs): Promise<LinuxTokenResult>
+  // ---- macOS o3 链 (全部本地组包, 只借 sendPacket 走 bot 自己的 SSO) ----
+  // 老 .node 没这几个 export 时为 undefined, 调用前先判一下再报"请重新 build"。
+  /** qimei 取号。打 StarTrail, 走**本机**网络出口 (服务端代取会把全站设备注册到同一 IP)。 */
+  getMacosQimei?(args: MacosQimeiArgs): Promise<MacosQimeiResult>
+  /** 组 device_pb (34 字段设备指纹) hex, 三步 o3 共用同一份。 */
+  buildMacosDevicePb?(args: MacosDevicePbArgs): string
+  /** 登录前 ESK (SsoEstablishShareKey), 拿引导 token1 + 建通道。 */
+  getMacosEskToken?(args: MacosEstablishArgs): Promise<MacosO3Result>
+  /** 登录后 A2Establish, 建业务通道; token 非空 = 建成, 用它返的 aesKey/shareId。 */
+  getMacosA2EstablishToken?(args: MacosEstablishArgs): Promise<MacosO3Result>
+  /** 登录后 SA2 getToken, 复用传入通道拿业务 token。 */
+  getMacosSa2Token?(args: MacosSa2Args): Promise<MacosO3Result>
+}
+
+export interface LinuxEskTokenArgs {
+  /** 选 ProtocolVersion 用 (拿 ESK field4 的 xwid 常量)。 */
+  qua: string
+}
+
+export interface LinuxTokenResult {
+  /** 12B ASCII token; 解不出是空串而不是报错。 */
+  token: string
+  /** ESK 响应 field 3 的 TTL(秒); 没解析到是 0 —— 调用方别直接拿 0 算过期时间。 */
+  ttlSecs: number
+}
+
+export interface MacosQimeiArgs {
+  seedHex: string
+  appKey?: string
+}
+
+export interface MacosQimeiResult {
+  qimei36: string
+  /** macOS schema 下 StarTrail 不返这个, 基本恒空。别依赖。 */
+  qimei16: string
+}
+
+export interface MacosDevicePbArgs {
+  seedHex: string
+  qua: string
+  q36: string
+}
+
+export interface MacosEstablishArgs {
+  devicePbHex: string
+  /** 毫秒时间戳。A2Establish 跟随后的 SA2 **必须传同一个值**。 */
+  tsMs?: number
+}
+
+export interface MacosSa2Args {
+  devicePbHex: string
+  aesKey: string
+  shareId: string
+  /** ESK 解出的 token1; 传错 server 回 1001。 */
+  currentToken?: string
+  tsMs?: number
+}
+
+export interface MacosO3Result {
+  /** 解不出是空串而不是报错 —— establish 被拒时就这样, 调用方据此选通道。 */
+  token: string
+  ttlSecs: number
+  aesKey: string
+  shareId: string
 }
 
 const triple = pickTriple()
@@ -113,6 +187,12 @@ export interface SignLog {
   message: string
 }
 
+export interface ValidateAuthTokenArgs {
+  authToken: string
+  /** "cf" | "china"; 省略按 cf。dev build 忽略 (base_url 编译期锁 localhost)。 */
+  cdn?: string
+}
+
 export interface SignRequestArgs {
   cmd: string
   bodyHex: string
@@ -122,6 +202,15 @@ export interface SignRequestArgs {
   uin: number
   /** QQ 12B session token 的 utf-8 hex (登录后由 acquireSignToken 拿到). 登录前传 "". */
   protocolTokenHex: string
+  /**
+   * watch 端设备身份: 32B per-install GUID 的 hex (64 chars). 仅 watch 协议需要 —— 后端据此
+   * 派生 device_blob 做设备绑定; **不传的话后端用空 blob = 模拟器身份, 真机服务器会拒**。
+   * Linux/macOS 省略即可。
+   *
+   * 注意: 这是手写 loader, 原生侧 napi `#[napi(object)]` 对未知字段是**静默丢弃**的 ——
+   * 声明加了但 .node 没重编的话, 传了也白传且不报错。加字段必须连带重编 + sync-to-bot。
+   */
+  device32Hex?: string
 }
 
 export interface SignResultJs {

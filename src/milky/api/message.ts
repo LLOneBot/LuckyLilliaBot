@@ -165,11 +165,8 @@ const GetMessage = defineApi(
       message = await transformIncomingPrivateMessage(ctx, friend!, rawMsg)
     } else if (payload.message_scene === 'group') {
       const group = await ctx.ntGroupApi.getGroup(rawMsg.peerUin, false)
-      const member = await ctx.ntGroupApi.getGroupMemberByUid(rawMsg.peerUin, rawMsg.senderUid, false)
-      message = await transformIncomingGroupMessage(ctx, group, {
-        ...member!,
-        role: rawMsg.memberRole
-      }, rawMsg)
+      const member = await ctx.ntGroupApi.getGroupMemberOrFromMessage(rawMsg)
+      message = await transformIncomingGroupMessage(ctx, group, member, rawMsg)
     } else {
       const group = await ctx.ntGroupApi.getGroup(rawMsg.tempFromGroupCode, false)
       message = await transformIncomingTempMessage(ctx, group, rawMsg)

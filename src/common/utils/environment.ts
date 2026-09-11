@@ -16,7 +16,7 @@ export function isPmhqMode(): boolean {
 /**
  * 从 process.argv 里解析指定 uin. 支持 4 种写法:
  *   -q <uin> / -q=<uin> / --qq <uin> / --qq=<uin>
- * 用于多账号场景: 指定一个 uin 后会读写对应的 qq-session-<uin>.json / config_<uin>.json。
+ * 用于多账号场景: 指定一个 uin 后会读写对应的 qq-session-<uin>[-<protocol>].json / config_<uin>.json。
  * 纯 argv 解析, 无依赖 (config service 也要用, 不能牵扯 native-sign 依赖链)。
  */
 export function getSpecifiedUin(argv: string[] = process.argv): string | undefined {
@@ -51,4 +51,50 @@ export function getCdn(argv: string[] = process.argv, env: NodeJS.ProcessEnv = p
         if (key) raw = env[key]
     }
     return raw?.trim().toLowerCase() === 'china' ? 'china' : 'cf'
+}
+
+/**
+ * Web page where users obtain an Auth Token, on the same access point as getCdn().
+ * This is the manager frontend host, not the API host SignProxy talks to; the two are
+ * deployed on separate domains (see ManagerServer deploy/deploy-edgeone-pages.sh).
+ */
+export function getAuthTokenPageUrl(cdn: Cdn = getCdn()): string {
+    return cdn === 'china' ? 'https://llbot.wumiao.wang' : 'https://auth.luckylillia.com'
+}
+
+export type ProtocolId = 'linux' | 'windows' | 'macos' | 'watch'
+
+/**
+ * 解析要用的协议 (进程级, 决定 appInfo profile + session 文件命名)。
+ * 优先级: argv `--protocol <v>` / `--protocol=<v>` / `-p <v>` / `-p=<v>` > 环境变量 PROTOCOL > 默认 linux。
+ * 值大小写无关, 支持别名: win/windows -> windows, mac/macos/darwin -> macos, wat/watch -> watch,
+ * lnx/linux -> linux。非法/未指定一律回退 linux (向后兼容: 老部署不带 --protocol 仍跑 Linux)。
+ * 纯 argv 解析, 无依赖 (config service / profile registry 都要用, 不能牵扯 native-sign 依赖链)。
+ */
+export function getProtocol(argv: string[] = process.argv, env: NodeJS.ProcessEnv = process.env): ProtocolId {
+    let raw: string | undefined
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i]
+        if ((a === '--protocol' || a === '-p') && i + 1 < argv.length) { raw = argv[i + 1]; break }
+        if (a.startsWith('--protocol=')) { raw = a.slice('--protocol='.length); break }
+        if (a.startsWith('-p=')) { raw = a.slice('-p='.length); break }
+    }
+    if (raw === undefined) {
+        const key = Object.keys(env).find(k => k.toLowerCase() === 'protocol')
+        if (key) raw = env[key]
+    }
+    switch (raw?.trim().toLowerCase()) {
+        case 'win':
+        case 'windows':
+            return 'windows'
+        case 'mac':
+        case 'macos':
+        case 'darwin':
+            return 'macos'
+        case 'wat':
+        case 'watch':
+            return 'watch'
+        default:
+            return 'linux'
+    }
 }

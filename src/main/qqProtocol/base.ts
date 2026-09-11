@@ -17,6 +17,8 @@ interface DisconnectCallbackInfo {
   triggered: boolean
 }
 
+type LoginQrCode = { qrcodeUrl: string; pngBase64QrcodeData: string; expireTime: number; pollTimeInterval: number }
+
 declare module 'cordis' {
   interface Events {
     /** QQ 登录成功（uid/uin 都齐了），main.ts 监听该事件加载上层插件 */
@@ -53,6 +55,16 @@ export abstract class QQProtocolBase extends Service {
   // 已打印到终端的 sig 去重: 换新码才重新打印, 避免每秒 tick 重复 dump 同一张
   protected lastPrintedQrSig: string = ''
   private qrLoopRunning: boolean = false
+  // Loop-driven QR fetches since the last login or manual refresh, capped by qrAutoRefreshLimit().
+  private qrAutoRefreshCount = 0
+  private qrAutoRefreshStopLogged = false
+  // One fetch at a time: concurrent refreshes (qrLoop tick + WebUI request) share it.
+  private qrRefreshInflight: Promise<void> | null = null
+  // Consecutive failed fetches; loop-driven fetches wait until qrFetchRetryAt instead of every tick.
+  private qrFetchFailures = 0
+  private qrFetchRetryAt = 0
+  private static readonly QR_FETCH_RETRY_MS = 2_000
+  private static readonly QR_FETCH_RETRY_MAX_MS = 30_000
 
   constructor(protected ctx: Context) {
     super(ctx, 'qqProtocol')
@@ -92,7 +104,7 @@ export abstract class QQProtocolBase extends Service {
   }
 
   /**
-   * 以指定 uin 快速登录. **仅 Direct 模式实现** -- 依赖 qq-session-<uin>.json 的加密凭证.
+   * 以指定 uin 快速登录. **仅 Direct 模式实现** -- 依赖 qq-session-<uin>[-<protocol>].json 的加密凭证.
    * PMHQ 走 base 默认直接抛; 上层路由收到 500 后 FE 会 fallback 到扫码.
    */
   public async quickLogin(_uin: string): Promise<void> {
@@ -136,6 +148,7 @@ export abstract class QQProtocolBase extends Service {
     if (!selfInfo.online) return
     if (!selfInfo.uid && !selfInfo.uin) return
     this.onlineEmitted = true
+    this.qrAutoRefreshCount = 0
     authTokenStatus.loginError = '' // 登录成功, 清掉登录错误
     this.ctx.parallel('qq/online')
   }
@@ -168,9 +181,14 @@ export abstract class QQProtocolBase extends Service {
    * WebUI / 外部拉登录二维码 -- 只返回后端当前缓存的那张 (过期才拉新).
    * 保证终端 QR / WebUI QR / Desktop QR 同源. expireTime 是剩余有效秒数,
    * FE 拿它 setTimeout 到期显示"点击刷新".
+   * The caller is a user at the WebUI, so this is a manual refresh: it lifts the auto-refresh cap.
    */
-  public async getLoginQrCode(): Promise<{ qrcodeUrl: string; pngBase64QrcodeData: string; expireTime: number; pollTimeInterval: number }> {
-    await this.refreshQrCodeIfStale()
+  public async getLoginQrCode(): Promise<LoginQrCode> {
+    return this.readLoginQrCode(true)
+  }
+
+  private async readLoginQrCode(manual: boolean): Promise<LoginQrCode> {
+    await this.refreshQrCodeIfStale(manual)
     const qr = this.qrResult
     if (!qr) throw new Error('QR code unavailable')
     const remainingMs = Math.max(0, qr.expireTimeSec * 1000 - (Date.now() - this.qrFetchedAt))
@@ -182,15 +200,73 @@ export abstract class QQProtocolBase extends Service {
     }
   }
 
-  /** 缓存无 / 到期 (按该码自己的 expireTimeSec) 才拉新码; 否则复用. */
-  protected async refreshQrCodeIfStale(): Promise<void> {
-    const fresh = this.qrResult && Date.now() - this.qrFetchedAt < this.qrResult.expireTimeSec * 1000
-    if (fresh) return
-    const qr = await this.fetchFreshQrCode()
+  /**
+   * 缓存无 / 到期 (按该码自己的 expireTimeSec) 才拉新码; 否则复用.
+   * - Loop-driven fetches stop at qrAutoRefreshLimit() and wait out the failure backoff. A manual
+   *   refresh skips both, resets the count and is not counted itself.
+   * - No fetch while a login is completing (shouldSkipQrPrint): that code would go to waste.
+   * - Concurrent callers share one fetch, so the WebUI and the terminal show the same code and only
+   *   one poll chain starts (a second fetch would cancel the poll of the code the WebUI is showing).
+   */
+  protected refreshQrCodeIfStale(manual = false): Promise<void> {
+    if (manual) this.qrAutoRefreshCount = 0
+    if (this.isQrFresh() || this.shouldSkipQrPrint()) return Promise.resolve()
+    if (!manual && (this.qrAutoRefreshCount >= this.qrAutoRefreshLimit() || Date.now() < this.qrFetchRetryAt)) {
+      return Promise.resolve()
+    }
+    this.qrRefreshInflight ??= this.fetchQrIntoCache(manual).finally(() => {
+      this.qrRefreshInflight = null
+    })
+    return this.qrRefreshInflight
+  }
+
+  private async fetchQrIntoCache(manual: boolean): Promise<void> {
+    const qr = await this.fetchFreshQrCode().catch((e: unknown) => {
+      this.qrFetchFailures++
+      const backoff = QQProtocolBase.QR_FETCH_RETRY_MS * 2 ** (this.qrFetchFailures - 1)
+      this.qrFetchRetryAt = Date.now() + Math.min(backoff, QQProtocolBase.QR_FETCH_RETRY_MAX_MS)
+      throw e
+    })
+    this.qrFetchFailures = 0
+    this.qrFetchRetryAt = 0
     if (!qr) return
+    if (!manual) this.qrAutoRefreshCount++
     this.qrResult = qr
     this.qrFetchedAt = Date.now()
     this.onQrRefreshed()
+  }
+
+  /** The last fetch failed and nothing fresh is cached: skip ticks until the backoff runs out. */
+  private qrFetchBackingOff(): boolean {
+    return !this.isQrFresh() && Date.now() < this.qrFetchRetryAt
+  }
+
+  private isQrFresh(): boolean {
+    return !!this.qrResult && Date.now() - this.qrFetchedAt < this.qrResult.expireTimeSec * 1000
+  }
+
+  /**
+   * Cap on loop-driven QR fetches (first code included) before the loop stops refreshing and waits
+   * for a manual refresh. Unlimited by default: PMHQ only reads the codes QQ itself refreshes.
+   */
+  protected qrAutoRefreshLimit(): number {
+    return Number.POSITIVE_INFINITY
+  }
+
+  /** Cap reached and the cached code has lapsed: nothing to show until a manual refresh or a login. */
+  private qrAutoRefreshExhausted(): boolean {
+    if (this.qrAutoRefreshCount < this.qrAutoRefreshLimit() || this.isQrFresh()) {
+      this.qrAutoRefreshStopLogged = false
+      return false
+    }
+    if (!this.qrAutoRefreshStopLogged) {
+      this.qrAutoRefreshStopLogged = true
+      setLoginState({ state: 'expired' })
+      this.logger.warn(
+        `已自动刷新 ${this.qrAutoRefreshCount} 张二维码仍未登录, 停止自动刷新; 到 WebUI 登录页点击刷新可继续, 或重启`,
+      )
+    }
+    return true
   }
 
   /** 让缓存立即过期, 下次 refreshQrCodeIfStale 就会拉新码. */
@@ -218,7 +294,7 @@ export abstract class QQProtocolBase extends Service {
    */
   protected async printQrToTerminal(): Promise<void> {
     try {
-      const data = await this.getLoginQrCode()
+      const data = await this.readLoginQrCode(false)
       const sig = this.qrResult?.sig || ''
       if (!sig || sig === this.lastPrintedQrSig) return
       this.lastPrintedQrSig = sig
@@ -245,7 +321,8 @@ export abstract class QQProtocolBase extends Service {
       this.logger.info(`或浏览器打开二维码网址: ${qrWebUrl}`)
     } catch (e) {
       const reason = e instanceof Error ? e.message : String(e)
-      this.logger.warn(`获取登录二维码失败: ${reason}`)
+      const retryInSec = Math.ceil((this.qrFetchRetryAt - Date.now()) / 1000)
+      this.logger.warn(retryInSec > 0 ? `获取登录二维码失败: ${reason}, ${retryInSec}s 后重试` : `获取登录二维码失败: ${reason}`)
     }
   }
 
@@ -269,7 +346,9 @@ export abstract class QQProtocolBase extends Service {
   private qrLoop = async (): Promise<void> => {
     if (selfInfo.online) { this.qrLoopRunning = false; return }
     this.qrLoopRunning = true
-    if (!this.shouldSkipQrPrint()) await this.printQrToTerminal()
+    if (!this.shouldSkipQrPrint() && !this.qrAutoRefreshExhausted() && !this.qrFetchBackingOff()) {
+      await this.printQrToTerminal()
+    }
     if (selfInfo.online) { this.qrLoopRunning = false; return }
     setTimeout(this.qrLoop, 1000)
   }

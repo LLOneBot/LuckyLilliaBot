@@ -2,7 +2,7 @@
 
 ## 基础镜像用 alpine (musl)
 
-sign-proxy 的 Linux `.node` (`src/main/qqProtocol/direct/sign-proxy/`) 现在有 **musl 变体**
+sign-proxy 的 Linux `.node` (`src/main/qqProtocol/direct-lib/sign-proxy/`) 现在有 **musl 变体**
 (`sign-proxy.linux-x64-musl.node` / `sign-proxy.linux-arm64-musl.node`), loader
 (`sign-proxy/index.ts` 的 `pickTriple` / `isMusl`) 在 musl 环境自动选它, 所以能用
 `node:24-alpine` base。镜像 ~540MB, 比 debian (~880MB) 小近一半。
@@ -98,17 +98,21 @@ install 脚本开头让用户选**连接模式** (存 `PROTOCOL_MODE`), startup.
 ## session 加密 key: 容器内从 data/machine_guid.bin 派生 (直连 session 存活的关键)
 
 直连 session 的敏感字段 (d2/tgt 等) 落盘前用 AES-256-GCM 加密, key 由 getMachineKey()
-提供 (`src/main/qqProtocol/direct/session.ts`)。非容器绑 OS machine id;**容器里
+提供 (`src/main/qqProtocol/direct-lib/session.ts`)。非容器绑 OS machine id;**容器里
 /etc/machine-id 随重建而变, 绑它 = 每次重建都要重新扫码**, 所以 `isDockerEnvironment()`
 为真时改从 `data/machine_guid.bin` (设备 GUID, machineGuid.ts 管理, 随 data volume
 持久化) 派生。startup.sh 不碰 /etc/machine-id, 也没有额外的 key 文件。
 
-权衡 (**有意取舍, 别改回去**): machine_guid.bin 的值 == session 文件里明文的 `guid` 字段
-(machineGuid.ts overwriteMachineGuid <-> saveSession 双向同步), 拿到 session 文件即可还原
-key —— 容器场景这层加密不防"单独泄露 session 文件", 防线实为整个 data 卷的访问边界。
-曾实现过独立随机 `session-key.bin` 来堵这一点, 按维护者决定撤掉了: 卷内多一个 key 文件
-与密文同卷, 实际防线相同, 不值得多一套文件/逻辑。收益: 备份/迁移整个 data 卷后 session
-直接可用, 免重新扫码。
+权衡 (**有意取舍, 别改回去**): machine_guid.bin 的值通常 == session 文件里明文的 `guid` 字段
+(快速登录时 overwriteMachineGuid 以 session 为准同步, 扫码登录时 saveSession 写入当前 guid),
+拿到 session 文件即可还原 key —— 容器场景这层加密不防"单独泄露 session 文件", 防线实为整个
+data 卷的访问边界。曾实现过独立随机 `session-key.bin` 来堵这一点, 按维护者决定撤掉了: 卷内多
+一个 key 文件与密文同卷, 实际防线相同, 不值得多一套文件/逻辑。收益: 备份/迁移整个 data 卷后
+session 直接可用, 免重新扫码。
+
+**已知问题**: 上面的"通常"不含异地顶号 —— 顶号会换 guid, 之后两者不再相等, 而 key 仍从
+machine_guid.bin 派生 (且进程内缓存旧 key), 会导致重登后的 session 和其他账号的 session 重启后
+解不开。详见 [session-lifecycle.md](session-lifecycle.md)「设备 guid」一节的已知问题 1。
 
 ## startup.sh 的 sed 用 POSIX 字符类 (兼容 busybox, 不装 GNU sed)
 

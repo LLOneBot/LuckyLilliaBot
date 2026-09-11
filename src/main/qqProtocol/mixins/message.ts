@@ -4,6 +4,7 @@ import { randomBytes } from 'node:crypto'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { InferProtoModelInput } from '@saltify/typeproto'
 import { AppInfo, DeviceInfo } from '../direct-lib/appInfo'
+import { getActiveProfile } from '../direct-lib/profiles'
 import type { QQProtocolBase } from '../base'
 
 export function MessageMixin<T extends abstract new (...args: any[]) => QQProtocolBase>(Base: T) {
@@ -182,7 +183,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
     /** 收藏表情列表（Faceroam.OpReq subCmd=1）。返回每个表情的 emoji_id（含 md5）+ bid + 配额。 */
     async listFavEmojis() {
       const data = Msg.FaceroamOpReq.encode({
-        comm: { imPlat: 1, osVersion: DeviceInfo.osVer, qVersion: AppInfo.currentVersion },
+        comm: { imPlat: getActiveProfile().imPlat, osVersion: DeviceInfo.osVer, qVersion: AppInfo.currentVersion },
         selfUin: BigInt(selfInfo.uin),
         subCmd: 1,
         field6: 1,
@@ -194,7 +195,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
     /** 删除收藏表情（Faceroam.OpReq subCmd=2）。emojiIds 形如 `{uin}_0_0_0_{MD5_HEX_UPPER}_0_0`。 */
     async deleteFavEmojis(emojiIds: string[]) {
       const data = Msg.FaceroamOpReq.encode({
-        comm: { imPlat: 1, osVersion: DeviceInfo.osVer },
+        comm: { imPlat: getActiveProfile().imPlat, osVersion: DeviceInfo.osVer },
         selfUin: BigInt(selfInfo.uin),
         subCmd: 2,
         deleteList: emojiIds.map(id => ({ emojiId: id })),

@@ -266,7 +266,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     const items = [...rawItems, ...tempItems, ...systemItems]
     items.sort((a, b) => {
       const getTimestamp = (item: MessageItem): number => {
-        if (item.type === 'raw') return parseInt(item.data.msgTime) * 1000
+        if (item.type === 'raw') return Number(item.data.msgTime) * 1000
         if (item.type === 'temp') return item.data.timestamp
         return item.data.timestamp // system tip
       }
@@ -287,7 +287,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
   const scrollToMessage = useCallback((msgId: string, msgSeq?: string) => {
     const index = allItems.findIndex(item => {
       if (item.type !== 'raw') return false
-      return item.data.msgId === msgId || (msgSeq && item.data.msgSeq === msgSeq)
+      return item.data.msgId === msgId || (!!msgSeq && String(item.data.msgSeq) === String(msgSeq))
     })
     if (index !== -1) {
       virtualizer.scrollToIndex(index, { align: 'center' })
@@ -543,7 +543,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
       const handleMessageRecalled = (data: { msgId: string; msgSeq: string }) => {
         // 标记消息为已撤回（设置 recallTime）
         setMessages(prev => prev.map(m => {
-          if (m.msgId === data.msgId || (data.msgSeq && m.msgSeq === data.msgSeq)) {
+          if (m.msgId === data.msgId || (!!data.msgSeq && String(m.msgSeq) === String(data.msgSeq))) {
             return { ...m, recallTime: String(Math.floor(Date.now() / 1000)) }
           }
           return m
@@ -556,7 +556,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
 
   const getSessionKey = (chatType: number | string, peerId: string) => `${chatType}_${peerId}`
 
-  const loadMessages = useCallback(async (beforeMsgSeq?: string, afterMsgSeq?: string) => {
+  const loadMessages = useCallback(async (beforeMsgSeq?: string | number, afterMsgSeq?: string | number) => {
     if (!session) return
     const requestChatType = session.chatType
     const requestPeerId = session.peerId
@@ -595,7 +595,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         const existingIds = new Set(prev.map(m => m.msgId))
         const newMsgs = validMessages.filter(m => !existingIds.has(m.msgId))
         const merged = beforeMsgSeq ? [...newMsgs, ...prev] : [...prev, ...newMsgs]
-        merged.sort((a, b) => parseInt(a.msgTime) - parseInt(b.msgTime))
+        merged.sort((a, b) => Number(a.msgTime) - Number(b.msgTime))
         console.log('[ChatWindow] Merged messages:', merged.length, 'new:', newMsgs.length)
         setCachedMessages(requestChatType, requestPeerId, merged)
         return merged
@@ -660,7 +660,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         const uniqueMessages = merged.filter((msg, index, arr) =>
           arr.findIndex(m => m.msgId === msg.msgId) === index
         )
-        uniqueMessages.sort((a, b) => parseInt(a.msgTime) - parseInt(b.msgTime))
+        uniqueMessages.sort((a, b) => Number(a.msgTime) - Number(b.msgTime))
         setMessages(uniqueMessages)
         setCachedMessages(requestChatType, requestPeerId, uniqueMessages)
         setHasMore(result.hasMore)
@@ -693,7 +693,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
           // 检查是否和缓存接上了
           const newMsgIds = new Set(moreMessages.map(m => m.msgId))
           const connected = cachedMessages.some(m => newMsgIds.has(m.msgId)) ||
-            (cachedLatestMsgSeq && moreMessages.some(m => parseInt(m.msgSeq) <= parseInt(cachedLatestMsgSeq)))
+            (!!cachedLatestMsgSeq && moreMessages.some(m => Number(m.msgSeq) <= Number(cachedLatestMsgSeq)))
 
           if (connected) {
             console.log('[ChatWindow] Connected with cache after', i + 1, 'iterations')
@@ -706,7 +706,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         const uniqueMessages = merged.filter((msg, index, arr) =>
           arr.findIndex(m => m.msgId === msg.msgId) === index
         )
-        uniqueMessages.sort((a, b) => parseInt(a.msgTime) - parseInt(b.msgTime))
+        uniqueMessages.sort((a, b) => Number(a.msgTime) - Number(b.msgTime))
         setMessages(uniqueMessages)
         setCachedMessages(requestChatType, requestPeerId, uniqueMessages)
         setHasMore(hasMore)

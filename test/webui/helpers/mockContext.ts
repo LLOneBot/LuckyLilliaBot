@@ -51,7 +51,10 @@ export function createMockContext() {
       })),
       getMultiMsg: vi.fn(() => Promise.resolve([])),
     },
-    app: null as any,
+    // 发消息统一走 app.sendMessage (它才会为 C2C 补发 nt/message-sent), 不是 ntMsgApi.sendMsg
+    app: {
+      sendMessage: vi.fn(() => Promise.resolve({ msgId: 'mock-msg-id' })),
+    },
     config: {
       get: vi.fn(() => ({
         ob11: { enable: false, connect: [] },

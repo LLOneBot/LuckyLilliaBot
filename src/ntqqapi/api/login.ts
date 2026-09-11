@@ -14,7 +14,7 @@ export class NTLoginApi extends Service {
   }
 
   async getQuickLoginList() {
-    // Direct 模式: 从本地 qq-session-<uin>.json 扫出候选. PMHQ 模式: 默认返空 (QQ NT 已登过, WebUI 用不上).
+    // Direct 模式: 从本地 qq-session-<uin>[-<protocol>].json 扫出候选. PMHQ 模式: 默认返空 (QQ NT 已登过, WebUI 用不上).
     const accounts = this.ctx.qqProtocol.listQuickLoginAccounts()
     return {
       LocalLoginInfoList: accounts.map(a => ({

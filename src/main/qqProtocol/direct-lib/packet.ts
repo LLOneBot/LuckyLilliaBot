@@ -1,5 +1,6 @@
 import { teaEncrypt, teaDecrypt } from './tea'
-import { buildSsoReservedField } from './ssoReserved'
+import { buildReservedFieldForVariant } from './ssoReserved'
+import { getActiveProfile } from './profiles'
 import type { SignResult } from './sign'
 import { randomBytes } from 'node:crypto'
 import { inflateSync } from 'node:zlib'
@@ -51,21 +52,24 @@ function writeInt16PrefixedString(str: string): Buffer {
 }
 
 function buildSsoHead12(seq: number, cmd: string, ctx: PacketContext, signResult?: SignResult | null): Buffer {
+  const profile = getActiveProfile()
+  const guidHex = ctx.guid.toString('hex')
   const parts: Buffer[] = []
 
   const seqBuf = Buffer.alloc(4)
   seqBuf.writeInt32BE(seq)
   parts.push(seqBuf)
 
+  // field8/field12/fixedHeader: 桌面标准 subAppId/2052/FIXED_HEADER; macOS 用专属 override
   const subAppBuf = Buffer.alloc(4)
-  subAppBuf.writeInt32BE(ctx.subAppId)
+  subAppBuf.writeInt32BE(profile.ssoHeadField8 ?? ctx.subAppId)
   parts.push(subAppBuf)
 
   const fixed2052 = Buffer.alloc(4)
-  fixed2052.writeInt32BE(2052)
+  fixed2052.writeInt32BE(profile.ssoHeadField12 ?? 2052)
   parts.push(fixed2052)
 
-  parts.push(FIXED_HEADER)
+  parts.push(profile.ssoFixedHeader ?? FIXED_HEADER)
 
   parts.push(writeInt32Prefixed(ctx.tgt))
 
@@ -73,13 +77,13 @@ function buildSsoHead12(seq: number, cmd: string, ctx: PacketContext, signResult
 
   parts.push(writeInt32Prefixed(Buffer.alloc(0)))
 
-  parts.push(writeInt32PrefixedString(ctx.guid.toString('hex')))
+  parts.push(writeInt32PrefixedString(guidHex))
 
   parts.push(writeInt32Prefixed(Buffer.alloc(0)))
 
-  parts.push(writeInt16PrefixedString(ctx.buildVer))
+  parts.push(writeInt16PrefixedString(profile.ssoHeadVersion ?? ctx.buildVer))
 
-  const reservedField = buildSsoReservedField(ctx.uid || undefined, signResult)
+  const reservedField = buildReservedFieldForVariant(profile.reserveVariant, ctx.uid || undefined, signResult, { guidHex })
   parts.push(writeInt32Prefixed(reservedField))
 
   const head = Buffer.concat(parts)
@@ -88,10 +92,11 @@ function buildSsoHead12(seq: number, cmd: string, ctx: PacketContext, signResult
 }
 
 function buildSsoHead13(cmd: string, ctx: PacketContext): Buffer {
+  const profile = getActiveProfile()
   const parts: Buffer[] = []
   parts.push(writeInt32PrefixedString(cmd))
   parts.push(writeInt32Prefixed(Buffer.alloc(0)))
-  const reservedField = buildSsoReservedField(ctx.uid || undefined)
+  const reservedField = buildReservedFieldForVariant(profile.reserveVariant, ctx.uid || undefined, null, { guidHex: ctx.guid.toString('hex') })
   parts.push(writeInt32Prefixed(reservedField))
   const head = Buffer.concat(parts)
   return writeInt32Prefixed(head)
@@ -185,7 +190,8 @@ export function buildServicePacket(
   const parts: Buffer[] = []
 
   const verBuf = Buffer.alloc(4)
-  verBuf.writeInt32BE(12)
+  // inner frame 版本字节: NT=12, Watch=10 (profile 驱动)
+  verBuf.writeInt32BE(getActiveProfile().ssoProtocolVersion)
   parts.push(verBuf)
 
   parts.push(Buffer.from([encryptType]))

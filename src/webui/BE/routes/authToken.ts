@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { isPmhqMode } from '@/common/utils/environment'
+import { isPmhqMode, getAuthTokenPageUrl } from '@/common/utils/environment'
 import { authTokenUtil } from '../../../main/config'
 import { authTokenStatus, selfInfo } from '@/common/globalVars'
 import { triggerAuthTokenCheck } from '../../../main/qqProtocol/direct-lib/authTokenWatcher'
@@ -20,6 +20,7 @@ export function createAuthTokenRoutes(): Hono {
         validation: authTokenStatus.validation,
         message: authTokenStatus.message,
         loginError: authTokenStatus.loginError,
+        authTokenPageUrl: getAuthTokenPageUrl(),
       },
     })
   })

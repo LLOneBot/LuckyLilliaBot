@@ -1,6 +1,8 @@
 import { watchFile } from 'node:fs'
-import { authTokenUtil, validateAuthToken } from '../../config'
+import { authTokenUtil } from '../../config'
+import { validateAuthToken } from './sign'
 import { authTokenStatus, selfInfo } from '@/common/globalVars'
+import { getAuthTokenPageUrl } from '@/common/utils/environment'
 
 // 监听 data/auth_token.txt: 启动时 / 文件变化时读取 -> 校验 -> 通过则触发登录.
 // 校验只在这条流程里做 (WebUI 的录入接口只负责写文件, 写完可调 triggerAuthTokenCheck 立即处理).
@@ -72,7 +74,7 @@ async function processOnce(): Promise<void> {
     if (!warnedNoToken) {
       warnedNoToken = true
       log.warn(
-        '[Sign] auth_token 未配置: 请到 https://auth.luckylillia.com 获取 Auth Token, ' +
+        `[Sign] auth_token 未配置: 请到 ${getAuthTokenPageUrl()} 获取 Auth Token, ` +
         '在 WebUI 中录入或写入 data/auth_token.txt (录入后会自动校验并登录)'
       )
     }
@@ -113,7 +115,7 @@ async function processOnce(): Promise<void> {
   if (result === 'invalid') {
     authTokenStatus.validation = 'invalid'
     authTokenStatus.message = 'Auth Token 无效、已失效或无权限，请重新获取'
-    log.warn('[Sign] auth_token 无效/失效/无权限, 等待重新录入')
+    log.warn(`[Sign] auth_token 无效/失效/无权限, 请到 ${getAuthTokenPageUrl()} 重新获取`)
   } else {
     // 网络错误: 无法判定, 不冒险登录; 定时重试 (验证服务恢复后自动继续)
     authTokenStatus.validation = 'error'

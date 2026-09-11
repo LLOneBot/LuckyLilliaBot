@@ -1,6 +1,7 @@
 import { DirectProtocolClient } from './client'
 import { getLogger } from '@/common/logger'
 import { AppInfo, DeviceInfo } from './appInfo'
+import { getActiveProfile } from './profiles'
 
 // --- Protobuf encoding helpers ---
 
@@ -52,7 +53,7 @@ function buildRegisterDeviceInfo(): Buffer {
   const parts: Buffer[] = []
   parts.push(protoStringField(1, DeviceInfo.devName))
   parts.push(protoStringField(2, AppInfo.kernel))
-  parts.push(protoStringField(3, '5.15.0'))
+  parts.push(protoStringField(3, getActiveProfile().systemKernel))
   parts.push(protoStringField(4, ''))
   parts.push(protoStringField(5, AppInfo.vendorOs))
   return Buffer.concat(parts)
@@ -192,16 +193,48 @@ export async function sendHeartbeat(client: DirectProtocolClient): Promise<void>
   )
 }
 
+/**
+ * 心跳 loop. 失败不能只 log 了事 -- 链路或凭据出问题时 selfInfo.online 会停在 true, 变成收不到
+ * 消息的"假在线". 故失败后转 30s 快重试, 连挂 MAX_FAILURES 次 (或 session 已被判失效清掉) 就主动断开,
+ * 交给 close -> scheduleReconnect 重建, 最坏约 5.5 分钟能测出来.
+ */
 export function startHeartbeat(client: DirectProtocolClient): () => void {
   const INTERVAL = 4.5 * 60 * 1000
+  const RETRY_INTERVAL = 30 * 1000
+  const MAX_FAILURES = 3
 
-  const timer = setInterval(async () => {
+  const logger = getLogger('heartbeat')
+  let timer: NodeJS.Timeout | null = null
+  let failures = 0
+  let stopped = false
+
+  const schedule = (delay: number) => {
+    if (!stopped) timer = setTimeout(tick, delay)
+  }
+
+  const tick = async () => {
+    if (stopped) return
     try {
       await sendHeartbeat(client)
+      failures = 0
+      schedule(INTERVAL)
     } catch (e) {
-      getLogger('heartbeat').error('[Heartbeat] Failed:', (e as Error).message)
+      failures++
+      logger.error(`[Heartbeat] Failed (${failures}/${MAX_FAILURES}):`, (e as Error).message)
+      if (failures >= MAX_FAILURES || !client.isLoggedIn) {
+        stopped = true
+        logger.error('[Heartbeat] giving up, disconnecting to force a reconnect')
+        client.disconnect()
+        return
+      }
+      schedule(RETRY_INTERVAL)
     }
-  }, INTERVAL)
+  }
 
-  return () => clearInterval(timer)
+  schedule(INTERVAL)
+
+  return () => {
+    stopped = true
+    if (timer) { clearTimeout(timer); timer = null }
+  }
 }

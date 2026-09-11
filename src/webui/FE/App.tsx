@@ -19,6 +19,7 @@ import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
 import { deleteCookie } from './utils/cookie';
 import { setCurrentUin } from './utils/currentUin';
+import { hydrateWebQQStore } from './stores/webqqStore';
 import { Save, Loader2, Eye, EyeOff, Plus, Trash2, Menu, Cpu, Milk, ExternalLink } from 'lucide-react';
 import { defaultConfig } from '../../main/config/defaultConfig'
 import { version } from '../../version'
@@ -51,6 +52,7 @@ function App() {
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
   const [showAuthTokenDialog, setShowAuthTokenDialog] = useState(false);
   const [authTokenReason, setAuthTokenReason] = useState<'missing' | 'invalid'>('missing');
+  const [authTokenPageUrl, setAuthTokenPageUrl] = useState('');
   const [qqVersion, setQqVersion] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -119,6 +121,8 @@ function App() {
             uin: response.data.selfInfo.uin,
           });
           setCurrentUin(response.data.selfInfo.uin);
+          // uin 就位后才能加载 WebQQ 的按账号持久化数据 (store 是 skipHydration 的)
+          hydrateWebQQStore(response.data.selfInfo.uin);
 
           // 获取主配置
           setConfig(response.data.config);
@@ -162,10 +166,11 @@ function App() {
     let stop = false;
     const poll = async () => {
       try {
-        const st = await apiFetch<{ applicable: boolean; online: boolean; hasToken: boolean; validation: string }>('/api/auth-token/status');
+        const st = await apiFetch<{ applicable: boolean; online: boolean; hasToken: boolean; validation: string; authTokenPageUrl?: string }>('/api/auth-token/status');
         if (!stop && st.success) {
           const d = st.data;
           if (d.online) { window.location.reload(); return; }
+          if (d.authTokenPageUrl) setAuthTokenPageUrl(d.authTokenPageUrl);
           if (d.applicable && (!d.hasToken || d.validation === 'invalid')) {
             setAuthTokenReason(d.validation === 'invalid' ? 'invalid' : 'missing');
             setShowAuthTokenDialog(true);
@@ -268,6 +273,7 @@ function App() {
         <AuthTokenDialog
           visible={showAuthTokenDialog}
           reason={authTokenReason}
+          authTokenPageUrl={authTokenPageUrl}
           onSuccess={() => window.location.reload()}
         />
 

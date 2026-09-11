@@ -93,9 +93,10 @@ const EMOJI_LIST: { codePoint: number; char: string }[] = [
 ]
 
 const RECENT_EMOJI_BASE_KEY = 'webqq_recent_emojis'
-function getRecentEmojiKey() {
+// 未登录时返回 null: 不能退化成无前缀的共享桶, 那会让不同账号的最近表情混在一起
+function getRecentEmojiKey(): string | null {
   const uin = getCurrentUin()
-  return uin ? `${uin}-${RECENT_EMOJI_BASE_KEY}` : RECENT_EMOJI_BASE_KEY
+  return uin ? `${uin}-${RECENT_EMOJI_BASE_KEY}` : null
 }
 const MAX_RECENT = 10
 
@@ -108,8 +109,10 @@ export interface RecentEmojiItem {
 }
 
 function getRecentEmojis(): RecentEmojiItem[] {
+  const key = getRecentEmojiKey()
+  if (!key) return []
   try {
-    const stored = localStorage.getItem(getRecentEmojiKey())
+    const stored = localStorage.getItem(key)
     if (!stored) return []
     const parsed = JSON.parse(stored)
     // 兼容旧格式（纯数字数组）
@@ -123,13 +126,15 @@ function getRecentEmojis(): RecentEmojiItem[] {
 }
 
 function addRecentEmoji(item: RecentEmojiItem) {
+  const key = getRecentEmojiKey()
+  if (!key) return
   const recent = getRecentEmojis().filter(r => {
     if (r.type !== item.type) return true
     if (r.type === 'face') return r.faceId !== item.faceId
     return r.codePoint !== item.codePoint
   })
   recent.unshift(item)
-  localStorage.setItem(getRecentEmojiKey(), JSON.stringify(recent.slice(0, MAX_RECENT)))
+  localStorage.setItem(key, JSON.stringify(recent.slice(0, MAX_RECENT)))
 }
 
 interface EmojiPickerProps {

@@ -6,6 +6,8 @@ import { EncryptType } from './packet'
 import { TlvWriter, tlvUnpack, writeBytes16, writeString16 } from './tlv'
 import { teaEncrypt, teaDecrypt } from './tea'
 import { AppInfo, DeviceInfo } from './appInfo'
+import { getActiveProfile } from './profiles'
+import { buildWatchFetchFrame, buildWatchPollFrame, buildWatchLoginFrame } from './watch/request'
 
 export enum QrCodeState {
   Confirmed = 0,
@@ -70,9 +72,10 @@ function buildWtLoginFrame(uin: number, command: 'wtlogin.login' | 'wtlogin.tran
   header.writeUInt8(3, off); off += 1
   header.writeUInt8(135, off); off += 1
   header.writeUInt32BE(0, off); off += 4
-  header.writeUInt8(19, off); off += 1
+  // 两个"平台固定值" (真机实证): Linux 19/appClientVersion, Win/Mac 23/0x3374 (见 profile 注释)
+  header.writeUInt8(getActiveProfile().wtLoginFrameByte, off); off += 1
   header.writeUInt16BE(0, off); off += 2
-  header.writeUInt16BE(AppInfo.appClientVersion, off); off += 2
+  header.writeUInt16BE(getActiveProfile().wtLoginFrameVer, off); off += 2
   header.writeUInt32BE(0, off); off += 4
 
   header.writeUInt8(1, off); off += 1
@@ -127,6 +130,11 @@ function buildCode2dPacket(subCommand: number, tlv: Buffer): Buffer {
 }
 
 export async function fetchQrCode(client: DirectProtocolClient): Promise<QrCodeResult> {
+  // watch: 独立的 21-TLV/P-256 拉码帧, 且 trans_emp 不签名 (skipSign)
+  if (getActiveProfile().family === 'watch') {
+    const resp = await client.sendCommand('wtlogin.trans_emp', buildWatchFetchFrame(client), EncryptType.EncryptEmpty, 10000, true)
+    return parseTransEmp31Response(resp.payload, client.getEcdhShareKey())
+  }
 
   const tlv = new TlvWriter()
 
@@ -152,9 +160,10 @@ export async function fetchQrCode(client: DirectProtocolClient): Promise<QrCodeR
 
   tlv.addTlv(0x33, client.getGuid())
 
-  tlv.addTlvUint32(0x35, AppInfo.ssoVersion)
+  // trans_emp 侧 ssoVersion 与 wtlogin.login 侧可能不同 (Linux 都 19; Win/Mac trans_emp=23)
+  tlv.addTlvUint32(0x35, getActiveProfile().ssoVersionTransEmp)
 
-  tlv.addTlvUint32(0x66, AppInfo.ssoVersion)
+  tlv.addTlvUint32(0x66, getActiveProfile().ssoVersionTransEmp)
 
   tlv.addTlv(0xD1, buildTlvD1())
 
@@ -182,6 +191,11 @@ export async function fetchQrCode(client: DirectProtocolClient): Promise<QrCodeR
 }
 
 export async function pollQrCode(client: DirectProtocolClient, sig: Buffer): Promise<QrPollResult> {
+  if (getActiveProfile().family === 'watch') {
+    const resp = await client.sendCommand('wtlogin.trans_emp', buildWatchPollFrame(client, sig), EncryptType.EncryptEmpty, 10000, true)
+    return parseTransEmp12Response(resp.payload, client.getEcdhShareKey())
+  }
+
   const bodySize = 4 + 2 + sig.length + 8 + 4 + 1 + 1
   const body = Buffer.alloc(bodySize)
   let off = 0
@@ -216,6 +230,25 @@ export async function loginWithQrResult(
     throw new Error('QR poll result incomplete')
   }
 
+  // watch: 独立 21-TLV/P-256 登录帧; login 仍走 SIGN_ALLOWLIST (FEKit 签名, 后端未就绪会 503)
+  if (getActiveProfile().family === 'watch') {
+    const frame = buildWatchLoginFrame(client, {
+      uin: qrResult.uin,
+      tgtgtKey: qrResult.tgtgtKey,
+      tempPassword: qrResult.tempPassword,
+      noPicSig: qrResult.noPicSig,
+    })
+    const resp = await client.sendCommand('wtlogin.login', frame, EncryptType.EncryptEmpty, 15000)
+    const result = parseLoginResponse(resp.payload, client.getEcdhShareKey(), qrResult.tgtgtKey)
+    if (result.success) {
+      client.setSession({
+        uin: qrResult.uin, uid: result.uid, d2: result.d2, d2Key: result.d2Key,
+        tgt: result.tgt, a2: result.tgt, a2Key: result.a2Key, sKey: Buffer.alloc(0),
+      })
+    }
+    return result
+  }
+
   const uin = Number(qrResult.uin)
   const tlv = new TlvWriter()
 
@@ -229,7 +262,6 @@ export async function loginWithQrResult(
   const encrypted144 = Buffer.from(teaEncrypt(innerTlv.build(), qrResult.tgtgtKey))
   tlv.addTlv(0x144, encrypted144)
 
-  // miscBitmap hardcoded to 12058620 (differs from AppInfo.miscBitmap)
   tlv.addTlv(0x116, buildTlv116())
 
   const tlv142Parts: Buffer[] = []
@@ -351,7 +383,7 @@ function buildTlv124(): Buffer {
 function buildTlv116(): Buffer {
   const buf = Buffer.alloc(10)
   buf.writeUInt8(0, 0)
-  buf.writeUInt32BE(12058620, 1)
+  buf.writeUInt32BE(getActiveProfile().miscBitmapT116, 1)
   buf.writeUInt32BE(AppInfo.subSigMap, 5)
   buf.writeUInt8(0, 9)
   return buf
@@ -388,7 +420,7 @@ function buildTlv177(): Buffer {
   const parts: Buffer[] = []
   const header = Buffer.alloc(5)
   header.writeUInt8(1, 0)
-  header.writeUInt32BE(0, 1)
+  header.writeUInt32BE(getActiveProfile().sdkBuildTime, 1) // 桌面 0, Watch 1724730201
   parts.push(header)
   parts.push(writeString16(AppInfo.wtLoginSdk))
   return Buffer.concat(parts)
@@ -532,7 +564,13 @@ function parseTransEmp12Response(data: Buffer, shareKey: Buffer): QrPollResult {
     return { state }
   }
 
-  // When confirmed: 12 bytes misc + TLV pack
+  // Confirmed: [4 skip][uin u32][4 skip] (共 12B) + TLV pack。
+  // watch 的 uin 内嵌于此 (POC 实证, 用它); 桌面走 getCorrectUin, 这里取到也会被覆盖。
+  let uin = ''
+  if (transEmpData.length >= dOff + 12) {
+    const uinNum = transEmpData.readUInt32BE(dOff + 4)
+    if (uinNum > 0) uin = String(uinNum)
+  }
   dOff += 12
 
   const tlvData = transEmpData.subarray(dOff)
@@ -540,7 +578,7 @@ function parseTransEmp12Response(data: Buffer, shareKey: Buffer): QrPollResult {
 
   return {
     state,
-    uin: '',
+    uin,
     tgtgtKey: tlvs.get(0x1E),
     noPicSig: tlvs.get(0x19),
     tempPassword: tlvs.get(0x18),

@@ -10,6 +10,11 @@ import { randomUUID } from 'node:crypto'
 import { TEMP_DIR } from '@/common/globalVars'
 import { Hono } from 'hono'
 
+// 发消息一律走 ctx.app.sendMessage, 不要直接调 ctx.ntMsgApi.sendMsg:
+// server 对 C2C 不推 self-echo, 只有 app.sendMessage 会补发 nt/message-sent。
+// 少了它私聊发完既不进最近会话, 也等不到真消息回填 (ChatInput 已把临时气泡删掉 -> 界面空白),
+// 而且 OneBot/Satori/Milky 也收不到"自己发的消息"。它还负责群禁言检查和 groupMsgMask。
+
 // 群聊 sendMsg 发出后会等 self-echo 拿真实 msgSeq, 超时抛此错 —— 但消息已发出, 转发场景不算失败.
 function isSelfEchoTimeout(e: unknown): boolean {
   return e instanceof Error && e.message.includes('waitForSelfEcho timeout')
@@ -228,7 +233,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
         return c.json({ success: false, message: '消息内容为空' }, 400)
       }
 
-      const result = await ctx.ntMsgApi.sendMsg(peer, elements)
+      const result = await ctx.app.sendMessage(ctx, peer, elements, [])
 
       // 发送成功后清理上传的临时文件
       for (const filePath of uploadedFiles) {
@@ -275,7 +280,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       const { elements, deleteAfterSentFiles } = await rawElementsToSend(ctx, msg.elements, srcPeer)
       cleanup = deleteAfterSentFiles
       if (elements.length === 0) return c.json({ success: false, message: '该消息无可转发内容' }, 400)
-      const result = await ctx.ntMsgApi.sendMsg(targetPeer, elements)
+      const result = await ctx.app.sendMessage(ctx, targetPeer, elements, [])
       return c.json({ success: true, data: { msgId: result.msgId } })
     } catch (e) {
       // 群聊 sendMsg 会等 self-echo 拿真实 msgSeq, 超时抛 waitForSelfEcho timeout —— 但此时消息已发出,
@@ -332,7 +337,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       if (nodes.length === 0) return c.json({ success: false, message: '没有可转发的消息' }, 400)
 
       const forwardElement = SendElement.forward(nodes)
-      const result = await ctx.ntMsgApi.sendMsg(targetPeer, [forwardElement])
+      const result = await ctx.app.sendMessage(ctx, targetPeer, [forwardElement], [])
       return c.json({ success: true, data: { msgId: result.msgId } })
     } catch (e) {
       if (isSelfEchoTimeout(e)) {

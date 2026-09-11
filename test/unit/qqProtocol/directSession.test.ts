@@ -536,3 +536,232 @@ describe('direct session authentication failures', () => {
     expect(disconnected).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('reconnect and QR refresh after dropping offline', () => {
+  let client: DirectProtocolClient
+  let protocol: DirectQQProtocol
+  let qrLoop: ReturnType<typeof vi.fn>
+
+  const savedSession = () => ({ uin: '123456', uid: 'test-uid', guid: Buffer.alloc(16).toString('hex'), savedAt: 0 })
+
+  function stubQrFetch() {
+    let n = 0
+    vi.spyOn(protocol as unknown as { onQrRefreshed(): void }, 'onQrRefreshed').mockImplementation(() => {})
+    return vi
+      .spyOn(protocol as unknown as { fetchFreshQrCode(): Promise<unknown> }, 'fetchFreshQrCode')
+      .mockImplementation(async () => {
+        n++
+        return { qrcodeUrl: `qr-${n}`, pngBase64: '', expireTimeSec: 180, sig: `sig-${n}` }
+      })
+  }
+
+  /** What the poll chain does when the server reports the code expired, followed by the next loop tick. */
+  async function autoRefresh() {
+    protocol['invalidateQrCache']()
+    await protocol['refreshQrCodeIfStale']()
+  }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    client = new DirectProtocolClient()
+    protocol = new DirectQQProtocol(new Context())
+    protocol['directClient'] = client
+    // logout() in an earlier test blanks the shared selfInfo; maybeEmitOnline needs uin/uid back.
+    Object.assign(selfInfo, { uin: '123456', uid: 'test-uid', nick: 'TestBot', online: false })
+    qrLoop = vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
+    vi.mocked(updateAuthToken).mockResolvedValue(undefined)
+  })
+
+  afterEach(() => {
+    client.disconnect()
+    vi.clearAllTimers()
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('stops reconnecting once init has fallen back to QR', async () => {
+    const init = vi
+      .spyOn(protocol as unknown as { initDirectClient(): Promise<void> }, 'initDirectClient')
+      .mockResolvedValue()
+
+    protocol['scheduleReconnect']()
+    await vi.advanceTimersByTimeAsync(5_000)
+    expect(init).toHaveBeenCalledTimes(1)
+    expect(qrLoop).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(120_000)
+    expect(init).toHaveBeenCalledTimes(1)
+  })
+
+  it('retries a failed init with backoff capped at a minute', async () => {
+    const init = vi
+      .spyOn(protocol as unknown as { initDirectClient(): Promise<void> }, 'initDirectClient')
+      .mockRejectedValue(new Error('connect ECONNREFUSED'))
+    const callsAfter = async (ms: number) => {
+      await vi.advanceTimersByTimeAsync(ms)
+      return init.mock.calls.length
+    }
+
+    protocol['scheduleReconnect']()
+    expect(await callsAfter(5_000)).toBe(1)
+    expect(await callsAfter(9_999)).toBe(1)
+    expect(await callsAfter(1)).toBe(2)
+    expect(await callsAfter(20_000)).toBe(3)
+    expect(await callsAfter(40_000)).toBe(4)
+    expect(await callsAfter(60_000)).toBe(5)
+    expect(await callsAfter(60_000)).toBe(6)
+    expect(qrLoop).not.toHaveBeenCalled()
+  })
+
+  it('keeps a session restore going when a QR poll starts meanwhile', async () => {
+    protocol['bindDirectClientEvents'](client)
+    vi.mocked(loadSession).mockReturnValue(savedSession())
+    vi.mocked(persistedToSessionInfo).mockReturnValue(createSession())
+    const registration = deferred<string>()
+    vi.mocked(registerOnline).mockReturnValue(registration.promise)
+    const restore = protocol['doInitDirectClient']('test-auth-token')
+    await vi.waitFor(() => expect(registerOnline).toHaveBeenCalled())
+
+    // The QR loop hands out a code while registration is pending, which starts a new poll chain.
+    protocol['directQrResult'] = {
+      url: 'https://example.com/qr?k=test',
+      image: Buffer.alloc(0),
+      sig: Buffer.alloc(16),
+      tgtgtKey: Buffer.alloc(16),
+    }
+    protocol['startDirectQrPolling']()
+    registration.resolve('ok')
+    await restore
+
+    expect(selfInfo.online).toBe(true)
+    expect(startHeartbeat).toHaveBeenCalledExactlyOnceWith(client)
+  })
+
+  it('lets logout abort a session restore before the session is installed', async () => {
+    vi.mocked(loadSession).mockReturnValue(savedSession())
+    vi.mocked(persistedToSessionInfo).mockReturnValue(createSession())
+    ;(client['conn'] as unknown as { isConnected: boolean }).isConnected = false
+    const connecting = deferred<void>()
+    const connect = vi.spyOn(client, 'connect').mockReturnValue(connecting.promise)
+    const restore = protocol['doInitDirectClient']('test-auth-token')
+    await vi.waitFor(() => expect(connect).toHaveBeenCalled())
+
+    await protocol.logout()
+    connecting.resolve()
+    await restore
+
+    expect(client.isLoggedIn).toBe(false)
+    expect(registerOnline).not.toHaveBeenCalled()
+  })
+
+  it('caps automatic QR refreshes until a manual refresh or a login', async () => {
+    const fetch = stubQrFetch()
+
+    for (let i = 0; i < 12; i++) await autoRefresh()
+    expect(fetch).toHaveBeenCalledTimes(10)
+
+    // A user refreshing from the WebUI gets a code and lifts the cap; that fetch itself is not counted.
+    await expect(protocol.getLoginQrCode()).resolves.toMatchObject({ qrcodeUrl: 'qr-11' })
+    for (let i = 0; i < 12; i++) await autoRefresh()
+    expect(fetch).toHaveBeenCalledTimes(21)
+
+    selfInfo.online = true
+    protocol['maybeEmitOnline']()
+    selfInfo.online = false
+    await autoRefresh()
+    expect(fetch).toHaveBeenCalledTimes(22)
+  })
+
+  it('stops printing while the cap is exhausted, says so once, and resumes after a manual refresh', async () => {
+    protocol['qrAutoRefreshCount'] = 10
+    const print = vi
+      .spyOn(protocol as unknown as { printQrToTerminal(): Promise<void> }, 'printQrToTerminal')
+      .mockResolvedValue()
+    const warn = vi.spyOn(protocol['logger'], 'warn')
+
+    await protocol['qrLoop']()
+    await vi.advanceTimersByTimeAsync(3_000)
+    expect(print).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(getCurrentLoginState()).toMatchObject({ state: 'expired' })
+
+    stubQrFetch()
+    await protocol.getLoginQrCode()
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(print).toHaveBeenCalled()
+  })
+
+  it('shares one QR fetch between a loop tick and a WebUI request', async () => {
+    const fetched = deferred<{ qrcodeUrl: string; pngBase64: string; expireTimeSec: number; sig: string }>()
+    const fetch = vi
+      .spyOn(protocol as unknown as { fetchFreshQrCode(): Promise<unknown> }, 'fetchFreshQrCode')
+      .mockReturnValue(fetched.promise)
+    const refreshed = vi
+      .spyOn(protocol as unknown as { onQrRefreshed(): void }, 'onQrRefreshed')
+      .mockImplementation(() => {})
+
+    const loopTick = protocol['refreshQrCodeIfStale']()
+    const webui = protocol.getLoginQrCode()
+    fetched.resolve({ qrcodeUrl: 'qr-1', pngBase64: '', expireTimeSec: 180, sig: 'sig-1' })
+    await loopTick
+
+    await expect(webui).resolves.toMatchObject({ qrcodeUrl: 'qr-1' })
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(refreshed).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not fetch a QR code while a login is completing', async () => {
+    const fetch = stubQrFetch()
+    client.setSession(createSession())
+
+    await expect(protocol.getLoginQrCode()).rejects.toThrow('QR code unavailable')
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('backs off after failed QR fetches instead of retrying every tick', async () => {
+    const fetch = vi
+      .spyOn(protocol as unknown as { fetchFreshQrCode(): Promise<unknown> }, 'fetchFreshQrCode')
+      .mockRejectedValue(new Error('connect ECONNREFUSED'))
+    const warn = vi.spyOn(protocol['logger'], 'warn')
+    const attemptsAfter = async (ms: number) => {
+      await vi.advanceTimersByTimeAsync(ms)
+      return fetch.mock.calls.length
+    }
+
+    await protocol['qrLoop']()
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(await attemptsAfter(1_999)).toBe(1)
+    expect(await attemptsAfter(1)).toBe(2)
+    expect(await attemptsAfter(4_000)).toBe(3)
+    expect(await attemptsAfter(8_000)).toBe(4)
+    expect(await attemptsAfter(16_000)).toBe(5)
+    expect(await attemptsAfter(30_000)).toBe(6)
+    expect(warn).toHaveBeenCalledTimes(6)
+    expect(warn).toHaveBeenLastCalledWith(expect.stringContaining('30s 后重试'))
+
+    // A manual refresh does not wait out the backoff, and its success clears it.
+    fetch.mockResolvedValue({ qrcodeUrl: 'qr', pngBase64: '', expireTimeSec: 180, sig: 'sig' })
+    vi.spyOn(protocol as unknown as { onQrRefreshed(): void }, 'onQrRefreshed').mockImplementation(() => {})
+    await expect(protocol.getLoginQrCode()).resolves.toMatchObject({ qrcodeUrl: 'qr' })
+    expect(fetch).toHaveBeenCalledTimes(7)
+    expect(protocol['qrFetchRetryAt']).toBe(0)
+  })
+
+  it('logs how long a QR code lived when the server expires it', async () => {
+    protocol['directQrResult'] = {
+      url: 'https://example.com/qr?k=test',
+      image: Buffer.alloc(0),
+      sig: Buffer.alloc(16),
+      tgtgtKey: Buffer.alloc(16),
+    }
+    protocol['qrFetchedAt'] = Date.now()
+    vi.mocked(pollQrCode).mockResolvedValue({ state: 17, tgtgtKey: Buffer.alloc(16) })
+    const info = vi.spyOn(protocol['logger'], 'info')
+
+    protocol['startDirectQrPolling']()
+    await vi.advanceTimersByTimeAsync(2_000)
+
+    expect(info).toHaveBeenCalledWith('二维码已过期, 这张码用了 2s')
+    expect(getCurrentLoginState()).toMatchObject({ state: 'expired' })
+  })
+})
