@@ -127,6 +127,8 @@ export interface LinuxTokenResult {
 export interface MacosQimeiArgs {
   seedHex: string
   appKey?: string
+  /** Entry QUA, drives the reported app_version; without it the crate default won't match the device_pb QUA. */
+  qua?: string
 }
 
 export interface MacosQimeiResult {

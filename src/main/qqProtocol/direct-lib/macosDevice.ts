@@ -81,7 +81,7 @@ async function build(file: string, qua: string): Promise<MacosDevice> {
     // 没有旧文件 / 读不动: 下面重新取号
   }
   if (!qimei36) {
-    qimei36 = (await proxy.getMacosQimei({ seedHex })).qimei36
+    qimei36 = (await proxy.getMacosQimei({ seedHex, qua })).qimei36
     logger.info(`[MacosDevice] qimei 取号完成 (${qimei36})`)
   }
 
