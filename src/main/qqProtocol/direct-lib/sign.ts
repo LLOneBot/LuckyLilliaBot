@@ -1,4 +1,4 @@
-import { getLogger } from '@/common/logger'
+import { getLogger, isDebugEnabled } from '@/common/logger'
 import { getActiveProfile } from './profiles'
 import { getCdn, getProtocol } from '@/common/utils/environment'
 import { loadMachineGuidSync } from './machineGuid'
@@ -104,6 +104,9 @@ export async function preflightSign(
   return reason
 }
 
+/** --debug 下 sign body 的 hex 预览上限。发图这类 payload 很大; 登录/握手类小包打得全。 */
+const SIGN_LOG_BODY_BYTES = 512
+
 export async function requestSign(
   cmd: string,
   src: Buffer,
@@ -123,24 +126,46 @@ export async function requestSign(
     return null
   }
 
+  const guidHex = guid?.toString('hex') ?? ''
+  // watch sign 是设备绑定的: 后端拿 device32 派生 device_blob。不传 = 空 blob =
+  // 模拟器身份, 真机会拒。从持久化 machine guid 派生, 跟 wtlogin 用的是同一台设备。
+  const device32Hex = getActiveProfile().family === 'watch'
+    ? device32FromGuid(loadMachineGuidSync()).toString('hex')
+    : undefined
+
+  // 入参在调用前打, native 抛错时现场也留得下。跟真机抓包逐字段对拍用。
+  if (isDebugEnabled()) {
+    const cut = src.length > SIGN_LOG_BODY_BYTES ? ` (前 ${SIGN_LOG_BODY_BYTES}B)` : ''
+    logger.debug(
+      `[sign req] ${cmd} seq=${seq} uin=${uin ?? 0} qua=${qua ?? ''} guid=${guidHex}` +
+        ` deviceToken=${protocolToken12B ? '"' + protocolToken12B + '"' : '<empty>'}` +
+        (device32Hex ? ` device32=${device32Hex}` : '') +
+        ` body=${src.length}B${cut} hex=%h`,
+      src.subarray(0, SIGN_LOG_BODY_BYTES),
+    )
+  }
+
   try {
     const r = await getSignProxy().signRequest({
       cmd,
       bodyHex: src.toString('hex'),
       seq,
-      guidHex: guid?.toString('hex') ?? '',
+      guidHex,
       qua: qua ?? '',
       uin: uin ?? 0,
       protocolTokenHex: protocolToken12B
         ? Buffer.from(protocolToken12B, 'utf-8').toString('hex')
         : '',
-      // watch sign 是设备绑定的: 后端拿 device32 派生 device_blob。不传 = 空 blob =
-      // 模拟器身份, 真机会拒。从持久化 machine guid 派生, 跟 wtlogin 用的是同一台设备。
-      device32Hex: getActiveProfile().family === 'watch'
-        ? device32FromGuid(loadMachineGuidSync()).toString('hex')
-        : undefined,
+      device32Hex,
     })
-    logger.debug(`${cmd} seq=${seq}: sign=${r.sign.length}B token=${r.token.length}B extra=${r.extra.length}B`)
+    if (isDebugEnabled()) {
+      logger.debug(
+        `[sign resp] ${cmd} seq=${seq} sign=${r.sign.length}B hex=%h token=${r.token.length}B hex=%h extra=${r.extra.length}B hex=%h`,
+        r.sign,
+        r.token,
+        r.extra,
+      )
+    }
     return { sign: r.sign, token: r.token, extra: r.extra }
   } catch (e) {
     formatNativeSignError(cmd, qua, e as Error)
