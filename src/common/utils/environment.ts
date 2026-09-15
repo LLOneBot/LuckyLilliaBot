@@ -14,6 +14,14 @@ export function isPmhqMode(): boolean {
 }
 
 /**
+ * `--dev`: run against a local manager -- loads the dev sign-proxy build and reads data/auth_token.dev.txt.
+ * argv only, no env fallback: a stray variable on a deployment must never switch it on.
+ */
+export function isDevMode(argv: string[] = process.argv): boolean {
+    return argv.includes('--dev')
+}
+
+/**
  * 从 process.argv 里解析指定 uin. 支持 4 种写法:
  *   -q <uin> / -q=<uin> / --qq <uin> / --qq=<uin>
  * 用于多账号场景: 指定一个 uin 后会读写对应的 qq-session-<uin>[-<protocol>].json / config_<uin>.json。

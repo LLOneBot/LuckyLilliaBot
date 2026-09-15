@@ -75,7 +75,7 @@ async function processOnce(): Promise<void> {
       warnedNoToken = true
       log.warn(
         `[Sign] auth_token 未配置: 请到 ${getAuthTokenPageUrl()} 获取 Auth Token, ` +
-        '在 WebUI 中录入或写入 data/auth_token.txt (录入后会自动校验并登录)'
+        `在 WebUI 中录入或写入 ${authTokenUtil.getPath()} (录入后会自动校验并登录)`
       )
     }
     return

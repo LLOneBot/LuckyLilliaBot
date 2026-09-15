@@ -1,5 +1,6 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
 import { getLogger } from '@/common/logger'
+import { isDevMode } from '@/common/utils/environment'
 import { createRequire } from 'node:module'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -7,6 +8,11 @@ import { fileURLToPath } from 'node:url'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const requireBin = createRequire(import.meta.url)
+
+// --dev: dev build from SignProxy `npm run build:dev-bot` (base_url baked to localhost:8090, no TLS pinning).
+// Names differ end to end, so a missing dev build fails to load instead of falling back to prod.
+const isDev = isDevMode()
+const baseName = isDev ? 'sign-proxy-dev' : 'sign-proxy'
 
 // alpine/musl 判据: glibc 的 node report 带 glibcVersionRuntime, musl 上没有 (napi-rs 同款).
 // 兜底再看 alpine 标志文件 / musl 动态加载器. 直连 sign-proxy .node 分 glibc / musl 两套 (ABI 不通用).
@@ -34,7 +40,7 @@ function pickTriple(): string {
 /** 读 sign-proxy 版本号. 版本号塞进 tmpdir 文件名做 .node 热更新缓存 key. */
 function pickVersion(): string {
   try {
-    const pkg = JSON.parse(readFileSync(join(here, 'sign-proxy.package.json'), 'utf-8'))
+    const pkg = JSON.parse(readFileSync(join(here, `${baseName}.package.json`), 'utf-8'))
     if (typeof pkg.version === 'string' && pkg.version.length > 0) return pkg.version
   } catch {
     // 读不到就 fallback, 热更新失效但不影响加载
@@ -43,7 +49,7 @@ function pickVersion(): string {
 }
 
 /**
- * 把同目录的 .node 拷到 tmpdir/lucky-lillia-sign-proxy/sign-proxy.<triple>.<version>.node 再 require.
+ * 把同目录的 .node 拷到 tmpdir/lucky-lillia-sign-proxy/<baseName>.<triple>.<version>.node 再 require.
  *
  * 为什么转一道: Bot 跑着时 require 的 .node 文件被 OS 锁定 (Windows 尤甚), 无法被
  * `npm run build:dev-bot` / 外部部署脚本覆盖 -- 等于阻止热更新. 转 tmpdir + 把版本号
@@ -57,7 +63,7 @@ function pickVersion(): string {
  */
 function ensureLoadablePath(srcPath: string, version: string, triple: string): string {
   const cacheRoot = join(tmpdir(), 'lucky-lillia-sign-proxy')
-  const cachedName = `sign-proxy.${triple}.${version}.node`
+  const cachedName = `${baseName}.${triple}.${version}.node`
   const cachedPath = join(cacheRoot, cachedName)
 
   if (existsSync(cachedPath)) return cachedPath
@@ -160,7 +166,7 @@ export interface MacosO3Result {
 
 const triple = pickTriple()
 const version = pickVersion()
-const srcPath = join(here, `sign-proxy.${triple}.node`)
+const srcPath = join(here, `${baseName}.${triple}.node`)
 const loadPath = ensureLoadablePath(srcPath, version, triple)
 
 export interface InitArgs {
@@ -242,10 +248,13 @@ export function getSignProxy() {
     return native
   } catch (error) {
     const { message } = error as Error
-    // Windows 上 .node 常被杀毒软件误杀/隔离, require 直接报文件缺失或加载失败.
-    const hint = process.platform === 'win32'
-      ? ` (${loadPath} 可能被杀毒软件删除或隔离, 请检查杀软记录并将其加入白名单)`
-      : ''
+    let hint = ''
+    if (isDev) {
+      hint = ' (--dev: run `npm run build:dev-bot` in LuckyLillia.SignProxy to sync the dev build)'
+    } else if (process.platform === 'win32') {
+      // Windows 上 .node 常被杀毒软件误杀/隔离, require 直接报文件缺失或加载失败.
+      hint = ` (${loadPath} 可能被杀毒软件删除或隔离, 请检查杀软记录并将其加入白名单)`
+    }
     throw new Error(`sign-proxy: failed to load ${loadPath}: ${message}${hint}`)
   }
 }

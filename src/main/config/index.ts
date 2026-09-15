@@ -7,7 +7,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import JSON5 from 'json5'
 import { mergeNewProperties } from '@/common/utils'
-import { getSpecifiedUin } from '@/common/utils/environment'
+import { getSpecifiedUin, isDevMode } from '@/common/utils/environment'
 
 declare module 'cordis' {
   interface Context {
@@ -313,7 +313,7 @@ class WebUITokenUtil {
 
 export const webuiTokenUtil = new WebUITokenUtil(path.join(DATA_DIR, 'webui_token.txt'))
 
-// data/auth_token.txt
+// data/auth_token.txt (--dev: data/auth_token.dev.txt, keeps the local-manager token apart from the real one)
 class AuthTokenUtil {
   private token: string = ''
   private loaded = false
@@ -349,6 +349,6 @@ class AuthTokenUtil {
   }
 }
 
-export const authTokenUtil = new AuthTokenUtil(path.join(DATA_DIR, 'auth_token.txt'))
+export const authTokenUtil = new AuthTokenUtil(path.join(DATA_DIR, isDevMode() ? 'auth_token.dev.txt' : 'auth_token.txt'))
 
 

@@ -11,3 +11,4 @@
 | [docs/webqq-sse-events.md](docs/webqq-sse-events.md) | 改 WebQQ 实时事件 (新消息/撤回/表情回应) 或排查"要刷新才更新"类问题时 |
 | [docs/multi-protocol.md](docs/multi-protocol.md) | 改协议常量 / 加协议端 / 改 --protocol 或 profile / session 命名 / 排查换协议后登录发包问题时 / 处理某端不支持的 cmd (-10122) 时 / 改各端 sign token 取法 (macOS ESK/A2/SA2) 时 |
 | [docs/session-lifecycle.md](docs/session-lifecycle.md) | 排查"假在线"(在线但收不到消息) / 改登录凭据失效检测 / 心跳 / 掉线监控 / session 存删时 / 改设备 guid (machine_guid.bin) 或从它派生的东西 (session 加密 key / macos_device.json) / 排查顶号或切号后快速登录失效时 / 改掉线重连或二维码自动刷新 (qrLoop / 刷新上限) 时 |
+| [docs/dev-mode.md](docs/dev-mode.md) | 用 --dev 连本地 manager 联调 / 同步 SignProxy dev 构建 (build:dev-bot) / 改 sign-proxy loader 选哪个 .node、tmpdir 缓存或版本文件 / 改 auth token 文件路径 / 排查实际加载了哪个 .node、"换了 .node 没生效" 或 dev 构建混进 dist 时 |

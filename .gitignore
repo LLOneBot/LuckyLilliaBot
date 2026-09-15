@@ -32,3 +32,6 @@ logs/
 
 # playwright-cli 运行产物 (console log / 页面快照)
 .playwright-cli/
+
+# SignProxy dev build (npm run build:dev-bot), loaded only with --dev; never commit or ship it
+src/main/qqProtocol/direct-lib/sign-proxy/sign-proxy-dev.*
