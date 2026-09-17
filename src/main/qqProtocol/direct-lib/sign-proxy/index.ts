@@ -98,6 +98,8 @@ interface Native {
    * 不经 manager (acquireSignToken 那条要打 manager 两趟 HTTP)。老 .node 没这个 export 时为 undefined。
    */
   getLinuxEskToken?(args: LinuxEskTokenArgs): Promise<LinuxTokenResult>
+  startSsoReportLinux?(args: StartSsoReportLinuxArgs): Promise<void>
+  stopSsoReport?(): void
   // ---- macOS o3 链 (全部本地组包, 只借 sendPacket 走 bot 自己的 SSO) ----
   // 老 .node 没这几个 export 时为 undefined, 调用前先判一下再报"请重新 build"。
   /** qimei 取号。打 StarTrail, 走**本机**网络出口 (服务端代取会把全站设备注册到同一 IP)。 */
@@ -122,6 +124,16 @@ export interface LinuxTokenResult {
   token: string
   /** ESK 响应 field 3 的 TTL(秒); 没解析到是 0 —— 调用方别直接拿 0 算过期时间。 */
   ttlSecs: number
+}
+
+export interface StartSsoReportLinuxArgs {
+  qua: string
+  guidHex: string
+  uin: string
+  machineId?: string
+  loginXwidBurst?: number
+  verifyFileIntervalMs?: number
+  uiReportMetric?: string
 }
 
 export interface MacosQimeiArgs {

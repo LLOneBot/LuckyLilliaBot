@@ -231,6 +231,37 @@ async function acquireLinuxSignToken(uin: number, qua: string): Promise<{ token:
   return { token: r.token, ttlSecs: r.ttlSecs || DEFAULT_TOKEN_TTL_SECS }
 }
 
+let warnedNoSsoReport = false
+
+export async function startLinuxSsoReport(args: { qua: string; guidHex: string; uin: string }): Promise<void> {
+  if (!inited) return
+  const proxy = getSignProxy()
+  if (typeof proxy.startSsoReportLinux !== 'function') {
+    if (!warnedNoSsoReport) {
+      warnedNoSsoReport = true
+      logger.warn('[SsoReport] sign-proxy .node 过旧 (缺 startSsoReportLinux), 跳过 o3 遥测; 请重新 build 并 sync-to-bot')
+    }
+    return
+  }
+  try {
+    await proxy.startSsoReportLinux({ qua: args.qua, guidHex: args.guidHex, uin: args.uin })
+    logger.info('[SsoReport] Linux o3 遥测循环已启动')
+  } catch (e) {
+    logger.warn(`[SsoReport] 启动失败: ${(e as Error).message}`)
+  }
+}
+
+export function stopLinuxSsoReport(): void {
+  if (!inited) return
+  const { stopSsoReport } = getSignProxy()
+  if (typeof stopSsoReport !== 'function') return
+  try {
+    stopSsoReport()
+  } catch (e) {
+    logger.warn(`[SsoReport] 停止失败: ${(e as Error).message}`)
+  }
+}
+
 /**
  * macOS deviceToken: ESK -> A2Establish -> SA2, 三步共用同一份 device_pb。
  *

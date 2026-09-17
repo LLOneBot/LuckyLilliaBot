@@ -3,7 +3,7 @@ import { TcpConnection } from './connection'
 import { buildServicePacket, buildServicePacket13, parseServicePacket, EncryptType, PacketContext, SsoPacket } from './packet'
 import { generateEcdhKeyPair, EcdhKeyPair } from './ecdh'
 import { generateWatchEcdhKeyPair } from './watch/ecdh'
-import { requestSign, setupSign, setSignMachineGuid, acquireSignToken, acquireMacosEskOnly, SignResult, type MacosEskState } from './sign'
+import { requestSign, setupSign, setSignMachineGuid, acquireSignToken, acquireMacosEskOnly, startLinuxSsoReport, stopLinuxSsoReport, SignResult, type MacosEskState } from './sign'
 import { AppInfo } from './appInfo'
 import { getActiveProfile } from './profiles'
 import { loadMachineGuidSync } from './machineGuid'
@@ -120,8 +120,9 @@ export class DirectProtocolClient extends EventEmitter {
       uin: this.config.uin,
       cdn: this.config.cdn,
       sendPacket: async ({ cmd, body }) => {
-        const resp = (await this.sendCommand(cmd, Buffer.from(body))).payload
-        logger.debug(`[relay] ${cmd}: req=${body.length}B resp=${resp.length}B hex=%h`, resp)
+        const req = Buffer.from(body)
+        const resp = (await this.sendCommand(cmd, req)).payload
+        logger.debug(`[relay] ${cmd}: req=${req.length}B resp=${resp.length}B reqHex=%h respHex=%h`, req, resp)
         return resp
       },
     })
@@ -853,11 +854,6 @@ export class DirectProtocolClient extends EventEmitter {
     }
     const packet = buildServicePacket(seq, cmd, ctx, payload, enc, signResult)
 
-    // 调试用: 出网前 dump SSO frame, 跟真机抓包对照定位 sign 不一致的字节差异.
-    if (cmd.includes('o3.ecdh_access') || cmd === 'wtlogin.login' || cmd === 'wtlogin.trans_emp') {
-      logger.debug(`[SSO send] ${cmd} seq=${seq} frame=${packet.length}B hex=%h`, packet)
-    }
-
     const tSendStart = Date.now()
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
@@ -985,6 +981,16 @@ export class DirectProtocolClient extends EventEmitter {
     this.session = session
     this.emit('login', session)
     void this.tryAcquireSignToken()
+    void this.tryStartLinuxSsoReport()
+  }
+
+  private async tryStartLinuxSsoReport(): Promise<void> {
+    if (getActiveProfile().name !== 'linux' || !this.session || !this.config.authToken) return
+    await startLinuxSsoReport({
+      qua: AppInfo.qua,
+      guidHex: this.guid.toString('hex'),
+      uin: this.session.uin,
+    })
   }
 
   /**
@@ -1047,5 +1053,6 @@ export class DirectProtocolClient extends EventEmitter {
 
   clearSession(): void {
     this.session = null
+    stopLinuxSsoReport()
   }
 }
