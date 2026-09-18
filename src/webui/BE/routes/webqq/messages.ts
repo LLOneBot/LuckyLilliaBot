@@ -7,7 +7,7 @@ import { unlink, writeFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { TEMP_DIR } from '@/common/globalVars'
+import { TEMP_DIR, selfInfo } from '@/common/globalVars'
 import { Hono } from 'hono'
 
 // 发消息一律走 ctx.app.sendMessage, 不要直接调 ctx.ntMsgApi.sendMsg:
@@ -432,6 +432,26 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     } catch (e) {
       ctx.logger.error('获取视频 URL 失败:', e)
       return c.json({ success: false, message: '获取视频 URL 失败', error: (e as Error).message }, 500)
+    }
+  })
+
+  // 私聊文件下载 URL (腾讯 ftn CDN 直链, FE 直接 window.open 下载).
+  // receiverUid 语义 (0xe37_1200 field10): 收到别人发的文件用自己 uid, 自己发出去的文件用对方 uid.
+  router.get('/private-file-url', async (c) => {
+    try {
+      const { peerUid, fileId, isSelfSend } = c.req.query() as { peerUid: string; fileId: string; isSelfSend?: string }
+      if (!peerUid || !fileId) {
+        return c.json({ success: false, message: '缺少必要参数' }, 400)
+      }
+      const receiverUid = isSelfSend === 'true' ? peerUid : selfInfo.uid
+      const res = await ctx.ntFileApi.getFileUrl(fileId, false, receiverUid)
+      if (res.retCode !== 0) {
+        return c.json({ success: false, message: res.retMsg || '获取下载链接失败' }, 500)
+      }
+      return c.json({ success: true, data: { url: res.url } })
+    } catch (e) {
+      ctx.logger.error('获取私聊文件下载链接失败:', e)
+      return c.json({ success: false, message: '获取私聊文件下载链接失败', error: (e as Error).message }, 500)
     }
   })
 

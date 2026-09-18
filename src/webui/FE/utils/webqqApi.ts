@@ -638,6 +638,48 @@ export async function getGroupFileUrl(groupCode: string, fileId: string): Promis
   return response.data!.url
 }
 
+// 获取私聊文件下载链接（腾讯 ftn CDN 直链）。
+// isSelfSend: 该文件是不是自己发出去的——决定 BE 端 receiverUid 取自己还是对方 uid。
+export async function getPrivateFileUrl(peerUid: string, fileId: string, isSelfSend: boolean): Promise<string> {
+  const response = await apiFetch<{ url: string }>(
+    `/api/webqq/private-file-url?peerUid=${encodeURIComponent(peerUid)}&fileId=${encodeURIComponent(fileId)}&isSelfSend=${isSelfSend}`
+  )
+  if (!response.success) {
+    throw new Error(response.message || '获取下载链接失败')
+  }
+  return response.data!.url
+}
+
+// 下载图片：经 image-proxy 抓成 blob 再触发浏览器下载。
+// 不能直接 <a href={CDN} download>——私聊图 URL 的 path 就是 /download，跨域时 download 属性被忽略，
+// 存下来文件名成了 "download"（rkey 过期时 CDN 返回 JSON，则成 "download.json"）。走同源 blob 才能带对文件名。
+export async function downloadImageByUrl(url: string, suggestedName?: string): Promise<void> {
+  // blob:/data: 是本地已有的图 (刚发出的预览), 直接抓; CDN 图走 image-proxy 解决跨域 + rkey 注入.
+  const isLocal = url.startsWith('blob:') || url.startsWith('data:')
+  const resp = isLocal
+    ? await fetch(url)
+    : await fetch(`/api/webqq/image-proxy?url=${encodeURIComponent(url)}`, {
+        headers: { 'X-Webui-Token': getToken() || '' },
+      })
+  if (!resp.ok) {
+    throw new Error('下载图片失败')
+  }
+  const blob = await resp.blob()
+  let name = suggestedName || 'image'
+  if (!/\.[a-z0-9]+$/i.test(name)) {
+    const ext = (blob.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg')
+    name = `${name}.${ext}`
+  }
+  const objUrl = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = objUrl
+  a.download = name
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(objUrl)
+}
+
 // 上传群文件：先经 /upload-file 拿 filePath，再调 group-file/upload 走 highway 上传 + feed 到群
 export async function uploadGroupFile(groupCode: string, file: File, folderId = '/'): Promise<string> {
   const { filePath, fileName } = await uploadFile(file)

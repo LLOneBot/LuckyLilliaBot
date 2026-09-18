@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Reply, Trash2, AtSign, Hand, User, UserMinus, VolumeX, Award, Smile, Shield, ShieldOff, Star, Forward, ListChecks } from 'lucide-react'
+import { Reply, Trash2, AtSign, Hand, User, UserMinus, VolumeX, Award, Smile, Shield, ShieldOff, Star, Forward, ListChecks, Download } from 'lucide-react'
 import type { RawMessage, GroupMemberItem } from '../../../types/webqq'
-import { getSelfUid, recallMessage, sendPoke, setMemberAdmin, addFavEmojiFromUrl } from '../../../utils/webqqApi'
+import { getSelfUid, recallMessage, sendPoke, setMemberAdmin, addFavEmojiFromUrl, downloadImageByUrl } from '../../../utils/webqqApi'
 import { showToast } from '../../common'
 
 // 计算菜单位置，确保不超出屏幕
@@ -121,6 +121,24 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
     }
   }
 
+  const handleDownloadImage = async () => {
+    if (!contextMenu.elementId) return
+    onClose()
+    try {
+      const target = msg.elements.find((e: any) => e.elementId === contextMenu.elementId)
+      const pic = target?.picElement
+      const rawUrl: string = pic?.originImageUrl || ''
+      if (!rawUrl) {
+        showToast('图片地址为空，无法下载', 'error')
+        return
+      }
+      const url = rawUrl.startsWith('http') ? rawUrl : `https://gchat.qpic.cn${rawUrl}`
+      await downloadImageByUrl(url, pic?.fileName || pic?.md5HexStr)
+    } catch (e) {
+      showToast(e.message || '下载失败', 'error')
+    }
+  }
+
   return createPortal(
     <>
       <div className="fixed inset-0 z-40" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
@@ -158,6 +176,14 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
           >
             <Smile size={14} /> 贴表情
+          </button>
+        )}
+        {isImageMenu && (
+          <button
+            onClick={handleDownloadImage}
+            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-theme hover:bg-theme-item-hover transition-colors"
+          >
+            <Download size={14} /> 下载图片
           </button>
         )}
         {isImageMenu && (

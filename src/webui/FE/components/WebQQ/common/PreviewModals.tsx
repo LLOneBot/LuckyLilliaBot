@@ -1,17 +1,36 @@
 import React, { useState, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { X, Loader2 } from 'lucide-react'
-import { getVideoUrl } from '../../../utils/webqqApi'
+import { X, Loader2, Download } from 'lucide-react'
+import { getVideoUrl, downloadImageByUrl } from '../../../utils/webqqApi'
+import { showToast } from '../../common'
 
 // 图片预览弹窗组件
 export const ImagePreviewModal: React.FC<{ url: string | null; onClose: () => void }> = ({ url, onClose }) => {
   if (!url) return null
-  
+
+  const handleDownload = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      // 预览 url 已拼好 rkey; 从 path 末段猜文件名, downloadImageByUrl 会按 blob 类型补扩展名
+      const name = new URL(url, location.origin).pathname.split('/').pop() || 'image'
+      await downloadImageByUrl(url, name)
+    } catch (err) {
+      showToast((err as Error).message || '下载失败', 'error')
+    }
+  }
+
   return createPortal(
-    <div 
+    <div
       className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80"
       onClick={onClose}
     >
+      <button
+        onClick={handleDownload}
+        title="下载图片"
+        className="absolute top-4 right-16 p-2 text-white/80 hover:text-white bg-black/50 rounded-full"
+      >
+        <Download size={24} />
+      </button>
       <button
         onClick={onClose}
         className="absolute top-4 right-4 p-2 text-white/80 hover:text-white bg-black/50 rounded-full"

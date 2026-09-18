@@ -3,9 +3,10 @@ import { Loader2, Mic, Play, Pause, ChevronRight, X, FileText } from 'lucide-rea
 import { createPortal } from 'react-dom'
 import type { MessageElement, RawMessage } from '../../../types/webqq'
 import { getToken } from '../../../utils/api'
-import { translatePttToText, getAudioProxyUrl, getForwardMessages } from '../../../utils/webqqApi'
+import { translatePttToText, getAudioProxyUrl, getForwardMessages, getPrivateFileUrl, getSelfUid } from '../../../utils/webqqApi'
 import type { ForwardMessageItem, ForwardMessageSegment } from '../../../utils/webqqApi'
 import { useImageRkeyStore } from '../../../stores/imageRkeyStore'
+import { showToast } from '../common'
 
 // 图片预览上下文
 export const ImagePreviewContext = React.createContext<{
@@ -142,9 +143,13 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
   }
   if (element.fileElement) {
     const f = element.fileElement
-    // 仅群聊文件卡片可点击定位 (私聊无群文件面板)
-    const groupFile = message?.chatType === 2 ? { fileId: f.fileUuid, folderId: f.folderId } : undefined
-    return <FileElementCard fileName={f.fileName} fileSize={f.fileSize} groupFile={groupFile} />
+    const isGroup = message?.chatType === 2
+    // 群文件卡片可点击定位到群文件面板; 私聊文件卡片可点击直接下载 (私聊无群文件面板)
+    const groupFile = isGroup ? { fileId: f.fileUuid, folderId: f.folderId } : undefined
+    const privateFile = message && !isGroup && f.fileUuid
+      ? { fileId: f.fileUuid, peerUid: message.peerUid, isSelfSend: message.senderUid === getSelfUid() }
+      : undefined
+    return <FileElementCard fileName={f.fileName} fileSize={f.fileSize} groupFile={groupFile} privateFile={privateFile} />
   }
   if (element.pttElement) {
     return <PttElementRenderer element={element} message={message} />
@@ -286,22 +291,49 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
 
 // 文件卡片. 跟图片/视频一样作为独立元素渲染, 不含状态文字 ("已发送"等),
 // 状态由外层 MessageBubble 决定要不要展示.
-const FileElementCard = memo<{ fileName: string; fileSize: number; groupFile?: { fileId: string; folderId: string } }>(({ fileName, fileSize, groupFile }) => {
+const FileElementCard = memo<{
+  fileName: string
+  fileSize: number
+  groupFile?: { fileId: string; folderId: string }
+  privateFile?: { fileId: string; peerUid: string; isSelfSend: boolean }
+}>(({ fileName, fileSize, groupFile, privateFile }) => {
   const sizeText = formatFileSize(fileSize)
   const fileCardContext = React.useContext(FileCardContext)
-  const clickable = !!groupFile && !!fileCardContext
+  const [downloading, setDownloading] = useState(false)
+  const groupClickable = !!groupFile && !!fileCardContext
+  const privateClickable = !!privateFile
+  const clickable = groupClickable || privateClickable
+
+  const handleClick = async () => {
+    if (groupClickable) {
+      fileCardContext!.open(groupFile!)
+      return
+    }
+    if (privateClickable && !downloading) {
+      setDownloading(true)
+      try {
+        const url = await getPrivateFileUrl(privateFile!.peerUid, privateFile!.fileId, privateFile!.isSelfSend)
+        window.open(url, '_blank')
+      } catch (e) {
+        showToast((e as Error).message || '下载失败', 'error')
+      } finally {
+        setDownloading(false)
+      }
+    }
+  }
+
   return (
     <div
       className={`flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/5 dark:bg-white/5 border border-white/10 min-w-[220px] max-w-[280px]${clickable ? ' cursor-pointer hover:bg-white/10 transition-colors' : ''}`}
-      onClick={clickable ? () => fileCardContext!.open(groupFile!) : undefined}
-      title={clickable ? '在群文件中查看' : undefined}
+      onClick={clickable ? handleClick : undefined}
+      title={groupClickable ? '在群文件中查看' : privateClickable ? '点击下载' : undefined}
     >
       <div className="flex-1 min-w-0">
         <div className="text-sm font-medium leading-snug line-clamp-2 break-all">{fileName}</div>
         {sizeText && <div className="text-xs opacity-60 mt-1">{sizeText}</div>}
       </div>
       <div className="flex-shrink-0 w-10 h-10 rounded bg-white/10 flex items-center justify-center">
-        <FileText className="w-5 h-5 opacity-70" />
+        {downloading ? <Loader2 className="w-5 h-5 opacity-70 animate-spin" /> : <FileText className="w-5 h-5 opacity-70" />}
       </div>
     </div>
   )
