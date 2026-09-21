@@ -52,7 +52,7 @@ export const LINUX_PROFILE: ProtocolProfile = {
   wtLoginFrameVer: 13172,
 
   ssoProtocolVersion: 12,
-  reserveVariant: 'nt',
+  reserveVariant: 'linux',
 }
 
 export { WTLOGIN_SERVER_PUB_192K1 }

@@ -54,12 +54,10 @@ function encodeSecInfo(signResult: SignResult): Buffer {
   return encodeLengthDelimited(24, Buffer.concat(secParts))
 }
 
-// NT reserve (Linux/Windows), 升序 field 12/13/15/16/23/24/26。逐字段对齐真机 QQNT:
+// Windows NT reserve, 升序 field 12/13/15/16/23/24/26 (真机 Windows 逐字段, poc-vs-linux-packet-structure.md):
 //   f12=guid(32hex) f13=`6a 01 00`(wire-type2, 1B=0x00; 非 varint!) f15=TraceParent(00-前缀)
 //   f16=uid f23={1:"client_conn_seq",2:ts} f24=SecInfo(签名命令才有) f26=`d0 01 65`(=101)
-// f13/f26 字节形态溯源 poc-vs-linux-packet-structure.md (Windows PoC 逐字节==真机;
-// Linux 原始 reserve 未落盘 repo, 但真机 QQNT f13 恒 wire-type2, 不会是 varint)。
-// 注: 实测掉线是服务器 KickNT(会话失效需重登)不是 reserve 问题, 补这些字段仅为贴近真机指纹。
+// ★ 仅 Windows: 真机 Linux reserve 没有 f13/f15(见 buildLinuxReservedField), 别让 Linux 共用本函数。
 export function buildSsoReservedField(
   uid?: string,
   signResult?: SignResult | null,
@@ -69,6 +67,28 @@ export function buildSsoReservedField(
   if (guidHex) parts.push(encodeString(12, guidHex))
   parts.push(encodeLengthDelimited(13, Buffer.from([0x00])))
   parts.push(encodeString(15, generateTraceParent('00')))
+  if (uid) parts.push(encodeString(16, uid))
+  const ccs = Buffer.concat([
+    encodeString(1, 'client_conn_seq'),
+    encodeString(2, Math.floor(Date.now() / 1000).toString()),
+  ])
+  parts.push(encodeLengthDelimited(23, ccs))
+  if (signResult) parts.push(encodeSecInfo(signResult))
+  parts.push(encodeVarintField(26, 101))
+  return Buffer.concat(parts)
+}
+
+// Linux NT reserve, 升序 field 12/16/23/24/26 (真机 QQ 3.2.25 D2Key 解密抓包实证,
+// golden = src/Linux/poc/golden/ssoreport_golden_3.2.25.json / traces/ssoreport_golden_3.2.25.json):
+//   f12=guid(32hex) f16=uid f23={1:"client_conn_seq",2:ts} f24=SecInfo(签名命令才有) f26=101
+// ★ 真机 Linux **没有 f13、也没有 f15(TraceParent)** —— 那是 Windows NT 的字段, 不能填到 Linux。
+export function buildLinuxReservedField(
+  uid?: string,
+  signResult?: SignResult | null,
+  guidHex?: string,
+): Buffer {
+  const parts: Buffer[] = []
+  if (guidHex) parts.push(encodeString(12, guidHex))
   if (uid) parts.push(encodeString(16, uid))
   const ccs = Buffer.concat([
     encodeString(1, 'client_conn_seq'),
@@ -132,6 +152,8 @@ export function buildReservedFieldForVariant(
       return buildMacosReservedField(opts.guidHex ?? '', uid, signResult)
     case 'watch':
       return buildWatchReservedField(uid, signResult, opts.qimei36 ?? '')
+    case 'linux':
+      return buildLinuxReservedField(uid, signResult, opts.guidHex)
     case 'nt':
     default:
       return buildSsoReservedField(uid, signResult, opts.guidHex)

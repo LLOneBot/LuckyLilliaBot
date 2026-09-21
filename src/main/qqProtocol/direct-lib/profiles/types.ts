@@ -12,7 +12,7 @@ export type ProtocolFamily = 'nt' | 'watch'
 //   nt    = 现有最小集 f15(TraceParent)/16(Uid)/24(SecInfo), Linux/Windows 用
 //   macos = f9,f12,f14,f15,f16,f18-21,f23,f24,f26,f28,f34 (macOS/PoC/src/main.rs)
 //   watch = nt + f12(qimei36)/21(=32)/26(=100) (Android NT marker)
-export type ReserveVariant = 'nt' | 'macos' | 'watch'
+export type ReserveVariant = 'nt' | 'linux' | 'macos' | 'watch'
 
 export type WtLoginCurve = 'secp192k1' | 'secp256r1'
 
