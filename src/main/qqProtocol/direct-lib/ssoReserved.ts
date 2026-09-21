@@ -54,12 +54,12 @@ function encodeSecInfo(signResult: SignResult): Buffer {
   return encodeLengthDelimited(24, Buffer.concat(secParts))
 }
 
-// NT reserve (Linux/Windows), 升序 field 12/13/15/16/23/24/26。
-// 逐字段实证: 真机 Linux 3.2.25 每条业务命令 (D2Key 解密抓包) reserve =
-//   f12=guid(32hex) f13=0 f15=TraceParent(**00**-前缀) f16=uid
-//   f23={1:"client_conn_seq",2:ts} f24=SecInfo(签名命令才有) f26=101
-// 旧实现只有 f15(01前缀)/f16/f24, 缺 f12/f13/f23/f26 -> 短期能连, 长期(~2h)被 server
-// 判连接失活掉线。TraceParent 前缀真机是 00 (非 01)。
+// NT reserve (Linux/Windows), 升序 field 12/13/15/16/23/24/26。逐字段对齐真机 QQNT:
+//   f12=guid(32hex) f13=`6a 01 00`(wire-type2, 1B=0x00; 非 varint!) f15=TraceParent(00-前缀)
+//   f16=uid f23={1:"client_conn_seq",2:ts} f24=SecInfo(签名命令才有) f26=`d0 01 65`(=101)
+// f13/f26 字节形态溯源 poc-vs-linux-packet-structure.md (Windows PoC 逐字节==真机;
+// Linux 原始 reserve 未落盘 repo, 但真机 QQNT f13 恒 wire-type2, 不会是 varint)。
+// 注: 实测掉线是服务器 KickNT(会话失效需重登)不是 reserve 问题, 补这些字段仅为贴近真机指纹。
 export function buildSsoReservedField(
   uid?: string,
   signResult?: SignResult | null,
@@ -67,7 +67,7 @@ export function buildSsoReservedField(
 ): Buffer {
   const parts: Buffer[] = []
   if (guidHex) parts.push(encodeString(12, guidHex))
-  parts.push(encodeVarintField(13, 0))
+  parts.push(encodeLengthDelimited(13, Buffer.from([0x00])))
   parts.push(encodeString(15, generateTraceParent('00')))
   if (uid) parts.push(encodeString(16, uid))
   const ccs = Buffer.concat([
