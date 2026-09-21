@@ -54,12 +54,29 @@ function encodeSecInfo(signResult: SignResult): Buffer {
   return encodeLengthDelimited(24, Buffer.concat(secParts))
 }
 
-// NT 最小 reserve (Linux/Windows): field 15 (TraceParent) / 16 (Uid) / 24 (SecInfo), 升序。
-export function buildSsoReservedField(uid?: string, signResult?: SignResult | null): Buffer {
+// NT reserve (Linux/Windows), 升序 field 12/13/15/16/23/24/26。
+// 逐字段实证: 真机 Linux 3.2.25 每条业务命令 (D2Key 解密抓包) reserve =
+//   f12=guid(32hex) f13=0 f15=TraceParent(**00**-前缀) f16=uid
+//   f23={1:"client_conn_seq",2:ts} f24=SecInfo(签名命令才有) f26=101
+// 旧实现只有 f15(01前缀)/f16/f24, 缺 f12/f13/f23/f26 -> 短期能连, 长期(~2h)被 server
+// 判连接失活掉线。TraceParent 前缀真机是 00 (非 01)。
+export function buildSsoReservedField(
+  uid?: string,
+  signResult?: SignResult | null,
+  guidHex?: string,
+): Buffer {
   const parts: Buffer[] = []
-  parts.push(encodeString(15, generateTraceParent()))
+  if (guidHex) parts.push(encodeString(12, guidHex))
+  parts.push(encodeVarintField(13, 0))
+  parts.push(encodeString(15, generateTraceParent('00')))
   if (uid) parts.push(encodeString(16, uid))
+  const ccs = Buffer.concat([
+    encodeString(1, 'client_conn_seq'),
+    encodeString(2, Math.floor(Date.now() / 1000).toString()),
+  ])
+  parts.push(encodeLengthDelimited(23, ccs))
   if (signResult) parts.push(encodeSecInfo(signResult))
+  parts.push(encodeVarintField(26, 101))
   return Buffer.concat(parts)
 }
 
@@ -117,6 +134,6 @@ export function buildReservedFieldForVariant(
       return buildWatchReservedField(uid, signResult, opts.qimei36 ?? '')
     case 'nt':
     default:
-      return buildSsoReservedField(uid, signResult)
+      return buildSsoReservedField(uid, signResult, opts.guidHex)
   }
 }

@@ -190,7 +190,8 @@ export class DirectProtocolClient extends EventEmitter {
   /** 周期性发 Heartbeat.Alive 保活连接层. connect() 启动, disconnect()/close 清理. 幂等. */
   private startHeartbeatAlive(): void {
     if (this.heartbeatAliveTimer) return
-    const INTERVAL = 15 * 1000
+    // 真机(3.2.25 抓包)Heartbeat.Alive 固定 ~10s 一跳, 对齐避免长期被判连接不活跃。
+    const INTERVAL = 10 * 1000
     this.heartbeatAliveTimer = setInterval(() => {
       this.sendHeartbeat().catch((e) => {
         logger.error('[Heartbeat.Alive] Failed:', (e as Error).message)
