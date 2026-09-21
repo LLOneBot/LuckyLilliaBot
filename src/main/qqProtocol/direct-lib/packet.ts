@@ -83,7 +83,7 @@ function buildSsoHead12(seq: number, cmd: string, ctx: PacketContext, signResult
 
   parts.push(writeInt16PrefixedString(profile.ssoHeadVersion ?? ctx.buildVer))
 
-  const reservedField = buildReservedFieldForVariant(profile.reserveVariant, ctx.uid || undefined, signResult, { guidHex })
+  const reservedField = buildReservedFieldForVariant(profile.reserveVariant, ctx.uid || undefined, signResult, { guidHex, cmd })
   parts.push(writeInt32Prefixed(reservedField))
 
   const head = Buffer.concat(parts)
@@ -96,7 +96,7 @@ function buildSsoHead13(cmd: string, ctx: PacketContext): Buffer {
   const parts: Buffer[] = []
   parts.push(writeInt32PrefixedString(cmd))
   parts.push(writeInt32Prefixed(Buffer.alloc(0)))
-  const reservedField = buildReservedFieldForVariant(profile.reserveVariant, ctx.uid || undefined, null, { guidHex: ctx.guid.toString('hex') })
+  const reservedField = buildReservedFieldForVariant(profile.reserveVariant, ctx.uid || undefined, null, { guidHex: ctx.guid.toString('hex'), cmd })
   parts.push(writeInt32Prefixed(reservedField))
   const head = Buffer.concat(parts)
   return writeInt32Prefixed(head)
