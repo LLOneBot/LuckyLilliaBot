@@ -199,6 +199,12 @@ export async function sendHeartbeat(client: DirectProtocolClient): Promise<void>
  * 交给 close -> scheduleReconnect 重建, 最坏约 5.5 分钟能测出来.
  */
 export function startHeartbeat(client: DirectProtocolClient): () => void {
+  // 真机 Linux QQ NT 不发 SsoHeartBeat (解密网络抓包实证: 448s/79帧/0 个, 见 o3-traffic-live-capture.md)。
+  // Linux 靠连接层 Heartbeat.Alive + 业务自然流量保活, 故跳过 SsoHeartBeat 循环; macOS/watch/windows 保留。
+  if (getActiveProfile().name === 'linux') {
+    getLogger('heartbeat').info('[Heartbeat] linux profile: SsoHeartBeat disabled (real QQ NT does not send it; Heartbeat.Alive keeps the link)')
+    return () => {}
+  }
   const INTERVAL = 4.5 * 60 * 1000
   const RETRY_INTERVAL = 30 * 1000
   const MAX_FAILURES = 3
