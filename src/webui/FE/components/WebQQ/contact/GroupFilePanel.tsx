@@ -231,7 +231,7 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
         <button
           onClick={handleUploadClick}
           disabled={uploading}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm gradient-primary text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm btn-primary disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {uploading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
           上传
@@ -363,7 +363,7 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
       {/* 重命名弹层 */}
       {renameTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
-          <div className="bg-white dark:bg-neutral-800 rounded-2xl p-5 shadow-xl border border-theme w-80 max-w-[90vw]">
+          <div className="glass glass-thick r-panel glass-pop p-5 w-80 max-w-[90vw]">
             <div className="font-medium text-theme mb-3">重命名{renameTarget.type === 'folder' ? '文件夹' : '文件'}</div>
             <input
               autoFocus
@@ -374,7 +374,7 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
             />
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setRenameTarget(null)} className="px-4 py-1.5 text-sm text-theme-hint hover:text-theme transition-colors">取消</button>
-              <button onClick={submitRename} className="px-4 py-1.5 text-sm gradient-primary text-white rounded-lg transition-all">确定</button>
+              <button onClick={submitRename} className="px-4 py-1.5 text-sm btn-primary transition-all">确定</button>
             </div>
           </div>
         </div>
@@ -383,7 +383,7 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
       {/* 删除确认弹层 */}
       {deleteTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
-          <div className="bg-white dark:bg-neutral-800 rounded-2xl p-5 shadow-xl border border-theme w-80 max-w-[90vw]">
+          <div className="glass glass-thick r-panel glass-pop p-5 w-80 max-w-[90vw]">
             <div className="font-medium text-theme mb-2">删除{deleteTarget.type === 'folder' ? '文件夹' : '文件'}</div>
             <div className="text-sm text-theme-secondary mb-4 break-all">
               确定删除{deleteTarget.type === 'folder' ? '文件夹' : '文件'}「{deleteTarget.name}」
@@ -403,7 +403,7 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
       {hoverTip && (
         <Portal>
           <div
-            className="fixed z-[100] pointer-events-none max-w-[260px] px-3 py-2 rounded-lg bg-white dark:bg-neutral-800 shadow-xl border border-theme"
+            className="fixed z-[100] pointer-events-none max-w-[260px] px-3 py-2 glass glass-thick r-control"
             style={{ left: hoverTip.x, top: hoverTip.y }}
           >
             <div className="text-sm text-theme break-all">{hoverTip.title}</div>

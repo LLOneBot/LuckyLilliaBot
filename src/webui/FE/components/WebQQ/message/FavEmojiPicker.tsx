@@ -83,7 +83,7 @@ const EmojiContextMenu: React.FC<{
       <div className="fixed inset-0 z-[60]" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
       <div
         ref={menuRef}
-        className="fixed z-[60] bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[100px]"
+        className="fixed z-[60] bg-popup r-control glass-pop origin-top-left py-1 min-w-[100px]"
         style={{ left: position.left, top: position.top }}
         onContextMenu={(e) => e.preventDefault()}
       >
@@ -195,7 +195,7 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
   return (
     <div
       ref={pickerRef}
-      className="absolute bottom-full left-0 mb-2 bg-theme-card border border-theme-divider rounded-xl shadow-xl z-50 w-[320px]"
+      className="absolute bottom-full left-0 mb-2 glass glass-thick glass-dense r-card glass-pop origin-bottom-left z-50 w-[320px]"
     >
       <div className="p-2 border-b border-theme-divider text-sm text-theme-secondary">收藏表情</div>
       <div className="p-2 max-h-[300px] overflow-y-auto">

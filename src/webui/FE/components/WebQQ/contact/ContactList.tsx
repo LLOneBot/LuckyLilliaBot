@@ -459,7 +459,7 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
           />
           <div
             ref={menuRef}
-            className="fixed z-50 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[160px]"
+            className="fixed z-50 bg-popup r-control glass-pop origin-top-left py-1 min-w-[160px]"
             style={{ left: menuPosition.left, top: menuPosition.top, visibility: menuPosition.ready ? 'visible' : 'hidden' }}
             onContextMenu={(e) => e.preventDefault()}
           >

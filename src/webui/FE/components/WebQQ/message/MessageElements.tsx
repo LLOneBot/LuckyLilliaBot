@@ -201,7 +201,7 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
         style={{ width: displayWidth, height: displayHeight }}
         onClick={handleClick}
       >
-        <div className="absolute inset-0 bg-gray-200 dark:bg-gray-700" />
+        <div className="absolute inset-0 fill-quiet" />
 
         {thumbUrl ? (
           <>
@@ -505,7 +505,7 @@ const PttElementRenderer: React.FC<{ element: MessageElement; message?: RawMessa
           <button
             onClick={handleTranscribe}
             disabled={isTranscribing}
-            className="w-6 h-6 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white text-xs font-medium transition-colors disabled:opacity-50"
+            className="w-6 h-6 flex items-center justify-center rounded-full fill-quiet fill-quiet-hover text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-white text-xs font-medium transition-colors disabled:opacity-50"
             title="语音转文字"
           >
             {isTranscribing ? <Loader2 size={12} className="animate-spin" /> : '文'}
@@ -515,7 +515,7 @@ const PttElementRenderer: React.FC<{ element: MessageElement; message?: RawMessa
 
       {/* 转换后的文字 */}
       {(existingText || transcribedText) && (
-        <div className={`text-sm px-3 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-lg max-w-[250px] ${transcribeError ? 'text-red-500' : 'text-theme-secondary'}`}>
+        <div className={`text-sm px-3 py-1.5 fill-quiet r-control max-w-[250px] ${transcribeError ? 'text-red-500' : 'text-theme-secondary'}`}>
           {existingText || transcribedText}
         </div>
       )}
@@ -579,7 +579,7 @@ const NestedForwardCard: React.FC<{ resId: string; title: string }> = ({ resId, 
   return (
     <>
       <div
-        className="flex items-center gap-2 px-3 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg cursor-pointer hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+        className="flex items-center gap-2 px-3 py-2 fill-quiet r-control cursor-pointer fill-quiet-hover transition-colors"
         onClick={() => setShowModal(true)}
       >
         <span className="text-sm text-theme-secondary">{title}</span>
@@ -608,7 +608,7 @@ const ForwardMsgElementRenderer: React.FC<{ element: MessageElement }> = ({ elem
   return (
     <>
       <div
-        className="w-[240px] bg-gray-50 dark:bg-gray-800/80 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors border border-theme-divider"
+        className="w-[240px] fill-quiet r-control overflow-hidden cursor-pointer fill-quiet-hover transition-colors border border-theme-divider"
         onClick={() => setShowModal(true)}
       >
         <div className="px-3 pt-2.5 pb-1">
@@ -639,7 +639,7 @@ const ArkForwardMsgRenderer: React.FC<{ arkData: any }> = ({ arkData }) => {
   return (
     <>
       <div
-        className="w-[240px] bg-gray-50 dark:bg-gray-800/80 rounded-lg overflow-hidden cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700/80 transition-colors border border-theme-divider"
+        className="w-[240px] fill-quiet r-control overflow-hidden cursor-pointer fill-quiet-hover transition-colors border border-theme-divider"
         onClick={() => setShowModal(true)}
       >
         <div className="px-3 pt-2.5 pb-1">
@@ -689,15 +689,15 @@ const ForwardMsgModal: React.FC<{ resId: string; title: string; onClose: () => v
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={onClose}>
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center scrim" onClick={onClose}>
       <div
-        className="bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl w-[90vw] max-w-[480px] max-h-[80vh] flex flex-col overflow-hidden"
+        className="glass glass-thick r-window glass-pop w-[90vw] max-w-[480px] max-h-[80vh] flex flex-col overflow-hidden"
         onClick={e => e.stopPropagation()}
       >
         {/* 标题栏 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-theme-divider flex-shrink-0">
           <span className="font-medium text-theme">{title}</span>
-          <button onClick={onClose} className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+          <button onClick={onClose} className="p-1 rounded-full fill-quiet-hover transition-colors">
             <X size={18} className="text-theme-hint" />
           </button>
         </div>

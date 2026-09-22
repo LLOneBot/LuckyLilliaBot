@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Users, Loader2, ArrowLeft, ArrowDown, FolderOpen, Forward, X } from 'lucide-react'
@@ -896,6 +896,24 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     onAppendInputMentionConsumed?.()
   }, [appendInputMention, onAppendInputMentionConsumed])
 
+  // Header and composer float over the list: Liquid Glass keeps chrome on a
+  // layer above content. The list pads itself by their measured heights so
+  // the first and last messages clear them. The footer wrapper is observed
+  // rather than its children, which swap between the composer and the
+  // multi-select bar.
+  const headRef = useRef<HTMLDivElement>(null)
+  const footRef = useRef<HTMLDivElement>(null)
+  const [chrome, setChrome] = useState({ head: 56, foot: 72 })
+  useLayoutEffect(() => {
+    const measure = () =>
+      setChrome({ head: headRef.current?.offsetHeight ?? 0, foot: footRef.current?.offsetHeight ?? 0 })
+    const ro = new ResizeObserver(measure)
+    if (headRef.current) ro.observe(headRef.current)
+    if (footRef.current) ro.observe(footRef.current)
+    measure()
+    return () => ro.disconnect()
+  }, [session?.peerId])
+
   if (!session) {
     return (
       <div className="flex-1 flex items-center justify-center bg-theme-item">
@@ -921,7 +939,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     <SelfReactionContext.Provider value={selfReactionContextValue}>
       <div ref={chatWindowRef} className="flex flex-col h-full relative">
         {/* 头部 */}
-        <div className="flex items-center justify-between px-2 md:px-4 py-3 border-b border-theme-divider bg-theme-card">
+        <div ref={headRef} className="absolute top-0 left-0 right-0 z-20 glass-bar hairline-b flex items-center justify-between px-2 md:px-4 py-3">
           {/* 返回按钮（移动端） */}
           {showBackButton && (
             <button
@@ -1012,8 +1030,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
           )}
         </div>
 
-        {/* 消息列表 */}
-        <div ref={parentRef} onScroll={handleScroll} className="flex-1 overflow-y-auto overflow-x-hidden p-4">
+        {/* 消息列表。上下 padding 给悬浮的头部 / 输入栏让位。virtualizer 没设 scrollMargin, 顶部约 80px 的偏移靠 overscan 5 吸收 */}
+        <div
+          ref={parentRef}
+          onScroll={handleScroll}
+          className="flex-1 overflow-y-auto overflow-x-hidden px-4"
+          style={{ paddingTop: chrome.head + 16, paddingBottom: chrome.foot + 16 }}
+        >
           <div ref={topSentinelRef} className="h-1" />
           {loadingMore && <div className="flex justify-center py-2"><Loader2 size={20} className="animate-spin text-pink-500" /></div>}
           {loading ? (
@@ -1045,16 +1068,18 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         {showScrollToBottom && (
           <button
             onClick={scrollToBottom}
-            className="absolute bottom-[6.5rem] right-4 w-6 h-6 bg-theme-card/90 border border-theme-divider rounded-full shadow-md flex items-center justify-center text-theme-muted hover:text-theme hover:bg-theme-item transition-all z-10"
+            className="absolute right-4 w-7 h-7 glass glass-chrome glass-interactive r-capsule flex items-center justify-center text-theme-muted hover:text-theme transition-all z-30"
+            style={{ bottom: chrome.foot + 16 }}
             title="滚动到底部"
           >
             <ArrowDown size={12} />
           </button>
         )}
 
-        {/* 输入区域 / 多选转发操作栏 */}
+        {/* 输入区域 / 多选转发操作栏, 浮在列表上 */}
+        <div ref={footRef} className="absolute bottom-0 left-0 right-0 z-20">
         {multiSelectMode ? (
-          <div className="border-t border-theme-divider bg-theme-card px-4 py-3 flex items-center justify-between gap-3">
+          <div className="glass-bar hairline-t px-4 py-3 flex items-center justify-between gap-3">
             <span className="text-sm text-theme-secondary">已选 {selectedMsgIds.size} 条</span>
             <div className="flex items-center gap-2">
               <button
@@ -1089,6 +1114,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
             onTempMessageFail={handleTempMessageFail}
           />
         )}
+        </div>
       </div>
 
       {/* 消息右键菜单 */}
@@ -1263,12 +1289,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
       {jumpConfirm && createPortal(
         <>
           <div className="fixed inset-0 z-[60] bg-black/40" onClick={() => setJumpConfirm(null)} />
-          <div className="fixed z-[60] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-neutral-800 border border-theme-divider rounded-2xl shadow-xl p-5 w-80 max-w-[90vw]">
+          <div className="fixed z-[60] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass glass-thick r-panel glass-pop p-5 w-80 max-w-[90vw]">
             <div className="font-medium text-theme mb-2">转发成功</div>
             <div className="text-sm text-theme-secondary mb-4 break-all">是否跳转到「{jumpConfirm.name}」？</div>
             <div className="flex justify-end gap-2">
               <button onClick={() => setJumpConfirm(null)} className="px-4 py-1.5 text-sm text-theme-hint hover:text-theme transition-colors">留在当前</button>
-              <button onClick={handleJumpToTarget} className="px-4 py-1.5 text-sm gradient-primary text-white rounded-lg transition-all">跳转过去</button>
+              <button onClick={handleJumpToTarget} className="px-4 py-1.5 text-sm btn-primary transition-all">跳转过去</button>
             </div>
           </div>
         </>,

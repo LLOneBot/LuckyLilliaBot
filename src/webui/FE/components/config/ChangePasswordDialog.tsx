@@ -84,13 +84,13 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ visible, on
   return (
     <>
       <div
-        className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4"
+        className="fixed inset-0 scrim flex items-center justify-center p-4"
         style={{ zIndex: 9000 }}
         onClick={(e) => e.target === e.currentTarget && onClose()}
       >
-        <div className="bg-white/90 dark:bg-neutral-800/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md transform transition-all">
+        <div className="glass glass-thick r-window glass-pop w-full max-w-md">
           {/* Header */}
-          <div className="flex items-center gap-3 p-6 border-b border-white/20 dark:border-neutral-700/50">
+          <div className="flex items-center gap-3 p-6 hairline-b">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-500 to-pink-600 flex items-center justify-center">
               <Lock size={20} className="text-white" />
             </div>
@@ -175,18 +175,18 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ visible, on
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-white/20 dark:border-neutral-700/50">
+          <div className="flex items-center justify-end gap-3 p-6 hairline-t">
             <button
               onClick={onClose}
               disabled={loading}
-              className="px-6 py-2.5 text-theme-secondary hover:bg-theme-item rounded-lg font-medium transition-colors disabled:opacity-50"
+              className="btn-glass disabled:opacity-50"
             >
               取消
             </button>
             <button
               onClick={handleConfirm}
               disabled={loading || !newPassword.trim() || !confirmPassword.trim()}
-              className="px-6 py-2.5 gradient-primary text-white rounded-lg font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
+              className="px-6 py-2.5 btn-primary font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? '修改中...' : '确定修改'}
             </button>

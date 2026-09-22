@@ -259,9 +259,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
   }, [])
 
   return (
-    <div className="border-t border-theme-divider bg-theme-card">
+    <div className="glass-bar hairline-t">
       {replyTo && (
-        <div className="px-4 py-2 border-b border-theme-divider bg-theme-item">
+        <div className="px-4 py-2 hairline-b bg-theme-item">
           <div className="flex items-center gap-2">
             <Reply size={16} className="text-pink-500 flex-shrink-0" />
             <div className="flex-1 min-w-0 text-sm text-theme-secondary truncate">
@@ -320,7 +320,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
               onClose={handleMentionClose}
             />
           )}
-          <button onClick={handleSend} disabled={!hasContent} className="p-2.5 bg-pink-500 text-white rounded-xl hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0">
+          <button onClick={handleSend} disabled={!hasContent} className="p-2.5 bg-pink-500 text-white rounded-full hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0">
             <Send size={20} />
           </button>
         </div>

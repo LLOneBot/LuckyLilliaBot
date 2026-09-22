@@ -252,10 +252,10 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
       {/* 配置弹窗 */}
       {showDialog && selectedAdapter && (
         <Portal>
-          <div className="fixed inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 9000 }}>
-          <div className="bg-white/60 dark:bg-neutral-800/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col border border-white/50 dark:border-neutral-700/50">
+          <div className="fixed inset-0 scrim flex items-center justify-center p-4" style={{ zIndex: 9000 }}>
+          <div className="glass glass-thick r-window glass-pop w-full max-w-2xl max-h-[80vh] flex flex-col">
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-white/20 dark:border-neutral-700/50">
+            <div className="flex items-center justify-between p-6 hairline-b">
               <div className="flex items-center gap-3 flex-1">
                 {editingName ? (
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 flex-1">
@@ -423,7 +423,7 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between p-6 border-t border-white/20 dark:border-neutral-700/50">
+            <div className="flex items-center justify-between p-6 hairline-t">
               {!isNewAdapter && (
                 <button onClick={handleDeleteAdapter} className="px-6 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors flex items-center gap-2">
                   <Trash2 size={18} />删除
@@ -443,9 +443,9 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
       {/* 添加适配器对话框 */}
       {showAddDialog && (
         <Portal>
-          <div className="fixed inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" style={{ zIndex: 9000 }}>
-          <div className="bg-white/60 dark:bg-neutral-800/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md border border-white/50 dark:border-neutral-700/50">
-            <div className="flex items-center justify-between p-6 border-b border-white/20 dark:border-neutral-700/50">
+          <div className="fixed inset-0 scrim flex items-center justify-center p-4" style={{ zIndex: 9000 }}>
+          <div className="glass glass-thick r-window glass-pop w-full max-w-md">
+            <div className="flex items-center justify-between p-6 hairline-b">
               <h3 className="text-xl font-semibold text-theme">选择适配器类型</h3>
               <button onClick={() => setShowAddDialog(false)} className="text-theme-hint hover:text-theme"><X size={24} /></button>
             </div>
@@ -484,7 +484,7 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
               </button>
             </div>
 
-            <div className="flex justify-end p-6 border-t border-white/20 dark:border-neutral-700/50">
+            <div className="flex justify-end p-6 hairline-t">
               <button onClick={() => setShowAddDialog(false)} className="px-6 py-2.5 text-theme-secondary hover:bg-theme-item rounded-xl font-medium transition-colors">取消</button>
             </div>
           </div>

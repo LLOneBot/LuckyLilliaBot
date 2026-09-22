@@ -89,7 +89,7 @@ export const GroupMsgMaskMenu: React.FC<GroupMsgMaskMenuProps> = ({ groupCode, o
       {showSubmenu && (
         <div
           ref={submenuRef}
-          className="absolute left-full top-0 ml-1 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[140px] z-[10000]"
+          className="absolute left-full top-0 ml-1 bg-popup r-control glass-pop origin-top-left py-1 min-w-[140px] z-[10000]"
           onMouseLeave={() => setShowSubmenu(false)}
         >
           <button
@@ -203,7 +203,7 @@ export const FriendListItem: React.FC<FriendListItemProps> = ({ friend, isSelect
       {contextMenu && createPortal(
         <div
           ref={menuRef}
-          className="fixed bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 py-1 min-w-[120px] z-[9999]"
+          className="fixed glass glass-thick r-control glass-pop origin-top-left py-1 min-w-[120px] z-[9999]"
           style={{
             left: `${menuPosition.left}px`,
             top: `${menuPosition.top}px`,
@@ -306,7 +306,7 @@ export const GroupListItem: React.FC<GroupListItemProps> = ({ group, isSelected,
       {contextMenu && createPortal(
         <div
           ref={menuRef}
-          className="fixed bg-white dark:bg-neutral-800 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-700 py-1 min-w-[160px] z-[9999]"
+          className="fixed glass glass-thick r-control glass-pop origin-top-left py-1 min-w-[160px] z-[9999]"
           style={{
             left: `${menuPosition.left}px`,
             top: `${menuPosition.top}px`,

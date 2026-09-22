@@ -81,7 +81,7 @@ export const GroupProfileCard: React.FC<GroupProfileCardProps> = ({ profile, loa
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
         ref={cardRef}
-        className="fixed z-50 border border-theme-divider rounded-xl shadow-xl overflow-hidden bg-popup backdrop-blur-sm"
+        className="fixed z-50 r-card overflow-hidden bg-popup glass-pop origin-top-left"
         style={{ left: adjustedPosition.left, top: adjustedPosition.top, width: 320, maxHeight: 'calc(100vh - 40px)' }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -176,7 +176,7 @@ export const GroupProfileCard: React.FC<GroupProfileCardProps> = ({ profile, loa
       {showConfirm && profile && (
         <>
           <div className="fixed inset-0 z-[60] bg-black/50" onClick={() => setShowConfirm(false)} />
-          <div className="fixed z-[70] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-theme-card border border-theme-divider rounded-xl shadow-xl p-6 min-w-[320px]">
+          <div className="fixed z-[70] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass glass-thick r-panel glass-pop p-6 min-w-[320px]">
             <h3 className="text-lg font-medium text-theme mb-4">
               {isOwner ? '确认解散群聊' : '确认退出群聊'}
             </h3>

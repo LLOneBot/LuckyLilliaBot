@@ -298,7 +298,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
   }
 
   const bubble = (
-    <div className={`flex gap-2 w-full ${isSelf ? 'flex-row-reverse' : ''} ${isHighlighted ? 'animate-pulse bg-pink-100 dark:bg-pink-900/30 rounded-lg -mx-2 px-2' : ''}`}>
+    <div className={`flex gap-2 w-full ${isSelf ? 'flex-row-reverse' : ''} ${isHighlighted ? 'animate-pulse fill-selected r-control -mx-2 px-2' : ''}`}>
       <img
         src={senderAvatar}
         alt={senderName}
@@ -311,7 +311,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
         <div className={`flex items-center gap-1.5 mb-1 ${isSelf ? 'flex-row-reverse' : ''}`}>
           <span className="text-xs text-theme-hint">{senderName}</span>
           {memberLevel !== undefined && memberLevel > 0 && (
-            <span className="text-xs px-1 py-0.5 bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded">
+            <span className="text-xs px-1 py-0.5 fill-quiet text-theme-secondary r-inner">
               Lv.{memberLevel}
             </span>
           )}
@@ -339,7 +339,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
         ) : (
           <div className="relative">
             <div
-              className={`rounded-2xl px-4 py-2 min-w-[80px] max-w-full break-words overflow-hidden bg-theme-item text-theme shadow-sm ${isSelf ? 'rounded-tr-sm' : 'rounded-tl-sm'} ${isRecalled ? 'opacity-50' : ''}`}
+              className={`rounded-[18px] px-4 py-2 min-w-[80px] max-w-full break-words overflow-hidden bg-theme-item text-theme ${isRecalled ? 'opacity-50' : ''}`}
               onContextMenu={handleBubbleContextMenu}
             >
               {replyElement && (
@@ -388,7 +388,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
   return (
     <div
       onClick={() => multiSelect.toggle(message.msgId)}
-      className={`flex items-center gap-2 cursor-pointer rounded-lg -mx-2 px-2 py-1 transition-colors ${selected ? 'bg-pink-100/60 dark:bg-pink-900/30' : 'hover:bg-theme-item-hover'}`}
+      className={`flex items-center gap-2 cursor-pointer rounded-lg -mx-2 px-2 py-1 transition-colors ${selected ? 'fill-selected' : 'hover:bg-theme-item-hover'}`}
     >
       <input
         type="checkbox"
@@ -485,7 +485,7 @@ export const TempMessageBubble = memo<{ message: TempMessage; onRetry: () => voi
         <div className="flex items-end gap-1">
           {message.status === 'failed' && <button onClick={onRetry} className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded" title="重新发送"><RefreshCw size={14} /></button>}
           <div
-            className="rounded-2xl px-4 py-2 bg-theme-item text-theme rounded-tr-sm min-w-[80px] max-w-full break-words overflow-hidden shadow-sm"
+            className="rounded-[18px] px-4 py-2 bg-theme-item text-theme min-w-[80px] max-w-full break-words overflow-hidden"
           >
             {message.items.map((item, index) => {
               if (item.type === 'text' && item.content) {

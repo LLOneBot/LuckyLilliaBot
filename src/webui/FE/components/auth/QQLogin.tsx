@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import GlassLens from '../common/GlassLens'
 import { ArrowDown, RefreshCw, X, Loader2 } from 'lucide-react';
 import { apiFetch } from '../../utils/api';
 import { SelfInfo } from '../../types';
@@ -277,7 +278,8 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
   if (webuiClosed) {
     return (
       <div className="relative min-h-screen flex flex-col items-center justify-center p-5">
-        <div className="bg-white/50 dark:bg-neutral-800/70 backdrop-blur-2xl rounded-3xl p-10 shadow-xl border border-white/30 dark:border-neutral-700/50 max-w-md text-center relative z-10">
+        <div className="glass glass-regular r-window p-10 max-w-md text-center relative z-10">
+        <GlassLens />
           <div className="text-lg font-medium text-theme mb-3">登录成功</div>
           <div className="text-theme-secondary text-sm leading-relaxed text-left">
             账号 <span className="font-medium">{webuiClosed.uin}</span> 的配置中 WebUI 已关闭
@@ -292,7 +294,8 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="relative min-h-screen flex flex-col items-center justify-center p-5">
-      <div className="bg-white/50 dark:bg-neutral-800/70 backdrop-blur-2xl rounded-3xl p-10 shadow-xl border border-white/30 dark:border-neutral-700/50 min-w-[320px] text-center relative z-10">
+      <div className="glass glass-regular r-window p-10 min-w-[320px] text-center relative z-10">
+        <GlassLens />
         {authLoginError && (
           <div className="mb-5 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm text-left">
             {authLoginError}

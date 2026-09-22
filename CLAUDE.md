@@ -7,6 +7,7 @@
 | [docs/docker.md](docs/docker.md) | 改 Dockerfile / startup.sh / compose 生成脚本 / 排查容器内启动崩溃时 |
 | [docs/OIDB_MIGRATION.md](docs/OIDB_MIGRATION.md) | 迁移或新增 OIDB 协议调用时 |
 | [docs/EVENT_PUSH_TODO.md](docs/EVENT_PUSH_TODO.md) | 处理事件推送相关 TODO 时 |
+| [docs/webui-liquid-glass.md](docs/webui-liquid-glass.md) | 改 WebUI 前端任何样式 / 新增组件容器 / 调 tokens.css 令牌 / 排查"玻璃发灰""圆角或模糊不生效"(Tailwind utility 覆盖材质类) / 想做 backdrop 折射 (Chrome 不支持 backdrop-filter url()) / 新建 tsx 后 Tailwind 类不生成 (要重启 dev) / 动 GlassLens、玻璃运行时 (glassRuntime)、自适应 tint、浮动聊天头/输入栏的让位 padding、glass-pop/按压动效 / 挑玻璃档位 (thick vs dense) 时 |
 | [docs/webui-account-isolation.md](docs/webui-account-isolation.md) | 改 WebUI/WebQQ 前端存储 (localStorage / IndexedDB / zustand persist) 或排查切号后显示上个账号数据时 |
 | [docs/webqq-sse-events.md](docs/webqq-sse-events.md) | 改 WebQQ 实时事件 (新消息/撤回/表情回应) 或排查"要刷新才更新"类问题时 |
 | [docs/multi-protocol.md](docs/multi-protocol.md) | 改协议常量 / 加协议端 / 改 --protocol 或 profile / session 命名 / 排查换协议后登录发包问题时 / 处理某端不支持的 cmd (-10122) 时 / 改各端 sign token 取法 (macOS ESK/A2/SA2) 时 |

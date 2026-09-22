@@ -1,0 +1,161 @@
+/*
+ * Design tokens. Apple Liquid Glass (iOS 26 / macOS 26) material language.
+ *
+ * Two rules drive everything here:
+ *   1. The material is colorless. Color comes from the content behind it,
+ *      amplified by saturate(). The pink-coral accent is spent only on
+ *      active/primary state, never as a surface fill.
+ *   2. Radii are concentric: a nested element's radius equals its parent's
+ *      radius minus the gap between them. Picking a radius means picking a
+ *      nesting depth, not a size.
+ */
+
+/* Light material. Also applied to a sheet that the glass runtime finds
+   sitting over a bright pool of wallpaper while the theme is dark. */
+:root,
+.dark .glass-on-light {
+  /* SF Pro on Apple platforms, Segoe UI Variable on Windows -- both are
+     humanist sans with similar metrics, so the layout holds on either.
+     No webfont: this WebUI ships offline with the bot. */
+  --font-ui:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC',
+    'HarmonyOS Sans SC', 'Microsoft YaHei UI', system-ui, sans-serif;
+  --font-display:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI Variable Display', 'Segoe UI', 'PingFang SC',
+    'HarmonyOS Sans SC', 'Microsoft YaHei UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+  /* Concentric radius ladder -- outer to inner */
+  --r-window: 28px;
+  --r-panel: 22px;
+  --r-card: 18px;
+  --r-control: 12px;
+  --r-inner: 8px;
+  --r-capsule: 999px;
+
+  /* Accent: pink-coral, kept from the previous identity */
+  --accent-from: #ec4899;
+  --accent-to: #f87171;
+  --accent: #ec4899;
+  --accent-strong: #db2777;
+  --accent-soft: rgba(236, 72, 153, 0.12);
+  --accent-ring: rgba(236, 72, 153, 0.35);
+
+  /* Apple system colors -- status only (online, error, warning, success) */
+  --sys-blue: #007aff;
+  --sys-green: #34c759;
+  --sys-red: #ff3b30;
+  --sys-orange: #ff9500;
+  --sys-gray: #8e8e93;
+
+  /* Text: Apple's label hierarchy, 4 steps */
+  --text-primary: rgba(0, 0, 0, 0.88);
+  --text-secondary: rgba(0, 0, 0, 0.62);
+  --text-muted: rgba(0, 0, 0, 0.45);
+  --text-hint: rgba(0, 0, 0, 0.3);
+
+  /* Glass material. tint + alpha per variant; blur/saturate per variant. */
+  --glass-tint: 248 250 255;
+  --glass-alpha-clear: 0.12;
+  --glass-alpha-regular: 0.3;
+  --glass-alpha-thick: 0.88;
+  --glass-alpha-raised: 0.42;
+  --glass-alpha-dense: 0.95;
+  --glass-alpha-card: 0.52;
+  --glass-alpha-bar: 0.46;
+  --glass-blur-clear: 8px;
+  --glass-blur-regular: 20px;
+  --glass-blur-thick: 34px;
+  --glass-saturate: 160%;
+  --glass-brightness: 1;
+
+  /* Specular edges. Top rim catches light, bottom rim gets bounce light,
+     sides are faint -- that asymmetry is what reads as a curved edge. */
+  --spec-top: rgba(255, 255, 255, 0.95);
+  --spec-side: rgba(255, 255, 255, 0.55);
+  --spec-bottom: rgba(255, 255, 255, 0.35);
+  --edge-shade: rgba(0, 0, 0, 0.14);
+
+  /* Inner wall. Stands in for the refraction band Apple gets for free:
+     bright bounce along the top edge, dimmer along the bottom, and a
+     faint darkening at the very rim to give the sheet thickness. */
+  --lens-top: rgba(255, 255, 255, 0.7);
+  --lens-bottom: rgba(255, 255, 255, 0.25);
+  --lens-depth: rgba(0, 0, 0, 0.09);
+
+  /* Shadow is cast onto the background, so it carries a cool tint rather
+     than neutral grey -- neutral grey under every card is the SaaS-kit tell. */
+  --shade: 31 38 135;
+  --shade-alpha-near: 0.14;
+  --shade-alpha-far: 0.26;
+
+  /* Fills for content sitting inside glass. Very low alpha: a filled row on
+     top of glass must not read as a second sheet of glass. */
+  --fill-quiet: rgba(255, 255, 255, 0.4);
+  --fill-quiet-hover: rgba(255, 255, 255, 0.62);
+  --fill-input: rgba(255, 255, 255, 0.5);
+  --fill-selected: rgba(236, 72, 153, 0.14);
+  --hairline: rgba(0, 0, 0, 0.07);
+
+  /* Motion: iOS's standard ease, which decelerates hard at the end */
+  --ease-glass: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-out: cubic-bezier(0.25, 1, 0.5, 1);
+  --dur-fast: 160ms;
+  --dur-base: 260ms;
+  --dur-slow: 420ms;
+}
+
+/* Dark material. Also applied per element over a dark pool of wallpaper in
+   the light theme (.glass-on-dark, set by the glass runtime). */
+.dark,
+.glass-on-dark {
+  --text-primary: rgba(255, 255, 255, 0.92);
+  --text-secondary: rgba(255, 255, 255, 0.62);
+  --text-muted: rgba(255, 255, 255, 0.44);
+  --text-hint: rgba(255, 255, 255, 0.28);
+
+  /* Apple's dark elevated surface, not pure black */
+  --glass-tint: 28 28 30;
+  --glass-alpha-clear: 0.34;
+  --glass-alpha-regular: 0.58;
+  --glass-alpha-thick: 0.88;
+  --glass-alpha-raised: 0.7;
+  --glass-alpha-dense: 0.94;
+  --glass-alpha-card: 0.68;
+  --glass-alpha-bar: 0.62;
+  --glass-saturate: 150%;
+  --glass-brightness: 1;
+
+  /* Dark rooms reflect less: rims drop to a hint, just enough to read the edge */
+  --spec-top: rgba(255, 255, 255, 0.26);
+  --spec-side: rgba(255, 255, 255, 0.11);
+  --spec-bottom: rgba(255, 255, 255, 0.05);
+  --edge-shade: rgba(0, 0, 0, 0.5);
+  --lens-top: rgba(255, 255, 255, 0.11);
+  --lens-bottom: rgba(255, 255, 255, 0.045);
+  --lens-depth: rgba(0, 0, 0, 0.22);
+
+  --shade: 0 0 0;
+  --shade-alpha-near: 0.32;
+  --shade-alpha-far: 0.44;
+
+  --fill-quiet: rgba(255, 255, 255, 0.06);
+  --fill-quiet-hover: rgba(255, 255, 255, 0.11);
+  --fill-input: rgba(255, 255, 255, 0.08);
+  --fill-selected: rgba(236, 72, 153, 0.22);
+  --hairline: rgba(255, 255, 255, 0.08);
+}
+
+/* Theme-only: accent and status colors do not follow per-element luminance */
+.dark {
+  --accent: #f472b6;
+  --accent-strong: #ec4899;
+  --accent-soft: rgba(244, 114, 182, 0.16);
+  --accent-ring: rgba(244, 114, 182, 0.4);
+
+  --sys-blue: #0a84ff;
+  --sys-green: #30d158;
+  --sys-red: #ff453a;
+  --sys-orange: #ff9f0a;
+  --sys-gray: #98989d;
+}

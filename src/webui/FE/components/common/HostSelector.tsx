@@ -116,7 +116,7 @@ export const HostSelector: React.FC<HostSelectorProps> = ({ value, onChange }) =
         </button>
         
         {isOpen && (
-          <div className='absolute z-[9999] mt-1 w-full bg-white dark:bg-neutral-800 border border-theme-divider rounded-xl shadow-lg overflow-hidden'>
+          <div className='absolute z-[9999] mt-1 w-full glass glass-thick r-control glass-pop origin-top overflow-hidden'>
             <div className='max-h-60 overflow-y-auto'>
               {options.map((opt, index) => (
                 <div

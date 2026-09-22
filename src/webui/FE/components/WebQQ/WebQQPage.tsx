@@ -420,10 +420,10 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
 
   return (
     <>
-      <div className="flex h-[calc(100vh-80px)] md:h-[calc(100vh-120px)] bg-theme-card backdrop-blur-xl rounded-none md:rounded-2xl overflow-hidden shadow-xl border border-theme">
+      <div className="flex h-[calc(100vh-80px)] md:h-[calc(100vh-120px)] glass glass-regular rounded-none md:r-panel overflow-hidden">
         {/* 联系人列表 - 移动端全屏，桌面端固定宽度 */}
         <div className={`
-          w-full md:w-72 border-r border-theme-divider flex-shrink-0
+          w-full md:w-72 md:hairline-r flex-shrink-0
           ${showChatOnMobile ? 'hidden md:block' : 'block'}
         `}>
           <ContactList
@@ -461,7 +461,7 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
 
         {/* 群成员面板 - 桌面端侧边栏，移动端全屏覆盖 */}
         {showMemberPanel && currentChat?.chatType === 2 && (
-          <div className="fixed inset-0 z-50 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-xl md:static md:inset-auto md:z-auto md:bg-transparent md:backdrop-blur-none md:w-64 md:border-l md:border-theme-divider md:flex-shrink-0">
+          <div className="fixed inset-0 z-50 bg-[rgb(var(--glass-tint)/0.92)] backdrop-blur-xl md:static md:inset-auto md:z-auto md:bg-transparent md:backdrop-blur-none md:w-64 md:hairline-l md:flex-shrink-0">
             <GroupMemberPanel
               groupCode={currentChat.peerId}
               onClose={() => setShowMemberPanel(false)}
@@ -472,7 +472,7 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
 
         {/* 群文件面板 - 桌面端侧边栏，移动端全屏覆盖 */}
         {showFilePanel && currentChat?.chatType === 2 && (
-          <div className="fixed inset-0 z-50 bg-white/85 dark:bg-neutral-900/85 backdrop-blur-xl md:static md:inset-auto md:z-auto md:bg-transparent md:backdrop-blur-none md:w-80 md:border-l md:border-theme-divider md:flex-shrink-0">
+          <div className="fixed inset-0 z-50 bg-[rgb(var(--glass-tint)/0.92)] backdrop-blur-xl md:static md:inset-auto md:z-auto md:bg-transparent md:backdrop-blur-none md:w-80 md:hairline-l md:flex-shrink-0">
             <GroupFilePanel
               groupCode={currentChat.peerId}
               locateTarget={fileLocateTarget}
@@ -486,7 +486,7 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
       {!isFullscreen && showWebQQFullscreenButton && (
         <button
           onClick={() => window.open('#webqq-fullscreen', '_blank')}
-          className="fixed top-4 right-4 md:top-auto md:bottom-6 md:right-6 z-50 p-3 bg-pink-500/70 hover:bg-pink-500/90 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-200 group backdrop-blur-sm"
+          className="fixed top-4 right-4 md:top-auto md:bottom-6 md:right-6 z-50 p-3 glass glass-chrome glass-interactive r-capsule text-[var(--accent)] transition-all duration-200 group"
           title="在新窗口中全屏打开"
         >
           <Maximize2 size={20} className="group-hover:scale-110 transition-transform" />

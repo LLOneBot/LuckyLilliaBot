@@ -135,7 +135,7 @@ export const UserProfileCard: React.FC<UserProfileCardProps> = ({ profile, loadi
       <div className="fixed inset-0 z-40" onClick={onClose} />
       <div
         ref={cardRef}
-        className="fixed z-50 border border-theme-divider rounded-xl shadow-xl overflow-hidden bg-popup backdrop-blur-sm"
+        className="fixed z-50 r-card overflow-hidden bg-popup glass-pop origin-top-left"
         style={{ left: adjustedPosition.left, top: adjustedPosition.top, width: 320, maxHeight: 'calc(100vh - 40px)' }}
         onClick={(e) => e.stopPropagation()}
       >

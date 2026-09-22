@@ -41,9 +41,9 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ visible, onClose, onLog
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 scrim" onClick={onClose} />
       
-      <div className="relative bg-theme-card rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+      <div className="relative glass glass-thick r-window glass-pop w-full max-w-md mx-4 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-theme-divider">
           <h2 className="text-xl font-semibold text-theme">设置</h2>
@@ -159,8 +159,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ visible, onClose, onLog
       {/* Logout Confirm Dialog */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowLogoutConfirm(false)} />
-          <div className="relative bg-theme-card rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
+          <div className="absolute inset-0 scrim" onClick={() => setShowLogoutConfirm(false)} />
+          <div className="relative glass glass-thick r-panel glass-pop w-full max-w-sm mx-4 p-6">
             <h3 className="text-lg font-semibold text-theme mb-2">确认退出</h3>
             <p className="text-sm text-theme-secondary mb-6">
               确定要退出 WebUI 吗？这不会退出 QQ，仅清除 WebUI 登录状态。
@@ -185,8 +185,8 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ visible, onClose, onLog
 
       {showQQLogoutConfirm && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowQQLogoutConfirm(false)} />
-          <div className="relative bg-theme-card rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6">
+          <div className="absolute inset-0 scrim" onClick={() => setShowQQLogoutConfirm(false)} />
+          <div className="relative glass glass-thick r-panel glass-pop w-full max-w-sm mx-4 p-6">
             <h3 className="text-lg font-semibold text-theme mb-2">退出 QQ</h3>
             <p className="text-sm text-theme-secondary mb-6">
               确定要退出当前 QQ 登录吗？退出后可重新选择账号快速登录或扫码登录。

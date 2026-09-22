@@ -58,7 +58,7 @@ const ForwardTargetPicker: React.FC<ForwardTargetPickerProps> = ({ count, onSele
   return createPortal(
     <>
       <div className="fixed inset-0 z-[60] bg-black/40" onClick={sending ? undefined : onClose} />
-      <div className="fixed z-[60] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-neutral-800 border border-theme-divider rounded-2xl shadow-xl w-[360px] max-w-[92vw] max-h-[70vh] flex flex-col">
+      <div className="fixed z-[60] top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass glass-thick r-panel glass-pop w-[360px] max-w-[92vw] max-h-[70vh] flex flex-col">
         <div className="flex items-center justify-between px-4 py-3 border-b border-theme-divider">
           <div className="font-medium text-theme">转发到{count > 1 ? `（合并 ${count} 条）` : ''}</div>
           <button onClick={onClose} disabled={sending} className="p-1.5 text-theme-hint hover:text-theme hover:bg-theme-item rounded-lg transition-colors disabled:opacity-50">
@@ -79,7 +79,7 @@ const ForwardTargetPicker: React.FC<ForwardTargetPickerProps> = ({ count, onSele
         </div>
         <div className="flex-1 overflow-y-auto py-1 relative">
           {sending && (
-            <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/60 dark:bg-neutral-800/60">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-[rgb(var(--glass-tint)/0.6)]">
               <Loader2 size={24} className="animate-spin text-pink-500" />
             </div>
           )}

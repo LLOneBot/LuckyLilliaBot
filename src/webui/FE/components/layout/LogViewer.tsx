@@ -134,9 +134,9 @@ const LogViewer: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-neutral-600">
+            <div className="flex r-control overflow-hidden fill-quiet p-0.5 gap-0.5">
               {[{ value: 'all', label: '全部' }, { value: 'info', label: 'Info' }, { value: 'warn', label: 'Warn' }, { value: 'error', label: 'Error' }].map((item) => (
-                <button key={item.value} onClick={() => setLevelFilter(item.value)} className={`px-3 py-1.5 text-xs font-medium transition-all ${levelFilter === item.value ? 'gradient-primary-br text-white' : 'bg-theme-input text-theme-secondary hover:bg-theme-item-hover'}`}>
+                <button key={item.value} onClick={() => setLevelFilter(item.value)} className={`px-3 py-1.5 text-xs font-medium r-inner transition-all ${levelFilter === item.value ? 'gradient-primary-br text-white shadow-sm' : 'text-theme-secondary hover:bg-theme-item-hover'}`}>
                   {item.label}
                 </button>
               ))}
@@ -169,9 +169,9 @@ const LogViewer: React.FC = () => {
           <input type="text" placeholder="搜索日志..." value={filter} onChange={(e) => setFilter(e.target.value)} className="w-full px-3 py-2 text-sm bg-theme-input border border-theme-input rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent text-theme placeholder:text-theme-hint" />
           {/* 筛选和操作按钮 */}
           <div className="flex items-center justify-between">
-            <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-neutral-600">
+            <div className="flex r-control overflow-hidden fill-quiet p-0.5 gap-0.5">
               {[{ value: 'all', label: '全部' }, { value: 'info', label: 'Info' }, { value: 'warn', label: 'Warn' }, { value: 'error', label: 'Error' }].map((item) => (
-                <button key={item.value} onClick={() => setLevelFilter(item.value)} className={`px-2 py-1.5 text-xs font-medium transition-all ${levelFilter === item.value ? 'gradient-primary-br text-white' : 'bg-theme-input text-theme-secondary hover:bg-theme-item-hover'}`}>
+                <button key={item.value} onClick={() => setLevelFilter(item.value)} className={`px-2 py-1.5 text-xs font-medium r-inner transition-all ${levelFilter === item.value ? 'gradient-primary-br text-white shadow-sm' : 'text-theme-secondary hover:bg-theme-item-hover'}`}>
                   {item.label}
                 </button>
               ))}

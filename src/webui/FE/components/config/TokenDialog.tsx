@@ -68,14 +68,14 @@ const TokenDialog: React.FC<TokenDialogProps> = ({ visible, onConfirm, onClose, 
     <>
       {/* Backdrop - 点击不关闭 */}
       <div 
-        className="fixed inset-0 bg-black/30 dark:bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+        className="fixed inset-0 scrim flex items-center justify-center p-4"
         style={{ zIndex: 9000 }}
         onClick={(e) => e.target === e.currentTarget && onClose?.()}
       >
         {/* Dialog */}
-        <div className="bg-white/90 dark:bg-neutral-800/90 backdrop-blur-xl rounded-3xl shadow-2xl w-full max-w-md transform transition-all">
+        <div className="glass glass-thick r-window glass-pop w-full max-w-md">
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-white/20 dark:border-neutral-700/50">
+          <div className="flex items-center justify-between p-6 hairline-b">
             <h3 className="text-xl font-semibold text-theme">{error || 'WebUI 密码'}</h3>
             {onClose && (
               <button
@@ -102,10 +102,10 @@ const TokenDialog: React.FC<TokenDialogProps> = ({ visible, onConfirm, onClose, 
                   }}
                   onKeyPress={handleKeyPress}
                   placeholder="请输入密码（支持数字、字母、符号）"
-                  className={`w-full px-4 py-3 pr-12 border rounded-xl focus:outline-none focus:ring-2 transition-all bg-theme-input backdrop-blur-sm text-theme placeholder:text-theme-hint ${
+                  className={`input-field pr-12 ${
                     validationError 
-                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500' 
-                      : 'border-theme-input focus:ring-pink-500 focus:border-transparent'
+                      ? 'border-[var(--sys-red)]' 
+                      : ''
                   }`}
                   autoComplete="off"
                 />
@@ -126,11 +126,11 @@ const TokenDialog: React.FC<TokenDialogProps> = ({ visible, onConfirm, onClose, 
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end gap-3 p-6 border-t border-white/20 dark:border-neutral-700/50">
+          <div className="flex items-center justify-end gap-3 p-6 hairline-t">
             {onClose && (
               <button
                 onClick={onClose}
-                className="px-6 py-2.5 text-theme-secondary hover:bg-theme-item rounded-lg font-medium transition-colors"
+                className="btn-glass"
               >
                 取消
               </button>
@@ -138,7 +138,7 @@ const TokenDialog: React.FC<TokenDialogProps> = ({ visible, onConfirm, onClose, 
             <button
               onClick={handleConfirm}
               disabled={!password.trim()}
-              className="px-6 py-2.5 gradient-primary text-white rounded-lg font-medium hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-none"
+              className="px-6 py-2.5 btn-primary font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               确定
             </button>

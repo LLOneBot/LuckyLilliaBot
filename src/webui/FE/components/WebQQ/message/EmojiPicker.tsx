@@ -207,7 +207,7 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelect, onSelectEmoj
   return (
     <div 
       ref={pickerRef}
-      className={`${inline ? '' : 'absolute bottom-full left-0 mb-2'} bg-theme-card border border-theme-divider rounded-xl shadow-xl z-50`}
+      className={`${inline ? '' : 'absolute bottom-full left-0 mb-2'} glass glass-thick glass-dense r-card glass-pop origin-bottom-left z-50`}
       style={position ? { left: position.x, bottom: position.y } : undefined}
     >
       <div className="flex border-b border-theme-divider">

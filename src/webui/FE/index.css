@@ -1,113 +1,65 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+@import './styles/tokens.css';
+@import './styles/glass.css';
 
-/* Tailwind v4: 使用 .dark 类切换暗黑模式（而非 media query） */
+/* Tailwind v4: dark mode driven by a .dark class, not a media query */
 @custom-variant dark (&:where(.dark, .dark *));
 
-@utility shadow-card {
-  @apply shadow-lg rounded-xl;
-}
-
-@utility shadow-card-hover {
-  @apply shadow-xl transition-shadow;
-}
-
-@utility gradient-primary {
-  background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
-}
-
 @layer base {
-  /* 主题变量定义 */
-  :root {
-    /* 文字颜色 */
-    --text-primary: #1f2937;
-    --text-secondary: #4b5563;
-    --text-muted: #6b7280;
-    --text-hint: #9ca3af;
-
-    /* 背景颜色 */
-    --bg-card: rgba(255, 255, 255, 0.6);
-    --bg-card-hover: rgba(255, 255, 255, 0.8);
-    --bg-input: rgba(255, 255, 255, 0.4);
-    --bg-item: rgba(249, 250, 251, 0.5);
-    --bg-item-hover: rgba(243, 244, 246, 0.5);
-    --bg-selected: rgba(252, 231, 243, 1);
-
-    /* 边框颜色 */
-    --border-card: rgba(255, 255, 255, 0.5);
-    --border-input: rgba(255, 255, 255, 0.3);
-    --border-divider: rgba(229, 231, 235, 0.5);
-
-    /* 毛玻璃效果 */
-    --backdrop-blur: blur(24px);
-  }
-
-  /* 暗黑模式变量 */
-  .dark {
-    --text-primary: #ffffff;
-    --text-secondary: #d4d4d4;
-    --text-muted: #a3a3a3;
-    --text-hint: #737373;
-
-    --bg-card: rgba(38, 38, 38, 0.7);
-    --bg-card-hover: rgba(45, 45, 45, 0.8);
-    --bg-input: rgba(64, 64, 64, 0.6);
-    --bg-item: rgba(64, 64, 64, 0.5);
-    --bg-item-hover: rgba(82, 82, 82, 0.5);
-    --bg-selected: rgba(157, 23, 77, 0.3);
-
-    --border-card: rgba(82, 82, 82, 0.5);
-    --border-input: rgba(82, 82, 82, 0.5);
-    --border-divider: rgba(82, 82, 82, 0.5);
-
-    /* 夜间模式粉红色调整 - 更柔和 */
-    --pink-accent: #f472b6;
-    --pink-accent-hover: #f9a8d4;
-  }
-
   * {
     @apply box-border;
   }
 
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
-    @apply m-0 font-sans antialiased;
-    background:
-      linear-gradient(135deg,
-        rgba(224, 231, 255, 1) 0%,
-        rgba(233, 213, 255, 1) 25%,
-        rgba(252, 231, 243, 1) 50%,
-        rgba(254, 240, 220, 1) 75%,
-        rgba(240, 253, 250, 1) 100%
-      );
+    margin: 0;
     min-height: 100vh;
     position: relative;
+    font-family: var(--font-ui);
+    /* Apple sets UI text slightly tight; at 15px this is where it reads right */
+    letter-spacing: -0.01em;
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* Low-saturation wash. The glass re-saturates it, so anything punchy here
+       comes back oversaturated through the material. */
+    background:
+      radial-gradient(1000px 680px at 16% 6%, rgb(255 255 255 / 0.6) 0%, transparent 62%),
+      linear-gradient(
+        140deg,
+        #e2dffc 0%,
+        #ecdcf8 28%,
+        #f6e0ef 52%,
+        #ecdff6 76%,
+        #e4e0fa 100%
+      );
+    background-attachment: fixed;
   }
 
-  /* 暗黑模式背景 */
-  .dark body,
-  :root.dark body {
-    background: #0f0f0f;
+  .dark body {
+    /* Not flat black: refraction needs tonal variation behind the sheet to
+       bend, and pure #000 gives it nothing to work with. */
+    background:
+      radial-gradient(1200px 800px at 15% 0%, #241b2c 0%, transparent 60%),
+      radial-gradient(1000px 700px at 85% 100%, #17222b 0%, transparent 55%),
+      linear-gradient(160deg, #121114 0%, #16151a 55%, #121418 100%);
+    background-attachment: fixed;
   }
 
-  /* 添加彩色点阵图案 */
-  body::after {
-    content: '';
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-image:
-      radial-gradient(circle at 20% 30%, rgba(167, 139, 250, 0.08) 0, transparent 50%),
-      radial-gradient(circle at 80% 70%, rgba(96, 165, 250, 0.08) 0, transparent 50%),
-      radial-gradient(circle at 50% 50%, rgba(244, 114, 182, 0.05) 0, transparent 50%);
-    pointer-events: none;
-    z-index: 0;
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.021em;
   }
 
-  /* 暗黑模式 - 去掉点阵 */
-  .dark body::after,
-  :root.dark body::after {
-    background-image: none;
+  code,
+  pre,
+  kbd {
+    font-family: var(--font-mono);
   }
 
   #root {
@@ -116,223 +68,284 @@
     z-index: 1;
   }
 
-  /* 自定义滚动条样式 */
+  /* Overlay scrollbars, the way macOS draws them: no track, thumb only. */
   ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
   }
 
   ::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.05);
-    border-radius: 4px;
+    background: transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: rgba(0, 0, 0, 0.15);
-    border-radius: 4px;
+    background: rgb(0 0 0 / 0.18);
+    border-radius: var(--r-capsule);
+    border: 3px solid transparent;
+    background-clip: content-box;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 0, 0, 0.25);
+    background: rgb(0 0 0 / 0.32);
+    background-clip: content-box;
   }
 
-  /* 暗黑模式滚动条 */
-  .dark ::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.05);
+  ::-webkit-scrollbar-corner {
+    background: transparent;
   }
 
   .dark ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.2);
+    background: rgb(255 255 255 / 0.2);
+    background-clip: content-box;
   }
 
   .dark ::-webkit-scrollbar-thumb:hover {
-    background: rgba(255, 255, 255, 0.3);
+    background: rgb(255 255 255 / 0.34);
+    background-clip: content-box;
+  }
+
+  * {
+    scrollbar-color: rgb(0 0 0 / 0.2) transparent;
+    scrollbar-width: thin;
+  }
+
+  .dark * {
+    scrollbar-color: rgb(255 255 255 / 0.22) transparent;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--text-primary);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent-ring);
+    outline-offset: 2px;
+  }
+
+  /* Reduced motion: no transitions anywhere. Has to be !important, because
+     Tailwind transition utilities (transition-all duration-300 on the
+     sidebar) sit in the utilities layer and outrank component rules. A
+     300ms color transition under reduced motion also made the glass runtime
+     read a mid-transition tint after a theme switch. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 1ms !important;
+      animation-duration: 1ms !important;
+    }
   }
 }
 
 @layer components {
-  /* 主题文字颜色 */
-  .text-theme {
-    color: var(--text-primary);
-  }
-
-  .text-theme-secondary {
-    color: var(--text-secondary);
-  }
-
-  .text-theme-muted {
-    color: var(--text-muted);
-  }
-
-  .text-theme-hint {
-    color: var(--text-hint);
-  }
-
-  /* 主题背景颜色 */
-  .bg-theme-card {
-    background: var(--bg-card);
-  }
-
-  .bg-theme-item {
-    background: var(--bg-item);
-  }
-
-  .bg-theme-item-hover {
-    background: var(--bg-item-hover);
-  }
-
-  .hover\:bg-theme-item-hover:hover {
-    background: var(--bg-item-hover);
-  }
-
-  .bg-theme-selected {
-    background: var(--bg-selected);
-  }
-
-  .bg-theme-input {
-    background: var(--bg-input);
-  }
-
-  /* 主题边框颜色 */
-  .border-theme {
-    border-color: var(--border-card);
-  }
-
-  .border-theme-divider {
-    border-color: var(--border-divider);
-  }
-
-  .border-theme-input {
-    border-color: var(--border-input);
-  }
-
-  /* 使用 CSS 变量的通用组件 */
-  .card {
-    background: var(--bg-card);
-    backdrop-filter: var(--backdrop-blur);
-    border: 1px solid var(--border-card);
-    @apply rounded-3xl shadow-card hover:shadow-card-hover transition-all duration-300;
-  }
-
+  /* Text hierarchy. Both spellings exist across the codebase. */
+  .text-theme,
   .text-primary {
     color: var(--text-primary);
   }
 
+  .text-theme-secondary,
   .text-secondary {
     color: var(--text-secondary);
   }
 
+  .text-theme-muted,
   .text-muted {
     color: var(--text-muted);
   }
 
+  .text-theme-hint,
   .text-hint {
     color: var(--text-hint);
   }
 
+  /* Surfaces. These are flat fills used on top of a glass sheet -- they must
+     not blur, or two sheets stack and both go muddy. */
+  .bg-theme-card {
+    background: rgb(var(--glass-tint) / var(--glass-alpha-regular));
+  }
+
+  .bg-theme-item,
   .bg-item {
-    background: var(--bg-item);
+    background: var(--fill-quiet);
   }
 
+  .bg-theme-item-hover {
+    background: var(--fill-quiet-hover);
+  }
+
+  .hover\:bg-theme-item-hover:hover,
   .bg-item-hover:hover {
-    background: var(--bg-item-hover);
+    background: var(--fill-quiet-hover);
   }
 
+  .bg-theme-selected,
   .bg-selected {
-    background: var(--bg-selected);
+    background: var(--fill-selected);
   }
 
-  /* 弹出菜单和卡片背景 */
-  .bg-popup {
-    background: rgba(255, 255, 255, 0.9);
+  .bg-theme-input {
+    background: var(--fill-input);
   }
 
-  .dark .bg-popup {
-    background: rgba(23, 23, 23, 0.95);
+  /* Borders collapse to hairlines: Liquid Glass separates with material
+     steps, and a visible 1px grey line reads as a seam in the sheet. */
+  .border-theme,
+  .border-theme-input {
+    border-color: var(--hairline);
   }
 
+  .border-theme-divider,
   .border-divider {
-    border-color: var(--border-divider);
+    border-color: var(--hairline);
   }
 
-  /* 主题渐变色 - 粉珊瑚系 */
+  /* Panel container. Aliased onto the glass material in glass.css, so the
+     52 existing call sites pick up refraction and the specular rim as-is. */
+  .card {
+    border-radius: var(--r-panel);
+  }
+
+  /* Popover surface: thick glass, because menus hold readable text. */
+  .bg-popup {
+    border-radius: var(--r-card);
+  }
+
   .gradient-primary {
-    background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
-  }
-
-  /* 暗黑模式渐变 - 和日间模式一样 */
-  .dark .gradient-primary {
-    background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
+    background: linear-gradient(105deg, var(--accent-from) 0%, var(--accent-to) 100%);
   }
 
   .gradient-primary-br {
-    background: linear-gradient(to bottom right, #ec4899 0%, #f87171 100%);
+    background: linear-gradient(135deg, var(--accent-from) 0%, var(--accent-to) 100%);
   }
 
-  .dark .gradient-primary-br {
-    background: linear-gradient(to bottom right, #ec4899 0%, #f87171 100%);
-  }
-
+  /*
+   * Primary action. The one place the accent gets a full fill, so it needs
+   * to look lit rather than painted: the rim highlight sits inside the
+   * gradient and the shadow is tinted with the accent, not grey.
+   */
   .btn-primary {
-    @apply gradient-primary text-white px-6 py-2.5 rounded-xl font-medium hover:shadow-lg hover:scale-105 transition-all duration-200;
+    position: relative;
+    isolation: isolate;
+    border-radius: var(--r-capsule);
+    padding: 0.625rem 1.25rem;
+    font-weight: 590;
+    font-size: 0.9375rem;
+    letter-spacing: -0.01em;
+    color: #fff;
+    background: linear-gradient(105deg, var(--accent-from) 0%, var(--accent-to) 100%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.3),
+      inset 0 -1px 0 rgb(0 0 0 / 0.08),
+      0 1px 2px rgb(219 39 119 / 0.2),
+      0 8px 20px -6px rgb(219 39 119 / 0.45);
+    transition:
+      box-shadow var(--dur-base) var(--ease-glass),
+      transform var(--dur-fast) var(--ease-glass),
+      filter var(--dur-fast) var(--ease-glass);
   }
 
-  /* Switch 开关样式 */
-  .switch-toggle {
-    @apply w-12 h-6 rounded-full relative cursor-pointer appearance-none
-      transition-colors duration-200 ease-in-out
-      before:content-[''] before:absolute before:top-0.5 before:left-0.5
-      before:w-5 before:h-5 before:rounded-full before:bg-white
-      before:transition-transform before:duration-200
-      checked:before:translate-x-6;
-    background: #d1d5db;
-    &:checked {
-      background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
-    }
+  .btn-primary:hover {
+    filter: brightness(1.06);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.35),
+      inset 0 -1px 0 rgb(0 0 0 / 0.08),
+      0 1px 2px rgb(219 39 119 / 0.22),
+      0 12px 28px -8px rgb(219 39 119 / 0.55);
   }
 
-  .dark .switch-toggle {
-    background: #404040;
+  .btn-primary:active {
+    transform: scale(0.97);
+    filter: brightness(0.97);
   }
 
-  .dark .switch-toggle:checked {
-    background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
+  .btn-primary:disabled {
+    filter: saturate(0.25);
+    opacity: 0.5;
+    box-shadow: none;
+    transform: none;
   }
 
-  .switch-toggle-lg {
-    @apply w-14 h-7 rounded-full relative cursor-pointer appearance-none
-      transition-colors duration-200 ease-in-out
-      before:content-[''] before:absolute before:top-0.5 before:left-0.5
-      before:w-6 before:h-6 before:rounded-full before:bg-white
-      before:transition-transform before:duration-200
-      checked:before:translate-x-7;
-    background: #d1d5db;
-    &:checked {
-      background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
-    }
-  }
-
-  .dark .switch-toggle-lg {
-    background: #404040;
-  }
-
-  .dark .switch-toggle-lg:checked {
-    background: linear-gradient(to right, #ec4899 0%, #f87171 100%);
-  }
-
-  .input-field {
-    @apply w-full px-4 py-2.5 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all;
-    background: var(--bg-input);
-    border: 1px solid var(--border-input);
+  /*
+   * Secondary action: a glass pill. Carries no accent, so it never competes
+   * with the primary button next to it.
+   */
+  .btn-glass {
+    position: relative;
+    isolation: isolate;
+    border-radius: var(--r-capsule);
+    padding: 0.625rem 1.25rem;
+    font-weight: 510;
+    font-size: 0.9375rem;
+    letter-spacing: -0.01em;
     color: var(--text-primary);
-    backdrop-filter: blur(8px);
+    background-color: rgb(var(--glass-tint) / var(--glass-alpha-raised));
+    backdrop-filter: blur(9px) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(9px) saturate(var(--glass-saturate));
+    box-shadow:
+      inset 0 1px 0 var(--spec-top),
+      inset 0 -1px 0 var(--spec-bottom),
+      inset 0 6px 10px -9px var(--lens-top),
+      inset 0 -6px 10px -9px var(--lens-bottom),
+      0 0 0 0.5px var(--edge-shade),
+      0 1px 2px rgb(var(--shade) / var(--shade-alpha-near)),
+      0 4px 12px -4px rgb(var(--shade) / var(--shade-alpha-far));
+    transition:
+      background-color var(--dur-base) var(--ease-glass),
+      transform var(--dur-fast) var(--ease-glass);
+  }
+
+  .btn-glass:hover {
+    background-color: rgb(var(--glass-tint) / calc(var(--glass-alpha-raised) + 0.12));
+  }
+
+  .btn-glass:active {
+    transform: scale(0.97);
+  }
+
+  /*
+   * Text fields. Recessed rather than raised: the inner shadow reads as a
+   * well cut into the glass, which is how iOS 26 draws inputs.
+   */
+  .input-field {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    border-radius: var(--r-control);
+    border: 1px solid var(--hairline);
+    background: var(--fill-input);
+    color: var(--text-primary);
+    font-size: 0.9375rem;
+    letter-spacing: -0.01em;
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.04);
+    transition:
+      border-color var(--dur-fast) var(--ease-glass),
+      box-shadow var(--dur-fast) var(--ease-glass),
+      background var(--dur-fast) var(--ease-glass);
+  }
+
+  .input-field:hover {
+    background: var(--fill-quiet-hover);
+  }
+
+  .input-field:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgb(var(--glass-tint) / 0.6);
+    box-shadow:
+      inset 0 1px 2px rgb(0 0 0 / 0.03),
+      0 0 0 3.5px var(--accent-soft);
   }
 
   .input-field::placeholder {
     color: var(--text-hint);
   }
 
-  /* 隐藏 number 输入框的上下箭头 */
+  .input-field:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
   input[type='number']::-webkit-inner-spin-button,
   input[type='number']::-webkit-outer-spin-button {
     -webkit-appearance: none;
@@ -343,50 +356,146 @@
     -moz-appearance: textfield;
   }
 
+  /*
+   * Switches. The knob is the one thing in the UI that reads as solid,
+   * polished glass -- it sits above the track and casts onto it.
+   */
   .switch {
     @apply relative inline-flex items-center cursor-pointer;
   }
 
-  /* 夜间模式粉红色按钮调整 - 更柔和 */
-  .dark .bg-pink-500 {
-    background-color: #db2777 !important;
+  .switch-toggle,
+  .switch-toggle-lg {
+    position: relative;
+    appearance: none;
+    cursor: pointer;
+    border-radius: var(--r-capsule);
+    background: rgb(120 120 128 / 0.16);
+    box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.07);
+    transition:
+      background var(--dur-base) var(--ease-glass),
+      box-shadow var(--dur-base) var(--ease-glass);
   }
 
-  .dark .hover\:bg-pink-600:hover {
-    background-color: #be185d !important;
+  .switch-toggle::before,
+  .switch-toggle-lg::before {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    border-radius: var(--r-capsule);
+    background: #fff;
+    box-shadow:
+      0 1px 1px rgb(0 0 0 / 0.04),
+      0 3px 8px rgb(0 0 0 / 0.16);
+    transition: transform var(--dur-base) var(--ease-glass);
   }
 
-  .dark .text-pink-500 {
-    color: #f472b6 !important;
+  .switch-toggle {
+    width: 3.25rem;
+    height: 1.75rem;
   }
 
-  .dark .text-pink-600 {
-    color: #ec4899 !important;
+  .switch-toggle::before {
+    width: 1.5rem;
+    height: 1.5rem;
   }
 
-  .dark .ring-pink-500\/20 {
-    --tw-ring-color: rgb(244 114 182 / 0.15) !important;
+  .switch-toggle:checked::before {
+    transform: translateX(1.5rem);
   }
 
-  .dark .focus\:ring-pink-500\/20:focus {
-    --tw-ring-color: rgb(244 114 182 / 0.15) !important;
+  .switch-toggle-lg {
+    width: 3.75rem;
+    height: 2rem;
+  }
+
+  .switch-toggle-lg::before {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+
+  .switch-toggle-lg:checked::before {
+    transform: translateX(1.75rem);
+  }
+
+  .switch-toggle:checked,
+  .switch-toggle-lg:checked {
+    background: linear-gradient(105deg, var(--accent-from) 0%, var(--accent-to) 100%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.22),
+      0 1px 3px rgb(219 39 119 / 0.3);
+  }
+
+  .dark .switch-toggle,
+  .dark .switch-toggle-lg {
+    background: rgb(120 120 128 / 0.32);
+  }
+
+  .switch-toggle:focus-visible,
+  .switch-toggle-lg:focus-visible {
+    outline: 2px solid var(--accent-ring);
+    outline-offset: 2px;
+  }
+
+  /* Accent-tinted Tailwind classes, remapped so the accent lives in one
+     place. Values match pink-500/600 in light mode, so nothing shifts there;
+     dark mode gets the softer tint it used to patch in by hand. */
+  .text-pink-500,
+  .text-pink-600 {
+    color: var(--accent) !important;
+  }
+
+  .text-pink-400 {
+    color: var(--accent) !important;
+  }
+
+  .bg-pink-500 {
+    background-color: var(--accent) !important;
+  }
+
+  .bg-pink-600,
+  .hover\:bg-pink-600:hover {
+    background-color: var(--accent-strong) !important;
+  }
+
+  .border-pink-500 {
+    border-color: var(--accent) !important;
+  }
+
+  .ring-pink-500\/20,
+  .focus\:ring-pink-500\/20:focus {
+    --tw-ring-color: var(--accent-soft) !important;
   }
 }
 
 @layer utilities {
-  /* 淡入动画 */
-  @keyframes fade-in {
+  /* The one orchestrated entrance: content arriving on a tab switch. Glass
+     panels settle in rather than sliding, so this is opacity plus a short
+     lift, not a long travel. */
+  @keyframes glass-in {
     from {
       opacity: 0;
-      transform: translateY(10px);
+      transform: translateY(6px) scale(0.995);
     }
     to {
       opacity: 1;
-      transform: translateY(0);
+      transform: translateY(0) scale(1);
     }
   }
 
   .animate-fade-in {
-    animation: fade-in 0.3s ease-out forwards;
+    animation: glass-in var(--dur-slow) var(--ease-glass) forwards;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .animate-fade-in {
+      animation-duration: 1ms;
+    }
+  }
+
+  /* Numerals that hold their column in tables and log timestamps */
+  .tnum {
+    font-variant-numeric: tabular-nums;
   }
 }

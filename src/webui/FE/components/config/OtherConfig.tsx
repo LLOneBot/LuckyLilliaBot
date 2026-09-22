@@ -257,7 +257,7 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, emailConfig, onChange
               <div className='text-xs text-theme-muted mt-0.5'>用于保护 WebUI 访问的密码</div>
             </div>
           </div>
-          <button onClick={onOpenChangePassword} className='px-3 py-1.5 md:px-4 md:py-2 gradient-primary text-white rounded-lg text-xs md:text-sm font-medium hover:shadow-lg transition-all flex items-center gap-1.5 md:gap-2'>
+          <button onClick={onOpenChangePassword} className='px-3 py-1.5 md:px-4 md:py-2 btn-primary text-xs md:text-sm font-medium transition-all flex items-center gap-1.5 md:gap-2'>
             <Edit size={14} className='md:w-4 md:h-4' />修改密码
           </button>
         </div>

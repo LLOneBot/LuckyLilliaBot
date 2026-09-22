@@ -24,7 +24,7 @@ export const MuteDialog: React.FC<{
   return createPortal(
     <>
       <div className="fixed inset-0 z-50 bg-black/30" onClick={onClose} />
-      <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-theme-card backdrop-blur-xl border border-theme-divider rounded-xl shadow-xl p-6 min-w-[340px]">
+      <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass glass-thick r-panel glass-pop p-6 min-w-[340px]">
         <h3 className="text-lg font-medium text-theme mb-4">禁言 {name}</h3>
         <div className="mb-4">
           <p className="text-sm text-theme-secondary mb-3">设置禁言时长：</p>
@@ -117,7 +117,7 @@ export const KickConfirmDialog: React.FC<{
   return createPortal(
     <>
       <div className="fixed inset-0 z-50 bg-black/50" onClick={onClose} />
-      <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-theme-card border border-theme-divider rounded-xl shadow-xl p-6 min-w-[320px]">
+      <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass glass-thick r-panel glass-pop p-6 min-w-[320px]">
         <h3 className="text-lg font-medium text-theme mb-4">确认踢出</h3>
         <p className="text-theme-secondary mb-6">
           确定要将 <span className="font-medium text-theme">{name}</span> 移出群 <span className="font-medium text-theme">{groupName}</span> 吗？
@@ -147,7 +147,7 @@ export const TitleDialog: React.FC<{
   return createPortal(
     <>
       <div className="fixed inset-0 z-50 bg-black/30" onClick={onClose} />
-      <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-theme-card backdrop-blur-xl border border-theme-divider rounded-xl shadow-xl p-6 min-w-[320px]">
+      <div className="fixed z-50 top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass glass-thick r-panel glass-pop p-6 min-w-[320px]">
         <h3 className="text-lg font-medium text-theme mb-4">设置头衔</h3>
         <p className="text-sm text-theme-secondary mb-3">为 {name} 设置专属头衔：</p>
         <input

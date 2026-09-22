@@ -103,7 +103,7 @@ const StatItem: React.FC<{
   value: string | number
   gradient: string
 }> = ({ icon, label, value, gradient }) => (
-  <div className="flex items-center gap-3 p-3 rounded-xl bg-theme-item hover:bg-theme-item-hover transition-all duration-200 hover:scale-[1.02]">
+  <div className="flex items-center gap-3 p-3 r-control bg-theme-item hover:bg-theme-item-hover transition-colors duration-200">
     <div className={`w-10 h-10 rounded-xl ${gradient} flex items-center justify-center shadow-md`}>
       {icon}
     </div>
@@ -284,7 +284,7 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
             </div>
           </div>
           <div className="flex-1 flex flex-col justify-center space-y-2">
-            <div className="p-3 rounded-xl bg-theme-item">
+            <div className="p-3 r-control bg-theme-item">
               <p className="text-xs text-theme-muted">已运行</p>
               <p className="text-xl font-bold bg-gradient-to-r from-pink-500 to-rose-500 bg-clip-text text-transparent">
                 {uptime}

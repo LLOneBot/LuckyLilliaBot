@@ -144,7 +144,7 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
       <div className="fixed inset-0 z-40" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
       <div
         ref={menuRef}
-        className="fixed z-50 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[100px]"
+        className="fixed z-50 bg-popup r-control glass-pop origin-top-left py-1 min-w-[100px]"
         style={{ left: position.left, top: position.top, visibility: position.ready ? 'visible' : 'hidden' }}
         onContextMenu={(e) => e.preventDefault()}
       >
@@ -288,7 +288,7 @@ export const AvatarContextMenu: React.FC<AvatarContextMenuProps> = ({
       <div className="fixed inset-0 z-40" onClick={onClose} onContextMenu={(e) => { e.preventDefault(); onClose() }} />
       <div
         ref={menuRef}
-        className="fixed z-50 bg-popup backdrop-blur-sm border border-theme-divider rounded-lg shadow-lg py-1 min-w-[120px]"
+        className="fixed z-50 bg-popup r-control glass-pop origin-top-left py-1 min-w-[120px]"
         style={{ left: position.left, top: position.top, visibility: position.ready ? 'visible' : 'hidden' }}
         onContextMenu={(e) => e.preventDefault()}
       >

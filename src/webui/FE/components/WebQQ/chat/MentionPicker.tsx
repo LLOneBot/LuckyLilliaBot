@@ -91,7 +91,7 @@ export const MentionPicker: React.FC<MentionPickerProps> = ({
   return (
     <div
       ref={containerRef}
-      className="absolute z-50 bg-white dark:bg-neutral-800 rounded-xl shadow-xl border border-theme-divider overflow-hidden"
+      className="absolute z-50 glass glass-thick glass-dense r-card glass-pop origin-bottom-left overflow-hidden"
       style={{ bottom: '100%', left: 0, marginBottom: 8, minWidth: 240, maxWidth: 300 }}
     >
       {loading ? (

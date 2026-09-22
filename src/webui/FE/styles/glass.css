@@ -1,0 +1,383 @@
+/*
+ * Liquid Glass material layer.
+ *
+ * A sheet of glass here is five things stacked:
+ *   1. a translucent tint     -- background-color, alpha per variant
+ *   2. a backdrop treatment   -- blur, saturate, brightness
+ *   3. an inner wall gradient -- inset shadows fading in from the edges,
+ *                                bright at the top, dim at the bottom
+ *   4. a specular rim         -- 1px gradient ring, bright on top, faint on
+ *                                the sides, a dim bounce on the bottom
+ *   5. an outer hairline and a cast shadow onto the background
+ *
+ * Layer 3 is what reads as thickness. Apple gets it from real refraction: the
+ * lens band at the edge of the sheet compresses the backdrop into a brighter,
+ * denser ring. Chrome will not do that for us -- it silently drops url() SVG
+ * filters from backdrop-filter, even though CSS.supports() claims otherwise.
+ * Verified in this repo: filter:url() distorts a striped backdrop as
+ * expected, while backdrop-filter:url() renders pixel-identical to plain
+ * blur. So the band is drawn rather than computed.
+ * See docs/webui-liquid-glass.md.
+ */
+
+@layer components {
+  /* .card and .bg-popup are the pre-existing semantic surfaces in this
+     codebase. Aliasing them onto the material here, rather than duplicating
+     the declarations, means their ~60 call sites pick up the new material
+     without being touched. Both map to the thick variant: .card is content,
+     and Liquid Glass keeps the clear material for chrome, not content. */
+  .glass,
+  .card,
+  .bg-popup {
+    position: relative;
+    isolation: isolate;
+    --radius: var(--r-card);
+    --lens-band: 14px;
+    border-radius: var(--radius);
+    background-color: rgb(var(--glass-tint) / var(--glass-alpha-regular));
+    transition:
+      background-color var(--dur-base) var(--ease-glass),
+      box-shadow var(--dur-base) var(--ease-glass),
+      transform var(--dur-fast) var(--ease-glass),
+      border-radius var(--dur-fast) var(--ease-glass);
+  }
+
+  /* The rim. A 1px gradient ring cut out with a mask, so only the border area
+     paints. A plain border cannot hold a gradient that varies top to bottom,
+     and neither can an inset shadow. */
+  .glass::before,
+  .card::before,
+  .bg-popup::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      to bottom,
+      var(--spec-top) 0%,
+      var(--spec-side) 24%,
+      transparent 52%,
+      var(--spec-bottom) 100%
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Clear: controls floating over content or media. Most transparent, widest
+     inner wall, pairs with .glass-dim to stay legible. */
+  .glass-clear {
+    background-color: rgb(var(--glass-tint) / var(--glass-alpha-clear));
+    backdrop-filter: blur(var(--glass-blur-clear)) saturate(var(--glass-saturate))
+      brightness(var(--glass-brightness));
+    -webkit-backdrop-filter: blur(var(--glass-blur-clear)) saturate(var(--glass-saturate));
+    box-shadow:
+      inset 0 15px 24px -18px var(--lens-top),
+      inset 0 -15px 24px -18px var(--lens-bottom),
+      inset 0 0 14px -4px var(--lens-depth),
+      0 0 0 0.5px var(--edge-shade),
+      0 1px 2px rgb(var(--shade) / var(--shade-alpha-near)),
+      0 8px 24px -6px rgb(var(--shade) / var(--shade-alpha-far));
+  }
+
+  /* Regular: the workhorse. Sidebars, shells, floating panels. .card shares
+     the recipe and overrides the alpha below. */
+  .glass-regular,
+  .card {
+    background-color: rgb(var(--glass-tint) / var(--glass-alpha-regular));
+    backdrop-filter: blur(var(--glass-blur-regular)) saturate(var(--glass-saturate))
+      brightness(var(--glass-brightness));
+    -webkit-backdrop-filter: blur(var(--glass-blur-regular)) saturate(var(--glass-saturate));
+    box-shadow:
+      inset 0 11px 18px -14px var(--lens-top),
+      inset 0 -11px 18px -14px var(--lens-bottom),
+      inset 0 0 12px -4px var(--lens-depth),
+      0 0 0 0.5px var(--edge-shade),
+      0 1px 2px rgb(var(--shade) / var(--shade-alpha-near)),
+      0 12px 32px -8px rgb(var(--shade) / var(--shade-alpha-far));
+  }
+
+  /* Content sheets: the regular recipe, denser. A form wants a calmer ground
+     than a sidebar, but a near-opaque card on this wallpaper reads as a
+     white slab (.88 did). */
+  .card {
+    background-color: rgb(var(--glass-tint) / var(--glass-alpha-card));
+  }
+
+  /* Bar: chrome attached to a panel edge, content scrolling beneath it --
+     the chat header and composer. No rim, no cast shadow, no radius: it
+     belongs to the panel rather than floating over it. Inset floating
+     sheets made a chat column read as three separate objects. */
+  .glass-bar {
+    background-color: rgb(var(--glass-tint) / var(--glass-alpha-bar));
+    /* Thick blur, thin tint: a busy image under the bar turns into a smooth
+       wash, so the title stays readable without the tint going white. */
+    backdrop-filter: blur(var(--glass-blur-thick)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+    -webkit-backdrop-filter: blur(var(--glass-blur-thick)) saturate(var(--glass-saturate));
+  }
+
+  /* Thick: modals and anything holding a paragraph of text. Legibility wins
+     over transparency, so alpha goes up and the wall stays subtle. */
+  .glass-thick,
+  .bg-popup {
+    background-color: rgb(var(--glass-tint) / var(--glass-alpha-thick));
+    backdrop-filter: blur(var(--glass-blur-thick)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+    -webkit-backdrop-filter: blur(var(--glass-blur-thick)) saturate(var(--glass-saturate));
+    box-shadow:
+      inset 0 9px 16px -14px var(--lens-top),
+      inset 0 -9px 16px -14px var(--lens-bottom),
+      0 0 0 0.5px var(--edge-shade),
+      0 2px 4px rgb(var(--shade) / var(--shade-alpha-near)),
+      0 24px 64px -12px rgb(var(--shade) / calc(var(--shade-alpha-far) * 1.4));
+  }
+
+  /* Chrome: small controls -- buttons, chips, segmented pickers. Narrow wall,
+     so a 32px-tall pill does not turn into a bright smear. */
+  .glass-chrome {
+    background-color: rgb(var(--glass-tint) / var(--glass-alpha-raised));
+    backdrop-filter: blur(9px) saturate(var(--glass-saturate));
+    -webkit-backdrop-filter: blur(9px) saturate(var(--glass-saturate));
+    box-shadow:
+      inset 0 6px 10px -9px var(--lens-top),
+      inset 0 -6px 10px -9px var(--lens-bottom),
+      0 0 0 0.5px var(--edge-shade),
+      0 1px 2px rgb(var(--shade) / var(--shade-alpha-near)),
+      0 4px 12px -4px rgb(var(--shade) / var(--shade-alpha-far));
+  }
+
+  /* Dense: a modifier on thick for popovers that sit on top of body text --
+     emoji grids, mention lists. Thick lets ~12% of the page through, which
+     reads as ghost text under a grid of small glyphs; dense does not. Cards
+     and dialogs keep thick, since they sit on the wallpaper or a scrim. */
+  .glass-dense {
+    background-color: rgb(var(--glass-tint) / var(--glass-alpha-dense));
+  }
+
+  /* Underlay for clear glass over bright media: without it, light text on a
+     light photo disappears. */
+  .glass-dim::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: linear-gradient(to top, rgb(0 0 0 / 0.22), rgb(0 0 0 / 0.06));
+    pointer-events: none;
+  }
+
+  /* Interaction. Glass responds by getting denser and lifting, not by
+     changing hue -- the accent stays reserved for state. */
+  .glass-interactive {
+    cursor: pointer;
+  }
+
+  .glass-interactive:hover {
+    background-color: rgb(var(--glass-tint) / calc(var(--glass-alpha-regular) + 0.12));
+  }
+
+  .glass-interactive:active {
+    background-color: rgb(var(--glass-tint) / calc(var(--glass-alpha-regular) + 0.18));
+  }
+
+  /* The lens band: four stretched strips of the wallpaper just inside each
+     edge, drawn by the glass runtime (see utils/glassRuntime.ts). A plain
+     canvas on purpose -- a CSS reference filter on a live canvas is a
+     paint-time snapshot on some raster paths and goes stale. */
+  canvas.ll-lens {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  canvas.ll-lens[hidden] {
+    display: none;
+  }
+
+  .glass-interactive:focus-visible {
+    outline: 2px solid var(--accent-ring);
+    outline-offset: 2px;
+  }
+}
+
+/*
+ * Radius ladder, fills and hairlines as Tailwind utilities rather than
+ * component classes: utilities take variants (md:r-panel, hover:fill-quiet),
+ * component-layer classes do not.
+ */
+@utility r-window {
+  --radius: var(--r-window);
+  border-radius: var(--radius);
+}
+@utility r-panel {
+  --radius: var(--r-panel);
+  border-radius: var(--radius);
+}
+@utility r-card {
+  --radius: var(--r-card);
+  border-radius: var(--radius);
+}
+@utility r-control {
+  --radius: var(--r-control);
+  border-radius: var(--radius);
+}
+@utility r-inner {
+  --radius: var(--r-inner);
+  border-radius: var(--radius);
+}
+@utility r-capsule {
+  --radius: var(--r-capsule);
+  border-radius: var(--radius);
+}
+
+/* Fills for rows and inputs living inside glass. Flat, with no blur of their
+   own -- stacking glass on glass muddies both sheets. */
+@utility fill-quiet {
+  background: var(--fill-quiet);
+}
+@utility fill-quiet-hover {
+  &:hover {
+    background: var(--fill-quiet-hover);
+  }
+}
+@utility fill-selected {
+  background: var(--fill-selected);
+}
+
+/* Liquid Glass drops dividers in favour of material steps. Where a rule is
+   genuinely load-bearing, it is a hairline, not a 1px solid grey. */
+@utility hairline-t {
+  border-top: 1px solid var(--hairline);
+}
+@utility hairline-b {
+  border-bottom: 1px solid var(--hairline);
+}
+@utility hairline-r {
+  border-right: 1px solid var(--hairline);
+}
+@utility hairline-l {
+  border-left: 1px solid var(--hairline);
+}
+
+/* Modal backdrop. One knob for how much the world behind a sheet dims. */
+@utility scrim {
+  background: rgb(52 28 68 / 0.13);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  :where(.dark) & {
+    background: rgb(0 0 0 / 0.5);
+  }
+}
+
+/* Popovers and sheets grow out of where they came from. The scale property
+   composes with any transform the site already uses for positioning. */
+@keyframes ll-pop {
+  from {
+    opacity: 0;
+    scale: 0.72;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@utility glass-pop {
+  animation: ll-pop 320ms var(--ease-glass) both;
+}
+
+@layer utilities {
+  .glass-interactive:active {
+    transform: scale(0.97);
+    border-radius: calc(var(--radius) + 6px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass-pop {
+    animation-duration: 1ms;
+  }
+}
+
+/*
+ * Degradation. Each step removes only what the engine or the reader cannot
+ * handle. The inner wall survives all of them: it is plain box-shadow, so it
+ * keeps carrying the edge even with no backdrop treatment at all.
+ */
+
+/* No backdrop-filter. Glass becomes frosted plastic: opaque enough to read
+   against any background. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-clear,
+  .glass-regular,
+  .glass-chrome,
+  .glass-thick,
+  .card,
+  .bg-popup,
+  .glass-bar {
+    background-color: rgb(var(--glass-tint) / 0.92);
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .glass-clear,
+  .glass-regular,
+  .glass-chrome,
+  .glass-thick,
+  .card,
+  .bg-popup,
+  .glass-bar {
+    background-color: rgb(var(--glass-tint) / 0.96);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  .glass::before,
+  .card::before,
+  .bg-popup::before {
+    background: var(--hairline);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .glass-clear,
+  .glass-regular,
+  .glass-chrome,
+  .glass-thick,
+  .card,
+  .bg-popup,
+  .glass-bar {
+    background-color: rgb(var(--glass-tint) / 0.97);
+  }
+
+  .glass::before,
+  .card::before,
+  .bg-popup::before {
+    background: currentColor;
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glass,
+  .card,
+  .bg-popup,
+  .glass-interactive {
+    transition-duration: 1ms;
+  }
+
+  .glass-interactive:active {
+    transform: none;
+  }
+}

@@ -1,4 +1,5 @@
-import React from 'react'
+import React, { useLayoutEffect, useRef, useState } from 'react'
+import GlassLens from '../common/GlassLens'
 import {
   LayoutDashboard,
   Info,
@@ -49,6 +50,14 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'about', icon: Info, label: '关于' },
   ]
 
+  const navRef = useRef<HTMLElement>(null)
+  const [indicator, setIndicator] = useState<{ top: number; height: number } | null>(null)
+
+  useLayoutEffect(() => {
+    const el = navRef.current?.querySelector<HTMLElement>(`[data-tab="${activeTab}"]`)
+    setIndicator(el ? { top: el.offsetTop, height: el.offsetHeight } : null)
+  }, [activeTab])
+
   const handleTabChange = (tab: string) => {
     onTabChange(tab)
     // 移动端点击后关闭侧边栏
@@ -62,21 +71,22 @@ const Sidebar: React.FC<SidebarProps> = ({
       {/* 移动端遮罩 */}
       {isOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden" 
+          className="fixed inset-0 scrim z-40 md:hidden" 
           onClick={onClose}
         />
       )}
       
       {/* 侧边栏 */}
       <div className={`
-        fixed top-0 left-0 z-50
-        w-64 bg-theme-card backdrop-blur-2xl h-screen flex flex-col shadow-xl border-r border-theme
+        fixed top-3 bottom-3 left-3 z-50
+        w-64 glass glass-regular r-window flex flex-col overflow-hidden
         transform transition-all duration-300 ease-in-out
-        ${isOpen ? 'translate-x-0' : '-translate-x-full'}
-        ${collapsed ? 'md:-translate-x-full' : 'md:translate-x-0'}
+        ${isOpen ? 'translate-x-0' : '-translate-x-[110%]'}
+        ${collapsed ? 'md:-translate-x-[110%]' : 'md:translate-x-0'}
       `}>
+        <GlassLens />
         {/* Logo */}
-        <div className='p-6 border-b border-theme-divider relative'>
+        <div className='p-5 relative'>
           <div className='flex items-center gap-4'>
             <div className='w-12 h-12 rounded-2xl overflow-hidden shadow-lg flex-shrink-0'>
               <img
@@ -111,19 +121,26 @@ const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* Navigation */}
-        <nav className='flex-1 p-4 space-y-1 overflow-y-auto'>
+        {/* Navigation. One highlight pill slides between items instead of each
+            item painting its own, so a tab change reads as the highlight moving. */}
+        <nav ref={navRef} className='relative flex-1 flex flex-col gap-1 px-3 py-2 overflow-y-auto'>
+          {indicator && (
+            <span
+              aria-hidden='true'
+              className='absolute left-3 right-3 r-control gradient-primary shadow-[0_6px_16px_-6px_rgba(219,39,119,0.55)] pointer-events-none transition-[top,height] duration-300 ease-[cubic-bezier(0.32,0.72,0,1)]'
+              style={{ top: indicator.top, height: indicator.height }}
+            />
+          )}
           {menuItems.map((item) => {
             const Icon = item.icon
             const isActive = activeTab === item.id
             return (
               <button
                 key={item.id}
+                data-tab={item.id}
                 onClick={() => handleTabChange(item.id)}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-2xl transition-all duration-200 ${
-                  isActive
-                    ? 'gradient-primary text-white shadow-lg scale-105'
-                    : 'text-theme hover:bg-theme-item-hover'
+                className={`relative w-full flex items-center space-x-3 px-4 py-2.5 r-control transition-colors duration-200 ${
+                  isActive ? 'text-white' : 'text-theme-secondary hover:text-theme hover:bg-theme-item-hover'
                 }`}
               >
                 <Icon size={20} />
@@ -134,7 +151,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         </nav>
 
         {/* Account Info & Settings */}
-        <div className='p-4 border-t border-theme-divider'>
+        <div className='p-3 hairline-t'>
           <div className='flex items-center space-x-3 px-3 py-2'>
             {accountInfo && (
               <>
@@ -179,7 +196,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       {collapsed && onToggleCollapse && (
         <button
           onClick={onToggleCollapse}
-          className='hidden md:flex fixed left-2 top-4 z-40 w-8 h-8 items-center justify-center bg-theme-card/80 backdrop-blur-sm border border-theme-divider rounded-md text-theme-muted hover:text-theme hover:bg-theme-card transition-all shadow-md hover:shadow-lg'
+          className='hidden md:flex fixed left-3 top-4 z-40 w-9 h-9 items-center justify-center glass glass-chrome glass-interactive r-capsule text-theme-muted hover:text-theme'
           title='展开侧边栏'
         >
           <ChevronRight size={18} />
