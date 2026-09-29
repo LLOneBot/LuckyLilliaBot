@@ -311,6 +311,20 @@ export function parseElements(
             resultId: ext.resultId,
           },
         })
+        // 剔除紧随其后的降级文本段（腾讯服务端为兼容老客户端附带的 [吃糖] / [动画表情] 等 fallback 文本）
+        const nextElem = elems[index + 1]
+        if (nextElem?.text?.str) {
+          const nextStr = nextElem.text.str
+          const faceName = face?.QDes ? face.QDes.replace(/^\//, '') : ''
+          const isFallbackText =
+            nextStr === '[动画表情]' ||
+            (faceName && (nextStr === `[${faceName}]` || nextStr === face.QDes)) ||
+            (faceIndex === 358 && nextStr === '[骰子]') ||
+            (faceIndex === 359 && (nextStr === '[包剪锤]' || nextStr === '[剪刀石头布]'))
+          if (isFallbackText) {
+            skipIndex = index + 1
+          }
+        }
       } else if (svcType === 45) {
         const ext = Msg.MarkdownExtra.decode(pbElem)
         result.push({
