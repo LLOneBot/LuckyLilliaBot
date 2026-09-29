@@ -311,7 +311,9 @@ export function parseElements(
             resultId: ext.resultId,
           },
         })
-        // 剔除紧随其后的降级文本段（腾讯服务端为兼容老客户端附带的 [吃糖] / [动画表情] 等 fallback 文本）
+        // 剔除紧随其后的降级文本段（腾讯服务端为兼容老客户端，在下发 serviceType: 37 大表情时会附带 fallback 纯文本段）
+        // 实测典型案例：/吃糖 会附带 "[吃糖]"，/菜汪 会附带 "[菜汪]"，骰子附带 "[骰子]" 等
+        // 采用 skipIndex 精准跳过此冗余段，避免直接 break 导致后续正常消息内容被截断
         const nextElem = elems[index + 1]
         if (nextElem?.text?.str) {
           const nextStr = nextElem.text.str
