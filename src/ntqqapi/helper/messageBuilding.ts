@@ -65,9 +65,8 @@ export class MessageBuilding {
         },
       })
     } else if (faceElement.faceType === 3 && this.inputElems.length === 1) {
-      // 仅在单体唯一表情时构造 serviceType: 37 大表情。
-      // 注意：腾讯服务器禁止在图文混排（inputElems.length > 1）中携带 serviceType: 37，
-      // 否则会直接拒收并抛出 retcode: 1200 错误；官方客户端混排时亦统一降级为小表情形态（serviceType: 33）。
+      // 腾讯协议约束：超级大表情 LargeFaceExtra（dice / rps / 超级表情等）必须作为单体消息独立发送（消息段数组长度为 1），
+      // 此时才视为合法的大表情调用，构造 serviceType: 37；若在图文混排（length > 1）中强传 37，腾讯服务端会拒收并报错 retcode: 1200。
       const f = faceElement
       const pbElem = Msg.LargeFaceExtra.encode({
         aniStickerPackId: f.packId ? String(f.packId) : '1',
@@ -84,6 +83,9 @@ export class MessageBuilding {
         },
       })
     } else if (faceElement.faceType === 2 || faceElement.faceType === 3) {
+      // 1. faceType === 2: 原生小黄豆扩展表情。
+      // 2. faceType === 3: 虽然具有成为大表情的潜质，但由于与其他文字/图片混排（未通过上方 length === 1 的独立发送检验），
+      //    因此对齐官方 QQ 客户端行为，委屈其降级为小表情形态（serviceType: 33 / QSmallFaceExtra）打包进消息段数组，确保混排消息完整送达且不截断。
       const f = faceElement
       const pbElem = Msg.QSmallFaceExtra.encode({
         faceId: f.faceIndex,
