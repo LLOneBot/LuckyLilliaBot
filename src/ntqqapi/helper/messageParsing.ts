@@ -311,7 +311,6 @@ export function parseElements(
             resultId: ext.resultId,
           },
         })
-        break
       } else if (svcType === 45) {
         const ext = Msg.MarkdownExtra.decode(pbElem)
         result.push({

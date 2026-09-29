@@ -64,7 +64,7 @@ export class MessageBuilding {
           businessType: f.faceIndex,
         },
       })
-    } else if (faceElement.faceType === 3) {
+    } else if (faceElement.faceType === 3 && this.inputElems.length === 1) {
       const f = faceElement
       const pbElem = Msg.LargeFaceExtra.encode({
         aniStickerPackId: f.packId ? String(f.packId) : '1',
@@ -80,7 +80,7 @@ export class MessageBuilding {
           businessType: f.stickerType ?? 1,
         },
       })
-    } else if (faceElement.faceType === 2) {
+    } else if (faceElement.faceType === 2 || faceElement.faceType === 3) {
       const f = faceElement
       const pbElem = Msg.QSmallFaceExtra.encode({
         faceId: f.faceIndex,
