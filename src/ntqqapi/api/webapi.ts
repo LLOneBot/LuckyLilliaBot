@@ -721,6 +721,40 @@ export class NTWebApi extends Service {
     return await res.json()
   }
 
+  async getGroupBulletinUnread(cookie: Dict, groupCode: number, feedId: string, type: 0 | 1, start: number) {
+    const bkn = this.genBkn(cookie.skey)
+    const res = await fetch(`https://qun.qq.com/cgi-bin/qunapp/announce_unread?bkn=${bkn}`, {
+      method: 'POST',
+      headers: {
+        'Cookie': this.cookieToString(cookie),
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: new URLSearchParams({
+        start: start.toString(),
+        num: '50',
+        type: type.toString(),
+        bkn,
+        feed_id: feedId,
+        gc: groupCode.toString()
+      }),
+    })
+    return await res.json() as {
+      cgicode: number
+      retcode: number
+      msg: string
+      data: {
+        users: {
+          uin: number
+          avatar: string
+          face_flag: number
+          display_name: string
+        }[]
+        read_total: number
+        unread_total: number
+      }
+    }
+  }
+
   /** 拉群精华消息 — qun.qq.com/cgi-bin/group_digest/digest_list */
   async getGroupEssenceList(groupCode: number, pageStart = 0, pageLimit = 20) {
     const cookieObject = await this.getCookies('qun.qq.com')

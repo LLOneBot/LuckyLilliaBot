@@ -121,6 +121,7 @@ import { SetInputStatus } from './llbot/user/SetInputStatus'
 import { GetGroupAlbumMediaList } from './llbot/group/GroupAlbum/GetGroupAlbumMediaList'
 import { GetGroupSignedList } from './llbot/group/GetGroupSignedList'
 import { GetProfileLikeCount } from './llbot/user/GetProfileLikeCount'
+import { GetGroupNoticeAcklist } from './llbot/group/GetGroupNoticeAcklist'
 
 export function initActionMap(adapter: Adapter) {
   const actionHandlers = [
@@ -180,6 +181,7 @@ export function initActionMap(adapter: Adapter) {
     new GetGroupAlbumMediaList(adapter),
     new GetGroupSignedList(adapter),
     new GetProfileLikeCount(adapter),
+    new GetGroupNoticeAcklist(adapter),
     // onebot11
     new SendLike(adapter),
     new GetMsg(adapter),
