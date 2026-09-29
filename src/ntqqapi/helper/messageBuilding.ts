@@ -65,6 +65,9 @@ export class MessageBuilding {
         },
       })
     } else if (faceElement.faceType === 3 && this.inputElems.length === 1) {
+      // 仅在单体唯一表情时构造 serviceType: 37 大表情。
+      // 注意：腾讯服务器禁止在图文混排（inputElems.length > 1）中携带 serviceType: 37，
+      // 否则会直接拒收并抛出 retcode: 1200 错误；官方客户端混排时亦统一降级为小表情形态（serviceType: 33）。
       const f = faceElement
       const pbElem = Msg.LargeFaceExtra.encode({
         aniStickerPackId: f.packId ? String(f.packId) : '1',
