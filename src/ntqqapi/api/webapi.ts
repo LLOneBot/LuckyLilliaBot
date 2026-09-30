@@ -706,7 +706,7 @@ export class NTWebApi extends Service {
   }
 
   /** 删群公告 — web.qun.qq.com/cgi-bin/announce/del_feed */
-  async deleteGroupBulletin(groupCode: number, feedsId: string) {
+  async deleteGroupBulletin(groupCode: number, feedId: string) {
     const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
     const res = await fetch('https://web.qun.qq.com/cgi-bin/announce/del_feed', {
@@ -715,10 +715,63 @@ export class NTWebApi extends Service {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Cookie': this.cookieToString(cookieObject),
       },
-      body: new URLSearchParams({ qid: groupCode.toString(), bkn, fid: feedsId }),
+      body: new URLSearchParams({ qid: groupCode.toString(), bkn, fid: feedId }),
     })
     if (!res.ok) throw new Error(`HTTP error! Status: ${res.status}`)
     return await res.json()
+  }
+
+  async getGroupBulletinUnread(groupCode: number, feedId: string, type: 0 | 1) {
+    const cookie = await this.ctx.ntWebApi.getCookies('qun.qq.com')
+    const cookieStr = this.cookieToString(cookie)
+    const bkn = this.genBkn(cookie.skey)
+    const users: {
+      uin: number
+      avatar: string
+      face_flag: number
+      display_name: string
+    }[] = []
+    let start = 0
+    while (true) {
+      const res = await fetch(`https://qun.qq.com/cgi-bin/qunapp/announce_unread?bkn=${bkn}`, {
+        method: 'POST',
+        headers: {
+          'Cookie': cookieStr,
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          start: start.toString(),
+          num: '50',
+          type: type.toString(),
+          bkn,
+          feed_id: feedId,
+          gc: groupCode.toString()
+        })
+      })
+      const data: {
+        cgicode: number
+        retcode: number
+        msg: string
+        data: {
+          users: {
+            uin: number
+            avatar: string
+            face_flag: number
+            display_name: string
+          }[]
+          read_total: number
+          unread_total: number
+        }
+      } = await res.json()
+      if (data.retcode !== 0) {
+        throw new Error(data.msg)
+      }
+      users.push(...data.data.users)
+      const total = type === 1 ? data.data.read_total : data.data.unread_total
+      if (users.length >= total) break
+      start = users.length
+    }
+    return users
   }
 
   /** 拉群精华消息 — qun.qq.com/cgi-bin/group_digest/digest_list */

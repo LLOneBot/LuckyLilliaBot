@@ -67,6 +67,7 @@ export enum ActionName {
   GetGroupAlbumMediaList = 'get_group_album_media_list',
   GetGroupSignedList = 'get_group_signed_list',
   GetProfileLikeCount = 'get_profile_like_count',
+  GetGroupNoticeAcklist = '_get_group_notice_acklist',
   // onebot 11
   SendLike = 'send_like',
   GetLoginInfo = 'get_login_info',
