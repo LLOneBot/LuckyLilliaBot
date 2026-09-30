@@ -636,19 +636,20 @@ function parseLoginResponse(data: Buffer, shareKey: Buffer, tgtgtKey: Buffer): L
   const tgt = nestedTlvs.get(0x10A) || Buffer.alloc(0)
   const tempPassword = nestedTlvs.get(0x106) || Buffer.alloc(0)
 
-  // A2Key 候选: 探多个 TLV ID, debug log 出来. path D (SsoSecureA2Access) 需要它解 server response.
-  // 常见 A2 相关 TLV (按 QQ NT 协议慣例):
-  //   0x10C: A1 transport (password login), 不是这条路
-  //   0x10D: A2 key on legacy, 现在很少
-  //   0x10E: ST key (signal token key)
-  //   0x10A: TGT (已用)
-  //   0x163, 0x16A, 0x16D: 其他可能
+  // 全量 dump 0x119 内层 TLV, 用来认还没解析的字段。凭据有效期在 0x138, 见 docs/session-lifecycle.md。
   {
-    const seenIds = Array.from(nestedTlvs.keys()).sort((a, b) => a - b).map(x => '0x' + x.toString(16))
-    const lines = [`nested TLVs in 0x119: ${seenIds.join(', ')}`]
-    for (const cand of [0x10C, 0x10D, 0x10E, 0x163, 0x16A, 0x16D, 0x172, 0x16E]) {
-      const v = nestedTlvs.get(cand)
-      if (v) lines.push(`  TLV 0x${cand.toString(16)}: ${v.length}B = ${v.subarray(0, Math.min(32, v.length)).toString('hex')}${v.length > 32 ? '...' : ''}`)
+    // 凭据本体不进日志 (D2 / TGT / d2Key / A1), 只报长度。
+    const SECRETS = new Set([0x106, 0x10A, 0x143, 0x305])
+    const ids = Array.from(nestedTlvs.keys()).sort((a, b) => a - b)
+    const lines = [`nested TLVs in 0x119: ${ids.map(x => '0x' + x.toString(16)).join(', ')}`]
+    for (const id of ids) {
+      const v = nestedTlvs.get(id)!
+      const tag = `  TLV 0x${id.toString(16)}: ${v.length}B`
+      if (SECRETS.has(id)) { lines.push(`${tag} = <redacted>`); continue }
+      const hex = v.subarray(0, Math.min(128, v.length)).toString('hex')
+      // 可打印 ASCII 的一并给出明文, 省得再手工解一遍
+      const ascii = v.every(b => b >= 0x20 && b < 0x7f) ? ` "${v.toString('latin1')}"` : ''
+      lines.push(`${tag} = ${hex}${v.length > 128 ? '...' : ''}${ascii}`)
     }
     logger.debug(lines.join('\n'))
   }

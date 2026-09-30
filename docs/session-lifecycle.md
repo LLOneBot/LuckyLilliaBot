@@ -7,14 +7,112 @@
 
 ## 服务端作废凭据长什么样
 
-登录凭据 (d2 / tgt) 有寿命 (实测约 28 天)。到期后服务端不发 KickNT, 而是对**每个** SSO 请求回
-一个错误帧:
+登录凭据有寿命, 而且服务端在 wtlogin 响应里就说了 (下节 TLV 0x138): **D2 21 天**先到期,
+A2 28 天。到期后服务端不发 KickNT, 而是对**每个** SSO 请求回一个错误帧:
 
 ```
 retCode = -10001   extraMsg = "身份验证失败，请你重新登录。(s20)"
 ```
 
 关键坑: **这个错误帧的 seq 是 0**, 匹配不上任何在飞请求。
+
+## 凭据有效期: wtlogin 已经告诉你了 (TLV 0x138)
+
+wtlogin 成功响应里 TLV `0x119` 用 tgtgtKey 解开, 内层 `0x138` 就是各 sig 的有效期表。
+2026-09-24 实测 (Linux profile, 104B), 结构:
+
+```
+count(4B) + count x [ sigType(2B), ttlSecs(4B), reserved(4B) ]
+```
+
+reserved 实测恒 0。10 条记录全落在整数天 / 整点小时上, 可以确信切分正确:
+
+| sigType | 凭据 | ttlSecs | |
+|---------|------|---------|---|
+| `0x0106` | A1 / tempPassword | 2592000 | 30 天 |
+| `0x010A` | TGT = A2 | 2419200 | 28 天 |
+| `0x0136` | vKey | 1814400 | 21 天 |
+| `0x0143` | **D2** | 1814400 | **21 天** |
+| `0x0164` | sid | 1814400 | 21 天 |
+| `0x011C` | lsKey | 1728000 | 20 天 |
+| `0x0102` | - | 86400 | 1 天 |
+| `0x0120` | sKey | 86400 | 1 天 |
+| `0x0523` | - | 43200 | 12 小时 |
+| `0x0103` | ST | 7200 | 2 小时 |
+
+"凭据"那列**只有 0x0106 / 0x010A / 0x0143 是确定的** (跟 wtlogin 顶层 TLV id 直接对得上),
+其余按惯例推测; 包里只有数字 sigType 和秒数, 没有名字。0x0102 / 0x0523 不知道是什么。
+
+**这 10 条里只有 5 条的凭据本体真的下发了** (sigType 跟 0x119 内层 TLV id 一一对应, 拿到场
+的 TLV 列表一比就知道):
+
+| 下发了 | 只报 TTL, 没给凭据 |
+|--------|--------------------|
+| 0x0106 A1 / 0x010A A2 / 0x0143 D2 / 0x0523 (12h) / 0x0103 ST (2h) | 0x0136 vKey / 0x0164 sid / 0x011C lsKey / 0x0120 sKey / 0x0102 |
+
+没下发的那几个 (vKey / sid / lsKey / sKey) 都是 web / cookie 系票据, 扫码走客户端路径用不上。
+所以 **0x138 是一张通用有效期公告表, 不是"本次签发了什么"的清单**。
+
+实际要关心的只有 **D2 21 天 / A2 28 天 / A1 30 天**; 12 小时和 2 小时那两条项目没解析也用不到。
+其余 21 个 TLV 在 0x138 里没有条目, 因为不是独立凭据 -- 0x305 (d2Key) 跟 D2 同生死,
+0x543 (uid) / 0x11A (昵称资料) 是永久标识, 0x10C / 0x10D / 0x10E / 0x163 是绑定各自 sig 的
+key 材料。
+
+**session 寿命由 D2 的 21 天决定, 不是 A2 的 28 天**: 日常发包用 d2Key 解包
+(`client.ts` 的 `parseServicePacket`), D2 一死就全线 -10001, A2 还剩 7 天也用不上。
+
+是 **TTL 相对秒数, 不是绝对时间戳** -- 要自己记签发时刻才能算到期。`session.ts` 写盘的
+`savedAt` 正好是这个时刻 (目前只用来给 session 列表倒序排), 可以直接 `savedAt + ttl*1000`。
+
+`savedAt` 不会被快速登录刷新: `saveSession` 全项目唯一调用点是 `direct.ts` 的
+`completeDirectLogin` 收尾 (扫码成功后), 恢复 session 的路径不写盘。所以它等于 sig 签发时刻,
+不是"最后一次用的时刻"。
+
+TLV `0x11F` 实测 10B = `00000b40 ffffffff 0000`, 不是时间表, 与过期判断无关。
+
+### 现在没用上这份信息
+
+`parseLoginResponse` 取完 0x143 / 0x305 / 0x10A / 0x106 就结束, 0x138 直接丢弃, 所以
+**代码里没有任何主动过期判断**, 只能等服务端回 -10001 被动发现 (见上节链路)。
+`trpc.login.ecdh.EcdhService.SsoNTLoginRefreshA2` 在 `client.ts` 的 SIGN_ALLOWLIST 里挂着,
+但全项目再无第二处引用 -- 官方客户端靠它临期续签, 这里没实现。
+
+想改善有两步, 成本差很多:
+
+1. 解 0x138 存进 session, 恢复前先本地判死活 -- 只让失效可预测, 不延长寿命。
+2. 实现 `SsoNTLoginRefreshA2` 真正续期 -- 请求体结构还没摸过。
+
+复现这份数据: `login.ts` 里 0x119 的内层 TLV 会全量 dump 到 debug log (凭据本体
+0x106 / 0x10A / 0x143 / 0x305 打 `<redacted>`, 纯 ASCII 的附明文), 但**只有扫码登录会触发**
+-- 快速登录走 `persistedToSessionInfo` 恢复落盘凭据, 不经过 `parseLoginResponse`。
+
+上表数值 2026-09-24 用**两个账号 (721011692 / 3687885477) 各扫一次, 0x138 逐字节完全相同**
+(同一串 104B), 所以 TTL 是服务端常量, 不随账号变。两次都是 Linux profile, **跨协议端
+(macos / watch) 未验证**, 换 `--protocol` 扫码时顺手 grep 一次就能补上。
+
+2026-09-19 起的老 log 只能证明 0x138 稳定出现 (8 次扫码 id 列表逐字节相同), **拿不到数值** --
+当时 dump 候选不含 0x138, 也没 dump 过响应原文; 就算有原文也解不开, ECDH shareKey 和 tgtgtKey
+都不落盘不落 log, 随进程消失。
+
+### 响应里别的时间字段: 只有"当前时间", 没有"到期时刻"
+
+`0x130` (14B) 和 `0x114` (96B) 的 offset +2 各有一个 4B 大端的**服务器当前时间** (秒):
+
+```
+0x130 = 0000 | serverTime(4B) | 4B (按 IPv4 读像客户端出口地址) | 00000000
+0x114 = 0001 | serverTime(4B) | 加密块
+```
+
+2026-09-24 实测两处同值, 比本机时钟快 3s。是**当前时间**, 跟有效期无关, 大概率用于时钟同步。
+
+**协议不给绝对过期时刻**: 拿 0x119 里全部 26 个 TLV 逐 4B 大端滑窗扫过, 没有任何值落在
+"登录时刻 + 0x138 里任一条 TTL" 附近 (容差 300s)。所以到期时刻只能自己 `savedAt + ttl` 算。
+
+扫描时大量 4B 窗口会"碰巧"落进 2015-2035, 全是 ASCII 噪音 -- `0x167` 是头像 URL,
+`0x528` 是 JSON `{"QIM_invitation_bit":"1"}`, `0x16D` / `0x543` 是 base64 token。别被骗。
+
+`0x11F` 实测 10B = `00000b40 ffffffff 0000`: `0x0b40` = 2880 单位不明, `ffffffff` 像"无限"
+哨兵, 没有 0x138 那种 type->ttl 结构, **存疑**, 反正不参与过期判断。
 
 ## 曾经的三层漏判 (2026-09 修复)
 
@@ -46,8 +144,8 @@ retCode = -10001   extraMsg = "身份验证失败，请你重新登录。(s20)"
 要点:
 
 - **认码在分发之前**: 错误帧 seq=0 匹配不上在飞请求, 放到 pending 之后判就晚了。
-- **不删 machine_guid**: 凭据到期 ≠ 设备指纹泄露, 删了下次要重新过设备验证。这点跟异地顶号
-  (`KickNT` `code=1001`) 相反 — 那个要连 guid 一起清。见 `direct.ts` 的 `nt/kicked-offline`。
+- **不删 machine_guid**: 凭据到期 ≠ 设备指纹泄露, 删了下次要重新过设备验证。异地顶号
+  (`KickNT` `code=1001`) 现在也一样只删 session、不动指纹, 见 `direct.ts` 的 `nt/kicked-offline`。
 - **sign 在飞时的 session 换代**: `sendCommand` 签名期间 session 可能被作废, 发包前再比一次,
   不一致就抛错, 免得拿废凭据出网。
 - **无主的非零 retCode 帧不进 dispatcher**: body 不是有效 protobuf, 只 log warn。正常推送走
@@ -108,6 +206,9 @@ retCode = -10001   extraMsg = "身份验证失败，请你重新登录。(s20)"
 - **失败退避**: `fetchFreshQrCode` 抛错 (断网时就是 `connect()` 失败) 后, 自动拉码按 2s -> 4s -> 8s
   -> 16s -> 封顶 30s 等, 退避期间扫码循环空转, 不重试也不刷日志; warn 里带"Ns 后重试"。手动刷新
   不等退避, 拉成功就清零。`fetchFreshQrCode` 返回 null (没就绪) 不算失败, 照旧每秒静默重试。
+- **无码可打不报错**: 拿不到码时 `peekLoginQrCode` 返 null, 扫码循环直接 return。它曾经抛
+  `QR code unavailable` 被 catch 成 warn: client 未就绪 (或手动刷新刚清掉退避) 时就是每秒一条
+  刷屏。WebUI 手动拉码 (`getLoginQrCode`) 仍照旧抛 —— 那是用户点的, 失败得告诉他。
 
 直连的 poll 收到服务端的过期 / 取消时打一条 info, 带这张码存活了多久 (`二维码已过期, 这张码用了 121s`)。
 实测正常约 2 分钟一张; 如果只活几秒, 多半是设备被服务端风控标记了。
@@ -131,10 +232,12 @@ retCode = -10001   extraMsg = "身份验证失败，请你重新登录。(s20)"
 
 ### 什么时候会不一致, 怎么同步
 
-代码里的源头是**异地顶号** (`KickNT` code=1001): `direct.ts` 的 `nt/kicked-offline` 只删被顶
-那个号的 session, 却 `deleteMachineGuid()` 换了新 guid, 同一 data 目录里其他账号的 session 还绑着
-旧 guid。代码外的: 手动删掉 / 损坏 `machine_guid.bin` (会被重新随机生成)、从别的 data 目录拷
-session 进来。
+代码里的源头是**切号**: 下面那条"以 session 为准"的同步规则本身就会制造不一致 —— 它让
+`machine_guid.bin` 跟着最近快速登录的号走, 对同一 data 目录里其他账号的 session 就对不上了。
+代码外的: 手动删掉 / 损坏 `machine_guid.bin` (会被重新随机生成)、从别的 data 目录拷 session 进来。
+
+异地顶号 (`KickNT` code=1001) 以前 `deleteMachineGuid()` 换新 guid, 是另一个 (更狠的) 源头;
+现在只删 session 不动指纹, 代码里已经没有"换 guid"的路径了。
 
 同步规则是**以 session 为准**: `doInitDirectClient` 恢复 session 前先 `overwriteMachineGuid(persisted.guid)`
 把设备身份切回该账号签发时的 guid。client 首次创建时构造函数读的就是覆盖后的值; client 已存在时
@@ -145,7 +248,7 @@ session 进来。
 |------|--------------|--------------------|
 | 扫码登录成功 | 写入, `guid` = 当前 client guid | 不动 |
 | 快速登录 (恢复 session) | 读 | 覆盖成 `session.guid` |
-| 异地顶号 1001 | 删被顶的号 | 删除, 立即重新随机生成 |
+| 异地顶号 1001 | 删被顶的号 | 不动 (指纹跨顶号稳定) |
 | 凭据过期 -10001 | 删 | 不动 (理由见上文) |
 | 其他掉线 / 普通踢 | 保留 | 不动 |
 
@@ -156,7 +259,7 @@ guid 一变, 派生物都得跟着换, 否则服务端看到的是新旧两台�
 | 派生物 | 在哪 | 跟着 guid 变? |
 |--------|------|---------------|
 | native sign 的设备 guid | `client.setGuid` -> `setSignMachineGuid` | 是 |
-| 设备名 `LuckyLillia-<hash>` | `appInfo.ts`, 惰性 getter 每次读 cache | 是 |
+| 设备名 (`sha256(guid)` 前 6 hex) | `appInfo.ts` 的 `devName`, 惰性 getter 每次读 cache | 是 |
 | watch device32 / qimei | `sign.ts` / `watch/qimei.ts`, 每次现算 | 是 |
 | macOS qimei36 + device_pb | `macosDevice.ts`, 落盘 `data/macos_device.json` | **否**, 见已知问题 2 |
 | 容器里的 session 加密 key | `session.ts` 的 `getMachineKey()` | **否**, 见已知问题 1 |
@@ -164,10 +267,11 @@ guid 一变, 派生物都得跟着换, 否则服务端看到的是新旧两台�
 ### 已知问题 (未修)
 
 1. **容器 session 加密 key 跟不上 guid 变化**。容器里 key 从 `machine_guid.bin` 派生 (见
-   [docker.md](docker.md)), 这段 (`61aa2670`) 早于顶号换 guid (`d42745d8`), 两者没对上:
-   - `_machineKey` 进程内永久缓存, `deleteMachineGuid` 不清它。顶号后同进程扫码重登, session 的
-     `guid` 是新值 Y, 却用旧 key K(X) 加密; 重启后按 Y 算 key 解不开, 又得扫一次码
-     (配了 `AUTO_LOGIN_QQ` 的无头部署会停在等扫码)。
+   [docker.md](docker.md)), 这段 (`61aa2670`) 早于 guid 会变这件事, 两者没对上:
+   - `_machineKey` 进程内永久缓存, `overwriteMachineGuid` 不清它。同进程内切号后保存的 session
+     用的还是切号前那把 key; 重启后按当前 guid 算 key 解不开, 又得扫一次码
+     (配了 `AUTO_LOGIN_QQ` 的无头部署会停在等扫码)。顶号换 guid (`d42745d8`) 以前是这条的
+     主要触发路径, 现在顶号不动指纹了, 只剩切号。
    - 其他账号的 session (旧 guid) 重启后解不开: `loadSession` 解密失败直接返回 null, 上面"以
      session 为准"的同步根本轮不到执行 —— 恰好是它要处理的场景。
    - 修法方向: 容器分支改用 session 自己的 `guid` 派生 key (加密用 `saveSession` 的 `guid` 参数,
@@ -185,12 +289,14 @@ guid 一变, 派生物都得跟着换, 否则服务端看到的是新旧两台�
 - `7f153dd8` (2026-06-10): sign 层 (SsoKeyExchange) 要跨重启稳定的设备指纹, 引入 `machine_guid.bin`。
 - `6c732cc1` (2026-06-26): `machine_guid.bin` 升格为唯一来源 (wtlogin/SSO 与 sign 同一台设备);
   session 的 `guid` 保留下来当"凭据绑定记录", 恢复时反向同步。
+- (2026-09-21): 顶号 1001 不再 `deleteMachineGuid` —— 设备名等派生物挂在 guid 上, 换指纹会在
+  服务端堆出新设备 (可能触发设备验证), 也会让其他账号的 session 失配。代码里从此没有换 guid 的路径。
 
 ## 测试
 
 | 文件 | 覆盖 |
 |------|------|
-| `test/unit/qqProtocol/directSession.test.ts` | -10001 认码 / 在飞请求 reject / 登录恢复守卫 / 掉线回调 / 重连只在 init 抛错时退避重试 / 恢复期间拉码不打断恢复 / 二维码自动刷新上限 / 拉码去重、退避、登录收尾时不拉 / 过期日志 |
+| `test/unit/qqProtocol/directSession.test.ts` | -10001 认码 / 在飞请求 reject / 登录恢复守卫 / 掉线回调 / 重连只在 init 抛错时退避重试 / 恢复期间拉码不打断恢复 / 二维码自动刷新上限 / 拉码去重、退避、登录收尾时不拉、无码时不刷日志 / 过期日志 |
 | `test/unit/qqProtocol/offlineNotifications.test.ts` | `qq/session-expired` 的邮件通知 |
 | `test/unit/qqProtocol/directResilience.test.ts` | 心跳失败升级 / 无主错误帧不分发 |
 
