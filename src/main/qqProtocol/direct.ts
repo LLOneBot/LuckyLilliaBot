@@ -69,7 +69,7 @@ export class DirectQQProtocol extends QQProtocolBase {
       if (this.directStopHeartbeat) { this.directStopHeartbeat(); this.directStopHeartbeat = null }
       // 异地登录顶号(code=1001): 删 session + 清 runtimeUinOverride, 退回扫码, 不拿旧凭证去跟顶号方互顶.
       // **不动 machine_guid**: 设备指纹跨顶号保持稳定 -- 换新 guid 会在服务端堆出一台新设备 (可能触发
-      // 设备验证), 还会让同 data 目录里其他账号的 session 跟 guid 失配 (见 docs/session-lifecycle.md).
+      // 设备验证), 还会让同 data 目录里其他账号的 session 跟 guid 失配.
       // 其他掉线(服务端主动踢 / 未知 code)连 session 一起保留, 让 close->scheduleReconnect 快速重连.
       if (data.kickedType === 1001) {
         const kickedUin = selfInfo.uin || this.runtimeUinOverride || getSpecifiedUin() || ''

@@ -636,7 +636,7 @@ function parseLoginResponse(data: Buffer, shareKey: Buffer, tgtgtKey: Buffer): L
   const tgt = nestedTlvs.get(0x10A) || Buffer.alloc(0)
   const tempPassword = nestedTlvs.get(0x106) || Buffer.alloc(0)
 
-  // 全量 dump 0x119 内层 TLV, 用来认还没解析的字段。凭据有效期在 0x138, 见 docs/session-lifecycle.md。
+  // 全量 dump 0x119 内层 TLV, 用来认还没解析的字段。凭据有效期在 0x138。
   {
     // 凭据本体不进日志 (D2 / TGT / d2Key / A1), 只报长度。
     const SECRETS = new Set([0x106, 0x10A, 0x143, 0x305])

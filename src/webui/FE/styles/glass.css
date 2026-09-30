@@ -17,7 +17,6 @@
  * Verified in this repo: filter:url() distorts a striped backdrop as
  * expected, while backdrop-filter:url() renders pixel-identical to plain
  * blur. So the band is drawn rather than computed.
- * See docs/webui-liquid-glass.md.
  */
 
 @layer components {

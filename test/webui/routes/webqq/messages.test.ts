@@ -130,7 +130,7 @@ describe('messages routes', () => {
     })
 
     // 直接调 ntMsgApi.sendMsg 会绕过 C2C 的 nt/message-sent 补发,
-    // 私聊发完既不进最近会话也等不到真消息回填. 见 docs/webqq-sse-events.md
+    // 私聊发完既不进最近会话也等不到真消息回填.
     it('sends via app.sendMessage, never ntMsgApi.sendMsg directly', async () => {
       ctx.app.sendMessage.mockResolvedValue({ msgId: 'sent-2' })
       const app = makeApp()
