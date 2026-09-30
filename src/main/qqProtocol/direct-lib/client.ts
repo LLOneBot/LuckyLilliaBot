@@ -9,6 +9,7 @@ import { getActiveProfile } from './profiles'
 import { loadMachineGuidSync } from './machineGuid'
 import { EventEmitter } from 'node:events'
 import { CmdNotPermittedError, CMD_NOT_PERMITTED_RET_CODE } from '@/common/protocolErrors'
+import { isCmdAllowed, CmdBlockedError, logCmdWhitelistStatus } from './cmdWhitelist'
 import { cmdNeedsSign } from './cmd'
 
 const logger = getLogger('direct')
@@ -138,6 +139,7 @@ export class DirectProtocolClient extends EventEmitter {
   }
 
   async connect(): Promise<void> {
+    logCmdWhitelistStatus()
     // sign 链路 init (signRequest 依赖); token 有效性不在此 preflight —— 已移到 WebUI 侧
     // 的 HTTP 校验 (validateAuthToken). 旧 preflightSign 在 token 无效(401/403)时会触发
     // native SDK 内部 process.exit, 会把整个 bot 进程带崩, 故移除.
@@ -239,6 +241,7 @@ export class DirectProtocolClient extends EventEmitter {
 
 
   async sendHeartbeat(): Promise<void> {
+    if (!isCmdAllowed('Heartbeat.Alive')) return
     const seq = this.nextSeq()
     const ctx = this.getPacketContext()
     const payload = Buffer.alloc(4)
@@ -291,6 +294,7 @@ export class DirectProtocolClient extends EventEmitter {
 
   async sendCommand(cmd: string, payload: Buffer, encryptType?: EncryptType, timeout = 15000, skipSign = false): Promise<SsoPacket> {
     if (this.unsupportedCmds.has(cmd)) throw new CmdNotPermittedError(cmd)
+    if (!isCmdAllowed(cmd)) throw new CmdBlockedError(cmd)
     const seq = this.nextSeq()
     const session = this.session
     const ctx = this.getPacketContext()
