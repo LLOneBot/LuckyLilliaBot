@@ -21,7 +21,7 @@ import {
 } from './direct-lib'
 import type { QrCodeResult, QrPollResult } from './direct-lib'
 import { getCdn, getAuthTokenPageUrl } from '@/common/utils/environment'
-import { overwriteMachineGuid, deleteMachineGuid, loadMachineGuidSync } from './direct-lib/machineGuid'
+import { overwriteMachineGuid } from './direct-lib/machineGuid'
 import { getActiveProfile } from './direct-lib/profiles'
 import { updateAuthToken } from './direct-lib/sign'
 import { authTokenUtil } from '../config'
@@ -67,13 +67,13 @@ export class DirectQQProtocol extends QQProtocolBase {
   protected async start(): Promise<void> {
     this.ctx.on('nt/kicked-offline', (data) => {
       if (this.directStopHeartbeat) { this.directStopHeartbeat(); this.directStopHeartbeat = null }
-      // 只有异地登录顶号(code=1001, 密码/设备指纹可能泄露)才清设备指纹 + session, 换新身份退回扫码.
-      // 其他掉线(服务端主动踢 / 未知 code)保留 guid + session, 让 close->scheduleReconnect 用旧凭证快速重连.
+      // 异地登录顶号(code=1001): 删 session + 清 runtimeUinOverride, 退回扫码, 不拿旧凭证去跟顶号方互顶.
+      // **不动 machine_guid**: 设备指纹跨顶号保持稳定 -- 换新 guid 会在服务端堆出一台新设备 (可能触发
+      // 设备验证), 还会让同 data 目录里其他账号的 session 跟 guid 失配 (见 docs/session-lifecycle.md).
+      // 其他掉线(服务端主动踢 / 未知 code)连 session 一起保留, 让 close->scheduleReconnect 快速重连.
       if (data.kickedType === 1001) {
         const kickedUin = selfInfo.uin || this.runtimeUinOverride || getSpecifiedUin() || ''
         if (kickedUin) deleteSession(kickedUin)
-        deleteMachineGuid()
-        this.directClient?.setGuid(loadMachineGuidSync())
         this.runtimeUinOverride = null
         this.directClient?.clearSession()
       }
@@ -436,7 +436,7 @@ export class DirectQQProtocol extends QQProtocolBase {
       if (wasOnline) {
         this.ctx.parallel('protocol/disconnect')
         // 网络断开 / 普通踢下线: 用保存的 session 快速重连 (runtimeUinOverride 在登录成功时记下).
-        // 异地顶号(code=1001): nt/kicked-offline 已删 session + guid 并清 runtimeUinOverride, 故重连退回
+        // 异地顶号(code=1001): nt/kicked-offline 已删 session 并清 runtimeUinOverride, 故重连退回
         // 扫码 -- 不会用旧凭证跟顶号方互相顶下线, 安全. 三种都重连, 只有主动 logout 不重连.
         if (!this.manualLogout) this.scheduleReconnect()
       }

@@ -76,8 +76,11 @@ export function overwriteMachineGuid(guid: Buffer, filePath: string = DEFAULT_FI
 }
 
 /**
- * 删除 machine_guid.bin -- 异地登录顶号(密码可能泄露)后清掉设备指纹, 下次重新随机生成一个,
- * 换新设备身份重新扫码登录. 同步清 cache, 否则同进程内仍复用旧 guid.
+ * 删除 machine_guid.bin -- 下次 load 会重新随机生成一个, 等于换一台设备. 同步清 cache,
+ * 否则同进程内仍复用旧 guid.
+ *
+ * 当前**没有调用方**: 异地顶号(1001)只删 session, 设备指纹保持稳定 (见 direct.ts 的
+ * nt/kicked-offline). 留着给"确实要换设备身份"的场景手动用.
  */
 export function deleteMachineGuid(filePath: string = DEFAULT_FILE): void {
   const resolved = path.resolve(filePath)

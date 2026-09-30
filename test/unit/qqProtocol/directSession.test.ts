@@ -59,6 +59,8 @@ vi.mock('@/main/qqProtocol/direct-lib/sign', () => ({
   setSignMachineGuid: vi.fn(),
   acquireSignToken: vi.fn(async () => ({ token: 'test-token', ttlSecs: 3600 })),
   updateAuthToken: vi.fn(),
+  startLinuxSsoReport: vi.fn(async () => {}),
+  stopLinuxSsoReport: vi.fn(),
 }))
 
 vi.mock('@/main/qqProtocol/direct-lib/login', () => ({
@@ -577,6 +579,28 @@ describe('reconnect and QR refresh after dropping offline', () => {
     vi.clearAllTimers()
     vi.useRealTimers()
     vi.restoreAllMocks()
+  })
+
+  it('keeps the device fingerprint when another login kicks this one', async () => {
+    protocol['runtimeUinOverride'] = '123456'
+    const stopHeartbeat = vi.fn()
+    protocol['directStopHeartbeat'] = stopHeartbeat
+    client.setSession(createSession())
+    await protocol['start']()
+
+    await protocol['ctx'].parallel('nt/kicked-offline', {
+      tipsTitle: 'Offline',
+      tipsDesc: 'logged in elsewhere',
+      kickedType: 1001,
+    })
+
+    // 顶号只丢凭据: 删 session 退回扫码, 但保留 machine_guid -- 换设备指纹会在服务端堆出一台
+    // 新设备 (可能触发设备验证), 还会让同 data 目录里其他账号的 session 跟 guid 失配.
+    expect(deleteSession).toHaveBeenCalledExactlyOnceWith('123456')
+    expect(deleteMachineGuid).not.toHaveBeenCalled()
+    expect(protocol['runtimeUinOverride']).toBeNull()
+    expect(client.getSession()).toBeNull()
+    expect(stopHeartbeat).toHaveBeenCalledTimes(1)
   })
 
   it('stops reconnecting once init has fallen back to QR', async () => {
