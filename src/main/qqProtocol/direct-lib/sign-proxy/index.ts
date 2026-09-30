@@ -100,6 +100,17 @@ interface Native {
   getLinuxEskToken?(args: LinuxEskTokenArgs): Promise<LinuxTokenResult>
   startSsoReportLinux?(args: StartSsoReportLinuxArgs): Promise<void>
   stopSsoReport?(): void
+  /**
+   * 取 Linux SsoReport 的 xwid body (常量 protobuf)。Bot 侧 sendXwidBurst 用它做登录连号突发:
+   * body 恒定, 每帧只 sign(ts 各异) 不同。machineId 缺省 = 跨装机常量 "0df00071646"。
+   * 同步返回 Buffer。老 .node 没这个 export 时为 undefined。
+   */
+  buildXwidBody?(qua: string, machineId?: string | null): Buffer
+  /**
+   * Linux xwid 登录突发**批量签**: 一次调用返回 count 个各异 sign (Rust 循环, ~450k/s, count=2500≈5ms)。
+   * 取代 Bot 逐条 signRequest 打 count 次 NAPI 往返 (那才是慢的根源)。老 .node 没这个 export 时为 undefined。
+   */
+  signXwidBurst?(args: SignRequestArgs, count: number): Promise<SignResultJs[]>
   // ---- macOS o3 链 (全部本地组包, 只借 sendPacket 走 bot 自己的 SSO) ----
   // 老 .node 没这几个 export 时为 undefined, 调用前先判一下再报"请重新 build"。
   /** qimei 取号。打 StarTrail, 走**本机**网络出口 (服务端代取会把全站设备注册到同一 IP)。 */

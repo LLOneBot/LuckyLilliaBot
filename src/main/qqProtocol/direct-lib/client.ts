@@ -3,7 +3,7 @@ import { TcpConnection } from './connection'
 import { buildServicePacket, buildServicePacket13, parseServicePacket, EncryptType, PacketContext, SsoPacket } from './packet'
 import { generateEcdhKeyPair, EcdhKeyPair } from './ecdh'
 import { generateWatchEcdhKeyPair } from './watch/ecdh'
-import { requestSign, setupSign, setSignMachineGuid, acquireSignToken, acquireMacosEskOnly, startLinuxSsoReport, stopLinuxSsoReport, SignResult, type MacosEskState } from './sign'
+import { requestSign, setupSign, setSignMachineGuid, acquireSignToken, acquireMacosEskOnly, startLinuxSsoReport, stopLinuxSsoReport, buildLinuxXwidBody, signLinuxXwidBurst, SignResult, type MacosEskState } from './sign'
 import { AppInfo } from './appInfo'
 import { getActiveProfile } from './profiles'
 import { loadMachineGuidSync } from './machineGuid'
@@ -12,6 +12,14 @@ import { CmdNotPermittedError, CMD_NOT_PERMITTED_RET_CODE } from '@/common/proto
 import { cmdNeedsSign } from './cmd'
 
 const logger = getLogger('direct')
+
+// Linux 登录 xwid 突发条数。真机登录瞬间连号发 ~2500 条 (实测 ~1ms/包、~1000/s、摊 ~2.5s;
+// 非"微秒瞬时", sign 在进程内 sub-ms)。我们批量签 (一次 NAPI, sign-core ~450k/s) + 分块 pace 复刻。
+// 默认 2000 对齐真机 (~2523)。大量突发理论上有踩服务端限流的风险, 要调小/关掉设 env LINUX_XWID_BURST
+// (如 1); pace 默认 1000/s (LINUX_XWID_BURST_RATE) 已摊到 ~2s, 跟真机节奏一致, 非瞬发尖峰。
+const LINUX_XWID_BURST = Math.max(0, Number(process.env.LINUX_XWID_BURST || '2000') | 0)
+// 发送速率 (包/秒), 默认 1000 对齐真机; 设很大 (如 999999) = 瞬发不 pace。分块 pace 避免尖峰触发限流。
+const LINUX_XWID_BURST_RATE = Math.max(1, Number(process.env.LINUX_XWID_BURST_RATE || '1000') | 0)
 
 export interface DirectClientConfig {
   appId: number
@@ -458,6 +466,72 @@ export class DirectProtocolClient extends EventEmitter {
       guidHex: this.guid.toString('hex'),
       uin: this.session.uin,
     })
+    // xwid 登录突发: 原生 send path 连号快发, 复刻真机登录爆发。非阻塞背景执行 (预签在后台跑,
+    // 完再一次性 blast), 条数 LINUX_XWID_BURST (env 可调, 默认 1)。
+    if (LINUX_XWID_BURST > 0) {
+      const body = buildLinuxXwidBody(AppInfo.qua)
+      if (body) void this.sendXwidBurst(LINUX_XWID_BURST, body)
+    }
+  }
+
+  /**
+   * Linux xwid 登录突发: 复刻真机登录瞬间的 xwid 连号发 (实测 ~1ms/包、~1000/s、摊 ~2.5s; 非"微秒瞬时")。
+   *   1. 批量签: 一次 NAPI (signLinuxXwidBurst) 里 Rust 循环签 count 条 (sign-core ~450k/s, 各条 ts+1ms
+   *      -> sign 各异)。取代逐条 requestSign 打 count 次 JS↔NAPI 往返 —— 那才是唯一慢点, 签名本身不慢。
+   *   2. 预留连续 seq 段 (JS 单线程无 await 介入 = 原子; 别的 send 拿 base+count 之后的 seq, 不插本段)。
+   *   3. 组帧 + conn.send, 分块 pace 到 LINUX_XWID_BURST_RATE (默认 1000/s 对齐真机, 避免瞬发尖峰踩限流);
+   *      **不登记 pendingPackets** (fire-and-forget: 服务端对 SsoReport 基本不回, 偶尔回也因无 pending 静默丢)。
+   * 非阻塞: 调用方 void 触发, 批量签 + 分块 pace 全在后台跑。
+   */
+  async sendXwidBurst(count: number, body: Buffer): Promise<void> {
+    if (count <= 0 || !body?.length) return
+    const cmd = 'trpc.o3.report.Report.SsoReport'
+    if (!this.isConnected || !this.session || !this.config.authToken) return
+    if (!cmdNeedsSign(cmd, getActiveProfile().name)) return
+    const session = this.session
+    const uin = this.session.uin ? Number(this.session.uin) : (this.config.uin || undefined)
+    // burst 用真 session token 签 (对齐真机: emptyToken 之后 ESK 已回, xwid 带 token1)。ensureSignTokenFresh
+    // 在 acquire 仍 in-flight 时会立即放行(空 token), 故再显式等一次 in-flight 完成, 保证整批用真 token1。
+    // burst 不在 acquire 的发包路径上, 不触发那个"等自己"死锁。
+    await this.ensureSignTokenFresh(uin)
+    if (this.signTokenRefreshInflight) { try { await this.signTokenRefreshInflight } catch { /* 取失败退化空 token */ } }
+    if (this.session !== session || !this.isConnected) return
+
+    // 1. 预留连续 seq 段 (原子)
+    const base = this.seq
+    this.seq = (this.seq + count) >>> 0
+    const token = this.protocolTokenFor(cmd)
+
+    // 2. 批量签 (一次 NAPI). 老 .node 无 signXwidBurst -> 返 null, 跳过突发 (不回退逐条, 免 count 次 NAPI)。
+    const sigs = await signLinuxXwidBurst({
+      cmd,
+      bodyHex: body.toString('hex'),
+      seq: base,
+      guidHex: this.guid.toString('hex'),
+      qua: AppInfo.qua,
+      uin: uin ?? 0,
+      protocolTokenHex: token ? Buffer.from(token, 'utf-8').toString('hex') : '',
+    }, count)
+    if (!sigs || sigs.length === 0) return
+    if (this.session !== session || !this.isConnected) return
+
+    // 3. 组帧 + 分块 pace 发送 (默认 ~1000/s 对齐真机); 不登记响应等待
+    const ctx = this.getPacketContext()
+    const CHUNK = 20
+    const chunkDelayMs = LINUX_XWID_BURST_RATE >= 100000 ? 0 : Math.max(0, Math.round((1000 * CHUNK) / LINUX_XWID_BURST_RATE))
+    let sent = 0
+    for (let i = 0; i < sigs.length; i++) {
+      if (this.session !== session || !this.isConnected) break // 断开/换会话 -> 停
+      const seq = (base + i) >>> 0
+      try {
+        this.conn.send(buildServicePacket(seq, cmd, ctx, body, EncryptType.EncryptD2Key, sigs[i]))
+        sent++
+      } catch { break }
+      if (chunkDelayMs > 0 && (i + 1) % CHUNK === 0) {
+        await new Promise((r) => setTimeout(r, chunkDelayMs))
+      }
+    }
+    logger.debug(`[xwid-burst] sent ${sent}/${count} (seq ${base}..${(base + count - 1) >>> 0}, rate~${LINUX_XWID_BURST_RATE}/s)`)
   }
 
   /**

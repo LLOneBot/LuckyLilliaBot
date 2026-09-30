@@ -263,6 +263,41 @@ export function stopLinuxSsoReport(): void {
 }
 
 /**
+ * 取 Linux xwid 的常量 body (给 client.sendXwidBurst 做登录连号突发)。
+ * 老 .node 缺 buildXwidBody 时返 null (调用方跳过突发)。machineId 缺省 = 跨装机常量。
+ */
+export function buildLinuxXwidBody(qua: string, machineId?: string): Buffer | null {
+  if (!inited) return null
+  const proxy = getSignProxy()
+  if (typeof proxy.buildXwidBody !== 'function') return null
+  try {
+    return proxy.buildXwidBody(qua, machineId ?? null)
+  } catch (e) {
+    logger.warn(`[xwid-burst] buildXwidBody 失败: ${(e as Error).message}`)
+    return null
+  }
+}
+
+/**
+ * Linux xwid 登录突发批量签: 一次 NAPI 调用出 count 个各异 sign (取代逐条 signRequest 的 count 次往返)。
+ * 老 .node 缺 signXwidBurst 时返 null (调用方跳过突发)。
+ */
+export async function signLinuxXwidBurst(args: {
+  cmd: string; bodyHex: string; seq: number; guidHex: string; qua: string; uin: number; protocolTokenHex: string
+}, count: number): Promise<SignResult[] | null> {
+  if (!inited || count <= 0) return null
+  const proxy = getSignProxy()
+  if (typeof proxy.signXwidBurst !== 'function') return null
+  try {
+    const arr = await proxy.signXwidBurst(args, count)
+    return arr.map((r) => ({ sign: r.sign, token: r.token, extra: r.extra }))
+  } catch (e) {
+    logger.warn(`[xwid-burst] signXwidBurst 失败: ${(e as Error).message}`)
+    return null
+  }
+}
+
+/**
  * macOS deviceToken: ESK -> A2Establish -> SA2, 三步共用同一份 device_pb。
  *
  * - ESK 先建一条通道并给出引导 token1。
