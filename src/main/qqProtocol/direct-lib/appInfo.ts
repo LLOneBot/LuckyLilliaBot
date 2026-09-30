@@ -33,7 +33,7 @@ export const DeviceInfo = {
   devType: p.devType,
   // 设备名带机器指纹 (device guid 派生), 惰性 getter: 登录/上线时才读, 那一刻 guid 已确定。
   get devName(): string {
-    return `LuckyLillia-${createHash('sha256').update(loadMachineGuidSync()).digest('hex').slice(0, 6)}`
+    return createHash('sha256').update(loadMachineGuidSync()).digest('hex').slice(0, 6)
   },
   osVer: p.osVer,
   vendorName: p.vendorName,
