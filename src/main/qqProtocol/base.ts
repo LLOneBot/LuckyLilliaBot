@@ -184,13 +184,19 @@ export abstract class QQProtocolBase extends Service {
    * The caller is a user at the WebUI, so this is a manual refresh: it lifts the auto-refresh cap.
    */
   public async getLoginQrCode(): Promise<LoginQrCode> {
-    return this.readLoginQrCode(true)
+    const qr = await this.peekLoginQrCode(true)
+    if (!qr) throw new Error('QR code unavailable')
+    return qr
   }
 
-  private async readLoginQrCode(manual: boolean): Promise<LoginQrCode> {
+  /**
+   * 缓存里那张码 (过期才拉新). 无码可给 -> null: 拉码被跳过 (退避 / 上限 / 登录收尾), 或
+   * `fetchFreshQrCode` 返 null (client 未就绪). 拉码本身报错才抛.
+   */
+  private async peekLoginQrCode(manual: boolean): Promise<LoginQrCode | null> {
     await this.refreshQrCodeIfStale(manual)
     const qr = this.qrResult
-    if (!qr) throw new Error('QR code unavailable')
+    if (!qr) return null
     const remainingMs = Math.max(0, qr.expireTimeSec * 1000 - (Date.now() - this.qrFetchedAt))
     return {
       qrcodeUrl: qr.qrcodeUrl,
@@ -294,7 +300,9 @@ export abstract class QQProtocolBase extends Service {
    */
   protected async printQrToTerminal(): Promise<void> {
     try {
-      const data = await this.readLoginQrCode(false)
+      const data = await this.peekLoginQrCode(false)
+      // 无码可打不是错误: loop 每秒一 tick, 报出来就是刷屏
+      if (!data) return
       const sig = this.qrResult?.sig || ''
       if (!sig || sig === this.lastPrintedQrSig) return
       this.lastPrintedQrSig = sig

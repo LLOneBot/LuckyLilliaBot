@@ -771,6 +771,20 @@ describe('reconnect and QR refresh after dropping offline', () => {
     expect(protocol['qrFetchRetryAt']).toBe(0)
   })
 
+  it('keeps the loop silent while there is no code to show', async () => {
+    const fetch = vi
+      .spyOn(protocol as unknown as { fetchFreshQrCode(): Promise<unknown> }, 'fetchFreshQrCode')
+      .mockResolvedValue(null)
+    const warn = vi.spyOn(protocol['logger'], 'warn')
+
+    await protocol['qrLoop']()
+    await vi.advanceTimersByTimeAsync(3_000)
+
+    // client 未就绪不算拉码失败: 不退避, 每秒照旧重试, 但一条日志不打
+    expect(fetch).toHaveBeenCalledTimes(4)
+    expect(warn).not.toHaveBeenCalled()
+  })
+
   it('logs how long a QR code lived when the server expires it', async () => {
     protocol['directQrResult'] = {
       url: 'https://example.com/qr?k=test',
