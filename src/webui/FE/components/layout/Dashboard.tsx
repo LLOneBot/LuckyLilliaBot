@@ -23,6 +23,8 @@ interface DashboardStats {
   }
   // Direct 模式无独立 QQ 进程, 后端返回整机资源, 首张卡显示为 "系统资源"
   mode?: 'direct' | 'pmhq'
+  // 直连模式的协议端 (--protocol); PMHQ 不返
+  protocol?: string
   system?: {
     memory: number
     totalMemory: number
@@ -45,6 +47,16 @@ const GLYPH = 'text-white drop-shadow-[0_1px_1.4px_rgba(0,0,0,0.5)]'
 
 // Decoupled from the ring: ring hues run down to 2.28:1 under a white glyph, rose holds 3.67:1.
 const CHIP_GRADIENT = 'linear-gradient(135deg, #f43f5e, #ec4899)'
+
+const CHIP = 'shrink-0 whitespace-nowrap text-xs text-theme-muted bg-theme-item px-2 py-0.5 rounded-full'
+
+// 后端只在直连模式下返 protocol; 没登记的端直接显示原值
+const PROTOCOL_LABELS: Record<string, string> = {
+  linux: 'Linux',
+  windows: 'Windows',
+  macos: 'macOS',
+  watch: 'Watch',
+}
 
 // Rings encode the metric, not the card, so every resource card draws CPU and memory the same way.
 const CPU_RING: [string, string] = ['#ec4899', '#f43f5e']
@@ -172,6 +184,7 @@ const PieChart: React.FC<{
 const ResourceCard: React.FC<{
   title: string
   version?: string
+  badge?: string
   icon: React.ReactNode
   gradient: string
   cpu: number
@@ -182,7 +195,7 @@ const ResourceCard: React.FC<{
   memGradientId: string
   cpuColors: [string, string]
   memColors: [string, string]
-}> = ({ title, version, icon, gradient, cpu, memory, totalMemory, memoryPercent, cpuGradientId, memGradientId, cpuColors, memColors }) => {
+}> = ({ title, version, badge, icon, gradient, cpu, memory, totalMemory, memoryPercent, cpuGradientId, memGradientId, cpuColors, memColors }) => {
   return (
     <div className="card p-4">
       <div className="flex items-center gap-2 mb-4">
@@ -190,10 +203,11 @@ const ResourceCard: React.FC<{
           {icon}
         </div>
         <h4 className="text-sm font-semibold text-theme">{title}</h4>
-        {version && (
-          <span className="ml-auto text-xs text-theme-muted bg-theme-item px-2 py-0.5 rounded-full">
-            {version}
-          </span>
+        {(version || badge) && (
+          <div className="ml-auto flex items-center gap-1.5">
+            {version && <span className={CHIP}>{version}</span>}
+            {badge && <span className={CHIP}>{badge}</span>}
+          </div>
         )}
       </div>
       <div className="flex justify-around">
@@ -268,6 +282,8 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
       </div>
     )
   }
+
+  const protocolLabel = stats.protocol ? PROTOCOL_LABELS[stats.protocol] ?? stats.protocol : undefined
 
   return (
     <div className="space-y-5">
@@ -363,6 +379,7 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
         <ResourceCard
           title="LLBot 资源"
           version={llbotVersion}
+          badge={protocolLabel}
           icon={<Bot size={16} className={GLYPH} />}
           gradient="bg-gradient-to-br from-[#ec4899] to-[#f43f5e]"
           cpu={stats.bot.cpu}

@@ -1,7 +1,7 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
 import os from 'node:os'
-import { isPmhqMode } from '@/common/utils/environment'
+import { getProtocol, isPmhqMode } from '@/common/utils/environment'
 
 // 整机 CPU 使用率: os.cpus() 给的是自开机累计时间, 需两次采样求增量占比 (瞬时值).
 // os.loadavg() 在 Windows 恒为 [0,0,0] 不可用, 故手动算.
@@ -57,6 +57,8 @@ export function createDashboardRoutes(ctx: Context): Hono {
       const sysMemPercent = (sysUsedMem / sysTotalMem) * 100
       const sysCpuPercent = await sampleSystemCpuPercent()
 
+      const mode = isPmhqMode() ? 'pmhq' : 'direct'
+
       return c.json({
         success: true,
         data: {
@@ -67,7 +69,9 @@ export function createDashboardRoutes(ctx: Context): Hono {
           startupTime: app.startupTime,
           lastMessageTime: app.lastMessageTime,
           // Direct 模式无 QQ 进程 -> 前端据此把首张卡显示为 "系统资源"; PMHQ 保留 "QQ 资源"
-          mode: isPmhqMode() ? 'pmhq' : 'direct',
+          mode,
+          // 协议端 (--protocol) 只是直连模式的概念, PMHQ 走 QQ 自己的协议 -> 不返
+          protocol: mode === 'direct' ? getProtocol() : undefined,
           bot: {
             memory: memUsage.rss,
             totalMemory: botTotalMem,

@@ -27,6 +27,10 @@ tsx watch src/main/main.ts --protocol windows -q 12345
 只读常量的叶子消费者 (highway / message / dashboard...) 无需改动; 有分支逻辑的
 `login.ts` / `packet.ts` / `client.ts` / `online.ts` 直接吃 `getActiveProfile()`。
 
+WebUI Dashboard 的 "LLBot 资源" 卡在版本号旁边显示当前协议端: `/api/dashboard/stats` 的
+`protocol` 字段 (直连模式才返, PMHQ 走 QQ 自己的协议 -> 字段缺省, 前端不显示)。
+**加新端时展示名要在 `Dashboard.tsx` 的 `PROTOCOL_LABELS` 里登记**, 没登记就直接显示协议 id。
+
 ## 两个协议族
 
 - **NT (linux/windows/macos)**: 共用 `trans_emp` 二维码登录 / TLV 集 / secp192k1 曲线。
