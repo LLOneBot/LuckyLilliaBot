@@ -1,4 +1,5 @@
 import { Action, Oidb } from '@/ntqqapi/proto'
+import { Cmd } from '../direct-lib/cmd'
 import { selfInfo } from '@/common/globalVars'
 import type { QQProtocolBase } from '../base'
 
@@ -36,7 +37,7 @@ export function FriendMixin<T extends abstract new (...args: any[]) => QQProtoco
         subCommand: 1200,
         body,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0xe37_1200', data)
+      const res = await this.sendPB(Cmd.Friend.GetPrivateFileUrl, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.GetPrivateFileResp.decode(oidbRespBody)
     }
@@ -74,7 +75,7 @@ export function FriendMixin<T extends abstract new (...args: any[]) => QQProtoco
         subCommand: 1,
         body,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0xfd4_1', data)
+      const res = await this.sendPB(Cmd.Friend.Fetch, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.IncPullResp.decode(oidbRespBody)
     }
@@ -90,7 +91,7 @@ export function FriendMixin<T extends abstract new (...args: any[]) => QQProtoco
         subCommand: 0,
         body,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x12b6_0', data)
+      const res = await this.sendPB(Cmd.Friend.GetRecommendContactArk, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.GetFriendRecommendContactArkResp.decode(oidbRespBody)
     }
@@ -148,7 +149,7 @@ export function FriendMixin<T extends abstract new (...args: any[]) => QQProtoco
         subCommand: 11,
         body,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x5cf_11', data)
+      const res = await this.sendPB(Cmd.Friend.FetchRequests, data)
       const oidbResp = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.FetchFriendRequestsResp.decode(oidbResp.body)
     }
@@ -165,7 +166,7 @@ export function FriendMixin<T extends abstract new (...args: any[]) => QQProtoco
         subCommand: 0,
         body,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0xd69_0', data)
+      const res = await this.sendPB(Cmd.Friend.FetchFilteredRequests, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchFilteredFriendRequestsResp.decode(oidbRespBody)
     }
@@ -208,7 +209,7 @@ export function FriendMixin<T extends abstract new (...args: any[]) => QQProtoco
       const data = Action.SsoGetPeerSeqReq.encode({
         peerUid
       })
-      const res = await this.sendPB('trpc.msg.msg_svc.MsgService.SsoGetPeerSeq', data)
+      const res = await this.sendPB(Cmd.Message.GetPeerSeq, data)
       return Action.SsoGetPeerSeqResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
@@ -225,7 +226,7 @@ export function FriendMixin<T extends abstract new (...args: any[]) => QQProtoco
         subCommand: 1,
         body,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x116d_1', data)
+      const res = await this.sendPB(Cmd.Friend.GetStatus, data)
       const oidbResp = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.GetFriendsStatusResp.decode(oidbResp.body)
     }

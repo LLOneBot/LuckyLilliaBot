@@ -1,4 +1,5 @@
 import { Action, Oidb } from '@/ntqqapi/proto'
+import { Cmd } from '../direct-lib/cmd'
 import type { QQProtocolBase } from '../base'
 import { Dict, isNonNullable } from 'cosmokit'
 import { selfInfo } from '@/common/globalVars'
@@ -32,7 +33,7 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
         body,
         isReserved: 1,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0xfe1_2', data)
+      const res = await this.sendPB(Cmd.User.FetchInfoByUin, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.FetchUserInfoResp.decode(decoded.body)
     }
@@ -63,7 +64,7 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
         subCommand: 2,
         body,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0xfe1_2', data)
+      const res = await this.sendPB(Cmd.User.FetchInfoByUin, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.FetchUserInfoResp.decode(decoded.body)
     }
@@ -76,7 +77,7 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
           uint32_req_login_info: 1,
         }),
       })
-      const res = await this.sendPB('MQUpdateSvc_com_qq_ti.web.OidbSvc.0xdef_1', body)
+      const res = await this.sendPB(Cmd.User.FetchLoginDays, body)
       const { json } = Action.FetchUserLoginDaysResp.decode(Buffer.from(res.pb, 'hex'))
       return (
         JSON.parse(json).msg_rsp_basic_info?.rpt_msg_basic_info.find((e: Dict) => e.uint64_uin === uin)
@@ -98,7 +99,7 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
         batteryStatus,
         customExt: customFaceId ? { faceId: customFaceId, text: customText ?? '', field3: 1 } : undefined,
       })
-      const res = await this.sendPB('trpc.qq_new_tech.status_svc.StatusService.SetStatus', body)
+      const res = await this.sendPB(Cmd.Session.SetStatus, body)
       return Action.SetStatusResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
@@ -106,7 +107,7 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
     async fetchClientKey() {
       const body = Oidb.FetchCookiesReq.encode({})
       const data = Oidb.Base.encode({ command: 0x102a, subCommand: 1, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x102a_1', data)
+      const res = await this.sendPB(Cmd.User.FetchClientKey, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.FetchCookiesResp.decode(decoded.body)
     }
@@ -115,7 +116,7 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
     async fetchPSkey(domains: string[]) {
       const body = Oidb.FetchCookiesReq.encode({ domain: domains })
       const data = Oidb.Base.encode({ command: 0x102a, subCommand: 0, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x102a_0', data)
+      const res = await this.sendPB(Cmd.User.FetchPSkey, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.FetchCookiesResp.decode(decoded.body)
     }
@@ -132,7 +133,7 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
         count,
       })
       const data = Oidb.Base.encode({ command: 0x7ed, subCommand: 13, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x7ed_13', data)
+      const res = await this.sendPB(Cmd.User.FetchProfileLikes, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.FetchProfileLikeResp.decode(decoded.body)
     }
@@ -142,7 +143,7 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
         uid,
       })
       const data = Oidb.Base.encode({ command: 0x7ed, subCommand: 12, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x7ed_12', data)
+      const res = await this.sendPB(Cmd.User.FetchProfileLikeCount, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.FetchProfileLikeCountResp.decode(decoded.body)
     }

@@ -1,4 +1,5 @@
 import { getLogger } from '@/common/logger'
+import { Cmd } from './cmd'
 import { DirectProtocolClient } from './client'
 
 const logger = getLogger('login')
@@ -132,7 +133,7 @@ function buildCode2dPacket(subCommand: number, tlv: Buffer): Buffer {
 export async function fetchQrCode(client: DirectProtocolClient): Promise<QrCodeResult> {
   // watch: 独立的 21-TLV/P-256 拉码帧, 且 trans_emp 不签名 (skipSign)
   if (getActiveProfile().family === 'watch') {
-    const resp = await client.sendCommand('wtlogin.trans_emp', buildWatchFetchFrame(client), EncryptType.EncryptEmpty, 10000, true)
+    const resp = await client.sendCommand(Cmd.Login.ScanCode, buildWatchFetchFrame(client), EncryptType.EncryptEmpty, 10000, true)
     return parseTransEmp31Response(resp.payload, client.getEcdhShareKey())
   }
 
@@ -181,7 +182,7 @@ export async function fetchQrCode(client: DirectProtocolClient): Promise<QrCodeR
   const wtLogin = buildWtLoginFrame(0, 'wtlogin.trans_emp', code2d, client.getEcdhPublicKey(), client.getEcdhShareKey())
 
   const resp = await client.sendCommand(
-    'wtlogin.trans_emp',
+    Cmd.Login.ScanCode,
     wtLogin,
     EncryptType.EncryptEmpty,
     10000,
@@ -192,7 +193,7 @@ export async function fetchQrCode(client: DirectProtocolClient): Promise<QrCodeR
 
 export async function pollQrCode(client: DirectProtocolClient, sig: Buffer): Promise<QrPollResult> {
   if (getActiveProfile().family === 'watch') {
-    const resp = await client.sendCommand('wtlogin.trans_emp', buildWatchPollFrame(client, sig), EncryptType.EncryptEmpty, 10000, true)
+    const resp = await client.sendCommand(Cmd.Login.ScanCode, buildWatchPollFrame(client, sig), EncryptType.EncryptEmpty, 10000, true)
     return parseTransEmp12Response(resp.payload, client.getEcdhShareKey())
   }
 
@@ -211,7 +212,7 @@ export async function pollQrCode(client: DirectProtocolClient, sig: Buffer): Pro
   const wtLogin = buildWtLoginFrame(0, 'wtlogin.trans_emp', code2d, client.getEcdhPublicKey(), client.getEcdhShareKey())
 
   const resp = await client.sendCommand(
-    'wtlogin.trans_emp',
+    Cmd.Login.ScanCode,
     wtLogin,
     EncryptType.EncryptEmpty,
     10000,
@@ -238,7 +239,7 @@ export async function loginWithQrResult(
       tempPassword: qrResult.tempPassword,
       noPicSig: qrResult.noPicSig,
     })
-    const resp = await client.sendCommand('wtlogin.login', frame, EncryptType.EncryptEmpty, 15000)
+    const resp = await client.sendCommand(Cmd.Login.Login, frame, EncryptType.EncryptEmpty, 15000)
     const result = parseLoginResponse(resp.payload, client.getEcdhShareKey(), qrResult.tgtgtKey)
     if (result.success) {
       client.setSession({
@@ -311,7 +312,7 @@ export async function loginWithQrResult(
   const wtLogin = buildWtLoginFrame(uin, 'wtlogin.login', loginBody, client.getEcdhPublicKey(), client.getEcdhShareKey())
 
   const resp = await client.sendCommand(
-    'wtlogin.login',
+    Cmd.Login.Login,
     wtLogin,
     EncryptType.EncryptEmpty,
     15000,

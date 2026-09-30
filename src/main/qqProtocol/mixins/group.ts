@@ -1,4 +1,5 @@
 import { Action, Oidb } from '@/ntqqapi/proto'
+import { Cmd } from '../direct-lib/cmd'
 import { selfInfo } from '@/common/globalVars'
 import type { QQProtocolBase } from '../base'
 import { randomInt } from 'node:crypto'
@@ -50,7 +51,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         subCommand: 2,
         body,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_2', data)
+      const res = await this.sendPB(Cmd.Group.GetFileUrl, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.GetGroupFileResp.decode(oidbRespBody)
     }
@@ -84,7 +85,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         subCommand: 2,
         body,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0xfe5_2', data)
+      const res = await this.sendPB(Cmd.Group.FetchGroups, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchGroupsResp.decode(oidbRespBody)
     }
@@ -107,7 +108,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         subCommand: 1,
         body,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d8_1', data)
+      const res = await this.sendPB(Cmd.Group.GetFileList, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.GetGroupFileListResp.decode(oidbRespBody)
     }
@@ -118,7 +119,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         countReq: { groupCode, appId: 7, busId },
       })
       const data = Oidb.Base.encode({ command: 0x6d8, subCommand: 2, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d8_2', data)
+      const res = await this.sendPB(Cmd.Group.GetFileCount, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.GetGroupFileCountResp.decode(oidbRespBody)
     }
@@ -129,7 +130,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         spaceReq: { groupCode, appId: 7 },
       })
       const data = Oidb.Base.encode({ command: 0x6d8, subCommand: 3, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d8_3', data)
+      const res = await this.sendPB(Cmd.Group.GetFileSpace, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.GetGroupFileSpaceResp.decode(oidbRespBody)
     }
@@ -149,7 +150,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         },
       })
       const data = Oidb.Base.encode({ command: 0x6d9, subCommand: 4, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d9_4', data)
+      const res = await this.sendPB(Cmd.Group.FeedFile, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.GroupFileFeedResp.decode(decoded.body)
     }
@@ -158,7 +159,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
     async deleteGroupFile(groupCode: number, fileId: string, busId: number = 102) {
       const body = Oidb.GroupFileDeleteReq.encode({ delete: { groupCode, busId, fileId } })
       const data = Oidb.Base.encode({ command: 0x6d6, subCommand: 3, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_3', data)
+      const res = await this.sendPB(Cmd.Group.DeleteFile, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.GroupFileDeleteResp.decode(decoded.body)
     }
@@ -169,7 +170,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         move: { groupCode, appId: 7, busId: 102, fileId, parentDirectory, targetDirectory },
       })
       const data = Oidb.Base.encode({ command: 0x6d6, subCommand: 5, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_5', data)
+      const res = await this.sendPB(Cmd.Group.MoveFile, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.GroupFileMoveResp.decode(decoded.body)
     }
@@ -184,7 +185,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
     async createGroupFolder(groupCode: number, folderName: string, rootDirectory: string = '/') {
       const body = Oidb.GroupFolderCreateReq.encode({ create: { groupCode, rootDirectory, folderName } })
       const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 0, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d7_0', data)
+      const res = await this.sendPB(Cmd.Group.CreateFolder, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.GroupFolderCreateResp.decode(decoded.body)
     }
@@ -193,7 +194,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
     async deleteGroupFolder(groupCode: number, folderId: string) {
       const body = Oidb.GroupFolderDeleteReq.encode({ delete: { groupCode, folderId } })
       const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 1, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d7_1', data)
+      const res = await this.sendPB(Cmd.Group.DeleteFolder, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.GroupFolderDeleteResp.decode(decoded.body)
     }
@@ -202,7 +203,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
     async renameGroupFolder(groupCode: number, folderId: string, newFolderName: string) {
       const body = Oidb.GroupFolderRenameReq.encode({ rename: { groupCode, folderId, newFolderName } })
       const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 2, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d7_2', data)
+      const res = await this.sendPB(Cmd.Group.RenameFolder, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.GroupFolderRenameResp.decode(decoded.body)
     }
@@ -252,7 +253,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         subCommand: 14,
         body,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x88d_14', data)
+      const res = await this.sendPB(Cmd.Group.Fetch, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchGroupResp.decode(oidbRespBody)
     }
@@ -279,7 +280,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         subCommand: 3,
         body,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0xfe7_3', data)
+      const res = await this.sendPB(Cmd.Group.FetchMembers, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchGroupMembersResp.decode(oidbRespBody)
     }
@@ -452,7 +453,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         sessionId,
         headers: [{ name: 'fc-appid', value: '100' }],
       })
-      const res = await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.GetAlbumList', reqBytes)
+      const res = await this.sendPB(Cmd.Group.FetchAlbumList, reqBytes)
       return Action.GetAlbumListResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
@@ -462,7 +463,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         rename: { groupCode, busId, fileId, parentDirectory, newFileName },
       })
       const data = Oidb.Base.encode({ command: 0x6d6, subCommand: 4, body, isReserved: 1 })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_4', data)
+      const res = await this.sendPB(Cmd.Group.RenameFile, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.RenameGroupFileResp.decode(decoded.body)
     }
@@ -483,7 +484,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         sessionId: this.genQunAlbumSession(),
         headers: [{ name: 'fc-appid', value: '100' }],
       })
-      const res = await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.AddAlbum', reqBytes)
+      const res = await this.sendPB(Cmd.Group.CreateAlbum, reqBytes)
       return Action.AddAlbumResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
@@ -497,7 +498,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         sessionId: this.genQunAlbumSession(),
         headers: [{ name: 'fc-appid', value: '100' }],
       })
-      const res = await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.DeleteAlbum', reqBytes)
+      const res = await this.sendPB(Cmd.Group.DeleteAlbum, reqBytes)
       return Action.DeleteAlbumResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
@@ -517,7 +518,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         sessionId: this.genQunAlbumSession(),
         headers: [{ name: 'fc-appid', value: '100' }],
       })
-      const res = await this.sendPB('QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.GetMediaList', reqBytes)
+      const res = await this.sendPB(Cmd.Group.FetchAlbumMediaList, reqBytes)
       return Action.GetMediaListResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
@@ -530,7 +531,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         groupCode
       })
       const data = Oidb.Base.encode({ command: 0x8a7, subCommand: 0, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x8a7_0', data)
+      const res = await this.sendPB(Cmd.Group.FetchAtAllRemain, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchGroupAtAllRemainResp.decode(oidbRespBody)
     }
@@ -550,7 +551,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         subCommand: 0,
         body,
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x88d_0', data)
+      const res = await this.sendPB(Cmd.Group.FetchExtra, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchGroupExtraResp.decode(oidbRespBody)
     }
@@ -571,7 +572,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         subCommand: 2,
         body
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d9_2', data)
+      const res = await this.sendPB(Cmd.Group.ForwardFile, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.ForwardGroupFileResp.decode(decoded.body)
     }

@@ -1,4 +1,5 @@
 import { DirectProtocolClient } from './client'
+import { Cmd } from './cmd'
 import { getLogger } from '@/common/logger'
 import { AppInfo, DeviceInfo } from './appInfo'
 import { getActiveProfile } from './profiles'
@@ -173,7 +174,7 @@ export async function registerOnline(client: DirectProtocolClient): Promise<stri
   const payload = buildSsoInfoSync(client.getGuid())
 
   const resp = await client.sendCommand(
-    'trpc.msg.register_proxy.RegisterProxy.SsoInfoSync',
+    Cmd.Session.InfoSync,
     payload,
     undefined,
     10000,
@@ -186,7 +187,7 @@ export async function registerOnline(client: DirectProtocolClient): Promise<stri
 export async function sendHeartbeat(client: DirectProtocolClient): Promise<void> {
   const payload = buildSsoHeartBeat()
   await client.sendCommand(
-    'trpc.qq_new_tech.status_svc.StatusService.SsoHeartBeat',
+    Cmd.Session.Heartbeat,
     payload,
     undefined,
     5000,

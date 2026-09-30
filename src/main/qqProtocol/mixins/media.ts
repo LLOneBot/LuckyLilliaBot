@@ -1,4 +1,5 @@
 import { Oidb, Media } from '@/ntqqapi/proto'
+import { Cmd } from '../direct-lib/cmd'
 import { selfInfo } from '@/common/globalVars'
 import { InferProtoModelInput } from '@saltify/typeproto'
 import type { QQProtocolBase } from '../base'
@@ -12,7 +13,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
     async getRKey() {
       const hexStr = '08e7a00210ca01221c0a130a05080110ca011206a80602b006011a02080122050a030a1400'
       const data = Buffer.from(hexStr, 'hex')
-      const resp = await this.sendPB('OidbSvcTrpcTcp.0x9067_202', data)
+      const resp = await this.sendPB(Cmd.Media.GetRKey, data)
       const rkeyBody = Oidb.Base.decode(Buffer.from(resp.pb, 'hex')).body
       return Oidb.GetRKeyResp.decode(rkeyBody)
     }
@@ -27,7 +28,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         download: { node: { fileUuid, storeID: 1, uploadTime: 0, expire: 0, type: 0 } },
       })
       const data = Oidb.Base.encode({ command: 0x126d, subCommand: 200, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x126d_200', data)
+      const res = await this.sendPB(Cmd.Media.GetPrivatePttUrl, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
@@ -42,7 +43,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         download: { node: { fileUuid, storeID: 1, uploadTime: 0, expire: 0, type: 0 } },
       })
       const data = Oidb.Base.encode({ command: 0x126e, subCommand: 200, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x126e_200', data)
+      const res = await this.sendPB(Cmd.Media.GetGroupPttUrl, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
@@ -57,7 +58,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         download: { node: { fileUuid, storeID: 1, uploadTime: 0, expire: 0, type: 0 } },
       })
       const data = Oidb.Base.encode({ command: 0x11ea, subCommand: 200, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x11ea_200', data)
+      const res = await this.sendPB(Cmd.Media.GetGroupVideoUrl, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
@@ -72,7 +73,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         download: { node: { fileUuid, storeID: 1, uploadTime: 0, expire: 0, type: 0 } },
       })
       const data = Oidb.Base.encode({ command: 0x11e9, subCommand: 200, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x11e9_200', data)
+      const res = await this.sendPB(Cmd.Media.GetPrivateVideoUrl, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
@@ -92,7 +93,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
           version: '1.0.1',
         },
       })
-      const res = await this.sendPB('HttpConn.0x6ff_501', data)
+      const res = await this.sendPB(Cmd.Media.GetHighwaySession, data)
       const { rspBody } = Media.HighwaySessionResp.decode(Buffer.from(res.pb, 'hex'))
       const highwayHostAndPorts: Record<number, string[]> = {}
       for (const srvAddr of rspBody.addrs) {
@@ -126,7 +127,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         },
       })
       const data = Oidb.Base.encode({ command: 0x11ea, subCommand: 100, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x11ea_100', data)
+      const res = await this.sendPB(Cmd.Media.NotifyGroupVideoUploadCompleted, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
@@ -148,7 +149,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         [[100, { type: 'image', filePath: thumbFilePath, width, height }]]
       )
       const data = Oidb.Base.encode({ command: 0x11ea, subCommand: 100, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x11ea_100', data)
+      const res = await this.sendPB(Cmd.Media.NotifyGroupVideoUploadCompleted, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
       return {
@@ -176,7 +177,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         [[100, { type: 'image', filePath: thumbFilePath, width, height }]]
       )
       const data = Oidb.Base.encode({ command: 0x11e9, subCommand: 100, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x11e9_100', data)
+      const res = await this.sendPB(Cmd.Media.GetC2CVideoUploadInfo, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
       return {
@@ -205,7 +206,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         },
       })
       const data = Oidb.Base.encode({ command: 0x6d6, subCommand: 0, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x6d6_0', data)
+      const res = await this.sendPB(Cmd.Media.GetGroupFileUploadInfo, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { uploadFileRsp } = Oidb.GroupFileResp.decode(oidbRespBody)
       return {
@@ -240,7 +241,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         flagSupportMediaPlatform: 1,
       })
       const data = Oidb.Base.encode({ command: 0xe37, subCommand: 1700, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0xe37_1700', data)
+      const res = await this.sendPB(Cmd.Media.GetC2CFileUploadInfo, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { upload } = Oidb.OfflineFileUploadResp.decode(oidbRespBody)
       return {
@@ -276,7 +277,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         },
       )
       const data = Oidb.Base.encode({ command: 0x11c4, subCommand: 100, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x11c4_100', data)
+      const res = await this.sendPB(Cmd.Media.GetGroupImageUploadInfo, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
       return {
@@ -303,7 +304,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         },
       )
       const data = Oidb.Base.encode({ command: 0x11c5, subCommand: 100, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x11c5_100', data)
+      const res = await this.sendPB(Cmd.Media.GetC2CImageUploadInfo, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
       return {
@@ -326,7 +327,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         },
       )
       const data = Oidb.Base.encode({ command: 0x126e, subCommand: 100, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x126e_100', data)
+      const res = await this.sendPB(Cmd.Media.GetGroupPttUploadInfo, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
       return {
@@ -349,7 +350,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         },
       )
       const data = Oidb.Base.encode({ command: 0x126d, subCommand: 100, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x126d_100', data)
+      const res = await this.sendPB(Cmd.Media.GetC2CPttUploadInfo, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       const { upload } = Media.NTV2RichMediaResp.decode(oidbRespBody)
       return {
@@ -375,7 +376,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         }
       })
       const data = Oidb.Base.encode({ command: 0xe07, subCommand: 0, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0xe07_0', data)
+      const res = await this.sendPB(Cmd.Media.ImageOcr, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.ImageOcrResp.decode(oidbRespBody)
     }
@@ -384,7 +385,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
     async getFlashFileSetIdByCode(code: string): Promise<string> {
       const body = Oidb.FlashFileSetIdByCodeReq.encode({ code })
       const data = Oidb.Base.encode({ command: 0x93eb, subCommand: 1, body, isReserved: 1 })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x93eb_1', data)
+      const res = await this.sendPB(Cmd.Media.GetFlashFileSetIdByCode, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       if (decoded.errorCode !== 0) {
         throw new Error(`getFlashFileSetIdByCode failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
@@ -398,7 +399,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
     async getFlashFileInfo(fileSetId: string) {
       const body = Oidb.FlashFileInfoReq.encode({ fileSetId, field2: 7 })
       const data = Oidb.Base.encode({ command: 0x93d3, subCommand: 1, body, isReserved: 1 })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x93d3_1', data)
+      const res = await this.sendPB(Cmd.Media.GetFlashFileInfo, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       if (decoded.errorCode !== 0) {
         throw new Error(`getFlashFileInfo failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
@@ -426,7 +427,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         field4: 1,
       })
       const data = Oidb.Base.encode({ command: 0x93d4, subCommand: 1, body, isReserved: 1 })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x93d4_1', data)
+      const res = await this.sendPB(Cmd.Media.GetFlashFileList, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       if (decoded.errorCode !== 0) {
         throw new Error(`getFlashFileList failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
@@ -441,7 +442,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
     async getFlashFileEntryFull(fileSetId: string, fileUuid: string) {
       const body = Oidb.FlashFileGetFileInfoReq.encode({ fileUuid, fileSetId, field3: 1 })
       const data = Oidb.Base.encode({ command: 0x93e5, subCommand: 4, body, isReserved: 1 })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x93e5_4', data)
+      const res = await this.sendPB(Cmd.Media.GetFlashFileEntryFull, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       if (decoded.errorCode !== 0) {
         throw new Error(`getFlashFileEntryFull failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
@@ -456,7 +457,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
     async downloadFlashFile(fileSetId: string, sceneType: number = 6) {
       const body = Oidb.FlashFileDownloadReq.encode({ fileSetId, sceneType })
       const data = Oidb.Base.encode({ command: 0x93d1, subCommand: 1, body, isReserved: 1 })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x93d1_1', data)
+      const res = await this.sendPB(Cmd.Media.DownloadFlashFile, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       if (decoded.errorCode !== 0) {
         throw new Error(`downloadFlashFile failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
@@ -494,7 +495,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         field3: opts.scene ?? 20,
       })
       const data = Oidb.Base.encode({ command: 0x93cf, subCommand: 1, body, isReserved: 1 })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x93cf_1', data)
+      const res = await this.sendPB(Cmd.Media.CreateFlashFileSet, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       if (decoded.errorCode !== 0) {
         throw new Error(`createFlashFileSet failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
@@ -532,7 +533,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         field6: 1,
       })
       const data = Oidb.Base.encode({ command: 0x93d0, subCommand: 1, body, isReserved: 1 })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x93d0_1', data)
+      const res = await this.sendPB(Cmd.Media.RegisterFlashFile, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       if (decoded.errorCode !== 0) {
         throw new Error(`registerFlashFile failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
@@ -547,7 +548,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         field2: Buffer.alloc(0),
       })
       const data = Oidb.Base.encode({ command: 0x93db, subCommand: 1, body, isReserved: 1 })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x93db_1', data)
+      const res = await this.sendPB(Cmd.Media.PrepFlashFileSet, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       if (decoded.errorCode !== 0) {
         throw new Error(`prepFlashFileSet failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
@@ -591,7 +592,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         },
       })
       const data = Oidb.Base.encode({ command: 0x12a9, subCommand: 100, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x12a9_100', data)
+      const res = await this.sendPB(Cmd.Media.FlashFileUploadPreflight, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       if (decoded.errorCode !== 0) {
         throw new Error(`flashFileUploadPreflight failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
@@ -653,7 +654,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         },
       })
       const data = Oidb.Base.encode({ command: 0x12a9, subCommand: 103, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x12a9_103', data)
+      const res = await this.sendPB(Cmd.Media.FlashFileUploadCommitReport, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       if (decoded.errorCode !== 0) {
         throw new Error(`flashFileUploadCommit failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)
@@ -724,7 +725,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         },
       })
       const data = Oidb.Base.encode({ command: 0x12a9, subCommand: 200, body, isReserved: 1 })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x12a9_200', data)
+      const res = await this.sendPB(Cmd.Media.FlashFileUploadCommit, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       if (decoded.errorCode !== 0) {
         throw new Error(`flashFileDownloadUrl failed: errorCode=${decoded.errorCode}, errorMsg="${decoded.errorMsg}"`)

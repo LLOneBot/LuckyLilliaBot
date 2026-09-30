@@ -1,4 +1,5 @@
 import { Oidb } from '@/ntqqapi/proto'
+import { Cmd } from '../direct-lib/cmd'
 import type { QQProtocolBase } from '../base'
 
 export function SystemMixin<T extends abstract new (...args: any[]) => QQProtocolBase>(Base: T) {
@@ -9,7 +10,7 @@ export function SystemMixin<T extends abstract new (...args: any[]) => QQProtoco
         subCommand: 0,
         body: Buffer.alloc(0),
       })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x12b3_0', data)
+      const res = await this.sendPB(Cmd.Misc.FetchPins, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchPinsResp.decode(oidbRespBody)
     }

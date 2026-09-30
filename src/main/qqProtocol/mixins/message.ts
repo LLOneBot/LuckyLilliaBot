@@ -1,4 +1,5 @@
 import { Action, Msg, Oidb } from '@/ntqqapi/proto'
+import { Cmd } from '../direct-lib/cmd'
 import { selfInfo } from '@/common/globalVars'
 import { randomBytes } from 'node:crypto'
 import { gunzipSync, gzipSync } from 'node:zlib'
@@ -20,7 +21,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         },
         settings: { field1: 4, field2: 1, field3: 7, field4: 0 },
       })
-      const res = await this.sendPB('trpc.group.long_msg_interface.MsgService.SsoSendLongMsg', data)
+      const res = await this.sendPB(Cmd.Message.SendLongMsg, data)
       return Action.SendLongMsgResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
@@ -33,7 +34,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         },
         settings: { field1: 2, field2: 0, field3: 0, field4: 0 },
       })
-      const res = await this.sendPB('trpc.group.long_msg_interface.MsgService.SsoRecvLongMsg', data)
+      const res = await this.sendPB(Cmd.Message.RecvLongMsg, data)
       const payload = Action.RecvLongMsgResp.decode(Buffer.from(res.pb, 'hex')).result.payload
       const inflate = gunzipSync(payload)
       return Msg.PbMultiMsgTransmit.decode(inflate)
@@ -49,14 +50,14 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         field9: 0,
         field14: 1,
       })
-      const res = await this.sendPB('PicSearchSvr.PullPics', data)
+      const res = await this.sendPB(Cmd.Message.PullPics, data)
       return Action.PullPicsResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     async fetchAiCharacterList(groupId: number, chatType: number) {
       const body = Oidb.FetchAiCharacterListReq.encode({ groupId, chatType })
       const data = Oidb.Base.encode({ command: 0x929d, subCommand: 0, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x929d_0', data)
+      const res = await this.sendPB(Cmd.Message.FetchAiCharacterList, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchAiCharacterListResp.decode(oidbRespBody)
     }
@@ -71,7 +72,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         clientMsgInfo: { msgRandom },
       })
       const data = Oidb.Base.encode({ command: 0x929b, subCommand: 0, body })
-      await this.sendPB('OidbSvcTrpcTcp.0x929b_0', data)
+      await this.sendPB(Cmd.Message.GetGroupGenerateAiRecord, data)
       return { msgRandom }
     }
 
@@ -81,14 +82,14 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         groupInfo: { groupCode, startSequence, endSequence },
         filter: 1,
       })
-      const res = await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoGetGroupMsg', data)
+      const res = await this.sendPB(Cmd.Message.GetGroupMsg, data)
       return Action.SsoGetGroupMsgResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
     /** 拉私聊历史消息（按 seq 范围） */
     async getC2CMessages(peerUid: string, startSequence: number, endSequence: number) {
       const data = Action.SsoGetC2CMsgReq.encode({ peerUid, startSequence, endSequence })
-      const res = await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoGetC2cMsg', data)
+      const res = await this.sendPB(Cmd.Message.GetC2cMsg, data)
       return Action.SsoGetC2CMsgResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
@@ -106,7 +107,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         count: Math.min(count, 30),
         direction,
       })
-      const res = await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoGetRoamMsg', data)
+      const res = await this.sendPB(Cmd.Message.GetRoamMsg, data)
       return Action.SsoGetRoamMsgResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
@@ -117,7 +118,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         groupCode,
         info: { sequence },
       })
-      await this.sendPB('trpc.msg.msg_svc.MsgService.SsoGroupRecallMsg', data)
+      await this.sendPB(Cmd.Message.RecallGroup, data)
     }
 
     /**
@@ -149,7 +150,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         field6: 1,
         field10: 0,
       })
-      await this.sendPB('pttTrans.TransGroupPttReq', data)
+      await this.sendPB(Cmd.Message.TransGroupPtt, data)
     }
 
     /** 私聊语音转文字。结果同样走 MsgPush msgType=528 subType=61。 */
@@ -177,7 +178,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         field6: 1,
         field10: 0,
       })
-      await this.sendPB('pttTrans.TransC2CPttReq', data)
+      await this.sendPB(Cmd.Message.TransC2CPtt, data)
     }
 
     /** 收藏表情列表（Faceroam.OpReq subCmd=1）。返回每个表情的 emoji_id（含 md5）+ bid + 配额。 */
@@ -188,7 +189,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         subCmd: 1,
         field6: 1,
       })
-      const res = await this.sendPB('Faceroam.OpReq', data)
+      const res = await this.sendPB(Cmd.Message.ListFavEmojis, data)
       return Msg.FaceroamListResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
@@ -200,7 +201,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         subCmd: 2,
         deleteList: emojiIds.map(id => ({ emojiId: id })),
       })
-      const res = await this.sendPB('Faceroam.OpReq', data)
+      const res = await this.sendPB(Cmd.Message.ListFavEmojis, data)
       return Msg.FaceroamDeleteResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
@@ -228,7 +229,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         commandId: 9,
         extension: Buffer.from('0a07080010001a01301001', 'hex'), // 抓包看到的常量子结构
       })
-      const res = await this.sendPB('ImgStore.BDHExpressionRoam', data)
+      const res = await this.sendPB(Cmd.Message.AddFavEmojiPrep, data)
       return Msg.BDHExpressionRoamResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
@@ -248,7 +249,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         field5: { field1: 0, field2: 0 },
         field6: 0,
       })
-      await this.sendPB('trpc.msg.msg_svc.MsgService.SsoC2CRecallMsg', data)
+      await this.sendPB(Cmd.Message.RecallC2C, data)
     }
 
     /** 发消息（仅文本/At/表情/回复，不含媒体） */
@@ -287,7 +288,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         clientSequence,
         random,
       })
-      const res = await this.sendPB('MessageSvc.PbSendMsg', data)
+      const res = await this.sendPB(Cmd.Message.Send, data)
       const resp = Msg.PbSendMsgResp.decode(Buffer.from(res.pb, 'hex'))
       // 群聊：resp.groupMsgSeq (field 11) = server 给整个群的 msgSeq，群里所有人视角一致。
       //   接收方在 OlPush msgType=82 contentHead.groupMsgSeqOrC2cClientSeq (field 5) 拿到同样的值。
@@ -343,7 +344,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         clientSequence,
         random,
       })
-      const res = await this.sendPB('MessageSvc.PbSendMsg', data)
+      const res = await this.sendPB(Cmd.Message.Send, data)
       const resp = Msg.PbSendMsgResp.decode(Buffer.from(res.pb, 'hex'))
       return {
         resultCode: resp.resultCode,
@@ -366,7 +367,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         count,
       })
       const data = Oidb.Base.encode({ command: 0x9083, subCommand: 1, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0x9083_1', data)
+      const res = await this.sendPB(Cmd.Message.FetchMsgEmojiLikes, data)
       const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
       return Oidb.FetchEmojiLikesResp.decode(decoded.body)
     }
@@ -383,7 +384,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
           startSequence
         } : undefined
       })
-      const res = await this.sendPB('trpc.msg.msg_svc.MsgService.SsoReadedReport', data)
+      const res = await this.sendPB(Cmd.Message.ReadedReport, data)
       return Action.SsoReadedReportResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
@@ -396,7 +397,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         }
       })
       const data = Oidb.Base.encode({ command: 0xcd4, subCommand: 1, body })
-      const res = await this.sendPB('OidbSvcTrpcTcp.0xcd4_1', data)
+      const res = await this.sendPB(Cmd.Message.SetInputStatus, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.SetInputStatusResp.decode(oidbRespBody)
     }
