@@ -440,7 +440,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       const req = request(
         serverURL, {
         method: 'POST',
-        timeout: 11 * 1000,
+        timeout: 20 * 1000,
         headers: {
           // 最后一块 close，其他 keep-alive。server 用这个信号知道整体上传结束 → 触发归档
           'Connection': isEnd ? 'close' : 'keep-alive',
@@ -463,7 +463,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
         reject(error)
       })
       req.on('timeout', () => {
-        req.destroy(new Error(`Highway request timeout (11s) on ${serverURL}`))
+        req.destroy(new Error(`Highway request timeout (20s) on ${serverURL}`))
       })
       req.write(frame)
       req.end()
