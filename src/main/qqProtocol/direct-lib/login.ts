@@ -9,6 +9,7 @@ import { teaEncrypt, teaDecrypt } from './tea'
 import { AppInfo, DeviceInfo } from './appInfo'
 import { getActiveProfile } from './profiles'
 import { buildWatchFetchFrame, buildWatchPollFrame, buildWatchLoginFrame } from './watch/request'
+import { recordKey } from './packetDump'
 
 export enum QrCodeState {
   Confirmed = 0,
@@ -230,6 +231,9 @@ export async function loginWithQrResult(
   if (!qrResult.tempPassword || !qrResult.tgtgtKey || !qrResult.noPicSig || !qrResult.uin) {
     throw new Error('QR poll result incomplete')
   }
+
+  recordKey('tgtgtKey', qrResult.tgtgtKey, 'TLV 0x1E of the confirmed poll; TEA key of TLV 0x144 / 0x119')
+  recordKey('tempPassword', qrResult.tempPassword, 'TLV 0x18 (A1), sent as TLV 0x106')
 
   // watch: 独立 21-TLV/P-256 登录帧; login 仍走 SIGN_ALLOWLIST (FEKit 签名, 后端未就绪会 503)
   if (getActiveProfile().family === 'watch') {
@@ -630,6 +634,7 @@ function parseLoginResponse(data: Buffer, shareKey: Buffer, tgtgtKey: Buffer): L
 
   const decrypted119 = Buffer.from(teaDecrypt(tlv119, tgtgtKey))
   const nestedTlvs = tlvUnpack(decrypted119)
+  recordKey('tlv0x119.plain', decrypted119, 'decrypted TLV 0x119 body, holds d2/d2Key/tgt')
 
   const d2 = nestedTlvs.get(0x143) || Buffer.alloc(0)
   const d2Key = nestedTlvs.get(0x305) || Buffer.alloc(16)

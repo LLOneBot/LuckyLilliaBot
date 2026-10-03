@@ -11,6 +11,7 @@ import { EventEmitter } from 'node:events'
 import { CmdNotPermittedError, CMD_NOT_PERMITTED_RET_CODE } from '@/common/protocolErrors'
 import { isCmdAllowed, CmdBlockedError, logCmdWhitelistStatus } from './cmdWhitelist'
 import { cmdNeedsSign } from './cmd'
+import { recordKey } from './packetDump'
 
 const logger = getLogger('direct')
 
@@ -102,6 +103,10 @@ export class DirectProtocolClient extends EventEmitter {
     this.conn = new TcpConnection()
     // watch wtlogin 用 P-256, 桌面用 secp192k1
     this.ecdhKeyPair = getActiveProfile().family === 'watch' ? generateWatchEcdhKeyPair() : generateEcdhKeyPair()
+    recordKey('ecdh.privateKey', this.ecdhKeyPair.privateKey, 'wtlogin ECDH, per client instance')
+    recordKey('ecdh.publicKey', this.ecdhKeyPair.publicKey, 'sent in the wtlogin frame head')
+    recordKey('ecdh.shareKey', this.ecdhKeyPair.shareKey, 'TEA key of every wtlogin body')
+    recordKey('device.guid', this.guid, 'machine guid')
 
     this.conn.on('packet', (frame: Buffer) => this.handlePacket(frame))
     this.conn.on('error', (err) => this.emit('error', err))
@@ -458,6 +463,10 @@ export class DirectProtocolClient extends EventEmitter {
 
   setSession(session: SessionInfo): void {
     this.session = session
+    recordKey('d2Key', session.d2Key, `TEA key of every EncryptD2Key SSO frame (uin ${session.uin})`)
+    recordKey('d2', session.d2, 'SSO head credential, not a key')
+    recordKey('tgt', session.tgt, 'SSO head credential, not a key')
+    recordKey('a2Key', session.a2Key, 'from TLV 0x10D')
     this.emit('login', session)
     void this.tryAcquireSignToken()
     void this.tryStartLinuxSsoReport()
@@ -585,6 +594,7 @@ export class DirectProtocolClient extends EventEmitter {
           this.session.signToken12B = token
           this.session.signTokenExpiresAt = Date.now() + ttlSecs * 1000
           logger.info(`[SignToken] acquired "${token}" ttl=${ttlSecs}s`)
+          recordKey('signToken12B', Buffer.from(token, 'utf-8'), `sign device token, ttl=${ttlSecs}s`)
         }
       } catch (e) {
         // 首拉失败: expiresAt 仍 undefined, 下条 allowlist 命令会再试一次首拉。

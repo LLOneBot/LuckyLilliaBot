@@ -4,6 +4,7 @@ import { getActiveProfile } from './profiles'
 import type { SignResult } from './sign'
 import { randomBytes } from 'node:crypto'
 import { inflateSync } from 'node:zlib'
+import { dumpSsoIn, dumpSsoOut } from './packetDump'
 
 export enum EncryptType {
   NoEncrypt = 0x00,
@@ -115,6 +116,7 @@ export function buildServicePacket13(
   payload: Buffer,
   encryptType: EncryptType = EncryptType.NoEncrypt,
 ): Buffer {
+  dumpSsoOut({ seq, cmd, body: payload, encType: encryptType, d2Key: ctx.d2Key, protoVer: 13 })
   const ssoFrame = buildSsoFrame13(cmd, ctx, payload)
 
   let encrypted: Buffer
@@ -172,6 +174,10 @@ export function buildServicePacket(
   encryptType: EncryptType = EncryptType.EncryptD2Key,
   signResult?: SignResult | null,
 ): Buffer {
+  dumpSsoOut({
+    seq, cmd, body: payload, encType: encryptType, d2Key: ctx.d2Key,
+    protoVer: getActiveProfile().ssoProtocolVersion,
+  })
   const ssoFrame = buildSsoFrame12(seq, cmd, ctx, payload, signResult)
 
   let encrypted: Buffer
@@ -250,7 +256,14 @@ export function parseServicePacket(frame: Buffer, d2Key: Buffer): SsoPacket | nu
   }
 
   // Response always uses Protocol 12 format with full head
-  return parseSsoFrame12(ssoBody)
+  const parsed = parseSsoFrame12(ssoBody)
+  if (parsed) {
+    dumpSsoIn({
+      seq: parsed.seq, cmd: parsed.cmd, body: parsed.payload, encType: encType, d2Key,
+      protoVer: version, retCode: parsed.retCode, extraMsg: parsed.extraMsg,
+    })
+  }
+  return parsed
 }
 
 function parseSsoFrame13(data: Buffer, seq: number): SsoPacket | null {
