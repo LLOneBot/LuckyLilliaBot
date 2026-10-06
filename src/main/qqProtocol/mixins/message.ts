@@ -352,6 +352,9 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         sequence: resp.c2cMsgSeq,
         timestamp: resp.sendTime,
         random,
+        // 调用方要补 nt/message-sent 回声: clientSequence 给撤回用, expireTime 进 fileElement
+        clientSequence,
+        expireTime,
       }
     }
 

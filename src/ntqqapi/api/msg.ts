@@ -1,4 +1,4 @@
-import { ChatType, GroupMemberRole, GroupMsgMask, MessageElement, Peer, RawMessage, SendMessageElement } from '../types'
+import { ChatType, ElementType, GroupMemberRole, GroupMsgMask, MessageElement, Peer, RawMessage, SendMessageElement } from '../types'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { Msg } from '../proto'
@@ -359,7 +359,48 @@ export class NTMsgApi extends Service {
     file10MMd5: Buffer
     crcMedia: string
   }) {
-    return await this.ctx.qqProtocol.sendC2CFileMessage(opts)
+    const ret = await this.ctx.qqProtocol.sendC2CFileMessage(opts)
+    if (ret.resultCode !== 0) return { ...ret, message: undefined }
+    // 文件是独立 API, 不走 app.sendMessage, 所以 nt/message-sent 没人发: WebQQ 发完私聊文件
+    // 界面空白 (ChatInput 成功就删临时气泡、等真消息回填), OneBot/Satori/Milky 也收不到.
+    // 补发一条, 字段跟接收端 convertToRawMessage 的 PrivateFile 分支对齐, 两端渲染一致.
+    const message: RawMessage = {
+      // C2C msgUid 高 32 位固定 0x01000000, 低 32 位 = random (同 sendMsg)
+      msgId: ((0x01000000n << 32n) | BigInt(ret.random)).toString(),
+      // sendTime/c2cMsgSeq 理论上必有, 缺了也不能让气泡渲染不出来: 时间退回本地, seq 退回 0 (仅影响撤回)
+      msgTime: ret.timestamp ?? Math.floor(Date.now() / 1000),
+      msgSeq: ret.sequence ?? 0,
+      msgRandom: ret.random,
+      senderUid: selfInfo.uid,
+      senderUin: +selfInfo.uin,
+      peerUid: opts.toUid,
+      peerUin: opts.toUin,
+      sendNickName: '',
+      sendMemberName: '',
+      chatType: ChatType.C2C,
+      // 字段跟接收端 convertToRawMessage 的 PrivateFile 分支对齐, 两端渲染一致
+      elements: [{
+        elementType: ElementType.File,
+        fileElement: {
+          fileName: opts.fileName,
+          fileSize: opts.fileSize,
+          // 接收端的 fileMd5 来自 FileExtra.file.fileMd5, 而那个字段填的就是 file10MMd5
+          fileMd5: opts.file10MMd5.toString('hex'),
+          expireTime: ret.expireTime,
+          fileUuid: opts.fileUuid,
+          fileBizId: 0,
+          filePath: '',
+          folderId: ''
+        }
+      }],
+      peerName: '',
+      tempFromGroupCode: 0,
+      clientSeq: ret.clientSequence,
+      forwardAvatar: '',
+      memberRole: GroupMemberRole.NotApplicable
+    }
+    this.ctx.parallel('nt/message-sent', { message })
+    return { ...ret, message }
   }
 
   async sendGroupFileMessage(groupCode: number, fileId: string, busId: number) {

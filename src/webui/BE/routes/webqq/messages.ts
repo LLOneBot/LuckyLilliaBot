@@ -212,7 +212,9 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
             if (result.resultCode !== 0) {
               return c.json({ success: false, message: '发送私聊文件失败', error: result.errMsg ?? '' }, 500)
             }
-            sentMsgIds.push(info.fileId)
+            // sendPrivateFileMessage 补发 nt/message-sent 时算出了真 msgId, 直接用;
+            // 群文件的真 msgId 只在 self-echo 里, 这里拿不到, 仍退回 fileId.
+            sentMsgIds.push(result.message?.msgId ?? info.fileId)
           }
         }
 
