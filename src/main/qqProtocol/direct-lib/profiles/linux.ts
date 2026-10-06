@@ -35,7 +35,10 @@ export const LINUX_PROFILE: ProtocolProfile = {
   vendorOs: 'linux',
   devType: 'Linux',
   osVer: 'Ubuntu 22.04 LTS',
-  systemKernel: '5.15.0',
+  // SsoInfoSync device f3 = `uname -v` (full build string), NOT `uname -r`. Real QQ 3.2.28
+  // sends e.g. "#1 SMP Tue Nov 5 00:21:55 UTC 2024"; the old "5.15.0" was uname -r = wrong
+  // field shape, a fingerprint tell (aligned to real capture 2026-10-05).
+  systemKernel: '#1 SMP Tue Nov 5 00:21:55 UTC 2024',
   vendorName: '',
   vendorOsName: 'linux',
   imPlat: 1,

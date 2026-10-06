@@ -142,6 +142,21 @@ function dump(dir: 'out' | 'in', a: SsoDumpArgs): void {
   ])
 }
 
+/**
+ * [SA 1001 调查] dump o3 命令的**完整未加密 SSO 帧** (head+reserve+SecInfo+body) 到 side log,
+ * 用来跟真机 scan.pcap 逐字节 diff (CSV 只记 body, 看不到 reserve/SecInfo)。仅 --dump-packets 时开。
+ */
+export function dumpFullFrame(cmd: string, ssoFrame: Buffer): void {
+  if (!target) return
+  ensureReady()
+  try {
+    const p = target!.replace(/sso-[^/\\]*\.csv$/i, 'o3_fullframe.log')
+    appendFileSync(p, `${new Date().toISOString()} ${cmd} ${ssoFrame.toString('hex')}\n`)
+  } catch {
+    // never take the client down
+  }
+}
+
 export function dumpSsoOut(a: SsoDumpArgs): void {
   dump('out', a)
 }

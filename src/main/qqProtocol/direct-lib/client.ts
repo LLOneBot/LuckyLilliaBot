@@ -12,6 +12,11 @@ import { CmdNotPermittedError, CMD_NOT_PERMITTED_RET_CODE } from '@/common/proto
 import { isCmdAllowed, CmdBlockedError, logCmdWhitelistStatus } from './cmdWhitelist'
 import { cmdNeedsSign } from './cmd'
 import { recordKey } from './packetDump'
+import {
+  buildGetNewFlag, buildClientReport, buildPsKey, TELEMETRY_CMDS,
+  buildPsKey102a1, build116d1, build9067202, buildSsoGetConfig, AUX_TELEMETRY_CMDS,
+} from './telemetry'
+import { parseConfigPushReq, buildConfigPushResp, CONFIG_PUSH_REQ, CONFIG_PUSH_RESP } from './configPush'
 
 const logger = getLogger('direct')
 
@@ -19,6 +24,9 @@ const logger = getLogger('direct')
 // 非"微秒瞬时", sign 在进程内 sub-ms)。我们批量签 (一次 NAPI, sign-core ~450k/s) + 分块 pace 复刻。
 // 默认 2000 对齐真机 (~2523)。大量突发理论上有踩服务端限流的风险, 要调小/关掉设 env LINUX_XWID_BURST
 // (如 1); pace 默认 1000/s (LINUX_XWID_BURST_RATE) 已摊到 ~2s, 跟真机节奏一致, 非瞬发尖峰。
+// 2026-10-06 真机 691 登录抓包实证: 登录瞬间 SsoReport xwid 爆发 = ~948 条 (背靠背)。
+// 2026-10-05 曾怀疑"突发触发风控"把默认砍到 1 -> Bot 登录只发 4 条 SsoReport, 跟真机 ~948 差了两个数量级;
+// 实测证明爆发是真机正常行为, 缺了它才是"非真客户端"信号。还原默认到真机量级。env 仍可覆盖。
 const LINUX_XWID_BURST = Math.max(0, Number(process.env.LINUX_XWID_BURST || '2000') | 0)
 // 发送速率 (包/秒), 默认 1000 对齐真机; 设很大 (如 999999) = 瞬发不 pace。分块 pace 避免尖峰触发限流。
 const LINUX_XWID_BURST_RATE = Math.max(1, Number(process.env.LINUX_XWID_BURST_RATE || '1000') | 0)
@@ -84,6 +92,8 @@ export class DirectProtocolClient extends EventEmitter {
   // Bumped on every close, so an ESK still in flight when its connection dies gets discarded.
   private connEpoch = 0
   private heartbeatAliveTimer: NodeJS.Timeout | null = null
+  private telemetryTimer: NodeJS.Timeout | null = null
+  private auxTelemetryTimer: NodeJS.Timeout | null = null
   // 计时诊断: 按 seq 记响应帧「进 handlePacket」的时刻, 拆 wire vs parse.
   private frameArriveAt: Map<number, number> = new Map()
   // event loop lag 采样: setInterval 期望 50ms 一跳, 实测跳间隔 - 50 = 主线程被阻塞的量.
@@ -114,6 +124,7 @@ export class DirectProtocolClient extends EventEmitter {
       // 连接断开必须停 timer: client 是进程单例不重建, 不停的话断线期间会一直往死连接发包,
       // 且重连 connect() 的幂等 guard 会误判"已在跑"而不重启. 停掉才能让重连干净重启.
       this.stopHeartbeatAlive()
+      this.stopTelemetry()
       this.connEpoch++
       this.macosEskState = null
       this.emit('close')
@@ -134,10 +145,17 @@ export class DirectProtocolClient extends EventEmitter {
       machineGuid: this.guid,
       uin: this.config.uin,
       cdn: this.config.cdn,
-      sendPacket: async ({ cmd, body }) => {
+      sendPacket: async ({ cmd, body, signToken }) => {
         const req = Buffer.from(body)
-        const resp = (await this.sendCommand(cmd, req)).payload
-        logger.debug(`[relay] ${cmd}: req=${req.length}B resp=${resp.length}B reqHex=%h respHex=%h`, req, resp)
+        // [SA 1001 调查 / 最小验证 A] o3 ecdh_access 命令 (ESK/SA) 真机走 enc0x02 零钥握手通道
+        // (scan.pcap 实测 ESK/SA 都是 enc0x02 + A2 + sign)。登录后 sendCommand 默认 enc0x01
+        // d2key, 会让 SA 返业务码 1001。这里强制 ESK/SA 走 EncryptEmpty, 验证"通道假设"。
+        // SsoReport 等其它 o3 命令 (trpc.o3.report.*) 不受影响, 照常 enc0x01。
+        // 详见 LuckyLillia.Sign/docs/Linux/sign-token-protocol-final.md "SA 1001"。
+        const enc = cmd.includes('.o3.ecdh_access.') ? EncryptType.EncryptEmpty : undefined
+        // [SA 1001 修复] signToken 覆盖本命令的 SecInfo sf2 / 签名 token: SA 带 token1, 其它为空。
+        const resp = (await this.sendCommand(cmd, req, enc, undefined, undefined, signToken || undefined)).payload
+        logger.debug(`[relay] ${cmd} enc=${enc === undefined ? 'auto' : enc} signTok=${signToken ? signToken.length + 'B' : '-'}: req=${req.length}B resp=${resp.length}B reqHex=%h respHex=%h`, req, resp)
         return resp
       },
     })
@@ -206,19 +224,124 @@ export class DirectProtocolClient extends EventEmitter {
   /** 周期性发 Heartbeat.Alive 保活连接层. connect() 启动, disconnect()/close 清理. 幂等. */
   private startHeartbeatAlive(): void {
     if (this.heartbeatAliveTimer) return
-    // 真机(3.2.25 抓包)Heartbeat.Alive 固定 ~10s 一跳, 对齐避免长期被判连接不活跃。
-    const INTERVAL = 10 * 1000
-    this.heartbeatAliveTimer = setInterval(() => {
+    // 真机 3.2.28 Heartbeat.Alive ~13.5s 一跳且带自然抖动。写死的 10.000s setInterval 本身是机器特征,
+    // 故自调度 setTimeout 带每跳抖动 (~12-15s), 对齐真机节奏。
+    const tick = () => {
       this.sendHeartbeat().catch((e) => {
         logger.error('[Heartbeat.Alive] Failed:', (e as Error).message)
       })
-    }, INTERVAL)
+      this.heartbeatAliveTimer = setTimeout(tick, 12_000 + Math.floor(Math.random() * 3_000))
+    }
+    this.heartbeatAliveTimer = setTimeout(tick, 12_000 + Math.floor(Math.random() * 3_000))
   }
 
   private stopHeartbeatAlive(): void {
     if (this.heartbeatAliveTimer) {
-      clearInterval(this.heartbeatAliveTimer)
+      clearTimeout(this.heartbeatAliveTimer)
       this.heartbeatAliveTimer = null
+    }
+  }
+
+  /**
+   * 稳态遥测 loop. 真机 3.2.28 登录后每 ~316s 必发 getNewFlag + ClientReport + 0x102a_0(psKey);
+   * Bot 原来登录后只有心跳 = "哑连接", 是风控判会话失效 (KickNT 1001 登录已失效) 的最强信号。
+   * 对齐真机周期性发这组遥测。fire-and-forget: 单条失败只 debug, 不影响主链路。linux only。
+   * 由 startLinuxSsoReportLoop() 上线后启动, close/disconnect 停。
+   */
+  private startTelemetryLoop(): void {
+    if (this.telemetryTimer || getActiveProfile().name !== 'linux') return
+    const tick = () => {
+      void this.sendTelemetryRound()
+      // 真机 ~316-317s; 带抖动避免机械规律。
+      this.telemetryTimer = setTimeout(tick, 310_000 + Math.floor(Math.random() * 15_000))
+    }
+    this.telemetryTimer = setTimeout(tick, 310_000 + Math.floor(Math.random() * 15_000))
+  }
+
+  private stopTelemetry(): void {
+    if (this.telemetryTimer) {
+      clearTimeout(this.telemetryTimer)
+      this.telemetryTimer = null
+    }
+    if (this.auxTelemetryTimer) {
+      clearTimeout(this.auxTelemetryTimer)
+      this.auxTelemetryTimer = null
+    }
+  }
+
+  /**
+   * 低频 aux 遥测 loop. 真机 691 ~26-30min 偶发一组 0x102a_1 / 0x116d_1 / 0x9067_202 / SsoGetConfig
+   * (非每轮主遥测), Bot 原来一条不发。补齐这块"真机客户端"完整度。首发延后避开登录爆发, 之后 ~27min
+   * 带抖动。fire-and-forget, linux only。随主 telemetry 一起由 stopTelemetry() 停。
+   */
+  private startAuxTelemetryLoop(): void {
+    if (this.auxTelemetryTimer || getActiveProfile().name !== 'linux') return
+    const tick = () => {
+      void this.sendAuxTelemetryRound()
+      this.auxTelemetryTimer = setTimeout(tick, 1_500_000 + Math.floor(Math.random() * 360_000))
+    }
+    this.auxTelemetryTimer = setTimeout(tick, 300_000 + Math.floor(Math.random() * 120_000))
+  }
+
+  /** 发一组 aux 遥测。0x102a_1 在 sign 白名单会自动签 (对齐真机 f24), 其余不签。各条独立 try。 */
+  private async sendAuxTelemetryRound(): Promise<void> {
+    if (!this.session || !this.isConnected) return
+    const uid = this.session.uid
+    const guidHex = this.guid.toString('hex')
+    const jobs: Array<[string, Buffer]> = [
+      [AUX_TELEMETRY_CMDS.psKey102a1, buildPsKey102a1()],
+      [AUX_TELEMETRY_CMDS.oidb116d1, build116d1(uid)],
+      [AUX_TELEMETRY_CMDS.oidb9067202, build9067202()],
+      [AUX_TELEMETRY_CMDS.ssoGetConfig, buildSsoGetConfig(guidHex)],
+    ]
+    for (const [cmd, body] of jobs) {
+      if (!this.session || !this.isConnected) break
+      try {
+        await this.sendCommand(cmd, body)
+      } catch (e) {
+        logger.debug(`[aux-telemetry] ${cmd} failed: ${(e as Error).message}`)
+      }
+    }
+  }
+
+  /** 发一轮稳态遥测 (getNewFlag + ClientReport + psKey)。各条独立 try, 单条失败不影响其余。 */
+  private async sendTelemetryRound(): Promise<void> {
+    if (!this.session || !this.isConnected) return
+    const uin = this.session.uin ? Number(this.session.uin) : (this.config.uin || 0)
+    if (!uin) return
+    const jobs: Array<[string, Buffer]> = [
+      [TELEMETRY_CMDS.getNewFlag, buildGetNewFlag(uin)],
+      [TELEMETRY_CMDS.clientReport, buildClientReport(uin)],
+      [TELEMETRY_CMDS.psKey, buildPsKey()],
+    ]
+    for (const [cmd, body] of jobs) {
+      if (this.session?.uin !== String(uin) || !this.isConnected) break
+      try {
+        await this.sendCommand(cmd, body)
+      } catch (e) {
+        logger.debug(`[telemetry] ${cmd} failed: ${(e as Error).message}`)
+      }
+    }
+  }
+
+  /**
+   * 真机 3.2.28: 新建 SSO 连接时服务器推 ConfigPushSvc.PushReq(type=1 服务器列表), 客户端必回
+   * ConfigPushSvc.PushResp 回显 {type,seq}(抓真机出站包, body/reserve 逐字节复刻, 2026-10-06)。
+   * Bot 原来静默丢弃 = 行为指纹偏差。fire-and-forget: PushResp 是应答, server 不再回, 不登记
+   * pending(免 15s 超时噪声)。linux only(reserve 仅 linux 验证), 其它端维持旧静默不回归。
+   */
+  private respondConfigPush(payload: Buffer): void {
+    if (getActiveProfile().name !== 'linux' || !this.session || !this.isConnected) return
+    try {
+      const req = parseConfigPushReq(payload)
+      if (!req) return
+      const seq = this.nextSeq()
+      const ctx = this.getPacketContext()
+      const body = buildConfigPushResp(req.type, req.seq)
+      this.conn.send(buildServicePacket(seq, CONFIG_PUSH_RESP, ctx, body, EncryptType.EncryptD2Key, null))
+      logger.debug(`[ConfigPush] PushResp sent (type=${req.type} seq=${req.seq})`)
+    } catch (e) {
+      logger.debug(`[ConfigPush] respond failed: ${(e as Error).message}`)
     }
   }
 
@@ -271,6 +394,7 @@ export class DirectProtocolClient extends EventEmitter {
 
   disconnect(): void {
     this.stopHeartbeatAlive()
+    this.stopTelemetry()
     this.conn.disconnect()
     for (const [, pending] of this.pendingPackets) {
       clearTimeout(pending.timeout)
@@ -297,7 +421,7 @@ export class DirectProtocolClient extends EventEmitter {
     }
   }
 
-  async sendCommand(cmd: string, payload: Buffer, encryptType?: EncryptType, timeout = 15000, skipSign = false): Promise<SsoPacket> {
+  async sendCommand(cmd: string, payload: Buffer, encryptType?: EncryptType, timeout = 15000, skipSign = false, signTokenOverride?: string): Promise<SsoPacket> {
     if (this.unsupportedCmds.has(cmd)) throw new CmdNotPermittedError(cmd)
     if (!isCmdAllowed(cmd)) throw new CmdBlockedError(cmd)
     const seq = this.nextSeq()
@@ -318,7 +442,9 @@ export class DirectProtocolClient extends EventEmitter {
       const uin = this.session?.uin ? Number(this.session.uin) : (this.config.uin || undefined)
       await this.ensureSignTokenFresh(uin)
       tTokenDone = Date.now()
-      const protocolToken = this.protocolTokenFor(cmd)
+      // [SA 1001 修复] signTokenOverride (SA=token1) 优先于 session token: SA 命令必须用 token1
+      // 签 (真机 SecInfo sf2=token1), 而此刻 session.signToken12B 还空 (正在取 token)。
+      const protocolToken = signTokenOverride ?? this.protocolTokenFor(cmd)
       signResult = await requestSign(cmd, payload, seq, this.guid, AppInfo.qua, uin, protocolToken)
       tSignDone = Date.now()
       if (signResult?.token.length === 0) {
@@ -407,6 +533,9 @@ export class DirectProtocolClient extends EventEmitter {
       return
     }
 
+    // 真机: 新建 SSO 连接时服务器推 ConfigPushSvc.PushReq, 客户端回 PushResp 回显 {type,seq}。
+    if (parsed.cmd === CONFIG_PUSH_REQ) this.respondConfigPush(parsed.payload)
+
     this.emit('push', parsed)
   }
 
@@ -469,10 +598,13 @@ export class DirectProtocolClient extends EventEmitter {
     recordKey('a2Key', session.a2Key, 'from TLV 0x10D')
     this.emit('login', session)
     void this.tryAcquireSignToken()
-    void this.tryStartLinuxSsoReport()
+    // SsoReport 遥测 loop 不在 setSession 起: 此刻 ESK/SA/SsoInfoSync 都没跑, 在这里起会让报告
+    // (尤其大的 verify_file) 渗进握手、怼在 SA 之后 -> 跟真机不符 (真机 SA 之后全是小 enc01 帧,
+    // 没有 verify_file 尺寸的帧)。改由 direct.ts 在 registerOnline 上线成功后调 startLinuxSsoReportLoop(),
+    // 对齐"先 ESK->SA 拿 token、再 SsoInfoSync 上线、再开遥测"的真机时序。
   }
 
-  private async tryStartLinuxSsoReport(): Promise<void> {
+  async startLinuxSsoReportLoop(): Promise<void> {
     if (getActiveProfile().name !== 'linux' || !this.session || !this.config.authToken) return
     await startLinuxSsoReport({
       qua: AppInfo.qua,
@@ -485,6 +617,10 @@ export class DirectProtocolClient extends EventEmitter {
       const body = buildLinuxXwidBody(AppInfo.qua)
       if (body) void this.sendXwidBurst(LINUX_XWID_BURST, body)
     }
+    // 稳态遥测 loop: 真机登录后每 ~316s 发 getNewFlag/ClientReport/psKey, 补 Bot 的"哑连接"缺口。
+    this.startTelemetryLoop()
+    // 低频 aux 遥测: 真机 ~27min 偶发的 0x102a_1/0x116d_1/0x9067_202/SsoGetConfig。
+    this.startAuxTelemetryLoop()
   }
 
   /**
@@ -556,6 +692,25 @@ export class DirectProtocolClient extends EventEmitter {
     const uin = Number(this.session.uin)
     if (!Number.isFinite(uin) || uin <= 0) return
     await this.ensureSignTokenFresh(uin)
+  }
+
+  /**
+   * [SA 1001 测试 B] 阻塞等到本次登录的 o3 sign-token 获取 (ESK -> SA) 跑完。
+   * setSession 已 void 触发 tryAcquireSignToken (fire-and-forget); 这里确保在 registerOnline
+   * (SsoInfoSync 上线) **之前** token 链已完成 —— 对齐 QQ 真机时序 (先 ESK->SA 拿 token 再上线),
+   * Bot 原来先上线再取 token, 怀疑是 SA 1001 主因。幂等 (in-flight lock) + 不抛 (失败走原回退)。
+   */
+  async awaitSignTokenAcquire(): Promise<void> {
+    if (!this.session || !this.config.authToken) return
+    const uin = Number(this.session.uin)
+    if (!Number.isFinite(uin) || uin <= 0) return
+    await this.ensureSignTokenFresh(uin)
+    // ensureSignTokenFresh 命中 re-entrancy/in-flight guard 时会提前 return 不 await,
+    // 这里显式 await setSession 先触发的那个 in-flight promise, 保证 ESK->SA 真跑完。
+    const inflight = this.signTokenRefreshInflight
+    if (inflight) {
+      try { await inflight } catch { /* 失败按原回退, 不阻断登录 */ }
+    }
   }
 
   /**

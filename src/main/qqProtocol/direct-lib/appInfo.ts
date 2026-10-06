@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto'
-import { loadMachineGuidSync } from './machineGuid'
 import { getActiveProfile } from './profiles'
 
 // 兼容 shim: AppInfo/DeviceInfo 现在是"当前激活协议 profile 的扁平视图"。
@@ -31,9 +29,11 @@ export const AppInfo = {
 
 export const DeviceInfo = {
   devType: p.devType,
-  // 设备名带机器指纹 (device guid 派生), 惰性 getter: 登录/上线时才读, 那一刻 guid 已确定。
+  // SsoInfoSync device f1 = 主机名 (`uname -n`). 真机 3.2.28 发 "linyuchen"; 旧的
+  // sha256(machineGuid)[:6]="295781" 是合成的 6-hex 串 = 指纹尾巴。env LLBOT_DEV_NAME 可覆盖,
+  // 默认对齐真机设备名 (aligned 2026-10-06)。
   get devName(): string {
-    return createHash('sha256').update(loadMachineGuidSync()).digest('hex').slice(0, 6)
+    return process.env.LLBOT_DEV_NAME?.trim() || 'linyuchen'
   },
   osVer: p.osVer,
   vendorName: p.vendorName,

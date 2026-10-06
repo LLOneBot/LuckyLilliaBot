@@ -4,7 +4,7 @@ import { getActiveProfile } from './profiles'
 import type { SignResult } from './sign'
 import { randomBytes } from 'node:crypto'
 import { inflateSync } from 'node:zlib'
-import { dumpSsoIn, dumpSsoOut } from './packetDump'
+import { dumpSsoIn, dumpSsoOut, dumpFullFrame } from './packetDump'
 
 export enum EncryptType {
   NoEncrypt = 0x00,
@@ -179,6 +179,9 @@ export function buildServicePacket(
     protoVer: getActiveProfile().ssoProtocolVersion,
   })
   const ssoFrame = buildSsoFrame12(seq, cmd, ctx, payload, signResult)
+  // [SA 1001 调查] 抓 o3 命令完整未加密帧 (head+reserve+SecInfo+body), 跟真机逐字节 diff。
+  // TEMP(2026-10-05 诊断): 临时 dump 所有命令全帧, 做真机 vs Bot 网络帧逐字节对比; 验证后改回只 o3。
+  dumpFullFrame(cmd, ssoFrame)
 
   let encrypted: Buffer
   switch (encryptType) {

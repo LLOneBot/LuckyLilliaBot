@@ -38,6 +38,15 @@ const WHITELIST = new Set([
   'trpc.qq_new_tech.status_svc.StatusService.SsoHeartBeat',
   'Heartbeat.Alive',
   'trpc.o3.report.Report.SsoReport',
+  // 稳态遥测: 真机登录后每 ~316s 必发, 对齐避免"哑连接"被风控判失效 (见 telemetry.ts)。
+  'QQClubComm.getNewFlag',
+  'RedTouchSvc.ClientReport',
+  'OidbSvcTrpcTcp.0x102a_0',
+  // 低频 aux 遥测: 真机 ~27min 偶发一组 (见 telemetry.ts AUX_TELEMETRY_CMDS)。
+  'OidbSvcTrpcTcp.0x102a_1',
+  'OidbSvcTrpcTcp.0x116d_1',
+  'OidbSvcTrpcTcp.0x9067_202',
+  'trpc.group_pro.configdistribution.ConfigDistributionSvr.SsoGetConfig',
 ])
 
 export class CmdBlockedError extends Error {

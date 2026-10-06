@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 // 按协议分流取 sign-token 的路由。重点守两件事:
-//   1. 只有 linux 走本地 getLinuxEskToken; watch / windows 必须留在经 manager 的老路 ——
+//   1. 只有 linux 走本地 getLinuxSAToken; watch / windows 必须留在经 manager 的老路 ——
 //      本地 ESK 是真往 QQ 发包, 并进来 watch 就会从手表连接上发一个 Linux 形状的 ESK。
 //   2. native 解不出 TTL 时返 0, 不能原样用 (等于立刻过期 -> 每 30s 打一次 ESK)。
 
@@ -37,7 +37,7 @@ function makeProxy(overrides: Record<string, unknown> = {}) {
     init: vi.fn(async () => {}),
     // 经 manager 的老路: token 是 Buffer, 老代码无视它的 TTL 固定给 24h。
     acquireSignToken: vi.fn(async () => ({ token: Buffer.from('MANAGER_TOK1'), ttlSecs: 0 })),
-    getLinuxEskToken: vi.fn(async () => ({ token: 'LOCAL_TOKEN1', ttlSecs: 3600 })),
+    getLinuxSAToken: vi.fn(async () => ({ token: 'LOCAL_TOKEN1', ttlSecs: 3600 })),
     getMacosEskToken: vi.fn(async () => ({ token: 'ESK_TOKEN_01', ttlSecs: 0, aesKey: 'k1', shareId: 's1' })),
     getMacosA2EstablishToken: vi.fn(async () => ({ token: '', ttlSecs: 0, aesKey: 'k2', shareId: 's2' })),
     getMacosSa2Token: vi.fn(async () => ({ token: 'SA2_TOKEN_01', ttlSecs: 7200, aesKey: 'k1', shareId: 's1' })),
@@ -71,13 +71,13 @@ describe('acquireSignToken 按协议分流', () => {
     const r = await acquireSignToken(10001, 'V1_LNX_NQ_3.2.28_48517_GW_B')
 
     expect(r).toEqual({ token: 'LOCAL_TOKEN1', ttlSecs: 3600 })
-    expect(proxy.getLinuxEskToken).toHaveBeenCalledWith({ qua: 'V1_LNX_NQ_3.2.28_48517_GW_B' })
+    expect(proxy.getLinuxSAToken).toHaveBeenCalledWith({ qua: 'V1_LNX_NQ_3.2.28_48517_GW_B' })
     expect(proxy.acquireSignToken).not.toHaveBeenCalled()
   })
 
   it('linux 解不出 TTL (0) 时回落 24h, 而不是立刻过期', async () => {
     const proxy = makeProxy({
-      getLinuxEskToken: vi.fn(async () => ({ token: 'LOCAL_TOKEN1', ttlSecs: 0 })),
+      getLinuxSAToken: vi.fn(async () => ({ token: 'LOCAL_TOKEN1', ttlSecs: 0 })),
     })
     await useProxy(proxy)
 
@@ -86,8 +86,8 @@ describe('acquireSignToken 按协议分流', () => {
     expect(r.ttlSecs).toBe(DAY)
   })
 
-  it('linux 遇到没有 getLinuxEskToken 的老 .node, 退回经 manager 取', async () => {
-    const proxy = makeProxy({ getLinuxEskToken: undefined })
+  it('linux 遇到没有 getLinuxSAToken 的老 .node, 退回经 manager 取', async () => {
+    const proxy = makeProxy({ getLinuxSAToken: undefined })
     await useProxy(proxy)
 
     const r = await acquireSignToken(10001, 'V1_LNX_NQ_3.2.28_48517_GW_B')
@@ -103,7 +103,7 @@ describe('acquireSignToken 按协议分流', () => {
 
     await acquireSignToken(10001, 'V1_XXX')
 
-    expect(proxy.getLinuxEskToken).not.toHaveBeenCalled()
+    expect(proxy.getLinuxSAToken).not.toHaveBeenCalled()
     expect(proxy.acquireSignToken).toHaveBeenCalledTimes(1)
   })
 
@@ -115,7 +115,7 @@ describe('acquireSignToken 按协议分流', () => {
     const r = await acquireSignToken(10001, 'V1_MAC_NQ_7.0.0_52194_GW_B')
 
     expect(r).toEqual({ token: 'SA2_TOKEN_01', ttlSecs: 7200 })
-    expect(proxy.getLinuxEskToken).not.toHaveBeenCalled()
+    expect(proxy.getLinuxSAToken).not.toHaveBeenCalled()
     expect(proxy.acquireSignToken).not.toHaveBeenCalled()
 
     const a2Args = (proxy.getMacosA2EstablishToken as ReturnType<typeof vi.fn>).mock.calls[0][0]

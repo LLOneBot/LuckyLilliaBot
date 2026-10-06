@@ -368,6 +368,8 @@ export class DirectQQProtocol extends QQProtocolBase {
         // 记住已登录 uin: 断线重连走 initDirectClient() 时用它 loadSession 快速登录, 不退回扫码.
         this.runtimeUinOverride = persisted.uin
         this.directStopHeartbeat = startHeartbeat(this.directClient)
+        // 上线后再起 SsoReport 遥测 loop (不要放 setSession, 否则报告渗进 ESK/SA 握手, verify_file 怼在 SA 后)。
+        void this.directClient.startLinuxSsoReportLoop()
         this.maybeEmitOnline()
         // 直连 session 恢复后 nick 可能为空; 异步补查
         if (!selfInfo.nick) {
@@ -534,6 +536,12 @@ export class DirectQQProtocol extends QQProtocolBase {
     const session = client.getSession()
     if (!session) return
 
+    // [SA 1001 测试 B] 先取 o3 token (ESK->SA) 再上线, 对齐 QQ 真机时序 (真机先 ESK->SA 拿 token2
+    // 再 SsoInfoSync)。Bot 原来 setSession 后 void 触发取 token、紧接 registerOnline 并发 -> 上线
+    // 赢 -> SA 在"已上线"后才发 -> 1001 (疑)。这里 await 住 token 链跑完再上线验证。
+    await client.awaitSignTokenAcquire()
+    if (this.qrPollToken !== myToken || client.getSession() !== session) return
+
     // Register online: 失败视为登录未完成, 不标记在线, 报错回 WebUI. 必须清掉半成品 session
     // (loginWithQrResult 已 setSession -> isLoggedIn=true), 否则扫码 loop 认为已登录会停, 不出新码,
     // 变成收不到 MsgPush 的"假在线". 连接保留复用, 下一轮 loop 直接拉新码.
@@ -555,6 +563,9 @@ export class DirectQQProtocol extends QQProtocolBase {
 
     // Start heartbeat
     this.directStopHeartbeat = startHeartbeat(client)
+    // 上线后再起 SsoReport 遥测 loop (真机时序: 握手 ESK->SA->SsoInfoSync 干净跑完再遥测;
+    // 放 setSession 会让报告渗进握手、verify_file 怼在 SA 之后)。
+    void client.startLinuxSsoReportLoop()
 
     // Update global state
     selfInfo.uin = String(uin)

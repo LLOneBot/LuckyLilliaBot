@@ -44,8 +44,15 @@ function protoMessageField(field: number, content: Buffer): Buffer {
 
 // --- SsoHeartBeat ---
 
+// Real QQ 3.2.28 SsoHeartBeat body = {f1:1, f2:{f1:0}, f3:0, f4:unix_seconds} (14B). The old
+// {f1:1} (2B) was a stripped shape = a per-heartbeat fingerprint tell (aligned 2026-10-06).
 function buildSsoHeartBeat(): Buffer {
-  return protoVarintField(1, 1)
+  return Buffer.concat([
+    protoVarintField(1, 1),
+    protoMessageField(2, protoVarintField(1, 0)),
+    protoVarintField(3, 0),
+    protoVarintField(4, Math.floor(Date.now() / 1000)),
+  ])
 }
 
 // --- SsoInfoSync (Register) ---
@@ -69,11 +76,12 @@ function buildRegisterInfo(guid: Buffer, isFirstOnline: boolean = true): Buffer 
   parts.push(protoVarintField(5, 2052))
   parts.push(protoMessageField(6, buildRegisterDeviceInfo()))
   parts.push(protoVarintField(7, 0))
-  parts.push(protoVarintField(8, 6))
-  parts.push(protoVarintField(9, 0))
+  // f8/f9/f10 match real QQ 3.2.28 capture (was 6/0/{1,1}, diverged; aligned 2026-10-05)
+  parts.push(protoVarintField(8, 0))
+  parts.push(protoVarintField(9, 1))
   const bizInfo = Buffer.concat([
-    protoVarintField(1, 1),
-    protoVarintField(2, 1),
+    protoVarintField(1, 0),
+    protoVarintField(2, 0),
   ])
   parts.push(protoMessageField(10, bizInfo))
   parts.push(protoVarintField(11, 0))
@@ -81,13 +89,15 @@ function buildRegisterInfo(guid: Buffer, isFirstOnline: boolean = true): Buffer 
   return Buffer.concat(parts)
 }
 
+// c2c/group sync cookies are empty on real QQ 3.2.28 (old impl wrote {1:0})
 function buildC2cMsgCookie(): Buffer {
-  return protoVarintField(1, 0n)
+  return Buffer.alloc(0)
 }
 
 export function buildSsoInfoSync(guid: Buffer, isFirstOnline: boolean = true): Buffer {
   const parts: Buffer[] = []
-  parts.push(protoVarintField(1, 735))
+  // f1 = 1759 on real QQ 3.2.28 (was 735, diverged; aligned 2026-10-05)
+  parts.push(protoVarintField(1, 1759))
   parts.push(protoVarintField(2, Math.floor(Math.random() * 0xFFFFFFFF)))
   parts.push(protoVarintField(4, 2))
   parts.push(protoVarintField(5, 0n))
@@ -99,13 +109,17 @@ export function buildSsoInfoSync(guid: Buffer, isFirstOnline: boolean = true): B
   ])
   parts.push(protoMessageField(6, c2cSync))
 
+  // real QQ 3.2.28 sends an empty top-level f8 (Bot omitted it)
+  parts.push(protoMessageField(8, Buffer.alloc(0)))
+
   parts.push(protoMessageField(9, buildRegisterInfo(guid, isFirstOnline)))
 
-  const unknown = Buffer.concat([
-    protoVarintField(1, 0),
-    protoVarintField(2, 2),
+  // real QQ 3.2.28: f10 = { f2:0, f4:{ f1:0 } } (old {1:0,2:2} had wrong shape)
+  const f10 = Buffer.concat([
+    protoVarintField(2, 0),
+    protoMessageField(4, protoVarintField(1, 0)),
   ])
-  parts.push(protoMessageField(10, unknown))
+  parts.push(protoMessageField(10, f10))
 
   const appState = Buffer.concat([
     protoVarintField(1, 0),
@@ -200,7 +214,8 @@ export async function sendHeartbeat(client: DirectProtocolClient): Promise<void>
  * 交给 close -> scheduleReconnect 重建, 最坏约 5.5 分钟能测出来.
  */
 export function startHeartbeat(client: DirectProtocolClient): () => void {
-  const INTERVAL = 4.5 * 60 * 1000
+  // Real QQ 3.2.28 SsoHeartBeat cadence ~378s with natural jitter (was dead-exact 270s = a tell).
+  const nextInterval = () => 374_000 + Math.floor(Math.random() * 8_000)
   const RETRY_INTERVAL = 30 * 1000
   const MAX_FAILURES = 3
 
@@ -218,7 +233,7 @@ export function startHeartbeat(client: DirectProtocolClient): () => void {
     try {
       await sendHeartbeat(client)
       failures = 0
-      schedule(INTERVAL)
+      schedule(nextInterval())
     } catch (e) {
       failures++
       logger.error(`[Heartbeat] Failed (${failures}/${MAX_FAILURES}):`, (e as Error).message)
@@ -232,7 +247,7 @@ export function startHeartbeat(client: DirectProtocolClient): () => void {
     }
   }
 
-  schedule(INTERVAL)
+  schedule(nextInterval())
 
   return () => {
     stopped = true
