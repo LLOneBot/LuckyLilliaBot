@@ -6,7 +6,7 @@ export PATH=$PATH:/usr/bin:/usr/local/bin
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'; NC='\033[0m'
 
 DISTRO=""
-LLBOT_CLI_BIN="$SCRIPT_DIR/llbot"
+LLBOT_CLI_BIN="$SCRIPT_DIR/LuckyLillia"
 PROTOCOL_MODE=""
 DISPLAY_MODE=""
 LLBOT_ARGS=()
@@ -39,10 +39,10 @@ confirm() {
 
 usage() {
     cat <<EOF
-用法: $(basename "$0") [启动模式] [界面模式] [LLBot 参数...]
+用法: $(basename "$0") [启动模式] [界面模式] [LuckyLillia 参数...]
 
 启动模式:
-  --headless              无头模式，直接运行 ./llbot（默认）
+  --headless              无头模式，直接运行 ./LuckyLillia（默认）
   --headed                有头模式，通过 PMHQ 连接 QQ
 
 界面模式（仅有头模式）:
@@ -51,8 +51,8 @@ usage() {
 
 其他选项:
   -h, --help              显示此帮助
-  其他未识别参数          原样透传给 ./llbot
-  --                      后续参数强制全部透传给 ./llbot
+  其他未识别参数          原样透传给 ./LuckyLillia
+  --                      后续参数强制全部透传给 ./LuckyLillia
 
 示例:
   $(basename "$0") --headless

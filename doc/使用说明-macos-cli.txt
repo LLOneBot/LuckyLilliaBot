@@ -1,10 +1,10 @@
 首次运行使用 ./start.sh
 
-./llbot --qq 123123 指定QQ号快速登录，不再需要扫码，首次登录依然需要扫码
+./LuckyLillia --qq 123123 指定QQ号快速登录，不再需要扫码，首次登录依然需要扫码
 
-./llbot --help 查看使用参数，也可无需参数直接运行
+./LuckyLillia --help 查看使用参数，也可无需参数直接运行
 
-比如 ./llbot --update 可在线更新框架
+比如 ./LuckyLillia --update 可在线更新框架
 
 您的 star 是我们前进的动力！GitHub: https://github.com/LLOneBot/LuckyLilliaBot
 官网: https://luckylillia.com

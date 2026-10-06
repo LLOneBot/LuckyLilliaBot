@@ -52,13 +52,13 @@ jobs:
 
           sudo apt install zip -y
           cd ./dist/
-          zip -r ../LLBot.zip ./*
+          zip -r ../LuckyLillia.zip ./*
 
       - name: Compress for Windows Cli
         if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'win-cli' || startsWith(github.ref, 'refs/tags/') }}
         run: |
-          mkdir llbot-cli-win-x64
-          cd llbot-cli-win-x64
+          mkdir luckylillia-cli-win-x64
+          cd luckylillia-cli-win-x64
           mkdir -p bin/llbot
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
@@ -71,17 +71,17 @@ jobs:
           mv pmhq-win-x64.exe bin/pmhq/pmhq.exe
           mv pmhq.dll bin/pmhq/
           wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-win-x64.exe
-          mv llbot-win-x64.exe llbot.exe
+          mv llbot-win-x64.exe LuckyLillia.exe
           wget https://github.com/LLOneBot/exe/releases/latest/download/node.exe -O bin/llbot/node.exe
           wget https://github.com/LLOneBot/exe/releases/latest/download/ffmpeg.exe -O bin/llbot/ffmpeg.exe
           wget https://github.com/LLOneBot/exe/releases/latest/download/ffprobe.exe -O bin/llbot/ffprobe.exe
-          zip -r ../LLBot-CLI-win-x64.zip ./*
+          zip -r ../LuckyLillia-CLI-win-x64.zip ./*
 
       - name: Compress for Windows Desktop
         if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'win-desktop' || startsWith(github.ref, 'refs/tags/') }}
         run: |
-          mkdir llbot-desktop-win-x64
-          cd llbot-desktop-win-x64
+          mkdir luckylillia-desktop-win-x64
+          cd luckylillia-desktop-win-x64
           mkdir -p bin/llbot
           cp ../dist/使用说明.txt ./
           cp ../dist/更新日志.txt ./
@@ -90,14 +90,14 @@ jobs:
           wget https://github.com/LLOneBot/LuckyLilliaDesktop.Avalonia/releases/latest/download/lucky-lillia-desktop-win-x64.zip
           unzip lucky-lillia-desktop-win-x64.zip
           rm lucky-lillia-desktop-win-x64.zip
-          mv lucky-lillia-desktop.exe llbot.exe
-          zip -r ../LLBot-Desktop-win-x64.zip ./*
+          mv lucky-lillia-desktop.exe LuckyLillia.exe
+          zip -r ../LuckyLillia-Desktop-win-x64.zip ./*
 
       - name: Compress for Linux CLI x64
         if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'linux-x64' || startsWith(github.ref, 'refs/tags/') }}
         run: |
-          mkdir llbot-cli-linux-x64
-          cd llbot-cli-linux-x64
+          mkdir luckylillia-cli-linux-x64
+          cd luckylillia-cli-linux-x64
           mkdir -p bin/llbot
           mkdir -p bin/pmhq
           cp ../doc/使用说明-linux-cli.txt ./使用说明.txt
@@ -110,15 +110,15 @@ jobs:
           mv pmhq-linux-x64 bin/pmhq/pmhq
           mv libpmhq.so bin/pmhq/
           wget https://github.com/LLOneBot/exe/releases/latest/download/node-linux-x64 -O bin/llbot/node
-          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-linux-x64 -O llbot
+          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-linux-x64 -O LuckyLillia
           cp ../script/start-linux.sh ./start.sh
-          zip -r ../LLBot-CLI-linux-x64.zip ./*
+          zip -r ../LuckyLillia-CLI-linux-x64.zip ./*
 
       - name: Compress for Linux CLI arm64
         if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'linux-arm64' || startsWith(github.ref, 'refs/tags/') }}
         run: |
-          mkdir llbot-cli-linux-arm64
-          cd llbot-cli-linux-arm64
+          mkdir luckylillia-cli-linux-arm64
+          cd luckylillia-cli-linux-arm64
           mkdir -p bin/llbot
           mkdir -p bin/pmhq
           cp ../doc/使用说明-linux-cli.txt ./使用说明.txt
@@ -131,15 +131,15 @@ jobs:
           mv pmhq-linux-arm64 bin/pmhq/pmhq
           mv libpmhq.so bin/pmhq/
           wget https://github.com/LLOneBot/exe/releases/latest/download/node-linux-arm64 -O bin/llbot/node
-          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-linux-arm64 -O llbot
+          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-linux-arm64 -O LuckyLillia
           cp ../script/start-linux.sh ./start.sh
-          zip -r ../LLBot-CLI-linux-arm64.zip ./*
+          zip -r ../LuckyLillia-CLI-linux-arm64.zip ./*
 
       - name: Compress for macOS CLI arm64
         if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'macos-arm64' || startsWith(github.ref, 'refs/tags/') }}
         run: |
-          mkdir llbot-cli-macos-arm64
-          cd llbot-cli-macos-arm64
+          mkdir luckylillia-cli-macos-arm64
+          cd luckylillia-cli-macos-arm64
           mkdir -p bin/llbot
           cp ../doc/使用说明-macos-cli.txt ./使用说明.txt
           cp ../script/start-mac.sh ./start.sh
@@ -147,14 +147,14 @@ jobs:
           cp -r ../dist/* ./bin/llbot/
           find bin/llbot -maxdepth 1 -name 'sign-proxy.*.node' ! -name 'sign-proxy.darwin-arm64.node' -delete
           wget https://github.com/LLOneBot/exe/releases/latest/download/node-darwin-arm64 -O bin/llbot/node
-          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-macos-arm64 -O llbot
-          tar -cJvf ../LLBot-CLI-macos-arm64.tar.xz ./*
+          wget https://github.com/LLOneBot/LuckyLillia.CLI/releases/latest/download/llbot-macos-arm64 -O LuckyLillia
+          tar -cJvf ../LuckyLillia-CLI-macos-arm64.tar.xz ./*
 
       - name: Compress for macOS Desktop arm64
         if: ${{ github.event.inputs.target == 'all' || github.event.inputs.target == 'macos-desktop-arm64' || startsWith(github.ref, 'refs/tags/') }}
         run: |
-          mkdir llbot-desktop-macos-arm64
-          cd llbot-desktop-macos-arm64
+          mkdir luckylillia-desktop-macos-arm64
+          cd luckylillia-desktop-macos-arm64
           mkdir -p bin/llbot
           cp ../doc/使用说明.txt ./使用说明.txt
           cp ../dist/更新日志.txt ./
@@ -163,75 +163,75 @@ jobs:
           wget https://github.com/LLOneBot/LuckyLilliaDesktop.Avalonia/releases/latest/download/lucky-lillia-desktop-macos-arm64.tar.gz
           tar -xzvf lucky-lillia-desktop-macos-arm64.tar.gz
           rm lucky-lillia-desktop-macos-arm64.tar.gz
-          tar -cJvf ../LLBot-Desktop-macos-arm64.tar.xz ./*
+          tar -cJvf ../LuckyLillia-Desktop-macos-arm64.tar.xz ./*
 
       - name: Compress for Docker
         run: |
-          cp script/install-llbot-docker.sh LLBot-Docker.sh
+          cp script/install-llbot-docker.sh LuckyLillia-Docker.sh
 
       # 手动触发时只上传 artifacts
-      - name: Upload LLBot.zip
+      - name: Upload LuckyLillia.zip
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
         with:
-          name: LLBot
-          path: LLBot.zip
+          name: LuckyLillia
+          path: LuckyLillia.zip
           retention-days: 30
 
-      - name: Upload LLBot-Desktop-win-x64.zip
+      - name: Upload LuckyLillia-Desktop-win-x64.zip
         if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'win-desktop') }}
         uses: actions/upload-artifact@v4
         with:
-          name: LLBot-Desktop-win-x64
-          path: LLBot-Desktop-win-x64.zip
+          name: LuckyLillia-Desktop-win-x64
+          path: LuckyLillia-Desktop-win-x64.zip
           retention-days: 30
 
-      - name: Upload LLBot-CLI-win-x64.zip
+      - name: Upload LuckyLillia-CLI-win-x64.zip
         if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'win-cli') }}
         uses: actions/upload-artifact@v4
         with:
-          name: LLBot-CLI-win-x64
-          path: LLBot-CLI-win-x64.zip
+          name: LuckyLillia-CLI-win-x64
+          path: LuckyLillia-CLI-win-x64.zip
           retention-days: 30
 
-      - name: Upload LLBot-CLI-linux-x64.zip
+      - name: Upload LuckyLillia-CLI-linux-x64.zip
         if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'linux-x64') }}
         uses: actions/upload-artifact@v4
         with:
-          name: LLBot-CLI-linux-x64
-          path: LLBot-CLI-linux-x64.zip
+          name: LuckyLillia-CLI-linux-x64
+          path: LuckyLillia-CLI-linux-x64.zip
           retention-days: 30
 
-      - name: Upload LLBot-CLI-linux-arm64.zip
+      - name: Upload LuckyLillia-CLI-linux-arm64.zip
         if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'linux-arm64') }}
         uses: actions/upload-artifact@v4
         with:
-          name: LLBot-CLI-linux-arm64
-          path: LLBot-CLI-linux-arm64.zip
+          name: LuckyLillia-CLI-linux-arm64
+          path: LuckyLillia-CLI-linux-arm64.zip
           retention-days: 30
 
-      - name: Upload LLBot-CLI-macos-arm64.tar.xz
+      - name: Upload LuckyLillia-CLI-macos-arm64.tar.xz
         if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'macos-arm64') }}
         uses: actions/upload-artifact@v4
         with:
-          name: LLBot-CLI-macos-arm64
-          path: LLBot-CLI-macos-arm64.tar.xz
+          name: LuckyLillia-CLI-macos-arm64
+          path: LuckyLillia-CLI-macos-arm64.tar.xz
           retention-days: 30
 
-      - name: Upload LLBot-Desktop-macos-arm64.tar.xz
+      - name: Upload LuckyLillia-Desktop-macos-arm64.tar.xz
         if: ${{ !startsWith(github.ref, 'refs/tags/') && (github.event.inputs.target == 'all' || github.event.inputs.target == 'macos-desktop-arm64') }}
         uses: actions/upload-artifact@v4
         with:
-          name: LLBot-Desktop-macos-arm64
-          path: LLBot-Desktop-macos-arm64.tar.xz
+          name: LuckyLillia-Desktop-macos-arm64
+          path: LuckyLillia-Desktop-macos-arm64.tar.xz
           retention-days: 30
 
-      - name: Upload LLBot-Docker.sh
+      - name: Upload LuckyLillia-Docker.sh
         if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: actions/upload-artifact@v4
         with:
-          name: LLBot-Docker
-          path: LLBot-Docker.sh
+          name: LuckyLillia-Docker
+          path: LuckyLillia-Docker.sh
           retention-days: 30
 
       # tag 触发时创建 release
@@ -259,7 +259,7 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/')
         uses: ncipollo/release-action@v1
         with:
-          artifacts: 'LLBot.zip, LLBot-Desktop-win-x64.zip, LLBot-Desktop-macos-arm64.tar.xz, LLBot-CLI-win-x64.zip, LLBot-CLI-linux-x64.zip, LLBot-CLI-linux-arm64.zip, LLBot-CLI-macos-arm64.tar.xz, LLBot-Docker.sh'
+          artifacts: 'LuckyLillia.zip, LuckyLillia-Desktop-win-x64.zip, LuckyLillia-Desktop-macos-arm64.tar.xz, LuckyLillia-CLI-win-x64.zip, LuckyLillia-CLI-linux-x64.zip, LuckyLillia-CLI-linux-arm64.zip, LuckyLillia-CLI-macos-arm64.tar.xz, LuckyLillia-Docker.sh'
           draft: true
           token: ${{ secrets.RELEASE_TOKEN }}
           name: LuckyLilliaBot v${{ steps.get-version.outputs.VERSION }}
@@ -273,5 +273,5 @@ jobs:
         run: |
           npm install -g npm@latest
           mv dist package
-          tar -czf llonebot-dist.tgz package/*
-          npm publish llonebot-dist.tgz --provenance
+          tar -czf luckylillia-dist.tgz package/*
+          npm publish luckylillia-dist.tgz --provenance

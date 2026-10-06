@@ -1,7 +1,7 @@
 #!/bin/bash
 
 echo "=========================================="
-echo "LLBot Docker 安装配置向导"
+echo "LuckyLillia Docker 安装配置向导"
 echo "=========================================="
 
 # Auth Token (必填; 此处不做校验, 有效性在登录/WebUI 侧判定)
@@ -286,12 +286,12 @@ get_npm_version() {
 echo ""
 echo "正在获取最新版本信息..."
 
-# 获取 LLBot 版本
+# 获取 LuckyLillia 版本
 LLBOT_TAG=$(get_npm_version "llonebot-dist")
 if [ -n "$LLBOT_TAG" ]; then
-  echo "LLBot 最新版本: $LLBOT_TAG"
+  echo "LuckyLillia 最新版本: $LLBOT_TAG"
 else
-  echo "无法获取 LLBot 版本，将使用 latest"
+  echo "无法获取 LuckyLillia 版本，将使用 latest"
   LLBOT_TAG="latest"
 fi
 

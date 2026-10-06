@@ -10,7 +10,7 @@
 
 ./start.sh --qq 123123 指定QQ号快速登录，不再需要扫码，首次登录依然需要扫码
 
-./llbot --update 可在线更新框架
+./LuckyLillia --update 可在线更新框架
 
 您的 star 是我们前进的动力！GitHub: https://github.com/LLOneBot/LuckyLilliaBot
 官网: https://luckylillia.com

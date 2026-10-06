@@ -1,4 +1,4 @@
-chmod u+x ./llbot ./bin/llbot/node
-xattr -cr ./llbot
+chmod u+x ./LuckyLillia ./bin/llbot/node
+xattr -cr ./LuckyLillia
 xattr -cr ./bin/llbot/node
-./llbot
+./LuckyLillia
