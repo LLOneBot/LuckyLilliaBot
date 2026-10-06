@@ -73,7 +73,9 @@ export class MessageBuilding {
         aniStickerId: String(f.stickerId),
         faceId: faceElement.faceIndex,
         aniStickerType: f.stickerType ?? 2,
-        resultId: f.resultId ? +f.resultId : undefined,
+        // LargeFaceExtra.resultId 是 string (proto f6), FaceElement.resultId 本来也是 string ——
+        // 原来的 + 会把它转成 number 再交给 string encoder.
+        resultId: f.resultId || undefined,
       })
       this.outputElems.push({
         commonElem: {
