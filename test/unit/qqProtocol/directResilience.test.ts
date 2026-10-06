@@ -70,6 +70,11 @@ describe('心跳连续失败', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
+  // startHeartbeat 的跳间隔带抖动 (374-382s, 对齐真机 ~378s), 不再是写死的 270s。
+  // 推进时钟按上界走, 保证那一跳一定已经发生, 不跟具体抖动值耦合。
+  const HEARTBEAT_MAX_MS = 382_000
+  const RETRY_MS = 30 * 1000
+
   it('连挂 3 次就主动断开, 不再无限重试', async () => {
     const client = {
       isLoggedIn: true,
@@ -79,11 +84,15 @@ describe('心跳连续失败', () => {
 
     startHeartbeat(client)
 
-    await vi.advanceTimersByTimeAsync(4.5 * 60 * 1000)
+    // 第 1 跳失败 (1/3)
+    await vi.advanceTimersByTimeAsync(HEARTBEAT_MAX_MS)
+    expect(client.sendCommand).toHaveBeenCalledTimes(1)
     expect(client.disconnect).not.toHaveBeenCalled()
-    await vi.advanceTimersByTimeAsync(30 * 1000)
+    // 失败后不再按正常间隔, 改 RETRY_INTERVAL 重试
+    await vi.advanceTimersByTimeAsync(RETRY_MS)
+    expect(client.sendCommand).toHaveBeenCalledTimes(2)
     expect(client.disconnect).not.toHaveBeenCalled()
-    await vi.advanceTimersByTimeAsync(30 * 1000)
+    await vi.advanceTimersByTimeAsync(RETRY_MS)
     expect(client.disconnect).toHaveBeenCalledTimes(1)
 
     // 断开后不再排新 tick
@@ -99,7 +108,7 @@ describe('心跳连续失败', () => {
     } as unknown as DirectProtocolClient
 
     startHeartbeat(client)
-    await vi.advanceTimersByTimeAsync(4.5 * 60 * 1000)
+    await vi.advanceTimersByTimeAsync(HEARTBEAT_MAX_MS)
     expect(client.disconnect).toHaveBeenCalledTimes(1)
   })
 

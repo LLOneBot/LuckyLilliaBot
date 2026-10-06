@@ -61,6 +61,10 @@ vi.mock('@/main/qqProtocol/direct-lib/sign', () => ({
   updateAuthToken: vi.fn(),
   startLinuxSsoReport: vi.fn(async () => {}),
   stopLinuxSsoReport: vi.fn(),
+  // 返 null = 真实实现里"没 inited / 老 .node"的跳过分支, 不触发 xwid 突发。
+  buildLinuxXwidBody: vi.fn(() => null),
+  signLinuxXwidBurst: vi.fn(async () => null),
+  acquireMacosEskOnly: vi.fn(),
 }))
 
 vi.mock('@/main/qqProtocol/direct-lib/login', () => ({

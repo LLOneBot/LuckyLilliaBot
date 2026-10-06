@@ -19,6 +19,13 @@ vi.mock('@/main/qqProtocol/direct-lib/sign', () => ({
   setSignMachineGuid: vi.fn(),
   acquireSignToken: vi.fn(),
   acquireMacosEskOnly: vi.fn(),
+  // Linux 专用的 xwid / SsoReport 这条线在 macos 下不该跑, 但 mock 必须补齐 client.ts 的
+  // 全部导入, 少一个 vitest 就在访问时抛 "No export is defined on the mock".
+  // buildLinuxXwidBody / signLinuxXwidBurst 返 null = 真实实现里 "没 inited / 老 .node" 的跳过分支。
+  startLinuxSsoReport: vi.fn(async () => {}),
+  stopLinuxSsoReport: vi.fn(),
+  buildLinuxXwidBody: vi.fn(() => null),
+  signLinuxXwidBurst: vi.fn(async () => null),
 }))
 
 vi.mock('@/main/qqProtocol/direct-lib/connection', () => ({
@@ -43,7 +50,10 @@ const esk = vi.mocked(acquireMacosEskOnly)
 const acquire = vi.mocked(acquireSignToken)
 const sign = vi.mocked(requestSign)
 
-const SSO_INFO_SYNC = 'trpc.msg.register_proxy.RegisterProxy.SsoInfoSync'
+// 代表"业务命令"的那条必须是 cmdNeedsSign() 认的, 否则 sendCommand 根本不签名、直接往下
+// 等响应包 (15s), deviceTokenFor 就永远不返回。SsoInfoSync 自 697592df
+// ("sign only what the real client signs") 起已不在 SIGN_REQUIRED 里, 不能再用。
+const SEND_MSG = 'MessageSvc.PbSendMsg'
 const SA2_ACCESS = 'trpc.o3.ecdh_access.EcdhAccess.SsoSecureA2Access'
 
 function eskState(token: string, ttlMs = 3_600_000): MacosEskState {
@@ -63,7 +73,11 @@ function fakeSession(): SessionInfo {
   }
 }
 
-/** requestSign is mocked to fail, so sendCommand stops right after picking the device token. */
+/**
+ * requestSign is mocked to fail, so sendCommand throws right after picking the device token.
+ * Only works for a cmd that cmdNeedsSign() accepts -- an unsigned one skips signing entirely
+ * and then blocks waiting for a response frame.
+ */
 async function deviceTokenFor(client: DirectProtocolClient, cmd: string): Promise<string | undefined> {
   sign.mockClear()
   await client.sendCommand(cmd, Buffer.alloc(0)).catch(() => {})
@@ -126,16 +140,16 @@ describe('macOS ESK 生命周期', () => {
     acquire.mockImplementationOnce(() => new Promise((r) => { resolveSa2 = r }))
 
     await client.acquirePreLoginToken()
-    expect(await deviceTokenFor(client, SSO_INFO_SYNC)).toBeUndefined() // not logged in yet
+    expect(await deviceTokenFor(client, SEND_MSG)).toBeUndefined() // not logged in yet
 
     client.setSession(fakeSession())
     await vi.waitFor(() => expect(acquire).toHaveBeenCalledTimes(1))
     expect(await deviceTokenFor(client, SA2_ACCESS)).toBeUndefined()
-    expect(await deviceTokenFor(client, SSO_INFO_SYNC)).toBe('ESK_1')
+    expect(await deviceTokenFor(client, SEND_MSG)).toBe('ESK_1')
 
     resolveSa2({ token: 'SA2_TOKEN_01', ttlSecs: 7200 })
     await vi.waitFor(() => expect(client.getSession()?.signToken12B).toBe('SA2_TOKEN_01'))
-    expect(await deviceTokenFor(client, SSO_INFO_SYNC)).toBe('SA2_TOKEN_01')
+    expect(await deviceTokenFor(client, SEND_MSG)).toBe('SA2_TOKEN_01')
     expect(await deviceTokenFor(client, SA2_ACCESS)).toBeUndefined()
   })
 })

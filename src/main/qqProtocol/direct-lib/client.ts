@@ -612,7 +612,7 @@ export class DirectProtocolClient extends EventEmitter {
       uin: this.session.uin,
     })
     // xwid 登录突发: 原生 send path 连号快发, 复刻真机登录爆发。非阻塞背景执行 (预签在后台跑,
-    // 完再一次性 blast), 条数 LINUX_XWID_BURST (env 可调, 默认 1)。
+    // 完再一次性 blast), 条数 LINUX_XWID_BURST (env 可调, 默认见常量定义)。
     if (LINUX_XWID_BURST > 0) {
       const body = buildLinuxXwidBody(AppInfo.qua)
       if (body) void this.sendXwidBurst(LINUX_XWID_BURST, body)
