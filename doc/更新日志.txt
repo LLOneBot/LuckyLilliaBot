@@ -1,3 +1,19 @@
+V8.3.0
+更新时间 2026-10-06
+
+* 破坏性改动：Release 压缩包 LLBot-* 改名为 LuckyLillia-*，包内启动程序 llbot.exe / llbot 改名为 LuckyLillia.exe / LuckyLillia
+* 提升 Windows 有头模式稳定性
+* 新增 OneBot API get_group_notice_acklist，获取群公告的已读和未读名单
+* WebQQ 支持下载私聊文件和图片
+* 修复 WebQQ 发送私聊文件后没有显示该文件消息
+* WebUI 界面尝试 Apple Liquid Glass 风格
+* WebUI 仪表盘显示当前使用的协议，位于 LLBot 版本号旁
+* 修复图文混排发送超级表情导致消息被截断、接收端解析中断
+* 修复接收超级表情时多上报一段降级文本
+* 修复上传大文件或网络较慢时因 11 秒超时失败，超时放宽到 20 秒
+* 修复二维码还没生成时反复输出日志
+
+=================
 V8.2.1
 更新时间 2026-09-15
 
