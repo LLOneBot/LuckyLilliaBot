@@ -15,7 +15,7 @@ COPY docker/startup.sh /startup.sh
 RUN chmod +x /startup.sh
 
 RUN set -eux; \
-    wget "https://github.com/LLOneBot/LuckyLilliaBot/releases/download/v${LLBOT_VERSION}/LLBot.zip" -O /app/llbot.zip; \
+    wget "https://github.com/LLOneBot/LuckyLilliaBot/releases/download/v${LLBOT_VERSION}/LuckyLillia.zip" -O /app/llbot.zip; \
     unzip /app/llbot.zip -d /app/llbot; \
     rm /app/llbot.zip; \
     cd /app/llbot; \
