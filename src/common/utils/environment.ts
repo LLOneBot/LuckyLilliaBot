@@ -8,9 +8,41 @@ export function isDockerEnvironment(): boolean {
     }
 }
 
+/**
+ * 解析 PMHQ 连接目标, 返 null = 没传 --pmhq-port = 直连模式。
+ * 空格和等号两种写法都认 (跟 --qq 对齐):
+ *   --pmhq-port <port> / --pmhq-port=<port> / --pmhq-host <host> / --pmhq-host=<host>
+ * 只要出现过 --pmhq-port 就算 PMHQ 模式, 没给值就用默认端口 -- 绝不因为写法不对静默退回直连
+ * (那样会一路扫码连上 msfwifi 才发现跑的是直连)。
+ */
+export function getPmhqTarget(argv: string[] = process.argv): { host: string; port: string } | null {
+    let requested = false
+    let port = '13000'
+    let host = '127.0.0.1'
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i]
+        // 值不能是下一个 flag: `--pmhq-port --dev` 不该把 "--dev" 当端口
+        const next = argv[i + 1] && !argv[i + 1].startsWith('-') ? argv[i + 1] : undefined
+        if (a === '--pmhq-port') {
+            requested = true
+            if (next) port = next
+        } else if (a.startsWith('--pmhq-port=')) {
+            requested = true
+            const v = a.slice('--pmhq-port='.length)
+            if (v) port = v
+        } else if (a === '--pmhq-host') {
+            if (next) host = next
+        } else if (a.startsWith('--pmhq-host=')) {
+            const v = a.slice('--pmhq-host='.length)
+            if (v) host = v
+        }
+    }
+    return requested ? { host, port } : null
+}
+
 /** PMHQ 模式必须传 --pmhq-port (CLI/Desktop/docker 启动脚本都会带), 以此区分直连模式 */
 export function isPmhqMode(): boolean {
-    return process.argv.some(arg => arg.startsWith('--pmhq-port='))
+    return getPmhqTarget() !== null
 }
 
 /**

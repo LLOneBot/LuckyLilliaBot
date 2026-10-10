@@ -9,6 +9,7 @@ import type {
   ResListener,
 } from './types'
 import { Context } from 'cordis'
+import { getPmhqTarget } from '@/common/utils/environment'
 import { buildSsoInfoSync } from './direct-lib'
 import { QQProtocolBase } from './base'
 
@@ -30,9 +31,10 @@ export class PmhqQQProtocol extends QQProtocolBase {
 
   constructor(ctx: Context) {
     super(ctx)
-    const { pmhqHost, pmhqPort } = this.getPMHQHostPort()
-    this.httpUrl = `http://${pmhqHost}:${pmhqPort}/`
-    this.wsUrl = `ws://${pmhqHost}:${pmhqPort}/ws`
+    // 只有 isPmhqMode() 为真才会 plugin 到这个类, ?? 分支实际走不到, 纯为类型收口
+    const { host, port } = getPmhqTarget() ?? { host: '127.0.0.1', port: '13000' }
+    this.httpUrl = `http://${host}:${port}/`
+    this.wsUrl = `ws://${host}:${port}/ws`
   }
 
   protected async start(): Promise<void> {
@@ -178,19 +180,6 @@ export class PmhqQQProtocol extends QQProtocolBase {
   }
 
   // ---- PMHQ 内部: 传输层 (WS / HTTP) ----
-
-  private getPMHQHostPort() {
-    let pmhqPort = '13000'
-    let pmhqHost: string = '127.0.0.1'
-    for (const pArg of process.argv) {
-      if (pArg.startsWith('--pmhq-port=')) {
-        pmhqPort = pArg.replace('--pmhq-port=', '')
-      } else if (pArg.startsWith('--pmhq-host=')) {
-        pmhqHost = pArg.replace('--pmhq-host=', '')
-      }
-    }
-    return { pmhqPort, pmhqHost }
-  }
 
   public addResListener<R extends PMHQRes>(listener: ResListener<R>) {
     const listenerId = randomUUID()
