@@ -61,7 +61,7 @@ export const TELEMETRY_CMDS = {
 } as const
 
 // QQClubComm.getNewFlag — 68B on real. Only f4=uin is account-specific; the rest are static
-// client constants. Not signed (not on the 99-cmd whitelist).
+// client constants. Not signed (on neither sign list -- see cmd.ts SIGN_REQUIRED).
 export function buildGetNewFlag(uin: number): Buffer {
   return Buffer.concat([
     protoVarintField(1, 1),
@@ -157,8 +157,9 @@ export function buildPsKey102a1(): Buffer {
   ])
 }
 
-// OidbSvcTrpcTcp.0x116d_1 — 46B, carries the account uid. Unsigned on real (no f24); not on the
-// sign whitelist, so sendCommand leaves it unsigned.
+// OidbSvcTrpcTcp.0x116d_1 — 46B, carries the account uid. Unsigned on real (no f24), but it IS
+// in the restored 532-entry superset, so sendCommand signs it -- a known deviation from the
+// capture (see cmd.ts SIGN_REQUIRED).
 export function build116d1(uid: string): Buffer {
   const inner = Buffer.concat([
     protoStringField(1, uid),
