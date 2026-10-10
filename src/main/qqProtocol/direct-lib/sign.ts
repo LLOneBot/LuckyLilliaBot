@@ -229,6 +229,16 @@ async function acquireLinuxSignToken(uin: number, qua: string): Promise<{ token:
     return acquireViaManager(uin, qua)
   }
   const r = await proxy.getLinuxSAToken({ qua })
+  // [esk-inner-sample] 旁路采样 (不参与过期计算): 记 ESK 内层两个候选时间戳 + outerTtl。
+  // 多次登录攒样本后离线判别: f3 / f4Ts 是相对 TTL 还是绝对时间戳、哪个是 token 到期。
+  const nowS = Math.floor(Date.now() / 1000)
+  const f3 = r.eskInnerF3 ?? 0
+  const f4Ts = r.eskInnerTokenTs ?? 0
+  logger.info(
+    `[esk-inner-sample] now=${nowS} outerTtl=${r.ttlSecs} f2=${r.eskInnerF2 ?? 0} ` +
+      `f3=${f3} (f3-now=${f3 ? Math.round(f3 - nowS) : 0}) ` +
+      `f4Ts=${f4Ts} (f4Ts-now=${f4Ts ? Math.round(f4Ts - nowS) : 0})`,
+  )
   return { token: r.token, ttlSecs: r.ttlSecs || DEFAULT_TOKEN_TTL_SECS }
 }
 

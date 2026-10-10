@@ -136,6 +136,12 @@ export interface LinuxTokenResult {
   token: string
   /** ESK 响应 field 3 的 TTL(秒); 没解析到是 0 —— 调用方别直接拿 0 算过期时间。 */
   ttlSecs: number
+  /** 诊断 (攒样本定 TTL 语义, 不参与过期计算): ESK 内层明文 field2 原值; 老 .node 无此字段。 */
+  eskInnerF2?: number
+  /** 诊断: ESK 内层 field3 (相对 TTL 或绝对时间戳, 待定)。 */
+  eskInnerF3?: number
+  /** 诊断: ESK 内层 field4 子消息里跟 token 同级的时间戳。 */
+  eskInnerTokenTs?: number
 }
 
 export interface StartSsoReportLinuxArgs {
