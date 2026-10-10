@@ -38,10 +38,8 @@ export function createDashboardRoutes(ctx: Context): Hono {
       const friends = await ctx.ntFriendApi.getFriends(false)
       const groups = await ctx.ntGroupApi.getGroups(false)
 
-      // 直连 / PMHQ 模式都没有独立 QQ 进程的 RPC，QQ 资源占用拿不到
-      const qqMemory = 0
-      const qqCpu = 0
-      const qqMemoryPercent = 0
+      // QQ 进程资源: PMHQ 模式走 PMHQ /health; 直连无 QQ 进程 -> null
+      const qq = await ctx.qqProtocol.getQQResourceUsage()
 
       // Bot 进程资源
       const botTotalMem = os.totalmem()
@@ -51,7 +49,7 @@ export function createDashboardRoutes(ctx: Context): Hono {
       const botCpuPercent = ((cpuUsage.user + cpuUsage.system) / 1000000 / process.uptime() / cpuCores) * 100
       const botMemoryPercent = (memUsage.rss / botTotalMem) * 100
 
-      // 系统 (整机) 资源: Direct 模式无独立 QQ 进程, 前端把 "QQ 资源" 卡换成 "系统资源" 展示这个
+      // 整机资源: 前端独立一张 "系统资源" 卡, 跟 QQ / LLBot 并列
       const sysTotalMem = os.totalmem()
       const sysUsedMem = sysTotalMem - os.freemem()
       const sysMemPercent = (sysUsedMem / sysTotalMem) * 100
@@ -68,7 +66,6 @@ export function createDashboardRoutes(ctx: Context): Hono {
           messageSent: app.messageSentCount,
           startupTime: app.startupTime,
           lastMessageTime: app.lastMessageTime,
-          // Direct 模式无 QQ 进程 -> 前端据此把首张卡显示为 "系统资源"; PMHQ 保留 "QQ 资源"
           mode,
           // 协议端 (--protocol) 只是直连模式的概念, PMHQ 走 QQ 自己的协议 -> 不返
           protocol: mode === 'direct' ? getProtocol() : undefined,
@@ -78,12 +75,8 @@ export function createDashboardRoutes(ctx: Context): Hono {
             memoryPercent: botMemoryPercent,
             cpu: botCpuPercent,
           },
-          qq: {
-            memory: qqMemory,
-            totalMemory: 0,
-            memoryPercent: qqMemoryPercent,
-            cpu: qqCpu,
-          },
+          // 拿不到就不返, 前端据此整张 "QQ 资源" 卡不渲染
+          qq: qq ?? undefined,
           system: {
             memory: sysUsedMem,
             totalMemory: sysTotalMem,

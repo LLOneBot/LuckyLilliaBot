@@ -49,7 +49,16 @@ describe('dashboard routes', () => {
       expect(body.data.messageReceived).toBe(100)
       expect(body.data.messageSent).toBe(50)
       expect(body.data.bot).toBeDefined()
-      expect(body.data.qq).toBeDefined()
+      expect(body.data.qq.memory).toBe(500000000)
+      expect(body.data.qq.cpu).toBe(1.5)
+    })
+
+    it('omits qq when the protocol cannot read the QQ process', async () => {
+      mockAppReady()
+      ctx.qqProtocol.getQQResourceUsage.mockResolvedValue(null)
+      const data = await stats()
+      expect(data.qq).toBeUndefined()
+      expect(data.system).toBeDefined()
     })
 
     function mockAppReady() {

@@ -11,6 +11,7 @@ export type {
   PMHQRes,
   PMHQReq,
   ResListener,
+  QQResourceUsage,
 } from './types'
 
 export { QQProtocolBase } from './base'

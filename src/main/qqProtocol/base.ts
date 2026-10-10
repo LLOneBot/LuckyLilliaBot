@@ -5,7 +5,7 @@ import { writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import QRCode from 'qrcode'
 import { Oidb } from '@/ntqqapi/proto'
-import type { PBData } from './types'
+import type { PBData, QQResourceUsage } from './types'
 import { Context, Service } from 'cordis'
 import { setLoginState } from '../llbot-ipc'
 
@@ -113,6 +113,14 @@ export abstract class QQProtocolBase extends Service {
 
   /** 退出当前 QQ 登录, 回未登录态. 仅 Direct 模式实现; PMHQ 走 base 默认 no-op. */
   public async logout(): Promise<void> {}
+
+  /**
+   * QQ 进程的 CPU/内存占用. **仅 PMHQ 模式实现** (PMHQ /health 直接给)。
+   * Direct 模式纯代码复刻, 根本没有 QQ 进程可量 -> null, WebUI 据此不渲染 "QQ 资源" 卡。
+   */
+  public async getQQResourceUsage(): Promise<QQResourceUsage | null> {
+    return null
+  }
 
   /**
    * 模式启动入口. cordis Service.init 里 await 一次:

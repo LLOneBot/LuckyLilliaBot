@@ -5,7 +5,9 @@ import type {
   PMHQRes,
   PMHQReq,
   PMHQResSendPB,
+  PMHQHealth,
   PBData,
+  QQResourceUsage,
   ResListener,
 } from './types'
 import { Context } from 'cordis'
@@ -129,7 +131,7 @@ export class PmhqQQProtocol extends QQProtocolBase {
       try {
         const resp = await fetch(`${this.httpUrl}health`)
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-        const health = await resp.json() as { uin?: number | null; uid?: string | null }
+        const health = await resp.json() as PMHQHealth
         if (this.pmhqProbeToken !== myToken) return
 
         if (health.uin && health.uid) {
@@ -177,6 +179,31 @@ export class PmhqQQProtocol extends QQProtocolBase {
     const resp = await fetch(`${this.httpUrl}get_login_qrcode`)
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
     return await resp.json()
+  }
+
+  /**
+   * QQ 进程资源占用: PMHQ /health 的 memory (字节) + cpu (整机占比小数)。
+   * cpu 是 PMHQ 按相邻两次 /health 的增量算的, 所以第一次调恒为 0, 之后的值覆盖
+   * "上次有人打 /health 到现在" 这段窗口 (WebUI 5s 一轮 -> 就是 5s 均值)。
+   * 老 PMHQ 不返这两个字段 -> null, WebUI 不渲染 "QQ 资源" 卡。
+   */
+  public async getQQResourceUsage(): Promise<QQResourceUsage | null> {
+    try {
+      const resp = await fetch(`${this.httpUrl}health`, { signal: AbortSignal.timeout(3000) })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      const { memory, cpu, qq_full_version } = (await resp.json()) as PMHQHealth
+      if (!memory || !cpu) return null
+      return {
+        memory: memory.qq_using,
+        totalMemory: memory.total,
+        memoryPercent: memory.total > 0 ? (memory.qq_using / memory.total) * 100 : 0,
+        cpu: Math.min(100, Math.max(0, (cpu.qq_using / (cpu.total || 1)) * 100)),
+        version: qq_full_version || undefined,
+      }
+    } catch (e) {
+      this.logger.debug('PMHQ /health 取资源占用失败: %s', (e as Error).message)
+      return null
+    }
   }
 
   // ---- PMHQ 内部: 传输层 (WS / HTTP) ----

@@ -45,9 +45,12 @@ export function createMockContext() {
       getPttUrl: vi.fn(),
     },
     qqProtocol: {
-      getProcessInfo: vi.fn(() => Promise.resolve({
-        memory: { rss: 100000000, totalMem: 8000000000 },
-        cpu: { percent: 5.0 },
+      getQQResourceUsage: vi.fn(() => Promise.resolve({
+        memory: 500000000,
+        totalMemory: 8000000000,
+        memoryPercent: 6.25,
+        cpu: 1.5,
+        version: '9.9.19-34566',
       })),
       getMultiMsg: vi.fn(() => Promise.resolve([])),
     },

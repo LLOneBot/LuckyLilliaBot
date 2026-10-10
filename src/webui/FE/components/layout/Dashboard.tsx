@@ -15,13 +15,14 @@ interface DashboardStats {
     memoryPercent: number
     cpu: number
   }
-  qq: {
+  // 仅 PMHQ 模式有 (来自 PMHQ /health); 直连没有 QQ 进程 -> 后端不返, 这张卡整个不渲染
+  qq?: {
     memory: number
     totalMemory: number
     memoryPercent: number
     cpu: number
+    version?: string
   }
-  // Direct 模式无独立 QQ 进程, 后端返回整机资源, 首张卡显示为 "系统资源"
   mode?: 'direct' | 'pmhq'
   // 直连模式的协议端 (--protocol); PMHQ 不返
   protocol?: string
@@ -80,6 +81,14 @@ const generateMockStats = (): DashboardStats => ({
     totalMemory: 16 * 1024 * 1024 * 1024,
     memoryPercent: 5 + Math.random() * 8,
     cpu: 5 + Math.random() * 15,
+    version: '9.9.19-34566',
+  },
+  system: {
+    memory: (6 + Math.random() * 3) * 1024 * 1024 * 1024,
+    totalMemory: 16 * 1024 * 1024 * 1024,
+    memoryPercent: 38 + Math.random() * 20,
+    cpu: 10 + Math.random() * 25,
+    label: '16 核',
   },
 })
 
@@ -284,6 +293,8 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
   }
 
   const protocolLabel = stats.protocol ? PROTOCOL_LABELS[stats.protocol] ?? stats.protocol : undefined
+  // 直连没有 QQ 卡 -> 只剩两张, 保持两列不留空位
+  const resourceCardCount = 1 + (stats.qq ? 1 : 0) + (stats.system ? 1 : 0)
 
   return (
     <div className="space-y-5">
@@ -344,26 +355,11 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {stats.mode === 'direct' && stats.system ? (
-          <ResourceCard
-            title="系统资源"
-            version={stats.system.label}
-            icon={<Server size={16} className={GLYPH} />}
-            gradient="bg-gradient-to-br from-[#14b8a6] to-[#10b981]"
-            cpu={stats.system.cpu}
-            memory={stats.system.memory}
-            totalMemory={stats.system.totalMemory}
-            memoryPercent={stats.system.memoryPercent}
-            cpuGradientId="qqCpuGradient"
-            memGradientId="qqMemGradient"
-            cpuColors={CPU_RING}
-            memColors={MEM_RING}
-          />
-        ) : (
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 ${resourceCardCount >= 3 ? 'lg:grid-cols-3' : ''}`}>
+        {stats.qq && (
           <ResourceCard
             title="QQ 资源"
-            version={qqVersion}
+            version={stats.qq.version || qqVersion}
             icon={<MessageCircle size={16} className={GLYPH} />}
             gradient="bg-gradient-to-br from-[#14b8a6] to-[#10b981]"
             cpu={stats.qq.cpu}
@@ -391,6 +387,22 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
           cpuColors={CPU_RING}
           memColors={MEM_RING}
         />
+        {stats.system && (
+          <ResourceCard
+            title="系统资源"
+            version={stats.system.label}
+            icon={<Server size={16} className={GLYPH} />}
+            gradient="bg-gradient-to-br from-[#8b5cf6] to-[#6366f1]"
+            cpu={stats.system.cpu}
+            memory={stats.system.memory}
+            totalMemory={stats.system.totalMemory}
+            memoryPercent={stats.system.memoryPercent}
+            cpuGradientId="sysCpuGradient"
+            memGradientId="sysMemGradient"
+            cpuColors={CPU_RING}
+            memColors={MEM_RING}
+          />
+        )}
       </div>
     </div>
   )
