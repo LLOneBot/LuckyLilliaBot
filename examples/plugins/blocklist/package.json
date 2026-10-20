@@ -1,0 +1,17 @@
+{
+  "name": "luckylillia-plugin-blocklist",
+  "version": "1.0.0",
+  "description": "Drops messages from listed users before any other plugin sees them",
+  "type": "module",
+  "main": "src/index.ts",
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "description": {
+      "zh": "名单里的用户发的消息, 其他插件都收不到",
+      "en": "Drops messages from listed users before any other plugin sees them"
+    },
+    "icon": "shield-ban"
+  }
+}

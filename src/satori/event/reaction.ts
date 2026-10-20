@@ -1,4 +1,4 @@
-import SatoriAdapter from '../adapter'
+import type { NormalizeHost } from '../../universal/types'
 import * as NT from '@/ntqqapi/types'
 import * as Universal from '@satorijs/protocol'
 import { encodeMessageId } from '../utils'
@@ -32,14 +32,14 @@ function buildReactionPayload(data: NT.GroupMessageReactionEvent) {
 }
 
 export async function parseReactionAdded(
-  bot: SatoriAdapter,
+  bot: NormalizeHost,
   data: NT.GroupMessageReactionEvent
 ) {
   return bot.event('reaction-added', buildReactionPayload(data))
 }
 
 export async function parseReactionRemoved(
-  bot: SatoriAdapter,
+  bot: NormalizeHost,
   data: NT.GroupMessageReactionEvent
 ) {
   return bot.event('reaction-removed', buildReactionPayload(data))

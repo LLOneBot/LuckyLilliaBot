@@ -45,6 +45,19 @@ export function apply(ctx: Context, config: Config) {
 
 把构建产物放进 Bot 的 `data/plugins/<目录名>/`，在 WebUI 的插件页启用即可。
 
+## 收发消息
+
+事件和消息走平台无关的 Satori 模型，`inject: ['bots']` 后：
+
+```ts
+ctx.on('bot/message', async (session, next) => {
+  if (session.content !== 'ping') return next()
+  await session.reply('pong')
+})
+```
+
+`bot/message` 是中间件链（不调 `next()` 就拦下这条消息），其它事件走 `bot/event`，发送前可以用 `bot/before-send` 改写。完整说明见仓库内 `docs/plugin-authoring.md`。
+
 ## 必须遵守的几条
 
 - **构建时把 `@luckylillia/plugin-sdk`、`cordis`、`schemastery`、`@satorijs/*` 标为 external。** Bot 在加载插件时会把这些包统一解析到自己那一份；如果打进了插件产物，插件里的 `Service` / `Context` 和 Bot 的不是同一个，加载会被拒绝。

@@ -18,6 +18,38 @@ Bot 进程本身就是一个 cordis 4 应用，插件运行时只是在根 `Cont
 
 `PluginService` 在 `src/main/main.ts` 里紧跟 `ConfigService` 挂载，早于协议层和登录。插件需要登录后才有的服务就自己 `inject`，没就绪时 fiber 停在 PENDING，cordis 会在服务出现后自动拉起 —— 运行时不关心登录状态。
 
+## 中立层（Satori）
+
+插件只看到平台无关的一层：`ctx.bots`、`Session` 和 `bot/*` 事件，类型定义在 SDK 的 `packages/plugin-sdk/src/universal.ts`。数据模型直接用 `@satorijs/protocol` / `@satorijs/element`（不依赖 cordis）；`@satorijs/core` 还停在 cordis 3，不能用，`Bot` / `Session` 是自己实现的。
+
+```
+qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
+                         ├─► Core / OneBot11 / Milky / Satori 适配器 / WebUI     各自照旧订阅
+                         └─► NTQQUniversal ─► ctx.bots.dispatch(bot, event)
+                                                ├─ 别人的消息  ─► bot/message（waterfall 中间件链）
+                                                └─ 其余事件    ─► bot/event（parallel）
+```
+
+- **`nt/*` 永久保留**，不是过渡态：`nt/pin-changed`、`nt/ptt-trans-result`、`nt/profile-like`、`nt/group-essence-message-changed` 在 Satori 里没有对应事件，OneBot / Milky 依赖这些细节
+- `src/universal/bots.ts`：`BotsService`（`ctx.bots`）。`register(bot)` 用调用方的 `ctx.effect` 登记，调用方插件卸载时 bot 自动注销 —— 靠的是 cordis 的 tracker：经 `ctx.bots` 访问时方法里的 `this.ctx` 是调用方的 ctx。这些方法跑在实例的 shadow 上，只能改字段内容、不能重新赋值字段
+- **bot 自己发出的消息不进 `bot/message`**，走 `bot/event`：中间件只看它能回应的消息，避免回复自己造成循环（Koishi 也是这么做的）
+- `bot/before-send` 只覆盖经 `bot.sendMessage` 发出的消息。OneBot / Milky 的 `send_msg` 直接调 `ctx.app.sendMessage`，刻意不拦：否则插件能悄悄改写下游客户端的消息。真有需要时在 `Core.sendMessage` 加钩子，按 breaking change 处理
+- `src/universal/session.ts`：`Session` 的驼峰字段都是从 snake_case 的 Satori 事件里读的；`elements` 是对 `content` 的懒 `h.parse()`
+- `src/universal/ntqq/`：`NTQQUniversal` 插件（登录后与三个适配器并列加载）和 `NTQQBot`。`NTQQBot.platform` 是 `llonebot` —— Satori 适配器的历史值，下游 Satori 客户端靠它识别，不能改
+
+**转换器复用的是 Satori 适配器的现成代码**：
+
+| 能力 | 位置 |
+|---|---|
+| NT 消息 → `h[]` / Satori 资源 | `src/satori/utils.ts` 的 `decodeElement()` / `decodeMessage()` 等 |
+| 12 种 `nt/*` → Satori 事件 | `src/satori/event/*.ts` 的 `parseXxx(host, data)`，`host` 是 `src/universal/types.ts` 的结构性接口 `NormalizeHost`（只要 `ctx` 和 `event()`），`SatoriAdapter` 和 `NTQQBot` 都满足 |
+| `h[]` → NT 发送元素 → 发出 | `src/satori/message.ts` 的 `MessageEncoder` |
+| Bot 的可选能力 | 直接调 `src/satori/api/*` 里对应的 handler |
+
+这些文件仍在 `src/satori/` 下，按理应提升到 `src/universal/ntqq/`，留作后续整理。`NTQQUniversal.inject` 必须覆盖转换器和 `MessageEncoder` 经 `ctx` 访问的全部服务（目前和 `SatoriAdapter.inject` 一致），否则 cordis 严格模式下会抛 `cannot get property without inject`。
+
+以后接 QQ 官方机器人：写一个适配器插件，实现 `Bot`（`sendMessage` 必须，其它按平台能力挑），发送前调 `ctx.bots.beforeSend()`，收到的事件转成 Satori 事件后 `ctx.bots.dispatch()`，在 apply 里 `ctx.bots.register(bot)`。不需要碰任何 `nt/*`。
+
 ## 插件包与条目
 
 **包**：插件根目录（默认 `data/plugins/`，外加任意个 `--plugin-dir <path>`）下的子目录，`package.json` 里有 `llbot` 字段才算。`@scope/` 目录会再往下找一层。入口按 `exports` → `main` → `index.js` 解析。同名包只认第一个，其余打 warn。

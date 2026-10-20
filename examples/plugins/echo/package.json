@@ -1,0 +1,17 @@
+{
+  "name": "luckylillia-plugin-echo",
+  "version": "1.0.0",
+  "description": "Replies with whatever follows the prefix",
+  "type": "module",
+  "main": "src/index.ts",
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "description": {
+      "zh": "收到以前缀开头的消息时, 引用回复前缀后面的内容",
+      "en": "Replies with whatever follows the prefix"
+    },
+    "icon": "repeat"
+  }
+}

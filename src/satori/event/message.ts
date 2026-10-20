@@ -1,11 +1,11 @@
 import * as NT from '@/ntqqapi/types'
 import * as Universal from '@satorijs/protocol'
-import SatoriAdapter from '../adapter'
+import type { NormalizeHost } from '../../universal/types'
 import { decodeGuildChannelId, decodeMessage, encodeMessageId } from '../utils'
 import { omit } from 'cosmokit'
 
 export async function parseMessageCreated(
-  bot: SatoriAdapter,
+  bot: NormalizeHost,
   data: NT.MessageCreatedEvent
 ) {
   const message = await decodeMessage(bot.ctx, data.message)
@@ -21,7 +21,7 @@ export async function parseMessageCreated(
 }
 
 export async function parseMessageDeleted(
-  bot: SatoriAdapter,
+  bot: NormalizeHost,
   data: NT.MessageDeletedEvent
 ) {
   const [guildId, channelId] = decodeGuildChannelId({

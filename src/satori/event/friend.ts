@@ -1,8 +1,8 @@
 import * as NT from '@/ntqqapi/types'
-import SatoriAdapter from '../adapter'
+import type { NormalizeHost } from '../../universal/types'
 
 export async function parseFriendRequest(
-  bot: SatoriAdapter,
+  bot: NormalizeHost,
   data: NT.FriendRequestEvent
 ) {
   return bot.event('friend-request', {

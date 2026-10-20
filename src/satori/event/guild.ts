@@ -1,9 +1,9 @@
 import * as NT from '@/ntqqapi/types'
-import SatoriAdapter from '../adapter'
+import type { NormalizeHost } from '../../universal/types'
 import { encodeGroupRequestFlag } from '../utils'
 
 export async function parseGuildAdded(
-  bot: SatoriAdapter,
+  bot: NormalizeHost,
   data: NT.GroupAddedEvent
 ) {
   return bot.event('guild-added', {
@@ -14,7 +14,7 @@ export async function parseGuildAdded(
 }
 
 export async function parseGuildUpdated(
-  bot: SatoriAdapter,
+  bot: NormalizeHost,
   data: NT.GroupNameChangedEvent
 ) {
   return bot.event('guild-updated', {
@@ -26,7 +26,7 @@ export async function parseGuildUpdated(
 }
 
 export async function parseGuildRemoved(
-  bot: SatoriAdapter,
+  bot: NormalizeHost,
   data: NT.GroupRemovedEvent
 ) {
   return bot.event('guild-removed', {
@@ -37,7 +37,7 @@ export async function parseGuildRemoved(
 }
 
 export async function parseGuildRequest(
-  bot: SatoriAdapter,
+  bot: NormalizeHost,
   data: NT.GroupInvitationEvent
 ) {
   return bot.event('guild-request', {

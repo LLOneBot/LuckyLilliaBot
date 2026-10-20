@@ -34,4 +34,6 @@
 - `isConstructor(fn)` 的判据只是"有 `prototype`"：`function apply() {}` 这种函数声明会被 `new` 调用，返回值被当成实例丢掉。插件的清理逻辑必须走 `ctx.effect()`
 - `Service` 构造时把 `this[Service.check]` 传给 `reflect.provide(name, value, check)`；`reflect.notify([name])` 会对所有 inject 了它的 fiber 重新求值 check 并刷新 —— 可以用来做"条件满足才可用"的门闸服务
 - 类型声明里相对 import 不带扩展名（上游 rc.11 之后的 #125 才修），`moduleResolution: NodeNext` 下会静默丢掉 `Service` / `Inject` 等导出，连产物里的 `Context` 都会被当成类型擦掉。用 `Bundler`
-- 事件分发五种模式都有：`emit / parallel / serial / bail / waterfall`。`waterfall` 的最后一个实参是终端处理器，被 `pop()` 掉后每个 listener 收到 `(...args, next)`，不调 `next` 即短路
+- 事件分发五种模式都有：`emit / parallel / serial / bail / waterfall`。`waterfall` 的最后一个实参是终端处理器，被 `pop()` 掉后每个 listener 收到 `(...args, next)`，不调 `next` 即短路。rc.11 里终端处理器被**不带参数**调用，`next()` 也不收参数，调第二次直接抛 `next() called multiple times` —— 想"改写后传下去"只能原地改参数对象，或者处理 `await next()` 的返回值
+- `ctx.waterfall` / `ctx.parallel` 的第一个实参若是对象或函数，会被当成 `thisArg` 吃掉，并按它的 `[Context.filter]` 过滤监听器（插件作用域的基础）。事件名放第一个参数时不受影响
+- Service 实例带 tracker（`property: 'ctx'`）：经 `ctx.xxx` 访问服务时，方法里的 `this.ctx` 是**调用方**的 ctx，在里面 `this.ctx.effect(...)` 就挂在调用方的生命周期上。方法跑在实例的 shadow 上，给字段重新赋值只会落在 shadow 上

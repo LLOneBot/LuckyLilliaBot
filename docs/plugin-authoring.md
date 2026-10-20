@@ -83,6 +83,42 @@ ctx.effect(() => {                                 // 其它资源：返回清�
 
 `inject` 里列的服务都就绪后插件才会运行。等待中的插件在 WebUI 显示为"等待中"，并列出还缺哪些服务 —— 比如登录后才存在的服务，登录前就会一直等着，登录后自动启动。
 
+## 收发消息
+
+插件只和**中立层**打交道：事件是 [Satori](https://satori.chat/zh-CN/protocol/events.html) 事件，消息内容是 `@satorijs/element` 的元素。同一份插件代码以后也能跑在别的平台（比如 QQ 官方机器人）上。`inject: ['bots']` 即可使用。
+
+```ts
+// 中间件：别人发来的每条消息按注册顺序经过各个插件，不调 next() 就到此为止，后面的插件收不到
+ctx.on('bot/message', async (session, next) => {
+  if (!session.content.startsWith('echo ')) return next()
+  await session.reply(session.content.slice(5))
+})
+
+// 其它所有事件（成员进群、撤回、表情回应、好友申请……）以及 bot 自己发出的消息
+ctx.on('bot/event', async (session) => {
+  if (session.type === 'guild-member-added') await session.send([h('at', { id: session.userId }), ' 欢迎'])
+})
+
+// 发送前改写：原地改 content 再交给 next()，或者处理 next() 的结果；返回 [] 取消发送
+ctx.on('bot/before-send', (bot, channelId, content, next) => {
+  content.push(h.text(' [bot]'))
+  return next()
+})
+```
+
+| 事件 | 分发方式 | 说明 |
+|---|---|---|
+| `bot/message` | waterfall | 别人发来的消息。`ctx.on(..., { prepend: true })` 可以排到最前面（比如黑名单） |
+| `bot/event` | parallel | 除上面之外的所有事件，包括 bot 自己的消息 |
+| `bot/before-send` | waterfall | 只拦截插件经 `bot.sendMessage` / `session.send` 发出的消息，OneBot / Milky / Satori 客户端发的不经过这里 |
+| `bot/status` | parallel | bot 注册、上线、离线 |
+
+`Session` 常用字段：`type`、`userId`、`channelId`、`guildId`（私聊为空）、`messageId`、`isDirect`、`content`（元素标记字符串）、`elements`（解析后的元素，取 @ 可以用 `h.select(session.elements, 'at')`）、`event`（原始 Satori 事件，snake_case），以及 `send()` / `reply()`（引用回复）。
+
+`ctx.bots` 里是已登录的账号（`Bot`）。`sendMessage` 一定有，其它能力（`deleteMessage`、`getGuildMember`、`muteGuildMember`、`kickGuildMember`、`createReaction`……）按平台支持情况提供，用之前先判断 `if (bot.muteGuildMember)`。QQ 账号的 `platform` 是 `llonebot`，私聊的 channelId 形如 `private:<QQ号>`，群的 channelId 就是群号。
+
+一条消息在某个中间件里抛错，会让这条消息的整条链中止（错误会记日志）。
+
 ## 构建
 
 **把下面这些包标为 external，不要打进产物：**

@@ -37,6 +37,8 @@ import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
 import { startIpcServer, setLoginState } from './llbot-ipc'
 import PluginService from '../plugin'
+import BotsService from '../universal/bots'
+import * as NTQQUniversal from '../universal/ntqq'
 
 declare module 'cordis' {
   interface Events {
@@ -82,6 +84,7 @@ async function onLoad() {
   bindLoggerFactory((name) => ctx.logger(name))
   ctx.plugin(TimerService)
   ctx.plugin(ConfigService)
+  ctx.plugin(BotsService)
   ctx.plugin(PluginService, {
     file: path.join(DATA_DIR, 'plugins.json'),
     roots: [pluginDir, ...getPluginDirs().map(dir => path.resolve(dir))],
@@ -122,6 +125,7 @@ async function onLoad() {
       ffmpeg: config.ffmpeg,
     })
     ctx.plugin(MilkyAdapter, config.milky)
+    ctx.plugin(NTQQUniversal)
     ctx.plugin(Store, {
       msgCacheExpire: config.msgCacheExpire!,
     })
