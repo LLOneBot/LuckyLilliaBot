@@ -5,8 +5,8 @@ import {
 import { PluginStatus } from '@/webui/FE/types/plugins'
 
 const Component = () => null
-const page = (owner: string, key: string, title: string, order = 100): Contribution =>
-  ({ kind: 'page', owner, key, title, order, component: Component })
+const page = (owner: string, key: string, title: string, order = 100, settings = false): Contribution =>
+  ({ kind: 'page', owner, key, title, order, settings, component: Component })
 
 function status(name: string, state: PluginStatus['state']): PluginStatus {
   return {
@@ -22,6 +22,7 @@ describe('plugin UI registry', () => {
       page('a', 'a:home', 'Home'),
       page('builtin:webqq', 'webqq', 'WebQQ', 0),
       page('stopped', 'stopped:x', 'X'),
+      page('builtin:satori', 'satori', 'Satori', 11, true),
       { kind: 'slot', owner: 'b', slot: 'dashboard', order: 100, component: Component },
       { kind: 'slot', owner: 'a', slot: 'dashboard', order: 50, component: Component },
       { kind: 'slot', owner: 'stopped', slot: 'dashboard', order: 0, component: Component },
@@ -29,7 +30,8 @@ describe('plugin UI registry', () => {
     const active = activeOwners([
       status('a', 'active'), status('b', 'active'), status('builtin:webqq', 'active'), status('stopped', 'pending'),
     ])
-    expect(visiblePages(contributions, active).map(p => p.key)).toEqual(['webqq', 'a:home', 'b:stats'])
+    // A settings page stays reachable while its plugin is stopped
+    expect(visiblePages(contributions, active).map(p => p.key)).toEqual(['webqq', 'satori', 'a:home', 'b:stats'])
     expect(slotContents(contributions, active, 'dashboard').map(s => s.owner)).toEqual(['a', 'b'])
     expect(slotContents(contributions, active, 'elsewhere')).toEqual([])
   })

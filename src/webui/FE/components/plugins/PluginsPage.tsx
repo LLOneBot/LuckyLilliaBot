@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { usePluginList } from '../../plugin-host/pluginList'
+import { useSettingsPages } from '../../plugin-host/views'
 import { FolderSearch, Loader2, Puzzle } from 'lucide-react'
 import { showToast } from '../common'
 import { PluginStatus } from '../../types/plugins'
@@ -39,6 +40,11 @@ const PluginsPage: React.FC = () => {
     [plugins],
   )
   const conflicts = useMemo(() => findConflicts(plugins ?? []), [plugins])
+  const settingsPages = useSettingsPages()
+  const openSettings = (plugin: PluginStatus) => {
+    const key = settingsPages.get(plugin.name)
+    return key ? () => { window.location.hash = key } : undefined
+  }
   const countByName = useMemo(() => {
     const counts = new Map<string, number>()
     for (const plugin of installed) counts.set(plugin.name, (counts.get(plugin.name) ?? 0) + 1)
@@ -124,8 +130,8 @@ const PluginsPage: React.FC = () => {
                 plugin={plugin}
                 busy={busy.has(plugin.id)}
                 onToggle={enabled => toggle(plugin, enabled)}
-                // Builtins keep their settings on the existing tabs; App follows the hash
-                onConfigure={plugin.settings ? () => { window.location.hash = plugin.settings! } : undefined}
+                // A plugin with a settings page is configured there; App follows the hash
+                onConfigure={openSettings(plugin)}
                 onReload={() => reload(plugin)}
               />
             ))}
@@ -152,7 +158,7 @@ const PluginsPage: React.FC = () => {
                   conflicts={conflicts.get(plugin.id)}
                   busy={busy.has(plugin.id)}
                   onToggle={enabled => toggle(plugin, enabled)}
-                  onConfigure={() => setEditing(plugin)}
+                  onConfigure={openSettings(plugin) ?? (() => setEditing(plugin))}
                   onReload={() => reload(plugin)}
                   onDuplicate={() => duplicate(plugin)}
                 />

@@ -20,8 +20,16 @@ export interface PageOptions {
   icon?: string
   /** Rendered without props. */
   component: Component<{}>
-  /** Sidebar position among plugin pages, lowest first. Defaults to 100. */
+  /**
+   * Sidebar position, lowest first, shared with the WebUI's own entries: Dashboard 0, 日志 20, 其他配置 30,
+   * 插件 40, 关于 1000. Defaults to 100.
+   */
   order?: number
+  /**
+   * A settings page: listed and openable while the plugin is disabled too, under a notice that its settings
+   * take effect once the plugin runs. Other pages only show while the plugin runs.
+   */
+  settings?: boolean
 }
 
 /** Named places in the WebUI layout, with the props their components get. */

@@ -44,8 +44,6 @@ export interface PluginStatus {
   core?: boolean
   /** Display name of a builtin. */
   title?: string
-  /** WebUI tab that holds the settings of a builtin. */
-  settings?: string
   /** Declared in the manifest, plus what the module injects and provides once it has been loaded. */
   service: ServiceDeclaration
   /** URL of the WebUI module; it changes whenever the package is reloaded, so the WebUI imports it afresh. */
@@ -76,7 +74,6 @@ export interface BuiltinPlugin {
   title: string
   manifest: LLBotManifest
   core?: boolean
-  settings?: string
 }
 
 export type ReloadResult = { status: 'reloaded' } | { status: 'restart-required'; reason: string }
@@ -556,7 +553,7 @@ class PluginService extends Service {
       webui: pkg?.webui && webuiUrl(pkg, this.webuiVersions.get(pkg.name) ?? 0),
     }
     if (builtin) {
-      Object.assign(status, { builtin: true, core: !!builtin.core, title: builtin.title, settings: builtin.settings })
+      Object.assign(status, { builtin: true, core: !!builtin.core, title: builtin.title })
     } else {
       if (!pkg) return { ...status, state: 'missing' }
       const incompatible = this.incompatibility(pkg)

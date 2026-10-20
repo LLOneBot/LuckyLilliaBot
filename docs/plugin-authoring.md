@@ -171,6 +171,7 @@ ctx.on('bot/before-send', (bot, channelId, content, next) => {
 | 挂载点 | 注册 | 什么时候出现 |
 |---|---|---|
 | 侧边栏页面 | `ctx.page({ id, title, icon, component, order })` | 插件运行时 |
+| 侧边栏设置页 | `ctx.page({ ..., settings: true })` | 一直显示，插件停用时顶部提示设置暂不生效 |
 | 具名插槽，目前只有 Dashboard 底部的 `dashboard` | `ctx.slot('dashboard', Component)` | 插件运行时 |
 | 配置界面，替换自动表单 | `ctx.config(Editor)` | 一直可用，插件停用时也能配置 |
 | 某个 role 的表单控件 | `ctx.field('color', Field)` | 所有插件的自动表单里 `.role('color')` 的字段 |
@@ -195,6 +196,8 @@ export default function apply(ctx) {
 - 类型在 `@luckylillia/plugin-sdk/webui`：`WebUIContext`、`ConfigEditorProps`、`FieldProps` 等
 - 组件里用 `usePluginContext()` 拿到同一个 ctx：`ctx.api(path, { method, body })` 带着 WebUI 登录调 Bot 的接口，返回 `{ success, data }` 里的 `data`；`ctx.events(path, { 事件名: data => {} })` 订阅 SSE；`ctx.toast()`
 - 页面的 tab id 是 `<包名>:<id>`，地址栏 `#<包名>:<id>` 能直接打开
+- `order` 和 WebUI 自己的入口一起排：Dashboard 0、日志 20、其他配置 30、插件 40、关于 1000，内置的 OneBot 11 / Satori / Milky / 邮件通知是 10 ~ 13、WebQQ 50；不填是 100
+- 注册了设置页的插件，插件页卡片上的"配置"会跳到这个页面，而不是打开配置弹窗
 - 代码拆分用 `React.lazy()`，WebUI 渲染插件组件时套了 Suspense
 - 插件重载时 WebUI 撤掉旧模块注册的一切，再导入新模块，页面不用刷新；`apply` 返回的清理函数也会在这时调用
 

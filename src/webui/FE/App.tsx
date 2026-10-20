@@ -3,7 +3,6 @@ import {
   Sidebar,
   Dashboard,
   LogViewer,
-  OneBotConfigNew,
   OtherConfig,
   TokenDialog,
   AuthTokenDialog,
@@ -12,29 +11,29 @@ import {
   ToastContainer,
   showToast,
   AnimatedBackground,
-  HostSelector,
 } from './components';
 import { WebQQFullscreen } from './components/WebQQ';
-import { BuiltinDisabledNotice, PluginsPage } from './components/plugins';
+import { PluginsPage } from './components/plugins';
 import { iconByName } from './components/plugins/meta';
-import { PluginPage, PluginPageUnavailable, usePluginHost, useVisiblePages } from './plugin-host';
-import { Config, ResConfig, EmailConfig } from './types';
+import { BotConfigContext } from './components/config/BotConfigContext';
+import { BUILTIN_PAGE_IDS, PluginPage, PluginPageUnavailable, usePluginHost, useVisiblePages } from './plugin-host';
+import { Config, ResConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
 import { deleteCookie } from './utils/cookie';
 import { setCurrentUin } from './utils/currentUin';
 import { hydrateWebQQStore } from './stores/webqqStore';
-import { Save, Loader2, Eye, EyeOff, Plus, Trash2, Menu, Cpu, Milk, ExternalLink } from 'lucide-react';
+import { Save, Loader2, Menu } from 'lucide-react';
 import { defaultConfig } from '../../main/config/defaultConfig'
 import { version } from '../../version'
 import SettingsDialog from './components/common/SettingsDialog'
 import { useSettingsStore } from './stores/settingsStore'
 
 
-const BUILTIN_TABS = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'plugins', 'about']
+const BUILTIN_TABS = ['dashboard', 'logs', 'other', 'plugins', 'about']
 
 // Plugin pages register after the plugin list loads, so their tabs are recognised by shape:
-// WebQQ (a builtin plugin) by name, everything else as `<package>:<page id>`
-const isPluginTab = (tab: string) => tab === 'webqq' || tab === 'webqq-fullscreen' || tab.includes(':')
+// pages of builtin plugins by id, everything else as `<package>:<page id>`
+const isPluginTab = (tab: string) => BUILTIN_PAGE_IDS.includes(tab) || tab === 'webqq-fullscreen' || tab.includes(':')
 
 const isKnownTab = (tab: string) => BUILTIN_TABS.includes(tab) || isPluginTab(tab)
 
@@ -47,7 +46,6 @@ function App() {
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [config, setConfig] = useState<Config>(defaultConfig);
-  const [emailConfig, setEmailConfig] = useState<EmailConfig | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -56,9 +54,6 @@ function App() {
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordResolve, setPasswordResolve] = useState<((value: string) => void) | null>(null);
-  const [showSatoriToken, setShowSatoriToken] = useState(false);
-  const [showMilkyToken, setShowMilkyToken] = useState(false);
-  const [showMilkyWebhookToken, setShowMilkyWebhookToken] = useState(false);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
   const [showAuthTokenDialog, setShowAuthTokenDialog] = useState(false);
   const [authTokenReason, setAuthTokenReason] = useState<'missing' | 'invalid'>('missing');
@@ -72,7 +67,7 @@ function App() {
   const pluginPages = useVisiblePages();
   const currentPluginPage = pluginPages.find(page => page.key === activeTab);
   const sidebarPluginPages = useMemo(
-    () => pluginPages.map(page => ({ id: page.key, title: page.title, icon: iconByName(page.icon) })),
+    () => pluginPages.map(page => ({ id: page.key, title: page.title, icon: iconByName(page.icon), order: page.order })),
     [pluginPages],
   );
 
@@ -143,16 +138,6 @@ function App() {
           // 获取主配置
           setConfig(response.data.config);
 
-          // 获取邮件配置（独立管理）
-          try {
-            const emailResponse = await apiFetch<EmailConfig>('/api/email/config');
-            if (emailResponse.success && emailResponse.data) {
-              setEmailConfig(emailResponse.data);
-            }
-          } catch (e) {
-            console.error('Failed to fetch email config:', e);
-          }
-
           // 获取 QQ 版本号（单独 try-catch，不影响登录状态）
           try {
             const deviceInfoRes = await apiFetch<{ devType: string; buildVer: string }>('/api/device-info');
@@ -203,42 +188,19 @@ function App() {
     return () => { stop = true; };
   }, [isLoggedIn, checkingLogin]);
 
-  // 保存配置
-  const handleSave = useCallback(async (configToSave?: Config, emailConfigToSave?: EmailConfig | null) => {
+  // 保存配置 (邮件配置由邮件通知插件的设置页自己保存)
+  const handleSave = useCallback(async (configToSave?: Config) => {
     try {
       setLoading(true);
-      const finalConfig = configToSave || config;
-      const finalEmailConfig = emailConfigToSave !== undefined ? emailConfigToSave : emailConfig;
-
-      // 保存主配置
       const response = await apiFetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ config: finalConfig }),
+        body: JSON.stringify({ config: configToSave || config }),
       });
 
       if (!response.success) {
         showToast(response.message || '保存失败', 'error');
         return;
-      }
-
-      // 保存邮件配置（如果有）
-      if (finalEmailConfig) {
-        try {
-          const emailResponse = await apiFetch('/api/email/config', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(finalEmailConfig),
-          });
-
-          if (!emailResponse.success) {
-            showToast(`主配置已保存，但邮件配置保存失败：${emailResponse.message}`, 'warning');
-            return;
-          }
-        } catch (emailError) {
-          showToast(`主配置已保存，但邮件配置保存失败：${String(emailError)}`, 'warning');
-          return;
-        }
       }
 
       showToast('配置保存成功', 'success');
@@ -247,7 +209,13 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [config, emailConfig]);
+  }, [config]);
+
+  // The adapters' settings pages are plugin pages, rendered away from this component's state
+  const botConfig = useMemo(
+    () => ({ config, setConfig, save: handleSave, saving: loading }),
+    [config, handleSave, loading],
+  );
 
   // 登录成功回调
   const handleLoginSuccess = useCallback(() => {
@@ -329,6 +297,7 @@ function App() {
 
   // 已登录，显示主页面
   return (
+    <BotConfigContext.Provider value={botConfig}>
     <div className="flex min-h-screen">
       {/* Animated Background */}
       <AnimatedBackground />
@@ -378,8 +347,6 @@ function App() {
           </div>
 
           {/* Content */}
-          <BuiltinDisabledNotice tab={activeTab} />
-
           {activeTab === 'dashboard' && <Dashboard llbotVersion={version} qqVersion={qqVersion} />}
 
           {currentPluginPage && <PluginPage page={currentPluginPage} />}
@@ -390,458 +357,12 @@ function App() {
 
           {activeTab === 'plugins' && <PluginsPage />}
 
-          {activeTab === 'onebot' && (
-            <OneBotConfigNew
-              config={config.ob11}
-              onChange={(newOb11Config) => {
-                const newConfig = { ...config, ob11: newOb11Config };
-                setConfig(newConfig);
-              }}
-              onSave={(newOb11Config) => {
-                if (newOb11Config) {
-                  const newConfig = { ...config, ob11: newOb11Config };
-                  handleSave(newConfig);
-                } else {
-                  handleSave();
-                }
-              }}
-            />
-          )}
-
-          {activeTab === 'satori' && (
-            <div className="card p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl gradient-primary-br flex items-center justify-center">
-                  <Cpu size={24} className="text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-theme">Satori 协议</h3>
-                  <p className="text-sm text-theme-secondary">配置 Satori 协议相关设置</p>
-                </div>
-                <div className="flex-1" />
-                <a
-                  href="https://www.luckylillia.com/guide/develop#satori-%E5%8D%8F%E8%AE%AE"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/30 rounded-lg transition-colors"
-                >
-                  <ExternalLink size={16} />
-                  文档
-                </a>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-theme-item rounded-xl hover:bg-theme-item-hover transition-colors">
-                  <div>
-                    <div className="text-sm font-medium text-theme">启用 Satori 协议</div>
-                    <div className="text-xs text-theme-muted mt-0.5">开启后将支持 Satori 协议连接</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={config.satori.enable}
-                    onChange={(e) => setConfig({
-                      ...config,
-                      satori: { ...config.satori, enable: e.target.checked }
-                    })}
-                    className="switch-toggle"
-                  />
-                </div>
-
-                {config.satori.enable && (
-                  <>
-                    <div>
-                      <label className="block text-sm font-medium text-theme-secondary mb-2">
-                        监听地址
-                      </label>
-                      <HostSelector
-                        value={config.satori.host}
-                        onChange={(host) => setConfig({
-                          ...config,
-                          satori: { ...config.satori, host }
-                        })}
-                      />
-                      <p className="text-xs text-theme-muted mt-1">选择服务监听的网络地址</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-theme-secondary mb-2">
-                        Satori 端口
-                      </label>
-                      <input
-                        type="number"
-                        value={config.satori.port}
-                        onChange={(e) => setConfig({
-                          ...config,
-                          satori: { ...config.satori, port: parseInt(e.target.value) }
-                        })}
-                        min="1"
-                        max="65535"
-                        placeholder="5500"
-                        className="input-field"
-                      />
-                      <p className="text-xs text-theme-muted mt-1">Satori 服务监听端口（1-65535）</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-theme-secondary mb-2">
-                        Satori Token
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showSatoriToken ? 'text' : 'password'}
-                          value={config.satori.token}
-                          onChange={(e) => setConfig({
-                            ...config,
-                            satori: { ...config.satori, token: e.target.value }
-                          })}
-                          placeholder="请输入 Satori Token"
-                          className="input-field pr-12"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowSatoriToken(!showSatoriToken)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-hint hover:text-theme transition-colors p-1"
-                        >
-                          {showSatoriToken ? <EyeOff size={20} /> : <Eye size={20} />}
-                        </button>
-                      </div>
-                      <p className="text-xs text-theme-muted mt-1">用于 Satori 连接验证的 Token</p>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <button onClick={() => {
-                  // 检查：如果监听所有地址且 satori 启用，token 必须设置
-                  if (config.satori.host === '' && config.satori.enable && !config.satori.token?.trim()) {
-                    showToast('当监听所有地址时，必须设置 Satori Token！', 'error');
-                    return;
-                  }
-                  handleSave();
-                }} disabled={loading} className="btn-primary flex items-center gap-2">
-                  {loading ? (
-                    <>
-                      <Loader2 size={20} className="animate-spin" />
-                      保存中...
-                    </>
-                  ) : (
-                    <>
-                      <Save size={20} />
-                      保存配置
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
-          {activeTab === 'milky' && (
-            <div className="card p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center">
-                  <Milk size={24} className="text-white" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-theme">Milky 协议</h3>
-                  <p className="text-sm text-theme-secondary">配置 Milky 协议相关设置</p>
-                </div>
-                <div className="flex-1" />
-                <a
-                  href="https://www.luckylillia.com/guide/develop#milky-%E5%8D%8F%E8%AE%AE"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/30 rounded-lg transition-colors"
-                >
-                  <ExternalLink size={16} />
-                  文档
-                </a>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-theme-item rounded-xl hover:bg-theme-item-hover transition-colors">
-                  <div>
-                    <div className="text-sm font-medium text-theme">启用 Milky 协议</div>
-                    <div className="text-xs text-theme-muted mt-0.5">开启后将支持 Milky 协议连接</div>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={config.milky.enable}
-                    onChange={(e) => setConfig({
-                      ...config,
-                      milky: { ...config.milky, enable: e.target.checked }
-                    })}
-                    className="switch-toggle"
-                  />
-                </div>
-
-                {config.milky.enable && (
-                  <>
-                    <div className="flex items-center justify-between p-4 bg-theme-item rounded-xl hover:bg-theme-item-hover transition-colors">
-                      <div>
-                        <div className="text-sm font-medium text-theme">上报自己发送的消息</div>
-                        <div className="text-xs text-theme-muted mt-0.5">启用后将上报自己发送的消息</div>
-                      </div>
-                      <input
-                        type="checkbox"
-                        checked={config.milky.reportSelfMessage}
-                        onChange={(e) => setConfig({
-                          ...config,
-                          milky: { ...config.milky, reportSelfMessage: e.target.checked }
-                        })}
-                        className="switch-toggle"
-                      />
-                    </div>
-
-                    {/* HTTP 配置 */}
-                    <div className="border-t border-theme-divider pt-4 mt-4">
-                      <h4 className="text-md font-semibold text-theme mb-4">HTTP 配置</h4>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-sm font-medium text-theme-secondary mb-2">
-                            监听地址
-                          </label>
-                          <HostSelector
-                            value={config.milky.http.host}
-                            onChange={(host) => setConfig({
-                              ...config,
-                              milky: {
-                                ...config.milky,
-                                http: { ...config.milky.http, host }
-                              }
-                            })}
-                          />
-                          <p className="text-xs text-theme-muted mt-1">选择服务监听的网络地址</p>
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-theme-secondary mb-2">
-                            HTTP 端口
-                          </label>
-                          <input
-                            type="number"
-                            value={config.milky.http.port}
-                            onChange={(e) => setConfig({
-                              ...config,
-                              milky: {
-                                ...config.milky,
-                                http: { ...config.milky.http, port: parseInt(e.target.value) }
-                              }
-                            })}
-                            min="1"
-                            max="65535"
-                            placeholder="3010"
-                            className="input-field"
-                          />
-                          <p className="text-xs text-theme-muted mt-1">Milky HTTP 服务监听端口（1-65535）</p>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-theme-secondary mb-2">
-                            路径前缀
-                          </label>
-                          <input
-                            type="text"
-                            value={config.milky.http.prefix}
-                            onChange={(e) => setConfig({
-                              ...config,
-                              milky: {
-                                ...config.milky,
-                                http: { ...config.milky.http, prefix: e.target.value }
-                              }
-                            })}
-                            placeholder="/api"
-                            className="input-field"
-                          />
-                          <p className="text-xs text-theme-muted mt-1">HTTP API 路径前缀（可选）</p>
-                        </div>
-
-                        <div>
-                          <label className="block text-sm font-medium text-theme-secondary mb-2">
-                            Access Token
-                          </label>
-                          <div className="relative">
-                            <input
-                              type={showMilkyToken ? 'text' : 'password'}
-                              value={config.milky.http.accessToken}
-                              onChange={(e) => setConfig({
-                                ...config,
-                                milky: {
-                                  ...config.milky,
-                                  http: { ...config.milky.http, accessToken: e.target.value }
-                                }
-                              })}
-                              placeholder="请输入 Access Token"
-                              className="input-field pr-12"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowMilkyToken(!showMilkyToken)}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-hint hover:text-theme transition-colors p-1"
-                            >
-                              {showMilkyToken ? <EyeOff size={20} /> : <Eye size={20} />}
-                            </button>
-                          </div>
-                          <p className="text-xs text-theme-muted mt-1">用于 Milky HTTP 连接验证的 Token</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Webhook 配置 */}
-                    <div className="border-t border-theme-divider pt-4 mt-4">
-                      <h4 className="text-md font-semibold text-theme mb-4">Webhook 配置</h4>
-                      <div>
-                        <label className="block text-sm font-medium text-theme-secondary mb-2">
-                          Webhook URLs
-                        </label>
-                        <div className="space-y-2">
-                          {config.milky.webhook.urls.map((url, index) => (
-                            <div key={index} className="flex items-center gap-2">
-                              <input
-                                type="text"
-                                value={url}
-                                onChange={(e) => {
-                                  const newUrls = [...config.milky.webhook.urls];
-                                  newUrls[index] = e.target.value;
-                                  setConfig({
-                                    ...config,
-                                    milky: {
-                                      ...config.milky,
-                                      webhook: { ...config.milky.webhook, urls: newUrls }
-                                    }
-                                  });
-                                }}
-                                placeholder="http:// 或 https://"
-                                className={`input-field flex-1 ${
-                                  url && !url.match(/^https?:\/\//) ? 'border-red-300 focus:ring-red-500' : ''
-                                }`}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newUrls = config.milky.webhook.urls.filter((_, i) => i !== index);
-                                  setConfig({
-                                    ...config,
-                                    milky: {
-                                      ...config.milky,
-                                      webhook: { ...config.milky.webhook, urls: newUrls }
-                                    }
-                                  });
-                                }}
-                                className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
-                                title="删除"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            </div>
-                          ))}
-                          {config.milky.webhook.urls.some(url => url && !url.match(/^https?:\/\//)) && (
-                            <p className="text-xs text-red-500">URL 必须以 http:// 或 https:// 开头</p>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setConfig({
-                                ...config,
-                                milky: {
-                                  ...config.milky,
-                                  webhook: {
-                                    ...config.milky.webhook,
-                                    urls: [...config.milky.webhook.urls, '']
-                                  }
-                                }
-                              });
-                            }}
-                            className="flex items-center gap-2 px-4 py-2 text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/30 rounded-lg transition-colors text-sm font-medium"
-                          >
-                            <Plus size={18} />
-                            添加 Webhook URL
-                          </button>
-                        </div>
-                        <p className="text-xs text-theme-muted mt-2">事件上报的 Webhook 地址</p>
-                      </div>
-
-                      <div className="mt-4">
-                        <label className="block text-sm font-medium text-theme-secondary mb-2">
-                          Access Token
-                        </label>
-                        <div className="relative">
-                          <input
-                            type={showMilkyWebhookToken ? 'text' : 'password'}
-                            value={config.milky.webhook.accessToken}
-                            onChange={(e) => setConfig({
-                              ...config,
-                              milky: {
-                                ...config.milky,
-                                webhook: { ...config.milky.webhook, accessToken: e.target.value }
-                              }
-                            })}
-                            placeholder="请输入 Access Token"
-                            className="input-field pr-12"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setShowMilkyWebhookToken(!showMilkyWebhookToken)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-hint hover:text-theme transition-colors p-1"
-                          >
-                            {showMilkyWebhookToken ? <EyeOff size={20} /> : <Eye size={20} />}
-                          </button>
-                        </div>
-                        <p className="text-xs text-theme-muted mt-1">用于 Webhook 请求验证的 Token</p>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div className="mt-6 flex justify-end">
-                <button onClick={() => {
-                  // 检查：如果监听所有地址且 milky 启用，accessToken 必须设置
-                  if (config.milky.http.host === '' && config.milky.enable && !config.milky.http.accessToken?.trim()) {
-                    showToast('当监听所有地址时，必须设置 Milky Access Token！', 'error');
-                    return;
-                  }
-                  // 检查 Webhook URL 格式
-                  const invalidUrls = config.milky.webhook.urls.filter(url => url.trim() && !url.match(/^https?:\/\//));
-                  if (invalidUrls.length > 0) {
-                    showToast('Webhook URL 必须以 http:// 或 https:// 开头', 'error');
-                    return;
-                  }
-                  // 过滤掉空的 URL
-                  const cleanedConfig = {
-                    ...config,
-                    milky: {
-                      ...config.milky,
-                      webhook: {
-                        ...config.milky.webhook,
-                        urls: config.milky.webhook.urls.filter(url => url.trim())
-                      }
-                    }
-                  };
-                  setConfig(cleanedConfig);
-                  handleSave(cleanedConfig);
-                }} disabled={loading} className="btn-primary flex items-center gap-2">
-                  {loading ? (
-                    <>
-                      <Loader2 size={20} className="animate-spin" />
-                      保存中...
-                    </>
-                  ) : (
-                    <>
-                      <Save size={20} />
-                      保存配置
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          )}
-
           {activeTab === 'other' && (
             <>
               <div className="pb-24">
                 <OtherConfig
                   config={config}
-                  emailConfig={emailConfig}
                   onChange={setConfig}
-                  onEmailChange={setEmailConfig}
                   onOpenChangePassword={() => setShowChangePasswordDialog(true)}
                 />
               </div>
@@ -1023,6 +544,7 @@ function App() {
         }}
       />
     </div>
+    </BotConfigContext.Provider>
   );
 }
 

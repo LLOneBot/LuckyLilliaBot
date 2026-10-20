@@ -32,8 +32,6 @@ export interface PluginStatus {
   /** A builtin that cannot be disabled. */
   core?: boolean
   title?: string
-  /** App tab id holding the settings of a builtin. */
-  settings?: string
   service: ServiceDeclaration
   /** URL of the plugin's WebUI module; it changes when the plugin is reloaded. */
   webui?: string

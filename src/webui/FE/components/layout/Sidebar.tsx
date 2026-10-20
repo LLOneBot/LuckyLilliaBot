@@ -3,10 +3,7 @@ import GlassLens from '../common/GlassLens'
 import {
   LayoutDashboard,
   Info,
-  Radio,
-  Cpu,
   Sliders,
-  Milk,
   Terminal,
   X,
   ChevronLeft,
@@ -28,8 +25,8 @@ interface SidebarProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onOpenSettings?: () => void;
-  /** Pages of running plugins, WebQQ included, listed after the plugin page. */
-  pluginPages?: { id: string; title: string; icon: LucideIcon }[];
+  /** Plugin pages, those of builtins included, placed among the fixed entries by their order. */
+  pluginPages?: { id: string; title: string; icon: LucideIcon; order: number }[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -43,17 +40,15 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   pluginPages = [],
 }) => {
+  // The orders plugin pages pick from: see PageOptions.order in @luckylillia/plugin-sdk/webui
   const menuItems = [
-    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { id: 'onebot', icon: Radio, label: 'OneBot 11' },
-    { id: 'satori', icon: Cpu, label: 'Satori' },
-    { id: 'milky', icon: Milk, label: 'Milky' },
-    { id: 'logs', icon: Terminal, label: '日志' },
-    { id: 'other', icon: Sliders, label: '其他配置' },
-    { id: 'plugins', icon: Puzzle, label: '插件' },
-    ...pluginPages.map(page => ({ id: page.id, icon: page.icon, label: page.title })),
-    { id: 'about', icon: Info, label: '关于' },
-  ]
+    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', order: 0 },
+    { id: 'logs', icon: Terminal, label: '日志', order: 20 },
+    { id: 'other', icon: Sliders, label: '其他配置', order: 30 },
+    { id: 'plugins', icon: Puzzle, label: '插件', order: 40 },
+    { id: 'about', icon: Info, label: '关于', order: 1000 },
+    ...pluginPages.map(page => ({ id: page.id, icon: page.icon, label: page.title, order: page.order })),
+  ].sort((a, b) => a.order - b.order)
 
   const navRef = useRef<HTMLElement>(null)
   const [indicator, setIndicator] = useState<{ top: number; height: number } | null>(null)

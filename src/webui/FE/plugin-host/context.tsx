@@ -43,6 +43,7 @@ export function createWebUIContext(owner: string, builtin: boolean, track: (disp
       title: options.title,
       icon: options.icon,
       order: options.order ?? 100,
+      settings: !!options.settings,
       component: options.component as ComponentType,
     }),
     slot: (slot, component, options = {}) => register({

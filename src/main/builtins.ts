@@ -41,7 +41,6 @@ export const builtinPlugins: BuiltinPlugin[] = [
         en: 'OneBot 11 adapter over HTTP, WebSocket, reverse WebSocket and HTTP POST',
       },
     },
-    settings: 'onebot',
   },
   {
     name: 'builtin:satori',
@@ -55,7 +54,6 @@ export const builtinPlugins: BuiltinPlugin[] = [
       service: { implements: ['satori'] },
       description: { zh: 'Satori 协议适配器', en: 'Satori protocol adapter' },
     },
-    settings: 'satori',
   },
   {
     name: 'builtin:milky',
@@ -66,7 +64,6 @@ export const builtinPlugins: BuiltinPlugin[] = [
       service: { implements: ['milky'] },
       description: { zh: 'Milky 协议适配器', en: 'Milky protocol adapter' },
     },
-    settings: 'milky',
   },
   {
     name: 'builtin:webqq',
@@ -86,7 +83,6 @@ export const builtinPlugins: BuiltinPlugin[] = [
       service: { implements: ['emailNotification'] },
       description: { zh: '账号掉线时发邮件提醒', en: 'Sends an email when the account goes offline' },
     },
-    settings: 'other',
   },
   {
     // The Satori adapter receives its events from here, so it stays on

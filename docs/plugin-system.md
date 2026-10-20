@@ -84,11 +84,11 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 `src/main/builtins.ts` 把原来写死在 `main.ts` 里的几个模块登记成内置条目，交给 `PluginService`（`Config.builtins`）装载，在 WebUI 插件页和第三方插件同列、同一套开关：
 
-| 条目 | 内容 | 设置页 |
+| 条目 | 内容 | WebUI 页面（`plugin-host/builtins.tsx` 注册） |
 |---|---|---|
-| `builtin:onebot11` / `builtin:satori` / `builtin:milky` | 三个协议适配器 | `onebot` / `satori` / `milky` |
-| `builtin:webqq` | WebQQ 后端（`src/webui/BE/routes/webqq/index.ts` 的 `WebQQ`） | — |
-| `builtin:email-notification` | 掉线邮件通知 | `other` |
+| `builtin:onebot11` / `builtin:satori` / `builtin:milky` | 三个协议适配器 | 设置页 `#onebot` / `#satori` / `#milky` |
+| `builtin:email-notification` | 掉线邮件通知 | 设置页 `#email` |
+| `builtin:webqq` | WebQQ 后端（`src/webui/BE/routes/webqq/index.ts` 的 `WebQQ`） | 功能页 `#webqq` |
 | `builtin:ntqq-universal` | 中立层，**core** | — |
 
 - 条目照样存在 `data/plugins.json` 里（随机 id），只是 `name` 带 `builtin:` 前缀（npm 包名不能含冒号，不会撞）。启动时每个内置插件保证恰好一个条目：没有就建一个**启用**的（老版本升级上来行为不变），手写出来的重复条目丢掉，core 条目上的 `disabled` 忽略
@@ -96,7 +96,8 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - **配置仍在 `config_<uin>.json`**，不进 `plugins.json`：条目开关只决定装不装，`ob11.enable` 等原来的开关照旧。适配器包了一层 `withBotConfig()`：`inject` 是 `account` + `config` + 适配器自己的依赖（条目因此在依赖齐之前显示 pending，而不是"外壳 active、里面 pending"），`apply` 里按原来 `main.ts` 的拼法从 `ctx.config.get()` 取配置再 `await ctx.plugin(适配器)` —— await 让适配器启动失败变成条目的 `failed`。`test/unit/bootstrap/builtins.test.ts` 逐字段比对拼出来的配置
 - `reload` 对内置条目是重启（dispose + 重新挂载，没有模块可重新 import），会读到最新配置
 - **停用要真能停下来**：改造前适配器从不在运行时卸载，OneBot / Satori / Milky 的 `[Service.init]` 都返回 `noop`，停用后端口不释放，再启用就 `EADDRINUSE`。现在它们返回关服务器的 disposer（cordis 卸载时会 await）。Satori 的 `/v1/internal/onebot11/:action` 原来缓存了一份按 OB11 实例构造的 action 表，OB11 重启后会指向已卸载的实例，改成每次从当前的 `ctx.get('onebot').actionMap` 取
-- 前端：插件页分"内置 / 已安装"两区，内置卡片有"内置 / 核心"徽章，core 的开关置灰；设置按钮跳到对应设置页（改 `location.hash`，`App` 监听 hashchange）。设置页顶部的 `BuiltinDisabledNotice` 在对应内置条目被停用时提示"这里的设置不会生效"。WebQQ 的侧边栏入口由它的内置前端客户端注册（见下文"插件前端"），随 `builtin:webqq` 的状态出现和消失；插件没在运行时直接打开 `#webqq`，显示 `PluginPageUnavailable` 说明原因
+- 前端：插件页分"内置 / 已安装"两区，内置卡片有"内置 / 核心"徽章，core 的开关置灰。内置插件的界面和第三方插件走同一套 `ctx.page()`（见下文"插件前端"），只是随 WebUI 打包：适配器和邮件通知注册的是**设置页**（插件停用时也在侧边栏，顶部提示设置暂不生效），WebQQ 注册的是**功能页**（插件运行时才出现）。卡片上的"前往设置"跳到该插件注册的设置页，第三方插件也一样
+- 内置设置页编辑的仍是原来的配置文件：适配器的在 `config_<uin>.json`，由 `App` 加载，经 `BotConfigContext`（`components/config/BotConfigContext.tsx`）交给这些页面；邮件通知页自己读写 `/api/email/config`（`email_config.json`），并在 `builtin:email-notification` 变成运行状态时重读一次 —— 停用时 `/api/email` 不存在。原来"其他配置"里的邮件区块已经拆出去，"其他配置"只剩全局设置
 - **WebQQ 插件**（`builtin:webqq`）：路由、上传目录、`/api/webqq/events` 的 SSE 连接，以及往 SSE 推消息的 4 个 `nt/*` 监听（`routes/webqq/events.ts`）都在插件里，`inject` 列出路由代码直接访问的全部服务，登录后才挂载。停用时主动 `abort()` 还开着的 SSE 连接，否则页面会一直挂在一条没人写的流上。路由文件留在 `src/webui/BE/routes/webqq/` 没搬目录
 - 插件只需要 `inject` 自己**直接**访问的服务：经 `ctx.xxx` 调到别的服务的方法时，cordis 按那个服务自己的 fiber 做严格检查（`createShadow` 的 `defSite` 是服务本身的 ctx），调用方 ctx 只决定方法里注册的副作用挂在谁身上。但像 `Core.sendMessage(ctx, ...)` 这种把 ctx 当参数传进去的，参数 ctx 访问的服务要算在调用方头上
 - `pending` 的条目缺 `account` 时，前端只显示"等待 QQ 登录"：登录后才有的服务（`app` / `store` / `database` ...）都是它的结果，列出来没有意义
@@ -181,7 +182,8 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - **模块 URL**：`PluginStatus.webui` 是 `/plugin-webui/<key>/<version>/<入口文件名>`。key 是包名把 `/` 换成 `+`（npm 包名最多一个斜杠，且不允许 `+`）；version 在 `reloadPackage()` 和扫描到包变化时加一。ES 模块按 URL 缓存，URL 变了浏览器才会重新导入
 - **加载**：`syncClients()` 随插件列表变化导入启用中插件的模块；版本变了先导入新的、成功后再撤掉旧的注册；包不在了就卸载。停用的插件只在打开配置弹窗时由 `ensureClient()` 按需导入（要拿它的配置编辑器）。导入失败记在 `useClientErrors` 里
 - **可见性**：页面和插槽只显示"有条目处于 active"的插件的（`activeOwners()`）；配置编辑器和字段控件只要模块加载了就能用
-- **WebQQ** 是 `plugin-host/builtins.tsx` 里随 WebUI 打包的内置客户端，同样用 `ctx.page()` 注册，侧边栏不再写死它，页面随 `builtin:webqq` 的状态出现和消失。`#webqq-fullscreen` 仍由 `App` 单独处理，前提是 webqq 页面可见
+- **内置插件的前端**是 `plugin-host/builtins.tsx` 里随 WebUI 打包的客户端（`BUILTIN_CLIENTS`），同样用 `ctx.page()` 注册；侧边栏只写死 Dashboard / 日志 / 其他配置 / 插件 / 关于（order 0 / 20 / 30 / 40 / 1000），插件页面按 `order` 插进去：OneBot 11 / Satori / Milky / 邮件通知 10 ~ 13，WebQQ 50，第三方默认 100。`BUILTIN_PAGE_IDS` 让 `App` 在插件列表加载前就认得这些 tab。`#webqq-fullscreen` 仍由 `App` 单独处理，前提是 webqq 页面可见
+- **设置页**（`page({ settings: true })`）不看插件状态，一直显示；插件停用或出错时 `PluginPage` 在页面顶部提示。等待中（比如刚登录、服务还没起来）不提示，免得一闪而过
 - **文件路由**：`PluginRoutes` 用 `webuiServer.route('/plugin-webui', ..., { public: true })` 挂在 `/api` 之外，因为 `import()` 发不了自定义请求头；但它会带同源 cookie，所以 `servePluginAsset()` 校验 `webui_token` cookie（存的就是密码哈希，和 `X-Webui-Token` 同值）。只允许 GET / HEAD，`webuiAsset()` 只放行入口所在目录及其子目录。dev 下 Vite 也代理了 `/plugin-webui`
 - **路由表的 public 选项**：`route(prefix, handler, { public: true })` 存进另一张表，由一个注册在 `/api/*` 分发之后、静态文件之前的 `*` 中间件分发。public 路由不能在 `/api` 下，非 public 路由必须在 `/api` 下（以前挂到别处会静默不生效）
 - **插件列表**是一个共享 store（`plugin-host/pluginList.ts`），只由 `usePluginHost()` 订阅一条 SSE；插件页、侧边栏、设置页提示都读它，不再各自拉取

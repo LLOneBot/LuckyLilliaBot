@@ -15,6 +15,8 @@ export interface PageContribution extends Owned {
   title: string
   icon?: string
   order: number
+  /** Shown whatever state the plugin is in. */
+  settings: boolean
   component: ComponentType
 }
 
@@ -60,10 +62,10 @@ export function activeOwners(plugins: PluginStatus[] | null): Set<string> {
 const byOrder = (a: { order: number; owner: string }, b: { order: number; owner: string }) =>
   a.order - b.order || a.owner.localeCompare(b.owner)
 
-/** Pages of plugins that run, in sidebar order. */
+/** Settings pages, and the other pages of plugins that run, in sidebar order. */
 export function visiblePages(contributions: Contribution[], active: Set<string>): PageContribution[] {
   return contributions
-    .filter((c): c is PageContribution => c.kind === 'page' && active.has(c.owner))
+    .filter((c): c is PageContribution => c.kind === 'page' && (c.settings || active.has(c.owner)))
     .sort((a, b) => byOrder(a, b) || a.title.localeCompare(b.title))
 }
 

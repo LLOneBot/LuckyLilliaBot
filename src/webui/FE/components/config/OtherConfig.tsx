@@ -1,48 +1,17 @@
 import React from 'react'
-import { Config, EmailConfig } from '../../types'
+import { Config } from '../../types'
 import { Globe, FileText, Trash2, Music, Lock, Clock, Shield, Edit, Paperclip, Server } from 'lucide-react'
 import { DurationPicker, HostSelector } from '../common'
-import EmailConfigSection from './EmailConfigSection'
 
 interface OtherConfigProps {
   config: Config;
-  emailConfig: EmailConfig | null;
   onChange: (config: Config) => void;
-  onEmailChange: (emailConfig: EmailConfig) => void;
   onOpenChangePassword: () => void;
 }
 
-const OtherConfig: React.FC<OtherConfigProps> = ({ config, emailConfig, onChange, onEmailChange, onOpenChangePassword }) => {
+const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, onOpenChangePassword }) => {
   const handleChange = (field: keyof Config, value: unknown) => {
     onChange({ ...config, [field]: value })
-  }
-
-  const handleEmailChange = (newEmailConfig: EmailConfig) => {
-    // 如果端口为空，使用默认值 587
-    const normalizedConfig = {
-      ...newEmailConfig,
-      smtp: {
-        ...newEmailConfig.smtp,
-        port: newEmailConfig.smtp.port || 587
-      }
-    }
-    onEmailChange(normalizedConfig)
-  }
-
-  // 默认邮件配置
-  const defaultEmailConfig: EmailConfig = {
-    enabled: false,
-    smtp: {
-      host: '',
-      port: 587,
-      secure: false,
-      auth: {
-        user: '',
-        pass: '',
-      },
-    },
-    from: '',
-    to: '',
   }
 
   return (
@@ -106,12 +75,6 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, emailConfig, onChange
           </label>
         </div>
       </div>
-
-      {/* 邮件通知 */}
-      <EmailConfigSection
-        value={emailConfig || defaultEmailConfig}
-        onChange={handleEmailChange}
-      />
 
       {/* 系统功能 */}
       <div className='card p-6'>

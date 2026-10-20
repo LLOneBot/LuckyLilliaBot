@@ -210,7 +210,6 @@ const builtins: BuiltinPlugin[] = [
     name: 'builtin:adapter',
     title: 'Adapter',
     manifest: { icon: 'radio' },
-    settings: 'adapter',
     plugin: {
       inject: ['gate'],
       apply(ctx: Context) {
@@ -237,7 +236,6 @@ describe('PluginService builtins', () => {
       builtin: true,
       core: false,
       title: 'Adapter',
-      settings: 'adapter',
       disabled: false,
       hasConfig: false,
       state: 'pending',
