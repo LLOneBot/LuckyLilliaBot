@@ -1,4 +1,4 @@
-import { noop, omit } from 'cosmokit'
+import { omit } from 'cosmokit'
 import { Event } from '@satorijs/protocol'
 import { Service, Context } from 'cordis'
 import { SatoriConfig } from '@/common/types'
@@ -30,7 +30,7 @@ class SatoriAdapter extends Service {
 
   async [Service.init]() {
     this.start()
-    return noop
+    return () => this.server.stop()
   }
 
   start() {

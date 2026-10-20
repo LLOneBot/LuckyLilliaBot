@@ -52,7 +52,7 @@ class Onebot11Adapter extends Service {
     'qqProtocol', 'timer', 'config'
   ]
   private connect: (OB11Http | OB11HttpPost | OB11WebSocket | OB11WebSocketReverse)[]
-  private actionMap: Map<string, BaseAction<unknown, unknown>>
+  readonly actionMap: Map<string, BaseAction<unknown, unknown>>
   private reportOfflineMessage: boolean
   private reportSelfMessage: boolean
 
@@ -93,7 +93,12 @@ class Onebot11Adapter extends Service {
 
   async [Service.init]() {
     this.start()
-    return noop
+    // The plugin page stops adapters at runtime, so release the ports the connections hold
+    return async () => {
+      for (const item of this.connect) {
+        if (item.config.enable) await item.stop()
+      }
+    }
   }
 
   public dispatch(event: OB11BaseEvent) {

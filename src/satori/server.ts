@@ -4,22 +4,20 @@ import { handlers } from './api'
 import { WebSocket, WebSocketServer } from 'ws'
 import { ObjectToSnake } from 'ts-case-convert'
 import { selfInfo } from '@/common/globalVars'
-import { initActionMap } from '@/onebot11/action'
 import { OB11Response } from '@/onebot11/action/OB11Response'
-import { ParseMessageConfig } from '@/onebot11/types'
 import { Hono, Context as HonoContext, Next } from 'hono'
 import { cors } from 'hono/cors'
 import { serve, ServerType, upgradeWebSocket } from '@hono/node-server'
 import { WSContext } from 'hono/ws'
 import { Dict } from 'cosmokit'
 import { constants } from 'node:buffer'
+import { Server } from 'node:http'
 
 export class SatoriServer {
   private app: Hono
   private httpServer?: ServerType
   private wsServer?: WebSocketServer
   private wsClients: WSContext[] = []
-  private actionMap?: Map<string, { handle: (params: Dict, config: ParseMessageConfig) => Promise<any> }>
   private routesRegistered = false
 
   constructor(private ctx: Context, private config: SatoriServer.Config) {
@@ -28,12 +26,11 @@ export class SatoriServer {
 
   async callOneBot11API(action: string, params: Dict) {
     const onebotAdapter = this.ctx.get('onebot')
-    if (onebotAdapter) {
-      this.actionMap ??= initActionMap(onebotAdapter)
-    } else {
+    if (!onebotAdapter) {
       throw new Error(`OB11 service has not started`)
     }
-    const handler = this.actionMap.get(action)
+    // Looked up on every call: the OB11 adapter can be restarted, and actions bind to the instance that built them
+    const handler = onebotAdapter.actionMap.get(action)
     if (!handler) {
       throw new Error(`Unsupported OB11 action: ${action}`)
     }
@@ -171,8 +168,11 @@ export class SatoriServer {
       this.wsServer = undefined
     }
     if (this.httpServer) {
+      const server = this.httpServer as Server
+      // Idle keep-alive sockets would otherwise hold close() open until they time out
+      server.closeAllConnections()
       await new Promise<void>((resolve) => {
-        this.httpServer!.close(() => resolve())
+        server.close(() => resolve())
       })
       this.httpServer = undefined
     }

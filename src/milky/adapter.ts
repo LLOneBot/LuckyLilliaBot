@@ -38,7 +38,6 @@ import {
   transformGroupDisbandEvent,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
-import { noop } from 'cosmokit'
 
 declare module 'cordis' {
   interface Context {
@@ -75,7 +74,7 @@ export class MilkyAdapter extends Service {
 
   async [Service.init]() {
     this.start()
-    return noop
+    return () => this.stop()
   }
 
   start() {
@@ -101,12 +100,9 @@ export class MilkyAdapter extends Service {
     this.setupEventListeners()
   }
 
-  async stop() {
-    if (!this.config.enable) {
-      return
-    }
-
+  stop() {
     this.httpHandler.stop()
+    this.webhookHandler.stop()
   }
 
   emitEvent<E extends keyof MilkyEventTypes>(eventName: E, data: MilkyEventTypes[E]) {
