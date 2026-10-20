@@ -1,6 +1,7 @@
 import { Action, Oidb } from '@/ntqqapi/proto'
 import { Cmd } from '../direct-lib/cmd'
 import { selfInfo } from '@/common/globalVars'
+import { getProtocol } from '@/common/utils/environment'
 import type { QQProtocolBase } from '../base'
 import { randomInt } from 'node:crypto'
 
@@ -275,12 +276,15 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         },
         cookie,
       })
+      // 手表(轻聊)只认 0xfe7_4; 手机 NT 认 0xfe7_3。SSO cmd 串必须和 OIDB subCommand 一致,
+      // 否则服务端按 (appid, cmd) 授权检查回 -10122。body 两边暂用同一结构(待实测核对字段)。
+      const isWatch = getProtocol() === 'watch'
       const data = Oidb.Base.encode({
         command: 0xfe7,
-        subCommand: 3,
+        subCommand: isWatch ? 4 : 3,
         body,
       })
-      const res = await this.sendPB(Cmd.Group.FetchMembers, data)
+      const res = await this.sendPB(isWatch ? Cmd.Group.FetchMembersWatch : Cmd.Group.FetchMembers, data)
       const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
       return Oidb.FetchGroupMembersResp.decode(oidbRespBody)
     }

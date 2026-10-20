@@ -118,6 +118,8 @@ export const Cmd = {
     Fetch: 'OidbSvcTrpcTcp.0x88d_14',
     FetchExtra: 'OidbSvcTrpcTcp.0x88d_0',
     FetchMembers: 'OidbSvcTrpcTcp.0xfe7_3',
+    // 手表(轻聊)appid 只授权 0xfe7_4, 发 _3 会被服务端拒 -10122。同一 OIDB 0xfe7, 仅子命令不同。
+    FetchMembersWatch: 'OidbSvcTrpcTcp.0xfe7_4',
     FetchAtAllRemain: 'OidbSvcTrpcTcp.0x8a7_0',
     ForwardFile: 'OidbSvcTrpcTcp.0x6d9_2',
     CreateAlbum: 'QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.AddAlbum',
