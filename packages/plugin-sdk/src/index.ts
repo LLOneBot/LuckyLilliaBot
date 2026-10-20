@@ -1,0 +1,10 @@
+// Runtime values here must be the host's own copies. The host pins these specifiers to its
+// node_modules at import time, so build plugins with all of them marked external.
+export { Context, Fiber, Inject, Service } from 'cordis'
+export type { Disposable, Effect, Events, Plugin } from 'cordis'
+export { default as Schema } from 'schemastery'
+export { default as h } from '@satorijs/element'
+export type * as Universal from '@satorijs/protocol'
+export type { Database, Tables } from '@cordisjs/plugin-database'
+export type { TimerService } from '@cordisjs/plugin-timer'
+export type { LLBotManifest } from './manifest.js'

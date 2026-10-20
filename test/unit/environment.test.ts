@@ -3,7 +3,7 @@ import { describe, it, expect, vi } from 'vitest'
 // setup.ts 把整个 environment 模块 mock 掉了, 这里要测真实实现
 vi.unmock('@/common/utils/environment')
 
-import { getPmhqTarget, isPmhqMode } from '@/common/utils/environment'
+import { getPluginDirs, getPmhqTarget, isPluginHmr, isPmhqMode } from '@/common/utils/environment'
 
 const argv = (...args: string[]) => ['node', 'main.ts', ...args]
 
@@ -58,5 +58,24 @@ describe('isPmhqMode', () => {
     } finally {
       process.argv = real
     }
+  })
+})
+
+describe('getPluginDirs', () => {
+  it('collects every occurrence in both forms', () => {
+    expect(getPluginDirs(argv('--plugin-dir', 'a', '--plugin-dir=b', '--qq', '1'))).toEqual(['a', 'b'])
+  })
+
+  it('ignores a missing value and does not swallow the next flag', () => {
+    expect(getPluginDirs(argv('--plugin-dir', '--plugin-hmr'))).toEqual([])
+    expect(getPluginDirs(argv('--plugin-dir='))).toEqual([])
+    expect(getPluginDirs(argv())).toEqual([])
+  })
+})
+
+describe('isPluginHmr', () => {
+  it('is only on with the flag', () => {
+    expect(isPluginHmr(argv('--plugin-hmr'))).toBe(true)
+    expect(isPluginHmr(argv('--dev'))).toBe(false)
   })
 })

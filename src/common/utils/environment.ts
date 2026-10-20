@@ -54,6 +54,29 @@ export function isDevMode(argv: string[] = process.argv): boolean {
 }
 
 /**
+ * Extra plugin roots scanned on top of data/plugins: `--plugin-dir <path>` / `--plugin-dir=<path>`, repeatable.
+ */
+export function getPluginDirs(argv: string[] = process.argv): string[] {
+    const dirs: string[] = []
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i]
+        const next = argv[i + 1] && !argv[i + 1].startsWith('-') ? argv[i + 1] : undefined
+        if (a === '--plugin-dir') {
+            if (next) dirs.push(next)
+        } else if (a.startsWith('--plugin-dir=')) {
+            const v = a.slice('--plugin-dir='.length)
+            if (v) dirs.push(v)
+        }
+    }
+    return dirs
+}
+
+/** `--plugin-hmr`: watch the plugin roots and hot-reload a package when its files change. */
+export function isPluginHmr(argv: string[] = process.argv): boolean {
+    return argv.includes('--plugin-hmr')
+}
+
+/**
  * 从 process.argv 里解析指定 uin. 支持 4 种写法:
  *   -q <uin> / -q=<uin> / --qq <uin> / --qq=<uin>
  * 用于多账号场景: 指定一个 uin 后会读写对应的 qq-session-<uin>[-<protocol>].json / config_<uin>.json。

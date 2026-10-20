@@ -50,4 +50,6 @@ vi.mock('@/common/utils/environment', () => ({
   getCdn: vi.fn(() => 'cf'),
   getAuthTokenPageUrl: vi.fn(() => 'https://auth.luckylillia.com'),
   getSpecifiedUin: vi.fn(() => undefined),
+  getPluginDirs: vi.fn(() => []),
+  isPluginHmr: vi.fn(() => false),
 }))

@@ -12,7 +12,7 @@ import SQLiteDriver from '@cordisjs/plugin-database-sqlite'
 import Store from './store'
 import { Config as LLBotConfig } from '../common/types'
 import { Context } from 'cordis'
-import { selfInfo, LOG_DIR, TEMP_DIR, dbDir } from '../common/globalVars'
+import { selfInfo, DATA_DIR, LOG_DIR, TEMP_DIR, dbDir } from '../common/globalVars'
 import {
   NTFileApi,
   NTFriendApi,
@@ -28,7 +28,7 @@ import { version } from '../version'
 import { WebuiServer } from '../webui/BE/server'
 import EmailNotificationService from '@/common/emailNotification'
 import { EmailConfig } from '@/common/emailConfig'
-import { isPmhqMode } from '@/common/utils/environment'
+import { getPluginDirs, isPluginHmr, isPmhqMode } from '@/common/utils/environment'
 import { setConfigLogLevel, isDebugEnabled, bindLoggerFactory, getLogger } from '@/common/logger'
 import { pathToFileURL } from 'node:url'
 import { DirectQQProtocolClient, PmhqQQProtocolClient } from './qqProtocol'
@@ -36,6 +36,7 @@ import LoggerConsole from '@cordisjs/plugin-logger-console'
 import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
 import { startIpcServer, setLoginState } from './llbot-ipc'
+import PluginService from '../plugin'
 
 declare module 'cordis' {
   interface Events {
@@ -62,6 +63,11 @@ async function onLoad() {
     mkdirSync(TEMP_DIR)
   }
 
+  const pluginDir = path.join(DATA_DIR, 'plugins')
+  if (!existsSync(pluginDir)) {
+    mkdirSync(pluginDir)
+  }
+
   const ctx = new Context()
 
   ctx.plugin(Log)
@@ -76,6 +82,11 @@ async function onLoad() {
   bindLoggerFactory((name) => ctx.logger(name))
   ctx.plugin(TimerService)
   ctx.plugin(ConfigService)
+  ctx.plugin(PluginService, {
+    file: path.join(DATA_DIR, 'plugins.json'),
+    roots: [pluginDir, ...getPluginDirs().map(dir => path.resolve(dir))],
+    hmr: isPluginHmr(),
+  })
   // 模式二选一: PMHQ 走 WS/HTTP, Direct 走 native sign + TCP + WebUI 扫码.
   // 之后 ctx.qqProtocol 就是选中的实现, 上层代码不感知模式.
   ctx.plugin(isPmhqMode() ? PmhqQQProtocolClient : DirectQQProtocolClient)

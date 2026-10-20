@@ -279,6 +279,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@luckylillia/plugin-sdk@workspace:packages/plugin-sdk":
+  version: 0.0.0-use.local
+  resolution: "@luckylillia/plugin-sdk@workspace:packages/plugin-sdk"
+  dependencies:
+    typescript: "npm:^7.0.2"
+  peerDependencies:
+    "@cordisjs/plugin-database": ^4.2.0
+    "@satorijs/element": ^3.2.0
+    "@satorijs/protocol": ^1.7.0
+    cordis: 4.0.0-rc.11
+    schemastery: ^3.18.0
+  peerDependenciesMeta:
+    "@cordisjs/plugin-database":
+      optional: true
+  languageName: unknown
+  linkType: soft
+
 "@nodable/entities@npm:^3.0.0":
   version: 3.0.0
   resolution: "@nodable/entities@npm:3.0.0"

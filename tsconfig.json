@@ -23,12 +23,16 @@
       ],
       "@/milky/*": [
         "./src/milky/*"
+      ],
+      "@luckylillia/plugin-sdk": [
+        "./packages/plugin-sdk/src/index.ts"
       ]
     },
     "noEmit": true
   },
   "include": [
     "src",
+    "examples",
     "scripts",
     "test/*.ts"
   ],

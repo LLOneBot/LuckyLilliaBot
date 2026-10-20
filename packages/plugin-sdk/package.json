@@ -1,0 +1,48 @@
+{
+  "name": "@luckylillia/plugin-sdk",
+  "version": "1.0.0",
+  "description": "SDK for writing LuckyLillia Bot plugins",
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib"
+  ],
+  "scripts": {
+    "build": "tsc -p .",
+    "prepack": "tsc -p ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LLOneBot/LuckyLilliaBot.git",
+    "directory": "packages/plugin-sdk"
+  },
+  "author": "linyuchen",
+  "license": "GPL-2.0",
+  "peerDependencies": {
+    "@cordisjs/plugin-database": "^4.2.0",
+    "@cordisjs/plugin-timer": "^1.1.4",
+    "@satorijs/element": "^3.2.0",
+    "@satorijs/protocol": "^1.7.0",
+    "cordis": "4.0.0-rc.11",
+    "schemastery": "^3.18.0"
+  },
+  "peerDependenciesMeta": {
+    "@cordisjs/plugin-database": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

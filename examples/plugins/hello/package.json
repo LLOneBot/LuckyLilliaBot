@@ -1,0 +1,17 @@
+{
+  "name": "luckylillia-plugin-hello",
+  "version": "1.0.0",
+  "description": "Logs a line on an interval to exercise the plugin runtime",
+  "type": "module",
+  "main": "src/index.ts",
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "description": {
+      "zh": "按固定间隔打印一行日志, 用来验证插件的加载 / 配置 / 热重载",
+      "en": "Logs a line on an interval to exercise loading, config and hot reload"
+    },
+    "icon": "timer"
+  }
+}

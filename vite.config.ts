@@ -43,12 +43,17 @@ function getModuleDependencies(moduleName: string, basePath = path.join(import.m
   return result
 }
 
-const external = [
+// Plugins import these at runtime and must get the very objects the host uses (a second cordis
+// means services, symbols and events no longer line up), so the host loads them from node_modules too.
+const pluginShared = ['cordis', 'cosmokit', 'schemastery', '@standard-schema/spec', '@satorijs/element', '@satorijs/protocol']
+
+const external = [...new Set([
   'ws',
   'silk-wasm',
   ...getModuleDependencies('reggol'),
   ...getModuleDependencies('file-type'),
-]
+  ...pluginShared.flatMap(name => getModuleDependencies(name)),
+])]
 
 function genCpModule(module: string | RegExp) {
   return { src: `./node_modules/${module}`, dest: `dist/node_modules/${module}`, flatten: false }
@@ -67,7 +72,7 @@ export default defineConfig({
     target: 'node22',
     rolldownOptions: {
       platform: 'node',
-      external: [...external, ...builtinModules, /^node:/],
+      external: [...external, '@luckylillia/plugin-sdk', ...builtinModules, /^node:/],
       input: 'src/main/main.ts',
       output: {
         entryFileNames: 'llbot.js',
@@ -77,6 +82,8 @@ export default defineConfig({
         cp({
           targets: [
             ...external.map(genCpModule),
+            { src: './packages/plugin-sdk/lib', dest: 'dist/node_modules/@luckylillia/plugin-sdk/lib', flatten: false },
+            { src: './packages/plugin-sdk/package.json', dest: 'dist/node_modules/@luckylillia/plugin-sdk/' },
             { src: './src/main/config/default_config.json', dest: 'dist/' },
             { src: './package-dist.json', dest: 'dist/', rename: 'package.json' },
             { src: './doc/使用说明.txt', dest: 'dist/' },

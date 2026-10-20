@@ -1,0 +1,46 @@
+name: Publish plugin SDK
+on:
+  push:
+    tags:
+      - 'sdk-v*'
+  workflow_dispatch:
+
+jobs:
+  publish:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: 'https://registry.npmjs.org'
+
+      # Scripts are skipped: the root postinstall installs the WebUI, which the SDK does not need
+      - name: Install dependencies
+        run: |
+          corepack enable
+          YARN_ENABLE_SCRIPTS=0 yarn install --no-immutable
+
+      - name: Check tag against package version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          version=$(node -p "require('./packages/plugin-sdk/package.json').version")
+          if [ "sdk-v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "tag $GITHUB_REF_NAME does not match package version $version"
+            exit 1
+          fi
+
+      - name: Build
+        run: npx tsc -p packages/plugin-sdk
+
+      - name: Publish to npm
+        working-directory: packages/plugin-sdk
+        run: |
+          npm install -g npm@latest
+          npm publish --provenance --access public
