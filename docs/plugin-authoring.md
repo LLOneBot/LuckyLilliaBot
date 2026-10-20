@@ -171,7 +171,7 @@ ctx.on('bot/before-send', (bot, channelId, content, next) => {
 | 挂载点 | 注册 | 什么时候出现 |
 |---|---|---|
 | 侧边栏页面 | `ctx.page({ id, title, icon, component, order })` | 插件运行时 |
-| 侧边栏设置页 | `ctx.page({ ..., settings: true })` | 一直显示，插件停用时顶部提示设置暂不生效 |
+| 侧边栏设置页 | `ctx.page({ ..., settings: true })` | 插件启用时（运行出错也算）；停用后侧边栏不显示，但插件卡片的"配置"仍能打开，顶部提示设置暂不生效 |
 | 具名插槽，目前只有 Dashboard 底部的 `dashboard` | `ctx.slot('dashboard', Component)` | 插件运行时 |
 | 配置界面，替换自动表单 | `ctx.config(Editor)` | 一直可用，插件停用时也能配置 |
 | 某个 role 的表单控件 | `ctx.field('color', Field)` | 所有插件的自动表单里 `.role('color')` 的字段 |

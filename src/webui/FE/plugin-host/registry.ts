@@ -62,10 +62,23 @@ export function activeOwners(plugins: PluginStatus[] | null): Set<string> {
 const byOrder = (a: { order: number; owner: string }, b: { order: number; owner: string }) =>
   a.order - b.order || a.owner.localeCompare(b.owner)
 
-/** Settings pages, and the other pages of plugins that run, in sidebar order. */
-export function visiblePages(contributions: Contribution[], active: Set<string>): PageContribution[] {
+/**
+ * Pages in sidebar order. Other pages need their plugin to run. Settings pages are listed while the plugin is
+ * enabled, whatever state it is in, failing included; and they can always be opened, because the plugin card
+ * links there to configure a disabled plugin before enabling it.
+ */
+export function visiblePages(
+  contributions: Contribution[],
+  plugins: PluginStatus[] | null,
+  purpose: 'sidebar' | 'open' = 'sidebar',
+): PageContribution[] {
+  const active = activeOwners(plugins)
+  // Until the list loads, settings pages are taken as enabled: they almost always are, and would flicker otherwise
+  const enabled = plugins && new Set(plugins.filter(plugin => !plugin.disabled).map(plugin => plugin.name))
   return contributions
-    .filter((c): c is PageContribution => c.kind === 'page' && (c.settings || active.has(c.owner)))
+    .filter((c): c is PageContribution => c.kind === 'page' && (c.settings
+      ? purpose === 'open' || !enabled || enabled.has(c.owner)
+      : active.has(c.owner)))
     .sort((a, b) => byOrder(a, b) || a.title.localeCompare(b.title))
 }
 

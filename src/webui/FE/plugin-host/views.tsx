@@ -7,10 +7,11 @@ import {
   activeOwners, configEditorOf, fieldRendererOf, PageContribution, slotContents, useRegistry, visiblePages,
 } from './registry'
 
-export function useVisiblePages(): PageContribution[] {
+/** Pages for the sidebar, or with `open`, pages a tab may show. */
+export function useVisiblePages(purpose: 'sidebar' | 'open' = 'sidebar'): PageContribution[] {
   const contributions = useRegistry(state => state.contributions)
   const plugins = usePluginList(state => state.plugins)
-  return useMemo(() => visiblePages(contributions, activeOwners(plugins)), [contributions, plugins])
+  return useMemo(() => visiblePages(contributions, plugins, purpose), [contributions, plugins, purpose])
 }
 
 export function useConfigEditor(owner: string) {

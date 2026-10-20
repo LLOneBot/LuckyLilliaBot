@@ -23,15 +23,21 @@ describe('plugin UI registry', () => {
       page('builtin:webqq', 'webqq', 'WebQQ', 0),
       page('stopped', 'stopped:x', 'X'),
       page('builtin:satori', 'satori', 'Satori', 11, true),
+      page('builtin:milky', 'milky', 'Milky', 12, true),
       { kind: 'slot', owner: 'b', slot: 'dashboard', order: 100, component: Component },
       { kind: 'slot', owner: 'a', slot: 'dashboard', order: 50, component: Component },
       { kind: 'slot', owner: 'stopped', slot: 'dashboard', order: 0, component: Component },
     ]
-    const active = activeOwners([
+    const plugins = [
       status('a', 'active'), status('b', 'active'), status('builtin:webqq', 'active'), status('stopped', 'pending'),
-    ])
-    // A settings page stays reachable while its plugin is stopped
-    expect(visiblePages(contributions, active).map(p => p.key)).toEqual(['webqq', 'satori', 'a:home', 'b:stats'])
+      status('builtin:satori', 'failed'), status('builtin:milky', 'disposed'),
+    ]
+    const active = activeOwners(plugins)
+    // A failing plugin keeps its settings page in the sidebar; a disabled one only keeps it openable
+    expect(visiblePages(contributions, plugins).map(p => p.key)).toEqual(['webqq', 'satori', 'a:home', 'b:stats'])
+    expect(visiblePages(contributions, plugins, 'open').map(p => p.key)).toEqual(['webqq', 'satori', 'milky', 'a:home', 'b:stats'])
+    // Before the list loads, settings pages count as enabled
+    expect(visiblePages(contributions, null).map(p => p.key)).toEqual(['satori', 'milky'])
     expect(slotContents(contributions, active, 'dashboard').map(s => s.owner)).toEqual(['a', 'b'])
     expect(slotContents(contributions, active, 'elsewhere')).toEqual([])
   })

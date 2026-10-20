@@ -26,7 +26,8 @@ export interface PageOptions {
    */
   order?: number
   /**
-   * A settings page: listed and openable while the plugin is disabled too, under a notice that its settings
+   * A settings page: listed while the plugin is enabled, also when it waits for services or fails. Once it is
+   * disabled the sidebar drops the page, but the plugin card still opens it, under a notice that the settings
    * take effect once the plugin runs. Other pages only show while the plugin runs.
    */
   settings?: boolean

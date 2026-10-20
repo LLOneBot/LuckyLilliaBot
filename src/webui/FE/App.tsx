@@ -65,7 +65,8 @@ function App() {
   const { autoHideSidebarInWebQQ } = useSettingsStore();
   usePluginHost(isLoggedIn);
   const pluginPages = useVisiblePages();
-  const currentPluginPage = pluginPages.find(page => page.key === activeTab);
+  const openablePages = useVisiblePages('open');
+  const currentPluginPage = openablePages.find(page => page.key === activeTab);
   const sidebarPluginPages = useMemo(
     () => pluginPages.map(page => ({ id: page.key, title: page.title, icon: iconByName(page.icon), order: page.order })),
     [pluginPages],
@@ -274,7 +275,7 @@ function App() {
   }
 
   // webqq-fullscreen 路由：独立的全屏页面
-  if (activeTab === 'webqq-fullscreen' && pluginPages.some(page => page.key === 'webqq')) {
+  if (activeTab === 'webqq-fullscreen' && openablePages.some(page => page.key === 'webqq')) {
     return (
       <>
         {/* Animated Background */}
