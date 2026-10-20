@@ -13,7 +13,7 @@ declare module 'cordis' {
 }
 
 export class EmailNotificationService extends Service {
-  static inject = ['qqProtocol']
+  static inject = ['qqProtocol', 'account']
 
   private emailService: EmailService
   private configManager: EmailConfigManager

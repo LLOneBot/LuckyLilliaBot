@@ -35,6 +35,7 @@ import { DirectQQProtocolClient, PmhqQQProtocolClient } from './qqProtocol'
 import LoggerConsole from '@cordisjs/plugin-logger-console'
 import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
+import AccountService from './account'
 import { startIpcServer, setLoginState } from './llbot-ipc'
 import PluginService from '../plugin'
 import BotsService from '../universal/bots'
@@ -104,16 +105,19 @@ async function onLoad() {
   ctx.plugin(NTWebApi)
   ctx.plugin(NTSystemApi)
 
-  let config: LLBotConfig
-  // 上层会话插件只加载一次，重连后不重新加载（断线时上层服务希望透明渡过短时断网）
-  let sessionLoaded = false
+  ctx.plugin(AccountService)
 
-  const loadPluginAfterLogin = () => {
-    if (sessionLoaded) return
-    sessionLoaded = true
+  // The config file and the database are per account, so everything here waits for the first login.
+  // `account` survives reconnects, so this runs once and upper layers ride out short network drops.
+  ctx.inject(['account', 'config'], (ctx) => {
+    const config = ctx.config.get(false)
+    ctx.config.listenChange(c => {
+      ctx.parallel('llob/config-updated', c)
+    })
+    ctx.parallel('llob/config-updated', config)
     ctx.plugin(Database)
     ctx.plugin(SQLiteDriver, {
-      path: pathToFileURL(path.join(dbDir, `${selfInfo.uin}.v3.db`)).href,
+      path: pathToFileURL(path.join(dbDir, `${ctx.account.uin}.v3.db`)).href,
     })
     ctx.plugin(Core, config)
     ctx.plugin(OneBot11Adapter, {
@@ -132,12 +136,12 @@ async function onLoad() {
       msgCacheExpire: config.msgCacheExpire!,
     })
     ctx.plugin(EmailNotificationService)
-  }
+  })
 
   ctx.inject(['qqProtocol', 'config'], (ctx) => {
     ctx.logger.info(`LLBot ${version}`)
     ctx.logger.info(process.argv)
-    config = ctx.config.get()
+    const config = ctx.config.get()
     setConfigLogLevel(config.logLevel)
     applyDebugLevel(ctx)
     ctx.on('llob/config-updated', c => { setConfigLogLevel(c.logLevel); applyDebugLevel(ctx) })
@@ -154,14 +158,6 @@ async function onLoad() {
                                         UIN: ${selfInfo.uin}
 `)
       setLoginState({ state: 'logged_in', uin: selfInfo.uin, nickname: selfInfo.nick })
-      if (!sessionLoaded) {
-        config = ctx.config.get(false)
-        ctx.config.listenChange(c => {
-          ctx.parallel('llob/config-updated', c)
-        })
-        ctx.parallel('llob/config-updated', config)
-      }
-      loadPluginAfterLogin()
     }
     ctx.on('qq/online', handleOnline)
     // 协议层可能在 inject callback 之前就 emit 过 qq/online，那一次 emit 会丢，得 catch up 一下
