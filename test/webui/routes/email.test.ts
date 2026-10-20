@@ -10,37 +10,6 @@ describe('email routes', () => {
     ctx = createMockContext()
   })
 
-  describe('when emailNotification is null', () => {
-    it('GET /config returns 503', async () => {
-      ctx.emailNotification = null
-      const app = createTestApp(createEmailRoutes(ctx))
-      const res = await app.request('/config')
-      expect(res.status).toBe(503)
-    })
-
-    it('POST /config returns 503', async () => {
-      ctx.emailNotification = null
-      const app = createTestApp(createEmailRoutes(ctx))
-      const res = await app.request('/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ smtp: { host: 'smtp.test.com', port: 465, secure: true, auth: { user: 'a', pass: 'b' } }, enabled: true }),
-      })
-      expect(res.status).toBe(503)
-    })
-
-    it('POST /test returns 503', async () => {
-      ctx.emailNotification = null
-      const app = createTestApp(createEmailRoutes(ctx))
-      const res = await app.request('/test', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      })
-      expect(res.status).toBe(503)
-    })
-  })
-
   describe('when emailNotification is available', () => {
     let mockEmailService: any
 

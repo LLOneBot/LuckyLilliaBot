@@ -28,6 +28,8 @@ interface SidebarProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onOpenSettings?: () => void;
+  /** Tabs whose feature is switched off, e.g. WebQQ while its builtin plugin is disabled. */
+  hiddenTabs?: ReadonlySet<string>;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -39,6 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   collapsed = false,
   onToggleCollapse,
   onOpenSettings,
+  hiddenTabs,
 }) => {
   const menuItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -50,7 +53,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'plugins', icon: Puzzle, label: '插件' },
     { id: 'webqq', icon: MessageSquare, label: 'WebQQ' },
     { id: 'about', icon: Info, label: '关于' },
-  ]
+  ].filter(item => !hiddenTabs?.has(item.id))
 
   const navRef = useRef<HTMLElement>(null)
   const [indicator, setIndicator] = useState<{ top: number; height: number } | null>(null)

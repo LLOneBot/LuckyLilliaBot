@@ -26,6 +26,7 @@ import Store from '@/main/store'
 import AccountService from '@/main/account'
 import { builtinPlugins } from '@/main/builtins'
 import BotsService from '@/universal/bots'
+import { WebuiServer } from '@/webui/BE/server'
 import PluginService, { PluginForbiddenError, PluginState } from '@/plugin'
 
 // Same isolation as service-registry.test.ts: these services write into DATA_DIR
@@ -122,6 +123,8 @@ describe('builtin plugins', () => {
     for (const plugin of [MockConfig, MockProtocol, BotsService, NTFileApi, NTFriendApi, NTGroupApi, NTLoginApi, NTMsgApi, NTUserApi, NTWebApi, NTSystemApi]) {
       ctx.plugin(plugin)
     }
+    // builtin:webqq mounts its routes on the WebUI
+    ctx.plugin(WebuiServer, config.webui)
     // As in main.ts: the database is per account, so the core services wait for the login
     mounted.push(ctx.inject(['account', 'config'], (ctx) => {
       ctx.plugin(Database)

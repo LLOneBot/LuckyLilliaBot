@@ -26,6 +26,7 @@ import OneBot11Adapter from '@/onebot11/adapter'
 import SatoriAdapter from '@/satori/adapter'
 import MilkyAdapter from '@/milky/adapter'
 import { WebuiServer } from '@/webui/BE/server'
+import { DashboardRoutes, EmailRoutes, WebQQ } from '@/webui/BE/routes'
 import EmailNotificationService from '@/common/emailNotification'
 import AccountService from '@/main/account'
 import BotsService from '@/universal/bots'
@@ -119,6 +120,10 @@ describe('service registry under the pinned cordis version', () => {
     mount('store', Store, { msgCacheExpire: config.msgCacheExpire! })
     mount('emailNotification', EmailNotificationService)
     mount('webuiServer', WebuiServer, config.webui)
+    // Route plugins: their inject lists have to be satisfiable by the real services
+    mount('webqq', WebQQ)
+    mount('dashboardRoutes', DashboardRoutes)
+    mount('emailRoutes', EmailRoutes)
 
     await vi.waitFor(() => {
       const stuck = Object.entries(fibers)

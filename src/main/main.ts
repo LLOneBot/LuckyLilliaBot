@@ -37,6 +37,7 @@ import PluginService from '../plugin'
 import BotsService from '../universal/bots'
 import { builtinPlugins } from './builtins'
 import { PluginRoutes } from '../webui/BE/routes/plugins'
+import { DashboardRoutes, EmailRoutes } from '../webui/BE/routes'
 
 declare module 'cordis' {
   interface Events {
@@ -90,6 +91,8 @@ async function onLoad() {
     builtins: builtinPlugins,
   })
   ctx.plugin(PluginRoutes)
+  ctx.plugin(DashboardRoutes)
+  ctx.plugin(EmailRoutes)
   // 模式二选一: PMHQ 走 WS/HTTP, Direct 走 native sign + TCP + WebUI 扫码.
   // 之后 ctx.qqProtocol 就是选中的实现, 上层代码不感知模式.
   ctx.plugin(isPmhqMode() ? PmhqQQProtocolClient : DirectQQProtocolClient)

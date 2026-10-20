@@ -6,6 +6,7 @@ import SatoriAdapter from '../satori/adapter'
 import MilkyAdapter from '../milky/adapter'
 import EmailNotificationService from '../common/emailNotification'
 import * as NTQQUniversal from '../universal/ntqq'
+import { WebQQ } from '../webui/BE/routes/webqq'
 
 /**
  * Mounts an adapter with its part of config_<uin>.json, which only exists once the account is known.
@@ -63,6 +64,15 @@ export const builtinPlugins: BuiltinPlugin[] = [
       description: { zh: 'Milky 协议适配器', en: 'Milky protocol adapter' },
     },
     settings: 'milky',
+  },
+  {
+    name: 'builtin:webqq',
+    title: 'WebQQ',
+    plugin: WebQQ,
+    manifest: {
+      icon: 'message-square',
+      description: { zh: '在 WebUI 里像 QQ 客户端一样收发消息', en: 'Chat from the WebUI like a QQ client' },
+    },
   },
   {
     name: 'builtin:email-notification',

@@ -13,7 +13,7 @@ Bot 进程本身就是一个 cordis 4 应用，插件运行时只是在根 `Cont
 | `src/plugin/store.ts` | `data/plugins.json` 读写 |
 | `src/plugin/resolve-hook.ts` | `module.registerHooks` 解析钩子 |
 | `src/plugin/watcher.ts` | 目录监听（热重载） |
-| `src/main/builtins.ts` | 内置插件表：三个适配器、邮件通知、中立层 |
+| `src/main/builtins.ts` | 内置插件表：三个适配器、WebQQ、邮件通知、中立层 |
 | `packages/plugin-sdk/` | `@luckylillia/plugin-sdk`，yarn workspace，单独发 npm |
 | `examples/plugins/` | dogfood 插件（不进 dist） |
 
@@ -87,6 +87,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 | 条目 | 内容 | 设置页 |
 |---|---|---|
 | `builtin:onebot11` / `builtin:satori` / `builtin:milky` | 三个协议适配器 | `onebot` / `satori` / `milky` |
+| `builtin:webqq` | WebQQ 后端（`src/webui/BE/routes/webqq/index.ts` 的 `WebQQ`） | — |
 | `builtin:email-notification` | 掉线邮件通知 | `other` |
 | `builtin:ntqq-universal` | 中立层，**core** | — |
 
@@ -95,7 +96,9 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - **配置仍在 `config_<uin>.json`**，不进 `plugins.json`：条目开关只决定装不装，`ob11.enable` 等原来的开关照旧。适配器包了一层 `withBotConfig()`：`inject` 是 `account` + `config` + 适配器自己的依赖（条目因此在依赖齐之前显示 pending，而不是"外壳 active、里面 pending"），`apply` 里按原来 `main.ts` 的拼法从 `ctx.config.get()` 取配置再 `await ctx.plugin(适配器)` —— await 让适配器启动失败变成条目的 `failed`。`test/unit/bootstrap/builtins.test.ts` 逐字段比对拼出来的配置
 - `reload` 对内置条目是重启（dispose + 重新挂载，没有模块可重新 import），会读到最新配置
 - **停用要真能停下来**：改造前适配器从不在运行时卸载，OneBot / Satori / Milky 的 `[Service.init]` 都返回 `noop`，停用后端口不释放，再启用就 `EADDRINUSE`。现在它们返回关服务器的 disposer（cordis 卸载时会 await）。Satori 的 `/v1/internal/onebot11/:action` 原来缓存了一份按 OB11 实例构造的 action 表，OB11 重启后会指向已卸载的实例，改成每次从当前的 `ctx.get('onebot').actionMap` 取
-- 前端：插件页分"内置 / 已安装"两区，内置卡片有"内置 / 核心"徽章，core 的开关置灰；设置按钮跳到对应设置页（改 `location.hash`，`App` 监听 hashchange）。设置页顶部的 `BuiltinDisabledNotice` 在对应内置条目被停用时提示"这里的设置不会生效"
+- 前端：插件页分"内置 / 已安装"两区，内置卡片有"内置 / 核心"徽章，core 的开关置灰；设置按钮跳到对应设置页（改 `location.hash`，`App` 监听 hashchange）。设置页顶部的 `BuiltinDisabledNotice` 在对应内置条目被停用时提示"这里的设置不会生效"。WebQQ 停用时侧边栏不显示入口（`useDisabledBuiltins`，经插件 SSE 实时更新，读不到列表时什么都不隐藏），直接打开 `#webqq` 显示 `BuiltinDisabledPage`
+- **WebQQ 插件**（`builtin:webqq`）：路由、上传目录、`/api/webqq/events` 的 SSE 连接，以及往 SSE 推消息的 4 个 `nt/*` 监听（`routes/webqq/events.ts`）都在插件里，`inject` 列出路由代码直接访问的全部服务，登录后才挂载。停用时主动 `abort()` 还开着的 SSE 连接，否则页面会一直挂在一条没人写的流上。路由文件留在 `src/webui/BE/routes/webqq/` 没搬目录
+- 插件只需要 `inject` 自己**直接**访问的服务：经 `ctx.xxx` 调到别的服务的方法时，cordis 按那个服务自己的 fiber 做严格检查（`createShadow` 的 `defSite` 是服务本身的 ctx），调用方 ctx 只决定方法里注册的副作用挂在谁身上。但像 `Core.sendMessage(ctx, ...)` 这种把 ctx 当参数传进去的，参数 ctx 访问的服务要算在调用方头上
 - `pending` 的条目缺 `account` 时，前端只显示"等待 QQ 登录"：登录后才有的服务（`app` / `store` / `database` ...）都是它的结果，列出来没有意义
 
 ## 状态
@@ -124,7 +127,9 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 **运行时路由表**：`WebuiServer.route(prefix, handler)` 让插件在 WebUI 下挂 HTTP 接口，返回的 disposer 挂在调用方的 `ctx.effect` 上，插件卸载时自动摘除。Hono 本身不能注销路由，所以 `initServer()` 在所有内置路由之后、静态文件之前挂了一个 `/api/*` 分发中间件，按前缀查一张可变的表 —— 内置路由先注册，永远优先命中；鉴权中间件在更前面，挂上来的路由自动受保护。`handler` 只要有 `fetch(request, env)`，收到的是完整 URL（Hono 子应用用 `basePath(prefix)` 或 `route(prefix, ...)`），请求体原样转发，multipart 也没问题。
 
-**`/api/plugins`**（`src/webui/BE/routes/plugins.ts`）本身就是经路由表挂上的插件 `PluginRoutes`（`inject: ['webuiServer', 'plugins']`），不走 `lazyServiceContext`：
+**WebUI 的路由都按依赖挂载**：原来 `server.ts` 用 `lazyServiceContext` 代理绕过严格 inject，登录前就把所有路由挂上、调用时服务不在就报错或回 503。现在代理已删除：`WebuiServer` 自己只 inject 登录前就绪的 `qqProtocol` / `ntLoginApi` / `config`，也只带登录前要用的 config / auth-token / login / logs 路由；其余都是插件，`inject` 齐了才经路由表挂上 —— `DashboardRoutes`（`routes/dashboard.ts`，登录前就可用，`/dashboard/stats` 在 `app` 起来之前照旧回 503）、`EmailRoutes`（`routes/email.ts`，随邮件通知内置插件存在）、WebQQ（`builtin:webqq`）、`PluginRoutes`。没有路由命中的 `/api/*`（包括插件停用或还没起来）统一回 JSON 404 `{ success: false, message }`，前端能直接显示。
+
+**`/api/plugins`**（`src/webui/BE/routes/plugins.ts`）本身就是经路由表挂上的插件 `PluginRoutes`（`inject: ['webuiServer', 'plugins']`）：
 
 | 方法 | 路径 | 作用 |
 |---|---|---|
@@ -149,7 +154,11 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - 弹窗打开时 `withDefaults(config, defaults)` 填出完整值；保存时 `stripDefaults` 剥掉等于默认值的字段（数组整体比较），`plugins.json` 只存用户改过的部分，插件升级改了默认值时用户自动跟上
 - 卡片图标用一张固定的 lucide 图标表（`meta.ts`），没用 `lucide-react/dynamic` 的 `DynamicIcon`：它会给约 1600 个图标各生成一个 chunk
 
-**端到端验证方法**（不登录 QQ）：后端 `tsx --tsconfig <repo>/tsconfig.json <repo>/src/main/main.ts --pmhq-port 1 --plugin-dir <repo>/examples/plugins`，cwd 放临时目录并预置 `data/webui_token.txt`；前端 `BROWSER=none npx vite`（否则会在桌面弹浏览器）；浏览器设好 `webui_token` cookie（密码的 sha256 hex），用 Playwright 只把 `/api/config` 响应里的 `selfInfo.online` 改成 true，就能进主界面操作真实的插件后端。注意 `playwright-cli fill <ref> -1` 会把 `-1` 当成命令行选项，填负数要用 `run-code`。
+**端到端验证方法**（不登录 QQ）：后端 `tsx --tsconfig <repo>/tsconfig.json <repo>/src/main/main.ts -q 10001 --pmhq-port 1 --plugin-dir <repo>/examples/plugins`，cwd 放临时目录，预置 `data/webui_token.txt` 和 `data/config_10001.json`（`{ "webui": { "enable": true, "host": "127.0.0.1", "port": 3999 } }`：带 `-q` 时登录前就读这份配置，PMHQ 端口没人监听所以不会真登录）；前端 `BROWSER=none WEBUI_PORT=3999 npx vite --port 15199 --strictPort`；浏览器设好 `webui_token` cookie（密码的 sha256 hex），用 Playwright 只把 `/api/config` 响应里的 `selfInfo.online` 改成 true，就能进主界面操作真实的插件后端。
+
+- **不要用默认的 3080 / 15173**：桌面浏览器里开着的 WebUI 页面会自动重连上临时实例，带着真实密码的 cookie（cookie 不分端口），校验失败，连续失败 4 次临时实例的 API 就锁一小时
+- **不要用 `vite --open false`**：`false` 被当成路径，照样在桌面浏览器打开页面。用 `BROWSER=none`
+- `playwright-cli fill <ref> -1` 会把 `-1` 当成命令行选项，填负数要用 `run-code`
 
 ## 进程内只能有一份 cordis
 

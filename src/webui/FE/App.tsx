@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Sidebar,
   Dashboard,
@@ -15,7 +15,7 @@ import {
   HostSelector,
 } from './components';
 import { WebQQPage, WebQQFullscreen } from './components/WebQQ';
-import { BuiltinDisabledNotice, PluginsPage } from './components/plugins';
+import { BuiltinDisabledNotice, BuiltinDisabledPage, PluginsPage, useDisabledBuiltins } from './components/plugins';
 import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
 import { deleteCookie } from './utils/cookie';
@@ -59,6 +59,9 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const { autoHideSidebarInWebQQ } = useSettingsStore();
+  const disabledBuiltins = useDisabledBuiltins(isLoggedIn);
+  const webqqDisabled = disabledBuiltins.has('builtin:webqq');
+  const hiddenTabs = useMemo(() => new Set(webqqDisabled ? ['webqq'] : []), [webqqDisabled]);
 
   // 设置密码提示处理器
   useEffect(() => {
@@ -291,7 +294,7 @@ function App() {
   }
 
   // webqq-fullscreen 路由：独立的全屏页面
-  if (activeTab === 'webqq-fullscreen') {
+  if (activeTab === 'webqq-fullscreen' && !webqqDisabled) {
     return (
       <>
         {/* Animated Background */}
@@ -327,6 +330,7 @@ function App() {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         onOpenSettings={() => setShowSettingsDialog(true)}
+        hiddenTabs={hiddenTabs}
       />
 
       <main className={`flex-1 overflow-auto z-10 transition-all duration-300 ${sidebarCollapsed ? '' : 'md:ml-[17.5rem]'}`}>
@@ -366,7 +370,9 @@ function App() {
 
           {activeTab === 'dashboard' && <Dashboard llbotVersion={version} qqVersion={qqVersion} />}
 
-          {activeTab === 'webqq' && <WebQQPage />}
+          {activeTab === 'webqq' && !webqqDisabled && <WebQQPage />}
+
+          {(activeTab === 'webqq' || activeTab === 'webqq-fullscreen') && webqqDisabled && <BuiltinDisabledPage title="WebQQ" />}
 
           {activeTab === 'logs' && <LogViewer />}
 

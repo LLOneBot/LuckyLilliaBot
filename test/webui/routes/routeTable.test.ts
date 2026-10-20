@@ -45,6 +45,7 @@ beforeEach(async () => {
   ctx = new Context()
   await ctx.plugin(class extends Stub { constructor(ctx: Context) { super(ctx, 'qqProtocol') } })
   await ctx.plugin(class extends Stub { constructor(ctx: Context) { super(ctx, 'ntLoginApi') } })
+  await ctx.plugin(class extends Stub { constructor(ctx: Context) { super(ctx, 'config') } })
   await ctx.plugin(WebuiServer, { enable: false, host: '127.0.0.1', port: 0 })
   app = (ctx.webuiServer as unknown as { app: Hono }).app
 })
@@ -69,7 +70,9 @@ describe('WebuiServer.route', () => {
     expect(() => ctx.webuiServer.route('/api/demo', demo)).toThrow(/already mounted/)
 
     await plugin.dispose()
-    expect((await request('/api/demo')).status).toBe(404)
+    const gone = await request('/api/demo')
+    expect(gone.status).toBe(404)
+    expect(await gone.json()).toMatchObject({ success: false })
   })
 
   it('never shadows a built-in route', async () => {

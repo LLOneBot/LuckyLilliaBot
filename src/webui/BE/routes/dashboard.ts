@@ -106,3 +106,14 @@ export function createDashboardRoutes(ctx: Context): Hono {
 
   return router
 }
+
+/** Up before login like the rest of the WebUI: the stats answer 503 until `app` is. */
+export const DashboardRoutes = {
+  name: 'webui-dashboard-routes',
+  inject: ['webuiServer', 'qqProtocol', 'ntSystemApi', 'ntGroupApi', 'ntFriendApi'],
+  apply(ctx: Context) {
+    const app = new Hono().route('/api', createDashboardRoutes(ctx))
+    ctx.webuiServer.route('/api/dashboard', app)
+    ctx.webuiServer.route('/api/device-info', app)
+  },
+}
