@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { apiFetch } from '../../utils/api'
+import { PluginSlot } from '../../plugin-host/views'
 import { Users, UsersRound, MessageSquare, Send, Clock, Cpu, HardDrive, Zap, Bot, MessageCircle, Server } from 'lucide-react'
 
 interface DashboardStats {
@@ -404,6 +405,8 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
           />
         )}
       </div>
+
+      <PluginSlot name="dashboard" className="grid grid-cols-1 md:grid-cols-2 gap-4" />
     </div>
   )
 }

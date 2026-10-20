@@ -35,6 +35,8 @@ export interface PluginStatus {
   /** App tab id holding the settings of a builtin. */
   settings?: string
   service: ServiceDeclaration
+  /** URL of the plugin's WebUI module; it changes when the plugin is reloaded. */
+  webui?: string
 }
 
 export interface DependencyInfo {

@@ -1,7 +1,11 @@
+import { readFile, stat } from 'node:fs/promises'
+import path from 'node:path'
 import { Context } from 'cordis'
 import { Context as HonoContext, Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import { PluginConfigError, PluginForbiddenError, PluginNotFoundError } from '../../../plugin'
+import { webuiTokenUtil } from '../../../main/config'
+import { hashPassword } from '../passwordHash'
 
 export function createPluginRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -63,11 +67,61 @@ export function createPluginRoutes(ctx: Context): Hono {
   return router
 }
 
+const CONTENT_TYPES: Record<string, string> = {
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.map': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
+  '.ttf': 'font/ttf',
+}
+
+function cookie(request: Request, name: string): string | undefined {
+  for (const part of (request.headers.get('cookie') ?? '').split(';')) {
+    const [key, ...value] = part.trim().split('=')
+    if (key === name) return value.join('=')
+  }
+}
+
+/**
+ * `/plugin-webui/<key>/<version>/<file>`: plugin WebUI modules and their chunks. import() sends the
+ * cookies but no headers, so the WebUI login is checked against its cookie, which holds the same hash.
+ */
+export async function servePluginAsset(ctx: Context, request: Request): Promise<Response> {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405 })
+  const token = webuiTokenUtil.getToken()
+  if (!token || cookie(request, 'webui_token') !== hashPassword(token)) return new Response(null, { status: 401 })
+  const [, , key, , ...file] = new URL(request.url).pathname.split('/')
+  let target: string | undefined
+  try {
+    target = key && file.length ? ctx.plugins.webuiAsset(decodeURIComponent(key), file.map(decodeURIComponent).join('/')) : undefined
+  } catch {
+    // malformed percent-encoding
+  }
+  if (!target || !(await stat(target).catch(() => undefined))?.isFile()) return new Response(null, { status: 404 })
+  return new Response(request.method === 'HEAD' ? null : await readFile(target), {
+    headers: {
+      'Content-Type': CONTENT_TYPES[path.extname(target).toLowerCase()] ?? 'application/octet-stream',
+      // The URL carries the package's reload version, but a plugin being edited without a reload changes too
+      'Cache-Control': 'no-cache',
+    },
+  })
+}
+
 /** Serves /api/plugins through the WebUI's runtime route table, so it is up as soon as both services are. */
 export const PluginRoutes = {
   name: 'webui-plugin-routes',
   inject: ['webuiServer', 'plugins'],
   apply(ctx: Context) {
     ctx.webuiServer.route('/api/plugins', new Hono().route('/api/plugins', createPluginRoutes(ctx)))
+    ctx.webuiServer.route('/plugin-webui', { fetch: request => servePluginAsset(ctx, request) }, { public: true })
   },
 }

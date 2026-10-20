@@ -20,4 +20,10 @@ export interface LLBotManifest {
     /** Services this plugin provides. Two enabled plugins providing the same one conflict. */
     implements?: string[]
   }
+  /**
+   * ES module extending the WebUI, relative to the package root: sidebar pages, Dashboard cards, a custom
+   * config editor. See `@luckylillia/plugin-sdk/webui`. Its directory is served as a whole, so keep the
+   * WebUI build in a folder of its own.
+   */
+  webui?: string
 }

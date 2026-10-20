@@ -81,4 +81,15 @@ describe('WebuiServer.route', () => {
     expect(await (await request('/api/config')).text()).not.toBe('hijacked')
     expect(await (await request('/api/config/extra')).text()).toBe('hijacked')
   })
+
+  it('serves public routes outside /api without the login, and keeps the two apart', async () => {
+    const hook = { fetch: () => new Response('public') }
+    const plugin = await ctx.plugin({ inject: ['webuiServer'], apply: (ctx: Context) => { ctx.webuiServer.route('/hooks', hook, { public: true }) } })
+    expect(await (await request('/hooks/github', {}, {})).text()).toBe('public')
+    expect(() => ctx.webuiServer.route('/api/hooks', hook, { public: true })).toThrow('must not be under /api')
+    expect(() => ctx.webuiServer.route('/hooks2', hook)).toThrow('must be under /api')
+
+    await plugin.dispose()
+    expect((await request('/hooks/github', {}, {})).status).toBe(404)
+  })
 })

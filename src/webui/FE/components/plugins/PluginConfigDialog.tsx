@@ -9,6 +9,9 @@ import { SchemaField } from './schema/SchemaField'
 import { JsonInput } from './schema/inputs'
 import { pluginIcon, pluginTitle } from './meta'
 import DependencyList from './DependencyList'
+import { PluginBoundary } from '../../plugin-host/context'
+import { ensureClient, useClientErrors } from '../../plugin-host/host'
+import { useConfigEditor } from '../../plugin-host/views'
 
 interface PluginConfigDialogProps {
   plugin: PluginStatus
@@ -24,6 +27,11 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
   const [saving, setSaving] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [node, setNode] = useState<SchemaNode | null>(null)
+  const [schema, setSchema] = useState<unknown>(null)
+  // A plugin with a WebUI module may bring its own editor, and a disabled one has not been loaded yet
+  const [clientReady, setClientReady] = useState(!plugin.webui)
+  const Editor = useConfigEditor(plugin.name)?.component
+  const clientError = useClientErrors(state => state.errors[plugin.name])
   const [defaults, setDefaults] = useState<unknown>({})
   const [value, setValue] = useState<unknown>(undefined)
   const [errors, setErrors] = useState<Record<string, string>>({})
@@ -34,6 +42,7 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
       .then(({ schema, defaults, config }) => {
         const root = schema ? hydrate(schema) : null
         setNode(root)
+        setSchema(schema)
         setDefaults(defaults)
         setValue(root ? withDefaults(config, defaults) : config ?? undefined)
       })
@@ -41,8 +50,18 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
       .finally(() => setLoading(false))
   }, [plugin.id])
 
+  useEffect(() => {
+    if (!plugin.webui) return
+    let alive = true
+    ensureClient(plugin.name, plugin.webui).then(() => alive && setClientReady(true))
+    return () => {
+      alive = false
+    }
+  }, [plugin.name, plugin.webui])
+
   // No schema and no Config export: nothing to configure. A non-schemastery Config gets the JSON editor.
-  const configurable = node !== null || plugin.hasConfig !== false
+  const configurable = !!Editor || node !== null || plugin.hasConfig !== false
+  const ready = !loading && clientReady
 
   const save = async () => {
     setSaving(true)
@@ -90,13 +109,18 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
 
           <div className="p-6 overflow-y-auto flex-1 space-y-6">
             <DependencyList plugin={plugins.find(other => other.id === plugin.id) ?? plugin} plugins={plugins} />
-            {loading && <div className="flex justify-center py-10"><Loader2 size={32} className="animate-spin text-pink-500" /></div>}
-            {!loading && loadError && <p className="text-sm text-red-500">加载配置失败：{loadError}</p>}
-            {!loading && !loadError && !configurable && <p className="text-sm text-theme-secondary text-center py-6">这个插件没有可配置项</p>}
-            {!loading && !loadError && configurable && (
+            {!ready && <div className="flex justify-center py-10"><Loader2 size={32} className="animate-spin text-pink-500" /></div>}
+            {ready && loadError && <p className="text-sm text-red-500">加载配置失败：{loadError}</p>}
+            {ready && !loadError && !configurable && <p className="text-sm text-theme-secondary text-center py-6">这个插件没有可配置项</p>}
+            {ready && !loadError && configurable && (
               <div className="space-y-5">
+                {clientError && <p className="text-xs text-amber-600 dark:text-amber-400">插件自己的界面没能加载，先用通用表单：{clientError}</p>}
                 {errors[''] && <p className="text-sm text-red-500">{errors['']}</p>}
-                {node
+                {Editor ? (
+                  <PluginBoundary owner={plugin.name}>
+                    <Editor value={value} onChange={setValue} schema={schema} defaults={defaults} errors={errors} />
+                  </PluginBoundary>
+                ) : node
                   ? <SchemaField node={node} value={value} onChange={setValue} path={[]} errors={errors} depth={0} />
                   : <JsonInput value={value} onChange={setValue} invalid={!!errors['']} />}
               </div>
@@ -112,7 +136,7 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
             <div className="flex items-center gap-3">
               <button onClick={onClose} className="px-6 py-2.5 text-theme-secondary hover:bg-theme-item rounded-xl font-medium transition-colors">取消</button>
               {configurable && !loadError && (
-                <button onClick={save} disabled={loading || saving} className="btn-primary flex items-center gap-2">
+                <button onClick={save} disabled={!ready || saving} className="btn-primary flex items-center gap-2">
                   {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
                   保存
                 </button>

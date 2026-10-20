@@ -1,0 +1,23 @@
+{
+  "name": "luckylillia-plugin-custom-config",
+  "version": "1.0.0",
+  "description": "Edits its config with its own UI instead of the generated form",
+  "type": "module",
+  "main": "src/index.ts",
+  "peerDependencies": {
+    "@luckylillia/plugin-sdk": "^1.0.0"
+  },
+  "llbot": {
+    "description": {
+      "zh": "自定义配置界面示例：用自己画的编辑器代替自动生成的表单，保存时仍由 schema 校验",
+      "en": "Custom config UI example: its own editor instead of the generated form, still validated by the schema"
+    },
+    "icon": "settings",
+    "service": {
+      "required": [
+        "bots"
+      ]
+    },
+    "webui": "webui/index.js"
+  }
+}

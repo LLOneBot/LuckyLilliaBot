@@ -10,6 +10,10 @@
       "types": "./lib/index.d.ts",
       "default": "./lib/index.js"
     },
+    "./webui": {
+      "types": "./lib/webui.d.ts",
+      "default": "./lib/webui.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [

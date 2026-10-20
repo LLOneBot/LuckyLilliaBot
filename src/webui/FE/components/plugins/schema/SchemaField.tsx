@@ -3,6 +3,8 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, Trash2 } from 'luc
 import { classifyUnion, localize, mergeIntersect, SchemaNode } from './model'
 import { initialValue, isPlainObject } from './values'
 import { ChoiceInput, DurationInput, JsonInput, NumberInput, StringInput, Switch } from './inputs'
+import { PluginBoundary } from '../../../plugin-host/context'
+import { useFieldRenderer } from '../../../plugin-host/views'
 
 export interface FieldProps {
   node: SchemaNode
@@ -19,11 +21,24 @@ const MAX_DEPTH = 6
 
 const errorAt = (errors: Record<string, string>, path: string[]) => errors[path.join('.')]
 
+// Roles this form renders itself; plugins register field renderers for other roles only
+const BUILTIN_ROLES = new Set(['ms', 'table', 'radio', 'checkbox', 'secret', 'slider', 'textarea'])
+
 const iconButton = 'p-1.5 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg transition-colors disabled:opacity-30 disabled:pointer-events-none'
 
 export function SchemaField(props: FieldProps) {
   const { node, value, onChange, path, errors, depth } = props
+  const role = node.meta.role
+  const custom = useFieldRenderer(role && !BUILTIN_ROLES.has(role) ? role : undefined)
   const invalid = !!errorAt(errors, path)
+  if (custom) {
+    const { owner, component: Field } = custom
+    return (
+      <PluginBoundary owner={owner}>
+        <Field value={value} onChange={onChange} meta={node.meta} error={errorAt(errors, path)} />
+      </PluginBoundary>
+    )
+  }
   if (depth > MAX_DEPTH) return <JsonInput value={value} onChange={onChange} invalid={invalid} />
 
   switch (node.type) {

@@ -3,7 +3,10 @@ import ReactDOM from 'react-dom/client'
 import App from './App'
 import { setGlassSource } from './utils/glassRuntime'
 import GlassDebug from './components/common/GlassDebug'
+import { installSharedModules } from './plugin-host'
 import './index.css'
+
+installSharedModules()
 
 // Apply the theme class before first paint. Without this the dark background
 // gradient swaps in after hydration and the whole page flashes light.

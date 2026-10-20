@@ -4,6 +4,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WebUI</title>
+    <!-- Plugin WebUI modules import these; see pluginSharedShims() in vite.config.ts -->
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "/plugin-shared/react.js",
+          "react/jsx-runtime": "/plugin-shared/react-jsx-runtime.js",
+          "react-dom": "/plugin-shared/react-dom.js",
+          "@luckylillia/plugin-sdk/webui": "/plugin-shared/plugin-sdk-webui.js"
+        }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

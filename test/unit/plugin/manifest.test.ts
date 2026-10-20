@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { normalizeService, resolveMain, scanPluginRoots, sdkIncompatibility } from '@/plugin/manifest'
+import { normalizeService, readPluginPackage, resolveMain, scanPluginRoots, sdkIncompatibility } from '@/plugin/manifest'
 
 const root = mkdtempSync(path.join(os.tmpdir(), 'llbot-plugin-scan-'))
 
@@ -79,5 +79,23 @@ describe('normalizeService', () => {
     ])
     expect(normalizeService(['bots'], warnings)).toEqual({ required: [], optional: [], implements: [] })
     expect(warnings.at(-1)).toMatch(/should be an object/)
+  })
+})
+
+describe('llbot.webui', () => {
+  it('keeps a module inside the package and warns about anything else', async () => {
+    pkg('webui-ok', { name: 'webui-ok', type: 'module', llbot: { webui: 'webui/index.js' } }, ['index.js', 'webui/index.js'])
+    pkg('webui-missing', { name: 'webui-missing', type: 'module', llbot: { webui: 'webui/index.js' } })
+    pkg('webui-outside', { name: 'webui-outside', type: 'module', llbot: { webui: '../plain/index.js' } })
+
+    const ok = (await readPluginPackage(path.join(root, 'webui-ok')))!
+    expect(ok.webui).toBe(path.join(ok.root, 'webui', 'index.js'))
+    expect(ok.warnings).toEqual([])
+    const missing = (await readPluginPackage(path.join(root, 'webui-missing')))!
+    expect(missing.webui).toBeUndefined()
+    expect(missing.warnings).toEqual(['llbot.webui webui/index.js does not exist'])
+    const outside = (await readPluginPackage(path.join(root, 'webui-outside')))!
+    expect(outside.webui).toBeUndefined()
+    expect(outside.warnings).toEqual(['llbot.webui should be a path inside the package'])
   })
 })

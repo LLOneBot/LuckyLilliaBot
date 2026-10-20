@@ -5,7 +5,8 @@ import { pathToFileURL } from 'node:url'
 import { Context, Fiber, FiberState, Inject, Plugin, Service, resolveConfig } from 'cordis'
 import type { LLBotManifest } from '@luckylillia/plugin-sdk'
 import {
-  normalizeService, PluginPackage, readPluginPackage, scanPluginRoots, SDK_PACKAGE, sdkIncompatibility, ServiceDeclaration,
+  isInside, normalizeService, PluginPackage, readPluginPackage, scanPluginRoots, SDK_PACKAGE, sdkIncompatibility,
+  ServiceDeclaration,
 } from './manifest'
 import { installPluginResolver, ResolverState, sharedSpecifierMap } from './resolve-hook'
 import { newEntryId, PluginEntry, PluginsFile, PluginStore } from './store'
@@ -47,6 +48,8 @@ export interface PluginStatus {
   settings?: string
   /** Declared in the manifest, plus what the module injects and provides once it has been loaded. */
   service: ServiceDeclaration
+  /** URL of the WebUI module; it changes whenever the package is reloaded, so the WebUI imports it afresh. */
+  webui?: string
 }
 
 export interface DependencyInfo {
@@ -139,6 +142,7 @@ class PluginService extends Service {
   private runtimes = new Map<string, Runtime>()
   private fiberIds = new WeakMap<Fiber, string>()
   private locks = new Map<string, Promise<unknown>>()
+  private webuiVersions = new Map<string, number>()
   private resolver: ResolverState = { shared: new Map(), roots: [] }
   private resolverInstalled = false
   private sdkVersion?: string
@@ -304,6 +308,18 @@ class PluginService extends Service {
     }
   }
 
+  /**
+   * A file of a package's WebUI build, for `/plugin-webui/<key>/<version>/<file>`. Everything next to the
+   * `llbot.webui` module and below it is served; nothing outside that directory is.
+   */
+  webuiAsset(key: string, file: string): string | undefined {
+    const entry = this.packages.get(packageOfKey(key))?.webui
+    if (!entry) return
+    const dir = path.dirname(entry)
+    const target = path.resolve(dir, file)
+    return isInside(dir, target) ? target : undefined
+  }
+
   /** Imports the module if it has not been loaded yet, so it also works for disabled entries. */
   async describe(id: string): Promise<PluginDescription> {
     const rt = this.runtime(id)
@@ -400,6 +416,7 @@ class PluginService extends Service {
     this.packages = next
     this.resolver.roots = [...next.values()].map(pkg => pathToFileURL(pkg.root + path.sep).href)
     for (const name of [...changed, ...removed]) this.modules.delete(name)
+    for (const name of changed) this.bumpWebui(name)
     for (const name of removed) {
       for (const rt of this.entriesOf(name)) await this.lock(name, () => this.stop(rt))
     }
@@ -483,6 +500,7 @@ class PluginService extends Service {
     if (!known) throw new PluginNotFoundError(`plugin package ${name} is not installed`)
     const pkg = (await readPluginPackage(known.root)) ?? known
     this.packages.set(name, pkg)
+    this.bumpWebui(name)
     const mod = await this.load(pkg, true)
     const targets = this.entriesOf(name).filter(rt => !rt.entry.disabled)
     if (!mod.plugin) {
@@ -535,6 +553,7 @@ class PluginService extends Service {
       reloadCount: rt.reloadCount,
       hasConfig: builtin ? false : mod?.plugin ? !!mod.plugin.Config : undefined,
       service: this.serviceOf(rt),
+      webui: pkg?.webui && webuiUrl(pkg, this.webuiVersions.get(pkg.name) ?? 0),
     }
     if (builtin) {
       Object.assign(status, { builtin: true, core: !!builtin.core, title: builtin.title, settings: builtin.settings })
@@ -552,6 +571,10 @@ class PluginService extends Service {
     status.state = FIBER_STATES[fiber.state]
     if (status.state === 'pending') status.missingDeps = this.missingDeps(fiber)
     return status
+  }
+
+  private bumpWebui(name: string) {
+    this.webuiVersions.set(name, (this.webuiVersions.get(name) ?? 0) + 1)
   }
 
   private missingDeps(fiber: Fiber): string[] {
@@ -678,6 +701,19 @@ function validateConfig(plugin: Plugin, config: unknown) {
     message: issue.message,
     path: (issue.path ?? []).map(segment => String(typeof segment === 'object' ? segment.key : segment)),
   })))
+}
+
+// npm names allow at most one slash and never a plus, which keeps the key a single path segment
+function keyOfPackage(name: string): string {
+  return name.replace('/', '+')
+}
+
+function packageOfKey(key: string): string {
+  return key.replace('+', '/')
+}
+
+function webuiUrl(pkg: PluginPackage, version: number): string {
+  return `/plugin-webui/${keyOfPackage(pkg.name)}/${version}/${encodeURIComponent(path.basename(pkg.webui!))}`
 }
 
 function hostSdkVersion(): string | undefined {

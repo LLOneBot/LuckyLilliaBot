@@ -96,7 +96,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - **配置仍在 `config_<uin>.json`**，不进 `plugins.json`：条目开关只决定装不装，`ob11.enable` 等原来的开关照旧。适配器包了一层 `withBotConfig()`：`inject` 是 `account` + `config` + 适配器自己的依赖（条目因此在依赖齐之前显示 pending，而不是"外壳 active、里面 pending"），`apply` 里按原来 `main.ts` 的拼法从 `ctx.config.get()` 取配置再 `await ctx.plugin(适配器)` —— await 让适配器启动失败变成条目的 `failed`。`test/unit/bootstrap/builtins.test.ts` 逐字段比对拼出来的配置
 - `reload` 对内置条目是重启（dispose + 重新挂载，没有模块可重新 import），会读到最新配置
 - **停用要真能停下来**：改造前适配器从不在运行时卸载，OneBot / Satori / Milky 的 `[Service.init]` 都返回 `noop`，停用后端口不释放，再启用就 `EADDRINUSE`。现在它们返回关服务器的 disposer（cordis 卸载时会 await）。Satori 的 `/v1/internal/onebot11/:action` 原来缓存了一份按 OB11 实例构造的 action 表，OB11 重启后会指向已卸载的实例，改成每次从当前的 `ctx.get('onebot').actionMap` 取
-- 前端：插件页分"内置 / 已安装"两区，内置卡片有"内置 / 核心"徽章，core 的开关置灰；设置按钮跳到对应设置页（改 `location.hash`，`App` 监听 hashchange）。设置页顶部的 `BuiltinDisabledNotice` 在对应内置条目被停用时提示"这里的设置不会生效"。WebQQ 停用时侧边栏不显示入口（`useDisabledBuiltins`，经插件 SSE 实时更新，读不到列表时什么都不隐藏），直接打开 `#webqq` 显示 `BuiltinDisabledPage`
+- 前端：插件页分"内置 / 已安装"两区，内置卡片有"内置 / 核心"徽章，core 的开关置灰；设置按钮跳到对应设置页（改 `location.hash`，`App` 监听 hashchange）。设置页顶部的 `BuiltinDisabledNotice` 在对应内置条目被停用时提示"这里的设置不会生效"。WebQQ 的侧边栏入口由它的内置前端客户端注册（见下文"插件前端"），随 `builtin:webqq` 的状态出现和消失；插件没在运行时直接打开 `#webqq`，显示 `PluginPageUnavailable` 说明原因
 - **WebQQ 插件**（`builtin:webqq`）：路由、上传目录、`/api/webqq/events` 的 SSE 连接，以及往 SSE 推消息的 4 个 `nt/*` 监听（`routes/webqq/events.ts`）都在插件里，`inject` 列出路由代码直接访问的全部服务，登录后才挂载。停用时主动 `abort()` 还开着的 SSE 连接，否则页面会一直挂在一条没人写的流上。路由文件留在 `src/webui/BE/routes/webqq/` 没搬目录
 - 插件只需要 `inject` 自己**直接**访问的服务：经 `ctx.xxx` 调到别的服务的方法时，cordis 按那个服务自己的 fiber 做严格检查（`createShadow` 的 `defSite` 是服务本身的 ctx），调用方 ctx 只决定方法里注册的副作用挂在谁身上。但像 `Core.sendMessage(ctx, ...)` 这种把 ctx 当参数传进去的，参数 ctx 访问的服务要算在调用方头上
 - `pending` 的条目缺 `account` 时，前端只显示"等待 QQ 登录"：登录后才有的服务（`app` / `store` / `database` ...）都是它的结果，列出来没有意义
@@ -168,6 +168,26 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - **不要用 `vite --open false`**：`false` 被当成路径，照样在桌面浏览器打开页面。用 `BROWSER=none`
 - `playwright-cli fill <ref> -1` 会把 `-1` 当成命令行选项，填负数要用 `run-code`
 
+## 插件前端（WebUI 扩展）
+
+| 位置 | 作用 |
+|---|---|
+| `packages/plugin-sdk/src/webui.ts` | 前端约定，只有类型，即 `@luckylillia/plugin-sdk/webui` |
+| `packages/plugin-sdk/src/server.ts` | `ctx.webuiServer` 的约定和 Context 增强；host 的 `WebuiServer` implements 它，自己不再声明 |
+| `src/webui/FE/plugin-host/` | 宿主：插件列表 store、注册表、加载器、插件上下文、错误边界、视图组件 |
+| FE `vite.config.ts` 的 `pluginSharedShims()` 和 `index.html` 的 import map | 共享依赖 |
+
+- **共享 React**：插件模块里的 `import 'react'` 是裸说明符，浏览器按 `index.html` 里的 import map 解析到 `/plugin-shared/*.js`。这些 shim 由 `pluginSharedShims()` 生成（构建时 emit，dev 下走 middleware），内容是从 `globalThis.__LLBOT_WEBUI__.modules` 取 WebUI 自己那份模块再逐个命名导出；导出名在构建时用 `Object.keys(require('react'))` 读出，不手写。`main.tsx` 渲染前调 `installSharedModules()` 填这个全局。WebUI 自己的代码在构建时已经解析掉裸 import，不受 import map 影响。这和后端"进程里只能有一份 cordis"是同一个不变式
+- **模块 URL**：`PluginStatus.webui` 是 `/plugin-webui/<key>/<version>/<入口文件名>`。key 是包名把 `/` 换成 `+`（npm 包名最多一个斜杠，且不允许 `+`）；version 在 `reloadPackage()` 和扫描到包变化时加一。ES 模块按 URL 缓存，URL 变了浏览器才会重新导入
+- **加载**：`syncClients()` 随插件列表变化导入启用中插件的模块；版本变了先导入新的、成功后再撤掉旧的注册；包不在了就卸载。停用的插件只在打开配置弹窗时由 `ensureClient()` 按需导入（要拿它的配置编辑器）。导入失败记在 `useClientErrors` 里
+- **可见性**：页面和插槽只显示"有条目处于 active"的插件的（`activeOwners()`）；配置编辑器和字段控件只要模块加载了就能用
+- **WebQQ** 是 `plugin-host/builtins.tsx` 里随 WebUI 打包的内置客户端，同样用 `ctx.page()` 注册，侧边栏不再写死它，页面随 `builtin:webqq` 的状态出现和消失。`#webqq-fullscreen` 仍由 `App` 单独处理，前提是 webqq 页面可见
+- **文件路由**：`PluginRoutes` 用 `webuiServer.route('/plugin-webui', ..., { public: true })` 挂在 `/api` 之外，因为 `import()` 发不了自定义请求头；但它会带同源 cookie，所以 `servePluginAsset()` 校验 `webui_token` cookie（存的就是密码哈希，和 `X-Webui-Token` 同值）。只允许 GET / HEAD，`webuiAsset()` 只放行入口所在目录及其子目录。dev 下 Vite 也代理了 `/plugin-webui`
+- **路由表的 public 选项**：`route(prefix, handler, { public: true })` 存进另一张表，由一个注册在 `/api/*` 分发之后、静态文件之前的 `*` 中间件分发。public 路由不能在 `/api` 下，非 public 路由必须在 `/api` 下（以前挂到别处会静默不生效）
+- **插件列表**是一个共享 store（`plugin-host/pluginList.ts`），只由 `usePluginHost()` 订阅一条 SSE；插件页、侧边栏、设置页提示都读它，不再各自拉取
+- **字段控件**：`SchemaField` 先查 `useFieldRenderer(role)`；表单自己处理的 role（`BUILTIN_ROLES`）不让插件覆盖
+- `PluginBoundary` 给插件组件提供 `usePluginContext()` 的上下文、套 Suspense，并兜住渲染错误；页面按 tab id 各自一个边界，一页出错不会带到同一插件的下一页
+
 ## 进程内只能有一份 cordis
 
 外部插件 `import { Service } from 'cordis'` 如果拿到的是另一份 cordis，`Service.init` symbol、Context 原型链、事件总线全都对不上，而且不会有明确报错。三道防线：
@@ -212,4 +232,5 @@ Node ESM 没有公开的缓存失效 API（官方 `@cordisjs/plugin-hmr` 需要�
 - `test/unit/plugin/service.test.ts`：在 gitignore 的 `.tmp/` 下现场生成插件包，覆盖启停、配置校验、失败隔离、SDK 不兼容、缺依赖、自带 cordis、重载与重载失败、包被删除、多实例。放在仓库内是为了让夹具插件能向上解析到仓库的 `node_modules`
 - `test/unit/bootstrap/builtins.test.ts`：用真实的内置插件表和 mock 的协议层 / 配置，验证登录前全部 pending、登录后拿到与改造前相同的配置、停用后端口真的释放、同端口再启用不 `EADDRINUSE`、core 条目停不掉
 - vitest 自己接管了模块加载，`registerHooks` 对被它转换的模块不生效，所以子模块热重载和"仓库外的插件"只能在真 Node 下验证：`npx tsx test/manual/plugin-runtime.mts`（裸 `Context` + `TimerService` + `PluginService`，插件建在系统临时目录，JS / TS 各一个，改子模块后重载）
+- 插件前端：`test/webui/plugins/registry.test.ts`（可见性、排序、取最新注册）、`test/webui/routes/pluginAssets.test.ts`（cookie 校验、Content-Type、越界 404）、`routeTable.test.ts`（public 路由）。端到端用示例插件 `webui-demo`（页面 / 插槽 / 字段控件）和 `custom-config`（自定义配置界面）按上面的不登录方法验证
 - 生产 bundle 的冒烟：`node dist/llbot.js --pmhq-port 1` 不会登录（PMHQ 端口没人监听，协议层只会重连），插件运行时照常在登录前加载；cwd 放到 dist 之外的空目录，就能验证解析兜底

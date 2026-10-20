@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { usePluginList } from '../../plugin-host/pluginList'
 import { FolderSearch, Loader2, Puzzle } from 'lucide-react'
 import { showToast } from '../common'
 import { PluginStatus } from '../../types/plugins'
-import {
-  addPluginInstance, listPlugins, openPluginStream, reloadPlugin, scanPlugins, setPluginEnabled,
-} from '../../utils/pluginApi'
+import { addPluginInstance, reloadPlugin, scanPlugins, setPluginEnabled } from '../../utils/pluginApi'
 import PluginCard from './PluginCard'
 import { findConflicts } from './meta'
 import PluginConfigDialog from './PluginConfigDialog'
@@ -14,37 +13,23 @@ const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 const sectionTitle = 'text-sm font-medium text-theme-secondary mb-3 px-1'
 
 const PluginsPage: React.FC = () => {
-  const [plugins, setPlugins] = useState<PluginStatus[] | null>(null)
+  // Kept current by the plugin UI host, which follows the status stream for the whole WebUI
+  const plugins = usePluginList(state => state.plugins)
   const [busy, setBusy] = useState<Set<string>>(new Set())
   const [scanning, setScanning] = useState(false)
   const [editing, setEditing] = useState<PluginStatus | null>(null)
 
   const refresh = useCallback(async () => {
     try {
-      setPlugins(await listPlugins())
+      await usePluginList.getState().refresh()
     } catch (e) {
       showToast(`获取插件列表失败：${errorText(e)}`, 'error')
-      setPlugins(previous => previous ?? [])
+      usePluginList.setState(state => ({ plugins: state.plugins ?? [] }))
     }
   }, [])
 
   useEffect(() => {
     refresh()
-    return openPluginStream((event) => {
-      if (event.type === 'list') {
-        refresh()
-        return
-      }
-      if (event.data.manifest.hidden) return
-      setPlugins(previous => {
-        if (!previous) return previous
-        const index = previous.findIndex(plugin => plugin.id === event.data.id)
-        if (index < 0) return [...previous, event.data]
-        const next = [...previous]
-        next[index] = event.data
-        return next
-      })
-    })
   }, [refresh])
 
   // Builtins keep the order the bot lists them in

@@ -1,24 +1,11 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { AlertTriangle } from 'lucide-react'
-import { PluginStatus } from '../../types/plugins'
-import { listPlugins } from '../../utils/pluginApi'
+import { usePluginList } from '../../plugin-host/pluginList'
 import { pluginTitle } from './meta'
 
 /** Settings on a tab do nothing while the builtin behind it is disabled on the plugin page; say so. */
 const BuiltinDisabledNotice: React.FC<{ tab: string }> = ({ tab }) => {
-  const [plugin, setPlugin] = useState<PluginStatus>()
-
-  useEffect(() => {
-    let alive = true
-    setPlugin(undefined)
-    listPlugins()
-      .then(list => alive && setPlugin(list.find(plugin => plugin.builtin && plugin.settings === tab && plugin.disabled)))
-      .catch(() => {})
-    return () => {
-      alive = false
-    }
-  }, [tab])
-
+  const plugin = usePluginList(state => state.plugins?.find(entry => entry.builtin && entry.settings === tab && entry.disabled))
   if (!plugin) return null
   return (
     <div className="card p-4 mb-6 flex items-center gap-3 border border-amber-300/60 dark:border-amber-500/40">

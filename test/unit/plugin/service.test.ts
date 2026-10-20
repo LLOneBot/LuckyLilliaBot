@@ -367,3 +367,33 @@ export function apply() {}`,
     expect(plugins.dependencies(deepl).conflicts).toEqual([{ service: 'translator', with: [google] }])
   })
 })
+
+describe('PluginService webui', () => {
+  function uiPlugin(dir: string) {
+    writePlugin(pluginRoot, dir, { 'index.js': 'export function apply() {}' }, { llbot: { webui: 'webui/index.js' } })
+    mkdirSync(path.join(pluginRoot, dir, 'webui', 'chunks'), { recursive: true })
+    writeFileSync(path.join(pluginRoot, dir, 'webui', 'index.js'), 'export default () => {}')
+    writeFileSync(path.join(pluginRoot, dir, 'webui', 'chunks', 'page.js'), '')
+  }
+
+  it('serves the module directory under a URL that changes when the plugin reloads', async () => {
+    uiPlugin('ui')
+    uiPlugin('@scope/ui')
+    const plugins = await boot()
+    expect(byName('ui').webui).toBe('/plugin-webui/ui/0/index.js')
+    expect(byName('@scope/ui').webui).toBe('/plugin-webui/@scope+ui/0/index.js')
+    expect(byName('alpha').webui).toBeUndefined()
+
+    expect(plugins.webuiAsset('ui', 'chunks/page.js')?.endsWith(path.join('ui', 'webui', 'chunks', 'page.js'))).toBe(true)
+    expect(plugins.webuiAsset('@scope+ui', 'index.js')?.endsWith(path.join('@scope', 'ui', 'webui', 'index.js'))).toBe(true)
+    // Only the module directory: not the backend code next to it, nor other packages
+    expect(plugins.webuiAsset('ui', '../index.js')).toBeUndefined()
+    expect(plugins.webuiAsset('ui', '../../alpha/index.js')).toBeUndefined()
+    expect(plugins.webuiAsset('alpha', 'index.js')).toBeUndefined()
+
+    const { id } = byName('ui')
+    await plugins.enable(id)
+    expect(await plugins.reload(id)).toEqual({ status: 'reloaded' })
+    expect(byName('ui').webui).toBe('/plugin-webui/ui/1/index.js')
+  })
+})

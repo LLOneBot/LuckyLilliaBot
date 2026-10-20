@@ -14,8 +14,10 @@ import {
   AnimatedBackground,
   HostSelector,
 } from './components';
-import { WebQQPage, WebQQFullscreen } from './components/WebQQ';
-import { BuiltinDisabledNotice, BuiltinDisabledPage, PluginsPage, useDisabledBuiltins } from './components/plugins';
+import { WebQQFullscreen } from './components/WebQQ';
+import { BuiltinDisabledNotice, PluginsPage } from './components/plugins';
+import { iconByName } from './components/plugins/meta';
+import { PluginPage, PluginPageUnavailable, usePluginHost, useVisiblePages } from './plugin-host';
 import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
 import { deleteCookie } from './utils/cookie';
@@ -28,12 +30,19 @@ import SettingsDialog from './components/common/SettingsDialog'
 import { useSettingsStore } from './stores/settingsStore'
 
 
+const BUILTIN_TABS = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'plugins', 'about']
+
+// Plugin pages register after the plugin list loads, so their tabs are recognised by shape:
+// WebQQ (a builtin plugin) by name, everything else as `<package>:<page id>`
+const isPluginTab = (tab: string) => tab === 'webqq' || tab === 'webqq-fullscreen' || tab.includes(':')
+
+const isKnownTab = (tab: string) => BUILTIN_TABS.includes(tab) || isPluginTab(tab)
+
 function App() {
   // 从 URL hash 读取初始 tab，默认 dashboard
   const getInitialTab = () => {
     const hash = window.location.hash.slice(1) // 去掉 #
-    const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'plugins', 'webqq', 'webqq-fullscreen', 'about']
-    return validTabs.includes(hash) ? hash : 'dashboard'
+    return isKnownTab(hash) ? hash : 'dashboard'
   }
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
@@ -59,9 +68,13 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const { autoHideSidebarInWebQQ } = useSettingsStore();
-  const disabledBuiltins = useDisabledBuiltins(isLoggedIn);
-  const webqqDisabled = disabledBuiltins.has('builtin:webqq');
-  const hiddenTabs = useMemo(() => new Set(webqqDisabled ? ['webqq'] : []), [webqqDisabled]);
+  usePluginHost(isLoggedIn);
+  const pluginPages = useVisiblePages();
+  const currentPluginPage = pluginPages.find(page => page.key === activeTab);
+  const sidebarPluginPages = useMemo(
+    () => pluginPages.map(page => ({ id: page.key, title: page.title, icon: iconByName(page.icon) })),
+    [pluginPages],
+  );
 
   // 设置密码提示处理器
   useEffect(() => {
@@ -90,8 +103,7 @@ function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
-      const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'plugins', 'webqq', 'webqq-fullscreen', 'about']
-      if (validTabs.includes(hash)) {
+      if (isKnownTab(hash)) {
         setActiveTab(hash)
       }
     }
@@ -294,7 +306,7 @@ function App() {
   }
 
   // webqq-fullscreen 路由：独立的全屏页面
-  if (activeTab === 'webqq-fullscreen' && !webqqDisabled) {
+  if (activeTab === 'webqq-fullscreen' && pluginPages.some(page => page.key === 'webqq')) {
     return (
       <>
         {/* Animated Background */}
@@ -330,7 +342,7 @@ function App() {
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
         onOpenSettings={() => setShowSettingsDialog(true)}
-        hiddenTabs={hiddenTabs}
+        pluginPages={sidebarPluginPages}
       />
 
       <main className={`flex-1 overflow-auto z-10 transition-all duration-300 ${sidebarCollapsed ? '' : 'md:ml-[17.5rem]'}`}>
@@ -370,9 +382,9 @@ function App() {
 
           {activeTab === 'dashboard' && <Dashboard llbotVersion={version} qqVersion={qqVersion} />}
 
-          {activeTab === 'webqq' && !webqqDisabled && <WebQQPage />}
+          {currentPluginPage && <PluginPage page={currentPluginPage} />}
 
-          {(activeTab === 'webqq' || activeTab === 'webqq-fullscreen') && webqqDisabled && <BuiltinDisabledPage title="WebQQ" />}
+          {!currentPluginPage && isPluginTab(activeTab) && <PluginPageUnavailable tab={activeTab} />}
 
           {activeTab === 'logs' && <LogViewer />}
 

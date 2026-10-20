@@ -14,6 +14,7 @@ import { Hono } from 'hono'
 import { serveStatic } from '@hono/node-server/serve-static'
 import { serve, ServerType } from '@hono/node-server'
 import { noop } from 'cosmokit'
+import type { FetchHandler, WebUIServer } from '@luckylillia/plugin-sdk'
 
 // 静态文件服务，指向前端dist目录
 let feDistPath = path.resolve(import.meta.dirname, 'webui/')
@@ -22,21 +23,19 @@ if (!import.meta.env) {
   feDistPath = path.join(import.meta.dirname, '../../../dist/webui/')
 }
 
-declare module 'cordis' {
-  interface Context {
-    webuiServer: WebuiServer
-  }
-}
-
 export interface WebuiServerConfig extends WebUIConfig {
 }
 
-/** Anything with a fetch-style entry point; a Hono app qualifies. */
-export interface MountedHandler {
-  fetch(request: Request, env?: any): Response | Promise<Response>
+export type MountedHandler = FetchHandler
+
+function findMounted(table: Map<string, MountedHandler>, path: string): MountedHandler | undefined {
+  for (const [prefix, handler] of table) {
+    if (path === prefix || path.startsWith(`${prefix}/`)) return handler
+  }
 }
 
-export class WebuiServer extends Service {
+// ctx.webuiServer is typed by the plugin SDK, which plugins serving their own API build against
+export class WebuiServer extends Service implements WebUIServer {
   // The WebUI has to be up before login (auth token, QR login), so it depends only on services ready by then and
   // serves only the routes needed by then. Dashboard, email, WebQQ and plugin management are plugins that inject
   // what they need and mount their routes through route() once that is up.
@@ -48,6 +47,7 @@ export class WebuiServer extends Service {
   public port?: number = undefined
   // Mounted at runtime by plugins; Hono has no way to unregister a route
   private mounted = new Map<string, MountedHandler>()
+  private publicMounted = new Map<string, MountedHandler>()
 
   async [Service.init]() {
     await this.start()
@@ -76,17 +76,25 @@ export class WebuiServer extends Service {
   }
 
   /**
-   * Serves requests under `prefix` (behind the WebUI auth) with `handler` until the returned
-   * disposer runs, which happens on its own when the calling plugin is disposed. The handler
-   * sees the full URL: give a Hono app basePath(prefix) or route(prefix, ...).
+   * Serves requests under `prefix` with `handler` until the returned disposer runs, which happens on
+   * its own when the calling plugin is disposed. The handler sees the full URL: give a Hono app
+   * basePath(prefix) or route(prefix, ...).
+   *
+   * Routes live under /api behind the WebUI login. `public` ones live outside it, for what the browser
+   * requests by itself without the login header (ES module imports); they have to check access themselves.
    */
-  route(prefix: string, handler: MountedHandler): () => void {
+  route(prefix: string, handler: MountedHandler, options: { public?: boolean } = {}): () => void {
     const key = prefix.replace(/\/+$/, '')
+    const underApi = key === '/api' || key.startsWith('/api/')
+    if (underApi === !!options.public) {
+      throw new Error(options.public ? `public route ${key} must not be under /api` : `route ${key} must be under /api`)
+    }
+    const table = options.public ? this.publicMounted : this.mounted
     return this.ctx.effect(() => {
-      if (this.mounted.has(key)) throw new Error(`${key} is already mounted`)
-      this.mounted.set(key, handler)
+      if (table.has(key)) throw new Error(`${key} is already mounted`)
+      table.set(key, handler)
       return () => {
-        this.mounted.delete(key)
+        table.delete(key)
       }
     }, `webuiServer.route(${key})`)
   }
@@ -102,12 +110,15 @@ export class WebuiServer extends Service {
 
     // Registered after the built-in routes, so those always win
     this.app.use('/api/*', async (c) => {
-      const { path } = c.req
-      for (const [prefix, handler] of this.mounted) {
-        if (path === prefix || path.startsWith(`${prefix}/`)) return handler.fetch(c.req.raw, c.env)
-      }
+      const handler = findMounted(this.mounted, c.req.path)
+      if (handler) return handler.fetch(c.req.raw, c.env)
       // Also what a disabled or not yet started plugin answers, so the client gets JSON to show
       return c.json({ success: false, message: '接口不存在，或者提供它的插件未启用 / 尚未就绪' }, 404)
+    })
+    this.app.use('*', async (c, next) => {
+      const handler = findMounted(this.publicMounted, c.req.path)
+      if (handler) return handler.fetch(c.req.raw, c.env)
+      await next()
     })
 
     // 静态文件服务

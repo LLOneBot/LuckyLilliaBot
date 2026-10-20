@@ -29,7 +29,8 @@ luckylillia-plugin-foo/
       "required": ["bots"],
       "optional": ["puppeteer"],
       "implements": []
-    }
+    },
+    "webui": "webui/index.js"           // 可选，见下文"扩展 WebUI"
   }
 }
 ```
@@ -84,6 +85,7 @@ export function apply(ctx: Context, config: Config) {
 | `dict(X)`、`dict(X, union([...]))` | 键值对列表（第二个参数限定可选的键） |
 | `object()`（嵌套）、`intersect([object, object])`、`.collapse()` | 分组框，`collapse` 默认折叠 |
 | `tuple()`、`bitset()` | 定长一行 / 多选 |
+| `.role('xxx')`，且有插件用 `ctx.field('xxx', ...)` 注册了控件 | 那个控件（见"扩展 WebUI"；`ms` / `table` / `radio` / `checkbox` / `secret` / `slider` / `textarea` 不能被覆盖） |
 | 其它（`any`、`is(...)`、无法判断的 union） | JSON 编辑框 |
 
 `.hidden()` 的字段不显示；`.deprecated()` / `.experimental()` 会显示成小标签。
@@ -161,6 +163,65 @@ ctx.on('bot/before-send', (bot, channelId, content, next) => {
 `ctx.bots` 里是已登录的账号（`Bot`）。`sendMessage` 一定有，其它能力（`deleteMessage`、`getGuildMember`、`muteGuildMember`、`kickGuildMember`、`createReaction`……）按平台支持情况提供，用之前先判断 `if (bot.muteGuildMember)`。QQ 账号的 `platform` 是 `llonebot`，私聊的 channelId 形如 `private:<QQ号>`，群的 channelId 就是群号。
 
 一条消息在某个中间件里抛错，会让这条消息的整条链中止（错误会记日志）。
+
+## 扩展 WebUI
+
+只要配置界面的插件什么都不用做：导出 schemastery 的 `Config` 就有自动表单。想往 WebUI 里加别的，有四种挂载点：
+
+| 挂载点 | 注册 | 什么时候出现 |
+|---|---|---|
+| 侧边栏页面 | `ctx.page({ id, title, icon, component, order })` | 插件运行时 |
+| 具名插槽，目前只有 Dashboard 底部的 `dashboard` | `ctx.slot('dashboard', Component)` | 插件运行时 |
+| 配置界面，替换自动表单 | `ctx.config(Editor)` | 一直可用，插件停用时也能配置 |
+| 某个 role 的表单控件 | `ctx.field('color', Field)` | 所有插件的自动表单里 `.role('color')` 的字段 |
+
+**入口**：`llbot.webui` 指向一个 ES 模块（相对包根目录），默认导出一个函数：
+
+```js
+import { createElement as h } from 'react'
+import { usePluginContext } from '@luckylillia/plugin-sdk/webui'
+
+function StatsPage() {
+  const ctx = usePluginContext()
+  // ctx.api('/api/my-plugin/stats').then(...)
+}
+
+export default function apply(ctx) {
+  ctx.page({ id: 'stats', title: '统计', icon: 'trophy', component: StatsPage })
+  ctx.slot('dashboard', StatsCard)
+}
+```
+
+- 类型在 `@luckylillia/plugin-sdk/webui`：`WebUIContext`、`ConfigEditorProps`、`FieldProps` 等
+- 组件里用 `usePluginContext()` 拿到同一个 ctx：`ctx.api(path, { method, body })` 带着 WebUI 登录调 Bot 的接口，返回 `{ success, data }` 里的 `data`；`ctx.events(path, { 事件名: data => {} })` 订阅 SSE；`ctx.toast()`
+- 页面的 tab id 是 `<包名>:<id>`，地址栏 `#<包名>:<id>` 能直接打开
+- 代码拆分用 `React.lazy()`，WebUI 渲染插件组件时套了 Suspense
+- 插件重载时 WebUI 撤掉旧模块注册的一切，再导入新模块，页面不用刷新；`apply` 返回的清理函数也会在这时调用
+
+**页面的后端接口**：后端 `inject: ['webuiServer']`，用 `ctx.webuiServer.route('/api/my-plugin', handler)` 挂接口。handler 只要有 `fetch(request)`（Hono 应用可以，手写也行），收到的是完整 URL。挂在 `/api/` 下的接口自动受 WebUI 登录保护，插件停用时自动摘除。`{ public: true }` 挂在 `/api/` 之外、不需要登录，留给 webhook 这类场景，访问控制要自己做。
+
+**共享依赖**：WebUI 用 import map 把 `react`、`react/jsx-runtime`、`react-dom`、`@luckylillia/plugin-sdk/webui` 交给插件模块，插件组件和 WebUI 用的是同一份 React —— 两份 React 混用，hooks 会直接报错。打包时这四个必须标 external，其它依赖可以打进去。用 Vite：
+
+```ts
+// 插件仓库里的 vite.config.ts
+export default defineConfig({
+  build: {
+    outDir: 'webui',
+    lib: { entry: 'client/index.tsx', formats: ['es'], fileName: () => 'index.js' },
+    rollupOptions: { external: ['react', 'react/jsx-runtime', 'react-dom', '@luckylillia/plugin-sdk/webui'] },
+  },
+})
+```
+
+不打包也行：`examples/plugins/webui-demo` 和 `custom-config` 的前端就是手写的 ES 模块，用 `createElement`，不用 JSX。
+
+**样式**：WebUI 的 Tailwind 只生成它自己源码里用到的 class，插件里写的 Tailwind 工具类不一定存在。能放心用的是语义 class（`card`、`btn-primary`、`btn-glass`、`input-field`、`switch-toggle`、`text-theme` / `text-theme-secondary` / `text-theme-muted` / `text-theme-hint`）和 CSS 变量（如 `var(--accent)`，暗色主题下自动切换），其余用 `style` 或插件自带的 CSS。
+
+**文件服务**：`llbot.webui` 所在的目录（含子目录）整个经 `/plugin-webui/...` 提供，需要 WebUI 登录。把前端产物放在单独的目录里，不要和后端代码放在同一层。
+
+**出错**：每个插件组件外面都有错误边界，抛错只影响它自己那一块，可以点"重试"。模块导入失败时，配置弹窗会提示原因并退回自动表单。
+
+**自定义配置界面**：`ctx.config(Editor)` 的组件收到 `{ value, onChange, schema, defaults, errors }`。`value` 是填好默认值的完整配置，改了就调 `onChange`。保存按钮、保存时按 schema 校验、只存改动过的字段，仍由 WebUI 和 Bot 负责；校验不过时，错误按路径（`a.b`，根是 `''`）放进 `errors` 传回来。所以自己画界面时也建议照样导出 `Config`。
 
 ## 构建
 

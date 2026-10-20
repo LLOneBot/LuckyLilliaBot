@@ -16,8 +16,12 @@ const ICONS: Record<string, LucideIcon> = {
   wrench: Wrench, zap: Zap,
 }
 
+export function iconByName(name: string | undefined): LucideIcon {
+  return ICONS[name ?? ''] ?? Puzzle
+}
+
 export function pluginIcon(plugin: PluginStatus): LucideIcon {
-  return ICONS[plugin.manifest.icon ?? ''] ?? Puzzle
+  return iconByName(plugin.manifest.icon)
 }
 
 export function pluginTitle(plugin: PluginStatus): string {

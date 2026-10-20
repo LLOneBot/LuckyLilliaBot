@@ -17,6 +17,8 @@ export interface PluginPackage {
   description?: string
   /** `peerDependencies['@luckylillia/plugin-sdk']`, if declared. */
   sdkRange?: string
+  /** Absolute path of the `llbot.webui` module, when it exists inside the package. */
+  webui?: string
   warnings: string[]
 }
 
@@ -67,6 +69,13 @@ export async function readPluginPackage(dir: string): Promise<PluginPackage | un
   if (pkg.type !== 'module' && path.extname(main) === '.js') {
     warnings.push('package.json lacks "type": "module", so .js files load as CommonJS')
   }
+  let webui: string | undefined
+  if (pkg.llbot.webui !== undefined) {
+    const file = typeof pkg.llbot.webui === 'string' ? path.resolve(root, pkg.llbot.webui) : undefined
+    if (!file || !isInside(root, file)) warnings.push('llbot.webui should be a path inside the package')
+    else if (!existsSync(file)) warnings.push(`llbot.webui ${pkg.llbot.webui} does not exist`)
+    else webui = file
+  }
   return {
     name: pkg.name,
     version: typeof pkg.version === 'string' ? pkg.version : '0.0.0',
@@ -75,8 +84,14 @@ export async function readPluginPackage(dir: string): Promise<PluginPackage | un
     manifest: { ...pkg.llbot, service: normalizeService(pkg.llbot.service, warnings) },
     description: typeof pkg.description === 'string' ? pkg.description : undefined,
     sdkRange: pkg.peerDependencies?.[SDK_PACKAGE],
+    webui,
     warnings,
   }
+}
+
+export function isInside(dir: string, file: string): boolean {
+  const relative = path.relative(dir, file)
+  return !!relative && !relative.startsWith('..') && !path.isAbsolute(relative)
 }
 
 /** Fills in the missing lists; a malformed field is dropped with a warning instead of failing the package. */

@@ -8,12 +8,12 @@ import {
   Sliders,
   Milk,
   Terminal,
-  MessageSquare,
   X,
   ChevronLeft,
   ChevronRight,
   Settings,
   Puzzle,
+  LucideIcon,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -28,8 +28,8 @@ interface SidebarProps {
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onOpenSettings?: () => void;
-  /** Tabs whose feature is switched off, e.g. WebQQ while its builtin plugin is disabled. */
-  hiddenTabs?: ReadonlySet<string>;
+  /** Pages of running plugins, WebQQ included, listed after the plugin page. */
+  pluginPages?: { id: string; title: string; icon: LucideIcon }[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -41,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   collapsed = false,
   onToggleCollapse,
   onOpenSettings,
-  hiddenTabs,
+  pluginPages = [],
 }) => {
   const menuItems = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -51,9 +51,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'logs', icon: Terminal, label: '日志' },
     { id: 'other', icon: Sliders, label: '其他配置' },
     { id: 'plugins', icon: Puzzle, label: '插件' },
-    { id: 'webqq', icon: MessageSquare, label: 'WebQQ' },
+    ...pluginPages.map(page => ({ id: page.id, icon: page.icon, label: page.title })),
     { id: 'about', icon: Info, label: '关于' },
-  ].filter(item => !hiddenTabs?.has(item.id))
+  ]
 
   const navRef = useRef<HTMLElement>(null)
   const [indicator, setIndicator] = useState<{ top: number; height: number } | null>(null)
