@@ -45,12 +45,11 @@ declare module 'cordis' {
 }
 
 // 按当前 debug 状态 (--debug 或 config logLevel) 调整所有 logger exporter 的显示阈值:
-// DEBUG(3) 才显示底层详情日志, 否则 WARN(2). config 热更新时重调.
+// DEBUG(3) 才显示底层详情日志, 否则 INFO(2). config 热更新时重调.
 function applyDebugLevel(ctx: Context): void {
   const level = isDebugEnabled() ? 3 : 2
-  const svc = ctx.logger as unknown as { exporters?: Map<number, { levels?: Record<string, number> }> }
-  svc.exporters?.forEach((exp) => {
-    exp.levels = { ...(exp.levels ?? {}), default: level }
+  ctx.logger.exporters.forEach((exp) => {
+    exp.levels = { ...exp.levels, default: level }
   })
 }
 
@@ -67,7 +66,7 @@ async function onLoad() {
 
   ctx.plugin(Log)
   ctx.plugin(LoggerConsole, {
-    // 2 = WARN(含 error/info/warn), 3 = DEBUG. --debug 启动即抬到 DEBUG; 配置文件 logLevel
+    // 2 = INFO(含 error/warn/info), 3 = DEBUG. --debug 启动即抬到 DEBUG; 配置文件 logLevel
     // 触发的运行时切换由 applyDebugLevel() 直接改各 exporter 的 levels.
     levels: {
       default: isDebugEnabled() ? 3 : 2
