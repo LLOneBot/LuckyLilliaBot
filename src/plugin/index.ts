@@ -2,9 +2,11 @@ import { realpath } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { Context, Fiber, FiberState, Plugin, Service, resolveConfig } from 'cordis'
+import { Context, Fiber, FiberState, Inject, Plugin, Service, resolveConfig } from 'cordis'
 import type { LLBotManifest } from '@luckylillia/plugin-sdk'
-import { PluginPackage, SDK_PACKAGE, readPluginPackage, scanPluginRoots, sdkIncompatibility } from './manifest'
+import {
+  normalizeService, PluginPackage, readPluginPackage, scanPluginRoots, SDK_PACKAGE, sdkIncompatibility, ServiceDeclaration,
+} from './manifest'
 import { installPluginResolver, ResolverState, sharedSpecifierMap } from './resolve-hook'
 import { newEntryId, PluginEntry, PluginsFile, PluginStore } from './store'
 import { watchPluginRoots } from './watcher'
@@ -43,6 +45,25 @@ export interface PluginStatus {
   title?: string
   /** WebUI tab that holds the settings of a builtin. */
   settings?: string
+  /** Declared in the manifest, plus what the module injects and provides once it has been loaded. */
+  service: ServiceDeclaration
+}
+
+export interface DependencyInfo {
+  name: string
+  required: boolean
+  /** Up right now, whoever provides it. */
+  available: boolean
+  /** Entry whose plugin provides it right now; absent when nothing does or the bot itself does. */
+  provider?: string
+  /** Other entries declaring that they implement it. */
+  candidates: string[]
+}
+
+export interface DependencyReport {
+  dependencies: DependencyInfo[]
+  /** Services this entry implements that other enabled entries implement too. */
+  conflicts: { service: string; with: string[] }[]
 }
 
 export interface BuiltinPlugin {
@@ -248,6 +269,39 @@ class PluginService extends Service {
       return { status: 'restart-required', reason: 'module.registerHooks is unavailable (Node < 22.15), changed submodules would not be re-imported' }
     }
     return this.lock(rt.entry.name, () => this.reloadPackage(rt.entry.name))
+  }
+
+  /** Computed on request: whether each service is up depends on the whole app, not just this entry. */
+  dependencies(id: string): DependencyReport {
+    const rt = this.runtime(id)
+    const own = this.serviceOf(rt)
+    const implementers = new Map<string, Runtime[]>()
+    for (const other of this.runtimes.values()) {
+      if (other === rt) continue
+      for (const name of this.serviceOf(other).implements) {
+        implementers.set(name, [...implementers.get(name) ?? [], other])
+      }
+    }
+    const describe = (name: string, required: boolean): DependencyInfo => {
+      const impl = this.ctx.reflect._getImpl(name)
+      return {
+        name,
+        required,
+        available: this.isAvailable(name),
+        provider: impl && this.entryOfFiber(impl.ctx.fiber),
+        candidates: (implementers.get(name) ?? []).map(other => other.entry.id),
+      }
+    }
+    return {
+      dependencies: [
+        ...own.required.map(name => describe(name, true)),
+        ...own.optional.filter(name => !own.required.includes(name)).map(name => describe(name, false)),
+      ],
+      conflicts: own.implements.flatMap((name) => {
+        const others = (implementers.get(name) ?? []).filter(other => !other.entry.disabled)
+        return others.length ? [{ service: name, with: others.map(other => other.entry.id) }] : []
+      }),
+    }
   }
 
   /** Imports the module if it has not been loaded yet, so it also works for disabled entries. */
@@ -480,6 +534,7 @@ class PluginService extends Service {
       missingDeps: [],
       reloadCount: rt.reloadCount,
       hasConfig: builtin ? false : mod?.plugin ? !!mod.plugin.Config : undefined,
+      service: this.serviceOf(rt),
     }
     if (builtin) {
       Object.assign(status, { builtin: true, core: !!builtin.core, title: builtin.title, settings: builtin.settings })
@@ -500,10 +555,35 @@ class PluginService extends Service {
   }
 
   private missingDeps(fiber: Fiber): string[] {
-    return Object.keys(fiber.inject).filter((name) => {
-      const impl = this.ctx.reflect._getImpl(name)
-      return !impl || (impl.check !== undefined && !impl.check.call(impl.value))
-    })
+    return Object.keys(fiber.inject).filter(name => !this.isAvailable(name))
+  }
+
+  /** ctx.get() ignores Service.check, so a service gated on login would look available before it */
+  private isAvailable(name: string): boolean {
+    const impl = this.ctx.reflect._getImpl(name)
+    return !!impl && (impl.check === undefined || !!impl.check.call(impl.value))
+  }
+
+  /** The entry owning a fiber, found by walking up to the fiber the entry was mounted as. */
+  private entryOfFiber(fiber: Fiber): string | undefined {
+    for (let current = fiber; ; current = current.parent.fiber) {
+      const id = this.fiberIds.get(current)
+      if (id !== undefined) return id
+      if (current.parent.fiber === current) return
+    }
+  }
+
+  private serviceOf(rt: Runtime): ServiceDeclaration {
+    const builtin = this.builtins.get(rt.entry.name)
+    const service = normalizeService((builtin?.manifest ?? this.packages.get(rt.entry.name)?.manifest)?.service)
+    // A builtin's inject lists the bot internals it runs on, which mean nothing on the plugin page
+    const plugin = builtin ? undefined : this.modules.get(rt.entry.name)?.plugin
+    if (plugin) {
+      service.required = [...new Set([...service.required, ...Object.keys(Inject.resolve(plugin.inject))])]
+      const provide = plugin.provide === undefined ? [] : [plugin.provide].flat()
+      service.implements = [...new Set([...service.implements, ...provide])]
+    }
+    return service
   }
 
   private incompatibility(pkg: PluginPackage): string | undefined {

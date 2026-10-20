@@ -20,6 +20,13 @@ export interface PluginPackage {
   warnings: string[]
 }
 
+/** `llbot.service` with every list present. */
+export interface ServiceDeclaration {
+  required: string[]
+  optional: string[]
+  implements: string[]
+}
+
 export interface ScanResult {
   packages: PluginPackage[]
   errors: { path: string; error: string }[]
@@ -65,11 +72,31 @@ export async function readPluginPackage(dir: string): Promise<PluginPackage | un
     version: typeof pkg.version === 'string' ? pkg.version : '0.0.0',
     root,
     main,
-    manifest: pkg.llbot,
+    manifest: { ...pkg.llbot, service: normalizeService(pkg.llbot.service, warnings) },
     description: typeof pkg.description === 'string' ? pkg.description : undefined,
     sdkRange: pkg.peerDependencies?.[SDK_PACKAGE],
     warnings,
   }
+}
+
+/** Fills in the missing lists; a malformed field is dropped with a warning instead of failing the package. */
+export function normalizeService(value: unknown, warnings: string[] = []): ServiceDeclaration {
+  const result: ServiceDeclaration = { required: [], optional: [], implements: [] }
+  if (value === undefined) return result
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    warnings.push('llbot.service should be an object with required / optional / implements lists')
+    return result
+  }
+  for (const key of ['required', 'optional', 'implements'] as const) {
+    const list = (value as Record<string, unknown>)[key]
+    if (list === undefined) continue
+    if (!Array.isArray(list) || list.some(item => typeof item !== 'string')) {
+      warnings.push(`llbot.service.${key} should be a list of service names`)
+      continue
+    }
+    result[key] = [...new Set(list as string[])]
+  }
+  return result
 }
 
 export function resolveMain(pkg: Record<string, any>): string {

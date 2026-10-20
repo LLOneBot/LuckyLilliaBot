@@ -8,15 +8,18 @@ import { stripDefaults, withDefaults } from './schema/values'
 import { SchemaField } from './schema/SchemaField'
 import { JsonInput } from './schema/inputs'
 import { pluginIcon, pluginTitle } from './meta'
+import DependencyList from './DependencyList'
 
 interface PluginConfigDialogProps {
   plugin: PluginStatus
+  /** The live list, for the dependency section. */
+  plugins: PluginStatus[]
   /** Other entries of the same package exist, so deleting this one keeps the plugin listed. */
   removable: boolean
   onClose: () => void
 }
 
-const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, removable, onClose }) => {
+const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins, removable, onClose }) => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [loadError, setLoadError] = useState('')
@@ -85,7 +88,8 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, removab
             <button onClick={onClose} className="text-theme-hint hover:text-theme"><X size={24} /></button>
           </div>
 
-          <div className="p-6 overflow-y-auto flex-1">
+          <div className="p-6 overflow-y-auto flex-1 space-y-6">
+            <DependencyList plugin={plugins.find(other => other.id === plugin.id) ?? plugin} plugins={plugins} />
             {loading && <div className="flex justify-center py-10"><Loader2 size={32} className="animate-spin text-pink-500" /></div>}
             {!loading && loadError && <p className="text-sm text-red-500">加载配置失败：{loadError}</p>}
             {!loading && !loadError && !configurable && <p className="text-sm text-theme-secondary text-center py-6">这个插件没有可配置项</p>}

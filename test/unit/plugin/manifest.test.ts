@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { resolveMain, scanPluginRoots, sdkIncompatibility } from '@/plugin/manifest'
+import { normalizeService, resolveMain, scanPluginRoots, sdkIncompatibility } from '@/plugin/manifest'
 
 const root = mkdtempSync(path.join(os.tmpdir(), 'llbot-plugin-scan-'))
 
@@ -59,5 +59,25 @@ describe('sdkIncompatibility', () => {
     expect(sdkIncompatibility('^2.0.0', '1.4.2')).toMatch(/host provides 1\.4\.2/)
     expect(sdkIncompatibility('^1.0.0', undefined)).toMatch(/ships none/)
     expect(sdkIncompatibility('not a range', '1.0.0')).toMatch(/invalid/)
+  })
+})
+
+describe('normalizeService', () => {
+  it('fills in the missing lists and drops duplicates', () => {
+    expect(normalizeService(undefined)).toEqual({ required: [], optional: [], implements: [] })
+    expect(normalizeService({ required: ['bots', 'bots'], implements: ['translator'] }))
+      .toEqual({ required: ['bots'], optional: [], implements: ['translator'] })
+  })
+
+  it('drops malformed parts with a warning instead of failing', () => {
+    const warnings: string[] = []
+    expect(normalizeService({ required: 'bots', optional: ['puppeteer'], implements: [1] }, warnings))
+      .toEqual({ required: [], optional: ['puppeteer'], implements: [] })
+    expect(warnings).toEqual([
+      'llbot.service.required should be a list of service names',
+      'llbot.service.implements should be a list of service names',
+    ])
+    expect(normalizeService(['bots'], warnings)).toEqual({ required: [], optional: [], implements: [] })
+    expect(warnings.at(-1)).toMatch(/should be an object/)
   })
 })

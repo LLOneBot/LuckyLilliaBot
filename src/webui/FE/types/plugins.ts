@@ -2,6 +2,12 @@
 
 export type PluginState = 'missing' | 'incompatible' | 'pending' | 'loading' | 'active' | 'failed' | 'disposed'
 
+export interface ServiceDeclaration {
+  required: string[]
+  optional: string[]
+  implements: string[]
+}
+
 export interface PluginManifest {
   description?: string | Record<string, string>
   icon?: string
@@ -28,6 +34,22 @@ export interface PluginStatus {
   title?: string
   /** App tab id holding the settings of a builtin. */
   settings?: string
+  service: ServiceDeclaration
+}
+
+export interface DependencyInfo {
+  name: string
+  required: boolean
+  available: boolean
+  /** Entry providing it right now; absent when nothing does or the bot itself does. */
+  provider?: string
+  /** Other entries declaring that they implement it. */
+  candidates: string[]
+}
+
+export interface DependencyReport {
+  dependencies: DependencyInfo[]
+  conflicts: { service: string; with: string[] }[]
 }
 
 export type ReloadResult = { status: 'reloaded' } | { status: 'restart-required'; reason: string }

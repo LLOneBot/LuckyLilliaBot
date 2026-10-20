@@ -24,7 +24,12 @@ luckylillia-plugin-foo/
     "description": { "zh": "...", "en": "..." },
     "icon": "puzzle",                   // lucide 图标名（kebab-case）
     "hidden": false,                    // true：能加载，但不在 WebUI 列表里显示
-    "preview": false                    // true：WebUI 标记为开发中
+    "preview": false,                   // true：WebUI 标记为开发中
+    "service": {                        // 见下文"依赖与提供的服务"
+      "required": ["bots"],
+      "optional": ["puppeteer"],
+      "implements": []
+    }
   }
 }
 ```
@@ -102,7 +107,19 @@ ctx.effect(() => {                                 // 其它资源：返回清�
 
 直接调 `setInterval` / 开端口 / 起子进程而不经过 `ctx`，停用后就会泄漏。
 
-## 依赖的服务
+## 依赖与提供的服务
+
+两处声明，作用不同：
+
+- **`inject`**（模块导出）决定能不能运行：列出的服务都就绪后插件才会运行。cordis 4 里 `inject` 列的都算必需
+- **`llbot.service`**（`package.json`）给 WebUI 看，不加载代码就能读到：
+  - `required`：必需的服务，和 `inject` 保持一致
+  - `optional`：有就用、没有也能跑的服务。插件内部用 `ctx.inject(['puppeteer'], ctx => { ... })` 写这部分逻辑，服务出现时才执行、消失时自动撤销
+  - `implements`：本插件提供的服务。写 `Service` 子类的插件一定要声明 —— 服务名在构造函数里，不运行代码就读不到
+
+插件页的配置弹窗会列出每个依赖：已经就绪的显示由谁提供（某个插件，或 Bot 自带）；缺的会找出声明了 `implements` 这个服务的插件，未启用的可以一键启用。两个启用中的插件 `implements` 同一个服务时卡片上会提示冲突 —— cordis 只认先起来的那个，后一个会报 `service "xxx" has been registered` 失败。
+
+要调用别的插件提供的服务时，类型从那个插件的包里拿（npm `peerDependencies` + `import type`），运行时只靠 `inject`，不要直接 import 它的代码。
 
 `inject` 里列的服务都就绪后插件才会运行。等待中的插件在 WebUI 显示为"等待依赖"，并列出还缺哪些服务 —— 比如登录后才存在的服务，登录前就会一直等着，登录后自动启动。
 

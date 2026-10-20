@@ -1,6 +1,6 @@
 import { apiFetch, ApiError } from './api'
 import { getCookie } from './cookie'
-import { ConfigIssue, PluginDescription, PluginStatus, ReloadResult } from '../types/plugins'
+import { ConfigIssue, DependencyReport, PluginDescription, PluginStatus, ReloadResult } from '../types/plugins'
 
 const BASE = '/api/plugins'
 
@@ -29,6 +29,8 @@ export const addPluginInstance = (name: string) =>
 export const removePlugin = (id: string) => request<null>(`/${id}`, { method: 'DELETE' })
 
 export const describePlugin = (id: string) => request<PluginDescription>(`/${id}/schema`)
+
+export const getPluginDependencies = (id: string) => request<DependencyReport>(`/${id}/dependencies`)
 
 /** Rejects with ConfigRejectedError when the plugin's schema refuses the config. */
 export async function savePluginConfig(id: string, config: unknown): Promise<PluginStatus> {

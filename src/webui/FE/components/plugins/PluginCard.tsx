@@ -1,12 +1,14 @@
 import React from 'react'
 import { Copy, RotateCw, Settings } from 'lucide-react'
 import { PluginStatus } from '../../types/plugins'
-import { pendingReason, pluginDescription, pluginIcon, pluginTitle, RELOAD_WARNING, STATE_LABEL } from './meta'
+import { Conflict, pendingReason, pluginDescription, pluginIcon, pluginTitle, RELOAD_WARNING, STATE_LABEL } from './meta'
 
 interface PluginCardProps {
   plugin: PluginStatus
   /** Shown when several entries share one package. */
   instanceTag?: string
+  /** Services it shares with other enabled entries. */
+  conflicts?: Conflict[]
   busy: boolean
   onToggle: (enabled: boolean) => void
   /** Opens the config dialog, or the settings tab of a builtin; absent when there is nothing to configure. */
@@ -18,7 +20,7 @@ interface PluginCardProps {
 
 const actionButton = 'p-2 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg transition-colors disabled:opacity-40 disabled:pointer-events-none'
 
-const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, busy, onToggle, onConfigure, onReload, onDuplicate }) => {
+const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts, busy, onToggle, onConfigure, onReload, onDuplicate }) => {
   const Icon = pluginIcon(plugin)
   const state = STATE_LABEL[plugin.state]
   const active = plugin.state === 'active'
@@ -85,6 +87,12 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, busy, onTo
           )}
         </div>
       </div>
+
+      {conflicts?.map(conflict => (
+        <p key={conflict.service} className="text-xs text-amber-600 dark:text-amber-400 mt-3">
+          和{conflict.with.map(other => `「${pluginTitle(other)}」`).join('、')}都提供 {conflict.service}，同时只能运行一个
+        </p>
+      ))}
 
       {plugin.reloadCount >= RELOAD_WARNING && (
         <p className="text-xs text-amber-600 dark:text-amber-400 mt-3">已热重载 {plugin.reloadCount} 次，旧代码仍占着内存，建议找时间重启 Bot</p>

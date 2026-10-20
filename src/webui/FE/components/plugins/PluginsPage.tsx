@@ -6,6 +6,7 @@ import {
   addPluginInstance, listPlugins, openPluginStream, reloadPlugin, scanPlugins, setPluginEnabled,
 } from '../../utils/pluginApi'
 import PluginCard from './PluginCard'
+import { findConflicts } from './meta'
 import PluginConfigDialog from './PluginConfigDialog'
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -52,6 +53,7 @@ const PluginsPage: React.FC = () => {
     () => (plugins ?? []).filter(plugin => !plugin.builtin).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)),
     [plugins],
   )
+  const conflicts = useMemo(() => findConflicts(plugins ?? []), [plugins])
   const countByName = useMemo(() => {
     const counts = new Map<string, number>()
     for (const plugin of installed) counts.set(plugin.name, (counts.get(plugin.name) ?? 0) + 1)
@@ -162,6 +164,7 @@ const PluginsPage: React.FC = () => {
                   key={plugin.id}
                   plugin={plugin}
                   instanceTag={(countByName.get(plugin.name) ?? 0) > 1 ? `#${plugin.id}` : undefined}
+                  conflicts={conflicts.get(plugin.id)}
                   busy={busy.has(plugin.id)}
                   onToggle={enabled => toggle(plugin, enabled)}
                   onConfigure={() => setEditing(plugin)}
@@ -177,6 +180,7 @@ const PluginsPage: React.FC = () => {
       {editing && (
         <PluginConfigDialog
           plugin={editing}
+          plugins={plugins ?? []}
           removable={(countByName.get(editing.name) ?? 0) > 1}
           onClose={() => setEditing(null)}
         />

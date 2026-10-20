@@ -139,7 +139,15 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 | POST · DELETE | `/` · `/:id` | 新建实例（`{ name, config? }`）· 删除条目 |
 | POST | `/:id/enable` · `/:id/disable` · `/:id/reload` | |
 | GET | `/:id/schema` | `{ schema, defaults, config }`，会 import 尚未加载的模块 |
+| GET | `/:id/dependencies` | 依赖报告，见下 |
 | PUT | `/:id/config` | 400 时 `data.issues` 是 `[{ path, message }]` |
+
+**依赖报告**（`PluginService.dependencies(id)`）：`PluginStatus.service` 是清单的 `llbot.service`（`normalizeService()` 补齐三个列表，格式不对的部分丢弃并打 warning）合并模块加载后的 `Inject.resolve(plugin.inject)` 和 `plugin.provide`；内置条目只用 `BuiltinPlugin.manifest.service`（它们的 inject 是一长串 Bot 内部服务，对插件页没意义），四个适配器 / 邮件通知声明了自己 `implements` 的服务名。报告按请求现算，因为"服务在不在"取决于整个 app：
+
+- `available` 用 `reflect._getImpl` + `Service.check`（和 `missingDeps` 同一个判断，`ctx.get()` 不看 check，`account` 登录前会被误判为可用）
+- `provider`：从提供该服务的 fiber 沿 `parent.fiber` 往上找，碰到某个条目挂载的 fiber 就是它；找不到说明是 Bot 自带
+- `candidates`：其他条目里 `implements` 了这个服务的；`conflicts`：自己 `implements` 的服务还有哪些**启用中**的条目也 `implements`
+- 冲突只提示不拦截：cordis 会让后起来的提供者失败（`service "xxx" has been registered at <...>`），先起来的不受影响。前端卡片上的冲突提示由 `findConflicts()` 用列表现算，不调接口
 
 错误码：`PluginNotFoundError` → 404，`PluginForbiddenError` → 403（内置条目不支持的操作），`PluginConfigError` → 400（带 issues），其它 → 500。cordis 自己的 `ValidationError` 只拼一段文本、不保留 issues，所以 `updateConfig` 直接调 Standard Schema 的 `validate()` 自己抛 `PluginConfigError`。
 

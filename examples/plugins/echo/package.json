@@ -12,6 +12,11 @@
       "zh": "收到以前缀开头的消息时, 引用回复前缀后面的内容",
       "en": "Replies with whatever follows the prefix"
     },
-    "icon": "repeat"
+    "icon": "repeat",
+    "service": {
+      "required": [
+        "bots"
+      ]
+    }
   }
 }

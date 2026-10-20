@@ -53,6 +53,7 @@ export function createPluginRoutes(ctx: Context): Hono {
   router.post('/:id/disable', c => respond(c, () => ctx.plugins.disable(c.req.param('id'))))
   router.post('/:id/reload', c => respond(c, () => ctx.plugins.reload(c.req.param('id'))))
   router.get('/:id/schema', c => respond(c, () => ctx.plugins.describe(c.req.param('id'))))
+  router.get('/:id/dependencies', c => respond(c, () => ctx.plugins.dependencies(c.req.param('id'))))
 
   router.put('/:id/config', async (c) => {
     const { config } = await c.req.json<{ config: unknown }>()

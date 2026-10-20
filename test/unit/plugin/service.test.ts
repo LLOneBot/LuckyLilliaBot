@@ -301,3 +301,69 @@ describe('PluginService builtins', () => {
     expect(adapterEvents()).toEqual([])
   })
 })
+
+function translator(dir: string) {
+  writePlugin(pluginRoot, dir, {
+    'index.js': `
+      import { Service } from 'cordis'
+      export default class Translator extends Service {
+        constructor(ctx) { super(ctx, 'translator') }
+      }
+    `,
+  }, { llbot: { service: { implements: ['translator'] } } })
+}
+
+describe('PluginService dependencies', () => {
+  beforeEach(() => {
+    translator('deepl')
+    translator('google')
+    writePlugin(pluginRoot, 'consumer', {
+      'index.js': `export const inject = ['translator', 'timer']
+export function apply() {}`,
+    }, { llbot: { service: { required: ['translator'], optional: ['puppeteer'] } } })
+  })
+
+  it('reads the manifest before the module loads and adds its inject once it has', async () => {
+    const plugins = await boot()
+    const { id } = byName('consumer')
+    expect(byName('consumer').service).toEqual({ required: ['translator'], optional: ['puppeteer'], implements: [] })
+    await plugins.enable(id)
+    expect(byName('consumer').service.required).toEqual(['translator', 'timer'])
+  })
+
+  it('reports who provides each service and who could', async () => {
+    const plugins = await boot()
+    const consumer = byName('consumer').id
+    const deepl = byName('deepl').id
+    const google = byName('google').id
+
+    expect(plugins.dependencies(consumer)).toEqual({
+      dependencies: [
+        { name: 'translator', required: true, available: false, provider: undefined, candidates: [deepl, google] },
+        { name: 'puppeteer', required: false, available: false, provider: undefined, candidates: [] },
+      ],
+      conflicts: [],
+    })
+
+    await plugins.enable(deepl)
+    await plugins.enable(consumer)
+    const [translatorDep, timerDep] = plugins.dependencies(consumer).dependencies
+    expect(translatorDep).toMatchObject({ name: 'translator', available: true, provider: deepl })
+    // Provided by the bot itself rather than by an entry
+    expect(timerDep).toMatchObject({ name: 'timer', available: true, provider: undefined })
+    expect(byName('consumer').state).toBe('active')
+  })
+
+  it('flags two enabled providers of one service, and cordis refuses the second', async () => {
+    const plugins = await boot()
+    const deepl = byName('deepl').id
+    const google = byName('google').id
+    await plugins.enable(deepl)
+    expect(plugins.dependencies(google).conflicts).toEqual([{ service: 'translator', with: [deepl] }])
+    expect(plugins.dependencies(deepl).conflicts).toEqual([])
+
+    await plugins.enable(google)
+    await expect.poll(() => byName('google')).toMatchObject({ state: 'failed', error: expect.stringMatching(/has been registered/) })
+    expect(plugins.dependencies(deepl).conflicts).toEqual([{ service: 'translator', with: [google] }])
+  })
+})

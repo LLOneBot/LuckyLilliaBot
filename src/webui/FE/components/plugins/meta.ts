@@ -49,3 +49,36 @@ export const STATE_LABEL: Record<PluginState, { label: string; className: string
 
 /** Reload leaks the previous module graph; past this many reloads a restart is worth suggesting. */
 export const RELOAD_WARNING = 20
+
+/** Bot services plugins commonly inject, named for people rather than code. */
+export const SERVICE_LABEL: Record<string, string> = {
+  account: 'QQ 登录',
+  bots: '收发消息',
+  database: '数据库',
+  timer: '定时器',
+  webuiServer: 'WebUI',
+}
+
+export interface Conflict {
+  service: string
+  with: PluginStatus[]
+}
+
+/** Per enabled entry, the services it shares with other enabled entries; cordis lets only the first provider run. */
+export function findConflicts(plugins: PluginStatus[]): Map<string, Conflict[]> {
+  const providers = new Map<string, PluginStatus[]>()
+  for (const plugin of plugins) {
+    if (plugin.disabled) continue
+    for (const service of plugin.service?.implements ?? []) {
+      providers.set(service, [...providers.get(service) ?? [], plugin])
+    }
+  }
+  const conflicts = new Map<string, Conflict[]>()
+  for (const [service, list] of providers) {
+    if (list.length < 2) continue
+    for (const plugin of list) {
+      conflicts.set(plugin.id, [...conflicts.get(plugin.id) ?? [], { service, with: list.filter(other => other !== plugin) }])
+    }
+  }
+  return conflicts
+}

@@ -12,6 +12,11 @@
       "zh": "名单里的用户发的消息, 其他插件都收不到",
       "en": "Drops messages from listed users before any other plugin sees them"
     },
-    "icon": "shield-ban"
+    "icon": "shield-ban",
+    "service": {
+      "required": [
+        "bots"
+      ]
+    }
   }
 }

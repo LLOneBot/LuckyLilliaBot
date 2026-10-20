@@ -35,6 +35,7 @@ export const builtinPlugins: BuiltinPlugin[] = [
     })),
     manifest: {
       icon: 'radio',
+      service: { implements: ['onebot'] },
       description: {
         zh: 'OneBot 11 协议适配器，支持 HTTP、正向 / 反向 WebSocket 和 HTTP POST 上报',
         en: 'OneBot 11 adapter over HTTP, WebSocket, reverse WebSocket and HTTP POST',
@@ -51,6 +52,7 @@ export const builtinPlugins: BuiltinPlugin[] = [
     })),
     manifest: {
       icon: 'cpu',
+      service: { implements: ['satori'] },
       description: { zh: 'Satori 协议适配器', en: 'Satori protocol adapter' },
     },
     settings: 'satori',
@@ -61,6 +63,7 @@ export const builtinPlugins: BuiltinPlugin[] = [
     plugin: withBotConfig('builtin:milky', MilkyAdapter, config => config.milky),
     manifest: {
       icon: 'milk',
+      service: { implements: ['milky'] },
       description: { zh: 'Milky 协议适配器', en: 'Milky protocol adapter' },
     },
     settings: 'milky',
@@ -80,6 +83,7 @@ export const builtinPlugins: BuiltinPlugin[] = [
     plugin: EmailNotificationService,
     manifest: {
       icon: 'mail',
+      service: { implements: ['emailNotification'] },
       description: { zh: '账号掉线时发邮件提醒', en: 'Sends an email when the account goes offline' },
     },
     settings: 'other',

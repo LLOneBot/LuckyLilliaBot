@@ -8,4 +8,16 @@ export interface LLBotManifest {
   hidden?: boolean
   /** Flags the plugin as work in progress in the WebUI. */
   preview?: boolean
+  /**
+   * Services this plugin needs, can make use of and provides, readable without loading its code: the
+   * WebUI shows them and warns about missing providers and conflicts. `inject` is still what gates loading.
+   */
+  service?: {
+    /** Needed to run; list them in `inject` as well. */
+    required?: string[]
+    /** Used when present, e.g. through `ctx.inject([...], ...)` inside the plugin. */
+    optional?: string[]
+    /** Services this plugin provides. Two enabled plugins providing the same one conflict. */
+    implements?: string[]
+  }
 }
