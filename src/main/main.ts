@@ -39,6 +39,7 @@ import { startIpcServer, setLoginState } from './llbot-ipc'
 import PluginService from '../plugin'
 import BotsService from '../universal/bots'
 import * as NTQQUniversal from '../universal/ntqq'
+import { PluginRoutes } from '../webui/BE/routes/plugins'
 
 declare module 'cordis' {
   interface Events {
@@ -90,6 +91,7 @@ async function onLoad() {
     roots: [pluginDir, ...getPluginDirs().map(dir => path.resolve(dir))],
     hmr: isPluginHmr(),
   })
+  ctx.plugin(PluginRoutes)
   // 模式二选一: PMHQ 走 WS/HTTP, Direct 走 native sign + TCP + WebUI 扫码.
   // 之后 ctx.qqProtocol 就是选中的实现, 上层代码不感知模式.
   ctx.plugin(isPmhqMode() ? PmhqQQProtocolClient : DirectQQProtocolClient)

@@ -97,7 +97,10 @@ describe('PluginService', () => {
     expect(await plugins.updateConfig(id, { n: 2 })).toMatchObject({ state: 'active' })
     expect(globalThis.__pluginTest).toEqual(['apply:1', 'dispose:1', 'apply:2'])
 
-    await expect(plugins.updateConfig(id, { n: -1 })).rejects.toThrow(/expected number >= 0/)
+    await expect(plugins.updateConfig(id, { n: -1 })).rejects.toMatchObject({
+      message: expect.stringMatching(/expected number >= 0/),
+      issues: [{ path: ['n'], message: expect.stringMatching(/>= 0/) }],
+    })
     expect(byName('alpha').state).toBe('active')
     expect(JSON.parse(readFileSync(file, 'utf8')).entries[0].config).toEqual({ n: 2 })
 

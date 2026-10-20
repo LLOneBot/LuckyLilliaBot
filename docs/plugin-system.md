@@ -96,6 +96,37 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - `fiber.await()` 只等进行中的加载 / 卸载，对 PENDING 的 fiber 立刻返回；FAILED 时会把错误重新抛出 —— 这也是拿到失败原因的唯一公开途径
 - `fiber.update(config)` 只在 fiber 已加载时同步校验配置，PENDING 时不校验。`updateConfig()` 因此先用 `resolveConfig()` 预校验一遍，失败直接抛 `ValidationError`，不动正在运行的实例、不写盘
 
+## WebUI 管理面
+
+**运行时路由表**：`WebuiServer.route(prefix, handler)` 让插件在 WebUI 下挂 HTTP 接口，返回的 disposer 挂在调用方的 `ctx.effect` 上，插件卸载时自动摘除。Hono 本身不能注销路由，所以 `initServer()` 在所有内置路由之后、静态文件之前挂了一个 `/api/*` 分发中间件，按前缀查一张可变的表 —— 内置路由先注册，永远优先命中；鉴权中间件在更前面，挂上来的路由自动受保护。`handler` 只要有 `fetch(request, env)`，收到的是完整 URL（Hono 子应用用 `basePath(prefix)` 或 `route(prefix, ...)`），请求体原样转发，multipart 也没问题。
+
+**`/api/plugins`**（`src/webui/BE/routes/plugins.ts`）本身就是经路由表挂上的插件 `PluginRoutes`（`inject: ['webuiServer', 'plugins']`），不走 `lazyServiceContext`：
+
+| 方法 | 路径 | 作用 |
+|---|---|---|
+| GET | `/` | 条目列表（过滤掉 `manifest.hidden`） |
+| GET | `/stream` | SSE：`changed` 事件，`{ type: 'status', data }` 或 `{ type: 'list' }`（鉴权走 `?token=`） |
+| POST | `/scan` | 重新扫描 |
+| POST · DELETE | `/` · `/:id` | 新建实例（`{ name, config? }`）· 删除条目 |
+| POST | `/:id/enable` · `/:id/disable` · `/:id/reload` | |
+| GET | `/:id/schema` | `{ schema, defaults, config }`，会 import 尚未加载的模块 |
+| PUT | `/:id/config` | 400 时 `data.issues` 是 `[{ path, message }]` |
+
+错误码：`PluginNotFoundError` → 404，`PluginConfigError` → 400（带 issues），其它 → 500。cordis 自己的 `ValidationError` 只拼一段文本、不保留 issues，所以 `updateConfig` 直接调 Standard Schema 的 `validate()` 自己抛 `PluginConfigError`。
+
+**前端**在 `src/webui/FE/components/plugins/`，类型在 `types/plugins.ts`（手工和 `src/plugin/index.ts` 对齐 —— FE 的 tsconfig 没有 node 类型，不能直接 import 后端模块）。`utils/api.ts` 的 `apiFetch` 遇到非 2xx 抛 `ApiError`（带 `status` 和响应体里的 `data`），保存配置靠它拿到 issues。
+
+**schemastery 渲染器**（`components/plugins/schema/`）：
+
+- 线格式是 `toJSON()` 的引用表 `{ uid, refs: { [uid]: { type, meta, list: [uid], dict: { key: uid }, inner, sKey, value, bits } } }`，不是嵌套结构。`model.ts` 的 `hydrate()` 先登记节点再填子节点，`Schema.lazy()` 自引用产生的环能终止；`lazy` 节点透明化为它的 `inner`。`constructor` 这个键名会撞 `Object.prototype.constructor`，节点里不保留它
+- `Schema.date()` / `regExp()` 是 `union(is(X), transform(string))`：`is` / `function` 成员没有 JSON 表示，丢掉后只剩字符串那一支
+- union 分形态：全 const → 下拉（role `radio` 时单选）；`[const(false), X]` → 开关；`[X, const(null)]` → 直接编辑 X；各分支 object 共享一个 const 键 → tagged，顶部按钮切换分支；其余 → JSON 编辑框。`intersect` 只在成员都是 object 时平铺合并
+- `role` 优先于 `type`：`secret` / `textarea` / `ms` / `slider`（`percent()` 显示为百分比）/ `table`（`array(object)` 渲染成 `table-fixed` 表格）/ `radio` / `checkbox`（const 数组的多选）。不认识的类型一律落到 JSON 编辑框，永不白屏；嵌套超过 6 层也用 JSON
+- 弹窗打开时 `withDefaults(config, defaults)` 填出完整值；保存时 `stripDefaults` 剥掉等于默认值的字段（数组整体比较），`plugins.json` 只存用户改过的部分，插件升级改了默认值时用户自动跟上
+- 卡片图标用一张固定的 lucide 图标表（`meta.ts`），没用 `lucide-react/dynamic` 的 `DynamicIcon`：它会给约 1600 个图标各生成一个 chunk
+
+**端到端验证方法**（不登录 QQ）：后端 `tsx --tsconfig <repo>/tsconfig.json <repo>/src/main/main.ts --pmhq-port 1 --plugin-dir <repo>/examples/plugins`，cwd 放临时目录并预置 `data/webui_token.txt`；前端 `BROWSER=none npx vite`（否则会在桌面弹浏览器）；浏览器设好 `webui_token` cookie（密码的 sha256 hex），用 Playwright 只把 `/api/config` 响应里的 `selfInfo.online` 改成 true，就能进主界面操作真实的插件后端。注意 `playwright-cli fill <ref> -1` 会把 `-1` 当成命令行选项，填负数要用 `run-code`。
+
 ## 进程内只能有一份 cordis
 
 外部插件 `import { Service } from 'cordis'` 如果拿到的是另一份 cordis，`Service.init` symbol、Context 原型链、事件总线全都对不上，而且不会有明确报错。三道防线：

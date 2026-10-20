@@ -1,0 +1,43 @@
+import {
+  Bell, Book, BookOpen, Bot, Brain, Calendar, Clock, Cloud, Code, Database, Dice5, FileText, Gamepad2, Gift,
+  Globe, Hand, Heart, Image, Languages, LucideIcon, MessageSquare, Music, Puzzle, Repeat, Search, Send,
+  Settings, ShieldBan, Smile, Sparkles, Star, Terminal, Timer, Trophy, Users, Wrench, Zap,
+} from 'lucide-react'
+import { PluginState, PluginStatus } from '../../types/plugins'
+
+// A fixed set instead of lucide's DynamicIcon, which would emit one chunk per icon (~1600 files) into the build
+const ICONS: Record<string, LucideIcon> = {
+  bell: Bell, book: Book, 'book-open': BookOpen, bot: Bot, brain: Brain, calendar: Calendar, clock: Clock,
+  cloud: Cloud, code: Code, database: Database, 'dice-5': Dice5, 'file-text': FileText, 'gamepad-2': Gamepad2,
+  gift: Gift, globe: Globe, hand: Hand, heart: Heart, image: Image, languages: Languages,
+  'message-square': MessageSquare, music: Music, puzzle: Puzzle, repeat: Repeat, search: Search, send: Send,
+  settings: Settings, 'shield-ban': ShieldBan, smile: Smile, sparkles: Sparkles, star: Star, terminal: Terminal,
+  timer: Timer, trophy: Trophy, users: Users, wrench: Wrench, zap: Zap,
+}
+
+export function pluginIcon(plugin: PluginStatus): LucideIcon {
+  return ICONS[plugin.manifest.icon ?? ''] ?? Puzzle
+}
+
+export function pluginTitle(plugin: PluginStatus): string {
+  return plugin.name.replace(/^(@[^/]+\/)?luckylillia-plugin-/, '')
+}
+
+export function pluginDescription(plugin: PluginStatus): string | undefined {
+  const text = plugin.manifest.description
+  if (typeof text === 'string') return text
+  return text?.zh ?? text?.['zh-CN'] ?? text?.en ?? plugin.description
+}
+
+export const STATE_LABEL: Record<PluginState, { label: string; className: string }> = {
+  active: { label: '运行中', className: 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400' },
+  pending: { label: '等待依赖', className: 'bg-sky-100 dark:bg-sky-900/50 text-sky-800 dark:text-sky-300' },
+  loading: { label: '加载中', className: 'bg-sky-100 dark:bg-sky-900/50 text-sky-800 dark:text-sky-300' },
+  failed: { label: '出错', className: 'bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300' },
+  incompatible: { label: '版本不兼容', className: 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300' },
+  missing: { label: '文件缺失', className: 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-400' },
+  disposed: { label: '未启用', className: 'bg-gray-100 dark:bg-neutral-700 text-gray-600 dark:text-neutral-400' },
+}
+
+/** Reload leaks the previous module graph; past this many reloads a restart is worth suggesting. */
+export const RELOAD_WARNING = 20

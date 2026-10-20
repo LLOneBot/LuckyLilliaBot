@@ -15,6 +15,7 @@ import {
   HostSelector,
 } from './components';
 import { WebQQPage, WebQQFullscreen } from './components/WebQQ';
+import { PluginsPage } from './components/plugins';
 import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
 import { deleteCookie } from './utils/cookie';
@@ -31,7 +32,7 @@ function App() {
   // 从 URL hash 读取初始 tab，默认 dashboard
   const getInitialTab = () => {
     const hash = window.location.hash.slice(1) // 去掉 #
-    const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'webqq', 'webqq-fullscreen', 'about']
+    const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'plugins', 'webqq', 'webqq-fullscreen', 'about']
     return validTabs.includes(hash) ? hash : 'dashboard'
   }
 
@@ -86,7 +87,7 @@ function App() {
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
-      const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'webqq', 'webqq-fullscreen', 'about']
+      const validTabs = ['dashboard', 'onebot', 'satori', 'milky', 'logs', 'other', 'plugins', 'webqq', 'webqq-fullscreen', 'about']
       if (validTabs.includes(hash)) {
         setActiveTab(hash)
       }
@@ -366,6 +367,8 @@ function App() {
           {activeTab === 'webqq' && <WebQQPage />}
 
           {activeTab === 'logs' && <LogViewer />}
+
+          {activeTab === 'plugins' && <PluginsPage />}
 
           {activeTab === 'onebot' && (
             <OneBotConfigNew

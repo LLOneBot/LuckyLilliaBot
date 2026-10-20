@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Settings,
+  Puzzle,
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -46,6 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'milky', icon: Milk, label: 'Milky' },
     { id: 'logs', icon: Terminal, label: '日志' },
     { id: 'other', icon: Sliders, label: '其他配置' },
+    { id: 'plugins', icon: Puzzle, label: '插件' },
     { id: 'webqq', icon: MessageSquare, label: 'WebQQ' },
     { id: 'about', icon: Info, label: '关于' },
   ]

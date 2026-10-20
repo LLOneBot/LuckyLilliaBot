@@ -58,9 +58,32 @@ export function apply(ctx: Context, config: Config) {
 
 ## 配置
 
-- `Config` 是 schemastery 的 schema 时，WebUI 会自动生成配置表单；用户保存时 Bot 先按 schema 校验，不通过就拒绝保存，正在运行的实例不受影响
+- `Config` 是 schemastery 的 schema 时，WebUI 会自动生成配置表单；用户保存时 Bot 先按 schema 校验，不通过就拒绝保存并把错误标到对应字段上，正在运行的实例不受影响
 - 配置变化时 cordis 会重启插件（先撤销旧实例注册的一切，再用新配置调用 `apply`），不需要自己监听配置变化
+- 保存时只记录用户改过的字段，等于默认值的不落盘 —— 插件新版本改了默认值，用户会自动用上
 - 用别的 Standard Schema 实现（比如 zod）也能校验，但 WebUI 只能给一个 JSON 编辑框
+
+表单支持的写法（`description()` 会作为字段标题，键名作为小字显示）：
+
+| 写法 | 表单控件 |
+|---|---|
+| `string()`；`.role('secret')` / `.role('textarea', { rows: [2, 4] })` / `.pattern(re)` | 输入框 / 密码框 / 多行 / 实时正则校验 |
+| `number()` / `natural()`；`.min()` `.max()` `.step()` | 数字框 |
+| `natural().role('ms')` | 数字 + 单位（毫秒 / 秒 / 分钟 / 小时 / 天），存毫秒 |
+| `percent()` | 滑块，显示百分比 |
+| `boolean()` | 开关 |
+| `union([const('a').description('甲'), 'b'])` | 下拉；`.role('radio')` 为单选 |
+| `union([const(false), object({...})])` | 开关，打开后展开对象 |
+| 各分支都是带同一个 const 键的 object | 顶部切换按钮 + 选中分支的字段 |
+| `array(X)`；`array(object({...})).role('table')`；`array(union([const...])).role('checkbox')` | 可增删排序的列表 / 表格 / 多选 |
+| `dict(X)`、`dict(X, union([...]))` | 键值对列表（第二个参数限定可选的键） |
+| `object()`（嵌套）、`intersect([object, object])`、`.collapse()` | 分组框，`collapse` 默认折叠 |
+| `tuple()`、`bitset()` | 定长一行 / 多选 |
+| 其它（`any`、`is(...)`、无法判断的 union） | JSON 编辑框 |
+
+`.hidden()` 的字段不显示；`.deprecated()` / `.experimental()` 会显示成小标签。
+
+`llbot.icon` 目前支持：`bell` `book` `book-open` `bot` `brain` `calendar` `clock` `cloud` `code` `database` `dice-5` `file-text` `gamepad-2` `gift` `globe` `hand` `heart` `image` `languages` `message-square` `music` `puzzle` `repeat` `search` `send` `settings` `shield-ban` `smile` `sparkles` `star` `terminal` `timer` `trophy` `users` `wrench` `zap`，其它名字显示为拼图图标。
 
 ## 生命周期与清理
 

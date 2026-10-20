@@ -65,6 +65,11 @@ function lazyServiceContext(ctx: Context): Context {
 export interface WebuiServerConfig extends WebUIConfig {
 }
 
+/** Anything with a fetch-style entry point; a Hono app qualifies. */
+export interface MountedHandler {
+  fetch(request: Request, env?: any): Response | Promise<Response>
+}
+
 export class WebuiServer extends Service {
   // 登录前 WebUI 也要能起 (要给用户看/输 auth_token / 扫码), 所以只把登录前就能 ready 的依赖标 required.
   // 其余 nt* API 依赖 store, 而 store 又依赖 database, database 只在 loadPluginAfterLogin 才加载;
@@ -78,6 +83,8 @@ export class WebuiServer extends Service {
   public port?: number = undefined
   private sseClients: Set<SSEStreamingApi> = new Set()
   private uploadDir: string
+  // Mounted at runtime by plugins; Hono has no way to unregister a route
+  private mounted = new Map<string, MountedHandler>()
 
   async [Service.init]() {
     await this.start()
@@ -110,6 +117,22 @@ export class WebuiServer extends Service {
     })
   }
 
+  /**
+   * Serves requests under `prefix` (behind the WebUI auth) with `handler` until the returned
+   * disposer runs, which happens on its own when the calling plugin is disposed. The handler
+   * sees the full URL: give a Hono app basePath(prefix) or route(prefix, ...).
+   */
+  route(prefix: string, handler: MountedHandler): () => void {
+    const key = prefix.replace(/\/+$/, '')
+    return this.ctx.effect(() => {
+      if (this.mounted.has(key)) throw new Error(`${key} is already mounted`)
+      this.mounted.set(key, handler)
+      return () => {
+        this.mounted.delete(key)
+      }
+    }, `webuiServer.route(${key})`)
+  }
+
   private initServer() {
     this.app.use('/api/*', authMiddleware)
 
@@ -128,6 +151,15 @@ export class WebuiServer extends Service {
       sseClients: this.sseClients,
       createPicElement: this.createPicElement.bind(this)
     }))
+
+    // Registered after the built-in routes, so those always win
+    this.app.use('/api/*', async (c, next) => {
+      const { path } = c.req
+      for (const [prefix, handler] of this.mounted) {
+        if (path === prefix || path.startsWith(`${prefix}/`)) return handler.fetch(c.req.raw, c.env)
+      }
+      await next()
+    })
 
     // 静态文件服务
     this.app.use('/*', serveStatic({ root: feDistPath }))

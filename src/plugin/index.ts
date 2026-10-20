@@ -48,6 +48,19 @@ export interface PluginDescription {
 
 export class PluginNotFoundError extends Error {}
 
+export interface ConfigIssue {
+  message: string
+  /** Keys from the config root down to the offending value. */
+  path: string[]
+}
+
+/** A config the plugin's schema rejected; unlike cordis' ValidationError it keeps the issues. */
+export class PluginConfigError extends TypeError {
+  constructor(readonly issues: ConfigIssue[]) {
+    super(issues.map(issue => issue.path.length ? `${issue.message} (at ${issue.path.join('.')})` : issue.message).join('; '))
+  }
+}
+
 interface LoadedModule {
   plugin?: Plugin
   error?: string
@@ -173,14 +186,14 @@ class PluginService extends Service {
     })
   }
 
-  /** Throws cordis' ValidationError, without touching the running instance, when the config is rejected. */
+  /** Throws PluginConfigError, without touching the running instance, when the config is rejected. */
   updateConfig(id: string, config: unknown): Promise<PluginStatus> {
     const rt = this.runtime(id)
     return this.lock(rt.entry.name, async () => {
       const mod = await this.load(this.package(rt))
       if (!mod.plugin) throw new Error(mod.error)
       // fiber.update() only validates a loaded fiber; check up front so pending ones behave the same
-      resolveConfig({ Config: mod.plugin.Config } as Plugin.Runtime, config)
+      validateConfig(mod.plugin, config)
       rt.entry.config = config
       await this.save()
       const fiber = rt.fiber
@@ -486,6 +499,18 @@ namespace PluginService {
     /** Install the module.registerHooks resolver. Tests turn it off: the hook is process wide. */
     resolver?: boolean
   }
+}
+
+function validateConfig(plugin: Plugin, config: unknown) {
+  const schema = plugin.Config?.['~standard']
+  if (!schema) return
+  const result = schema.validate(config)
+  if ('then' in result) throw new TypeError('async config validation is not supported')
+  if (!result.issues) return
+  throw new PluginConfigError(result.issues.map(issue => ({
+    message: issue.message,
+    path: (issue.path ?? []).map(segment => String(typeof segment === 'object' ? segment.key : segment)),
+  })))
 }
 
 function hostSdkVersion(): string | undefined {

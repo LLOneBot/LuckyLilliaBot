@@ -6,6 +6,13 @@ import { getCookie, setCookie } from './cookie';
 const TOKEN_KEY = 'webui_token';
 const TOKEN_EXPIRY_DAYS = 30; // Cookie 过期天数
 
+/** A non-2xx response; `data` is the `data` field of the error body, if any. */
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number, readonly data?: unknown) {
+    super(message);
+  }
+}
+
 let passwordPromptHandler: ((tip: string) => Promise<string>) | null = null;
 
 export function setPasswordPromptHandler(handler: (tip: string) => Promise<string>) {
@@ -138,13 +145,15 @@ export async function apiFetch<T = any>(
 
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`
+      let errorPayload: unknown
       try {
         const errorData = await response.json()
         errorMessage = errorData.message || errorMessage
+        errorPayload = errorData.data
       } catch {
         // 无法解析 JSON，使用默认错误信息
       }
-      throw new Error(errorMessage)
+      throw new ApiError(errorMessage, response.status, errorPayload)
     }
 
     return await response.json();
