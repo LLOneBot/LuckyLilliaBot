@@ -28,6 +28,8 @@ import MilkyAdapter from '@/milky/adapter'
 import { WebuiServer } from '@/webui/BE/server'
 import EmailNotificationService from '@/common/emailNotification'
 import AccountService from '@/main/account'
+import BotsService from '@/universal/bots'
+import * as NTQQUniversal from '@/universal/ntqq'
 
 // The global setup points DATA_DIR at /tmp/test-data, which on Windows lands outside the repo.
 // Services here really write (email config, webqq upload dir, sqlite), so use a private temp dir.
@@ -93,6 +95,7 @@ describe('service registry under the pinned cordis version', () => {
     mount('config', MockConfig)
     mount('qqProtocol', MockProtocol)
     mount('account', AccountService)
+    mount('bots', BotsService)
     mount('ntFileApi', NTFileApi)
     mount('ntFriendApi', NTFriendApi)
     mount('ntGroupApi', NTGroupApi)
@@ -112,6 +115,7 @@ describe('service registry under the pinned cordis version', () => {
     })
     mount('satori', SatoriAdapter, { ...config.satori, ffmpeg: config.ffmpeg })
     mount('milky', MilkyAdapter, config.milky)
+    mount('ntqq-universal', NTQQUniversal)
     mount('store', Store, { msgCacheExpire: config.msgCacheExpire! })
     mount('emailNotification', EmailNotificationService)
     mount('webuiServer', WebuiServer, config.webui)
@@ -124,7 +128,7 @@ describe('service registry under the pinned cordis version', () => {
     }, { timeout: 4_000, interval: 200 })
 
     for (const name of [
-      'config', 'qqProtocol', 'account', 'timer', 'database', 'model', 'store', 'app',
+      'config', 'qqProtocol', 'account', 'bots', 'timer', 'database', 'model', 'store', 'app',
       'ntFileApi', 'ntFriendApi', 'ntGroupApi', 'ntLoginApi', 'ntMsgApi', 'ntUserApi', 'ntWebApi', 'ntSystemApi',
       'onebot', 'satori', 'milky', 'emailNotification', 'webuiServer',
     ]) {
