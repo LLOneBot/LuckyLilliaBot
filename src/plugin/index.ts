@@ -35,6 +35,24 @@ export interface PluginStatus {
   reloadCount: number
   /** Undefined until the module has been imported once. */
   hasConfig?: boolean
+  /** Ships with the bot: a single instance, configured in the bot settings rather than here. */
+  builtin?: boolean
+  /** A builtin the rest of the bot relies on, so it cannot be disabled. */
+  core?: boolean
+  /** Display name of a builtin. */
+  title?: string
+  /** WebUI tab that holds the settings of a builtin. */
+  settings?: string
+}
+
+export interface BuiltinPlugin {
+  /** Entry name; the `builtin:` prefix keeps it apart from package names. */
+  name: string
+  plugin: Plugin
+  title: string
+  manifest: LLBotManifest
+  core?: boolean
+  settings?: string
 }
 
 export type ReloadResult = { status: 'reloaded' } | { status: 'restart-required'; reason: string }
@@ -47,6 +65,9 @@ export interface PluginDescription {
 }
 
 export class PluginNotFoundError extends Error {}
+
+/** The action does not apply to this entry, e.g. disabling a core builtin. */
+export class PluginForbiddenError extends Error {}
 
 export interface ConfigIssue {
   message: string
@@ -100,10 +121,12 @@ class PluginService extends Service {
   private resolver: ResolverState = { shared: new Map(), roots: [] }
   private resolverInstalled = false
   private sdkVersion?: string
+  private builtins: Map<string, BuiltinPlugin>
 
   constructor(ctx: Context, public config: PluginService.Config) {
     super(ctx, 'plugins')
     this.store = new PluginStore(config.file)
+    this.builtins = new Map((config.builtins ?? []).map(builtin => [builtin.name, builtin]))
   }
 
   async [Service.init]() {
@@ -123,6 +146,7 @@ class PluginService extends Service {
     if (error) this.ctx.logger.error(`invalid plugins.json, starting without entries: ${error}`)
     this.data = data
     for (const entry of data.entries) this.runtimes.set(entry.id, { entry, reloadCount: 0 })
+    if (this.reconcileBuiltins()) await this.save()
 
     this.ctx.on('internal/status', fiber => this.onFiberStatus(fiber))
     await this.scan()
@@ -147,6 +171,7 @@ class PluginService extends Service {
   }
 
   async add(name: string, config?: unknown): Promise<PluginStatus> {
+    if (this.builtins.has(name)) throw new PluginForbiddenError(`${name} is builtin and runs as a single instance`)
     if (!this.packages.has(name)) throw new PluginNotFoundError(`no plugin package named ${name}`)
     const rt = this.createEntry(name, false, config)
     await this.save()
@@ -157,6 +182,9 @@ class PluginService extends Service {
 
   async remove(id: string): Promise<void> {
     const rt = this.runtime(id)
+    if (this.builtins.has(rt.entry.name)) {
+      throw new PluginForbiddenError(`${rt.entry.name} is builtin and cannot be removed, disable it instead`)
+    }
     await this.lock(rt.entry.name, () => this.stop(rt))
     this.runtimes.delete(id)
     this.data.entries = this.data.entries.filter(entry => entry.id !== id)
@@ -164,7 +192,7 @@ class PluginService extends Service {
     this.changed()
   }
 
-  enable(id: string): Promise<PluginStatus> {
+  async enable(id: string): Promise<PluginStatus> {
     const rt = this.runtime(id)
     return this.lock(rt.entry.name, async () => {
       if (rt.entry.disabled) {
@@ -176,8 +204,11 @@ class PluginService extends Service {
     })
   }
 
-  disable(id: string): Promise<PluginStatus> {
+  async disable(id: string): Promise<PluginStatus> {
     const rt = this.runtime(id)
+    if (this.builtins.get(rt.entry.name)?.core) {
+      throw new PluginForbiddenError(`${rt.entry.name} is part of the bot core and cannot be disabled`)
+    }
     return this.lock(rt.entry.name, async () => {
       rt.entry.disabled = true
       await this.save()
@@ -187,8 +218,9 @@ class PluginService extends Service {
   }
 
   /** Throws PluginConfigError, without touching the running instance, when the config is rejected. */
-  updateConfig(id: string, config: unknown): Promise<PluginStatus> {
+  async updateConfig(id: string, config: unknown): Promise<PluginStatus> {
     const rt = this.runtime(id)
+    this.assertConfigurable(rt)
     return this.lock(rt.entry.name, async () => {
       const mod = await this.load(this.package(rt))
       if (!mod.plugin) throw new Error(mod.error)
@@ -209,6 +241,9 @@ class PluginService extends Service {
 
   async reload(id: string): Promise<ReloadResult> {
     const rt = this.runtime(id)
+    const builtin = this.builtins.get(rt.entry.name)
+    // Bundled with the bot, so there is no code to re-import: a restart picks up the current settings
+    if (builtin) return this.lock(rt.entry.name, () => this.restartBuiltin(rt, builtin))
     if (!this.resolverInstalled) {
       return { status: 'restart-required', reason: 'module.registerHooks is unavailable (Node < 22.15), changed submodules would not be re-imported' }
     }
@@ -216,8 +251,9 @@ class PluginService extends Service {
   }
 
   /** Imports the module if it has not been loaded yet, so it also works for disabled entries. */
-  describe(id: string): Promise<PluginDescription> {
+  async describe(id: string): Promise<PluginDescription> {
     const rt = this.runtime(id)
+    this.assertConfigurable(rt)
     return this.lock(rt.entry.name, async () => {
       const mod = await this.load(this.package(rt))
       const Config = (mod.plugin as { Config?: { toJSON?: unknown } } | undefined)?.Config
@@ -245,6 +281,45 @@ class PluginService extends Service {
     const pkg = this.packages.get(rt.entry.name)
     if (!pkg) throw new PluginNotFoundError(`plugin package ${rt.entry.name} is not installed`)
     return pkg
+  }
+
+  private assertConfigurable(rt: Runtime) {
+    if (this.builtins.has(rt.entry.name)) {
+      throw new PluginForbiddenError(`${rt.entry.name} is builtin and keeps its settings in the bot configuration`)
+    }
+  }
+
+  /** One entry per builtin, enabled when first created; core builtins always run. Returns whether entries changed. */
+  private reconcileBuiltins(): boolean {
+    let changed = false
+    for (const builtin of this.builtins.values()) {
+      const [first, ...extra] = this.entriesOf(builtin.name)
+      // Builtins provide named services, so a second instance would fight the first over them
+      for (const rt of extra) {
+        this.ctx.logger.warn(`dropped duplicate entry ${rt.entry.id} of ${builtin.name}`)
+        this.runtimes.delete(rt.entry.id)
+        this.data.entries = this.data.entries.filter(entry => entry !== rt.entry)
+        changed = true
+      }
+      if (!first) {
+        this.createEntry(builtin.name, false)
+        changed = true
+        continue
+      }
+      if (builtin.core && first.entry.disabled) {
+        delete first.entry.disabled
+        changed = true
+      }
+    }
+    return changed
+  }
+
+  private async restartBuiltin(rt: Runtime, builtin: BuiltinPlugin): Promise<ReloadResult> {
+    if (!rt.entry.disabled) {
+      await this.stop(rt)
+      await this.mount(rt, builtin.plugin)?.await().catch(() => {})
+    }
+    return { status: 'reloaded' }
   }
 
   private async rescan() {
@@ -310,6 +385,11 @@ class PluginService extends Service {
 
   private async start(rt: Runtime) {
     if (rt.entry.disabled || rt.fiber || !this.runtimes.has(rt.entry.id)) return
+    const builtin = this.builtins.get(rt.entry.name)
+    if (builtin) {
+      await this.mount(rt, builtin.plugin)?.await().catch(() => {})
+      return
+    }
     const pkg = this.packages.get(rt.entry.name)
     if (!pkg || this.incompatibility(pkg)) return this.changed(rt.entry.id)
     const mod = await this.load(pkg)
@@ -386,6 +466,7 @@ class PluginService extends Service {
 
   private status(rt: Runtime): PluginStatus {
     const { entry, fiber } = rt
+    const builtin = this.builtins.get(entry.name)
     const pkg = this.packages.get(entry.name)
     const mod = this.modules.get(entry.name)
     const status: PluginStatus = {
@@ -393,16 +474,20 @@ class PluginService extends Service {
       name: entry.name,
       version: pkg?.version,
       description: pkg?.description,
-      manifest: pkg?.manifest ?? {},
+      manifest: builtin?.manifest ?? pkg?.manifest ?? {},
       disabled: !!entry.disabled,
       state: 'disposed',
       missingDeps: [],
       reloadCount: rt.reloadCount,
-      hasConfig: mod?.plugin ? !!mod.plugin.Config : undefined,
+      hasConfig: builtin ? false : mod?.plugin ? !!mod.plugin.Config : undefined,
     }
-    if (!pkg) return { ...status, state: 'missing' }
-    const incompatible = this.incompatibility(pkg)
-    if (incompatible) return { ...status, state: 'incompatible', error: incompatible }
+    if (builtin) {
+      Object.assign(status, { builtin: true, core: !!builtin.core, title: builtin.title, settings: builtin.settings })
+    } else {
+      if (!pkg) return { ...status, state: 'missing' }
+      const incompatible = this.incompatibility(pkg)
+      if (incompatible) return { ...status, state: 'incompatible', error: incompatible }
+    }
     if (rt.error) status.error = rt.error
     if (!fiber) {
       if (status.error) status.state = 'failed'
@@ -498,6 +583,8 @@ namespace PluginService {
     hmr?: boolean
     /** Install the module.registerHooks resolver. Tests turn it off: the hook is process wide. */
     resolver?: boolean
+    /** Plugins bundled with the bot, listed next to the installed ones. */
+    builtins?: BuiltinPlugin[]
   }
 }
 

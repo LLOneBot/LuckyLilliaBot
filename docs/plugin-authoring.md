@@ -83,7 +83,7 @@ export function apply(ctx: Context, config: Config) {
 
 `.hidden()` 的字段不显示；`.deprecated()` / `.experimental()` 会显示成小标签。
 
-`llbot.icon` 目前支持：`bell` `book` `book-open` `bot` `brain` `calendar` `clock` `cloud` `code` `database` `dice-5` `file-text` `gamepad-2` `gift` `globe` `hand` `heart` `image` `languages` `message-square` `music` `puzzle` `repeat` `search` `send` `settings` `shield-ban` `smile` `sparkles` `star` `terminal` `timer` `trophy` `users` `wrench` `zap`，其它名字显示为拼图图标。
+`llbot.icon` 目前支持：`bell` `book` `book-open` `bot` `brain` `calendar` `clock` `cloud` `code` `cpu` `database` `dice-5` `file-text` `gamepad-2` `gift` `globe` `hand` `heart` `image` `languages` `mail` `message-square` `milk` `music` `network` `puzzle` `radio` `repeat` `search` `send` `settings` `shield-ban` `smile` `sparkles` `star` `terminal` `timer` `trophy` `users` `wrench` `zap`，其它名字显示为拼图图标。
 
 ## 生命周期与清理
 

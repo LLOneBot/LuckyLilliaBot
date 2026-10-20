@@ -1,6 +1,6 @@
 import { Context } from 'cordis'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { PluginConfigError, PluginNotFoundError } from '@/plugin'
+import { PluginConfigError, PluginForbiddenError, PluginNotFoundError } from '@/plugin'
 import { createPluginRoutes } from '@/webui/BE/routes/plugins'
 import { createTestApp } from '../helpers/testApp'
 
@@ -66,11 +66,16 @@ describe('plugin routes', () => {
     })
   })
 
-  it('answers 404 for unknown entries and 500 for anything else', async () => {
+  it('answers 404 for unknown entries, 403 for actions a builtin refuses and 500 for anything else', async () => {
     plugins.enable.mockRejectedValueOnce(new PluginNotFoundError('no plugin entry zz'))
     expect(await json(await app.request('/api/plugins/zz/enable', { method: 'POST' }))).toEqual({
       status: 404,
       body: { success: false, message: 'no plugin entry zz' },
+    })
+    plugins.disable.mockRejectedValueOnce(new PluginForbiddenError('builtin:core is part of the bot core and cannot be disabled'))
+    expect(await json(await app.request('/api/plugins/a/disable', { method: 'POST' }))).toEqual({
+      status: 403,
+      body: { success: false, message: 'builtin:core is part of the bot core and cannot be disabled' },
     })
     plugins.reload.mockRejectedValueOnce(new Error('reload failed: SyntaxError'))
     expect((await app.request('/api/plugins/a/reload', { method: 'POST' })).status).toBe(500)

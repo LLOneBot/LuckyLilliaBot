@@ -4,9 +4,6 @@ import path from 'node:path'
 globalThis.__dirname = import.meta.dirname
 import Log from './log'
 import Core from '../ntqqapi/core'
-import OneBot11Adapter from '../onebot11/adapter'
-import SatoriAdapter from '../satori/adapter'
-import MilkyAdapter from '../milky/adapter'
 import Database from '@cordisjs/plugin-database'
 import SQLiteDriver from '@cordisjs/plugin-database-sqlite'
 import Store from './store'
@@ -26,7 +23,6 @@ import {
 import { existsSync, mkdirSync } from 'node:fs'
 import { version } from '../version'
 import { WebuiServer } from '../webui/BE/server'
-import EmailNotificationService from '@/common/emailNotification'
 import { EmailConfig } from '@/common/emailConfig'
 import { getPluginDirs, isPluginHmr, isPmhqMode } from '@/common/utils/environment'
 import { setConfigLogLevel, isDebugEnabled, bindLoggerFactory, getLogger } from '@/common/logger'
@@ -39,7 +35,7 @@ import AccountService from './account'
 import { startIpcServer, setLoginState } from './llbot-ipc'
 import PluginService from '../plugin'
 import BotsService from '../universal/bots'
-import * as NTQQUniversal from '../universal/ntqq'
+import { builtinPlugins } from './builtins'
 import { PluginRoutes } from '../webui/BE/routes/plugins'
 
 declare module 'cordis' {
@@ -91,6 +87,7 @@ async function onLoad() {
     file: path.join(DATA_DIR, 'plugins.json'),
     roots: [pluginDir, ...getPluginDirs().map(dir => path.resolve(dir))],
     hmr: isPluginHmr(),
+    builtins: builtinPlugins,
   })
   ctx.plugin(PluginRoutes)
   // 模式二选一: PMHQ 走 WS/HTTP, Direct 走 native sign + TCP + WebUI 扫码.
@@ -109,6 +106,7 @@ async function onLoad() {
 
   // The config file and the database are per account, so everything here waits for the first login.
   // `account` survives reconnects, so this runs once and upper layers ride out short network drops.
+  // The adapters, email notification and the neutral layer are builtin entries of the plugin service.
   ctx.inject(['account', 'config'], (ctx) => {
     const config = ctx.config.get(false)
     ctx.config.listenChange(c => {
@@ -120,22 +118,9 @@ async function onLoad() {
       path: pathToFileURL(path.join(dbDir, `${ctx.account.uin}.v3.db`)).href,
     })
     ctx.plugin(Core, config)
-    ctx.plugin(OneBot11Adapter, {
-      ...config.ob11,
-      musicSignUrl: config.musicSignUrl,
-      enableLocalFile2Url: config.enableLocalFile2Url!,
-      ffmpeg: config.ffmpeg,
-    })
-    ctx.plugin(SatoriAdapter, {
-      ...config.satori,
-      ffmpeg: config.ffmpeg,
-    })
-    ctx.plugin(MilkyAdapter, config.milky)
-    ctx.plugin(NTQQUniversal)
     ctx.plugin(Store, {
       msgCacheExpire: config.msgCacheExpire!,
     })
-    ctx.plugin(EmailNotificationService)
   })
 
   ctx.inject(['qqProtocol', 'config'], (ctx) => {

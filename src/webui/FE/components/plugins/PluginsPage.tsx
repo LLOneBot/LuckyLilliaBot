@@ -10,6 +10,8 @@ import PluginConfigDialog from './PluginConfigDialog'
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
+const sectionTitle = 'text-sm font-medium text-theme-secondary mb-3 px-1'
+
 const PluginsPage: React.FC = () => {
   const [plugins, setPlugins] = useState<PluginStatus[] | null>(null)
   const [busy, setBusy] = useState<Set<string>>(new Set())
@@ -44,15 +46,17 @@ const PluginsPage: React.FC = () => {
     })
   }, [refresh])
 
-  const sorted = useMemo(
-    () => [...(plugins ?? [])].sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)),
+  // Builtins keep the order the bot lists them in
+  const builtins = useMemo(() => (plugins ?? []).filter(plugin => plugin.builtin), [plugins])
+  const installed = useMemo(
+    () => (plugins ?? []).filter(plugin => !plugin.builtin).sort((a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)),
     [plugins],
   )
   const countByName = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const plugin of sorted) counts.set(plugin.name, (counts.get(plugin.name) ?? 0) + 1)
+    for (const plugin of installed) counts.set(plugin.name, (counts.get(plugin.name) ?? 0) + 1)
     return counts
-  }, [sorted])
+  }, [installed])
 
   const withBusy = async (id: string, task: () => Promise<void>) => {
     setBusy(previous => new Set(previous).add(id))
@@ -76,7 +80,7 @@ const PluginsPage: React.FC = () => {
 
   const reload = (plugin: PluginStatus) => withBusy(plugin.id, async () => {
     const result = await reloadPlugin(plugin.id)
-    if (result.status === 'reloaded') showToast('已重新加载', 'success')
+    if (result.status === 'reloaded') showToast(plugin.builtin ? '已重启' : '已重新加载', 'success')
     else showToast(`需要重启 Bot 才能生效：${result.reason}`, 'warning')
   })
 
@@ -123,29 +127,51 @@ const PluginsPage: React.FC = () => {
         <div className="flex justify-center py-16"><Loader2 size={40} className="animate-spin text-pink-500" /></div>
       )}
 
-      {plugins !== null && sorted.length === 0 && (
-        <div className="card p-10 text-center">
-          <Puzzle size={40} className="mx-auto text-theme-hint mb-4" />
-          <p className="text-theme font-medium">还没有插件</p>
-          <p className="text-sm text-theme-secondary mt-2">一个插件就是一个带 llbot 字段的 npm 包目录，放进 data/plugins/ 后点"重新扫描"</p>
-        </div>
+      {builtins.length > 0 && (
+        <section>
+          <h3 className={sectionTitle}>内置</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {builtins.map(plugin => (
+              <PluginCard
+                key={plugin.id}
+                plugin={plugin}
+                busy={busy.has(plugin.id)}
+                onToggle={enabled => toggle(plugin, enabled)}
+                // Builtins keep their settings on the existing tabs; App follows the hash
+                onConfigure={plugin.settings ? () => { window.location.hash = plugin.settings! } : undefined}
+                onReload={() => reload(plugin)}
+              />
+            ))}
+          </div>
+        </section>
       )}
 
-      {sorted.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {sorted.map(plugin => (
-            <PluginCard
-              key={plugin.id}
-              plugin={plugin}
-              instanceTag={(countByName.get(plugin.name) ?? 0) > 1 ? `#${plugin.id}` : undefined}
-              busy={busy.has(plugin.id)}
-              onToggle={enabled => toggle(plugin, enabled)}
-              onConfigure={() => setEditing(plugin)}
-              onReload={() => reload(plugin)}
-              onDuplicate={() => duplicate(plugin)}
-            />
-          ))}
-        </div>
+      {plugins !== null && (
+        <section>
+          {builtins.length > 0 && <h3 className={sectionTitle}>已安装</h3>}
+          {installed.length === 0 ? (
+            <div className="card p-10 text-center">
+              <Puzzle size={40} className="mx-auto text-theme-hint mb-4" />
+              <p className="text-theme font-medium">还没有安装插件</p>
+              <p className="text-sm text-theme-secondary mt-2">一个插件就是一个带 llbot 字段的 npm 包目录，放进 data/plugins/ 后点"重新扫描"</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {installed.map(plugin => (
+                <PluginCard
+                  key={plugin.id}
+                  plugin={plugin}
+                  instanceTag={(countByName.get(plugin.name) ?? 0) > 1 ? `#${plugin.id}` : undefined}
+                  busy={busy.has(plugin.id)}
+                  onToggle={enabled => toggle(plugin, enabled)}
+                  onConfigure={() => setEditing(plugin)}
+                  onReload={() => reload(plugin)}
+                  onDuplicate={() => duplicate(plugin)}
+                />
+              ))}
+            </div>
+          )}
+        </section>
       )}
 
       {editing && (

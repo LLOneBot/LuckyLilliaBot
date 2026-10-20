@@ -41,7 +41,7 @@ beforeEach(async () => {
   ctx = new Context()
   sendMessage = vi.fn(async () => rawMessage({ senderUin: 123456, elements: [{ textElement: { content: 'hi', atType: 0 } }] }))
   await ctx.plugin(BotsService)
-  for (const name of ['ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntGroupApi', 'ntUserApi', 'ntWebApi']) {
+  for (const name of ['account', 'ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntGroupApi', 'ntUserApi', 'ntWebApi']) {
     await ctx.plugin(stub(name))
   }
   await ctx.plugin(stub('app', { sendMessage }))

@@ -15,7 +15,7 @@ import {
   HostSelector,
 } from './components';
 import { WebQQPage, WebQQFullscreen } from './components/WebQQ';
-import { PluginsPage } from './components/plugins';
+import { BuiltinDisabledNotice, PluginsPage } from './components/plugins';
 import { Config, ResConfig, EmailConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
 import { deleteCookie } from './utils/cookie';
@@ -362,6 +362,8 @@ function App() {
           </div>
 
           {/* Content */}
+          <BuiltinDisabledNotice tab={activeTab} />
+
           {activeTab === 'dashboard' && <Dashboard llbotVersion={version} qqVersion={qqVersion} />}
 
           {activeTab === 'webqq' && <WebQQPage />}

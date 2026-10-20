@@ -21,6 +21,13 @@ export interface PluginStatus {
   missingDeps: string[]
   reloadCount: number
   hasConfig?: boolean
+  /** Ships with the bot: one instance, configured on its own settings tab. */
+  builtin?: boolean
+  /** A builtin that cannot be disabled. */
+  core?: boolean
+  title?: string
+  /** App tab id holding the settings of a builtin. */
+  settings?: string
 }
 
 export type ReloadResult = { status: 'reloaded' } | { status: 'restart-required'; reason: string }

@@ -1,7 +1,7 @@
 import { Context } from 'cordis'
 import { Context as HonoContext, Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
-import { PluginConfigError, PluginNotFoundError } from '../../../plugin'
+import { PluginConfigError, PluginForbiddenError, PluginNotFoundError } from '../../../plugin'
 
 export function createPluginRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -12,6 +12,7 @@ export function createPluginRoutes(ctx: Context): Hono {
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e)
       if (e instanceof PluginNotFoundError) return c.json({ success: false, message }, 404)
+      if (e instanceof PluginForbiddenError) return c.json({ success: false, message }, 403)
       if (e instanceof PluginConfigError) return c.json({ success: false, message, data: { issues: e.issues } }, 400)
       ctx.logger('webui').warn(e)
       return c.json({ success: false, message }, 500)

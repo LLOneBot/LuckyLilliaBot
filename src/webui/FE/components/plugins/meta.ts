@@ -1,18 +1,19 @@
 import {
-  Bell, Book, BookOpen, Bot, Brain, Calendar, Clock, Cloud, Code, Database, Dice5, FileText, Gamepad2, Gift,
-  Globe, Hand, Heart, Image, Languages, LucideIcon, MessageSquare, Music, Puzzle, Repeat, Search, Send,
-  Settings, ShieldBan, Smile, Sparkles, Star, Terminal, Timer, Trophy, Users, Wrench, Zap,
+  Bell, Book, BookOpen, Bot, Brain, Calendar, Clock, Cloud, Code, Cpu, Database, Dice5, FileText, Gamepad2, Gift,
+  Globe, Hand, Heart, Image, Languages, LucideIcon, Mail, MessageSquare, Milk, Music, Network, Puzzle, Radio, Repeat,
+  Search, Send, Settings, ShieldBan, Smile, Sparkles, Star, Terminal, Timer, Trophy, Users, Wrench, Zap,
 } from 'lucide-react'
 import { PluginState, PluginStatus } from '../../types/plugins'
 
 // A fixed set instead of lucide's DynamicIcon, which would emit one chunk per icon (~1600 files) into the build
 const ICONS: Record<string, LucideIcon> = {
   bell: Bell, book: Book, 'book-open': BookOpen, bot: Bot, brain: Brain, calendar: Calendar, clock: Clock,
-  cloud: Cloud, code: Code, database: Database, 'dice-5': Dice5, 'file-text': FileText, 'gamepad-2': Gamepad2,
-  gift: Gift, globe: Globe, hand: Hand, heart: Heart, image: Image, languages: Languages,
-  'message-square': MessageSquare, music: Music, puzzle: Puzzle, repeat: Repeat, search: Search, send: Send,
-  settings: Settings, 'shield-ban': ShieldBan, smile: Smile, sparkles: Sparkles, star: Star, terminal: Terminal,
-  timer: Timer, trophy: Trophy, users: Users, wrench: Wrench, zap: Zap,
+  cloud: Cloud, code: Code, cpu: Cpu, database: Database, 'dice-5': Dice5, 'file-text': FileText,
+  'gamepad-2': Gamepad2, gift: Gift, globe: Globe, hand: Hand, heart: Heart, image: Image, languages: Languages,
+  mail: Mail, 'message-square': MessageSquare, milk: Milk, music: Music, network: Network, puzzle: Puzzle,
+  radio: Radio, repeat: Repeat, search: Search, send: Send, settings: Settings, 'shield-ban': ShieldBan,
+  smile: Smile, sparkles: Sparkles, star: Star, terminal: Terminal, timer: Timer, trophy: Trophy, users: Users,
+  wrench: Wrench, zap: Zap,
 }
 
 export function pluginIcon(plugin: PluginStatus): LucideIcon {
@@ -20,7 +21,14 @@ export function pluginIcon(plugin: PluginStatus): LucideIcon {
 }
 
 export function pluginTitle(plugin: PluginStatus): string {
-  return plugin.name.replace(/^(@[^/]+\/)?luckylillia-plugin-/, '')
+  return plugin.title ?? plugin.name.replace(/^(@[^/]+\/)?luckylillia-plugin-/, '')
+}
+
+/** Why a pending plugin waits. Services that only exist after login all come down to the login itself. */
+export function pendingReason(plugin: PluginStatus): string | undefined {
+  if (plugin.state !== 'pending' || !plugin.missingDeps.length) return
+  if (plugin.missingDeps.includes('account')) return '等待 QQ 登录'
+  return `等待服务：${plugin.missingDeps.join('、')}`
 }
 
 export function pluginDescription(plugin: PluginStatus): string | undefined {

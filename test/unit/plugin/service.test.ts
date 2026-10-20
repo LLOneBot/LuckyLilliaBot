@@ -1,9 +1,9 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { Context, Fiber } from 'cordis'
+import { Context, Fiber, Service } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
-import PluginService, { PluginStatus } from '@/plugin'
+import PluginService, { BuiltinPlugin, PluginForbiddenError, PluginStatus } from '@/plugin'
 
 declare global {
   var __pluginTest: string[]
@@ -38,11 +38,11 @@ let file: string
 let ctx: Context
 let service: Fiber | undefined
 
-async function boot() {
+async function boot(builtins?: BuiltinPlugin[]) {
   ctx = new Context()
   // A fiber awaited while still pending resolves at once, so let timer come up first
   await ctx.plugin(TimerService)
-  service = await ctx.plugin(PluginService, { file, roots: [pluginRoot] })
+  service = await ctx.plugin(PluginService, { file, roots: [pluginRoot], builtins })
   return ctx.plugins
 }
 
@@ -196,5 +196,108 @@ describe('PluginService', () => {
     await plugins.remove(second.id)
     expect(plugins.list()).toHaveLength(1)
     expect(globalThis.__pluginTest.at(-1)).toBe('dispose:5')
+  })
+})
+
+class Gate extends Service {
+  constructor(ctx: Context) {
+    super(ctx, 'gate')
+  }
+}
+
+const builtins: BuiltinPlugin[] = [
+  {
+    name: 'builtin:adapter',
+    title: 'Adapter',
+    manifest: { icon: 'radio' },
+    settings: 'adapter',
+    plugin: {
+      inject: ['gate'],
+      apply(ctx: Context) {
+        globalThis.__pluginTest.push('adapter:up')
+        ctx.effect(() => () => globalThis.__pluginTest.push('adapter:down'))
+      },
+    },
+  },
+  {
+    name: 'builtin:core',
+    title: 'Core',
+    manifest: {},
+    core: true,
+    plugin: { apply() {} },
+  },
+]
+
+const adapterEvents = () => globalThis.__pluginTest.filter(event => event.startsWith('adapter:'))
+
+describe('PluginService builtins', () => {
+  it('lists builtins as enabled entries that start once their dependencies are up', async () => {
+    await boot(builtins)
+    expect(byName('builtin:adapter')).toMatchObject({
+      builtin: true,
+      core: false,
+      title: 'Adapter',
+      settings: 'adapter',
+      disabled: false,
+      hasConfig: false,
+      state: 'pending',
+      missingDeps: ['gate'],
+    })
+    await expect.poll(() => byName('builtin:core').state).toBe('active')
+    expect(byName('builtin:core').core).toBe(true)
+    const saved = JSON.parse(readFileSync(file, 'utf8')).entries
+    expect(saved.map((entry: { name: string; disabled?: boolean }) => [entry.name, !!entry.disabled])).toEqual([
+      ['builtin:adapter', false],
+      ['builtin:core', false],
+      ['alpha', true],
+    ])
+
+    await ctx.plugin(Gate)
+    await expect.poll(() => byName('builtin:adapter').state).toBe('active')
+    expect(adapterEvents()).toEqual(['adapter:up'])
+  })
+
+  it('restarts and toggles a builtin, but refuses to remove, duplicate or configure it', async () => {
+    const plugins = await boot(builtins)
+    await ctx.plugin(Gate)
+    const { id } = byName('builtin:adapter')
+    await expect.poll(() => byName('builtin:adapter').state).toBe('active')
+
+    expect(await plugins.reload(id)).toEqual({ status: 'reloaded' })
+    expect(adapterEvents()).toEqual(['adapter:up', 'adapter:down', 'adapter:up'])
+    expect(byName('builtin:adapter')).toMatchObject({ state: 'active', reloadCount: 0 })
+
+    expect(await plugins.disable(id)).toMatchObject({ state: 'disposed', disabled: true })
+    expect(adapterEvents().at(-1)).toBe('adapter:down')
+
+    await expect(plugins.remove(id)).rejects.toBeInstanceOf(PluginForbiddenError)
+    await expect(plugins.add('builtin:adapter')).rejects.toBeInstanceOf(PluginForbiddenError)
+    await expect(plugins.updateConfig(id, {})).rejects.toBeInstanceOf(PluginForbiddenError)
+    await expect(plugins.describe(id)).rejects.toBeInstanceOf(PluginForbiddenError)
+
+    expect(await plugins.enable(id)).toMatchObject({ state: 'active', disabled: false })
+    expect(adapterEvents().at(-1)).toBe('adapter:up')
+  })
+
+  it('keeps a disabled builtin off across restarts but always runs core ones', async () => {
+    writeFileSync(file, JSON.stringify({
+      version: 1,
+      entries: [
+        { id: 'aaaa0001', name: 'builtin:adapter', disabled: true },
+        { id: 'aaaa0002', name: 'builtin:core', disabled: true },
+        { id: 'aaaa0003', name: 'builtin:core' },
+      ],
+    }))
+    const plugins = await boot(builtins)
+    await ctx.plugin(Gate)
+    expect(byName('builtin:adapter')).toMatchObject({ disabled: true, state: 'disposed' })
+    await expect.poll(() => byName('builtin:core')).toMatchObject({ id: 'aaaa0002', disabled: false, state: 'active' })
+    expect(plugins.list().filter(status => status.name === 'builtin:core')).toHaveLength(1)
+    expect(JSON.parse(readFileSync(file, 'utf8')).entries.slice(0, 2)).toEqual([
+      { id: 'aaaa0001', name: 'builtin:adapter', disabled: true },
+      { id: 'aaaa0002', name: 'builtin:core' },
+    ])
+    await expect(plugins.disable('aaaa0002')).rejects.toBeInstanceOf(PluginForbiddenError)
+    expect(adapterEvents()).toEqual([])
   })
 })

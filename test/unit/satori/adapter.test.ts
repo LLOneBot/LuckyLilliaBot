@@ -40,7 +40,7 @@ beforeEach(async () => {
   ctx = new Context()
   dispatched = []
   await ctx.plugin(BotsService)
-  for (const name of ['ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntGroupApi', 'ntUserApi', 'ntWebApi', 'app']) {
+  for (const name of ['account', 'ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntGroupApi', 'ntUserApi', 'ntWebApi', 'app']) {
     await ctx.plugin(stub(name))
   }
   await ctx.plugin(stub('store', { getMsgBySeq: () => undefined }))

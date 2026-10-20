@@ -13,12 +13,13 @@ Bot 进程本身就是一个 cordis 4 应用，插件运行时只是在根 `Cont
 | `src/plugin/store.ts` | `data/plugins.json` 读写 |
 | `src/plugin/resolve-hook.ts` | `module.registerHooks` 解析钩子 |
 | `src/plugin/watcher.ts` | 目录监听（热重载） |
+| `src/main/builtins.ts` | 内置插件表：三个适配器、邮件通知、中立层 |
 | `packages/plugin-sdk/` | `@luckylillia/plugin-sdk`，yarn workspace，单独发 npm |
 | `examples/plugins/` | dogfood 插件（不进 dist） |
 
 `PluginService` 在 `src/main/main.ts` 里紧跟 `ConfigService` 挂载，早于协议层和登录。插件需要登录后才有的服务就自己 `inject`，没就绪时 fiber 停在 PENDING，cordis 会在服务出现后自动拉起 —— 运行时不关心登录状态。
 
-**登录门闸 `account`**（`src/main/account.ts`）：取代了原来 `main.ts` 里的 `sessionLoaded` 布尔 + `loadPluginAfterLogin()`。它用 cordis 的 `Service[Service.check]`：首次 `qq/online` 前 check 为 false，依赖方停在 PENDING；之后 `reflect.notify(['account'])` 让它们拉起，断线重连不撤销。`main.ts` 里一个 `ctx.inject(['account', 'config'], ...)` 回调负责切到账号配置文件（`config.get(false)`）、首播 `llob/config-updated`，再挂数据库、`Core`、`Store` 和各适配器 —— 顺序和改造前一致。`ctx.get('account')` 不看 check，判断它是否可用要用 `reflect._getImpl` + `check`（`PluginService.missingDeps` 就是这么算的）。
+**登录门闸 `account`**（`src/main/account.ts`）：取代了原来 `main.ts` 里的 `sessionLoaded` 布尔 + `loadPluginAfterLogin()`。它用 cordis 的 `Service[Service.check]`：首次 `qq/online` 前 check 为 false，依赖方停在 PENDING；之后 `reflect.notify(['account'])` 让它们拉起，断线重连不撤销。`main.ts` 里一个 `ctx.inject(['account', 'config'], ...)` 回调负责切到账号配置文件（`config.get(false)`）、首播 `llob/config-updated`，再挂数据库、`Core`、`Store`；适配器等改由 `PluginService` 作为内置条目装载（见下文"内置插件"）。`ctx.get('account')` 不看 check，判断它是否可用要用 `reflect._getImpl` + `check`（`PluginService.missingDeps` 就是这么算的）。
 
 ## 中立层（Satori）
 
@@ -36,11 +37,11 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - **`nt/*` 永久保留**，不是过渡态：`nt/pin-changed`、`nt/ptt-trans-result`、`nt/profile-like`、`nt/group-essence-message-changed` 在 Satori 里没有对应事件，OneBot / Milky 依赖这些细节
 - `src/universal/bots.ts`：`BotsService`（`ctx.bots`）。`register(bot)` 用调用方的 `ctx.effect` 登记，调用方插件卸载时 bot 自动注销 —— 靠的是 cordis 的 tracker：经 `ctx.bots` 访问时方法里的 `this.ctx` 是调用方的 ctx。这些方法跑在实例的 shadow 上，只能改字段内容、不能重新赋值字段
 - **`bot/session` 是不受中间件影响的旁路**：每个事件路由前先广播一次，监听器出错只记日志、不影响路由。Satori 适配器只订阅它 —— 若挂在 `bot/message` 上，本地插件的中间件（比如黑名单）就能决定 Satori 客户端看到什么，而 OneBot 仍直接订阅 `nt/*`，两边会不一致
-- **Satori 适配器不再自己转换事件**：原来的 12 个 `nt/*` 监听和信封构造删掉了，信封由 `NTQQBot.event()` 按原格式构造（`id` 兼容字段、`login` 只带 `sn/user/platform`、`login.sn` 恒为 1），`test/unit/satori/adapter.test.ts` 逐字段比对。Satori 客户端因此依赖中立层，`NTQQUniversal` 不能被停用
+- **Satori 适配器不再自己转换事件**：原来的 12 个 `nt/*` 监听和信封构造删掉了，信封由 `NTQQBot.event()` 按原格式构造（`id` 兼容字段、`login` 只带 `sn/user/platform`、`login.sn` 恒为 1），`test/unit/satori/adapter.test.ts` 逐字段比对。Satori 客户端因此依赖中立层，所以它是不能停用的核心内置条目
 - **bot 自己发出的消息不进 `bot/message`**，走 `bot/event`：中间件只看它能回应的消息，避免回复自己造成循环（Koishi 也是这么做的）
 - `bot/before-send` 只覆盖经 `bot.sendMessage` 发出的消息。OneBot / Milky 的 `send_msg` 直接调 `ctx.app.sendMessage`，刻意不拦：否则插件能悄悄改写下游客户端的消息。真有需要时在 `Core.sendMessage` 加钩子，按 breaking change 处理
 - `src/universal/session.ts`：`Session` 的驼峰字段都是从 snake_case 的 Satori 事件里读的；`elements` 是对 `content` 的懒 `h.parse()`
-- `src/universal/ntqq/`：`NTQQUniversal` 插件（登录后与三个适配器并列加载）和 `NTQQBot`。`NTQQBot.platform` 是 `llonebot` —— Satori 适配器的历史值，下游 Satori 客户端靠它识别，不能改
+- `src/universal/ntqq/`：`NTQQUniversal` 插件（内置条目 `builtin:ntqq-universal`，`inject` 带 `account`：bot 就是登录的账号）和 `NTQQBot`。`NTQQBot.platform` 是 `llonebot` —— Satori 适配器的历史值，下游 Satori 客户端靠它识别，不能改
 
 **转换器复用的是 Satori 适配器的现成代码**：
 
@@ -78,6 +79,24 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - 读用 JSON5（允许手写注释）。解析失败时把原文件改名为 `plugins.json.broken-<ts>` 并以空条目启动，不会被下次保存覆盖
 - 扫描到从没见过的包，会自动建一个 `disabled: true` 的条目，让它出现在 WebUI 里，但不会自动执行
 - 全局一份、不分账号。同一个 `data/` 下跑多个账号会共用插件配置，是已知限制
+
+## 内置插件
+
+`src/main/builtins.ts` 把原来写死在 `main.ts` 里的几个模块登记成内置条目，交给 `PluginService`（`Config.builtins`）装载，在 WebUI 插件页和第三方插件同列、同一套开关：
+
+| 条目 | 内容 | 设置页 |
+|---|---|---|
+| `builtin:onebot11` / `builtin:satori` / `builtin:milky` | 三个协议适配器 | `onebot` / `satori` / `milky` |
+| `builtin:email-notification` | 掉线邮件通知 | `other` |
+| `builtin:ntqq-universal` | 中立层，**core** | — |
+
+- 条目照样存在 `data/plugins.json` 里（随机 id），只是 `name` 带 `builtin:` 前缀（npm 包名不能含冒号，不会撞）。启动时每个内置插件保证恰好一个条目：没有就建一个**启用**的（老版本升级上来行为不变），手写出来的重复条目丢掉，core 条目上的 `disabled` 忽略
+- 内置插件只有一个实例：它们提供具名服务（`onebot` / `satori` / ...），两个实例会抢同一个名字。`add` / `remove` / `updateConfig` / `describe` 对内置条目、`disable` 对 core 条目都抛 `PluginForbiddenError`（HTTP 403）
+- **配置仍在 `config_<uin>.json`**，不进 `plugins.json`：条目开关只决定装不装，`ob11.enable` 等原来的开关照旧。适配器包了一层 `withBotConfig()`：`inject` 是 `account` + `config` + 适配器自己的依赖（条目因此在依赖齐之前显示 pending，而不是"外壳 active、里面 pending"），`apply` 里按原来 `main.ts` 的拼法从 `ctx.config.get()` 取配置再 `await ctx.plugin(适配器)` —— await 让适配器启动失败变成条目的 `failed`。`test/unit/bootstrap/builtins.test.ts` 逐字段比对拼出来的配置
+- `reload` 对内置条目是重启（dispose + 重新挂载，没有模块可重新 import），会读到最新配置
+- **停用要真能停下来**：改造前适配器从不在运行时卸载，OneBot / Satori / Milky 的 `[Service.init]` 都返回 `noop`，停用后端口不释放，再启用就 `EADDRINUSE`。现在它们返回关服务器的 disposer（cordis 卸载时会 await）。Satori 的 `/v1/internal/onebot11/:action` 原来缓存了一份按 OB11 实例构造的 action 表，OB11 重启后会指向已卸载的实例，改成每次从当前的 `ctx.get('onebot').actionMap` 取
+- 前端：插件页分"内置 / 已安装"两区，内置卡片有"内置 / 核心"徽章，core 的开关置灰；设置按钮跳到对应设置页（改 `location.hash`，`App` 监听 hashchange）。设置页顶部的 `BuiltinDisabledNotice` 在对应内置条目被停用时提示"这里的设置不会生效"
+- `pending` 的条目缺 `account` 时，前端只显示"等待 QQ 登录"：登录后才有的服务（`app` / `store` / `database` ...）都是它的结果，列出来没有意义
 
 ## 状态
 
@@ -117,7 +136,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 | GET | `/:id/schema` | `{ schema, defaults, config }`，会 import 尚未加载的模块 |
 | PUT | `/:id/config` | 400 时 `data.issues` 是 `[{ path, message }]` |
 
-错误码：`PluginNotFoundError` → 404，`PluginConfigError` → 400（带 issues），其它 → 500。cordis 自己的 `ValidationError` 只拼一段文本、不保留 issues，所以 `updateConfig` 直接调 Standard Schema 的 `validate()` 自己抛 `PluginConfigError`。
+错误码：`PluginNotFoundError` → 404，`PluginForbiddenError` → 403（内置条目不支持的操作），`PluginConfigError` → 400（带 issues），其它 → 500。cordis 自己的 `ValidationError` 只拼一段文本、不保留 issues，所以 `updateConfig` 直接调 Standard Schema 的 `validate()` 自己抛 `PluginConfigError`。
 
 **前端**在 `src/webui/FE/components/plugins/`，类型在 `types/plugins.ts`（手工和 `src/plugin/index.ts` 对齐 —— FE 的 tsconfig 没有 node 类型，不能直接 import 后端模块）。`utils/api.ts` 的 `apiFetch` 遇到非 2xx 抛 `ApiError`（带 `status` 和响应体里的 `data`），保存配置靠它拿到 issues。
 
@@ -174,5 +193,6 @@ Node ESM 没有公开的缓存失效 API（官方 `@cordisjs/plugin-hmr` 需要�
 ## 测试
 
 - `test/unit/plugin/service.test.ts`：在 gitignore 的 `.tmp/` 下现场生成插件包，覆盖启停、配置校验、失败隔离、SDK 不兼容、缺依赖、自带 cordis、重载与重载失败、包被删除、多实例。放在仓库内是为了让夹具插件能向上解析到仓库的 `node_modules`
+- `test/unit/bootstrap/builtins.test.ts`：用真实的内置插件表和 mock 的协议层 / 配置，验证登录前全部 pending、登录后拿到与改造前相同的配置、停用后端口真的释放、同端口再启用不 `EADDRINUSE`、core 条目停不掉
 - vitest 自己接管了模块加载，`registerHooks` 对被它转换的模块不生效，所以子模块热重载和"仓库外的插件"只能在真 Node 下验证：`npx tsx test/manual/plugin-runtime.mts`（裸 `Context` + `TimerService` + `PluginService`，插件建在系统临时目录，JS / TS 各一个，改子模块后重载）
 - 生产 bundle 的冒烟：`node dist/llbot.js --pmhq-port 1` 不会登录（PMHQ 端口没人监听，协议层只会重连），插件运行时照常在登录前加载；cwd 放到 dist 之外的空目录，就能验证解析兜底

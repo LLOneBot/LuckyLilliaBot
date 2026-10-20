@@ -1,7 +1,7 @@
 import React from 'react'
 import { Copy, RotateCw, Settings } from 'lucide-react'
 import { PluginStatus } from '../../types/plugins'
-import { pluginDescription, pluginIcon, pluginTitle, RELOAD_WARNING, STATE_LABEL } from './meta'
+import { pendingReason, pluginDescription, pluginIcon, pluginTitle, RELOAD_WARNING, STATE_LABEL } from './meta'
 
 interface PluginCardProps {
   plugin: PluginStatus
@@ -9,9 +9,11 @@ interface PluginCardProps {
   instanceTag?: string
   busy: boolean
   onToggle: (enabled: boolean) => void
-  onConfigure: () => void
+  /** Opens the config dialog, or the settings tab of a builtin; absent when there is nothing to configure. */
+  onConfigure?: () => void
   onReload: () => void
-  onDuplicate: () => void
+  /** Absent for builtins, which run as a single instance. */
+  onDuplicate?: () => void
 }
 
 const actionButton = 'p-2 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg transition-colors disabled:opacity-40 disabled:pointer-events-none'
@@ -20,14 +22,12 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, busy, onTo
   const Icon = pluginIcon(plugin)
   const state = STATE_LABEL[plugin.state]
   const active = plugin.state === 'active'
-  const detail = plugin.state === 'pending' && plugin.missingDeps.length
-    ? `等待服务：${plugin.missingDeps.join('、')}`
-    : plugin.error
+  const detail = pendingReason(plugin) ?? plugin.error
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
 
   return (
     <div
-      className={`card p-6 cursor-pointer transition-all hover:scale-[1.02] flex flex-col ${active ? 'ring-2 ring-pink-500' : ''}`}
+      className={`card p-6 transition-all flex flex-col ${onConfigure ? 'cursor-pointer hover:scale-[1.02]' : ''} ${active ? 'ring-2 ring-pink-500' : ''}`}
       onClick={onConfigure}
     >
       <div className="flex items-start gap-3">
@@ -40,6 +40,11 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, busy, onTo
           <div className="flex items-center gap-2 flex-wrap">
             <h4 className="text-lg font-semibold text-theme truncate">{pluginTitle(plugin)}</h4>
             {instanceTag && <span className="text-xs text-theme-hint font-mono">{instanceTag}</span>}
+            {plugin.builtin && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300">
+                {plugin.core ? '核心' : '内置'}
+              </span>
+            )}
             {plugin.manifest.preview && (
               <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">开发中</span>
             )}
@@ -49,11 +54,11 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, busy, onTo
         <input
           type="checkbox"
           checked={!plugin.disabled}
-          disabled={busy || plugin.state === 'missing'}
+          disabled={busy || plugin.state === 'missing' || plugin.core}
           onClick={stop}
           onChange={e => onToggle(e.target.checked)}
-          className="switch-toggle flex-shrink-0"
-          title={plugin.disabled ? '启用' : '停用'}
+          className="switch-toggle flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          title={plugin.core ? 'Bot 依赖这个组件，不能停用' : plugin.disabled ? '启用' : '停用'}
         />
       </div>
 
@@ -65,11 +70,19 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, busy, onTo
           {detail && <span className="text-xs text-theme-muted truncate" title={detail}>{detail}</span>}
         </div>
         <div className="flex items-center flex-shrink-0" onClick={stop}>
-          <button type="button" title="配置" onClick={onConfigure} className={actionButton}><Settings size={18} /></button>
-          <button type="button" title="重载" disabled={busy || plugin.disabled} onClick={onReload} className={actionButton}>
+          {onConfigure && (
+            <button type="button" title={plugin.builtin ? '前往设置' : '配置'} onClick={onConfigure} className={actionButton}>
+              <Settings size={18} />
+            </button>
+          )}
+          <button type="button" title={plugin.builtin ? '重启' : '重载'} disabled={busy || plugin.disabled} onClick={onReload} className={actionButton}>
             <RotateCw size={18} className={busy ? 'animate-spin' : ''} />
           </button>
-          <button type="button" title="添加一个实例" disabled={busy || plugin.state === 'missing'} onClick={onDuplicate} className={actionButton}><Copy size={18} /></button>
+          {onDuplicate && (
+            <button type="button" title="添加一个实例" disabled={busy || plugin.state === 'missing'} onClick={onDuplicate} className={actionButton}>
+              <Copy size={18} />
+            </button>
+          )}
         </div>
       </div>
 
