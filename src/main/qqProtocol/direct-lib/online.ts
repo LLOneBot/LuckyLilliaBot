@@ -46,7 +46,18 @@ function protoMessageField(field: number, content: Buffer): Buffer {
 
 // Real QQ 3.2.28 SsoHeartBeat body = {f1:1, f2:{f1:0}, f3:0, f4:unix_seconds} (14B). The old
 // {f1:1} (2B) was a stripped shape = a per-heartbeat fingerprint tell (aligned 2026-10-06).
+//
+// watch keeps its own 4B shape {f1:1, f2:{f1:1}}: that is the body the watch PoC actually ran
+// with (LuckyLillia.Sign src/Android/watch/poc/src/main.rs build_heartbeat_body). The 3.2.28
+// 14B shape was never verified on a watch, and a rejected heartbeat is worse than none -- three
+// in a row make startHeartbeat disconnect on purpose.
 function buildSsoHeartBeat(): Buffer {
+  if (getActiveProfile().family === 'watch') {
+    return Buffer.concat([
+      protoVarintField(1, 1),
+      protoMessageField(2, protoVarintField(1, 1)),
+    ])
+  }
   return Buffer.concat([
     protoVarintField(1, 1),
     protoMessageField(2, protoVarintField(1, 0)),
@@ -212,9 +223,18 @@ export async function sendHeartbeat(client: DirectProtocolClient): Promise<void>
  * 心跳 loop. 失败不能只 log 了事 -- 链路或凭据出问题时 selfInfo.online 会停在 true, 变成收不到
  * 消息的"假在线". 故失败后转 30s 快重试, 连挂 MAX_FAILURES 次 (或 session 已被判失效清掉) 就主动断开,
  * 交给 close -> scheduleReconnect 重建, 最坏约 5.5 分钟能测出来.
+ *
+ * watch 同走这条 loop. 该端曾把两层心跳全停, 只靠 TcpConnection 的 setKeepAlive(30s) 撑链路 --
+ * 那是 TCP 空 ACK, 刷不动按业务包算的接入层 idle 计时, 于是稳态零上行包, msfwifi 1200s idle 一到
+ * 就发 FIN (实测一晚 19 次掉线, 其中 13 次在线时长精确卡 20m00s±1s), 且重连常连带 session 被判
+ * 失效 (SsoInfoSync -10003) 退回扫码。
+ * SsoHeartBeat 在手表客户端是真实 cmd: libwrapper.9.0.5.so .rodata 与 9.0.5.apk dex 都有该串,
+ * 而 Heartbeat.Alive 在该 so 里一次都没出现 -- 故 type-13 那层 (client.sendHeartbeat) 仍不对 watch 发。
  */
 export function startHeartbeat(client: DirectProtocolClient): () => void {
   // Real QQ 3.2.28 SsoHeartBeat cadence ~378s with natural jitter (was dead-exact 270s = a tell).
+  // Reused as-is on watch: the real watch cadence was never captured, and ~378s already leaves a
+  // 3x margin under the measured 1200s idle cutoff, so a missed beat still cannot drop the link.
   const nextInterval = () => 374_000 + Math.floor(Math.random() * 8_000)
   const RETRY_INTERVAL = 30 * 1000
   const MAX_FAILURES = 3
