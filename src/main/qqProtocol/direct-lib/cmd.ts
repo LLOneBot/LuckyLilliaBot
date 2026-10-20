@@ -171,6 +171,10 @@ export const Cmd = {
     GetC2CFileUploadInfo: 'OidbSvcTrpcTcp.0xe37_1700',
     GetGroupImageUploadInfo: 'OidbSvcTrpcTcp.0x11c4_100',
     GetC2CImageUploadInfo: 'OidbSvcTrpcTcp.0x11c5_100',
+    // NTV2 富媒体下载 (subCommand 200). 手表(qqlite)群图走老式 customFace, 消息里不带
+    // urlPath/fileUuid, 只有 md5 -> 用这个按 md5 现取带 rkey 的下载 URL.
+    DownloadGroupImage: 'OidbSvcTrpcTcp.0x11c4_200',
+    DownloadC2CImage: 'OidbSvcTrpcTcp.0x11c5_200',
     GetGroupPttUploadInfo: 'OidbSvcTrpcTcp.0x126e_100',
     GetC2CPttUploadInfo: 'OidbSvcTrpcTcp.0x126d_100',
     ImageOcr: 'OidbSvcTrpcTcp.0xe07_0',

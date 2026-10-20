@@ -48,7 +48,11 @@ export async function rawElementsToSend(
     } else if (e.faceElement) {
       out.push(e as SendFaceElement)
     } else if (e.picElement) {
-      const url = await ctx.ntFileApi.getImageUrl(e.picElement.originImageUrl, e.picElement.md5HexStr)
+      const url = await ctx.ntFileApi.getImageUrl(e.picElement.originImageUrl, e.picElement.md5HexStr, {
+        fileUuid: e.picElement.fileUuid,
+        isGroup,
+        peerUid: fromPeer.peerUid,
+      })
       const path = await fetchFile(url)
       out.push(await SendElement.pic(ctx, path))
     } else if (e.videoElement) {

@@ -41,7 +41,11 @@ export class OCRImage extends BaseAction<Payload, Response> {
       const cached = await this.ctx.store.getFileCacheByName(payload.image)
       if (cached?.[0]?.originImageUrl) {
         // QQ 图片 URL 含 rkey 会过期，每次取的时候重算
-        url = await this.ctx.ntFileApi.getImageUrl(cached[0].originImageUrl, cached[0].md5HexStr)
+        url = await this.ctx.ntFileApi.getImageUrl(cached[0].originImageUrl, cached[0].md5HexStr, {
+          fileUuid: cached[0].fileUuid,
+          isGroup: cached[0].chatType === ChatType.Group,
+          peerUid: cached[0].peerUid,
+        })
       } else {
         const { errMsg, isLocal, path, success } = await uri2local(this.ctx, payload.image)
         if (!success) {

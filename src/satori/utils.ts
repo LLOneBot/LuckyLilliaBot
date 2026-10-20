@@ -103,7 +103,11 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       }
     } else if (v.picElement) {
       // img
-      const src = await ctx.ntFileApi.getImageUrl(v.picElement.originImageUrl, v.picElement.md5HexStr)
+      const src = await ctx.ntFileApi.getImageUrl(v.picElement.originImageUrl, v.picElement.md5HexStr, {
+        fileUuid: v.picElement.fileUuid,
+        isGroup: data.chatType === NT.ChatType.Group,
+        peerUid: data.peerUid,
+      })
       buffer.push(h.img(src, {
         width: v.picElement.picWidth,
         height: v.picElement.picHeight,

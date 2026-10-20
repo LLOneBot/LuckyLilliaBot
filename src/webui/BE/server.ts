@@ -17,6 +17,7 @@ import {
   createWebQQRoutes,
   createEmailRoutes
 } from './routes'
+import { resolveWatchPicUrls } from './routes/webqq/messages'
 import { Msg } from '@/ntqqapi/proto'
 import { readFile } from 'node:fs/promises'
 import { Hono } from 'hono'
@@ -158,6 +159,7 @@ export class WebuiServer extends Service {
     this.ctx.on('nt/message-created', async (data) => {
       if (this.sseClients.size === 0) return
       await this.fillPeerUin(data.message)
+      await resolveWatchPicUrls(this.ctx, data.message)
       this.broadcastMessage('message', { type: 'message-created', data: data.message })
     })
 
@@ -166,6 +168,7 @@ export class WebuiServer extends Service {
     this.ctx.on('nt/message-sent', async (data) => {
       if (this.sseClients.size === 0) return
       await this.fillPeerUin(data.message)
+      await resolveWatchPicUrls(this.ctx, data.message)
       this.broadcastMessage('message', { type: 'message-sent', data: data.message })
     })
 

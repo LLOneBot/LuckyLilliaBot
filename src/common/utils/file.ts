@@ -189,7 +189,11 @@ export async function uri2local(ctx: Context, uri: string, needExt?: boolean, fi
       const isGroup = fileCache[0].chatType === ChatType.Group
       let url
       if (fileCache[0].elementType === ElementType.Pic) {
-        url = await ctx.ntFileApi.getImageUrl(fileCache[0].originImageUrl!, fileCache[0].md5HexStr)
+        url = await ctx.ntFileApi.getImageUrl(fileCache[0].originImageUrl!, fileCache[0].md5HexStr, {
+          fileUuid: fileCache[0].fileUuid,
+          isGroup,
+          peerUid: fileCache[0].peerUid,
+        })
       } else if (fileCache[0].elementType === ElementType.Video) {
         url = await ctx.ntFileApi.getVideoUrl(fileCache[0].fileUuid, isGroup)
       } else if (fileCache[0].elementType === ElementType.Ptt) {

@@ -135,7 +135,11 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
             type: 'image',
             data: {
               resource_id: element.picElement!.fileUuid,
-              temp_url: await ctx.ntFileApi.getImageUrl(element.picElement!.originImageUrl, element.picElement!.md5HexStr),
+              temp_url: await ctx.ntFileApi.getImageUrl(element.picElement!.originImageUrl, element.picElement!.md5HexStr, {
+                fileUuid: element.picElement!.fileUuid,
+                isGroup: message.chatType === ChatType.Group,
+                peerUid: message.peerUid,
+              }),
               width: element.picElement!.picWidth,
               height: element.picElement!.picHeight,
               summary: element.picElement!.summary || '[图片]',

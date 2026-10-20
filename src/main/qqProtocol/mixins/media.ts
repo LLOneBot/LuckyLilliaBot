@@ -78,6 +78,39 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
 
+    // 按 md5 现取群图下载 URL. 手表(qqlite)群图走老式 customFace, 消息里没有 fileUuid/urlPath,
+    // 只有 md5 -> download.node 不传 fileUuid, 改填 info(FileInfo: md5/size/dims), 靠 server 按
+    // md5 + groupId 命中返回带 rkey 的 URL. (NT 手机 QQ 图自带 urlPath, 不走这里.)
+    async getGroupImageDownloadUrl(groupCode: string, info: InferProtoModelInput<typeof Media.FileInfo>, fileUuid = '') {
+      const body = Media.NTV2RichMediaReq.encode({
+        reqHead: {
+          common: { requestId: 1, command: 200 },
+          scene: { requestType: 2, businessType: 1, field103: 0, sceneType: 2, group: { groupId: +groupCode } },
+          client: { agentType: 2 },
+        },
+        download: { node: { info, fileUuid, storeID: 1, uploadTime: 0, expire: 0, type: 0 } },
+      })
+      const data = Oidb.Base.encode({ command: 0x11c4, subCommand: 200, body })
+      const res = await this.sendPB(Cmd.Media.DownloadGroupImage, data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Media.NTV2RichMediaResp.decode(oidbRespBody)
+    }
+
+    async getC2CImageDownloadUrl(peerUid: string, info: InferProtoModelInput<typeof Media.FileInfo>, fileUuid = '') {
+      const body = Media.NTV2RichMediaReq.encode({
+        reqHead: {
+          common: { requestId: 1, command: 200 },
+          scene: { requestType: 2, businessType: 1, field103: 0, sceneType: 1, c2c: { accountType: 2, targetUid: peerUid } },
+          client: { agentType: 2 },
+        },
+        download: { node: { info, fileUuid, storeID: 1, uploadTime: 0, expire: 0, type: 0 } },
+      })
+      const data = Oidb.Base.encode({ command: 0x11c5, subCommand: 200, body })
+      const res = await this.sendPB(Cmd.Media.DownloadC2CImage, data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Media.NTV2RichMediaResp.decode(oidbRespBody)
+    }
+
     async getHighwaySession() {
       const data = Media.HighwaySessionReq.encode({
         reqBody: {

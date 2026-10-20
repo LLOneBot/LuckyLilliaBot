@@ -48,7 +48,11 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
       }
       const isGroup = fileCache[0].chatType === ChatType.Group
       if (fileCache[0].elementType === ElementType.Pic) {
-        res.url = await this.ctx.ntFileApi.getImageUrl(fileCache[0].originImageUrl!, fileCache[0].md5HexStr)
+        res.url = await this.ctx.ntFileApi.getImageUrl(fileCache[0].originImageUrl!, fileCache[0].md5HexStr, {
+          fileUuid: fileCache[0].fileUuid,
+          isGroup,
+          peerUid: fileCache[0].peerUid,
+        })
       } else if (fileCache[0].elementType === ElementType.Video) {
         res.url = await this.ctx.ntFileApi.getVideoUrl(fileCache[0].fileUuid, isGroup)
       } else if (fileCache[0].elementType === ElementType.Ptt) {

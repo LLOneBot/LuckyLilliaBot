@@ -20,6 +20,25 @@ function isSelfEchoTimeout(e: unknown): boolean {
   return e instanceof Error && e.message.includes('waitForSelfEcho timeout')
 }
 
+// 手表(qqlite)老式群图/私聊图消息里没有内嵌 URL (customFace 只有 md5 + 老式 fileId, 后者被
+// parseElements 存进 picElement.fileUuid), FE 拿不到 originImageUrl 就显示不出. 这里按 md5+fileId
+// 向 server 用 NTV2 0x11c4_200/0x11c5_200 现取带 rkey 的下载 URL 回填 originImageUrl.
+// NT 手机 QQ 的图本就带 originImageUrl, 自动跳过. rkey ~57min 有效, 够即时查看; 过期靠 FE onError 重取.
+export async function resolveWatchPicUrls(ctx: Context, message: RawMessage): Promise<void> {
+  const ntFileApi = ctx.get('ntFileApi' as never) as Context['ntFileApi'] | undefined
+  if (!ntFileApi) return
+  const peerUid = message.peerUid
+  if (!peerUid) return
+  const isGroup = message.chatType === ChatType.Group
+  await Promise.all((message.elements ?? []).map(async (elem) => {
+    const pic = elem.picElement
+    // 只处理手表老式图(originImageUrl 空且有 md5+老fileId); NT 图 originImageUrl 非空, 跳过不碰.
+    if (!pic || pic.originImageUrl || !pic.md5HexStr || !pic.fileUuid) return
+    const url = await ntFileApi.getImageUrl('', pic.md5HexStr, { fileUuid: pic.fileUuid, isGroup, peerUid })
+    if (url) pic.originImageUrl = url
+  }))
+}
+
 export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath: string) => Promise<SendPicElement | null>): Hono {
   const router = new Hono()
 
@@ -83,6 +102,8 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
 
       const messages = result?.msgList || []
       messages.sort((a: RawMessage, b: RawMessage) => a.msgTime - b.msgTime)
+      // 手表老式图回填 originImageUrl (NT 图已有则跳过)
+      await Promise.all(messages.map((m: RawMessage) => resolveWatchPicUrls(ctx, m)))
 
       return c.json({
         success: true,
@@ -371,7 +392,11 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
           } else if (elem.elementType === ElementType.Pic && elem.picElement) {
             const p = elem.picElement
             try {
-              const url = await ctx.ntFileApi.getImageUrl(p.originImageUrl ?? '', p.md5HexStr ?? '')
+              const url = await ctx.ntFileApi.getImageUrl(p.originImageUrl ?? '', p.md5HexStr ?? '', {
+                fileUuid: p.fileUuid,
+                isGroup: msg.chatType === ChatType.Group,
+                peerUid: msg.peerUid,
+              })
               segments.push({
                 type: 'image',
                 data: { url, width: p.picWidth, height: p.picHeight }

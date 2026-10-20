@@ -128,8 +128,12 @@ export class MessageEncoder {
           if (element.elementType === NT.ElementType.Text) {
             ntElems.push(element as NT.SendTextElement)
           } else if (element.elementType === NT.ElementType.Pic) {
-            const { originImageUrl, md5HexStr } = element.picElement!
-            const url = await this.ctx.ntFileApi.getImageUrl(originImageUrl, md5HexStr)
+            const { originImageUrl, md5HexStr, fileUuid } = element.picElement!
+            const url = await this.ctx.ntFileApi.getImageUrl(originImageUrl, md5HexStr, {
+              fileUuid,
+              isGroup,
+              peerUid: this.peer.peerUid,
+            })
             const path = await this.fetchFile(url)
             ntElems.push(await SendElement.pic(this.ctx, path))
           } else if (element.elementType === NT.ElementType.Ptt) {

@@ -98,6 +98,25 @@ export class NTFileApi extends Service {
     }
   }
 
+  // 手表(qqlite)老式群图/私聊图: customFace 只有 md5 + 老式 uint32 fileId(parseElements 存进
+  // picElement.fileUuid), 没有 urlPath. 用它向 server 发 NTV2 下载请求(0x11c4_200 群 / 0x11c5_200
+  // c2c), download.node.fileUuid 传老 fileId, server 据此 + md5 + peer 解析出带 rkey 的真 URL.
+  // 仅供 getImageUrl 内部在 originImageUrl 为空时调用. peerUid: 群=groupCode, 私聊=对方 uid.
+  private async resolveOldPicUrl(isGroup: boolean, peerUid: string, md5HexStr: string, fileUuid: string): Promise<string> {
+    const info = { md5HexStr, fileType: { type: 1, picFormat: 1000 }, original: 1 }
+    const resp = isGroup
+      ? await this.ctx.qqProtocol.getGroupImageDownloadUrl(peerUid, info, fileUuid)
+      : await this.ctx.qqProtocol.getC2CImageDownloadUrl(peerUid, info, fileUuid)
+    const d = resp.download
+    const urlPath = d?.info?.urlPath ?? ''
+    if (!urlPath || /[?&]fileid=(&|$)/.test(urlPath)) {
+      throw new Error(`NTV2 下载未解析出有效 fileid (fileUuid=${fileUuid})`)
+    }
+    const domain = d!.info!.domain || 'multimedia.nt.qq.com.cn'
+    const base = domain.startsWith('http') ? domain : `https://${domain}`
+    return base + urlPath + (d!.rKeyParam ?? '')
+  }
+
   async getFileUrl(fileUuid: string, isGroup: boolean, receiverUid: string) {
     if (isGroup) {
       const { download } = await this.ctx.qqProtocol.getGroupFileUrl(+receiverUid, fileUuid)
@@ -118,29 +137,41 @@ export class NTFileApi extends Service {
     }
   }
 
-  async getImageUrl(originImageUrl: string, md5HexStr: string) {
+  // 图片 URL 统一出口: NT 相对路径(手机 QQ) / 已完整 URL / 手表老式图(空 url, 用 opts 现取) / md5 兜底.
+  // opts 仅在 originImageUrl 为空(手表老式图)时参与; NT 图走原有相对路径逻辑, 完全不受 opts 影响.
+  async getImageUrl(originImageUrl: string, md5HexStr: string, opts?: { fileUuid?: string, isGroup?: boolean, peerUid?: string }) {
     const url = originImageUrl
-
     if (url) {
+      // 已是完整 URL (手表老式图已解析 / 调用方已拼好): 原样返回
+      if (url.startsWith('http')) {
+        return url
+      }
       const parsedUrl = new URL(IMAGE_HTTP_HOST + url)
       const imageAppid = parsedUrl.searchParams.get('appid')
       const isNTPic = imageAppid && ['1406', '1407'].includes(imageAppid)
       if (isNTPic) {
-        let rkey = parsedUrl.searchParams.get('rkey')
-        if (rkey) {
+        const embeddedRkey = parsedUrl.searchParams.get('rkey')
+        if (embeddedRkey) {
           return IMAGE_HTTP_HOST_NT + url
         }
         const rkeyData = await this.rkeyManager.getRkey()
-        rkey = imageAppid === '1406' ? rkeyData.private_rkey : rkeyData.group_rkey
+        const rkey = imageAppid === '1406' ? rkeyData.private_rkey : rkeyData.group_rkey
         return IMAGE_HTTP_HOST_NT + url + rkey
-      } else if (url.startsWith('/offpic_new/')) {
-        return `${IMAGE_HTTP_HOST}/gchatpic_new/0/0-0-${md5HexStr.toUpperCase()}/0`
-      } else {
-        return IMAGE_HTTP_HOST + url
       }
-    } else {
-      return `${IMAGE_HTTP_HOST}/gchatpic_new/0/0-0-${md5HexStr.toUpperCase()}/0`
+      if (url.startsWith('/offpic_new/')) {
+        return `${IMAGE_HTTP_HOST}/gchatpic_new/0/0-0-${md5HexStr.toUpperCase()}/0`
+      }
+      return IMAGE_HTTP_HOST + url
     }
+    // originImageUrl 为空 = 手表(qqlite)老式图: 有 fileUuid(老 fileId)+peer 就向 server 现取真 URL
+    if (opts?.fileUuid && opts.peerUid) {
+      try {
+        return await this.resolveOldPicUrl(opts.isGroup ?? false, opts.peerUid, md5HexStr, opts.fileUuid)
+      } catch (e) {
+        this.ctx.logger.warn('[image-url] 手表老式图现取失败, 回退 md5:', (e as Error).message)
+      }
+    }
+    return `${IMAGE_HTTP_HOST}/gchatpic_new/0/0-0-${md5HexStr.toUpperCase()}/0`
   }
 
   async ocrImage(imageUrl: string) {

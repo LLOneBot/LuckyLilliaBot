@@ -84,7 +84,11 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
         data: {
           file: picElement.fileName,
           subType: picElement.picSubType,
-          url: await ctx.ntFileApi.getImageUrl(picElement.originImageUrl, picElement.md5HexStr),
+          url: await ctx.ntFileApi.getImageUrl(picElement.originImageUrl, picElement.md5HexStr, {
+            fileUuid: picElement.fileUuid,
+            isGroup: message.chatType === ChatType.Group,
+            peerUid: message.peerUid,
+          }),
           file_size: fileSize,
         }
       }
