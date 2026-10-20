@@ -78,6 +78,11 @@ declare module 'cordis' {
   }
   interface Events {
     /**
+     * @mode parallel. Every event, before any routing and out of reach of middleware. For transports
+     * and logging, which must see what the middleware chain may swallow.
+     */
+    'bot/session'(session: Session): void
+    /**
      * @mode waterfall. Messages from others, through every listener in registration order. A
      * listener that does not call next() swallows the message for all listeners after it.
      * The bot's own messages never come here, they go to `bot/event`.

@@ -41,12 +41,16 @@ class BotsService extends Service implements Bots {
 
   async dispatch(bot: Bot, event: NeutralEvent): Promise<void> {
     const session = new Session(bot, event)
+    const ctx = this.ctx
+    // A failing transport must not keep the event from the plugins, nor the other way round
+    const tap = ctx.parallel('bot/session', session).catch(e => ctx.logger('bots').warn(e))
     // Middleware only sees what it could answer; the bot's own messages would invite reply loops
     if (event.type === 'message-created' && session.userId !== session.selfId) {
-      await this.ctx.waterfall('bot/message', session, async () => {})
+      await ctx.waterfall('bot/message', session, async () => {})
     } else {
-      await this.ctx.parallel('bot/event', session)
+      await ctx.parallel('bot/event', session)
     }
+    await tap
   }
 
   async beforeSend(bot: Bot, channelId: string, content: h[]): Promise<h[]> {

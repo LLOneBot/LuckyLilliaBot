@@ -133,6 +133,7 @@ ctx.on('bot/before-send', (bot, channelId, content, next) => {
 
 | 事件 | 分发方式 | 说明 |
 |---|---|---|
+| `bot/session` | parallel | 所有事件的旁路，不受中间件影响，给需要看到全部事件的插件（记录、转发）用 |
 | `bot/message` | waterfall | 别人发来的消息。`ctx.on(..., { prepend: true })` 可以排到最前面（比如黑名单） |
 | `bot/event` | parallel | 除上面之外的所有事件，包括 bot 自己的消息 |
 | `bot/before-send` | waterfall | 只拦截插件经 `bot.sendMessage` / `session.send` 发出的消息，OneBot / Milky / Satori 客户端发的不经过这里 |
