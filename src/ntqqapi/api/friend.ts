@@ -1,6 +1,7 @@
 import { FriendCategory, Friend } from '../types'
 import { Context, Service } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
+import { isCmdNotPermitted } from '@/common/protocolErrors'
 import { noop } from 'cosmokit'
 
 declare module 'cordis' {
@@ -131,8 +132,19 @@ export class NTFriendApi extends Service {
   }
 
   async getDoubtFriendRequests(limit: number) {
-    const { info } = await this.ctx.qqProtocol.fetchFilteredFriendRequests(limit)
-    return info.requests
+    try {
+      const { info } = await this.ctx.qqProtocol.fetchFilteredFriendRequests(limit)
+      return info.requests
+    } catch (e) {
+      // 手表(qqlite)没有"被过滤好友申请"的独立 cmd: 0xd69_0 在手表 appid 未授权 (-10122).
+      // 手表端这类申请本就混在普通列表 0x5cf_11 里 (BuddyReq.isDoubt 标记), 没有单独入口,
+      // 所以这里降级成空列表, 别让 CmdNotPermittedError 往上冒刷错误日志. (对齐群成员列表降级)
+      if (isCmdNotPermitted(e)) {
+        this.ctx.logger.warn('[Friend] filtered(doubt) friend requests unavailable on this protocol, degrading to empty')
+        return []
+      }
+      throw e
+    }
   }
 
   async approvalFriendRequest(friendUid: string, accept: boolean) {
