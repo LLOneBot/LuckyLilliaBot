@@ -302,7 +302,6 @@ export async function startMacosSsoReport(args: { guidHex: string; qimei36: stri
   }
   try {
     await proxy.startSsoReportMacos({ guidHex: args.guidHex, qimei36: args.qimei36, uin: args.uin, appDir: args.appDir })
-    logger.info('[SsoReport] macOS o3 遥测爆发已发')
   } catch (e) {
     logger.warn(`[SsoReport] macOS 启动失败: ${(e as Error).message}`)
   }
