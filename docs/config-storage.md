@@ -1,0 +1,137 @@
+# 配置存储标准
+
+> 把 bot 配置、账号状态、插件配置的存放理清成"实例级 / 账号级"两层,并给插件配置和插件数据定一套统一标准。核心判断:**插件系统还没发布,现在定插件配置格式不用迁移任何用户文件;发布后再改就要迁移用户数据 + 兼容已发布插件。这是唯一的零成本窗口。**
+>
+> 本文是设计,尚未实施。基线 `feat/plugin-system @ c8236196`。相关:[core-pluginization.md](core-pluginization.md)(协议层/account 解耦)、[official-qq-bot.md](official-qq-bot.md)。
+
+## 1. 为什么
+
+调研(四路:bot 配置现状、插件配置现状、外部仓库对 data 文件的依赖、Koishi 做法)挖出的问题:
+
+- **`config_<uin>.json` 混了两类东西**。真属于账号的只有适配器端点、登录凭证、消息库;`log`/`logLevel`/`ffmpeg`/`msgCacheExpire` 是实例级设置,却被每个账号重复存一份。
+- **`ConfigService` 本身有几个真 bug**:`cleanupConfig` 以 `defaultConfig.ts` 为白名单删未知字段,导致 `logLevel` 永远存不住(它在 JSON 模板里有、TS 默认值里没有);读到坏 JSON 会广播一份默认配置;2 秒防抖直接丢期间的改动;`set_config` 整份覆盖文件。
+- **插件配置有三种存法**:普通插件存 `plugins.json`(schema 校验,但全局一份、不分账号);内置适配器读 `config_<uin>.json` 的片段;邮件通知单独 `email_config.json`。插件没有按账号的配置,也没有约定的数据目录。
+- **`plugins.json` 每次保存写的是本进程内存里的整份快照**,同一个 `data/` 跑两个进程会互相覆盖。
+
+## 2. 原则
+
+1. **一个用户文件都不动名字、位置、格式**。`config_<uin>.json`、`qq-session-*`、`email_config.json`、两个 token 文件、设备身份——桌面端(封闭强类型模型)、docker/nix(sed 模板)、CLI、4 篇文档都在读写它们,改名/改格式会静默或显式地破坏它们。
+2. **新东西只在运行时创建,且只在 `data/` 下**。发布物顶层永不出现 `data/`。
+3. **新文件名不能被外部程序误认**:不能命中桌面端 OpenClaw 用的 `config_*.json`,也不能命中 session 的正则 `^qq-session-([0-9]+)(?:-([a-z]+))?\.json$`。
+4. **`config_<uin>.json` 永远写全量纯 JSON**(不写注释):桌面端模型不认注释,缺字段时它会填自己的默认值(其中 `satori.host` 默认 `""` = 监听全部地址),所以加载补齐缺省后要写回,**只补不删**。
+
+## 3. 目标布局
+
+```
+<llbot.js 所在目录 = cwd>/
+├─ default_config.json              模板,不动;docker/nix 的 sed 照旧;单测锁定它与 defaultConfig.ts 一致
+└─ data/                            DATA_DIR = path.resolve('data'),不动
+   ├─ config_<uin>.json             [账号] 不动:bot 设置 + 内置适配器配置;全量纯 JSON;只补缺省不删未知键
+   ├─ plugins.json                  [实例] 插件条目 + 配置全局层;格式不变(version 1),存储实现重写
+   ├─ plugins_<uin>.json            [账号] 新增:插件的账号覆盖层,只有设置过覆盖才创建
+   ├─ email_config.json             [实例] 不动;第 3 步起由 builtin:email-notification 的绑定读写
+   ├─ plugin-data/<key>/shared/     [实例] 新增:ctx.storage.dir(),也是该条目的 ctx.baseUrl
+   ├─ plugin-data/<key>/<uin>/      [账号] 新增:ctx.storage.dir('account')
+   ├─ state/                        [实例] 新增,bot 私有、不要手改:写锁、last-good、账号锁
+   ├─ qq-session-<uin>[-<p>].json   [账号 x 协议] 不动
+   ├─ database/<uin>.v3.db          [账号] 不动(ctx.database)
+   ├─ webui_token.txt  auth_token[.dev].txt  machine_guid.bin  macos_device.json   不动
+   ├─ plugins/                      插件代码,运行时只读,不动
+   └─ logs/  temp/  packets/        不动;日志文件名加 pid + 保留期 + temp 清理(第 4 步)
+```
+
+## 4. 作用域规则
+
+| 作用域 | 定义 | 放什么 | 登录前可用 |
+|---|---|---|---|
+| 进程 | 只来自 argv/环境变量,不落盘 | `--protocol` `--cdn` `--dev` `--pmhq-*` `--plugin-*` `-q` `--debug`;新增 `LLBOT_WEBUI_HOST/PORT`、`LLBOT_LOG_LEVEL`;`FFMPEG_PATH` 不变 | 是 |
+| 实例 | 一个 data 目录,所有进程/账号共用 | `plugins.json`、`email_config.json`、两个 token、设备身份、`plugin-data/*/shared/`、日志、temp | 是 |
+| 账号 | 一个 uin,一个进程只服务一个 | `config_<uin>.json`、`plugins_<uin>.json`、`database/<uin>.v3.db`、`plugin-data/*/<uin>/` | 仅带 `-q` 且文件已存在时预读 |
+| 账号 x 协议 | (uin, protocol) | 只有 session | — |
+| 条目 | `plugins.json` 里一个 id | 两层配置都按 id 存;数据默认按包存 | 跟随条目 |
+
+**bot 设置生效顺序**(后覆盖前):代码默认 < `default_config.json`(只在新建账号文件时用) < `config_<uin>.json` < 环境变量 < argv。
+
+- `get()` 返回叠加环境变量后的视图,**但写入一律基于磁盘内容,环境变量的值永不写回文件**。实现上:`patch()` 落盘前,用一份"被 env 覆盖的字段清单"把这些 key 从待写片段里剔除(对照挑错 P4,否则用户在同一片段改了别的字段时,会把 env 的值固化进文件),并加单测。被 env 锁定的字段在 WebUI 显示为只读并标出变量名。
+- 实例级字段(`log`/`logLevel`/`ffmpeg`/`msgCacheExpire`)暂时仍每个账号存一份,WebUI"其他配置"页注明。要不要搬到独立 `settings.json` 见第 5 步(owner 决策)。
+
+## 5. 插件配置标准(零迁移窗口的核心)
+
+```jsonc
+// data/plugins.json:格式不变
+{ "version": 1, "entries": [ { "id": "7f3a9c21", "name": "luckylillia-plugin-keyword-reply", "config": { "rules": [] } } ] }
+// data/plugins_<uin>.json:新增
+{ "version": 1, "entries": { "7f3a9c21": { "config": { "groups": ["123456"] } }, "b1d4e880": { "disabled": false } } }
+```
+
+**生效值**:`config(e,u) = merge(schema 默认值, e.config, overlay[u][e.id]?.config)`;`disabled(e,u) = overlay[u][e.id]?.disabled ?? e.disabled ?? false`(core 条目恒 false)。
+
+- **合并按 schema**:只有 `object` 节点逐 key 递归,`dict`/`array`/`union`/标量整体替换(和前端 `stripDefaults` 把数组当整体一致)。
+- **条目只在全局层增删**,覆盖层只能覆盖已存在的 id;引用了已删 id 的覆盖加载时忽略、下次写时清掉。
+- **新账号自动继承全局层**,不会"换号后插件全没了"。"只在 A 号运行"= 全局层 `disabled:true` + A 的覆盖层 `disabled:false`(新建实例给"只在本账号启用"勾选项)。
+- **落盘存差异**:全局层存相对 schema 默认的差异,账号层存相对全局生效值的差异;差异由服务端算,`PUT` 收完整值。`withDefaults`/`stripDefaults` 抽成不依赖 node 的纯模块,前后端共用。
+- **校验永远只校验合并后的生效值**(单独校验某层会被 `required` 字段拒掉)。保存全局层时,把每个 `plugins_*.json` 对这个条目的覆盖合并后各校验一次。**但某个账号的覆盖不合法时,跳过并记告警、不阻断保存**(对照挑错 P2:否则 B 账号一个坏覆盖就能卡死 A 账号的全局配置面板,而 A 这个进程根本没有 UI 去改 B 的覆盖);该账号登录时再自行校验。
+- **写入路由**:WebUI 明确选了层就写那层;没选层的写入(卡片开关、插件自更新)写到"当前生效值来自的那层",两层都没定义则看清单 `llbot.configScope: "global" | "account"`(默认 global);登录前一律写全局层。
+- **登录时序**:`AccountService.markOnline()` 在 `reflect.notify(['account'])` 前先同步 `emit('account/prepare', uin)`;ConfigService 和 PluginService 在这个事件里切账号文件、读覆盖层、对等待中的条目 `fiber.update(merged, true)`。结果:inject 了 `account` 的插件第一次拿到的就是合并配置;只有"登录前就运行且本账号有覆盖"的插件在登录时重启一次(带 `-q` 且覆盖文件已存在时连这次也省)。
+- **WebUI**:`GET /:id/schema` 返回 `{ schema, defaults, global, account, effective, configScope, rev }`;`PUT /:id/config` 带 `{ config, scope, ifRev }`,rev 不一致返 409;只有"已知账号 ≥2 或本账号已有覆盖"时才显示"所有账号 / 仅 <uin>"页签(单账号用户界面和今天一样)。
+
+## 6. 插件数据标准
+
+```ts
+// packages/plugin-sdk/src/storage.ts(只有类型)
+export interface PluginStorage {
+  /** 'global' -> data/plugin-data/<key>/shared/; 'account' -> data/plugin-data/<key>/<uin>/。
+   *  首次使用时创建,同一个包的所有实例共享。 */
+  dir(scope?: 'global' | 'account'): Promise<string>
+}
+declare module 'cordis' { interface Context { storage: PluginStorage } }
+```
+
+- `<key>`:第三方插件用包名把 `/` 换 `+`;内置条目用 `_builtin+<名字>`(冒号在 Windows 路径非法,`_` 开头不会撞真实包名)。
+- **`dir('account')` 在登录前挂起等待,不抛异常**(对照挑错 P5:否则没 inject `account` 的插件在 `apply` 里调它会直接 FAILED);或在 SDK 类型上把它和 `inject(['account'])` 绑定。
+- 设置条目的 `ctx.baseUrl` 指向 `shared/` 目录,让 `@cordisjs/plugin-database-sqlite` 这类用 `new URL(path, ctx.baseUrl)` 的生态插件文件落在自己目录。
+- 按账号的结构化数据继续用 `ctx.database`(`<uin>.v3.db`)。
+- `plugin-data/` 在插件代码目录之外,不触发热重载 watcher;卸载插件不删数据(以后删最后一个实例时再问)。
+
+## 7. 内置插件接入
+
+内置适配器 / 邮件通知接到同一套 schema + 校验 + 表单,但**配置继续读写原来的文件**(适配器的在 `config_<uin>.json`,邮件的在 `email_config.json`),不迁移。开关合并:条目开关和 `*.enable` / `enabled` 合并成一个(和桌面端一键对接改同一个开关),适配器/邮件条目始终挂载、`disabled` 像 core 一样忽略。
+
+邮件顺带修三件事:监听从 `fs.watch` 改 `watchFile`(docker bind mount 下 inotify 不可靠);停用时也能配置。**但保留 `********` 密码打码**(对照挑错 P1:去掉打码会让 `GET /api/email/config` 明文返回 SMTP 密码,而 docker 默认监听全部地址;这是现存唯一的 secret 保护)。要"能清空密码"用显式语义区分(body 带 `clearPassword: true`,或约定 `null`=保留、`""`=清空),不靠明文回传。
+
+## 8. JsonFile 原语 + 并发
+
+所有 JSON 文件统一用 `JsonFile<T>`(从 `PluginStore` 抽出,第 1a 步先给 ConfigService 用):
+
+- **读**:JSON5 解析;失败保留上一份有效值,不广播,WebUI 提示,下次轮询重试(不再"读坏广播默认值",也不再把坏文件改名)。
+- **写**:先写 `<file>.<pid>.<rand>.tmp` 再 rename(修掉固定临时名);Windows 下 rename 失败回退直接写。
+- **识别自己的写入**:记内容哈希,取代 `skipNextWatch`。
+- **监听**:`fs.watchFile` 1 秒轮询 + 300ms 尾随防抖(保证最后一次写一定被读到;docker 下 inotify 不可靠才用轮询)。
+- **共享文件**:`update(mutator)` 在 `state/<file>.lock` 锁内"重读、重放这次操作、原子写"。锁记 pid **加 host/boot id**(对照挑错 P3:docker 多容器 bind-mount 同一卷时 pid 会在各自 namespace 内相撞,只对同 host 判存活,非同 host 保守等待;文档写明"一个 data/ 只能单机用")。操作写成可重放的(例如"确保包 X 至少有一个条目"),两个进程同时扫到新包也只建一个。
+
+## 9. 分步迁移(每步可独立回滚)
+
+**第 0 步(兄弟仓库,约 1.5-2.5 人日)**:桌面端模型加 `[JsonExtensionData]`、JSON 容忍注释、补 `logLevel`,不再用默认值新建配置文件,OpenClaw 精确匹配当前 uin;CLI `migrate` 发现目标非空就拒绝(现在会 `remove_dir_all`);发布流程断言 dist 顶层无 `data/`。
+
+**第 1a 步(进 main,随补丁版本,约 4-5 人日)**:ConfigService 换 `JsonFile`,删白名单清理、只显式删已知废弃 key;`mergeNewProperties` 数组当整体、`null` 视为缺省;补齐缺省仍写回但只补不删;`defaultConfig.ts` 补 `logLevel`,单测断言两份默认值相等且 docker/nix 的 sed 仍命中;新增 `ctx.config.patch()`,`POST /api/config` 和 `set_config` 改用它;新增 `LLBOT_*` 环境变量层 + `/api/login-info` 返回生效值;三处硬编码 `resolve('data')` 改 `DATA_DIR`。双向兼容,回退无害。
+
+**第 1b 步(feat 分支,约 1-1.5 人日)**:OB11/Milky 只在自己片段变化时重建;前端各设置页只提交自己的片段;"其他配置"页标注作用域、env 锁定字段显示只读。
+
+**第 2 步(feat 分支,合并前必须完成,约 11-13 人日)**:§5、§6、§8 的全部内容;文档新建 `docs/config-storage.md`(本文),改 `plugin-system.md` / `plugin-authoring.md`。新增 `plugins_<uin>.json`(设置过覆盖才有)、`plugin-data/`、`state/`;`plugins.json` 格式不变。
+
+**第 3 步(发布后,逐个内置插件接入,约 8.5-10.5 人日)**:顺序邮件→Satori→Milky→OB11(OB11 的 `connect` 是按 type 的 union,最费事);每个写 schema + 跨字段校验 + 绑定,`describe`/`updateConfig` 不再对它 403;邮件改轮询/停用时可配/能清空密码;`get_config` 打码。
+
+**第 4 步(按需,约 5-7 人日)**:同进程换号(AccountService 状态切换 + `qq/logged-out`);账号锁(`state/<uin>.lock`,带 pid+host);`webui_token.txt` 按 mtime 重读;日志文件名加 pid + 保留期;实现 temp 清理(`autoDeleteFile` 后端目前根本没实现)。
+
+**第 5 步(可选,约 3-4 人日)**:实例级字段搬到 `data/settings.json`。
+
+## 10. Owner 决策(含建议默认)
+
+1. **实例级字段是否搬出 `config_<uin>.json`** → 建议第 5 步再做,先原地标注"每账号一份"。
+2. **邮件密码"清空 vs 保留"的语义** → 建议 body 带显式 `clearPassword`,保留打码。
+3. **`SendOptions`/配置里要不要支持环境变量引用 secret** → 建议暂不,明文存储 + POSIX 下 `plugins*.json` 0600 权限 + 不写日志。
+
+## 11. 未验证 / 风险
+
+- Rust 移植版是否也按白名单删 key,待确认(但它不与 TS bot 并发共享同一 `data/`,新文件对它只是忽略)。
+- `JsonFile` 用内容哈希识别自写:外部写入恰好产生相同内容时会被当自写跳过(概率低)。

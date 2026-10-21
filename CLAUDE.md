@@ -10,3 +10,5 @@
 | [docs/plugin-authoring.md](docs/plugin-authoring.md) | 写或排查插件（`examples/plugins/` 或用户插件），包括插件的 WebUI 部分；改插件对外约定 |
 | [docs/cordis-upgrade-notes.md](docs/cordis-upgrade-notes.md) | 升级 cordis / `@cordisjs/*`，或碰到 fiber 状态、`ctx.parallel` 报错、`ctx.plugin()` 返回值、配置校验时机等 cordis 行为问题 |
 | [docs/core-pluginization.md](docs/core-pluginization.md) | 改 `main.ts` 启动结构 / 两阶段 `ctx.inject` 块、把协议层（`qqProtocol` / NT API / `account`）或 database / `WebuiServer` 做成插件条目、解耦 `account` / `selfInfo.uin`、接官方 QQ bot 或支持"纯官方 bot 进程"、动 `WebuiServer` 的 `static inject` 或扫码登录路由时必读 |
+| [docs/config-storage.md](docs/config-storage.md) | 改 `ConfigService` / `config_<uin>.json` 格式或 `cleanupConfig`、给插件做按账号配置（`plugins_<uin>.json` 覆盖层）或插件数据目录（`ctx.storage`）、统一 JSON 文件读写 / 并发锁、把内置适配器/邮件接到统一 schema 表单时必读 |
+| [docs/official-qq-bot.md](docs/official-qq-bot.md) | 实现或修改 QQ 开放平台官方机器人适配器（`src/universal/qqofficial/`）、它的 appid 登录 / ws 网关 / webhook / 被动回复 / 能力探测，或往中立层加第二个消息源时必读 |
