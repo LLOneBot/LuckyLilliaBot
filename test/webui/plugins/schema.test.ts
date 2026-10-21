@@ -83,21 +83,22 @@ describe('default handling', () => {
     nested: Schema.object({ enabled: Schema.boolean().default(true), list: Schema.array(String).default([]) }),
   })
   const defaults = new Config()
+  const node = wire(Config)
 
   it('shows the defaults for whatever the user left unset', () => {
-    expect(withDefaults({ prefix: '!' }, defaults)).toEqual({
+    expect(withDefaults(node, { prefix: '!' }, defaults)).toEqual({
       prefix: '!',
       cooldown: 3000,
       nested: { enabled: true, list: [] },
     })
-    expect(withDefaults(null, defaults)).toEqual(defaults)
+    expect(withDefaults(node, null, defaults)).toEqual(defaults)
   })
 
   it('stores only what differs from the defaults', () => {
-    expect(stripDefaults(withDefaults({ prefix: '!' }, defaults), defaults)).toEqual({ prefix: '!' })
-    expect(stripDefaults({ ...defaults, nested: { enabled: false, list: [] } }, defaults)).toEqual({ nested: { enabled: false } })
-    expect(stripDefaults(defaults, defaults)).toBeUndefined()
-    expect(stripDefaults({ ...defaults, nested: { enabled: true, list: ['x'] } }, defaults)).toEqual({ nested: { list: ['x'] } })
+    expect(stripDefaults(node, withDefaults(node, { prefix: '!' }, defaults), defaults)).toEqual({ prefix: '!' })
+    expect(stripDefaults(node, { ...defaults, nested: { enabled: false, list: [] } }, defaults)).toEqual({ nested: { enabled: false } })
+    expect(stripDefaults(node, defaults, defaults)).toBeUndefined()
+    expect(stripDefaults(node, { ...defaults, nested: { enabled: true, list: ['x'] } }, defaults)).toEqual({ nested: { list: ['x'] } })
   })
 
   it('starts new items from their schema', () => {

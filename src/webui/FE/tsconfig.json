@@ -6,6 +6,7 @@
       "@ntqqapi/types": ["../../ntqqapi/types"],
       "@/common/types": ["../../common/types"],
       "@/ntqqapi/types": ["../../ntqqapi/types"],
+      "@shared/*": ["../../common/*"],
       "@luckylillia/plugin-sdk/webui": ["../../../packages/plugin-sdk/src/webui.ts"],
       "@/*": ["./*"]
     },
@@ -19,6 +20,7 @@
   "include": [
     "./**/*",
     "../../common/types.ts",
+    "../../common/schema/**/*",
     "../../ntqqapi/types/**/*",
     "../../version.ts",
     "../../main/config/defaultConfig.ts",

@@ -44,7 +44,7 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
         setNode(root)
         setSchema(schema)
         setDefaults(defaults)
-        setValue(root ? withDefaults(config, defaults) : config ?? undefined)
+        setValue(root ? withDefaults(root, config, defaults) : config ?? undefined)
       })
       .catch(e => setLoadError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
@@ -67,7 +67,7 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
     setSaving(true)
     setErrors({})
     try {
-      await savePluginConfig(plugin.id, node ? stripDefaults(value, defaults) : value)
+      await savePluginConfig(plugin.id, node ? stripDefaults(node, value, defaults) : value)
       showToast('配置已保存，插件已按新配置重启', 'success')
       onClose()
     } catch (e) {
