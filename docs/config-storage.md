@@ -136,6 +136,34 @@ declare module 'cordis' { interface Context { storage: PluginStorage } }
 
 **第 6 步(破坏性,需跨仓库同期升级,单列一个大版本)**:把 bot 自己的对外配置搬进 `data/config/` 完成目录化终态——`config_<uin>.json` 的内容迁入 `data/config/accounts/<uin>/`(可拆分类文件)、`email_config.json` 迁入 `data/config/global/`。做法:启动时检测旧文件、一次性自动迁移(保留旧文件备份一个版本),同期升级桌面端(改强类型模型的读写路径)、docker/nix 的 sed 目标、CLI、4 篇文档;用户手里改不到的旧 docker-compose / nix 配置 / 手改文件靠启动迁移兜底。`qq-session-*` / `database/<uin>.v3.db` / token / 设备身份是数据凭证不是配置,不搬。
 
+## 9.5 本期开工切分(Cut 0/1/2,基于代码现状核对)
+
+动工前对 `feat/plugin-system @ 49f6b6c3` 做过一次四路只读核对,结论修正了本文几处假设:
+
+- **§8 的 `JsonFile` 基本是"抽取+共享",不是新建**:`PluginStore`(`src/plugin/store.ts:42-59`)已实现 tmp+rename、Windows 回退、进程内串行化、JSON5 读 / JSON 写、坏文件改名。缺的只有跨进程锁、content-hash 自写识别、`update(mutator)`。`EmailConfigManager`(裸 `writeFile`)、`ConfigService`(`writeFileSync`+`skipNextWatch`)健壮度各不同,正好统一。
+- **`stripDefaults`/`withDefaults` 已存在且是纯函数,但有一个真 bug**:现仅在前端 `src/webui/FE/components/plugins/schema/values.ts`,**不读 schema**,按运行时 `isPlainObject` 递归。`dict` 运行时即 plain object → 被误逐 key 合并而非整体替换。抽成共用模块时**必须改成 schema 感知**,否则本文 §5"合并按 schema、前后端一致"在 dict 上不成立。
+- **服务端今天不算差异**:前端 `stripDefaults` 后 PUT,后端 `index.ts:251` 收到什么存什么,defaults 只在前端 `withDefaults` 还原。§5 把算差异+两层合并的职责搬到服务端,是语义迁移。
+- **`account/prepare` 事件零基础,但 `account` 服务本身存在**:`markOnline()`(`account.ts:41`)末尾只有 `reflect.notify(['account'])`,无 prepare 事件、无订阅者;`PluginService.inject = ['timer']`,`src/plugin/` 下零 account 引用。因 account 服务今天就在,§5 登录时序**不硬依赖 core-pluginization**,只需插一行事件 + PluginService 监听(overlay 加载像 ConfigService `-q` 预读那样推迟到 prepare)。
+- **路径仍在 `data/plugins.json`**(`src/main/main.ts:88`),目录化是 docs-only;移动是一行(`PluginStore.write` 已递归 mkdir)。三处硬编码 `resolve('data')` 都在 `direct-lib/{macosDevice,machineGuid,packetDump}`。
+
+**发布硬约束是"锁死磁盘格式"**:目录布局 + 两个文件格式 + 差异存储语义(全局层存相对 schema 默认的差异、账号层存相对全局生效值的差异)必须在插件系统发布前定死;登录时运行时应用、WebUI 作用域 / rev 协议是行为 / 内部 API,不锁格式。据此分三刀(每刀独立可落、可回滚):
+
+**Cut 0 — `JsonFile<T>` 原语(§8,纯抽取,低风险,两条轨共享前置)**
+- C0.1 新建 `src/common/jsonFile.ts`:从 `PluginStore` 抽出 tmp(随机名)+rename+Windows 回退、JSON5 读 / JSON 写、content-hash 自写识别、坏文件保留 last-good(**停掉改名**)、`update(mutator)` 在 `state/<file>.lock`(pid+host/boot id)内重读重放原子写;配单测;不动调用方。
+- C0.2 `PluginStore` 迁到 `JsonFile`(行为保持)。
+
+**Cut 1 — 插件配置两层(§5,发布前必须,本期 headline;owner 已定做满)**
+- C1.1 把 `stripDefaults`/`withDefaults`/`isEqual` 提成 node 无关共用模块,**改成 schema 感知**(object 逐 key、dict/array/union/标量整体替换),修 dict bug;前端改 import 它;前后端一致性单测。
+- C1.2 目录移动 `data/plugins.json → data/config/global/plugins.json`;引入 `data/config/accounts/<uin>/plugins.json` 路径常量。
+- C1.3【语义锁】服务端差异存储+两层合并落在 `describe()`/`updateConfig()`/`validateConfig()`:describe 返回服务端合并的 effective,updateConfig 收完整值、服务端算差异、校验合并后生效值。此刻账号覆盖层是空的第二 store,WebUI 仍单作用域——但全局层差异格式与合并语义已锁死。
+- C1.4 账号覆盖层运行时:`account.ts` 加 `emit('account/prepare', uin)`(在 `reflect.notify(['account'])` 前);PluginService 监听、加载 overlay、重算、对 pending 条目 `fiber.update(merged)`;`disabled(e,u)`;写入路由(scope);保存全局层时对每个 overlay 重合并校验,**坏覆盖跳过记告警不阻断**(P2)。
+- C1.5 WebUI 契约:describe 扩成 `{schema,defaults,global,account,effective,configScope,rev}`;PUT `{config,scope,ifRev}` + 409;前端作用域页签(仅"已知账号≥2 或本账号已有覆盖"时显示)+ 409 回滚重拉。
+
+**Cut 2 — ConfigService §1a(可并行,独立进 main,不阻塞 Cut 1)**
+复用 Cut 0 的 `JsonFile`:删白名单 `cleanupConfig`、`defaultConfig.ts` 补 `logLevel`、新增 `patch()`(剥 env 锁定字段再写)、`POST /api/config` 与 OneBot `set_config` 改用 patch、`LLBOT_*` env 层、三处 `resolve('data')` 归 `DATA_DIR`。动的是 live 的 `config_<uin>.json`(双向兼容),回归面独立。
+
+顺序:**Cut 0 → Cut 1(C1.1→C1.5)**,Cut 2 任意时机并行。
+
 ## 10. Owner 决策(含建议默认)
 
 1. **配置目录化怎么到达终态** → 本期只把插件配置按 `data/config/{global,accounts/<uin>}/` 目录化(零成本、卡在插件系统发布前的零迁移窗口);bot 自己的 `config_<uin>.json` / `email_config.json` 作为后续破坏性大版本(第 6 步)带自动迁移搬进同一目录。短期接受"新配置按目录、旧配置平铺"并存。不建议这一期就搬旧文件(要跨仓库同期升级 + 兜底用户手里的旧文件,风险大)。
