@@ -4,6 +4,8 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Context, Fiber, FiberState, Inject, Plugin, Service, resolveConfig } from 'cordis'
 import type { LLBotManifest } from '@luckylillia/plugin-sdk'
+import { hydrate, SchemaNode } from '@/common/schema/model'
+import { stripDefaults, withDefaults } from '@/common/schema/diff'
 import {
   isInside, normalizeService, PluginPackage, readPluginPackage, scanPluginRoots, SDK_PACKAGE, sdkIncompatibility,
   ServiceDeclaration,
@@ -82,7 +84,10 @@ export interface PluginDescription {
   /** schemastery `toJSON()` output, or null when the Config is absent or not schemastery. */
   schema: unknown
   defaults: unknown
+  /** What the entry stores: the diff against the defaults. */
   config: unknown
+  /** The merged value the plugin actually runs with (defaults + stored diff). */
+  effective: unknown
 }
 
 export class PluginNotFoundError extends Error {}
@@ -248,15 +253,20 @@ class PluginService extends Service {
     return this.lock(rt.entry.name, async () => {
       const mod = await this.load(this.package(rt))
       if (!mod.plugin) throw new Error(mod.error)
+      // The server owns the diff: fill to the effective value (accepts a full or an already-diffed payload),
+      // validate that merged value (a lone layer would trip `required`), then store only what differs.
+      const { node, defaults } = this.configModel(mod.plugin)
+      const effective = withDefaults(node, config, defaults)
       // fiber.update() only validates a loaded fiber; check up front so pending ones behave the same
-      validateConfig(mod.plugin, config)
-      rt.entry.config = config
+      validateConfig(mod.plugin, effective)
+      const diff = stripDefaults(node, effective, defaults)
+      rt.entry.config = diff
       await this.save()
       const fiber = rt.fiber
       if (fiber) {
         rt.error = undefined
         // A failing apply() is reported through the fiber state, not thrown here
-        await Promise.resolve(fiber.update(config, true)).catch(() => {})
+        await Promise.resolve(fiber.update(diff, true)).catch(() => {})
         await fiber.await().catch(() => {})
       }
       return this.status(rt)
@@ -325,19 +335,23 @@ class PluginService extends Service {
     this.assertConfigurable(rt)
     return this.lock(rt.entry.name, async () => {
       const mod = await this.load(this.package(rt))
-      const Config = (mod.plugin as { Config?: { toJSON?: unknown } } | undefined)?.Config
-      let defaults: unknown = {}
-      try {
-        defaults = resolveConfig({ Config } as Plugin.Runtime, undefined) ?? {}
-      } catch {
-        // required fields without defaults
-      }
-      return {
-        schema: typeof Config?.toJSON === 'function' ? JSON.parse(JSON.stringify(Config)) : null,
-        defaults,
-        config: rt.entry.config ?? null,
-      }
+      const { schema, node, defaults } = this.configModel(mod.plugin)
+      const config = rt.entry.config ?? null
+      return { schema, defaults, config, effective: withDefaults(node, config, defaults) }
     })
+  }
+
+  /** Resolve a loaded plugin's Config into the pieces the two-layer merge and the WebUI form need. */
+  private configModel(plugin: Plugin | undefined): { schema: unknown; node: SchemaNode | null; defaults: unknown } {
+    const Config = (plugin as { Config?: { toJSON?: unknown } } | undefined)?.Config
+    let defaults: unknown = {}
+    try {
+      defaults = resolveConfig({ Config } as Plugin.Runtime, undefined) ?? {}
+    } catch {
+      // required fields without defaults
+    }
+    const schema = typeof Config?.toJSON === 'function' ? JSON.parse(JSON.stringify(Config)) : null
+    return { schema, node: schema ? hydrate(schema as { uid: number; refs: Record<string, unknown> }) : null, defaults }
   }
 
   private runtime(id: string): Runtime {
