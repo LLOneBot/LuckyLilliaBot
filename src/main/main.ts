@@ -9,7 +9,7 @@ import SQLiteDriver from '@cordisjs/plugin-database-sqlite'
 import Store from './store'
 import { Config as LLBotConfig } from '../common/types'
 import { Context } from 'cordis'
-import { selfInfo, DATA_DIR, LOG_DIR, TEMP_DIR, dbDir } from '../common/globalVars'
+import { selfInfo, DATA_DIR, LOG_DIR, TEMP_DIR, dbDir, GLOBAL_PLUGINS_FILE } from '../common/globalVars'
 import {
   NTFileApi,
   NTFriendApi,
@@ -20,7 +20,7 @@ import {
   NTWebApi,
   NTSystemApi,
 } from '../ntqqapi/api'
-import { existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, renameSync } from 'node:fs'
 import { version } from '../version'
 import { WebuiServer } from '../webui/BE/server'
 import { EmailConfig } from '@/common/emailConfig'
@@ -69,6 +69,13 @@ async function onLoad() {
     mkdirSync(pluginDir)
   }
 
+  // Dev-time move: the plugins config now lives under data/config/global/ (config-storage §3).
+  const legacyPluginsFile = path.join(DATA_DIR, 'plugins.json')
+  if (existsSync(legacyPluginsFile) && !existsSync(GLOBAL_PLUGINS_FILE)) {
+    mkdirSync(path.dirname(GLOBAL_PLUGINS_FILE), { recursive: true })
+    renameSync(legacyPluginsFile, GLOBAL_PLUGINS_FILE)
+  }
+
   const ctx = new Context()
 
   ctx.plugin(Log)
@@ -85,7 +92,7 @@ async function onLoad() {
   ctx.plugin(ConfigService)
   ctx.plugin(BotsService)
   ctx.plugin(PluginService, {
-    file: path.join(DATA_DIR, 'plugins.json'),
+    file: GLOBAL_PLUGINS_FILE,
     roots: [pluginDir, ...getPluginDirs().map(dir => path.resolve(dir))],
     hmr: isPluginHmr(),
     builtins: builtinPlugins,

@@ -16,6 +16,17 @@ if (!existsSync(dbDir)) {
   mkdirSync(dbDir)
 }
 
+// Config lives under data/config/, scoped into global/ (instance) and accounts/<uin>/ (per account).
+// See docs/config-storage.md §3. Directories are created on first write (JsonFile mkdirs recursively).
+export const CONFIG_DIR = path.join(DATA_DIR, 'config')
+export const STATE_DIR = path.join(DATA_DIR, 'state')
+/** Instance-wide plugin entries + the global config layer. */
+export const GLOBAL_PLUGINS_FILE = path.join(CONFIG_DIR, 'global', 'plugins.json')
+/** Per-account plugin override layer (only present once something is set for that account). */
+export function accountPluginsFile(uin: string): string {
+  return path.join(CONFIG_DIR, 'accounts', uin, 'plugins.json')
+}
+
 export function getFixedDataDir() {
   let dataDir: string = ''
   if (process.platform === 'win32') {
