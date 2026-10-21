@@ -165,10 +165,12 @@ class PluginService extends Service {
       }
     }
     const { data, error } = await this.store.load()
-    if (error) this.ctx.logger.error(`invalid plugins.json, starting without entries: ${error}`)
+    // On a parse error keep the broken file in place (don't let the reconcile-save below overwrite the
+    // user's edit) and retry it next boot; run with reconciled builtins in memory so the bot still starts.
+    if (error) this.ctx.logger.error(`invalid plugins.json, keeping the file and starting from defaults: ${error}`)
     this.data = data
     for (const entry of data.entries) this.runtimes.set(entry.id, { entry, reloadCount: 0 })
-    if (this.reconcileBuiltins()) await this.save()
+    if (this.reconcileBuiltins() && !error) await this.save()
 
     this.ctx.on('internal/status', fiber => this.onFiberStatus(fiber))
     await this.scan()

@@ -41,15 +41,15 @@ describe('PluginStore', () => {
     expect(await new PluginStore(file).load()).toEqual({ data: { version: 1, entries: [{ id: 'a', name: 'x' }] } })
   })
 
-  it('moves an unparsable file aside instead of overwriting it later', async () => {
+  it('keeps an unparsable file in place instead of moving it aside', async () => {
     const file = fresh()
     mkdirSync(path.dirname(file), { recursive: true })
     writeFileSync(file, '{ entries: [')
     const { data, error } = await new PluginStore(file).load()
     expect(data.entries).toEqual([])
-    expect(error).toMatch(/moved to plugins\.json\.broken-\d+/)
-    const backup = readdirSync(path.dirname(file)).find(name => name.startsWith('plugins.json.broken-'))!
-    expect(readFileSync(path.join(path.dirname(file), backup), 'utf8')).toBe('{ entries: [')
+    expect(error).toBeTruthy()
+    expect(readFileSync(file, 'utf8')).toBe('{ entries: [') // left untouched for the user to fix
+    expect(readdirSync(path.dirname(file)).some(name => name.includes('broken'))).toBe(false)
   })
 
   it('serializes concurrent saves so the last one wins', async () => {

@@ -1,8 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { existsSync } from 'node:fs'
-import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
-import path from 'node:path'
-import JSON5 from 'json5'
+import { JsonFile } from '@/common/jsonFile'
 
 export interface PluginEntry {
   /** Stable across restarts. One package can back several entries, so the name is not a key. */
@@ -19,43 +16,21 @@ export interface PluginsFile {
 }
 
 export class PluginStore {
-  private writing: Promise<void> = Promise.resolve()
+  private readonly jsonFile: JsonFile<PluginsFile>
 
-  constructor(readonly file: string) {}
+  constructor(readonly file: string) {
+    this.jsonFile = new JsonFile<PluginsFile>(file, {
+      defaultValue: (): PluginsFile => ({ version: 1, entries: [] }),
+      normalize,
+    })
+  }
 
-  async load(): Promise<{ data: PluginsFile; error?: string }> {
-    if (!existsSync(this.file)) return { data: { version: 1, entries: [] } }
-    const raw = await readFile(this.file, 'utf8')
-    try {
-      return { data: normalize(JSON5.parse(raw)) }
-    } catch (e) {
-      // Move the broken file aside instead of letting the next save overwrite the user's edits.
-      const backup = `${this.file}.broken-${Date.now()}`
-      await rename(this.file, backup)
-      return {
-        data: { version: 1, entries: [] },
-        error: `${(e as Error).message} (moved to ${path.basename(backup)})`,
-      }
-    }
+  load(): Promise<{ data: PluginsFile; error?: string }> {
+    return this.jsonFile.read()
   }
 
   save(data: PluginsFile): Promise<void> {
-    const content = JSON.stringify(data, null, 2) + '\n'
-    this.writing = this.writing.catch(() => {}).then(() => this.write(content))
-    return this.writing
-  }
-
-  private async write(content: string) {
-    await mkdir(path.dirname(this.file), { recursive: true })
-    const tmp = `${this.file}.tmp`
-    await writeFile(tmp, content, 'utf8')
-    try {
-      await rename(tmp, this.file)
-    } catch {
-      // Windows refuses the rename while another process holds the target open.
-      await writeFile(this.file, content, 'utf8')
-      await unlink(tmp).catch(() => {})
-    }
+    return this.jsonFile.write(data)
   }
 }
 
