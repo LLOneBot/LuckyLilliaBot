@@ -178,9 +178,13 @@ class PluginService extends Service {
   private resolverInstalled = false
   private sdkVersion?: string
   private builtins: Map<string, BuiltinPlugin>
+  // The service's own context. Inside a method called through ctx.plugins, this.ctx is the CALLER's
+  // context (cordis tracker), so mounting entries on it would parent them under whoever asked.
+  private readonly home: Context
 
   constructor(ctx: Context, public config: PluginService.Config) {
     super(ctx, 'plugins')
+    this.home = ctx
     this.store = new PluginStore(config.file)
     this.builtins = new Map((config.builtins ?? []).map(builtin => [builtin.name, builtin]))
   }
@@ -669,7 +673,7 @@ class PluginService extends Service {
     rt.error = undefined
     try {
       // ctx.plugin() hands back a thenable wrapper; internal/status reports the fiber itself
-      const fiber = this.ctx.plugin(plugin, this.entryConfig(rt, plugin)).ctx.fiber
+      const fiber = this.home.plugin(plugin, this.entryConfig(rt, plugin)).ctx.fiber
       this.fiberIds.set(fiber, rt.entry.id)
       rt.fiber = fiber
     } catch (e) {

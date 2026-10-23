@@ -187,6 +187,28 @@ describe('PluginService', () => {
     expect(globalThis.__pluginTest).toEqual(['apply:1', 'dispose:1'])
   })
 
+  it('keeps an entry enabled through another plugin running after that plugin goes away', async () => {
+    // What the WebUI does: PluginRoutes calls ctx.plugins.enable(), so inside the service this.ctx is
+    // the routes plugin's context. The entry must still belong to the plugin service, not to the caller.
+    await boot()
+    const { id } = byName('alpha')
+    const caller = await ctx.plugin({
+      inject: ['plugins'],
+      apply(callerCtx: Context) {
+        callerCtx.effect(() => {
+          void callerCtx.plugins.enable(id)
+          return () => {}
+        })
+      },
+    })
+    await expect.poll(() => byName('alpha').state).toBe('active')
+
+    await caller.dispose()
+
+    expect(byName('alpha').state).toBe('active')
+    expect(globalThis.__pluginTest).toEqual(['apply:1'])
+  })
+
   it('runs several entries of one package side by side', async () => {
     const plugins = await boot()
     await plugins.enable(byName('alpha').id)
