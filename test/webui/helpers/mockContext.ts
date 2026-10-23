@@ -1,4 +1,5 @@
 import { vi } from 'vitest'
+import { deepMerge } from '@/common/utils/misc'
 
 export function createMockContext() {
   const services: Record<string, any> = {
@@ -66,7 +67,10 @@ export function createMockContext() {
         webui: { enable: true, host: '0.0.0.0', port: 3080 },
       })),
       set: vi.fn(),
-      patch: vi.fn((partial: object) => ({ ...services.config.get(), ...partial })),
+      preview: vi.fn((partial: object) => deepMerge(services.config.get(), partial)),
+      patch: vi.fn((partial: object) => deepMerge(services.config.get(), partial)),
+      peek: vi.fn(() => services.config.get()),
+      envLocks: vi.fn(() => [] as { path: string; env: string }[]),
       envLockedPaths: vi.fn(() => [] as string[]),
     },
   }

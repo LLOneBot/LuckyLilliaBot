@@ -1,10 +1,7 @@
 import { Context } from 'cordis'
-import { selfInfo, DATA_DIR } from '@/common/globalVars'
+import { selfInfo } from '@/common/globalVars'
 import { isPmhqMode } from '@/common/utils/environment'
 import { Hono } from 'hono'
-import { existsSync, readFileSync } from 'node:fs'
-import path from 'node:path'
-import JSON5 from 'json5'
 
 export function createLoginRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -71,22 +68,19 @@ export function createLoginRoutes(ctx: Context): Hono {
 
   // 获取账号信息 + 该账号最终生效的 WebUI 配置.
   // 登录成功后会加载 config_<uin>.json, 里面可能关闭 WebUI (enable=false) 或改了端口 -- 那样后端
-  // 会自行 restart/关停, FE 若直接跳主页就会一路 502. 这里直接读 config_<uin>.json (磁盘上的最终值,
-  // 且从一开始就在) 而非 webuiServer 运行态, 避开 "online 先于 config 加载" 的竞态: FE 在第一次
-  // 拿到 online=true (此时后端还没关) 就能读到最终 webui 配置, 据此决定跳主页 / 提示已关闭 / 跳新端口.
+  // 会自行 restart/关停, FE 若直接跳主页就会一路 502. 用 peek() 按账号文件算生效值 (叠了 LLBOT_*,
+  // 跟登录后 WebUI 真正绑定的地址一致) 而非 webuiServer 运行态, 避开 "online 先于 config 加载" 的竞态:
+  // FE 在第一次拿到 online=true (此时后端还没关) 就能读到最终 webui 配置, 据此决定跳主页 / 提示已关闭 / 跳新端口.
   router.get('/login-info', (c) => {
     let webui: { enable: boolean; host: string; port: number } | undefined
     if (selfInfo.online && selfInfo.uin) {
       try {
-        const p = path.join(DATA_DIR, `config_${selfInfo.uin}.json`)
-        if (existsSync(p)) {
-          const cfg = JSON5.parse(readFileSync(p, 'utf-8'))
-          if (cfg?.webui) {
-            webui = {
-              enable: cfg.webui.enable !== false,
-              host: cfg.webui.host ?? '',
-              port: Number(cfg.webui.port) || 0,
-            }
+        const effective = ctx.config.peek(selfInfo.uin).webui
+        if (effective) {
+          webui = {
+            enable: effective.enable !== false,
+            host: effective.host ?? '',
+            port: Number(effective.port) || 0,
           }
         }
       } catch {

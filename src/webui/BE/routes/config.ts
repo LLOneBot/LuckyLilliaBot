@@ -3,39 +3,10 @@ import { Context } from 'cordis'
 import { networkInterfaces } from 'os'
 import { selfInfo } from '@/common/globalVars'
 import { ReqConfig, ResConfig } from '../types'
-import { Config } from '@/common/types'
 import { isDockerEnvironment } from '@/common/utils/environment'
 import { Hono } from 'hono'
 import { webuiTokenUtil } from '../../../main/config'
-
-function isListenAllInterfaces(host: string | undefined): boolean {
-  return !host || host === '0.0.0.0' || host === '::'
-}
-
-function validateTokenConfig(config: Config): string | null {
-  // 检查 Satori
-  if (config.satori?.enable && isListenAllInterfaces(config.satori.host) && !config.satori.token) {
-    return 'Satori 监听全部地址时必须设置 Token'
-  }
-
-  // 检查 Milky HTTP
-  if (config.milky?.enable && isListenAllInterfaces(config.milky.http?.host) && !config.milky.http?.accessToken) {
-    return 'Milky HTTP 监听全部地址时必须设置 Token'
-  }
-
-  // 检查 OneBot11 适配器
-  if (config.ob11?.enable && Array.isArray(config.ob11.connect)) {
-    for (const conn of config.ob11.connect) {
-      if (!conn.enable) continue
-      if ((conn.type === 'ws' || conn.type === 'http') && isListenAllInterfaces(conn.host) && !conn.token) {
-        const typeName = conn.type === 'ws' ? 'WebSocket' : 'HTTP'
-        return `OneBot11 ${typeName} 适配器监听全部地址时必须设置 Token`
-      }
-    }
-  }
-
-  return null
-}
+import { validateConfig } from '../../../main/config/validate'
 
 export function createConfigRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -74,10 +45,10 @@ export function createConfigRoutes(ctx: Context): Hono {
   // 获取配置
   router.get('/config', async (c) => {
     try {
-      const config = ctx.config.get()
       const resJson: ResConfig = {
-        config,
+        config: ctx.config.get(),
         selfInfo,
+        envLocked: ctx.config.envLocks(),
       }
       return c.json({
         success: true,
@@ -92,10 +63,10 @@ export function createConfigRoutes(ctx: Context): Hono {
   router.post('/config', async (c) => {
     try {
       const { config } = await c.req.json() as ReqConfig
-      // 校验合并后的生效值, 再由 patch() 落盘 (环境变量锁定的字段不会被写回文件)
-      const newConfig = { ...ctx.config.get(), ...config }
-
-      const validationError = validateTokenConfig(newConfig)
+      // 校验的就是 patch() 会落下的那份 (同一个深合并、同样剔掉 env 锁定字段)。浅合并会误拒
+      // { satori: { enable: true } } 这类局部提交, 也会放过把已启用的监听改成无 token 的提交。
+      // 只查这次提交涉及的片段, 磁盘上别的片段已有的问题不拦这次保存
+      const validationError = validateConfig(ctx.config.preview(config as Dict), Object.keys(config))
       if (validationError) {
         return c.json({ success: false, message: validationError }, 400)
       }

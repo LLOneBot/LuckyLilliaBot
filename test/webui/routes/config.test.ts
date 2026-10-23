@@ -140,5 +140,40 @@ describe('config routes', () => {
       const body = await res.json()
       expect(body.message).toContain('Milky')
     })
+
+    // The check runs on the deep-merged result that patch() writes, not a shallow spread
+    const post = (app: ReturnType<typeof createTestApp>, config: object) => app.request('/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ config }),
+    })
+
+    it('accepts enabling Satori when the stored host is loopback', async () => {
+      ctx.config.get.mockReturnValue({ satori: { enable: false, host: '127.0.0.1', token: '' } })
+      const res = await post(createTestApp(createConfigRoutes(ctx)), { satori: { enable: true } })
+      expect(res.status).toBe(200)
+    })
+
+    it('rejects clearing the token of an already-public Satori listener', async () => {
+      ctx.config.get.mockReturnValue({ satori: { enable: true, host: '', token: 'abc' } })
+      const res = await post(createTestApp(createConfigRoutes(ctx)), { satori: { token: '' } })
+      expect(res.status).toBe(400)
+      expect(ctx.config.patch).not.toHaveBeenCalled()
+    })
+
+    it('does not let a bad section the request did not touch block the save', async () => {
+      ctx.config.get.mockReturnValue({ satori: { enable: true, host: '', token: '' }, log: true })
+      const res = await post(createTestApp(createConfigRoutes(ctx)), { log: false })
+      expect(res.status).toBe(200)
+    })
+  })
+
+  describe('GET /config', () => {
+    it('reports the fields an environment variable pins', async () => {
+      ctx.config.envLocks.mockReturnValue([{ path: 'webui.port', env: 'LLBOT_WEBUI_PORT' }])
+      const res = await createTestApp(createConfigRoutes(ctx)).request('/config')
+      const body = await res.json()
+      expect(body.data.envLocked).toEqual([{ path: 'webui.port', env: 'LLBOT_WEBUI_PORT' }])
+    })
   })
 })
