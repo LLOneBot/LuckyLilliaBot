@@ -51,7 +51,7 @@ describe('plugin routes', () => {
     await app.request('/api/plugins', { method: 'POST', body: JSON.stringify({ name: 'pkg-x', config: { n: 1 } }) })
     expect(plugins.add).toHaveBeenCalledWith('pkg-x', { n: 1 })
     await app.request('/api/plugins/a/config', { method: 'PUT', body: JSON.stringify({ config: { n: 2 } }) })
-    expect(plugins.updateConfig).toHaveBeenCalledWith('a', { n: 2 })
+    expect(plugins.updateConfig).toHaveBeenCalledWith('a', { n: 2 }, undefined, undefined)
   })
 
   it('answers 400 with the issues when the schema rejects a config', async () => {

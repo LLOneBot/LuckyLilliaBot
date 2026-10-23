@@ -9,7 +9,9 @@ import SQLiteDriver from '@cordisjs/plugin-database-sqlite'
 import Store from './store'
 import { Config as LLBotConfig } from '../common/types'
 import { Context } from 'cordis'
-import { selfInfo, DATA_DIR, LOG_DIR, TEMP_DIR, dbDir, GLOBAL_PLUGINS_FILE, accountPluginsFile } from '../common/globalVars'
+import {
+  selfInfo, DATA_DIR, LOG_DIR, TEMP_DIR, dbDir, GLOBAL_PLUGINS_FILE, accountPluginsFile, ACCOUNTS_CONFIG_DIR,
+} from '../common/globalVars'
 import {
   NTFileApi,
   NTFriendApi,
@@ -21,6 +23,7 @@ import {
   NTSystemApi,
 } from '../ntqqapi/api'
 import { existsSync, mkdirSync, renameSync } from 'node:fs'
+import { readdir } from 'node:fs/promises'
 import { version } from '../version'
 import { WebuiServer } from '../webui/BE/server'
 import { EmailConfig } from '@/common/emailConfig'
@@ -94,6 +97,10 @@ async function onLoad() {
   ctx.plugin(PluginService, {
     file: GLOBAL_PLUGINS_FILE,
     accountFile: accountPluginsFile,
+    listAccounts: async () => {
+      const entries = await readdir(ACCOUNTS_CONFIG_DIR, { withFileTypes: true }).catch(() => [])
+      return entries.filter(entry => entry.isDirectory()).map(entry => entry.name)
+    },
     roots: [pluginDir, ...getPluginDirs().map(dir => path.resolve(dir))],
     hmr: isPluginHmr(),
     builtins: builtinPlugins,

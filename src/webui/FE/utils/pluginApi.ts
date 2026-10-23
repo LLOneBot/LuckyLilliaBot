@@ -1,6 +1,6 @@
 import { apiFetch, ApiError } from './api'
 import { getCookie } from './cookie'
-import { ConfigIssue, DependencyReport, PluginDescription, PluginStatus, ReloadResult } from '../types/plugins'
+import { ConfigIssue, ConfigScope, DependencyReport, PluginDescription, PluginStatus, ReloadResult } from '../types/plugins'
 
 const BASE = '/api/plugins'
 
@@ -32,11 +32,23 @@ export const describePlugin = (id: string) => request<PluginDescription>(`/${id}
 
 export const getPluginDependencies = (id: string) => request<DependencyReport>(`/${id}/dependencies`)
 
-/** Rejects with ConfigRejectedError when the plugin's schema refuses the config. */
-export async function savePluginConfig(id: string, config: unknown): Promise<PluginStatus> {
+/**
+ * Sends the complete value; the server works out what differs and stores only that.
+ * Rejects with ConfigRejectedError when the schema refuses it, or ConfigConflictError when the config
+ * changed since it was loaded.
+ */
+export async function savePluginConfig(
+  id: string,
+  config: unknown,
+  options: { scope?: ConfigScope; ifRev?: string } = {},
+): Promise<PluginStatus> {
   try {
-    return await request<PluginStatus>(`/${id}/config`, { method: 'PUT', body: JSON.stringify({ config }) })
+    return await request<PluginStatus>(`/${id}/config`, {
+      method: 'PUT',
+      body: JSON.stringify({ config, scope: options.scope, ifRev: options.ifRev }),
+    })
   } catch (e) {
+    if (e instanceof ApiError && e.status === 409) throw new ConfigConflictError(e.message)
     const issues = e instanceof ApiError && e.status === 400 && (e.data as { issues?: ConfigIssue[] } | undefined)?.issues
     if (issues) throw new ConfigRejectedError(e.message, issues)
     throw e
@@ -48,6 +60,9 @@ export class ConfigRejectedError extends Error {
     super(message)
   }
 }
+
+/** Someone else changed the config since this form loaded it. */
+export class ConfigConflictError extends Error {}
 
 export type PluginStreamEvent = { type: 'status'; data: PluginStatus } | { type: 'list' }
 

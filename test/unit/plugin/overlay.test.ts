@@ -3,7 +3,7 @@ import path from 'node:path'
 import { Context, Fiber } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
-import PluginService, { BuiltinPlugin, PluginStatus } from '@/plugin'
+import PluginService, { BuiltinPlugin, PluginRevConflictError, PluginStatus } from '@/plugin'
 
 declare global {
   var __pluginTest: string[]
@@ -234,5 +234,49 @@ describe('per-account plugin overrides', () => {
     await login()
     expect(byName('alpha').state).toBe('active')
     expect(globalThis.__pluginTest).toEqual(['apply:2:x'])
+  })
+})
+
+describe('optimistic concurrency on a config write', () => {
+  beforeEach(() => {
+    writeGlobal([{ id: 'aaaa1111', name: 'alpha', config: { n: 2 } }])
+  })
+
+  it('rejects a write whose rev is stale and leaves the config alone', async () => {
+    const plugins = await boot()
+    const { id } = byName('alpha')
+    const { rev } = await plugins.describe(id)
+
+    // someone else saves first, which moves the rev on
+    await plugins.updateConfig(id, { n: 3, tag: 'x' }, 'global', rev)
+
+    await expect(plugins.updateConfig(id, { n: 4, tag: 'x' }, 'global', rev))
+      .rejects.toBeInstanceOf(PluginRevConflictError)
+    expect(readGlobal().entries[0].config).toEqual({ n: 3 })
+  })
+
+  it('accepts a write carrying the current rev, and the rev then moves', async () => {
+    const plugins = await boot()
+    const { id } = byName('alpha')
+    const first = await plugins.describe(id)
+
+    await plugins.updateConfig(id, { n: 8, tag: 'x' }, 'global', first.rev)
+    const second = await plugins.describe(id)
+
+    expect(readGlobal().entries[0].config).toEqual({ n: 8 })
+    expect(second.rev).not.toBe(first.rev)
+  })
+
+  it('skips the check when no rev is supplied', async () => {
+    const plugins = await boot()
+    const { id } = byName('alpha')
+    await plugins.updateConfig(id, { n: 5, tag: 'x' })
+    expect(readGlobal().entries[0].config).toEqual({ n: 5 })
+  })
+
+  it('reports no accounts and a global write scope before login', async () => {
+    const plugins = await boot()
+    const description = await plugins.describe(byName('alpha').id)
+    expect(description).toMatchObject({ uin: '', accounts: [], scope: 'global', account: null })
   })
 })

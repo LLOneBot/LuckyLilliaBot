@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { realpath } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
@@ -98,12 +99,25 @@ export interface PluginDescription {
   effective: unknown
   /** Where an unscoped write would land. */
   scope: ConfigScope
+  /** Identifies both layers' current content; pass it back as `ifRev` to detect a lost update. */
+  rev: string
+  /** The logged-in account, empty before login (no account layer to write to yet). */
+  uin: string
+  /** Accounts that have a config directory, for deciding whether to offer the per-account scope. */
+  accounts: string[]
 }
 
 export class PluginNotFoundError extends Error {}
 
 /** The action does not apply to this entry, e.g. disabling a core builtin. */
 export class PluginForbiddenError extends Error {}
+
+/** The config changed since the client read it, so the write would clobber someone else's edit. */
+export class PluginRevConflictError extends Error {
+  constructor(readonly rev: string) {
+    super('the config changed since it was loaded')
+  }
+}
 
 export interface ConfigIssue {
   message: string
@@ -261,10 +275,13 @@ class PluginService extends Service {
   }
 
   /** Throws PluginConfigError, without touching the running instance, when the config is rejected. */
-  async updateConfig(id: string, config: unknown, scope?: ConfigScope): Promise<PluginStatus> {
+  async updateConfig(id: string, config: unknown, scope?: ConfigScope, ifRev?: string): Promise<PluginStatus> {
     const rt = this.runtime(id)
     this.assertConfigurable(rt)
     return this.lock(rt.entry.name, async () => {
+      // Inside the lock, so two concurrent writers cannot both pass the check
+      const rev = this.revOf(rt)
+      if (ifRev !== undefined && ifRev !== rev) throw new PluginRevConflictError(rev)
       const mod = await this.load(this.package(rt))
       if (!mod.plugin) throw new Error(mod.error)
       const { node, defaults } = this.configModel(mod.plugin)
@@ -299,6 +316,18 @@ class PluginService extends Service {
       }
       return this.status(rt)
     })
+  }
+
+  /** Identifies both layers' current config for this entry, so a stale write can be rejected. */
+  private revOf(rt: Runtime): string {
+    const payload = JSON.stringify([rt.entry.config ?? null, this.overlay.get(rt.entry.id)?.config ?? null])
+    return createHash('sha1').update(payload).digest('hex').slice(0, 12)
+  }
+
+  private async knownAccounts(): Promise<string[]> {
+    const listed = await this.config.listAccounts?.().catch(() => [])
+    if (listed?.length) return listed
+    return this.accountUin ? [this.accountUin] : []
   }
 
   /** Explicit scope wins; otherwise write whichever layer the effective value already comes from. */
@@ -398,6 +427,9 @@ class PluginService extends Service {
         account,
         effective: account === null ? base : withDefaults(node, account, base),
         scope: this.writeScope(rt),
+        rev: this.revOf(rt),
+        uin: this.accountUin,
+        accounts: await this.knownAccounts(),
       }
     })
   }
@@ -841,6 +873,8 @@ namespace PluginService {
     file: string
     /** Where an account's override layer lives. Omitted = no per-account overrides at all. */
     accountFile?: (uin: string) => string
+    /** Accounts that already have a config directory, for offering the per-account scope in the WebUI. */
+    listAccounts?: () => Promise<string[]>
     /** Directories whose child packages are plugins. */
     roots: string[]
     /** Watch the roots and reload changed packages. plugins.json `hmr: true` also turns it on. */

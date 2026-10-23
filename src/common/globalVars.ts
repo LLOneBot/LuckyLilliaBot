@@ -22,9 +22,10 @@ export const CONFIG_DIR = path.join(DATA_DIR, 'config')
 export const STATE_DIR = path.join(DATA_DIR, 'state')
 /** Instance-wide plugin entries + the global config layer. */
 export const GLOBAL_PLUGINS_FILE = path.join(CONFIG_DIR, 'global', 'plugins.json')
+export const ACCOUNTS_CONFIG_DIR = path.join(CONFIG_DIR, 'accounts')
 /** Per-account plugin override layer (only present once something is set for that account). */
 export function accountPluginsFile(uin: string): string {
-  return path.join(CONFIG_DIR, 'accounts', uin, 'plugins.json')
+  return path.join(ACCOUNTS_CONFIG_DIR, uin, 'plugins.json')
 }
 
 export function getFixedDataDir() {
