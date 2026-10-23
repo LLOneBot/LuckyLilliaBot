@@ -9,6 +9,7 @@ import * as NTQQUniversal from '../universal/ntqq'
 import { WebQQ } from '../webui/BE/routes/webqq'
 import { emailBinding } from './builtinConfig/email'
 import { satoriBinding } from './builtinConfig/satori'
+import { milkyBinding } from './builtinConfig/milky'
 
 /**
  * Mounts an adapter with its part of config_<uin>.json, which only exists once the account is known.
@@ -61,6 +62,7 @@ export const builtinPlugins: BuiltinPlugin[] = [
   {
     name: 'builtin:milky',
     title: 'Milky',
+    config: milkyBinding,
     plugin: withBotConfig('builtin:milky', MilkyAdapter, config => config.milky),
     manifest: {
       icon: 'milk',

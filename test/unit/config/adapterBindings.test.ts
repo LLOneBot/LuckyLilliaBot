@@ -4,6 +4,7 @@ import { Config as LLBotConfig } from '@/common/types'
 import { deepMerge } from '@/common/utils/misc'
 import { defaultConfig } from '@/main/config/defaultConfig'
 import { SatoriSchema, satoriBinding } from '@/main/builtinConfig/satori'
+import { MilkySchema, milkyBinding } from '@/main/builtinConfig/milky'
 
 async function fakeConfig(accountFile: string | undefined) {
   let config = structuredClone(defaultConfig) as LLBotConfig
@@ -61,5 +62,36 @@ describe('Satori settings binding', () => {
     const on = satoriBinding.enabled.set({ ...defaultConfig.satori }, true)
     expect(on.enable).toBe(true)
     expect(satoriBinding.enabled.get(on)).toBe(true)
+  })
+})
+
+describe('Milky settings binding', () => {
+  const valid = (patch: object = {}) => ({ ...structuredClone(defaultConfig.milky), ...patch })
+
+  it('has schema defaults equal to defaultConfig.ts', () => {
+    expect(new MilkySchema()).toEqual(defaultConfig.milky)
+  })
+
+  it('drops the blank webhook rows the form leaves behind', () => {
+    const value = valid({ webhook: { urls: ['https://a.test/hook', '', '  '], accessToken: '' } })
+    expect(milkyBinding.normalize!(value).webhook.urls).toEqual(['https://a.test/hook'])
+  })
+
+  it('refuses a webhook that is not http(s)', () => {
+    const value = valid({ webhook: { urls: ['ftp://a.test'], accessToken: '' } })
+    const result = MilkySchema['~standard'].validate(value) as { issues?: { path?: unknown[] }[] }
+    expect(result.issues?.length).toBeGreaterThan(0)
+  })
+
+  it('requires an access token for a public HTTP listener', () => {
+    const value = valid({ enable: true, http: { ...defaultConfig.milky.http, host: '' } })
+    expect(milkyBinding.check!(value)).toEqual([{ path: ['http', 'accessToken'], message: 'Milky HTTP 监听全部地址时必须设置 Token' }])
+  })
+
+  it('writes only its own section', async () => {
+    const { ctx, current } = await fakeConfig('config_1.json')
+    await milkyBinding.write(ctx, valid({ enable: true, reportSelfMessage: true }))
+    expect(current().milky).toMatchObject({ enable: true, reportSelfMessage: true })
+    expect(current().satori).toEqual(defaultConfig.satori)
   })
 })

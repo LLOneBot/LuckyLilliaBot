@@ -1,12 +1,20 @@
 import React, { useState } from 'react'
-import { ExternalLink, Eye, EyeOff, Milk, Plus, Trash2 } from 'lucide-react'
+import { ExternalLink, Eye, EyeOff, Loader2, Milk, Plus, Trash2 } from 'lucide-react'
 import { HostSelector, showToast } from '../common'
-import { SaveButton, useBotConfig } from './BotConfigContext'
+import type { MilkyConfig as MilkySettings } from '../../types'
+import { SaveButton } from './BotConfigContext'
+import { useBuiltinConfig } from './useBuiltinConfig'
 
 const MilkyConfig: React.FC = () => {
-  const { config, setConfig, save, saving } = useBotConfig()
+  const { value: milky, setValue, save, saving, error } = useBuiltinConfig<MilkySettings>('builtin:milky')
   const [showMilkyToken, setShowMilkyToken] = useState(false)
   const [showMilkyWebhookToken, setShowMilkyWebhookToken] = useState(false)
+
+  if (error) return <p className="card p-6 text-sm text-red-500">加载 Milky 配置失败：{error}</p>
+  if (!milky) return <div className="flex justify-center py-16"><Loader2 size={40} className="animate-spin text-pink-500" /></div>
+  // The page edits `config.milky`; keep that shape and hand only the Milky section around
+  const config = { milky }
+  const setConfig = (next: { milky: MilkySettings }) => setValue(next.milky)
 
   return (
     <div className="card p-6">
@@ -292,7 +300,7 @@ const MilkyConfig: React.FC = () => {
               }
             }
             setConfig(cleanedConfig)
-            save({ milky: cleanedConfig.milky })
+            save(cleanedConfig.milky)
           }}
         />
       </div>
