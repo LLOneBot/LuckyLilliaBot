@@ -145,7 +145,10 @@ describe('builtin plugins', () => {
     }
 
     ctx.plugin(AccountService)
-    await vi.waitFor(() => expect(states()).toEqual(allIn('active')), { timeout: 4_000, interval: 50 })
+    // Email notification is bound to email_config.json: mounted, but shown off while that file says so
+    const running = { ...allIn('active'), 'builtin:email-notification': 'disposed' }
+    await vi.waitFor(() => expect(states()).toEqual(running), { timeout: 4_000, interval: 50 })
+    expect(ctx.get('emailNotification')).toBeDefined()
     for (const port of [ob11Port, satoriPort, milkyPort]) {
       await vi.waitFor(async () => expect(await listening(port), `port ${port}`).toBe(true))
     }

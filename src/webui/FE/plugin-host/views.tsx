@@ -51,7 +51,8 @@ export const PluginPage: React.FC<{ page: PageContribution }> = ({ page }) => {
   const { owner, component: Component } = page
   const plugin = usePluginList(state => state.plugins?.find(entry => entry.name === owner))
   // Pending is left alone: right after login the builtins are briefly waiting for their services
-  const notice = page.settings && plugin && (plugin.disabled
+  // A bound builtin's switch is on its own settings page, so "switched off" needs no notice there
+  const notice = page.settings && plugin && (plugin.disabled && !plugin.bound
     ? `「${pluginTitle(plugin)}」已在插件页停用，这里的设置要等它启用后才会生效`
     : plugin.state === 'failed' ? `「${pluginTitle(plugin)}」运行出错，这里的设置暂时不会生效：${plugin.error ?? '未知错误'}` : undefined)
   return (

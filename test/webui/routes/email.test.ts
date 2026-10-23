@@ -1,80 +1,68 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTestApp } from '../helpers/testApp'
 import { createMockContext } from '../helpers/mockContext'
 import { createEmailRoutes } from '@/webui/BE/routes/email'
 
-describe('email routes', () => {
-  let ctx: ReturnType<typeof createMockContext>
+const sent = vi.hoisted(() => ({ configs: [] as unknown[] }))
 
+vi.mock('@/common/emailService', () => ({
+  EmailService: class {
+    constructor(private manager: { getConfig(): unknown }) {}
+    async sendTestEmail() {
+      sent.configs.push(this.manager.getConfig())
+      return { success: true, messageId: 'test-id' }
+    }
+  },
+}))
+
+const stored = {
+  enabled: false,
+  smtp: { host: 'smtp.test.com', port: 465, secure: true, auth: { user: 'user@test.com', pass: 'real-pass' } },
+  from: 'bot@test.com',
+  to: 'me@test.com',
+}
+
+vi.mock('@/common/emailConfig', async importOriginal => ({
+  ...await importOriginal<object>(),
+  emailConfigStore: () => ({ get: () => structuredClone(stored) }),
+}))
+
+const post = (body: unknown) => {
+  const app = createTestApp(createEmailRoutes(createMockContext()))
+  return app.request('/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+}
+
+describe('email routes', () => {
   beforeEach(() => {
-    ctx = createMockContext()
+    sent.configs = []
   })
 
-  describe('when emailNotification is available', () => {
-    let mockEmailService: any
-
-    beforeEach(() => {
-      mockEmailService = {
-        getConfigManager: vi.fn(() => ({
-          getConfig: vi.fn(() => ({
-            smtp: { host: 'smtp.test.com', port: 465, secure: true, auth: { user: 'user@test.com', pass: 'real-pass' } },
-            enabled: true,
-          })),
-          validateConfig: vi.fn(() => ({ valid: true, errors: [] })),
-          saveConfig: vi.fn(() => Promise.resolve()),
-        })),
-        getEmailService: vi.fn(() => ({
-          constructor: class MockEmailService {
-            async sendTestEmail() { return { success: true, messageId: 'test-id' } }
-          },
-        })),
-      }
-      ctx.emailNotification = mockEmailService
-    })
-
-    it('GET /config returns masked password', async () => {
-      const app = createTestApp(createEmailRoutes(ctx))
-      const res = await app.request('/config')
+  it('tests with the stored password when the form sends it masked or blank', async () => {
+    for (const pass of ['********', '']) {
+      const res = await post({ config: { ...stored, smtp: { ...stored.smtp, auth: { user: 'user@test.com', pass } } } })
       expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body.success).toBe(true)
-      expect(body.data.smtp.auth.pass).toBe('********')
-    })
+    }
+    expect(sent.configs.map(config => (config as typeof stored).smtp.auth.pass)).toEqual(['real-pass', 'real-pass'])
+  })
 
-    it('POST /config preserves existing password when masked', async () => {
-      const configManager = mockEmailService.getConfigManager()
-      const app = createTestApp(createEmailRoutes(ctx))
+  it('uses a newly typed password, and the stored config when none is sent', async () => {
+    await post({ config: { ...stored, smtp: { ...stored.smtp, auth: { user: 'u', pass: 'typed' } } } })
+    await post({})
+    expect(sent.configs.map(config => (config as typeof stored).smtp.auth.pass)).toEqual(['typed', 'real-pass'])
+  })
 
-      const res = await app.request('/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          smtp: { host: 'smtp.test.com', port: 465, secure: true, auth: { user: 'user@test.com', pass: '********' } },
-          enabled: true,
-        }),
-      })
-      expect(res.status).toBe(200)
-    })
+  it('works before notifications are switched on', async () => {
+    const res = await post({ config: stored })
+    expect(res.status).toBe(200)
+    expect((sent.configs[0] as typeof stored).enabled).toBe(true)
+  })
 
-    it('POST /config returns 400 when validation fails', async () => {
-      mockEmailService.getConfigManager = vi.fn(() => ({
-        getConfig: vi.fn(() => ({ smtp: { auth: { pass: '' } } })),
-        validateConfig: vi.fn(() => ({ valid: false, errors: ['host is required'] })),
-        saveConfig: vi.fn(),
-      }))
-      const app = createTestApp(createEmailRoutes(ctx))
-
-      const res = await app.request('/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          smtp: { host: '', port: 0, secure: false, auth: { user: '', pass: '' } },
-          enabled: false,
-        }),
-      })
-      expect(res.status).toBe(400)
-      const body = await res.json()
-      expect(body.message).toContain('host is required')
-    })
+  it('refuses an unusable SMTP setup with the field errors, enabled or not', async () => {
+    const res = await post({ config: { ...stored, from: 'not-an-address', smtp: { ...stored.smtp, host: '' } } })
+    expect(res.status).toBe(400)
+    const body = await res.json()
+    expect(body.message).toContain('SMTP 服务器不能为空')
+    expect(body.message).toContain('发件人邮箱格式不正确')
+    expect(sent.configs).toEqual([])
   })
 })

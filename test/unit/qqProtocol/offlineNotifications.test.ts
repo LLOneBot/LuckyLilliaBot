@@ -7,9 +7,10 @@ import { MilkyAdapter } from '@/milky/adapter'
 
 vi.mock('@/common/emailConfig', () => ({
   EmailConfigManager: class {
-    loadConfig = vi.fn(async () => ({}))
     getConfig = vi.fn(() => ({ enabled: true }))
   },
+  // No file reads or writes: the handlers under test only look at the manager
+  emailConfigStore: () => ({ get: vi.fn(), ensure: vi.fn() }),
 }))
 
 vi.mock('@/common/emailService', () => ({
@@ -22,11 +23,6 @@ describe('session expiration notifications', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     selfInfo.online = true
-    // Exercise the real notification handlers without reading config, watching files, or sending mail.
-    vi.spyOn(
-      EmailNotificationService.prototype as unknown as { initializeConfig(): Promise<void> },
-      'initializeConfig',
-    ).mockResolvedValue(undefined)
   })
 
   afterEach(() => {

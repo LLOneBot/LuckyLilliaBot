@@ -1,78 +1,45 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { EmailConfig } from '../../types'
-import { apiFetch } from '../../utils/api'
-import { showToast } from '../common'
-import { usePluginList } from '../../plugin-host/pluginList'
 import EmailConfigSection from './EmailConfigSection'
 import { SaveButton } from './BotConfigContext'
+import { useBuiltinConfig } from './useBuiltinConfig'
 
-const DEFAULT_EMAIL_CONFIG: EmailConfig = {
-  enabled: false,
-  smtp: {
-    host: '',
-    port: 587,
-    secure: false,
-    auth: {
-      user: '',
-      pass: '',
-    },
-  },
-  from: '',
-  to: '',
-}
+const PASSWORD = 'smtp.auth.pass'
 
-/** The settings page of the email notification builtin; its config lives in email_config.json, apart from the bot config. */
+/**
+ * The settings page of the email notification builtin; its config lives in email_config.json. Works before
+ * login and with notifications switched off, so they can be set up first and enabled after.
+ */
 const EmailConfigPage: React.FC = () => {
-  const [config, setConfig] = useState<EmailConfig | null>(null)
-  const [saving, setSaving] = useState(false)
-  // /api/email only exists while the builtin runs, so read again once it does
-  const running = usePluginList(state => state.plugins?.find(plugin => plugin.name === 'builtin:email-notification')?.state === 'active')
+  const { value, setValue, save, saving, error } = useBuiltinConfig<EmailConfig>('builtin:email-notification')
+  const [clearPassword, setClearPassword] = useState(false)
 
-  const load = useCallback(async () => {
-    try {
-      const response = await apiFetch<EmailConfig>('/api/email/config')
-      setConfig(response.success && response.data ? response.data : DEFAULT_EMAIL_CONFIG)
-    } catch {
-      setConfig(previous => previous ?? DEFAULT_EMAIL_CONFIG)
-    }
-  }, [])
-
-  useEffect(() => {
-    load()
-  }, [load, running])
+  if (error) return <p className="card p-6 text-sm text-red-500">加载邮件配置失败：{error}</p>
+  if (!value) {
+    return <div className="flex justify-center py-16"><Loader2 size={40} className="animate-spin text-pink-500" /></div>
+  }
 
   const change = (next: EmailConfig) => {
     // 如果端口为空，使用默认值 587
-    setConfig({ ...next, smtp: { ...next.smtp, port: next.smtp.port || 587 } })
+    setValue({ ...next, smtp: { ...next.smtp, port: next.smtp.port || 587 } })
   }
 
-  const save = async () => {
-    if (!config) return
-    setSaving(true)
-    try {
-      const response = await apiFetch('/api/email/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config),
-      })
-      if (response.success) showToast('邮件配置保存成功', 'success')
-      else showToast(response.message || '保存失败', 'error')
-    } catch (e) {
-      showToast(e instanceof Error ? e.message : '保存失败', 'error')
-    } finally {
-      setSaving(false)
-    }
+  const onClearPassword = () => {
+    setClearPassword(true)
+    setValue({ ...value, smtp: { ...value.smtp, auth: { ...value.smtp.auth, pass: '' } } })
   }
 
-  if (!config) {
-    return <div className="flex justify-center py-16"><Loader2 size={40} className="animate-spin text-pink-500" /></div>
+  const onSave = async () => {
+    const saved = await save(value, { clear: clearPassword ? [PASSWORD] : [], message: '邮件配置保存成功' })
+    if (saved) setClearPassword(false)
   }
+
   return (
     <div className="space-y-6">
-      <EmailConfigSection value={config} onChange={change} />
+      <EmailConfigSection value={value} onChange={change} onClearPassword={onClearPassword} passwordCleared={clearPassword} />
       <div className="flex justify-end">
-        <SaveButton saving={saving} onClick={save} />
+        <SaveButton saving={saving} onClick={onSave} />
       </div>
     </div>
   )

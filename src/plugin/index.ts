@@ -1108,18 +1108,21 @@ function maskSecrets(value: unknown, secrets: string[] = []): unknown {
   return copy
 }
 
-/** A secret sent back masked or blank keeps the stored value; only an explicit `clear` empties it. */
+/**
+ * A secret sent back masked or blank keeps the stored value, unless `clear` asks to empty it. A new value
+ * always wins, so typing a password after pressing "clear" stores the typed one.
+ */
 function restoreSecrets(next: unknown, current: unknown, secrets: string[] = [], clear: string[] = []): unknown {
   if (!secrets.length) return next
   const copy = structuredClone(next)
   for (const dotted of secrets) {
     const { parent, leaf } = locate(copy, dotted)
     if (!parent) continue
+    if (parent[leaf] !== SECRET_MASK && parent[leaf] !== '' && parent[leaf] !== undefined) continue
     if (clear.includes(dotted)) {
       parent[leaf] = ''
       continue
     }
-    if (parent[leaf] !== SECRET_MASK && parent[leaf] !== '' && parent[leaf] !== undefined) continue
     const stored = locate(current, dotted)
     if (stored.parent && stored.parent[stored.leaf] !== undefined) parent[leaf] = stored.parent[stored.leaf]
   }

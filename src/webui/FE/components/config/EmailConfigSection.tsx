@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Mail, Server, Lock, Send, Loader, BookOpen } from 'lucide-react'
+import { Mail, Server, Lock, Send, Loader, BookOpen, Eraser } from 'lucide-react'
 import { testEmail } from '../../utils/emailApi'
 import { showToast } from '../common'
 import { EmailConfig } from '../../types'
@@ -7,10 +7,16 @@ import { EmailConfig } from '../../types'
 interface EmailConfigSectionProps {
   value: EmailConfig
   onChange: (config: EmailConfig) => void
+  /** The server only sends the password back masked; this asks it to forget the stored one. */
+  onClearPassword?: () => void
+  passwordCleared?: boolean
 }
 
+// What the server shows for a stored password
+const MASKED = '********'
+
 const EmailConfigSection: React.FC<EmailConfigSectionProps> = (props) => {
-  const { value, onChange } = props
+  const { value, onChange, onClearPassword, passwordCleared } = props
   const [testing, setTesting] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -205,15 +211,22 @@ const EmailConfigSection: React.FC<EmailConfigSectionProps> = (props) => {
               <Lock size={16} className='text-blue-600' />
               <span className='text-sm font-medium text-theme-secondary'>密码</span>
             </div>
-            <input
-              type='password'
-              value={value.smtp.auth.pass}
-              onChange={(e) => handleChange('smtp.auth.pass', e.target.value)}
-              className='input-field'
-              placeholder='应用专用密码'
-            />
+            <div className='flex items-center gap-2'>
+              <input
+                type='password'
+                value={value.smtp.auth.pass}
+                onChange={(e) => handleChange('smtp.auth.pass', e.target.value)}
+                className='input-field flex-1'
+                placeholder={passwordCleared ? '保存后清空已存的密码' : '应用专用密码'}
+              />
+              {onClearPassword && value.smtp.auth.pass === MASKED && (
+                <button type='button' onClick={onClearPassword} className='btn-glass text-sm flex items-center gap-1.5 flex-shrink-0'>
+                  <Eraser size={14} />清空
+                </button>
+              )}
+            </div>
             <p className='text-xs text-theme-muted mt-1'>
-              建议使用应用专用密码（Gmail、Outlook 等）
+              建议使用应用专用密码（Gmail、Outlook 等）。已保存的密码只显示为掩码，留空或不改都会保留原密码
             </p>
           </label>
 

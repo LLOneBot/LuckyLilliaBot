@@ -1,147 +1,48 @@
 import { Context } from 'cordis'
-import { EmailConfig } from '@/common/emailConfig'
 import { Hono } from 'hono'
+import { checkEmail, EmailConfig, EmailConfigManager, emailConfigStore } from '@/common/emailConfig'
+import { EmailService } from '@/common/emailService'
 
+const MASK = '********'
+
+// Reading and saving the settings goes through the plugin API (builtin:email-notification is bound to
+// email_config.json); only sending a test email needs a route of its own.
 export function createEmailRoutes(ctx: Context): Hono {
   const router = new Hono()
 
-  router.get('/config', async (c) => {
-    try {
-      const emailService = ctx.emailNotification
-
-      const config = emailService.getConfigManager().getConfig()
-
-      const maskedConfig = {
-        ...config,
-        smtp: {
-          ...config.smtp,
-          auth: {
-            ...config.smtp.auth,
-            pass: config.smtp.auth.pass ? '********' : '',
-          },
-        },
-      }
-
-      return c.json({
-        success: true,
-        data: maskedConfig,
-      })
-    } catch (error) {
-      ctx.logger?.error('[EmailAPI] Failed to get email config:', error)
-      return c.json({
-        success: false,
-        message: (error as Error).message || '获取邮件配置失败',
-      }, 500)
-    }
-  })
-
-  router.post('/config', async (c) => {
-    try {
-      const emailService = ctx.emailNotification
-
-      const emailConfig: EmailConfig = await c.req.json()
-
-      if (!emailConfig) {
-        return c.json({
-          success: false,
-          message: '邮件配置不能为空',
-        }, 400)
-      }
-
-      const configManager = emailService.getConfigManager()
-      const currentConfig = configManager.getConfig()
-
-      if (emailConfig.smtp.auth.pass === '********' || emailConfig.smtp.auth.pass === '') {
-        emailConfig.smtp.auth.pass = currentConfig.smtp.auth.pass
-      }
-
-      const validation = configManager.validateConfig(emailConfig)
-      if (!validation.valid) {
-        return c.json({
-          success: false,
-          message: `配置验证失败：${validation.errors.join(', ')}`,
-        }, 400)
-      }
-
-      await configManager.saveConfig(emailConfig)
-      ctx.parallel('llbot/email-config-updated', emailConfig)
-
-      return c.json({
-        success: true,
-        message: '邮件配置保存成功',
-      })
-    } catch (error) {
-      ctx.logger?.error('[EmailAPI] Failed to save email config:', error)
-      return c.json({
-        success: false,
-        message: (error as Error).message || '保存邮件配置失败',
-      }, 500)
-    }
-  })
-
   router.post('/test', async (c) => {
     try {
-      const emailService = ctx.emailNotification
-
-      const { config: testConfig } = await c.req.json() as { config?: EmailConfig }
-
-      let emailConfig: EmailConfig
-      if (testConfig) {
-        emailConfig = testConfig
-        const currentConfig = emailService.getConfigManager().getConfig()
-        if (emailConfig.smtp.auth.pass === '********' || emailConfig.smtp.auth.pass === '') {
-          emailConfig.smtp.auth.pass = currentConfig.smtp.auth.pass
-        }
-      } else {
-        emailConfig = emailService.getConfigManager().getConfig()
+      const { config: sent } = await c.req.json().catch(() => ({})) as { config?: EmailConfig }
+      const stored = emailConfigStore().get()
+      const config = structuredClone(sent ?? stored)
+      // The form holds the masked password; test with the real one unless a new one was typed
+      if (config.smtp?.auth && (config.smtp.auth.pass === MASK || !config.smtp.auth.pass)) {
+        config.smtp.auth.pass = stored.smtp.auth.pass
       }
-
-      const configManager = emailService.getConfigManager()
-      const validation = configManager.validateConfig(emailConfig)
-      if (!validation.valid) {
-        return c.json({
-          success: false,
-          message: validation.errors.join(', '),
-        }, 400)
+      const issues = checkEmail(config, true)
+      if (issues.length) {
+        return c.json({ success: false, message: issues.map(issue => issue.message).join(', ') }, 400)
       }
-
-      const tempConfigManager = new (configManager.constructor as any)('', ctx.logger)
-      tempConfigManager['config'] = emailConfig
-      const tempEmailService = new (emailService.getEmailService().constructor as any)(
-        tempConfigManager,
-        ctx.logger
-      )
-
-      const result = await tempEmailService.sendTestEmail()
-
+      // A test should work before notifications are switched on
+      const service = new EmailService(new EmailConfigManager(() => ({ ...config, enabled: true })), ctx.logger)
+      const result = await service.sendTestEmail()
       if (result.success) {
-        return c.json({
-          success: true,
-          message: '测试邮件发送成功',
-          messageId: result.messageId,
-        })
-      } else {
-        return c.json({
-          success: false,
-          message: result.error || '测试邮件发送失败',
-        }, 400)
+        return c.json({ success: true, message: '测试邮件发送成功', messageId: result.messageId })
       }
+      return c.json({ success: false, message: result.error || '测试邮件发送失败' }, 400)
     } catch (error) {
-      ctx.logger?.error('[EmailAPI] Failed to send test email:', error)
-      return c.json({
-        success: false,
-        message: (error as Error).message || '测试邮件发送失败',
-      }, 500)
+      ctx.logger.error('[EmailAPI] Failed to send test email:', error)
+      return c.json({ success: false, message: (error as Error).message || '测试邮件发送失败' }, 500)
     }
   })
 
   return router
 }
 
-/** Mounted while the email notification builtin runs; without it /api/email answers 404. */
+/** Only needs the WebUI: a test email can be sent before login and with notifications switched off. */
 export const EmailRoutes = {
   name: 'webui-email-routes',
-  inject: ['webuiServer', 'emailNotification'],
+  inject: ['webuiServer'],
   apply(ctx: Context) {
     ctx.webuiServer.route('/api/email', new Hono().route('/api/email', createEmailRoutes(ctx)))
   },

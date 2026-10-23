@@ -124,10 +124,22 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - `reload` 对内置条目是重启（dispose + 重新挂载，没有模块可重新 import），会读到最新配置
 - **停用要真能停下来**：改造前适配器从不在运行时卸载，OneBot / Satori / Milky 的 `[Service.init]` 都返回 `noop`，停用后端口不释放，再启用就 `EADDRINUSE`。现在它们返回关服务器的 disposer（cordis 卸载时会 await）。Satori 的 `/v1/internal/onebot11/:action` 原来缓存了一份按 OB11 实例构造的 action 表，OB11 重启后会指向已卸载的实例，改成每次从当前的 `ctx.get('onebot').actionMap` 取
 - 前端：插件页分"内置 / 已安装"两区，内置卡片有"内置 / 核心"徽章，core 的开关置灰。内置插件的界面和第三方插件走同一套 `ctx.page()`（见下文"插件前端"），只是随 WebUI 打包：适配器和邮件通知注册的是**设置页**（插件启用就在侧边栏，停用后从侧边栏消失，但卡片上的"前往设置"仍能打开），WebQQ 注册的是**功能页**（插件运行时才出现）。卡片上的"前往设置"跳到该插件注册的设置页，第三方插件也一样
-- 内置设置页编辑的仍是原来的配置文件：适配器的在 `config_<uin>.json`，由 `App` 加载，经 `BotConfigContext`（`components/config/BotConfigContext.tsx`）交给这些页面。`save(sections)` 只提交本页的片段（OneBot `{ ob11 }`、Satori `{ satori }`……），`POST /api/config` 用 `ConfigService.patch()` 深合并进去 —— 整份提交会把别处刚改的片段冲回本页加载时的旧值。适配器只在自己的片段变了时重建连接（深比较），别的页保存不会踢掉客户端；邮件通知页自己读写 `/api/email/config`（`email_config.json`），并在 `builtin:email-notification` 变成运行状态时重读一次 —— 停用时 `/api/email` 不存在。原来"其他配置"里的邮件区块已经拆出去，"其他配置"只剩全局设置
+- 内置设置页编辑的仍是原来的配置文件：适配器的在 `config_<uin>.json`，由 `App` 加载，经 `BotConfigContext`（`components/config/BotConfigContext.tsx`）交给这些页面。`save(sections)` 只提交本页的片段（OneBot `{ ob11 }`、Satori `{ satori }`……），`POST /api/config` 用 `ConfigService.patch()` 深合并进去 —— 整份提交会把别处刚改的片段冲回本页加载时的旧值。适配器只在自己的片段变了时重建连接（深比较），别的页保存不会踢掉客户端。邮件通知已接入"内置插件的配置绑定"（见下一节），页面用 `useBuiltinConfig()` 经 `/api/plugins/:id/schema` 和 `PUT /:id/config` 读写 `email_config.json`，登录前、通知关着时都能配；`/api/email` 只剩 `POST /test`。原来"其他配置"里的邮件区块已经拆出去，"其他配置"只剩全局设置
 - **WebQQ 插件**（`builtin:webqq`）：路由、上传目录、`/api/webqq/events` 的 SSE 连接，以及往 SSE 推消息的 4 个 `nt/*` 监听（`routes/webqq/events.ts`）都在插件里，`inject` 列出路由代码直接访问的全部服务，登录后才挂载。停用时主动 `abort()` 还开着的 SSE 连接，否则页面会一直挂在一条没人写的流上。路由文件留在 `src/webui/BE/routes/webqq/` 没搬目录
 - 插件只需要 `inject` 自己**直接**访问的服务：经 `ctx.xxx` 调到别的服务的方法时，cordis 按那个服务自己的 fiber 做严格检查（`createShadow` 的 `defSite` 是服务本身的 ctx），调用方 ctx 只决定方法里注册的副作用挂在谁身上。但像 `Core.sendMessage(ctx, ...)` 这种把 ctx 当参数传进去的，参数 ctx 访问的服务要算在调用方头上
 - `pending` 的条目缺 `account` 时，前端只显示"等待 QQ 登录"：登录后才有的服务（`app` / `store` / `database` ...）都是它的结果，列出来没有意义
+
+### 内置插件的配置绑定（`BuiltinConfigBinding`）
+
+内置插件的设置不进 `plugins.json`，而是留在原来的文件里（适配器在 `config_<uin>.json` 各自的片段，邮件在 `email_config.json`）：桌面端、docker/nix 模板、手改都还认这些文件。`BuiltinPlugin.config` 声明一个绑定，让它们照样拿到插件页那套 schema 校验、rev/409 和表单：
+
+- `schema`（默认值必须和文件原来的默认值一致，单测锁住）、固定的 `scope` 和 `location`（只给表单显示）、`read(ctx)` / `write(ctx, value)`、schema 表达不了的 `check`（比如"监听全部地址必须有 token"）、`normalize`、`enabled`（开关在值里）、`secrets`、`watch`（外部改了文件时让卡片刷新）
+- `describe` / `updateConfig` 对有绑定的内置条目分流到绑定，不再 403；没绑定的（WebQQ、core）照旧 403。值只有一层：没有账号覆盖层（覆盖层里这些条目的项被忽略、下次写时清掉）、`describe` 带 `fixedScope: true`，表单不显示作用域切换
+- **开关合并**：卡片开关改的是值里的开关（`satori.enable`、邮件的 `enabled`），和桌面端"一键对接"改的是同一个字段。插件本身始终挂载（像 core 一样忽略条目上的 `disabled`，启动时从文件里删掉），`status.disabled` 由开关推导，关着且 fiber 在跑时状态报 `disposed`；`status.bound` 标出这类条目，侧边栏照样列它们的设置页（总开关就在那页上），页面顶部也不提示"已停用"
+- 打开开关和保存表单走同一套校验：schema + `check`，不能借卡片开关绕过"公开监听要 token"
+- `read()` 返回 undefined 表示还没有可绑定的文件（适配器在登录前、没带 `-q`），`describe` / 写 / 开关都回 `PluginUnavailableError`（503），而不是写一个 `ConfigService` 会静默丢掉的值
+- 写入按 PUT 语义：收完整值，缺的键按 schema 默认补。值以用户发来的为准写回（schema 只校验、不改写），所以文件里 schema 不认识的键（桌面端写的、旧版本留下的）照样保留
+- **secret**：`describe` 把非空的 secret 换成 `SECRET_MASK`；写回时发来掩码或空串就保留原值，`PUT` 带 `clear: [路径]` 才清空，而发来的是新值时以新值为准（先点"清空"再输入新密码，存的是新密码）。只有邮件密码用到：适配器的 token 页面本来就显示，不打码。绑定值的 rev 加了进程内随机盐，因为值里可能有密码
 
 ## 状态
 
@@ -155,7 +167,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 **运行时路由表**：`WebuiServer.route(prefix, handler)` 让插件在 WebUI 下挂 HTTP 接口，返回的 disposer 挂在调用方的 `ctx.effect` 上，插件卸载时自动摘除。Hono 本身不能注销路由，所以 `initServer()` 在所有内置路由之后、静态文件之前挂了一个 `/api/*` 分发中间件，按前缀查一张可变的表 —— 内置路由先注册，永远优先命中；鉴权中间件在更前面，挂上来的路由自动受保护。`handler` 只要有 `fetch(request, env)`，收到的是完整 URL（Hono 子应用用 `basePath(prefix)` 或 `route(prefix, ...)`），请求体原样转发，multipart 也没问题。
 
-**WebUI 的路由都按依赖挂载**：原来 `server.ts` 用 `lazyServiceContext` 代理绕过严格 inject，登录前就把所有路由挂上、调用时服务不在就报错或回 503。现在代理已删除：`WebuiServer` 自己只 inject 登录前就绪的 `qqProtocol` / `ntLoginApi` / `config`，也只带登录前要用的 config / auth-token / login / logs 路由；其余都是插件，`inject` 齐了才经路由表挂上 —— `DashboardRoutes`（`routes/dashboard.ts`，登录前就可用，`/dashboard/stats` 在 `app` 起来之前照旧回 503）、`EmailRoutes`（`routes/email.ts`，随邮件通知内置插件存在）、WebQQ（`builtin:webqq`）、`PluginRoutes`。没有路由命中的 `/api/*`（包括插件停用或还没起来）统一回 JSON 404 `{ success: false, message }`，前端能直接显示。
+**WebUI 的路由都按依赖挂载**：原来 `server.ts` 用 `lazyServiceContext` 代理绕过严格 inject，登录前就把所有路由挂上、调用时服务不在就报错或回 503。现在代理已删除：`WebuiServer` 自己只 inject 登录前就绪的 `qqProtocol` / `ntLoginApi` / `config`，也只带登录前要用的 config / auth-token / login / logs 路由；其余都是插件，`inject` 齐了才经路由表挂上 —— `DashboardRoutes`（`routes/dashboard.ts`，登录前就可用，`/dashboard/stats` 在 `app` 起来之前照旧回 503）、`EmailRoutes`（`routes/email.ts`，只有发测试邮件的 `/test`，只依赖 `webuiServer`）、WebQQ（`builtin:webqq`）、`PluginRoutes`。没有路由命中的 `/api/*`（包括插件停用或还没起来）统一回 JSON 404 `{ success: false, message }`，前端能直接显示。
 
 **`/api/plugins`**（`src/webui/BE/routes/plugins.ts`）本身就是经路由表挂上的插件 `PluginRoutes`（`inject: ['webuiServer', 'plugins']`）：
 

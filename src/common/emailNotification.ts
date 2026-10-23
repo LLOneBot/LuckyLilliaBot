@@ -1,10 +1,7 @@
 import { Context, Service } from 'cordis'
 import { EmailService, BotInfo } from './emailService.js'
-import { EmailConfigManager } from './emailConfig.js'
+import { EmailConfigManager, emailConfigStore } from './emailConfig.js'
 import { selfInfo } from '@/common/globalVars.js'
-import { DATA_DIR } from '@/common/globalVars.js'
-import { watch } from 'node:fs'
-import path from 'node:path'
 
 declare module 'cordis' {
   interface Context {
@@ -19,19 +16,22 @@ export class EmailNotificationService extends Service {
   private configManager: EmailConfigManager
   private notificationSent: boolean = false
   private hasLoggedIn: boolean = false
-  private configPath: string
-  private fileWatcher: ReturnType<typeof watch> | null = null
   private disconnectId: string | null = null
   private checkLoginStatus: NodeJS.Timeout | null = null
 
   constructor(ctx: Context) {
     super(ctx, 'emailNotification')
 
-    this.configPath = path.join(DATA_DIR, 'email_config.json')
-    this.configManager = new EmailConfigManager(this.configPath, ctx.logger)
+    // Read through the store on every send: the WebUI and the desktop app both edit email_config.json
+    const store = emailConfigStore(message => ctx.logger.error('[EmailNotification] invalid config, keeping the last good one:', message))
+    this.configManager = new EmailConfigManager(() => store.get())
     this.emailService = new EmailService(this.configManager, ctx.logger)
 
-    this.initializeConfig()
+    try {
+      store.ensure()
+    } catch (error) {
+      this.ctx.logger.error('[EmailNotification] Failed to create the default config:', error)
+    }
     this.registerEventListeners()
     this.registerDisconnectCallback()
   }
@@ -41,21 +41,9 @@ export class EmailNotificationService extends Service {
       if (this.checkLoginStatus) {
         clearInterval(this.checkLoginStatus)
       }
-      if (this.fileWatcher) {
-        this.fileWatcher.close()
-      }
       if (this.disconnectId) {
         this.ctx.qqProtocol.offDisconnect(this.disconnectId)
       }
-    }
-  }
-
-  private async initializeConfig() {
-    try {
-      await this.configManager.loadConfig()
-      this.watchConfigFile()
-    } catch (error) {
-      this.ctx.logger.error('[EmailNotification] Failed to initialize:', error)
     }
   }
 
@@ -80,19 +68,6 @@ export class EmailNotificationService extends Service {
         wasOffline = false
       }
     }, 5000)
-  }
-
-  private watchConfigFile() {
-    try {
-      this.fileWatcher = watch(this.configPath, async (eventType) => {
-        if (eventType === 'change') {
-          await this.configManager.loadConfig()
-          this.ctx.parallel('llbot/email-config-updated', this.configManager.getConfig())
-        }
-      })
-    } catch (error) {
-      this.ctx.logger.error('[EmailNotification] Failed to watch config file:', error)
-    }
   }
 
   private registerDisconnectCallback() {
