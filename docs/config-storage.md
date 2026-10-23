@@ -2,7 +2,7 @@
 
 > 把 bot 配置、账号状态、插件配置的存放理清成"实例级 / 账号级"两层,并给插件配置和插件数据定一套统一标准。核心判断:**插件系统还没发布,现在定插件配置格式不用迁移任何用户文件;发布后再改就要迁移用户数据 + 兼容已发布插件。这是唯一的零成本窗口。**
 >
-> 本文是设计,尚未实施。基线 `feat/plugin-system @ c8236196`。相关:[core-pluginization.md](core-pluginization.md)(协议层/account 解耦)、[official-qq-bot.md](official-qq-bot.md)。
+> §5(插件配置两层)、§6 的目录布局、§8(JsonFile)已实施,见 §9.5 的 Cut 0/1/2;§7(内置插件接入)与 §9 第 6 步(bot 自有配置搬迁)仍是设计。基线 `feat/plugin-system @ c8236196`。相关:[core-pluginization.md](core-pluginization.md)(协议层/account 解耦)、[official-qq-bot.md](official-qq-bot.md)。
 
 ## 1. 为什么
 
@@ -163,6 +163,23 @@ declare module 'cordis' { interface Context { storage: PluginStorage } }
 复用 Cut 0 的 `JsonFile`:删白名单 `cleanupConfig`、`defaultConfig.ts` 补 `logLevel`、新增 `patch()`(剥 env 锁定字段再写)、`POST /api/config` 与 OneBot `set_config` 改用 patch、`LLBOT_*` env 层、三处 `resolve('data')` 归 `DATA_DIR`。动的是 live 的 `config_<uin>.json`(双向兼容),回归面独立。
 
 顺序:**Cut 0 → Cut 1(C1.1→C1.5)**,Cut 2 任意时机并行。
+
+### 实施记录(已完成)
+
+| commit | 阶段 | 落地内容 |
+|---|---|---|
+| `deb27ac9` | C0.1+C0.2 | `src/common/jsonFile.ts`:JSON5 读 / JSON 写、tmp+rename+Windows 回退、坏文件保留原地返 last-good、`update()` 跨进程锁(pid+host,只偷同 host 死进程)、`wasSelfWrite`/`isSelfWriteOnDisk` 内容哈希;`PluginStore` 迁过去。顺带堵掉"坏文件被 reconcile-save 覆盖"(init 的 save 加 `&& !error`)。后续为 ConfigService 补了 `readSync`/`writeSync`/`rawSync`(`get()` 是同步 API) |
+| `28c1fcd7` | C1.1 | schema 模型与 diff 移到 `src/common/schema/{model,diff}.ts`,**改成 schema 感知**:只有 `object`(及对象 intersect)逐 key 递归,dict/array/union/标量整体替换(修 dict 被误逐 key 合并);node 为 null 时保留值驱动递归给 JSON 兜底编辑器。前端经新增 `@shared` 别名(vite + FE tsconfig + 根 vitest)re-export |
+| `038a90bc` | C1.2 | `GLOBAL_PLUGINS_FILE` = `data/config/global/plugins.json`、`accountPluginsFile(uin)`;启动时自动把旧 `data/plugins.json` 迁进去 |
+| `bb2b70ed` | C1.3 | 服务端拥有 diff:`updateConfig` 先把入参补成生效值(**兼容收完整值或已剥默认值的差异**)、校验合并后的生效值、再只存差异;`describe` 返回 `effective` |
+| `f4450175` | C1.4 | `account/prepare(uin)` 事件(在 `reflect.notify(['account'])` 前);PluginService 监听后加载覆盖层并重算;`disabled(e,u)`;**无覆盖时交给 cordis 的仍是全局层差异,单账号路径零变化**;写入按生效值来源的层路由;坏覆盖只告警不阻断;覆盖文件自清理已删 id |
+| `2a1afbd8` | C1.5 | `describe` 加 `global/account/scope/rev/uin/accounts`;`PUT` 收 `{config,scope,ifRev}`,rev 不一致返 **409**(在条目锁内比对);前端改发完整值、作用域页签(仅"账号≥2 或本账号已有覆盖"时出现)、409 重新载入 |
+| `f2156409` | Cut 2a | ConfigService 走 JsonFile;**删掉白名单 `cleanupConfig`**(它按 `defaultConfig.ts` 重建配置,把只存在于 `default_config.json` 的 `logLevel` 永久吃掉);`logLevel` 补进 TS 默认值 + 单测锁两份默认值一致;坏 JSON 保留 last-good 不再广播 default、不覆盖文件;自写识别改内容哈希(旧 `skipNextWatch` 会吞掉紧随其后的外部编辑) |
+| `18013fd8` | Cut 2b | `patch()`(对象逐 key、数组/标量整体替换)——**`set_config` 原来是整份覆盖,OB11 客户端只传一个字段就会清掉其余配置**;`POST /api/config` 与 `set_config` 都改用它;`LLBOT_WEBUI_HOST/PORT`、`LLBOT_LOG_LEVEL` 进内存不落盘(写盘前还原磁盘原值,避免同一次保存把 env 值固化)、`envLockedPaths()` 供 WebUI 置只读;`packetDump` 的 `resolve('data')` 归 `DATA_DIR` |
+
+**实测遗留**:`default_config.json` 与 `defaultConfig.ts` 的 `musicSignUrl` 本来就不一致(JSON 是旧的 `llob.linyuchen.net`,而 `migrateConfig` 又会把含 `linyuchen` 的值改写成 TS 里的 `ss.xingzhige.com`)。未动它,单测里列为已知例外。
+
+**没做(仍属设计)**:§7 内置插件(OB11/Satori/Milky/邮件)接入同一套 schema 表单、`/api/login-info` 回传生效值与 env 只读标注(§9 第 1b 步)、§6 的 `ctx.storage` 插件数据目录、§9 第 6 步把 `config_<uin>.json` / `email_config.json` 搬进 `data/config/`。
 
 ## 10. Owner 决策(含建议默认)
 
