@@ -205,7 +205,9 @@ describe('builtin plugins', () => {
       expect(await ctx.plugins.disable(id(name))).toMatchObject({ state: 'disposed', disabled: true })
       await vi.waitFor(async () => expect(await listening(port), name).toBe(false))
     }
-    expect(ctx.get('onebot')).toBeUndefined()
+    // Bound to config_<uin>.json: switching off writes `enable: false`, the adapter stops listening and stays mounted
+    expect(ctx.get('onebot') !== undefined).toBe(true)
+    expect(config.ob11.enable).toBe(false)
 
     // Same ports again: anything left bound would fail these with EADDRINUSE
     for (const [name, port] of Object.entries(adapters)) {

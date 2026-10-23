@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { EmailConfig } from '../../types'
 import EmailConfigSection from './EmailConfigSection'
-import { SaveButton } from './BotConfigContext'
+import { SaveButton } from './SaveButton'
 import { useBuiltinConfig } from './useBuiltinConfig'
 
 const PASSWORD = 'smtp.auth.pass'

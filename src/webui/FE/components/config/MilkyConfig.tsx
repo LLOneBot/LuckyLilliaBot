@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { ExternalLink, Eye, EyeOff, Loader2, Milk, Plus, Trash2 } from 'lucide-react'
 import { HostSelector, showToast } from '../common'
 import type { MilkyConfig as MilkySettings } from '../../types'
-import { SaveButton } from './BotConfigContext'
+import { SaveButton } from './SaveButton'
 import { useBuiltinConfig } from './useBuiltinConfig'
 
 const MilkyConfig: React.FC = () => {

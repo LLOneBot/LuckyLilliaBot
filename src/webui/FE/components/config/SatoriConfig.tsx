@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Cpu, ExternalLink, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { HostSelector, showToast } from '../common'
 import type { SatoriConfig as SatoriSettings } from '../../types'
-import { SaveButton } from './BotConfigContext'
+import { SaveButton } from './SaveButton'
 import { useBuiltinConfig } from './useBuiltinConfig'
 
 const SatoriConfig: React.FC = () => {

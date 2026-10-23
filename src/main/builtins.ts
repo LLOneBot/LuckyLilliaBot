@@ -10,6 +10,7 @@ import { WebQQ } from '../webui/BE/routes/webqq'
 import { emailBinding } from './builtinConfig/email'
 import { satoriBinding } from './builtinConfig/satori'
 import { milkyBinding } from './builtinConfig/milky'
+import { ob11Binding } from './builtinConfig/onebot'
 
 /**
  * Mounts an adapter with its part of config_<uin>.json, which only exists once the account is known.
@@ -30,6 +31,7 @@ export const builtinPlugins: BuiltinPlugin[] = [
   {
     name: 'builtin:onebot11',
     title: 'OneBot 11',
+    config: ob11Binding,
     plugin: withBotConfig('builtin:onebot11', OneBot11Adapter, config => ({
       ...config.ob11,
       musicSignUrl: config.musicSignUrl,

@@ -16,7 +16,6 @@ import {
 import { WebQQFullscreen } from './components/WebQQ';
 import { PluginsPage } from './components/plugins';
 import { iconByName } from './components/plugins/meta';
-import { BotConfigContext } from './components/config/BotConfigContext';
 import { BUILTIN_PAGE_IDS, PluginPage, PluginPageUnavailable, usePluginHost, useVisiblePages } from './plugin-host';
 import { Config, ResConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
@@ -215,11 +214,6 @@ function App() {
     }
   }, []);
 
-  // The adapters' settings pages are plugin pages, rendered away from this component's state
-  const botConfig = useMemo(
-    () => ({ config, setConfig, save: handleSave, saving: loading }),
-    [config, handleSave, loading],
-  );
 
   // 登录成功回调
   const handleLoginSuccess = useCallback(() => {
@@ -301,7 +295,6 @@ function App() {
 
   // 已登录，显示主页面
   return (
-    <BotConfigContext.Provider value={botConfig}>
     <div className="flex min-h-screen">
       {/* Animated Background */}
       <AnimatedBackground />
@@ -550,7 +543,6 @@ function App() {
         }}
       />
     </div>
-    </BotConfigContext.Provider>
   );
 }
 

@@ -5,6 +5,8 @@ import { deepMerge } from '@/common/utils/misc'
 import { defaultConfig } from '@/main/config/defaultConfig'
 import { SatoriSchema, satoriBinding } from '@/main/builtinConfig/satori'
 import { MilkySchema, milkyBinding } from '@/main/builtinConfig/milky'
+import { OB11Schema, ob11Binding } from '@/main/builtinConfig/onebot'
+import defaultConfigFile from '@/main/config/default_config.json'
 
 async function fakeConfig(accountFile: string | undefined) {
   let config = structuredClone(defaultConfig) as LLBotConfig
@@ -93,5 +95,40 @@ describe('Milky settings binding', () => {
     await milkyBinding.write(ctx, valid({ enable: true, reportSelfMessage: true }))
     expect(current().milky).toMatchObject({ enable: true, reportSelfMessage: true })
     expect(current().satori).toEqual(defaultConfig.satori)
+  })
+})
+
+describe('OneBot 11 settings binding', () => {
+  const validate = (value: unknown) => (OB11Schema['~standard'].validate(value) as { issues?: unknown[] }).issues ?? []
+  const ws = { type: 'ws', enable: true, host: '127.0.0.1', port: 3001, heartInterval: 60000, token: '', reportSelfMessage: false, reportOfflineMessage: false, messageFormat: 'array', debug: false }
+
+  it('has schema defaults equal to defaultConfig.ts', () => {
+    expect(new OB11Schema()).toEqual(defaultConfig.ob11)
+  })
+
+  it('accepts the rows default_config.json writes into a new account file', () => {
+    expect(validate(defaultConfigFile.ob11)).toEqual([])
+  })
+
+  it('accepts the shape the desktop app writes: every field on every row, null name and filter', () => {
+    const reverse = { ...ws, type: 'ws-reverse', url: 'ws://127.0.0.1:8080', name: null, filter: null }
+    expect(validate({ enable: true, connect: [reverse] })).toEqual([])
+  })
+
+  it('accepts an old migrated ws row without a host', () => {
+    const { host: _host, ...legacy } = ws
+    expect(validate({ enable: true, connect: [legacy] })).toEqual([])
+  })
+
+  it('refuses an unknown connection type and an out-of-range port', () => {
+    expect(validate({ enable: true, connect: [{ ...ws, type: 'tcp' }] }).length).toBeGreaterThan(0)
+    expect(validate({ enable: true, connect: [{ ...ws, port: 70000 }] }).length).toBeGreaterThan(0)
+  })
+
+  it('points the token rule at the offending row', () => {
+    const value = { enable: true, connect: [ws, { ...ws, host: '' }] }
+    expect(ob11Binding.check!(value as never)).toEqual([
+      { path: ['connect', '1', 'token'], message: 'OneBot11 WebSocket 适配器监听全部地址时必须设置 Token' },
+    ])
   })
 })
