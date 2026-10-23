@@ -42,6 +42,18 @@ describe('plugin UI registry', () => {
     expect(slotContents(contributions, active, 'elsewhere')).toEqual([])
   })
 
+  it('keeps the settings page of a switched-off bound builtin in the sidebar: its switch is on that page', () => {
+    const contributions: Contribution[] = [
+      page('builtin:satori', 'satori', 'Satori', 11, true),
+      page('third-party', 'third-party:settings', 'Third', 100, true),
+    ]
+    const plugins = [
+      { ...status('builtin:satori', 'disposed'), bound: true },
+      status('third-party', 'disposed'),
+    ]
+    expect(visiblePages(contributions, plugins).map(p => p.key)).toEqual(['satori'])
+  })
+
   it('takes the latest config editor of a plugin and the latest renderer of a role', () => {
     const first = () => null
     const second = () => null

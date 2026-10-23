@@ -40,12 +40,12 @@ export const getPluginDependencies = (id: string) => request<DependencyReport>(`
 export async function savePluginConfig(
   id: string,
   config: unknown,
-  options: { scope?: ConfigScope; ifRev?: string } = {},
+  options: { scope?: ConfigScope; ifRev?: string; clear?: string[] } = {},
 ): Promise<PluginStatus> {
   try {
     return await request<PluginStatus>(`/${id}/config`, {
       method: 'PUT',
-      body: JSON.stringify({ config, scope: options.scope, ifRev: options.ifRev }),
+      body: JSON.stringify({ config, scope: options.scope, ifRev: options.ifRev, clear: options.clear }),
     })
   } catch (e) {
     if (e instanceof ApiError && e.status === 409) throw new ConfigConflictError(e.message)

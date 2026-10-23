@@ -3,7 +3,10 @@ import path from 'node:path'
 import { Context, Fiber, Service } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
-import PluginService, { BuiltinPlugin, PluginForbiddenError, PluginStatus } from '@/plugin'
+import Schema from 'schemastery'
+import PluginService, {
+  BuiltinConfigBinding, BuiltinPlugin, PluginForbiddenError, PluginRevConflictError, PluginStatus, PluginUnavailableError, SECRET_MASK,
+} from '@/plugin'
 
 declare global {
   var __pluginTest: string[]
@@ -319,6 +322,157 @@ describe('PluginService builtins', () => {
     ])
     await expect(plugins.disable('aaaa0002')).rejects.toBeInstanceOf(PluginForbiddenError)
     expect(adapterEvents()).toEqual([])
+  })
+})
+
+interface Listener {
+  enable: boolean
+  host: string
+  port: number
+  token: string
+}
+
+const ListenerSchema = Schema.object({
+  enable: Schema.boolean().default(false),
+  host: Schema.string().default('127.0.0.1'),
+  port: Schema.natural().max(65535).default(5600),
+  token: Schema.string().default(''),
+})
+
+// A stand-in for an adapter's section of config_<uin>.json
+let stored: Listener | undefined
+let watchers: (() => void)[]
+
+const binding: BuiltinConfigBinding<Listener> = {
+  schema: ListenerSchema,
+  scope: 'account',
+  location: 'memory → listener',
+  read: () => stored && structuredClone(stored),
+  async write(_ctx, value) {
+    stored = structuredClone(value)
+    globalThis.__pluginTest.push(`write:${value.enable}:${value.port}:${value.token}`)
+  },
+  check: value => value.enable && !value.host && !value.token
+    ? [{ path: ['token'], message: 'a public listener needs a token' }]
+    : [],
+  enabled: { get: value => value.enable, set: (value, on) => ({ ...value, enable: on }) },
+  secrets: ['token'],
+  watch(_ctx, changed) {
+    watchers.push(changed)
+    return () => {}
+  },
+}
+
+const boundBuiltins: BuiltinPlugin[] = [{
+  name: 'builtin:listener',
+  title: 'Listener',
+  manifest: {},
+  config: binding,
+  plugin: {
+    apply(builtinCtx: Context) {
+      globalThis.__pluginTest.push('listener:up')
+      builtinCtx.effect(() => () => globalThis.__pluginTest.push('listener:down'))
+    },
+  },
+}]
+
+const listenerEvents = () => globalThis.__pluginTest.filter(event => event.startsWith('listener:'))
+const writes = () => globalThis.__pluginTest.filter(event => event.startsWith('write:'))
+
+describe('PluginService builtins bound to their own config', () => {
+  beforeEach(() => {
+    stored = { enable: false, host: '127.0.0.1', port: 5600, token: 'secret' }
+    watchers = []
+  })
+
+  it('describes the bound value with the schema, masking secrets', async () => {
+    const plugins = await boot(boundBuiltins)
+    await expect.poll(() => byName('builtin:listener').state).toBe('disposed')
+    expect(byName('builtin:listener')).toMatchObject({ bound: true, hasConfig: true, disabled: true })
+    // switched off but still mounted
+    expect(listenerEvents()).toEqual(['listener:up'])
+
+    const description = await plugins.describe(byName('builtin:listener').id)
+    expect(description).toMatchObject({
+      defaults: { enable: false, host: '127.0.0.1', port: 5600, token: '' },
+      effective: { enable: false, host: '127.0.0.1', port: 5600, token: SECRET_MASK },
+      scope: 'account',
+      fixedScope: true,
+      location: 'memory → listener',
+      secrets: ['token'],
+      accounts: [],
+    })
+  })
+
+  it('writes through the binding, keeping a secret sent back masked or blank', async () => {
+    const plugins = await boot(boundBuiltins)
+    const { id } = byName('builtin:listener')
+
+    await plugins.updateConfig(id, { enable: false, host: '127.0.0.1', port: 6000, token: SECRET_MASK })
+    expect(stored).toEqual({ enable: false, host: '127.0.0.1', port: 6000, token: 'secret' })
+    await plugins.updateConfig(id, { enable: false, host: '127.0.0.1', port: 6001, token: '' })
+    expect(stored!.token).toBe('secret')
+    await plugins.updateConfig(id, { enable: false, host: '127.0.0.1', port: 6002 }, undefined, undefined, ['token'])
+    expect(stored!.token).toBe('')
+    // a write does not remount the plugin: it picks the value up itself
+    expect(listenerEvents()).toEqual(['listener:up'])
+  })
+
+  it('refuses what the schema or the cross-field check rejects, a stale rev and another scope', async () => {
+    const plugins = await boot(boundBuiltins)
+    const { id } = byName('builtin:listener')
+    const before = structuredClone(stored)
+
+    await expect(plugins.updateConfig(id, { enable: false, host: '', port: 70000, token: '' }))
+      .rejects.toMatchObject({ issues: [{ path: ['port'] }] })
+    await expect(plugins.updateConfig(id, { enable: true, host: '', port: 5600, token: '' }, undefined, undefined, ['token']))
+      .rejects.toMatchObject({ issues: [{ path: ['token'], message: 'a public listener needs a token' }] })
+    const { rev } = await plugins.describe(id)
+    stored!.port = 5601 // changed elsewhere, e.g. by the desktop app
+    await expect(plugins.updateConfig(id, { ...before, port: 7000 }, undefined, rev)).rejects.toBeInstanceOf(PluginRevConflictError)
+    await expect(plugins.updateConfig(id, before, 'global')).rejects.toBeInstanceOf(PluginForbiddenError)
+    expect(writes()).toEqual([])
+  })
+
+  it('turns the switch inside the value instead of unmounting the plugin', async () => {
+    const plugins = await boot(boundBuiltins)
+    const { id } = byName('builtin:listener')
+    await expect.poll(() => listenerEvents()).toEqual(['listener:up'])
+
+    expect(await plugins.enable(id)).toMatchObject({ disabled: false, state: 'active' })
+    expect(stored!.enable).toBe(true)
+    expect(await plugins.disable(id)).toMatchObject({ disabled: true, state: 'disposed' })
+    expect(stored!.enable).toBe(false)
+    expect(listenerEvents()).toEqual(['listener:up'])
+
+    // switching on runs the same checks as a save from the form
+    stored = { enable: false, host: '', port: 5600, token: '' }
+    await expect(plugins.enable(id)).rejects.toMatchObject({ issues: [{ path: ['token'] }] })
+    expect(stored.enable).toBe(false)
+  })
+
+  it('answers 503-style while there is nothing to bind to yet', async () => {
+    stored = undefined
+    const plugins = await boot(boundBuiltins)
+    const { id } = byName('builtin:listener')
+    expect(byName('builtin:listener').disabled).toBe(false)
+    await expect(plugins.describe(id)).rejects.toBeInstanceOf(PluginUnavailableError)
+    await expect(plugins.updateConfig(id, {})).rejects.toBeInstanceOf(PluginUnavailableError)
+    await expect(plugins.enable(id)).rejects.toBeInstanceOf(PluginUnavailableError)
+  })
+
+  it('ignores and drops a disabled flag left on the entry, and refreshes when the value changes elsewhere', async () => {
+    writeFileSync(file, JSON.stringify({ version: 1, entries: [{ id: 'bbbb0001', name: 'builtin:listener', disabled: true }] }))
+    await boot(boundBuiltins)
+    await expect.poll(() => listenerEvents()).toEqual(['listener:up'])
+    expect(JSON.parse(readFileSync(file, 'utf8')).entries[0]).toEqual({ id: 'bbbb0001', name: 'builtin:listener' })
+
+    const changed: (string | undefined)[] = []
+    ctx.on('plugins/changed', id => changed.push(id))
+    stored!.enable = true
+    watchers.forEach(notify => notify())
+    expect(changed).toEqual(['bbbb0001'])
+    expect(byName('builtin:listener')).toMatchObject({ disabled: false, state: 'active' })
   })
 })
 

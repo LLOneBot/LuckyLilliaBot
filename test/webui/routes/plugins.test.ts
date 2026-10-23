@@ -1,6 +1,6 @@
 import { Context } from 'cordis'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { PluginConfigError, PluginForbiddenError, PluginNotFoundError } from '@/plugin'
+import { PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, PluginUnavailableError } from '@/plugin'
 import { createPluginRoutes } from '@/webui/BE/routes/plugins'
 import { createTestApp } from '../helpers/testApp'
 
@@ -51,7 +51,12 @@ describe('plugin routes', () => {
     await app.request('/api/plugins', { method: 'POST', body: JSON.stringify({ name: 'pkg-x', config: { n: 1 } }) })
     expect(plugins.add).toHaveBeenCalledWith('pkg-x', { n: 1 })
     await app.request('/api/plugins/a/config', { method: 'PUT', body: JSON.stringify({ config: { n: 2 } }) })
-    expect(plugins.updateConfig).toHaveBeenCalledWith('a', { n: 2 }, undefined, undefined)
+    expect(plugins.updateConfig).toHaveBeenCalledWith('a', { n: 2 }, undefined, undefined, undefined)
+    await app.request('/api/plugins/a/config', {
+      method: 'PUT',
+      body: JSON.stringify({ config: { n: 3 }, scope: 'account', ifRev: 'r1', clear: ['smtp.auth.pass'] }),
+    })
+    expect(plugins.updateConfig).toHaveBeenLastCalledWith('a', { n: 3 }, 'account', 'r1', ['smtp.auth.pass'])
   })
 
   it('answers 400 with the issues when the schema rejects a config', async () => {
@@ -79,5 +84,18 @@ describe('plugin routes', () => {
     })
     plugins.reload.mockRejectedValueOnce(new Error('reload failed: SyntaxError'))
     expect((await app.request('/api/plugins/a/reload', { method: 'POST' })).status).toBe(500)
+  })
+
+  it('answers 409 for a stale rev and 503 while a builtin has nothing to bind to yet', async () => {
+    plugins.updateConfig.mockRejectedValueOnce(new PluginRevConflictError('abc123'))
+    expect(await json(await app.request('/api/plugins/a/config', { method: 'PUT', body: JSON.stringify({ config: {} }) }))).toEqual({
+      status: 409,
+      body: { success: false, message: 'the config changed since it was loaded', data: { rev: 'abc123' } },
+    })
+    plugins.describe.mockRejectedValueOnce(new PluginUnavailableError('登录 QQ 之后才能修改'))
+    expect(await json(await app.request('/api/plugins/a/schema'))).toEqual({
+      status: 503,
+      body: { success: false, message: '登录 QQ 之后才能修改' },
+    })
   })
 })

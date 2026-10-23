@@ -73,8 +73,9 @@ export function visiblePages(
   purpose: 'sidebar' | 'open' = 'sidebar',
 ): PageContribution[] {
   const active = activeOwners(plugins)
-  // Until the list loads, settings pages are taken as enabled: they almost always are, and would flicker otherwise
-  const enabled = plugins && new Set(plugins.filter(plugin => !plugin.disabled).map(plugin => plugin.name))
+  // Until the list loads, settings pages are taken as enabled: they almost always are, and would flicker otherwise.
+  // A bound builtin (OneBot, Satori, ...) keeps its page listed while switched off: its switch is on that page
+  const enabled = plugins && new Set(plugins.filter(plugin => !plugin.disabled || plugin.bound).map(plugin => plugin.name))
   return contributions
     .filter((c): c is PageContribution => c.kind === 'page' && (c.settings
       ? purpose === 'open' || !enabled || enabled.has(c.owner)

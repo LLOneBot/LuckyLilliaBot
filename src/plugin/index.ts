@@ -1,10 +1,11 @@
-import { createHash } from 'node:crypto'
+import { createHash, randomBytes } from 'node:crypto'
 import { realpath } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { Context, Fiber, FiberState, Inject, Plugin, Service, resolveConfig, symbols } from 'cordis'
 import type { LLBotManifest } from '@luckylillia/plugin-sdk'
+import type Schema from 'schemastery'
 import { hydrate, SchemaNode } from '@/common/schema/model'
 import { stripDefaults, withDefaults } from '@/common/schema/diff'
 import {
@@ -48,6 +49,11 @@ export interface PluginStatus {
   builtin?: boolean
   /** A builtin the rest of the bot relies on, so it cannot be disabled. */
   core?: boolean
+  /**
+   * A builtin whose settings, on/off switch included, live in the bot's own files (BuiltinConfigBinding):
+   * always mounted, and `disabled` mirrors that switch.
+   */
+  bound?: boolean
   /** Display name of a builtin. */
   title?: string
   /** Declared in the manifest, plus what the module injects and provides once it has been loaded. */
@@ -80,6 +86,40 @@ export interface BuiltinPlugin {
   title: string
   manifest: LLBotManifest
   core?: boolean
+  /** Settings kept in the bot's own files rather than plugins.json; see BuiltinConfigBinding. */
+  config?: BuiltinConfigBinding
+}
+
+/** What describe() shows for a stored secret; writing it back (or an empty string) keeps the stored one. */
+export const SECRET_MASK = '********'
+
+/**
+ * Puts a builtin's settings behind the same schema, validation and form as a plugin's, while they stay where
+ * they always were (an adapter's section of config_<uin>.json, email_config.json) so the desktop app, docker
+ * templates and hand edits keep working. There is no per-account overlay: the value lives in one fixed layer.
+ *
+ * Such a builtin is always mounted. Its on/off switch is a flag inside the value (`satori.enable`, ...),
+ * which the entry toggle drives -- the same flag the desktop app flips.
+ */
+export interface BuiltinConfigBinding<T = any> {
+  schema: Schema<T>
+  /** The layer the value lives in, for the form. */
+  scope: ConfigScope
+  /** Where the value is stored, for the form, e.g. `config_<uin>.json → satori`. */
+  location: string
+  /** The stored value; undefined while there is nothing to bind to yet (an adapter before login). */
+  read(ctx: Context): T | undefined
+  /** Stores the value and lets the running plugin pick it up. */
+  write(ctx: Context, value: T): Promise<void>
+  /** Rules the schema cannot express, e.g. a public listener needs a token. */
+  check?(value: T): ConfigIssue[]
+  /** Clean-up before validation, e.g. dropping blank list items the form leaves behind. */
+  normalize?(value: T): T
+  enabled: { get(value: T): boolean; set(value: T, on: boolean): T }
+  /** Dotted paths of secrets: masked by describe(), kept on a write that sends the mask or nothing. */
+  secrets?: string[]
+  /** Calls back when the value changed elsewhere (desktop app, hand edit) so the plugin card can refresh. */
+  watch?(ctx: Context, changed: () => void): () => void
 }
 
 export type ReloadResult = { status: 'reloaded' } | { status: 'restart-required'; reason: string }
@@ -106,12 +146,21 @@ export interface PluginDescription {
   uin: string
   /** Accounts that have a config directory, for deciding whether to offer the per-account scope. */
   accounts: string[]
+  /** A builtin's settings live in one fixed layer: there is no scope to choose. */
+  fixedScope?: boolean
+  /** Where a builtin's settings are stored. */
+  location?: string
+  /** Dotted paths of fields that come back masked. */
+  secrets?: string[]
 }
 
 export class PluginNotFoundError extends Error {}
 
 /** The action does not apply to this entry, e.g. disabling a core builtin. */
 export class PluginForbiddenError extends Error {}
+
+/** Nothing to read or write yet, e.g. an adapter's settings before login. */
+export class PluginUnavailableError extends Error {}
 
 /** The config changed since the client read it, so the write would clobber someone else's edit. */
 export class PluginRevConflictError extends Error {
@@ -229,6 +278,10 @@ class PluginService extends Service {
         },
       })
     }
+    for (const rt of this.runtimes.values()) {
+      const watch = this.bindingOf(rt)?.watch
+      if (watch) disposers.push(watch(this.home, () => this.changed(rt.entry.id)))
+    }
     disposers.push(this.ctx.on('account/prepare', (uin) => {
       this.applyAccount(uin).catch(e => this.ctx.logger.error(e))
     }))
@@ -277,6 +330,8 @@ class PluginService extends Service {
 
   async enable(id: string): Promise<PluginStatus> {
     const rt = this.runtime(id)
+    const binding = this.bindingOf(rt)
+    if (binding) return this.toggleBound(rt, binding, true)
     return this.lock(rt.entry.name, async () => {
       if (this.isDisabled(rt)) await this.setDisabled(rt, false)
       await this.start(rt)
@@ -289,6 +344,8 @@ class PluginService extends Service {
     if (this.builtins.get(rt.entry.name)?.core) {
       throw new PluginForbiddenError(`${rt.entry.name} is part of the bot core and cannot be disabled`)
     }
+    const binding = this.bindingOf(rt)
+    if (binding) return this.toggleBound(rt, binding, false)
     return this.lock(rt.entry.name, async () => {
       await this.setDisabled(rt, true)
       await this.stop(rt)
@@ -296,9 +353,14 @@ class PluginService extends Service {
     })
   }
 
-  /** Throws PluginConfigError, without touching the running instance, when the config is rejected. */
-  async updateConfig(id: string, config: unknown, scope?: ConfigScope, ifRev?: string): Promise<PluginStatus> {
+  /**
+   * Throws PluginConfigError, without touching the running instance, when the config is rejected.
+   * `clear` lists secret paths to empty: a write that sends a secret masked or blank keeps the stored one.
+   */
+  async updateConfig(id: string, config: unknown, scope?: ConfigScope, ifRev?: string, clear: string[] = []): Promise<PluginStatus> {
     const rt = this.runtime(id)
+    const binding = this.bindingOf(rt)
+    if (binding) return this.updateBound(rt, binding, config, scope, ifRev, clear)
     this.assertConfigurable(rt)
     return this.lock(rt.entry.name, async () => {
       // Inside the lock, so two concurrent writers cannot both pass the check
@@ -306,7 +368,7 @@ class PluginService extends Service {
       if (ifRev !== undefined && ifRev !== rev) throw new PluginRevConflictError(rev)
       const mod = await this.load(this.package(rt))
       if (!mod.plugin) throw new Error(mod.error)
-      const { node, defaults } = this.configModel(mod.plugin)
+      const { node, defaults } = this.configModel(mod.plugin.Config)
       const target = this.writeScope(rt, scope)
       // The server owns the diff: fill the payload to its effective value (so it takes a full config or an
       // already-diffed one), validate that merged value (a lone layer would trip `required`), then store
@@ -315,7 +377,7 @@ class PluginService extends Service {
       const base = target === 'account' ? withDefaults(node, rt.entry.config ?? null, defaults) : defaults
       const effective = withDefaults(node, config, base)
       // fiber.update() only validates a loaded fiber; check up front so pending ones behave the same
-      validateConfig(mod.plugin, effective)
+      validateConfig(mod.plugin.Config, effective)
       const diff = stripDefaults(node, effective, base)
       if (target === 'account') {
         const override = this.overlay.get(rt.entry.id) ?? {}
@@ -327,7 +389,7 @@ class PluginService extends Service {
       } else {
         rt.entry.config = diff
         await this.save()
-        this.warnOnRejectedOverride(rt, mod.plugin, node, defaults)
+        this.warnOnRejectedOverride(rt, mod.plugin.Config, node, defaults)
       }
       const fiber = rt.fiber
       if (fiber) {
@@ -367,12 +429,12 @@ class PluginService extends Service {
    * An account override that the new global layer turns invalid only gets a warning: blocking the save
    * would let one account's bad override freeze the config page of another (which has no UI to fix it).
    */
-  private warnOnRejectedOverride(rt: Runtime, plugin: Plugin, node: SchemaNode | null, defaults: unknown) {
+  private warnOnRejectedOverride(rt: Runtime, Config: unknown, node: SchemaNode | null, defaults: unknown) {
     const override = this.overlay.get(rt.entry.id)?.config
     if (override === undefined) return
     const base = withDefaults(node, rt.entry.config ?? null, defaults)
     try {
-      validateConfig(plugin, withDefaults(node, override, base))
+      validateConfig(Config, withDefaults(node, override, base))
     } catch (e) {
       this.ctx.logger.warn(`${this.accountUin} overrides ${rt.entry.name} with a config the new global layer rejects: ${errorText(e)}`)
     }
@@ -437,10 +499,12 @@ class PluginService extends Service {
   /** Imports the module if it has not been loaded yet, so it also works for disabled entries. */
   async describe(id: string): Promise<PluginDescription> {
     const rt = this.runtime(id)
+    const binding = this.bindingOf(rt)
+    if (binding) return this.describeBound(rt, binding)
     this.assertConfigurable(rt)
     return this.lock(rt.entry.name, async () => {
       const mod = await this.load(this.package(rt))
-      const { schema, node, defaults } = this.configModel(mod.plugin)
+      const { schema, node, defaults } = this.configModel(mod.plugin?.Config)
       const global = rt.entry.config ?? null
       const account = this.overlay.get(rt.entry.id)?.config ?? null
       const base = withDefaults(node, global, defaults)
@@ -459,16 +523,15 @@ class PluginService extends Service {
     })
   }
 
-  /** Resolve a loaded plugin's Config into the pieces the two-layer merge and the WebUI form need. */
-  private configModel(plugin: Plugin | undefined): { schema: unknown; node: SchemaNode | null; defaults: unknown } {
-    const Config = (plugin as { Config?: { toJSON?: unknown } } | undefined)?.Config
+  /** Resolve a plugin's Config schema into the pieces the two-layer merge and the WebUI form need. */
+  private configModel(Config: unknown): { schema: unknown; node: SchemaNode | null; defaults: unknown } {
     let defaults: unknown = {}
     try {
       defaults = resolveConfig({ Config } as Plugin.Runtime, undefined) ?? {}
     } catch {
       // required fields without defaults
     }
-    const schema = typeof Config?.toJSON === 'function' ? JSON.parse(JSON.stringify(Config)) : null
+    const schema = typeof (Config as { toJSON?: unknown } | undefined)?.toJSON === 'function' ? JSON.parse(JSON.stringify(Config)) : null
     return { schema, node: schema ? hydrate(schema as { uid: number; refs: Record<string, unknown> }) : null, defaults }
   }
 
@@ -488,7 +551,8 @@ class PluginService extends Service {
     // Nothing overridden is the common case: leave every running fiber untouched.
     if (!this.overlay.size) return
     for (const rt of [...this.runtimes.values()]) {
-      if (!this.overlay.has(rt.entry.id)) continue
+      // A bound builtin's settings never come from plugins.json, so an override for it means nothing
+      if (!this.overlay.has(rt.entry.id) || this.bindingOf(rt)) continue
       await this.lock(rt.entry.name, () => this.reapply(rt)).catch(e => this.ctx.logger.error(e))
     }
   }
@@ -509,7 +573,9 @@ class PluginService extends Service {
 
   /** disabled(e,u) = this account's override, else the global flag. Core builtins always run. */
   private isDisabled(rt: Runtime): boolean {
-    if (this.builtins.get(rt.entry.name)?.core) return false
+    const builtin = this.builtins.get(rt.entry.name)
+    // A bound builtin keeps running; its switch lives inside its settings (see status())
+    if (builtin?.core || builtin?.config) return false
     return this.overlay.get(rt.entry.id)?.disabled ?? !!rt.entry.disabled
   }
 
@@ -521,7 +587,7 @@ class PluginService extends Service {
   private entryConfig(rt: Runtime, plugin: Plugin): unknown {
     const override = this.overlay.get(rt.entry.id)?.config
     if (override === undefined) return rt.entry.config
-    const { node, defaults } = this.configModel(plugin)
+    const { node, defaults } = this.configModel(plugin.Config)
     return withDefaults(node, override, withDefaults(node, rt.entry.config ?? null, defaults))
   }
 
@@ -535,7 +601,8 @@ class PluginService extends Service {
     if (!this.overlayStore) return Promise.resolve()
     const entries: Record<string, PluginOverride> = {}
     for (const [id, override] of this.overlay) {
-      if (!this.runtimes.has(id)) continue
+      const rt = this.runtimes.get(id)
+      if (!rt || this.bindingOf(rt)) continue
       const clean: PluginOverride = {}
       if (override.config !== undefined) clean.config = override.config
       if (override.disabled !== undefined) clean.disabled = override.disabled
@@ -575,6 +642,82 @@ class PluginService extends Service {
     }
   }
 
+  private bindingOf(rt: Runtime): BuiltinConfigBinding | undefined {
+    return this.builtins.get(rt.entry.name)?.config
+  }
+
+  private readBound(rt: Runtime, binding: BuiltinConfigBinding): unknown {
+    const value = binding.read(this.home)
+    if (value === undefined) {
+      const title = this.builtins.get(rt.entry.name)?.title ?? rt.entry.name
+      throw new PluginUnavailableError(`${title} 的设置存放在 ${binding.location}，登录 QQ 之后才能修改`)
+    }
+    return value
+  }
+
+  private async describeBound(rt: Runtime, binding: BuiltinConfigBinding): Promise<PluginDescription> {
+    const value = this.readBound(rt, binding)
+    const { schema, node, defaults } = this.configModel(binding.schema)
+    const effective = maskSecrets(withDefaults(node, value, defaults), binding.secrets)
+    return {
+      schema,
+      defaults,
+      config: effective,
+      global: effective,
+      account: null,
+      effective,
+      scope: binding.scope,
+      rev: boundRev(value),
+      uin: this.accountUin,
+      accounts: [],
+      fixedScope: true,
+      location: binding.location,
+      secrets: binding.secrets ?? [],
+    }
+  }
+
+  private updateBound(
+    rt: Runtime, binding: BuiltinConfigBinding, config: unknown, scope: ConfigScope | undefined, ifRev: string | undefined, clear: string[],
+  ): Promise<PluginStatus> {
+    return this.lock(rt.entry.name, async () => {
+      const current = this.readBound(rt, binding)
+      const rev = boundRev(current)
+      if (ifRev !== undefined && ifRev !== rev) throw new PluginRevConflictError(rev)
+      if (scope && scope !== binding.scope) {
+        throw new PluginForbiddenError(`${rt.entry.name} keeps its settings in ${binding.location} only`)
+      }
+      const { node, defaults } = this.configModel(binding.schema)
+      // A full value is expected, as for a plugin's global layer; missing keys take the defaults
+      const next = restoreSecrets(withDefaults(node, config, defaults), current, binding.secrets, clear)
+      await binding.write(this.home, this.checkBound(binding, next))
+      this.changed(rt.entry.id)
+      return this.status(rt)
+    })
+  }
+
+  /** The entry toggle flips the switch inside the value: the plugin itself stays mounted. */
+  private toggleBound(rt: Runtime, binding: BuiltinConfigBinding, on: boolean): Promise<PluginStatus> {
+    return this.lock(rt.entry.name, async () => {
+      const current = this.readBound(rt, binding)
+      if (binding.enabled.get(current) !== on) {
+        const next = binding.enabled.set(current, on)
+        // Switching on must not start what the form would refuse, e.g. a public listener without a token
+        await binding.write(this.home, on ? this.checkBound(binding, next) : next)
+      }
+      if (!rt.fiber) await this.start(rt)
+      this.changed(rt.entry.id)
+      return this.status(rt)
+    })
+  }
+
+  private checkBound(binding: BuiltinConfigBinding, value: unknown): unknown {
+    const normalized = binding.normalize ? binding.normalize(value) : value
+    validateConfig(binding.schema, normalized)
+    const issues = binding.check?.(normalized) ?? []
+    if (issues.length) throw new PluginConfigError(issues)
+    return normalized
+  }
+
   /** One entry per builtin, enabled when first created; core builtins always run. Returns whether entries changed. */
   private reconcileBuiltins(): boolean {
     let changed = false
@@ -592,7 +735,8 @@ class PluginService extends Service {
         changed = true
         continue
       }
-      if (builtin.core && first.entry.disabled) {
+      // Ignored for these, so do not leave a stale flag in the file
+      if ((builtin.core || builtin.config) && first.entry.disabled) {
         delete first.entry.disabled
         changed = true
       }
@@ -771,12 +915,18 @@ class PluginService extends Service {
       state: 'disposed',
       missingDeps: [],
       reloadCount: rt.reloadCount,
-      hasConfig: builtin ? false : mod?.plugin ? !!mod.plugin.Config : undefined,
+      hasConfig: builtin ? !!builtin.config : mod?.plugin ? !!mod.plugin.Config : undefined,
       service: this.serviceOf(rt),
       webui: pkg?.webui && webuiUrl(pkg, this.webuiVersions.get(pkg.name) ?? 0),
     }
     if (builtin) {
       Object.assign(status, { builtin: true, core: !!builtin.core, title: builtin.title })
+      if (builtin.config) {
+        status.bound = true
+        // Unknown before login (nothing to read yet): show it as on rather than guess
+        const value = builtin.config.read(this.home)
+        status.disabled = value !== undefined && !builtin.config.enabled.get(value)
+      }
     } else {
       if (!pkg) return { ...status, state: 'missing' }
       const incompatible = this.incompatibility(pkg)
@@ -790,6 +940,8 @@ class PluginService extends Service {
     }
     status.state = FIBER_STATES[fiber.state]
     if (status.state === 'pending') status.missingDeps = this.missingDeps(fiber)
+    // Switched off, a bound builtin is mounted but idle: show it the way a disabled plugin looks
+    else if (status.bound && status.disabled && status.state === 'active') status.state = 'disposed'
     return status
   }
 
@@ -917,8 +1069,8 @@ namespace PluginService {
   }
 }
 
-function validateConfig(plugin: Plugin, config: unknown) {
-  const schema = plugin.Config?.['~standard']
+function validateConfig(Config: unknown, config: unknown) {
+  const schema = (Config as Plugin['Config'] | undefined)?.['~standard']
   if (!schema) return
   const result = schema.validate(config)
   if ('then' in result) throw new TypeError('async config validation is not supported')
@@ -927,6 +1079,51 @@ function validateConfig(plugin: Plugin, config: unknown) {
     message: issue.message,
     path: (issue.path ?? []).map(segment => String(typeof segment === 'object' ? segment.key : segment)),
   })))
+}
+
+// A bound value can hold a secret (the SMTP password): salted, so a rev cannot be brute-forced offline
+const REV_SALT = randomBytes(16)
+
+function boundRev(value: unknown): string {
+  return createHash('sha1').update(REV_SALT).update(JSON.stringify(value)).digest('hex').slice(0, 12)
+}
+
+function locate(root: unknown, dotted: string): { parent?: Record<string, unknown>; leaf: string } {
+  const keys = dotted.split('.')
+  let node = root
+  for (const key of keys.slice(0, -1)) {
+    if (!node || typeof node !== 'object') return { leaf: '' }
+    node = (node as Record<string, unknown>)[key]
+  }
+  return { parent: node && typeof node === 'object' ? node as Record<string, unknown> : undefined, leaf: keys[keys.length - 1] }
+}
+
+function maskSecrets(value: unknown, secrets: string[] = []): unknown {
+  if (!secrets.length) return value
+  const copy = structuredClone(value)
+  for (const dotted of secrets) {
+    const { parent, leaf } = locate(copy, dotted)
+    if (parent && typeof parent[leaf] === 'string' && parent[leaf]) parent[leaf] = SECRET_MASK
+  }
+  return copy
+}
+
+/** A secret sent back masked or blank keeps the stored value; only an explicit `clear` empties it. */
+function restoreSecrets(next: unknown, current: unknown, secrets: string[] = [], clear: string[] = []): unknown {
+  if (!secrets.length) return next
+  const copy = structuredClone(next)
+  for (const dotted of secrets) {
+    const { parent, leaf } = locate(copy, dotted)
+    if (!parent) continue
+    if (clear.includes(dotted)) {
+      parent[leaf] = ''
+      continue
+    }
+    if (parent[leaf] !== SECRET_MASK && parent[leaf] !== '' && parent[leaf] !== undefined) continue
+    const stored = locate(current, dotted)
+    if (stored.parent && stored.parent[stored.leaf] !== undefined) parent[leaf] = stored.parent[stored.leaf]
+  }
+  return copy
 }
 
 // npm names allow at most one slash and never a plus, which keeps the key a single path segment

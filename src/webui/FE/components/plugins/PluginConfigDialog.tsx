@@ -76,7 +76,7 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
   const ready = !loading && clientReady
 
   // Only worth offering once a second account exists, or this one already has its own override
-  const scopable = !!description?.uin && (description.accounts.length >= 2 || description.account !== null)
+  const scopable = !!description?.uin && !description.fixedScope && (description.accounts.length >= 2 || description.account !== null)
 
   const switchScope = (next: ConfigScope) => {
     if (!description || next === scope) return
