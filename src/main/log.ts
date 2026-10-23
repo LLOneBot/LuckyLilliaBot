@@ -6,6 +6,7 @@ import { noop, Time } from 'cosmokit'
 import { Exporter, Message } from 'cordis'
 import { inspect } from 'node:util'
 import { isDebugEnabled } from '@/common/logger'
+import { logFilename, pruneOldLogs } from './logFiles'
 
 declare module 'cordis' {
   interface Events {
@@ -23,10 +24,6 @@ export interface LogRecord {
 // 日志切片配置
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const MAX_ENTRIES = 10000
-
-function generateLogFilename(): string {
-  return `llbot-${new Date().toLocaleString('zh-CN')}.log`.replace(/\//g, '-').replace(/:/g, '-')
-}
 
 // 日志缓存
 const LOG_CACHE_SIZE = 800
@@ -60,9 +57,10 @@ export default class Log implements Exporter {
 
   constructor(public ctx: Context) {
     this.exportFile = true
-    this.currentFile = path.join(LOG_DIR, generateLogFilename())
+    this.currentFile = path.join(LOG_DIR, logFilename())
     this.currentEntries = 0
     this.currentSize = 0
+    pruneOldLogs(LOG_DIR).catch(noop)
     this.colors = false
     this.showTime = 'yyyy-MM-dd hh:mm:ss '
     // 2 = WARN (含 error/info/warn), 3 = DEBUG. --debug 时抬到 DEBUG 让底层详情落盘;
@@ -146,8 +144,9 @@ export default class Log implements Exporter {
   }
 
   rotate() {
-    this.currentFile = path.join(LOG_DIR, generateLogFilename())
+    this.currentFile = path.join(LOG_DIR, logFilename())
     this.currentEntries = 0
     this.currentSize = 0
+    pruneOldLogs(LOG_DIR).catch(noop)
   }
 }
