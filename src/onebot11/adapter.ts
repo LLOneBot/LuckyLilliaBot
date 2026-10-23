@@ -32,11 +32,11 @@ import { GroupBanEvent } from './event/notice/OB11GroupBanEvent'
 import { OB11GroupTitleEvent } from './event/notice/OB11GroupTitleEvent'
 import { OB11FriendAddNoticeEvent } from './event/notice/OB11FriendAddNoticeEvent'
 import { OB11GroupCardEvent } from './event/notice/OB11GroupCardEvent'
-import { noop } from 'cosmokit'
 import { encodeGroupRequestFlag } from './utils'
 import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNoticeEvent'
 import { OB11FriendRecallNoticeEvent } from './event/notice/OB11FriendRecallNoticeEvent'
 import { OB11GroupIncreaseEvent } from './event/notice/OB11GroupIncreaseEvent'
+import { isDeepStrictEqual } from 'node:util'
 
 declare module 'cordis' {
   interface Context {
@@ -55,9 +55,14 @@ class Onebot11Adapter extends Service {
   readonly actionMap: Map<string, BaseAction<unknown, unknown>>
   private reportOfflineMessage: boolean
   private reportSelfMessage: boolean
+  // What the running connections were built from. Everything else in the config is read at call time and
+  // applied by assignment, so saving an unrelated setting no longer drops every client
+  private connectionConfig: Pick<OB11Config, 'enable' | 'connect'>
+  private reconfiguring: Promise<void> = Promise.resolve()
 
   constructor(public ctx: Context, public config: Onebot11Adapter.Config) {
     super(ctx, 'onebot')
+    this.connectionConfig = structuredClone({ enable: config.enable, connect: config.connect })
     this.actionMap = initActionMap(this)
     this.reportOfflineMessage = false
     this.reportSelfMessage = false
@@ -95,6 +100,8 @@ class Onebot11Adapter extends Service {
     this.start()
     // The plugin page stops adapters at runtime, so release the ports the connections hold
     return async () => {
+      // A rebuild still in flight would start connections after this stop
+      await this.reconfiguring
       for (const item of this.connect) {
         if (item.config.enable) await item.stop()
       }
@@ -150,16 +157,34 @@ class Onebot11Adapter extends Service {
     }).catch(e => this.ctx.logger.error('handling incoming group events', e))
   }
 
-  private async handleConfigUpdated(config: LLOBConfig) {
+  private handleConfigUpdated(config: LLOBConfig) {
+    Object.assign(this.config, {
+      msgCacheExpire: config.msgCacheExpire,
+      musicSignUrl: config.musicSignUrl,
+      enableLocalFile2Url: config.enableLocalFile2Url,
+      ffmpeg: config.ffmpeg,
+    })
+    // Deep comparison: a reload from the file watcher hands over a whole new object tree
+    const next = { enable: config.ob11.enable, connect: config.ob11.connect }
+    if (isDeepStrictEqual(next, this.connectionConfig)) return
+    // Taken before the first await, so a second quick save compares against this one
+    this.connectionConfig = structuredClone(next)
+    // Serialized: two saves in a row must not interleave their stop() and start() on the same ports
+    this.reconfiguring = this.reconfiguring
+      .then(() => this.rebuildConnections(config.ob11))
+      .catch(e => this.ctx.logger.error('applying the OneBot 11 config', e))
+  }
+
+  private async rebuildConnections(ob11: OB11Config) {
     for (const item of this.connect) {
       if (item.config.enable) {
         await item.stop()
       }
     }
-    if (config.ob11.enable) {
+    if (ob11.enable) {
       this.reportOfflineMessage = false
       this.reportSelfMessage = false
-      this.connect = config.ob11.connect.map(item => {
+      this.connect = ob11.connect.map(item => {
         if (item.reportOfflineMessage) {
           this.reportOfflineMessage = true
         }
@@ -193,13 +218,7 @@ class Onebot11Adapter extends Service {
         }
       }
     }
-    Object.assign(this.config, {
-      ...config.ob11,
-      msgCacheExpire: config.msgCacheExpire,
-      musicSignUrl: config.musicSignUrl,
-      enableLocalFile2Url: config.enableLocalFile2Url,
-      ffmpeg: config.ffmpeg,
-    })
+    Object.assign(this.config, ob11)
   }
 
   public start() {
@@ -210,9 +229,7 @@ class Onebot11Adapter extends Service {
         }
       }
     }
-    this.ctx.on('llob/config-updated', input => {
-      this.handleConfigUpdated(input).catch(noop)
-    })
+    this.ctx.on('llob/config-updated', input => this.handleConfigUpdated(input))
 
     this.ctx.on('nt/message-created', (data) => {
       // 自己发送的消息不会进这里，而是走 nt/message-sent

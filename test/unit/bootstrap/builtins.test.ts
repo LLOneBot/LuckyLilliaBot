@@ -8,6 +8,7 @@ import Database from '@cordisjs/plugin-database'
 import SQLiteDriver from '@cordisjs/plugin-database-sqlite'
 import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, describe, expect, it, vi } from 'vitest'
+import { WebSocket } from 'ws'
 import { Config as LLBotConfig } from '@/common/types'
 import { DATA_DIR } from '@/common/globalVars'
 import { defaultConfig } from '@/main/config/defaultConfig'
@@ -158,6 +159,36 @@ describe('builtin plugins', () => {
     })
     expect(ctx.get('satori')!.config).toEqual({ ...config.satori, ffmpeg: config.ffmpeg })
     expect(ctx.get('milky')!.config).toBe(config.milky)
+
+    // A save that leaves an adapter's own section alone must not touch its connections. structuredClone
+    // stands in for the file watcher, which hands over a whole new object tree
+    const client = new WebSocket(`ws://127.0.0.1:${ob11Port}/`)
+    await new Promise((resolve, reject) => {
+      client.once('open', resolve)
+      client.once('error', reject)
+    })
+    let dropped = false
+    client.once('close', () => { dropped = true })
+    const milkyStop = vi.spyOn(ctx.get('milky')!.httpHandler, 'stop')
+    config = { ...structuredClone(config), log: !config.log, musicSignUrl: 'https://sign.invalid/other' }
+    await ctx.parallel('llob/config-updated', config)
+    await new Promise(resolve => setTimeout(resolve, 200))
+    expect(dropped).toBe(false)
+    expect(milkyStop).not.toHaveBeenCalled()
+    // the hot fields still reach the adapter
+    expect(ctx.get('onebot')!.config.musicSignUrl).toBe('https://sign.invalid/other')
+    client.close()
+
+    // Its own section changing does rebuild: the old port goes, the new one comes up
+    const movedPort = await freePort()
+    const moved = structuredClone(config)
+    moved.ob11.connect[0] = { ...moved.ob11.connect[0], port: movedPort }
+    await ctx.parallel('llob/config-updated', moved)
+    await vi.waitFor(async () => expect(await listening(movedPort)).toBe(true))
+    expect(await listening(ob11Port)).toBe(false)
+    await ctx.parallel('llob/config-updated', config)
+    await vi.waitFor(async () => expect(await listening(ob11Port)).toBe(true))
+    milkyStop.mockRestore()
 
     const adapters = { 'builtin:onebot11': ob11Port, 'builtin:satori': satoriPort, 'builtin:milky': milkyPort }
     for (const [name, port] of Object.entries(adapters)) {
