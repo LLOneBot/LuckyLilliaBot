@@ -117,7 +117,7 @@ const SatoriConfig: React.FC = () => {
               showToast('当监听所有地址时，必须设置 Satori Token！', 'error')
               return
             }
-            save()
+            save({ satori: config.satori })
           }}
         />
       </div>

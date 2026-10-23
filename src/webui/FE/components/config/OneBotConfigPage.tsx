@@ -8,7 +8,7 @@ const OneBotConfigPage: React.FC = () => {
     <OneBotConfigNew
       config={config.ob11}
       onChange={ob11 => setConfig({ ...config, ob11 })}
-      onSave={ob11 => save(ob11 ? { ...config, ob11 } : undefined)}
+      onSave={ob11 => save({ ob11: ob11 ?? config.ob11 })}
     />
   )
 }

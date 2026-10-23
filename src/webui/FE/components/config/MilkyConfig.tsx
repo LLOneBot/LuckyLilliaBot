@@ -292,7 +292,7 @@ const MilkyConfig: React.FC = () => {
               }
             }
             setConfig(cleanedConfig)
-            save(cleanedConfig)
+            save({ milky: cleanedConfig.milky })
           }}
         />
       </div>

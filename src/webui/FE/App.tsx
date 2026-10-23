@@ -4,6 +4,7 @@ import {
   Dashboard,
   LogViewer,
   OtherConfig,
+  otherSettings,
   TokenDialog,
   AuthTokenDialog,
   ChangePasswordDialog,
@@ -46,6 +47,7 @@ function App() {
 
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [config, setConfig] = useState<Config>(defaultConfig);
+  const [envLocked, setEnvLocked] = useState<ResConfig['envLocked']>([]);
 
   const [loading, setLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -138,6 +140,7 @@ function App() {
 
           // 获取主配置
           setConfig(response.data.config);
+          setEnvLocked(response.data.envLocked ?? []);
 
           // 获取 QQ 版本号（单独 try-catch，不影响登录状态）
           try {
@@ -189,14 +192,14 @@ function App() {
     return () => { stop = true; };
   }, [isLoggedIn, checkingLogin]);
 
-  // 保存配置 (邮件配置由邮件通知插件的设置页自己保存)
-  const handleSave = useCallback(async (configToSave?: Config) => {
+  // 保存配置 (邮件配置由邮件通知插件的设置页自己保存). 只提交调用方给的片段, 服务端合并进去
+  const handleSave = useCallback(async (sections: Partial<Config>) => {
     try {
       setLoading(true);
       const response = await apiFetch('/api/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ config: configToSave || config }),
+        body: JSON.stringify({ config: sections }),
       });
 
       if (!response.success) {
@@ -210,7 +213,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [config]);
+  }, []);
 
   // The adapters' settings pages are plugin pages, rendered away from this component's state
   const botConfig = useMemo(
@@ -364,13 +367,15 @@ function App() {
                 <OtherConfig
                   config={config}
                   onChange={setConfig}
+                  envLocked={envLocked}
+                  uin={accountInfo?.uin}
                   onOpenChangePassword={() => setShowChangePasswordDialog(true)}
                 />
               </div>
               {/* 固定在底部的保存按钮 */}
               <div className="fixed bottom-8 right-8 z-40">
                 <button
-                  onClick={() => handleSave()}
+                  onClick={() => handleSave(otherSettings(config, envLocked))}
                   disabled={loading}
                   className="btn-primary flex items-center gap-2 shadow-2xl hover:shadow-3xl"
                 >

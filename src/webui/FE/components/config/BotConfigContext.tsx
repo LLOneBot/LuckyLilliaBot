@@ -6,8 +6,11 @@ interface BotConfigContextValue {
   /** config_<uin>.json, which App loads once the WebUI is logged in. */
   config: Config
   setConfig(config: Config): void
-  /** Saves `next`, or the current config when left out. */
-  save(next?: Config): Promise<void>
+  /**
+   * Saves just these sections; the server merges them in. Sending the whole config would write back this
+   * tab's stale copies of whatever another page, set_config or a hand edit changed meanwhile.
+   */
+  save(sections: Partial<Config>): Promise<void>
   saving: boolean
 }
 

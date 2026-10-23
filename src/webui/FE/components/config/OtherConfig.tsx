@@ -1,21 +1,43 @@
 import React from 'react'
 import { Config } from '../../types'
-import { Globe, FileText, Trash2, Music, Lock, Clock, Shield, Edit, Paperclip, Server } from 'lucide-react'
+import { EnvLock } from './otherSettings'
+import { Globe, FileText, Trash2, Music, Lock, Clock, Shield, Edit, Paperclip, Server, Info } from 'lucide-react'
 import { DurationPicker, HostSelector } from '../common'
 
 interface OtherConfigProps {
   config: Config;
   onChange: (config: Config) => void;
+  /** Fields an LLBOT_* variable pins: shown read-only, left out of the save. */
+  envLocked: EnvLock[];
+  uin?: string;
   onOpenChangePassword: () => void;
 }
 
-const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, onOpenChangePassword }) => {
+const DEFAULT_WEBUI_PORT = 3080
+
+const EnvLockedHint: React.FC<{ lock: EnvLock }> = ({ lock }) => (
+  <p className='text-xs text-amber-600 dark:text-amber-400 mt-1 flex items-center gap-1'>
+    <Lock size={12} />由环境变量 {lock.env} 指定，这里改不了；要改请调整启动环境
+  </p>
+)
+
+const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, envLocked, uin, onOpenChangePassword }) => {
   const handleChange = (field: keyof Config, value: unknown) => {
     onChange({ ...config, [field]: value })
   }
+  const lockOf = (path: string) => envLocked.find(lock => lock.path === path)
+  const hostLock = lockOf('webui.host')
+  const portLock = lockOf('webui.port')
 
   return (
     <div className='space-y-6'>
+      <div className='flex items-start gap-2 p-3 rounded-xl bg-theme-item text-xs text-theme-secondary'>
+        <Info size={14} className='mt-0.5 flex-shrink-0' />
+        <span>
+          本页设置保存在当前账号的 config_{uin || '<QQ号>'}.json，每个账号各存一份：换号登录后用的是那个号自己的设置。登录前 WebUI 用的是默认设置。
+        </span>
+      </div>
+
       {/* WebUI 服务配置 */}
       <div className='card p-6 relative z-[100]'>
         <div className='flex items-center gap-3 mb-6'>
@@ -34,20 +56,16 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, onOpenChang
               <Globe size={16} className='text-blue-600' />
               <span className='text-sm font-medium text-theme-secondary'>监听地址</span>
             </div>
-            <HostSelector
-              value={config.webui?.host ?? '127.0.0.1'}
-              onChange={(host) => {
-                onChange({
-                  ...config,
-                  webui: {
-                    enable: config.webui?.enable ?? true,
-                    port: config.webui?.port || 6099,
-                    host
-                  }
-                });
-              }}
-            />
-            <p className='text-xs text-theme-muted mt-2'>选择 WebUI 监听的网络地址</p>
+            {hostLock ? (
+              // Not HostSelector: under docker it rewrites the value to '' as soon as it mounts
+              <input type='text' value={config.webui?.host || '全部 (0.0.0.0 和 ::)'} disabled className='input-field opacity-70 cursor-not-allowed' />
+            ) : (
+              <HostSelector
+                value={config.webui?.host ?? '127.0.0.1'}
+                onChange={(host) => onChange({ ...config, webui: { ...config.webui, host } })}
+              />
+            )}
+            {hostLock ? <EnvLockedHint lock={hostLock} /> : <p className='text-xs text-theme-muted mt-2'>选择 WebUI 监听的网络地址</p>}
           </label>
 
           <label className='block'>
@@ -57,21 +75,17 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, onOpenChang
             </div>
             <input
               type='number'
-              value={config.webui?.port || 6099}
-              onChange={(e) => onChange({
-                ...config,
-                webui: {
-                  enable: config.webui?.enable ?? true,
-                  host: config.webui?.host || '127.0.0.1',
-                  port: parseInt(e.target.value)
-                }
-              })}
+              value={config.webui?.port || DEFAULT_WEBUI_PORT}
+              // Spread the section: rebuilding it turned an empty host (listen everywhere, what docker
+              // needs) into 127.0.0.1 whenever the port was edited
+              onChange={(e) => onChange({ ...config, webui: { ...config.webui, port: parseInt(e.target.value) } })}
+              disabled={!!portLock}
               min='1'
               max='65535'
-              className='input-field'
-              placeholder='6099'
+              className={`input-field ${portLock ? 'opacity-70 cursor-not-allowed' : ''}`}
+              placeholder={String(DEFAULT_WEBUI_PORT)}
             />
-            <p className='text-xs text-theme-muted mt-1'>WebUI 服务端口（1-65535）</p>
+            {portLock ? <EnvLockedHint lock={portLock} /> : <p className='text-xs text-theme-muted mt-1'>WebUI 服务端口（1-65535）</p>}
           </label>
         </div>
       </div>
