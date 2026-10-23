@@ -176,10 +176,18 @@ declare module 'cordis' { interface Context { storage: PluginStorage } }
 | `2a1afbd8` | C1.5 | `describe` 加 `global/account/scope/rev/uin/accounts`;`PUT` 收 `{config,scope,ifRev}`,rev 不一致返 **409**(在条目锁内比对);前端改发完整值、作用域页签(仅"账号≥2 或本账号已有覆盖"时出现)、409 重新载入 |
 | `f2156409` | Cut 2a | ConfigService 走 JsonFile;**删掉白名单 `cleanupConfig`**(它按 `defaultConfig.ts` 重建配置,把只存在于 `default_config.json` 的 `logLevel` 永久吃掉);`logLevel` 补进 TS 默认值 + 单测锁两份默认值一致;坏 JSON 保留 last-good 不再广播 default、不覆盖文件;自写识别改内容哈希(旧 `skipNextWatch` 会吞掉紧随其后的外部编辑) |
 | `18013fd8` | Cut 2b | `patch()`(对象逐 key、数组/标量整体替换)——**`set_config` 原来是整份覆盖,OB11 客户端只传一个字段就会清掉其余配置**;`POST /api/config` 与 `set_config` 都改用它;`LLBOT_WEBUI_HOST/PORT`、`LLBOT_LOG_LEVEL` 进内存不落盘(写盘前还原磁盘原值,避免同一次保存把 env 值固化)、`envLockedPaths()` 供 WebUI 置只读;`packetDump` 的 `resolve('data')` 归 `DATA_DIR` |
+| `8d9a8bcf` | §5 补漏 | 写入路由最后一级兜底改看清单 `llbot.configScope`(两层都没配置过时生效),原来写死 `global`;同步 plugin-system / plugin-authoring 文档 |
+| `b450b67e` | env 层修正 | 上一刀的三个洞:① `patch()` 能在**内存**里盖掉 env 锁定字段(磁盘没事,但 WebUI 会跟着重启到请求给的端口)→ 新增 `preview()` 先从 partial 剔掉锁定路径,`set()` 后再把锁定字段钉回 env 值;② 登录前没有账号文件时直接返回默认值、没叠 env(首次登录建文件那支同样漏了)→ env 是进程级的,登录前就生效;③ 重载补齐缺省写回时走了 `stripEnv`,用的是**上一次**加载记下的磁盘原值,外部刚改过的锁定字段会被写回旧值 → 写回的是磁盘真值,直接写。另加 `envLocks()`(带变量名)和无副作用的 `peek(uin)` |
+| `4da064a9` | 1a 收尾 | `POST /api/config` 原来校验浅合并 `{...get(), ...config}` 而落盘是深合并:`{satori:{enable:true}}` 被误拒、`{satori:{token:''}}` 漏放 → 改为校验 `preview()` 的结果、只查本次请求涉及的片段;token 规则拆到 `src/main/config/validate.ts`(按片段,给内置插件绑定复用);`GET /api/config` 返回 `envLocked`;`/api/login-info` 改用 `peek()`,带 `LLBOT_WEBUI_PORT` 时不再让前端跳到死地址 |
+| `484a01db` | 顺带修 | `PluginService.mount()` 用 `this.ctx.plugin()`,而经 `ctx.plugins` 调进来时 `this.ctx` 是**调用方**的 ctx:WebUI 启用的条目挂到了 PluginRoutes 的 fiber 下,PluginRoutes 一卸载条目就被静默拆掉(仍显示启用)。改为构造时存下自己的 ctx(`home`)挂载。注:经代理对字段**重新赋值**会正确落到实例上(测试验证过),只有 `ctx` 被替换 |
+| `c43abebe` | 1b | OB11 / Milky 原来收到任何 `llob/config-updated` 都整体重建(踢掉所有 OneBot ws 客户端、反向 ws 重连、Milky SSE/WS 断开)→ 按自己片段深比较(文件 watcher 给的是全新对象树,不能比引用);OB11 只看 `{enable, connect}`,`musicSignUrl` 等调用时才读的字段直接赋值;重建串行化,dispose 等进行中的重建;Milky 只在 `enable/http/webhook` 变时重启 |
+| `cf0f7190` | 1b | 前端各设置页只提交自己的片段(OneBot `{ob11}`、Satori `{satori}`、Milky `{milky}`、其他配置只交它编辑的键)——原来每页都 POST App 启动时加载的整份配置,会把别处(`set_config`、别的页、手改)刚改的片段冲回旧值;"其他配置"页 env 锁定字段只读并注明变量名、标注"每个账号各存一份";修端口回调把空 host(监听全部,docker 需要)改写成 `127.0.0.1` 的 bug。真实后端端到端验证过 |
 
 **实测遗留**:`default_config.json` 与 `defaultConfig.ts` 的 `musicSignUrl` 本来就不一致(JSON 是旧的 `llob.linyuchen.net`,而 `migrateConfig` 又会把含 `linyuchen` 的值改写成 TS 里的 `ss.xingzhige.com`)。未动它,单测里列为已知例外。
 
-**没做(仍属设计)**:§7 内置插件(OB11/Satori/Milky/邮件)接入同一套 schema 表单、`/api/login-info` 回传生效值与 env 只读标注(§9 第 1b 步)、§6 的 `ctx.storage` 插件数据目录、§9 第 6 步把 `config_<uin>.json` / `email_config.json` 搬进 `data/config/`。
+**没做(仍属设计)**:§7 内置插件(OB11/Satori/Milky/邮件)接入同一套 schema 表单、§6 的 `ctx.storage` 插件数据目录、§9 第 6 步把 `config_<uin>.json` / `email_config.json` 搬进 `data/config/`。
+
+**已知局限**:同一个片段被两处并发修改时(比如页面加载后经 `set_config` 改了 `satori.port`,再在 Satori 页保存),页面保存的是它加载时那份,会覆盖掉另一处的修改 —— 片段级别的保存只保证**别的**片段不被冲掉。内置插件接入 schema(§7)后改走 `describe` + rev/409 才能检测出来。
 
 ## 10. Owner 决策(含建议默认)
 
