@@ -135,7 +135,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 - `schema`（默认值必须和文件原来的默认值一致，单测锁住）、固定的 `scope` 和 `location`（只给表单显示）、`read(ctx)` / `write(ctx, value)`、schema 表达不了的 `check`（比如"监听全部地址必须有 token"）、`normalize`、`validateOnEnable`（卡片开关打开时也校验，见下）、`enabled`（开关在值里）、`secrets`、`watch`（外部改了文件时让卡片刷新）
 - `describe` / `updateConfig` 对有绑定的内置条目分流到绑定，不再 403；没绑定的（WebQQ、core）照旧 403。值只有一层：没有账号覆盖层（覆盖层里这些条目的项被忽略、下次写时清掉）、`describe` 带 `fixedScope: true`，表单不显示作用域切换
-- **开关合并**：卡片开关改的是值里的开关（`satori.enable`、邮件的 `enabled`），和桌面端"一键对接"改的是同一个字段。插件本身始终挂载（像 core 一样忽略条目上的 `disabled`，启动时从文件里删掉），`status.disabled` 由开关推导，关着且 fiber 在跑时状态报 `disposed`；`status.bound` 标出这类条目，侧边栏照样列它们的设置页（总开关就在那页上），页面顶部也不提示"已停用"
+- **开关合并**：卡片开关改的是值里的开关（`satori.enable`、邮件的 `enabled`），和桌面端"一键对接"改的是同一个字段。插件本身始终挂载（像 core 一样忽略条目上的 `disabled`，启动时从文件里删掉），`status.disabled` 由开关推导，关着且 fiber 在跑时状态报 `disposed`；`status.bound` 标出这类条目。设置页里没有自己的启用开关，开关只在插件卡片上：关着时和别的插件一样从侧边栏移除、卡片的"前往设置"仍能打开设置页，页面顶部提示"已停用"
 - 保存表单总是校验（schema + `check`）。卡片开关打开时只有声明了 `validateOnEnable` 的绑定才校验：适配器声明了 —— token 规则是安全闸，关着时可能存过一份不安全的配置，不能借开关绕过；邮件没声明 —— SMTP 没配好也能先打开（只是发不出去，测试邮件按钮会报错），保存时仍按原来的规则校验：通知开着才要求 SMTP / 发件人 / 收件人齐全，关着可以存空配置（issue #690）
 - `read()` 返回 undefined 表示还没有可绑定的文件（适配器在登录前、没带 `-q`），`describe` / 写 / 开关都回 `PluginUnavailableError`（503），而不是写一个 `ConfigService` 会静默丢掉的值
 - 写入按 PUT 语义：收完整值，缺的键按 schema 默认补。值以用户发来的为准写回（schema 只校验、不改写），所以文件里 schema 不认识的键（桌面端写的、旧版本留下的）照样保留
