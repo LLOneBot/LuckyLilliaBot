@@ -373,18 +373,28 @@ export default class Config extends Service {
   }
 }
 
-class WebUITokenUtil {
+export class WebUITokenUtil {
   private token: string = ''
+  private mtimeMs = -1
 
   constructor(private readonly tokenPath: string) {
     this.tokenPath = tokenPath
   }
 
+  /**
+   * Re-read whenever the file changed: the desktop app or a hand edit can reset the password while the bot
+   * runs. A file that went missing keeps the last password rather than opening the WebUI to everyone.
+   */
   getToken() {
-    if (!this.token) {
-      if (fs.existsSync(this.tokenPath)) {
-        this.token = fs.readFileSync(this.tokenPath, 'utf-8').trim()
-      }
+    let mtimeMs: number
+    try {
+      mtimeMs = fs.statSync(this.tokenPath).mtimeMs
+    } catch {
+      return this.token
+    }
+    if (mtimeMs !== this.mtimeMs) {
+      this.token = fs.readFileSync(this.tokenPath, 'utf-8').trim()
+      this.mtimeMs = mtimeMs
     }
     return this.token
   }
@@ -392,6 +402,7 @@ class WebUITokenUtil {
   setToken(token: string) {
     this.token = token.trim()
     fs.writeFileSync(this.tokenPath, token, 'utf-8')
+    this.mtimeMs = fs.statSync(this.tokenPath).mtimeMs
   }
 }
 
