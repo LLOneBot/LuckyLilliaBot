@@ -8,6 +8,7 @@ import EmailNotificationService from '../common/emailNotification'
 import * as NTQQUniversal from '../universal/ntqq'
 import { WebQQ } from '../webui/BE/routes/webqq'
 import { emailBinding } from './builtinConfig/email'
+import { satoriBinding } from './builtinConfig/satori'
 
 /**
  * Mounts an adapter with its part of config_<uin>.json, which only exists once the account is known.
@@ -46,6 +47,7 @@ export const builtinPlugins: BuiltinPlugin[] = [
   {
     name: 'builtin:satori',
     title: 'Satori',
+    config: satoriBinding,
     plugin: withBotConfig('builtin:satori', SatoriAdapter, config => ({
       ...config.satori,
       ffmpeg: config.ffmpeg,

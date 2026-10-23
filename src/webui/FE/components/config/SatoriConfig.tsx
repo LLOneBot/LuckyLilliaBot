@@ -1,11 +1,17 @@
 import React, { useState } from 'react'
-import { Cpu, ExternalLink, Eye, EyeOff } from 'lucide-react'
+import { Cpu, ExternalLink, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { HostSelector, showToast } from '../common'
-import { SaveButton, useBotConfig } from './BotConfigContext'
+import type { SatoriConfig as SatoriSettings } from '../../types'
+import { SaveButton } from './BotConfigContext'
+import { useBuiltinConfig } from './useBuiltinConfig'
 
 const SatoriConfig: React.FC = () => {
-  const { config, setConfig, save, saving } = useBotConfig()
+  const { value: satori, setValue, save, saving, error } = useBuiltinConfig<SatoriSettings>('builtin:satori')
   const [showSatoriToken, setShowSatoriToken] = useState(false)
+
+  if (error) return <p className="card p-6 text-sm text-red-500">加载 Satori 配置失败：{error}</p>
+  if (!satori) return <div className="flex justify-center py-16"><Loader2 size={40} className="animate-spin text-pink-500" /></div>
+  const change = (patch: Partial<SatoriSettings>) => setValue({ ...satori, ...patch })
 
   return (
     <div className="card p-6">
@@ -37,27 +43,21 @@ const SatoriConfig: React.FC = () => {
           </div>
           <input
             type="checkbox"
-            checked={config.satori.enable}
-            onChange={(e) => setConfig({
-              ...config,
-              satori: { ...config.satori, enable: e.target.checked }
-            })}
+            checked={satori.enable}
+            onChange={(e) => change({ enable: e.target.checked })}
             className="switch-toggle"
           />
         </div>
 
-        {config.satori.enable && (
+        {satori.enable && (
           <>
             <div>
               <label className="block text-sm font-medium text-theme-secondary mb-2">
                 监听地址
               </label>
               <HostSelector
-                value={config.satori.host}
-                onChange={(host) => setConfig({
-                  ...config,
-                  satori: { ...config.satori, host }
-                })}
+                value={satori.host}
+                onChange={(host) => change({ host })}
               />
               <p className="text-xs text-theme-muted mt-1">选择服务监听的网络地址</p>
             </div>
@@ -67,11 +67,8 @@ const SatoriConfig: React.FC = () => {
               </label>
               <input
                 type="number"
-                value={config.satori.port}
-                onChange={(e) => setConfig({
-                  ...config,
-                  satori: { ...config.satori, port: parseInt(e.target.value) }
-                })}
+                value={satori.port}
+                onChange={(e) => change({ port: parseInt(e.target.value) })}
                 min="1"
                 max="65535"
                 placeholder="5500"
@@ -86,11 +83,8 @@ const SatoriConfig: React.FC = () => {
               <div className="relative">
                 <input
                   type={showSatoriToken ? 'text' : 'password'}
-                  value={config.satori.token}
-                  onChange={(e) => setConfig({
-                    ...config,
-                    satori: { ...config.satori, token: e.target.value }
-                  })}
+                  value={satori.token}
+                  onChange={(e) => change({ token: e.target.value })}
                   placeholder="请输入 Satori Token"
                   className="input-field pr-12"
                 />
@@ -113,11 +107,12 @@ const SatoriConfig: React.FC = () => {
           saving={saving}
           onClick={() => {
             // 检查：如果监听所有地址且 satori 启用，token 必须设置
-            if (config.satori.host === '' && config.satori.enable && !config.satori.token?.trim()) {
+            // Immediate feedback; the server runs the same rule
+            if (satori.host === '' && satori.enable && !satori.token?.trim()) {
               showToast('当监听所有地址时，必须设置 Satori Token！', 'error')
               return
             }
-            save({ satori: config.satori })
+            save(satori)
           }}
         />
       </div>

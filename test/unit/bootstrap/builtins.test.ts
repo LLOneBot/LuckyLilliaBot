@@ -12,6 +12,7 @@ import { WebSocket } from 'ws'
 import { Config as LLBotConfig } from '@/common/types'
 import { DATA_DIR } from '@/common/globalVars'
 import { defaultConfig } from '@/main/config/defaultConfig'
+import { deepMerge } from '@/common/utils/misc'
 import {
   NTFileApi,
   NTFriendApi,
@@ -50,10 +51,16 @@ vi.mock('@/common/globalVars', async () => {
 let config: LLBotConfig
 
 class MockConfig extends Service {
+  // Logged in, so the adapters' sections are bound to an account file
+  accountFile = 'config_123456.json'
   constructor(ctx: Context) {
     super(ctx, 'config')
   }
   get() {
+    return config
+  }
+  patch(partial: object) {
+    config = deepMerge(config, partial) as LLBotConfig
     return config
   }
   set() {}

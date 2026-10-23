@@ -207,6 +207,11 @@ export default class Config extends Service {
     }
   }
 
+  /** 当前绑定的账号配置文件。登录前 (且没带 -q) 为空: 那时没有文件可写, 写入会被丢掉。 */
+  get accountFile(): string | undefined {
+    return this.configPath
+  }
+
   /** 被环境变量锁定的字段, WebUI 据此把它们显示为只读并注明是哪个变量。 */
   envLocks(): { path: string; env: string }[] {
     return [...this.envLocked].map(([path, { env }]) => ({ path, env }))

@@ -2,49 +2,60 @@ import { Config, MilkyConfig, OB11Config, SatoriConfig } from '@/common/types'
 
 // Kept out of ./index (the service) so tests that mock '@/main/config' still get the real rules.
 
+export interface SectionIssue {
+  /** Relative to the section, e.g. ['token'] for satori.token. */
+  path: string[]
+  message: string
+}
+
 function listensOnAllInterfaces(host: string | undefined): boolean {
   return !host || host === '0.0.0.0' || host === '::'
 }
 
-export function validateSatori(satori: Partial<SatoriConfig> | undefined): string | null {
+export function satoriIssues(satori: Partial<SatoriConfig> | undefined): SectionIssue[] {
   if (satori?.enable && listensOnAllInterfaces(satori.host) && !satori.token) {
-    return 'Satori 监听全部地址时必须设置 Token'
+    return [{ path: ['token'], message: 'Satori 监听全部地址时必须设置 Token' }]
   }
-  return null
+  return []
 }
 
-export function validateMilky(milky: Partial<MilkyConfig> | undefined): string | null {
+export function milkyIssues(milky: Partial<MilkyConfig> | undefined): SectionIssue[] {
   if (milky?.enable && listensOnAllInterfaces(milky.http?.host) && !milky.http?.accessToken) {
-    return 'Milky HTTP 监听全部地址时必须设置 Token'
+    return [{ path: ['http', 'accessToken'], message: 'Milky HTTP 监听全部地址时必须设置 Token' }]
   }
-  return null
+  return []
 }
 
-export function validateOb11(ob11: Partial<OB11Config> | undefined): string | null {
-  if (!ob11?.enable || !Array.isArray(ob11.connect)) return null
-  for (const conn of ob11.connect) {
-    if (!conn.enable) continue
+export function ob11Issues(ob11: Partial<OB11Config> | undefined): SectionIssue[] {
+  if (!ob11?.enable || !Array.isArray(ob11.connect)) return []
+  const issues: SectionIssue[] = []
+  ob11.connect.forEach((conn, index) => {
+    if (!conn.enable) return
     if ((conn.type === 'ws' || conn.type === 'http') && listensOnAllInterfaces(conn.host) && !conn.token) {
-      return `OneBot11 ${conn.type === 'ws' ? 'WebSocket' : 'HTTP'} 适配器监听全部地址时必须设置 Token`
+      issues.push({
+        path: ['connect', String(index), 'token'],
+        message: `OneBot11 ${conn.type === 'ws' ? 'WebSocket' : 'HTTP'} 适配器监听全部地址时必须设置 Token`,
+      })
     }
-  }
-  return null
+  })
+  return issues
 }
 
-const SECTION_RULES: Record<string, (config: Config) => string | null> = {
-  satori: config => validateSatori(config.satori),
-  milky: config => validateMilky(config.milky),
-  ob11: config => validateOb11(config.ob11),
+const SECTION_RULES: Record<string, (config: Config) => SectionIssue[]> = {
+  satori: config => satoriIssues(config.satori),
+  milky: config => milkyIssues(config.milky),
+  ob11: config => ob11Issues(config.ob11),
 }
 
 /**
- * 校验一份完整的生效配置。只查 `sections` 里列出的片段 (不传就全查): 保存"其他配置"时,
- * 不该因为磁盘上已有的 Satori 坏配置 (比如经 set_config 或手改写进去的) 被拒。
+ * The first problem with a full effective config, or null. Only `sections` are checked (all when left
+ * out): saving the other-settings page must not fail on a bad Satori section already on disk, e.g. one
+ * written through set_config or by hand.
  */
 export function validateConfig(config: Config, sections: string[] = Object.keys(SECTION_RULES)): string | null {
   for (const section of sections) {
-    const error = SECTION_RULES[section]?.(config)
-    if (error) return error
+    const issue = SECTION_RULES[section]?.(config)[0]
+    if (issue) return issue.message
   }
   return null
 }
