@@ -11,7 +11,9 @@ import {
   ServiceDeclaration,
 } from './manifest'
 import { installPluginResolver, ResolverState, sharedSpecifierMap } from './resolve-hook'
-import { newEntryId, PluginEntry, PluginsFile, PluginStore } from './store'
+import {
+  newEntryId, PluginEntry, PluginOverlayStore, PluginOverride, PluginsFile, PluginStore,
+} from './store'
 import { watchPluginRoots } from './watcher'
 
 declare module 'cordis' {
@@ -80,14 +82,22 @@ export interface BuiltinPlugin {
 
 export type ReloadResult = { status: 'reloaded' } | { status: 'restart-required'; reason: string }
 
+/** Which config layer a write lands in: the instance-wide one, or this account's override. */
+export type ConfigScope = 'global' | 'account'
+
 export interface PluginDescription {
   /** schemastery `toJSON()` output, or null when the Config is absent or not schemastery. */
   schema: unknown
   defaults: unknown
-  /** What the entry stores: the diff against the defaults. */
+  /** The global layer's diff against the defaults. Same as `global`, kept for the existing WebUI. */
   config: unknown
-  /** The merged value the plugin actually runs with (defaults + stored diff). */
+  global: unknown
+  /** This account's override, or null when it does not override the config. */
+  account: unknown
+  /** The merged value the plugin actually runs with: defaults < global < account. */
   effective: unknown
+  /** Where an unscoped write would land. */
+  scope: ConfigScope
 }
 
 export class PluginNotFoundError extends Error {}
@@ -137,6 +147,11 @@ class PluginService extends Service {
 
   private store: PluginStore
   private data: PluginsFile = { version: 1, entries: [] }
+  // The logged-in account's override layer. Empty until account/prepare, so before login (and for a
+  // deployment that never sets an override) every entry runs purely on the global layer.
+  private overlayStore?: PluginOverlayStore
+  private overlay = new Map<string, PluginOverride>()
+  private accountUin = ''
   private packages = new Map<string, PluginPackage>()
   private modules = new Map<string, LoadedModule>()
   // Never reset: a repeated ?v= would be served from the ESM cache.
@@ -178,9 +193,12 @@ class PluginService extends Service {
     if (this.reconcileBuiltins() && !error) await this.save()
 
     this.ctx.on('internal/status', fiber => this.onFiberStatus(fiber))
+    disposers.push(this.ctx.on('account/prepare', (uin) => {
+      this.applyAccount(uin).catch(e => this.ctx.logger.error(e))
+    }))
     await this.scan()
     for (const rt of this.runtimes.values()) {
-      if (rt.entry.disabled) continue
+      if (this.isDisabled(rt)) continue
       this.lock(rt.entry.name, () => this.start(rt)).catch(e => this.ctx.logger.error(e))
     }
     if (this.config.hmr || this.data.hmr) disposers.push(this.watch())
@@ -224,10 +242,7 @@ class PluginService extends Service {
   async enable(id: string): Promise<PluginStatus> {
     const rt = this.runtime(id)
     return this.lock(rt.entry.name, async () => {
-      if (rt.entry.disabled) {
-        delete rt.entry.disabled
-        await this.save()
-      }
+      if (this.isDisabled(rt)) await this.setDisabled(rt, false)
       await this.start(rt)
       return this.status(rt)
     })
@@ -239,38 +254,74 @@ class PluginService extends Service {
       throw new PluginForbiddenError(`${rt.entry.name} is part of the bot core and cannot be disabled`)
     }
     return this.lock(rt.entry.name, async () => {
-      rt.entry.disabled = true
-      await this.save()
+      await this.setDisabled(rt, true)
       await this.stop(rt)
       return this.status(rt)
     })
   }
 
   /** Throws PluginConfigError, without touching the running instance, when the config is rejected. */
-  async updateConfig(id: string, config: unknown): Promise<PluginStatus> {
+  async updateConfig(id: string, config: unknown, scope?: ConfigScope): Promise<PluginStatus> {
     const rt = this.runtime(id)
     this.assertConfigurable(rt)
     return this.lock(rt.entry.name, async () => {
       const mod = await this.load(this.package(rt))
       if (!mod.plugin) throw new Error(mod.error)
-      // The server owns the diff: fill to the effective value (accepts a full or an already-diffed payload),
-      // validate that merged value (a lone layer would trip `required`), then store only what differs.
       const { node, defaults } = this.configModel(mod.plugin)
-      const effective = withDefaults(node, config, defaults)
+      const target = this.writeScope(rt, scope)
+      // The server owns the diff: fill the payload to its effective value (so it takes a full config or an
+      // already-diffed one), validate that merged value (a lone layer would trip `required`), then store
+      // only what differs from the layer underneath -- the defaults for the global layer, the global
+      // effective value for an account override.
+      const base = target === 'account' ? withDefaults(node, rt.entry.config ?? null, defaults) : defaults
+      const effective = withDefaults(node, config, base)
       // fiber.update() only validates a loaded fiber; check up front so pending ones behave the same
       validateConfig(mod.plugin, effective)
-      const diff = stripDefaults(node, effective, defaults)
-      rt.entry.config = diff
-      await this.save()
+      const diff = stripDefaults(node, effective, base)
+      if (target === 'account') {
+        const override = this.overlay.get(rt.entry.id) ?? {}
+        if (diff === undefined) delete override.config
+        else override.config = diff
+        if (Object.keys(override).length) this.overlay.set(rt.entry.id, override)
+        else this.overlay.delete(rt.entry.id)
+        await this.saveOverlay()
+      } else {
+        rt.entry.config = diff
+        await this.save()
+        this.warnOnRejectedOverride(rt, mod.plugin, node, defaults)
+      }
       const fiber = rt.fiber
       if (fiber) {
         rt.error = undefined
         // A failing apply() is reported through the fiber state, not thrown here
-        await Promise.resolve(fiber.update(diff, true)).catch(() => {})
+        await Promise.resolve(fiber.update(this.entryConfig(rt, mod.plugin), true)).catch(() => {})
         await fiber.await().catch(() => {})
       }
       return this.status(rt)
     })
+  }
+
+  /** Explicit scope wins; otherwise write whichever layer the effective value already comes from. */
+  private writeScope(rt: Runtime, scope?: ConfigScope): ConfigScope {
+    // Before login there is no account layer to write to
+    if (!this.overlayStore) return 'global'
+    if (scope) return scope
+    return this.overlay.get(rt.entry.id)?.config === undefined ? 'global' : 'account'
+  }
+
+  /**
+   * An account override that the new global layer turns invalid only gets a warning: blocking the save
+   * would let one account's bad override freeze the config page of another (which has no UI to fix it).
+   */
+  private warnOnRejectedOverride(rt: Runtime, plugin: Plugin, node: SchemaNode | null, defaults: unknown) {
+    const override = this.overlay.get(rt.entry.id)?.config
+    if (override === undefined) return
+    const base = withDefaults(node, rt.entry.config ?? null, defaults)
+    try {
+      validateConfig(plugin, withDefaults(node, override, base))
+    } catch (e) {
+      this.ctx.logger.warn(`${this.accountUin} overrides ${rt.entry.name} with a config the new global layer rejects: ${errorText(e)}`)
+    }
   }
 
   async reload(id: string): Promise<ReloadResult> {
@@ -311,7 +362,7 @@ class PluginService extends Service {
         ...own.optional.filter(name => !own.required.includes(name)).map(name => describe(name, false)),
       ],
       conflicts: own.implements.flatMap((name) => {
-        const others = (implementers.get(name) ?? []).filter(other => !other.entry.disabled)
+        const others = (implementers.get(name) ?? []).filter(other => !this.isDisabled(other))
         return others.length ? [{ service: name, with: others.map(other => other.entry.id) }] : []
       }),
     }
@@ -336,8 +387,18 @@ class PluginService extends Service {
     return this.lock(rt.entry.name, async () => {
       const mod = await this.load(this.package(rt))
       const { schema, node, defaults } = this.configModel(mod.plugin)
-      const config = rt.entry.config ?? null
-      return { schema, defaults, config, effective: withDefaults(node, config, defaults) }
+      const global = rt.entry.config ?? null
+      const account = this.overlay.get(rt.entry.id)?.config ?? null
+      const base = withDefaults(node, global, defaults)
+      return {
+        schema,
+        defaults,
+        config: global,
+        global,
+        account,
+        effective: account === null ? base : withDefaults(node, account, base),
+        scope: this.writeScope(rt),
+      }
     })
   }
 
@@ -352,6 +413,91 @@ class PluginService extends Service {
     }
     const schema = typeof Config?.toJSON === 'function' ? JSON.parse(JSON.stringify(Config)) : null
     return { schema, node: schema ? hydrate(schema as { uid: number; refs: Record<string, unknown> }) : null, defaults }
+  }
+
+  /** Switch to this account's override layer and re-apply it to whatever is already running. */
+  private async applyAccount(uin: string) {
+    const file = uin && this.config.accountFile?.(uin)
+    if (!file || this.accountUin === uin) return
+    this.accountUin = uin
+    this.overlayStore = new PluginOverlayStore(file)
+    const { data, error } = await this.overlayStore.load()
+    if (error) {
+      // A broken overlay must not keep the account from starting; it runs on the global layer instead.
+      this.ctx.logger.error(`invalid plugin overrides for ${uin}, ignoring them: ${error}`)
+      return
+    }
+    this.overlay = new Map(Object.entries(data.entries))
+    // Nothing overridden is the common case: leave every running fiber untouched.
+    if (!this.overlay.size) return
+    for (const rt of [...this.runtimes.values()]) {
+      if (!this.overlay.has(rt.entry.id)) continue
+      await this.lock(rt.entry.name, () => this.reapply(rt)).catch(e => this.ctx.logger.error(e))
+    }
+  }
+
+  /** Bring one entry in line with the merged (global + account) view after the overlay changed. */
+  private async reapply(rt: Runtime) {
+    if (this.isDisabled(rt)) {
+      if (rt.fiber) await this.stop(rt)
+      return
+    }
+    if (!rt.fiber) return this.start(rt)
+    const plugin = this.pluginOf(rt)
+    if (!plugin) return
+    await Promise.resolve(rt.fiber.update(this.entryConfig(rt, plugin), true)).catch(() => {})
+    await rt.fiber.await().catch(() => {})
+    this.changed(rt.entry.id)
+  }
+
+  /** disabled(e,u) = this account's override, else the global flag. Core builtins always run. */
+  private isDisabled(rt: Runtime): boolean {
+    if (this.builtins.get(rt.entry.name)?.core) return false
+    return this.overlay.get(rt.entry.id)?.disabled ?? !!rt.entry.disabled
+  }
+
+  /**
+   * The config handed to cordis. Without an account override this is the stored global diff, byte for byte
+   * what it was before the overlay existed (cordis fills the schema defaults itself); with one it is the
+   * fully merged value defaults < global < account.
+   */
+  private entryConfig(rt: Runtime, plugin: Plugin): unknown {
+    const override = this.overlay.get(rt.entry.id)?.config
+    if (override === undefined) return rt.entry.config
+    const { node, defaults } = this.configModel(plugin)
+    return withDefaults(node, override, withDefaults(node, rt.entry.config ?? null, defaults))
+  }
+
+  /** The already-loaded plugin behind an entry, if any. */
+  private pluginOf(rt: Runtime): Plugin | undefined {
+    return this.builtins.get(rt.entry.name)?.plugin ?? this.modules.get(rt.entry.name)?.plugin
+  }
+
+  /** Drops overrides of entries that no longer exist, and empty ones, so the file self-cleans. */
+  private saveOverlay(): Promise<void> {
+    if (!this.overlayStore) return Promise.resolve()
+    const entries: Record<string, PluginOverride> = {}
+    for (const [id, override] of this.overlay) {
+      if (!this.runtimes.has(id)) continue
+      const clean: PluginOverride = {}
+      if (override.config !== undefined) clean.config = override.config
+      if (override.disabled !== undefined) clean.disabled = override.disabled
+      if (Object.keys(clean).length) entries[id] = clean
+    }
+    return this.overlayStore.save({ version: 1, entries })
+  }
+
+  /** Writes the flag to whichever layer the effective value comes from (§5 write routing). */
+  private async setDisabled(rt: Runtime, disabled: boolean) {
+    const override = this.overlay.get(rt.entry.id)
+    if (override?.disabled !== undefined) {
+      override.disabled = disabled
+      await this.saveOverlay()
+      return
+    }
+    if (disabled) rt.entry.disabled = true
+    else delete rt.entry.disabled
+    await this.save()
   }
 
   private runtime(id: string): Runtime {
@@ -398,7 +544,7 @@ class PluginService extends Service {
   }
 
   private async restartBuiltin(rt: Runtime, builtin: BuiltinPlugin): Promise<ReloadResult> {
-    if (!rt.entry.disabled) {
+    if (!this.isDisabled(rt)) {
       await this.stop(rt)
       await this.mount(rt, builtin.plugin)?.await().catch(() => {})
     }
@@ -468,7 +614,7 @@ class PluginService extends Service {
   }
 
   private async start(rt: Runtime) {
-    if (rt.entry.disabled || rt.fiber || !this.runtimes.has(rt.entry.id)) return
+    if (this.isDisabled(rt) || rt.fiber || !this.runtimes.has(rt.entry.id)) return
     const builtin = this.builtins.get(rt.entry.name)
     if (builtin) {
       await this.mount(rt, builtin.plugin)?.await().catch(() => {})
@@ -488,7 +634,7 @@ class PluginService extends Service {
     rt.error = undefined
     try {
       // ctx.plugin() hands back a thenable wrapper; internal/status reports the fiber itself
-      const fiber = this.ctx.plugin(plugin, rt.entry.config).ctx.fiber
+      const fiber = this.ctx.plugin(plugin, this.entryConfig(rt, plugin)).ctx.fiber
       this.fiberIds.set(fiber, rt.entry.id)
       rt.fiber = fiber
     } catch (e) {
@@ -515,7 +661,7 @@ class PluginService extends Service {
     this.packages.set(name, pkg)
     this.bumpWebui(name)
     const mod = await this.load(pkg, true)
-    const targets = this.entriesOf(name).filter(rt => !rt.entry.disabled)
+    const targets = this.entriesOf(name).filter(rt => !this.isDisabled(rt))
     if (!mod.plugin) {
       for (const rt of targets) {
         if (!rt.fiber) continue
@@ -560,7 +706,7 @@ class PluginService extends Service {
       version: pkg?.version,
       description: pkg?.description,
       manifest: builtin?.manifest ?? pkg?.manifest ?? {},
-      disabled: !!entry.disabled,
+      disabled: this.isDisabled(rt),
       state: 'disposed',
       missingDeps: [],
       reloadCount: rt.reloadCount,
@@ -578,7 +724,7 @@ class PluginService extends Service {
     if (rt.error) status.error = rt.error
     if (!fiber) {
       if (status.error) status.state = 'failed'
-      else if (!entry.disabled) status.state = 'loading'
+      else if (!this.isDisabled(rt)) status.state = 'loading'
       return status
     }
     status.state = FIBER_STATES[fiber.state]
@@ -650,7 +796,7 @@ class PluginService extends Service {
     const root = await realpath(dir).catch(() => path.resolve(dir))
     const pkg = [...this.packages.values()].find(pkg => pkg.root === root)
     if (!pkg) return
-    if (!this.entriesOf(pkg.name).some(rt => !rt.entry.disabled)) {
+    if (!this.entriesOf(pkg.name).some(rt => !this.isDisabled(rt))) {
       this.modules.delete(pkg.name)
       return
     }
@@ -691,8 +837,10 @@ class PluginService extends Service {
 
 namespace PluginService {
   export interface Config {
-    /** data/plugins.json */
+    /** data/config/global/plugins.json */
     file: string
+    /** Where an account's override layer lives. Omitted = no per-account overrides at all. */
+    accountFile?: (uin: string) => string
     /** Directories whose child packages are plugins. */
     roots: string[]
     /** Watch the roots and reload changed packages. plugins.json `hmr: true` also turns it on. */

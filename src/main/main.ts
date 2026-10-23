@@ -9,7 +9,7 @@ import SQLiteDriver from '@cordisjs/plugin-database-sqlite'
 import Store from './store'
 import { Config as LLBotConfig } from '../common/types'
 import { Context } from 'cordis'
-import { selfInfo, DATA_DIR, LOG_DIR, TEMP_DIR, dbDir, GLOBAL_PLUGINS_FILE } from '../common/globalVars'
+import { selfInfo, DATA_DIR, LOG_DIR, TEMP_DIR, dbDir, GLOBAL_PLUGINS_FILE, accountPluginsFile } from '../common/globalVars'
 import {
   NTFileApi,
   NTFriendApi,
@@ -93,6 +93,7 @@ async function onLoad() {
   ctx.plugin(BotsService)
   ctx.plugin(PluginService, {
     file: GLOBAL_PLUGINS_FILE,
+    accountFile: accountPluginsFile,
     roots: [pluginDir, ...getPluginDirs().map(dir => path.resolve(dir))],
     hmr: isPluginHmr(),
     builtins: builtinPlugins,
