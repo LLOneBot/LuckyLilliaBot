@@ -23,6 +23,23 @@ export function mergeNewProperties(newObj: Dict, oldObj: Dict) {
   })
 }
 
+/**
+ * 合并一份局部更新: 对象逐 key 递归, 数组和标量整体替换。
+ * 跟 mergeNewProperties 不同 -- 这个以 patch 为准覆盖已有值, 而不是只补缺失的。
+ */
+export function deepMerge(base: unknown, patch: unknown): unknown {
+  if (!isPlainRecord(base) || !isPlainRecord(patch)) return patch
+  const result: Dict = { ...base }
+  for (const [key, value] of Object.entries(patch)) {
+    result[key] = key in base ? deepMerge(base[key], value) : value
+  }
+  return result
+}
+
+function isPlainRecord(value: unknown): value is Dict {
+  return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
 export function filterNullable<T>(array: T[]) {
   return array.filter(e => isNonNullable(e))
 }

@@ -1,3 +1,4 @@
+import { Dict } from 'cosmokit'
 import { BaseAction, Schema } from '../../BaseAction'
 import { Config } from '@/common/types'
 import { ActionName } from '../../types'
@@ -17,7 +18,6 @@ export class SetConfigAction extends BaseAction<Config, null> {
     satori: Schema.any(),
     ob11: Schema.any(),
     webui: Schema.any(),
-    onlyLocalhost: Schema.boolean(),
     enableLocalFile2Url: Schema.boolean(),
     log: Schema.boolean(),
     autoDeleteFile: Schema.boolean(),
@@ -28,8 +28,8 @@ export class SetConfigAction extends BaseAction<Config, null> {
   })
 
   protected async _handle(payload: Config) {
-    this.ctx.config.set(payload)
-    await this.ctx.parallel('llob/config-updated', payload)
+    // patch 而非 set: 只传了一部分字段时, 其余配置必须保持原样
+    await this.ctx.parallel('llob/config-updated', this.ctx.config.patch(payload as Dict))
     return null
   }
 }

@@ -1,3 +1,4 @@
+import { Dict } from 'cosmokit'
 import { Context } from 'cordis'
 import { networkInterfaces } from 'os'
 import { selfInfo } from '@/common/globalVars'
@@ -91,16 +92,15 @@ export function createConfigRoutes(ctx: Context): Hono {
   router.post('/config', async (c) => {
     try {
       const { config } = await c.req.json() as ReqConfig
-      const oldConfig = ctx.config.get()
-      const newConfig = { ...oldConfig, ...config }
+      // 校验合并后的生效值, 再由 patch() 落盘 (环境变量锁定的字段不会被写回文件)
+      const newConfig = { ...ctx.config.get(), ...config }
 
       const validationError = validateTokenConfig(newConfig)
       if (validationError) {
         return c.json({ success: false, message: validationError }, 400)
       }
 
-      ctx.config.set(newConfig)
-      ctx.parallel('llob/config-updated', newConfig)
+      ctx.parallel('llob/config-updated', ctx.config.patch(config as Dict))
       return c.json({ success: true, message: '配置保存成功' })
     } catch (e) {
       return c.json({ success: false, message: '保存配置失败', error: e }, 500)

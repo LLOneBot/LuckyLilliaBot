@@ -66,6 +66,8 @@ export function createMockContext() {
         webui: { enable: true, host: '0.0.0.0', port: 3080 },
       })),
       set: vi.fn(),
+      patch: vi.fn((partial: object) => ({ ...services.config.get(), ...partial })),
+      envLockedPaths: vi.fn(() => [] as string[]),
     },
   }
 

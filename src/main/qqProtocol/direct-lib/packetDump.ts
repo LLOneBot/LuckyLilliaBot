@@ -1,5 +1,6 @@
 import { appendFileSync, existsSync, mkdirSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
+import { DATA_DIR } from '@/common/globalVars'
 
 /**
  * SSO packet capture, off unless started with `--dump-packets[=<file.csv>]`.
@@ -25,7 +26,7 @@ function parseTargetPath(): string | null {
   for (const a of process.argv) {
     if (a === FLAG) {
       const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+$/, '')
-      return join(resolve('data'), 'packets', `sso-${stamp}.csv`)
+      return join(DATA_DIR, 'packets', `sso-${stamp}.csv`)
     }
     if (a.startsWith(`${FLAG}=`)) return resolve(a.slice(FLAG.length + 1))
   }

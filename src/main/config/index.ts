@@ -6,7 +6,7 @@ import { Dict } from 'cosmokit'
 import path from 'node:path'
 import fs from 'node:fs'
 import JSON5 from 'json5'
-import { mergeNewProperties } from '@/common/utils'
+import { deepMerge, mergeNewProperties } from '@/common/utils'
 import { JsonFile } from '@/common/jsonFile'
 import { getSpecifiedUin, isDevMode } from '@/common/utils/environment'
 
@@ -19,11 +19,21 @@ declare module 'cordis' {
 /** 已废弃、迁移完成后从磁盘删掉的顶层 key。只显式列已知的, 不再按白名单删未知 key。 */
 const DEPRECATED_KEYS = ['onlyLocalhost']
 
+/** 进程级覆盖: 容器/托管环境用它定端口和日志级别, 值只进内存不落盘。 */
+const ENV_OVERRIDES: { env: string; path: string[]; parse: (raw: string) => unknown }[] = [
+  { env: 'LLBOT_WEBUI_HOST', path: ['webui', 'host'], parse: raw => raw },
+  { env: 'LLBOT_WEBUI_PORT', path: ['webui', 'port'], parse: raw => (Number.isFinite(+raw) ? +raw : undefined) },
+  { env: 'LLBOT_LOG_LEVEL', path: ['logLevel'], parse: raw => (raw === 'debug' || raw === 'info' ? raw : undefined) },
+]
+
+
 export default class Config extends Service {
   private configPath: string | undefined
   private config: LLBotConfig | null = null
   private watching = false
   private file: JsonFile<LLBotConfig> | undefined
+  /** 被 LLBOT_* 覆盖的字段路径 -> 该字段的磁盘原值 */
+  private envLocked = new Map<string, unknown>()
   private defaultConfigPath = path.join(import.meta.dirname, 'default_config.json')
   private logger
   private readonly WATCH_DEBOUNCE_MS = 2000
@@ -127,10 +137,64 @@ export default class Config extends Service {
     mergeNewProperties(defaults, jsonData)
     jsonData.webui = this.migrateWebUIToken(jsonData.webui)
     for (const key of DEPRECATED_KEYS) delete (jsonData as Dict)[key]
+    // 先按磁盘真值写回缺省 (环境变量的值永不落盘), 只在内容真变了时写, 免得自己的写入又触发一次重载
+    if (JSON.stringify(jsonData, null, 2) + '\n' !== this.file.rawSync()) {
+      this.config = jsonData
+      this.set(jsonData)
+    }
+    // 再把环境变量叠在内存视图上
+    this.applyEnv(jsonData)
     this.config = jsonData
-    // 补齐缺省后写回, 但只在内容真变了时写, 免得自己的写入又触发一次重载
-    if (JSON.stringify(jsonData, null, 2) + '\n' !== this.file.rawSync()) this.set(jsonData)
     return this.config
+  }
+
+  /**
+   * 把 LLBOT_* 覆盖到内存里的配置上, 并记下被覆盖字段的磁盘原值。
+   * get() 因此返回生效值, 而 writeConfig() 落盘前会把这些字段还原 -- 环境变量的值永不写进文件。
+   */
+  private applyEnv(config: LLBotConfig) {
+    this.envLocked.clear()
+    for (const { env, path: keys, parse } of ENV_OVERRIDES) {
+      const raw = process.env[env]
+      if (raw === undefined || raw === '') continue
+      const value = parse(raw)
+      if (value === undefined) continue
+      const parent = keys.slice(0, -1).reduce<Dict | undefined>((o, k) => o?.[k] as Dict, config as unknown as Dict)
+      if (!parent) continue
+      const leaf = keys[keys.length - 1]
+      this.envLocked.set(keys.join('.'), parent[leaf])
+      parent[leaf] = value
+    }
+  }
+
+  /** 还原被环境变量覆盖的字段为磁盘原值, 供落盘使用。 */
+  private stripEnv(config: LLBotConfig): LLBotConfig {
+    if (!this.envLocked.size) return config
+    const clone = JSON.parse(JSON.stringify(config)) as LLBotConfig
+    for (const [key, diskValue] of this.envLocked) {
+      const keys = key.split('.')
+      const parent = keys.slice(0, -1).reduce<Dict | undefined>((o, k) => o?.[k] as Dict, clone as unknown as Dict)
+      if (!parent) continue
+      const leaf = keys[keys.length - 1]
+      if (diskValue === undefined) delete parent[leaf]
+      else parent[leaf] = diskValue
+    }
+    return clone
+  }
+
+  /** 被环境变量锁定的字段路径, WebUI 据此把它们显示为只读。 */
+  envLockedPaths(): string[] {
+    return [...this.envLocked.keys()]
+  }
+
+  /**
+   * 合并一份局部配置并落盘。顶层 / 嵌套对象逐 key 合并, 数组和标量整体替换。
+   * 取代"整份覆盖"的 set(): 之前 set_config 只传一个字段就会把其余配置全部清掉。
+   */
+  patch(partial: Dict): LLBotConfig {
+    const next = deepMerge(this.get(), partial) as LLBotConfig
+    this.set(next)
+    return next
   }
 
   set(config: LLBotConfig) {
@@ -139,8 +203,9 @@ export default class Config extends Service {
   }
 
   private writeConfig(config: LLBotConfig) {
-    // 先写临时文件再 rename, 中途崩溃不会留下半截配置; 写入内容记哈希供 watchFile 回调识别自写
-    this.file?.writeSync(config)
+    // 先写临时文件再 rename, 中途崩溃不会留下半截配置; 写入内容记哈希供 watchFile 回调识别自写。
+    // stripEnv: 用户在同一次保存里改了别的字段时, 不把环境变量的值一起固化进文件。
+    this.file?.writeSync(this.stripEnv(config))
   }
 
 
