@@ -1,6 +1,6 @@
 # 插件系统（host 侧）
 
-Bot 进程本身就是一个 cordis 4 应用，插件运行时只是在根 `Context` 上多挂了一个服务：`PluginService`（`ctx.plugins`）。它负责扫描本地目录、读写 `data/plugins.json`、把每个启用的条目 `ctx.plugin()` 成一个 fiber，以及热重载。
+Bot 进程本身就是一个 cordis 4 应用，插件运行时只是在根 `Context` 上多挂了一个服务：`PluginService`（`ctx.plugins`）。它负责扫描本地目录、读写插件条目与配置（`data/config/global/plugins.json` + 每个账号的覆盖层）、把每个启用的条目 `ctx.plugin()` 成一个 fiber，以及热重载。
 
 作者视角的写法见 [plugin-authoring.md](plugin-authoring.md)。
 
@@ -10,7 +10,8 @@ Bot 进程本身就是一个 cordis 4 应用，插件运行时只是在根 `Cont
 |---|---|
 | `src/plugin/index.ts` | `PluginService`：条目状态机、enable / disable / updateConfig / reload / describe |
 | `src/plugin/manifest.ts` | 扫描插件根目录、解析 `package.json` 的 `llbot` 字段、SDK 版本比对 |
-| `src/plugin/store.ts` | `data/plugins.json` 读写 |
+| `src/plugin/store.ts` | 全局条目文件与账号覆盖层的读写（底层是 `src/common/jsonFile.ts`） |
+| `src/common/schema/` | schemastery 线格式模型（`model.ts`）与按 schema 的差异 / 合并（`diff.ts`），前后端共用 |
 | `src/plugin/resolve-hook.ts` | `module.registerHooks` 解析钩子 |
 | `src/plugin/watcher.ts` | 目录监听（热重载） |
 | `src/main/builtins.ts` | 内置插件表：三个适配器、WebQQ、邮件通知、中立层 |
@@ -19,7 +20,7 @@ Bot 进程本身就是一个 cordis 4 应用，插件运行时只是在根 `Cont
 
 `PluginService` 在 `src/main/main.ts` 里紧跟 `ConfigService` 挂载，早于协议层和登录。插件需要登录后才有的服务就自己 `inject`，没就绪时 fiber 停在 PENDING，cordis 会在服务出现后自动拉起 —— 运行时不关心登录状态。
 
-**登录门闸 `account`**（`src/main/account.ts`）：取代了原来 `main.ts` 里的 `sessionLoaded` 布尔 + `loadPluginAfterLogin()`。它用 cordis 的 `Service[Service.check]`：首次 `qq/online` 前 check 为 false，依赖方停在 PENDING；之后 `reflect.notify(['account'])` 让它们拉起，断线重连不撤销。`main.ts` 里一个 `ctx.inject(['account', 'config'], ...)` 回调负责切到账号配置文件（`config.get(false)`）、首播 `llob/config-updated`，再挂数据库、`Core`、`Store`；适配器等改由 `PluginService` 作为内置条目装载（见下文"内置插件"）。`ctx.get('account')` 不看 check，判断它是否可用要用 `reflect._getImpl` + `check`（`PluginService.missingDeps` 就是这么算的）。
+**登录门闸 `account`**（`src/main/account.ts`）：取代了原来 `main.ts` 里的 `sessionLoaded` 布尔 + `loadPluginAfterLogin()`。它用 cordis 的 `Service[Service.check]`：首次 `qq/online` 前 check 为 false，依赖方停在 PENDING；之后 `reflect.notify(['account'])` 让它们拉起，断线重连不撤销。`notify` 之前先同步 emit 一次 `account/prepare(uin)`，`PluginService` 在这里切到该账号的配置覆盖层（见下文"两层配置"）。`main.ts` 里一个 `ctx.inject(['account', 'config'], ...)` 回调负责切到账号配置文件（`config.get(false)`）、首播 `llob/config-updated`，再挂数据库、`Core`、`Store`；适配器等改由 `PluginService` 作为内置条目装载（见下文"内置插件"）。`ctx.get('account')` 不看 check，判断它是否可用要用 `reflect._getImpl` + `check`（`PluginService.missingDeps` 就是这么算的）。
 
 ## 中立层（Satori）
 
@@ -60,7 +61,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 **包**：插件根目录（默认 `data/plugins/`，外加任意个 `--plugin-dir <path>`）下的子目录，`package.json` 里有 `llbot` 字段才算。`@scope/` 目录会再往下找一层。入口按 `exports` → `main` → `index.js` 解析。同名包只认第一个，其余打 warn。
 
-**条目**（`data/plugins.json`）：
+**条目**（`data/config/global/plugins.json`；老位置 `data/plugins.json` 启动时自动搬过来）：
 
 ```json
 {
@@ -75,10 +76,26 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 - `id` 是 8 位 hex，落盘后不变。同一个包可以开多个实例，所以不能用包名当主键
 - 形状对齐官方 `@cordisjs/plugin-loader` 的 `EntryOptions`（少了 `group` / `inject`），将来换官方 loader 不用迁移文件
-- 单独成文件，是为了避开 `ConfigService.cleanupConfig()` —— 它以 `defaultConfig.ts` 为白名单递归删掉不认识的 key
-- 读用 JSON5（允许手写注释）。解析失败时把原文件改名为 `plugins.json.broken-<ts>` 并以空条目启动，不会被下次保存覆盖
+- 单独成文件、按 `data/config/{global,accounts/<uin>}/` 组织，见 [config-storage.md](config-storage.md)。读写都经 `JsonFile`：读用 JSON5（允许手写注释），写先写临时文件再 rename
+- 解析失败时**文件原样留着**，以空条目 + 内置条目启动；启动时补内置条目的那次保存在读失败时跳过，所以坏文件不会被覆盖，用户改好后下次启动生效（原来是改名成 `.broken-<ts>`）
 - 扫描到从没见过的包，会自动建一个 `disabled: true` 的条目，让它出现在 WebUI 里，但不会自动执行
-- 全局一份、不分账号。同一个 `data/` 下跑多个账号会共用插件配置，是已知限制
+
+### 两层配置（全局 + 账号覆盖）
+
+同一个 `data/` 下多个账号想让插件表现不一样时，用账号覆盖层 `data/config/accounts/<uin>/plugins.json`（设置过才有）：
+
+```jsonc
+{ "version": 1, "entries": { "7f3a9c21": { "config": { "groups": ["123456"] } }, "b1d4e880": { "disabled": false } } }
+```
+
+- **条目只在全局层增删**，覆盖层只按 id 引用已有条目；引用了已删 id 的覆盖在下次写这个文件时清掉
+- 生效值 `defaults < 全局层 < 账号覆盖`；`disabled = 覆盖 ?? 全局 ?? false`，core 内置条目忽略覆盖。"只在 A 号运行" = 全局 `disabled: true` + A 的覆盖 `disabled: false`
+- **登录时序**：`PluginService` 本身不 inject `account`（它得在登录前就跑起来），而是监听 `account/prepare`：读覆盖层，只对**有覆盖**的条目重算（停用 / 启动 / `fiber.update`）。覆盖文件不存在或为空时什么都不碰；解析失败只记日志，按全局层跑
+- **没有覆盖的条目交给 cordis 的仍是全局层存的差异**，和引入覆盖层之前逐字节相同；有覆盖时才交合并后的完整值
+- **落盘存差异，差异由服务端算**：`updateConfig` 收完整值（也兼容已剥默认值的差异），先补成生效值、校验合并后的生效值（单独校验某一层会被 `required` 拒掉），再存相对下一层的差异 —— 全局层相对 schema 默认值，账号层相对全局生效值。差异规则见 `src/common/schema/diff.ts`：只有 object（和全是 object 的 intersect）逐 key 递归，dict / array / union / 标量整体替换
+- **写入路由**：显式 `scope` 优先；否则写"生效值当前来自的那层"（这个账号覆盖了配置就写覆盖层，否则写全局层）；登录前一律写全局层。卡片开关（`enable` / `disable`）同理：覆盖层定义了 `disabled` 就改覆盖层
+- 保存全局层时，会用新的全局层把**本账号**的覆盖合并校验一次，不合法只记 warn、不阻断保存 —— 否则一个账号的坏覆盖会卡死整个配置页，而当前进程没有界面去改别的账号的覆盖；别的账号在它自己登录时由插件挂载报错
+- **并发**：`describe` 返回 `rev`（两层配置内容的哈希），`PUT` 带回 `ifRev`，在条目锁内比对，不一致返回 409，前端提示后重新载入
 
 ## 内置插件
 
@@ -122,7 +139,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 - `ctx.plugin()` 返回的是 `Object.create(fiber)` 包了一层 `then`，不是 fiber 本体；`internal/status` 传的是本体，所以要用 `.ctx.fiber` 取回来做映射
 - `fiber.await()` 只等进行中的加载 / 卸载，对 PENDING 的 fiber 立刻返回；FAILED 时会把错误重新抛出 —— 这也是拿到失败原因的唯一公开途径
-- `fiber.update(config)` 只在 fiber 已加载时同步校验配置，PENDING 时不校验。`updateConfig()` 因此先用 `resolveConfig()` 预校验一遍，失败直接抛 `ValidationError`，不动正在运行的实例、不写盘
+- `fiber.update(config)` 只在 fiber 已加载时同步校验配置，PENDING 时不校验。`updateConfig()` 因此先自己校验合并后的生效值，失败抛 `PluginConfigError`，不动正在运行的实例、不写盘
 
 ## WebUI 管理面
 
@@ -139,9 +156,9 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 | POST | `/scan` | 重新扫描 |
 | POST · DELETE | `/` · `/:id` | 新建实例（`{ name, config? }`）· 删除条目 |
 | POST | `/:id/enable` · `/:id/disable` · `/:id/reload` | |
-| GET | `/:id/schema` | `{ schema, defaults, config }`，会 import 尚未加载的模块 |
+| GET | `/:id/schema` | `{ schema, defaults, config, global, account, effective, scope, rev, uin, accounts }`，会 import 尚未加载的模块。`config` 与 `global` 相同（老字段）；`account` 为 null 表示本账号没覆盖配置；`accounts` 是有配置目录的账号 |
 | GET | `/:id/dependencies` | 依赖报告，见下 |
-| PUT | `/:id/config` | 400 时 `data.issues` 是 `[{ path, message }]` |
+| PUT | `/:id/config` | body `{ config, scope?, ifRev? }`，`config` 是完整值。400 时 `data.issues` 是 `[{ path, message }]`；409 表示 `ifRev` 过期，`data.rev` 是当前值 |
 
 **依赖报告**（`PluginService.dependencies(id)`）：`PluginStatus.service` 是清单的 `llbot.service`（`normalizeService()` 补齐三个列表，格式不对的部分丢弃并打 warning）合并模块加载后的 `Inject.resolve(plugin.inject)` 和 `plugin.provide`；内置条目只用 `BuiltinPlugin.manifest.service`（它们的 inject 是一长串 Bot 内部服务，对插件页没意义），四个适配器 / 邮件通知声明了自己 `implements` 的服务名。报告按请求现算，因为"服务在不在"取决于整个 app：
 
@@ -150,7 +167,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - `candidates`：其他条目里 `implements` 了这个服务的；`conflicts`：自己 `implements` 的服务还有哪些**启用中**的条目也 `implements`
 - 冲突只提示不拦截：cordis 会让后起来的提供者失败（`service "xxx" has been registered at <...>`），先起来的不受影响。前端卡片上的冲突提示由 `findConflicts()` 用列表现算，不调接口
 
-错误码：`PluginNotFoundError` → 404，`PluginForbiddenError` → 403（内置条目不支持的操作），`PluginConfigError` → 400（带 issues），其它 → 500。cordis 自己的 `ValidationError` 只拼一段文本、不保留 issues，所以 `updateConfig` 直接调 Standard Schema 的 `validate()` 自己抛 `PluginConfigError`。
+错误码：`PluginNotFoundError` → 404，`PluginForbiddenError` → 403（内置条目不支持的操作），`PluginConfigError` → 400（带 issues），`PluginRevConflictError` → 409，其它 → 500。cordis 自己的 `ValidationError` 只拼一段文本、不保留 issues，所以 `updateConfig` 直接调 Standard Schema 的 `validate()` 自己抛 `PluginConfigError`。
 
 **前端**在 `src/webui/FE/components/plugins/`，类型在 `types/plugins.ts`（手工和 `src/plugin/index.ts` 对齐 —— FE 的 tsconfig 没有 node 类型，不能直接 import 后端模块）。`utils/api.ts` 的 `apiFetch` 遇到非 2xx 抛 `ApiError`（带 `status` 和响应体里的 `data`），保存配置靠它拿到 issues。
 
@@ -160,7 +177,9 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - `Schema.date()` / `regExp()` 是 `union(is(X), transform(string))`：`is` / `function` 成员没有 JSON 表示，丢掉后只剩字符串那一支
 - union 分形态：全 const → 下拉（role `radio` 时单选）；`[const(false), X]` → 开关；`[X, const(null)]` → 直接编辑 X；各分支 object 共享一个 const 键 → tagged，顶部按钮切换分支；其余 → JSON 编辑框。`intersect` 只在成员都是 object 时平铺合并
 - `role` 优先于 `type`：`secret` / `textarea` / `ms` / `slider`（`percent()` 显示为百分比）/ `table`（`array(object)` 渲染成 `table-fixed` 表格）/ `radio` / `checkbox`（const 数组的多选）。不认识的类型一律落到 JSON 编辑框，永不白屏；嵌套超过 6 层也用 JSON
-- 弹窗打开时 `withDefaults(config, defaults)` 填出完整值；保存时 `stripDefaults` 剥掉等于默认值的字段（数组整体比较），`plugins.json` 只存用户改过的部分，插件升级改了默认值时用户自动跟上
+- 表单编辑的是完整值：作用域为"仅本账号"时是服务端给的 `effective`，为"所有账号"时是 `withDefaults(node, global, defaults)`；保存时把完整值连同 `scope`、`ifRev` 发回去，剥默认值由服务端做，`plugins.json` 只存用户改过的部分，插件升级改了默认值时用户自动跟上
+- `model.ts` / `values.ts` 是对 `src/common/schema/` 的 re-export（经 `@shared` 别名：FE 的 vite 和 tsconfig、根 vitest 各配了一份），只有 `initialValue()` 这种纯表单逻辑留在前端
+- 作用域切换（"所有账号 / 仅 `<uin>`"）只在已登录、且"有配置目录的账号 ≥ 2 或本账号已有覆盖"时出现，单账号用户看到的界面不变
 - 卡片图标用一张固定的 lucide 图标表（`meta.ts`），没用 `lucide-react/dynamic` 的 `DynamicIcon`：它会给约 1600 个图标各生成一个 chunk
 
 **端到端验证方法**（不登录 QQ）：后端 `tsx --tsconfig <repo>/tsconfig.json <repo>/src/main/main.ts -q 10001 --pmhq-port 1 --plugin-dir <repo>/examples/plugins`，cwd 放临时目录，预置 `data/webui_token.txt` 和 `data/config_10001.json`（`{ "webui": { "enable": true, "host": "127.0.0.1", "port": 3999 } }`：带 `-q` 时登录前就读这份配置，PMHQ 端口没人监听所以不会真登录）；前端 `BROWSER=none WEBUI_PORT=3999 npx vite --port 15199 --strictPort`；浏览器设好 `webui_token` cookie（密码的 sha256 hex），用 Playwright 只把 `/api/config` 响应里的 `selfInfo.online` 改成 true，就能进主界面操作真实的插件后端。
@@ -232,6 +251,8 @@ Node ESM 没有公开的缓存失效 API（官方 `@cordisjs/plugin-hmr` 需要�
 ## 测试
 
 - `test/unit/plugin/service.test.ts`：在 gitignore 的 `.tmp/` 下现场生成插件包，覆盖启停、配置校验、失败隔离、SDK 不兼容、缺依赖、自带 cordis、重载与重载失败、包被删除、多实例。放在仓库内是为了让夹具插件能向上解析到仓库的 `node_modules`
+- `test/unit/plugin/overlay.test.ts`：账号覆盖层（登录时合并、开关覆盖、写入路由、差异基准、自清理、core 忽略覆盖、坏文件按全局跑）和 rev / 409；登录用 `ctx.emit('account/prepare', uin)` 模拟
+- `test/unit/common/schemaDiff.test.ts`、`jsonFile.test.ts`：差异规则（含 dict 整体替换）与文件原语
 - `test/unit/bootstrap/builtins.test.ts`：用真实的内置插件表和 mock 的协议层 / 配置，验证登录前全部 pending、登录后拿到与改造前相同的配置、停用后端口真的释放、同端口再启用不 `EADDRINUSE`、core 条目停不掉
 - vitest 自己接管了模块加载，`registerHooks` 对被它转换的模块不生效，所以子模块热重载和"仓库外的插件"只能在真 Node 下验证：`npx tsx test/manual/plugin-runtime.mts`（裸 `Context` + `TimerService` + `PluginService`，插件建在系统临时目录，JS / TS 各一个，改子模块后重载）
 - 插件前端：`test/webui/plugins/registry.test.ts`（可见性、排序、取最新注册）、`test/webui/routes/pluginAssets.test.ts`（cookie 校验、Content-Type、越界 404）、`routeTable.test.ts`（public 路由）。端到端用示例插件 `webui-demo`（页面 / 插槽 / 字段控件）和 `custom-config`（自定义配置界面）按上面的不登录方法验证

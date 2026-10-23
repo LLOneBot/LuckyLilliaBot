@@ -335,7 +335,10 @@ class PluginService extends Service {
     // Before login there is no account layer to write to
     if (!this.overlayStore) return 'global'
     if (scope) return scope
-    return this.overlay.get(rt.entry.id)?.config === undefined ? 'global' : 'account'
+    if (this.overlay.get(rt.entry.id)?.config !== undefined) return 'account'
+    if (rt.entry.config !== undefined) return 'global'
+    // Neither layer has configured it yet: the plugin's own preference decides
+    return this.packages.get(rt.entry.name)?.manifest.configScope === 'account' ? 'account' : 'global'
   }
 
   /**

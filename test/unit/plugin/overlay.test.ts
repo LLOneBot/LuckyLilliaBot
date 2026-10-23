@@ -175,6 +175,21 @@ describe('per-account plugin overrides', () => {
     expect(existsSync(accountFile(UIN))).toBe(false)
   })
 
+  it('lets llbot.configScope pick the layer when neither layer has configured the entry', async () => {
+    writeFileSync(path.join(pluginRoot, 'alpha', 'package.json'), JSON.stringify({
+      name: 'alpha', version: '1.0.0', type: 'module', main: 'index.js', llbot: { configScope: 'account' },
+    }))
+    writeGlobal([{ id: 'aaaa1111', name: 'alpha' }])
+    const plugins = await boot()
+    await login()
+    const { id } = byName('alpha')
+
+    expect((await plugins.describe(id)).scope).toBe('account')
+    await plugins.updateConfig(id, { n: 4, tag: 'x' })
+    expect(readGlobal().entries[0].config).toBeUndefined()
+    expect(readOverlay(UIN).entries[id]).toEqual({ config: { n: 4 } })
+  })
+
   it('reports both layers and the effective value', async () => {
     writeGlobal([{ id: 'aaaa1111', name: 'alpha', config: { n: 2 } }])
     writeOverlay(UIN, { aaaa1111: { config: { n: 5 } } })

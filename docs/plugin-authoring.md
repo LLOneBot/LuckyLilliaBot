@@ -30,7 +30,8 @@ luckylillia-plugin-foo/
       "optional": ["puppeteer"],
       "implements": []
     },
-    "webui": "webui/index.js"           // 可选，见下文"扩展 WebUI"
+    "webui": "webui/index.js",          // 可选，见下文"扩展 WebUI"
+    "configScope": "global"             // 可选，见下文"多个账号"
   }
 }
 ```
@@ -66,8 +67,14 @@ export function apply(ctx: Context, config: Config) {
 
 - `Config` 是 schemastery 的 schema 时，WebUI 会自动生成配置表单；用户保存时 Bot 先按 schema 校验，不通过就拒绝保存并把错误标到对应字段上，正在运行的实例不受影响
 - 配置变化时 cordis 会重启插件（先撤销旧实例注册的一切，再用新配置调用 `apply`），不需要自己监听配置变化
-- 保存时只记录用户改过的字段，等于默认值的不落盘 —— 插件新版本改了默认值，用户会自动用上
+- 保存时只记录用户改过的字段，等于默认值的不落盘 —— 插件新版本改了默认值，用户会自动用上。按 schema 比较：嵌套的 `object` 逐个字段记，`array` / `dict` / `union` 改了任何一处就整体记下（插件新版本改了它们的默认值，已经改过的用户不会被带走）
 - 用别的 Standard Schema 实现（比如 zod）也能校验，但 WebUI 只能给一个 JSON 编辑框
+
+**多个账号**：一个 Bot 数据目录可以先后登录不同的 QQ 号。插件配置分两层 —— 所有账号共用的一层，和某个账号自己的覆盖（只记和共用层不同的字段，开关也可以单独覆盖）。插件什么都不用做：`apply` 拿到的就是合并好的配置，登录的账号有覆盖时插件会按新配置重启一次。
+
+- 只有一个账号的用户在 WebUI 里看不到这些；出现第二个账号（或者已经有覆盖）后，配置弹窗顶部会多一个"所有账号 / 仅 `<QQ号>`"的切换
+- 用户没选的时候，保存写到"当前生效的那一层"。两层都还没配置过这个插件时，看 `llbot.configScope`：默认 `"global"`（所有账号共用），配置天然跟账号绑定的插件（比如存着某个号的群列表）写 `"account"`
+- 登录前（还不知道是哪个账号）一律写共用层
 
 表单支持的写法（`description()` 会作为字段标题，键名作为小字显示）：
 
@@ -243,7 +250,7 @@ Bot 在加载插件时会把这些 import 统一解析到它自己那一份。�
 两个启动参数：
 
 - `--plugin-dir <path>`：在 `data/plugins/` 之外再扫一个目录，可以写多次
-- `--plugin-hmr`：监听插件目录，文件一改就重载（也可以在 `data/plugins.json` 里写 `"hmr": true`）。不开的话用 WebUI 的重载按钮
+- `--plugin-hmr`：监听插件目录，文件一改就重载（也可以在 `data/config/global/plugins.json` 里写 `"hmr": true`）。不开的话用 WebUI 的重载按钮
 
 **用 Bot 源码开发**（tsx 能直接跑 `.ts`，`main` 可以指向 `src/index.ts`）：
 
