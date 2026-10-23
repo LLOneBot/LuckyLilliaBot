@@ -106,6 +106,8 @@ declare module 'cordis' { interface Context { storage: PluginStorage } }
 
 ## 7. 内置插件接入
 
+> 已实施(见 §9.5 记录与 [plugin-system.md](plugin-system.md) 的"内置插件的配置绑定")。与下文的差别:只给邮件密码打码,适配器 token 不打码(页面本来就显示 token);`get_config` 打码与 `set_config` 校验会改变对外 OB11 API 的行为,等 owner 决定。
+
 内置适配器 / 邮件通知接到同一套 schema + 校验 + 表单,但**配置继续读写原来的文件**(适配器的在 `config_<uin>.json`,邮件的在 `email_config.json`),不迁移。开关合并:条目开关和 `*.enable` / `enabled` 合并成一个(和桌面端一键对接改同一个开关),适配器/邮件条目始终挂载、`disabled` 像 core 一样忽略。
 
 邮件顺带修三件事:监听从 `fs.watch` 改 `watchFile`(docker bind mount 下 inotify 不可靠);停用时也能配置。**但保留 `********` 密码打码**(对照挑错 P1:去掉打码会让 `GET /api/email/config` 明文返回 SMTP 密码,而 docker 默认监听全部地址;这是现存唯一的 secret 保护)。要"能清空密码"用显式语义区分(body 带 `clearPassword: true`,或约定 `null`=保留、`""`=清空),不靠明文回传。
@@ -185,12 +187,17 @@ declare module 'cordis' { interface Context { storage: PluginStorage } }
 | `c43abebe` | 1b | OB11 / Milky 原来收到任何 `llob/config-updated` 都整体重建(踢掉所有 OneBot ws 客户端、反向 ws 重连、Milky SSE/WS 断开)→ 按自己片段深比较(文件 watcher 给的是全新对象树,不能比引用);OB11 只看 `{enable, connect}`,`musicSignUrl` 等调用时才读的字段直接赋值;重建串行化,dispose 等进行中的重建;Milky 只在 `enable/http/webhook` 变时重启 |
 | `cf0f7190` | 1b | 前端各设置页只提交自己的片段(OneBot `{ob11}`、Satori `{satori}`、Milky `{milky}`、其他配置只交它编辑的键)——原来每页都 POST App 启动时加载的整份配置,会把别处(`set_config`、别的页、手改)刚改的片段冲回旧值;"其他配置"页 env 锁定字段只读并注明变量名、标注"每个账号各存一份";修端口回调把空 host(监听全部,docker 需要)改写成 `127.0.0.1` 的 bug。真实后端端到端验证过 |
 | `b45d7686` | §6 | `ctx.storage.dir(scope)` + 条目的 `ctx.baseUrl`:`data/plugin-data/<key>/shared/` 与 `/<uin>/`;`storage` 是根上的 accessor(按 `symbols.shadow` 认定义处,服务方法被别的条目调用时仍归服务自己),`baseUrl` 是挂载父 ctx 上的自有属性;`dir('account')` 要求调用链上 inject 了 `account`,否则 reject(不挂起等登录,见 plugin-system.md);`PLUGIN_DATA_DIR`;卸载不删数据 |
+| `40203fe5` | §7 契约 | `BuiltinPlugin.config: BuiltinConfigBinding`(schema / 固定 scope / location / read / write / check / normalize / enabled / secrets / watch):`describe`/`updateConfig` 分流到绑定;开关合并进值里的 `enable`,插件始终挂载、忽略并清掉条目上的 `disabled`;打开开关也走校验;secret 打码、发回掩码或空串保留原值、`clear` 才清空(发了新值以新值为准);还没有文件可写时 503;覆盖层忽略这些条目;`status.bound` 让侧边栏一直列出它们的设置页 |
+| `96b0836f` | §7 邮件 | `email_config.json` 换成基于 JsonFile 的单例 store:每次现读(桌面端直接改文件)、原子写、坏文件保留 last-good、补齐缺字段、`watchFile` 轮询(取代 docker 下不可靠的 `fs.watch`);登录前、通知关着时都能配;页面加"清空密码";`/api/email` 只剩 `/test`(不再依赖服务运行、强制校验字段、按"已开启"发,能在打开前先测试);新增前端 `useBuiltinConfig()` |
+| `23abf343` | §7 Satori | 共用工厂 `botConfigBinding(key)`(读片段副本、写 = `patch` + `llob/config-updated` 由适配器热应用;没有账号文件时 503);`ConfigService.accountFile`;`validate.ts` 的 token 规则改成带字段路径的 issue,`POST /api/config` 与绑定共用;Satori 页改走插件 API(并发修改改为 409) |
+| `137cd852` | §7 Milky | schema(webhook 必须 http(s))+ `normalize` 去空行 + token 规则;页面经一层本地外壳仍编辑 `config.milky` |
+| `08950784` | §7 OneBot | `connect` = 按 `type` 的 tagged union 数组;schema 不严格(桌面端每行全字段、`name`/`filter` 为 null 都能过),写回用户原值(未知键、缺 host 的老 ws 行保持原样);token 规则报到具体那一行;四个设置页都改走 `useBuiltinConfig`,`BotConfigContext` 删除。真实后端端到端验证过四个页面 |
 
 **实测遗留**:`default_config.json` 与 `defaultConfig.ts` 的 `musicSignUrl` 本来就不一致(JSON 是旧的 `llob.linyuchen.net`,而 `migrateConfig` 又会把含 `linyuchen` 的值改写成 TS 里的 `ss.xingzhige.com`)。未动它,单测里列为已知例外。
 
-**没做(仍属设计)**:§7 内置插件(OB11/Satori/Milky/邮件)接入同一套 schema 表单、§9 第 6 步把 `config_<uin>.json` / `email_config.json` 搬进 `data/config/`。
+**没做(仍属设计)**:OB11 `get_config` 给 token 打码、`set_config` 加 token 校验(都会改变对外 API 行为,待 owner 定)、§9 第 4 / 5 步、§9 第 6 步把 `config_<uin>.json` / `email_config.json` 搬进 `data/config/`。
 
-**已知局限**:同一个片段被两处并发修改时(比如页面加载后经 `set_config` 改了 `satori.port`,再在 Satori 页保存),页面保存的是它加载时那份,会覆盖掉另一处的修改 —— 片段级别的保存只保证**别的**片段不被冲掉。内置插件接入 schema(§7)后改走 `describe` + rev/409 才能检测出来。
+**已知局限(已解决)**:同一个片段被两处并发修改时,页面原来保存的是它加载时那份,会覆盖掉另一处的修改。四个内置设置页改走 `describe` + rev/409 后,这种情况会被拒绝并重新载入(端到端验证过);"其他配置"页仍是片段级 `POST /api/config`,没有 rev。
 
 ## 10. Owner 决策(含建议默认)
 

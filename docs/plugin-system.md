@@ -119,12 +119,12 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 | `builtin:ntqq-universal` | 中立层，**core** | — |
 
 - 条目照样存在 `data/plugins.json` 里（随机 id），只是 `name` 带 `builtin:` 前缀（npm 包名不能含冒号，不会撞）。启动时每个内置插件保证恰好一个条目：没有就建一个**启用**的（老版本升级上来行为不变），手写出来的重复条目丢掉，core 条目上的 `disabled` 忽略
-- 内置插件只有一个实例：它们提供具名服务（`onebot` / `satori` / ...），两个实例会抢同一个名字。`add` / `remove` / `updateConfig` / `describe` 对内置条目、`disable` 对 core 条目都抛 `PluginForbiddenError`（HTTP 403）
-- **配置仍在 `config_<uin>.json`**，不进 `plugins.json`：条目开关只决定装不装，`ob11.enable` 等原来的开关照旧。适配器包了一层 `withBotConfig()`：`inject` 是 `account` + `config` + 适配器自己的依赖（条目因此在依赖齐之前显示 pending，而不是"外壳 active、里面 pending"），`apply` 里按原来 `main.ts` 的拼法从 `ctx.config.get()` 取配置再 `await ctx.plugin(适配器)` —— await 让适配器启动失败变成条目的 `failed`。`test/unit/bootstrap/builtins.test.ts` 逐字段比对拼出来的配置
+- 内置插件只有一个实例：它们提供具名服务（`onebot` / `satori` / ...），两个实例会抢同一个名字。`add` / `remove` 对内置条目、`disable` 对 core 条目都抛 `PluginForbiddenError`（HTTP 403）；`updateConfig` / `describe` 只对**没有配置绑定**的内置条目（WebQQ、core）抛 403
+- **配置仍在原来的文件里**，不进 `plugins.json`：OneBot / Satori / Milky 在 `config_<uin>.json` 各自的片段，邮件通知在 `email_config.json`。这四个都声明了配置绑定（`src/main/builtinConfig/`，见下面"内置插件的配置绑定"一节），所以插件页能用 schema 校验和表单配置它们、卡片开关改的就是 `ob11.enable` / `satori.enable` / `milky.enable` / 邮件的 `enabled`，插件本身始终挂载。适配器包了一层 `withBotConfig()`：`inject` 是 `account` + `config` + 适配器自己的依赖（条目因此在依赖齐之前显示 pending，而不是"外壳 active、里面 pending"），`apply` 里按原来 `main.ts` 的拼法从 `ctx.config.get()` 取配置再 `await ctx.plugin(适配器)` —— await 让适配器启动失败变成条目的 `failed`。`test/unit/bootstrap/builtins.test.ts` 逐字段比对拼出来的配置
 - `reload` 对内置条目是重启（dispose + 重新挂载，没有模块可重新 import），会读到最新配置
-- **停用要真能停下来**：改造前适配器从不在运行时卸载，OneBot / Satori / Milky 的 `[Service.init]` 都返回 `noop`，停用后端口不释放，再启用就 `EADDRINUSE`。现在它们返回关服务器的 disposer（cordis 卸载时会 await）。Satori 的 `/v1/internal/onebot11/:action` 原来缓存了一份按 OB11 实例构造的 action 表，OB11 重启后会指向已卸载的实例，改成每次从当前的 `ctx.get('onebot').actionMap` 取
+- **停用要真能停下来**（现在只对没绑定的内置条目、以及 reload 有意义；绑定的适配器"停用"是把 `enable` 写成 false，由适配器自己停监听）：改造前适配器从不在运行时卸载，OneBot / Satori / Milky 的 `[Service.init]` 都返回 `noop`，停用后端口不释放，再启用就 `EADDRINUSE`。现在它们返回关服务器的 disposer（cordis 卸载时会 await）。Satori 的 `/v1/internal/onebot11/:action` 原来缓存了一份按 OB11 实例构造的 action 表，OB11 重启后会指向已卸载的实例，改成每次从当前的 `ctx.get('onebot').actionMap` 取
 - 前端：插件页分"内置 / 已安装"两区，内置卡片有"内置 / 核心"徽章，core 的开关置灰。内置插件的界面和第三方插件走同一套 `ctx.page()`（见下文"插件前端"），只是随 WebUI 打包：适配器和邮件通知注册的是**设置页**（插件启用就在侧边栏，停用后从侧边栏消失，但卡片上的"前往设置"仍能打开），WebQQ 注册的是**功能页**（插件运行时才出现）。卡片上的"前往设置"跳到该插件注册的设置页，第三方插件也一样
-- 内置设置页编辑的仍是原来的配置文件：适配器的在 `config_<uin>.json`，由 `App` 加载，经 `BotConfigContext`（`components/config/BotConfigContext.tsx`）交给这些页面。`save(sections)` 只提交本页的片段（OneBot `{ ob11 }`、Satori `{ satori }`……），`POST /api/config` 用 `ConfigService.patch()` 深合并进去 —— 整份提交会把别处刚改的片段冲回本页加载时的旧值。适配器只在自己的片段变了时重建连接（深比较），别的页保存不会踢掉客户端。邮件通知已接入"内置插件的配置绑定"（见下一节），页面用 `useBuiltinConfig()` 经 `/api/plugins/:id/schema` 和 `PUT /:id/config` 读写 `email_config.json`，登录前、通知关着时都能配；`/api/email` 只剩 `POST /test`。原来"其他配置"里的邮件区块已经拆出去，"其他配置"只剩全局设置
+- 内置设置页（OneBot / Satori / Milky / 邮件）都用 `components/config/useBuiltinConfig.ts`：经 `/api/plugins/:id/schema` 读、`PUT /:id/config` 带 `ifRev` 写，服务端按绑定校验、只写这个内置插件自己的那部分；在别处（`set_config`、桌面端、另一个标签页）改过之后再保存会 409 并重新载入，不会悄悄覆盖。页面仍是各自的定制界面（HostSelector、事件过滤器编辑器、OneBot 连接卡片等通用表单给不了），只是数据层走插件 API。邮件页登录前、通知关着时都能配，`/api/email` 只剩 `POST /test`。"其他配置"页仍走 `POST /api/config`，只提交它编辑的键（`otherSettings()`），`ConfigService.patch()` 深合并进去。适配器只在自己的片段变了时重建连接（深比较），别的页保存不会踢掉客户端。原来的 `BotConfigContext` 已删除
 - **WebQQ 插件**（`builtin:webqq`）：路由、上传目录、`/api/webqq/events` 的 SSE 连接，以及往 SSE 推消息的 4 个 `nt/*` 监听（`routes/webqq/events.ts`）都在插件里，`inject` 列出路由代码直接访问的全部服务，登录后才挂载。停用时主动 `abort()` 还开着的 SSE 连接，否则页面会一直挂在一条没人写的流上。路由文件留在 `src/webui/BE/routes/webqq/` 没搬目录
 - 插件只需要 `inject` 自己**直接**访问的服务：经 `ctx.xxx` 调到别的服务的方法时，cordis 按那个服务自己的 fiber 做严格检查（`createShadow` 的 `defSite` 是服务本身的 ctx），调用方 ctx 只决定方法里注册的副作用挂在谁身上。但像 `Core.sendMessage(ctx, ...)` 这种把 ctx 当参数传进去的，参数 ctx 访问的服务要算在调用方头上
 - `pending` 的条目缺 `account` 时，前端只显示"等待 QQ 登录"：登录后才有的服务（`app` / `store` / `database` ...）都是它的结果，列出来没有意义
@@ -189,7 +189,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - `candidates`：其他条目里 `implements` 了这个服务的；`conflicts`：自己 `implements` 的服务还有哪些**启用中**的条目也 `implements`
 - 冲突只提示不拦截：cordis 会让后起来的提供者失败（`service "xxx" has been registered at <...>`），先起来的不受影响。前端卡片上的冲突提示由 `findConflicts()` 用列表现算，不调接口
 
-错误码：`PluginNotFoundError` → 404，`PluginForbiddenError` → 403（内置条目不支持的操作），`PluginConfigError` → 400（带 issues），`PluginRevConflictError` → 409，其它 → 500。cordis 自己的 `ValidationError` 只拼一段文本、不保留 issues，所以 `updateConfig` 直接调 Standard Schema 的 `validate()` 自己抛 `PluginConfigError`。
+错误码：`PluginNotFoundError` → 404，`PluginForbiddenError` → 403（内置条目不支持的操作），`PluginConfigError` → 400（带 issues），`PluginRevConflictError` → 409，`PluginUnavailableError` → 503（绑定的内置条目还没有可读写的文件，比如登录前），其它 → 500。cordis 自己的 `ValidationError` 只拼一段文本、不保留 issues，所以 `updateConfig` 直接调 Standard Schema 的 `validate()` 自己抛 `PluginConfigError`。
 
 **前端**在 `src/webui/FE/components/plugins/`，类型在 `types/plugins.ts`（手工和 `src/plugin/index.ts` 对齐 —— FE 的 tsconfig 没有 node 类型，不能直接 import 后端模块）。`utils/api.ts` 的 `apiFetch` 遇到非 2xx 抛 `ApiError`（带 `status` 和响应体里的 `data`），保存配置靠它拿到 issues。
 
