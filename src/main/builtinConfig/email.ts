@@ -5,7 +5,7 @@ import { checkEmail, EmailConfig, emailConfigStore, EmailSchema } from '@/common
 export const emailBinding: BuiltinConfigBinding<EmailConfig> = {
   schema: EmailSchema,
   scope: 'global',
-  location: 'email_config.json',
+  location: 'config/global/email.json',
   read: () => emailConfigStore().get(),
   async write(ctx, value) {
     emailConfigStore().save(value)

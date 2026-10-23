@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { Context, Fiber } from 'cordis'
@@ -6,7 +6,7 @@ import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'llbot-email-'))
-const file = path.join(DATA_DIR, 'email_config.json')
+const file = path.join(DATA_DIR, 'config', 'global', 'email.json')
 
 vi.mock('@/common/globalVars', () => ({
   DATA_DIR,
@@ -49,6 +49,7 @@ describe('EmailConfigStore', () => {
 
   beforeEach(() => {
     rmSync(file, { force: true })
+    mkdirSync(path.dirname(file), { recursive: true })
     store = new EmailConfigStore(file)
   })
 
@@ -94,6 +95,7 @@ describe('builtin:email-notification through the plugin API', () => {
   let id: string
 
   beforeEach(async () => {
+    mkdirSync(path.dirname(file), { recursive: true })
     writeFileSync(file, JSON.stringify(usable))
     ctx = new Context()
     await ctx.plugin(TimerService)
@@ -111,9 +113,9 @@ describe('builtin:email-notification through the plugin API', () => {
     rmSync(path.join(DATA_DIR, 'plugins.json'), { force: true })
   })
 
-  it('describes email_config.json with the password masked', async () => {
+  it('describes email.json with the password masked', async () => {
     const description = await ctx.plugins.describe(id)
-    expect(description).toMatchObject({ scope: 'global', fixedScope: true, location: 'email_config.json', secrets: ['smtp.auth.pass'] })
+    expect(description).toMatchObject({ scope: 'global', fixedScope: true, location: 'config/global/email.json', secrets: ['smtp.auth.pass'] })
     expect((description.effective as typeof usable).smtp.auth.pass).toBe(SECRET_MASK)
   })
 

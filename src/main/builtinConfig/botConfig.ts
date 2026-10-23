@@ -15,7 +15,7 @@ export function botConfigBinding<K extends AdapterKey>(
   return {
     ...rest,
     scope: 'account',
-    location: `config_<uin>.json → ${key}`,
+    location: `config/accounts/<uin>/settings.json → ${key}`,
     read(ctx) {
       // PluginService does not inject config: reach it without the strict check
       const config = ctx.get('config')

@@ -1,7 +1,6 @@
 import { existsSync, unwatchFile, watchFile } from 'node:fs'
-import path from 'node:path'
 import Schema from 'schemastery'
-import { DATA_DIR } from '@/common/globalVars'
+import { configPaths } from '@/common/configPaths'
 import { JsonFile } from '@/common/jsonFile'
 import { deepMerge } from '@/common/utils/misc'
 
@@ -83,7 +82,7 @@ export function checkEmail(config: EmailConfig, strict = false): EmailIssue[] {
 }
 
 /**
- * data/email_config.json: instance-wide, written by the WebUI and by the desktop app directly. Read afresh on
+ * config/global/email.json: instance-wide, written by the WebUI and by the desktop app directly. Read afresh on
  * every get() since it changes behind our back; an unparsable file keeps the last good value and stays on
  * disk for the user to fix.
  */
@@ -137,9 +136,9 @@ export class EmailConfigStore {
 
 let shared: EmailConfigStore | undefined
 
-/** The one store for data/email_config.json in this process. */
+/** The one store for config/global/email.json in this process. */
 export function emailConfigStore(onError?: (message: string) => void): EmailConfigStore {
-  return shared ??= new EmailConfigStore(path.join(DATA_DIR, 'email_config.json'), onError)
+  return shared ??= new EmailConfigStore(configPaths.email(), onError)
 }
 
 /** What EmailService reads its settings through. */

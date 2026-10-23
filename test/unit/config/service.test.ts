@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { Context } from 'cordis'
@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'llbot-config-'))
 const UIN = '123456'
-const configPath = path.join(DATA_DIR, `config_${UIN}.json`)
+const globalFile = path.join(DATA_DIR, 'config', 'global', 'settings.json')
+const accountFile = path.join(DATA_DIR, 'config', 'accounts', UIN, 'settings.json')
 
 // Overrides the shared setup mock so the service works in a throwaway directory
 vi.mock('@/common/globalVars', () => ({
@@ -28,14 +29,20 @@ vi.mock('@/main/config', async importOriginal => await importOriginal<object>())
 
 const ConfigService = (await import('@/main/config')).default
 
-const read = () => JSON.parse(readFileSync(configPath, 'utf8'))
+const readFile = (file: string) => (existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {})
+// The settings as they sit on disk, the two files merged the way the service merges them
+const read = () => ({ ...readFile(globalFile), ...readFile(accountFile) })
+const writeAccount = (value: unknown) => {
+  mkdirSync(path.dirname(accountFile), { recursive: true })
+  writeFileSync(accountFile, JSON.stringify(value))
+}
 
 let ctx: Context
 
 async function boot() {
   ctx = new Context()
   await ctx.plugin(ConfigService)
-  ctx.config.get(false) // resolve the path for this uin and create the file from defaults
+  ctx.config.get(false) // bind to this uin and create the files from defaults
   return ctx.config
 }
 
@@ -44,8 +51,7 @@ const { selfInfo } = await import('@/common/globalVars')
 beforeEach(() => {
   delete process.env.LLBOT_WEBUI_PORT
   delete process.env.LLBOT_LOG_LEVEL
-  // every case starts from a fresh file; one of them leaves it unparsable
-  rmSync(configPath, { force: true })
+  rmSync(path.join(DATA_DIR, 'config'), { recursive: true, force: true })
 })
 
 afterEach(() => {
@@ -64,6 +70,16 @@ describe('ConfigService.patch', () => {
     expect(saved.webui).toBeTruthy()
     expect(saved.ob11).toBeTruthy()
     expect(saved.musicSignUrl).toBeTruthy()
+  })
+
+  it('splits instance-wide and per-account keys into the two files', async () => {
+    const config = await boot()
+    config.patch({ ffmpeg: '/usr/bin/ffmpeg', webui: { port: 4100 } })
+    // ffmpeg is instance-wide, webui belongs to the account
+    expect(readFile(globalFile)).toMatchObject({ ffmpeg: '/usr/bin/ffmpeg' })
+    expect(readFile(globalFile).webui).toBeUndefined()
+    expect(readFile(accountFile).webui.port).toBe(4100)
+    expect(readFile(accountFile).ffmpeg).toBeUndefined()
   })
 
   it('merges nested objects per key but replaces arrays whole', async () => {
@@ -138,7 +154,7 @@ describe('LLBOT_* overrides', () => {
       ctx = new Context()
       await ctx.plugin(ConfigService)
       expect(ctx.config.get(false).webui.port).toBe(9999)
-      expect(existsSync(configPath)).toBe(false)
+      expect(existsSync(accountFile)).toBe(false)
     } finally {
       selfInfo.uin = UIN
     }
@@ -147,15 +163,15 @@ describe('LLBOT_* overrides', () => {
   it('keeps an external edit of a locked field when a reload has to write the file back', async () => {
     process.env.LLBOT_WEBUI_PORT = '9999'
     const config = await boot()
-    const edited = read()
-    edited.webui.port = 5555
-    delete edited.msgCacheExpire // forces the reload to fill a default and write the file back
-    writeFileSync(configPath, JSON.stringify(edited))
+    const account = readFile(accountFile)
+    account.webui.port = 5555
+    delete account.webui.host // a missing default forces the reload to write the file back
+    writeAccount(account)
 
     config.get(false)
 
-    expect(read().webui.port).toBe(5555)
-    expect(read().msgCacheExpire).toBeDefined()
+    expect(readFile(accountFile).webui.port).toBe(5555)
+    expect(readFile(accountFile).webui.host).toBeDefined()
     expect(config.get().webui.port).toBe(9999)
   })
 })
@@ -165,7 +181,7 @@ describe('ConfigService.peek', () => {
     process.env.LLBOT_WEBUI_PORT = '9999'
     const config = await boot()
     const before = config.get()
-    const other = path.join(DATA_DIR, 'config_777.json')
+    const other = path.join(DATA_DIR, 'config', 'accounts', '777', 'settings.json')
 
     const peeked = config.peek('777')
 
@@ -176,7 +192,8 @@ describe('ConfigService.peek', () => {
 
   it('reflects what is on disk for an existing account file', async () => {
     const config = await boot()
-    const other = path.join(DATA_DIR, 'config_778.json')
+    const other = path.join(DATA_DIR, 'config', 'accounts', '778', 'settings.json')
+    mkdirSync(path.dirname(other), { recursive: true })
     writeFileSync(other, JSON.stringify({ webui: { enable: false, host: '0.0.0.0', port: 4321 } }))
 
     expect(config.peek('778').webui).toEqual({ enable: false, host: '0.0.0.0', port: 4321 })
@@ -188,13 +205,13 @@ describe('ConfigService.peek', () => {
 describe('a config file that will not parse', () => {
   it('keeps the last good config instead of broadcasting the defaults', async () => {
     const config = await boot()
-    config.patch({ ffmpeg: '/keep/me' })
-    expect(config.get(false).ffmpeg).toBe('/keep/me')
+    config.patch({ webui: { port: 4242 } })
+    expect(config.get(false).webui.port).toBe(4242)
 
-    writeFileSync(configPath, '{ this is not json')
+    writeFileSync(accountFile, '{ this is not json')
 
-    expect(config.get(false).ffmpeg).toBe('/keep/me')
+    expect(config.get(false).webui.port).toBe(4242)
     // and the broken file is left for the user to fix, not overwritten
-    expect(readFileSync(configPath, 'utf8')).toBe('{ this is not json')
+    expect(readFileSync(accountFile, 'utf8')).toBe('{ this is not json')
   })
 })

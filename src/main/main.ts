@@ -34,6 +34,7 @@ import { DirectQQProtocolClient, PmhqQQProtocolClient } from './qqProtocol'
 import LoggerConsole from '@cordisjs/plugin-logger-console'
 import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
+import { migrateLegacyConfig } from './config/migrate'
 import AccountService from './account'
 import { startIpcServer, setLoginState } from './llbot-ipc'
 import PluginService from '../plugin'
@@ -91,6 +92,8 @@ async function onLoad() {
   })
   // 让无 ctx 的底层模块 (client/sign/connection 等) 经 getLogger 也走统一 cordis logger
   bindLoggerFactory((name) => ctx.logger(name))
+  // 一次性把旧的 config_<uin>.json / email_config.json 搬进 data/config/ (config-storage §9 step 5/6)
+  migrateLegacyConfig(ctx.logger('config'))
   ctx.plugin(TimerService)
   ctx.plugin(ConfigService)
   ctx.plugin(BotsService)

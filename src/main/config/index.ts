@@ -9,6 +9,8 @@ import JSON5 from 'json5'
 import { deepMerge, mergeNewProperties } from '@/common/utils'
 import { JsonFile } from '@/common/jsonFile'
 import { getSpecifiedUin, isDevMode } from '@/common/utils/environment'
+import { configPaths } from '@/common/configPaths'
+import { splitConfig } from './migrate'
 
 declare module 'cordis' {
   interface Context {
@@ -59,54 +61,67 @@ function overlayEnv(config: LLBotConfig): Map<string, EnvLock> {
   return locks
 }
 
+const partFile = (file: string) => new JsonFile<Dict>(file, { defaultValue: () => ({}) })
+
+/** Writes a part only when its content changed, so an untouched file keeps its mtime and fires no watcher. */
+function writeIfChanged(file: JsonFile<Dict>, value: Dict) {
+  if (JSON.stringify(value, null, 2) + '\n' !== file.rawSync()) file.writeSync(value)
+}
+
+/**
+ * The bot's settings, in two files (config-storage §3): instance-wide ones in data/config/global/
+ * settings.json, readable and writable before login, and one account's adapters and WebUI address in
+ * data/config/accounts/<uin>/settings.json. get() hands out the two merged, plus the LLBOT_* overrides.
+ */
 export default class Config extends Service {
-  private configPath: string | undefined
+  /** The account whose settings are loaded; undefined before login (and without -q). */
+  private uin: string | undefined
+  // Only cached once bound to an account, so a get() before login keeps re-checking for one
   private config: LLBotConfig | null = null
   private watching = false
-  private file: JsonFile<LLBotConfig> | undefined
+  private readonly globalJson: JsonFile<Dict>
+  private accountJson: JsonFile<Dict> | undefined
   /** 被 LLBOT_* 覆盖的字段, 按路径 ('webui.port') 索引 */
   private envLocked = new Map<string, EnvLock>()
   private defaultConfigPath = path.join(import.meta.dirname, 'default_config.json')
   private logger
   private readonly WATCH_DEBOUNCE_MS = 2000
-  /** 保存 fs.watchFile 的回调引用，用于 unwatchFile 清理 */
-  private watchFileListener?: (curr: fs.Stats, prev: fs.Stats) => void
+  private unwatch: (() => void)[] = []
 
   constructor(ctx: Context) {
     super(ctx, 'config')
     this.logger = ctx.logger('config')
+    this.globalJson = partFile(configPaths.globalSettings())
   }
 
   async [Service.init]() {
     return () => {
-      if (this.configPath && this.watchFileListener) {
-        fs.unwatchFile(this.configPath, this.watchFileListener)
-        this.watchFileListener = undefined
-      }
+      this.unwatch.forEach(stop => stop())
+      this.unwatch = []
     }
   }
 
   listenChange(cb: (config: LLBotConfig) => void) {
-    this.logger.info('配置文件位于', this.configPath)
-
     this.config = this.get()
-    if (this.configPath) {
-      let lastReloadTime = 0
-      this.watchFileListener = () => {
+    const files = [this.globalJson, this.accountJson].filter((file): file is JsonFile<Dict> => !!file)
+    this.logger.info('配置文件位于', files.map(file => file.file).join(', '))
+    let lastReloadTime = 0
+    for (const json of files) {
+      const listener = () => {
         if (!this.watching) return
         // 自己刚写的那次改动不算外部修改 (比旧的 skipNextWatch 标志可靠: 不会吞掉紧随其后的外部编辑)
-        if (this.file?.isSelfWriteOnDisk()) return
+        if (json.isSelfWriteOnDisk()) return
         // 防止 fs.watchFile 短时间内多次触发
         const now = Date.now()
         if (now - lastReloadTime < this.WATCH_DEBOUNCE_MS) return
         lastReloadTime = now
         this.logger.info('配置重載')
-        const c = this.reloadConfig()
-        cb(c)
+        cb(this.reloadConfig())
       }
-      fs.watchFile(this.configPath, { persistent: false, interval: 1000 }, this.watchFileListener)
-      setTimeout(() => this.watching = true, 1500)
+      fs.watchFile(json.file, { persistent: false, interval: 1000 }, listener)
+      this.unwatch.push(() => fs.unwatchFile(json.file, listener))
     }
+    setTimeout(() => this.watching = true, 1500)
   }
 
   get(cache = true) {
@@ -114,22 +129,19 @@ export default class Config extends Service {
       return this.config
     }
 
-    // 登录前 selfInfo.uin 为空: 若 argv 带了 -q <uin> 且对应 config_<uin>.json 已存在, 提前用它
+    // 登录前 selfInfo.uin 为空: 若 argv 带了 -q <uin> 且该账号的配置已存在, 提前用它
     // (让 WebUI/logLevel 直接起在目标账号配置上, 免去登录后从 default 端口/token 重启的窗口)。
     // 只读不建文件: 新账号 (文件不存在) 仍走 default, 建文件留给登录成功后的 get(false)。
     let uin = selfInfo.uin
     if (!uin) {
       const argUin = getSpecifiedUin()
-      if (argUin && fs.existsSync(path.join(DATA_DIR, `config_${argUin}.json`))) {
+      if (argUin && fs.existsSync(configPaths.accountSettings(argUin))) {
         uin = argUin
       }
     }
-    const nextPath = uin ? path.join(DATA_DIR, `config_${uin}.json`) : undefined
-    if (nextPath !== this.configPath || !this.file) {
-      this.configPath = nextPath
-      this.file = nextPath
-        ? new JsonFile<LLBotConfig>(nextPath, { defaultValue: () => this.getDefaultConfig() })
-        : undefined
+    if ((uin || undefined) !== this.uin || (uin && !this.accountJson)) {
+      this.uin = uin || undefined
+      this.accountJson = uin ? partFile(configPaths.accountSettings(uin)) : undefined
     }
 
     return this.reloadConfig()
@@ -147,40 +159,43 @@ export default class Config extends Service {
     return _defaultConfig
   }
 
+  /** A part's content; a missing file reads as empty (defaults fill it), a broken one is reported. */
+  private readPart(json: JsonFile<Dict>): { data: Dict; broken?: string } {
+    if (!fs.existsSync(json.file)) return { data: {} }
+    const { data, error } = json.readSync()
+    return error ? { data: {}, broken: error } : { data }
+  }
+
   private reloadConfig(): LLBotConfig {
-    if (!this.configPath || !this.file) {
-      // 登录前且没带 -q: 默认值 + 环境变量 (它们是进程级的, 登录前就该生效)。不缓存, 登录后 get(false) 再切到账号文件
-      const config = this.getDefaultConfig()
-      this.envLocked = overlayEnv(config)
-      return config
-    }
-    let config: LLBotConfig
-    if (!fs.existsSync(this.configPath)) {
-      config = this.getDefaultConfig()
-      this.file.writeSync(config)
+    const global = this.readPart(this.globalJson)
+    const account = this.accountJson ? this.readPart(this.accountJson) : { data: {} }
+    const broken = [global.broken && this.globalJson.file, account.broken && this.accountJson?.file].filter(Boolean)
+    if (broken.length) {
+      // 坏文件保留原地、不覆盖, 也不广播 default: 继续用上一份有效配置, 下次轮询重试
+      this.logger.error(`${broken.join(', ')} json 内容不合格, 继续使用上一份有效配置`, global.broken ?? account.broken)
+      if (this.config) return this.config
     } else {
-      const { data, error } = this.file.readSync()
-      if (error) {
-        // 坏文件保留原地、不覆盖, 也不广播 default: 继续用上一份有效配置, 下次轮询重试
-        this.logger.error(`${this.configPath} json 内容不合格, 继续使用上一份有效配置`, error)
-        if (this.config) return this.config
-        config = this.getDefaultConfig()
-        this.envLocked = overlayEnv(config)
-        return config
-      }
       this.logger.info('配置加载成功')
-      config = this.migrateConfig(data)
-      // 只补不删: 未知 key 一律保留 (旧的白名单清理会把 defaultConfig.ts 里没有的 logLevel 永久吃掉)
-      mergeNewProperties(this.getDefaultConfig(), config)
-      config.webui = this.migrateWebUIToken(config.webui)
-      for (const key of DEPRECATED_KEYS) delete (config as Dict)[key]
-      // 补齐缺省后写回。此刻还没叠环境变量, config 就是磁盘真值, 直接写、不经 stripEnv
-      // (stripEnv 用的是上一次加载记下的原值, 会把外部刚改过的锁定字段写回旧值)。只在内容真变了时写
-      if (JSON.stringify(config, null, 2) + '\n' !== this.file.rawSync()) this.file.writeSync(config)
     }
+    const config = this.migrateConfig({ ...global.data, ...account.data })
+    // 只补不删: 未知 key 一律保留 (旧的白名单清理会把 defaultConfig.ts 里没有的 logLevel 永久吃掉)
+    mergeNewProperties(this.getDefaultConfig(), config)
+    config.webui = this.migrateWebUIToken(config.webui)
+    for (const key of DEPRECATED_KEYS) delete (config as Dict)[key]
+    // 补齐缺省后写回。此刻还没叠环境变量, config 就是磁盘真值, 直接写、不经 stripEnv
+    // (stripEnv 用的是上一次加载记下的原值, 会把外部刚改过的锁定字段写回旧值)。坏掉的那份不写, 等用户修好
+    this.writeParts(config, { global: !global.broken, account: !account.broken })
     this.envLocked = overlayEnv(config)
-    this.config = config
+    // Before login there is no account file: leave the cache empty so the next get() looks for one again
+    if (this.accountJson) this.config = config
     return config
+  }
+
+  /** Splits a disk-truth config into its two files. The account part has nowhere to go before login. */
+  private writeParts(config: LLBotConfig, which = { global: true, account: true }) {
+    const { instance, account } = splitConfig(config as unknown as Dict)
+    if (which.global) writeIfChanged(this.globalJson, instance)
+    if (which.account && this.accountJson) writeIfChanged(this.accountJson, account)
   }
 
   /** 还原被环境变量覆盖的字段为磁盘原值, 供落盘使用。 */
@@ -207,9 +222,9 @@ export default class Config extends Service {
     }
   }
 
-  /** 当前绑定的账号配置文件。登录前 (且没带 -q) 为空: 那时没有文件可写, 写入会被丢掉。 */
+  /** 当前绑定的账号配置文件。登录前 (且没带 -q) 为空: 那时没有账号文件, 账号级字段的写入会被丢掉。 */
   get accountFile(): string | undefined {
-    return this.configPath
+    return this.accountJson?.file
   }
 
   /** 被环境变量锁定的字段, WebUI 据此把它们显示为只读并注明是哪个变量。 */
@@ -246,35 +261,27 @@ export default class Config extends Service {
   }
 
   /**
-   * 某个账号配置文件的生效值 (叠了环境变量)。不建文件、不切换当前配置、不写盘、不碰 envLocked ——
+   * 某个账号的生效配置 (叠了环境变量)。不建文件、不切换当前配置、不写盘、不碰 envLocked ——
    * 登录流程在 "online 先于 get(false) 切到账号配置" 的窗口里, 靠它预判 WebUI 登录后会在哪。
    */
   peek(uin: string): LLBotConfig {
-    const file = path.join(DATA_DIR, `config_${uin}.json`)
+    const global = this.readPart(partFile(configPaths.globalSettings()))
+    const account = this.readPart(partFile(configPaths.accountSettings(uin)))
     let config = this.getDefaultConfig()
-    if (fs.existsSync(file)) {
-      const { data, error } = new JsonFile<LLBotConfig>(file, { defaultValue: () => this.getDefaultConfig() }).readSync()
-      if (!error) {
-        config = this.migrateConfig(data)
-        mergeNewProperties(this.getDefaultConfig(), config)
-      }
+    if (!global.broken && !account.broken) {
+      config = this.migrateConfig({ ...global.data, ...account.data })
+      mergeNewProperties(this.getDefaultConfig(), config)
     }
     overlayEnv(config)
     return config
   }
 
   set(config: LLBotConfig) {
-    this.config = config
-    this.writeConfig(config)
+    if (this.accountJson) this.config = config
+    // stripEnv: 用户在同一次保存里改了别的字段时, 不把环境变量的值一起固化进文件
+    this.writeParts(this.stripEnv(config))
     this.pinEnv(config)
   }
-
-  private writeConfig(config: LLBotConfig) {
-    // 先写临时文件再 rename, 中途崩溃不会留下半截配置; 写入内容记哈希供 watchFile 回调识别自写。
-    // stripEnv: 用户在同一次保存里改了别的字段时, 不把环境变量的值一起固化进文件。
-    this.file?.writeSync(this.stripEnv(config))
-  }
-
 
   private migrateConfig(oldConfig: Dict): LLBotConfig {
     let migratedConfig = oldConfig
