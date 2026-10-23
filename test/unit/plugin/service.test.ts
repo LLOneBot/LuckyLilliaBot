@@ -355,6 +355,7 @@ const binding: BuiltinConfigBinding<Listener> = {
   check: value => value.enable && !value.host && !value.token
     ? [{ path: ['token'], message: 'a public listener needs a token' }]
     : [],
+  validateOnEnable: true,
   enabled: { get: value => value.enable, set: (value, on) => ({ ...value, enable: on }) },
   secrets: ['token'],
   watch(_ctx, changed) {

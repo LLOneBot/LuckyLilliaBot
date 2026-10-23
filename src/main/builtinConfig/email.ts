@@ -12,6 +12,7 @@ export const emailBinding: BuiltinConfigBinding<EmailConfig> = {
     // The service reads the file on every send, so this is only news for whoever else listens
     await ctx.parallel('llbot/email-config-updated', value)
   },
+  // Save only (no validateOnEnable): it can be switched on before SMTP is set up, it just will not send
   check: config => checkEmail(config),
   enabled: { get: config => config.enabled, set: (config, on) => ({ ...config, enabled: on }) },
   secrets: ['smtp.auth.pass'],

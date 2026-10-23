@@ -127,11 +127,19 @@ describe('builtin:email-notification through the plugin API', () => {
     expect(read().smtp.auth.pass).toBe('')
   })
 
-  it('still saves blanks while switched off, and refuses them once switched on', async () => {
+  it('can be saved blank and enabled even before SMTP is set up (it just will not send)', async () => {
     await ctx.plugins.updateConfig(id, structuredClone(DEFAULT_EMAIL_CONFIG))
     expect(read()).toMatchObject({ enabled: false, from: '' })
-    await expect(ctx.plugins.enable(id)).rejects.toBeInstanceOf(PluginConfigError)
-    expect(read().enabled).toBe(false)
+    // Email with no SMTP is harmless, so enabling does not block the way an adapter's token rule does
+    await ctx.plugins.enable(id)
+    expect(read().enabled).toBe(true)
+  })
+
+  it('validates on save: refuses saving an enabled config with no SMTP', async () => {
+    await expect(ctx.plugins.updateConfig(id, { ...structuredClone(DEFAULT_EMAIL_CONFIG), enabled: true }))
+      .rejects.toBeInstanceOf(PluginConfigError)
+    // nothing written: the file keeps the usable config from beforeEach
+    expect(read().smtp.host).toBe('smtp.test.com')
   })
 
   it('turns notifications on and off from the plugin card', async () => {

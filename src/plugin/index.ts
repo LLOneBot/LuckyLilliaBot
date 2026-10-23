@@ -111,10 +111,12 @@ export interface BuiltinConfigBinding<T = any> {
   read(ctx: Context): T | undefined
   /** Stores the value and lets the running plugin pick it up. */
   write(ctx: Context, value: T): Promise<void>
-  /** Rules the schema cannot express, e.g. a public listener needs a token. */
+  /** Rules the schema cannot express, e.g. a public listener needs a token. Run on save. */
   check?(value: T): ConfigIssue[]
   /** Clean-up before validation, e.g. dropping blank list items the form leaves behind. */
   normalize?(value: T): T
+  /** Also validate when the card toggle switches this on, not only on save: for a rule that is a security gate. */
+  validateOnEnable?: boolean
   enabled: { get(value: T): boolean; set(value: T, on: boolean): T }
   /** Dotted paths of secrets: masked by describe(), kept on a write that sends the mask or nothing. */
   secrets?: string[]
@@ -701,8 +703,7 @@ class PluginService extends Service {
       const current = this.readBound(rt, binding)
       if (binding.enabled.get(current) !== on) {
         const next = binding.enabled.set(current, on)
-        // Switching on must not start what the form would refuse, e.g. a public listener without a token
-        await binding.write(this.home, on ? this.checkBound(binding, next) : next)
+        await binding.write(this.home, on && binding.validateOnEnable ? this.checkBound(binding, next) : next)
       }
       if (!rt.fiber) await this.start(rt)
       this.changed(rt.entry.id)

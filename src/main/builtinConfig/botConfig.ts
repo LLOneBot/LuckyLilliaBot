@@ -16,6 +16,8 @@ export function botConfigBinding<K extends AdapterKey>(
     ...rest,
     scope: 'account',
     location: `config/accounts/<uin>/settings.json → ${key}`,
+    // The token rule guards a public listener: switching on must not bypass it
+    validateOnEnable: true,
     read(ctx) {
       // PluginService does not inject config: reach it without the strict check
       const config = ctx.get('config')
