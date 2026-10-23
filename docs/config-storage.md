@@ -86,6 +86,8 @@
 
 ## 6. 插件数据标准
 
+> 已实施(见 §9.5 记录)。与下文的一处差别:`dir('account')` 采用了"和 `inject(['account'])` 绑定"而不是"登录前挂起等待",理由见 [plugin-system.md](plugin-system.md) 的"插件数据目录"一节。
+
 ```ts
 // packages/plugin-sdk/src/storage.ts(只有类型)
 export interface PluginStorage {
@@ -182,10 +184,11 @@ declare module 'cordis' { interface Context { storage: PluginStorage } }
 | `484a01db` | 顺带修 | `PluginService.mount()` 用 `this.ctx.plugin()`,而经 `ctx.plugins` 调进来时 `this.ctx` 是**调用方**的 ctx:WebUI 启用的条目挂到了 PluginRoutes 的 fiber 下,PluginRoutes 一卸载条目就被静默拆掉(仍显示启用)。改为构造时存下自己的 ctx(`home`)挂载。注:经代理对字段**重新赋值**会正确落到实例上(测试验证过),只有 `ctx` 被替换 |
 | `c43abebe` | 1b | OB11 / Milky 原来收到任何 `llob/config-updated` 都整体重建(踢掉所有 OneBot ws 客户端、反向 ws 重连、Milky SSE/WS 断开)→ 按自己片段深比较(文件 watcher 给的是全新对象树,不能比引用);OB11 只看 `{enable, connect}`,`musicSignUrl` 等调用时才读的字段直接赋值;重建串行化,dispose 等进行中的重建;Milky 只在 `enable/http/webhook` 变时重启 |
 | `cf0f7190` | 1b | 前端各设置页只提交自己的片段(OneBot `{ob11}`、Satori `{satori}`、Milky `{milky}`、其他配置只交它编辑的键)——原来每页都 POST App 启动时加载的整份配置,会把别处(`set_config`、别的页、手改)刚改的片段冲回旧值;"其他配置"页 env 锁定字段只读并注明变量名、标注"每个账号各存一份";修端口回调把空 host(监听全部,docker 需要)改写成 `127.0.0.1` 的 bug。真实后端端到端验证过 |
+| `b45d7686` | §6 | `ctx.storage.dir(scope)` + 条目的 `ctx.baseUrl`:`data/plugin-data/<key>/shared/` 与 `/<uin>/`;`storage` 是根上的 accessor(按 `symbols.shadow` 认定义处,服务方法被别的条目调用时仍归服务自己),`baseUrl` 是挂载父 ctx 上的自有属性;`dir('account')` 要求调用链上 inject 了 `account`,否则 reject(不挂起等登录,见 plugin-system.md);`PLUGIN_DATA_DIR`;卸载不删数据 |
 
 **实测遗留**:`default_config.json` 与 `defaultConfig.ts` 的 `musicSignUrl` 本来就不一致(JSON 是旧的 `llob.linyuchen.net`,而 `migrateConfig` 又会把含 `linyuchen` 的值改写成 TS 里的 `ss.xingzhige.com`)。未动它,单测里列为已知例外。
 
-**没做(仍属设计)**:§7 内置插件(OB11/Satori/Milky/邮件)接入同一套 schema 表单、§6 的 `ctx.storage` 插件数据目录、§9 第 6 步把 `config_<uin>.json` / `email_config.json` 搬进 `data/config/`。
+**没做(仍属设计)**:§7 内置插件(OB11/Satori/Milky/邮件)接入同一套 schema 表单、§9 第 6 步把 `config_<uin>.json` / `email_config.json` 搬进 `data/config/`。
 
 **已知局限**:同一个片段被两处并发修改时(比如页面加载后经 `set_config` 改了 `satori.port`,再在 Satori 页保存),页面保存的是它加载时那份,会覆盖掉另一处的修改 —— 片段级别的保存只保证**别的**片段不被冲掉。内置插件接入 schema(§7)后改走 `describe` + rev/409 才能检测出来。
 

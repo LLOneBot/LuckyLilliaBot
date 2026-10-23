@@ -97,6 +97,16 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - 保存全局层时，会用新的全局层把**本账号**的覆盖合并校验一次，不合法只记 warn、不阻断保存 —— 否则一个账号的坏覆盖会卡死整个配置页，而当前进程没有界面去改别的账号的覆盖；别的账号在它自己登录时由插件挂载报错
 - **并发**：`describe` 返回 `rev`（两层配置内容的哈希），`PUT` 带回 `ifRev`，在条目锁内比对，不一致返回 409，前端提示后重新载入
 
+### 插件数据目录（`ctx.storage` / `ctx.baseUrl`）
+
+`src/plugin/storage.ts` 的 `PluginDataDirs`，根目录是 `PluginService.Config.dataDir`（`main.ts` 传 `data/plugin-data`；不传就两样都不提供，单测默认如此）。
+
+- **目录名**：`dataKey()` 把包名的 `/` 换 `+`、内置条目 `builtin:x` 换成 `_builtin+x`（冒号在 Windows 路径里非法），并拒绝任何不是单段合法路径的名字（`..`、多个斜杠、结尾 `.`、Windows 保留名）。`baseUrl()` 对这种名字返回 undefined，不让条目因此挂载失败
+- **`ctx.storage` 是根上注册的 accessor**，不是条目 ctx 上的自有属性：服务的方法被别的条目调用时，cordis 给的 `this.ctx` 是"调用方 ctx + `symbols.shadow` 指向服务自己的 ctx"，自有属性会沿调用方那条原型链解析，拿到调用方的目录。accessor 里取 `this[symbols.shadow] ?? this` 作为定义处，再沿 `fiber.parent.fiber` 走到 `mount()` 时 `register()` 过的条目 fiber
+- **`ctx.baseUrl` 只能是自有属性**：根 Context 自己就有 `baseUrl` 属性（值为 undefined），属性访问在走到 accessor 之前就命中了。所以 `mount()` 用 `this.home.extend({ baseUrl })` 当父 ctx，插件的 ctx 从它继承；`fiber.parent.fiber` 仍是 PluginService 的 fiber，`entryOfFiber()` 等不受影响。代价是服务方法被别人调用时读到的 `baseUrl` 是调用方的，作者文档写了"在 apply 里读"
+- **`dir('account')` 绑定 `inject`，不挂起等待**：从调用处的 fiber 往上走到条目，路上有任何 fiber 的 `inject` 含 `account` 才放行，uin 直接读 `account` 服务；否则 reject，与当前是否已登录无关（保证行为确定，不随启动时机变化）。设计稿首选的是"登录前挂起等待"，没采用：挂起时 fiber 停在 LOADING，`start()` / `updateConfig()` 等在包锁里 `await fiber.await()` 会一直等到登录，整个包的 WebUI 操作都卡住；要绕开就得在六处调用点和"已挂起"赛跑、伪造 pending 状态，还要靠 dispose 时 `internal/plugin` 先于等 inertia 发出这个 cordis 内部时序来取消等待
+- `data/plugin-data/` 和 `data/plugins/` 是兄弟目录，热重载 watcher 只看插件根目录，dev 下 `tsx watch --exclude "./data/**"` 也覆盖了它
+
 ## 内置插件
 
 `src/main/builtins.ts` 把原来写死在 `main.ts` 里的几个模块登记成内置条目，交给 `PluginService`（`Config.builtins`）装载，在 WebUI 插件页和第三方插件同列、同一套开关：

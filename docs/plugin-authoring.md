@@ -116,6 +116,22 @@ ctx.effect(() => {                                 // 其它资源：返回清�
 
 直接调 `setInterval` / 开端口 / 起子进程而不经过 `ctx`，停用后就会泄漏。
 
+## 数据目录
+
+插件自己的文件（缓存、下载的资源、自带的 sqlite……）放在 `ctx.storage` 给的目录里，不要自己拼 `data/` 下的路径：
+
+```ts
+const dir = await ctx.storage.dir()             // data/plugin-data/<包名>/shared/，所有账号共用
+const mine = await ctx.storage.dir('account')   // data/plugin-data/<包名>/<QQ号>/，每个账号一份
+```
+
+- 第一次调用时创建；同一个包的多个实例共用一个目录（多个实例、甚至同一个数据目录下的多个 Bot 进程可能同时写，需要的话自己处理并发）；卸载插件不会删它
+- 包名里的 `/` 换成 `+`：`@scope/foo` → `@scope+foo`
+- **`dir('account')` 只能在登录后的代码里用**：插件的 `inject` 里有 `account`，或者在 `ctx.inject(['account'], ctx => { ... })` 里调用。其它地方调用一律 reject —— 哪怕此刻正好已经登录：否则插件在登录后才启用时一切正常，下次 Bot 重启、插件先于登录启动时却报错，这种问题很难查
+- `ctx.baseUrl` 指向共用目录（带结尾斜杠的 `file:` URL）。用 `new URL(path, ctx.baseUrl)` 解析相对路径的生态插件会把文件放到这里，比如在插件里 `ctx.plugin(SQLiteDriver, { path: 'my.db' })`。在 `apply` 或构造函数里读它：服务的方法被别的插件调用时，`ctx.baseUrl` 读到的是调用方的（`ctx.storage` 没有这个问题，总是归定义代码的插件）
+- 这个目录不在插件代码目录里，写文件不会触发热重载
+- 按账号的结构化数据也可以用 `ctx.database`
+
 ## 依赖与提供的服务
 
 两处声明，作用不同：
