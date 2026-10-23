@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { Context } from 'cordis'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import defaultConfigFile from '@/main/config/default_config.json'
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'llbot-config-'))
 const UIN = '123456'
@@ -173,6 +174,22 @@ describe('LLBOT_* overrides', () => {
     expect(readFile(accountFile).webui.port).toBe(5555)
     expect(readFile(accountFile).webui.host).toBeDefined()
     expect(config.get().webui.port).toBe(9999)
+  })
+})
+
+describe('a new account', () => {
+  it('starts from the OneBot settings in default_config.json', async () => {
+    const config = await boot()
+    expect(config.get().ob11).toEqual(defaultConfigFile.ob11)
+    expect(readFile(accountFile).ob11).toEqual(defaultConfigFile.ob11)
+    expect(config.peek('779').ob11).toEqual(defaultConfigFile.ob11)
+  })
+
+  it('still converts an ob11 section from before connections were a list', async () => {
+    writeAccount({ ob11: { enable: true, enableWs: true, wsPort: 3100 } })
+    const config = await boot()
+    expect(config.get().ob11.enable).toBe(true)
+    expect(config.get().ob11.connect[0]).toMatchObject({ type: 'ws', enable: true, port: 3100 })
   })
 })
 

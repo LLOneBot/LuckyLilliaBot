@@ -288,9 +288,10 @@ export default class Config extends Service {
     if (oldConfig.musicSignUrl && oldConfig.musicSignUrl.includes('linyuchen')) {
       oldConfig.musicSignUrl = defaultConfig.musicSignUrl
     }
-    // 先迁移 ob11.connect 数组格式
-    if (!oldConfig.ob11 || !Array.isArray(oldConfig.ob11.connect)) {
-      const ob11 = oldConfig.ob11 || {}
+    // An ob11 from before `connect` was a list. No ob11 at all is a new account (its file not created yet,
+    // or before login): the defaults fill it in, as they did when a missing file was replaced by them
+    if (oldConfig.ob11 && !Array.isArray(oldConfig.ob11.connect)) {
+      const ob11 = oldConfig.ob11
       migratedConfig = {
         ...oldConfig,
         ob11: {
