@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto'
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { mkdir, open, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { hostname } from 'node:os'
 import path from 'node:path'
@@ -73,6 +73,10 @@ export class JsonFile<T> {
     } catch (e) {
       return { data: this.lastGood ?? this.options.defaultValue(), error: (e as Error).message }
     }
+    return this.parse(raw)
+  }
+
+  private parse(raw: string): JsonReadResult<T> {
     try {
       const data = this.shape(JSON5.parse(raw))
       this.lastGood = data
@@ -83,9 +87,61 @@ export class JsonFile<T> {
     }
   }
 
+  /** Synchronous twin of read(), for callers whose own API is synchronous (e.g. ConfigService.get()). */
+  readSync(): JsonReadResult<T> {
+    if (!existsSync(this.file)) return { data: this.lastGood ?? this.options.defaultValue() }
+    let raw: string
+    try {
+      raw = readFileSync(this.file, 'utf8')
+    } catch (e) {
+      return { data: this.lastGood ?? this.options.defaultValue(), error: (e as Error).message }
+    }
+    return this.parse(raw)
+  }
+
+  /** Synchronous twin of write(). It skips the in-process queue, so do not interleave it with write(). */
+  writeSync(data: T): void {
+    const content = JSON.stringify(data, null, 2) + '\n'
+    this.lastGood = data
+    mkdirSync(path.dirname(this.file), { recursive: true })
+    const tmp = `${this.file}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`
+    writeFileSync(tmp, content, 'utf8')
+    try {
+      renameSync(tmp, this.file)
+    } catch {
+      // Windows refuses the rename while another process holds the target open.
+      writeFileSync(this.file, content, 'utf8')
+      try {
+        unlinkSync(tmp)
+      } catch {
+        // the temp file is already gone
+      }
+    }
+    this.lastWrittenHash = hash(content)
+  }
+
   /** True when `raw` matches the exact bytes this instance last wrote (so a watcher can skip it). */
   wasSelfWrite(raw: string): boolean {
     return !!this.lastWrittenHash && hash(raw) === this.lastWrittenHash
+  }
+
+  /** The file's current text, or undefined when it cannot be read. */
+  rawSync(): string | undefined {
+    try {
+      return readFileSync(this.file, 'utf8')
+    } catch {
+      return undefined
+    }
+  }
+
+  /** True when what is on disk right now is exactly what this instance last wrote. */
+  isSelfWriteOnDisk(): boolean {
+    if (!this.lastWrittenHash) return false
+    try {
+      return hash(readFileSync(this.file, 'utf8')) === this.lastWrittenHash
+    } catch {
+      return false
+    }
   }
 
   write(data: T): Promise<void> {

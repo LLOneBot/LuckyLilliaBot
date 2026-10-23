@@ -7,6 +7,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import JSON5 from 'json5'
 import { mergeNewProperties } from '@/common/utils'
+import { JsonFile } from '@/common/jsonFile'
 import { getSpecifiedUin, isDevMode } from '@/common/utils/environment'
 
 declare module 'cordis' {
@@ -15,11 +16,14 @@ declare module 'cordis' {
   }
 }
 
+/** 已废弃、迁移完成后从磁盘删掉的顶层 key。只显式列已知的, 不再按白名单删未知 key。 */
+const DEPRECATED_KEYS = ['onlyLocalhost']
+
 export default class Config extends Service {
   private configPath: string | undefined
   private config: LLBotConfig | null = null
   private watching = false
-  private skipNextWatch = false
+  private file: JsonFile<LLBotConfig> | undefined
   private defaultConfigPath = path.join(import.meta.dirname, 'default_config.json')
   private logger
   private readonly WATCH_DEBOUNCE_MS = 2000
@@ -48,10 +52,8 @@ export default class Config extends Service {
       let lastReloadTime = 0
       this.watchFileListener = () => {
         if (!this.watching) return
-        if (this.skipNextWatch) {
-          this.skipNextWatch = false
-          return
-        }
+        // 自己刚写的那次改动不算外部修改 (比旧的 skipNextWatch 标志可靠: 不会吞掉紧随其后的外部编辑)
+        if (this.file?.isSelfWriteOnDisk()) return
         // 防止 fs.watchFile 短时间内多次触发
         const now = Date.now()
         if (now - lastReloadTime < this.WATCH_DEBOUNCE_MS) return
@@ -80,7 +82,13 @@ export default class Config extends Service {
         uin = argUin
       }
     }
-    this.configPath = uin ? path.join(DATA_DIR, `config_${uin}.json`) : undefined
+    const nextPath = uin ? path.join(DATA_DIR, `config_${uin}.json`) : undefined
+    if (nextPath !== this.configPath || !this.file) {
+      this.configPath = nextPath
+      this.file = nextPath
+        ? new JsonFile<LLBotConfig>(nextPath, { defaultValue: () => this.getDefaultConfig() })
+        : undefined
+    }
 
     return this.reloadConfig()
   }
@@ -98,7 +106,7 @@ export default class Config extends Service {
   }
 
   private reloadConfig(): LLBotConfig {
-    if (!this.configPath) {
+    if (!this.configPath || !this.file) {
       return this.getDefaultConfig()
     }
     if (!fs.existsSync(this.configPath)) {
@@ -106,29 +114,23 @@ export default class Config extends Service {
       this.set(this.config)
       return this.config
     }
-    else {
-      const data = fs.readFileSync(this.configPath, 'utf-8')
-      let jsonData: LLBotConfig = defaultConfig
-      try {
-        jsonData = JSON5.parse(data)
-        this.logger.info('配置加载成功')
-        jsonData = this.migrateConfig(jsonData)
-        mergeNewProperties(defaultConfig, jsonData)
-        jsonData.webui = this.migrateWebUIToken(jsonData.webui)
-        jsonData = this.cleanupConfig(defaultConfig, jsonData) as LLBotConfig
-        // 只在配置内容实际变化时才写入文件，避免触发 watchFile 导致无限重载
-        const newData = JSON.stringify(jsonData, null, 2)
-        if (newData !== data) {
-          this.set(jsonData)
-        }
-        this.config = jsonData
-        return this.config
-      } catch (e) {
-        this.logger.error(`${this.configPath} json 内容不合格`, e)
-        this.config = this.getDefaultConfig()
-        return this.config
-      }
+    const { data, error } = this.file.readSync()
+    if (error) {
+      // 坏文件保留原地、不覆盖, 也不广播 default: 继续用上一份有效配置, 下次轮询重试
+      this.logger.error(`${this.configPath} json 内容不合格, 继续使用上一份有效配置`, error)
+      return this.config ?? this.getDefaultConfig()
     }
+    this.logger.info('配置加载成功')
+    const defaults = this.getDefaultConfig()
+    let jsonData = this.migrateConfig(data)
+    // 只补不删: 未知 key 一律保留 (旧的白名单清理会把 defaultConfig.ts 里没有的 logLevel 永久吃掉)
+    mergeNewProperties(defaults, jsonData)
+    jsonData.webui = this.migrateWebUIToken(jsonData.webui)
+    for (const key of DEPRECATED_KEYS) delete (jsonData as Dict)[key]
+    this.config = jsonData
+    // 补齐缺省后写回, 但只在内容真变了时写, 免得自己的写入又触发一次重载
+    if (JSON.stringify(jsonData, null, 2) + '\n' !== this.file.rawSync()) this.set(jsonData)
+    return this.config
   }
 
   set(config: LLBotConfig) {
@@ -137,60 +139,10 @@ export default class Config extends Service {
   }
 
   private writeConfig(config: LLBotConfig) {
-    if (!this.configPath) {
-      return
-    }
-    // 跳过本次自身写入触发的 watchFile 回调
-    this.skipNextWatch = true
-    fs.writeFileSync(this.configPath, JSON.stringify(config, null, 2), 'utf-8')
+    // 先写临时文件再 rename, 中途崩溃不会留下半截配置; 写入内容记哈希供 watchFile 回调识别自写
+    this.file?.writeSync(config)
   }
 
-
-  /**
-   * 递归清理配置对象，以 defaultConfig 为基准，删除 oldConfig 中不存在于 defaultConfig 的 key
-   */
-  private cleanupConfig(defaultConfig: Dict, oldConfig: Dict): Dict {
-    // 如果不是对象，直接返回
-    if (typeof defaultConfig !== 'object' || defaultConfig === null || Array.isArray(defaultConfig)) {
-      return oldConfig
-    }
-    if (typeof oldConfig !== 'object' || oldConfig === null) {
-      return oldConfig
-    }
-
-    const cleaned: Dict = {}
-
-    // 遍历 defaultConfig 的 key
-    for (const key in defaultConfig) {
-      if (defaultConfig.hasOwnProperty(key)) {
-        // 如果 oldConfig 中存在该 key
-        if (oldConfig.hasOwnProperty(key)) {
-          const defaultValue = defaultConfig[key]
-          const oldValue = oldConfig[key]
-
-          // 如果 defaultValue 是普通对象（非数组），递归清理
-          if (
-            typeof defaultValue === 'object' &&
-            defaultValue !== null &&
-            !Array.isArray(defaultValue) &&
-            typeof oldValue === 'object' &&
-            oldValue !== null &&
-            !Array.isArray(oldValue)
-          ) {
-            cleaned[key] = this.cleanupConfig(defaultValue, oldValue)
-          } else {
-            // 否则直接使用 oldConfig 的值
-            cleaned[key] = oldValue
-          }
-        } else {
-          // oldConfig 中不存在该 key，使用 defaultConfig 的值
-          cleaned[key] = defaultConfig[key]
-        }
-      }
-    }
-
-    return cleaned
-  }
 
   private migrateConfig(oldConfig: Dict): LLBotConfig {
     let migratedConfig = oldConfig
