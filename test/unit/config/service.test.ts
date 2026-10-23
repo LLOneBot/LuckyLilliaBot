@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { Context } from 'cordis'
@@ -39,9 +39,13 @@ async function boot() {
   return ctx.config
 }
 
+const { selfInfo } = await import('@/common/globalVars')
+
 beforeEach(() => {
   delete process.env.LLBOT_WEBUI_PORT
   delete process.env.LLBOT_LOG_LEVEL
+  // every case starts from a fresh file; one of them leaves it unparsable
+  rmSync(configPath, { force: true })
 })
 
 afterEach(() => {
@@ -102,6 +106,82 @@ describe('LLBOT_* overrides', () => {
     const config = await boot()
     expect(config.get(false).logLevel).toBe('info')
     expect(config.envLockedPaths()).not.toContain('logLevel')
+  })
+
+  it('names the variable behind each locked field', async () => {
+    process.env.LLBOT_WEBUI_PORT = '9999'
+    process.env.LLBOT_LOG_LEVEL = 'debug'
+    const config = await boot()
+    expect(config.envLocks()).toEqual(expect.arrayContaining([
+      { path: 'webui.port', env: 'LLBOT_WEBUI_PORT' },
+      { path: 'logLevel', env: 'LLBOT_LOG_LEVEL' },
+    ]))
+  })
+
+  it('wins over a patch that tries to change the locked field', async () => {
+    process.env.LLBOT_WEBUI_PORT = '9999'
+    const config = await boot()
+    const onDiskPort = read().webui.port
+
+    config.patch({ webui: { port: 1234 }, ffmpeg: '/y' })
+
+    // memory keeps the variable's value, the file keeps its own, the rest of the patch lands
+    expect(config.get().webui.port).toBe(9999)
+    expect(read().webui.port).toBe(onDiskPort)
+    expect(read().ffmpeg).toBe('/y')
+  })
+
+  it('applies before login too, when there is no account file yet', async () => {
+    process.env.LLBOT_WEBUI_PORT = '9999'
+    selfInfo.uin = ''
+    try {
+      ctx = new Context()
+      await ctx.plugin(ConfigService)
+      expect(ctx.config.get(false).webui.port).toBe(9999)
+      expect(existsSync(configPath)).toBe(false)
+    } finally {
+      selfInfo.uin = UIN
+    }
+  })
+
+  it('keeps an external edit of a locked field when a reload has to write the file back', async () => {
+    process.env.LLBOT_WEBUI_PORT = '9999'
+    const config = await boot()
+    const edited = read()
+    edited.webui.port = 5555
+    delete edited.msgCacheExpire // forces the reload to fill a default and write the file back
+    writeFileSync(configPath, JSON.stringify(edited))
+
+    config.get(false)
+
+    expect(read().webui.port).toBe(5555)
+    expect(read().msgCacheExpire).toBeDefined()
+    expect(config.get().webui.port).toBe(9999)
+  })
+})
+
+describe('ConfigService.peek', () => {
+  it('reads another account without creating its file or switching the current config', async () => {
+    process.env.LLBOT_WEBUI_PORT = '9999'
+    const config = await boot()
+    const before = config.get()
+    const other = path.join(DATA_DIR, 'config_777.json')
+
+    const peeked = config.peek('777')
+
+    expect(existsSync(other)).toBe(false)
+    expect(peeked.webui.port).toBe(9999)
+    expect(config.get()).toBe(before)
+  })
+
+  it('reflects what is on disk for an existing account file', async () => {
+    const config = await boot()
+    const other = path.join(DATA_DIR, 'config_778.json')
+    writeFileSync(other, JSON.stringify({ webui: { enable: false, host: '0.0.0.0', port: 4321 } }))
+
+    expect(config.peek('778').webui).toEqual({ enable: false, host: '0.0.0.0', port: 4321 })
+    // and leaves that file exactly as it was (no fill-in write)
+    expect(JSON.parse(readFileSync(other, 'utf8'))).toEqual({ webui: { enable: false, host: '0.0.0.0', port: 4321 } })
   })
 })
 

@@ -26,14 +26,46 @@ const ENV_OVERRIDES: { env: string; path: string[]; parse: (raw: string) => unkn
   { env: 'LLBOT_LOG_LEVEL', path: ['logLevel'], parse: raw => (raw === 'debug' || raw === 'info' ? raw : undefined) },
 ]
 
+interface EnvLock {
+  env: string
+  /** 文件里这个字段的值, 每次落盘前还原回去 */
+  disk: unknown
+  /** 环境变量给的值, get() 报告的就是它 */
+  value: unknown
+}
+
+function parentOf(root: unknown, keys: string[]): Dict | undefined {
+  let node = root
+  for (const key of keys.slice(0, -1)) {
+    if (!node || typeof node !== 'object') return
+    node = (node as Dict)[key]
+  }
+  return node && typeof node === 'object' ? node as Dict : undefined
+}
+
+/** 把当前进程的 LLBOT_* 原地叠到 config 上, 返回每个被覆盖字段的锁记录; 值不合法的变量忽略。 */
+function overlayEnv(config: LLBotConfig): Map<string, EnvLock> {
+  const locks = new Map<string, EnvLock>()
+  for (const { env, path: keys, parse } of ENV_OVERRIDES) {
+    const raw = process.env[env]
+    if (raw === undefined || raw === '') continue
+    const value = parse(raw)
+    const parent = parentOf(config, keys)
+    if (value === undefined || !parent) continue
+    const leaf = keys[keys.length - 1]
+    locks.set(keys.join('.'), { env, disk: parent[leaf], value })
+    parent[leaf] = value
+  }
+  return locks
+}
 
 export default class Config extends Service {
   private configPath: string | undefined
   private config: LLBotConfig | null = null
   private watching = false
   private file: JsonFile<LLBotConfig> | undefined
-  /** 被 LLBOT_* 覆盖的字段路径 -> 该字段的磁盘原值 */
-  private envLocked = new Map<string, unknown>()
+  /** 被 LLBOT_* 覆盖的字段, 按路径 ('webui.port') 索引 */
+  private envLocked = new Map<string, EnvLock>()
   private defaultConfigPath = path.join(import.meta.dirname, 'default_config.json')
   private logger
   private readonly WATCH_DEBOUNCE_MS = 2000
@@ -117,74 +149,85 @@ export default class Config extends Service {
 
   private reloadConfig(): LLBotConfig {
     if (!this.configPath || !this.file) {
-      return this.getDefaultConfig()
+      // 登录前且没带 -q: 默认值 + 环境变量 (它们是进程级的, 登录前就该生效)。不缓存, 登录后 get(false) 再切到账号文件
+      const config = this.getDefaultConfig()
+      this.envLocked = overlayEnv(config)
+      return config
     }
+    let config: LLBotConfig
     if (!fs.existsSync(this.configPath)) {
-      this.config = this.getDefaultConfig()
-      this.set(this.config)
-      return this.config
+      config = this.getDefaultConfig()
+      this.file.writeSync(config)
+    } else {
+      const { data, error } = this.file.readSync()
+      if (error) {
+        // 坏文件保留原地、不覆盖, 也不广播 default: 继续用上一份有效配置, 下次轮询重试
+        this.logger.error(`${this.configPath} json 内容不合格, 继续使用上一份有效配置`, error)
+        if (this.config) return this.config
+        config = this.getDefaultConfig()
+        this.envLocked = overlayEnv(config)
+        return config
+      }
+      this.logger.info('配置加载成功')
+      config = this.migrateConfig(data)
+      // 只补不删: 未知 key 一律保留 (旧的白名单清理会把 defaultConfig.ts 里没有的 logLevel 永久吃掉)
+      mergeNewProperties(this.getDefaultConfig(), config)
+      config.webui = this.migrateWebUIToken(config.webui)
+      for (const key of DEPRECATED_KEYS) delete (config as Dict)[key]
+      // 补齐缺省后写回。此刻还没叠环境变量, config 就是磁盘真值, 直接写、不经 stripEnv
+      // (stripEnv 用的是上一次加载记下的原值, 会把外部刚改过的锁定字段写回旧值)。只在内容真变了时写
+      if (JSON.stringify(config, null, 2) + '\n' !== this.file.rawSync()) this.file.writeSync(config)
     }
-    const { data, error } = this.file.readSync()
-    if (error) {
-      // 坏文件保留原地、不覆盖, 也不广播 default: 继续用上一份有效配置, 下次轮询重试
-      this.logger.error(`${this.configPath} json 内容不合格, 继续使用上一份有效配置`, error)
-      return this.config ?? this.getDefaultConfig()
-    }
-    this.logger.info('配置加载成功')
-    const defaults = this.getDefaultConfig()
-    let jsonData = this.migrateConfig(data)
-    // 只补不删: 未知 key 一律保留 (旧的白名单清理会把 defaultConfig.ts 里没有的 logLevel 永久吃掉)
-    mergeNewProperties(defaults, jsonData)
-    jsonData.webui = this.migrateWebUIToken(jsonData.webui)
-    for (const key of DEPRECATED_KEYS) delete (jsonData as Dict)[key]
-    // 先按磁盘真值写回缺省 (环境变量的值永不落盘), 只在内容真变了时写, 免得自己的写入又触发一次重载
-    if (JSON.stringify(jsonData, null, 2) + '\n' !== this.file.rawSync()) {
-      this.config = jsonData
-      this.set(jsonData)
-    }
-    // 再把环境变量叠在内存视图上
-    this.applyEnv(jsonData)
-    this.config = jsonData
-    return this.config
-  }
-
-  /**
-   * 把 LLBOT_* 覆盖到内存里的配置上, 并记下被覆盖字段的磁盘原值。
-   * get() 因此返回生效值, 而 writeConfig() 落盘前会把这些字段还原 -- 环境变量的值永不写进文件。
-   */
-  private applyEnv(config: LLBotConfig) {
-    this.envLocked.clear()
-    for (const { env, path: keys, parse } of ENV_OVERRIDES) {
-      const raw = process.env[env]
-      if (raw === undefined || raw === '') continue
-      const value = parse(raw)
-      if (value === undefined) continue
-      const parent = keys.slice(0, -1).reduce<Dict | undefined>((o, k) => o?.[k] as Dict, config as unknown as Dict)
-      if (!parent) continue
-      const leaf = keys[keys.length - 1]
-      this.envLocked.set(keys.join('.'), parent[leaf])
-      parent[leaf] = value
-    }
+    this.envLocked = overlayEnv(config)
+    this.config = config
+    return config
   }
 
   /** 还原被环境变量覆盖的字段为磁盘原值, 供落盘使用。 */
   private stripEnv(config: LLBotConfig): LLBotConfig {
     if (!this.envLocked.size) return config
-    const clone = JSON.parse(JSON.stringify(config)) as LLBotConfig
-    for (const [key, diskValue] of this.envLocked) {
+    const clone = structuredClone(config)
+    for (const [key, { disk }] of this.envLocked) {
       const keys = key.split('.')
-      const parent = keys.slice(0, -1).reduce<Dict | undefined>((o, k) => o?.[k] as Dict, clone as unknown as Dict)
+      const parent = parentOf(clone, keys)
       if (!parent) continue
       const leaf = keys[keys.length - 1]
-      if (diskValue === undefined) delete parent[leaf]
-      else parent[leaf] = diskValue
+      if (disk === undefined) delete parent[leaf]
+      else parent[leaf] = disk
     }
     return clone
   }
 
-  /** 被环境变量锁定的字段路径, WebUI 据此把它们显示为只读。 */
+  /** 内存里的锁定字段始终是环境变量的值, 不管调用方传进来什么。 */
+  private pinEnv(config: LLBotConfig) {
+    for (const [key, { value }] of this.envLocked) {
+      const keys = key.split('.')
+      const parent = parentOf(config, keys)
+      if (parent) parent[keys[keys.length - 1]] = value
+    }
+  }
+
+  /** 被环境变量锁定的字段, WebUI 据此把它们显示为只读并注明是哪个变量。 */
+  envLocks(): { path: string; env: string }[] {
+    return [...this.envLocked].map(([path, { env }]) => ({ path, env }))
+  }
+
   envLockedPaths(): string[] {
     return [...this.envLocked.keys()]
+  }
+
+  /**
+   * patch(partial) 会得到的配置, 不落盘。被环境变量锁定的字段先从 partial 里剔除 ——
+   * 否则它们会在内存里盖掉环境变量的值 (磁盘那边由 stripEnv 兜着)。供校验用: 校验的对象和真正落盘的完全一致。
+   */
+  preview(partial: Dict): LLBotConfig {
+    const cleaned = structuredClone(partial)
+    for (const key of this.envLocked.keys()) {
+      const keys = key.split('.')
+      const parent = parentOf(cleaned, keys)
+      if (parent) delete parent[keys[keys.length - 1]]
+    }
+    return deepMerge(this.get(), cleaned) as LLBotConfig
   }
 
   /**
@@ -192,14 +235,33 @@ export default class Config extends Service {
    * 取代"整份覆盖"的 set(): 之前 set_config 只传一个字段就会把其余配置全部清掉。
    */
   patch(partial: Dict): LLBotConfig {
-    const next = deepMerge(this.get(), partial) as LLBotConfig
+    const next = this.preview(partial)
     this.set(next)
     return next
+  }
+
+  /**
+   * 某个账号配置文件的生效值 (叠了环境变量)。不建文件、不切换当前配置、不写盘、不碰 envLocked ——
+   * 登录流程在 "online 先于 get(false) 切到账号配置" 的窗口里, 靠它预判 WebUI 登录后会在哪。
+   */
+  peek(uin: string): LLBotConfig {
+    const file = path.join(DATA_DIR, `config_${uin}.json`)
+    let config = this.getDefaultConfig()
+    if (fs.existsSync(file)) {
+      const { data, error } = new JsonFile<LLBotConfig>(file, { defaultValue: () => this.getDefaultConfig() }).readSync()
+      if (!error) {
+        config = this.migrateConfig(data)
+        mergeNewProperties(this.getDefaultConfig(), config)
+      }
+    }
+    overlayEnv(config)
+    return config
   }
 
   set(config: LLBotConfig) {
     this.config = config
     this.writeConfig(config)
+    this.pinEnv(config)
   }
 
   private writeConfig(config: LLBotConfig) {
