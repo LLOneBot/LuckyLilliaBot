@@ -196,9 +196,11 @@ declare module 'cordis' { interface Context { storage: PluginStorage } }
 | `08950784` | §7 OneBot | `connect` = 按 `type` 的 tagged union 数组;schema 不严格(桌面端每行全字段、`name`/`filter` 为 null 都能过),写回用户原值(未知键、缺 host 的老 ws 行保持原样);token 规则报到具体那一行;四个设置页都改走 `useBuiltinConfig`,`BotConfigContext` 删除。真实后端端到端验证过四个页面 |
 | `fe1680fd` | §9 step4 | 日志文件名加 pid (`src/main/logFiles.ts`),两进程共用一个 data/ 不再抢同一文件;启动和轮转时删 14 天前的 `llbot-*.log`(只动自己的,不碰 webui_access.log 和用户文件) |
 | `b27a9e61` | §9 step4 | `webui_token.txt` 按 mtime 重读:桌面端/手改密码后不用重启就生效;文件没了保留上一个密码,不至于把 WebUI 敞开 |
-| (本提交) | §9 step5/6 | **破坏性:bot 配置目录化终态**。ConfigService 改成读写两份 `settings.json`(实例级 `config/global/`,账号级 `config/accounts/<uin>/`),`splitConfig` 按 `ob11/satori/milky/webui` 分账号、其余(含未知 key)归实例级;邮件搬到 `config/global/email.json`。启动时 `config/migrate.ts` 一次性把旧 `config_<uin>.json`(实例级字段取最近用过的那个账号)和 `email_config.json` 拆/搬进新位置、旧文件改名 `.bak`;已迁移后旧文件又出现(没升级的桌面端重建)只告警、不覆盖真设置。端到端验证过:旧布局启动后正确拆分 + `.bak` + `/api/config` 合并值正确,二次启动幂等。生成端(本仓库 `script/install-llbot-docker.sh`、桌面端、docker/nix)仍写旧路径,靠这次迁移兜底 —— 它们的升级是跨仓库后续 |
+| `ca273bc4` | §9 step5/6 | **破坏性:bot 配置目录化终态**。ConfigService 改成读写两份 `settings.json`(实例级 `config/global/`,账号级 `config/accounts/<uin>/`),`splitConfig` 按 `ob11/satori/milky/webui` 分账号、其余(含未知 key)归实例级;邮件搬到 `config/global/email.json`。启动时 `config/migrate.ts` 一次性把旧 `config_<uin>.json`(实例级字段取最近用过的那个账号)和 `email_config.json` 拆/搬进新位置、旧文件改名 `.bak`;已迁移后旧文件又出现(没升级的桌面端重建)只告警、不覆盖真设置。端到端验证过:旧布局启动后正确拆分 + `.bak` + `/api/config` 合并值正确,二次启动幂等。生成端(本仓库 `script/install-llbot-docker.sh`、桌面端、docker/nix)仍写旧路径,靠这次迁移兜底 —— 它们的升级是跨仓库后续 |
+| `35640c76` | §7 修正 | 卡片开关打开时不再一律校验:绑定加 `validateOnEnable`,适配器声明(token 规则是安全闸,不能借开关绕过),邮件不声明 —— SMTP 没配好也能先打开(只是发不出去)。保存时照旧校验:通知开着才要求 SMTP / 发件人 / 收件人齐全,关着可以存空配置(issue #690) |
+| `d1f2eb02` | §9 step5/6 回归 | 目录化后,不存在的账号文件读成空对象(原来是整份换成 `default_config.json`);没有 `ob11` 被 `migrateConfig` 当成 `connect` 还不是数组的老格式,写回一份关闭的 OneBot + 旧连接行 —— **`ca273bc4` 之后首次登录的账号 OneBot 默认是关的**。改成只转换"有 `ob11` 但没有 `connect` 数组"的,缺 `ob11` 由默认值补齐。已经被写成关闭的账号文件不会自动改回 |
 
-**实测遗留**:`default_config.json` 与 `defaultConfig.ts` 的 `musicSignUrl` 本来就不一致(JSON 是旧的 `llob.linyuchen.net`,而 `migrateConfig` 又会把含 `linyuchen` 的值改写成 TS 里的 `ss.xingzhige.com`)。未动它,单测里列为已知例外。
+**实测遗留**:`default_config.json` 与 `defaultConfig.ts` 的 `musicSignUrl` 本来就不一致(JSON 是旧的 `llob.linyuchen.net`,而 `migrateConfig` 又会把含 `linyuchen` 的值改写成 TS 里的 `ss.xingzhige.com`)。未动它,单测里列为已知例外。另外 `mergeNewProperties` 会按下标递归进数组:`ob11.connect[i]` 缺的键从 `default_config.json` 的第 i 行补(实测老格式转出来的 ws 行被补上了默认 ws 行的 `host`),行顺序和默认不同时会补进别的连接类型的字段。只补不改,改造前就是这样,未动。
 
 **没做(仍属设计)**:OB11 `get_config` 给 token 打码、`set_config` 加 token 校验(owner 定为不做,会变对外 API 行为);§9 第 4 步的"同进程换号 + 账号锁"(owner 定为暂不做);生成端(install 脚本 / 桌面端 / docker-nix)改写新配置路径(跨仓库后续,目前靠启动迁移兜底)。
 

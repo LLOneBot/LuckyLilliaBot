@@ -204,7 +204,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - 作用域切换（"所有账号 / 仅 `<uin>`"）只在已登录、且"有配置目录的账号 ≥ 2 或本账号已有覆盖"时出现，单账号用户看到的界面不变
 - 卡片图标用一张固定的 lucide 图标表（`meta.ts`），没用 `lucide-react/dynamic` 的 `DynamicIcon`：它会给约 1600 个图标各生成一个 chunk
 
-**端到端验证方法**（不登录 QQ）：后端 `tsx --tsconfig <repo>/tsconfig.json <repo>/src/main/main.ts -q 10001 --pmhq-port 1 --plugin-dir <repo>/examples/plugins`，cwd 放临时目录，预置 `data/webui_token.txt` 和 `data/config_10001.json`（`{ "webui": { "enable": true, "host": "127.0.0.1", "port": 3999 } }`：带 `-q` 时登录前就读这份配置，PMHQ 端口没人监听所以不会真登录）；前端 `BROWSER=none WEBUI_PORT=3999 npx vite --port 15199 --strictPort`；浏览器设好 `webui_token` cookie（密码的 sha256 hex），用 Playwright 只把 `/api/config` 响应里的 `selfInfo.online` 改成 true，就能进主界面操作真实的插件后端。
+**端到端验证方法**（不登录 QQ）：后端 `tsx --tsconfig <repo>/tsconfig.json <repo>/src/main/main.ts -q 10001 --pmhq-port 1 --plugin-dir <repo>/examples/plugins`，cwd 放临时目录，预置 `data/webui_token.txt` 和 `data/config/accounts/10001/settings.json`（`{ "webui": { "enable": true, "host": "127.0.0.1", "port": 3999 } }`：带 `-q` 时登录前就读这份配置，PMHQ 端口没人监听所以不会真登录；预置旧的 `data/config_10001.json` 也行，启动时会被迁过去）；前端 `BROWSER=none WEBUI_PORT=3999 npx vite --port 15199 --strictPort`；浏览器设好 `webui_token` cookie（密码的 sha256 hex），用 Playwright 只把 `/api/config` 响应里的 `selfInfo.online` 改成 true，就能进主界面操作真实的插件后端。
 
 - **不要用默认的 3080 / 15173**：桌面浏览器里开着的 WebUI 页面会自动重连上临时实例，带着真实密码的 cookie（cookie 不分端口），校验失败，连续失败 4 次临时实例的 API 就锁一小时
 - **不要用 `vite --open false`**：`false` 被当成路径，照样在桌面浏览器打开页面。用 `BROWSER=none`
