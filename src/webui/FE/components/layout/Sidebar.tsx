@@ -53,10 +53,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navRef = useRef<HTMLElement>(null)
   const [indicator, setIndicator] = useState<{ top: number; height: number } | null>(null)
 
+  // Recompute when the item set changes too, not only on tab switch: toggling a plugin adds/removes an
+  // entry, which shifts the others, and a stale indicator would float in the gap the moved item left.
+  const menuKey = menuItems.map(item => item.id).join(',')
   useLayoutEffect(() => {
     const el = navRef.current?.querySelector<HTMLElement>(`[data-tab="${activeTab}"]`)
     setIndicator(el ? { top: el.offsetTop, height: el.offsetHeight } : null)
-  }, [activeTab])
+  }, [activeTab, menuKey])
 
   const handleTabChange = (tab: string) => {
     onTabChange(tab)
