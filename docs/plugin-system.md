@@ -120,7 +120,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 - 条目照样存在 `data/plugins.json` 里（随机 id），只是 `name` 带 `builtin:` 前缀（npm 包名不能含冒号，不会撞）。启动时每个内置插件保证恰好一个条目：没有就建一个**启用**的（老版本升级上来行为不变），手写出来的重复条目丢掉，core 条目上的 `disabled` 忽略
 - 内置插件只有一个实例：它们提供具名服务（`onebot` / `satori` / ...），两个实例会抢同一个名字。`add` / `remove` 对内置条目、`disable` 对 core 条目都抛 `PluginForbiddenError`（HTTP 403）；`updateConfig` / `describe` 只对**没有配置绑定**的内置条目（WebQQ、core）抛 403
-- **配置仍在原来的文件里**，不进 `plugins.json`：OneBot / Satori / Milky 在 `config_<uin>.json` 各自的片段，邮件通知在 `email_config.json`。这四个都声明了配置绑定（`src/main/builtinConfig/`，见下面"内置插件的配置绑定"一节），所以插件页能用 schema 校验和表单配置它们、卡片开关改的就是 `ob11.enable` / `satori.enable` / `milky.enable` / 邮件的 `enabled`，插件本身始终挂载。适配器包了一层 `withBotConfig()`：`inject` 是 `account` + `config` + 适配器自己的依赖（条目因此在依赖齐之前显示 pending，而不是"外壳 active、里面 pending"），`apply` 里按原来 `main.ts` 的拼法从 `ctx.config.get()` 取配置再 `await ctx.plugin(适配器)` —— await 让适配器启动失败变成条目的 `failed`。`test/unit/bootstrap/builtins.test.ts` 逐字段比对拼出来的配置
+- **配置不进 `plugins.json`**：OneBot / Satori / Milky 在 `data/config/accounts/<uin>/settings.json` 各自的片段，邮件通知在 `data/config/global/email.json`（旧的 `config_<uin>.json` / `email_config.json` 启动时自动迁过来，见 config-storage.md §9）。这四个都声明了配置绑定（`src/main/builtinConfig/`，见下面"内置插件的配置绑定"一节），所以插件页能用 schema 校验和表单配置它们、卡片开关改的就是 `ob11.enable` / `satori.enable` / `milky.enable` / 邮件的 `enabled`，插件本身始终挂载。适配器包了一层 `withBotConfig()`：`inject` 是 `account` + `config` + 适配器自己的依赖（条目因此在依赖齐之前显示 pending，而不是"外壳 active、里面 pending"），`apply` 里按原来 `main.ts` 的拼法从 `ctx.config.get()` 取配置再 `await ctx.plugin(适配器)` —— await 让适配器启动失败变成条目的 `failed`。`test/unit/bootstrap/builtins.test.ts` 逐字段比对拼出来的配置
 - `reload` 对内置条目是重启（dispose + 重新挂载，没有模块可重新 import），会读到最新配置
 - **停用要真能停下来**（现在只对没绑定的内置条目、以及 reload 有意义；绑定的适配器"停用"是把 `enable` 写成 false，由适配器自己停监听）：改造前适配器从不在运行时卸载，OneBot / Satori / Milky 的 `[Service.init]` 都返回 `noop`，停用后端口不释放，再启用就 `EADDRINUSE`。现在它们返回关服务器的 disposer（cordis 卸载时会 await）。Satori 的 `/v1/internal/onebot11/:action` 原来缓存了一份按 OB11 实例构造的 action 表，OB11 重启后会指向已卸载的实例，改成每次从当前的 `ctx.get('onebot').actionMap` 取
 - 前端：插件页分"内置 / 已安装"两区，内置卡片有"内置 / 核心"徽章，core 的开关置灰。内置插件的界面和第三方插件走同一套 `ctx.page()`（见下文"插件前端"），只是随 WebUI 打包：适配器和邮件通知注册的是**设置页**（插件启用就在侧边栏，停用后从侧边栏消失，但卡片上的"前往设置"仍能打开），WebQQ 注册的是**功能页**（插件运行时才出现）。卡片上的"前往设置"跳到该插件注册的设置页，第三方插件也一样
@@ -131,7 +131,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 ### 内置插件的配置绑定（`BuiltinConfigBinding`）
 
-内置插件的设置不进 `plugins.json`，而是留在原来的文件里（适配器在 `config_<uin>.json` 各自的片段，邮件在 `email_config.json`）：桌面端、docker/nix 模板、手改都还认这些文件。`BuiltinPlugin.config` 声明一个绑定，让它们照样拿到插件页那套 schema 校验、rev/409 和表单：
+内置插件的设置不进 `plugins.json`，而是留在 bot 自己的配置文件里（适配器在 `config/accounts/<uin>/settings.json` 各自的片段，邮件在 `config/global/email.json`）：桌面端、docker/nix 模板、手改仍写旧的 `config_<uin>.json` / `email_config.json`，由启动时的一次性迁移搬到新位置。`BuiltinPlugin.config` 声明一个绑定，让它们照样拿到插件页那套 schema 校验、rev/409 和表单：
 
 - `schema`（默认值必须和文件原来的默认值一致，单测锁住）、固定的 `scope` 和 `location`（只给表单显示）、`read(ctx)` / `write(ctx, value)`、schema 表达不了的 `check`（比如"监听全部地址必须有 token"）、`normalize`、`enabled`（开关在值里）、`secrets`、`watch`（外部改了文件时让卡片刷新）
 - `describe` / `updateConfig` 对有绑定的内置条目分流到绑定，不再 403；没绑定的（WebQQ、core）照旧 403。值只有一层：没有账号覆盖层（覆盖层里这些条目的项被忽略、下次写时清掉）、`describe` 带 `fixedScope: true`，表单不显示作用域切换

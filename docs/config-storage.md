@@ -34,8 +34,10 @@
    │  └─ accounts/<uin>/
    │     ├─ plugins.json                [账号] 插件覆盖层,设置过才有(本期新增)
    │     └─ (后续)bot 设置 + 适配器配置   由 config_<uin>.json 迁入,可再拆分类文件
-   ├─ config_<uin>.json                 [账号] 本期不动(对外接口);后续带迁移搬入 config/accounts/<uin>/
-   ├─ email_config.json                 [实例] 本期不动;后续搬入 config/global/
+   ├─ config/global/settings.json        [实例] log/logLevel/ffmpeg/msgCacheExpire... (由 config_<uin>.json 的实例级字段迁入)
+   ├─ config/global/email.json           [实例] 邮件 (由 email_config.json 迁入)
+   ├─ config/accounts/<uin>/settings.json [账号] 适配器端点 + WebUI 地址 (由 config_<uin>.json 的账号级字段迁入)
+   ├─ config_<uin>.json.bak / email_config.json.bak  迁移后保留的旧文件备份
    ├─ plugin-data/<key>/shared/         [实例] 插件数据(非配置,不进 config/):ctx.storage.dir(),也是该条目 ctx.baseUrl
    ├─ plugin-data/<key>/<uin>/          [账号] ctx.storage.dir('account')
    ├─ state/                            bot 私有、不要手改:写锁、last-good、账号锁
@@ -192,10 +194,13 @@ declare module 'cordis' { interface Context { storage: PluginStorage } }
 | `23abf343` | §7 Satori | 共用工厂 `botConfigBinding(key)`(读片段副本、写 = `patch` + `llob/config-updated` 由适配器热应用;没有账号文件时 503);`ConfigService.accountFile`;`validate.ts` 的 token 规则改成带字段路径的 issue,`POST /api/config` 与绑定共用;Satori 页改走插件 API(并发修改改为 409) |
 | `137cd852` | §7 Milky | schema(webhook 必须 http(s))+ `normalize` 去空行 + token 规则;页面经一层本地外壳仍编辑 `config.milky` |
 | `08950784` | §7 OneBot | `connect` = 按 `type` 的 tagged union 数组;schema 不严格(桌面端每行全字段、`name`/`filter` 为 null 都能过),写回用户原值(未知键、缺 host 的老 ws 行保持原样);token 规则报到具体那一行;四个设置页都改走 `useBuiltinConfig`,`BotConfigContext` 删除。真实后端端到端验证过四个页面 |
+| `fe1680fd` | §9 step4 | 日志文件名加 pid (`src/main/logFiles.ts`),两进程共用一个 data/ 不再抢同一文件;启动和轮转时删 14 天前的 `llbot-*.log`(只动自己的,不碰 webui_access.log 和用户文件) |
+| `b27a9e61` | §9 step4 | `webui_token.txt` 按 mtime 重读:桌面端/手改密码后不用重启就生效;文件没了保留上一个密码,不至于把 WebUI 敞开 |
+| (本提交) | §9 step5/6 | **破坏性:bot 配置目录化终态**。ConfigService 改成读写两份 `settings.json`(实例级 `config/global/`,账号级 `config/accounts/<uin>/`),`splitConfig` 按 `ob11/satori/milky/webui` 分账号、其余(含未知 key)归实例级;邮件搬到 `config/global/email.json`。启动时 `config/migrate.ts` 一次性把旧 `config_<uin>.json`(实例级字段取最近用过的那个账号)和 `email_config.json` 拆/搬进新位置、旧文件改名 `.bak`;已迁移后旧文件又出现(没升级的桌面端重建)只告警、不覆盖真设置。端到端验证过:旧布局启动后正确拆分 + `.bak` + `/api/config` 合并值正确,二次启动幂等。生成端(本仓库 `script/install-llbot-docker.sh`、桌面端、docker/nix)仍写旧路径,靠这次迁移兜底 —— 它们的升级是跨仓库后续 |
 
 **实测遗留**:`default_config.json` 与 `defaultConfig.ts` 的 `musicSignUrl` 本来就不一致(JSON 是旧的 `llob.linyuchen.net`,而 `migrateConfig` 又会把含 `linyuchen` 的值改写成 TS 里的 `ss.xingzhige.com`)。未动它,单测里列为已知例外。
 
-**没做(仍属设计)**:OB11 `get_config` 给 token 打码、`set_config` 加 token 校验(都会改变对外 API 行为,待 owner 定)、§9 第 4 / 5 步、§9 第 6 步把 `config_<uin>.json` / `email_config.json` 搬进 `data/config/`。
+**没做(仍属设计)**:OB11 `get_config` 给 token 打码、`set_config` 加 token 校验(owner 定为不做,会变对外 API 行为);§9 第 4 步的"同进程换号 + 账号锁"(owner 定为暂不做);生成端(install 脚本 / 桌面端 / docker-nix)改写新配置路径(跨仓库后续,目前靠启动迁移兜底)。
 
 **已知局限(已解决)**:同一个片段被两处并发修改时,页面原来保存的是它加载时那份,会覆盖掉另一处的修改。四个内置设置页改走 `describe` + rev/409 后,这种情况会被拒绝并重新载入(端到端验证过);"其他配置"页仍是片段级 `POST /api/config`,没有 rev。
 

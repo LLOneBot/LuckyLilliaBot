@@ -214,6 +214,8 @@ mkdir -p llbot_config
 
 # 仅在完整配置模式下生成配置文件
 if [ "$config_mode" == "1" ]; then
+    # Bot 启动时会把这份旧式 config_<uin>.json 自动迁到 data/config/accounts/<uin>/settings.json
+    # 与 data/config/global/settings.json (见 docs/config-storage.md §9), 原文件留个 .bak
     cat > "llbot_config/config_${AUTO_LOGIN_QQ}.json" << EOF
 {
   "milky": {
