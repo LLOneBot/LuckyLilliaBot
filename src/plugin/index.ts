@@ -3,7 +3,7 @@ import { realpath } from 'node:fs/promises'
 import { createRequire } from 'node:module'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { Context, Fiber, FiberState, Inject, Plugin, Service, resolveConfig } from 'cordis'
+import { Context, Fiber, FiberState, Inject, Plugin, Service, resolveConfig, symbols } from 'cordis'
 import type { LLBotManifest } from '@luckylillia/plugin-sdk'
 import { hydrate, SchemaNode } from '@/common/schema/model'
 import { stripDefaults, withDefaults } from '@/common/schema/diff'
@@ -16,6 +16,7 @@ import {
   newEntryId, PluginEntry, PluginOverlayStore, PluginOverride, PluginsFile, PluginStore,
 } from './store'
 import { watchPluginRoots } from './watcher'
+import { PluginDataDirs } from './storage'
 
 declare module 'cordis' {
   interface Context {
@@ -181,10 +182,14 @@ class PluginService extends Service {
   // The service's own context. Inside a method called through ctx.plugins, this.ctx is the CALLER's
   // context (cordis tracker), so mounting entries on it would parent them under whoever asked.
   private readonly home: Context
+  private readonly dataDirs?: PluginDataDirs
 
   constructor(ctx: Context, public config: PluginService.Config) {
     super(ctx, 'plugins')
     this.home = ctx
+    if (config.dataDir) {
+      this.dataDirs = new PluginDataDirs(config.dataDir, () => (ctx.get('account') as { uin?: string } | undefined)?.uin)
+    }
     this.store = new PluginStore(config.file)
     this.builtins = new Map((config.builtins ?? []).map(builtin => [builtin.name, builtin]))
   }
@@ -211,6 +216,19 @@ class PluginService extends Service {
     if (this.reconcileBuiltins() && !error) await this.save()
 
     this.ctx.on('internal/status', fiber => this.onFiberStatus(fiber))
+    const dirs = this.dataDirs
+    if (dirs) {
+      this.home.accessor('storage', {
+        get() {
+          // Reached from a service method another plugin called, `this` is the caller's context and the
+          // service's own sits under symbols.shadow: the files belong to whoever defined the code
+          const defSite = (this as unknown as Record<symbol, Context | undefined>)[symbols.shadow] ?? this
+          const storage = dirs.storageOf(defSite.fiber)
+          if (!storage) throw new Error('ctx.storage is only available to plugins loaded as entries')
+          return storage
+        },
+      })
+    }
     disposers.push(this.ctx.on('account/prepare', (uin) => {
       this.applyAccount(uin).catch(e => this.ctx.logger.error(e))
     }))
@@ -673,8 +691,12 @@ class PluginService extends Service {
     rt.error = undefined
     try {
       // ctx.plugin() hands back a thenable wrapper; internal/status reports the fiber itself
-      const fiber = this.home.plugin(plugin, this.entryConfig(rt, plugin)).ctx.fiber
+      // Mounted under a context carrying the entry's baseUrl, which the plugin's own context inherits
+      const baseUrl = this.dataDirs?.baseUrl(rt.entry.name)
+      const parent = baseUrl ? this.home.extend({ baseUrl }) : this.home
+      const fiber = parent.plugin(plugin, this.entryConfig(rt, plugin)).ctx.fiber
       this.fiberIds.set(fiber, rt.entry.id)
+      this.dataDirs?.register(fiber, rt.entry.name)
       rt.fiber = fiber
     } catch (e) {
       rt.error = errorText(e)
@@ -882,6 +904,8 @@ namespace PluginService {
     accountFile?: (uin: string) => string
     /** Accounts that already have a config directory, for offering the per-account scope in the WebUI. */
     listAccounts?: () => Promise<string[]>
+    /** Root of the plugins' data directories (ctx.storage, ctx.baseUrl). Omitted = neither is provided. */
+    dataDir?: string
     /** Directories whose child packages are plugins. */
     roots: string[]
     /** Watch the roots and reload changed packages. plugins.json `hmr: true` also turns it on. */
