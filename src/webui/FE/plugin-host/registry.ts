@@ -74,8 +74,8 @@ export function visiblePages(
 ): PageContribution[] {
   const active = activeOwners(plugins)
   // Until the list loads, settings pages are taken as enabled: they almost always are, and would flicker otherwise.
-  // A bound builtin (OneBot, Satori, ...) keeps its page listed while switched off: its switch is on that page
-  const enabled = plugins && new Set(plugins.filter(plugin => !plugin.disabled || plugin.bound).map(plugin => plugin.name))
+  // Switched off, a plugin (a bound builtin included) leaves the sidebar; its card's "前往设置" still opens the page.
+  const enabled = plugins && new Set(plugins.filter(plugin => !plugin.disabled).map(plugin => plugin.name))
   return contributions
     .filter((c): c is PageContribution => c.kind === 'page' && (c.settings
       ? purpose === 'open' || !enabled || enabled.has(c.owner)

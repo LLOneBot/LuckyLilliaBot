@@ -42,7 +42,7 @@ describe('plugin UI registry', () => {
     expect(slotContents(contributions, active, 'elsewhere')).toEqual([])
   })
 
-  it('keeps the settings page of a switched-off bound builtin in the sidebar: its switch is on that page', () => {
+  it('drops a switched-off bound builtin from the sidebar but keeps its page openable', () => {
     const contributions: Contribution[] = [
       page('builtin:satori', 'satori', 'Satori', 11, true),
       page('third-party', 'third-party:settings', 'Third', 100, true),
@@ -51,7 +51,9 @@ describe('plugin UI registry', () => {
       { ...status('builtin:satori', 'disposed'), bound: true },
       status('third-party', 'disposed'),
     ]
-    expect(visiblePages(contributions, plugins).map(p => p.key)).toEqual(['satori'])
+    // off → gone from the sidebar, same as any plugin; the card's "前往设置" still opens it (purpose 'open')
+    expect(visiblePages(contributions, plugins).map(p => p.key)).toEqual([])
+    expect(visiblePages(contributions, plugins, 'open').map(p => p.key)).toEqual(['satori', 'third-party:settings'])
   })
 
   it('takes the latest config editor of a plugin and the latest renderer of a role', () => {
