@@ -122,16 +122,10 @@ const EmailConfigSection: React.FC<EmailConfigSectionProps> = (props) => {
           <BookOpen size={16} />
           设置向导
         </a>
-        <input
-          type='checkbox'
-          checked={value.enabled}
-          onChange={(e) => handleChange('enabled', e.target.checked)}
-          className='switch-toggle'
-        />
       </div>
 
-      {value.enabled && (
-        <div className='space-y-4 border-t border-theme-divider pt-4'>
+      {/* 启用开关统一由插件页的卡片控制，这里只配置参数 */}
+      <div className='space-y-4 border-t border-theme-divider pt-4'>
           <label className='block'>
             <div className='flex items-center gap-2 mb-2'>
               <Server size={16} className='text-blue-600' />
@@ -282,7 +276,6 @@ const EmailConfigSection: React.FC<EmailConfigSectionProps> = (props) => {
             </button>
           </div>
         </div>
-      )}
     </div>
   )
 }
