@@ -149,7 +149,7 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-theme">OneBot 11 协议</h3>
-            <p className="text-sm text-theme-secondary">启用或禁用 OneBot 11 适配器</p>
+            <p className="text-sm text-theme-secondary">配置 OneBot 11 适配器；启用开关在插件页的卡片上</p>
           </div>
           <a
             href="https://www.luckylillia.com/guide/develop#onebot11-%E5%8D%8F%E8%AE%AE"
@@ -160,21 +160,11 @@ const OneBotConfigNew: React.FC<OneBotConfigProps> = ({ config, onChange, onSave
             <ExternalLink size={16} />
             文档
           </a>
-          <input
-            type="checkbox"
-            checked={config.enable}
-            onChange={(e) => {
-              const newConfig = { ...config, enable: e.target.checked };
-              onChange(newConfig);
-              onSave(newConfig);
-            }}
-            className="switch-toggle-lg"
-          />
         </div>
       </div>
 
       {/* 适配器卡片 */}
-      {config.enable && config.connect && Array.isArray(config.connect) && (
+      {config.connect && Array.isArray(config.connect) && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {config.connect.map((adapter, index) => {

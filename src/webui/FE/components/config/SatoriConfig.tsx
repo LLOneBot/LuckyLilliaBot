@@ -36,70 +36,54 @@ const SatoriConfig: React.FC = () => {
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between p-4 bg-theme-item rounded-xl hover:bg-theme-item-hover transition-colors">
-          <div>
-            <div className="text-sm font-medium text-theme">启用 Satori 协议</div>
-            <div className="text-xs text-theme-muted mt-0.5">开启后将支持 Satori 协议连接</div>
-          </div>
-          <input
-            type="checkbox"
-            checked={satori.enable}
-            onChange={(e) => change({ enable: e.target.checked })}
-            className="switch-toggle"
+        {/* 启用开关统一由插件页的卡片控制，这里只配置参数 */}
+        <div>
+          <label className="block text-sm font-medium text-theme-secondary mb-2">
+            监听地址
+          </label>
+          <HostSelector
+            value={satori.host}
+            onChange={(host) => change({ host })}
           />
+          <p className="text-xs text-theme-muted mt-1">选择服务监听的网络地址</p>
         </div>
-
-        {satori.enable && (
-          <>
-            <div>
-              <label className="block text-sm font-medium text-theme-secondary mb-2">
-                监听地址
-              </label>
-              <HostSelector
-                value={satori.host}
-                onChange={(host) => change({ host })}
-              />
-              <p className="text-xs text-theme-muted mt-1">选择服务监听的网络地址</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-theme-secondary mb-2">
-                Satori 端口
-              </label>
-              <input
-                type="number"
-                value={satori.port}
-                onChange={(e) => change({ port: parseInt(e.target.value) })}
-                min="1"
-                max="65535"
-                placeholder="5500"
-                className="input-field"
-              />
-              <p className="text-xs text-theme-muted mt-1">Satori 服务监听端口（1-65535）</p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-theme-secondary mb-2">
-                Satori Token
-              </label>
-              <div className="relative">
-                <input
-                  type={showSatoriToken ? 'text' : 'password'}
-                  value={satori.token}
-                  onChange={(e) => change({ token: e.target.value })}
-                  placeholder="请输入 Satori Token"
-                  className="input-field pr-12"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowSatoriToken(!showSatoriToken)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-hint hover:text-theme transition-colors p-1"
-                >
-                  {showSatoriToken ? <EyeOff size={20} /> : <Eye size={20} />}
-                </button>
-              </div>
-              <p className="text-xs text-theme-muted mt-1">用于 Satori 连接验证的 Token</p>
-            </div>
-          </>
-        )}
+        <div>
+          <label className="block text-sm font-medium text-theme-secondary mb-2">
+            Satori 端口
+          </label>
+          <input
+            type="number"
+            value={satori.port}
+            onChange={(e) => change({ port: parseInt(e.target.value) })}
+            min="1"
+            max="65535"
+            placeholder="5500"
+            className="input-field"
+          />
+          <p className="text-xs text-theme-muted mt-1">Satori 服务监听端口（1-65535）</p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-theme-secondary mb-2">
+            Satori Token
+          </label>
+          <div className="relative">
+            <input
+              type={showSatoriToken ? 'text' : 'password'}
+              value={satori.token}
+              onChange={(e) => change({ token: e.target.value })}
+              placeholder="请输入 Satori Token"
+              className="input-field pr-12"
+            />
+            <button
+              type="button"
+              onClick={() => setShowSatoriToken(!showSatoriToken)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-hint hover:text-theme transition-colors p-1"
+            >
+              {showSatoriToken ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          </div>
+          <p className="text-xs text-theme-muted mt-1">用于 Satori 连接验证的 Token</p>
+        </div>
       </div>
 
       <div className="mt-6 flex justify-end">

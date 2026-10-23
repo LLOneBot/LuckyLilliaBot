@@ -39,25 +39,8 @@ const MilkyConfig: React.FC = () => {
       </div>
 
       <div className="space-y-4">
+        {/* 启用开关统一由插件页的卡片控制，这里只配置参数 */}
         <div className="flex items-center justify-between p-4 bg-theme-item rounded-xl hover:bg-theme-item-hover transition-colors">
-          <div>
-            <div className="text-sm font-medium text-theme">启用 Milky 协议</div>
-            <div className="text-xs text-theme-muted mt-0.5">开启后将支持 Milky 协议连接</div>
-          </div>
-          <input
-            type="checkbox"
-            checked={config.milky.enable}
-            onChange={(e) => setConfig({
-              ...config,
-              milky: { ...config.milky, enable: e.target.checked }
-            })}
-            className="switch-toggle"
-          />
-        </div>
-
-        {config.milky.enable && (
-          <>
-            <div className="flex items-center justify-between p-4 bg-theme-item rounded-xl hover:bg-theme-item-hover transition-colors">
               <div>
                 <div className="text-sm font-medium text-theme">上报自己发送的消息</div>
                 <div className="text-xs text-theme-muted mt-0.5">启用后将上报自己发送的消息</div>
@@ -269,8 +252,6 @@ const MilkyConfig: React.FC = () => {
                 <p className="text-xs text-theme-muted mt-1">用于 Webhook 请求验证的 Token</p>
               </div>
             </div>
-          </>
-        )}
       </div>
 
       <div className="mt-6 flex justify-end">
