@@ -131,7 +131,7 @@ apply(ctx) {
 
 ## 6. 登录后的 config 重解析+广播：必须留在 account 门后
 
-`main.ts` 现在在 account inject 块顶部先 `ctx.config.get(false)`（用登录后的 `selfInfo.uin` 把 configPath 重解析为 `config_<uin>.json`）再 `ctx.parallel('llob/config-updated', config)`。这次广播驱动三件事：WebUI 按新 host/port 从波 0 的 default 端口迁到账号配置指定端口、`Store` 的 `msgCacheExpire` 更新、logLevel 重算。
+`main.ts` 的 account inject 块顶部 `ctx.parallel('llob/config-updated', config)` 广播一次：日志文件开关、Core 的 ffmpeg 路径只从这个事件拿值，`Store` 的 `msgCacheExpire` 也靠它。配置是实例的、启动时就绑定（config-storage.md §7），登录不再切换配置文件，WebUI 也不再在登录时换端口。
 
 **这一步必须放进一个 account-gated 的 lifecycle 条目（`builtin:nt-lifecycle`，inject `['account','config']`），在登录后执行一次重解析+广播。** 绝不能挪到永远在的 shell：shell 在波 0、uin 为空，`config.get(false)` 走 default 且不缓存，登录后没有任何东西再触发第二次广播 → WebUI 永远停在 default 端口、logLevel/msgCacheExpire 永远是 default。这是实打实的 NT 回归，写进硬约束。
 

@@ -27,6 +27,8 @@
 
 新建 `src/universal/qqofficial/`(与 `ntqq/` 平级):`index.ts`(apply:new bot → register → 连接 → 收包转 Satori event → dispatch)、`bot.ts`(实现 `Bot`)、`encoder.ts`(`h[]` → 官方请求体,**不复用** NT 专用的 `src/satori/message.ts`)、`ws.ts`/`http.ts`、`types.ts`(intents 位掩码)、`passive.ts`(被动 id 表)、`utils.ts`(decode + at 归一)、`config.ts`。
 
+> 2026-10-24 注:下面引用的 builtin 限制已经变了 —— 内置插件现在也能有设置(`BuiltinConfig`,存在实例的 `plugins.json`,不依赖 uin,见 plugin-system.md)。做成普通插件包的其余理由要按现状重新核对。
+
 **做成普通的可扫描插件包,不是 builtin**(对照挑错 HIGH-1):插件系统对 builtin 的处理是排他的——`index.ts` 里 builtin 恒报 `hasConfig:false`、插件页不渲染它的 schema 表单,`assertConfigurable()` 对 builtin 抛 `PluginForbiddenError`(`describe`/`updateConfig` 全封死),而且 builtin 配置被设计成读 `config_<uin>.json`(官方 bot 没 uin,正好掉进读不到的坑)。WebQQ 能当裸 builtin 是因为它**没有配置**。官方 bot 有配置,必须是普通插件包,entry config 才能落 `plugins.json`、schema 表单才在插件页生效。
 
 ## 4. platform / id 约定(绝不撞 llonebot)

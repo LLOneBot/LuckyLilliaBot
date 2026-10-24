@@ -2,7 +2,7 @@
 
 > **2026-10-24 改为实例模型**(参考 Koishi 的多实例):配置按实例名分目录存放,默认实例 `default`;去掉账号覆盖层;所有插件(包括 OneBot / Satori / Milky / 邮件通知)的配置统一存在当前实例的 `plugins.json`,只经插件服务读写。
 >
-> 原先的"实例级 / 账号级"两层方案已经实施了一部分(见文末附录的实施记录),其中 `config/global` + `config/accounts/<uin>` 布局、账号覆盖层、内置插件的配置绑定,会在本方案实施时拆掉(§10)。插件系统和这些目录都还没发布,改布局不影响已发布的插件,只需要迁移旧版 bot 的 `config_<uin>.json` / `email_config.json` / `webui_token.txt`(§9)。相关:[plugin-system.md](plugin-system.md)、[core-pluginization.md](core-pluginization.md)。
+> 已实施(I1–I3,见 §10 的实施记录)。原先"实例级 / 账号级"两层方案里的 `config/global` + `config/accounts/<uin>` 布局、账号覆盖层、内置插件的配置绑定都已拆掉(文末附录是那一期的记录)。插件系统和这些目录都没发布过,所以只需要迁移旧版 bot 的 `config_<uin>.json` / `email_config.json` / `webui_token.txt`(§9)。跨仓库的桌面端 / docker 改动还没做(§10 清单)。相关:[plugin-system.md](plugin-system.md)、[core-pluginization.md](core-pluginization.md)。
 
 ## 1. 为什么改成实例
 
@@ -149,7 +149,7 @@
 |---|---|---|
 | `e18fcff1` | I1 | `--instance` / `LLBOT_INSTANCE` / `-q` 回落(`src/common/instance.ts`);`configPaths` 按当前实例算路径,第一次用到时才定实例(迁移之后);实例锁 `src/main/instanceLock.ts`:Windows 命名管道(按 data 目录区分)、其他系统 unix socket(优先 `state/instances/`,路径过长或文件系统不支持时退到临时目录),进程怎么死都会释放,`state/instances/<实例>.json` 只给提示用;`ConfigService` 单文件、启动即绑定、删 `-q` 预读 / `peek` / `accountFile`,配置文件从启动起就监听;WebUI 密码按实例(`webuiTokenUtil` 用到时才取路径);`/api/config` 带 `instance`,"其他配置"页说明改成按实例;迁移 `src/main/config/migrate.ts` 先建在 `instances.migrating/` 再整体改名,`.bak` 已存在时编号不覆盖,同一个号以中间布局为准。用本机开发数据的副本验证过:10 个号迁成 `default` + 4 个按号命名的实例,差异都是真实配置不同(端口、过滤器、反向地址);`-q` 进到同名实例、同实例第二个进程被拒(退出码 1)、两个实例并行、强杀后立即能重启 |
 | `35e9b8ba` | I2 | 删账号覆盖层:`PluginOverlayStore` / `account/prepare` / 写入路由 / `updateConfig` 与 `PUT` 的 `scope` / `llbot.configScope` / 配置弹窗的作用域页签;`describe` 只剩 `config`(存下的差异)、`effective`、`rev`。覆盖层测试里和单层无关的 rev / 409 用例挪进 `configWrite.test.ts` |
-| (本提交) | I3 | 内置插件进 `plugins.json`:`BuiltinConfigBinding` 换成 `BuiltinConfig`(`check(value, enabled)` / `checkOnEnable` / `normalize` / `secrets` / `initial()`),schema 用插件自己的 `Config`(去掉 `enable` / `enabled`),开关一律是条目的 `disabled`、关掉就卸载;`adapterEntry()` 把条目配置 + `enable: true` + 适配器要读的 bot 设置交给适配器,条目配置变了重启,bot 设置变了只就地更新调用时才读的字段(OB11 / Satori / Milky 里按片段重建的逻辑删掉);`Config` 类型去掉三段,旧形状叫 `LegacyConfig`,由 `legacyConfig.ts` 给 `get_config` / `set_config` / `POST /api/config` 拼回和拆开(`set_config` 不带 token 规则、回复后才应用);启动时 `liftBuiltinSettings()` 把实例 `settings.json` 的三段和 `email.json` 搬进条目;邮件的 `EmailConfigStore` / `email-config-updated` 删除;启动时先等日志插件装好再迁移(之前迁移日志会丢,`ca273bc4` 起就是这样)。从旧版布局到条目、浏览器里三个设置页的读写、token 规则、旧形状接口都端到端验证过 |
+| `d7af39e9` | I3 | 内置插件进 `plugins.json`:`BuiltinConfigBinding` 换成 `BuiltinConfig`(`check(value, enabled)` / `checkOnEnable` / `normalize` / `secrets` / `initial()`),schema 用插件自己的 `Config`(去掉 `enable` / `enabled`),开关一律是条目的 `disabled`、关掉就卸载;`adapterEntry()` 把条目配置 + `enable: true` + 适配器要读的 bot 设置交给适配器,条目配置变了重启,bot 设置变了只就地更新调用时才读的字段(OB11 / Satori / Milky 里按片段重建的逻辑删掉);`Config` 类型去掉三段,旧形状叫 `LegacyConfig`,由 `legacyConfig.ts` 给 `get_config` / `set_config` / `POST /api/config` 拼回和拆开(`set_config` 不带 token 规则、回复后才应用);启动时 `liftBuiltinSettings()` 把实例 `settings.json` 的三段和 `email.json` 搬进条目;邮件的 `EmailConfigStore` / `email-config-updated` 删除;启动时先等日志插件装好再迁移(之前迁移日志会丢,`ca273bc4` 起就是这样)。从旧版布局到条目、浏览器里三个设置页的读写、token 规则、旧形状接口都端到端验证过 |
 
 ## 11. Owner 决策
 
