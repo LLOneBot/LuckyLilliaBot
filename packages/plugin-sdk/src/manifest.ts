@@ -9,12 +9,6 @@ export interface LLBotManifest {
   /** Flags the plugin as work in progress in the WebUI. */
   preview?: boolean
   /**
-   * Where a config save lands when the user did not pick a layer and neither layer has configured this
-   * entry yet: `global` (default) is shared by every account using this data directory, `account` stays
-   * with the logged-in one. Only matters once several accounts share a data directory.
-   */
-  configScope?: 'global' | 'account'
-  /**
    * Services this plugin needs, can make use of and provides, readable without loading its code: the
    * WebUI shows them and warns about missing providers and conflicts. `inject` is still what gates loading.
    */

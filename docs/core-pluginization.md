@@ -150,7 +150,7 @@ apply(ctx) {
 ## 8. 与官方 bot、配置存储的衔接
 
 - **官方 bot** = 第二个中立层 producer：platform ≠ `llonebot`（satori 守卫已隔离）、appid 身份、不提供 `account`/`qqProtocol`、不喂假 uin、经 `ctx.bots.register()` 与 NT 并存；两个都启用就是双协议同进程。本设计只负责让官方-only 能 boot（壳+插件页可达、NT 下游干净 absent），官方 bot 的协议实现本身见其专门设计。
-- **配置存储**：本设计维持 `config_<uin>.json` 的 per-account 语义、`cleanupConfig` 白名单、builtins 读 `ctx.config.get()` 全部不动。instance-level 字段（webui/log/ffmpeg 不该 per-account）和 `plugins_<uin>.json` overlay + `ctx.storage` 是独立的配置存储设计，本方案不实现也不与之矛盾。
+- **配置存储**：见 [config-storage.md](config-storage.md)。后来改成了实例模型：配置按实例存在 `data/instances/<实例>/`、启动时选定、登录不切换，没有按账号的覆盖层；本方案的装载结构不受影响，builtins 仍从 `ctx.config.get()` 取 bot 设置。
 
 ## 9. 分步迁移（每步后 NT 账号体验不变）
 

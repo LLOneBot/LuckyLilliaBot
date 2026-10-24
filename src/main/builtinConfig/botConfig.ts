@@ -14,7 +14,6 @@ export function botConfigBinding<K extends AdapterKey>(
 ): BuiltinConfigBinding<LLBotConfig[K]> {
   return {
     ...rest,
-    scope: 'account',
     // Not configPaths: this runs at import, before the startup migration has fixed the instance
     location: `data/instances/<实例>/settings.json → ${key}`,
     // The token rule guards a public listener: switching on must not bypass it

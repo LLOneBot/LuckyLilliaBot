@@ -115,7 +115,7 @@ describe('builtin:email-notification through the plugin API', () => {
 
   it('describes email.json with the password masked', async () => {
     const description = await ctx.plugins.describe(id)
-    expect(description).toMatchObject({ scope: 'global', fixedScope: true, location: 'data/instances/<实例>/email.json', secrets: ['smtp.auth.pass'] })
+    expect(description).toMatchObject({ location: 'data/instances/<实例>/email.json', secrets: ['smtp.auth.pass'] })
     expect((description.effective as typeof usable).smtp.auth.pass).toBe(SECRET_MASK)
   })
 
@@ -123,7 +123,7 @@ describe('builtin:email-notification through the plugin API', () => {
     const form = { ...usable, smtp: { ...usable.smtp, port: 587, auth: { user: 'me@test.com', pass: SECRET_MASK } } }
     await ctx.plugins.updateConfig(id, form)
     expect(read().smtp).toMatchObject({ port: 587, auth: { pass: 'real-pass' } })
-    await ctx.plugins.updateConfig(id, { ...form, smtp: { ...form.smtp, auth: { user: 'me@test.com', pass: '' } } }, undefined, undefined, ['smtp.auth.pass'])
+    await ctx.plugins.updateConfig(id, { ...form, smtp: { ...form.smtp, auth: { user: 'me@test.com', pass: '' } } }, undefined, ['smtp.auth.pass'])
     expect(read().smtp.auth.pass).toBe('')
   })
 

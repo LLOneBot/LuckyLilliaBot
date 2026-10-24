@@ -4,7 +4,7 @@ import { Context } from 'cordis'
 import { Context as HonoContext, Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import {
-  ConfigScope, PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, PluginUnavailableError,
+  PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, PluginUnavailableError,
 } from '../../../plugin'
 import { webuiTokenUtil } from '../../../main/config'
 import { hashPassword } from '../passwordHash'
@@ -64,8 +64,8 @@ export function createPluginRoutes(ctx: Context): Hono {
   router.get('/:id/dependencies', c => respond(c, () => ctx.plugins.dependencies(c.req.param('id'))))
 
   router.put('/:id/config', async (c) => {
-    const { config, scope, ifRev, clear } = await c.req.json<{ config: unknown; scope?: ConfigScope; ifRev?: string; clear?: string[] }>()
-    return respond(c, () => ctx.plugins.updateConfig(c.req.param('id'), config, scope, ifRev, clear))
+    const { config, ifRev, clear } = await c.req.json<{ config: unknown; ifRev?: string; clear?: string[] }>()
+    return respond(c, () => ctx.plugins.updateConfig(c.req.param('id'), config, ifRev, clear))
   })
 
   return router

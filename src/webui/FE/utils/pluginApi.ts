@@ -1,6 +1,6 @@
 import { apiFetch, ApiError } from './api'
 import { getCookie } from './cookie'
-import { ConfigIssue, ConfigScope, DependencyReport, PluginDescription, PluginStatus, ReloadResult } from '../types/plugins'
+import { ConfigIssue, DependencyReport, PluginDescription, PluginStatus, ReloadResult } from '../types/plugins'
 
 const BASE = '/api/plugins'
 
@@ -40,12 +40,12 @@ export const getPluginDependencies = (id: string) => request<DependencyReport>(`
 export async function savePluginConfig(
   id: string,
   config: unknown,
-  options: { scope?: ConfigScope; ifRev?: string; clear?: string[] } = {},
+  options: { ifRev?: string; clear?: string[] } = {},
 ): Promise<PluginStatus> {
   try {
     return await request<PluginStatus>(`/${id}/config`, {
       method: 'PUT',
-      body: JSON.stringify({ config, scope: options.scope, ifRev: options.ifRev, clear: options.clear }),
+      body: JSON.stringify({ config, ifRev: options.ifRev, clear: options.clear }),
     })
   } catch (e) {
     if (e instanceof ApiError && e.status === 409) throw new ConfigConflictError(e.message)

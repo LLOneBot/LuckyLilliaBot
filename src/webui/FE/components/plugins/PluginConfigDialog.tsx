@@ -1,12 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { Loader2, Save, Trash2, X } from 'lucide-react'
 import { Portal, showToast } from '../common'
-import { ConfigScope, PluginDescription, PluginStatus } from '../../types/plugins'
+import { PluginDescription, PluginStatus } from '../../types/plugins'
 import {
   ConfigConflictError, ConfigRejectedError, describePlugin, removePlugin, savePluginConfig,
 } from '../../utils/pluginApi'
 import { hydrate, SchemaNode } from './schema/model'
-import { withDefaults } from './schema/values'
 import { SchemaField } from './schema/SchemaField'
 import { JsonInput } from './schema/inputs'
 import { pluginIcon, pluginTitle } from './meta'
@@ -24,10 +23,9 @@ interface PluginConfigDialogProps {
   onClose: () => void
 }
 
-/** What the form edits: this account's effective value, or the value shared by every account. */
-function layerValue(description: PluginDescription, scope: ConfigScope, node: SchemaNode | null): unknown {
-  if (scope === 'account') return description.effective
-  return node ? withDefaults(node, description.global, description.defaults) : description.global ?? undefined
+/** What the form edits: the full value for a schema form, what is stored for the JSON editor. */
+function formValue(description: PluginDescription, node: SchemaNode | null): unknown {
+  return node ? description.effective : description.config ?? undefined
 }
 
 const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins, removable, onClose }) => {
@@ -42,7 +40,6 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
   const clientError = useClientErrors(state => state.errors[plugin.name])
   const [defaults, setDefaults] = useState<unknown>({})
   const [description, setDescription] = useState<PluginDescription | null>(null)
-  const [scope, setScope] = useState<ConfigScope>('global')
   const [value, setValue] = useState<unknown>(undefined)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const Icon = pluginIcon(plugin)
@@ -55,8 +52,7 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
         setSchema(loaded.schema)
         setDefaults(loaded.defaults)
         setDescription(loaded)
-        setScope(loaded.scope)
-        setValue(layerValue(loaded, loaded.scope, root))
+        setValue(formValue(loaded, root))
       })
       .catch(e => setLoadError(e instanceof Error ? e.message : String(e)))
       .finally(() => setLoading(false))
@@ -75,22 +71,12 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
   const configurable = !!Editor || node !== null || plugin.hasConfig !== false
   const ready = !loading && clientReady
 
-  // Only worth offering once a second account exists, or this one already has its own override
-  const scopable = !!description?.uin && !description.fixedScope && (description.accounts.length >= 2 || description.account !== null)
-
-  const switchScope = (next: ConfigScope) => {
-    if (!description || next === scope) return
-    setScope(next)
-    setErrors({})
-    setValue(layerValue(description, next, node))
-  }
-
   const save = async () => {
     setSaving(true)
     setErrors({})
     try {
-      // The complete value goes up; the server works out what differs from the layer underneath
-      await savePluginConfig(plugin.id, value, { scope, ifRev: description?.rev })
+      // The complete value goes up; the server works out what differs from the defaults
+      await savePluginConfig(plugin.id, value, { ifRev: description?.rev })
       showToast('配置已保存，插件已按新配置重启', 'success')
       onClose()
     } catch (e) {
@@ -102,7 +88,7 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
         if (fresh) {
           setDescription(fresh)
           setDefaults(fresh.defaults)
-          setValue(layerValue(fresh, scope, node))
+          setValue(formValue(fresh, node))
         }
         showToast('配置在别处被改过，已重新载入最新值', 'error')
       } else {
@@ -146,23 +132,6 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
             {ready && !loadError && configurable && (
               <div className="space-y-5">
                 {clientError && <p className="text-xs text-amber-600 dark:text-amber-400">插件自己的界面没能加载，先用通用表单：{clientError}</p>}
-                {scopable && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-theme-hint">作用范围</span>
-                    <div className="flex p-0.5 rounded-lg bg-theme-item">
-                      {([['global', '所有账号'], ['account', `仅 ${description!.uin}`]] as const).map(([key, label]) => (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => switchScope(key)}
-                          className={`px-3 py-1 text-xs rounded-md transition-colors ${scope === key ? 'bg-white dark:bg-gray-700 text-theme font-medium shadow-sm' : 'text-theme-secondary'}`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
                 {errors[''] && <p className="text-sm text-red-500">{errors['']}</p>}
                 {Editor ? (
                   <PluginBoundary owner={plugin.name}>

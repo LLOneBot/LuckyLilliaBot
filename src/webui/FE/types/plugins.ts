@@ -61,30 +61,17 @@ export interface ConfigIssue {
   path: string[]
 }
 
-/** Which config layer a write lands in. */
-export type ConfigScope = 'global' | 'account'
-
 export interface PluginDescription {
   /** schemastery toJSON() output: `{ uid, refs }` */
   schema: { uid: number; refs: Record<string, unknown> } | null
   defaults: unknown
+  /** What is stored: the diff against the defaults. */
   config: unknown
-  /** The instance-wide layer, as a diff against the defaults. */
-  global: unknown
-  /** This account's override, or null when it does not override the config. */
-  account: unknown
-  /** What the plugin runs with: defaults < global < account. */
+  /** What the plugin runs with: the defaults filled in. */
   effective: unknown
-  /** Where an unscoped write would land. */
-  scope: ConfigScope
   /** Pass back as `ifRev` so a write that would clobber a newer edit is rejected. */
   rev: string
-  /** The logged-in account; empty before login. */
-  uin: string
-  accounts: string[]
-  /** A builtin's settings live in one fixed layer: there is no scope to choose. */
-  fixedScope?: boolean
-  /** Where a builtin's settings are stored, e.g. `config_<uin>.json → satori`. */
+  /** Where a builtin's settings are stored, e.g. `data/instances/<实例>/settings.json → satori`. */
   location?: string
   /** Dotted paths of fields that come back masked; sending the mask back keeps the stored value. */
   secrets?: string[]

@@ -345,7 +345,6 @@ let watchers: (() => void)[]
 
 const binding: BuiltinConfigBinding<Listener> = {
   schema: ListenerSchema,
-  scope: 'account',
   location: 'memory → listener',
   read: () => stored && structuredClone(stored),
   async write(_ctx, value) {
@@ -397,11 +396,8 @@ describe('PluginService builtins bound to their own config', () => {
     expect(description).toMatchObject({
       defaults: { enable: false, host: '127.0.0.1', port: 5600, token: '' },
       effective: { enable: false, host: '127.0.0.1', port: 5600, token: SECRET_MASK },
-      scope: 'account',
-      fixedScope: true,
       location: 'memory → listener',
       secrets: ['token'],
-      accounts: [],
     })
   })
 
@@ -413,25 +409,24 @@ describe('PluginService builtins bound to their own config', () => {
     expect(stored).toEqual({ enable: false, host: '127.0.0.1', port: 6000, token: 'secret' })
     await plugins.updateConfig(id, { enable: false, host: '127.0.0.1', port: 6001, token: '' })
     expect(stored!.token).toBe('secret')
-    await plugins.updateConfig(id, { enable: false, host: '127.0.0.1', port: 6002 }, undefined, undefined, ['token'])
+    await plugins.updateConfig(id, { enable: false, host: '127.0.0.1', port: 6002 }, undefined, ['token'])
     expect(stored!.token).toBe('')
     // a write does not remount the plugin: it picks the value up itself
     expect(listenerEvents()).toEqual(['listener:up'])
   })
 
-  it('refuses what the schema or the cross-field check rejects, a stale rev and another scope', async () => {
+  it('refuses what the schema or the cross-field check rejects, and a stale rev', async () => {
     const plugins = await boot(boundBuiltins)
     const { id } = byName('builtin:listener')
     const before = structuredClone(stored)
 
     await expect(plugins.updateConfig(id, { enable: false, host: '', port: 70000, token: '' }))
       .rejects.toMatchObject({ issues: [{ path: ['port'] }] })
-    await expect(plugins.updateConfig(id, { enable: true, host: '', port: 5600, token: '' }, undefined, undefined, ['token']))
+    await expect(plugins.updateConfig(id, { enable: true, host: '', port: 5600, token: '' }, undefined, ['token']))
       .rejects.toMatchObject({ issues: [{ path: ['token'], message: 'a public listener needs a token' }] })
     const { rev } = await plugins.describe(id)
     stored!.port = 5601 // changed elsewhere, e.g. by the desktop app
-    await expect(plugins.updateConfig(id, { ...before, port: 7000 }, undefined, rev)).rejects.toBeInstanceOf(PluginRevConflictError)
-    await expect(plugins.updateConfig(id, before, 'global')).rejects.toBeInstanceOf(PluginForbiddenError)
+    await expect(plugins.updateConfig(id, { ...before, port: 7000 }, rev)).rejects.toBeInstanceOf(PluginRevConflictError)
     expect(writes()).toEqual([])
   })
 

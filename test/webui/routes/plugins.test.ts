@@ -51,12 +51,12 @@ describe('plugin routes', () => {
     await app.request('/api/plugins', { method: 'POST', body: JSON.stringify({ name: 'pkg-x', config: { n: 1 } }) })
     expect(plugins.add).toHaveBeenCalledWith('pkg-x', { n: 1 })
     await app.request('/api/plugins/a/config', { method: 'PUT', body: JSON.stringify({ config: { n: 2 } }) })
-    expect(plugins.updateConfig).toHaveBeenCalledWith('a', { n: 2 }, undefined, undefined, undefined)
+    expect(plugins.updateConfig).toHaveBeenCalledWith('a', { n: 2 }, undefined, undefined)
     await app.request('/api/plugins/a/config', {
       method: 'PUT',
-      body: JSON.stringify({ config: { n: 3 }, scope: 'account', ifRev: 'r1', clear: ['smtp.auth.pass'] }),
+      body: JSON.stringify({ config: { n: 3 }, ifRev: 'r1', clear: ['smtp.auth.pass'] }),
     })
-    expect(plugins.updateConfig).toHaveBeenLastCalledWith('a', { n: 3 }, 'account', 'r1', ['smtp.auth.pass'])
+    expect(plugins.updateConfig).toHaveBeenLastCalledWith('a', { n: 3 }, 'r1', ['smtp.auth.pass'])
   })
 
   it('answers 400 with the issues when the schema rejects a config', async () => {

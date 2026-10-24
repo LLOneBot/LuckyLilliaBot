@@ -5,13 +5,6 @@ declare module 'cordis' {
   interface Context {
     account: AccountService
   }
-  interface Events {
-    /**
-     * @mode emit. Fires once, just before `account` becomes available, so config consumers can switch to
-     * this account's files (and apply its override layers) before anything injecting `account` starts.
-     */
-    'account/prepare'(uin: string): void
-  }
 }
 
 /**
@@ -45,8 +38,6 @@ class AccountService extends Service {
     this.uid = selfInfo.uid
     this.nick = selfInfo.nick
     this.online = true
-    // Announced before notify() so per-account config is picked up ahead of the dependents starting
-    this.ctx.emit('account/prepare', this.uin)
     this.ctx.reflect.notify(['account'])
   }
 }
