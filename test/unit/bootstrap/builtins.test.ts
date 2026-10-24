@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import net from 'node:net'
 import os from 'node:os'
 import path from 'node:path'
@@ -11,7 +11,7 @@ import { afterAll, describe, expect, it, vi } from 'vitest'
 import { WebSocket } from 'ws'
 import { Config as LLBotConfig } from '@/common/types'
 import { DATA_DIR } from '@/common/globalVars'
-import { defaultConfig } from '@/main/config/defaultConfig'
+import { adapterDefaults, defaultConfig } from '@/main/config/defaultConfig'
 import { deepMerge } from '@/common/utils/misc'
 import {
   NTFileApi,
@@ -51,8 +51,6 @@ vi.mock('@/common/globalVars', async () => {
 let config: LLBotConfig
 
 class MockConfig extends Service {
-  // Logged in, so the adapters' sections are bound to an account file
-  accountFile = 'config_123456.json'
   constructor(ctx: Context) {
     super(ctx, 'config')
   }
@@ -107,24 +105,32 @@ afterAll(async () => {
 })
 
 describe('builtin plugins', () => {
-  it('start after login with the old settings and free their ports when disabled', async () => {
+  it('start after login with their entry settings and free their ports when disabled', async () => {
     const [ob11Port, satoriPort, milkyPort] = await Promise.all([freePort(), freePort(), freePort()])
     config = {
       ...defaultConfig,
-      ob11: {
-        enable: true,
-        connect: [{
-          type: 'ws', enable: true, host: '127.0.0.1', port: ob11Port, heartInterval: 30_000, token: '',
-          reportSelfMessage: false, reportOfflineMessage: false, messageFormat: 'array', debug: false,
-        }],
-      },
-      satori: { enable: true, host: '127.0.0.1', port: satoriPort, token: '' },
-      milky: { ...defaultConfig.milky, enable: true, http: { ...defaultConfig.milky.http, port: milkyPort } },
       webui: { ...defaultConfig.webui, enable: false },
       musicSignUrl: 'https://sign.invalid/music',
       enableLocalFile2Url: true,
       ffmpeg: '/opt/ffmpeg',
     }
+    const ob11 = {
+      connect: [{
+        type: 'ws', enable: true, host: '127.0.0.1', port: ob11Port, heartInterval: 30_000, token: '',
+        reportSelfMessage: false, reportOfflineMessage: false, messageFormat: 'array', debug: false,
+      }],
+    }
+    const satori = { host: '127.0.0.1', port: satoriPort, token: '' }
+    const milky = { http: { ...adapterDefaults.milky.http, port: milkyPort } }
+    const file = path.join(tmp, 'plugins.json')
+    writeFileSync(file, JSON.stringify({
+      version: 1,
+      entries: [
+        { id: 'a0000001', name: 'builtin:onebot11', config: ob11 },
+        { id: 'a0000002', name: 'builtin:satori', config: satori },
+        { id: 'a0000003', name: 'builtin:milky', config: milky },
+      ],
+    }))
 
     const ctx = new Context()
     await ctx.plugin(TimerService)
@@ -140,38 +146,38 @@ describe('builtin plugins', () => {
       ctx.plugin(Core, config)
       ctx.plugin(Store, { msgCacheExpire: config.msgCacheExpire! })
     }))
-    mounted.push(await ctx.plugin(PluginService, { file: path.join(tmp, 'plugins.json'), roots: [], resolver: false, builtins: builtinPlugins }))
+    mounted.push(await ctx.plugin(PluginService, { file, roots: [], resolver: false, builtins: builtinPlugins }))
 
     const id = (name: string) => ctx.plugins.list().find(status => status.name === name)!.id
     const states = () => Object.fromEntries(ctx.plugins.list().map(status => [status.name, status.state]))
     const allIn = (state: PluginState) => Object.fromEntries(builtinPlugins.map(builtin => [builtin.name, state]))
 
-    // Nothing that needs the account runs before the first login
+    // Email notification starts switched off (its initial settings); nothing else runs before the first login
     for (const status of ctx.plugins.list()) {
-      expect(status, status.name).toMatchObject({ state: 'pending', missingDeps: expect.arrayContaining(['account']) })
+      if (status.name === 'builtin:email-notification') expect(status).toMatchObject({ state: 'disposed', disabled: true })
+      else expect(status, status.name).toMatchObject({ state: 'pending', missingDeps: expect.arrayContaining(['account']) })
     }
 
     ctx.plugin(AccountService)
-    // Email notification is bound to email_config.json: mounted, but shown off while that file says so
     const running = { ...allIn('active'), 'builtin:email-notification': 'disposed' }
     await vi.waitFor(() => expect(states()).toEqual(running), { timeout: 4_000, interval: 50 })
-    expect(ctx.get('emailNotification')).toBeDefined()
     for (const port of [ob11Port, satoriPort, milkyPort]) {
       await vi.waitFor(async () => expect(await listening(port), `port ${port}`).toBe(true))
     }
 
-    // Field by field what main.ts used to hand the adapters
-    expect(ctx.get('onebot')!.config).toEqual({
-      ...config.ob11,
+    // Field by field: the entry's settings, switched on, plus the bot settings each adapter reads
+    expect(ctx.get('onebot')!.config).toMatchObject({
+      enable: true,
+      connect: ob11.connect,
       musicSignUrl: config.musicSignUrl,
       enableLocalFile2Url: config.enableLocalFile2Url,
       ffmpeg: config.ffmpeg,
     })
-    expect(ctx.get('satori')!.config).toEqual({ ...config.satori, ffmpeg: config.ffmpeg })
-    expect(ctx.get('milky')!.config).toBe(config.milky)
+    expect(ctx.get('satori')!.config).toEqual({ ...satori, enable: true, ffmpeg: config.ffmpeg })
+    expect(ctx.get('milky')!.config).toMatchObject({ enable: true, http: { port: milkyPort } })
 
-    // A save that leaves an adapter's own section alone must not touch its connections. structuredClone
-    // stands in for the file watcher, which hands over a whole new object tree
+    // Saving the bot settings must not touch the adapters' connections. structuredClone stands in for the
+    // file watcher, which hands over a whole new object tree
     const client = new WebSocket(`ws://127.0.0.1:${ob11Port}/`)
     await new Promise((resolve, reject) => {
       client.once('open', resolve)
@@ -185,29 +191,27 @@ describe('builtin plugins', () => {
     await new Promise(resolve => setTimeout(resolve, 200))
     expect(dropped).toBe(false)
     expect(milkyStop).not.toHaveBeenCalled()
-    // the hot fields still reach the adapter
+    // the fields read at call time still reach the adapter
     expect(ctx.get('onebot')!.config.musicSignUrl).toBe('https://sign.invalid/other')
     client.close()
+    milkyStop.mockRestore()
 
-    // Its own section changing does rebuild: the old port goes, the new one comes up
+    // Its own settings changing restarts it: the old port goes, the new one comes up
     const movedPort = await freePort()
-    const moved = structuredClone(config)
-    moved.ob11.connect[0] = { ...moved.ob11.connect[0], port: movedPort }
-    await ctx.parallel('llob/config-updated', moved)
+    const moved = { connect: [{ ...ob11.connect[0], port: movedPort }] }
+    await ctx.plugins.updateConfig(id('builtin:onebot11'), moved)
     await vi.waitFor(async () => expect(await listening(movedPort)).toBe(true))
     expect(await listening(ob11Port)).toBe(false)
-    await ctx.parallel('llob/config-updated', config)
+    await ctx.plugins.updateConfig(id('builtin:onebot11'), ob11)
     await vi.waitFor(async () => expect(await listening(ob11Port)).toBe(true))
-    milkyStop.mockRestore()
 
     const adapters = { 'builtin:onebot11': ob11Port, 'builtin:satori': satoriPort, 'builtin:milky': milkyPort }
     for (const [name, port] of Object.entries(adapters)) {
       expect(await ctx.plugins.disable(id(name))).toMatchObject({ state: 'disposed', disabled: true })
       await vi.waitFor(async () => expect(await listening(port), name).toBe(false))
     }
-    // Bound to config_<uin>.json: switching off writes `enable: false`, the adapter stops listening and stays mounted
-    expect(ctx.get('onebot') !== undefined).toBe(true)
-    expect(config.ob11.enable).toBe(false)
+    // A switched-off adapter is unmounted like any plugin
+    expect(ctx.get('onebot')).toBeUndefined()
 
     // Same ports again: anything left bound would fail these with EADDRINUSE
     for (const [name, port] of Object.entries(adapters)) {

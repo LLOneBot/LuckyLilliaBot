@@ -36,7 +36,6 @@ import { encodeGroupRequestFlag } from './utils'
 import { OB11GroupRecallNoticeEvent } from './event/notice/OB11GroupRecallNoticeEvent'
 import { OB11FriendRecallNoticeEvent } from './event/notice/OB11FriendRecallNoticeEvent'
 import { OB11GroupIncreaseEvent } from './event/notice/OB11GroupIncreaseEvent'
-import { isDeepStrictEqual } from 'node:util'
 
 declare module 'cordis' {
   interface Context {
@@ -55,14 +54,9 @@ class Onebot11Adapter extends Service {
   readonly actionMap: Map<string, BaseAction<unknown, unknown>>
   private reportOfflineMessage: boolean
   private reportSelfMessage: boolean
-  // What the running connections were built from. Everything else in the config is read at call time and
-  // applied by assignment, so saving an unrelated setting no longer drops every client
-  private connectionConfig: Pick<OB11Config, 'enable' | 'connect'>
-  private reconfiguring: Promise<void> = Promise.resolve()
 
   constructor(public ctx: Context, public config: Onebot11Adapter.Config) {
     super(ctx, 'onebot')
-    this.connectionConfig = structuredClone({ enable: config.enable, connect: config.connect })
     this.actionMap = initActionMap(this)
     this.reportOfflineMessage = false
     this.reportSelfMessage = false
@@ -100,8 +94,6 @@ class Onebot11Adapter extends Service {
     this.start()
     // The plugin page stops adapters at runtime, so release the ports the connections hold
     return async () => {
-      // A rebuild still in flight would start connections after this stop
-      await this.reconfiguring
       for (const item of this.connect) {
         if (item.config.enable) await item.stop()
       }
@@ -157,6 +149,8 @@ class Onebot11Adapter extends Service {
     }).catch(e => this.ctx.logger.error('handling incoming group events', e))
   }
 
+  // The adapter's own settings come from its plugin entry, which restarts it when they change. These bot
+  // settings are read at call time, so they are applied in place and no client gets dropped
   private handleConfigUpdated(config: LLOBConfig) {
     Object.assign(this.config, {
       msgCacheExpire: config.msgCacheExpire,
@@ -164,61 +158,6 @@ class Onebot11Adapter extends Service {
       enableLocalFile2Url: config.enableLocalFile2Url,
       ffmpeg: config.ffmpeg,
     })
-    // Deep comparison: a reload from the file watcher hands over a whole new object tree
-    const next = { enable: config.ob11.enable, connect: config.ob11.connect }
-    if (isDeepStrictEqual(next, this.connectionConfig)) return
-    // Taken before the first await, so a second quick save compares against this one
-    this.connectionConfig = structuredClone(next)
-    // Serialized: two saves in a row must not interleave their stop() and start() on the same ports
-    this.reconfiguring = this.reconfiguring
-      .then(() => this.rebuildConnections(config.ob11))
-      .catch(e => this.ctx.logger.error('applying the OneBot 11 config', e))
-  }
-
-  private async rebuildConnections(ob11: OB11Config) {
-    for (const item of this.connect) {
-      if (item.config.enable) {
-        await item.stop()
-      }
-    }
-    if (ob11.enable) {
-      this.reportOfflineMessage = false
-      this.reportSelfMessage = false
-      this.connect = ob11.connect.map(item => {
-        if (item.reportOfflineMessage) {
-          this.reportOfflineMessage = true
-        }
-        if (item.reportSelfMessage) {
-          this.reportSelfMessage = true
-        }
-        if (item.type === 'http') {
-          return new OB11Http(this.ctx, {
-            ...item,
-            actionMap: this.actionMap
-          })
-        } else if (item.type === 'http-post') {
-          return new OB11HttpPost(this.ctx, item)
-        } else if (item.type === 'ws') {
-          return new OB11WebSocket(this.ctx, {
-            ...item,
-            actionMap: this.actionMap
-          })
-        } else if (item.type === 'ws-reverse') {
-          return new OB11WebSocketReverse(this.ctx, {
-            ...item,
-            actionMap: this.actionMap
-          })
-        } else {
-          throw new Error('incorrect ob11 connect type')
-        }
-      })
-      for (const item of this.connect) {
-        if (item.config.enable) {
-          item.start()
-        }
-      }
-    }
-    Object.assign(this.config, ob11)
   }
 
   public start() {

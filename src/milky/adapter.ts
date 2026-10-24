@@ -38,7 +38,6 @@ import {
   transformGroupDisbandEvent,
 } from './transform/event'
 import { ChatType } from '@/ntqqapi/types'
-import { isDeepStrictEqual } from 'node:util'
 
 declare module 'cordis' {
   interface Context {
@@ -57,12 +56,9 @@ export class MilkyAdapter extends Service {
   readonly httpHandler!: MilkyHttpHandler
   readonly webhookHandler!: MilkyWebhookHandler
   private listenedEvent = false
-  // What the running listeners were built from; reportSelfMessage is read per event and needs no restart
-  private transport: ReturnType<typeof transportOf>
 
   constructor(ctx: Context, public config: MilkyAdapter.Config) {
     super(ctx, 'milky')
-    this.transport = structuredClone(transportOf(config))
 
     this.apiCollection = new MilkyApiCollection(ctx, [
       ...SystemApi,
@@ -82,26 +78,6 @@ export class MilkyAdapter extends Service {
   }
 
   start() {
-    this.ctx.on('llob/config-updated', (config) => {
-      const next = transportOf(config.milky)
-      // Saving another adapter or the other-settings page must not drop our SSE / WebSocket clients
-      if (isDeepStrictEqual(next, this.transport)) {
-        this.config = config.milky
-        return
-      }
-      this.transport = structuredClone(next)
-      this.httpHandler.stop()
-      this.webhookHandler.stop()
-      this.httpHandler.updateConfig(config.milky.http)
-      this.webhookHandler.updateConfig(config.milky.webhook)
-      if (config.milky.enable) {
-        this.httpHandler.start()
-        this.webhookHandler.start()
-        this.setupEventListeners()
-      }
-      this.config = config.milky
-    })
-
     if (!this.config.enable) {
       return
     }
@@ -331,10 +307,6 @@ export class MilkyAdapter extends Service {
       this.emitEvent('bot_offline', { reason })
     })
   }
-}
-
-function transportOf(config: MilkyConfig) {
-  return { enable: config.enable, http: config.http, webhook: config.webhook }
 }
 
 namespace MilkyAdapter {

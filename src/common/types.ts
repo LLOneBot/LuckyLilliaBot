@@ -119,10 +119,8 @@ export interface EmailConfig {
   to: string
 }
 
+/** The bot's own settings, an instance's settings.json. The adapters keep theirs in their plugin entries. */
 export interface Config {
-  milky: MilkyConfig
-  satori: SatoriConfig
-  ob11: OB11Config
   webui: WebUIConfig
   email?: EmailConfig
   // onlyLocalhost: boolean
@@ -141,6 +139,16 @@ export interface Config {
   // /** @deprecated */
   // debug?: boolean
 }
+
+/** The adapters' sections, in the shape the bot's config file had before they moved to their plugin entries. */
+export interface AdapterSections {
+  ob11: OB11Config
+  satori: SatoriConfig
+  milky: MilkyConfig
+}
+
+/** What OneBot get_config / set_config and POST /api/config still speak: the settings plus the adapters. */
+export type LegacyConfig = Config & AdapterSections
 
 export interface CheckVersion {
   result: boolean

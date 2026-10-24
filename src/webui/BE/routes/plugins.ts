@@ -4,7 +4,7 @@ import { Context } from 'cordis'
 import { Context as HonoContext, Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import {
-  PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, PluginUnavailableError,
+  PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError,
 } from '../../../plugin'
 import { webuiTokenUtil } from '../../../main/config'
 import { hashPassword } from '../passwordHash'
@@ -21,7 +21,6 @@ export function createPluginRoutes(ctx: Context): Hono {
       if (e instanceof PluginForbiddenError) return c.json({ success: false, message }, 403)
       if (e instanceof PluginConfigError) return c.json({ success: false, message, data: { issues: e.issues } }, 400)
       if (e instanceof PluginRevConflictError) return c.json({ success: false, message, data: { rev: e.rev } }, 409)
-      if (e instanceof PluginUnavailableError) return c.json({ success: false, message }, 503)
       ctx.logger('webui').warn(e)
       return c.json({ success: false, message }, 500)
     }

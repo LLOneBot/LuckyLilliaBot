@@ -1,4 +1,5 @@
 import { Context, Plugin } from 'cordis'
+import Schema from 'schemastery'
 import type { BuiltinPlugin } from '../plugin'
 import { Config as LLBotConfig } from '../common/types'
 import OneBot11Adapter from '../onebot11/adapter'
@@ -7,22 +8,29 @@ import MilkyAdapter from '../milky/adapter'
 import EmailNotificationService from '../common/emailNotification'
 import * as NTQQUniversal from '../universal/ntqq'
 import { WebQQ } from '../webui/BE/routes/webqq'
-import { emailBinding } from './builtinConfig/email'
-import { satoriBinding } from './builtinConfig/satori'
-import { milkyBinding } from './builtinConfig/milky'
-import { ob11Binding } from './builtinConfig/onebot'
+import { emailSettings } from './builtinConfig/email'
+import { SatoriSchema, satoriSettings } from './builtinConfig/satori'
+import { MilkySchema, milkySettings } from './builtinConfig/milky'
+import { OB11Schema, ob11Settings } from './builtinConfig/onebot'
 
 /**
- * Mounts an adapter with its part of the instance's settings.json once the account is known.
+ * Mounts an adapter once the account is known, with its entry's settings plus the bot settings it reads.
  * The adapter's own dependencies are repeated so the entry stays pending until the adapter can start.
  */
-function withBotConfig<T>(name: string, plugin: Plugin<T> & { inject: string[] }, select: (config: LLBotConfig) => T): Plugin {
+function adapterEntry<T extends { enable: boolean }>(
+  name: string,
+  plugin: Plugin<T> & { inject: string[] },
+  Config: Schema,
+  fromBotSettings: (config: LLBotConfig) => Partial<T> = () => ({}),
+): Plugin {
   return {
     name,
     inject: ['account', 'config', ...plugin.inject],
+    Config,
     // Awaited so that an adapter failing to start fails the entry, not just a child of it
-    async apply(ctx: Context) {
-      await ctx.plugin(plugin, select(ctx.config.get()))
+    async apply(ctx: Context, config: Omit<T, 'enable'>) {
+      // The entry switch is what turns an adapter on; its `enable` flag only ever says yes now
+      await ctx.plugin(plugin, { ...config, enable: true, ...fromBotSettings(ctx.config.get()) } as T)
     },
   }
 }
@@ -31,9 +39,8 @@ export const builtinPlugins: BuiltinPlugin[] = [
   {
     name: 'builtin:onebot11',
     title: 'OneBot 11',
-    config: ob11Binding,
-    plugin: withBotConfig('builtin:onebot11', OneBot11Adapter, config => ({
-      ...config.ob11,
+    config: ob11Settings,
+    plugin: adapterEntry('builtin:onebot11', OneBot11Adapter, OB11Schema, config => ({
       musicSignUrl: config.musicSignUrl,
       enableLocalFile2Url: config.enableLocalFile2Url!,
       ffmpeg: config.ffmpeg,
@@ -50,11 +57,8 @@ export const builtinPlugins: BuiltinPlugin[] = [
   {
     name: 'builtin:satori',
     title: 'Satori',
-    config: satoriBinding,
-    plugin: withBotConfig('builtin:satori', SatoriAdapter, config => ({
-      ...config.satori,
-      ffmpeg: config.ffmpeg,
-    })),
+    config: satoriSettings,
+    plugin: adapterEntry('builtin:satori', SatoriAdapter, SatoriSchema, config => ({ ffmpeg: config.ffmpeg })),
     manifest: {
       icon: 'cpu',
       service: { implements: ['satori'] },
@@ -64,8 +68,8 @@ export const builtinPlugins: BuiltinPlugin[] = [
   {
     name: 'builtin:milky',
     title: 'Milky',
-    config: milkyBinding,
-    plugin: withBotConfig('builtin:milky', MilkyAdapter, config => config.milky),
+    config: milkySettings,
+    plugin: adapterEntry('builtin:milky', MilkyAdapter, MilkySchema),
     manifest: {
       icon: 'milk',
       service: { implements: ['milky'] },
@@ -85,7 +89,7 @@ export const builtinPlugins: BuiltinPlugin[] = [
     name: 'builtin:email-notification',
     title: '邮件通知',
     plugin: EmailNotificationService,
-    config: emailBinding,
+    config: emailSettings,
     manifest: {
       icon: 'mail',
       service: { implements: ['emailNotification'] },

@@ -4,14 +4,12 @@ import { ConfigConflictError, ConfigRejectedError, describePlugin, savePluginCon
 import { showToast } from '../common'
 
 /**
- * A bound builtin's settings through the plugin API, wherever they are stored (config_<uin>.json,
- * email_config.json): the server validates against the builtin's schema, refuses a write that would clobber
- * a newer one (409), and writes only that builtin's part.
+ * A builtin's settings through the plugin API, stored in its plugin entry like any plugin's: the server
+ * validates against the builtin's schema and rules, and refuses a write that would clobber a newer one (409).
  */
 export function useBuiltinConfig<T>(name: string) {
   const entry = usePluginList(state => state.plugins?.find(plugin => plugin.name === name))
   const id = entry?.id
-  const disabled = entry?.disabled
   const [value, setValue] = useState<T | null>(null)
   const [rev, setRev] = useState<string>()
   const [error, setError] = useState('')
@@ -29,10 +27,9 @@ export function useBuiltinConfig<T>(name: string) {
     }
   }, [id])
 
-  // Also when the switch moves elsewhere: the plugin card, or the desktop app editing the file
   useEffect(() => {
     load()
-  }, [load, disabled])
+  }, [load])
 
   const save = useCallback(async (next: T, options: { clear?: string[]; message?: string } = {}) => {
     if (!id) return false

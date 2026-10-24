@@ -3,11 +3,13 @@ import path from 'node:path'
 import JSON5 from 'json5'
 import { deepEqual, Dict } from 'cosmokit'
 import { DATA_DIR } from '@/common/globalVars'
-import { INSTANCE_FILES, LEGACY_ACCOUNT_FILE, legacyPaths } from '@/common/configPaths'
+import { configPaths, INSTANCE_FILES, LEGACY_ACCOUNT_FILE, legacyPaths } from '@/common/configPaths'
 import { DEFAULT_INSTANCE, instancesDir } from '@/common/instance'
 import { JsonFile } from '@/common/jsonFile'
 import { mergeNewProperties } from '@/common/utils'
-import { templateConfig, upgradeConfig } from './upgrade'
+import { newEntryId, PluginEntry, PluginsFile } from '../../plugin/store'
+import { adapterDefaults } from './defaultConfig'
+import { ADAPTER_ENTRIES, ADAPTER_KEYS, templateConfig, upgradeConfig } from './upgrade'
 
 export interface MigrationLog {
   info(...args: unknown[]): void
@@ -93,6 +95,54 @@ export function migrateToInstances(log: MigrationLog) {
     if (name !== DEFAULT_INSTANCE) log.info(`QQ ${name} 的配置和 ${DEFAULT_INSTANCE} 不同，单独放在实例 ${name}：用 -q ${name} 或 --instance ${name} 启动就会用它`)
   }
   log.info(`旧配置文件已改名为 *.bak：${[...sources].map(source => path.relative(DATA_DIR, source)).join('、')}`)
+}
+
+/**
+ * Moves what the bot's own files still hold for the builtins into the current instance's plugins.json: the
+ * adapters' sections of settings.json, whose `enable` becomes the entry switch, and email.json. Runs at every
+ * start, so a section something writes there later (an old desktop app, a hand edit) is taken over as well.
+ */
+export function liftBuiltinSettings(log: MigrationLog) {
+  const settingsFile = configPaths.settings()
+  const emailFile = configPaths.email()
+  const pluginsFile = configPaths.plugins()
+  const settings = readJson(log, settingsFile)?.value
+  const sections = ADAPTER_KEYS.filter(key => settings?.[key] !== undefined)
+  const email = readJson(log, emailFile)?.value
+  if (!sections.length && !email) return
+  const plugins = readJson(log, pluginsFile)?.value as PluginsFile | undefined
+  if (existsSync(pluginsFile) && !Array.isArray(plugins?.entries)) {
+    log.warn(`${path.relative(DATA_DIR, pluginsFile)} 读不出来，内置插件的设置先不搬，修好后下次启动再搬`)
+    return
+  }
+  const file: PluginsFile = plugins ?? { version: 1, entries: [] }
+  // An ob11 section from before connections were a list is converted first
+  const upgraded = upgradeConfig(structuredClone(settings ?? {})) as unknown as Dict
+  for (const key of sections) {
+    const { enable, ...config } = upgraded[key] as Dict
+    setEntry(file, ADAPTER_ENTRIES[key], config, enable ?? adapterDefaults[key].enable)
+    delete settings![key]
+  }
+  if (email) {
+    const { enabled, ...config } = email
+    setEntry(file, 'builtin:email-notification', config, !!enabled)
+  }
+  writeJson(pluginsFile, file as unknown as Dict)
+  if (sections.length) writeJson(settingsFile, settings!)
+  if (email) retire(emailFile)
+  const moved = [...sections, ...(email ? ['email'] : [])]
+  log.info(`内置插件的设置（${moved.join('、')}）已从实例的 settings.json / email.json 搬进 plugins.json`)
+}
+
+function setEntry(file: PluginsFile, name: string, config: unknown, enabled: boolean) {
+  let entry = file.entries.find(item => item.name === name)
+  if (!entry) {
+    entry = { id: newEntryId(new Set(file.entries.map(item => item.id))), name } as PluginEntry
+    file.entries.push(entry)
+  }
+  entry.config = config
+  if (enabled) delete entry.disabled
+  else entry.disabled = true
 }
 
 /**

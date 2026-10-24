@@ -7,7 +7,7 @@ const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'llbot-migrate-'))
 
 vi.mock('@/common/globalVars', () => ({ DATA_DIR }))
 
-const { migrateToInstances } = await import('@/main/config/migrate')
+const { liftBuiltinSettings, migrateToInstances } = await import('@/main/config/migrate')
 
 const log = { info: vi.fn(), warn: vi.fn() }
 const at = (...parts: string[]) => path.join(DATA_DIR, ...parts)
@@ -137,5 +137,57 @@ describe('migrateToInstances', () => {
     migrateToInstances(log)
     expect(read('instances', 'default', 'settings.json')).toEqual({ ffmpeg: '/f' })
     expect(existsSync(at('instances.migrating'))).toBe(false)
+  })
+})
+
+describe('liftBuiltinSettings', () => {
+  const entry = (name: string) => read('instances', 'default', 'plugins.json').entries.find((item: { name: string }) => item.name === name)
+
+  it('moves the adapters\' sections into their plugin entries, `enable` becoming the switch', () => {
+    put('instances/default/settings.json', {
+      log: true,
+      satori: { enable: true, host: '127.0.0.1', port: 5700, token: 't' },
+      milky: { enable: false, http: { port: 3011 } },
+      // from before connections were a list: converted on the way
+      ob11: { enable: true, enableWs: true, wsPort: 3100 },
+    })
+    liftBuiltinSettings(log)
+    expect(read('instances', 'default', 'settings.json')).toEqual({ log: true })
+    expect(entry('builtin:satori')).toMatchObject({ config: { host: '127.0.0.1', port: 5700, token: 't' } })
+    expect(entry('builtin:satori').disabled).toBeUndefined()
+    expect(entry('builtin:milky')).toMatchObject({ disabled: true, config: { http: { port: 3011 } } })
+    expect(entry('builtin:onebot11').config.connect[0]).toMatchObject({ type: 'ws', enable: true, port: 3100 })
+  })
+
+  it('moves email.json into its entry and keeps the file as .bak', () => {
+    put('instances/default/email.json', { enabled: true, from: 'a@b.c' })
+    put('instances/default/plugins.json', { version: 1, entries: [{ id: 'p0000001', name: 'p' }] })
+    liftBuiltinSettings(log)
+    expect(entry('builtin:email-notification')).toMatchObject({ config: { from: 'a@b.c' } })
+    expect(entry('builtin:email-notification').disabled).toBeUndefined()
+    expect(entry('p')).toEqual({ id: 'p0000001', name: 'p' })
+    expect(existsSync(at('instances', 'default', 'email.json'))).toBe(false)
+    expect(existsSync(at('instances', 'default', 'email.json.bak'))).toBe(true)
+  })
+
+  it('overwrites an existing entry\'s settings with a section written later', () => {
+    put('instances/default/plugins.json', { version: 1, entries: [{ id: 's0000001', name: 'builtin:satori', config: { port: 1 }, disabled: true }] })
+    put('instances/default/settings.json', { satori: { enable: true, port: 2 } })
+    liftBuiltinSettings(log)
+    expect(entry('builtin:satori')).toEqual({ id: 's0000001', name: 'builtin:satori', config: { port: 2 } })
+  })
+
+  it('leaves everything alone while plugins.json cannot be read', () => {
+    put('instances/default/plugins.json', '{ broken')
+    put('instances/default/settings.json', { satori: { enable: true } })
+    liftBuiltinSettings(log)
+    expect(read('instances', 'default', 'settings.json')).toEqual({ satori: { enable: true } })
+    expect(readFileSync(at('instances', 'default', 'plugins.json'), 'utf8')).toBe('{ broken')
+  })
+
+  it('does nothing when there is nothing to move', () => {
+    put('instances/default/settings.json', { log: true })
+    liftBuiltinSettings(log)
+    expect(existsSync(at('instances', 'default', 'plugins.json'))).toBe(false)
   })
 })

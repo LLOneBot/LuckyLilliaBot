@@ -1,6 +1,6 @@
 import { Context, Service } from 'cordis'
 import { EmailService, BotInfo } from './emailService.js'
-import { EmailConfigManager, emailConfigStore } from './emailConfig.js'
+import { EmailConfigManager, EmailSchema, EmailSettings } from './emailConfig.js'
 import { selfInfo } from '@/common/globalVars.js'
 
 declare module 'cordis' {
@@ -11,6 +11,7 @@ declare module 'cordis' {
 
 export class EmailNotificationService extends Service {
   static inject = ['qqProtocol', 'account']
+  static Config = EmailSchema
 
   private emailService: EmailService
   private configManager: EmailConfigManager
@@ -19,19 +20,11 @@ export class EmailNotificationService extends Service {
   private disconnectId: string | null = null
   private checkLoginStatus: NodeJS.Timeout | null = null
 
-  constructor(ctx: Context) {
+  constructor(ctx: Context, config: EmailSettings) {
     super(ctx, 'emailNotification')
-
-    // Read through the store on every send: the WebUI and the desktop app both edit the file
-    const store = emailConfigStore(message => ctx.logger.error('[EmailNotification] invalid config, keeping the last good one:', message))
-    this.configManager = new EmailConfigManager(() => store.get())
+    // Running at all means its entry is switched on; a settings change restarts it with the new ones
+    this.configManager = new EmailConfigManager(() => ({ ...config, enabled: true }))
     this.emailService = new EmailService(this.configManager, ctx.logger)
-
-    try {
-      store.ensure()
-    } catch (error) {
-      this.ctx.logger.error('[EmailNotification] Failed to create the default config:', error)
-    }
     this.registerEventListeners()
     this.registerDisconnectCallback()
   }

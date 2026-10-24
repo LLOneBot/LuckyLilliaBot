@@ -9,7 +9,7 @@ import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { Config as LLBotConfig } from '@/common/types'
 import { DATA_DIR } from '@/common/globalVars'
-import { defaultConfig } from '@/main/config/defaultConfig'
+import { adapterDefaults, defaultConfig } from '@/main/config/defaultConfig'
 import {
   NTFileApi,
   NTFriendApi,
@@ -109,13 +109,13 @@ describe('service registry under the pinned cordis version', () => {
     mount('sqlite', SQLiteDriver, { path: pathToFileURL(path.join(dbDir, 'registry.db')).href })
     mount('app', Core, config)
     mount('onebot', OneBot11Adapter, {
-      ...config.ob11,
+      ...adapterDefaults.ob11,
       musicSignUrl: config.musicSignUrl,
       enableLocalFile2Url: config.enableLocalFile2Url!,
       ffmpeg: config.ffmpeg,
     })
-    mount('satori', SatoriAdapter, { ...config.satori, ffmpeg: config.ffmpeg })
-    mount('milky', MilkyAdapter, config.milky)
+    mount('satori', SatoriAdapter, { ...adapterDefaults.satori, ffmpeg: config.ffmpeg })
+    mount('milky', MilkyAdapter, adapterDefaults.milky)
     mount('ntqq-universal', NTQQUniversal)
     mount('store', Store, { msgCacheExpire: config.msgCacheExpire! })
     mount('emailNotification', EmailNotificationService)

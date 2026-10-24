@@ -258,11 +258,7 @@ const MilkyConfig: React.FC = () => {
         <SaveButton
           saving={saving}
           onClick={() => {
-            // 检查：如果监听所有地址且 milky 启用，accessToken 必须设置
-            if (config.milky.http.host === '' && config.milky.enable && !config.milky.http.accessToken?.trim()) {
-              showToast('当监听所有地址时，必须设置 Milky Access Token！', 'error')
-              return
-            }
+            // The token rule depends on whether the adapter is switched on, which only the server knows
             // 检查 Webhook URL 格式
             const invalidUrls = config.milky.webhook.urls.filter(url => url.trim() && !url.match(/^https?:\/\//))
             if (invalidUrls.length > 0) {

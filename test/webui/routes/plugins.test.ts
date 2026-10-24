@@ -1,6 +1,6 @@
 import { Context } from 'cordis'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, PluginUnavailableError } from '@/plugin'
+import { PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError } from '@/plugin'
 import { createPluginRoutes } from '@/webui/BE/routes/plugins'
 import { createTestApp } from '../helpers/testApp'
 
@@ -86,16 +86,11 @@ describe('plugin routes', () => {
     expect((await app.request('/api/plugins/a/reload', { method: 'POST' })).status).toBe(500)
   })
 
-  it('answers 409 for a stale rev and 503 while a builtin has nothing to bind to yet', async () => {
+  it('answers 409 for a stale rev', async () => {
     plugins.updateConfig.mockRejectedValueOnce(new PluginRevConflictError('abc123'))
     expect(await json(await app.request('/api/plugins/a/config', { method: 'PUT', body: JSON.stringify({ config: {} }) }))).toEqual({
       status: 409,
       body: { success: false, message: 'the config changed since it was loaded', data: { rev: 'abc123' } },
-    })
-    plugins.describe.mockRejectedValueOnce(new PluginUnavailableError('登录 QQ 之后才能修改'))
-    expect(await json(await app.request('/api/plugins/a/schema'))).toEqual({
-      status: 503,
-      body: { success: false, message: '登录 QQ 之后才能修改' },
     })
   })
 })

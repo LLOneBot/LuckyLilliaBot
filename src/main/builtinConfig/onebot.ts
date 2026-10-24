@@ -1,7 +1,10 @@
 import Schema from 'schemastery'
 import type { OB11Config } from '@/common/types'
+import type { BuiltinConfig } from '../../plugin'
 import { ob11Issues } from '../config/validate'
-import { botConfigBinding } from './botConfig'
+import { fromTemplate } from './template'
+
+export type OB11Settings = Omit<OB11Config, 'enable'>
 
 const port = (fallback: number) => Schema.natural().min(1).max(65535).default(fallback)
 const heartInterval = () => Schema.natural().role('ms').default(60000).description('心跳间隔')
@@ -53,10 +56,14 @@ const HttpPost = Schema.object({
   ...common,
 }).description('HTTP 上报')
 
-// Defaults mirror defaultConfig.ts (a test pins them); new account files get default_config.json's rows
-export const OB11Schema: Schema<OB11Config> = Schema.object({
-  enable: Schema.boolean().default(true).description('启用 OneBot 11 协议'),
+// Defaults mirror defaultConfig.ts (a test pins them); a new entry gets default_config.json's rows
+export const OB11Schema: Schema<OB11Settings> = Schema.object({
   connect: Schema.array(Schema.union([Ws, WsReverse, Http, HttpPost])).default([]).description('适配器'),
-}) as unknown as Schema<OB11Config>
+}) as unknown as Schema<OB11Settings>
 
-export const ob11Binding = botConfigBinding('ob11', { schema: OB11Schema, check: ob11Issues })
+export const ob11Settings: BuiltinConfig<OB11Settings> = {
+  check: ob11Issues,
+  // The token rule guards a public listener: switching on must not bypass it
+  checkOnEnable: true,
+  initial: () => fromTemplate('ob11'),
+}

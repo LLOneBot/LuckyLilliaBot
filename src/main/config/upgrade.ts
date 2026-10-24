@@ -2,21 +2,42 @@ import fs from 'node:fs'
 import path from 'node:path'
 import JSON5 from 'json5'
 import { Dict } from 'cosmokit'
-import { Config as LLBotConfig } from '@/common/types'
-import { defaultConfig } from './defaultConfig'
+import { AdapterSections, Config as LLBotConfig } from '@/common/types'
+import { adapterDefaults, defaultConfig } from './defaultConfig'
 
 // Next to the bundle (dist/) or to this file in dev; docker/nix sed it before the first start
 const TEMPLATE_FILE = path.join(import.meta.dirname, 'default_config.json')
 
-/** The settings a new instance starts from: the code defaults overlaid with default_config.json. */
-export function templateConfig(onError?: (error: unknown) => void): LLBotConfig {
-  const config = { ...defaultConfig }
+/** The sections of the old config file that now live in the adapters' plugin entries. */
+export const ADAPTER_KEYS = ['ob11', 'satori', 'milky'] as const satisfies readonly (keyof AdapterSections)[]
+
+/** The plugin entry each of those sections lives in. */
+export const ADAPTER_ENTRIES: Record<keyof AdapterSections, string> = {
+  ob11: 'builtin:onebot11',
+  satori: 'builtin:satori',
+  milky: 'builtin:milky',
+}
+
+function readTemplate(onError?: (error: unknown) => void): Dict {
+  const template: Dict = { ...defaultConfig, ...adapterDefaults }
   try {
-    Object.assign(config, JSON5.parse(fs.readFileSync(TEMPLATE_FILE, 'utf-8')))
+    Object.assign(template, JSON5.parse(fs.readFileSync(TEMPLATE_FILE, 'utf-8')))
   } catch (e) {
     onError?.(e)
   }
-  return config
+  return template
+}
+
+/** The settings a new instance starts from: the code defaults overlaid with default_config.json. */
+export function templateConfig(onError?: (error: unknown) => void): LLBotConfig {
+  const template = readTemplate(onError)
+  for (const key of ADAPTER_KEYS) delete template[key]
+  return template as LLBotConfig
+}
+
+/** An adapter's section of default_config.json, what its plugin entry starts with. */
+export function templateSection<K extends keyof AdapterSections>(key: K): AdapterSections[K] {
+  return structuredClone(readTemplate()[key] ?? adapterDefaults[key])
 }
 
 /** Brings settings written by an older version to the current shape. */

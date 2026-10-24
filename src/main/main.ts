@@ -23,7 +23,6 @@ import {
 import { existsSync, mkdirSync } from 'node:fs'
 import { version } from '../version'
 import { WebuiServer } from '../webui/BE/server'
-import { EmailConfig } from '@/common/emailConfig'
 import { getPluginDirs, isPluginHmr, isPmhqMode } from '@/common/utils/environment'
 import { setConfigLogLevel, isDebugEnabled, bindLoggerFactory, getLogger } from '@/common/logger'
 import { pathToFileURL } from 'node:url'
@@ -31,7 +30,7 @@ import { DirectQQProtocolClient, PmhqQQProtocolClient } from './qqProtocol'
 import LoggerConsole from '@cordisjs/plugin-logger-console'
 import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
-import { migrateToInstances } from './config/migrate'
+import { liftBuiltinSettings, migrateToInstances } from './config/migrate'
 import { lockInstance } from './instanceLock'
 import { currentInstance, InstanceChoice } from '@/common/instance'
 import { configPaths } from '@/common/configPaths'
@@ -46,7 +45,6 @@ import { DashboardRoutes, EmailRoutes } from '../webui/BE/routes'
 declare module 'cordis' {
   interface Events {
     'llob/config-updated': (input: LLBotConfig) => void
-    'llbot/email-config-updated': (input: EmailConfig) => void
   }
 }
 
@@ -75,8 +73,9 @@ async function onLoad() {
 
   const ctx = new Context()
 
-  ctx.plugin(Log)
-  ctx.plugin(LoggerConsole, {
+  // Awaited: until their exporters are in, log lines go nowhere (the migration below logs what it moved)
+  await ctx.plugin(Log)
+  await ctx.plugin(LoggerConsole, {
     // 2 = INFO(含 error/warn/info), 3 = DEBUG. --debug 启动即抬到 DEBUG; 配置文件 logLevel
     // 触发的运行时切换由 applyDebugLevel() 直接改各 exporter 的 levels.
     levels: {
@@ -91,6 +90,8 @@ async function onLoad() {
   try {
     instance = currentInstance()
     await lockInstance(instance.name)
+    // Under the lock, so two processes cannot both rewrite this instance's files
+    liftBuiltinSettings(ctx.logger('config'))
   } catch (e) {
     ctx.logger('main').error((e as Error).message)
     process.exit(1)

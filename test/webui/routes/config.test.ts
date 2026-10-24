@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createTestApp } from '../helpers/testApp'
 import { createMockContext } from '../helpers/mockContext'
 import { createConfigRoutes } from '@/webui/BE/routes/config'
+import { PluginConfigError } from '@/plugin'
 
 vi.mock('@/main/config', () => ({
   webuiTokenUtil: {
@@ -77,94 +78,56 @@ describe('config routes', () => {
   })
 
   describe('POST /config', () => {
-    it('saves config successfully', async () => {
-      const app = createTestApp(createConfigRoutes(ctx))
-      const res = await app.request('/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ config: { ob11: { enable: false, connect: [] } } }),
-      })
-      expect(res.status).toBe(200)
-      const body = await res.json()
-      expect(body.success).toBe(true)
-      expect(ctx.parallel).toHaveBeenCalled()
-    })
-
-    it('returns 400 when Satori listens on 0.0.0.0 without token', async () => {
-      const app = createTestApp(createConfigRoutes(ctx))
-      const res = await app.request('/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          config: {
-            satori: { enable: true, host: '0.0.0.0', token: '' },
-          },
-        }),
-      })
-      expect(res.status).toBe(400)
-      const body = await res.json()
-      expect(body.message).toContain('Satori')
-    })
-
-    it('returns 400 when OB11 WS listens on 0.0.0.0 without token', async () => {
-      const app = createTestApp(createConfigRoutes(ctx))
-      const res = await app.request('/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          config: {
-            ob11: {
-              enable: true,
-              connect: [{ enable: true, type: 'ws', host: '0.0.0.0', token: '' }],
-            },
-          },
-        }),
-      })
-      expect(res.status).toBe(400)
-      const body = await res.json()
-      expect(body.message).toContain('OneBot11')
-    })
-
-    it('returns 400 when Milky HTTP listens on all interfaces without token', async () => {
-      const app = createTestApp(createConfigRoutes(ctx))
-      const res = await app.request('/config', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          config: {
-            milky: { enable: true, http: { host: '', accessToken: '' } },
-          },
-        }),
-      })
-      expect(res.status).toBe(400)
-      const body = await res.json()
-      expect(body.message).toContain('Milky')
-    })
-
-    // The check runs on the deep-merged result that patch() writes, not a shallow spread
-    const post = (app: ReturnType<typeof createTestApp>, config: object) => app.request('/config', {
+    const post = (config: object) => createTestApp(createConfigRoutes(ctx)).request('/config', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ config }),
     })
+    // The Satori adapter's entry, switched off, the way the plugin service reports it
+    let plugins: Record<string, ReturnType<typeof vi.fn>>
+    const calls: string[] = []
 
-    it('accepts enabling Satori when the stored host is loopback', async () => {
-      ctx.config.get.mockReturnValue({ satori: { enable: false, host: '127.0.0.1', token: '' } })
-      const res = await post(createTestApp(createConfigRoutes(ctx)), { satori: { enable: true } })
-      expect(res.status).toBe(200)
+    beforeEach(() => {
+      calls.length = 0
+      plugins = {
+        builtinSettings: vi.fn((name: string) => name === 'builtin:satori'
+          ? { id: 'sat', enabled: false, config: { host: '127.0.0.1', port: 5600, token: '' } }
+          : undefined),
+        updateConfig: vi.fn(async () => { calls.push('update') }),
+        enable: vi.fn(async () => { calls.push('enable') }),
+        disable: vi.fn(async () => { calls.push('disable') }),
+      }
+      ctx.plugins = plugins
     })
 
-    it('rejects clearing the token of an already-public Satori listener', async () => {
-      ctx.config.get.mockReturnValue({ satori: { enable: true, host: '', token: 'abc' } })
-      const res = await post(createTestApp(createConfigRoutes(ctx)), { satori: { token: '' } })
+    it('saves the bot settings', async () => {
+      const res = await post({ log: false })
+      expect(res.status).toBe(200)
+      expect(ctx.config.patch).toHaveBeenCalledWith({ log: false })
+      expect(ctx.parallel).toHaveBeenCalled()
+    })
+
+    it('hands an adapter section to its plugin entry, merged per key, then switches it on', async () => {
+      const res = await post({ satori: { enable: true, port: 5700 }, log: false })
+      expect(res.status).toBe(200)
+      expect(plugins.updateConfig).toHaveBeenCalledWith('sat', { host: '127.0.0.1', port: 5700, token: '' }, undefined, [], {})
+      expect(calls).toEqual(['update', 'enable'])
+      // the section does not end up in the settings file
+      expect(ctx.config.patch).toHaveBeenCalledWith({ log: false })
+    })
+
+    it('switches an adapter off before changing it', async () => {
+      plugins.builtinSettings.mockReturnValue({ id: 'sat', enabled: true, config: { host: '', port: 5600, token: 'abc' } })
+      await post({ satori: { enable: false, token: '' } })
+      expect(calls).toEqual(['disable', 'update'])
+    })
+
+    it('answers 400 with the reason when the plugin refuses the section', async () => {
+      plugins.updateConfig.mockRejectedValue(new PluginConfigError([{ path: ['token'], message: 'Satori 监听全部地址时必须设置 Token' }]))
+      const res = await post({ satori: { host: '' }, log: false })
       expect(res.status).toBe(400)
+      expect((await res.json()).message).toContain('Satori')
       expect(ctx.config.patch).not.toHaveBeenCalled()
-    })
-
-    it('does not let a bad section the request did not touch block the save', async () => {
-      ctx.config.get.mockReturnValue({ satori: { enable: true, host: '', token: '' }, log: true })
-      const res = await post(createTestApp(createConfigRoutes(ctx)), { log: false })
-      expect(res.status).toBe(200)
     })
   })
 

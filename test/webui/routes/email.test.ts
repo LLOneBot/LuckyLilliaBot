@@ -16,19 +16,20 @@ vi.mock('@/common/emailService', () => ({
 }))
 
 const stored = {
-  enabled: false,
   smtp: { host: 'smtp.test.com', port: 465, secure: true, auth: { user: 'user@test.com', pass: 'real-pass' } },
   from: 'bot@test.com',
   to: 'me@test.com',
 }
 
-vi.mock('@/common/emailConfig', async importOriginal => ({
-  ...await importOriginal<object>(),
-  emailConfigStore: () => ({ get: () => structuredClone(stored) }),
-}))
-
 const post = (body: unknown) => {
-  const app = createTestApp(createEmailRoutes(createMockContext()))
+  const ctx = createMockContext()
+  // The email entry's settings, as the plugin service hands them out
+  ctx.plugins = {
+    builtinSettings: (name: string) => name === 'builtin:email-notification'
+      ? { id: 'mail', enabled: false, config: structuredClone(stored) }
+      : undefined,
+  }
+  const app = createTestApp(createEmailRoutes(ctx))
   return app.request('/test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 }
 
@@ -54,7 +55,7 @@ describe('email routes', () => {
   it('works before notifications are switched on', async () => {
     const res = await post({ config: stored })
     expect(res.status).toBe(200)
-    expect((sent.configs[0] as typeof stored).enabled).toBe(true)
+    expect((sent.configs[0] as { enabled: boolean }).enabled).toBe(true)
   })
 
   it('refuses an unusable SMTP setup with the field errors, enabled or not', async () => {

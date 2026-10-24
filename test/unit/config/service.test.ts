@@ -63,18 +63,17 @@ describe('ConfigService.patch', () => {
     expect(saved.ffmpeg).toBe('/usr/bin/ffmpeg')
     // a full overwrite (the old set_config behaviour) would have dropped these
     expect(saved.webui).toBeTruthy()
-    expect(saved.ob11).toBeTruthy()
     expect(saved.musicSignUrl).toBeTruthy()
   })
 
   it('merges nested objects per key but replaces arrays whole', async () => {
     const config = await boot()
-    config.patch({ ob11: { connect: [{ type: 'ws', enable: true, port: 7000 }] } })
+    config.patch({ extra: { list: [1, 2], keep: true } })
+    config.patch({ extra: { list: [3] } })
     config.patch({ webui: { port: 4000 } })
 
     const saved = read()
-    expect(saved.ob11.connect).toEqual([{ type: 'ws', enable: true, port: 7000 }])
-    expect(saved.ob11).toHaveProperty('enable') // untouched sibling survived
+    expect(saved.extra).toEqual({ list: [3], keep: true }) // the untouched sibling survived
     expect(saved.webui.port).toBe(4000)
     expect(saved.webui).toHaveProperty('host')
   })
@@ -100,17 +99,12 @@ describe('the instance settings file', () => {
     }
   })
 
-  it('starts a new instance from default_config.json, OneBot included', async () => {
+  it('starts a new instance from default_config.json, minus the adapters, which have their plugin entries', async () => {
     const config = await boot()
-    expect(config.get().ob11).toEqual(defaultConfigFile.ob11)
-    expect(read().ob11).toEqual(defaultConfigFile.ob11)
-  })
-
-  it('still converts an ob11 section from before connections were a list', async () => {
-    write({ ob11: { enable: true, enableWs: true, wsPort: 3100 } })
-    const config = await boot()
-    expect(config.get().ob11.enable).toBe(true)
-    expect(config.get().ob11.connect[0]).toMatchObject({ type: 'ws', enable: true, port: 3100 })
+    expect(config.get().webui).toEqual(defaultConfigFile.webui)
+    expect(read()).not.toHaveProperty('ob11')
+    expect(read()).not.toHaveProperty('satori')
+    expect(read()).not.toHaveProperty('milky')
   })
 })
 

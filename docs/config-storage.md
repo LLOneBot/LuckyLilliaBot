@@ -77,7 +77,7 @@
 - **只有一层**:生效值 = schema 默认值 + 条目的 `config`。落盘只存相对 schema 默认值的差异,差异由服务端算,`PUT` 收完整值。合并和差异沿用已实施的 schema 感知规则:只有 `object` 逐 key 递归,`dict` / `array` / `union` / 标量整体替换。
 - **开关一律是条目的 `disabled`**,内置插件也一样。`ob11.enable` / `satori.enable` / `milky.enable` / 邮件的 `enabled` 不再存在,迁移时转成 `disabled`。
 - **校验**:schema + 插件声明的跨字段规则(`check`,例如"监听全部地址必须设 token")。保存时总是校验;启用时也校验,邮件通知除外(SMTP 没配好也能先打开,只是发不出去)。邮件的 `check` 拿得到条目是否启用:启用着才要求 SMTP / 发件人 / 收件人齐全,停用时可以存空配置(issue #690)。
-- **密码类字段**:schema 里标 `role('secret')` 的字段,读取时返回掩码,写回掩码或空串就保留原值,请求带 `clear` 才清空。这是把已实施的邮件密码逻辑通用化,第三方插件也能用。
+- **密码类字段**:由内置插件显式声明(`BuiltinConfig.secrets`),读取时返回掩码,写回掩码或空串就保留原值,请求带 `clear` 才清空。目前只有邮件密码:适配器的 token 在 schema 里也标了 `role('secret')`,但设置页本来就要显示 token,所以没有按 role 自动打码。第三方插件按 role 打码留作后续。
 - **并发**:rev / 409 照旧;写入走 JsonFile 的原子写 + 跨进程锁。实例锁保证同一时间只有一个 bot 进程在用这个文件;桌面端在 bot 运行时走 HTTP 接口,不直接写文件。bot 没运行时外部改的文件,启动时读取并校验;运行中外部改动会被监听到并重新加载。
 - **删掉的**:账号覆盖层 `accounts/<uin>/plugins.json`、WebUI 的作用域页签、写入路由、清单字段 `llbot.configScope`、`account/prepare` 里的覆盖重算。
 
@@ -148,6 +148,8 @@
 | commit | 步 | 落地内容 |
 |---|---|---|
 | `e18fcff1` | I1 | `--instance` / `LLBOT_INSTANCE` / `-q` 回落(`src/common/instance.ts`);`configPaths` 按当前实例算路径,第一次用到时才定实例(迁移之后);实例锁 `src/main/instanceLock.ts`:Windows 命名管道(按 data 目录区分)、其他系统 unix socket(优先 `state/instances/`,路径过长或文件系统不支持时退到临时目录),进程怎么死都会释放,`state/instances/<实例>.json` 只给提示用;`ConfigService` 单文件、启动即绑定、删 `-q` 预读 / `peek` / `accountFile`,配置文件从启动起就监听;WebUI 密码按实例(`webuiTokenUtil` 用到时才取路径);`/api/config` 带 `instance`,"其他配置"页说明改成按实例;迁移 `src/main/config/migrate.ts` 先建在 `instances.migrating/` 再整体改名,`.bak` 已存在时编号不覆盖,同一个号以中间布局为准。用本机开发数据的副本验证过:10 个号迁成 `default` + 4 个按号命名的实例,差异都是真实配置不同(端口、过滤器、反向地址);`-q` 进到同名实例、同实例第二个进程被拒(退出码 1)、两个实例并行、强杀后立即能重启 |
+| `35e9b8ba` | I2 | 删账号覆盖层:`PluginOverlayStore` / `account/prepare` / 写入路由 / `updateConfig` 与 `PUT` 的 `scope` / `llbot.configScope` / 配置弹窗的作用域页签;`describe` 只剩 `config`(存下的差异)、`effective`、`rev`。覆盖层测试里和单层无关的 rev / 409 用例挪进 `configWrite.test.ts` |
+| (本提交) | I3 | 内置插件进 `plugins.json`:`BuiltinConfigBinding` 换成 `BuiltinConfig`(`check(value, enabled)` / `checkOnEnable` / `normalize` / `secrets` / `initial()`),schema 用插件自己的 `Config`(去掉 `enable` / `enabled`),开关一律是条目的 `disabled`、关掉就卸载;`adapterEntry()` 把条目配置 + `enable: true` + 适配器要读的 bot 设置交给适配器,条目配置变了重启,bot 设置变了只就地更新调用时才读的字段(OB11 / Satori / Milky 里按片段重建的逻辑删掉);`Config` 类型去掉三段,旧形状叫 `LegacyConfig`,由 `legacyConfig.ts` 给 `get_config` / `set_config` / `POST /api/config` 拼回和拆开(`set_config` 不带 token 规则、回复后才应用);启动时 `liftBuiltinSettings()` 把实例 `settings.json` 的三段和 `email.json` 搬进条目;邮件的 `EmailConfigStore` / `email-config-updated` 删除;启动时先等日志插件装好再迁移(之前迁移日志会丢,`ca273bc4` 起就是这样)。从旧版布局到条目、浏览器里三个设置页的读写、token 规则、旧形状接口都端到端验证过 |
 
 ## 11. Owner 决策
 
@@ -166,6 +168,7 @@
 
 - 迁移按"补齐默认值后任何字段不同"判定要不要给一个号单独建实例,日志开关这类小差异也会建,可能比用户预期多。日志会写明,多出来的实例可以直接删目录。
 - `-q <uin>` 回落到同名实例,对手动建了 QQ 号命名实例的用户同样生效(符合预期)。
+- OneBot `set_config` 现在先回复、再应用(避免重启自己时把回复卡住),紧接着的 `get_config` 可能还读到旧值;它也不再把监听者的异常带回给调用方,只记日志。
 - Rust 移植版是否也按白名单删 key 待确认;它不和 TS bot 并发共享同一个 `data/`。
 - `JsonFile` 用内容哈希识别自己的写入:外部写入恰好产生相同内容时会被当成自己写的而跳过(概率低)。
 

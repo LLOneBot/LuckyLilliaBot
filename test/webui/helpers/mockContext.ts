@@ -88,7 +88,7 @@ export function createMockContext() {
       return v !== undefined ? v : (ctx as any)[key]
     }),
     on: vi.fn(() => vi.fn()),
-    parallel: vi.fn(),
+    parallel: vi.fn(() => Promise.resolve()),
   } as any
 
   return ctx

@@ -1,4 +1,4 @@
-import { Config, MilkyConfig, OB11Config, SatoriConfig, WebUIConfig } from '@/common/types'
+import { AdapterSections, Config, MilkyConfig, OB11Config, SatoriConfig, WebUIConfig } from '@/common/types'
 
 const ob11Default: OB11Config = {
   enable: true,
@@ -30,11 +30,15 @@ const webuiDefault: WebUIConfig = {
   host: '127.0.0.1',
   port: 3080,
 }
+/** The adapters' defaults; default_config.json's sections override them for a new entry. */
+export const adapterDefaults: AdapterSections = {
+  ob11: ob11Default,
+  satori: satoriDefault,
+  milky: milkyDefault,
+}
+
 export const defaultConfig: Config = {
   webui: webuiDefault,
-  milky: milkyDefault,
-  satori: satoriDefault,
-  ob11: ob11Default,
   enableLocalFile2Url: false,
   log: true,
   autoDeleteFile: false,

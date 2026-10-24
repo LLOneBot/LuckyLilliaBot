@@ -1,10 +1,8 @@
-import { omit } from 'cosmokit'
 import { Event } from '@satorijs/protocol'
 import { Service, Context } from 'cordis'
 import { SatoriConfig } from '@/common/types'
 import { SatoriServer } from './server'
 import { ObjectToSnake } from 'ts-case-convert'
-import { isDeepStrictEqual } from 'node:util'
 
 declare module 'cordis' {
   interface Context {
@@ -34,18 +32,9 @@ class SatoriAdapter extends Service {
   }
 
   start() {
-    this.ctx.on('llob/config-updated', async input => {
-      const old = omit(this.config, ['ffmpeg'])
-      const inputSatoriConfig = input.satori
-      if (!isDeepStrictEqual(old, inputSatoriConfig)) {
-        await this.server.stop()
-        this.server.updateConfig(inputSatoriConfig)
-        if (inputSatoriConfig.enable) {
-          this.server.start()
-          this.listenEvent()
-        }
-      }
-      Object.assign(this.config, { ...inputSatoriConfig, ffmpeg: input.ffmpeg })
+    // The adapter's own settings come from its plugin entry, which restarts it when they change
+    this.ctx.on('llob/config-updated', input => {
+      this.config.ffmpeg = input.ffmpeg
     })
     if (this.config.enable) {
       this.server.start()

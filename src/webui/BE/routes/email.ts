@@ -1,19 +1,20 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
-import { checkEmail, EmailConfig, EmailConfigManager, emailConfigStore } from '@/common/emailConfig'
+import { checkEmail, DEFAULT_EMAIL_CONFIG, EmailConfig, EmailConfigManager, EmailSettings } from '@/common/emailConfig'
 import { EmailService } from '@/common/emailService'
 
 const MASK = '********'
 
-// Reading and saving the settings goes through the plugin API (builtin:email-notification is bound to
-// the instance's email.json); only sending a test email needs a route of its own.
+// Reading and saving the settings goes through the plugin API (builtin:email-notification); only sending a
+// test email needs a route of its own.
 export function createEmailRoutes(ctx: Context): Hono {
   const router = new Hono()
 
   router.post('/test', async (c) => {
     try {
-      const { config: sent } = await c.req.json().catch(() => ({})) as { config?: EmailConfig }
-      const stored = emailConfigStore().get()
+      const { config: sent } = await c.req.json().catch(() => ({})) as { config?: EmailSettings }
+      // get(): this route does not inject the plugin service
+      const stored = (ctx.get('plugins')?.builtinSettings('builtin:email-notification')?.config ?? DEFAULT_EMAIL_CONFIG) as EmailSettings
       const config = structuredClone(sent ?? stored)
       // The form holds the masked password; test with the real one unless a new one was typed
       if (config.smtp?.auth && (config.smtp.auth.pass === MASK || !config.smtp.auth.pass)) {

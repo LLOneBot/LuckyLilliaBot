@@ -7,7 +7,8 @@ import { currentInstance } from '@/common/instance'
 import { isDockerEnvironment } from '@/common/utils/environment'
 import { Hono } from 'hono'
 import { webuiTokenUtil } from '../../../main/config'
-import { validateConfig } from '../../../main/config/validate'
+import { applyLegacyConfig } from '../../../main/config/legacyConfig'
+import { PluginConfigError } from '../../../plugin'
 
 export function createConfigRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -65,17 +66,11 @@ export function createConfigRoutes(ctx: Context): Hono {
   router.post('/config', async (c) => {
     try {
       const { config } = await c.req.json() as ReqConfig
-      // 校验的就是 patch() 会落下的那份 (同一个深合并、同样剔掉 env 锁定字段)。浅合并会误拒
-      // { satori: { enable: true } } 这类局部提交, 也会放过把已启用的监听改成无 token 的提交。
-      // 只查这次提交涉及的片段, 磁盘上别的片段已有的问题不拦这次保存
-      const validationError = validateConfig(ctx.config.preview(config as Dict), Object.keys(config))
-      if (validationError) {
-        return c.json({ success: false, message: validationError }, 400)
-      }
-
-      ctx.parallel('llob/config-updated', ctx.config.patch(config as Dict))
+      // Adapter sections (old clients send them) go to the adapters' plugin entries, validated there
+      await applyLegacyConfig(ctx, config as Dict)
       return c.json({ success: true, message: '配置保存成功' })
     } catch (e) {
+      if (e instanceof PluginConfigError) return c.json({ success: false, message: e.message }, 400)
       return c.json({ success: false, message: '保存配置失败', error: e }, 500)
     }
   })

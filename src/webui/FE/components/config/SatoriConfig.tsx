@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Cpu, ExternalLink, Eye, EyeOff, Loader2 } from 'lucide-react'
-import { HostSelector, showToast } from '../common'
+import { HostSelector } from '../common'
 import type { SatoriConfig as SatoriSettings } from '../../types'
 import { SaveButton } from './SaveButton'
 import { useBuiltinConfig } from './useBuiltinConfig'
@@ -89,15 +89,8 @@ const SatoriConfig: React.FC = () => {
       <div className="mt-6 flex justify-end">
         <SaveButton
           saving={saving}
-          onClick={() => {
-            // 检查：如果监听所有地址且 satori 启用，token 必须设置
-            // Immediate feedback; the server runs the same rule
-            if (satori.host === '' && satori.enable && !satori.token?.trim()) {
-              showToast('当监听所有地址时，必须设置 Satori Token！', 'error')
-              return
-            }
-            save(satori)
-          }}
+          // The token rule depends on whether the adapter is switched on, which only the server knows
+          onClick={() => save(satori)}
         />
       </div>
     </div>

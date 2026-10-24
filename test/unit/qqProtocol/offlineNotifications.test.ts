@@ -2,15 +2,15 @@ import { Context } from 'cordis'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { selfInfo } from '@/common/globalVars'
 import { EmailNotificationService } from '@/common/emailNotification'
-import { EmailConfigManager } from '@/common/emailConfig'
+import { DEFAULT_EMAIL_CONFIG, EmailConfigManager } from '@/common/emailConfig'
 import { MilkyAdapter } from '@/milky/adapter'
 
-vi.mock('@/common/emailConfig', () => ({
+vi.mock('@/common/emailConfig', async importOriginal => ({
+  ...await importOriginal<object>(),
+  // The handlers under test only look at the manager
   EmailConfigManager: class {
     getConfig = vi.fn(() => ({ enabled: true }))
   },
-  // No file reads or writes: the handlers under test only look at the manager
-  emailConfigStore: () => ({ get: vi.fn(), ensure: vi.fn() }),
 }))
 
 vi.mock('@/common/emailService', () => ({
@@ -37,7 +37,7 @@ describe('session expiration notifications', () => {
       const ctx = new Context()
       const onDisconnect = vi.fn()
       ctx.provide('qqProtocol', { onDisconnect, offDisconnect: vi.fn() })
-      const email = new EmailNotificationService(ctx)
+      const email = new EmailNotificationService(ctx, DEFAULT_EMAIL_CONFIG)
       const send = vi.mocked(email.getEmailService().sendOfflineNotification)
       const reason = 'Test authentication failure'
       const emitOffline = () =>
@@ -63,7 +63,7 @@ describe('session expiration notifications', () => {
   it('respects disabled email notifications', async () => {
     const ctx = new Context()
     ctx.provide('qqProtocol', { onDisconnect: vi.fn(), offDisconnect: vi.fn() })
-    const email = new EmailNotificationService(ctx)
+    const email = new EmailNotificationService(ctx, DEFAULT_EMAIL_CONFIG)
     vi.mocked(email.getConfigManager().getConfig).mockReturnValue({ enabled: false } as ReturnType<
       EmailConfigManager['getConfig']
     >)

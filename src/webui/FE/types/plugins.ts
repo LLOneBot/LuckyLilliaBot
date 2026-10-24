@@ -31,8 +31,6 @@ export interface PluginStatus {
   builtin?: boolean
   /** A builtin that cannot be disabled. */
   core?: boolean
-  /** A builtin whose settings, on/off switch included, live in the bot's own files: always mounted, `disabled` mirrors the switch. */
-  bound?: boolean
   title?: string
   service: ServiceDeclaration
   /** URL of the plugin's WebUI module; it changes when the plugin is reloaded. */
@@ -71,8 +69,6 @@ export interface PluginDescription {
   effective: unknown
   /** Pass back as `ifRev` so a write that would clobber a newer edit is rejected. */
   rev: string
-  /** Where a builtin's settings are stored, e.g. `data/instances/<实例>/settings.json → satori`. */
-  location?: string
   /** Dotted paths of fields that come back masked; sending the mask back keeps the stored value. */
   secrets?: string[]
 }
