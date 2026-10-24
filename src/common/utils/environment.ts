@@ -71,6 +71,16 @@ export function getPluginDirs(argv: string[] = process.argv): string[] {
     return dirs
 }
 
+/** `--instance <name>` / `--instance=<name>`, else `LLBOT_INSTANCE`. Resolved against data/ in common/instance.ts. */
+export function getInstanceArg(argv: string[] = process.argv, env: NodeJS.ProcessEnv = process.env): string | undefined {
+    for (let i = 0; i < argv.length; i++) {
+        const a = argv[i]
+        if (a === '--instance' && argv[i + 1] && !argv[i + 1].startsWith('-')) return argv[i + 1]
+        if (a.startsWith('--instance=')) return a.slice('--instance='.length) || undefined
+    }
+    return env.LLBOT_INSTANCE || undefined
+}
+
 /** `--plugin-hmr`: watch the plugin roots and hot-reload a package when its files change. */
 export function isPluginHmr(argv: string[] = process.argv): boolean {
     return argv.includes('--plugin-hmr')
@@ -79,7 +89,7 @@ export function isPluginHmr(argv: string[] = process.argv): boolean {
 /**
  * 从 process.argv 里解析指定 uin. 支持 4 种写法:
  *   -q <uin> / -q=<uin> / --qq <uin> / --qq=<uin>
- * 用于多账号场景: 指定一个 uin 后会读写对应的 qq-session-<uin>[-<protocol>].json / config_<uin>.json。
+ * 用于多账号场景: 指定一个 uin 后会读写对应的 qq-session-<uin>[-<protocol>].json; 没给 --instance 时, 有同名实例就用它 (common/instance.ts)。
  * 纯 argv 解析, 无依赖 (config service 也要用, 不能牵扯 native-sign 依赖链)。
  */
 export function getSpecifiedUin(argv: string[] = process.argv): string | undefined {

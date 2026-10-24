@@ -13,7 +13,7 @@ import { milkyBinding } from './builtinConfig/milky'
 import { ob11Binding } from './builtinConfig/onebot'
 
 /**
- * Mounts an adapter with its part of config_<uin>.json, which only exists once the account is known.
+ * Mounts an adapter with its part of the instance's settings.json once the account is known.
  * The adapter's own dependencies are repeated so the entry stays pending until the adapter can start.
  */
 function withBotConfig<T>(name: string, plugin: Plugin<T> & { inject: string[] }, select: (config: LLBotConfig) => T): Plugin {

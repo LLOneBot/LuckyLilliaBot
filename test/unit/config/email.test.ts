@@ -6,7 +6,7 @@ import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'llbot-email-'))
-const file = path.join(DATA_DIR, 'config', 'global', 'email.json')
+const file = path.join(DATA_DIR, 'instances', 'default', 'email.json')
 
 vi.mock('@/common/globalVars', () => ({
   DATA_DIR,
@@ -115,7 +115,7 @@ describe('builtin:email-notification through the plugin API', () => {
 
   it('describes email.json with the password masked', async () => {
     const description = await ctx.plugins.describe(id)
-    expect(description).toMatchObject({ scope: 'global', fixedScope: true, location: 'config/global/email.json', secrets: ['smtp.auth.pass'] })
+    expect(description).toMatchObject({ scope: 'global', fixedScope: true, location: 'data/instances/<实例>/email.json', secrets: ['smtp.auth.pass'] })
     expect((description.effective as typeof usable).smtp.auth.pass).toBe(SECRET_MASK)
   })
 

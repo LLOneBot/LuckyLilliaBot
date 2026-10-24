@@ -4,7 +4,7 @@ import type { Config as LLBotConfig } from '@/common/types'
 type AdapterKey = 'satori' | 'milky' | 'ob11'
 
 /**
- * An adapter's section of config_<uin>.json. The adapters pick a change up themselves through
+ * An adapter's section of the instance's settings.json. The adapters pick a change up themselves through
  * llob/config-updated (each rebuilds only when its own section changed), which is also how an edit by
  * the desktop app or by hand reaches them -- so a write is the same patch the other-settings page does.
  */
@@ -15,14 +15,14 @@ export function botConfigBinding<K extends AdapterKey>(
   return {
     ...rest,
     scope: 'account',
-    location: `config/accounts/<uin>/settings.json → ${key}`,
+    // Not configPaths: this runs at import, before the startup migration has fixed the instance
+    location: `data/instances/<实例>/settings.json → ${key}`,
     // The token rule guards a public listener: switching on must not bypass it
     validateOnEnable: true,
     read(ctx) {
       // PluginService does not inject config: reach it without the strict check
       const config = ctx.get('config')
-      // Before login (and without -q) there is no account file, and a write would be dropped
-      return config?.accountFile ? structuredClone(config.get()[key]) : undefined
+      return config && structuredClone(config.get()[key])
     },
     async write(ctx, value) {
       const next = ctx.get('config')!.patch({ [key]: value })

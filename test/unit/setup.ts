@@ -52,4 +52,5 @@ vi.mock('@/common/utils/environment', () => ({
   getSpecifiedUin: vi.fn(() => undefined),
   getPluginDirs: vi.fn(() => []),
   isPluginHmr: vi.fn(() => false),
+  getInstanceArg: vi.fn(() => undefined),
 }))

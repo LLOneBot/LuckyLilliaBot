@@ -8,11 +8,10 @@ import { MilkySchema, milkyBinding } from '@/main/builtinConfig/milky'
 import { OB11Schema, ob11Binding } from '@/main/builtinConfig/onebot'
 import defaultConfigFile from '@/main/config/default_config.json'
 
-async function fakeConfig(accountFile: string | undefined) {
+async function fakeConfig() {
   let config = structuredClone(defaultConfig) as LLBotConfig
   const updates: LLBotConfig[] = []
   class FakeConfig extends Service {
-    accountFile = accountFile
     constructor(ctx: Context) {
       super(ctx, 'config')
     }
@@ -35,12 +34,12 @@ describe('Satori settings binding', () => {
     expect(new SatoriSchema()).toEqual(defaultConfig.satori)
   })
 
-  it('has nothing to bind to before an account file is known', async () => {
-    expect(satoriBinding.read((await fakeConfig(undefined)).ctx)).toBeUndefined()
+  it('has nothing to bind to without the config service', () => {
+    expect(satoriBinding.read(new Context())).toBeUndefined()
   })
 
   it('reads a copy of its section and writes it back as a patch the adapter hears about', async () => {
-    const { ctx, updates, current } = await fakeConfig('config_1.json')
+    const { ctx, updates, current } = await fakeConfig()
     const value = satoriBinding.read(ctx)!
     value.port = 1 // a copy: must not leak into the config
     expect(current().satori.port).toBe(5600)
@@ -91,7 +90,7 @@ describe('Milky settings binding', () => {
   })
 
   it('writes only its own section', async () => {
-    const { ctx, current } = await fakeConfig('config_1.json')
+    const { ctx, current } = await fakeConfig()
     await milkyBinding.write(ctx, valid({ enable: true, reportSelfMessage: true }))
     expect(current().milky).toMatchObject({ enable: true, reportSelfMessage: true })
     expect(current().satori).toEqual(defaultConfig.satori)

@@ -1,11 +1,11 @@
 import type { BuiltinConfigBinding } from '../../plugin'
 import { checkEmail, EmailConfig, emailConfigStore, EmailSchema } from '@/common/emailConfig'
 
-/** builtin:email-notification keeps its settings in the instance-wide email_config.json. */
+/** builtin:email-notification keeps its settings in the instance's email.json. */
 export const emailBinding: BuiltinConfigBinding<EmailConfig> = {
   schema: EmailSchema,
   scope: 'global',
-  location: 'config/global/email.json',
+  location: 'data/instances/<实例>/email.json',
   read: () => emailConfigStore().get(),
   async write(ctx, value) {
     emailConfigStore().save(value)

@@ -45,4 +45,6 @@ vi.mock('@/common/utils/environment', () => ({
   isPmhqMode: vi.fn(() => false),
   getPmhqTarget: vi.fn(() => null),
   isDevMode: vi.fn(() => false),
+  getSpecifiedUin: vi.fn(() => undefined),
+  getInstanceArg: vi.fn(() => undefined),
 }))

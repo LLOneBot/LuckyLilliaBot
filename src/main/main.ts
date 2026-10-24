@@ -9,9 +9,7 @@ import SQLiteDriver from '@cordisjs/plugin-database-sqlite'
 import Store from './store'
 import { Config as LLBotConfig } from '../common/types'
 import { Context } from 'cordis'
-import {
-  selfInfo, DATA_DIR, LOG_DIR, TEMP_DIR, dbDir, GLOBAL_PLUGINS_FILE, accountPluginsFile, ACCOUNTS_CONFIG_DIR, PLUGIN_DATA_DIR,
-} from '../common/globalVars'
+import { selfInfo, DATA_DIR, LOG_DIR, TEMP_DIR, dbDir } from '../common/globalVars'
 import {
   NTFileApi,
   NTFriendApi,
@@ -22,8 +20,7 @@ import {
   NTWebApi,
   NTSystemApi,
 } from '../ntqqapi/api'
-import { existsSync, mkdirSync, renameSync } from 'node:fs'
-import { readdir } from 'node:fs/promises'
+import { existsSync, mkdirSync } from 'node:fs'
 import { version } from '../version'
 import { WebuiServer } from '../webui/BE/server'
 import { EmailConfig } from '@/common/emailConfig'
@@ -34,7 +31,10 @@ import { DirectQQProtocolClient, PmhqQQProtocolClient } from './qqProtocol'
 import LoggerConsole from '@cordisjs/plugin-logger-console'
 import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
-import { migrateLegacyConfig } from './config/migrate'
+import { migrateToInstances } from './config/migrate'
+import { lockInstance } from './instanceLock'
+import { currentInstance, InstanceChoice } from '@/common/instance'
+import { configPaths } from '@/common/configPaths'
 import AccountService from './account'
 import { startIpcServer, setLoginState } from './llbot-ipc'
 import PluginService from '../plugin'
@@ -73,13 +73,6 @@ async function onLoad() {
     mkdirSync(pluginDir)
   }
 
-  // Dev-time move: the plugins config now lives under data/config/global/ (config-storage §3).
-  const legacyPluginsFile = path.join(DATA_DIR, 'plugins.json')
-  if (existsSync(legacyPluginsFile) && !existsSync(GLOBAL_PLUGINS_FILE)) {
-    mkdirSync(path.dirname(GLOBAL_PLUGINS_FILE), { recursive: true })
-    renameSync(legacyPluginsFile, GLOBAL_PLUGINS_FILE)
-  }
-
   const ctx = new Context()
 
   ctx.plugin(Log)
@@ -92,19 +85,23 @@ async function onLoad() {
   })
   // 让无 ctx 的底层模块 (client/sign/connection 等) 经 getLogger 也走统一 cordis logger
   bindLoggerFactory((name) => ctx.logger(name))
-  // 一次性把旧的 config_<uin>.json / email_config.json 搬进 data/config/ (config-storage §9 step 5/6)
-  migrateLegacyConfig(ctx.logger('config'))
+  // Before the instance is picked: it may create the one `-q` points to (config-storage §9)
+  migrateToInstances(ctx.logger('config'))
+  let instance: InstanceChoice
+  try {
+    instance = currentInstance()
+    await lockInstance(instance.name)
+  } catch (e) {
+    ctx.logger('main').error((e as Error).message)
+    process.exit(1)
+  }
+  ctx.logger('main').info(`实例 ${instance.name}（${instance.reason}），配置在 ${configPaths.instance()}`)
   ctx.plugin(TimerService)
   ctx.plugin(ConfigService)
   ctx.plugin(BotsService)
   ctx.plugin(PluginService, {
-    file: GLOBAL_PLUGINS_FILE,
-    accountFile: accountPluginsFile,
-    dataDir: PLUGIN_DATA_DIR,
-    listAccounts: async () => {
-      const entries = await readdir(ACCOUNTS_CONFIG_DIR, { withFileTypes: true }).catch(() => [])
-      return entries.filter(entry => entry.isDirectory()).map(entry => entry.name)
-    },
+    file: configPaths.plugins(),
+    dataDir: configPaths.pluginData(),
     roots: [pluginDir, ...getPluginDirs().map(dir => path.resolve(dir))],
     hmr: isPluginHmr(),
     builtins: builtinPlugins,
@@ -126,14 +123,19 @@ async function onLoad() {
 
   ctx.plugin(AccountService)
 
-  // The config file and the database are per account, so everything here waits for the first login.
-  // `account` survives reconnects, so this runs once and upper layers ride out short network drops.
-  // The adapters, email notification and the neutral layer are builtin entries of the plugin service.
-  ctx.inject(['account', 'config'], (ctx) => {
-    const config = ctx.config.get(false)
+  // The settings are the instance's, fixed at startup: watched from now on, not from login
+  ctx.inject(['config'], (ctx) => {
     ctx.config.listenChange(c => {
       ctx.parallel('llob/config-updated', c)
     })
+  })
+
+  // The database is per account, so everything here waits for the first login.
+  // `account` survives reconnects, so this runs once and upper layers ride out short network drops.
+  // The adapters, email notification and the neutral layer are builtin entries of the plugin service.
+  ctx.inject(['account', 'config'], (ctx) => {
+    const config = ctx.config.get()
+    // The log file switch and Core's ffmpeg path are only ever applied from this event
     ctx.parallel('llob/config-updated', config)
     ctx.plugin(Database)
     ctx.plugin(SQLiteDriver, {
@@ -165,6 +167,9 @@ async function onLoad() {
                                         UIN: ${selfInfo.uin}
 `)
       setLoginState({ state: 'logged_in', uin: selfInfo.uin, nickname: selfInfo.nick })
+      if (selfInfo.uin !== instance.name && existsSync(configPaths.instance(selfInfo.uin))) {
+        ctx.logger.info(`QQ ${selfInfo.uin} 有自己的实例 ${selfInfo.uin}，这次用的是实例 ${instance.name}；要用那份配置请以 --instance ${selfInfo.uin} 启动`)
+      }
     }
     ctx.on('qq/online', handleOnline)
     // 协议层可能在 inject callback 之前就 emit 过 qq/online，那一次 emit 会丢，得 catch up 一下

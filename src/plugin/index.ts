@@ -1051,7 +1051,7 @@ class PluginService extends Service {
 
 namespace PluginService {
   export interface Config {
-    /** data/config/global/plugins.json */
+    /** The instance's plugins.json */
     file: string
     /** Where an account's override layer lives. Omitted = no per-account overrides at all. */
     accountFile?: (uin: string) => string

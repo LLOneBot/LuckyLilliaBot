@@ -30,7 +30,7 @@ describe('WebUITokenUtil', () => {
 
   it('picks up a password changed on disk while running', () => {
     rewrite('first\n', 0)
-    const util = new WebUITokenUtil(file)
+    const util = new WebUITokenUtil(() => file)
     expect(util.getToken()).toBe('first')
     rewrite('second', 5)
     expect(util.getToken()).toBe('second')
@@ -38,18 +38,18 @@ describe('WebUITokenUtil', () => {
 
   it('keeps the last password when the file goes missing', () => {
     rewrite('kept', 0)
-    const util = new WebUITokenUtil(file)
+    const util = new WebUITokenUtil(() => file)
     expect(util.getToken()).toBe('kept')
     rmSync(file)
     expect(util.getToken()).toBe('kept')
   })
 
   it('is empty before any password was set', () => {
-    expect(new WebUITokenUtil(file).getToken()).toBe('')
+    expect(new WebUITokenUtil(() => file).getToken()).toBe('')
   })
 
   it('answers with what it just stored', () => {
-    const util = new WebUITokenUtil(file)
+    const util = new WebUITokenUtil(() => file)
     util.setToken('mine ')
     expect(util.getToken()).toBe('mine')
   })

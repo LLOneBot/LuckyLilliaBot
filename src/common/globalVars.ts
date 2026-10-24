@@ -16,19 +16,9 @@ if (!existsSync(dbDir)) {
   mkdirSync(dbDir)
 }
 
-// Config lives under data/config/, scoped into global/ (instance) and accounts/<uin>/ (per account).
-// See docs/config-storage.md §3. Directories are created on first write (JsonFile mkdirs recursively).
-export const CONFIG_DIR = path.join(DATA_DIR, 'config')
+// Config, plugin data and the WebUI password are per instance, see common/configPaths.ts
+/** The bot's private files: locks. Not for hand edits. */
 export const STATE_DIR = path.join(DATA_DIR, 'state')
-/** Instance-wide plugin entries + the global config layer. */
-export const GLOBAL_PLUGINS_FILE = path.join(CONFIG_DIR, 'global', 'plugins.json')
-export const ACCOUNTS_CONFIG_DIR = path.join(CONFIG_DIR, 'accounts')
-/** Plugins' own files (ctx.storage): data, not config, so it sits outside config/ and the plugin code dirs. */
-export const PLUGIN_DATA_DIR = path.join(DATA_DIR, 'plugin-data')
-/** Per-account plugin override layer (only present once something is set for that account). */
-export function accountPluginsFile(uin: string): string {
-  return path.join(ACCOUNTS_CONFIG_DIR, uin, 'plugins.json')
-}
 
 export function getFixedDataDir() {
   let dataDir: string = ''

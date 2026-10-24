@@ -121,8 +121,8 @@ ctx.effect(() => {                                 // 其它资源：返回清�
 插件自己的文件（缓存、下载的资源、自带的 sqlite……）放在 `ctx.storage` 给的目录里，不要自己拼 `data/` 下的路径：
 
 ```ts
-const dir = await ctx.storage.dir()             // data/plugin-data/<包名>/shared/，所有账号共用
-const mine = await ctx.storage.dir('account')   // data/plugin-data/<包名>/<QQ号>/，每个账号一份
+const dir = await ctx.storage.dir()             // data/instances/<实例>/plugin-data/<包名>/shared/，这个实例里所有账号共用
+const mine = await ctx.storage.dir('account')   // data/instances/<实例>/plugin-data/<包名>/<QQ号>/，每个账号一份
 ```
 
 - 第一次调用时创建；同一个包的多个实例共用一个目录（多个实例、甚至同一个数据目录下的多个 Bot 进程可能同时写，需要的话自己处理并发）；卸载插件不会删它
@@ -266,7 +266,7 @@ Bot 在加载插件时会把这些 import 统一解析到它自己那一份。�
 两个启动参数：
 
 - `--plugin-dir <path>`：在 `data/plugins/` 之外再扫一个目录，可以写多次
-- `--plugin-hmr`：监听插件目录，文件一改就重载（也可以在 `data/config/global/plugins.json` 里写 `"hmr": true`）。不开的话用 WebUI 的重载按钮
+- `--plugin-hmr`：监听插件目录，文件一改就重载（也可以在实例的 `plugins.json` 里写 `"hmr": true`）。不开的话用 WebUI 的重载按钮
 
 **用 Bot 源码开发**（tsx 能直接跑 `.ts`，`main` 可以指向 `src/index.ts`）：
 

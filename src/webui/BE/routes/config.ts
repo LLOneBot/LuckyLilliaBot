@@ -3,6 +3,7 @@ import { Context } from 'cordis'
 import { networkInterfaces } from 'os'
 import { selfInfo } from '@/common/globalVars'
 import { ReqConfig, ResConfig } from '../types'
+import { currentInstance } from '@/common/instance'
 import { isDockerEnvironment } from '@/common/utils/environment'
 import { Hono } from 'hono'
 import { webuiTokenUtil } from '../../../main/config'
@@ -49,6 +50,7 @@ export function createConfigRoutes(ctx: Context): Hono {
         config: ctx.config.get(),
         selfInfo,
         envLocked: ctx.config.envLocks(),
+        instance: currentInstance().name,
       }
       return c.json({
         success: true,

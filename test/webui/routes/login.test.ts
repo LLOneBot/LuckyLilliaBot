@@ -86,11 +86,10 @@ describe('login routes', () => {
       expect(body.data.uid).toBe('test-uid')
     })
 
-    it('reports the address the WebUI will actually bind after login, env overrides included', async () => {
-      ctx.config.peek.mockReturnValue({ webui: { enable: true, host: '0.0.0.0', port: 9999 } })
+    it('reports the address the WebUI binds, env overrides included', async () => {
+      ctx.config.get.mockReturnValue({ webui: { enable: true, host: '0.0.0.0', port: 9999 } })
       const res = await createTestApp(createLoginRoutes(ctx)).request('/login-info')
       const body = await res.json()
-      expect(ctx.config.peek).toHaveBeenCalledWith('123456')
       expect(body.data.webui).toEqual({ enable: true, host: '0.0.0.0', port: 9999 })
     })
 
@@ -101,7 +100,6 @@ describe('login routes', () => {
         const res = await createTestApp(createLoginRoutes(ctx)).request('/login-info')
         const body = await res.json()
         expect(body.data.webui).toBeUndefined()
-        expect(ctx.config.peek).not.toHaveBeenCalled()
       } finally {
         selfInfo.online = true
       }

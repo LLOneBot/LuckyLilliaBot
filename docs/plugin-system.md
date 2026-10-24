@@ -1,6 +1,6 @@
 # 插件系统（host 侧）
 
-Bot 进程本身就是一个 cordis 4 应用，插件运行时只是在根 `Context` 上多挂了一个服务：`PluginService`（`ctx.plugins`）。它负责扫描本地目录、读写插件条目与配置（`data/config/global/plugins.json` + 每个账号的覆盖层）、把每个启用的条目 `ctx.plugin()` 成一个 fiber，以及热重载。
+Bot 进程本身就是一个 cordis 4 应用，插件运行时只是在根 `Context` 上多挂了一个服务：`PluginService`（`ctx.plugins`）。它负责扫描本地目录、读写插件条目与配置（当前实例的 `data/instances/<实例>/plugins.json` + 每个账号的覆盖层）、把每个启用的条目 `ctx.plugin()` 成一个 fiber，以及热重载。
 
 作者视角的写法见 [plugin-authoring.md](plugin-authoring.md)。
 
@@ -61,7 +61,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 **包**：插件根目录（默认 `data/plugins/`，外加任意个 `--plugin-dir <path>`）下的子目录，`package.json` 里有 `llbot` 字段才算。`@scope/` 目录会再往下找一层。入口按 `exports` → `main` → `index.js` 解析。同名包只认第一个，其余打 warn。
 
-**条目**（`data/config/global/plugins.json`；老位置 `data/plugins.json` 启动时自动搬过来）：
+**条目**（当前实例的 `data/instances/<实例>/plugins.json`；旧位置由启动迁移搬过来，见 config-storage.md §9）：
 
 ```json
 {
@@ -76,7 +76,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 - `id` 是 8 位 hex，落盘后不变。同一个包可以开多个实例，所以不能用包名当主键
 - 形状对齐官方 `@cordisjs/plugin-loader` 的 `EntryOptions`（少了 `group` / `inject`），将来换官方 loader 不用迁移文件
-- 单独成文件、按 `data/config/{global,accounts/<uin>}/` 组织，见 [config-storage.md](config-storage.md)。读写都经 `JsonFile`：读用 JSON5（允许手写注释），写先写临时文件再 rename
+- 单独成文件、每个实例一份（`data/instances/<实例>/`），见 [config-storage.md](config-storage.md)。读写都经 `JsonFile`：读用 JSON5（允许手写注释），写先写临时文件再 rename
 - 解析失败时**文件原样留着**，以空条目 + 内置条目启动；启动时补内置条目的那次保存在读失败时跳过，所以坏文件不会被覆盖，用户改好后下次启动生效（原来是改名成 `.broken-<ts>`）
 - 扫描到从没见过的包，会自动建一个 `disabled: true` 的条目，让它出现在 WebUI 里，但不会自动执行
 
@@ -99,13 +99,13 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 ### 插件数据目录（`ctx.storage` / `ctx.baseUrl`）
 
-`src/plugin/storage.ts` 的 `PluginDataDirs`，根目录是 `PluginService.Config.dataDir`（`main.ts` 传 `data/plugin-data`；不传就两样都不提供，单测默认如此）。
+`src/plugin/storage.ts` 的 `PluginDataDirs`，根目录是 `PluginService.Config.dataDir`（`main.ts` 传当前实例的 `data/instances/<实例>/plugin-data`；不传就两样都不提供，单测默认如此）。
 
 - **目录名**：`dataKey()` 把包名的 `/` 换 `+`、内置条目 `builtin:x` 换成 `_builtin+x`（冒号在 Windows 路径里非法），并拒绝任何不是单段合法路径的名字（`..`、多个斜杠、结尾 `.`、Windows 保留名）。`baseUrl()` 对这种名字返回 undefined，不让条目因此挂载失败
 - **`ctx.storage` 是根上注册的 accessor**，不是条目 ctx 上的自有属性：服务的方法被别的条目调用时，cordis 给的 `this.ctx` 是"调用方 ctx + `symbols.shadow` 指向服务自己的 ctx"，自有属性会沿调用方那条原型链解析，拿到调用方的目录。accessor 里取 `this[symbols.shadow] ?? this` 作为定义处，再沿 `fiber.parent.fiber` 走到 `mount()` 时 `register()` 过的条目 fiber
 - **`ctx.baseUrl` 只能是自有属性**：根 Context 自己就有 `baseUrl` 属性（值为 undefined），属性访问在走到 accessor 之前就命中了。所以 `mount()` 用 `this.home.extend({ baseUrl })` 当父 ctx，插件的 ctx 从它继承；`fiber.parent.fiber` 仍是 PluginService 的 fiber，`entryOfFiber()` 等不受影响。代价是服务方法被别人调用时读到的 `baseUrl` 是调用方的，作者文档写了"在 apply 里读"
 - **`dir('account')` 绑定 `inject`，不挂起等待**：从调用处的 fiber 往上走到条目，路上有任何 fiber 的 `inject` 含 `account` 才放行，uin 直接读 `account` 服务；否则 reject，与当前是否已登录无关（保证行为确定，不随启动时机变化）。设计稿首选的是"登录前挂起等待"，没采用：挂起时 fiber 停在 LOADING，`start()` / `updateConfig()` 等在包锁里 `await fiber.await()` 会一直等到登录，整个包的 WebUI 操作都卡住；要绕开就得在六处调用点和"已挂起"赛跑、伪造 pending 状态，还要靠 dispose 时 `internal/plugin` 先于等 inertia 发出这个 cordis 内部时序来取消等待
-- `data/plugin-data/` 和 `data/plugins/` 是兄弟目录，热重载 watcher 只看插件根目录，dev 下 `tsx watch --exclude "./data/**"` 也覆盖了它
+- 插件数据在实例目录下、不在插件代码目录 `data/plugins/` 里，热重载 watcher 只看插件根目录，dev 下 `tsx watch --exclude "./data/**"` 也覆盖了它
 
 ## 内置插件
 
@@ -120,7 +120,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 - 条目照样存在 `data/plugins.json` 里（随机 id），只是 `name` 带 `builtin:` 前缀（npm 包名不能含冒号，不会撞）。启动时每个内置插件保证恰好一个条目：没有就建一个**启用**的（老版本升级上来行为不变），手写出来的重复条目丢掉，core 条目上的 `disabled` 忽略
 - 内置插件只有一个实例：它们提供具名服务（`onebot` / `satori` / ...），两个实例会抢同一个名字。`add` / `remove` 对内置条目、`disable` 对 core 条目都抛 `PluginForbiddenError`（HTTP 403）；`updateConfig` / `describe` 只对**没有配置绑定**的内置条目（WebQQ、core）抛 403
-- **配置不进 `plugins.json`**：OneBot / Satori / Milky 在 `data/config/accounts/<uin>/settings.json` 各自的片段，邮件通知在 `data/config/global/email.json`（旧的 `config_<uin>.json` / `email_config.json` 启动时自动迁过来，见 config-storage.md §9）。这四个都声明了配置绑定（`src/main/builtinConfig/`，见下面"内置插件的配置绑定"一节），所以插件页能用 schema 校验和表单配置它们、卡片开关改的就是 `ob11.enable` / `satori.enable` / `milky.enable` / 邮件的 `enabled`，插件本身始终挂载。适配器包了一层 `withBotConfig()`：`inject` 是 `account` + `config` + 适配器自己的依赖（条目因此在依赖齐之前显示 pending，而不是"外壳 active、里面 pending"），`apply` 里按原来 `main.ts` 的拼法从 `ctx.config.get()` 取配置再 `await ctx.plugin(适配器)` —— await 让适配器启动失败变成条目的 `failed`。`test/unit/bootstrap/builtins.test.ts` 逐字段比对拼出来的配置
+- **配置不进 `plugins.json`**：OneBot / Satori / Milky 在实例的 `settings.json` 各自的片段，邮件通知在实例的 `email.json`（旧的 `config_<uin>.json` / `email_config.json` 启动时自动迁过来，见 config-storage.md §9）。这四个都声明了配置绑定（`src/main/builtinConfig/`，见下面"内置插件的配置绑定"一节），所以插件页能用 schema 校验和表单配置它们、卡片开关改的就是 `ob11.enable` / `satori.enable` / `milky.enable` / 邮件的 `enabled`，插件本身始终挂载。适配器包了一层 `withBotConfig()`：`inject` 是 `account` + `config` + 适配器自己的依赖（条目因此在依赖齐之前显示 pending，而不是"外壳 active、里面 pending"），`apply` 里按原来 `main.ts` 的拼法从 `ctx.config.get()` 取配置再 `await ctx.plugin(适配器)` —— await 让适配器启动失败变成条目的 `failed`。`test/unit/bootstrap/builtins.test.ts` 逐字段比对拼出来的配置
 - `reload` 对内置条目是重启（dispose + 重新挂载，没有模块可重新 import），会读到最新配置
 - **停用要真能停下来**（现在只对没绑定的内置条目、以及 reload 有意义；绑定的适配器"停用"是把 `enable` 写成 false，由适配器自己停监听）：改造前适配器从不在运行时卸载，OneBot / Satori / Milky 的 `[Service.init]` 都返回 `noop`，停用后端口不释放，再启用就 `EADDRINUSE`。现在它们返回关服务器的 disposer（cordis 卸载时会 await）。Satori 的 `/v1/internal/onebot11/:action` 原来缓存了一份按 OB11 实例构造的 action 表，OB11 重启后会指向已卸载的实例，改成每次从当前的 `ctx.get('onebot').actionMap` 取
 - 前端：插件页分"内置 / 已安装"两区，内置卡片有"内置 / 核心"徽章，core 的开关置灰。内置插件的界面和第三方插件走同一套 `ctx.page()`（见下文"插件前端"），只是随 WebUI 打包：适配器和邮件通知注册的是**设置页**（插件启用就在侧边栏，停用后从侧边栏消失，但卡片上的"前往设置"仍能打开），WebQQ 注册的是**功能页**（插件运行时才出现）。卡片上的"前往设置"跳到该插件注册的设置页，第三方插件也一样
@@ -131,7 +131,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 ### 内置插件的配置绑定（`BuiltinConfigBinding`）
 
-内置插件的设置不进 `plugins.json`，而是留在 bot 自己的配置文件里（适配器在 `config/accounts/<uin>/settings.json` 各自的片段，邮件在 `config/global/email.json`）：桌面端、docker/nix 模板、手改仍写旧的 `config_<uin>.json` / `email_config.json`，由启动时的一次性迁移搬到新位置。`BuiltinPlugin.config` 声明一个绑定，让它们照样拿到插件页那套 schema 校验、rev/409 和表单：
+内置插件的设置不进 `plugins.json`，而是留在 bot 自己的配置文件里（适配器在实例的 `settings.json` 各自的片段，邮件在实例的 `email.json`）：桌面端、docker/nix 模板、手改仍写旧的 `config_<uin>.json` / `email_config.json`，由启动时的一次性迁移搬到新位置。`BuiltinPlugin.config` 声明一个绑定，让它们照样拿到插件页那套 schema 校验、rev/409 和表单：
 
 - `schema`（默认值必须和文件原来的默认值一致，单测锁住）、固定的 `scope` 和 `location`（只给表单显示）、`read(ctx)` / `write(ctx, value)`、schema 表达不了的 `check`（比如"监听全部地址必须有 token"）、`normalize`、`validateOnEnable`（卡片开关打开时也校验，见下）、`enabled`（开关在值里）、`secrets`、`watch`（外部改了文件时让卡片刷新）
 - `describe` / `updateConfig` 对有绑定的内置条目分流到绑定，不再 403；没绑定的（WebQQ、core）照旧 403。值只有一层：没有账号覆盖层（覆盖层里这些条目的项被忽略、下次写时清掉）、`describe` 带 `fixedScope: true`，表单不显示作用域切换
@@ -204,13 +204,13 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - 作用域切换（"所有账号 / 仅 `<uin>`"）只在已登录、且"有配置目录的账号 ≥ 2 或本账号已有覆盖"时出现，单账号用户看到的界面不变
 - 卡片图标用一张固定的 lucide 图标表（`meta.ts`），没用 `lucide-react/dynamic` 的 `DynamicIcon`：它会给约 1600 个图标各生成一个 chunk
 
-**端到端验证方法**（不登录 QQ）：后端 `tsx --tsconfig <repo>/tsconfig.json <repo>/src/main/main.ts -q 10001 --pmhq-port 1 --plugin-dir <repo>/examples/plugins`，cwd 放临时目录，预置 `data/webui_token.txt` 和 `data/config/accounts/10001/settings.json`（`{ "webui": { "enable": true, "host": "127.0.0.1", "port": 3999 } }`：带 `-q` 时登录前就读这份配置，PMHQ 端口没人监听所以不会真登录；预置旧的 `data/config_10001.json` 也行，启动时会被迁过去）；前端 `BROWSER=none WEBUI_PORT=3999 npx vite --port 15199 --strictPort`；浏览器设好 `webui_token` cookie（密码的 sha256 hex），用 Playwright 只把 `/api/config` 响应里的 `selfInfo.online` 改成 true，就能进主界面操作真实的插件后端。
+**端到端验证方法**（不登录 QQ）：后端 `tsx --tsconfig <repo>/tsconfig.json <repo>/src/main/main.ts --pmhq-port 1 --plugin-dir <repo>/examples/plugins`，cwd 放临时目录，预置 `data/instances/default/webui_token.txt` 和 `data/instances/default/settings.json`（`{ "webui": { "enable": true, "host": "127.0.0.1", "port": 3999 } }`：配置是实例的，登录前就生效，PMHQ 端口没人监听所以不会真登录；预置旧的 `data/config_10001.json` / `data/webui_token.txt` 也行，没有 `data/instances/` 时启动迁移会把它们搬进去）；前端 `BROWSER=none WEBUI_PORT=3999 npx vite --port 15199 --strictPort`；浏览器设好 `webui_token` cookie（密码的 sha256 hex），用 Playwright 只把 `/api/config` 响应里的 `selfInfo.online` 改成 true，就能进主界面操作真实的插件后端。
 
 - **不要用默认的 3080 / 15173**：桌面浏览器里开着的 WebUI 页面会自动重连上临时实例，带着真实密码的 cookie（cookie 不分端口），校验失败，连续失败 4 次临时实例的 API 就锁一小时
 - **不要用 `vite --open false`**：`false` 被当成路径，照样在桌面浏览器打开页面。用 `BROWSER=none`
 - shell 里设了 `HTTP_PROXY` / `HTTPS_PROXY` 时，curl 探本机端口要加 `--noproxy '*'`：否则请求走代理，没在听的端口会拿到代理回的 502，看起来像"有服务"
 - Windows 下用后台任务起的 `npx vite`，停掉 shell 之后 node 子进程还在占着端口：按端口找进程结束（PowerShell `Get-NetTCPConnection -LocalPort <port>` 取 `OwningProcess`）
-- 验证 env 层：启动后端时带 `LLBOT_WEBUI_PORT=<port>`，`config_10001.json` 里写另一个端口。WebUI 会起在 env 的端口，`GET /api/config` 的 `envLocked` 列出它，"其他配置"页端口框只读
+- 验证 env 层：启动后端时带 `LLBOT_WEBUI_PORT=<port>`，实例的 `settings.json` 里写另一个端口。WebUI 会起在 env 的端口，`GET /api/config` 的 `envLocked` 列出它，"其他配置"页端口框只读
 - `playwright-cli fill <ref> -1` 会把 `-1` 当成命令行选项，填负数要用 `run-code`
 
 ## 插件前端（WebUI 扩展）

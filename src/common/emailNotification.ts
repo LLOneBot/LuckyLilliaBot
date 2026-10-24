@@ -22,7 +22,7 @@ export class EmailNotificationService extends Service {
   constructor(ctx: Context) {
     super(ctx, 'emailNotification')
 
-    // Read through the store on every send: the WebUI and the desktop app both edit email_config.json
+    // Read through the store on every send: the WebUI and the desktop app both edit the file
     const store = emailConfigStore(message => ctx.logger.error('[EmailNotification] invalid config, keeping the last good one:', message))
     this.configManager = new EmailConfigManager(() => store.get())
     this.emailService = new EmailService(this.configManager, ctx.logger)

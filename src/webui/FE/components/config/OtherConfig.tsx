@@ -9,7 +9,8 @@ interface OtherConfigProps {
   onChange: (config: Config) => void;
   /** Fields an LLBOT_* variable pins: shown read-only, left out of the save. */
   envLocked: EnvLock[];
-  uin?: string;
+  /** The instance whose settings.json this page edits. */
+  instance?: string;
   onOpenChangePassword: () => void;
 }
 
@@ -21,7 +22,7 @@ const EnvLockedHint: React.FC<{ lock: EnvLock }> = ({ lock }) => (
   </p>
 )
 
-const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, envLocked, uin, onOpenChangePassword }) => {
+const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, envLocked, instance, onOpenChangePassword }) => {
   const handleChange = (field: keyof Config, value: unknown) => {
     onChange({ ...config, [field]: value })
   }
@@ -34,7 +35,7 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, envLocked, 
       <div className='flex items-start gap-2 p-3 rounded-xl bg-theme-item text-xs text-theme-secondary'>
         <Info size={14} className='mt-0.5 flex-shrink-0' />
         <span>
-          本页设置保存在当前账号的 config_{uin || '<QQ号>'}.json，每个账号各存一份：换号登录后用的是那个号自己的设置。登录前 WebUI 用的是默认设置。
+          本页设置保存在实例「{instance || 'default'}」的 settings.json，在这个实例里换号登录也不变。要让另一个号用不同的设置，用 --instance 另起一个实例运行它。
         </span>
       </div>
 

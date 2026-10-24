@@ -69,7 +69,6 @@ export function createMockContext() {
       set: vi.fn(),
       preview: vi.fn((partial: object) => deepMerge(services.config.get(), partial)),
       patch: vi.fn((partial: object) => deepMerge(services.config.get(), partial)),
-      peek: vi.fn(() => services.config.get()),
       envLocks: vi.fn(() => [] as { path: string; env: string }[]),
       envLockedPaths: vi.fn(() => [] as string[]),
     },

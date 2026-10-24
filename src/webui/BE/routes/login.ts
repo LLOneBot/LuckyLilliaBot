@@ -66,25 +66,18 @@ export function createLoginRoutes(ctx: Context): Hono {
     }
   })
 
-  // 获取账号信息 + 该账号最终生效的 WebUI 配置.
-  // 登录成功后会加载 config_<uin>.json, 里面可能关闭 WebUI (enable=false) 或改了端口 -- 那样后端
-  // 会自行 restart/关停, FE 若直接跳主页就会一路 502. 用 peek() 按账号文件算生效值 (叠了 LLBOT_*,
-  // 跟登录后 WebUI 真正绑定的地址一致) 而非 webuiServer 运行态, 避开 "online 先于 config 加载" 的竞态:
-  // FE 在第一次拿到 online=true (此时后端还没关) 就能读到最终 webui 配置, 据此决定跳主页 / 提示已关闭 / 跳新端口.
+  // 获取账号信息 + 生效的 WebUI 配置. 配置是实例的, 登录前后不变; FE 仍据此判断 WebUI 是否被关掉
+  // (enable=false) 或换了端口, 决定跳主页 / 提示已关闭 / 跳新端口.
   router.get('/login-info', (c) => {
     let webui: { enable: boolean; host: string; port: number } | undefined
     if (selfInfo.online && selfInfo.uin) {
-      try {
-        const effective = ctx.config.peek(selfInfo.uin).webui
-        if (effective) {
-          webui = {
-            enable: effective.enable !== false,
-            host: effective.host ?? '',
-            port: Number(effective.port) || 0,
-          }
+      const effective = ctx.config.get().webui
+      if (effective) {
+        webui = {
+          enable: effective.enable !== false,
+          host: effective.host ?? '',
+          port: Number(effective.port) || 0,
         }
-      } catch {
-        // 读不出就不带 webui, FE 回退到默认跳主页逻辑
       }
     }
     return c.json({ success: true, data: { ...selfInfo, mode: isPmhqMode() ? 'pmhq' : 'direct', webui } })

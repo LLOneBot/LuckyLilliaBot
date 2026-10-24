@@ -82,7 +82,7 @@ export function checkEmail(config: EmailConfig, strict = false): EmailIssue[] {
 }
 
 /**
- * config/global/email.json: instance-wide, written by the WebUI and by the desktop app directly. Read afresh on
+ * The instance's email.json, written by the WebUI and by the desktop app directly. Read afresh on
  * every get() since it changes behind our back; an unparsable file keeps the last good value and stays on
  * disk for the user to fix.
  */
@@ -136,7 +136,7 @@ export class EmailConfigStore {
 
 let shared: EmailConfigStore | undefined
 
-/** The one store for config/global/email.json in this process. */
+/** The one store for this instance's email.json in this process. */
 export function emailConfigStore(onError?: (message: string) => void): EmailConfigStore {
   return shared ??= new EmailConfigStore(configPaths.email(), onError)
 }

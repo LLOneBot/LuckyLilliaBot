@@ -6,7 +6,7 @@ import { EmailService } from '@/common/emailService'
 const MASK = '********'
 
 // Reading and saving the settings goes through the plugin API (builtin:email-notification is bound to
-// email_config.json); only sending a test email needs a route of its own.
+// the instance's email.json); only sending a test email needs a route of its own.
 export function createEmailRoutes(ctx: Context): Hono {
   const router = new Hono()
 

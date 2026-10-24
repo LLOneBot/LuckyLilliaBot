@@ -7,8 +7,8 @@ import defaultConfigFile from '@/main/config/default_config.json'
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'llbot-config-'))
 const UIN = '123456'
-const globalFile = path.join(DATA_DIR, 'config', 'global', 'settings.json')
-const accountFile = path.join(DATA_DIR, 'config', 'accounts', UIN, 'settings.json')
+// No --instance in the test argv: the default instance
+const settingsFile = path.join(DATA_DIR, 'instances', 'default', 'settings.json')
 
 // Overrides the shared setup mock so the service works in a throwaway directory
 vi.mock('@/common/globalVars', () => ({
@@ -16,11 +16,7 @@ vi.mock('@/common/globalVars', () => ({
   TEMP_DIR: path.join(DATA_DIR, 'temp'),
   LOG_DIR: path.join(DATA_DIR, 'logs'),
   dbDir: path.join(DATA_DIR, 'database'),
-  CONFIG_DIR: path.join(DATA_DIR, 'config'),
   STATE_DIR: path.join(DATA_DIR, 'state'),
-  GLOBAL_PLUGINS_FILE: path.join(DATA_DIR, 'config', 'global', 'plugins.json'),
-  ACCOUNTS_CONFIG_DIR: path.join(DATA_DIR, 'config', 'accounts'),
-  accountPluginsFile: (uin: string) => path.join(DATA_DIR, 'config', 'accounts', uin, 'plugins.json'),
   selfInfo: { uid: 'u', uin: UIN, nick: 'n', online: true },
   getFixedDataDir: () => DATA_DIR,
 }))
@@ -30,12 +26,10 @@ vi.mock('@/main/config', async importOriginal => await importOriginal<object>())
 
 const ConfigService = (await import('@/main/config')).default
 
-const readFile = (file: string) => (existsSync(file) ? JSON.parse(readFileSync(file, 'utf8')) : {})
-// The settings as they sit on disk, the two files merged the way the service merges them
-const read = () => ({ ...readFile(globalFile), ...readFile(accountFile) })
-const writeAccount = (value: unknown) => {
-  mkdirSync(path.dirname(accountFile), { recursive: true })
-  writeFileSync(accountFile, JSON.stringify(value))
+const read = () => (existsSync(settingsFile) ? JSON.parse(readFileSync(settingsFile, 'utf8')) : {})
+const write = (value: unknown) => {
+  mkdirSync(path.dirname(settingsFile), { recursive: true })
+  writeFileSync(settingsFile, JSON.stringify(value))
 }
 
 let ctx: Context
@@ -43,7 +37,7 @@ let ctx: Context
 async function boot() {
   ctx = new Context()
   await ctx.plugin(ConfigService)
-  ctx.config.get(false) // bind to this uin and create the files from defaults
+  ctx.config.get() // creates the file from the template for a new instance
   return ctx.config
 }
 
@@ -52,7 +46,7 @@ const { selfInfo } = await import('@/common/globalVars')
 beforeEach(() => {
   delete process.env.LLBOT_WEBUI_PORT
   delete process.env.LLBOT_LOG_LEVEL
-  rmSync(path.join(DATA_DIR, 'config'), { recursive: true, force: true })
+  rmSync(path.join(DATA_DIR, 'instances'), { recursive: true, force: true })
 })
 
 afterEach(() => {
@@ -73,16 +67,6 @@ describe('ConfigService.patch', () => {
     expect(saved.musicSignUrl).toBeTruthy()
   })
 
-  it('splits instance-wide and per-account keys into the two files', async () => {
-    const config = await boot()
-    config.patch({ ffmpeg: '/usr/bin/ffmpeg', webui: { port: 4100 } })
-    // ffmpeg is instance-wide, webui belongs to the account
-    expect(readFile(globalFile)).toMatchObject({ ffmpeg: '/usr/bin/ffmpeg' })
-    expect(readFile(globalFile).webui).toBeUndefined()
-    expect(readFile(accountFile).webui.port).toBe(4100)
-    expect(readFile(accountFile).ffmpeg).toBeUndefined()
-  })
-
   it('merges nested objects per key but replaces arrays whole', async () => {
     const config = await boot()
     config.patch({ ob11: { connect: [{ type: 'ws', enable: true, port: 7000 }] } })
@@ -93,6 +77,40 @@ describe('ConfigService.patch', () => {
     expect(saved.ob11).toHaveProperty('enable') // untouched sibling survived
     expect(saved.webui.port).toBe(4000)
     expect(saved.webui).toHaveProperty('host')
+  })
+})
+
+describe('the instance settings file', () => {
+  it('holds every setting in one file', async () => {
+    const config = await boot()
+    config.patch({ ffmpeg: '/usr/bin/ffmpeg', webui: { port: 4100 } })
+    expect(read()).toMatchObject({ ffmpeg: '/usr/bin/ffmpeg', webui: { port: 4100 } })
+    expect(config.file).toBe(settingsFile)
+  })
+
+  it('stays the same whichever account logs in', async () => {
+    const config = await boot()
+    config.patch({ webui: { port: 4100 } })
+    selfInfo.uin = '777'
+    try {
+      expect(config.get(false).webui.port).toBe(4100)
+      expect(config.file).toBe(settingsFile)
+    } finally {
+      selfInfo.uin = UIN
+    }
+  })
+
+  it('starts a new instance from default_config.json, OneBot included', async () => {
+    const config = await boot()
+    expect(config.get().ob11).toEqual(defaultConfigFile.ob11)
+    expect(read().ob11).toEqual(defaultConfigFile.ob11)
+  })
+
+  it('still converts an ob11 section from before connections were a list', async () => {
+    write({ ob11: { enable: true, enableWs: true, wsPort: 3100 } })
+    const config = await boot()
+    expect(config.get().ob11.enable).toBe(true)
+    expect(config.get().ob11.connect[0]).toMatchObject({ type: 'ws', enable: true, port: 3100 })
   })
 })
 
@@ -148,74 +166,19 @@ describe('LLBOT_* overrides', () => {
     expect(read().ffmpeg).toBe('/y')
   })
 
-  it('applies before login too, when there is no account file yet', async () => {
-    process.env.LLBOT_WEBUI_PORT = '9999'
-    selfInfo.uin = ''
-    try {
-      ctx = new Context()
-      await ctx.plugin(ConfigService)
-      expect(ctx.config.get(false).webui.port).toBe(9999)
-      expect(existsSync(accountFile)).toBe(false)
-    } finally {
-      selfInfo.uin = UIN
-    }
-  })
-
   it('keeps an external edit of a locked field when a reload has to write the file back', async () => {
     process.env.LLBOT_WEBUI_PORT = '9999'
     const config = await boot()
-    const account = readFile(accountFile)
-    account.webui.port = 5555
-    delete account.webui.host // a missing default forces the reload to write the file back
-    writeAccount(account)
+    const settings = read()
+    settings.webui.port = 5555
+    delete settings.webui.host // a missing default forces the reload to write the file back
+    write(settings)
 
     config.get(false)
 
-    expect(readFile(accountFile).webui.port).toBe(5555)
-    expect(readFile(accountFile).webui.host).toBeDefined()
+    expect(read().webui.port).toBe(5555)
+    expect(read().webui.host).toBeDefined()
     expect(config.get().webui.port).toBe(9999)
-  })
-})
-
-describe('a new account', () => {
-  it('starts from the OneBot settings in default_config.json', async () => {
-    const config = await boot()
-    expect(config.get().ob11).toEqual(defaultConfigFile.ob11)
-    expect(readFile(accountFile).ob11).toEqual(defaultConfigFile.ob11)
-    expect(config.peek('779').ob11).toEqual(defaultConfigFile.ob11)
-  })
-
-  it('still converts an ob11 section from before connections were a list', async () => {
-    writeAccount({ ob11: { enable: true, enableWs: true, wsPort: 3100 } })
-    const config = await boot()
-    expect(config.get().ob11.enable).toBe(true)
-    expect(config.get().ob11.connect[0]).toMatchObject({ type: 'ws', enable: true, port: 3100 })
-  })
-})
-
-describe('ConfigService.peek', () => {
-  it('reads another account without creating its file or switching the current config', async () => {
-    process.env.LLBOT_WEBUI_PORT = '9999'
-    const config = await boot()
-    const before = config.get()
-    const other = path.join(DATA_DIR, 'config', 'accounts', '777', 'settings.json')
-
-    const peeked = config.peek('777')
-
-    expect(existsSync(other)).toBe(false)
-    expect(peeked.webui.port).toBe(9999)
-    expect(config.get()).toBe(before)
-  })
-
-  it('reflects what is on disk for an existing account file', async () => {
-    const config = await boot()
-    const other = path.join(DATA_DIR, 'config', 'accounts', '778', 'settings.json')
-    mkdirSync(path.dirname(other), { recursive: true })
-    writeFileSync(other, JSON.stringify({ webui: { enable: false, host: '0.0.0.0', port: 4321 } }))
-
-    expect(config.peek('778').webui).toEqual({ enable: false, host: '0.0.0.0', port: 4321 })
-    // and leaves that file exactly as it was (no fill-in write)
-    expect(JSON.parse(readFileSync(other, 'utf8'))).toEqual({ webui: { enable: false, host: '0.0.0.0', port: 4321 } })
   })
 })
 
@@ -225,10 +188,19 @@ describe('a config file that will not parse', () => {
     config.patch({ webui: { port: 4242 } })
     expect(config.get(false).webui.port).toBe(4242)
 
-    writeFileSync(accountFile, '{ this is not json')
+    writeFileSync(settingsFile, '{ this is not json')
 
     expect(config.get(false).webui.port).toBe(4242)
     // and the broken file is left for the user to fix, not overwritten
-    expect(readFileSync(accountFile, 'utf8')).toBe('{ this is not json')
+    expect(readFileSync(settingsFile, 'utf8')).toBe('{ this is not json')
+  })
+
+  it('runs on the template without touching the file when there is no good config yet', async () => {
+    write({ webui: { port: 1 } })
+    writeFileSync(settingsFile, '{ broken')
+    ctx = new Context()
+    await ctx.plugin(ConfigService)
+    expect(ctx.config.get().webui.port).toBe(defaultConfigFile.webui.port)
+    expect(readFileSync(settingsFile, 'utf8')).toBe('{ broken')
   })
 })

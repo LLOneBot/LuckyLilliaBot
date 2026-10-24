@@ -47,6 +47,7 @@ function App() {
   const [activeTab, setActiveTab] = useState(getInitialTab);
   const [config, setConfig] = useState<Config>(defaultConfig);
   const [envLocked, setEnvLocked] = useState<ResConfig['envLocked']>([]);
+  const [instance, setInstance] = useState<string>();
 
   const [loading, setLoading] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -140,6 +141,7 @@ function App() {
           // 获取主配置
           setConfig(response.data.config);
           setEnvLocked(response.data.envLocked ?? []);
+          setInstance(response.data.instance);
 
           // 获取 QQ 版本号（单独 try-catch，不影响登录状态）
           try {
@@ -361,7 +363,7 @@ function App() {
                   config={config}
                   onChange={setConfig}
                   envLocked={envLocked}
-                  uin={accountInfo?.uin}
+                  instance={instance}
                   onOpenChangePassword={() => setShowChangePasswordDialog(true)}
                 />
               </div>
