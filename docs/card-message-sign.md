@@ -1,33 +1,44 @@
 # 卡片消息签名（`cardMsgSignUrl`）调研
 
-> 2026-10-25 调研结论：音乐卡片和链接分享卡片可以在 NT 层原生生成签好名的卡片，不需要第三方签名服务；任意卡片 JSON（OneBot `json`、Milky `light_app`、小程序）做不到自动签名。尚未实现，方案和待实测项见文末。
+> 2026-10-25 调研结论：卡片消息就是 NT 层的 ark 元素，"签名"就是让服务器给这段卡片 JSON 发一个 `config.token`（附带 `ctime`）。腾讯自己有给任意卡片 JSON 签名的网页接口，bot 用自己的登录态就能调，所以可以在 NT 层发送时统一自动签名，不需要第三方签名服务。尚未实现，方案和待实测项见文末。
 
 ## 现状
 
-- 只有 OneBot 的 `music` 段会签名：`src/onebot11/transform/message/outgoing.ts` 用 `MusicSign`（`src/common/utils/sign.ts`）把歌曲参数 POST 到 `cardMsgSignUrl`，拿回卡片 JSON，再作为 ark 元素发出。
-- OneBot `json` 段和 Milky `light_app` 段把 JSON 原样当 ark 元素发出；NT 层的 `SendElement.ark()`（`src/ntqqapi/entities.ts`）也不签名。Milky、Satori 没有音乐段。
-- 推荐联系人卡片已经是 NT 层原生拿到签好名的卡片：`OidbSvcTrpcTcp.0x12b6_0`（`getFriendRecommendContactArk` / `getGroupRecommendContactArk`）。
+- 只有 OneBot 的 `music` 段会签名：`src/onebot11/transform/message/outgoing.ts` 用 `MusicSign`（`src/common/utils/sign.ts`）把歌曲参数 POST 到 `cardMsgSignUrl`，拿回整段卡片 JSON，再作为 ark 元素发出。
+- OneBot `json` 段和 Milky `light_app` 段把 JSON 原样当 ark 元素发出；NT 层的 `SendElement.ark()`（`src/ntqqapi/entities.ts`）也不签名。没有 token 的卡片发得出去，但手机端不显示。
+- 推荐联系人卡片是 NT 层原生拿到签好名的卡片：`OidbSvcTrpcTcp.0x12b6_0`（`getFriendRecommendContactArk` / `getGroupRecommendContactArk`）。
 
-## 签名服务是怎么工作的
+## 签名是什么
 
-- `OidbSvc.0xb77_9`（OIDB 0xb77，子命令 9，富消息 / 音乐分享）在 Linux QQ 3.2.28 的真机签名白名单里（`src/main/qqProtocol/direct-lib/cmd.ts` 的 `LINUX_STATIC_SIGN`，来源见 LuckyLillia.Sign 的 `docs/Linux/algorithm/QQ-3.2.28-48517.md`），说明 NT 客户端现在仍在用它。
-- LuckyLillia.Sign 的手表 QQ 资料（`reference/Android/watch/watch-cmd-list.md` §2、`watch-login-protocol.md`）记录了一个手表 QQ 工具：`music.go` 的 `BuildMusicShare` / `ShareMusicSelf` / `parseMusicOIDBResult`，配合 `messages.go` 的 `WaitPrivateMessage`，上层 `handleMusic` 包成 HTTP 接口，"musicsign" 这个叫法就是从这里来的。
-- 也就是说，签名服务就是一个 QQ 号：用 0xb77_9 把卡片分享给自己，等这条私聊消息推回来，把里面服务器签好的卡片 JSON 返回给调用方。0xb77_9 的请求只带标题、摘要、跳转链接、封面、音频链接，以及音乐平台的 appid 和客户端信息；卡片 JSON 和签名都由服务器生成。
+签好名的卡片多了 `config.ctime` 和 `config.token`，比如 `"config":{"ctime":1681945810,"forward":1,"token":"6b97ddb1…","type":"normal"}`。token 由服务器生成，本地算不出来。
 
-## 结论
+## 两条拿 token 的路
 
-1. **音乐卡片和链接分享卡片可以在 NT 层原生生成**。bot 本身就是一个登录着的 QQ 客户端，自己做"分享给自己、截获卡片"即可。`sendPB` 在直连和 PMHQ 两种模式下都有实现，OIDB 封装在 `src/main/qqProtocol/base.ts`。
-2. **任意卡片 JSON 没法自动签名**。0xb77_9 只接受固定模板的字段；本地命令清单和参考资料里都没有"给任意 JSON 签名"的命令。这类卡片只能由调用方提供已经签好的 JSON（比如转发收到的卡片）。所以"NT 层对所有卡片自动签名"做不到，能做的是"NT 层提供音乐 / 链接分享卡片的生成"。
+1. **网页接口 `ark-share/GenSignedArk`（推荐）**
+   - 地址：`https://zb.vip.qq.com/tx/trpc/ark-share/GenSignedArk?g_tk=…`，或 `https://act.qzone.qq.com/v2/vip/tx/trpc/ark-share/GenSignedArk?g_tk=…`，POST。
+   - 请求体：`{ "ark": "<未签名卡片 JSON 字符串>", "config": { "forward": 1, "type": "normal" }, "uinType": …, "toUin": "<收件方>" }`。
+   - 鉴权：对应域名的登录态 cookie（`uin` / `skey` / `p_skey`）加 `g_tk`。网上的第三方"ark 签名"接口要用户交出 uin / skey / pskey，背后转调的就是它。
+   - bot 已经有现成的基础设施：`ntWebApi.getCookies(domain)` 能拿到指定域名的 skey / p_skey，`ntWebApi.genBkn()` 就是 `g_tk` 算法，`getExpertInfo` 已经在用 vip.qq.com 的 p_skey。
+   - 任意卡片 JSON 都能签，所以适用于 OneBot `json`、Milky `light_app`、自己拼出来的音乐卡片。
+2. **`OidbSvc.0xb77_9` 分享（只限音乐 / 链接分享）**
+   - 它在 Linux QQ 3.2.28 的真机签名白名单里（`direct-lib/cmd.ts` 的 `LINUX_STATIC_SIGN`），NT 客户端仍在用。
+   - LuckyLillia.Sign 的手表 QQ 资料（`reference/Android/watch/watch-cmd-list.md` §2）记录了一个工具：`ShareMusicSelf` 把卡片分享给自己，`WaitPrivateMessage` 等这条私聊推回来，把服务器签好的卡片通过 HTTP 返回，"musicsign" 这个叫法就出自这里。现有的音乐签名服务就是这种做法。
+   - 只接受标题、链接、封面、音频这类固定字段，卡片由服务器生成，做不了任意 JSON。
 
 ## 建议方案（未实现）
 
-- NT 层新增一个生成分享卡片的接口：用 0xb77_9 发给自己，在消息推送里等到这条发给自己的私聊（按标题 / 链接匹配，带超时），取出卡片 JSON，撤回这条消息后返回。同一张卡片可以缓存复用。
-- 适配器只负责参数转换。OneBot `music` 段的 `custom` 类型可以直接用；`qq` / `163` 等只给歌曲 id 的类型要先查到歌曲信息 —— 原来签名服务替我们做了这一步，自己做就得调各音乐平台的公开接口。
-- `cardMsgSignUrl` 改成兜底：原生生成失败、或者只有 id 查不到歌曲信息时再用它。它是 NT 层的配置，留在 bot 设置里，不进 OneBot 的 schema。
+- **NT 层统一签名**：发消息时，对没有 `config.token` 的 ark 元素，按这条消息的收件方调 `GenSignedArk`，把返回的卡片换进去再发。已经带 token 的（比如转发收到的卡片）原样发。签名失败时直接报错，不发一张手机端不显示的卡片。
+- **音乐卡片**：适配器把参数转换成音乐卡片 JSON，交给 NT 层签名。`custom` 类型参数齐全，可以直接拼；`qq` / `163` 等只给歌曲 id 的类型要先查歌曲信息，原签名服务替我们做了这一步。`cardMsgSignUrl` 可以只留给"按 id 查歌并生成卡片"这件事，或者干脆去掉。
+- 这样签名就从 OneBot 层挪到了 NT 层，所有适配器都受益。
 
 ## 待实测
 
-- 0xb77_9 的 protobuf 字段、各音乐平台的 appid 和客户端信息在当前 NT 协议下是否仍然有效。旧的公开实现里有这些常量，本项目没有验证过。
-- 分享给自己是否可行；推送里能否拿到卡片；截获的卡片转发到别的会话后签名是否仍然有效（现有签名服务就是这么用的，大概率可行）。
-- 频率风控。
-- 也可以直接把 0xb77_9 发给目标会话，由服务器代发。但那样不在正常发送流程里：不能和别的元素拼成一条消息，消息 id 也要从回推里找。
+- `GenSignedArk` 的返回格式、`uinType` 取值（群和私聊各是多少），以及用哪个域名的 p_skey（vip.qq.com 还是 qzone.qq.com）。
+- token 是否和收件方绑定：请求里带了 `toUin`，如果绑定，转发到别的会话就得重签。
+- 是否所有 app 类型都能签；频率限制和风控；接口是内部网页接口，可能变动，需要失败兜底。
+
+## 参考
+
+- [mirai issue #2279：希望支持 json 消息的 ark 签名](https://github.com/mamoe/mirai/issues/2279)
+- [精易论坛：json 卡片 QQ 群 ark 消息签名](https://bbs.ijingyi.com/thread-14780343-1-1.html)（`GenSignedArk` 地址与请求体）
+- [QQ ARK 签名第三方接口说明](https://api.aa1.cn/doc/tenark.html)（签名后卡片的 `config` 样例）
