@@ -10,7 +10,6 @@ export function otherSettings(config: Config, envLocked: EnvLock[]): Partial<Con
   const sections: Partial<Config> = structuredClone({
     webui: config.webui,
     log: config.log,
-    enableLocalFile2Url: config.enableLocalFile2Url,
     msgCacheExpire: config.msgCacheExpire,
     musicCardSignUrl: config.musicCardSignUrl,
   })

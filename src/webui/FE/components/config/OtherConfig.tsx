@@ -1,7 +1,7 @@
 import React from 'react'
 import { Config } from '../../types'
 import { EnvLock } from './otherSettings'
-import { Globe, FileText, Music, Lock, Clock, Shield, Edit, Paperclip, Server, Info } from 'lucide-react'
+import { Globe, FileText, Music, Lock, Clock, Shield, Edit, Server, Info } from 'lucide-react'
 import { DurationPicker, HostSelector } from '../common'
 
 interface OtherConfigProps {
@@ -113,16 +113,6 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, envLocked, 
               </div>
             </div>
             <input type='checkbox' checked={config.log} onChange={(e) => handleChange('log', e.target.checked)} className="switch-toggle" />
-          </div>
-          <div className='flex items-center justify-between p-4 bg-theme-item rounded-xl bg-item-hover transition-colors'>
-            <div className='flex items-center gap-3'>
-              <Paperclip size={20} className='text-pink-500'/>
-              <div>
-                <div className='text-sm font-medium text-theme'>本地文件转URL</div>
-                <div className='text-xs text-theme-muted mt-0.5'>启用后可将本地文件转换为URL链接</div>
-              </div>
-            </div>
-            <input type='checkbox' checked={config.enableLocalFile2Url} onChange={(e) => handleChange('enableLocalFile2Url', e.target.checked)} className="switch-toggle" />
           </div>
         </div>
       </div>

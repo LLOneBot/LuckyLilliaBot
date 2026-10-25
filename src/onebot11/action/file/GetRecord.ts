@@ -2,7 +2,7 @@ import path from 'node:path'
 import { ActionName } from '../types'
 import { decodeSilk } from '@/common/utils/audio'
 import { BaseAction, Schema } from '../BaseAction'
-import { stat, readFile, writeFile } from 'node:fs/promises'
+import { stat, writeFile } from 'node:fs/promises'
 import { TEMP_DIR } from '@/common/globalVars'
 import { randomUUID } from 'node:crypto'
 import { ChatType } from '@/ntqqapi/types'
@@ -15,10 +15,12 @@ interface Payload {
 }
 
 interface Response {
+  /** The converted file, on the bot's machine */
   file: string
   file_size: string
   file_name: string
-  base64?: string
+  /** The original voice (silk / amr), for a client that cannot read the bot's files */
+  url: string
 }
 
 function ffmpegConvert(inputPath: string, outputPath: string): Promise<void> {
@@ -59,15 +61,12 @@ export default class GetRecord extends BaseAction<Payload, Response> {
       const silkPath = `${tmpBase}.silk`
       await writeFile(silkPath, audioBytes)
       const decoded = await decodeSilk(this.ctx, silkPath, payload.out_format)
-      const res: Response = {
+      return {
         file: decoded,
         file_name: path.basename(decoded),
-        file_size: (await stat(decoded)).size.toString()
+        file_size: (await stat(decoded)).size.toString(),
+        url,
       }
-      if (this.adapter.config.enableLocalFile2Url) {
-        res.base64 = await readFile(decoded, 'base64')
-      }
-      return res
     }
     // 非 silk（QQ 群语音常见是 amr），直接走 ffmpeg 转码
     const head = audioBytes.subarray(0, 4).toString('ascii')
@@ -75,15 +74,12 @@ export default class GetRecord extends BaseAction<Payload, Response> {
     const inPath = `${tmpBase}.${ext}`
     await writeFile(inPath, audioBytes)
     await ffmpegConvert(inPath, outPath)
-    const res: Response = {
+    return {
       file: outPath,
       file_name: path.basename(outPath),
-      file_size: (await stat(outPath)).size.toString()
+      file_size: (await stat(outPath)).size.toString(),
+      url,
     }
-    if (this.adapter.config.enableLocalFile2Url) {
-      res.base64 = await readFile(outPath, 'base64')
-    }
-    return res
   }
 }
 

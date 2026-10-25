@@ -75,7 +75,6 @@
       }
     ]
   },
-  "enableLocalFile2Url": false,
   "log": true,
   "logLevel": "info",
   "musicCardSignUrl": "https://ss.xingzhige.com/music_card/card",

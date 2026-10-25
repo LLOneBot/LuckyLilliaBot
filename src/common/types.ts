@@ -124,7 +124,6 @@ export interface Config {
   webui: WebUIConfig
   email?: EmailConfig
   // onlyLocalhost: boolean
-  enableLocalFile2Url?: boolean // 开启后，本地文件路径图片会转成http链接, 语音会转成base64
   log?: boolean
   logLevel?: 'info' | 'debug' // 'debug' 打开底层详情日志 (等价 --debug); 默认 'info'
   ffmpeg?: string // ffmpeg路径

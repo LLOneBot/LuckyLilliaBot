@@ -1,5 +1,4 @@
 import { BaseAction, Schema } from '../BaseAction'
-import { readFile } from 'node:fs/promises'
 import { ActionName } from '../types'
 import { ElementType, ChatType } from '@/ntqqapi/types'
 import { parseBool, uri2local } from '@/common/utils'
@@ -14,7 +13,6 @@ export interface GetFileResponse {
   url?: string
   file_size?: string
   file_name?: string
-  base64?: string
 }
 
 export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResponse> {
@@ -24,8 +22,6 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
   })
 
   protected async _handle(payload: GetFilePayload): Promise<GetFileResponse> {
-    const { enableLocalFile2Url } = this.adapter.config
-
     let fileCache = await this.ctx.store.getFileCacheById(payload.file)
     if (!fileCache?.length) {
       fileCache = await this.ctx.store.getFileCacheByName(payload.file)
@@ -57,13 +53,6 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
         res.url = await this.ctx.ntFileApi.getVideoUrl(fileCache[0].fileUuid, isGroup)
       } else if (fileCache[0].elementType === ElementType.Ptt) {
         res.url = await this.ctx.ntFileApi.getPttUrl(fileCache[0].fileUuid, isGroup)
-      }
-      if (enableLocalFile2Url && downloadPath && (res.file === res.url || res.url === undefined)) {
-        try {
-          res.base64 = await readFile(downloadPath, 'base64')
-        } catch (e) {
-          throw new Error('文件下载失败. ' + e)
-        }
       }
       //不手动删除？文件持久化了
       return res

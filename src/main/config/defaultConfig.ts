@@ -39,7 +39,6 @@ export const adapterDefaults: AdapterSections = {
 
 export const defaultConfig: Config = {
   webui: webuiDefault,
-  enableLocalFile2Url: false,
   log: true,
   musicCardSignUrl: 'https://ss.xingzhige.com/music_card/card',
   msgCacheExpire: 120,

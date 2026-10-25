@@ -109,13 +109,14 @@ describe('the instance settings file', () => {
 })
 
 describe('settings written by an older version', () => {
-  it('renames musicSignUrl, swaps the retired sign host, and drops the auto-delete settings nothing reads', async () => {
-    write({ musicSignUrl: 'https://llob.linyuchen.net/sign/music', autoDeleteFile: true, autoDeleteFileSecond: 30 })
+  it('renames musicSignUrl, swaps the retired sign host, and drops the settings nothing reads any more', async () => {
+    write({ musicSignUrl: 'https://llob.linyuchen.net/sign/music', autoDeleteFile: true, autoDeleteFileSecond: 30, enableLocalFile2Url: true })
     const config = await boot()
     expect(config.get().musicCardSignUrl).toBe(defaultConfigFile.musicCardSignUrl)
     expect(read()).not.toHaveProperty('musicSignUrl')
     expect(read()).not.toHaveProperty('autoDeleteFile')
     expect(read()).not.toHaveProperty('autoDeleteFileSecond')
+    expect(read()).not.toHaveProperty('enableLocalFile2Url')
   })
 
   it('keeps a custom music card service under the new name', async () => {

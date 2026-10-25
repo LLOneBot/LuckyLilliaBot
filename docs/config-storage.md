@@ -28,7 +28,7 @@
 ├─ default_config.json                  模板:新建实例时 bot 设置和内置插件配置的初始值;docker/nix 照旧 sed 它
 └─ data/
    ├─ instances/<实例名>/                 一个实例 = 一套完整环境
-   │  ├─ settings.json                  bot 自身设置:log / logLevel / ffmpeg / msgCacheExpire / musicCardSignUrl / enableLocalFile2Url / webui ...
+   │  ├─ settings.json                  bot 自身设置:log / logLevel / ffmpeg / msgCacheExpire / musicCardSignUrl / webui ...
    │  ├─ plugins.json                   全部插件的条目和配置(含 builtin:onebot11 / satori / milky / email-notification)
    │  ├─ webui_token.txt                这个实例的 WebUI 密码
    │  └─ plugin-data/<key>/shared/      插件数据:ctx.storage.dir(),也是条目的 ctx.baseUrl
@@ -84,7 +84,7 @@
 ## 6. 内置插件
 
 - OneBot / Satori / Milky / 邮件通知的配置放进各自的条目(`builtin:onebot11` 等),schema 就是已有的 `OB11Schema` / `SatoriSchema` / `MilkySchema` / `EmailSchema` 去掉开关字段。`BuiltinConfigBinding` 整套删除:配置写在 bot 自己文件里、开关藏在值里、`status.bound`、`validateOnEnable`。
-- 适配器拿到的配置 = 条目配置 + bot 设置里它要用的字段(`ffmpeg`、`musicCardSignUrl`、`enableLocalFile2Url`),由 `adapterEntry` 拼。条目配置变了走 cordis 的 `fiber.update` 重启这个适配器,别的插件或 bot 设置保存不影响它;bot 设置里那几个字段变了,只更新调用时才读的字段(同 `c43abebe`)。
+- 适配器拿到的配置 = 条目配置 + bot 设置里它要用的字段(`ffmpeg`、`musicCardSignUrl`),由 `adapterEntry` 拼。条目配置变了走 cordis 的 `fiber.update` 重启这个适配器,别的插件或 bot 设置保存不影响它;bot 设置里那几个字段变了,只更新调用时才读的字段(同 `c43abebe`)。
 - 新建实例或某个内置条目第一次出现时,初始配置取 `default_config.json` 的 `ob11` / `satori` / `milky` 段。nix 用 sed 把 host 改成 `""` 就是靠这个生效的。
 - OneBot `get_config` / `set_config` 对外字段形状不变:`get_config` 返回 bot 设置加上 `ob11` / `satori` / `milky`(各自的 `enable` = 条目没停用);`set_config` 把 bot 设置字段交给 ConfigService,三个适配器段交给插件服务(`enable` 转成启用 / 停用),同样校验。
 - 前端各设置页照旧用 `useBuiltinConfig` 走插件接口。

@@ -19,7 +19,6 @@ export class SetConfigAction extends BaseAction<LegacyConfig, null> {
     satori: Schema.any(),
     ob11: Schema.any(),
     webui: Schema.any(),
-    enableLocalFile2Url: Schema.boolean(),
     log: Schema.boolean(),
     ffmpeg: Schema.string(),
     musicCardSignUrl: Schema.string(),

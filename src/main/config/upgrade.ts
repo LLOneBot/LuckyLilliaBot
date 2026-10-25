@@ -9,7 +9,7 @@ import { adapterDefaults, defaultConfig } from './defaultConfig'
 const TEMPLATE_FILE = path.join(import.meta.dirname, 'default_config.json')
 
 /** Top-level keys no version reads any more: dropped from the settings file and from incoming old-shape configs. */
-export const DEPRECATED_KEYS = ['onlyLocalhost', 'autoDeleteFile', 'autoDeleteFileSecond', 'cardMsgSignUrl']
+export const DEPRECATED_KEYS = ['onlyLocalhost', 'autoDeleteFile', 'autoDeleteFileSecond', 'cardMsgSignUrl', 'enableLocalFile2Url']
 
 /** The sections of the old config file that now live in the adapters' plugin entries. */
 export const ADAPTER_KEYS = ['ob11', 'satori', 'milky'] as const satisfies readonly (keyof AdapterSections)[]

@@ -111,7 +111,6 @@ describe('builtin plugins', () => {
       ...defaultConfig,
       webui: { ...defaultConfig.webui, enable: false },
       musicCardSignUrl: 'https://sign.invalid/music',
-      enableLocalFile2Url: true,
       ffmpeg: '/opt/ffmpeg',
     }
     const ob11 = {
@@ -170,7 +169,6 @@ describe('builtin plugins', () => {
       enable: true,
       connect: ob11.connect,
       musicCardSignUrl: config.musicCardSignUrl,
-      enableLocalFile2Url: config.enableLocalFile2Url,
       ffmpeg: config.ffmpeg,
     })
     expect(ctx.get('satori')!.config).toEqual({ ...satori, enable: true, ffmpeg: config.ffmpeg })
