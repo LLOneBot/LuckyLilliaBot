@@ -10,7 +10,7 @@ function fakeContext(entries: Record<string, { id: string; enabled: boolean; con
     disable: vi.fn(async () => {}),
   }
   const ctx = {
-    config: { get: () => ({ log: true }), patch: vi.fn((partial: object) => partial) },
+    config: { get: () => ({ log: true, cardMsgSignUrl: 'https://sign.example' }), patch: vi.fn((partial: object) => partial) },
     get: (name: string) => (name === 'plugins' ? plugins : undefined),
     parallel: vi.fn(async () => {}),
     logger: { warn: vi.fn() },
@@ -26,6 +26,9 @@ describe('the old config shape', () => {
     })
     expect(legacyConfig(ctx)).toEqual({
       log: true,
+      cardMsgSignUrl: 'https://sign.example',
+      // the old name too, for clients that know only that one
+      musicSignUrl: 'https://sign.example',
       satori: { port: 5600, enable: true },
       milky: { reportSelfMessage: true, enable: false },
     })
@@ -38,5 +41,11 @@ describe('the old config shape', () => {
     expect(plugins.enable).toHaveBeenCalledWith('s', { rules: false })
     // nothing left over for the settings file
     expect(ctx.config.patch).not.toHaveBeenCalled()
+  })
+
+  it('takes the old name of the sign address and drops settings nothing reads any more', async () => {
+    const { ctx } = fakeContext({})
+    await applyLegacyConfig(ctx, { musicSignUrl: 'https://sign.example/card', autoDeleteFile: true, log: false })
+    expect(ctx.config.patch).toHaveBeenCalledWith({ cardMsgSignUrl: 'https://sign.example/card', log: false })
   })
 })

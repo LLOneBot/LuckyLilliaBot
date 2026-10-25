@@ -8,6 +8,9 @@ import { adapterDefaults, defaultConfig } from './defaultConfig'
 // Next to the bundle (dist/) or to this file in dev; docker/nix sed it before the first start
 const TEMPLATE_FILE = path.join(import.meta.dirname, 'default_config.json')
 
+/** Top-level keys no version reads any more: dropped from the settings file and from incoming old-shape configs. */
+export const DEPRECATED_KEYS = ['onlyLocalhost', 'autoDeleteFile', 'autoDeleteFileSecond']
+
 /** The sections of the old config file that now live in the adapters' plugin entries. */
 export const ADAPTER_KEYS = ['ob11', 'satori', 'milky'] as const satisfies readonly (keyof AdapterSections)[]
 
@@ -43,8 +46,12 @@ export function templateSection<K extends keyof AdapterSections>(key: K): Adapte
 /** Brings settings written by an older version to the current shape. */
 export function upgradeConfig(oldConfig: Dict): LLBotConfig {
   let migratedConfig = oldConfig
-  if (oldConfig.musicSignUrl && oldConfig.musicSignUrl.includes('linyuchen')) {
-    oldConfig.musicSignUrl = defaultConfig.musicSignUrl
+  if ('musicSignUrl' in oldConfig) {
+    oldConfig.cardMsgSignUrl ??= oldConfig.musicSignUrl
+    delete oldConfig.musicSignUrl
+  }
+  if (oldConfig.cardMsgSignUrl?.includes('linyuchen')) {
+    oldConfig.cardMsgSignUrl = defaultConfig.cardMsgSignUrl
   }
   // An ob11 from before `connect` was a list. No ob11 at all is not that: the defaults fill it in
   if (oldConfig.ob11 && !Array.isArray(oldConfig.ob11.connect)) {

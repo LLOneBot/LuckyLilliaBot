@@ -110,7 +110,7 @@ describe('service registry under the pinned cordis version', () => {
     mount('app', Core, config)
     mount('onebot', OneBot11Adapter, {
       ...adapterDefaults.ob11,
-      musicSignUrl: config.musicSignUrl,
+      cardMsgSignUrl: config.cardMsgSignUrl,
       enableLocalFile2Url: config.enableLocalFile2Url!,
       ffmpeg: config.ffmpeg,
     })

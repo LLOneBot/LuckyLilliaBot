@@ -14,7 +14,7 @@ describe('otherSettings', () => {
   it('saves only the keys the other-settings page edits', () => {
     const sections = otherSettings(config, [])
     expect(Object.keys(sections).sort()).toEqual([
-      'autoDeleteFile', 'autoDeleteFileSecond', 'enableLocalFile2Url', 'log', 'msgCacheExpire', 'musicSignUrl', 'webui',
+      'cardMsgSignUrl', 'enableLocalFile2Url', 'log', 'msgCacheExpire', 'webui',
     ])
     // the adapter sections stay out, so a stale copy here cannot overwrite a newer save elsewhere
     expect(sections).not.toHaveProperty('satori')

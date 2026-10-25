@@ -20,13 +20,9 @@ describe('the two default config sources', () => {
     expect(defaultConfig.logLevel).toBe('info')
   })
 
-  // Known divergence, left as-is: the JSON ships the old sign URL and migrateConfig rewrites any
-  // 'linyuchen' one to the TS value on load, so the two are deliberately out of step here.
-  const KNOWN_DIVERGENT = ['musicSignUrl']
-
   it('agree on the scalar defaults they share', () => {
     for (const [key, value] of Object.entries(fromFile)) {
-      if (value === null || typeof value === 'object' || KNOWN_DIVERGENT.includes(key)) continue
+      if (value === null || typeof value === 'object') continue
       expect({ key, value: (defaultConfig as Record<string, unknown>)[key] }).toEqual({ key, value })
     }
   })

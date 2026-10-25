@@ -195,9 +195,9 @@ export async function transformOutgoingSegments(
       }
         break
       case OB11MessageDataType.Music: {
-        const { musicSignUrl } = ctx.onebot.config
-        if (!musicSignUrl) {
-          throw new Error('音乐卡片签名地址未配置')
+        const { cardMsgSignUrl } = ctx.onebot.config
+        if (!cardMsgSignUrl) {
+          throw new Error('卡片消息签名地址未配置')
         }
         const { type } = segment.data
         if (!['qq', '163', 'kugou', 'kuwo', 'migu', 'custom'].includes(type)) {
@@ -212,7 +212,7 @@ export async function transformOutgoingSegments(
           }
         }
         try {
-          const content = await new MusicSign(ctx, musicSignUrl).sign(segment.data)
+          const content = await new MusicSign(ctx, cardMsgSignUrl).sign(segment.data)
           sendElements.push(SendElement.ark(content))
         } catch (e) {
           throw new Error(`签名音乐消息失败：${(e as Error).message}`)

@@ -21,9 +21,9 @@ export class SetConfigAction extends BaseAction<LegacyConfig, null> {
     webui: Schema.any(),
     enableLocalFile2Url: Schema.boolean(),
     log: Schema.boolean(),
-    autoDeleteFile: Schema.boolean(),
-    autoDeleteFileSecond: Schema.number(),
     ffmpeg: Schema.string(),
+    cardMsgSignUrl: Schema.string(),
+    // The old name of cardMsgSignUrl
     musicSignUrl: Schema.string(),
     msgCacheExpire: Schema.number()
   })

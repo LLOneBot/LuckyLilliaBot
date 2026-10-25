@@ -63,7 +63,7 @@ describe('ConfigService.patch', () => {
     expect(saved.ffmpeg).toBe('/usr/bin/ffmpeg')
     // a full overwrite (the old set_config behaviour) would have dropped these
     expect(saved.webui).toBeTruthy()
-    expect(saved.musicSignUrl).toBeTruthy()
+    expect(saved.cardMsgSignUrl).toBeTruthy()
   })
 
   it('merges nested objects per key but replaces arrays whole', async () => {
@@ -105,6 +105,23 @@ describe('the instance settings file', () => {
     expect(read()).not.toHaveProperty('ob11')
     expect(read()).not.toHaveProperty('satori')
     expect(read()).not.toHaveProperty('milky')
+  })
+})
+
+describe('settings written by an older version', () => {
+  it('renames musicSignUrl, swaps the retired sign host, and drops the auto-delete settings nothing reads', async () => {
+    write({ musicSignUrl: 'https://llob.linyuchen.net/sign/music', autoDeleteFile: true, autoDeleteFileSecond: 30 })
+    const config = await boot()
+    expect(config.get().cardMsgSignUrl).toBe(defaultConfigFile.cardMsgSignUrl)
+    expect(read()).not.toHaveProperty('musicSignUrl')
+    expect(read()).not.toHaveProperty('autoDeleteFile')
+    expect(read()).not.toHaveProperty('autoDeleteFileSecond')
+  })
+
+  it('keeps a custom sign address under the new name', async () => {
+    write({ musicSignUrl: 'https://sign.example/card' })
+    const config = await boot()
+    expect(config.get().cardMsgSignUrl).toBe('https://sign.example/card')
   })
 })
 

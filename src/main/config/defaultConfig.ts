@@ -41,9 +41,7 @@ export const defaultConfig: Config = {
   webui: webuiDefault,
   enableLocalFile2Url: false,
   log: true,
-  autoDeleteFile: false,
-  autoDeleteFileSecond: 60,
-  musicSignUrl: 'https://ss.xingzhige.com/music_card/card',
+  cardMsgSignUrl: 'https://ss.xingzhige.com/music_card/card',
   msgCacheExpire: 120,
   ffmpeg: '',
   // default_config.json 也有这一项; 两份默认值必须一致 (见 test/unit/config/defaults.test.ts)

@@ -28,7 +28,7 @@
 ├─ default_config.json                  模板:新建实例时 bot 设置和内置插件配置的初始值;docker/nix 照旧 sed 它
 └─ data/
    ├─ instances/<实例名>/                 一个实例 = 一套完整环境
-   │  ├─ settings.json                  bot 自身设置:log / logLevel / ffmpeg / msgCacheExpire / musicSignUrl / enableLocalFile2Url / webui ...
+   │  ├─ settings.json                  bot 自身设置:log / logLevel / ffmpeg / msgCacheExpire / cardMsgSignUrl / enableLocalFile2Url / webui ...
    │  ├─ plugins.json                   全部插件的条目和配置(含 builtin:onebot11 / satori / milky / email-notification)
    │  ├─ webui_token.txt                这个实例的 WebUI 密码
    │  └─ plugin-data/<key>/shared/      插件数据:ctx.storage.dir(),也是条目的 ctx.baseUrl
@@ -84,7 +84,7 @@
 ## 6. 内置插件
 
 - OneBot / Satori / Milky / 邮件通知的配置放进各自的条目(`builtin:onebot11` 等),schema 就是已有的 `OB11Schema` / `SatoriSchema` / `MilkySchema` / `EmailSchema` 去掉开关字段。`BuiltinConfigBinding` 整套删除:配置写在 bot 自己文件里、开关藏在值里、`status.bound`、`validateOnEnable`。
-- 适配器拿到的配置 = 条目配置 + bot 设置里它要用的字段(`ffmpeg`、`musicSignUrl`、`enableLocalFile2Url`),由 `withBotConfig` 拼。条目配置变了走 cordis 的 `fiber.update` 重启这个适配器,别的插件或 bot 设置保存不影响它;bot 设置里那几个字段变了,只更新调用时才读的字段(同 `c43abebe`)。
+- 适配器拿到的配置 = 条目配置 + bot 设置里它要用的字段(`ffmpeg`、`cardMsgSignUrl`、`enableLocalFile2Url`),由 `adapterEntry` 拼。条目配置变了走 cordis 的 `fiber.update` 重启这个适配器,别的插件或 bot 设置保存不影响它;bot 设置里那几个字段变了,只更新调用时才读的字段(同 `c43abebe`)。
 - 新建实例或某个内置条目第一次出现时,初始配置取 `default_config.json` 的 `ob11` / `satori` / `milky` 段。nix 用 sed 把 host 改成 `""` 就是靠这个生效的。
 - OneBot `get_config` / `set_config` 对外字段形状不变:`get_config` 返回 bot 设置加上 `ob11` / `satori` / `milky`(各自的 `enable` = 条目没停用);`set_config` 把 bot 设置字段交给 ConfigService,三个适配器段交给插件服务(`enable` 转成启用 / 停用),同样校验。
 - 前端各设置页照旧用 `useBuiltinConfig` 走插件接口。
@@ -204,4 +204,4 @@
 | `35640c76` | §7 修正 | 卡片开关打开时不再一律校验:绑定加 `validateOnEnable`,适配器声明(token 规则是安全闸,不能借开关绕过),邮件不声明 —— SMTP 没配好也能先打开(只是发不出去)。保存时照旧校验:通知开着才要求 SMTP / 发件人 / 收件人齐全,关着可以存空配置(issue #690) |
 | `d1f2eb02` | §9 step5/6 回归 | 目录化后,不存在的账号文件读成空对象(原来是整份换成 `default_config.json`);没有 `ob11` 被 `migrateConfig` 当成 `connect` 还不是数组的老格式,写回一份关闭的 OneBot + 旧连接行 —— **`ca273bc4` 之后首次登录的账号 OneBot 默认是关的**。改成只转换"有 `ob11` 但没有 `connect` 数组"的,缺 `ob11` 由默认值补齐。已经被写成关闭的账号文件不会自动改回 |
 
-**实测遗留**:`default_config.json` 与 `defaultConfig.ts` 的 `musicSignUrl` 本来就不一致(JSON 是旧的 `llob.linyuchen.net`,而 `migrateConfig` 又会把含 `linyuchen` 的值改写成 TS 里的 `ss.xingzhige.com`)。未动它,单测里列为已知例外。另外 `mergeNewProperties` 会按下标递归进数组:`ob11.connect[i]` 缺的键从 `default_config.json` 的第 i 行补(实测老格式转出来的 ws 行被补上了默认 ws 行的 `host`),行顺序和默认不同时会补进别的连接类型的字段。只补不改,改造前就是这样,未动。
+**实测遗留**:`default_config.json` 与 `defaultConfig.ts` 的签名地址原来不一致(JSON 是旧的 `llob.linyuchen.net`),改名为 `cardMsgSignUrl` 时已统一成 `ss.xingzhige.com`;旧配置里含 `linyuchen` 的值仍在加载时改写。另外 `mergeNewProperties` 会按下标递归进数组:`ob11.connect[i]` 缺的键从 `default_config.json` 的第 i 行补(实测老格式转出来的 ws 行被补上了默认 ws 行的 `host`),行顺序和默认不同时会补进别的连接类型的字段。只补不改,改造前就是这样,未动。

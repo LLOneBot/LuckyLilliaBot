@@ -127,10 +127,9 @@ export interface Config {
   enableLocalFile2Url?: boolean // 开启后，本地文件路径图片会转成http链接, 语音会转成base64
   log?: boolean
   logLevel?: 'info' | 'debug' // 'debug' 打开底层详情日志 (等价 --debug); 默认 'info'
-  autoDeleteFile?: boolean
-  autoDeleteFileSecond?: number
   ffmpeg?: string // ffmpeg路径
-  musicSignUrl?: string
+  /** Signs card messages (music cards for now) through a third-party service. */
+  cardMsgSignUrl?: string
   msgCacheExpire?: number // second
   // /** @deprecated */
   // heartInterval?: number // ms
@@ -148,7 +147,10 @@ export interface AdapterSections {
 }
 
 /** What OneBot get_config / set_config and POST /api/config still speak: the settings plus the adapters. */
-export type LegacyConfig = Config & AdapterSections
+export type LegacyConfig = Config & AdapterSections & {
+  /** The old name of cardMsgSignUrl, still read and written for the clients that know only that one. */
+  musicSignUrl?: string
+}
 
 export interface CheckVersion {
   result: boolean

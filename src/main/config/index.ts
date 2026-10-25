@@ -8,16 +8,13 @@ import { deepMerge, mergeNewProperties } from '@/common/utils'
 import { JsonFile } from '@/common/jsonFile'
 import { isDevMode } from '@/common/utils/environment'
 import { configPaths } from '@/common/configPaths'
-import { templateConfig, upgradeConfig } from './upgrade'
+import { DEPRECATED_KEYS, templateConfig, upgradeConfig } from './upgrade'
 
 declare module 'cordis' {
   interface Context {
     config: Config
   }
 }
-
-/** 已废弃、迁移完成后从磁盘删掉的顶层 key。只显式列已知的, 不再按白名单删未知 key。 */
-const DEPRECATED_KEYS = ['onlyLocalhost']
 
 /** 进程级覆盖: 容器/托管环境用它定端口和日志级别, 值只进内存不落盘。 */
 const ENV_OVERRIDES: { env: string; path: string[]; parse: (raw: string) => unknown }[] = [

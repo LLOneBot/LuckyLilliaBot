@@ -1,7 +1,7 @@
 import React from 'react'
 import { Config } from '../../types'
 import { EnvLock } from './otherSettings'
-import { Globe, FileText, Trash2, Music, Lock, Clock, Shield, Edit, Paperclip, Server, Info } from 'lucide-react'
+import { Globe, FileText, Music, Lock, Clock, Shield, Edit, Paperclip, Server, Info } from 'lucide-react'
 import { DurationPicker, HostSelector } from '../common'
 
 interface OtherConfigProps {
@@ -127,45 +127,6 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, envLocked, 
         </div>
       </div>
 
-      {/* 文件管理 */}
-      <div className='card p-6'>
-        <div className='flex items-center gap-3 mb-6'>
-          <div className='w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 flex items-center justify-center'>
-            <Trash2 size={20} className='text-white' />
-          </div>
-          <div>
-            <h3 className='text-lg font-semibold text-theme'>文件管理</h3>
-            <p className='text-sm text-theme-secondary'>自动清理文件相关配置</p>
-          </div>
-        </div>
-
-        <div className='space-y-4'>
-          <div className='flex items-center justify-between p-4 bg-theme-item rounded-xl bg-item-hover transition-colors'>
-            <div className='flex items-center gap-3'>
-              <Trash2 size={20} className='text-red-600' />
-              <div>
-                <div className='text-sm font-medium text-theme'>自动删除收到的文件</div>
-                <div className='text-xs text-theme-muted mt-0.5'>启用后将自动清理接收的临时文件</div>
-              </div>
-            </div>
-            <input type='checkbox' checked={config.autoDeleteFile} onChange={(e) => handleChange('autoDeleteFile', e.target.checked)} className="switch-toggle" />
-          </div>
-
-          {config.autoDeleteFile && (
-            <div className='pl-4'>
-              <label className='block'>
-                <div className='flex items-center gap-2 mb-2'>
-                  <Clock size={16} className='text-theme-secondary' />
-                  <span className='text-sm font-medium text-theme-secondary'>自动删除时间（秒）</span>
-                </div>
-                <input type='number' value={config.autoDeleteFileSecond} onChange={(e) => handleChange('autoDeleteFileSecond', parseInt(e.target.value))} min='1' max='3600' className='input-field' placeholder='60' />
-                <p className='text-xs text-theme-muted mt-1'>文件接收后多少秒自动删除（1-3600秒）</p>
-              </label>
-            </div>
-          )}
-        </div>
-      </div>
-
       {/* 缓存设置 */}
       <div className='card p-6'>
         <div className='flex items-center gap-3 mb-6'>
@@ -208,10 +169,10 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, envLocked, 
         <label className='block'>
           <div className='flex items-center gap-2 mb-2'>
             <Music size={16} className='text-green-600' />
-            <span className='text-sm font-medium text-theme-secondary'>音乐签名地址</span>
+            <span className='text-sm font-medium text-theme-secondary'>卡片消息签名地址</span>
           </div>
-          <input type='text' value={config.musicSignUrl} onChange={(e) => handleChange('musicSignUrl', e.target.value)} placeholder='https://example.com/sign' className='input-field' />
-          <p className='text-xs text-theme-muted mt-1'>用于音乐卡片签名的服务地址</p>
+          <input type='text' value={config.cardMsgSignUrl} onChange={(e) => handleChange('cardMsgSignUrl', e.target.value)} placeholder='https://example.com/sign' className='input-field' />
+          <p className='text-xs text-theme-muted mt-1'>给卡片消息签名的服务地址，目前用于 OneBot 的音乐卡片</p>
         </label>
       </div>
 

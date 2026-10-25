@@ -41,7 +41,7 @@ export const builtinPlugins: BuiltinPlugin[] = [
     title: 'OneBot 11',
     config: ob11Settings,
     plugin: adapterEntry('builtin:onebot11', OneBot11Adapter, OB11Schema, config => ({
-      musicSignUrl: config.musicSignUrl,
+      cardMsgSignUrl: config.cardMsgSignUrl,
       enableLocalFile2Url: config.enableLocalFile2Url!,
       ffmpeg: config.ffmpeg,
     })),

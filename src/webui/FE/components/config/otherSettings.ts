@@ -11,10 +11,8 @@ export function otherSettings(config: Config, envLocked: EnvLock[]): Partial<Con
     webui: config.webui,
     log: config.log,
     enableLocalFile2Url: config.enableLocalFile2Url,
-    autoDeleteFile: config.autoDeleteFile,
-    autoDeleteFileSecond: config.autoDeleteFileSecond,
     msgCacheExpire: config.msgCacheExpire,
-    musicSignUrl: config.musicSignUrl,
+    cardMsgSignUrl: config.cardMsgSignUrl,
   })
   for (const { path } of envLocked) {
     const keys = path.split('.')
