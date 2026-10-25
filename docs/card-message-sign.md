@@ -1,14 +1,22 @@
 # 卡片消息签名（`cardMsgSignUrl`）
 
-> 卡片消息就是 NT 层的 ark 元素，"签名"就是让服务器给这段卡片 JSON 发一个 `config.token`（附带 `ctime`）。没有 token 的卡片发得出去，但手机端不显示。bot 在 NT 层发送时，把没有 token 的卡片交给 `cardMsgSignUrl` 指向的签名服务签（2026-10-25 实现）。签名服务由我们自己部署，接口约定见下文；不是所有卡片都签得出来，目前已知能签的只有链接分享卡片（`com.tencent.tianxuan.share`）和音乐卡片。
+> 卡片消息就是 NT 层的 ark 元素，"签名"就是让服务器给这段卡片 JSON 发一个 `config.token`（附带 `ctime`）。没有 token 的卡片发得出去，但手机端不显示。两个地址配置（2026-10-25 实现）：
+>
+> - `cardMsgSignUrl`：NT 层通用签名，发送时把没有 token 的卡片交给它签。服务由我们自己部署，接口约定见下文，默认空。
+> - `musicCardSignUrl`：OneBot `music` 段用，兼容原来的音乐签名服务（提交歌曲参数，返回签好名的卡片），默认 `ss.xingzhige.com/music_card/card`。旧字段名 `musicSignUrl` 由迁移和兼容层映射过来。
+>
+> 不是所有卡片都签得出来，目前已知能签的只有链接分享卡片（`com.tencent.tianxuan.share`）和音乐卡片。
 
 ## bot 这边怎么做
 
 - **NT 层统一签名**：`Core.sendMessage`（`src/ntqqapi/core.ts`）发送前对整条消息调 `signCards()`（`src/common/utils/sign.ts`），合并转发节点里的卡片也签。已经带 `config.token` 的卡片（比如转发收到的）原样发；签名失败整条消息不发，并报错。OneBot、Milky、Satori、WebQQ 发消息都经过这里。
-- **`cardMsgSignUrl` 为空时**：卡片原样发送（以前 OneBot `json` / Milky `light_app` 就是这样），但 OneBot 的 `music` 段会直接报"卡片消息签名地址未配置" —— 没签名的音乐卡片在手机上不显示，发了也没用。默认值是空。旧配置里的 `ss.xingzhige.com` / `llob.linyuchen.net` 是只收音乐参数的旧服务，不符合新约定，加载时清空。
-- **音乐卡片**：OneBot `music` 段由 `buildMusicCard()`（`src/common/utils/musicCard.ts`）拼出未签名的音乐卡片，再和其他卡片一样交给 NT 层签名。
-  - `custom` 写法直接用调用方给的标题、链接、音频、封面；`subtype` 选平台，默认 QQ 音乐。
-  - 只给 id 时 bot 自己查歌曲信息：网易云用 `music.163.com/api/song/detail`；QQ 音乐用 `u.y.qq.com` 的 `get_song_detail_yqq`，id 可以是数字 songid 或 songmid。QQ 音乐没有登录态的 vkey，大部分歌拿不到播放地址，`musicUrl` 退回成歌曲页面链接。酷狗 / 酷我 / 咪咕没有简单可用的反查接口，只给 id 时报错，提示改用 custom 写法。
+- **`cardMsgSignUrl` 为空时**：卡片原样发送（以前 OneBot `json` / Milky `light_app` 就是这样）。
+- **音乐卡片**（OneBot `music` 段，`src/common/utils/musicCard.ts`）：
+  - 配了 `musicCardSignUrl`：`requestMusicCard()` 照原来的方式把歌曲参数 POST 给它，拿回签好名的卡片（带 token，NT 层不再签）。custom 写法同时填 `singer` 和 `content`（各家服务认的不一样）。返回的不是带 token 的 JSON 一律当失败 —— 拒绝可能是 HTTP 200 加一句纯文本，以前会被当成卡片发出去。
+  - 没配 `musicCardSignUrl`、配了 `cardMsgSignUrl`：`buildMusicCard()` 拼出未签名的音乐卡片，交给 NT 层签名。`subtype` 选平台，默认 QQ 音乐。
+  - 两个都没配：报"音乐卡片签名地址未配置"，没签名的音乐卡片在手机上不显示，发了也没用。
+  - 歌曲反查（只给 id 时）：网易云用 `music.163.com/api/song/detail`；QQ 音乐用 `u.y.qq.com` 的 `get_song_detail_yqq`，id 可以是数字 songid 或 songmid。QQ 音乐没有登录态的 vkey，大部分歌拿不到播放地址，`musicUrl` 退回成歌曲页面链接。酷狗 / 酷我 / 咪咕没有简单可用的反查接口。
+- **`ss.xingzhige.com` 实测**（2026-10-25）：网易云 `{type, id}` 可用（版权 / VIP 歌曲返回 500"无法准确获取歌曲信息"，比如周杰伦的歌网易云没有）；QQ 音乐 `{type, id}` 返回 HTTP 200 加"关闭id解析功能"，所以 QQ 音乐的 id 由 bot 先查歌、再按 custom 写法提交；custom 写法 `{type, url, audio, title, singer, image}` 可用，但部分内容会被服务端过滤成 500"异常拦截"。返回卡片的 `extra.uin` 是服务自己的号。
 - 推荐联系人卡片不经过签名服务：它是 NT 层直接从服务器拿到签好名的卡片（`OidbSvcTrpcTcp.0x12b6_0`，`getFriendRecommendContactArk` / `getGroupRecommendContactArk`）。
 
 ## 签名服务的接口约定

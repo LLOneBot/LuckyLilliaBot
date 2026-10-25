@@ -42,6 +42,7 @@ export const defaultConfig: Config = {
   enableLocalFile2Url: false,
   log: true,
   cardMsgSignUrl: '',
+  musicCardSignUrl: 'https://ss.xingzhige.com/music_card/card',
   msgCacheExpire: 120,
   ffmpeg: '',
   // default_config.json 也有这一项; 两份默认值必须一致 (见 test/unit/config/defaults.test.ts)

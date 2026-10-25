@@ -112,16 +112,23 @@ describe('settings written by an older version', () => {
   it('renames musicSignUrl, swaps the retired sign host, and drops the auto-delete settings nothing reads', async () => {
     write({ musicSignUrl: 'https://llob.linyuchen.net/sign/music', autoDeleteFile: true, autoDeleteFileSecond: 30 })
     const config = await boot()
-    expect(config.get().cardMsgSignUrl).toBe(defaultConfigFile.cardMsgSignUrl)
+    expect(config.get().musicCardSignUrl).toBe(defaultConfigFile.musicCardSignUrl)
+    expect(config.get().cardMsgSignUrl).toBe('')
     expect(read()).not.toHaveProperty('musicSignUrl')
     expect(read()).not.toHaveProperty('autoDeleteFile')
     expect(read()).not.toHaveProperty('autoDeleteFileSecond')
   })
 
-  it('keeps a custom sign address under the new name', async () => {
+  it('keeps a custom music card service under the new name', async () => {
     write({ musicSignUrl: 'https://sign.example/card' })
     const config = await boot()
-    expect(config.get().cardMsgSignUrl).toBe('https://sign.example/card')
+    expect(config.get().musicCardSignUrl).toBe('https://sign.example/card')
+  })
+
+  it('moves a music card service out of cardMsgSignUrl, which now takes the card JSON', async () => {
+    write({ cardMsgSignUrl: 'https://ss.xingzhige.com/music_card/card' })
+    const config = await boot()
+    expect(config.get()).toMatchObject({ cardMsgSignUrl: '', musicCardSignUrl: 'https://ss.xingzhige.com/music_card/card' })
   })
 })
 

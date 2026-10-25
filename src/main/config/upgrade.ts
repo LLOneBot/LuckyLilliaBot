@@ -47,12 +47,16 @@ export function templateSection<K extends keyof AdapterSections>(key: K): Adapte
 export function upgradeConfig(oldConfig: Dict): LLBotConfig {
   let migratedConfig = oldConfig
   if ('musicSignUrl' in oldConfig) {
-    oldConfig.cardMsgSignUrl ??= oldConfig.musicSignUrl
+    oldConfig.musicCardSignUrl ??= oldConfig.musicSignUrl
     delete oldConfig.musicSignUrl
   }
-  // Music-only sign services: they take song parameters, not the card JSON the bot now posts
+  // A music service briefly held cardMsgSignUrl; that name now means a signer that takes the card JSON
   if (/linyuchen|xingzhige/.test(oldConfig.cardMsgSignUrl ?? '')) {
+    oldConfig.musicCardSignUrl ??= oldConfig.cardMsgSignUrl
     oldConfig.cardMsgSignUrl = defaultConfig.cardMsgSignUrl
+  }
+  if (oldConfig.musicCardSignUrl?.includes('linyuchen')) {
+    oldConfig.musicCardSignUrl = defaultConfig.musicCardSignUrl
   }
   // An ob11 from before `connect` was a list. No ob11 at all is not that: the defaults fill it in
   if (oldConfig.ob11 && !Array.isArray(oldConfig.ob11.connect)) {

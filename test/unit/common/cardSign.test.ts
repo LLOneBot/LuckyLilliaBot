@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { hasCardToken, signCard, signCards } from '@/common/utils/sign'
-import { buildMusicCard } from '@/common/utils/musicCard'
+import { buildMusicCard, requestMusicCard } from '@/common/utils/musicCard'
 import { ElementType, SendMessageElement } from '@/ntqqapi/types'
 
 const unsigned = JSON.stringify({ app: 'com.tencent.tianxuan.share', config: { type: 'normal', forward: 1 } })
@@ -84,5 +84,50 @@ describe('buildMusicCard', () => {
 
   it('asks for a custom card where an id cannot be looked up', async () => {
     await expect(buildMusicCard({ type: 'kugou', id: 1 })).rejects.toThrow('请用 custom 写法')
+  })
+})
+
+describe('requestMusicCard', () => {
+  const service = 'https://music.test/card'
+
+  /** Answers each URL by the first handler whose prefix it starts with, and records what was posted. */
+  function route(handlers: Record<string, () => Response>) {
+    const posted: unknown[] = []
+    vi.stubGlobal('fetch', vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.body) posted.push(JSON.parse(String(init.body)))
+      const prefix = Object.keys(handlers).find(key => url.startsWith(key))
+      if (!prefix) throw new Error(`unexpected fetch ${url}`)
+      return handlers[prefix]()
+    }))
+    return posted
+  }
+
+  it('posts the song parameters and takes the signed card back', async () => {
+    const posted = route({ [service]: () => new Response(signed) })
+    expect(await requestMusicCard(service, { type: '163', id: 1330348068 })).toBe(signed)
+    expect(posted).toEqual([{ type: '163', id: 1330348068 }])
+  })
+
+  it('treats a 200 without a card as the refusal it is', async () => {
+    route({ [service]: () => new Response('关闭id解析功能') })
+    await expect(requestMusicCard(service, { type: '163', id: 1 })).rejects.toThrow('关闭id解析功能')
+  })
+
+  it('looks a QQ Music id up and sends it the custom way', async () => {
+    const posted = route({
+      'https://u.y.qq.com/': () => new Response(JSON.stringify({
+        songinfo: { data: { track_info: { name: '晴天', mid: 'm1', singer: [{ name: '周杰伦' }], album: { mid: 'a1' } } } },
+        req_0: { data: { midurlinfo: [{ purl: '' }] } },
+      })),
+      [service]: () => new Response(signed),
+    })
+    await requestMusicCard(service, { type: 'qq', id: 97773 })
+    expect(posted.at(-1)).toMatchObject({ type: 'custom', title: '晴天', singer: '周杰伦', url: 'https://i.y.qq.com/v8/playsong.html?songmid=m1' })
+  })
+
+  it('fills both singer and content of a custom card', async () => {
+    const posted = route({ [service]: () => new Response(signed) })
+    await requestMusicCard(service, { type: 'custom', url: 'u', audio: 'a', title: 't', content: '歌手' })
+    expect(posted[0]).toMatchObject({ singer: '歌手', content: '歌手' })
   })
 })

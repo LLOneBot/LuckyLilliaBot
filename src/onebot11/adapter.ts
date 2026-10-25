@@ -155,6 +155,7 @@ class Onebot11Adapter extends Service {
     Object.assign(this.config, {
       msgCacheExpire: config.msgCacheExpire,
       cardMsgSignUrl: config.cardMsgSignUrl,
+      musicCardSignUrl: config.musicCardSignUrl,
       enableLocalFile2Url: config.enableLocalFile2Url,
       ffmpeg: config.ffmpeg,
     })
@@ -440,6 +441,7 @@ class Onebot11Adapter extends Service {
 namespace Onebot11Adapter {
   export interface Config extends OB11Config {
     cardMsgSignUrl?: string
+    musicCardSignUrl?: string
     enableLocalFile2Url: boolean
     ffmpeg?: string
   }

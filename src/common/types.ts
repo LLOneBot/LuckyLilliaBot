@@ -128,8 +128,10 @@ export interface Config {
   log?: boolean
   logLevel?: 'info' | 'debug' // 'debug' 打开底层详情日志 (等价 --debug); 默认 'info'
   ffmpeg?: string // ffmpeg路径
-  /** Signs card messages (music cards for now) through a third-party service. */
+  /** Signs the cards (arks) that go out without a token: the card JSON in, the signed card out. */
   cardMsgSignUrl?: string
+  /** Makes OneBot music cards: song parameters in, a signed card out, as ss.xingzhige.com does. */
+  musicCardSignUrl?: string
   msgCacheExpire?: number // second
   // /** @deprecated */
   // heartInterval?: number // ms
@@ -148,7 +150,7 @@ export interface AdapterSections {
 
 /** What OneBot get_config / set_config and POST /api/config still speak: the settings plus the adapters. */
 export type LegacyConfig = Config & AdapterSections & {
-  /** The old name of cardMsgSignUrl, still read and written for the clients that know only that one. */
+  /** The old name of musicCardSignUrl, still read and written for the clients that know only that one. */
   musicSignUrl?: string
 }
 

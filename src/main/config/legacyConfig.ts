@@ -10,7 +10,7 @@ import { ADAPTER_ENTRIES, ADAPTER_KEYS, DEPRECATED_KEYS } from './upgrade'
  */
 export function legacyConfig(ctx: Context): LegacyConfig {
   const config: Dict = { ...ctx.config.get() }
-  config.musicSignUrl = config.cardMsgSignUrl
+  config.musicSignUrl = config.musicCardSignUrl
   // get(): the callers (an OneBot action, a WebUI route) do not inject the plugin service
   const plugins = ctx.get('plugins')
   for (const key of ADAPTER_KEYS) {
@@ -28,7 +28,7 @@ export function legacyConfig(ctx: Context): LegacyConfig {
 export async function applyLegacyConfig(ctx: Context, partial: Dict, options: { rules?: boolean } = {}): Promise<void> {
   const rest = { ...partial }
   if ('musicSignUrl' in rest) {
-    rest.cardMsgSignUrl ??= rest.musicSignUrl
+    rest.musicCardSignUrl ??= rest.musicSignUrl
     delete rest.musicSignUrl
   }
   for (const key of DEPRECATED_KEYS) delete rest[key]

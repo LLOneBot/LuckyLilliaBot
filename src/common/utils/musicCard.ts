@@ -1,3 +1,5 @@
+import { hasCardToken } from './sign'
+
 export type MusicPlatform = 'qq' | '163' | 'kugou' | 'kuwo' | 'migu'
 
 export interface IdMusicCardData {
@@ -71,6 +73,31 @@ export async function buildMusicCard(data: MusicCardData): Promise<string> {
       },
     },
   })
+}
+
+/**
+ * A signed music card from a music card service such as ss.xingzhige.com: song parameters in, the signed card out.
+ * That service no longer looks QQ Music ids up, so those are looked up here and sent the custom way.
+ */
+export async function requestMusicCard(url: string, data: MusicCardData): Promise<string> {
+  let body: object = data
+  if ('id' in data && data.type === 'qq') {
+    const song = await lookupSong('qq', String(data.id))
+    body = { type: 'custom', url: song.jumpUrl, audio: song.musicUrl, title: song.title, singer: song.desc, image: song.cover }
+  } else if (!('id' in data)) {
+    // Services differ on which of the two they read
+    body = { ...data, singer: data.singer ?? data.content, content: data.content ?? data.singer }
+  }
+  const resp = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(15_000),
+  })
+  const text = await resp.text()
+  // A refusal can come back as HTTP 200 with a plain-text reason, which must not go out as a card
+  if (!resp.ok || !hasCardToken(text)) throw new Error(text.trim() || `HTTP ${resp.status}`)
+  return text
 }
 
 async function lookupSong(platform: MusicPlatform, id: string): Promise<Song> {

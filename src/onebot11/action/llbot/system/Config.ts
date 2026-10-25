@@ -23,7 +23,8 @@ export class SetConfigAction extends BaseAction<LegacyConfig, null> {
     log: Schema.boolean(),
     ffmpeg: Schema.string(),
     cardMsgSignUrl: Schema.string(),
-    // The old name of cardMsgSignUrl
+    musicCardSignUrl: Schema.string(),
+    // The old name of musicCardSignUrl
     musicSignUrl: Schema.string(),
     msgCacheExpire: Schema.number()
   })
