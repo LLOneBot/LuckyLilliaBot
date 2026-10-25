@@ -1,6 +1,6 @@
 import { FaceType, PicSubType, RawMessage } from '../ntqqapi/types'
 import { EventType } from './event/OB11BaseEvent'
-import { IdMusicSignPostData, CustomMusicSignPostData } from '../common/utils/sign'
+import { IdMusicCardData, CustomMusicCardData } from '../common/utils/musicCard'
 
 export interface OB11User {
   user_id: number
@@ -326,12 +326,12 @@ export interface OB11MessageNode {
 
 export interface OB11MessageIdMusic {
   type: OB11MessageDataType.Music
-  data: IdMusicSignPostData
+  data: IdMusicCardData
 }
 
 export interface OB11MessageCustomMusic {
   type: OB11MessageDataType.Music
-  data: CustomMusicSignPostData
+  data: CustomMusicCardData
 }
 
 export type OB11MessageMusic = OB11MessageIdMusic | OB11MessageCustomMusic

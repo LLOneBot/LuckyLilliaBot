@@ -50,7 +50,8 @@ export function upgradeConfig(oldConfig: Dict): LLBotConfig {
     oldConfig.cardMsgSignUrl ??= oldConfig.musicSignUrl
     delete oldConfig.musicSignUrl
   }
-  if (oldConfig.cardMsgSignUrl?.includes('linyuchen')) {
+  // Music-only sign services: they take song parameters, not the card JSON the bot now posts
+  if (/linyuchen|xingzhige/.test(oldConfig.cardMsgSignUrl ?? '')) {
     oldConfig.cardMsgSignUrl = defaultConfig.cardMsgSignUrl
   }
   // An ob11 from before `connect` was a list. No ob11 at all is not that: the defaults fill it in

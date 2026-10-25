@@ -15,7 +15,7 @@ import { SendElement } from '@/ntqqapi/entities'
 import { selfInfo } from '@/common/globalVars'
 import { uri2local } from '@/common/utils'
 import { Context } from 'cordis'
-import { MusicSign } from '@/common/utils/sign'
+import { buildMusicCard } from '@/common/utils/musicCard'
 import { randomUUID } from 'node:crypto'
 import { message2List } from '@/onebot11/utils'
 
@@ -195,8 +195,8 @@ export async function transformOutgoingSegments(
       }
         break
       case OB11MessageDataType.Music: {
-        const { cardMsgSignUrl } = ctx.onebot.config
-        if (!cardMsgSignUrl) {
+        // Signed in Core.sendMessage with every other card; unsigned, it would not show on phones
+        if (!ctx.onebot.config.cardMsgSignUrl) {
           throw new Error('卡片消息签名地址未配置')
         }
         const { type } = segment.data
@@ -212,10 +212,9 @@ export async function transformOutgoingSegments(
           }
         }
         try {
-          const content = await new MusicSign(ctx, cardMsgSignUrl).sign(segment.data)
-          sendElements.push(SendElement.ark(content))
+          sendElements.push(SendElement.ark(await buildMusicCard(segment.data)))
         } catch (e) {
-          throw new Error(`签名音乐消息失败：${(e as Error).message}`)
+          throw new Error(`生成音乐卡片失败：${(e as Error).message}`)
         }
       }
         break

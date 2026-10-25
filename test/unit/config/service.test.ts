@@ -63,7 +63,7 @@ describe('ConfigService.patch', () => {
     expect(saved.ffmpeg).toBe('/usr/bin/ffmpeg')
     // a full overwrite (the old set_config behaviour) would have dropped these
     expect(saved.webui).toBeTruthy()
-    expect(saved.cardMsgSignUrl).toBeTruthy()
+    expect(saved).toHaveProperty('cardMsgSignUrl')
   })
 
   it('merges nested objects per key but replaces arrays whole', async () => {

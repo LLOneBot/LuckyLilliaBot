@@ -172,7 +172,7 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, envLocked, 
             <span className='text-sm font-medium text-theme-secondary'>卡片消息签名地址</span>
           </div>
           <input type='text' value={config.cardMsgSignUrl} onChange={(e) => handleChange('cardMsgSignUrl', e.target.value)} placeholder='https://example.com/sign' className='input-field' />
-          <p className='text-xs text-theme-muted mt-1'>给卡片消息签名的服务地址，目前用于 OneBot 的音乐卡片</p>
+          <p className='text-xs text-theme-muted mt-1'>没有签名的卡片消息（OneBot 的 json / 音乐卡片、Milky 的 light_app）发送前交给这个服务签名；留空则原样发送，手机端可能不显示，音乐卡片也发不了</p>
         </label>
       </div>
 
