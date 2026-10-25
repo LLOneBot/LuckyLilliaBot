@@ -110,7 +110,7 @@ describe('builtin plugins', () => {
     config = {
       ...defaultConfig,
       webui: { ...defaultConfig.webui, enable: false },
-      cardMsgSignUrl: 'https://sign.invalid/music',
+      musicCardSignUrl: 'https://sign.invalid/music',
       enableLocalFile2Url: true,
       ffmpeg: '/opt/ffmpeg',
     }
@@ -169,7 +169,7 @@ describe('builtin plugins', () => {
     expect(ctx.get('onebot')!.config).toMatchObject({
       enable: true,
       connect: ob11.connect,
-      cardMsgSignUrl: config.cardMsgSignUrl,
+      musicCardSignUrl: config.musicCardSignUrl,
       enableLocalFile2Url: config.enableLocalFile2Url,
       ffmpeg: config.ffmpeg,
     })
@@ -186,13 +186,13 @@ describe('builtin plugins', () => {
     let dropped = false
     client.once('close', () => { dropped = true })
     const milkyStop = vi.spyOn(ctx.get('milky')!.httpHandler, 'stop')
-    config = { ...structuredClone(config), log: !config.log, cardMsgSignUrl: 'https://sign.invalid/other' }
+    config = { ...structuredClone(config), log: !config.log, musicCardSignUrl: 'https://sign.invalid/other' }
     await ctx.parallel('llob/config-updated', config)
     await new Promise(resolve => setTimeout(resolve, 200))
     expect(dropped).toBe(false)
     expect(milkyStop).not.toHaveBeenCalled()
     // the fields read at call time still reach the adapter
-    expect(ctx.get('onebot')!.config.cardMsgSignUrl).toBe('https://sign.invalid/other')
+    expect(ctx.get('onebot')!.config.musicCardSignUrl).toBe('https://sign.invalid/other')
     client.close()
     milkyStop.mockRestore()
 

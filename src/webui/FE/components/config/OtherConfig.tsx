@@ -169,19 +169,10 @@ const OtherConfig: React.FC<OtherConfigProps> = ({ config, onChange, envLocked, 
         <label className='block'>
           <div className='flex items-center gap-2 mb-2'>
             <Music size={16} className='text-green-600' />
-            <span className='text-sm font-medium text-theme-secondary'>卡片消息签名地址</span>
-          </div>
-          <input type='text' value={config.cardMsgSignUrl} onChange={(e) => handleChange('cardMsgSignUrl', e.target.value)} placeholder='https://example.com/sign' className='input-field' />
-          <p className='text-xs text-theme-muted mt-1'>没有签名的卡片消息（OneBot 的 json 段、Milky 的 light_app 段）发送前交给这个服务签名；留空则原样发送，手机端可能不显示</p>
-        </label>
-
-        <label className='block mt-4'>
-          <div className='flex items-center gap-2 mb-2'>
-            <Music size={16} className='text-green-600' />
             <span className='text-sm font-medium text-theme-secondary'>音乐卡片签名地址</span>
           </div>
           <input type='text' value={config.musicCardSignUrl} onChange={(e) => handleChange('musicCardSignUrl', e.target.value)} placeholder='https://ss.xingzhige.com/music_card/card' className='input-field' />
-          <p className='text-xs text-theme-muted mt-1'>OneBot 音乐卡片用的服务：提交歌曲信息，返回签好名的卡片。留空则由 bot 生成卡片，再交给上面的卡片消息签名服务签名</p>
+          <p className='text-xs text-theme-muted mt-1'>OneBot 音乐卡片用的服务：提交歌曲信息，返回签好名的卡片</p>
         </label>
       </div>
 

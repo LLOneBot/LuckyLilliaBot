@@ -22,7 +22,6 @@ export class SetConfigAction extends BaseAction<LegacyConfig, null> {
     enableLocalFile2Url: Schema.boolean(),
     log: Schema.boolean(),
     ffmpeg: Schema.string(),
-    cardMsgSignUrl: Schema.string(),
     musicCardSignUrl: Schema.string(),
     // The old name of musicCardSignUrl
     musicSignUrl: Schema.string(),

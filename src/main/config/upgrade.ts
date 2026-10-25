@@ -9,7 +9,7 @@ import { adapterDefaults, defaultConfig } from './defaultConfig'
 const TEMPLATE_FILE = path.join(import.meta.dirname, 'default_config.json')
 
 /** Top-level keys no version reads any more: dropped from the settings file and from incoming old-shape configs. */
-export const DEPRECATED_KEYS = ['onlyLocalhost', 'autoDeleteFile', 'autoDeleteFileSecond']
+export const DEPRECATED_KEYS = ['onlyLocalhost', 'autoDeleteFile', 'autoDeleteFileSecond', 'cardMsgSignUrl']
 
 /** The sections of the old config file that now live in the adapters' plugin entries. */
 export const ADAPTER_KEYS = ['ob11', 'satori', 'milky'] as const satisfies readonly (keyof AdapterSections)[]
@@ -50,10 +50,9 @@ export function upgradeConfig(oldConfig: Dict): LLBotConfig {
     oldConfig.musicCardSignUrl ??= oldConfig.musicSignUrl
     delete oldConfig.musicSignUrl
   }
-  // A music service briefly held cardMsgSignUrl; that name now means a signer that takes the card JSON
+  // A music service briefly went by cardMsgSignUrl, a setting since dropped (DEPRECATED_KEYS)
   if (/linyuchen|xingzhige/.test(oldConfig.cardMsgSignUrl ?? '')) {
     oldConfig.musicCardSignUrl ??= oldConfig.cardMsgSignUrl
-    oldConfig.cardMsgSignUrl = defaultConfig.cardMsgSignUrl
   }
   if (oldConfig.musicCardSignUrl?.includes('linyuchen')) {
     oldConfig.musicCardSignUrl = defaultConfig.musicCardSignUrl

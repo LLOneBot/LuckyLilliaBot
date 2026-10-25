@@ -16,6 +16,7 @@ import { selfInfo } from '@/common/globalVars'
 import { uri2local } from '@/common/utils'
 import { Context } from 'cordis'
 import { buildMusicCard, requestMusicCard } from '@/common/utils/musicCard'
+import { CARD_SIGN_URL } from '@/common/utils/sign'
 import { randomUUID } from 'node:crypto'
 import { message2List } from '@/onebot11/utils'
 
@@ -195,8 +196,8 @@ export async function transformOutgoingSegments(
       }
         break
       case OB11MessageDataType.Music: {
-        const { musicCardSignUrl, cardMsgSignUrl } = ctx.onebot.config
-        if (!musicCardSignUrl && !cardMsgSignUrl) {
+        const { musicCardSignUrl } = ctx.onebot.config
+        if (!musicCardSignUrl && !CARD_SIGN_URL) {
           throw new Error('音乐卡片签名地址未配置')
         }
         const { type } = segment.data
@@ -213,7 +214,7 @@ export async function transformOutgoingSegments(
         }
         try {
           // A music card service hands back a signed card; otherwise build an unsigned one for Core.sendMessage to
-          // have signed through cardMsgSignUrl with every other card
+          // have signed with every other card
           const card = musicCardSignUrl ? await requestMusicCard(musicCardSignUrl, segment.data) : await buildMusicCard(segment.data)
           sendElements.push(SendElement.ark(card))
         } catch (e) {

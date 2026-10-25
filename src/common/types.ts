@@ -128,8 +128,6 @@ export interface Config {
   log?: boolean
   logLevel?: 'info' | 'debug' // 'debug' 打开底层详情日志 (等价 --debug); 默认 'info'
   ffmpeg?: string // ffmpeg路径
-  /** Signs the cards (arks) that go out without a token: the card JSON in, the signed card out. */
-  cardMsgSignUrl?: string
   /** Makes OneBot music cards: song parameters in, a signed card out, as ss.xingzhige.com does. */
   musicCardSignUrl?: string
   msgCacheExpire?: number // second

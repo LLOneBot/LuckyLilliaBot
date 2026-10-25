@@ -41,7 +41,6 @@ export const defaultConfig: Config = {
   webui: webuiDefault,
   enableLocalFile2Url: false,
   log: true,
-  cardMsgSignUrl: '',
   musicCardSignUrl: 'https://ss.xingzhige.com/music_card/card',
   msgCacheExpire: 120,
   ffmpeg: '',

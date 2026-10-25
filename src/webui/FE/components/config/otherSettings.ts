@@ -12,7 +12,6 @@ export function otherSettings(config: Config, envLocked: EnvLock[]): Partial<Con
     log: config.log,
     enableLocalFile2Url: config.enableLocalFile2Url,
     msgCacheExpire: config.msgCacheExpire,
-    cardMsgSignUrl: config.cardMsgSignUrl,
     musicCardSignUrl: config.musicCardSignUrl,
   })
   for (const { path } of envLocked) {

@@ -1,5 +1,8 @@
 import { ElementType, SendMessageElement } from '@/ntqqapi/types'
 
+/** Our card sign service (docs/card-message-sign.md). Empty until it is deployed: cards then go out as they are. */
+export const CARD_SIGN_URL: string = ''
+
 /** The server's signature on a card (ark). Without it a card shows on PC but not on phones. */
 export function hasCardToken(json: string): boolean {
   try {
@@ -10,7 +13,7 @@ export function hasCardToken(json: string): boolean {
 }
 
 /**
- * Has the sign service behind cardMsgSignUrl sign a card: the card JSON is posted as is and the signed card comes
+ * Has a card sign service sign a card: the card JSON is posted as is and the signed card comes
  * back (docs/card-message-sign.md). A card that carries a token already, a forwarded one say, is left alone.
  */
 export async function signCard(url: string, json: string): Promise<string> {

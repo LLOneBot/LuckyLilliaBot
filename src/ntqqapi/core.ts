@@ -41,7 +41,7 @@ import { logSummaryMessage } from '@/ntqqapi/log'
 import { setFFMpegPath } from '@/common/utils/ffmpeg'
 import { registerDispatcher } from './dispatcher'
 import { noop } from 'cosmokit'
-import { signCard, signCards } from '@/common/utils/sign'
+import { CARD_SIGN_URL, signCard, signCards } from '@/common/utils/sign'
 
 declare module 'cordis' {
   interface Context {
@@ -144,9 +144,8 @@ class Core extends Service {
       throw new Error('消息体无法解析，请检查是否发送了不支持的消息类型')
     }
     try {
-      // A card without the server's token shows on PC but not on phones. Without a sign service it goes as is
-      const signUrl = this.config.cardMsgSignUrl
-      if (signUrl) await signCards(sendElements, json => signCard(signUrl, json))
+      // A card without the server's token shows on PC but not on phones
+      if (CARD_SIGN_URL) await signCards(sendElements, json => signCard(CARD_SIGN_URL, json))
       const returnMsg = await ctx.ntMsgApi.sendMsg(peer, sendElements, groupMsgMask)
       this.messageSentCount++
       if (returnMsg.chatType !== ChatType.Group) {

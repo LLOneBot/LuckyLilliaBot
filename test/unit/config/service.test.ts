@@ -63,7 +63,7 @@ describe('ConfigService.patch', () => {
     expect(saved.ffmpeg).toBe('/usr/bin/ffmpeg')
     // a full overwrite (the old set_config behaviour) would have dropped these
     expect(saved.webui).toBeTruthy()
-    expect(saved).toHaveProperty('cardMsgSignUrl')
+    expect(saved).toHaveProperty('musicCardSignUrl')
   })
 
   it('merges nested objects per key but replaces arrays whole', async () => {
@@ -113,7 +113,6 @@ describe('settings written by an older version', () => {
     write({ musicSignUrl: 'https://llob.linyuchen.net/sign/music', autoDeleteFile: true, autoDeleteFileSecond: 30 })
     const config = await boot()
     expect(config.get().musicCardSignUrl).toBe(defaultConfigFile.musicCardSignUrl)
-    expect(config.get().cardMsgSignUrl).toBe('')
     expect(read()).not.toHaveProperty('musicSignUrl')
     expect(read()).not.toHaveProperty('autoDeleteFile')
     expect(read()).not.toHaveProperty('autoDeleteFileSecond')
@@ -125,10 +124,11 @@ describe('settings written by an older version', () => {
     expect(config.get().musicCardSignUrl).toBe('https://sign.example/card')
   })
 
-  it('moves a music card service out of cardMsgSignUrl, which now takes the card JSON', async () => {
+  it('moves a music card service out of cardMsgSignUrl, a setting since dropped', async () => {
     write({ cardMsgSignUrl: 'https://ss.xingzhige.com/music_card/card' })
     const config = await boot()
-    expect(config.get()).toMatchObject({ cardMsgSignUrl: '', musicCardSignUrl: 'https://ss.xingzhige.com/music_card/card' })
+    expect(config.get().musicCardSignUrl).toBe('https://ss.xingzhige.com/music_card/card')
+    expect(read()).not.toHaveProperty('cardMsgSignUrl')
   })
 })
 

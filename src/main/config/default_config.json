@@ -78,7 +78,6 @@
   "enableLocalFile2Url": false,
   "log": true,
   "logLevel": "info",
-  "cardMsgSignUrl": "",
   "musicCardSignUrl": "https://ss.xingzhige.com/music_card/card",
   "msgCacheExpire": 120,
   "ffmpeg": ""
