@@ -15,14 +15,11 @@ const FLASH_TRANSFER_UPLOAD_URL = 'https://multimedia.qfile.qq.com/sliceupload'
 const FLASH_TRANSFER_CHUNK_SIZE = 1024 * 1024
 const FLASH_TRANSFER_APP_ID = 14901 // 闪传文件（封面用 14903）
 
-/**
- * 闪传非秒传命中分支：分片上传到 multimedia.qfile.qq.com/sliceupload。
- * 每片要带累计 sha1 列表（chunkSha1[0..i]）。
- */
+/** 没秒传时分片传到 multimedia.qfile.qq.com/sliceupload, 每片带累计的 sha1 列表 */
 async function flashTransferUpload(uKey: string, filePath: string, fileSize: number) {
   const fileBytes = readFileSync(filePath)
   const chunkCount = Math.ceil(fileSize / FLASH_TRANSFER_CHUNK_SIZE)
-  // 预先计算每个 chunk 边界处的累计 sha1（从文件头到 chunk 结尾）。最后一片直接用整文件 sha1。
+  // 每个 chunk 结尾处的累计 sha1, 最后一片就是整个文件的 sha1
   const sha1State: Buffer[] = []
   for (let i = 0; i < chunkCount; i++) {
     const accLen = i === chunkCount - 1 ? fileSize : (i + 1) * FLASH_TRANSFER_CHUNK_SIZE
@@ -98,10 +95,8 @@ export class NTFileApi extends Service {
     }
   }
 
-  // 手表(qqlite)老式群图/私聊图: customFace 只有 md5 + 老式 uint32 fileId(parseElements 存进
-  // picElement.fileUuid), 没有 urlPath. 用它向 server 发 NTV2 下载请求(0x11c4_200 群 / 0x11c5_200
-  // c2c), download.node.fileUuid 传老 fileId, server 据此 + md5 + peer 解析出带 rkey 的真 URL.
-  // 仅供 getImageUrl 内部在 originImageUrl 为空时调用. peerUid: 群=groupCode, 私聊=对方 uid.
+  // 手表老式图只有 md5 和老式 uint32 fileId (存在 picElement.fileUuid), 用 NTV2 下载请求换带 rkey 的 URL。
+  // peerUid: 群是 groupCode, 私聊是对方 uid
   private async resolveOldPicUrl(isGroup: boolean, peerUid: string, md5HexStr: string, fileUuid: string): Promise<string> {
     const info = { md5HexStr, fileType: { type: 1, picFormat: 1000 }, original: 1 }
     const resp = isGroup
@@ -137,12 +132,10 @@ export class NTFileApi extends Service {
     }
   }
 
-  // 图片 URL 统一出口: NT 相对路径(手机 QQ) / 已完整 URL / 手表老式图(空 url, 用 opts 现取) / md5 兜底.
-  // opts 仅在 originImageUrl 为空(手表老式图)时参与; NT 图走原有相对路径逻辑, 完全不受 opts 影响.
+  // opts 只在 originImageUrl 为空 (手表老式图) 时用来现取 URL
   async getImageUrl(originImageUrl: string, md5HexStr: string, opts?: { fileUuid?: string, isGroup?: boolean, peerUid?: string }) {
     const url = originImageUrl
     if (url) {
-      // 已是完整 URL (手表老式图已解析 / 调用方已拼好): 原样返回
       if (url.startsWith('http')) {
         return url
       }
@@ -163,7 +156,6 @@ export class NTFileApi extends Service {
       }
       return IMAGE_HTTP_HOST + url
     }
-    // originImageUrl 为空 = 手表(qqlite)老式图: 有 fileUuid(老 fileId)+peer 就向 server 现取真 URL
     if (opts?.fileUuid && opts.peerUid) {
       try {
         return await this.resolveOldPicUrl(opts.isGroup ?? false, opts.peerUid, md5HexStr, opts.fileUuid)
@@ -190,13 +182,10 @@ export class NTFileApi extends Service {
       files.push({ path: p, name: path.basename(p), size: st.size, sha1, md5, fileUuid: randomUUID() })
       totalSize += st.size
     }
-    // 1. 创建 fileSet。uploaderNick 必须是真实昵称——若 selfInfo.nick 还没填则
-    //    去群成员列表里抓一次（fetchSelfInfo 内部缓存）。直接用 uin 当 nick 会被服务器
-    //    后续的 prepFlashFileSet 拒掉（errorCode=100200 "加载失败"）。
+    // uploaderNick 必须是真实昵称: 拿 uin 充数会被 prepFlashFileSet 拒 (errorCode=100200)
     if (!selfInfo.nick) {
       await this.ctx.ntUserApi.getSelfNick(true).catch(() => { })
     }
-    // 还是空的话用占位符——至少不要把 uin 当 nick 上送
     const uploaderNick = selfInfo.nick || 'QQ用户'
     const fset = await this.ctx.qqProtocol.createFlashFileSet({
       title,
@@ -207,19 +196,14 @@ export class NTFileApi extends Service {
       uploaderUid: selfInfo.uid,
     })
     const fileSetId = fset.fileSetId
-    // 2. 注册每个文件 (sha1/md5 必传——不传 server 端 fileSet entry 不带这俩,
-    //    后续 list 永远拿不到，reshare/跨账号下载都会失败)
     for (const f of files) {
       await this.ctx.qqProtocol.registerFlashFile(fileSetId, {
         fileUuid: f.fileUuid, name: f.name, fileSize: f.size,
         sha1Hex: f.sha1, md5Hex: f.md5,
       })
     }
-    // 3. prep
     await this.ctx.qqProtocol.prepFlashFileSet(fileSetId)
-    // 4. preflight + commit per file（仅支持秒传命中场景）
-    // 注：LLBot 对图片文件会先做一遍 field103=24 的"图像模式"上传（需要 NT 内部
-    // 分配的 md5+ext 文件名），无法可靠复现；这里只做 field103=22 的通用文件模式。
+    // 只做 field103=22 的通用文件模式: 图片的 field103=24 要 NT 内部分配的 md5+ext 文件名, 复现不了
     let reqId = 0
     type DownloadInfo = { name: string, size: number, url: string, expire: number }
     const downloads: DownloadInfo[] = []
@@ -228,7 +212,6 @@ export class NTFileApi extends Service {
         fileSize: f.size, sha1Hex: f.sha1, name: f.name, requestId: ++reqId, field103: 22,
       })
       if (pre.uKey) {
-        // 非秒传命中：走 multimedia.qfile.qq.com/sliceupload 分片上传
         await flashTransferUpload(pre.uKey, f.path, f.size)
       }
       if (!pre.token) {
@@ -239,11 +222,8 @@ export class NTFileApi extends Service {
         token: pre.token, time: pre.time, ttl: pre.ttl, requestId: ++reqId, field103: 22,
         fileSetId, fileUuid: f.fileUuid,
       })
-      // 立刻拿 download URL：preflight 给的 token 在这里当 fileId 用，server 拼 URL
-      // 时填进 fileid= 参数。Linux QQ 的 list 拿不到 fileId/sha1，所以必须在 upload
-      // 流程里一步到位拿 URL，事后没法重建。
-      // sha1/md5 不传也行（server 用 fileId 定位文件就够），传了反而某些 server 端会
-      // 把 sha1 当 string 解析报 invalid UTF-8（proto 是 bytes，但 server impl 用 string）。
+      // 必须现在拿 URL: 事后 list 拿不到 fileId / sha1, 没法重建。preflight 的 token 当 fileId 用。
+      // 不传 sha1 / md5: 有的 server 会把 sha1 当 string 解析, 报 invalid UTF-8
       const dl = await this.ctx.qqProtocol.flashFileDownloadUrl({
         fileSetId,
         fileUuid: f.fileUuid,
@@ -254,9 +234,7 @@ export class NTFileApi extends Service {
       })
       downloads.push({ name: f.name, size: f.size, url: dl.fullUrl, expire: dl.ttl })
     }
-    // 5. finalize: 把 fileSet 状态推到 server 端 (sceneType=6)。Windows QQ 抓包看完成
-    //    上传后必调；bot 之前漏了。注：实测调了之后 server 还是不给 list/0x93e5_4 返
-    //    sha1/md5/historyToken (Linux QQ session 限制)，但仍跟齐 Windows QQ 流程。
+    // 跟 Windows QQ 一样上传完 finalize, 虽然调了之后 list 照样不返回 sha1 / md5
     await this.ctx.qqProtocol.downloadFlashFile(fileSetId, 6).catch(() => { })
     return {
       result: 0,
@@ -268,8 +246,7 @@ export class NTFileApi extends Service {
         expireTime: String(fset.expireTime),
         expireLeftTime: String(fset.expireLeftTime),
       },
-      // 上传一步到位拿到的每个文件 download URL（multimedia.qfile.qq.com 短期签名链接，
-      // 1 小时过期）。直接 https.get 可下；过期后只能上层用 share_link 走浏览器入口。
+      // 签名链接, 1 小时过期; 过期后只能用 share_link 走浏览器
       downloads,
     }
   }
@@ -297,8 +274,7 @@ export class NTFileApi extends Service {
         physical: { id: f.fileUuid, status: 2, localPath: '' },
         sha1Hex: f.sha1Hex ?? '',
         md5Hex: f.md5Hex ?? '',
-        // 102 字符 base64 commit token，作为 0x12a9_200 download 的 fileId 入参，
-        // server 拼出来的 URL 里 fileid= 字段就是这个值
+        // commit token, 0x12a9_200 拿 URL 时当 fileId 用
         fileId: f.historyToken?.token ?? '',
       })),
       isEnd: true,
@@ -311,17 +287,10 @@ export class NTFileApi extends Service {
     return { result: 0, errMsg: '', fileSetId }
   }
 
-  /** 闪传：拿单个文件的 HTTPS 下载 URL（NTV2 0x12a9_200）。
-   * 用法：`getFlashFileSetIdByCode(code)` → fileSetId → `getFlashFileList(fileSetId)` 拿到
-   * file 列表 → 选中文件后从 `file.fileUuid` / `file.name` / `file.fileSize` 喂进来。
-   * 返回带签名的 multimedia.qfile.qq.com URL，1 小时过期。
-   *
-   * server 用 (fileSetId, fileUuid) 真正定位文件，不依赖 download.info.fileId 那个 token —
-   * 那个 token 是 Windows 客户端从老 commit cache 里翻出来的，传不传都行。
-   *
-   * 不需要：0x93d1_1 (registerDownload) / 0x93e1_0 (progress polling) /
-   * 0x93d9_1 (download complete) — 那些是 Windows QQ UI 用来更新自己界面的，bot 上层
-   * 拿到 URL 直接 https.get 就行。 */
+  /**
+   * 用法: getFlashFileSetIdByCode -> getFlashFileList -> 把选中文件的 fileUuid / name / fileSize 传进来。
+   * 签名 URL 1 小时过期。不需要 0x93d1_1 / 0x93e1_0 / 0x93d9_1, 那些只用来更新 Windows QQ 的界面
+   */
   async getFlashFileDownloadUrl(opts: {
     fileSetId: string,
     fileUuid: string,
@@ -329,7 +298,7 @@ export class NTFileApi extends Service {
     fileSize?: number,
     fileSha1Hex?: string,
     fileMd5Hex?: string,
-    fileId?: string,  // base64 token (from preflight resp.fastUploadInfo.summary.fileSummary.token)
+    fileId?: string,  // preflight 返回的 token
   }): Promise<{ host: string, path: string, port: number, rkey: string, ttl: number, fullUrl: string }> {
     const requestId = Math.floor(Math.random() * 0x7fffffff) + 1
     return await this.ctx.qqProtocol.flashFileDownloadUrl({
@@ -365,34 +334,15 @@ export class NTFileApi extends Service {
     } as FlashFileSetInfo
   }
 
-  /** 闪传：基于已有 fileSet 重新分享，拿到全新 share_link + 14 天有效期。
-   *
-   * 跟 Windows QQ 客户端"重新分享"按钮一样的事——抓包确认 Windows QQ 也是这个流程，
-   * 但有个我之前漏的关键步骤 0x93e5_4：取每个老文件的完整元数据 (含 sha1/md5/historyToken)。
-   *
-   * 为啥需要 0x93e5_4：list (0x93d4_1) 对 bot 自己 own 的 fileSet 即使 field3=2
-   * 也只返 name/size/uuid，sha1/md5/historyToken 全空——这是 server 端 ownership
-   * 限制 (大概 server 觉得 client 自己的文件 client 自己有数据)。0x93e5_4 没这限制，
-   * 对自己的 fileSet 也返完整字段，所以重新分享必经它。
-   *
-   * 流程：
-   *   fileSetId → 0x93d4_1 (list) → 拿每个文件的 fileUuid (基础字段)
-   *   for fileUuid in fileSet:
-   *     → 0x93e5_4 → 完整 entry (sha1Hex/md5Hex/historyToken/name/size)
-   *   → 0x93cf_1 createFlashFileSet (新 fileSetId + 新 share_link)
-   *   → 0x93d0_1 registerFlashFile per file (带 sha1/md5)
-   *   → 0x93db_1 prepFlashFileSet
-   *   → 0x12a9_100 preflight (用 0x93e5_4 拿到的 sha1) → server 秒传命中
-   *   → 0x12a9_103 commit
-   *   → 0x93d1_1 finalize
-   *
-   * 限制：老 fileSet 必须没过期。 */
+  /**
+   * 跟 Windows QQ 的"重新分享"一样, 拿新的 share_link (14 天有效)。自己的 fileSet 在 list 里拿不到 sha1 / md5,
+   * 要逐个文件走 0x93e5_4, 再按上传流程建新 fileSet, 靠秒传完成。老 fileSet 必须还没过期
+   */
   async reshareFlashFile(fileSetId: string): Promise<any> {
     const sourceFiles = await this.ctx.qqProtocol.getFlashFileList(fileSetId)
     if (sourceFiles.length === 0) throw new Error('reshareFlashFile: 源 fileSet 无文件')
-    // info 拿 title — 拿不到（fileSet 已过期等）就用首文件名兜底，不让重新分享因为这个失败
+    // 拿不到 title 就用第一个文件名
     const sourceInfo = await this.ctx.qqProtocol.getFlashFileInfo(fileSetId).catch(() => null)
-    // 用 0x93e5_4 给每个文件取完整元数据 (含 sha1/md5)，list 自己 own 的 fileSet 不返这些字段
     type FullEntry = { fileUuid: string, name: string, fileSize: number, sha1Hex?: string, md5Hex?: string }
     const reusable: FullEntry[] = []
     for (const f of sourceFiles as any[]) {
@@ -400,7 +350,7 @@ export class NTFileApi extends Service {
       if (!fileUuid) continue
       const full = await this.ctx.qqProtocol.getFlashFileEntryFull(fileSetId, fileUuid).catch(() => null) as any
       if (!full) continue
-      // 跳过没 sha1 的 entry（封面占位等，size=1712 的默认头像那种），server 没法秒传它们
+      // 没有 sha1 的 (封面占位等) 没法秒传
       if (!full.sha1Hex || !full.fileSize) continue
       reusable.push({
         fileUuid,
@@ -412,12 +362,11 @@ export class NTFileApi extends Service {
     }
     if (reusable.length === 0) throw new Error('reshareFlashFile: 源 fileSet 没有可秒传的文件 (0x93e5_4 没返 sha1)')
     const totalSize = reusable.reduce((s, f) => s + (f.fileSize ?? 0), 0)
-    // uploaderNick 必须真实昵称——若 selfInfo.nick 还没填则去抓一次 (跟 uploadFlashFile 一致)
+    // 同 uploadFlashFile, uploaderNick 必须是真实昵称
     if (!selfInfo.nick) {
       await this.ctx.ntUserApi.getSelfNick(true).catch(() => { })
     }
     const uploaderNick = selfInfo.nick || 'QQ用户'
-    // 1. 创建新 fileSet
     const fset = await this.ctx.qqProtocol.createFlashFileSet({
       title: sourceInfo?.title ?? reusable[0].name ?? '',
       totalFileCount: reusable.length,
@@ -427,8 +376,6 @@ export class NTFileApi extends Service {
       uploaderUid: selfInfo.uid,
     })
     const newFileSetId = fset.fileSetId
-    // 2. 注册每个文件（用源文件的元信息）+ prep + 秒传 commit
-    // newFileUuid per file 在 register/commit 都要用上，所以先生成存起来
     const newFileUuids = reusable.map(() => randomUUID())
     for (let i = 0; i < reusable.length; i++) {
       const f = reusable[i]

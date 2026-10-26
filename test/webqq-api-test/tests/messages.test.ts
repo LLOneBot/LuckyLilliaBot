@@ -43,9 +43,7 @@ describe('messages endpoints (历史 / 转发 / 视频)', () => {
     await expect(client.get('/api/webqq/messages', { chatType: 99, peerId: '12345' })).rejects.toThrow()
   })
 
-  // 翻最近 100 条消息找 multiForwardMsgElement 的 resId 真测一下
-  // (resId 必须从真实 server 来，自己生成是无效的)。
-  // 群里没合并转发消息时跳过, 不算 fail.
+  // resId 只能来自真实消息: 从最近 100 条里找, 没有就跳过
   test('GET /api/webqq/forward-msg 解析合并转发', async () => {
     const data = await client.get<{ messages: RawMsg[] }>('/api/webqq/messages', {
       chatType: 2,
@@ -77,7 +75,7 @@ describe('messages endpoints (历史 / 转发 / 视频)', () => {
     expect(Array.isArray(items[0].segments)).toBe(true)
   })
 
-  // 同样: 翻历史找 videoElement.fileUuid 真测
+  // 同上, 找视频消息的 fileUuid
   test('GET /api/webqq/video-url 解析视频 URL', async () => {
     const data = await client.get<{ messages: RawMsg[] }>('/api/webqq/messages', {
       chatType: 2,

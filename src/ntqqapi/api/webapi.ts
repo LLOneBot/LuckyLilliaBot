@@ -130,7 +130,6 @@ export class NTWebApi extends Service {
     const url = `https://qun.qq.com/cgi-bin/qun_mgr/delete_group_member?bkn=${bkn}&ts=${Date.now()}`
     const cookieStr = this.cookieToString(cookieObject)
 
-    // 创建 FormData 对象
     const formData = new FormData()
     formData.append('gc', groupCode.toString())
     formData.append('ul', memberUinList.join('|'))
@@ -188,7 +187,6 @@ export class NTWebApi extends Service {
     const iBatchID = Math.floor(Date.now() / 1000)
     for (let i = 0; i < filePathList.length; i++) {
       const filePath = filePathList[i]
-      // 读取文件并计算 MD5
       const fileBuffer = await fs.readFile(filePath)
       const fileSize = fileBuffer.length
       const fileType = await fileTypeFromBuffer(fileBuffer)
@@ -329,13 +327,11 @@ export class NTWebApi extends Service {
       }
 
       const sliceSize = resJson.data.slice_size
-      // 分片上传文件 - 并发上传
       let offset = 0
       let seq = 1
       const concurrency = 10
       let sVid
 
-      // 并发上传函数
       const uploadSlice = async (slice: {
         offset: number,
         end: number,
@@ -382,7 +378,6 @@ export class NTWebApi extends Service {
         }
       }
 
-      // 生成所有分片任务
       const slices: Array<{
         offset: number,
         end: number,
@@ -408,7 +403,6 @@ export class NTWebApi extends Service {
         seq++
       }
 
-      // 使用并发控制上传
       for (let i = 0; i < slices.length; i += concurrency) {
         const batch = slices.slice(i, i + concurrency)
         try {
@@ -420,7 +414,6 @@ export class NTWebApi extends Service {
 
       if (sVid) {
         const filePath = await createThumb(this.ctx, filePathList[i])
-        // 读取文件并计算 MD5
         const fileBuffer = await fs.readFile(filePath)
         const fileSize = fileBuffer.length
         const timestamp = Math.floor(Date.now() / 1000)
@@ -513,12 +506,10 @@ export class NTWebApi extends Service {
         }
 
         const sliceSize = resJson.data.slice_size
-        // 分片上传文件 - 并发上传
         let offset = 0
         let seq = 1
         const concurrency = 10
 
-        // 生成所有分片任务
         const slices: Array<{
           offset: number,
           end: number,
@@ -544,7 +535,6 @@ export class NTWebApi extends Service {
           seq++
         }
 
-        // 使用并发控制上传
         for (let i = 0; i < slices.length; i += concurrency) {
           const batch = slices.slice(i, i + concurrency)
           try {
@@ -613,7 +603,6 @@ export class NTWebApi extends Service {
     return await res.json()
   }
 
-  /** 拉群公告列表 — web.qun.qq.com/cgi-bin/announce/list_announce */
   async getGroupBulletinList(groupCode: number) {
     const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
@@ -705,7 +694,6 @@ export class NTWebApi extends Service {
     }
   }
 
-  /** 删群公告 — web.qun.qq.com/cgi-bin/announce/del_feed */
   async deleteGroupBulletin(groupCode: number, feedId: string) {
     const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
@@ -774,7 +762,6 @@ export class NTWebApi extends Service {
     return users
   }
 
-  /** 拉群精华消息 — qun.qq.com/cgi-bin/group_digest/digest_list */
   async getGroupEssenceList(groupCode: number, pageStart = 0, pageLimit = 20) {
     const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)
@@ -811,7 +798,6 @@ export class NTWebApi extends Service {
     }
   }
 
-  /** 上传群公告图片 — web.qun.qq.com/cgi-bin/announce/upload_img */
   async uploadGroupBulletinPic(groupCode: number, filePath: string) {
     const cookieObject = await this.getCookies('qun.qq.com')
     const bkn = this.genBkn(cookieObject.skey)

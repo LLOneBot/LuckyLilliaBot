@@ -1,11 +1,4 @@
-﻿/**
- * send_group_msg 接口测试
- * 测试发送群消息功能
- *
- * 需求: 6.1
- */
-
-import {
+﻿import {
   OB11MessageText,
   OB11MessageDataType,
   OB11MessageData,
@@ -28,12 +21,12 @@ describe('send_group_msg - 发送群消息', () => {
   });
 
   beforeEach(async () => {
-    // 等待一小段时间让之前的消息处理完成
+    // 让之前的消息处理完
     await new Promise(resolve => setTimeout(resolve, 2000));
   });
 
   it('测试发送群文本消息', async () => {
-    // 在发送消息前清空队列，避免匹配到旧消息
+    // 清空队列, 免得匹配到旧消息
     context.twoAccountTest.clearAllQueues();
 
     const primaryClient = context.twoAccountTest.getClient('primary');
@@ -83,7 +76,6 @@ describe('send_group_msg - 发送群消息', () => {
   }, 60000);
 
   it('测试发送群图片消息', async () => {
-    // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
 
     const primaryClient = context.twoAccountTest.getClient('primary');
@@ -147,7 +139,6 @@ describe('send_group_msg - 发送群消息', () => {
   }, 60000);
 
   it('测试发送群语音消息', async () => {
-    // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
 
     const primaryClient = context.twoAccountTest.getClient('primary');
@@ -205,7 +196,6 @@ describe('send_group_msg - 发送群消息', () => {
   }, 60000);
 
   it('测试发送群视频消息', async () => {
-    // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
 
     const primaryClient = context.twoAccountTest.getClient('primary');
@@ -263,7 +253,6 @@ describe('send_group_msg - 发送群消息', () => {
   }, 60000);
 
   it('测试发送群聊 @ 消息', async () => {
-    // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
 
     const primaryClient = context.twoAccountTest.getClient('primary');
@@ -329,12 +318,10 @@ describe('send_group_msg - 发送群消息', () => {
   }, 60000);
 
   it('测试发送群聊回复消息', async () => {
-    // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
 
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先发送一条消息
     const firstMessage = `Original message ${Date.now()}`;
     const firstResponse = await primaryClient.call(ActionName.SendGroupMsg, {
       group_id: context.testGroupId,
@@ -344,7 +331,6 @@ describe('send_group_msg - 发送群消息', () => {
     Assertions.assertSuccess(firstResponse, 'send_group_msg');
     const originalMessageId = firstResponse.data.message_id;
 
-    // 等待消息被接收
     await context.twoAccountTest.secondaryListener.waitForEvent({
         post_type: 'message',
         message_type: 'group',
@@ -412,7 +398,6 @@ describe('send_group_msg - 发送群消息', () => {
   }, 60000);
 
   it('测试发送群聊混合消息 (文本 + @ + 图片)', async () => {
-    // 在发送消息前清空队列
     context.twoAccountTest.clearAllQueues();
 
     const testMessage: OB11MessageData[] = [

@@ -6,14 +6,13 @@ import { hashPassword } from './passwordHash'
 import { Context, Next } from 'hono'
 import { webuiTokenUtil } from '../../main/config'
 
-// 全局密码错误记录
 interface GlobalLoginAttempt {
   consecutiveFailures: number
   lockedUntil: number | null
   lastAttempt: number
 }
 
-// 全局登录失败记录（不基于IP）
+// 不按 IP 区分
 const globalLoginAttempt: GlobalLoginAttempt = {
   consecutiveFailures: 0,
   lockedUntil: null,
@@ -22,7 +21,6 @@ const globalLoginAttempt: GlobalLoginAttempt = {
 
 const accessLogPath = path.join(LOG_DIR, 'webui_access.log')
 
-// 记录访问日志
 export function logAccess(ip: string, method: string, path: string, status: number, message?: string) {
   const timestamp = new Date().toISOString()
   const logEntry = `${timestamp} | IP: ${ip} | ${method} ${path} | Status: ${status}${message ? ` | ${message}` : ''}\n`
@@ -33,7 +31,6 @@ export function logAccess(ip: string, method: string, path: string, status: numb
   }
 }
 
-// 清理过期的锁定（每小时执行一次）
 setInterval(() => {
   if (globalLoginAttempt.lockedUntil) {
     const now = Date.now()
@@ -44,7 +41,6 @@ setInterval(() => {
   }
 }, 60 * 60 * 1000)
 
-// 认证中间件
 export async function authMiddleware(c: Context, next: Next) {
   const clientIp = c.env.incoming.socket.remoteAddress
 
@@ -55,7 +51,6 @@ export async function authMiddleware(c: Context, next: Next) {
     return c.json({ success: false, message: '请先设置WebUI密码' }, 401)
   }
 
-  // 检查是否被全局锁定
   if (globalLoginAttempt.lockedUntil) {
     const now = Date.now()
     if (now < globalLoginAttempt.lockedUntil) {
@@ -107,7 +102,6 @@ export async function authMiddleware(c: Context, next: Next) {
     }, 403)
   }
 
-  // 登录成功，重置失败记录
   if (globalLoginAttempt.consecutiveFailures > 0) {
     logAccess(clientIp, c.req.method, c.req.path, 200, '登录成功，重置失败计数')
     globalLoginAttempt.consecutiveFailures = 0

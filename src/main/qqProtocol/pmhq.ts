@@ -15,10 +15,7 @@ import { getPmhqTarget } from '@/common/utils/environment'
 import { buildSsoInfoSync } from './direct-lib'
 import { QQProtocolBase } from './base'
 
-/**
- * PMHQ 模式实现: WS(优先) + HTTP 回退 与 PMHQ dll 通信.
- * QQ NT 早已登录, LLBot 寄生其上; 靠 /health 轮询拿 uin/uid.
- */
+/** 跟 PMHQ 通信 (WS 优先, HTTP 回退)。QQ NT 已经登录, 靠轮询 /health 拿 uin / uid */
 export class PmhqQQProtocol extends QQProtocolBase {
   private reconnectTimer: NodeJS.Timeout | undefined
   protected httpUrl: string
@@ -27,20 +24,18 @@ export class PmhqQQProtocol extends QQProtocolBase {
   private resListeners: Map<string, ResListener<any>> = new Map()
   private hasConnectedOnce: boolean = false
   private hasLoggedConnectionError: boolean = false
-  // 探测会话的取消令牌: 每次 WS open 启动一次新的探测, token 自增;
-  // 任何 setTimeout/listener 回调发现自己的 token 不是当前 token 就什么都不做并主动清理。
+  // 每次 WS open 自增, 旧一轮探测的回调见它变了就退出
   private pmhqProbeToken: number = 0
 
   constructor(ctx: Context) {
     super(ctx)
-    // 只有 isPmhqMode() 为真才会 plugin 到这个类, ?? 分支实际走不到, 纯为类型收口
+    // 只有 PMHQ 模式才会用这个类, ?? 只为收窄类型
     const { host, port } = getPmhqTarget() ?? { host: '127.0.0.1', port: '13000' }
     this.httpUrl = `http://${host}:${port}/`
     this.wsUrl = `ws://${host}:${port}/ws`
   }
 
   protected async start(): Promise<void> {
-    // 订阅 recv 事件, 转发为 qq/raw 供 dispatcher 用. (旧代码里叫 startHook, 现在归内部)
     this.addResListener((data: any) => {
       if (data?.type === 'recv' && data.data?.cmd && data.data?.pb) {
         const payload = Buffer.from(data.data.pb, 'hex')
@@ -68,11 +63,7 @@ export class PmhqQQProtocol extends QQProtocolBase {
     )
   }
 
-  /**
-   * base 拉码钩子: 拉一张新登录二维码 (QQ 未登录时 PMHQ 注入的 JS 会主动拉码写临时文件, 这里读接口).
-   * expireTimeSec 用接口返回的真实 expireTime -- base 据此做 TTL, 没过期不重拉 (修终端狂刷 bug).
-   * code:1 (已登录) / 其它 (未就绪) 返回 null, base loop 静默重试.
-   */
+  /** QQ 未登录时 PMHQ 注入的 JS 会自己拉码, 这里只读接口 */
   protected async fetchFreshQrCode(): Promise<{ qrcodeUrl: string; pngBase64: string; expireTimeSec: number; sig: string } | null> {
     const res = await this.fetchPmhqQrcode()
     if (res.code === 0 && res.data) {
@@ -86,12 +77,9 @@ export class PmhqQQProtocol extends QQProtocolBase {
     return null
   }
 
-  // ---- PMHQ 内部: 登录探测 + 状态复位 ----
-
   /**
-   * PMHQ 模式下 LLBot 是寄生在 QQ NT 上的, QQ NT 早就登录过了, 开机时的 InfoSyncPush 也早处理完.
-   * LLBot 想要群最新 seq (拉历史用) 就得自己主动触发一次: 发 SsoInfoSync, server 看到注册请求就回一发 InfoSyncPush.
-   * isFirstRegisterProxyOnline=0 + 派生 guid (基于 uid, 每个号固定) 尽量避免和 QQ NT 的注册项冲突.
+   * 开机时的 InfoSyncPush 早被 QQ 处理掉了, 要群最新 seq 得自己发一次 SsoInfoSync。guid 从 uid 派生,
+   * 避免跟 QQ 的注册项冲突
    */
   private async triggerInfoSyncPush() {
     const seed = selfInfo.uid || selfInfo.uin || 'llbot'
@@ -115,12 +103,7 @@ export class PmhqQQProtocol extends QQProtocolBase {
     }
   }
 
-  /**
-   * PMHQ 模式: 轮询 /health 拿 self uin/uid (DLL 从 QQ 内存直接读 uin,
-   * injector 侧扫 recv pb 抠 uid, 都写到 /health). 拿到 uin+uid 立即 emit online,
-   * nick 通过 scheduleFetchSelfNick 异步等 ntUserApi 服务 ready 后再拉.
-   * 重连后会被 onopen 再次调用, 所以必须先 reset 旧状态再启动新一轮.
-   */
+  /** 重连后 onopen 会再调一次, 所以先复位旧状态 */
   private startPmhqLoginProbe() {
     this.resetPmhqState()
     const myToken = ++this.pmhqProbeToken
@@ -145,8 +128,7 @@ export class PmhqQQProtocol extends QQProtocolBase {
           this.maybeEmitOnline()
           this.scheduleFetchSelfNick(() => this.pmhqProbeToken === myToken)
         } else {
-          // QQ 未登录: 此时才启动终端扫码 loop (幂等). 已登录则永不进拉码路径,
-          // 避免对已登录的 QQ 拉码 -> get_login_qrcode 返回已登录 -> QR code unavailable 刷屏。
+          // 只在 QQ 未登录时拉码, 不然 get_login_qrcode 返回已登录, 刷屏 QR code unavailable
           this.ensureQrLoop()
           if (!warnedNotLoggedIn) {
             this.logger.info('QQ 未登录，等待登录中...')
@@ -167,10 +149,7 @@ export class PmhqQQProtocol extends QQProtocolBase {
     probe()
   }
 
-  /**
-   * 打一次 PMHQ /get_login_qrcode. 响应约定 (见 pmhq_get_login_qrcode 文档):
-   * code:0 拿到码; code:1 已登录; code:-1 未就绪/已过期 (稍后重试会返回新码)。
-   */
+  /** code: 0 拿到码, 1 已登录, -1 未就绪或已过期 (重试会拿到新码) */
   private async fetchPmhqQrcode(): Promise<{
     code: number
     message?: string
@@ -181,12 +160,7 @@ export class PmhqQQProtocol extends QQProtocolBase {
     return await resp.json()
   }
 
-  /**
-   * QQ 进程资源占用: PMHQ /health 的 memory (字节) + cpu (整机占比小数)。
-   * cpu 是 PMHQ 按相邻两次 /health 的增量算的, 所以第一次调恒为 0, 之后的值覆盖
-   * "上次有人打 /health 到现在" 这段窗口 (WebUI 5s 一轮 -> 就是 5s 均值)。
-   * 老 PMHQ 不返这两个字段 -> null, WebUI 不渲染 "QQ 资源" 卡。
-   */
+  /** cpu 是相邻两次 /health 之间的均值, 第一次为 0。老 PMHQ 没有这两个字段, 返回 null */
   public async getQQResourceUsage(): Promise<QQResourceUsage | null> {
     try {
       const resp = await fetch(`${this.httpUrl}health`, { signal: AbortSignal.timeout(3000) })
@@ -205,8 +179,6 @@ export class PmhqQQProtocol extends QQProtocolBase {
       return null
     }
   }
-
-  // ---- PMHQ 内部: 传输层 (WS / HTTP) ----
 
   public addResListener<R extends PMHQRes>(listener: ResListener<R>) {
     const listenerId = randomUUID()
@@ -287,7 +259,6 @@ export class PmhqQQProtocol extends QQProtocolBase {
         this.hasConnectedOnce = true
         this.lastConnectedTime = Date.now()
       }
-      // 每次(重)连成功后重新走一遍登录探测
       this.startPmhqLoginProbe()
     }
   }
@@ -349,12 +320,7 @@ export class PmhqQQProtocol extends QQProtocolBase {
     return result
   }
 
-  /**
-   * 解包 PMHQ active-send 响应. echo 只用于关联请求, 不能"echo 匹配就算成功":
-   * PMHQ 即使发包失败 / QQ 未登录, 也会回一条 echo 匹配但 code 非 0 的响应.
-   * 成败一律看 code: 0 = QQ 真回包 (已登录); 非 0 (-100 未登录/KernelMsgService 缺失/管道未连,
-   * 或 QQ app error) 一律抛错, 不让上层拿空 pb 去 decode.
-   */
+  /** echo 匹配不代表成功: 发包失败或 QQ 未登录时 PMHQ 也会回 echo 匹配、code 非 0 的响应, 一律抛错 */
   private unwrapPmhqRes(res: PMHQResSendPB, cmd: string): PBData {
     if (res.code != null && res.code !== 0) {
       const pb = res.data?.pb ?? ''

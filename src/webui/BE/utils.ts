@@ -1,6 +1,6 @@
 import { Dict } from 'cosmokit'
 
-// 序列化结果，处理 Map 等特殊类型
+// 处理 Map 等 JSON 表示不了的类型
 export function serializeResult(result: unknown): unknown {
   if (result === null || result === undefined) return result
   if (result instanceof Map) {

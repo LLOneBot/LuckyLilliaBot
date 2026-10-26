@@ -17,7 +17,6 @@ function formatTime(timestamp: number): string {
   return date.toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-// 获取群通知的描述文本
 function getGroupNotifyDescription(item: GroupNotifyItem): string {
   const user1 = item.user1.nickName || item.user1.uin || '未知用户'
   const user2 = item.user2.nickName || item.user2.uin || ''
@@ -58,7 +57,7 @@ function getGroupNotifyDescription(item: GroupNotifyItem): string {
   }
 }
 
-// 判断是否为可操作的通知（需要审批）
+// 需要审批的
 function isActionable(item: GroupNotifyItem): boolean {
   return (
     item.status === GroupNotifyStatus.Unhandle &&
@@ -68,7 +67,6 @@ function isActionable(item: GroupNotifyItem): boolean {
   )
 }
 
-// 获取状态文本
 function getStatusText(item: GroupNotifyItem): string | null {
   switch (item.status) {
     case GroupNotifyStatus.Agreed:
@@ -82,13 +80,11 @@ function getStatusText(item: GroupNotifyItem): string | null {
   }
 }
 
-// 通知操作按钮样式
 const btnApprove = 'flex items-center gap-1 px-3 py-1 text-xs text-pink-500 hover:bg-pink-50 dark:hover:bg-pink-900/30 rounded-md transition-colors disabled:opacity-50'
 const btnReject = 'flex items-center gap-1 px-3 py-1 text-xs text-theme-secondary hover:bg-neutral-100 dark:hover:bg-neutral-700/50 rounded-md transition-colors disabled:opacity-50'
 const btnRejectConfirm = 'flex items-center gap-1 px-3 py-1 text-xs text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors disabled:opacity-50'
 const btnCancel = 'px-3 py-1 text-xs text-theme-muted hover:text-theme hover:bg-theme-item rounded-md transition-colors'
 
-// 群通知卡片
 const GroupNotifyCard: React.FC<{ item: GroupNotifyItem; time: number }> = ({ item, time }) => {
   const [loading, setLoading] = useState<'approve' | 'reject' | null>(null)
   const [showRejectInput, setShowRejectInput] = useState(false)
@@ -188,7 +184,6 @@ const GroupNotifyCard: React.FC<{ item: GroupNotifyItem; time: number }> = ({ it
   )
 }
 
-// 好友申请卡片
 const FriendRequestCard: React.FC<{ item: FriendRequestItem; time: number }> = ({ item, time }) => {
   const [loading, setLoading] = useState<'approve' | 'reject' | null>(null)
   const [decided, setDecided] = useState(item.isDecide)
@@ -259,7 +254,7 @@ const FriendRequestCard: React.FC<{ item: FriendRequestItem; time: number }> = (
   )
 }
 
-// 被过滤好友申请卡片
+// 被过滤的好友申请
 const DoubtBuddyCard: React.FC<{ item: DoubtBuddyItem; time: number }> = ({ item, time }) => {
   const [loading, setLoading] = useState<'approve' | 'reject' | null>(null)
   const [decided, setDecided] = useState(false)
@@ -343,7 +338,7 @@ const DoubtBuddyCard: React.FC<{ item: DoubtBuddyItem; time: number }> = ({ item
   )
 }
 
-// 信息类通知卡片（群解散、退群等）
+// 群解散、退群等只读通知
 const InfoNotifyCard: React.FC<{ type: 'group-dismiss' | 'group-quit'; data: { groupCode: string; groupName: string }; time: number }> = ({ type, data, time }) => {
   const avatarUrl = getGroupAvatar(data.groupCode)
   const Icon = type === 'group-dismiss' ? AlertTriangle : LogOut
@@ -368,7 +363,6 @@ const InfoNotifyCard: React.FC<{ type: 'group-dismiss' | 'group-quit'; data: { g
   )
 }
 
-// 主通知面板
 type NotifyTab = 'friend' | 'group'
 
 const NotificationPanel: React.FC<{ onClose: () => void }> = () => {
@@ -391,11 +385,9 @@ const NotificationPanel: React.FC<{ onClose: () => void }> = () => {
     }
   }
 
-  // 分类通知
   const friendRequests = notifications.filter(n => n.type === 'friend-request' || n.type === 'doubt-buddy')
   const groupNotifies = notifications.filter(n => n.type === 'group-notify' || n.type === 'group-dismiss' || n.type === 'group-quit')
 
-  // 未处理数量
   const friendPendingCount = friendRequests.filter(n =>
     (n.type === 'friend-request' && !n.data.isDecide) || n.type === 'doubt-buddy'
   ).length

@@ -1,29 +1,16 @@
-// 出站 SSO cmd 常量注册表 + per-platform 签名白名单 (单一真源)。
-//
-// 背景: 原来 cmd 字符串散落在各 mixin 里硬编码, "谁该签名"靠 client.ts 里一张
-// 外部抄来的 532 条超集 allowlist 决定。这里把 cmd 收敛成带语义名的常量 (Cmd),
-// 签名判定统一走 cmdNeedsSign()。
-//
-// 签名面积当前是**旧 532 超集** (非真机 99 条), 原因见文件末 SIGN_REQUIRED 上的注释。
+// 出站 SSO cmd 常量和各平台的签名白名单。签名面积目前是旧的 532 条超集, 原因见 EFFECTIVE_SIGN
 
 import type { ProtocolName } from './profiles'
 
-// ============================================================================
-// Cmd 注册表 —— 所有 Bot 会发出的出站 cmd, 按域分组。
-// 命名取自各 mixin 里发送它的方法名 (PascalCase)。
-// sendOidb(0xNNN, sub) 的数字调用不直接引用这里的常量 (它内部拼字符串), 但仍在此登记,
-// 供 SIGN_REQUIRED 匹配 + 文档索引。
-// ============================================================================
+// sendOidb(0xNNN, sub) 的数字调用不引用这里的常量, 登记在这里是为了签名白名单匹配
 export const Cmd = {
-  // ---- 扫码 / wtlogin 登录帧 ----
   Login: {
-    ScanCode: 'wtlogin.trans_emp',            // fetchQrCode (watch 走 skipSign 不签)
-    Login: 'wtlogin.login',                   // pollQrCode
+    ScanCode: 'wtlogin.trans_emp',            // watch 不签
+    Login: 'wtlogin.login',
     DeviceLogin: 'wtlogin_device.login',
     DeviceTranSimEmp: 'wtlogin_device.tran_sim_emp',
   },
 
-  // ---- NT 登录 ECDH (trpc.login.ecdh.*) ----
   Ecdh: {
     KeyExchange: 'trpc.login.ecdh.EcdhService.SsoKeyExchange',
     NTLoginEasyLogin: 'trpc.login.ecdh.EcdhService.SsoNTLoginEasyLogin',
@@ -43,7 +30,6 @@ export const Cmd = {
     OIDB0x9689: 'trpc.login.ecdh.EcdhService.SsoOIDB0x9689',
   },
 
-  // ---- o3 安全通道 (ESK / SecureAccess / Report) ----
   O3: {
     EstablishShareKey: 'trpc.o3.ecdh_access.EcdhAccess.SsoEstablishShareKey',
     SecureAccess: 'trpc.o3.ecdh_access.EcdhAccess.SsoSecureAccess',
@@ -52,18 +38,16 @@ export const Cmd = {
     Report: 'trpc.o3.report.Report.SsoReport',
   },
 
-  // ---- 上线 / 保活 / 状态 ----
   Session: {
     InfoSync: 'trpc.msg.register_proxy.RegisterProxy.SsoInfoSync',
     Heartbeat: 'trpc.qq_new_tech.status_svc.StatusService.SsoHeartBeat',
-    HeartbeatAlive: 'Heartbeat.Alive',        // type-13 层保活, 不过 sendCommand 签名门
+    HeartbeatAlive: 'Heartbeat.Alive',        // type-13 包, 不走 sendCommand
     SetStatus: 'trpc.qq_new_tech.status_svc.StatusService.SetStatus',
     SyncFirstView: 'trpc.group_pro.synclogic.SyncLogic.SyncFirstView',
     PushAck: 'trpc.msg.olpush.OlPushService.SsoPushAck',
     PushParams: 'trpc.msg.register_proxy.RegisterProxy.PushParams',
   },
 
-  // ---- 消息 收发 / 撤回 / 拉取 ----
   Message: {
     Send: 'MessageSvc.PbSendMsg',
     ProxySend: 'trpc.group_pro.msgproxy.sendmsg',
@@ -87,9 +71,7 @@ export const Cmd = {
     TransC2CPtt: 'pttTrans.TransC2CPttReq',
   },
 
-  // ---- 群管理 / 群文件 / 群相册 ----
   Group: {
-    // sendOidb (数字调用) —— 登记供 SIGN 匹配, 发送点保持数字不迁移
     Poke: 'OidbSvcTrpcTcp.0xed3_1',
     SetSpecialTitle: 'OidbSvcTrpcTcp.0x8fc_2',
     ClockIn: 'OidbSvcTrpcTcp.0xeb7_1',
@@ -102,7 +84,6 @@ export const Cmd = {
     SetMemberCard: 'OidbSvcTrpcTcp.0x8fc_3',
     SetMemberAdmin: 'OidbSvcTrpcTcp.0x1096_1',
     Leave: 'OidbSvcTrpcTcp.0x1097_1',
-    // sendPB (字面量) —— 发送点迁移引用
     GetFileUrl: 'OidbSvcTrpcTcp.0x6d6_2',
     FetchGroups: 'OidbSvcTrpcTcp.0xfe5_2',
     GetFileList: 'OidbSvcTrpcTcp.0x6d8_1',
@@ -118,7 +99,7 @@ export const Cmd = {
     Fetch: 'OidbSvcTrpcTcp.0x88d_14',
     FetchExtra: 'OidbSvcTrpcTcp.0x88d_0',
     FetchMembers: 'OidbSvcTrpcTcp.0xfe7_3',
-    // 手表(轻聊)appid 只授权 0xfe7_4, 发 _3 会被服务端拒 -10122。同一 OIDB 0xfe7, 仅子命令不同。
+    // 手表 appid 只授权 0xfe7_4, 发 _3 回 -10122
     FetchMembersWatch: 'OidbSvcTrpcTcp.0xfe7_4',
     FetchAtAllRemain: 'OidbSvcTrpcTcp.0x8a7_0',
     ForwardFile: 'OidbSvcTrpcTcp.0x6d9_2',
@@ -128,9 +109,7 @@ export const Cmd = {
     FetchAlbumMediaList: 'QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.GetMediaList',
   },
 
-  // ---- 好友管理 / 好友请求 ----
   Friend: {
-    // sendOidb (数字调用)
     Poke: 'OidbSvcTrpcTcp.0xed3_1',
     SetRequest: 'OidbSvcTrpcTcp.0xb5d_44',
     SetFilteredRequest: 'OidbSvcTrpcTcp.0xd72_0',
@@ -138,7 +117,6 @@ export const Cmd = {
     Delete: 'OidbSvcTrpcTcp.0x126b_0',
     SetCategory: 'OidbSvcTrpcTcp.0x10eb_1',
     SetPin: 'OidbSvcTrpcTcp.0x5d6_18',
-    // sendPB (字面量)
     GetPrivateFileUrl: 'OidbSvcTrpcTcp.0xe37_1200',
     Fetch: 'OidbSvcTrpcTcp.0xfd4_1',
     GetRecommendContactArk: 'OidbSvcTrpcTcp.0x12b6_0',
@@ -147,7 +125,6 @@ export const Cmd = {
     GetStatus: 'OidbSvcTrpcTcp.0x116d_1',
   },
 
-  // ---- 用户资料 / 状态 / 点赞 ----
   User: {
     SendLike: 'OidbSvcTrpcTcp.0x7e5_104',
     ModifySelfProfile: 'OidbSvcTrpcTcp.0x112a_2',
@@ -159,7 +136,6 @@ export const Cmd = {
     FetchProfileLikeCount: 'OidbSvcTrpcTcp.0x7ed_12',
   },
 
-  // ---- 富媒体 上传 / 下载 / highway / 闪传 ----
   Media: {
     GetRKey: 'OidbSvcTrpcTcp.0x9067_202',
     GetHighwaySession: 'HttpConn.0x6ff_501',
@@ -173,8 +149,7 @@ export const Cmd = {
     GetC2CFileUploadInfo: 'OidbSvcTrpcTcp.0xe37_1700',
     GetGroupImageUploadInfo: 'OidbSvcTrpcTcp.0x11c4_100',
     GetC2CImageUploadInfo: 'OidbSvcTrpcTcp.0x11c5_100',
-    // NTV2 富媒体下载 (subCommand 200). 手表(qqlite)群图走老式 customFace, 消息里不带
-    // urlPath/fileUuid, 只有 md5 -> 用这个按 md5 现取带 rkey 的下载 URL.
+    // 手表群图是老式 customFace, 只带 md5, 用这个按 md5 取带 rkey 的 URL
     DownloadGroupImage: 'OidbSvcTrpcTcp.0x11c4_200',
     DownloadC2CImage: 'OidbSvcTrpcTcp.0x11c5_200',
     GetGroupPttUploadInfo: 'OidbSvcTrpcTcp.0x126e_100',
@@ -193,20 +168,13 @@ export const Cmd = {
     FlashFileUploadCommit: 'OidbSvcTrpcTcp.0x12a9_200',
   },
 
-  // ---- 杂项 ----
   Misc: {
     FetchPins: 'OidbSvcTrpcTcp.0x12b3_0',
   },
 } as const
 
-// ============================================================================
-// 真机签名白名单 (ground-truth)
-// ============================================================================
-
-// Linux 真机 sub_56D2D00 静态白名单 97 条 —— IDA 逆向自 wrapper.node 3.2.28-48517。
-// 来源与门控机制见 LuckyLillia.Sign/docs/Linux/algorithm/QQ-3.2.28-48517.md
-// ("Sign cmd 白名单" 一节)。真机发包主循环每个出站 cmd 都过 IsNeedSignCmd, 不在名单
-// 里的裸发不签。
+// 真机的静态签名白名单 99 条, 三端 NT 一致 (wrapper.node 3.2.28-48517 sub_56D2D00), 不在名单里的 cmd 不签。
+// 见 LuckyLillia.Sign/docs/Linux/algorithm/QQ-3.2.28-48517.md
 const LINUX_STATIC_SIGN: readonly string[] = [
   'ConnAuthSvr.fast_qq_login',
   'ConnAuthSvr.sdk_auth_api',
@@ -309,8 +277,6 @@ const LINUX_STATIC_SIGN: readonly string[] = [
   'OidbSvcTcp.0x102a',
 ]
 
-// 旧的 532 条超集 (2026-07-06 ~ 09-21 在用, 697592df 收敛时删掉), 2026-10-09 整份恢复。
-// 99 条真机 ground-truth 留在 LINUX_STATIC_SIGN 不动, 要切回只改下面 EFFECTIVE_SIGN。
 const LEGACY_SIGN_SUPERSET: readonly string[] = [
   'AvatarInfoSvr.QQHeadUrlReq',
   'CertifiedAccountSvc.certified_account_read.GetFollowList',
@@ -846,27 +812,9 @@ const LEGACY_SIGN_SUPERSET: readonly string[] = [
   'wtlogin_device.tran_sim_emp',
 ]
 
-// per-platform 签名白名单。三端 NT (Linux 3.2.28 / macOS 7.0.0 / Windows 9.9.33) 的本地静态 sign
-// 白名单 IDA 实证**完全一致 = LINUX_STATIC_SIGN 的 99 条**。
-//
-// 订正 (2026-09-25): 早前把 Linux 记成 97 是提取 bug —— sub_56D2D00 里 wtlogin.trans_emp /
-// OidbSvcTcp.0x102a 的 libc++ SSO 长度前缀恰为 0x22 (=17<<1='"'), 在反编译 strcpy 字面量里
-// 写作转义 \", 被旧正则漏掉。补回后 Linux 也是 99, 与 mac/win 逐字节同。故 trans_emp 是**静态**
-// 成员 (走本地分支签名, 删 MMKV 照签), 之前追的 "o3 动态名单" 是这个误数导致的乌龙: gate 实测
-// o3 分支从未加过任何 beyond-99 的 cmd, 本地 MMKV nt_mmkv_o3 override 实际空、非网络下发。
-//
-// 但**实际生效的不是这 99 条**: 2026-09-30 (697592df) 收敛到 99 之后会话照旧被 KickNT, 过度签
-// 不是元凶, 2026-10-09 把旧超集整份放回来排除这个变量。生效集 = 旧 532 ∪ 真机 99 = 536 条。
-// 取并集而非纯 532: 99 里有 4 条旧超集没收 (0xcd5_0 / 0xdc2_58 / 0xdc2_59 / SsoOIDB0x9689),
-// 丢掉等于又悄悄改一次签名行为。
-//
-// 跟真机的已知偏离 (恢复超集的代价, 想对齐真机就把 EFFECTIVE_SIGN 换回 LINUX_STATIC_SIGN):
-//   - InfoSync (RegisterProxy.SsoInfoSync) / status_svc.SsoHeartBeat 真机裸发不签, 这里会签
-//   - 0x116d_1 真机抓包无 f24 (见 telemetry.ts), 这里会签
-//   - 媒体/群文件/踢人/fetchGroups 等 ~24 条业务 cmd 同属过度签
-// Heartbeat.Alive / QQClubComm.getNewFlag / RedTouchSvc.ClientReport / SsoGetConfig / 0x9067_202
-// 两份名单都没有, 仍是裸发。
-// watch: 未单独抽取, 沿用同一份; watch trans_emp 由调用点 skipSign 排除。
+// 生效的是旧 532 条超集 ∪ 真机 99 条: 只签 99 条时会话照样被 KickNT, 过度签名不是元凶, 放回超集排除这个变量。
+// 代价是 InfoSync / status_svc.SsoHeartBeat / 0x116d_1 和约 24 条业务 cmd 真机不签而这里会签;
+// 要对齐真机就换成 LINUX_STATIC_SIGN。watch 沿用同一份, 它的 trans_emp 由调用点 skipSign 排除
 const EFFECTIVE_SIGN: ReadonlySet<string> = new Set([...LEGACY_SIGN_SUPERSET, ...LINUX_STATIC_SIGN])
 
 export const SIGN_REQUIRED: Record<ProtocolName, ReadonlySet<string>> = {
@@ -876,7 +824,6 @@ export const SIGN_REQUIRED: Record<ProtocolName, ReadonlySet<string>> = {
   watch: EFFECTIVE_SIGN,
 }
 
-/** 该 cmd 在当前平台是否需要签名。发包统一走这里判定。 */
 export function cmdNeedsSign(cmd: string, platform: ProtocolName): boolean {
   return SIGN_REQUIRED[platform]?.has(cmd) ?? false
 }

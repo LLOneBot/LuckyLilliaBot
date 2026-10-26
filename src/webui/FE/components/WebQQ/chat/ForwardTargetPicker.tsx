@@ -11,14 +11,13 @@ export interface ForwardTarget {
 }
 
 interface ForwardTargetPickerProps {
-  // 转发的消息条数, 用于标题提示 (1=单条, >1=合并转发)
+  // 1 = 单条, > 1 = 合并转发
   count: number
   onSelect: (target: ForwardTarget) => void
   onClose: () => void
   sending?: boolean
 }
 
-// 转发目标选择器: 合并 最近会话 + 好友 + 群, 带搜索, 点击某项即回调 onSelect.
 const ForwardTargetPicker: React.FC<ForwardTargetPickerProps> = ({ count, onSelect, onClose, sending }) => {
   const { recentChats, friendCategories, groups } = useWebQQStore()
   const [query, setQuery] = useState('')
@@ -27,7 +26,7 @@ const ForwardTargetPicker: React.FC<ForwardTargetPickerProps> = ({ count, onSele
     const seen = new Set<string>()
     const list: ForwardTarget[] = []
     const add = (t: ForwardTarget) => {
-      // 只允许私聊(1) / 群(2) 作为转发目标, 排除临时会话等
+      // 只能转发到私聊 / 群, 排除临时会话等
       if (t.chatType !== 1 && t.chatType !== 2) return
       const key = `${t.chatType}_${t.peerId}`
       if (seen.has(key)) return

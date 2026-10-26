@@ -1,9 +1,4 @@
-﻿/**
- * mark_msg_as_read 接口测试
- * 测试标记消息已读功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llbot/onebot11/types';
@@ -23,7 +18,6 @@ describe('mark_msg_as_read - 标记消息已读', () => {
     context.twoAccountTest.clearAllQueues();
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先发送一条消息
     const testMessage: OB11MessageData[] = [{
       type: OB11MessageDataType.Text,
       data: {
@@ -38,13 +32,11 @@ describe('mark_msg_as_read - 标记消息已读', () => {
 
     Assertions.assertSuccess(sendResponse, 'send_group_msg');
 
-    // 等待消息被接收
     await context.twoAccountTest.secondaryListener.waitForEvent({
       post_type: 'message',
       message_id: sendResponse.data.message_id,
     });
 
-    // 标记消息已读
     const secondaryClient = context.twoAccountTest.getClient('secondary');
     const markResponse = await secondaryClient.call(ActionName.GoCQHTTP_MarkMsgAsRead, {
       message_id: sendResponse.data.message_id

@@ -28,13 +28,10 @@ interface AccountConfig extends Found<Dict> {
 }
 
 /**
- * One-time move into data/instances/ (config-storage §9). Runs while there is no instances/ yet: the most
- * recently used account's settings become the default instance, and every other account whose settings differ
- * gets an instance named after its QQ number. The email settings, the WebUI password and the plugin entries
- * were shared by all accounts, so every instance gets a copy. The old files are renamed to *.bak.
- *
- * Built in instances.migrating/ and renamed into place at the end: a crash halfway leaves no instances/
- * behind, so the next start runs the whole migration again.
+ * One-time move into data/instances/ (config-storage §9): the most recently used account becomes the default
+ * instance, every other account whose settings differ gets one named after its QQ number, and the files all
+ * accounts shared are copied into each. Built in instances.migrating/ and renamed into place at the end, so a
+ * crash halfway reruns the whole migration.
  */
 export function migrateToInstances(log: MigrationLog) {
   if (existsSync(instancesDir())) {

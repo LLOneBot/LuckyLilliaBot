@@ -12,12 +12,8 @@ import './index.css'
 ;(window as unknown as { __glass: unknown }).__glass = { setGlassSource }
 
 /*
- * Material reference page, served only in dev at /styleguide.html.
- *
- * Every glass variant, the radius ladder and every control, on one screen in
- * both themes. Changing a token in styles/tokens.css shows up here first:
- * checking a token against the real app means logging in and clicking to the
- * right tab, which is slow enough that it stops happening.
+ * Material reference page, dev only at /styleguide.html: every glass variant, the radius ladder and every
+ * control in both themes, so a change to styles/tokens.css can be checked without logging in.
  */
 
 const Section: React.FC<{ title: string; note?: string; children: React.ReactNode }> = ({ title, note, children }) => (

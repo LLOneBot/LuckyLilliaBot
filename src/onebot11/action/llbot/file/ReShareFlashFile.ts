@@ -7,20 +7,7 @@ interface Response {
   expire_time: number
 }
 
-/**
- * 闪传：用老 share_link / file_set_id 重新分享，拿到全新 share_link + 14 天有效期。
- *
- * 实现链路（跟 Windows QQ "重新分享" 按钮一致，但**不需要本地有原文件**）：
- *   share_link → 0x93eb_1 → 老 fileSetId
- *   → 0x93d4_1 (field3=2) 拿每文件的 sha1
- *   → 走完整 upload 链路 (createFlashFileSet/register/prep/preflight/commit)
- *   → preflight 拿 list 给的 sha1，server 端秒传命中，瞬间完成
- *   → 全新 share_link + 14 天有效期
- *
- * 限制：老 fileSet 必须没过期（过期后 list 调不通拿不到 sha1）。
- *
- * Payload: { share_link } 或 { file_set_id }
- */
+/** 靠秒传完成, 不需要本地有原文件; 老 fileSet 必须还没过期。Payload: { share_link } 或 { file_set_id } */
 export class ReShareFlashFile extends GetFlashFileInfoBase<Response> {
   actionName = ActionName.ReShareFlashFile
 

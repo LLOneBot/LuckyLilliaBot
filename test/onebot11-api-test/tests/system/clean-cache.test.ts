@@ -1,9 +1,4 @@
-﻿/**
- * clean_cache 接口测试
- * 测试清理缓存功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 

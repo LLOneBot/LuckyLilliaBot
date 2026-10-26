@@ -210,7 +210,7 @@ export interface OB11MessageRPS {
 export interface OB11MessageText {
   type: OB11MessageDataType.Text
   data: {
-    text: string // 纯文本
+    text: string
   }
 }
 

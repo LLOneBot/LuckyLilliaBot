@@ -1,9 +1,4 @@
-﻿/**
- * send_group_forward_msg / send_private_forward_msg 接口测试
- * 测试发送合并转发消息功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 
@@ -22,7 +17,6 @@ describe('send_forward_msg - 发送合并转发消息', () => {
     context.twoAccountTest.clearAllQueues();
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 构造合并转发消息节点
     const messages = [
       {
         type: 'node',

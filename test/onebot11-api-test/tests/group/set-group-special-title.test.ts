@@ -17,7 +17,7 @@ describe('set_group_special_title', () => {
         const primaryClient = context.twoAccountTest.getClient('primary');
         const secondaryClient = context.twoAccountTest.getClient('secondary');
 
-        // Note: This requires the bot to be the owner
+        // Requires owner permission
         try {
             const response = await primaryClient.call(ActionName.GoCQHTTP_SetGroupSpecialTitle, {
                 group_id: context.testGroupId,

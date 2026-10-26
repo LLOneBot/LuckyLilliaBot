@@ -14,10 +14,7 @@ export function logFilename(now = new Date(), pid = process.pid): string {
   return `llbot-${now.toLocaleString('zh-CN')}-${pid}.log`.replace(/\//g, '-').replace(/:/g, '-')
 }
 
-/**
- * Deletes our own log files (`llbot-*.log`, nothing else in the directory) last modified before the
- * retention period. Age alone decides, so the file another process is writing to right now is never old.
- */
+/** Only `llbot-*.log`. Age alone decides, so a file another process is writing is never old. */
 export async function pruneOldLogs(dir: string, now = Date.now(), retentionDays = LOG_RETENTION_DAYS): Promise<string[]> {
   const cutoff = now - retentionDays * 24 * 60 * 60 * 1000
   const removed: string[] = []

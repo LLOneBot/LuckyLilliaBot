@@ -1,9 +1,4 @@
-﻿/**
- * ocr_image 接口测试
- * 测试图片 OCR 识别功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 import { MediaPaths } from '@/tests/media';

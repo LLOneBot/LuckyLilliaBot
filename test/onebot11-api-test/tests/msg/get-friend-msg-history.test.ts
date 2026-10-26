@@ -1,9 +1,4 @@
-﻿/**
- * get_friend_msg_history 接口测试
- * 测试获取好友消息历史功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llbot/onebot11/types';
@@ -23,7 +18,6 @@ describe('get_friend_msg_history - 获取好友消息历史', () => {
     context.twoAccountTest.clearAllQueues();
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先发送一条私聊消息
     const testMessage: OB11MessageData[] = [{
       type: OB11MessageDataType.Text,
       data: {
@@ -38,7 +32,6 @@ describe('get_friend_msg_history - 获取好友消息历史', () => {
 
     Assertions.assertSuccess(sendResponse, 'send_private_msg');
 
-    // 获取消息历史
     const historyResponse = await primaryClient.call(ActionName.GetFriendMsgHistory, {
       user_id: context.secondaryUserId,
       count: 20

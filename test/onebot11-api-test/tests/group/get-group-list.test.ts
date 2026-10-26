@@ -1,9 +1,4 @@
-﻿/**
- * get_group_list 接口测试
- * 测试获取群列表功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 
@@ -27,7 +22,6 @@ describe('get_group_list - 获取群列表', () => {
     Assertions.assertTrue(Array.isArray(response.data), 'Response should be an array');
     Assertions.assertTrue(response.data.length > 0, 'Should have at least one group');
 
-    // 验证第一个群的字段
     const firstGroup = response.data[0];
     Assertions.assertDefined(firstGroup.group_id, 'Group ID should be defined');
     Assertions.assertDefined(firstGroup.group_name, 'Group name should be defined');

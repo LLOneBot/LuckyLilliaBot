@@ -4,7 +4,6 @@ import { X, Loader2, Download } from 'lucide-react'
 import { getVideoUrl, downloadImageByUrl } from '../../../utils/webqqApi'
 import { showToast } from '../../common'
 
-// 图片预览弹窗组件
 export const ImagePreviewModal: React.FC<{ url: string | null; onClose: () => void }> = ({ url, onClose }) => {
   if (!url) return null
 
@@ -48,7 +47,6 @@ export const ImagePreviewModal: React.FC<{ url: string | null; onClose: () => vo
   )
 }
 
-// 视频预览弹窗组件
 export const VideoPreviewModal: React.FC<{ 
   videoInfo: { fileUuid: string; isGroup: boolean } | null
   onClose: () => void 

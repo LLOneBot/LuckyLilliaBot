@@ -49,7 +49,6 @@ declare module 'cordis' {
   }
 
   interface Events {
-    // Raw QQ protocol push: { cmd, payload } from PMHQ recv or direct push
     'qq/raw': (input: { cmd: string, payload: Buffer }) => void
 
     'nt/message-created': (input: MessageCreatedEvent) => void
@@ -149,8 +148,7 @@ class Core extends Service {
       const returnMsg = await ctx.ntMsgApi.sendMsg(peer, sendElements, groupMsgMask)
       this.messageSentCount++
       if (returnMsg.chatType !== ChatType.Group) {
-        // 由于私聊消息发送后没有回声，不会触发 nt/message-sent，所以补一个
-        // 而且，该事件不能早于 ntMsgApi.waitForSelfEcho 上报
+        // 私聊没有回声, 不会触发 nt/message-sent, 所以补一个; 不能早于 waitForSelfEcho 上报
         this.ctx.parallel('nt/message-sent', {
           message: returnMsg
         })

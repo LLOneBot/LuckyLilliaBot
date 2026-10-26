@@ -1,19 +1,14 @@
 import crypto from 'node:crypto'
 
 export interface TestConfig {
-  /** WebUI HTTP base, 例如 http://127.0.0.1:3080。不要带尾斜线。 */
+  /** 例如 http://127.0.0.1:3080, 不带尾斜线 */
   host: string
-  /** WebUI 登录密码（明文）。client 算 sha256 当 X-Webui-Token 发。
-   *  二选一: 直接填明文密码, 或留空但填 password_file 由 client 自己读 (例如 data/webui_token.txt) */
+  /** 明文, client 算 sha256 当 X-Webui-Token 发; 不填就读 password_file */
   password?: string
-  /** 从指定文件读取明文密码 (相对 test.config.json 所在目录解析)。优先级低于 password 字段。
-   *  典型用法: { "password_file": "../../data/webui_token.txt" } */
+  /** 相对 test.config.json 所在目录, 比如 "../../data/webui_token.txt" */
   password_file?: string
-  /** bot 自己的 QQ 号，用于断言 GET /login-info 的 selfInfo。 */
   user_id: string
-  /** 用于查询型测试的群号 (GET /group-detail / /members 等)。 */
   test_group_id: string
-  /** 用于查询型测试的用户 QQ 号 (GET /user / /uid 等)。 */
   test_user_id: string
   timeout?: number
 }
@@ -37,12 +32,8 @@ export class WebQQApiError extends Error {
 }
 
 /**
- * WebUI HTTP client - 复刻 src/webui/FE/utils/api.ts 的请求形状：
- *   - 每个请求带 `X-Webui-Token: sha256(password)` header
- *   - BE 统一返 { success, data?, message?, error? }，failure 一律 throw
- *
- * 不实现 framework 的 IApiClient 接口（OB11 的 action+params 概念这边对不上）；
- * 直接暴露 RESTish helpers (get/post/postJson)。
+ * 请求形状同 src/webui/FE/utils/api.ts: 带 X-Webui-Token: sha256(password), 后端回
+ * { success, data?, message?, error? }, 失败一律 throw。REST 风格, 不实现 framework 的 IApiClient
  */
 export class WebQQApiClient {
   private hashedToken: string
@@ -76,8 +67,7 @@ export class WebQQApiClient {
     return this.handle<R>(path, res)
   }
 
-  /** 健康检查：能拿到 selfInfo + uin 非空才算 bot 在线 + 鉴权过。
-   *  如果 config.user_id 已显式给且跟实际不符就 throw；没给就接受任意 uin。 */
+  /** 拿到 uin 才算在线且鉴权通过; 配了 user_id 而登录的不是它就 throw */
   async healthCheck(): Promise<{ uid: string; uin: string; nick?: string }> {
     const data = await this.get<{ uid: string; uin: string; nick?: string }>('/api/login-info')
     if (!data.uin) {

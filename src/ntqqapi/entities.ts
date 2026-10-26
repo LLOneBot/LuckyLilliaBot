@@ -151,7 +151,6 @@ export namespace SendElement {
   }
 
   export function face(faceId: number, faceType?: number): SendFaceElement {
-    // 从face_config.json中获取表情名称
     const sysFaces = faceConfig.sysface
     const face = sysFaces.find(face => face.QSid === String(faceId))
     if (!faceType) {
@@ -195,8 +194,7 @@ export namespace SendElement {
   }
 
   export function dice(resultId?: string | number): SendFaceElement {
-    // 实际测试并不能控制结果
-    // 随机1到6
+    // 实测控制不了结果
     if (isNullable(resultId)) resultId = Math.floor(Math.random() * 6) + 1
     return {
       elementType: ElementType.Face,
@@ -212,9 +210,8 @@ export namespace SendElement {
     }
   }
 
-  // 猜拳(石头剪刀布)表情
   export function rps(resultId?: string | number): SendFaceElement {
-    // 实际测试并不能控制结果
+    // 实测控制不了结果
     if (isNullable(resultId)) resultId = Math.floor(Math.random() * 3) + 1
     return {
       elementType: ElementType.Face,

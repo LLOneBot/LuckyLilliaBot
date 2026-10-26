@@ -1,6 +1,4 @@
-// 持久化 16B device GUID. data/machine_guid.bin 是 device identity 的 single source
-// of truth -- DirectProtocolClient.guid 跟 setupSign 都从这里读, 保证 wtlogin/SSO
-// 通路和 sign 通路对外是同一台设备. 文件不存在时随机生成 + 落盘 (跨重启稳定靠这个).
+// data/machine_guid.bin: wtlogin / SSO 和 sign 都从这里读 guid, 对外才是同一台设备
 
 import { randomBytes } from 'node:crypto'
 import { promises as fs, readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, unlinkSync } from 'node:fs'
@@ -13,10 +11,6 @@ const DEFAULT_FILE = path.resolve('data/machine_guid.bin')
 
 const cache = new Map<string, Buffer>()
 
-/**
- * 加载或生成 16B device GUID. 第一次没文件就 random + 写盘, 后续读盘.
- * 同一进程内多次调用复用 cache; 多个并发调用是 race-safe (单进程不会并发写).
- */
 export async function loadMachineGuid(filePath: string = DEFAULT_FILE): Promise<Buffer> {
   const resolved = path.resolve(filePath)
   const cached = cache.get(resolved)
@@ -43,7 +37,6 @@ export async function loadMachineGuid(filePath: string = DEFAULT_FILE): Promise<
   return guid
 }
 
-/** 同步版 loadMachineGuid; 跟 async 版共用 cache. */
 export function loadMachineGuidSync(filePath: string = DEFAULT_FILE): Buffer {
   const resolved = path.resolve(filePath)
   const cached = cache.get(resolved)
@@ -66,7 +59,7 @@ export function loadMachineGuidSync(filePath: string = DEFAULT_FILE): Buffer {
   return guid
 }
 
-/** 覆盖 machine_guid.bin -- session 恢复时把 persisted.guid 同步过来. */
+/** session 恢复时同步 persisted.guid */
 export function overwriteMachineGuid(guid: Buffer, filePath: string = DEFAULT_FILE): void {
   if (guid.length !== 16) throw new Error(`overwriteMachineGuid expected 16B, got ${guid.length}`)
   const resolved = path.resolve(filePath)
@@ -75,13 +68,7 @@ export function overwriteMachineGuid(guid: Buffer, filePath: string = DEFAULT_FI
   cache.set(resolved, guid)
 }
 
-/**
- * 删除 machine_guid.bin -- 下次 load 会重新随机生成一个, 等于换一台设备. 同步清 cache,
- * 否则同进程内仍复用旧 guid.
- *
- * 当前**没有调用方**: 异地顶号(1001)只删 session, 设备指纹保持稳定 (见 direct.ts 的
- * nt/kicked-offline). 留着给"确实要换设备身份"的场景手动用.
- */
+/** 等于换一台设备。目前没有调用方: 异地顶号只删 session, 设备指纹不变 */
 export function deleteMachineGuid(filePath: string = DEFAULT_FILE): void {
   const resolved = path.resolve(filePath)
   try { unlinkSync(resolved) } catch {}

@@ -1,9 +1,4 @@
-﻿/**
- * get_image 接口测试
- * 测试获取图片信息功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llbot/onebot11/types';
@@ -24,7 +19,6 @@ describe('get_image - 获取图片信息', () => {
     context.twoAccountTest.clearAllQueues();
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先发送一张图片
     const testMessage: OB11MessageData[] = [
       {
         type: OB11MessageDataType.Image,
@@ -41,7 +35,6 @@ describe('get_image - 获取图片信息', () => {
 
     Assertions.assertSuccess(sendResponse, 'send_group_msg');
 
-    // 等待消息被接收
     const event = await context.twoAccountTest.secondaryListener.waitForEvent({
       post_type: 'message',
       message_type: 'group',
@@ -51,7 +44,6 @@ describe('get_image - 获取图片信息', () => {
       return messages.some((msg: OB11MessageData) => msg.type === OB11MessageDataType.Image);
     }, 150000);
 
-    // 获取图片的 file ID
     const messages = Array.isArray(event.message) ? event.message : [];
     const imageMsg = messages.find((msg: OB11MessageData) => msg.type === OB11MessageDataType.Image);
 
@@ -59,7 +51,7 @@ describe('get_image - 获取图片信息', () => {
       throw new Error('未找到图片消息');
     }
 
-    // 测试 get_image（用接收方账号查询，因为 file ID 来自接收方）
+    // file ID 来自接收方, 用接收方账号查
     const secondaryClient = context.twoAccountTest.getClient('secondary');
     const imageResponse = await secondaryClient.call(ActionName.GetImage, {
       file: imageMsg.data.file

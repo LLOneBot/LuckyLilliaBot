@@ -4,12 +4,10 @@ import { authTokenUtil } from '../../../main/config'
 import { authTokenStatus, selfInfo } from '@/common/globalVars'
 import { triggerAuthTokenCheck } from '../../../main/qqProtocol/direct-lib/authTokenWatcher'
 
-// QQ sign auth token 的查询/录入, 在 authMiddleware(WebUI 密码)之后.
-// 录入接口只写文件, 不做校验; 校验与登录由后端 authTokenWatcher 监听文件变化触发.
+// 录入只写文件, 校验和登录由 authTokenWatcher 处理
 export function createAuthTokenRoutes(): Hono {
   const router = new Hono()
 
-  // 查询状态: 直接读内存 authTokenStatus (watcher 维护), 不发网络请求, 不阻塞前端
   router.get('/auth-token/status', async (c) => {
     return c.json({
       success: true,
@@ -25,7 +23,6 @@ export function createAuthTokenRoutes(): Hono {
     })
   })
 
-  // 录入 auth token: 只写文件并触发校验流程, 不在此校验. watcher 会读取->校验->(通过则)登录.
   router.post('/auth-token', async (c) => {
     const body = await c.req.json().catch(() => ({}))
     const token = typeof body.token === 'string' ? body.token.trim() : ''
@@ -33,7 +30,7 @@ export function createAuthTokenRoutes(): Hono {
       return c.json({ success: false, message: 'Auth Token 不能为空' }, 400)
     }
     authTokenUtil.setToken(token)
-    // 立即置 validating, 避免前端轮询到上一次的 valid/invalid 旧态; 真正校验在 watcher 里
+    // 先置 validating, 免得前端轮询到上一次的结果
     authTokenStatus.hasToken = true
     authTokenStatus.validation = 'validating'
     authTokenStatus.message = ''

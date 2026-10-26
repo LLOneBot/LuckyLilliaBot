@@ -13,7 +13,6 @@ export class HttpUtil {
             if (res.headers.location) {
               const redirectUrl = new URL(res.headers.location, url)
               HttpUtil.getCookies(redirectUrl.href).then((redirectCookies) => {
-                // 合并重定向过程中的cookies
                 //log('redirectCookies', redirectCookies)
                 cookies = { ...cookies, ...redirectCookies }
                 resolve(cookies)

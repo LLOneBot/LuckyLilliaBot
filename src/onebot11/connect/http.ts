@@ -53,8 +53,7 @@ class OB11Http {
 
     this.app.use('/:endpoint', this.handleRequest.bind(this))
 
-    // 给 SSE 客户端推心跳：OneBot 11 spec 没强制要求 HTTP 模式有 heartbeat，但是部分上层框架
-    // （特别是基于 ws-listen 实现的）会等心跳判活，所以这里固定 5s 推一发，简单透明。
+    // OneBot 11 没要求 HTTP 有心跳, 但有的上层框架靠心跳判活, 固定 5s 推一次
     const HEARTBEAT_INTERVAL = 5000
     this.disposeHeartbeat = this.ctx.interval(() => {
       if (this.sseClients.size === 0) return

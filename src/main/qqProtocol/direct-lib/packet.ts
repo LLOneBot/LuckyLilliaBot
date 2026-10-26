@@ -61,7 +61,6 @@ function buildSsoHead12(seq: number, cmd: string, ctx: PacketContext, signResult
   seqBuf.writeInt32BE(seq)
   parts.push(seqBuf)
 
-  // field8/field12/fixedHeader: 桌面标准 subAppId/2052/FIXED_HEADER; macOS 用专属 override
   const subAppBuf = Buffer.alloc(4)
   subAppBuf.writeInt32BE(profile.ssoHeadField8 ?? ctx.subAppId)
   parts.push(subAppBuf)
@@ -179,8 +178,7 @@ export function buildServicePacket(
     protoVer: getActiveProfile().ssoProtocolVersion,
   })
   const ssoFrame = buildSsoFrame12(seq, cmd, ctx, payload, signResult)
-  // [SA 1001 调查] 抓 o3 命令完整未加密帧 (head+reserve+SecInfo+body), 跟真机逐字节 diff。
-  // TEMP(2026-10-05 诊断): 临时 dump 所有命令全帧, 做真机 vs Bot 网络帧逐字节对比; 验证后改回只 o3。
+  // TEMP: dump 所有命令的完整明文帧 (原本只 dump o3), 跟真机对比完改回
   dumpFullFrame(cmd, ssoFrame)
 
   let encrypted: Buffer
@@ -199,7 +197,6 @@ export function buildServicePacket(
   const parts: Buffer[] = []
 
   const verBuf = Buffer.alloc(4)
-  // inner frame 版本字节: NT=12, Watch=10 (profile 驱动)
   verBuf.writeInt32BE(getActiveProfile().ssoProtocolVersion)
   parts.push(verBuf)
 
@@ -319,7 +316,7 @@ function parseSsoFrame12(data: Buffer): SsoPacket | null {
   const bodyLen = data.readInt32BE(offset); offset += 4
   let payload = Buffer.from(data.subarray(offset, offset + bodyLen - 4))
 
-  // 服务器可能 zlib 压缩响应体（zlib magic: 0x78 0x01/0x9C/0xDA）
+  // zlib magic: 0x78 0x01/0x9C/0xDA
   if (payload.length >= 2 && payload[0] === 0x78 && (payload[1] === 0x01 || payload[1] === 0x9C || payload[1] === 0xDA)) {
     try {
       const inflated = inflateSync(payload)

@@ -158,8 +158,7 @@ export class NTGroupApi extends Service {
         }
       } catch (e) {
         this.refreshingMembers.delete(groupCode)
-        // 当前协议端没有拉成员列表的权限 (手表): 缓存空列表当作"已知没有", 否则每条群消息都会
-        // 再撞一次注定被拒的包并刷一行错误日志. resolve 掉让并发等待者也走空列表, 别各自抛.
+        // 手表没有拉成员列表的权限: 缓存空列表, 不然每条群消息都要再撞一次; 并发等待的也一起拿空列表
         if (isCmdNotPermitted(e)) {
           this.ctx.logger.warn('[Group] member list unavailable on this protocol, degrading to message-carried info')
           this.membersCache.set(groupCode, [])
@@ -189,11 +188,8 @@ export class NTGroupApi extends Service {
   }
 
   /**
-   * 消息转换专用: 拿群成员信息, 拿不到就用消息自带的发送者信息凑一个。
-   *
-   * 手表协议没有拉成员列表的 cmd 权限 (-10122), 硬等这一步只能把整条消息丢掉。level / 特殊头衔 /
-   * 加群时间这些拿不到就留默认值 —— 少几个字段远好过消息不见。role 一律以消息里的为准, 它比
-   * 缓存新。
+   * 拿不到群成员 (手表拉不了成员列表) 就用消息自带的发送者信息凑一个, 缺的字段留默认值。role 以消息里的为准,
+   * 它比缓存新
    */
   async getGroupMemberOrFromMessage(message: RawMessage): Promise<GroupMember> {
     try {
@@ -311,11 +307,8 @@ export class NTGroupApi extends Service {
   }
 
   /**
-   * 设群头像。HTTP-only 上传：PicUp.DataUp + cmd=3000 + GroupAvatarExtra（含 groupUin），
-   * 字节级匹配 PMHQ 抓的 NTQQ Windows 客户端。
-   *
-   * 关键坑：GroupAvatarExtra.groupUin 是**内部 groupUin**，不是用户看到的 groupCode。
-   * 错传 groupCode 会被服务器拒绝 "No Perm"（藏在 bytesRspExtendInfo.field4，outer errorCode 是 0）。
+   * GroupAvatarExtra.groupUin 是内部的 groupUin, 不是 groupCode: 传错会被拒 "No Perm" (在 bytesRspExtendInfo.field4,
+   * 外层 errorCode 是 0)
    */
   async setGroupAvatar(groupCode: string, filePath: string): Promise<{ result: number, errMsg: string }> {
     const stat = await fsp.stat(filePath)
@@ -330,7 +323,7 @@ export class NTGroupApi extends Service {
     })
     const trans = {
       uin: selfInfo.uin,
-      cmd: 3000, // 群头像 commandId（PMHQ 抓包验过：与自身头像同走 PicUp.DataUp，仅 cmd 与 ext 不同）
+      cmd: 3000, // 群头像; 跟自己的头像一样走 PicUp.DataUp, 只有 cmd 和 ext 不同
       readable: createReadStream(filePath, { highWaterMark: 1024 * 1024 }),
       sum: md5,
       size: stat.size,

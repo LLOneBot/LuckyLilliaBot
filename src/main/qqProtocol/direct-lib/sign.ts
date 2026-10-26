@@ -104,7 +104,6 @@ export async function preflightSign(
   return reason
 }
 
-/** --debug 下 sign body 的 hex 预览上限。发图这类 payload 很大; 登录/握手类小包打得全。 */
 const SIGN_LOG_BODY_BYTES = 512
 
 export async function requestSign(
@@ -127,13 +126,12 @@ export async function requestSign(
   }
 
   const guidHex = guid?.toString('hex') ?? ''
-  // watch sign 是设备绑定的: 后端拿 device32 派生 device_blob。不传 = 空 blob =
-  // 模拟器身份, 真机会拒。从持久化 machine guid 派生, 跟 wtlogin 用的是同一台设备。
+  // watch 的 sign 绑设备: device32 从 machine guid 派生, 跟 wtlogin 是同一台设备
   const device32Hex = getActiveProfile().family === 'watch'
     ? device32FromGuid(loadMachineGuidSync()).toString('hex')
     : undefined
 
-  // 入参在调用前打, native 抛错时现场也留得下。跟真机抓包逐字段对拍用。
+  // 调用前打, native 抛错时也留得下现场
   if (isDebugEnabled()) {
     const cut = src.length > SIGN_LOG_BODY_BYTES ? ` (前 ${SIGN_LOG_BODY_BYTES}B)` : ''
     logger.debug(
@@ -173,16 +171,15 @@ export async function requestSign(
   }
 }
 
-/** native 没解析到 TTL (返 0) 时的兜底。0 不能直接用: expiresAt = now + 0 等于立刻过期,
- *  ensureSignTokenFresh 只剩 30s 最小重试间隔兜着, 每个 bot 每 30 秒就打一次 ESK。 */
+/** native 没解析到 TTL 时返 0, 直接用就是立刻过期, 每 30s 打一次 ESK */
 const DEFAULT_TOKEN_TTL_SECS = 24 * 60 * 60
 
 /** macOS ESK result: token1 plus the channel keys that A2+SA2 reuse after login. */
 export interface MacosEskState {
-  /** ESK 引导 token1 (登录前 deviceToken)。aesKey/shareId 在 .node 内缓存, 不出 Rust。 */
+  /** 登录前的 deviceToken */
   token: string
   ttlSecs: number
-  /** Epoch ms. 过了就 channel 过期, 得重跑 ESK。 */
+  /** Epoch ms; 过期要重跑 ESK */
   expiresAt: number
 }
 
@@ -194,8 +191,7 @@ export async function acquireSignToken(uin: number, qua: string, macosEsk?: Maco
       return macosEsk ? acquireMacosA2Token(qua, macosEsk) : acquireMacosSignToken(qua)
     case 'linux':
       return acquireLinuxSignToken(uin, qua)
-    // windows 维持原样。**别并进 linux 分支**: 本地 ESK 是真往 QQ 发包, 并进去就会从别的端的连接上
-    // 发一个 Linux 形状的 ESK。watch 到不了这里 (client.ensureSignTokenFresh 已拦) —— 它 sign 自产 token。
+    // 别并进 linux 分支: 本地 ESK 真会往 QQ 发包, 会从别的端的连接上发出 Linux 形状的 ESK。watch 不会走到这里
     default:
       return acquireViaManager(uin, qua)
   }
@@ -210,12 +206,8 @@ async function acquireViaManager(uin: number, qua: string): Promise<{ token: str
 let warnedStaleLinuxNode = false
 
 /**
- * Linux ESK -> SA 在 SignProxy 本地做: 先 ESK 拿 token1, 再 SA 换 token2 (登录态活跃 sign-token),
- * 组包 / 解包都不经 manager, 省掉每次取 token 的两趟 HTTP。
- * device_pb 用的是 SDK 初始化时采的那份设备事实 (服务端会交叉校验自洽性, 不能另采)。
- *
- * 老 .node 没 getLinuxSAToken 时退回经 manager 的老路 —— manager 那两个端点为老版本保留着,
- * 退回去照样能用, 不至于因为 .node 没同步就拿不到 token。
+ * ESK -> SA 在 SignProxy 本地组包解包, 省掉经 manager 的两趟 HTTP。device_pb 必须用 SDK 初始化时采的那份:
+ * 服务端会交叉校验。老 .node 没有 getLinuxSAToken 时退回经 manager
  */
 async function acquireLinuxSignToken(uin: number, qua: string): Promise<{ token: string; ttlSecs: number }> {
   const proxy = getSignProxy()
@@ -227,8 +219,7 @@ async function acquireLinuxSignToken(uin: number, qua: string): Promise<{ token:
     return acquireViaManager(uin, qua)
   }
   const r = await proxy.getLinuxSAToken({ qua })
-  // [esk-inner-sample] 旁路采样 (不参与过期计算): 记 ESK 内层两个候选时间戳 + outerTtl。
-  // 多次登录攒样本后离线判别: f3 / f4Ts 是相对 TTL 还是绝对时间戳、哪个是 token 到期。
+  // 采样 ESK 内层的候选时间戳, 攒样本判断哪个是 token 到期 (不参与过期计算)
   const nowS = Math.floor(Date.now() / 1000)
   const f3 = r.eskInnerF3 ?? 0
   const f4Ts = r.eskInnerTokenTs ?? 0
@@ -271,10 +262,7 @@ export function stopLinuxSsoReport(): void {
   }
 }
 
-/**
- * 取 Linux xwid 的常量 body (给 client.sendXwidBurst 做登录连号突发)。
- * 老 .node 缺 buildXwidBody 时返 null (调用方跳过突发)。reportId 缺省 = 跨装机常量。
- */
+/** 老 .node 没有 buildXwidBody 时返 null */
 export function buildLinuxXwidBody(qua: string, reportId?: string): Buffer | null {
   if (!inited) return null
   const proxy = getSignProxy()
@@ -289,7 +277,6 @@ export function buildLinuxXwidBody(qua: string, reportId?: string): Buffer | nul
 
 let warnedNoMacosSsoReport = false
 
-/** macOS o3 SsoReport 登录爆发 (一次性, 非循环)。名字对齐 startLinuxSsoReport。 */
 export async function startMacosSsoReport(args: { guidHex: string; qimei36: string; uin: string; appDir?: string }): Promise<void> {
   if (!inited) return
   const proxy = getSignProxy()
@@ -314,7 +301,7 @@ export interface MacosEasyLoginTickets {
   a1106Hex: string
 }
 
-/** macOS 免扫码 EasyLogin: 存档 0x106 凭证换新票据。失败 / 老 .node 返 null (调用方回退)。 */
+/** 失败或老 .node 返 null */
 export async function macosEasyLogin(args: {
   uin: string; guidHex: string; a1106Hex: string; seedHex: string; qua: string; q36?: string
 }): Promise<MacosEasyLoginTickets | null> {
@@ -334,10 +321,7 @@ export async function macosEasyLogin(args: {
   }
 }
 
-/**
- * Linux xwid 登录突发批量签: 一次 NAPI 调用出 count 个各异 sign (取代逐条 signRequest 的 count 次往返)。
- * 老 .node 缺 signXwidBurst 时返 null (调用方跳过突发)。
- */
+/** 老 .node 没有 signXwidBurst 时返 null */
 export async function signLinuxXwidBurst(args: {
   cmd: string; bodyHex: string; seq: number; guidHex: string; qua: string; uin: number; protocolTokenHex: string
 }, count: number): Promise<SignResult[] | null> {
@@ -354,23 +338,13 @@ export async function signLinuxXwidBurst(args: {
 }
 
 /**
- * macOS deviceToken: ESK -> A2Establish -> SA2, 三步共用同一份 device_pb。
- *
- * - ESK 先建一条通道并给出引导 token1。
- * - A2Establish 试着建业务通道; **token 非空才算建成**, 空就继续用 ESK 那套 aesKey/shareId
- *   (napi 层就是这么约定的, 空 = 回退)。
- * - SA2 复用选中的通道拿业务 token。它跟 A2Establish **必须传同一个 tsMs**, 否则 server 对不上。
- *
- * 任何一步拿不到 token 就返空串 —— 上层 ensureSignTokenFresh 拿空 token 也能继续 (sign 本身
- * 不依赖它, 只是 deviceToken 字段为空), 不要在这里抛异常把发包链打断。
- *
- * 这是三步全跑的兜底路径; 正常流程走两步: acquireMacosEskOnly (登录前) + acquireMacosA2Token (登录后)。
+ * 三步全跑的兜底路径, 正常是 acquireMacosEskOnly (登录前) + acquireMacosA2Token (登录后)。A2Establish 的 token
+ * 为空就继续用 ESK 的通道; SA2 必须跟 A2Establish 传同一个 tsMs。拿不到 token 返空串而不是抛: sign 不依赖它
  */
 async function acquireMacosSignToken(qua: string): Promise<{ token: string; ttlSecs: number }> {
   ensureMacosO3Exports()
   const proxy = getSignProxy()
   const { devicePbHex } = await getMacosDevice(qua)
-  // ESK 建通道 (缓存在 .node) + 拿 token1; 再 getMacosLoginToken 一步 A2+SA2 拿业务 token。
   const esk = await proxy.getMacosEskToken!({ devicePbHex, tsMs: Date.now() })
   logger.debug(`[SignToken][macos] ESK token=${esk.token ? esk.token.length + 'B' : '空'} ttl=${esk.ttlSecs}s`)
   const login = await proxy.getMacosLoginToken!({ devicePbHex, tsMs: Date.now() })
@@ -389,11 +363,7 @@ function ensureMacosO3Exports(): void {
   }
 }
 
-/**
- * macOS ESK (SsoEstablishShareKey): token1 plus channel keys. Real clients send it once per
- * connection, before trans_emp (PoC main.rs 1322-1362); the client re-runs it on a new
- * connection or once the TTL lapses. The result feeds the A2+SA2 step of acquireSignToken.
- */
+/** Real clients send ESK once per connection, before trans_emp; it is re-run on a new connection or once the TTL lapses. */
 export async function acquireMacosEskOnly(qua: string): Promise<MacosEskState> {
   if (!inited) throw new Error('sign not initialized')
   ensureMacosO3Exports()
@@ -404,14 +374,10 @@ export async function acquireMacosEskOnly(qua: string): Promise<MacosEskState> {
   return { token: esk.token, ttlSecs, expiresAt: Date.now() + ttlSecs * 1000 }
 }
 
-/**
- * macOS 登录后 A2+SA2: 用 ESK 阶段保存的通道密钥跑 SsoSecureA2Establish + SsoSecureA2Access,
- * 拿登录态业务 token。A2Establish 建成则切新通道, 否则回退 ESK 通道 (PoC line 1482-1497)。
- */
+/** A2Establish 建成就切到新通道, 否则沿用 ESK 通道 */
 async function acquireMacosA2Token(qua: string, esk: MacosEskState): Promise<{ token: string; ttlSecs: number }> {
   ensureMacosO3Exports()
   const { devicePbHex } = await getMacosDevice(qua)
-  // A2Establish + A2Access 一步跑完; 通道 + token1 复用 .node 内缓存的 ESK 通道, bot 不碰密钥。
   const login = await getSignProxy().getMacosLoginToken!({ devicePbHex, tsMs: Date.now() })
   const token = login.token || esk.token
   const ttlSecs = login.ttlSecs || esk.ttlSecs || DEFAULT_TOKEN_TTL_SECS
@@ -422,27 +388,21 @@ async function acquireMacosA2Token(qua: string, esk: MacosEskState): Promise<{ t
 }
 
 /**
- * 校验 auth token 是否有效 (登录前预检)。走 SignProxy 的 validateAuthToken (native), 跟 sign
- * 链路**同一个 base_url** (--features dev / cdn 一处决定) —— 校验和签名永远指向同一个 manager,
- * 不再像旧的独立 fetch(AUTH_VALIDATE_API) 那样可能一个连生产一个连本地而割裂。
- *
- * 返回 'valid' / 'invalid' / Error。Error = 无法判定 (网络 / 5xx), authTokenWatcher 当网络错
- * 定时重试, 不误判 invalid。native 侧 401/403 返 'invalid' 而**不 exit**, 无效 token 只"停下等
- * 重录", 不崩进程。不依赖 sign init (SignProxy 那侧临时建 client), 登录前也能用。
+ * 跟 sign 链路同一个 base_url。Error = 无法判定 (网络 / 5xx), watcher 会定时重试; native 侧 401/403 返
+ * 'invalid' 而不 exit。不依赖 sign init, 登录前也能用
  */
 export async function validateAuthToken(token: string): Promise<'valid' | 'invalid' | number | Error> {
   const t = token.trim()
   if (!t) return 'invalid'
   const proxy = getSignProxy()
   if (typeof proxy.validateAuthToken !== 'function') {
-    // 老 .node 缺这 export: 别崩也别误判 invalid, 当网络错让 watcher 重试 (提示重新 build+sync)
+    // 老 .node: 当网络错处理, 别误判 invalid
     return new Error('sign-proxy .node 过旧 (缺 validateAuthToken), 请重新 build 并 sync-to-bot')
   }
   try {
     const r = await proxy.validateAuthToken({ authToken: t, cdn: getCdn() })
     if (r === 'valid') return 'valid'
     if (r === 'invalid') return 'invalid'
-    // "retry:<reason>": 网络 / 5xx, 无法判定 -> 交 watcher 定时重试
     return new Error(r.startsWith('retry:') ? r.slice('retry:'.length) : r)
   } catch (e) {
     return e as Error

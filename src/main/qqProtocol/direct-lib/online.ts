@@ -4,8 +4,6 @@ import { getLogger } from '@/common/logger'
 import { AppInfo, DeviceInfo } from './appInfo'
 import { getActiveProfile } from './profiles'
 
-// --- Protobuf encoding helpers ---
-
 function encodeVarint(value: number | bigint): Buffer {
   const bytes: number[] = []
   let v = typeof value === 'bigint' ? value : BigInt(value)
@@ -42,15 +40,8 @@ function protoMessageField(field: number, content: Buffer): Buffer {
   return protoBytesField(field, content)
 }
 
-// --- SsoHeartBeat ---
-
-// Real QQ 3.2.28 SsoHeartBeat body = {f1:1, f2:{f1:0}, f3:0, f4:unix_seconds} (14B). The old
-// {f1:1} (2B) was a stripped shape = a per-heartbeat fingerprint tell (aligned 2026-10-06).
-//
-// watch keeps its own 4B shape {f1:1, f2:{f1:1}}: that is the body the watch PoC actually ran
-// with (LuckyLillia.Sign src/Android/watch/poc/src/main.rs build_heartbeat_body). The 3.2.28
-// 14B shape was never verified on a watch, and a rejected heartbeat is worse than none -- three
-// in a row make startHeartbeat disconnect on purpose.
+// Real QQ 3.2.28: {f1:1, f2:{f1:0}, f3:0, f4:unix_seconds}. watch keeps the 4B {f1:1, f2:{f1:1}} its PoC ran with:
+// the 14B shape was never verified there, and three rejected heartbeats in a row make startHeartbeat disconnect.
 function buildSsoHeartBeat(): Buffer {
   if (getActiveProfile().family === 'watch') {
     return Buffer.concat([
@@ -65,8 +56,6 @@ function buildSsoHeartBeat(): Buffer {
     protoVarintField(4, Math.floor(Date.now() / 1000)),
   ])
 }
-
-// --- SsoInfoSync (Register) ---
 
 function buildRegisterDeviceInfo(): Buffer {
   const parts: Buffer[] = []
@@ -87,7 +76,7 @@ function buildRegisterInfo(guid: Buffer, isFirstOnline: boolean = true): Buffer 
   parts.push(protoVarintField(5, 2052))
   parts.push(protoMessageField(6, buildRegisterDeviceInfo()))
   parts.push(protoVarintField(7, 0))
-  // f8/f9/f10 match real QQ 3.2.28 capture (was 6/0/{1,1}, diverged; aligned 2026-10-05)
+  // f8/f9/f10 as in a real QQ 3.2.28 capture
   parts.push(protoVarintField(8, 0))
   parts.push(protoVarintField(9, 1))
   const bizInfo = Buffer.concat([
@@ -100,14 +89,14 @@ function buildRegisterInfo(guid: Buffer, isFirstOnline: boolean = true): Buffer 
   return Buffer.concat(parts)
 }
 
-// c2c/group sync cookies are empty on real QQ 3.2.28 (old impl wrote {1:0})
+// empty on real QQ 3.2.28
 function buildC2cMsgCookie(): Buffer {
   return Buffer.alloc(0)
 }
 
 export function buildSsoInfoSync(guid: Buffer, isFirstOnline: boolean = true): Buffer {
   const parts: Buffer[] = []
-  // f1 = 1759 on real QQ 3.2.28 (was 735, diverged; aligned 2026-10-05)
+  // 1759 on real QQ 3.2.28
   parts.push(protoVarintField(1, 1759))
   parts.push(protoVarintField(2, Math.floor(Math.random() * 0xFFFFFFFF)))
   parts.push(protoVarintField(4, 2))
@@ -120,12 +109,11 @@ export function buildSsoInfoSync(guid: Buffer, isFirstOnline: boolean = true): B
   ])
   parts.push(protoMessageField(6, c2cSync))
 
-  // real QQ 3.2.28 sends an empty top-level f8 (Bot omitted it)
+  // real QQ 3.2.28 sends an empty f8
   parts.push(protoMessageField(8, Buffer.alloc(0)))
 
   parts.push(protoMessageField(9, buildRegisterInfo(guid, isFirstOnline)))
 
-  // real QQ 3.2.28: f10 = { f2:0, f4:{ f1:0 } } (old {1:0,2:2} had wrong shape)
   const f10 = Buffer.concat([
     protoVarintField(2, 0),
     protoMessageField(4, protoVarintField(1, 0)),
@@ -141,8 +129,6 @@ export function buildSsoInfoSync(guid: Buffer, isFirstOnline: boolean = true): B
 
   return Buffer.concat(parts)
 }
-
-// --- Parse SsoInfoSync response ---
 
 function parseRegisterResponse(data: Buffer): string | null {
   const field7 = decodeProtoLenDelim(data, 7)
@@ -193,8 +179,6 @@ function decodeProtoLenDelim(data: Buffer, targetField: number): Buffer | null {
   return null
 }
 
-// --- Public API ---
-
 export async function registerOnline(client: DirectProtocolClient): Promise<string> {
   const payload = buildSsoInfoSync(client.getGuid())
 
@@ -220,21 +204,12 @@ export async function sendHeartbeat(client: DirectProtocolClient): Promise<void>
 }
 
 /**
- * 心跳 loop. 失败不能只 log 了事 -- 链路或凭据出问题时 selfInfo.online 会停在 true, 变成收不到
- * 消息的"假在线". 故失败后转 30s 快重试, 连挂 MAX_FAILURES 次 (或 session 已被判失效清掉) 就主动断开,
- * 交给 close -> scheduleReconnect 重建, 最坏约 5.5 分钟能测出来.
- *
- * watch 同走这条 loop. 该端曾把两层心跳全停, 只靠 TcpConnection 的 setKeepAlive(30s) 撑链路 --
- * 那是 TCP 空 ACK, 刷不动按业务包算的接入层 idle 计时, 于是稳态零上行包, msfwifi 1200s idle 一到
- * 就发 FIN (实测一晚 19 次掉线, 其中 13 次在线时长精确卡 20m00s±1s), 且重连常连带 session 被判
- * 失效 (SsoInfoSync -10003) 退回扫码。
- * SsoHeartBeat 在手表客户端是真实 cmd: libwrapper.9.0.5.so .rodata 与 9.0.5.apk dex 都有该串,
- * 而 Heartbeat.Alive 在该 so 里一次都没出现 -- 故 type-13 那层 (client.sendHeartbeat) 仍不对 watch 发。
+ * 失败不能只 log: 链路或凭据出问题时 selfInfo.online 会一直是 true, 成了收不到消息的"假在线"。所以失败后改 30s
+ * 重试, 连挂 MAX_FAILURES 次 (或 session 已失效) 就主动断开, 交给 scheduleReconnect 重建。
+ * watch 也要发: TCP keepalive 刷不动接入层的 idle 计时, msfwifi 1200s 没有上行包就发 FIN
  */
 export function startHeartbeat(client: DirectProtocolClient): () => void {
-  // Real QQ 3.2.28 SsoHeartBeat cadence ~378s with natural jitter (was dead-exact 270s = a tell).
-  // Reused as-is on watch: the real watch cadence was never captured, and ~378s already leaves a
-  // 3x margin under the measured 1200s idle cutoff, so a missed beat still cannot drop the link.
+  // Real QQ 3.2.28: ~378s with jitter. Also used on watch, about a third of its 1200s idle cutoff
   const nextInterval = () => 374_000 + Math.floor(Math.random() * 8_000)
   const RETRY_INTERVAL = 30 * 1000
   const MAX_FAILURES = 3

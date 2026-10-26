@@ -3,14 +3,8 @@ import { dirname, join, resolve } from 'node:path'
 import { DATA_DIR } from '@/common/globalVars'
 
 /**
- * SSO packet capture, off unless started with `--dump-packets[=<file.csv>]`.
- *
- * Hooked into packet.ts, the single encode/decode choke point: outbound rows are taken
- * before TEA, inbound rows after TEA + inflate, so every body in the CSV is plaintext.
- *
- * Keys go to a sibling `-keys.csv` because a body alone is not enough to replay the wire
- * bytes: the SSO layer is TEA(d2Key) once logged in and TEA(zero16) before that, and
- * wtlogin bodies hold two more layers (ECDH shareKey, then tgtgtKey for TLV 0x144/0x119).
+ * SSO packet capture with `--dump-packets[=<file.csv>]`. Bodies in the CSV are plaintext (outbound before TEA,
+ * inbound after TEA + inflate); keys go to a sibling `-keys.csv`, since replaying the wire bytes needs them.
  */
 
 const FLAG = '--dump-packets'
@@ -143,10 +137,7 @@ function dump(dir: 'out' | 'in', a: SsoDumpArgs): void {
   ])
 }
 
-/**
- * [SA 1001 调查] dump o3 命令的**完整未加密 SSO 帧** (head+reserve+SecInfo+body) 到 side log,
- * 用来跟真机 scan.pcap 逐字节 diff (CSV 只记 body, 看不到 reserve/SecInfo)。仅 --dump-packets 时开。
- */
+/** 完整的明文 SSO 帧 (head + reserve + SecInfo + body) 写到 side log: CSV 里只有 body */
 export function dumpFullFrame(cmd: string, ssoFrame: Buffer): void {
   if (!target) return
   ensureReady()

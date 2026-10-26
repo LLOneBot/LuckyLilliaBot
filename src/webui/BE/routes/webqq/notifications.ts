@@ -6,7 +6,6 @@ import { decodeGroupRequestFlag, encodeGroupRequestFlag } from '../../utils'
 export function createNotificationRoutes(ctx: Context): Hono {
   const router = new Hono()
 
-  // 获取群通知列表
   router.get('/notifications/group', async (c) => {
     try {
       const { notifications } = await ctx.ntGroupApi.getGroupNotifications(false, 50)
@@ -36,7 +35,6 @@ export function createNotificationRoutes(ctx: Context): Hono {
     }
   })
 
-  // 获取好友申请历史
   router.get('/notifications/friend', async (c) => {
     try {
       const result = await ctx.ntFriendApi.getFriendRequests(50)
@@ -65,7 +63,6 @@ export function createNotificationRoutes(ctx: Context): Hono {
     }
   })
 
-  // 获取被过滤的好友申请
   router.get('/notifications/friend/doubt', async (c) => {
     try {
       const result = await ctx.ntFriendApi.getDoubtFriendRequests(50)
@@ -86,7 +83,7 @@ export function createNotificationRoutes(ctx: Context): Hono {
     }
   })
 
-  // 处理被过滤的好友申请（仅支持同意）
+  // 只支持同意
   router.post('/notifications/friend/doubt/approve', async (c) => {
     try {
       const { uid } = await c.req.json() as { uid: string }
@@ -104,7 +101,6 @@ export function createNotificationRoutes(ctx: Context): Hono {
     }
   })
 
-  // 处理群通知（同意/拒绝）
   router.post('/notifications/group/handle', async (c) => {
     try {
       const { flag, action, reason } = await c.req.json() as {
@@ -131,7 +127,6 @@ export function createNotificationRoutes(ctx: Context): Hono {
     }
   })
 
-  // 处理好友申请（同意/拒绝）
   router.post('/notifications/friend/handle', async (c) => {
     try {
       const { flag, action } = await c.req.json() as {

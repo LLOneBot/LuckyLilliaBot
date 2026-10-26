@@ -4,12 +4,8 @@ import { getLogger } from '@/common/logger'
 const logger = getLogger('llbot-ipc')
 import fs from 'node:fs'
 
-// LLBot <-> Desktop IPC (仅直连/无头模式).
-// - Windows: 命名管道. LL_IPC_PIPE 是短名 (不含 \\.\pipe\ 前缀), 这里拼上前缀 listen.
-// - macOS/Linux: Unix Domain Socket. LL_IPC_PIPE 是 socket 文件绝对路径, 直接 listen (Node.js 会按路径判断).
-// LLBot 是 server, Desktop 是 client 轮询 get_login_state.
-// Desktop 通过环境变量 LL_IPC_PIPE 传入连接标识 (非无头模式不传, 这里直接跳过).
-// 协议: JSON Lines, UTF-8, '\n' 分隔.
+// LLBot <-> Desktop IPC, Desktop 轮询 get_login_state。LL_IPC_PIPE 由 Desktop 传入: Windows 上是命名管道短名
+// (不含 \\.\pipe\), 其他系统是 socket 文件路径。JSON Lines:
 //   Desktop -> LLBot: {"type":"request","id":"1","method":"get_login_state"}
 //   LLBot   -> Desktop: {"type":"response","id":"1","data":{state, qrcode_png_base64?, uin?, nickname?}}
 
@@ -56,18 +52,17 @@ export function startIpcServer(): void {
         if (line.trim()) handleLine(socket, line)
       }
     })
-    // Desktop 退出 / 断开会触发 error, 忽略即可 (server 仍监听等待下次连接)
+    // Desktop 断开也会触发 error
     socket.on('error', () => { })
   })
 
-  // Windows: LL_IPC_PIPE 是短名, 拼 \\.\pipe\ 前缀; 其他系统: 直接当 UDS 路径.
-  // UDS 上 listen 前需要清掉残留的旧 socket 文件, 否则 EADDRINUSE.
   let listenPath: string
   if (process.platform === 'win32') {
     listenPath = `\\\\.\\pipe\\${pipeName}`
   } else {
     listenPath = pipeName
-    try { fs.unlinkSync(listenPath) } catch { /* 文件不存在 = 正常 */ }
+    // 残留的 socket 文件会让 listen 报 EADDRINUSE
+    try { fs.unlinkSync(listenPath) } catch { }
   }
 
   server.listen(listenPath, () => {
@@ -77,7 +72,6 @@ export function startIpcServer(): void {
     logger.warn(`[LL_IPC] server error: ${e.message}`)
   })
 
-  // 进程退出时清理 UDS 文件, 避免下次启动残留导致 EADDRINUSE (Windows 命名管道内核托管, 不需要).
   if (process.platform !== 'win32') {
     const cleanup = () => {
       try { fs.unlinkSync(listenPath) } catch { }

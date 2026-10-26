@@ -37,7 +37,7 @@ export class OCRImage extends BaseAction<Payload, Response> {
     if (isHttpUrl(payload.image)) {
       url = payload.image
     } else {
-      // 先尝试用 fileName 在缓存中找已知图片（接收端调用 ocr_image 时常用 file 字段）
+      // 接收端调 ocr_image 常传 file 字段, 先按文件名找缓存
       const cached = await this.ctx.store.getFileCacheByName(payload.image)
       if (cached?.[0]?.originImageUrl) {
         // QQ 图片 URL 含 rkey 会过期，每次取的时候重算

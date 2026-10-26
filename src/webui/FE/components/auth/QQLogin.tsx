@@ -55,7 +55,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
   const hasFetchedRef = useRef(false);
   const generateQrCodeRef = useRef<(() => void) | undefined>(undefined);
   const [authLoginError, setAuthLoginError] = useState('');
-  // 登录成功但账号配置里 WebUI 被关闭 (enable=false): 不跳主页 (跳过去也是 502), 展示提示卡片
+  // 登录后发现 WebUI 被关掉了: 不跳主页 (只会 502), 改为展示提示
   const [webuiClosed, setWebuiClosed] = useState<null | { uin: string; host: string; port: number }>(null);
   const webuiClosedRef = useRef(false);
 
@@ -96,16 +96,12 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
         if (result.success && result.data.online === true) {
           stopLoginPolling();
           const webui = result.data.webui;
-          // 账号配置关闭了 WebUI -> 不跳主页 (后端即将关停, 跳过去只会 502), 展示提示
           if (webui && webui.enable === false) {
             webuiClosedRef.current = true;
             setWebuiClosed({ uin: result.data.uin || '', host: webui.host, port: webui.port });
             return;
           }
-          // 账号配置改了端口/host -> 后端会迁移, 当前入口即将失联, 跳到新地址.
-          // 前端当前"实际连到的后端端口": prod 下前端与 API 同源 = window.location.port;
-          // dev 下走 Vite 代理, window.location.port 是 Vite 的 15173, 真正的后端端口是代理目标
-          // __WEBUI_DEV_PORT__ (见 vite.config.ts define). 用它比较才不会在 dev 正常登录时误跳.
+          // 端口 / host 改了就跳到新地址。dev 下 location.port 是 Vite 的, 要跟 __WEBUI_DEV_PORT__ 比, 不然会误跳
           if (webui && webui.enable) {
             const curHost = window.location.hostname;
             const curBackendPort = import.meta.env.DEV
@@ -172,7 +168,7 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
         throw new Error(result.message || '获取二维码失败');
       }
     } catch {
-      // 直连 client 可能刚录入 token 正在初始化, 二维码还没就绪 -> 慢速静默重试, 成功即停
+      // 刚录入 token 时 client 可能还在初始化, 慢速静默重试
       setTimeout(() => generateQrCodeRef.current?.(), 3000);
     }
   }, [displayQrCode, pollLoginStatus, stopLoginPolling]);
@@ -254,11 +250,11 @@ const QQLogin: React.FC<QQLoginProps> = ({ onLoginSuccess }) => {
     generateQrCodeRef.current = generateQrCode;
   }, [generateQrCode]);
 
-  // 轮询 auth token 状态: 展示登录/sign 错误 (如可用 QQ 数量上限) 及验证服务不可达提示; 自愈后自动清除
+  // 展示登录 / sign 错误和验证服务不可达的提示, 恢复后自动清除
   useEffect(() => {
     let stopped = false;
     const poll = async () => {
-      // WebUI 已被账号配置关闭: 后端即将关停, 别再轮询 (否则 502 刷屏)
+      // WebUI 已关闭, 别再轮询, 不然 502 刷屏
       if (stopped || webuiClosedRef.current) return;
       try {
         const res = await apiFetch<{ loginError: string; validation: string; message: string }>('/api/auth-token/status');

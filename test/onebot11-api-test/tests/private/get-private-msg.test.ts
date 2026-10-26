@@ -1,11 +1,4 @@
-﻿/**
- * get_msg 接口测试 - 获取私聊消息
- * 测试获取私聊消息功能
- *
- * 需求: 6.1
- */
-
-import { setupMessageTest, teardownMessageTest, sleep, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, sleep, MessageTestContext } from '../setup';
 import { Assertions } from '../../utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 
@@ -32,7 +25,6 @@ describe('get_msg - 获取私聊消息', () => {
     Assertions.assertSuccess(sendResponse, 'send_private_msg');
     const messageId = sendResponse.data.message_id;
 
-    // 等待消息保存
     await sleep(1000);
 
     const getResponse = await primaryClient.call(ActionName.GetMsg, {

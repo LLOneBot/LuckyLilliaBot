@@ -19,7 +19,6 @@ describe('get_guild_list', () => {
         const response = await primaryClient.call(ActionName.GetGuildList);
 
         Assertions.assertSuccess(response, 'get_guild_list');
-        // The implementation seems to return null currently, but we check for success
-        // If it returns an array in future, we can add more checks
+        // Returns null for now; only success is checked
     });
 });

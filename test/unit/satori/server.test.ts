@@ -1,12 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
 
-// Mock cordis Context
 vi.mock('cordis', () => ({
   Context: class {},
   Inject: vi.fn(),
 }))
 
-// 直接测试 getPeer 的逻辑（通过 mock ntUserApi）
 describe('Satori getPeer logic', () => {
   it('群聊 channel_id 解析', () => {
     const channelId = '123456789'
@@ -40,7 +38,6 @@ describe('Satori Server Auth', () => {
 })
 
 describe('Satori WebSocket Protocol', () => {
-  // Satori opcodes
   const Opcode = {
     EVENT: 0,
     IDENTIFY: 1,
@@ -54,8 +51,6 @@ describe('Satori WebSocket Protocol', () => {
   })
 
   it('READY opcode 应为 2', () => {
-    // 实际 Satori 协议中 READY 是 0 (EVENT opcode)
-    // 但在 LLBot 实现中 READY 响应包含 logins 信息
   })
 
   it('PING/PONG 心跳', () => {

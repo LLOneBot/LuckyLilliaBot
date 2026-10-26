@@ -28,7 +28,6 @@ export abstract class GetFlashFileInfoBase<R> extends BaseAction<GetFlashFilePay
     const { share_link } = payload
     let { file_set_id } = payload
     if (share_link) {
-      // 正则提取 code
       const match = share_link.match(/qfile.qq.com\/q\/([\w\d]+)/)
       if (!match) {
         throw new Error('分享链接格式不正确')

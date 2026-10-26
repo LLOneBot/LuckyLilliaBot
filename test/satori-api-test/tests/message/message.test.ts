@@ -17,7 +17,7 @@ describe('Satori 消息发送 / 接收', () => {
     const primary = ctx.twoAccountTest.getClient('primary')
     const text = `satori-group-${Date.now()}`
 
-    // satori content 是 XML 风格字符串；最简单的纯文本就是直接给文字
+    // content 是 XML 风格的字符串, 纯文本直接给文字
     const res = await primary.call<Array<{ id: string; channel: { id: string } }>>('message.create', {
       channel_id: ctx.testGroupId,
       content: text,
@@ -29,7 +29,6 @@ describe('Satori 消息发送 / 接收', () => {
     expect(typeof sent.id).toBe('string')
     expect(String(sent.channel?.id)).toBe(ctx.testGroupId)
 
-    // secondary 收到 message-created 事件
     const ev = await ctx.twoAccountTest.secondaryListener.waitForEvent(
       { type: 'message-created' },
       (e: any) => String(e.channel?.id) === ctx.testGroupId && e.message?.content?.includes(text),
@@ -61,7 +60,6 @@ describe('Satori 消息发送 / 接收', () => {
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
     const text = `satori-mention-${Date.now()}`
-    // satori content 是 XML：<at id="..."/> 表示 mention
     const content = `<at id="${ctx.secondaryUserId}"/> ${text}`
     const res = await primary.call('message.create', {
       channel_id: ctx.testGroupId,
@@ -91,7 +89,7 @@ describe('Satori 消息发送 / 接收', () => {
     Assertions.assertSuccess(sendRes, 'message.create (for delete)')
     const messageId = sendRes.data![0].id
 
-    // 等 secondary 收到先（确保 server 入库）
+    // 等 secondary 收到, 确保已入库
     await ctx.twoAccountTest.secondaryListener.waitForEvent(
       { type: 'message-created' },
       (e: any) => e.message?.content?.includes(text),
@@ -105,7 +103,6 @@ describe('Satori 消息发送 / 接收', () => {
     })
     Assertions.assertSuccess(delRes, 'message.delete')
 
-    // 双方都应该收到 message-deleted 事件
     await Promise.all([
       ctx.twoAccountTest.primaryListener.waitForEvent(
         { type: 'message-deleted' },

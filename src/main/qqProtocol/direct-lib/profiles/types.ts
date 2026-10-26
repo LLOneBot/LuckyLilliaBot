@@ -1,6 +1,4 @@
-// 协议 profile 抽象: 把原来硬编码在 appInfo.ts 的 Linux 常量, 抽成"每端一份 profile"。
-// 协议是进程级选择 (跟着 --protocol 启动, 运行中不变), 由 profiles/index.ts 的 getActiveProfile()
-// 解析一次。字段值溯源见 LuckyLillia.Sign/docs/Linux/appinfo-cross-platform.md。
+// 每端一份协议 profile, 字段值溯源见 LuckyLillia.Sign/docs/Linux/appinfo-cross-platform.md
 
 export type ProtocolName = 'linux' | 'windows' | 'macos' | 'watch'
 
@@ -16,7 +14,6 @@ export type ReserveVariant = 'nt' | 'linux' | 'macos' | 'watch'
 
 export type WtLoginCurve = 'secp192k1' | 'secp256r1'
 
-// watch 专属字段 (family==='watch' 才有)。
 export interface WatchProfileExtra {
   headAppId: number       // SSO head 路由 appid (537065138), 与身份 appId(16)/subAppId 不同
   loginAppId: number      // 老 wtlogin 登录 appId (世代号 16)
@@ -31,13 +28,13 @@ export interface ProtocolProfile {
   name: ProtocolName
   family: ProtocolFamily
 
-  // ---- 身份 / 版本 (原 AppInfo) ----
+  // ---- 身份 / 版本 ----
   appId: number
   subAppId: number
-  appIdQrCode: number   // 原 AppInfo.appIdQrCode (当前无人读, 保留 shape)
+  appIdQrCode: number   // 当前没人读
   mainSigMap: number
   subSigMap: number     // Windows=0, Linux/macOS/Watch=0x10400
-  miscBitmap: number    // 原 AppInfo.miscBitmap (死字段 0x7FFC, 仅保留 shape)
+  miscBitmap: number    // 死字段
   miscBitmapT116: number // buildTlv116 实际发的值 (Linux/Windows 12058620)
   ssoVersion: number         // wtlogin.login 侧 (NT=19, Watch=22)
   ssoVersionTransEmp: number // trans_emp T35/T66 侧 (Linux=19, Win/Mac=23, Watch=8)
@@ -46,18 +43,18 @@ export interface ProtocolProfile {
   packageName: string
   ptVersion: string
   wtLoginSdk: string
-  ntLoginType: number   // 原 AppInfo.ntLoginType (Watch 无此概念)
+  ntLoginType: number   // Watch 没有
   currentVersion: string
   buildVer: string
   sdkBuildTime: number  // buildTlv177 第二字段 (桌面 0, Watch 1724730201)
 
-  // ---- 设备 / OS (原 DeviceInfo + AppInfo 的 os 字段) ----
+  // ---- 设备 / OS ----
   os: string
   kernel: string
   vendorOs: string
   devType: string
   osVer: string
-  systemKernel: string  // online.ts SsoInfoSync 内核串 (原硬编码 '5.15.0')
+  systemKernel: string  // SsoInfoSync 内核串
   vendorName: string
   vendorOsName: string
   imPlat: number        // message comm.imPlat (桌面 1)
@@ -67,12 +64,11 @@ export interface ProtocolProfile {
   wtLoginCipherSuite: number // 桌面 0x0102 / watch 0x0131
   wtLoginServerPub: Buffer
 
-  // ---- wtlogin frame header 两个"平台固定值" (真机 TEA-DUMP 实证, 见 POC build_wtlogin_frame) ----
-  // 服务器对这两位较宽松 (POC: "非根因"), 但为"发对包"仍按各端真机值填。
+  // ---- wtlogin 帧头: 服务器不较真, 仍按各端真机值填 ----
   wtLoginFrameByte: number   // Linux 19 / Windows,macOS 23
-  wtLoginFrameVer: number    // Linux appClientVersion(48517) / Windows,macOS 固定 0x3374 (非 appClientVersion)
+  wtLoginFrameVer: number    // 桌面各端都是 0x3374, 不是 appClientVersion
 
-  // ---- SSO head 形状 (buildSsoHead12 profile 驱动) ----
+  // ---- SSO head ----
   ssoProtocolVersion: number  // inner frame 版本字节: NT=12, Watch=10
   ssoHeadField8?: number      // 覆盖 subAppId 槽 (macOS 0x2007C26B); undefined=用 subAppId
   ssoHeadField12?: number     // 覆盖 2052 槽 (macOS 0x20027635); undefined=用 2052

@@ -13,7 +13,6 @@ import { PluginConfigError } from '../../../plugin'
 export function createConfigRoutes(ctx: Context): Hono {
   const router = new Hono()
 
-  // 获取网卡列表
   router.get('/network-interfaces', async (c) => {
     try {
       const isDocker = isDockerEnvironment()
@@ -34,7 +33,6 @@ export function createConfigRoutes(ctx: Context): Hono {
     }
   })
 
-  // 设置token接口
   router.post('/set-token', async (c) => {
     const { token } = await c.req.json()
     if (!token) {
@@ -44,7 +42,6 @@ export function createConfigRoutes(ctx: Context): Hono {
     return c.json({ success: true, message: 'Token设置成功' })
   })
 
-  // 获取配置
   router.get('/config', async (c) => {
     try {
       const resJson: ResConfig = {
@@ -62,7 +59,6 @@ export function createConfigRoutes(ctx: Context): Hono {
     }
   })
 
-  // 保存配置
   router.post('/config', async (c) => {
     try {
       const { config } = await c.req.json() as ReqConfig

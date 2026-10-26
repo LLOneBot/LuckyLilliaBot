@@ -1,9 +1,4 @@
-﻿/**
- * send_pb 接口测试
- * 测试发送 Protobuf 消息功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 
@@ -21,10 +16,9 @@ describe('send_pb - 发送 Protobuf 消息', () => {
   it.skip('测试发送 Protobuf 消息（需要特殊数据格式）', async () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 此测试需要特殊的 Protobuf 数据格式，默认跳过
     const response = await primaryClient.call(ActionName.SendPB, {
       group_id: context.testGroupId,
-      pb_data: '' // Protobuf 数据
+      pb_data: ''
     });
 
     if (response.retcode === 0) {

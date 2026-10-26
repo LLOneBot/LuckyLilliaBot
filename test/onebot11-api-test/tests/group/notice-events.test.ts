@@ -1,21 +1,6 @@
 /**
- * Notice 事件覆盖：
- * - friend_recall（私聊撤回）
- * - group_card（群名片变更）
- * - group_admin（管理员变更）
- * - group_ban（禁言/解禁）
- * - group_upload（群文件上传）
- * - group_essence（精华）
- * - group_msg_emoji_like（表情回应）
- * - group_title（群头衔变更，notice_type=notify sub_type=title）
- *
- * 已覆盖的（在别处）：group_recall、notify(poke)、notify(profile_like)
- *
- * 未覆盖（需求第三方/破坏性）：
- * - friend_add（需要 unfriend → re-add）
- * - group_increase / group_decrease（需要 kick / re-invite，会破坏测试群成员关系）
- * - group_dismiss（解散群，破坏性）
- * - flash_file（依赖闪传上传成功，目前 prep 阶段被服务器拦）
+ * group_recall、poke、profile_like 在别处测。没测 (破坏性 / 依赖第三方): friend_add、group_increase /
+ * group_decrease、group_dismiss、flash_file
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
@@ -36,8 +21,7 @@ describe('notice 事件覆盖', () => {
   });
 
   it('friend_recall — primary 发私聊给 secondary 后撤回，双方都收到 friend_recall', async () => {
-    // 撤回方收到 0x210 sub=139 (FriendSelfRecall)，接收方收到 sub=138 (FriendRecall)。
-    // 双方算出的 shortId 一致（C2C uniqueMsgId 用 (uid pair, msgRandom) 哈希，双端可对齐）。
+    // 撤回方收到 0x210 sub=139, 接收方收到 sub=138, 双方算出的 shortId 一致
     context.twoAccountTest.clearAllQueues();
     const primary = context.twoAccountTest.getClient('primary');
     const sendResp = await primary.call(ActionName.SendPrivateMsg, {
@@ -84,11 +68,8 @@ describe('notice 事件覆盖', () => {
     });
     Assertions.assertSuccess(resp, 'set_group_card');
 
-    // QQ NT 直连协议没有"名片变更"专属推送，secondary 端要先在群里说一句话
-    // 让 sendMemberName 流回来，bot 才能对比 cache 触发 group_card 事件。
-    // 注意：secondary 自己发的群消息 QQ server 不回流给 secondary bot（self-echo 走 0x210 系统路径
-    // 不走 OlPush 的群消息推送），所以 group_card 检测只在 **primary 端**（primary 收到 secondary
-    // 的群消息时检测）触发。这里改用 primaryListener。
+    // 没有名片变更的推送: secondary 发条群消息, primary 收到时对比缓存触发 group_card
+    // (secondary 自己发的群消息不会回流给 secondary)
     await secondary.call(ActionName.SendGroupMsg, {
       group_id: context.testGroupId,
       message: 'group_card-trigger',
@@ -198,7 +179,6 @@ describe('notice 事件覆盖', () => {
     context.twoAccountTest.clearAllQueues();
     const primary = context.twoAccountTest.getClient('primary');
 
-    // 先在群里发条消息
     const sendResp = await primary.call(ActionName.SendGroupMsg, {
       group_id: context.testGroupId,
       message: [{ type: OB11MessageDataType.Text, data: { text: `essence test ${Date.now()}` } }] as OB11MessageData[],

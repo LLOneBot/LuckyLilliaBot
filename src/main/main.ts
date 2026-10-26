@@ -48,8 +48,6 @@ declare module 'cordis' {
   }
 }
 
-// 按当前 debug 状态 (--debug 或 config logLevel) 调整所有 logger exporter 的显示阈值:
-// DEBUG(3) 才显示底层详情日志, 否则 INFO(2). config 热更新时重调.
 function applyDebugLevel(ctx: Context): void {
   const level = isDebugEnabled() ? 3 : 2
   ctx.logger.exporters.forEach((exp) => {
@@ -76,13 +74,11 @@ async function onLoad() {
   // Awaited: until their exporters are in, log lines go nowhere (the migration below logs what it moved)
   await ctx.plugin(Log)
   await ctx.plugin(LoggerConsole, {
-    // 2 = INFO(含 error/warn/info), 3 = DEBUG. --debug 启动即抬到 DEBUG; 配置文件 logLevel
-    // 触发的运行时切换由 applyDebugLevel() 直接改各 exporter 的 levels.
+    // 2 = INFO, 3 = DEBUG
     levels: {
       default: isDebugEnabled() ? 3 : 2
     }
   })
-  // 让无 ctx 的底层模块 (client/sign/connection 等) 经 getLogger 也走统一 cordis logger
   bindLoggerFactory((name) => ctx.logger(name))
   // Before the instance is picked: it may create the one `-q` points to (config-storage §9)
   migrateToInstances(ctx.logger('config'))
@@ -110,8 +106,6 @@ async function onLoad() {
   ctx.plugin(PluginRoutes)
   ctx.plugin(DashboardRoutes)
   ctx.plugin(EmailRoutes)
-  // 模式二选一: PMHQ 走 WS/HTTP, Direct 走 native sign + TCP + WebUI 扫码.
-  // 之后 ctx.qqProtocol 就是选中的实现, 上层代码不感知模式.
   ctx.plugin(isPmhqMode() ? PmhqQQProtocolClient : DirectQQProtocolClient)
   ctx.plugin(NTFileApi)
   ctx.plugin(NTFriendApi)
@@ -131,9 +125,7 @@ async function onLoad() {
     })
   })
 
-  // The database is per account, so everything here waits for the first login.
-  // `account` survives reconnects, so this runs once and upper layers ride out short network drops.
-  // The adapters, email notification and the neutral layer are builtin entries of the plugin service.
+  // The database is per account, so this waits for the first login; `account` survives reconnects, so it runs once
   ctx.inject(['account', 'config'], (ctx) => {
     const config = ctx.config.get()
     // The log file switch and Core's ffmpeg path are only ever applied from this event
@@ -173,7 +165,7 @@ async function onLoad() {
       }
     }
     ctx.on('qq/online', handleOnline)
-    // 协议层可能在 inject callback 之前就 emit 过 qq/online，那一次 emit 会丢，得 catch up 一下
+    // qq/online 可能在 inject 回调之前就 emit 过
     if (selfInfo.online && selfInfo.uid) {
       handleOnline()
     }
@@ -189,12 +181,9 @@ async function onLoad() {
     // 两种模式都启动 IPC server: Desktop 统一通过 IPC 拿 uin/昵称
     startIpcServer()
     setLoginState({ state: 'initializing' })
-    // 具体登录流程 (PMHQ 探测 / Direct 扫码 loop) 都在 impl 的 Service.init 里跑, main.ts 不管
   })
 
-  // 全局兜底：单个 orphaned rejection / 未捕获异常不该拖垮整个 bot 进程。
-  // 典型来源见 ntMsgApi.sendMsg：群发失败提前 throw 后，echoP 的 7s timer 仍会 reject。
-  // 这里只 log 不退出（保 bot 存活）；若想让 docker 拉起干净进程可改成 process.exit(1)。
+  // 只 log 不退出: 一个 orphaned rejection (如 sendMsg 提前 throw 后 echoP 的 timer) 不该拖垮整个进程
   process.on('unhandledRejection', (reason) => {
     ctx.logger.error('[unhandledRejection]', reason)
   })

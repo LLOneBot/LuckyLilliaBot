@@ -6,7 +6,6 @@ import { Hono } from 'hono'
 export function createLoginRoutes(ctx: Context): Hono {
   const router = new Hono()
 
-  // 获取登录二维码
   router.get('/login-qrcode', async (c) => {
     try {
       const data = await ctx.ntLoginApi.getLoginQrCode()
@@ -19,7 +18,6 @@ export function createLoginRoutes(ctx: Context): Hono {
     }
   })
 
-  // 获取快速登录账号列表
   router.get('/quick-login-list', async (c) => {
     try {
       const data = await ctx.ntLoginApi.getQuickLoginList()
@@ -32,8 +30,7 @@ export function createLoginRoutes(ctx: Context): Hono {
     }
   })
 
-  // 快速登录: 用指定 uin 从 data/qq-session-<uin>[-<protocol>].json 恢复 (Direct 模式).
-  // 结果由 FE 后续轮询 /api/login-info 的 online 字段判定, 这里只负责触发.
+  // 只负责触发, 结果由 FE 轮询 /api/login-info 的 online 判断
   router.post('/quick-login', async (c) => {
     const { uin } = await c.req.json()
     if (!uin) {
@@ -41,7 +38,7 @@ export function createLoginRoutes(ctx: Context): Hono {
     }
     try {
       await ctx.qqProtocol.quickLogin(String(uin))
-      // FE 现有代码 (QQLogin.tsx) 会检查 data.result === '0' 判成功, 保持兼容
+      // QQLogin.tsx 用 data.result === '0' 判断成功
       return c.json({ success: true, data: { result: '0', loginErrorInfo: { errMsg: '' } } })
     } catch (e) {
       return c.json({
@@ -52,8 +49,7 @@ export function createLoginRoutes(ctx: Context): Hono {
     }
   })
 
-  // 退出当前 QQ 登录, 回未登录 (need_qrcode); FE 轮询 login-info 的 online 转 false 后回登录页.
-  // PMHQ 模式下 QQ 由外部 QQ NT 客户端托管, LLBot 无权退出登录 (logout 是 base no-op), 明确回绝。
+  // PMHQ 模式的登录归外部 QQ 客户端管, 直接拒绝
   router.post('/logout', async (c) => {
     if (isPmhqMode()) {
       return c.json({ success: false, message: 'PMHQ 模式暂不支持退出 QQ' }, 400)
@@ -66,8 +62,7 @@ export function createLoginRoutes(ctx: Context): Hono {
     }
   })
 
-  // 获取账号信息 + 生效的 WebUI 配置. 配置是实例的, 登录前后不变; FE 仍据此判断 WebUI 是否被关掉
-  // (enable=false) 或换了端口, 决定跳主页 / 提示已关闭 / 跳新端口.
+  // 带上生效的 WebUI 配置: FE 据此判断 WebUI 是否被关掉或换了端口
   router.get('/login-info', (c) => {
     let webui: { enable: boolean; host: string; port: number } | undefined
     if (selfInfo.online && selfInfo.uin) {

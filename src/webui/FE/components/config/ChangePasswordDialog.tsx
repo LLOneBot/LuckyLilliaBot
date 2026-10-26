@@ -36,14 +36,12 @@ const ChangePasswordDialog: React.FC<ChangePasswordDialogProps> = ({ visible, on
   }, [visible]);
 
   const handleConfirm = async () => {
-    // 验证新密码
     const validation = validatePassword(newPassword, 6);
     if (!validation.isValid) {
       setError(validation.error || '密码验证失败');
       return;
     }
 
-    // 检查两次密码是否一致
     if (newPassword !== confirmPassword) {
       setError('两次输入的密码不一致');
       return;

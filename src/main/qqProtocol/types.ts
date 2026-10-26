@@ -8,7 +8,7 @@ export interface PMHQResSendPB {
   // 发包响应实际 type 是 'recv'(PMHQ WsEvent.kind), 历史上类型写成 'send'; 两者都收
   type: 'send' | 'recv'
   data: PBData
-  // PMHQ active-send 结果码: 0=QQ 真回包(已登录); 非0=失败(-100 未登录/管道未连, 或 QQ app error)
+  // 0 = QQ 回了包; 非 0 = 失败 (-100 未登录 / 管道未连, 或 QQ 报错)
   code?: number
   message?: string
 }
@@ -32,10 +32,7 @@ export interface ResListener<R extends PMHQRes> {
   (data: R): void
 }
 
-/**
- * PMHQ GET /health 响应, 只列用到的字段 (PMHQ.Rust src/server.rs handle_health)。
- * memory/cpu 是新 PMHQ 才有的, 老版本不返。
- */
+/** 只列用到的字段; 老版本 PMHQ 没有 memory / cpu */
 export interface PMHQHealth {
   uin?: number | null
   uid?: string | null
@@ -46,7 +43,7 @@ export interface PMHQHealth {
   cpu?: { qq_using: number; free: number; total: number }
 }
 
-/** QQ 进程资源占用, 已归一成 WebUI 口径 (字节 + 百分数) */
+/** 字节 + 百分数 */
 export interface QQResourceUsage {
   memory: number
   totalMemory: number

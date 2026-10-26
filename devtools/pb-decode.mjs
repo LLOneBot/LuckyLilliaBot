@@ -36,7 +36,6 @@ function decode(buf, off, end, depth = 0, path = '') {
       const lenN = Number(len)
       const inner = buf.slice(off, off + lenN)
       const utf8 = inner.toString('utf8')
-      // Prefer string if entire content is valid printable UTF-8 (no NULs, ratio of weird bytes low)
       let isPrintableUtf8 = false
       try {
         if (lenN > 0 && !inner.includes(0)) {
@@ -47,7 +46,6 @@ function decode(buf, off, end, depth = 0, path = '') {
           }
         }
       } catch {}
-      // Try to decode as nested message
       let isMsg = false
       try {
         let p = 0, count = 0
@@ -68,10 +66,8 @@ function decode(buf, off, end, depth = 0, path = '') {
         }
         if (count === 0) isMsg = false
       } catch { isMsg = false }
-      // Bias: if string is preferred AND msg parse passes, default to string when length < 64
-      // and the parsed structure looks suspicious (single field tag 0)
       if (isMsg && isPrintableUtf8) {
-        // Heuristic: if first byte's tag would put field as 0, can't be a real message
+        // field 0 is invalid, so a parse starting there is really a string
         const [t0] = readVarint(inner, 0)
         const f0 = Number(t0) >> 3
         if (f0 === 0 || f0 > 256) isMsg = false

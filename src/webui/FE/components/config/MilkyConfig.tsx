@@ -259,13 +259,11 @@ const MilkyConfig: React.FC = () => {
           saving={saving}
           onClick={() => {
             // The token rule depends on whether the adapter is switched on, which only the server knows
-            // 检查 Webhook URL 格式
             const invalidUrls = config.milky.webhook.urls.filter(url => url.trim() && !url.match(/^https?:\/\//))
             if (invalidUrls.length > 0) {
               showToast('Webhook URL 必须以 http:// 或 https:// 开头', 'error')
               return
             }
-            // 过滤掉空的 URL
             const cleanedConfig = {
               ...config,
               milky: {

@@ -1,9 +1,4 @@
-﻿/**
- * get_msg 接口测试
- * 测试获取消息功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llbot/onebot11/types';
@@ -23,7 +18,6 @@ describe('get_msg - 获取消息', () => {
     context.twoAccountTest.clearAllQueues();
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先发送一条消息
     const testMessage: OB11MessageData[] = [{
       type: OB11MessageDataType.Text,
       data: {
@@ -39,13 +33,11 @@ describe('get_msg - 获取消息', () => {
     Assertions.assertSuccess(sendResponse, 'send_group_msg');
     const messageId = sendResponse.data.message_id;
 
-    // 等待消息被接收
     await context.twoAccountTest.secondaryListener.waitForEvent({
       post_type: 'message',
       message_id: messageId,
     });
 
-    // 获取消息
     const getResponse = await primaryClient.call(ActionName.GetMsg, {
       message_id: messageId
     });

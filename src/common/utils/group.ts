@@ -1,8 +1,4 @@
-/**
- * 把"用户看到的群号"（group_code）转成 QQ 内部的 group_uin。
- * 部分 highway/老协议字段（比如 GroupAvatarExtra.groupUin）要的是 group_uin，
- * 错传 group_code 服务器会拒。映射表是 QQ 协议固有的。
- */
+// 部分 highway / 老协议字段 (如 GroupAvatarExtra.groupUin) 要 group_uin, 传 group_code 会被拒
 export function groupCodeToGroupUin(groupCode: number): number {
   let left = Math.floor(groupCode / 1000000)
   if (left >= 0 && left <= 10) left += 202

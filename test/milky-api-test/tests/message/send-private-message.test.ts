@@ -35,7 +35,6 @@ describe('Milky 私聊消息', () => {
         sender_id: ctx.primaryUserId,
       },
       (e) => {
-        // 数据里 segments[0].data.text 跟我们发的一致
         return e.data?.segments?.some((s: any) => s.type === 'text' && s.data?.text === text)
       },
       15000,

@@ -217,10 +217,8 @@ install_debian() {
     sudo apt-get install -y ffmpeg xvfb || error "工具安装失败"
 }
 
-# 执行安装
 [ "$DISTRO" == "arch" ] && install_arch || install_debian
 
-# 配置权限
 chmod +x "$SCRIPT_DIR/bin/llbot/node" "$SCRIPT_DIR/bin/pmhq/pmhq" "$LLBOT_CLI_BIN" 2>/dev/null
 sudo chown -R "$(whoami):$(whoami)" "$SCRIPT_DIR/bin" 2>/dev/null
 

@@ -1,17 +1,12 @@
-/**
- * 测试媒体文件路径管理
- * 集中管理所有测试用的媒体文件路径
- */
-
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, mkdirSync } from 'fs';
 import { execSync } from 'child_process';
 
-// 获取 media 目录的绝对路径 (兼容 CommonJS 和 ESM)
+// 兼容 CommonJS 和 ESM
 const getMediaDir = (): string => {
   try {
-    // ESM 模式 - 使用 eval 避免 TypeScript 编译时检查
+    // eval 避开 TypeScript 对 import.meta 的编译期检查
     const importMetaUrl = eval('import.meta.url');
     if (importMetaUrl) {
       const __filename = fileURLToPath(importMetaUrl);
@@ -22,7 +17,6 @@ const getMediaDir = (): string => {
   }
 
   try {
-    // CommonJS 模式
     const dirname = eval('__dirname');
     if (dirname) {
       return dirname;
@@ -31,37 +25,21 @@ const getMediaDir = (): string => {
     // CommonJS 也不可用
   }
 
-  // Fallback: 使用当前工作目录
   return path.join(process.cwd(), 'tests', 'media');
 };
 
 const mediaDir = getMediaDir();
 
-/**
- * 获取媒体文件的绝对路径
- * @param filename 文件名
- * @returns 绝对路径
- */
 function getMediaPath(filename: string): string {
   return path.join(mediaDir, filename);
 }
 
-/**
- * 获取媒体文件的 file:// URL
- * @param filename 文件名
- * @returns file:// 格式的 URL
- */
 function getMediaFileUrl(filename: string): string {
   const absolutePath = getMediaPath(filename);
   return `file:///${absolutePath.replace(/\\/g, '/')}`;
 }
 
-/**
- * 用 ffmpeg 生成一段唯一的测试视频，避免命中服务端的视频缓存（test.mp4 重复发送
- * 多次后会触发服务端某种异常状态，导致 broadcast 不下发）。
- * 文件路径形如 generated/big-<ts>.mp4，存放在 tests/media/generated 下。
- * 同一进程多次调用复用同一文件（lazy-init）。
- */
+/** 每个进程用 ffmpeg 现生成一个视频 (进程内复用), 避开 server 对固定 hash 的异常状态: test.mp4 发多了就不再广播 */
 const generatedDir = path.join(mediaDir, 'generated');
 let cachedFreshVideoPath: string | null = null;
 
@@ -74,12 +52,9 @@ function generateFreshVideo(): string {
   }
   const ts = `${Date.now()}${process.hrtime.bigint()}`;
   const out = path.join(generatedDir, `big-${ts}.mp4`);
-  // 1280x720@30fps 5 秒视频；噪点+时间戳水印保证视频唯一（每个进程一个）
-  // 同一进程内两次发送会触发服务端秒传（fresh + 秒传 一并测）
-  // ⚠️ drawtext 必须显式带 fontfile，否则在 gyan.dev portable Windows ffmpeg 下：
-  //   - 没装 fontconfig：直接 "Cannot load default config file"
-  //   - 装了 fontconfig（fonts.conf + FONTCONFIG_PATH 都正确）：fontsize≥80 仍 segfault
-  //   两条路都试过，唯一稳的就是 fontfile= 跳过 fontconfig 字体匹配。
+  // 噪点 + 时间戳水印保证每个进程的视频都不同; 进程内第二次发会走秒传, 两条路径都测到。
+  // drawtext 必须显式带 fontfile: gyan.dev 的 Windows ffmpeg 没装 fontconfig 会报
+  // "Cannot load default config file", 装了 fontsize >= 80 也会 segfault
   const fontfile = process.platform === 'win32'
     ? `'C\\:/Windows/Fonts/arial.ttf'`
     : `'/System/Library/Fonts/Helvetica.ttc'`
@@ -100,19 +75,15 @@ function getFreshVideoUrl(): string {
   return `file:///${generateFreshVideo().replace(/\\/g, '/')}`;
 }
 
-// 导出常用的媒体文件路径
 export const MediaPaths = {
-  // 音频文件
   testAudio: getMediaPath('test.mp3'),
   testAudioUrl: getMediaFileUrl('test.mp3'),
   testAudio2Url: getMediaFileUrl('test2.mp3'),
   testGifUrl: getMediaFileUrl('test.gif'),
   testImageUrl: getMediaFileUrl('test.gif'),
   testOcrImageUrl: getMediaFileUrl('test_ocr.png'),
-  // 视频用 ffmpeg 现生成（同一进程复用一个文件），避免服务端针对固定 md5 的异常缓存状态
   get testVideoUrl() { return getFreshVideoUrl(); },
   get testVideoPath() { return generateFreshVideo(); },
-  // 工具函数
   getPath: getMediaPath,
   getFileUrl: getMediaFileUrl,
 };

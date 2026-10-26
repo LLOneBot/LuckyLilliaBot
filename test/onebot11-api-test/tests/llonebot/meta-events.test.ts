@@ -1,11 +1,4 @@
-/**
- * Meta 事件覆盖：
- * - heartbeat（心跳）— 默认每 5s 一次
- * - lifecycle.connect — 连上 ws 时上报；HTTP 模式不存在，跳过
- *
- * 注：lifecycle 事件只在客户端首次连接 server 时上报；走 HTTP 不存在 lifecycle，
- * 走 WebSocket 时若 listener 注册晚于连接也错过。这里只测心跳。
- */
+/** 只测心跳 (默认 5s 一次)。lifecycle 只在首次连上时报一次: HTTP 模式没有, WS 下 listener 注册晚了也会错过 */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';

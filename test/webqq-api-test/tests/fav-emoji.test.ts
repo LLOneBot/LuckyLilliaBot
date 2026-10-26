@@ -10,10 +10,8 @@ describe('fav-emoji endpoints (收藏表情)', () => {
   })
 
   test('GET /api/webqq/fav-emoji 返列表 + emojiInfoList 数组', async () => {
-    // BE 直接返 ntMsgApi.getCustomFaceList() 的结果。实测字段:
-    //   retCode + errMsg + emojiInfoList[]
-    //   每个 entry: { emojiId, url } (跟 FE FavEmojiPicker 类型 emoId/resId/desc 不一样,
-    //   FE 那边的 mapping 估计有问题但不在本测试范围)
+    // 后端直接返 getCustomFaceList(): { retCode, errMsg, emojiInfoList: [{ emojiId, url }] },
+    // 跟 FE FavEmojiPicker 用的 emoId / resId / desc 对不上
     const data = await client.get<{ retCode?: number; emojiInfoList: Array<{ emojiId?: string; url: string }> }>(
       '/api/webqq/fav-emoji',
     )
@@ -29,14 +27,8 @@ describe('fav-emoji endpoints (收藏表情)', () => {
     }
   })
 
-  // POST /fav-emoji/add-from-url 真上传走 highway:15000.
-  //
-  // 实测: server 返一组 highway IP (实测有 6 个), 但本地网络到这组 IP 全部
-  // ETIMEDOUT (连 80/443 也通不了, 不是端口防火墙问题, 是 IP 段路由不通).
-  // bot 代码已经做了 fallback 轮询 + 8s connect timeout (src/ntqqapi/helper/highway.ts),
-  // 但 server 池里的 IP 全死的话 bot 没辙。
-  //
-  // 想跑这个测试需要: bot 在能直连 QQ highway IP 段的网络里 (云服务器/办公室)。
+  // 真上传走 highway: 本机到 server 给的那组 highway IP 路由不通 (全 ETIMEDOUT), highway.ts 轮询换 IP 也没用。
+  // 要在能直连 highway 的网络里跑
   test.skip('POST /api/webqq/fav-emoji/add-from-url 添加成功 (本机网络到 highway IP 全 ETIMEDOUT, 暂跳过)', () => {})
 
   test('POST /api/webqq/fav-emoji/add-from-url 缺 url 返 400', async () => {

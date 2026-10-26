@@ -5,9 +5,6 @@ import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
 import { Event } from '../generated/schema'
 
-/**
- * Transform NTQQ message-created event to Milky message_receive event (private)
- */
 export async function transformPrivateMessageCreated(
   ctx: Context,
   message: RawMessage
@@ -26,9 +23,6 @@ export async function transformPrivateMessageCreated(
   }
 }
 
-/**
- * Transform NTQQ message-created event to Milky message_receive event (group)
- */
 export async function transformGroupMessageCreated(
   ctx: Context,
   message: RawMessage
@@ -48,9 +42,6 @@ export async function transformGroupMessageCreated(
   }
 }
 
-/**
- * Transform NTQQ message-created event to Milky message_receive event (temp)
- */
 export async function transformTempMessageCreated(
   ctx: Context,
   message: RawMessage
@@ -126,9 +117,6 @@ export async function transformGroupMessageRecall(
   }
 }
 
-/**
- * Transform NTQQ friend-request event to Milky friend_request event
- */
 export async function transformFriendRequestEvent(
   ctx: Context,
   data: FriendRequestEvent
@@ -429,7 +417,6 @@ export async function transformPrivateMessageEvent(
             file_id: element.fileElement.fileUuid,
             file_name: element.fileElement.fileName,
             file_size: +element.fileElement.fileSize,
-            // FileElement.fileMd5 即文件 md5（hex），milky 协议 file_hash 字段就是它。
             file_hash: element.fileElement.fileMd5 ?? '',
             is_self: message.senderUin === +selfInfo.uin
           } satisfies MilkyEventTypes['friend_file_upload']

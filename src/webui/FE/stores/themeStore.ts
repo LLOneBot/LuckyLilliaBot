@@ -5,17 +5,15 @@ type ThemeMode = 'light' | 'dark' | 'auto'
 
 interface ThemeState {
   mode: ThemeMode
-  isDark: boolean // 实际显示的主题状态
+  isDark: boolean // 解析 auto 之后的结果
   setMode: (mode: ThemeMode) => void
-  cycleMode: () => void // 循环切换模式
+  cycleMode: () => void
 }
 
-// 获取系统主题偏好
 const getSystemTheme = (): boolean => {
   return window.matchMedia('(prefers-color-scheme: dark)').matches
 }
 
-// 根据模式计算实际主题
 const resolveTheme = (mode: ThemeMode): boolean => {
   if (mode === 'auto') {
     return getSystemTheme()
@@ -23,7 +21,6 @@ const resolveTheme = (mode: ThemeMode): boolean => {
   return mode === 'dark'
 }
 
-// 应用主题到 DOM
 const applyTheme = (isDark: boolean) => {
   if (isDark) {
     document.documentElement.classList.add('dark')
@@ -54,7 +51,7 @@ export const useThemeStore = create<ThemeState>()(
     }),
     {
       name: 'llbot-theme',
-      partialize: (state) => ({ mode: state.mode }), // 只持久化 mode
+      partialize: (state) => ({ mode: state.mode }),
       onRehydrateStorage: () => (state) => {
         if (state) {
           const isDark = resolveTheme(state.mode)
@@ -66,7 +63,6 @@ export const useThemeStore = create<ThemeState>()(
   )
 )
 
-// 监听系统主题变化
 if (typeof window !== 'undefined') {
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
   mediaQuery.addEventListener('change', (e) => {

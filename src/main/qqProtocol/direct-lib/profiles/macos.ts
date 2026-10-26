@@ -1,15 +1,13 @@
 import type { ProtocolProfile } from './types'
 import { WTLOGIN_SERVER_PUB_192K1 } from './linux'
 
-// macOS SSO head 专属固定常量 (真机 trans_emp 明文对拍实证, macOS/PoC/src/main.rs:429-437):
-//   [off8]=0x2007C26B 替代 subAppId 槽, [off12]=0x20027635 替代 2052 槽,
-//   FIXED_HEADER 首字节 0x01 (非桌面 0x02), 第 11 字节 0x01。
+// macOS SSO head 专属常量 (真机 trans_emp 明文对拍): [off8] 替代 subAppId 槽, [off12] 替代 2052 槽,
+// FIXED_HEADER 首字节 0x01 (桌面是 0x02), 第 11 字节 0x01
 const MACOS_HEAD_FIELD8 = 0x2007c26b
 const MACOS_HEAD_FIELD12 = 0x20027635
 const MACOS_FIXED_HEADER = Buffer.from([0x01, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x01, 0])
 
-// macOS QQNT 7.0.0-52194。值溯源: LuckyLillia.Sign/src/macOS/PoC/src/appinfo.rs
-// + docs/Linux/appinfo-cross-platform.md §6。与 Windows 同 NT 流程/曲线, SSO head 结构性不同。
+// macOS QQNT 7.0.0-52194, 值见 LuckyLillia.Sign/src/macOS/PoC/src/appinfo.rs。登录流程同 Windows, SSO head 结构不同
 export const MACOS_PROFILE: ProtocolProfile = {
   name: 'macos',
   family: 'nt',
@@ -50,7 +48,7 @@ export const MACOS_PROFILE: ProtocolProfile = {
   wtLoginFrameVer: 0x3374,
 
   ssoProtocolVersion: 12,
-  // ★ SSO head 结构性差异: 三个 override + macOS reserve 字段序
+  // SSO head 的结构差异
   ssoHeadField8: MACOS_HEAD_FIELD8,
   ssoHeadField12: MACOS_HEAD_FIELD12,
   ssoFixedHeader: MACOS_FIXED_HEADER,

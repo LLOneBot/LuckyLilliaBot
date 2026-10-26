@@ -70,8 +70,7 @@ describe('心跳连续失败', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  // startHeartbeat 的跳间隔带抖动 (374-382s, 对齐真机 ~378s), 不再是写死的 270s。
-  // 推进时钟按上界走, 保证那一跳一定已经发生, 不跟具体抖动值耦合。
+  // 心跳间隔带抖动 (374-382s, 真机约 378s), 时钟按上界推进, 不跟具体抖动值耦合
   const HEARTBEAT_MAX_MS = 382_000
   const RETRY_MS = 30 * 1000
 

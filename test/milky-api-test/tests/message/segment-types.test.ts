@@ -1,16 +1,4 @@
-/**
- * message_receive 多 segment 类型覆盖测试。
- *
- * milky 协议支持的 outgoing segment 类型：
- *   text, mention, mention_all, face, image, record, video,
- *   reply, forward, light_app  （market_face / xml 不在 outgoing schema 里，receive only）
- *
- * 这里：
- *   - 发各种 segment → 确认 secondary 收到的 message_receive 里 segments 包含对应 type
- *   - 把 send + receive 端到端验证（send_*_message 的 message_seq → 等 secondary 收到对应 seq）
- *
- * 文件 / video / record 用 onebot11-api-test 共享的 fixture（test/onebot11-api-test/tests/media/）
- */
+/** 发各种 segment, 确认 secondary 收到的 message_receive 里有对应 type。market_face / xml 只能收不能发 */
 import { setupMilkyTest, teardownMilkyTest, MilkyTestContext } from '../setup'
 import { Assertions } from '@/protocol/Assertions'
 import { MediaPaths } from '../media'
@@ -26,7 +14,7 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
     teardownMilkyTest(ctx)
   })
 
-  /** 通用：primary 发一条群消息 → 等 secondary 收到 message_receive，回 segments 数组 */
+  /** 返回 secondary 收到的 segments */
   async function sendGroupAndAwait(segments: any[], extraTimeoutMs = 15000): Promise<any[]> {
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
@@ -89,8 +77,7 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
   }, 30000)
 
   it('mention_all 段：@全体成员', async () => {
-    // server 对 @全体成员每天每群有次数上限（实测错信 "code=121"），反复跑测试会撞顶。
-    // 这里捕获该错误后跳过 — 跟 send_profile_like 每日点赞上限同类的 server 限流。
+    // server 对 @全体成员每天每群有次数上限 (code=121), 撞上就跳过
     const text = `seg-mention_all-${Date.now()}`
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
@@ -170,9 +157,7 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
     expect(typeof vid.data?.resource_id).toBe('string')
     expect(vid.data.resource_id.length).toBeGreaterThan(0)
     expect(vid.data?.temp_url).toMatch(/^https?:\/\//)
-    // 注：width / height 来自 fileElement.thumbWidth / thumbHeight（视频封面），
-    // server 偶尔不下发这俩 → 实测可能为 0。这里只断言"字段存在 + 非负数"，
-    // 不强制 > 0。duration 也一样（视频 fileTime 偶尔丢）。
+    // width / height 取自视频封面, server 偶尔不下发会是 0, duration 也一样; 只断言是数字
     expect(typeof vid.data?.width).toBe('number')
     expect(typeof vid.data?.height).toBe('number')
     expect(typeof vid.data?.duration).toBe('number')
@@ -202,11 +187,8 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
   }, 60000)
 
   it('forward 段：发合并转发（含混合 inline：text/mention/face/image/reply/video），核对各节点都被 server 收下', async () => {
-    // 合并转发的 inline segments 在 server 端会有"快照归一化"行为：
-    //   - mention 段 → 退化成普通文本 "@<对方群名片>"（@ 实时定位失去意义）
-    //   - face 段 → 通常被 server 直接 drop（合并转发不展示动态表情）
-    //   - reply 段 → server 可能保留（关联消息变为快照内的 stub），也可能丢；text 后缀总能保留
-    //   - text / image / video 都保留
+    // server 会归一化合并转发的 inline 段: mention 退化成 "@群名片" 文本, face 通常被丢,
+    // reply 可能保留也可能丢, text / image / video 都保留
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
     const ts = Date.now()
@@ -262,11 +244,7 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
           { type: 'reply', data: { message_seq: baseSeq } },
           { type: 'text', data: { text: `inline-reply-${ts}` } },
         ],
-        // 注：reply 段在合并转发里能不能保留被回复消息的预览，取决于 server 当时
-        // 是否能在群历史里拿到 baseSeq 那条消息：
-        //   - 拿得到 → forward 卡片里被回复段渲染成 "@<sender_name> <text>" 预览
-        //   - 拿不到（消息已过去太久 / 跨群域 / 已撤回）→ 渲染 "[原消息已过期]"
-        // 测试只断言 inline-reply-${ts} 这条 text 后缀必到，不强制 reply 预览成功。
+        // reply 预览要看 server 能否在群历史里找到 baseSeq, 找不到显示 "[原消息已过期]"; 只断言 text 后缀
       },
       {
         user_id: ctx.primaryUserId,
@@ -329,11 +307,7 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
     const node3Texts = messages[3].segments.filter((s: any) => s.type === 'text').map((s: any) => s.data?.text).join('')
     expect(node3Texts).toContain(`inline-image-${ts}`)
 
-    // 节点 4：reply 段（inline 引用群里 baseSeq）
-    //   - 协议层：reply 段以 type='reply' 形式保留，message_seq 等于 baseSeq
-    //   - segments 子数组：server 通常不在合并转发的 reply 段里内联被回复消息的预览
-    //     （客户端 UI 显示时会去 get_message 拉一次，拉不到才显示"[原消息已过期]"）
-    //   - text 后缀始终保留
+    // 节点 4: reply 段保留, message_seq 等于 baseSeq; server 通常不内联被回复消息的预览
     const node4Texts = messages[4].segments.filter((s: any) => s.type === 'text').map((s: any) => s.data?.text).join('')
     expect(node4Texts).toContain(`inline-reply-${ts}`)
     const replySeg = messages[4].segments.find((s: any) => s.type === 'reply')
@@ -341,7 +315,7 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
     expect(replySeg.data?.message_seq).toBe(baseSeq)
     expect(replySeg.data?.sender_id).toBe(ctx.primaryUserId)
 
-    // 节点 5：video 段必须有 + 真 resource_id（合并转发里 video 跟 image 一样保留得很完整）
+    // 节点 5: video 段必须有真 resource_id
     const vidSeg = messages[5].segments.find((s: any) => s.type === 'video')
     expect(vidSeg).toBeDefined()
     expect(typeof vidSeg.data?.resource_id).toBe('string')
@@ -530,10 +504,7 @@ describe('Milky message_receive：多 segment 类型覆盖', () => {
     const node2Texts = messages[2].segments.filter((s: any) => s.type === 'text').map((s: any) => s.data?.text).join('')
     expect(node2Texts).toContain(`priv-fwd-image-${ts}`)
 
-    // 节点 3：reply 段（inline 引用私聊 baseSeq）
-    //   - 私聊 c2c message_seq 在不同接口的取值不一致（send 返回 c2cMsgSeq vs 合并转发包
-    //     里 reply.message_seq 可能对应另一个 seq 维度），不强校验数值，但段必须以
-    //     type='reply' 形式保留。
+    // 节点 3: 私聊各接口的 message_seq 维度不一致, 不校验数值, 只要求 reply 段保留
     const node3Texts = messages[3].segments.filter((s: any) => s.type === 'text').map((s: any) => s.data?.text).join('')
     expect(node3Texts).toContain(`priv-fwd-reply-${ts}`)
     const replySeg = messages[3].segments.find((s: any) => s.type === 'reply')

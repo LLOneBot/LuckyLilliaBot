@@ -29,7 +29,6 @@ interface EmojiReactionData {
   isAdd: boolean
 }
 
-// 系统提示消息类型
 interface SystemTip {
   id: string
   type: 'emoji-reaction'
@@ -39,7 +38,6 @@ interface SystemTip {
   timestamp: number
 }
 
-// 获取表情图片路径（根据 emojiId 判断类型）
 function getEmojiImagePath(emojiId: string): string {
   const id = parseInt(emojiId)
   // Unicode emoji 的码点通常大于 1000（QQ 表情 ID 一般在 0-500 范围内）
@@ -50,7 +48,6 @@ function getEmojiImagePath(emojiId: string): string {
   return `/face/${emojiId}.png`
 }
 
-// 表情回应系统提示组件（类似戳一戳）
 const EmojiReactionTip: React.FC<{ tip: SystemTip; onScrollToMessage: (msgSeq: string) => void }> = ({ tip, onScrollToMessage }) => {
   const imgSrc = getEmojiImagePath(tip.emojiId)
   const emojiId = parseInt(tip.emojiId)
@@ -73,7 +70,6 @@ const EmojiReactionTip: React.FC<{ tip: SystemTip; onScrollToMessage: (msgSeq: s
             const img = e.target as HTMLImageElement
             if (!img.dataset.fallback) {
               img.dataset.fallback = '1'
-              // 如果是 Unicode emoji，尝试显示字符
               if (emojiId > 1000) {
                 img.style.display = 'none'
                 img.insertAdjacentHTML('afterend', `<span class="text-sm">${String.fromCodePoint(emojiId)}</span>`)
@@ -124,13 +120,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
   const [titleDialog, setTitleDialog] = useState<{ uid: string; name: string; groupCode: string } | null>(null)
   const [emojiPickerTarget, setEmojiPickerTarget] = useState<{ message: RawMessage; x: number; y: number } | null>(null)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false)
-  // 转发: 多选模式 + 已选消息 + 会话选择器状态
   const [multiSelectMode, setMultiSelectMode] = useState(false)
   const [selectedMsgIds, setSelectedMsgIds] = useState<Set<string>>(new Set())
-  // 会话选择器: single=true 单条 re-send; single=false 多选合并转发. msgSeqs 为待转发消息的 msgSeq.
+  // single: 单条重发; 否则是多选合并转发
   const [forwardPicker, setForwardPicker] = useState<{ single: boolean; msgSeqs: number[] } | null>(null)
   const [forwarding, setForwarding] = useState(false)
-  // 转发成功后的跳转确认框: 存目标会话, 点确认切过去
   const [jumpConfirm, setJumpConfirm] = useState<ForwardTarget | null>(null)
 
   const imagePreviewContextValue = useMemo(() => ({
@@ -171,7 +165,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     setSelectedMsgIds(new Set())
   }, [])
 
-  // 选中的 msgId 换成 msgSeq (转发后端按 msgSeq 反查源消息)
+  // 后端按 msgSeq 反查源消息
   const selectedMsgSeqs = useCallback((): number[] => {
     return messages
       .filter(m => selectedMsgIds.has(m.msgId))
@@ -179,7 +173,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
       .filter(n => Number.isFinite(n))
   }, [messages, selectedMsgIds])
 
-  // 会话选择器选定目标后执行转发
   const handleForwardTo = useCallback(async (target: ForwardTarget) => {
     if (!forwardPicker || !session) return
     setForwarding(true)
@@ -193,7 +186,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
       }
       setForwardPicker(null)
       exitMultiSelect()
-      // 转发到的是目标会话(通常非当前会话), 弹确认框问是否跳过去
       setJumpConfirm(target)
     } catch (e) {
       showToast((e as Error).message || '转发失败', 'error')
@@ -202,7 +194,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     }
   }, [forwardPicker, session, exitMultiSelect])
 
-  // 确认框点"跳转": 切到目标会话
   const handleJumpToTarget = useCallback(() => {
     if (!jumpConfirm) return
     useWebQQStore.getState().setCurrentChat({
@@ -233,8 +224,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
   const chatInputRef = useRef<any>(null)
   const sessionRef = useRef(session)
   const shouldScrollRef = useRef(true)
-  // 镜像 isScrollReady 给 IntersectionObserver 闭包读: 初始滚到底完成前, 不允许"滚到顶触发加载更多"
-  // (刷新后滚动条初始在顶部, 会误触发 loadMessages 拉历史, 一直循环)
+  // 给 IntersectionObserver 闭包读: 初始滚到底之前不能触发"滚到顶加载更多", 不然刷新后会一直拉历史
   const isScrollReadyRef = useRef(false)
   const prevSessionKeyRef = useRef<string | null>(null)
   const allItemsRef = useRef<MessageItem[]>([])
@@ -243,8 +233,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
   const isLoadingMoreRef = useRef(false)
   const scrollToMsgIdRef = useRef<string | null>(null)
   const isFirstMountRef = useRef(true)
-  const loadVersionRef = useRef(0)  // 用于检查消息加载的版本
-  const isLoadingInitialRef = useRef(false)  // 防止重复加载初始消息
+  const loadVersionRef = useRef(0)
+  const isLoadingInitialRef = useRef(false)
 
   useEffect(() => { sessionRef.current = session }, [session])
 
@@ -262,7 +252,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     const tempItems: MessageItem[] = tempMessages.map(msg => ({ type: 'temp' as const, data: msg }))
     const systemItems: MessageItem[] = systemTips.map(tip => ({ type: 'system' as const, data: tip }))
 
-    // 合并所有消息并按时间排序
     const items = [...rawItems, ...tempItems, ...systemItems]
     items.sort((a, b) => {
       const getTimestamp = (item: MessageItem): number => {
@@ -368,7 +357,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     }
   }, [session?.chatType, session?.peerId])
 
-  // 切换会话时退出多选/关闭转发选择器, 避免状态残留到新会话
   useEffect(() => {
     setMultiSelectMode(false)
     setSelectedMsgIds(new Set())
@@ -376,11 +364,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     setJumpConfirm(null)
   }, [session?.chatType, session?.peerId])
 
-  // 初始滚到底: loading 结束后用 rAF 循环把列表锁到底, 直到"连续几帧确实到底"或超时兜底才放开 (置 isScrollReady,
-  // 该 flag 同时 gate 了"滚到顶加载更多"). 修复"刷新后停在最老消息、持续触发拉历史"死循环:
-  // - 必须等 loading=false: loading 期间列表区渲染 spinner 而非虚拟列表, 容器 scrollHeight=0.
-  // - 必须等 rendered (sh>0): 早期几帧 sh=ch=0 会把 "0-0-0<4" 误判成已到底而提前收尾, 消息还没渲染滚动就结束.
-  // - 不依赖 allItems.length (消息流式到达时反复变会打断脆弱定时器); scrollToBottom 含 scrollTop=scrollHeight 兜底.
+  // loading 结束后用 rAF 把列表锁在底部, 连续几帧到底或超时才放开 (置 isScrollReady)。要等 loading=false 且列表
+  // 已渲染 (scrollHeight > 0): 早期几帧高度都是 0, 会被误判为已到底
   useEffect(() => {
     if (!needScrollToBottom || loading) return
     let raf = 0
@@ -392,7 +377,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
       const ready = !!container && container.scrollHeight > 0 && allItemsRef.current.length > 0
       if (ready) {
         scrollToBottom()
-        // 内容不足一屏 (sh<=ch) 时顶即底; 否则要求真正滚到底
         const atBottom = container!.scrollHeight <= container!.clientHeight
           || container!.scrollHeight - container!.scrollTop - container!.clientHeight < 4
         stableFrames = atBottom ? stableFrames + 1 : 0
@@ -427,7 +411,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
       const handleNewMessage = (msg: RawMessage) => {
         if (!msg || !msg.msgId || !msg.elements || !Array.isArray(msg.elements)) return
 
-        // 检查是否是自己发送的消息
         const selfUid = getSelfUid()
 
         setMessages(prev => {
@@ -438,14 +421,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
           return newMessages
         })
 
-        // 注：临时消息已在 ChatInput.sendMessage 成功后立即移除，
-        // SSE 消息达到时应该没有待移除的临时消息。此处保留防御性代码。
-        // 在极端情况下（如快速重连），可能仍有未移除的临时消息，此时将其全部移除。
+        // 临时消息正常在发送成功时就移除了, 快速重连等情况下可能还有残留
         if (msg.senderUid === selfUid) {
           setTempMessages(prev => {
             const sendingMsgs = prev.filter(t => t.status === 'sending')
             if (sendingMsgs.length === 0) return prev
-            // 移除所有"发送中"状态的临时消息，因为此时收到了真实的消息，临时消息应该已清除
             console.warn(`[SSE] 收到自己的消息时，仍存在 ${sendingMsgs.length} 条临时消息，现已清除`, sendingMsgs)
             return prev.filter(t => t.status !== 'sending')
           })
@@ -456,7 +436,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     return () => { if (onNewMessageCallback) onNewMessageCallback(null) }
   }, [onNewMessageCallback])
 
-  // 应用一次表情回应到本地 messages (SSE 事件 + 自己贴表情的乐观更新共用).
   const applyEmojiReaction = useCallback((data: EmojiReactionData) => {
     const selfUin = getSelfUin()
     const isSelf = !!selfUin && data.userId === selfUin
@@ -501,7 +480,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
       return m
     }))
 
-    // 系统提示只在别人添加表情时显示 (自己贴的不提示)
     if (data.isAdd && !isSelf) {
       const tip: SystemTip = {
         id: `tip_${Date.now()}_${Math.random()}`,
@@ -515,7 +493,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     }
   }, [])
 
-  // 自己贴/取消表情后的乐观更新: 不等 SSE (server 未必推 self reaction), 立即更新本地 + 缓存
+  // 乐观更新: server 未必会推自己的表情回应
   const applySelfReaction = useCallback((msgSeq: string | number, emojiId: string, isAdd: boolean, groupCode: string) => {
     const selfUin = getSelfUin() || ''
     applyEmojiReaction({ groupCode, msgSeq: String(msgSeq), emojiId, userId: selfUin, userName: '', isAdd })
@@ -526,7 +504,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     onSelfReact: applySelfReaction
   }), [applySelfReaction])
 
-  // 处理表情回应事件
   useEffect(() => {
     if (onEmojiReactionCallback) {
       const handleEmojiReaction = (data: EmojiReactionData) => {
@@ -537,11 +514,9 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     return () => { if (onEmojiReactionCallback) onEmojiReactionCallback(null) }
   }, [onEmojiReactionCallback])
 
-  // 处理消息撤回事件
   useEffect(() => {
     if (onMessageRecalledCallback) {
       const handleMessageRecalled = (data: { msgId: string; msgSeq: string }) => {
-        // 标记消息为已撤回（设置 recallTime）
         setMessages(prev => prev.map(m => {
           if (m.msgId === data.msgId || (!!data.msgSeq && String(m.msgSeq) === String(data.msgSeq))) {
             return { ...m, recallTime: String(Math.floor(Date.now() / 1000)) }
@@ -561,7 +536,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     const requestChatType = session.chatType
     const requestPeerId = session.peerId
 
-    // 检查 session 是否仍然匹配
     const checkSession = () => {
       const currentSession = sessionRef.current
       return currentSession && currentSession.chatType === requestChatType && currentSession.peerId === requestPeerId
@@ -579,7 +553,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
 
       console.log('[ChatWindow] API response:', { messagesCount: result.messages.length, hasMore: result.hasMore })
 
-      // 检查 session 是否仍然匹配
       if (!checkSession()) {
         console.log('[ChatWindow] Session changed after API call, skipping')
         return
@@ -615,7 +588,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     }
   }, [session, messages])
 
-  // 加载最新消息并尝试和本地缓存合并
   const loadMessagesAndMergeWithCache = useCallback(async (cachedMessages: RawMessage[]) => {
     if (!session) return
     const requestChatType = session.chatType
@@ -623,14 +595,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
 
     setLoading(true)
 
-    // 检查 session 是否仍然匹配
     const checkSession = () => {
       const currentSession = sessionRef.current
       return currentSession && currentSession.chatType === requestChatType && currentSession.peerId === requestPeerId
     }
 
     try {
-      // 1. 先加载最新 20 条消息
       const result = await getMessages(requestChatType, requestPeerId)
 
       if (!checkSession()) {
@@ -649,12 +619,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         return
       }
 
-      // 2. 检查是否和本地缓存有重叠
       const cachedMsgIds = new Set(cachedMessages.map(m => m.msgId))
       const hasOverlap = latestMessages.some(m => cachedMsgIds.has(m.msgId))
 
       if (hasOverlap || cachedMessages.length === 0) {
-        // 有重叠或没有缓存，直接合并
         console.log('[ChatWindow] Has overlap with cache, merging directly')
         const merged = [...cachedMessages, ...latestMessages]
         const uniqueMessages = merged.filter((msg, index, arr) =>
@@ -665,14 +633,13 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         setCachedMessages(requestChatType, requestPeerId, uniqueMessages)
         setHasMore(result.hasMore)
       } else {
-        // 没有重叠，需要继续向上拉取直到和缓存接上
         console.log('[ChatWindow] No overlap, need to fill gap')
         let allNewMessages = [...latestMessages]
         let currentBeforeMsgSeq = latestMessages[0]?.msgSeq
         let hasMore = result.hasMore
         const cachedLatestMsgSeq = cachedMessages[cachedMessages.length - 1]?.msgSeq
 
-        // 最多尝试 10 次（200 条消息）来填补间隙
+        // 最多补 10 页 (200 条)
         for (let i = 0; i < 10 && hasMore; i++) {
           if (!checkSession()) {
             console.log('[ChatWindow] Session changed during gap fill, skipping')
@@ -690,7 +657,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
           currentBeforeMsgSeq = moreMessages[0]?.msgSeq
           hasMore = moreResult.hasMore
 
-          // 检查是否和缓存接上了
           const newMsgIds = new Set(moreMessages.map(m => m.msgId))
           const connected = cachedMessages.some(m => newMsgIds.has(m.msgId)) ||
             (!!cachedLatestMsgSeq && moreMessages.some(m => Number(m.msgSeq) <= Number(cachedLatestMsgSeq)))
@@ -701,7 +667,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
           }
         }
 
-        // 合并所有消息
         const merged = [...cachedMessages, ...allNewMessages]
         const uniqueMessages = merged.filter((msg, index, arr) =>
           arr.findIndex(m => m.msgId === msg.msgId) === index
@@ -732,7 +697,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
 
   useEffect(() => {
     if (session) {
-      // 切换会话时递增版本号，使旧的请求失效
+      // 让旧请求失效
       const currentVersion = ++loadVersionRef.current
 
       const sessionKey = getSessionKey(session.chatType, session.peerId)
@@ -741,14 +706,10 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
 
       console.log('[ChatWindow] Session changed:', { chatType: currentChatType, peerId: currentPeerId, version: currentVersion })
 
-      // 重置加载状态
       isLoadingInitialRef.current = false
-      // 每次切会话先清掉上一会话残留的 loading: 快速连续切换时, 旧请求 finally 因 checkSession 失败
-      // 不会 setLoading(false), 若新会话又不触发 API 加载 (已 visited), loading 会永久停在 true -> 一直转圈.
-      // 在此无条件清零, 需要加载的分支下面会自己再 setLoading(true).
+      // 快速切换时旧请求的 finally 不会 setLoading(false), 新会话若不需要加载就会一直转圈
       setLoading(false)
 
-      // 先尝试从内存缓存读取
       const cachedInMemory = messageCacheRef.current.get(sessionKey)
       if (cachedInMemory && cachedInMemory.length > 0) {
         console.log('[ChatWindow] Memory cache hit:', cachedInMemory.length, 'messages')
@@ -762,13 +723,11 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
       setSystemTips([])
       shouldScrollRef.current = true
 
-      // 首次挂载或未访问过的聊天，从 API 加载最新消息
       const isFirstMount = isFirstMountRef.current
       const hasVisited = hasVisitedChat(currentChatType, currentPeerId)
       const shouldLoadFromApi = isFirstMount || !hasVisited
       console.log('[ChatWindow] Check load:', { isFirstMount, hasVisited, shouldLoadFromApi })
 
-      // 从 IndexedDB 读取缓存，然后从 API 加载最新消息
       getCachedMessages(currentChatType, currentPeerId).then(async cachedMessages => {
         // 只检查 session 是否匹配，不检查版本号（因为版本号可能因为 SSE 重连而变化）
         const currentSession = sessionRef.current
@@ -777,7 +736,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
           return
         }
 
-        // 获取有效的缓存消息
         let validCachedMessages: RawMessage[] = []
         if (cachedMessages && cachedMessages.length > 0) {
           validCachedMessages = cachedMessages.filter(m => m.elements && Array.isArray(m.elements))
@@ -791,14 +749,12 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
           console.log('[ChatWindow] IndexedDB cache miss')
         }
 
-        // 防止重复加载
         if (shouldLoadFromApi && !isLoadingInitialRef.current) {
           isLoadingInitialRef.current = true
           isFirstMountRef.current = false
           markChatVisited(currentChatType, currentPeerId)
           console.log('[ChatWindow] Calling loadMessagesAndMergeWithCache()')
 
-          // 加载最新消息，然后尝试和本地缓存合并
           await loadMessagesAndMergeWithCache(validCachedMessages)
         }
       })
@@ -825,8 +781,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     const observer = new IntersectionObserver(
       (entries) => {
         const entry = entries[0]
-        // 首次滚到底完成 (isScrollReadyRef) 前不触发加载更多: 刚渲染时滚动条在顶部, sentinel 会立刻进入
-        // 视口误触发拉历史, 一直循环. 必须等初始滚到底稳定后才允许"滚到顶加载更多".
         if (entry.isIntersecting && isScrollReadyRef.current && hasMore && !isLoadingMoreRef.current && !loading && messages.length > 0) {
           const firstMsgSeq = messages[0]?.msgSeq
           if (firstMsgSeq) {
@@ -896,11 +850,8 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     onAppendInputMentionConsumed?.()
   }, [appendInputMention, onAppendInputMentionConsumed])
 
-  // Header and composer float over the list: Liquid Glass keeps chrome on a
-  // layer above content. The list pads itself by their measured heights so
-  // the first and last messages clear them. The footer wrapper is observed
-  // rather than its children, which swap between the composer and the
-  // multi-select bar.
+  // Header and composer float over the list, which pads itself by their measured heights. The footer wrapper is
+  // observed rather than its children, which swap between the composer and the multi-select bar.
   const headRef = useRef<HTMLDivElement>(null)
   const footRef = useRef<HTMLDivElement>(null)
   const [chrome, setChrome] = useState({ head: 56, foot: 72 })
@@ -938,7 +889,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
     <MultiSelectContext.Provider value={multiSelectContextValue}>
     <SelfReactionContext.Provider value={selfReactionContextValue}>
       <div ref={chatWindowRef} className="flex flex-col h-full relative">
-        {/* 头部 */}
         <div ref={headRef} className="absolute top-0 left-0 right-0 z-20 glass-bar hairline-b flex items-center justify-between px-2 md:px-4 py-3">
           {/* 返回按钮（移动端） */}
           {showBackButton && (
@@ -1030,7 +980,7 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
           )}
         </div>
 
-        {/* 消息列表。上下 padding 给悬浮的头部 / 输入栏让位。virtualizer 没设 scrollMargin, 顶部约 80px 的偏移靠 overscan 5 吸收 */}
+        {/* virtualizer 没设 scrollMargin, 顶部约 80px 的偏移靠 overscan 5 吸收 */}
         <div
           ref={parentRef}
           onScroll={handleScroll}
@@ -1064,7 +1014,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
 
         </div>
 
-        {/* 滚动到底部按钮 */}
         {showScrollToBottom && (
           <button
             onClick={scrollToBottom}
@@ -1076,7 +1025,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
           </button>
         )}
 
-        {/* 输入区域 / 多选转发操作栏, 浮在列表上 */}
         <div ref={footRef} className="absolute bottom-0 left-0 right-0 z-20">
         {multiSelectMode ? (
           <div className="glass-bar hairline-t px-4 py-3 flex items-center justify-between gap-3">
@@ -1117,7 +1065,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         </div>
       </div>
 
-      {/* 消息右键菜单 */}
       {contextMenu && (
         <MessageContextMenu
           contextMenu={contextMenu}
@@ -1140,7 +1087,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         />
       )}
 
-      {/* 表情贴选择器 */}
       {emojiPickerTarget && (
         <EmojiReactionPicker
           target={emojiPickerTarget}
@@ -1153,7 +1099,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         />
       )}
 
-      {/* 头像右键菜单 */}
       {avatarContextMenu && (
         <AvatarContextMenu
           avatarContextMenu={avatarContextMenu}
@@ -1169,7 +1114,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         />
       )}
 
-      {/* 用户资料卡 */}
       {userProfile && (
         <UserProfileCard
           profile={userProfile.profile}
@@ -1180,7 +1124,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
           onFriendDeleted={(uid) => {
             const { removeFriend, setCurrentChat, removeRecentChat } = useWebQQStore.getState()
             removeFriend(uid)
-            // 如果当前聊天是被删除的好友，关闭聊天窗口
             if (session?.chatType === 1) {
               setCurrentChat(null)
               removeRecentChat(1, session.peerId)
@@ -1189,7 +1132,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         />
       )}
 
-      {/* 群资料卡 */}
       {groupProfile && (
         <GroupProfileCard
           profile={groupProfile.profile}
@@ -1210,7 +1152,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         />
       )}
 
-      {/* 踢出群确认对话框 */}
       {kickConfirm && (
         <KickConfirmDialog
           name={kickConfirm.name}
@@ -1229,7 +1170,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         />
       )}
 
-      {/* 禁言时长选择对话框 */}
       {muteDialog && (
         <MuteDialog
           name={muteDialog.name}
@@ -1254,7 +1194,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         />
       )}
 
-      {/* 设置头衔对话框 */}
       {titleDialog && (
         <TitleDialog
           name={titleDialog.name}
@@ -1275,7 +1214,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
       <ImagePreviewModal url={previewImageUrl} onClose={() => setPreviewImageUrl(null)} />
       <VideoPreviewModal videoInfo={previewVideoUrl} onClose={() => setPreviewVideoUrl(null)} />
 
-      {/* 转发目标选择器 */}
       {forwardPicker && (
         <ForwardTargetPicker
           count={forwardPicker.msgSeqs.length}
@@ -1285,7 +1223,6 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
         />
       )}
 
-      {/* 转发成功后的跳转确认框 */}
       {jumpConfirm && createPortal(
         <>
           <div className="fixed inset-0 z-[60] bg-black/40" onClick={() => setJumpConfirm(null)} />

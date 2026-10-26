@@ -1,13 +1,6 @@
 /**
- * upload_flash_file 测试 — 全新文件场景
- *
- * 关键: 用每次 jest 跑都不一样的 random bytes 生成临时文件,
- * 保证 server 端 sha1 100% 不在缓存里, 必走 highway 上传.
- *
- * highway TCP 不通时 (本机网络到 QQ highway IP 段全 ETIMEDOUT) 整个 upload
- * 会失败. 测试代码只要确保:
- *   - 协议层走通了 createFileSet/registerFile/prep
- *   - upload retcode 要么 0 要么 highway 失败 (清晰区分协议错和网络错)
+ * upload_flash_file, 新文件场景: 每次用随机内容, sha1 一定不在 server 缓存里, 必走 highway。
+ * highway 不通时只要求协议层走通, 并且能区分出是网络错误
  */
 import { unlink, writeFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
@@ -33,7 +26,6 @@ describe('upload_flash_file (新文件 / 必走 highway)', () => {
     for (const p of tempPaths) await unlink(p).catch(() => {})
   })
 
-  /** 生成一个 sha1 必新的文件 (random bytes + timestamp 名字) */
   async function makeNewFile(sizeBytes: number = 1024): Promise<string> {
     const path = join(TEST_TMP_DIR, `random-${Date.now()}-${Math.floor(Math.random() * 1e9)}.bin`)
     await writeFile(path, randomBytes(sizeBytes))
@@ -51,16 +43,13 @@ describe('upload_flash_file (新文件 / 必走 highway)', () => {
     })
 
     if (upload.retcode === 0) {
-      // upload 真成功 = highway 网络通了
       expect(upload.data.file_set_id).toBeTruthy()
       expect(upload.data.share_link).toMatch(/qfile\.qq\.com\/q\//)
       expect(typeof upload.data.expire_time).toBe('number')
       expect(Array.isArray(upload.data.downloads)).toBe(true)
     } else {
       const msg = upload.message || ''
-      // 已知会跳过的几种"环境性"失败:
-      //   - highway TCP 不通 (本机网络问题)
-      //   - 15001 上传已超出限制 (QQ server 端给该账号的闪传 quota 满了, 等冷却)
+      // 环境问题: highway 不通, 或 15001 闪传 quota 满
       const isEnv =
         msg.includes('ETIMEDOUT') ||
         msg.includes('Highway') ||

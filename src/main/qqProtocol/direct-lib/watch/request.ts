@@ -3,7 +3,7 @@ import { buildWatchFetchTlvs, buildWatchLoginBody } from './tlv'
 import { buildWatchWtLoginFrame, buildWatchCode2d } from './frame'
 import { getWatchQimei } from './qimei'
 
-// watch 请求帧构造。只依赖 client 的这几个方法, 用最小接口解耦 (避免与 client.ts 循环 import)。
+// 最小接口, 避免跟 client.ts 循环 import
 export interface WatchFrameClient {
   getGuid(): Buffer
   getEcdhPublicKey(): Buffer
@@ -41,7 +41,7 @@ export interface WatchLoginQr {
   noPicSig: Buffer
 }
 
-/** wtlogin.login 帧 (由 SIGN_ALLOWLIST 走 FEKit 签名; 后端未就绪时 sendCommand 会 503)。 */
+/** wtlogin.login 帧, 要签名 */
 export function buildWatchLoginFrame(client: WatchFrameClient, qr: WatchLoginQr): Buffer {
   const guid = client.getGuid()
   const { q16 } = getWatchQimei(guid)

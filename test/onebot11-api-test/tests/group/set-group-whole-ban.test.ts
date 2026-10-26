@@ -1,9 +1,4 @@
-﻿/**
- * set_group_whole_ban 接口测试
- * 测试群组全员禁言功能
- *
- * 注意: 需要管理员权限
- */
+﻿/** 需要管理员权限 */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';

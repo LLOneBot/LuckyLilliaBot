@@ -179,9 +179,7 @@ const GetGroupAnnouncements = defineApi(
     if (result.ec !== 0) {
       return Failed(-500, result.em)
     }
-    // server 在没有未读公告 / 群没公告时分别省略 inst / feeds 字段（实测都会
-    // 是 undefined）。spread 这两个字段前必须 `?? []` 兜底，否则群一空就 500
-    // "result.inst is not iterable" / "result.feeds is not iterable"。
+    // 没有未读公告 / 没有公告时 server 分别省略 inst / feeds
     const feeds = result.feeds ?? []
     const inst = result.inst ?? []
     const announcements = []

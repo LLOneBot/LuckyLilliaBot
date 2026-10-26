@@ -38,9 +38,8 @@ const isPluginTab = (tab: string) => BUILTIN_PAGE_IDS.includes(tab) || tab === '
 const isKnownTab = (tab: string) => BUILTIN_TABS.includes(tab) || isPluginTab(tab)
 
 function App() {
-  // 从 URL hash 读取初始 tab，默认 dashboard
   const getInitialTab = () => {
-    const hash = window.location.hash.slice(1) // 去掉 #
+    const hash = window.location.hash.slice(1)
     return isKnownTab(hash) ? hash : 'dashboard'
   }
 
@@ -74,7 +73,6 @@ function App() {
     [pluginPages],
   );
 
-  // 设置密码提示处理器
   useEffect(() => {
     setPasswordPromptHandler(async (tip: string) => {
       return new Promise<string>((resolve) => {
@@ -85,19 +83,16 @@ function App() {
     });
   }, []);
 
-  // 同步 tab 和 URL hash
   useEffect(() => {
     window.location.hash = activeTab
   }, [activeTab])
 
-  // WebQQ 自动隐藏侧边栏
   useEffect(() => {
     if (autoHideSidebarInWebQQ && activeTab === 'webqq') {
       setSidebarCollapsed(true)
     }
   }, [activeTab, autoHideSidebarInWebQQ])
 
-  // 监听浏览器前进/后退
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1)
@@ -109,7 +104,6 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-  // 处理密码确认
   const handlePasswordConfirm = useCallback((password: string) => {
     if (password.trim()) {
       setShowPasswordDialog(false);
@@ -123,7 +117,6 @@ function App() {
     }
   }, [passwordResolve]);
 
-  // 检查登录状态
   useEffect(() => {
     const checkLoginStatus = async () => {
       try {
@@ -138,12 +131,11 @@ function App() {
           // uin 就位后才能加载 WebQQ 的按账号持久化数据 (store 是 skipHydration 的)
           hydrateWebQQStore(response.data.selfInfo.uin);
 
-          // 获取主配置
           setConfig(response.data.config);
           setEnvLocked(response.data.envLocked ?? []);
           setInstance(response.data.instance);
 
-          // 获取 QQ 版本号（单独 try-catch，不影响登录状态）
+          // 单独 try: 拿不到版本号不影响登录状态
           try {
             const deviceInfoRes = await apiFetch<{ devType: string; buildVer: string }>('/api/device-info');
             if (deviceInfoRes.success && deviceInfoRes.data?.buildVer) {
@@ -165,8 +157,7 @@ function App() {
     checkLoginStatus();
   }, []);
 
-  // 未登录时轮询 auth token 状态: 只在缺失/无效时弹强制录入框; 自愈(转 valid/validating)或登录中则关掉,
-  // 避免弹框盖住二维码造成软锁死. 网络错误(error)不阻塞, 由 QQLogin 横幅提示. 在线则刷新进主界面.
+  // 只在 token 缺失 / 无效时弹录入框, 恢复正常就关掉, 免得盖住二维码; 网络错误由 QQLogin 横幅提示
   useEffect(() => {
     if (isLoggedIn || checkingLogin) return;
     let stop = false;
@@ -181,8 +172,7 @@ function App() {
             setAuthTokenReason(d.validation === 'invalid' ? 'invalid' : 'missing');
             setShowAuthTokenDialog(true);
           } else if (d.validation === 'valid') {
-            // 自愈/登录中: 关掉弹框露出二维码. validating/error 不动 (交给对话框自身轮询/QQLogin 横幅),
-            // 避免把用户正在提交的弹框中途关掉.
+            // validating / error 时不动, 免得关掉用户正在提交的弹框
             setShowAuthTokenDialog(false);
           }
         }
@@ -193,7 +183,7 @@ function App() {
     return () => { stop = true; };
   }, [isLoggedIn, checkingLogin]);
 
-  // 保存配置 (邮件配置由邮件通知插件的设置页自己保存). 只提交调用方给的片段, 服务端合并进去
+  // 只提交调用方给的片段, 服务端合并; 邮件配置由邮件通知插件自己保存
   const handleSave = useCallback(async (sections: Partial<Config>) => {
     try {
       setLoading(true);
@@ -217,23 +207,20 @@ function App() {
   }, []);
 
 
-  // 登录成功回调
   const handleLoginSuccess = useCallback(() => {
     window.location.reload();
   }, []);
 
-  // 加载中
   if (checkingLogin) {
     return (
       <>
-        {/* Animated Background */}
         <AnimatedBackground />
 
         <div className="relative flex items-center justify-center min-h-screen z-10">
           <Loader2 size={48} className="animate-spin text-pink-500" />
         </div>
 
-        {/* Password Dialog - 支持加载时的 401 设置密码 */}
+        {/* 加载时也可能 401, 要能设置密码 */}
         <TokenDialog
           visible={showPasswordDialog}
           onConfirm={handlePasswordConfirm}
@@ -243,17 +230,14 @@ function App() {
     );
   }
 
-  // 未登录，显示登录页面
   if (!isLoggedIn) {
     return (
       <>
-        {/* Animated Background - 为密码弹框提供背景动画 */}
+        {/* 给密码弹框用, QQLogin 自带背景 */}
         <AnimatedBackground />
 
-        {/* QQLogin 组件内部已有自己的背景 */}
         <QQLogin onLoginSuccess={handleLoginSuccess} />
 
-        {/* Auth Token 强制录入弹框 - 未登录且 token 缺失/无效时挡在扫码界面之上 */}
         <AuthTokenDialog
           visible={showAuthTokenDialog}
           reason={authTokenReason}
@@ -261,7 +245,6 @@ function App() {
           onSuccess={() => window.location.reload()}
         />
 
-        {/* Password Dialog - 支持 401 设置密码 */}
         <TokenDialog
           visible={showPasswordDialog}
           onConfirm={handlePasswordConfirm}
@@ -273,32 +256,26 @@ function App() {
     );
   }
 
-  // webqq-fullscreen 路由：独立的全屏页面
   if (activeTab === 'webqq-fullscreen' && openablePages.some(page => page.key === 'webqq')) {
     return (
       <>
-        {/* Animated Background */}
         <AnimatedBackground />
 
         <WebQQFullscreen />
 
-        {/* Password Dialog */}
         <TokenDialog
           visible={showPasswordDialog}
           onConfirm={handlePasswordConfirm}
           error={passwordError}
         />
 
-        {/* Toast Container */}
         <ToastContainer />
       </>
     )
   }
 
-  // 已登录，显示主页面
   return (
     <div className="flex min-h-screen">
-      {/* Animated Background */}
       <AnimatedBackground />
 
       <Sidebar
@@ -345,7 +322,6 @@ function App() {
             </p>
           </div>
 
-          {/* Content */}
           {activeTab === 'dashboard' && <Dashboard llbotVersion={version} qqVersion={qqVersion} />}
 
           {currentPluginPage && <PluginPage page={currentPluginPage} />}
@@ -514,28 +490,23 @@ function App() {
         </div>
       )}
 
-      {/* Password Dialog */}
       <TokenDialog
         visible={showPasswordDialog}
         onConfirm={handlePasswordConfirm}
         error={passwordError}
       />
 
-      {/* Change Password Dialog */}
       <ChangePasswordDialog
         visible={showChangePasswordDialog}
         onClose={() => setShowChangePasswordDialog(false)}
         onSuccess={() => {
-          // 密码修改成功后，更新 token 状态
-          // 注意：set-token API 不返回新 token，我们需要重新获取配置
+          // set-token 不返回新 token, 只能刷新页面重新拿
           window.location.reload();
         }}
       />
 
-      {/* Toast Container */}
       <ToastContainer />
 
-      {/* Settings Dialog */}
       <SettingsDialog
         visible={showSettingsDialog}
         onClose={() => setShowSettingsDialog(false)}

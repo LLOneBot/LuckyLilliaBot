@@ -9,7 +9,7 @@ export interface GetFilePayload {
 }
 
 export interface GetFileResponse {
-  file?: string // path
+  file?: string // 本地路径
   url?: string
   file_size?: string
   file_name?: string
@@ -54,7 +54,6 @@ export abstract class GetFileBase extends BaseAction<GetFilePayload, GetFileResp
       } else if (fileCache[0].elementType === ElementType.Ptt) {
         res.url = await this.ctx.ntFileApi.getPttUrl(fileCache[0].fileUuid, isGroup)
       }
-      //不手动删除？文件持久化了
       return res
     }
     throw new Error('file not found')

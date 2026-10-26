@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { matchEventFilter } from '@/onebot11/eventfilter'
 
-// 构造测试用的 OB11 事件
 function makeEvent(overrides: Record<string, unknown> = {}) {
   return {
     time: 1700000000,

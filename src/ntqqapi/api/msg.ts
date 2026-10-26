@@ -38,31 +38,24 @@ export class NTMsgApi extends Service {
     if (peer.chatType === ChatType.Group) {
       await this.ctx.qqProtocol.recallGroupMessage(+peer.peerUid, msgSeq)
     } else {
-      // SsoC2CRecallMsg.info 里两个 sequence 字段含义不同：
-      //   field 1 (clientSequence) ← client 发送时自己生成的 10000-99999 临时号
-      //   field 6 (c2cMsgSeq)      ← PbSendMsgResp.c2cMsgSeq (field 14)，即 server 给这条
-      //                                c2c 消息分配的 c2cMsgSeq（全局双端一致） —— 由调用方在 msgSeq 传入
-      // 两个都必须用发送时的真值传回去，server 才能定位被撤回的消息并向对方推 sub=138
+      // clientSequence 是发送时自己生成的临时号, c2cMsgSeq 来自 PbSendMsgResp (调用方经 msgSeq 传入);
+      // 两个都得是发送时的真值, server 才找得到要撤回的消息
       await this.ctx.qqProtocol.recallC2CMessage(
         peer.peerUid,
         clientSeq!,
         msgRandom!,
-        msgTime!, // 这个可以填 Date.now()，副作用未知
+        msgTime!,
         msgSeq!,
       )
     }
   }
 
-  /**
-   * 挂一次性 listener 等 OlPush 推回我们刚发出去那条消息的回声。
-   * 用 (peerUid, msgRandom) 匹配——random 是发送方在 PbSendMsg 里自己造、server 原样
-   * 广播给所有人的 32-bit 值，两端唯一可靠对得上的字段。msgSeq 偶尔会差 1-N 个槽。
-   */
+  /** 按 (peerUid, msgRandom) 匹配: random 是两端唯一可靠对得上的字段, msgSeq 偶尔会差几个 */
   private waitForSelfEcho(peer: Peer, random: number, timeoutMs: number): Promise<RawMessage> {
     return new Promise((resolve, reject) => {
       const dispose = this.ctx.on('nt/message-sent', (data) => {
         const msg = data.message
-        // 用 String() 比 peerUid: 调用方(如 WebQQ 转发)可能传 number 群号, 回声里是 string, 严格 === 会漏配
+        // 调用方可能传 number 群号, 回声里是 string
         if (String(msg.peerUid) !== String(peer.peerUid)) return
         if (+msg.msgRandom !== random) return
         clearTimeout(timer)
@@ -76,11 +69,6 @@ export class NTMsgApi extends Service {
     })
   }
 
-  /**
-   * C2C 发完 PbSendMsg 后用 SsoGetRoamMsg 反查刚发的那条，拿真 msgSeq + msgUid。
-   * 匹配条件：random 一致 + msgTime 跟 PbSendMsgResp.sendTime 同秒附近（防同 random 撞）。
-   * 加重试是因为 server 入库 c2c 历史流稍滞后（~50-200ms）。
-   */
   async sendMsg(peer: Peer, msgElements: SendMessageElement[], groupMsgMask?: GroupMsgMask): Promise<RawMessage> {
     let chatType = peer.chatType
     let groupCode
@@ -100,21 +88,12 @@ export class NTMsgApi extends Service {
     const { elems, content } = await building.build()
     const tBuildDone = Date.now()
 
-    // 群消息：server 会把消息原样回声（OlPush msgType=82）给发送方自己，
-    //   contentHead.groupMsgSeqOrC2cClientSeq (field 5) 跟广播给群里所有人的相等。我们在 PbSendMsg 之前挂 listener、
-    //   按 (peerUid, msgRandom) 匹配，等回声拿到真实 groupMsgSeq + msgUid，sender / receiver
-    //   两端 createMsgShortId 算出来的 shortId 永远一致。
-    //
-    // C2C：server 不推 self-echo，但 server 端的 msgUid 跟客户端 random 一一对应
-    //   （msgUid = (0x01000000 << 32) | random，实测样本验过），所以 msgId 本地直接算，不需 RTT。
-    //   PbSendMsgResp.c2cMsgSeq (field 14) = server 给这条 c2c 消息的 c2cMsgSeq（全局双端一致），
-    //   接收方在 OlPush msgType=166 contentHead.c2cMsgSeq (field 11) 拿到同样的值。
+    // 群: server 会把消息回声 (OlPush 82) 给发送方, 先挂 listener 等回声拿真实的 groupMsgSeq + msgUid, 收发两端算出的
+    // shortId 才一致。C2C 没有回声, 但 msgUid = (0x01000000 << 32) | random, 本地直接算
     const random = randomBytes(4).readUInt32BE(0)
     const isGroup = chatType === ChatType.Group
     const echoP = isGroup && groupMsgMask !== GroupMsgMask.NotAllow ? this.waitForSelfEcho(peer, random, 10000) : null
-    // send 失败/禁言等会在下面 await echoP 之前就 throw，此时 echoP 变 orphaned promise，
-    // 7s 后其 timer reject 无人接 -> unhandledRejection -> 崩进程。挂 no-op catch 标记为已处理，
-    // 不影响后面 await echoP 的正常 resolve/reject。
+    // 发送失败会在 await echoP 之前 throw, 不挂 catch 的话 timer 之后的 reject 就成了 unhandledRejection
     echoP?.catch(() => { })
 
     const fileElem = elems.find(e => e.transElemInfo?.elemType === 24)
@@ -154,20 +133,15 @@ export class NTMsgApi extends Service {
     }
 
     const result: RawMessage = echoed ?? {
-      // C2C 本地算 msgUid（高 32 位固定 0x01000000，低 32 位 = random）
       msgId: ((0x01000000n << 32n) | BigInt(ret.random)).toString(),
       msgTime: ret.timestamp!,
-      // 群聊：ret.sequence = PbSendMsgResp.groupMsgSeq (field 11)，server 给整个群的 groupMsgSeq，双端一致。
-      // C2C：ret.sequence = PbSendMsgResp.c2cMsgSeq   (field 14)，server 给这条 c2c 消息的 c2cMsgSeq，
-      //   双端一致：接收方在 OlPush msgType=166 contentHead.c2cMsgSeq (field 11) 拿到同样的值。
-      //   撤回 C2C 时这个值要塞 SsoC2CRecallMsg.info.c2cMsgSeq (field 6)。
+      // 群是 groupMsgSeq, C2C 是 c2cMsgSeq, 都双端一致; 撤回 C2C 要用它
       msgSeq: ret.sequence,
       msgRandom: ret.random,
       senderUid: selfInfo.uid,
       senderUin: +selfInfo.uin,
       peerUid: peer.peerUid,
-      // 群聊里 peerUid 已经是 groupCode 数字字符串，不能 getUinByUid 当 user 查（会得 0）。
-      // C2C/Temp 才需要把 uid 解析回 uin。
+      // 群的 peerUid 就是群号, 当 uid 查会得到 0
       peerUin: chatType === ChatType.Group
         ? +peer.peerUid
         : await this.ctx.ntUserApi.getUinByUid(peer.peerUid),
@@ -184,8 +158,7 @@ export class NTMsgApi extends Service {
     return result
   }
 
-  // 历史消息只有单条 Msg.Message, 实时 OlPush 的 rawPb 是整个 PushMsg 包, 语义不同.
-  // 是否上报由各 connect 的 debug 开关控制 (见 entities.ts / connect 出口).
+  // 历史消息只有单条 Msg.Message, 实时 OlPush 的 rawPb 是整个 PushMsg 包, 两者语义不同
   private rawPbHex(bytes: Buffer): string {
     return bytes.toString('hex')
   }
@@ -254,7 +227,7 @@ export class NTMsgApi extends Service {
     const ui = resp.userInfo
     const bid = ui.bid || 'qq_expression'
     const uin = selfInfo.uin
-    // 路径格式 PMHQ 抓包验过：https://p.qpic.cn/{bid}/{uin}/{emoji_id}/0
+    // https://p.qpic.cn/{bid}/{uin}/{emoji_id}/0
     const emojiInfoList = ui.fileName.map(emojiId => ({
       emojiId,
       url: `https://p.qpic.cn/${bid}/${uin}/${emojiId}/0`,
@@ -265,14 +238,13 @@ export class NTMsgApi extends Service {
   async addCustomFace(emojiPath: string) {
     const stat = await fsp.stat(emojiPath)
     const md5 = await getMd5BufferFromFile(emojiPath)
-    // 1. 申请上传，拿 uKey + 服务器地址 + emoji_id
     const prep = await this.ctx.qqProtocol.addFavEmojiPrep({ md5, fileSize: stat.size })
     const body = prep.body
     if (!body || body.retCode !== 0) {
       return { retCode: body?.retCode ?? -1, errMsg: '', emojiId: '' }
     }
     const emojiId = body.ext?.emojiId || ''
-    // 2. 如果服务器没给 uKey 说明已经在缓存里（秒传命中），直接落地
+    // 没给 uKey 就是秒传命中
     if (!body.uKey || body.uKey.length === 0) {
       return { retCode: 0, errMsg: '', emojiId }
     }
@@ -281,7 +253,7 @@ export class NTMsgApi extends Service {
     if (ips.length === 0) return { retCode: -1, errMsg: 'no upload server returned', emojiId }
     const server = []
     for (const [index, ip] of ips.entries()) {
-      // 究竟哪个是正确的呢？
+      // uploadPorts 都是 80, 实际用 15000
       server.push(`${uint32ToIPV4Addr(ip)}:15000`)
       //server.push(`${uint32ToIPV4Addr(ip)}:${ports[index]}`)
     }
@@ -305,7 +277,6 @@ export class NTMsgApi extends Service {
   async translatePtt2Text(msgId: string, peer: Peer, senderUin: number, voiceMsgElement: MessageElement) {
     const ptt = voiceMsgElement.pttElement!
 
-    // 监听异步推送结果（按 msgId 匹配），同时立刻发提交请求
     const result = new Promise<string>((resolve, reject) => {
       const dispose = this.ctx.on('nt/ptt-trans-result', (input) => {
         if (input.msgId !== msgId) return
@@ -361,13 +332,10 @@ export class NTMsgApi extends Service {
   }) {
     const ret = await this.ctx.qqProtocol.sendC2CFileMessage(opts)
     if (ret.resultCode !== 0) return { ...ret, message: undefined }
-    // 文件是独立 API, 不走 app.sendMessage, 所以 nt/message-sent 没人发: WebQQ 发完私聊文件
-    // 界面空白 (ChatInput 成功就删临时气泡、等真消息回填), OneBot/Satori/Milky 也收不到.
-    // 补发一条, 字段跟接收端 convertToRawMessage 的 PrivateFile 分支对齐, 两端渲染一致.
+    // 文件不走 sendMessage, 没人发 nt/message-sent: 这里补一条, 不然 WebQQ 和各协议端都收不到自己发的文件
     const message: RawMessage = {
-      // C2C msgUid 高 32 位固定 0x01000000, 低 32 位 = random (同 sendMsg)
       msgId: ((0x01000000n << 32n) | BigInt(ret.random)).toString(),
-      // sendTime/c2cMsgSeq 理论上必有, 缺了也不能让气泡渲染不出来: 时间退回本地, seq 退回 0 (仅影响撤回)
+      // 缺了也得渲染出来, seq 为 0 只影响撤回
       msgTime: ret.timestamp ?? Math.floor(Date.now() / 1000),
       msgSeq: ret.sequence ?? 0,
       msgRandom: ret.random,
@@ -378,7 +346,7 @@ export class NTMsgApi extends Service {
       sendNickName: '',
       sendMemberName: '',
       chatType: ChatType.C2C,
-      // 字段跟接收端 convertToRawMessage 的 PrivateFile 分支对齐, 两端渲染一致
+      // 跟接收端 convertToRawMessage 的 PrivateFile 分支对齐
       elements: [{
         elementType: ElementType.File,
         fileElement: {

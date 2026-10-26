@@ -2,8 +2,6 @@ import { describe, it, expect } from 'vitest'
 import { ElementType, AtType } from '@/ntqqapi/types'
 
 describe('Milky Incoming Segment Transform', () => {
-  // 测试 NT element type → Milky segment type 映射逻辑
-
   it('文本元素 → text segment', () => {
     const element = {
       elementType: ElementType.Text,

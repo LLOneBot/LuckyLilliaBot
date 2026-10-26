@@ -20,7 +20,7 @@ export interface RichInputRef {
   insertAt: (uid: string, uin: string, name: string) => void
   getContent: () => RichInputItem[]
   isEmpty: () => boolean
-  cancelMention: () => void  // 取消 @ 提及模式
+  cancelMention: () => void
 }
 
 export interface MentionState {
@@ -35,7 +35,7 @@ interface RichInputProps {
   onEnter?: () => void
   onPaste?: (e: React.ClipboardEvent) => void
   onChange?: (items: RichInputItem[]) => void
-  onMentionChange?: (state: MentionState) => void  // @ 状态变化回调
+  onMentionChange?: (state: MentionState) => void
 }
 
 export const RichInput = forwardRef<RichInputRef, RichInputProps>(({ 
@@ -51,7 +51,6 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
   const mentionStartRef = useRef<{ node: Node; offset: number } | null>(null)
   const [mentionActive, setMentionActive] = useState(false)
 
-  // 解析编辑器内容
   const parseContent = useCallback((): RichInputItem[] => {
     const editor = editorRef.current
     if (!editor) return []
@@ -64,7 +63,7 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
       
       if (node.nodeType === Node.TEXT_NODE) {
         const text = node.textContent || ''
-        // 移除零宽空格（Firefox 兼容用），保留其他所有字符包括普通空格
+        // 去掉 Firefox 兼容用的零宽空格
         const cleaned = text.replace(/\u200B/g, '')
         if (cleaned) items.push({ type: 'text', content: cleaned })
       } else if (node.nodeType === Node.ELEMENT_NODE) {
@@ -93,7 +92,6 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
     return items.length === 0 || (items.length === 1 && items[0].type === 'text' && !items[0].content?.trim())
   }, [parseContent])
 
-  // 获取光标位置用于定位弹窗
   const getCaretPosition = useCallback(() => {
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0) return { top: 0, left: 0 }
@@ -110,7 +108,6 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
     }
   }, [])
 
-  // 获取 @ 后面的查询文字
   const getMentionQuery = useCallback(() => {
     if (!mentionStartRef.current) return ''
     
@@ -120,21 +117,18 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
     const range = selection.getRangeAt(0)
     const { node, offset } = mentionStartRef.current
     
-    // 确保在同一个文本节点中
     if (range.startContainer !== node) return ''
     
     const text = node.textContent || ''
     return text.slice(offset, range.startOffset)
   }, [])
 
-  // 取消 @ 提及模式
   const cancelMention = useCallback(() => {
     mentionStartRef.current = null
     setMentionActive(false)
     onMentionChange?.({ active: false, query: '', position: { top: 0, left: 0 } })
   }, [onMentionChange])
 
-  // 检测 @ 输入
   const checkMention = useCallback(() => {
     const selection = window.getSelection()
     if (!selection || selection.rangeCount === 0) return
@@ -150,12 +144,9 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
     const text = node.textContent || ''
     const cursorPos = range.startOffset
     
-    // 如果已经在 @ 模式中
     if (mentionActive && mentionStartRef.current) {
-      // 检查光标是否还在 @ 之后
       if (mentionStartRef.current.node === node && cursorPos >= mentionStartRef.current.offset) {
         const query = getMentionQuery()
-        // 如果查询中包含空格，取消 @ 模式
         if (query.includes(' ')) {
           cancelMention()
         } else {
@@ -167,8 +158,6 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
       return
     }
     
-    // 检测新的 @ 输入
-    // 查找光标前最近的 @
     const textBeforeCursor = text.slice(0, cursorPos)
     const lastAtIndex = textBeforeCursor.lastIndexOf('@')
     
@@ -177,7 +166,6 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
       const charBefore = lastAtIndex > 0 ? textBeforeCursor[lastAtIndex - 1] : ' '
       if (charBefore === ' ' || charBefore === '\n' || lastAtIndex === 0) {
         const queryAfterAt = textBeforeCursor.slice(lastAtIndex + 1)
-        // 查询中不能有空格
         if (!queryAfterAt.includes(' ')) {
           mentionStartRef.current = { node, offset: lastAtIndex + 1 }
           setMentionActive(true)
@@ -187,7 +175,6 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
     }
   }, [mentionActive, getMentionQuery, getCaretPosition, cancelMention, onMentionChange])
 
-  // 插入文本（用于 Unicode emoji 等）
   const insertText = useCallback((text: string) => {
     const editor = editorRef.current
     if (!editor) return
@@ -217,7 +204,6 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
     onChange?.(parseContent())
   }, [onChange, parseContent, cancelMention])
 
-  // 插入表情
   const insertFace = useCallback((faceId: number) => {
     const editor = editorRef.current
     if (!editor) return
@@ -261,7 +247,6 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
     onChange?.(parseContent())
   }, [onChange, parseContent, cancelMention])
 
-  // 插入图片
   const insertImage = useCallback((file: File | null, url: string) => {
     const editor = editorRef.current
     if (!editor) return
@@ -309,18 +294,16 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
     onChange?.(parseContent())
   }, [onChange, parseContent, cancelMention])
 
-  // 插入 @ (从外部调用或选择成员后)
   const insertAt = useCallback((uid: string, uin: string, name: string) => {
     const editor = editorRef.current
     if (!editor) return
     
-    // 如果是从 @ 选择器选择的，需要删除 @ 和查询文字
+    // 从 @ 选择器选的要先删掉 @ 和查询文字
     if (mentionActive && mentionStartRef.current) {
       const { node, offset } = mentionStartRef.current
       const selection = window.getSelection()
       if (selection && selection.rangeCount > 0) {
         const range = selection.getRangeAt(0)
-        // 删除 @ 和后面的查询文字
         const deleteRange = document.createRange()
         deleteRange.setStart(node, offset - 1) // 包含 @
         deleteRange.setEnd(range.startContainer, range.startOffset)
@@ -356,11 +339,9 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
       editor.appendChild(span)
     }
     
-    // 插入空格
     const space = document.createTextNode(' ')
     span.after(space)
     
-    // 移动光标到空格后
     const newRange = document.createRange()
     newRange.setStartAfter(space)
     newRange.setEndAfter(space)
@@ -380,12 +361,10 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
     }
   }, [onChange, cancelMention])
 
-  // 聚焦并将光标移到末尾
   const focus = useCallback(() => {
     const editor = editorRef.current
     if (!editor) return
     editor.focus()
-    // 将光标移到末尾
     const selection = window.getSelection()
     if (selection) {
       const range = document.createRange()
@@ -412,7 +391,7 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
     // 如果在 @ 模式中，让 MentionPicker 处理方向键和回车
     if (mentionActive) {
       if (['ArrowUp', 'ArrowDown', 'Enter', 'Tab'].includes(e.key)) {
-        return // 不阻止，让事件冒泡到 MentionPicker
+        return
       }
       if (e.key === 'Escape') {
         e.preventDefault()
@@ -451,12 +430,11 @@ export const RichInput = forwardRef<RichInputRef, RichInputProps>(({
     }
   }, [onPaste])
 
-  // 点击编辑器时检查 @ 状态
   const handleClick = useCallback(() => {
     setTimeout(checkMention, 0)
   }, [checkMention])
 
-  // 失去焦点时延迟取消 @ 模式（给点击选择器留时间）
+  // 延迟取消, 给点击选择器留时间
   const handleBlur = useCallback(() => {
     setTimeout(() => {
       if (mentionActive) {

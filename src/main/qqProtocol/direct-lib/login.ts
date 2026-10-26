@@ -44,7 +44,7 @@ export type LoginResult = {
   nick: string
   age: number
   gender: number
-  /** A2Key 候选 (path D 实验). 当前默认 TLV 0x10D, 真实位置端到端验证后改正. */
+  /** 暂取 TLV 0x10D, 未验证 */
   a2Key: Buffer
 } | {
   success: false
@@ -74,7 +74,6 @@ function buildWtLoginFrame(uin: number, command: 'wtlogin.login' | 'wtlogin.tran
   header.writeUInt8(3, off); off += 1
   header.writeUInt8(135, off); off += 1
   header.writeUInt32BE(0, off); off += 4
-  // 两个"平台固定值" (真机实证): Linux 19/appClientVersion, Win/Mac 23/0x3374 (见 profile 注释)
   header.writeUInt8(getActiveProfile().wtLoginFrameByte, off); off += 1
   header.writeUInt16BE(0, off); off += 2
   header.writeUInt16BE(getActiveProfile().wtLoginFrameVer, off); off += 2
@@ -235,7 +234,7 @@ export async function loginWithQrResult(
   recordKey('tgtgtKey', qrResult.tgtgtKey, 'TLV 0x1E of the confirmed poll; TEA key of TLV 0x144 / 0x119')
   recordKey('tempPassword', qrResult.tempPassword, 'TLV 0x18 (A1), sent as TLV 0x106')
 
-  // watch: 独立 21-TLV/P-256 登录帧; login 仍走 SIGN_ALLOWLIST (FEKit 签名, 后端未就绪会 503)
+  // watch: 独立的 21-TLV / P-256 登录帧, 仍要签名
   if (getActiveProfile().family === 'watch') {
     const frame = buildWatchLoginFrame(client, {
       uin: qrResult.uin,
@@ -340,8 +339,6 @@ export async function loginWithQrResult(
   return result
 }
 
-// --- TLV builders ---
-
 function buildTlv16(client: DirectProtocolClient): Buffer {
   const parts: Buffer[] = []
   const header = Buffer.alloc(12)
@@ -425,7 +422,7 @@ function buildTlv177(): Buffer {
   const parts: Buffer[] = []
   const header = Buffer.alloc(5)
   header.writeUInt8(1, 0)
-  header.writeUInt32BE(getActiveProfile().sdkBuildTime, 1) // 桌面 0, Watch 1724730201
+  header.writeUInt32BE(getActiveProfile().sdkBuildTime, 1)
   parts.push(header)
   parts.push(writeString16(AppInfo.wtLoginSdk))
   return Buffer.concat(parts)
@@ -459,7 +456,6 @@ function buildTlvD1(): Buffer {
 }
 
 
-// Proto encoding helpers
 function encodeProtoVarint(fieldNum: number, value: number): Buffer {
   const tag = (fieldNum << 3) | 0
   const tagBuf = encodeVarintBuf(tag)
@@ -487,8 +483,6 @@ function encodeVarintBuf(value: number): Buffer {
   bytes.push(value & 0x7f)
   return Buffer.from(bytes)
 }
-
-// --- Response parsers ---
 
 function parseTransEmp31Response(data: Buffer, shareKey: Buffer): QrCodeResult {
   if (data[0] !== 0x02 || data[data.length - 1] !== 0x03) {
@@ -569,8 +563,7 @@ function parseTransEmp12Response(data: Buffer, shareKey: Buffer): QrPollResult {
     return { state }
   }
 
-  // Confirmed: [4 skip][uin u32][4 skip] (共 12B) + TLV pack。
-  // watch 的 uin 内嵌于此 (POC 实证, 用它); 桌面走 getCorrectUin, 这里取到也会被覆盖。
+  // [4 skip][uin u32][4 skip] + TLV pack。只有 watch 用这里的 uin, 桌面走 getCorrectUin
   let uin = ''
   if (transEmpData.length >= dOff + 12) {
     const uinNum = transEmpData.readUInt32BE(dOff + 4)
@@ -652,13 +645,11 @@ function parseLoginResponse(data: Buffer, shareKey: Buffer, tgtgtKey: Buffer): L
       const tag = `  TLV 0x${id.toString(16)}: ${v.length}B`
       if (SECRETS.has(id)) { lines.push(`${tag} = <redacted>`); continue }
       const hex = v.subarray(0, Math.min(128, v.length)).toString('hex')
-      // 可打印 ASCII 的一并给出明文, 省得再手工解一遍
       const ascii = v.every(b => b >= 0x20 && b < 0x7f) ? ` "${v.toString('latin1')}"` : ''
       lines.push(`${tag} = ${hex}${v.length > 128 ? '...' : ''}${ascii}`)
     }
     logger.debug(lines.join('\n'))
   }
-  // 最可能候选: 0x10D (legacy A2 key) — 留作 stub, 端到端 path D 验证后改正确 ID
   const a2Key = nestedTlvs.get(0x10D) || Buffer.alloc(16)
 
   // TLV 0x11A: FaceId(2B) + Age(1B) + Gender(1B) + nickLen(1B) + nick(utf8)

@@ -107,7 +107,6 @@ const RecallPrivateMessage = defineApi(
     }
     let msg = ctx.store.getMsgBySeq(peer.peerUid, payload.message_seq)
     if (!msg) {
-      // 从服务器拉取的消息可以用
       const { msgList } = await ctx.ntMsgApi.getSingleMsg(peer, payload.message_seq)
       msg = msgList[0]
     }
@@ -202,7 +201,6 @@ const GetHistoryMessages = defineApi(
 
     let msgList: RawMessage[]
     if (!payload.start_message_seq) {
-      // 没传起点：用 getLatestMsgSeq 拿当前最新 seq，再倒拉 N 条
       const latestSeq = await ctx.ntMsgApi.getLatestMsgSeq(peer)
       msgList = (await ctx.ntMsgApi.getMsgsBySeqAndCount(peer, latestSeq, payload.limit, true)).msgList
     } else {

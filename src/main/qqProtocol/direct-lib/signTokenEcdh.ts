@@ -1,8 +1,5 @@
-// P-256 ECDH 用于 sign-token 协议层 (跟 ecdh.ts 的 secp192k1 wtlogin 不是同一回事)
-//
-// 用途: 跑 SsoKeyExchange / SsoEstablishShareKey / SsoSecureAccess 三步握手时
-// 客户端要带自己的 P-256 (secp256r1 = prime256v1) ephemeral public key, 私钥留着算
-// share-key. share-key 是 ECDH 出的 raw X 坐标 (32B), 不走 KDF, 直接当 AES-256-GCM key.
+// sign-token 握手 (SsoKeyExchange / SsoEstablishShareKey / SsoSecureAccess) 用的 P-256, 不是 wtlogin 的 secp192k1。
+// share-key 是 ECDH 的 raw X 坐标 (32B), 不过 KDF, 直接当 AES-256-GCM key
 
 import { createECDH } from 'node:crypto'
 

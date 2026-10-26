@@ -78,9 +78,8 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Media.NTV2RichMediaResp.decode(oidbRespBody)
     }
 
-    // 按 md5 现取群图下载 URL. 手表(qqlite)群图走老式 customFace, 消息里没有 fileUuid/urlPath,
-    // 只有 md5 -> download.node 不传 fileUuid, 改填 info(FileInfo: md5/size/dims), 靠 server 按
-    // md5 + groupId 命中返回带 rkey 的 URL. (NT 手机 QQ 图自带 urlPath, 不走这里.)
+    // 手表群图是老式 customFace, 只有 md5: 不传 fileUuid 而是填 info (md5 / size / dims), server 按 md5 + groupId
+    // 返回带 rkey 的 URL
     async getGroupImageDownloadUrl(groupCode: string, info: InferProtoModelInput<typeof Media.FileInfo>, fileUuid = '') {
       const body = Media.NTV2RichMediaReq.encode({
         reqHead: {
@@ -145,7 +144,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
     }
 
     async notifyGroupVideoUploadCompleted(groupCode: string, msgInfoBytes: Buffer, clientRandomId: number) {
-      // 通知 server "视频字节已传完"——它收到才会真正归档；否则上传完字节短期可访问然后失效
+      // server 收到这个才会归档, 不然传上去的视频过一阵就失效
       const body = Media.NTV2RichMediaReq.encode({
         reqHead: {
           common: { requestId: 1, command: 100 },
@@ -414,7 +413,6 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Oidb.ImageOcrResp.decode(oidbRespBody)
     }
 
-    /** 闪传：通过 share code 解析 fileSetId (OidbSvcTrpcTcp.0x93eb_1) */
     async getFlashFileSetIdByCode(code: string): Promise<string> {
       const body = Oidb.FlashFileSetIdByCodeReq.encode({ code })
       const data = Oidb.Base.encode({ command: 0x93eb, subCommand: 1, body, isReserved: 1 })
@@ -427,8 +425,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return resp.fileSetId ?? ''
     }
 
-    /** 闪传：取 fileSet 基本信息 (OidbSvcTrpcTcp.0x93d3_1)。
-     * field2 = 7 对应 Windows QQ 重新分享时的 send (1 是早期值，对自己 fileset 拿的字段更少)。 */
+    /** field2 = 7 跟 Windows QQ 重新分享时一致; 用 1 时自己的 fileset 拿到的字段更少 */
     async getFlashFileInfo(fileSetId: string) {
       const body = Oidb.FlashFileInfoReq.encode({ fileSetId, field2: 7 })
       const data = Oidb.Base.encode({ command: 0x93d3, subCommand: 1, body, isReserved: 1 })
@@ -441,7 +438,6 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return resp.info
     }
 
-    /** 闪传：取 fileSet 中文件列表 (OidbSvcTrpcTcp.0x93d4_1) */
     async getFlashFileList(fileSetId: string) {
       const body = Oidb.FlashFileListReq.encode({
         fileSetId,
@@ -453,9 +449,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
           flags1: { field1: 0 },
           flags2: { field1: 0, field2: 0 },
         },
-        // f3 = 2 是 Windows QQ 客户端的发法。f3 = 1 (Linux QQ 客户端默认值) server 只
-        // 返 name/size 等基础字段，f13/f14 (download token + URL) / f20 (sha1) / f25 (md5) 都被剥空；
-        // 用 f3 = 2 时 server 把完整字段都给回来，可以基于 list resp 直接拿到 download URL。
+        // 跟 Windows QQ 一样用 2: 用 1 (Linux QQ 的默认值) 时 server 不返回下载 token / URL / sha1 / md5
         field3: 2,
         field4: 1,
       })
@@ -469,9 +463,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return resp.result?.files ?? []
     }
 
-    /** 闪传：取单个老文件的完整元数据 (OidbSvcTrpcTcp.0x93e5_4)。
-     * 跟 list (0x93d4_1) 不同——对 bot 自己 own 的 fileSet 也能拿到 sha1/md5/historyToken，
-     * 没有 list 的 ownership 限制。是 Windows QQ "重新分享" 按钮的第一步。 */
+    /** 跟 list 不同, 自己的 fileSet 也能拿到 sha1 / md5 / historyToken。是 Windows QQ "重新分享"的第一步 */
     async getFlashFileEntryFull(fileSetId: string, fileUuid: string) {
       const body = Oidb.FlashFileGetFileInfoReq.encode({ fileUuid, fileSetId, field3: 1 })
       const data = Oidb.Base.encode({ command: 0x93e5, subCommand: 4, body, isReserved: 1 })
@@ -484,9 +476,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return resp.wrap?.file
     }
 
-    /** 闪传：finalize fileSet 状态 (OidbSvcTrpcTcp.0x93d1_1)。
-     * 名字看起来像 download，但抓包看 Windows QQ 是 commit 后用它 finalize fileset。
-     * sceneType=6 是 finalize；上传完成必调，跟齐 Windows QQ 客户端流程。 */
+    /** 名字像 download, 其实是上传 commit 之后 finalize fileSet (sceneType=6), 上传完必调 */
     async downloadFlashFile(fileSetId: string, sceneType: number = 6) {
       const body = Oidb.FlashFileDownloadReq.encode({ fileSetId, sceneType })
       const data = Oidb.Base.encode({ command: 0x93d1, subCommand: 1, body, isReserved: 1 })
@@ -498,12 +488,10 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return { result: 0 }
     }
 
-    /** 闪传：创建 fileSet 并拿到 shareLink (OidbSvcTrpcTcp.0x93cf_1)。
-     * 这只是 uploadFlashFile 多步流程的第一步——还需 0x93d0_1 注册文件 + 0x93db_1 prep
-     * + 0x12a9_100/103 highway 上传 + 0x93d1_1 finalize 才能把实际文件放进 fileSet。
-     *
-     * field3 = 20 (普通上传)，21 (Windows QQ 重新分享场景；实测对 server 行为无区别)。
-     * 用 1 server 直接拒 errorCode=100000 "加载失败，请稍后重试"。 */
+    /**
+     * 上传的第一步, 之后还要 0x93d0_1 登记文件、0x93db_1 prep、0x12a9_100/103 上传、0x93d1_1 finalize。
+     * field3: 20 普通上传, 21 重新分享 (实测没区别); 用 1 会被拒 (errorCode=100000)
+     */
     async createFlashFileSet(opts: { title: string, subtitle?: string, totalFileCount: number, totalFileSize: number, uploaderUin: string, uploaderNick: string, uploaderUid: string, scene?: number }) {
       const body = Oidb.CreateFlashFileSetReq.encode({
         totalFileCount: opts.totalFileCount,
@@ -522,7 +510,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
           field20: 0,
           field21: 0,
           field23: 0,
-          // PMHQ 抓的常量（meta.f24），不送 server 会拒 prepFlashFileSet (errorCode=100200)
+          // 抓包常量, 不带的话 prepFlashFileSet 被拒 (errorCode=100200)
           field24: { field2: 0, field3: Buffer.alloc(0) },
         },
         field3: opts.scene ?? 20,
@@ -537,7 +525,6 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return resp
     }
 
-    /** 闪传：登记单个文件元数据 (OidbSvcTrpcTcp.0x93d0_1) */
     async registerFlashFile(fileSetId: string, file: { fileUuid: string, name: string, fileSize: number, sha1Hex?: string, md5Hex?: string }) {
       const body = Oidb.RegisterFlashFileReq.encode({
         field1: 1,
@@ -550,14 +537,13 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
           field4: Buffer.alloc(0),
           field5: 1,
           field6: 1,
-          field7: 11, // PMHQ 抓的常量（之前写 26 是错的）
+          field7: 11, // 抓包常量
           name: file.name,
           name2: file.name,
           field10: 0,
           fileSize: file.fileSize,
           field12: 0,
-          // sha1/md5 必传——不传 server 端 fileSet entry 不带这俩，后续 list 永远拿不到
-          // (Windows QQ 抓包确认: f20=sha1Hex, f25=md5Hex)
+          // sha1 / md5 必传, 不然之后 list 永远拿不到
           sha1Hex: file.sha1Hex,
           field24: Buffer.alloc(0),
           md5Hex: file.md5Hex,
@@ -574,7 +560,6 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return { result: 0 }
     }
 
-    /** 闪传：fileSet upload prep (OidbSvcTrpcTcp.0x93db_1) */
     async prepFlashFileSet(fileSetId: string) {
       const body = Oidb.PrepFlashFileSetReq.encode({
         fileSetId,
@@ -589,10 +574,10 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return { result: 0 }
     }
 
-    /** 闪传：upload preflight (OidbSvcTrpcTcp.0x12a9_100)。
-     * 若 server 已有同 sha1 的文件则返回成功（秒传），否则返回 highway uKey+IPs。
-     * 当前实现只支持秒传命中场景；返回 highway 信息时 caller 需要调用 highway 上传。
-     * field103: LLBot 实际会做两遍 preflight+commit，第一遍 24（图像类），第二遍 22（通用）。 */
+    /**
+     * server 已有同 sha1 的文件就秒传, 否则返回 highway uKey + IP, 由调用方上传。
+     * field103: NT 客户端会做两遍 preflight + commit, 先 24 (图像类) 后 22 (通用)
+     */
     async flashFileUploadPreflight(opts: { fileSize: number, sha1Hex: string, name: string, requestId: number, field103?: number }) {
       const body = Oidb.FlashFileUploadPreReq.encode({
         head: {
@@ -634,18 +619,15 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       const summary = resp.body?.fastUploadInfo?.summary?.fileSummary
       return {
         retCode: resp.head?.retCode ?? '',
-        // 秒传命中时 uKey 通常为空（直接进入 commit 阶段）；非空则需 highway 上传
+        // 秒传命中时为空, 非空要走 highway 上传
         uKey: resp.body?.uKey ?? '',
-        // 秒传命中：返回 token 给 commit 用
         token: summary?.token ?? '',
         time: summary?.time ?? 0,
         ttl: summary?.ttl ?? 0,
       }
     }
 
-    /** 闪传：upload commit (OidbSvcTrpcTcp.0x12a9_103) — 在 preflight 秒传命中后立即调用。
-     * fileSetId + fileUuid 必传——这是告诉 server 这次 commit 属于哪个 fileset 的哪个文件。
-     * 漏了这俩 server 表面返 success 但实际不把文件挂到 fileset 上，fileset 卡在"待上传"。 */
+    /** fileSetId + fileUuid 必传: 漏了 server 照样返回 success, 但文件不挂到 fileset 上, fileset 卡在"待上传" */
     async flashFileUploadCommit(opts: { fileSize: number, sha1Hex: string, name: string, token: string, time: number, ttl: number, requestId: number, fileSetId: string, fileUuid: string, field103?: number, fileTypeFlag?: number }) {
       const body = Oidb.FlashFileUploadCommitReq.encode({
         head: {
@@ -695,26 +677,22 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       return { result: 0 }
     }
 
-    /** 闪传：拿单个文件的下载 URL (OidbSvcTrpcTcp.0x12a9_200)。
-     * 流程：fileSetId → getFlashFileList 拿到 file 的 fileUuid/sha1/name → 这里换 HTTPS URL。
-     * server 用 (fileSetId, fileUuid) 真正定位文件（download.info.fileId 是历史 token，不传也行）。
-     * 上层用 `https://${host}${path}${rkey}` 直接下载（rkey 已经带 & 前缀）。 */
+    /** server 用 (fileSetId, fileUuid) 定位文件。URL 是 `https://${host}${path}${rkey}`, rkey 自带 & 前缀 */
     async flashFileDownloadUrl(opts: {
       fileSetId: string,
-      fileUuid: string,         // 来自 getFlashFileList file.fileUuid
+      fileUuid: string,
       fileName: string,
       fileSha1?: Buffer,
       fileMd5?: Buffer,
       fileSize?: number,
-      fileId?: string,          // base64 token（可选；server 实测不依赖它）
+      fileId?: string,          // server 实测不依赖它
       fileTypeFlag?: number,    // = 11 跟 registerFlashFile.field7 一致
       requestId: number,
     }): Promise<{ host: string, path: string, port: number, rkey: string, ttl: number, fullUrl: string }> {
       const body = Oidb.FlashFileDownloadPreReq.encode({
         head: {
           common: { requestId: opts.requestId, command: 200 },
-          // field103 决定 server 拼的 appid: 22→14901(普通文件), 23→14903, 24→14902
-          // 跟 PMHQ 抓 Windows QQ 闪传 download 一致
+          // field103 决定 server 拼的 appid: 22 -> 14901 (普通文件), 23 -> 14903, 24 -> 14902
           scene: { requestType: 2, businessType: 4, field103: 22, sceneType: 5 },
           client: { agentType: 1 },
         },
@@ -738,7 +716,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
             field6: 0,
           },
           clientCaps: {
-            // 抓包里这堆 placeholder 是 Windows 客户端的能力声明，server 校验它们存在但值不在意
+            // Windows 客户端的能力声明: server 只检查有没有, 不在意值
             capsBody: {
               field1: 0xfffffffe,
               field3: 0xffffffff,
@@ -746,7 +724,6 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
               field6: { field1: 3409274228, field2: Buffer.alloc(0), field3: Buffer.alloc(0), field4: 0 },
             },
             smallFlag: { field1: 0 },
-            // 真正定位文件的字段
             target: {
               fileSetId: opts.fileSetId,
               fileUuid: opts.fileUuid,

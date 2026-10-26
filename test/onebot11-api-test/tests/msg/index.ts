@@ -1,7 +1,3 @@
-/**
- * 消息相关接口测试入口
- */
-
 export * from './delete-msg.test';
 export * from './get-msg.test';
 export * from './send-msg.test';

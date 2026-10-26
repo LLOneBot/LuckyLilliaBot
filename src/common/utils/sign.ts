@@ -12,10 +12,7 @@ export function hasCardToken(json: string): boolean {
   }
 }
 
-/**
- * Has a card sign service sign a card: the card JSON is posted as is and the signed card comes
- * back (docs/card-message-sign.md). A card that carries a token already, a forwarded one say, is left alone.
- */
+/** Posts the card JSON as is and gets the signed card back (docs/card-message-sign.md). */
 export async function signCard(url: string, json: string): Promise<string> {
   if (hasCardToken(json)) return json
   const resp = await fetch(url, {

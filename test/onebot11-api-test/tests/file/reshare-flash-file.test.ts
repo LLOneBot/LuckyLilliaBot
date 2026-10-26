@@ -1,14 +1,6 @@
 /**
- * reshare_flash_file 测试 — 秒传场景
- *
- * 关键: 测试前**先上传一次**让 server 端缓存这个 sha1, 再 upload + reshare 都能秒传命中.
- * 用项目固定 fixture (test_ocr.png) — 跑过一次后 server 端 sha1 永久缓存.
- *
- * 秒传命中 → 不走 highway → 不依赖网络环境 → 协议层稳定 pass.
- *
- * 已知会跳过的环境性失败:
- *   - createFlashFileSet errorCode=15001 (闪传 quota 满, 等冷却)
- *   - highway ETIMEDOUT (本机网络不通, 仅影响 prime 上传)
+ * reshare_flash_file, 秒传场景: 先上传一次固定的 test_ocr.png 让 server 缓存 sha1, 之后都能秒传,
+ * 不依赖 highway 网络。闪传 quota 满 (15001) 和 highway ETIMEDOUT 算环境问题, 跳过
  */
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup'
 import { Assertions } from '@/utils/Assertions'
@@ -33,7 +25,6 @@ describe('reshare_flash_file (秒传场景)', () => {
   beforeAll(async () => {
     context = await setupMessageTest()
 
-    // 预热: 先 upload 一次 test_ocr.png 让 server 端缓存这个 sha1
     const primaryClient = context.twoAccountTest.getClient('primary')
     const prime = await primaryClient.call(ActionName.UploadFlashFile, {
       title: 'reshare-prime',

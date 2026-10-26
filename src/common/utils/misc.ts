@@ -5,28 +5,22 @@ export function isNumeric(str: string) {
   return /^\d+$/.test(str)
 }
 
-/** 在保证老对象已有的属性不变化的情况下将新对象的属性复制到老对象 */
+/** 只补 oldObj 缺的属性 */
 export function mergeNewProperties(newObj: Dict, oldObj: Dict) {
   Object.keys(newObj).forEach((key) => {
-    // 如果老对象不存在当前属性，则直接复制
     if (!oldObj.hasOwnProperty(key)) {
       oldObj[key] = newObj[key]
     } else {
-      // 如果老对象和新对象的当前属性都是对象，则递归合并
       if (typeof oldObj[key] === 'object' && typeof newObj[key] === 'object') {
         mergeNewProperties(newObj[key], oldObj[key])
       } else if (typeof oldObj[key] === 'object' || typeof newObj[key] === 'object') {
-        // 属性冲突，有一方不是对象，直接覆盖
         oldObj[key] = newObj[key]
       }
     }
   })
 }
 
-/**
- * 合并一份局部更新: 对象逐 key 递归, 数组和标量整体替换。
- * 跟 mergeNewProperties 不同 -- 这个以 patch 为准覆盖已有值, 而不是只补缺失的。
- */
+/** 对象逐 key 递归, 数组和标量整体替换; patch 覆盖已有值 */
 export function deepMerge(base: unknown, patch: unknown): unknown {
   if (!isPlainRecord(base) || !isPlainRecord(patch)) return patch
   const result: Dict = { ...base }
@@ -64,10 +58,6 @@ export type DeepNonNullable<T> = T extends object
   ? { [K in keyof T]-?: DeepNonNullable<NonNullable<T[K]>> }
   : NonNullable<T>
 
-/**
- * 递归地将 T 的所有属性变为可选（深 Partial）。
- * 函数类型保持原样，避免把其参数/返回值误判为可展开对象。
- */
 export type DeepPartial<T> = T extends object
   ? T extends (...args: any[]) => any
     ? T
@@ -92,14 +82,7 @@ export function sleep(ms = 0) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms))
 }
 
-/**
- * 并发有界地执行异步任务，保持输出顺序与输入一致。
- * @param items 输入数组
- * @param concurrency 最大并发数
- * @param fn 处理函数（按输入顺序返回位置对应的结果）
- * @param shouldStop 可选中止判定：返回 true 时停止派发新任务（已 in-flight 的任务会自然完成，
- *                   未启动的位置在结果数组中保持 undefined）。
- */
+/** 结果与输入同序。shouldStop 返回 true 后不再派发新任务, 没启动的位置留 undefined */
 export async function mapWithConcurrency<T, R>(
   items: T[],
   concurrency: number,
@@ -134,13 +117,7 @@ export function formatYYYYMMDD(date = new Date()) {
   return date.toISOString().slice(0, 10).replace(/-/g, '')
 }
 
-/**
- * 将数组中指定 index 的元素移动到另一个 index 位置
- * @param arr 目标数组 (原地修改)
- * @param from 源元素 index
- * @param to 目标 index
- * @returns 修改后的原数组
- */
+/** 原地修改, 返回原数组 */
 export function moveElement<T>(arr: T[], from: number, to: number): T[] {
   if (arr.length === 0) return arr
   if (from === to) return arr

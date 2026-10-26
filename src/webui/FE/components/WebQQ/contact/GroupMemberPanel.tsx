@@ -75,10 +75,9 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
 
   const { getCachedMembers, fetchGroupMembers, currentChat } = useWebQQStore()
 
-  // 虚拟列表容器 ref
   const listContainerRef = useRef<HTMLDivElement>(null)
 
-  // 用 ref 跟踪当前 groupCode，用于异步回调检查
+  // 异步回调里用来判断群是否已切换
   const currentGroupCodeRef = useRef(groupCode)
   useEffect(() => { currentGroupCodeRef.current = groupCode }, [groupCode])
 
@@ -89,24 +88,20 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
   fetchGroupMembersRef.current = fetchGroupMembers
   const isLoadingRef = useRef(false)
 
-  // 加载群成员 - 只依赖 groupCode
   useEffect(() => {
     const targetGroupCode = groupCode
 
-    // 检查是否首次进入该聊天 且 该群成员还没拉取过
     const isFirstVisit = !hasVisitedChat(2, targetGroupCode)
     const alreadyFetched = hasFetchedMembers(targetGroupCode)
 
     console.log('[GroupMemberPanel] useEffect triggered:', { groupCode: targetGroupCode, isFirstVisit, alreadyFetched })
 
-    // 先检查缓存（同步）- 有缓存就先显示
     const cached = getCachedMembersRef.current(targetGroupCode)
     if (cached) {
       console.log('[GroupMemberPanel] Cache hit:', cached.length, 'members')
       setMembers(cached)
       setError(null)
 
-      // 如果已经拉取过，直接使用缓存
       if (alreadyFetched) {
         setLoading(false)
         return
@@ -114,22 +109,18 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
       // 首次访问且未拉取过：显示缓存但继续后台刷新
     }
 
-    // 如果已经拉取过，不再请求
     if (alreadyFetched) {
       setLoading(false)
       return
     }
 
-    // 防止重复加载
     if (isLoadingRef.current) {
       console.log('[GroupMemberPanel] Already loading, skip')
       return
     }
 
-    // 需要加载
     console.log('[GroupMemberPanel] Fetching from API, isFirstVisit:', isFirstVisit)
     isLoadingRef.current = true
-    // 如果没有缓存才显示 loading
     if (!cached) {
       setLoading(true)
       setError(null)
@@ -142,14 +133,12 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
         if (currentGroupCodeRef.current === targetGroupCode) {
           setMembers(data)
           setLoading(false)
-          // 标记已拉取
           markMembersFetched(targetGroupCode)
         }
       })
       .catch((e) => {
         console.log('[GroupMemberPanel] API error:', e.message)
         if (currentGroupCodeRef.current === targetGroupCode) {
-          // 如果有缓存，错误时不覆盖
           if (!cached) {
             setError(e.message || '加载群成员失败')
           }
@@ -163,20 +152,18 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
         }
       })
 
-    // 清理函数：切换群时重置加载状态
     return () => {
       console.log('[GroupMemberPanel] Cleanup, reset isLoading')
       isLoadingRef.current = false
     }
-  }, [groupCode])  // 只依赖 groupCode
+  }, [groupCode])
 
   const filteredMembers = useMemo(() => filterMembers(members, searchQuery), [members, searchQuery])
 
-  // 虚拟列表
   const virtualizer = useVirtualizer({
     count: filteredMembers.length,
     getScrollElement: () => listContainerRef.current,
-    estimateSize: () => 48, // 每行高度约 48px
+    estimateSize: () => 48,
     overscan: 5,
   })
 
@@ -263,7 +250,6 @@ const GroupMemberPanel: React.FC<GroupMemberPanelProps> = ({ groupCode, onClose,
         )}
       </div>
 
-      {/* 复用 AvatarContextMenu，与聊天窗口头像右键菜单一致 */}
       {avatarContextMenu && (
         <AvatarContextMenu
           avatarContextMenu={avatarContextMenu}

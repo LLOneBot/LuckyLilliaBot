@@ -1,9 +1,4 @@
-﻿/**
- * get_group_member_list 接口测试
- * 测试获取群成员列表功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 
@@ -29,14 +24,12 @@ describe('get_group_member_list - 获取群成员列表', () => {
     Assertions.assertTrue(Array.isArray(response.data), 'Response should be an array');
     Assertions.assertTrue(response.data.length >= 2, 'Should have at least 2 members (primary and secondary)');
 
-    // 验证第一个成员的字段
     const firstMember = response.data[0];
     Assertions.assertDefined(firstMember.group_id, 'Group ID should be defined');
     Assertions.assertDefined(firstMember.user_id, 'User ID should be defined');
     Assertions.assertDefined(firstMember.nickname, 'Nickname should be defined');
     Assertions.assertDefined(firstMember.role, 'Role should be defined');
 
-    // 验证测试账号在列表中
     const primaryMember = response.data.find((m: any) => m.user_id === Number(context.primaryUserId));
     const secondaryMember = response.data.find((m: any) => m.user_id === Number(context.secondaryUserId));
 

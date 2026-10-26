@@ -2,10 +2,7 @@ import { createHash } from 'node:crypto'
 import { getActiveProfile } from './profiles'
 import { loadMachineGuidSync } from './machineGuid'
 
-// 兼容 shim: AppInfo/DeviceInfo 现在是"当前激活协议 profile 的扁平视图"。
-// 协议进程级不变, 故模块加载时解析一次。只读常量的叶子消费者 (highway/message/dashboard...)
-// 无需改动; 有 family 分支/结构性字段的文件 (login/packet/online/client) 直接吃 getActiveProfile()。
-// profile 定义见 ./profiles/。
+// 当前协议 profile 的扁平视图, 模块加载时解析一次 (协议在进程内不变)。要按 family 分支的直接用 getActiveProfile()
 const p = getActiveProfile()
 
 export const AppInfo = {
@@ -29,19 +26,9 @@ export const AppInfo = {
   qua: p.qua,
 }
 
-// SsoInfoSync device f1 / 登录 T16E / TlvD1 f1.f2 = 主机名 (`uname -n`)。
-//
-// 真机 3.2.28 抓包是采集者本机名, 一度直接写死它 -> 所有部署上报同一个主机名, machine guid
-// 的随机性被这一个常量抵掉, 服务端按 (devName, systemKernel) 一聚类就是同一簇。改回 guid 派生,
-// 但形状对齐真实默认机器名, 不是旧的 sha256[:6] 六位 hex 串 (那个形状本身是指纹尾巴)。
-//
-// 形状取 Windows 装机默认名 `DESKTOP-` + 7 位大写字母数字: WSL2 的 Linux 主机名默认继承 Windows
-// 机器名, 跟本 profile 的 WSL2 内核串 (telemetry.ts KERNEL_RELEASE) 自洽; 36^7 组合不聚簇;
-// 不含 "docker" -- 真机 thread#4 拿 gethostname 做 strstr("docker") 容器判定
-// (LuckyLillia.Sign/docs/Linux/anti-detection.md)。
-//
-// macOS 真实默认名是 `<Name>s-MacBook-Pro` 形状, 跟这里不一样, 真跑 macOS 端用 LLBOT_DEV_NAME 覆盖。
-// 派生盐改了就是换设备名 (guid 不变, 服务端看到的是"用户给机器改了个名")。
+// SsoInfoSync device f1 / T16E / TlvD1 f1.f2 = 主机名。写死一个会让所有部署聚成一簇, 所以从 machine guid 派生,
+// 形状取 Windows 装机默认名 `DESKTOP-` + 7 位大写字母数字 (WSL2 主机名继承 Windows 机器名, 跟 WSL2 内核串自洽)。
+// 不能含 "docker": 真机拿 gethostname 做 strstr("docker") 判定容器。macOS 用 LLBOT_DEV_NAME 覆盖。改派生盐 = 换设备名
 const DEV_NAME_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
 
 function synthDevName(): string {

@@ -1,31 +1,16 @@
 /*
- * Shares the wallpaper canvas with glass elements. Per registered element and
- * frame:
+ * Shares the wallpaper canvas with glass elements. Per registered element and frame:
  *
- *   - a lens band: the wallpaper just inside each edge of the element,
- *     stretched outward into a band along that edge -- what the rim of a
- *     convex lens does to whatever is behind it. Drawn with four drawImage
- *     calls into the lens canvas, GPU to GPU, no pixel readback. Earlier this
- *     was an SVG displacement filter applied with CSS filter:url() on the
- *     canvas; Chrome treats a reference filter on a live canvas as a paint
- *     time snapshot on some raster paths and would not refresh it until a
- *     layout change, which showed up as a stale ring after a theme switch.
- *     Only opt in elements that sit on bare wallpaper: the copy knows nothing
- *     about DOM behind the element, and would paint wallpaper over it.
+ *   - a lens band: the wallpaper just inside each edge, stretched outward into a band along that edge, like
+ *     the rim of a convex lens. Four drawImage calls, GPU to GPU, no readback; a CSS filter:url() SVG
+ *     displacement on the canvas went stale on some Chrome raster paths. Only for elements on bare wallpaper:
+ *     the copy knows nothing about DOM behind the element and would paint over it.
+ *   - luminance sampling: average brightness under the element, exposed as --glass-lum and as
+ *     .glass-on-dark / .glass-on-light. Read from a tiny CPU mirror AnimatedBackground paints alongside, since
+ *     reading back the accelerated canvas every frame would make Chrome drop its acceleration.
  *
- *   - luminance sampling: average brightness under the element, exposed as
- *     --glass-lum and as .glass-on-dark / .glass-on-light, so a sheet over a
- *     dark pool of wallpaper switches to the dark material on its own. This
- *     reads from a tiny CPU mirror of the wallpaper that AnimatedBackground
- *     paints alongside the real one -- reading back from the accelerated
- *     canvas every frame would make Chrome drop its acceleration.
- *
- * All geometry is in CSS px. The wallpaper bitmap may be scaled (it is
- * painted at half resolution) and may be larger than the viewport, so
- * bitmap coordinates are derived from the canvas client size each frame.
- *
- * The frame is driven by AnimatedBackground after it paints, so there is one
- * animation loop for the whole page.
+ * Geometry is in CSS px; bitmap coordinates come from the canvas client size each frame (the bitmap is painted
+ * at half resolution). AnimatedBackground drives the frame, so the page has one animation loop.
  */
 
 interface Entry {
@@ -69,11 +54,9 @@ export function setGlassSource(canvas: HTMLCanvasElement | null, cpuMirror: HTML
 }
 
 /*
- * Drop every per-element luminance class. The classes outrank the theme
- * class on purpose (a sheet over a bright pool stays light in the dark
- * theme), which also means a stale one pins an element to the wrong
- * material. Clearing on theme change lets the theme apply at once; the next
- * frame re-derives the classes from the repainted wallpaper.
+ * The luminance classes outrank the theme class on purpose (a sheet over a bright pool stays light in the
+ * dark theme), so a stale one pins an element to the wrong material. Clearing them on a theme change lets the
+ * theme apply at once; the next frame re-derives them.
  */
 export function resetGlassAdaptive() {
   for (const e of entries.values()) {

@@ -1,7 +1,4 @@
-/**
- * send_poke 接口测试（通用版）
- * 区别于 group_poke / friend_poke：传 group_id 时戳群成员，否则戳好友
- */
+/** send_poke 传 group_id 时戳群成员, 否则戳好友 */
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';

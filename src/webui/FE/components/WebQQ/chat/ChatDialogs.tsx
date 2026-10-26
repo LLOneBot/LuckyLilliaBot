@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { createPortal } from 'react-dom'
 
-// 禁言时长选择对话框组件
 export const MuteDialog: React.FC<{
   name: string
   onMute: (seconds: number) => void
@@ -107,7 +106,6 @@ export const MuteDialog: React.FC<{
   )
 }
 
-// 踢出群确认对话框
 export const KickConfirmDialog: React.FC<{
   name: string
   groupName: string
@@ -136,7 +134,6 @@ export const KickConfirmDialog: React.FC<{
   )
 }
 
-// 设置头衔对话框
 export const TitleDialog: React.FC<{
   name: string
   onConfirm: (title: string) => void

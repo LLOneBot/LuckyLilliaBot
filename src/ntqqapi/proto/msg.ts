@@ -270,51 +270,25 @@ export namespace Msg {
       }, 'optional')
     }),
     /**
-     * OlPush.MsgPush 推下来的消息头。**注意：跟 send 时的 SendContentHead 字段布局不同。**
-     *
-     * 关于 "msgSeq" —— field 5 和 field 11 的语义因 chatType 不同：
-     *
-     *   群聊 (msgType=82)：
-     *     - field 5  (groupMsgSeqOrC2cClientSeq) = server 给整群分配的 msgSeq，**双端 / 群里所有人一致**，
-     *                                跟发送方 PbSendMsgResp.groupMsgSeq (field 11) 相等。
-     *     - field 11 (c2cMsgSeq)   = 0 / 空（群聊不用）。
-     *
-     *   私聊 (msgType=166)：
-     *     - field 5  (groupMsgSeqOrC2cClientSeq) = **不是 msgSeq**——server 把发送方 PbSendMsg 时填的
-     *                                client `clientSequence` (10000-99999 临时号) 原样转发给
-     *                                接收方。实测 bot1 固定 clientSequence=55555 时 bot2 收
-     *                                到的此字段恒为 55555。撤回 / reply 引用 c2c 消息都用它。
-     *     - field 11 (c2cMsgSeq)   = server 给这条消息分配的 **c2cMsgSeq**（全局，
-     *                                跨 c2c 会话单调递增），**双端一致**，跟发送方
-     *                                PbSendMsgResp.c2cMsgSeq (field 14) 相等。
-     *
-     * 转 RawMessage 时按 chatType 选取：群用 field 5，私聊用 field 11。
+     * OlPush 的消息头, 跟发送时的 SendContentHead 布局不同。群聊 field 5 是所有人一致的群 msgSeq, field 11 为 0;
+     * 私聊 field 5 是发送方的 clientSequence (撤回和引用用它), field 11 是双端一致的 c2cMsgSeq
      */
     contentHead: ProtoField(2, {
       msgType: ProtoField(1, 'uint32'),
       subType: ProtoField(2, 'uint32'),
       c2cCmd: ProtoField(3, 'uint32'),
-      /** client 在 PbSendMsg 提交的 32-bit random，server 在两端原样广播。 */
+      /** 发送方生成, 两端一致 */
       random: ProtoField(4, 'uint32'),
-      /** 群聊：双端一致的群 msgSeq（= PbSendMsgResp.groupMsgSeq）。
-       *  私聊：发送方 PbSendMsg 时填的 client `clientSequence` (10000-99999)，
-       *        server 原样转发给接收方；撤回 / reply 时回传给 server。 */
       groupMsgSeqOrC2cClientSeq: ProtoField(5, 'uint32'),
       msgTime: ProtoField(6, 'uint32'),
       pkgNum: ProtoField(7, 'uint32'),
       pkgIndex: ProtoField(8, 'uint32'),
       divSeq: ProtoField(9, 'uint32'),
       autoReply: ProtoField(10, 'uint32'),
-      /** 群聊：通常 0/空。
-       *  私聊：双端一致的 c2cMsgSeq（= PbSendMsgResp.c2cMsgSeq）。 */
       c2cMsgSeq: ProtoField(11, 'uint32'),
-      /** 消息全局 64-bit msgUid。client 端可由 (0x01000000<<32)|random 推出来。 */
+      /** C2C 可由 (0x01000000 << 32) | random 算出 */
       msgUid: ProtoField(12, 'uint64'),
-      /**
-       * SsoGetGroupMsg 拉历史时，server 不填 field 12 的 msgUid，
-       * 而是把同样语义的 64-bit id 放在 field 32（PC NT 客户端协议特有的）。
-       * convertToRawMessage 里 fallback 到这个字段，msgId 才能拿到稳定的全局唯一值。
-       */
+      /** 拉历史时 server 不填 field 12, 同样的 id 在这里 */
       msgUidAlt: ProtoField(32, 'uint64', 'optional'),
       forward: ProtoField(15, {
         field1: ProtoField(1, 'uint32'),
@@ -361,12 +335,12 @@ export namespace Msg {
     message: ProtoField(1, 'bytes')
   })
 
-  /** trpc.qq_new_tech.status_svc.StatusService.KickNT 推送：账号被踢下线 */
+  /** trpc.qq_new_tech.status_svc.StatusService.KickNT */
   export const KickNTPush = ProtoMessage.of({
     uin: ProtoField(1, 'uint32'),
     tipsDesc: ProtoField(3, 'string'),
     tipsTitle: ProtoField(4, 'string'),
-    /** 1001 = 异地登录顶号(清设备指纹+session, 换身份重扫码); 其他 = 服务端主动踢等(保留凭证重连) */
+    /** 1001 = 异地顶号 (删 session 重新扫码); 其他 = 服务端主动踢等 (保留凭证重连) */
     code: ProtoField(5, 'uint32'),
     /** 时间戳或某种 token */
     field6: ProtoField(6, 'uint32'),
@@ -432,7 +406,7 @@ export namespace Msg {
     })
   })
 
-  /** MessageSvc.PbSendMsg - 发消息请求 */
+  /** MessageSvc.PbSendMsg */
   export const PbSendMsg = ProtoMessage.of({
     routingHead: ProtoField(1, {
       c2c: ProtoField(1, {
@@ -446,8 +420,7 @@ export namespace Msg {
         groupCode: ProtoField(3, 'uint32'),
         toUid: ProtoField(4, 'string'),
       }, 'optional'),
-      // C2C 文件消息走这个：把上传得到的 fileUuid + 元数据塞进 body.msgContent，
-      // 配合 ccCmd=4 server 才会把它当作"离线文件"消息派发到对端。
+      // C2C 文件消息: fileUuid 和元数据放进 body.msgContent, 配合 ccCmd=4 server 才当离线文件派发
       trans0X211: ProtoField(15, {
         toUin: ProtoField(1, 'uint32', 'optional'),
         ccCmd: ProtoField(2, 'uint32', 'optional'),
@@ -455,8 +428,7 @@ export namespace Msg {
       }, 'optional'),
     }),
     contentHead: ProtoField(2, {
-      // 注意：发送 PbSendMsg 时，contentHead 是 SendContentHead
-      // 而不是 OlPush 收到的 ContentHead（field 1=msgType）
+      // 这是 SendContentHead, 跟 OlPush 的 ContentHead 不同
       pkgNum: ProtoField(1, 'uint32', 'optional'),
       pkgIndex: ProtoField(2, 'uint32', 'optional'),
       divSeq: ProtoField(3, 'uint32', 'optional'),
@@ -466,7 +438,6 @@ export namespace Msg {
       richText: ProtoField(1, {
         elems: ProtoField(2, Elem, 'repeated'),
       }, 'optional'),
-      // C2C 文件用 msgContent 携带 FileExtra 序列化结果
       msgContent: ProtoField(2, 'bytes', 'optional'),
     }),
     clientSequence: ProtoField(4, 'uint32', 'optional'),
@@ -479,35 +450,17 @@ export namespace Msg {
     multiSendSeq: ProtoField(14, 'uint32', 'optional'),
   })
 
-  /**
-   * MessageSvc.PbSendMsg 的响应。
-   *
-   * server 在群聊和私聊场景下分别用两个不同的 wire field 回 "这条消息的双端一致 msgSeq"——
-   * 互斥填充，永远只填其中一个：
-   *   - 群聊  → field 11 (groupMsgSeq)：server 给整个群分配的 groupMsgSeq，群里所有人视角相同。
-   *                                     接收方在 OlPush msgType=82 的 contentHead.field5 拿到同样的值。
-   *   - 私聊  → field 14 (c2cMsgSeq)：server 给这条 c2c 消息分配的 c2cMsgSeq（全局，跨 c2c
-   *                                     会话单调递增）。
-   *                                     接收方在 OlPush msgType=166 的 contentHead.field11 拿到同样的值。
-   *                                     ⚠️ 不要跟 contentHead.field5（私聊里是发送方 PbSendMsg
-   *                                        提交的 client clientSequence，跟 c2cMsgSeq 完全
-   *                                        是两个东西）混淆。
-   */
+  /** 双端一致的 msgSeq 二选一: 群聊在 field 11, 私聊在 field 14 (别跟私聊 contentHead field 5 的 clientSequence 搞混) */
   export const PbSendMsgResp = ProtoMessage.of({
     resultCode: ProtoField(1, 'int32'),
     errMsg: ProtoField(2, 'string', 'optional'),
     sendTime: ProtoField(3, 'uint32', 'optional'),
     msgInfoFlag: ProtoField(10, 'uint32', 'optional'),
-    /** 群聊用：双端一致的群 msgSeq；私聊为空。 */
     groupMsgSeq: ProtoField(11, 'uint32', 'optional'),
-    /** 私聊用：双端一致的 c2c ntMsgSeq；群聊为空。 */
     c2cMsgSeq: ProtoField(14, 'uint32', 'optional'),
   })
 
-  /**
-   * SSO `pttTrans.TransGroupPttReq`：群语音转文字。
-   * 客户端提交后服务器立即返回 ack，转写结果通过 MsgPush msgType=528 subType=61 异步推回。
-   */
+  /** pttTrans.TransGroupPttReq, 结果经 MsgPush (528 / 61) 异步推回 */
   export const PttTransGroupReq = ProtoMessage.of({
     field1: ProtoField(1, 'uint32'),
     body: ProtoField(2, {
@@ -527,7 +480,7 @@ export namespace Msg {
     field10: ProtoField(10, 'uint32'),
   })
 
-  /** SSO `pttTrans.TransC2CPttReq`：私聊语音转文字。 */
+  /** pttTrans.TransC2CPttReq */
   export const PttTransC2CReq = ProtoMessage.of({
     field1: ProtoField(1, 'uint32'),
     body: ProtoField(3, {
@@ -546,10 +499,7 @@ export namespace Msg {
     field10: ProtoField(10, 'uint32'),
   })
 
-  /**
-   * MsgPush msgType=528 subType=61 推送的转写结果（msg.body.msgContent 解析成这个）。
-   * Group / C2C 共用此 push schema，仅靠 msgUid 关联到原请求即可。
-   */
+  /** MsgPush (528 / 61) 的 msgContent, 群和私聊共用, 按 msgUid 关联请求 */
   export const PttTransResultPush = ProtoMessage.of({
     field1: ProtoField(1, 'uint32'),
     body: ProtoField(2, {
@@ -561,7 +511,6 @@ export namespace Msg {
       field5: ProtoField(5, 'uint32'),
       field6: ProtoField(6, 'uint32'),
       field7: ProtoField(7, 'uint32'),
-      /** 转写文字 */
       text: ProtoField(8, 'string'),
       senderUin: ProtoField(9, 'uint32'),
       /** group: groupCode；c2c: 收件人 uin */
@@ -569,7 +518,7 @@ export namespace Msg {
     }),
   })
 
-  /** SSO `Faceroam.OpReq` 收藏表情列表/删除请求 */
+  /** Faceroam.OpReq */
   export const FaceroamOpReq = ProtoMessage.of({
     comm: ProtoField(1, {
       imPlat: ProtoField(1, 'uint32'),
@@ -579,14 +528,12 @@ export namespace Msg {
     selfUin: ProtoField(2, 'uint64'),
     /** 1 = 列表, 2 = 删除 */
     subCmd: ProtoField(3, 'uint32'),
-    /** 删除时填要删的 emoji_id 列表 */
     deleteList: ProtoField(5, {
       emojiId: ProtoField(1, 'string'),
     }, 'repeated'),
     field6: ProtoField(6, 'uint32', 'optional'),
   })
 
-  /** Faceroam.OpReq 列表响应 */
   export const FaceroamListResp = ProtoMessage.of({
     retCode: ProtoField(1, 'uint32'),
     errMsg: ProtoField(2, 'string'),
@@ -597,11 +544,10 @@ export namespace Msg {
       bid: ProtoField(3, 'string'),
       maxRoamSize: ProtoField(4, 'uint32'),
     }),
-    /** 每个 emoji 对应的 type（与 fileName 等长） */
+    /** 跟 fileName 一一对应 */
     emojiType: ProtoField(5, 'uint32', 'repeated'),
   })
 
-  /** Faceroam.OpReq 删除响应 */
   export const FaceroamDeleteResp = ProtoMessage.of({
     retCode: ProtoField(1, 'uint32'),
     errMsg: ProtoField(2, 'string'),
@@ -612,7 +558,7 @@ export namespace Msg {
     }, 'repeated'),
   })
 
-  /** SSO `ImgStore.BDHExpressionRoam` 收藏表情上传请求（add）。 */
+  /** ImgStore.BDHExpressionRoam */
   export const BDHExpressionRoamReq = ProtoMessage.of({
     field1: ProtoField(1, 'uint32'),
     field2: ProtoField(2, 'uint32'),
@@ -620,7 +566,7 @@ export namespace Msg {
       field1: ProtoField(1, 'uint32'),
       uin: ProtoField(2, 'uint64'),
       field3: ProtoField(3, 'uint32'),
-      /** 表情图 md5（16 字节二进制，不是 hex 字符串） */
+      /** 16 字节原始 md5, 不是 hex */
       md5: ProtoField(4, 'bytes'),
       fileSize: ProtoField(5, 'uint32'),
       field7: ProtoField(7, 'uint32'),
@@ -634,7 +580,6 @@ export namespace Msg {
     extension: ProtoField(1001, 'bytes', 'optional'),
   })
 
-  /** ImgStore.BDHExpressionRoam 响应：含 uKey + 上传服务器列表 + 最终 emoji 路径 */
   export const BDHExpressionRoamResp = ProtoMessage.of({
     field1: ProtoField(1, 'uint64'),
     field2: ProtoField(2, 'uint32'),
@@ -659,7 +604,7 @@ export namespace Msg {
     }),
   })
 
-  /** trpc.msg.register_proxy.RegisterProxy.InfoSyncPush 内 GroupNode（每个群的最新 seq 等） */
+  /** InfoSyncPush 里的群节点, 带每个群的最新 seq */
   export const InfoSyncPushGroupNode = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint64'),
     groupSeq: ProtoField(2, 'uint64'),

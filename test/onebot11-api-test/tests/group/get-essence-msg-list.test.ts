@@ -21,7 +21,7 @@ describe('get_essence_msg_list', () => {
         });
 
         Assertions.assertSuccess(response, 'get_essence_msg_list');
-        // Note: The list might be empty, so we just check if it's an array
+        // The list may be empty
         expect(Array.isArray(response.data)).toBe(true);
     });
 });

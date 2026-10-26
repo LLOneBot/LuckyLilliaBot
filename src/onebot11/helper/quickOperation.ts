@@ -16,7 +16,6 @@ interface QuickOperationPrivateMessage {
 }
 
 interface QuickOperationGroupMessage extends QuickOperationPrivateMessage {
-  // 回复群消息
   at_sender?: boolean
   delete?: boolean
   kick?: boolean
@@ -93,7 +92,6 @@ async function handleMsg(ctx: Context, msg: OB11Message, quickAction: QuickOpera
     const groupMsgQuickAction = quickAction as QuickOperationGroupMessage
     const info = await ctx.store.getMsgInfoByShortId(msg.message_id)
     if (!info) return
-    // handle group msg
     if (groupMsgQuickAction.delete) {
       ctx.ntMsgApi.recallMsg(peer, info.msgSeq).catch(e => ctx.logger.error(e))
     }

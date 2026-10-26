@@ -5,8 +5,7 @@ import { WATCH_PROFILE as P } from '../profiles/watch'
 const u16 = (v: number): Buffer => { const b = Buffer.alloc(2); b.writeUInt16BE(v); return b }
 const u32 = (v: number): Buffer => { const b = Buffer.alloc(4); b.writeUInt32BE(v >>> 0); return b }
 
-// watch oicq/wtlogin frame (P-256 layout, cipher-suite 0x0131)。移植 POC build_wtlogin_frame。
-// cmdId: wtlogin.login=2064, wtlogin.trans_emp=2066。
+// P-256 layout, cipher-suite 0x0131. cmdId: wtlogin.login=2064, wtlogin.trans_emp=2066
 export function buildWatchWtLoginFrame(uin: number, cmdId: number, body: Buffer, pubKey: Buffer, shareKey: Buffer): Buffer {
   const encrypted = Buffer.from(teaEncrypt(body, shareKey))
   const randomKey = randomBytes(16)
@@ -35,7 +34,7 @@ export function buildWatchWtLoginFrame(uin: number, cmdId: number, body: Buffer,
   return inner
 }
 
-// trans_emp code2d 外壳。移植 POC build_code2d。
+// trans_emp 的 code2d 外壳
 export function buildWatchCode2d(subCommand: number, inner: Buffer): Buffer {
   const ts = Math.floor(Date.now() / 1000)
   const requestBody = Buffer.concat([
@@ -48,7 +47,7 @@ export function buildWatchCode2d(subCommand: number, inner: Buffer): Buffer {
     u32(0x32),
     u16(0),
     u32(0),
-    Buffer.alloc(8), // u64(0)
+    Buffer.alloc(8),
     inner,
     Buffer.from([0x03]),
   ])

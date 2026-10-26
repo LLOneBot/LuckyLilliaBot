@@ -55,9 +55,6 @@ export class MilkyApiCollection {
     })
   }
 
-  /**
-   * Checks if the API endpoint is defined.
-   */
   hasApi(endpoint: string) {
     return this.apiMap.has(endpoint)
   }

@@ -1,9 +1,4 @@
-﻿/**
- * set_group_card 接口测试
- * 测试设置群名片功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 
@@ -22,7 +17,6 @@ describe('set_group_card - 设置群名片', () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
     const newCard = `TestCard_${Date.now()}`;
 
-    // 设置群名片
     const setResponse = await primaryClient.call(ActionName.SetGroupCard, {
       group_id: context.testGroupId,
       user_id: context.primaryUserId,
@@ -31,10 +25,8 @@ describe('set_group_card - 设置群名片', () => {
 
     Assertions.assertSuccess(setResponse, 'set_group_card');
 
-    // 等待一段时间让设置生效
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // 验证群名片是否设置成功
     const getResponse = await primaryClient.call(ActionName.GetGroupMemberInfo, {
       group_id: context.testGroupId,
       user_id: context.primaryUserId,
@@ -48,7 +40,6 @@ describe('set_group_card - 设置群名片', () => {
   it('测试清空群名片', async () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 清空群名片
     const setResponse = await primaryClient.call(ActionName.SetGroupCard, {
       group_id: context.testGroupId,
       user_id: context.primaryUserId,
@@ -57,10 +48,8 @@ describe('set_group_card - 设置群名片', () => {
 
     Assertions.assertSuccess(setResponse, 'set_group_card');
 
-    // 等待一段时间让设置生效
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // 验证群名片是否清空
     const getResponse = await primaryClient.call(ActionName.GetGroupMemberInfo, {
       group_id: context.testGroupId,
       user_id: context.primaryUserId,

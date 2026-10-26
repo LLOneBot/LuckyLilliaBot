@@ -1,30 +1,19 @@
 /*
- * Liquid Glass material layer.
+ * Liquid Glass material. A sheet is five layers:
+ *   1. a translucent tint (alpha per variant)
+ *   2. a backdrop blur / saturate / brightness
+ *   3. an inner wall: inset shadows, bright at the top, dim at the bottom
+ *   4. a 1px specular rim
+ *   5. an outer hairline and a cast shadow
  *
- * A sheet of glass here is five things stacked:
- *   1. a translucent tint     -- background-color, alpha per variant
- *   2. a backdrop treatment   -- blur, saturate, brightness
- *   3. an inner wall gradient -- inset shadows fading in from the edges,
- *                                bright at the top, dim at the bottom
- *   4. a specular rim         -- 1px gradient ring, bright on top, faint on
- *                                the sides, a dim bounce on the bottom
- *   5. an outer hairline and a cast shadow onto the background
- *
- * Layer 3 is what reads as thickness. Apple gets it from real refraction: the
- * lens band at the edge of the sheet compresses the backdrop into a brighter,
- * denser ring. Chrome will not do that for us -- it silently drops url() SVG
- * filters from backdrop-filter, even though CSS.supports() claims otherwise.
- * Verified in this repo: filter:url() distorts a striped backdrop as
- * expected, while backdrop-filter:url() renders pixel-identical to plain
- * blur. So the band is drawn rather than computed.
+ * Layer 3 is what reads as thickness. Apple gets it from real refraction; Chrome silently drops url() SVG
+ * filters from backdrop-filter even though CSS.supports() says yes (backdrop-filter:url() renders
+ * pixel-identical to plain blur), so the band is drawn rather than computed.
  */
 
 @layer components {
-  /* .card and .bg-popup are the pre-existing semantic surfaces in this
-     codebase. Aliasing them onto the material here, rather than duplicating
-     the declarations, means their ~60 call sites pick up the new material
-     without being touched. Both map to the thick variant: .card is content,
-     and Liquid Glass keeps the clear material for chrome, not content. */
+  /* .card and .bg-popup are aliased onto the material so their call sites need no change: .card is a
+     denser regular sheet, .bg-popup is thick. */
   .glass,
   .card,
   .bg-popup {
@@ -106,7 +95,7 @@
 
   /* Content sheets: the regular recipe, denser. A form wants a calmer ground
      than a sidebar, but a near-opaque card on this wallpaper reads as a
-     white slab (.88 did). */
+     white slab. */
   .card {
     background-color: rgb(var(--glass-tint) / var(--glass-alpha-card));
   }

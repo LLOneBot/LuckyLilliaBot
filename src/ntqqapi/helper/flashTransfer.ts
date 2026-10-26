@@ -8,7 +8,7 @@ import { getSha1BufferFromFile, Sha1Stream } from '@/common/utils'
 
 export class FlashTransferContext {
   private readonly url = 'https://multimedia.qfile.qq.com/sliceupload'
-  private readonly chunkSize = 1024 * 1024 // 1MB
+  private readonly chunkSize = 1024 * 1024
 
   constructor() { }
 

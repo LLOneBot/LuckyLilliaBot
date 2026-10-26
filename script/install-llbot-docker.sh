@@ -209,13 +209,11 @@ if [ ${#OB11_CONNECTS[@]} -gt 0 ]; then
     OB11_CONNECT_JSON+="]"
 fi
 
-# 创建配置文件
 mkdir -p llbot_config
 
 # 仅在完整配置模式下生成配置文件
 if [ "$config_mode" == "1" ]; then
-    # Bot 启动时会把这份旧式 config_<uin>.json 自动迁到 data/config/accounts/<uin>/settings.json
-    # 与 data/config/global/settings.json (见 docs/config-storage.md §9), 原文件留个 .bak
+    # 旧式的 config_<uin>.json, Bot 启动时会迁进 data/instances/ (见 docs/config-storage.md §9), 原文件改名 .bak
     cat > "llbot_config/config_${AUTO_LOGIN_QQ}.json" << EOF
 {
   "milky": {
@@ -253,7 +251,6 @@ EOF
     echo "配置文件已生成: llbot_config/config_${AUTO_LOGIN_QQ}.json"
 fi
 
-# 创建 webui_token.txt
 echo "$WEBUI_TOKEN" > "llbot_config/webui_token.txt"
 echo "WebUI 密码文件已生成: llbot_config/webui_token.txt"
 
@@ -274,7 +271,6 @@ docker_mirror=""
 LLBOT_TAG="latest"
 PMHQ_TAG="latest"
 
-# 从 npm registry 获取版本号
 get_npm_version() {
   local package=$1
   local version=$(curl -s --connect-timeout 5 "https://registry.npmjs.org/${package}/latest" | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
@@ -309,12 +305,10 @@ if [ "$PROTOCOL_MODE" == "pmhq" ]; then
 fi
 
 if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
-  # Docker 镜像源列表
   DOCKER_MIRRORS=(
     "docker.gh-proxy.cn"
   )
 
-  # 测试镜像源是否可用
   test_mirror() {
     local mirror=$1
     local image=$2
@@ -326,7 +320,7 @@ if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
     return 1
   }
 
-  # 查找可用的镜像源（pmhq 模式需要 llbot + pmhq 两个镜像都可用）
+  # pmhq 模式要 llbot 和 pmhq 两个镜像都可用
   find_available_mirror() {
     local llbot_tag=$1
 
@@ -356,7 +350,6 @@ if [[ "$use_docker_mirror" =~ ^[yY]$ ]]; then
   docker_mirror=$(find_available_mirror "$LLBOT_TAG")
 fi
 
-# 生成 ports 配置
 PORTS_CONFIG=""
 if [ ${#SERVICE_PORTS[@]} -gt 0 ]; then
     PORTS_CONFIG="    ports:"

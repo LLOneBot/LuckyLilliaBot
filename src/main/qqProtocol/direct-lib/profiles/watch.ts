@@ -1,14 +1,11 @@
 import type { ProtocolProfile } from './types'
 
-// wtlogin P-256 服务器公钥 (65B uncompressed, watch 专属, 与桌面 secp192k1 不同)。
 const WTLOGIN_SERVER_PUB_P256 = Buffer.from(
   '04EBCA94D733E399B2DB96EACDD3F69A8BB0F74224E2B44E3357812211D2E62EFBC91BB553098E25E33A799ADC7F76FEB208DA7C6522CDB0719A305180CC54A82E',
   'hex',
 )
 
-// Android watch (轻聊) 9.0.5.2533。值溯源: LuckyLillia.Sign/src/Android/watch/poc/src/main.rs
-// (真机 logcat + exe A8A4xx + base.apk DEX)。Android-NT 变体: 同 trans_emp QR 流程 + NT 风格 SSO head,
-// 但 P-256 wtlogin ECDH / 21 TLV / inner protocol 10 / head version 'testrevision' / watch reserve。
+// Android watch (轻聊) 9.0.5.2533, 值见 LuckyLillia.Sign/src/Android/watch/poc/src/main.rs
 export const WATCH_PROFILE: ProtocolProfile = {
   name: 'watch',
   family: 'watch',
@@ -48,7 +45,7 @@ export const WATCH_PROFILE: ProtocolProfile = {
   wtLoginFrameByte: 0,     // watch 有独立 frame builder, 这两个字段不用
   wtLoginFrameVer: 0,
 
-  ssoProtocolVersion: 10,      // inner frame 版本字节
+  ssoProtocolVersion: 10,
   ssoHeadVersion: 'testrevision',
   reserveVariant: 'watch',
 

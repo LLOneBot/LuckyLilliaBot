@@ -1,9 +1,4 @@
-﻿/**
- * delete_msg 接口测试
- * 测试撤回消息功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llbot/onebot11/types';
@@ -23,7 +18,6 @@ describe('delete_msg - 撤回消息', () => {
     context.twoAccountTest.clearAllQueues();
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先发送一条消息
     const testMessage: OB11MessageData[] = [{
       type: OB11MessageDataType.Text,
       data: {
@@ -39,23 +33,20 @@ describe('delete_msg - 撤回消息', () => {
     Assertions.assertSuccess(sendResponse, 'send_group_msg');
     const messageId = sendResponse.data.message_id;
 
-    // 等待消息被接收
     await context.twoAccountTest.secondaryListener.waitForEvent({
       post_type: 'message',
       message_id: messageId,
     });
 
-    // 等待一小段时间再撤回
     await new Promise(resolve => setTimeout(resolve, 1000));
 
-    // 撤回消息
     const deleteResponse = await primaryClient.call(ActionName.DeleteMsg, {
       message_id: messageId
     });
 
     Assertions.assertSuccess(deleteResponse, 'delete_msg');
 
-    // 等待撤回通知 — 群聊撤回 server 给所有人广播 0x2DC sub=17，撤回方和接收方都应收到
+    // 群撤回 server 广播给所有人 (0x2DC sub=17), 撤回方和接收方都要收到
     await Promise.all([
       context.twoAccountTest.primaryListener.waitForEvent({
         post_type: 'notice',

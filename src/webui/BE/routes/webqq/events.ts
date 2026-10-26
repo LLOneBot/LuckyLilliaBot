@@ -23,7 +23,7 @@ export function forwardEvents(ctx: Context, sseClients: Set<SSEStreamingApi>) {
     }
   }
 
-  // 收到的消息 (别人发 / 自己在其它客户端发).
+  // 别人发的, 或自己在其它客户端发的
   ctx.on('nt/message-created', async (data) => {
     if (sseClients.size === 0) return
     await fillPeerUin(data.message)
@@ -31,8 +31,7 @@ export function forwardEvents(ctx: Context, sseClients: Set<SSEStreamingApi>) {
     broadcastMessage('message', { type: 'message-created', data: data.message })
   })
 
-  // 自己通过 WebQQ (或 ntMsgApi.sendMsg 任何调用方) 发的消息.
-  // 没这条 SSE, FE ChatInput 发完会 onTempMessageRemove 把临时消息清掉但等不到真消息回填 -> 界面空白.
+  // 自己经 bot 发的; 没有它, FE 删掉临时气泡后等不到真消息回填
   ctx.on('nt/message-sent', async (data) => {
     if (sseClients.size === 0) return
     await fillPeerUin(data.message)
@@ -40,7 +39,6 @@ export function forwardEvents(ctx: Context, sseClients: Set<SSEStreamingApi>) {
     broadcastMessage('message', { type: 'message-sent', data: data.message })
   })
 
-  // 监听消息撤回事件
   ctx.on('nt/message-deleted', async (data) => {
     if (sseClients.size === 0) return
     broadcastMessage('message', {
@@ -59,7 +57,6 @@ export function forwardEvents(ctx: Context, sseClients: Set<SSEStreamingApi>) {
     })
   })
 
-  // 表情回应事件 (群消息被贴表情). 转成 emoji-reaction SSE 推给 FE 实时更新气泡下方的表情.
   ctx.on('nt/group-message-reaction', async (data) => {
     if (sseClients.size === 0) return
     let userName = ''

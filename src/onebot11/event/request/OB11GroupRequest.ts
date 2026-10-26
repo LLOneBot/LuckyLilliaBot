@@ -9,7 +9,6 @@ export class OB11GroupRequestAddEvent extends OB11BaseNoticeEvent {
   user_id: number
   comment: string
   flag: string
-  // 当有 invitor_id 时表示有邀请人
   invitor_id: number // https://github.com/Mrs4s/go-cqhttp/blob/master/coolq/event.go#L566
 
   constructor(groupId: number, userId: number, flag: string, comment: string, invitorId: number = 0) {

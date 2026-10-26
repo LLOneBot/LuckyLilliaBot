@@ -1,22 +1,7 @@
 /**
- * Milky 事件覆盖测试 — 非破坏性事件全覆盖。
- *
- * **观察 1**：milky adapter 之前 nt/message-created handler 用
- * `senderUid === selfInfo.uid && !reportSelfMessage` 整段 early return，
- * 把群操作的 grayTip 系统消息（mute / admin / nudge / file_upload …
- * senderUid 是发起人 uid）一并拦截了。已修成 guard 只挡 message_receive，
- * transformXxxEvent 一直走。
- *
- * **观察 2**：QQ NT server 对很多群操作类系统消息**只下发给被操作方 / 群里其他成员**，
- * 不下发给"操作发起人"。所以这里测试都从 secondary（被操作方）角度断言事件到达，
- * 跟 OB11 的 notice-events 测试策略保持一致。
- *
- * **跳过（破坏性 / 跨第三方）**：
- * - bot_offline                         — 需要把 bot 弄下线
- * - friend_request / friend_file_upload — 加好友 / 私聊文件流，依赖第三方
- * - group_invitation / group_*_join_request /
- *   group_member_increase / group_member_decrease
- *                                       — 邀请 / 入群 / 退群，破坏 fixture
+ * Milky 非破坏性事件。很多群操作的系统消息只发给被操作方和群里其他人, 不发给发起人, 所以都从 secondary
+ * 的角度断言 (跟 OB11 的 notice-events 一样)。没测 (破坏性 / 依赖第三方): bot_offline、friend_request、
+ * friend_file_upload、group_invitation、group_*_join_request、group_member_increase / decrease
  */
 import { setupMilkyTest, teardownMilkyTest, MilkyTestContext } from '../setup'
 import { Assertions } from '@/protocol/Assertions'
@@ -268,9 +253,7 @@ describe('Milky 事件覆盖', () => {
   }, 90000)
 
   it('peer_pin_change — primary 设/取消会话置顶，自己收到 peer_pin_change', async () => {
-    // peer_pin_change 走 server → bot1 自己端（OlPush msgType=528 subType=39 body.type=7）。
-    // dispatcher.handleFriendDeleteOrPin 同时 emit nt/raw/friend-pin-changed 和
-    // forward sysmsg；milky transformSystemMessageEvent 用 sysmsg 路径产出 peer_pin_change。
+    // 推给自己 (OlPush 528 / 39, body.type=7), milky 从 sysmsg 产出 peer_pin_change
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
 

@@ -1,7 +1,3 @@
-/**
- * get_group_album_media_list 接口测试
- * 测试获取群相册中媒体（图片/视频）列表
- */
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
@@ -20,7 +16,6 @@ describe('get_group_album_media_list - 群相册媒体列表', () => {
   it('测试取群相册媒体列表', async () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先取相册列表，拿一个相册的 album_id
     const albumListResp = await primaryClient.call(ActionName.GetGroupAlbumList, {
       group_id: context.testGroupId,
     });

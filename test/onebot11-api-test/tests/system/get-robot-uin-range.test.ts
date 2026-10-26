@@ -1,9 +1,4 @@
-﻿/**
- * get_robot_uin_range 接口测试
- * 测试获取机器人 UIN 范围功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 

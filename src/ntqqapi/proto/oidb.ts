@@ -67,7 +67,7 @@ export namespace Oidb {
     })
   })
 
-  /** OidbSvcTrpcTcp.0xfe7_3 - 拉群成员列表 */
+  /** OidbSvcTrpcTcp.0xfe7_3 */
   export const FetchGroupMembersReq = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
     field2: ProtoField(2, 'uint32'),
@@ -161,7 +161,7 @@ export namespace Oidb {
     subCommand: ProtoField(1, 'uint32'),
     field2: ProtoField(2, 'uint32'),
     body: ProtoField(14, {
-      // 接收方（query 发起者）自己的 uid。PMHQ 抓包验过。
+      // 发起者自己的 uid
       receiverUid: ProtoField(10, 'string'),
       fileUuid: ProtoField(20, 'string'),
       type: ProtoField(30, 'uint32'),
@@ -741,7 +741,7 @@ export namespace Oidb {
     })
   })
 
-  /** OidbSvcTrpcTcp.0x8a0_1 - 踢人 */
+  /** OidbSvcTrpcTcp.0x8a0_1 */
   export const KickMemberReq = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
     kickUids: ProtoField(3, 'string', 'repeated'),
@@ -749,7 +749,7 @@ export namespace Oidb {
     reason: ProtoField(5, 'string', 'optional'),
   })
 
-  /** OidbSvcTrpcTcp.0x1253_1 - 禁言成员 */
+  /** OidbSvcTrpcTcp.0x1253_1 */
   export const MuteMemberReq = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
     memCount: ProtoField(2, 'uint32'),
@@ -759,7 +759,7 @@ export namespace Oidb {
     }, 'repeated'),
   })
 
-  /** OidbSvcTrpcTcp.0x89a_0 - 全员禁言 */
+  /** OidbSvcTrpcTcp.0x89a_0 */
   export const MuteAllMembersReq = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
     body: ProtoField(2, {
@@ -767,7 +767,7 @@ export namespace Oidb {
     }),
   })
 
-  /** OidbSvcTrpcTcp.0x89a_15 - 设置群名 */
+  /** OidbSvcTrpcTcp.0x89a_15 */
   export const SetGroupNameReq = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
     body: ProtoField(2, {
@@ -775,7 +775,7 @@ export namespace Oidb {
     }),
   })
 
-  /** OidbSvcTrpcTcp.0x8fc_3 - 设置群名片 */
+  /** OidbSvcTrpcTcp.0x8fc_3 */
   export const SetMemberCardReq = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
     body: ProtoField(3, {
@@ -784,12 +784,12 @@ export namespace Oidb {
     }, 'repeated'),
   })
 
-  /** OidbSvcTrpcTcp.0x1097_1 - 退群 */
+  /** OidbSvcTrpcTcp.0x1097_1 */
   export const LeaveGroupReq = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
   })
 
-  /** OidbSvcTrpcTcp.0x10c8_1 / 0x10c8_2 - 处理群通知（入群审批等） */
+  /** OidbSvcTrpcTcp.0x10c8_1 / 0x10c8_2 */
   export const HandleGroupRequestReq = ProtoMessage.of({
     operation: ProtoField(1, 'uint32'),
     body: ProtoField(2, {
@@ -800,14 +800,14 @@ export namespace Oidb {
     }),
   })
 
-  /** OidbSvcTrpcTcp.0x1096_1 - 设/取消管理员 */
+  /** OidbSvcTrpcTcp.0x1096_1 */
   export const SetMemberAdminReq = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
     memberUid: ProtoField(2, 'string'),
     isSet: ProtoField(3, 'bool'),
   })
 
-  /** OidbSvcTrpcTcp.0xeac_1 / 0xeac_2 - 设精华 / 取消精华 */
+  /** OidbSvcTrpcTcp.0xeac_1 / 0xeac_2 */
   export const GroupEssenceReq = ProtoMessage.of({
     groupCode: ProtoField(1, 'uint32'),
     msgSequence: ProtoField(2, 'uint32'),
@@ -819,7 +819,7 @@ export namespace Oidb {
     retCode: ProtoField(10, 'uint32')
   })
 
-  /** OidbSvcTrpcTcp.0x9082_1 / 0x9082_2 - 群表情回应（添加 / 移除） */
+  /** OidbSvcTrpcTcp.0x9082_1 / 0x9082_2 */
   export const GroupReactionReq = ProtoMessage.of({
     groupCode: ProtoField(2, 'uint32'),
     sequence: ProtoField(3, 'uint32'),
@@ -827,7 +827,7 @@ export namespace Oidb {
     type: ProtoField(5, 'uint32'),
   })
 
-  /** OidbSvcTrpcTcp.0x102a_0 / 0x102a_1 - 拉 PSkey / clientKey */
+  /** OidbSvcTrpcTcp.0x102a_0 (PSkey) / 0x102a_1 (clientKey) */
   export const FetchCookiesReq = ProtoMessage.of({
     domain: ProtoField(1, 'string', 'repeated'),
   })
@@ -839,7 +839,7 @@ export namespace Oidb {
     expiration: ProtoField(4, 'uint32'),
   })
 
-  /** OidbSvcTrpcTcp.0x10c0_1 / 0x10c0_2 - 拉群通知 */
+  /** OidbSvcTrpcTcp.0x10c0_1 / 0x10c0_2 */
   export const FetchGroupNotifiesReq = ProtoMessage.of({
     count: ProtoField(1, 'uint32'),
     startSequence: ProtoField(2, 'uint64', 'optional'),
@@ -872,14 +872,14 @@ export namespace Oidb {
     newLatestSequence: ProtoField(3, 'uint64', 'optional'),
   })
 
-  /** OidbSvcTrpcTcp.0x7e5_104 - 给好友点赞 */
+  /** OidbSvcTrpcTcp.0x7e5_104 */
   export const FriendLikeReq = ProtoMessage.of({
     targetUid: ProtoField(11, 'string'),
     field2: ProtoField(12, 'uint32'),  // 固定 71
     count: ProtoField(13, 'uint32'),
   })
 
-  /** OidbSvcTrpcTcp.0x6d6_3 - 删群文件 */
+  /** OidbSvcTrpcTcp.0x6d6_3 */
   export const GroupFileDeleteReq = ProtoMessage.of({
     delete: ProtoField(4, {
       groupCode: ProtoField(1, 'uint32'),
@@ -896,7 +896,7 @@ export namespace Oidb {
     }),
   })
 
-  /** OidbSvcTrpcTcp.0x6d6_5 - 移动群文件到另一文件夹 */
+  /** OidbSvcTrpcTcp.0x6d6_5 */
   export const GroupFileMoveReq = ProtoMessage.of({
     move: ProtoField(6, {
       groupCode: ProtoField(1, 'uint32'),
@@ -916,7 +916,7 @@ export namespace Oidb {
     }),
   })
 
-  /** OidbSvcTrpcTcp.0xf16_1 - 设置本地群备注（只自己看见） */
+  /** OidbSvcTrpcTcp.0xf16_1 */
   export const GroupRemarkReq = ProtoMessage.of({
     body: ProtoField(1, {
       groupCode: ProtoField(1, 'uint32'),
@@ -924,7 +924,7 @@ export namespace Oidb {
     }),
   })
 
-  /** OidbSvcTrpcTcp.0x6d7_0 - 创建群文件夹 */
+  /** OidbSvcTrpcTcp.0x6d7_0 */
   export const GroupFolderCreateReq = ProtoMessage.of({
     create: ProtoField(1, {
       groupCode: ProtoField(1, 'uint32'),
@@ -946,7 +946,7 @@ export namespace Oidb {
     }),
   })
 
-  /** OidbSvcTrpcTcp.0x6d7_1 - 删群文件夹 */
+  /** OidbSvcTrpcTcp.0x6d7_1 */
   export const GroupFolderDeleteReq = ProtoMessage.of({
     delete: ProtoField(2, {
       groupCode: ProtoField(1, 'uint32'),
@@ -962,7 +962,7 @@ export namespace Oidb {
     }),
   })
 
-  /** OidbSvcTrpcTcp.0x6d7_2 - 重命名群文件夹 */
+  /** OidbSvcTrpcTcp.0x6d7_2 */
   export const GroupFolderRenameReq = ProtoMessage.of({
     rename: ProtoField(3, {
       groupCode: ProtoField(1, 'uint32'),
@@ -1025,7 +1025,7 @@ export namespace Oidb {
     clientWording: ProtoField(3, 'string')
   })
 
-  /** OidbSvcTrpcTcp.0x7ed_13 - 获取赞过我/我赞过的列表 */
+  /** OidbSvcTrpcTcp.0x7ed_13 */
   export const FetchProfileLikeReq = ProtoMessage.of({
     selfUid: ProtoField(1, 'string'),
     field2: ProtoField(2, 'uint32'),
@@ -1092,7 +1092,7 @@ export namespace Oidb {
     }),
   })
 
-  /** OidbSvcTrpcTcp.0x6d6_4 - 重命名群文件 */
+  /** OidbSvcTrpcTcp.0x6d6_4 */
   export const RenameGroupFileReq = ProtoMessage.of({
     rename: ProtoField(5, {
       groupCode: ProtoField(1, 'uint32'),
@@ -1111,7 +1111,7 @@ export namespace Oidb {
     }),
   })
 
-  /** OidbSvcTrpcTcp.0x112a_2 - 修改自己的资料 */
+  /** OidbSvcTrpcTcp.0x112a_2 */
   export const ModifySelfProfileReq = ProtoMessage.of({
     selfUin: ProtoField(1, 'uint32'),
     bytesProperties: ProtoField(2, {
@@ -1124,7 +1124,7 @@ export namespace Oidb {
     }, 'repeated'),
   })
 
-  /** OidbSvcTrpcTcp.0x9083_1 - 拉取消息表情回应的用户列表 */
+  /** OidbSvcTrpcTcp.0x9083_1 */
   export const FetchEmojiLikesReq = ProtoMessage.of({
     groupCode: ProtoField(2, 'uint32'),
     msgSeq: ProtoField(3, 'uint32'),
@@ -1144,7 +1144,7 @@ export namespace Oidb {
     isFirstPage: ProtoField(4, 'bool'),
   })
 
-  /** OidbSvcTrpcTcp.0x93eb_1 - 闪传：通过 code 解析 fileSetId */
+  /** OidbSvcTrpcTcp.0x93eb_1 */
   export const FlashFileSetIdByCodeReq = ProtoMessage.of({
     code: ProtoField(1, 'string'),
   })
@@ -1153,7 +1153,7 @@ export namespace Oidb {
     fileSetId: ProtoField(1, 'string'),
   })
 
-  /** OidbSvcTrpcTcp.0x93d3_1 - 闪传：取 fileSet 基本信息 */
+  /** OidbSvcTrpcTcp.0x93d3_1 */
   export const FlashFileInfoReq = ProtoMessage.of({
     fileSetId: ProtoField(1, 'string'),
     field2: ProtoField(2, 'uint32'),
@@ -1177,7 +1177,7 @@ export namespace Oidb {
     }, 'optional'),
   })
 
-  /** OidbSvcTrpcTcp.0x93d4_1 - 闪传：取 fileSet 中文件列表 */
+  /** OidbSvcTrpcTcp.0x93d4_1 */
   export const FlashFileListReq = ProtoMessage.of({
     fileSetId: ProtoField(1, 'string'),
     paging: ProtoField(2, {
@@ -1206,10 +1206,9 @@ export namespace Oidb {
     name: ProtoField(8, 'string'),
     name2: ProtoField(9, 'string'),
     fileSize: ProtoField(11, 'uint32'),
-    // f13 是 server 端 download token + 校验信息（list req f3=2 时 server 才会返这部分）
+    // list 请求 f3=2 时才返回
     downloadToken: ProtoField(13, {
-      // 100 字符 base64 token，可作为 0x12a9_200 send 的 download.info.fileId 入参
-      // (跟下面的 historyToken 是同一份 token 的不同长度版本)
+      // 可以当 0x12a9_200 的 fileId, 跟 historyToken 是同一份 token 的不同长度版本
       token: ProtoField(1, 'string'),
       tokenWithKind: ProtoField(2, {
         kind: ProtoField(1, 'uint32'),  // = 2 (host kind)
@@ -1222,7 +1221,7 @@ export namespace Oidb {
       field6: ProtoField(6, 'uint32'),
       field7: ProtoField(7, 'uint32'),
     }, 'optional'),
-    // 102 字符 base64 token (commit token)，是 0x12a9_200 实际识别用的 fileId
+    // commit token, 0x12a9_200 实际认的 fileId
     historyToken: ProtoField(14, {
       token: ProtoField(1, 'string'),
       field3: ProtoField(3, 'uint32'),
@@ -1241,15 +1240,7 @@ export namespace Oidb {
     }, 'optional'),
   })
 
-  /** OidbSvcTrpcTcp.0x93e5_4 - 闪传：取老文件完整元数据（重新分享必经的第一步）。
-   * Windows QQ "重新分享" 按钮的真正实现：先调这个 cmd 一次拿到老文件 sha1/md5/historyToken，
-   * 然后走完整 upload 链路 (createFlashFileSet → register → preflight 秒传 → commit)。
-   *
-   * 关键：跟 0x93d4_1 (list) 的 ownership 限制不一样——这个 cmd 对自己上传的 fileSet
-   * 也返完整字段（list 对自己 fileset 永远剥光 sha1/md5/historyToken）。
-   *
-   * Req 顶层 (OIDB Base body): { f1 = 老fileUuid, f2 = 老fileSetId, f3 = 1 }
-   * Resp 顶层 body: { f1 = { f1 = fileUuid, f2 = FlashFileEntry } } 含完整字段。 */
+  /** OidbSvcTrpcTcp.0x93e5_4, 自己的 fileSet 也返回 sha1 / md5 / historyToken (list 不返回) */
   export const FlashFileGetFileInfoReq = ProtoMessage.of({
     fileUuid: ProtoField(1, 'string'),
     fileSetId: ProtoField(2, 'string'),
@@ -1263,13 +1254,13 @@ export namespace Oidb {
     }, 'optional'),
   })
 
-  /** OidbSvcTrpcTcp.0x93d1_1 - 闪传：发起下载（注册下载意图，实际 URL 由 getFlashFileList 返回） */
+  /** OidbSvcTrpcTcp.0x93d1_1, sceneType=6 时用于上传完 finalize */
   export const FlashFileDownloadReq = ProtoMessage.of({
     fileSetId: ProtoField(1, 'string'),
     sceneType: ProtoField(2, 'uint32'),
   })
 
-  /** OidbSvcTrpcTcp.0x93cf_1 - 闪传：创建 fileSet（返回 fileSetId + shareLink） */
+  /** OidbSvcTrpcTcp.0x93cf_1 */
   export const CreateFlashFileSetReq = ProtoMessage.of({
     totalFileCount: ProtoField(1, 'uint32'),
     meta: ProtoField(2, {
@@ -1287,7 +1278,7 @@ export namespace Oidb {
       field20: ProtoField(20, 'uint32'),
       field21: ProtoField(21, 'uint32'),
       field23: ProtoField(23, 'uint32'),
-      // 抓包：meta.field24 = { f2: 0, f3: "" }，少了 server 会拒（prepFlashFileSet 100200）
+      // 少了会被 prepFlashFileSet 拒 (100200)
       field24: ProtoField(24, {
         field2: ProtoField(2, 'uint32'),
         field3: ProtoField(3, 'bytes'),
@@ -1305,7 +1296,7 @@ export namespace Oidb {
     expireLeftTime: ProtoField(5, 'uint32'),
   })
 
-  /** OidbSvcTrpcTcp.0x93d0_1 - 闪传：把单个文件元数据登记到 fileSet */
+  /** OidbSvcTrpcTcp.0x93d0_1 */
   export const RegisterFlashFileReq = ProtoMessage.of({
     field1: ProtoField(1, 'uint32'),
     fileSetId: ProtoField(2, 'string'),
@@ -1323,9 +1314,7 @@ export namespace Oidb {
       field10: ProtoField(10, 'uint32'),
       fileSize: ProtoField(11, 'uint32'),
       field12: ProtoField(12, 'uint32'),
-      // sha1Hex/md5Hex 必传，否则 server 端这条 entry 不带 sha1，
-      // 后续 0x93d4_1 (list) 永远拿不到 sha1/md5/historyToken (即使 field3=2)。
-      // 这两个字段是 hex string，跟 f8/f9 (name) 同 string 类型。
+      // 必传 (hex string), 不然之后 list 拿不到 sha1 / md5 / historyToken
       sha1Hex: ProtoField(20, 'string', 'optional'),
       field24: ProtoField(24, 'bytes', 'optional'),
       md5Hex: ProtoField(25, 'string', 'optional'),
@@ -1335,13 +1324,13 @@ export namespace Oidb {
     field6: ProtoField(6, 'uint32'),
   })
 
-  /** OidbSvcTrpcTcp.0x93db_1 - 闪传：fileSet prep（在 12a9 上传前调用） */
+  /** OidbSvcTrpcTcp.0x93db_1, 在 12a9 上传前调 */
   export const PrepFlashFileSetReq = ProtoMessage.of({
     fileSetId: ProtoField(1, 'string'),
     field2: ProtoField(2, 'bytes'),
   })
 
-  /** OidbSvcTrpcTcp.0x12a9_100 - 闪传：highway 上传 preflight（NTV2RichMedia 风格，但 sceneType=5 businessType=4） */
+  /** OidbSvcTrpcTcp.0x12a9_100, NTV2RichMedia 的格式, sceneType=5 businessType=4 */
   export const FlashFileUploadPreReq = ProtoMessage.of({
     head: ProtoField(1, {
       common: ProtoField(1, {
@@ -1394,7 +1383,7 @@ export namespace Oidb {
     }),
   })
 
-  /** OidbSvcTrpcTcp.0x12a9_103 - 闪传：upload commit */
+  /** OidbSvcTrpcTcp.0x12a9_103 */
   export const FlashFileUploadCommitReq = ProtoMessage.of({
     head: ProtoField(1, {
       common: ProtoField(1, {
@@ -1429,7 +1418,7 @@ export namespace Oidb {
           field8: ProtoField(8, 'uint32'),
           field9: ProtoField(9, 'uint32'),
         }),
-        token: ProtoField(2, 'string'),  // server-issued token from preflight
+        token: ProtoField(2, 'string'),  // preflight 返回的 token
         field3: ProtoField(3, 'uint32'),
         time: ProtoField(4, 'uint32'),
         ttl: ProtoField(5, 'uint32'),
@@ -1442,10 +1431,8 @@ export namespace Oidb {
         field1: ProtoField(1, 'uint32'),
         field2: ProtoField(2, 'uint32'),
       }),
-      // fileset 上下文——必传，少了 server 就不把这次 commit 关联到 fileset 上，
-      // 表面 commit 返 success 但 fileset 实际停在"待上传"状态 (Windows QQ 客户端打开
-      // share_link 显示"待上传"，list/0x93e5_4 也不返 sha1/md5/historyToken)。
-      // 抓包字段对应: f1=fileSetId f2=fileSetId(重复) f3=fileUuid f7=fileTypeFlag(=11)
+      // 必传, 不然 commit 照样返回 success, 但 fileset 停在"待上传"。
+      // f1=fileSetId f2=fileSetId f3=fileUuid f7=fileTypeFlag(=11)
       target: ProtoField(10, {
         fileSetId: ProtoField(1, 'string'),
         fileSetId2: ProtoField(2, 'string'),
@@ -1465,7 +1452,7 @@ export namespace Oidb {
     }),
   })
 
-  /** 0x12a9_100 / 0x12a9_103 共用响应（NTV2RichMediaResp 风格） */
+  /** 0x12a9_100 / 0x12a9_103 共用 */
   export const FlashFileUploadResp = ProtoMessage.of({
     head: ProtoField(1, {
       common: ProtoField(1, {
@@ -1477,8 +1464,7 @@ export namespace Oidb {
     body: ProtoField(2, {
       uKey: ProtoField(1, 'string', 'optional'),
       uKeyTtlSecond: ProtoField(2, 'uint32'),
-      // server returns 'IPv4 list' here when highway upload is needed
-      // 秒传命中时 file token + meta 在 field 6 内
+      // 要走 highway 时是 IPv4 列表, 秒传命中时是 token 和元数据
       fastUploadInfo: ProtoField(6, {
         summary: ProtoField(1, {
           fileSummary: ProtoField(1, {
@@ -1511,10 +1497,7 @@ export namespace Oidb {
     }, 'optional'),
   })
 
-  /** OidbSvcTrpcTcp.0x12a9_200 - 闪传：下载 preflight，返回 HTTPS 下载 URL（multimedia.qfile.qq.com）。
-   * 跟 0x12a9_100/103 同一个 NTV2RichMedia trpc，但 command=200 = download mode。
-   * 直接拿 host + path，bot 上层用 https.get 下载就够 — 不需要进度 polling (0x93e1_0)
-   * 也不需要下载完成确认 (0x93d9_1) 那两步是 Windows 客户端 UI 用的。 */
+  /** OidbSvcTrpcTcp.0x12a9_200, 跟 0x12a9_100 / 103 是同一个 NTV2RichMedia 服务, command=200 是下载 */
   export const FlashFileDownloadPreReq = ProtoMessage.of({
     head: ProtoField(1, {
       common: ProtoField(1, {
@@ -1532,15 +1515,12 @@ export namespace Oidb {
       }),
     }),
     download: ProtoField(3, {
-      // 真正的 fileId token 是 commit 时拿到的，这里再传一次定位文件
       info: ProtoField(1, {
         fileInfo: ProtoField(1, {
           fileSize: ProtoField(1, 'uint32'),  // 0 OK
           md5: ProtoField(2, 'bytes'),
           sha1: ProtoField(3, 'bytes'),
-          // 0x12a9_200 里 name 是直接 string（跟 0x93d0 register 时的 nested {f10:string} 不一样）。
-          // 抓包里 Windows 客户端会在原文件名前加 "RA" 前缀（猜：Resource-Access prefix），
-          // 但实测 server 用 (fileSetId, fileUuid) 定位文件，name 字段名可以随便填。
+          // 直接是 string, 不像 0x93d0 是嵌套的 {f10: string}; server 不看它, 随便填
           name: ProtoField(4, 'string'),
           fileType: ProtoField(5, {
             field1: ProtoField(1, 'uint32'),
@@ -1553,14 +1533,13 @@ export namespace Oidb {
           field8: ProtoField(8, 'uint32'),
           field9: ProtoField(9, 'uint32'),
         }),
-        // base64 fileId（来自 0x12a9_103 commit 或文件 list 里 download.fileId）
+        // 来自 commit 或 list 的 download.fileId
         fileId: ProtoField(2, 'string'),
         field3: ProtoField(3, 'uint32'),
         field4: ProtoField(4, 'uint32'),
         field5: ProtoField(5, 'uint32'),
         field6: ProtoField(6, 'uint32'),
       }),
-      // 客户端能力声明 — 抓包里看到一堆 uint32max 的 placeholder
       clientCaps: ProtoField(2, {
         // 抓包外层 f2 直接就是 caps body（不是再嵌一层）
         capsBody: ProtoField(2, {
@@ -1577,7 +1556,7 @@ export namespace Oidb {
         smallFlag: ProtoField(4, {
           field1: ProtoField(1, 'uint32'),
         }),
-        // 真正定位文件的 ID — server 用这两个 UUID 而不是上面 download.info.fileId
+        // server 靠这两个定位文件, 不看 download.info.fileId
         target: ProtoField(10, {
           fileSetId: ProtoField(1, 'string'),
           fileUuid: ProtoField(2, 'string'),
@@ -1585,12 +1564,11 @@ export namespace Oidb {
           fileUuid2: ProtoField(4, 'string'),  // 同 fileUuid
         }),
       }),
-      // download msg 末尾的 placeholder uint32（抓包 = 0）
+      // 抓包为 0
       field3: ProtoField(3, 'uint32'),
     }),
   })
 
-  /** OidbSvcTrpcTcp.0x12a9_200 response */
   export const FlashFileDownloadPreResp = ProtoMessage.of({
     head: ProtoField(1, {
       common: ProtoField(1, {

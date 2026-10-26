@@ -34,7 +34,6 @@ export async function getHttpEvent(userKey: string, timeout = 0) {
   }
   const toRetEvent: PostEventType[] = []
 
-  // 清除过时的user，5分钟没访问过的user将被删除
   const now = Date.now()
   for (const key in httpUser) {
     const user = httpUser[key]
@@ -46,14 +45,12 @@ export async function getHttpEvent(userKey: string, timeout = 0) {
   // 限制httpUser大小，防止内存泄露
   const userKeys = Object.keys(httpUser)
   if (userKeys.length > 100) {
-    // 删除最旧的用户
     const oldestKey = userKeys.reduce((oldest, current) => 
       httpUser[current].lastAccessTime < httpUser[oldest].lastAccessTime ? current : oldest
     )
     delete httpUser[oldestKey]
   }
 
-  // 增加新的user
   if (!httpUser[userKey]) {
     httpUser[userKey] = {
       lastAccessTime: now,
@@ -62,11 +59,9 @@ export async function getHttpEvent(userKey: string, timeout = 0) {
   }
 
   const user = httpUser[userKey]
-  // 等待数据到来，暂时先这么写吧......
   while (curentSeq == user.userSeq && Date.now() - now < timeout) {
     await new Promise(resolve => setTimeout(resolve, 10))
   }
-  // 取数据
   for (let i = 0; i < eventList.length; i++) {
     const evt = eventList[i]
     if (evt.seq > user.userSeq) {
@@ -74,7 +69,6 @@ export async function getHttpEvent(userKey: string, timeout = 0) {
     }
   }
 
-  // 更新user数据
   user.lastAccessTime = Date.now()
   user.userSeq = curentSeq
   return toRetEvent

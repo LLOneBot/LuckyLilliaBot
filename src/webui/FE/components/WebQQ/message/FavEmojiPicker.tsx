@@ -12,10 +12,8 @@ export interface FavEmoji {
   desc: string
 }
 
-// 模块级缓存
 let cachedEmojis: FavEmoji[] | null = null
 
-// 清除缓存（供外部调用）
 export const clearFavEmojiCache = () => {
   cachedEmojis = null
 }
@@ -55,7 +53,6 @@ function removeRecentFavEmoji(emoId: number) {
   localStorage.setItem(key, JSON.stringify(recent))
 }
 
-// 表情右键菜单
 const EmojiContextMenu: React.FC<{
   x: number
   y: number
@@ -113,7 +110,6 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
   const pickerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // 如果有缓存，直接使用
     if (cachedEmojis) {
       setEmojis(cachedEmojis)
       setLoading(false)
@@ -146,7 +142,6 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      // 如果右键菜单打开，不关闭 Picker
       if (contextMenuRef.current) return
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) {
         onClose()
@@ -177,11 +172,9 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
       const result = await apiDeleteFavEmoji(emoji.resId)
       if (result.result === 0) {
         showToast('已删除', 'success')
-        // 更新列表
         const newEmojis = emojis.filter(e => e.emoId !== emoji.emoId)
         setEmojis(newEmojis)
         cachedEmojis = newEmojis
-        // 从最近使用中移除
         removeRecentFavEmoji(emoji.emoId)
         setRecentEmojis(getRecentFavEmojis())
       } else {
@@ -250,7 +243,6 @@ export const FavEmojiPicker: React.FC<FavEmojiPickerProps> = ({ onSelect, onClos
         )}
       </div>
 
-      {/* 右键菜单 */}
       {contextMenu && (
         <EmojiContextMenu
           x={contextMenu.x}

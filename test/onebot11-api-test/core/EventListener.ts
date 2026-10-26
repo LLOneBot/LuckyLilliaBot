@@ -3,12 +3,8 @@ import axios from 'axios';
 import { isDeepStrictEqual } from 'node:util';
 import { ApiClient, TimeoutError } from './ApiClient.js';
 import { IApiClient, IEventListener } from '../../test-framework/src/index.js';
-// 使用源码中定义的事件类型，避免重复定义
 import type { OB11Event } from '../../../src/onebot11/event/index.js';
 
-/**
- * 事件过滤器接口
- */
 export interface EventFilter {
   post_type?: string;
   sub_type?: string;
@@ -21,13 +17,9 @@ export interface EventFilter {
   [key: string]: string | number | undefined;
 }
 
-// 重新导出事件类型供外部使用
 export type { OB11Event };
 
-/**
- * 事件监听器
- * 支持 HTTP SSE 和 WebSocket 两种协议监听事件
- */
+/** HTTP 走 SSE, WS 走 WebSocket */
 export class EventListener implements IEventListener<OB11Event, EventFilter> {
   private client: IApiClient;
   private protocol: 'http' | 'ws';
@@ -43,19 +35,12 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
     customFilter?: (event: OB11Event) => boolean;
   }> = [];
 
-  /**
-   * 构造函数
-   * @param client API 客户端实例
-   */
   constructor(client: IApiClient) {
     this.client = client;
     const config = this.client.getConfig();
     this.protocol = config.protocol as 'http' | 'ws';
   }
 
-  /**
-   * 开始监听事件
-   */
   async startListening(): Promise<void> {
     if (this.listening) {
       return;
@@ -68,9 +53,6 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
     }
   }
 
-  /**
-   * 开始 HTTP SSE 监听
-   */
   private async startHttpSseListening(): Promise<void> {
     const config = this.client.getConfig();
     const sseUrl = `${config.host}/_events`;
@@ -134,13 +116,9 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
     }
   }
 
-  /**
-   * 开始 WebSocket 监听
-   */
   private async startWebSocketListening(): Promise<void> {
     const config = this.client.getConfig();
 
-    // 构建 WebSocket URL
     let wsUrl = config.host;
     if (wsUrl.startsWith('http://')) {
       wsUrl = wsUrl.replace('http://', 'ws://');
@@ -150,7 +128,6 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
       wsUrl = 'ws://' + wsUrl;
     }
 
-    // WebSocket 连接到根路径 /
     if (!wsUrl.endsWith('/')) {
       wsUrl = wsUrl + '/';
     }
@@ -196,7 +173,6 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
           this.listening = false;
           this.ws = null;
 
-          // 清理所有待处理的事件处理器
           this.eventHandlers.forEach((handler) => {
             clearTimeout(handler.timeout);
             handler.reject(new Error('EventListener connection closed'));
@@ -204,7 +180,6 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
           this.eventHandlers = [];
         });
 
-        // 连接超时
         setTimeout(() => {
           if (!this.listening && this.ws) {
             this.ws.terminate();
@@ -217,9 +192,6 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
     });
   }
 
-  /**
-   * 停止监听事件
-   */
   stopListening(): void {
     if (this.protocol === 'http' && this.sseAbortController) {
       this.sseAbortController.abort();
@@ -229,25 +201,18 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
       this.ws = null;
     }
 
-    // 清理所有待处理的事件处理器
     this.eventHandlers.forEach((handler) => {
       clearTimeout(handler.timeout);
       handler.reject(new Error('EventListener stopped'));
     });
     this.eventHandlers = [];
 
-    // 清空事件队列
     this.eventQueue = [];
     this.listening = false;
   }
 
-  /**
-   * 处理接收到的事件
-   * @param event 事件对象
-   */
   private handleEvent(event: OB11Event): void {
-    // 先看有没有挂起的 handler 想要这个事件——有就消费掉，不要把它塞进队列
-    // （否则同一事件会同时塞队列 + resolve handler，下一个 waitForEvent 还能从队列里把它再捞出来一次）
+    // 有挂起的 handler 要它就直接消费, 不进队列: 不然下一个 waitForEvent 还能从队列里再拿到一次
     for (let i = this.eventHandlers.length - 1; i >= 0; i--) {
       const handler = this.eventHandlers[i];
       if (this.matchesFilter(event, handler.filter) && (!handler.customFilter || handler.customFilter(event))) {
@@ -257,43 +222,30 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
         return
       }
     }
-    // 没有 handler 想要 → 进队列等之后调 waitForEvent 的人来取
     this.eventQueue.push(event);
   }
 
-  /**
-   * 检查事件是否匹配过滤器
-   * @param event 事件对象
-   * @param filter 过滤器
-   * @returns 是否匹配
-   */
   private matchesFilter(event: OB11Event, filter: EventFilter): boolean {
-    // 检查 post_type
     if (filter.post_type !== undefined && event.post_type !== filter.post_type) {
       return false;
     }
 
-    // 检查 sub_type
     if (filter.sub_type !== undefined && event.sub_type !== filter.sub_type) {
       return false;
     }
 
-    // 检查 message_type
     if (filter.message_type !== undefined && event.message_type !== filter.message_type) {
       return false;
     }
 
-    // 检查 notice_type
     if (filter.notice_type !== undefined && event.notice_type !== filter.notice_type) {
       return false;
     }
 
-    // 检查 request_type
     if (filter.request_type !== undefined && event.request_type !== filter.request_type) {
       return false;
     }
 
-    // 检查 user_id
     if (filter.user_id !== undefined) {
       const filterUserId = String(filter.user_id);
       const eventUserId = String(event.user_id || event.sender?.user_id || '');
@@ -302,7 +254,6 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
       }
     }
 
-    // 检查 group_id
     if (filter.group_id !== undefined) {
       const filterGroupId = String(filter.group_id);
       const eventGroupId = String(event.group_id || '');
@@ -311,7 +262,6 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
       }
     }
 
-    // 检查 message_id
     if (filter.message_id !== undefined) {
       const filterMessageId = String(filter.message_id);
       const eventMessageId = String(event.message_id || '');
@@ -320,7 +270,7 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
       }
     }
 
-    // 检查其他自定义过滤条件（使用 Node.js 内置深度比较）
+    // 其余字段用 Node 内置的深度比较
     for (const key in filter) {
       if (!['post_type', 'sub_type', 'message_type', 'notice_type', 'request_type',
         'user_id', 'group_id', 'message_id'].includes(key)) {
@@ -333,47 +283,32 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
     return true;
   }
 
-  /**
-   * 等待特定事件
-   * @param filter 事件过滤器
-   * @param customFilter 自定义过滤函数，用于更复杂的匹配逻辑
-   * @param timeout 超时时间（毫秒），默认 20000ms
-   * @returns Promise，解析为匹配的事件
-   * @throws {TimeoutError} 等待超时
-   */
   async waitForEvent(
     filter: EventFilter,
     customFilter?: (event: OB11Event) => boolean,
     timeout: number = 20000
   ): Promise<OB11Event> {
-    // 首先检查事件队列中是否已有匹配的事件
     for (let i = 0; i < this.eventQueue.length; i++) {
       const event = this.eventQueue[i];
       if (this.matchesFilter(event, filter) && (!customFilter || customFilter(event))) {
-        // 从队列中移除该事件
         this.eventQueue.splice(i, 1);
         return event;
       }
     }
 
-    // 如果队列中没有匹配的事件，等待新事件
     return new Promise((resolve, reject) => {
-      // 设置超时
       const timeoutHandle = setTimeout(() => {
-        // 从处理器列表中移除
         const index = this.eventHandlers.findIndex((h) => h.timeout === timeoutHandle);
         if (index !== -1) {
           this.eventHandlers.splice(index, 1);
         }
 
-        // 抛出超时错误
         reject(new TimeoutError(
           `Waiting for event timeout after ${timeout}ms. Filter: ${JSON.stringify(filter)}`,
           timeout
         ));
       }, timeout);
 
-      // 添加到处理器列表，包含自定义过滤器
       this.eventHandlers.push({
         filter,
         resolve,
@@ -384,25 +319,14 @@ export class EventListener implements IEventListener<OB11Event, EventFilter> {
     });
   }
 
-  /**
-   * 检查是否正在监听
-   * @returns 是否正在监听
-   */
   isListening(): boolean {
     return this.listening;
   }
 
-  /**
-   * 获取事件队列长度
-   * @returns 队列中的事件数量
-   */
   getQueueLength(): number {
     return this.eventQueue.length;
   }
 
-  /**
-   * 清空事件队列
-   */
   clearQueue(): void {
     this.eventQueue = []
   }

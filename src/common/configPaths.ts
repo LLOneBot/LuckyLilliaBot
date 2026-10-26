@@ -15,7 +15,6 @@ export const INSTANCE_FILES = {
 // Worked out on every call rather than held in module constants: suites that mock globalVars only have to
 // provide DATA_DIR, and nothing pins the instance before main.ts has run the startup migration.
 export const configPaths = {
-  /** An instance's directory, the current one by default. */
   instance: (name = currentInstance().name) => path.join(instancesDir(), name),
   settings: (name?: string) => path.join(configPaths.instance(name), INSTANCE_FILES.settings),
   plugins: (name?: string) => path.join(configPaths.instance(name), INSTANCE_FILES.plugins),

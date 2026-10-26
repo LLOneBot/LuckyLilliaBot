@@ -2,20 +2,10 @@ import { Context } from 'cordis'
 import { Hono } from 'hono'
 import { GroupMsgMask } from '@/ntqqapi/types'
 
-/**
- * 修改型操作：群管理 / 好友 / 戳一戳。
- * 全部 POST，body 是 JSON。webui 端点专用，不暴露任意 NT API 反射。
- *
- * 设计：
- *  - 路由按 group/* 和 friend/* 分组，每个端点一个明确的语义动作
- *  - errCode/result 校验放在 BE 端，FE 不再需要重复判断
- */
+/** 全部 POST + JSON; errCode / result 在这里校验, FE 不用再判断 */
 export function createActionsRoutes(ctx: Context): Hono {
   const router = new Hono()
 
-  // === 群操作 ===
-
-  // 踢人
   router.post('/group/kick', async (c) => {
     try {
       const { groupCode, uid, refuseForever } = await c.req.json() as {
@@ -37,7 +27,7 @@ export function createActionsRoutes(ctx: Context): Hono {
     }
   })
 
-  // 禁言（duration=秒，0=解禁）
+  // duration 单位秒, 0 = 解禁
   router.post('/group/ban', async (c) => {
     try {
       const { groupCode, uid, duration } = await c.req.json() as {
@@ -56,7 +46,6 @@ export function createActionsRoutes(ctx: Context): Hono {
     }
   })
 
-  // 设置/取消管理员
   router.post('/group/member-role', async (c) => {
     try {
       const { groupCode, uid, isAdmin } = await c.req.json() as {
@@ -75,7 +64,7 @@ export function createActionsRoutes(ctx: Context): Hono {
     }
   })
 
-  // 退群（群主调用相当于解散）
+  // 群主退群就是解散
   router.post('/group/quit', async (c) => {
     try {
       const { groupCode } = await c.req.json() as { groupCode: string | number }
@@ -90,7 +79,6 @@ export function createActionsRoutes(ctx: Context): Hono {
     }
   })
 
-  // 群置顶
   router.post('/group/set-top', async (c) => {
     try {
       const { groupCode, isTop } = await c.req.json() as {
@@ -108,7 +96,7 @@ export function createActionsRoutes(ctx: Context): Hono {
     }
   })
 
-  // 群消息接收方式（msgMask: 1=接收并提醒, 2=群助手, 3=屏蔽, 4=接收不提醒）
+  // msgMask: 1=接收并提醒, 2=群助手, 3=屏蔽, 4=接收不提醒
   router.post('/group/msg-mask', async (c) => {
     try {
       const { groupCode, msgMask } = await c.req.json() as {
@@ -126,7 +114,7 @@ export function createActionsRoutes(ctx: Context): Hono {
     }
   })
 
-  // 群头衔（仅群主可用）
+  // 仅群主可用
   router.post('/group/special-title', async (c) => {
     try {
       const { groupCode, uid, title } = await c.req.json() as {
@@ -148,7 +136,6 @@ export function createActionsRoutes(ctx: Context): Hono {
     }
   })
 
-  // 群戳一戳
   router.post('/group/poke', async (c) => {
     try {
       const { groupCode, uin } = await c.req.json() as {
@@ -169,9 +156,6 @@ export function createActionsRoutes(ctx: Context): Hono {
     }
   })
 
-  // === 好友操作 ===
-
-  // 删除好友
   router.post('/friend/delete', async (c) => {
     try {
       const { uid } = await c.req.json() as { uid: string }
@@ -189,7 +173,6 @@ export function createActionsRoutes(ctx: Context): Hono {
     }
   })
 
-  // 好友置顶
   router.post('/friend/set-top', async (c) => {
     try {
       const { uid, isTop } = await c.req.json() as {
@@ -207,7 +190,6 @@ export function createActionsRoutes(ctx: Context): Hono {
     }
   })
 
-  // 好友戳一戳
   router.post('/friend/poke', async (c) => {
     try {
       const { uin } = await c.req.json() as { uin: string | number }

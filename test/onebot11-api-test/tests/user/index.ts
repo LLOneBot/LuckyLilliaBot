@@ -1,7 +1,3 @@
-/**
- * 用户相关接口测试入口
- */
-
 export * from './get-cookie.test';
 export * from './get-friend-list.test';
 export * from './send-like.test';

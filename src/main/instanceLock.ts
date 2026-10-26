@@ -17,14 +17,10 @@ interface Holder {
 const MAX_SOCKET_PATH = 100
 
 /**
- * Keeps a second process off an instance for as long as this one lives (config-storage §4). An OS endpoint
- * rather than a pid file, because it goes away with the process however that ends: node as pid 1 in docker
- * dies on SIGKILL without running exit handlers, and a pid file left behind in a recreated container (new
- * hostname) could never be told apart from a live holder elsewhere.
- *
- * Windows: a named pipe per data dir. Elsewhere a unix socket in data/state/, which also catches a second
- * container on the same volume; if that path is too long or the filesystem refuses sockets (some bind mounts),
- * one in the temp dir, which still covers this host.
+ * Keeps a second process off an instance (config-storage §4). An OS endpoint rather than a pid file, since it
+ * goes away however the process ends: node as pid 1 in docker dies on SIGKILL without running exit handlers.
+ * Windows: a named pipe. Elsewhere a unix socket in data/state/, which also catches a second container on the
+ * same volume, or in the temp dir when that path is too long or the filesystem refuses sockets.
  */
 export async function lockInstance(name: string): Promise<() => void> {
   const dir = path.join(STATE_DIR, 'instances')

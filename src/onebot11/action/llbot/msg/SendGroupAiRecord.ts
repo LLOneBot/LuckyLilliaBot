@@ -23,14 +23,11 @@ export class SendGroupAiRecord extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload) {
-    // 监听必须在 OIDB 调用之前注册：服务器 broadcast 可能在 OIDB 响应之前就到达。
-    // AI record 是自己触发的，回推会走 nt/raw/self-send-msg（不是 nt/message-created）。
+    // 先注册监听: 回推可能比 OIDB 响应先到。自己触发的, 所以走 nt/message-sent 而不是 nt/message-created
     const seen: RawMessage[] = []
     let targetMsgRandom: number | null = null
     const { promise, resolve } = Promise.withResolvers<Response>()
     const checkAndResolve = (msg: RawMessage) => {
-      // msg.msgRandom 来自 dispatcher 反构 RawMessage（contentHead.random，uint32），
-      // 类型可能是 number 或 string。OIDB 返回的 res.msgRandom 是 number。统一成 string 比对。
       if (targetMsgRandom !== null && msg.msgRandom === targetMsgRandom) {
         dispose()
         const shortId = this.ctx.store.createMsgShortId(msg)

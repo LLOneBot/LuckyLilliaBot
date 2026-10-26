@@ -17,14 +17,12 @@ const TokenDialog: React.FC<TokenDialogProps> = ({ visible, onConfirm, onClose, 
 
   useEffect(() => {
     if (visible && inputRef.current) {
-      // 对话框打开时自动聚焦输入框
       setTimeout(() => inputRef.current?.focus(), 100);
     }
   }, [visible]);
 
   useEffect(() => {
     if (visible) {
-      // 重置密码输入
       setPassword('');
       setShowPassword(false);
       setValidationError('');
@@ -48,7 +46,7 @@ const TokenDialog: React.FC<TokenDialogProps> = ({ visible, onConfirm, onClose, 
     }
   };
 
-  // 阻止ESC键关闭
+  // 不能用 ESC 关
   useEffect(() => {
     if (!visible) return;
     
@@ -97,7 +95,6 @@ const TokenDialog: React.FC<TokenDialogProps> = ({ visible, onConfirm, onClose, 
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    // 清除验证错误
                     if (validationError) setValidationError('');
                   }}
                   onKeyPress={handleKeyPress}

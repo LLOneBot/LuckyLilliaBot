@@ -50,9 +50,8 @@ const esk = vi.mocked(acquireMacosEskOnly)
 const acquire = vi.mocked(acquireSignToken)
 const sign = vi.mocked(requestSign)
 
-// 代表"业务命令"的那条必须是 cmdNeedsSign() 认的, 否则 sendCommand 根本不签名、直接往下
-// 等响应包 (15s), deviceTokenFor 就永远不返回。SsoInfoSync 自 697592df
-// ("sign only what the real client signs") 起已不在 SIGN_REQUIRED 里, 不能再用。
+// 必须是 cmdNeedsSign() 认的 cmd, 否则 sendCommand 不签名而是去等响应包 (15s), deviceTokenFor 就不返回。
+// SsoInfoSync 从 697592df 起不签名了, 别用它
 const SEND_MSG = 'MessageSvc.PbSendMsg'
 const SA2_ACCESS = 'trpc.o3.ecdh_access.EcdhAccess.SsoSecureA2Access'
 
@@ -73,11 +72,7 @@ function fakeSession(): SessionInfo {
   }
 }
 
-/**
- * requestSign is mocked to fail, so sendCommand throws right after picking the device token.
- * Only works for a cmd that cmdNeedsSign() accepts -- an unsigned one skips signing entirely
- * and then blocks waiting for a response frame.
- */
+/** requestSign is mocked to fail, so sendCommand throws right after picking the device token */
 async function deviceTokenFor(client: DirectProtocolClient, cmd: string): Promise<string | undefined> {
   sign.mockClear()
   await client.sendCommand(cmd, Buffer.alloc(0)).catch(() => {})

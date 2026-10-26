@@ -18,9 +18,7 @@ interface Response {
   file_set_id: string
   share_link: string
   expire_time: number
-  /** 每个文件上传后立刻拿到的 multimedia.qfile.qq.com 短期签名 URL（约 1h 过期）。
-   *  上传一步到位：preflight 给的 fileId token 当场用了换 download URL，过期后 client
-   *  没法基于 share_link 重建（Linux QQ list 不返 sha1，重 preflight 命中不了秒传）。 */
+  /** 上传时顺带拿到的签名 URL, 约 1 小时过期, 过期后没法重建 */
   downloads?: FileDownload[]
 }
 

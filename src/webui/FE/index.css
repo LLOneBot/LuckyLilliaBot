@@ -123,11 +123,9 @@
     outline-offset: 2px;
   }
 
-  /* Reduced motion: no transitions anywhere. Has to be !important, because
-     Tailwind transition utilities (transition-all duration-300 on the
-     sidebar) sit in the utilities layer and outrank component rules. A
-     300ms color transition under reduced motion also made the glass runtime
-     read a mid-transition tint after a theme switch. */
+  /* Reduced motion: no transitions anywhere. !important because Tailwind's transition utilities sit in the
+     utilities layer and outrank component rules; a color transition left running would also make the glass
+     runtime read a mid-transition tint after a theme switch. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -201,8 +199,7 @@
     border-color: var(--hairline);
   }
 
-  /* Panel container. Aliased onto the glass material in glass.css, so the
-     52 existing call sites pick up refraction and the specular rim as-is. */
+  /* Panel container, aliased onto the glass material in glass.css */
   .card {
     border-radius: var(--r-panel);
   }
@@ -438,9 +435,8 @@
     outline-offset: 2px;
   }
 
-  /* Accent-tinted Tailwind classes, remapped so the accent lives in one
-     place. Values match pink-500/600 in light mode, so nothing shifts there;
-     dark mode gets the softer tint it used to patch in by hand. */
+  /* Accent-tinted Tailwind classes, remapped so the accent lives in one place: light mode keeps the
+     pink-500/600 values, dark mode gets a softer tint. */
   .text-pink-500,
   .text-pink-600 {
     color: var(--accent) !important;

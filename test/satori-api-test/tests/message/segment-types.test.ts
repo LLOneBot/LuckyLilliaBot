@@ -1,16 +1,4 @@
-/**
- * Satori 消息元素覆盖测试。
- *
- * Satori 协议 outgoing element（XML 表达）：
- *   text 直接文字, <at id="<uin>"/>, <at type="all"/>, <face id="<index>"/>,
- *   <img src="..."/>, <audio src="..."/>, <video src="..."/>, <quote id="<msgId>"/>,
- *   <message forward> 合并转发 (out of scope: forward 单独测过 / 私聊不能 mention_all)。
- *
- * 这里覆盖：发各种元素 → 等 secondary 收到 message-created 事件 →
- * 从事件 `message.content` (XML 字符串) 解析出对应的元素是否在里面。
- *
- * 媒体文件用 onebot11-api-test 共享 fixture（test/onebot11-api-test/tests/media/）。
- */
+/** 发各种元素, 在 secondary 收到的 message-created 的 content (XML) 里找对应元素 */
 import { setupSatoriTest, teardownSatoriTest, SatoriTestContext } from '../setup'
 import { Assertions } from '@/protocol/Assertions'
 import { MediaPaths } from '../media'
@@ -26,7 +14,7 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
     teardownSatoriTest(ctx)
   })
 
-  /** primary 发群消息（content 是 satori XML 串）→ 等 secondary 收到 message-created → 返回 message.content */
+  /** 返回 secondary 收到的 message.content */
   async function sendGroupAndAwait(content: string, customMatch: (text: string) => boolean, timeoutMs = 30000): Promise<string> {
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
@@ -46,8 +34,6 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
     return ev.message?.content ?? ''
   }
 
-  // ---------- 群聊 ----------
-
   it('text 元素：纯文本', async () => {
     const tag = `seg-text-${Date.now()}`
     const got = await sendGroupAndAwait(tag, c => c.includes(tag))
@@ -63,7 +49,7 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
   }, 30000)
 
   it('at 元素：@全体成员', async () => {
-    // server 对 @全体成员每天每群有次数上限（实测错信 "code=121"），反复跑会撞顶。
+    // server 对 @全体成员每天每群有次数上限 (code=121)
     const tag = `seg-atall-${Date.now()}`
     const primary = ctx.twoAccountTest.getClient('primary')
     ctx.twoAccountTest.clearAllQueues()
@@ -103,7 +89,7 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
   }, 60000)
 
   it('audio 元素：发语音', async () => {
-    // audio 单独 send（满足 satori 流程：audio 会先 flush，再单独成段）
+    // audio 会把前面的内容先发出去, 自己单独成一条, 所以单独发
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
     const sendRes = await primary.call<Array<{ id: string }>>('message.create', {
@@ -143,10 +129,7 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
   }, 120000)
 
   it('video 元素：发秒传视频（同 hash 的 test.mp4 反复发，server 端命中秒传 cache）', async () => {
-    // 前面 'video 元素：发全新视频' 用例不命中秒传；这里用项目固定 fixture test.mp4 反复发 —
-    // 第一次发可能也走秒传 (因为别处早发过)，第二次以后必中秒传；两次都要广播。
-    // 历史上有过 server 把某个特定 hash 加进广播黑名单的事故 (见 memory:
-    // project_test_mp4_fixture_blacklisted)，重 generate test.mp4 即可解决。
+    // 固定的 test.mp4 发两次, 第二次必中秒传, 两次都要广播。server 曾把某个 hash 拉进广播黑名单, 遇到就重新生成 test.mp4
     const primary = ctx.twoAccountTest.getClient('primary')
 
     for (let i = 0; i < 2; i++) {
@@ -172,14 +155,14 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
     const baseTag = `seg-quote-base-${Date.now()}`
-    // 先发一条原消息，让 satori 端 store 缓存它
+    // 让 satori 的 store 先缓存原消息
     const baseRes = await primary.call<Array<{ id: string }>>('message.create', {
       channel_id: ctx.testGroupId,
       content: baseTag,
     })
     Assertions.assertSuccess(baseRes, 'message.create (quote base)')
     const baseId = baseRes.data![0].id
-    // 等 secondary 端先收到原消息（保证 server 端入库 + secondary 端 store 也有）
+    // 等 secondary 收到: server 已入库, secondary 的 store 也有了
     await ctx.twoAccountTest.secondaryListener.waitForEvent(
       { type: 'message-created' },
       (e: any) => e.message?.content?.includes(baseTag),
@@ -219,8 +202,6 @@ describe('Satori 消息元素：多种 element 类型覆盖', () => {
     expect(got).toMatch(/<face[^>]+id="4"/)
     expect(got).toContain(tag)
   }, 30000)
-
-  // ---------- 私聊 ----------
 
   it('私聊 text 元素：纯文本', async () => {
     ctx.twoAccountTest.clearAllQueues()

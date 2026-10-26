@@ -15,15 +15,9 @@ export function isEqual(a: unknown, b: unknown): boolean {
 }
 
 /**
- * Whether the diff recurses into `value` per key, or treats it as one whole value.
- *
- * §5 rule: only an `object` node (and an intersection of objects, which edits as one object) recurses;
- * `dict` / `array` / `union` / scalar nodes replace wholesale. A null node means "no schema" (the JSON
- * fallback editor), where we keep the old value-driven behavior: recurse any plain object.
- *
- * This is the fix for the dict bug: a dict's runtime value is a plain object, so the old value-driven
- * code recursed it and dropped entries that happened to equal a default-keyed value. Whole-replace keeps
- * the user's dict intact, and a later change to the dict's default no longer leaks stale entries back in.
+ * Only an `object` node (or an intersection of objects) recurses per key. `dict` / `array` / `union` /
+ * scalars are replaced whole: recursing a dict would drop entries that happen to equal a default. A null
+ * node (no schema, the JSON editor) recurses any plain object.
  */
 function recurses(node: SchemaNode | null, value: unknown, defaults: unknown): boolean {
   if (!isPlainObject(value) || !isPlainObject(defaults)) return false
@@ -40,7 +34,6 @@ function childOf(node: SchemaNode | null, key: string): SchemaNode | null {
   return null
 }
 
-/** Fills keys missing from `value` with their defaults, so the form shows what the plugin will get. */
 export function withDefaults(node: SchemaNode | null, value: unknown, defaults: unknown): unknown {
   if (value === undefined || value === null) return structuredClone(defaults)
   if (recurses(node, value, defaults)) {
@@ -53,10 +46,7 @@ export function withDefaults(node: SchemaNode | null, value: unknown, defaults: 
   return value
 }
 
-/**
- * Drops everything equal to its default, so only what the user changed is stored and a plugin update that
- * moves a default still reaches them. Undefined when nothing differs.
- */
+/** Undefined when nothing differs. Storing only changes lets a default moved by a plugin update reach the user. */
 export function stripDefaults(node: SchemaNode | null, value: unknown, defaults: unknown): unknown {
   if (isEqual(value, defaults)) return undefined
   if (recurses(node, value, defaults)) {

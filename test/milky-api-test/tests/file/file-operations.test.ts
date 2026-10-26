@@ -14,11 +14,8 @@ describe('Milky 文件操作', () => {
   })
 
   it('upload_private_file → friend_file_upload event → get_private_file_download_url', async () => {
-    // 双账号端到端：
-    //   1. primary 上传文件给 secondary，拿 file_id
-    //   2. secondary 收到 friend_file_upload 事件（file_hash 在事件 payload 里，
-    //      milky transform 现在直接取 fileElement.fileMd5）
-    //   3. primary 用 file_id + secondary 拿到的 hash 调 get_private_file_download_url
+    // primary 发文件给 secondary, secondary 从 friend_file_upload 事件拿 file_hash,
+    // primary 再用 file_id + hash 拉下载链接
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
     const fileName = `milky-priv-${Date.now()}.gif`
@@ -121,7 +118,6 @@ describe('Milky 文件操作', () => {
   it('move_group_file + rename_group_file: 上传 → 进文件夹 → 重命名 → 清理', async () => {
     const primary = ctx.twoAccountTest.getClient('primary')
 
-    // 1. 建文件夹
     const folderName = `milky-mv-folder-${Date.now()}`
     const folderRes = await primary.call<{ folder_id: string }>('create_group_folder', {
       group_id: ctx.testGroupId,
@@ -130,7 +126,6 @@ describe('Milky 文件操作', () => {
     Assertions.assertSuccess(folderRes, 'create_group_folder')
     const folderId = folderRes.data!.folder_id
 
-    // 2. 在根目录上传一个文件
     const fileName = `milky-mv-file-${Date.now()}.gif`
     const uploadRes = await primary.call<{ file_id: string }>('upload_group_file', {
       group_id: ctx.testGroupId,
@@ -141,7 +136,6 @@ describe('Milky 文件操作', () => {
     const fileId = uploadRes.data!.file_id
     await new Promise((r) => setTimeout(r, 1500))
 
-    // 3. 移动到文件夹
     const moveRes = await primary.call('move_group_file', {
       group_id: ctx.testGroupId,
       file_id: fileId,
@@ -151,7 +145,6 @@ describe('Milky 文件操作', () => {
     Assertions.assertSuccess(moveRes, 'move_group_file')
     await new Promise((r) => setTimeout(r, 1500))
 
-    // 4. 重命名
     const renameRes = await primary.call('rename_group_file', {
       group_id: ctx.testGroupId,
       file_id: fileId,
@@ -161,7 +154,7 @@ describe('Milky 文件操作', () => {
     Assertions.assertSuccess(renameRes, 'rename_group_file')
     await new Promise((r) => setTimeout(r, 1000))
 
-    // 5. 清理：先删文件，再删文件夹
+    // 文件夹要先清空才能删
     await primary.call('delete_group_file', { group_id: ctx.testGroupId, file_id: fileId }).catch(() => undefined)
     await primary.call('delete_group_folder', { group_id: ctx.testGroupId, folder_id: folderId }).catch(() => undefined)
   }, 120000)

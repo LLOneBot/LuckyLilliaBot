@@ -53,7 +53,6 @@ export function hydrate(json: { uid: number; refs: Record<string, unknown> }): S
     if (hit) return hit
     const wire = refs[ref]
     if (!wire) return ANY
-    // Schema.lazy() wraps the real schema; treat it as that schema
     if (wire.type === 'lazy' && wire.inner !== undefined) {
       const target = resolve(wire.inner)
       cache.set(ref, target)

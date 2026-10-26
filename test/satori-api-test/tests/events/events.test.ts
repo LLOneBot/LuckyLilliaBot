@@ -1,19 +1,6 @@
 /**
- * Satori event 端到端测试。
- *
- * Satori 协议定义的 event types：
- *   - message-created / message-deleted / message-updated
- *   - reaction-added / reaction-removed
- *   - guild-added / guild-removed / guild-request
- *   - guild-member-added / guild-member-removed / guild-member-request
- *   - friend-request / login-added / login-removed / ...
- *
- * 这里覆盖**非破坏性**事件 — message-created / message-deleted 已经在 message.test.ts 里
- * 间接验过；这里专门测 reaction 事件 + 显式重测 message 事件 shape。
- *
- * 跳过：
- *   - guild-added / guild-removed / guild-member-* / friend-request — 需要拉/踢人 / 加好友等破坏性操作
- *   - login-added / login-removed — 需要换号
+ * reaction 事件, 以及 message 事件的 shape。没测: guild-added / guild-removed / guild-member-* / friend-request
+ * (要拉人踢人加好友), login-added / login-removed (要换号)
  */
 import { setupSatoriTest, teardownSatoriTest, SatoriTestContext } from '../setup'
 import { Assertions } from '@/protocol/Assertions'
@@ -102,7 +89,6 @@ describe('Satori 事件覆盖', () => {
     )
     await new Promise(r => setTimeout(r, 500))
 
-    // satori reaction.create
     const reactRes = await primary.call('reaction.create', {
       channel_id: ctx.testGroupId,
       message_id: messageId,
@@ -137,7 +123,6 @@ describe('Satori 事件覆盖', () => {
     )
     await new Promise(r => setTimeout(r, 500))
 
-    // 先加再取消
     const addRes = await primary.call('reaction.create', {
       channel_id: ctx.testGroupId,
       message_id: messageId,

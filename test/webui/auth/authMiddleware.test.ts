@@ -16,9 +16,6 @@ vi.mock('@/main/config', () => ({
 import { webuiTokenUtil } from '@/main/config'
 
 function createAuthApp() {
-  // 每次都重新 import authMiddleware，这样模块级状态（globalLoginAttempt）会被重置
-  // 但由于 vitest 缓存模块，我们需要用 vi.resetModules() + dynamic import
-  // 这里我们直接构建 app，每个 describe 块用 resetModules 隔离
   const app = new Hono()
   app.use('*', async (c, next) => {
     c.env = { incoming: { socket: { remoteAddress: '127.0.0.1' } } } as any
@@ -31,6 +28,7 @@ describe('authMiddleware', () => {
   let authMiddleware: any
 
   beforeEach(async () => {
+    // authMiddleware 有模块级状态 (globalLoginAttempt), 每个用例重新 import 一份
     vi.resetModules()
     const mod = await import('@/webui/BE/auth')
     authMiddleware = mod.authMiddleware

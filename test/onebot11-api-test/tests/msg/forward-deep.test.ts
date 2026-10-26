@@ -1,16 +1,4 @@
-/**
- * OB11 合并转发深度测试。
- *
- * 已有 send-forward-msg.test.ts 只测纯文本 inline node。这里补：
- *   1. inline content 含 image / record / video / face 段
- *   2. inline content 含 reply 段（reply 锚点是真实群消息）
- *   3. inline reply 锚点是图片消息 → reply 内容里有 [图片] 占位
- *   4. 嵌套合并转发（forward 里包含 forward 节点）
- *   5. forward + get_forward_msg 拉回核对内容
- *
- * 顺便验证我刚才在 messageBuilding 加的 isInsideForward 快照编码对 OB11 也生效
- * （messageBuilding.ts 是 OB11 / Milky 共用的低层）。
- */
+/** 合并转发的边角场景, 纯文本 inline node 在 send-forward-msg.test.ts */
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
@@ -28,7 +16,6 @@ describe('OB11 合并转发深度测试', () => {
     teardownMessageTest(context);
   });
 
-  /** primary 发一条群消息，等 secondary 收到，返回 message_id */
   async function sendGroupAndAwait(content: OB11MessageData[]): Promise<{ messageId: number }> {
     context.twoAccountTest.clearAllQueues();
     const primary = context.twoAccountTest.getClient('primary');
@@ -47,7 +34,6 @@ describe('OB11 合并转发深度测试', () => {
     return { messageId };
   }
 
-  /** 发 forward + secondary 接收 + 返回 forward_id */
   async function sendForwardAndGetId(messages: any[]): Promise<{ messageId: number; forwardId: string }> {
     context.twoAccountTest.clearAllQueues();
     const primary = context.twoAccountTest.getClient('primary');
@@ -62,7 +48,6 @@ describe('OB11 合并转发深度测试', () => {
     return { messageId: r.data.message_id, forwardId };
   }
 
-  /** 用 forward_id 拉回 inline messages 列表 */
   async function pullForward(forwardId: string): Promise<any[]> {
     const primary = context.twoAccountTest.getClient('primary');
     const r = await primary.call(ActionName.GoCQHTTP_GetForwardMsg, { message_id: forwardId });
@@ -105,8 +90,7 @@ describe('OB11 合并转发深度测试', () => {
     expect(node0Content.some((s: any) =>
       s.type === OB11MessageDataType.Text && (s.data?.text ?? '').includes(`node-image-${ts}`),
     )).toBe(true);
-    // 节点 1：face 段（QQ NT 合并转发里 face 通常会被 server 退化成文本，但有时也保留）
-    //   只断言 text 后缀必到，face 段保不保留看 server 心情
+    // 节点 1: face 段 server 通常会退化成文本, 只断言 text 后缀
     const node1Content = messages[1].content as any[];
     expect(node1Content.some((s: any) =>
       s.type === OB11MessageDataType.Text && (s.data?.text ?? '').includes(`node-face-${ts}`),
@@ -145,8 +129,7 @@ describe('OB11 合并转发深度测试', () => {
   }, 120000);
 
   it('inline 节点含 reply 段（锚点是普通文本群消息）：reply 段保留 + 客户端能渲染锚点预览', async () => {
-    // 这是 messageBuilding.ts 里 isInsideForward 快照编码功能的端到端测试。
-    // 同样的代码同时给 OB11 / Milky 服务，所以 OB11 这边也应该工作。
+    // messageBuilding.ts isInsideForward 快照编码的端到端测试 (OB11 / Milky 共用)
     const ts = Date.now();
     const anchorText = `【ob11-fwd-anchor-${ts}】这是被引用的锚点`;
     const { messageId: anchorId } = await sendGroupAndAwait([
@@ -169,10 +152,8 @@ describe('OB11 合并转发深度测试', () => {
     const messages = await pullForward(forwardId);
     expect(messages.length).toBe(1);
     const content = messages[0].content as any[];
-    // reply 段必须以 OB11 的 reply type 形式回来
     const reply = content.find((s: any) => s.type === OB11MessageDataType.Reply);
     expect(reply).toBeDefined();
-    // text 后缀保留
     expect(content.some((s: any) =>
       s.type === OB11MessageDataType.Text && (s.data?.text ?? '').includes(`引用上面 ${ts}`),
     )).toBe(true);
@@ -244,7 +225,7 @@ describe('OB11 合并转发深度测试', () => {
         },
       },
     ]).catch((e) => {
-      // OB11 的 segment 'forward' 在 inline 里不一定原生支持，挂了就跳
+      // inline 里的 forward 段不一定支持, 失败就跳过
       console.log('skip nested forward inline (OB11 inline forward not supported):', (e as Error).message);
       return null;
     });

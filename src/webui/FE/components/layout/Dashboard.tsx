@@ -16,7 +16,7 @@ interface DashboardStats {
     memoryPercent: number
     cpu: number
   }
-  // 仅 PMHQ 模式有 (来自 PMHQ /health); 直连没有 QQ 进程 -> 后端不返, 这张卡整个不渲染
+  // 只有 PMHQ 模式有, 没有就不渲染这张卡
   qq?: {
     memory: number
     totalMemory: number
@@ -25,7 +25,7 @@ interface DashboardStats {
     version?: string
   }
   mode?: 'direct' | 'pmhq'
-  // 直连模式的协议端 (--protocol); PMHQ 不返
+  // 只有直连模式有
   protocol?: string
   system?: {
     memory: number
@@ -52,7 +52,7 @@ const CHIP_GRADIENT = 'linear-gradient(135deg, #f43f5e, #ec4899)'
 
 const CHIP = 'shrink-0 whitespace-nowrap text-xs text-theme-muted bg-theme-item px-2 py-0.5 rounded-full'
 
-// 后端只在直连模式下返 protocol; 没登记的端直接显示原值
+// 没登记的显示原值
 const PROTOCOL_LABELS: Record<string, string> = {
   linux: 'Linux',
   windows: 'Windows',
@@ -294,7 +294,7 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
   }
 
   const protocolLabel = stats.protocol ? PROTOCOL_LABELS[stats.protocol] ?? stats.protocol : undefined
-  // 直连没有 QQ 卡 -> 只剩两张, 保持两列不留空位
+  // 直连没有 QQ 卡, 两张时保持两列
   const resourceCardCount = 1 + (stats.qq ? 1 : 0) + (stats.system ? 1 : 0)
 
   return (

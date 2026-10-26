@@ -41,7 +41,6 @@ const ContactList: React.FC<ContactListProps> = ({
   const groupLastTimeMap = useWebQQStore(state => state.groupLastTimeMap)
   const groupLastMessageMap = useWebQQStore(state => state.groupLastMessageMap)
 
-  // 过滤后的好友分组
   const filteredCategories = useMemo(() => {
     if (!searchQuery.trim()) return friendCategories
     const lowerQuery = searchQuery.toLowerCase()
@@ -177,7 +176,6 @@ const ContactList: React.FC<ContactListProps> = ({
   )
 }
 
-// 好友分组列表
 interface FriendCategoryListProps {
   categories: FriendCategory[]
   selectedPeerId?: string
@@ -185,11 +183,9 @@ interface FriendCategoryListProps {
 }
 
 const FriendCategoryList: React.FC<FriendCategoryListProps> = ({ categories, selectedPeerId, onSelect }) => {
-  // 使用 store 管理展开状态
   const { expandedCategories, toggleCategory } = useWebQQStore()
   const expandedSet = useMemo(() => new Set(expandedCategories), [expandedCategories])
 
-  // 对每个分组的好友按置顶状态排序
   const sortedCategories = useMemo(() => {
     return categories.map(category => ({
       ...category,
@@ -244,13 +240,12 @@ const FriendCategoryList: React.FC<FriendCategoryListProps> = ({ categories, sel
   )
 }
 
-// 群组列表
 interface GroupListProps {
   items: GroupItem[]
   unreadCounts: Map<string, number>
   selectedPeerId?: string
   onSelect: (group: GroupItem) => void
-  groupLastTimeMap?: Record<string, number>  // 群最后消息时间映射
+  groupLastTimeMap?: Record<string, number>
   subtitleMap?: Record<string, string>
   showPinnedStyle?: boolean
 }
@@ -259,11 +254,9 @@ const GroupList: React.FC<GroupListProps> = ({ items, unreadCounts, selectedPeer
   // 按置顶状态和最后消息时间排序
   const sortedItems = useMemo(() => {
     const sorted = [...items].sort((a, b) => {
-      // 先按置顶排序
       if (a.isTop && !b.isTop) return -1
       if (!a.isTop && b.isTop) return 1
 
-      // 再按最后消息时间排序
       if (groupLastTimeMap) {
         const aTime = groupLastTimeMap[a.groupCode] || 0
         const bTime = groupLastTimeMap[b.groupCode] || 0
@@ -273,7 +266,6 @@ const GroupList: React.FC<GroupListProps> = ({ items, unreadCounts, selectedPeer
         }
       }
 
-      // 时间相同或没有时间映射时保持原顺序
       return 0
     })
 
@@ -310,7 +302,6 @@ const GroupList: React.FC<GroupListProps> = ({ items, unreadCounts, selectedPeer
 
 
 
-// 最近会话列表
 interface RecentListProps {
   items: RecentChatItem[]
   unreadCounts: Map<string, number>
@@ -325,7 +316,7 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
   const menuRef = useRef<HTMLDivElement>(null)
   const menuPosition = useMenuPosition(contextMenu?.x || 0, contextMenu?.y || 0, menuRef)
 
-  // 计算群助手未读数（msgMask === 2 的群的未读消息总数）
+  // msgMask 2 = 收进群助手
   const groupAssistantUnread = useMemo(() => {
     const assistantGroups = groups.filter(g => g.msgMask === 2)
     let totalUnread = 0
@@ -336,7 +327,6 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
     return totalUnread
   }, [groups, unreadCounts])
 
-  // 计算群助手群数量
   const groupAssistantCount = useMemo(() => {
     return groups.filter(g => g.msgMask === 2).length
   }, [groups])
@@ -352,16 +342,14 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
     })
   }, [items, groups])
 
-  // 获取显示名称（优先显示备注）
+  // 优先显示备注
   const getDisplayName = (item: RecentChatItem): string => {
     if (item.chatType === 2) {
-      // 群聊：查找群备注
       const group = groups.find(g => g.groupCode === item.peerId)
       if (group?.remarkName && group.remarkName !== group.groupName) {
         return group.remarkName
       }
     } else if (item.chatType === 1 || item.chatType === 100) {
-      // 私聊或临时会话：查找好友备注
       for (const category of friendCategories) {
         const friend = category.friends.find(f => f.uin === item.peerId)
         if (friend?.remark && friend.remark !== friend.nickname) {
@@ -449,7 +437,6 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
         />
       ))}
 
-      {/* 右键菜单 - 使用 Portal 渲染到 body */}
       {contextMenu && createPortal(
         <>
           <div
@@ -471,7 +458,6 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
               <span className="flex-1">{contextMenu.item.pinned ? '取消置顶' : '置顶'}</span>
             </button>
 
-            {/* 只有群聊才显示消息接收方式 - 使用共享的 GroupMsgMaskMenu 组件 */}
             {contextMenu.item.chatType === 2 && (
               <GroupMsgMaskMenu
                 groupCode={contextMenu.item.peerId}
@@ -494,7 +480,6 @@ const RecentList: React.FC<RecentListProps> = ({ items, unreadCounts, selectedPe
   )
 }
 
-// 最近会话列表项
 interface RecentListItemProps {
   item: RecentChatItem
   displayName: string
@@ -542,7 +527,6 @@ export const RecentListItem: React.FC<RecentListItemProps> = ({ item, displayNam
   )
 }
 
-// 群助手列表
 interface GroupAssistantListProps {
   groups: GroupItem[]
   recentChats: RecentChatItem[]
@@ -555,7 +539,6 @@ interface GroupAssistantListProps {
 }
 
 const GroupAssistantList: React.FC<GroupAssistantListProps> = ({ groups, recentChats, groupLastTimeMap, groupLastMessageMap, unreadCounts, selectedPeerId, onSelect, onBack }) => {
-  // 过滤出 msgMask === 2 的群（收进群助手不提醒）
   const assistantGroups = useMemo(() => {
     return groups.filter(g => g.msgMask === 2)
   }, [groups])

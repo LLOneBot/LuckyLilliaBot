@@ -75,9 +75,8 @@ export namespace Notify {
       fromUid: ProtoField(1, 'string'),
       toUid: ProtoField(2, 'string'),
       clientSequence: ProtoField(3, 'uint32'),
-      /** 被撤回消息的 msgUid（C2C 公式 (0x01000000<<32)|random） */
+      /** C2C 是 (0x01000000 << 32) | random */
       msgUid: ProtoField(4, 'uint64'),
-      /** 被撤回消息的 32-bit random，server 跨双端一致 */
       random: ProtoField(6, 'uint32'),
       tipInfo: ProtoField(13, {
         tip: ProtoField(2, 'string')
@@ -168,9 +167,7 @@ export namespace Notify {
     setFlag2: ProtoField(11, 'uint32'),
   })
 
-  /**
-   * 0x2DC subtype 16/17/20 内部包装 (after 5-byte header [groupCode + 1 byte] + uint16BE 长度)
-   */
+  /** 0x2DC subtype 16 / 17 / 20 的内层, 前面是 [4B groupCode + 1B + 2B 长度] */
   export const NotifyMessageBody = ProtoMessage.of({
     notifyType: ProtoField(1, 'uint32', 'optional'),
     groupCode: ProtoField(4, 'uint32', 'optional'),
@@ -184,12 +181,7 @@ export namespace Notify {
     reaction: ProtoField(44, GroupReaction, 'optional'),
   })
 
-  /**
-   * 0x2DC subType=16 + field13=12 = GroupNameChange。
-   * 实测 push 把 NotifyMessageBody.eventParam (field 5) 设成这个 sub-msg 的 bytes。
-   *   field 1 (uint32)  = 1 (常量?)
-   *   field 2 (string)  = 新群名 ← 我们要的
-   */
+  /** subType=16 + field13=12 时 NotifyMessageBody.eventParam 的内容; field 1 似乎恒为 1 */
   export const GroupNameChangeBody = ProtoMessage.of({
     field1: ProtoField(1, 'uint32', 'optional'),
     newName: ProtoField(2, 'string'),

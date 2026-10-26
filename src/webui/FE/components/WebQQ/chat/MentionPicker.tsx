@@ -21,9 +21,8 @@ export const MentionPicker: React.FC<MentionPickerProps> = ({
   const containerRef = useRef<HTMLDivElement>(null)
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  // 过滤成员
   const filteredMembers = useMemo(() => {
-    if (!query) return members.slice(0, 20) // 默认显示前20个
+    if (!query) return members.slice(0, 20)
     const lowerQuery = query.toLowerCase()
     return members.filter(m =>
       m.nickname.toLowerCase().includes(lowerQuery) ||
@@ -32,12 +31,10 @@ export const MentionPicker: React.FC<MentionPickerProps> = ({
     ).slice(0, 20)
   }, [members, query])
 
-  // 重置选中索引
   useEffect(() => {
     setSelectedIndex(0)
   }, [query])
 
-  // 键盘导航
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
@@ -61,7 +58,6 @@ export const MentionPicker: React.FC<MentionPickerProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [filteredMembers, selectedIndex, onSelect, onClose])
 
-  // 点击外部关闭
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
@@ -72,7 +68,6 @@ export const MentionPicker: React.FC<MentionPickerProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [onClose])
 
-  // 滚动选中项到可见区域
   useEffect(() => {
     const container = containerRef.current
     if (!container) return

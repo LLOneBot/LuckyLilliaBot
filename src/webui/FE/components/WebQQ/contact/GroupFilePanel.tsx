@@ -14,7 +14,6 @@ interface GroupFilePanelProps {
   locateTarget?: { folderId: string; fileId: string } | null
 }
 
-// 面包屑中的一层目录
 interface Crumb {
   folderId: string
   folderName: string
@@ -39,19 +38,17 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
-  // 目录栈: 空 = 根目录. 只有根目录支持新建文件夹 (createGroupFolder 固定建在根)
+  // 目录栈, 空 = 根目录
   const [path, setPath] = useState<Crumb[]>([])
-  // 内联弹层: 重命名 / 新建文件夹 的输入态
   const [renameTarget, setRenameTarget] = useState<{ type: 'file' | 'folder'; id: string; busId?: number; oldName: string } | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
-  // 删除确认弹层的目标 (文件或文件夹)
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'file' | 'folder'; id: string; busId?: number; name: string } | null>(null)
   const [deleting, setDeleting] = useState(false)
-  // hover tooltip: fixed 定位, 避免被列表 overflow 裁剪. title=完整名, detail=详情行
+  // fixed 定位, 不会被列表的 overflow 裁剪
   const [hoverTip, setHoverTip] = useState<{ title: string; detail: string; x: number; y: number } | null>(null)
-  // 从文件卡片定位打开时高亮的文件 (匹配 fileId 或 fileName), 滚动到可见后 2s 清除
+  // 匹配 fileId 或 fileName, 滚动到可见 2s 后清除
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const fileRowRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
@@ -81,7 +78,7 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
 
   useEffect(() => { load() }, [load])
 
-  // 从文件卡片定位打开: 进到目标文件夹 (子文件夹需从根列表补 folderName) 并标记高亮
+  // 从文件卡片打开时进到目标文件夹并高亮
   useEffect(() => {
     if (!locateTarget) return
     const { folderId, fileId } = locateTarget
@@ -103,7 +100,6 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locateTarget?.folderId, locateTarget?.fileId, groupCode])
 
-  // 列表加载完且有高亮目标: 滚动到该文件行, 2s 后清除高亮
   useEffect(() => {
     if (!highlightId || loading) return
     const matched = files.find(f => f.fileId === highlightId || f.fileName === highlightId)
@@ -118,7 +114,7 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
     setPath(prev => [...prev, { folderId: folder.folderId, folderName: folder.folderName }])
   }
 
-  // 跳到面包屑指定层 (index = -1 表示根目录)
+  // index = -1 是根目录
   const goToCrumb = (index: number) => {
     setPath(prev => prev.slice(0, index + 1))
   }
@@ -311,7 +307,7 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
                     <div className="text-xs text-theme-hint truncate">{folder.fileCount} 个文件 · {folder.creatorName}</div>
                   </div>
                 </button>
-                {/* 手机常显; 桌面默认 hidden 不占位(文本显示全), hover 才 flex 占位, 文本被挤短 truncate 腾空间 */}
+                {/* 手机常显; 桌面 hover 才显示, 平时不占位 */}
                 <div className="flex md:hidden md:group-hover:flex items-center gap-0.5 flex-shrink-0">
                   <button onClick={() => openRename('folder', folder.folderId, folder.folderName)} title="重命名" className="p-1.5 text-theme-hint hover:text-theme hover:bg-theme-item rounded transition-colors">
                     <Pencil size={14} />
@@ -341,7 +337,7 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
                   <div className="text-sm text-theme truncate">{file.fileName}</div>
                   <div className="text-xs text-theme-hint truncate">{detail}</div>
                 </div>
-                {/* 手机常显; 桌面默认 hidden 不占位(文本显示全), hover 才 flex 占位, 文本被挤短 truncate 腾空间 */}
+                {/* 手机常显; 桌面 hover 才显示, 平时不占位 */}
                 <div className="flex md:hidden md:group-hover:flex items-center gap-0.5 flex-shrink-0">
                   <button onClick={() => handleDownload(file)} title="下载" className="p-1.5 text-theme-hint hover:text-pink-500 hover:bg-theme-item rounded transition-colors">
                     <Download size={14} />
@@ -360,7 +356,6 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
         )}
       </div>
 
-      {/* 重命名弹层 */}
       {renameTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
           <div className="glass glass-thick r-panel glass-pop p-5 w-80 max-w-[90vw]">
@@ -380,7 +375,6 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
         </div>
       )}
 
-      {/* 删除确认弹层 */}
       {deleteTarget && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
           <div className="glass glass-thick r-panel glass-pop p-5 w-80 max-w-[90vw]">
@@ -399,7 +393,7 @@ const GroupFilePanel: React.FC<GroupFilePanelProps> = ({ groupCode, onClose, loc
         </div>
       )}
 
-      {/* hover tooltip 泡泡: Portal 到 body 脱离面板的 backdrop-blur (否则 fixed 会相对该容器而非视口); pointer-events-none 不挡鼠标 */}
+      {/* Portal 到 body: 面板有 backdrop-blur, fixed 会相对它定位而不是视口 */}
       {hoverTip && (
         <Portal>
           <div

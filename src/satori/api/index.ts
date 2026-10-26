@@ -36,40 +36,31 @@ export type Handler<
 > = (ctx: Context, payload: P) => Awaitable<ObjectToSnake<R>>
 
 export const handlers: Record<string, Handler> = {
-  // 频道 (Channel)
   getChannel,
   getChannelList,
   updateChannel,
   deleteChannel,
   muteChannel,
   createDirectChannel,
-  // 群组 (Guild)
   getGuild,
   getGuildList,
   handleGuildRequest,
-  // 登录信息 (Login)
   getLogin,
-  // 群组成员 (GuildMember)
   getGuildMember,
   getGuildMemberList,
   kickGuildMember,
   muteGuildMember,
   handleGuildMemberRequest,
-  // 消息 (Message)
   createMessage,
   getMessage,
   deleteMessage,
   getMessageList,
-  // 表态 (Reaction)
   createReaction,
   deleteReaction,
   getReactionList,
-  // 群组角色 (GuildRole)
   setGuildMemberRole,
   getGuildRoleList,
-  // 用户 (User)
   getUser,
-  // 好友 (Friend)
   getFriendList,
   handleFriendRequest,
   deleteFriend

@@ -5,7 +5,7 @@ import type { FriendItem, GroupItem } from '../../../types/webqq'
 import { useWebQQStore } from '../../../stores/webqqStore'
 import { GroupMsgMask, setGroupMsgMask, getUserAvatar } from '../../../utils/webqqApi'
 
-// 计算菜单位置，确保不超出屏幕
+// 保证菜单不超出屏幕
 export function useMenuPosition(x: number, y: number, menuRef: React.RefObject<HTMLDivElement>) {
   const [position, setPosition] = useState<{ left: number; top: number; ready: boolean }>({ left: -9999, top: -9999, ready: false })
 
@@ -46,7 +46,6 @@ export function useMenuPosition(x: number, y: number, menuRef: React.RefObject<H
   return position
 }
 
-// 群消息接收方式菜单（共享组件）
 interface GroupMsgMaskMenuProps {
   groupCode: string
   onClose: () => void
@@ -60,7 +59,6 @@ export const GroupMsgMaskMenu: React.FC<GroupMsgMaskMenuProps> = ({ groupCode, o
   const handleSetMsgMask = async (msgMask: GroupMsgMask) => {
     try {
       await setGroupMsgMask(groupCode, msgMask)
-      // 更新本地 groups 数据
       const updatedGroups = groups.map(g =>
         g.groupCode === groupCode ? { ...g, msgMask } : g
       )
@@ -72,7 +70,6 @@ export const GroupMsgMaskMenu: React.FC<GroupMsgMaskMenuProps> = ({ groupCode, o
     onClose()
   }
 
-  // 获取当前群的 msgMask
   const currentMsgMask = groups.find(g => g.groupCode === groupCode)?.msgMask
 
   return (
@@ -130,7 +127,6 @@ export const GroupMsgMaskMenu: React.FC<GroupMsgMaskMenuProps> = ({ groupCode, o
   )
 }
 
-// 好友列表项
 interface FriendListItemProps {
   friend: FriendItem
   isSelected: boolean
@@ -226,7 +222,6 @@ export const FriendListItem: React.FC<FriendListItemProps> = ({ friend, isSelect
   )
 }
 
-// 群组列表项
 interface GroupListItemProps {
   group: GroupItem
   isSelected: boolean
@@ -323,7 +318,6 @@ export const GroupListItem: React.FC<GroupListItemProps> = ({ group, isSelected,
             <span className="flex-1">{group.isTop ? '取消置顶' : '置顶'}</span>
           </button>
 
-          {/* 使用共享的消息接收方式菜单 */}
           <GroupMsgMaskMenu groupCode={group.groupCode} onClose={closeContextMenu} />
         </div>,
         document.body

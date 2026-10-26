@@ -1,9 +1,4 @@
-﻿/**
- * forward_single_msg 接口测试
- * 测试转发单条消息功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llbot/onebot11/types';
@@ -23,7 +18,6 @@ describe('forward_single_msg - 转发单条消息', () => {
     context.twoAccountTest.clearAllQueues();
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先发送一条群消息
     const testMessage: OB11MessageData[] = [{
       type: OB11MessageDataType.Text,
       data: {
@@ -39,13 +33,11 @@ describe('forward_single_msg - 转发单条消息', () => {
     Assertions.assertSuccess(sendResponse, 'send_group_msg');
     const messageId = sendResponse.data.message_id;
 
-    // 等待消息被接收
     await context.twoAccountTest.secondaryListener.waitForEvent({
       post_type: 'message',
       message_id: messageId,
     });
 
-    // 转发消息到同一个群
     const forwardResponse = await primaryClient.call(ActionName.ForwardGroupSingleMsg, {
       group_id: context.testGroupId,
       message_id: messageId
@@ -54,7 +46,6 @@ describe('forward_single_msg - 转发单条消息', () => {
     Assertions.assertSuccess(forwardResponse, 'forward_group_single_msg');
     Assertions.assertResponseHasFields(forwardResponse, ['message_id']);
 
-    // 等待转发的消息被接收
     await context.twoAccountTest.secondaryListener.waitForEvent({
       post_type: 'message',
       message_type: 'group',
@@ -65,7 +56,6 @@ describe('forward_single_msg - 转发单条消息', () => {
     context.twoAccountTest.clearAllQueues();
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先发送一条私聊消息
     const testMessage: OB11MessageData[] = [{
       type: OB11MessageDataType.Text,
       data: {
@@ -81,12 +71,10 @@ describe('forward_single_msg - 转发单条消息', () => {
     Assertions.assertSuccess(sendResponse, 'send_private_msg');
     const messageId = sendResponse.data.message_id;
 
-    // 等待消息被接收
     await context.twoAccountTest.secondaryListener.waitForEvent({
       post_type: 'message',
     });
 
-    // 转发消息到同一个好友
     const forwardResponse = await primaryClient.call(ActionName.ForwardFriendSingleMsg, {
       user_id: context.secondaryUserId,
       message_id: messageId
@@ -95,7 +83,6 @@ describe('forward_single_msg - 转发单条消息', () => {
     Assertions.assertSuccess(forwardResponse, 'forward_friend_single_msg');
     Assertions.assertResponseHasFields(forwardResponse, ['message_id']);
 
-    // 等待转发的消息被接收
     await context.twoAccountTest.secondaryListener.waitForEvent({
       post_type: 'message',
       message_type: 'private',

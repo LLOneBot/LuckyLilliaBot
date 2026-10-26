@@ -5,17 +5,7 @@ import {
   TimeoutError,
 } from '../../test-framework/src/index.js'
 
-/**
- * Satori Event 形状：`{ id, type, timestamp, login, ... }`，type 是协议层定义的字符串：
- *   - 'message-created' / 'message-deleted' / 'message-updated'
- *   - 'reaction-added' / 'reaction-removed'
- *   - 'guild-added' / 'guild-removed' / 'guild-request'
- *   - 'guild-member-added' / 'guild-member-removed' / 'guild-member-request'
- *   - 'friend-request' / 'login-added' / 'login-removed' / ...
- * 不同 type event 的额外字段（user / channel / guild / message / member / role）由 type 决定。
- *
- * 见 Universal.Event from @satorijs/protocol。这里用 any 是因为测试只需要按 path 校验子字段。
- */
+/** 见 @satorijs/protocol 的 Universal.Event; 测试只按字段校验, 所以都用 any */
 export interface SatoriEvent {
   id?: number
   sn?: number
@@ -31,22 +21,15 @@ export interface SatoriEvent {
   [key: string]: any
 }
 
-/** 跟 OB11 EventFilter 类似的浅匹配：顶层 type 必匹，其它 key 走深路径校验。 */
+/** 只比顶层字段 */
 export interface SatoriEventFilter {
   type?: string
   [key: string]: unknown
 }
 
 /**
- * Satori 事件监听器。
- *
- * 协议层（详见 src/satori/server.ts 的 registerRoutes）：
- *   1. 客户端连 GET ws://host:port/v1/events 升级为 WS
- *   2. 客户端发 `{op: 3, body: {token: '<bearer>'}}` (IDENTIFY)
- *   3. 服务端回 `{op: 4, body: {logins: [...]}}` (READY) — 这之后才会推 EVENT
- *   4. 服务端推 `{op: 0, body: <Event>}` 流式事件
- *   5. 客户端心跳 `{op: 1, body: {}}` (PING)，server 回 `{op: 2, body: {}}` (PONG)
- *      (我们 30s heartbeat；jest 测试用例 timeout 一般 < 30s 所以可省掉)
+ * 连 ws://host:port/v1/events, 发 IDENTIFY (op 3) 带 token, 收到 READY (op 4) 之后才有 EVENT (op 0)。
+ * 不发 PING (op 1): 心跳 30s 一次, 用例一般撑不到 30s
  */
 export class SatoriEventListener implements IEventListener<SatoriEvent, SatoriEventFilter> {
   private ws: WebSocket | null = null
@@ -75,7 +58,6 @@ export class SatoriEventListener implements IEventListener<SatoriEvent, SatoriEv
       this.ws = new WebSocket(wsUrl)
 
       this.ws.on('open', () => {
-        // 立刻 IDENTIFY；server 回 READY 才算订阅成功
         this.ws!.send(JSON.stringify({
           op: 3, // IDENTIFY
           body: { token: cfg.apiKey || '' },
@@ -143,7 +125,6 @@ export class SatoriEventListener implements IEventListener<SatoriEvent, SatoriEv
     customFilter?: (e: SatoriEvent) => boolean,
     timeoutMs = 15000,
   ): Promise<SatoriEvent> {
-    // 先从已到队列里找
     const idx = this.eventQueue.findIndex(e => this.match(e, filter, customFilter))
     if (idx !== -1) {
       const [hit] = this.eventQueue.splice(idx, 1)
@@ -163,7 +144,7 @@ export class SatoriEventListener implements IEventListener<SatoriEvent, SatoriEv
   }
 
   private handleEvent(event: SatoriEvent): void {
-    // 优先派发给等待中的 handler
+    // 有等待中的 handler 要它就直接消费, 不进队列
     for (let i = 0; i < this.eventHandlers.length; i++) {
       const h = this.eventHandlers[i]
       if (this.match(event, h.filter, h.customFilter)) {
@@ -173,7 +154,6 @@ export class SatoriEventListener implements IEventListener<SatoriEvent, SatoriEv
         return
       }
     }
-    // 没人等就入队，给后来的 waitForEvent 拿
     this.eventQueue.push(event)
     if (this.eventQueue.length > 200) this.eventQueue.shift()
   }
@@ -185,10 +165,7 @@ export class SatoriEventListener implements IEventListener<SatoriEvent, SatoriEv
   ): boolean {
     for (const [k, want] of Object.entries(filter)) {
       const actual = (event as any)[k]
-      // satori 协议里 channel.id / user.id / message.id / sender_id 等字段
-      // 类型混乱：有时是 number 有时是 string（见 src/satori/utils.ts decodeUser/decodeGuild
-      // 之类）。测试里通常用 string 比对（因为 testGroupId / userId 都是 string），但
-      // server 推下来可能是 number。这里做宽松对比，只要 String 化后相等就算 match。
+      // id 类字段有时是 number 有时是 string (见 src/satori/utils.ts), 按 String 比
       if (actual === want) continue
       if (actual !== undefined && want !== undefined && String(actual) === String(want)) continue
       return false

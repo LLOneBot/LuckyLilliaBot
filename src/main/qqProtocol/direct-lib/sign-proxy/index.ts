@@ -14,8 +14,7 @@ const requireBin = createRequire(import.meta.url)
 const isDev = isDevMode()
 const baseName = isDev ? 'sign-proxy-dev' : 'sign-proxy'
 
-// alpine/musl 判据: glibc 的 node report 带 glibcVersionRuntime, musl 上没有 (napi-rs 同款).
-// 兜底再看 alpine 标志文件 / musl 动态加载器. 直连 sign-proxy .node 分 glibc / musl 两套 (ABI 不通用).
+// glibc 的 node report 带 glibcVersionRuntime, musl 上没有; 兜底看 alpine 标志文件和 musl 动态加载器
 function isMusl(): boolean {
   if (process.platform !== 'linux') return false
   try {
@@ -37,7 +36,7 @@ function pickTriple(): string {
   throw new Error(`sign-proxy: unsupported platform ${p}-${a}; rebuild lucky-lillia-sign-proxy on this target and drop the .node into ${here}`)
 }
 
-/** 读 sign-proxy 版本号. 版本号塞进 tmpdir 文件名做 .node 热更新缓存 key. */
+/** 版本号是 tmpdir 里 .node 副本的缓存 key */
 function pickVersion(): string {
   try {
     const pkg = JSON.parse(readFileSync(join(here, `${baseName}.package.json`), 'utf-8'))
@@ -49,17 +48,8 @@ function pickVersion(): string {
 }
 
 /**
- * 把同目录的 .node 拷到 tmpdir/lucky-lillia-sign-proxy/<baseName>.<triple>.<version>.node 再 require.
- *
- * 为什么转一道: Bot 跑着时 require 的 .node 文件被 OS 锁定 (Windows 尤甚), 无法被
- * `npm run build:dev-bot` / 外部部署脚本覆盖 -- 等于阻止热更新. 转 tmpdir + 把版本号
- * 串进文件名后, 升级时 src/ 目录 .node 随便覆盖 (它没被 require), 重启 Bot 时
- * version bump -> 新 tmpdir 路径 -> 新文件被复制并 require, 旧 tmpdir 副本留着不影响.
- *
- * 复制策略 (existsSync 优先, copy 失败 swallow):
- *   1. 目标已存在 -> 直接用, 不复制 (这是 99% 的情况, 同一版本第二次起 Bot)
- *   2. 不存在 -> copyFileSync; 失败 (e.g. tmpdir 写不进) -> fallback 到原路径加载
- *      (开发场景方便; 生产 tmpdir 总该可写)
+ * 拷到 tmpdir/lucky-lillia-sign-proxy/<baseName>.<triple>.<version>.node 再 require: 被 require 的 .node 会被 OS
+ * 锁住 (Windows 尤甚), Bot 运行时没法覆盖升级。拷贝失败就直接加载原路径
  */
 function ensureLoadablePath(srcPath: string, version: string, triple: string): string {
   const cacheRoot = join(tmpdir(), 'lucky-lillia-sign-proxy')
@@ -82,55 +72,33 @@ interface Native {
   init(args: InitArgs, sendPacket: (p: RelayPacket) => Promise<Buffer>, logger: (log: SignLog) => void): Promise<void>
   ping(): string
   setAuthToken(authToken: string): Promise<void>
-  /** 运行中切换 16B device GUID (hex). 老版 .node 没这 export 时 swallow. */
   setMachineGuid?(guidHex: string): void
   preflight(): Promise<string | null>
-  /**
-   * 登录前软校验 auth_token (打 /api/sign/info, 401/403 不 exit)。base_url 跟 sign 链路同源。
-   * 返回 "valid" / "invalid" / "retry:<reason>"。老版 .node 没这 export 时为 undefined。
-   */
+  /** 401/403 不 exit。返回 "valid" / "invalid" / "retry:<reason>" */
   validateAuthToken?(args: ValidateAuthTokenArgs): Promise<string>
   signRequest(args: SignRequestArgs): Promise<SignResultJs>
   acquireSignToken(args: AcquireSignTokenArgs): Promise<AcquireSignTokenResult>
   postEnvelope(args: PostEnvelopeArgs): Promise<string>
-  /**
-   * Linux ESK -> SA: 用 SDK 采的设备事实本地组 device_pb, 先 ESK 拿 token1, 再 SA 换 token2
-   * (登录态活跃 sign-token), 返回 token2。走 bot 自己的 SSO 发, 本地解, 不经 manager
-   * (acquireSignToken 那条要打 manager 两趟 HTTP)。老 .node 没这个 export 时为 undefined。
-   */
+  /** ESK 拿 token1, 再 SA 换 token2 返回; 包走 bot 自己的 SSO, 不经 manager */
   getLinuxSAToken?(args: LinuxEskTokenArgs): Promise<LinuxTokenResult>
   startSsoReportLinux?(args: StartSsoReportLinuxArgs): Promise<void>
   stopSsoReport?(): void
-  /**
-   * 取 Linux SsoReport 的 xwid body (常量 protobuf)。Bot 侧 sendXwidBurst 用它做登录连号突发:
-   * body 恒定, 每帧只 sign(ts 各异) 不同。reportId 缺省 = 跨装机常量 "0df00071646"。
-   * 同步返回 Buffer。老 .node 没这个 export 时为 undefined。
-   */
+  /** body 恒定, 每帧只有 sign 不同。reportId 默认是跨装机常量 "0df00071646" */
   buildXwidBody?(qua: string, reportId?: string | null): Buffer
-  /**
-   * Linux xwid 登录突发**批量签**: 一次调用返回 count 个各异 sign (Rust 循环, ~450k/s, count=2500≈5ms)。
-   * 取代 Bot 逐条 signRequest 打 count 次 NAPI 往返 (那才是慢的根源)。老 .node 没这个 export 时为 undefined。
-   */
+  /** 一次调用签 count 条, 省掉逐条 signRequest 的 NAPI 往返 */
   signXwidBurst?(args: SignRequestArgs, count: number): Promise<SignResultJs[]>
-  // ---- macOS o3 链 (全部本地组包, 只借 sendPacket 走 bot 自己的 SSO) ----
-  // 老 .node 没这几个 export 时为 undefined, 调用前先判一下再报"请重新 build"。
-  /** qimei 取号。打 StarTrail, 走**本机**网络出口 (服务端代取会把全站设备注册到同一 IP)。 */
+  // ---- macOS o3: 本地组包, 只借 sendPacket 走 bot 的 SSO ----
+  /** StarTrail 取号必须走本机出口: 服务端代取会把所有设备注册在同一个 IP */
   getMacosQimei?(args: MacosQimeiArgs): Promise<MacosQimeiResult>
-  /** 组 device_pb (34 字段设备指纹) hex, o3 各步共用同一份。 */
+  /** 34 字段的设备指纹, o3 各步共用 */
   buildMacosDevicePb?(args: MacosDevicePbArgs): string
-  /** 登录前 ESK: 拿引导 token1; 通道 (aesKey/shareId) 缓存在 .node 内, 不出 Rust。 */
+  /** 登录前 ESK 拿 token1; 通道密钥只留在 .node 里 */
   getMacosEskToken?(args: MacosEstablishArgs): Promise<MacosTokenResult>
-  /** 登录后业务 token: A2Establish + A2Access 一步跑完 (通道/密钥全在 .node 内, 复用缓存的 ESK 通道)。 */
+  /** 登录后 A2Establish + A2Access, 复用缓存的 ESK 通道 */
   getMacosLoginToken?(args: MacosEstablishArgs): Promise<MacosTokenResult>
-  /**
-   * 登录后一把发 macOS o3 SsoReport 爆发 (sec_init + channel_report + env_detect + login 埋点)。
-   * 名字跟 startSsoReportLinux 对齐; macOS 是**一次性**爆发 (非循环), 无需 stop。老 .node 无此 export 时 undefined。
-   */
+  /** 一次性爆发 (sec_init + channel_report + env_detect + login), 不用 stop */
   startSsoReportMacos?(args: StartSsoReportMacosArgs): Promise<void>
-  /**
-   * macOS 免扫码 EasyLogin: SsoKeyExchange 握手 + SsoNTLoginEasyLogin, 用存档 TLV 0x106 凭证刷新
-   * d2/d2key/tgt/0x106。success=false 表示任一步失败 (不抛错), 调用方回退直接恢复 / 扫码。老 .node 无此 export 时 undefined。
-   */
+  /** SsoKeyExchange + SsoNTLoginEasyLogin, 用存档的 0x106 刷新 d2 / d2key / tgt / 0x106。失败不抛, success=false */
   macosEasyLogin?(args: MacosEasyLoginArgs): Promise<MacosEasyLoginResult>
 }
 
@@ -144,11 +112,11 @@ export interface LinuxTokenResult {
   token: string
   /** ESK 响应 field 3 的 TTL(秒); 没解析到是 0 —— 调用方别直接拿 0 算过期时间。 */
   ttlSecs: number
-  /** 诊断 (攒样本定 TTL 语义, 不参与过期计算): ESK 内层明文 field2 原值; 老 .node 无此字段。 */
+  /** 诊断用, 不参与过期计算: ESK 内层 field2 */
   eskInnerF2?: number
-  /** 诊断: ESK 内层 field3 (相对 TTL 或绝对时间戳, 待定)。 */
+  /** 诊断用: ESK 内层 field3, 是相对 TTL 还是绝对时间戳待定 */
   eskInnerF3?: number
-  /** 诊断: ESK 内层 field4 子消息里跟 token 同级的时间戳。 */
+  /** 诊断用: ESK 内层 field4 里跟 token 同级的时间戳 */
   eskInnerTokenTs?: number
 }
 
@@ -188,17 +156,15 @@ export interface MacosEstablishArgs {
 }
 
 export interface MacosTokenResult {
-  /** 12B token; 解不出是空串而不是报错。aesKey/shareId 不出 Rust, 这里看不到。 */
+  /** 12B token; 解不出是空串而不是报错 */
   token: string
   ttlSecs: number
 }
 
 export interface StartSsoReportMacosArgs {
-  /** 32-hex 设备 guid (= report body arg[2], 与登录 / device_pb 同源)。 */
+  /** 32-hex, 与登录 / device_pb 同源 */
   guidHex: string
-  /** 设备 qimei36 (= report body arg[3])。 */
   qimei36: string
-  /** 账号 uin (进 login 埋点)。 */
   uin: string
   /** QQ.app 的 Contents/Resources/app 绝对路径; 缺省 /Applications/QQ.app/Contents/Resources/app。 */
   appDir?: string
@@ -213,12 +179,12 @@ export interface MacosEasyLoginArgs {
   /** 稳定设备种子 hex (= machine guid; 派生 serial/osver, 与 device_pb 同源)。 */
   seedHex: string
   qua: string
-  /** 设备 qimei36 (复用 synth_device; 不影响 serial)。可省。 */
+  /** 不影响 serial */
   q36?: string
 }
 
 export interface MacosEasyLoginResult {
-  /** 全链成功才 true; 任一步失败 false (其余字段空)。 */
+  /** false 时其余字段为空 */
   success: boolean
   d2Hex: string
   /** 注意 napi 命名: 数字后首字母大写, 故 d2key_hex -> d2KeyHex (跟 SessionInfo.d2Key 一致)。 */
@@ -239,22 +205,20 @@ export interface InitArgs {
   authToken: string
   /** 16B device GUID hex (32 chars). 跟 wtlogin client.guid 同源. */
   machineGuidHex: string
-  /** 当前账号 uin, 可选; 没有就等登录完成 SignProxy 自己绑. */
+  /** 没有的话 SignProxy 等登录后自己绑 */
   uin?: number
-  /** 接入点 CDN: "cf" (默认) / "china". 决定 base_url + TLS pin. 不传按 cf. */
+  /** "cf" (默认) / "china" */
   cdn?: string
 }
 
-/** 发包回调入参: 把 body relay 给 QQ 的 cmd. */
 export interface RelayPacket {
   cmd: string
   body: Buffer
-  /** [SA 1001 修复] 本命令签名用的 12B sign-token (SecInfo sf2); 仅 SA 带 = token1。
-   *  缺省 = Bot 用 session 默认 token (ESK/其它命令走这条)。 */
+  /** 本命令 SecInfo sf2 的签名 token, 只有 SA 带 (token1); 缺省用 session 的 token */
   signToken?: string
 }
 
-/** SDK logger 回调入参: level 是 "warn" / "error". 401/403 fatal 时 SDK 报 error 然后 exit. */
+/** level: "warn" / "error"。401/403 时 SDK 报 error 后会 exit */
 export interface SignLog {
   level: string
   message: string
@@ -262,7 +226,7 @@ export interface SignLog {
 
 export interface ValidateAuthTokenArgs {
   authToken: string
-  /** "cf" | "china"; 省略按 cf。dev build 忽略 (base_url 编译期锁 localhost)。 */
+  /** "cf" (默认) / "china"; dev build 忽略 */
   cdn?: string
 }
 
@@ -276,12 +240,8 @@ export interface SignRequestArgs {
   /** QQ 12B session token 的 utf-8 hex (登录后由 acquireSignToken 拿到). 登录前传 "". */
   protocolTokenHex: string
   /**
-   * watch 端设备身份: 32B per-install GUID 的 hex (64 chars). 仅 watch 协议需要 —— 后端据此
-   * 派生 device_blob 做设备绑定; **不传的话后端用空 blob = 模拟器身份, 真机服务器会拒**。
-   * Linux/macOS 省略即可。
-   *
-   * 注意: 这是手写 loader, 原生侧 napi `#[napi(object)]` 对未知字段是**静默丢弃**的 ——
-   * 声明加了但 .node 没重编的话, 传了也白传且不报错。加字段必须连带重编 + sync-to-bot。
+   * 仅 watch: 32B per-install GUID 的 hex。不传后端就用空 blob, 即模拟器身份, 会被真机服务器拒。
+   * napi 对未知字段静默丢弃: 加字段必须重编 .node 并 sync-to-bot, 否则传了也白传
    */
   device32Hex?: string
 }

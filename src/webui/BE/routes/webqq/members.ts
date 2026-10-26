@@ -6,7 +6,6 @@ import { serializeResult } from '../../utils'
 export function createMembersRoutes(ctx: Context): Hono {
   const router = new Hono()
 
-  // 获取群成员列表
   router.get('/members', async (c) => {
     try {
       const { groupCode } = c.req.query() as { groupCode: string }
@@ -33,7 +32,6 @@ export function createMembersRoutes(ctx: Context): Hono {
         })
       }
 
-      // 按角色排序：群主 > 管理员 > 成员
       const roleOrder = { owner: 0, admin: 1, member: 2 }
       members.sort((a, b) => roleOrder[a.role as keyof typeof roleOrder] - roleOrder[b.role as keyof typeof roleOrder])
 
@@ -44,7 +42,7 @@ export function createMembersRoutes(ctx: Context): Hono {
     }
   })
 
-  // 获取用户信息（通过 uid）- 保留兼容
+  // 兼容旧调用
   router.get('/user-info', async (c) => {
     try {
       const { uid } = c.req.query() as { uid: string }
@@ -71,7 +69,6 @@ export function createMembersRoutes(ctx: Context): Hono {
     }
   })
 
-  // 单个群成员详情（含群名片 / 群头衔 / 入群时间等）
   router.get('/group-member', async (c) => {
     try {
       const { groupCode, uid } = c.req.query() as { groupCode: string, uid: string }
@@ -89,7 +86,6 @@ export function createMembersRoutes(ctx: Context): Hono {
     }
   })
 
-  // 群详情（群名 / 群主 / 简介 / 公告）
   router.get('/group-detail', async (c) => {
     try {
       const { groupCode } = c.req.query() as { groupCode: string }
@@ -104,7 +100,6 @@ export function createMembersRoutes(ctx: Context): Hono {
     }
   })
 
-  // uin → uid
   router.get('/uid', async (c) => {
     try {
       const { uin, groupCode } = c.req.query() as { uin: string, groupCode?: string }
@@ -119,7 +114,6 @@ export function createMembersRoutes(ctx: Context): Hono {
     }
   })
 
-  // uid → uin
   router.get('/uin', async (c) => {
     try {
       const { uid } = c.req.query() as { uid: string }
@@ -134,10 +128,6 @@ export function createMembersRoutes(ctx: Context): Hono {
     }
   })
 
-  // 用户详情 — 替代旧的 fetchUserDetailInfo / getUserSimpleInfo 反射调用。
-  // 我们的 NT API 实现 getUserByUid / getUserByUin 返回的是已经解析好的 User 对象
-  // (含 nick / level / regTime / qid / labels 等)，FE 直接用这个 shape 替代旧的
-  // simpleInfo.coreInfo.* / commonExt.qqLevel.level 嵌套结构。
   router.get('/user', async (c) => {
     try {
       const { uid, uin } = c.req.query() as { uid?: string, uin?: string }

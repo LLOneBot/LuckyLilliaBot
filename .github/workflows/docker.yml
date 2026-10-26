@@ -41,7 +41,6 @@ jobs:
             # Manual trigger - check if version is provided
             input_version="${{ github.event.inputs.version }}"
             if [ -n "$input_version" ] && [ "$input_version" != "" ]; then
-              # Use provided version
               version="$input_version"
               echo "Version from manual input: $version"
             else

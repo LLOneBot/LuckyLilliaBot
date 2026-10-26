@@ -27,10 +27,10 @@ class GetGroupInfo extends BaseAction<Payload, OB11Group> {
       max_member_count: group.maxMemberCount,
       remark_name: group.remark,
       avatar_url: `https://p.qlogo.cn/gh/${group.groupCode}/${group.groupCode}/0`,
-      owner_id: Number(await this.ctx.ntUserApi.getUinByUid(group.ownerUid)),  // 群主 QQ 号
-      is_top: group.isPin,  // 是否置顶群聊
-      shut_up_all_timestamp: group.groupShutupExpireTime,  // 群全员禁言截止时间
-      shut_up_me_timestamp: group.personShutupExpireTime  // 我被禁言截止时间
+      owner_id: Number(await this.ctx.ntUserApi.getUinByUid(group.ownerUid)),
+      is_top: group.isPin,
+      shut_up_all_timestamp: group.groupShutupExpireTime,
+      shut_up_me_timestamp: group.personShutupExpireTime
     }
   }
 }

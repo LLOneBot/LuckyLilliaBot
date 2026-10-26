@@ -13,9 +13,7 @@ export function FriendMixin<T extends abstract new (...args: any[]) => QQProtoco
       return await this.sendOidb(0xed3, 1, body)
     }
 
-    /**
-     * 取私聊文件下载 url。field 10 是 query 发起者自己的 uid（PMHQ 抓包验过）。
-     */
+    /** field 10 是发起者自己的 uid */
     async getPrivateFileUrl(receiverUid: string, fileUuid: string) {
       const body = Oidb.GetPrivateFileReq.encode({
         subCommand: 1200,
@@ -194,16 +192,8 @@ export function FriendMixin<T extends abstract new (...args: any[]) => QQProtoco
     }
 
     /**
-     * 拉取与某个**好友**之间的最新 c2cMsgSeq。
-     *
-     * server cmd: trpc.msg.msg_svc.MsgService.SsoGetPeerSeq
-     * 入参：只接受 user uid（u_xxx 格式），不能传群 code（server 内部要把 peerUid 转 uin，
-     *       群 code 转换失败会返回 "rsp uid convert to uin all fail"，全 0）。
-     * 返回 (实测)：
-     *   seq1, seq2 = 双端一致的 c2cMsgSeq；多数情况下相等，偶尔差 1（可能分别是发/收方向的最后一条）。
-     *   latestMsgTime = 跟该 peer 最后一条消息的时间戳。
-     *
-     * 群聊场景请改用 fetchGroupExtra → info.results.latestMessageSeq（OidbSvcTrpcTcp.0x88d_0）。
+     * 只接受好友 uid, 传群号回 "rsp uid convert to uin all fail"; 群用 fetchGroupExtra 的 latestMessageSeq。
+     * seq1 / seq2 多数相等, 偶尔差 1 (可能分别是收发两个方向)
      */
     async getFriendLatestSequence(peerUid: string) {
       const data = Action.SsoGetPeerSeqReq.encode({

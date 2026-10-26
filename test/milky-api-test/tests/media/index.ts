@@ -1,7 +1,4 @@
-/**
- * milky 包共享 onebot11-api-test 的媒体资源（避免重复维护两份 fixture）。
- * tsconfig.json 用 paths 别名 `@/...` 指向 milky 包 src；这里直接 file:// 读 OB11 包的 tests/media/*.
- */
+// 跟 onebot11-api-test 共用媒体 fixture
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { existsSync, mkdirSync } from 'node:fs'
@@ -25,7 +22,7 @@ function generateFreshVideo(): string {
   if (!existsSync(generatedDir)) mkdirSync(generatedDir, { recursive: true })
   const ts = `${Date.now()}${process.hrtime.bigint()}`
   const out = path.join(generatedDir, `big-${ts}.mp4`)
-  // 跟 OB11 测试保持同样的 fontfile 配置（gyan portable ffmpeg drawtext 需要显式 fontfile）
+  // 同 OB11 测试: gyan portable ffmpeg 的 drawtext 要显式 fontfile
   const fontfile = process.platform === 'win32'
     ? `'C\\:/Windows/Fonts/arial.ttf'`
     : `'/System/Library/Fonts/Helvetica.ttc'`

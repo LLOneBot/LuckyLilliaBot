@@ -1,7 +1,3 @@
-/**
- * 文件相关接口测试入口
- */
-
 export * from './get-file.test';
 export * from './get-image.test';
 export * from './get-record.test';

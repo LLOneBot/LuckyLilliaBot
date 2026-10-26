@@ -1,8 +1,5 @@
-// 当前登录账号 uin: WebUI 单实例可登录多个账号 (后端切换 / 浏览器同源多 tab),
-// 凡是按账号隔离的存储 key 都要拼这个前缀.
-//
-// 写入位置: App.tsx 检查到 selfInfo.online 时 setItem.
-// 在写入前 (即未登录时) 返回空串, caller 应自己判断空 -> 不持久化.
+// 按账号隔离的存储 key 都要拼这个前缀, 同一浏览器可能先后登录多个账号。App.tsx 在 selfInfo.online 时写入,
+// 之前返回空串, 调用方见到空串就不要持久化
 
 const KEY = 'current-uin'
 

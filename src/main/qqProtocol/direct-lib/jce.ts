@@ -1,6 +1,4 @@
-// Minimal JCE (TARS/TAF) codec for the legacy MSF services QQ NT still carries (ConfigPushSvc).
-// Only the field types that appear in ConfigPushSvc.PushReq/PushResp are handled. JCE head byte =
-// (tag<<4)|type; tag 15 escapes to a following byte. See docs/Linux (ConfigPush reverse, 2026-10-06).
+// Minimal JCE (TARS) codec, only the types ConfigPushSvc uses. Head byte = (tag<<4)|type; tag 15 escapes to the next byte
 
 export const enum JceType {
   INT1 = 0, INT2 = 1, INT4 = 2, INT8 = 3, FLOAT = 4, DOUBLE = 5,
@@ -33,8 +31,7 @@ export class JceReader {
     }
   }
 
-  // Read one value of the given type (enough subset for ConfigPush). Returns number | string |
-  // Buffer (SIMPLE_LIST) | Map (MAP/UniAttribute) | Record (STRUCT).
+  // number | string | Buffer (SIMPLE_LIST) | Map (MAP) | Record (STRUCT)
   private value(type: number): unknown {
     switch (type) {
       case JceType.ZERO: case JceType.INT1: case JceType.INT2:
@@ -71,19 +68,17 @@ export class JceReader {
     }
   }
 
-  /** Read the next field (any tag); returns its tag + decoded value. */
   readField(): { tag: number; value: unknown } {
     const { tag, type } = this.head()
     return { tag, value: this.value(type) }
   }
 
-  /** Read an int field regardless of its int width (helper for lengths/sizes). */
+  /** Any int width. */
   readInt(): number {
     const { type } = this.head()
     return this.int(type)
   }
 
-  /** Decode the whole buffer as a tag->value record (top-level fields). */
   decodeAll(): Record<number, unknown> {
     const o: Record<number, unknown> = {}
     while (!this.eof) {
@@ -93,8 +88,6 @@ export class JceReader {
     return o
   }
 }
-
-// --- JCE writer (only what PushResp needs) ---
 
 function head(tag: number, type: number): Buffer {
   if (tag < 15) return Buffer.from([(tag << 4) | type])

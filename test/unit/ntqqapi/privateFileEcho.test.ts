@@ -1,9 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-// 私聊文件发送必须自己补一条 nt/message-sent。这条路不走 app.sendMessage (它只处理
-// sendMsg(elements)), 所以少了这次补发, WebUI 的 SSE 流就没有任何事件: ChatInput 发送成功
-// 立刻删掉临时气泡、等真消息回填, 结果聊天窗口彻底空白; OneBot / Milky 也收不到自己发的文件。
-// 字段形状要跟接收端 dispatcher.convertToRawMessage 的 PrivateFile 分支对齐, 否则两端渲染不一致。
+// 私聊文件不走 app.sendMessage (它只管 sendMsg(elements)), 必须自己补一条 nt/message-sent: 少了它 WebUI 的
+// SSE 流没有事件, ChatInput 删掉临时气泡后聊天窗口一片空白, OneBot / Milky 也收不到自己发的文件。
+// 字段要跟接收端 dispatcher.convertToRawMessage 的 PrivateFile 分支一致, 否则两端渲染不一样。
 
 import { NTMsgApi } from '@/ntqqapi/api/msg'
 import { ChatType, ElementType, type RawMessage } from '@/ntqqapi/types'
@@ -39,10 +38,7 @@ function protocolResult(overrides: Record<string, unknown> = {}) {
   }
 }
 
-/**
- * 只测 sendPrivateFileMessage 这一个方法, 绕开 cordis Service 的构造 (super(ctx,'ntMsgApi')
- * 会往容器里注册, 对这个断言没有意义)。该方法只碰 ctx.qqProtocol 和 ctx.parallel。
- */
+/** 绕开 cordis Service 的构造 (会往容器里注册); sendPrivateFileMessage 只用到 ctx.qqProtocol 和 ctx.parallel */
 function makeApi(sendC2CFileMessage: ReturnType<typeof vi.fn>) {
   const parallel = vi.fn()
   const api = Object.create(NTMsgApi.prototype) as NTMsgApi

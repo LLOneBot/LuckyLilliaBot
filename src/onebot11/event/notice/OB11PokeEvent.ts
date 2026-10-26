@@ -15,7 +15,7 @@ export class OB11FriendPokeEvent extends OB11PokeEvent {
     super()
     this.target_id = target_id
     this.user_id = user_id
-    // raw_message nb等框架标准为string
+    // 有的框架要求它是 string
     this.raw_info = raw_message
   }
 }

@@ -17,7 +17,6 @@ const req = http.request('http://127.0.0.1:13000/', { method: 'GET', headers: { 
     while ((idx = buf.indexOf('\n\n')) >= 0) {
       const evt = buf.slice(0, idx)
       buf = buf.slice(idx + 2)
-      // parse SSE lines
       const lines = evt.split('\n')
       let dataLine = ''
       let evtType = 'message'
@@ -28,7 +27,6 @@ const req = http.request('http://127.0.0.1:13000/', { method: 'GET', headers: { 
       if (dataLine) {
         const ts = new Date().toISOString()
         writer.write(`${ts}\t${evtType}\t${dataLine}\n`)
-        // log a one-line preview
         try {
           const obj = JSON.parse(dataLine)
           const cmd = obj.cmd || obj.command || obj.type || ''

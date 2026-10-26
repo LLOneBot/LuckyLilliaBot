@@ -175,9 +175,7 @@ class Onebot11Adapter extends Service {
     })
 
     this.ctx.on('nt/message-deleted', async (data) => {
-      // 群撤回 push 里 GroupRecall.random 字段在新 server / refactor 后偶尔 0，shortId hash 含
-      // msgRandom，会跟发送端先前算出的 shortId 不一致。先按 (peerUid, msgSeq) 找原 msg 取真
-      // random，再算 shortId 才能跟发送时一致。
+      // 群撤回推送里的 random 偶尔是 0, 而 shortId 依赖它: 先按 (peerUid, msgSeq) 找原消息拿真的 random
       let resolved = data
       if (data.chatType === ChatType.Group && data.msgRandom === 0) {
         const cached = this.ctx.store.getMsgBySeq(data.peerUid, data.msgSeq)

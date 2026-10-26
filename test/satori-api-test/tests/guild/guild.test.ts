@@ -21,7 +21,6 @@ describe('Satori 群 / 频道 / 成员（read-only）', () => {
   }, 15000)
 
   it('channel.get 用 channel_id == guild_id 返回测试群', async () => {
-    // satori 协议下群即频道，channel_id 跟 guild_id 是同一个
     const primary = ctx.twoAccountTest.getClient('primary')
     const res = await primary.call<{ id: string; type: number; name: string }>('channel.get', { channel_id: ctx.testGroupId })
     Assertions.assertSuccess(res, 'channel.get')

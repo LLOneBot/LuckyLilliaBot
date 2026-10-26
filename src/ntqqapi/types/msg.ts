@@ -123,13 +123,13 @@ export interface FileElement {
 }
 
 export interface PttElement {
-  duration: number // 秒数
-  fileName: string // "e4d09c784d5a2abcb2f9980bdc7acfe6.amr"
-  filePath: string // "/Users//Library/Containers/com.tencent.qq/Data/Library/Application Support/QQ/nt_qq_a6b15c9820595d25a56c1633ce19ad40/nt_data/Ptt/2023-11/Ori/e4d09c784d5a2abcb2f9980bdc7acfe6.amr"
-  fileSize: number // "4261"
-  fileUuid: string // "90j3z7rmRphDPrdVgP9udFBaYar#oK0TWZIV"
-  formatType: number // 1
-  md5HexStr: string // "e4d09c784d5a2abcb2f9980bdc7acfe6"
+  duration: number // 秒
+  fileName: string
+  filePath: string
+  fileSize: number
+  fileUuid: string
+  formatType: number
+  md5HexStr: string
 }
 
 export interface ArkElement {
@@ -213,20 +213,20 @@ export interface MarkdownElement {
 }
 
 export interface InlineKeyboardElementRowButton {
-  id: string // 按钮ID：在一个keyboard消息内设置唯一
-  label: string // 按钮上的文字
-  visitedLabel: string // 点击后按钮的上文字
-  style: number // 按钮样式：0 灰色线框，1 蓝色线框
-  type: number // 设置 0 跳转按钮：http 或 小程序 客户端识别 scheme，设置 1 回调按钮：回调后台接口, data 传给后台，设置 2 指令按钮：自动在输入框插入 @bot data
-  clickLimit: number // 【已弃用】可操作点击的次数，默认不限
-  unsupportTips: string // 客户端不支持本action的时候，弹出的toast文案
-  data: string // 操作相关的数据
-  atBotShowChannelList: boolean // 	本字段仅在指令按钮下有效，设置后后会忽略 action.enter 配置。设置为 1 时 ，点击按钮自动唤起启手Q选图器，其他值暂无效果。（仅支持手机端版本 8983+ 的单聊场景，桌面端不支持）
+  id: string // keyboard 内唯一
+  label: string
+  visitedLabel: string
+  style: number // 0 灰色线框, 1 蓝色线框
+  type: number // 0 跳转 (http 或小程序), 1 回调 (data 传给后台), 2 指令 (在输入框插入 @bot data)
+  clickLimit: number // 已弃用
+  unsupportTips: string // 客户端不支持这个 action 时弹出的提示
+  data: string
+  atBotShowChannelList: boolean // 指令按钮可用, 弹出子频道选择器
   permissionType: number // 0 指定用户可操作，1 仅管理者可操作，2 所有人可操作，3 指定身份组可操作（仅频道可用）
   specifyRoleIds: string[] // 有权限的身份组 id 的列表（仅频道可用）
   specifyTinyids: string[] // 有权限的用户 id 的列表
   isReply: boolean // 指令按钮可用，指令是否带引用回复本消息，默认 false。支持版本 8983
-  anchor: number // 本字段仅在指令按钮下有效，设置后后会忽略 action.enter 配置。设置为 1 时 ，点击按钮自动唤起启手Q选图器，其他值暂无效果。（仅支持手机端版本 8983+ 的单聊场景，桌面端不支持）
+  anchor: number // 仅指令按钮, 设为 1 时点击唤起手 Q 选图器并忽略 action.enter (手机端 8983+ 单聊)
   enter: boolean // 指令按钮可用，点击按钮后直接自动发送 data，默认 false。支持版本 8983
   subscribeDataTemplateIds: [] // 未知
 }
@@ -246,7 +246,7 @@ export interface StructLongMsgElement {
 }
 
 export interface MultiForwardMsgElement {
-  xmlContent: string // xml格式的消息内容
+  xmlContent: string
   resId: string
   fileName: string
   nodes: {
@@ -271,29 +271,29 @@ export enum ChatType {
 
 export interface RawMessage {
   msgId: string
-  msgTime: number // 时间戳，秒
+  msgTime: number // 秒
   msgSeq: number
   msgRandom: number
   senderUid: string
-  senderUin: number // 发送者QQ号
+  senderUin: number
   peerUid: string // 群号 或者 QQ uid
   peerUin: number // 群号 或者 发送者QQ号
   sendNickName: string
-  sendMemberName: string // 发送者群名片
+  sendMemberName: string
   chatType: ChatType
   elements: MessageElement[]
   peerName: string
   tempFromGroupCode: number
   clientSeq: number
   forwardAvatar: string
-  rawPb?: string // 原始 protobuf hex (debug 上报用). 实时推送是整个 PushMsg 包, 历史拉取是单条 Msg.Message
+  rawPb?: string // debug 上报用; 实时推送是整个 PushMsg 包, 拉历史是单条 Msg.Message
   memberRole: GroupMemberRole
   msgStyle?: MessageStyle
 }
 
 export interface Peer {
   chatType: ChatType
-  peerUid: string  // 如果是群聊uid为群号，私聊uid就是加密的字符串
+  peerUid: string  // 群聊是群号, 私聊是 uid
 }
 
 export interface MessageElement {

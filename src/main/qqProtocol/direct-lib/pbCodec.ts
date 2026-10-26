@@ -1,9 +1,4 @@
-// Minimal protobuf wire encoder shared across the direct protocol layer.
-// 我们手解 PB 而不引 prost-codegen 是为了保留 wire-level control (跟 wrapper.node
-// 反编译路径对照看更顺); 但相同的 5 行 helper 散落在多个文件不方便, 这里集中.
-//
-// Wire types covered: 0 (varint), 2 (length-delimited).
-// 1 (fixed64) / 5 (fixed32) 协议层用不到, 故意不实装.
+// 手写 PB 编解码, 方便跟反编译结果逐字段对照。只支持 wire type 0 / 2, 1 / 5 协议层用不到
 
 export function writeVarint(value: number | bigint): Buffer {
   let v = typeof value === 'bigint' ? value : BigInt(value)
@@ -39,11 +34,7 @@ export interface PbField {
   data: Buffer | bigint
 }
 
-/**
- * Top-level decode for length-delimited + varint fields. Wire 1/5 are skipped
- * (跳过未知 fixed-size 字段 -- 防止协议加 reserved 字段把我们卡住).
- * 同 field 多次出现保留最后一个 (跟 sign-token-protocol Rust 一致).
- */
+/** Top-level only. Wire 1/5 are skipped; a repeated field keeps its last value. */
 export function pbDecode(buf: Buffer): Map<number, PbField> {
   const out = new Map<number, PbField>()
   let i = 0

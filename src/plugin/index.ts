@@ -45,7 +45,7 @@ export interface PluginStatus {
   reloadCount: number
   /** Undefined until the module has been imported once. */
   hasConfig?: boolean
-  /** Ships with the bot: a single instance, configured in the bot settings rather than here. */
+  /** Ships with the bot; a single entry. */
   builtin?: boolean
   /** A builtin the rest of the bot relies on, so it cannot be disabled. */
   core?: boolean
@@ -347,7 +347,6 @@ class PluginService extends Service {
     })
   }
 
-  /** Identifies the entry's stored config, so a stale write can be rejected. */
   private revOf(rt: Runtime): string {
     return createHash('sha1').update(REV_SALT).update(JSON.stringify(rt.entry.config ?? null)).digest('hex').slice(0, 12)
   }
@@ -446,7 +445,6 @@ class PluginService extends Service {
     })
   }
 
-  /** Resolve a plugin's Config schema into the pieces the diff and the WebUI form need. */
   private configModel(Config: unknown): { schema: unknown; node: SchemaNode | null; defaults: unknown } {
     let defaults: unknown = {}
     try {

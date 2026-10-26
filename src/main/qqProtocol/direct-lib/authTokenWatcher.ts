@@ -4,9 +4,8 @@ import { validateAuthToken } from './sign'
 import { authTokenStatus, selfInfo } from '@/common/globalVars'
 import { getAuthTokenPageUrl } from '@/common/utils/environment'
 
-// 监听 data/auth_token.txt: 启动时 / 文件变化时读取 -> 校验 -> 通过则触发登录.
-// 校验只在这条流程里做 (WebUI 的录入接口只负责写文件, 写完可调 triggerAuthTokenCheck 立即处理).
-// 用 watchFile(轮询 stat) 而非 fs.watch(inotify): docker bind-mount 下 inotify 常不触发.
+// data/auth_token.txt 变化时校验, 通过则登录; WebUI 只写文件, 写完调 triggerAuthTokenCheck。
+// 用 watchFile 轮询而非 fs.watch: docker bind-mount 下 inotify 常不触发
 
 interface WatcherLogger {
   info: (...args: unknown[]) => void
@@ -19,10 +18,8 @@ type OnValid = (token: string) => void | Promise<void>
 let started = false
 let processing = false
 let pending = false
-// 上次校验通过的 token: 内容没变且已 valid 时不重复触发登录
 let lastValidToken = ''
-// 已提示过"无 token": 启动时初始检查 + watchFile 对不存在文件的首次触发会连调两遍 processOnce,
-// 不去重就重复打印同一条 warning。进入无 token 状态只提示一次, 有 token 后重置。
+// 启动检查和 watchFile 对不存在文件的首次触发会连跑两遍, 只提示一次
 let warnedNoToken = false
 let retryTimer: NodeJS.Timeout | null = null
 let onValidCb: OnValid = () => { }
@@ -36,17 +33,15 @@ export function startAuthTokenWatcher(onValid: OnValid, logger: WatcherLogger): 
   onValidCb = onValid
   log = logger
   const file = authTokenUtil.getPath()
-  // 启动即处理一次: 已有有效 token 直接登录; 没有则提示用户去获取
   void processTokenFile()
   watchFile(file, { interval: POLL_MS }, () => void processTokenFile())
 }
 
-// WebUI 写入 token 后主动调一次, 不必等 watchFile 轮询 (更快, 也不依赖 poll/inotify 时序)
 export function triggerAuthTokenCheck(): void {
   if (started) void processTokenFile()
 }
 
-// 并发合并: 处理中又来变化时置 pending, 当前处理完再跑一次 (拿最新内容)
+// 处理中又有变化就置 pending, 处理完再跑一次
 async function processTokenFile(): Promise<void> {
   if (processing) {
     pending = true
@@ -64,7 +59,7 @@ async function processTokenFile(): Promise<void> {
 }
 
 async function processOnce(): Promise<void> {
-  // 文件优先, 回退 AUTH_TOKEN env (兼容 -e AUTH_TOKEN=... 的 docker 部署)
+  // AUTH_TOKEN: docker -e AUTH_TOKEN=... 的部署
   const token = authTokenUtil.reload() || (process.env.AUTH_TOKEN || '').trim()
   if (!token) {
     lastValidToken = ''
@@ -83,7 +78,7 @@ async function processOnce(): Promise<void> {
 
   warnedNoToken = false
   authTokenStatus.hasToken = true
-  // 已验证通过且内容没变 -> 不重复登录 (避免 watchFile 抖动重复触发)
+  // watchFile 会抖动, 内容没变就不重复登录
   if (token === lastValidToken && authTokenStatus.validation === 'valid') {
     return
   }
@@ -96,28 +91,27 @@ async function processOnce(): Promise<void> {
   if (result === 'valid') {
     authTokenStatus.validation = 'valid'
     authTokenStatus.message = ''
-    authTokenStatus.loginError = '' // 新的有效 token, 清掉上一次的登录错误
+    authTokenStatus.loginError = ''
     lastValidToken = token
     log.info('[Sign] auth_token 校验通过, 开始登录流程')
     try {
       await onValidCb(token)
     } catch {
-      // 登录初始化抛错 (通常是 transient connect/网络): 清 dedup + 定时重试自愈.
-      // "配额上限"这类 onValidCb 内部只写 loginError 不抛错, 不会到这里, 也就不会无谓重试.
+      // 多半是网络抖动, 定时重试; 配额上限这类错误只写 loginError 不抛, 不会走到这里
       lastValidToken = ''
       scheduleRetry()
     }
     return
   }
 
-  // 校验不通过: 绝不进入登录 (无效 token 交给 native sign 会触发 process.exit 崩溃循环)
+  // 无效 token 交给 native sign 会 process.exit, 进入崩溃循环
   lastValidToken = ''
   if (result === 'invalid') {
     authTokenStatus.validation = 'invalid'
     authTokenStatus.message = 'Auth Token 无效、已失效或无权限，请重新获取'
     log.warn(`[Sign] auth_token 无效/失效/无权限, 请到 ${getAuthTokenPageUrl()} 重新获取`)
   } else {
-    // 网络错误: 无法判定, 不冒险登录; 定时重试 (验证服务恢复后自动继续)
+    // 网络错误无法判定, 先不登录, 定时重试
     authTokenStatus.validation = 'error'
     authTokenStatus.message = '无法连接验证服务器（网络问题），将自动重试'
     if (result instanceof Error) {
@@ -134,7 +128,6 @@ function scheduleRetry(): void {
   clearRetry()
   retryTimer = setTimeout(() => {
     retryTimer = null
-    // 仍未登录成功才重试 (校验网络失败 / 登录初始化失败两种都靠它自愈; processOnce 自带去重)
     if (!selfInfo.online) void processTokenFile()
   }, RETRY_MS)
 }

@@ -1,9 +1,4 @@
-﻿/**
- * llonebot_debug 接口测试
- * 测试调试功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 
@@ -21,7 +16,6 @@ describe('llonebot_debug - 调试接口', () => {
   it.skip('测试调试接口（跳过以避免影响系统）', async () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 此测试可能影响系统状态，默认跳过
     const response = await primaryClient.call(ActionName.Debug, {
       command: 'test'
     });

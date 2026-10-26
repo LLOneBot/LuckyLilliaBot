@@ -1,12 +1,6 @@
 /**
- * Request 事件覆盖：
- * - friend (request_type='friend') — 加好友请求
- * - group/add (request_type='group', sub_type='add') — 主动加群请求
- * - group/invite (request_type='group', sub_type='invite') — 被邀入群请求
- *
- * 这三种 request 都需要**第三方账号**主动发起请求才能触发，单测环境下两个账号
- * 已经互为好友、共在测试群中，自我触发无效。下面的 it.skip 是有意保留的占位，
- * 提示这块只能靠手动验证或在自动化里挂第三个账号。
+ * 加好友 / 加群 / 邀请入群的请求都要第三个账号发起: 两个测试账号已是好友且同群, 自己触发不了。
+ * 下面的 it.skip 是占位, 只能手动验证
  */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';

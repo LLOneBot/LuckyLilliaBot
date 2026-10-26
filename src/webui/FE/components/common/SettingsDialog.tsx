@@ -18,7 +18,7 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ visible, onClose, onLog
   const [showQQLogoutConfirm, setShowQQLogoutConfirm] = React.useState(false)
 
   const handleQQLogout = async () => {
-    // PMHQ 模式下 QQ 由外部客户端托管, LLBot 无法退出登录 -- 拦下并提示, 不刷新
+    // PMHQ 模式退不了登录, 拦下并提示
     try {
       const info = await apiFetch<{ mode?: string }>('/api/login-info')
       if (info.success && info.data?.mode === 'pmhq') {

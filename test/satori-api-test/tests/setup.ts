@@ -22,7 +22,7 @@ export interface SatoriTestContext {
   secondaryUserId: string
 }
 
-/** 加载配置: 优先 satori-api-test/config/test.config.json (向后兼容), fallback 项目级 test/test.config.json */
+/** 优先 satori-api-test/config/test.config.json (兼容旧配置), 否则用 test/test.config.json */
 function loadSatoriConfig(): TestConfig {
   const legacyPath = path.resolve(__dirname, '../config/test.config.json')
   if (fs.existsSync(legacyPath)) {

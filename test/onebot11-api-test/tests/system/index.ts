@@ -1,7 +1,3 @@
-/**
- * 系统相关接口测试入口
- */
-
 export * from './can-send-image.test';
 export * from './can-send-record.test';
 export * from './clean-cache.test';

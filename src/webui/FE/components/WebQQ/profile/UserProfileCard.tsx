@@ -10,8 +10,8 @@ interface UserProfileCardProps {
   loading: boolean
   position: { x: number; y: number }
   onClose: () => void
-  isFriend?: boolean  // 是否是好友（显示删除按钮）
-  onFriendDeleted?: (uid: string) => void  // 删除好友后的回调
+  isFriend?: boolean  // 显示删除按钮
+  onFriendDeleted?: (uid: string) => void
 }
 
 // QQ等级图标组件：4进制 - 4级=1星，16级=1月亮，64级=1太阳，256级=1皇冠，1024级=1金企鹅

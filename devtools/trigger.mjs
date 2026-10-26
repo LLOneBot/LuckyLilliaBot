@@ -1,8 +1,5 @@
 #!/usr/bin/env node
-// Trigger an OneBot call via http://127.0.0.1:53000 and capture all SSE events
-// that fire during a window around the call. Writes the captured cmds/pb to
-// stdout, which we can then decode to figure out protocol.
-//
+// Calls a OneBot endpoint on 127.0.0.1:53000 and prints the SSE packets captured around the call.
 // Usage: node trigger.mjs <onebot-endpoint> [postBodyJson]
 //   e.g. node trigger.mjs _get_group_notice '{"group_id":1009098331}'
 import http from 'node:http'
@@ -17,8 +14,7 @@ if (!endpoint) {
 
 const CAP_FILE = './sse-capture.jsonl'
 const startSize = fs.existsSync(CAP_FILE) ? fs.statSync(CAP_FILE).size : 0
-// Look back a few lines to catch the send packet that may appear immediately
-// before our trigger marker due to pre-call OneBot internal calls.
+// Look back a few lines: internal calls made before the trigger may send first
 const allStart = fs.existsSync(CAP_FILE) ? fs.readFileSync(CAP_FILE, 'utf8').split('\n').filter(Boolean).length : 0
 const startLines = Math.max(0, allStart - 6)
 console.error(`[trigger] starting from line ${startLines} (back-buffer ${allStart - startLines}), calling /${endpoint}`)
@@ -53,7 +49,6 @@ function callOnebot() {
   await new Promise(r => setTimeout(r, 2500))
   const t1 = Date.now()
 
-  // Read new lines from capture file (be lenient - take everything after the marker)
   const allLines = fs.readFileSync(CAP_FILE, 'utf8').split('\n').filter(Boolean)
   const newLines = allLines.slice(startLines)
   const events = newLines.map(l => {

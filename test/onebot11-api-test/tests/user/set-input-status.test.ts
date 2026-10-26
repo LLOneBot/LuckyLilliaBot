@@ -1,10 +1,4 @@
-/**
- * set_input_status 接口测试
- * 设置「对方正在输入...」状态，私聊会话场景。
- * event_type:
- *   1 = 正在输入
- *   2 = 思考中（无明显视觉差别，server 会接受）
- */
+/** 私聊的"对方正在输入"状态。event_type: 1 = 正在输入, 2 = 思考中 (看不出区别, server 也接受) */
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';

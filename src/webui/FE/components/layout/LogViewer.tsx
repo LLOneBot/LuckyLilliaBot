@@ -116,7 +116,7 @@ const LogViewer: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="card p-4">
-        {/* 桌面端布局 - 保持原样 */}
+        {/* 桌面端布局 */}
         <div className="hidden md:flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-md">

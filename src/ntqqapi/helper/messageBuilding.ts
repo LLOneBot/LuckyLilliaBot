@@ -65,16 +65,14 @@ export class MessageBuilding {
         },
       })
     } else if (faceElement.faceType === 3 && this.inputElems.length === 1) {
-      // 腾讯协议约束：超级大表情 LargeFaceExtra（dice / rps / 超级表情等）必须作为单体消息独立发送（消息段数组长度为 1），
-      // 此时才视为合法的大表情调用，构造 serviceType: 37；若在图文混排等情况（消息段数组的长度 > 1）中强传 37，腾讯服务端会拒收并报错 retcode: 1200。
+      // 超级表情 (LargeFaceExtra, serviceType 37) 只能单独发, 跟其他段混排会被拒 (retcode 1200)
       const f = faceElement
       const pbElem = Msg.LargeFaceExtra.encode({
         aniStickerPackId: f.packId ? String(f.packId) : '1',
         aniStickerId: String(f.stickerId),
         faceId: faceElement.faceIndex,
         aniStickerType: f.stickerType ?? 2,
-        // LargeFaceExtra.resultId 是 string (proto f6), FaceElement.resultId 本来也是 string ——
-        // 原来的 + 会把它转成 number 再交给 string encoder.
+        // proto 里是 string, 别转成 number
         resultId: f.resultId || undefined,
       })
       this.outputElems.push({
@@ -85,9 +83,7 @@ export class MessageBuilding {
         },
       })
     } else if (faceElement.faceType === 2 || faceElement.faceType === 3) {
-      // 1. faceType === 2: 原生小黄豆扩展表情。
-      // 2. faceType === 3: 虽然具有成为大表情的潜质，但由于与其他文字/图片等消息段混排（未通过上方 length === 1 的独立发送检验），
-      //    因此对齐官方 QQ 客户端行为，委屈其降级为小表情形态（serviceType: 33 / QSmallFaceExtra）打包进消息段数组，确保混排消息完整送达且不截断。
+      // faceType 3 跟其他段混排时, 跟官方客户端一样降级成小表情 (QSmallFaceExtra, serviceType 33)
       const f = faceElement
       const pbElem = Msg.QSmallFaceExtra.encode({
         faceId: f.faceIndex,
@@ -140,7 +136,7 @@ export class MessageBuilding {
               const attr = Msg.TextResvAttr.decode(elem.text.pbReserve)
               // 引用消息会有两个 at，其中一个 atMemberUin 为 0
               if (attr.atType === 2 && attr.atMemberUin === 0) {
-                // 移除第一个 at 以及附带的空格，不然被引用的消息内容会显示有两个 at
+                // 去掉第一个 at 和它后面的空格, 不然引用里会显示两个 at
                 indexToExclude.push(index, index + 1)
                 break
               }
@@ -215,8 +211,7 @@ export class MessageBuilding {
     const result = isGroup
       ? await this.ctx.ntFileApi.uploadGroupVideo(this.peerUid, v.filePath!, v.thumbPath!, v.fileTime!, v.thumbWidth!, v.thumbHeight!)
       : await this.ctx.ntFileApi.uploadPrivateVideo(this.chatType, this.peerUid, v.filePath!, v.thumbPath!, v.fileTime!, v.thumbWidth!, v.thumbHeight!)
-    // 注意：视频消息发送后服务端不返回 sequence（field 11 缺失），是已知行为。
-    // 真正的 seq 通过 OlPush 推送（server 转码完成后）异步到达。
+    // 视频发出后 server 不返回 sequence, 转码完才经 OlPush 推回
     this.outputElems.push({
       commonElem: {
         serviceType: 48,
@@ -331,8 +326,7 @@ export class MessageBuilding {
         contentHead: {
           msgType: isGroup ? 82 : 9,
           random: Math.floor(Math.random() * 4294967290),
-          // bcb23ea3 把 contentHead.msgSeq 改名成 groupMsgSeqOrC2cClientSeq（字段编号 5 不变）；
-          // 合并转发节点这里塞的是节点在转发包内的本地递增 seq。
+          // 节点在转发包内的本地递增 seq
           groupMsgSeqOrC2cClientSeq: node.msgSeq,
           msgTime: node.msgTime ?? Math.trunc(Date.now() / 1000),
           pkgNum: 1,

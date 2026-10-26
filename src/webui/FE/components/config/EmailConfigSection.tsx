@@ -52,7 +52,6 @@ const EmailConfigSection: React.FC<EmailConfigSectionProps> = (props) => {
 
     try {
       setTesting(true)
-      // 如果端口为空，使用默认值 587
       const testConfig = {
         ...value,
         smtp: {

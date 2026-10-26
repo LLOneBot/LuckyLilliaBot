@@ -1,9 +1,4 @@
-﻿/**
- * get_doubt_friends_add_request 接口测试
- * 测试获取可疑好友请求功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 

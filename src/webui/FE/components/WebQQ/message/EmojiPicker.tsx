@@ -175,7 +175,6 @@ export const EmojiPicker: React.FC<EmojiPickerProps> = ({ onSelect, onSelectEmoj
     }
   }
 
-  // 渲染最近使用的表情项
   const renderRecentItem = (item: RecentEmojiItem, index: number) => {
     if (item.type === 'face' && item.faceId !== undefined) {
       return (

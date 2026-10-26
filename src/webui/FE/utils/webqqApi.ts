@@ -1,4 +1,3 @@
-// WebQQ API 工具函数
 import { apiFetch, getToken } from './api'
 import type {
   FriendCategory,
@@ -13,7 +12,6 @@ import type {
   DoubtBuddyItem,
 } from '../types/webqq'
 
-// 获取当前登录用户的 uid
 let selfUid: string | null = null
 let selfUin: string | null = null
 
@@ -41,7 +39,6 @@ export function getGroupAvatar(groupCode: string): string {
   return `https://p.qlogo.cn/gh/${groupCode}/${groupCode}/640/`
 }
 
-// 获取图片 rkey（前端直连 QQ 图片 CDN 用，拼在 originImageUrl 后面）
 export async function getImageRkey(): Promise<{ private_rkey: string; group_rkey: string }> {
   const response = await apiFetch<{ private_rkey: string; group_rkey: string }>('/api/webqq/rkey')
   if (!response.success) {
@@ -50,22 +47,17 @@ export async function getImageRkey(): Promise<{ private_rkey: string; group_rkey
   return response.data!
 }
 
-// 获取登录信息
 export async function getLoginInfo(): Promise<{ uid: string; uin: string; nick: string }> {
   const response = await apiFetch<{ uid: string; uin: string; nick: string }>('/api/login-info')
   if (!response.success) {
     throw new Error(response.message || '获取登录信息失败')
   }
   const data = response.data!
-  // 设置全局 selfUid 和 selfUin
   setSelfInfo(data.uid, data.uin)
   return data
 }
 
-// 获取好友列表（带分组）
 export async function getFriends(): Promise<FriendCategory[]> {
-  // BE 端 /api/webqq/friends 调 ntFriendApi.getFriends(true)，返
-  // { friends: any[], categories: Record<number, any> }
   const response = await apiFetch<{
     friends: any[],
     categories: Record<number, any>
@@ -75,7 +67,6 @@ export async function getFriends(): Promise<FriendCategory[]> {
   }
   const result = response.data!
 
-  // 构建分组数据
   const categories = Object.values(result.categories).map((category) => {
     const friends = result.friends
       .filter((friend) => friend.categoryId === category.categoryId)
@@ -98,13 +89,11 @@ export async function getFriends(): Promise<FriendCategory[]> {
     }
   })
 
-  // 按 categorySort 排序
   categories.sort((a, b) => a.categorySort - b.categorySort)
 
   return categories
 }
 
-// 获取群组列表
 export async function getGroups(): Promise<GroupItem[]> {
   const response = await apiFetch<any[]>('/api/webqq/groups')
   if (!response.success) {
@@ -122,7 +111,6 @@ export async function getGroups(): Promise<GroupItem[]> {
   }))
 }
 
-// 获取置顶列表
 export async function getPins(): Promise<{ friends: string[], groups: string[] }> {
   const response = await apiFetch<{ friends: any[], groups: any[] }>('/api/webqq/pins')
   if (!response.success) {
@@ -135,19 +123,14 @@ export async function getPins(): Promise<{ friends: string[], groups: string[] }
   }
 }
 
-// 获取最近会话列表
-//
-// 之前依赖 ntUserApi.getRecentContactListSnapShot 反射调用，那块逻辑已废弃 (老
-// wrapper 模式专属)。当前直接返回空，FE 的最近会话由前端 SSE 实时累积维护。
+// 返回空: 最近会话由前端靠 SSE 累积
 export async function getRecentChats(): Promise<RecentChatItem[]> {
   return []
 }
 
-// 获取消息历史
 export async function getMessages(
   chatType: number,
   peerId: string,
-  // msgSeq 在 RawMessage 里是 number, 调用方直接透传, 这里统一转成 query string
   beforeMsgSeq?: string | number,
   limit: number = 20,
   afterMsgSeq?: string | number
@@ -171,7 +154,6 @@ export async function getMessages(
   return response.data || { messages: [], hasMore: false }
 }
 
-// 发送消息
 export async function sendMessage(request: SendMessageRequest): Promise<{ msgId: string }> {
   const response = await apiFetch<{ msgId: string }>('/api/webqq/messages', {
     method: 'POST',
@@ -184,13 +166,11 @@ export async function sendMessage(request: SendMessageRequest): Promise<{ msgId:
   return response.data || { msgId: '' }
 }
 
-// 转发目标 / 源会话标识
 export interface ForwardEndpoint {
   chatType: number
   peerId: string
 }
 
-// 单条转发 (re-send): 把源会话某条消息重新发到目标会话
 export async function forwardSingleMessage(src: ForwardEndpoint, msgSeq: number, target: ForwardEndpoint): Promise<void> {
   const response = await apiFetch<{ msgId: string }>('/api/webqq/messages/forward', {
     method: 'POST',
@@ -205,7 +185,6 @@ export async function forwardSingleMessage(src: ForwardEndpoint, msgSeq: number,
   }
 }
 
-// 多选合并转发: 把源会话多条消息合并成聊天记录卡片发到目标会话
 export async function forwardMultiMessages(src: ForwardEndpoint, msgSeqs: number[], target: ForwardEndpoint): Promise<void> {
   const response = await apiFetch<{ msgId: string }>('/api/webqq/messages/forward-multi', {
     method: 'POST',
@@ -220,7 +199,6 @@ export async function forwardMultiMessages(src: ForwardEndpoint, msgSeqs: number
   }
 }
 
-// 上传图片
 export async function uploadImage(file: File): Promise<UploadResponse> {
   const formData = new FormData()
   formData.append('image', file)
@@ -235,7 +213,7 @@ export async function uploadImage(file: File): Promise<UploadResponse> {
   return response.data!
 }
 
-// 通过 URL 上传图片（后端下载）
+// 由后端下载
 export async function uploadImageByUrl(imageUrl: string): Promise<UploadResponse> {
   const response = await apiFetch<UploadResponse>('/api/webqq/upload', {
     method: 'POST',
@@ -248,7 +226,6 @@ export async function uploadImageByUrl(imageUrl: string): Promise<UploadResponse
   return response.data!
 }
 
-// 上传文件
 export async function uploadFile(file: File): Promise<{ filePath: string; fileName: string; fileSize: number }> {
   const formData = new FormData()
   formData.append('file', file)
@@ -263,7 +240,6 @@ export async function uploadFile(file: File): Promise<{ filePath: string; fileNa
   return response.data!
 }
 
-// 获取群成员列表
 export async function getGroupMembers(groupCode: string): Promise<GroupMemberItem[]> {
   const response = await apiFetch<GroupMemberItem[]>(`/api/webqq/members?groupCode=${groupCode}`)
   if (!response.success) {
@@ -272,7 +248,6 @@ export async function getGroupMembers(groupCode: string): Promise<GroupMemberIte
   return response.data || []
 }
 
-// 获取用户信息（通过 uid）
 export async function getUserInfo(uid: string): Promise<{ uid: string; uin: string; nickname: string; remark: string }> {
   const response = await apiFetch<{ uid: string; uin: string; nickname: string; remark: string }>(`/api/webqq/user-info?uid=${encodeURIComponent(uid)}`)
   if (!response.success) {
@@ -281,10 +256,6 @@ export async function getUserInfo(uid: string): Promise<{ uid: string; uin: stri
   return response.data!
 }
 
-// 通用 NT API 调用 已删除：FE 不再通过反射调任意服务方法。
-// 所有功能改成调 webqqApi 暴露的 typed 函数 (背后是具体的 BE endpoint)。
-
-// 获取视频播放 URL
 export async function getVideoUrl(fileUuid: string, isGroup?: boolean): Promise<string> {
   if (!fileUuid) {
     throw new Error('getVideoUrl: 需要 fileUuid')
@@ -300,7 +271,6 @@ export async function getVideoUrl(fileUuid: string, isGroup?: boolean): Promise<
   return response.data || ''
 }
 
-// 撤回消息
 export async function recallMessage(chatType: number, peerUid: string, msgId: string): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/messages/recall', {
     method: 'POST',
@@ -312,10 +282,9 @@ export async function recallMessage(chatType: number, peerUid: string, msgId: st
   }
 }
 
-// 贴表情（QQ 表情用 faceId 数字字符串，Unicode emoji 用码点字符串）
+// emojiId: QQ 表情是 faceId, Unicode emoji 是码点
 export async function setEmojiLike(chatType: number, peerUid: string, msgSeq: number, emojiId: string, set: boolean): Promise<void> {
-  // BE 端用的是 setGroupMsgReaction（虽然名字带 group，但 server 端对私聊也用同 cmd）
-  // groupCode 取自 peerUid（群聊 peerUid 本来就是 groupCode；私聊 peerUid 是 uid，setGroupMsgReaction 内部会拒）
+  // 群和私聊都走 setGroupMsgReaction; 私聊的 peerUid 是 uid, 会被拒
   const groupCode = chatType === 2 ? peerUid : peerUid
   const response = await apiFetch<void>('/api/webqq/messages/emoji-like', {
     method: 'POST',
@@ -327,7 +296,6 @@ export async function setEmojiLike(chatType: number, peerUid: string, msgSeq: nu
   }
 }
 
-// 用户简略信息（用于 getUserDisplayName 这种轻量查询）
 interface UserSimple {
   uid: string
   uin: string
@@ -351,7 +319,6 @@ interface UserSimple {
   vipLevel: number
 }
 
-// 群成员简略信息
 interface GroupMemberFull {
   uid: string
   uin: number
@@ -364,7 +331,6 @@ interface GroupMemberFull {
   lastSpokeAt?: number
 }
 
-// 获取群单个成员
 async function getGroupMemberDetail(groupCode: string, uid: string): Promise<GroupMemberFull | null> {
   const params = new URLSearchParams({ groupCode, uid })
   const response = await apiFetch<GroupMemberFull | null>(`/api/webqq/group-member?${params}`)
@@ -374,7 +340,6 @@ async function getGroupMemberDetail(groupCode: string, uid: string): Promise<Gro
   return response.data ?? null
 }
 
-// 获取用户详情
 async function getUser(uid?: string, uin?: string): Promise<UserSimple> {
   const params = new URLSearchParams()
   if (uid) params.set('uid', uid)
@@ -386,7 +351,6 @@ async function getUser(uid?: string, uin?: string): Promise<UserSimple> {
   return response.data!
 }
 
-// uin → uid
 async function uin2uid(uin: string, groupCode?: string): Promise<string> {
   const params = new URLSearchParams({ uin })
   if (groupCode) params.set('groupCode', groupCode)
@@ -397,7 +361,6 @@ async function uin2uid(uin: string, groupCode?: string): Promise<string> {
   return response.data || ''
 }
 
-// uid → uin
 async function uid2uin(uid: string): Promise<string> {
   const params = new URLSearchParams({ uid })
   const response = await apiFetch<string>(`/api/webqq/uin?${params}`)
@@ -407,7 +370,7 @@ async function uid2uin(uid: string): Promise<string> {
   return response.data || ''
 }
 
-// 获取用户显示名称（群聊用群名片，私聊用备注）
+// 群聊用群名片, 私聊用备注
 export async function getUserDisplayName(uid: string, groupCode?: string): Promise<string> {
   try {
     if (groupCode) {
@@ -423,7 +386,6 @@ export async function getUserDisplayName(uid: string, groupCode?: string): Promi
   }
 }
 
-// 戳一戳
 export async function sendPoke(chatType: number, targetUin: number, groupCode?: number): Promise<void> {
   const url = chatType === 2 ? '/api/webqq/group/poke' : '/api/webqq/friend/poke'
   const body = chatType === 2 ? { groupCode, uin: targetUin } : { uin: targetUin }
@@ -437,9 +399,8 @@ export async function sendPoke(chatType: number, targetUin: number, groupCode?: 
   }
 }
 
-// 语音转文字
 export async function translatePttToText(msgId: string, chatType: number, peerUid: string, _voiceElement: unknown): Promise<string> {
-  // BE 端从 store 自己取 voiceElement，不需要 FE 再传
+  // 后端自己从 store 取 voiceElement
   const response = await apiFetch<string>('/api/webqq/messages/ptt-to-text', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -451,7 +412,6 @@ export async function translatePttToText(msgId: string, chatType: number, peerUi
   return response.data || ''
 }
 
-// 踢出群成员
 export async function kickGroupMember(groupCode: string, uid: string, refuseForever = false): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/group/kick', {
     method: 'POST',
@@ -463,7 +423,7 @@ export async function kickGroupMember(groupCode: string, uid: string, refuseFore
   }
 }
 
-// 禁言群成员（duration 秒数，0 解禁）
+// duration 单位秒, 0 = 解禁
 export async function muteGroupMember(groupCode: string, uid: string, duration: number): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/group/ban', {
     method: 'POST',
@@ -475,7 +435,7 @@ export async function muteGroupMember(groupCode: string, uid: string, duration: 
   }
 }
 
-// 设置群成员头衔（仅群主可用）
+// 仅群主可用
 export async function setMemberTitle(groupCode: string, uid: string, title: string): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/group/special-title', {
     method: 'POST',
@@ -487,7 +447,6 @@ export async function setMemberTitle(groupCode: string, uid: string, title: stri
   }
 }
 
-// 设置/取消群管理员
 export async function setMemberAdmin(groupCode: string, uid: string, isAdmin: boolean): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/group/member-role', {
     method: 'POST',
@@ -499,7 +458,6 @@ export async function setMemberAdmin(groupCode: string, uid: string, isAdmin: bo
   }
 }
 
-// 收藏表情
 export interface FavEmojiInfo {
   emoId: number
   resId: string
@@ -539,9 +497,6 @@ export async function addFavEmoji(filePath: string): Promise<{ result: number; e
   return response.data!
 }
 
-// 从 URL 下载图片并添加为收藏表情。webui 右键聊天图片"添加到表情"用：
-// FE 把消息里的图片 URL (拼好 host 的 originImageUrl) 传给 BE，BE 复用 image-proxy 的
-// rkey 注入 + host 白名单逻辑下载图片到 temp 文件再调 addCustomFace。
 export async function addFavEmojiFromUrl(url: string): Promise<{ result: number; errMsg?: string; isExist?: boolean }> {
   const response = await apiFetch<{ result: number; errMsg?: string; isExist?: boolean }>('/api/webqq/fav-emoji/add-from-url', {
     method: 'POST',
@@ -554,7 +509,6 @@ export async function addFavEmojiFromUrl(url: string): Promise<{ result: number;
   return response.data!
 }
 
-// 获取语音消息 URL（通过代理）
 export function getAudioProxyUrl(fileUuid: string, isGroup: boolean, filePath?: string): string {
   const token = getToken()
   let url = `/api/webqq/audio-proxy?fileUuid=${encodeURIComponent(fileUuid)}&isGroup=${isGroup}&token=${encodeURIComponent(token || '')}`
@@ -564,7 +518,7 @@ export function getAudioProxyUrl(fileUuid: string, isGroup: boolean, filePath?: 
   return url
 }
 
-// 退出群聊（群主调用则解散群）
+// 群主退群就是解散
 export async function quitGroup(groupCode: string): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/group/quit', {
     method: 'POST',
@@ -575,8 +529,6 @@ export async function quitGroup(groupCode: string): Promise<void> {
     throw new Error(response.message || '退群失败')
   }
 }
-
-// ===== 群文件 =====
 
 export interface GroupFileItem {
   fileId: string
@@ -606,7 +558,6 @@ export interface GroupFileList {
   folders: GroupFolderItem[]
 }
 
-// 群文件列表（folderId 缺省为根目录 '/'）
 export async function getGroupFileList(groupCode: string, folderId = '/'): Promise<GroupFileList> {
   const response = await apiFetch<GroupFileList>(
     `/api/webqq/group-files?groupCode=${encodeURIComponent(groupCode)}&folderId=${encodeURIComponent(folderId)}`
@@ -617,7 +568,6 @@ export async function getGroupFileList(groupCode: string, folderId = '/'): Promi
   return response.data || { files: [], folders: [] }
 }
 
-// 群文件空间信息
 export async function getGroupFileSpace(groupCode: string): Promise<{ fileCount: number; limitCount: number; usedSpace: number; totalSpace: number }> {
   const response = await apiFetch<{ fileCount: number; limitCount: number; usedSpace: number; totalSpace: number }>(
     `/api/webqq/group-file-space?groupCode=${encodeURIComponent(groupCode)}`
@@ -628,7 +578,6 @@ export async function getGroupFileSpace(groupCode: string): Promise<{ fileCount:
   return response.data!
 }
 
-// 获取群文件下载链接（腾讯 CDN 直链）
 export async function getGroupFileUrl(groupCode: string, fileId: string): Promise<string> {
   const response = await apiFetch<{ url: string }>(
     `/api/webqq/group-file-url?groupCode=${encodeURIComponent(groupCode)}&fileId=${encodeURIComponent(fileId)}`
@@ -639,8 +588,7 @@ export async function getGroupFileUrl(groupCode: string, fileId: string): Promis
   return response.data!.url
 }
 
-// 获取私聊文件下载链接（腾讯 ftn CDN 直链）。
-// isSelfSend: 该文件是不是自己发出去的——决定 BE 端 receiverUid 取自己还是对方 uid。
+// isSelfSend 决定后端的 receiverUid 用自己的还是对方的 uid
 export async function getPrivateFileUrl(peerUid: string, fileId: string, isSelfSend: boolean): Promise<string> {
   const response = await apiFetch<{ url: string }>(
     `/api/webqq/private-file-url?peerUid=${encodeURIComponent(peerUid)}&fileId=${encodeURIComponent(fileId)}&isSelfSend=${isSelfSend}`
@@ -651,11 +599,9 @@ export async function getPrivateFileUrl(peerUid: string, fileId: string, isSelfS
   return response.data!.url
 }
 
-// 下载图片：经 image-proxy 抓成 blob 再触发浏览器下载。
-// 不能直接 <a href={CDN} download>——私聊图 URL 的 path 就是 /download，跨域时 download 属性被忽略，
-// 存下来文件名成了 "download"（rkey 过期时 CDN 返回 JSON，则成 "download.json"）。走同源 blob 才能带对文件名。
+// 经 image-proxy 抓成同源 blob 再下载: 跨域时 download 属性被忽略, 私聊图会被存成 "download"
 export async function downloadImageByUrl(url: string, suggestedName?: string): Promise<void> {
-  // blob:/data: 是本地已有的图 (刚发出的预览), 直接抓; CDN 图走 image-proxy 解决跨域 + rkey 注入.
+  // blob: / data: 是本地的图, 直接抓
   const isLocal = url.startsWith('blob:') || url.startsWith('data:')
   const resp = isLocal
     ? await fetch(url)
@@ -681,7 +627,6 @@ export async function downloadImageByUrl(url: string, suggestedName?: string): P
   URL.revokeObjectURL(objUrl)
 }
 
-// 上传群文件：先经 /upload-file 拿 filePath，再调 group-file/upload 走 highway 上传 + feed 到群
 export async function uploadGroupFile(groupCode: string, file: File, folderId = '/'): Promise<string> {
   const { filePath, fileName } = await uploadFile(file)
   const response = await apiFetch<{ fileId: string }>('/api/webqq/group-file/upload', {
@@ -695,7 +640,6 @@ export async function uploadGroupFile(groupCode: string, file: File, folderId = 
   return response.data!.fileId
 }
 
-// 删除群文件
 export async function deleteGroupFile(groupCode: string, fileId: string, busId: number): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/group-file/delete', {
     method: 'POST',
@@ -707,7 +651,6 @@ export async function deleteGroupFile(groupCode: string, fileId: string, busId: 
   }
 }
 
-// 重命名群文件
 export async function renameGroupFile(groupCode: string, fileId: string, parentFolderId: string, newName: string): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/group-file/rename', {
     method: 'POST',
@@ -719,7 +662,7 @@ export async function renameGroupFile(groupCode: string, fileId: string, parentF
   }
 }
 
-// 新建文件夹（根目录）
+// 只能建在根目录
 export async function createGroupFolder(groupCode: string, folderName: string): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/group-folder/create', {
     method: 'POST',
@@ -731,7 +674,6 @@ export async function createGroupFolder(groupCode: string, folderName: string): 
   }
 }
 
-// 删除文件夹
 export async function deleteGroupFolder(groupCode: string, folderId: string): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/group-folder/delete', {
     method: 'POST',
@@ -743,7 +685,6 @@ export async function deleteGroupFolder(groupCode: string, folderId: string): Pr
   }
 }
 
-// 重命名文件夹
 export async function renameGroupFolder(groupCode: string, folderId: string, newName: string): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/group-folder/rename', {
     method: 'POST',
@@ -755,7 +696,6 @@ export async function renameGroupFolder(groupCode: string, folderId: string, new
   }
 }
 
-// 用户资料
 export interface UserProfile {
   uid: string
   uin: string
@@ -768,26 +708,19 @@ export interface UserProfile {
   qid: string
   level: number
   avatar: string
-  regTime?: number          // QQ注册时间（时间戳）
-  // 群成员信息（仅群聊时有效）
-  groupCard?: string        // 群名片
-  groupRole?: 'owner' | 'admin' | 'member'  // 群角色
-  groupTitle?: string       // 群头衔
-  groupLevel?: number       // 群等级
-  joinTime?: number         // 入群时间
-  lastSpeakTime?: number    // 最后发言时间
+  regTime?: number
+  // 以下只有群聊时有
+  groupCard?: string
+  groupRole?: 'owner' | 'admin' | 'member'
+  groupTitle?: string
+  groupLevel?: number
+  joinTime?: number
+  lastSpeakTime?: number
 }
 
-// 获取用户详细资料
-//
-// 注意：之前 FE 直接 ntCall 'fetchUserDetailInfo' 拿的是嵌套很深的
-// { simpleInfo: { coreInfo, baseInfo }, commonExt: { qqLevel } } 结构 (NT 内部 wrapper)。
-// 现在 BE /user endpoint 走的是 ntUserApi.getUserByUid/getUserByUin，返已经解析好的 User 对象
-// (含 nick / remark / level / registerTime / qid / labels 等扁平字段)。FE 直接用这个 shape。
 export async function getUserProfile(uid?: string, uin?: string, groupCode?: string): Promise<UserProfile> {
   let targetUid = uid
 
-  // 如果只有 uin，先转换为 uid（BE /uid endpoint）
   if (!targetUid && uin) {
     targetUid = await uin2uid(uin)
   }
@@ -814,7 +747,6 @@ export async function getUserProfile(uid?: string, uin?: string, groupCode?: str
     avatar: getUserAvatar(targetUin || '')
   }
 
-  // 如果是群聊，获取群成员信息
   if (groupCode) {
     try {
       const member = await getGroupMemberDetail(groupCode, targetUid)
@@ -834,7 +766,7 @@ export async function getUserProfile(uid?: string, uin?: string, groupCode?: str
   return profile
 }
 
-// 创建 SSE 连接（带自动重连）
+// 自动重连
 export function createEventSource(
   onMessage: (event: unknown) => void,
   onError?: (error: unknown) => void,
@@ -867,7 +799,6 @@ export function createEventSource(
 
     eventSource.onopen = () => {
       console.log('[SSE] 连接打开')
-      // 如果是重连成功，触发回调
       if (reconnectAttempts > 0) {
         console.log('[SSE] 重连成功')
         onReconnect?.()
@@ -880,10 +811,8 @@ export function createEventSource(
 
       if (isClosed) return
 
-      // 关闭当前连接
       eventSource.close()
 
-      // 计算重连延迟（指数退避，最大 30 秒）
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000)
       reconnectAttempts++
 
@@ -904,7 +833,7 @@ export function createEventSource(
 
   eventSource = connect()
 
-  // 返回一个包装的 EventSource，支持正确关闭
+  // close 时也停掉重连
   const wrappedEventSource = {
     close: () => {
       isClosed = true
@@ -936,7 +865,6 @@ export function createEventSource(
   return wrappedEventSource
 }
 
-// 获取合并转发消息内容
 export interface ForwardMessageSegment {
   type: 'text' | 'image' | 'face' | 'forward'
   data: {
@@ -965,7 +893,6 @@ export async function getForwardMessages(resId: string): Promise<ForwardMessageI
   return response.data || []
 }
 
-// 搜索过滤群组
 export function filterGroups(groups: GroupItem[], query: string): GroupItem[] {
   if (!query.trim()) return groups
   const lowerQuery = query.toLowerCase()
@@ -975,7 +902,6 @@ export function filterGroups(groups: GroupItem[], query: string): GroupItem[] {
   )
 }
 
-// 搜索过滤群成员
 export function filterMembers(members: GroupMemberItem[], query: string): GroupMemberItem[] {
   if (!query.trim()) return members
   const lowerQuery = query.toLowerCase()
@@ -986,18 +912,15 @@ export function filterMembers(members: GroupMemberItem[], query: string): GroupM
   )
 }
 
-// 验证图片格式
 export function isValidImageFormat(filename: string): boolean {
   const ext = filename.toLowerCase().split('.').pop() || ''
   return ['jpg', 'jpeg', 'png', 'gif'].includes(ext)
 }
 
-// 验证消息是否为空
 export function isEmptyMessage(text: string): boolean {
   return !text || text.trim().length === 0
 }
 
-// 群资料
 export interface GroupProfile {
   groupCode: string
   groupName: string
@@ -1012,12 +935,6 @@ export interface GroupProfile {
   announcement?: string
 }
 
-// 获取群详细资料
-//
-// BE /group-detail 调 ntGroupApi.getGroup() 返回的是已经简化好的 Group 对象
-// (扁平字段：groupCode/groupName/ownerUid/createdAt/maxMemberCount/memberCount/
-//  description/announcementPreview)。FE 直接用这个 shape，不再像旧版本通过 ntCall
-// 拿 wrapper 内部的 fingerMemo/groupMemo/cmdUinJoinTime 等原始字段。
 export async function getGroupProfile(groupCode: string): Promise<GroupProfile> {
   const response = await apiFetch<{
     groupCode: number
@@ -1035,7 +952,6 @@ export async function getGroupProfile(groupCode: string): Promise<GroupProfile> 
   }
   const groupAll = response.data!
 
-  // 获取群主信息
   let ownerName = ''
   let ownerUinStr = ''
   if (groupAll.ownerUid) {
@@ -1063,7 +979,6 @@ export async function getGroupProfile(groupCode: string): Promise<GroupProfile> 
   }
 }
 
-// 格式化时间戳
 export function formatMessageTime(timestamp: number): string {
   const date = new Date(timestamp)
   const now = new Date()
@@ -1089,7 +1004,6 @@ export function formatMessageTime(timestamp: number): string {
   })
 }
 
-// 删除好友
 export async function deleteFriend(uid: string): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/friend/delete', {
     method: 'POST',
@@ -1101,10 +1015,8 @@ export async function deleteFriend(uid: string): Promise<void> {
   }
 }
 
-// 设置会话置顶
 export async function setRecentChatTop(chatType: number, peerId: string, isTop: boolean): Promise<void> {
   if (chatType === 2) {
-    // 群聊
     const response = await apiFetch<void>('/api/webqq/group/set-top', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1114,7 +1026,7 @@ export async function setRecentChatTop(chatType: number, peerId: string, isTop: 
       throw new Error(response.message || '设置置顶失败')
     }
   } else {
-    // 私聊：peerId 是 uin → 先转 uid (BE 端 setFriendPin 需要 uid)
+    // 私聊的 peerId 是 uin, setFriendPin 要 uid
     const uid = await uin2uid(peerId)
     if (!uid) throw new Error('无法获取用户信息')
     const response = await apiFetch<void>('/api/webqq/friend/set-top', {
@@ -1128,7 +1040,6 @@ export async function setRecentChatTop(chatType: number, peerId: string, isTop: 
   }
 }
 
-// 群消息接收方式枚举
 export enum GroupMsgMask {
   AllowNotify = 1,      // 接收并提醒
   BoxNotNotify = 2,     // 收进群助手不提醒
@@ -1136,7 +1047,6 @@ export enum GroupMsgMask {
   AllowNotNotify = 4,   // 接收但不提醒
 }
 
-// 设置群消息接收方式
 export async function setGroupMsgMask(groupCode: string, msgMask: GroupMsgMask): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/group/msg-mask', {
     method: 'POST',
@@ -1148,9 +1058,6 @@ export async function setGroupMsgMask(groupCode: string, msgMask: GroupMsgMask):
   }
 }
 
-// ==================== 系统通知 API ====================
-
-// 获取群通知列表
 export async function getGroupNotifications(): Promise<GroupNotifyItem[]> {
   const response = await apiFetch<GroupNotifyItem[]>('/api/webqq/notifications/group')
   if (!response.success) {
@@ -1159,7 +1066,6 @@ export async function getGroupNotifications(): Promise<GroupNotifyItem[]> {
   return response.data || []
 }
 
-// 处理群通知（同意/拒绝）
 export async function handleGroupNotification(flag: string, action: 'approve' | 'reject', reason?: string): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/notifications/group/handle', {
     method: 'POST',
@@ -1171,7 +1077,6 @@ export async function handleGroupNotification(flag: string, action: 'approve' | 
   }
 }
 
-// 处理好友申请（同意/拒绝）
 export async function handleFriendRequest(flag: string, action: 'approve' | 'reject'): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/notifications/friend/handle', {
     method: 'POST',
@@ -1183,7 +1088,6 @@ export async function handleFriendRequest(flag: string, action: 'approve' | 'rej
   }
 }
 
-// 获取好友申请历史
 export async function getFriendRequests(): Promise<FriendRequestItem[]> {
   const response = await apiFetch<FriendRequestItem[]>('/api/webqq/notifications/friend')
   if (!response.success) {
@@ -1192,7 +1096,7 @@ export async function getFriendRequests(): Promise<FriendRequestItem[]> {
   return response.data || []
 }
 
-// 获取被过滤的好友申请
+// 被过滤的好友申请
 export async function getDoubtBuddyRequests(): Promise<DoubtBuddyItem[]> {
   const response = await apiFetch<DoubtBuddyItem[]>('/api/webqq/notifications/friend/doubt')
   if (!response.success) {
@@ -1201,7 +1105,6 @@ export async function getDoubtBuddyRequests(): Promise<DoubtBuddyItem[]> {
   return response.data || []
 }
 
-// 同意被过滤的好友申请
 export async function approveDoubtBuddy(uid: string): Promise<void> {
   const response = await apiFetch<void>('/api/webqq/notifications/friend/doubt/approve', {
     method: 'POST',

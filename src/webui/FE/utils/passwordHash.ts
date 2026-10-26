@@ -1,14 +1,6 @@
-/**
- * 密码哈希工具
- * 使用 SHA-256 对密码进行哈希处理
- */
-
-/**
- * 纯 JavaScript 实现的 SHA-256（兼容所有浏览器环境）
- * 来源：简化版本，符合 SHA-256 标准
- */
+// 纯 JS 的 SHA-256: 非安全上下文 (如局域网 IP 访问) 没有 crypto.subtle
 function sha256Pure(message: string): string {
-  // 初始化哈希值
+  // 轮常量
   const K = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -93,19 +85,12 @@ function sha256Pure(message: string): string {
   ].join('');
 }
 
-/**
- * 将字符串转换为 SHA-256 哈希
- * @param message 要哈希的字符串
- * @returns 十六进制格式的哈希值
- */
 export async function sha256(message: string): Promise<string> {
-  // 优先使用纯JS实现，以确保在所有环境下都可用（包括局域网IP访问）
   try {
     return sha256Pure(message);
   } catch (error) {
     console.error('[PasswordHash] 纯JS SHA-256实现失败:', error);
     
-    // 如果纯JS实现失败，尝试使用 Web Crypto API
     if (typeof crypto !== 'undefined' && crypto.subtle) {
       try {
         const msgBuffer = new TextEncoder().encode(message);
@@ -117,16 +102,10 @@ export async function sha256(message: string): Promise<string> {
       }
     }
     
-    // 如果所有方法都失败，抛出错误
     throw new Error('无法计算SHA-256哈希');
   }
 }
 
-/**
- * 对密码进行哈希处理
- * @param password 明文密码
- * @returns 哈希后的密码
- */
 export async function hashPassword(password: string): Promise<string> {
   return await sha256(password);
 }

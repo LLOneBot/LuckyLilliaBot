@@ -28,9 +28,8 @@ export class SetConfigAction extends BaseAction<LegacyConfig, null> {
   })
 
   protected async _handle(payload: LegacyConfig) {
-    // After this reply goes out: changing the ob11 section restarts the OneBot connection carrying it, and
-    // waiting for that here could hold the reply up behind its own server's shutdown. Without the token rule,
-    // which set_config never had; only fields sent are changed
+    // Applied after the reply goes out: changing ob11 restarts the connection carrying this very request.
+    // No token rule, set_config never had one; only the fields sent change
     setTimeout(() => {
       applyLegacyConfig(this.ctx, payload as Dict, { rules: false }).catch(e => this.ctx.logger.error('set_config', e))
     }, 0)

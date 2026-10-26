@@ -10,20 +10,16 @@ import { randomUUID } from 'node:crypto'
 import { TEMP_DIR, selfInfo } from '@/common/globalVars'
 import { Hono } from 'hono'
 
-// 发消息一律走 ctx.app.sendMessage, 不要直接调 ctx.ntMsgApi.sendMsg:
-// server 对 C2C 不推 self-echo, 只有 app.sendMessage 会补发 nt/message-sent。
-// 少了它私聊发完既不进最近会话, 也等不到真消息回填 (ChatInput 已把临时气泡删掉 -> 界面空白),
-// 而且 OneBot/Satori/Milky 也收不到"自己发的消息"。它还负责群禁言检查和 groupMsgMask。
+// 发消息一律走 ctx.app.sendMessage, 别直接调 ntMsgApi.sendMsg: C2C 没有回声, 只有它会补发 nt/message-sent,
+// 少了这个私聊发完界面空白, 各协议端也收不到。群禁言检查和 groupMsgMask 也在它里面
 
 // 群聊 sendMsg 发出后会等 self-echo 拿真实 msgSeq, 超时抛此错 —— 但消息已发出, 转发场景不算失败.
 function isSelfEchoTimeout(e: unknown): boolean {
   return e instanceof Error && e.message.includes('waitForSelfEcho timeout')
 }
 
-// 手表(qqlite)老式群图/私聊图消息里没有内嵌 URL (customFace 只有 md5 + 老式 fileId, 后者被
-// parseElements 存进 picElement.fileUuid), FE 拿不到 originImageUrl 就显示不出. 这里按 md5+fileId
-// 向 server 用 NTV2 0x11c4_200/0x11c5_200 现取带 rkey 的下载 URL 回填 originImageUrl.
-// NT 手机 QQ 的图本就带 originImageUrl, 自动跳过. rkey ~57min 有效, 够即时查看; 过期靠 FE onError 重取.
+// 手表老式图没有内嵌 URL, 按 md5 + 老 fileId 现取带 rkey 的 URL 回填 originImageUrl。rkey 约 57 分钟有效,
+// 过期靠 FE onError 重取
 export async function resolveWatchPicUrls(ctx: Context, message: RawMessage): Promise<void> {
   const ntFileApi = ctx.get('ntFileApi' as never) as Context['ntFileApi'] | undefined
   if (!ntFileApi) return
@@ -32,7 +28,6 @@ export async function resolveWatchPicUrls(ctx: Context, message: RawMessage): Pr
   const isGroup = message.chatType === ChatType.Group
   await Promise.all((message.elements ?? []).map(async (elem) => {
     const pic = elem.picElement
-    // 只处理手表老式图(originImageUrl 空且有 md5+老fileId); NT 图 originImageUrl 非空, 跳过不碰.
     if (!pic || pic.originImageUrl || !pic.md5HexStr || !pic.fileUuid) return
     const url = await ntFileApi.getImageUrl('', pic.md5HexStr, { fileUuid: pic.fileUuid, isGroup, peerUid })
     if (url) pic.originImageUrl = url
@@ -42,9 +37,7 @@ export async function resolveWatchPicUrls(ctx: Context, message: RawMessage): Pr
 export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath: string) => Promise<SendPicElement | null>): Hono {
   const router = new Hono()
 
-  // 构造 Peer: C2C/临时会话先把 uin 解成 uid; 群聊 peerUid 即 groupCode.
-  // peerId 必须 String(): 前端 JSON 里群号可能是 number, 而 waitForSelfEcho 用 === 跟回声(string)比 peerUid,
-  // 类型不一致会导致群聊转发永远等不到 self-echo 而超时.
+  // 前端传的群号可能是 number, 回声里的 peerUid 是 string
   const resolvePeer = async (chatType: number, peerId: string) => {
     let peerUid = String(peerId)
     if (chatType === ChatType.C2C || chatType === ChatType.TempC2CFromGroup) {
@@ -55,7 +48,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     return { chatType, peerUid, guildId: '' }
   }
 
-  // 获取消息历史 - 返回原始 RawMessage 数据
   router.get('/messages', async (c) => {
     try {
       const { chatType, peerId, beforeMsgSeq, afterMsgSeq, limit = '20' } = c.req.query() as {
@@ -102,7 +94,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
 
       const messages = result?.msgList || []
       messages.sort((a: RawMessage, b: RawMessage) => a.msgTime - b.msgTime)
-      // 手表老式图回填 originImageUrl (NT 图已有则跳过)
       await Promise.all(messages.map((m: RawMessage) => resolveWatchPicUrls(ctx, m)))
 
       return c.json({
@@ -118,7 +109,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 发送消息
   router.post('/messages', async (c) => {
     const uploadedFiles: string[] = []
     try {
@@ -153,10 +143,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       }
 
       const elements: SendMessageElement[] = []
-      // 文件发送是独立 API (uploadGroupFile/uploadPrivateFile + sendGroupFileMessage/
-      // sendPrivateFileMessage), 不走 sendMsg(elements). content 里有 file 项就累计
-      // 到这里, 循环走完后单独发. 当前 FE handleFileSelect 一次只发一个 file, 且不跟
-      // text/image 混发, 所以这里也按"file 项不跟 elements 共存"处理.
+      // 文件走独立的上传接口, 不走 sendMsg; FE 一次只发一个文件, 也不跟其他内容混发
       const files: { filePath: string; fileName: string }[] = []
       for (const item of content) {
         if (item.type === 'reply' && item.msgId && item.msgSeq) {
@@ -204,7 +191,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
         }
       }
 
-      // 文件分支: content 全是 file (FE 当前用法). 一次 request 发一个文件.
       if (files.length > 0) {
         if (elements.length > 0) {
           return c.json({ success: false, message: '文件不能和文字/图片/表情一起发送' }, 400)
@@ -219,7 +205,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
             }
             sentMsgIds.push(info.fileId)
           } else {
-            // C2C / TempC2CFromGroup: peerUid 上面已经解出 (line 95-102), peerId 是 Uin.
             const info = await ctx.ntFileApi.uploadPrivateFile(ChatType.C2C, peerUid, f.filePath, f.fileName)
             const result = await ctx.ntMsgApi.sendPrivateFileMessage({
               toUin: +peerId,
@@ -233,13 +218,11 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
             if (result.resultCode !== 0) {
               return c.json({ success: false, message: '发送私聊文件失败', error: result.errMsg ?? '' }, 500)
             }
-            // sendPrivateFileMessage 补发 nt/message-sent 时算出了真 msgId, 直接用;
-            // 群文件的真 msgId 只在 self-echo 里, 这里拿不到, 仍退回 fileId.
+            // 私聊文件的真 msgId 来自补发的 nt/message-sent; 群文件拿不到, 只能用 fileId
             sentMsgIds.push(result.message?.msgId ?? info.fileId)
           }
         }
 
-        // 发送成功后清理上传的临时文件
         for (const filePath of uploadedFiles) {
           unlink(filePath).catch(err => {
             ctx.logger.warn(`清理临时文件失败: ${filePath}`, err)
@@ -258,7 +241,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
 
       const result = await ctx.app.sendMessage(ctx, peer, elements, [])
 
-      // 发送成功后清理上传的临时文件
       for (const filePath of uploadedFiles) {
         unlink(filePath).catch(err => {
           ctx.logger.warn(`清理临时文件失败: ${filePath}`, err)
@@ -283,7 +265,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 单条转发 (re-send): 读源消息 elements -> 重建 -> 发到目标会话
   router.post('/messages/forward', async (c) => {
     let cleanup: string[] = []
     try {
@@ -306,8 +287,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       const result = await ctx.app.sendMessage(ctx, targetPeer, elements, [])
       return c.json({ success: true, data: { msgId: result.msgId } })
     } catch (e) {
-      // 群聊 sendMsg 会等 self-echo 拿真实 msgSeq, 超时抛 waitForSelfEcho timeout —— 但此时消息已发出,
-      // 不算失败, 当成功返回 (前端不依赖返回的 msgSeq).
+      // 消息已经发出, 只是等回声超时, 当成功 (前端不依赖 msgSeq)
       if (isSelfEchoTimeout(e)) {
         return c.json({ success: true, data: { msgId: '' } })
       }
@@ -318,7 +298,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 多选合并转发: 逐条取源消息组装 node -> SendElement.forward -> 发到目标会话 (聊天记录卡片)
   router.post('/messages/forward-multi', async (c) => {
     const cleanup: string[] = []
     try {
@@ -373,8 +352,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 获取合并转发消息内容. 返回的 segment 跟 FE 的 ForwardMessageSegment 对齐:
-  // 只覆盖 text / image / face / forward 四类, 其他类型暂时降级成 [类型] 文本占位.
+  // segment 跟 FE 的 ForwardMessageSegment 对齐, 只支持 text / image / face / forward, 其他降级成 [类型] 文本
   router.get('/forward-msg', async (c) => {
     try {
       const { resId } = c.req.query() as { resId: string }
@@ -416,7 +394,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
           } else if (elem.elementType === ElementType.File) {
             segments.push({ type: 'text', data: { text: '[文件]' } })
           } else if (elem.elementType === ElementType.MultiForward && elem.multiForwardMsgElement) {
-            // 嵌套合并转发: 直接拿 multiForwardMsgElement.resId, brief 从 xmlContent 抠
             const mf = elem.multiForwardMsgElement
             const briefMatch = mf.xmlContent?.match(/brief="([^"]+)"/)
             segments.push({
@@ -427,8 +404,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
               }
             })
           } else if (elem.elementType === ElementType.Ark && (elem as any).arkElement?.bytesData) {
-            // 嵌套合并转发也是 ark 形态. 不解析 ark JSON 里的 m_resid (字段名/位置因 ark 类型而异),
-            // 给 FE 发个占位 forward 段, 不带 resId; FE 识别 resId 缺失就显示 "[聊天记录]" 不可点.
+            // ark 形态的嵌套转发不解析 m_resid (位置因 ark 类型而异), 给个不带 resId 的占位, FE 显示为不可点
             segments.push({ type: 'forward', data: { title: '[聊天记录]' } })
           }
         }
@@ -447,7 +423,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 视频播放 URL
   router.get('/video-url', async (c) => {
     try {
       const { fileUuid, isGroup } = c.req.query() as { fileUuid: string, isGroup: string }
@@ -462,8 +437,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 私聊文件下载 URL (腾讯 ftn CDN 直链, FE 直接 window.open 下载).
-  // receiverUid 语义 (0xe37_1200 field10): 收到别人发的文件用自己 uid, 自己发出去的文件用对方 uid.
+  // receiverUid: 别人发来的文件用自己的 uid, 自己发出去的用对方的 uid
   router.get('/private-file-url', async (c) => {
     try {
       const { peerUid, fileId, isSelfSend } = c.req.query() as { peerUid: string; fileId: string; isSelfSend?: string }
@@ -482,7 +456,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 撤回消息（统一按 msgId 找原消息，自动取 msgSeq/clientSeq/msgRandom/msgTime）
   router.post('/messages/recall', async (c) => {
     try {
       const { msgId, chatType, peerUid } = await c.req.json() as {
@@ -510,7 +483,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 贴表情 (setGroupMsgReaction; 实际 server 端对群和私聊都用同一个)
+  // server 对群和私聊用的是同一个 setGroupMsgReaction
   router.post('/messages/emoji-like', async (c) => {
     try {
       const { groupCode, msgSeq, emojiId, set } = await c.req.json() as {
@@ -530,7 +503,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 语音转文字
   router.post('/messages/ptt-to-text', async (c) => {
     try {
       const { msgId, chatType, peerUid } = await c.req.json() as {
@@ -558,7 +530,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 收藏表情列表 (getCustomFaceList)
   router.get('/fav-emoji', async (c) => {
     try {
       const result = await ctx.ntMsgApi.getCustomFaceList()
@@ -569,7 +540,6 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 删除收藏表情 (deleteCustomFace)
   router.post('/fav-emoji/delete', async (c) => {
     try {
       const { emojiIds } = await c.req.json() as { emojiIds: string[] }
@@ -584,7 +554,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 添加收藏表情（filePath 是 bot 端可访问的本地图片路径）
+  // filePath 是 bot 本机的路径
   router.post('/fav-emoji/add', async (c) => {
     try {
       const { filePath } = await c.req.json() as { filePath: string }
@@ -599,10 +569,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
     }
   })
 
-  // 从 URL 下载图片并添加为收藏表情。专给 webui "右键聊天图片→添加到表情" 用：
-  // FE 把消息里 picElement.originImageUrl (拼好 host) 传过来，BE 复用 image-proxy
-  // 那套 (rkey 注入 + host 白名单 + fetch) 下到 temp 文件，再调 addCustomFace。
-  // cordis 直连模式没有 ntFileApi.downloadMedia，所以走 URL 路线最直接。
+  // 聊天图片右键"添加到表情": 跟 image-proxy 一样 (host 白名单 + 注入 rkey) 下到临时文件再添加
   router.post('/fav-emoji/add-from-url', async (c) => {
     let tempPath: string | null = null
     try {
@@ -619,13 +586,13 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
         return c.json({ success: false, message: '无效的 URL' }, 400)
       }
 
-      // 跟 image-proxy 同一份白名单；防止把 BE 当通用代理用
+      // 免得被当成通用代理
       const allowedHosts = ['gchat.qpic.cn', 'multimedia.nt.qq.com.cn', 'c2cpicdw.qpic.cn', 'p.qlogo.cn', 'q1.qlogo.cn', 'p.qpic.cn']
       if (!allowedHosts.some(host => parsedUrl.hostname.includes(host))) {
         return c.json({ success: false, message: '不允许下载此域名的图片' }, 403)
       }
 
-      // 跟 image-proxy 同一份 rkey 注入（无 rkey 的群图/私图 URL 会 403）
+      // 没有 rkey 会 403
       if (!url.includes('rkey=') && (parsedUrl.hostname.includes('multimedia.nt.qq.com.cn') || parsedUrl.hostname.includes('gchat.qpic.cn'))) {
         try {
           const appid = parsedUrl.searchParams.get('appid')
@@ -653,7 +620,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       if (!existsSync(TEMP_DIR)) {
         await mkdir(TEMP_DIR, { recursive: true })
       }
-      // 取扩展名：URL path 末尾片段优先；都没有就用 png 兜底（addCustomFace 实测扩展名只是给本地存文件用的）
+      // 扩展名只用于本地存文件, 取不到就用 png
       const pathExt = parsedUrl.pathname.match(/\.([a-zA-Z0-9]{1,5})$/)?.[1] ?? 'png'
       tempPath = join(TEMP_DIR, `fav-emoji-${randomUUID()}.${pathExt}`)
       await writeFile(tempPath, buffer)

@@ -3,8 +3,7 @@ import { TlvWriter, writeString16, writeBytes16 } from '../tlv'
 import { teaEncrypt } from '../tea'
 import { WATCH_PROFILE as P } from '../profiles/watch'
 
-// 所有 watch TLV 逐字节移植自 LuckyLillia.Sign/src/Android/watch/poc/src/main.rs。
-// 常量出处见 profile watch.ts + 各 fn 注释。tlv_pack 格式 == Bot TlvWriter (u16 count + [tag,len,data])。
+// 逐字节移植自 LuckyLillia.Sign/src/Android/watch/poc/src/main.rs
 
 const APK_SIG_MD5 = P.watch!.apkSignMd5
 const DEV_OS = 'android'          // T128 os
@@ -55,7 +54,6 @@ function tlvD1(devName: string): Buffer {
   return Buffer.concat([pbStr(1, inner), pbStr(4, Buffer.from([0x30, 0x01]))])
 }
 
-/** trans_emp 0x31 fetch 的 TLV pack (8 个)。*/
 export function buildWatchFetchTlvs(guid: Buffer): Buffer {
   const w = new TlvWriter()
   w.addTlv(0x16, tlv16(guid))

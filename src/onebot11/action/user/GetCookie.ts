@@ -28,7 +28,6 @@ export class GetCookies extends BaseAction<Payload, Response> {
         cookiesObject.p_skey = pSkey
       }
     }
-    //把获取到的cookiesObject转换成 k=v; 格式字符串拼接在一起
     const cookies = Object.entries(cookiesObject).map(([key, value]) => `${key}=${value}`).join('; ')
     const bkn = cookiesObject.skey ? this.ctx.ntWebApi.genBkn(cookiesObject.skey) : ''
     return { cookies, bkn }

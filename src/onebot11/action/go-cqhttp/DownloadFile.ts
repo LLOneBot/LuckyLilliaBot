@@ -44,7 +44,7 @@ export class DownloadFile extends BaseAction<Payload, FileResponse> {
     }
     if (fs.existsSync(filePath)) {
       if (isRandomName) {
-        // 默认实现要名称未填写时文件名为文件 md5
+        // 没给文件名时用 md5 命名
         const md5 = await getMd5HexFromFile(filePath)
         const newPath = path.join(TEMP_DIR, md5)
         await fsPromise.rename(filePath, newPath)

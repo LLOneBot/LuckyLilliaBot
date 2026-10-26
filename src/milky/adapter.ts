@@ -111,7 +111,6 @@ export class MilkyAdapter extends Service {
     this.ctx.on('nt/message-created', async (data) => {
       // 自己发送的消息不会进这里，而是走 nt/message-sent
       if (data.message.chatType === ChatType.C2C) {
-        // Private message
         const eventData = await transformPrivateMessageCreated(this.ctx, data.message)
         if (eventData) {
           this.emitEvent('message_receive', eventData)
@@ -121,7 +120,6 @@ export class MilkyAdapter extends Service {
           this.emitEvent(result.eventType, result.data)
         }
       } else if (data.message.chatType === ChatType.Group) {
-        // Group message
         const eventData = await transformGroupMessageCreated(this.ctx, data.message)
         if (eventData) {
           this.emitEvent('message_receive', eventData)
@@ -131,7 +129,6 @@ export class MilkyAdapter extends Service {
           this.emitEvent(result.eventType, result.data)
         }
       } else if (data.message.chatType === ChatType.TempC2CFromGroup) {
-        // Temp message
         const eventData = await transformTempMessageCreated(this.ctx, data.message)
         if (eventData) {
           this.emitEvent('message_receive', eventData)

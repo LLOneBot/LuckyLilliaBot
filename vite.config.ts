@@ -88,14 +88,10 @@ export default defineConfig({
             { src: './package-dist.json', dest: 'dist/', rename: 'package.json' },
             { src: './doc/使用说明.txt', dest: 'dist/' },
             { src: './doc/更新日志.txt', dest: 'dist/' },
-            // sign-proxy native: bundle 后 llbot.js 里 here=dist/, requireBin 拼出来的
-            // 路径是 dist/sign-proxy.<triple>.node, 必须扁平拷到 dist 根目录.
-            // 用 glob 一次性带上所有平台的 .node, 缺哪个就 build 哪个 platform 时再补.
-            // Match `sign-proxy.*` only: the dev build (sign-proxy-dev.*, localhost base_url, --dev) must never
-            // reach dist -- the Dockerfile / publish.yml filters downstream don't match that prefix.
+            // bundle 后 requireBin 在 dist/ 下找 sign-proxy.<triple>.node, 所以扁平拷到 dist 根目录。
+            // 只匹配 `sign-proxy.*`: dev 版 (sign-proxy-dev.*, 连 localhost) 绝不能进 dist, 下游 Dockerfile / publish.yml 的过滤不认这个前缀
             { src: './src/main/qqProtocol/direct-lib/sign-proxy/sign-proxy.*.node', dest: 'dist/', flatten: true },
-            // sign-proxy 版本号: pickVersion() 直接读 sign-proxy.package.json (源头就是这个名,
-            // 不跟 Bot 主 package.json 撞).
+            // pickVersion() 从这里读 sign-proxy 的版本; 不叫 package.json, 免得跟 Bot 的撞
             { src: './src/main/qqProtocol/direct-lib/sign-proxy/sign-proxy.package.json', dest: 'dist/' },
           ],
         }),

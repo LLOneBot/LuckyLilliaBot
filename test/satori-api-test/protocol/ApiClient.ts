@@ -7,25 +7,13 @@ import {
 } from '../../test-framework/src/index.js'
 
 /**
- * Satori API 客户端：HTTP POST `/v1/<method>` JSON 调用，header 携带 token + Satori-User-ID + Satori-Platform。
- *
- * Satori 协议跟 Milky 不一样的地方：
- *   - 路径是 `/v1/<method>`，method 名形如 `message.create` / `guild.list`（带点号）
- *   - 必须在 header 里带 `Satori-User-ID`（自己的 bot 账号 uin）和 `Satori-Platform`（实现 ID）
- *   - 没有 `{status, retcode, data}` 包装层 — 调用成功 server 直接返回业务对象（200 OK）
- *     调用失败 server 返回 4xx/5xx + 文本 error message。
- *
- * 为了让 IApiClient 接口一致（test-framework 期望 call().then(res.status === 'ok')），
- * 我们在客户端层做适配：把成功响应包装成 `{ ok: true, data: <body> }`，把失败响应
- * 包装成 `{ ok: false, status: number, message: string }`，测试代码再判断 ok 字段。
+ * Satori 的响应没有 `{status, retcode, data}` 包装: 成功直接回业务对象, 失败回 4xx/5xx + 文本。
+ * 这里统一包成 `{ ok: true, data }` / `{ ok: false, status, message }`
  */
 export interface SatoriResponse<T = unknown> {
   ok: boolean
-  /** 调用成功时填，satori method 的原始返回 body */
   data?: T
-  /** 调用失败时的 HTTP 状态码 */
   status?: number
-  /** 调用失败时 server 的错误描述（text body 或 axios message） */
   message?: string
 }
 
@@ -38,9 +26,7 @@ export class SatoriApiClient implements IApiClient {
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        // satori 这俩 header 是协议要求的：
-        //   Satori-User-ID 必填，server 端 405-403 校验 selfId
-        //   Satori-Platform 必填，标识实现（llonebot / llbot 都接受）
+        // 协议要求的两个 header: server 用 Satori-User-ID 校验 selfId, Satori-Platform 填 llonebot / llbot 都行
         'Satori-User-ID': config.user_id,
         'Satori-Platform': 'llonebot',
       },

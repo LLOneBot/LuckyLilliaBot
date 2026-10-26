@@ -3,11 +3,6 @@ import { AccountManager } from './AccountManager.js'
 
 export type EventListenerFactory<C extends IApiClient, L extends IEventListener<any, any>> = (client: C) => L
 
-/**
- * 双账号交互测试编排器。
- * - 给协议自己的 ApiClient + EventListener factory，自动配对 primary / secondary。
- * - 提供 startAll/stopAll/clearAllQueues 等批量操作。
- */
 export class TwoAccountTest<C extends IApiClient, L extends IEventListener<any, any>> {
   public readonly primaryListener: L
   public readonly secondaryListener: L
@@ -36,7 +31,7 @@ export class TwoAccountTest<C extends IApiClient, L extends IEventListener<any, 
     return new Promise(resolve => setTimeout(resolve, ms))
   }
 
-  /** 执行一个 action 然后轮询一个 verifier 直到通过或超时 */
+  /** 执行后轮询 verifier, 直到通过或超时 */
   async executeAndVerify(
     action: () => Promise<any>,
     verifier: () => Promise<boolean>,

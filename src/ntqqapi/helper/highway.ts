@@ -20,7 +20,6 @@ interface HighwayTrans {
 
 abstract class AbstractHighwaySession {
   readonly concurrency = 3
-  /** 单调递增的 block seq */
   protected nextSeq = 1
   protected retryTimes = 0
   protected availableServer = 0
@@ -89,11 +88,7 @@ abstract class AbstractHighwaySession {
   abstract upload(): Promise<void>
 }
 
-/**
- * 挖 bytesRspExtendInfo 里的错误字符串。highway 服务器在权限不足等场景下，
- * outer errorCode/segRetCode 都是 0，但会把真正的拒绝原因（如 "No Perm"）
- * 塞在 bytesRspExtendInfo 嵌套 protobuf 的 field 4 里。
- */
+/** 权限不足等情况下 outer errorCode / segRetCode 都是 0, 真正的原因 (如 "No Perm") 在 bytesRspExtendInfo 的 field 4 */
 function extractRspExtErrorMsg(buf: Buffer): string | null {
   let p = 0
   while (p < buf.length) {
@@ -123,26 +118,13 @@ function extractRspExtErrorMsg(buf: Buffer): string | null {
   return null
 }
 
-/**
- * 校验 buffer 是否是结构合法的 protobuf 编码（wire-level 校验）。
- *
- * 校验规则（protobuf wire format）：
- *   - tag varint 低 3 位 = wire type，必须 ∈ {0,1,2,5}（3/4=group 已废弃，6/7 非法）
- *   - wire 0 (varint)          ：value varint 完整不越界（≤10 字节，protobuf 上限）
- *   - wire 1 (fixed64)         ：剩余 ≥ 8 字节
- *   - wire 2 (length-delimited)：length varint 合法且 offset+length ≤ buf.length
- *   - wire 5 (fixed32)         ：剩余 ≥ 4 字节
- *   - 整个 buffer 被完整消费，结束时 offset 恰好 = buf.length
- * 返回 true 表示可安全交给 decode。
- */
+/** wire 级校验: 每个字段的 wire type 合法、长度不越界, 且恰好消费完整个 buffer */
 function isValidProtoBuffer(buf: Buffer | undefined | null): boolean {
   if (!buf || buf.length === 0) return false
   const len = buf.length
   let p = 0
 
-  // 读 tag varint（field number 最大 2^29-1，tag 最多 5 字节）。
-  // 返回 tag 值；越界/超长返回 -1。即使大 field number 让 val 在 JS 位运算里溢出，
-  // wireType = val & 7 仍取低 3 位合法，不影响 wire 校验。
+  // 大 field number 让 val 溢出也不影响低 3 位的 wireType
   const readTag = (): number => {
     let val = 0
     let shift = 0
@@ -156,7 +138,6 @@ function isValidProtoBuffer(buf: Buffer | undefined | null): boolean {
     }
   }
 
-  // 跳过 wire 0 的 value varint（uint64 最多 10 字节）。越界/超长返回 false。
   const skipVarint = (): boolean => {
     let shift = 0
     for (; ;) {
@@ -168,9 +149,7 @@ function isValidProtoBuffer(buf: Buffer | undefined | null): boolean {
     }
   }
 
-  // 读 wire 2 的 length varint，返回字段内容长度；越界/巨大返回 -1。
-  // length 是 uint32，限制 4 字节（最大 2^28-1 ≈ 268MB），既覆盖所有合理 head 大小，
-  // 又避免 JS 32 位位运算在 shift≥28 时溢出回绕成小值导致 `p + fieldLen <= len` 误判通过。
+  // 限制 4 字节: shift >= 28 时 JS 位运算会溢出成小值, 让越界检查误判通过
   const readLength = (): number => {
     let val = 0
     let shift = 0
@@ -214,24 +193,12 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       ? this.concurrency
       : 1
     if (concurrency === 1) {
-      // 串行路径：保留原字节级行为 (实例 retryTimes/availableServer sticky 语义)，
-      // 老调用点 (不传 concurrency 或传 1) 完全等价。
       await this.uploadSerial()
       return
     }
-    // 并发路径：所有块通过 dataOffset 自定位 (互相独立)，server 按 offset 累积重组，
-    // 不要求顺序到达。手写 producer-consumer pipeline：
-    //   - reader 协程持续 for-await 读流，不等上传完成 → 磁盘 IO 与网络真正重叠
-    //   - N 个 worker 协程从有界 queue 拉任务上传 → 背压把内存峰值卡在 concurrency × block
-    // 不用 mapWithConcurrency 的原因：它要求数组入参，必须先全读完流才并发派发，
-    // 既失去流水线收益又把整个文件 buffer 进内存 (群文件 100MB+ 危险)。
-    // queue 容量 = concurrency 才能让 reader 在 workers 跟不上时自然 pause (背压)。
-    // 最后一块单独串行上传 (传 isEnd=true 触发归档)：
-    //   - 并发乱序下若把最后块当普通任务丢 queue，worker 可能在其他块还没落到 server
-    //     时就发掉它，server 收到 Connection: close 时文件还不完整 → 提前归档/拒绝。
-    //   - 因此 reader 把"可能是最后一块"暂存 pendingLast 而不入 queue；下一轮读到新块
-    //     时说明上一块不是最后，才放行上一块进 queue。流结束时 pendingLast 才是真正的最后块，
-    //     此时所有并发 worker 已处理完前面的块，再单独串行上传它 (isEnd=true)。
+    // 块按 dataOffset 定位, server 按 offset 重组, 不要求顺序。reader 边读边放进有界 queue (背压, 不把整个文件读进
+    // 内存), worker 并发上传。最后一块 (isEnd, Connection: close 触发归档) 要等其余块传完再单独发, 不然会提前归档,
+    // 所以 reader 总是先暂存刚读到的块, 读到下一块才放行上一块
     const queue: { block: Buffer, offset: number }[] = []
     let pendingLast: { block: Buffer, offset: number } | undefined
     let offset = 0
@@ -249,17 +216,13 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     const waitQueueReady = () => new Promise<void>((r) => queueReady.push(r))
     const waitSlotFreed = () => new Promise<void>((r) => slotFreed.push(r))
 
-    // reader
     const reader = (async () => {
       try {
         for await (const chunk of this.trans.readable) {
           const block = chunk as Buffer
-          // 当前读到的块暂存为"可能是最后一块"，把上一轮的 pendingLast 放行进并发 queue。
-          // 直到读到下一个块或流结束，才能确定谁才是真正的最后块。
           if (pendingLast) {
-            // 背压：queue 满时暂停读取，等 worker 取走
             if (queue.length >= concurrency) await waitSlotFreed()
-            if (uploadError.length) return  // 已有上传失败，提前停读
+            if (uploadError.length) return
             queue.push(pendingLast)
             notifyQueueReady()
           }
@@ -272,7 +235,6 @@ export class HighwayHttpSession extends AbstractHighwaySession {
       }
     })()
 
-    // worker：只处理并发 queue 里的块（全是 isEnd=false，non-end）。
     const worker = async () => {
       while (true) {
         if (uploadError.length) return
@@ -290,7 +252,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
           await this.uploadBlockWithRetry(item.block, item.offset, false)
         } catch (err) {
           uploadError.push(err as Error)
-          // 唤醒所有可能卡在 waitQueueReady / waitSlotFreed 的协程，让它们检查 uploadError
+          // 唤醒等待中的协程, 让它们看到 uploadError
           notifyQueueReady()
           notifySlotFreed()
           return
@@ -301,19 +263,15 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     const workers = Array.from({ length: concurrency }, () => worker())
     await Promise.all([reader, ...workers])
     if (uploadError.length) throw uploadError[0]
-    // 所有并发块全部成功后，单独串行上传真正的最后一块 (isEnd=true → Connection: close → 归档)。
-    // 此时 server 已收到完整文件的其余部分，最后一块补齐后再 close 不会触发提前归档。
     if (pendingLast) {
       await this.uploadBlockWithRetry(pendingLast.block, pendingLast.offset, true)
     }
   }
 
-  /** 串行实现：原 upload() 内容原样保留。 */
   private async uploadSerial() {
     let offset = 0
     for await (const chunk of this.trans.readable) {
       const block = chunk as Buffer
-      // 最后一块用 Connection: close（让 server 知道 upload 结束 → 归档）
       const isEnd = offset + block.length >= this.trans.size
       const upload = async () => {
         try {
@@ -342,10 +300,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     }
   }
 
-  /**
-   * 并发路径里单个块的重试逻辑。每个块独立维护自己的 retryTimes + availableServer
-   * (不能复用实例字段，否则并发块互串)。
-   */
+  /** 每个块有自己的 retryTimes / availableServer, 共用实例字段会让并发块互相干扰 */
   private async uploadBlockWithRetry(block: Buffer, offset: number, isEnd: boolean): Promise<void> {
     let retryTimes = 0
     let availableServer = 0
@@ -426,8 +381,6 @@ export class HighwayHttpSession extends AbstractHighwaySession {
     if (segRet !== undefined && segRet !== 0) {
       throw new Error(`HTTP Upload seg retCode=${segRet}`)
     }
-    // 服务器有时把真正的拒绝原因放在 bytesRspExtendInfo.field4（字符串），outer errorCode 仍是 0。
-    // 例：群头像无权限时返回 "No Perm"。挖出来当 error 抛，免得用户以为成功。
     const ext = headData.bytesRspExtendInfo
     if (ext && ext.length > 0) {
       const reason = extractRspExtErrorMsg(Buffer.from(ext))
@@ -442,7 +395,7 @@ export class HighwayHttpSession extends AbstractHighwaySession {
         method: 'POST',
         timeout: 20 * 1000,
         headers: {
-          // 最后一块 close，其他 keep-alive。server 用这个信号知道整体上传结束 → 触发归档
+          // server 靠 close 知道上传结束, 触发归档
           'Connection': isEnd ? 'close' : 'keep-alive',
           'Accept-Encoding': 'identity',
           'User-Agent': 'Mozilla/5.0 (compatible; MSIE 10.0; Windows NT 6.2)',

@@ -1,8 +1,3 @@
-/**
- * friend_poke 接口测试
- * 测试好友戳一戳功能
- */
-
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
@@ -57,14 +52,9 @@ describe('friend_poke - 好友戳一戳', () => {
     expect(targetSeg).toHaveProperty('tp');
   }, 30000);
 
-  // 撤回戳一戳（friend）：同 group_poke，OneBot11 无 "取消戳" 标准 action，
-  // 需在 QQ 客户端 2 分钟内手动取消，留 skip + 文档。
+  // OneBot11 没有取消戳的 action, 只能在 QQ 客户端 2 分钟内手动取消
   it.skip('friend_poke 撤回（poke_recall）— 需在 QQ 客户端手动取消戳', async () => {
-    // 操作步骤：
-    //   1. primary 戳 secondary（私聊）
-    //   2. primary 在 QQ 客户端 2 分钟内长按戳一戳灰条 → 选"取消戳"
-    //   3. 期望 secondary 收到:
-    //      { post_type: 'notice', notice_type: 'notify',
-    //        sub_type: 'poke_recall', user_id, target_id }
+    // primary 私聊戳 secondary, 再在 QQ 客户端长按灰条选"取消戳", secondary 应收到
+    // { post_type: 'notice', notice_type: 'notify', sub_type: 'poke_recall', user_id, target_id }
   });
 });

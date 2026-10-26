@@ -71,7 +71,7 @@ export namespace Action {
     json: ProtoField(4, 'string')
   })
 
-  /** trpc.msg.register_proxy.RegisterProxy.SsoGetGroupMsg - 拉群历史消息 */
+  /** trpc.msg.register_proxy.RegisterProxy.SsoGetGroupMsg */
   export const SsoGetGroupMsgReq = ProtoMessage.of({
     groupInfo: ProtoField(1, {
       groupCode: ProtoField(1, 'uint32'),
@@ -92,7 +92,7 @@ export namespace Action {
     }),
   })
 
-  /** trpc.msg.register_proxy.RegisterProxy.SsoGetC2CMsg - 拉私聊历史消息 */
+  /** trpc.msg.register_proxy.RegisterProxy.SsoGetC2CMsg */
   export const SsoGetC2CMsgReq = ProtoMessage.of({
     peerUid: ProtoField(2, 'string'),
     startSequence: ProtoField(3, 'uint32'),
@@ -105,7 +105,7 @@ export namespace Action {
     messages: ProtoField(7, 'bytes', 'repeated'),
   })
 
-  /** trpc.msg.register_proxy.RegisterProxy.SsoGetRoamMsg - 私聊漫游消息（按时间拉取，可拿"最新 N 条"） */
+  /** trpc.msg.register_proxy.RegisterProxy.SsoGetRoamMsg, 按时间拉 */
   export const SsoGetRoamMsgReq = ProtoMessage.of({
     peerUid: ProtoField(1, 'string'),
     time: ProtoField(2, 'uint32'),       // 0 表示从当前时间起
@@ -122,7 +122,7 @@ export namespace Action {
     messages: ProtoField(7, 'bytes', 'repeated'),
   })
 
-  /** trpc.msg.msg_svc.MsgService.SsoGroupRecallMsg - 撤回群消息 */
+  /** trpc.msg.msg_svc.MsgService.SsoGroupRecallMsg */
   export const SsoGroupRecallMsgReq = ProtoMessage.of({
     type: ProtoField(1, 'uint32'),
     groupCode: ProtoField(2, 'uint32'),
@@ -131,21 +131,20 @@ export namespace Action {
     }),
   })
 
-  /** trpc.msg.msg_svc.MsgService.SsoC2CRecallMsg - 撤回私聊消息 */
+  /** trpc.msg.msg_svc.MsgService.SsoC2CRecallMsg */
   export const SsoC2CRecallMsgReq = ProtoMessage.of({
     type: ProtoField(1, 'uint32'),
     targetUid: ProtoField(3, 'string'),
     info: ProtoField(4, {
-      /** client 发送时自造的 10000-99999 临时号（PbSendMsg 时塞的那个 clientSequence） */
+      /** PbSendMsg 时的 clientSequence */
       clientSequence: ProtoField(1, 'uint32'),
-      /** client 发送时自造的 32-bit random（双端一致） */
       random: ProtoField(2, 'uint32'),
       /** (0x01000000<<32) | random */
       messageUid: ProtoField(3, 'uint64'),
       /** PbSendMsgResp.sendTime */
       timestamp: ProtoField(4, 'uint32'),
       field5: ProtoField(5, 'uint32'),
-      /** = PbSendMsgResp.c2cMsgSeq (server 给这条 c2c 消息分配的 c2cMsgSeq，双端一致) */
+      /** PbSendMsgResp.c2cMsgSeq */
       c2cMsgSeq: ProtoField(6, 'uint32'),
     }),
     field5: ProtoField(5, {
@@ -240,7 +239,7 @@ export namespace Action {
     }, 'optional'),
   })
 
-  /** QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.AddAlbum - 创建群相册 */
+  /** QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.AddAlbum */
   export const AddAlbumReq = ProtoMessage.of({
     requestId: ProtoField(1, 'uint32'),
     field2: ProtoField(2, 'bytes'),
@@ -271,7 +270,7 @@ export namespace Action {
     }, 'optional'),
   })
 
-  /** QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.DeleteAlbum - 删群相册 */
+  /** QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.DeleteAlbum */
   export const DeleteAlbumReq = ProtoMessage.of({
     requestId: ProtoField(1, 'uint32'),
     field2: ProtoField(2, 'bytes'),
@@ -329,7 +328,7 @@ export namespace Action {
     }, 'optional'),
   })
 
-  /** QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.GetMediaList - 拉群相册媒体列表 */
+  /** QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.GetMediaList */
   export const GetMediaListReq = ProtoMessage.of({
     field1: ProtoField(1, 'uint32'),
     field2: ProtoField(2, 'bytes'),
@@ -356,11 +355,7 @@ export namespace Action {
     }, 'optional'),
   })
 
-  /**
-   * trpc.msg.msg_svc.MsgService.SsoGetPeerSeq —— 拉取与某 c2c peer 的最新 c2cMsgSeq。
-   * **只支持私聊**：server 内部要把 peerUid 转 uin，群 code 转换失败 → 全 0 + 错误描述。
-   * 群聊场景请改用 fetchGroupExtra → info.results.latestMessageSeq。
-   */
+  /** trpc.msg.msg_svc.MsgService.SsoGetPeerSeq, 只支持私聊 */
   export const SsoGetPeerSeqReq = ProtoMessage.of({
     peerUid: ProtoField(1, 'string'),
   })
@@ -368,11 +363,10 @@ export namespace Action {
   export const SsoGetPeerSeqResp = ProtoMessage.of({
     retCode: ProtoField(1, 'uint32'),
     retMsg: ProtoField(2, 'string'),
-    /** 实测 = c2cMsgSeq（双端一致那个）；通常 = seq2 */
+    /** c2cMsgSeq, 通常等于 seq2 */
     seq1: ProtoField(3, 'uint32'),
-    /** 实测 = c2cMsgSeq；偶尔比 seq1 大 1（可能发/收两个方向的最后一条 c2cMsgSeq） */
+    /** 偶尔比 seq1 大 1 */
     seq2: ProtoField(4, 'uint32'),
-    /** 跟该 peer 最后一条消息的时间戳 */
     latestMsgTime: ProtoField(5, 'uint32'),
   })
 

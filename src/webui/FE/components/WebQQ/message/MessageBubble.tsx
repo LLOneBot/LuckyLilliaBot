@@ -5,24 +5,22 @@ import { formatMessageTime, getSelfUid, getSelfUin, getUserAvatar, getUserDispla
 import { MessageElementRenderer, hasValidContent, isSystemTipMessage } from './MessageElements'
 import { showToast } from '../../common'
 
-// 消息右键菜单上下文
 export const MessageContextMenuContext = React.createContext<{
   showMenu: (e: React.MouseEvent, message: RawMessage) => void
 } | null>(null)
 
-// 多选转发上下文: enabled 时气泡显示勾选框, 整条点击切换选中
+// enabled 时气泡显示勾选框, 点整条切换选中
 export const MultiSelectContext = React.createContext<{
   enabled: boolean
   isSelected: (msgId: string) => boolean
   toggle: (msgId: string) => void
 } | null>(null)
 
-// 自己贴/取消表情后的乐观更新: EmojiReactionList 点击跟贴/取消时通知 ChatWindow 立即更新本地 (不等 SSE)
+// 让 ChatWindow 立即乐观更新自己贴的表情, 不等 SSE
 export const SelfReactionContext = React.createContext<{
   onSelfReact: (msgSeq: string | number, emojiId: string, isAdd: boolean, groupCode: string) => void
 } | null>(null)
 
-// 头像右键菜单信息
 export interface AvatarContextMenuInfo {
   x: number
   y: number
@@ -33,22 +31,18 @@ export interface AvatarContextMenuInfo {
   groupCode?: string
 }
 
-// 头像右键菜单上下文
 export const AvatarContextMenuContext = React.createContext<{
   showMenu: (e: React.MouseEvent, info: Omit<AvatarContextMenuInfo, 'x' | 'y'>) => void
 } | null>(null)
 
-// 跳转到消息上下文
 export const ScrollToMessageContext = React.createContext<{
   scrollToMessage: (msgId: string, msgSeq?: string) => void
 } | null>(null)
 
-// 群成员缓存上下文
 export const GroupMembersContext = React.createContext<{
   getMembers: (groupCode: string) => GroupMemberItem[] | null
 } | null>(null)
 
-// 好友缓存上下文
 export interface FriendInfo {
   uid: string
   uin: string
@@ -60,7 +54,6 @@ export const FriendsContext = React.createContext<{
   getFriend: (uin: string) => FriendInfo | null
 } | null>(null)
 
-// 临时消息元素类型
 export interface TempMessageItem {
   type: 'text' | 'face' | 'image' | 'at'
   content?: string
@@ -94,10 +87,8 @@ const parseGrayTipItems = (message: RawMessage): { items: any[]; hasUid: boolean
   return null
 }
 
-// 系统提示消息内容缓存
 const systemTipContentCache = new Map<string, React.ReactNode>()
 
-// 系统提示消息组件
 const SystemTipMessage = memo<{ message: RawMessage; groupCode?: string }>(({ message, groupCode }) => {
   const cachedContent = systemTipContentCache.get(message.msgId)
   const [content, setContent] = useState<React.ReactNode>(cachedContent ?? '[系统提示]')
@@ -181,10 +172,8 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
   const friendsContext = React.useContext(FriendsContext)
   const multiSelect = React.useContext(MultiSelectContext)
 
-  // 获取发送者名称
   let senderName = message.sendMemberName || message.sendNickName || message.senderUin
 
-  // 私聊时从好友列表获取备注或昵称
   if (message.chatType === 1 && !isSelf && friendsContext) {
     const friend = friendsContext.getFriend(String(message.senderUin))
     if (friend) {
@@ -195,13 +184,11 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
   const senderAvatar = getUserAvatar(message.senderUin)
   const timestamp = Number(message.msgTime) * 1000
 
-  // 从 msgAttrs 中获取群等级和头衔
   let memberLevel: number | undefined
   let memberTitle: string | undefined
   let memberRole: 'owner' | 'admin' | 'member' | undefined
 
   if (message.chatType === 2) {
-    // 从 msgAttrs 获取群荣誉信息（包含等级和头衔）
     const msgAttrs = message.msgAttrs
     if (msgAttrs) {
       // msgAttrs 可能是 Map 或普通对象（JSON 序列化后）
@@ -214,7 +201,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
         return undefined
       }
 
-      // attrType 2 包含 groupHonor（群等级和头衔）
+      // attrType 2 是 groupHonor
       const honorAttr = getAttr(2)
       if (honorAttr?.groupHonor) {
         memberLevel = honorAttr.groupHonor.level
@@ -222,17 +209,14 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
       }
     }
 
-    // 从缓存的群成员信息获取角色
     if (groupMembersContext) {
       const members = groupMembersContext.getMembers(String(message.peerUin))
       const member = members?.find(m => m.uid === message.senderUid || m.uin === String(message.senderUin))
       if (member) {
         memberRole = member.role
-        // 如果 msgAttrs 没有等级信息，从成员缓存获取
         if (memberLevel === undefined && member.level) {
           memberLevel = member.level
         }
-        // 如果 msgAttrs 没有头衔信息，从成员缓存获取
         if (!memberTitle && member.specialTitle) {
           memberTitle = member.specialTitle
         }
@@ -242,7 +226,6 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
 
   if (!message.elements || !Array.isArray(message.elements)) return null
 
-  // 检查消息是否已撤回
   const isRecalled = message.recallTime && message.recallTime !== '0'
 
   const replyElement = message.elements.find(el => el.replyElement)?.replyElement
@@ -251,13 +234,13 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
   const hasContent = otherElements.some(hasValidContent) || replyElement
   if (!hasContent) return null
 
-  // 检查是否只有语音消息（不需要气泡）
+  // 纯语音消息不要气泡
   const isPttOnly = otherElements.length === 1 && otherElements[0].pttElement && !replyElement
 
   const replySourceMsg = replyElement ? allMessages.find(m => m.msgId === replyElement.replayMsgId || m.msgSeq === replyElement.replayMsgSeq) : null
 
   const handleBubbleContextMenu = (e: React.MouseEvent) => {
-    if (multiSelect?.enabled) return // 多选模式下不弹右键菜单
+    if (multiSelect?.enabled) return
     e.preventDefault()
     e.stopPropagation()
     contextMenuContext?.showMenu(e, message)
@@ -277,7 +260,6 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
 
   // 移动端单击头像也触发菜单
   const handleAvatarClick = (e: React.MouseEvent) => {
-    // 检测是否为触摸设备（移动端）
     if ('ontouchstart' in window || navigator.maxTouchPoints > 0) {
       e.preventDefault()
       e.stopPropagation()
@@ -374,7 +356,6 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
             )}
           </div>
         )}
-        {/* 表情回应显示 */}
         <EmojiReactionList message={message} isSelf={isSelf} />
         <span className="text-xs text-theme-hint mt-1">{formatMessageTime(timestamp)}</span>
       </div>
@@ -383,7 +364,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
 
   if (!multiSelect?.enabled) return bubble
 
-  // 多选模式: 整行加勾选框, 点击整行切换选中 (气泡本身 pointer-events-none 不响应内部点击)
+  // 气泡本身 pointer-events-none, 点整行切换选中
   const selected = multiSelect.isSelected(message.msgId)
   return (
     <div
@@ -401,19 +382,15 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
   )
 })
 
-// 获取表情图片路径
 function getEmojiImagePath(emojiId: string, emojiType: string): string {
-  // emojiType '1' 是 QQ 表情，直接用数字 ID
-  // emojiType '2' 是 Unicode emoji，需要转换为 emoji-{codepoint}.png
+  // emojiType '1' 是 QQ 表情 ID, '2' 是十进制的 Unicode 码点, 对应 emoji-{hex}.png
   if (emojiType === '2') {
-    // emojiId 是 Unicode 码点（十进制），转换为十六进制
     const codePoint = parseInt(emojiId).toString(16)
     return `/face/emoji-${codePoint}.png`
   }
   return `/face/${emojiId}.png`
 }
 
-// 表情回应列表组件
 const EmojiReactionList = memo<{ message: RawMessage; isSelf: boolean }>(({ message, isSelf }) => {
   const [loading, setLoading] = useState<string | null>(null)
   const selfReaction = React.useContext(SelfReactionContext)
@@ -424,9 +401,8 @@ const EmojiReactionList = memo<{ message: RawMessage; isSelf: boolean }>(({ mess
     if (loading) return
     setLoading(emojiId)
     try {
-      // isClicked 为 true 表示自己已贴过，点击取消；否则点击添加
+      // isClicked: 自己已经贴过
       await setEmojiLike(message.chatType, String(message.peerUin), message.msgSeq, emojiId, !isClicked)
-      // 乐观更新本地 (server 未必推 self reaction, 不然要刷新才生效)
       selfReaction?.onSelfReact(message.msgSeq, emojiId, !isClicked, String(message.peerUin))
     } catch (e) {
       showToast(e.message || '操作失败', 'error')
@@ -456,7 +432,6 @@ const EmojiReactionList = memo<{ message: RawMessage; isSelf: boolean }>(({ mess
               alt={`表情${emoji.emojiId}`}
               className="w-4 h-4"
               onError={(e) => {
-                // 图片加载失败时，尝试显示 Unicode emoji 字符
                 if (emoji.emojiType === '2') {
                   const target = e.target as HTMLImageElement
                   const char = String.fromCodePoint(parseInt(emoji.emojiId))

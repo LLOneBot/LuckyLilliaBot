@@ -1,7 +1,4 @@
-﻿/**
- * 群文件额外操作测试
- * 包括: move_group_file, set_group_file_forever, rename_group_file_folder
- */
+﻿/** move_group_file / set_group_file_forever / rename_group_file_folder */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
@@ -21,7 +18,6 @@ describe('group_file_extra - 群文件额外操作', () => {
   it('测试移动群文件', async () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先获取根目录文件和文件夹
     const rootResponse = await primaryClient.call(ActionName.GoCQHTTP_GetGroupRootFiles, {
       group_id: context.testGroupId
     });
@@ -52,7 +48,6 @@ describe('group_file_extra - 群文件额外操作', () => {
   it('测试设置群文件永久保存', async () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先获取根目录文件
     const rootResponse = await primaryClient.call(ActionName.GoCQHTTP_GetGroupRootFiles, {
       group_id: context.testGroupId
     });
@@ -78,7 +73,6 @@ describe('group_file_extra - 群文件额外操作', () => {
   it('测试重命名群文件夹', async () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先获取根目录文件夹
     const rootResponse = await primaryClient.call(ActionName.GoCQHTTP_GetGroupRootFiles, {
       group_id: context.testGroupId
     });

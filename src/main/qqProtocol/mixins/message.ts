@@ -76,7 +76,6 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
       return { msgRandom }
     }
 
-    /** 拉群历史消息（按 seq 范围）。返回 Msg.Message 解码后的对象列表（routingHead/contentHead/body） */
     async getGroupMessages(groupCode: number, startSequence: number, endSequence: number) {
       const data = Action.SsoGetGroupMsgReq.encode({
         groupInfo: { groupCode, startSequence, endSequence },
@@ -86,7 +85,6 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
       return Action.SsoGetGroupMsgResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
-    /** 拉私聊历史消息（按 seq 范围） */
     async getC2CMessages(peerUid: string, startSequence: number, endSequence: number) {
       const data = Action.SsoGetC2CMsgReq.encode({ peerUid, startSequence, endSequence })
       const res = await this.sendPB(Cmd.Message.GetC2cMsg, data)
@@ -94,10 +92,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
     }
 
     /**
-     * 拉私聊漫游消息（按时间）。SsoGetC2CMsg 必须传 seq，不知道 seq 时走这个：
-     *   time=now、direction=1（"向上滚 = 看更早的"）即可拿到"最新 N 条"。
-     * count 上限 30。
-     * 拿"绝对最新 N 条"建议传 time=0xFFFFFFFA（远未来）避开本地时钟漂移与 TOCTOU。
+     * 不知道 seq 时按时间拉。direction=1 往更早翻, count 最多 30; 取最新 N 条传 time=0xFFFFFFFA, 避开本地时钟偏差
      */
     async getC2CRoamMessages(peerUid: string, time: number, count: number, direction: 1 | 2 = 1) {
       const data = Action.SsoGetRoamMsgReq.encode({
@@ -111,7 +106,6 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
       return Action.SsoGetRoamMsgResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
-    /** 撤回群消息 */
     async recallGroupMessage(groupCode: number, sequence: number) {
       const data = Action.SsoGroupRecallMsgReq.encode({
         type: 1,
@@ -121,10 +115,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
       await this.sendPB(Cmd.Message.RecallGroup, data)
     }
 
-    /**
-     * 群语音转文字（提交请求）。服务端立即返回 ack；转写文字通过 MsgPush msgType=528 subType=61 异步推回。
-     * 调用方负责监听 `nt/ptt-trans-result` 事件，按 msgUid 匹配。
-     */
+    /** 只返回 ack, 文字经 MsgPush (528 / 61) 异步推回: 调用方监听 `nt/ptt-trans-result`, 按 msgUid 匹配 */
     async pttTransGroupReq(opts: {
       msgUid: bigint
       senderUin: number
@@ -141,7 +132,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
           field4: 0,
           voiceMd5Hex: opts.voiceMd5Hex,
           field6: 3,
-          field7: 5142, // 抓包看到的常量；版本相关
+          field7: 5142, // 抓包常量, 跟版本有关
           field8: 1,
           voiceFileId: opts.voiceFileId,
           field10: 0,
@@ -153,7 +144,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
       await this.sendPB(Cmd.Message.TransGroupPtt, data)
     }
 
-    /** 私聊语音转文字。结果同样走 MsgPush msgType=528 subType=61。 */
+    /** 结果同样经 MsgPush (528 / 61) 推回 */
     async pttTransC2CReq(opts: {
       msgUid: bigint
       senderUin: number
@@ -169,7 +160,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
           receiverUin: opts.receiverUin,
           voiceFileId: opts.voiceFileId,
           field5: 7,
-          field6: 14144, // 抓包看到的常量
+          field6: 14144, // 抓包常量
           field7: 1,
           field8: 0,
           voiceMd5Hex: opts.voiceMd5Hex,
@@ -181,7 +172,6 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
       await this.sendPB(Cmd.Message.TransC2CPtt, data)
     }
 
-    /** 收藏表情列表（Faceroam.OpReq subCmd=1）。返回每个表情的 emoji_id（含 md5）+ bid + 配额。 */
     async listFavEmojis() {
       const data = Msg.FaceroamOpReq.encode({
         comm: { imPlat: getActiveProfile().imPlat, osVersion: DeviceInfo.osVer, qVersion: AppInfo.currentVersion },
@@ -193,7 +183,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
       return Msg.FaceroamListResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
-    /** 删除收藏表情（Faceroam.OpReq subCmd=2）。emojiIds 形如 `{uin}_0_0_0_{MD5_HEX_UPPER}_0_0`。 */
+    /** emojiIds 形如 `{uin}_0_0_0_{MD5_HEX_UPPER}_0_0` */
     async deleteFavEmojis(emojiIds: string[]) {
       const data = Msg.FaceroamOpReq.encode({
         comm: { imPlat: getActiveProfile().imPlat, osVersion: DeviceInfo.osVer },
@@ -205,11 +195,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
       return Msg.FaceroamDeleteResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
-    /**
-     * 申请上传收藏表情。返回 uKey + 上传服务器 IP/端口 + 最终 emoji_id。
-     * 拿到后用 HighwayHttpSession（cmd=9, ticket=uKey）上传图片字节流。
-     * 服务端收到完整文件后会自动加进用户收藏列表。
-     */
+    /** 拿到 uKey 后用 HighwayHttpSession (cmd=9, ticket=uKey) 上传, 传完 server 自动加进收藏 */
     async addFavEmojiPrep(opts: { md5: Buffer, fileSize: number }) {
       const data = Msg.BDHExpressionRoamReq.encode({
         field1: 3,
@@ -227,13 +213,12 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
           field16: 1,
         },
         commandId: 9,
-        extension: Buffer.from('0a07080010001a01301001', 'hex'), // 抓包看到的常量子结构
+        extension: Buffer.from('0a07080010001a01301001', 'hex'), // 抓包常量
       })
       const res = await this.sendPB(Cmd.Message.AddFavEmojiPrep, data)
       return Msg.BDHExpressionRoamResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
-    /** 撤回私聊消息 */
     async recallC2CMessage(targetUid: string, clientSequence: number, random: number, timestamp: number, c2cMsgSeq: number) {
       const data = Action.SsoC2CRecallMsgReq.encode({
         type: 1,
@@ -252,19 +237,18 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
       await this.sendPB(Cmd.Message.RecallC2C, data)
     }
 
-    /** 发消息（仅文本/At/表情/回复，不含媒体） */
+    /** 只支持文本 / At / 表情 / 回复, 不含媒体 */
     async sendMessage(opts: {
       chatType: number
       groupCode?: number
       toUin?: number
       toUid?: string
       elems: InferProtoModelInput<typeof Msg.Elem>[]
-      /** 上层可以提前生成 random 自己挂 listener 等 OlPush 回声，匹配 contentHead.random */
+      /** 预先生成的话可以用来匹配 OlPush 回声的 contentHead.random */
       random?: number
       content?: Buffer
     }) {
       const random = opts.random ?? randomBytes(4).readUInt32BE(0)
-      // BotMessage.ClientSequence: Random.NextInt64(10000, 99999)
       const clientSequence = 10000 + Math.floor(Math.random() * 90000)
       const data = Msg.PbSendMsg.encode({
         routingHead: opts.content ? {
@@ -290,10 +274,8 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
       })
       const res = await this.sendPB(Cmd.Message.Send, data)
       const resp = Msg.PbSendMsgResp.decode(Buffer.from(res.pb, 'hex'))
-      // 群聊：resp.groupMsgSeq (field 11) = server 给整个群的 msgSeq，群里所有人视角一致。
-      //   接收方在 OlPush msgType=82 contentHead.groupMsgSeqOrC2cClientSeq (field 5) 拿到同样的值。
-      // 私聊：resp.c2cMsgSeq (field 14) = server 给这条 c2c 消息分配的 c2cMsgSeq（全局，双端一致）。
-      //   接收方在 OlPush msgType=166 contentHead.c2cMsgSeq (field 11) 拿到同样的值。
+      // 群聊 groupMsgSeq 所有人一致, 接收方在 OlPush 82 的 contentHead f5 拿到同一个值;
+      // 私聊 c2cMsgSeq 双端一致, 接收方在 OlPush 166 的 contentHead f11 拿到
       const seq = resp.groupMsgSeq || resp.c2cMsgSeq!
       return {
         resultCode: resp.resultCode,
@@ -305,7 +287,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
       }
     }
 
-    /** 发送 C2C 离线文件消息（trans 0x211 + FileExtra）。upload + feed by send-msg。 */
+    /** trans 0x211 + FileExtra */
     async sendC2CFileMessage(opts: {
       toUin: number
       toUid: string
@@ -358,7 +340,6 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
       }
     }
 
-    /** 拉取消息表情回应用户列表 (OidbSvcTrpcTcp.0x9083_1) */
     async fetchMsgEmojiLikes(groupCode: number, msgSeq: number, emojiCode: string, count: number, cookie: string) {
       const body = Oidb.FetchEmojiLikesReq.encode({
         groupCode,

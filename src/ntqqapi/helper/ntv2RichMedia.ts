@@ -8,9 +8,9 @@ import { stat } from 'node:fs/promises'
 interface Entity {
   type: 'video' | 'image' | 'voice'
   filePath: string
-  duration?: number  // for voice (seconds), or video (seconds)
-  width?: number     // for video (px), or image (px)
-  height?: number    // for video (px), or image (px)
+  duration?: number  // seconds
+  width?: number
+  height?: number
 }
 
 export namespace NTV2RichMedia {
@@ -87,7 +87,6 @@ export namespace NTV2RichMedia {
     const { size: fileSize } = await stat(entity.filePath)
     let fileName, fileType, width, height, time, original
     if (entity.type === 'video') {
-      // Type 2 + FileName + FileSize + sha1/md5 + Time (视频时长) + Width/Height (视频分辨率)
       fileName = `${md5HexStr}.mp4`
       fileType = { type: 2 }
       time = entity.duration ?? 0
@@ -128,12 +127,10 @@ export namespace NTV2RichMedia {
     subFileInfo?: NonNullable<InferProtoModel<typeof Media.NTV2RichMediaResp>['upload']>['subFileInfos'][0]
   ) {
     const blockSize = 1024 * 1024
-    // upload.msgInfo 现在是 bytes（NTV2RichMediaResp.upload.msgInfo 改成 raw 透传），
-    // 这里解析一次给 highway ext 用
     const msgInfoStruct = Media.MsgInfo.decode(upload.msgInfo)
     const head = msgInfoStruct.msgInfoBody[0]
     if (!head?.index) {
-      // 服务端返回的 msgInfo 没有有效 fileInfo（常见原因：preflight 失败、非好友 c2c 拒绝上传等）
+      // 常见于 preflight 失败、非好友的 c2c 被拒
       throw new Error(`NTV2 generateExt: server response 缺少 msgInfoBody[0].index，无法生成 highway ext (uKey=${upload.uKey ?? '?'}, msgInfoBody.length=${msgInfoStruct.msgInfoBody?.length ?? 0})`)
     }
     const index = head.index

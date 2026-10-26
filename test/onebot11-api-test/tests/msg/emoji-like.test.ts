@@ -1,10 +1,4 @@
-﻿/**
- * emoji_like 接口测试
- * 测试消息表情回应功能
- * 完整流程：发送消息 → 设置表情回应 → 获取表情回应 → 取消表情回应
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 import { OB11MessageDataType, OB11MessageData } from '@llbot/onebot11/types';
@@ -24,7 +18,6 @@ describe('emoji_like - 消息表情回应', () => {
     context.twoAccountTest.clearAllQueues();
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 步骤1: 发送一条消息
     const testMessage: OB11MessageData[] = [{
       type: OB11MessageDataType.Text,
       data: {
@@ -41,8 +34,7 @@ describe('emoji_like - 消息表情回应', () => {
     const messageId = sendResponse.data.message_id;
     console.log('✓ 消息发送成功，message_id:', messageId);
 
-    // 步骤2: 设置表情回应
-    const emojiId = '4'; // 点赞表情
+    const emojiId = '4'; // 得意
     const setEmojiResponse = await primaryClient.call(ActionName.SetMsgEmojiLike, {
       message_id: messageId,
       emoji_id: emojiId
@@ -51,7 +43,6 @@ describe('emoji_like - 消息表情回应', () => {
     Assertions.assertSuccess(setEmojiResponse, 'set_msg_emoji_like');
     console.log('✓ 表情回应设置成功');
 
-    // 步骤3: 获取表情回应列表
     const fetchResponse = await primaryClient.call(ActionName.FetchEmojiLike, {
       message_id: messageId,
       emoji_id: emojiId,
@@ -66,7 +57,6 @@ describe('emoji_like - 消息表情回应', () => {
       console.log('表情回应数据:', fetchResponse.data);
     }
 
-    // 步骤4: 取消表情回应
     const unsetResponse = await primaryClient.call(ActionName.UnSetMsgEmojiLike, {
       message_id: messageId,
       emoji_id: emojiId
@@ -76,7 +66,6 @@ describe('emoji_like - 消息表情回应', () => {
     console.log('✓ 表情回应取消成功');
 
 
-    // 步骤5: 再次获取表情回应，验证已取消
     const fetchAfterUnsetResponse = await primaryClient.call(ActionName.FetchEmojiLike, {
       message_id: messageId,
       emoji_id: emojiId,

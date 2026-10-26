@@ -1,7 +1,4 @@
-/**
- * rename_group_file 接口测试
- * 改群文件名（区别于改文件夹名 RenameGroupFileFolder）
- */
+/** 改群文件名, 不是改文件夹名 (RenameGroupFileFolder) */
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
@@ -24,7 +21,6 @@ describe('rename_group_file - 改群文件名', () => {
     const originalName = `rename-test-${ts}.txt`;
     const newName = `renamed-${ts}.txt`;
 
-    // 1. 先上传文件到根目录
     const upload = await primaryClient.call(ActionName.GoCQHTTP_UploadGroupFile, {
       group_id: context.testGroupId,
       file: MediaPaths.getPath('test_ocr.png'),
@@ -33,7 +29,6 @@ describe('rename_group_file - 改群文件名', () => {
     Assertions.assertSuccess(upload, 'upload_group_file');
     await new Promise(r => setTimeout(r, 2000));
 
-    // 2. 拿 file_id
     const rootFiles = await primaryClient.call(ActionName.GoCQHTTP_GetGroupRootFiles, {
       group_id: context.testGroupId,
     });
@@ -41,7 +36,6 @@ describe('rename_group_file - 改群文件名', () => {
     const file = (rootFiles.data?.files ?? []).find((f: any) => f.file_name === originalName);
     if (!file) throw new Error(`找不到刚刚上传的 ${originalName}`);
 
-    // 3. rename
     const response = await primaryClient.call(ActionName.RenameGroupFile, {
       group_id: context.testGroupId,
       file_id: file.file_id,
@@ -50,7 +44,6 @@ describe('rename_group_file - 改群文件名', () => {
     });
     Assertions.assertSuccess(response, 'rename_group_file');
 
-    // 4. cleanup
     await primaryClient.call(ActionName.GoCQHTTP_DeleteGroupFile, {
       group_id: context.testGroupId,
       file_id: file.file_id,

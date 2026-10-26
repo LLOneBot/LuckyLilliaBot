@@ -3,21 +3,10 @@ import { useThemeStore } from '../../stores/themeStore'
 import { glassFrame, resetGlassAdaptive, setGlassSource } from '../../utils/glassRuntime'
 
 /*
- * The wallpaper: a base gradient with a light source, and a few very large,
- * very soft colour fields drifting over it.
- *
- * Everything is painted into the canvas, including the base gradient that
- * the CSS body background duplicates as a fallback. The glass runtime copies
- * regions of this canvas to refract and to sample luminance, so the canvas
- * has to be the complete picture of what is behind a sheet.
- *
- * Three constraints come from the material rather than from taste:
- *   - low alpha on the fields, because the sheets re-saturate the backdrop
- *     and vivid source colour comes back through the glass electric;
- *   - large radii, because the lens band samples across ~20px and small
- *     blobs turn to noise at that scale;
- *   - slow drift, because a fast-moving backdrop makes every glass rim
- *     shimmer in the reader peripheral vision.
+ * The wallpaper: a base gradient with a light source and a few very large, very soft colour fields drifting
+ * over it. The glass runtime samples this canvas, so it holds the whole picture, base gradient included.
+ * Low alpha, large radii and slow drift are not taste: the sheets re-saturate the backdrop, the lens band
+ * samples across ~20px, and a fast backdrop makes every glass rim shimmer.
  */
 
 interface Blob {
@@ -97,8 +86,7 @@ function paintBase(ctx: CanvasRenderingContext2D, w: number, h: number, dark: bo
     [1, '#e4e0fa'],
   ])
   ctx.fillRect(0, 0, w, h)
-  // The light source. The rims are bright on top because light comes from
-  // up here.
+  // The light source: rims are bright on top because light comes from here
   ctx.fillStyle = radial(ctx, w * 0.16, h * 0.06, 840, [
     [0, 'rgba(255, 255, 255, 0.6)'],
     [0.62, 'rgba(255, 255, 255, 0)'],

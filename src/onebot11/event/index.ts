@@ -1,20 +1,11 @@
-/**
- * OneBot11 事件类型统一导出
- * 包含所有消息、通知、请求和元事件类型
- */
-
-// 基础事件类
 export { OB11BaseEvent, EventType } from './OB11BaseEvent'
 
-// 消息事件
 export { OB11MessageEvent } from './message/OB11MessageEvent'
 
-// 元事件
 export { OB11BaseMetaEvent } from './meta/OB11BaseMetaEvent'
 export { OB11HeartbeatEvent } from './meta/OB11HeartbeatEvent'
 export { OB11LifeCycleEvent } from './meta/OB11LifeCycleEvent'
 
-// 通知事件
 export { OB11BaseNoticeEvent } from './notice/OB11BaseNoticeEvent'
 export { OB11FriendAddNoticeEvent } from './notice/OB11FriendAddNoticeEvent'
 export { OB11FriendRecallNoticeEvent } from './notice/OB11FriendRecallNoticeEvent'
@@ -44,11 +35,9 @@ export {
   OB11FlashFileUploadedEvent
 } from './notice/OB11FlashFileEvent'
 
-// 请求事件
 export { OB11FriendRequestEvent } from './request/OB11FriendRequest'
 export { OB11GroupRequestEvent } from './request/OB11GroupRequest'
 
-// 导入所有事件类型用于联合类型定义
 import type { OB11HeartbeatEvent } from './meta/OB11HeartbeatEvent'
 import type { OB11LifeCycleEvent } from './meta/OB11LifeCycleEvent'
 import type { OB11FriendAddNoticeEvent } from './notice/OB11FriendAddNoticeEvent'
@@ -84,17 +73,10 @@ import {
 } from './request/OB11GroupRequest'
 import { OB11MessageEvent } from './message/OB11MessageEvent'
 
-/**
- * 所有 OneBot11 事件的联合类型
- * 用于类型检查和事件处理
- */
 export type OB11Event =
-  // 消息事件
   OB11MessageEvent
-  // 元事件
   | OB11HeartbeatEvent
   | OB11LifeCycleEvent
-  // 通知事件
   | OB11FriendAddNoticeEvent
   | OB11FriendRecallNoticeEvent
   | OB11GroupAdminNoticeEvent
@@ -117,7 +99,6 @@ export type OB11Event =
   | OB11FlashFileDownloadedEvent
   | OB11FlashFileUploadingEvent
   | OB11FlashFileUploadedEvent
-  // 请求事件
   | OB11FriendRequestEvent
   | OB11GroupRequestAddEvent
   | OB11GroupRequestInviteBotEvent

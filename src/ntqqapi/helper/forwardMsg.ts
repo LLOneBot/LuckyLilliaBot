@@ -15,12 +15,7 @@ import { SendElement } from '../entities'
 import { uri2local } from '@/common/utils'
 import { selfInfo } from '@/common/globalVars'
 
-/**
- * 把收到的消息 elements 转成可再次发送的 SendMessageElement[] (转发/re-send 用).
- * 图片/视频/语音需重新下载再上传; ark/reply/marketFace 直接透传; 嵌套合并转发重建 multimsg ark 卡片.
- * 返回 deleteAfterSentFiles: 非本地的临时下载文件, 发送后需清理.
- * 从 onebot11 ForwardSingleMsg 提取, 供 OB11 action 与 WebQQ 转发路由共用.
- */
+/** 图片 / 视频 / 语音要重新下载上传, 嵌套的合并转发重建卡片。deleteAfterSentFiles 是临时下载的文件, 发完要删 */
 export async function rawElementsToSend(
   ctx: Context,
   elements: MessageElement[],

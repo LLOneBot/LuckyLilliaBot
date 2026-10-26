@@ -63,7 +63,6 @@ export namespace OB11Entities {
       // 284840486: 合并转发内部
       if (msg.peerUin !== 284840486) {
         resMsg.sender.role = groupMemberRole(msg.memberRole)
-        // 拿不到成员信息 (手表协议无此 cmd 权限) 时退回消息自带的发送者信息, 别丢整条消息
         const member = await ctx.ntGroupApi.getGroupMemberOrFromMessage(msg)
         resMsg.sender.nickname = member.nick || msg.sendMemberName || msg.sendNickName
         resMsg.sender.level = member.level.toString()
@@ -100,8 +99,7 @@ export namespace OB11Entities {
     if (msg.chatType !== ChatType.Group) {
       return
     }
-    // wrapper 模式：msgType=5 是 GrayTip, 3 是 File
-    // 直连模式：所有消息都映射为 msgType=2，靠 element 判别
+    // msgType 一律是 2, 靠 element 区分
 
     for (const element of msg.elements) {
       if (element.fileElement) {

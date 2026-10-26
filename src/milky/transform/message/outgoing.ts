@@ -65,7 +65,6 @@ export async function transformOutgoingMessage(
         ))
       } else if (segment.type === 'image') {
         const imageBuffer = await resolveMilkyUri(segment.data.uri)
-        // Save to temp file and upload
         const tempPath = path.join(TEMP_DIR, `image-${randomUUID()}`)
         await writeFile(tempPath, imageBuffer)
         const subType = segment.data.sub_type === 'sticker' ? 1 : 0

@@ -1,9 +1,4 @@
-﻿/**
- * set_qq_avatar 接口测试
- * 测试设置 QQ 头像功能
- *
- * 警告：此测试会实际修改 QQ 头像
- */
+﻿/** 会真的改 QQ 头像 */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';

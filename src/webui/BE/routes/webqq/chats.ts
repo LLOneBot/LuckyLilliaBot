@@ -2,14 +2,10 @@ import { Context } from 'cordis'
 import { Hono } from 'hono'
 import { serializeResult } from '../../utils'
 
-/**
- * 列表型查询：好友 / 群组 / 置顶。
- * 全部 GET，没有副作用，直接返 NT API 内部 shape（serializeResult 处理 Map）。
- */
+/** 直接返回 NT API 的原始结构, Map 由 serializeResult 处理 */
 export function createChatsRoutes(ctx: Context): Hono {
   const router = new Hono()
 
-  // 好友列表（带分组）
   router.get('/friends', async (c) => {
     try {
       const result = await ctx.ntFriendApi.getFriends(true)
@@ -20,7 +16,6 @@ export function createChatsRoutes(ctx: Context): Hono {
     }
   })
 
-  // 群列表
   router.get('/groups', async (c) => {
     try {
       const groups = await ctx.ntGroupApi.getGroups(false)
@@ -31,7 +26,6 @@ export function createChatsRoutes(ctx: Context): Hono {
     }
   })
 
-  // 置顶列表（好友 + 群）
   router.get('/pins', async (c) => {
     try {
       const pins = await ctx.ntMsgApi.getPins()

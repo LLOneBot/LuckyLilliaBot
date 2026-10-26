@@ -10,7 +10,7 @@ import { Hono } from 'hono'
 export function createProxyRoutes(ctx: Context): Hono {
   const router = new Hono()
 
-  // 本地文件代理接口 - 用于视频封面等本地文件
+  // 视频封面等本地文件
   router.get('/file-proxy', async (c) => {
     try {
       const filePath = c.req.query('path')
@@ -44,7 +44,7 @@ export function createProxyRoutes(ctx: Context): Hono {
     }
   })
 
-  // 图片代理接口 - 解决跨域和 Referer 问题
+  // 解决跨域和 Referer 问题
   router.get('/image-proxy', async (c) => {
     try {
       const urlParam = c.req.query('url')
@@ -71,7 +71,6 @@ export function createProxyRoutes(ctx: Context): Hono {
         return c.json({ success: false, message: '不允许代理此域名的图片' }, 403)
       }
 
-      // 如果 URL 没有 rkey，尝试添加
       if (!url.includes('rkey=') && (parsedUrl.hostname.includes('multimedia.nt.qq.com.cn') || parsedUrl.hostname.includes('gchat.qpic.cn'))) {
         try {
           const appid = parsedUrl.searchParams.get('appid')
@@ -114,9 +113,7 @@ export function createProxyRoutes(ctx: Context): Hono {
     }
   })
 
-  // rkey 接口 - 给 WebQQ 前端直连 QQ 图片 CDN 用（前端自己拼 originImageUrl + rkey +
-  // <img referrerPolicy="no-referrer">，不再走 image-proxy 中转）。rkey 是全局两个值、
-  // 会过期，前端按 TTL / onError 重拉。
+  // 前端直连图片 CDN 时自己拼 rkey (配合 referrerPolicy="no-referrer"); rkey 会过期, 前端按 TTL / onError 重拉
   router.get('/rkey', async (c) => {
     try {
       const rkeyData = await ctx.ntFileApi.rkeyManager.getRkey()
@@ -133,7 +130,7 @@ export function createProxyRoutes(ctx: Context): Hono {
     }
   })
 
-  // 语音代理接口 - 获取语音并转换为浏览器可播放格式
+  // 转成浏览器能播的格式
   router.get('/audio-proxy', async (c) => {
     try {
       const fileUuid = c.req.query('fileUuid')
@@ -148,7 +145,6 @@ export function createProxyRoutes(ctx: Context): Hono {
 
       let audioFilePath: string = ''
 
-      // 优先使用本地文件路径
       if (filePath) {
         const decodedPath = decodeURIComponent(filePath)
         try {
@@ -160,7 +156,6 @@ export function createProxyRoutes(ctx: Context): Hono {
         }
       }
 
-      // 如果本地文件不存在，从URL获取
       if (!audioFilePath && fileUuid) {
         const url = await ctx.ntFileApi.getPttUrl(fileUuid, isGroup)
         if (!url) {
@@ -186,12 +181,10 @@ export function createProxyRoutes(ctx: Context): Hono {
         await writeFile(audioFilePath, audioBuffer)
       }
 
-      // 转换为 mp3
       try {
         const mp3Path = await decodeSilk(ctx, audioFilePath, 'mp3')
         const mp3Buffer = await readFile(mp3Path)
 
-        // 清理临时文件
         if (audioFilePath.includes(os.tmpdir())) {
           unlink(audioFilePath).catch(() => { })
         }

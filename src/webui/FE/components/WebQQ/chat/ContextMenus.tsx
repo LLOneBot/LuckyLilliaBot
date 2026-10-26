@@ -5,12 +5,11 @@ import type { RawMessage, GroupMemberItem } from '../../../types/webqq'
 import { getSelfUid, recallMessage, sendPoke, setMemberAdmin, addFavEmojiFromUrl, downloadImageByUrl } from '../../../utils/webqqApi'
 import { showToast } from '../../common'
 
-// 计算菜单位置，确保不超出屏幕
+// 保证菜单不超出屏幕
 function useMenuPosition(x: number, y: number, menuRef: React.RefObject<HTMLDivElement>) {
   const [position, setPosition] = useState<{ left: number; top: number; ready: boolean }>({ left: -9999, top: -9999, ready: false })
 
   useEffect(() => {
-    // 重置为未就绪状态
     setPosition({ left: -9999, top: -9999, ready: false })
 
     // 使用 requestAnimationFrame 确保 DOM 已渲染
@@ -26,19 +25,15 @@ function useMenuPosition(x: number, y: number, menuRef: React.RefObject<HTMLDivE
       let left = x
       let top = y
 
-      // 右边界检测
       if (x + menuRect.width > window.innerWidth - padding) {
         left = x - menuRect.width
       }
-      // 左边界检测
       if (left < padding) {
         left = padding
       }
-      // 下边界检测
       if (y + menuRect.height > window.innerHeight - padding) {
         top = y - menuRect.height
       }
-      // 上边界检测
       if (top < padding) {
         top = padding
       }
@@ -89,7 +84,7 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
   const targetIsAdmin = targetRole === 'admin' || targetRole === 'owner'
   const canRecall = isSelfMessage || (isGroup && (isOwner || (isAdmin && !targetIsAdmin)))
 
-  // 检查是否是图片右键菜单（有 elementId 说明是在图片上右键）
+  // 有 elementId 说明是在图片上右键
   const isImageMenu = !!contextMenu.elementId
 
   const menuRef = useRef<HTMLDivElement>(null)
@@ -99,8 +94,7 @@ export const MessageContextMenu: React.FC<MessageContextMenuProps> = ({
     if (!contextMenu.elementId) return
     onClose()
     try {
-      // 从 message.elements 找出右键命中的 picElement，取它的 originImageUrl
-      // (跟 MessageElements.tsx 里渲染图片用的同一份字段，host 拼接逻辑也跟它对齐)
+      // host 拼接跟 MessageElements.tsx 渲染图片时一致
       const target = msg.elements.find((e: any) => e.elementId === contextMenu.elementId)
       const pic = target?.picElement
       const rawUrl: string = pic?.originImageUrl || ''
@@ -264,7 +258,6 @@ export const AvatarContextMenu: React.FC<AvatarContextMenuProps> = ({
   const canMute = isOwner || (isAdmin && targetRole === 'member')
   const canKick = isOwner || (isAdmin && targetRole === 'member')
   const isSelf = avatarContextMenu.senderUid === selfUid
-  // 只有群主可以设置/取消管理员，且不能对自己操作
   const canSetAdmin = isOwner && !isSelf
 
   const menuRef = useRef<HTMLDivElement>(null)
@@ -274,7 +267,6 @@ export const AvatarContextMenu: React.FC<AvatarContextMenuProps> = ({
     const info = avatarContextMenu
     onClose()
     try {
-      // targetIsAdmin 表示目前已经是管理员；点击后切换：是 → 取消，不是 → 设为
       await setMemberAdmin(info.groupCode, info.senderUid, !targetIsAdmin)
       showToast(targetIsAdmin ? '已取消管理员' : '已设为管理员', 'success')
       onAdminChanged?.()

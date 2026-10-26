@@ -116,16 +116,9 @@ class Store extends Service {
   }
 
   /**
-   * shortId hash 输入。要保证同一条消息在不同时机/不同视角算出来一致。
-   *
-   * 群消息：peerUid (= groupCode) 和 msgSeq 是 server 全局分配，所有人视角一致；msgRandom
-   *   server 在两端原样广播也一致。msgId（contentHead.msgUid）在 OlPush 推回 vs SsoGetGroupMsg
-   *   拉历史时**不一样**，不能放进 hash 输入。
-   * C2C：peerUid 是各自视角对方的 uid（双端不同），不能进 hash。RawMessage.msgSeq 在私聊里
-   *   语义是 c2cMsgSeq（server 给这条消息的全局 c2c msgSeq，双端理论上一致），但本端 send
-   *   时还没拿到它（PbSendMsgResp 同步返回有，但收到 self-echo 之前 store 里这条消息字段
-   *   不一定齐），所以稳妥起见 hash 输入只用两端都立刻能拿到的 (selfUid, otherUid) 排序对
-   *   + msgRandom（client 自造，server 在两端原样广播，永远一致）。
+   * 同一条消息在不同时机 / 视角必须算出同一个 key。群: groupCode + msgSeq + msgRandom 所有人一致, msgId 在推送和
+   * 拉历史时不一样, 不能用。C2C: 双端的 peerUid 不同, 本端发送时也未必有 c2cMsgSeq, 所以只用排好序的
+   * (selfUid, otherUid) + msgRandom
    */
   private buildShortIdKey(meta: {
     msgId: string
@@ -161,7 +154,6 @@ class Store extends Service {
     const shortId = hash.readInt32BE() // OneBot 11 要求 message_id 为 int32
     this.ids.set(cacheKey, shortId)
     if (this.ids.size > 1000) {
-      // 如果缓存超过1000条，清理最早的
       const firstKey = this.ids.keys().next().value
       this.ids.delete(firstKey!)
     }
@@ -176,7 +168,7 @@ class Store extends Service {
   }
 
   async getMsgInfoByShortId(shortId: number): Promise<MsgInfo | undefined> {
-    // 始终走 DB —— cache 的 key 用规范化字符串（C2C 用 uid-pair-random），不再可逆。
+    // 只能查 DB: cache 的 key 不可逆
     const items = await this.ctx.database.get('message', { shortId })
     if (items.length) {
       const { msgId, chatType, peerUid, msgSeq } = items[0]
@@ -196,8 +188,7 @@ class Store extends Service {
       .find(e => e.peerUid === peerUid && e.msgSeq === msgSeq)
   }
 
-  /** 按 (peerUid, msgRandom) 反查 cache —— C2C 撤回 push 里 sequence/msgSeq 不可靠，random 是
-   *  server 在两端原样广播的 32-bit 值，是双端唯一对得上的 key。 */
+  /** C2C 撤回推送里的 seq 不可靠, random 是双端唯一对得上的字段 */
   getMsgByRandom(peerUid: string, msgRandom: number) {
     return this.messages.values()
       .find(e => e.peerUid === peerUid && e.msgRandom === msgRandom)
@@ -208,7 +199,6 @@ class Store extends Service {
   }
 
   async addFileCache(data: FileCache) {
-    // 判断 fileUuid 是否存在
     const existingFile = await this.ctx.database.get('file', { fileUuid: data.fileUuid })
     if (existingFile.length) {
       return
@@ -234,10 +224,9 @@ class Store extends Service {
     }
     const id = msg.msgId
     this.messages.set(id, msg)
-    // 本地时间可能跟消息时间存在差异，以本地时间为准
+    // 用本地时间, 消息时间可能有偏差
     this.msgTimestamps.set(id, Date.now())
     if (this.messages.size > 10000) {
-      // 如果缓存超过10000条，清理最早的
       const firstKey = this.messages.keys().next().value
       this.messages.delete(firstKey!)
       this.msgTimestamps.delete(firstKey!)

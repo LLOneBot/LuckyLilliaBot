@@ -1,13 +1,10 @@
-/**
- * satori 包共享 onebot11-api-test 的媒体资源（同 milky 的做法）。
- */
+// 跟 onebot11-api-test 共用媒体 fixture
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { existsSync, mkdirSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 
 const __dirname_ = path.dirname(fileURLToPath(import.meta.url))
-// satori-api-test/tests/media/ → onebot11-api-test/tests/media/
 const ob11MediaDir = path.resolve(__dirname_, '../../../onebot11-api-test/tests/media')
 
 function p(filename: string) {
@@ -22,7 +19,7 @@ function generateFreshVideo(): string {
   if (!existsSync(generatedDir)) mkdirSync(generatedDir, { recursive: true })
   const ts = `${Date.now()}${process.hrtime.bigint()}`
   const out = path.join(generatedDir, `satori-${ts}.mp4`)
-  // 跟 milky 测试保持同样的 fontfile 配置（gyan portable ffmpeg drawtext 需要显式 fontfile）
+  // 同 OB11 测试: gyan portable ffmpeg 的 drawtext 要显式 fontfile
   const fontfile = process.platform === 'win32'
     ? `'C\\:/Windows/Fonts/arial.ttf'`
     : `'/System/Library/Fonts/Helvetica.ttc'`
@@ -44,7 +41,7 @@ export const MediaPaths = {
   testGifUri: fileUri('test.gif'),
   testOcrImageUri: fileUri('test_ocr.png'),
   testMp4Uri: fileUri('test.mp4'),
-  /** 现场 ffmpeg 生成的全新视频（每次调用一个新的, hash 必不同），用于"全新视频"场景测试 */
+  /** 每次调用都现生成一个新视频, hash 必不同 */
   newFreshVideoPath: () => generateFreshVideo(),
   newFreshVideoUri: () => 'file:///' + generateFreshVideo().replace(/\\/g, '/'),
   resolve: p,

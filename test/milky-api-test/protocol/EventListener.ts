@@ -6,9 +6,6 @@ import {
   TimeoutError,
 } from '../../test-framework/src/index.js'
 
-/**
- * Milky 事件统一形状：`{ time, self_id, event_type, data }`。`data` 内部按 event_type 不同。
- */
 export interface MilkyEvent {
   time: number
   self_id: number
@@ -16,19 +13,13 @@ export interface MilkyEvent {
   data: any
 }
 
-/**
- * 事件过滤器：常见用法是按 event_type + data 内字段（group_id / user_id / message_seq）匹配。
- * 顶层支持 event_type；其它字段会到 event.data 里深度对比。
- */
+/** event_type 比顶层, 其余字段比 event.data */
 export interface MilkyEventFilter {
   event_type?: string
-  /** 任意字段会从 event.data 里深度对比（支持 group_id/user_id/message_seq 等） */
   [key: string]: unknown
 }
 
-/**
- * Milky 事件监听器：连 `<host>/event` 的 WS（也支持 SSE，但这里用 WS）。
- */
+/** 连 `<host>/event` 的 WS (Milky 也支持 SSE) */
 export class MilkyEventListener implements IEventListener<MilkyEvent, MilkyEventFilter> {
   private ws: WebSocket | null = null
   private listening = false
@@ -112,10 +103,9 @@ export class MilkyEventListener implements IEventListener<MilkyEvent, MilkyEvent
     if (filter.event_type !== undefined && event.event_type !== filter.event_type) return false
     for (const key of Object.keys(filter)) {
       if (key === 'event_type') continue
-      // 在 event.data 里查
       const target = (event.data as any)?.[key]
       const expected = filter[key]
-      // 数字 ↔ 字符串宽松比较
+      // 数字和字符串宽松比较
       if (typeof expected === 'number' && typeof target === 'string') {
         if (+target !== expected) return false
       } else if (typeof expected === 'string' && typeof target === 'number') {
@@ -128,7 +118,7 @@ export class MilkyEventListener implements IEventListener<MilkyEvent, MilkyEvent
   }
 
   private handleEvent(event: MilkyEvent): void {
-    // 先看有没有 pending handler 想要这个事件，有就消费掉别进队列
+    // 有 pending handler 要它就直接消费, 不进队列
     for (let i = this.eventHandlers.length - 1; i >= 0; i--) {
       const h = this.eventHandlers[i]
       if (this.matchesFilter(event, h.filter) && (!h.customFilter || h.customFilter(event))) {
@@ -146,7 +136,6 @@ export class MilkyEventListener implements IEventListener<MilkyEvent, MilkyEvent
     customFilter?: (event: MilkyEvent) => boolean,
     timeoutMs = 20000,
   ): Promise<MilkyEvent> {
-    // 先扫现有队列
     for (let i = 0; i < this.eventQueue.length; i++) {
       const e = this.eventQueue[i]
       if (this.matchesFilter(e, filter) && (!customFilter || customFilter(e))) {

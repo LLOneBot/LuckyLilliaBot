@@ -1,9 +1,4 @@
-﻿/**
- * batch_delete_group_member 接口测试
- * 测试批量踢出群成员功能
- *
- * 警告：此测试会实际踢出群成员，请谨慎使用
- */
+﻿/** 会真的踢人, 默认跳过 */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
@@ -21,7 +16,6 @@ describe('batch_delete_group_member - 批量踢出群成员', () => {
   });
 
   it.skip('测试批量踢出群成员 (跳过以避免误操作)', async () => {
-    // 此测试会实际踢出群成员，默认跳过
     const primaryClient = context.twoAccountTest.getClient('primary');
 
     const response = await primaryClient.call(ActionName.BatchDeleteGroupMember, {

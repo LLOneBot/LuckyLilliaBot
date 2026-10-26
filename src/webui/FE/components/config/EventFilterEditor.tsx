@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, X, Filter, ChevronDown, ChevronRight, Code, LayoutList } from 'lucide-react'
 
-// 可选字段定义
 const FIELD_OPTIONS = [
   { value: 'post_type', label: '事件类型', type: 'select', options: [
     { value: 'message', label: '消息' },
@@ -38,7 +37,6 @@ const FIELD_OPTIONS = [
 
 type FieldOption = typeof FIELD_OPTIONS[number]
 
-// 操作符定义
 const OPERATOR_OPTIONS = [
   { value: '$eq', label: '等于' },
   { value: '$ne', label: '不等于' },
@@ -79,7 +77,6 @@ function parseFilterToRules(filter: Record<string, unknown>): FilterRule[] | nul
         const valStr = Array.isArray(val) ? val.join(', ') : String(val ?? '')
         rules.push({ id: nextRuleId++, field, operator: op, value: valStr })
       } else {
-        // 简单等于
         const valStr = Array.isArray(condition) ? condition.join(', ') : String(condition)
         rules.push({ id: nextRuleId++, field, operator: '$eq', value: valStr })
       }
@@ -90,7 +87,6 @@ function parseFilterToRules(filter: Record<string, unknown>): FilterRule[] | nul
   return rules
 }
 
-// 将可视化规则转换为 MongoDB 查询对象
 function rulesToFilter(rules: FilterRule[]): Record<string, unknown> | undefined {
   if (rules.length === 0) return undefined
   const filter: Record<string, unknown> = {}
@@ -135,7 +131,6 @@ const EventFilterEditor: React.FC<EventFilterEditorProps> = ({ filter, onChange 
   const [jsonError, setJsonError] = useState('')
   const [visualUnsupported, setVisualUnsupported] = useState(false)
 
-  // 初始化
   useEffect(() => {
     if (filter && Object.keys(filter).length > 0) {
       setJsonText(JSON.stringify(filter, null, 2))
@@ -157,7 +152,6 @@ const EventFilterEditor: React.FC<EventFilterEditorProps> = ({ filter, onChange 
 
   const hasFilter = (filter && Object.keys(filter).length > 0) || rules.length > 0
 
-  // 可视化规则变更 → 同步到 filter 和 jsonText
   const updateFromRules = useCallback((newRules: FilterRule[]) => {
     setRules(newRules)
     const newFilter = rulesToFilter(newRules)
@@ -166,7 +160,6 @@ const EventFilterEditor: React.FC<EventFilterEditorProps> = ({ filter, onChange 
     setJsonError('')
   }, [onChange])
 
-  // JSON 文本变更
   const handleJsonChange = useCallback((text: string) => {
     setJsonText(text)
     const trimmed = text.trim()
@@ -205,20 +198,16 @@ const EventFilterEditor: React.FC<EventFilterEditorProps> = ({ filter, onChange 
     const newRules = rules.map(r => {
       if (r.id !== id) return r
       const updated = { ...r, ...updates }
-      // 切换字段时重置值
       if (updates.field && updates.field !== r.field) {
         updated.value = ''
         updated.operator = '$eq'
       }
-      // 切换操作符时转换值格式
       if (updates.operator && updates.operator !== r.operator) {
         const wasListOp = r.operator === '$in' || r.operator === '$nin'
         const isListOp = updates.operator === '$in' || updates.operator === '$nin'
         if (!wasListOp && isListOp) {
-          // 单值 → 列表：保留原值
-          // value 不变，标签输入会自动把它当作单项列表
+          // value 不变, 标签输入会把它当成单项列表
         } else if (wasListOp && !isListOp) {
-          // 列表 → 单值：取第一项
           const items = r.value.split(/[,，]/).map(v => v.trim()).filter(Boolean)
           updated.value = items[0] || ''
         }
@@ -231,7 +220,6 @@ const EventFilterEditor: React.FC<EventFilterEditorProps> = ({ filter, onChange 
   const switchToMode = (newMode: 'visual' | 'json') => {
     if (newMode === 'visual' && visualUnsupported) return
     if (newMode === 'json' && mode === 'visual') {
-      // 同步最新的 rules 到 JSON
       const f = rulesToFilter(rules)
       setJsonText(f ? JSON.stringify(f, null, 2) : '')
     }

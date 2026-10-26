@@ -24,11 +24,9 @@ export class NTSystemApi extends Service {
   }
 
   async setSettingAutoLogin(_state: boolean) {
-    // 直连模式：无操作
   }
 
   async getDeviceInfo() {
-    // 跟随当前激活协议 (--protocol); 供 milky get_impl_info + WebUI dashboard 显示。
     return { devType: DeviceInfo.devType, buildVer: AppInfo.buildVer }
   }
 }

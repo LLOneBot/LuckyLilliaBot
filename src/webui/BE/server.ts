@@ -16,7 +16,6 @@ import { serve, ServerType } from '@hono/node-server'
 import { noop } from 'cosmokit'
 import type { FetchHandler, WebUIServer } from '@luckylillia/plugin-sdk'
 
-// 静态文件服务，指向前端dist目录
 let feDistPath = path.resolve(import.meta.dirname, 'webui/')
 // @ts-expect-error: TS2339 - Property 'env' does not exist on type 'ImportMeta'
 if (!import.meta.env) {
@@ -102,7 +101,6 @@ export class WebuiServer extends Service implements WebUIServer {
   private initServer() {
     this.app.use('/api/*', authMiddleware)
 
-    // 注册路由
     this.app.route('/api', createConfigRoutes(this.ctx))
     this.app.route('/api', createAuthTokenRoutes())
     this.app.route('/api', createLoginRoutes(this.ctx))
@@ -121,7 +119,6 @@ export class WebuiServer extends Service implements WebUIServer {
       await next()
     })
 
-    // 静态文件服务
     this.app.use('/*', serveStatic({ root: feDistPath }))
     this.app.get('/', async (c) => {
       const filePath = path.join(feDistPath, 'index.html')

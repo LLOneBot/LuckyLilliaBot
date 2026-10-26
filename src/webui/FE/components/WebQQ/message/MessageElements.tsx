@@ -8,28 +8,25 @@ import type { ForwardMessageItem, ForwardMessageSegment } from '../../../utils/w
 import { useImageRkeyStore } from '../../../stores/imageRkeyStore'
 import { showToast } from '../common'
 
-// 图片预览上下文
 export const ImagePreviewContext = React.createContext<{
   showPreview: (url: string) => void
 } | null>(null)
 
-// 视频预览上下文
 export const VideoPreviewContext = React.createContext<{
   showPreview: (fileUuid: string, isGroup: boolean) => void
 } | null>(null)
 
-// 图片右键菜单上下文（用于添加到表情）
+// 用于"添加到表情"
 export const ImageContextMenuContext = React.createContext<{
   showMenu: (e: React.MouseEvent, message: RawMessage, elementId: string) => void
 } | null>(null)
 
-// 文件卡片点击上下文：点击聊天里的文件卡片 → 打开群文件面板定位高亮
+// 点聊天里的文件卡片时打开群文件面板并定位
 export const FileCardContext = React.createContext<{
   open: (t: { fileId: string; folderId: string }) => void
 } | null>(null)
 
-// QQ 图片直连：按 appid 把全局 rkey 拼在 originImageUrl 后面（跟 BE image-proxy 的注入逻辑一致），
-// 配合 <img referrerPolicy="no-referrer"> 直连 CDN，不再走 BE 代理。rkey 由调用方从 useImageRkeyStore 取。
+// 按 appid 拼上 rkey (跟 BE image-proxy 一致), 配合 referrerPolicy="no-referrer" 直连 CDN; rkey 来自 useImageRkeyStore
 export const getProxyImageUrl = (
   url: string | undefined,
   rkeys?: { privateRkey: string; groupRkey: string },
@@ -43,7 +40,6 @@ export const getProxyImageUrl = (
       if (appid === '1406' && rkeys?.privateRkey) return url + rkeys.privateRkey
       if (appid === '1407' && rkeys?.groupRkey) return url + rkeys.groupRkey
     } catch {
-      // URL 解析失败就原样返回
     }
     return url
   }
@@ -131,7 +127,6 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
         className="inline-block align-text-bottom"
         style={{ width: 24, height: 24 }}
         onError={(e) => {
-          // 如果图片加载失败，显示文字
           const target = e.target as HTMLImageElement
           target.style.display = 'none'
           const span = document.createElement('span')
@@ -144,7 +139,7 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
   if (element.fileElement) {
     const f = element.fileElement
     const isGroup = message?.chatType === 2
-    // 群文件卡片可点击定位到群文件面板; 私聊文件卡片可点击直接下载 (私聊无群文件面板)
+    // 群文件点了定位到群文件面板, 私聊文件点了直接下载
     const groupFile = isGroup ? { fileId: f.fileUuid, folderId: f.folderId } : undefined
     const privateFile = message && !isGroup && f.fileUuid
       ? { fileId: f.fileUuid, peerUid: message.peerUid, isSelfSend: message.senderUid === getSelfUid() }
@@ -289,8 +284,7 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
   return null
 })
 
-// 文件卡片. 跟图片/视频一样作为独立元素渲染, 不含状态文字 ("已发送"等),
-// 状态由外层 MessageBubble 决定要不要展示.
+// 不带状态文字 ("已发送"等), 由外层 MessageBubble 决定
 const FileElementCard = memo<{
   fileName: string
   fileSize: number
@@ -351,7 +345,6 @@ function formatFileSize(bytes: number): string {
   return `${n.toFixed(n >= 100 || i === 0 ? 0 : n >= 10 ? 1 : 2)} ${units[i]}`
 }
 
-// 检查元素是否有有效内容
 export const hasValidContent = (element: MessageElement): boolean => {
   return !!(
     element.textElement ||
@@ -367,13 +360,11 @@ export const hasValidContent = (element: MessageElement): boolean => {
   )
 }
 
-// 检查消息是否是系统提示（如戳一戳）
 export const isSystemTipMessage = (message: RawMessage): boolean => {
   if (!message.elements || message.elements.length === 0) return false
   return message.elements.every(el => el.grayTipElement || el.replyElement)
 }
 
-// 语音消息渲染组件
 const PttElementRenderer: React.FC<{ element: MessageElement; message?: RawMessage }> = ({ element, message }) => {
   const [transcribedText, setTranscribedText] = useState<string | null>(null)
   const [isTranscribing, setIsTranscribing] = useState(false)
@@ -388,10 +379,8 @@ const PttElementRenderer: React.FC<{ element: MessageElement; message?: RawMessa
   const seconds = duration % 60
   const durationStr = minutes > 0 ? `${minutes}:${seconds.toString().padStart(2, '0')}` : `${seconds}"`
 
-  // 如果已经有转换好的文字，直接显示
   const existingText = ptt.text
 
-  // 计算语音条宽度（根据时长，最小80px，最大200px）
   const minWidth = 80
   const maxWidth = 200
   const width = Math.min(maxWidth, Math.max(minWidth, minWidth + duration * 3))
@@ -399,21 +388,18 @@ const PttElementRenderer: React.FC<{ element: MessageElement; message?: RawMessa
   const handlePlay = async () => {
     if (!message || !ptt.fileUuid || isLoading) return
 
-    // 如果正在播放，暂停
     if (isPlaying && audioRef.current) {
       audioRef.current.pause()
       setIsPlaying(false)
       return
     }
 
-    // 如果已有 audio 元素且已加载，直接播放
     if (audioRef.current && audioRef.current.readyState >= 2) {
       audioRef.current.play()
       setIsPlaying(true)
       return
     }
 
-    // 通过代理获取音频
     setIsLoading(true)
     try {
       const isGroup = message.chatType === 2
@@ -426,7 +412,7 @@ const PttElementRenderer: React.FC<{ element: MessageElement; message?: RawMessa
 
       audio.onended = () => setIsPlaying(false)
       audio.onerror = (e) => {
-        // 尝试获取响应内容来诊断问题
+        // 诊断用
         fetch(url).then(r => r.text()).then(text => {
           console.error('音频加载错误，响应内容:', text.substring(0, 200))
         }).catch(() => {})
@@ -523,7 +509,7 @@ const PttElementRenderer: React.FC<{ element: MessageElement; message?: RawMessa
   )
 }
 
-// 合并转发消息内容渲染（用于弹窗内显示）
+// 弹窗里用
 const ForwardSegmentRenderer: React.FC<{ segment: ForwardMessageSegment }> = ({ segment }) => {
   const previewContext = React.useContext(ImagePreviewContext)
   const privateRkey = useImageRkeyStore((s) => s.privateRkey)
@@ -572,7 +558,6 @@ const ForwardSegmentRenderer: React.FC<{ segment: ForwardMessageSegment }> = ({ 
   return null
 }
 
-// 嵌套合并转发卡片（递归支持）
 const NestedForwardCard: React.FC<{ resId: string; title: string }> = ({ resId, title }) => {
   const [showModal, setShowModal] = useState(false)
 
@@ -590,7 +575,6 @@ const NestedForwardCard: React.FC<{ resId: string; title: string }> = ({ resId, 
   )
 }
 
-// 解析 xmlContent 中的预览信息
 function parseForwardXml(xmlContent: string): { title: string; previews: string[]; summary: string } {
   const title = xmlContent.match(/<title[^>]*color="#000000"[^>]*>(.*?)<\/title>/)?.[1] || '[聊天记录]'
   const previewMatches = xmlContent.match(/<title[^>]*color="#777777"[^>]*>(.*?)<\/title>/g)
@@ -599,7 +583,6 @@ function parseForwardXml(xmlContent: string): { title: string; previews: string[
   return { title, previews, summary }
 }
 
-// 合并转发消息卡片渲染器
 const ForwardMsgElementRenderer: React.FC<{ element: MessageElement }> = ({ element }) => {
   const [showModal, setShowModal] = useState(false)
   const forward = element.multiForwardMsgElement!
@@ -627,7 +610,7 @@ const ForwardMsgElementRenderer: React.FC<{ element: MessageElement }> = ({ elem
   )
 }
 
-// Ark 格式的合并转发消息渲染器（自己发出的转发消息）
+// 自己发出的合并转发是 ark 形态
 const ArkForwardMsgRenderer: React.FC<{ arkData: any }> = ({ arkData }) => {
   const [showModal, setShowModal] = useState(false)
   const detail = arkData.meta?.detail || {}
@@ -658,7 +641,6 @@ const ArkForwardMsgRenderer: React.FC<{ arkData: any }> = ({ arkData }) => {
   )
 }
 
-// 合并转发消息弹窗
 const ForwardMsgModal: React.FC<{ resId: string; title: string; onClose: () => void }> = ({ resId, title, onClose }) => {
   const [messages, setMessages] = useState<ForwardMessageItem[]>([])
   const [loading, setLoading] = useState(true)

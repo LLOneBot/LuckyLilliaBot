@@ -7,19 +7,17 @@ import { isDockerEnvironment, getSpecifiedUin, getProtocol, type ProtocolId } fr
 import { loadMachineGuidSync } from './machineGuid'
 import type { SessionInfo } from './client'
 
-// getSpecifiedUin 已挪到 common/utils/environment (config service 也要用, 避免牵扯 native-sign
-// 依赖链)。此处 re-export 保持 direct-lib 对外 API 不变。
 export { getSpecifiedUin }
 
 export interface PersistedSession {
   uin: string
   uid: string
-  guid: string      // hex (设备 guid, 明文; 注意: 不能用它当加密密钥)
-  nick?: string     // 自己的昵称（来自登录响应 TLV 0x11A）
-  savedAt: number   // timestamp
-  // 敏感登录凭证加密进 enc; 持久化只写 enc, 不写明文
+  guid: string      // hex, 明文存储, 不能当加密密钥
+  nick?: string
+  savedAt: number
+  // 凭证只以加密形式落盘
   enc?: string      // base64(iv[12] + tag[16] + AES-256-GCM ciphertext)
-  // 下面几个不落盘, 仅 loadSession 解密 enc 后在内存里填充, 供 persistedToSessionInfo 使用
+  // 以下不落盘, loadSession 解密 enc 后填充
   d2?: string       // hex
   d2Key?: string    // hex
   tgt?: string      // hex
@@ -27,12 +25,8 @@ export interface PersistedSession {
   tgtgtKey?: string // hex
 }
 
-// ---- session 敏感字段加密 (机器绑定) ----
-// 密钥来自 OS machine id (不随 session 文件走), 所以 session 拷到别的机器无法解密。
-// 注意: 不能用 session.guid (它明文存在文件里, 等于密钥泄露)。
-// 容器例外: /etc/machine-id 随容器重建而变 (session 解不开, 被迫重新扫码),
-// 改用 data 卷里的 machine_guid.bin 派生 -- 随 volume 持久化, 重建/迁移卷后 session 仍可解。
-// 代价 (有意取舍): 它与 session 文件里明文的 guid 同值, 容器场景防线实为整个 data 卷的访问边界。
+// 凭证密钥取自 OS machine id (不随 session 文件走), 不能用明文存着的 session.guid。容器的 /etc/machine-id
+// 随重建而变, 改用 data 卷里的 machine_guid.bin: 代价是它与 guid 同值, 防线实际是整个 data 卷的访问权限
 let _machineKey: Buffer | null = null
 function getMachineKey(): Buffer {
   if (_machineKey) return _machineKey
@@ -55,7 +49,7 @@ function getMachineKey(): Buffer {
     // 取不到 machine id 时降级到主机名 (弱, 但仍非明文)
   }
   if (!machineId) machineId = process.env.COMPUTERNAME || process.env.HOSTNAME || 'luckylillia-fallback'
-  _machineKey = createHash('sha256').update('luckylillia-session-v1|' + machineId).digest() // 32 bytes
+  _machineKey = createHash('sha256').update('luckylillia-session-v1|' + machineId).digest()
   return _machineKey
 }
 
@@ -82,21 +76,13 @@ function decryptSensitive(b64: string): SensitiveFields {
   return JSON.parse(plain) as SensitiveFields
 }
 
-/**
- * session 文件按 (uin, 协议) 命名。协议隔离: 换协议登录凭证不通用, 各存各的。
- * Linux 保持无后缀 `qq-session-<uin>.json` (向后兼容, 老用户零迁移);
- * 其余协议加后缀 `qq-session-<uin>-<protocol>.json` (如 qq-session-12345-windows.json)。
- * protocol 默认取当前进程激活的协议 (--protocol), 调用方一般不用显式传。
- */
+/** 凭证不跨协议通用, 所以按协议分文件; linux 不带后缀是为了兼容老文件 */
 export function getSessionFilePathForUin(uin: string, protocol: ProtocolId = getProtocol()): string {
   const suffix = protocol === 'linux' ? '' : `-${protocol}`
   return join(DATA_DIR, `qq-session-${uin}${suffix}.json`)
 }
 
-/**
- * 把 session 写入 qq-session-<uin>.json（按 session 自身的 uin）。
- * 敏感登录凭证加密进 enc, uin/uid/guid/nick 保持明文 (供外部展示快速登录列表)。
- */
+/** uin / uid / guid / nick 保持明文, 快速登录列表要展示 */
 export function saveSession(
   session: SessionInfo,
   tgtgtKey: Buffer,
@@ -123,12 +109,7 @@ export function saveSession(
   writeFileSync(path, JSON.stringify(data, null, 2))
 }
 
-/**
- * 加载 session:
- * - 传了 uin (WebUI 快速登录) 或 argv 里有 -q <uin> → 尝试对应 qq-session-<uin>.json
- * - 两者都没有 → 返回 null, 调用方走扫码登录
- * - 文件不存在 / 解析失败 / 解密失败 (换机器) → 返回 null
- */
+/** 没指定 uin (参数或 -q)、文件不存在、解不开 (换了机器) 都返回 null, 调用方走扫码 */
 export function loadSession(uinArg?: string): PersistedSession | null {
   const specifiedUin = uinArg || getSpecifiedUin()
   if (!specifiedUin) return null
@@ -137,8 +118,7 @@ export function loadSession(uinArg?: string): PersistedSession | null {
   try {
     const raw = readFileSync(path, 'utf-8')
     const data = JSON.parse(raw) as PersistedSession
-    // 新格式: enc 加密 -> 解密还原敏感字段; 解密失败 (换机器/损坏) 当作无效 session
-    // 只认加密格式: 无 enc (旧明文/损坏) 或解密失败 (换机器) 一律当无效, 调用方走扫码重新登录
+    // 只认加密格式, 旧的明文 session 也当无效
     if (!data.enc) return null
     try {
       const s = decryptSensitive(data.enc)
@@ -157,11 +137,7 @@ export function loadSession(uinArg?: string): PersistedSession | null {
   }
 }
 
-/**
- * 扫 data/qq-session-*.json, 返回可用快速登录账号的明文元数据 (uin/uid/nick).
- * 只列**有 enc** 的 session (旧明文/无凭证的一律跳过, 快速登录用不上); 不做实际解密,
- * 换机后不能 quick-login 但会展示 -- 用户选到后 registerOnline 阶段会失败并 fallback 扫码.
- */
+/** 只列有 enc 的 session, 不试解密: 换了机器的也会列出来, 选了再失败退回扫码 */
 export function listAvailableSessions(): Array<{ uin: string; uid: string; nick: string; savedAt: number; protocol: ProtocolId }> {
   let entries: string[]
   try {
@@ -169,7 +145,7 @@ export function listAvailableSessions(): Array<{ uin: string; uid: string; nick:
   } catch {
     return []
   }
-  // 只列**当前协议**的 session (一个 Bot 进程一个协议, 只能快速登录本协议的账号)。
+  // 只能快速登录当前协议的账号
   const active = getProtocol()
   const out: Array<{ uin: string; uid: string; nick: string; savedAt: number; protocol: ProtocolId }> = []
   for (const name of entries) {
@@ -193,11 +169,9 @@ export function listAvailableSessions(): Array<{ uin: string; uid: string; nick:
       // skip malformed
     }
   }
-  // 按 savedAt 倒序 (最近登过的在前)
   return out.sort((a, b) => b.savedAt - a.savedAt)
 }
 
-/** 删除 qq-session-<uin>.json. 异地登录顶号后清掉失效凭证, 强制重新扫码. */
 export function deleteSession(uin: string): void {
   try { unlinkSync(getSessionFilePathForUin(uin)) } catch {}
 }

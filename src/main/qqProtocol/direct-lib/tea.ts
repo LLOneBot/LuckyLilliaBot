@@ -1,7 +1,4 @@
-/**
- * TEA cipher implementation (Tencent QQ variant)
- * 16-round TEA with QQ-specific CBC chaining and random padding
- */
+// QQ's TEA variant: 16 rounds, its own CBC chaining and random padding
 
 const DELTA = 0x9E3779B9
 const ROUNDS = 16
@@ -115,7 +112,6 @@ export function teaDecrypt(data: Uint8Array, key: Uint8Array): Uint8Array {
     throw new Error('TEA decrypt: invalid data length')
   }
 
-  // QQ-specific CBC mode decryption
   const plain = new Uint8Array(data.length)
   let plainXorHi = 0, plainXorLo = 0
   let prevXorHi = 0, prevXorLo = 0

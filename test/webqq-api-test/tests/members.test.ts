@@ -51,7 +51,6 @@ describe('members + user endpoints (查询型 GET)', () => {
   })
 
   test('GET /api/webqq/group-member?groupCode&uid 返单成员', async () => {
-    // 先从 list 拿一个 uid
     const members = await client.get<Array<{ uid: string }>>('/api/webqq/members', {
       groupCode: config.test_group_id,
     })

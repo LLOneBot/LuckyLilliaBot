@@ -13,10 +13,7 @@ export interface MilkyResponse<T = unknown> {
   message?: string
 }
 
-/**
- * Milky API 客户端：HTTP POST `/api/<endpoint>` JSON 调用。
- * 不支持 WS 调用模式（Milky 设计上 WS 只推事件不接受请求）。
- */
+/** 只走 HTTP: Milky 的 WS 只推事件, 不接受请求 */
 export class MilkyApiClient implements IApiClient {
   private httpClient: AxiosInstance
 

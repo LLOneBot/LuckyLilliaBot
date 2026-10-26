@@ -229,9 +229,7 @@ export async function transformIncomingSegments(ctx: Context, message: RawMessag
     else if (element.marketFaceElement) {
       const { marketFaceElement } = element
       const { emojiId } = marketFaceElement
-      // 取md5的前两位
       const dir = emojiId.substring(0, 2)
-      // 获取组装url
       // const url = `https://p.qpic.cn/CDN_STATIC/0/data/imgcache/htdocs/club/item/parcel/item/${dir}/${md5}/300x300.gif?max_age=31536000`
       const url = `https://gxh.vip.qq.com/club/item/parcel/item/${dir}/${emojiId}/raw300.gif`
       messageSegment = {

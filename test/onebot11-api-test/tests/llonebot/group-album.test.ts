@@ -1,7 +1,4 @@
-﻿/**
- * 群相册操作测试
- * 包括: get_group_album_list, create_group_album, delete_group_album, upload_group_album
- */
+﻿/** get_group_album_list / create_group_album / delete_group_album / upload_group_album */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
@@ -53,7 +50,6 @@ describe('group_album - 群相册操作', () => {
   it('测试上传群相册图片', async () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先获取相册列表
     const listResponse = await primaryClient.call(ActionName.GetGroupAlbumList, {
       group_id: context.testGroupId
     });
@@ -76,7 +72,6 @@ describe('group_album - 群相册操作', () => {
   it('测试删除群相册', async () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 先创建一个测试相册
     const albumName = `测试删除相册-${Date.now()}`;
     const createResponse = await primaryClient.call(ActionName.CreateGroupAlbum, {
       group_id: context.testGroupId,
@@ -86,7 +81,6 @@ describe('group_album - 群相册操作', () => {
     if (createResponse.retcode === 0) {
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // 获取相册列表找到刚创建的相册
       const listResponse = await primaryClient.call(ActionName.GetGroupAlbumList, {
         group_id: context.testGroupId
       });

@@ -1,17 +1,10 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
 
-/**
- * 群文件管理路由 (WebQQ 群文件面板用). 全部薄封装 ctx.ntGroupApi / ctx.ntFileApi,
- * 协议层已就绪, 走抽象 ctx.qqProtocol, PMHQ / Direct 两模式通用.
- *
- * 上传的文件字节复用现成的 POST /upload-file (upload.ts): FE 先传文件拿 filePath,
- * 再调本文件的 /group-file/upload 走 highway 上传 + feed 到群.
- */
+/** 上传分两步: FE 先经 POST /upload-file (upload.ts) 拿到 filePath, 再调 /group-file/upload 传到群里 */
 export function createGroupFilesRoutes(ctx: Context): Hono {
   const router = new Hono()
 
-  // 群文件列表 (指定目录). folderId 缺省为根目录 '/'.
   router.get('/group-files', async (c) => {
     try {
       const { groupCode, folderId } = c.req.query() as { groupCode: string; folderId?: string }
@@ -64,7 +57,6 @@ export function createGroupFilesRoutes(ctx: Context): Hono {
     }
   })
 
-  // 群文件空间/数量信息
   router.get('/group-file-space', async (c) => {
     try {
       const { groupCode } = c.req.query() as { groupCode: string }
@@ -90,7 +82,6 @@ export function createGroupFilesRoutes(ctx: Context): Hono {
     }
   })
 
-  // 群文件下载 URL (腾讯 CDN 直链, FE 直接 window.open 下载)
   router.get('/group-file-url', async (c) => {
     try {
       const { groupCode, fileId } = c.req.query() as { groupCode: string; fileId: string }
@@ -108,7 +99,6 @@ export function createGroupFilesRoutes(ctx: Context): Hono {
     }
   })
 
-  // 上传群文件: FE 先经 /upload-file 拿到 filePath, 这里走 highway 上传并 feed 到群
   router.post('/group-file/upload', async (c) => {
     try {
       const { groupCode, filePath, fileName, folderId } = await c.req.json() as {
@@ -135,7 +125,6 @@ export function createGroupFilesRoutes(ctx: Context): Hono {
     }
   })
 
-  // 删除群文件
   router.post('/group-file/delete', async (c) => {
     try {
       const { groupCode, fileId, busId } = await c.req.json() as {
@@ -157,7 +146,6 @@ export function createGroupFilesRoutes(ctx: Context): Hono {
     }
   })
 
-  // 重命名群文件
   router.post('/group-file/rename', async (c) => {
     try {
       const { groupCode, fileId, parentFolderId, newName } = await c.req.json() as {
@@ -180,7 +168,7 @@ export function createGroupFilesRoutes(ctx: Context): Hono {
     }
   })
 
-  // 新建文件夹 (根目录)
+  // 只能建在根目录
   router.post('/group-folder/create', async (c) => {
     try {
       const { groupCode, folderName } = await c.req.json() as {
@@ -201,7 +189,6 @@ export function createGroupFilesRoutes(ctx: Context): Hono {
     }
   })
 
-  // 删除文件夹
   router.post('/group-folder/delete', async (c) => {
     try {
       const { groupCode, folderId } = await c.req.json() as {
@@ -222,7 +209,6 @@ export function createGroupFilesRoutes(ctx: Context): Hono {
     }
   })
 
-  // 重命名文件夹
   router.post('/group-folder/rename', async (c) => {
     try {
       const { groupCode, folderId, newName } = await c.req.json() as {

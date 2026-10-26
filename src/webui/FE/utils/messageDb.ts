@@ -1,9 +1,4 @@
-// IndexedDB 消息缓存
-//
-// DB 命名: `webqq-messages-${uin}` -- 每个账号一个独立库, 同一浏览器多账号切换时不会串数据.
-// 切换账号 (current-uin 变化) 时旧 db handle 失效自动重开, 不影响数据完整性.
-//
-// 历史: 之前固定用 `webqq-messages` 一个库, 多账号会互相覆盖; 启动时 fire-and-forget 删一次以避免残留.
+// 每个账号一个库 (webqq-messages-${uin}), 切换账号时重开
 import type { RawMessage } from '../types/webqq'
 import { getCurrentUin } from './currentUin'
 
@@ -12,7 +7,6 @@ const DB_NAME_PREFIX = 'webqq-messages-'
 const DB_VERSION = 1
 const STORE_NAME = 'messages'
 
-// 每个会话最多缓存消息数
 const CACHE_MAX_MESSAGES = 100
 
 let db: IDBDatabase | null = null
@@ -22,7 +16,7 @@ function dbNameForUin(uin: string): string {
   return `${DB_NAME_PREFIX}${uin || 'anon'}`
 }
 
-// 一次性清掉老的固定名 db (历史多账号串数据残留). 失败不报错.
+// 清掉老的固定名库, 它被多个账号混写过
 let legacyCleanupDone = false
 function cleanupLegacyDb() {
   if (legacyCleanupDone) return
@@ -30,11 +24,9 @@ function cleanupLegacyDb() {
   try { indexedDB.deleteDatabase(DB_NAME_LEGACY) } catch { /* ignore */ }
 }
 
-// 初始化数据库
 function openDb(): Promise<IDBDatabase> {
   cleanupLegacyDb()
   const uin = getCurrentUin()
-  // 切账号: 关旧 handle, 重新开按当前 uin 命名的库
   if (db && dbUin !== uin) {
     try { db.close() } catch { /* ignore */ }
     db = null
@@ -61,7 +53,6 @@ function openDb(): Promise<IDBDatabase> {
   })
 }
 
-// 获取缓存的消息
 export async function getCachedMessages(chatType: number, peerId: string): Promise<RawMessage[] | null> {
   try {
     const database = await openDb()
@@ -88,7 +79,6 @@ export async function getCachedMessages(chatType: number, peerId: string): Promi
   }
 }
 
-// 设置缓存的消息
 export async function setCachedMessages(chatType: number, peerId: string, messages: RawMessage[]): Promise<void> {
   try {
     const database = await openDb()
@@ -112,7 +102,6 @@ export async function setCachedMessages(chatType: number, peerId: string, messag
   }
 }
 
-// 追加消息到缓存
 export async function appendCachedMessage(chatType: number, peerId: string, message: RawMessage): Promise<void> {
   try {
     const existing = await getCachedMessages(chatType, peerId)
@@ -125,7 +114,6 @@ export async function appendCachedMessage(chatType: number, peerId: string, mess
   }
 }
 
-// 从缓存中删除消息
 export async function removeCachedMessage(chatType: number, peerId: string, msgId: string): Promise<void> {
   try {
     const existing = await getCachedMessages(chatType, peerId)
@@ -138,7 +126,7 @@ export async function removeCachedMessage(chatType: number, peerId: string, msgI
   }
 }
 
-// 更新消息的表情回应. isSelf: 是否自己贴/取消的 (决定 isClicked, 影响点击时是加还是取消)
+// isSelf 决定 isClicked, 即之后点击是加还是取消
 export async function updateCachedMessageEmojiReaction(
   chatType: number,
   peerId: string,
@@ -197,7 +185,6 @@ export async function updateCachedMessageEmojiReaction(
   }
 }
 
-// 标记消息为已撤回
 export async function markCachedMessageAsRecalled(
   chatType: number, 
   peerId: string, 
@@ -210,7 +197,6 @@ export async function markCachedMessageAsRecalled(
     
     let found = false
     const messages = existing.map(m => {
-      // 优先用 msgId 匹配，如果没有则用 msgSeq
       if (m.msgId === msgId || (!!msgSeq && String(m.msgSeq) === String(msgSeq))) {
         found = true
         return { ...m, recallTime: String(Math.floor(Date.now() / 1000)) }
@@ -228,7 +214,6 @@ export async function markCachedMessageAsRecalled(
   }
 }
 
-// 清除所有缓存
 export async function clearAllMessages(): Promise<void> {
   try {
     const database = await openDb()

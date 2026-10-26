@@ -52,10 +52,6 @@ const enum Event0x2DCSub {
   GroupEssenceChange = 21,
 }
 
-/**
- * 解析 QQ 协议原始 protobuf 推送，emit 对应 cordis 事件。
- * 直连模式和 PMHQ 模式都通过 'qq/raw' 事件喂数据进来。
- */
 export function registerDispatcher(ctx: Context) {
   ctx.on('qq/raw', ({ cmd, payload }) => {
     logger.debug(`cmd=${cmd} bodyLen=${payload.length} bodyHex=%h`, payload)
@@ -220,7 +216,6 @@ function handleGroupJoined(ctx: Context, msg: InferProtoModel<typeof Msg.Message
   })
 }
 
-/** 解析 KickNT 被踢下线推送 */
 function handleKickNT(ctx: Context, payload: Buffer) {
   const decoded = Msg.KickNTPush.decode(payload)
   selfInfo.online = false
@@ -366,9 +361,7 @@ async function handleFriendRecall(ctx: Context, content: Buffer) {
     const toUid = body.toUid
     const fromUin = await ctx.ntUserApi.getUinByUid(fromUid)
     const toUin = await ctx.ntUserApi.getUinByUid(toUid)
-    // 在 C2C 会话里，peerUid 是"对话另一端"。
-    // - bot 收到对方撤回：body.fromUid=对方, body.toUid=自己 → peerUid=fromUid
-    // - bot 自己撤回时 server 会回声同一条 push：body.fromUid=自己, body.toUid=对方 → peerUid=toUid
+    // 自己撤回时 server 也会推同一条, fromUid 是自己, peer 就是 toUid
     const peerUid = fromUid === selfInfo.uid ? toUid : fromUid
     const peerUin = fromUid === selfInfo.uid ? toUin : fromUin
 
@@ -422,9 +415,7 @@ function handle0x2DC(ctx: Context, msg: InferProtoModel<typeof Msg.Message>, sub
 
 async function handleGroupMute(ctx: Context, content: Buffer) {
   try {
-    // GroupMute (0x2DC subType=12) 的 msgContent 直接是 GroupMute proto，
-    // 不像 subType=16/20/21 那样有 [4B groupUin + 1B + 2B len] TLV 包头。
-    // 老代码错误地走 unwrap0x2DCContent，导致 field 1 (groupCode) 解出来是错的内部 ID。
+    // subType=12 的 msgContent 直接是 GroupMute proto, 没有 16/20/21 那种 [4B groupUin + 1B + 2B len] 包头
     const decoded = Notify.GroupMute.decode(content)
     const { state } = decoded.info
 
@@ -516,7 +507,6 @@ async function handleGroupGrayTip(ctx: Context, msg: InferProtoModel<typeof Msg.
     const notifyBody = Notify.NotifyMessageBody.decode(inner)
     const grayTip = notifyBody.generalGrayTip
     if (!grayTip) return
-    // 优先用 NotifyMessageBody.groupCode (field 4)，fallback 用 TLV 头 4 字节
     const groupCode = notifyBody.groupCode || groupUinFromTLV
     if (grayTip.bizType === 12) {
       const uin1 = +grayTip.templParam.get('uin_str1')!
@@ -563,26 +553,17 @@ async function handleGroupEssenceChange(ctx: Context, content: Buffer) {
   }
 }
 
-/**
- * Strip the leading [4 bytes group code + 1 byte unknown + length-prefix] from 0x2DC content.
- * Returns the inner protobuf body.
- */
 function unwrap0x2DCContent(content: Buffer) {
   // 0x2DC content: [4 bytes BE: groupUin][1 byte: ?][2 bytes BE: length][NotifyMessageBody bytes]
   const length = content.readUInt16BE(5)
   return content.subarray(7, 7 + length)
 }
 
-/**
- * 0x2DC subtype 17 - Group recall
- * Content layout: [4 bytes BE: groupUin][1 byte: ?][2 bytes BE length][NotifyMessageBody bytes]
- * NotifyMessageBody.field11 = GroupRecall (with repeated RecallMessages at field 3)
- */
+/** subType 17. NotifyMessageBody.field11 = GroupRecall, RecallMessages 在它的 field 3 */
 async function handleGroupRecall(ctx: Context, content: Buffer) {
   try {
     if (content.length < 7) return
     const groupCode = content.readUInt32BE(0)
-    // skip 4 bytes groupUin + 1 byte flag, then uint16 BE length-prefixed NotifyMessageBody
     const length = content.readUInt16BE(5)
     const bodyBytes = content.subarray(7, 7 + length)
 
@@ -789,7 +770,7 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
   ctx.parallel('nt/message-created', { message: rawMessage })
 }
 
-/** 把 Msg.Message protobuf 转换为上层用的 RawMessage（OlPush 推送和 SsoGetGroupMsg 拉历史共用） */
+/** OlPush 推送和拉历史共用 */
 export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, rawPb: string): RawMessage | null {
   const routingHead = msg.routingHead
   const contentHead = msg.contentHead
@@ -819,7 +800,7 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, ra
     peerName = routingHead.group!.groupName
   } else if (msgType === MsgType.TempMessage) {
     chatType = ChatType.TempC2CFromGroup
-    // 对话另一端：自己发的消息 server 回声里 fromUid=自己，要用 toUid 当 peer
+    // 自己发的消息回声里 fromUid 是自己, peer 取 toUid
     if (routingHead.fromUid === selfInfo.uid && routingHead.toUid) {
       peerUin = routingHead.toUin
       peerUid = routingHead.toUid
@@ -891,8 +872,7 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, ra
   return {
     msgId: String(contentHead.msgUid || ((0x01000000n << 32n) | BigInt(contentHead.random))),
     msgTime: contentHead.msgTime,
-    // 取"双端一致的 server seq"：群聊用 contentHead.groupMsgSeqOrC2cClientSeq (field 5)；
-    // 私聊用 contentHead.c2cMsgSeq (field 11)，私聊时它非空，群聊时它为 0 走 fallback。
+    // 双端一致的 seq: 私聊的 c2cMsgSeq 非空; 群聊时它为 0, 取 groupMsgSeqOrC2cClientSeq
     msgSeq: contentHead.c2cMsgSeq || contentHead.groupMsgSeqOrC2cClientSeq,
     msgRandom: contentHead.random,
     senderUid: routingHead.fromUid,
@@ -905,11 +885,7 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, ra
     elements,
     peerName,
     tempFromGroupCode,
-    // 私聊时 RawMessage.clientSeq = contentHead.groupMsgSeqOrC2cClientSeq (field 5)
-    //   = 发送方 PbSendMsg 时提交的 client `clientSequence` (10000-99999 临时号)，
-    //     server 原样转发到接收方。撤回（SsoC2CRecallMsg.info.clientSequence f1）和
-    //     reply（srcMsg.origSeqs[0]）都用它定位被引用的 c2c 消息。
-    // 群聊时此字段无意义，置 0。
+    // 私聊时 field 5 是发送方的 clientSequence, 撤回和引用都靠它定位; 群聊时没有意义
     clientSeq: contentHead.c2cMsgSeq ? contentHead.groupMsgSeqOrC2cClientSeq : 0,
     forwardAvatar: contentHead.forward?.avatar ?? '',
     rawPb,

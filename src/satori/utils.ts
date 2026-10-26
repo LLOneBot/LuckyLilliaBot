@@ -58,7 +58,6 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
   const buffer: h[] = []
   for (const v of data.elements) {
     if (v.textElement && v.textElement.atType !== NT.AtType.Unknown) {
-      // at
       const { atUin, atType, content } = v.textElement
       if (atType === NT.AtType.All) {
         buffer.push(h.at(undefined, { type: 'all' }))
@@ -66,10 +65,8 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
         buffer.push(h.at(atUin.toString(), { name: content.replace('@', '') }))
       }
     } else if (v.textElement && v.textElement.content) {
-      // text
       buffer.push(h.text(v.textElement.content))
     } else if (v.replyElement && !quoted) {
-      // quote
       const peer = {
         chatType: data.chatType,
         peerUid: data.peerUid,
@@ -102,7 +99,6 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
         ctx.logger.error('获取不到引用的消息', e, v.replyElement, (e as Error).stack)
       }
     } else if (v.picElement) {
-      // img
       const src = await ctx.ntFileApi.getImageUrl(v.picElement.originImageUrl, v.picElement.md5HexStr, {
         fileUuid: v.picElement.fileUuid,
         isGroup: data.chatType === NT.ChatType.Group,
@@ -114,15 +110,12 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
         subType: v.picElement.picSubType
       }))
     } else if (v.pttElement) {
-      // audio
       const src = await ctx.ntFileApi.getPttUrl(v.pttElement.fileUuid, data.chatType === NT.ChatType.Group)
       buffer.push(h.audio(src, { duration: v.pttElement.duration }))
     } else if (v.videoElement) {
-      // video
       const src = await ctx.ntFileApi.getVideoUrl(v.videoElement.fileUuid, data.chatType === NT.ChatType.Group)
       buffer.push(h.video(src))
     } else if (v.marketFaceElement) {
-      // llonebot:market-face
       const { emojiId, imageWidth, imageHeight } = v.marketFaceElement
       const dir = emojiId.substring(0, 2)
       const src = `https://gxh.vip.qq.com/club/item/parcel/item/${dir}/${emojiId}/raw${imageWidth}.gif`
@@ -133,7 +126,6 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
         summary: v.marketFaceElement.faceName
       }, [h.image(src, { width: imageWidth, height: imageHeight })]))
     } else if (v.faceElement) {
-      // face
       const { faceIndex, faceType } = v.faceElement
       buffer.push(h('face', {
         id: String(faceIndex),
@@ -141,7 +133,6 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
         platform: 'llonebot'
       }))
     } else if (v.arkElement) {
-      // llonebot:ark
       buffer.push(h('llonebot:ark', {
         data: v.arkElement.bytesData
       }))

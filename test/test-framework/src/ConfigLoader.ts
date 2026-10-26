@@ -2,9 +2,6 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { AccountConnectionConfig } from './interfaces.js'
 
-/**
- * 测试主配置：双账号 + 测试群 ID + 全局超时
- */
 export interface TestConfig {
   accounts: {
     primary: AccountConnectionConfig
@@ -37,7 +34,6 @@ export class ConfigValidationError extends Error {
   }
 }
 
-/** 读取 + 校验测试配置文件 */
 export class ConfigLoader {
   static load(configPath: string): TestConfig {
     if (!fs.existsSync(configPath)) {
@@ -80,76 +76,54 @@ export class ConfigLoader {
   }
 }
 
-// ========================================================================
-// 统一配置：项目根级 test/test.config.json，所有套件共用
-// ========================================================================
+// test/test.config.json: 所有套件共用的统一配置
 
-/**
- * 单个 bot 在各协议下的入口。所有字段可选——只填你这个 bot 实际跑的协议。
- *
- * 字段命名规则:
- *   <protocol>_<endpoint>: 入口 URL (含 host:port)
- *   <protocol>_token:      该协议的鉴权 token
- *
- * webui 是单 bot 单实例的管理面板，所以特殊：用 webui_password (明文) 或
- *   webui_password_file (路径，相对 test.config.json 解析；默认 "../data/webui_token.txt")。
- */
+/** 一个 bot 在各协议下的入口, 只填实际开了的协议 */
 export interface UnifiedBotConfig {
-  /** Bot 自己的 QQ 号 */
   uin: string
 
-  /** OneBot11 HTTP 入口，例 "http://127.0.0.1:53000" */
+  /** 例 "http://127.0.0.1:53000" */
   ob11_http?: string
-  /** OneBot11 WS 入口，例 "ws://127.0.0.1:3001" */
+  /** 例 "ws://127.0.0.1:3001" */
   ob11_ws?: string
-  /** OneBot11 鉴权 token */
   ob11_token?: string
 
-  /** Milky HTTP 入口 */
   milky_http?: string
   milky_token?: string
 
-  /** Satori HTTP 入口 */
   satori_http?: string
   satori_token?: string
 
-  /** WebUI HTTP 入口，例 "http://127.0.0.1:13080"。
-   *  密码不在 config 里, 自动从 data/webui_token.txt 读 (路径固定)。 */
+  /** 例 "http://127.0.0.1:13080"; 密码固定从 data/webui_token.txt 读 */
   webui_http?: string
 }
 
-/** 统一测试配置 */
 export interface UnifiedTestConfig {
   bots: {
     primary: UnifiedBotConfig
     secondary?: UnifiedBotConfig
   }
-  /** 双账号互发测试用群（primary 和 secondary 都要在群里） */
+  /** primary 和 secondary 都要在群里 */
   test_group_id: string
   /** 单测超时 (ms) */
   timeout?: number
-  /** 重试次数 */
   retryAttempts?: number
 }
 
-/** WebQQ-suite 配置：单 bot, 直接打 webui */
+/** 单 bot, 直接打 WebUI */
 export interface WebQQSuiteConfig {
   host: string
   password: string
   user_id: string
   test_group_id: string
-  /** 用作"查别人详情"测试的目标 uin (默认: secondary.uin if 有, 否则 primary.uin) */
+  /** 查用户详情用的 uin, 默认 secondary.uin, 没有就用 primary.uin */
   test_user_id: string
   timeout: number
 }
 
-/**
- * 加载 + 翻译统一测试配置。每个 suite 调对应的 forXXX() 拿翻译后的配置。
- *
- * 默认配置文件: test/test.config.json。各 suite 调 loadUnified() 时传 startDir 做自动查找。
- */
+/** 各套件用 loadUnified() 找到 test/test.config.json, 再用对应的 forXxx() 转成自己的配置 */
 export class UnifiedConfigLoader {
-  /** 从 startDir 向上查找 test/test.config.json（最多走到磁盘根） */
+  /** 从 startDir 往上找 test/test.config.json */
   static defaultPath(startDir: string = process.cwd()): string {
     let dir = path.resolve(startDir)
     while (true) {
@@ -164,7 +138,7 @@ export class UnifiedConfigLoader {
       if (parent === dir) break
       dir = parent
     }
-    // 找不到就返回 startDir 上层 test/test.config.json，让 loadUnified 抛 NotFound
+    // 找不到也返回一个路径, 让 loadUnified 报 NotFound
     return path.resolve(startDir, '../test.config.json')
   }
 
@@ -195,15 +169,12 @@ export class UnifiedConfigLoader {
     if (missing.length > 0) throw new ConfigValidationError(missing)
   }
 
-  /** 翻译成老 OB11 套件的 TestConfig 形态 */
   static forOB11(unified: UnifiedTestConfig): TestConfig {
     return this.forDoubleAccount(unified, 'ob11')
   }
-  /** 翻译成老 Milky 套件的 TestConfig 形态 */
   static forMilky(unified: UnifiedTestConfig): TestConfig {
     return this.forDoubleAccount(unified, 'milky')
   }
-  /** 翻译成老 Satori 套件的 TestConfig 形态 */
   static forSatori(unified: UnifiedTestConfig): TestConfig {
     return this.forDoubleAccount(unified, 'satori')
   }
@@ -233,7 +204,6 @@ export class UnifiedConfigLoader {
     let token: string | undefined
 
     if (suite === 'ob11') {
-      // OB11 套件优先用 ob11_http；如果没填用 ob11_ws (协议变 'ws')
       host = bot.ob11_http ?? bot.ob11_ws
       protocol = bot.ob11_http ? 'http' : (bot.ob11_ws ? 'ws' : 'http')
       token = bot.ob11_token
@@ -258,8 +228,7 @@ export class UnifiedConfigLoader {
     }
   }
 
-  /** WebQQ 单账号配置: primary 当目标, secondary.uin 当 test_user_id (没 secondary 就回退到 primary.uin)。
-   *  密码从项目级固定路径 data/webui_token.txt 读 (相对 test.config.json 是 ../data/webui_token.txt)。 */
+  /** 测 primary; 密码从 data/webui_token.txt 读 (相对 test.config.json 是 ../data/webui_token.txt) */
   static forWebQQ(unified: UnifiedTestConfig, configFilePath: string): WebQQSuiteConfig {
     const bot = unified.bots.primary
     if (!bot.webui_http) {

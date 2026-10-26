@@ -7,11 +7,9 @@ import { randomUUID } from 'node:crypto'
 export function createUploadRoutes(ctx: Context, uploadDir: string): Hono {
   const router = new Hono()
 
-  // 上传图片
   router.post('/upload', async (c) => {
     try {
       if (c.req.header('Content-Type')?.includes('application/json')) {
-        // 支持通过 URL 上传
         const imageUrl = (await c.req.json()).imageUrl as string
         if (imageUrl) {
           const response = await fetch(imageUrl)
@@ -65,7 +63,6 @@ export function createUploadRoutes(ctx: Context, uploadDir: string): Hono {
     }
   })
 
-  // 上传文件（用于发送文件消息）
   router.post('/upload-file', async (c) => {
     try {
       const { file } = await c.req.parseBody()

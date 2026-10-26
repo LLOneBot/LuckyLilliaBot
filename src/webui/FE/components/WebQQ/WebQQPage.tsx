@@ -11,7 +11,6 @@ import { showToast } from '../common'
 import { Loader2, Maximize2 } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settingsStore'
 
-// 从原始消息中提取摘要
 function extractMessageSummary(rawMessage: RawMessage): string {
   if (!rawMessage || !rawMessage.elements || !Array.isArray(rawMessage.elements)) {
     return '[消息]'
@@ -80,10 +79,9 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
   const onNewMessageRef = React.useRef<((msg: RawMessage) => void) | null>(null)
   const onEmojiReactionRef = React.useRef<((data: { groupCode: string; msgSeq: string; emojiId: string; userId: string; userName: string; isAdd: boolean }) => void) | null>(null)
   const onMessageRecalledRef = React.useRef<((data: { msgId: string; msgSeq: string }) => void) | null>(null)
-  // 消息队列：缓存在回调未就绪时收到的消息
+  // 回调就绪前收到的消息
   const pendingMessagesRef = React.useRef<RawMessage[]>([])
 
-  // 用于触发重新渲染的 state（当回调被设置时）
   const [, forceUpdate] = React.useState(0)
 
   const { showWebQQFullscreenButton } = useSettingsStore()
@@ -114,9 +112,8 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
 
   // 用于从群成员面板 @ 成员
   const [appendInputMention, setAppendInputMention] = React.useState<{ uid: string; uin: string; name: string } | null>(null)
-  // 群文件面板显隐 (组件内 state, 不动 webqqStore). 与成员面板互斥, 避免右侧两个面板叠加
+  // 跟成员面板互斥
   const [showFilePanel, setShowFilePanel] = React.useState(false)
-  // 点击聊天文件卡片时的定位目标 (folderId + fileId), 传给 GroupFilePanel 定位高亮
   const [fileLocateTarget, setFileLocateTarget] = React.useState<{ folderId: string; fileId: string } | null>(null)
 
   // 有 target: 从文件卡片点击, 强制打开面板并定位; 无参: 顶部按钮 toggle
@@ -149,7 +146,6 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
   }, [])
 
   useEffect(() => {
-    // 每次进入 WebQQ 页面时重置已访问聊天记录
     resetVisitedChats()
     getLoginInfo().catch(e => console.error('获取登录信息失败:', e))
     loadContacts()
@@ -168,11 +164,9 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
     currentChatRef.current = currentChat
   }, [currentChat])
 
-  // 回调设置函数 - 直接更新 ref 并处理待处理消息
   const handleSetNewMessageCallback = React.useCallback((callback: ((msg: RawMessage) => void) | null) => {
     onNewMessageRef.current = callback
 
-    // 当回调就绪时，处理队列中的待处理消息
     if (callback && pendingMessagesRef.current.length > 0) {
       const messages = [...pendingMessagesRef.current]
       pendingMessagesRef.current = []
@@ -182,12 +176,10 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
     forceUpdate(n => n + 1)
   }, [])
 
-  // 表情回应回调设置函数
   const handleSetEmojiReactionCallback = React.useCallback((callback: ((data: { groupCode: string; msgSeq: string; emojiId: string; userId: string; userName: string; isAdd: boolean }) => void) | null) => {
     onEmojiReactionRef.current = callback
   }, [])
 
-  // 消息撤回回调设置函数
   const handleSetMessageRecalledCallback = React.useCallback((callback: ((data: { msgId: string; msgSeq: string }) => void) | null) => {
     onMessageRecalledRef.current = callback
   }, [])
@@ -198,29 +190,23 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
         if (data.type === 'message-created' || data.type === 'message-sent') {
           const rawMessage: RawMessage = data.data
 
-          // 验证消息有效性
           if (!rawMessage || !rawMessage.msgId || !rawMessage.elements || !Array.isArray(rawMessage.elements)) {
             console.warn('SSE 收到无效消息:', rawMessage)
             return
           }
 
           const chatType = rawMessage.chatType as 1 | 2 | 100
-          // peerUin 是 number (群号 / QQ 号), 为 0 时退回 peerUid.
-          // 必须转 string: ChatSession.peerId / RecentChatItem.peerId 都是 string,
-          // 不转的话下面 chat.peerId === peerId 恒为 false, 新消息进不了已打开的窗口.
-          // SSE 回调里 data 是 unknown, 类型检查兜不住这里, 只能靠这行保证.
+          // 必须转 string, peerId 都按 string 比较; data 是 unknown, 类型检查兜不住
           const peerId = String(rawMessage.peerUin || rawMessage.peerUid)
           const chatKey = `${chatType}_${peerId}`
           const chat = currentChatRef.current
 
-          // 无论是否匹配当前聊天，都要缓存消息
           appendCachedMessage(chatType, peerId, rawMessage)
 
           if (chat && chat.chatType === chatType && chat.peerId === peerId) {
             if (onNewMessageRef.current) {
               onNewMessageRef.current(rawMessage)
             } else {
-              // 回调未就绪，加入待处理队列
               pendingMessagesRef.current.push(rawMessage)
             }
           } else {
@@ -229,55 +215,44 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
 
           const lastMessage = extractMessageSummary(rawMessage)
 
-          // 提取发送者信息用于创建新会话
           let peerName: string | undefined
           let peerAvatar: string | undefined
 
           if (chatType === 2) {
-            // 群聊使用群名称
             peerName = rawMessage.peerName || undefined
             peerAvatar = `https://p.qlogo.cn/gh/${peerId}/${peerId}/640/`
           } else {
-            // 私聊和临时会话使用发送者信息
             peerName = rawMessage.sendNickName || rawMessage.sendMemberName || undefined
             peerAvatar = getUserAvatar(peerId)
           }
 
           updateRecentChat(chatType, peerId, lastMessage, rawMessage.msgTime * 1000, peerName, peerAvatar)
         } else if (data.type === 'emoji-reaction') {
-          // 处理表情回应事件
           const { groupCode, msgSeq, emojiId, userId, userName, isAdd } = data.data
-          // 自己贴的表情已在 ChatWindow 乐观更新过 (本地 messages + 缓存), server 也会把 self reaction
-          // 推回来 -> 这里若再处理会双重计数 (刷新后变 2). 所以自己的直接忽略.
+          // 自己贴的表情已经乐观更新过, server 推回来再处理会重复计数
           if (userId && String(userId) === String(getSelfUin())) return
           const chat = currentChatRef.current
 
-          // 更新本地缓存
           updateCachedMessageEmojiReaction(2, groupCode, msgSeq, emojiId, isAdd)
 
-          // 只有当前聊天是该群时才更新 UI
           if (chat && chat.chatType === 2 && chat.peerId === groupCode) {
             if (onEmojiReactionRef.current) {
               onEmojiReactionRef.current({ groupCode, msgSeq, emojiId, userId, userName, isAdd })
             }
           }
         } else if (data.type === 'message-deleted') {
-          // 处理消息撤回事件
           const { msgId, msgSeq, chatType, peerUid, peerUin } = data.data
           const peerId = peerUin || peerUid
           const chat = currentChatRef.current
 
-          // 更新本地缓存
           markCachedMessageAsRecalled(chatType, peerId, msgId, msgSeq)
 
-          // 只有当前聊天匹配时才更新 UI
           if (chat && chat.chatType === chatType && chat.peerId === peerId) {
             if (onMessageRecalledRef.current) {
               onMessageRecalledRef.current({ msgId, msgSeq })
             }
           }
         } else if (data.type === 'group-notify') {
-          // 处理群通知事件
           const notifyData = data.data
           addNotification({
             type: 'group-notify',
@@ -285,7 +260,6 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
             time: notifyData.actionTime ? parseInt(notifyData.actionTime) * 1000 : Date.now()
           })
         } else if (data.type === 'friend-request') {
-          // 处理好友申请事件
           const reqData = data.data
           addNotification({
             type: 'friend-request',
@@ -293,14 +267,12 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
             time: reqData.reqTime ? parseInt(reqData.reqTime) * 1000 : Date.now()
           })
         } else if (data.type === 'group-dismiss') {
-          // 处理群解散事件
           addNotification({
             type: 'group-dismiss',
             data: data.data,
             time: Date.now()
           })
         } else if (data.type === 'group-quit') {
-          // 处理退群事件
           addNotification({
             type: 'group-quit',
             data: data.data,
@@ -312,11 +284,9 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
         console.error('SSE 连接错误:', error)
       },
       () => {
-        // SSE 重连成功回调
         console.log('[WebQQ] SSE 重连成功，重置已访问聊天标志')
-        // 重置已访问聊天记录，这样下次进入聊天会重新拉取历史消息
+        // 下次进聊天时重新拉历史
         resetVisitedChats()
-        // 刷新联系人列表
         loadContacts()
       }
     )
@@ -327,11 +297,9 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
   }, [incrementUnreadCount, updateRecentChat, loadContacts, addNotification])
 
   const handleSelectChat = useCallback((session: ChatSession) => {
-    // 切换聊天时清空待处理消息队列
     pendingMessagesRef.current = []
 
     setCurrentChat(session)
-    // 切换会话清掉文件定位目标, 避免残留到新会话
     setFileLocateTarget(null)
     if (session.chatType !== 2) {
       setShowMemberPanel(false)
@@ -349,16 +317,14 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
     }))
   }, [setCurrentChat, clearUnreadCount, setRecentChats, recentChats, setShowMemberPanel])
 
-  // 移动端：是否显示聊天窗口（隐藏联系人列表）
+  // 移动端显示聊天窗口时隐藏联系人列表
   const [showChatOnMobile, setShowChatOnMobile] = useState(false)
 
-  // 移动端选择聊天后显示聊天窗口
   const handleSelectChatMobile = useCallback((session: ChatSession) => {
     handleSelectChat(session)
     setShowChatOnMobile(true)
   }, [handleSelectChat])
 
-  // 移动端返回联系人列表
   const handleBackToContacts = useCallback(() => {
     setShowChatOnMobile(false)
   }, [])
@@ -482,7 +448,7 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
         )}
       </div>
 
-      {/* 全屏按钮 - 固定在浏览器窗口右下角，仅在非全屏模式且设置开启时显示 */}
+      {/* 全屏按钮, 固定在窗口右下角 */}
       {!isFullscreen && showWebQQFullscreenButton && (
         <button
           onClick={() => window.open('#webqq-fullscreen', '_blank')}

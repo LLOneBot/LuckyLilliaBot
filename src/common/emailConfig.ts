@@ -79,7 +79,6 @@ export function checkEmail(config: EmailSettings, enforce: boolean): EmailIssue[
   return issues
 }
 
-/** What EmailService reads its settings through. */
 export class EmailConfigManager {
   constructor(private readonly source: () => EmailConfig) {}
 

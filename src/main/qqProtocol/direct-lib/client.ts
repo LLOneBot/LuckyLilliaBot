@@ -22,15 +22,9 @@ import { parseConfigPushReq, buildConfigPushResp, CONFIG_PUSH_REQ, CONFIG_PUSH_R
 
 const logger = getLogger('direct')
 
-// Linux 登录 xwid 突发条数。真机登录瞬间连号发 ~2500 条 (实测 ~1ms/包、~1000/s、摊 ~2.5s;
-// 非"微秒瞬时", sign 在进程内 sub-ms)。我们批量签 (一次 NAPI, sign-core ~450k/s) + 分块 pace 复刻。
-// 默认 2000 对齐真机 (~2523)。大量突发理论上有踩服务端限流的风险, 要调小/关掉设 env LINUX_XWID_BURST
-// (如 1); pace 默认 1000/s (LINUX_XWID_BURST_RATE) 已摊到 ~2s, 跟真机节奏一致, 非瞬发尖峰。
-// 2026-10-06 真机 691 登录抓包实证: 登录瞬间 SsoReport xwid 爆发 = ~948 条 (背靠背)。
-// 2026-10-05 曾怀疑"突发触发风控"把默认砍到 1 -> Bot 登录只发 4 条 SsoReport, 跟真机 ~948 差了两个数量级;
-// 实测证明爆发是真机正常行为, 缺了它才是"非真客户端"信号。还原默认到真机量级。env 仍可覆盖。
+// 真机登录瞬间连号发上千条 SsoReport xwid, 约 1000/s; 缺了这波爆发反而是非真客户端的信号。
+// LINUX_XWID_BURST 调条数 (0 关闭), LINUX_XWID_BURST_RATE 调速率 (包/秒)
 const LINUX_XWID_BURST = Math.max(0, Number(process.env.LINUX_XWID_BURST || '2000') | 0)
-// 发送速率 (包/秒), 默认 1000 对齐真机; 设很大 (如 999999) = 瞬发不 pace。分块 pace 避免尖峰触发限流。
 const LINUX_XWID_BURST_RATE = Math.max(1, Number(process.env.LINUX_XWID_BURST_RATE || '1000') | 0)
 
 export interface DirectClientConfig {
@@ -39,15 +33,13 @@ export interface DirectClientConfig {
   ssoVersion: number
   buildVer: string
   useIPv6?: boolean
-  /** 一次性 token, 由用户在 manager-web 生成后粘贴到 data/auth_token.txt. 跟 sign 请求一起发. */
+  /** 用户从 manager-web 拿到放进 data/auth_token.txt, 随 sign 请求发送 */
   authToken?: string
-  /** LuckyLillia.Bot 版本号 (env-report 带上). */
   botVersion?: string
-  /** 数据目录 (存 device_ids.json 等跨重启稳定指纹). 默认 'data'. */
+  /** 存 device_ids.json 等跨重启的指纹, 默认 'data' */
   dataDir?: string
-  /** 当前账号 uin, 可选. */
   uin?: number
-  /** 接入点 CDN: 'cf' (默认) / 'china'. 传给 SignProxy 决定 base_url + TLS pin. */
+  /** 'cf' (默认) / 'china' */
   cdn?: string
 }
 
@@ -68,7 +60,7 @@ export interface SessionInfo {
   a2: Buffer
   a2Key: Buffer
   sKey: Buffer
-  /** 12B ASCII sign-token, 走 SignProxy.acquireSignToken 拿到. 跟 authToken 不是一个东西. */
+  /** SignProxy.acquireSignToken 拿到的 12B token, 不是 authToken */
   signToken12B?: string
   signTokenExpiresAt?: number
 }
@@ -89,29 +81,25 @@ export class DirectProtocolClient extends EventEmitter {
   private signTokenRefreshInflight: Promise<void> | null = null
   private signTokenLastFetchAt = 0
   // macOS ESK channel (token1 + keys), scoped to one TCP connection: dropped on close and
-  // re-established once its TTL lapses. See ensureMacosEsk / protocolTokenFor.
+  // re-established once its TTL lapses
   private macosEskState: MacosEskState | null = null
   // Bumped on every close, so an ESK still in flight when its connection dies gets discarded.
   private connEpoch = 0
   private heartbeatAliveTimer: NodeJS.Timeout | null = null
   private telemetryTimer: NodeJS.Timeout | null = null
   private auxTelemetryTimer: NodeJS.Timeout | null = null
-  // 计时诊断: 按 seq 记响应帧「进 handlePacket」的时刻, 拆 wire vs parse.
+  // 诊断: 按 seq 记响应帧到达的时刻, 拆 wire / parse 耗时
   private frameArriveAt: Map<number, number> = new Map()
-  // event loop lag 采样: setInterval 期望 50ms 一跳, 实测跳间隔 - 50 = 主线程被阻塞的量.
   private maxLoopLag = 0
   private loopLagTimer: NodeJS.Timeout | null = null
   private lastLoopTick = 0
-  // 撞过 -10122 的 cmd. 产品线权限是固定的, 记下来别每次都白发一遍 —— 拉历史这类调用方没有
-  // 自己的缓存, 不记的话 WebUI 每翻一页就多一个注定被拒的包.
+  // 撞过 -10122 的 cmd: 权限是固定的, 记下来免得每次白发 (比如 WebUI 每翻一页历史)
   private unsupportedCmds = new Set<string>()
 
   constructor(config: Partial<DirectClientConfig> = {}) {
     super()
     this.config = { ...DEFAULT_CONFIG, ...config }
     this.guid = loadMachineGuidSync()
-    // sign 初始化不在构造函数里做 -- native init 现在是 async (传 uin 时 await /api/bu bind),
-    // 构造函数没法 await. 挪到 connect() 顶部, 由调用方 await. 见 ensureSignSetup.
     this.conn = new TcpConnection()
     // watch wtlogin 用 P-256, 桌面用 secp192k1
     this.ecdhKeyPair = getActiveProfile().family === 'watch' ? generateWatchEcdhKeyPair() : generateEcdhKeyPair()
@@ -123,8 +111,7 @@ export class DirectProtocolClient extends EventEmitter {
     this.conn.on('packet', (frame: Buffer) => this.handlePacket(frame))
     this.conn.on('error', (err) => this.emit('error', err))
     this.conn.on('close', () => {
-      // 连接断开必须停 timer: client 是进程单例不重建, 不停的话断线期间会一直往死连接发包,
-      // 且重连 connect() 的幂等 guard 会误判"已在跑"而不重启. 停掉才能让重连干净重启.
+      // client 是单例: 不停 timer 会往死连接发包, 重连时幂等 guard 也会以为它们还在跑
       this.stopHeartbeatAlive()
       this.stopTelemetry()
       this.connEpoch++
@@ -133,11 +120,7 @@ export class DirectProtocolClient extends EventEmitter {
     })
   }
 
-  /**
-   * 起 sign 链路: 建 native Client + 注册 send_packet/logger; 配置里带了 uin 时 await /api/bu bind.
-   * native init 是 async, 必须在能 await 的地方跑 (不能塞构造函数) -- 故由 connect() 调.
-   * 幂等: 二次调直接返回 (native init 二次也是 no-op). bind 失败时 reject 会从 connect() 冒出去.
-   */
+  /** native init 是 async (带 uin 时要等 /api/bu bind), 所以由 connect() 调, 不放构造函数 */
   private async ensureSignSetup(): Promise<void> {
     if (this.signSetupDone || !this.config.authToken) return
     this.signSetupDone = true
@@ -149,24 +132,16 @@ export class DirectProtocolClient extends EventEmitter {
       cdn: this.config.cdn,
       sendPacket: async ({ cmd, body, signToken }) => {
         const req = Buffer.from(body)
-        // [SA 1001 调查 / 最小验证 A] o3 ecdh_access 命令 (ESK/SA) 真机走 enc0x02 零钥握手通道
-        // (scan.pcap 实测 ESK/SA 都是 enc0x02 + A2 + sign)。登录后 sendCommand 默认 enc0x01
-        // d2key, 会让 SA 返业务码 1001。这里强制 ESK/SA 走 EncryptEmpty, 验证"通道假设"。
-        // SsoReport 等其它 o3 命令 (trpc.o3.report.*) 不受影响, 照常 enc0x01。
-        // 详见 LuckyLillia.Sign/docs/Linux/sign-token-protocol-final.md "SA 1001"。
-        //
-        // ★例外: 登录后的 A2 分支 (SsoSecureA2Establish / SsoSecureA2Access / O3GetTail) 要登录
-        // 凭证认证, 必须 enc0x01 + d2。走零钥通道服务端回 -10005 "身份验证失败, 请你重新登录"
-        // 且跟会话是否有效无关 (PoC main.rs:479 实测; SignProxy lib.rs:1086 也注明 enc=1+d2
-        // 由发包层包装)。enc=undefined 让 sendCommand 按 session 自选: 有会话 enc0x01, 无则 enc0x02。
-        // macOS 的 .o3.report. 与 login.ecdh (KEX/EasyLogin) 真机也恒 enc=2 零钥 (PoC build_service_packet12)。
+        // ESK / SA 真机走 enc0x02 零钥通道, 用登录后默认的 enc0x01 SA 会返 1001。A2 分支要登录凭证,
+        // 必须 enc0x01 + d2 (走零钥回 -10005), 所以给 undefined 让 sendCommand 按 session 选。
+        // macOS 的 .o3.report. 和 login.ecdh 真机恒为 enc0x02
         const isMacos = getActiveProfile().name === 'macos'
         const enc =
           (cmd.includes('.o3.ecdh_access.') && !cmd.includes('SsoSecureA2')) ||
           (isMacos && (cmd.includes('.o3.report.') || cmd.includes('login.ecdh')))
             ? EncryptType.EncryptEmpty
             : undefined
-        // [SA 1001 修复] signToken 覆盖本命令的 SecInfo sf2 / 签名 token: SA 带 token1, 其它为空。
+        // signToken 是本命令 SecInfo sf2 的签名 token: SA 带 token1, 其它为空
         const resp = (await this.sendCommand(cmd, req, enc, undefined, undefined, signToken || undefined)).payload
         logger.debug(`[relay] ${cmd} enc=${enc === undefined ? 'auto' : enc} signTok=${signToken ? signToken.length + 'B' : '-'}: req=${req.length}B resp=${resp.length}B reqHex=%h respHex=%h`, req, resp)
         return resp
@@ -176,23 +151,20 @@ export class DirectProtocolClient extends EventEmitter {
 
   async connect(): Promise<void> {
     logCmdWhitelistStatus()
-    // sign 链路 init (signRequest 依赖); token 有效性不在此 preflight —— 已移到 WebUI 侧
-    // 的 HTTP 校验 (validateAuthToken). 旧 preflightSign 在 token 无效(401/403)时会触发
-    // native SDK 内部 process.exit, 会把整个 bot 进程带崩, 故移除.
+    // 不在这里校验 token: 无效 token 会让 native SDK process.exit, 校验走 validateAuthToken (HTTP)
     await this.ensureSignSetup()
     await this.conn.connect({ useIPv6: this.config.useIPv6 })
     this.emit('connected')
     this.startLoopLagMonitor()
 
-    // 初始 Heartbeat.Alive: NT 端后续命令的前置包。两者在 watch 上都自带 family 门, 见 sendHeartbeat。
+    // Heartbeat.Alive 是 NT 端后续命令的前置包
     await this.sendHeartbeat()
     this.startHeartbeatAlive()
   }
 
   /**
-   * macOS: ESK after connect and before trans_emp / session restore, as real clients do (PoC
-   * main.rs 1322-1362). No-op on other protocols or while this connection's ESK is still live.
-   * Failures only warn; the post-login token acquire retries ESK.
+   * macOS: ESK right after connect, before trans_emp / session restore, as real clients do. Failures only
+   * warn: the post-login token acquire retries it.
    */
   async acquirePreLoginToken(): Promise<void> {
     await this.ensureMacosEsk()
@@ -203,7 +175,7 @@ export class DirectProtocolClient extends EventEmitter {
     return esk && Date.now() < esk.expiresAt ? esk : null
   }
 
-  /** This connection's live ESK, running ESK first if there is none. null on other protocols or on failure. */
+  /** null on other protocols or on failure. */
   private async ensureMacosEsk(): Promise<MacosEskState | null> {
     if (getActiveProfile().name !== 'macos' || !this.config.authToken) return null
     const live = this.liveMacosEsk()
@@ -223,10 +195,8 @@ export class DirectProtocolClient extends EventEmitter {
   }
 
   /**
-   * Device token for a sign request. macOS follows PoC main.rs send(): the o3 handshake cmds
-   * (ESK / A2 / SA2) always carry an empty one, and after login business cmds carry sa2_token,
-   * falling back to a live ESK token1 until SA2 lands. Other protocols keep the session token.
-   * signToken12B === '' is the 403 soft-degrade and must not fall back to ESK.
+   * macOS: the o3 handshake cmds (ESK / A2 / SA2) carry an empty token; after login business cmds carry
+   * sa2_token, or a live ESK token1 until SA2 lands. signToken12B === '' is the 403 soft-degrade: no ESK fallback.
    */
   private protocolTokenFor(cmd: string): string | undefined {
     if (getActiveProfile().name !== 'macos') return this.session?.signToken12B
@@ -234,11 +204,9 @@ export class DirectProtocolClient extends EventEmitter {
     return this.session.signToken12B ?? this.liveMacosEsk()?.token
   }
 
-  /** 周期性发 Heartbeat.Alive 保活连接层. connect() 启动, disconnect()/close 清理. 幂等. watch 不启. */
   private startHeartbeatAlive(): void {
     if (this.heartbeatAliveTimer || getActiveProfile().family === 'watch') return
-    // 真机 3.2.28 Heartbeat.Alive ~13.5s 一跳且带自然抖动。写死的 10.000s setInterval 本身是机器特征,
-    // 故自调度 setTimeout 带每跳抖动 (~12-15s), 对齐真机节奏。
+    // 真机约 13.5s 一跳且有抖动, 固定间隔本身就是机器特征
     const tick = () => {
       this.sendHeartbeat().catch((e) => {
         logger.error('[Heartbeat.Alive] Failed:', (e as Error).message)
@@ -256,16 +224,13 @@ export class DirectProtocolClient extends EventEmitter {
   }
 
   /**
-   * 稳态遥测 loop. 真机 3.2.28 登录后每 ~316s 必发 getNewFlag + ClientReport + 0x102a_0(psKey);
-   * Bot 原来登录后只有心跳 = "哑连接", 是风控判会话失效 (KickNT 1001 登录已失效) 的最强信号。
-   * 对齐真机周期性发这组遥测。fire-and-forget: 单条失败只 debug, 不影响主链路。linux only。
-   * 由 startLinuxSsoReportLoop() 上线后启动, close/disconnect 停。
+   * 真机登录后每约 316s 发 getNewFlag + ClientReport + 0x102a_0 (psKey); 只有心跳的"哑连接"容易被判会话失效
+   * (KickNT 1001)
    */
   private startTelemetryLoop(): void {
     if (this.telemetryTimer || getActiveProfile().name !== 'linux') return
     const tick = () => {
       void this.sendTelemetryRound()
-      // 真机 ~316-317s; 带抖动避免机械规律。
       this.telemetryTimer = setTimeout(tick, 310_000 + Math.floor(Math.random() * 15_000))
     }
     this.telemetryTimer = setTimeout(tick, 310_000 + Math.floor(Math.random() * 15_000))
@@ -282,11 +247,7 @@ export class DirectProtocolClient extends EventEmitter {
     }
   }
 
-  /**
-   * 低频 aux 遥测 loop. 真机 691 ~26-30min 偶发一组 0x102a_1 / 0x116d_1 / 0x9067_202 / SsoGetConfig
-   * (非每轮主遥测), Bot 原来一条不发。补齐这块"真机客户端"完整度。首发延后避开登录爆发, 之后 ~27min
-   * 带抖动。fire-and-forget, linux only。随主 telemetry 一起由 stopTelemetry() 停。
-   */
+  /** 真机每 26-30min 发一组 0x102a_1 / 0x116d_1 / 0x9067_202 / SsoGetConfig; 首发延后, 避开登录爆发 */
   private startAuxTelemetryLoop(): void {
     if (this.auxTelemetryTimer || getActiveProfile().name !== 'linux') return
     const tick = () => {
@@ -296,7 +257,7 @@ export class DirectProtocolClient extends EventEmitter {
     this.auxTelemetryTimer = setTimeout(tick, 300_000 + Math.floor(Math.random() * 120_000))
   }
 
-  /** 发一组 aux 遥测。0x102a_1 在 sign 白名单会自动签 (对齐真机 f24), 其余不签。各条独立 try。 */
+  /** 0x102a_1 在签名白名单里会自动签 (真机带 f24), 其余不签 */
   private async sendAuxTelemetryRound(): Promise<void> {
     if (!this.session || !this.isConnected) return
     const uid = this.session.uid
@@ -317,7 +278,6 @@ export class DirectProtocolClient extends EventEmitter {
     }
   }
 
-  /** 发一轮稳态遥测 (getNewFlag + ClientReport + psKey)。各条独立 try, 单条失败不影响其余。 */
   private async sendTelemetryRound(): Promise<void> {
     if (!this.session || !this.isConnected) return
     const uin = this.session.uin ? Number(this.session.uin) : (this.config.uin || 0)
@@ -338,10 +298,8 @@ export class DirectProtocolClient extends EventEmitter {
   }
 
   /**
-   * 真机 3.2.28: 新建 SSO 连接时服务器推 ConfigPushSvc.PushReq(type=1 服务器列表), 客户端必回
-   * ConfigPushSvc.PushResp 回显 {type,seq}(抓真机出站包, body/reserve 逐字节复刻, 2026-10-06)。
-   * Bot 原来静默丢弃 = 行为指纹偏差。fire-and-forget: PushResp 是应答, server 不再回, 不登记
-   * pending(免 15s 超时噪声)。linux only(reserve 仅 linux 验证), 其它端维持旧静默不回归。
+   * 新建 SSO 连接时服务器推 ConfigPushSvc.PushReq, 真机必回 PushResp 回显 {type,seq}, 服务器不再回包。
+   * reserve 只在 linux 上验证过
    */
   private respondConfigPush(payload: Buffer): void {
     if (getActiveProfile().name !== 'linux' || !this.session || !this.isConnected) return
@@ -358,9 +316,7 @@ export class DirectProtocolClient extends EventEmitter {
     }
   }
 
-  // 诊断用: 每 50ms 一跳, 记录实际间隔超出 50ms 的部分 = 主线程被同步阻塞的时长.
-  // native signRequest 若是同步阻塞调用, 会在这里体现, 且会推迟响应帧回调 (灌进 wire/netRTT).
-  // 只在 --debug 下开: 常驻 50ms setInterval 在生产会白费 CPU.
+  // 诊断: 50ms 一跳, 超出的部分 = 主线程被同步阻塞的时长
   private startLoopLagMonitor(): void {
     if (this.loopLagTimer || !isDebugEnabled()) return
     const EXPECT = 50
@@ -382,11 +338,7 @@ export class DirectProtocolClient extends EventEmitter {
 
 
   async sendHeartbeat(): Promise<void> {
-    // watch 不发 Heartbeat.Alive: 真机建连后直接走 trans_emp, 从不发这个 type-13 裸包
-    // (LuckyLillia.Sign/src/Android/watch/poc/src/main.rs), 发了反而是指纹 tell。
-    // 二次确认: 'Heartbeat.Alive' 在 libwrapper.9.0.5.so 里一次都不出现, 而同 so 带全套
-    // status_svc.StatusService.* (SsoHeartBeat/Register/Kick/...) -- 手表侧保活只有 SSO 那层,
-    // 见 online.ts startHeartbeat。
+    // 手表真机从不发这个 type-13 裸包 (libwrapper.9.0.5.so 里没有), 保活只靠 SSO 层, 见 online.ts
     if (getActiveProfile().family === 'watch') return
     if (!isCmdAllowed('Heartbeat.Alive')) return
     const seq = this.nextSeq()
@@ -452,17 +404,14 @@ export class DirectProtocolClient extends EventEmitter {
     let tTokenDone = t0
     let tSignDone = t0
 
-    // watch trans_emp 必须不签名 (签了服务器拒扫码授权); 桌面 trans_emp 照常签。skipSign 由调用方按协议传。
+    // skipSign: watch 的 trans_emp 签了会被拒绝扫码授权
     let signResult: SignResult | null = null
     if (!skipSign && this.config.authToken && cmdNeedsSign(cmd, getActiveProfile().name)) {
-      // uin 优先 session (登录成功后), 未登录时 fallback 到构造时传的 config.uin.
-      // 快速登录场景 session 解不开时 session 为 null, 但 config.uin 已从明文元数据 / -q 拿到,
-      // 缺了它 sign 服务器会 400 'missing uin' 直接拒
+      // 快速登录时 session 可能解不开, config.uin 来自明文元数据 / -q; 不带 uin sign 服务器回 400
       const uin = this.session?.uin ? Number(this.session.uin) : (this.config.uin || undefined)
       await this.ensureSignTokenFresh(uin)
       tTokenDone = Date.now()
-      // [SA 1001 修复] signTokenOverride (SA=token1) 优先于 session token: SA 命令必须用 token1
-      // 签 (真机 SecInfo sf2=token1), 而此刻 session.signToken12B 还空 (正在取 token)。
+      // SA 必须用 token1 签, 而此时 session.signToken12B 还没取到
       const protocolToken = signTokenOverride ?? this.protocolTokenFor(cmd)
       signResult = await requestSign(cmd, payload, seq, this.guid, AppInfo.qua, uin, protocolToken)
       tSignDone = Date.now()
@@ -470,8 +419,7 @@ export class DirectProtocolClient extends EventEmitter {
         signResult.token = Buffer.from(protocolToken ?? '')
       }
       logger.debug(`[sign] ${cmd} seq=${seq}: result=${signResult ? `sign=${signResult.sign.length}B token=${signResult.token.length}B extra=${signResult.extra.length}B` : 'null'}`)
-      // sign 是协议必需字段, 拿不到就别送 unsigned 包出去. requestSign 内部已经按 status
-      // 打过具体错因 (401/403/502/503), 这里只丢异常中断 cmd.
+      // 不发未签名的包; 具体错因 requestSign 已经打过
       if (!signResult) {
         throw new Error(`sign failed for ${cmd}; see [Sign] log above`)
       }
@@ -546,19 +494,18 @@ export class DirectProtocolClient extends EventEmitter {
       return
     }
 
-    // 无主错误帧不是业务推送, body 也不是有效 protobuf, 别喂给 dispatcher.
+    // 无主的错误帧不是推送, body 也不是 protobuf
     if (parsed.retCode && parsed.retCode !== 0) {
       logger.warn(`[SSO] unmatched error frame cmd=${parsed.cmd} seq=${parsed.seq} retCode=${parsed.retCode} extraMsg=${parsed.extraMsg || ''}`)
       return
     }
 
-    // 真机: 新建 SSO 连接时服务器推 ConfigPushSvc.PushReq, 客户端回 PushResp 回显 {type,seq}。
     if (parsed.cmd === CONFIG_PUSH_REQ) this.respondConfigPush(parsed.payload)
 
     this.emit('push', parsed)
   }
 
-  /** -10122 = 当前产品线没这个 cmd 的权限, 单独成型让调用方能降级而不是当普通故障重试. */
+  /** -10122 单独成型, 调用方据此降级而不是重试 */
   private toCommandError(parsed: SsoPacket): Error {
     if (parsed.retCode === CMD_NOT_PERMITTED_RET_CODE) {
       this.unsupportedCmds.add(parsed.cmd)
@@ -585,10 +532,7 @@ export class DirectProtocolClient extends EventEmitter {
     setSignMachineGuid(guid)
   }
 
-  /**
-   * 复用同一 client 时热更新配置 (换 token / 换账号 uin). native sign 是进程单例, relay 只绑首个
-   * client, 所以不能靠重建 client 换配置 -- 只能在活着的这一个上原地更新. 见 direct doInitDirectClient.
-   */
+  /** native sign 是进程单例, relay 只绑第一个 client: 换 token / uin 只能原地改, 不能重建 client */
   setAuthToken(token: string): void {
     this.config.authToken = token
   }
@@ -617,10 +561,7 @@ export class DirectProtocolClient extends EventEmitter {
     recordKey('a2Key', session.a2Key, 'from TLV 0x10D')
     this.emit('login', session)
     void this.tryAcquireSignToken()
-    // SsoReport 遥测 loop 不在 setSession 起: 此刻 ESK/SA/SsoInfoSync 都没跑, 在这里起会让报告
-    // (尤其大的 verify_file) 渗进握手、怼在 SA 之后 -> 跟真机不符 (真机 SA 之后全是小 enc01 帧,
-    // 没有 verify_file 尺寸的帧)。改由 direct.ts 在 registerOnline 上线成功后调 startLinuxSsoReportLoop(),
-    // 对齐"先 ESK->SA 拿 token、再 SsoInfoSync 上线、再开遥测"的真机时序。
+    // 遥测不在这里起: 真机是 ESK -> SA -> SsoInfoSync 上线之后才报告, 由 direct.ts 上线后调 startLinuxSsoReportLoop
   }
 
   async startLinuxSsoReportLoop(): Promise<void> {
@@ -630,40 +571,33 @@ export class DirectProtocolClient extends EventEmitter {
       guidHex: this.guid.toString('hex'),
       uin: this.session.uin,
     })
-    // xwid 登录突发: 原生 send path 连号快发, 复刻真机登录爆发。非阻塞背景执行 (预签在后台跑,
-    // 完再一次性 blast), 条数 LINUX_XWID_BURST (env 可调, 默认见常量定义)。
     if (LINUX_XWID_BURST > 0) {
       const body = buildLinuxXwidBody(AppInfo.qua)
       if (body) void this.sendXwidBurst(LINUX_XWID_BURST, body)
     }
-    // 稳态遥测 loop: 真机登录后每 ~316s 发 getNewFlag/ClientReport/psKey, 补 Bot 的"哑连接"缺口。
     this.startTelemetryLoop()
-    // 低频 aux 遥测: 真机 ~27min 偶发的 0x102a_1/0x116d_1/0x9067_202/SsoGetConfig。
     this.startAuxTelemetryLoop()
   }
 
-  /** 上线后发 SsoReport, 按协议分派 (各自自守卫): linux 循环, macos 一次性爆发。 */
+  /** linux 循环发, macos 一次性爆发 */
   startSsoReport(): void {
     void this.startLinuxSsoReportLoop()
     void this.startMacosSsoReport()
   }
 
-  /** macOS o3 SsoReport 登录爆发 (sec_init+channel_report+env_detect+login)。非 macos / 未登录时 no-op。 */
+  /** sec_init + channel_report + env_detect + login */
   async startMacosSsoReport(): Promise<void> {
     if (getActiveProfile().name !== 'macos' || !this.session || !this.config.authToken) return
     let qimei36 = ''
     try {
       qimei36 = (await getMacosDevice(AppInfo.qua)).qimei36
     } catch {
-      // 取不到 qimei 不阻塞遥测 (report 是 fire-and-forget)
+      // 没有 qimei 也照发
     }
     await runMacosSsoReport({ guidHex: this.guid.toString('hex'), qimei36, uin: this.session.uin })
   }
 
-  /**
-   * macOS 免扫码 EasyLogin: 存档 0x106 凭证换新票据, 组 SessionInfo。失败返 null (调用方回退)。
-   * 须在无 session 态调 (KEX/EasyLogin 走零钥帧); 内部先跑 ESK 拿握手 sign-token。
-   */
+  /** 用存档的 0x106 凭证换新票据, 失败返 null。须在没有 session 时调: KEX / EasyLogin 走零钥帧 */
   async macosEasyLogin(persisted: PersistedSession): Promise<{ session: SessionInfo; a1106Hex: string } | null> {
     if (getActiveProfile().name !== 'macos' || !persisted.tempPassword) return null
     await this.acquirePreLoginToken()
@@ -691,13 +625,8 @@ export class DirectProtocolClient extends EventEmitter {
   }
 
   /**
-   * Linux xwid 登录突发: 复刻真机登录瞬间的 xwid 连号发 (实测 ~1ms/包、~1000/s、摊 ~2.5s; 非"微秒瞬时")。
-   *   1. 批量签: 一次 NAPI (signLinuxXwidBurst) 里 Rust 循环签 count 条 (sign-core ~450k/s, 各条 ts+1ms
-   *      -> sign 各异)。取代逐条 requestSign 打 count 次 JS↔NAPI 往返 —— 那才是唯一慢点, 签名本身不慢。
-   *   2. 预留连续 seq 段 (JS 单线程无 await 介入 = 原子; 别的 send 拿 base+count 之后的 seq, 不插本段)。
-   *   3. 组帧 + conn.send, 分块 pace 到 LINUX_XWID_BURST_RATE (默认 1000/s 对齐真机, 避免瞬发尖峰踩限流);
-   *      **不登记 pendingPackets** (fire-and-forget: 服务端对 SsoReport 基本不回, 偶尔回也因无 pending 静默丢)。
-   * 非阻塞: 调用方 void 触发, 批量签 + 分块 pace 全在后台跑。
+   * 一次 NAPI 批量签完 (逐条 requestSign 的 JS <-> NAPI 往返才是慢点), 预留连续 seq 段, 再按
+   * LINUX_XWID_BURST_RATE 分块发。不登记 pendingPackets: 服务端对 SsoReport 基本不回
    */
   async sendXwidBurst(count: number, body: Buffer): Promise<void> {
     if (count <= 0 || !body?.length) return
@@ -706,19 +635,17 @@ export class DirectProtocolClient extends EventEmitter {
     if (!cmdNeedsSign(cmd, getActiveProfile().name)) return
     const session = this.session
     const uin = this.session.uin ? Number(this.session.uin) : (this.config.uin || undefined)
-    // burst 用真 session token 签 (对齐真机: emptyToken 之后 ESK 已回, xwid 带 token1)。ensureSignTokenFresh
-    // 在 acquire 仍 in-flight 时会立即放行(空 token), 故再显式等一次 in-flight 完成, 保证整批用真 token1。
-    // burst 不在 acquire 的发包路径上, 不触发那个"等自己"死锁。
+    // 真机 xwid 带 token1。acquire 还在跑时 ensureSignTokenFresh 会直接放行, 所以再等一次 in-flight;
+    // burst 不在 acquire 的发包路径上, 不会死锁
     await this.ensureSignTokenFresh(uin)
     if (this.signTokenRefreshInflight) { try { await this.signTokenRefreshInflight } catch { /* 取失败退化空 token */ } }
     if (this.session !== session || !this.isConnected) return
 
-    // 1. 预留连续 seq 段 (原子)
     const base = this.seq
     this.seq = (this.seq + count) >>> 0
     const token = this.protocolTokenFor(cmd)
 
-    // 2. 批量签 (一次 NAPI). 老 .node 无 signXwidBurst -> 返 null, 跳过突发 (不回退逐条, 免 count 次 NAPI)。
+    // 老 .node 没有 signXwidBurst 时返 null, 直接跳过
     const sigs = await signLinuxXwidBurst({
       cmd,
       bodyHex: body.toString('hex'),
@@ -731,13 +658,12 @@ export class DirectProtocolClient extends EventEmitter {
     if (!sigs || sigs.length === 0) return
     if (this.session !== session || !this.isConnected) return
 
-    // 3. 组帧 + 分块 pace 发送 (默认 ~1000/s 对齐真机); 不登记响应等待
     const ctx = this.getPacketContext()
     const CHUNK = 20
     const chunkDelayMs = LINUX_XWID_BURST_RATE >= 100000 ? 0 : Math.max(0, Math.round((1000 * CHUNK) / LINUX_XWID_BURST_RATE))
     let sent = 0
     for (let i = 0; i < sigs.length; i++) {
-      if (this.session !== session || !this.isConnected) break // 断开/换会话 -> 停
+      if (this.session !== session || !this.isConnected) break
       const seq = (base + i) >>> 0
       try {
         this.conn.send(buildServicePacket(seq, cmd, ctx, body, EncryptType.EncryptD2Key, sigs[i]))
@@ -750,10 +676,7 @@ export class DirectProtocolClient extends EventEmitter {
     logger.debug(`[xwid-burst] sent ${sent}/${count} (seq ${base}..${(base + count - 1) >>> 0}, rate~${LINUX_XWID_BURST_RATE}/s)`)
   }
 
-  /**
-   * 登录后主动拉一次 sign-token. 转给 ensureSignTokenFresh 走共享 in-flight lock,
-   * 避免启动期跟首次 sendCommand 并发开两个 acquire。
-   */
+  /** 走 ensureSignTokenFresh 的 in-flight lock, 免得跟首次 sendCommand 各开一个 acquire */
   private async tryAcquireSignToken(): Promise<void> {
     if (!this.session || !this.config.authToken) return
     const uin = Number(this.session.uin)
@@ -761,54 +684,31 @@ export class DirectProtocolClient extends EventEmitter {
     await this.ensureSignTokenFresh(uin)
   }
 
-  /**
-   * [SA 1001 测试 B] 阻塞等到本次登录的 o3 sign-token 获取 (ESK -> SA) 跑完。
-   * setSession 已 void 触发 tryAcquireSignToken (fire-and-forget); 这里确保在 registerOnline
-   * (SsoInfoSync 上线) **之前** token 链已完成 —— 对齐 QQ 真机时序 (先 ESK->SA 拿 token 再上线),
-   * Bot 原来先上线再取 token, 怀疑是 SA 1001 主因。幂等 (in-flight lock) + 不抛 (失败走原回退)。
-   */
+  /** 上线 (SsoInfoSync) 前等 ESK -> SA 跑完, 跟真机时序一致。不抛 */
   async awaitSignTokenAcquire(): Promise<void> {
     if (!this.session || !this.config.authToken) return
     const uin = Number(this.session.uin)
     if (!Number.isFinite(uin) || uin <= 0) return
     await this.ensureSignTokenFresh(uin)
-    // ensureSignTokenFresh 命中 re-entrancy/in-flight guard 时会提前 return 不 await,
-    // 这里显式 await setSession 先触发的那个 in-flight promise, 保证 ESK->SA 真跑完。
+    // 撞上 in-flight 时 ensureSignTokenFresh 直接返回, 所以显式等
     const inflight = this.signTokenRefreshInflight
     if (inflight) {
       try { await inflight } catch { /* 失败按原回退, 不阻断登录 */ }
     }
   }
 
-  /**
-   * sendCommand 前调. 按服务端下发的 TTL 续期:
-   *   1. 没 session / 没 uin -> noop
-   *   2. 从没拉过 (expiresAt undefined) -> 首拉一次
-   *   3. 有非空 token 且未过期 -> 复用不刷
-   *   4. 有非空 token 但已过期 -> 重新 acquire 续期 (续期失败按 lastFetchAt 限最小重试间隔)
-   *   5. 空 token (403 软降级) -> 不刷, 免得 403 情况每次发包都去重试 acquire
-   * signToken12B/expiresAt 不落盘 (见 session.ts), 每次启动/恢复都从 undefined 起,
-   * 故登录后 tryAcquireSignToken 必首拉一次。in-flight lock 防并发雪崩。
-   */
+  /** 按服务端给的 TTL 续期。token 不落盘, 每次启动都要首拉; 空 token (403 软降级) 不刷 */
   private async ensureSignTokenFresh(uin: number | undefined): Promise<void> {
-    // watch 不取: sign 后端自产 token (base64(md5(device_blob)[:9])) 随 sign 一起返回, 且 watch
-    // sign-service 没挂 /token/* (只 linux/macos 有) -> 取一趟必 404。这里拦住, 整条 acquire 链
-    // (sendCommand / sendXwidBurst / tryAcquireSignToken / awaitSignTokenAcquire) 在 watch 上全空转。
+    // watch 的 token 随 sign 一起返回, sign-service 也没有 /token/* (取必 404)
     if (getActiveProfile().family === 'watch') return
     if (!this.session || !uin || !this.config.authToken) return
-    // 有 token 且未过期 -> 复用不刷; 有 token 但已过期 -> 往下重新 acquire 续期 (TTL 生效)。
     if (this.session.signTokenExpiresAt) {
       const expired = Date.now() >= this.session.signTokenExpiresAt
-      // 空 token (403 软降级) 或未过期: 不刷。前者免得 403 每次发包都重试 acquire。
       if (!this.session.signToken12B || !expired) return
-      // 已过期要续: 续期失败会让 expiresAt 停在旧值, 导致每条命令都想续 -> 用 lastFetchAt 限最小
-      // 重试间隔, 免得续不上时 acquire 风暴 (正常续期间隔 = TTL, 远大于此, 不受影响)。
+      // 续期失败时 expiresAt 停在旧值, 限个最小间隔, 免得每条命令都去续
       if (Date.now() - this.signTokenLastFetchAt < 30_000) return
     }
-    // 防重入死锁 (关键, 别改回 await): acquire 一个 token 内部要发 ecdh_access 包, 那些包走
-    // sendCommand 又重入到这里。inflight 已在跑就直接放行 -- 让本次发包用当前空 token sign
-    // (此刻本来也没 token)。改成 await inflight 就是去等那个正等本次发包返回的 promise = 等自己,
-    // 死锁: 登录后 hang, acquire 永不返回, sign token 也打印不出来。
+    // 别改成 await: acquire 自己发的 ecdh_access 包也会经 sendCommand 重入这里, 等 inflight 就是等自己, 死锁
     if (this.signTokenRefreshInflight) return
     this.signTokenRefreshInflight = (async () => {
       try {
@@ -823,7 +723,7 @@ export class DirectProtocolClient extends EventEmitter {
           recordKey('signToken12B', Buffer.from(token, 'utf-8'), `sign device token, ttl=${ttlSecs}s`)
         }
       } catch (e) {
-        // 首拉失败: expiresAt 仍 undefined, 下条 allowlist 命令会再试一次首拉。
+        // expiresAt 仍为 undefined, 下一条要签名的命令会再试
         logger.warn(`[SignToken] acquire failed: ${(e as Error).message}`)
       } finally {
         this.signTokenRefreshInflight = null

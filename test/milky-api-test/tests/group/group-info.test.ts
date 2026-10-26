@@ -51,8 +51,7 @@ describe('Milky 群操作', () => {
       card: newCard,
     })
     Assertions.assertSuccess(res, 'set_group_member_card')
-    // 不强制等事件，因为 milky 不一定下发 group_card 类事件；
-    // 后续通过 get_group_member_info 拉一次确认改成功
+    // milky 不一定下发 group_card 事件, 等一会儿拉成员信息确认
     await new Promise((r) => setTimeout(r, 1500))
     const info = await primary.call<{ member: { card: string } }>('get_group_member_info', {
       group_id: ctx.testGroupId,

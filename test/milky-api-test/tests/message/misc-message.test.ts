@@ -46,8 +46,7 @@ describe('Milky 消息辅助操作', () => {
 
   it('get_resource_temp_url: 发图后用 segment 里 resource_id 拿临时 URL', async () => {
     const primary = ctx.twoAccountTest.getClient('primary')
-    // 接收方收到的图片消息里会带 resource_id；这里取 secondary 视角拉历史里包含图片 segment 的消息
-    // 简化：发一条图片消息，从 send 返回的 message_seq 用 get_message 拿回 segments，找 resource_id
+    // 发图片后用 get_message 拿回 segments, 从里面找 resource_id
     const sendRes = await primary.call<{ message_seq: number }>('send_group_message', {
       group_id: ctx.testGroupId,
       message: [{ type: 'image', data: { uri: 'https://q1.qlogo.cn/g?b=qq&nk=10000&s=640' } }],
@@ -77,12 +76,10 @@ describe('Milky 消息辅助操作', () => {
     expect((urlRes.data?.url ?? '').length).toBeGreaterThan(0)
   }, 60000)
 
-  // get_forwarded_messages: 需要先发一个合并转发拿 forward_id，再用 forward_id 拉
   it('get_forwarded_messages: 发合并转发后用 forward_id 拉回来', async () => {
     const primary = ctx.twoAccountTest.getClient('primary')
 
-    // milky 当前 send_group_message 没有内置 forward 段类型；通过 segment.type='forward' 试一下
-    // 如果失败说明 milky 端发合并转发的能力还不可用，就 skip 而不是 fail
+    // 发不了合并转发就 skip 而不是 fail
     const ts = Date.now()
     const sendRes = await primary.call<{ forward_id?: string }>('send_group_message', {
       group_id: ctx.testGroupId,

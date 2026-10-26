@@ -1,9 +1,4 @@
-/**
- * 消息段（OB11MessageDataType）覆盖：face / dice / rps / poke / json / markdown / mface / contact
- *
- * 这些类型 send-group-msg.test.ts 没覆盖到（那个测了 text/image/video/record/at/reply）。
- * 这里集中验：bot 发送 → secondary 收到的事件里能看到对应 type 的 segment。
- */
+/** send-group-msg.test.ts 没测到的消息段: 发出去后 secondary 收到的事件里要有对应 type */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
@@ -75,8 +70,7 @@ describe('消息段类型覆盖（额外）', () => {
     );
   }, 60000);
 
-  // 测试用了 app=com.tencent.miniapp.lua，server 收下但不广播给接收端（白名单外的卡片
-  // 默认拦截）。再 skip，等切到真实 app 名再启用。
+  // app=com.tencent.miniapp.lua 不在白名单, server 收下但不广播; 换成真实 app 再启用
   it.skip('json — JSON 卡片', async () => {
     const json = JSON.stringify({
       app: 'com.tencent.miniapp.lua',
@@ -114,8 +108,7 @@ describe('消息段类型覆盖（额外）', () => {
     );
   }, 60000);
 
-  // QQ NT 直连协议没把 face/poke=1（窗口抖动）encode 进 PbSendMsg；
-  // 现在的 MessageBuilding 只填 face.index=1，server 当 face id=1 处理，对端收到的就是普通 face 而不是 shake。
+  // 窗口抖动还没编码进 PbSendMsg: 现在只填 face.index=1, 对端收到的是普通 face
   it.skip('shake — 窗口抖动（私聊）', async () => {
     context.twoAccountTest.clearAllQueues();
     const primary = context.twoAccountTest.getClient('primary');
@@ -138,8 +131,7 @@ describe('消息段类型覆盖（额外）', () => {
     );
   }, 60000);
 
-  // 接收端解析时，music ark 跟普通 ark 都会标成 type=json（OB11 spec 没单独的 incoming music），
-  // 测试 m.type === music 永远不会成立。 现实中 music 走 send 路径有效就 OK。
+  // 收到的 music ark 跟普通 ark 一样是 type=json (OB11 没有收 music 的段), m.type === music 永远不成立
   it.skip('music — 音乐分享卡片', async () => {
     await sendAndExpectSegment(
       context,
@@ -151,8 +143,7 @@ describe('消息段类型覆盖（额外）', () => {
     );
   }, 60000);
 
-  // send_private_msg 里塞 file 段是 gocq 扩展，QQ NT 私聊文件走独立 msgType=529 通道，
-  // 不能和普通 elem 一起塞 PbSendMsg。OB11 spec 也没强制要求；用户应改用 upload_private_file。
+  // 私聊 file 段是 gocq 扩展; 私聊文件走单独的 msgType=529, 不能跟普通 elem 一起发, 应改用 upload_private_file
   it.skip('file — 私聊 file segment', async () => {
     context.twoAccountTest.clearAllQueues();
     const primary = context.twoAccountTest.getClient('primary');
@@ -179,8 +170,7 @@ describe('消息段类型覆盖（额外）', () => {
     );
   }, 60000);
 
-  // mface 需要 server 签发的 key（无法自己生成有效的），自动化里只能从入站 mface 里
-  // 抓取再回放——先 skip，等有合适 fixture 再启用。
+  // mface 要 server 签发的 key, 只能从收到的 mface 里抓来回放, 等有 fixture 再启用
   it.skip('mface — 商城表情', async () => {
     void context;
     void OB11MessageDataType;

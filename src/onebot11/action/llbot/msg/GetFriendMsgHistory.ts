@@ -66,9 +66,7 @@ export class GetFriendMsgHistory extends BaseAction<Payload, Response> {
     const validBatches = firstEmpty === -1 ? rawBatches : rawBatches.slice(0, firstEmpty)
     validBatches.reverse()
 
-    // 历史边界兜底: 所有窗口都非空但仍不足 count, 说明 [overallStartSeq, endSeq]
-    // 范围内存在 seq 空洞（被撤回/过滤）。继续向更旧方向补拉, 直到凑够 count
-    // 或到达历史边界（fetchRangeRaw 返回空数组）.
+    // 窗口都非空却不够 count: 区间里有 seq 空洞 (撤回 / 过滤), 继续往更早补拉, 直到够数或到头
     const flatRaw = validBatches.flat()
     if (firstEmpty === -1 && flatRaw.length < count) {
       let remaining = count - flatRaw.length
@@ -77,7 +75,7 @@ export class GetFriendMsgHistory extends BaseAction<Payload, Response> {
         const fetchCount = Math.min(30, remaining)
         const startSeq = Math.max(1, nextEndSeq - fetchCount + 1)
         const batch = await this.fetchRangeRaw(peer, startSeq, nextEndSeq)
-        if (batch.length === 0) break  // 已到历史边界，更旧区间无消息
+        if (batch.length === 0) break
         // 保持 server 原始顺序前置拼接 (与并发批次 reverse().flat() 一致)
         flatRaw.unshift(...batch)
         remaining -= batch.length

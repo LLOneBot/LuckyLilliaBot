@@ -11,16 +11,7 @@ const LOCAL_CONFIG_PATH = resolve(__dirname, '../config/test.config.json')
 
 let cached: { client: WebQQApiClient; config: TestConfig } | null = null
 
-/**
- * 加载 config + 实例化 client + 跑 healthCheck。Jest 各 test 文件用这个拿 client。
- *
- * 配置来源优先级:
- *   1. test/webqq-api-test/config/test.config.json (per-suite 老格式, 向后兼容)
- *   2. test/test.config.json (项目级统一配置, UnifiedConfigLoader.forWebQQ)
- *
- * 配置完后, 如果 webui 在 config 写的 port 没监听, 自动 probe 一组常见候选 port
- * (bot 启动时如果配置端口被占, getAvailablePort 会 +N 找空闲)。
- */
+/** 优先 test/webqq-api-test/config/test.config.json (兼容旧配置), 否则用 test/test.config.json */
 export async function loadClient(): Promise<{ client: WebQQApiClient; config: TestConfig }> {
   if (cached) return cached
 
@@ -28,7 +19,6 @@ export async function loadClient(): Promise<{ client: WebQQApiClient; config: Te
   let password: string
 
   if (existsSync(LOCAL_CONFIG_PATH)) {
-    // per-suite 老格式（向后兼容）
     config = JSON.parse(readFileSync(LOCAL_CONFIG_PATH, 'utf-8')) as TestConfig
     for (const k of ['host', 'user_id', 'test_group_id', 'test_user_id'] as const) {
       if (!config[k]) throw new Error(`${LOCAL_CONFIG_PATH} 缺必填字段: ${k}`)
@@ -42,7 +32,6 @@ export async function loadClient(): Promise<{ client: WebQQApiClient; config: Te
       throw new Error(`${LOCAL_CONFIG_PATH} 缺 password 或 password_file`)
     }
   } else {
-    // 走项目级 test/test.config.json
     const { config: unified, configPath } = UnifiedConfigLoader.loadUnified()
     const webqqConfig = UnifiedConfigLoader.forWebQQ(unified, configPath)
     config = {
@@ -54,11 +43,8 @@ export async function loadClient(): Promise<{ client: WebQQApiClient; config: Te
     password = webqqConfig.password
   }
 
-  // 真起 bot 时 webui port 可能跟配置文件不一样:
-  //   1) server.ts 用 getAvailablePort: 配置端口被占就 +1..+100 找空闲
-  //   2) 多 bot 同时跑时, 重启 bot1 期间 bot2 可能抢了 bot1 的 port (实测过)
-  // 所以 ECONNREFUSED 或 uin 不匹配都要 probe 一组候选 port, 找到跑 config.user_id
-  // 那个 bot 的 webui 才认.
+  // 实际端口可能跟配置不同: 被占时往后找 +1..+100, 多个 bot 同时跑时重启期间还可能被别的 bot 抢走。
+  // 所以连不上或 uin 不对都要探测, 直到找到 config.user_id 那个 bot
   let client = new WebQQApiClient(config, password)
   let selfInfo: { uid: string; uin: string; nick?: string }
   const isProbeWorthy = (err: unknown): boolean => {
@@ -106,7 +92,7 @@ export async function loadClient(): Promise<{ client: WebQQApiClient; config: Te
     console.log(`[webqq-api-test] webui 实际跑在 ${config.host} (config 写的是 :${startPort})`)
   }
 
-  // 用 webui 真实返回的 uin 校正 config.user_id (config 里的可能是 secondary 的, 也可能写错)
+  // 以实际登录的 uin 为准, 配置里的可能是 secondary 的, 也可能写错
   if (selfInfo!.uin !== config.user_id) {
     // eslint-disable-next-line no-console
     console.log(`[webqq-api-test] 注意: 配置 user_id=${config.user_id}, 但 bot 实际登录的是 ${selfInfo!.uin}`)
@@ -120,7 +106,3 @@ export async function loadClient(): Promise<{ client: WebQQApiClient; config: Te
   cached = { client, config }
   return cached
 }
-
-/** destructive 测试现在不再用全局开关. 真危险的 (kick/ban/quit) 写死 test.skip;
- *  轻量副作用 (戳一戳) 默认就跑. fav-emoji/add-from-url 走 highway 网络通常不通,
- *  也写死 test.skip. 见 actions.test.ts / fav-emoji.test.ts. */

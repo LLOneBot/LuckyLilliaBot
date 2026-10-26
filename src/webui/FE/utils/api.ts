@@ -4,7 +4,7 @@ import { hashPassword } from './passwordHash';
 import { getCookie, setCookie } from './cookie';
 
 const TOKEN_KEY = 'webui_token';
-const TOKEN_EXPIRY_DAYS = 30; // Cookie 过期天数
+const TOKEN_EXPIRY_DAYS = 30;
 
 /** A non-2xx response; `data` is the `data` field of the error body, if any. */
 export class ApiError extends Error {
@@ -36,7 +36,6 @@ export async function apiFetch<T = any>(
       ...options.headers,
     };
 
-    // 使用后端期望的 x-webui-token 请求头
     if (authToken) {
       headers['x-webui-token'] = authToken;
     }
@@ -60,7 +59,7 @@ export async function apiFetch<T = any>(
         throw new Error('密码不能为空');
       }
 
-      // 调用设置密码接口（传送明文）
+      // 设置密码时传的是明文
       const setTokenResponse = await fetch('/api/set-token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -71,11 +70,9 @@ export async function apiFetch<T = any>(
         throw new Error('设置密码失败');
       }
 
-      // 存储 hash 后的密码
       const hashedPassword = await hashPassword(newPassword.trim());
       setTokenStorage(hashedPassword);
 
-      // 重新请求原接口（使用 hash）
       response = await makeRequest(hashedPassword);
     }
 
@@ -83,7 +80,6 @@ export async function apiFetch<T = any>(
     if (response.status === 403 && passwordPromptHandler) {
       console.log('403 - Token verification failed, prompting for password...');
 
-      // 解析错误信息
       let errorData = null;
       try {
         errorData = await response.clone().json();
@@ -91,12 +87,10 @@ export async function apiFetch<T = any>(
         // 忽略
       }
 
-      // 检查是否被锁定
       if (errorData?.locked) {
         showToast(errorData.message || '账户已被锁定', 'error');
       }
 
-      // 循环提示密码
       let retryCount = 0;
       const maxRetries = 5;
 
@@ -109,11 +103,9 @@ export async function apiFetch<T = any>(
             throw new Error('密码不能为空');
           }
 
-          // 存储 hash 后的密码
           const hashedPassword = await hashPassword(newPassword.trim());
           setTokenStorage(hashedPassword);
 
-          // 重新请求（使用 hash）
           response = await makeRequest(hashedPassword);
 
           if (response.status === 200) {
@@ -121,7 +113,6 @@ export async function apiFetch<T = any>(
             break;
           }
 
-          // 解析新的错误信息
           try {
             errorData = await response.clone().json();
             if (errorData?.locked) {

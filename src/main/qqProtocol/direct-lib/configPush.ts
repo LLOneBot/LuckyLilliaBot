@@ -1,17 +1,13 @@
-// ConfigPushSvc.PushReq -> PushResp. Legacy MSF JCE service QQ NT still carries: on a fresh SSO
-// connection the server pushes ConfigPushSvc.PushReq (type=1 SSO server-list) and a real client
-// replies ConfigPushSvc.PushResp echoing {type, seq}. The Bot used to drop it silently; real QQ
-// 3.2.28 always answers (verified: captured real outbound PushResp, 2026-10-06). Body is
-// byte-exact to that capture; reserve is the minimal o3-like form (no TraceParent, unsigned).
+// Legacy MSF JCE service: on a fresh SSO connection the server pushes ConfigPushSvc.PushReq and real QQ
+// answers PushResp echoing {type, seq}. The body is byte-exact to a captured real PushResp.
 import { JceReader, jceByte, jceZero, jceString, jceSimpleList, jceStruct, jceLong, jceMap } from './jce'
 
 export const CONFIG_PUSH_REQ = 'ConfigPushSvc.PushReq'
 export const CONFIG_PUSH_RESP = 'ConfigPushSvc.PushResp'
 const SERVANT = 'QQService.ConfigPushSvc.MainServant'
 
-// Parse the inbound PushReq RequestPacket -> the {type, seq} the response must echo.
-// Nesting: RequestPacket.sBuffer(tag7) = UniAttribute{"PushReq":{"ConfigPush.PushReq": struct}};
-// struct = { tag1 BYTE type, tag2 SIMPLE_LIST jcebuf, tag3 LONG seq }.
+// RequestPacket.sBuffer(tag7) = UniAttribute{"PushReq":{"ConfigPush.PushReq": struct}},
+// struct = { tag1 BYTE type, tag2 SIMPLE_LIST jcebuf, tag3 LONG seq }
 export function parseConfigPushReq(payload: Buffer): { type: number; seq: number } | null {
   try {
     const top = new JceReader(payload).decodeAll()
@@ -28,7 +24,6 @@ export function parseConfigPushReq(payload: Buffer): { type: number; seq: number
   }
 }
 
-// Build the PushResp RequestPacket body. Byte-exact to the real capture when (type=1, seq=<echoed>).
 export function buildConfigPushResp(type: number, seq: number): Buffer {
   const inner = jceStruct(0, Buffer.concat([
     jceByte(1, type),

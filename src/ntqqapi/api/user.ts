@@ -25,7 +25,7 @@ export class NTUserApi extends Service {
     const session = await this.ctx.qqProtocol.getHighwaySession()
     const trans = {
       uin: selfInfo.uin,
-      cmd: 90, // 自身头像 commandId（PMHQ 抓包 PicUp.DataUp + htcmd=0x6FF0087 验过）
+      cmd: 90, // 自己的头像
       readable: createReadStream(filePath, { highWaterMark: 1024 * 1024 }),
       sum: md5,
       size: stat.size,
@@ -49,7 +49,6 @@ export class NTUserApi extends Service {
     } catch (e) {
       this.ctx.logger.error('getUidByUin via store failed', e)
     }
-    // 通过群成员列表查（最直接）
     if (groupCode) {
       try {
         const member = await this.ctx.ntGroupApi.getGroupMemberByUin(+groupCode, uin, false)
@@ -64,7 +63,6 @@ export class NTUserApi extends Service {
         this.ctx.logger.error('getUidByUin via group members failed', e)
       }
     }
-    // 私聊场景没 groupCode：先从好友列表里找
     try {
       const friend = await this.ctx.ntFriendApi.getFriendByUin(uin, false)
       if (friend) {
@@ -77,7 +75,7 @@ export class NTUserApi extends Service {
     } catch (e) {
       this.ctx.logger.error('getUidByUin via friends failed', e)
     }
-    // 临时会话：拉一次群列表，逐个拉成员；找到一个就返
+    // 临时会话: 逐个群拉成员找
     try {
       const groups = await this.ctx.ntGroupApi.getGroups(false)
       for (const g of groups) {

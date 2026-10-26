@@ -1,7 +1,3 @@
-/**
- * get_group_file_system_info 接口测试
- * 测试取群文件系统信息（容量/文件数）
- */
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';

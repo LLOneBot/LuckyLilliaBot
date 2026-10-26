@@ -13,20 +13,15 @@ import { version } from '../../version'
 import { WsConnectConfig, WsReverseConnectConfig } from '@/common/types'
 import { matchEventFilter } from '../eventfilter'
 
-// 将 ws 的 RawData 规整为单个 Buffer。
-// RawData 可能是单 Buffer，也可能是分片的 Buffer[]；统一合并以便字节扫描。
 function toBuffer(data: RawData): Buffer {
   if (Buffer.isBuffer(data)) return data
   if (Array.isArray(data)) return Buffer.concat(data)
   return Buffer.from(data)
 }
 
-// JSON 解析失败时，尝试直接从原始字节流中提取 echo 字段，便于上层关联回包。
-// best-effort 恢复：支持任意 JSON 值（标量 / 对象 / 数组，任意嵌套深度）。
-// 直接对 Buffer 做字节扫描，避免整体 toString() 的大字符串开销；仅在拿到 echo
-// 片段后做一次小范围 UTF-8 解码与 JSON.parse。
+// JSON 解析失败时尽量从原始字节里抠出 echo, 让调用方能关联回包; 直接扫 Buffer, 免得整个 toString
 function extractEcho(buf: Buffer): unknown {
-  // 在字节流里查找 "echo" 的 ASCII 字节 (0x22 65 63 68 6f 0x22)
+  // "echo"
   const key = [0x22, 0x65, 0x63, 0x68, 0x6f, 0x22]
   const len = buf.length
   let keyIdx = -1
@@ -39,7 +34,7 @@ function extractEcho(buf: Buffer): unknown {
   }
   if (keyIdx < 0) return undefined
   let i = keyIdx + key.length
-  // 跳过空白 (ASCII 空白：0x20 / 0x09 / 0x0a / 0x0d)
+  // 跳过空白
   while (i < len) {
     const b = buf[i]
     if (b !== 0x20 && b !== 0x09 && b !== 0x0a && b !== 0x0d) break
@@ -59,7 +54,7 @@ function extractEcho(buf: Buffer): unknown {
 
   let end = start
   if (first === 0x22 /* '"' */) {
-    // 字符串：消费直到闭合引号，处理转义 (字节 0x5c)
+    // 字符串, 注意转义
     i++
     while (i < len) {
       const b = buf[i]
@@ -103,7 +98,6 @@ function extractEcho(buf: Buffer): unknown {
   }
 
   if (end <= start) return undefined
-  // 仅对 echo 片段做一次小范围 UTF-8 解码（subarray 零拷贝视图）
   const slice = buf.subarray(start, end).toString('utf8').trim()
   if (!slice) return undefined
   try {

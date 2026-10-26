@@ -1,7 +1,4 @@
-/**
- * send_forward_msg 接口测试（通用版，不带 GoCQHTTP_ 前缀）
- * 与 send_group_forward_msg / send_private_forward_msg 区别：用 message_type 字段决定群/私聊。
- */
+/** send_forward_msg 用 message_type 区分群聊 / 私聊, 不同于 send_group_forward_msg / send_private_forward_msg */
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';

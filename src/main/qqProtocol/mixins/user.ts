@@ -85,13 +85,13 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
       )
     }
 
-    /** 给好友点赞，count 1~20 表示一次点赞次数（QQ 协议限制每天 20 个） */
+    /** count 1~20, QQ 限制每天 20 个 */
     async sendFriendLike(targetUid: string, count: number = 1) {
       const body = Oidb.FriendLikeReq.encode({ targetUid, field2: 71, count })
       return await this.sendOidb(0x7e5, 104, body)
     }
 
-    /** 设置在线状态。status: 在线状态码（10=在线, 30=离开, 40=隐身, 50=忙碌, 60=Q我, 70=请勿打扰）；extStatus 通常 0 */
+    /** status: 10=在线, 30=离开, 40=隐身, 50=忙碌, 60=Q我, 70=请勿打扰; extStatus 通常为 0 */
     async setOnlineStatus(status: number, extStatus: number, batteryStatus: number, customFaceId?: number, customText?: string) {
       const body = Action.SetStatusReq.encode({
         status,
@@ -103,7 +103,7 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
       return Action.SetStatusResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
-    /** 拉 clientKey（用于换 web cookies）。OidbSvcTrpcTcp.0x102a_1 */
+    /** 用来换 web cookies */
     async fetchClientKey() {
       const body = Oidb.FetchCookiesReq.encode({})
       const data = Oidb.Base.encode({ command: 0x102a, subCommand: 1, body })
@@ -112,7 +112,6 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
       return Oidb.FetchCookiesResp.decode(decoded.body)
     }
 
-    /** 拉指定 domain 的 PSkey 字典。OidbSvcTrpcTcp.0x102a_0 */
     async fetchPSkey(domains: string[]) {
       const body = Oidb.FetchCookiesReq.encode({ domain: domains })
       const data = Oidb.Base.encode({ command: 0x102a, subCommand: 0, body })
@@ -121,7 +120,7 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
       return Oidb.FetchCookiesResp.decode(decoded.body)
     }
 
-    /** 获取赞过我或我赞过的列表。direction: 0=我赞过的, 1=赞过我的。OidbSvcTrpcTcp.0x7ed_13 */
+    /** direction: 0=我赞过的, 1=赞过我的 */
     async fetchProfileLikes(selfUid: string, direction: 0 | 1, start: bigint, count: number) {
       const body = Oidb.FetchProfileLikeReq.encode({
         selfUid,
@@ -148,7 +147,6 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
       return Oidb.FetchProfileLikeCountResp.decode(decoded.body)
     }
 
-    /** 修改自己的资料 (OidbSvcTrpcTcp.0x112a_2) */
     async modifySelfProfile(profile: { nick?: string, longNick?: string, sex?: number, birthdayYear?: number, birthdayMonth?: number, birthdayDay?: number }) {
       const bytesProperties: { key: number, value: Buffer }[] = []
       const numberProperties: { key: number, value: number }[] = []

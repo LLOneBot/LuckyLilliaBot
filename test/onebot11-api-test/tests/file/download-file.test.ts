@@ -1,9 +1,4 @@
-﻿/**
- * download_file 接口测试
- * 测试下载文件功能
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 
@@ -34,7 +29,6 @@ describe('download_file - 下载文件', () => {
   it('测试通过 base64 下载文件', async () => {
     const primaryClient = context.twoAccountTest.getClient('primary');
 
-    // 简单的 base64 测试数据
     const base64Data = 'base64://SGVsbG8gV29ybGQ='; // "Hello World"
 
     const response = await primaryClient.call(ActionName.GoCQHTTP_DownloadFile, {

@@ -26,9 +26,9 @@ export enum GroupNotificationType {
 }
 
 export enum RequestState {
-  Init, // 初始化
-  Unhandle, // 未处理
-  Agreed, // 同意
-  Refused, // 拒绝
-  Ignored // 忽略
+  Init,
+  Unhandle,
+  Agreed,
+  Refused,
+  Ignored
 }

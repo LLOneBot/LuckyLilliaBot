@@ -5,7 +5,6 @@ set -e
 FFMPEG_SRC_DIR="${1:-ffmpeg}"
 INSTALL_DIR="${2:-./install}"
 
-# 检测操作系统
 OS_TYPE="$(uname -s)"
 case "$OS_TYPE" in
     Darwin*)
@@ -46,7 +45,6 @@ INSTALL_DIR="$(cd "$(dirname "$INSTALL_DIR")" && pwd)/$(basename "$INSTALL_DIR")
 
 # 根据平台设置编译选项
 if [ "$PLATFORM" = "macos" ]; then
-    # macOS 特定选项
     THREAD_TYPE="--enable-pthreads"
 
     # 设置 Homebrew 库路径并强制静态链接
@@ -64,13 +62,11 @@ if [ "$PLATFORM" = "macos" ]; then
             DYLIB_HIDDEN=true
         fi
 
-        # 设置环境变量
         export PKG_CONFIG_PATH="${OPENCORE_AMR_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}"
         export CFLAGS="-I${OPENCORE_AMR_PREFIX}/include"
         export LDFLAGS="-L${OPENCORE_AMR_PREFIX}/lib"
     fi
 
-    # 检测 CPU 架构
     ARCH="$(uname -m)"
     if [ "$ARCH" = "arm64" ]; then
         export CFLAGS="${CFLAGS} -arch arm64"
@@ -82,7 +78,6 @@ if [ "$PLATFORM" = "macos" ]; then
     EXTRA_LIBS=""
     PKG_CONFIG_FLAGS=""
 else
-    # Windows (MSYS2) 特定选项
     EXTRA_LDFLAGS="-static -static-libgcc -static-libstdc++"
     EXTRA_CFLAGS="-static"
     PKG_CONFIG_FLAGS="--static"
@@ -209,7 +204,6 @@ make install
 
 echo ""
 echo "检查依赖..."
-# 设置可执行文件名
 if [ "$PLATFORM" = "macos" ]; then
     FFMPEG_BIN="$INSTALL_DIR/bin/ffmpeg"
 else
@@ -239,7 +233,6 @@ ls -lh "$INSTALL_DIR/bin/"
 if [ "$PLATFORM" = "windows" ]; then
     if ! "$FFMPEG_BIN" -version > /dev/null 2>&1; then
         echo "静态链接失败，复制运行时库..."
-        # 复制必要的运行时库到 bin 目录
         DLLS=("libgcc_s_seh-1.dll" "libstdc++-6.dll" "libwinpthread-1.dll")
         for dll in "${DLLS[@]}"; do
             if [ -f "/ucrt64/bin/$dll" ]; then

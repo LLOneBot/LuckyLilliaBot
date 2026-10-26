@@ -45,7 +45,7 @@ export const selfInfo: SelfInfo = {
   online: false,
 }
 
-// auth_token 生命周期状态, 由 authTokenWatcher 维护, 经 WebUI /api/auth-token/status 暴露给前端
+// 由 authTokenWatcher 维护, 经 /api/auth-token/status 给前端
 export interface AuthTokenStatus {
   hasToken: boolean
   validation: 'idle' | 'validating' | 'valid' | 'invalid' | 'error'

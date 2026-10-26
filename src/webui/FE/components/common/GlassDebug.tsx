@@ -2,11 +2,8 @@ import React, { useEffect, useState } from 'react'
 import { glassDebugSnapshot } from '../../utils/glassRuntime'
 
 /*
- * Diagnostic overlay for the glass runtime, shown only when the page URL has
- * ?glassdebug=1. Exists so a report from a browser we cannot drive ("the ring
- * did not update") can come with the numbers: is the frame loop alive, which
- * luminance class each sheet carries, what tint the lens band was painted
- * with, which build is running.
+ * Glass runtime diagnostics with ?glassdebug=1 (frame loop, luminance class per sheet, lens band tint,
+ * build), so reports from browsers we cannot drive come with the numbers.
  */
 const GlassDebug: React.FC = () => {
   const [text, setText] = useState('')

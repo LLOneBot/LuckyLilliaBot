@@ -1,11 +1,4 @@
-﻿/**
- * delete_msg 接口测试 - 私聊消息撤回
- * 测试撤回私聊消息功能
- *
- * 需求: 6.1
- */
-
-import { setupMessageTest, teardownMessageTest, sleep, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, sleep, MessageTestContext } from '../setup';
 import { Assertions } from '../../utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 
@@ -32,7 +25,6 @@ describe('delete_msg - 撤回私聊消息', () => {
     Assertions.assertSuccess(sendResponse, 'send_private_msg');
     const messageId = sendResponse.data.message_id;
 
-    // 等待消息发送完成
     await sleep(1000);
 
     const deleteResponse = await primaryClient.call(ActionName.DeleteMsg, {

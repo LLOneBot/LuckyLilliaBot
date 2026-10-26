@@ -13,7 +13,6 @@ interface EmojiReactionPickerProps {
 }
 
 export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({ target, onClose, onReacted, containerRef }) => {
-  // QQ 表情贴表情
   const handleSelect = async (faceId: number) => {
     const msg = target.message
     onClose()
@@ -25,12 +24,10 @@ export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({ target
     }
   }
 
-  // Unicode emoji 贴表情（使用码点）
   const handleSelectEmoji = async (emoji: string) => {
     const msg = target.message
     onClose()
     try {
-      // 获取 emoji 的 Unicode 码点
       const codePoint = emoji.codePointAt(0)
       if (!codePoint) {
         showToast('无效的表情', 'error')
@@ -43,7 +40,7 @@ export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({ target
     }
   }
 
-  // 计算聊天窗口中央位置
+  // 聊天窗口中央, 拿不到就用屏幕中央
   const getPosition = () => {
     if (containerRef?.current) {
       const rect = containerRef.current.getBoundingClientRect()
@@ -52,7 +49,6 @@ export const EmojiReactionPicker: React.FC<EmojiReactionPickerProps> = ({ target
         top: rect.top + rect.height / 2
       }
     }
-    // 降级到屏幕中央
     return {
       left: window.innerWidth / 2,
       top: window.innerHeight / 2

@@ -7,10 +7,7 @@ import { useBuiltinConfig } from './useBuiltinConfig'
 
 const PASSWORD = 'smtp.auth.pass'
 
-/**
- * The settings page of the email notification builtin; its config lives in email_config.json. Works before
- * login and with notifications switched off, so they can be set up first and enabled after.
- */
+/** Works before login and with notifications switched off, so they can be set up first and enabled after. */
 const EmailConfigPage: React.FC = () => {
   const { value, setValue, save, saving, error } = useBuiltinConfig<EmailConfig>('builtin:email-notification')
   const [clearPassword, setClearPassword] = useState(false)
@@ -21,7 +18,6 @@ const EmailConfigPage: React.FC = () => {
   }
 
   const change = (next: EmailConfig) => {
-    // 如果端口为空，使用默认值 587
     setValue({ ...next, smtp: { ...next.smtp, port: next.smtp.port || 587 } })
   }
 

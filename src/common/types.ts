@@ -1,6 +1,6 @@
 export interface BaseConnectConfig {
   type: string
-  name?: string // 自定义名称
+  name?: string
   enable: boolean
   token: string
   reportSelfMessage: boolean
@@ -125,8 +125,8 @@ export interface Config {
   email?: EmailConfig
   // onlyLocalhost: boolean
   log?: boolean
-  logLevel?: 'info' | 'debug' // 'debug' 打开底层详情日志 (等价 --debug); 默认 'info'
-  ffmpeg?: string // ffmpeg路径
+  logLevel?: 'info' | 'debug' // 'debug' 等价 --debug
+  ffmpeg?: string
   /** Makes OneBot music cards: song parameters in, a signed card out, as ss.xingzhige.com does. */
   musicCardSignUrl?: string
   msgCacheExpire?: number // second

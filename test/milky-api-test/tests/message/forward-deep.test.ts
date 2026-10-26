@@ -1,14 +1,4 @@
-/**
- * Milky 合并转发深度测试。
- *
- * segment-types.test.ts 里已经覆盖了"forward 段 inline 含混合 segment"的基础场景。
- * 这里补几个更刁钻的：
- *   1. inline reply 锚点是图片消息 → reply.data.segments 里出现 [图片] 占位 + 锚点 text
- *   2. inline reply 锚点是视频消息 → 出现 [视频]
- *   3. inline reply 锚点是语音消息 → 出现 [语音]
- *   4. 嵌套合并转发（forward 包含 forward 段） — 被嵌套的合并转发段也应该正确 emit 一个新 forward_id
- *   5. inline 节点 sender_name / user_id 任意值都被尊重（伪造别人发的消息）
- */
+/** 合并转发的边角场景, 基础场景在 segment-types.test.ts */
 import { setupMilkyTest, teardownMilkyTest, MilkyTestContext } from '../setup'
 import { Assertions } from '@/protocol/Assertions'
 import { MediaPaths } from '../media'
@@ -24,7 +14,7 @@ describe('Milky 合并转发深度测试', () => {
     teardownMilkyTest(ctx)
   })
 
-  /** primary 发指定 segments 拿 message_seq；先确保 secondary 收到 OlPush 入库 */
+  /** 等 secondary 收到 (入库) 再返回 message_seq */
   async function sendAndWait(segments: any[]): Promise<number> {
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
@@ -41,7 +31,6 @@ describe('Milky 合并转发深度测试', () => {
     return r.data!.message_seq
   }
 
-  /** 用 forward_id 拉回 inline messages */
   async function pullForward(forwardId: string): Promise<any[]> {
     const primary = ctx.twoAccountTest.getClient('primary')
     const res = await primary.call<{ messages: any[] }>('get_forwarded_messages', { forward_id: forwardId })
@@ -49,7 +38,6 @@ describe('Milky 合并转发深度测试', () => {
     return res.data?.messages ?? []
   }
 
-  /** 发一个合并转发 + 等 secondary 收到 + 用拉回 inline messages */
   async function sendForwardAndPull(messages: any[]): Promise<any[]> {
     ctx.twoAccountTest.clearAllQueues()
     const primary = ctx.twoAccountTest.getClient('primary')
@@ -67,9 +55,7 @@ describe('Milky 合并转发深度测试', () => {
     return await pullForward(fwd.data.forward_id)
   }
 
-  // 合并转发 inline 节点里的 reply 段是 server 端组装的快照,
-  // 锚点原消息内容（图片/视频/语音段或占位文本）取决于 server 是否下发 + 本地能否 fetch.
-  // 这里只校验 reply 段存在且 message_seq 正确, segments 内容是 best-effort.
+  // inline 的 reply 是 server 组装的快照, 锚点内容 best-effort, 只校验 reply 段存在且 message_seq 对
   it('inline reply 锚点是图片消息：reply 段存在且 message_seq 正确', async () => {
     const ts = Date.now()
     const anchorSeq = await sendAndWait([
@@ -138,8 +124,7 @@ describe('Milky 合并转发深度测试', () => {
   }, 90000)
 
   it('inline 节点 sender_name / user_id 自定义：拉回时保留', async () => {
-    // 合并转发支持 "伪造发送者"（典型用法：搬运多条历史聊天，设别人的名字）。
-    // user_id 必须 >= 10001（QQ 号最小值，milky schema 校验）。
+    // user_id 要 >= 10001 (milky schema 校验)
     const ts = Date.now()
     const messages = await sendForwardAndPull([
       {

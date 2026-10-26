@@ -120,8 +120,7 @@ export namespace Media {
       }),
       domain: ProtoField(3, 'string')
     }, 'optional'),
-    // MsgInfoBody field 3/4 是 VideoInfo/AudioInfo（空 class）。
-    // 必须在 proto 里声明否则 decode→re-encode 会丢；用 bytes 透传 server 给的内容。
+    // 空的 VideoInfo / AudioInfo, 不声明的话 decode 再 encode 会丢掉
     video: ProtoField(3, 'bytes', 'optional'),
     audio: ProtoField(4, 'bytes', 'optional'),
     fileExist: ProtoField(5, 'bool'),
@@ -171,8 +170,7 @@ export namespace Media {
       ipv4s: ProtoField(3, IPv4, 'repeated'),
       ipv6s: ProtoField(4, IPv6, 'repeated'),
       msgSeq: ProtoField(5, 'uint32', 'optional'),
-      // 关键：保留 server 原始 msgInfo bytes 作为 commonElem.pbElem，避免 decode→encode
-      // 时丢失字段（typeproto 跟 protobuf-net 行为不一致：decode 默认值 vs 不编码）
+      // 原样保留 server 的 bytes 当 commonElem.pbElem: decode 再 encode 会丢字段
       msgInfo: ProtoField(6, 'bytes'),
       ext: ProtoField(7, {
         subType: ProtoField(1, 'uint32'),
@@ -372,7 +370,7 @@ export namespace Media {
     unknown200: ProtoField(200, 'int32', 'optional')
   })
 
-  /** 群头像上传 ext (PicUp.DataUp + cmd=3000) */
+  /** PicUp.DataUp, cmd=3000 */
   export const GroupAvatarExtra = ProtoMessage.of({
     type: ProtoField(1, 'uint32'),
     groupUin: ProtoField(2, 'uint32'),

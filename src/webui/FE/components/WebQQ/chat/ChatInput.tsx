@@ -36,14 +36,12 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
   const [showFavEmojiPicker, setShowFavEmojiPicker] = useState(false)
   const [hasContent, setHasContent] = useState(false)
 
-  // @ 提及相关状态
   const [mentionState, setMentionState] = useState<MentionState>({ active: false, query: '', position: { top: 0, left: 0 } })
   const [groupMembers, setGroupMembers] = useState<GroupMemberItem[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
 
   const { getCachedMembers, fetchGroupMembers } = useWebQQStore()
 
-  // 用 ref 跟踪当前 session 的 peerId
   const currentPeerIdRef = useRef<string | null>(null)
 
   // 用 ref 存储函数避免依赖变化
@@ -64,7 +62,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
     }
   }), [])
 
-  // 当群聊会话变化时，加载群成员（使用全局缓存）
   useEffect(() => {
     const groupCode = session?.chatType === 2 ? session.peerId : null
     currentPeerIdRef.current = groupCode
@@ -75,10 +72,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
       return
     }
 
-    // 检查是否首次进入该聊天（用于决定是否强制刷新）
     const isFirstVisit = !hasVisitedChat(2, groupCode)
 
-    // 先检查缓存（同步）- 非首次访问时使用缓存
     if (!isFirstVisit) {
       const cached = getCachedMembersRef.current(groupCode)
       if (cached) {
@@ -88,7 +83,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
       }
     }
 
-    // 需要加载
     setMembersLoading(true)
     setGroupMembers([])
 
@@ -104,11 +98,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
           setMembersLoading(false)
         }
       })
-  }, [session?.chatType, session?.peerId])  // 只依赖 session
+  }, [session?.chatType, session?.peerId])
 
-  // 处理 @ 状态变化
   const handleMentionChange = useCallback((state: MentionState) => {
-    // 只有群聊才显示 @ 选择器
     if (session?.chatType !== 2) {
       setMentionState({ active: false, query: '', position: { top: 0, left: 0 } })
       return
@@ -116,12 +108,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
     setMentionState(state)
   }, [session?.chatType])
 
-  // 选择 @ 成员
   const handleMentionSelect = useCallback((member: GroupMemberItem) => {
     richInputRef.current?.insertAt(member.uid, member.uin, member.card || member.nickname)
   }, [])
 
-  // 关闭 @ 选择器
   const handleMentionClose = useCallback(() => {
     richInputRef.current?.cancelMention()
   }, [])
@@ -138,10 +128,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
     onReplyCancel()
     setHasContent(false)
 
-    // 立即聚焦回输入框
     setTimeout(() => richInputRef.current?.focus(), 0)
 
-    // 转换为临时消息的 items 格式
     const tempItems: TempMessageItem[] = items.map(item => ({
       type: item.type,
       content: item.content,
@@ -165,7 +153,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
             const uploadResult = await uploadImage(item.imageFile)
             content.push({ type: 'image', imagePath: uploadResult.imagePath })
           } else if (item.imageUrl) {
-            // 没有 file，通过 URL 上传（收藏表情等）
+            // 收藏表情等没有 file, 按 URL 上传
             const uploadResult = await uploadImageByUrl(item.imageUrl)
             content.push({ type: 'image', imagePath: uploadResult.imagePath })
           }
@@ -189,16 +177,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
     setShowEmojiPicker(false)
   }, [])
 
-  // 选择 Unicode emoji - 插入文本
   const handleUnicodeEmojiSelect = useCallback((emoji: string) => {
     richInputRef.current?.insertText(emoji)
     setShowEmojiPicker(false)
   }, [])
 
-  // 选择收藏表情 - 插入到输入框
   const handleFavEmojiSelect = useCallback((emoji: FavEmoji) => {
     setShowFavEmojiPicker(false)
-    // 插入图片，file 为 null，发送时通过 URL 上传
+    // file 为 null, 发送时按 URL 上传
     richInputRef.current?.insertImage(null, emoji.url)
   }, [])
 
@@ -216,7 +202,6 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>((props, ref) =
     if (file.size > 100 * 1024 * 1024) { showToast('文件过大，最大支持 100MB', 'error'); return }
     if (fileUploadInputRef.current) fileUploadInputRef.current.value = ''
 
-    // 直接发送文件
     onSendStart()
 
     const tempId = `temp_${Date.now()}`

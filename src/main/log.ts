@@ -21,11 +21,9 @@ export interface LogRecord {
   dateTimeStr: string
 }
 
-// 日志切片配置
-const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024
 const MAX_ENTRIES = 10000
 
-// 日志缓存
 const LOG_CACHE_SIZE = 800
 const logCache: LogRecord[] = []
 
@@ -63,8 +61,7 @@ export default class Log implements Exporter {
     pruneOldLogs(LOG_DIR).catch(noop)
     this.colors = false
     this.showTime = 'yyyy-MM-dd hh:mm:ss '
-    // 2 = WARN (含 error/info/warn), 3 = DEBUG. --debug 时抬到 DEBUG 让底层详情落盘;
-    // 配置文件 logLevel 触发的运行时切换由 main.ts applyDebugLevel 直接改本 exporter 的 levels.
+    // 2 = INFO, 3 = DEBUG; logLevel 的运行时切换见 main.ts applyDebugLevel
     this.levels = {
       default: isDebugEnabled() ? 3 : 2
     }
@@ -73,7 +70,6 @@ export default class Log implements Exporter {
       O: inspectFormatter,
     }
 
-    // 获取现有文件大小
     stat(this.currentFile, (err, stats) => {
       if (!err && stats) {
         this.currentSize = stats.size
@@ -98,13 +94,11 @@ export default class Log implements Exporter {
       dateTimeStr,
     }
 
-    // 缓存日志
     logCache.push(logRecord)
     if (logCache.length > LOG_CACHE_SIZE) {
       logCache.shift()
     }
 
-    // 发送日志事件到 SSE
     this.ctx.parallel('llob/log', logRecord)
 
     if (!this.exportFile) return

@@ -1,11 +1,4 @@
-﻿/**
- * set_friend_add_request 接口测试
- * 测试处理好友请求功能
- *
- * 注意：此测试需要有实际的好友请求才能执行
- */
-
-import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
+﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
 import { ActionName } from '@llbot/onebot11/action/types';
 
@@ -21,7 +14,7 @@ describe('set_friend_add_request - 处理好友请求', () => {
   });
 
   it.skip('测试同意好友请求', async () => {
-    // 此测试需要有实际的好友请求，通常需要手动触发
+    // 要有真实的好友请求, 通常得手动触发
     const primaryClient = context.twoAccountTest.getClient('primary');
 
     const response = await primaryClient.call(ActionName.SetFriendAddRequest, {

@@ -93,7 +93,6 @@ export default class Config extends Service {
     let lastReloadTime = 0
     const listener = () => {
       if (!this.watching) return
-      // 自己刚写的那次改动不算外部修改 (比旧的 skipNextWatch 标志可靠: 不会吞掉紧随其后的外部编辑)
       if (this.json.isSelfWriteOnDisk()) return
       // 防止 fs.watchFile 短时间内多次触发
       const now = Date.now()
@@ -117,12 +116,11 @@ export default class Config extends Service {
   private reloadConfig(): LLBotConfig {
     let data: Dict
     if (!fs.existsSync(this.json.file)) {
-      // A new instance starts from the template, like a new account file used to
       data = this.templateConfig()
     } else {
       const { data: read, error } = this.json.readSync()
       if (error) {
-        // 坏文件保留原地、不覆盖, 也不广播 default: 继续用上一份有效配置, 下次轮询重试
+        // 坏文件不覆盖, 也不广播 default
         this.logger.error(`${this.json.file} json 内容不合格, 继续使用上一份有效配置`, error)
         if (this.config) return this.config
         const config = this.templateConfig()
@@ -133,12 +131,11 @@ export default class Config extends Service {
       data = read
     }
     const config = upgradeConfig(data)
-    // 只补不删: 未知 key 一律保留 (旧的白名单清理会把 defaultConfig.ts 里没有的 logLevel 永久吃掉)
+    // 只补不删, 未知 key 保留
     mergeNewProperties(this.templateConfig(), config)
     config.webui = this.migrateWebUIToken(config.webui)
     for (const key of DEPRECATED_KEYS) delete (config as Dict)[key]
-    // 补齐缺省后写回。此刻还没叠环境变量, config 就是磁盘真值, 直接写、不经 stripEnv
-    // (stripEnv 用的是上一次加载记下的原值, 会把外部刚改过的锁定字段写回旧值)
+    // 还没叠环境变量, 不经 stripEnv: 它用上次加载的原值, 会把外部刚改的锁定字段写回旧值
     this.writeIfChanged(config)
     this.envLocked = overlayEnv(config)
     this.config = config
@@ -154,7 +151,7 @@ export default class Config extends Service {
     if (JSON.stringify(config, null, 2) + '\n' !== this.json.rawSync()) this.json.writeSync(config as unknown as Dict)
   }
 
-  /** 还原被环境变量覆盖的字段为磁盘原值, 供落盘使用。 */
+  /** 被环境变量覆盖的字段还原成磁盘原值 */
   private stripEnv(config: LLBotConfig): LLBotConfig {
     if (!this.envLocked.size) return config
     const clone = structuredClone(config)
@@ -178,7 +175,6 @@ export default class Config extends Service {
     }
   }
 
-  /** 被环境变量锁定的字段, WebUI 据此把它们显示为只读并注明是哪个变量。 */
   envLocks(): { path: string; env: string }[] {
     return [...this.envLocked].map(([path, { env }]) => ({ path, env }))
   }
@@ -187,10 +183,7 @@ export default class Config extends Service {
     return [...this.envLocked.keys()]
   }
 
-  /**
-   * patch(partial) 会得到的配置, 不落盘。被环境变量锁定的字段先从 partial 里剔除 ——
-   * 否则它们会在内存里盖掉环境变量的值 (磁盘那边由 stripEnv 兜着)。供校验用: 校验的对象和真正落盘的完全一致。
-   */
+  /** patch() 会得到的配置, 不落盘, 供校验用。锁定字段先从 partial 剔除, 否则会盖掉环境变量的值 */
   preview(partial: Dict): LLBotConfig {
     const cleaned = structuredClone(partial)
     for (const key of this.envLocked.keys()) {
@@ -201,10 +194,7 @@ export default class Config extends Service {
     return deepMerge(this.get(), cleaned) as LLBotConfig
   }
 
-  /**
-   * 合并一份局部配置并落盘。顶层 / 嵌套对象逐 key 合并, 数组和标量整体替换。
-   * 取代"整份覆盖"的 set(): 之前 set_config 只传一个字段就会把其余配置全部清掉。
-   */
+  /** 对象逐 key 合并, 数组和标量整体替换 */
   patch(partial: Dict): LLBotConfig {
     const next = this.preview(partial)
     this.set(next)
@@ -213,7 +203,7 @@ export default class Config extends Service {
 
   set(config: LLBotConfig) {
     this.config = config
-    // stripEnv: 用户在同一次保存里改了别的字段时, 不把环境变量的值一起固化进文件
+    // 不把环境变量的值固化进文件
     this.writeIfChanged(this.stripEnv(config))
     this.pinEnv(config)
   }

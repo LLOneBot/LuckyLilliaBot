@@ -16,9 +16,6 @@ class MilkyHttpHandler {
   private app: Hono<{ Bindings: HttpBindings }> | undefined
   private httpServer: ServerType | undefined
 
-  /**
-   * Extract token from Authorization header or query parameter
-   */
   private extractToken(headers: Record<string, string>, query: Record<string, string>): string {
     const authHeader = headers['authorization']
     if (authHeader?.toLowerCase().startsWith('bearer ')) {
@@ -27,9 +24,6 @@ class MilkyHttpHandler {
     return query['access_token']
   }
 
-  /**
-   * Validate access token
-   */
   private validateToken(inputToken: string): boolean {
     if (!this.config.accessToken) return true
     return inputToken === this.config.accessToken
@@ -56,7 +50,6 @@ class MilkyHttpHandler {
       }
     )
 
-    // Access token middleware for API routes
     if (this.config.accessToken) {
       this.app.post(`${this.config.prefix}/api/*`, async (c, next) => {
         const authorization = c.req.header('Authorization')
@@ -75,7 +68,6 @@ class MilkyHttpHandler {
       })
     }
 
-    // API endpoint
     this.app.post(`${this.config.prefix}/api/:endpoint`, async (c) => {
       const endpoint = c.req.param('endpoint')
 
@@ -165,13 +157,11 @@ class MilkyHttpHandler {
   }
 
   stop() {
-    // Close all SSE connections
     for (const stream of this.sseClients) {
       stream.abort()
     }
     this.sseClients.clear()
 
-    // Close all WS connections
     for (const ws of this.eventPushClients) {
       ws.close()
     }
@@ -182,7 +172,6 @@ class MilkyHttpHandler {
   }
 
   broadcast(msg: string) {
-    // Broadcast to WebSocket clients
     for (const ws of this.eventPushClients) {
       try {
         if (ws.readyState === WebSocket.OPEN) {
@@ -193,7 +182,6 @@ class MilkyHttpHandler {
       }
     }
 
-    // Broadcast to SSE clients
     for (const stream of this.sseClients) {
       stream.writeSSE({
         data: msg,

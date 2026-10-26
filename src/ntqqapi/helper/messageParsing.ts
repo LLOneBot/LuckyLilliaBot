@@ -100,7 +100,6 @@ export function parseElements(
       continue
     }
 
-    // Market face / sticker
     if (elem.marketFace) {
       const mf = elem.marketFace
       result.push({
@@ -311,8 +310,7 @@ export function parseElements(
             resultId: ext.resultId,
           },
         })
-        // 剔除紧随其后的降级文本段（腾讯服务端为兼容老客户端，在下发 serviceType: 37 大表情时会附带 fallback 纯文本段）
-        // 实测典型案例：/吃糖 会附带 "[吃糖]"，/菜汪 会附带 "[菜汪]"，骰子附带 "[骰子]" 等
+        // 丢掉紧跟着的降级文本段 (如 "[骰子]"), 那是 server 给老客户端兼容用的
         break
       } else if (svcType === 45) {
         const ext = Msg.MarkdownExtra.decode(pbElem)
@@ -347,10 +345,7 @@ export function parseElements(
   return result
 }
 
-/**
- * Parse commonElem.pbElem (MsgInfo protobuf) for serviceType=48.
- * bizType: 10/20=image, 11/21=video, 12/22=voice
- */
+/** serviceType=48. bizType: 10/20=image, 11/21=video, 12/22=voice */
 function parseMsgInfoElement(pbElem: Buffer, bizType: number): MessageElement | null {
   const msgInfo = Media.MsgInfo.decode(pbElem)
   const body = msgInfo.msgInfoBody[0]
@@ -363,7 +358,6 @@ function parseMsgInfoElement(pbElem: Buffer, bizType: number): MessageElement | 
   const md5 = fileInfo.md5HexStr
 
   if (bizType === 10 || bizType === 20) {
-    // Image
     const picInfo = body.pic
     let originImageUrl = ''
     if (picInfo?.urlPath) {
@@ -389,7 +383,6 @@ function parseMsgInfoElement(pbElem: Buffer, bizType: number): MessageElement | 
       },
     }
   } else if (bizType === 12 || bizType === 22) {
-    // Voice
     return {
       elementType: ElementType.Ptt,
       pttElement: {
@@ -403,7 +396,6 @@ function parseMsgInfoElement(pbElem: Buffer, bizType: number): MessageElement | 
       },
     }
   } else if (bizType === 11 || bizType === 21) {
-    // Video
     return {
       elementType: ElementType.Video,
       videoElement: {

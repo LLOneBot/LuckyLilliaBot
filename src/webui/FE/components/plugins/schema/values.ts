@@ -1,6 +1,6 @@
 import { classifyUnion, mergeIntersect, SchemaNode } from './model'
 
-// The diff / merge helpers moved to src/common/schema/diff.ts (shared with the backend, schema-aware).
+// Shared with the backend
 export { isPlainObject, isEqual, withDefaults, stripDefaults } from '@shared/schema/diff'
 
 /** What a freshly added array item, dict entry or union branch starts as. (WebUI form only.) */

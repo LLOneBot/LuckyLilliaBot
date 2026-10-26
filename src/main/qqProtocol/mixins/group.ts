@@ -114,7 +114,6 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Oidb.GetGroupFileListResp.decode(oidbRespBody)
     }
 
-    /** 群文件总数（OidbSvcTrpcTcp.0x6d8_2） */
     async getGroupFileCount(groupCode: number, busId: number = 6) {
       const body = Oidb.GetGroupFileCountReq.encode({
         countReq: { groupCode, appId: 7, busId },
@@ -125,7 +124,6 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Oidb.GetGroupFileCountResp.decode(oidbRespBody)
     }
 
-    /** 群文件总空间 / 已用空间（OidbSvcTrpcTcp.0x6d8_3） */
     async getGroupFileSpace(groupCode: number) {
       const body = Oidb.GetGroupFileSpaceReq.encode({
         spaceReq: { groupCode, appId: 7 },
@@ -136,7 +134,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Oidb.GetGroupFileSpaceResp.decode(oidbRespBody)
     }
 
-    /** 群文件 feed（0x6d9_4）—— upload 完成后调用，server 才会把文件作为聊天消息发到群里 */
+    /** 上传完调用, server 才会把文件作为消息发到群里 */
     async feedGroupFile(groupCode: number, fileId: string, msgRandom: number, busId: number) {
       const body = Oidb.GroupFileFeedReq.encode({
         feedsInfoReq: {
@@ -156,7 +154,6 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Oidb.GroupFileFeedResp.decode(decoded.body)
     }
 
-    /** 删除群文件，busId 一般为 102（v1 默认），fileId 是 list 接口返回的 fileId */
     async deleteGroupFile(groupCode: number, fileId: string, busId: number = 102) {
       const body = Oidb.GroupFileDeleteReq.encode({ delete: { groupCode, busId, fileId } })
       const data = Oidb.Base.encode({ command: 0x6d6, subCommand: 3, body })
@@ -165,7 +162,6 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Oidb.GroupFileDeleteResp.decode(decoded.body)
     }
 
-    /** 移动群文件到另一目录 */
     async moveGroupFile(groupCode: number, fileId: string, parentDirectory: string, targetDirectory: string) {
       const body = Oidb.GroupFileMoveReq.encode({
         move: { groupCode, appId: 7, busId: 102, fileId, parentDirectory, targetDirectory },
@@ -176,13 +172,13 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Oidb.GroupFileMoveResp.decode(decoded.body)
     }
 
-    /** 设置本地群备注（只自己看见，对群成员不可见） */
+    /** 只有自己看得到 */
     async setGroupRemark(groupCode: number, remark: string) {
       const body = Oidb.GroupRemarkReq.encode({ body: { groupCode, targetRemark: remark } })
       return await this.sendOidb(0xf16, 1, body)
     }
 
-    /** 创建群文件夹，rootDirectory 为父目录 id（根目录用 "/"） */
+    /** rootDirectory 是父目录 id */
     async createGroupFolder(groupCode: number, folderName: string, rootDirectory: string = '/') {
       const body = Oidb.GroupFolderCreateReq.encode({ create: { groupCode, rootDirectory, folderName } })
       const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 0, body })
@@ -191,7 +187,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Oidb.GroupFolderCreateResp.decode(decoded.body)
     }
 
-    /** 删除群文件夹（一定要空文件夹否则 server 拒绝） */
+    /** 只能删空文件夹 */
     async deleteGroupFolder(groupCode: number, folderId: string) {
       const body = Oidb.GroupFolderDeleteReq.encode({ delete: { groupCode, folderId } })
       const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 1, body })
@@ -200,7 +196,6 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Oidb.GroupFolderDeleteResp.decode(decoded.body)
     }
 
-    /** 重命名群文件夹 */
     async renameGroupFolder(groupCode: number, folderId: string, newFolderName: string) {
       const body = Oidb.GroupFolderRenameReq.encode({ rename: { groupCode, folderId, newFolderName } })
       const data = Oidb.Base.encode({ command: 0x6d7, subCommand: 2, body })
@@ -276,8 +271,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
         },
         cookie,
       })
-      // 手表(轻聊)只认 0xfe7_4; 手机 NT 认 0xfe7_3。SSO cmd 串必须和 OIDB subCommand 一致,
-      // 否则服务端按 (appid, cmd) 授权检查回 -10122。body 两边暂用同一结构(待实测核对字段)。
+      // 手表只授权 0xfe7_4, SSO cmd 串要和 subCommand 一致, 否则回 -10122。body 暂用同一结构, 字段待核对
       const isWatch = getProtocol() === 'watch'
       const data = Oidb.Base.encode({
         command: 0xfe7,
@@ -356,7 +350,6 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return await this.sendOidb(0x10c8, subCommand, body)
     }
 
-    /** isAdd: true=设精华, false=取消精华 */
     async setGroupEssence(groupCode: number, msgSequence: number, msgRandom: number, isAdd: boolean) {
       const body = Oidb.GroupEssenceReq.encode({ groupCode, msgSequence, msgRandom })
       const subCommand = isAdd ? 1 : 2
@@ -444,7 +437,6 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Oidb.TransGroupFileResp.decode(oidbRespBody)
     }
 
-    /** 拉群相册列表 (QunAlbum.trpc.qzone.webapp_qun_media.QunMedia.GetAlbumList) */
     async fetchGroupAlbumList(groupCode: number) {
       const ts = new Date()
       const pad = (n: number, w = 2) => n.toString().padStart(w, '0')
@@ -461,7 +453,6 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Action.GetAlbumListResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
-    /** 重命名群文件 (OidbSvcTrpcTcp.0x6d6_4) */
     async renameGroupFile(groupCode: number, fileId: string, parentDirectory: string, newFileName: string, busId = 102) {
       const body = Oidb.RenameGroupFileReq.encode({
         rename: { groupCode, busId, fileId, parentDirectory, newFileName },
@@ -478,7 +469,6 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return `_${pad(ts.getMonth() + 1)}${pad(ts.getDate())}${pad(ts.getHours())}${pad(ts.getMinutes())}${pad(ts.getSeconds())}${pad(ts.getMilliseconds(), 3)}_${randomInt(10000, 99999)}`
     }
 
-    /** 创建群相册 (QunAlbum.AddAlbum) */
     async createGroupAlbum(groupCode: number, name: string, desc: string) {
       const reqBytes = Action.AddAlbumReq.encode({
         requestId: randomInt(1, 0x7fffffff),
@@ -492,7 +482,6 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Action.AddAlbumResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
-    /** 删群相册 (QunAlbum.DeleteAlbum) */
     async deleteGroupAlbum(groupCode: number, albumId: string) {
       const reqBytes = Action.DeleteAlbumReq.encode({
         requestId: randomInt(1, 0x7fffffff),
@@ -506,7 +495,6 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
       return Action.DeleteAlbumResp.decode(Buffer.from(res.pb, 'hex'))
     }
 
-    /** 拉群相册媒体列表 (QunAlbum.GetMediaList) */
     async fetchGroupAlbumMediaList(groupCode: number, albumId: string, attachInfo?: string) {
       const reqBytes = Action.GetMediaListReq.encode({
         field1: 0,

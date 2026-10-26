@@ -4,7 +4,7 @@ import { apiFetch } from '../../utils/api';
 
 interface AuthTokenDialogProps {
   visible: boolean;
-  // 缺失(missing) 还是 无效(invalid), 决定标题文案
+  // 决定标题文案
   reason?: 'missing' | 'invalid';
   // Follows the backend CDN setting; the link is hidden until the status poll delivers it.
   authTokenPageUrl?: string;
@@ -23,8 +23,7 @@ interface AuthTokenStatusData {
 const POLL_INTERVAL = 1500;
 const POLL_MAX = 30; // ~45s 超时
 
-// 强制录入 QQ 登录所需的 auth token: 不可取消/关闭.
-// 提交只写文件 (POST), 校验由后端 watcher 做, 前端轮询 /api/auth-token/status 拿结果.
+// 不能取消; 提交后由后端 watcher 校验, 这里轮询 /api/auth-token/status 拿结果
 const AuthTokenDialog: React.FC<AuthTokenDialogProps> = ({ visible, reason, authTokenPageUrl, onSuccess }) => {
   const [token, setToken] = useState('');
   const [showToken, setShowToken] = useState(false);
@@ -50,7 +49,7 @@ const AuthTokenDialog: React.FC<AuthTokenDialogProps> = ({ visible, reason, auth
     }
   }, [visible]);
 
-  // 阻止 ESC 关闭 (强制录入)
+  // 不能用 ESC 关
   useEffect(() => {
     if (!visible) return;
     const handleEsc = (e: KeyboardEvent) => {
@@ -72,7 +71,7 @@ const AuthTokenDialog: React.FC<AuthTokenDialogProps> = ({ visible, reason, auth
         const res = await apiFetch<AuthTokenStatusData>('/api/auth-token/status');
         if (res.success) data = res.data;
       } catch {
-        continue; // 状态查询失败, 下一轮再试
+        continue;
       }
       if (!data) continue;
       if (data.online) {
@@ -99,9 +98,7 @@ const AuthTokenDialog: React.FC<AuthTokenDialogProps> = ({ visible, reason, auth
       }
       if (data.validation === 'error') {
         setStatusText(data.message || '无法连接验证服务器，正在重试...');
-        // 继续轮询, 后端也会自动重试
       }
-      // validating -> 继续轮询
     }
     if (mountedRef.current) {
       setError('校验超时，请重试');

@@ -14,7 +14,6 @@ export const DEPRECATED_KEYS = ['onlyLocalhost', 'autoDeleteFile', 'autoDeleteFi
 /** The sections of the old config file that now live in the adapters' plugin entries. */
 export const ADAPTER_KEYS = ['ob11', 'satori', 'milky'] as const satisfies readonly (keyof AdapterSections)[]
 
-/** The plugin entry each of those sections lives in. */
 export const ADAPTER_ENTRIES: Record<keyof AdapterSections, string> = {
   ob11: 'builtin:onebot11',
   satori: 'builtin:satori',
@@ -43,7 +42,6 @@ export function templateSection<K extends keyof AdapterSections>(key: K): Adapte
   return structuredClone(readTemplate()[key] ?? adapterDefaults[key])
 }
 
-/** Brings settings written by an older version to the current shape. */
 export function upgradeConfig(oldConfig: Dict): LLBotConfig {
   let migratedConfig = oldConfig
   if ('musicSignUrl' in oldConfig) {
@@ -114,7 +112,6 @@ export function upgradeConfig(oldConfig: Dict): LLBotConfig {
     }
   }
 
-  // 迁移 onlyLocalhost 配置项
   if ('onlyLocalhost' in oldConfig) {
     const host = oldConfig.onlyLocalhost ? '127.0.0.1' : ''
 

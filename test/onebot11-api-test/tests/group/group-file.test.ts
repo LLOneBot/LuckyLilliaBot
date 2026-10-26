@@ -1,10 +1,4 @@
-/**
- * group_file 接口测试 — 上传到指定文件夹的完整生命周期
- *   group_file_operations.test.ts 已经覆盖了"上传到根目录"，
- *   这里只测带 folder_id 的上传，确保文件确实落在该文件夹里、不在根目录。
- *   流程：建文件夹 → 上传到文件夹 → 在该文件夹里能看到文件 → 验证根目录里没有 →
- *        拿下载链接 → 删文件 → 删文件夹
- */
+/** 上传到指定文件夹, 根目录的情况在 group-file-operations.test.ts */
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
