@@ -5,6 +5,7 @@ import { PluginStatus } from '../types/plugins'
 import { BUILTIN_CLIENTS } from './builtins'
 import { createWebUIContext } from './context'
 import { followPluginList, usePluginList } from './pluginList'
+import { PageContribution, useRegistry } from './registry'
 
 /** Why a plugin's WebUI module did not load, by package name. */
 export const useClientErrors = create<{ errors: Record<string, string> }>(() => ({ errors: {} }))
@@ -82,15 +83,29 @@ export function syncClients(plugins: PluginStatus[]) {
   for (const owner of wanted) ensureClient(owner, urls.get(owner)!)
 }
 
+let builtinsStarted = false
+
+/**
+ * Registers what builtin plugins add to the WebUI, before the first render: their pages are then known when
+ * App reads the tab from the address. Registering calls nothing on the bot.
+ */
+export function startBuiltinClients() {
+  if (builtinsStarted) return
+  builtinsStarted = true
+  for (const [owner, apply] of Object.entries(BUILTIN_CLIENTS)) run(owner, apply, true)
+}
+
+/** Tab ids of builtin plugins' pages. */
+export function builtinPageKeys(): Set<string> {
+  return new Set(useRegistry.getState().contributions
+    .filter(c => c.kind === 'page' && c.owner.startsWith('builtin:'))
+    .map(c => (c as PageContribution).key))
+}
+
 /** Runs the plugin UI host while the WebUI is logged in. */
 export function usePluginHost(enabled: boolean) {
   const plugins = usePluginList(state => state.plugins)
   useEffect(() => (enabled ? followPluginList() : undefined), [enabled])
-  useEffect(() => {
-    if (!enabled) return
-    const disposers = Object.entries(BUILTIN_CLIENTS).map(([owner, apply]) => run(owner, apply, true))
-    return () => disposers.forEach(dispose => dispose())
-  }, [enabled])
   useEffect(() => {
     if (enabled && plugins) syncClients(plugins)
   }, [enabled, plugins])

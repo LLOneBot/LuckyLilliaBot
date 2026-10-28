@@ -8,6 +8,7 @@
     "@luckylillia/plugin-sdk": "^1.0.0"
   },
   "llbot": {
+    "category": "other",
     "description": {
       "zh": "WebUI 扩展示例：侧边栏页面、Dashboard 卡片，以及一个按 role 注册的取色控件",
       "en": "WebUI extension example: a sidebar page, a Dashboard card and a color field registered by role"

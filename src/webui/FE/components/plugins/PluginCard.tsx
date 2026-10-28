@@ -1,7 +1,8 @@
 import React from 'react'
 import { Copy, RotateCw, Settings } from 'lucide-react'
 import { PluginStatus } from '../../types/plugins'
-import { Conflict, pendingReason, pluginDescription, pluginIcon, pluginTitle, RELOAD_WARNING, STATE_LABEL } from './meta'
+import { usePluginList } from '../../plugin-host/pluginList'
+import { Conflict, NEEDS_SETTINGS, pendingReason, pluginDescription, pluginIcon, pluginTitle, RELOAD_WARNING, STATE_LABEL } from './meta'
 
 interface PluginCardProps {
   plugin: PluginStatus
@@ -22,9 +23,11 @@ const actionButton = 'p-2 text-theme-muted hover:text-theme hover:bg-theme-item 
 
 const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts, busy, onToggle, onConfigure, onReload, onDuplicate }) => {
   const Icon = pluginIcon(plugin)
-  const state = STATE_LABEL[plugin.state]
-  const active = plugin.state === 'active'
-  const detail = pendingReason(plugin) ?? plugin.error
+  const waiting = plugin.state === 'active' && !!plugin.notice
+  const state = waiting ? NEEDS_SETTINGS : STATE_LABEL[plugin.state]
+  const active = plugin.state === 'active' && !waiting
+  const ntProtocolOff = usePluginList(state => state.plugins?.find(item => item.name === 'builtin:nt-protocol')?.disabled ?? false)
+  const detail = pendingReason(plugin, ntProtocolOff) ?? plugin.error ?? plugin.notice
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
 
   return (

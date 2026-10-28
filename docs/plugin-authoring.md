@@ -22,6 +22,7 @@ luckylillia-plugin-foo/
   },
   "llbot": {                            // 有这个字段才算插件
     "description": { "zh": "...", "en": "..." },
+    "category": "chat",                 // 插件页的分类，见下面的表；不写或写错都归"其他"
     "icon": "puzzle",                   // lucide 图标名（kebab-case）
     "hidden": false,                    // true：能加载，但不在 WebUI 列表里显示
     "preview": false,                   // true：WebUI 标记为开发中
@@ -34,6 +35,19 @@ luckylillia-plugin-foo/
   }
 }
 ```
+
+`category` 决定插件在 WebUI 插件页的哪个分类里（按下表的顺序排，类型是 SDK 的 `PluginCategory`）：
+
+| 值 | 插件页显示 | 放什么 |
+|---|---|---|
+| `protocol` | 协议端 | 登录账号、把一个平台连进来的（注册 `ctx.bots` 的 bot），比如 NTQQ 协议、QQ 官方机器人 |
+| `adapter` | 适配器 | 让外部框架通过某个机器人协议接入，比如 OneBot 11、Satori、Milky |
+| `chat` | 消息互动 | 收到消息后做出回应：自动回复、复读、小游戏 |
+| `tool` | 工具 | 为自己启用的功能：WebQQ、通知、黑名单 |
+| `service` | 依赖组件 | 给其他插件提供服务（`service.implements`），比如数据库、渲染 |
+| `other` | 其他 | 不属于以上的 |
+
+不认识的值扫描时会给一条警告，插件照常加载、归到"其他"。
 
 装插件 = 把这个目录放进 Bot 的 `data/plugins/`（可以有一层 `@scope/`），然后在 WebUI 插件页里启用。新放进去的插件默认是停用状态。
 
@@ -87,10 +101,11 @@ export function apply(ctx: Context, config: Config) {
 | `dict(X)`、`dict(X, union([...]))` | 键值对列表（第二个参数限定可选的键） |
 | `object()`（嵌套）、`intersect([object, object])`、`.collapse()` | 分组框，`collapse` 默认折叠 |
 | `tuple()`、`bitset()` | 定长一行 / 多选 |
-| `.role('xxx')`，且有插件用 `ctx.field('xxx', ...)` 注册了控件 | 那个控件（见"扩展 WebUI"；`ms` / `table` / `radio` / `checkbox` / `secret` / `slider` / `textarea` 不能被覆盖） |
+| `string().role('host')` | 监听地址：本机地址下拉，或手填 |
+| `.role('xxx')`，且有插件用 `ctx.field('xxx', ...)` 注册了控件 | 那个控件（见"扩展 WebUI"；`ms` / `table` / `radio` / `checkbox` / `secret` / `slider` / `textarea` / `host` 不能被覆盖） |
 | 其它（`any`、`is(...)`、无法判断的 union） | JSON 编辑框 |
 
-`.hidden()` 的字段不显示；`.deprecated()` / `.experimental()` 会显示成小标签。
+`.hidden()` 的字段不显示（值照样保存、照样生效，只能改 `plugins.json`）；`.deprecated()` / `.experimental()` 会显示成小标签。`role('secret')` 的字段已经存过值时，表单里是掩码，旁边有「清空」：直接留空或原样提交都是保留原值，点了「清空」再保存才删掉。
 
 `llbot.icon` 目前支持：`bell` `book` `book-open` `bot` `brain` `calendar` `clock` `cloud` `code` `cpu` `database` `dice-5` `file-text` `gamepad-2` `gift` `globe` `hand` `heart` `image` `languages` `mail` `message-square` `milk` `music` `network` `puzzle` `radio` `repeat` `search` `send` `settings` `shield-ban` `smile` `sparkles` `star` `terminal` `timer` `trophy` `users` `wrench` `zap`，其它名字显示为拼图图标。
 
@@ -178,7 +193,17 @@ ctx.on('bot/before-send', (bot, channelId, content, next) => {
 
 `Session` 常用字段：`type`、`userId`、`channelId`、`guildId`（私聊为空）、`messageId`、`isDirect`、`content`（元素标记字符串）、`elements`（解析后的元素，取 @ 可以用 `h.select(session.elements, 'at')`）、`event`（原始 Satori 事件，snake_case），以及 `send()` / `reply()`（引用回复）。
 
-`ctx.bots` 里是已登录的账号（`Bot`）。`sendMessage` 一定有，其它能力（`deleteMessage`、`getGuildMember`、`muteGuildMember`、`kickGuildMember`、`createReaction`……）按平台支持情况提供，用之前先判断 `if (bot.muteGuildMember)`。QQ 账号的 `platform` 是 `llonebot`，私聊的 channelId 形如 `private:<QQ号>`，群的 channelId 就是群号。
+`ctx.bots` 里是已登录的账号（`Bot`）。`sendMessage` 一定有，其它能力（`deleteMessage`、`getGuild`、`getGuildMember`、`muteGuildMember`、`kickGuildMember`、`handleGuildMemberRequest`、`createReaction`……）按平台支持情况提供，用之前先判断 `if (bot.muteGuildMember)`。QQ 账号的 `platform` 是 `llonebot`，私聊的 channelId 形如 `private:<QQ号>`，群的 channelId 就是群号。
+
+QQ 官方机器人（`platform` 是 `qq`，`selfId` 是 AppID，见 [official-qq-bot.md](official-qq-bot.md)）有几处不同：
+
+- 用户、群都是 openid，没有 QQ 号；私聊 channelId 是 `private:<openid>`
+- 群里一般只收得到 @ 它的消息，这些消息开头是 `<at id="<AppID>"/>`。按前缀匹配指令时先去掉它（`examples/plugins/echo` 就是这么做的）
+- 发的消息几乎都只能作为对收到消息的回复：群在消息发出 5 分钟内最多回 5 条，私聊 60 分钟内最多 4 条。`session.send()` / `reply()` 会自动挂到会话里最近能回复的消息上，过了时限或用完次数就发不出去，所以不要攒到很久以后再回，一次回复也别拆成太多条
+- 能发 markdown 和按钮：`h('markdown', '# 标题')`、`h('button', { text: '再来一次' })`（`type: 'link'` + `href` 是跳转按钮），还有 `qq:ark24` 等平台元素，写法同 Koishi 的 adapter-qq-crack（列表见 official-qq-bot.md §6）。别的平台不认识这些元素，只会发出里面的文字
+- 频道（QQ 频道）是另一个 bot：`platform` 是 `qqguild`，订阅了频道事件才有
+- 入群申请是 `guild-member-request` 事件，用 `bot.handleGuildMemberRequest(session.messageId, true)` 同意
+- 中立层没有的平台接口在 `bot.internal` 上（如 `bot.internal.getGroupMemberBlacklist(groupId)`），名字同 Koishi；平台的原始事件以 `internal` 事件出现在 `bot/event`：`session.event._type` 是 `qq/<事件名>`，`session.event._data` 是原始数据
 
 一条消息在某个中间件里抛错，会让这条消息的整条链中止（错误会记日志）。
 
@@ -212,9 +237,16 @@ export default function apply(ctx) {
 ```
 
 - 类型在 `@luckylillia/plugin-sdk/webui`：`WebUIContext`、`ConfigEditorProps`、`FieldProps` 等
+- 同一个模块还提供运行时的值（WebUI 经 import map 交给插件）：
+  - `usePluginStatus()`：本插件条目的状态（`disabled` / `state` / `error` / `notice` 等），跟着插件列表更新
+  - `usePluginConfig()`：本插件的配置，`{ value, setValue, schema, errors, save(), saving, clearSecret() }`；`save()` 经 bot 按 Config 校验后保存、插件按新配置重启，结果用 toast 提示，被别处改过时会重新载入。自己画设置页时用它读写配置
+  - `SchemaForm`：WebUI 按 schema 生成的表单（`fields` 只要其中几个顶层字段），`ctx.field()` 注册的控件照样生效
+  - `SchemaSettings`：一整页设置，插件标题和说明、生成的表单、保存按钮；`links`（标题旁的链接）、`sections`（把几个顶层字段放进可折叠的分组）、`children`（表单下面的内容，函数形式拿到正在编辑的配置）。只要 schema 表单的设置页：`ctx.page({ id: 'settings', title: '设置', component: SchemaSettings, settings: true })`
+  - `HostInput`：监听地址输入，跟 `role('host')` 同一个控件
+- 内置插件的界面也只用这些（`src/*/client/`，见 [plugin-system.md](plugin-system.md)"内置插件的界面"），可以照着写
 - 组件里用 `usePluginContext()` 拿到同一个 ctx：`ctx.api(path, { method, body })` 带着 WebUI 登录调 Bot 的接口，返回 `{ success, data }` 里的 `data`；`ctx.events(path, { 事件名: data => {} })` 订阅 SSE；`ctx.toast()`
 - 页面的 tab id 是 `<包名>:<id>`，地址栏 `#<包名>:<id>` 能直接打开
-- `order` 和 WebUI 自己的入口一起排：Dashboard 0、日志 20、其他配置 30、插件 40、关于 1000，内置的 OneBot 11 / Satori / Milky / 邮件通知是 10 ~ 13、WebQQ 50；不填是 100
+- `order` 和 WebUI 自己的入口一起排：Dashboard 0、日志 20、其他配置 30、插件 40、关于 1000，内置的 NTQQ 协议是 5，OneBot 11 / Satori / Milky / 邮件通知 / QQ 官方机器人是 10 ~ 14、WebQQ 50；不填是 100
 - 注册了设置页的插件，插件页卡片上的"配置"会跳到这个页面，而不是打开配置弹窗
 - 代码拆分用 `React.lazy()`，WebUI 渲染插件组件时套了 Suspense
 - 插件重载时 WebUI 撤掉旧模块注册的一切，再导入新模块，页面不用刷新；`apply` 返回的清理函数也会在这时调用

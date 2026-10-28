@@ -4,9 +4,9 @@ import { Context, Service } from 'cordis'
 import { getAvailablePort } from '@/common/utils/port'
 import { authMiddleware } from './auth'
 import {
+  createBotsRoutes,
   createConfigRoutes,
-  createAuthTokenRoutes,
-  createLoginRoutes,
+  createLoginInfoRoutes,
   createLogsRoutes,
 } from './routes'
 import { readFile } from 'node:fs/promises'
@@ -35,10 +35,10 @@ function findMounted(table: Map<string, MountedHandler>, path: string): MountedH
 
 // ctx.webuiServer is typed by the plugin SDK, which plugins serving their own API build against
 export class WebuiServer extends Service implements WebUIServer {
-  // The WebUI has to be up before login (auth token, QR login), so it depends only on services ready by then and
-  // serves only the routes needed by then. Dashboard, email, WebQQ and plugin management are plugins that inject
-  // what they need and mount their routes through route() once that is up.
-  static inject = ['qqProtocol', 'ntLoginApi', 'config']
+  // The shell: up before any login and without the NT protocol, so the plugin page can switch protocols on and off.
+  // Login, dashboard, email, WebQQ and plugin management are plugins that inject what they need and mount their
+  // routes through route() once that is up.
+  static inject = ['config']
 
   private server: ServerType | null = null
   private app: Hono = new Hono()
@@ -53,8 +53,11 @@ export class WebuiServer extends Service implements WebUIServer {
     return noop
   }
 
-  constructor(ctx: Context, public config: WebuiServerConfig) {
+  public config: WebuiServerConfig
+
+  constructor(ctx: Context) {
     super(ctx, 'webuiServer')
+    this.config = ctx.config.get().webui
     this.initServer()
     this.setupConfigListener()
   }
@@ -102,8 +105,8 @@ export class WebuiServer extends Service implements WebUIServer {
     this.app.use('/api/*', authMiddleware)
 
     this.app.route('/api', createConfigRoutes(this.ctx))
-    this.app.route('/api', createAuthTokenRoutes())
-    this.app.route('/api', createLoginRoutes(this.ctx))
+    this.app.route('/api', createLoginInfoRoutes(this.ctx))
+    this.app.route('/api', createBotsRoutes(this.ctx))
     this.app.route('/api', createLogsRoutes(this.ctx))
 
     // Registered after the built-in routes, so those always win

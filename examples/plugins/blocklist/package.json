@@ -8,6 +8,7 @@
     "@luckylillia/plugin-sdk": "^1.0.0"
   },
   "llbot": {
+    "category": "tool",
     "description": {
       "zh": "名单里的用户发的消息, 其他插件都收不到",
       "en": "Drops messages from listed users before any other plugin sees them"

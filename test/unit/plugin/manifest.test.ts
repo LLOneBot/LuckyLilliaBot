@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { normalizeService, readPluginPackage, resolveMain, scanPluginRoots, sdkIncompatibility } from '@/plugin/manifest'
+import { normalizeCategory, normalizeService, readPluginPackage, resolveMain, scanPluginRoots, sdkIncompatibility } from '@/plugin/manifest'
 
 const root = mkdtempSync(path.join(os.tmpdir(), 'llbot-plugin-scan-'))
 
@@ -79,6 +79,26 @@ describe('normalizeService', () => {
     ])
     expect(normalizeService(['bots'], warnings)).toEqual({ required: [], optional: [], implements: [] })
     expect(warnings.at(-1)).toMatch(/should be an object/)
+  })
+})
+
+describe('normalizeCategory', () => {
+  it('keeps a known category and drops anything else with a warning, so the page lists it under other', async () => {
+    const warnings: string[] = []
+    expect(normalizeCategory('protocol', warnings)).toBe('protocol')
+    expect(normalizeCategory(undefined, warnings)).toBeUndefined()
+    expect(warnings).toEqual([])
+    expect(normalizeCategory('games', warnings)).toBeUndefined()
+    expect(normalizeCategory(1, warnings)).toBeUndefined()
+    expect(warnings).toHaveLength(2)
+    expect(warnings[0]).toContain('protocol / adapter / chat / tool / service / other')
+
+    pkg('categorized', { name: 'categorized', type: 'module', llbot: { category: 'chat' } })
+    pkg('miscategorized', { name: 'miscategorized', type: 'module', llbot: { category: 'Chat' } })
+    expect((await readPluginPackage(path.join(root, 'categorized')))!.manifest.category).toBe('chat')
+    const wrong = (await readPluginPackage(path.join(root, 'miscategorized')))!
+    expect(wrong.manifest.category).toBeUndefined()
+    expect(wrong.warnings[0]).toContain('"Chat"')
   })
 })
 

@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
+  StatusNotices,
   Sidebar,
   Dashboard,
   LogViewer,
   OtherConfig,
   otherSettings,
   TokenDialog,
-  AuthTokenDialog,
   ChangePasswordDialog,
-  QQLogin,
   ToastContainer,
   showToast,
   AnimatedBackground,
@@ -16,12 +15,14 @@ import {
 import { WebQQFullscreen } from './components/WebQQ';
 import { PluginsPage } from './components/plugins';
 import { iconByName } from './components/plugins/meta';
-import { BUILTIN_PAGE_IDS, PluginPage, PluginPageUnavailable, usePluginHost, useVisiblePages } from './plugin-host';
+import { builtinPageKeys, PluginPage, PluginPageUnavailable, usePluginHost, useVisiblePages } from './plugin-host';
+import { usePluginList } from './plugin-host/pluginList';
 import { Config, ResConfig } from './types';
 import { apiFetch, setPasswordPromptHandler } from './utils/api';
 import { deleteCookie } from './utils/cookie';
 import { setCurrentUin } from './utils/currentUin';
 import { hydrateWebQQStore } from './stores/webqqStore';
+import { useAccountReload, useQQAccount } from './stores/accountStore';
 import { Save, Loader2, Menu } from 'lucide-react';
 import { defaultConfig } from '../../main/config/defaultConfig'
 import { version } from '../../version'
@@ -31,9 +32,9 @@ import { useSettingsStore } from './stores/settingsStore'
 
 const BUILTIN_TABS = ['dashboard', 'logs', 'other', 'plugins', 'about']
 
-// Plugin pages register after the plugin list loads, so their tabs are recognised by shape:
-// pages of builtin plugins by id, everything else as `<package>:<page id>`
-const isPluginTab = (tab: string) => BUILTIN_PAGE_IDS.includes(tab) || tab === 'webqq-fullscreen' || tab.includes(':')
+// Packages' pages register after the plugin list loads, so their tabs are recognised by shape, `<package>:<page id>`;
+// builtin plugins register theirs before the first render (startBuiltinClients)
+const isPluginTab = (tab: string) => builtinPageKeys().has(tab) || tab === 'webqq-fullscreen' || tab.includes(':')
 
 const isKnownTab = (tab: string) => BUILTIN_TABS.includes(tab) || isPluginTab(tab)
 
@@ -49,22 +50,23 @@ function App() {
   const [instance, setInstance] = useState<string>();
 
   const [loading, setLoading] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  // Until the plugin list is in; then its entry follows the switch on the plugin page
+  const [ntProtocol, setNtProtocol] = useState(true);
   const [checkingLogin, setCheckingLogin] = useState(true);
-  const [accountInfo, setAccountInfo] = useState<{ nick: string; uin: string } | null>(null);
+  const account = useQQAccount(state => state.account);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordResolve, setPasswordResolve] = useState<((value: string) => void) | null>(null);
   const [showChangePasswordDialog, setShowChangePasswordDialog] = useState(false);
-  const [showAuthTokenDialog, setShowAuthTokenDialog] = useState(false);
-  const [authTokenReason, setAuthTokenReason] = useState<'missing' | 'invalid'>('missing');
-  const [authTokenPageUrl, setAuthTokenPageUrl] = useState('');
   const [qqVersion, setQqVersion] = useState<string>('');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
   const { autoHideSidebarInWebQQ } = useSettingsStore();
-  usePluginHost(isLoggedIn);
+  const ntEntry = usePluginList(state => state.plugins?.find(plugin => plugin.name === 'builtin:nt-protocol'));
+  const ntProtocolOn = ntEntry ? !ntEntry.disabled : ntProtocol;
+  usePluginHost(!checkingLogin);
+  useAccountReload(!checkingLogin);
   const pluginPages = useVisiblePages();
   const openablePages = useVisiblePages('open');
   const currentPluginPage = openablePages.find(page => page.key === activeTab);
@@ -121,19 +123,19 @@ function App() {
     const checkLoginStatus = async () => {
       try {
         const response = await apiFetch<ResConfig>('/api/config');
+        if (response.success) {
+          setNtProtocol(response.data.ntProtocol !== false);
+          setConfig(response.data.config);
+          setEnvLocked(response.data.envLocked ?? []);
+          setInstance(response.data.instance);
+        }
         if (response.success && response.data.selfInfo.online) {
-          setIsLoggedIn(true);
-          setAccountInfo({
-            nick: response.data.selfInfo.nick || '',
-            uin: response.data.selfInfo.uin,
+          useQQAccount.setState({
+            account: { nick: response.data.selfInfo.nick || '', uin: response.data.selfInfo.uin },
           });
           setCurrentUin(response.data.selfInfo.uin);
           // uin 就位后才能加载 WebQQ 的按账号持久化数据 (store 是 skipHydration 的)
           hydrateWebQQStore(response.data.selfInfo.uin);
-
-          setConfig(response.data.config);
-          setEnvLocked(response.data.envLocked ?? []);
-          setInstance(response.data.instance);
 
           // 单独 try: 拿不到版本号不影响登录状态
           try {
@@ -144,44 +146,15 @@ function App() {
           } catch (e) {
             console.error('Failed to fetch device info:', e);
           }
-        } else {
-          setIsLoggedIn(false);
         }
       } catch (error) {
         console.error('Failed to check login status:', error);
-        setIsLoggedIn(false);
       } finally {
         setCheckingLogin(false);
       }
     };
     checkLoginStatus();
   }, []);
-
-  // 只在 token 缺失 / 无效时弹录入框, 恢复正常就关掉, 免得盖住二维码; 网络错误由 QQLogin 横幅提示
-  useEffect(() => {
-    if (isLoggedIn || checkingLogin) return;
-    let stop = false;
-    const poll = async () => {
-      try {
-        const st = await apiFetch<{ applicable: boolean; online: boolean; hasToken: boolean; validation: string; authTokenPageUrl?: string }>('/api/auth-token/status');
-        if (!stop && st.success) {
-          const d = st.data;
-          if (d.online) { window.location.reload(); return; }
-          if (d.authTokenPageUrl) setAuthTokenPageUrl(d.authTokenPageUrl);
-          if (d.applicable && (!d.hasToken || d.validation === 'invalid')) {
-            setAuthTokenReason(d.validation === 'invalid' ? 'invalid' : 'missing');
-            setShowAuthTokenDialog(true);
-          } else if (d.validation === 'valid') {
-            // validating / error 时不动, 免得关掉用户正在提交的弹框
-            setShowAuthTokenDialog(false);
-          }
-        }
-      } catch { /* ignore */ }
-      if (!stop) setTimeout(poll, 3000);
-    };
-    poll();
-    return () => { stop = true; };
-  }, [isLoggedIn, checkingLogin]);
 
   // 只提交调用方给的片段, 服务端合并; 邮件配置由邮件通知插件自己保存
   const handleSave = useCallback(async (sections: Partial<Config>) => {
@@ -206,11 +179,6 @@ function App() {
     }
   }, []);
 
-
-  const handleLoginSuccess = useCallback(() => {
-    window.location.reload();
-  }, []);
-
   if (checkingLogin) {
     return (
       <>
@@ -226,32 +194,6 @@ function App() {
           onConfirm={handlePasswordConfirm}
           error={passwordError}
         />
-      </>
-    );
-  }
-
-  if (!isLoggedIn) {
-    return (
-      <>
-        {/* 给密码弹框用, QQLogin 自带背景 */}
-        <AnimatedBackground />
-
-        <QQLogin onLoginSuccess={handleLoginSuccess} />
-
-        <AuthTokenDialog
-          visible={showAuthTokenDialog}
-          reason={authTokenReason}
-          authTokenPageUrl={authTokenPageUrl}
-          onSuccess={() => window.location.reload()}
-        />
-
-        <TokenDialog
-          visible={showPasswordDialog}
-          onConfirm={handlePasswordConfirm}
-          error={passwordError}
-        />
-
-        <ToastContainer />
       </>
     );
   }
@@ -281,7 +223,7 @@ function App() {
       <Sidebar
         activeTab={activeTab}
         onTabChange={setActiveTab}
-        accountInfo={accountInfo || undefined}
+        accountInfo={ntProtocolOn && account ? account : undefined}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         collapsed={sidebarCollapsed}
@@ -312,6 +254,7 @@ function App() {
         </div>
 
         <div className="p-4 md:p-8 max-w-6xl mx-auto">
+          <StatusNotices activeTab={activeTab} ntProtocolOn={ntProtocolOn} onOpen={setActiveTab} />
           {/* Header - 桌面端显示 */}
           <div className="mb-8 hidden md:block">
             <h2 className="text-3xl font-bold text-theme mb-2">

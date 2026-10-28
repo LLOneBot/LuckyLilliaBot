@@ -49,6 +49,7 @@ export function createConfigRoutes(ctx: Context): Hono {
         selfInfo,
         envLocked: ctx.config.envLocks(),
         instance: currentInstance().name,
+        ntProtocol: !!ctx.get('qqProtocol'),
       }
       return c.json({
         success: true,

@@ -1,8 +1,10 @@
 import { Context } from 'cordis'
 import { selfInfo } from '@/common/globalVars'
-import { isPmhqMode } from '@/common/utils/environment'
+import { currentPmhqTarget, getProtocol, isPmhqMode, launchPins, lockedProtocol } from '@/common/utils/environment'
 import { Hono } from 'hono'
+import { createAuthTokenRoutes } from './authToken'
 
+/** QR / quick login and logout of the scanned account; mounted by NTLoginRoutes while the NT protocol runs. */
 export function createLoginRoutes(ctx: Context): Hono {
   const router = new Hono()
 
@@ -52,7 +54,7 @@ export function createLoginRoutes(ctx: Context): Hono {
   // PMHQ 模式的登录归外部 QQ 客户端管, 直接拒绝
   router.post('/logout', async (c) => {
     if (isPmhqMode()) {
-      return c.json({ success: false, message: 'PMHQ 模式暂不支持退出 QQ' }, 400)
+      return c.json({ success: false, message: '官方 QQ 端桥接的登录由 QQ 客户端管理，不能在这里退出' }, 400)
     }
     try {
       await ctx.qqProtocol.logout()
@@ -62,21 +64,44 @@ export function createLoginRoutes(ctx: Context): Hono {
     }
   })
 
-  // 带上生效的 WebUI 配置: FE 据此判断 WebUI 是否被关掉或换了端口
+  return router
+}
+
+/** Part of the WebUI shell: the NTQQ protocol page polls it whether or not the protocol runs. */
+export function createLoginInfoRoutes(ctx: Context): Hono {
+  const router = new Hono()
+
   router.get('/login-info', (c) => {
-    let webui: { enable: boolean; host: string; port: number } | undefined
-    if (selfInfo.online && selfInfo.uin) {
-      const effective = ctx.config.get().webui
-      if (effective) {
-        webui = {
-          enable: effective.enable !== false,
-          host: effective.host ?? '',
-          port: Number(effective.port) || 0,
-        }
-      }
-    }
-    return c.json({ success: true, data: { ...selfInfo, mode: isPmhqMode() ? 'pmhq' : 'direct', webui } })
+    const protocol = ctx.get('qqProtocol')
+    const pmhq = isPmhqMode()
+    return c.json({
+      success: true,
+      data: {
+        ...selfInfo,
+        mode: pmhq ? 'pmhq' : 'direct',
+        ntProtocol: !!protocol,
+        protocol: getProtocol(),
+        // Set once the pure protocol has a client: a protocol saved after that applies on the next start
+        lockedProtocol: lockedProtocol(),
+        pins: launchPins(),
+        ...pmhq && { pmhq: { ...currentPmhqTarget(), connected: !!protocol?.get_is_connected() } },
+      },
+    })
   })
 
   return router
+}
+
+/** The login routes of the scanned account, present only while the NT protocol plugin runs. */
+export const NTLoginRoutes = {
+  name: 'webui-nt-login-routes',
+  inject: ['webuiServer', 'ntLoginApi', 'qqProtocol'],
+  apply(ctx: Context) {
+    const app = new Hono()
+      .route('/api', createLoginRoutes(ctx))
+      .route('/api', createAuthTokenRoutes())
+    for (const prefix of ['/api/login-qrcode', '/api/quick-login-list', '/api/quick-login', '/api/logout', '/api/auth-token']) {
+      ctx.webuiServer.route(prefix, app)
+    }
+  },
 }

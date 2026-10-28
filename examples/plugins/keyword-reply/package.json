@@ -8,6 +8,7 @@
     "@luckylillia/plugin-sdk": "^1.0.0"
   },
   "llbot": {
+    "category": "chat",
     "description": {
       "zh": "按关键词自动回复, 支持包含 / 完全匹配 / 正则, 带冷却和触发概率",
       "en": "Replies to configured keywords, with cooldown and probability"

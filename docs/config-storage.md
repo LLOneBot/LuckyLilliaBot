@@ -87,13 +87,13 @@
 - 适配器拿到的配置 = 条目配置 + bot 设置里它要用的字段(`ffmpeg`、`musicCardSignUrl`),由 `adapterEntry` 拼。条目配置变了走 cordis 的 `fiber.update` 重启这个适配器,别的插件或 bot 设置保存不影响它;bot 设置里那几个字段变了,只更新调用时才读的字段(同 `c43abebe`)。
 - 新建实例或某个内置条目第一次出现时,初始配置取 `default_config.json` 的 `ob11` / `satori` / `milky` 段。nix 用 sed 把 host 改成 `""` 就是靠这个生效的。
 - OneBot `get_config` / `set_config` 对外字段形状不变:`get_config` 返回 bot 设置加上 `ob11` / `satori` / `milky`(各自的 `enable` = 条目没停用);`set_config` 把 bot 设置字段交给 ConfigService,三个适配器段交给插件服务(`enable` 转成启用 / 停用),同样校验。
-- 前端各设置页照旧用 `useBuiltinConfig` 走插件接口。
+- 前端各设置页经 plugin SDK 的 `usePluginConfig()` 走插件接口（见 [plugin-system.md](plugin-system.md)"内置插件的界面"）。
 
 ## 7. bot 设置(`settings.json`)
 
 - 一个文件,不再拆实例级 / 账号级,也不含适配器配置。`ConfigService` 启动时就绑定当前实例的文件,登录不切换;删掉 `-q` 预读、`peek(uin)`、`accountFile`。
 - 生效顺序(后覆盖前):代码默认值 < `default_config.json`(只在新建实例时用)< `settings.json` < 环境变量(`LLBOT_WEBUI_HOST/PORT`、`LLBOT_LOG_LEVEL`)< argv。环境变量只进内存、不落盘(已实施)。
-- `/api/login-info` 不再需要预判"登录后 WebUI 会去哪":登录前后 WebUI 配置相同。
+- `/api/login-info` 不再需要预判"登录后 WebUI 会去哪":登录前后 WebUI 配置相同。它的 `webui` 字段和前端登录后的跳转已删除(见 [core-pluginization.md](core-pluginization.md) §5)。
 
 ## 8. JsonFile 原语 + 并发
 

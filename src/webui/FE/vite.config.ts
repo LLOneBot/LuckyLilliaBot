@@ -2,6 +2,7 @@ import { defineConfig, Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { createRequire } from 'node:module'
 import * as path from 'node:path'
+import { SDK_EXPORTS } from './plugin-host/sdkExports'
 
 const require = createRequire(path.join(__dirname, 'package.json'))
 
@@ -10,7 +11,7 @@ const SHARED_MODULES: Record<string, { file: string; names: () => string[] }> = 
   'react': { file: 'react.js', names: () => Object.keys(require('react')) },
   'react/jsx-runtime': { file: 'react-jsx-runtime.js', names: () => Object.keys(require('react/jsx-runtime')) },
   'react-dom': { file: 'react-dom.js', names: () => Object.keys(require('react-dom')) },
-  '@luckylillia/plugin-sdk/webui': { file: 'plugin-sdk-webui.js', names: () => ['usePluginContext'] },
+  '@luckylillia/plugin-sdk/webui': { file: 'plugin-sdk-webui.js', names: () => SDK_EXPORTS },
 }
 
 function shim(specifier: string, names: string[]): string {
@@ -52,22 +53,26 @@ export default defineConfig({
     outDir: path.join(__dirname, '../../../dist/webui'),
     emptyOutDir: true,
   },
-  // dev 下 location.port 是 Vite 的, 注入代理目标端口, 前端才能判断 webui.port 是否真的变了
-  define: {
-    __WEBUI_DEV_PORT__: JSON.stringify(process.env.WEBUI_PORT || '3080'),
-  },
   plugins: [react(), pluginSharedShims()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
       '@shared': path.resolve(__dirname, '../../common'),
       '@ntqqapi/types': path.resolve(__dirname, '../../ntqqapi/types'),
+      // Builtin plugins' WebUI (`client/` next to their code, see plugin-host/builtins.ts) is bundled, so its SDK
+      // imports go straight to the runtime instead of through the import map
+      '@luckylillia/plugin-sdk/webui': path.resolve(__dirname, 'plugin-host/sdk.tsx'),
     },
+    // Those clients live outside this package and must get its React, not one found next to them
+    dedupe: ['react', 'react-dom', 'lucide-react'],
   },
   server: {
     host: '127.0.0.1',
     port: 15173,
     open: true,
+    fs: {
+      allow: [path.resolve(__dirname, '../../..')],
+    },
     proxy: {
       '/api': {
         target: backend,

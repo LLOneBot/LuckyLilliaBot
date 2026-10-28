@@ -43,13 +43,14 @@ export interface DirectClientConfig {
   cdn?: string
 }
 
-const DEFAULT_CONFIG: DirectClientConfig = {
+// Per client: the profile is only settled once the client is created
+const defaultConfig = (): DirectClientConfig => ({
   appId: AppInfo.appId,
   subAppId: AppInfo.subAppId,
   ssoVersion: AppInfo.ssoVersion,
   buildVer: AppInfo.buildVer,
   useIPv6: false,
-}
+})
 
 export interface SessionInfo {
   uin: string
@@ -98,7 +99,7 @@ export class DirectProtocolClient extends EventEmitter {
 
   constructor(config: Partial<DirectClientConfig> = {}) {
     super()
-    this.config = { ...DEFAULT_CONFIG, ...config }
+    this.config = { ...defaultConfig(), ...config }
     this.guid = loadMachineGuidSync()
     this.conn = new TcpConnection()
     // watch wtlogin 用 P-256, 桌面用 secp192k1

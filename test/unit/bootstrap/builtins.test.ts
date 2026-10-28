@@ -128,6 +128,8 @@ describe('builtin plugins', () => {
         { id: 'a0000001', name: 'builtin:onebot11', config: ob11 },
         { id: 'a0000002', name: 'builtin:satori', config: satori },
         { id: 'a0000003', name: 'builtin:milky', config: milky },
+        // The protocol layer below is mocked: the real one would claim qqProtocol too
+        { id: 'a0000004', name: 'builtin:nt-protocol', disabled: true },
       ],
     }))
 
@@ -137,7 +139,7 @@ describe('builtin plugins', () => {
       ctx.plugin(plugin)
     }
     // builtin:webqq mounts its routes on the WebUI
-    ctx.plugin(WebuiServer, config.webui)
+    ctx.plugin(WebuiServer)
     // As in main.ts: the database is per account, so the core services wait for the login
     mounted.push(ctx.inject(['account', 'config'], (ctx) => {
       ctx.plugin(Database)
@@ -151,14 +153,16 @@ describe('builtin plugins', () => {
     const states = () => Object.fromEntries(ctx.plugins.list().map(status => [status.name, status.state]))
     const allIn = (state: PluginState) => Object.fromEntries(builtinPlugins.map(builtin => [builtin.name, state]))
 
-    // Email notification starts switched off (its initial settings); nothing else runs before the first login
+    // Email notification and the official bot start switched off (their initial settings), the NT protocol by the
+    // file above; nothing else runs before the first login
+    const off = { 'builtin:email-notification': 'disposed', 'builtin:qq-official': 'disposed', 'builtin:nt-protocol': 'disposed' }
     for (const status of ctx.plugins.list()) {
-      if (status.name === 'builtin:email-notification') expect(status).toMatchObject({ state: 'disposed', disabled: true })
+      if (status.name in off) expect(status).toMatchObject({ state: 'disposed', disabled: true })
       else expect(status, status.name).toMatchObject({ state: 'pending', missingDeps: expect.arrayContaining(['account']) })
     }
 
     ctx.plugin(AccountService)
-    const running = { ...allIn('active'), 'builtin:email-notification': 'disposed' }
+    const running = { ...allIn('active'), ...off }
     await vi.waitFor(() => expect(states()).toEqual(running), { timeout: 4_000, interval: 50 })
     for (const port of [ob11Port, satoriPort, milkyPort]) {
       await vi.waitFor(async () => expect(await listening(port), `port ${port}`).toBe(true))
@@ -227,6 +231,39 @@ describe('builtin plugins', () => {
     }
     for (const port of [ob11Port, satoriPort, milkyPort]) {
       await vi.waitFor(async () => expect(await listening(port)).toBe(false))
+    }
+  })
+
+  it('switch the official bot on before its credentials are in: it waits for them, saving checks them', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: string) => {
+      if (new URL(input).pathname === '/app/getAppAccessToken') {
+        return new Response(JSON.stringify({ access_token: 'tok', expires_in: '7200' }), { status: 200 })
+      }
+      // No gateway: it retries in the background, which is not what this is about
+      return new Response('{}', { status: 503 })
+    }))
+    const ctx = new Context()
+    await ctx.plugin(TimerService)
+    await ctx.plugin(BotsService)
+    const builtins = builtinPlugins.filter(builtin => builtin.name === 'builtin:qq-official')
+    const service = await ctx.plugin(PluginService, { file: path.join(tmp, 'qq-official.json'), roots: [], resolver: false, builtins })
+    try {
+      const [{ id }] = ctx.plugins.list()
+      expect(ctx.plugins.list()[0].notice).toBeUndefined()
+      // Not an error: it runs, connects nothing, and says what is missing
+      const enabled = await ctx.plugins.enable(id)
+      expect(enabled).toMatchObject({ state: 'active', disabled: false, notice: '还没有填写 AppID 和 AppSecret' })
+      expect(enabled.error).toBeUndefined()
+      expect(ctx.bots.size).toBe(0)
+      // While it is on, saving needs both
+      await expect(ctx.plugins.updateConfig(id, { appId: 'APPID' })).rejects.toMatchObject({ issues: [{ path: ['secret'] }] })
+      const saved = await ctx.plugins.updateConfig(id, { appId: 'APPID', secret: 's' })
+      expect(saved).toMatchObject({ state: 'active' })
+      expect(saved.notice).toBeUndefined()
+      expect(ctx.bots.get('qq:APPID')).toBeDefined()
+    } finally {
+      await service.dispose()
+      vi.unstubAllGlobals()
     }
   })
 })

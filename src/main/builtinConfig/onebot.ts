@@ -28,7 +28,7 @@ const common = {
 // every connection) pass through untouched
 const Ws = Schema.object({
   type: Schema.const('ws').required(),
-  host: Schema.string().default('127.0.0.1').description('监听地址（留空 = 监听全部地址）'),
+  host: Schema.string().role('host').default('127.0.0.1').description('监听地址（留空 = 监听全部地址）'),
   port: port(3001).description('端口'),
   heartInterval: heartInterval(),
   ...common,
@@ -43,7 +43,7 @@ const WsReverse = Schema.object({
 
 const Http = Schema.object({
   type: Schema.const('http').required(),
-  host: Schema.string().default('127.0.0.1').description('监听地址（留空 = 监听全部地址）'),
+  host: Schema.string().role('host').default('127.0.0.1').description('监听地址（留空 = 监听全部地址）'),
   port: port(3000).description('端口'),
   ...common,
 }).description('HTTP 服务')

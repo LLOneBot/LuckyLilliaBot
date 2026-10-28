@@ -8,6 +8,7 @@
     "@luckylillia/plugin-sdk": "^1.0.0"
   },
   "llbot": {
+    "category": "other",
     "description": {
       "zh": "自定义配置界面示例：用自己画的编辑器代替自动生成的表单，保存时仍由 schema 校验",
       "en": "Custom config UI example: its own editor instead of the generated form, still validated by the schema"

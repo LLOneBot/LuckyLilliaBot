@@ -30,6 +30,7 @@
 - `ctx.plugin()` 返回 `Object.create(fiber)` 再加一个 `then`，**不是 fiber 本体**（`RegistryService.plugin`）。`internal/status` 等内部事件传的是本体，要拿 `.ctx.fiber` 才能对上
 - `fiber.await()` 只等 `inertia`（进行中的加载 / 卸载），**对缺依赖的 PENDING fiber 立刻返回**；FAILED 时把 `_error` 重新抛出，这是拿到失败原因的唯一公开途径。测试里 `await ctx.plugin(X)` 前要先等 X 依赖的服务就绪，否则拿到的是还没初始化的服务
 - 配置校验挂在 `internal/config` 钩子上，每次加载时在 `execute` 里跑。`fiber.update(config)` 只在 fiber 已加载时同步校验（不合法直接同步抛 `ValidationError`，旧实例不受影响），PENDING 时不校验；它返回重启任务（`Awaitable<void>`）
+- `fiber.update(config)` 先把 `fiber.config` 换成新值，再走 `internal/update` 瀑布，终端处理器才是 `fiber.restart()`。插件在自己的 ctx 上 `ctx.on('internal/update', (resolvedConfig, next) => ...)`（非 global 的监听记在自己 fiber 的 `_hooks` 上，随 fiber 卸载），不调 `next()` 就不重启，只能自己就地应用新配置；fiber 没加载（PENDING）时不走钩子，直接 restart。`builtin:nt-protocol` 用它只在换登录模式时重挂协议层
 - `ctx.get(name)` 只看提供者 fiber 是否 ACTIVE，**不看 `Service[Service.check]`**。要判断一个带 check 的服务对依赖方是否可用，得用 `ctx.reflect._getImpl(name)` 再调 `impl.check`
 - `isConstructor(fn)` 的判据只是"有 `prototype`"：`function apply() {}` 这种函数声明会被 `new` 调用，返回值被当成实例丢掉。插件的清理逻辑必须走 `ctx.effect()`
 - `Service` 构造时把 `this[Service.check]` 传给 `reflect.provide(name, value, check)`；`reflect.notify([name])` 会对所有 inject 了它的 fiber 重新求值 check 并刷新 —— 可以用来做"条件满足才可用"的门闸服务

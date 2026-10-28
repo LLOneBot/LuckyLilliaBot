@@ -2,9 +2,12 @@ import { existsSync } from 'node:fs'
 import { readdir, readFile, realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { satisfies } from 'compare-versions'
-import type { LLBotManifest } from '@luckylillia/plugin-sdk'
+import type { LLBotManifest, PluginCategory } from '@luckylillia/plugin-sdk'
 
 export const SDK_PACKAGE = '@luckylillia/plugin-sdk'
+
+/** The values of `llbot.category`, in the order the plugin page lists them. */
+export const PLUGIN_CATEGORIES: readonly PluginCategory[] = ['protocol', 'adapter', 'chat', 'tool', 'service', 'other']
 
 export interface PluginPackage {
   name: string
@@ -81,7 +84,11 @@ export async function readPluginPackage(dir: string): Promise<PluginPackage | un
     version: typeof pkg.version === 'string' ? pkg.version : '0.0.0',
     root,
     main,
-    manifest: { ...pkg.llbot, service: normalizeService(pkg.llbot.service, warnings) },
+    manifest: {
+      ...pkg.llbot,
+      service: normalizeService(pkg.llbot.service, warnings),
+      category: normalizeCategory(pkg.llbot.category, warnings),
+    },
     description: typeof pkg.description === 'string' ? pkg.description : undefined,
     sdkRange: pkg.peerDependencies?.[SDK_PACKAGE],
     webui,
@@ -92,6 +99,13 @@ export async function readPluginPackage(dir: string): Promise<PluginPackage | un
 export function isInside(dir: string, file: string): boolean {
   const relative = path.relative(dir, file)
   return !!relative && !relative.startsWith('..') && !path.isAbsolute(relative)
+}
+
+/** An unknown category is dropped with a warning: the plugin page lists the plugin under `other`. */
+export function normalizeCategory(value: unknown, warnings: string[] = []): PluginCategory | undefined {
+  if (value === undefined) return
+  if (PLUGIN_CATEGORIES.includes(value as PluginCategory)) return value as PluginCategory
+  warnings.push(`llbot.category should be one of ${PLUGIN_CATEGORIES.join(' / ')}, got ${JSON.stringify(value)}`)
 }
 
 /** Fills in the missing lists; a malformed field is dropped with a warning instead of failing the package. */

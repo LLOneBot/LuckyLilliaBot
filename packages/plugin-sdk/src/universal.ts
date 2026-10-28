@@ -35,10 +35,25 @@ export interface Bot {
   deleteMessage?(channelId: string, messageId: string): Promise<void>
   getUser?(userId: string): Promise<NeutralResource>
   getGuild?(guildId: string): Promise<NeutralResource>
+  getGuildList?(next?: string): Promise<NeutralList>
+  getChannel?(channelId: string): Promise<NeutralResource>
+  getChannelList?(guildId: string, next?: string): Promise<NeutralList>
+  createDirectChannel?(userId: string, guildId?: string): Promise<NeutralResource>
   getGuildMember?(guildId: string, userId: string): Promise<NeutralResource>
+  getGuildMemberList?(guildId: string, next?: string): Promise<NeutralList>
   muteGuildMember?(guildId: string, userId: string, duration: number): Promise<void>
   kickGuildMember?(guildId: string, userId: string, permanent?: boolean): Promise<void>
+  /** Answers a `guild-member-request` event; `messageId` is the event's message id. */
+  handleGuildMemberRequest?(messageId: string, approve: boolean, comment?: string): Promise<void>
   createReaction?(channelId: string, messageId: string, emoji: string): Promise<void>
+  deleteReaction?(channelId: string, messageId: string, emoji: string): Promise<void>
+  getReactionList?(channelId: string, messageId: string, emoji: string, next?: string): Promise<NeutralList>
+}
+
+/** A page of resources; `next` fetches the following one. */
+export interface NeutralList {
+  data: NeutralResource[]
+  next?: string
 }
 
 export interface Session {

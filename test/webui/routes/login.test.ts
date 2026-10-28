@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createTestApp } from '../helpers/testApp'
 import { createMockContext } from '../helpers/mockContext'
-import { createLoginRoutes } from '@/webui/BE/routes/login'
+import { createLoginInfoRoutes, createLoginRoutes } from '@/webui/BE/routes/login'
+import { isPmhqMode, launchPins, lockedProtocol } from '@/common/utils/environment'
 
 describe('login routes', () => {
   let ctx: ReturnType<typeof createMockContext>
@@ -77,7 +78,7 @@ describe('login routes', () => {
 
   describe('GET /login-info', () => {
     it('returns selfInfo', async () => {
-      const app = createTestApp(createLoginRoutes(ctx))
+      const app = createTestApp(createLoginInfoRoutes(ctx))
 
       const res = await app.request('/login-info')
       expect(res.status).toBe(200)
@@ -86,23 +87,31 @@ describe('login routes', () => {
       expect(body.data.uid).toBe('test-uid')
     })
 
-    it('reports the address the WebUI binds, env overrides included', async () => {
-      ctx.config.get.mockReturnValue({ webui: { enable: true, host: '0.0.0.0', port: 9999 } })
-      const res = await createTestApp(createLoginRoutes(ctx)).request('/login-info')
-      const body = await res.json()
-      expect(body.data.webui).toEqual({ enable: true, host: '0.0.0.0', port: 9999 })
+    it('says whether the NT protocol runs at all', async () => {
+      ctx.get.mockImplementation((key: string) => key === 'qqProtocol' ? undefined : (ctx as Record<string, unknown>)[key])
+      const body = await (await createTestApp(createLoginInfoRoutes(ctx)).request('/login-info')).json()
+      expect(body.data.ntProtocol).toBe(false)
     })
 
-    it('leaves webui out while still offline', async () => {
-      const { selfInfo } = await import('@/common/globalVars')
-      selfInfo.online = false
-      try {
-        const res = await createTestApp(createLoginRoutes(ctx)).request('/login-info')
-        const body = await res.json()
-        expect(body.data.webui).toBeUndefined()
-      } finally {
-        selfInfo.online = true
-      }
+    it('says how the account logs in and what the launch fixes', async () => {
+      vi.mocked(launchPins).mockReturnValue({ protocol: { value: 'macos', by: '--protocol' } })
+      vi.mocked(lockedProtocol).mockReturnValue('linux')
+      const body = await (await createTestApp(createLoginInfoRoutes(ctx)).request('/login-info')).json()
+      expect(body.data).toMatchObject({
+        mode: 'direct',
+        protocol: 'linux',
+        lockedProtocol: 'linux',
+        pins: { protocol: { value: 'macos', by: '--protocol' } },
+      })
+      expect(body.data.pmhq).toBeUndefined()
+    })
+
+    it('tells the bridge whether PMHQ answers', async () => {
+      vi.mocked(isPmhqMode).mockReturnValue(true)
+      ctx.qqProtocol.get_is_connected = vi.fn(() => false)
+      const body = await (await createTestApp(createLoginInfoRoutes(ctx)).request('/login-info')).json()
+      expect(body.data.mode).toBe('pmhq')
+      expect(body.data.pmhq).toEqual({ host: '127.0.0.1', port: '13000', connected: false })
     })
   })
 })

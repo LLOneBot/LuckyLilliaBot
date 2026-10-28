@@ -4,12 +4,13 @@ import { PluginSlot } from '../../plugin-host/views'
 import { Users, UsersRound, MessageSquare, Send, Clock, Cpu, HardDrive, Zap, Bot, MessageCircle, Server } from 'lucide-react'
 
 interface DashboardStats {
-  friendCount: number
-  groupCount: number
-  messageReceived: number
-  messageSent: number
+  // The account's figures: absent while the NT protocol is off or not logged in
+  friendCount?: number
+  groupCount?: number
+  messageReceived?: number
+  messageSent?: number
   startupTime: number
-  lastMessageTime: number
+  lastMessageTime?: number
   bot: {
     memory: number
     totalMemory: number
@@ -329,13 +330,13 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
           <StatItem
             icon={<Users size={20} className={GLYPH} />}
             label="好友数量"
-            value={stats.friendCount.toLocaleString()}
+            value={stats.friendCount?.toLocaleString() ?? '—'}
             gradient="bg-gradient-to-br from-[#f43f5e] to-[#ec4899]"
           />
           <StatItem
             icon={<UsersRound size={20} className={GLYPH} />}
             label="群组数量"
-            value={stats.groupCount.toLocaleString()}
+            value={stats.groupCount?.toLocaleString() ?? '—'}
             gradient="bg-gradient-to-br from-[#14b8a6] to-[#06b6d4]"
           />
         </div>
@@ -344,13 +345,13 @@ const Dashboard: React.FC<DashboardProps> = ({ llbotVersion, qqVersion }) => {
           <StatItem
             icon={<MessageSquare size={20} className={GLYPH} />}
             label="收到消息"
-            value={stats.messageReceived.toLocaleString()}
+            value={stats.messageReceived?.toLocaleString() ?? '—'}
             gradient="bg-gradient-to-br from-green-500 to-emerald-500"
           />
           <StatItem
             icon={<Send size={20} className={GLYPH} />}
             label="发送消息"
-            value={stats.messageSent.toLocaleString()}
+            value={stats.messageSent?.toLocaleString() ?? '—'}
             gradient="bg-gradient-to-br from-orange-500 to-amber-500"
           />
         </div>

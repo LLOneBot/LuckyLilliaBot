@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { createContext, useContext, useEffect, useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import { SchemaNode } from './model'
 
@@ -7,12 +7,21 @@ interface InputProps<T> {
   value: T | undefined
   onChange: (value: T | undefined) => void
   invalid?: boolean
+  path?: string[]
 }
+
+/** What the bot sends in place of a stored secret (SECRET_MASK in src/plugin/index.ts). */
+export const SECRET_MASK = '********'
+
+/** Given by a form that can empty a stored secret: sending the mask or nothing back keeps it. */
+export const SecretClearContext = createContext<((path: string) => void) | undefined>(undefined)
 
 const invalidRing = 'border-red-400 focus:ring-red-500'
 
-export function StringInput({ node, value, onChange, invalid }: InputProps<string>) {
+export function StringInput({ node, value, onChange, invalid, path = [] }: InputProps<string>) {
   const [reveal, setReveal] = useState(false)
+  const [cleared, setCleared] = useState(false)
+  const clear = useContext(SecretClearContext)
   const { role, pattern, extra } = node.meta
   const text = value ?? ''
   const mismatch = !!pattern && text !== '' && !new RegExp(pattern.source, pattern.flags).test(text)
@@ -23,12 +32,30 @@ export function StringInput({ node, value, onChange, invalid }: InputProps<strin
     return <textarea value={text} rows={rows} onChange={e => onChange(e.target.value)} className={`${className} resize-y`} />
   }
   if (role === 'secret') {
+    const stored = text === SECRET_MASK
     return (
-      <div className="relative">
-        <input type={reveal ? 'text' : 'password'} value={text} onChange={e => onChange(e.target.value)} className={`${className} pr-12`} />
-        <button type="button" onClick={() => setReveal(!reveal)} className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-hint hover:text-theme transition-colors p-1">
-          {reveal ? <EyeOff size={20} /> : <Eye size={20} />}
-        </button>
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1 min-w-0">
+          <input
+            type={reveal && !stored ? 'text' : 'password'}
+            value={text}
+            placeholder={cleared ? '保存后清空已存的值' : undefined}
+            // The stored one is selected, so typing replaces it
+            onFocus={e => stored && e.target.select()}
+            onChange={e => onChange(e.target.value)}
+            className={`${className} pr-12`}
+          />
+          {!stored && (
+            <button type="button" onClick={() => setReveal(!reveal)} className="absolute right-3 top-1/2 -translate-y-1/2 text-theme-hint hover:text-theme transition-colors p-1">
+              {reveal ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
+          )}
+        </div>
+        {stored && clear && (
+          <button type="button" onClick={() => { clear(path.join('.')); setCleared(true); onChange('') }} className="btn-glass text-sm flex-shrink-0">
+            清空
+          </button>
+        )}
       </div>
     )
   }

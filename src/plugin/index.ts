@@ -55,6 +55,8 @@ export interface PluginStatus {
   service: ServiceDeclaration
   /** URL of the WebUI module; it changes whenever the package is reloaded, so the WebUI imports it afresh. */
   webui?: string
+  /** What an enabled builtin says about its settings, e.g. that something still has to be filled in. */
+  notice?: string
 }
 
 export interface DependencyInfo {
@@ -103,6 +105,11 @@ export interface BuiltinConfig<T = any> {
   secrets?: string[]
   /** What a new entry starts with, e.g. default_config.json's section, which docker and nix edit. */
   initial?(): { enabled: boolean; config?: T }
+  /**
+   * Said on the card of an enabled entry with these settings: for a plugin that starts fine without them but
+   * waits for them, instead of failing at start what saving them checks.
+   */
+  notice?(value: T): string | undefined
 }
 
 export type ReloadResult = { status: 'reloaded' } | { status: 'restart-required'; reason: string }
@@ -711,6 +718,7 @@ class PluginService extends Service {
       if (incompatible) return { ...status, state: 'incompatible', error: incompatible }
     }
     if (rt.error) status.error = rt.error
+    if (builtin?.config?.notice && !status.disabled) status.notice = this.noticeOf(builtin, rt)
     if (!fiber) {
       if (status.error) status.state = 'failed'
       else if (!this.isDisabled(rt)) status.state = 'loading'
@@ -719,6 +727,14 @@ class PluginService extends Service {
     status.state = FIBER_STATES[fiber.state]
     if (status.state === 'pending') status.missingDeps = this.missingDeps(fiber)
     return status
+  }
+
+  private noticeOf(builtin: BuiltinPlugin, rt: Runtime): string | undefined {
+    try {
+      return builtin.config!.notice!(resolveConfig({ Config: builtin.plugin.Config } as Plugin.Runtime, rt.entry.config ?? {}))
+    } catch {
+      // A config the schema rejects: saving it says why
+    }
   }
 
   private bumpWebui(name: string) {

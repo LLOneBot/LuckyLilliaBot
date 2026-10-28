@@ -10,7 +10,7 @@ export type MilkySettings = Omit<MilkyConfig, 'enable'>
 export const MilkySchema: Schema<MilkySettings> = Schema.object({
   reportSelfMessage: Schema.boolean().default(false).description('上报自己发送的消息'),
   http: Schema.object({
-    host: Schema.string().default('127.0.0.1').description('监听地址（留空 = 监听全部地址）'),
+    host: Schema.string().role('host').default('127.0.0.1').description('监听地址（留空 = 监听全部地址）'),
     port: Schema.natural().min(1).max(65535).default(3010).description('HTTP 端口'),
     prefix: Schema.string().default('').description('路径前缀：HTTP API 路径前缀（可选）'),
     accessToken: Schema.string().role('secret').default('').description('Access Token：用于 Milky HTTP 连接验证'),

@@ -12,14 +12,17 @@ describe('dashboard routes', () => {
   })
 
   describe('GET /dashboard/stats', () => {
-    it('returns 503 when app is not ready', async () => {
-      ctx.get.mockImplementation((key: string) => key === 'app' ? null : undefined)
-      const app = createTestApp(createDashboardRoutes(ctx))
-
-      const res = await app.request('/dashboard/stats')
-      expect(res.status).toBe(503)
-      const body = await res.json()
-      expect(body.success).toBe(false)
+    it('answers with the process and system alone while the NT protocol is off or not logged in', async () => {
+      ctx.get.mockImplementation(() => undefined)
+      const res = await createTestApp(createDashboardRoutes(ctx)).request('/dashboard/stats')
+      expect(res.status).toBe(200)
+      const { data } = await res.json()
+      expect(data.bot).toBeDefined()
+      expect(data.system).toBeDefined()
+      expect(data.startupTime).toBeGreaterThan(0)
+      for (const key of ['friendCount', 'groupCount', 'messageReceived', 'messageSent', 'qq', 'mode']) {
+        expect(data[key], key).toBeUndefined()
+      }
     })
 
     it('returns stats on success', async () => {
@@ -31,6 +34,8 @@ describe('dashboard routes', () => {
           lastMessageTime: Date.now(),
         }
         if (key === 'qqProtocol') return ctx.qqProtocol
+        if (key === 'ntFriendApi') return ctx.ntFriendApi
+        if (key === 'ntGroupApi') return ctx.ntGroupApi
         return undefined
       })
       ctx.ntFriendApi.getFriends.mockResolvedValue({
@@ -65,6 +70,8 @@ describe('dashboard routes', () => {
       ctx.get.mockImplementation((key: string) => {
         if (key === 'app') return { messageReceivedCount: 0, messageSentCount: 0, startupTime: 0, lastMessageTime: 0 }
         if (key === 'qqProtocol') return ctx.qqProtocol
+        if (key === 'ntFriendApi') return ctx.ntFriendApi
+        if (key === 'ntGroupApi') return ctx.ntGroupApi
         return undefined
       })
     }
@@ -102,6 +109,12 @@ describe('dashboard routes', () => {
       const body = await res.json()
       expect(body.success).toBe(true)
       expect(body.data.os).toBe('Linux')
+    })
+
+    it('answers 503 while the NT protocol is off', async () => {
+      ctx.get.mockImplementation(() => undefined)
+      const res = await createTestApp(createDashboardRoutes(ctx)).request('/device-info')
+      expect(res.status).toBe(503)
     })
 
     it('returns 500 on error', async () => {

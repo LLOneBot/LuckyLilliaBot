@@ -14,7 +14,7 @@ vi.mock('@/common/globalVars', () => ({
   selfInfo: { uid: 'u', uin: '123456', nick: 'n', online: true },
 }))
 
-const { checkEmail, DEFAULT_EMAIL_CONFIG, EmailSchema } = await import('@/common/emailConfig')
+const { checkEmail, DEFAULT_EMAIL_CONFIG, EmailSchema } = await import('@/emailNotification/config')
 const { emailSettings } = await import('@/main/builtinConfig/email')
 const { default: PluginService, PluginConfigError, SECRET_MASK } = await import('@/plugin')
 

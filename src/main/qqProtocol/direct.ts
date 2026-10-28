@@ -20,15 +20,19 @@ import {
   getSessionFilePathForUin,
 } from './direct-lib'
 import type { QrCodeResult, QrPollResult } from './direct-lib'
-import { getCdn, getAuthTokenPageUrl } from '@/common/utils/environment'
+import { getCdn, getAuthTokenPageUrl, lockProtocol } from '@/common/utils/environment'
 import { overwriteMachineGuid } from './direct-lib/machineGuid'
 import { getActiveProfile } from './direct-lib/profiles'
 import { updateAuthToken } from './direct-lib/sign'
 import { authTokenUtil } from '../config'
 import { setLoginState } from '../llbot-ipc'
 import { version } from '../../version'
-import { startAuthTokenWatcher } from './direct-lib/authTokenWatcher'
+import { startAuthTokenWatcher, stopAuthTokenWatcher } from './direct-lib/authTokenWatcher'
 import { QQProtocolBase } from './base'
+
+// Outlives the protocol plugin: native sign binds its relay to the first client and cannot rebind, so switching
+// the plugin off only disconnects it and switching it back on picks the same one up
+let sharedClient: DirectProtocolClient | null = null
 
 /** 持有的 DirectProtocolClient (direct-lib/client.ts) 是底层连接, 别跟本类混淆 */
 export class DirectQQProtocol extends QQProtocolBase {
@@ -39,6 +43,8 @@ export class DirectQQProtocol extends QQProtocolBase {
   private directQrResult: QrCodeResult | null = null
   private directPollResult: QrPollResult | null = null
   private directStopHeartbeat: (() => void) | null = null
+  // What bindDirectClientEvents attached, so stop() can take this instance off the shared client
+  private clientListeners: [string, (...args: any[]) => void][] = []
   private reconnectTimer: NodeJS.Timeout | null = null
   private manualLogout = false
   // 拉新码或重建 client 时 ++, 旧的 poll 循环见它变了就退出
@@ -51,9 +57,13 @@ export class DirectQQProtocol extends QQProtocolBase {
   private static readonly QR_AUTO_REFRESH_LIMIT = 10
   private static readonly RECONNECT_MS = 5_000
   private static readonly RECONNECT_MAX_MS = 60_000
+  // A quick login that started while another init ran waits this long for that one
+  private static readonly QUICK_LOGIN_WAIT_MS = 60_000
 
   // WebUI 快速登录或登录成功时设置, 下次 initDirectClient 用它 loadSession; 优先于 -q
   private runtimeUinOverride: string | null = null
+  // Why the last session restore did not get online: init falls back to QR silently, quick login reports it
+  private restoreError: string | null = null
 
   constructor(ctx: Context) {
     super(ctx)
@@ -75,6 +85,28 @@ export class DirectQQProtocol extends QQProtocolBase {
     startAuthTokenWatcher(this.onAuthTokenValid.bind(this), this.logger)
   }
 
+  /** Disconnects but keeps the saved session, so switching the plugin back on logs in without a QR code. */
+  protected async stop(): Promise<void> {
+    stopAuthTokenWatcher()
+    // Cancels a QR poll or an init still running
+    this.qrPollToken++
+    this.initToken++
+    if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null }
+    if (this.directStopHeartbeat) { this.directStopHeartbeat(); this.directStopHeartbeat = null }
+    const client = this.directClient
+    this.directClient = null
+    this.directQrResult = null
+    this.directPollResult = null
+    if (client) {
+      // Before disconnecting: the close handler would schedule a reconnect
+      for (const [event, listener] of this.clientListeners) client.off(event, listener)
+      this.clientListeners = []
+      client.clearSession()
+      client.disconnect()
+    }
+    await super.stop()
+  }
+
   /** session-expired 会 clearSession, 所以 isLoggedIn 能反映凭据作废; 再加上 TCP 状态 */
   public get_is_connected(): boolean {
     return !!this.directClient?.isConnected && !!this.directClient?.isLoggedIn
@@ -93,7 +125,10 @@ export class DirectQQProtocol extends QQProtocolBase {
     return listAvailableSessions()
   }
 
-  /** 相当于带 -q <uin> 启动; session 解不开 (换了机器) 时抛错, FE 会提示 */
+  /**
+   * 相当于带 -q <uin> 启动, 等到有结果才返回: 上线了就成功, 没上线就抛出原因, FE 显示后退回扫码。
+   * init 自己失败时只会悄悄退回扫码, 不等结果的话 WebUI 只能干等
+   */
   public async quickLogin(uin: string): Promise<void> {
     if (selfInfo.online) return
     if (!/^\d+$/.test(uin)) throw new Error('invalid uin')
@@ -103,8 +138,19 @@ export class DirectQQProtocol extends QQProtocolBase {
       throw new Error('session 已失效(可能换了机器或加密 key 变了), 请扫码重新登录')
     }
     this.runtimeUinOverride = uin
-    await this.initDirectClient()
-    this.ensureQrLoop()
+    this.restoreError = null
+    try {
+      await this.initDirectClient()
+      // Another init was running: it picks this uin up when it goes round again
+      const deadline = Date.now() + DirectQQProtocol.QUICK_LOGIN_WAIT_MS
+      while (this.directInitInFlight && !selfInfo.online && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, 200))
+      }
+    } finally {
+      this.ensureQrLoop()
+    }
+    if (selfInfo.online) return
+    throw new Error(this.restoreError ? `快速登录失败: ${this.restoreError}, 请扫码登录` : '快速登录没有成功, 请扫码登录')
   }
 
   public async logout(): Promise<void> {
@@ -228,6 +274,7 @@ export class DirectQQProtocol extends QQProtocolBase {
 
   private async doInitDirectClient(authToken: string): Promise<void> {
     this.manualLogout = false
+    this.restoreError = null
     const myToken = ++this.initToken
     this.qrPollToken++
     // 不然会复用上一个账号的码
@@ -265,8 +312,14 @@ export class DirectQQProtocol extends QQProtocolBase {
 
     // 只建一个 client: native sign 的 relay 只绑第一个 client 且无法重绑, 重建会让 relay 发到死掉的旧 client。
     // 换 token / 账号只热切换配置
+    if (!this.directClient && sharedClient) {
+      this.directClient = sharedClient
+      this.bindDirectClientEvents(sharedClient)
+    }
     if (!this.directClient) {
-      this.directClient = new DirectProtocolClient({
+      // Shared for the life of the process, so a protocol chosen after this waits for a restart
+      lockProtocol()
+      this.directClient = sharedClient = new DirectProtocolClient({
         authToken,
         botVersion: `LLBot_${version}`,
         uin: uinArg,
@@ -325,16 +378,22 @@ export class DirectQQProtocol extends QQProtocolBase {
         if (this.initToken !== myToken || this.directClient.getSession() !== session) return
         // 连接留给扫码用: disconnect 会触发 close, native sign 的 relay 也会断
         this.logger.info('Saved session expired, will need QR login: %s', (e as Error).message)
+        this.restoreError = (e as Error).message
         this.directClient.clearSession()
       }
     }
 
+    if (this.initToken !== myToken) return
     if (!this.directClient.isConnected) await this.directClient.connect()
   }
 
-  /** 只在建 client 时调一次 */
+  /** 每个实例接上 client 时调一次 */
   private bindDirectClientEvents(client: DirectProtocolClient): void {
-    client.on('session-expired', (uin: string, error: Error) => {
+    const on = (event: string, listener: (...args: any[]) => void) => {
+      client.on(event, listener)
+      this.clientListeners.push([event, listener])
+    }
+    on('session-expired', (uin: string, error: Error) => {
       const wasOnline = this.onlineEmitted
       selfInfo.online = false
       this.onlineEmitted = false
@@ -363,13 +422,13 @@ export class DirectQQProtocol extends QQProtocolBase {
       }
       this.ensureQrLoop()
     })
-    client.on('error', (err: Error) => {
+    on('error', (err: Error) => {
       this.logger.warn('Direct client error:', err.message)
     })
-    client.on('connected', () => {
+    on('connected', () => {
       this.lastConnectedTime = Date.now()
     })
-    client.on('close', () => {
+    on('close', () => {
       const wasOnline = this.onlineEmitted
       selfInfo.online = false
       if (this.directStopHeartbeat) {
@@ -383,7 +442,7 @@ export class DirectQQProtocol extends QQProtocolBase {
         if (!this.manualLogout) this.scheduleReconnect()
       }
     })
-    client.on('push', (packet: { cmd: string; payload: Buffer }) => {
+    on('push', (packet: { cmd: string; payload: Buffer }) => {
       // Unauthenticated traffic must not postpone the disconnect notification.
       if (client.isLoggedIn) this.lastConnectedTime = Date.now()
       this.ctx.parallel('qq/raw', { cmd: packet.cmd, payload: packet.payload })

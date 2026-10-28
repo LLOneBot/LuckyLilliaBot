@@ -79,6 +79,53 @@ export interface SatoriConfig {
   token: string
 }
 
+export type QQOfficialIntent =
+  | 'GROUP_AND_C2C_EVENT' | 'GROUP_MEMBER_EVENT' | 'INTERACTION' | 'MESSAGE_AUDIT'
+  | 'GUILDS' | 'GUILD_MEMBERS' | 'GUILD_MESSAGES' | 'GUILD_MESSAGE_REACTIONS' | 'DIRECT_MESSAGE' | 'PUBLIC_GUILD_MESSAGES'
+  | 'FORUMS_EVENT' | 'OPEN_FORUMS_EVENT' | 'AUDIO_ACTION' | 'AUDIO_OR_LIVE_CHANNEL_MEMBER'
+
+/** An item of the C2C custom menu */
+export type QQOfficialMenuItem =
+  | { type: 'send_message' | 'link'; name: string; value: string }
+  | { type: 'switch'; name: string; value: string; switchDefault: boolean }
+  | { type: 'menu'; name: string; subMenuItems: { type: 'send_message' | 'link'; name: string; value: string }[] }
+
+/** An item of the group command panel */
+export type QQOfficialPanelItem =
+  | { type: 'command'; name: string; description: string; onlyAdmin: boolean }
+  | { type: 'link'; name: string; description: string; value: string; onlyAdmin: boolean }
+
+export interface QQOfficialConfig {
+  appId: string
+  secret: string
+  sandbox: boolean
+  /** Private bots receive every guild message, public ones only those that @ them */
+  type: 'public' | 'private'
+  intents: QQOfficialIntent[]
+  useMarkdownIfAt: boolean
+  autoStreamText: ('private' | 'group' | 'guild')[]
+  retryWhen: number[]
+  manualAcknowledge: boolean
+  privateSlash: boolean
+  privateMenu: QQOfficialMenuItem[]
+  groupSlash: boolean
+  groupPanels: QQOfficialPanelItem[]
+  endpoint: string
+  gatewayUrl: string
+  userInfoApi: string
+  disableUserNamePersist: boolean
+  debug: boolean
+}
+
+/** builtin:nt-protocol: how the scanned account logs in */
+export interface NTProtocolConfig {
+  /** The pure protocol, or PMHQ bridging an official QQ client */
+  mode: 'direct' | 'pmhq'
+  /** The QQ client the pure protocol passes for; PMHQ ignores it */
+  protocol: 'linux' | 'macos' | 'windows' | 'watch'
+  pmhq: { host: string; port: number }
+}
+
 export interface MilkyHttpConfig {
   host: string
   port: number

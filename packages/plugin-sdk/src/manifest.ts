@@ -1,7 +1,20 @@
+/**
+ * Where the WebUI plugin page lists a plugin, in this order:
+ * - `protocol` 协议端: logs an account in, connects a platform (the NTQQ protocol, the QQ official bot)
+ * - `adapter` 适配器: lets outside frameworks in through a bot protocol (OneBot 11, Satori, Milky)
+ * - `chat` 消息互动: answers messages (auto replies, games)
+ * - `tool` 工具: anything else users switch on for itself (WebQQ, notifications, blocklists)
+ * - `service` 依赖组件: provides services other plugins need (databases, renderers)
+ * - `other` 其他: the rest, and plugins that declare none
+ */
+export type PluginCategory = 'protocol' | 'adapter' | 'chat' | 'tool' | 'service' | 'other'
+
 /** The `llbot` field of a plugin's package.json. Its presence is what marks a package as a plugin. */
 export interface LLBotManifest {
   /** Plain text, or a map keyed by locale such as `zh` / `en`. */
   description?: string | Record<string, string>
+  /** Where the WebUI plugin page lists it; any other value counts as `other`. */
+  category?: PluginCategory
   /** lucide icon name in kebab case, e.g. `message-square`. */
   icon?: string
   /** Loadable, but left out of the WebUI plugin list. */

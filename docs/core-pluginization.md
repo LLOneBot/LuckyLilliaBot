@@ -1,198 +1,89 @@
-# 核心插件化：用依赖图驱动整个启动
+# 核心插件化：扫码协议也是插件
 
-> 把登录协议层、账号门闸、数据库、WebUI 从 `main.ts` 的硬编码里解出来，全部变成依赖驱动的插件。目标是：一个进程跑什么，由启用了哪些插件决定，而不是由启动参数或 `main.ts` 的写死顺序决定——真正走完"万物皆插件"。
+> 已实施。扫码协议层（纯协议 / 官方 QQ 端桥接，登录方式见 §6）、8 个 NT API、`account` 门闸、登录后的数据库 / `Core` / `Store`、扫码登录路由，全部收进内置条目 `builtin:nt-protocol`（`src/main/ntProtocol/`），可以在插件页**运行时**停用 / 启用。WebUI 成了不依赖任何协议的壳。和 QQ 官方机器人（`builtin:qq-official`，见 [official-qq-bot.md](official-qq-bot.md)）是两个独立开关：
 >
-> 本文是设计，尚未实施。基线 `feat/plugin-system @ c8236196`。相关设计见本文末"衔接"一节（官方 QQ bot、配置存储）。
+> | 模式 | 启用 |
+> |---|---|
+> | 只用扫码账号 | `builtin:nt-protocol`（默认） |
+> | 只用官方机器人 | `builtin:qq-official`，停用 `builtin:nt-protocol` |
+> | 两者并存（同进程） | 两个都启用 |
 
-## 1. 为什么
+## 1. 结构
 
-P4 把三个适配器、WebQQ、中立层都插件化了，但**登录协议层本身（`qqProtocol` + 8 个 NT API + `account` 门闸 + 数据库）还是 `main.ts` 写死挂的基础设施**，没进插件系统。这一层没插件化，就带来两个限制：
+`main.ts` 只剩根基础设施：`Log` / `LoggerConsole`、`TimerService`、`ConfigService`、`BotsService`、`PluginService`、`WebuiServer` + `PluginRoutes` / `DashboardRoutes` / `EmailRoutes`，以及一个 `ctx.inject(['config'])` 块（版本日志、logLevel、配置文件监听，**启动时首播一次 `llob/config-updated`**）。其余都由依赖驱动：
 
-- 接官方 QQ bot 时，没法表达"这个进程只跑官方 bot、不跑扫码账号"——现在 `main.ts` 无条件起扫码/直连那套。
-- "开哪个协议"散落在启动参数（`main.ts:98` 的 `isPmhqMode()`）和写死顺序里，而不是统一在插件页管理。
+- **`builtin:nt-protocol`**（`inject: ['config']`）的 apply 依次挂：协议实现（按条目设置里的登录方式选纯协议或 PMHQ，见 §6；单入口，不暴露成两个可并存的开关：两者都叫 `qqProtocol`）、8 个 NT API、`AccountService`、`NTLoginRoutes`（扫码 / 快速登录 / 退出 / auth token 路由），一个 `ctx.inject(['account', 'config'])` 块挂数据库（`${uin}.v3.db`）/ `Core` / `Store`，再加登录横幅、IPC（`setLoginState` / `startIpcServer`）、断线日志
+- 原设计把数据库 / Core / 登录后生命周期拆成 `builtin:store` / `builtin:nt-core` / `builtin:nt-lifecycle` 三个条目，**没有采用**：它们只服务扫码账号，跟着协议条目一起起停最简单，插件页也少三张无法单独操作的卡片
+- 依赖它的条目照旧：三个适配器、WebQQ、邮件通知、中立层的 `NTQQUniversal`（core）都 inject 了 `account` 等服务，协议条目停用时它们回到 PENDING，前端显示"需要先启用 NTQQ 协议"
+- 启用后的波次由 inject 自然得到：`qqProtocol` → `ntFriendApi` / `ntGroupApi` / `ntLoginApi` / `ntSystemApi` 和登录路由；首次 `qq/online` → `account` 放行 → 数据库 / `Store` → `ntUserApi` / `ntMsgApi` → `ntFileApi` / `ntWebApi` → `Core`（`app`）→ 适配器、WebQQ、中立层
 
-补上这一层之后，三种启动模式都只由"启用了哪些插件"决定，无需任何启动开关：
-
-| 模式 | 启用 |
-|---|---|
-| 纯扫码/直连账号（现状） | NT 协议插件 |
-| 纯官方 bot | 官方 bot 插件 |
-| 两者并存（同进程） | 两个都启用 |
-
-机制是现成的：**cordis 的 `inject` 语义就是"依赖的 service 不在 → 依赖它的插件 PENDING（静静等着，不运行、不崩），service 出现 → 自动启动"**。下游（Core/Store/三适配器/WebQQ/中立层）今天已经是用 service 连起来的，只差把协议层本身变成"可启停的条目"——它一停用，它提供的 service 消失，整条 NT 下游自动 PENDING。
-
-## 2. 命门不变量（重连安全）
+## 2. 不变量（重连安全）
 
 > **`service present == 插件 enabled`，不等于 `connected`。连接的通断只走事件，绝不触动 service 的生命周期。**
 
-这是整个设计能不能成立的唯一命门。如果把 NT 协议做成插件后，它提供的 `qqProtocol` / `ntMsgApi` 等 service 在**断线时消失、重连时重新出现**，cordis 会在每次断线重连时把所有依赖它的东西（Core、Store、三适配器、WebQQ、中立层）全部拆掉重建——灾难。
+断线时若 `qqProtocol` 等服务消失、重连时再出现，cordis 会把 Core、Store、适配器、WebQQ、中立层全部拆掉重建。所以：
 
-现有代码已经满足这个不变量，必须守住：
+- `QQProtocolBase` **不能**加 `[Service.check]`（比如 `return this.isConnected()`）。连接状态继续走 `protocol/disconnect` / `qq/online` 事件
+- `account` 是一次性闩：`markOnline()` 只置 `true` 一次，断线重连不翻动
+- 现在服务消失**只有一个原因**：用户在插件页停用了协议条目
 
-- `QQProtocolBase` **没有** override `[Service.check]`（全库 `Service.check` 只有 `account.ts:25` 一处）。所以 `qqProtocol` 从 `ctx.plugin()` 挂上那刻起就恒 present，和 TCP/WS 是否连通无关。
-- 断线/重连是 service **内部**的事：Direct 的 `'close'` → `scheduleReconnect()`，PMHQ 的 `ws.onclose` → `reconnect()`，两者只 `ctx.parallel('protocol/disconnect')` **发事件**，**不撤 service**。
-- `account` 是一次性闩：`markOnline()` 只置 `true` 一次、全文件无处置回 false（`account.ts:35-42`），`[Service.check]` 返回 `online`（`account.ts:25`）。一旦上线就永久 present，断线重连不翻动，下游不抖。三个 `protocol/disconnect` / `session-expired` 消费者（`emailNotification.ts`、`universal/ntqq/index.ts`、`milky/adapter.ts`）都只改状态/发信，无一 dispose 插件。
+## 3. 运行时停用：协议层的清理
 
-**硬约束：改造时绝不给 `QQProtocolBase` 加 `[Service.check]`（例如 `return this.isConnected()`）。** 连接状态继续走 `protocol/disconnect` 事件通道。这一条写进 review checklist。
+`QQProtocolBase[Service.init]` 返回 `stop()`，cordis 卸载条目时 await 它。停用和断线不同，**不发 `protocol/disconnect` / `qq/session-expired`**：消费者正一起被卸载，邮件通知也不该报一次用户主动的"掉线"。
 
-## 3. 目标依赖图
+- 基类：`disposed` 标志让二维码循环和 `maybeEmitOnline()` 停下；清断线检测定时器和回调；`selfInfo` 清空成未登录；IPC 的登录状态回到 `initializing`
+- 直连：停 auth token 监听（`stopAuthTokenWatcher()`：`unwatchFile`、清重试、清 `lastValidToken`，不然再启用时同一个 token 不会再触发登录）；`qrPollToken` / `initToken` 自增让在途的扫码轮询和 init 退出；清重连定时器、停心跳；**先**从 client 摘掉本实例的监听（不然 `close` 会安排重连），再 `clearSession()` + `disconnect()`。存盘的 session 不删，再启用时直接恢复，不用重新扫码
+- **`DirectProtocolClient` 跨实例共用**（`direct.ts` 的模块级 `sharedClient`）：native sign 的 relay 只绑第一个 client、无法重绑，所以停用只断开它，再启用的新实例接着用同一个对象（走"已有 client"分支：换 token / uin / guid、清 session），只重新挂自己的监听
+- PMHQ：探测 token 自增、清重连定时器、置空 ws 的四个回调后关闭（不然 `onclose` 会重连）、清响应监听；`waitConnected()` 在停用后拒绝而不是永远等
+- 邮件通知的 disposer 改用 `ctx.get('qqProtocol')?.offDisconnect()`：协议条目先没了的时候它已经不在
+- `startIpcServer()` 进程级、幂等，停用不关：桌面端一直靠它轮询登录状态
 
-### 留在根基础设施（继续 `main.ts` 里硬编码 `ctx.plugin()`）
+## 4. 账号 / 数据库
 
-无 inject（或仅 inject `timer`）、无条件需要、且是 PluginService 自身运转的前提：
+- `account` 由协议条目提供，停用后**完全不存在**（比"存在但 check=false"更干净）。官方机器人以 AppID 为身份，不碰 `account` / `selfInfo`
+- 数据库仍是保守档：在 `account` 门后、路径 `${uin}.v3.db`。不能为了让纯官方进程也有数据库就让它在登录前起：那时拿不到 uin，只能落 `default.v3.db`，老用户扫码登录后会落到空库，丢掉 shortId 映射、文件缓存。所以纯官方进程没有 `database`；官方机器人真要数据库时，另给它一个按 `qq:<appid>` 取路径的实例
+- 原设计要求登录后在 account 门后再广播一次 `llob/config-updated`，那是按账号存配置时代的约束。实例模型下配置启动就定了，改成启动时广播一次（日志文件开关只从这个事件拿），`Core` 的 ffmpeg 路径改成 `start()` 里直接读自己的配置
 
-| 节点 | 提供 |
-|---|---|
-| `Log` / `LoggerConsole` + `bindLoggerFactory` | 日志 exporter |
-| `TimerService` | `timer` |
-| `ConfigService` | `config`（无 inject，容忍空 uin） |
-| `BotsService` | `bots` |
-| `PluginService` | `plugins` |
-| `WebuiServer` | `webuiServer`（inject 降到 `['config']`，见 §7） |
-| `PluginRoutes` | 无（inject `webuiServer`+`plugins`，无 NT 依赖） |
-| `DashboardRoutes` / `EmailRoutes` | 路由注册器，已是纯 inject 驱动 |
-| 进程级 `unhandledRejection` / `uncaughtException` | — |
+## 5. WebUI 壳
 
-`PluginRoutes` 留根是关键：它不碰 NT，官方-only 进程也能挂出 `/api/plugins` 管理页，解开"要靠 WebUI 开官方 bot，WebUI 却依赖 NT"的鸡生蛋。
+- `WebuiServer.static inject = ['config']`，构造时自己读 `ctx.config.get().webui`，内建路由只有 config、`login-info`、logs、鉴权中间件、静态文件和两张运行时路由表的分发
+- 扫码登录相关路由（`/api/login-qrcode`、`/api/quick-login-list`、`/api/quick-login`、`/api/logout`、`/api/auth-token`）是 `NTLoginRoutes`（`inject: ['webuiServer', 'ntLoginApi', 'qqProtocol']`），协议停用时经路由表 fallback 返 JSON 404。`routes/authToken.ts` 对 `authTokenWatcher` 的静态 import 留着：它现在只在协议条目里被用到
+- `/api/config` 和 `/api/login-info` 带 `ntProtocol`（`!!ctx.get('qqProtocol')`）
+- `DashboardRoutes` 只 inject `webuiServer`，NT 服务每次请求 `ctx.get()`：进程 / 系统资源总有；好友、群、收发数、QQ 资源只在扫码账号登录后才有；`/api/device-info` 在协议停用时回 503
+- 前端没有扫码登录门，读完 `/api/config` 就进主界面。扫码登录在 `builtin:nt-protocol` 自己的设置页「NTQQ 协议」（插件自己的界面 `src/main/ntProtocol/client/`：`NTProtocolPage.tsx`、`QQLogin.tsx`、`AuthTokenForm.tsx`、`LoginMethod.tsx`，只用 plugin SDK，见 [plugin-system.md](plugin-system.md)"内置插件的界面"；页面 id `ntqq`，order 5）：协议启用时在侧边栏，停用后卡片的「前往设置」仍能打开。页面每 3 秒轮询 `/api/login-info`（壳路由，协议停用也在，停用时也问：登录方式要用它的 `pins`）和 `/api/auth-token/status`（协议启用时才问）。顶部是登录方式（§6），下面依次显示：未启用 / 协议启动中 / 连不上 PMHQ（官方 QQ 端桥接时："正在连接 PMHQ（地址:端口）"，提示先启动 QQ 和 PMHQ）/ Auth Token 表单（`AuthTokenForm`，内联；原来那个不能关的弹框会盖住整个 WebUI）/ 快速登录和扫码（`QQLogin`，桥接时二维码来自 QQ 客户端）/ 已登录账号卡片（在线状态；纯协议可退出登录，桥接的登录归 QQ 客户端管）。全局设置弹框里的「退出 QQ」挪到了这里
+  - 侧边栏账号、WebQQ 按账号的持久化、QQ 版本号都只在页面加载时取，所以账号登录后要刷新整页。NTQQ 页在自己打开期间看到有人登录（打开时没人在线，或者在线的换了一个）就立刻刷新；在别的页面时由外壳的 `useAccountReload()`（`stores/accountStore.ts`，每 5 秒问 `/api/login-info`）发现并刷新，原来"不在 NTQQ 页时自动恢复的登录不更新侧边栏"的问题因此没有了。反方向不刷新：已登录的账号掉线时卡片显示"离线"，用户点「重新登录」才切到扫码，免得断线重连期间自动去拉二维码
+  - 快速登录（直连）：`POST /api/quick-login` 等到有结果才返回。`DirectQQProtocol.quickLogin()` 等 init 跑完（另一个 init 正在跑时最多再等 60 秒，它转回来会用上这个 uin），上线了就成功，没上线就抛出原因（`restoreError`：session 恢复时 `registerOnline` 的报错），路由回 500 带这句话。原来 init 恢复失败只记一行 info 就悄悄退回扫码，请求照样回成功，页面一直停在"正在登录"。前端：按钮显示"正在登录 <昵称>…"直到有结果；成功立刻轮询一次（不等 3 秒）进入"登录成功，正在刷新"；失败把原因留在页面上的红框里（toast 容易错过），并切到扫码
+  - 主界面顶部的状态提示（`components/layout/StatusNotices.tsx`）按插件说明谁卡在哪，每行一件事、带跳转按钮，指向的那页本身不显示那一行（owner 2026-10-28 选的做法：只说哪些插件需要哪个账号，免得用户以为所有账号都得登录）：
+    - 有启用的插件因为缺 `account` 停在 PENDING →"OneBot 11、WebQQ 要等 NTQQ 账号登录后才会运行"「去登录」；NTQQ 协议停用时是"…需要启用 NTQQ 协议才会运行"「前往插件页」。名字按插件列表里实际在等的算（超过 3 个写"等 N 个插件"），不是写死的适配器清单
+    - 没有插件在等 NTQQ 时不提它，除非一个在线的账号都没有（`/api/bots` 没有 ONLINE 的 bot）：那时说"NTQQ 协议的 QQ 账号还没有登录"（登录过则"已离线"）
+    - QQ 官方机器人启用时说它的实际状态：没能启动（原因）、`notice`（"还没有填写 AppID 和 AppSecret"）、没有连上开放平台；"正在连接"只在没有任何账号在线时说「去设置」
+    - 其它运行出错的插件汇总一行（只有一个时带原因）「前往插件页」；没有启用任何协议端（插件页"协议端"分类的插件，第三方的也算）、也没有在线的 bot 时说"没有启用任何协议端"
+    - `/api/bots` 每 5 秒问一次，它和插件列表都回来之前不显示
+  - `/api/login-info` 原来带 `webui`（生效的 WebUI 地址），给扫码页在登录后判断"WebUI 被关掉 / 换了端口"并跳转。那是按账号存配置的年代（登录才切换配置）的逻辑，实例模型下登录前后配置相同，连同前端的跳转和 FE `vite.config.ts` 的 `__WEBUI_DEV_PORT__` 一起删了
 
-### 变成可启停的 builtin 条目
+## 6. 登录方式：纯协议 / 官方 QQ 端桥接
 
-- `builtin:nt-protocol`：协议实现 + 8 个 NT API + `AccountService`（§4）
-- `builtin:store`：`Database` + `SQLiteDriver` + `Store`（§5）
-- `builtin:nt-core`：`Core`（`app`）（§5）
-- `builtin:nt-login-routes`：WebUI 的扫码/快速登录路由（§7）
-- `builtin:nt-lifecycle`：登录后的 config 重解析+广播等 account 门后的裸副作用（§6）
-- 官方 bot：第二个中立层 producer，单独条目（§8）
-- 既有的 `builtin:onebot11/satori/milky/webqq/email-notification/ntqq-universal` 不变
+owner 2026-10-28：NTQQ 设置页可以选登录方式，纯协议（多种协议可选）或官方 QQ 端桥接。原来只能用启动参数定：带 `--pmhq-port` 是 PMHQ，否则直连，协议看 `--protocol` / `-p` / 环境变量 `PROTOCOL`。
 
-### 目标 main.ts 形态（无任何 `ctx.inject([...], cb)` 块）
+- **设置**：`builtin:nt-protocol` 有了配置（`NTProtocolSchema`，`src/main/builtinConfig/ntProtocol.ts`；类型 `NTProtocolConfig` 在 `common/types.ts`），存在 `plugins.json` 的条目里：`mode`（`direct` 纯协议 / `pmhq` 官方 QQ 端桥接，默认 direct）、`protocol`（linux / macos / windows / watch，默认 linux，只对纯协议有意义）、`pmhq`（`host` 127.0.0.1、`port` 13000）。`check` 只拦桥接时地址为空
+- **启动参数优先**（`common/utils/environment.ts` 的 `protocolPins()`，进程内算一次 `launchPins()`）：`--pmhq-port`（加 `--pmhq-host`）锁定桥接和地址；有 `LL_IPC_PIPE` 而没有 `--pmhq-port` 锁定纯协议（桌面端无头模式：它自己管 QQ，WebUI 改成桥接会去连一个它没开的 PMHQ）；`--protocol` / `-p` > `PROTOCOL` 锁定协议。空值不算（compose 里没设的变量会传 `PROTOCOL=`），不认识的值仍是 linux。有 `LL_IPC_PIPE` 时 flag 记成桌面端传的（`by: 'desktop'`），提示"由 LuckyLillia 桌面端指定"，用户知道去哪改。docker 的 `PROTOCOL_MODE=pmhq` 走 `--pmhq-port`，同样锁定
+- **生效的选择**：协议条目 apply 时 `resolveProtocolSelection(设置)`（锁定的字段盖过设置）→ `setProtocolSelection()`，再按 `mode` 挂 `DirectQQProtocolClient` 或 `PmhqQQProtocolClient`。`isPmhqMode()` / `currentPmhqTarget()`（PMHQ 客户端构造时读）/ `getProtocol()` 都看这个选择；协议条目从没 apply 过时退回只看 argv，跟原来一样
+- **协议一个进程只能定一次**：`DirectProtocolClient` 进程内共用（§3，native sign 的 relay 不能重绑），所以 `doInitDirectClient` 建它之前 `lockProtocol()`，之后 `getProtocol()` 一直返回锁定的那个，`/api/login-info` 的 `lockedProtocol` 告诉前端，改了要重启 LLBot。建 client 之前（还没录入 Auth Token、桥接模式）改协议立刻生效：快速登录列表（session 按 (uin, 协议) 分文件，只列当前协议的）、扫码都用新协议。为此 profile 不能在模块加载时就解析：`appInfo.ts` 原来顶层 `const p = getActiveProfile()`，`client.ts` 的 `DEFAULT_CONFIG`、`telemetry.ts` 的版本串也在加载时读 `AppInfo`，都改成读的时候才取；`getActiveProfile()` 按 `getProtocol()` 的结果缓存（锁定前会跟着变）
+- **桥接固定用 linux 的 profile**（启动参数另给的除外）：PMHQ 也读 profile（highway 的 appId、`SsoInfoSync` 的设备信息），原来不带 `--protocol` 就是 linux，不能因为纯协议选过 macOS 就在桥接里换掉。从纯协议切到桥接时 `getProtocol()` 也回到 linux，切回纯协议再回到锁定的那个
+- **运行时切换**：保存走 `fiber.update`，协议条目用 `ctx.on('internal/update')` 拦截（见 [cordis-upgrade-notes.md](cordis-upgrade-notes.md)）：只有换了模式、或桥接时换了 PMHQ 地址才放行重启（重挂协议层，当前账号登出，依赖 `account` 的都跟着重来）；只改协议或纯协议下改 PMHQ 地址就地更新选择，不断开已登录的账号
+- **`/api/login-info`** 多了 `protocol`（生效的 profile）、`lockedProtocol`、`pins`，桥接时还有 `pmhq: { host, port, connected }`
+- **前端**（`src/main/ntProtocol/client/LoginMethod.tsx`，纯逻辑在 `loginOptions.ts`；文件名不能叫 `loginMethod.ts`：Windows 上跟 `LoginMethod.tsx` 只差大小写，`./LoginMethod` 会解析到它；配置经 SDK 的 `usePluginConfig()` 读写）：NTQQ 页顶部一行"登录方式：纯协议 · Linux"，下面是锁定说明（"协议由启动参数 --protocol 指定"，全锁定时"由 LuckyLillia 桌面端指定，这里改不了"、没有「更改」）和"已改为 macOS，重启 LLBot 后生效"（这时上面一行写的是正在跑的协议）。「更改」展开表单：两张选项卡片；纯协议有协议下拉（"不同客户端的登录记录分开保存，换了以后要重新登录"，手表另有琥珀色提示能用的接口最少）；桥接有 PMHQ 地址和端口。账号在线时换模式提示"保存后会断开当前登录的 QQ 账号"，协议已锁定时提示要重启。表单编辑的是存盘的设置，锁定的字段只显示锁定值、不写进去，以后去掉启动参数时还是用户自己选的。保存换了模式时页面置 `relogin`，不让旧账号的卡片挂着"离线"
+- 插件停用时页面照样显示登录方式，可以先选好再启用
 
-```
-ctx.plugin(Log); ctx.plugin(LoggerConsole, { levels: { default: isDebugEnabled() ? 3 : 2 } })
-bindLoggerFactory(name => ctx.logger(name))
-ctx.plugin(TimerService)
-ctx.plugin(ConfigService)
-ctx.plugin(BotsService)
-ctx.plugin(PluginService, { file, roots, hmr, builtins: builtinPlugins })
-ctx.plugin(WebuiServer)        // static inject = ['config']，波 0 即起
-ctx.plugin(PluginRoutes); ctx.plugin(DashboardRoutes); ctx.plugin(EmailRoutes)
-process.on('unhandledRejection', ...); process.on('uncaughtException', ...)
-```
+## 7. 验证
 
-### cordis 的起停波次（无显式 sequencing，图自己算出来）
+- 单测：`test/unit/bootstrap/ntProtocol.test.ts`（条目整体：服务分登录前 / 后出现、停用后全部消失且依赖方回到 PENDING、再启用再登录恢复；按设置挂纯协议或桥接，只改协议不重挂、换模式和桥接换地址才重挂）；`test/unit/environment.test.ts`（`protocolPins` 各种写法、`resolveProtocolSelection`、选择 / 锁定后的 `getProtocol()`）；`test/webui/routes/login.test.ts`（`login-info` 的新字段）；`test/unit/plugin-clients/ntProtocolLoginOptions.test.ts`（登录方式的显示和锁定逻辑）；`test/unit/qqProtocol/protocolStop.test.ts`（直连停用的清理、二维码循环停止、再启用复用同一个 client、PMHQ 停用后不再重连）；`builtins.test.ts` / `service-registry.test.ts` / WebUI 路由测试按新结构更新
+- 不登录 QQ 的端到端（照 [plugin-system.md](plugin-system.md) 的方法）：PMHQ 模式和直连（无 auth token）模式下，运行时停用 → `/api/login-*` 404、依赖方 PENDING、没有残留的重连日志；再启用 → 协议重新连接、路由回来。`plugins.json` 里停用协议后启动，日志里没有任何协议层输出
+- 登录方式（2026-10-28，浏览器里，临时实例不带 `--pmhq-port`、没有 Auth Token）：改成 macOS 立刻生效（`login-info` 的 `protocol` 跟着变，不用重启）；改成桥接（端口 1）→ 协议层重挂，页面显示正在连接 PMHQ；改回纯协议回到 Auth Token 表单；带 `--protocol watch` 启动时协议下拉置灰、写明来源；停用协议时也能改，保存后启用按新方式挂载。桌面端锁定和"重启后生效"用 Playwright 改 `/api/login-info` 的 `pins` / `lockedProtocol` 看的
+- WebUI（PMHQ 模式，浏览器里）：直接进主界面、「去登录」到 NTQQ 页、运行时停用协议后提示和侧边栏入口消失而卡片仍能打开页面（显示未启用）、再启用回到扫码；已登录卡片、掉线 → 重新登录 → 恢复在线、登录完成后自动刷新、Auth Token 表单提交、退出登录的确认，用 Playwright 改 `/api/config` / `/api/login-info` / `/api/auth-token/status` 的响应验证
 
-- **波 0**：`timer` `config` `bots` `plugins` `webuiServer`（只需 config）→ 三个路由注册器挂载。**WebUI + 插件页此刻已可用，零 NT 依赖。**
-- **波 1**（`builtin:nt-protocol` 启用）：`qqProtocol`（inject config，立即起）→ `ntFriendApi/ntGroupApi/ntLoginApi/ntSystemApi`（仅 inject qqProtocol）就绪；`nt-login-routes` 随 `ntLoginApi` 挂；`AccountService` 注册但 check=false。协议开始跑登录 loop。
-- **波 2**（首次 `qq/online` → `account.check` 翻真）：`builtin:store` 起 → `ntMsgApi/ntUserApi`（inject store）→ `ntFileApi/ntWebApi` → `builtin:nt-core`（`app`）→ `nt-lifecycle` 做登录后那次 config 重解析+广播。
-- **波 3**（account + 全 NT API + app + store + bots 齐）：`ntqq-universal`（core）、三适配器、webqq、email → `EmailRoutes`。
+## 8. 未验证 / 遗留风险
 
-官方-only（`builtin:nt-protocol` 停用）：波 1 之后一切（含 `account`）全部 absent，NT 下游全 PENDING 不崩，shell + 插件页照常波 0 起。
-
-> 一个反直觉的事实（审计发现）：今天 8 个 NT API 里，只有 `ntFriendApi/ntGroupApi/ntLoginApi/ntSystemApi`（仅 inject qqProtocol）能在登录前就绪；`ntMsgApi/ntUserApi` 直接 inject `store`、`ntFileApi/ntWebApi` 经 `ntUserApi` 间接依赖 store，而 store 在账号门后——所以这 4 个本来就是登录后才 active。图化后这个分档由 inject 自然得到，不用手排。
-
-## 4. NT 协议条目 `builtin:nt-protocol`
-
-apply 内一次性注册整棵子树，随 fiber 卸载：
-
-```
-apply(ctx) {
-  ctx.plugin(isPmhqMode() ? PmhqQQProtocolClient : DirectQQProtocolClient)  // 提供 qqProtocol
-  ctx.plugin(NTFileApi); ...; ctx.plugin(NTSystemApi)                        // 8 个 NT API，各自独立条目
-  ctx.plugin(AccountService)                                                 // 提供 account
-  // 内聚 main.ts 现在两个 inject 块里属于协议生命周期的裸副作用：
-  const config = ctx.config.get()
-  setConfigLogLevel(config.logLevel); applyDebugLevel(ctx)
-  ctx.on('llob/config-updated', c => { setConfigLogLevel(c.logLevel); applyDebugLevel(ctx) })
-  ctx.on('qq/online', handleOnline); if (selfInfo.online && selfInfo.uid) handleOnline()
-  ctx.on('llbot/self-nick-changed', ...); ctx.on('protocol/disconnect', ...)
-  startIpcServer(); setLoginState({ state: 'initializing' })
-}
-```
-
-**提供的 service**：`qqProtocol`、`ntFileApi`…`ntSystemApi`、`account`。
-
-**关键收益**：今天 `AccountService` 无条件挂（`main.ts:108`），`account` 永远 present、只是 check=false；收进条目后，**停用 NT → `account` 完全 absent**，下游因缺 service 而 PENDING，比"present 但 check=false"更强更干净。语义依据：`AccountService` 只依赖 `selfInfo` 全局 + `qq/online` 事件，二者只由 NT 层产生（审计穷举确认所有 `selfInfo` 写点都在 `qqProtocol/*`、`dispatcher.ts`、`user.ts`）。
-
-**8 个 NT API 保持各自独立条目、各 inject `qqProtocol`**，不折进协议本体：它们已形成子图（user→group+friend+store；msg→user+file+store；file→user；webapi→user，webapi 根本不碰 qqProtocol），独立条目让它们的生命周期跟随 `qqProtocol` 的存在性自动 PENDING/ACTIVE。
-
-**direct vs pmhq：单入口，内部按 arg/config 选**，不暴露成两个可并存的 toggle。两个实现都 `super(ctx, 'qqProtocol')` 同名 service，同时启用必冲突；native sign addon 进程常驻、relay 绑定一次不可重绑，运行时热切不干净。真正要并存的"官方 bot"是第二个中立层 producer（§8），不提供 `qqProtocol`/`account`。
-
-## 5. account / uin / 数据库 解耦
-
-- **account 由 NT 条目提供**（§4）。一次性闩 + `Service.check=online` 是重连安全的基石（§2）。
-- **官方-only 的 selfInfo**：无人填充，`selfInfo` 保持 `{uid:'', uin:'', nick:'', online:false}`，**不崩**。所有启动/构造期读点都在门后（DB path、`NTQQBot.selfId=selfInfo.uin`）或在 `qq/online`/`nt/*` handler 内永不触发；唯一启动期裸读是 `ConfigService.get()`（空 uin 已 handle）和 WebUI 几个路由读空串（不抛）。官方 bot 以 appid 身份、satori 守卫 `platform !== 'llonebot'` 天然隔离，绝不喂假 uin 进 account。
-- **数据库拆成两个条目**：
-  - `builtin:store` = `Database` + `SQLiteDriver` + `Store`
-  - `builtin:nt-core` = `Core`（`app`），保留 `core.ts:87` 的 NT API 依赖，自然等登录
-
-> **store 的 gating 定为保守档（重要，否决了评审原方案的"默认档"）**：`builtin:store` **inject `['account']`**，DB path 继续用 `account.uin`，即 `${uin}.v3.db`。官方-only 首版就先没有 store。
->
-> 评审原方案曾建议"默认档"：store 只 inject `['config']`、在波 0 就起、path 由身份服务取 key，好让官方-only 也有 store。**这条被否决**——因为 SQLiteDriver 的 path 在构造时固定，store 若不等 account，登录前（且未带 `-q <uin>`）根本拿不到 uin，只能落 `default.v3.db`。老用户 QR 登录升级后就会落到空库，丢掉 `${uin}.v3.db` 里的 message shortId 映射、文件缓存、uix 表——撤回/引用/文件转发静默失效。"官方-only 有 store"和"NT 维持 `${uin}.v3.db`"在单一 store 条目下互斥。保守档让 NT 行为零变化；官方 bot 真需要 store 时，另给它一个按 `qq:<appid>` 取 path 的**第二个** store 实例，而不是让一个 store 同时服务两种身份。
-
-## 6. 登录后的 config 重解析+广播：必须留在 account 门后
-
-`main.ts` 的 account inject 块顶部 `ctx.parallel('llob/config-updated', config)` 广播一次：日志文件开关、Core 的 ffmpeg 路径只从这个事件拿值，`Store` 的 `msgCacheExpire` 也靠它。配置是实例的、启动时就绑定（config-storage.md §7），登录不再切换配置文件，WebUI 也不再在登录时换端口。
-
-**这一步必须放进一个 account-gated 的 lifecycle 条目（`builtin:nt-lifecycle`，inject `['account','config']`），在登录后执行一次重解析+广播。** 绝不能挪到永远在的 shell：shell 在波 0、uin 为空，`config.get(false)` 走 default 且不缓存，登录后没有任何东西再触发第二次广播 → WebUI 永远停在 default 端口、logLevel/msgCacheExpire 永远是 default。这是实打实的 NT 回归，写进硬约束。
-
-## 7. WebUI 拆成"永远在的壳 + NT 专属路由"
-
-现状 `WebuiServer.static inject = ['qqProtocol', 'ntLoginApi', 'config']`（`server.ts:42`）——官方-only 两者皆无 → 壳永不启动 → 到不了插件页去启用官方 bot。`server.ts` 注释已声明"WebUI 要在登录前起、只依赖那时就绪的服务"，代码却自相矛盾列了 NT 服务。改法：
-
-1. **`WebuiServer.static inject` 降到 `['config']`**。`config` 波 0 就绪，壳立刻起。
-2. **构造函数必须真的去读 config**（落地必改，不是口味）：现状靠 `main.ts:136` 把 `config.webui` 作为构造参数传入；降 inject 后提到顶层 `ctx.plugin(WebuiServer)` 不传第二参，`this.config` 会是 `undefined`，`start()` 的 `if (!this.config?.enable) return` 直接短路，WebUI 根本不起。构造函数内改成 `this.config = ctx.config.get().webui`（`inject=['config']` 保证构造时 `ctx.config` 已就绪）。热更新已由 `server.ts` 的 `llob/config-updated` 监听处理。
-3. **`initServer()` 只留与 NT 无关的内建路由**：config、logs、auth 中间件、静态文件 + SPA fallback、两个 runtime-table fallback。
-4. **扫码/快速登录路由拆成 `builtin:nt-login-routes` 条目**（照 `DashboardRoutes` 范式，inject `['webuiServer','ntLoginApi','qqProtocol']`，用 `ctx.webuiServer.route()` 挂 `/api/login-qrcode`、`/api/quick-login`、`/api/quick-login-list`、`/api/logout`）。NT 不在时这些 path 经路由表 fallback 自然返 404 JSON，前端拿空快速登录列表/失败会自动切扫码。
-5. **断开 authToken 路由对 Direct 的静态耦合**：`routes/authToken.ts` 模块级 `import { triggerAuthTokenCheck } from direct-lib/authTokenWatcher`，把永远在的壳在 module-eval 期就绑死到 Direct 实现，且 `triggerAuthTokenCheck` 是 Direct 专属（PMHQ 模式不适用）。把整条 auth-token 路由并入 `builtin:nt-login-routes`，trigger 改由 Direct 条目注册为事件/service、路由间接触发。
-
-**官方-only 插件页可达**：`PluginRoutes`（inject `webuiServer`+`plugins`，无 NT）留根。壳波 0 起 → PluginRoutes 随即挂 → 浏览器拿到页面 + `/api/plugins` → 操作员启用官方 bot。鸡生蛋解除。
-
-## 8. 与官方 bot、配置存储的衔接
-
-- **官方 bot** = 第二个中立层 producer：platform ≠ `llonebot`（satori 守卫已隔离）、appid 身份、不提供 `account`/`qqProtocol`、不喂假 uin、经 `ctx.bots.register()` 与 NT 并存；两个都启用就是双协议同进程。本设计只负责让官方-only 能 boot（壳+插件页可达、NT 下游干净 absent），官方 bot 的协议实现本身见其专门设计。
-- **配置存储**：见 [config-storage.md](config-storage.md)。后来改成了实例模型：配置按实例存在 `data/instances/<实例>/`、启动时选定、登录不切换，没有按账号的覆盖层；本方案的装载结构不受影响，builtins 仍从 `ctx.config.get()` 取 bot 设置。
-
-## 9. 分步迁移（每步后 NT 账号体验不变）
-
-每步都能独立验证、独立回滚，默认扫码账号体验在每一步都保持可用。
-
-**Step 1 — WebUI 壳解耦（低风险，收益最高）**
-`server.ts:42` inject 降 `['config']` + 构造读 config；`createLoginRoutes` 拆成 `builtin:nt-login-routes`；断开 authToken 的 direct-lib 静态 import。
-验证：扫码/quick-login/logout/authToken 照常；临时不启用协议 → 壳仍起、插件页可达、`/api/login-*` 返 404。
-回归面：**QR 登录、quick-login、authToken 签名**。
-
-**Step 2 — NT 协议条目（先 `core: true`）**
-`main.ts:98-108` + 登录生命周期副作用搬进 `builtin:nt-protocol`（含 8 NT API + AccountService + IPC/banner/logLevel）。首版设 `core: true`（可成条目、启动期可选，但暂不可运行时 disable），不实现 disable 的 dispose，规避泄漏。
-验证：默认启动波次、登录、`selfInfo` 填充、重连全不变（direct/pmhq 各测一次）。
-回归面：**重连（确认没加 Service.check）、三适配器、中立层、IPC uin 上报/桌面端 banner、登录生命周期**。
-
-**Step 3 — store / nt-core 拆条目**
-`main.ts` 的 account inject 块拆成 `builtin:store`（保守档：inject `['account']`，path 用 `account.uin`）、`builtin:nt-core`（`app`），登录后的 config 重解析+广播进 `builtin:nt-lifecycle`（§6）。
-验证：NT 模式 DB 文件名不变 `${uin}.v3.db`、message cache/shortId 正常；WebUI 登录后迁端口、logLevel/msgCacheExpire 生效。
-回归面：**webqq（直调 `ctx.ntMsgApi`+store）、message_id/shortId、msgCacheExpire、WebUI 登录后迁端口**。
-
-**Step 4 — main.ts 清空 inject 块**
-删两个 `ctx.inject` 块，顶层只剩 §3 清单。
-验证：波次与 Step 3 后一致，纯 inject 驱动。
-
-**Step 5（可选，高风险）— 协议运行时 toggle 的 dispose 补全**
-把 `builtin:nt-protocol` 从 `core:true` 降为可 disable，补 teardown：`QQProtocolBase` 返回 disposer（停 qrLoop、清 disconnectCheckTimer / reconnectTimer、`directClient.disconnect()` / PMHQ `ws.close()`）、`authTokenWatcher` 加 `stopAuthTokenWatcher()`。native sign relay 一次性绑定，可能只能支持"disable 一次不可真正换实现 re-enable"，需实测。
-回归面：**全部 NT 链 + native sign relay（最高风险）**。
-
-**Step 6（独立并行）— 官方 bot 第二 producer 条目**
-见官方 bot 设计。依赖 Step 1（壳可达）；store 用 appid path 另开实例。
-
-**总回归冒烟**（每步后跑）：direct 扫码登录 → 收发群/私聊 → 断网重连 → webqq 收发。
-
-## 10. Owner 决策（含建议默认）
-
-1. **WebuiServer 读 config.webui 的方式** → 默认构造内 `ctx.config.get().webui`，main.ts 彻底无 inject 块。
-2. **nt-protocol 的 core 标志** → 默认首版 `core: true`（启动期可选、不触发 dispose 泄漏），运行时 disable 列为 Step 5。
-3. **store 的 gating** → 定为保守档（inject `['account']`、path 用 uin）。官方 bot 要 store 时另给 `qq:<appid>` path 的第二实例。**不采用去 uin 化的"默认档"**（§5 说明）。
-4. **authToken 路由归属** → 并入 `builtin:nt-login-routes`，trigger 经事件/service 间接触发。
-
-## 11. 未验证 / 遗留风险
-
-- 前端对"无账号的壳 / `/api/login-*` 返 404"的端到端反应，只凭后端返优雅 404 + 协议层 no-op 推断，上线前需真机验证。
-- native sign addon 的 relay 是否绝对不可重绑，只据源码注释与 require 单例推断，`.node` 未反编译；Step 5 能否支持真正 re-enable 需实测，可能最终只支持"disable 一次"。
-- 保守档下数据库仍在 account 门后，无需担心"DB 初始化时 selfInfo.uid 未就位"——但全部 DB 消费者未做广 grep，Step 3 落地时补查。
+- **真机未验证**：扫码登录后停用再启用（应当用存盘 session 免扫码恢复）、直连在线时停用（TCP 断开、native sign 的 relay 在同一个 client 上继续可用）、PMHQ 已登录时停用再启用；在 WebUI 里选 macOS / Windows / 手表后真的扫码登录（原来只经 `--protocol` 验证过）、已登录时在纯协议和桥接之间切换、桌面端带 `LL_IPC_PIPE` 启动时的锁定
+- native sign 的 relay "不可重绑"只据源码注释推断；共用 client 绕开了重绑，但停用期间 relay 收到的请求会因为连接断开失败，要真机确认不会让 native 层 `process.exit`
+- 停用后 `selfInfo` 被清空，个别还在读它的地方（例如 WebQQ 前端缓存的当前账号）要等刷新页面

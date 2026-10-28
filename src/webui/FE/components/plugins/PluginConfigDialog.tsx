@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Loader2, Save, Trash2, X } from 'lucide-react'
 import { Portal, showToast } from '../common'
 import { PluginDescription, PluginStatus } from '../../types/plugins'
@@ -7,7 +7,7 @@ import {
 } from '../../utils/pluginApi'
 import { hydrate, SchemaNode } from './schema/model'
 import { SchemaField } from './schema/SchemaField'
-import { JsonInput } from './schema/inputs'
+import { JsonInput, SecretClearContext } from './schema/inputs'
 import { pluginIcon, pluginTitle } from './meta'
 import DependencyList from './DependencyList'
 import { PluginBoundary } from '../../plugin-host/context'
@@ -42,6 +42,8 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
   const [description, setDescription] = useState<PluginDescription | null>(null)
   const [value, setValue] = useState<unknown>(undefined)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  // Dotted paths of stored secrets emptied in the form
+  const cleared = useRef(new Set<string>())
   const Icon = pluginIcon(plugin)
 
   useEffect(() => {
@@ -76,7 +78,7 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
     setErrors({})
     try {
       // The complete value goes up; the server works out what differs from the defaults
-      await savePluginConfig(plugin.id, value, { ifRev: description?.rev })
+      await savePluginConfig(plugin.id, value, { ifRev: description?.rev, clear: [...cleared.current] })
       showToast('配置已保存，插件已按新配置重启', 'success')
       onClose()
     } catch (e) {
@@ -138,7 +140,11 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
                     <Editor value={value} onChange={setValue} schema={schema} defaults={defaults} errors={errors} />
                   </PluginBoundary>
                 ) : node
-                  ? <SchemaField node={node} value={value} onChange={setValue} path={[]} errors={errors} depth={0} />
+                  ? (
+                    <SecretClearContext.Provider value={path => cleared.current.add(path)}>
+                      <SchemaField node={node} value={value} onChange={setValue} path={[]} errors={errors} depth={0} />
+                    </SecretClearContext.Provider>
+                  )
                   : <JsonInput value={value} onChange={setValue} invalid={!!errors['']} />}
               </div>
             )}

@@ -30,6 +30,10 @@ function stub(name: string) {
     constructor(ctx: Context) {
       super(ctx, name)
     }
+    // What the WebUI shell reads when `config` is the stubbed service
+    get() {
+      return { webui: { enable: false, host: '127.0.0.1', port: 0 } }
+    }
   }
 }
 
@@ -64,7 +68,7 @@ beforeEach(async () => {
   for (const name of ['qqProtocol', 'ntLoginApi', 'config', 'account', 'app', 'store', 'ntMsgApi', 'ntFileApi', 'ntUserApi', 'ntGroupApi', 'ntFriendApi']) {
     await ctx.plugin(stub(name))
   }
-  await ctx.plugin(WebuiServer, { enable: false, host: '127.0.0.1', port: 0 })
+  await ctx.plugin(WebuiServer)
   app = (ctx.webuiServer as unknown as { app: Hono }).app
 })
 

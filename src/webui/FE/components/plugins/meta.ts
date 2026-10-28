@@ -1,7 +1,7 @@
 import {
   Bell, Book, BookOpen, Bot, Brain, Calendar, Clock, Cloud, Code, Cpu, Database, Dice5, FileText, Gamepad2, Gift,
   Globe, Hand, Heart, Image, Languages, LucideIcon, Mail, MessageSquare, Milk, Music, Network, Puzzle, Radio, Repeat,
-  Search, Send, Settings, ShieldBan, Smile, Sparkles, Star, Terminal, Timer, Trophy, Users, Wrench, Zap,
+  Search, Send, Settings, ShieldBan, Smartphone, Smile, Sparkles, Star, Terminal, Timer, Trophy, Users, Wrench, Zap,
 } from 'lucide-react'
 import { PluginState, PluginStatus } from '../../types/plugins'
 
@@ -12,7 +12,7 @@ const ICONS: Record<string, LucideIcon> = {
   'gamepad-2': Gamepad2, gift: Gift, globe: Globe, hand: Hand, heart: Heart, image: Image, languages: Languages,
   mail: Mail, 'message-square': MessageSquare, milk: Milk, music: Music, network: Network, puzzle: Puzzle,
   radio: Radio, repeat: Repeat, search: Search, send: Send, settings: Settings, 'shield-ban': ShieldBan,
-  smile: Smile, sparkles: Sparkles, star: Star, terminal: Terminal, timer: Timer, trophy: Trophy, users: Users,
+  smartphone: Smartphone, smile: Smile, sparkles: Sparkles, star: Star, terminal: Terminal, timer: Timer, trophy: Trophy, users: Users,
   wrench: Wrench, zap: Zap,
 }
 
@@ -28,10 +28,13 @@ export function pluginTitle(plugin: PluginStatus): string {
   return plugin.title ?? plugin.name.replace(/^(@[^/]+\/)?luckylillia-plugin-/, '')
 }
 
-/** Why a pending plugin waits. Services that only exist after login all come down to the login itself. */
-export function pendingReason(plugin: PluginStatus): string | undefined {
+/**
+ * Why a pending plugin waits. Services that only exist after login all come down to the login itself, or to the
+ * NT protocol when that is switched off.
+ */
+export function pendingReason(plugin: PluginStatus, ntProtocolOff = false): string | undefined {
   if (plugin.state !== 'pending' || !plugin.missingDeps.length) return
-  if (plugin.missingDeps.includes('account')) return '等待 QQ 登录'
+  if (plugin.missingDeps.includes('account')) return ntProtocolOff ? '需要先启用 NTQQ 协议' : '等待 QQ 登录'
   return `等待服务：${plugin.missingDeps.join('、')}`
 }
 
@@ -40,6 +43,9 @@ export function pluginDescription(plugin: PluginStatus): string | undefined {
   if (typeof text === 'string') return text
   return text?.zh ?? text?.['zh-CN'] ?? text?.en ?? plugin.description
 }
+
+/** A running builtin that still waits for its settings (PluginStatus.notice). */
+export const NEEDS_SETTINGS = { label: '待配置', className: 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-300' }
 
 export const STATE_LABEL: Record<PluginState, { label: string; className: string }> = {
   active: { label: '运行中', className: 'bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-400' },

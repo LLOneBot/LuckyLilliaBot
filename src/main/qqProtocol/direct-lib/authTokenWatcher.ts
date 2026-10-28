@@ -1,4 +1,4 @@
-import { watchFile } from 'node:fs'
+import { unwatchFile, watchFile } from 'node:fs'
 import { authTokenUtil } from '../../config'
 import { validateAuthToken } from './sign'
 import { authTokenStatus, selfInfo } from '@/common/globalVars'
@@ -37,12 +37,24 @@ export function startAuthTokenWatcher(onValid: OnValid, logger: WatcherLogger): 
   watchFile(file, { interval: POLL_MS }, () => void processTokenFile())
 }
 
+/** Undoes startAuthTokenWatcher, so the protocol plugin can be switched off and on again. */
+export function stopAuthTokenWatcher(): void {
+  if (!started) return
+  started = false
+  unwatchFile(authTokenUtil.getPath())
+  clearRetry()
+  onValidCb = () => { }
+  // Started again, the same token has to log in again
+  lastValidToken = ''
+}
+
 export function triggerAuthTokenCheck(): void {
   if (started) void processTokenFile()
 }
 
 // 处理中又有变化就置 pending, 处理完再跑一次
 async function processTokenFile(): Promise<void> {
+  if (!started) return
   if (processing) {
     pending = true
     return
@@ -88,6 +100,9 @@ async function processOnce(): Promise<void> {
   authTokenStatus.message = ''
   const result = await validateAuthToken(token)
 
+  // Stopped while the validation was out
+  if (!started) return
+
   if (result === 'valid') {
     authTokenStatus.validation = 'valid'
     authTokenStatus.message = ''
@@ -128,7 +143,7 @@ function scheduleRetry(): void {
   clearRetry()
   retryTimer = setTimeout(() => {
     retryTimer = null
-    if (!selfInfo.online) void processTokenFile()
+    if (started && !selfInfo.online) void processTokenFile()
   }, RETRY_MS)
 }
 

@@ -53,16 +53,21 @@ export const PluginPage: React.FC<{ page: PageContribution }> = ({ page }) => {
   // Pending is left alone: right after login the builtins are briefly waiting for their services
   const notice = page.settings && plugin && (plugin.disabled
     ? `「${pluginTitle(plugin)}」已在插件页停用，这里的设置要等它启用后才会生效`
-    : plugin.state === 'failed' ? `「${pluginTitle(plugin)}」运行出错，这里的设置暂时不会生效：${plugin.error ?? '未知错误'}` : undefined)
+    : plugin.state === 'failed' ? `「${pluginTitle(plugin)}」运行出错：${plugin.error ?? '未知错误'}`
+    : plugin.notice ? `「${pluginTitle(plugin)}」${plugin.notice}` : undefined)
+  // What the notice asks for is on this page, not the plugin page
+  const toPlugins = !!plugin && (plugin.disabled || plugin.state === 'failed')
   return (
     <>
       {notice && (
         <div className="card p-4 mb-6 flex items-center gap-3 border border-amber-300/60 dark:border-amber-500/40">
           <AlertTriangle size={20} className="text-amber-500 flex-shrink-0" />
           <p className="flex-1 text-sm text-theme-secondary">{notice}</p>
-          <button type="button" onClick={() => { window.location.hash = 'plugins' }} className="btn-glass text-sm flex-shrink-0">
-            前往插件页
-          </button>
+          {toPlugins && (
+            <button type="button" onClick={() => { window.location.hash = 'plugins' }} className="btn-glass text-sm flex-shrink-0">
+              前往插件页
+            </button>
+          )}
         </div>
       )}
       {/* One boundary per page, so that an error on one page does not stick to the next one of the same plugin */}

@@ -8,7 +8,11 @@
       "@/ntqqapi/types": ["../../ntqqapi/types"],
       "@shared/*": ["../../common/*"],
       "@luckylillia/plugin-sdk/webui": ["../../../packages/plugin-sdk/src/webui.ts"],
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "react": ["./node_modules/@types/react"],
+      "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
+      "react-dom": ["./node_modules/@types/react-dom"],
+      "lucide-react": ["./node_modules/lucide-react"]
     },
     "types": ["vite/client"],
     "jsx": "react",
@@ -25,7 +29,8 @@
     "../../version.ts",
     "../../main/config/defaultConfig.ts",
     "../BE/types.ts",
-    "../../../packages/plugin-sdk/src/webui.ts"
+    "../../../packages/plugin-sdk/src/webui.ts",
+    "../../**/client/**/*"
   ],
   "exclude": ["node_modules"]
 }

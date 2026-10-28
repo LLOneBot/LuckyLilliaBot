@@ -16,19 +16,19 @@ export const PROFILES: Partial<Record<ProtocolName, ProtocolProfile>> = {
 
 export const DEFAULT_PROFILE = LINUX_PROFILE
 
-let _active: ProtocolProfile | null = null
+let _active: { id: ProtocolId; profile: ProtocolProfile } | null = null
 
+/** Follows getProtocol(), which holds still once the pure protocol has a client (lockProtocol). */
 export function getActiveProfile(): ProtocolProfile {
-  if (_active) return _active
-  const id: ProtocolId = getProtocol()
-  const p = PROFILES[id]
-  if (!p) {
+  const id = getProtocol()
+  if (_active?.id === id) return _active.profile
+  let profile = PROFILES[id]
+  if (!profile) {
     console.warn(`[profile] protocol "${id}" 尚未实现, 回退 linux`)
-    _active = DEFAULT_PROFILE
-  } else {
-    _active = p
+    profile = DEFAULT_PROFILE
   }
-  return _active
+  _active = { id, profile }
+  return profile
 }
 
 export function _resetActiveProfileForTest(): void {

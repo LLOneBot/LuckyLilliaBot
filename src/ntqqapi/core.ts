@@ -106,7 +106,7 @@ class Core extends Service {
     this.startupTime = Math.trunc(Date.now() / 1000)
     this.registerListener()
     registerDispatcher(this.ctx)
-    setFFMpegPath('')
+    setFFMpegPath(this.config.ffmpeg || '')
     this.ctx.on('llob/config-updated', input => {
       Object.assign(this.config, input)
       setFFMpegPath(input.ffmpeg || '')

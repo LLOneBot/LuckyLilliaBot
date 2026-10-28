@@ -1,5 +1,5 @@
 import type { BuiltinConfig } from '../../plugin'
-import { checkEmail, EmailSettings } from '@/common/emailConfig'
+import { checkEmail, EmailSettings } from '../../emailNotification/config'
 
 export const emailSettings: BuiltinConfig<EmailSettings> = {
   // Not checked on enable: it can be switched on before SMTP is set up, it just will not send

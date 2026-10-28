@@ -11,7 +11,7 @@ import type {
   ResListener,
 } from './types'
 import { Context } from 'cordis'
-import { getPmhqTarget } from '@/common/utils/environment'
+import { currentPmhqTarget } from '@/common/utils/environment'
 import { buildSsoInfoSync } from './direct-lib'
 import { QQProtocolBase } from './base'
 
@@ -29,8 +29,7 @@ export class PmhqQQProtocol extends QQProtocolBase {
 
   constructor(ctx: Context) {
     super(ctx)
-    // 只有 PMHQ 模式才会用这个类, ?? 只为收窄类型
-    const { host, port } = getPmhqTarget() ?? { host: '127.0.0.1', port: '13000' }
+    const { host, port } = currentPmhqTarget()
     this.httpUrl = `http://${host}:${port}/`
     this.wsUrl = `ws://${host}:${port}/ws`
   }
@@ -43,6 +42,23 @@ export class PmhqQQProtocol extends QQProtocolBase {
       }
     })
     await this.connectWebSocket()
+  }
+
+  protected async stop(): Promise<void> {
+    this.pmhqProbeToken++
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer)
+      this.reconnectTimer = undefined
+    }
+    const ws = this.ws
+    this.ws = undefined
+    if (ws) {
+      // Before closing: onclose would reconnect
+      ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null
+      ws.close()
+    }
+    this.resListeners.clear()
+    await super.stop()
   }
 
   public get_is_connected(): boolean {
@@ -193,6 +209,7 @@ export class PmhqQQProtocol extends QQProtocolBase {
   private async connectWebSocket() {
     const reconnect = () => {
       this.ws = undefined
+      if (this.disposed) return
       if (this.reconnectTimer) {
         clearTimeout(this.reconnectTimer)
         this.reconnectTimer = undefined
@@ -264,10 +281,12 @@ export class PmhqQQProtocol extends QQProtocolBase {
   }
 
   public async waitConnected() {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const check = () => {
         if (this.ws && this.ws.readyState === WebSocket.OPEN) {
           resolve(true)
+        } else if (this.disposed) {
+          reject(new Error('PMHQ 协议已停用'))
         } else {
           setTimeout(check, 1000)
         }

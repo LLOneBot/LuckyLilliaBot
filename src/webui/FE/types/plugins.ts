@@ -10,6 +10,8 @@ export interface ServiceDeclaration {
 
 export interface PluginManifest {
   description?: string | Record<string, string>
+  /** One of CATEGORIES in components/plugins/listing.ts; anything else is listed under "other". */
+  category?: string
   icon?: string
   hidden?: boolean
   preview?: boolean
@@ -35,6 +37,8 @@ export interface PluginStatus {
   service: ServiceDeclaration
   /** URL of the plugin's WebUI module; it changes when the plugin is reloaded. */
   webui?: string
+  /** What an enabled builtin says about its settings, e.g. that something still has to be filled in. */
+  notice?: string
 }
 
 export interface DependencyInfo {

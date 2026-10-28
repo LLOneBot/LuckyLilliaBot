@@ -13,8 +13,12 @@ export const Config: Schema<Config> = Schema.object({
 
 export function apply(ctx: Context, config: Config) {
   ctx.on('bot/message', async (session, next) => {
-    if (!session.content.startsWith(config.prefix)) return next()
-    const text = session.content.slice(config.prefix.length)
+    // "@bot echo hi" counts too: the QQ official bot only sees group messages that mention it
+    const [first, ...rest] = session.elements
+    const mentioned = first?.type === 'at' && first.attrs.id === session.selfId
+    const content = mentioned ? rest.join('').trimStart() : session.content
+    if (!content.startsWith(config.prefix)) return next()
+    const text = content.slice(config.prefix.length)
     if (text) await session.reply(text)
   })
 }

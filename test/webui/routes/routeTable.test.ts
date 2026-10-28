@@ -43,10 +43,12 @@ afterAll(() => {
 
 beforeEach(async () => {
   ctx = new Context()
-  await ctx.plugin(class extends Stub { constructor(ctx: Context) { super(ctx, 'qqProtocol') } })
-  await ctx.plugin(class extends Stub { constructor(ctx: Context) { super(ctx, 'ntLoginApi') } })
-  await ctx.plugin(class extends Stub { constructor(ctx: Context) { super(ctx, 'config') } })
-  await ctx.plugin(WebuiServer, { enable: false, host: '127.0.0.1', port: 0 })
+  // The shell needs nothing but the settings
+  await ctx.plugin(class extends Stub {
+    constructor(ctx: Context) { super(ctx, 'config') }
+    get() { return { webui: { enable: false, host: '127.0.0.1', port: 0 } } }
+  })
+  await ctx.plugin(WebuiServer)
   app = (ctx.webuiServer as unknown as { app: Hono }).app
 })
 

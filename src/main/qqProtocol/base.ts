@@ -41,6 +41,8 @@ export abstract class QQProtocolBase extends Service {
   protected logger
 
   protected onlineEmitted: boolean = false
+  // Set when the protocol plugin is switched off: every loop and timer checks it before going on
+  protected disposed: boolean = false
 
   protected qrResult: { qrcodeUrl: string; pngBase64: string; expireTimeSec: number; sig: string } | null = null
   protected qrFetchedAt: number = 0
@@ -97,6 +99,27 @@ export abstract class QQProtocolBase extends Service {
   async [Service.init]() {
     await this.start()
     this.startDisconnectMonitoring()
+    return () => this.stop()
+  }
+
+  /**
+   * Switching the protocol plugin off. Unlike a disconnect it emits nothing: consumers are going away with it,
+   * and the email notification must not report a loss the user asked for.
+   */
+  protected async stop(): Promise<void> {
+    this.disposed = true
+    if (this.disconnectCheckTimer) {
+      clearInterval(this.disconnectCheckTimer)
+      this.disconnectCheckTimer = undefined
+    }
+    this.disconnectCallbacks.clear()
+    this.onlineEmitted = false
+    selfInfo.online = false
+    selfInfo.uin = ''
+    selfInfo.uid = ''
+    selfInfo.nick = ''
+    this.resetQrState()
+    setLoginState({ state: 'initializing', uin: undefined, nickname: undefined, qrcode_png_base64: undefined })
   }
 
   public async sendOidb(
@@ -113,7 +136,7 @@ export abstract class QQProtocolBase extends Service {
   }
 
   protected maybeEmitOnline() {
-    if (this.onlineEmitted) return
+    if (this.disposed || this.onlineEmitted) return
     if (!selfInfo.online) return
     if (!selfInfo.uid && !selfInfo.uin) return
     this.onlineEmitted = true
@@ -283,7 +306,7 @@ export abstract class QQProtocolBase extends Service {
   }
 
   protected ensureQrLoop(): void {
-    if (this.qrLoopRunning) return
+    if (this.qrLoopRunning || this.disposed) return
     this.qrLoop()
   }
 
@@ -292,12 +315,12 @@ export abstract class QQProtocolBase extends Service {
 
   /** 每秒一 tick, 拉码节流靠 refreshQrCodeIfStale 的 TTL */
   private qrLoop = async (): Promise<void> => {
-    if (selfInfo.online) { this.qrLoopRunning = false; return }
+    if (this.disposed || selfInfo.online) { this.qrLoopRunning = false; return }
     this.qrLoopRunning = true
     if (!this.shouldSkipQrPrint() && !this.qrAutoRefreshExhausted() && !this.qrFetchBackingOff()) {
       await this.printQrToTerminal()
     }
-    if (selfInfo.online) { this.qrLoopRunning = false; return }
+    if (this.disposed || selfInfo.online) { this.qrLoopRunning = false; return }
     setTimeout(this.qrLoop, 1000)
   }
 

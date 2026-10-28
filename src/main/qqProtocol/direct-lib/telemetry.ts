@@ -38,9 +38,9 @@ function protoMessageField(field: number, content: Buffer): Buffer {
 }
 
 // Version strings as the real client splits them: getNewFlag uses the short "3.2.28",
-// ClientReport uses the full "3.2.28-48517".
-const VERSION_FULL = AppInfo.buildVer
-const VERSION_SHORT = VERSION_FULL.split('-')[0]
+// ClientReport uses the full "3.2.28-48517". Read when sent, once the profile is settled.
+const versionFull = () => AppInfo.buildVer
+const versionShort = () => versionFull().split('-')[0]
 
 // Client build numbers of 3.2.28-48517, from the capture
 const BUILD_A = '140163'
@@ -59,7 +59,7 @@ export function buildGetNewFlag(uin: number): Buffer {
   return Buffer.concat([
     protoVarintField(1, 1),
     protoVarintField(2, APPSET),
-    protoStringField(3, VERSION_SHORT),
+    protoStringField(3, versionShort()),
     protoVarintField(4, uin),
     protoStringField(7, BUILD_A),
     protoStringField(7, BUILD_B),
@@ -104,7 +104,7 @@ export function buildClientReport(uin: number, nowMs = Date.now()): Buffer {
   return Buffer.concat([
     protoVarintField(1, uin),
     protoVarintField(2, APPSET),
-    protoStringField(3, VERSION_FULL),
+    protoStringField(3, versionFull()),
     protoStringField(4, ''),
     protoVarintField(5, Number(BUILD_B)),
     protoStringField(6, '2810203'),
@@ -208,7 +208,7 @@ export function buildSsoGetConfig(guidHex: string): Buffer {
     protoMessageField(7, protoStringField(1, '10006')),
     protoMessageField(7, protoStringField(1, '10020')),
     protoVarintField(9, 8),
-    protoMessageField(10, protoStringField(2, VERSION_FULL)),
+    protoMessageField(10, protoStringField(2, versionFull())),
     protoStringField(11, clientId),
   ])
 }

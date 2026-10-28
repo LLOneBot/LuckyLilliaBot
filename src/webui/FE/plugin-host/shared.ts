@@ -1,7 +1,7 @@
 import * as React from 'react'
 import * as ReactDOM from 'react-dom'
 import * as jsxRuntime from 'react/jsx-runtime'
-import { usePluginContext } from './context'
+import * as sdk from './sdk'
 
 declare global {
   // eslint-disable-next-line no-var
@@ -19,7 +19,7 @@ export function installSharedModules() {
       'react': React,
       'react/jsx-runtime': jsxRuntime,
       'react-dom': ReactDOM,
-      '@luckylillia/plugin-sdk/webui': { usePluginContext },
+      '@luckylillia/plugin-sdk/webui': sdk,
     },
   }
 }

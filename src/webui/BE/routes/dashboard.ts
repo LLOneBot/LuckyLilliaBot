@@ -27,16 +27,25 @@ async function sampleSystemCpuPercent(sampleMs = 150): Promise<number> {
 export function createDashboardRoutes(ctx: Context): Hono {
   const router = new Hono()
 
+  // The process and system parts always; the account's once the NT protocol runs and is logged in
   router.get('/dashboard/stats', async (c) => {
     try {
       const app = ctx.get('app')
-      if (!app) {
-        return c.json({ success: false, message: '服务尚未就绪，请等待登录完成' }, 503)
+      const protocol = ctx.get('qqProtocol')
+      let account: { friendCount: number; groupCount: number; messageReceived: number; messageSent: number; lastMessageTime: number } | undefined
+      if (app) {
+        const friends = await ctx.get('ntFriendApi')!.getFriends(false)
+        const groups = await ctx.get('ntGroupApi')!.getGroups(false)
+        account = {
+          friendCount: friends.friends.length,
+          groupCount: groups.length,
+          messageReceived: app.messageReceivedCount,
+          messageSent: app.messageSentCount,
+          lastMessageTime: app.lastMessageTime,
+        }
       }
-      const friends = await ctx.ntFriendApi.getFriends(false)
-      const groups = await ctx.ntGroupApi.getGroups(false)
 
-      const qq = await ctx.qqProtocol.getQQResourceUsage()
+      const qq = await protocol?.getQQResourceUsage()
 
       const botTotalMem = os.totalmem()
       const cpuCores = os.cpus().length
@@ -50,17 +59,13 @@ export function createDashboardRoutes(ctx: Context): Hono {
       const sysMemPercent = (sysUsedMem / sysTotalMem) * 100
       const sysCpuPercent = await sampleSystemCpuPercent()
 
-      const mode = isPmhqMode() ? 'pmhq' : 'direct'
+      const mode = protocol ? (isPmhqMode() ? 'pmhq' : 'direct') : undefined
 
       return c.json({
         success: true,
         data: {
-          friendCount: friends.friends.length,
-          groupCount: groups.length,
-          messageReceived: app.messageReceivedCount,
-          messageSent: app.messageSentCount,
-          startupTime: app.startupTime,
-          lastMessageTime: app.lastMessageTime,
+          ...account,
+          startupTime: app?.startupTime ?? Math.trunc(Date.now() / 1000 - process.uptime()),
           mode,
           // --protocol 只对直连有意义
           protocol: mode === 'direct' ? getProtocol() : undefined,
@@ -86,8 +91,10 @@ export function createDashboardRoutes(ctx: Context): Hono {
   })
 
   router.get('/device-info', async (c) => {
+    const systemApi = ctx.get('ntSystemApi')
+    if (!systemApi) return c.json({ success: false, message: 'NTQQ 协议未启用' }, 503)
     try {
-      const deviceInfo = await ctx.ntSystemApi.getDeviceInfo()
+      const deviceInfo = await systemApi.getDeviceInfo()
       return c.json({
         success: true,
         data: deviceInfo,
@@ -100,10 +107,10 @@ export function createDashboardRoutes(ctx: Context): Hono {
   return router
 }
 
-/** Up before login like the rest of the WebUI: the stats answer 503 until `app` is. */
+/** Up with the WebUI shell, NT protocol or not: the NT services are looked up per request. */
 export const DashboardRoutes = {
   name: 'webui-dashboard-routes',
-  inject: ['webuiServer', 'qqProtocol', 'ntSystemApi', 'ntGroupApi', 'ntFriendApi'],
+  inject: ['webuiServer'],
   apply(ctx: Context) {
     const app = new Hono().route('/api', createDashboardRoutes(ctx))
     ctx.webuiServer.route('/api/dashboard', app)

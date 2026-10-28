@@ -8,6 +8,8 @@ export interface ResConfig{
   envLocked: { path: string; env: string }[]
   /** The instance whose settings these are. */
   instance: string
+  /** Whether the NT protocol plugin runs, i.e. whether the scanned account can log in at all. */
+  ntProtocol: boolean
 }
 
 /** A partial config: nested objects merge per key, arrays and scalars replace whole (ConfigService.patch). */

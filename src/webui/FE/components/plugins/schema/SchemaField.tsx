@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, ChevronDown, ChevronRight, Plus, Trash2 } from 'luc
 import { classifyUnion, localize, mergeIntersect, SchemaNode } from './model'
 import { initialValue, isPlainObject } from './values'
 import { ChoiceInput, DurationInput, JsonInput, NumberInput, StringInput, Switch } from './inputs'
+import { HostSelector } from '../../common/HostSelector'
 import { PluginBoundary } from '../../../plugin-host/context'
 import { useFieldRenderer } from '../../../plugin-host/views'
 
@@ -22,7 +23,7 @@ const MAX_DEPTH = 6
 const errorAt = (errors: Record<string, string>, path: string[]) => errors[path.join('.')]
 
 // Roles this form renders itself; plugins register field renderers for other roles only
-const BUILTIN_ROLES = new Set(['ms', 'table', 'radio', 'checkbox', 'secret', 'slider', 'textarea'])
+const BUILTIN_ROLES = new Set(['ms', 'table', 'radio', 'checkbox', 'secret', 'slider', 'textarea', 'host'])
 
 const iconButton = 'p-1.5 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg transition-colors disabled:opacity-30 disabled:pointer-events-none'
 
@@ -43,7 +44,9 @@ export function SchemaField(props: FieldProps) {
 
   switch (node.type) {
     case 'string':
-      return <StringInput node={node} value={value as string} onChange={onChange} invalid={invalid} />
+      return node.meta.role === 'host'
+        ? <HostSelector value={(value as string | undefined) ?? ''} onChange={onChange} />
+        : <StringInput node={node} value={value as string} onChange={onChange} invalid={invalid} path={path} />
     case 'number':
       return node.meta.role === 'ms'
         ? <DurationInput node={node} value={value as number} onChange={onChange} invalid={invalid} />
@@ -149,6 +152,15 @@ function ObjectField({ node, value, onChange, path, errors, depth }: FieldProps)
                 <Switch value={on} onChange={checked => update(checked ? initialValue(view.on) : false)} />
               </FieldRow>
               {on && <SchemaField node={untitled(view.on)} value={current[key]} onChange={update} path={childPath} errors={errors} depth={depth + 1} />}
+            </div>
+          )
+        }
+        // A nested object is a box with its title on it; a label above would say the same again
+        if (child.type === 'object') {
+          return (
+            <div key={key}>
+              <SchemaField node={child} value={current[key]} onChange={update} path={childPath} errors={errors} depth={depth + 1} />
+              {errorAt(errors, childPath) && <p className="text-xs text-red-500 mt-1">{errorAt(errors, childPath)}</p>}
             </div>
           )
         }

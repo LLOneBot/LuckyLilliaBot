@@ -665,6 +665,26 @@ describe('reconnect and QR refresh after dropping offline', () => {
     expect(startHeartbeat).toHaveBeenCalledExactlyOnceWith(client)
   })
 
+  it('resolves a quick login once the account is online', async () => {
+    protocol['bindDirectClientEvents'](client)
+    vi.mocked(loadSession).mockReturnValue(savedSession())
+    vi.mocked(persistedToSessionInfo).mockReturnValue(createSession())
+    vi.mocked(registerOnline).mockResolvedValueOnce('ok')
+    await protocol.quickLogin('123456')
+    expect(selfInfo.online).toBe(true)
+  })
+
+  it('tells the WebUI why a quick login did not get online, instead of falling back to QR silently', async () => {
+    protocol['bindDirectClientEvents'](client)
+    vi.mocked(loadSession).mockReturnValue(savedSession())
+    vi.mocked(persistedToSessionInfo).mockReturnValue(createSession())
+    vi.mocked(registerOnline).mockRejectedValueOnce(new Error('register refused'))
+    await expect(protocol.quickLogin('123456')).rejects.toThrow('快速登录失败: register refused')
+    expect(selfInfo.online).toBe(false)
+    // The QR code is there to fall back on
+    expect(qrLoop).toHaveBeenCalled()
+  })
+
   it('lets logout abort a session restore before the session is installed', async () => {
     vi.mocked(loadSession).mockReturnValue(savedSession())
     vi.mocked(persistedToSessionInfo).mockReturnValue(createSession())

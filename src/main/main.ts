@@ -3,30 +3,14 @@ import path from 'node:path'
 // fluent-ffmpeg 需要用到这个
 globalThis.__dirname = import.meta.dirname
 import Log from './log'
-import Core from '../ntqqapi/core'
-import Database from '@cordisjs/plugin-database'
-import SQLiteDriver from '@cordisjs/plugin-database-sqlite'
-import Store from './store'
 import { Config as LLBotConfig } from '../common/types'
 import { Context } from 'cordis'
-import { selfInfo, DATA_DIR, LOG_DIR, TEMP_DIR, dbDir } from '../common/globalVars'
-import {
-  NTFileApi,
-  NTFriendApi,
-  NTGroupApi,
-  NTLoginApi,
-  NTMsgApi,
-  NTUserApi,
-  NTWebApi,
-  NTSystemApi,
-} from '../ntqqapi/api'
+import { DATA_DIR, LOG_DIR, TEMP_DIR } from '../common/globalVars'
 import { existsSync, mkdirSync } from 'node:fs'
 import { version } from '../version'
 import { WebuiServer } from '../webui/BE/server'
-import { getPluginDirs, isPluginHmr, isPmhqMode } from '@/common/utils/environment'
+import { getPluginDirs, isPluginHmr } from '@/common/utils/environment'
 import { setConfigLogLevel, isDebugEnabled, bindLoggerFactory, getLogger } from '@/common/logger'
-import { pathToFileURL } from 'node:url'
-import { DirectQQProtocolClient, PmhqQQProtocolClient } from './qqProtocol'
 import LoggerConsole from '@cordisjs/plugin-logger-console'
 import TimerService from '@cordisjs/plugin-timer'
 import ConfigService from './config'
@@ -34,8 +18,6 @@ import { liftBuiltinSettings, migrateToInstances } from './config/migrate'
 import { lockInstance } from './instanceLock'
 import { currentInstance, InstanceChoice } from '@/common/instance'
 import { configPaths } from '@/common/configPaths'
-import AccountService from './account'
-import { startIpcServer, setLoginState } from './llbot-ipc'
 import PluginService from '../plugin'
 import BotsService from '../universal/bots'
 import { builtinPlugins } from './builtins'
@@ -96,6 +78,7 @@ async function onLoad() {
   ctx.plugin(TimerService)
   ctx.plugin(ConfigService)
   ctx.plugin(BotsService)
+  // The scanned account (builtin:nt-protocol) and the official bot are entries here, like the adapters
   ctx.plugin(PluginService, {
     file: configPaths.plugins(),
     dataDir: configPaths.pluginData(),
@@ -103,84 +86,25 @@ async function onLoad() {
     hmr: isPluginHmr(),
     builtins: builtinPlugins,
   })
+  // The shell: up without any protocol, so the plugin page can switch protocols on and off
+  ctx.plugin(WebuiServer)
   ctx.plugin(PluginRoutes)
   ctx.plugin(DashboardRoutes)
   ctx.plugin(EmailRoutes)
-  ctx.plugin(isPmhqMode() ? PmhqQQProtocolClient : DirectQQProtocolClient)
-  ctx.plugin(NTFileApi)
-  ctx.plugin(NTFriendApi)
-  ctx.plugin(NTGroupApi)
-  ctx.plugin(NTLoginApi)
-  ctx.plugin(NTMsgApi)
-  ctx.plugin(NTUserApi)
-  ctx.plugin(NTWebApi)
-  ctx.plugin(NTSystemApi)
 
-  ctx.plugin(AccountService)
-
-  // The settings are the instance's, fixed at startup: watched from now on, not from login
+  // The settings are the instance's, fixed at startup: applied now and watched from here on
   ctx.inject(['config'], (ctx) => {
-    ctx.config.listenChange(c => {
-      ctx.parallel('llob/config-updated', c)
-    })
-  })
-
-  // The database is per account, so this waits for the first login; `account` survives reconnects, so it runs once
-  ctx.inject(['account', 'config'], (ctx) => {
-    const config = ctx.config.get()
-    // The log file switch and Core's ffmpeg path are only ever applied from this event
-    ctx.parallel('llob/config-updated', config)
-    ctx.plugin(Database)
-    ctx.plugin(SQLiteDriver, {
-      path: pathToFileURL(path.join(dbDir, `${ctx.account.uin}.v3.db`)).href,
-    })
-    ctx.plugin(Core, config)
-    ctx.plugin(Store, {
-      msgCacheExpire: config.msgCacheExpire!,
-    })
-  })
-
-  ctx.inject(['qqProtocol', 'config'], (ctx) => {
     ctx.logger.info(`LLBot ${version}`)
     ctx.logger.info(process.argv)
     const config = ctx.config.get()
     setConfigLogLevel(config.logLevel)
     applyDebugLevel(ctx)
     ctx.on('llob/config-updated', c => { setConfigLogLevel(c.logLevel); applyDebugLevel(ctx) })
-    ctx.plugin(WebuiServer, config.webui)
-
-    const handleOnline = async () => {
-      console.log(`
-  _                _            _     _ _ _ _
- | |    _   _  ___| | ___   _  | |   (_) | (_) __ _
- | |   | | | |/ __| |/ / | | | | |   | | | | |/ _\` |
- | |___| |_| | (__|   <| |_| | | |___| | | | | (_| |
- |_____|\\__,_|\\___|_|\\_\\\\__, | |_____|_|_|_|_|\\__,_|
-                        |___/
-                                        UIN: ${selfInfo.uin}
-`)
-      setLoginState({ state: 'logged_in', uin: selfInfo.uin, nickname: selfInfo.nick })
-      if (selfInfo.uin !== instance.name && existsSync(configPaths.instance(selfInfo.uin))) {
-        ctx.logger.info(`QQ ${selfInfo.uin} 有自己的实例 ${selfInfo.uin}，这次用的是实例 ${instance.name}；要用那份配置请以 --instance ${selfInfo.uin} 启动`)
-      }
-    }
-    ctx.on('qq/online', handleOnline)
-    // qq/online 可能在 inject 回调之前就 emit 过
-    if (selfInfo.online && selfInfo.uid) {
-      handleOnline()
-    }
-
-    ctx.on('llbot/self-nick-changed', (info) => {
-      setLoginState({ nickname: info.nick })
+    ctx.config.listenChange(c => {
+      ctx.parallel('llob/config-updated', c)
     })
-
-    ctx.on('protocol/disconnect', () => {
-      ctx.logger.info('协议层断开，等待重连…')
-    })
-
-    // 两种模式都启动 IPC server: Desktop 统一通过 IPC 拿 uin/昵称
-    startIpcServer()
-    setLoginState({ state: 'initializing' })
+    // The log file switch is only ever applied from this event
+    ctx.parallel('llob/config-updated', config)
   })
 
   // 只 log 不退出: 一个 orphaned rejection (如 sendMsg 提前 throw 后 echoP 的 timer) 不该拖垮整个进程
