@@ -10,7 +10,7 @@
 
 ## 1. 结构
 
-`main.ts` 只剩根基础设施：`Log` / `LoggerConsole`、`TimerService`、`ConfigService`、`BotsService`、`PluginService`、`WebuiServer` + `PluginRoutes` / `DashboardRoutes` / `EmailRoutes`，以及一个 `ctx.inject(['config'])` 块（版本日志、logLevel、配置文件监听，**启动时首播一次 `llob/config-updated`**）。其余都由依赖驱动：
+`main.ts` 只剩根基础设施：`Log` / `LoggerConsole`、`TimerService`、`ConfigService`、`BotsService`、`PluginService`、`EmailRoutes`（WebUI 本身是核心条目 `builtin:webui`，Dashboard、日志也是条目，见 [plugin-system.md](plugin-system.md)"外壳和核心页面"），以及一个 `ctx.inject(['config'])` 块（版本日志、logLevel、配置文件监听，**启动时首播一次 `llob/config-updated`**）。其余都由依赖驱动：
 
 - **`builtin:nt-protocol`**（`inject: ['config']`）的 apply 依次挂：协议实现（按条目设置里的登录方式选纯协议或 PMHQ，见 §6；单入口，不暴露成两个可并存的开关：两者都叫 `qqProtocol`）、8 个 NT API、`AccountService`、`NTLoginRoutes`（扫码 / 快速登录 / 退出 / auth token 路由），一个 `ctx.inject(['account', 'config'])` 块挂数据库（`${uin}.v3.db`）/ `Core` / `Store`，再加登录横幅、IPC（`setLoginState` / `startIpcServer`）、断线日志
 - 原设计把数据库 / Core / 登录后生命周期拆成 `builtin:store` / `builtin:nt-core` / `builtin:nt-lifecycle` 三个条目，**没有采用**：它们只服务扫码账号，跟着协议条目一起起停最简单，插件页也少三张无法单独操作的卡片
@@ -47,18 +47,18 @@
 ## 5. WebUI 壳
 
 - `WebuiServer.static inject = ['config']`，构造时自己读 `ctx.config.get().webui`，内建路由只有 config、`login-info`、logs、鉴权中间件、静态文件和两张运行时路由表的分发
-- 扫码登录相关路由（`/api/login-qrcode`、`/api/quick-login-list`、`/api/quick-login`、`/api/logout`、`/api/auth-token`）是 `NTLoginRoutes`（`inject: ['webuiServer', 'ntLoginApi', 'qqProtocol']`），协议停用时经路由表 fallback 返 JSON 404。`routes/authToken.ts` 对 `authTokenWatcher` 的静态 import 留着：它现在只在协议条目里被用到
-- `/api/config` 和 `/api/login-info` 带 `ntProtocol`（`!!ctx.get('qqProtocol')`）
-- `DashboardRoutes` 只 inject `webuiServer`，NT 服务每次请求 `ctx.get()`：进程 / 系统资源总有；好友、群、收发数、QQ 资源只在扫码账号登录后才有；`/api/device-info` 在协议停用时回 503
+- 扫码登录相关路由（`/api/login-qrcode`、`/api/quick-login-list`、`/api/quick-login`、`/api/logout`、`/api/auth-token`）是 `NTLoginRoutes`（`inject: ['webuiServer', 'ntLoginApi', 'qqProtocol']`），协议停用时经路由表 fallback 返 JSON 404。`nt-protocol/authTokenRoutes.ts` 对 `authTokenWatcher` 的静态 import 留着：它现在只在协议条目里被用到
+- `/api/login-info` 带 `ntProtocol`（`!!ctx.get('qqProtocol')`）；`/api/config` 只有 bot 设置，不再带 `selfInfo` / `ntProtocol`
+- `builtin:dashboard` 的 `/api/dashboard/stats` 只有 bot 进程和机器的资源。扫码账号的好友、群、收发数、QQ 进程资源和版本号是协议条目里的 `NTStatsRoutes`（`src/plugin/internal/protocol/nt-protocol/statsRoutes.ts`，`/api/ntqq/stats`），由插件自己挂进 Dashboard 的卡片读（`client/DashboardCards.tsx`）；原来的 `/api/device-info` 并进了它
 - 前端没有扫码登录门，读完 `/api/config` 就进主界面。扫码登录在 `builtin:nt-protocol` 自己的设置页「NTQQ 协议」（插件自己的界面 `src/plugin/internal/protocol/nt-protocol/client/`：`NTProtocolPage.tsx`、`QQLogin.tsx`、`AuthTokenForm.tsx`、`LoginMethod.tsx`，只用 plugin SDK，见 [plugin-system.md](plugin-system.md)"内置插件的界面"；页面 id `ntqq`，order 5）：协议启用时在侧边栏，停用后卡片的「前往设置」仍能打开。页面每 3 秒轮询 `/api/login-info`（壳路由，协议停用也在，停用时也问：登录方式要用它的 `pins`）和 `/api/auth-token/status`（协议启用时才问）。顶部是登录方式（§6），下面依次显示：未启用 / 协议启动中 / 连不上 PMHQ（官方 QQ 端桥接时："正在连接 PMHQ（地址:端口）"，提示先启动 QQ 和 PMHQ）/ Auth Token 表单（`AuthTokenForm`，内联；原来那个不能关的弹框会盖住整个 WebUI）/ 快速登录和扫码（`QQLogin`，桥接时二维码来自 QQ 客户端）/ 已登录账号卡片（在线状态；纯协议可退出登录，桥接的登录归 QQ 客户端管）。全局设置弹框里的「退出 QQ」挪到了这里
-  - 侧边栏账号、WebQQ 按账号的持久化、QQ 版本号都只在页面加载时取，所以账号登录后要刷新整页。NTQQ 页在自己打开期间看到有人登录（打开时没人在线，或者在线的换了一个）就立刻刷新；在别的页面时由外壳的 `useAccountReload()`（`stores/accountStore.ts`，每 5 秒问 `/api/login-info`）发现并刷新，原来"不在 NTQQ 页时自动恢复的登录不更新侧边栏"的问题因此没有了。反方向不刷新：已登录的账号掉线时卡片显示"离线"，用户点「重新登录」才切到扫码，免得断线重连期间自动去拉二维码
-  - 快速登录（直连）：`POST /api/quick-login` 等到有结果才返回。`DirectQQProtocol.quickLogin()` 等 init 跑完（另一个 init 正在跑时最多再等 60 秒，它转回来会用上这个 uin），上线了就成功，没上线就抛出原因（`restoreError`：session 恢复时 `registerOnline` 的报错），路由回 500 带这句话。原来 init 恢复失败只记一行 info 就悄悄退回扫码，请求照样回成功，页面一直停在"正在登录"。前端：按钮显示"正在登录 <昵称>…"直到有结果；成功立刻轮询一次（不等 3 秒）进入"登录成功，正在刷新"；失败把原因留在页面上的红框里（toast 容易错过），并切到扫码
-  - 主界面顶部的状态提示（`components/layout/StatusNotices.tsx`）按插件说明谁卡在哪，每行一件事、带跳转按钮，指向的那页本身不显示那一行（owner 2026-10-28 选的做法：只说哪些插件需要哪个账号，免得用户以为所有账号都得登录）：
-    - 有启用的插件因为缺 `account` 停在 PENDING →"OneBot 11、WebQQ 要等 NTQQ 账号登录后才会运行"「去登录」；NTQQ 协议停用时是"…需要启用 NTQQ 协议才会运行"「前往插件页」。名字按插件列表里实际在等的算（超过 3 个写"等 N 个插件"），不是写死的适配器清单
-    - 没有插件在等 NTQQ 时不提它，除非一个在线的账号都没有（`/api/bots` 没有 ONLINE 的 bot）：那时说"NTQQ 协议的 QQ 账号还没有登录"（登录过则"已离线"）
-    - QQ 官方机器人启用时说它的实际状态：没能启动（原因）、`notice`（"还没有填写 AppID 和 AppSecret"）、没有连上开放平台；"正在连接"只在没有任何账号在线时说「去设置」
-    - 其它运行出错的插件汇总一行（只有一个时带原因）「前往插件页」；没有启用任何协议端（插件页"协议端"分类的插件，第三方的也算）、也没有在线的 bot 时说"没有启用任何协议端"
-    - `/api/bots` 每 5 秒问一次，它和插件列表都回来之前不显示
+  - 登录后不用刷新整页：侧边栏按 `/api/bots` 显示在线的账号，Dashboard 的 NTQQ 卡片自己轮询，WebQQ 打开时自己拿账号（见 [plugin-system.md](plugin-system.md)"内置插件的界面"）。原来侧边栏账号、WebQQ 按账号的持久化、QQ 版本号只在页面加载时取，NTQQ 页看到登录就刷新整页，不在 NTQQ 页时自动恢复的登录则不更新侧边栏；现在 NTQQ 页只提示"QQ 登录成功"。反方向：已登录的账号掉线时卡片显示"离线"，用户点「重新登录」才切到扫码，免得断线重连期间自动去拉二维码
+  - 快速登录（直连）：`POST /api/quick-login` 等到有结果才返回。`DirectQQProtocol.quickLogin()` 等 init 跑完（另一个 init 正在跑时最多再等 60 秒，它转回来会用上这个 uin），上线了就成功，没上线就抛出原因（`restoreError`：session 恢复时 `registerOnline` 的报错），路由回 500 带这句话。原来 init 恢复失败只记一行 info 就悄悄退回扫码，请求照样回成功，页面一直停在"正在登录"。前端：按钮显示"正在登录 <昵称>…"直到有结果；成功立刻轮询一次（不等 3 秒），页面换成账号卡片；失败把原因留在页面上的红框里（toast 容易错过），并切到扫码
+  - 主界面顶部的状态提示按插件说明谁卡在哪，每行一件事、带跳转按钮，指向的那页本身不显示那一行（owner 2026-10-28 选的做法：只说哪些插件需要哪个账号，免得用户以为所有账号都得登录）。外壳（`components/layout/StatusNotices.tsx`）不认得哪个插件，只按状态说通用的，规则见 [plugin-system.md](plugin-system.md)"内置插件的界面"：
+    - 有启用的插件停在 PENDING、缺的服务由 NTQQ 协议提供 →"OneBot 11、WebQQ 要等 NTQQ 账号登录后才会运行"「去看看」（文字来自协议条目 manifest 的 `service.labels.account`）；协议停用时是"…需要启用「NTQQ 协议」才会运行"「前往插件页」。名字按插件列表里实际在等的算（超过 3 个写"等 N 个插件"）
+    - 账号没登录或已离线、而没有插件在等它：协议条目自己往 `shell.notices` 插槽放的一行（`src/plugin/internal/protocol/nt-protocol/client/Notices.tsx`），只在一个在线的账号都没有时说，登录过（`/api/bots` 里有 `llonebot` 平台的 bot）就说"已离线"
+    - QQ 官方机器人：没能启动走通用的"运行出错"，`notice`（"还没有填写 AppID 和 AppSecret"）走通用的配置提示，正在连接（只在没有任何账号在线时）和没有连上开放平台是它自己 `shell.notices` 插槽里的（`src/plugin/internal/protocol/qq-official/client/Notices.tsx`）
+    - 运行出错的插件汇总一行（只有一个时带原因，按钮去它的设置页）；没有启用任何协议端（插件页"协议端"分类的插件，第三方的也算）、也没有在线的 bot 时说"没有启用任何协议端"
+    - `/api/bots` 由外壳每 5 秒问一次（`stores/botsStore.ts`），它和插件列表都回来之前不显示
   - `/api/login-info` 原来带 `webui`（生效的 WebUI 地址），给扫码页在登录后判断"WebUI 被关掉 / 换了端口"并跳转。那是按账号存配置的年代（登录才切换配置）的逻辑，实例模型下登录前后配置相同，连同前端的跳转和 FE `vite.config.ts` 的 `__WEBUI_DEV_PORT__` 一起删了
 
 ## 6. 登录方式：纯协议 / 官方 QQ 端桥接
@@ -86,4 +86,4 @@ owner 2026-10-28：NTQQ 设置页可以选登录方式，纯协议（多种协�
 
 - **真机未验证**：扫码登录后停用再启用（应当用存盘 session 免扫码恢复）、直连在线时停用（TCP 断开、native sign 的 relay 在同一个 client 上继续可用）、PMHQ 已登录时停用再启用；在 WebUI 里选 macOS / Windows / 手表后真的扫码登录（原来只经 `--protocol` 验证过）、已登录时在纯协议和桥接之间切换、桌面端带 `LL_IPC_PIPE` 启动时的锁定
 - native sign 的 relay "不可重绑"只据源码注释推断；共用 client 绕开了重绑，但停用期间 relay 收到的请求会因为连接断开失败，要真机确认不会让 native 层 `process.exit`
-- 停用后 `selfInfo` 被清空，个别还在读它的地方（例如 WebQQ 前端缓存的当前账号）要等刷新页面
+- 停用后 `selfInfo` 被清空；WebQQ 的页面只在打开时取一次账号，开着的 WebQQ 不会因为换了账号就切过去，要重新打开它

@@ -107,7 +107,7 @@ export function apply(ctx: Context, config: Config) {
 
 `.hidden()` 的字段不显示（值照样保存、照样生效，只能改 `plugins.json`）；`.deprecated()` / `.experimental()` 会显示成小标签。`role('secret')` 的字段已经存过值时，表单里是掩码，旁边有「清空」：直接留空或原样提交都是保留原值，点了「清空」再保存才删掉。
 
-`llbot.icon` 目前支持：`bell` `book` `book-open` `bot` `brain` `calendar` `clock` `cloud` `code` `cpu` `database` `dice-5` `file-text` `gamepad-2` `gift` `globe` `hand` `heart` `image` `languages` `mail` `message-square` `milk` `music` `network` `puzzle` `radio` `repeat` `search` `send` `settings` `shield-ban` `smile` `sparkles` `star` `terminal` `timer` `trophy` `users` `wrench` `zap`，其它名字显示为拼图图标。
+`llbot.icon` 目前支持：`bell` `book` `book-open` `bot` `brain` `calendar` `clock` `cloud` `code` `cpu` `database` `dice-5` `file-text` `gamepad-2` `gift` `globe` `hand` `heart` `image` `info` `languages` `layout-dashboard` `mail` `message-square` `milk` `music` `network` `puzzle` `radio` `repeat` `search` `send` `settings` `shield-ban` `sliders` `smartphone` `smile` `sparkles` `star` `terminal` `timer` `trophy` `users` `wrench` `zap`，其它名字显示为拼图图标。
 
 ## 生命周期与清理
 
@@ -151,6 +151,7 @@ const mine = await ctx.storage.dir('account')   // data/instances/<实例>/plugi
   - `required`：必需的服务，和 `inject` 保持一致
   - `optional`：有就用、没有也能跑的服务。插件内部用 `ctx.inject(['puppeteer'], ctx => { ... })` 写这部分逻辑，服务出现时才执行、消失时自动撤销
   - `implements`：本插件提供的服务。写 `Service` 子类的插件一定要声明 —— 服务名在构造函数里，不运行代码就读不到
+  - `labels`：提供的服务对用户来说是什么，如 `{ "account": "NTQQ 账号登录" }`。在等这个服务的插件，卡片和顶部提示就说"等待：NTQQ 账号登录""要等 NTQQ 账号登录后才会运行"；没写时说"要等「你的插件」就绪"
 
 插件页的配置弹窗会列出每个依赖：已经就绪的显示由谁提供（某个插件，或 Bot 自带）；缺的会找出声明了 `implements` 这个服务的插件，未启用的可以一键启用。两个启用中的插件 `implements` 同一个服务时卡片上会提示冲突 —— cordis 只认先起来的那个，后一个会报 `service "xxx" has been registered` 失败。
 
@@ -209,15 +210,18 @@ QQ 官方机器人（`platform` 是 `qq`，`selfId` 是 AppID，见 [official-qq
 
 ## 扩展 WebUI
 
-只要配置界面的插件什么都不用做：导出 schemastery 的 `Config` 就有自动表单。想往 WebUI 里加别的，有四种挂载点：
+只要配置界面的插件什么都不用做：导出 schemastery 的 `Config` 就有自动表单。想往 WebUI 里加别的，有这些挂载点。WebUI 自己的页面也是这样挂上去的：Dashboard、日志都是内置插件，插件页、其他配置是 WebUI 这个核心插件的页面，侧边栏里没有写死的条目。
 
 | 挂载点 | 注册 | 什么时候出现 |
 |---|---|---|
-| 侧边栏页面 | `ctx.page({ id, title, icon, component, order })` | 插件运行时 |
+| 侧边栏页面 | `ctx.page({ id, title, icon, component, order, header? })`；`header` 是画在页面上方标题区的组件（桌面端，Dashboard 的标题就在那） | 插件运行时 |
 | 侧边栏设置页 | `ctx.page({ ..., settings: true })` | 插件启用时（运行出错也算）；停用后侧边栏不显示，但插件卡片的"配置"仍能打开，顶部提示设置暂不生效 |
-| 具名插槽，目前只有 Dashboard 底部的 `dashboard` | `ctx.slot('dashboard', Component)` | 插件运行时 |
+| 插槽：WebUI 或别的插件声明、留给插件的位置（见下面"插槽"） | `ctx.slot('dashboard.cards', { id, component, ... })` | 插件运行时 |
+| 自己的界面里留位置给别的插件 | `ctx.declareSlot(name, { title, cardinality })`，在界面里渲染 `<Slot name={name} />` | 声明它的插件运行、那块界面在屏幕上时 |
 | 配置界面，替换自动表单 | `ctx.config(Editor)` | 一直可用，插件停用时也能配置 |
 | 某个 role 的表单控件 | `ctx.field('color', Field)` | 所有插件的自动表单里 `.role('color')` 的字段 |
+
+第三方插件的这些，都要用户在插件页**批准**它的界面后才会生效，用户还能隐藏、重排其中的每一项，见后面的"批准、隐藏和排序"。
 
 **入口**：`llbot.webui` 指向一个 ES 模块（相对包根目录），默认导出一个函数：
 
@@ -232,21 +236,26 @@ function StatsPage() {
 
 export default function apply(ctx) {
   ctx.page({ id: 'stats', title: '统计', icon: 'trophy', component: StatsPage })
-  ctx.slot('dashboard', StatsCard)
+  ctx.slot('dashboard.cards', { id: 'today', title: '今日统计', icon: 'trophy', component: StatsCard })
 }
 ```
 
-- 类型在 `@luckylillia/plugin-sdk/webui`：`WebUIContext`、`ConfigEditorProps`、`FieldProps` 等
+- 类型在 `@luckylillia/plugin-sdk/webui`：`WebUIContext`、`SlotMap`、`ConfigEditorProps`、`FieldProps` 等
 - 同一个模块还提供运行时的值（WebUI 经 import map 交给插件）：
   - `usePluginStatus()`：本插件条目的状态（`disabled` / `state` / `error` / `notice` 等），跟着插件列表更新
   - `usePluginConfig()`：本插件的配置，`{ value, setValue, schema, errors, save(), saving, clearSecret() }`；`save()` 经 bot 按 Config 校验后保存、插件按新配置重启，结果用 toast 提示，被别处改过时会重新载入。自己画设置页时用它读写配置
   - `SchemaForm`：WebUI 按 schema 生成的表单（`fields` 只要其中几个顶层字段），`ctx.field()` 注册的控件照样生效
   - `SchemaSettings`：一整页设置，插件标题和说明、生成的表单、保存按钮；`links`（标题旁的链接）、`sections`（把几个顶层字段放进可折叠的分组）、`children`（表单下面的内容，函数形式拿到正在编辑的配置）。只要 schema 表单的设置页：`ctx.page({ id: 'settings', title: '设置', component: SchemaSettings, settings: true })`
   - `HostInput`：监听地址输入，跟 `role('host')` 同一个控件
-- 内置插件的界面也只用这些（`src/*/client/`，见 [plugin-system.md](plugin-system.md)"内置插件的界面"），可以照着写
-- 组件里用 `usePluginContext()` 拿到同一个 ctx：`ctx.api(path, { method, body })` 带着 WebUI 登录调 Bot 的接口，返回 `{ success, data }` 里的 `data`；`ctx.events(path, { 事件名: data => {} })` 订阅 SSE；`ctx.toast()`
+  - `usePlugins()`：WebUI 列出的全部插件条目；`useBots()`：所有在线 / 不在线的账号（`/api/bots`，平台、selfId、状态），5 秒更新一次
+  - `usePageView()`：当前页面是不是单独全屏打开的（`fullscreen`）；`useSidebar()`：收起 / 展开 WebUI 的侧边栏
+  - `StatusNotice`：`shell.notices` 插槽里的一行，`action` 是按钮文字，`page` 是按钮打开的本插件页面 id（停在那一页时这一行不显示）
+  - `Slot`：在自己的界面里渲染自己声明的插槽，见下面"插槽"；`useSlotMatches(name)`：keyed 插槽现在有贡献的键
+  - `Icon`：按 lucide 名字画 `llbot.icon` 列表里的图标（`<Icon name="trophy" size={16} />`），不打包的插件也能用
+- 内置插件的界面也只用这些（`src/plugin/internal/*/*/client/`，见 [plugin-system.md](plugin-system.md)"内置插件的界面"），可以照着写
+- 组件里用 `usePluginContext()` 拿到同一个 ctx：`ctx.api(path, { method, body })` 带着 WebUI 登录调 Bot 的接口，返回 `{ success, data }` 里的 `data`；`ctx.fetch(path, init)` 是带登录的原始 `fetch()`（上传、二进制、要看错误响应时用）；`ctx.authUrl(path)` 给路径加上登录参数，给 `<img>` / `<video>` / 下载链接这些发不了请求头的地方用；`ctx.events(path, { 事件名: data => {} })` 订阅 SSE；`ctx.toast()`；`ctx.pageHref(id, { fullscreen })` 是本插件某个页面的地址，`fullscreen` 时不带侧边栏和标题（可以 `window.open()` 到新窗口）
 - 页面的 tab id 是 `<包名>:<id>`，地址栏 `#<包名>:<id>` 能直接打开
-- `order` 和 WebUI 自己的入口一起排：Dashboard 0、日志 20、其他配置 30、插件 40、关于 1000，内置的 NTQQ 协议是 5，OneBot 11 / Satori / Milky / 邮件通知 / QQ 官方机器人是 10 ~ 14、WebQQ 50；不填是 100
+- `order` 和内置的页面一起排：Dashboard 0、NTQQ 协议 5、OneBot 11 / Satori / Milky / 邮件通知 / QQ 官方机器人 10 ~ 14、日志 20、其他配置 30、插件 40、WebQQ 50、关于 1000；不填是 100。地址栏没有指定页面时打开排第一的
 - 注册了设置页的插件，插件页卡片上的"配置"会跳到这个页面，而不是打开配置弹窗
 - 代码拆分用 `React.lazy()`，WebUI 渲染插件组件时套了 Suspense
 - 插件重载时 WebUI 撤掉旧模块注册的一切，再导入新模块，页面不用刷新；`apply` 返回的清理函数也会在这时调用
@@ -270,11 +279,89 @@ export default defineConfig({
 
 **样式**：WebUI 的 Tailwind 只生成它自己源码里用到的 class，插件里写的 Tailwind 工具类不一定存在。能放心用的是语义 class（`card`、`btn-primary`、`btn-glass`、`input-field`、`switch-toggle`、`text-theme` / `text-theme-secondary` / `text-theme-muted` / `text-theme-hint`）和 CSS 变量（如 `var(--accent)`，暗色主题下自动切换），其余用 `style` 或插件自带的 CSS。
 
-**文件服务**：`llbot.webui` 所在的目录（含子目录）整个经 `/plugin-webui/...` 提供，需要 WebUI 登录。把前端产物放在单独的目录里，不要和后端代码放在同一层。
+**文件服务**：`llbot.webui` 所在的目录（含子目录）整个经 `/plugin-webui/...` 提供，需要 WebUI 登录，用户没批准它的界面时回 403。把前端产物放在单独的目录里，不要和后端代码放在同一层。
 
-**出错**：每个插件组件外面都有错误边界，抛错只影响它自己那一块，可以点"重试"。模块导入失败时，配置弹窗会提示原因并退回自动表单。
+**出错**：每个插件组件外面都有错误边界，抛错只影响它自己那一块，可以点"重试"；出错的贡献、页面和配置界面会列在插件页的"界面"和插件卡片上。模块导入失败时，配置弹窗会提示原因并退回自动表单。
 
 **自定义配置界面**：`ctx.config(Editor)` 的组件收到 `{ value, onChange, schema, defaults, errors }`。`value` 是填好默认值的完整配置，改了就调 `onChange`。保存按钮、保存时按 schema 校验、只存改动过的字段，仍由 WebUI 和 Bot 负责；校验不过时，错误按路径（`a.b`，根是 `''`）放进 `errors` 传回来。所以自己画界面时也建议照样导出 `Config`。
+
+### 插槽
+
+插槽是界面上留给插件的位置，由那块界面的主人声明：WebUI 的、Dashboard 和 WebQQ 这些内置插件的，加上第三方插件声明的。**插件只能往声明过的插槽里放东西**，不改别处；能不能替换、包装别人的内容，看插槽的基数：
+
+| 基数 | 显示什么 | 贡献的哪个字段起作用 |
+|---|---|---|
+| `list` | 每个都显示 | `order`，小的在前 |
+| `single` | 只显示一个，没有贡献时显示插槽自己的内容 | `priority`，大的胜出 |
+| `keyed` | 按键各显示一个：插槽问一个键（`Slot` 的 `match`），在 `match` 相同的贡献里取 `priority` 最大的，没有就显示插槽自己的 | `match`、`priority` |
+| `chain` | 一层包一层：排在前面的在最外层，每个组件多拿到一个 `next`（里面已经画好的内容），可以原样返回、包一层、或者换掉 | `order` |
+
+| 插槽 | 基数 | 组件的 props | 选项 | 外框 |
+|---|---|---|---|---|
+| `shell.notices` | list | 无 | 无 | 顶部提示栏里的行：用 `StatusNotice` 画，没事要说就返回 null，全都不说话时整栏消失 |
+| `settings.sections` | list | 无 | `title`（必填） | 设置弹框（侧边栏的齿轮）里的一节，WebUI 画标题；放这个浏览器的偏好 |
+| `plugins.toolbar` | list | 无 | 无 | 插件页顶部「重新扫描」旁边的按钮 |
+| `plugins.card.actions` | list | `{ plugin }`（这张卡的条目） | 无 | 插件页每张卡片上的按钮，排在卡片自己的前面 |
+| `dashboard.cards` | list | 无 | `title`、`icon`（lucide 名，同 `llbot.icon` 的列表）、`size`：`normal` 约一行的三分之一（默认）/ `wide` 三分之二 / `full` 整行 | Dashboard 画卡片、图标和标题，组件只画卡片里面；一行剩下的空间由这一行的卡片按比例分掉，所以返回 null 的卡片不会留下空洞。Dashboard 自己的三张卡也在这里，用户同样能隐藏、挪动 |
+| `dashboard.header` | single | 无 | 无 | 替换 Dashboard 顶上的"Dashboard / 欢迎使用 Lucky Lillia Bot" |
+| `webqq.chat.actions` | list | `{ chat: { chatType, peerId, name } }` | 无 | WebQQ 聊天窗口顶栏右边的按钮 |
+| `webqq.message.element` | keyed | `{ element, message? }`：NTQQ 原样的消息元素、这条消息（引用里的预览没有） | 无 | 键是元素类型 `String(elementType)`，比如 markdown 是 `'14'`：换掉 WebQQ 对这种元素的画法，或者画出 WebQQ 不会画的。只有这种元素的消息也会显示出来 |
+| `webqq.message.bubble` | chain | `{ message, next }` | 无 | 包在每条消息的气泡外面 |
+
+插件页是用户管住插件的地方，只开放追加的插槽（上面两个 `plugins.*`），没有可以替换或包装的。
+
+```js
+ctx.slot('dashboard.cards', { id: 'today', title: '今日统计', icon: 'trophy', size: 'wide', component: StatsCard })
+```
+
+- `id`：同一个插件在同一个插槽里唯一，**版本之间不要改**：用户的隐藏和排序按 `<包名>|<插槽>|<id>` 记。没有 `id` 或者重复，`ctx.slot()` 直接抛错
+- `label`：插件页"界面"里怎么叫它，不填用 `title`，再没有用 `id`
+- `order`：list / chain 插槽里从小到大排（默认 100，内置插件的在 10 左右）；用户在插件页调过顺序，就按用户的
+- `priority`：single / keyed 插槽里大的那个显示（默认 0）；用户把它隐藏了就轮到下一个，都没有了显示插槽自己的内容
+- `match`：keyed 插槽里这个贡献画哪个键，没写的永远不显示（插件页会标出来）
+- chain 的组件一定要用到 `next`：不打算改的就 `return next`；出错时这一层被跳过，直接显示 `next`
+- 组件返回 null 时，WebUI 画的外框（卡片、设置的那一节）跟着不显示
+- 放进一个没人声明的插槽的东西不会显示，插件页"界面"把它列在"找不到位置的内容"里（声明它的插件没装、没启用，或者界面没批准）
+- 每个贡献有自己的错误边界：抛错只坏它自己那一格，外框还在，里面显示原因和"重试"；插件页的"界面"和这个插件的卡片上也会列出来，直到点"重试"或者插件重载
+
+**声明自己的插槽**：自己的界面里有别的插件能加东西的地方，就声明一个，名字是 `<插件>.<位置>` 的点路径，比如 `my-plugin.item.actions`（名字已被声明会抛错）。在那个位置渲染 SDK 的 `Slot`：每个贡献带着它自己插件的 ctx，各自一个错误边界，用户隐藏和排序照样生效。
+
+```tsx
+import { Slot } from '@luckylillia/plugin-sdk/webui'
+
+// 让声明方和往里放东西的插件都拿到 props 的类型
+declare module '@luckylillia/plugin-sdk/webui' {
+  interface SlotMap {
+    'my-plugin.item.actions': { props: { item: Item }; options: {} }
+  }
+}
+
+ctx.declareSlot('my-plugin.item.actions', { title: '条目按钮', description: '每个条目右边的按钮', cardinality: 'list' })
+
+// 组件里
+<Slot name="my-plugin.item.actions" props={{ item }} />
+```
+
+`Slot` 的 `wrap(element, { id, plugin, options })` 给每个贡献画外框（错误边界在外框里面，chain 没有外框），`children` 是插槽自己的内容：没有贡献时显示（single / keyed，或者 list 空着时），chain 里在最里层；keyed 插槽再给 `match`。chain 插槽在 `SlotMap` 的 props 里写上 `next: unknown`，渲染 `Slot` 时不用传它。往一个插槽里放东西前想知道它的键有没有人画，用 `useSlotMatches(name)`。
+
+`examples/plugins/webui-demo` 每种都有一个：Dashboard 卡片（list）、WebQQ 聊天栏按钮（list）、markdown 元素的原文（keyed，`match: '14'`）、折叠长消息（chain）、自己卡片上的"打开示例页"（`plugins.card.actions`）。
+
+### 批准、隐藏和排序
+
+插件页的"界面"一栏让用户看到插件往 WebUI 里加了什么、加在哪，并且管得住：
+
+- **批准**：第三方插件的 WebUI 模块要用户批准后才加载，它在 `/plugin-webui/` 下的文件在批准前回 403。插件的后端启用时就在跑了，批准管的是"它能不能动我的 WebUI"：批准后它的界面代码以 WebUI 的登录运行，能调 Bot 的接口。没批准时插件卡片和配置弹窗上有"批准界面"，配置弹窗先用通用表单；撤销批准后，它注册的一切马上撤掉。内置插件不用批准
+- **隐藏**：每个插槽贡献、每个侧边栏页面都能关掉。页面关掉只是不在侧边栏里列出，插件卡片上的"前往设置"照样打得开
+- **排序**：list / chain 插槽里上移 / 下移，"恢复默认顺序"回到插件自己的 `order`
+- 插件页和其他配置这两个核心页面不能隐藏：要改回什么都得靠它们
+- 这些存在实例的 `plugins.json` 的 `ui` 里（`approved` / `hidden` / `order`），所有浏览器都一样
+
+### 约定
+
+- 只在插槽和自己的页面里画：不往 `document` 加全局样式，不改 WebUI 自己的 DOM。弹层用 portal 挂到 `document.body` 可以（WebQQ 就这样）
+- 外框由插槽的主人画：往 `dashboard.cards` 放的组件不要再套 `card`，往 `settings.sections` 放的不要再写一遍标题
+- 数据走 SDK 和自己的接口：账号用 `useBots()`，插件状态用 `usePluginStatus()` / `usePlugins()`，其余调自己挂的后端接口（`ctx.api()`）。轮询不要快于 5 秒，几个组件读同一份数据时共用一个轮询（NTQQ 的两张 Dashboard 卡片共用 `/api/ntqq/stats` 的一个轮询）
+- 样式见上面的"样式"：用 WebUI 的语义 class 和 CSS 变量，暗色主题才跟得上
 
 ## 构建
 
