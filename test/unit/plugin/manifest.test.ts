@@ -80,6 +80,13 @@ describe('normalizeService', () => {
     expect(normalizeService(['bots'], warnings)).toEqual({ required: [], optional: [], implements: [] })
     expect(warnings.at(-1)).toMatch(/should be an object/)
   })
+
+  it('keeps labels of the provided services when they are all text', () => {
+    expect(normalizeService({ implements: ['account'], labels: { account: 'QQ 登录' } }).labels).toEqual({ account: 'QQ 登录' })
+    const warnings: string[] = []
+    expect(normalizeService({ labels: { account: 1 } }, warnings).labels).toBeUndefined()
+    expect(warnings).toEqual(['llbot.service.labels should map service names to what they stand for'])
+  })
 })
 
 describe('normalizeCategory', () => {

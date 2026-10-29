@@ -32,6 +32,11 @@ export interface LLBotManifest {
     optional?: string[]
     /** Services this plugin provides. Two enabled plugins providing the same one conflict. */
     implements?: string[]
+    /**
+     * What the services it provides stand for to a user, e.g. `{ account: 'NTQQ 账号登录' }`: the WebUI says
+     * what a plugin waiting for one of them waits for with it.
+     */
+    labels?: Record<string, string>
   }
   /**
    * ES module extending the WebUI, relative to the package root: sidebar pages, Dashboard cards, a custom

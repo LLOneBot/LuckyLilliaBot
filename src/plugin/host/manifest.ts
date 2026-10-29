@@ -30,6 +30,7 @@ export interface ServiceDeclaration {
   required: string[]
   optional: string[]
   implements: string[]
+  labels?: Record<string, string>
 }
 
 export interface ScanResult {
@@ -124,6 +125,14 @@ export function normalizeService(value: unknown, warnings: string[] = []): Servi
       continue
     }
     result[key] = [...new Set(list as string[])]
+  }
+  const labels = (value as Record<string, unknown>).labels
+  if (labels !== undefined) {
+    if (!labels || typeof labels !== 'object' || Array.isArray(labels) || Object.values(labels).some(label => typeof label !== 'string')) {
+      warnings.push('llbot.service.labels should map service names to what they stand for')
+    } else {
+      result.labels = labels as Record<string, string>
+    }
   }
   return result
 }
