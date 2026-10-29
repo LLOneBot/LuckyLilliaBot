@@ -12,17 +12,8 @@
     "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "paths": {
-      "@/common/*": [
-        "./src/common/*"
-      ],
-      "@/onebot11/*": [
-        "./src/onebot11/*"
-      ],
-      "@/ntqqapi/*": [
-        "./src/ntqqapi/*"
-      ],
-      "@/milky/*": [
-        "./src/milky/*"
+      "@/*": [
+        "./src/*"
       ],
       "@luckylillia/plugin-sdk": [
         "./packages/plugin-sdk/src/index.ts"

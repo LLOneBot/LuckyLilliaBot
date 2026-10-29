@@ -1,0 +1,171 @@
+import { Action, Oidb } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/proto'
+import { Cmd } from '../direct-lib/cmd'
+import type { QQProtocolBase } from '../base'
+import { Dict, isNonNullable } from 'cosmokit'
+import { selfInfo } from '@/common/globalVars'
+
+export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolBase>(Base: T) {
+  abstract class Mixed extends Base {
+    async fetchUserInfoByUin(uin: number) {
+      const body = Oidb.FetchUserInfoByUinReq.encode({
+        uin,
+        keys: [
+          { key: 102 },  // 个性签名
+          { key: 103 },  // 备注
+          { key: 104 },  // 标签
+          { key: 105 },  // 等级
+          { key: 107 },  // 业务列表
+          { key: 20002 },  // 昵称
+          { key: 20003 },  // 国家
+          { key: 20009 },  // 性别
+          { key: 20020 },  // 城市
+          { key: 20021 },  // 学校
+          { key: 20026 },  // 注册时间
+          { key: 20031 },  // 生日
+          { key: 20037 },  // 年龄
+          { key: 27394 },  // QID
+        ],
+      })
+      // by-UIN 需要 isReserved=1
+      const data = Oidb.Base.encode({
+        command: 0xfe1,
+        subCommand: 2,
+        body,
+        isReserved: 1,
+      })
+      const res = await this.sendPB(Cmd.User.FetchInfoByUin, data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      return Oidb.FetchUserInfoResp.decode(decoded.body)
+    }
+
+    async fetchUserInfoByUid(uid: string) {
+      const body = Oidb.FetchUserInfoByUidReq.encode({
+        uid,
+        keys: [
+          { key: 102 },  // 个性签名
+          { key: 103 },  // 备注
+          { key: 104 },  // 标签
+          { key: 105 },  // 等级
+          { key: 107 },  // 业务列表
+          { key: 20002 },  // 昵称
+          { key: 20003 },  // 国家
+          { key: 20009 },  // 性别
+          { key: 20020 },  // 城市
+          { key: 20021 },  // 学校
+          { key: 20026 },  // 注册时间
+          { key: 20031 },  // 生日
+          { key: 20037 },  // 年龄
+          { key: 27394 },  // QID
+        ],
+      })
+      // by-UID 不能传 isReserved=1，否则返回的 UIN 不正确
+      const data = Oidb.Base.encode({
+        command: 0xfe1,
+        subCommand: 2,
+        body,
+      })
+      const res = await this.sendPB(Cmd.User.FetchInfoByUin, data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      return Oidb.FetchUserInfoResp.decode(decoded.body)
+    }
+
+    async fetchUserLoginDays(uin: number): Promise<number> {
+      const body = Action.FetchUserLoginDaysReq.encode({
+        field2: 0,
+        json: JSON.stringify({
+          msg_req_basic_info: { uint64_request_uin: [uin] },
+          uint32_req_login_info: 1,
+        }),
+      })
+      const res = await this.sendPB(Cmd.User.FetchLoginDays, body)
+      const { json } = Action.FetchUserLoginDaysResp.decode(Buffer.from(res.pb, 'hex'))
+      return (
+        JSON.parse(json).msg_rsp_basic_info?.rpt_msg_basic_info.find((e: Dict) => e.uint64_uin === uin)
+          ?.uint32_login_days ?? 0
+      )
+    }
+
+    /** count 1~20, QQ 限制每天 20 个 */
+    async sendFriendLike(targetUid: string, count: number = 1) {
+      const body = Oidb.FriendLikeReq.encode({ targetUid, field2: 71, count })
+      return await this.sendOidb(0x7e5, 104, body)
+    }
+
+    /** status: 10=在线, 30=离开, 40=隐身, 50=忙碌, 60=Q我, 70=请勿打扰; extStatus 通常为 0 */
+    async setOnlineStatus(status: number, extStatus: number, batteryStatus: number, customFaceId?: number, customText?: string) {
+      const body = Action.SetStatusReq.encode({
+        status,
+        extStatus,
+        batteryStatus,
+        customExt: customFaceId ? { faceId: customFaceId, text: customText ?? '', field3: 1 } : undefined,
+      })
+      const res = await this.sendPB(Cmd.Session.SetStatus, body)
+      return Action.SetStatusResp.decode(Buffer.from(res.pb, 'hex'))
+    }
+
+    /** 用来换 web cookies */
+    async fetchClientKey() {
+      const body = Oidb.FetchCookiesReq.encode({})
+      const data = Oidb.Base.encode({ command: 0x102a, subCommand: 1, body })
+      const res = await this.sendPB(Cmd.User.FetchClientKey, data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      return Oidb.FetchCookiesResp.decode(decoded.body)
+    }
+
+    async fetchPSkey(domains: string[]) {
+      const body = Oidb.FetchCookiesReq.encode({ domain: domains })
+      const data = Oidb.Base.encode({ command: 0x102a, subCommand: 0, body })
+      const res = await this.sendPB(Cmd.User.FetchPSkey, data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      return Oidb.FetchCookiesResp.decode(decoded.body)
+    }
+
+    /** direction: 0=我赞过的, 1=赞过我的 */
+    async fetchProfileLikes(selfUid: string, direction: 0 | 1, start: bigint, count: number) {
+      const body = Oidb.FetchProfileLikeReq.encode({
+        selfUid,
+        field2: 1,
+        field3: direction,
+        field4: direction === 0 ? 1 : 0,
+        field101: 1,
+        start,
+        count,
+      })
+      const data = Oidb.Base.encode({ command: 0x7ed, subCommand: 13, body })
+      const res = await this.sendPB(Cmd.User.FetchProfileLikes, data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      return Oidb.FetchProfileLikeResp.decode(decoded.body)
+    }
+
+    async fetchProfileLikeCount(uid: string) {
+      const body = Oidb.FetchProfileLikeCountReq.encode({
+        uid,
+      })
+      const data = Oidb.Base.encode({ command: 0x7ed, subCommand: 12, body })
+      const res = await this.sendPB(Cmd.User.FetchProfileLikeCount, data)
+      const decoded = Oidb.Base.decode(Buffer.from(res.pb, 'hex'))
+      return Oidb.FetchProfileLikeCountResp.decode(decoded.body)
+    }
+
+    async modifySelfProfile(profile: { nick?: string, longNick?: string, sex?: number, birthdayYear?: number, birthdayMonth?: number, birthdayDay?: number }) {
+      const bytesProperties: { key: number, value: Buffer }[] = []
+      const numberProperties: { key: number, value: number }[] = []
+      if (isNonNullable(profile.longNick)) bytesProperties.push({ key: 102, value: Buffer.from(profile.longNick, 'utf-8') })
+      if (isNonNullable(profile.nick)) bytesProperties.push({ key: 20002, value: Buffer.from(profile.nick, 'utf-8') })
+      // 20032 是 location，复杂结构，目前只用 12 字节零（清空）
+      bytesProperties.push({ key: 20032, value: Buffer.alloc(12) })
+      if (isNonNullable(profile.sex)) numberProperties.push({ key: 20009, value: profile.sex })
+      if (isNonNullable(profile.birthdayYear)) {
+        const packed = ((profile.birthdayYear & 0xffff) << 16) | (((profile.birthdayMonth ?? 0) & 0xff) << 8) | ((profile.birthdayDay ?? 0) & 0xff)
+        numberProperties.push({ key: 20031, value: packed })
+      }
+      const body = Oidb.ModifySelfProfileReq.encode({
+        selfUin: +selfInfo.uin,
+        bytesProperties,
+        numberProperties,
+      })
+      return await this.sendOidb(0x112a, 2, body)
+    }
+  }
+  return Mixed
+}

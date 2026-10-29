@@ -5,7 +5,7 @@ import { createEmailRoutes } from '@/webui/BE/routes/email'
 
 const sent = vi.hoisted(() => ({ configs: [] as unknown[] }))
 
-vi.mock('@/emailNotification/service', () => ({
+vi.mock('@/plugin/internal/tool/email-notification/service', () => ({
   EmailService: class {
     constructor(private manager: { getConfig(): unknown }) {}
     async sendTestEmail() {

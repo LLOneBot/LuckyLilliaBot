@@ -1,7 +1,7 @@
 import { Context } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ApiError, apiBase, CredentialError, QQOfficialApi } from '@/universal/qqofficial/api'
+import { ApiError, apiBase, CredentialError, QQOfficialApi } from '@/plugin/internal/protocol/qq-official/api'
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } })

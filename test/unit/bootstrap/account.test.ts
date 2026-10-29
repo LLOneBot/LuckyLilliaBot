@@ -1,7 +1,7 @@
 import { Context, FiberState } from 'cordis'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { selfInfo } from '@/common/globalVars'
-import AccountService from '@/main/account'
+import AccountService from '@/plugin/internal/protocol/nt-protocol/account'
 
 let ctx: Context
 

@@ -1,8 +1,8 @@
 /** send_forward_msg 用 message_type 区分群聊 / 私聊, 不同于 send_group_forward_msg / send_private_forward_msg */
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '@llbot/onebot11/action/types';
-import { OB11MessageDataType } from '@llbot/onebot11/types';
+import { ActionName } from '@llbot/plugin/internal/adapter/onebot11/action/types';
+import { OB11MessageDataType } from '@llbot/plugin/internal/adapter/onebot11/types';
 
 describe('send_forward_msg - 通用合并转发', () => {
   let context: MessageTestContext;

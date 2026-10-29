@@ -2,8 +2,8 @@
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '@llbot/onebot11/action/types';
-import { OB11MessageData, OB11MessageDataType } from '@llbot/onebot11/types';
+import { ActionName } from '@llbot/plugin/internal/adapter/onebot11/action/types';
+import { OB11MessageData, OB11MessageDataType } from '@llbot/plugin/internal/adapter/onebot11/types';
 import { MediaPaths } from '../media';
 
 async function sendAndExpectSegment(

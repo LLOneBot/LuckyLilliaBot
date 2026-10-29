@@ -8,7 +8,7 @@ import { selfInfo, TEMP_DIR } from '../globalVars'
 import { randomUUID, createHash } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
 import { Context } from 'cordis'
-import { ChatType, ElementType } from '@/ntqqapi/types'
+import { ChatType, ElementType } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 
 export function checkFileReceived(path: string, timeout: number = 3000): Promise<void> {
   return new Promise((resolve, reject) => {

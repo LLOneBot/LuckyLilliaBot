@@ -1,5 +1,5 @@
 import { Config } from '@/common/types'
-import { SelfInfo } from '@/ntqqapi/types'
+import { SelfInfo } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 
 export interface ResConfig{
   config: Config,

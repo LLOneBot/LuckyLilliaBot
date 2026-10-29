@@ -4,8 +4,8 @@ import { pathToFileURL } from 'node:url'
 import { Context, Fiber, Service } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
-import PluginService, { BuiltinPlugin, PluginStatus } from '@/plugin'
-import { dataKey } from '@/plugin/storage'
+import PluginService, { BuiltinPlugin, PluginStatus } from '@/plugin/host'
+import { dataKey } from '@/plugin/host/storage'
 
 declare global {
   var __storage: unknown[][]

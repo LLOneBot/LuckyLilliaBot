@@ -1,6 +1,6 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
-import { GroupMsgMask } from '@/ntqqapi/types'
+import { GroupMsgMask } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 
 /** 全部 POST + JSON; errCode / result 在这里校验, FE 不用再判断 */
 export function createActionsRoutes(ctx: Context): Hono {

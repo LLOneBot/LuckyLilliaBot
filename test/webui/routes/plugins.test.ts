@@ -1,6 +1,6 @@
 import { Context } from 'cordis'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError } from '@/plugin'
+import { PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError } from '@/plugin/host'
 import { createPluginRoutes } from '@/webui/BE/routes/plugins'
 import { createTestApp } from '../helpers/testApp'
 

@@ -1,9 +1,9 @@
 import { Context, Service } from 'cordis'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import * as NT from '@/ntqqapi/types'
+import * as NT from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 import BotsService from '@/universal/bots'
-import * as NTQQUniversal from '@/universal/ntqq'
-import SatoriAdapter from '@/satori/adapter'
+import * as NTQQUniversal from '@/plugin/internal/service/ntqq-universal'
+import SatoriAdapter from '@/plugin/internal/adapter/satori/adapter'
 
 function stub(name: string, methods: Record<string, unknown> = {}) {
   return class extends Service {

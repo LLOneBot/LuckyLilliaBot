@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PassiveReplies } from '@/universal/qqofficial/passive'
+import { PassiveReplies } from '@/plugin/internal/protocol/qq-official/passive'
 
 const MINUTE = 60_000
 

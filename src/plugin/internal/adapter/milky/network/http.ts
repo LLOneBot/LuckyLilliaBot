@@ -1,0 +1,206 @@
+import { MilkyHttpConfig } from '@/common/types'
+import { MilkyAdapter } from '@/plugin/internal/adapter/milky/adapter'
+import { Failed } from '@/plugin/internal/adapter/milky/common/api'
+import { Context } from 'cordis'
+import { HttpBindings, serve, ServerType, upgradeWebSocket } from '@hono/node-server'
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import { SSEStreamingApi, streamSSE } from 'hono/streaming'
+import { WSContext } from 'hono/ws'
+import { constants } from 'node:buffer'
+import { WebSocketServer } from 'ws'
+
+class MilkyHttpHandler {
+  readonly eventPushClients = new Set<WSContext>()
+  readonly sseClients = new Set<SSEStreamingApi>()
+  private app: Hono<{ Bindings: HttpBindings }> | undefined
+  private httpServer: ServerType | undefined
+
+  private extractToken(headers: Record<string, string>, query: Record<string, string>): string {
+    const authHeader = headers['authorization']
+    if (authHeader?.toLowerCase().startsWith('bearer ')) {
+      return authHeader.slice(7).trim()
+    }
+    return query['access_token']
+  }
+
+  private validateToken(inputToken: string): boolean {
+    if (!this.config.accessToken) return true
+    return inputToken === this.config.accessToken
+  }
+
+  constructor(readonly milkyAdapter: MilkyAdapter, readonly ctx: Context, readonly config: MilkyHttpHandler.Config) {
+  }
+
+  start() {
+    this.app = new Hono<{ Bindings: HttpBindings }>()
+
+    this.app.use(`${this.config.prefix}/api/*`,
+      cors(),
+      async (c, next) => {
+        if (!c.req.header('Content-Type')?.includes('application/json')) {
+          this.ctx.logger.warn(
+            'MilkyHttp',
+            `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} (Content-Type not application/json)`
+          )
+          return c.json(Failed(415, 'Unsupported Media Type'), 415)
+        }
+
+        await next()
+      }
+    )
+
+    if (this.config.accessToken) {
+      this.app.post(`${this.config.prefix}/api/*`, async (c, next) => {
+        const authorization = c.req.header('Authorization')
+        if (!authorization || !authorization.startsWith('Bearer ')) {
+          this.ctx.logger.warn('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} (Credentials missing)`)
+          return c.json(Failed(401, 'Unauthorized'), 401)
+        }
+
+        const inputToken = authorization.slice(7)
+        if (inputToken !== this.config.accessToken) {
+          this.ctx.logger.warn('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} (Credentials wrong)`)
+          return c.json(Failed(401, 'Unauthorized'), 401)
+        }
+
+        await next()
+      })
+    }
+
+    this.app.post(`${this.config.prefix}/api/:endpoint`, async (c) => {
+      const endpoint = c.req.param('endpoint')
+
+      if (!this.milkyAdapter.apiCollection.hasApi(endpoint)) {
+        this.ctx.logger.warn('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} (API not found)`)
+        return c.json(Failed(404, 'API not found'), 404)
+      }
+
+      const start = Date.now()
+      const payload = await c.req.json()
+      const response = await this.milkyAdapter.apiCollection.handle(endpoint, payload)
+      const end = Date.now()
+      this.ctx.logger.info(
+        'MilkyHttp',
+        `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} (${response.retcode === 0 ? 'OK' : response.retcode
+        } ${end - start}ms)`,
+        payload
+      )
+      return c.json(response)
+    })
+
+    this.app.get(`${this.config.prefix}/event`,
+      upgradeWebSocket((c) => {
+        return {
+          onOpen: (event, ws) => {
+            if (this.config.accessToken) {
+              const inputToken = this.extractToken(c.req.header(), c.req.query())
+              if (!this.validateToken(inputToken)) {
+                this.ctx.logger.warn('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} WS (Credentials invalid)`)
+                return ws.close(1008, 'Unauthorized')
+              }
+            }
+
+            this.eventPushClients.add(ws)
+            this.ctx.logger.info('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} WS (Connected)`)
+          },
+          onClose: (event, ws) => {
+            this.eventPushClients.delete(ws)
+            this.ctx.logger.info('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} WS (Disconnected)`)
+          }
+        }
+      }, {
+        onError: (error) => {
+          this.ctx.logger.warn('MilkyHttp', `WebSocket error: ${(error as Error).message}`)
+        }
+      }),
+      cors(),
+      async (c) => {
+        if (this.config.accessToken) {
+          const inputToken = this.extractToken(c.req.header(), c.req.query())
+          if (!this.validateToken(inputToken)) {
+            this.ctx.logger.warn('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} SSE (Credentials invalid)`)
+            return c.json(Failed(401, 'Unauthorized'), 401)
+          }
+        }
+
+        return streamSSE(c, async (stream) => {
+          this.sseClients.add(stream)
+          this.ctx.logger.info('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} SSE (Connected)`)
+          stream.onAbort(() => {
+            this.sseClients.delete(stream)
+            this.ctx.logger.info('MilkyHttp', `${c.env.incoming.socket.remoteAddress} -> ${c.req.path} SSE (Disconnected)`)
+          })
+          return new Promise((resolve) => {
+            stream.onAbort(resolve)
+          })
+        })
+      }
+    )
+
+    const wss = new WebSocketServer({
+      noServer: true,
+      maxPayload: constants.MAX_STRING_LENGTH
+    })
+    this.httpServer = serve({
+      fetch: this.app.fetch,
+      websocket: { server: wss },
+      port: this.config.port,
+      hostname: this.config.host
+    }, () => {
+      const displayHost = this.config.host || '0.0.0.0'
+      this.ctx.logger.info(
+        'MilkyHttp',
+        `HTTP server started at ${displayHost}:${this.config.port}${this.config.prefix}`
+      )
+    })
+  }
+
+  stop() {
+    for (const stream of this.sseClients) {
+      stream.abort()
+    }
+    this.sseClients.clear()
+
+    for (const ws of this.eventPushClients) {
+      ws.close()
+    }
+    this.eventPushClients.clear()
+
+    this.httpServer?.close()
+    this.app = undefined
+  }
+
+  broadcast(msg: string) {
+    for (const ws of this.eventPushClients) {
+      try {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(msg)
+        }
+      } catch (e) {
+        this.ctx.logger.warn('MilkyHttp', `Failed to send WebSocket message: ${e}`)
+      }
+    }
+
+    for (const stream of this.sseClients) {
+      stream.writeSSE({
+        data: msg,
+        event: 'milky_event'
+      }).catch(e => {
+        this.ctx.logger.warn('MilkyHttp', `Failed to send SSE message: ${e}`)
+        this.sseClients.delete(stream)
+      })
+    }
+  }
+
+  updateConfig(config: Partial<MilkyHttpHandler.Config>) {
+    Object.assign(this.config, config)
+  }
+}
+
+namespace MilkyHttpHandler {
+  export interface Config extends MilkyHttpConfig {
+  }
+}
+
+export { MilkyHttpHandler }

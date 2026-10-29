@@ -2,10 +2,10 @@ import { Context } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { QQOfficialConfig } from '@/common/types'
-import { ApiError } from '@/universal/qqofficial/api'
-import type { GroupInternal } from '@/universal/qqofficial/internal'
-import { MenuManager } from '@/universal/qqofficial/menu'
-import type { PanelRecord } from '@/universal/qqofficial/types'
+import { ApiError } from '@/plugin/internal/protocol/qq-official/api'
+import type { GroupInternal } from '@/plugin/internal/protocol/qq-official/internal'
+import { MenuManager } from '@/plugin/internal/protocol/qq-official/menu'
+import type { PanelRecord } from '@/plugin/internal/protocol/qq-official/types'
 
 let ctx: Context
 let records: PanelRecord[]

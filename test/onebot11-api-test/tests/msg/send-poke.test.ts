@@ -1,7 +1,7 @@
 /** send_poke 传 group_id 时戳群成员, 否则戳好友 */
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '@llbot/onebot11/action/types';
+import { ActionName } from '@llbot/plugin/internal/adapter/onebot11/action/types';
 
 describe('send_poke - 戳一戳（通用）', () => {
   let context: MessageTestContext;

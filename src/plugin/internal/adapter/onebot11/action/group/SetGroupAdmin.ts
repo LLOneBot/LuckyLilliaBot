@@ -1,0 +1,34 @@
+import { BaseAction, Schema } from '../BaseAction'
+import { GroupMemberRole } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
+import { ActionName } from '../types'
+import { parseBool } from '@/common/utils/misc'
+
+interface Payload {
+  group_id: number | string
+  user_id: number | string
+  enable: boolean
+}
+
+export default class SetGroupAdmin extends BaseAction<Payload, null> {
+  actionName = ActionName.SetGroupAdmin
+  payloadSchema = Schema.object({
+    group_id: Schema.union([Number, String]).required(),
+    user_id: Schema.union([Number, String]).required(),
+    enable: Schema.union([Boolean, Schema.transform(String, parseBool)]).default(true)
+  })
+
+  protected async _handle(payload: Payload) {
+    const groupCode = +payload.group_id
+    const uid = await this.ctx.ntUserApi.getUidByUin(+payload.user_id, groupCode)
+    if (!uid) throw new Error('无法获取用户信息')
+    const res = await this.ctx.ntGroupApi.setGroupMemberAdmin(
+      groupCode,
+      uid,
+      payload.enable
+    )
+    if (res.errorCode !== 0) {
+      throw new Error(res.errorMsg)
+    }
+    return null
+  }
+}

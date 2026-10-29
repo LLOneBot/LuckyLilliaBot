@@ -3,9 +3,9 @@ import { Context } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { WebSocket, WebSocketServer } from 'ws'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CredentialError, QQOfficialApi } from '@/universal/qqofficial/api'
-import { Gateway, GatewayHandlers } from '@/universal/qqofficial/gateway'
-import type { GatewayPayload } from '@/universal/qqofficial/types'
+import { CredentialError, QQOfficialApi } from '@/plugin/internal/protocol/qq-official/api'
+import { Gateway, GatewayHandlers } from '@/plugin/internal/protocol/qq-official/gateway'
+import type { GatewayPayload } from '@/plugin/internal/protocol/qq-official/types'
 
 interface Connection {
   socket: WebSocket

@@ -4,12 +4,12 @@ import { WebSocketServer } from 'ws'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { selfInfo } from '@/common/globalVars'
 import { currentPmhqTarget } from '@/common/utils/environment'
-import { DirectQQProtocol } from '../../../src/main/qqProtocol/direct'
-import { PmhqQQProtocol } from '../../../src/main/qqProtocol/pmhq'
-import { DirectProtocolClient, type SessionInfo } from '../../../src/main/qqProtocol/direct-lib/client'
-import { startAuthTokenWatcher, stopAuthTokenWatcher } from '../../../src/main/qqProtocol/direct-lib/authTokenWatcher'
-import { deleteSession, loadSession } from '../../../src/main/qqProtocol/direct-lib/session'
-import { getCurrentLoginState } from '../../../src/main/llbot-ipc'
+import { DirectQQProtocol } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct'
+import { PmhqQQProtocol } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/pmhq'
+import { DirectProtocolClient, type SessionInfo } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/client'
+import { startAuthTokenWatcher, stopAuthTokenWatcher } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/authTokenWatcher'
+import { deleteSession, loadSession } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/session'
+import { getCurrentLoginState } from '../../../src/plugin/internal/protocol/nt-protocol/llbot-ipc'
 
 // Switching the NT protocol plugin off: everything the protocol started has to stop, and switching it back on
 // has to reuse the client native sign is bound to.
@@ -24,18 +24,18 @@ vi.mock('@/main/config', () => ({
   authTokenUtil: { reload: vi.fn(() => 'test-auth-token') },
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/authTokenWatcher', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/authTokenWatcher', () => ({
   startAuthTokenWatcher: vi.fn(),
   stopAuthTokenWatcher: vi.fn(),
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/machineGuid', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/machineGuid', () => ({
   loadMachineGuidSync: vi.fn(() => Buffer.alloc(16)),
   overwriteMachineGuid: vi.fn(),
   deleteMachineGuid: vi.fn(),
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/session', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/session', () => ({
   saveSession: vi.fn(),
   loadSession: vi.fn(),
   deleteSession: vi.fn(),
@@ -45,7 +45,7 @@ vi.mock('@/main/qqProtocol/direct-lib/session', () => ({
   getSessionFilePathForUin: vi.fn(),
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/sign', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign', () => ({
   requestSign: vi.fn(),
   setupSign: vi.fn(),
   setSignMachineGuid: vi.fn(),
@@ -58,12 +58,12 @@ vi.mock('@/main/qqProtocol/direct-lib/sign', () => ({
   acquireMacosEskOnly: vi.fn(),
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/online', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/online', () => ({
   registerOnline: vi.fn(async () => 'ok'),
   startHeartbeat: vi.fn(() => vi.fn()),
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/connection', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/connection', () => ({
   TcpConnection: class extends EventEmitter {
     isConnected = false
     send = vi.fn()

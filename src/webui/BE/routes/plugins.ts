@@ -5,7 +5,7 @@ import { Context as HonoContext, Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import {
   PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError,
-} from '../../../plugin'
+} from '../../../plugin/host'
 import { webuiTokenUtil } from '../../../main/config'
 import { hashPassword } from '../passwordHash'
 

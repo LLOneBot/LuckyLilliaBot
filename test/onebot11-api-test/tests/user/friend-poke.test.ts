@@ -1,6 +1,6 @@
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '@llbot/onebot11/action/types';
+import { ActionName } from '@llbot/plugin/internal/adapter/onebot11/action/types';
 
 describe('friend_poke - 好友戳一戳', () => {
   let context: MessageTestContext;

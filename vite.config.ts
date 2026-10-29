@@ -90,9 +90,9 @@ export default defineConfig({
             { src: './doc/更新日志.txt', dest: 'dist/' },
             // bundle 后 requireBin 在 dist/ 下找 sign-proxy.<triple>.node, 所以扁平拷到 dist 根目录。
             // 只匹配 `sign-proxy.*`: dev 版 (sign-proxy-dev.*, 连 localhost) 绝不能进 dist, 下游 Dockerfile / publish.yml 的过滤不认这个前缀
-            { src: './src/main/qqProtocol/direct-lib/sign-proxy/sign-proxy.*.node', dest: 'dist/', flatten: true },
+            { src: './src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign-proxy/sign-proxy.*.node', dest: 'dist/', flatten: true },
             // pickVersion() 从这里读 sign-proxy 的版本; 不叫 package.json, 免得跟 Bot 的撞
-            { src: './src/main/qqProtocol/direct-lib/sign-proxy/sign-proxy.package.json', dest: 'dist/' },
+            { src: './src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign-proxy/sign-proxy.package.json', dest: 'dist/' },
           ],
         }),
       ],

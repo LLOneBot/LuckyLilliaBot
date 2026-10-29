@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { QQOfficialApi } from '@/universal/qqofficial/api'
-import { groupInternal, guildInternal } from '@/universal/qqofficial/internal'
+import type { QQOfficialApi } from '@/plugin/internal/protocol/qq-official/api'
+import { groupInternal, guildInternal } from '@/plugin/internal/protocol/qq-official/internal'
 
 function fakeApi() {
   const request = vi.fn(async () => ({ ok: true }))

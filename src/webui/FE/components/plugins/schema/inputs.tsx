@@ -10,7 +10,7 @@ interface InputProps<T> {
   path?: string[]
 }
 
-/** What the bot sends in place of a stored secret (SECRET_MASK in src/plugin/index.ts). */
+/** What the bot sends in place of a stored secret (SECRET_MASK in src/plugin/host/index.ts). */
 export const SECRET_MASK = '********'
 
 /** Given by a form that can empty a stored secret: sending the mask or nothing back keeps it. */

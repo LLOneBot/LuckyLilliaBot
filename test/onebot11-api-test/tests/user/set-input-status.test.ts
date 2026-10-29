@@ -1,7 +1,7 @@
 /** 私聊的"对方正在输入"状态。event_type: 1 = 正在输入, 2 = 思考中 (看不出区别, server 也接受) */
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '@llbot/onebot11/action/types';
+import { ActionName } from '@llbot/plugin/internal/adapter/onebot11/action/types';
 
 describe('set_input_status - 设置输入状态', () => {
   let context: MessageTestContext;

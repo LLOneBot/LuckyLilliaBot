@@ -2,7 +2,7 @@ import h from '@satorijs/element'
 import { describe, expect, it } from 'vitest'
 import {
   decodeButton, escapeMarkdown, extractMarkdownText, parseArkElement, parseCustomElement, splitDataImages,
-} from '@/universal/qqofficial/elements'
+} from '@/plugin/internal/protocol/qq-official/elements'
 
 describe('platform elements', () => {
   it('escapes what markdown would read as syntax', () => {

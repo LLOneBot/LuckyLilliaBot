@@ -7,7 +7,7 @@ import { configPaths, INSTANCE_FILES, LEGACY_ACCOUNT_FILE, legacyPaths } from '@
 import { DEFAULT_INSTANCE, instancesDir } from '@/common/instance'
 import { JsonFile } from '@/common/jsonFile'
 import { mergeNewProperties } from '@/common/utils'
-import { newEntryId, PluginEntry, PluginsFile } from '../../plugin/store'
+import { newEntryId, PluginEntry, PluginsFile } from '../../plugin/host/store'
 import { adapterDefaults } from './defaultConfig'
 import { ADAPTER_ENTRIES, ADAPTER_KEYS, templateConfig, upgradeConfig } from './upgrade'
 

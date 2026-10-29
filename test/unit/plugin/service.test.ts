@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
 import Schema from 'schemastery'
 import PluginService, {
   BuiltinConfig, BuiltinPlugin, PluginForbiddenError, PluginRevConflictError, PluginStatus, SECRET_MASK,
-} from '@/plugin'
+} from '@/plugin/host'
 
 declare global {
   var __pluginTest: string[]

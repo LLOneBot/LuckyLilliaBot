@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { matchEventFilter } from '@/onebot11/eventfilter'
+import { matchEventFilter } from '@/plugin/internal/adapter/onebot11/eventfilter'
 
 function makeEvent(overrides: Record<string, unknown> = {}) {
   return {

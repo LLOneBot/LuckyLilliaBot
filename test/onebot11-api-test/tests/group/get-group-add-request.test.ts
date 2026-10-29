@@ -1,6 +1,6 @@
 ﻿import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '@llbot/onebot11/action/types';
+import { ActionName } from '@llbot/plugin/internal/adapter/onebot11/action/types';
 
 describe('get_group_add_request - 获取加群请求列表', () => {
   let context: MessageTestContext;

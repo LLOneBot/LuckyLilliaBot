@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-vi.mock('@/main/qqProtocol/direct-lib/machineGuid', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/machineGuid', () => ({
   loadMachineGuidSync: () => Buffer.alloc(16, 0x11),
 }))
 
-import { DirectProtocolClient, SessionInfo } from '@/main/qqProtocol/direct-lib/client'
-import { startHeartbeat } from '@/main/qqProtocol/direct-lib/online'
+import { DirectProtocolClient, SessionInfo } from '@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/client'
+import { startHeartbeat } from '@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/online'
 
 function int32(v: number): Buffer {
   const b = Buffer.alloc(4)

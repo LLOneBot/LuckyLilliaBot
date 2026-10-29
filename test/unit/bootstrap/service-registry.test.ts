@@ -19,18 +19,18 @@ import {
   NTSystemApi,
   NTUserApi,
   NTWebApi,
-} from '@/ntqqapi/api'
-import Core from '@/ntqqapi/core'
-import Store from '@/main/store'
-import OneBot11Adapter from '@/onebot11/adapter'
-import SatoriAdapter from '@/satori/adapter'
-import MilkyAdapter from '@/milky/adapter'
+} from '@/plugin/internal/protocol/nt-protocol/ntqqapi/api'
+import Core from '@/plugin/internal/protocol/nt-protocol/ntqqapi/core'
+import Store from '@/plugin/internal/protocol/nt-protocol/store'
+import OneBot11Adapter from '@/plugin/internal/adapter/onebot11/adapter'
+import SatoriAdapter from '@/plugin/internal/adapter/satori/adapter'
+import MilkyAdapter from '@/plugin/internal/adapter/milky/adapter'
 import { WebuiServer } from '@/webui/BE/server'
 import { DashboardRoutes, EmailRoutes, NTLoginRoutes, WebQQ } from '@/webui/BE/routes'
-import EmailNotificationService from '@/emailNotification'
-import AccountService from '@/main/account'
+import EmailNotificationService from '@/plugin/internal/tool/email-notification'
+import AccountService from '@/plugin/internal/protocol/nt-protocol/account'
 import BotsService from '@/universal/bots'
-import * as NTQQUniversal from '@/universal/ntqq'
+import * as NTQQUniversal from '@/plugin/internal/service/ntqq-universal'
 
 // The global setup points DATA_DIR at /tmp/test-data, which on Windows lands outside the repo.
 // Services here really write (email config, webqq upload dir, sqlite), so use a private temp dir.

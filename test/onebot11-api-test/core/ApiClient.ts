@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import WebSocket from 'ws';
-import { ActionName } from '../../../src/onebot11/action/types.js';
+import { ActionName } from '../../../src/plugin/internal/adapter/onebot11/action/types.js';
 import {
   IApiClient,
   AccountConnectionConfig,

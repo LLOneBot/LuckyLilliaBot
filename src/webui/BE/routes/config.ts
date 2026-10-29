@@ -8,7 +8,7 @@ import { isDockerEnvironment } from '@/common/utils/environment'
 import { Hono } from 'hono'
 import { webuiTokenUtil } from '../../../main/config'
 import { applyLegacyConfig } from '../../../main/config/legacyConfig'
-import { PluginConfigError } from '../../../plugin'
+import { PluginConfigError } from '../../../plugin/host'
 
 export function createConfigRoutes(ctx: Context): Hono {
   const router = new Hono()

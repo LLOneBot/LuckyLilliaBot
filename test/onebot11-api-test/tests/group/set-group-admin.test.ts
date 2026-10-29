@@ -2,7 +2,7 @@
 
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '@llbot/onebot11/action/types';
+import { ActionName } from '@llbot/plugin/internal/adapter/onebot11/action/types';
 
 describe('set_group_admin - 群组设置管理员', () => {
   let context: MessageTestContext;

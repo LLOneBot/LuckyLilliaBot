@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { normalizeCategory, normalizeService, readPluginPackage, resolveMain, scanPluginRoots, sdkIncompatibility } from '@/plugin/manifest'
+import { normalizeCategory, normalizeService, readPluginPackage, resolveMain, scanPluginRoots, sdkIncompatibility } from '@/plugin/host/manifest'
 
 const root = mkdtempSync(path.join(os.tmpdir(), 'llbot-plugin-scan-'))
 

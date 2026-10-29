@@ -22,14 +22,14 @@ import {
   NTSystemApi,
   NTUserApi,
   NTWebApi,
-} from '@/ntqqapi/api'
-import Core from '@/ntqqapi/core'
-import Store from '@/main/store'
-import AccountService from '@/main/account'
-import { builtinPlugins } from '@/main/builtins'
+} from '@/plugin/internal/protocol/nt-protocol/ntqqapi/api'
+import Core from '@/plugin/internal/protocol/nt-protocol/ntqqapi/core'
+import Store from '@/plugin/internal/protocol/nt-protocol/store'
+import AccountService from '@/plugin/internal/protocol/nt-protocol/account'
+import { builtinPlugins } from '@/plugin/internal'
 import BotsService from '@/universal/bots'
 import { WebuiServer } from '@/webui/BE/server'
-import PluginService, { PluginForbiddenError, PluginState } from '@/plugin'
+import PluginService, { PluginForbiddenError, PluginState } from '@/plugin/host'
 
 // Same isolation as service-registry.test.ts: these services write into DATA_DIR
 vi.mock('@/common/globalVars', async () => {

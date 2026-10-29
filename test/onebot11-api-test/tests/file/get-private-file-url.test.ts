@@ -1,6 +1,6 @@
 ﻿import { setupMessageTest, teardownMessageTest, MessageTestContext, sleep } from '../setup'
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '@llbot/onebot11/action/types';
+import { ActionName } from '@llbot/plugin/internal/adapter/onebot11/action/types';
 import { MediaPaths } from '@/tests/media'
 
 describe('get_private_file_url - 获取私聊文件 URL', () => {

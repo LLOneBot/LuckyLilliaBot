@@ -9,7 +9,7 @@
 
 ## bot 这边怎么做
 
-- **NT 层统一签名**：`Core.sendMessage`（`src/ntqqapi/core.ts`）发送前对整条消息调 `signCards()`（`src/common/utils/sign.ts`），合并转发节点里的卡片也签。已经带 `config.token` 的卡片（比如转发收到的）原样发；签名失败整条消息不发，并报错。OneBot、Milky、Satori、WebQQ 发消息都经过这里。
+- **NT 层统一签名**：`Core.sendMessage`（`src/plugin/internal/protocol/nt-protocol/ntqqapi/core.ts`）发送前对整条消息调 `signCards()`（`src/common/utils/sign.ts`），合并转发节点里的卡片也签。已经带 `config.token` 的卡片（比如转发收到的）原样发；签名失败整条消息不发，并报错。OneBot、Milky、Satori、WebQQ 发消息都经过这里。
 - **`CARD_SIGN_URL` 为空时**：卡片原样发送（以前 OneBot `json` / Milky `light_app` 就是这样）。以前短暂存在过的配置项 `cardMsgSignUrl` 已删除，旧配置里的这一项加载时去掉（里面是音乐服务地址的，先挪到 `musicCardSignUrl`）。
 - **音乐卡片**（OneBot `music` 段，`src/common/utils/musicCard.ts`）：
   - 配了 `musicCardSignUrl`：`requestMusicCard()` 照原来的方式把歌曲参数 POST 给它，拿回签好名的卡片（带 token，NT 层不再签）。custom 写法同时填 `singer` 和 `content`（各家服务认的不一样）。返回的不是带 token 的 JSON 一律当失败 —— 拒绝可能是 HTTP 200 加一句纯文本，以前会被当成卡片发出去。

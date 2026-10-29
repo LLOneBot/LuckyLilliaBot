@@ -8,19 +8,19 @@ Bot 进程本身就是一个 cordis 4 应用，插件运行时只是在根 `Cont
 
 | 文件 | 作用 |
 |---|---|
-| `src/plugin/index.ts` | `PluginService`：条目状态机、enable / disable / updateConfig / reload / describe |
-| `src/plugin/manifest.ts` | 扫描插件根目录、解析 `package.json` 的 `llbot` 字段、SDK 版本比对 |
-| `src/plugin/store.ts` | 条目文件的读写（底层是 `src/common/jsonFile.ts`） |
+| `src/plugin/host/index.ts` | `PluginService`：条目状态机、enable / disable / updateConfig / reload / describe |
+| `src/plugin/host/manifest.ts` | 扫描插件根目录、解析 `package.json` 的 `llbot` 字段、SDK 版本比对 |
+| `src/plugin/host/store.ts` | 条目文件的读写（底层是 `src/common/jsonFile.ts`） |
 | `src/common/schema/` | schemastery 线格式模型（`model.ts`）与按 schema 的差异 / 合并（`diff.ts`），前后端共用 |
-| `src/plugin/resolve-hook.ts` | `module.registerHooks` 解析钩子 |
-| `src/plugin/watcher.ts` | 目录监听（热重载） |
-| `src/main/builtins.ts` | 内置插件表：三个适配器、WebQQ、邮件通知、中立层 |
+| `src/plugin/host/resolve-hook.ts` | `module.registerHooks` 解析钩子 |
+| `src/plugin/host/watcher.ts` | 目录监听（热重载） |
+| `src/plugin/internal/index.ts` | 内置插件表：三个适配器、WebQQ、邮件通知、中立层 |
 | `packages/plugin-sdk/` | `@luckylillia/plugin-sdk`，yarn workspace，单独发 npm |
 | `examples/plugins/` | dogfood 插件（不进 dist） |
 
 `PluginService` 在 `src/main/main.ts` 里紧跟 `ConfigService` 挂载。扫码协议本身也是它装载的内置条目 `builtin:nt-protocol`（见下文"内置插件"和 [core-pluginization.md](core-pluginization.md)），`main.ts` 只剩日志、配置、`bots`、插件服务和 WebUI 壳。插件需要登录后才有的服务就自己 `inject`，没就绪时 fiber 停在 PENDING，cordis 会在服务出现后自动拉起 —— 运行时不关心登录状态，也不关心扫码协议开没开。
 
-**登录门闸 `account`**（`src/main/account.ts`，由 `builtin:nt-protocol` 挂载）：它用 cordis 的 `Service[Service.check]`：首次 `qq/online` 前 check 为 false，依赖方停在 PENDING；之后 `reflect.notify(['account'])` 让它们拉起，断线重连不撤销。扫码协议条目停用时它跟着消失，依赖方回到 PENDING。配置是实例的、启动时就定了，登录不切换配置（config-storage.md §7）：`main.ts` 启动时就首播一次 `llob/config-updated`（日志文件开关只从这个事件拿），`Core` 的 ffmpeg 路径在 `start()` 里直接读自己的配置。登录后才挂的数据库、`Core`、`Store` 在 `builtin:nt-protocol` 里的 `ctx.inject(['account', 'config'], ...)` 回调中。`ctx.get('account')` 不看 check，判断它是否可用要用 `reflect._getImpl` + `check`（`PluginService.missingDeps` 就是这么算的）。
+**登录门闸 `account`**（`src/plugin/internal/protocol/nt-protocol/account.ts`，由 `builtin:nt-protocol` 挂载）：它用 cordis 的 `Service[Service.check]`：首次 `qq/online` 前 check 为 false，依赖方停在 PENDING；之后 `reflect.notify(['account'])` 让它们拉起，断线重连不撤销。扫码协议条目停用时它跟着消失，依赖方回到 PENDING。配置是实例的、启动时就定了，登录不切换配置（config-storage.md §7）：`main.ts` 启动时就首播一次 `llob/config-updated`（日志文件开关只从这个事件拿），`Core` 的 ffmpeg 路径在 `start()` 里直接读自己的配置。登录后才挂的数据库、`Core`、`Store` 在 `builtin:nt-protocol` 里的 `ctx.inject(['account', 'config'], ...)` 回调中。`ctx.get('account')` 不看 check，判断它是否可用要用 `reflect._getImpl` + `check`（`PluginService.missingDeps` 就是这么算的）。
 
 ## 中立层（Satori）
 
@@ -42,20 +42,20 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - **bot 自己发出的消息不进 `bot/message`**，走 `bot/event`：中间件只看它能回应的消息，避免回复自己造成循环（Koishi 也是这么做的）
 - `bot/before-send` 只覆盖经 `bot.sendMessage` 发出的消息。OneBot / Milky 的 `send_msg` 直接调 `ctx.app.sendMessage`，刻意不拦：否则插件能悄悄改写下游客户端的消息。真有需要时在 `Core.sendMessage` 加钩子，按 breaking change 处理
 - `src/universal/session.ts`：`Session` 的驼峰字段都是从 snake_case 的 Satori 事件里读的；`elements` 是对 `content` 的懒 `h.parse()`
-- `src/universal/ntqq/`：`NTQQUniversal` 插件（内置条目 `builtin:ntqq-universal`，`inject` 带 `account`：bot 就是登录的账号）和 `NTQQBot`。`NTQQBot.platform` 是 `llonebot` —— Satori 适配器的历史值，下游 Satori 客户端靠它识别，不能改
+- `src/plugin/internal/service/ntqq-universal/`：`NTQQUniversal` 插件（内置条目 `builtin:ntqq-universal`，`inject` 带 `account`：bot 就是登录的账号）和 `NTQQBot`。`NTQQBot.platform` 是 `llonebot` —— Satori 适配器的历史值，下游 Satori 客户端靠它识别，不能改
 
 **转换器复用的是 Satori 适配器的现成代码**：
 
 | 能力 | 位置 |
 |---|---|
-| NT 消息 → `h[]` / Satori 资源 | `src/satori/utils.ts` 的 `decodeElement()` / `decodeMessage()` 等 |
-| 12 种 `nt/*` → Satori 事件 | `src/satori/event/*.ts` 的 `parseXxx(host, data)`，`host` 是 `src/universal/types.ts` 的结构性接口 `NormalizeHost`（只要 `ctx` 和 `event()`），现在只有 `NTQQBot` 调用 |
-| `h[]` → NT 发送元素 → 发出 | `src/satori/message.ts` 的 `MessageEncoder` |
-| Bot 的可选能力 | 直接调 `src/satori/api/*` 里对应的 handler |
+| NT 消息 → `h[]` / Satori 资源 | `src/plugin/internal/adapter/satori/utils.ts` 的 `decodeElement()` / `decodeMessage()` 等 |
+| 12 种 `nt/*` → Satori 事件 | `src/plugin/internal/adapter/satori/event/*.ts` 的 `parseXxx(host, data)`，`host` 是 `src/universal/types.ts` 的结构性接口 `NormalizeHost`（只要 `ctx` 和 `event()`），现在只有 `NTQQBot` 调用 |
+| `h[]` → NT 发送元素 → 发出 | `src/plugin/internal/adapter/satori/message.ts` 的 `MessageEncoder` |
+| Bot 的可选能力 | 直接调 `src/plugin/internal/adapter/satori/api/*` 里对应的 handler |
 
-这些文件仍在 `src/satori/` 下，按理应提升到 `src/universal/ntqq/`，留作后续整理。`NTQQUniversal.inject` 必须覆盖转换器和 `MessageEncoder` 经 `ctx` 访问的全部服务（目前和 `SatoriAdapter.inject` 一致），否则 cordis 严格模式下会抛 `cannot get property without inject`。
+这些文件仍在 `src/plugin/internal/adapter/satori/` 下，按理应提升到 `src/plugin/internal/service/ntqq-universal/`，留作后续整理。`NTQQUniversal.inject` 必须覆盖转换器和 `MessageEncoder` 经 `ctx` 访问的全部服务（目前和 `SatoriAdapter.inject` 一致），否则 cordis 严格模式下会抛 `cannot get property without inject`。
 
-第二个消息源 QQ 官方机器人就是这样接的（`src/universal/qqofficial/`，见 [official-qq-bot.md](official-qq-bot.md)）：实现 `Bot`（`sendMessage` 必须，其它按平台能力挑），发送前调 `ctx.bots.beforeSend()`，收到的事件转成 Satori 事件后 `ctx.bots.dispatch()`，在 apply 里 `ctx.bots.register(bot)`。不需要碰任何 `nt/*`。
+第二个消息源 QQ 官方机器人就是这样接的（`src/plugin/internal/protocol/qq-official/`，见 [official-qq-bot.md](official-qq-bot.md)）：实现 `Bot`（`sendMessage` 必须，其它按平台能力挑），发送前调 `ctx.bots.beforeSend()`，收到的事件转成 Satori 事件后 `ctx.bots.dispatch()`，在 apply 里 `ctx.bots.register(bot)`。不需要碰任何 `nt/*`。
 
 ## 插件包与条目
 
@@ -90,7 +90,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 ### 插件数据目录（`ctx.storage` / `ctx.baseUrl`）
 
-`src/plugin/storage.ts` 的 `PluginDataDirs`，根目录是 `PluginService.Config.dataDir`（`main.ts` 传当前实例的 `data/instances/<实例>/plugin-data`；不传就两样都不提供，单测默认如此）。
+`src/plugin/host/storage.ts` 的 `PluginDataDirs`，根目录是 `PluginService.Config.dataDir`（`main.ts` 传当前实例的 `data/instances/<实例>/plugin-data`；不传就两样都不提供，单测默认如此）。
 
 - **目录名**：`dataKey()` 把包名的 `/` 换 `+`、内置条目 `builtin:x` 换成 `_builtin+x`（冒号在 Windows 路径里非法），并拒绝任何不是单段合法路径的名字（`..`、多个斜杠、结尾 `.`、Windows 保留名）。`baseUrl()` 对这种名字返回 undefined，不让条目因此挂载失败
 - **`ctx.storage` 是根上注册的 accessor**，不是条目 ctx 上的自有属性：服务的方法被别的条目调用时，cordis 给的 `this.ctx` 是"调用方 ctx + `symbols.shadow` 指向服务自己的 ctx"，自有属性会沿调用方那条原型链解析，拿到调用方的目录。accessor 里取 `this[symbols.shadow] ?? this` 作为定义处，再沿 `fiber.parent.fiber` 走到 `mount()` 时 `register()` 过的条目 fiber
@@ -100,17 +100,17 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 ## 内置插件
 
-`src/main/builtins.ts` 把原来写死在 `main.ts` 里的几个模块登记成内置条目，交给 `PluginService`（`Config.builtins`）装载，在 WebUI 插件页和第三方插件同列、同一套开关：
+`src/plugin/internal/index.ts` 把原来写死在 `main.ts` 里的几个模块登记成内置条目，交给 `PluginService`（`Config.builtins`）装载，在 WebUI 插件页和第三方插件同列、同一套开关：
 
 | 条目 | 内容 | WebUI 页面（插件自己的 `client/`，见下文"内置插件的界面"） |
 |---|---|---|
-| `builtin:onebot11` | OneBot 11 适配器 | 设置页 `#onebot`：自己画的连接卡片和编辑弹框、事件过滤器（`src/onebot11/client/`） |
+| `builtin:onebot11` | OneBot 11 适配器 | 设置页 `#onebot`：自己画的连接卡片和编辑弹框、事件过滤器（`src/plugin/internal/adapter/onebot11/client/`） |
 | `builtin:satori` / `builtin:milky` | 两个协议适配器 | 设置页 `#satori` / `#milky`：按 schema 渲染（`SchemaSettings`） |
-| `builtin:email-notification` | 掉线邮件通知（`src/emailNotification/`） | 设置页 `#email`：按 schema 渲染，加一个发测试邮件的按钮 |
+| `builtin:email-notification` | 掉线邮件通知（`src/plugin/internal/tool/email-notification/`） | 设置页 `#email`：按 schema 渲染，加一个发测试邮件的按钮 |
 | `builtin:qq-official` | QQ 官方机器人（AppID 登录，不依赖扫码账号，默认关闭），见 [official-qq-bot.md](official-qq-bot.md) | 设置页 `#qqofficial`：按 schema 渲染，订阅事件是插件注册的字段控件 |
 | `builtin:webqq` | WebQQ 后端（`src/webui/BE/routes/webqq/index.ts` 的 `WebQQ`） | 功能页 `#webqq`，**还在 WebUI 里**（`components/WebQQ/`，`plugin-host/builtins.tsx` 注册） |
 | `builtin:ntqq-universal` | 中立层，**core** | — |
-| `builtin:nt-protocol` | 扫码协议：纯协议或官方 QQ 端桥接（PMHQ）协议层、8 个 NT API、`account`、登录后的数据库 / `Core` / `Store`、扫码 / 快速登录 / auth token 路由（`src/main/ntProtocol/`）。默认启用，可以在运行时停用 / 启用；登录方式是它的设置，见 [core-pluginization.md](core-pluginization.md) §6 | 设置页 `#ntqq`：登录方式、扫码 / 快速登录、Auth Token、账号状态和退出登录（`src/main/ntProtocol/client/`） |
+| `builtin:nt-protocol` | 扫码协议：纯协议或官方 QQ 端桥接（PMHQ）协议层、8 个 NT API、`account`、登录后的数据库 / `Core` / `Store`、扫码 / 快速登录 / auth token 路由（`src/plugin/internal/protocol/nt-protocol/`）。默认启用，可以在运行时停用 / 启用；登录方式是它的设置，见 [core-pluginization.md](core-pluginization.md) §6 | 设置页 `#ntqq`：登录方式、扫码 / 快速登录、Auth Token、账号状态和退出登录（`src/plugin/internal/protocol/nt-protocol/client/`） |
 
 - 条目照样存在实例的 `plugins.json` 里（随机 id），只是 `name` 带 `builtin:` 前缀（npm 包名不能含冒号，不会撞）。启动时每个内置插件保证恰好一个条目：没有就按它的 `initial()` 建一个（没有 `initial` 的建成启用），手写出来的重复条目丢掉，core 条目上的 `disabled` 忽略
 - 内置插件只有一个实例：它们提供具名服务（`onebot` / `satori` / ...），两个实例会抢同一个名字。`add` / `remove` 对内置条目、`disable` 对 core 条目都抛 `PluginForbiddenError`（HTTP 403）；`updateConfig` / `describe` 只对**没有设置**的内置条目（WebQQ、core）抛 403
@@ -124,7 +124,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 
 ### 内置插件的设置（`BuiltinConfig`）
 
-OneBot / Satori / Milky / 邮件通知 / QQ 官方机器人 / NTQQ 协议（登录方式）的设置和第三方插件一样存在实例 `plugins.json` 的条目里，经同一套 `describe` / `updateConfig` / rev / 409 读写，开关就是条目的开关（关掉就卸载，和普通插件一样）。schema 是插件自己的 `Config`（`src/main/builtinConfig/` 里的 `OB11Schema` 等，去掉了原来的 `enable` / `enabled`；默认值和 `defaultConfig.ts` 一致，单测锁住）。`BuiltinPlugin.config`（`BuiltinConfig`）只补 schema 表达不了的：
+OneBot / Satori / Milky / 邮件通知 / QQ 官方机器人 / NTQQ 协议（登录方式）的设置和第三方插件一样存在实例 `plugins.json` 的条目里，经同一套 `describe` / `updateConfig` / rev / 409 读写，开关就是条目的开关（关掉就卸载，和普通插件一样）。schema 是插件自己的 `Config`（各插件目录的 `settings.ts`，如 `src/plugin/internal/adapter/onebot11/settings.ts` 的 `OB11Schema`，去掉了原来的 `enable` / `enabled`；默认值和 `defaultConfig.ts` 一致，单测锁住）。`BuiltinPlugin.config`（`BuiltinConfig`）只补 schema 表达不了的：
 
 - `check(value, enabled)`：跨字段规则（"监听全部地址必须有 token"），`enabled` 是条目是否在跑或正被打开。保存时按当前开关校验；声明了 `checkOnEnable` 的（三个适配器）在卡片打开时也校验 —— token 规则是安全闸，关着时存下的不安全配置不能借开关绕过。邮件不声明：SMTP 没配好也能先打开（只是发不出去，测试邮件按钮会报错），通知开着时保存才要求 SMTP / 发件人 / 收件人齐全，关着可以存空配置（issue #690）。QQ 官方机器人也不声明：没填 AppID / AppSecret 也能先打开，设置页随之出现在侧边栏，填好保存即重启。`checkOnEnable` 只给安全闸用，别拿来挡"还没配完"：那样卡片开关一点就报错，用户还找不到先填的地方
 - `notice(value)`：启用的条目按当前设置给卡片的一句话（`PluginStatus.notice`），用于"没配完也能启动、等着配"的插件：插件本身照常运行但什么都不做，卡片显示琥珀色的"待配置"和这句话，设置页顶部也提示。QQ 官方机器人用它说"还没有填写 AppID 和 AppSecret"，插件见没填就只记一行 info 返回。别让这种插件在启动时抛错（owner 2026-10-28：缺配置应该在保存时检测，不是一启动就报错）；真正只有运行时才知道的错（AppID / secret 不对）照旧让条目失败
@@ -133,7 +133,7 @@ OneBot / Satori / Milky / 邮件通知 / QQ 官方机器人 / NTQQ 协议（登�
 - 保存默认会让条目整个重启（`fiber.update`）。不需要重启的改动由插件自己拦：NTQQ 协议用 `ctx.on('internal/update')` 只在换登录模式（或桥接换 PMHQ 地址）时放行，只改协议不会把已登录的账号踢下线
 - `initial()`：条目第一次出现时的开关和配置。适配器取 `default_config.json` 的对应段（`enable` 变成开关），docker / nix 用 sed 改这个模板就是靠它生效；邮件默认关
 
-适配器经 `adapterEntry()`（`src/main/builtins.ts`）包一层：`inject` 是 `account` + `config` + 适配器自己的依赖（条目在依赖齐之前显示 pending，而不是"外壳 active、里面 pending"），`Config` 是适配器的 schema，`apply` 把条目配置加上 `enable: true` 和它要读的 bot 设置（OneBot 的 `musicCardSignUrl` / `ffmpeg`，Satori 的 `ffmpeg`）交给适配器并 await，适配器启动失败就是条目的 `failed`。条目配置变了走 `fiber.update` 重启适配器；bot 设置变了，适配器只就地更新那几个调用时才读的字段，不断开客户端。`test/unit/bootstrap/builtins.test.ts` 逐字段比对拼出来的配置，并用真实端口验证启动、换端口、停用释放端口。
+适配器经 `adapterEntry()`（`src/plugin/internal/index.ts`）包一层：`inject` 是 `account` + `config` + 适配器自己的依赖（条目在依赖齐之前显示 pending，而不是"外壳 active、里面 pending"），`Config` 是适配器的 schema，`apply` 把条目配置加上 `enable: true` 和它要读的 bot 设置（OneBot 的 `musicCardSignUrl` / `ffmpeg`，Satori 的 `ffmpeg`）交给适配器并 await，适配器启动失败就是条目的 `failed`。条目配置变了走 `fiber.update` 重启适配器；bot 设置变了，适配器只就地更新那几个调用时才读的字段，不断开客户端。`test/unit/bootstrap/builtins.test.ts` 逐字段比对拼出来的配置，并用真实端口验证启动、换端口、停用释放端口。
 
 - **旧形状的兼容**（`src/main/config/legacyConfig.ts`）：OneBot `get_config` / `set_config` 和 `POST /api/config` 仍收发 `{ ...bot 设置, ob11, satori, milky }`。读时三段由条目拼回，`enable` 就是条目开关；写时三段交给插件服务（按 key 合并，`enable` 转成启用 / 停用，先停用再改），其余进 `settings.json`。`set_config` 按 owner 的决定不加 token 校验（`rules: false`，schema 照查），并且在回复发出之后才应用：改 ob11 段会重启承载这次请求的 OneBot 连接，等它会把回复卡在自己服务器的关闭上
 - **启动时接管**：`liftBuiltinSettings()`（`src/main/config/migrate.ts`，在实例锁之后）把实例 `settings.json` 里还在的 `ob11` / `satori` / `milky` 段和实例下的 `email.json` 搬进条目（老格式的 ob11 先转换），没升级的桌面端或手改写进 `settings.json` 的段也就跟着接管了；`plugins.json` 读不出来时不搬，等修好
@@ -188,7 +188,7 @@ OneBot / Satori / Milky / 邮件通知 / QQ 官方机器人 / NTQQ 协议（登�
 
 错误码：`PluginNotFoundError` → 404，`PluginForbiddenError` → 403（内置条目不支持的操作），`PluginConfigError` → 400（带 issues），`PluginRevConflictError` → 409，其它 → 500。cordis 自己的 `ValidationError` 只拼一段文本、不保留 issues，所以 `updateConfig` 直接调 Standard Schema 的 `validate()` 自己抛 `PluginConfigError`。
 
-**前端**在 `src/webui/FE/components/plugins/`，类型在 `types/plugins.ts`（手工和 `src/plugin/index.ts` 对齐 —— FE 的 tsconfig 没有 node 类型，不能直接 import 后端模块）。`utils/api.ts` 的 `apiFetch` 遇到非 2xx 抛 `ApiError`（带 `status` 和响应体里的 `data`），保存配置靠它拿到 issues。
+**前端**在 `src/webui/FE/components/plugins/`，类型在 `types/plugins.ts`（手工和 `src/plugin/host/index.ts` 对齐 —— FE 的 tsconfig 没有 node 类型，不能直接 import 后端模块）。`utils/api.ts` 的 `apiFetch` 遇到非 2xx 抛 `ApiError`（带 `status` 和响应体里的 `data`），保存配置靠它拿到 issues。
 
 **schemastery 渲染器**（`components/plugins/schema/`）：
 
@@ -236,7 +236,7 @@ OneBot / Satori / Milky / 邮件通知 / QQ 官方机器人 / NTQQ 协议（登�
 
 owner 2026-10-28：插件的界面由插件自己维护，或者只给 schema、由 WebUI 渲染；WebUI 里不再写某个插件专用的页面。原来 OneBot / Satori / Milky / 邮件的设置页是插件化之前的 WebUI 页面，插件化时只是改成经 `ctx.page()` 注册，代码留在 `components/config/`、直接用 WebUI 内部的 hook 和组件，后来的 NTQQ、官方机器人页照着写了，现在都搬走了：
 
-- **位置**：每个内置插件的界面在它代码旁边的 `client/`（`src/onebot11/client/`、`src/satori/client/`、`src/milky/client/`、`src/emailNotification/client/`、`src/universal/qqofficial/client/`、`src/main/ntProtocol/client/`）。入口 `client/index.ts(x)` 跟第三方的 `llbot.webui` 模块一样默认导出 `apply(ctx)`，另外导出 `name`（它属于哪个内置条目）
+- **位置**：每个内置插件的界面在它代码旁边的 `client/`（`src/plugin/internal/adapter/onebot11/client/`、`src/plugin/internal/adapter/satori/client/`、`src/plugin/internal/adapter/milky/client/`、`src/plugin/internal/tool/email-notification/client/`、`src/plugin/internal/protocol/qq-official/client/`、`src/plugin/internal/protocol/nt-protocol/client/`）。入口 `client/index.ts(x)` 跟第三方的 `llbot.webui` 模块一样默认导出 `apply(ctx)`，另外导出 `name`（它属于哪个内置条目）
 - **只用公开的 SDK**：`client/` 里只能 import `@luckylillia/plugin-sdk/webui`、`react` / `react-dom`、`lucide-react`、自己的文件和后端的类型（`common/types`），不能碰 `src/webui/` 下的任何东西。`test/unit/plugin-clients/builtinClients.test.ts` 检查这条，也检查每个 `name` 都是内置条目。SDK 不够用就给 SDK 加（`usePluginConfig`、`SchemaSettings` 等就是这么来的），第三方插件同样能用
 - **怎么选**：配置就是普通表单的，只注册一个 `SchemaSettings` 设置页（Satori、Milky），要多点东西就往里塞：标题旁的链接、分组（`sections`）、表单下面的内容（邮件的测试按钮）、某个复杂字段用 `ctx.field()` 注册的控件（官方机器人的订阅事件，`role('qq-official-intents')`）。配置界面跟 schema 对不上的才自己画（OneBot 的连接卡片、NTQQ 的登录流程），数据照样走 `usePluginConfig()`
 - **加载**：`plugin-host/builtins.tsx` 用 `import.meta.glob('src/**/client/index.{ts,tsx}')`（排除 `src/webui/`）找到它们，随 WebUI 一起打包，不经 `/plugin-webui` 下载：内置插件跟 WebUI 同一个发行包，不存在版本对不上，开发时也有 HMR。`main.tsx` 在首次渲染前调 `startBuiltinClients()` 注册，`App` 读地址栏的 tab 时这些页面已经在注册表里（`builtinPageKeys()`），原来写死的 `BUILTIN_PAGE_IDS` 删了。注册不调用 bot，所以登录前注册也没关系

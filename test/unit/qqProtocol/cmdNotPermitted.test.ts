@@ -1,10 +1,10 @@
 import { describe, it, expect, vi } from 'vitest'
 
-vi.mock('@/main/qqProtocol/direct-lib/machineGuid', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/machineGuid', () => ({
   loadMachineGuidSync: () => Buffer.alloc(16, 0x11),
 }))
 
-import { DirectProtocolClient, SessionInfo } from '@/main/qqProtocol/direct-lib/client'
+import { DirectProtocolClient, SessionInfo } from '@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/client'
 import { isCmdNotPermitted, CmdNotPermittedError } from '@/common/protocolErrors'
 
 function int32(v: number): Buffer {

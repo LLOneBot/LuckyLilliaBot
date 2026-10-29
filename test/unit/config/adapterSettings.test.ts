@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { adapterDefaults } from '@/main/config/defaultConfig'
-import { SatoriSchema, satoriSettings } from '@/main/builtinConfig/satori'
-import { MilkySchema, milkySettings } from '@/main/builtinConfig/milky'
-import { OB11Schema, ob11Settings } from '@/main/builtinConfig/onebot'
+import { SatoriSchema, satoriSettings } from '@/plugin/internal/adapter/satori/settings'
+import { MilkySchema, milkySettings } from '@/plugin/internal/adapter/milky/settings'
+import { OB11Schema, ob11Settings } from '@/plugin/internal/adapter/onebot11/settings'
 import defaultConfigFile from '@/main/config/default_config.json'
 
 // The entry switch replaced each section's `enable`

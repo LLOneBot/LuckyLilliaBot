@@ -2,7 +2,7 @@
 
 > QQ 开放平台（q.qq.com）的官方机器人：用 AppID + AppSecret 登录，不走 PMHQ 或直连协议，作为**中立层的第二个消息源**接入，现有插件（echo、keyword-reply）不用改就能在它上面跑。
 >
-> 已实施：内置插件 `builtin:qq-official`，代码在 `src/universal/qqofficial/`。群聊、单聊（C2C）、频道（`qqguild` 子 bot）都做了，只走 WebSocket。功能对齐 `koishi-plugin-adapter-qq-crack` 1.0.32（官方 Koishi adapter 的魔改版，仍走官方 appid + secret，没有破解鉴权），webhook 除外。读 crack 源码：`npm pack koishi-plugin-adapter-qq-crack@<版本>` 解到临时目录（`D:\code\github.com\koishi-plugin-adapter-qq-crack` 的克隆停在 1.0.18，太旧）；频道消息的解析以上游 `@satorijs/adapter-qq` 的 `decodeMessage` 为准。
+> 已实施：内置插件 `builtin:qq-official`，代码在 `src/plugin/internal/protocol/qq-official/`。群聊、单聊（C2C）、频道（`qqguild` 子 bot）都做了，只走 WebSocket。功能对齐 `koishi-plugin-adapter-qq-crack` 1.0.32（官方 Koishi adapter 的魔改版，仍走官方 appid + secret，没有破解鉴权），webhook 除外。读 crack 源码：`npm pack koishi-plugin-adapter-qq-crack@<版本>` 解到临时目录（`D:\code\github.com\koishi-plugin-adapter-qq-crack` 的克隆停在 1.0.18，太旧）；频道消息的解析以上游 `@satorijs/adapter-qq` 的 `decodeMessage` 为准。
 
 ## 1. 定位
 
@@ -48,7 +48,7 @@
 | `internal.ts` | 全部 REST 接口，按 Koishi QQ 适配器的方法名（`bot.internal`） |
 | `menu.ts` | 单聊自定义菜单、群聊指令面板的同步 |
 | `users.ts` | 用户名缓存和持久化、昵称查询接口 |
-| `config.ts` | schema；设置规则在 `src/main/builtinConfig/qqofficial.ts`（开着时保存必须有 AppID / AppSecret；不声明 `checkOnEnable`，没填也能先在卡片上打开，启动也不报错，`notice` 让卡片显示"待配置 · 还没有填写 AppID 和 AppSecret"，主界面顶部也提示；到侧边栏出现的设置页填好保存，保存即重启条目；AppSecret 打码） |
+| `config.ts` | schema；设置规则在 `src/plugin/internal/protocol/qq-official/settings.ts`（开着时保存必须有 AppID / AppSecret；不声明 `checkOnEnable`，没填也能先在卡片上打开，启动也不报错，`notice` 让卡片显示"待配置 · 还没有填写 AppID 和 AppSecret"，主界面顶部也提示；到侧边栏出现的设置页填好保存，保存即重启条目；AppSecret 打码） |
 
 WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，整页由 schema 渲染（SDK 的 `SchemaSettings`）：凭证、类型在最上面，"消息""单聊菜单和群聊指令面板"是两个 `sections`，菜单项是按 `type` 区分的联合，表单渲染成可切换的标签。订阅的事件 `role('qq-official-intents')` 由插件用 `ctx.field()` 注册的控件画（`client/IntentsField.tsx`：按群聊单聊 / 频道分组、每项写明带来哪些事件、顶部警告没权限的事件会被断开），插件界面没加载时退回通用的多选。原来的"进阶"（`endpoint`、`gatewayUrl`、`userInfoApi`、`disableUserNamePersist`、`debug`）按 owner 2026-10-28 的要求不在页面上：schema 里标了 `.hidden()`，照常生效（以前存过的值也还在用），要改只能直接编辑实例 `plugins.json` 里这个条目的 `config`
 
@@ -163,7 +163,7 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 ## 9. 没做的
 
 - webhook（owner 决定只走 WebSocket）
-- Satori 协议客户端看不到官方 bot 的会话：`src/satori/adapter.ts` 只转发 `platform === 'llonebot'`。要看到得改成遍历 `ctx.bots`
+- Satori 协议客户端看不到官方 bot 的会话：`src/plugin/internal/adapter/satori/adapter.ts` 只转发 `platform === 'llonebot'`。要看到得改成遍历 `ctx.bots`
 - 纯官方进程里没有数据库：`database` 在扫码协议条目里、按 QQ 号建库，依赖它的插件（如 keyword-reply）只在扫码账号登录后才跑
 
 ## 10. 测试

@@ -4,8 +4,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // SSE 流没有事件, ChatInput 删掉临时气泡后聊天窗口一片空白, OneBot / Milky 也收不到自己发的文件。
 // 字段要跟接收端 dispatcher.convertToRawMessage 的 PrivateFile 分支一致, 否则两端渲染不一样。
 
-import { NTMsgApi } from '@/ntqqapi/api/msg'
-import { ChatType, ElementType, type RawMessage } from '@/ntqqapi/types'
+import { NTMsgApi } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/api/msg'
+import { ChatType, ElementType, type RawMessage } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 import { selfInfo } from '@/common/globalVars'
 
 const SELF_UID = 'u_self_test'

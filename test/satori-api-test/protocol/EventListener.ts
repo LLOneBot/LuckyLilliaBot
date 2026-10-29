@@ -165,7 +165,7 @@ export class SatoriEventListener implements IEventListener<SatoriEvent, SatoriEv
   ): boolean {
     for (const [k, want] of Object.entries(filter)) {
       const actual = (event as any)[k]
-      // id 类字段有时是 number 有时是 string (见 src/satori/utils.ts), 按 String 比
+      // id 类字段有时是 number 有时是 string (见 src/plugin/internal/adapter/satori/utils.ts), 按 String 比
       if (actual === want) continue
       if (actual !== undefined && want !== undefined && String(actual) === String(want)) continue
       return false

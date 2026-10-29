@@ -9,11 +9,11 @@ vi.mock('@/common/utils/environment', async (importOriginal) => ({
   getProtocol: () => 'macos',
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/machineGuid', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/machineGuid', () => ({
   loadMachineGuidSync: () => Buffer.alloc(16, 0x11),
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/sign', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign', () => ({
   requestSign: vi.fn(),
   setupSign: vi.fn(),
   setSignMachineGuid: vi.fn(),
@@ -28,7 +28,7 @@ vi.mock('@/main/qqProtocol/direct-lib/sign', () => ({
   signLinuxXwidBurst: vi.fn(async () => null),
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/connection', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/connection', () => ({
   TcpConnection: class extends EventEmitter {
     send = vi.fn()
     connect = vi.fn(async () => {})
@@ -38,13 +38,13 @@ vi.mock('@/main/qqProtocol/direct-lib/connection', () => ({
   },
 }))
 
-import { DirectProtocolClient, type SessionInfo } from '@/main/qqProtocol/direct-lib/client'
+import { DirectProtocolClient, type SessionInfo } from '@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/client'
 import {
   acquireMacosEskOnly,
   acquireSignToken,
   requestSign,
   type MacosEskState,
-} from '@/main/qqProtocol/direct-lib/sign'
+} from '@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign'
 
 const esk = vi.mocked(acquireMacosEskOnly)
 const acquire = vi.mocked(acquireSignToken)

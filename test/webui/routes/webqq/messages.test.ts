@@ -4,14 +4,14 @@ import { createMockContext } from '../../helpers/mockContext'
 import { createMessagesRoutes } from '@/webui/BE/routes/webqq/messages'
 
 // Mock heavy dependencies
-vi.mock('@/ntqqapi/entities', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/ntqqapi/entities', () => ({
   SendElement: {
     face: vi.fn((id: number) => ({ elementType: 6, elementId: '', faceElement: { faceIndex: id } })),
     file: vi.fn(() => Promise.resolve({ elementType: 3, elementId: '' })),
   },
 }))
 
-vi.mock('@/ntqqapi/proto', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/ntqqapi/proto', () => ({
   Msg: { QSmallFaceExtra: { decode: vi.fn() } },
   Media: { MsgInfo: { decode: vi.fn() } },
 }))

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { decodeUser, decodeGuildMember, decodeGuild } from '@/satori/utils'
+import { decodeUser, decodeGuildMember, decodeGuild } from '@/plugin/internal/adapter/satori/utils'
 
 describe('Satori Utils', () => {
   describe('decodeUser', () => {

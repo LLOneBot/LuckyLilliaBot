@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   describeMethod, effectiveMethod, isEditable, pendingProtocol, pinnedBy, pinNote,
-} from '@/main/ntProtocol/client/loginOptions'
+} from '@/plugin/internal/protocol/nt-protocol/client/loginOptions'
 import type { NTProtocolConfig } from '@/common/types'
 
 const saved: NTProtocolConfig = { mode: 'direct', protocol: 'macos', pmhq: { host: '127.0.0.1', port: 13000 } }

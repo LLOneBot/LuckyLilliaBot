@@ -1,8 +1,8 @@
 import { Channel } from '@satorijs/protocol'
 import { describe, expect, it } from 'vitest'
-import { decodeDispatch, DecodeHost } from '@/universal/qqofficial/decode'
-import { PassiveReplies } from '@/universal/qqofficial/passive'
-import type { GatewayPayload, UserMessage } from '@/universal/qqofficial/types'
+import { decodeDispatch, DecodeHost } from '@/plugin/internal/protocol/qq-official/decode'
+import { PassiveReplies } from '@/plugin/internal/protocol/qq-official/passive'
+import type { GatewayPayload, UserMessage } from '@/plugin/internal/protocol/qq-official/types'
 
 function host(): DecodeHost {
   return {

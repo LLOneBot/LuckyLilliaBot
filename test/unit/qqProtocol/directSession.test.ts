@@ -2,26 +2,26 @@ import { EventEmitter } from 'node:events'
 import { Context } from 'cordis'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { authTokenStatus, selfInfo } from '@/common/globalVars'
-import { DirectQQProtocol } from '../../../src/main/qqProtocol/direct'
-import { DirectProtocolClient, type SessionInfo } from '../../../src/main/qqProtocol/direct-lib/client'
+import { DirectQQProtocol } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct'
+import { DirectProtocolClient, type SessionInfo } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/client'
 import {
   fetchQrCode,
   getCorrectUin,
   loginWithQrResult,
   pollQrCode,
   type LoginResult,
-} from '../../../src/main/qqProtocol/direct-lib/login'
-import { deleteMachineGuid } from '../../../src/main/qqProtocol/direct-lib/machineGuid'
-import { registerOnline, startHeartbeat } from '../../../src/main/qqProtocol/direct-lib/online'
+} from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/login'
+import { deleteMachineGuid } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/machineGuid'
+import { registerOnline, startHeartbeat } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/online'
 import {
   deleteSession,
   loadSession,
   persistedToSessionInfo,
   saveSession,
-} from '../../../src/main/qqProtocol/direct-lib/session'
-import { requestSign, updateAuthToken } from '../../../src/main/qqProtocol/direct-lib/sign'
-import { teaEncrypt } from '../../../src/main/qqProtocol/direct-lib/tea'
-import { getCurrentLoginState } from '../../../src/main/llbot-ipc'
+} from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/session'
+import { requestSign, updateAuthToken } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign'
+import { teaEncrypt } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/tea'
+import { getCurrentLoginState } from '../../../src/plugin/internal/protocol/nt-protocol/llbot-ipc'
 
 vi.mock('@/common/globalVars', () => ({
   selfInfo: { uin: '123456', uid: 'test-uid', nick: 'TestBot', online: true },
@@ -33,17 +33,17 @@ vi.mock('@/main/config', () => ({
   authTokenUtil: { reload: vi.fn(() => 'test-auth-token') },
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/authTokenWatcher', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/authTokenWatcher', () => ({
   startAuthTokenWatcher: vi.fn(),
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/machineGuid', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/machineGuid', () => ({
   loadMachineGuidSync: vi.fn(() => Buffer.alloc(16)),
   overwriteMachineGuid: vi.fn(),
   deleteMachineGuid: vi.fn(),
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/session', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/session', () => ({
   saveSession: vi.fn(),
   loadSession: vi.fn(),
   deleteSession: vi.fn(),
@@ -53,7 +53,7 @@ vi.mock('@/main/qqProtocol/direct-lib/session', () => ({
   getSessionFilePathForUin: vi.fn(),
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/sign', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign', () => ({
   requestSign: vi.fn(),
   setupSign: vi.fn(),
   setSignMachineGuid: vi.fn(),
@@ -67,7 +67,7 @@ vi.mock('@/main/qqProtocol/direct-lib/sign', () => ({
   acquireMacosEskOnly: vi.fn(),
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/login', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/login', () => ({
   fetchQrCode: vi.fn(),
   pollQrCode: vi.fn(),
   loginWithQrResult: vi.fn(),
@@ -75,12 +75,12 @@ vi.mock('@/main/qqProtocol/direct-lib/login', () => ({
   QrCodeState: { Confirmed: 0, WaitingForConfirm: 53, Expired: 17, Cancelled: 54 },
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/online', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/online', () => ({
   registerOnline: vi.fn(async () => 'ok'),
   startHeartbeat: vi.fn(() => vi.fn()),
 }))
 
-vi.mock('@/main/qqProtocol/direct-lib/connection', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/connection', () => ({
   TcpConnection: class extends EventEmitter {
     isConnected = true
     send = vi.fn()
@@ -502,8 +502,8 @@ describe('direct session authentication failures', () => {
 
   it('rejects a superseded login response before it can install credentials', async () => {
     const { loginWithQrResult: realLogin } = await vi.importActual<
-      typeof import('../../../src/main/qqProtocol/direct-lib/login')
-    >('../../../src/main/qqProtocol/direct-lib/login')
+      typeof import('../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/login')
+    >('../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/login')
     client.clearSession()
     const response = deferred<Awaited<ReturnType<DirectProtocolClient['sendCommand']>>>()
     vi.spyOn(client, 'sendCommand').mockReturnValue(response.promise)

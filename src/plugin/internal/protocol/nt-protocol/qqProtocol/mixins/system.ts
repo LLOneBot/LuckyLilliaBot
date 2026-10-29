@@ -1,0 +1,19 @@
+import { Oidb } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/proto'
+import { Cmd } from '../direct-lib/cmd'
+import type { QQProtocolBase } from '../base'
+
+export function SystemMixin<T extends abstract new (...args: any[]) => QQProtocolBase>(Base: T) {
+  abstract class Mixed extends Base {
+    async fetchPins() {
+      const data = Oidb.Base.encode({
+        command: 0x12b3,
+        subCommand: 0,
+        body: Buffer.alloc(0),
+      })
+      const res = await this.sendPB(Cmd.Misc.FetchPins, data)
+      const oidbRespBody = Oidb.Base.decode(Buffer.from(res.pb, 'hex')).body
+      return Oidb.FetchPinsResp.decode(oidbRespBody)
+    }
+  }
+  return Mixed
+}

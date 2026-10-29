@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ElementType, AtType } from '@/ntqqapi/types'
+import { ElementType, AtType } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 
 describe('Milky Incoming Segment Transform', () => {
   it('文本元素 → text segment', () => {

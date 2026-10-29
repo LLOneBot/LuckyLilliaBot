@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { hasCardToken, signCard, signCards } from '@/common/utils/sign'
 import { buildMusicCard, requestMusicCard } from '@/common/utils/musicCard'
-import { ElementType, SendMessageElement } from '@/ntqqapi/types'
+import { ElementType, SendMessageElement } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 
 const unsigned = JSON.stringify({ app: 'com.tencent.tianxuan.share', config: { type: 'normal', forward: 1 } })
 const signed = JSON.stringify({ app: 'com.tencent.tianxuan.share', config: { type: 'normal', forward: 1, ctime: 1, token: 'abc' } })

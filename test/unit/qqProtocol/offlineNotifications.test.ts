@@ -1,11 +1,11 @@
 import { Context } from 'cordis'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { selfInfo } from '@/common/globalVars'
-import { EmailNotificationService } from '@/emailNotification'
-import { DEFAULT_EMAIL_CONFIG, EmailConfigManager } from '@/emailNotification/config'
-import { MilkyAdapter } from '@/milky/adapter'
+import { EmailNotificationService } from '@/plugin/internal/tool/email-notification'
+import { DEFAULT_EMAIL_CONFIG, EmailConfigManager } from '@/plugin/internal/tool/email-notification/config'
+import { MilkyAdapter } from '@/plugin/internal/adapter/milky/adapter'
 
-vi.mock('@/emailNotification/config', async importOriginal => ({
+vi.mock('@/plugin/internal/tool/email-notification/config', async importOriginal => ({
   ...await importOriginal<object>(),
   // The handlers under test only look at the manager
   EmailConfigManager: class {
@@ -13,7 +13,7 @@ vi.mock('@/emailNotification/config', async importOriginal => ({
   },
 }))
 
-vi.mock('@/emailNotification/service', () => ({
+vi.mock('@/plugin/internal/tool/email-notification/service', () => ({
   EmailService: class {
     sendOfflineNotification = vi.fn(async () => ({ success: true }))
   },

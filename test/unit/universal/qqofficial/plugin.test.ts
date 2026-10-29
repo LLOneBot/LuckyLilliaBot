@@ -5,7 +5,7 @@ import { WebSocket, WebSocketServer } from 'ws'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Session } from '@luckylillia/plugin-sdk'
 import BotsService from '@/universal/bots'
-import * as QQOfficial from '@/universal/qqofficial'
+import * as QQOfficial from '@/plugin/internal/protocol/qq-official'
 import * as Echo from '../../../../examples/plugins/echo/src/index'
 
 interface Call {

@@ -1,7 +1,7 @@
 /** 改群文件名, 不是改文件夹名 (RenameGroupFileFolder) */
 import { setupMessageTest, teardownMessageTest, MessageTestContext } from '../setup';
 import { Assertions } from '@/utils/Assertions';
-import { ActionName } from '@llbot/onebot11/action/types';
+import { ActionName } from '@llbot/plugin/internal/adapter/onebot11/action/types';
 import { MediaPaths } from '@/tests/media';
 
 describe('rename_group_file - 改群文件名', () => {

@@ -1,4 +1,4 @@
-import { ElementType, SendMessageElement } from '@/ntqqapi/types'
+import { ElementType, SendMessageElement } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 
 /** Our card sign service (docs/card-message-sign.md). Empty until it is deployed: cards then go out as they are. */
 export const CARD_SIGN_URL: string = ''

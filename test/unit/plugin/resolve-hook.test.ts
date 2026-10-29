@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolvePluginSpecifier, ResolverState } from '@/plugin/resolve-hook'
+import { resolvePluginSpecifier, ResolverState } from '@/plugin/host/resolve-hook'
 
 const state: ResolverState = {
   shared: new Map([['cordis', 'file:///host/node_modules/cordis/lib/index.js']]),

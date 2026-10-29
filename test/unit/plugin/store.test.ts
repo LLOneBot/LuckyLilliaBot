@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, 
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, describe, expect, it } from 'vitest'
-import { newEntryId, PluginStore } from '@/plugin/store'
+import { newEntryId, PluginStore } from '@/plugin/host/store'
 
 const dir = mkdtempSync(path.join(os.tmpdir(), 'llbot-plugin-store-'))
 let n = 0

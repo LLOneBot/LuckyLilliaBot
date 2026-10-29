@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Bot, Session } from '@luckylillia/plugin-sdk'
 import type { QQOfficialConfig } from '@/common/types'
 import BotsService from '@/universal/bots'
-import * as QQOfficial from '@/universal/qqofficial'
-import type { QQGuildBot, QQOfficialBot } from '@/universal/qqofficial'
+import * as QQOfficial from '@/plugin/internal/protocol/qq-official'
+import type { QQGuildBot, QQOfficialBot } from '@/plugin/internal/protocol/qq-official'
 
 // The parts of the adapter that follow Koishi adapter-qq-crack: markdown and buttons, the platform's own payloads,
 // group management, guilds, interactions and menus, against a fake REST API and a local gateway

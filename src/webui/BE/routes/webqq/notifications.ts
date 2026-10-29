@@ -1,5 +1,5 @@
 import { Context } from 'cordis'
-import { FriendReqType } from '@/ntqqapi/types'
+import { FriendReqType } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 import { Hono } from 'hono'
 import { decodeGroupRequestFlag, encodeGroupRequestFlag } from '../../utils'
 

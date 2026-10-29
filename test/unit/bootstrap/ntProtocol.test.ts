@@ -4,17 +4,17 @@ import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { DATA_DIR, selfInfo } from '@/common/globalVars'
 import { defaultConfig } from '@/main/config/defaultConfig'
-import { DEFAULT_EMAIL_CONFIG } from '@/emailNotification/config'
-import EmailNotificationService from '@/emailNotification'
+import { DEFAULT_EMAIL_CONFIG } from '@/plugin/internal/tool/email-notification/config'
+import EmailNotificationService from '@/plugin/internal/tool/email-notification'
 import { setProtocolSelection } from '@/common/utils/environment'
-import * as NTProtocol from '@/main/ntProtocol'
+import * as NTProtocol from '@/plugin/internal/protocol/nt-protocol'
 
 // The NT protocol plugin as a whole, its protocol layer faked: what it provides, what waits for it, and that
 // switching it off and on again leaves nothing behind
 
 const protocol = vi.hoisted(() => ({ started: 0, stopped: 0, mounted: [] as string[] }))
 
-vi.mock('@/main/qqProtocol', async () => {
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol', async () => {
   const { Service } = await import('cordis')
   const fake = (mode: string) => class FakeProtocol extends Service {
     static inject = ['config']

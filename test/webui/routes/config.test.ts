@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createTestApp } from '../helpers/testApp'
 import { createMockContext } from '../helpers/mockContext'
 import { createConfigRoutes } from '@/webui/BE/routes/config'
-import { PluginConfigError } from '@/plugin'
+import { PluginConfigError } from '@/plugin/host'
 
 vi.mock('@/main/config', () => ({
   webuiTokenUtil: {

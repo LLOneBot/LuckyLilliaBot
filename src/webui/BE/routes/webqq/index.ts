@@ -13,8 +13,8 @@ import { SSEStreamingApi, streamSSE } from 'hono/streaming'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
 import { TEMP_DIR } from '@/common/globalVars'
-import { SendElement } from '@/ntqqapi/entities'
-import { SendPicElement } from '@/ntqqapi/types'
+import { SendElement } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/entities'
+import { SendPicElement } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 
 export interface WebQQRoutesOptions {
   uploadDir: string

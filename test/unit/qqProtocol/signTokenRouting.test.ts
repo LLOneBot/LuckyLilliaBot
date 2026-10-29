@@ -15,20 +15,20 @@ vi.mock('@/common/utils/environment', async (importOriginal) => ({
   getProtocol: () => h.protocol,
 }))
 // sign.ts 里 watch 的 device32 那段还读 profile.family, 跟 protocol 保持一致。
-vi.mock('@/main/qqProtocol/direct-lib/profiles', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/profiles', () => ({
   getActiveProfile: () => ({ family: h.protocol === 'watch' ? 'watch' : 'nt' }),
 }))
-vi.mock('@/main/qqProtocol/direct-lib/sign-proxy', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign-proxy', () => ({
   getSignProxy: () => h.proxy,
 }))
-vi.mock('@/main/qqProtocol/direct-lib/macosDevice', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/macosDevice', () => ({
   getMacosDevice: async () => ({ qimei36: 'q36', devicePbHex: 'aa' }),
 }))
-vi.mock('@/main/qqProtocol/direct-lib/machineGuid', () => ({
+vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/machineGuid', () => ({
   loadMachineGuidSync: () => Buffer.alloc(16, 0x11),
 }))
 
-import { setupSign, acquireSignToken, acquireMacosEskOnly } from '@/main/qqProtocol/direct-lib/sign'
+import { setupSign, acquireSignToken, acquireMacosEskOnly } from '@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign'
 
 const DAY = 24 * 60 * 60
 

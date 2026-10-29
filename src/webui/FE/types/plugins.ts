@@ -1,4 +1,4 @@
-// Mirrors src/plugin/index.ts. The WebUI tsconfig has no node types, so the backend module cannot be imported here.
+// Mirrors src/plugin/host/index.ts. The WebUI tsconfig has no node types, so the backend module cannot be imported here.
 
 export type PluginState = 'missing' | 'incompatible' | 'pending' | 'loading' | 'active' | 'failed' | 'disposed'
 

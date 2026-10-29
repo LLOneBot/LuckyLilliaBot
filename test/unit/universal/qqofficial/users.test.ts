@@ -4,7 +4,7 @@ import path from 'node:path'
 import { Context } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { UserNames } from '@/universal/qqofficial/users'
+import { UserNames } from '@/plugin/internal/protocol/qq-official/users'
 
 let ctx: Context
 let dir: string

@@ -3,7 +3,7 @@ import path from 'node:path'
 import { Context, Fiber } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
-import PluginService, { PluginRevConflictError, PluginStatus } from '@/plugin'
+import PluginService, { PluginRevConflictError, PluginStatus } from '@/plugin/host'
 
 declare global {
   var __pluginTest: string[]

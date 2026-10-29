@@ -6,7 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { Context } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
-import PluginService from '../../src/plugin/index.ts'
+import PluginService from '../../src/plugin/host/index.ts'
 
 declare global {
   var harnessLog: string[]

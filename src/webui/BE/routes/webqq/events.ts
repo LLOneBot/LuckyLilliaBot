@@ -1,6 +1,6 @@
 import { Context } from 'cordis'
 import { SSEStreamingApi } from 'hono/streaming'
-import { ChatType, RawMessage } from '@/ntqqapi/types'
+import { ChatType, RawMessage } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 import { serializeResult } from '../../utils'
 import { resolveWatchPicUrls } from './messages'
 
