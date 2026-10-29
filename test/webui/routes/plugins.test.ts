@@ -21,6 +21,8 @@ beforeEach(() => {
     reload: vi.fn(async () => ({ status: 'reloaded' })),
     describe: vi.fn(async () => ({ schema: null, defaults: {}, config: null })),
     updateConfig: vi.fn(async (id: string) => status(id)),
+    uiPrefs: vi.fn(() => ({ approved: [], hidden: ['a|page|a:home'], order: {} })),
+    updateUiPrefs: vi.fn(async () => ({ approved: ['pkg-a'], hidden: [], order: {} })),
   }
   const ctx = {
     plugins,
@@ -84,6 +86,17 @@ describe('plugin routes', () => {
     })
     plugins.reload.mockRejectedValueOnce(new Error('reload failed: SyntaxError'))
     expect((await app.request('/api/plugins/a/reload', { method: 'POST' })).status).toBe(500)
+  })
+
+  it('reads and patches the UI preferences', async () => {
+    expect((await json(await app.request('/api/plugins/ui'))).body.data.hidden).toEqual(['a|page|a:home'])
+    const response = await json(await app.request('/api/plugins/ui', { method: 'PATCH', body: JSON.stringify({ approve: ['pkg-a'] }) }))
+    expect(response.body.data.approved).toEqual(['pkg-a'])
+    expect(plugins.updateUiPrefs).toHaveBeenCalledWith({ approve: ['pkg-a'] })
+    await app.request('/api/plugins/ui', { method: 'PATCH', body: 'null' })
+    expect(plugins.updateUiPrefs).toHaveBeenLastCalledWith({})
+    plugins.updateUiPrefs.mockRejectedValueOnce(new PluginNotFoundError('no installed plugin package nope with a WebUI'))
+    expect((await app.request('/api/plugins/ui', { method: 'PATCH', body: JSON.stringify({ approve: ['nope'] }) })).status).toBe(404)
   })
 
   it('answers 409 for a stale rev', async () => {

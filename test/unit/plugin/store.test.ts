@@ -41,6 +41,16 @@ describe('PluginStore', () => {
     expect(await new PluginStore(file).load()).toEqual({ data: { version: 1, entries: [{ id: 'a', name: 'x' }] } })
   })
 
+  it('keeps only well-formed UI preferences', async () => {
+    const file = fresh()
+    mkdirSync(path.dirname(file), { recursive: true })
+    writeFileSync(file, JSON.stringify({
+      entries: [],
+      ui: { approved: ['ui', 1, 'ui', ''], hidden: 'a|page|a:home', order: { 'a|dashboard.cards|x': 10, 'b|dashboard.cards|y': '1' } },
+    }))
+    expect((await new PluginStore(file).load()).data.ui).toEqual({ approved: ['ui'], hidden: [], order: { 'a|dashboard.cards|x': 10 } })
+  })
+
   it('keeps an unparsable file in place instead of moving it aside', async () => {
     const file = fresh()
     mkdirSync(path.dirname(file), { recursive: true })

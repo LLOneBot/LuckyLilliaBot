@@ -9,9 +9,20 @@ export interface PluginEntry {
   config?: unknown
 }
 
+/** What the user decided about plugins' parts of the WebUI; the plugin page edits it. */
+export interface UiPrefs {
+  /** Packages whose WebUI module may load. Builtins need no approval. */
+  approved: string[]
+  /** Slot contributions and sidebar pages left out: `<package>|<slot>|<id>`, `<package>|page|<tab>`. */
+  hidden: string[]
+  /** Positions in `list` slots by the same keys, over the contributions' own order. */
+  order: Record<string, number>
+}
+
 export interface PluginsFile {
   version: 1
   hmr?: boolean
+  ui?: UiPrefs
   entries: PluginEntry[]
 }
 
@@ -53,5 +64,20 @@ function normalize(value: unknown): PluginsFile {
   }
   const data: PluginsFile = { version: 1, entries }
   if (typeof input.hmr === 'boolean') data.hmr = input.hmr
+  if (input.ui !== undefined) data.ui = normalizeUi(input.ui)
   return data
+}
+
+const strings = (value: unknown): string[] =>
+  Array.isArray(value) ? [...new Set(value.filter((item): item is string => typeof item === 'string' && !!item))] : []
+
+export function normalizeUi(value: unknown): UiPrefs {
+  const input = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>
+  const order: Record<string, number> = {}
+  if (input.order && typeof input.order === 'object') {
+    for (const [key, position] of Object.entries(input.order)) {
+      if (typeof position === 'number' && Number.isFinite(position)) order[key] = position
+    }
+  }
+  return { approved: strings(input.approved), hidden: strings(input.hidden), order }
 }

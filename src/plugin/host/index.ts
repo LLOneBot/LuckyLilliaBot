@@ -14,7 +14,7 @@ import {
 } from './manifest'
 import { installPluginResolver, ResolverState, sharedSpecifierMap } from './resolve-hook'
 import {
-  newEntryId, PluginEntry, PluginsFile, PluginStore,
+  newEntryId, normalizeUi, PluginEntry, PluginsFile, PluginStore, UiPrefs,
 } from './store'
 import { watchPluginRoots } from './watcher'
 import { PluginDataDirs } from './storage'
@@ -26,7 +26,21 @@ declare module 'cordis' {
   interface Events {
     /** @mode emit. `id` is undefined when the entry list itself changed. */
     'plugins/changed'(id?: string): void
+    /** @mode emit */
+    'plugins/ui'(prefs: UiPrefs): void
   }
+}
+
+export type { UiPrefs }
+
+/** A change to the UiPrefs, applied as a whole: several tabs may edit them at once. */
+export interface UiPrefsPatch {
+  approve?: string[]
+  revoke?: string[]
+  hide?: string[]
+  show?: string[]
+  /** null drops the position */
+  order?: Record<string, number | null>
 }
 
 export type PluginState = 'missing' | 'incompatible' | 'pending' | 'loading' | 'active' | 'failed' | 'disposed'
@@ -55,6 +69,8 @@ export interface PluginStatus {
   service: ServiceDeclaration
   /** URL of the WebUI module; it changes whenever the package is reloaded, so the WebUI imports it afresh. */
   webui?: string
+  /** For a package with a WebUI module: whether the user let it load (UiPrefs.approved). */
+  webuiApproved?: boolean
   /** What an enabled builtin says about its settings, e.g. that something still has to be filled in. */
   notice?: string
 }
@@ -426,11 +442,50 @@ class PluginService extends Service {
    * `llbot.webui` module and below it is served; nothing outside that directory is.
    */
   webuiAsset(key: string, file: string): string | undefined {
-    const entry = this.packages.get(packageOfKey(key))?.webui
+    const name = packageOfKey(key)
+    const entry = this.packages.get(name)?.webui
     if (!entry) return
+    if (!this.webuiApproved(name)) throw new PluginForbiddenError(`the WebUI of ${name} is not approved`)
     const dir = path.dirname(entry)
     const target = path.resolve(dir, file)
     return isInside(dir, target) ? target : undefined
+  }
+
+  uiPrefs(): UiPrefs {
+    return structuredClone(this.data.ui ?? normalizeUi(undefined))
+  }
+
+  /**
+   * Approving is for installed packages with a WebUI module; the rest takes any key, a stale one included. A
+   * change of approvals also goes out as a list change, since the statuses carry them.
+   */
+  async updateUiPrefs(patch: UiPrefsPatch): Promise<UiPrefs> {
+    const strings = (value: unknown) => (Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string' && !!item) : [])
+    const approve = strings(patch.approve)
+    for (const name of approve) {
+      if (!this.packages.get(name)?.webui) throw new PluginNotFoundError(`no installed plugin package ${name} with a WebUI`)
+    }
+    const prefs = this.uiPrefs()
+    const approvedBefore = [...prefs.approved]
+    const revoke = new Set(strings(patch.revoke))
+    prefs.approved = [...new Set([...prefs.approved, ...approve])].filter(name => !revoke.has(name))
+    const show = new Set(strings(patch.show))
+    prefs.hidden = [...new Set([...prefs.hidden, ...strings(patch.hide)])].filter(key => !show.has(key))
+    if (patch.order && typeof patch.order === 'object') {
+      for (const [key, position] of Object.entries(patch.order)) {
+        if (position === null) delete prefs.order[key]
+        else if (typeof position === 'number' && Number.isFinite(position)) prefs.order[key] = position
+      }
+    }
+    this.data.ui = prefs
+    await this.save()
+    this.ctx.emit('plugins/ui', this.uiPrefs())
+    if (prefs.approved.join('\n') !== approvedBefore.join('\n')) this.changed()
+    return this.uiPrefs()
+  }
+
+  private webuiApproved(name: string): boolean {
+    return !!this.data.ui?.approved.includes(name)
   }
 
   /** Imports the module if it has not been loaded yet, so it also works for disabled entries. */
@@ -710,6 +765,7 @@ class PluginService extends Service {
       service: this.serviceOf(rt),
       webui: pkg?.webui && webuiUrl(pkg, this.webuiVersions.get(pkg.name) ?? 0),
     }
+    if (pkg?.webui) status.webuiApproved = this.webuiApproved(pkg.name)
     if (builtin) {
       Object.assign(status, { builtin: true, core: !!builtin.core, title: builtin.title })
     } else {

@@ -5,7 +5,8 @@ import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest'
 import Schema from 'schemastery'
 import PluginService, {
-  BuiltinConfig, BuiltinPlugin, PluginForbiddenError, PluginRevConflictError, PluginStatus, SECRET_MASK,
+  BuiltinConfig, BuiltinPlugin, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, PluginStatus, SECRET_MASK,
+  UiPrefs,
 } from '@/plugin/host'
 
 declare global {
@@ -518,6 +519,7 @@ describe('PluginService webui', () => {
     expect(byName('@scope/ui').webui).toBe('/plugin-webui/@scope+ui/0/index.js')
     expect(byName('alpha').webui).toBeUndefined()
 
+    await plugins.updateUiPrefs({ approve: ['ui', '@scope/ui'] })
     expect(plugins.webuiAsset('ui', 'chunks/page.js')?.endsWith(path.join('ui', 'webui', 'chunks', 'page.js'))).toBe(true)
     expect(plugins.webuiAsset('@scope+ui', 'index.js')?.endsWith(path.join('@scope', 'ui', 'webui', 'index.js'))).toBe(true)
     // Only the module directory: not the backend code next to it, nor other packages
@@ -529,5 +531,48 @@ describe('PluginService webui', () => {
     await plugins.enable(id)
     expect(await plugins.reload(id)).toEqual({ status: 'reloaded' })
     expect(byName('ui').webui).toBe('/plugin-webui/ui/1/index.js')
+  })
+
+  it('serves a module only once the user approved it, and keeps that in plugins.json', async () => {
+    uiPlugin('ui')
+    const plugins = await boot()
+    const announced: UiPrefs[] = []
+    const changes: (string | undefined)[] = []
+    ctx.on('plugins/ui', prefs => announced.push(prefs))
+    ctx.on('plugins/changed', id => changes.push(id))
+    expect(byName('ui').webuiApproved).toBe(false)
+    expect(byName('alpha').webuiApproved).toBeUndefined()
+    expect(() => plugins.webuiAsset('ui', 'index.js')).toThrow(PluginForbiddenError)
+    // Approving is for installed packages that have a module to approve
+    await expect(plugins.updateUiPrefs({ approve: ['alpha'] })).rejects.toBeInstanceOf(PluginNotFoundError)
+    await expect(plugins.updateUiPrefs({ approve: ['nope'] })).rejects.toBeInstanceOf(PluginNotFoundError)
+
+    await plugins.updateUiPrefs({ approve: ['ui'] })
+    expect(byName('ui').webuiApproved).toBe(true)
+    expect(plugins.webuiAsset('ui', 'index.js')).toBeDefined()
+    // The statuses carry the approval, so the list goes out again
+    expect(changes).toContain(undefined)
+
+    const prefs = await plugins.updateUiPrefs({
+      hide: ['ui|dashboard.cards|x', 'ui|page|ui:home', 7 as never],
+      order: { 'ui|dashboard.cards|x': 20, 'ui|dashboard.cards|y': 10 },
+    })
+    expect(prefs).toEqual({
+      approved: ['ui'],
+      hidden: ['ui|dashboard.cards|x', 'ui|page|ui:home'],
+      order: { 'ui|dashboard.cards|x': 20, 'ui|dashboard.cards|y': 10 },
+    })
+    expect(announced.at(-1)).toEqual(prefs)
+    expect(await plugins.updateUiPrefs({ show: ['ui|page|ui:home'], order: { 'ui|dashboard.cards|y': null }, revoke: ['ui'] })).toEqual({
+      approved: [],
+      hidden: ['ui|dashboard.cards|x'],
+      order: { 'ui|dashboard.cards|x': 20 },
+    })
+    expect(JSON.parse(readFileSync(file, 'utf8')).ui).toEqual(plugins.uiPrefs())
+
+    await service!.dispose()
+    await boot()
+    expect(ctx.plugins.uiPrefs().hidden).toEqual(['ui|dashboard.cards|x'])
+    expect(byName('ui').webuiApproved).toBe(false)
   })
 })

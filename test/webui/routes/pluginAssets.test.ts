@@ -4,6 +4,7 @@ import path from 'node:path'
 import { Context } from 'cordis'
 import { afterAll, describe, expect, it, vi } from 'vitest'
 import { hashPassword } from '@/webui/BE/passwordHash'
+import { PluginForbiddenError } from '@/plugin/host'
 import { servePluginAsset } from '@/webui/BE/routes/plugins'
 
 const dir = mkdtempSync(path.join(os.tmpdir(), 'llbot-plugin-assets-'))
@@ -14,7 +15,10 @@ afterAll(() => {
   rmSync(dir, { recursive: true, force: true })
 })
 
-const webuiAsset = vi.fn((key: string, file: string) => (key === '@scope+ui' && file === 'index.js' ? module : undefined))
+const webuiAsset = vi.fn((key: string, file: string) => {
+  if (key === 'unapproved') throw new PluginForbiddenError('the WebUI of unapproved is not approved')
+  return key === '@scope+ui' && file === 'index.js' ? module : undefined
+})
 const ctx = { plugins: { webuiAsset } } as unknown as Context
 // test/unit/setup.ts mocks the WebUI password to 'test-token'; the WebUI keeps its hash in this cookie
 const login = `theme=dark; webui_token=${hashPassword('test-token')}`
@@ -35,6 +39,10 @@ describe('plugin WebUI assets', () => {
   it('wants the login cookie, since import() cannot send the login header', async () => {
     expect((await get('/plugin-webui/@scope+ui/3/index.js')).status).toBe(401)
     expect((await get('/plugin-webui/@scope+ui/3/index.js', 'webui_token=wrong')).status).toBe(401)
+  })
+
+  it('answers 403 for a package whose WebUI the user did not approve', async () => {
+    expect((await get('/plugin-webui/unapproved/0/index.js', login)).status).toBe(403)
   })
 
   it('answers 404 for anything the plugin service does not resolve, and only serves reads', async () => {

@@ -4,7 +4,7 @@ import { Context } from 'cordis'
 import { Context as HonoContext, Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import {
-  PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError,
+  PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, UiPrefsPatch,
 } from '../../../plugin/host'
 import { webuiTokenUtil } from '../../../main/config'
 import { hashPassword } from '../passwordHash'
@@ -41,14 +41,24 @@ export function createPluginRoutes(ctx: Context): Hono {
       }
       stream.writeSSE({ event: 'changed', data: JSON.stringify(data) })
     })
+    const disposeUi = ctx.on('plugins/ui', (prefs) => {
+      stream.writeSSE({ event: 'changed', data: JSON.stringify({ type: 'ui', data: prefs }) })
+    })
     stream.onAbort(() => {
       dispose()
+      disposeUi()
     })
     await stream.writeSSE({ event: 'connected', data: '{}' })
     await new Promise<void>(resolve => stream.onAbort(resolve))
   }))
 
   router.post('/scan', c => respond(c, () => ctx.plugins.scan()))
+
+  router.get('/ui', c => respond(c, () => ctx.plugins.uiPrefs()))
+  router.patch('/ui', async (c) => {
+    const patch = await c.req.json<UiPrefsPatch>()
+    return respond(c, () => ctx.plugins.updateUiPrefs(patch && typeof patch === 'object' ? patch : {}))
+  })
 
   router.post('/', async (c) => {
     const { name, config } = await c.req.json<{ name: string; config?: unknown }>()
@@ -95,8 +105,9 @@ function cookie(request: Request, name: string): string | undefined {
 }
 
 /**
- * `/plugin-webui/<key>/<version>/<file>`: plugin WebUI modules and their chunks. import() sends the
- * cookies but no headers, so the WebUI login is checked against its cookie, which holds the same hash.
+ * `/plugin-webui/<key>/<version>/<file>`: plugin WebUI modules and their chunks, once the user approved the
+ * package's. import() sends the cookies but no headers, so the WebUI login is checked against its cookie, which
+ * holds the same hash.
  */
 export async function servePluginAsset(ctx: Context, request: Request): Promise<Response> {
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405 })
@@ -106,8 +117,9 @@ export async function servePluginAsset(ctx: Context, request: Request): Promise<
   let target: string | undefined
   try {
     target = key && file.length ? ctx.plugins.webuiAsset(decodeURIComponent(key), file.map(decodeURIComponent).join('/')) : undefined
-  } catch {
-    // malformed percent-encoding
+  } catch (e) {
+    if (e instanceof PluginForbiddenError) return new Response(null, { status: 403 })
+    // else malformed percent-encoding
   }
   if (!target || !(await stat(target).catch(() => undefined))?.isFile()) return new Response(null, { status: 404 })
   return new Response(request.method === 'HEAD' ? null : await readFile(target), {
