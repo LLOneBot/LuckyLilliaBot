@@ -3,7 +3,7 @@ import { CheckCircle2, Circle, XCircle } from 'lucide-react'
 import { showToast } from '../common'
 import { DependencyInfo, DependencyReport, PluginStatus } from '../../types/plugins'
 import { getPluginDependencies, setPluginEnabled } from '../../utils/pluginApi'
-import { pluginTitle, SERVICE_LABEL, STATE_LABEL } from './meta'
+import { pluginTitle, serviceLabel, STATE_LABEL } from './meta'
 
 interface DependencyListProps {
   plugin: PluginStatus
@@ -68,7 +68,7 @@ const DependencyList: React.FC<DependencyListProps> = ({ plugin, plugins }) => {
         {report.dependencies.map((dep) => {
           const Icon = dep.available ? CheckCircle2 : dep.required ? XCircle : Circle
           const tone = dep.available ? 'text-green-500' : dep.required ? 'text-red-500' : 'text-theme-hint'
-          const label = SERVICE_LABEL[dep.name]
+          const label = serviceLabel(dep.name, plugins)
           const enableable = dep.available ? [] : dep.candidates.filter(id => byId.get(id)?.disabled)
           return (
             <li key={dep.name} className="flex items-start gap-2 text-sm">

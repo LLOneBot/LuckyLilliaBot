@@ -1,7 +1,7 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
 import os from 'node:os'
-import { getProtocol, isPmhqMode } from '@/common/utils/environment'
+import { version } from '../../../../version'
 
 // os.cpus() 是开机以来的累计时间, 要两次采样算增量; os.loadavg() 在 Windows 上恒为 0
 function readCpuTimes(): { idle: number; total: number } {
@@ -27,26 +27,9 @@ async function sampleSystemCpuPercent(sampleMs = 150): Promise<number> {
 export function createDashboardRoutes(ctx: Context): Hono {
   const router = new Hono()
 
-  // The process and system parts always; the account's once the NT protocol runs and is logged in
+  // The bot process and the machine; what plugins count goes on their own Dashboard cards
   router.get('/dashboard/stats', async (c) => {
     try {
-      const app = ctx.get('app')
-      const protocol = ctx.get('qqProtocol')
-      let account: { friendCount: number; groupCount: number; messageReceived: number; messageSent: number; lastMessageTime: number } | undefined
-      if (app) {
-        const friends = await ctx.get('ntFriendApi')!.getFriends(false)
-        const groups = await ctx.get('ntGroupApi')!.getGroups(false)
-        account = {
-          friendCount: friends.friends.length,
-          groupCount: groups.length,
-          messageReceived: app.messageReceivedCount,
-          messageSent: app.messageSentCount,
-          lastMessageTime: app.lastMessageTime,
-        }
-      }
-
-      const qq = await protocol?.getQQResourceUsage()
-
       const botTotalMem = os.totalmem()
       const cpuCores = os.cpus().length
       const memUsage = process.memoryUsage()
@@ -59,23 +42,17 @@ export function createDashboardRoutes(ctx: Context): Hono {
       const sysMemPercent = (sysUsedMem / sysTotalMem) * 100
       const sysCpuPercent = await sampleSystemCpuPercent()
 
-      const mode = protocol ? (isPmhqMode() ? 'pmhq' : 'direct') : undefined
-
       return c.json({
         success: true,
         data: {
-          ...account,
-          startupTime: app?.startupTime ?? Math.trunc(Date.now() / 1000 - process.uptime()),
-          mode,
-          // --protocol 只对直连有意义
-          protocol: mode === 'direct' ? getProtocol() : undefined,
+          version,
+          startupTime: Math.trunc(Date.now() / 1000 - process.uptime()),
           bot: {
             memory: memUsage.rss,
             totalMemory: botTotalMem,
             memoryPercent: botMemoryPercent,
             cpu: botCpuPercent,
           },
-          qq: qq ?? undefined,
           system: {
             memory: sysUsedMem,
             totalMemory: sysTotalMem,
@@ -90,30 +67,5 @@ export function createDashboardRoutes(ctx: Context): Hono {
     }
   })
 
-  router.get('/device-info', async (c) => {
-    const systemApi = ctx.get('ntSystemApi')
-    if (!systemApi) return c.json({ success: false, message: 'NTQQ 协议未启用' }, 503)
-    try {
-      const deviceInfo = await systemApi.getDeviceInfo()
-      return c.json({
-        success: true,
-        data: deviceInfo,
-      })
-    } catch (e) {
-      return c.json({ success: false, message: '获取设备信息失败', error: e }, 500)
-    }
-  })
-
   return router
-}
-
-/** Up with the WebUI shell, NT protocol or not: the NT services are looked up per request. */
-export const DashboardRoutes = {
-  name: 'webui-dashboard-routes',
-  inject: ['webuiServer'],
-  apply(ctx: Context) {
-    const app = new Hono().route('/api', createDashboardRoutes(ctx))
-    ctx.webuiServer.route('/api/dashboard', app)
-    ctx.webuiServer.route('/api/device-info', app)
-  },
 }

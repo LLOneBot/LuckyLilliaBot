@@ -10,6 +10,7 @@ import { appendCachedMessage, updateCachedMessageEmojiReaction, markCachedMessag
 import { showToast } from '../common'
 import { Loader2, Maximize2 } from 'lucide-react'
 import { useSettingsStore } from '../../stores/settingsStore'
+import { webui } from '../../context'
 
 function extractMessageSummary(rawMessage: RawMessage): string {
   if (!rawMessage || !rawMessage.elements || !Array.isArray(rawMessage.elements)) {
@@ -451,7 +452,7 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
       {/* 全屏按钮, 固定在窗口右下角 */}
       {!isFullscreen && showWebQQFullscreenButton && (
         <button
-          onClick={() => window.open('#webqq-fullscreen', '_blank')}
+          onClick={() => window.open(webui().pageHref('webqq', { fullscreen: true }), '_blank')}
           className="fixed top-4 right-4 md:top-auto md:bottom-6 md:right-6 z-50 p-3 glass glass-chrome glass-interactive r-capsule text-[var(--accent)] transition-all duration-200 group"
           title="在新窗口中全屏打开"
         >

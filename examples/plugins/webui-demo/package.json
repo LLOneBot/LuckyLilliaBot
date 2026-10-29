@@ -1,7 +1,7 @@
 {
   "name": "luckylillia-plugin-webui-demo",
   "version": "1.0.0",
-  "description": "Adds a page, a Dashboard card and a color field to the WebUI",
+  "description": "Adds a page, a Dashboard card, WebQQ chat and message extensions, a plugin card button and a color field to the WebUI",
   "type": "module",
   "main": "src/index.ts",
   "peerDependencies": {
@@ -10,8 +10,8 @@
   "llbot": {
     "category": "other",
     "description": {
-      "zh": "WebUI 扩展示例：侧边栏页面、Dashboard 卡片，以及一个按 role 注册的取色控件",
-      "en": "WebUI extension example: a sidebar page, a Dashboard card and a color field registered by role"
+      "zh": "WebUI 扩展示例：侧边栏页面、Dashboard 卡片、WebQQ 聊天窗口按钮和消息渲染（markdown 原文、折叠长消息）、插件卡片按钮，以及一个按 role 注册的取色控件",
+      "en": "WebUI extension example: a sidebar page, a Dashboard card, a WebQQ chat button and message rendering (markdown source, long messages folded), a plugin card button and a color field registered by role"
     },
     "icon": "sparkles",
     "service": {

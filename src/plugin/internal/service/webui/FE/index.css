@@ -468,6 +468,11 @@
 }
 
 @layer utilities {
+  /* The WebUI's frame around a slot contribution goes with it when it renders nothing; a utility, to beat .flex */
+  .slot-frame:has(> .slot-body:empty) {
+    display: none;
+  }
+
   /* The one orchestrated entrance: content arriving on a tab switch. Glass
      panels settle in rather than sliding, so this is opacity plus a short
      lift, not a long travel. */

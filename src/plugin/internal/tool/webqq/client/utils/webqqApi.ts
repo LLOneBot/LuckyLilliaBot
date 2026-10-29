@@ -1,4 +1,5 @@
-import { apiFetch, getToken } from './api'
+import { apiFetch } from './api'
+import { webui } from '../context'
 import type {
   FriendCategory,
   GroupItem,
@@ -510,12 +511,11 @@ export async function addFavEmojiFromUrl(url: string): Promise<{ result: number;
 }
 
 export function getAudioProxyUrl(fileUuid: string, isGroup: boolean, filePath?: string): string {
-  const token = getToken()
-  let url = `/api/webqq/audio-proxy?fileUuid=${encodeURIComponent(fileUuid)}&isGroup=${isGroup}&token=${encodeURIComponent(token || '')}`
+  let url = `/api/webqq/audio-proxy?fileUuid=${encodeURIComponent(fileUuid)}&isGroup=${isGroup}`
   if (filePath) {
     url += `&filePath=${encodeURIComponent(filePath)}`
   }
-  return url
+  return webui().authUrl(url)
 }
 
 // 群主退群就是解散
@@ -605,9 +605,7 @@ export async function downloadImageByUrl(url: string, suggestedName?: string): P
   const isLocal = url.startsWith('blob:') || url.startsWith('data:')
   const resp = isLocal
     ? await fetch(url)
-    : await fetch(`/api/webqq/image-proxy?url=${encodeURIComponent(url)}`, {
-        headers: { 'X-Webui-Token': getToken() || '' },
-      })
+    : await webui().fetch(`/api/webqq/image-proxy?url=${encodeURIComponent(url)}`)
   if (!resp.ok) {
     throw new Error('下载图片失败')
   }
@@ -772,8 +770,7 @@ export function createEventSource(
   onError?: (error: unknown) => void,
   onReconnect?: () => void
 ): EventSource {
-  const token = getToken()
-  const url = token ? `/api/webqq/events?token=${encodeURIComponent(token)}` : '/api/webqq/events'
+  const url = webui().authUrl('/api/webqq/events')
 
   let eventSource: EventSource
   let reconnectAttempts = 0

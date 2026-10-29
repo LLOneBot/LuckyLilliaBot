@@ -1,5 +1,7 @@
 import type { BuiltinPlugin } from '../host'
 import { builtin as webui } from './service/webui/builtin'
+import { builtin as dashboard } from './tool/dashboard/builtin'
+import { builtin as logs } from './tool/logs/builtin'
 import { builtin as ntProtocol } from './protocol/nt-protocol/builtin'
 import { builtin as onebot11 } from './adapter/onebot11/builtin'
 import { builtin as satori } from './adapter/satori/builtin'
@@ -15,5 +17,5 @@ import { builtin as ntqqUniversal } from './service/ntqq-universal/builtin'
  * entries get in plugins.json.
  */
 export const builtinPlugins: BuiltinPlugin[] = [
-  webui, ntProtocol, onebot11, satori, milky, qqOfficial, webqq, emailNotification, ntqqUniversal,
+  webui, dashboard, logs, ntProtocol, onebot11, satori, milky, qqOfficial, webqq, emailNotification, ntqqUniversal,
 ]

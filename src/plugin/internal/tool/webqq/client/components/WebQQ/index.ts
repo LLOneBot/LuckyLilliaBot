@@ -1,5 +1,4 @@
 export { default as WebQQPage } from './WebQQPage'
-export { default as WebQQFullscreen } from './WebQQFullscreen'
 
 export { ChatInput, RichInput, MuteDialog, KickConfirmDialog, TitleDialog } from './chat'
 export type { ChatInputRef, RichInputRef, RichInputItem } from './chat'

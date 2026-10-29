@@ -4,9 +4,11 @@ import App from './App'
 import { setGlassSource } from './utils/glassRuntime'
 import GlassDebug from './components/common/GlassDebug'
 import { installSharedModules, startBuiltinClients } from './plugin-host'
+import { registerCorePages } from './core'
 import './index.css'
 
 installSharedModules()
+registerCorePages()
 startBuiltinClients()
 
 // Apply the theme class before first paint. Without this the dark background

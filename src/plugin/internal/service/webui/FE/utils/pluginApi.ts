@@ -1,6 +1,8 @@
 import { apiFetch, ApiError } from './api'
 import { getCookie } from './cookie'
-import { ConfigIssue, DependencyReport, PluginDescription, PluginStatus, ReloadResult } from '../types/plugins'
+import {
+  ConfigIssue, DependencyReport, PluginDescription, PluginStatus, ReloadResult, UiPrefs, UiPrefsPatch,
+} from '../types/plugins'
 
 const BASE = '/api/plugins'
 
@@ -31,6 +33,10 @@ export const removePlugin = (id: string) => request<null>(`/${id}`, { method: 'D
 export const describePlugin = (id: string) => request<PluginDescription>(`/${id}/schema`)
 
 export const getPluginDependencies = (id: string) => request<DependencyReport>(`/${id}/dependencies`)
+
+export const getUiPrefs = () => request<UiPrefs>('/ui')
+
+export const patchUiPrefs = (patch: UiPrefsPatch) => request<UiPrefs>('/ui', { method: 'PATCH', body: JSON.stringify(patch) })
 
 /**
  * Sends the complete value; the server works out what differs and stores only that.
@@ -64,7 +70,7 @@ export class ConfigRejectedError extends Error {
 /** Someone else changed the config since this form loaded it. */
 export class ConfigConflictError extends Error {}
 
-export type PluginStreamEvent = { type: 'status'; data: PluginStatus } | { type: 'list' }
+export type PluginStreamEvent = { type: 'status'; data: PluginStatus } | { type: 'list' } | { type: 'ui'; data: UiPrefs }
 
 /** Subscribes to state changes; returns the unsubscribe function. */
 export function openPluginStream(onEvent: (event: PluginStreamEvent) => void): () => void {

@@ -20,7 +20,6 @@ import { configPaths } from '@/common/configPaths'
 import PluginService from '../plugin/host'
 import BotsService from '../universal/bots'
 import { builtinPlugins } from '../plugin/internal'
-import { DashboardRoutes } from '../plugin/internal/service/webui/BE/routes'
 import { EmailRoutes } from '../plugin/internal/tool/email-notification/testRoutes'
 
 declare module 'cordis' {
@@ -86,7 +85,6 @@ async function onLoad() {
     hmr: isPluginHmr(),
     builtins: builtinPlugins,
   })
-  ctx.plugin(DashboardRoutes)
   ctx.plugin(EmailRoutes)
 
   // The settings are the instance's, fixed at startup: applied now and watched from here on

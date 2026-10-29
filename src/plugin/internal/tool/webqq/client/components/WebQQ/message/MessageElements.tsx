@@ -1,8 +1,10 @@
 import React, { useState, useEffect, memo, useRef } from 'react'
 import { Loader2, Mic, Play, Pause, ChevronRight, X, FileText } from 'lucide-react'
 import { createPortal } from 'react-dom'
+import { Slot, type WebQQElement } from '@luckylillia/plugin-sdk/webui'
 import type { MessageElement, RawMessage } from '../../../types/webqq'
-import { getToken } from '../../../utils/api'
+import { webui } from '../../../context'
+import { slotMessage } from '../../../utils/slotMessage'
 import { translatePttToText, getAudioProxyUrl, getForwardMessages, getPrivateFileUrl, getSelfUid, getUserAvatar } from '../../../utils/webqqApi'
 import type { ForwardMessageItem, ForwardMessageSegment } from '../../../utils/webqqApi'
 import { useImageRkeyStore } from '../../../stores/imageRkeyStore'
@@ -46,7 +48,18 @@ export const getProxyImageUrl = (
   return url
 }
 
-export const MessageElementRenderer = memo<{ element: MessageElement; message?: RawMessage }>(({ element, message }) => {
+/** An element as a plugin draws it (the `webqq.message.element` slot, keyed by its type), else as WebQQ does. */
+export const MessageElementRenderer = memo<{ element: MessageElement; message?: RawMessage }>(({ element, message }) => (
+  <Slot
+    name="webqq.message.element"
+    match={String(element.elementType)}
+    props={{ element: element as unknown as WebQQElement, message: message && slotMessage(message) }}
+  >
+    <BuiltinElement element={element} message={message} />
+  </Slot>
+))
+
+const BuiltinElement = memo<{ element: MessageElement; message?: RawMessage }>(({ element, message }) => {
   const [imageLoaded, setImageLoaded] = useState(false)
   const [imageError, setImageError] = useState(false)
   const [videoThumbLoaded, setVideoThumbLoaded] = useState(false)
@@ -175,7 +188,7 @@ export const MessageElementRenderer = memo<{ element: MessageElement; message?: 
         firstThumb = values[0]
       }
       if (firstThumb) {
-        thumbUrl = `/api/webqq/file-proxy?path=${encodeURIComponent(firstThumb)}&token=${encodeURIComponent(getToken() || '')}`
+        thumbUrl = webui().authUrl(`/api/webqq/file-proxy?path=${encodeURIComponent(firstThumb)}`)
       }
     }
 

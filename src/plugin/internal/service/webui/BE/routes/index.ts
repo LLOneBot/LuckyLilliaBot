@@ -1,5 +1,3 @@
 export { createConfigRoutes } from './config'
 export { createBotsRoutes } from './bots'
-export { createDashboardRoutes, DashboardRoutes } from './dashboard'
 export { createLoginInfoRoutes } from './loginInfo'
-export { createLogsRoutes } from './logs'

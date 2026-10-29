@@ -6,6 +6,8 @@ export interface ServiceDeclaration {
   required: string[]
   optional: string[]
   implements: string[]
+  /** What the provided services stand for to a user (llbot.service.labels) */
+  labels?: Record<string, string>
 }
 
 export interface PluginManifest {
@@ -37,8 +39,29 @@ export interface PluginStatus {
   service: ServiceDeclaration
   /** URL of the plugin's WebUI module; it changes when the plugin is reloaded. */
   webui?: string
+  /** For a package with a WebUI module: whether it may load (UiPrefs.approved). */
+  webuiApproved?: boolean
   /** What an enabled builtin says about its settings, e.g. that something still has to be filled in. */
   notice?: string
+}
+
+/** What the user decided about plugins' parts of the WebUI (plugins.json `ui`). */
+export interface UiPrefs {
+  /** Packages whose WebUI module may load; builtins need no approval. */
+  approved: string[]
+  /** contributionKey / pageContributionKey (plugin-host/registry.ts) of what is left out. */
+  hidden: string[]
+  /** Positions in `list` slots by contributionKey, over the contributions' own order. */
+  order: Record<string, number>
+}
+
+export interface UiPrefsPatch {
+  approve?: string[]
+  revoke?: string[]
+  hide?: string[]
+  show?: string[]
+  /** null drops the position */
+  order?: Record<string, number | null>
 }
 
 export interface DependencyInfo {

@@ -64,7 +64,7 @@ export default defineConfig({
       '@luckylillia/plugin-sdk/webui': path.resolve(__dirname, 'plugin-host/sdk.tsx'),
     },
     // Those clients live outside this package and must get its React, not one found next to them
-    dedupe: ['react', 'react-dom', 'lucide-react'],
+    dedupe: ['react', 'react-dom', 'lucide-react', 'zustand', '@tanstack/react-virtual'],
   },
   server: {
     host: '127.0.0.1',

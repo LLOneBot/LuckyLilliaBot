@@ -12,7 +12,10 @@
       "react": ["./node_modules/@types/react"],
       "react/jsx-runtime": ["./node_modules/@types/react/jsx-runtime"],
       "react-dom": ["./node_modules/@types/react-dom"],
-      "lucide-react": ["./node_modules/lucide-react"]
+      "lucide-react": ["./node_modules/lucide-react"],
+      "zustand": ["./node_modules/zustand"],
+      "zustand/middleware": ["./node_modules/zustand/middleware"],
+      "@tanstack/react-virtual": ["./node_modules/@tanstack/react-virtual"]
     },
     "types": ["vite/client"],
     "jsx": "react",

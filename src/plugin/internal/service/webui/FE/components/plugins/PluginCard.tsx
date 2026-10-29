@@ -1,7 +1,12 @@
 import React from 'react'
 import { Copy, RotateCw, Settings } from 'lucide-react'
 import { PluginStatus } from '../../types/plugins'
+import { useRenderFailures } from '../../plugin-host/failures'
+import { useClientErrors } from '../../plugin-host/host'
 import { usePluginList } from '../../plugin-host/pluginList'
+import { SlotOutlet } from '../../plugin-host/views'
+import { patchUiPrefs } from '../../utils/pluginApi'
+import { showToast } from '../common'
 import { Conflict, NEEDS_SETTINGS, pendingReason, pluginDescription, pluginIcon, pluginTitle, RELOAD_WARNING, STATE_LABEL } from './meta'
 
 interface PluginCardProps {
@@ -26,9 +31,18 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts,
   const waiting = plugin.state === 'active' && !!plugin.notice
   const state = waiting ? NEEDS_SETTINGS : STATE_LABEL[plugin.state]
   const active = plugin.state === 'active' && !waiting
-  const ntProtocolOff = usePluginList(state => state.plugins?.find(item => item.name === 'builtin:nt-protocol')?.disabled ?? false)
-  const detail = pendingReason(plugin, ntProtocolOff) ?? plugin.error ?? plugin.notice
+  const plugins = usePluginList(state => state.plugins) ?? []
+  const detail = pendingReason(plugin, plugins) ?? plugin.error ?? plugin.notice
   const stop = (e: React.SyntheticEvent) => e.stopPropagation()
+  const clientError = useClientErrors(state => state.errors[plugin.name])
+  const failure = useRenderFailures(state => Object.values(state.failures).find(item => item.owner === plugin.name))
+  const unapproved = !plugin.builtin && !!plugin.webui && !plugin.webuiApproved
+  const approve = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    patchUiPrefs({ approve: [plugin.name] })
+      .then(prefs => usePluginList.setState({ prefs }))
+      .catch(error => showToast(error instanceof Error ? error.message : String(error), 'error'))
+  }
 
   return (
     <div
@@ -75,14 +89,17 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts,
           {detail && <span className="text-xs text-theme-muted truncate" title={detail}>{detail}</span>}
         </div>
         <div className="flex items-center flex-shrink-0" onClick={stop}>
+          <SlotOutlet name="plugins.card.actions" props={{ plugin }} />
           {onConfigure && (
             <button type="button" title={plugin.builtin ? '前往设置' : '配置'} onClick={onConfigure} className={actionButton}>
               <Settings size={18} />
             </button>
           )}
-          <button type="button" title={plugin.builtin ? '重启' : '重载'} disabled={busy || plugin.disabled} onClick={onReload} className={actionButton}>
-            <RotateCw size={18} className={busy ? 'animate-spin' : ''} />
-          </button>
+          {!plugin.core && (
+            <button type="button" title={plugin.builtin ? '重启' : '重载'} disabled={busy || plugin.disabled} onClick={onReload} className={actionButton}>
+              <RotateCw size={18} className={busy ? 'animate-spin' : ''} />
+            </button>
+          )}
           {onDuplicate && (
             <button type="button" title="添加一个实例" disabled={busy || plugin.state === 'missing'} onClick={onDuplicate} className={actionButton}>
               <Copy size={18} />
@@ -96,6 +113,19 @@ const PluginCard: React.FC<PluginCardProps> = ({ plugin, instanceTag, conflicts,
           和{conflict.with.map(other => `「${pluginTitle(other)}」`).join('、')}都提供 {conflict.service}，同时只能运行一个
         </p>
       ))}
+
+      {unapproved && (
+        <div className="flex items-center gap-3 mt-3" onClick={stop}>
+          <p className="flex-1 text-xs text-amber-600 dark:text-amber-400">带着自己的界面，批准后才会加载到 WebUI 里</p>
+          <button type="button" onClick={approve} className="btn-glass text-xs px-3 py-1.5 flex-shrink-0">批准界面</button>
+        </div>
+      )}
+
+      {(clientError || failure) && (
+        <p className="text-xs text-red-500 mt-3 truncate" title={clientError ?? failure?.message}>
+          {clientError ? `界面模块没能加载：${clientError}` : `${failure!.where}出错了：${failure!.message}`}
+        </p>
+      )}
 
       {plugin.reloadCount >= RELOAD_WARNING && (
         <p className="text-xs text-amber-600 dark:text-amber-400 mt-3">已热重载 {plugin.reloadCount} 次，旧代码仍占着内存，建议找时间重启 Bot</p>

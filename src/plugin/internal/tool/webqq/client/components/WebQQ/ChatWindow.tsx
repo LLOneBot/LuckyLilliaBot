@@ -2,6 +2,7 @@ import React, { useState, useEffect, useLayoutEffect, useRef, useCallback, useMe
 import { createPortal } from 'react-dom'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { Users, Loader2, ArrowLeft, ArrowDown, FolderOpen, Forward, X } from 'lucide-react'
+import { Slot } from '@luckylillia/plugin-sdk/webui'
 import type { ChatSession, RawMessage } from '../../types/webqq'
 import { getMessages, getSelfUid, getSelfUin, getUserProfile, UserProfile, kickGroupMember, getGroupProfile, GroupProfile, quitGroup, muteGroupMember, setMemberTitle, forwardSingleMessage, forwardMultiMessages } from '../../utils/webqqApi'
 import { useWebQQStore, hasVisitedChat, markChatVisited } from '../../stores/webqqStore'
@@ -964,20 +965,19 @@ const ChatWindow: React.FC<ChatWindowProps> = ({ session, onShowMembers, onShowF
               </div>
             </div>
           </div>
-          {session.chatType === 2 && (
-            <div className="flex items-center flex-shrink-0">
-              {onShowFiles && (
-                <button onClick={() => onShowFiles()} className="p-2 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg" title="群文件">
-                  <FolderOpen size={20} />
-                </button>
-              )}
-              {onShowMembers && (
-                <button onClick={onShowMembers} className="p-2 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg" title="查看群成员">
-                  <Users size={20} />
-                </button>
-              )}
-            </div>
-          )}
+          <div className="flex items-center flex-shrink-0 empty:hidden">
+            <Slot name="webqq.chat.actions" props={{ chat: { chatType: Number(session.chatType), peerId: session.peerId, name: session.peerName } }} />
+            {session.chatType === 2 && onShowFiles && (
+              <button onClick={() => onShowFiles()} className="p-2 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg" title="群文件">
+                <FolderOpen size={20} />
+              </button>
+            )}
+            {session.chatType === 2 && onShowMembers && (
+              <button onClick={onShowMembers} className="p-2 text-theme-muted hover:text-theme hover:bg-theme-item rounded-lg" title="查看群成员">
+                <Users size={20} />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* virtualizer 没设 scrollMargin, 顶部约 80px 的偏移靠 overscan 5 吸收 */}

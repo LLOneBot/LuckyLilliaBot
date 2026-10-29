@@ -26,9 +26,10 @@ import OneBot11Adapter from '@/plugin/internal/adapter/onebot11/adapter'
 import SatoriAdapter from '@/plugin/internal/adapter/satori/adapter'
 import MilkyAdapter from '@/plugin/internal/adapter/milky/adapter'
 import { WebuiServer } from '@/plugin/internal/service/webui/BE/server'
-import { DashboardRoutes } from '@/plugin/internal/service/webui/BE/routes'
 import { EmailRoutes } from '@/plugin/internal/tool/email-notification/testRoutes'
 import { NTLoginRoutes } from '@/plugin/internal/protocol/nt-protocol/loginRoutes'
+import { Dashboard } from '@/plugin/internal/tool/dashboard'
+import { Logs } from '@/plugin/internal/tool/logs'
 import { WebQQ } from '@/plugin/internal/tool/webqq'
 import EmailNotificationService from '@/plugin/internal/tool/email-notification'
 import AccountService from '@/plugin/internal/protocol/nt-protocol/account'
@@ -125,7 +126,8 @@ describe('service registry under the pinned cordis version', () => {
     // Route plugins: their inject lists have to be satisfiable by the real services
     mount('ntLoginRoutes', NTLoginRoutes)
     mount('webqq', WebQQ)
-    mount('dashboardRoutes', DashboardRoutes)
+    mount('dashboard', Dashboard)
+    mount('logs', Logs)
     mount('emailRoutes', EmailRoutes)
 
     await vi.waitFor(() => {

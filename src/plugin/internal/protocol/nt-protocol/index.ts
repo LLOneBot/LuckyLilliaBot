@@ -21,6 +21,7 @@ import {
   NTWebApi,
 } from './ntqqapi/api'
 import { NTLoginRoutes } from './loginRoutes'
+import { NTStatsRoutes } from './statsRoutes'
 import { DirectQQProtocolClient, PmhqQQProtocolClient } from './qqProtocol'
 import AccountService from './account'
 import Store from './store'
@@ -65,6 +66,7 @@ export function apply(ctx: Context, config: NTProtocolConfig) {
   ctx.plugin(NTSystemApi)
   ctx.plugin(AccountService)
   ctx.plugin(NTLoginRoutes)
+  ctx.plugin(NTStatsRoutes)
 
   // The database is per account, so this waits for the first login; `account` survives reconnects, so it runs once
   ctx.inject(['account', 'config'], (ctx) => {

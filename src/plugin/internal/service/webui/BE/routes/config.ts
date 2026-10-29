@@ -1,7 +1,6 @@
 import { Dict } from 'cosmokit'
 import { Context } from 'cordis'
 import { networkInterfaces } from 'os'
-import { selfInfo } from '@/common/globalVars'
 import { ReqConfig, ResConfig } from '../types'
 import { currentInstance } from '@/common/instance'
 import { isDockerEnvironment } from '@/common/utils/environment'
@@ -46,10 +45,8 @@ export function createConfigRoutes(ctx: Context): Hono {
     try {
       const resJson: ResConfig = {
         config: ctx.config.get(),
-        selfInfo,
         envLocked: ctx.config.envLocks(),
         instance: currentInstance().name,
-        ntProtocol: !!ctx.get('qqProtocol'),
       }
       return c.json({
         success: true,

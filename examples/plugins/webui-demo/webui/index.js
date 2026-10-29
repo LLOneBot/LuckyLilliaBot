@@ -30,12 +30,57 @@ function DemoPage() {
   )
 }
 
+// Only the inside: the WebUI draws the card with the title and icon given at registration
 function DemoCard() {
   const [state] = useDemoState()
-  return h('div', { className: 'card', style: { padding: 16, borderLeft: `4px solid ${state?.color ?? 'var(--accent)'}` } },
-    h('div', { className: 'text-theme-secondary', style: { fontSize: 13 } }, 'WebUI 示例插件'),
-    h('div', { className: 'text-theme', style: { fontSize: 24, fontWeight: 600 } }, state ? `${state.clicks} 次点击` : '…'),
+  if (!state) return null
+  return h('div', { style: { borderLeft: `4px solid ${state.color}`, paddingLeft: 12 } },
+    h('div', { className: 'text-theme', style: { fontSize: 24, fontWeight: 600 } }, `${state.clicks} 次`),
+    h('div', { className: 'text-theme-secondary', style: { fontSize: 13 } }, '在「WebUI 示例」页里点按钮'),
   )
+}
+
+// Gets the chat open in WebQQ; WebQQ declares the slot and draws the header around it
+function CopyNumberButton({ chat }) {
+  const ctx = usePluginContext()
+  const copy = () => navigator.clipboard.writeText(chat.peerId)
+    .then(() => ctx.toast(`已复制「${chat.name}」的号码`))
+    .catch(() => ctx.toast('复制失败', 'error'))
+  return h('button', {
+    type: 'button',
+    title: '复制号码（WebUI 示例插件）',
+    onClick: copy,
+    className: 'text-theme-muted',
+    style: { padding: 8, borderRadius: 8, fontSize: 13, fontWeight: 600 },
+  }, '#')
+}
+
+// Keyed by element type: WebQQ has no drawing of its own for markdown (14), so it showed nothing for such a message
+function MarkdownSource({ element }) {
+  return h('pre', { className: 'text-theme', style: { margin: 0, whiteSpace: 'pre-wrap', fontSize: 13 } },
+    element.markdownElement?.content ?? '')
+}
+
+// A link of the bubble chain: passes short messages through, folds long ones around what the rest drew
+function FoldLongMessage({ message, next }) {
+  const [open, setOpen] = useState(false)
+  if (message.text.length <= 200) return next
+  return h('div', null,
+    h('div', { style: open ? undefined : { maxHeight: 120, overflow: 'hidden' } }, next),
+    h('button', {
+      type: 'button',
+      className: 'text-theme-muted',
+      style: { fontSize: 12, marginTop: 4 },
+      onClick: () => setOpen(!open),
+    }, open ? '收起' : '展开全文'),
+  )
+}
+
+// On the plugin page, its own card only: a way to its page
+function OpenPageButton({ plugin }) {
+  const ctx = usePluginContext()
+  if (plugin.name !== ctx.plugin.name) return null
+  return h('a', { href: ctx.pageHref('home'), className: 'text-theme-muted', style: { fontSize: 13, padding: 8 } }, '打开示例页')
 }
 
 function ColorField({ value, onChange, error }) {
@@ -48,7 +93,11 @@ function ColorField({ value, onChange, error }) {
 
 export default function apply(ctx) {
   ctx.page({ id: 'home', title: 'WebUI 示例', icon: 'sparkles', component: DemoPage })
-  ctx.slot('dashboard', DemoCard)
+  ctx.slot('dashboard.cards', { id: 'clicks', title: '点击计数', icon: 'sparkles', component: DemoCard })
+  ctx.slot('webqq.chat.actions', { id: 'copy-number', label: '复制号码', component: CopyNumberButton })
+  ctx.slot('webqq.message.element', { id: 'markdown', label: 'Markdown 原文', match: '14', component: MarkdownSource })
+  ctx.slot('webqq.message.bubble', { id: 'fold', label: '折叠长消息', component: FoldLongMessage })
+  ctx.slot('plugins.card.actions', { id: 'open-page', label: '打开示例页', component: OpenPageButton })
   // Any plugin's config field declared with .role('color') gets this control
   ctx.field('color', ColorField)
 }

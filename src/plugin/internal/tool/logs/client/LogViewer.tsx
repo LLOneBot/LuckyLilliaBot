@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { Terminal, Trash2, Pause, Play, ArrowDown } from 'lucide-react'
-import { getCookie } from '../../utils/cookie'
+import { usePluginContext } from '@luckylillia/plugin-sdk/webui'
 
 interface LogRecord {
   timestamp: number
@@ -14,6 +14,7 @@ const MAX_LOGS = 1000
 const BUFFER_SIZE = 10
 
 const LogViewer: React.FC = () => {
+  const ctx = usePluginContext()
   const [logs, setLogs] = useState<LogRecord[]>([])
   const [isPaused, setIsPaused] = useState(false)
   const [autoScroll, setAutoScroll] = useState(true)
@@ -35,9 +36,7 @@ const LogViewer: React.FC = () => {
     let mounted = true
 
     const connect = () => {
-      const token = getCookie('webui_token') || ''
-      const url = `/api/logs/stream?token=${encodeURIComponent(token)}`
-      es = new EventSource(url)
+      es = new EventSource(ctx.authUrl('/api/logs/stream'))
 
       es.addEventListener('connected', () => {
         if (mounted) setConnected(true)
@@ -67,7 +66,7 @@ const LogViewer: React.FC = () => {
 
     connect()
     return () => { mounted = false; if (es) es.close() }
-  }, [isPaused])
+  }, [isPaused, ctx])
 
   useEffect(() => { scrollToBottom() }, [logs, scrollToBottom])
 

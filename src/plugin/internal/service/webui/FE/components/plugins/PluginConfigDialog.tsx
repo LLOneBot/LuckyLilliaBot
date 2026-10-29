@@ -3,7 +3,7 @@ import { Loader2, Save, Trash2, X } from 'lucide-react'
 import { Portal, showToast } from '../common'
 import { PluginDescription, PluginStatus } from '../../types/plugins'
 import {
-  ConfigConflictError, ConfigRejectedError, describePlugin, removePlugin, savePluginConfig,
+  ConfigConflictError, ConfigRejectedError, describePlugin, patchUiPrefs, removePlugin, savePluginConfig,
 } from '../../utils/pluginApi'
 import { hydrate, SchemaNode } from './schema/model'
 import { SchemaField } from './schema/SchemaField'
@@ -11,7 +11,7 @@ import { JsonInput, SecretClearContext } from './schema/inputs'
 import { pluginIcon, pluginTitle } from './meta'
 import DependencyList from './DependencyList'
 import { PluginBoundary } from '../../plugin-host/context'
-import { ensureClient, useClientErrors } from '../../plugin-host/host'
+import { clientAllowed, ensureClient, useClientErrors } from '../../plugin-host/host'
 import { useConfigEditor } from '../../plugin-host/views'
 
 interface PluginConfigDialogProps {
@@ -28,14 +28,17 @@ function formValue(description: PluginDescription, node: SchemaNode | null): unk
   return node ? description.effective : description.config ?? undefined
 }
 
-const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins, removable, onClose }) => {
+const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin: opened, plugins, removable, onClose }) => {
+  // What it was opened with, kept current: approving its WebUI changes the entry
+  const plugin = plugins.find(other => other.id === opened.id) ?? opened
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [node, setNode] = useState<SchemaNode | null>(null)
   const [schema, setSchema] = useState<unknown>(null)
   // A plugin with a WebUI module may bring its own editor, and a disabled one has not been loaded yet
-  const [clientReady, setClientReady] = useState(!plugin.webui)
+  const loadsClient = clientAllowed(plugin)
+  const [clientReady, setClientReady] = useState(!loadsClient)
   const Editor = useConfigEditor(plugin.name)?.component
   const clientError = useClientErrors(state => state.errors[plugin.name])
   const [defaults, setDefaults] = useState<unknown>({})
@@ -61,13 +64,17 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
   }, [plugin.id])
 
   useEffect(() => {
-    if (!plugin.webui) return
+    if (!loadsClient) return
     let alive = true
-    ensureClient(plugin.name, plugin.webui).then(() => alive && setClientReady(true))
+    ensureClient(plugin.name, plugin.webui!).then(() => alive && setClientReady(true))
     return () => {
       alive = false
     }
-  }, [plugin.name, plugin.webui])
+  }, [plugin.name, plugin.webui, loadsClient])
+
+  const approve = () => patchUiPrefs({ approve: [plugin.name] })
+    .then(() => showToast('已批准它的界面', 'success'))
+    .catch(e => showToast(e instanceof Error ? e.message : String(e), 'error'))
 
   // No schema and no Config export: nothing to configure. A non-schemastery Config gets the JSON editor.
   const configurable = !!Editor || node !== null || plugin.hasConfig !== false
@@ -127,7 +134,13 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
           </div>
 
           <div className="p-6 overflow-y-auto flex-1 space-y-6">
-            <DependencyList plugin={plugins.find(other => other.id === plugin.id) ?? plugin} plugins={plugins} />
+            <DependencyList plugin={plugin} plugins={plugins} />
+            {plugin.webui && !plugin.webuiApproved && (
+              <div className="flex items-center gap-3 p-3 rounded-xl bg-theme-item text-sm">
+                <p className="flex-1 text-theme-secondary">这个插件带着自己的界面（可能有专门的配置编辑器），批准后才会加载；现在用的是通用表单</p>
+                <button type="button" onClick={approve} className="btn-glass text-sm flex-shrink-0">批准界面</button>
+              </div>
+            )}
             {!ready && <div className="flex justify-center py-10"><Loader2 size={32} className="animate-spin text-pink-500" /></div>}
             {ready && loadError && <p className="text-sm text-red-500">加载配置失败：{loadError}</p>}
             {ready && !loadError && !configurable && <p className="text-sm text-theme-secondary text-center py-6">这个插件没有可配置项</p>}
@@ -136,7 +149,7 @@ const PluginConfigDialog: React.FC<PluginConfigDialogProps> = ({ plugin, plugins
                 {clientError && <p className="text-xs text-amber-600 dark:text-amber-400">插件自己的界面没能加载，先用通用表单：{clientError}</p>}
                 {errors[''] && <p className="text-sm text-red-500">{errors['']}</p>}
                 {Editor ? (
-                  <PluginBoundary owner={plugin.name}>
+                  <PluginBoundary owner={plugin.name} failure={{ key: `${plugin.name}|config`, where: '配置编辑器' }}>
                     <Editor value={value} onChange={setValue} schema={schema} defaults={defaults} errors={errors} />
                   </PluginBoundary>
                 ) : node

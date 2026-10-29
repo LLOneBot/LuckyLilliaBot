@@ -1,7 +1,9 @@
 import React, { useState, useEffect, memo } from 'react'
 import { Loader2, AlertCircle, RefreshCw } from 'lucide-react'
+import { Slot, useSlotMatches } from '@luckylillia/plugin-sdk/webui'
 import type { RawMessage, GroupMemberItem } from '../../../types/webqq'
 import { formatMessageTime, getSelfUid, getSelfUin, getUserAvatar, getUserDisplayName, setEmojiLike } from '../../../utils/webqqApi'
+import { slotMessage } from '../../../utils/slotMessage'
 import { MessageElementRenderer, hasValidContent, isSystemTipMessage } from './MessageElements'
 import { showToast } from '../../common'
 
@@ -171,6 +173,8 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
   const groupMembersContext = React.useContext(GroupMembersContext)
   const friendsContext = React.useContext(FriendsContext)
   const multiSelect = React.useContext(MultiSelectContext)
+  // Element types a plugin draws: a message of nothing else is still worth a bubble
+  const pluginDrawn = useSlotMatches('webqq.message.element')
 
   let senderName = message.sendMemberName || message.sendNickName || message.senderUin
 
@@ -231,7 +235,7 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
   const replyElement = message.elements.find(el => el.replyElement)?.replyElement
   const otherElements = message.elements.filter(el => !el.replyElement)
 
-  const hasContent = otherElements.some(hasValidContent) || replyElement
+  const hasContent = otherElements.some(el => hasValidContent(el) || pluginDrawn.includes(String(el.elementType))) || replyElement
   if (!hasContent) return null
 
   // 纯语音消息不要气泡
@@ -313,49 +317,52 @@ export const RawMessageBubble = memo<{ message: RawMessage; allMessages: RawMess
             </span>
           )}
         </div>
-        {isPttOnly ? (
-          <div onContextMenu={handleBubbleContextMenu} className={isRecalled ? 'opacity-50' : ''}>
-            {otherElements.map((element, index) => <MessageElementRenderer key={index} element={element} message={message} />)}
-            {isRecalled && <div className="text-xs text-theme-muted italic mt-1">已撤回</div>}
-          </div>
-        ) : (
-          <div className="relative">
-            <div
-              className={`rounded-[18px] px-4 py-2 min-w-[80px] max-w-full break-words overflow-hidden bg-theme-item text-theme ${isRecalled ? 'opacity-50' : ''}`}
-              onContextMenu={handleBubbleContextMenu}
-            >
-              {replyElement && (
-              <div
-                className="text-xs mb-2 pb-2 border-b border-theme-divider cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={handleReplyClick}
-              >
-                <div className="bg-theme-input rounded px-2 py-1">
-                  {replySourceMsg ? (
-                    <div className="space-y-1">
-                      <div className="font-medium text-theme-secondary">
-                        {replySourceMsg.sendMemberName || replySourceMsg.sendNickName || replySourceMsg.senderUin}:
-                      </div>
-                      <div className="text-theme-muted">
-                        {replySourceMsg.elements?.filter(el => !el.replyElement).map((el, i) => (
-                          <MessageElementRenderer key={i} element={el} />
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <span className="text-theme-muted">
-                      {replyElement.sourceMsgText || '[消息]'}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-            {otherElements.map((element, index) => <MessageElementRenderer key={index} element={element} message={message} />)}
+        {/* What plugins wrap around or change: the `webqq.message.bubble` chain */}
+        <Slot name="webqq.message.bubble" props={{ message: slotMessage(message) }}>
+          {isPttOnly ? (
+            <div onContextMenu={handleBubbleContextMenu} className={isRecalled ? 'opacity-50' : ''}>
+              {otherElements.map((element, index) => <MessageElementRenderer key={index} element={element} message={message} />)}
+              {isRecalled && <div className="text-xs text-theme-muted italic mt-1">已撤回</div>}
             </div>
-            {isRecalled && (
-              <div className="text-xs text-theme-muted italic mt-1">已撤回</div>
-            )}
-          </div>
-        )}
+          ) : (
+            <div className="relative">
+              <div
+                className={`rounded-[18px] px-4 py-2 min-w-[80px] max-w-full break-words overflow-hidden bg-theme-item text-theme ${isRecalled ? 'opacity-50' : ''}`}
+                onContextMenu={handleBubbleContextMenu}
+              >
+                {replyElement && (
+                <div
+                  className="text-xs mb-2 pb-2 border-b border-theme-divider cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={handleReplyClick}
+                >
+                  <div className="bg-theme-input rounded px-2 py-1">
+                    {replySourceMsg ? (
+                      <div className="space-y-1">
+                        <div className="font-medium text-theme-secondary">
+                          {replySourceMsg.sendMemberName || replySourceMsg.sendNickName || replySourceMsg.senderUin}:
+                        </div>
+                        <div className="text-theme-muted">
+                          {replySourceMsg.elements?.filter(el => !el.replyElement).map((el, i) => (
+                            <MessageElementRenderer key={i} element={el} />
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-theme-muted">
+                        {replyElement.sourceMsgText || '[消息]'}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+              {otherElements.map((element, index) => <MessageElementRenderer key={index} element={element} message={message} />)}
+              </div>
+              {isRecalled && (
+                <div className="text-xs text-theme-muted italic mt-1">已撤回</div>
+              )}
+            </div>
+          )}
+        </Slot>
         <EmojiReactionList message={message} isSelf={isSelf} />
         <span className="text-xs text-theme-hint mt-1">{formatMessageTime(timestamp)}</span>
       </div>

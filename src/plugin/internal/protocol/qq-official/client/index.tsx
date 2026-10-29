@@ -1,6 +1,7 @@
 import React from 'react'
 import { SchemaSettings, type WebUIPlugin } from '@luckylillia/plugin-sdk/webui'
 import { IntentsField } from './IntentsField'
+import Notices from './Notices'
 
 export const name = 'builtin:qq-official'
 
@@ -22,6 +23,7 @@ const QQOfficialSettings = () => (
 const apply: WebUIPlugin = (ctx) => {
   ctx.page({ id: 'qqofficial', title: 'QQ 官方机器人', icon: 'bot', component: QQOfficialSettings, order: 14, settings: true })
   ctx.field('qq-official-intents', IntentsField)
+  ctx.slot('shell.notices', { id: 'gateway', label: '没连上开放平台', component: Notices })
 }
 
 export default apply

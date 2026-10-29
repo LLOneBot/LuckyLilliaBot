@@ -66,14 +66,14 @@ describe('config routes', () => {
   })
 
   describe('GET /config', () => {
-    it('returns current config and selfInfo', async () => {
+    it('returns the bot settings and nothing about the account', async () => {
       const app = createTestApp(createConfigRoutes(ctx))
       const res = await app.request('/config')
       expect(res.status).toBe(200)
       const body = await res.json()
       expect(body.success).toBe(true)
-      expect(body.data.selfInfo).toBeDefined()
       expect(body.data.config).toBeDefined()
+      expect(body.data.selfInfo).toBeUndefined()
     })
   })
 

@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { useRenderFailures } from '../../plugin-host/failures'
+import { useClientErrors } from '../../plugin-host/host'
 import { usePluginList } from '../../plugin-host/pluginList'
-import { useSettingsPages } from '../../plugin-host/views'
+import { SlotOutlet, useSettingsPages } from '../../plugin-host/views'
 import { ChevronLeft, ChevronRight, FolderSearch, Loader2, Puzzle, Search, X } from 'lucide-react'
 import { showToast } from '../common'
 import { PluginStatus } from '../../types/plugins'
@@ -11,7 +13,9 @@ import {
   CATEGORIES, CategoryKey, filterPlugins, groupByCategory, pageNumbers, paginate, pluginCategory, sortPlugins,
   StatusFilter,
 } from './listing'
+import { webuiPackages } from './extensions'
 import PluginConfigDialog from './PluginConfigDialog'
+import WebuiExtensions from './WebuiExtensions'
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -20,13 +24,15 @@ const PAGE_SIZE = 12
 const VIEW_KEY = 'llbot-plugins-view'
 
 interface View {
+  /** The plugins, or what they add to the WebUI */
+  mode: 'list' | 'ui'
   category: CategoryKey | 'all'
   status: StatusFilter
   search: string
   page: number
 }
 
-const DEFAULT_VIEW: View = { category: 'all', status: 'all', search: '', page: 1 }
+const DEFAULT_VIEW: View = { mode: 'list', category: 'all', status: 'all', search: '', page: 1 }
 
 function loadView(): View {
   try {
@@ -103,6 +109,11 @@ const PluginsPage: React.FC = () => {
     return result
   }, [plugins])
   const filtered = view.status !== 'all' || !!view.search.trim() || view.category !== 'all'
+  // What the 界面 view asks the user about: modules to approve, ones that broke
+  const failing = useRenderFailures(state => Object.keys(state.failures).length)
+  const clientFailing = useClientErrors(state => Object.keys(state.errors).length)
+  const unapproved = useMemo(() => webuiPackages(plugins).filter(plugin => !plugin.webuiApproved).length, [plugins])
+  const attention = failing + clientFailing + unapproved
   const current = CATEGORIES.find(category => category.key === view.category)
 
   const withBusy = async (id: string, task: () => Promise<void>) => {
@@ -179,9 +190,20 @@ const PluginsPage: React.FC = () => {
               把插件目录放进 <code className="text-xs px-1.5 py-0.5 rounded bg-theme-item">data/plugins/</code> 后重新扫描，新插件默认不启用
             </p>
           </div>
-          <button onClick={scan} disabled={scanning} className="btn-glass flex items-center gap-2 flex-shrink-0">
-            {scanning ? <Loader2 size={18} className="animate-spin" /> : <FolderSearch size={18} />}
-            重新扫描
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <SlotOutlet name="plugins.toolbar" />
+            <button onClick={scan} disabled={scanning} className="btn-glass flex items-center gap-2">
+              {scanning ? <Loader2 size={18} className="animate-spin" /> : <FolderSearch size={18} />}
+              重新扫描
+            </button>
+          </div>
+        </div>
+        <div className="flex gap-2 mt-4">
+          <button type="button" onClick={() => setView(previous => ({ ...previous, mode: 'list' }))} className={tab(view.mode === 'list')}>
+            插件列表
+          </button>
+          <button type="button" onClick={() => setView(previous => ({ ...previous, mode: 'ui' }))} className={tab(view.mode === 'ui')} title="插件往 WebUI 上加的页面、卡片和按钮">
+            界面{attention > 0 && <span className="ml-1.5 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-amber-500 text-white text-[11px]">{attention}</span>}
           </button>
         </div>
       </div>
@@ -190,7 +212,9 @@ const PluginsPage: React.FC = () => {
         <div className="flex justify-center py-16"><Loader2 size={40} className="animate-spin text-pink-500" /></div>
       )}
 
-      {plugins !== null && (
+      {plugins !== null && view.mode === 'ui' && <WebuiExtensions />}
+
+      {plugins !== null && view.mode === 'list' && (
         <>
           <div className="card p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-3">

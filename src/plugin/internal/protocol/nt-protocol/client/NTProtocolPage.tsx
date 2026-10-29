@@ -38,9 +38,8 @@ const NTProtocolPage: React.FC = () => {
   const [info, setInfo] = useState<LoginInfo | null>(null)
   // The account last seen online: its card stays while it is offline
   const [known, setKnown] = useState<{ uin: string; nick: string } | null>(null)
-  // Who was online when the page opened, null for nobody
-  const first = useRef<string | null | undefined>(undefined)
-  const [reloading, setReloading] = useState(false)
+  // Online at the last poll; undefined before the first
+  const wasOnline = useRef<boolean | undefined>(undefined)
   const [tokenStatus, setTokenStatus] = useState<AuthTokenStatus | null>(null)
   // Sticky, so that the form stays while the token it submitted is being checked
   const [tokenForm, setTokenForm] = useState<'missing' | 'invalid' | null>(null)
@@ -88,19 +87,16 @@ const NTProtocolPage: React.FC = () => {
     }
   }, [disabled])
 
-  // Someone logged in while the page is open: the sidebar, WebQQ and the rest load the account with the page.
-  // A login while another page is open is caught by the shell (useAccountReload in App.tsx)
+  // The rest of the WebUI follows the accounts on its own (/api/bots), so a login needs no reload
   useEffect(() => {
     if (!info) return
-    if (first.current === undefined) first.current = info.online ? info.uin : null
-    if (!info.online) return
-    setKnown({ uin: info.uin, nick: info.nick })
-    setRelogin(false)
-    if (info.uin === first.current || reloading) return
-    setReloading(true)
-    ctx.toast('QQ 登录成功')
-    setTimeout(() => window.location.reload(), 1000)
-  }, [info, reloading, ctx])
+    if (info.online) {
+      if (wasOnline.current === false) ctx.toast('QQ 登录成功')
+      setKnown({ uin: info.uin, nick: info.nick })
+      setRelogin(false)
+    }
+    wasOnline.current = info.online
+  }, [info, ctx])
 
   const logout = async () => {
     setLoggingOut(true)
@@ -132,8 +128,6 @@ const NTProtocolPage: React.FC = () => {
     body = entry?.state === 'failed'
       ? <p className="text-sm text-theme-secondary">NTQQ 协议没能启动，原因见上方提示</p>
       : waiting('NTQQ 协议正在启动...')
-  } else if (reloading) {
-    body = waiting('登录成功，正在刷新...')
   } else if (account && (info.online || !relogin)) {
     body = (
       <>

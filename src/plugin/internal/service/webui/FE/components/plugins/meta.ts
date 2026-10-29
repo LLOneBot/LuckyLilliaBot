@@ -1,7 +1,8 @@
 import {
   Bell, Book, BookOpen, Bot, Brain, Calendar, Clock, Cloud, Code, Cpu, Database, Dice5, FileText, Gamepad2, Gift,
-  Globe, Hand, Heart, Image, Languages, LucideIcon, Mail, MessageSquare, Milk, Music, Network, Puzzle, Radio, Repeat,
-  Search, Send, Settings, ShieldBan, Smartphone, Smile, Sparkles, Star, Terminal, Timer, Trophy, Users, Wrench, Zap,
+  Globe, Hand, Heart, Image, Info, Languages, LayoutDashboard, LucideIcon, Mail, MessageSquare, Milk, Music, Network,
+  Puzzle, Radio, Repeat, Search, Send, Settings, ShieldBan, Sliders, Smartphone, Smile, Sparkles, Star, Terminal, Timer,
+  Trophy, Users, Wrench, Zap,
 } from 'lucide-react'
 import { PluginState, PluginStatus } from '../../types/plugins'
 
@@ -9,11 +10,11 @@ import { PluginState, PluginStatus } from '../../types/plugins'
 const ICONS: Record<string, LucideIcon> = {
   bell: Bell, book: Book, 'book-open': BookOpen, bot: Bot, brain: Brain, calendar: Calendar, clock: Clock,
   cloud: Cloud, code: Code, cpu: Cpu, database: Database, 'dice-5': Dice5, 'file-text': FileText,
-  'gamepad-2': Gamepad2, gift: Gift, globe: Globe, hand: Hand, heart: Heart, image: Image, languages: Languages,
-  mail: Mail, 'message-square': MessageSquare, milk: Milk, music: Music, network: Network, puzzle: Puzzle,
-  radio: Radio, repeat: Repeat, search: Search, send: Send, settings: Settings, 'shield-ban': ShieldBan,
-  smartphone: Smartphone, smile: Smile, sparkles: Sparkles, star: Star, terminal: Terminal, timer: Timer, trophy: Trophy, users: Users,
-  wrench: Wrench, zap: Zap,
+  'gamepad-2': Gamepad2, gift: Gift, globe: Globe, hand: Hand, heart: Heart, image: Image, info: Info,
+  languages: Languages, 'layout-dashboard': LayoutDashboard, mail: Mail, 'message-square': MessageSquare, milk: Milk,
+  music: Music, network: Network, puzzle: Puzzle, radio: Radio, repeat: Repeat, search: Search, send: Send,
+  settings: Settings, 'shield-ban': ShieldBan, sliders: Sliders, smartphone: Smartphone, smile: Smile,
+  sparkles: Sparkles, star: Star, terminal: Terminal, timer: Timer, trophy: Trophy, users: Users, wrench: Wrench, zap: Zap,
 }
 
 export function iconByName(name: string | undefined): LucideIcon {
@@ -28,14 +29,30 @@ export function pluginTitle(plugin: PluginStatus): string {
   return plugin.title ?? plugin.name.replace(/^(@[^/]+\/)?luckylillia-plugin-/, '')
 }
 
+/** The plugin providing a service by its manifest, an enabled one first. */
+export function providerOf(service: string, plugins: PluginStatus[]): PluginStatus | undefined {
+  const candidates = plugins.filter(plugin => plugin.service.implements.includes(service))
+  return candidates.find(plugin => !plugin.disabled) ?? candidates[0]
+}
+
+/** What a service stands for: the label its provider gives it (llbot.service.labels), else a bot service's name. */
+export function serviceLabel(service: string, plugins: PluginStatus[]): string | undefined {
+  return plugins.find(plugin => plugin.service.labels?.[service])?.service.labels![service] ?? SERVICE_LABEL[service]
+}
+
 /**
- * Why a pending plugin waits. Services that only exist after login all come down to the login itself, or to the
- * NT protocol when that is switched off.
+ * Why a pending plugin waits: the provider of a missing service when that is switched off, else what the missing
+ * services stand for. Ones a provider labels come first and alone: the rest usually follow from them, e.g. what
+ * only exists after the NTQQ login.
  */
-export function pendingReason(plugin: PluginStatus, ntProtocolOff = false): string | undefined {
+export function pendingReason(plugin: PluginStatus, plugins: PluginStatus[]): string | undefined {
   if (plugin.state !== 'pending' || !plugin.missingDeps.length) return
-  if (plugin.missingDeps.includes('account')) return ntProtocolOff ? '需要先启用 NTQQ 协议' : '等待 QQ 登录'
-  return `等待服务：${plugin.missingDeps.join('、')}`
+  const off = plugin.missingDeps.map(name => providerOf(name, plugins)).find(provider => provider?.disabled)
+  if (off) return `需要先启用「${pluginTitle(off)}」`
+  const labeled = plugin.missingDeps.map(name => plugins.find(item => item.service.labels?.[name])?.service.labels![name])
+    .filter((label): label is string => !!label)
+  if (labeled.length) return `等待：${[...new Set(labeled)].join('、')}`
+  return `等待服务：${plugin.missingDeps.map(name => SERVICE_LABEL[name] ?? name).join('、')}`
 }
 
 export function pluginDescription(plugin: PluginStatus): string | undefined {
@@ -60,9 +77,8 @@ export const STATE_LABEL: Record<PluginState, { label: string; className: string
 /** Reload leaks the previous module graph; past this many reloads a restart is worth suggesting. */
 export const RELOAD_WARNING = 20
 
-/** Bot services plugins commonly inject, named for people rather than code. */
+/** The bot's own services plugins commonly inject, named for people rather than code; plugins name theirs. */
 export const SERVICE_LABEL: Record<string, string> = {
-  account: 'QQ 登录',
   bots: '收发消息',
   database: '数据库',
   timer: '定时器',

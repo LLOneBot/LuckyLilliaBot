@@ -4,6 +4,7 @@ import type { WebUIPlugin } from '@luckylillia/plugin-sdk/webui'
 import { PluginStatus } from '../types/plugins'
 import { BUILTIN_CLIENTS } from './builtins'
 import { createWebUIContext } from './context'
+import { clearFailuresOf } from './failures'
 import { followPluginList, usePluginList } from './pluginList'
 import { PageContribution, useRegistry } from './registry'
 
@@ -20,6 +21,7 @@ function setError(owner: string, error?: string) {
 }
 
 function run(owner: string, apply: WebUIPlugin, builtin: boolean): () => void {
+  clearFailuresOf(owner)
   const disposers: (() => void)[] = []
   const ctx = createWebUIContext(owner, builtin, dispose => disposers.push(dispose))
   try {
@@ -36,6 +38,11 @@ function run(owner: string, apply: WebUIPlugin, builtin: boolean): () => void {
 
 const loaded = new Map<string, { url: string; dispose: () => void }>()
 const loading = new Map<string, Promise<void>>()
+
+/** A package's WebUI module only loads once the user approved it; builtins' ship with the WebUI. */
+export function clientAllowed(plugin: PluginStatus): boolean {
+  return !plugin.builtin && !!plugin.webui && !!plugin.webuiApproved
+}
 
 /** Imports a plugin's WebUI module unless that version is loaded already. Never rejects: see useClientErrors. */
 export function ensureClient(owner: string, url: string): Promise<void> {
@@ -62,13 +69,13 @@ export function ensureClient(owner: string, url: string): Promise<void> {
   return task
 }
 
-/** Loads the modules of enabled plugins, swaps reloaded ones and drops uninstalled ones. */
+/** Loads the modules of enabled plugins, swaps reloaded ones and drops uninstalled or no longer approved ones. */
 export function syncClients(plugins: PluginStatus[]) {
   const urls = new Map<string, string>()
   const wanted = new Set<string>()
   for (const plugin of plugins) {
-    if (plugin.builtin || !plugin.webui) continue
-    urls.set(plugin.name, plugin.webui)
+    if (!clientAllowed(plugin)) continue
+    urls.set(plugin.name, plugin.webui!)
     if (!plugin.disabled) wanted.add(plugin.name)
   }
   for (const [owner, client] of loaded) {

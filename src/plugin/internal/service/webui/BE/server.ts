@@ -3,12 +3,7 @@ import { Config, WebUIConfig } from '@/common/types'
 import { Context, Service } from 'cordis'
 import { getAvailablePort } from '@/common/utils/port'
 import { authMiddleware } from './auth'
-import {
-  createBotsRoutes,
-  createConfigRoutes,
-  createLoginInfoRoutes,
-  createLogsRoutes,
-} from './routes'
+import { createBotsRoutes, createConfigRoutes, createLoginInfoRoutes } from './routes'
 import { readFile } from 'node:fs/promises'
 import { Hono } from 'hono'
 import { serveStatic } from '@hono/node-server/serve-static'
@@ -36,8 +31,8 @@ function findMounted(table: Map<string, MountedHandler>, path: string): MountedH
 // ctx.webuiServer is typed by the plugin SDK, which plugins serving their own API build against
 export class WebuiServer extends Service implements WebUIServer {
   // Mounted by the core entry builtin:webui: up before any login and without the NT protocol, so the plugin page can
-  // switch protocols on and off. Login, dashboard, email and WebQQ are plugins that inject what they need and mount
-  // their routes through route() once that is up.
+  // switch protocols on and off. Login, dashboard, logs, email and WebQQ are plugins that inject what they need and
+  // mount their routes through route() once that is up.
   static inject = ['config']
 
   private server: ServerType | null = null
@@ -107,7 +102,6 @@ export class WebuiServer extends Service implements WebUIServer {
     this.app.route('/api', createConfigRoutes(this.ctx))
     this.app.route('/api', createLoginInfoRoutes(this.ctx))
     this.app.route('/api', createBotsRoutes(this.ctx))
-    this.app.route('/api', createLogsRoutes(this.ctx))
 
     // Registered after the built-in routes, so those always win
     this.app.use('/api/*', async (c) => {

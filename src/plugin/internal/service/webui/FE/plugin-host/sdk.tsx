@@ -1,23 +1,27 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronDown, ChevronRight, ExternalLink, Loader2, Save } from 'lucide-react'
 import type {
-  PluginConfigState, PluginEntryStatus, SchemaFormProps, SchemaSettingsProps,
+  BotInfo, PageView, PluginConfigState, PluginEntryStatus, SchemaFormProps, SchemaSettingsProps, SlotMap, SlotProps,
+  StatusNoticeProps,
 } from '@luckylillia/plugin-sdk/webui'
 import { HostSelector } from '../components/common/HostSelector'
 import { showToast } from '../components/common/Toast'
-import { pluginDescription, pluginIcon, pluginTitle } from '../components/plugins/meta'
+import { iconByName, pluginDescription, pluginIcon, pluginTitle } from '../components/plugins/meta'
 import { hydrate, SchemaNode } from '../components/plugins/schema/model'
 import { SecretClearContext } from '../components/plugins/schema/inputs'
 import { SchemaField } from '../components/plugins/schema/SchemaField'
 import type { PluginStatus } from '../types/plugins'
 import { ConfigConflictError, ConfigRejectedError, describePlugin, savePluginConfig } from '../utils/pluginApi'
+import { useBots as useBotsStore } from '../stores/botsStore'
+import { useLayout } from '../stores/layoutStore'
 import { usePluginContext } from './context'
 import { usePluginList } from './pluginList'
+import { PageViewContext, SlotOutlet, useSlotMatches } from './views'
 
 // The runtime side of `@luckylillia/plugin-sdk/webui`: what third-party modules get through the import map and
 // builtin ones through the alias in vite.config.ts. Keep its exports in step with sdkExports.ts.
 
-export { usePluginContext }
+export { usePluginContext, useSlotMatches }
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : String(e))
 
@@ -193,3 +197,54 @@ export const SchemaSettings: React.FC<SchemaSettingsProps> = ({ fields, sections
 }
 
 export const HostInput: React.FC<{ value: string; onChange(value: string): void }> = HostSelector
+
+export function usePlugins(): PluginEntryStatus[] | null {
+  return usePluginList(state => state.plugins)
+}
+
+export function useBots(): BotInfo[] | null {
+  return useBotsStore(state => state.bots)
+}
+
+export function usePageView(): PageView {
+  return useContext(PageViewContext)
+}
+
+export function useSidebar(): { collapsed: boolean; setCollapsed(collapsed: boolean): void } {
+  const collapsed = useLayout(state => state.sidebarCollapsed)
+  const setCollapsed = useLayout(state => state.setSidebarCollapsed)
+  return { collapsed, setCollapsed }
+}
+
+export const StatusNotice: React.FC<StatusNoticeProps> = ({ children, action, page }) => {
+  const ctx = usePluginContext()
+  const href = page === undefined ? undefined : ctx.pageHref(page)
+  const activeTab = useLayout(state => state.activeTab)
+  if (href && href.slice(1) === activeTab) return null
+  return (
+    <div className="flex items-center gap-3">
+      <span className="text-theme-secondary flex-1">{children as React.ReactNode}</span>
+      {action && href && (
+        <button onClick={() => { window.location.hash = href }} className="btn-glass px-4 py-1.5 text-sm flex-shrink-0">{action}</button>
+      )}
+    </div>
+  )
+}
+
+export function Slot({ name, props, match, children, wrap }: SlotProps<keyof SlotMap>) {
+  return (
+    <SlotOutlet
+      name={name}
+      props={props as Record<string, unknown> | undefined}
+      match={match}
+      wrap={wrap && ((element, c) => wrap(element, { id: c.id, plugin: c.owner, options: c.options }) as React.ReactNode)}
+    >
+      {children as React.ReactNode}
+    </SlotOutlet>
+  )
+}
+
+export const Icon: React.FC<{ name?: string; size?: number; className?: string }> = ({ name, size, className }) => {
+  const Glyph = iconByName(name)
+  return <Glyph size={size} className={className} />
+}

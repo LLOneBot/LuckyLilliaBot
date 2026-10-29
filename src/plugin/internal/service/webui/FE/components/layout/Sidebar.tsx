@@ -1,38 +1,26 @@
 import React, { useLayoutEffect, useRef, useState } from 'react'
 import GlassLens from '../common/GlassLens'
-import {
-  LayoutDashboard,
-  Info,
-  Sliders,
-  Terminal,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Settings,
-  Puzzle,
-  LucideIcon,
-} from 'lucide-react'
+import { useBots } from '../../stores/botsStore'
+import { X, ChevronLeft, ChevronRight, Settings, LucideIcon } from 'lucide-react'
+
+// Status of @satorijs/protocol
+const ONLINE = 1
 
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
-  accountInfo?: {
-    nick: string;
-    uin: string;
-  };
   isOpen?: boolean;
   onClose?: () => void;
   collapsed?: boolean;
   onToggleCollapse?: () => void;
   onOpenSettings?: () => void;
-  /** Plugin pages, those of builtins included, placed among the fixed entries by their order. */
-  pluginPages?: { id: string; title: string; icon: LucideIcon; order: number }[];
+  /** Every entry: the pages of plugins, the WebUI's own included, in sidebar order. */
+  pluginPages?: { id: string; title: string; icon: LucideIcon }[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   onTabChange,
-  accountInfo,
   isOpen = true,
   onClose,
   collapsed = false,
@@ -40,15 +28,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   onOpenSettings,
   pluginPages = [],
 }) => {
-  // The orders plugin pages pick from: see PageOptions.order in @luckylillia/plugin-sdk/webui
-  const menuItems = [
-    { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard', order: 0 },
-    { id: 'logs', icon: Terminal, label: '日志', order: 20 },
-    { id: 'other', icon: Sliders, label: '其他配置', order: 30 },
-    { id: 'plugins', icon: Puzzle, label: '插件', order: 40 },
-    { id: 'about', icon: Info, label: '关于', order: 1000 },
-    ...pluginPages.map(page => ({ id: page.id, icon: page.icon, label: page.title, order: page.order })),
-  ].sort((a, b) => a.order - b.order)
+  const online = useBots(state => state.bots)?.filter(bot => bot.status === ONLINE) ?? []
+  const account = online[0]
+  const others = online.length - 1
+  const menuItems = pluginPages.map(page => ({ id: page.id, icon: page.icon, label: page.title }))
 
   const navRef = useRef<HTMLElement>(null)
   const [indicator, setIndicator] = useState<{ top: number; height: number } | null>(null)
@@ -156,34 +139,37 @@ const Sidebar: React.FC<SidebarProps> = ({
         {/* Account Info & Settings */}
         <div className='p-3 hairline-t'>
           <div className='flex items-center space-x-3 px-3 py-2'>
-            {accountInfo && (
+            {account && (
               <>
-                <img
-                  src={`https://thirdqq.qlogo.cn/g?b=qq&nk=${accountInfo.uin}&s=140`}
-                  alt='头像'
-                  className='w-10 h-10 rounded-full object-cover ring-2 ring-white/50 dark:ring-neutral-600'
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement
-                    target.style.display = 'none'
-                    const fallback = target.nextElementSibling as HTMLElement
-                    if (fallback) fallback.style.display = 'flex'
-                  }}
-                />
+                {account.avatar && (
+                  <img
+                    src={account.avatar}
+                    alt='头像'
+                    className='w-10 h-10 rounded-full object-cover ring-2 ring-white/50 dark:ring-neutral-600'
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement
+                      target.style.display = 'none'
+                      const fallback = target.nextElementSibling as HTMLElement
+                      if (fallback) fallback.style.display = 'flex'
+                    }}
+                  />
+                )}
                 <div
-                  className='w-10 h-10 bg-gradient-to-br from-pink-400 to-rose-500 rounded-full items-center justify-center text-white font-semibold hidden'
-                  style={{ display: 'none' }}
+                  className='w-10 h-10 bg-gradient-to-br from-pink-400 to-rose-500 rounded-full items-center justify-center text-white font-semibold flex-shrink-0'
+                  style={{ display: account.avatar ? 'none' : 'flex' }}
                 >
-                  {accountInfo.nick.charAt(0).toUpperCase()}
+                  {(account.name || account.selfId).charAt(0).toUpperCase()}
                 </div>
                 <div className='flex-1 min-w-0'>
                   <p className='text-sm font-medium text-theme truncate'>
-                    {accountInfo.nick}
+                    {account.name || account.selfId}
+                    {others > 0 && <span className='ml-1.5 text-xs text-theme-muted' title='还有其他在线的账号'>+{others}</span>}
                   </p>
-                  <p className='text-xs text-theme-muted truncate'>{accountInfo.uin}</p>
+                  <p className='text-xs text-theme-muted truncate'>{account.selfId}</p>
                 </div>
               </>
             )}
-            {!accountInfo && <div className='flex-1' />}
+            {!account && <div className='flex-1' />}
             <button
               onClick={onOpenSettings}
               className="p-2 rounded-lg transition-all duration-200 text-theme-muted hover:bg-theme-item hover:text-theme"
