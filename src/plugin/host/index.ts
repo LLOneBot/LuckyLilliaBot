@@ -396,6 +396,8 @@ class PluginService extends Service {
   async reload(id: string): Promise<ReloadResult> {
     const rt = this.runtime(id)
     const builtin = this.builtins.get(rt.entry.name)
+    // The WebUI's own entry would close the server the request came in through, and wait on that very request
+    if (builtin?.core) throw new PluginForbiddenError(`${rt.entry.name} is part of the bot core and cannot be restarted`)
     // Bundled with the bot, so there is no code to re-import: a restart picks up the current settings
     if (builtin) return this.lock(rt.entry.name, () => this.restartBuiltin(rt, builtin))
     if (!this.resolverInstalled) {

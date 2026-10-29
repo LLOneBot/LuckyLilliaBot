@@ -1,7 +1,7 @@
 import { Context } from 'cordis'
 import { FriendReqType } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 import { Hono } from 'hono'
-import { decodeGroupRequestFlag, encodeGroupRequestFlag } from '../../../../webui/BE/utils'
+import { decodeGroupRequestFlag, encodeGroupRequestFlag } from '../../service/webui/BE/utils'
 
 export function createNotificationRoutes(ctx: Context): Hono {
   const router = new Hono()

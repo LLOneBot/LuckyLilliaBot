@@ -23,7 +23,7 @@ jobs:
         run: |
           corepack enable
           yarn install --no-immutable
-          cd src/webui/FE && npm install
+          cd src/plugin/internal/service/webui/FE && npm install
 
       - name: Run unit tests
         run: npm run test:unit
@@ -52,7 +52,7 @@ jobs:
         run: |
           corepack enable
           yarn install --no-immutable
-          cd src/webui/FE && npm install
+          cd src/plugin/internal/service/webui/FE && npm install
 
       - name: Build
         run: |

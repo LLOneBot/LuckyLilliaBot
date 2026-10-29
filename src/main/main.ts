@@ -8,7 +8,6 @@ import { Context } from 'cordis'
 import { DATA_DIR, LOG_DIR, TEMP_DIR } from '../common/globalVars'
 import { existsSync, mkdirSync } from 'node:fs'
 import { version } from '../version'
-import { WebuiServer } from '../webui/BE/server'
 import { getPluginDirs, isPluginHmr } from '@/common/utils/environment'
 import { setConfigLogLevel, isDebugEnabled, bindLoggerFactory, getLogger } from '@/common/logger'
 import LoggerConsole from '@cordisjs/plugin-logger-console'
@@ -21,8 +20,7 @@ import { configPaths } from '@/common/configPaths'
 import PluginService from '../plugin/host'
 import BotsService from '../universal/bots'
 import { builtinPlugins } from '../plugin/internal'
-import { PluginRoutes } from '../webui/BE/routes/plugins'
-import { DashboardRoutes } from '../webui/BE/routes'
+import { DashboardRoutes } from '../plugin/internal/service/webui/BE/routes'
 import { EmailRoutes } from '../plugin/internal/tool/email-notification/testRoutes'
 
 declare module 'cordis' {
@@ -79,7 +77,8 @@ async function onLoad() {
   ctx.plugin(TimerService)
   ctx.plugin(ConfigService)
   ctx.plugin(BotsService)
-  // The scanned account (builtin:nt-protocol) and the official bot are entries here, like the adapters
+  // The WebUI (builtin:webui), the scanned account (builtin:nt-protocol) and the official bot are entries here,
+  // like the adapters
   ctx.plugin(PluginService, {
     file: configPaths.plugins(),
     dataDir: configPaths.pluginData(),
@@ -87,9 +86,6 @@ async function onLoad() {
     hmr: isPluginHmr(),
     builtins: builtinPlugins,
   })
-  // The shell: up without any protocol, so the plugin page can switch protocols on and off
-  ctx.plugin(WebuiServer)
-  ctx.plugin(PluginRoutes)
   ctx.plugin(DashboardRoutes)
   ctx.plugin(EmailRoutes)
 

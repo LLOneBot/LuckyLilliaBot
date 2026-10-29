@@ -8,14 +8,14 @@ RUN corepack enable && corepack prepare yarn@4.12.0 --activate
 
 COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn .yarn
-# FE package.json 必须在 yarn install 前就位: 根 postinstall 会 npm --prefix src/webui/FE install, 缺目录 -> exit 254
-COPY src/webui/FE/package.json src/webui/FE/
+# FE package.json 必须在 yarn install 前就位: 根 postinstall 会 npm --prefix src/plugin/internal/service/webui/FE install, 缺目录 -> exit 254
+COPY src/plugin/internal/service/webui/FE/package.json src/plugin/internal/service/webui/FE/
 
 RUN export http_proxy="$BUILD_PROXY" https_proxy="$BUILD_PROXY" HTTP_PROXY="$BUILD_PROXY" HTTPS_PROXY="$BUILD_PROXY"; \
     yarn install --immutable
 
 RUN export http_proxy="$BUILD_PROXY" https_proxy="$BUILD_PROXY" HTTP_PROXY="$BUILD_PROXY" HTTPS_PROXY="$BUILD_PROXY"; \
-    cd src/webui/FE && npm install
+    cd src/plugin/internal/service/webui/FE && npm install
 
 COPY . .
 

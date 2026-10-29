@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-vi.mock('@/webui/FE/utils/webqqApi', () => ({
+vi.mock('@/plugin/internal/service/webui/FE/utils/webqqApi', () => ({
   getFriends: vi.fn(async () => []),
   getGroups: vi.fn(async () => []),
   getRecentChats: vi.fn(async () => []),
@@ -11,7 +11,7 @@ vi.mock('@/webui/FE/utils/webqqApi', () => ({
   setRecentChatTop: vi.fn(async () => {}),
 }))
 
-import { useWebQQStore, hydrateWebQQStore } from '@/webui/FE/stores/webqqStore'
+import { useWebQQStore, hydrateWebQQStore } from '@/plugin/internal/service/webui/FE/stores/webqqStore'
 
 const store = new Map<string, string>()
 const g = globalThis as unknown as { localStorage: Storage }

@@ -6,9 +6,9 @@ import { ReqConfig, ResConfig } from '../types'
 import { currentInstance } from '@/common/instance'
 import { isDockerEnvironment } from '@/common/utils/environment'
 import { Hono } from 'hono'
-import { webuiTokenUtil } from '../../../main/config'
-import { applyLegacyConfig } from '../../../main/config/legacyConfig'
-import { PluginConfigError } from '../../../plugin/host'
+import { webuiTokenUtil } from '../../../../../../main/config'
+import { applyLegacyConfig } from '../../../../../../main/config/legacyConfig'
+import { PluginConfigError } from '../../../../../host'
 
 export function createConfigRoutes(ctx: Context): Hono {
   const router = new Hono()

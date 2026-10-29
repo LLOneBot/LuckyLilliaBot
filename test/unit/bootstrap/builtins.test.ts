@@ -28,7 +28,6 @@ import Store from '@/plugin/internal/protocol/nt-protocol/store'
 import AccountService from '@/plugin/internal/protocol/nt-protocol/account'
 import { builtinPlugins } from '@/plugin/internal'
 import BotsService from '@/universal/bots'
-import { WebuiServer } from '@/webui/BE/server'
 import PluginService, { PluginForbiddenError, PluginState } from '@/plugin/host'
 
 // Same isolation as service-registry.test.ts: these services write into DATA_DIR
@@ -138,8 +137,6 @@ describe('builtin plugins', () => {
     for (const plugin of [MockConfig, MockProtocol, BotsService, NTFileApi, NTFriendApi, NTGroupApi, NTLoginApi, NTMsgApi, NTUserApi, NTWebApi, NTSystemApi]) {
       ctx.plugin(plugin)
     }
-    // builtin:webqq mounts its routes on the WebUI
-    ctx.plugin(WebuiServer)
     // As in main.ts: the database is per account, so the core services wait for the login
     mounted.push(ctx.inject(['account', 'config'], (ctx) => {
       ctx.plugin(Database)
@@ -153,12 +150,17 @@ describe('builtin plugins', () => {
     const states = () => Object.fromEntries(ctx.plugins.list().map(status => [status.name, status.state]))
     const allIn = (state: PluginState) => Object.fromEntries(builtinPlugins.map(builtin => [builtin.name, state]))
 
+    // The WebUI runs from the start (webui.enable is off above, so nothing listens).
     // Email notification and the official bot start switched off (their initial settings), the NT protocol by the
     // file above; nothing else runs before the first login
+    const shell = ['builtin:webui']
+    await vi.waitFor(() => expect(shell.map(name => states()[name])).toEqual(shell.map(() => 'active')))
     const off = { 'builtin:email-notification': 'disposed', 'builtin:qq-official': 'disposed', 'builtin:nt-protocol': 'disposed' }
     for (const status of ctx.plugins.list()) {
       if (status.name in off) expect(status).toMatchObject({ state: 'disposed', disabled: true })
-      else expect(status, status.name).toMatchObject({ state: 'pending', missingDeps: expect.arrayContaining(['account']) })
+      else if (!shell.includes(status.name)) {
+        expect(status, status.name).toMatchObject({ state: 'pending', missingDeps: expect.arrayContaining(['account']) })
+      }
     }
 
     ctx.plugin(AccountService)
@@ -225,6 +227,9 @@ describe('builtin plugins', () => {
     await vi.waitFor(async () => expect(await listening(satoriPort)).toBe(true))
 
     await expect(ctx.plugins.disable(id('builtin:ntqq-universal'))).rejects.toBeInstanceOf(PluginForbiddenError)
+    await expect(ctx.plugins.disable(id('builtin:webui'))).rejects.toBeInstanceOf(PluginForbiddenError)
+    await expect(ctx.plugins.reload(id('builtin:webui'))).rejects.toBeInstanceOf(PluginForbiddenError)
+    expect(ctx.get('webuiServer')).toBeDefined()
 
     for (const builtin of builtinPlugins) {
       if (!builtin.core) await ctx.plugins.disable(id(builtin.name))

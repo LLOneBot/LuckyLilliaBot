@@ -3,8 +3,8 @@ import { Context, Fiber, Service } from 'cordis'
 import { Hono } from 'hono'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DATA_DIR } from '@/common/globalVars'
-import { hashPassword } from '@/webui/BE/passwordHash'
-import { WebuiServer } from '@/webui/BE/server'
+import { hashPassword } from '@/plugin/internal/service/webui/BE/passwordHash'
+import { WebuiServer } from '@/plugin/internal/service/webui/BE/server'
 import { WebQQ } from '@/plugin/internal/tool/webqq'
 
 // The plugin creates its upload dir under TEMP_DIR and the WebUI writes an access log

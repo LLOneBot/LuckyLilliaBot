@@ -19,7 +19,7 @@ import type { FetchHandler, WebUIServer } from '@luckylillia/plugin-sdk'
 let feDistPath = path.resolve(import.meta.dirname, 'webui/')
 // @ts-expect-error: TS2339 - Property 'env' does not exist on type 'ImportMeta'
 if (!import.meta.env) {
-  feDistPath = path.join(import.meta.dirname, '../../../dist/webui/')
+  feDistPath = path.join(import.meta.dirname, '../../../../../../dist/webui/')
 }
 
 export interface WebuiServerConfig extends WebUIConfig {
@@ -35,9 +35,9 @@ function findMounted(table: Map<string, MountedHandler>, path: string): MountedH
 
 // ctx.webuiServer is typed by the plugin SDK, which plugins serving their own API build against
 export class WebuiServer extends Service implements WebUIServer {
-  // The shell: up before any login and without the NT protocol, so the plugin page can switch protocols on and off.
-  // Login, dashboard, email, WebQQ and plugin management are plugins that inject what they need and mount their
-  // routes through route() once that is up.
+  // Mounted by the core entry builtin:webui: up before any login and without the NT protocol, so the plugin page can
+  // switch protocols on and off. Login, dashboard, email and WebQQ are plugins that inject what they need and mount
+  // their routes through route() once that is up.
   static inject = ['config']
 
   private server: ServerType | null = null

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hashPassword } from '@/webui/BE/passwordHash'
+import { hashPassword } from '@/plugin/internal/service/webui/BE/passwordHash'
 import crypto from 'node:crypto'
 
 describe('hashPassword', () => {

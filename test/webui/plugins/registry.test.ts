@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   activeOwners, configEditorOf, Contribution, fieldRendererOf, slotContents, useRegistry, visiblePages,
-} from '@/webui/FE/plugin-host/registry'
-import { PluginStatus } from '@/webui/FE/types/plugins'
+} from '@/plugin/internal/service/webui/FE/plugin-host/registry'
+import { PluginStatus } from '@/plugin/internal/service/webui/FE/types/plugins'
 
 const Component = () => null
 const page = (owner: string, key: string, title: string, order = 100, settings = false): Contribution =>

@@ -1,5 +1,5 @@
 *.md
 .git
 node_modules
-src/webui/FE/node_modules
+src/plugin/internal/service/webui/FE/node_modules
 data

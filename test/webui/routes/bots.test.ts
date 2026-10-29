@@ -2,7 +2,7 @@ import { Status } from '@satorijs/protocol'
 import type { Context } from 'cordis'
 import { describe, expect, it } from 'vitest'
 import { createTestApp } from '../helpers/testApp'
-import { createBotsRoutes } from '@/webui/BE/routes/bots'
+import { createBotsRoutes } from '@/plugin/internal/service/webui/BE/routes/bots'
 
 describe('GET /bots', () => {
   it('lists every account with whether it is online', async () => {

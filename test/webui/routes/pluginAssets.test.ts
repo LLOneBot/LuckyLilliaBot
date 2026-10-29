@@ -3,9 +3,9 @@ import os from 'node:os'
 import path from 'node:path'
 import { Context } from 'cordis'
 import { afterAll, describe, expect, it, vi } from 'vitest'
-import { hashPassword } from '@/webui/BE/passwordHash'
+import { hashPassword } from '@/plugin/internal/service/webui/BE/passwordHash'
 import { PluginForbiddenError } from '@/plugin/host'
-import { servePluginAsset } from '@/webui/BE/routes/plugins'
+import { servePluginAsset } from '@/plugin/internal/service/webui/BE/routes/plugins'
 
 const dir = mkdtempSync(path.join(os.tmpdir(), 'llbot-plugin-assets-'))
 const module = path.join(dir, 'index.js')

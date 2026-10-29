@@ -2,7 +2,7 @@
 @import './styles/tokens.css';
 @import './styles/glass.css';
 /* Builtin plugins' WebUI lives next to their code (plugin-host/builtins.tsx) */
-@source '../../**/client/**/*.{ts,tsx}';
+@source '../../../*/*/client/**/*.{ts,tsx}';
 
 /* Tailwind v4: dark mode driven by a .dark class, not a media query */
 @custom-variant dark (&:where(.dark, .dark *));

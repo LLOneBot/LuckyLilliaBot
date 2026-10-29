@@ -1,7 +1,7 @@
 import { Context } from 'cordis'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError } from '@/plugin/host'
-import { createPluginRoutes } from '@/webui/BE/routes/plugins'
+import { createPluginRoutes } from '@/plugin/internal/service/webui/BE/routes/plugins'
 import { createTestApp } from '../helpers/testApp'
 
 const status = (id: string, extra: Record<string, unknown> = {}) => ({ id, name: `pkg-${id}`, manifest: {}, state: 'active', ...extra })

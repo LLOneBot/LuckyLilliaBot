@@ -24,8 +24,8 @@ import { setCurrentUin } from './utils/currentUin';
 import { hydrateWebQQStore } from './stores/webqqStore';
 import { useAccountReload, useQQAccount } from './stores/accountStore';
 import { Save, Loader2, Menu } from 'lucide-react';
-import { defaultConfig } from '../../main/config/defaultConfig'
-import { version } from '../../version'
+import { defaultConfig } from '../../../../../main/config/defaultConfig'
+import { version } from '../../../../../version'
 import SettingsDialog from './components/common/SettingsDialog'
 import { useSettingsStore } from './stores/settingsStore'
 

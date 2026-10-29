@@ -4,7 +4,7 @@ import path from 'path'
 import { LOG_DIR } from '@/common/globalVars'
 import { hashPassword } from './passwordHash'
 import { Context, Next } from 'hono'
-import { webuiTokenUtil } from '../../main/config'
+import { webuiTokenUtil } from '../../../../../main/config'
 
 interface GlobalLoginAttempt {
   consecutiveFailures: number

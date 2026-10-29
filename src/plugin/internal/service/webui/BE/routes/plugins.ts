@@ -5,8 +5,8 @@ import { Context as HonoContext, Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 import {
   PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, UiPrefsPatch,
-} from '../../../plugin/host'
-import { webuiTokenUtil } from '../../../main/config'
+} from '../../../../../host'
+import { webuiTokenUtil } from '../../../../../../main/config'
 import { hashPassword } from '../passwordHash'
 
 export function createPluginRoutes(ctx: Context): Hono {

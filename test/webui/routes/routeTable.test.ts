@@ -3,8 +3,8 @@ import { Context, Service } from 'cordis'
 import { Hono } from 'hono'
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DATA_DIR } from '@/common/globalVars'
-import { hashPassword } from '@/webui/BE/passwordHash'
-import { WebuiServer } from '@/webui/BE/server'
+import { hashPassword } from '@/plugin/internal/service/webui/BE/passwordHash'
+import { WebuiServer } from '@/plugin/internal/service/webui/BE/server'
 
 // WebuiServer creates its upload dir and access log under these; keep them out of the repo and /tmp
 vi.mock('@/common/globalVars', async () => {

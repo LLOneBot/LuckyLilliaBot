@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { authMiddleware } from '@/webui/BE/auth'
+import { authMiddleware } from '@/plugin/internal/service/webui/BE/auth'
 
 /** 不带鉴权 */
 export function createTestApp(subrouter: Hono, prefix = '/') {

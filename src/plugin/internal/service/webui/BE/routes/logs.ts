@@ -1,5 +1,5 @@
 import { Context } from 'cordis'
-import { getLogCache, LogRecord } from '../../../main/log'
+import { getLogCache, LogRecord } from '../../../../../../main/log'
 import { Hono } from 'hono'
 import { streamSSE } from 'hono/streaming'
 

@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { builtinPlugins } from '@/plugin/internal'
-import { CATEGORIES } from '@/webui/FE/components/plugins/listing'
+import { CATEGORIES } from '@/plugin/internal/service/webui/FE/components/plugins/listing'
 
 // The builtin plugins: src/plugin/internal/<category>/<name>, the category the plugin page groups them by, the name the
 // entry's, with the entry defined in builtin.ts and the WebUI in client/ (found by plugin-host/builtins.tsx)
@@ -52,7 +52,7 @@ describe('builtin plugins', () => {
   })
 
   it('reach the WebUI only through the plugin SDK from their clients', () => {
-    const shell = path.join(SRC, 'webui')
+    const shell = path.join(INTERNAL, 'service', 'webui')
     for (const file of clientDirs.flatMap(sources)) {
       const imports = [...readFileSync(file, 'utf8').matchAll(/from '([^']+)'/g)].map(match => match[1])
       for (const specifier of imports) {

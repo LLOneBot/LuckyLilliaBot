@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { otherSettings } from '@/webui/FE/components/config/otherSettings'
+import { otherSettings } from '@/plugin/internal/service/webui/FE/components/config/otherSettings'
 import { defaultConfig } from '@/main/config/defaultConfig'
 import { Config } from '@/common/types'
 

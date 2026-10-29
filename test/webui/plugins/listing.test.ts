@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   filterPlugins, groupByCategory, needsAttention, pageNumbers, paginate, pluginCategory, sortPlugins,
-} from '@/webui/FE/components/plugins/listing'
-import { PluginStatus } from '@/webui/FE/types/plugins'
+} from '@/plugin/internal/service/webui/FE/components/plugins/listing'
+import { PluginStatus } from '@/plugin/internal/service/webui/FE/types/plugins'
 
 function entry(name: string, overrides: Partial<PluginStatus> = {}, category?: string): PluginStatus {
   return {

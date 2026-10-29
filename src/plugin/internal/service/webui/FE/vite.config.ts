@@ -50,15 +50,15 @@ const backend = `http://127.0.0.1:${process.env.WEBUI_PORT || 3080}`
 
 export default defineConfig({
   build: {
-    outDir: path.join(__dirname, '../../../dist/webui'),
+    outDir: path.join(__dirname, '../../../../../../dist/webui'),
     emptyOutDir: true,
   },
   plugins: [react(), pluginSharedShims()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@shared': path.resolve(__dirname, '../../common'),
-      '@ntqqapi/types': path.resolve(__dirname, '../../plugin/internal/protocol/nt-protocol/ntqqapi/types'),
+      '@shared': path.resolve(__dirname, '../../../../../common'),
+      '@ntqqapi/types': path.resolve(__dirname, '../../../protocol/nt-protocol/ntqqapi/types'),
       // Builtin plugins' WebUI (`client/` next to their code, see plugin-host/builtins.ts) is bundled, so its SDK
       // imports go straight to the runtime instead of through the import map
       '@luckylillia/plugin-sdk/webui': path.resolve(__dirname, 'plugin-host/sdk.tsx'),
@@ -71,7 +71,7 @@ export default defineConfig({
     port: 15173,
     open: true,
     fs: {
-      allow: [path.resolve(__dirname, '../../..')],
+      allow: [path.resolve(__dirname, '../../../../../..')],
     },
     proxy: {
       '/api': {

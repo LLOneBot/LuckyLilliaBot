@@ -32,7 +32,7 @@ export class WebQQApiError extends Error {
 }
 
 /**
- * 请求形状同 src/webui/FE/utils/api.ts: 带 X-Webui-Token: sha256(password), 后端回
+ * 请求形状同 src/plugin/internal/service/webui/FE/utils/api.ts: 带 X-Webui-Token: sha256(password), 后端回
  * { success, data?, message?, error? }, 失败一律 throw。REST 风格, 不实现 framework 的 IApiClient
  */
 export class WebQQApiClient {

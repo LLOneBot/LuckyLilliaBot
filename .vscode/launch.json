@@ -36,7 +36,7 @@
                 "<node_internals>/**"
             ],
             "runtimeExecutable": "npm",
-            "runtimeArgs": ["--prefix", "src/webui/FE", "run", "dev", "--", "--host", "0.0.0.0"],
+            "runtimeArgs": ["--prefix", "src/plugin/internal/service/webui/FE", "run", "dev", "--", "--host", "0.0.0.0"],
             "cwd": "${workspaceFolder}",
             "console": "integratedTerminal",
             "env": {

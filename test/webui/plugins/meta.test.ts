@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { findConflicts } from '@/webui/FE/components/plugins/meta'
-import { PluginStatus } from '@/webui/FE/types/plugins'
+import { findConflicts } from '@/plugin/internal/service/webui/FE/components/plugins/meta'
+import { PluginStatus } from '@/plugin/internal/service/webui/FE/types/plugins'
 
 function entry(id: string, implementsList: string[], disabled = false): PluginStatus {
   return {

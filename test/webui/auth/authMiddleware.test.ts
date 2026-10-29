@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Hono } from 'hono'
-import { hashPassword } from '@/webui/BE/passwordHash'
+import { hashPassword } from '@/plugin/internal/service/webui/BE/passwordHash'
 
 vi.mock('@/main/config', () => ({
   webuiTokenUtil: {
@@ -30,7 +30,7 @@ describe('authMiddleware', () => {
   beforeEach(async () => {
     // authMiddleware 有模块级状态 (globalLoginAttempt), 每个用例重新 import 一份
     vi.resetModules()
-    const mod = await import('@/webui/BE/auth')
+    const mod = await import('@/plugin/internal/service/webui/BE/auth')
     authMiddleware = mod.authMiddleware
   })
 

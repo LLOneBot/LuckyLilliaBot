@@ -1,7 +1,7 @@
 import Schema from 'schemastery'
 import { describe, expect, it } from 'vitest'
-import { classifyUnion, hydrate, localize, mergeIntersect, SchemaNode } from '@/webui/FE/components/plugins/schema/model'
-import { initialValue, stripDefaults, withDefaults } from '@/webui/FE/components/plugins/schema/values'
+import { classifyUnion, hydrate, localize, mergeIntersect, SchemaNode } from '@/plugin/internal/service/webui/FE/components/plugins/schema/model'
+import { initialValue, stripDefaults, withDefaults } from '@/plugin/internal/service/webui/FE/components/plugins/schema/values'
 
 const wire = (schema: Schema) => hydrate(JSON.parse(JSON.stringify(schema)))
 

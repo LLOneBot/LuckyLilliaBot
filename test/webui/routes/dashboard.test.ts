@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createTestApp } from '../helpers/testApp'
 import { createMockContext } from '../helpers/mockContext'
-import { createDashboardRoutes } from '@/webui/BE/routes/dashboard'
+import { createDashboardRoutes } from '@/plugin/internal/service/webui/BE/routes/dashboard'
 import { getProtocol, isPmhqMode } from '@/common/utils/environment'
 
 describe('dashboard routes', () => {

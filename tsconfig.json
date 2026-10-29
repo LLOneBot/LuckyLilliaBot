@@ -28,7 +28,7 @@
     "test/*.ts"
   ],
   "exclude": [
-    "src/webui/FE",
+    "src/plugin/internal/service/webui/FE",
     "src/**/client"
   ]
 }

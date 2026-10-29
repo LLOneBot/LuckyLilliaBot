@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { serializeResult } from '@/webui/BE/utils'
+import { serializeResult } from '@/plugin/internal/service/webui/BE/utils'
 
 describe('serializeResult', () => {
   it('returns null as-is', () => {
