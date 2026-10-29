@@ -20,7 +20,7 @@ import {
   NTUserApi,
   NTWebApi,
 } from './ntqqapi/api'
-import { NTLoginRoutes } from '../../../../webui/BE/routes'
+import { NTLoginRoutes } from './loginRoutes'
 import { DirectQQProtocolClient, PmhqQQProtocolClient } from './qqProtocol'
 import AccountService from './account'
 import Store from './store'

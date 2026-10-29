@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import { isPmhqMode, getAuthTokenPageUrl } from '@/common/utils/environment'
-import { authTokenUtil } from '../../../main/config'
+import { authTokenUtil } from '../../../../main/config'
 import { authTokenStatus, selfInfo } from '@/common/globalVars'
-import { triggerAuthTokenCheck } from '../../../plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/authTokenWatcher'
+import { triggerAuthTokenCheck } from './qqProtocol/direct-lib/authTokenWatcher'
 
 // 录入只写文件, 校验和登录由 authTokenWatcher 处理
 export function createAuthTokenRoutes(): Hono {

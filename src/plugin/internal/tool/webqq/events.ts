@@ -1,7 +1,7 @@
 import { Context } from 'cordis'
 import { SSEStreamingApi } from 'hono/streaming'
 import { ChatType, RawMessage } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
-import { serializeResult } from '../../utils'
+import { serializeResult } from '../../../../webui/BE/utils'
 import { resolveWatchPicUrls } from './messages'
 
 /** Pushes the NT events the WebQQ page shows live to its SSE clients. */

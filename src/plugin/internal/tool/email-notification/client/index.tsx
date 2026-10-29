@@ -6,7 +6,7 @@ import {
 
 export const name = 'builtin:email-notification'
 
-// The bot fills in the stored password when the form still holds the mask (routes/email.ts)
+// The bot fills in the stored password when the form still holds the mask (testRoutes.ts)
 const TestButton: React.FC<{ config: PluginConfigState }> = ({ config }) => {
   const ctx = usePluginContext()
   const [sending, setSending] = useState(false)

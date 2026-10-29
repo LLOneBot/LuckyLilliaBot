@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createTestApp } from '../helpers/testApp'
 import { createMockContext } from '../helpers/mockContext'
-import { createEmailRoutes } from '@/webui/BE/routes/email'
+import { createEmailRoutes } from '@/plugin/internal/tool/email-notification/testRoutes'
 
 const sent = vi.hoisted(() => ({ configs: [] as unknown[] }))
 

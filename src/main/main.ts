@@ -22,7 +22,8 @@ import PluginService from '../plugin/host'
 import BotsService from '../universal/bots'
 import { builtinPlugins } from '../plugin/internal'
 import { PluginRoutes } from '../webui/BE/routes/plugins'
-import { DashboardRoutes, EmailRoutes } from '../webui/BE/routes'
+import { DashboardRoutes } from '../webui/BE/routes'
+import { EmailRoutes } from '../plugin/internal/tool/email-notification/testRoutes'
 
 declare module 'cordis' {
   interface Events {

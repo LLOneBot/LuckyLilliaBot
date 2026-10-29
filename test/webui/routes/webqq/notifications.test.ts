@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createTestApp } from '../../helpers/testApp'
 import { createMockContext } from '../../helpers/mockContext'
-import { createNotificationRoutes } from '@/webui/BE/routes/webqq/notifications'
+import { createNotificationRoutes } from '@/plugin/internal/tool/webqq/notifications'
 
 describe('notification routes', () => {
   let ctx: ReturnType<typeof createMockContext>

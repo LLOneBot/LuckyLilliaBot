@@ -1,5 +1,5 @@
 import type { BuiltinPlugin } from '../../../host'
-import { WebQQ } from '../../../../webui/BE/routes/webqq'
+import { WebQQ } from '.'
 
 export const builtin: BuiltinPlugin = {
   name: 'builtin:webqq',

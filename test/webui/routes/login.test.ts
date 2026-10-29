@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createTestApp } from '../helpers/testApp'
 import { createMockContext } from '../helpers/mockContext'
-import { createLoginInfoRoutes, createLoginRoutes } from '@/webui/BE/routes/login'
+import { createLoginRoutes } from '@/plugin/internal/protocol/nt-protocol/loginRoutes'
+import { createLoginInfoRoutes } from '@/webui/BE/routes/loginInfo'
 import { isPmhqMode, launchPins, lockedProtocol } from '@/common/utils/environment'
 
 describe('login routes', () => {

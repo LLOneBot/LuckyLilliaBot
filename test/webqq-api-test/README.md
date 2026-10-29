@@ -4,7 +4,7 @@ WebUI BE REST endpoint 集成测试。**真起 bot + webui，HTTP 直接打**，
 
 ## 目的
 
-验证 `src/webui/BE/routes/webqq/*.ts` 暴露的 ~40 个 endpoint 在真协议层下的端到端行为：
+验证 `src/plugin/internal/tool/webqq/*.ts` 暴露的 ~40 个 endpoint 在真协议层下的端到端行为：
 
 - 重构 NT API 字段时端到端发现 webui 是否漏改
 - 验证新加的 endpoint 真的 work（最近的 `chats` / `actions` / `fav-emoji/add-from-url`）

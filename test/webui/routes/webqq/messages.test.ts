@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createTestApp } from '../../helpers/testApp'
 import { createMockContext } from '../../helpers/mockContext'
-import { createMessagesRoutes } from '@/webui/BE/routes/webqq/messages'
+import { createMessagesRoutes } from '@/plugin/internal/tool/webqq/messages'
 
 // Mock heavy dependencies
 vi.mock('@/plugin/internal/protocol/nt-protocol/ntqqapi/entities', () => ({

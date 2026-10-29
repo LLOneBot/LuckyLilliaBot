@@ -1,7 +1,7 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
-import { checkEmail, DEFAULT_EMAIL_CONFIG, EmailConfig, EmailConfigManager, EmailSettings } from '../../../plugin/internal/tool/email-notification/config'
-import { EmailService } from '../../../plugin/internal/tool/email-notification/service'
+import { checkEmail, DEFAULT_EMAIL_CONFIG, EmailConfig, EmailConfigManager, EmailSettings } from './config'
+import { EmailService } from './service'
 
 const MASK = '********'
 
