@@ -1,5 +1,6 @@
-import { Handler } from '..'
 import { Dict } from 'cosmokit'
+import { Handler } from '..'
+import * as ntqq from '@/plugin/internal/service/ntqq-universal/api'
 
 interface Payload {
   guild_id: string
@@ -8,15 +9,6 @@ interface Payload {
 }
 
 export const kickGuildMember: Handler<Dict<never>, Payload> = async (ctx, payload) => {
-  const uid = await ctx.ntUserApi.getUidByUin(+payload.user_id, +payload.guild_id)
-  if (!uid) throw new Error('无法获取用户信息')
-  const result = await ctx.ntGroupApi.kickGroupMember(
-    +payload.guild_id,
-    [uid],
-    Boolean(payload.permanent)
-  )
-  if (result.errorCode !== 0) {
-    throw new Error(result.errorMsg)
-  }
+  await ntqq.kickGuildMember(ctx, payload.guild_id, payload.user_id, Boolean(payload.permanent))
   return {}
 }

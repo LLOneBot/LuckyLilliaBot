@@ -1,6 +1,6 @@
 import { List, Friend } from '@satorijs/protocol'
 import { Handler } from '..'
-import { decodeUser } from '../../utils'
+import { decodeUser } from '@/plugin/internal/service/ntqq-universal/utils'
 
 interface Payload {
   next?: string

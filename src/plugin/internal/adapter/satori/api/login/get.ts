@@ -1,5 +1,5 @@
 import { Login, Status, Methods } from '@satorijs/protocol'
-import { decodeUser } from '../../utils'
+import { decodeUser } from '@/plugin/internal/service/ntqq-universal/utils'
 import { selfInfo } from '@/common/globalVars'
 import { Handler } from '..'
 import { handlers } from '..'

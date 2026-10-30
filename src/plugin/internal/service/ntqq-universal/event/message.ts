@@ -1,6 +1,6 @@
 import * as NT from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 import * as Universal from '@satorijs/protocol'
-import type { NormalizeHost } from '../../../../../universal/types'
+import type { NormalizeHost } from '@/universal/types'
 import { decodeGuildChannelId, decodeMessage, encodeMessageId } from '../utils'
 import { omit } from 'cosmokit'
 

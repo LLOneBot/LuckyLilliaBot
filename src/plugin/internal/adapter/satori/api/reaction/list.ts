@@ -1,7 +1,7 @@
 import * as NT from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 import { List, User } from '@satorijs/protocol'
 import { Handler } from '..'
-import { decodeMessageId, decodeUser } from '../../utils'
+import { decodeMessageId, decodeUser } from '@/plugin/internal/service/ntqq-universal/utils'
 
 interface Payload {
   channel_id: string

@@ -1,6 +1,6 @@
 import { GuildMember, List } from '@satorijs/protocol'
 import { Handler } from '..'
-import { decodeGuildMember } from '../../utils'
+import { decodeGuildMember } from '@/plugin/internal/service/ntqq-universal/utils'
 
 interface Payload {
   guild_id: string

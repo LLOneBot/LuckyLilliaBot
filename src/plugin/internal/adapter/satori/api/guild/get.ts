@@ -1,12 +1,9 @@
 import { Guild } from '@satorijs/protocol'
 import { Handler } from '..'
-import { decodeGuild } from '../../utils'
+import * as ntqq from '@/plugin/internal/service/ntqq-universal/api'
 
 interface Payload {
   guild_id: string
 }
 
-export const getGuild: Handler<Guild, Payload> = async (ctx, payload) => {
-  const info = await ctx.ntGroupApi.getGroup(+payload.guild_id, true)
-  return decodeGuild(info)
-}
+export const getGuild: Handler<Guild, Payload> = (ctx, payload) => ntqq.getGuild(ctx, payload.guild_id)

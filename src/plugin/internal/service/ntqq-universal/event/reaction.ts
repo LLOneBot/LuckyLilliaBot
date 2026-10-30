@@ -1,4 +1,4 @@
-import type { NormalizeHost } from '../../../../../universal/types'
+import type { NormalizeHost } from '@/universal/types'
 import * as NT from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 import * as Universal from '@satorijs/protocol'
 import { encodeMessageId } from '../utils'

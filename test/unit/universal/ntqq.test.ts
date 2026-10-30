@@ -36,14 +36,23 @@ function rawMessage(overrides: Record<string, unknown> = {}) {
 
 let ctx: Context
 let sendMessage: ReturnType<typeof vi.fn>
+let recallMsg: ReturnType<typeof vi.fn>
+let muteGroupMember: ReturnType<typeof vi.fn>
+let kickGroupMember: ReturnType<typeof vi.fn>
 
 beforeEach(async () => {
   ctx = new Context()
   sendMessage = vi.fn(async () => rawMessage({ senderUin: 123456, elements: [{ textElement: { content: 'hi', atType: 0 } }] }))
+  recallMsg = vi.fn(async () => ({}))
+  muteGroupMember = vi.fn(async () => ({ errorCode: 0, errorMsg: '' }))
+  kickGroupMember = vi.fn(async () => ({ errorCode: 1, errorMsg: '没有权限' }))
   await ctx.plugin(BotsService)
-  for (const name of ['account', 'ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntGroupApi', 'ntUserApi', 'ntWebApi']) {
+  for (const name of ['account', 'ntFileApi', 'ntFriendApi', 'ntWebApi']) {
     await ctx.plugin(stub(name))
   }
+  await ctx.plugin(stub('ntMsgApi', { recallMsg }))
+  await ctx.plugin(stub('ntGroupApi', { muteGroupMember, kickGroupMember }))
+  await ctx.plugin(stub('ntUserApi', { getUidByUin: async () => 'u_555' }))
   await ctx.plugin(stub('app', { sendMessage }))
   await ctx.plugin(stub('store', { getMsgBySeq: () => rawMessage() }))
   await ctx.plugin(NTQQUniversal)
@@ -99,5 +108,23 @@ describe('NTQQUniversal', () => {
     const bot = ctx.bots.get('llonebot:123456')!
     expect(await bot.sendMessage('987654', 'hi')).toEqual([])
     expect(sendMessage).not.toHaveBeenCalled()
+  })
+})
+
+describe('NTQQBot capabilities', () => {
+  it('reads and recalls a message by its id alone', async () => {
+    const bot = ctx.bots.get('llonebot:123456')!
+    expect(await bot.getMessage!('987654', '2|987654|42')).toMatchObject({ id: '2|987654|42', content: 'echo hi' })
+    await bot.deleteMessage!('987654', '2|987654|42')
+    expect(recallMsg).toHaveBeenCalledWith({ chatType: NT.ChatType.Group, peerUid: '987654', msgSeq: 42 }, 42)
+  })
+
+  it('mutes and kicks group members by QQ number, and passes on why NTQQ refused', async () => {
+    const bot = ctx.bots.get('llonebot:123456')!
+    await bot.muteGuildMember!('987654', '555', 60_000)
+    expect(muteGroupMember).toHaveBeenCalledWith(987654, [{ uid: 'u_555', duration: 60 }])
+    await expect(bot.kickGuildMember!('987654', '555')).rejects.toThrow('没有权限')
+    expect(kickGroupMember).toHaveBeenCalledWith(987654, ['u_555'], false)
+    await expect(bot.createReaction!('private:555', '1|u_555|42', '76')).rejects.toThrow('暂不支持私聊消息回应')
   })
 })

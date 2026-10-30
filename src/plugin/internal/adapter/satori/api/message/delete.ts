@@ -1,7 +1,6 @@
-import * as NT from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
-import { Handler } from '..'
 import { Dict } from 'cosmokit'
-import { decodeMessageId } from '../../utils'
+import { Handler } from '..'
+import * as ntqq from '@/plugin/internal/service/ntqq-universal/api'
 
 interface Payload {
   channel_id: string
@@ -9,16 +8,6 @@ interface Payload {
 }
 
 export const deleteMessage: Handler<Dict<never>, Payload> = async (ctx, payload) => {
-  const info = decodeMessageId(payload.message_id)
-  if (info.chatType === NT.ChatType.Group) {
-    await ctx.ntMsgApi.recallMsg(info, info.msgSeq)
-  } else {
-    let msg = ctx.store.getMsgBySeq(info.peerUid, info.msgSeq)
-    if (!msg) {
-      const { msgList } = await ctx.ntMsgApi.getSingleMsg(info, info.msgSeq)
-      msg = msgList[0]
-    }
-    await ctx.ntMsgApi.recallMsg(info, msg.msgSeq, msg.clientSeq, msg.msgRandom, msg.msgTime)
-  }
+  await ntqq.deleteMessage(ctx, payload.message_id)
   return {}
 }

@@ -1,6 +1,6 @@
 import { Guild, List } from '@satorijs/protocol'
 import { Handler } from '..'
-import { decodeGuild } from '../../utils'
+import { decodeGuild } from '@/plugin/internal/service/ntqq-universal/utils'
 
 interface Payload {
   next?: string

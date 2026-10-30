@@ -1,7 +1,6 @@
-import * as NT from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
-import { Handler } from '..'
 import { Dict } from 'cosmokit'
-import { decodeMessageId } from '../../utils'
+import { Handler } from '..'
+import * as ntqq from '@/plugin/internal/service/ntqq-universal/api'
 
 interface Payload {
   channel_id: string
@@ -10,18 +9,6 @@ interface Payload {
 }
 
 export const createReaction: Handler<Dict<never>, Payload> = async (ctx, payload) => {
-  const info = decodeMessageId(payload.message_id)
-  if (info.chatType !== NT.ChatType.Group) {
-    throw new Error('暂不支持私聊消息回应')
-  }
-  const result = await ctx.ntMsgApi.setGroupMsgReaction(
-    +info.peerUid,
-    info.msgSeq,
-    payload.emoji_id,
-    true
-  )
-  if (result.errorCode !== 0) {
-    throw new Error(result.errorMsg)
-  }
+  await ntqq.createReaction(ctx, payload.message_id, payload.emoji_id)
   return {}
 }

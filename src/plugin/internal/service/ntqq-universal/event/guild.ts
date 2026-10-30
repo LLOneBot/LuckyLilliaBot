@@ -1,5 +1,5 @@
 import * as NT from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
-import type { NormalizeHost } from '../../../../../universal/types'
+import type { NormalizeHost } from '@/universal/types'
 import { encodeGroupRequestFlag } from '../utils'
 
 export async function parseGuildAdded(

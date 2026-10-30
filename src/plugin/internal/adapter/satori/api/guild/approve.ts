@@ -1,4 +1,4 @@
-import { decodeGroupRequestFlag } from '../../utils'
+import { decodeGroupRequestFlag } from '@/plugin/internal/service/ntqq-universal/utils'
 import { Handler } from '..'
 import { Dict } from 'cosmokit'
 

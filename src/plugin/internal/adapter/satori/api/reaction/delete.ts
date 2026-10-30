@@ -1,7 +1,7 @@
 import * as NT from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 import { Handler } from '..'
 import { Dict } from 'cosmokit'
-import { decodeMessageId } from '../../utils'
+import { decodeMessageId } from '@/plugin/internal/service/ntqq-universal/utils'
 
 interface Payload {
   channel_id: string

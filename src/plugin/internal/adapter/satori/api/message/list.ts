@@ -1,6 +1,6 @@
 import { Direction, Message, Order, BidiList } from '@satorijs/protocol'
 import { Handler } from '..'
-import { decodeMessage, encodeMessageId, getPeer } from '../../utils'
+import { decodeMessage, encodeMessageId, getPeer } from '@/plugin/internal/service/ntqq-universal/utils'
 import { RawMessage } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 import { filterNullable } from '@/common/utils/misc'
 

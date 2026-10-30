@@ -1,5 +1,5 @@
 import { Message } from '@satorijs/protocol'
-import { MessageEncoder } from '../../message'
+import { MessageEncoder } from '@/plugin/internal/service/ntqq-universal/message'
 import { Handler } from '..'
 
 interface Payload {
