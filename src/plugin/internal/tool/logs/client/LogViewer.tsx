@@ -24,6 +24,10 @@ const LogViewer: React.FC = () => {
   const [scrollTop, setScrollTop] = useState(0)
   const containerRef = useRef<HTMLDivElement>(null)
   const pausedLogsRef = useRef<LogRecord[]>([])
+  // For the stream, which stays open across pausing
+  const pausedRef = useRef(false)
+  // A reconnect while paused: what was buffered since replaces the list on resume
+  const replaceOnResume = useRef(false)
 
   const scrollToBottom = useCallback(() => {
     if (containerRef.current && autoScroll) {
@@ -32,41 +36,42 @@ const LogViewer: React.FC = () => {
   }, [autoScroll])
 
   useEffect(() => {
-    let es: EventSource | null = null
     let mounted = true
+    const es = new EventSource(ctx.authUrl('/api/logs/stream'))
 
-    const connect = () => {
-      es = new EventSource(ctx.authUrl('/api/logs/stream'))
+    // Every connection, the browser's own reconnects included, starts with the bot's whole log cache: it replaces
+    // what is shown instead of repeating it
+    es.addEventListener('connected', () => {
+      if (!mounted) return
+      setConnected(true)
+      pausedLogsRef.current = []
+      if (pausedRef.current) replaceOnResume.current = true
+      else setLogs([])
+    })
 
-      es.addEventListener('connected', () => {
-        if (mounted) setConnected(true)
-      })
-
-      es.onmessage = (event) => {
-        if (!mounted) return
-        try {
-          const record: LogRecord = JSON.parse(event.data)
-          if (isPaused) {
-            pausedLogsRef.current.push(record)
-          } else {
-            setLogs(prev => {
-              const newLogs = [...prev, record]
-              return newLogs.length > MAX_LOGS ? newLogs.slice(-MAX_LOGS) : newLogs
-            })
-          }
-        } catch (e) {
-          console.error('[LogViewer] Failed to parse log:', e)
+    es.onmessage = (event) => {
+      if (!mounted) return
+      try {
+        const record: LogRecord = JSON.parse(event.data)
+        if (pausedRef.current) {
+          pausedLogsRef.current.push(record)
+        } else {
+          setLogs(prev => {
+            const newLogs = [...prev, record]
+            return newLogs.length > MAX_LOGS ? newLogs.slice(-MAX_LOGS) : newLogs
+          })
         }
-      }
-
-      es.onerror = () => {
-        if (mounted) setConnected(false)
+      } catch (e) {
+        console.error('[LogViewer] Failed to parse log:', e)
       }
     }
 
-    connect()
-    return () => { mounted = false; if (es) es.close() }
-  }, [isPaused, ctx])
+    es.onerror = () => {
+      if (mounted) setConnected(false)
+    }
+
+    return () => { mounted = false; es.close() }
+  }, [ctx])
 
   useEffect(() => { scrollToBottom() }, [logs, scrollToBottom])
 
@@ -74,16 +79,25 @@ const LogViewer: React.FC = () => {
     setScrollTop(e.currentTarget.scrollTop)
   }, [])
 
+  const handlePause = () => {
+    pausedRef.current = true
+    setIsPaused(true)
+  }
+
   const handleResume = () => {
+    pausedRef.current = false
     setIsPaused(false)
-    setLogs(prev => {
-      const newLogs = [...prev, ...pausedLogsRef.current]
-      pausedLogsRef.current = []
+    const buffered = pausedLogsRef.current
+    const replace = replaceOnResume.current
+    pausedLogsRef.current = []
+    replaceOnResume.current = false
+    setLogs((prev) => {
+      const newLogs = replace ? buffered : [...prev, ...buffered]
       return newLogs.length > MAX_LOGS ? newLogs.slice(-MAX_LOGS) : newLogs
     })
   }
 
-  const handleClear = () => { setLogs([]); pausedLogsRef.current = [] }
+  const handleClear = () => { setLogs([]); pausedLogsRef.current = []; replaceOnResume.current = false }
 
   const getLogStyle = (type: string) => {
     switch (type.toLowerCase()) {
@@ -142,7 +156,7 @@ const LogViewer: React.FC = () => {
             </div>
             <input type="text" placeholder="搜索日志..." value={filter} onChange={(e) => setFilter(e.target.value)} className="px-3 py-1.5 text-sm bg-theme-input border border-theme-input rounded-lg focus:ring-2 focus:ring-pink-500 focus:border-transparent w-40 text-theme placeholder:text-theme-hint" />
             <button onClick={() => setAutoScroll(!autoScroll)} className={`p-2 rounded-lg transition-all ${autoScroll ? 'gradient-primary text-white shadow-md' : 'bg-theme-input text-theme-secondary hover:bg-theme-item-hover'}`} title={autoScroll ? '自动滚动已开启' : '自动滚动已关闭'}><ArrowDown size={18} /></button>
-            <button onClick={isPaused ? handleResume : () => setIsPaused(true)} className={`p-2 rounded-lg transition-all ${isPaused ? 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-md' : 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md'}`} title={isPaused ? '继续' : '暂停'}>{isPaused ? <Play size={18} /> : <Pause size={18} />}</button>
+            <button onClick={isPaused ? handleResume : handlePause} className={`p-2 rounded-lg transition-all ${isPaused ? 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-md' : 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md'}`} title={isPaused ? '继续' : '暂停'}>{isPaused ? <Play size={18} /> : <Pause size={18} />}</button>
             <button onClick={handleClear} className="p-2 bg-gradient-to-br from-red-500 to-pink-500 text-white rounded-lg shadow-md hover:shadow-lg transition-all" title="清空日志"><Trash2 size={18} /></button>
           </div>
         </div>
@@ -177,7 +191,7 @@ const LogViewer: React.FC = () => {
             </div>
             <div className="flex items-center gap-1">
               <button onClick={() => setAutoScroll(!autoScroll)} className={`p-1.5 rounded-lg transition-all ${autoScroll ? 'gradient-primary text-white shadow-md' : 'bg-theme-input text-theme-secondary hover:bg-theme-item-hover'}`} title={autoScroll ? '自动滚动已开启' : '自动滚动已关闭'}><ArrowDown size={16} /></button>
-              <button onClick={isPaused ? handleResume : () => setIsPaused(true)} className={`p-1.5 rounded-lg transition-all ${isPaused ? 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-md' : 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md'}`} title={isPaused ? '继续' : '暂停'}>{isPaused ? <Play size={16} /> : <Pause size={16} />}</button>
+              <button onClick={isPaused ? handleResume : handlePause} className={`p-1.5 rounded-lg transition-all ${isPaused ? 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-md' : 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md'}`} title={isPaused ? '继续' : '暂停'}>{isPaused ? <Play size={16} /> : <Pause size={16} />}</button>
               <button onClick={handleClear} className="p-1.5 bg-gradient-to-br from-red-500 to-pink-500 text-white rounded-lg shadow-md hover:shadow-lg transition-all" title="清空日志"><Trash2 size={16} /></button>
             </div>
           </div>
