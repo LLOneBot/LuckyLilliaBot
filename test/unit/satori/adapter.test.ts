@@ -67,7 +67,7 @@ beforeEach(async () => {
   setGroupMemberAdmin = vi.fn(async () => ({ errorCode: 0, errorMsg: '' }))
   muteGroup = vi.fn(async () => ({ errorCode: 0, errorMsg: '' }))
   await ctx.plugin(BotsService)
-  for (const name of ['ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntWebApi']) {
+  for (const name of ['ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntWebApi', 'ntSystemApi', 'config', 'timer', 'qqProtocol']) {
     await ctx.plugin(stub(name))
   }
   await ctx.plugin(stub('account', ACCOUNT))

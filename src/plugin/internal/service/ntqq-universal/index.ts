@@ -11,8 +11,12 @@ import type { SatoriEvent } from '../../../../universal/types'
 import { NTQQBot } from './bot'
 
 export const name = 'ntqq-universal'
-// The bot is the logged-in account. The rest is what the converters, MessageEncoder and api.ts reach through ctx
-export const inject = ['account', 'bots', 'app', 'store', 'ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntGroupApi', 'ntUserApi', 'ntWebApi']
+// The bot is the logged-in account. The rest is what the converters, MessageEncoder, api.ts and the OneBot actions
+// behind bot.internal reach through ctx (as OneBot11Adapter.inject)
+export const inject = [
+  'account', 'bots', 'app', 'store', 'config', 'timer', 'qqProtocol',
+  'ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntGroupApi', 'ntUserApi', 'ntWebApi', 'ntSystemApi',
+]
 
 /** Turns the NT events into Satori sessions for plugins, alongside the protocol adapters. */
 export function apply(ctx: Context) {

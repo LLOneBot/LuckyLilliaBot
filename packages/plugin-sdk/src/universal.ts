@@ -42,7 +42,7 @@ export type Feature =
   | 'message.forward'
   /** `<markdown stream>` builds the reply up in place */
   | 'message.stream'
-  /** Sending with no message to reply to. The QQ official bot mostly cannot: send while answering one */
+  /** Sending with no message to reply to. The QQ official bot can, within a monthly quota per user or group */
   | 'message.proactive'
   /** Satori's: a guild has no channels of its own, its id is its channel's, as with QQ groups */
   | 'guild.plain'
@@ -97,6 +97,13 @@ export interface Bot {
   readonly features: readonly Feature[]
   /** The account itself, as a Satori user. */
   readonly user?: NeutralResource
+  /**
+   * The platform's own API, for what has no Satori method. The QQ account (`luckylillia`): the OneBot 11 actions
+   * with the go-cqhttp and LLOneBot extensions, camelCased (`set_group_card` is `setGroupCard`), one object of the
+   * OneBot parameters, resolving to the action's `data` and rejecting with its error; a `message_id` may be a
+   * `session.messageId`. The QQ official bot: its REST API, under the method names of Koishi's adapter.
+   */
+  readonly internal?: Record<string, (...args: any[]) => Promise<any>>
   sendMessage(channelId: string, content: h.Fragment, options?: SendOptions): Promise<NeutralResource[]>
   sendPrivateMessage?(userId: string, content: h.Fragment, options?: SendOptions): Promise<NeutralResource[]>
   getMessage?(channelId: string, messageId: string): Promise<NeutralResource>

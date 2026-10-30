@@ -46,6 +46,7 @@ let sendMessage: ReturnType<typeof vi.fn>
 let recallMsg: ReturnType<typeof vi.fn>
 let getMsgsBySeqAndCount: ReturnType<typeof vi.fn>
 let muteGroupMember: ReturnType<typeof vi.fn>
+let setGroupMemberCard: ReturnType<typeof vi.fn>
 let kickGroupMember: ReturnType<typeof vi.fn>
 
 beforeEach(async () => {
@@ -55,16 +56,22 @@ beforeEach(async () => {
   getMsgsBySeqAndCount = vi.fn(async () => ({ msgList: [rawMessage({ msgSeq: 39 })] }))
   muteGroupMember = vi.fn(async () => ({ errorCode: 0, errorMsg: '' }))
   kickGroupMember = vi.fn(async () => ({ errorCode: 1, errorMsg: '没有权限' }))
+  setGroupMemberCard = vi.fn(async () => ({ errorCode: 0, errorMsg: '' }))
   await ctx.plugin(BotsService)
-  for (const name of ['ntFileApi', 'ntFriendApi', 'ntWebApi']) {
+  for (const name of ['ntFileApi', 'ntFriendApi', 'ntWebApi', 'ntSystemApi', 'config', 'timer', 'qqProtocol']) {
     await ctx.plugin(stub(name))
   }
   await ctx.plugin(stub('account', ACCOUNT))
   await ctx.plugin(stub('ntMsgApi', { recallMsg, getMsgsBySeqAndCount, getLatestMsgSeq: async () => 50 }))
-  await ctx.plugin(stub('ntGroupApi', { muteGroupMember, kickGroupMember }))
+  await ctx.plugin(stub('ntGroupApi', { muteGroupMember, kickGroupMember, setGroupMemberCard }))
   await ctx.plugin(stub('ntUserApi', { getUidByUin: async () => 'u_555' }))
   await ctx.plugin(stub('app', { sendMessage }))
-  await ctx.plugin(stub('store', { getMsgBySeq: () => rawMessage() }))
+  await ctx.plugin(stub('store', {
+    getMsgBySeq: () => rawMessage(),
+    // A OneBot message id stands for the message it was made from
+    createMsgShortId: (msg: NT.RawMessage) => msg.msgSeq + 1000,
+    getMsgInfoByShortId: async (shortId: number) => ({ msgId: '7001', msgSeq: shortId - 1000, peer: { chatType: NT.ChatType.Group, peerUid: '987654' } }),
+  }))
   await ctx.plugin(NTQQUniversal)
 })
 
@@ -243,5 +250,27 @@ describe('what plugins read of a message from an official bot', () => {
     ])
     expect(ark.type).toBe('luckylillia:ark')
     expect(ark.children.join('')).toBe('[分享]标题')
+  })
+})
+
+describe('bot.internal: the OneBot actions', () => {
+  it('has every one of them camelCased, but those about a OneBot connection', () => {
+    const { internal } = ctx.bots.get('luckylillia:123456')!
+    expect(Object.keys(internal!)).toEqual(expect.arrayContaining(['setGroupCard', 'sendLike', 'sendGroupNotice', 'getGroupHonorInfo', 'uploadGroupFile']))
+    expect(internal!.handleQuickOperation).toBeUndefined()
+    expect(internal!.getEvent).toBeUndefined()
+  })
+
+  it('takes the OneBot parameters, resolving to the data and rejecting with the error', async () => {
+    const { internal } = ctx.bots.get('luckylillia:123456')!
+    expect(await internal!.setGroupCard({ group_id: '987654', user_id: '555', card: '新名片' })).toBeNull()
+    expect(setGroupMemberCard).toHaveBeenCalledExactlyOnceWith(987654, 'u_555', '新名片')
+    setGroupMemberCard.mockResolvedValueOnce({ errorCode: 1, errorMsg: '没有权限' })
+    await expect(internal!.setGroupCard({ group_id: '987654', user_id: '555', card: 'x' })).rejects.toThrow('没有权限')
+  })
+
+  it('takes a session.messageId where OneBot wants its message id', async () => {
+    await ctx.bots.get('luckylillia:123456')!.internal!.deleteMsg({ message_id: '2|987654|42' })
+    expect(recallMsg).toHaveBeenCalledWith({ chatType: NT.ChatType.Group, peerUid: '987654' }, 42)
   })
 })

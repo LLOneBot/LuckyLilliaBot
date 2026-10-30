@@ -75,8 +75,9 @@ function resource(bot: { user: object }, channelId: string, direct: boolean, con
 export class QQOfficialBot implements Bot, DecodeHost {
   readonly platform = 'qq'
   readonly sid: string
-  // Faces only come in: sending them is documented for guilds alone; no forwards, and replies rather than pushes
-  readonly features: readonly Feature[] = ['message.markdown', 'message.button', 'message.card', 'message.stream', 'guild.plain']
+  // Faces only come in: sending them is documented for guilds alone; no forwards. Pushing has a quota (4 a month to
+  // each user or group) and needs the user, or the group owner, to allow it
+  readonly features: readonly Feature[] = ['message.markdown', 'message.button', 'message.card', 'message.stream', 'message.proactive', 'guild.plain']
   status: Status = Status.OFFLINE
   readonly user: { id: string; name?: string; avatar?: string }
   readonly passive = new PassiveReplies()

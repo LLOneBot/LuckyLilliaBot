@@ -3,6 +3,7 @@ import { Status } from '@satorijs/protocol'
 import { Context } from 'cordis'
 import type { Bot, Feature, NeutralList, NeutralResource, SendOptions } from '@luckylillia/plugin-sdk'
 import * as api from './api'
+import { createInternal, type Internal } from './internal'
 import { MessageEncoder } from './message'
 import { decodeUser } from './utils'
 import type { NormalizeHost, SatoriEvent } from '../../../../universal/types'
@@ -19,11 +20,14 @@ export class NTQQBot implements Bot, NormalizeHost {
   // An account cannot send markdown or buttons; link cards it could, signed, but nothing builds them yet
   readonly features: readonly Feature[] = ['message.face', 'message.forward', 'message.proactive', 'guild.plain']
   status = Status.ONLINE
+  /** What Satori has no method for: the OneBot 11 actions (internal.ts) */
+  readonly internal: Internal
   private sn = 0
 
   constructor(readonly ctx: Context) {
     this.selfId = ctx.account.uin
     this.sid = `${this.platform}:${this.selfId}`
+    this.internal = createInternal(ctx)
   }
 
   get user(): NeutralResource {
