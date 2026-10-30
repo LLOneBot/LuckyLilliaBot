@@ -35,7 +35,7 @@ export const Config = NTProtocolSchema
 const selectionOf = (config: NTProtocolConfig): ProtocolSelection => resolveProtocolSelection({
   mode: config.mode,
   protocol: config.protocol,
-  pmhq: { host: config.pmhq.host, port: String(config.pmhq.port) },
+  pmhq: { configPath: config.pmhq.configPath, qqPath: config.pmhq.qqPath },
 })
 
 /**
@@ -51,7 +51,7 @@ export function apply(ctx: Context, config: NTProtocolConfig) {
   // its protocol once, as its client is created: before that a new one just applies, after it waits for a restart
   ctx.on('internal/update', (next: NTProtocolConfig, restart) => {
     const updated = selectionOf(next)
-    const moved = updated.pmhq.host !== selection.pmhq.host || updated.pmhq.port !== selection.pmhq.port
+    const moved = updated.pmhq.configPath !== selection.pmhq.configPath || updated.pmhq.qqPath !== selection.pmhq.qqPath
     if (updated.mode !== selection.mode || (updated.mode === 'pmhq' && moved)) return restart()
     setProtocolSelection(selection = updated)
   })

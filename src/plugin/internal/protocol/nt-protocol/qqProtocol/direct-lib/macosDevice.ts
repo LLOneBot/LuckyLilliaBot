@@ -4,7 +4,7 @@
 import { promises as fs } from 'node:fs'
 import * as path from 'node:path'
 import { getLogger } from '@/common/logger'
-import { getSignProxy } from './sign-proxy'
+import { getNativeAddon } from '@/native'
 import { loadMachineGuid } from './machineGuid'
 
 const logger = getLogger('macos-device')
@@ -51,9 +51,9 @@ async function readFileIfUsable(file: string, qua: string): Promise<MacosDevice 
 }
 
 async function build(file: string, qua: string): Promise<MacosDevice> {
-  const proxy = getSignProxy()
+  const proxy = getNativeAddon()
   if (typeof proxy.getMacosQimei !== 'function' || typeof proxy.buildMacosDevicePb !== 'function') {
-    throw new Error('sign-proxy .node 过旧 (缺 getMacosQimei / buildMacosDevicePb), 请重新 build 并 sync-to-bot')
+    throw new Error('LuckyLillia.NTQQ.node 过旧 (缺 getMacosQimei / buildMacosDevicePb), 请重新 build 并 sync-to-bot')
   }
 
   const cached = await readFileIfUsable(file, qua)

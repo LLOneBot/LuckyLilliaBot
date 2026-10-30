@@ -112,7 +112,7 @@ describe('login routes', () => {
       ctx.qqProtocol.get_is_connected = vi.fn(() => false)
       const body = await (await createTestApp(createLoginInfoRoutes(ctx)).request('/login-info')).json()
       expect(body.data.mode).toBe('pmhq')
-      expect(body.data.pmhq).toEqual({ host: '127.0.0.1', port: '13000', connected: false })
+      expect(body.data.pmhq).toEqual({ configPath: '', qqPath: '', connected: false })
     })
   })
 })

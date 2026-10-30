@@ -33,7 +33,7 @@ declare module 'cordis' {
   }
 }
 
-/** PMHQ (WS + HTTP) 与 Direct (native sign + TCP) 共用的基类 */
+/** PMHQ (native) 与 Direct (native sign + TCP) 共用的基类 */
 export abstract class QQProtocolBase extends Service {
   static inject = ['config']
 
@@ -45,7 +45,7 @@ export abstract class QQProtocolBase extends Service {
   /** The account this protocol logs in. Other plugins read it through the account service (account.ts). */
   readonly selfInfo: SelfInfo = { uid: '', uin: '', nick: '', online: false }
 
-  /** How logging in with the auth token goes. Only Direct writes it: PMHQ logs in through QQ and leaves it idle. */
+  /** How logging in with the auth token goes. Each protocol instance owns its authorization state. */
   readonly authTokenStatus: AuthTokenStatus = { hasToken: false, validation: 'idle', message: '', loginError: '' }
 
   protected onlineEmitted: boolean = false
@@ -84,7 +84,7 @@ export abstract class QQProtocolBase extends Service {
     sig: string
   } | null>
 
-  /** 仅 Direct 实现。PMHQ 返空, FE 就切到扫码: PMHQ 的快速登录归 Desktop 管, 别在这里补 */
+  /** 仅 Direct 提供账号列表；NativeQQ 通过启动参数 -q 或配置 quick_login_qq 请求 QQ 客户端快速登录。 */
   public listQuickLoginAccounts(): Array<{ uin: string; uid: string; nick: string; savedAt: number }> {
     return []
   }
@@ -97,7 +97,7 @@ export abstract class QQProtocolBase extends Service {
   /** 仅 Direct 实现 */
   public async logout(): Promise<void> {}
 
-  /** 仅 Direct 实现: WebUI 存了新的 auth token, 立刻校验, 不等下一轮查文件 */
+  /** WebUI 存了新的 auth token, 立刻校验, 不等下一轮查文件 */
   public checkAuthToken(): void {}
 
   /** 只有 PMHQ 有 QQ 进程可量; null 时 WebUI 不显示 QQ 资源卡 */

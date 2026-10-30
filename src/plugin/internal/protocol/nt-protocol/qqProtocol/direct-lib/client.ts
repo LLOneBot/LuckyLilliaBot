@@ -61,7 +61,7 @@ export interface SessionInfo {
   a2: Buffer
   a2Key: Buffer
   sKey: Buffer
-  /** SignProxy.acquireSignToken 拿到的 12B token, 不是 authToken */
+  /** 原生模块 acquireSignToken 拿到的 12B token, 不是 authToken */
   signToken12B?: string
   signTokenExpiresAt?: number
 }

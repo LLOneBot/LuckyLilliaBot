@@ -57,11 +57,6 @@ const LoginMethod: React.FC<LoginMethodProps> = ({ pins, lockedProtocol, online,
   const changePmhq = (patch: Partial<NTProtocolConfig['pmhq']>) => change({ pmhq: { ...draft.pmhq, ...patch } })
 
   const submit = async () => {
-    if (shown.mode === 'pmhq' && !pins.pmhq) {
-      if (!draft.pmhq.host.trim()) return showToast('请填写 PMHQ 地址', 'error')
-      const { port } = draft.pmhq
-      if (!Number.isInteger(port) || port < 1 || port > 65535) return showToast('PMHQ 端口要在 1 到 65535 之间', 'error')
-    }
     const modeChanged = shown.mode !== current.mode
     if (await save(draft, { message: '登录方式已保存' })) {
       setDraft(null)
@@ -117,33 +112,16 @@ const LoginMethod: React.FC<LoginMethodProps> = ({ pins, lockedProtocol, online,
         </div>
       ) : (
         <div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="col-span-2">
-              <label className="block text-sm font-medium text-theme-secondary mb-2">PMHQ 地址</label>
-              <input
-                value={shown.pmhq.host}
-                disabled={!!pins.pmhq}
-                onChange={e => changePmhq({ host: e.target.value })}
-                placeholder="127.0.0.1"
-                className="input-field"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-theme-secondary mb-2">端口</label>
-              <input
-                type="number"
-                value={Number.isNaN(shown.pmhq.port) ? '' : shown.pmhq.port}
-                disabled={!!pins.pmhq}
-                onChange={e => changePmhq({ port: e.target.valueAsNumber })}
-                min="1"
-                max="65535"
-                placeholder="13000"
-                className="input-field"
-              />
-            </div>
-          </div>
+          <label className="block text-sm font-medium text-theme-secondary mb-2">QQ 可执行文件路径</label>
+          <input value={shown.pmhq.qqPath} disabled={!!pins.pmhq}
+            onChange={e => changePmhq({ qqPath: e.target.value })}
+            placeholder="留空自动检测，手动填写时使用绝对路径" className="input-field" />
+          <label className="block text-sm font-medium text-theme-secondary mb-2 mt-3">PMHQ 配置文件路径</label>
+          <input value={shown.pmhq.configPath} disabled={!!pins.pmhq}
+            onChange={e => changePmhq({ configPath: e.target.value })}
+            placeholder="可选，pmhq_config.json 的绝对路径" className="input-field" />
           <p className="text-xs text-theme-muted mt-1">
-            {pins.pmhq ? pinnedBy(pins.pmhq.by) : '先启动官方 QQ 客户端和 PMHQ，再在 QQ 客户端里登录账号'}
+            {pins.pmhq ? pinnedBy(pins.pmhq.by) : 'PMHQ 随协议一起启动和停止；录入 Auth Token 后启动本机 QQ'}
           </p>
         </div>
       )}

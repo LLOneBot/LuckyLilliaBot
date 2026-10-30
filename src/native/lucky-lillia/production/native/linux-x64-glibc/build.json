@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "package": {
+    "name": "lucky-lillia-node",
+    "version": "0.1.0"
+  },
+  "variant": "production",
+  "target": "x86_64-unknown-linux-gnu",
+  "buildId": "37613615-baaa-4aaf-a071-52f2678135da",
+  "profile": "release",
+  "addon": "LuckyLillia.NTQQ.node",
+  "sidecar": "libpmhq.so",
+  "files": {
+    "LuckyLillia.NTQQ.node": "f8567ef29910998d9abc230f2ede278e4de27e635f0a1badfe1c30da5e1baeb0",
+    "libpmhq.so": "a3fef13d1808158499da1ef6ae3bf435f46851026c1cff009181be272cff0c17"
+  }
+}

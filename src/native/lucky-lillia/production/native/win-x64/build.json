@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "package": {
+    "name": "lucky-lillia-node",
+    "version": "0.1.0"
+  },
+  "variant": "production",
+  "target": "x86_64-pc-windows-msvc",
+  "buildId": "6600ba44-b486-4174-a1b2-eedcd58f857b",
+  "profile": "release",
+  "addon": "LuckyLillia.NTQQ.node",
+  "sidecar": null,
+  "files": {
+    "LuckyLillia.NTQQ.node": "c137da8210fbd9372c32a969c3dc5c18160384976e3742a3dc8cf06c618e6ad1"
+  }
+}

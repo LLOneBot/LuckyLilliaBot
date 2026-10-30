@@ -14,12 +14,15 @@ export const NTProtocolSchema: Schema<NTProtocolConfig> = Schema.object({
     Schema.const('watch').description('手表'),
   ]).default('linux').description('纯协议模拟的 QQ 客户端'),
   pmhq: Schema.object({
-    host: Schema.string().default('127.0.0.1').description('PMHQ 地址'),
-    port: Schema.natural().min(1).max(65535).default(13000).description('PMHQ 端口'),
-  }).description('官方 QQ 端桥接连接的 PMHQ'),
+    configPath: Schema.string().default('').description('PMHQ 配置文件绝对路径（可选）'),
+    qqPath: Schema.string().default('').description('QQ 可执行文件绝对路径（留空自动检测）'),
+  }).description('进程内 PMHQ 配置'),
 }) as Schema<NTProtocolConfig>
 
 export const ntProtocolSettings: BuiltinConfig<NTProtocolConfig> = {
-  normalize: value => ({ ...value, pmhq: { ...value.pmhq, host: value.pmhq.host.trim() } }),
-  check: value => value.mode === 'pmhq' && !value.pmhq.host ? [{ path: ['pmhq', 'host'], message: '请填写 PMHQ 地址' }] : [],
+  normalize: value => ({ ...value, pmhq: {
+    configPath: (value.pmhq.configPath || '').trim(),
+    qqPath: (value.pmhq.qqPath || '').trim(),
+  } }),
+  check: () => [],
 }

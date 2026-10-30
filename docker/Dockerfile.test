@@ -17,8 +17,6 @@ RUN touch /.dockerenv
 
 COPY dist/ .
 
-# alpine 只加载 musl 变体, 删掉其它平台/ABI 的 sign-proxy .node (darwin/win/glibc) 瘦身
-RUN for f in sign-proxy.*.node; do case "$f" in *-musl.node) ;; *) rm -f "$f" ;; esac; done
 
 VOLUME ["/app/llbot/data"]
 

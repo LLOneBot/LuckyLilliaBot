@@ -18,8 +18,7 @@ RUN set -eux; \
     wget "https://github.com/LLOneBot/LuckyLilliaBot/releases/download/v${LLBOT_VERSION}/LuckyLillia.zip" -O /app/llbot.zip; \
     unzip /app/llbot.zip -d /app/llbot; \
     rm /app/llbot.zip; \
-    cd /app/llbot; \
-    for f in sign-proxy.*.node; do case "$f" in *-musl.node) ;; *) rm -f "$f" ;; esac; done
+    cd /app/llbot
 
 VOLUME ["/app/llbot/data"]
 

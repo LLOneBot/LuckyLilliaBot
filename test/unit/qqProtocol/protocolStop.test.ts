@@ -1,10 +1,7 @@
 import { EventEmitter } from 'node:events'
 import { Context, Service } from 'cordis'
-import { WebSocketServer } from 'ws'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { currentPmhqTarget } from '@/common/utils/environment'
 import { DirectQQProtocol } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct'
-import { PmhqQQProtocol } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/pmhq'
 import { DirectProtocolClient, type SessionInfo } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/client'
 import { deleteSession, loadSession } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/session'
 import { getCurrentLoginState } from '../../../src/plugin/internal/protocol/nt-protocol/llbot-ipc'
@@ -199,36 +196,3 @@ describe('switching the direct protocol off', () => {
   })
 })
 
-describe('switching the PMHQ protocol off', () => {
-  let wss: WebSocketServer
-  let connections: number
-
-  beforeEach(async () => {
-    connections = 0
-    wss = new WebSocketServer({ port: 0, host: '127.0.0.1' })
-    await new Promise(resolve => wss.once('listening', resolve))
-    wss.on('connection', () => { connections++ })
-    const { port } = wss.address() as { port: number }
-    vi.mocked(currentPmhqTarget).mockReturnValue({ host: '127.0.0.1', port: String(port) })
-  })
-
-  afterEach(async () => {
-    await new Promise(resolve => wss.close(resolve))
-  })
-
-  it('closes the socket and stops reconnecting', async () => {
-    const protocol = loggedIn(new PmhqQQProtocol(new Context()))
-    const dispose = await (protocol as unknown as Record<symbol, () => Promise<() => Promise<void>>>)[Service.init]()
-    await vi.waitFor(() => expect(connections).toBe(1))
-    const [socket] = wss.clients
-    const closed = new Promise(resolve => socket.once('close', resolve))
-
-    await dispose()
-    await closed
-    // The reconnect would have come after 1s
-    await new Promise(resolve => setTimeout(resolve, 1_500))
-    expect(connections).toBe(1)
-    expect(protocol.selfInfo.online).toBe(false)
-    await expect(protocol.waitConnected()).rejects.toThrow('已停用')
-  })
-})

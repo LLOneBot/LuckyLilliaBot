@@ -1,0 +1,13 @@
+{
+  "name": "lucky-lillia-node",
+  "version": "0.1.0",
+  "type": "commonjs",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "GPL-2.0",
+  "engines": {
+    "node": ">=18"
+  },
+  "nativeVariant": "production",
+  "private": false
+}

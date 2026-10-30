@@ -1,6 +1,6 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
-import { isPmhqMode, getAuthTokenPageUrl } from '@/common/utils/environment'
+import { getAuthTokenPageUrl } from '@/common/utils/environment'
 import { authTokenUtil } from '../../../../main/config'
 
 // 录入只写文件, 校验和登录由协议的 AuthTokenWatcher 处理
@@ -12,7 +12,7 @@ export function createAuthTokenRoutes(ctx: Context): Hono {
     return c.json({
       success: true,
       data: {
-        applicable: !isPmhqMode(),
+        applicable: true,
         online: selfInfo.online,
         hasToken: authTokenStatus.hasToken,
         validation: authTokenStatus.validation,

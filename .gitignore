@@ -33,8 +33,5 @@ test/fixtures/pmhq-flash/
 # playwright-cli 运行产物 (console log / 页面快照)
 .playwright-cli/
 
-# SignProxy dev build (npm run build:dev-bot), loaded only with --dev; never commit or ship it
-src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign-proxy/sign-proxy-dev.*
-
 # plugin SDK build output
 packages/*/lib/

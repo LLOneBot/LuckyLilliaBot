@@ -10,57 +10,23 @@ import {
 
 const argv = (...args: string[]) => ['node', 'main.ts', ...args]
 
-describe('getPmhqTarget', () => {
-  it('returns null without --pmhq-port', () => {
-    expect(getPmhqTarget(argv('--qq', '10001'))).toBeNull()
-    expect(getPmhqTarget(argv('--pmhq-host=10.0.0.2'))).toBeNull()
+describe('native PMHQ launch', () => {
+  it('selects local PMHQ explicitly and accepts paths in either form', () => {
+    expect(getPmhqTarget(argv())).toBeNull()
+    expect(getPmhqTarget(argv('--pmhq'))).toEqual({ configPath: '', qqPath: '' })
+    expect(getPmhqTarget(argv('--pmhq-config=/config.json'))).toEqual({ configPath: '/config.json', qqPath: '' })
+    expect(getPmhqTarget(argv('--pmhq', '--pmhq-config', '/config.json', '--qq-path', '/QQ'))).toEqual({ configPath: '/config.json', qqPath: '/QQ' })
+    expect(getPmhqTarget(argv('--pmhq', '--pmhq-config', '--dev'))).toEqual({ configPath: '', qqPath: '' })
   })
-
-  it('accepts both the space and the equals form', () => {
-    expect(getPmhqTarget(argv('--pmhq-port', '13001'))).toEqual({ host: '127.0.0.1', port: '13001' })
-    expect(getPmhqTarget(argv('--pmhq-port=13001'))).toEqual({ host: '127.0.0.1', port: '13001' })
-    expect(getPmhqTarget(argv('--pmhq-port', '13001', '--pmhq-host', '10.0.0.2'))).toEqual({
-      host: '10.0.0.2',
-      port: '13001',
-    })
-    expect(getPmhqTarget(argv('--pmhq-port=13001', '--pmhq-host=10.0.0.2'))).toEqual({
-      host: '10.0.0.2',
-      port: '13001',
-    })
-  })
-
-  it('still enables PMHQ when the flag carries no value', () => {
-    expect(getPmhqTarget(argv('--pmhq-port'))).toEqual({ host: '127.0.0.1', port: '13000' })
-    expect(getPmhqTarget(argv('--pmhq-port='))).toEqual({ host: '127.0.0.1', port: '13000' })
-  })
-
-  it('does not swallow the next flag as the value', () => {
-    expect(getPmhqTarget(argv('--pmhq-port', '--dev'))).toEqual({ host: '127.0.0.1', port: '13000' })
-    expect(getPmhqTarget(argv('--pmhq-host', '--dev', '--pmhq-port=13001'))).toEqual({
-      host: '127.0.0.1',
-      port: '13001',
-    })
-  })
-
-  it('keeps working next to the other flags', () => {
-    const t = getPmhqTarget(argv('--qq', '721011692', '--pmhq-port', '13001', '--dev'))
-    expect(t).toEqual({ host: '127.0.0.1', port: '13001' })
-  })
-})
-
-describe('isPmhqMode', () => {
-  it('follows process.argv', () => {
-    const real = process.argv
-    try {
-      process.argv = argv('--qq', '10001')
-      expect(isPmhqMode()).toBe(false)
-      process.argv = argv('--pmhq-port', '13001')
-      expect(isPmhqMode()).toBe(true)
-      process.argv = argv('--pmhq-port=13001')
-      expect(isPmhqMode()).toBe(true)
-    } finally {
-      process.argv = real
+  it('rejects obsolete remote transport flags instead of silently choosing another account', () => {
+    for (const flag of ['--pmhq-port', '--pmhq-port=13000', '--pmhq-host=remote']) {
+      expect(() => getPmhqTarget(argv(flag))).toThrow('不再支持')
     }
+  })
+  it('follows process.argv before a plugin selection exists', () => {
+    const real = process.argv
+    try { process.argv = argv('--pmhq'); expect(isPmhqMode()).toBe(true) }
+    finally { process.argv = real }
   })
 })
 
@@ -102,23 +68,17 @@ describe('protocolPins', () => {
     expect(protocolPins(argv(), {})).toEqual({})
   })
 
-  it('pins the bridge and its address to --pmhq-port', () => {
-    expect(protocolPins(argv('--pmhq-port', '13001', '--pmhq-host', '10.0.0.2'), {})).toEqual({
-      mode: { value: 'pmhq', by: '--pmhq-port' },
-      pmhq: { value: { host: '10.0.0.2', port: '13001' }, by: '--pmhq-port' },
+  it('pins the native bridge and credits Desktop for its flags', () => {
+    expect(protocolPins(argv('--pmhq', '--pmhq-config=/config.json'), {})).toEqual({
+      mode: { value: 'pmhq', by: '--pmhq' },
+      pmhq: { value: { configPath: '/config.json', qqPath: '' }, by: '--pmhq' },
     })
-  })
-
-  it('credits the desktop app with the flags it passes, and pins the pure protocol without --pmhq-port', () => {
-    expect(protocolPins(argv('--pmhq-port=13001'), { LL_IPC_PIPE: 'x' })).toEqual({
-      mode: { value: 'pmhq', by: 'desktop' },
-      pmhq: { value: { host: '127.0.0.1', port: '13001' }, by: 'desktop' },
+    expect(protocolPins(argv('--pmhq'), { LL_IPC_PIPE: 'x' })).toEqual({
+      mode: { value: 'pmhq', by: 'desktop' }, pmhq: { value: { configPath: '', qqPath: '' }, by: 'desktop' },
     })
     expect(protocolPins(argv('--protocol=macos'), { LL_IPC_PIPE: 'x' })).toEqual({
-      mode: { value: 'direct', by: 'desktop' },
-      protocol: { value: 'macos', by: 'desktop' },
+      mode: { value: 'direct', by: 'desktop' }, protocol: { value: 'macos', by: 'desktop' },
     })
-    expect(protocolPins(argv(), { LL_IPC_PIPE: 'x', PROTOCOL: 'mac' }).protocol).toEqual({ value: 'macos', by: 'PROTOCOL' })
   })
 
   it('takes the protocol from either flag form, then the environment variable in any case', () => {
@@ -136,15 +96,15 @@ describe('protocolPins', () => {
 })
 
 describe('resolveProtocolSelection', () => {
-  const settings = { mode: 'direct', protocol: 'macos', pmhq: { host: '127.0.0.1', port: '13000' } } as const
+  const settings = { mode: 'direct', protocol: 'macos', pmhq: { configPath: '', qqPath: '' } } as const
 
   it('lets each pinned field win and keeps the rest', () => {
     expect(resolveProtocolSelection(settings, {})).toEqual(settings)
     expect(resolveProtocolSelection(settings, { protocol: { value: 'watch', by: '-p' } })).toEqual({ ...settings, protocol: 'watch' })
     expect(resolveProtocolSelection(settings, {
       mode: { value: 'pmhq', by: '--pmhq-port' },
-      pmhq: { value: { host: 'pmhq', port: '13001' }, by: '--pmhq-port' },
-    })).toEqual({ mode: 'pmhq', protocol: 'macos', pmhq: { host: 'pmhq', port: '13001' } })
+      pmhq: { value: { configPath: '/pmhq.json', qqPath: '' }, by: '--pmhq-port' },
+    })).toEqual({ mode: 'pmhq', protocol: 'macos', pmhq: { configPath: '/pmhq.json', qqPath: '' } })
   })
 })
 
@@ -152,7 +112,7 @@ describe('resolveProtocolSelection', () => {
 describe('the protocol in effect', () => {
   const realArgv = process.argv
   const realEnv = process.env
-  const direct = (protocol: 'linux' | 'macos' | 'windows') => ({ mode: 'direct', protocol, pmhq: { host: 'a', port: '1' } } as const)
+  const direct = (protocol: 'linux' | 'macos' | 'windows') => ({ mode: 'direct', protocol, pmhq: { configPath: '/a.json', qqPath: '' } } as const)
 
   beforeAll(() => {
     process.argv = argv()
@@ -172,10 +132,10 @@ describe('the protocol in effect', () => {
   })
 
   it('keeps linux for PMHQ whatever the pure protocol was set to', () => {
-    setProtocolSelection({ mode: 'pmhq', protocol: 'macos', pmhq: { host: 'pmhq', port: '13001' } })
+    setProtocolSelection({ mode: 'pmhq', protocol: 'macos', pmhq: { configPath: '/pmhq.json', qqPath: '' } })
     expect(getProtocol()).toBe('linux')
     expect(isPmhqMode()).toBe(true)
-    expect(currentPmhqTarget()).toEqual({ host: 'pmhq', port: '13001' })
+    expect(currentPmhqTarget()).toEqual({ configPath: '/pmhq.json', qqPath: '' })
   })
 
   it('stays with what the pure protocol was locked to until a restart', () => {

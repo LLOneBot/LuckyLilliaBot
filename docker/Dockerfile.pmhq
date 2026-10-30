@@ -1,0 +1,13 @@
+# QQ_BASE_IMAGE supplies /opt/QQ/qq and its Linux GUI/runtime dependencies.
+# Supply an image pinned by digest; it must match the Node runtime's glibc ABI.
+ARG QQ_BASE_IMAGE
+FROM node:24-bookworm-slim AS node-runtime
+FROM ${QQ_BASE_IMAGE}
+COPY --from=node-runtime /usr/local/bin/node /usr/local/bin/node
+WORKDIR /app/llbot
+COPY dist/ .
+COPY docker/startup.sh /startup.sh
+RUN chmod +x /startup.sh
+ENV PROTOCOL_MODE=pmhq
+VOLUME ["/app/llbot/data", "/root/.config/QQ"]
+ENTRYPOINT ["/startup.sh"]

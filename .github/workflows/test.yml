@@ -59,8 +59,10 @@ jobs:
           npm run build
           npm run build-webui
 
-      - name: Build PR LLBot image
-        run: docker build -f docker/Dockerfile.test --build-arg BUILD_PROXY= -t llbot-pr-test .
+      - name: Build native QQ host image
+        env:
+          QQ_BASE_IMAGE: ${{ vars.QQ_BASE_IMAGE }}
+        run: bash script/native-e2e.sh build
 
       - name: Write configs
         run: |
@@ -94,64 +96,8 @@ jobs:
           }
           CONF
 
-      - name: Restart PMHQ with workspace mount
-        run: |
-          docker stop pmhq1 pmhq2
-
-          docker rm -f pmhq1-test pmhq2-test 2>/dev/null || true
-
-          docker run -d --name pmhq1-test \
-            --network llbot-test_test_network \
-            --privileged \
-            -e ENABLE_HEADLESS=false \
-            -e AUTO_LOGIN_QQ=1577491075 \
-            -v llbot-test_qq_volume1:/root/.config/QQ \
-            -v ${{ github.workspace }}:/app/workspace:rw \
-            -v ${{ github.workspace }}/workspace1/data:/app/llbot/data:rw \
-            linyuchen/pmhq:latest
-
-          docker run -d --name pmhq2-test \
-            --network llbot-test_test_network \
-            --privileged \
-            -e ENABLE_HEADLESS=false \
-            -e AUTO_LOGIN_QQ=412805684 \
-            -v llbot-test_qq_volume2:/root/.config/QQ \
-            -v ${{ github.workspace }}:/app/workspace:rw \
-            -v ${{ github.workspace }}/workspace2/data:/app/llbot/data:rw \
-            linyuchen/pmhq:latest
-
-          echo "Waiting for PMHQ to be ready..."
-          for i in $(seq 1 30); do
-            H1=$(docker exec pmhq1-test curl -sf http://localhost:13000/health 2>/dev/null || true)
-            H2=$(docker exec pmhq2-test curl -sf http://localhost:13000/health 2>/dev/null || true)
-            [ -n "$H1" ] && [ -n "$H2" ] && echo "Both PMHQ ready" && break
-            echo "Waiting for PMHQ... ($i/30)"
-            sleep 5
-          done
-
-      - name: Start PR LLBot containers
-        run: |
-          docker rm -f llbot-pr1 llbot-pr2 2>/dev/null || true
-
-          docker run -d --name llbot-pr1 \
-            --network llbot-test_test_network \
-            -e pmhq_host=pmhq1-test \
-            -e pmhq_port=13000 \
-            -e WEBUI_PORT=3091 \
-            -v llbot-test_qq_volume1:/root/.config/QQ \
-            -v ${{ github.workspace }}/workspace1/data:/app/llbot/data:rw \
-            -v ${{ github.workspace }}:/app/workspace:ro \
-            llbot-pr-test
-
-          docker run -d --name llbot-pr2 \
-            --network llbot-test_test_network \
-            -e pmhq_host=pmhq2-test \
-            -e pmhq_port=13000 \
-            -e WEBUI_PORT=3092 \
-            -v llbot-test_qq_volume2:/root/.config/QQ \
-            -v ${{ github.workspace }}/workspace2/data:/app/llbot/data:rw \
-            -v ${{ github.workspace }}:/app/workspace:ro \
-            llbot-pr-test
+      - name: Start native QQ and Bot hosts
+        run: bash script/native-e2e.sh start
 
       - name: Wait for LLBot ready
         run: |
@@ -205,14 +151,9 @@ jobs:
             echo "No test report found"
           fi
 
-      - name: Stop test containers and restore PMHQ
+      - name: Stop native test hosts and restore fixture owners
         if: always()
-        run: |
-          echo "=== LLBot1 logs ===" && docker logs llbot-pr1 2>&1 | tail -30 || true
-          echo "=== LLBot2 logs ===" && docker logs llbot-pr2 2>&1 | tail -30 || true
-          docker rm -f llbot-pr1 llbot-pr2 pmhq1-test pmhq2-test 2>/dev/null || true
-          docker start pmhq1 pmhq2 2>/dev/null || true
-          sudo rm -rf ${{ github.workspace }}/workspace1 ${{ github.workspace }}/workspace2
+        run: bash script/native-e2e.sh stop
 
       - name: Upload test report
         if: always()

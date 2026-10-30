@@ -1,350 +1,202 @@
-import { deepConvertMap, deepStringifyMap } from './util'
-import { randomUUID, createHash } from 'node:crypto'
-import type {
-  PMHQRes,
-  PMHQReq,
-  PMHQResSendPB,
-  PMHQHealth,
-  PBData,
-  QQResourceUsage,
-  ResListener,
-} from './types'
+import { deepConvertMap } from './util'
+import { randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import type { PMHQRes, PMHQResSendPB, PMHQHealth, PBData, QQResourceUsage, ResListener } from './types'
 import { Context } from 'cordis'
-import { currentPmhqTarget } from '@/common/utils/environment'
-import { buildSsoInfoSync } from './direct-lib'
+import { currentPmhqTarget, getCdn, getSpecifiedUin } from '@/common/utils/environment'
+import { getNativeAddon, type NativeQQ } from '@/native'
+import { authTokenUtil } from '@/main/config'
+import { AuthTokenWatcher } from './direct-lib/authTokenWatcher'
 import { QQProtocolBase } from './base'
+import { registerPmhqControls } from '../llbot-ipc'
 
-/** 跟 PMHQ 通信 (WS 优先, HTTP 回退)。QQ NT 已经登录, 靠轮询 /health 拿 uin / uid */
+/** The protocol owns one native session, its token watcher, and every polling timer. */
 export class PmhqQQProtocol extends QQProtocolBase {
-  private reconnectTimer: NodeJS.Timeout | undefined
-  protected httpUrl: string
-  protected wsUrl: string
-  protected ws: WebSocket | undefined
-  private resListeners: Map<string, ResListener<any>> = new Map()
-  private hasConnectedOnce: boolean = false
-  private hasLoggedConnectionError: boolean = false
-  // 每次 WS open 自增, 旧一轮探测的回调见它变了就退出
-  private pmhqProbeToken: number = 0
+  private native?: NativeQQ
+  private watcher?: AuthTokenWatcher
+  private probeTimer?: NodeJS.Timeout
+  private connected = false
+  private generation = 0
+  private resListeners = new Map<string, ResListener<any>>()
+  private unregisterControls?: () => void
 
-  constructor(ctx: Context) {
-    super(ctx)
-    const { host, port } = currentPmhqTarget()
-    this.httpUrl = `http://${host}:${port}/`
-    this.wsUrl = `ws://${host}:${port}/ws`
-  }
+  constructor(ctx: Context) { super(ctx) }
 
   protected async start(): Promise<void> {
-    this.addResListener((data: any) => {
-      if (data?.type === 'recv' && data.data?.cmd && data.data?.pb) {
-        const payload = Buffer.from(data.data.pb, 'hex')
-        this.ctx.parallel('qq/raw', { cmd: data.data.cmd, payload })
-      }
-    })
-    await this.connectWebSocket()
+    const addon = getNativeAddon()
+    const target = currentPmhqTarget()
+    let config: Record<string, unknown> = {}
+    if (target.configPath) {
+      if (!path.isAbsolute(target.configPath)) throw new Error('PMHQ 配置文件必须使用绝对路径')
+      config = JSON.parse(readFileSync(target.configPath, 'utf8'))
+      if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('PMHQ 配置必须是 JSON 对象')
+    }
+    if (target.qqPath) {
+      if (!path.isAbsolute(target.qqPath)) throw new Error('QQ 路径必须使用绝对路径')
+      config.qq_path = target.qqPath
+    }
+    const requestedUin = getSpecifiedUin()
+    if (requestedUin !== undefined) {
+      if (!/^[1-9][0-9]*$/.test(requestedUin)) throw new Error('快速登录 QQ 号必须是正整数')
+      config.quick_login_qq = requestedUin
+    }
+    // Host lifecycle replaces the former pmhq -> Bot subprocess topology.
+    delete config.sub_cmd
+    const configuredToken = typeof config.auth_token === 'string' ? config.auth_token : ''
+    config.auth_token = ''
+    config.cdn ||= getCdn()
+    const native = this.native = new addon.NativeQQ()
+    const generation = ++this.generation
+    try {
+      await native.start({ moduleDir: addon.getNativeDirectory(), config, subCmdArgs: [] }, event => this.onNativeEvent(event, generation))
+      if (this.disposed) { await native.stop(); return }
+      this.connected = true
+      this.lastConnectedTime = Date.now()
+      this.watcher = new AuthTokenWatcher(this.authTokenStatus, async token => {
+        try { await native.setAuthToken(token) }
+        catch (error) {
+          if (this.disposed) return
+          this.authTokenStatus.validation = 'error'
+          this.authTokenStatus.message = (error as Error).message
+          throw error
+        }
+      }, this.logger, () => this.selfInfo.online,
+      () => authTokenUtil.reload() || (process.env.AUTH_TOKEN || '').trim() || configuredToken)
+      this.watcher.start()
+      this.unregisterControls = registerPmhqControls({
+        health: () => native.health(),
+        qrcode: () => native.getLoginQrcode(),
+        setAuthToken: async token => { await native.setAuthToken(token); this.authTokenStatus.hasToken = true; this.authTokenStatus.validation = 'valid' },
+      })
+      void this.probe(generation)
+    } catch (error) {
+      await this.stop().catch(() => {})
+      throw error
+    }
   }
 
   protected async stop(): Promise<void> {
-    this.pmhqProbeToken++
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer)
-      this.reconnectTimer = undefined
-    }
-    const ws = this.ws
-    this.ws = undefined
-    if (ws) {
-      // Before closing: onclose would reconnect
-      ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null
-      ws.close()
-    }
+    this.generation++
+    this.connected = false
+    this.watcher?.stop()
+    this.unregisterControls?.()
+    this.unregisterControls = undefined
+    if (this.probeTimer) clearTimeout(this.probeTimer)
+    this.probeTimer = undefined
     this.resListeners.clear()
     await super.stop()
+    await this.native?.stop()
   }
 
-  public get_is_connected(): boolean {
-    return !!this.ws && this.ws.readyState === WebSocket.OPEN
+  public checkAuthToken(): void { this.watcher?.check() }
+  public get_is_connected(): boolean { return this.connected && !this.disposed }
+
+  private onNativeEvent(event: any, generation: number): void {
+    if (this.disposed || generation !== this.generation) return
+    if (event.type === 'error') {
+      this.authTokenStatus.loginError = event.message || 'PMHQ 会话失败'
+      this.logger.error(this.authTokenStatus.loginError)
+      this.disconnect()
+      this.watcher?.stop()
+      return
+    }
+    if (event.type === 'status' && event.data?.status === 'stopped') { this.disconnect(); return }
+    if (event.type === 'lagged') { this.logger.warn('PMHQ 事件消费过慢，丢失 %s 个事件', event.data?.dropped); return }
+    if (event.type !== 'send' && event.type !== 'recv') return
+    const data = deepConvertMap(event) as PMHQRes
+    if (data.type === 'recv' && data.data?.cmd && data.data?.pb) {
+      // Debugger captures may contain the MSF length header; protocol decoders expect bare PB.
+      // Match NativeQQ.send() normalization so callbacks and direct replies use the same format.
+      let payload = Buffer.from(data.data.pb, 'hex')
+      if (payload.length >= 4) {
+        const size = payload.readUInt32BE(0)
+        if (size === payload.length || size === payload.length - 4) payload = payload.subarray(4)
+      }
+      data.data.pb = payload.toString('hex')
+      void this.ctx.parallel('qq/raw', { cmd: data.data.cmd, payload }).catch(error => this.logger.error('PMHQ raw listener failed', error))
+    }
+    for (const listener of this.resListeners.values()) {
+      try { listener(data) } catch (error) { this.logger.error('PMHQ listener failed', error) }
+    }
+  }
+
+  private disconnect(): void {
+    const wasOnline = this.selfInfo.online
+    this.connected = false
+    this.selfInfo.online = false
+    this.onlineEmitted = false
+    this.resetQrState()
+    if (wasOnline && !this.disposed) void this.ctx.parallel('protocol/disconnect')
+  }
+
+  private async probe(generation: number): Promise<void> {
+    if (this.disposed || generation !== this.generation) return
+    try {
+      const health = await this.native!.health()
+      if (this.disposed || generation !== this.generation) return
+      if (health.failure || ['stopped', 'failed'].includes(health.sessionStatus)) {
+        this.authTokenStatus.loginError = health.failure || 'PMHQ 会话已结束'
+        this.disconnect()
+        this.watcher?.stop()
+        return
+      }
+      if (Number(health.uin) > 0 && typeof health.uid === 'string' && health.uid.trim()) {
+        const newlyOnline = !this.selfInfo.online
+        this.selfInfo.uid = health.uid
+        this.selfInfo.uin = String(health.uin)
+        this.selfInfo.online = true
+        this.maybeEmitOnline()
+        if (newlyOnline) this.scheduleFetchSelfNick(() => !this.disposed && generation === this.generation)
+      } else {
+        if (this.selfInfo.online) { this.disconnect(); this.connected = true }
+        if (health.auth_token_set) this.ensureQrLoop()
+      }
+    } catch (error) { if (!this.disposed) this.logger.debug('PMHQ health failed: %s', (error as Error).message) }
+    if (!this.disposed && generation === this.generation) this.probeTimer = setTimeout(() => void this.probe(generation), 1000)
   }
 
   public async sendPB(cmd: string, pb: Buffer | string, timeout = 15000): Promise<PBData> {
-    const hex = Buffer.isBuffer(pb) ? pb.toString('hex') : pb
-    if (this.ws?.readyState === WebSocket.OPEN) {
-      return this.unwrapPmhqRes(
-        await this.wsSend<PMHQResSendPB>({ type: 'send', data: { cmd, pb: hex } }, timeout),
-        cmd,
-      )
-    }
-    return this.unwrapPmhqRes(
-      await this.httpSend<PMHQResSendPB>({ type: 'send', data: { cmd, pb: hex } }),
-      cmd,
-    )
+    if (!this.get_is_connected() || !this.native) throw new Error('PMHQ 协议未运行')
+    let timer: NodeJS.Timeout | undefined
+    try {
+      const res = await Promise.race([
+        this.native.send(cmd, pb, randomUUID()) as Promise<PMHQResSendPB>,
+        new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('PMHQ send timeout')), timeout) }),
+      ])
+      if (res.code != null && res.code !== 0) throw new Error('PMHQ send failed: ' + cmd + ' code=' + res.code + ' ' + (res.message || ''))
+      if (!res.data) throw new Error('PMHQ send returned no payload')
+      // Direct replies are consumed here; broadcasting would duplicate protocol delivery.
+      return deepConvertMap(res.data)
+    } finally { if (timer) clearTimeout(timer) }
   }
 
-  /** QQ 未登录时 PMHQ 注入的 JS 会自己拉码, 这里只读接口 */
-  protected async fetchFreshQrCode(): Promise<{ qrcodeUrl: string; pngBase64: string; expireTimeSec: number; sig: string } | null> {
-    const res = await this.fetchPmhqQrcode()
-    if (res.code === 0 && res.data) {
-      return {
-        qrcodeUrl: res.data.qrcodeUrl,
-        pngBase64: res.data.pngBase64QrcodeData,
-        expireTimeSec: res.data.expireTime,
-        sig: res.data.qrcodeUrl,
-      }
-    }
-    return null
+  protected async fetchFreshQrCode() {
+    if (!this.get_is_connected()) return null
+    const res = await this.native!.getLoginQrcode()
+    return res.code === 0 && res.data ? {
+      qrcodeUrl: res.data.qrcodeUrl, pngBase64: res.data.pngBase64QrcodeData,
+      expireTimeSec: res.data.expireTime, sig: res.data.qrcodeUrl,
+    } : null
   }
 
-  /**
-   * 开机时的 InfoSyncPush 早被 QQ 处理掉了, 要群最新 seq 得自己发一次 SsoInfoSync。guid 从 uid 派生,
-   * 避免跟 QQ 的注册项冲突
-   */
-  private async triggerInfoSyncPush() {
-    const seed = this.selfInfo.uid || this.selfInfo.uin || 'llbot'
-    const guid: Buffer = createHash('md5').update(`llbot-${seed}`).digest().subarray(0, 16)
-    const payload = buildSsoInfoSync(guid, false)
-    await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoInfoSync', payload, 5000)
-    this.logger.debug('已主动触发 RegisterProxy.SsoInfoSync（PMHQ）')
-  }
-
-  private resetPmhqState() {
-    const wasOnline = this.onlineEmitted
-    this.selfInfo.online = false
-    this.selfInfo.uid = ''
-    this.selfInfo.uin = ''
-    this.selfInfo.nick = ''
-    this.pmhqProbeToken++
-    this.onlineEmitted = false
-    this.resetQrState()
-    if (wasOnline) {
-      this.ctx.parallel('protocol/disconnect')
-    }
-  }
-
-  /** 重连后 onopen 会再调一次, 所以先复位旧状态 */
-  private startPmhqLoginProbe() {
-    this.resetPmhqState()
-    const myToken = ++this.pmhqProbeToken
-
-    let warnedNotLoggedIn = false
-    const probe = async () => {
-      if (this.pmhqProbeToken !== myToken) return
-      try {
-        const resp = await fetch(`${this.httpUrl}health`)
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-        const health = await resp.json() as PMHQHealth
-        if (this.pmhqProbeToken !== myToken) return
-
-        if (health.uin && health.uid) {
-          this.selfInfo.uid = health.uid
-          this.selfInfo.uin = String(health.uin)
-          this.ctx.logger.info(`Self info ${this.selfInfo.nick || '<pending>'}(${this.selfInfo.uin}) uid=${this.selfInfo.uid}`)
-          if (!this.selfInfo.online) {
-            this.logger.info('QQ 登录成功')
-          }
-          this.selfInfo.online = true
-          this.maybeEmitOnline()
-          this.scheduleFetchSelfNick(() => this.pmhqProbeToken === myToken)
-        } else {
-          // 只在 QQ 未登录时拉码, 不然 get_login_qrcode 返回已登录, 刷屏 QR code unavailable
-          this.ensureQrLoop()
-          if (!warnedNotLoggedIn) {
-            this.logger.info('QQ 未登录，等待登录中...')
-            warnedNotLoggedIn = true
-          }
-        }
-      } catch (e) {
-        if (this.pmhqProbeToken !== myToken) return
-        if (!warnedNotLoggedIn) {
-          this.logger.info('PMHQ /health probe failed (QQ 未启动?), 继续等待: %s', (e as Error).message)
-          warnedNotLoggedIn = true
-        }
-      }
-      if (this.pmhqProbeToken !== myToken) return
-      if (this.selfInfo.online) return
-      setTimeout(probe, 600)
-    }
-    probe()
-  }
-
-  /** code: 0 拿到码, 1 已登录, -1 未就绪或已过期 (重试会拿到新码) */
-  private async fetchPmhqQrcode(): Promise<{
-    code: number
-    message?: string
-    data?: { pngBase64QrcodeData: string; qrcodeUrl: string; expireTime: number; pollTimeInterval: number }
-  }> {
-    const resp = await fetch(`${this.httpUrl}get_login_qrcode`)
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-    return await resp.json()
-  }
-
-  /** cpu 是相邻两次 /health 之间的均值, 第一次为 0。老 PMHQ 没有这两个字段, 返回 null */
   public async getQQResourceUsage(): Promise<QQResourceUsage | null> {
+    if (!this.get_is_connected()) return null
     try {
-      const resp = await fetch(`${this.httpUrl}health`, { signal: AbortSignal.timeout(3000) })
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
-      const { memory, cpu, qq_full_version } = (await resp.json()) as PMHQHealth
+      const { memory, cpu, qq_full_version } = await this.native!.health() as PMHQHealth
       if (!memory || !cpu) return null
-      return {
-        memory: memory.qq_using,
-        totalMemory: memory.total,
-        memoryPercent: memory.total > 0 ? (memory.qq_using / memory.total) * 100 : 0,
-        cpu: Math.min(100, Math.max(0, (cpu.qq_using / (cpu.total || 1)) * 100)),
-        version: qq_full_version || undefined,
-      }
-    } catch (e) {
-      this.logger.debug('PMHQ /health 取资源占用失败: %s', (e as Error).message)
-      return null
-    }
+      return { memory: memory.qq_using, totalMemory: memory.total,
+        memoryPercent: memory.total > 0 ? memory.qq_using / memory.total * 100 : 0,
+        cpu: Math.min(100, Math.max(0, cpu.qq_using / (cpu.total || 1) * 100)), version: qq_full_version || undefined }
+    } catch { return null }
   }
 
-  public addResListener<R extends PMHQRes>(listener: ResListener<R>) {
-    const listenerId = randomUUID()
-    this.resListeners.set(listenerId, listener)
-    return listenerId
+  public addResListener<R extends PMHQRes>(listener: ResListener<R>): string {
+    const id = randomUUID(); this.resListeners.set(id, listener); return id
   }
-
-  public removeResListener(listenerId: string) {
-    this.resListeners.delete(listenerId)
-  }
-
-  private async connectWebSocket() {
-    const reconnect = () => {
-      this.ws = undefined
-      if (this.disposed) return
-      if (this.reconnectTimer) {
-        clearTimeout(this.reconnectTimer)
-        this.reconnectTimer = undefined
-      }
-      this.reconnectTimer = setTimeout(() => {
-        this.connectWebSocket()
-      }, 1000)
-    }
-
-    try {
-      this.ws = new WebSocket(this.wsUrl)
-    } catch (e) {
-      return reconnect()
-    }
-
-    this.ws.onmessage = async (event) => {
-      let data: PMHQRes
-      try {
-        data = JSON.parse(event.data.toString())
-      } catch (e) {
-        this.logger.error('解析 PMHQ 消息失败', event.data, e)
-        return
-      }
-      data = deepConvertMap(data)
-      for (const func of this.resListeners.values()) {
-        setImmediate(() => {
-          try {
-            func(data)
-          } catch (e) {
-            this.logger.error('PMHQ res listener error', e)
-          }
-        })
-      }
-    }
-
-    this.ws.onerror = () => {
-      this.selfInfo.online = false
-      this.resetPmhqState()
-
-      if (!this.hasLoggedConnectionError) {
-        this.logger.error('PMHQ WebSocket 连接错误，可能 QQ 未启动，正在等待 QQ 启动进行重连...')
-        this.hasLoggedConnectionError = true
-      }
-
-      reconnect()
-    }
-
-    this.ws.onclose = () => {
-      this.selfInfo.online = false
-      this.resetPmhqState()
-
-      if (!this.hasLoggedConnectionError) {
-        this.logger.info('PMHQ WebSocket 连接关闭，准备重连...')
-        this.hasLoggedConnectionError = true
-      }
-
-      reconnect()
-    }
-
-    this.ws.onopen = () => {
-      this.logger.info('PMHQ WebSocket 连接成功')
-      this.hasLoggedConnectionError = false
-      if (!this.hasConnectedOnce) {
-        this.hasConnectedOnce = true
-        this.lastConnectedTime = Date.now()
-      }
-      this.startPmhqLoginProbe()
-    }
-  }
-
-  public async waitConnected() {
-    return new Promise((resolve, reject) => {
-      const check = () => {
-        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-          resolve(true)
-        } else if (this.disposed) {
-          reject(new Error('PMHQ 协议已停用'))
-        } else {
-          setTimeout(check, 1000)
-        }
-      }
-      check()
-    })
-  }
-
-  public async wsSend<R extends PMHQRes>(data: PMHQReq, timeout = 15000): Promise<R> {
-    await this.waitConnected()
-    let echo = data.data?.echo
-    if (!data.data?.echo) {
-      echo = randomUUID()
-      data.data.echo = echo
-    }
-    const payload = JSON.stringify(deepStringifyMap(data))
-    const p = new Promise<R>((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
-        reject(new Error('pmhq ws send: wait result timeout'))
-        this.removeResListener(listenerId)
-      }, timeout)
-      const listenerId = this.addResListener<R>((res) => {
-        if (!res.data) {
-          this.logger.error(`PMHQ WS send error: payload ${JSON.stringify(data)}, response ${JSON.stringify(res)}`)
-        }
-        if (res.data?.echo == echo) {
-          resolve(res)
-          clearTimeout(timeoutId)
-          this.removeResListener(listenerId)
-        }
-      })
-    })
-    this.ws!.send(payload)
-    return p
-  }
-
-  public async httpSend<R extends PMHQRes>(data: PMHQReq): Promise<R> {
-    const payload = JSON.stringify(deepStringifyMap(data))
-    const response = await fetch(this.httpUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: payload,
-    })
-    if (!response.ok) {
-      const errorBody = await response.text()
-      throw new Error(`PMHQ请求失败，请检查发包器PMHQ设置 ${response.status} - ${errorBody}`)
-    }
-    let result = await response.json()
-    result = deepConvertMap(result)
-    return result
-  }
-
-  /** echo 匹配不代表成功: 发包失败或 QQ 未登录时 PMHQ 也会回 echo 匹配、code 非 0 的响应, 一律抛错 */
-  private unwrapPmhqRes(res: PMHQResSendPB, cmd: string): PBData {
-    if (res.code != null && res.code !== 0) {
-      const pb = res.data?.pb ?? ''
-      const detail = pb ? ` pb=${pb.slice(0, 160)}` : ' pb=<empty>'
-      throw new Error(`PMHQ send failed: cmd=${cmd} code=${res.code} ${res.message ?? ''}${detail}`.trim())
-    }
-    return res.data
+  public removeResListener(id: string): void { this.resListeners.delete(id) }
+  public async waitConnected(): Promise<boolean> {
+    if (!this.get_is_connected()) throw new Error('PMHQ 协议未运行')
+    return true
   }
 }

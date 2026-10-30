@@ -4,24 +4,24 @@ import {
 } from '@/plugin/internal/protocol/nt-protocol/client/loginOptions'
 import type { NTProtocolConfig } from '@/common/types'
 
-const saved: NTProtocolConfig = { mode: 'direct', protocol: 'macos', pmhq: { host: '127.0.0.1', port: 13000 } }
+const saved: NTProtocolConfig = { mode: 'direct', protocol: 'macos', pmhq: { configPath: '', qqPath: '' } }
 const desktopDirect = { mode: { value: 'direct', by: 'desktop' }, protocol: { value: 'linux', by: 'desktop' } } as const
 const bridge = {
-  mode: { value: 'pmhq', by: '--pmhq-port' },
-  pmhq: { value: { host: 'pmhq', port: '13001' }, by: '--pmhq-port' },
+  mode: { value: 'pmhq', by: '--pmhq' },
+  pmhq: { value: { configPath: '/pmhq.json', qqPath: '' }, by: '--pmhq' },
 } as const
 
 describe('login method', () => {
   it('runs with what the launch fixes over the saved settings', () => {
     expect(effectiveMethod(saved, {})).toEqual(saved)
     expect(effectiveMethod(saved, desktopDirect)).toEqual({ ...saved, protocol: 'linux' })
-    expect(effectiveMethod(saved, bridge)).toEqual({ ...saved, mode: 'pmhq', pmhq: { host: 'pmhq', port: 13001 } })
+    expect(effectiveMethod(saved, bridge)).toEqual({ ...saved, mode: 'pmhq', pmhq: { configPath: '/pmhq.json', qqPath: '' } })
   })
 
   it('reads as one line', () => {
     expect(describeMethod(saved)).toBe('纯协议 · macOS')
     expect(describeMethod({ ...saved, protocol: 'watch' })).toBe('纯协议 · 手表')
-    expect(describeMethod({ ...saved, mode: 'pmhq' })).toBe('官方 QQ 端桥接 · 127.0.0.1:13000')
+    expect(describeMethod({ ...saved, mode: 'pmhq' })).toBe('官方 QQ 端桥接 · 本机 PMHQ')
   })
 
   it('names where a pin comes from', () => {
@@ -43,7 +43,7 @@ describe('login method', () => {
   it('says who fixed it: once when nothing is left, field by field otherwise', () => {
     expect(pinNote(saved, {})).toBeUndefined()
     expect(pinNote(effectiveMethod(saved, desktopDirect), desktopDirect)).toBe('由 LuckyLillia 桌面端指定，这里改不了')
-    expect(pinNote(effectiveMethod(saved, bridge), bridge)).toBe('由启动参数 --pmhq-port 指定，这里改不了')
+    expect(pinNote(effectiveMethod(saved, bridge), bridge)).toBe('由启动参数 --pmhq 指定，这里改不了')
     expect(pinNote(saved, { protocol: { value: 'macos', by: 'PROTOCOL' } })).toBe('协议由环境变量 PROTOCOL 指定')
     const mixed = { mode: desktopDirect.mode, protocol: { value: 'macos', by: 'PROTOCOL' } } as const
     expect(pinNote(effectiveMethod(saved, mixed), mixed)).toBe('登录方式由 LuckyLillia 桌面端指定，协议由环境变量 PROTOCOL 指定，这里改不了')

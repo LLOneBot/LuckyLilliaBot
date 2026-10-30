@@ -136,29 +136,29 @@ describe('builtin:nt-protocol', () => {
     await email.dispose()
   })
 
-  it('mounts the login method of its settings, and remounts only for another mode or PMHQ address', async () => {
+  it('mounts the login method of its settings, and remounts only for another mode or PMHQ configuration', async () => {
     const ctx = new Context()
     await ctx.plugin(TimerService)
     await ctx.plugin(MockConfig)
     protocol.mounted.length = 0
     const entry = await ctx.plugin(NTProtocol, { mode: 'direct', protocol: 'linux' })
     await vi.waitFor(() => expect(protocol.mounted).toEqual(['direct']))
-    expect(setProtocolSelection).toHaveBeenLastCalledWith({ mode: 'direct', protocol: 'linux', pmhq: { host: '127.0.0.1', port: '13000' } })
+    expect(setProtocolSelection).toHaveBeenLastCalledWith({ mode: 'direct', protocol: 'linux', pmhq: { configPath: '', qqPath: '' } })
 
     // The pure protocol reads its protocol as its client is created, so the account stays logged in
     await entry.update({ mode: 'direct', protocol: 'macos' })
     expect(protocol.mounted).toEqual(['direct'])
     expect(setProtocolSelection).toHaveBeenLastCalledWith(expect.objectContaining({ protocol: 'macos' }))
-    await entry.update({ mode: 'direct', protocol: 'macos', pmhq: { host: 'elsewhere', port: 13001 } })
+    await entry.update({ mode: 'direct', protocol: 'macos', pmhq: { configPath: '/other.json', qqPath: '' } })
     expect(protocol.mounted).toEqual(['direct'])
 
-    await entry.update({ mode: 'pmhq', protocol: 'macos', pmhq: { host: 'elsewhere', port: 13001 } })
+    await entry.update({ mode: 'pmhq', protocol: 'macos', pmhq: { configPath: '/other.json', qqPath: '' } })
     await vi.waitFor(() => expect(protocol.mounted).toEqual(['direct', 'pmhq']))
-    await entry.update({ mode: 'pmhq', protocol: 'linux', pmhq: { host: 'elsewhere', port: 13001 } })
+    await entry.update({ mode: 'pmhq', protocol: 'linux', pmhq: { configPath: '/other.json', qqPath: '' } })
     expect(protocol.mounted).toEqual(['direct', 'pmhq'])
-    await entry.update({ mode: 'pmhq', protocol: 'linux', pmhq: { host: 'pmhq', port: 13001 } })
+    await entry.update({ mode: 'pmhq', protocol: 'linux', pmhq: { configPath: '/pmhq.json', qqPath: '' } })
     await vi.waitFor(() => expect(protocol.mounted).toEqual(['direct', 'pmhq', 'pmhq']))
-    expect(setProtocolSelection).toHaveBeenLastCalledWith({ mode: 'pmhq', protocol: 'linux', pmhq: { host: 'pmhq', port: '13001' } })
+    expect(setProtocolSelection).toHaveBeenLastCalledWith({ mode: 'pmhq', protocol: 'linux', pmhq: { configPath: '/pmhq.json', qqPath: '' } })
 
     await entry.dispose()
   })

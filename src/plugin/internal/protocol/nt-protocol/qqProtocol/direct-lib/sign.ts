@@ -4,11 +4,8 @@ import { getCdn, getProtocol } from '@/common/utils/environment'
 import { loadMachineGuidSync } from './machineGuid'
 import { device32FromGuid } from './watch/device32'
 import { getMacosDevice } from './macosDevice'
-import {
-  getSignProxy,
-  type RelayPacket,
-  type SignLog,
-} from './sign-proxy'
+import { getNativeAddon } from '@/native'
+import type { RelayPacket, SignLog } from '@/native/sign-types'
 
 const logger = getLogger('sign')
 
@@ -45,7 +42,7 @@ export async function setupSign(opts: {
   }
   if (opts.onRefused) reportRefusal = opts.onRefused
   try {
-    await getSignProxy().init(
+    await getNativeAddon().init(
       {
         botVersion: opts.botVersion,
         authToken: opts.authToken,
@@ -69,9 +66,9 @@ export function setSignMachineGuid(guid: Buffer): void {
     return
   }
   if (!inited) return
-  const { setMachineGuid } = getSignProxy()
+  const { setMachineGuid } = getNativeAddon()
   if (typeof setMachineGuid !== 'function') {
-    logger.warn('[Sign] sign-proxy 未导出 setMachineGuid (老版 .node), GUID 切换不会生效.')
+    logger.warn('[Sign] LuckyLillia.NTQQ.node 未导出 setMachineGuid (老版 .node), GUID 切换不会生效.')
     return
   }
   try {
@@ -87,7 +84,7 @@ function defaultLogger(log: SignLog): void {
 }
 
 export async function updateAuthToken(authToken: string): Promise<void> {
-  if (inited) await getSignProxy().setAuthToken(authToken)
+  if (inited) await getNativeAddon().setAuthToken(authToken)
 }
 
 export async function preflightSign(
@@ -97,7 +94,7 @@ export async function preflightSign(
 
   let reason: string | null
   try {
-    reason = await getSignProxy().preflight()
+    reason = await getNativeAddon().preflight()
   } catch (e) {
     const msg = (e as Error).message
     logger.error(`[Sign Preflight] native call failed: ${msg}`)
@@ -148,7 +145,7 @@ export async function requestSign(
   }
 
   try {
-    const r = await getSignProxy().signRequest({
+    const r = await getNativeAddon().signRequest({
       cmd,
       bodyHex: src.toString('hex'),
       seq,
@@ -203,22 +200,22 @@ export async function acquireSignToken(uin: number, qua: string, macosEsk?: Maco
 
 /** 经 manager 组包 / 解包的老路 (manager /api/sign/token/{build-request,decrypt-response})。 */
 async function acquireViaManager(uin: number, qua: string): Promise<{ token: string; ttlSecs: number }> {
-  const r = await getSignProxy().acquireSignToken({ uin, qua })
+  const r = await getNativeAddon().acquireSignToken({ uin, qua })
   return { token: r.token.toString('utf-8'), ttlSecs: DEFAULT_TOKEN_TTL_SECS }
 }
 
 let warnedStaleLinuxNode = false
 
 /**
- * ESK -> SA 在 SignProxy 本地组包解包, 省掉经 manager 的两趟 HTTP。device_pb 必须用 SDK 初始化时采的那份:
+ * ESK -> SA 在原生模块本地组包解包, 省掉经 manager 的两趟 HTTP。device_pb 必须用 SDK 初始化时采的那份:
  * 服务端会交叉校验。老 .node 没有 getLinuxSAToken 时退回经 manager
  */
 async function acquireLinuxSignToken(uin: number, qua: string): Promise<{ token: string; ttlSecs: number }> {
-  const proxy = getSignProxy()
+  const proxy = getNativeAddon()
   if (typeof proxy.getLinuxSAToken !== 'function') {
     if (!warnedStaleLinuxNode) {
       warnedStaleLinuxNode = true
-      logger.warn('[SignToken] sign-proxy .node 过旧 (缺 getLinuxSAToken), 暂退回经 manager 取 token; 请重新 build 并 sync-to-bot')
+      logger.warn('[SignToken] LuckyLillia.NTQQ.node 过旧 (缺 getLinuxSAToken), 暂退回经 manager 取 token; 请重新 build 并 sync-to-bot')
     }
     return acquireViaManager(uin, qua)
   }
@@ -239,11 +236,11 @@ let warnedNoSsoReport = false
 
 export async function startLinuxSsoReport(args: { qua: string; guidHex: string; uin: string }): Promise<void> {
   if (!inited) return
-  const proxy = getSignProxy()
+  const proxy = getNativeAddon()
   if (typeof proxy.startSsoReportLinux !== 'function') {
     if (!warnedNoSsoReport) {
       warnedNoSsoReport = true
-      logger.warn('[SsoReport] sign-proxy .node 过旧 (缺 startSsoReportLinux), 跳过 o3 遥测; 请重新 build 并 sync-to-bot')
+      logger.warn('[SsoReport] LuckyLillia.NTQQ.node 过旧 (缺 startSsoReportLinux), 跳过 o3 遥测; 请重新 build 并 sync-to-bot')
     }
     return
   }
@@ -257,7 +254,7 @@ export async function startLinuxSsoReport(args: { qua: string; guidHex: string; 
 
 export function stopLinuxSsoReport(): void {
   if (!inited) return
-  const { stopSsoReport } = getSignProxy()
+  const { stopSsoReport } = getNativeAddon()
   if (typeof stopSsoReport !== 'function') return
   try {
     stopSsoReport()
@@ -269,7 +266,7 @@ export function stopLinuxSsoReport(): void {
 /** 老 .node 没有 buildXwidBody 时返 null */
 export function buildLinuxXwidBody(qua: string, reportId?: string): Buffer | null {
   if (!inited) return null
-  const proxy = getSignProxy()
+  const proxy = getNativeAddon()
   if (typeof proxy.buildXwidBody !== 'function') return null
   try {
     return proxy.buildXwidBody(qua, reportId ?? null)
@@ -283,11 +280,11 @@ let warnedNoMacosSsoReport = false
 
 export async function startMacosSsoReport(args: { guidHex: string; qimei36: string; uin: string; appDir?: string }): Promise<void> {
   if (!inited) return
-  const proxy = getSignProxy()
+  const proxy = getNativeAddon()
   if (typeof proxy.startSsoReportMacos !== 'function') {
     if (!warnedNoMacosSsoReport) {
       warnedNoMacosSsoReport = true
-      logger.warn('[SsoReport] sign-proxy .node 过旧 (缺 startSsoReportMacos), 跳过 macOS o3 遥测; 重新 build + sync-to-bot')
+      logger.warn('[SsoReport] LuckyLillia.NTQQ.node 过旧 (缺 startSsoReportMacos), 跳过 macOS o3 遥测; 重新 build + sync-to-bot')
     }
     return
   }
@@ -310,9 +307,9 @@ export async function macosEasyLogin(args: {
   uin: string; guidHex: string; a1106Hex: string; seedHex: string; qua: string; q36?: string
 }): Promise<MacosEasyLoginTickets | null> {
   if (!inited) return null
-  const proxy = getSignProxy()
+  const proxy = getNativeAddon()
   if (typeof proxy.macosEasyLogin !== 'function') {
-    logger.warn('[EasyLogin] sign-proxy .node 过旧 (缺 macosEasyLogin), 回退直接恢复; 重新 build + sync-to-bot')
+    logger.warn('[EasyLogin] LuckyLillia.NTQQ.node 过旧 (缺 macosEasyLogin), 回退直接恢复; 重新 build + sync-to-bot')
     return null
   }
   try {
@@ -330,7 +327,7 @@ export async function signLinuxXwidBurst(args: {
   cmd: string; bodyHex: string; seq: number; guidHex: string; qua: string; uin: number; protocolTokenHex: string
 }, count: number): Promise<SignResult[] | null> {
   if (!inited || count <= 0) return null
-  const proxy = getSignProxy()
+  const proxy = getNativeAddon()
   if (typeof proxy.signXwidBurst !== 'function') return null
   try {
     const arr = await proxy.signXwidBurst(args, count)
@@ -347,7 +344,7 @@ export async function signLinuxXwidBurst(args: {
  */
 async function acquireMacosSignToken(qua: string): Promise<{ token: string; ttlSecs: number }> {
   ensureMacosO3Exports()
-  const proxy = getSignProxy()
+  const proxy = getNativeAddon()
   const { devicePbHex } = await getMacosDevice(qua)
   const esk = await proxy.getMacosEskToken!({ devicePbHex, tsMs: Date.now() })
   logger.debug(`[SignToken][macos] ESK token=${esk.token ? esk.token.length + 'B' : '空'} ttl=${esk.ttlSecs}s`)
@@ -361,9 +358,9 @@ async function acquireMacosSignToken(qua: string): Promise<{ token: string; ttlS
 }
 
 function ensureMacosO3Exports(): void {
-  const proxy = getSignProxy()
+  const proxy = getNativeAddon()
   if (typeof proxy.getMacosEskToken !== 'function' || typeof proxy.getMacosLoginToken !== 'function') {
-    throw new Error('sign-proxy .node 过旧 (缺 macOS o3 token 方法), 请重新 build 并 sync-to-bot')
+    throw new Error('LuckyLillia.NTQQ.node 过旧 (缺 macOS o3 token 方法), 请重新 build 并 sync-to-bot')
   }
 }
 
@@ -372,7 +369,7 @@ export async function acquireMacosEskOnly(qua: string): Promise<MacosEskState> {
   if (!inited) throw new Error('sign not initialized')
   ensureMacosO3Exports()
   const { devicePbHex } = await getMacosDevice(qua)
-  const esk = await getSignProxy().getMacosEskToken!({ devicePbHex, tsMs: Date.now() })
+  const esk = await getNativeAddon().getMacosEskToken!({ devicePbHex, tsMs: Date.now() })
   const ttlSecs = esk.ttlSecs || DEFAULT_TOKEN_TTL_SECS
   logger.debug(`[SignToken][macos] ESK token=${esk.token ? esk.token.length + 'B' : 'empty'} ttl=${ttlSecs}s`)
   return { token: esk.token, ttlSecs, expiresAt: Date.now() + ttlSecs * 1000 }
@@ -382,7 +379,7 @@ export async function acquireMacosEskOnly(qua: string): Promise<MacosEskState> {
 async function acquireMacosA2Token(qua: string, esk: MacosEskState): Promise<{ token: string; ttlSecs: number }> {
   ensureMacosO3Exports()
   const { devicePbHex } = await getMacosDevice(qua)
-  const login = await getSignProxy().getMacosLoginToken!({ devicePbHex, tsMs: Date.now() })
+  const login = await getNativeAddon().getMacosLoginToken!({ devicePbHex, tsMs: Date.now() })
   const token = login.token || esk.token
   const ttlSecs = login.ttlSecs || esk.ttlSecs || DEFAULT_TOKEN_TTL_SECS
   if (!token) {
@@ -398,10 +395,10 @@ async function acquireMacosA2Token(qua: string, esk: MacosEskState): Promise<{ t
 export async function validateAuthToken(token: string): Promise<'valid' | 'invalid' | number | Error> {
   const t = token.trim()
   if (!t) return 'invalid'
-  const proxy = getSignProxy()
+  const proxy = getNativeAddon()
   if (typeof proxy.validateAuthToken !== 'function') {
     // 老 .node: 当网络错处理, 别误判 invalid
-    return new Error('sign-proxy .node 过旧 (缺 validateAuthToken), 请重新 build 并 sync-to-bot')
+    return new Error('LuckyLillia.NTQQ.node 过旧 (缺 validateAuthToken), 请重新 build 并 sync-to-bot')
   }
   try {
     const r = await proxy.validateAuthToken({ authToken: t, cdn: getCdn() })

@@ -123,7 +123,7 @@ export interface NTProtocolConfig {
   mode: 'direct' | 'pmhq'
   /** The QQ client the pure protocol passes for; PMHQ ignores it */
   protocol: 'linux' | 'macos' | 'windows' | 'watch'
-  pmhq: { host: string; port: number }
+  pmhq: { configPath: string; qqPath: string }
 }
 
 export interface MilkyHttpConfig {

@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { installHostLifecycle } from './hostLifecycle'
 
 // fluent-ffmpeg 需要用到这个
 globalThis.__dirname = import.meta.dirname
@@ -49,6 +50,7 @@ async function onLoad() {
   }
 
   const ctx = new Context()
+  installHostLifecycle(() => ctx.fiber.dispose(), error => getLogger('main').error(error))
 
   // Awaited: until their exporters are in, log lines go nowhere (the migration below logs what it moved)
   await ctx.plugin(Log)

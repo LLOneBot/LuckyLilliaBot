@@ -7,8 +7,8 @@ const proxy = vi.hoisted(() => ({
   signRequest: vi.fn(),
 }))
 
-vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign-proxy', () => ({
-  getSignProxy: () => proxy,
+vi.mock('@/native', () => ({
+  getNativeAddon: () => proxy,
 }))
 vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/profiles', () => ({
   getActiveProfile: () => ({ family: 'nt' }),

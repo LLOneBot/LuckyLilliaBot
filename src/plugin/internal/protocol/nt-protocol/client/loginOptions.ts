@@ -13,12 +13,12 @@ interface Pin<T> {
 export interface ProtocolPins {
   mode?: Pin<LoginMode>
   protocol?: Pin<ProtocolId>
-  pmhq?: Pin<{ host: string; port: string }>
+  pmhq?: Pin<{ configPath: string; qqPath: string }>
 }
 
 export const LOGIN_MODES: { id: LoginMode; label: string; hint: string }[] = [
   { id: 'direct', label: '纯协议', hint: 'LLBot 自己模拟 QQ 客户端登录，不用安装 QQ' },
-  { id: 'pmhq', label: '官方 QQ 端桥接', hint: '通过 PMHQ 连接官方 QQ 客户端收发消息，账号在 QQ 客户端里登录' },
+  { id: 'pmhq', label: '官方 QQ 端桥接', hint: 'LLBot 内置 PMHQ 启动本机 QQ 客户端收发消息' },
 ]
 
 export const PROTOCOLS: { id: ProtocolId; label: string; hint?: string }[] = [
@@ -41,13 +41,13 @@ export function effectiveMethod(settings: NTProtocolConfig, pins: ProtocolPins):
   return {
     mode: pins.mode?.value ?? settings.mode,
     protocol: pins.protocol?.value ?? settings.protocol,
-    pmhq: pins.pmhq ? { host: pins.pmhq.value.host, port: Number(pins.pmhq.value.port) } : settings.pmhq,
+    pmhq: pins.pmhq?.value ?? settings.pmhq,
   }
 }
 
 export function describeMethod(method: NTProtocolConfig): string {
   return method.mode === 'pmhq'
-    ? `官方 QQ 端桥接 · ${method.pmhq.host}:${method.pmhq.port}`
+    ? '官方 QQ 端桥接 · 本机 PMHQ'
     : `纯协议 · ${protocolLabel(method.protocol)}`
 }
 
@@ -61,7 +61,7 @@ export function pinNote(method: NTProtocolConfig, pins: ProtocolPins): string | 
   const fixed = [
     pins.mode && { field: '登录方式', by: pins.mode.by },
     method.mode === 'pmhq'
-      ? pins.pmhq && { field: 'PMHQ 地址', by: pins.pmhq.by }
+      ? pins.pmhq && { field: 'PMHQ 配置', by: pins.pmhq.by }
       : pins.protocol && { field: '协议', by: pins.protocol.by },
   ].filter((item): item is { field: string; by: string } => !!item)
   if (!fixed.length) return

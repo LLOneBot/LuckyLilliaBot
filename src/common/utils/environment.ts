@@ -8,30 +8,19 @@ export function isDockerEnvironment(): boolean {
     }
 }
 
-/** null = 直连。出现过 --pmhq-port 就算 PMHQ 模式, 没给值用默认端口: 写法不对也不能静默退回直连 */
-export function getPmhqTarget(argv: string[] = process.argv): { host: string; port: string } | null {
-    let requested = false
-    let port = '13000'
-    let host = '127.0.0.1'
-    for (let i = 0; i < argv.length; i++) {
-        const a = argv[i]
-        // 值不能是下一个 flag: `--pmhq-port --dev` 不该把 "--dev" 当端口
-        const next = argv[i + 1] && !argv[i + 1].startsWith('-') ? argv[i + 1] : undefined
-        if (a === '--pmhq-port') {
-            requested = true
-            if (next) port = next
-        } else if (a.startsWith('--pmhq-port=')) {
-            requested = true
-            const v = a.slice('--pmhq-port='.length)
-            if (v) port = v
-        } else if (a === '--pmhq-host') {
-            if (next) host = next
-        } else if (a.startsWith('--pmhq-host=')) {
-            const v = a.slice('--pmhq-host='.length)
-            if (v) host = v
-        }
+/** PMHQ now runs inside this process. Obsolete network flags fail explicitly. */
+export function getPmhqTarget(argv: string[] = process.argv): { configPath: string; qqPath: string } | null {
+    if (argv.some(a => /^--pmhq-(host|port)(=|$)/.test(a))) {
+        throw new Error('PMHQ 已迁移到进程内模块，--pmhq-host / --pmhq-port 不再支持；请改用 --pmhq --pmhq-config=<配置文件绝对路径>')
     }
-    return requested ? { host, port } : null
+    const arg = (name: string) => {
+        const equals = argv.find(a => a.startsWith(name + '='))
+        if (equals) return equals.slice(name.length + 1)
+        const index = argv.indexOf(name)
+        return index >= 0 && argv[index + 1] && !argv[index + 1].startsWith('-') ? argv[index + 1] : ''
+    }
+    const configPath = arg('--pmhq-config')
+    return argv.includes('--pmhq') || !!configPath ? { configPath, qqPath: arg('--qq-path') } : null
 }
 
 export type ProtocolMode = 'direct' | 'pmhq'
@@ -40,7 +29,7 @@ export type ProtocolMode = 'direct' | 'pmhq'
 export interface ProtocolSelection {
     mode: ProtocolMode
     protocol: ProtocolId
-    pmhq: { host: string; port: string }
+    pmhq: { configPath: string; qqPath: string }
 }
 
 /**
@@ -50,7 +39,7 @@ export interface ProtocolSelection {
 export interface ProtocolPins {
     mode?: { value: ProtocolMode; by: string }
     protocol?: { value: ProtocolId; by: string }
-    pmhq?: { value: { host: string; port: string }; by: string }
+    pmhq?: { value: { configPath: string; qqPath: string }; by: string }
 }
 
 let selection: ProtocolSelection | undefined
@@ -63,10 +52,10 @@ export function protocolPins(argv: string[] = process.argv, env: NodeJS.ProcessE
     const flag = (name: string) => env.LL_IPC_PIPE ? 'desktop' : name
     const target = getPmhqTarget(argv)
     if (target) {
-        pins.mode = { value: 'pmhq', by: flag('--pmhq-port') }
-        pins.pmhq = { value: target, by: flag('--pmhq-port') }
+        pins.mode = { value: 'pmhq', by: flag('--pmhq') }
+        pins.pmhq = { value: target, by: flag('--pmhq') }
     } else if (env.LL_IPC_PIPE) {
-        // It passes --pmhq-port when it runs QQ for a bridge; without it, it runs the pure protocol
+        // The desktop selects its native bridge with --pmhq; otherwise it runs the pure protocol
         pins.mode = { value: 'direct', by: 'desktop' }
     }
     const protocol = pinnedProtocol(argv, env)
@@ -110,12 +99,12 @@ export function isPmhqMode(): boolean {
     return selection ? selection.mode === 'pmhq' : getPmhqTarget() !== null
 }
 
-export function currentPmhqTarget(): { host: string; port: string } {
-    return selection?.pmhq ?? getPmhqTarget() ?? { host: '127.0.0.1', port: '13000' }
+export function currentPmhqTarget(): { configPath: string; qqPath: string } {
+    return selection?.pmhq ?? getPmhqTarget() ?? { configPath: '', qqPath: '' }
 }
 
 /**
- * `--dev`: run against a local manager -- loads the dev sign-proxy build and reads data/auth_token.dev.txt.
+ * `--dev`: run against a local manager -- loads the development native bundle and reads data/auth_token.dev.txt.
  * argv only, no env fallback: a stray variable on a deployment must never switch it on.
  */
 export function isDevMode(argv: string[] = process.argv): boolean {
@@ -184,7 +173,7 @@ export function getCdn(argv: string[] = process.argv, env: NodeJS.ProcessEnv = p
     return raw?.trim().toLowerCase() === 'china' ? 'china' : 'cf'
 }
 
-/** The manager frontend, on a different domain from the API host SignProxy talks to. */
+/** The manager frontend, on a different domain from the API host the native signing module talks to. */
 export function getAuthTokenPageUrl(cdn: Cdn = getCdn()): string {
     return cdn === 'china' ? 'https://llbot.wumiao.wang' : 'https://auth.luckylillia.com'
 }

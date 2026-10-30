@@ -327,7 +327,7 @@ Node ESM 没有公开的缓存失效 API（官方 `@cordisjs/plugin-hmr` 需要�
 
 触发方式：WebUI 的重载按钮（`reload(id)`），或开启目录监听 —— `plugins.json` 里 `"hmr": true` 或启动参数 `--plugin-hmr`。监听用 `fs.watch(root, { recursive: true })` + 300ms 防抖，忽略 `node_modules` 和点开头的路径。**docker bind mount 下 inotify 经常收不到事件**（`ConfigService` 用 `fs.watchFile` 轮询也是这个原因），这时用 WebUI 按钮。
 
-`--dev` 已被占用（连本地 manager + dev 版 sign-proxy），插件相关参数一律用 `--plugin-*`。
+`--dev` 已被占用（连本地 manager + development 原生包），插件相关参数一律用 `--plugin-*`。
 
 ## dev 下
 

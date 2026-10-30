@@ -1,74 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs'
-import { getLogger } from '@/common/logger'
-import { isDevMode } from '@/common/utils/environment'
-import { createRequire } from 'node:module'
-import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const here = dirname(fileURLToPath(import.meta.url))
-const requireBin = createRequire(import.meta.url)
-
-// --dev: dev build from SignProxy `npm run build:dev-bot` (base_url baked to localhost:8090, no TLS pinning).
-// Names differ end to end, so a missing dev build fails to load instead of falling back to prod.
-const isDev = isDevMode()
-const baseName = isDev ? 'sign-proxy-dev' : 'sign-proxy'
-
-// glibc 的 node report 带 glibcVersionRuntime, musl 上没有; 兜底看 alpine 标志文件和 musl 动态加载器
-function isMusl(): boolean {
-  if (process.platform !== 'linux') return false
-  try {
-    const report = (process.report?.getReport?.() ?? {}) as { header?: { glibcVersionRuntime?: string } }
-    if (report.header && 'glibcVersionRuntime' in report.header) return !report.header.glibcVersionRuntime
-  } catch { /* 忽略, 走下面兜底 */ }
-  return existsSync('/etc/alpine-release') || existsSync('/lib/ld-musl-x86_64.so.1') || existsSync('/lib/ld-musl-aarch64.so.1')
-}
-
-function pickTriple(): string {
-  const p = process.platform
-  const a = process.arch
-  if (p === 'win32' && a === 'x64') return 'win-x64'
-  if (p === 'win32' && a === 'arm64') return 'win-arm64'
-  if (p === 'linux' && a === 'x64') return isMusl() ? 'linux-x64-musl' : 'linux-x64-glibc'
-  if (p === 'linux' && a === 'arm64') return isMusl() ? 'linux-arm64-musl' : 'linux-arm64-glibc'
-  if (p === 'darwin' && a === 'x64') return 'darwin-x64'
-  if (p === 'darwin' && a === 'arm64') return 'darwin-arm64'
-  throw new Error(`sign-proxy: unsupported platform ${p}-${a}; rebuild lucky-lillia-sign-proxy on this target and drop the .node into ${here}`)
-}
-
-/** 版本号是 tmpdir 里 .node 副本的缓存 key */
-function pickVersion(): string {
-  try {
-    const pkg = JSON.parse(readFileSync(join(here, `${baseName}.package.json`), 'utf-8'))
-    if (typeof pkg.version === 'string' && pkg.version.length > 0) return pkg.version
-  } catch {
-    // 读不到就 fallback, 热更新失效但不影响加载
-  }
-  return '0.0.0'
-}
-
-/**
- * 拷到 tmpdir/lucky-lillia-sign-proxy/<baseName>.<triple>.<version>.node 再 require: 被 require 的 .node 会被 OS
- * 锁住 (Windows 尤甚), Bot 运行时没法覆盖升级。拷贝失败就直接加载原路径
- */
-function ensureLoadablePath(srcPath: string, version: string, triple: string): string {
-  const cacheRoot = join(tmpdir(), 'lucky-lillia-sign-proxy')
-  const cachedName = `${baseName}.${triple}.${version}.node`
-  const cachedPath = join(cacheRoot, cachedName)
-
-  if (existsSync(cachedPath)) return cachedPath
-
-  try {
-    mkdirSync(cacheRoot, { recursive: true })
-    copyFileSync(srcPath, cachedPath)
-    return cachedPath
-  } catch (e) {
-    getLogger('sign-proxy').warn(`[sign-proxy] hot-update copy failed (${(e as Error).message}); falling back to ${srcPath}`)
-    return srcPath
-  }
-}
-
-interface Native {
+export interface NativeSign {
   init(args: InitArgs, sendPacket: (p: RelayPacket) => Promise<Buffer>, logger: (log: SignLog) => void): Promise<void>
   ping(): string
   setAuthToken(authToken: string): Promise<void>
@@ -194,18 +124,13 @@ export interface MacosEasyLoginResult {
   a1106Hex: string
 }
 
-const triple = pickTriple()
-const version = pickVersion()
-const srcPath = join(here, `${baseName}.${triple}.node`)
-const loadPath = ensureLoadablePath(srcPath, version, triple)
-
 export interface InitArgs {
   botVersion: string
   /** manager JWT. */
   authToken: string
   /** 16B device GUID hex (32 chars). 跟 wtlogin client.guid 同源. */
   machineGuidHex: string
-  /** 没有的话 SignProxy 等登录后自己绑 */
+  /** 没有的话 原生模块等登录后绑定 */
   uin?: number
   /** "cf" (默认) / "china" */
   cdn?: string
@@ -268,20 +193,3 @@ export interface PostEnvelopeArgs {
   plaintextJson: string
 }
 
-let native: Native
-export function getSignProxy() {
-  try {
-    native ??= requireBin(loadPath) as Native
-    return native
-  } catch (error) {
-    const { message } = error as Error
-    let hint = ''
-    if (isDev) {
-      hint = ' (--dev: run `npm run build:dev-bot` in LuckyLillia.SignProxy to sync the dev build)'
-    } else if (process.platform === 'win32') {
-      // Windows 上 .node 常被杀毒软件误杀/隔离, require 直接报文件缺失或加载失败.
-      hint = ` (${loadPath} 可能被杀毒软件删除或隔离, 请检查杀软记录并将其加入白名单)`
-    }
-    throw new Error(`sign-proxy: failed to load ${loadPath}: ${message}${hint}`)
-  }
-}

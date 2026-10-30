@@ -39,12 +39,12 @@ vi.mock('@/main/log', () => ({
   getLogCache: vi.fn(() => []),
 }))
 
-// getProtocol/getCdn/isDevMode 少了会让 direct-lib 在 import 期就炸 (appInfo -> getActiveProfile 直接读; sign-proxy / config 顶层读 isDevMode)
+// getProtocol/getCdn/isDevMode 少了会让 direct-lib 在 import 期就炸 (appInfo -> getActiveProfile 直接读; native / config 读取 isDevMode)
 vi.mock('@/common/utils/environment', () => ({
   isDockerEnvironment: vi.fn(() => false),
   isPmhqMode: vi.fn(() => false),
   getPmhqTarget: vi.fn(() => null),
-  currentPmhqTarget: vi.fn(() => ({ host: '127.0.0.1', port: '13000' })),
+  currentPmhqTarget: vi.fn(() => ({ configPath: '', qqPath: '' })),
   protocolPins: vi.fn(() => ({})),
   launchPins: vi.fn(() => ({})),
   resolveProtocolSelection: vi.fn((settings: unknown) => settings),

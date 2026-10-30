@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "package": {
+    "name": "lucky-lillia-node",
+    "version": "0.1.0"
+  },
+  "variant": "production",
+  "target": "aarch64-apple-darwin",
+  "buildId": "35e99411-61e5-4d45-92ee-1bba440d7997",
+  "profile": "release",
+  "addon": "LuckyLillia.NTQQ.node",
+  "sidecar": "libpmhq.dylib",
+  "files": {
+    "LuckyLillia.NTQQ.node": "5c52b8f5f916873661ec598b1d7cc97351e6d256a6c63d4e591c78de7c4d1dec",
+    "libpmhq.dylib": "43da634b7e58f7f46982986c5b2f2cc7aadb95447105639adfe6f084767e4c7e"
+  }
+}

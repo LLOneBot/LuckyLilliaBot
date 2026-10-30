@@ -16,7 +16,7 @@ interface LoginInfo {
   lockedProtocol?: ProtocolId
   pins: ProtocolPins
   /** Only for the bridge */
-  pmhq?: { host: string; port: string; connected: boolean }
+  pmhq?: { configPath: string; qqPath: string; connected: boolean }
 }
 
 interface AuthTokenStatus {
@@ -195,9 +195,9 @@ const NTProtocolPage: React.FC = () => {
       <div className="py-10 text-center">
         <div className="flex items-center justify-center gap-2 text-sm text-theme-secondary">
           <Loader2 size={18} className="animate-spin text-pink-500" />
-          正在连接 PMHQ（{info.pmhq ? `${info.pmhq.host}:${info.pmhq.port}` : ''}）...
+          正在启动本机 PMHQ...
         </div>
-        <p className="text-xs text-theme-muted mt-2">请确认官方 QQ 客户端和 PMHQ 已经启动，地址和端口跟上面一致</p>
+        <p className="text-xs text-theme-muted mt-2">{loginError || '请检查 QQ 路径与 PMHQ 配置；会话失败后停用并重新启用 NTQQ 协议'}</p>
       </div>
     )
   } else if (tokenForm) {

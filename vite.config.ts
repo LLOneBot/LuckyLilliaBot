@@ -1,5 +1,5 @@
 import { defineConfig, Plugin } from 'vite'
-import { builtinModules } from 'node:module'
+import { builtinModules, createRequire } from 'node:module'
 import { version } from './src/version.ts'
 import cp from 'vite-plugin-cp'
 import path from 'node:path'
@@ -9,6 +9,10 @@ function writeVersion(): Plugin {
   return {
     name: 'write-version',
     buildStart() {
+      const nativeRoot = path.resolve('src/native/lucky-lillia/production')
+      const loader = createRequire(import.meta.url)(path.join(nativeRoot, 'loader.cjs'))
+      const bundle = loader.inspectBundle(nativeRoot, { allTargets: true })
+      if (bundle.manifest.variant !== 'production') throw new Error('Production Bot build requires production native artifacts')
       const pkgJsonPath = './package-dist.json'
       const pkgJsonRaw = fs.readFileSync(pkgJsonPath, 'utf8')
       const packageJson = JSON.parse(pkgJsonRaw)
@@ -88,11 +92,10 @@ export default defineConfig({
             { src: './package-dist.json', dest: 'dist/', rename: 'package.json' },
             { src: './doc/使用说明.txt', dest: 'dist/' },
             { src: './doc/更新日志.txt', dest: 'dist/' },
-            // bundle 后 requireBin 在 dist/ 下找 sign-proxy.<triple>.node, 所以扁平拷到 dist 根目录。
-            // 只匹配 `sign-proxy.*`: dev 版 (sign-proxy-dev.*, 连 localhost) 绝不能进 dist, 下游 Dockerfile / publish.yml 的过滤不认这个前缀
-            { src: './src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign-proxy/sign-proxy.*.node', dest: 'dist/', flatten: true },
-            // pickVersion() 从这里读 sign-proxy 的版本; 不叫 package.json, 免得跟 Bot 的撞
-            { src: './src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign-proxy/sign-proxy.package.json', dest: 'dist/' },
+            { src: './src/native/lucky-lillia/production', dest: 'dist/native/lucky-lillia/production', flatten: false },
+            ...(process.env.LLBOT_BUILD_DEV_NATIVE === '1'
+              ? [{ src: './src/native/lucky-lillia/development', dest: 'dist/native/lucky-lillia/development', flatten: false }]
+              : []),
           ],
         }),
       ],
