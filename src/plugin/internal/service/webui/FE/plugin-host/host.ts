@@ -24,16 +24,19 @@ function run(owner: string, apply: WebUIPlugin, builtin: boolean): () => void {
   clearFailuresOf(owner)
   const disposers: (() => void)[] = []
   const ctx = createWebUIContext(owner, builtin, dispose => disposers.push(dispose))
+  const dispose = () => {
+    for (const undo of disposers.splice(0).reverse()) undo()
+  }
   try {
     const cleanup = apply(ctx)
     if (typeof cleanup === 'function') disposers.push(cleanup)
     setError(owner)
   } catch (e) {
+    // All or nothing, as on the bot: what it registered before it threw goes again
+    dispose()
     setError(owner, e instanceof Error ? e.message : String(e))
   }
-  return () => {
-    for (const dispose of disposers.reverse()) dispose()
-  }
+  return dispose
 }
 
 const loaded = new Map<string, { url: string; dispose: () => void }>()

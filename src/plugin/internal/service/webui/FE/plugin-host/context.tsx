@@ -45,6 +45,13 @@ export function createWebUIContext(owner: string, builtin: boolean, track: (disp
     track(dispose)
     return dispose
   }
+  // Streams a component left open end with the plugin
+  const streams = new Set<EventSource>()
+  track(() => {
+    for (const source of streams) source.close()
+    streams.clear()
+    if (contexts.get(owner) === ctx) contexts.delete(owner)
+  })
   const ctx: WebUIContext = {
     plugin: { name: owner },
     page: options => register({
@@ -102,6 +109,7 @@ export function createWebUIContext(owner: string, builtin: boolean, track: (disp
     pageHref: (id, options = {}) => `#${pageKey(owner, builtin, id)}${options.fullscreen ? '?fullscreen' : ''}`,
     events(path, listeners) {
       const source = new EventSource(withToken(path))
+      streams.add(source)
       for (const [event, listener] of Object.entries(listeners)) {
         source.addEventListener(event, (message) => {
           const { data } = message as MessageEvent
@@ -112,7 +120,10 @@ export function createWebUIContext(owner: string, builtin: boolean, track: (disp
           }
         })
       }
-      return () => source.close()
+      return () => {
+        source.close()
+        streams.delete(source)
+      }
     },
     toast: (message, type = 'success') => showToast(message, type),
   }
