@@ -49,6 +49,8 @@ export function createMockContext() {
     account: { uid: 'test-uid', uin: '123456', nick: 'TestBot', online: true },
     qqProtocol: {
       selfInfo: { uid: 'test-uid', uin: '123456', nick: 'TestBot', online: true },
+      authTokenStatus: { hasToken: true, validation: 'valid', message: '', loginError: '' },
+      checkAuthToken: vi.fn(),
       getQQResourceUsage: vi.fn(() => Promise.resolve({
         memory: 500000000,
         totalMemory: 8000000000,

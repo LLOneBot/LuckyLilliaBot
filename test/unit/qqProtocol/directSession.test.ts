@@ -2,7 +2,6 @@ import { EventEmitter } from 'node:events'
 import { Context } from 'cordis'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DirectQQProtocol } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct'
-import { authTokenStatus } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/authTokenStatus'
 import { DirectProtocolClient, type SessionInfo } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/client'
 import {
   fetchQrCode,
@@ -19,7 +18,7 @@ import {
   persistedToSessionInfo,
   saveSession,
 } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/session'
-import { requestSign, updateAuthToken } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign'
+import { requestSign, setupSign, updateAuthToken } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/sign'
 import { teaEncrypt } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/tea'
 import { getCurrentLoginState } from '../../../src/plugin/internal/protocol/nt-protocol/llbot-ipc'
 
@@ -32,7 +31,11 @@ vi.mock('@/main/config', () => ({
 }))
 
 vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/authTokenWatcher', () => ({
-  startAuthTokenWatcher: vi.fn(),
+  AuthTokenWatcher: class {
+    start = vi.fn()
+    stop = vi.fn()
+    check = vi.fn()
+  },
 }))
 
 vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/machineGuid', () => ({
@@ -162,7 +165,6 @@ describe('direct session authentication failures', () => {
     vi.useFakeTimers()
     client = new DirectProtocolClient()
     client.setSession(createSession())
-    authTokenStatus.loginError = ''
   })
 
   afterEach(() => {
@@ -283,7 +285,7 @@ describe('direct session authentication failures', () => {
     await rejected
     expect(protocol.selfInfo.online).toBe(false)
     expect(protocol.get_is_connected()).toBe(false)
-    expect(authTokenStatus.loginError).toContain(authMessage)
+    expect(protocol.authTokenStatus.loginError).toContain(authMessage)
     expect(deleteSession).toHaveBeenCalledExactlyOnceWith('123456')
     expect(deleteMachineGuid).not.toHaveBeenCalled()
     expect(stopHeartbeat).toHaveBeenCalledTimes(1)
@@ -316,7 +318,7 @@ describe('direct session authentication failures', () => {
     ctx.on('qq/online', online)
     protocol['maybeEmitOnline']()
     expect(online).toHaveBeenCalledTimes(1)
-    expect(authTokenStatus.loginError).toBe('')
+    expect(protocol.authTokenStatus.loginError).toBe('')
   })
 
   it('preserves saved credentials on an ordinary transport close', () => {
@@ -334,6 +336,16 @@ describe('direct session authentication failures', () => {
     expect(protocol.selfInfo.online).toBe(false)
     expect(deleteSession).not.toHaveBeenCalled()
     expect(reconnect).toHaveBeenCalledTimes(1)
+  })
+
+  it('tells the protocol listening to the client that the sign server turned the token down', async () => {
+    const protocol = newProtocol()
+    protocol['bindDirectClientEvents'](client)
+    client.setAuthToken('test-auth-token')
+    await client['ensureSignSetup']()
+
+    vi.mocked(setupSign).mock.lastCall![0].onRefused!('auth_token 可用 QQ 数量已达上限')
+    expect(protocol.authTokenStatus.loginError).toBe('auth_token 可用 QQ 数量已达上限')
   })
 
   it.each(['uin', 'login', 'register'] as const)('abandons QR completion invalidated during %s', async (stage) => {
@@ -371,7 +383,7 @@ describe('direct session authentication failures', () => {
     expect(protocol['onlineEmitted']).toBe(false)
     expect(saveSession).not.toHaveBeenCalled()
     expect(startHeartbeat).not.toHaveBeenCalled()
-    expect(authTokenStatus.loginError).toContain(authMessage)
+    expect(protocol.authTokenStatus.loginError).toContain(authMessage)
     expect(getCurrentLoginState()).toMatchObject({ state: 'need_qrcode' })
   })
 
@@ -400,13 +412,13 @@ describe('direct session authentication failures', () => {
     const replacement = createSession()
     client.setSession(replacement)
     protocol.selfInfo.online = true
-    authTokenStatus.loginError = ''
+    protocol.authTokenStatus.loginError = ''
     registration.reject(new Error('Old registration failed'))
     await completion
 
     expect(client.getSession()).toBe(replacement)
     expect(protocol.selfInfo.online).toBe(true)
-    expect(authTokenStatus.loginError).toBe('')
+    expect(protocol.authTokenStatus.loginError).toBe('')
     expect(saveSession).not.toHaveBeenCalled()
     expect(startHeartbeat).not.toHaveBeenCalled()
   })
@@ -440,7 +452,7 @@ describe('direct session authentication failures', () => {
     expect(client.getSession()).toBe(replacement)
     expect(protocol.selfInfo.online).toBe(false)
     expect(startHeartbeat).not.toHaveBeenCalled()
-    expect(authTokenStatus.loginError).toContain(authMessage)
+    expect(protocol.authTokenStatus.loginError).toContain(authMessage)
   })
 
   it('still saves and announces a current QR login after registration succeeds', async () => {

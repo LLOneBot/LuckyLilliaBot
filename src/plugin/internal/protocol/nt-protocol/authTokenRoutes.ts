@@ -2,19 +2,18 @@ import { Context } from 'cordis'
 import { Hono } from 'hono'
 import { isPmhqMode, getAuthTokenPageUrl } from '@/common/utils/environment'
 import { authTokenUtil } from '../../../../main/config'
-import { authTokenStatus } from './qqProtocol/direct-lib/authTokenStatus'
-import { triggerAuthTokenCheck } from './qqProtocol/direct-lib/authTokenWatcher'
 
-// 录入只写文件, 校验和登录由 authTokenWatcher 处理
+// 录入只写文件, 校验和登录由协议的 AuthTokenWatcher 处理
 export function createAuthTokenRoutes(ctx: Context): Hono {
   const router = new Hono()
 
   router.get('/auth-token/status', async (c) => {
+    const { selfInfo, authTokenStatus } = ctx.qqProtocol
     return c.json({
       success: true,
       data: {
         applicable: !isPmhqMode(),
-        online: ctx.qqProtocol.selfInfo.online,
+        online: selfInfo.online,
         hasToken: authTokenStatus.hasToken,
         validation: authTokenStatus.validation,
         message: authTokenStatus.message,
@@ -31,12 +30,7 @@ export function createAuthTokenRoutes(ctx: Context): Hono {
       return c.json({ success: false, message: 'Auth Token 不能为空' }, 400)
     }
     authTokenUtil.setToken(token)
-    // 先置 validating, 免得前端轮询到上一次的结果
-    authTokenStatus.hasToken = true
-    authTokenStatus.validation = 'validating'
-    authTokenStatus.message = ''
-    authTokenStatus.loginError = ''
-    triggerAuthTokenCheck()
+    ctx.qqProtocol.checkAuthToken()
     return c.json({ success: true, message: 'Auth Token 已保存，正在校验' })
   })
 

@@ -6,7 +6,6 @@ import { currentPmhqTarget } from '@/common/utils/environment'
 import { DirectQQProtocol } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct'
 import { PmhqQQProtocol } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/pmhq'
 import { DirectProtocolClient, type SessionInfo } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/client'
-import { startAuthTokenWatcher, stopAuthTokenWatcher } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/authTokenWatcher'
 import { deleteSession, loadSession } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/session'
 import { getCurrentLoginState } from '../../../src/plugin/internal/protocol/nt-protocol/llbot-ipc'
 import type { SelfInfo } from '../../../src/plugin/internal/protocol/nt-protocol/ntqqapi/types'
@@ -29,8 +28,11 @@ vi.mock('@/main/config', () => ({
 }))
 
 vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/authTokenWatcher', () => ({
-  startAuthTokenWatcher: vi.fn(),
-  stopAuthTokenWatcher: vi.fn(),
+  AuthTokenWatcher: class {
+    start = vi.fn()
+    stop = vi.fn()
+    check = vi.fn()
+  },
 }))
 
 vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/machineGuid', () => ({
@@ -128,11 +130,11 @@ describe('switching the direct protocol off', () => {
 
     await protocol['stop']()
 
-    expect(stopAuthTokenWatcher).toHaveBeenCalledTimes(1)
+    expect(protocol['tokenWatcher'].stop).toHaveBeenCalledTimes(1)
     expect(stopHeartbeat).toHaveBeenCalledTimes(1)
     expect(client['conn'].disconnect).toHaveBeenCalledTimes(1)
     expect(client.isLoggedIn).toBe(false)
-    for (const event of ['session-expired', 'error', 'connected', 'close', 'push']) {
+    for (const event of ['session-expired', 'sign-refused', 'error', 'connected', 'close', 'push']) {
       expect(client.listenerCount(event), event).toBe(0)
     }
     // Nothing for the email notification to report, and the account can come back without a QR code
@@ -170,6 +172,7 @@ describe('switching the direct protocol off', () => {
     await first['doInitDirectClient']('test-auth-token')
     const client = first['directClient']!
     expect(client).toBeInstanceOf(DirectProtocolClient)
+    client.emit('sign-refused', 'quota used up')
     await first['stop']()
 
     const second = loggedIn(new DirectQQProtocol(new Context()))
@@ -179,15 +182,20 @@ describe('switching the direct protocol off', () => {
     expect(client.isConnected).toBe(true)
     expect(client.listenerCount('push')).toBe(1)
     expect(client.listenerCount('close')).toBe(1)
+    // The token status is the instance's: the new one starts clean and hears the client from now on
+    expect(second.authTokenStatus.loginError).toBe('')
+    client.emit('sign-refused', 'still used up')
+    expect(second.authTokenStatus.loginError).toBe('still used up')
+    expect(first.authTokenStatus.loginError).toBe('quota used up')
     await second['stop']()
   })
 
   it('starts the auth token watcher from start() and lets stop() undo it', async () => {
     const protocol = loggedIn(new DirectQQProtocol(new Context()))
     await protocol['start']()
-    expect(startAuthTokenWatcher).toHaveBeenCalledTimes(1)
+    expect(protocol['tokenWatcher'].start).toHaveBeenCalledTimes(1)
     await protocol['stop']()
-    expect(stopAuthTokenWatcher).toHaveBeenCalledTimes(1)
+    expect(protocol['tokenWatcher'].stop).toHaveBeenCalledTimes(1)
   })
 })
 

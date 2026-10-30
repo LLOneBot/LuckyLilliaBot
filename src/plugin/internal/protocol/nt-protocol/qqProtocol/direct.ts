@@ -1,5 +1,4 @@
 import { Context } from 'cordis'
-import { authTokenStatus } from './direct-lib/authTokenStatus'
 import type { PBData } from './types'
 import {
   DirectProtocolClient,
@@ -27,7 +26,7 @@ import { updateAuthToken } from './direct-lib/sign'
 import { authTokenUtil } from '../../../../../main/config'
 import { setLoginState } from '../llbot-ipc'
 import { version } from '../../../../../version'
-import { startAuthTokenWatcher, stopAuthTokenWatcher } from './direct-lib/authTokenWatcher'
+import { AuthTokenWatcher } from './direct-lib/authTokenWatcher'
 import { QQProtocolBase } from './base'
 
 // Outlives the protocol plugin: native sign binds its relay to the first client and cannot rebind, so switching
@@ -43,6 +42,12 @@ export class DirectQQProtocol extends QQProtocolBase {
   private directQrResult: QrCodeResult | null = null
   private directPollResult: QrPollResult | null = null
   private directStopHeartbeat: (() => void) | null = null
+  private readonly tokenWatcher = new AuthTokenWatcher(
+    this.authTokenStatus,
+    (token) => this.onAuthTokenValid(token),
+    this.logger,
+    () => this.selfInfo.online,
+  )
   // What bindDirectClientEvents attached, so stop() can take this instance off the shared client
   private clientListeners: [string, (...args: any[]) => void][] = []
   private reconnectTimer: NodeJS.Timeout | null = null
@@ -82,12 +87,12 @@ export class DirectQQProtocol extends QQProtocolBase {
       }
       this.directClient?.disconnect()
     })
-    startAuthTokenWatcher(this.onAuthTokenValid.bind(this), this.logger, () => this.selfInfo.online)
+    this.tokenWatcher.start()
   }
 
   /** Disconnects but keeps the saved session, so switching the plugin back on logs in without a QR code. */
   protected async stop(): Promise<void> {
-    stopAuthTokenWatcher()
+    this.tokenWatcher.stop()
     // Cancels a QR poll or an init still running
     this.qrPollToken++
     this.initToken++
@@ -192,6 +197,16 @@ export class DirectQQProtocol extends QQProtocolBase {
     this.startDirectQrPolling()
   }
 
+  public checkAuthToken(): void {
+    // 先置 validating, 免得前端轮询到上一次的结果
+    const status = this.authTokenStatus
+    status.hasToken = true
+    status.validation = 'validating'
+    status.message = ''
+    status.loginError = ''
+    this.tokenWatcher.check()
+  }
+
   /** 登录错误写进 authTokenStatus.loginError 给 WebUI; init 抛错交给 watcher 定时重试 */
   private async onAuthTokenValid(token: string): Promise<void> {
     if (this.selfInfo.online) return
@@ -199,7 +214,7 @@ export class DirectQQProtocol extends QQProtocolBase {
       await this.initDirectClient(token)
       this.ensureQrLoop()
     } catch (e) {
-      authTokenStatus.loginError = (e as Error)?.message || String(e)
+      this.authTokenStatus.loginError = (e as Error)?.message || String(e)
       this.logger.error('[Sign] auth_token 校验通过但登录初始化失败:', e)
       throw e
     }
@@ -397,7 +412,7 @@ export class DirectQQProtocol extends QQProtocolBase {
       const wasOnline = this.onlineEmitted
       this.selfInfo.online = false
       this.onlineEmitted = false
-      authTokenStatus.loginError = error.message
+      this.authTokenStatus.loginError = error.message
       this.logger.warn('QQ session expired:', error.message)
       if (this.directStopHeartbeat) {
         this.directStopHeartbeat()
@@ -421,6 +436,10 @@ export class DirectQQProtocol extends QQProtocolBase {
         this.ctx.parallel('qq/session-expired', error.message)
       }
       this.ensureQrLoop()
+    })
+    // Native sign reports to the client it is bound to, the only one of the process
+    on('sign-refused', (detail: string) => {
+      this.authTokenStatus.loginError = detail
     })
     on('error', (err: Error) => {
       this.logger.warn('Direct client error:', err.message)
@@ -520,7 +539,7 @@ export class DirectQQProtocol extends QQProtocolBase {
     if (this.qrPollToken !== myToken) return
     if (!loginResult.success) {
       this.logger.error(`Login failed: state=${loginResult.state} ${loginResult.tag} ${loginResult.message}`)
-      authTokenStatus.loginError = `登录失败: ${[loginResult.tag, loginResult.message].filter(Boolean).join(' ')}`.trim()
+      this.authTokenStatus.loginError = `登录失败: ${[loginResult.tag, loginResult.message].filter(Boolean).join(' ')}`.trim()
       return
     }
 
@@ -537,7 +556,7 @@ export class DirectQQProtocol extends QQProtocolBase {
       if (this.qrPollToken !== myToken || client.getSession() !== session) return
       const msg = (e as Error).message
       this.logger.error('Register online failed:', msg)
-      authTokenStatus.loginError = `上线注册失败: ${msg}`
+      this.authTokenStatus.loginError = `上线注册失败: ${msg}`
       client.clearSession()
       return
     }

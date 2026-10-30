@@ -147,6 +147,8 @@ export class DirectProtocolClient extends EventEmitter {
         logger.debug(`[relay] ${cmd} enc=${enc === undefined ? 'auto' : enc} signTok=${signToken ? signToken.length + 'B' : '-'}: req=${req.length}B resp=${resp.length}B reqHex=%h respHex=%h`, req, resp)
         return resp
       },
+      // For the protocol instance listening to this client right now
+      onRefused: (detail) => this.emit('sign-refused', detail),
     })
   }
 

@@ -11,7 +11,6 @@ import {
 } from './sign-proxy'
 
 const logger = getLogger('sign')
-import { authTokenStatus } from './authTokenStatus'
 
 export interface SignResult {
   sign: Buffer
@@ -27,6 +26,8 @@ export interface PreflightLogger {
 
 let inited = false
 let initError: Error
+// Bound in setupSign along with the relay: to the one client of the process (direct.ts)
+let reportRefusal: (detail: string) => void = () => {}
 
 export async function setupSign(opts: {
   botVersion: string
@@ -36,10 +37,13 @@ export async function setupSign(opts: {
   cdn?: string
   sendPacket: (p: RelayPacket) => Promise<Buffer>
   logger?: (log: SignLog) => void
+  /** The sign server turned the auth token down (HTTP 403), e.g. it has no QQ account left */
+  onRefused?: (detail: string) => void
 }): Promise<void> {
   if (opts.machineGuid.length !== 16) {
     throw new Error(`setupSign expected 16B machineGuid, got ${opts.machineGuid.length}B`)
   }
+  if (opts.onRefused) reportRefusal = opts.onRefused
   try {
     await getSignProxy().init(
       {
@@ -421,7 +425,7 @@ function formatNativeSignError(cmd: string, qua: string | undefined, e: Error): 
         return
       case 403:
         logger.error(`[Sign] Forbidden (cmd=${cmd}): ${detail}`)
-        authTokenStatus.loginError = detail || 'auth_token 无权限 (HTTP 403)'
+        reportRefusal(detail || 'auth_token 无权限 (HTTP 403)')
         return
       case 502:
         logger.error(`[Sign] Bad Gateway (cmd=${cmd}): ${detail}. 上游 sign-service 进程不可用`)

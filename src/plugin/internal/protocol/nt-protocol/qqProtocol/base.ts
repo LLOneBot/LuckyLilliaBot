@@ -7,7 +7,7 @@ import QRCode from 'qrcode'
 import { Oidb } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/proto'
 import type { PBData, QQResourceUsage } from './types'
 import type { SelfInfo } from '../ntqqapi/types'
-import { authTokenStatus } from './direct-lib/authTokenStatus'
+import type { AuthTokenStatus } from './direct-lib/authTokenWatcher'
 import { Context, Service } from 'cordis'
 import { setLoginState } from '../llbot-ipc'
 
@@ -44,6 +44,9 @@ export abstract class QQProtocolBase extends Service {
 
   /** The account this protocol logs in. Other plugins read it through the account service (account.ts). */
   readonly selfInfo: SelfInfo = { uid: '', uin: '', nick: '', online: false }
+
+  /** How logging in with the auth token goes. Only Direct writes it: PMHQ logs in through QQ and leaves it idle. */
+  readonly authTokenStatus: AuthTokenStatus = { hasToken: false, validation: 'idle', message: '', loginError: '' }
 
   protected onlineEmitted: boolean = false
   // Set when the protocol plugin is switched off: every loop and timer checks it before going on
@@ -93,6 +96,9 @@ export abstract class QQProtocolBase extends Service {
 
   /** 仅 Direct 实现 */
   public async logout(): Promise<void> {}
+
+  /** 仅 Direct 实现: WebUI 存了新的 auth token, 立刻校验, 不等下一轮查文件 */
+  public checkAuthToken(): void {}
 
   /** 只有 PMHQ 有 QQ 进程可量; null 时 WebUI 不显示 QQ 资源卡 */
   public async getQQResourceUsage(): Promise<QQResourceUsage | null> {
@@ -146,7 +152,7 @@ export abstract class QQProtocolBase extends Service {
     if (!this.selfInfo.uid && !this.selfInfo.uin) return
     this.onlineEmitted = true
     this.qrAutoRefreshCount = 0
-    authTokenStatus.loginError = ''
+    this.authTokenStatus.loginError = ''
     this.ctx.parallel('qq/online')
   }
 
