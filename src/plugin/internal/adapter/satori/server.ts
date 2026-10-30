@@ -1,7 +1,9 @@
 import * as Universal from '@satorijs/protocol'
 import { Context } from 'cordis'
-import { handlers } from './api'
+import type { Bot } from '@luckylillia/plugin-sdk'
 import { WebSocket, WebSocketServer } from 'ws'
+import { implemented, neutralContent, neutralPlatform, toWire } from './wire'
+import type SatoriAdapter from './adapter'
 import { ObjectToSnake } from 'ts-case-convert'
 import { OB11Response } from '@/plugin/internal/adapter/onebot11/action/OB11Response'
 import { Hono, Context as HonoContext, Next } from 'hono'
@@ -19,7 +21,7 @@ export class SatoriServer {
   private wsClients: WSContext[] = []
   private routesRegistered = false
 
-  constructor(private ctx: Context, private config: SatoriServer.Config) {
+  constructor(private ctx: Context, private config: SatoriServer.Config, private adapter: SatoriAdapter) {
     this.app = new Hono()
   }
 
@@ -93,7 +95,7 @@ export class SatoriServer {
               ws.send(JSON.stringify({
                 op: Universal.Opcode.READY,
                 body: {
-                  logins: [await handlers.getLogin(this.ctx, {}) as Universal.Login],
+                  logins: [...this.ctx.bots].map(bot => this.adapter.login(bot)) as Universal.Login[],
                   proxy_urls: [],
                 },
               } satisfies ObjectToSnake<Universal.ServerPayload>))
@@ -126,27 +128,35 @@ export class SatoriServer {
     this.app.post('/v1/:name', async (c) => {
       const selfId = c.req.header('Satori-User-ID')
       const platform = c.req.header('Satori-Platform')
-      if (selfId !== this.ctx.account.uin || !platform) {
+      const neutral = platform ? neutralPlatform(platform) : undefined
+      const bot = selfId && neutral ? this.ctx.bots.get(`${neutral}:${selfId}`) : undefined
+      if (!bot) {
         return c.text('login not found', 403)
       }
 
       const method = Universal.Methods[c.req.param('name')]
-      if (!method) {
-        return c.text('method not found', 404)
-      }
-
-      const handle = handlers[method.name]
-      if (!handle) {
+      if (!method || !implemented(bot, method.name)) {
         return c.text('method not found', 404)
       }
       try {
-        const result = await handle(this.ctx, await c.req.json())
-        return c.json(result)
+        const result = await this.call(bot, method, await c.req.json())
+        return c.json(result ?? {})
       } catch (e) {
         this.ctx.logger.error(e)
         return c.text((e as Error).message, 500)
       }
     })
+  }
+
+  /** A method by its Satori name, arguments in its field order (the Bot methods take them so). */
+  private async call(bot: Bot, method: Universal.Method, payload: Dict) {
+    if (method.name === 'getLogin') return this.adapter.login(bot)
+    if (method.name === 'createMessage') {
+      const content = neutralContent(String(payload.content ?? ''), bot.platform)
+      return toWire(await bot.sendMessage(payload.channel_id, content, { relay: true }), bot.platform)
+    }
+    const call = (bot as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>)[method.name]
+    return toWire(await call.apply(bot, method.fields.map(field => payload[field.name])), bot.platform)
   }
 
   public async stop() {

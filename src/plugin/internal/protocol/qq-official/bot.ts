@@ -76,7 +76,7 @@ export class QQOfficialBot implements Bot, DecodeHost {
   readonly platform = 'qq'
   readonly sid: string
   // Faces only come in: sending them is documented for guilds alone; no forwards, and replies rather than pushes
-  readonly features: readonly Feature[] = ['message.markdown', 'message.button', 'message.card', 'message.stream']
+  readonly features: readonly Feature[] = ['message.markdown', 'message.button', 'message.card', 'message.stream', 'guild.plain']
   status: Status = Status.OFFLINE
   readonly user: { id: string; name?: string; avatar?: string }
   readonly passive = new PassiveReplies()
@@ -154,7 +154,7 @@ export class QQOfficialBot implements Bot, DecodeHost {
   async sendMessage(channelId: string, content: h.Fragment, options: SendOptions = {}): Promise<NeutralResource[]> {
     const elements = h.normalize(content)
     if (options.quote) elements.unshift(h('quote', { id: options.quote }))
-    const outgoing = await this.ctx.bots.beforeSend(this, channelId, elements)
+    const outgoing = await this.ctx.bots.beforeSend(this, channelId, elements, options)
     if (!outgoing.length) return []
     return await new MessageSender(this, channelId).send(outgoing)
   }
@@ -434,7 +434,7 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
     if (privateTarget(channelId) !== undefined) return this.parent.sendMessage(channelId, content, options)
     const elements = h.normalize(content)
     if (options.quote) elements.unshift(h('quote', { id: options.quote }))
-    const outgoing = await this.ctx.bots.beforeSend(this, channelId, elements)
+    const outgoing = await this.ctx.bots.beforeSend(this, channelId, elements, options)
     if (!outgoing.length) return []
     return await new GuildMessageSender(this, channelId).send(outgoing)
   }

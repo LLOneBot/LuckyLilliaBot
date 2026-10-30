@@ -1,6 +1,6 @@
 import h from '@satorijs/element'
 import { Context, Service } from 'cordis'
-import type { Bot, Bots, NeutralEvent } from '@luckylillia/plugin-sdk'
+import type { Bot, Bots, NeutralEvent, SendOptions } from '@luckylillia/plugin-sdk'
 import { applyFallbacks } from './fallback'
 import { Session } from './session'
 
@@ -54,7 +54,9 @@ class BotsService extends Service implements Bots {
     await tap
   }
 
-  async beforeSend(bot: Bot, channelId: string, content: h[]): Promise<h[]> {
+  async beforeSend(bot: Bot, channelId: string, content: h[], options: SendOptions = {}): Promise<h[]> {
+    // What a protocol client sends is not the plugins' to rewrite
+    if (options.relay) return await applyFallbacks(this.ctx, bot, channelId, content, false)
     const outgoing = await this.ctx.waterfall('bot/before-send', bot, channelId, content, async () => content)
     // After the rewrites, which may bring extension elements of their own
     return await applyFallbacks(this.ctx, bot, channelId, outgoing)

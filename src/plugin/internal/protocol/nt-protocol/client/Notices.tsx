@@ -16,7 +16,7 @@ const Notices: React.FC = () => {
   if (bots.some(bot => bot.status === ONLINE)) return null
   if (plugins.some(plugin => !plugin.disabled && plugin.state === 'pending' && plugin.missingDeps.includes('account'))) return null
   // The neutral layer brings the account's bot up with the first login
-  const seen = bots.some(bot => bot.platform === 'llonebot')
+  const seen = bots.some(bot => bot.platform === 'luckylillia')
   return seen
     ? <StatusNotice action="去查看" page="ntqq">NTQQ 协议的 QQ 账号已离线</StatusNotice>
     : <StatusNotice action="去登录" page="ntqq">NTQQ 协议的 QQ 账号还没有登录</StatusNotice>

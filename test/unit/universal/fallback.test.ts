@@ -110,6 +110,12 @@ describe('sending through ctx.bots.beforeSend', () => {
     expect(seen).toEqual(['c:markdown', 'c:face', 'c:button-group', 'c:card'])
   })
 
+  it('keeps plugins out of what a protocol client relays, but still falls back for it', async () => {
+    ctx.on('bot/before-send', () => [])
+    ctx.on('bot/fallback', () => h.text('plugin'))
+    expect(markup(await ctx.bots.beforeSend(bot(), 'c', [h('face', { id: '13', name: '呲牙' })], { relay: true }))).toBe('[呲牙]')
+  })
+
   it('falls back after bot/before-send, so what it adds is covered', async () => {
     ctx.on('bot/before-send', (_bot, _channelId, content, next) => {
       content.push(h('face', { id: '13', name: '呲牙' }))

@@ -18,8 +18,8 @@ type Attrs = Record<string, any>
 const isRecord = (value: unknown): value is Attrs => typeof value === 'object' && value !== null
 const str = (value: unknown) => typeof value === 'string' ? value : value === undefined || value === null ? '' : String(value)
 
-/** Run by ctx.bots.beforeSend once bot/before-send is through. */
-export async function applyFallbacks(ctx: Context, bot: Bot, channelId: string, content: h[]): Promise<h[]> {
+/** Run by ctx.bots.beforeSend once bot/before-send is through; `plugins: false` skips bot/fallback. */
+export async function applyFallbacks(ctx: Context, bot: Bot, channelId: string, content: h[], plugins = true): Promise<h[]> {
   const features = new Set<string>(bot.features ?? [])
   const visit = async (elements: h[]): Promise<h[]> => {
     const out: h[] = []
@@ -29,7 +29,7 @@ export async function applyFallbacks(ctx: Context, bot: Bot, channelId: string, 
         out.push(element.children.length ? h(element.type, element.attrs, await visit(element.children)) : element)
         continue
       }
-      const custom = await ctx.serial('bot/fallback', bot, channelId, element)
+      const custom = plugins ? await ctx.serial('bot/fallback', bot, channelId, element) : undefined
       out.push(...(custom === undefined ? await visit(fallback(element)) : h.normalize(custom as h.Fragment)))
     }
     return out

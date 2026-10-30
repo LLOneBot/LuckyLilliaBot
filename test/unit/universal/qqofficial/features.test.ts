@@ -515,7 +515,7 @@ describe('what the official bot sends of the cross-platform elements', () => {
 
   it('says what it sends natively', async () => {
     await start({ intents: ['GROUP_AND_C2C_EVENT', 'PUBLIC_GUILD_MESSAGES'] })
-    expect(qq().features).toEqual(['message.markdown', 'message.button', 'message.card', 'message.stream'])
+    expect(qq().features).toEqual(['message.markdown', 'message.button', 'message.card', 'message.stream', 'guild.plain'])
     expect(guild().features).toEqual(['message.markdown', 'message.button', 'message.card', 'message.face'])
   })
 

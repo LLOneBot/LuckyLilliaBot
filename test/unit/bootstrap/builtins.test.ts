@@ -151,10 +151,10 @@ describe('builtin plugins', () => {
     const states = () => Object.fromEntries(ctx.plugins.list().map(status => [status.name, status.state]))
     const allIn = (state: PluginState) => Object.fromEntries(builtinPlugins.map(builtin => [builtin.name, state]))
 
-    // The WebUI and what needs nothing but it run from the start (webui.enable is off above, so nothing listens).
-    // Email notification and the official bot start switched off (their initial settings), the NT protocol by the
-    // file above; nothing else runs before the first login
-    const shell = ['builtin:webui', 'builtin:dashboard', 'builtin:logs']
+    // The WebUI and what needs nothing but it run from the start (webui.enable is off above, so it does not listen),
+    // and Satori, which serves whatever bots there are. Email notification and the official bot start switched off
+    // (their initial settings), the NT protocol by the file above; nothing else runs before the first login
+    const shell = ['builtin:webui', 'builtin:dashboard', 'builtin:logs', 'builtin:satori']
     await vi.waitFor(() => expect(shell.map(name => states()[name])).toEqual(shell.map(() => 'active')))
     const off = { 'builtin:email-notification': 'disposed', 'builtin:qq-official': 'disposed', 'builtin:nt-protocol': 'disposed' }
     for (const status of ctx.plugins.list()) {
@@ -178,7 +178,7 @@ describe('builtin plugins', () => {
       musicCardSignUrl: config.musicCardSignUrl,
       ffmpeg: config.ffmpeg,
     })
-    expect(ctx.get('satori')!.config).toEqual({ ...satori, enable: true, ffmpeg: config.ffmpeg })
+    expect(ctx.get('satori')!.config).toEqual({ ...satori, enable: true })
     expect(ctx.get('milky')!.config).toMatchObject({ enable: true, http: { port: milkyPort } })
 
     // Saving the bot settings must not touch the adapters' connections. structuredClone stands in for the

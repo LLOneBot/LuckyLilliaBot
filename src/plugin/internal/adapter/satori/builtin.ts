@@ -7,7 +7,8 @@ export const builtin: BuiltinPlugin = {
   name: 'builtin:satori',
   title: 'Satori',
   config: satoriSettings,
-  plugin: adapterEntry('builtin:satori', SatoriAdapter, SatoriSchema, config => ({ ffmpeg: config.ffmpeg })),
+  // Not waiting for the NT account: it serves the QQ official bot as well
+  plugin: adapterEntry('builtin:satori', SatoriAdapter, SatoriSchema, undefined, false),
   manifest: {
     category: 'adapter',
     icon: 'cpu',

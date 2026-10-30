@@ -1,20 +1,23 @@
 import h from '@satorijs/element'
 import { Status } from '@satorijs/protocol'
 import { Context } from 'cordis'
-import type { Bot, Feature, NeutralResource, SendOptions } from '@luckylillia/plugin-sdk'
+import type { Bot, Feature, NeutralList, NeutralResource, SendOptions } from '@luckylillia/plugin-sdk'
 import * as api from './api'
 import { MessageEncoder } from './message'
 import { decodeUser } from './utils'
 import type { NormalizeHost, SatoriEvent } from '../../../../universal/types'
 
-/** The logged-in QQ account, created once logged in. */
+/**
+ * The logged-in QQ account, created once logged in. The method names and argument order are Satori's
+ * (`@satorijs/protocol` Methods), which the Satori adapter calls by name.
+ */
 export class NTQQBot implements Bot, NormalizeHost {
-  // Inherited from the Satori adapter, which downstream Satori clients key on
-  readonly platform = 'llonebot'
+  // Satori clients see `llonebot`, the name from before: the Satori adapter renames it on the way out
+  readonly platform = 'luckylillia'
   readonly selfId: string
   readonly sid: string
   // An account cannot send markdown or buttons; link cards it could, signed, but nothing builds them yet
-  readonly features: readonly Feature[] = ['message.face', 'message.forward', 'message.proactive']
+  readonly features: readonly Feature[] = ['message.face', 'message.forward', 'message.proactive', 'guild.plain']
   status = Status.ONLINE
   private sn = 0
 
@@ -23,18 +26,19 @@ export class NTQQBot implements Bot, NormalizeHost {
     this.sid = `${this.platform}:${this.selfId}`
   }
 
+  get user(): NeutralResource {
+    return decodeUser(this.ctx.account)
+  }
+
   event(type: string, data: Partial<SatoriEvent>): SatoriEvent {
-    const sn = ++this.sn
     return {
-      // @ts-expect-error: the Satori adapter has always sent id alongside sn
-      id: sn,
-      sn,
+      sn: ++this.sn,
       type,
       self_id: this.selfId,
       platform: this.platform,
       timestamp: Date.now(),
-      // Non-login events only carry sn, user and platform of the login
-      login: { sn: 1, user: decodeUser(this.ctx.account), platform: this.platform } as SatoriEvent['login'],
+      login: { sn: 1, user: this.user, platform: this.platform } as SatoriEvent['login'],
+      referrer: undefined,
       ...data,
     }
   }
@@ -42,7 +46,7 @@ export class NTQQBot implements Bot, NormalizeHost {
   async sendMessage(channelId: string, content: h.Fragment, options: SendOptions = {}): Promise<NeutralResource[]> {
     const elements = h.normalize(content)
     if (options.quote) elements.unshift(h('quote', { id: options.quote }))
-    const outgoing = await this.ctx.bots.beforeSend(this, channelId, elements)
+    const outgoing = await this.ctx.bots.beforeSend(this, channelId, elements, options)
     if (!outgoing.length) return []
     return await new MessageEncoder(this.ctx, channelId).send(outgoing)
   }
@@ -59,16 +63,68 @@ export class NTQQBot implements Bot, NormalizeHost {
     await api.deleteMessage(this.ctx, messageId)
   }
 
+  async getMessageList(channelId: string, next?: string, direction?: string, limit?: number, order?: 'asc' | 'desc') {
+    return await api.getMessageList(this.ctx, channelId, next, limit, order)
+  }
+
   async getUser(userId: string) {
     return await api.getUser(this.ctx, userId)
+  }
+
+  async getFriendList(): Promise<NeutralList> {
+    return await api.getFriendList(this.ctx)
+  }
+
+  async deleteFriend(userId: string) {
+    await api.deleteFriend(this.ctx, userId)
+  }
+
+  async handleFriendRequest(messageId: string, approve: boolean) {
+    await api.handleFriendRequest(this.ctx, messageId, approve)
   }
 
   async getGuild(guildId: string) {
     return await api.getGuild(this.ctx, guildId)
   }
 
+  async getGuildList(): Promise<NeutralList> {
+    return await api.getGuildList(this.ctx)
+  }
+
+  async handleGuildRequest(messageId: string, approve: boolean, comment?: string) {
+    await api.handleGroupRequest(this.ctx, messageId, approve, comment)
+  }
+
+  async getChannel(channelId: string) {
+    return await api.getChannel(this.ctx, channelId)
+  }
+
+  async getChannelList(guildId: string): Promise<NeutralList> {
+    return { data: [await api.getChannel(this.ctx, guildId)] }
+  }
+
+  async createDirectChannel(userId: string) {
+    return await api.getChannel(this.ctx, `private:${userId}`)
+  }
+
+  async updateChannel(channelId: string, data: { name?: string }) {
+    await api.updateChannel(this.ctx, channelId, data)
+  }
+
+  async deleteChannel(channelId: string) {
+    await api.deleteChannel(this.ctx, channelId)
+  }
+
+  async muteChannel(channelId: string, guildId?: string, enable?: boolean) {
+    await api.muteChannel(this.ctx, channelId, enable)
+  }
+
   async getGuildMember(guildId: string, userId: string) {
     return await api.getGuildMember(this.ctx, guildId, userId)
+  }
+
+  async getGuildMemberList(guildId: string): Promise<NeutralList> {
+    return await api.getGuildMemberList(this.ctx, guildId)
   }
 
   async muteGuildMember(guildId: string, userId: string, duration: number) {
@@ -79,7 +135,31 @@ export class NTQQBot implements Bot, NormalizeHost {
     await api.kickGuildMember(this.ctx, guildId, userId, permanent)
   }
 
+  async handleGuildMemberRequest(messageId: string, approve: boolean, comment?: string) {
+    await api.handleGroupRequest(this.ctx, messageId, approve, comment)
+  }
+
+  async getGuildRoleList(): Promise<NeutralList> {
+    return api.getGuildRoleList()
+  }
+
+  async setGuildMemberRole(guildId: string, userId: string, roleId: string) {
+    await api.setGuildMemberRole(this.ctx, guildId, userId, roleId)
+  }
+
+  async unsetGuildMemberRole(guildId: string, userId: string, roleId: string) {
+    await api.setGuildMemberRole(this.ctx, guildId, userId, roleId, false)
+  }
+
   async createReaction(channelId: string, messageId: string, emoji: string) {
     await api.createReaction(this.ctx, messageId, emoji)
+  }
+
+  async deleteReaction(channelId: string, messageId: string, emoji: string) {
+    await api.deleteReaction(this.ctx, messageId, emoji)
+  }
+
+  async getReactionList(channelId: string, messageId: string, emoji: string, next?: string): Promise<NeutralList> {
+    return await api.getReactionList(this.ctx, messageId, emoji, next)
   }
 }

@@ -17,12 +17,17 @@ export type NeutralResource = Record<string, any>
 export interface SendOptions {
   /** Id of the message to quote. */
   quote?: string
+  /**
+   * Sent for a protocol client (the Satori adapter): `bot/before-send` and `bot/fallback` are skipped, so plugins
+   * cannot rewrite what a client sends; the built-in fallbacks still apply.
+   */
+  relay?: boolean
 }
 
 /**
  * What a bot sends as the platform's own thing. The first four are elements beyond Satori's: one the bot lacks is
  * swapped for its fallback before sending (a `bot/fallback` listener's, else the built-in one), so a plugin may
- * send them anywhere. The other three only say what the platform does.
+ * send them anywhere. The others only say what the platform does.
  */
 export type Feature =
   /** `<markdown>`; without it, formatted text with the images and links kept */
@@ -39,6 +44,8 @@ export type Feature =
   | 'message.stream'
   /** Sending with no message to reply to. The QQ official bot mostly cannot: send while answering one */
   | 'message.proactive'
+  /** Satori's: a guild has no channels of its own, its id is its channel's, as with QQ groups */
+  | 'guild.plain'
 
 /** `<card>`: a link shown as the platform's own card. */
 export interface CardAttrs {
@@ -78,7 +85,8 @@ export interface ButtonAttrs {
 
 /**
  * One account on one platform. Only sendMessage is guaranteed; probe the rest, e.g.
- * `if (bot.deleteMessage) ...`, since not every platform supports everything.
+ * `if (bot.deleteMessage) ...`, since not every platform supports everything. The optional methods are Satori's,
+ * with its names and argument order (`@satorijs/protocol` Methods): the Satori adapter calls them by name.
  */
 export interface Bot {
   readonly platform: string
@@ -87,22 +95,43 @@ export interface Bot {
   readonly sid: string
   readonly status: Universal.Status
   readonly features: readonly Feature[]
+  /** The account itself, as a Satori user. */
+  readonly user?: NeutralResource
   sendMessage(channelId: string, content: h.Fragment, options?: SendOptions): Promise<NeutralResource[]>
   sendPrivateMessage?(userId: string, content: h.Fragment, options?: SendOptions): Promise<NeutralResource[]>
   getMessage?(channelId: string, messageId: string): Promise<NeutralResource>
   deleteMessage?(channelId: string, messageId: string): Promise<void>
+  /** `next`: the `next` of the page before. */
+  getMessageList?(channelId: string, next?: string, direction?: string, limit?: number, order?: 'asc' | 'desc'): Promise<NeutralList>
   getUser?(userId: string): Promise<NeutralResource>
+  getFriendList?(next?: string): Promise<NeutralList>
+  deleteFriend?(userId: string): Promise<void>
+  /** Answers a `friend-request` event; `messageId` is the event's message id. */
+  handleFriendRequest?(messageId: string, approve: boolean, comment?: string): Promise<void>
   getGuild?(guildId: string): Promise<NeutralResource>
   getGuildList?(next?: string): Promise<NeutralList>
-  getChannel?(channelId: string): Promise<NeutralResource>
+  /** Answers a `guild-request` event, an invitation to join a guild. */
+  handleGuildRequest?(messageId: string, approve: boolean, comment?: string): Promise<void>
+  getChannel?(channelId: string, guildId?: string): Promise<NeutralResource>
   getChannelList?(guildId: string, next?: string): Promise<NeutralList>
+  createChannel?(guildId: string, data: NeutralResource): Promise<NeutralResource>
+  updateChannel?(channelId: string, data: NeutralResource): Promise<void>
+  /** On QQ, leaving the group. */
+  deleteChannel?(channelId: string): Promise<void>
+  /** Mutes everyone but the admins, or lifts it. */
+  muteChannel?(channelId: string, guildId?: string, enable?: boolean): Promise<void>
   createDirectChannel?(userId: string, guildId?: string): Promise<NeutralResource>
   getGuildMember?(guildId: string, userId: string): Promise<NeutralResource>
   getGuildMemberList?(guildId: string, next?: string): Promise<NeutralList>
+  /** `duration` in milliseconds. */
   muteGuildMember?(guildId: string, userId: string, duration: number): Promise<void>
   kickGuildMember?(guildId: string, userId: string, permanent?: boolean): Promise<void>
   /** Answers a `guild-member-request` event; `messageId` is the event's message id. */
   handleGuildMemberRequest?(messageId: string, approve: boolean, comment?: string): Promise<void>
+  /** The role ids are the ones in a member's `roles`. */
+  getGuildRoleList?(guildId: string, next?: string): Promise<NeutralList>
+  setGuildMemberRole?(guildId: string, userId: string, roleId: string): Promise<void>
+  unsetGuildMemberRole?(guildId: string, userId: string, roleId: string): Promise<void>
   createReaction?(channelId: string, messageId: string, emoji: string): Promise<void>
   deleteReaction?(channelId: string, messageId: string, emoji: string): Promise<void>
   getReactionList?(channelId: string, messageId: string, emoji: string, next?: string): Promise<NeutralList>
@@ -148,9 +177,9 @@ export interface Bots extends Iterable<Bot> {
   dispatch(bot: Bot, event: NeutralEvent): Promise<void>
   /**
    * For adapter plugins: runs `bot/before-send`, swaps what the bot does not declare in `features` for its fallback
-   * (`bot/fallback`), and returns the content to actually send.
+   * (`bot/fallback`), and returns the content to actually send. Pass on the `options` of sendMessage (`relay`).
    */
-  beforeSend(bot: Bot, channelId: string, content: h[]): Promise<h[]>
+  beforeSend(bot: Bot, channelId: string, content: h[], options?: SendOptions): Promise<h[]>
 }
 
 declare module 'cordis' {

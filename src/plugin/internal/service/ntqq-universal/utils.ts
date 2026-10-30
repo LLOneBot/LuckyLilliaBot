@@ -120,7 +120,7 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       const { emojiId, imageWidth, imageHeight } = v.marketFaceElement
       const dir = emojiId.substring(0, 2)
       const src = `https://gxh.vip.qq.com/club/item/parcel/item/${dir}/${emojiId}/raw${imageWidth}.gif`
-      buffer.push(h('llonebot:market-face', {
+      buffer.push(h('luckylillia:market-face', {
         emojiPackageId: v.marketFaceElement.emojiPackageId,
         emojiId,
         key: v.marketFaceElement.key,
@@ -132,12 +132,11 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       buffer.push(h('face', {
         id: String(faceIndex),
         type: String(faceType),
-        platform: 'llonebot',
         ...(name ? { name } : {}),
       }))
     } else if (v.arkElement) {
       const prompt = arkPrompt(v.arkElement.bytesData)
-      buffer.push(h('llonebot:ark', {
+      buffer.push(h('luckylillia:ark', {
         data: v.arkElement.bytesData
       }, prompt ? [h.text(prompt)] : []))
     } else if (v.markdownElement?.content) {
