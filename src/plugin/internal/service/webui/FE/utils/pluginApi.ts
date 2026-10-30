@@ -72,10 +72,17 @@ export class ConfigConflictError extends Error {}
 
 export type PluginStreamEvent = { type: 'status'; data: PluginStatus } | { type: 'list' } | { type: 'ui'; data: UiPrefs }
 
-/** Subscribes to state changes; returns the unsubscribe function. */
-export function openPluginStream(onEvent: (event: PluginStreamEvent) => void): () => void {
+/**
+ * Subscribes to state changes; returns the unsubscribe function. The browser reconnects a dropped stream by itself,
+ * e.g. across a restart of the bot, but what changed meanwhile is not replayed: `onReconnect` is for fetching anew.
+ */
+export function openPluginStream(onEvent: (event: PluginStreamEvent) => void, onReconnect?: () => void): () => void {
   const token = getCookie('webui_token') || ''
   const source = new EventSource(`${BASE}/stream?token=${encodeURIComponent(token)}`)
+  let connections = 0
+  source.addEventListener('connected', () => {
+    if (connections++) onReconnect?.()
+  })
   source.addEventListener('changed', (event) => {
     try {
       onEvent(JSON.parse((event as MessageEvent).data))

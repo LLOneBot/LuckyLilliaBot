@@ -23,9 +23,9 @@ export const usePluginList = create<PluginListState>(set => ({
 /** Keeps the list current through the plugin status stream; returns the function closing it. */
 export function followPluginList(): () => void {
   // Together, so that nothing the user hid shows for a moment; an unreadable list must not keep everything waiting
-  Promise.all([listPlugins(), getUiPrefs().catch(() => NO_PREFS)])
+  const load = () => Promise.all([listPlugins(), getUiPrefs().catch(() => usePluginList.getState().prefs)])
     .then(([plugins, prefs]) => usePluginList.setState({ plugins, prefs }))
-    .catch(() => usePluginList.setState(state => ({ plugins: state.plugins ?? [] })))
+  load().catch(() => usePluginList.setState(state => ({ plugins: state.plugins ?? [] })))
   return openPluginStream((event) => {
     if (event.type === 'ui') {
       usePluginList.setState({ prefs: event.data })
@@ -44,5 +44,7 @@ export function followPluginList(): () => void {
       else plugins[index] = event.data
       return { plugins }
     })
+  }, () => {
+    load().catch(() => {})
   })
 }
