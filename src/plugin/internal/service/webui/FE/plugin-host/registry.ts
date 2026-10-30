@@ -129,10 +129,10 @@ const byOrder = (a: { order: number; owner: string }, b: { order: number; owner:
   a.order - b.order || a.owner.localeCompare(b.owner)
 
 /**
- * Pages in sidebar order. Core pages are always there. Other pages need their plugin to run. Settings pages are
- * listed while the plugin is enabled, whatever state it is in, failing included; and they can always be opened,
- * because the plugin card links there to configure a disabled plugin before enabling it. A page the user hid leaves
- * the sidebar only.
+ * Pages in sidebar order. Core pages are always there. The others are listed while their plugin is enabled, whatever
+ * state it is in: waiting for what it depends on, failing, starting; the page itself says what keeps the plugin from
+ * running (PluginPage). Every page can be opened, a disabled plugin's included, because the plugin card links to its
+ * settings to configure it before enabling it. A page the user hid leaves the sidebar only.
  */
 export function visiblePages(
   contributions: Contribution[],
@@ -140,14 +140,11 @@ export function visiblePages(
   purpose: 'sidebar' | 'open' = 'sidebar',
   prefs: UiPrefs = NO_PREFS,
 ): PageContribution[] {
-  const active = activeOwners(plugins)
-  // Until the list loads, settings pages are taken as enabled: they almost always are, and would flicker otherwise.
-  // Switched off, a plugin (a builtin included) leaves the sidebar; its card's "前往设置" still opens the page.
+  // Until the list loads, plugins are taken as enabled: they almost always are, and pages would flicker otherwise
   const enabled = plugins && new Set(plugins.filter(plugin => !plugin.disabled).map(plugin => plugin.name))
   return contributions
-    .filter((c): c is PageContribution => c.kind === 'page' && (c.locked || (c.settings
-      ? purpose === 'open' || !enabled || enabled.has(c.owner)
-      : active.has(c.owner))))
+    .filter((c): c is PageContribution => c.kind === 'page'
+      && (c.locked || purpose === 'open' || !enabled || enabled.has(c.owner)))
     .filter(page => purpose === 'open' || page.locked || !prefs.hidden.includes(pageContributionKey(page)))
     .sort((a, b) => byOrder(a, b) || a.title.localeCompare(b.title))
 }

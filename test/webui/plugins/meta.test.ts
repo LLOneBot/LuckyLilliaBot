@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { findConflicts, pendingReason, serviceLabel } from '@/plugin/internal/service/webui/FE/components/plugins/meta'
+import { findConflicts, pendingReason, serviceLabel, waitingFor } from '@/plugin/internal/service/webui/FE/components/plugins/meta'
 import { PluginStatus } from '@/plugin/internal/service/webui/FE/types/plugins'
 
 function entry(id: string, implementsList: string[], disabled = false): PluginStatus {
@@ -52,5 +52,25 @@ describe('pendingReason', () => {
   it('falls back to the bot service names, then the raw ones', () => {
     expect(pendingReason(waiting('database', 'translator'), [])).toBe('等待服务：数据库、translator')
     expect(pendingReason({ ...waiting('account'), state: 'active' }, [nt])).toBeUndefined()
+  })
+})
+
+describe('waitingFor', () => {
+  const nt = { ...entry('nt', ['qqProtocol', 'account']), title: 'NTQQ 协议' }
+  nt.service.labels = { account: 'NTQQ 账号登录' }
+  const translator = entry('deepl', ['translator'], true)
+  const waiting = (...missingDeps: string[]): PluginStatus => ({ ...entry('webqq', []), state: 'pending', missingDeps })
+
+  it('names the provider of what is missing, with the label it gives the service', () => {
+    expect(waitingFor(waiting('app', 'account'), [nt])).toEqual({ provider: nt, label: 'NTQQ 账号登录' })
+  })
+
+  it('puts a provider that is switched off first: nothing else helps until it runs', () => {
+    expect(waitingFor(waiting('account', 'translator'), [nt, translator])).toEqual({ provider: translator, label: undefined })
+  })
+
+  it('has nobody to name while only services the bot brings up by itself are missing, or nothing is', () => {
+    expect(waitingFor(waiting('app', 'store'), [nt])).toBeUndefined()
+    expect(waitingFor({ ...waiting('account'), state: 'active' }, [nt])).toBeUndefined()
   })
 })

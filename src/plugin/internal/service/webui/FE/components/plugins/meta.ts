@@ -41,6 +41,25 @@ export function serviceLabel(service: string, plugins: PluginStatus[]): string |
 }
 
 /**
+ * Whom a pending plugin waits for: the entry providing a missing service by its manifest, one switched off first,
+ * else one that labels the service. Undefined while it only waits for what the bot brings up by itself, e.g. the
+ * services that follow the NTQQ login a moment later.
+ */
+export function waitingFor(plugin: PluginStatus, plugins: PluginStatus[]): { provider: PluginStatus; label?: string } | undefined {
+  if (plugin.state !== 'pending') return
+  const providers = plugin.missingDeps
+    .map(service => ({ service, provider: providerOf(service, plugins) }))
+    .filter((item): item is { service: string; provider: PluginStatus } => !!item.provider && item.provider.id !== plugin.id)
+  const reason = providers.find(item => item.provider.disabled)
+    ?? providers.find(item => item.provider.service.labels?.[item.service])
+    ?? providers[0]
+  return reason && { provider: reason.provider, label: reason.provider.service.labels?.[reason.service] }
+}
+
+/** A space before Latin text, none before Chinese: `要等${spaced(label)}后` */
+export const spaced = (text: string) => (/^[\x21-\x7e]/.test(text) ? ` ${text}` : text)
+
+/**
  * Why a pending plugin waits: the provider of a missing service when that is switched off, else what the missing
  * services stand for. Ones a provider labels come first and alone: the rest usually follow from them, e.g. what
  * only exists after the NTQQ login.

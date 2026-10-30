@@ -3,7 +3,7 @@ import { usePluginList } from '../../plugin-host/pluginList'
 import { SlotOutlet, useSettingsPages } from '../../plugin-host'
 import { useBots } from '../../stores/botsStore'
 import { PluginStatus } from '../../types/plugins'
-import { pluginTitle, providerOf } from '../plugins/meta'
+import { pluginTitle, spaced, waitingFor } from '../plugins/meta'
 import { pluginCategory } from '../plugins/listing'
 
 // Status of @satorijs/protocol
@@ -20,9 +20,6 @@ function names(plugins: PluginStatus[]): string {
   const titles = plugins.map(pluginTitle)
   return titles.length > 3 ? `${titles.slice(0, 3).join('、')} 等 ${titles.length} 个插件` : titles.join('、')
 }
-
-// A space before Latin text, none before Chinese
-const spaced = (text: string) => (/^[\x21-\x7e]/.test(text) ? ` ${text}` : text)
 
 interface StatusNoticesProps {
   activeTab: string
@@ -46,17 +43,13 @@ const StatusNotices: React.FC<StatusNoticesProps> = ({ activeTab, onOpen }) => {
   const anyOnline = bots.some(bot => bot.status === ONLINE)
   const pageOf = (plugin: PluginStatus) => settingsPages.get(plugin.name) ?? 'plugins'
 
-  // Waiting plugins, by the plugin providing what they wait for; one a provider labels is the reason to give
+  // Waiting plugins, by the plugin providing what they wait for
   const waiting = new Map<string, { provider: PluginStatus; label?: string; plugins: PluginStatus[] }>()
   for (const plugin of enabled) {
-    if (plugin.state !== 'pending') continue
-    const providers = plugin.missingDeps
-      .map(service => ({ service, provider: providerOf(service, plugins) }))
-      .filter((item): item is { service: string; provider: PluginStatus } => !!item.provider && item.provider.id !== plugin.id)
-    const reason = providers.find(item => item.provider.service.labels?.[item.service]) ?? providers[0]
+    const reason = waitingFor(plugin, plugins)
     if (!reason) continue
     const group = waiting.get(reason.provider.id) ?? { provider: reason.provider, plugins: [] }
-    group.label ??= reason.provider.service.labels?.[reason.service]
+    group.label ??= reason.label
     group.plugins.push(plugin)
     waiting.set(reason.provider.id, group)
   }

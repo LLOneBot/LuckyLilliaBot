@@ -26,7 +26,7 @@ function status(name: string, state: PluginStatus['state']): PluginStatus {
 }
 
 describe('plugin UI registry', () => {
-  it('shows pages and slot contents of running plugins only, in order', () => {
+  it('lists the pages of enabled plugins whatever their state, and slot contents of running ones only', () => {
     const contributions: Contribution[] = [
       page('b', 'b:stats', 'Stats'),
       page('a', 'a:home', 'Home'),
@@ -45,11 +45,13 @@ describe('plugin UI registry', () => {
       status('builtin:satori', 'failed'), status('builtin:milky', 'disposed'),
     ]
     const active = activeOwners(plugins)
-    // A failing plugin keeps its settings page in the sidebar; a disabled one only keeps it openable
-    expect(visiblePages(contributions, plugins).map(p => p.key)).toEqual(['webqq', 'satori', 'a:home', 'b:stats'])
-    expect(visiblePages(contributions, plugins, 'open').map(p => p.key)).toEqual(['webqq', 'satori', 'milky', 'a:home', 'b:stats'])
-    // Before the list loads, settings pages count as enabled
-    expect(visiblePages(contributions, null).map(p => p.key)).toEqual(['satori', 'milky'])
+    // A waiting or failing plugin keeps its pages in the sidebar (they say why it does not run); a disabled one only
+    // keeps them openable
+    expect(visiblePages(contributions, plugins).map(p => p.key)).toEqual(['webqq', 'satori', 'a:home', 'b:stats', 'stopped:x'])
+    expect(visiblePages(contributions, plugins, 'open').map(p => p.key))
+      .toEqual(['webqq', 'satori', 'milky', 'a:home', 'b:stats', 'stopped:x'])
+    // Before the list loads, every plugin counts as enabled
+    expect(visiblePages(contributions, null).map(p => p.key)).toEqual(['webqq', 'satori', 'milky', 'a:home', 'b:stats', 'stopped:x'])
     expect(slotContents(contributions, active, 'dashboard.cards').map(s => s.owner)).toEqual(['a', 'b'])
     // Waits for someone to declare it
     expect(slotContents(contributions, active, 'nobody.declares')).toEqual([])
@@ -136,9 +138,9 @@ describe('plugin UI registry', () => {
     const locked: PageContribution = { ...page(WEBUI, 'plugins', '插件', 40), locked: true }
     const about = page(WEBUI, 'about', '关于', 1000)
     const contributions: Contribution[] = [locked, about]
-    // Before the plugin list loads, and hidden by the user
-    expect(visiblePages(contributions, null).map(p => p.key)).toEqual(['plugins'])
+    // Hidden by the user, and with the WebUI's own entry not in the list
     const hidden = prefs({ hidden: [pageContributionKey(locked), pageContributionKey(about)] })
+    expect(visiblePages(contributions, [], 'sidebar', hidden).map(p => p.key)).toEqual(['plugins'])
     expect(visiblePages(contributions, [status(WEBUI, 'active')], 'sidebar', hidden).map(p => p.key)).toEqual(['plugins'])
     expect(visiblePages(contributions, [status(WEBUI, 'active')]).map(p => p.key)).toEqual(['plugins', 'about'])
   })
