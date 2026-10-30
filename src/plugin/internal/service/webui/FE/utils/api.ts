@@ -27,9 +27,12 @@ export function setTokenStorage(token: string) {
   setCookie(TOKEN_KEY, token, TOKEN_EXPIRY_DAYS);
 }
 
+/** Refused by the WebUI login itself (its X-Webui-Auth header), not a 401 / 403 a route answers on its own. */
+const refusedLogin = (response: Response) => response.headers.has('x-webui-auth');
+
 /**
- * fetch() with the WebUI login: asks for the password on 401 / 403 and retries. The response may still be an
- * error one; plugin modules get this as `ctx.fetch`.
+ * fetch() with the WebUI login: asks for the password when the login refuses the request, and retries. The response
+ * may still be an error one; plugin modules get this as `ctx.fetch`.
  */
 export async function authorizedFetch(url: string, options: RequestInit = {}): Promise<Response> {
   const makeRequest = async (authToken: string | null): Promise<Response> => {
@@ -50,7 +53,7 @@ export async function authorizedFetch(url: string, options: RequestInit = {}): P
   let response = await makeRequest(getToken());
 
   // 401: 未设置密码，需要调用 set-token 设置
-  if (response.status === 401 && passwordPromptHandler) {
+  if (response.status === 401 && refusedLogin(response) && passwordPromptHandler) {
     console.log('401 - Password not set, prompting to set password...');
 
     const newPassword = await passwordPromptHandler('请设置密码');
@@ -77,7 +80,7 @@ export async function authorizedFetch(url: string, options: RequestInit = {}): P
   }
 
   // 403: 密码错误或账户锁定，需要重新输入
-  if (response.status === 403 && passwordPromptHandler) {
+  if (response.status === 403 && refusedLogin(response) && passwordPromptHandler) {
     console.log('403 - Token verification failed, prompting for password...');
 
     let errorData = null;
@@ -94,7 +97,7 @@ export async function authorizedFetch(url: string, options: RequestInit = {}): P
     let retryCount = 0;
     const maxRetries = 5;
 
-    while (response.status === 403 && retryCount < maxRetries) {
+    while (response.status === 403 && refusedLogin(response) && retryCount < maxRetries) {
       try {
         const errorMessage = retryCount > 0 ? '密码错误，请重新输入' : '请输入密码';
         const newPassword = await passwordPromptHandler(errorMessage);
@@ -129,7 +132,7 @@ export async function authorizedFetch(url: string, options: RequestInit = {}): P
       }
     }
 
-    if (response.status === 403) {
+    if (response.status === 403 && refusedLogin(response)) {
       throw new Error(errorData?.message || '认证失败');
     }
   }

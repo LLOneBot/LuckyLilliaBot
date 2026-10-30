@@ -6,8 +6,7 @@ import { streamSSE } from 'hono/streaming'
 import {
   PluginConfigError, PluginForbiddenError, PluginNotFoundError, PluginRevConflictError, UiPrefsPatch,
 } from '../../../../../host'
-import { webuiTokenUtil } from '../../../../../../main/config'
-import { hashPassword } from '../passwordHash'
+import { checkToken } from '../auth'
 
 export function createPluginRoutes(ctx: Context): Hono {
   const router = new Hono()
@@ -104,16 +103,20 @@ function cookie(request: Request, name: string): string | undefined {
   }
 }
 
+/** What @hono/node-server hands a handler: the connection, for the address the access log names. */
+type ServerEnv = { incoming?: { socket?: { remoteAddress?: string } } } | undefined
+
 /**
  * `/plugin-webui/<key>/<version>/<file>`: plugin WebUI modules and their chunks, once the user approved the
  * package's. import() sends the cookies but no headers, so the WebUI login is checked against its cookie, which
- * holds the same hash.
+ * holds the same hash, with the API's lockout.
  */
-export async function servePluginAsset(ctx: Context, request: Request): Promise<Response> {
+export async function servePluginAsset(ctx: Context, request: Request, env?: ServerEnv): Promise<Response> {
   if (request.method !== 'GET' && request.method !== 'HEAD') return new Response(null, { status: 405 })
-  const token = webuiTokenUtil.getToken()
-  if (!token || cookie(request, 'webui_token') !== hashPassword(token)) return new Response(null, { status: 401 })
-  const [, , key, , ...file] = new URL(request.url).pathname.split('/')
+  const { pathname } = new URL(request.url)
+  const ip = env?.incoming?.socket?.remoteAddress ?? ''
+  if (checkToken(cookie(request, 'webui_token'), ip, request.method, pathname)) return new Response(null, { status: 401 })
+  const [, , key, , ...file] = pathname.split('/')
   let target: string | undefined
   try {
     target = key && file.length ? ctx.plugins.webuiAsset(decodeURIComponent(key), file.map(decodeURIComponent).join('/')) : undefined
@@ -137,6 +140,6 @@ export const PluginRoutes = {
   inject: ['webuiServer', 'plugins'],
   apply(ctx: Context) {
     ctx.webuiServer.route('/api/plugins', new Hono().route('/api/plugins', createPluginRoutes(ctx)))
-    ctx.webuiServer.route('/plugin-webui', { fetch: request => servePluginAsset(ctx, request) }, { public: true })
+    ctx.webuiServer.route('/plugin-webui', { fetch: (request, env) => servePluginAsset(ctx, request, env as ServerEnv) }, { public: true })
   },
 }

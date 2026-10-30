@@ -50,4 +50,10 @@ describe('plugin WebUI assets', () => {
     expect((await get('/plugin-webui/@scope+ui/3/%E0%A4%A.js', login)).status).toBe(404)
     expect((await get('/plugin-webui/@scope+ui/3/index.js', login, 'POST')).status).toBe(405)
   })
+
+  // Last: the lockout is the WebUI login's own, and holds for the rest of this file
+  it('counts a wrong cookie towards the login lockout like a wrong password, and keeps to the lockout', async () => {
+    for (let i = 0; i < 4; i++) await get('/plugin-webui/@scope+ui/3/index.js', 'webui_token=wrong')
+    expect((await get('/plugin-webui/@scope+ui/3/index.js', login)).status).toBe(401)
+  })
 })

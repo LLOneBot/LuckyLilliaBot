@@ -119,6 +119,19 @@ describe('authMiddleware', () => {
       expect(body.remainingAttempts).toBeDefined()
       expect(body.remainingAttempts).toBe(3)
     })
+
+    it('marks its own refusals, so that the WebUI only asks for the password on those', async () => {
+      const app = createAuthApp()
+      app.use('*', authMiddleware)
+      app.get('/test', (c) => c.json({ ok: true }))
+      app.get('/forbidden', (c) => c.json({ success: false, message: 'not for you' }, 403))
+
+      expect((await app.request('/test')).headers.get('X-Webui-Auth')).toBe('required')
+      expect((await app.request('/test', { headers: { 'X-Webui-Token': 'wrong' } })).headers.get('X-Webui-Auth')).toBe('wrong')
+      const own = await app.request('/forbidden', { headers: { 'X-Webui-Token': hashPassword(TOKEN) } })
+      expect(own.status).toBe(403)
+      expect(own.headers.get('X-Webui-Auth')).toBeNull()
+    })
   })
 
   describe('rate limiting and lockout', () => {
@@ -145,9 +158,11 @@ describe('authMiddleware', () => {
         headers: { 'X-Webui-Token': 'wrong' },
       })
       expect(res.status).toBe(403)
+      expect(res.headers.get('X-Webui-Auth')).toBe('locked')
       const body = await res.json()
       expect(body.locked).toBe(true)
       expect(body.remainingMinutes).toBe(60)
+      expect(body.message).toContain('连续错误4次')
     })
 
     it('rejects correct token during lockout', async () => {
