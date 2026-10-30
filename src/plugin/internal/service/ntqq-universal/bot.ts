@@ -1,7 +1,7 @@
 import h from '@satorijs/element'
 import { Status } from '@satorijs/protocol'
 import { Context } from 'cordis'
-import type { Bot, NeutralResource, SendOptions } from '@luckylillia/plugin-sdk'
+import type { Bot, Feature, NeutralResource, SendOptions } from '@luckylillia/plugin-sdk'
 import * as api from './api'
 import { MessageEncoder } from './message'
 import { decodeUser } from './utils'
@@ -13,6 +13,8 @@ export class NTQQBot implements Bot, NormalizeHost {
   readonly platform = 'llonebot'
   readonly selfId: string
   readonly sid: string
+  // An account cannot send markdown or buttons; link cards it could, signed, but nothing builds them yet
+  readonly features: readonly Feature[] = ['message.face', 'message.forward', 'message.proactive']
   status = Status.ONLINE
   private sn = 0
 

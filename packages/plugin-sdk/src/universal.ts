@@ -20,6 +20,63 @@ export interface SendOptions {
 }
 
 /**
+ * What a bot sends as the platform's own thing. The first four are elements beyond Satori's: one the bot lacks is
+ * swapped for its fallback before sending (a `bot/fallback` listener's, else the built-in one), so a plugin may
+ * send them anywhere. The other three only say what the platform does.
+ */
+export type Feature =
+  /** `<markdown>`; without it, formatted text with the images and links kept */
+  | 'message.markdown'
+  /** `<button>`, `<button-group>`; without them, a line of what to send. Callback buttons are dropped */
+  | 'message.button'
+  /** `<card>` (CardAttrs); without it, the title with the link, the description and the image */
+  | 'message.card'
+  /** `<face>` (FaceAttrs); without it, `[name]` */
+  | 'message.face'
+  /** `<message forward>` */
+  | 'message.forward'
+  /** `<markdown stream>` builds the reply up in place */
+  | 'message.stream'
+  /** Sending with no message to reply to. The QQ official bot mostly cannot: send while answering one */
+  | 'message.proactive'
+
+/** `<card>`: a link shown as the platform's own card. */
+export interface CardAttrs {
+  title: string
+  url: string
+  desc?: string
+  /** Picture url */
+  image?: string
+  /** What the chat list and the notification show */
+  prompt?: string
+}
+
+/** `<face>`: a QQ system face, e.g. 13 for 呲牙. */
+export interface FaceAttrs {
+  id: string
+  /** Without brackets, e.g. 呲牙; what the fallback shows */
+  name?: string
+}
+
+/**
+ * `<button>`, its label in the children; `<button-group>` around buttons starts a row. A command button, the kind
+ * every platform can do something with, sends `text` (default: the label) when clicked; the fallback asks to
+ * send it instead.
+ */
+export interface ButtonAttrs {
+  /**
+   * `link` opens `href`. `action` is a callback button: a click only brings an `interaction/button` event with
+   * this `id`, and the fallback drops it. Anything else (`input` too) makes a command button
+   */
+  type?: 'link' | 'input' | 'action'
+  id?: string
+  text?: string
+  href?: string
+  /** The QQ official bot's own button fields, which win over the ones above */
+  action?: { type?: number; data?: string; [field: string]: unknown }
+}
+
+/**
  * One account on one platform. Only sendMessage is guaranteed; probe the rest, e.g.
  * `if (bot.deleteMessage) ...`, since not every platform supports everything.
  */
@@ -29,6 +86,7 @@ export interface Bot {
   /** `${platform}:${selfId}` */
   readonly sid: string
   readonly status: Universal.Status
+  readonly features: readonly Feature[]
   sendMessage(channelId: string, content: h.Fragment, options?: SendOptions): Promise<NeutralResource[]>
   sendPrivateMessage?(userId: string, content: h.Fragment, options?: SendOptions): Promise<NeutralResource[]>
   getMessage?(channelId: string, messageId: string): Promise<NeutralResource>
@@ -71,6 +129,11 @@ export interface Session {
   /** Satori element markup; empty for events without a message. */
   readonly content: string
   readonly elements: h[]
+  /**
+   * The message as a command reads it: a leading quote, the @ of this bot and the blank after them taken off.
+   * `atSelf`: the bot was @-ed there. In groups the QQ official bot only gets messages that start with its @.
+   */
+  readonly stripped: { readonly content: string; readonly atSelf: boolean }
   send(content: h.Fragment): Promise<NeutralResource[]>
   /** Sends to the same channel, quoting the message that triggered the session. */
   reply(content: h.Fragment): Promise<NeutralResource[]>
@@ -83,7 +146,10 @@ export interface Bots extends Iterable<Bot> {
   register(bot: Bot): () => void
   /** For adapter plugins: hands an incoming event to the plugin chain. */
   dispatch(bot: Bot, event: NeutralEvent): Promise<void>
-  /** For adapter plugins: runs `bot/before-send` and returns the content to actually send. */
+  /**
+   * For adapter plugins: runs `bot/before-send`, swaps what the bot does not declare in `features` for its fallback
+   * (`bot/fallback`), and returns the content to actually send.
+   */
   beforeSend(bot: Bot, channelId: string, content: h[]): Promise<h[]>
 }
 
@@ -113,5 +179,12 @@ declare module 'cordis' {
      * Satori clients do not pass through here.
      */
     'bot/before-send'(bot: Bot, channelId: string, content: h[], next: () => Promise<h[]>): h[] | Promise<h[]>
+    /**
+     * @mode serial. After `bot/before-send`, once for each `markdown` / `card` / `face` element and each row of
+     * buttons the bot cannot send (see Feature): return what to send instead, e.g. the markdown rendered to an
+     * image, or nothing to leave it to the built-in fallback. The first listener to return something wins; what it
+     * returns goes out as it is.
+     */
+    'bot/fallback'(bot: Bot, channelId: string, element: h): h.Fragment | void | Promise<h.Fragment | void>
   }
 }

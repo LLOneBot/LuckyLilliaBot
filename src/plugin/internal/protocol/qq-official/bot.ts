@@ -1,7 +1,7 @@
 import h from '@satorijs/element'
 import { Channel, Status } from '@satorijs/protocol'
 import { Context } from 'cordis'
-import type { Bot, NeutralResource, SendOptions } from '@luckylillia/plugin-sdk'
+import type { Bot, Feature, NeutralResource, SendOptions } from '@luckylillia/plugin-sdk'
 import type { QQOfficialConfig } from '@/common/types'
 import type { SatoriEvent } from '../../../../universal/types'
 import { ApiError, QQOfficialApi } from './api'
@@ -75,6 +75,8 @@ function resource(bot: { user: object }, channelId: string, direct: boolean, con
 export class QQOfficialBot implements Bot, DecodeHost {
   readonly platform = 'qq'
   readonly sid: string
+  // Faces only come in: sending them is documented for guilds alone; no forwards, and replies rather than pushes
+  readonly features: readonly Feature[] = ['message.markdown', 'message.button', 'message.card', 'message.stream']
   status: Status = Status.OFFLINE
   readonly user: { id: string; name?: string; avatar?: string }
   readonly passive = new PassiveReplies()
@@ -379,6 +381,8 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
   readonly platform = 'qqguild'
   readonly selfId: string
   readonly sid: string
+  // Faces as <emoji:id>; streaming is undocumented for guilds
+  readonly features: readonly Feature[] = ['message.markdown', 'message.button', 'message.card', 'message.face']
   readonly passive = new PassiveReplies()
   readonly internal: GuildInternal
   /** The bot's user id in guilds, from READY */

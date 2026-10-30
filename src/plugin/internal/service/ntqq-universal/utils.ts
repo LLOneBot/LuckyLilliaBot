@@ -1,5 +1,6 @@
 import h from '@satorijs/element'
 import * as NT from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
+import faceConfig from '@/plugin/internal/protocol/nt-protocol/ntqqapi/helper/face_config.json'
 import * as Universal from '@satorijs/protocol'
 import { Context } from 'cordis'
 import { ObjectToSnake } from 'ts-case-convert'
@@ -127,18 +128,52 @@ async function decodeElement(ctx: Context, data: NT.RawMessage, quoted = false) 
       }, [h.image(src, { width: imageWidth, height: imageHeight })]))
     } else if (v.faceElement) {
       const { faceIndex, faceType } = v.faceElement
+      const name = faceName(faceIndex, v.faceElement.faceText)
       buffer.push(h('face', {
         id: String(faceIndex),
         type: String(faceType),
-        platform: 'llonebot'
+        platform: 'llonebot',
+        ...(name ? { name } : {}),
       }))
     } else if (v.arkElement) {
+      const prompt = arkPrompt(v.arkElement.bytesData)
       buffer.push(h('llonebot:ark', {
         data: v.arkElement.bytesData
-      }))
+      }, prompt ? [h.text(prompt)] : []))
+    } else if (v.markdownElement?.content) {
+      // From an official bot; an account cannot send it
+      buffer.push(h('markdown', {}, v.markdownElement.content))
+    } else if (v.inlineKeyboardElement?.rows) {
+      for (const row of v.inlineKeyboardElement.rows) {
+        buffer.push(h('button-group', {}, (row.buttons ?? []).map(decodeKeyboardButton)))
+      }
     }
   }
   return buffer
+}
+
+/** `呲牙` for face 13: what the fallback of a face shows where faces cannot be sent. */
+function faceName(id: number, text?: string): string {
+  const known = faceConfig.sysface.find(face => face.QSid === String(id))?.QDes
+  return (known || text || '').replace(/^\//, '').replace(/^\[(.*)\]$/, '$1')
+}
+
+/** The line a card shows in the chat list, e.g. `[分享]标题`: the card's text for whoever reads it as text. */
+function arkPrompt(data: string): string {
+  try {
+    const prompt = JSON.parse(data)?.prompt
+    return typeof prompt === 'string' ? prompt : ''
+  } catch {
+    return ''
+  }
+}
+
+// NT kinds: 0 jumps, 1 calls back, 2 puts the command in the input box (sending it right away with `enter`)
+function decodeKeyboardButton(button: NT.InlineKeyboardElementRowButton): h {
+  const label = button.label || button.data
+  if (button.type === 0) return h('button', { type: 'link', href: button.data }, label)
+  if (button.type === 1) return h('button', { type: 'action', id: button.id, data: button.data }, label)
+  return h('button', { type: 'input', text: button.data }, label)
 }
 
 export async function decodeMessage(

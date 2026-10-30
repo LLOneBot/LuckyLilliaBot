@@ -234,7 +234,7 @@ export class MessageEncoder {
       const url = attrs.src ?? attrs.url
       const path = await this.fetchFile(url)
       const fileName = attrs.title ?? pathLib.basename(path)
-      // TODO: 走独立的文件上传接口，如 ntFileApi.uploadGroupFile + ntMsgApi.sendGroupFileMessage
+      this.elements.push(await SendElement.file(this.ctx, path, fileName))
       await this.flush()
     } else if (type === 'br') {
       this.elements.push(SendElement.text('\n'))
@@ -306,6 +306,11 @@ export class MessageEncoder {
         attrs.key,
         attrs.summary
       ))
+    } else if (type === 'llonebot:ark' && attrs.data) {
+      // A card is a message of its own; Core.sendMessage signs one without a token when a signer is set
+      await this.flush()
+      this.elements.push(SendElement.ark(attrs.data))
+      await this.flush()
     } else {
       await this.render(children)
     }

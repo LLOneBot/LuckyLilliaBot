@@ -1,7 +1,7 @@
 import h from '@satorijs/element'
 import { describe, expect, it } from 'vitest'
 import {
-  decodeButton, escapeMarkdown, extractMarkdownText, parseArkElement, parseCustomElement, splitDataImages,
+  decodeButton, escapeMarkdown, extractMarkdownText, parseArkElement, parseCardElement, parseCustomElement, splitDataImages,
 } from '@/plugin/internal/protocol/qq-official/elements'
 
 describe('platform elements', () => {
@@ -20,6 +20,42 @@ describe('platform elements', () => {
       action: { type: 1, permission: { type: 2 }, data: 'd', enter: true },
     })
     expect(decodeButton({ type: 'input', text: '输入' }, '')).toMatchObject({ action: { type: 2, data: '输入', enter: true } })
+  })
+
+  it('makes a Satori action button a callback that reports its id', () => {
+    expect(decodeButton({ type: 'action', id: 'vote' }, '投票')).toEqual({
+      id: 'vote',
+      render_data: { label: '投票', visited_label: '投票', style: 1 },
+      action: { type: 1, permission: { type: 2 }, data: 'vote', enter: true },
+    })
+  })
+
+  it('makes a card the text and image template with a picture, a list of one without', () => {
+    expect(parseCardElement(h('card', { title: 'T', url: 'https://e.com/x', desc: 'D', image: 'https://e.com/i.png', prompt: 'P' }))).toEqual({
+      msg_type: 3,
+      content: ' ',
+      ark: {
+        template_id: 24,
+        kv: [
+          { key: '#DESC#', value: 'D' },
+          { key: '#PROMPT#', value: 'P' },
+          { key: '#TITLE#', value: 'T' },
+          { key: '#METADESC#', value: 'D' },
+          { key: '#IMG#', value: 'https://e.com/i.png' },
+          { key: '#LINK#', value: 'https://e.com/x' },
+          { key: '#SUBTITLE#', value: 'e.com' },
+        ],
+      },
+    })
+    expect(parseCardElement(h('card', { title: 'T', url: 'https://e.com/x' }))?.ark).toEqual({
+      template_id: 23,
+      kv: [
+        { key: '#DESC#', value: 'T' },
+        { key: '#PROMPT#', value: 'T' },
+        { key: '#LIST#', obj: [{ obj_kv: [{ key: 'desc', value: 'T' }, { key: 'link', value: 'https://e.com/x' }] }] },
+      ],
+    })
+    expect(parseCardElement(h('card', { title: 'T' }))).toBeUndefined()
   })
 
   it('builds the list (23) and big image (37) ark templates, and takes a whole ark as it is', () => {

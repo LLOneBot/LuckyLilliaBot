@@ -9,6 +9,7 @@ import type { QQOfficialConfig } from '@/common/types'
 import BotsService from '@/universal/bots'
 import * as QQOfficial from '@/plugin/internal/protocol/qq-official'
 import type { QQGuildBot, QQOfficialBot } from '@/plugin/internal/protocol/qq-official'
+import { crossPlatform } from '../crossPlatform'
 
 // The parts of the adapter that follow Koishi adapter-qq-crack: markdown and buttons, the platform's own payloads,
 // group management, guilds, interactions and menus, against a fake REST API and a local gateway
@@ -449,6 +450,95 @@ describe('guilds', () => {
     expect(events[0].event.message).toEqual({ id: 'M5', content: '1:4' })
     expect(events[1].event.channel).toMatchObject({ id: 'CH2', name: '新频道' })
     expect(events[2]).toMatchObject({ userId: 'U10', guildId: 'GU1', platform: 'qqguild' })
+  })
+
+  it('reads and writes QQ faces as <emoji:id>', async () => {
+    await start({ intents: ['PUBLIC_GUILD_MESSAGES'] })
+    const sessions: Session[] = []
+    ctx.on('bot/message', (session) => {
+      sessions.push(session)
+    })
+    push('AT_MESSAGE_CREATE', guildMessage({ content: '<@!B> hi<emoji:4>' }))
+    await vi.waitFor(() => expect(sessions).toHaveLength(1))
+    expect(sessions[0].content).toBe('<at id="APPID"/> hi<face id="4"/>')
+
+    await guild().sendMessage('CH1', [h.text('好的'), h('face', { id: '13', name: '呲牙' })])
+    expect(messages()[0].body).toMatchObject({ content: '好的<emoji:13>' })
+  })
+})
+
+describe('what the official bot sends of the cross-platform elements', () => {
+  const image = 'https://example.com/a.png'
+  const button = (label: string, action: object, id?: string) => ({
+    ...(id ? { id } : {}),
+    render_data: { label, visited_label: label, style: 1 },
+    action,
+  })
+  const expected: Record<string, object[]> = {
+    markdown: [{ msg_type: 2, markdown: { content: '# 标题\n**粗体** 和 [链接](https://example.com)' } }],
+    buttons: [{
+      msg_type: 2,
+      markdown: { content: '选一个' },
+      keyboard: {
+        content: {
+          rows: [{
+            buttons: [
+              button('签到', { type: 2, permission: { type: 2 }, data: '签到', enter: true }),
+              button('每日签到', { type: 2, permission: { type: 2 }, data: '/sign', enter: true }),
+              button('官网', { type: 0, permission: { type: 2 }, data: 'https://example.com' }),
+              button('投票', { type: 1, permission: { type: 2 }, data: 'vote', enter: true }, 'vote'),
+            ],
+          }],
+        },
+      },
+    }],
+    card: [{
+      msg_type: 3,
+      content: ' ',
+      ark: {
+        template_id: 24,
+        kv: [
+          { key: '#DESC#', value: '描述' },
+          { key: '#PROMPT#', value: '标题' },
+          { key: '#TITLE#', value: '标题' },
+          { key: '#METADESC#', value: '描述' },
+          { key: '#IMG#', value: image },
+          { key: '#LINK#', value: 'https://example.com/a' },
+          { key: '#SUBTITLE#', value: 'example.com' },
+        ],
+      },
+    }],
+    // Sending faces is documented for guilds only
+    face: [{ msg_type: 0, content: '好的[呲牙]' }],
+  }
+  const bodies = () => messages().map(({ body: { msg_id: _id, msg_seq: _seq, ...body } }) => body)
+
+  it('says what it sends natively', async () => {
+    await start({ intents: ['GROUP_AND_C2C_EVENT', 'PUBLIC_GUILD_MESSAGES'] })
+    expect(qq().features).toEqual(['message.markdown', 'message.button', 'message.card', 'message.stream'])
+    expect(guild().features).toEqual(['message.markdown', 'message.button', 'message.card', 'message.face'])
+  })
+
+  it('covers every case', () => {
+    expect(Object.keys(expected).sort()).toEqual(Object.keys(crossPlatform(image)).sort())
+  })
+
+  for (const [name, content] of Object.entries(crossPlatform(image))) {
+    it(name, async () => {
+      await start()
+      groupAt('M1', ' x')
+      await settle()
+      await qq().sendMessage('G1', content)
+      expect(bodies()).toEqual(expected[name])
+    })
+  }
+
+  it('sends what it cannot make a card of as the fallback', async () => {
+    await start()
+    groupAt('M1', ' x')
+    await settle()
+    await qq().sendMessage('G1', h('card', { title: '标题', desc: '描述' }))
+    expect(bodies()).toEqual([{ msg_type: 0, content: '标题\n描述' }])
   })
 })
 

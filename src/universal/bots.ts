@@ -1,6 +1,7 @@
 import h from '@satorijs/element'
 import { Context, Service } from 'cordis'
 import type { Bot, Bots, NeutralEvent } from '@luckylillia/plugin-sdk'
+import { applyFallbacks } from './fallback'
 import { Session } from './session'
 
 /**
@@ -54,7 +55,9 @@ class BotsService extends Service implements Bots {
   }
 
   async beforeSend(bot: Bot, channelId: string, content: h[]): Promise<h[]> {
-    return await this.ctx.waterfall('bot/before-send', bot, channelId, content, async () => content)
+    const outgoing = await this.ctx.waterfall('bot/before-send', bot, channelId, content, async () => content)
+    // After the rewrites, which may bring extension elements of their own
+    return await applyFallbacks(this.ctx, bot, channelId, outgoing)
   }
 }
 

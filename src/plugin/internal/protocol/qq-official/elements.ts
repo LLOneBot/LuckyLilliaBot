@@ -75,11 +75,14 @@ export function decodeButton(attrs: Attrs, label: string): Button {
     : isRecord(action.permission) ? action.permission : undefined
   const type = attrs.type ?? action.type
   const link = type === 'link' || type === 0
+  // Satori's action is a callback, as in upstream adapter-qq; crack made it a command like a button with no type
+  const callback = type === 'action'
   const text = typeof attrs.text === 'string' ? attrs.text : undefined
 
   let data = attrs.data ?? action.data
   if (data === undefined || data === null || data === '') {
-    data = link ? (attrs.href ?? '') : (text || label || (typeof attrs.id === 'string' ? attrs.id : ''))
+    const id = typeof attrs.id === 'string' ? attrs.id : ''
+    data = link ? (attrs.href ?? '') : callback ? (id || text || label) : (text || label || id)
   }
   const display = renderData.label || label || text || data
 
@@ -92,7 +95,7 @@ export function decodeButton(attrs: Attrs, label: string): Button {
       style: renderData.style ?? (typeof attrs.style === 'number' ? attrs.style : 1),
     },
     action: {
-      type: typeof type === 'number' ? type : (link ? 0 : 2),
+      type: typeof type === 'number' ? type : (link ? 0 : callback ? 1 : 2),
       permission: (permission as Button['action']['permission']) || { type: 2 },
       data: String(data || ''),
       ...(link ? {} : { enter: true }),
@@ -276,6 +279,47 @@ export function parseCustomElement(element: h): CustomPayload | undefined {
 
 function arkRequest(ark: Ark): CustomRequest {
   return { msg_type: MessageType.Ark, content: ' ', ark }
+}
+
+/**
+ * `<card>` (packages/plugin-sdk CardAttrs): with a picture the text and image template (24), its subtitle the
+ * link's host; without one a list (23) of the description linked. Undefined without a title and a link.
+ */
+export function parseCardElement(element: h): CustomRequest | undefined {
+  if (element.type !== 'card') return
+  const attrs = element.attrs
+  const title = field(attrs, 'title')
+  const url = field(attrs, 'url')
+  if (!title || !url) return
+  const desc = field(attrs, 'desc') || title
+  const prompt = field(attrs, 'prompt') || title
+  const image = field(attrs, 'image')
+  if (!image) {
+    return arkRequest({
+      template_id: 23,
+      kv: [
+        { key: '#DESC#', value: title },
+        { key: '#PROMPT#', value: prompt },
+        { key: '#LIST#', obj: [{ obj_kv: [{ key: 'desc', value: desc }, { key: 'link', value: url }] }] },
+      ],
+    })
+  }
+  let host = title
+  try {
+    host = new URL(url).host || title
+  } catch {}
+  return arkRequest({
+    template_id: 24,
+    kv: [
+      { key: '#DESC#', value: desc },
+      { key: '#PROMPT#', value: prompt },
+      { key: '#TITLE#', value: title },
+      { key: '#METADESC#', value: desc },
+      { key: '#IMG#', value: image },
+      { key: '#LINK#', value: url },
+      { key: '#SUBTITLE#', value: host },
+    ],
+  })
 }
 
 function field(source: Attrs, ...keys: string[]): string | undefined {

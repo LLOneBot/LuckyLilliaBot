@@ -323,10 +323,11 @@ function decodeGuildMessage(host: GuildDecodeHost, data: GuildMessage): SatoriEv
   if (data.message_reference?.message_id) elements.push(h('quote', { id: data.message_reference.message_id }))
   const content = data.content ?? ''
   let last = 0
-  for (const match of content.matchAll(/<@!?(\w+)>/g)) {
+  for (const match of content.matchAll(/<@!?(\w+)>|<emoji:(\d+)>/g)) {
     if (match.index > last) elements.push(h.text(content.slice(last, match.index)))
     last = match.index + match[0].length
-    elements.push(h.at(match[1] === host.guildUserId ? host.selfId : match[1]))
+    if (match[2]) elements.push(h('face', { id: match[2] }))
+    else elements.push(h.at(match[1] === host.guildUserId ? host.selfId : match[1]))
   }
   if (last < content.length) elements.push(h.text(content.slice(last)))
   for (const attachment of data.attachments ?? []) elements.push(decodeAttachment(attachment))
@@ -380,8 +381,9 @@ export function guildUser(host: { names?: UserNames }, user: Partial<User> & { i
   }
 }
 
-// <@openid> and <@all> as documented for GROUP_MESSAGE_CREATE; the qqbot-at forms are what sending uses now
-const MENTION = /<@!?([^>\s]+)>|<qqbot-at-user\s+id="([^"]+)"\s*\/>|<qqbot-at-everyone\s*\/>/g
+// <@openid> and <@all> as documented for GROUP_MESSAGE_CREATE; the qqbot-at forms are what sending uses now. A QQ face
+// comes as <faceType=1,faceId="13",ext="<base64 of {"text":"[呲牙]"}>">, which the platform documents nowhere
+const MENTION = /<@!?([^>\s]+)>|<qqbot-at-user\s+id="([^"]+)"\s*\/>|<qqbot-at-everyone\s*\/>|<faceType=\d+,faceId="(\d+)"(?:,ext="([^"]*)")?>/g
 
 function decodeContent(host: DecodeHost, data: UserMessage): h[] {
   const elements: h[] = []
@@ -395,6 +397,10 @@ function decodeContent(host: DecodeHost, data: UserMessage): h[] {
   for (const match of content.matchAll(MENTION)) {
     if (match.index > last) elements.push(h.text(content.slice(last, match.index)))
     last = match.index + match[0].length
+    if (match[3]) {
+      elements.push(decodeFace(match[3], match[4]))
+      continue
+    }
     const id = match[1] ?? match[2]
     if (!id || id === 'all') {
       elements.push(h('at', { type: 'all' }))
@@ -415,6 +421,16 @@ function decodeContent(host: DecodeHost, data: UserMessage): h[] {
   while (elements.length && elements[0].type === 'text' && !elements[0].attrs.content.trim()) elements.shift()
   for (const attachment of data.attachments ?? []) elements.push(decodeAttachment(attachment))
   return elements
+}
+
+/** The face's name is in `ext`, base64 of `{"text":"[呲牙]"}`; the brackets may be missing. */
+function decodeFace(id: string, ext?: string): h {
+  let name = ''
+  try {
+    const text = ext ? JSON.parse(Buffer.from(ext, 'base64').toString('utf8'))?.text : undefined
+    if (typeof text === 'string') name = text.replace(/^\[(.*)\]$/, '$1').replace(/^\//, '')
+  } catch {}
+  return h('face', name ? { id, name } : { id })
 }
 
 function decodeAttachment(attachment: Attachment): h {

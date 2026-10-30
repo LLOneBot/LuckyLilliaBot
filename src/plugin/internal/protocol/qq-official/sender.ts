@@ -1,7 +1,10 @@
 import h from '@satorijs/element'
 import type { NeutralResource } from '@luckylillia/plugin-sdk'
 import { privateTarget } from './decode'
-import { CustomPayload, decodeButton, escapeMarkdown, extractMarkdownText, parseArkElement, parseCustomElement, splitDataImages } from './elements'
+import { fallback } from '../../../../universal/fallback'
+import {
+  CustomPayload, decodeButton, escapeMarkdown, extractMarkdownText, parseArkElement, parseCardElement, parseCustomElement, splitDataImages,
+} from './elements'
 import { loadMedia, uploadMedia } from './media'
 import { Button, ChannelSendRequest, FileType, MessageType, SendRequest } from './types'
 import type { QQGuildBot, QQOfficialBot } from './bot'
@@ -43,6 +46,8 @@ abstract class Encoder {
   // No element the stream setting has to keep its hands off
   protected plainTextOnly = true
   protected rows: Button[][] = []
+  // Where the line break closing the last paragraph ends; dropped if nothing follows, as the NT encoder does
+  private paragraphEnd = -1
   protected custom?: CustomPayload
   protected quote?: string
   protected passive: PassiveOverride = {}
@@ -87,6 +92,10 @@ abstract class Encoder {
     }
     const ark = parseArkElement(element)
     if (ark) return this.sendCustom({ request: ark })
+    if (type === 'card') {
+      const card = parseCardElement(element)
+      return card ? this.sendCustom({ request: card }) : this.render(fallback(element))
+    }
     const custom = parseCustomElement(element)
     if (custom) return this.sendCustom(custom)
     if (type === 'text') {
@@ -97,6 +106,7 @@ abstract class Encoder {
       if (this.plain && !this.plain.endsWith('\n')) this.appendText('\n')
       await this.render(children)
       if (!this.plain.endsWith('\n')) this.appendText('\n')
+      this.paragraphEnd = this.content.length
     } else if (type === 'at') {
       const mention = this.mention(attrs)
       if (mention) {
@@ -170,7 +180,16 @@ abstract class Encoder {
     return this.rows.filter(row => row.length).map(buttons => ({ buttons }))
   }
 
+  /** Called first thing by flush(). */
+  protected dropParagraphBreak() {
+    if (this.paragraphEnd !== this.content.length || !this.content.endsWith('\n')) return
+    this.content = this.content.slice(0, -1)
+    this.plain = this.plain.replace(/\n$/, '')
+    this.markup = this.markup.replace(/\n$/, '')
+  }
+
   protected resetMessage() {
+    this.paragraphEnd = -1
     this.content = ''
     this.plain = ''
     this.markup = ''
@@ -244,6 +263,7 @@ export class MessageSender extends Encoder {
   }
 
   protected async flush() {
+    this.dropParagraphBreak()
     const rows = this.exportRows()
     if (!this.plain.trim() && !rows.length && !this.file && !this.custom) {
       this.resetMessage()
@@ -297,9 +317,11 @@ export class GuildMessageSender extends Encoder {
   }
 
   protected async visit(element: h) {
-    if (element.type === 'sharp' && element.attrs.id) {
-      this.content += `<#${element.attrs.id}>`
-      this.plain += `<#${element.attrs.id}>`
+    const embedded = element.type === 'sharp' && element.attrs.id ? `<#${element.attrs.id}>`
+      : element.type === 'face' && element.attrs.id ? `<emoji:${element.attrs.id}>` : undefined
+    if (embedded) {
+      this.content += embedded
+      this.plain += embedded
       this.markup += element.toString()
       return
     }
@@ -328,6 +350,7 @@ export class GuildMessageSender extends Encoder {
   }
 
   protected async flush() {
+    this.dropParagraphBreak()
     const rows = this.exportRows()
     if (!this.plain.trim() && !rows.length && !this.file && !this.fileUrl && !this.custom) {
       this.resetMessage()

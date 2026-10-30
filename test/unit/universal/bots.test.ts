@@ -9,6 +9,7 @@ const bot: Bot = {
   selfId: '10000',
   sid: 'test:10000',
   status: 1,
+  features: [],
   sendMessage: async () => [],
 }
 
@@ -99,5 +100,27 @@ describe('BotsService', () => {
 
     ctx.on('bot/before-send', (_bot, channel, content, next) => channel === 'muted' ? [] : next(), { prepend: true })
     expect(await ctx.bots.beforeSend(bot, 'muted', [h.text('hi')])).toEqual([])
+  })
+})
+
+describe('Session.stripped', () => {
+  async function stripped(content: string) {
+    let result: Session['stripped'] | undefined
+    ctx.on('bot/message', (session, next) => {
+      result = session.stripped
+      return next()
+    })
+    await ctx.bots.dispatch(bot, event('message-created', '555', content))
+    return result
+  }
+
+  it('takes a leading quote and @ of the bot off, and the blank after them', async () => {
+    expect(await stripped('<quote id="m0"/> <at id="10000"/>  echo <b>hi</b>')).toEqual({ content: 'echo <b>hi</b>', atSelf: true })
+  })
+
+  it('keeps an @ of someone else, and the message as it is without one', async () => {
+    expect(await stripped('<at id="20000"/> echo')).toEqual({ content: '<at id="20000"/> echo', atSelf: false })
+    expect(await stripped('echo &lt;3')).toEqual({ content: 'echo &lt;3', atSelf: false })
+    expect(await stripped('<at id="10000"/>')).toEqual({ content: '', atSelf: true })
   })
 })

@@ -4,6 +4,7 @@ import type { Bot, NeutralEvent, Session as SessionApi } from '@luckylillia/plug
 
 export class Session implements SessionApi {
   private parsed?: h[]
+  private strippedCache?: { content: string; atSelf: boolean }
 
   constructor(readonly bot: Bot, readonly event: NeutralEvent) {}
 
@@ -49,6 +50,21 @@ export class Session implements SessionApi {
 
   get elements(): h[] {
     return this.parsed ??= h.parse(this.content)
+  }
+
+  get stripped() {
+    if (this.strippedCache) return this.strippedCache
+    const rest = this.elements.slice()
+    const blank = (element: h) => element.type === 'text' && !String(element.attrs.content ?? '').trim()
+    while (rest.length && (rest[0].type === 'quote' || blank(rest[0]))) rest.shift()
+    const atSelf = rest[0]?.type === 'at' && rest[0].attrs.id === this.selfId
+    if (atSelf) rest.shift()
+    if (rest[0]?.type === 'text') {
+      const text = String(rest[0].attrs.content ?? '').trimStart()
+      if (text) rest[0] = h.text(text)
+      else rest.shift()
+    }
+    return this.strippedCache = { content: rest.join(''), atSelf }
   }
 
   send(content: h.Fragment) {

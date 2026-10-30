@@ -71,6 +71,14 @@ describe('decodeDispatch', () => {
     expect(next?.message?.content).toBe('<at id="APPID"/> again')
   })
 
+  it('turns QQ faces into face elements, named by their ext', () => {
+    const ext = (text: string) => Buffer.from(JSON.stringify({ text })).toString('base64')
+    const event = decodeDispatch(host(), dispatch('GROUP_MESSAGE_CREATE', groupMessage({
+      content: `好<faceType=1,faceId="13",ext="${ext('[呲牙]')}">和<faceType=1,faceId="271",ext="${ext('吃瓜')}"><faceType=2,faceId="999">`,
+    })))
+    expect(event?.message?.content).toBe('好<face id="13" name="呲牙"/>和<face id="271" name="吃瓜"/><face id="999"/>')
+  })
+
   it('decodes attachments into media elements', () => {
     const event = decodeDispatch(host(), dispatch('C2C_MESSAGE_CREATE', {
       id: 'ROBOT1.0_c1',
