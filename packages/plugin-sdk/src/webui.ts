@@ -35,9 +35,10 @@ export interface PageOptions {
    */
   order?: number
   /**
-   * A settings page: listed while the plugin is enabled, also when it waits for services or fails. Once it is
-   * disabled the sidebar drops the page, but the plugin card still opens it, under a notice that the settings
-   * take effect once the plugin runs. Other pages only show while the plugin runs.
+   * A settings page: shown whatever state the plugin is in, under a notice saying what keeps it from running, e.g.
+   * the plugin it waits for. Once the plugin is disabled the sidebar drops the page, but the plugin card still opens
+   * it. Any other page is listed while the plugin is enabled too, but the WebUI shows that reason in its place until
+   * the plugin runs.
    */
   settings?: boolean
 }
@@ -185,7 +186,7 @@ export interface ApiOptions {
 export interface WebUIContext {
   /** The package this module belongs to. */
   readonly plugin: { readonly name: string }
-  /** Adds a sidebar page, shown while the plugin runs. */
+  /** Adds a sidebar page, listed while the plugin is enabled; see `PageOptions.settings`. */
   page(options: PageOptions): () => void
   /**
    * Adds a contribution to a slot, the WebUI's or one another plugin declared; it shows while this plugin runs. One
@@ -208,14 +209,18 @@ export interface WebUIContext {
   api<T = any>(path: string, options?: ApiOptions): Promise<T>
   /**
    * fetch() with the WebUI login, for what `api()` does not cover (raw bodies, streams, error bodies). Asks for
-   * the password the way the WebUI does; the response may be an error one.
+   * the password the way the WebUI does when its login refuses the request; any other error response, a 401 or 403
+   * of the route's own included, comes back as it is.
    */
   fetch(path: string, init?: RequestInit): Promise<Response>
   /** The path with the WebUI login in its query: for `<img>`, `<video>`, downloads and the like, which send no headers. */
   authUrl(path: string): string
   /** Address of one of this plugin's pages, for links and `window.open()`; `fullscreen` opens it without the sidebar. */
   pageHref(id: string, options?: { fullscreen?: boolean }): string
-  /** Listens to a server-sent event stream of the bot's API, by event name; returns the unsubscribe function. */
+  /**
+   * Listens to a server-sent event stream of the bot's API, by event name; returns the function closing it, which
+   * unloading the module calls as well.
+   */
   events(path: string, listeners: Record<string, (data: any) => void>): () => void
   /** Defaults to `success`. */
   toast(message: string, type?: 'success' | 'error' | 'warning'): void
@@ -223,7 +228,8 @@ export interface WebUIContext {
 
 /**
  * The module's default export. It may return a cleanup function, run when the module is replaced by a
- * newer version of the plugin. Everything registered through `ctx` is removed then as well.
+ * newer version of the plugin. Everything registered through `ctx` is removed then as well, and when the function
+ * throws: a module's part of the WebUI is there whole or not at all.
  */
 export type WebUIPlugin = (ctx: WebUIContext) => void | (() => void)
 

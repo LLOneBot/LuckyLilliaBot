@@ -214,8 +214,8 @@ QQ 官方机器人（`platform` 是 `qq`，`selfId` 是 AppID，见 [official-qq
 
 | 挂载点 | 注册 | 什么时候出现 |
 |---|---|---|
-| 侧边栏页面 | `ctx.page({ id, title, icon, component, order, header? })`；`header` 是画在页面上方标题区的组件（桌面端，Dashboard 的标题就在那） | 插件运行时 |
-| 侧边栏设置页 | `ctx.page({ ..., settings: true })` | 插件启用时（运行出错也算）；停用后侧边栏不显示，但插件卡片的"配置"仍能打开，顶部提示设置暂不生效 |
+| 侧边栏页面 | `ctx.page({ id, title, icon, component, order, header? })`；`header` 是画在页面上方标题区的组件（桌面端，Dashboard 的标题就在那） | 插件启用时；还没运行（在等依赖、出错）时页面换成原因，告诉用户该去启用或登录什么，`header` 不画 |
+| 侧边栏设置页 | `ctx.page({ ..., settings: true })` | 插件启用时，没运行也照常显示，上方提示原因（在等哪个插件、出错）；停用后侧边栏不显示，但插件卡片的"配置"仍能打开，顶部提示设置暂不生效 |
 | 插槽：WebUI 或别的插件声明、留给插件的位置（见下面"插槽"） | `ctx.slot('dashboard.cards', { id, component, ... })` | 插件运行时 |
 | 自己的界面里留位置给别的插件 | `ctx.declareSlot(name, { title, cardinality })`，在界面里渲染 `<Slot name={name} />` | 声明它的插件运行、那块界面在屏幕上时 |
 | 配置界面，替换自动表单 | `ctx.config(Editor)` | 一直可用，插件停用时也能配置 |
@@ -253,7 +253,7 @@ export default function apply(ctx) {
   - `Slot`：在自己的界面里渲染自己声明的插槽，见下面"插槽"；`useSlotMatches(name)`：keyed 插槽现在有贡献的键
   - `Icon`：按 lucide 名字画 `llbot.icon` 列表里的图标（`<Icon name="trophy" size={16} />`），不打包的插件也能用
 - 内置插件的界面也只用这些（`src/plugin/internal/*/*/client/`，见 [plugin-system.md](plugin-system.md)"内置插件的界面"），可以照着写
-- 组件里用 `usePluginContext()` 拿到同一个 ctx：`ctx.api(path, { method, body })` 带着 WebUI 登录调 Bot 的接口，返回 `{ success, data }` 里的 `data`；`ctx.fetch(path, init)` 是带登录的原始 `fetch()`（上传、二进制、要看错误响应时用）；`ctx.authUrl(path)` 给路径加上登录参数，给 `<img>` / `<video>` / 下载链接这些发不了请求头的地方用；`ctx.events(path, { 事件名: data => {} })` 订阅 SSE；`ctx.toast()`；`ctx.pageHref(id, { fullscreen })` 是本插件某个页面的地址，`fullscreen` 时不带侧边栏和标题（可以 `window.open()` 到新窗口）
+- 组件里用 `usePluginContext()` 拿到同一个 ctx：`ctx.api(path, { method, body })` 带着 WebUI 登录调 Bot 的接口，返回 `{ success, data }` 里的 `data`；`ctx.fetch(path, init)` 是带登录的原始 `fetch()`（上传、二进制、要看错误响应时用）；两者只在 WebUI 的登录本身被拒时才弹密码框，自己的接口回 401 / 403 会原样到你手里；`ctx.authUrl(path)` 给路径加上登录参数，给 `<img>` / `<video>` / 下载链接这些发不了请求头的地方用；`ctx.events(path, { 事件名: data => {} })` 订阅 SSE（返回关闭函数，组件卸载时调它；插件的模块被卸载时还开着的会一起关掉）；`ctx.toast()`；`ctx.pageHref(id, { fullscreen })` 是本插件某个页面的地址，`fullscreen` 时不带侧边栏和标题（可以 `window.open()` 到新窗口）
 - 页面的 tab id 是 `<包名>:<id>`，地址栏 `#<包名>:<id>` 能直接打开
 - `order` 和内置的页面一起排：Dashboard 0、NTQQ 协议 5、OneBot 11 / Satori / Milky / 邮件通知 / QQ 官方机器人 10 ~ 14、日志 20、其他配置 30、插件 40、WebQQ 50、关于 1000；不填是 100。地址栏没有指定页面时打开排第一的
 - 注册了设置页的插件，插件页卡片上的"配置"会跳到这个页面，而不是打开配置弹窗
@@ -281,7 +281,7 @@ export default defineConfig({
 
 **文件服务**：`llbot.webui` 所在的目录（含子目录）整个经 `/plugin-webui/...` 提供，需要 WebUI 登录，用户没批准它的界面时回 403。把前端产物放在单独的目录里，不要和后端代码放在同一层。
 
-**出错**：每个插件组件外面都有错误边界，抛错只影响它自己那一块，可以点"重试"；出错的贡献、页面和配置界面会列在插件页的"界面"和插件卡片上。模块导入失败时，配置弹窗会提示原因并退回自动表单。
+**出错**：每个插件组件外面都有错误边界，抛错只影响它自己那一块，可以点"重试"；出错的贡献、页面和配置界面会列在插件页的"界面"和插件卡片上。模块导入失败时，配置弹窗会提示原因并退回自动表单。默认导出的函数抛错时，它抛错前注册的东西会全部撤掉（和 Bot 端插件的 `apply` 一样，要么都在、要么都不在），插件页的"界面"里显示原因。
 
 **自定义配置界面**：`ctx.config(Editor)` 的组件收到 `{ value, onChange, schema, defaults, errors }`。`value` 是填好默认值的完整配置，改了就调 `onChange`。保存按钮、保存时按 schema 校验、只存改动过的字段，仍由 WebUI 和 Bot 负责；校验不过时，错误按路径（`a.b`，根是 `''`）放进 `errors` 传回来。所以自己画界面时也建议照样导出 `Config`。
 
