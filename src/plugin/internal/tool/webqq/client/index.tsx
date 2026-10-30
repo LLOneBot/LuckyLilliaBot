@@ -1,7 +1,10 @@
+import { lazy } from 'react'
 import { type WebUIPlugin } from '@luckylillia/plugin-sdk/webui'
 import { bindContext } from './context'
 import SettingsSection from './SettingsSection'
-import WebQQEntry from './WebQQEntry'
+
+// The chat client is about a third of the WebUI bundle: fetched when the page first opens
+const WebQQEntry = lazy(() => import('./WebQQEntry'))
 
 export const name = 'builtin:webqq'
 

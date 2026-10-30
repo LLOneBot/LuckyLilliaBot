@@ -11,6 +11,16 @@ installSharedModules()
 registerCorePages()
 startBuiltinClients()
 
+// A page loaded before the bot updated still asks for chunks of the old build, which are gone: load the new build
+// instead of failing, but at most once a minute, so that a chunk failing for any other reason cannot loop
+window.addEventListener('vite:preloadError', (event) => {
+  const last = Number(sessionStorage.getItem('llbot-chunk-reload') ?? 0)
+  if (Date.now() - last < 60_000) return
+  sessionStorage.setItem('llbot-chunk-reload', String(Date.now()))
+  event.preventDefault()
+  window.location.reload()
+})
+
 // Apply the theme class before first paint. Without this the dark background
 // gradient swaps in after hydration and the whole page flashes light.
 // themeStore persists only `mode`, so resolve `auto` against the OS here.
