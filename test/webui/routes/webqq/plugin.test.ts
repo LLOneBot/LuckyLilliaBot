@@ -93,4 +93,12 @@ describe('WebQQ plugin', () => {
     await expect(reader.read()).resolves.toMatchObject({ done: true })
     expect((await request('/api/webqq/events')).status).toBe(404)
   })
+
+  it('says which account its page belongs to', async () => {
+    await ctx.plugin(WebQQ)
+    expect(await (await request('/api/webqq/self')).json()).toEqual({
+      success: true,
+      data: { online: true, uid: 'test-uid', uin: '123456', nick: 'TestBot' },
+    })
+  })
 })

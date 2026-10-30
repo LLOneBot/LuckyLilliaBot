@@ -1,6 +1,6 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
-import { serializeResult } from '../../service/webui/BE/utils'
+import { serializeResult } from './utils'
 
 /** 直接返回 NT API 的原始结构, Map 由 serializeResult 处理 */
 export function createChatsRoutes(ctx: Context): Hono {

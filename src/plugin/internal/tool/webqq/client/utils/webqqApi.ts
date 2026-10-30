@@ -48,8 +48,9 @@ export async function getImageRkey(): Promise<{ private_rkey: string; group_rkey
   return response.data!
 }
 
-export async function getLoginInfo(): Promise<{ uid: string; uin: string; nick: string }> {
-  const response = await apiFetch<{ uid: string; uin: string; nick: string }>('/api/login-info')
+/** The logged-in account, which getSelfUid() / getSelfUin() then give. */
+export async function getLoginInfo(): Promise<{ online: boolean; uid: string; uin: string; nick: string }> {
+  const response = await apiFetch<{ online: boolean; uid: string; uin: string; nick: string }>('/api/webqq/self')
   if (!response.success) {
     throw new Error(response.message || '获取登录信息失败')
   }

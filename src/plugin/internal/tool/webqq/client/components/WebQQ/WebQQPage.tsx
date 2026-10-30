@@ -4,7 +4,7 @@ import ChatWindow from './ChatWindow'
 import GroupMemberPanel from './contact/GroupMemberPanel'
 import GroupFilePanel from './contact/GroupFilePanel'
 import type { ChatSession, FriendItem, GroupItem, RecentChatItem, RawMessage } from '../../types/webqq'
-import { createEventSource, getLoginInfo, getSelfUin, getUserAvatar } from '../../utils/webqqApi'
+import { createEventSource, getSelfUin, getUserAvatar } from '../../utils/webqqApi'
 import { useWebQQStore, resetVisitedChats } from '../../stores/webqqStore'
 import { appendCachedMessage, updateCachedMessageEmojiReaction, markCachedMessageAsRecalled } from '../../utils/messageDb'
 import { showToast } from '../common'
@@ -148,7 +148,6 @@ const WebQQPage: React.FC<{ isFullscreen?: boolean }> = ({ isFullscreen = false 
 
   useEffect(() => {
     resetVisitedChats()
-    getLoginInfo().catch(e => console.error('获取登录信息失败:', e))
     loadContacts()
     loadGroupNotifications()
   }, [loadContacts, loadGroupNotifications])

@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { usePageView, usePluginContext, useSidebar } from '@luckylillia/plugin-sdk/webui'
+import { usePageView, useSidebar } from '@luckylillia/plugin-sdk/webui'
 import WebQQPage from './components/WebQQ/WebQQPage'
 import { hydrateWebQQStore } from './stores/webqqStore'
 import { useSettingsStore } from './stores/settingsStore'
 import { setCurrentUin } from './utils/currentUin'
+import { getLoginInfo } from './utils/webqqApi'
 
 /** The page as the WebUI shows it: scoped to the logged-in account first, as its stores and caches are per account. */
 const WebQQEntry: React.FC = () => {
-  const ctx = usePluginContext()
   const { fullscreen } = usePageView()
   const { setCollapsed } = useSidebar()
   const autoHideSidebar = useSettingsStore(state => state.autoHideSidebarInWebQQ)
@@ -20,7 +20,7 @@ const WebQQEntry: React.FC = () => {
   }, [autoHideSidebar, fullscreen, setCollapsed])
 
   useEffect(() => {
-    ctx.api<{ online: boolean; uin: string }>('/api/login-info')
+    getLoginInfo()
       .then((info) => {
         if (!info.online) throw new Error('NTQQ 账号还没有登录')
         setCurrentUin(info.uin)
@@ -28,7 +28,7 @@ const WebQQEntry: React.FC = () => {
         setUin(info.uin)
       })
       .catch(e => setError(e instanceof Error ? e.message : String(e)))
-  }, [ctx])
+  }, [])
 
   if (error) return <p className="card p-6 text-sm text-red-500">{error}</p>
   if (!uin) return <div className="flex justify-center py-16"><Loader2 size={40} className="animate-spin text-pink-500" /></div>

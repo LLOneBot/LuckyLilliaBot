@@ -1,7 +1,7 @@
 import { Context } from 'cordis'
 import { Dict } from 'cosmokit'
 import { Hono } from 'hono'
-import { serializeResult } from '../../service/webui/BE/utils'
+import { serializeResult } from './utils'
 
 export function createMembersRoutes(ctx: Context): Hono {
   const router = new Hono()
