@@ -1,7 +1,6 @@
 import { Context, Service } from 'cordis'
 import { EmailService, BotInfo } from './service'
 import { EmailConfigManager, EmailSchema, EmailSettings } from './config'
-import { selfInfo } from '@/common/globalVars'
 
 declare module 'cordis' {
   interface Context {
@@ -57,7 +56,7 @@ export class EmailNotificationService extends Service {
     })
 
     this.checkLoginStatus = setInterval(() => {
-      if (wasOffline && selfInfo.online) {
+      if (wasOffline && this.ctx.account.online) {
         this.notificationSent = false
         wasOffline = false
       }
@@ -97,9 +96,9 @@ export class EmailNotificationService extends Service {
     }
 
     const botInfo: BotInfo = {
-      uin: selfInfo.uin,
-      uid: selfInfo.uid,
-      nick: selfInfo.nick,
+      uin: this.ctx.account.uin,
+      uid: this.ctx.account.uid,
+      nick: this.ctx.account.nick,
       timestamp: new Date(),
     }
 

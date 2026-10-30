@@ -1,4 +1,3 @@
-import { selfInfo } from '@/common/globalVars'
 import { BaseAction, Schema } from '../../BaseAction'
 import { ActionName } from '../../types'
 
@@ -21,7 +20,7 @@ export class SendPoke extends BaseAction<Payload, null> {
     if (payload.group_id) {
       result = await this.ctx.ntGroupApi.sendGroupNudge(+payload.group_id, +payload.user_id)
     } else {
-      const isSelf = payload.target_id ? payload.target_id.toString() === selfInfo.uin : false
+      const isSelf = payload.target_id ? payload.target_id.toString() === this.ctx.account.uin : false
       result = await this.ctx.ntFriendApi.sendFriendNudge(+payload.user_id, isSelf)
     }
     if (result.errorCode !== 0) {

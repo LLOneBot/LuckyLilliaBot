@@ -7,7 +7,6 @@ import { SendElement } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/enti
 import { decodeMessage, decodeMessageId, getPeer } from './utils'
 import { ObjectToSnake } from 'ts-case-convert'
 import { uri2local } from '@/common/utils'
-import { selfInfo } from '@/common/globalVars'
 
 interface Author {
   id?: string
@@ -157,8 +156,8 @@ export class MessageEncoder {
       } else {
         ntElems = item
       }
-      const nick = this.stack[0].author.name ?? selfInfo.nick
-      const uin = this.stack[0].author.id ?? selfInfo.uin
+      const nick = this.stack[0].author.name ?? this.ctx.account.nick
+      const uin = this.stack[0].author.id ?? this.ctx.account.uin
       nodes.push({
         senderUin: +uin,
         senderName: nick,

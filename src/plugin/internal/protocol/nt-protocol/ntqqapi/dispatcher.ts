@@ -2,7 +2,6 @@ import type { Context } from 'cordis'
 import { getLogger } from '@/common/logger'
 import { Msg, Notify } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/proto'
 import { ChatType, ElementType, RawMessage, GroupNotificationType, RequestState, GroupMemberRole, MessageStyle } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
-import { selfInfo } from '@/common/globalVars'
 import { parseElements } from './helper/messageParsing'
 import { InferProtoModel } from '@saltify/typeproto'
 import { unzipSync } from 'node:zlib'
@@ -183,7 +182,7 @@ async function handleGroupMemberIncrease(ctx: Context, msg: InferProtoModel<type
   const content = msg.body?.msgContent
   if (!content) return
   const decoded = Notify.GroupMemberChange.decode(content)
-  if (decoded.memberUid === selfInfo.uid && decoded.type === 131) {
+  if (decoded.memberUid === ctx.qqProtocol.selfInfo.uid && decoded.type === 131) {
     ctx.parallel('nt/group-added', {
       groupCode: decoded.groupCode
     })
@@ -218,7 +217,7 @@ function handleGroupJoined(ctx: Context, msg: InferProtoModel<typeof Msg.Message
 
 function handleKickNT(ctx: Context, payload: Buffer) {
   const decoded = Msg.KickNTPush.decode(payload)
-  selfInfo.online = false
+  ctx.qqProtocol.selfInfo.online = false
   ctx.logger.warn(`[Kick] code=${decoded.code} title="${decoded.tipsTitle}" desc="${decoded.tipsDesc}"`)
   ctx.parallel('nt/kicked-offline', {
     tipsDesc: decoded.tipsDesc,
@@ -314,8 +313,8 @@ function handleFriendGrayTip(ctx: Context, msg: InferProtoModel<typeof Msg.Messa
       ctx.parallel('nt/friend-nudge', {
         uin: msg.routingHead.fromUin,
         uid: msg.routingHead.fromUid,
-        isSelfSend: decoded.templParam.get('uin_str1') === selfInfo.uin,
-        isSelfReceive: decoded.templParam.get('uin_str2') === selfInfo.uin,
+        isSelfSend: decoded.templParam.get('uin_str1') === ctx.qqProtocol.selfInfo.uin,
+        isSelfReceive: decoded.templParam.get('uin_str2') === ctx.qqProtocol.selfInfo.uin,
         displayAction: decoded.templParam.get('action_str')!,
         displaySuffix: decoded.templParam.get('suffix_str')!,
         displayActionImgUrl: decoded.templParam.get('action_img_url')!
@@ -362,8 +361,8 @@ async function handleFriendRecall(ctx: Context, content: Buffer) {
     const fromUin = await ctx.ntUserApi.getUinByUid(fromUid)
     const toUin = await ctx.ntUserApi.getUinByUid(toUid)
     // 自己撤回时 server 也会推同一条, fromUid 是自己, peer 就是 toUid
-    const peerUid = fromUid === selfInfo.uid ? toUid : fromUid
-    const peerUin = fromUid === selfInfo.uid ? toUin : fromUin
+    const peerUid = fromUid === ctx.qqProtocol.selfInfo.uid ? toUid : fromUid
+    const peerUin = fromUid === ctx.qqProtocol.selfInfo.uid ? toUin : fromUin
 
     ctx.parallel('nt/message-deleted', {
       chatType: await ctx.ntFriendApi.isFriend(peerUid) ? ChatType.C2C : ChatType.TempC2CFromGroup,
@@ -698,7 +697,7 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
   }]).catch(e => ctx.logger.warn(e))
   if (msgType === MsgType.TempMessage) {
     let peerUid
-    if (routingHead.fromUid === selfInfo.uid && routingHead.toUid) {
+    if (routingHead.fromUid === ctx.qqProtocol.selfInfo.uid && routingHead.toUid) {
       peerUid = routingHead.toUid
     } else {
       peerUid = routingHead.fromUid
@@ -718,7 +717,7 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
         const receiverUin = params.get('receiveruin')
         const senderUin = params.get('senderuin')
         const msgFromUin = msg.routingHead.fromUin.toString()
-        if (receiverUin === selfInfo.uin && senderUin === msgFromUin) {
+        if (receiverUin === ctx.qqProtocol.selfInfo.uin && senderUin === msgFromUin) {
           const groupCode = params.get('groupcode')!
           const seq = params.get('msgseq')!
           ctx.parallel('nt/group-invitation', {
@@ -755,13 +754,13 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
       }
     }).catch(e => ctx.logger.warn(e))
   }
-  const rawMessage = convertToRawMessage(msg, payload.toString('hex'))
+  const rawMessage = convertToRawMessage(msg, payload.toString('hex'), ctx.qqProtocol.selfInfo.uid)
   if (!rawMessage) return
   {
     const elemSummary = rawMessage.elements.map(e => `type=${e.elementType}` + (e.fileElement ? ` file=${e.fileElement.fileName}` : '') + (e.textElement ? ` text="${e.textElement.content?.slice(0, 30)}"` : '')).join(', ')
     logger.debug(`convertedRawMsg msgId=${rawMessage.msgId} chatType=${rawMessage.chatType} peerUin=${rawMessage.peerUin} senderUin=${rawMessage.senderUin} elementsLen=${rawMessage.elements.length} [${elemSummary}]`)
   }
-  const isSelfMsg = rawMessage.senderUin === +selfInfo.uin
+  const isSelfMsg = rawMessage.senderUin === +ctx.qqProtocol.selfInfo.uin
   if (isSelfMsg) {
     logger.debug(`emit nt/message-sent msgId=${rawMessage.msgId}`)
     ctx.parallel('nt/message-sent', { message: rawMessage })
@@ -771,7 +770,8 @@ function handleChatMessage(ctx: Context, msg: InferProtoModel<typeof Msg.Message
 }
 
 /** OlPush 推送和拉历史共用 */
-export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, rawPb: string): RawMessage | null {
+/** `selfUid`: the logged-in account's, whose own messages name the peer in `toUid`. */
+export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, rawPb: string, selfUid: string): RawMessage | null {
   const routingHead = msg.routingHead
   const contentHead = msg.contentHead
   const body = msg.body
@@ -801,7 +801,7 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, ra
   } else if (msgType === MsgType.TempMessage) {
     chatType = ChatType.TempC2CFromGroup
     // 自己发的消息回声里 fromUid 是自己, peer 取 toUid
-    if (routingHead.fromUid === selfInfo.uid && routingHead.toUid) {
+    if (routingHead.fromUid === selfUid && routingHead.toUid) {
       peerUin = routingHead.toUin
       peerUid = routingHead.toUid
     } else {
@@ -812,7 +812,7 @@ export function convertToRawMessage(msg: InferProtoModel<typeof Msg.Message>, ra
     sendNickName = routingHead.c2c.name // 似乎只在合并转发中存在
   } else {
     chatType = ChatType.C2C
-    if (routingHead.fromUid === selfInfo.uid && routingHead.toUid) {
+    if (routingHead.fromUid === selfUid && routingHead.toUid) {
       peerUin = routingHead.toUin
       peerUid = routingHead.toUid
     } else {

@@ -7,7 +7,7 @@ import { unlink, writeFile, mkdir } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { TEMP_DIR, selfInfo } from '@/common/globalVars'
+import { TEMP_DIR } from '@/common/globalVars'
 import { Hono } from 'hono'
 
 // 发消息一律走 ctx.app.sendMessage, 别直接调 ntMsgApi.sendMsg: C2C 没有回声, 只有它会补发 nt/message-sent,
@@ -444,7 +444,7 @@ export function createMessagesRoutes(ctx: Context, createPicElement: (imagePath:
       if (!peerUid || !fileId) {
         return c.json({ success: false, message: '缺少必要参数' }, 400)
       }
-      const receiverUid = isSelfSend === 'true' ? peerUid : selfInfo.uid
+      const receiverUid = isSelfSend === 'true' ? peerUid : ctx.account.uid
       const res = await ctx.ntFileApi.getFileUrl(fileId, false, receiverUid)
       if (res.retCode !== 0) {
         return c.json({ success: false, message: res.retMsg || '获取下载链接失败' }, 500)

@@ -2,7 +2,6 @@ import { MilkyEventTypes } from '@/plugin/internal/adapter/milky/common/event'
 import { RawMessage, GroupJoinRequestEvent, GroupInvitedJoinRequestEvent, GroupInvitationEvent, MessageDeletedEvent, GroupMemberAddedEvent, GroupMemberRemovedEvent, FriendRequestEvent, FriendNudgeEvent, GroupNudgeEvent, GroupNameChangedEvent, GroupMuteEvent, GroupWholeMuteEvent, GroupAdminChangedEvent, PinChangedEvent, ChatType, GroupMessageReactionEvent, GroupEssenceMessageChangedEvent, KickedOfflineEvent, GroupDisbandEvent } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 import { transformIncomingPrivateMessage, transformIncomingGroupMessage, transformIncomingTempMessage } from './message/incoming'
 import { Context } from 'cordis'
-import { selfInfo } from '@/common/globalVars'
 import { Event } from '../generated/schema'
 
 export async function transformPrivateMessageCreated(
@@ -418,7 +417,7 @@ export async function transformPrivateMessageEvent(
             file_name: element.fileElement.fileName,
             file_size: +element.fileElement.fileSize,
             file_hash: element.fileElement.fileMd5 ?? '',
-            is_self: message.senderUin === +selfInfo.uin
+            is_self: message.senderUin === +ctx.account.uin
           } satisfies MilkyEventTypes['friend_file_upload']
         }
       }

@@ -1,6 +1,5 @@
 import { Action, Msg, Oidb } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/proto'
 import { Cmd } from '../direct-lib/cmd'
-import { selfInfo } from '@/common/globalVars'
 import { randomBytes } from 'node:crypto'
 import { gunzipSync, gzipSync } from 'node:zlib'
 import { InferProtoModelInput } from '@saltify/typeproto'
@@ -15,7 +14,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
       const data = Action.SendLongMsgReq.encode({
         info: {
           type: isGroup ? 3 : 1,
-          peer: { uid: isGroup ? peerUid : selfInfo.uid },
+          peer: { uid: isGroup ? peerUid : this.selfInfo.uid },
           groupCode: isGroup ? +peerUid : 0,
           payload: gzipSync(transmit),
         },
@@ -28,7 +27,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
     async getMultiMsg(resId: string) {
       const data = Action.RecvLongMsgReq.encode({
         info: {
-          peer: { uid: selfInfo.uid },
+          peer: { uid: this.selfInfo.uid },
           resId,
           acquire: true,
         },
@@ -42,7 +41,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
 
     async pullPics(word: string) {
       const data = Action.PullPicsReq.encode({
-        uin: +selfInfo.uin,
+        uin: +this.selfInfo.uin,
         field3: 1,
         word,
         word2: word,
@@ -175,7 +174,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
     async listFavEmojis() {
       const data = Msg.FaceroamOpReq.encode({
         comm: { imPlat: getActiveProfile().imPlat, osVersion: DeviceInfo.osVer, qVersion: AppInfo.currentVersion },
-        selfUin: BigInt(selfInfo.uin),
+        selfUin: BigInt(this.selfInfo.uin),
         subCmd: 1,
         field6: 1,
       })
@@ -187,7 +186,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
     async deleteFavEmojis(emojiIds: string[]) {
       const data = Msg.FaceroamOpReq.encode({
         comm: { imPlat: getActiveProfile().imPlat, osVersion: DeviceInfo.osVer },
-        selfUin: BigInt(selfInfo.uin),
+        selfUin: BigInt(this.selfInfo.uin),
         subCmd: 2,
         deleteList: emojiIds.map(id => ({ emojiId: id })),
       })
@@ -202,7 +201,7 @@ export function MessageMixin<T extends abstract new (...args: any[]) => QQProtoc
         field2: 1,
         body: {
           field1: 0,
-          uin: BigInt(selfInfo.uin),
+          uin: BigInt(this.selfInfo.uin),
           field3: 0,
           md5: opts.md5,
           fileSize: opts.fileSize,

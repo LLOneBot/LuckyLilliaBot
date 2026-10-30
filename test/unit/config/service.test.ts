@@ -6,7 +6,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import defaultConfigFile from '@/main/config/default_config.json'
 
 const DATA_DIR = mkdtempSync(path.join(tmpdir(), 'llbot-config-'))
-const UIN = '123456'
 // No --instance in the test argv: the default instance
 const settingsFile = path.join(DATA_DIR, 'instances', 'default', 'settings.json')
 
@@ -17,7 +16,6 @@ vi.mock('@/common/globalVars', () => ({
   LOG_DIR: path.join(DATA_DIR, 'logs'),
   dbDir: path.join(DATA_DIR, 'database'),
   STATE_DIR: path.join(DATA_DIR, 'state'),
-  selfInfo: { uid: 'u', uin: UIN, nick: 'n', online: true },
   getFixedDataDir: () => DATA_DIR,
 }))
 
@@ -40,8 +38,6 @@ async function boot() {
   ctx.config.get() // creates the file from the template for a new instance
   return ctx.config
 }
-
-const { selfInfo } = await import('@/common/globalVars')
 
 beforeEach(() => {
   delete process.env.LLBOT_WEBUI_PORT
@@ -90,13 +86,10 @@ describe('the instance settings file', () => {
   it('stays the same whichever account logs in', async () => {
     const config = await boot()
     config.patch({ webui: { port: 4100 } })
-    selfInfo.uin = '777'
-    try {
-      expect(config.get(false).webui.port).toBe(4100)
-      expect(config.file).toBe(settingsFile)
-    } finally {
-      selfInfo.uin = UIN
-    }
+    // The settings are the instance's: another account logging in changes nothing
+    ctx.provide('account', { uin: '777', uid: 'u_777', nick: 'other', online: true })
+    expect(config.get(false).webui.port).toBe(4100)
+    expect(config.file).toBe(settingsFile)
   })
 
   it('starts a new instance from default_config.json, minus the adapters, which have their plugin entries', async () => {

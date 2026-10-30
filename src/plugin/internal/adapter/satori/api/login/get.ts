@@ -1,6 +1,5 @@
 import { Login, Status, Methods } from '@satorijs/protocol'
 import { decodeUser } from '@/plugin/internal/service/ntqq-universal/utils'
-import { selfInfo } from '@/common/globalVars'
 import { Handler } from '..'
 import { handlers } from '..'
 
@@ -15,10 +14,10 @@ export const getLogin: Handler<Login> = async (ctx) => {
   await ctx.ntUserApi.getSelfNick()
   return {
     sn: ctx.get('satori')!._loginSeq,
-    user: decodeUser(selfInfo),
+    user: decodeUser(ctx.account),
     adapter: 'llonebot',
     platform: 'llonebot',
-    status: selfInfo.online ? Status.ONLINE : Status.OFFLINE,
+    status: ctx.account.online ? Status.ONLINE : Status.OFFLINE,
     features,
     proxy_urls: []
   }

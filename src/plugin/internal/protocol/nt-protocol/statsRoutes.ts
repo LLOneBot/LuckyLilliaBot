@@ -1,6 +1,5 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
-import { selfInfo } from '@/common/globalVars'
 import { getProtocol, isPmhqMode } from '@/common/utils/environment'
 
 /**
@@ -32,9 +31,9 @@ export function createNTStatsRoutes(ctx: Context): Hono {
       return c.json({
         success: true,
         data: {
-          online: selfInfo.online,
-          uin: selfInfo.uin,
-          nick: selfInfo.nick,
+          online: ctx.qqProtocol.selfInfo.online,
+          uin: ctx.qqProtocol.selfInfo.uin,
+          nick: ctx.qqProtocol.selfInfo.nick,
           ...account,
           mode,
           // --protocol 只对直连有意义

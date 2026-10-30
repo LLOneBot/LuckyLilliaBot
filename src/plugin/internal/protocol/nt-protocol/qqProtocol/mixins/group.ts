@@ -1,6 +1,5 @@
 import { Action, Oidb } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/proto'
 import { Cmd } from '../direct-lib/cmd'
-import { selfInfo } from '@/common/globalVars'
 import { getProtocol } from '@/common/utils/environment'
 import type { QQProtocolBase } from '../base'
 import { randomInt } from 'node:crypto'
@@ -31,7 +30,7 @@ export function GroupMixin<T extends abstract new (...args: any[]) => QQProtocol
     async groupClockIn(groupCode: string) {
       const body = Oidb.GroupClockInReq.encode({
         body: {
-          uin: selfInfo.uin,
+          uin: this.selfInfo.uin,
           groupCode,
         },
       })

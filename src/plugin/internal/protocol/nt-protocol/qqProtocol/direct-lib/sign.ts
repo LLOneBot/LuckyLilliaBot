@@ -11,7 +11,7 @@ import {
 } from './sign-proxy'
 
 const logger = getLogger('sign')
-import { authTokenStatus } from '@/common/globalVars'
+import { authTokenStatus } from './authTokenStatus'
 
 export interface SignResult {
   sign: Buffer

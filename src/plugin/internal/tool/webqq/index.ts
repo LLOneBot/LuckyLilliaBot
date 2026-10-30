@@ -12,7 +12,7 @@ import { Hono } from 'hono'
 import { SSEStreamingApi, streamSSE } from 'hono/streaming'
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
-import { selfInfo, TEMP_DIR } from '@/common/globalVars'
+import { TEMP_DIR } from '@/common/globalVars'
 import { SendElement } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/entities'
 import { SendPicElement } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 
@@ -38,7 +38,7 @@ export function createWebQQRoutes(ctx: Context, options: WebQQRoutesOptions): Ho
   // The account the page scopes its stores and caches to
   router.get('/self', c => c.json({
     success: true,
-    data: { online: selfInfo.online, uid: selfInfo.uid, uin: selfInfo.uin, nick: selfInfo.nick },
+    data: { online: ctx.account.online, uid: ctx.account.uid, uin: ctx.account.uin, nick: ctx.account.nick },
   }))
 
   router.get('/events', async (c) => {

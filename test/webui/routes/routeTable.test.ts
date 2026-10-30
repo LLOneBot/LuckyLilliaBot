@@ -18,8 +18,6 @@ vi.mock('@/common/globalVars', async () => {
     TEMP_DIR: path.join(dir, 'temp'),
     LOG_DIR: path.join(dir, 'logs'),
     dbDir: path.join(dir, 'database'),
-    selfInfo: { uid: 'test-uid', uin: '123456', nick: 'TestBot', online: true },
-    authTokenStatus: { hasToken: false, validation: 'idle', message: '', loginError: '' },
     getFixedDataDir: () => dir,
   }
 })

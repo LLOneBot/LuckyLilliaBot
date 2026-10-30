@@ -3,7 +3,6 @@ import { createHash } from 'node:crypto'
 import { FileCache } from '@/common/types'
 import { Context, Service } from 'cordis'
 import { noop } from 'cosmokit'
-import { selfInfo } from '@/common/globalVars'
 
 declare module 'cordis' {
   interface Context {
@@ -129,7 +128,7 @@ class Store extends Service {
     chatType: ChatType
   }): string {
     if (meta.chatType === ChatType.C2C || meta.chatType === ChatType.TempC2CFromGroup) {
-      const me = selfInfo.uid
+      const me = this.ctx.account.uid
       const other = meta.senderUid === me ? meta.peerUid : meta.senderUid
       const pair = me < other ? `${me}|${other}` : `${other}|${me}`
       return `${meta.chatType}-${pair}-${meta.msgRandom}`

@@ -1,9 +1,8 @@
 import { Context } from 'cordis'
-import { selfInfo } from '@/common/globalVars'
 import { ChatType, ElementType, RawMessage } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 
 export async function logSummaryMessage(ctx: Context, message: RawMessage) {
-  const direction = message.senderUid == selfInfo.uid ? '发' : '收'
+  const direction = message.senderUid == ctx.qqProtocol.selfInfo.uid ? '发' : '收'
   let sender = message.sendMemberName || message.sendNickName
   const senderUin = message.senderUin
   let summary = ''

@@ -7,7 +7,6 @@ import { OB11Response } from '../action/OB11Response'
 import { ActionName } from '../action/types'
 import { LifeCycleSubType, OB11LifeCycleEvent } from '../event/meta/OB11LifeCycleEvent'
 import { OB11HeartbeatEvent } from '../event/meta/OB11HeartbeatEvent'
-import { selfInfo } from '@/common/globalVars'
 import { OB11BaseEvent } from '../event/OB11BaseEvent'
 import { version } from '../../../../../version'
 import { WsConnectConfig, WsReverseConnectConfig } from '@/common/types'
@@ -173,6 +172,7 @@ class OB11WebSocket {
   }
 
   public async emitEvent(event: OB11BaseEvent) {
+    event.self_id = +this.ctx.account.uin
     if (!matchEventFilter(this.config.filter, event)) return
     if (!this.activated) return
     this.wsClients.forEach(({ socket, emitEvent }) => {
@@ -216,6 +216,7 @@ class OB11WebSocket {
     if (socket.readyState !== WebSocket.OPEN) {
       return
     }
+    if ('post_type' in data) data.self_id = +this.ctx.account.uin
     socket.send(JSON.stringify(data))
     if ('post_type' in data) {
       this.ctx.logger.info('WebSocket 事件上报', data.post_type)
@@ -282,7 +283,7 @@ class OB11WebSocket {
       }
 
       disposeHeartBeat = this.ctx.interval(() => {
-        const event = new OB11HeartbeatEvent(selfInfo.online!, true, this.config.heartInterval)
+        const event = new OB11HeartbeatEvent(this.ctx.account.online, true, this.config.heartInterval)
         this.reply(socket, event)
       }, this.config.heartInterval)
     }
@@ -335,6 +336,7 @@ class OB11WebSocketReverse {
   }
 
   public async emitEvent(event: OB11BaseEvent) {
+    event.self_id = +this.ctx.account.uin
     if (!matchEventFilter(this.config.filter, event)) return
     if (!this.activated) return
     if (this.wsClient && this.wsClient.readyState === WebSocket.OPEN) {
@@ -376,6 +378,7 @@ class OB11WebSocketReverse {
     if (socket.readyState !== WebSocket.OPEN) {
       return
     }
+    if ('post_type' in data) data.self_id = +this.ctx.account.uin
     socket.send(JSON.stringify(data))
     if ('post_type' in data) {
       this.ctx.logger.info('WebSocket 事件上报', socket.url ?? '', data.post_type)
@@ -412,7 +415,7 @@ class OB11WebSocketReverse {
       handshakeTimeout: 2000,
       perMessageDeflate: false,
       headers: {
-        'X-Self-ID': selfInfo.uin,
+        'X-Self-ID': this.ctx.account.uin,
         'Authorization': `Bearer ${this.config.token}`,
         'x-client-role': 'Universal', // koishi-adapter-onebot 需要这个字段
         'User-Agent': `LLOneBot/${version}`,
@@ -441,7 +444,7 @@ class OB11WebSocketReverse {
 
     const disposeHeartBeat = this.ctx.interval(() => {
       if (this.wsClient) {
-        const event = new OB11HeartbeatEvent(selfInfo.online!, true, this.config.heartInterval)
+        const event = new OB11HeartbeatEvent(this.ctx.account.online, true, this.config.heartInterval)
         this.reply(this.wsClient, event)
       }
     }, this.config.heartInterval)

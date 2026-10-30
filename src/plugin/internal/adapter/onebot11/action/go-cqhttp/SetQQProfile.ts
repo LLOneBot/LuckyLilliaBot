@@ -1,6 +1,5 @@
 import { BaseAction, Schema } from '../BaseAction'
 import { ActionName } from '../types'
-import { selfInfo } from '@/common/globalVars'
 
 interface Payload {
   nickname?: string

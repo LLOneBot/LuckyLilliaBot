@@ -1,6 +1,5 @@
 import { Action, Oidb } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/proto'
 import { Cmd } from '../direct-lib/cmd'
-import { selfInfo } from '@/common/globalVars'
 import type { QQProtocolBase } from '../base'
 
 export function FriendMixin<T extends abstract new (...args: any[]) => QQProtocolBase>(Base: T) {

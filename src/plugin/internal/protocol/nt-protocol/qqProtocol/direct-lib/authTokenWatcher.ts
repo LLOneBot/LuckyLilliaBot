@@ -1,7 +1,7 @@
 import { unwatchFile, watchFile } from 'node:fs'
 import { authTokenUtil } from '../../../../../../main/config'
 import { validateAuthToken } from './sign'
-import { authTokenStatus, selfInfo } from '@/common/globalVars'
+import { authTokenStatus } from './authTokenStatus'
 import { getAuthTokenPageUrl } from '@/common/utils/environment'
 
 // data/auth_token.txt 变化时校验, 通过则登录; WebUI 只写文件, 写完调 triggerAuthTokenCheck。
@@ -23,14 +23,16 @@ let lastValidToken = ''
 let warnedNoToken = false
 let retryTimer: NodeJS.Timeout | null = null
 let onValidCb: OnValid = () => { }
+let isOnline = () => false
 let log: WatcherLogger = console
 const RETRY_MS = 15_000
 const POLL_MS = 1_000
 
-export function startAuthTokenWatcher(onValid: OnValid, logger: WatcherLogger): void {
+export function startAuthTokenWatcher(onValid: OnValid, logger: WatcherLogger, online: () => boolean): void {
   if (started) return
   started = true
   onValidCb = onValid
+  isOnline = online
   log = logger
   const file = authTokenUtil.getPath()
   void processTokenFile()
@@ -143,7 +145,7 @@ function scheduleRetry(): void {
   clearRetry()
   retryTimer = setTimeout(() => {
     retryTimer = null
-    if (started && !selfInfo.online) void processTokenFile()
+    if (started && !isOnline()) void processTokenFile()
   }, RETRY_MS)
 }
 

@@ -17,7 +17,6 @@ import { EventType } from './event/OB11BaseEvent'
 import { OB11GroupUploadNoticeEvent } from './event/notice/OB11GroupUploadNoticeEvent'
 import { OB11GroupNoticeEvent } from './event/notice/OB11GroupNoticeEvent'
 import { Context } from 'cordis'
-import { selfInfo } from '@/common/globalVars'
 import { ParseMessageConfig } from './types'
 import { transformIncomingSegments } from './transform/message'
 
@@ -27,7 +26,7 @@ export namespace OB11Entities {
     msg: RawMessage,
     config?: ParseMessageConfig
   ): Promise<OB11Message> {
-    const selfUin = +selfInfo.uin
+    const selfUin = +ctx.account.uin
     const msgShortId = ctx.store.createMsgShortId(msg)
     const { segments, cqCode } = await transformIncomingSegments(ctx, msg)
     const resMsg: OB11Message = {

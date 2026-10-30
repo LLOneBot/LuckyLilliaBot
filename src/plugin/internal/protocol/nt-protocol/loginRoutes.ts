@@ -73,7 +73,7 @@ export const NTLoginRoutes = {
   apply(ctx: Context) {
     const app = new Hono()
       .route('/api', createLoginRoutes(ctx))
-      .route('/api', createAuthTokenRoutes())
+      .route('/api', createAuthTokenRoutes(ctx))
     for (const prefix of ['/api/login-qrcode', '/api/quick-login-list', '/api/quick-login', '/api/logout', '/api/auth-token']) {
       ctx.webuiServer.route(prefix, app)
     }

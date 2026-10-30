@@ -14,7 +14,9 @@ function stub(name: string, methods: Record<string, unknown> = {}) {
   }
 }
 
-// selfInfo.uin is 123456 in test/unit/setup.ts
+// The logged-in account, as ctx.account has it
+const ACCOUNT = { uin: '123456', uid: 'test-uid', nick: 'TestBot', online: true }
+
 function rawMessage(senderUin: number, content: string) {
   return {
     msgId: '7001',
@@ -40,9 +42,10 @@ beforeEach(async () => {
   ctx = new Context()
   dispatched = []
   await ctx.plugin(BotsService)
-  for (const name of ['account', 'ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntGroupApi', 'ntUserApi', 'ntWebApi', 'app']) {
+  for (const name of ['ntMsgApi', 'ntFileApi', 'ntFriendApi', 'ntGroupApi', 'ntUserApi', 'ntWebApi', 'app']) {
     await ctx.plugin(stub(name))
   }
+  await ctx.plugin(stub('account', ACCOUNT))
   await ctx.plugin(stub('store', { getMsgBySeq: () => undefined }))
   await ctx.plugin(NTQQUniversal)
   await ctx.plugin(SatoriAdapter, { enable: false, host: '127.0.0.1', port: 0, token: '' })

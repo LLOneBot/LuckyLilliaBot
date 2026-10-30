@@ -1,6 +1,5 @@
 import { ChatType, ElementType, GroupMemberRole, GroupMsgMask, MessageElement, Peer, RawMessage, SendMessageElement } from '../types'
 import { Context, Service } from 'cordis'
-import { selfInfo } from '@/common/globalVars'
 import { Msg } from '../proto'
 import { convertToRawMessage } from '../dispatcher'
 import { createReadStream, promises as fsp } from 'node:fs'
@@ -138,8 +137,8 @@ export class NTMsgApi extends Service {
       // 群是 groupMsgSeq, C2C 是 c2cMsgSeq, 都双端一致; 撤回 C2C 要用它
       msgSeq: ret.sequence,
       msgRandom: ret.random,
-      senderUid: selfInfo.uid,
-      senderUin: +selfInfo.uin,
+      senderUid: this.ctx.qqProtocol.selfInfo.uid,
+      senderUin: +this.ctx.qqProtocol.selfInfo.uin,
       peerUid: peer.peerUid,
       // 群的 peerUid 就是群号, 当 uid 查会得到 0
       peerUin: chatType === ChatType.Group
@@ -179,7 +178,7 @@ export class NTMsgApi extends Service {
     return {
       retcode,
       errorMsg,
-      msgList: filterNullable(messages.map(e => convertToRawMessage(Msg.Message.decode(e), this.rawPbHex(e))))
+      msgList: filterNullable(messages.map(e => convertToRawMessage(Msg.Message.decode(e), this.rawPbHex(e), this.ctx.qqProtocol.selfInfo.uid)))
     }
   }
 
@@ -202,7 +201,7 @@ export class NTMsgApi extends Service {
     return {
       retcode,
       errorMsg,
-      msgList: filterNullable(messages.map(e => convertToRawMessage(Msg.Message.decode(e), this.rawPbHex(e))))
+      msgList: filterNullable(messages.map(e => convertToRawMessage(Msg.Message.decode(e), this.rawPbHex(e), this.ctx.qqProtocol.selfInfo.uid)))
     }
   }
 
@@ -214,7 +213,7 @@ export class NTMsgApi extends Service {
       queryOrder ? 1 : 2
     )
     return {
-      msgList: filterNullable(res.messages.map(e => convertToRawMessage(Msg.Message.decode(e), this.rawPbHex(e))))
+      msgList: filterNullable(res.messages.map(e => convertToRawMessage(Msg.Message.decode(e), this.rawPbHex(e), this.ctx.qqProtocol.selfInfo.uid)))
     }
   }
 
@@ -226,7 +225,7 @@ export class NTMsgApi extends Service {
     const resp = await this.ctx.qqProtocol.listFavEmojis()
     const ui = resp.userInfo
     const bid = ui.bid || 'qq_expression'
-    const uin = selfInfo.uin
+    const uin = this.ctx.qqProtocol.selfInfo.uin
     // https://p.qpic.cn/{bid}/{uin}/{emoji_id}/0
     const emojiInfoList = ui.fileName.map(emojiId => ({
       emojiId,
@@ -258,7 +257,7 @@ export class NTMsgApi extends Service {
       //server.push(`${uint32ToIPV4Addr(ip)}:${ports[index]}`)
     }
     await new HighwayHttpSession({
-      uin: selfInfo.uin,
+      uin: this.ctx.qqProtocol.selfInfo.uin,
       cmd: 9,
       readable: createReadStream(emojiPath, { highWaterMark: 1024 * 1024 }),
       sum: md5,
@@ -303,7 +302,7 @@ export class NTMsgApi extends Service {
       await this.ctx.qqProtocol.pttTransC2CReq({
         msgUid: BigInt(msgId),
         senderUin,
-        receiverUin: +selfInfo.uin,
+        receiverUin: +this.ctx.qqProtocol.selfInfo.uin,
         voiceMd5Hex: ptt.md5HexStr,
         voiceFileId: ptt.fileUuid,
       })
@@ -339,8 +338,8 @@ export class NTMsgApi extends Service {
       msgTime: ret.timestamp ?? Math.floor(Date.now() / 1000),
       msgSeq: ret.sequence ?? 0,
       msgRandom: ret.random,
-      senderUid: selfInfo.uid,
-      senderUin: +selfInfo.uin,
+      senderUid: this.ctx.qqProtocol.selfInfo.uid,
+      senderUin: +this.ctx.qqProtocol.selfInfo.uin,
       peerUid: opts.toUid,
       peerUin: opts.toUin,
       sendNickName: '',
@@ -397,7 +396,7 @@ export class NTMsgApi extends Service {
   async getForwardedMsgs(resId: string) {
     const { pbItemList } = await this.ctx.qqProtocol.getMultiMsg(resId)
     const top = pbItemList.find((x) => x.fileName === 'MultiMsg') ?? pbItemList[0]
-    return { msgList: filterNullable(top.buffer.msg.map(e => convertToRawMessage(Msg.Message.decode(e), this.rawPbHex(e)))) }
+    return { msgList: filterNullable(top.buffer.msg.map(e => convertToRawMessage(Msg.Message.decode(e), this.rawPbHex(e), this.ctx.qqProtocol.selfInfo.uid))) }
   }
 
   async uploadForwardMsgs(

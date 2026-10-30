@@ -1,5 +1,3 @@
-import { selfInfo } from '@/common/globalVars'
-
 export enum EventType {
   META = 'meta_event',
   REQUEST = 'request',
@@ -11,7 +9,8 @@ export enum EventType {
 export abstract class OB11BaseEvent {
   [index: string]: any
   time = Math.floor(Date.now() / 1000)
-  self_id = +selfInfo.uin
+  /** The account's number, filled in by the connection sending the event (connect/) */
+  self_id = 0
   abstract post_type: EventType
 
   getSummaryEventName() {

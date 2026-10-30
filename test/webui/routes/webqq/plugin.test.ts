@@ -19,16 +19,15 @@ vi.mock('@/common/globalVars', async () => {
     TEMP_DIR: path.join(dir, 'temp'),
     LOG_DIR: path.join(dir, 'logs'),
     dbDir: path.join(dir, 'database'),
-    selfInfo: { uid: 'test-uid', uin: '123456', nick: 'TestBot', online: true },
-    authTokenStatus: { hasToken: false, validation: 'idle', message: '', loginError: '' },
     getFixedDataDir: () => dir,
   }
 })
 
-function stub(name: string) {
+function stub(name: string, fields: Record<string, unknown> = {}) {
   return class extends Service {
     constructor(ctx: Context) {
       super(ctx, name)
+      Object.assign(this, fields)
     }
     // What the WebUI shell reads when `config` is the stubbed service
     get() {
@@ -65,9 +64,10 @@ afterAll(() => {
 
 beforeEach(async () => {
   ctx = new Context()
-  for (const name of ['qqProtocol', 'ntLoginApi', 'config', 'account', 'app', 'store', 'ntMsgApi', 'ntFileApi', 'ntUserApi', 'ntGroupApi', 'ntFriendApi']) {
+  for (const name of ['qqProtocol', 'ntLoginApi', 'config', 'app', 'store', 'ntMsgApi', 'ntFileApi', 'ntUserApi', 'ntGroupApi', 'ntFriendApi']) {
     await ctx.plugin(stub(name))
   }
+  await ctx.plugin(stub('account', { uid: 'test-uid', uin: '123456', nick: 'TestBot', online: true }))
   await ctx.plugin(WebuiServer)
   app = (ctx.webuiServer as unknown as { app: Hono }).app
 })

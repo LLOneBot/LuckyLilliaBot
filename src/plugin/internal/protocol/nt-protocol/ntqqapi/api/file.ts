@@ -6,7 +6,6 @@ import { calculateSha1StreamBytes, getSha1HexFromFile, getMd5HexFromFile } from 
 import { stat as fsStat } from 'node:fs/promises'
 import { randomUUID, createHash } from 'node:crypto'
 import { Service, Context } from 'cordis'
-import { selfInfo } from '@/common/globalVars'
 import { FlashFileListItem, FlashFileSetInfo } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types/flashfile'
 import { HighwayHttpSession } from '../helper/highway'
 import { Media } from '../proto'
@@ -183,17 +182,17 @@ export class NTFileApi extends Service {
       totalSize += st.size
     }
     // uploaderNick 必须是真实昵称: 拿 uin 充数会被 prepFlashFileSet 拒 (errorCode=100200)
-    if (!selfInfo.nick) {
+    if (!this.ctx.qqProtocol.selfInfo.nick) {
       await this.ctx.ntUserApi.getSelfNick(true).catch(() => { })
     }
-    const uploaderNick = selfInfo.nick || 'QQ用户'
+    const uploaderNick = this.ctx.qqProtocol.selfInfo.nick || 'QQ用户'
     const fset = await this.ctx.qqProtocol.createFlashFileSet({
       title,
       totalFileCount: files.length,
       totalFileSize: totalSize,
-      uploaderUin: selfInfo.uin,
+      uploaderUin: this.ctx.qqProtocol.selfInfo.uin,
       uploaderNick,
-      uploaderUid: selfInfo.uid,
+      uploaderUid: this.ctx.qqProtocol.selfInfo.uid,
     })
     const fileSetId = fset.fileSetId
     for (const f of files) {
@@ -363,17 +362,17 @@ export class NTFileApi extends Service {
     if (reusable.length === 0) throw new Error('reshareFlashFile: 源 fileSet 没有可秒传的文件 (0x93e5_4 没返 sha1)')
     const totalSize = reusable.reduce((s, f) => s + (f.fileSize ?? 0), 0)
     // 同 uploadFlashFile, uploaderNick 必须是真实昵称
-    if (!selfInfo.nick) {
+    if (!this.ctx.qqProtocol.selfInfo.nick) {
       await this.ctx.ntUserApi.getSelfNick(true).catch(() => { })
     }
-    const uploaderNick = selfInfo.nick || 'QQ用户'
+    const uploaderNick = this.ctx.qqProtocol.selfInfo.nick || 'QQ用户'
     const fset = await this.ctx.qqProtocol.createFlashFileSet({
       title: sourceInfo?.title ?? reusable[0].name ?? '',
       totalFileCount: reusable.length,
       totalFileSize: totalSize,
-      uploaderUin: selfInfo.uin,
+      uploaderUin: this.ctx.qqProtocol.selfInfo.uin,
       uploaderNick,
-      uploaderUid: selfInfo.uid,
+      uploaderUid: this.ctx.qqProtocol.selfInfo.uid,
     })
     const newFileSetId = fset.fileSetId
     const newFileUuids = reusable.map(() => randomUUID())
@@ -435,7 +434,7 @@ export class NTFileApi extends Service {
       const { index } = result.ext.msgInfoBody[0]
       result.ext.hash.fileSha1 = await calculateSha1StreamBytes(filePath)
       const trans = {
-        uin: selfInfo.uin,
+        uin: this.ctx.qqProtocol.selfInfo.uin,
         cmd: 1005,  // group video main
         readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
@@ -450,7 +449,7 @@ export class NTFileApi extends Service {
       const { index } = result.subExt.msgInfoBody[1]
       result.subExt.hash.fileSha1 = await calculateSha1StreamBytes(thumbPath)
       const trans = {
-        uin: selfInfo.uin,
+        uin: this.ctx.qqProtocol.selfInfo.uin,
         cmd: 1006,  // group video thumb
         readable: createReadStream(thumbPath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
@@ -475,7 +474,7 @@ export class NTFileApi extends Service {
       const { index } = result.ext.msgInfoBody[0]
       result.ext.hash.fileSha1 = await calculateSha1StreamBytes(filePath)
       const trans = {
-        uin: selfInfo.uin,
+        uin: this.ctx.qqProtocol.selfInfo.uin,
         cmd: 1001,  // c2c video main
         readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
@@ -490,7 +489,7 @@ export class NTFileApi extends Service {
       const { index } = result.subExt.msgInfoBody[1]
       result.subExt.hash.fileSha1 = await calculateSha1StreamBytes(thumbPath)
       const trans = {
-        uin: selfInfo.uin,
+        uin: this.ctx.qqProtocol.selfInfo.uin,
         cmd: 1002,  // c2c video thumb
         readable: createReadStream(thumbPath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
@@ -520,7 +519,7 @@ export class NTFileApi extends Service {
         unknown2: 1,
         entry: {
           busiBuff: {
-            senderUin: +selfInfo.uin,
+            senderUin: +this.ctx.qqProtocol.selfInfo.uin,
             receiverUin: groupCode,
             groupCode: groupCode
           },
@@ -554,7 +553,7 @@ export class NTFileApi extends Service {
       })
       const maxBlockSize = 1024 * 1024
       const trans = {
-        uin: selfInfo.uin,
+        uin: this.ctx.qqProtocol.selfInfo.uin,
         cmd: 71,
         readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
         sum: result.md5,
@@ -581,7 +580,7 @@ export class NTFileApi extends Service {
       unknown2: 1,
       entry: {
         busiBuff: {
-          senderUin: +selfInfo.uin
+          senderUin: +this.ctx.qqProtocol.selfInfo.uin
         },
         fileEntry: {
           fileSize: result.fileSize,
@@ -616,7 +615,7 @@ export class NTFileApi extends Service {
     })
     const maxBlockSize = 1024 * 1024
     const trans = {
-      uin: selfInfo.uin,
+      uin: this.ctx.qqProtocol.selfInfo.uin,
       cmd: 95,
       readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
       sum: result.md5CheckSum,
@@ -641,7 +640,7 @@ export class NTFileApi extends Service {
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
       const trans = {
-        uin: selfInfo.uin,
+        uin: this.ctx.qqProtocol.selfInfo.uin,
         cmd: 1004,
         readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
@@ -665,7 +664,7 @@ export class NTFileApi extends Service {
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
       const trans = {
-        uin: selfInfo.uin,
+        uin: this.ctx.qqProtocol.selfInfo.uin,
         cmd: 1003,
         readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
@@ -689,7 +688,7 @@ export class NTFileApi extends Service {
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
       const trans = {
-        uin: selfInfo.uin,
+        uin: this.ctx.qqProtocol.selfInfo.uin,
         cmd: 1008,
         readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),
@@ -710,7 +709,7 @@ export class NTFileApi extends Service {
     if (result.ext.uKey) {
       const { index } = result.ext.msgInfoBody[0]
       const trans = {
-        uin: selfInfo.uin,
+        uin: this.ctx.qqProtocol.selfInfo.uin,
         cmd: 1007,
         readable: createReadStream(filePath, { highWaterMark: maxBlockSize }),
         sum: Buffer.from(index.info.md5HexStr, 'hex'),

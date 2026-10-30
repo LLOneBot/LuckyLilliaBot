@@ -2,7 +2,6 @@ import { Action, Oidb } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/pro
 import { Cmd } from '../direct-lib/cmd'
 import type { QQProtocolBase } from '../base'
 import { Dict, isNonNullable } from 'cosmokit'
-import { selfInfo } from '@/common/globalVars'
 
 export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolBase>(Base: T) {
   abstract class Mixed extends Base {
@@ -160,7 +159,7 @@ export function UserMixin<T extends abstract new (...args: any[]) => QQProtocolB
         numberProperties.push({ key: 20031, value: packed })
       }
       const body = Oidb.ModifySelfProfileReq.encode({
-        selfUin: +selfInfo.uin,
+        selfUin: +this.selfInfo.uin,
         bytesProperties,
         numberProperties,
       })

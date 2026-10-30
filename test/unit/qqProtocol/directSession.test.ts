@@ -1,8 +1,8 @@
 import { EventEmitter } from 'node:events'
 import { Context } from 'cordis'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { authTokenStatus, selfInfo } from '@/common/globalVars'
 import { DirectQQProtocol } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct'
+import { authTokenStatus } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/authTokenStatus'
 import { DirectProtocolClient, type SessionInfo } from '../../../src/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/client'
 import {
   fetchQrCode,
@@ -24,8 +24,6 @@ import { teaEncrypt } from '../../../src/plugin/internal/protocol/nt-protocol/qq
 import { getCurrentLoginState } from '../../../src/plugin/internal/protocol/nt-protocol/llbot-ipc'
 
 vi.mock('@/common/globalVars', () => ({
-  selfInfo: { uin: '123456', uid: 'test-uid', nick: 'TestBot', online: true },
-  authTokenStatus: { loginError: '' },
   TEMP_DIR: '/tmp/test-data/temp',
 }))
 
@@ -94,6 +92,13 @@ vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol/direct-lib/connection
   },
 }))
 
+// The protocol's record of the account as a test starts: the saved session's account, online
+function newProtocol(ctx = new Context()) {
+  const protocol = new DirectQQProtocol(ctx)
+  Object.assign(protocol.selfInfo, { uin: '123456', uid: 'test-uid', nick: 'TestBot', online: true })
+  return protocol
+}
+
 function createSession(): SessionInfo {
   return {
     uin: '123456',
@@ -157,7 +162,6 @@ describe('direct session authentication failures', () => {
     vi.useFakeTimers()
     client = new DirectProtocolClient()
     client.setSession(createSession())
-    selfInfo.online = true
     authTokenStatus.loginError = ''
   })
 
@@ -251,10 +255,10 @@ describe('direct session authentication failures', () => {
 
   it.each([true, false])('exposes a fresh QR login after invalidation (already online: %s)', async (alreadyOnline) => {
     const ctx = new Context()
-    const protocol = new DirectQQProtocol(ctx)
+    const protocol = newProtocol(ctx)
     protocol['directClient'] = client
     protocol['onlineEmitted'] = alreadyOnline
-    selfInfo.online = alreadyOnline
+    protocol.selfInfo.online = alreadyOnline
     protocol['runtimeUinOverride'] = '123456'
     protocol['qrResult'] = { qrcodeUrl: 'stale', pngBase64: '', expireTimeSec: 180, sig: 'stale' }
     protocol['qrFetchedAt'] = Date.now()
@@ -277,7 +281,7 @@ describe('direct session authentication failures', () => {
     client['conn'].emit('packet', responseFrame(0, -10001, '', authMessage))
 
     await rejected
-    expect(selfInfo.online).toBe(false)
+    expect(protocol.selfInfo.online).toBe(false)
     expect(protocol.get_is_connected()).toBe(false)
     expect(authTokenStatus.loginError).toContain(authMessage)
     expect(deleteSession).toHaveBeenCalledExactlyOnceWith('123456')
@@ -293,7 +297,7 @@ describe('direct session authentication failures', () => {
 
     // A late reply must not restore the expired session or report the account online.
     client['conn'].emit('packet', responseFrame(seq))
-    expect(selfInfo.online).toBe(false)
+    expect(protocol.selfInfo.online).toBe(false)
     vi.mocked(fetchQrCode).mockResolvedValue({
       url: 'fresh-qr',
       image: Buffer.alloc(0),
@@ -307,7 +311,7 @@ describe('direct session authentication failures', () => {
 
     // A replacement session can use the same client and report online again.
     client.setSession(createSession())
-    selfInfo.online = true
+    protocol.selfInfo.online = true
     const online = vi.fn()
     ctx.on('qq/online', online)
     protocol['maybeEmitOnline']()
@@ -317,7 +321,7 @@ describe('direct session authentication failures', () => {
 
   it('preserves saved credentials on an ordinary transport close', () => {
     const ctx = new Context()
-    const protocol = new DirectQQProtocol(ctx)
+    const protocol = newProtocol(ctx)
     protocol['directClient'] = client
     protocol['onlineEmitted'] = true
     protocol['bindDirectClientEvents'](client)
@@ -327,13 +331,13 @@ describe('direct session authentication failures', () => {
 
     client['conn'].emit('close')
 
-    expect(selfInfo.online).toBe(false)
+    expect(protocol.selfInfo.online).toBe(false)
     expect(deleteSession).not.toHaveBeenCalled()
     expect(reconnect).toHaveBeenCalledTimes(1)
   })
 
   it.each(['uin', 'login', 'register'] as const)('abandons QR completion invalidated during %s', async (stage) => {
-    const protocol = new DirectQQProtocol(new Context())
+    const protocol = newProtocol()
     protocol['directClient'] = client
     protocol['qrPollToken'] = 1
     protocol['directQrResult'] = {
@@ -343,7 +347,7 @@ describe('direct session authentication failures', () => {
       tgtgtKey: Buffer.alloc(16),
     }
     protocol['directPollResult'] = { state: 0, tgtgtKey: Buffer.alloc(16) }
-    selfInfo.online = false
+    protocol.selfInfo.online = false
     vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
     protocol['bindDirectClientEvents'](client)
     const uin = deferred<number>()
@@ -363,7 +367,7 @@ describe('direct session authentication failures', () => {
     await completion
 
     expect(client.isLoggedIn).toBe(false)
-    expect(selfInfo.online).toBe(false)
+    expect(protocol.selfInfo.online).toBe(false)
     expect(protocol['onlineEmitted']).toBe(false)
     expect(saveSession).not.toHaveBeenCalled()
     expect(startHeartbeat).not.toHaveBeenCalled()
@@ -372,7 +376,7 @@ describe('direct session authentication failures', () => {
   })
 
   it('does not let a late registration failure clear a replacement session', async () => {
-    const protocol = new DirectQQProtocol(new Context())
+    const protocol = newProtocol()
     protocol['directClient'] = client
     protocol['qrPollToken'] = 1
     protocol['directQrResult'] = {
@@ -382,7 +386,7 @@ describe('direct session authentication failures', () => {
       tgtgtKey: Buffer.alloc(16),
     }
     protocol['directPollResult'] = { state: 0, tgtgtKey: Buffer.alloc(16) }
-    selfInfo.online = false
+    protocol.selfInfo.online = false
     vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
     protocol['bindDirectClientEvents'](client)
     vi.mocked(getCorrectUin).mockResolvedValue(123456)
@@ -395,22 +399,22 @@ describe('direct session authentication failures', () => {
     client['conn'].emit('packet', responseFrame(0, -10001, '', authMessage))
     const replacement = createSession()
     client.setSession(replacement)
-    selfInfo.online = true
+    protocol.selfInfo.online = true
     authTokenStatus.loginError = ''
     registration.reject(new Error('Old registration failed'))
     await completion
 
     expect(client.getSession()).toBe(replacement)
-    expect(selfInfo.online).toBe(true)
+    expect(protocol.selfInfo.online).toBe(true)
     expect(authTokenStatus.loginError).toBe('')
     expect(saveSession).not.toHaveBeenCalled()
     expect(startHeartbeat).not.toHaveBeenCalled()
   })
 
   it.each([false, true])('guards saved-session registration after invalidation (late failure: %s)', async (fails) => {
-    const protocol = new DirectQQProtocol(new Context())
+    const protocol = newProtocol()
     protocol['directClient'] = client
-    selfInfo.online = false
+    protocol.selfInfo.online = false
     vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
     protocol['bindDirectClientEvents'](client)
     vi.mocked(updateAuthToken).mockResolvedValue(undefined)
@@ -434,14 +438,14 @@ describe('direct session authentication failures', () => {
     await completion
 
     expect(client.getSession()).toBe(replacement)
-    expect(selfInfo.online).toBe(false)
+    expect(protocol.selfInfo.online).toBe(false)
     expect(startHeartbeat).not.toHaveBeenCalled()
     expect(authTokenStatus.loginError).toContain(authMessage)
   })
 
   it('still saves and announces a current QR login after registration succeeds', async () => {
     const ctx = new Context()
-    const protocol = new DirectQQProtocol(ctx)
+    const protocol = newProtocol(ctx)
     protocol['directClient'] = client
     protocol['qrPollToken'] = 1
     protocol['directQrResult'] = {
@@ -451,7 +455,7 @@ describe('direct session authentication failures', () => {
       tgtgtKey: Buffer.alloc(16),
     }
     protocol['directPollResult'] = { state: 0, tgtgtKey: Buffer.alloc(16) }
-    selfInfo.online = false
+    protocol.selfInfo.online = false
     client.clearSession()
     vi.mocked(pollQrCode).mockResolvedValue(protocol['directPollResult'])
     vi.mocked(getCorrectUin).mockResolvedValue(123456)
@@ -472,11 +476,11 @@ describe('direct session authentication failures', () => {
     expect(saveSession).toHaveBeenCalledTimes(1)
     expect(startHeartbeat).toHaveBeenCalledExactlyOnceWith(client)
     expect(online).toHaveBeenCalledTimes(1)
-    expect(selfInfo.online).toBe(true)
+    expect(protocol.selfInfo.online).toBe(true)
   })
 
   it('cancels QR completion on logout even before a session has been installed', async () => {
-    const protocol = new DirectQQProtocol(new Context())
+    const protocol = newProtocol()
     protocol['directClient'] = client
     protocol['qrPollToken'] = 1
     protocol['directQrResult'] = {
@@ -486,7 +490,7 @@ describe('direct session authentication failures', () => {
       tgtgtKey: Buffer.alloc(16),
     }
     protocol['directPollResult'] = { state: 0, tgtgtKey: Buffer.alloc(16) }
-    selfInfo.online = false
+    protocol.selfInfo.online = false
     client.clearSession()
     vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
     const uin = deferred<number>()
@@ -497,7 +501,7 @@ describe('direct session authentication failures', () => {
     await completion
     expect(loginWithQrResult).not.toHaveBeenCalled()
     expect(saveSession).not.toHaveBeenCalled()
-    expect(selfInfo.online).toBe(false)
+    expect(protocol.selfInfo.online).toBe(false)
   })
 
   it('rejects a superseded login response before it can install credentials', async () => {
@@ -527,7 +531,7 @@ describe('direct session authentication failures', () => {
   })
 
   it('does not delay disconnect callbacks when unauthenticated pushes keep arriving', async () => {
-    const protocol = new DirectQQProtocol(new Context())
+    const protocol = newProtocol()
     protocol['directClient'] = client
     protocol['bindDirectClientEvents'](client)
     vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
@@ -570,10 +574,10 @@ describe('reconnect and QR refresh after dropping offline', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     client = new DirectProtocolClient()
-    protocol = new DirectQQProtocol(new Context())
+    protocol = newProtocol()
     protocol['directClient'] = client
-    // logout() in an earlier test blanks the shared selfInfo; maybeEmitOnline needs uin/uid back.
-    Object.assign(selfInfo, { uin: '123456', uid: 'test-uid', nick: 'TestBot', online: false })
+    // Logged out to start with: these tests bring it online
+    Object.assign(protocol.selfInfo, { uin: '123456', uid: 'test-uid', nick: 'TestBot', online: false })
     qrLoop = vi.spyOn(protocol as unknown as { ensureQrLoop(): void }, 'ensureQrLoop').mockImplementation(() => {})
     vi.mocked(updateAuthToken).mockResolvedValue(undefined)
   })
@@ -661,7 +665,7 @@ describe('reconnect and QR refresh after dropping offline', () => {
     registration.resolve('ok')
     await restore
 
-    expect(selfInfo.online).toBe(true)
+    expect(protocol.selfInfo.online).toBe(true)
     expect(startHeartbeat).toHaveBeenCalledExactlyOnceWith(client)
   })
 
@@ -671,7 +675,7 @@ describe('reconnect and QR refresh after dropping offline', () => {
     vi.mocked(persistedToSessionInfo).mockReturnValue(createSession())
     vi.mocked(registerOnline).mockResolvedValueOnce('ok')
     await protocol.quickLogin('123456')
-    expect(selfInfo.online).toBe(true)
+    expect(protocol.selfInfo.online).toBe(true)
   })
 
   it('tells the WebUI why a quick login did not get online, instead of falling back to QR silently', async () => {
@@ -680,7 +684,7 @@ describe('reconnect and QR refresh after dropping offline', () => {
     vi.mocked(persistedToSessionInfo).mockReturnValue(createSession())
     vi.mocked(registerOnline).mockRejectedValueOnce(new Error('register refused'))
     await expect(protocol.quickLogin('123456')).rejects.toThrow('快速登录失败: register refused')
-    expect(selfInfo.online).toBe(false)
+    expect(protocol.selfInfo.online).toBe(false)
     // The QR code is there to fall back on
     expect(qrLoop).toHaveBeenCalled()
   })
@@ -713,9 +717,9 @@ describe('reconnect and QR refresh after dropping offline', () => {
     for (let i = 0; i < 12; i++) await autoRefresh()
     expect(fetch).toHaveBeenCalledTimes(21)
 
-    selfInfo.online = true
+    protocol.selfInfo.online = true
     protocol['maybeEmitOnline']()
-    selfInfo.online = false
+    protocol.selfInfo.online = false
     await autoRefresh()
     expect(fetch).toHaveBeenCalledTimes(22)
   })

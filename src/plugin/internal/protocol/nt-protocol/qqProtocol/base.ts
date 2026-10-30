@@ -1,4 +1,4 @@
-import { selfInfo, authTokenStatus, TEMP_DIR } from '@/common/globalVars'
+import { TEMP_DIR } from '@/common/globalVars'
 import { randomUUID } from 'node:crypto'
 import { existsSync, mkdirSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
@@ -6,6 +6,8 @@ import path from 'node:path'
 import QRCode from 'qrcode'
 import { Oidb } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/proto'
 import type { PBData, QQResourceUsage } from './types'
+import type { SelfInfo } from '../ntqqapi/types'
+import { authTokenStatus } from './direct-lib/authTokenStatus'
 import { Context, Service } from 'cordis'
 import { setLoginState } from '../llbot-ipc'
 
@@ -39,6 +41,9 @@ export abstract class QQProtocolBase extends Service {
   protected lastConnectedTime: number = Date.now()
   private disconnectCheckTimer: NodeJS.Timeout | undefined
   protected logger
+
+  /** The account this protocol logs in. Other plugins read it through the account service (account.ts). */
+  readonly selfInfo: SelfInfo = { uid: '', uin: '', nick: '', online: false }
 
   protected onlineEmitted: boolean = false
   // Set when the protocol plugin is switched off: every loop and timer checks it before going on
@@ -114,10 +119,10 @@ export abstract class QQProtocolBase extends Service {
     }
     this.disconnectCallbacks.clear()
     this.onlineEmitted = false
-    selfInfo.online = false
-    selfInfo.uin = ''
-    selfInfo.uid = ''
-    selfInfo.nick = ''
+    this.selfInfo.online = false
+    this.selfInfo.uin = ''
+    this.selfInfo.uid = ''
+    this.selfInfo.nick = ''
     this.resetQrState()
     setLoginState({ state: 'initializing', uin: undefined, nickname: undefined, qrcode_png_base64: undefined })
   }
@@ -137,8 +142,8 @@ export abstract class QQProtocolBase extends Service {
 
   protected maybeEmitOnline() {
     if (this.disposed || this.onlineEmitted) return
-    if (!selfInfo.online) return
-    if (!selfInfo.uid && !selfInfo.uin) return
+    if (!this.selfInfo.online) return
+    if (!this.selfInfo.uid && !this.selfInfo.uin) return
     this.onlineEmitted = true
     this.qrAutoRefreshCount = 0
     authTokenStatus.loginError = ''
@@ -154,7 +159,7 @@ export abstract class QQProtocolBase extends Service {
         this.logger.info(`getSelfNick -> ${JSON.stringify(nick)}`)
         if (guardCheck && !guardCheck()) return
         if (nick) {
-          selfInfo.nick = nick
+          this.selfInfo.nick = nick
           ctx.parallel('llbot/self-nick-changed', { nick })
         }
       } catch (e) {
@@ -315,12 +320,12 @@ export abstract class QQProtocolBase extends Service {
 
   /** 每秒一 tick, 拉码节流靠 refreshQrCodeIfStale 的 TTL */
   private qrLoop = async (): Promise<void> => {
-    if (this.disposed || selfInfo.online) { this.qrLoopRunning = false; return }
+    if (this.disposed || this.selfInfo.online) { this.qrLoopRunning = false; return }
     this.qrLoopRunning = true
     if (!this.shouldSkipQrPrint() && !this.qrAutoRefreshExhausted() && !this.qrFetchBackingOff()) {
       await this.printQrToTerminal()
     }
-    if (this.disposed || selfInfo.online) { this.qrLoopRunning = false; return }
+    if (this.disposed || this.selfInfo.online) { this.qrLoopRunning = false; return }
     setTimeout(this.qrLoop, 1000)
   }
 

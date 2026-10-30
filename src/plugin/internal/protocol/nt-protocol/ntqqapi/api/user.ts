@@ -1,6 +1,5 @@
 import { User } from '../types'
 import { Context, Service } from 'cordis'
-import { selfInfo } from '@/common/globalVars'
 import { createReadStream, promises as fsp } from 'node:fs'
 import { getMd5BufferFromFile } from '@/common/utils/file'
 import { HighwayHttpSession } from '../helper/highway'
@@ -24,7 +23,7 @@ export class NTUserApi extends Service {
     const md5 = await getMd5BufferFromFile(filePath)
     const session = await this.ctx.qqProtocol.getHighwaySession()
     const trans = {
-      uin: selfInfo.uin,
+      uin: this.ctx.qqProtocol.selfInfo.uin,
       cmd: 90, // 自己的头像
       readable: createReadStream(filePath, { highWaterMark: 1024 * 1024 }),
       sum: md5,
@@ -42,7 +41,7 @@ export class NTUserApi extends Service {
   }
 
   async getUidByUin(uin: number, groupCode?: number) {
-    if (uin === +selfInfo.uin && selfInfo.uid) return selfInfo.uid
+    if (uin === +this.ctx.qqProtocol.selfInfo.uin && this.ctx.qqProtocol.selfInfo.uid) return this.ctx.qqProtocol.selfInfo.uid
     try {
       const uid = await this.ctx.store.getUidByUin(uin)
       if (uid) return uid
@@ -97,7 +96,7 @@ export class NTUserApi extends Service {
   }
 
   async getUinByUid(uid: string) {
-    if (uid === selfInfo.uid && selfInfo.uin) return +selfInfo.uin
+    if (uid === this.ctx.qqProtocol.selfInfo.uid && this.ctx.qqProtocol.selfInfo.uin) return +this.ctx.qqProtocol.selfInfo.uin
     try {
       const uin = await this.ctx.store.getUinByUid(uid)
       if (uin) return uin
@@ -196,19 +195,19 @@ export class NTUserApi extends Service {
   }
 
   async getSelfNick(refresh = true) {
-    if (!refresh && selfInfo.nick) return selfInfo.nick
+    if (!refresh && this.ctx.qqProtocol.selfInfo.nick) return this.ctx.qqProtocol.selfInfo.nick
     let nick = ''
-    if (selfInfo.uin) {
+    if (this.ctx.qqProtocol.selfInfo.uin) {
       try {
-        nick = (await this.getUserByUin(+selfInfo.uin)).nick
+        nick = (await this.getUserByUin(+this.ctx.qqProtocol.selfInfo.uin)).nick
       } catch (e) {
-        if (!selfInfo.uid) throw e
+        if (!this.ctx.qqProtocol.selfInfo.uid) throw e
       }
     }
-    if (!nick && selfInfo.uid) {
-      nick = (await this.getUserByUid(selfInfo.uid)).nick
+    if (!nick && this.ctx.qqProtocol.selfInfo.uid) {
+      nick = (await this.getUserByUid(this.ctx.qqProtocol.selfInfo.uid)).nick
     }
-    selfInfo.nick = nick
+    this.ctx.qqProtocol.selfInfo.nick = nick
     return nick
   }
 

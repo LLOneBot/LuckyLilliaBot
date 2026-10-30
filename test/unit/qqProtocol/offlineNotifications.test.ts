@@ -1,6 +1,5 @@
 import { Context } from 'cordis'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { selfInfo } from '@/common/globalVars'
 import { EmailNotificationService } from '@/plugin/internal/tool/email-notification'
 import { DEFAULT_EMAIL_CONFIG, EmailConfigManager } from '@/plugin/internal/tool/email-notification/config'
 import { MilkyAdapter } from '@/plugin/internal/adapter/milky/adapter'
@@ -20,9 +19,12 @@ vi.mock('@/plugin/internal/tool/email-notification/service', () => ({
 }))
 
 describe('session expiration notifications', () => {
+  // ctx.account, as the NT protocol provides it
+  const account = { uin: '123456', uid: 'test-uid', nick: 'TestBot', online: true }
+
   beforeEach(() => {
     vi.useFakeTimers()
-    selfInfo.online = true
+    account.online = true
   })
 
   afterEach(() => {
@@ -35,6 +37,7 @@ describe('session expiration notifications', () => {
     'sends the reason once and rearms after login for %s',
     async (event) => {
       const ctx = new Context()
+      ctx.provide('account', account)
       const onDisconnect = vi.fn()
       ctx.provide('qqProtocol', { onDisconnect, offDisconnect: vi.fn() })
       const email = new EmailNotificationService(ctx, DEFAULT_EMAIL_CONFIG)
@@ -45,16 +48,16 @@ describe('session expiration notifications', () => {
           ? ctx.parallel(event, reason)
           : ctx.parallel(event, { tipsDesc: reason, tipsTitle: 'Offline', kickedType: 1001 })
 
-      selfInfo.online = false
+      account.online = false
       await emitOffline()
       expect(send).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ uin: '123456' }), reason)
       await emitOffline()
       onDisconnect.mock.calls[0][1](10000)
       expect(send).toHaveBeenCalledTimes(1)
 
-      selfInfo.online = true
+      account.online = true
       await vi.advanceTimersByTimeAsync(5000)
-      selfInfo.online = false
+      account.online = false
       await emitOffline()
       expect(send).toHaveBeenCalledTimes(2)
     },
@@ -62,12 +65,13 @@ describe('session expiration notifications', () => {
 
   it('respects disabled email notifications', async () => {
     const ctx = new Context()
+    ctx.provide('account', account)
     ctx.provide('qqProtocol', { onDisconnect: vi.fn(), offDisconnect: vi.fn() })
     const email = new EmailNotificationService(ctx, DEFAULT_EMAIL_CONFIG)
     vi.mocked(email.getConfigManager().getConfig).mockReturnValue({ enabled: false } as ReturnType<
       EmailConfigManager['getConfig']
     >)
-    selfInfo.online = false
+    account.online = false
     await ctx.parallel('qq/session-expired', 'Test authentication failure')
     expect(email.getEmailService().sendOfflineNotification).not.toHaveBeenCalled()
   })
@@ -76,6 +80,7 @@ describe('session expiration notifications', () => {
     'broadcasts the existing Milky bot_offline payload for %s',
     async (event) => {
       const ctx = new Context()
+      ctx.provide('account', account)
       // Only event registration and serialization are needed; no HTTP server or webhook is started.
       const http = { broadcast: vi.fn() }
       const webhook = { broadcast: vi.fn() }

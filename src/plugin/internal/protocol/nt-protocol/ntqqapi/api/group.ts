@@ -1,4 +1,3 @@
-import { selfInfo } from '@/common/globalVars'
 import {
   GroupMember,
   GroupMsgMask,
@@ -51,7 +50,7 @@ export class NTGroupApi extends Service {
       }
     })
     ctx.on('nt/group-mute', (data) => {
-      if (this.groupsCache.length > 0 && data.memberUid === selfInfo.uid) {
+      if (this.groupsCache.length > 0 && data.memberUid === this.ctx.qqProtocol.selfInfo.uid) {
         this.getGroups(true)
       }
     })
@@ -61,7 +60,7 @@ export class NTGroupApi extends Service {
       }
     })
     ctx.on('nt/group-admin-changed', (data) => {
-      if (this.groupsCache.length > 0 && data.targetUid === selfInfo.uid) {
+      if (this.groupsCache.length > 0 && data.targetUid === this.ctx.qqProtocol.selfInfo.uid) {
         this.getGroups(true)
       }
       if (this.membersCache.has(data.groupCode)) {
@@ -290,7 +289,7 @@ export class NTGroupApi extends Service {
   }
 
   async getGroupRemainAtTimes(groupCode: number) {
-    return await this.ctx.qqProtocol.fetchGroupAtAllRemain(+selfInfo.uin, groupCode)
+    return await this.ctx.qqProtocol.fetchGroupAtAllRemain(+this.ctx.qqProtocol.selfInfo.uin, groupCode)
   }
 
   async addGroupEssence(groupCode: number, msgSeq: number, msgRandom: number) {
@@ -322,7 +321,7 @@ export class NTGroupApi extends Service {
       field6: 1,
     })
     const trans = {
-      uin: selfInfo.uin,
+      uin: this.ctx.qqProtocol.selfInfo.uin,
       cmd: 3000, // 群头像; 跟自己的头像一样走 PicUp.DataUp, 只有 cmd 和 ext 不同
       readable: createReadStream(filePath, { highWaterMark: 1024 * 1024 }),
       sum: md5,
@@ -340,7 +339,7 @@ export class NTGroupApi extends Service {
   }
 
   async setGroupMsgMask(groupCode: number, msgMask: GroupMsgMask) {
-    const res = await this.ctx.qqProtocol.setGroupMsgMask(groupCode, selfInfo.uid, msgMask)
+    const res = await this.ctx.qqProtocol.setGroupMsgMask(groupCode, this.ctx.qqProtocol.selfInfo.uid, msgMask)
     return res.body
   }
 

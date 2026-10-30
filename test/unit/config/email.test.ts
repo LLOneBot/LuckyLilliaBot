@@ -11,7 +11,6 @@ const NAME = 'builtin:email-notification'
 
 vi.mock('@/common/globalVars', () => ({
   DATA_DIR,
-  selfInfo: { uid: 'u', uin: '123456', nick: 'n', online: true },
 }))
 
 const { checkEmail, DEFAULT_EMAIL_CONFIG, EmailSchema } = await import('@/plugin/internal/tool/email-notification/config')

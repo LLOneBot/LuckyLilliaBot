@@ -12,7 +12,6 @@ import {
 } from '../../types'
 import { ElementType, MessageStyle, Peer } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types/msg'
 import { SendElement } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/entities'
-import { selfInfo } from '@/common/globalVars'
 import { uri2local } from '@/common/utils'
 import { Context } from 'cordis'
 import { buildMusicCard, requestMusicCard } from '@/common/utils/musicCard'
@@ -60,7 +59,7 @@ export async function transformOutgoingSegments(
                 remainAtAllCount = (await ctx.ntGroupApi.getGroupRemainAtTimes(+groupCode))
                   .remainAtAllCountForUin
                 ctx.logger.info(`群${groupCode}剩余at全体次数`, remainAtAllCount)
-                const self = await ctx.ntGroupApi.getGroupMemberByUid(+groupCode, selfInfo.uid, false)
+                const self = await ctx.ntGroupApi.getGroupMemberByUid(+groupCode, ctx.account.uid, false)
                 isAdmin = self?.role === GroupMemberRole.Admin || self?.role === GroupMemberRole.Owner
               } catch (e) {
               }
@@ -295,8 +294,8 @@ export async function transformOutgoingSegments(
         deleteAfterSentFiles.push(...inner.deleteAfterSentFiles)
         const { message_style } = segment.data
         nodes.push({
-          senderUin: Number(segment.data.uin ?? segment.data.user_id ?? selfInfo.uin),
-          senderName: segment.data.name ?? segment.data.nickname ?? selfInfo.nick,
+          senderUin: Number(segment.data.uin ?? segment.data.user_id ?? ctx.account.uin),
+          senderName: segment.data.name ?? segment.data.nickname ?? ctx.account.nick,
           elements: inner.sendElements,
           msgSeq: segment.data.seq as number,
           msgTime: segment.data.time ? +segment.data.time : undefined,

@@ -1,11 +1,12 @@
+import { Context } from 'cordis'
 import { Hono } from 'hono'
 import { isPmhqMode, getAuthTokenPageUrl } from '@/common/utils/environment'
 import { authTokenUtil } from '../../../../main/config'
-import { authTokenStatus, selfInfo } from '@/common/globalVars'
+import { authTokenStatus } from './qqProtocol/direct-lib/authTokenStatus'
 import { triggerAuthTokenCheck } from './qqProtocol/direct-lib/authTokenWatcher'
 
 // 录入只写文件, 校验和登录由 authTokenWatcher 处理
-export function createAuthTokenRoutes(): Hono {
+export function createAuthTokenRoutes(ctx: Context): Hono {
   const router = new Hono()
 
   router.get('/auth-token/status', async (c) => {
@@ -13,7 +14,7 @@ export function createAuthTokenRoutes(): Hono {
       success: true,
       data: {
         applicable: !isPmhqMode(),
-        online: selfInfo.online,
+        online: ctx.qqProtocol.selfInfo.online,
         hasToken: authTokenStatus.hasToken,
         validation: authTokenStatus.validation,
         message: authTokenStatus.message,

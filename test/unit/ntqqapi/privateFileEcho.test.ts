@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 
 // 私聊文件不走 app.sendMessage (它只管 sendMsg(elements)), 必须自己补一条 nt/message-sent: 少了它 WebUI 的
 // SSE 流没有事件, ChatInput 删掉临时气泡后聊天窗口一片空白, OneBot / Milky 也收不到自己发的文件。
@@ -6,7 +6,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 import { NTMsgApi } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/api/msg'
 import { ChatType, ElementType, type RawMessage } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
-import { selfInfo } from '@/common/globalVars'
 
 const SELF_UID = 'u_self_test'
 const SELF_UIN = '721011692'
@@ -38,12 +37,12 @@ function protocolResult(overrides: Record<string, unknown> = {}) {
   }
 }
 
-/** 绕开 cordis Service 的构造 (会往容器里注册); sendPrivateFileMessage 只用到 ctx.qqProtocol 和 ctx.parallel */
+/** 绕开 cordis Service 的构造 (会往容器里注册); sendPrivateFileMessage 只用到 ctx.qqProtocol (发送和它的 selfInfo) 和 ctx.parallel */
 function makeApi(sendC2CFileMessage: ReturnType<typeof vi.fn>) {
   const parallel = vi.fn()
   const api = Object.create(NTMsgApi.prototype) as NTMsgApi
   Object.defineProperty(api, 'ctx', {
-    value: { qqProtocol: { sendC2CFileMessage }, parallel },
+    value: { qqProtocol: { sendC2CFileMessage, selfInfo: { uid: SELF_UID, uin: SELF_UIN, nick: '', online: true } }, parallel },
     writable: true,
   })
   return { api, parallel }
@@ -56,11 +55,6 @@ function sentMessage(parallel: ReturnType<typeof vi.fn>): RawMessage {
 }
 
 describe('私聊文件发送补 nt/message-sent', () => {
-  beforeEach(() => {
-    selfInfo.uid = SELF_UID
-    selfInfo.uin = SELF_UIN
-  })
-
   it('发送成功后补一条带 fileElement 的自发消息', async () => {
     const send = vi.fn(async () => protocolResult())
     const { api, parallel } = makeApi(send)

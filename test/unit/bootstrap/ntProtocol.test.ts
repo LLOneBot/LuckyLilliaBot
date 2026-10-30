@@ -2,7 +2,7 @@ import { rmSync } from 'node:fs'
 import { Context, FiberState, Service } from 'cordis'
 import TimerService from '@cordisjs/plugin-timer'
 import { afterAll, describe, expect, it, vi } from 'vitest'
-import { DATA_DIR, selfInfo } from '@/common/globalVars'
+import { DATA_DIR } from '@/common/globalVars'
 import { defaultConfig } from '@/main/config/defaultConfig'
 import { DEFAULT_EMAIL_CONFIG } from '@/plugin/internal/tool/email-notification/config'
 import EmailNotificationService from '@/plugin/internal/tool/email-notification'
@@ -18,6 +18,8 @@ vi.mock('@/plugin/internal/protocol/nt-protocol/qqProtocol', async () => {
   const { Service } = await import('cordis')
   const fake = (mode: string) => class FakeProtocol extends Service {
     static inject = ['config']
+    // Each mount starts logged out, as the real protocol's own record does
+    selfInfo = { uid: '', uin: '', nick: '', online: false }
     constructor(ctx: Context) {
       super(ctx, 'qqProtocol')
     }
@@ -48,8 +50,6 @@ vi.mock('@/common/globalVars', async () => {
     TEMP_DIR: path.join(dir, 'temp'),
     LOG_DIR: path.join(dir, 'logs'),
     dbDir: path.join(dir, 'database'),
-    selfInfo: { uid: '', uin: '', nick: '', online: false },
-    authTokenStatus: { hasToken: false, validation: 'idle', message: '', loginError: '' },
     getFixedDataDir: () => dir,
   }
 })
@@ -73,7 +73,7 @@ const AFTER_LOGIN = ['database', 'store', 'app', 'ntMsgApi', 'ntUserApi', 'ntFil
 const has = (ctx: Context, name: string) => ctx.get(name) !== undefined
 
 async function login(ctx: Context) {
-  Object.assign(selfInfo, { online: true, uin: '10001', uid: 'u_10001', nick: 'Bot' })
+  Object.assign(ctx.get('qqProtocol')!.selfInfo, { online: true, uin: '10001', uid: 'u_10001', nick: 'Bot' })
   await ctx.parallel('qq/online')
 }
 
@@ -120,8 +120,6 @@ describe('builtin:nt-protocol', () => {
     // Waiting for the protocol again, not broken by it going away
     expect(email.state).toBe(FiberState.PENDING)
 
-    // The real protocol clears selfInfo when it stops
-    Object.assign(selfInfo, { online: false, uin: '', uid: '', nick: '' })
     entry = await ctx.plugin(NTProtocol)
     await vi.waitFor(() => {
       for (const name of BEFORE_LOGIN) expect(has(ctx, name), name).toBe(true)

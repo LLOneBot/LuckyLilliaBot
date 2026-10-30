@@ -1,6 +1,5 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
-import { selfInfo } from '@/common/globalVars'
 import { currentPmhqTarget, getProtocol, isPmhqMode, launchPins, lockedProtocol } from '@/common/utils/environment'
 
 /** The account and the login method as the NTQQ page shows them, and whether the protocol runs. */
@@ -10,10 +9,12 @@ export function createLoginInfoRoutes(ctx: Context): Hono {
   router.get('/login-info', (c) => {
     const protocol = ctx.get('qqProtocol')
     const pmhq = isPmhqMode()
+    // The protocol's own record of the account: with the protocol off there is none
+    const account = protocol?.selfInfo ?? { uid: '', uin: '', nick: '', online: false }
     return c.json({
       success: true,
       data: {
-        ...selfInfo,
+        ...account,
         mode: pmhq ? 'pmhq' : 'direct',
         ntProtocol: !!protocol,
         protocol: getProtocol(),

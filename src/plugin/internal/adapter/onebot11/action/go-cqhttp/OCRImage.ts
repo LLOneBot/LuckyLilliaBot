@@ -4,7 +4,6 @@ import { ActionName } from '../types'
 import { getImageSize, uri2local } from '@/common/utils/file'
 import { unlink } from 'node:fs/promises'
 import { isHttpUrl } from '@/common/utils'
-import { selfInfo } from '@/common/globalVars'
 import { Media } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/proto'
 import { ChatType } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 
@@ -52,7 +51,7 @@ export class OCRImage extends BaseAction<Payload, Response> {
           throw new Error(errMsg)
         }
         const size = await getImageSize(path)
-        const result = await this.ctx.ntFileApi.uploadPrivateImage(ChatType.C2C, selfInfo.uid, path, size.width, size.height, '', 0)
+        const result = await this.ctx.ntFileApi.uploadPrivateImage(ChatType.C2C, this.ctx.account.uid, path, size.width, size.height, '', 0)
         if (!isLocal) {
           unlink(path).catch(noop)
         }

@@ -3,7 +3,6 @@ import { Context } from 'cordis'
 import { handlers } from './api'
 import { WebSocket, WebSocketServer } from 'ws'
 import { ObjectToSnake } from 'ts-case-convert'
-import { selfInfo } from '@/common/globalVars'
 import { OB11Response } from '@/plugin/internal/adapter/onebot11/action/OB11Response'
 import { Hono, Context as HonoContext, Next } from 'hono'
 import { cors } from 'hono/cors'
@@ -127,7 +126,7 @@ export class SatoriServer {
     this.app.post('/v1/:name', async (c) => {
       const selfId = c.req.header('Satori-User-ID')
       const platform = c.req.header('Satori-Platform')
-      if (selfId !== selfInfo.uin || !platform) {
+      if (selfId !== this.ctx.account.uin || !platform) {
         return c.text('login not found', 403)
       }
 

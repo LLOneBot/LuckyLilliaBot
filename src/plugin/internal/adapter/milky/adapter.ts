@@ -9,7 +9,6 @@ import { MessageApi } from './api/message'
 import { FriendApi } from './api/friend'
 import { GroupApi } from './api/group'
 import { FileApi } from './api/file'
-import { selfInfo } from '@/common/globalVars'
 import {
   transformPrivateMessageCreated,
   transformGroupMessageCreated,
@@ -93,7 +92,7 @@ export class MilkyAdapter extends Service {
   }
 
   emitEvent<E extends keyof MilkyEventTypes>(eventName: E, data: MilkyEventTypes[E]) {
-    const selfUin = selfInfo.uin
+    const selfUin = this.ctx.account.uin
     const eventString = JSON.stringify({
       time: Math.floor(Date.now() / 1000),
       self_id: +selfUin,

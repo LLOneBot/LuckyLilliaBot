@@ -31,7 +31,7 @@ import {
   milkyVersion,
 } from '../generated/schema'
 import z from 'zod'
-import { selfInfo, TEMP_DIR } from '@/common/globalVars'
+import { TEMP_DIR } from '@/common/globalVars'
 import { resolveMilkyUri } from '@/plugin/internal/adapter/milky/common/download'
 import { unlink, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -53,8 +53,8 @@ const GetLoginInfo = defineApi(
       }
     }
     return Ok({
-      uin: +selfInfo.uin,
-      nickname: selfInfo.nick,
+      uin: +ctx.account.uin,
+      nickname: ctx.account.nick,
     })
   },
 )

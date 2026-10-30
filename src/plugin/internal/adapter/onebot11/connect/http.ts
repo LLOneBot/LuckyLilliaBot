@@ -1,7 +1,6 @@
 import crypto from 'node:crypto'
 import { BaseAction } from '../action/BaseAction'
 import { Context } from 'cordis'
-import { selfInfo } from '@/common/globalVars'
 import { OB11Response } from '../action/OB11Response'
 import { OB11BaseEvent } from '../event/OB11BaseEvent'
 import { handleQuickOperation, QuickOperationEvent } from '../helper/quickOperation'
@@ -57,7 +56,7 @@ class OB11Http {
     const HEARTBEAT_INTERVAL = 5000
     this.disposeHeartbeat = this.ctx.interval(() => {
       if (this.sseClients.size === 0) return
-      this.emitEvent(new OB11HeartbeatEvent(selfInfo.online!, true, HEARTBEAT_INTERVAL))
+      this.emitEvent(new OB11HeartbeatEvent(this.ctx.account.online, true, HEARTBEAT_INTERVAL))
     }, HEARTBEAT_INTERVAL)
 
     const displayHost = this.config.host || '0.0.0.0'
@@ -99,6 +98,7 @@ class OB11Http {
   }
 
   public async emitEvent(event: OB11BaseEvent) {
+    event.self_id = +this.ctx.account.uin
     if (!this.activated) return
     if (!matchEventFilter(this.config.filter, event)) return
     postHttpEvent(event)
@@ -216,7 +216,7 @@ class OB11HttpPost {
     if (this.config.enableHeart && !this.disposeInterval) {
       this.disposeInterval = this.ctx.interval(() => {
         // ws的心跳是ws自己维护的
-        this.emitEvent(new OB11HeartbeatEvent(selfInfo.online!, true, this.config.heartInterval))
+        this.emitEvent(new OB11HeartbeatEvent(this.ctx.account.online, true, this.config.heartInterval))
       }, this.config.heartInterval)
     }
   }
@@ -227,6 +227,7 @@ class OB11HttpPost {
   }
 
   public async emitEvent(event: OB11BaseEvent) {
+    event.self_id = +this.ctx.account.uin
     if (!matchEventFilter(this.config.filter, event)) return
     if (!this.activated || !this.config.url) {
       return
@@ -234,7 +235,7 @@ class OB11HttpPost {
     const msgStr = JSON.stringify(event)
     const headers: Dict = {
       'Content-Type': 'application/json',
-      'x-self-id': selfInfo.uin,
+      'x-self-id': this.ctx.account.uin,
     }
     if (this.config.token) {
       const hmac = crypto.createHmac('sha1', this.config.token)

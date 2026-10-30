@@ -1,4 +1,3 @@
-import { selfInfo } from '@/common/globalVars'
 import { BaseAction, Schema } from '../../BaseAction'
 import { ActionName } from '../../types'
 
@@ -17,7 +16,7 @@ export class GetPrivateFileUrl extends BaseAction<Payload, Response> {
   })
 
   protected async _handle(payload: Payload) {
-    const result = await this.ctx.ntFileApi.getFileUrl(payload.file_id, false, selfInfo.uid)
+    const result = await this.ctx.ntFileApi.getFileUrl(payload.file_id, false, this.ctx.account.uid)
     if (result.retCode !== 0) {
       throw new Error(result.retMsg)
     }

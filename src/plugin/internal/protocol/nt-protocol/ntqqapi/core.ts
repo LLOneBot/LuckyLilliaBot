@@ -86,7 +86,9 @@ declare module 'cordis' {
 class Core extends Service {
   static inject = [
     'ntMsgApi', 'ntFriendApi', 'store',
-    'ntFileApi', 'ntGroupApi', 'ntUserApi'
+    'ntFileApi', 'ntGroupApi', 'ntUserApi',
+    // The dispatcher and the message log tell the account's own messages apart by its selfInfo
+    'qqProtocol',
   ]
   public startupTime = 0
   public messageReceivedCount = 0

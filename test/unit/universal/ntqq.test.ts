@@ -14,7 +14,9 @@ function stub(name: string, methods: Record<string, unknown> = {}) {
   }
 }
 
-// selfInfo.uin is 123456 in test/unit/setup.ts
+// The logged-in account, as ctx.account has it
+const ACCOUNT = { uin: '123456', uid: 'test-uid', nick: 'TestBot', online: true }
+
 function rawMessage(overrides: Record<string, unknown> = {}) {
   return {
     msgId: '7001',
@@ -47,9 +49,10 @@ beforeEach(async () => {
   muteGroupMember = vi.fn(async () => ({ errorCode: 0, errorMsg: '' }))
   kickGroupMember = vi.fn(async () => ({ errorCode: 1, errorMsg: '没有权限' }))
   await ctx.plugin(BotsService)
-  for (const name of ['account', 'ntFileApi', 'ntFriendApi', 'ntWebApi']) {
+  for (const name of ['ntFileApi', 'ntFriendApi', 'ntWebApi']) {
     await ctx.plugin(stub(name))
   }
+  await ctx.plugin(stub('account', ACCOUNT))
   await ctx.plugin(stub('ntMsgApi', { recallMsg }))
   await ctx.plugin(stub('ntGroupApi', { muteGroupMember, kickGroupMember }))
   await ctx.plugin(stub('ntUserApi', { getUidByUin: async () => 'u_555' }))

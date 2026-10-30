@@ -1,5 +1,5 @@
 import { Context } from 'cordis'
-import { selfInfo, authTokenStatus } from '@/common/globalVars'
+import { authTokenStatus } from './direct-lib/authTokenStatus'
 import type { PBData } from './types'
 import {
   DirectProtocolClient,
@@ -75,14 +75,14 @@ export class DirectQQProtocol extends QQProtocolBase {
       // 异地顶号 (1001): 删 session 退回扫码, 不拿旧凭证跟对方互顶。machine_guid 不动: 换 guid 会在服务端多出一台
       // 新设备, 还会让同目录其他账号的 session 失配。其他掉线保留 session, 重连时直接恢复
       if (data.kickedType === 1001) {
-        const kickedUin = selfInfo.uin || this.runtimeUinOverride || getSpecifiedUin() || ''
+        const kickedUin = this.selfInfo.uin || this.runtimeUinOverride || getSpecifiedUin() || ''
         if (kickedUin) deleteSession(kickedUin)
         this.runtimeUinOverride = null
         this.directClient?.clearSession()
       }
       this.directClient?.disconnect()
     })
-    startAuthTokenWatcher(this.onAuthTokenValid.bind(this), this.logger)
+    startAuthTokenWatcher(this.onAuthTokenValid.bind(this), this.logger, () => this.selfInfo.online)
   }
 
   /** Disconnects but keeps the saved session, so switching the plugin back on logs in without a QR code. */
@@ -130,7 +130,7 @@ export class DirectQQProtocol extends QQProtocolBase {
    * init 自己失败时只会悄悄退回扫码, 不等结果的话 WebUI 只能干等
    */
   public async quickLogin(uin: string): Promise<void> {
-    if (selfInfo.online) return
+    if (this.selfInfo.online) return
     if (!/^\d+$/.test(uin)) throw new Error('invalid uin')
     // 先探一下: 解不开要报错, 不能悄悄退回扫码, 让用户对着一张没有提示的码
     const preload = loadSession(uin)
@@ -143,13 +143,13 @@ export class DirectQQProtocol extends QQProtocolBase {
       await this.initDirectClient()
       // Another init was running: it picks this uin up when it goes round again
       const deadline = Date.now() + DirectQQProtocol.QUICK_LOGIN_WAIT_MS
-      while (this.directInitInFlight && !selfInfo.online && Date.now() < deadline) {
+      while (this.directInitInFlight && !this.selfInfo.online && Date.now() < deadline) {
         await new Promise(resolve => setTimeout(resolve, 200))
       }
     } finally {
       this.ensureQrLoop()
     }
-    if (selfInfo.online) return
+    if (this.selfInfo.online) return
     throw new Error(this.restoreError ? `快速登录失败: ${this.restoreError}, 请扫码登录` : '快速登录没有成功, 请扫码登录')
   }
 
@@ -160,10 +160,10 @@ export class DirectQQProtocol extends QQProtocolBase {
     if (this.reconnectTimer) { clearTimeout(this.reconnectTimer); this.reconnectTimer = null }
     this.directClient?.clearSession()
     this.directClient?.disconnect()
-    selfInfo.online = false
-    selfInfo.uin = ''
-    selfInfo.uid = ''
-    selfInfo.nick = ''
+    this.selfInfo.online = false
+    this.selfInfo.uin = ''
+    this.selfInfo.uid = ''
+    this.selfInfo.nick = ''
     this.onlineEmitted = false
     this.runtimeUinOverride = null
     // 不然 180s 内登出会复用上一次的旧码
@@ -194,7 +194,7 @@ export class DirectQQProtocol extends QQProtocolBase {
 
   /** 登录错误写进 authTokenStatus.loginError 给 WebUI; init 抛错交给 watcher 定时重试 */
   private async onAuthTokenValid(token: string): Promise<void> {
-    if (selfInfo.online) return
+    if (this.selfInfo.online) return
     try {
       await this.initDirectClient(token)
       this.ensureQrLoop()
@@ -218,12 +218,12 @@ export class DirectQQProtocol extends QQProtocolBase {
    * QR fallback would replace the code every 5s.
    */
   private scheduleReconnect(attempt = 0) {
-    if (this.reconnectTimer || selfInfo.online) return
+    if (this.reconnectTimer || this.selfInfo.online) return
     if (!(authTokenUtil.reload() || process.env.AUTH_TOKEN || '').trim()) return
     const delay = Math.min(DirectQQProtocol.RECONNECT_MS * 2 ** attempt, DirectQQProtocol.RECONNECT_MAX_MS)
     this.reconnectTimer = setTimeout(async () => {
       this.reconnectTimer = null
-      if (selfInfo.online) return
+      if (this.selfInfo.online) return
       try {
         await this.initDirectClient()
       } catch (e) {
@@ -359,10 +359,10 @@ export class DirectQQProtocol extends QQProtocolBase {
         await registerOnline(this.directClient)
         if (this.initToken !== myToken || this.directClient.getSession() !== session) return
         this.logger.info('[QQ Server] Online registered!')
-        selfInfo.uin = persisted.uin
-        selfInfo.uid = persisted.uid
-        if (persisted.nick) selfInfo.nick = persisted.nick
-        selfInfo.online = true
+        this.selfInfo.uin = persisted.uin
+        this.selfInfo.uid = persisted.uid
+        if (persisted.nick) this.selfInfo.nick = persisted.nick
+        this.selfInfo.online = true
         // 断线重连时用它恢复 session
         this.runtimeUinOverride = persisted.uin
         this.directStopHeartbeat = startHeartbeat(this.directClient)
@@ -370,7 +370,7 @@ export class DirectQQProtocol extends QQProtocolBase {
         void this.directClient.startSsoReport()
         this.maybeEmitOnline()
         // 恢复的 session 可能没有 nick
-        if (!selfInfo.nick) {
+        if (!this.selfInfo.nick) {
           this.scheduleFetchSelfNick(() => this.initToken === myToken && this.directClient?.getSession() === session)
         }
         return
@@ -395,7 +395,7 @@ export class DirectQQProtocol extends QQProtocolBase {
     }
     on('session-expired', (uin: string, error: Error) => {
       const wasOnline = this.onlineEmitted
-      selfInfo.online = false
+      this.selfInfo.online = false
       this.onlineEmitted = false
       authTokenStatus.loginError = error.message
       this.logger.warn('QQ session expired:', error.message)
@@ -430,7 +430,7 @@ export class DirectQQProtocol extends QQProtocolBase {
     })
     on('close', () => {
       const wasOnline = this.onlineEmitted
-      selfInfo.online = false
+      this.selfInfo.online = false
       if (this.directStopHeartbeat) {
         this.directStopHeartbeat()
         this.directStopHeartbeat = null
@@ -551,14 +551,14 @@ export class DirectQQProtocol extends QQProtocolBase {
     // 上线后才开始遥测, 跟真机时序一致
     void client.startSsoReport()
 
-    selfInfo.uin = String(uin)
-    selfInfo.uid = loginResult.uid
-    selfInfo.nick = loginResult.nick
-    selfInfo.online = true
+    this.selfInfo.uin = String(uin)
+    this.selfInfo.uid = loginResult.uid
+    this.selfInfo.nick = loginResult.nick
+    this.selfInfo.online = true
     // 断线重连时用它恢复 session
     this.runtimeUinOverride = String(uin)
     this.maybeEmitOnline()
-    if (!selfInfo.nick) {
+    if (!this.selfInfo.nick) {
       this.scheduleFetchSelfNick(() => this.qrPollToken === myToken && client.getSession() === session)
     }
   }

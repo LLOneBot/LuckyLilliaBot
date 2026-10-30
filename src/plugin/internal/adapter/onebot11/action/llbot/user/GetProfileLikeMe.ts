@@ -1,6 +1,5 @@
 import { BaseAction, Schema } from '../../BaseAction'
 import { ActionName } from '../../types'
-import { selfInfo } from '@/common/globalVars'
 import { Dict } from 'cosmokit'
 
 interface Payload {
@@ -21,7 +20,7 @@ export class GetProfileLikeMe extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload): Promise<Response> {
-    const ret = await this.ctx.ntUserApi.getProfileLikeMe(selfInfo.uid, +payload.start, +payload.count)
+    const ret = await this.ctx.ntUserApi.getProfileLikeMe(this.ctx.account.uid, +payload.start, +payload.count)
     const users = ret.userLikeInfo.voteInfo.users ?? []
     for (const item of users) {
       Object.assign(item, {

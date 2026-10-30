@@ -13,7 +13,6 @@ import {
 } from '../types'
 import { SendElement } from '../entities'
 import { uri2local } from '@/common/utils'
-import { selfInfo } from '@/common/globalVars'
 
 /** 图片 / 视频 / 语音要重新下载上传, 嵌套的合并转发重建卡片。deleteAfterSentFiles 是临时下载的文件, 发完要删 */
 export async function rawElementsToSend(
@@ -62,7 +61,7 @@ export async function rawElementsToSend(
       const { url } = await ctx.ntFileApi.getFileUrl(
         e.fileElement.fileUuid,
         isGroup,
-        isGroup ? fromPeer.peerUid : selfInfo.uid
+        isGroup ? fromPeer.peerUid : ctx.account.uid
       )
       const path = await fetchFile(url)
       out.push(await SendElement.file(ctx, path, e.fileElement.fileName))

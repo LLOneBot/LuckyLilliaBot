@@ -1,6 +1,5 @@
 import { Oidb, Media } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/proto'
 import { Cmd } from '../direct-lib/cmd'
-import { selfInfo } from '@/common/globalVars'
 import { InferProtoModelInput } from '@saltify/typeproto'
 import type { QQProtocolBase } from '../base'
 import { calculateTriSha1, getMd5BufferFromFile, getSha1BufferFromFile, readAndHash10M, uint32ToIPV4Addr } from '@/common/utils'
@@ -22,7 +21,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       const body = Media.NTV2RichMediaReq.encode({
         reqHead: {
           common: { requestId: 1, command: 200 },
-          scene: { requestType: 1, businessType: 3, field103: 0, sceneType: 1, c2c: { accountType: 2, targetUid: selfInfo.uid } },
+          scene: { requestType: 1, businessType: 3, field103: 0, sceneType: 1, c2c: { accountType: 2, targetUid: this.selfInfo.uid } },
           client: { agentType: 2 },
         },
         download: { node: { fileUuid, storeID: 1, uploadTime: 0, expire: 0, type: 0 } },
@@ -67,7 +66,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
       const body = Media.NTV2RichMediaReq.encode({
         reqHead: {
           common: { requestId: 1, command: 200 },
-          scene: { requestType: 2, businessType: 2, field103: 0, sceneType: 1, c2c: { accountType: 2, targetUid: selfInfo.uid } },
+          scene: { requestType: 2, businessType: 2, field103: 0, sceneType: 1, c2c: { accountType: 2, targetUid: this.selfInfo.uid } },
           client: { agentType: 2 },
         },
         download: { node: { fileUuid, storeID: 1, uploadTime: 0, expire: 0, type: 0 } },
@@ -258,7 +257,7 @@ export function MediaMixin<T extends abstract new (...args: any[]) => QQProtocol
         command: 1700,
         seq: 0,
         upload: {
-          senderUid: selfInfo.uid,
+          senderUid: this.selfInfo.uid,
           receiverUid: peerUid,
           fileSize,
           fileName,

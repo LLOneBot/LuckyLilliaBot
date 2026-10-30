@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url'
 import { Context } from 'cordis'
 import Database from '@cordisjs/plugin-database'
 import SQLiteDriver from '@cordisjs/plugin-database-sqlite'
-import { dbDir, selfInfo } from '@/common/globalVars'
+import { dbDir } from '@/common/globalVars'
 import { ProtocolSelection, resolveProtocolSelection, setProtocolSelection } from '@/common/utils/environment'
 import { currentInstance } from '@/common/instance'
 import { configPaths } from '@/common/configPaths'
@@ -82,6 +82,7 @@ export function apply(ctx: Context, config: NTProtocolConfig) {
   })
 
   const handleOnline = () => {
+    const { uin, nick } = ctx.get('qqProtocol')!.selfInfo
     console.log(`
   _                _            _     _ _ _ _
  | |    _   _  ___| | ___   _  | |   (_) | (_) __ _
@@ -89,12 +90,12 @@ export function apply(ctx: Context, config: NTProtocolConfig) {
  | |___| |_| | (__|   <| |_| | | |___| | | | | (_| |
  |_____|\\__,_|\\___|_|\\_\\\\__, | |_____|_|_|_|_|\\__,_|
                         |___/
-                                        UIN: ${selfInfo.uin}
+                                        UIN: ${uin}
 `)
-    setLoginState({ state: 'logged_in', uin: selfInfo.uin, nickname: selfInfo.nick })
+    setLoginState({ state: 'logged_in', uin, nickname: nick })
     const instance = currentInstance().name
-    if (selfInfo.uin !== instance && existsSync(configPaths.instance(selfInfo.uin))) {
-      logger.info(`QQ ${selfInfo.uin} 有自己的实例 ${selfInfo.uin}，这次用的是实例 ${instance}；要用那份配置请以 --instance ${selfInfo.uin} 启动`)
+    if (uin !== instance && existsSync(configPaths.instance(uin))) {
+      logger.info(`QQ ${uin} 有自己的实例 ${uin}，这次用的是实例 ${instance}；要用那份配置请以 --instance ${uin} 启动`)
     }
   }
   ctx.on('qq/online', handleOnline)

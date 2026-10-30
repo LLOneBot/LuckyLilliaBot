@@ -1,6 +1,5 @@
 import { BaseAction } from '../../BaseAction'
 import { ActionName } from '../../types'
-import { selfInfo } from '@/common/globalVars'
 import { Dict } from 'cosmokit'
 import { Schema } from '@/plugin/internal/adapter/onebot11/action/BaseAction'
 
@@ -22,7 +21,7 @@ export class GetProfileLike extends BaseAction<Payload, Response> {
   })
 
   async _handle(payload: Payload) {
-    const ret = await this.ctx.ntUserApi.getProfileLike(selfInfo.uid, +payload.start, +payload.count)
+    const ret = await this.ctx.ntUserApi.getProfileLike(this.ctx.account.uid, +payload.start, +payload.count)
     const users = ret.userLikeInfo.favoriteInfo.users ?? []
     for (const item of users) {
       Object.assign(item, {

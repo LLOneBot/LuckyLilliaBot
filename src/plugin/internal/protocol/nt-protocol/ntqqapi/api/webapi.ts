@@ -1,4 +1,3 @@
-import { selfInfo } from '@/common/globalVars'
 import { HttpUtil } from '@/common/utils/request'
 import { Context, Service } from 'cordis'
 import { Dict } from 'cosmokit'
@@ -35,7 +34,7 @@ export class NTWebApi extends Service {
   }
 
   async getGroupHonorTalkative(groupCode: number, pSkey: string) {
-    const cookie = `p_uin=o${selfInfo.uin}; p_skey=${pSkey}; uin=o${selfInfo.uin}`
+    const cookie = `p_uin=o${this.ctx.qqProtocol.selfInfo.uin}; p_skey=${pSkey}; uin=o${this.ctx.qqProtocol.selfInfo.uin}`
     const bkn = this.genBkn(pSkey.substring(0, 10))
     const resp = await fetch(`https://qun.qq.com/cgi-bin/qunapp/honor_talkative?gc=${groupCode}&num=3000&bkn=${bkn}`, {
       headers: {
@@ -72,7 +71,7 @@ export class NTWebApi extends Service {
   }
 
   async getGroupHonorContinuous(groupCode: number, type: 2 | 3 | 5, pSkey: string) {
-    const cookie = `p_uin=o${selfInfo.uin}; p_skey=${pSkey}; uin=o${selfInfo.uin}`
+    const cookie = `p_uin=o${this.ctx.qqProtocol.selfInfo.uin}; p_skey=${pSkey}; uin=o${this.ctx.qqProtocol.selfInfo.uin}`
     const bkn = this.genBkn(pSkey.substring(0, 10))
     const resp = await fetch(`https://qun.qq.com/cgi-bin/qunapp/honor_continuous?gc=${groupCode}&num=3000&continuous_type=${type}&bkn=${bkn}`, {
       headers: {
@@ -99,7 +98,7 @@ export class NTWebApi extends Service {
   }
 
   async getGroupHonorEmotion(groupCode: number, pSkey: string) {
-    const cookie = `p_uin=o${selfInfo.uin}; p_skey=${pSkey}; uin=o${selfInfo.uin}`
+    const cookie = `p_uin=o${this.ctx.qqProtocol.selfInfo.uin}; p_skey=${pSkey}; uin=o${this.ctx.qqProtocol.selfInfo.uin}`
     const bkn = this.genBkn(pSkey.substring(0, 10))
     const resp = await fetch(`https://qun.qq.com/cgi-bin/qunapp/honor_emotion?gc=${groupCode}&num=3000&bkn=${bkn}`, {
       headers: {
@@ -159,7 +158,7 @@ export class NTWebApi extends Service {
     const pSkey = (await this.ctx.ntUserApi.getPSkey(['vip.qq.com'])).get('vip.qq.com')!
     const bkn = this.genBkn(pSkey)
     const url = `https://cgi.vip.qq.com/card/getExpertInfo?ps_tk=${bkn}&fuin=${uin}&g_tk=${bkn}`
-    const cookie = `p_uin=o${selfInfo.uin}; p_skey=${pSkey}; uin=o${selfInfo.uin}`
+    const cookie = `p_uin=o${this.ctx.qqProtocol.selfInfo.uin}; p_skey=${pSkey}; uin=o${this.ctx.qqProtocol.selfInfo.uin}`
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Reqable/2.30.1',
@@ -199,7 +198,7 @@ export class NTWebApi extends Service {
         const getSessionUrl = `https://${domain}/webapp/json/sliceUpload/FileBatchControl/${checksum}?g_tk=${gtk}`
         const getSessionPostData = {
           'control_req': [{
-            'uin': selfInfo.uin,
+            'uin': this.ctx.qqProtocol.selfInfo.uin,
             'token': {
               'type': 4,
               'data': cookiesObject.p_skey,
@@ -258,7 +257,7 @@ export class NTWebApi extends Service {
         const getSessionUrl = `https://${domain}/webapp/json/sliceUpload/FileBatchControl/${checksum}?g_tk=${gtk}`
         const getSessionPostData = {
           'control_req': [{
-            'uin': selfInfo.uin,
+            'uin': this.ctx.qqProtocol.selfInfo.uin,
             'token': {
               'type': 4,
               'data': cookiesObject.p_skey,
@@ -345,7 +344,7 @@ export class NTWebApi extends Service {
         const uploadUrl = `https://${domain}/webapp/json/sliceUpload/${cmd}?seq=${slice.seq}&retry=0&offset=${slice.offset}&end=${slice.end}&total=${fileSize}&type=form&g_tk=${gtk}`
 
         const formData = new FormData()
-        formData.append('uin', selfInfo.uin)
+        formData.append('uin', this.ctx.qqProtocol.selfInfo.uin)
         formData.append('appid', slice.isVideo ? 'video_qun' : 'qun')
         formData.append('data', new Blob([Uint8Array.from(slice.chunk)]))
         formData.append('session', slice.sessionId)
@@ -422,7 +421,7 @@ export class NTWebApi extends Service {
         const getSessionUrl = `https://${domain}/webapp/json/sliceUpload/FileBatchControl/${checksum}?g_tk=${gtk}`
         const getSessionPostData = {
           'control_req': [{
-            'uin': selfInfo.uin,
+            'uin': this.ctx.qqProtocol.selfInfo.uin,
             'token': {
               'type': 4,
               'data': cookiesObject.p_skey,
@@ -833,7 +832,7 @@ export class NTWebApi extends Service {
 
   async getDaySignedList(groupCode: number) {
     const pSkey = (await this.ctx.ntUserApi.getPSkey(['qun.qq.com'])).get('qun.qq.com')!
-    const cookie = `p_uin=o${selfInfo.uin}; p_skey=${pSkey}; uin=o${selfInfo.uin}`
+    const cookie = `p_uin=o${this.ctx.qqProtocol.selfInfo.uin}; p_skey=${pSkey}; uin=o${this.ctx.qqProtocol.selfInfo.uin}`
     const res = await fetch(`https://qun.qq.com/v2/signin/trpc/GetDaySignedList?g_tk=${this.genBkn(pSkey)}`, {
       method: 'POST',
       headers: {
@@ -844,7 +843,7 @@ export class NTWebApi extends Service {
         dayYmd: formatYYYYMMDD(),
         offset: 0,
         limit: 100,
-        uid: selfInfo.uin,
+        uid: this.ctx.qqProtocol.selfInfo.uin,
         groupId: groupCode.toString()
       }),
     })
@@ -873,7 +872,7 @@ export class NTWebApi extends Service {
 
   async getCookies(domain: string) {
     const clientKeyData = await this.ctx.ntUserApi.getClientKey()
-    const uin = selfInfo.uin
+    const uin = this.ctx.qqProtocol.selfInfo.uin
     const requestUrl = 'https://ssl.ptlogin2.qq.com/jump?ptlang=1033&clientuin=' + uin + '&clientkey=' + clientKeyData.clientKey + '&u1=https%3A%2F%2F' + domain + '%2F' + uin + '%2Finfocenter&keyindex=19%27'
     const cookies: { [key: string]: string } = await HttpUtil.getCookies(requestUrl)
     return cookies

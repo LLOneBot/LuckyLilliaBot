@@ -1,7 +1,6 @@
 import { BaseAction } from '../BaseAction'
 import { OB11User } from '../../types'
 import { ActionName } from '../types'
-import { selfInfo } from '@/common/globalVars'
 import { sleep } from '@/common/utils'
 
 class GetLoginInfo extends BaseAction<{}, OB11User> {
@@ -17,8 +16,8 @@ class GetLoginInfo extends BaseAction<{}, OB11User> {
       }
     }
     return {
-      user_id: +selfInfo.uin,
-      nickname: selfInfo.nick
+      user_id: +this.ctx.account.uin,
+      nickname: this.ctx.account.nick
     }
   }
 }

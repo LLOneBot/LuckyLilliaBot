@@ -1,5 +1,4 @@
 import { deepConvertMap, deepStringifyMap } from './util'
-import { selfInfo } from '@/common/globalVars'
 import { randomUUID, createHash } from 'node:crypto'
 import type {
   PMHQRes,
@@ -98,7 +97,7 @@ export class PmhqQQProtocol extends QQProtocolBase {
    * 避免跟 QQ 的注册项冲突
    */
   private async triggerInfoSyncPush() {
-    const seed = selfInfo.uid || selfInfo.uin || 'llbot'
+    const seed = this.selfInfo.uid || this.selfInfo.uin || 'llbot'
     const guid: Buffer = createHash('md5').update(`llbot-${seed}`).digest().subarray(0, 16)
     const payload = buildSsoInfoSync(guid, false)
     await this.sendPB('trpc.msg.register_proxy.RegisterProxy.SsoInfoSync', payload, 5000)
@@ -107,10 +106,10 @@ export class PmhqQQProtocol extends QQProtocolBase {
 
   private resetPmhqState() {
     const wasOnline = this.onlineEmitted
-    selfInfo.online = false
-    selfInfo.uid = ''
-    selfInfo.uin = ''
-    selfInfo.nick = ''
+    this.selfInfo.online = false
+    this.selfInfo.uid = ''
+    this.selfInfo.uin = ''
+    this.selfInfo.nick = ''
     this.pmhqProbeToken++
     this.onlineEmitted = false
     this.resetQrState()
@@ -134,13 +133,13 @@ export class PmhqQQProtocol extends QQProtocolBase {
         if (this.pmhqProbeToken !== myToken) return
 
         if (health.uin && health.uid) {
-          selfInfo.uid = health.uid
-          selfInfo.uin = String(health.uin)
-          this.ctx.logger.info(`Self info ${selfInfo.nick || '<pending>'}(${selfInfo.uin}) uid=${selfInfo.uid}`)
-          if (!selfInfo.online) {
+          this.selfInfo.uid = health.uid
+          this.selfInfo.uin = String(health.uin)
+          this.ctx.logger.info(`Self info ${this.selfInfo.nick || '<pending>'}(${this.selfInfo.uin}) uid=${this.selfInfo.uid}`)
+          if (!this.selfInfo.online) {
             this.logger.info('QQ 登录成功')
           }
-          selfInfo.online = true
+          this.selfInfo.online = true
           this.maybeEmitOnline()
           this.scheduleFetchSelfNick(() => this.pmhqProbeToken === myToken)
         } else {
@@ -159,7 +158,7 @@ export class PmhqQQProtocol extends QQProtocolBase {
         }
       }
       if (this.pmhqProbeToken !== myToken) return
-      if (selfInfo.online) return
+      if (this.selfInfo.online) return
       setTimeout(probe, 600)
     }
     probe()
@@ -246,7 +245,7 @@ export class PmhqQQProtocol extends QQProtocolBase {
     }
 
     this.ws.onerror = () => {
-      selfInfo.online = false
+      this.selfInfo.online = false
       this.resetPmhqState()
 
       if (!this.hasLoggedConnectionError) {
@@ -258,7 +257,7 @@ export class PmhqQQProtocol extends QQProtocolBase {
     }
 
     this.ws.onclose = () => {
-      selfInfo.online = false
+      this.selfInfo.online = false
       this.resetPmhqState()
 
       if (!this.hasLoggedConnectionError) {

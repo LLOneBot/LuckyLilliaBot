@@ -1,6 +1,5 @@
 import { FriendCategory, Friend } from '../types'
 import { Context, Service } from 'cordis'
-import { selfInfo } from '@/common/globalVars'
 import { isCmdNotPermitted } from '@/common/protocolErrors'
 import { noop } from 'cosmokit'
 
@@ -127,7 +126,7 @@ export class NTFriendApi extends Service {
   }
 
   async getFriendRequests(limit: number) {
-    const res = await this.ctx.qqProtocol.fetchFriendRequests(selfInfo.uid, limit)
+    const res = await this.ctx.qqProtocol.fetchFriendRequests(this.ctx.qqProtocol.selfInfo.uid, limit)
     return res.info.requests
   }
 
@@ -150,7 +149,7 @@ export class NTFriendApi extends Service {
   }
 
   async approvalDoubtFriendRequest(requestUid: string) {
-    return await this.ctx.qqProtocol.setFilteredFriendRequestReq(selfInfo.uid, requestUid)
+    return await this.ctx.qqProtocol.setFilteredFriendRequestReq(this.ctx.qqProtocol.selfInfo.uid, requestUid)
   }
 
   async setFriendPin(friendUid: string, isPinned: boolean) {
@@ -158,12 +157,12 @@ export class NTFriendApi extends Service {
   }
 
   async sendFriendNudge(friendUin: number, isSelf: boolean) {
-    const toUin = isSelf ? +selfInfo.uin : friendUin
+    const toUin = isSelf ? +this.ctx.qqProtocol.selfInfo.uin : friendUin
     return await this.ctx.qqProtocol.sendFriendPoke(friendUin, toUin)
   }
 
   async getFriendsStatus() {
-    const res = await this.ctx.qqProtocol.getFriendsStatus(selfInfo.uid)
+    const res = await this.ctx.qqProtocol.getFriendsStatus(this.ctx.qqProtocol.selfInfo.uid)
     return res.list
   }
 }

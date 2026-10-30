@@ -2,7 +2,6 @@ import h from '@satorijs/element'
 import { Status } from '@satorijs/protocol'
 import { Context } from 'cordis'
 import type { Bot, NeutralResource, SendOptions } from '@luckylillia/plugin-sdk'
-import { selfInfo } from '@/common/globalVars'
 import * as api from './api'
 import { MessageEncoder } from './message'
 import { decodeUser } from './utils'
@@ -12,12 +11,15 @@ import type { NormalizeHost, SatoriEvent } from '../../../../universal/types'
 export class NTQQBot implements Bot, NormalizeHost {
   // Inherited from the Satori adapter, which downstream Satori clients key on
   readonly platform = 'llonebot'
-  readonly selfId = selfInfo.uin
-  readonly sid = `${this.platform}:${this.selfId}`
+  readonly selfId: string
+  readonly sid: string
   status = Status.ONLINE
   private sn = 0
 
-  constructor(readonly ctx: Context) {}
+  constructor(readonly ctx: Context) {
+    this.selfId = ctx.account.uin
+    this.sid = `${this.platform}:${this.selfId}`
+  }
 
   event(type: string, data: Partial<SatoriEvent>): SatoriEvent {
     const sn = ++this.sn
@@ -30,7 +32,7 @@ export class NTQQBot implements Bot, NormalizeHost {
       platform: this.platform,
       timestamp: Date.now(),
       // Non-login events only carry sn, user and platform of the login
-      login: { sn: 1, user: decodeUser(selfInfo), platform: this.platform } as SatoriEvent['login'],
+      login: { sn: 1, user: decodeUser(this.ctx.account), platform: this.platform } as SatoriEvent['login'],
       ...data,
     }
   }

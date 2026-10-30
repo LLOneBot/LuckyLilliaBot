@@ -41,8 +41,6 @@ vi.mock('@/common/globalVars', async () => {
     TEMP_DIR: path.join(dir, 'temp'),
     LOG_DIR: path.join(dir, 'logs'),
     dbDir: path.join(dir, 'database'),
-    selfInfo: { uid: 'test-uid', uin: '123456', nick: 'TestBot', online: true },
-    authTokenStatus: { hasToken: false, validation: 'idle', message: '', loginError: '' },
     getFixedDataDir: () => dir,
   }
 })
@@ -65,6 +63,9 @@ class MockConfig extends Service {
 }
 
 class MockProtocol extends Service {
+  // Logged in already
+  selfInfo = { uid: 'test-uid', uin: '123456', nick: 'TestBot', online: true }
+
   constructor(ctx: Context) {
     super(ctx, 'qqProtocol')
   }

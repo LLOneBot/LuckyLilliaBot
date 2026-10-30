@@ -11,7 +11,6 @@ import {
 } from './event/request/OB11GroupRequest'
 import { OB11FriendRequestEvent } from './event/request/OB11FriendRequest'
 import { GroupDecreaseSubType, OB11GroupDecreaseEvent } from './event/notice/OB11GroupDecreaseEvent'
-import { selfInfo } from '../../../../common/globalVars'
 import { Config as LLOBConfig, OB11Config } from '../../../../common/types'
 import { OB11WebSocket, OB11WebSocketReverse } from './connect/ws'
 import { OB11Http, OB11HttpPost } from './connect/http'
@@ -129,7 +128,7 @@ class Onebot11Adapter extends Service {
       if (!msg) {
         return
       }
-      const isSelfMsg = msg.user_id.toString() === selfInfo.uin
+      const isSelfMsg = msg.user_id.toString() === this.ctx.account.uin
       if (isSelfMsg) {
         msg.target_id = +message.peerUin
       }
@@ -356,7 +355,7 @@ class Onebot11Adapter extends Service {
     this.ctx.on('nt/group-member-removed', (data) => {
       let subType: GroupDecreaseSubType = 'leave'
       if (data.operatorUin) {
-        if (data.memberUin === +selfInfo.uin) {
+        if (data.memberUin === +this.ctx.account.uin) {
           subType = 'kick_me'
         } else {
           subType = 'kick'
@@ -407,7 +406,7 @@ class Onebot11Adapter extends Service {
 
     this.ctx.on('nt/friend-nudge', (data) => {
       const userId = data.uin
-      const targetId = data.isSelfReceive ? +selfInfo.uin : data.uin
+      const targetId = data.isSelfReceive ? +this.ctx.account.uin : data.uin
       if (!userId || !targetId) return
       const rawInfo: Record<string, unknown>[] = [
         { col: '1', jp: '', nm: '', tp: '0', type: 'qq', uid: userId.toString() },

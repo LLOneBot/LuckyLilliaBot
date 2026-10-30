@@ -9,7 +9,6 @@ import {
   DeleteFriendInput,
 } from '../generated/schema'
 import z from 'zod'
-import { selfInfo } from '@/common/globalVars'
 import { FriendReqType } from '@/plugin/internal/protocol/nt-protocol/ntqqapi/types'
 
 const SendFriendNudge = defineApi(
@@ -71,8 +70,8 @@ const GetFriendRequests = defineApi(
           time: e.timestamp,
           initiator_id: Number(await ctx.ntUserApi.getUinByUid(e.sourceUid)),
           initiator_uid: e.sourceUid,
-          target_user_id: Number(selfInfo.uin),
-          target_user_uid: selfInfo.uid,
+          target_user_id: Number(ctx.account.uin),
+          target_user_uid: ctx.account.uid,
           state: 'pending',
           comment: e.comment,
           via: e.source,
@@ -84,13 +83,13 @@ const GetFriendRequests = defineApi(
       return Ok({
         requests: await Promise.all(result.map(async e => {
           const friendId = Number(await ctx.ntUserApi.getUinByUid(e.friendUid))
-          const selfId = Number(selfInfo.uin)
+          const selfId = Number(ctx.account.uin)
           return {
             time: e.timestamp,
             initiator_id: e.isInitiator ? selfId : friendId,
-            initiator_uid: e.isInitiator ? selfInfo.uid : e.friendUid,
+            initiator_uid: e.isInitiator ? ctx.account.uid : e.friendUid,
             target_user_id: e.isInitiator ? friendId : selfId,
-            target_user_uid: e.isInitiator ? e.friendUid : selfInfo.uid,
+            target_user_uid: e.isInitiator ? e.friendUid : ctx.account.uid,
             state: ({
               [FriendReqType.PeerInitiator]: 'pending',
               [FriendReqType.MeInitiatorWaitPeerConfirm]: 'pending',
