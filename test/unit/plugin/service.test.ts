@@ -324,6 +324,34 @@ describe('PluginService builtins', () => {
     await expect(plugins.disable('aaaa0002')).rejects.toBeInstanceOf(PluginForbiddenError)
     expect(adapterEvents()).toEqual([])
   })
+
+  it('runs the standby part of a builtin whatever its switch says, for as long as the service runs', async () => {
+    writeFileSync(file, JSON.stringify({ version: 1, entries: [{ id: 'aaaa0001', name: 'builtin:adapter', disabled: true }] }))
+    const standby = {
+      name: 'adapter-standby',
+      inject: ['gate'],
+      apply(ctx: Context) {
+        globalThis.__pluginTest.push('standby:up')
+        ctx.effect(() => () => globalThis.__pluginTest.push('standby:down'))
+      },
+    }
+    const plugins = await boot([{ ...builtins[0], standby }])
+    const events = () => globalThis.__pluginTest.filter(event => event.startsWith('standby:'))
+    // It waits for what it injects like any plugin
+    expect(events()).toEqual([])
+    await ctx.plugin(Gate)
+    await expect.poll(events).toEqual(['standby:up'])
+    expect(byName('builtin:adapter')).toMatchObject({ disabled: true, state: 'disposed' })
+
+    // No part of the entry: switching that on and off leaves it be
+    await plugins.enable('aaaa0001')
+    await plugins.disable('aaaa0001')
+    expect(events()).toEqual(['standby:up'])
+
+    await service!.dispose()
+    service = undefined
+    expect(events()).toEqual(['standby:up', 'standby:down'])
+  })
 })
 
 interface Listener {

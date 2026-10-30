@@ -101,6 +101,12 @@ export interface BuiltinPlugin {
   core?: boolean
   /** The plugin's Config is configurable like a package's; see BuiltinConfig. */
   config?: BuiltinConfig
+  /**
+   * Runs whatever the entry's switch says, for as long as the plugin service does: what the builtin's settings page
+   * needs before the entry is switched on, e.g. the route sending a test email. It is mounted under the plugin
+   * service, not as part of the entry, so it has no status, settings or data directory of its own.
+   */
+  standby?: Plugin
 }
 
 /** What describe() shows for a stored secret; writing it back (or an empty string) keeps the stored one. */
@@ -247,6 +253,9 @@ class PluginService extends Service {
     if (this.reconcileBuiltins() && !error) await this.save()
 
     this.ctx.on('internal/status', fiber => this.onFiberStatus(fiber))
+    for (const builtin of this.builtins.values()) {
+      if (builtin.standby) this.home.plugin(builtin.standby)
+    }
     const dirs = this.dataDirs
     if (dirs) {
       this.home.accessor('storage', {

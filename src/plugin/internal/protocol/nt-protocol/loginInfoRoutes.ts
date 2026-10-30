@@ -3,7 +3,7 @@ import { Hono } from 'hono'
 import { selfInfo } from '@/common/globalVars'
 import { currentPmhqTarget, getProtocol, isPmhqMode, launchPins, lockedProtocol } from '@/common/utils/environment'
 
-/** Part of the WebUI shell: the NTQQ protocol page polls it whether or not the protocol runs. */
+/** The account and the login method as the NTQQ page shows them, and whether the protocol runs. */
 export function createLoginInfoRoutes(ctx: Context): Hono {
   const router = new Hono()
 
@@ -26,4 +26,13 @@ export function createLoginInfoRoutes(ctx: Context): Hono {
   })
 
   return router
+}
+
+/** The standby part of builtin:nt-protocol: the NTQQ page reads it with the protocol switched off too. */
+export const LoginInfoRoutes = {
+  name: 'webui-nt-login-info-routes',
+  inject: ['webuiServer'],
+  apply(ctx: Context) {
+    ctx.webuiServer.route('/api/login-info', new Hono().route('/api', createLoginInfoRoutes(ctx)))
+  },
 }

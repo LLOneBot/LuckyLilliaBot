@@ -1,5 +1,6 @@
 import type { BuiltinPlugin } from '../../../host'
 import * as NTProtocol from '.'
+import { LoginInfoRoutes } from './loginInfoRoutes'
 import { ntProtocolSettings } from './settings'
 
 export const builtin: BuiltinPlugin = {
@@ -7,6 +8,7 @@ export const builtin: BuiltinPlugin = {
   name: 'builtin:nt-protocol',
   title: 'NTQQ 协议',
   plugin: NTProtocol,
+  standby: LoginInfoRoutes,
   config: ntProtocolSettings,
   manifest: {
     category: 'protocol',

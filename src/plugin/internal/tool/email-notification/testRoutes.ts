@@ -1,9 +1,8 @@
 import { Context } from 'cordis'
 import { Hono } from 'hono'
+import { SECRET_MASK } from '../../../host'
 import { checkEmail, DEFAULT_EMAIL_CONFIG, EmailConfig, EmailConfigManager, EmailSettings } from './config'
 import { EmailService } from './service'
-
-const MASK = '********'
 
 // Reading and saving the settings goes through the plugin API (builtin:email-notification); only sending a
 // test email needs a route of its own.
@@ -17,7 +16,7 @@ export function createEmailRoutes(ctx: Context): Hono {
       const stored = (ctx.get('plugins')?.builtinSettings('builtin:email-notification')?.config ?? DEFAULT_EMAIL_CONFIG) as EmailSettings
       const config = structuredClone(sent ?? stored)
       // The form holds the masked password; test with the real one unless a new one was typed
-      if (config.smtp?.auth && (config.smtp.auth.pass === MASK || !config.smtp.auth.pass)) {
+      if (config.smtp?.auth && (config.smtp.auth.pass === SECRET_MASK || !config.smtp.auth.pass)) {
         config.smtp.auth.pass = stored.smtp.auth.pass
       }
       const issues = checkEmail(config, true)
@@ -40,7 +39,7 @@ export function createEmailRoutes(ctx: Context): Hono {
   return router
 }
 
-/** Only needs the WebUI: a test email can be sent before login and with notifications switched off. */
+/** The standby part of builtin:email-notification: a test email goes out before login and with notifications off. */
 export const EmailRoutes = {
   name: 'webui-email-routes',
   inject: ['webuiServer'],

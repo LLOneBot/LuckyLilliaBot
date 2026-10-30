@@ -28,6 +28,7 @@ import MilkyAdapter from '@/plugin/internal/adapter/milky/adapter'
 import { WebuiServer } from '@/plugin/internal/service/webui/BE/server'
 import { EmailRoutes } from '@/plugin/internal/tool/email-notification/testRoutes'
 import { NTLoginRoutes } from '@/plugin/internal/protocol/nt-protocol/loginRoutes'
+import { LoginInfoRoutes } from '@/plugin/internal/protocol/nt-protocol/loginInfoRoutes'
 import { Dashboard } from '@/plugin/internal/tool/dashboard'
 import { Logs } from '@/plugin/internal/tool/logs'
 import { WebQQ } from '@/plugin/internal/tool/webqq'
@@ -125,6 +126,7 @@ describe('service registry under the pinned cordis version', () => {
     mount('webuiServer', WebuiServer)
     // Route plugins: their inject lists have to be satisfiable by the real services
     mount('ntLoginRoutes', NTLoginRoutes)
+    mount('loginInfoRoutes', LoginInfoRoutes)
     mount('webqq', WebQQ)
     mount('dashboard', Dashboard)
     mount('logs', Logs)
