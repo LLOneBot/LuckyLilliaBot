@@ -6,12 +6,12 @@
 
 ## 1. 定位
 
-官方 bot 实现两个 `Bot`，经 `ctx.bots.register()` / `dispatch()` / `beforeSend()` 接入中立层，和扫码账号（NT，`platform='llonebot'`）互相独立：
+官方 bot 实现两个 `Bot`，经 `ctx.bots.register()` / `dispatch()` / `beforeSend()` 接入中立层，和扫码账号（NT，`platform='luckylillia'`）互相独立：
 
 - `qq`（`QQOfficialBot`，sid `qq:<AppID>`）：群聊、单聊、机器人自身的事件
 - `qqguild`（`QQGuildBot`，sid `qqguild:<AppID>`）：频道。像 Koishi 的 QQ 适配器一样单列一个平台，频道的 id、成员、消息和群毫无关系。**订阅了任一频道事件才注册**，状态跟着 `qq` 走；`private:` 频道交还给 `qq`
 - **不走** `qqProtocol` / `account` / `selfInfo.uin` / session。它只有 appid 和 openid，没有 uin，实现不了 `ntMsgApi` / `ntFileApi`
-- **绝不喂假 uin 进 `account`**。NT 专属的消费者（WebQQ、Satori server 的 `platform !== 'llonebot'` 守卫、只订阅 `nt/*` 的 OB11 / Milky）天然看不到官方 bot，这是正确的隔离
+- **绝不喂假 uin 进 `account`**。NT 专属的消费者（WebQQ、只订阅 `nt/*` 的 OB11 / Milky）天然看不到官方 bot，这是正确的隔离。Satori 适配器不是 NT 专属的：它把 `ctx.bots` 里的每个 bot 都作为 login 给外部客户端，官方的 `qq` / `qqguild` 也在（plugin-system.md"Satori 适配器"）
 - `inject` 只有 `bots` + `timer`，不等扫码登录，启动就连。扫码协议也是插件（`builtin:nt-protocol`，见 [core-pluginization.md](core-pluginization.md)），两个开关独立：只开扫码、只开官方机器人、两个都开，在插件页切换即可，运行时立即生效
 
 ## 2. Owner 决策
@@ -95,6 +95,7 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 - **id**：`qq` 的 `selfId` = AppID。群和单聊的用户 id 用 `author.member_openid`（群）/ `user_openid`（单聊），实测和 `author.id` 相同，同一个 app 下跨群不变。头像 `https://q.qlogo.cn/qqapp/<appid>/<openid>/640`。频道私信：guild `<来源频道>_<私信频道>`、channel `<私信频道>_<子频道>`（同 Koishi）
 - **@ 自己归一**：平台用 bot 的 openid 表示 @ 它，而 `selfId` 是 AppID，不归一的话 `dispatch` 的回声判断和插件的 @ 前缀匹配都会失效。`mentions[]` 里 `is_you: true` 的那项就是 bot，第一次见到就记下它的 openid（`botOpenid`，`/users/@me` 的 `union_openid` 兜底），之后没带 `is_you` 的 `<@botOpenid>` 也认。不在 `mentions` 里的 `<@xxx>` 当普通文本
 - **附件**：`image/*` → `img`（带宽高），`voice` → `audio`（优先用平台转好的 `voice_wav_url`，原文件是 silk），`video/*` → `video`，其余 → `file`（`title` 是文件名）。url 可能不带协议，补 `https://`
+- **QQ 表情** → `face`（和 NT 的同一套 id）：群、单聊的 content 里是 `<faceType=1,faceId="13",ext="…">`，`ext` 是 `{"text":"[呲牙]"}` 的 base64，名字去掉方括号放进 `name`（有的不带方括号，有的没有 `ext`）。这个格式官方文档没写，来自别的项目的实测（Diana、Eve.aic、dsh-im 的 PR），crack 也不解析。频道是官方文档写的 `<emoji:id>`
 - **引用**：`message_type` 103 或 `message_scene.ext` 里有 `ref_msg_idx=...`。被引用的消息在 `msg_elements[0]`，content 是平台渲染好的文本（`=== 消息 1 ===` / `[消息内容] ...`），取 `[消息内容]` 那段。`quote` 的 id 尽量换成消息 id（见 §6 的引用索引），换不到就用 `REFIDX_`
 - **去重**：同一条消息平台可能推两次，按消息 id 去重（顺带用被动回复的记账表）
 - 卡片（`message_type` 3，`ark_data`）、聊天记录（102）暂不解析
@@ -117,13 +118,17 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 | 元素 | 发出去 |
 |---|---|
 | `<markdown>` 文本 / `h('markdown', { content })` | 消息改成 markdown，之前的文字转义；`stream` 属性同 `qq:rawmarkdown`。内联的 `![](data:image/...)` 拆出来先上传、单独发（之后的文字另起一条，crack 如此） |
-| `<button>` / `<qq:button>` | 消息改成 markdown 并带 keyboard，每行最多 5 个。Satori 写法：`text`、`type`（`link` 跳转、`input` 填入输入框、其余回调；没写 `type` 时是指令按钮 2，crack 如此）、`href`；平台写法：`render_data`、`action`、`permission`、`group_id` 原样合进去 |
+| `<button>` / `<qq:button>` | 消息改成 markdown 并带 keyboard，每行最多 5 个。Satori 写法：`text`、`href`、`type`：`link` 跳转（0）；`action` 回调（1，`data` 默认取 `id`，同上游 `@satorijs/adapter-qq`；crack 把它也当指令按钮，2026-10-30 改了）；其余（`input`、没写）是指令按钮（2，点了直接发出 `data`，默认 `text` 或按钮上的字），crack 如此。平台写法：`render_data`、`action`、`permission`、`group_id` 原样合进去 |
 | `<button-group>` | 另起一行按钮 |
 | `<qq:ark24>` / `<qq:ark23>` / `<qq:ark37>` / `<qq:ark>` | ark 模板 24（图文）、23（列表）、37（大图），或整个 `ark`；单独一条 |
 | `<qq:json id>` | 只有按钮模板（`keyboard.id`）的 markdown 消息 |
 | `<qq:markdown>` | markdown 模板（`custom_template_id` + `params`），可带 `keyboard` |
 | `<qq:rawmarkdown>` / `<qq:rawmarkdown-without-keyboard>` | 原生 markdown，前者可带 `keyboard` |
 | `<passive messageId seq eventId>` | 指定这次回复挂在哪条消息 / 事件上 |
+| `<card title url desc image prompt>` | 中立层的卡片（plugin-system.md"扩展元素和降级"）：有 `image` 是 ark 24（`#SUBTITLE#` 用链接的域名），没有是只有一项的 ark 23（描述带链接）；缺 `title` 或 `url` 就发它的降级内容。单独一条 |
+| `<face id>` | 频道写成 `<emoji:id>`；群和单聊发表情官方没写，不声明 `message.face`，中立层先降级成 `[名字]` |
+
+- 最后一段 `<p>` 留下的换行在发送前去掉（`dropParagraphBreak()`，NT 的编码器也是这样）：中立层的降级内容全是段落，不去掉每条消息会多一个空行
 
 - **流式**（`autoStreamText` 勾了的会话类型）：没有 markdown、按钮、媒体、平台载荷的纯文本回复，转义后作为 markdown 带 `stream: { state: 1, id, index }` 发；对同一条消息的后续回复接着第一条的 id、index + 1。crack 按 Koishi 会话记，这里按回复的那条消息 / 事件记（中立层的 `send()` 不带会话）。平台载荷带 `stream: true` 也由这里填。频道只有勾了才带 `stream`（官方没写频道支持）
 - **重试**：`retryWhen` 里的错误码重试一次（频道只对 URL 图片：改成自己下载后 multipart 重发）
@@ -131,7 +136,7 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 
 ### 被动回复（全部在适配器里，SDK 不改）
 
-2025-04-21 起主动消息基本停了：单聊改成 `is_wakeup` 互动召回（用户说过话后 30 天内，按 当天 / 1~3 天 / 3~7 天 / 7~30 天 每段一条），群聊要群主在机器人设置里打开主动消息。所以机器人发的消息几乎都得是**被动回复**：带 `msg_id`（回复一条收到的消息）或 `event_id`（回复一个事件，支持 `GROUP_ADD_ROBOT` / `GROUP_MSG_RECEIVE` / `FRIEND_ADD` / `C2C_MSG_RECEIVE` / `INTERACTION_CREATE`，取的是事件信封最外层的 `id`）。
+主动消息（没有可回复的消息时直接发）能发，但有额度和开关（2026-10 的官方文档，owner 确认能发）：单聊、群聊每个对象每月 4 条，用户要开着「允许主动发送」、群主要允许机器人主动发言，超额或没开就发送失败。单聊另有 `is_wakeup` 互动召回（用户说过话后 30 天内，按 当天 / 1~3 天 / 3~7 天 / 7~30 天 每段一条）。官方文档同一页还留着"2025-04-21 起不再提供主动推送"的旧说明，两种说法并存。所以能回复时尽量**被动回复**，不占额度：带 `msg_id`（回复一条收到的消息）或 `event_id`（回复一个事件，支持 `GROUP_ADD_ROBOT` / `GROUP_MSG_RECEIVE` / `FRIEND_ADD` / `C2C_MSG_RECEIVE` / `INTERACTION_CREATE`，取的是事件信封最外层的 `id`）。
 
 - **限额**：群 5 分钟内最多回 5 次，单聊 60 分钟内最多 4 次，频道 5 分钟内不计次数（crack 如此）。窗口从消息的 `timestamp` 起算（不是本地收到的时刻），留 10 秒余量
 - **msg_seq 按 msg_id 计数**，从 1 开始，同一个 `msg_id` + `msg_seq` 重复会被去重（40054005）。按频道计数不行：引用一条旧消息的同时群里来了新消息，就会张冠李戴。频道消息不带 `msg_seq`
@@ -148,6 +153,7 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 
 ## 7. bot 的方法
 
+- `features`：`qq` 是 `message.markdown` / `button` / `card` / `stream` / `proactive` 和 `guild.plain`，`qqguild` 是 `markdown` / `button` / `card` / `face`（频道的流式、主动消息官方没写）。都没有 `message.forward`
 - 中立层（`packages/plugin-sdk` 的 `Bot`，可选方法）：`qq` 有 `getUser`（缓存 → 查询接口）、`getGuild` / `getChannel`（`GET /v2/groups/{id}/info` 的群名；`private:` 频道给用户名）、`getChannelList`、`getGuildMember` / `getGuildMemberList`（`/v2/groups/{id}/members`，`next_cursor` 翻页）、`kickGuildMember`（`batch_remove_members`，`permanent` 时加黑名单）、`muteGuildMember`（`restrict_chat_setting`：已禁言的 `update`、没有的 `add`、时长 0 `del`）、`handleGuildMemberRequest`、`createDirectChannel`、`deleteMessage`
 - `qq` 另有 `refreshBotGroupState(groupId)`（机器人在群里的身份、能否主动发消息、收哪些消息，身份写进 `bot.user.role`）、`updateCommands(commands)`（§8）、`internal`
 - `qqguild`：`getGuildList` / `getGuild`、`getChannelList` / `getChannel` / `createChannel` / `updateChannel` / `deleteChannel`、`muteChannel`（QQ 没有子频道禁言，是整个频道 30 天）、`getChannelOnlineNums`、子频道的成员 / 身份组权限、上下麦和音频控制、`getGuildMemberList` / `getGuildMember` / `kickGuildMember` / `muteGuildMember`、表态 `createReaction` / `deleteReaction` / `getReactionList`（表情写成 `<类型>:<id>`）、`getMessage` / `deleteMessage`、`createDirectChannel`、`internal`
@@ -163,7 +169,6 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 ## 9. 没做的
 
 - webhook（owner 决定只走 WebSocket）
-- Satori 协议客户端看不到官方 bot 的会话：`src/plugin/internal/adapter/satori/adapter.ts` 只转发 `platform === 'llonebot'`。要看到得改成遍历 `ctx.bots`
 - 纯官方进程里没有数据库：`database` 在扫码协议条目里、按 QQ 号建库，依赖它的插件（如 keyword-reply）只在扫码账号登录后才跑
 
 ## 10. 测试
@@ -173,6 +178,7 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
   - `gateway` 用本地 `ws` 服务器测 identify、心跳、resume、invalid session、致命关闭码、僵死重连、`gatewayUrl`、换域名
   - `plugin` / `features` 用假的 REST（`vi.stubGlobal('fetch')`）+ 本地网关：收消息、被动回复、去重重试、退回主动、媒体上传和回退、按钮回应、凭证错误让条目失败、`examples/plugins/echo`；markdown 和按钮（转义、换行、按钮组、平台字段）、ark 和各种平台载荷、markdown 里的 @、`data:` 图片拆分、`<passive>`、流式、`retryWhen`、审核等待、群成员和入群申请、禁言、群信息和成员、踢人、接收开关和 internal 事件、`qqguild` 的注册 / @ 消息 / 私信 / markdown / 图片 / 去重 / 表态和频道成员事件、没有按钮的互动、手动回应、菜单同步
   - `test/unit/bootstrap/builtins.test.ts` 验证没填凭证也能打开（条目 `failed`）、开着时只填一半存不进去、存好凭证后条目起来
+  - 中立层扩展元素的共用用例（`test/unit/universal/crossPlatform.ts`）在 `features.test.ts` 里断言发成什么；频道的 `<emoji:id>` 收发、卡片缺字段时的降级也在那里
 - `examples/plugins/echo` 会先去掉开头对 bot 的 @：官方 bot 在群里只收得到 @ 它的消息
 - 不登录 QQ 的 WebUI 端到端验证照 [plugin-system.md](plugin-system.md) 的方法即可。用假 AppID 启用会真的请求腾讯的 token 接口，返回 `[10004] 机器人不存在`，卡片显示失败原因
 - **真机联调要一个开放平台机器人**（沙箱即可，沙箱群 / 沙箱用户在开放平台配置），用它确认：群 @ 和单聊的收发、引用、图片 / 语音 / 视频上传、全量群消息的 `mentions` 是否真带 `is_you`
@@ -187,3 +193,5 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 - 带 `event_id` 的回复配 `msg_seq` 是否必要 / 允许（现在都带）
 - 群的 `<qqbot-at-user />` 是否也对纯文本（`msg_type` 0）生效：changelog 只明说了 `<qqbot-at-everyone />` 文本和 markdown 都能用
 - `GROUP_AT_MESSAGE_CREATE` 里 @ 了别人时，那些 @ 在 content 里的写法
+- `<faceType=…>` 的格式和 `ext` 里名字带不带方括号（别的项目实测过，我们没有）；群和单聊能不能发表情、怎么写
+- `<card>` 映射成的 ark 23 / 24 的实际样子；频道 `<emoji:id>` 的收发

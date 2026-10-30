@@ -194,17 +194,82 @@ ctx.on('bot/before-send', (bot, channelId, content, next) => {
 
 `Session` 常用字段：`type`、`userId`、`channelId`、`guildId`（私聊为空）、`messageId`、`isDirect`、`content`（元素标记字符串）、`elements`（解析后的元素，取 @ 可以用 `h.select(session.elements, 'at')`）、`event`（原始 Satori 事件，snake_case），以及 `send()` / `reply()`（引用回复）。
 
-`ctx.bots` 里是已登录的账号（`Bot`）。`sendMessage` 一定有，其它能力（`deleteMessage`、`getGuild`、`getGuildMember`、`muteGuildMember`、`kickGuildMember`、`handleGuildMemberRequest`、`createReaction`……）按平台支持情况提供，用之前先判断 `if (bot.muteGuildMember)`。QQ 账号的 `platform` 是 `llonebot`，私聊的 channelId 形如 `private:<QQ号>`，群的 channelId 就是群号。
+`ctx.bots` 里是已登录的账号（`Bot`）。`sendMessage` 一定有，其它能力（`deleteMessage`、`getGuild`、`getGuildMember`、`muteGuildMember`、`kickGuildMember`、`handleGuildMemberRequest`、`createReaction`……）按平台支持情况提供，用之前先判断 `if (bot.muteGuildMember)`。这些可选方法和 Satori 的 API 同名、参数顺序也一样（好友、群、成员、角色、消息列表、表态……，见 SDK 的 `Bot`）。QQ 账号的 `platform` 是 `luckylillia`（外部 Satori 客户端看到的是 `llonebot`，由 Satori 适配器换），私聊的 channelId 形如 `private:<QQ号>`，群的 channelId 就是群号。
+
+### 跨平台写法
+
+同一份插件要在 QQ 账号（NTQQ）和 QQ 官方机器人上都能用，按下面写。
+
+**按指令匹配用 `session.stripped.content`**：它去掉了开头的引用、对机器人的 @ 和后面的空白（`atSelf` 说有没有 @ 它）。官方机器人在群里只收得到 @ 它的消息，直接用 `session.content` 会多一个 `<at>`。
+
+**Satori 标准元素**（文本、`at`、`quote`、`img`、`audio`、`video`、`file`、`p`、`br`、`message forward`……）照常用。另外有四种扩展元素，任何 bot 都能发：平台原生支持的照原样发，不支持的在发送前换成下表的降级内容，插件不用分平台写：
+
+| 元素 | 写法 | 原生支持 | 发不了时 |
+|---|---|---|---|
+| markdown | `h('markdown', {}, '# 标题\n**粗体**')` | 官方机器人 | 去掉标记的文字：粗体、链接、代码、图片照样是元素，列表写成"• "、引用写成"｜" |
+| 按钮 | `h('button', { text: '/sign' }, '签到')`，一行用 `h('button-group', {}, [...])` 包起来 | 官方机器人 | 一行字：指令按钮写成"签到（发送「/sign」）"，文字和指令相同时写成"「签到」"；跳转按钮写成链接；回调按钮丢掉 |
+| 卡片 | `h('card', { title, url, desc, image, prompt })` | 官方机器人（有图是 ark 24，没图是 ark 23） | 标题带链接、描述、图片 |
+| QQ 表情 | `h('face', { id: '13', name: '呲牙' })` | QQ 账号、官方频道 | `[呲牙]`，没写 `name` 是 `[表情]` |
+
+- 按钮分三种：没写 `type`（或 `input`）是**指令按钮**，点了就发出 `text`（默认是按钮上的字）；`type: 'link'` + `href` 是跳转按钮；`type: 'action'` + `id` 是回调按钮，点了不发消息，只来一个 `interaction/button` 事件（`session.event.button.id`）。要两边都能用就写指令按钮：降级后用户照着发，插件当普通消息处理，一份代码
+- `bot.features` 说这个 bot 原生能发什么：`message.markdown` / `message.button` / `message.card` / `message.face` 对应上表；另外 `message.forward`（合并转发）、`message.stream`（`<markdown stream>` 流式回复）、`message.proactive`（没有消息可回复时也能发，官方机器人基本不行）只是告诉你，不会替你降级。想"能发按钮就发按钮，不能就换个说法"时看它：`if (session.bot.features.includes('message.button'))`
+- 降级可以自己做：`bot/fallback` 事件对每个发不了的 markdown / 卡片 / 表情和每一行按钮各问一次，返回要发的内容就用它（原样发出，不再降级），什么都不返回就用上面的默认降级，返回 `''` 是丢掉。最先返回内容的监听者生效。比如装了 puppeteer 时把 markdown 渲染成图片：
+
+```ts
+// puppeteer 在时才挂上，它没了自动撤掉
+ctx.inject(['puppeteer'], (ctx) => {
+  ctx.on('bot/fallback', async (bot, channelId, element) => {
+    if (element.type !== 'markdown') return
+    const source = element.attrs.content ?? element.children.map(child => child.attrs.content ?? '').join('')
+    // 插件自己的渲染：markdown 转成 HTML 再截图，得到 PNG 的 Buffer
+    const png = await renderMarkdown(ctx, source)
+    return h.image(png, 'image/png')
+  })
+})
+```
+
+- 降级在 `bot/before-send` 之后做，`before-send` 里加进去的扩展元素也会降级。只管插件经 `bot.sendMessage` / `session.send()` 发的消息，OneBot、Milky、Satori 客户端发的不经过这里
+- 收到的消息也是这套元素：官方机器人收到的 QQ 表情是 `face`（带 `name`），QQ 账号在群里收到别的官方机器人发的 markdown、按钮也解成 `markdown`、`button`，卡片是带一行文字（`[分享]标题` 这种）的 `luckylillia:ark`
+- 只属于一个平台的元素带平台名前缀：官方机器人的 `qq:ark24`、`qq:markdown` 等（见下面），QQ 账号的 `luckylillia:market-face`（商城表情）、`luckylillia:ark`（原样的卡片 JSON）。别的平台不认识它们，只会发出它们的子元素（比如商城表情里的图片）
 
 QQ 官方机器人（`platform` 是 `qq`，`selfId` 是 AppID，见 [official-qq-bot.md](official-qq-bot.md)）有几处不同：
 
 - 用户、群都是 openid，没有 QQ 号；私聊 channelId 是 `private:<openid>`
-- 群里一般只收得到 @ 它的消息，这些消息开头是 `<at id="<AppID>"/>`。按前缀匹配指令时先去掉它（`examples/plugins/echo` 就是这么做的）
-- 发的消息几乎都只能作为对收到消息的回复：群在消息发出 5 分钟内最多回 5 条，私聊 60 分钟内最多 4 条。`session.send()` / `reply()` 会自动挂到会话里最近能回复的消息上，过了时限或用完次数就发不出去，所以不要攒到很久以后再回，一次回复也别拆成太多条
-- 能发 markdown 和按钮：`h('markdown', '# 标题')`、`h('button', { text: '再来一次' })`（`type: 'link'` + `href` 是跳转按钮），还有 `qq:ark24` 等平台元素，写法同 Koishi 的 adapter-qq-crack（列表见 official-qq-bot.md §6）。别的平台不认识这些元素，只会发出里面的文字
+- 群里一般只收得到 @ 它的消息，这些消息开头是 `<at id="<AppID>"/>`。按前缀匹配指令时用 `session.stripped.content`（`examples/plugins/echo` 就是这么做的）
+- 回复收到的消息不占额度：群在消息发出 5 分钟内最多回 5 条，私聊 60 分钟内最多 4 条。`session.send()` / `reply()` 会自动挂到会话里最近能回复的消息上；没有能回复的（过了时限、用完次数，或者是定时推送）就作为主动消息发。主动消息每个用户或群每月 4 条，要用户开着「允许主动发送」、群主允许机器人主动发言，否则发不出去。所以能回复时就回复，一次回复也别拆成太多条
+- markdown、按钮、卡片原生就能发（见上面"跨平台写法"）；另有 `qq:ark24`、`qq:markdown`（模板）、`qq:rawmarkdown` 等平台元素，写法同 Koishi 的 adapter-qq-crack（列表见 official-qq-bot.md §6）。别的平台不认识这些 `qq:` 元素，只会发出里面的文字
 - 频道（QQ 频道）是另一个 bot：`platform` 是 `qqguild`，订阅了频道事件才有
 - 入群申请是 `guild-member-request` 事件，用 `bot.handleGuildMemberRequest(session.messageId, true)` 同意
 - 中立层没有的平台接口在 `bot.internal` 上（如 `bot.internal.getGroupMemberBlacklist(groupId)`），名字同 Koishi；平台的原始事件以 `internal` 事件出现在 `bot/event`：`session.event._type` 是 `qq/<事件名>`，`session.event._data` 是原始数据
+
+### 平台独有的接口：`bot.internal`
+
+Satori 没有的接口在 `bot.internal` 上，各平台不同，用之前先看 `bot.platform`：
+
+- **QQ 账号**（`luckylillia`）：OneBot 11 的全部 action（含 go-cqhttp 和 LLOneBot 的扩展），和 OneBot 适配器用的是同一份代码，OneBot 适配器没开也能用。名字改成驼峰（`set_group_card` 是 `setGroupCard`，`_send_group_notice` 是 `sendGroupNotice`），参数是一个对象，字段同 OneBot 文档；返回 action 的 `data`，失败时抛出它的错误。要 `message_id` 的地方可以直接传 `session.messageId`；返回值里的 `message_id` 仍是 OneBot 的数字
+- **QQ 官方机器人**（`qq` / `qqguild`）：开放平台的 REST 接口，方法名同 Koishi，参数按顺序传（见上面）
+
+```ts
+if (session.platform === 'luckylillia') {
+  await session.bot.internal!.setGroupCard({ group_id: session.guildId, user_id: session.userId, card: '新名片' })
+  await session.bot.internal!.setEssenceMsg({ message_id: session.messageId })
+}
+```
+
+QQ 账号只有经 `internal` 才有的（Satori 没有对应方法的 75 个 action）：
+
+| 类别 | action |
+|---|---|
+| 消息 | 戳一戳 `send_poke` / `group_poke` / `friend_poke`，转发单条 `forward_group_single_msg` / `forward_friend_single_msg`，读合并转发 `get_forward_msg`，`mark_msg_as_read`，`set_input_status`，`set_group_msg_mask`，`ocr_image`，`voice_msg_to_text`，表情 `get_recommend_face` / `fetch_custom_face`，AI 语音 `get_ai_characters` / `send_group_ai_record` |
+| 群管理 | `set_group_card`，`set_group_special_title`，`set_group_portrait`，`set_group_remark`，`batch_delete_group_member`，`get_group_shut_list`，`get_group_at_all_remain`，`get_group_honor_info`，`get_group_system_msg`，`get_group_ignore_add_request`，打卡 `send_group_sign` / `get_group_signed_list` |
+| 群公告、精华 | `_send_group_notice` / `_get_group_notice` / `_delete_group_notice` / `_get_group_notice_acklist`，`set_essence_msg` / `delete_essence_msg` / `get_essence_msg_list` |
+| 群文件 | `upload_group_file`，`delete_group_file`，`move_group_file`，`rename_group_file`，`set_group_file_forever`，`create_group_file_folder`，`delete_group_folder`，`rename_group_file_folder`，`get_group_root_files`，`get_group_files_by_folder`，`get_group_file_url`，`get_group_file_system_info` |
+| 群相册 | `get_group_album_list`，`create_group_album`，`delete_group_album`，`upload_group_album`，`get_group_album_media_list` |
+| 好友和自己 | 点赞 `send_like`，`get_profile_like` / `get_profile_like_me` / `get_profile_like_count`，`set_friend_remark`，`set_friend_category`，`get_friends_with_category`，可疑好友申请 `get_doubt_friends_add_request` / `set_doubt_friends_add_request`，`set_qq_profile`，`set_qq_avatar` / `get_qq_avatar`，`set_online_status` |
+| 私聊文件、闪传 | `upload_private_file`，`get_private_file_url`，`get_flash_file_info`，`download_flash_file`，`get_flash_file_download_urls`，`upload_flash_file`，`reshare_flash_file` |
+| 其它 | `get_cookies`，`get_csrf_token`，`get_credentials`，`scan_qrcode` |
+
+另外 Satori 已有对应的 29 个（发消息、撤回、群和成员信息、踢人、禁言……）和 OneBot 协议自己的辅助接口（版本、状态、缓存、配置等）也都在 `internal` 里；只有 OneBot 连接专用的 `.handle_quick_operation`、`get_event` 不在。能用 Satori 方法的就别用 `internal`：Satori 方法在官方机器人上也能用。
 
 一条消息在某个中间件里抛错，会让这条消息的整条链中止（错误会记日志）。
 

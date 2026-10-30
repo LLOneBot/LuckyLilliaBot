@@ -28,34 +28,58 @@ Bot 进程本身就是一个 cordis 4 应用，插件运行时只是在根 `Cont
 
 ```
 qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
-                         ├─► Core / OneBot11 / Milky / WebUI     各自照旧订阅
-                         └─► NTQQUniversal ─► ctx.bots.dispatch(bot, event)
-                                                ├─ 全部事件    ─► bot/session（parallel 旁路）─► Satori 适配器
-                                                ├─ 别人的消息  ─► bot/message（waterfall 中间件链）
-                                                └─ 其余事件    ─► bot/event（parallel）
+                         ├─► Core / OneBot11 / Milky / WebQQ / 邮件通知     各自直接订阅
+                         └─► NTQQUniversal（platform luckylillia）─┐
+开放平台网关 ─► qq-official 解码（qq / qqguild）────────────────────┤
+                                                                  ▼
+                                                   ctx.bots.dispatch(bot, event)
+                                                     ├─ 全部事件    ─► bot/session（parallel 旁路）─► Satori 适配器（所有 bot）
+                                                     ├─ 别人的消息  ─► bot/message（waterfall 中间件链）
+                                                     └─ 其余事件    ─► bot/event（parallel）
 ```
 
 - **`nt/*` 永久保留**，不是过渡态：`nt/pin-changed`、`nt/ptt-trans-result`、`nt/profile-like`、`nt/group-essence-message-changed` 在 Satori 里没有对应事件，OneBot / Milky 依赖这些细节
 - `src/universal/bots.ts`：`BotsService`（`ctx.bots`）。`register(bot)` 用调用方的 `ctx.effect` 登记，调用方插件卸载时 bot 自动注销 —— 靠的是 cordis 的 tracker：经 `ctx.bots` 访问时方法里的 `this.ctx` 是调用方的 ctx。这些方法跑在实例的 shadow 上，只能改字段内容、不能重新赋值字段
 - **`bot/session` 是不受中间件影响的旁路**：每个事件路由前先广播一次，监听器出错只记日志、不影响路由。Satori 适配器只订阅它 —— 若挂在 `bot/message` 上，本地插件的中间件（比如黑名单）就能决定 Satori 客户端看到什么，而 OneBot 仍直接订阅 `nt/*`，两边会不一致
-- **Satori 适配器不再自己转换事件**：原来的 12 个 `nt/*` 监听和信封构造删掉了，信封由 `NTQQBot.event()` 按原格式构造（`id` 兼容字段、`login` 只带 `sn/user/platform`、`login.sn` 恒为 1），`test/unit/satori/adapter.test.ts` 逐字段比对。Satori 客户端因此依赖中立层，所以它是不能停用的核心内置条目
+- **Satori 适配器只是 `ctx.bots` 上的一层传输**，不碰任何 NT 服务，见下文"Satori 适配器"。中立层不再迁就它的线上格式（`id` 兼容字段、`login` 的形状、`llonebot` 这个名字都是适配器在出口加的）。Satori 客户端看到的 NT 账号全来自中立层，所以 `builtin:ntqq-universal` 是不能停用的核心内置条目
 - **bot 自己发出的消息不进 `bot/message`**，走 `bot/event`：中间件只看它能回应的消息，避免回复自己造成循环（Koishi 也是这么做的）
 - `bot/before-send` 只覆盖经 `bot.sendMessage` 发出的消息。OneBot / Milky 的 `send_msg` 直接调 `ctx.app.sendMessage`，刻意不拦：否则插件能悄悄改写下游客户端的消息。真有需要时在 `Core.sendMessage` 加钩子，按 breaking change 处理
 - `src/universal/session.ts`：`Session` 的驼峰字段都是从 snake_case 的 Satori 事件里读的；`elements` 是对 `content` 的懒 `h.parse()`
-- `src/plugin/internal/service/ntqq-universal/`：`NTQQUniversal` 插件（内置条目 `builtin:ntqq-universal`，`inject` 带 `account`：bot 就是登录的账号）和 `NTQQBot`。`NTQQBot.platform` 是 `llonebot` —— Satori 适配器的历史值，下游 Satori 客户端靠它识别，不能改
+- `src/plugin/internal/service/ntqq-universal/`：`NTQQUniversal` 插件（内置条目 `builtin:ntqq-universal`，`inject` 带 `account`：bot 就是登录的账号）和 `NTQQBot`。`NTQQBot.platform` 是 `luckylillia`（owner 2026-10-31），sid `luckylillia:<QQ号>`，它自己的元素是 `luckylillia:market-face` / `luckylillia:ark`。Satori 客户端一直看到的是 `llonebot`，名字由 Satori 适配器在出口换（`wire.ts`），插件看到的是 `luckylillia`
 
-**NT → Satori 的转换在中立层里**（`src/plugin/internal/service/ntqq-universal/`），Satori 适配器的 HTTP API 反过来用它：
+**NT → Satori 的转换在中立层里**（`src/plugin/internal/service/ntqq-universal/`）：
 
 | 能力 | 位置 |
 |---|---|
 | NT 消息 → `h[]` / Satori 资源 | `utils.ts` 的 `decodeElement()` / `decodeMessage()` 等，消息 id 的编解码 |
 | 12 种 `nt/*` → Satori 事件 | `event/*.ts` 的 `parseXxx(host, data)`，`host` 是 `src/universal/types.ts` 的结构性接口 `NormalizeHost`（只要 `ctx` 和 `event()`），现在只有 `NTQQBot` 调用 |
-| `h[]` → NT 发送元素 → 发出 | `message.ts` 的 `MessageEncoder`（Satori 适配器的 `message.create` 也用它） |
-| Bot 的可选能力 | `api.ts` 的 `getMessage` / `deleteMessage` / `getUser` / `getGuild` / `getGuildMember` / `muteGuildMember` / `kickGuildMember` / `createReaction`，Satori 适配器同名的 handler 只是转调它们（`test/unit/universal/ntqq.test.ts`） |
+| `h[]` → NT 发送元素 → 发出 | `message.ts` 的 `MessageEncoder` |
+| Bot 的可选能力 | `api.ts`：消息的读、删、列表，用户、好友（列表、删除、通过申请），群（列表、信息、改名、全员禁言、退群、通过邀请），成员（信息、列表、禁言、踢、通过申请），角色（列表、设置 / 取消管理员），表态（加、删、列表）。`NTQQBot` 按 Satori 的方法名和参数顺序包一层（`test/unit/universal/ntqq.test.ts`） |
+| 平台独有的接口 `bot.internal` | `internal.ts`（owner 2026-10-31：Satori 没有的都放这里）：OneBot 11 的 action，用 OneBot 适配器的 `initActionMap()` 传 `{ ctx }` 自己建一份（action 只从适配器拿 `ctx`），所以 OneBot 适配器停用也能用、逻辑不重写。名字驼峰化，参数是 OneBot 的对象，`retcode` 非 0 时抛错；参数里的 `message_id` 是中立层的 id（含 `\|`）时先换成 OneBot 的数字（`store.createMsgShortId`）。OneBot 连接专用的 `.handle_quick_operation`、`get_event` 不放。为了这些 action，`NTQQUniversal.inject` 和 `OneBot11Adapter.inject` 对齐，多了 `qqProtocol`、`ntSystemApi`、`config`、`timer` |
 
-原来这些都在 Satori 适配器的目录里，core 的中立层反过来 import 一个能停用的适配器的代码；2026-10-30 搬进了中立层。`NTQQUniversal.inject` 必须覆盖转换器和 `MessageEncoder` 经 `ctx` 访问的全部服务（目前和 `SatoriAdapter.inject` 一致），否则 cordis 严格模式下会抛 `cannot get property without inject`。
+原来这些都在 Satori 适配器的目录里，core 的中立层反过来 import 一个能停用的适配器的代码；2026-10-30 搬进了中立层，2026-10-31 连 Satori 适配器里剩下直接调 NT 接口的 16 个处理函数也搬了过来。`NTQQUniversal.inject` 必须覆盖转换器、`MessageEncoder` 和 `api.ts` 经 `ctx` 访问的全部服务，否则 cordis 严格模式下会抛 `cannot get property without inject`。
+
+**Satori 适配器**（`src/plugin/internal/adapter/satori/`，owner 2026-10-31：它只是中立层上的一层转换）：
+
+- `inject` 只有 `bots`，条目也不等 NT 登录（`adapterEntry(..., account = false)`）：`ctx.bots` 里的每个 bot 都是一个 Satori login，官方机器人（`qq` / `qqguild`）也给外部客户端用
+- 事件：订阅 `bot/session`，经 `wire.ts` 的 `toWire()` 换成对外的名字（`platform`、消息 `content` 里的 `luckylillia:` 元素换成 `llonebot:`，NT 的表情补回 `platform="llonebot"`，去掉值为 undefined 的字段），再补上线上格式：适配器自己数的 `sn` 和同值的 `id`，`login` 只带 `sn` / `user` / `platform`。login 的 `sn` 也是适配器按第一次见到的顺序分的。`bot/status` 发 `login-added`（第一次）/ `login-updated`
+- API：按 `Satori-Platform`（对外的名字；内部名 `luckylillia` 不认）+ `Satori-User-ID` 找到 bot，按 `@satorijs/protocol` 的 `Methods` 查方法名，参数按它的字段顺序传给 bot 同名的方法，结果同样 `toWire()`。bot 没有的方法回 404。`login.get` 和 READY 的 `logins` 用 `adapter.login(bot)`，`features` 是 bot 有的方法加 `bot.features`
+- `message.create` 调 `bot.sendMessage(..., { relay: true })`：内容先把 `llonebot:` 换回 `luckylillia:`，不经过 `bot/before-send` 和 `bot/fallback`（插件不能改写下游客户端的消息），只做内置降级
+- `/v1/internal/onebot11/:action` 照旧转给 OneBot 适配器的 action
+- 搬过来时修掉的：`channel.mute` 读的是 `duration` 而 Satori 传的是 `enable`，一调用就全员禁言；角色列表的 id（1 / 2 / 0）和成员身上的（NT 的 4 / 3 / 2）对不上，拿成员的 3 去设置管理员反而会撤掉管理员，现在统一用 NT 的值；`message.list` 的 `next` 是消息 id 却被当数字用，翻第二页是 NaN
 
 第二个消息源 QQ 官方机器人就是这样接的（`src/plugin/internal/protocol/qq-official/`，见 [official-qq-bot.md](official-qq-bot.md)）：实现 `Bot`（`sendMessage` 必须，其它按平台能力挑），发送前调 `ctx.bots.beforeSend()`，收到的事件转成 Satori 事件后 `ctx.bots.dispatch()`，在 apply 里 `ctx.bots.register(bot)`。不需要碰任何 `nt/*`。
+
+**扩展元素和降级**（owner 2026-10-30：不另起协议，在 Satori 上加一层；NT 上 markdown 默认降级成文字、留口子给插件渲染成图片，回调按钮丢掉）。插件作者的用法见 [plugin-authoring.md](plugin-authoring.md)"跨平台写法"：
+
+- Satori 标准之外的四种元素 `markdown`、`button` / `button-group`、`card`、`face`，任何 bot 都收。`Bot.features`（SDK 的 `Feature`，对应 Satori 的 `Login.features`）列出 bot 原生能发的；没列的，`ctx.bots.beforeSend()` 在 `bot/before-send` 跑完后换成降级内容（`src/universal/fallback.ts` 的 `applyFallbacks()`）：先问 `bot/fallback`（cordis 的 `serial`，第一个返回非空的监听者生效，返回值原样发出），没人接再用 `fallback()` 的默认降级（只产出标准元素）。相邻的散按钮先拼成一个 `button-group`，所以钩子和默认降级拿到的都是整行。适配器只实现自己声明的元素
+- 现在：NT（`NTQQBot`）是 `message.face` / `forward` / `proactive` 和 `guild.plain`，官方 `qq` 是 `markdown` / `button` / `card` / `stream` 和 `guild.plain`，`qqguild` 是 `markdown` / `button` / `card` / `face`。NT 配了 `CARD_SIGN_URL` 能签链接分享卡片（[card-message-sign.md](card-message-sign.md)），但还没有拼这种卡片的代码，所以 `card` 在 NT 上走降级
+- 默认降级里的 markdown 解析是自己写的一小段（标题、粗斜体、删除线、行内代码、代码块、链接、图片、列表、引用、分隔线），不引依赖；不认识的语法原样当文字
+- 按钮按官方适配器的读法分类（`qq-official/elements.ts` 的 `decodeButton`）：`link` / 平台 `action.type` 0 是跳转，`action` / 平台类型 1 是回调，其余是指令（发出 `data`，没有就是 `text`、按钮上的字、`id`）
+- 经 `bot.sendMessage` 发的消息都走这里，Satori 客户端发的（`relay`）只做内置降级；OneBot / Milky 不用 Satori 元素，不经过中立层
+- SDK 只加了类型（`Feature`、`CardAttrs` / `FaceAttrs` / `ButtonAttrs`、`Session.stripped`、`bot/fallback`、`SendOptions.relay`、`Bot.user` 和 Satori 的那些可选方法），仍然没有自己的运行时代码
+- 收消息也归一到这套元素：NT 收到的 markdown（别的官方机器人发的）解成 `markdown`、按钮键盘解成 `button-group` / `button`（0 → `link`，1 → `action`，2 → `input`），卡片的 `luckylillia:ark` 带上 JSON 里的 `prompt` 当子元素，表情带上名字（`face_config.json` 的 `QDes`），不再带 `platform` 属性（表情 id 两边是同一套）；官方的表情见 official-qq-bot.md §5
+- `Session.stripped`（`src/universal/session.ts`）：去掉开头的 `quote`、对 `selfId` 的 `at` 和其后的空白，给按前缀匹配指令的插件用
 
 ## 插件包与条目
 
@@ -323,6 +347,7 @@ Node ESM 没有公开的缓存失效 API（官方 `@cordisjs/plugin-hmr` 需要�
 
 - `test/unit/plugin/service.test.ts`：在 gitignore 的 `.tmp/` 下现场生成插件包，覆盖启停、配置校验、失败隔离、SDK 不兼容、缺依赖、自带 cordis、重载与重载失败、包被删除、多实例，以及内置条目（core 停不掉、standby 部分不随开关启停）。放在仓库内是为了让夹具插件能向上解析到仓库的 `node_modules`
 - `test/unit/plugin/configWrite.test.ts`：只存差异、`describe` 的字段、rev / 409
+- 扩展元素：`test/unit/universal/fallback.test.ts` 测默认降级、`bot/fallback`、和 `bot/before-send` 的先后；`test/unit/universal/crossPlatform.ts` 是一份所有 bot 都要发的内容，`ntqq.test.ts` 和 `qqofficial/features.test.ts` 各自写出每一项发成什么，并检查没有漏项：加一项，两边都得写
 - `test/unit/common/schemaDiff.test.ts`、`jsonFile.test.ts`：差异规则（含 dict 整体替换）与文件原语
 - `test/unit/bootstrap/builtins.test.ts`：用真实的内置插件表和 mock 的协议层 / 配置（`builtin:nt-protocol` 在条目文件里停用，免得真协议去抢 `qqProtocol`），验证登录前全部 pending、登录后拿到与改造前相同的配置、停用后端口真的释放、同端口再启用不 `EADDRINUSE`、core 条目停不掉
 - `test/unit/bootstrap/ntProtocol.test.ts`：`builtin:nt-protocol` 整体（协议层换成假的）：登录前后各有哪些服务、停用后全部消失且依赖方（含邮件通知）回到 PENDING、再启用再登录恢复；`test/unit/qqProtocol/protocolStop.test.ts`：直连 / PMHQ 协议停用时的清理，以及再启用复用同一个 `DirectProtocolClient`

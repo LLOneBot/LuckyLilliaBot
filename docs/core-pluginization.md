@@ -32,7 +32,7 @@
 `QQProtocolBase[Service.init]` 返回 `stop()`，cordis 卸载条目时 await 它。停用和断线不同，**不发 `protocol/disconnect` / `qq/session-expired`**：消费者正一起被卸载，邮件通知也不该报一次用户主动的"掉线"。
 
 - 基类：`disposed` 标志让二维码循环和 `maybeEmitOnline()` 停下；清断线检测定时器和回调；协议实例的 `selfInfo` 清空成未登录；IPC 的登录状态回到 `initializing`
-- 直连：停 auth token 监听（`stopAuthTokenWatcher()`：`unwatchFile`、清重试、清 `lastValidToken`，不然再启用时同一个 token 不会再触发登录）；`qrPollToken` / `initToken` 自增让在途的扫码轮询和 init 退出；清重连定时器、停心跳；**先**从 client 摘掉本实例的监听（不然 `close` 会安排重连），再 `clearSession()` + `disconnect()`。存盘的 session 不删，再启用时直接恢复，不用重新扫码
+- 直连：停实例自己的 auth token 监听（`AuthTokenWatcher.stop()`：只摘它挂在 token 文件上的那个监听、清重试。再启用的新实例有新的 watcher，同一个 token 照样触发登录）；`qrPollToken` / `initToken` 自增让在途的扫码轮询和 init 退出；清重连定时器、停心跳；**先**从 client 摘掉本实例的监听（不然 `close` 会安排重连），再 `clearSession()` + `disconnect()`。存盘的 session 不删，再启用时直接恢复，不用重新扫码
 - **`DirectProtocolClient` 跨实例共用**（`direct.ts` 的模块级 `sharedClient`）：native sign 的 relay 只绑第一个 client、无法重绑，所以停用只断开它，再启用的新实例接着用同一个对象（走"已有 client"分支：换 token / uin / guid、清 session），只重新挂自己的监听
 - PMHQ：探测 token 自增、清重连定时器、置空 ws 的四个回调后关闭（不然 `onclose` 会重连）、清响应监听；`waitConnected()` 在停用后拒绝而不是永远等
 - 邮件通知的 disposer 改用 `ctx.get('qqProtocol')?.offDisconnect()`：协议条目先没了的时候它已经不在
@@ -41,14 +41,15 @@
 ## 4. 账号 / 数据库
 
 - `account` 由协议条目提供，停用后**完全不存在**（比"存在但 check=false"更干净）。官方机器人以 AppID 为身份，不碰 `account` / `selfInfo`
-- **账号的记录在协议实例上**（owner 2026-10-30）：`QQProtocolBase.selfInfo`（uid / uin / nick / online），协议层写（登录、掉线、拉到昵称），随协议实例生灭，停用后不存在。NTQQ 插件里的代码读 `this.selfInfo` / `ctx.qqProtocol.selfInfo`（Core 为此 inject 了 `qqProtocol`，`convertToRawMessage()` 由调用方传 `selfUid`）；别的插件只读 `ctx.account` 的 `uin` / `uid` / `nick` / `online`（`account.ts`，构造时拿到协议的那份记录，读的永远是当前值：原来是首次上线时复制一份，之后改昵称、掉线都不跟）。原来它是 `src/common/globalVars.ts` 的进程级全局变量，哪里都能读写，`common` 还反过来 import 了插件里的 `SelfInfo` 类型。OneBot 事件的 `self_id` 也不再在事件类里读全局：发出它的连接（`connect/` 的 `emitEvent()` 和 WebSocket 的 `reply()`）在发送时填。`authTokenStatus` 同样挪进了插件（`qqProtocol/direct-lib/authTokenStatus.ts`），但仍是模块级的：它跟共用的 `DirectProtocolClient` 一样一个进程一份（native sign 的 relay 绑不了第二次），`sign.ts` 在签名深处也要写它
+- **账号的记录在协议实例上**（owner 2026-10-30）：`QQProtocolBase.selfInfo`（uid / uin / nick / online），协议层写（登录、掉线、拉到昵称），随协议实例生灭，停用后不存在。NTQQ 插件里的代码读 `this.selfInfo` / `ctx.qqProtocol.selfInfo`（Core 为此 inject 了 `qqProtocol`，`convertToRawMessage()` 由调用方传 `selfUid`）；别的插件只读 `ctx.account` 的 `uin` / `uid` / `nick` / `online`（`account.ts`，构造时拿到协议的那份记录，读的永远是当前值：原来是首次上线时复制一份，之后改昵称、掉线都不跟）。原来它是 `src/common/globalVars.ts` 的进程级全局变量，哪里都能读写，`common` 还反过来 import 了插件里的 `SelfInfo` 类型。OneBot 事件的 `self_id` 也不再在事件类里读全局：发出它的连接（`connect/` 的 `emitEvent()` 和 WebSocket 的 `reply()`）在发送时填
+- **Auth Token 的状态也在协议实例上**（owner 2026-10-30）：`QQProtocolBase.authTokenStatus`（hasToken / validation / message / loginError），只有纯协议写，PMHQ 一直是 idle。写它的是实例自己的 `AuthTokenWatcher`（`direct-lib/authTokenWatcher.ts`，原来是模块级的状态和函数，`stop()` 得手动清 `lastValidToken`）和 `direct.ts` 的登录流程；`sign.ts` 仍是进程级（native sign 的 relay 只绑第一个 client），不再自己写：签名时 sign 服务器回 403（比如这个 token 能登的 QQ 数量满了）经 `setupSign({ onRefused })` 交给它绑的那个 client，client 发 `sign-refused`，当前实例在 `bindDirectClientEvents` 里收，停用时跟别的监听一起摘掉。原来它是 `direct-lib/authTokenStatus.ts` 的模块级对象，停用再启用会带着上一个实例的 loginError
 - 数据库仍是保守档：在 `account` 门后、路径 `${uin}.v3.db`。不能为了让纯官方进程也有数据库就让它在登录前起：那时拿不到 uin，只能落 `default.v3.db`，老用户扫码登录后会落到空库，丢掉 shortId 映射、文件缓存。所以纯官方进程没有 `database`；官方机器人真要数据库时，另给它一个按 `qq:<appid>` 取路径的实例
 - 原设计要求登录后在 account 门后再广播一次 `llob/config-updated`，那是按账号存配置时代的约束。实例模型下配置启动就定了，改成启动时广播一次（日志文件开关只从这个事件拿），`Core` 的 ffmpeg 路径改成 `start()` 里直接读自己的配置
 
 ## 5. WebUI 壳
 
 - `WebuiServer.static inject = ['config']`，构造时自己读 `ctx.config.get().webui`，内建路由只有 config、`bots`、鉴权中间件、静态文件和两张运行时路由表的分发，不认得任何一个插件
-- 扫码登录相关路由（`/api/login-qrcode`、`/api/quick-login-list`、`/api/quick-login`、`/api/logout`、`/api/auth-token`）是 `NTLoginRoutes`（`inject: ['webuiServer', 'ntLoginApi', 'qqProtocol']`），协议停用时经路由表 fallback 返 JSON 404。`nt-protocol/authTokenRoutes.ts` 对 `authTokenWatcher` 的静态 import 留着：它现在只在协议条目里被用到
+- 扫码登录相关路由（`/api/login-qrcode`、`/api/quick-login-list`、`/api/quick-login`、`/api/logout`、`/api/auth-token`）是 `NTLoginRoutes`（`inject: ['webuiServer', 'ntLoginApi', 'qqProtocol']`），协议停用时经路由表 fallback 返 JSON 404。`nt-protocol/authTokenRoutes.ts` 只读 `ctx.qqProtocol.authTokenStatus`；`POST /api/auth-token` 写 token 文件后调 `ctx.qqProtocol.checkAuthToken()`（纯协议先把状态置成 validating、让 watcher 立刻查，PMHQ 是空操作），路由自己不改状态
 - `/api/login-info` 是协议条目的 standby 部分（`nt-protocol/loginInfoRoutes.ts` 的 `LoginInfoRoutes`，`BuiltinPlugin.standby`）：不在 apply 里，协议停用时也在，带 `ntProtocol`（`!!ctx.get('qqProtocol')`）说协议在不在。原来它是壳路由，外壳因此认得 NTQQ；`/api/config` 只有 bot 设置，不再带 `selfInfo` / `ntProtocol`
 - `builtin:dashboard` 的 `/api/dashboard/stats` 只有 bot 进程和机器的资源。扫码账号的好友、群、收发数、QQ 进程资源和版本号是协议条目里的 `NTStatsRoutes`（`src/plugin/internal/protocol/nt-protocol/statsRoutes.ts`，`/api/ntqq/stats`），由插件自己挂进 Dashboard 的卡片读（`client/DashboardCards.tsx`）；原来的 `/api/device-info` 并进了它
 - 前端没有扫码登录门，读完 `/api/config` 就进主界面。扫码登录在 `builtin:nt-protocol` 自己的设置页「NTQQ 协议」（插件自己的界面 `src/plugin/internal/protocol/nt-protocol/client/`：`NTProtocolPage.tsx`、`QQLogin.tsx`、`AuthTokenForm.tsx`、`LoginMethod.tsx`，只用 plugin SDK，见 [plugin-system.md](plugin-system.md)"内置插件的界面"；页面 id `ntqq`，order 5）：协议启用时在侧边栏，停用后卡片的「前往设置」仍能打开。页面每 3 秒轮询 `/api/login-info`（协议条目的 standby 部分，协议停用也在，停用时也问：登录方式要用它的 `pins`）和 `/api/auth-token/status`（协议启用时才问）。顶部是登录方式（§6），下面依次显示：未启用 / 协议启动中 / 连不上 PMHQ（官方 QQ 端桥接时："正在连接 PMHQ（地址:端口）"，提示先启动 QQ 和 PMHQ）/ Auth Token 表单（`AuthTokenForm`，内联；原来那个不能关的弹框会盖住整个 WebUI）/ 快速登录和扫码（`QQLogin`，桥接时二维码来自 QQ 客户端）/ 已登录账号卡片（在线状态；纯协议可退出登录，桥接的登录归 QQ 客户端管）。全局设置弹框里的「退出 QQ」挪到了这里
@@ -56,7 +57,7 @@
   - 快速登录（直连）：`POST /api/quick-login` 等到有结果才返回。`DirectQQProtocol.quickLogin()` 等 init 跑完（另一个 init 正在跑时最多再等 60 秒，它转回来会用上这个 uin），上线了就成功，没上线就抛出原因（`restoreError`：session 恢复时 `registerOnline` 的报错），路由回 500 带这句话。原来 init 恢复失败只记一行 info 就悄悄退回扫码，请求照样回成功，页面一直停在"正在登录"。前端：按钮显示"正在登录 <昵称>…"直到有结果；成功立刻轮询一次（不等 3 秒），页面换成账号卡片；失败把原因留在页面上的红框里（toast 容易错过），并切到扫码
   - 主界面顶部的状态提示按插件说明谁卡在哪，每行一件事、带跳转按钮，指向的那页本身不显示那一行（owner 2026-10-28 选的做法：只说哪些插件需要哪个账号，免得用户以为所有账号都得登录）。外壳（`components/layout/StatusNotices.tsx`）不认得哪个插件，只按状态说通用的，规则见 [plugin-system.md](plugin-system.md)"内置插件的界面"：
     - 有启用的插件停在 PENDING、缺的服务由 NTQQ 协议提供 →"OneBot 11、WebQQ 要等 NTQQ 账号登录后才会运行"「去看看」（文字来自协议条目 manifest 的 `service.labels.account`）；协议停用时是"…需要启用「NTQQ 协议」才会运行"「前往插件页」。名字按插件列表里实际在等的算（超过 3 个写"等 N 个插件"）
-    - 账号没登录或已离线、而没有插件在等它：协议条目自己往 `shell.notices` 插槽放的一行（`src/plugin/internal/protocol/nt-protocol/client/Notices.tsx`），只在一个在线的账号都没有时说，登录过（`/api/bots` 里有 `llonebot` 平台的 bot）就说"已离线"
+    - 账号没登录或已离线、而没有插件在等它：协议条目自己往 `shell.notices` 插槽放的一行（`src/plugin/internal/protocol/nt-protocol/client/Notices.tsx`），只在一个在线的账号都没有时说，登录过（`/api/bots` 里有 `luckylillia` 平台的 bot）就说"已离线"
     - QQ 官方机器人：没能启动走通用的"运行出错"，`notice`（"还没有填写 AppID 和 AppSecret"）走通用的配置提示，正在连接（只在没有任何账号在线时）和没有连上开放平台是它自己 `shell.notices` 插槽里的（`src/plugin/internal/protocol/qq-official/client/Notices.tsx`）
     - 运行出错的插件汇总一行（只有一个时带原因，按钮去它的设置页）；没有启用任何协议端（插件页"协议端"分类的插件，第三方的也算）、也没有在线的 bot 时说"没有启用任何协议端"
     - `/api/bots` 由外壳每 5 秒问一次（`stores/botsStore.ts`），它和插件列表都回来之前不显示
