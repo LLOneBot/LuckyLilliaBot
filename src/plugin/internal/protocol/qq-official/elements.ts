@@ -29,7 +29,27 @@ function snakeAttrs(attrs: Attrs): Attrs {
   return result
 }
 
-export const escapeMarkdown = (text: string) => text.replace(/([\\`*_[\]\-(#!>~])/g, '\\$&')
+const entity = (char: string) => char === '&' ? '&amp;' : char === '<' ? '&lt;' : char === '>' ? '&gt;' : `&#${char.charCodeAt(0)};`
+
+// The blank right after an entity is swallowed, a no-break space is not
+const blank = (match: string) => match.endsWith(' ') ? '&nbsp;' : ''
+
+/**
+ * Text that markdown shows as it is. QQ shows a backslash escape with its backslash, while an HTML entity comes out
+ * as the bare character, read as no syntax (2026-10-31); a symbol that makes no syntax shows as it is anyway.
+ */
+export const escapeMarkdown = (text: string) => text
+  .replace(/([&<>*_~`[\]#$]) ?/g, (match, char: string) => entity(char) + blank(match))
+  // What only means something at the start of a line: list items, rules, setext headings
+  .replace(/^([ \t]*)([-+=]) ?/gm, (match, space: string, char: string) => space + entity(char) + blank(match))
+  .replace(/^([ \t]*\d+)([.)]) ?/gm, (match, number: string, char: string) => number + entity(char) + blank(match))
+
+// What the platform renders inside text: mentions, and in guilds sub-channel links and emoji
+const EMBEDDED_TAG = /(<qqbot-at-user\s+id="[^"]*"\s*\/>|<qqbot-at-everyone\s*\/>|<@!?[^>\s]+>|<#[^>\s]+>|<emoji:\d+>)/
+
+/** Text written for a plain message, as markdown: escaped, except for the tags in it */
+export const textToMarkdown = (text: string) =>
+  text.split(EMBEDDED_TAG).map((part, i) => i % 2 ? part : escapeMarkdown(part)).join('')
 
 /** The text of a markdown element's children; a `<markdown>` wrapper left in the text is dropped. */
 export function extractMarkdownText(children: readonly h[]): string {

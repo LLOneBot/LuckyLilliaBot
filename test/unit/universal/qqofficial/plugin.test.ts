@@ -139,7 +139,7 @@ describe('QQOfficial', () => {
     await new Promise(resolve => setTimeout(resolve, 20))
     const sent = await ctx.bots.get('qq:APPID')!.sendMessage('G1', 'hi <at id="U2"/>')
     expect(sent).toMatchObject([{ id: 'sent-1', content: 'hi <at id="U2"/>', channel: { id: 'G1' }, user: { id: 'APPID' } }])
-    expect(messages()[0].body.content).toBe('hi <qqbot-at-user id="U2" />')
+    expect(messages()[0].body).toMatchObject({ msg_type: 2, markdown: { content: 'hi <qqbot-at-user id="U2" />' } })
   })
 
   it('retries a deduplicated reply with the next msg_seq', async () => {

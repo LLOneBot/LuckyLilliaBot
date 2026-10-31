@@ -4,10 +4,11 @@ import { privateTarget } from './decode'
 import { fallback } from '../../../../universal/fallback'
 import {
   CustomPayload, decodeButton, escapeMarkdown, extractMarkdownText, parseArkElement, parseCardElement, parseCustomElement, splitDataImages,
+  textToMarkdown,
 } from './elements'
 import { loadMedia, uploadMedia } from './media'
 import { Button, ChannelSendRequest, FileType, MessageType, SendRequest } from './types'
-import type { QQGuildBot, QQOfficialBot } from './bot'
+import type { DeliverOptions, QQGuildBot, QQOfficialBot } from './bot'
 
 const MEDIA_TYPES: Record<string, number> = {
   img: FileType.Image,
@@ -130,8 +131,9 @@ abstract class Encoder {
       await this.render(children)
       await this.flush()
     } else if (type === 'a') {
-      // The link itself, which the client makes clickable
-      this.appendText(attrs.href || extractMarkdownText(children))
+      // As the NT encoder writes it; the client makes the link clickable
+      const text = extractMarkdownText(children)
+      this.appendText(attrs.href && text && text !== attrs.href ? `${text} ( ${attrs.href} )` : attrs.href || text)
     } else if (type === 'i' || type === 'em' || type === 'b' || type === 'strong') {
       await this.render(children)
     } else {
@@ -157,7 +159,7 @@ abstract class Encoder {
   protected enterMarkdown() {
     this.plainTextOnly = false
     if (this.useMarkdown) return
-    this.content = escapeMarkdown(this.content)
+    this.content = textToMarkdown(this.content)
     this.useMarkdown = true
   }
 
@@ -206,6 +208,9 @@ abstract class Encoder {
  */
 export class MessageSender extends Encoder {
   private file?: string
+  private fileMarkup = ''
+  // The text holds <qqbot-at-everyone />, which a medium's text does not render
+  private tagged = false
   private readonly direct: boolean
 
   constructor(private bot: QQOfficialBot, private channelId: string) {
@@ -215,12 +220,19 @@ export class MessageSender extends Encoder {
 
   protected mention(attrs: Record<string, any>): string {
     if (this.direct) return attrs.name ? `@${attrs.name}` : ''
-    if (attrs.type !== 'all' && (!attrs.id || attrs.id === this.bot.selfId)) return ''
-    if (!this.useMarkdown && this.bot.config.useMarkdownIfAt) this.enterMarkdown()
-    if (this.useMarkdown) return attrs.type === 'all' ? '@everyone' : `<@${attrs.id}>`
-    // Once a day per group, and only as an admin (bot.q.qq.com changelog, 2026-10-26)
-    if (attrs.type === 'all') return '<qqbot-at-everyone />'
-    return `<qqbot-at-user id="${attrs.id}" />`
+    // Text or markdown; only as an admin, once a day per group (bot.q.qq.com changelog, 2026-10-26)
+    if (attrs.type === 'all') {
+      this.tagged = true
+      return '<qqbot-at-everyone />'
+    }
+    if (!attrs.id || attrs.id === this.bot.selfId) return ''
+    // A group renders it in markdown only (bot.q.qq.com 文本交互); <@openid> is being retired
+    if (this.bot.config.useMarkdownIfAt) {
+      this.enterMarkdown()
+      return `<qqbot-at-user id="${attrs.id}" />`
+    }
+    const name = attrs.name ?? this.bot.names.get(this.bot.platform, attrs.id)
+    return name ? `@${name}` : ''
   }
 
   protected async media(type: string, attrs: Record<string, any>): Promise<boolean> {
@@ -234,7 +246,7 @@ export class MessageSender extends Encoder {
       this.errors.push(e as Error)
       return true
     }
-    this.markup += h(MEDIA_TAGS[fileType], { src }).toString()
+    this.fileMarkup = h(MEDIA_TAGS[fileType], { src }).toString()
     if (fileType !== FileType.Image) await this.flush()
     return true
   }
@@ -262,16 +274,25 @@ export class MessageSender extends Encoder {
     return super.sendCustom(payload)
   }
 
+  protected resetMessage() {
+    super.resetMessage()
+    this.file = undefined
+    this.fileMarkup = ''
+    this.tagged = false
+  }
+
   protected async flush() {
     this.dropParagraphBreak()
     const rows = this.exportRows()
-    if (!this.plain.trim() && !rows.length && !this.file && !this.custom) {
-      this.resetMessage()
-      return
-    }
-    const { content, plain, markup, custom, file, useMarkdown, plainTextOnly } = this
+    const { content, plain, markup, custom, fileMarkup, useMarkdown, plainTextOnly, tagged } = this
+    let { file } = this
     this.resetMessage()
-    this.file = undefined
+    // A medium carries plain text only: markdown, buttons or a mention after it go out on their own
+    if (file && (useMarkdown || tagged)) {
+      await this.post({ msg_type: MessageType.Media, media: { file_info: file } }, fileMarkup)
+      file = undefined
+    }
+    if (!plain.trim() && !rows.length && !file && !custom) return
     let body: SendRequest
     if (custom) {
       body = { ...custom.request }
@@ -283,16 +304,17 @@ export class MessageSender extends Encoder {
       body = { msg_type: MessageType.Text, content }
     }
     const streamTarget = this.direct ? 'private' : 'group'
+    await this.post(body, (file ? fileMarkup : '') + markup, {
+      streamText: !custom && !file && !useMarkdown && plainTextOnly && this.bot.config.autoStreamText.includes(streamTarget),
+      autoStream: !!custom?.autoStream,
+    })
+  }
+
+  private async post(body: SendRequest, markup: string, options: Pick<DeliverOptions, 'streamText' | 'autoStream'> = {}) {
     const quote = this.quote
     this.quote = undefined
     try {
-      this.results.push(await this.bot.deliver(this.channelId, body, {
-        quote,
-        markup,
-        passive: this.passive,
-        streamText: !custom && !file && !useMarkdown && plainTextOnly && this.bot.config.autoStreamText.includes(streamTarget),
-        autoStream: !!custom?.autoStream,
-      }))
+      this.results.push(await this.bot.deliver(this.channelId, body, { ...options, quote, markup, passive: this.passive }))
     } catch (e) {
       this.errors.push(e as Error)
     }

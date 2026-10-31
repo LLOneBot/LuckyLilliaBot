@@ -6,7 +6,7 @@ import type { QQOfficialConfig } from '@/common/types'
 import type { SatoriEvent } from '../../../../universal/types'
 import { ApiError, QQOfficialApi } from './api'
 import { decodeChannel, decodeGuild, decodeGuildMember, DecodeHost, GuildDecodeHost, privateChannel, privateTarget } from './decode'
-import { escapeMarkdown } from './elements'
+import { textToMarkdown } from './elements'
 import { GroupInternal, groupInternal, GuildInternal, guildInternal } from './internal'
 import { loadMedia } from './media'
 import { MenuCommand, MenuManager } from './menu'
@@ -286,7 +286,7 @@ export class QQOfficialBot implements Bot, DecodeHost {
       let request: SendRequest = { ...body, ...(context ? this.passive.claim(context) : {}) }
       const key = context?.id
       if (options.streamText && key && request.msg_type === MessageType.Text) {
-        request = { ...request, msg_type: MessageType.Markdown, markdown: { content: escapeMarkdown(request.content ?? '') || ' ' } }
+        request = { ...request, msg_type: MessageType.Markdown, markdown: { content: textToMarkdown(request.content ?? '') || ' ' } }
         delete request.content
       }
       if (options.streamText || options.autoStream) this.streams.apply(key, request, !!key)
@@ -631,7 +631,7 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
     if (options.passive?.eventId) body.event_id = options.passive.eventId
     const key = msgId ?? body.event_id
     if (options.streamText && key && !body.markdown) {
-      body = { ...body, msg_type: MessageType.Markdown, markdown: { content: escapeMarkdown(body.content ?? '') || ' ' } }
+      body = { ...body, msg_type: MessageType.Markdown, markdown: { content: textToMarkdown(body.content ?? '') || ' ' } }
       delete body.content
     }
     // The platform documents no streaming for guilds: only when switched on, even for an explicit stream

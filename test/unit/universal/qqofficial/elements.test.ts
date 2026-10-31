@@ -2,11 +2,22 @@ import h from '@satorijs/element'
 import { describe, expect, it } from 'vitest'
 import {
   decodeButton, escapeMarkdown, extractMarkdownText, parseArkElement, parseCardElement, parseCustomElement, splitDataImages,
+  textToMarkdown,
 } from '@/plugin/internal/protocol/qq-official/elements'
 
 describe('platform elements', () => {
-  it('escapes what markdown would read as syntax', () => {
-    expect(escapeMarkdown('a_b *c* [d](e) #f -g >h !i ~j `k` \\')).toBe('a\\_b \\*c\\* \\[d\\]\\(e) \\#f \\-g \\>h \\!i \\~j \\`k\\` \\\\')
+  it('writes what markdown would read as syntax as HTML entities, which QQ shows as the bare characters', () => {
+    // A blank right after an entity would be swallowed: it becomes a no-break space
+    expect(escapeMarkdown('a_b *c* [d](e) #f a-b >h !i ~j `k` $l$ <m> & \\'))
+      .toBe('a&#95;b &#42;c&#42;&nbsp;&#91;d&#93;(e) &#35;f a-b &gt;h !i &#126;j &#96;k&#96;&nbsp;&#36;l&#36;&nbsp;&lt;m&gt;&nbsp;&amp;&nbsp;\\')
+    // At the start of a line only: list items, rules, setext headings
+    expect(escapeMarkdown('- a\n  + b\n===\n1. c\n2) d\nx-y 3.5'))
+      .toBe('&#45;&nbsp;a\n  &#43;&nbsp;b\n&#61;==\n1&#46;&nbsp;c\n2&#41;&nbsp;d\nx-y 3.5')
+  })
+
+  it('turns plain text into markdown, leaving the tags the platform renders as they are', () => {
+    expect(textToMarkdown('a_b <qqbot-at-user id="U-1" /> <qqbot-at-everyone /> <@!U2> <#C-1> <emoji:13> [x]'))
+      .toBe('a&#95;b <qqbot-at-user id="U-1" /> <qqbot-at-everyone /> <@!U2> <#C-1> <emoji:13> &#91;x&#93;')
   })
 
   it('reads markdown children as text, paragraphs on their own lines', () => {

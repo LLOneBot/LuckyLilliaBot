@@ -78,8 +78,8 @@ export const Config: Schema<QQOfficialConfig> = Schema.object({
   // The plugin's WebUI draws it grouped, with what each one brings (client/IntentsField.tsx)
   intents: Schema.array(Schema.union(INTENTS.map(([value, label]) => Schema.const(value).description(label))))
     .role('qq-official-intents').default(['GROUP_AND_C2C_EVENT']).description('订阅的事件'),
-  useMarkdownIfAt: Schema.boolean().default(false)
-    .description('带 @ 的消息改用 Markdown 发送（<@openid>）；关闭时用纯文本的 <qqbot-at-user />'),
+  useMarkdownIfAt: Schema.boolean().default(true)
+    .description('群里 @ 某人时改用 Markdown 发送（平台只在 Markdown 里渲染 @ 某人）；关闭时写成纯文本的“@名字”，对方不会收到提醒'),
   autoStreamText: Schema.array(Schema.union([
     Schema.const('private').description('单聊'),
     Schema.const('group').description('群聊'),

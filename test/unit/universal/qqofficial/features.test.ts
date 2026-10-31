@@ -168,7 +168,7 @@ describe('markdown and buttons', () => {
       h('button-group', {}, [h('button', { text: 'g1' })]),
     ])
     const { markdown, keyboard } = messages()[0].body
-    expect(markdown).toEqual({ content: 'a\\_b ' })
+    expect(markdown).toEqual({ content: 'a&#95;b ' })
     expect(keyboard.content.rows.map((row: { buttons: { render_data: { label: string } }[] }) =>
       row.buttons.map(button => button.render_data.label))).toEqual([['b1', 'b2', 'b3', 'b4', 'b5'], ['b6'], ['g1']])
   })
@@ -222,10 +222,45 @@ describe('markdown and buttons', () => {
     ].map(body => ({ ...body, msg_id: undefined, msg_seq: undefined })))
   })
 
-  it('writes a mention in markdown when set to', async () => {
-    await start({ useMarkdownIfAt: true })
+  it('turns a message that mentions a member into markdown, the only place a group renders it', async () => {
+    await start()
     await qq().sendMessage('G1', 'hi_ <at id="U2"/> <at type="all"/>')
-    expect(messages()[0].body).toEqual({ msg_type: 2, markdown: { content: 'hi\\_ <@U2> @everyone' } })
+    expect(messages()[0].body).toEqual({ msg_type: 2, markdown: { content: 'hi&#95;&nbsp;<qqbot-at-user id="U2" /> <qqbot-at-everyone />' } })
+  })
+
+  it('writes a mention as plain @name when told not to switch to markdown for it', async () => {
+    await start({ useMarkdownIfAt: false })
+    await qq().sendMessage('G1', 'hi_ <at id="U2" name="Bob"/><at id="U3"/> <at type="all"/>')
+    expect(messages()[0].body).toEqual({ msg_type: 0, content: 'hi_ @Bob <qqbot-at-everyone />' })
+  })
+
+  it('leaves the tags in the text alone when a button turns the message into markdown', async () => {
+    await start()
+    await qq().sendMessage('G1', ['a_b ', h('at', { type: 'all' }), h('button', {}, '签到')])
+    expect(messages()[0].body).toMatchObject({ msg_type: 2, markdown: { content: 'a&#95;b <qqbot-at-everyone />' } })
+  })
+
+  it('sends a medium alone when markdown, buttons or a mention follow it', async () => {
+    await start()
+    const image = 'https://example.com/a.png'
+    const sent = await qq().sendMessage('G1', [h.image(image), h.at('U2'), ' 看图'])
+    await qq().sendMessage('G1', [h.image(image), h('at', { type: 'all' })])
+    await qq().sendMessage('G1', [h.image(image), h('button', {}, '签到')])
+    await qq().sendMessage('G1', [h.image(image), ' 图下的字'])
+    expect(sent.map(message => message.content)).toEqual([`<img src="${image}"/>`, '<at id="U2"/> 看图'])
+    const media = { msg_type: 7, media: { file_info: `info:${image}` } }
+    expect(messages().map(call => call.body)).toEqual([
+      media, { msg_type: 2, markdown: { content: '<qqbot-at-user id="U2" /> 看图' } },
+      media, { msg_type: 0, content: '<qqbot-at-everyone />' },
+      media, { msg_type: 2, markdown: { content: ' ' }, keyboard: expect.anything() },
+      { ...media, content: ' 图下的字' },
+    ])
+  })
+
+  it('writes a link with its text, as NT does', async () => {
+    await start()
+    await qq().sendMessage('G1', [h('a', { href: 'https://example.com' }, '官网'), ' ', h('a', { href: 'https://example.com' })])
+    expect(messages()[0].body).toEqual({ msg_type: 0, content: '官网 ( https://example.com ) https://example.com' })
   })
 
   it('splits inline data images out of markdown into media of their own', async () => {
@@ -259,7 +294,7 @@ describe('sending', () => {
     push('C2C_MESSAGE_CREATE', { id: 'C1', author: { id: 'U3', user_openid: 'U3' }, content: 'hello', timestamp: sentAt() })
     await vi.waitFor(() => expect(messages()).toHaveLength(2))
     expect(messages().map(call => call.body)).toEqual([
-      { msg_type: 2, markdown: { content: 'hi\\_' }, stream: { state: 1, index: 0, reset: false }, msg_id: 'C1', msg_seq: 1 },
+      { msg_type: 2, markdown: { content: 'hi&#95;' }, stream: { state: 1, index: 0, reset: false }, msg_id: 'C1', msg_seq: 1 },
       { msg_type: 2, markdown: { content: 'more' }, stream: { state: 1, id: 'sent-1', index: 1, reset: false }, msg_id: 'C1', msg_seq: 2 },
     ])
   })
