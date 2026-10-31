@@ -50,6 +50,29 @@ describe('PassiveReplies', () => {
     expect(passive.pick('g')?.id).toBe('g2')
   })
 
+  it('keeps a stream on the message it is open on, used up or not, with parts that count no reply', () => {
+    const { passive, at, advance } = tracker()
+    passive.remember({ id: 'c1', kind: 'message', scope: 'c2c', channelId: 'private:u', at: at() })
+    const open = new Set(['c1'])
+    const streaming = (id: string) => open.has(id)
+    const first = passive.pick('private:u', undefined, streaming)!
+    passive.claim(first)
+    for (let i = 0; i < 5; i++) passive.claim(passive.pick('private:u', undefined, streaming)!, false)
+    expect(first).toMatchObject({ seq: 6, replies: 1 })
+    // A newer message does not take the stream over
+    passive.remember({ id: 'c2', kind: 'message', scope: 'c2c', channelId: 'private:u', at: at() })
+    expect(passive.pick('private:u', undefined, streaming)?.id).toBe('c1')
+    expect(passive.pick('private:u')?.id).toBe('c2')
+    // Nor one that names its own message
+    expect(passive.pick('private:u', 'c2', streaming)?.id).toBe('c2')
+    open.delete('c1')
+    expect(passive.pick('private:u', undefined, streaming)?.id).toBe('c2')
+    // Nor does it outlive the window
+    open.add('c1')
+    advance(60 * MINUTE)
+    expect(passive.pick('private:u', undefined, streaming)).toBeUndefined()
+  })
+
   it('cites events by event_id and ignores a quote from another channel', () => {
     const { passive, at } = tracker()
     passive.remember({ id: 'ev', kind: 'event', scope: 'group', channelId: 'g', at: at() })

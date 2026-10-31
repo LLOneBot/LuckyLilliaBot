@@ -7,8 +7,8 @@ export type CustomRequest = Omit<SendRequest, 'msg_id' | 'msg_seq' | 'event_id'>
 
 export interface CustomPayload {
   request: CustomRequest
-  /** `stream` set to true: let the stream bookkeeping fill in the stream fields */
-  autoStream?: boolean
+  /** `stream` set to true, or to 'end' for the part that ends the stream: the stream bookkeeping fills in the fields */
+  autoStream?: boolean | 'end'
 }
 
 type Attrs = Record<string, any>
@@ -214,8 +214,8 @@ function parseStream(value: unknown): Stream | undefined {
   return stream
 }
 
-const autoStreamOf = (attrs: Attrs, stream: Stream | undefined) =>
-  stream ? undefined : typeof attrs.stream === 'boolean' ? attrs.stream : undefined
+const autoStreamOf = (attrs: Attrs, stream: Stream | undefined): boolean | 'end' | undefined =>
+  stream ? undefined : typeof attrs.stream === 'boolean' || attrs.stream === 'end' ? attrs.stream : undefined
 
 function wrapperOf(attrs: Attrs): Attrs | undefined {
   for (const value of [attrs.content, attrs.markdown]) {

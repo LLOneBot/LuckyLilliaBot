@@ -45,7 +45,11 @@ export type Feature =
   | 'message.face'
   /** `<message forward>` */
   | 'message.forward'
-  /** `<markdown stream>` builds the reply up in place */
+  /**
+   * `<markdown stream>` builds one reply up part by part, and `<markdown stream="end">` is its last part; a stream
+   * left open ends 10 seconds after its last part. QQ official bots stream in C2C; in groups the parts go out
+   * together, as one message, once the stream ends.
+   */
   | 'message.stream'
   /** Sending with no message to reply to. The QQ official bot can, within a monthly quota per user or group */
   | 'message.proactive'

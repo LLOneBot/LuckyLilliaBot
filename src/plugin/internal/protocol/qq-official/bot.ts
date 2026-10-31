@@ -36,6 +36,8 @@ export interface DeliverOptions {
   streamText?: boolean
   /** A custom payload asked for its stream fields to be filled in */
   autoStream?: boolean
+  /** The part ends the stream (`<markdown stream="end">`) */
+  endStream?: boolean
 }
 
 /** Sends that went to audit wait here for MESSAGE_AUDIT_PASS / MESSAGE_AUDIT_REJECT. */
@@ -90,7 +92,7 @@ export class QQOfficialBot implements Bot, DecodeHost {
   status: Status = Status.OFFLINE
   readonly user: { id: string; name?: string; avatar?: string }
   readonly passive = new PassiveReplies()
-  readonly streams = new StreamStates()
+  readonly streams: StreamStates
   /** Every group / C2C endpoint, for what the methods here do not cover */
   readonly internal: GroupInternal
   readonly menu: MenuManager
@@ -109,6 +111,7 @@ export class QQOfficialBot implements Bot, DecodeHost {
   ) {
     this.selfId = config.appId
     this.sid = `${this.platform}:${this.selfId}`
+    this.streams = new StreamStates(ctx)
     this.user = { id: this.selfId }
     this.internal = groupInternal(api)
     // Join requests listed by a plugin can be answered by their id too
@@ -289,17 +292,24 @@ export class QQOfficialBot implements Bot, DecodeHost {
     const direct = privateTarget(channelId) !== undefined
     const ref = options.quote && this.passive.refOf(options.quote)
     if (ref && !body.message_reference) body = { ...body, message_reference: { message_id: ref } }
-    let context = this.pinned(channelId, options.passive) ?? this.passive.pick(channelId, options.replyTo ?? options.quote)
+    const streaming = options.streamText || options.autoStream || !!body.stream
+    let context = this.pinned(channelId, options.passive)
+      ?? this.passive.pick(channelId, options.replyTo ?? options.quote, streaming ? id => this.streams.has(id) : undefined)
+    // What follows a stream comes after all of it
+    if (!streaming && context && this.streams.has(context.id)) await this.endStream(channelId, context.id)
+    if (context?.scope === 'group' && (options.streamText || options.autoStream)) return this.gatherPart(channelId, context.id, body, options)
     let retried = false
     for (let attempt = 0; ; attempt++) {
-      let request: SendRequest = { ...body, ...(context ? this.passive.claim(context) : {}) }
       const key = context?.id
+      // The parts after the first take no reply of their own: a C2C message, good for four, took a stream of six
+      // (2026-10-31)
+      const free = streaming && !!key && context!.scope === 'c2c' && this.streams.has(key)
+      let request: SendRequest = { ...body, ...(context ? this.passive.claim(context, !free) : {}) }
       if (options.streamText && key && request.msg_type === MessageType.Text) {
         request = { ...request, msg_type: MessageType.Markdown, markdown: { content: textToMarkdown(request.content ?? '') || ' ' } }
         delete request.content
       }
-      if (options.streamText || options.autoStream) this.streams.apply(key, request, !!key)
-      else if (!request.stream) this.streams.clear(key)
+      if (options.streamText || options.autoStream) this.streams.apply(key, request, !!key, options.endStream)
       // Rich media cannot reply to an event (found by koishi-plugin-adapter-qq-crack)
       if (request.event_id && request.msg_type === MessageType.Media) {
         delete request.event_id
@@ -311,6 +321,7 @@ export class QQOfficialBot implements Bot, DecodeHost {
         if (res?.audit_id && !id) id = (await this.audited(res.audit_id))?.message_id
         if (id && res?.ext_info?.ref_idx) this.passive.rememberRef(id, res.ext_info.ref_idx)
         this.streams.update(key, request, id)
+        if (key && request.stream && this.streams.has(key)) this.streams.arm(key, () => this.endStream(channelId, key))
         return resource(this, channelId, direct, options.markup ?? body.content ?? '', id, res?.timestamp)
       } catch (e) {
         if (!(e instanceof ApiError)) throw e
@@ -324,6 +335,40 @@ export class QQOfficialBot implements Bot, DecodeHost {
         this.passive.exhaust(context)
         context = this.passive.pick(channelId)
       }
+    }
+  }
+
+  /** Groups have no streams: a part waits there for the end of its stream, to go out with the others as one message */
+  private async gatherPart(channelId: string, key: string, body: SendRequest, options: DeliverOptions): Promise<NeutralResource> {
+    this.streams.gather(key, body.msg_type === MessageType.Text ? textToMarkdown(body.content ?? '') : body.markdown?.content ?? '')
+    if (options.endStream) return await this.sendGathered(channelId, key) ?? resource(this, channelId, false, '')
+    this.streams.arm(key, () => this.endStream(channelId, key))
+    return resource(this, channelId, false, options.markup ?? '')
+  }
+
+  private async sendGathered(channelId: string, key: string) {
+    const content = this.streams.take(key)
+    if (content === undefined) return
+    return await this.deliver(channelId, { msg_type: MessageType.Markdown, markdown: { content: content || ' ' } }, {
+      replyTo: key,
+      markup: h('markdown', {}, content).toString(),
+    })
+  }
+
+  /** Ends the stream open on a message or event: a C2C one by an end part, a group's by sending what it gathered. */
+  private async endStream(channelId: string, key: string) {
+    try {
+      if (this.streams.isGathering(key)) {
+        await this.sendGathered(channelId, key)
+        return
+      }
+      const request: SendRequest = { msg_type: MessageType.Markdown, markdown: { content: ' ' } }
+      this.streams.apply(key, request, true, true)
+      this.streams.clear(key)
+      const context = this.passive.find(key)
+      if (context) await this.api.request('POST', `${this.target(channelId)}/messages`, { ...request, ...this.passive.claim(context, false) })
+    } catch (e) {
+      this.ctx.logger('qq-official').warn('结束流式回复失败: %s', (e as Error).message)
     }
   }
 
@@ -646,7 +691,7 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
     // The platform documents no streaming for guilds: only when switched on, even for an explicit stream
     const streaming = this.config.autoStreamText.includes('guild')
     if (!streaming) delete body.stream
-    if (streaming && (options.streamText || options.autoStream)) this.parent.streams.apply(key, body, !!key)
+    if (streaming && (options.streamText || options.autoStream)) this.parent.streams.apply(key, body, !!key, options.endStream)
     else if (!body.stream) this.parent.streams.clear(key)
     if (typeof body.content === 'string' && !body.content.trim()) delete body.content
     if (body.keyboard) body.bot_appid = this.selfId

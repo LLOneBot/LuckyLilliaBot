@@ -330,10 +330,11 @@ export class MessageSender extends Encoder {
     await this.post(body, (file ? fileMarkup : '') + markup, {
       streamText: !custom && !file && !useMarkdown && plainTextOnly && this.bot.config.autoStreamText.includes(streamTarget),
       autoStream: !!custom?.autoStream,
+      endStream: custom?.autoStream === 'end',
     })
   }
 
-  private async post(body: SendRequest, markup: string, options: Pick<DeliverOptions, 'streamText' | 'autoStream'> = {}) {
+  private async post(body: SendRequest, markup: string, options: Pick<DeliverOptions, 'streamText' | 'autoStream' | 'endStream'> = {}) {
     const quote = this.quote
     this.quote = undefined
     try {
@@ -427,6 +428,7 @@ export class GuildMessageSender extends Encoder {
         fileUrl,
         streamText: !custom && !file && !fileUrl && !useMarkdown && plainTextOnly && this.bot.config.autoStreamText.includes('guild'),
         autoStream: !!custom?.autoStream,
+        endStream: custom?.autoStream === 'end',
       }))
     } catch (e) {
       this.errors.push(e as Error)

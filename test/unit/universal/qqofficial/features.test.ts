@@ -311,6 +311,51 @@ describe('sending', () => {
     ])
   })
 
+  it('streams past the four replies of a C2C message, every part on that message', async () => {
+    await start({ autoStreamText: ['private'] })
+    ctx.on('bot/message', async (session) => {
+      for (let i = 1; i <= 6; i++) await session.send(`part ${i}`)
+    })
+    push('C2C_MESSAGE_CREATE', { id: 'C1', author: { id: 'U3', user_openid: 'U3' }, content: 'hello', timestamp: sentAt() })
+    await vi.waitFor(() => expect(messages()).toHaveLength(6))
+    expect(messages().map(({ body }) => [body.msg_id, body.msg_seq, body.stream.index])).toEqual([
+      ['C1', 1, 0], ['C1', 2, 1], ['C1', 3, 2], ['C1', 4, 3], ['C1', 5, 4], ['C1', 6, 5],
+    ])
+  })
+
+  it('ends a C2C stream with its end part, or before a message that follows it', async () => {
+    await start()
+    ctx.on('bot/message', async (session) => {
+      await session.send(h('markdown', { stream: true }, 'a'))
+      await session.send(h('markdown', { stream: 'end' }, 'b'))
+      await session.send(h('markdown', { stream: true }, 'c'))
+      await session.send('after')
+    })
+    push('C2C_MESSAGE_CREATE', { id: 'C1', author: { id: 'U3', user_openid: 'U3' }, content: 'hello', timestamp: sentAt() })
+    await vi.waitFor(() => expect(messages()).toHaveLength(5))
+    expect(messages().map(({ body }) => [body.markdown?.content ?? body.content, body.msg_seq, body.stream?.state, body.stream?.id, body.stream?.index])).toEqual([
+      ['a', 1, 1, undefined, 0],
+      ['b', 2, 10, 'sent-1', 1],
+      ['c', 3, 1, undefined, 0],
+      [' ', 4, 10, 'sent-3', 1],
+      ['after', 5, undefined, undefined, undefined],
+    ])
+  })
+
+  it('gathers the parts of a group stream, which groups lack, into one message sent when it ends', async () => {
+    await start()
+    const sent: { id?: string }[][] = []
+    ctx.on('bot/message', async (session) => {
+      sent.push(await session.send(h('markdown', { stream: true }, '第一段，')))
+      sent.push(await session.send(h('markdown', { stream: true }, '第二段，')))
+      sent.push(await session.send(h('markdown', { stream: 'end' }, '完。')))
+    })
+    groupAt('M1', ' hi')
+    await vi.waitFor(() => expect(sent).toHaveLength(3))
+    expect(messages().map(({ body }) => body)).toEqual([{ msg_type: 2, markdown: { content: '第一段，第二段，完。' }, msg_id: 'M1', msg_seq: 1 }])
+    expect(sent.map(([resource]) => resource.id)).toEqual([undefined, undefined, 'sent-1'])
+  })
+
   it('answers the message a session came from, not the latest of the channel, a stream each', async () => {
     await start({ autoStreamText: ['private'] })
     const sessions: Session[] = []

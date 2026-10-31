@@ -52,24 +52,36 @@ export class PassiveReplies {
     return true
   }
 
-  /** The preferred message if it can still take a reply in this channel, else the latest one that can. */
-  pick(channelId: string, preferred?: string): ReplyContext | undefined {
+  /**
+   * The preferred message if it can still take a reply in this channel, else the latest one that can. For a part of
+   * a stream (`streaming` tells which messages have one open), a stream open on the preferred message carries on
+   * however many replies it took; with no message preferred, the latest stream open in the channel does.
+   */
+  pick(channelId: string, preferred?: string, streaming?: (id: string) => boolean): ReplyContext | undefined {
     const now = this.now()
-    const wanted = preferred ? this.byId.get(preferred) : undefined
-    if (wanted && wanted.channelId === channelId && this.usable(wanted, now)) return wanted
     const list = this.channels.get(channelId) ?? []
-    for (let i = list.length - 1; i >= 0; i--) {
-      if (this.usable(list[i], now)) return list[i]
+    const latest = (accept: (context: ReplyContext) => boolean) => {
+      for (let i = list.length - 1; i >= 0; i--) {
+        if (accept(list[i])) return list[i]
+      }
     }
+    const wanted = preferred ? this.byId.get(preferred) : undefined
+    if (wanted && wanted.channelId === channelId) {
+      if (streaming?.(wanted.id) ? this.live(wanted, now) : this.usable(wanted, now)) return wanted
+    } else if (streaming) {
+      const open = latest(context => streaming(context.id) && this.live(context, now))
+      if (open) return open
+    }
+    return latest(context => this.usable(context, now))
   }
 
   find(id: string): ReplyContext | undefined {
     return this.byId.get(id)
   }
 
-  /** The fields of one reply; counts it against the context. */
-  claim(context: ReplyContext): { msg_id?: string; event_id?: string; msg_seq: number } {
-    context.replies++
+  /** The fields of one reply; counts it against the context unless told not to. */
+  claim(context: ReplyContext, counted = true): { msg_id?: string; event_id?: string; msg_seq: number } {
+    if (counted) context.replies++
     context.seq++
     return context.kind === 'message'
       ? { msg_id: context.id, msg_seq: context.seq }
@@ -100,8 +112,12 @@ export class PassiveReplies {
     }
   }
 
+  private live(context: ReplyContext, now: number) {
+    return !context.exhausted && now < context.at + WINDOW[context.scope] - MARGIN
+  }
+
   private usable(context: ReplyContext, now: number) {
-    return !context.exhausted && now < context.at + WINDOW[context.scope] - MARGIN && context.replies < LIMIT[context.scope]
+    return this.live(context, now) && context.replies < LIMIT[context.scope]
   }
 
   private sweep(now: number) {
