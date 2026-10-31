@@ -226,7 +226,7 @@ export class MessageSender extends Encoder {
   private tagged = false
   private readonly direct: boolean
 
-  constructor(private bot: QQOfficialBot, private channelId: string) {
+  constructor(private bot: QQOfficialBot, private channelId: string, private replyTo?: string) {
     super()
     this.direct = privateTarget(channelId) !== undefined
   }
@@ -337,7 +337,7 @@ export class MessageSender extends Encoder {
     const quote = this.quote
     this.quote = undefined
     try {
-      this.results.push(await this.bot.deliver(this.channelId, body, { ...options, quote, markup, passive: this.passive }))
+      this.results.push(await this.bot.deliver(this.channelId, body, { ...options, quote, markup, passive: this.passive, replyTo: this.replyTo }))
     } catch (e) {
       this.errors.push(e as Error)
     }
@@ -350,7 +350,7 @@ export class GuildMessageSender extends Encoder {
   private fileUrl?: string
   private readonly direct: boolean
 
-  constructor(private bot: QQGuildBot, private channelId: string) {
+  constructor(private bot: QQGuildBot, private channelId: string, private replyTo?: string) {
     super()
     this.direct = channelId.includes('_')
   }
@@ -422,6 +422,7 @@ export class GuildMessageSender extends Encoder {
         quote,
         markup,
         passive: this.passive,
+        replyTo: this.replyTo,
         file,
         fileUrl,
         streamText: !custom && !file && !fileUrl && !useMarkdown && plainTextOnly && this.bot.config.autoStreamText.includes('guild'),

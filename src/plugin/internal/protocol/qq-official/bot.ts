@@ -27,6 +27,8 @@ const AUDIT_TIMEOUT = 5 * 60_000
 
 export interface DeliverOptions {
   quote?: string
+  /** The message or event the send answers, from the referrer: replied to before the quote or the latest */
+  replyTo?: string
   /** The message as Satori markup, for the returned resource */
   markup?: string
   passive?: PassiveOverride
@@ -58,6 +60,13 @@ export class Audits {
   settle(passed: boolean, data: MessageAudited) {
     this.pending.get(data.audit_id)?.(passed ? data : undefined)
   }
+}
+
+/** The message or event a referrer of decode.ts names */
+function referred(referrer: unknown): string | undefined {
+  if (!referrer || typeof referrer !== 'object') return
+  const { msg_id: message, event_id: event } = referrer as Record<string, unknown>
+  return typeof message === 'string' ? message : typeof event === 'string' ? event : undefined
 }
 
 function resource(bot: { user: object }, channelId: string, direct: boolean, content: string, id?: string, timestamp?: string): NeutralResource {
@@ -157,7 +166,7 @@ export class QQOfficialBot implements Bot, DecodeHost {
     if (options.quote) elements.unshift(h('quote', { id: options.quote }))
     const outgoing = await this.ctx.bots.beforeSend(this, channelId, elements, options)
     if (!outgoing.length) return []
-    return await new MessageSender(this, channelId).send(outgoing)
+    return await new MessageSender(this, channelId, referred(options.referrer)).send(outgoing)
   }
 
   sendPrivateMessage(userId: string, content: h.Fragment, options?: SendOptions) {
@@ -273,14 +282,14 @@ export class QQOfficialBot implements Bot, DecodeHost {
   }
 
   /**
-   * Sends one platform message, as a passive reply when possible: to the quoted message if it can still take
-   * one, else to the latest message or event in the channel; with nothing left to cite it goes out proactively.
+   * Sends one platform message, as a passive reply when possible: to the message or event it answers or quotes if
+   * that can still take one, else to the latest in the channel; with nothing left to cite it goes out proactively.
    */
   async deliver(channelId: string, body: SendRequest, options: DeliverOptions = {}): Promise<NeutralResource> {
     const direct = privateTarget(channelId) !== undefined
     const ref = options.quote && this.passive.refOf(options.quote)
     if (ref && !body.message_reference) body = { ...body, message_reference: { message_id: ref } }
-    let context = this.pinned(channelId, options.passive) ?? this.passive.pick(channelId, options.quote)
+    let context = this.pinned(channelId, options.passive) ?? this.passive.pick(channelId, options.replyTo ?? options.quote)
     let retried = false
     for (let attempt = 0; ; attempt++) {
       let request: SendRequest = { ...body, ...(context ? this.passive.claim(context) : {}) }
@@ -437,7 +446,7 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
     if (options.quote) elements.unshift(h('quote', { id: options.quote }))
     const outgoing = await this.ctx.bots.beforeSend(this, channelId, elements, options)
     if (!outgoing.length) return []
-    return await new GuildMessageSender(this, channelId).send(outgoing)
+    return await new GuildMessageSender(this, channelId, referred(options.referrer)).send(outgoing)
   }
 
   /** A DM opens a session first; `guildId` is the guild the user is reached through. */
@@ -625,7 +634,7 @@ export class QQGuildBot implements Bot, GuildDecodeHost {
     const path = direct ? `/dms/${encodeURIComponent(channelId.split('_')[0])}/messages` : `/channels/${encodeURIComponent(channelId)}/messages`
     let body: ChannelSendRequest = { ...data }
     if (options.quote && !body.message_reference) body.message_reference = { message_id: options.quote }
-    const context = options.passive?.messageId ? undefined : this.passive.pick(channelId, options.quote)
+    const context = options.passive?.messageId ? undefined : this.passive.pick(channelId, options.replyTo ?? options.quote)
     const msgId = options.passive?.messageId ?? context?.id
     if (msgId) body.msg_id = msgId
     if (options.passive?.eventId) body.event_id = options.passive.eventId

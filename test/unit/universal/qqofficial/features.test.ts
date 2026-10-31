@@ -311,6 +311,29 @@ describe('sending', () => {
     ])
   })
 
+  it('answers the message a session came from, not the latest of the channel, a stream each', async () => {
+    await start({ autoStreamText: ['private'] })
+    const sessions: Session[] = []
+    ctx.on('bot/message', (session) => {
+      sessions.push(session)
+    })
+    push('C2C_MESSAGE_CREATE', { id: 'C1', author: { id: 'U3', user_openid: 'U3' }, content: 'one', timestamp: sentAt() })
+    push('C2C_MESSAGE_CREATE', { id: 'C2', author: { id: 'U3', user_openid: 'U3' }, content: 'two', timestamp: sentAt() })
+    await vi.waitFor(() => expect(sessions).toHaveLength(2))
+    expect(sessions[0].event.referrer).toEqual({ msg_id: 'C1' })
+    const [first, second] = sessions
+    await first.send('a1')
+    await second.send('b1')
+    await first.send('a2')
+    await second.send('b2')
+    expect(messages().map(({ body }) => [body.markdown.content, body.msg_id, body.msg_seq, body.stream.id, body.stream.index])).toEqual([
+      ['a1', 'C1', 1, undefined, 0],
+      ['b1', 'C2', 1, undefined, 0],
+      ['a2', 'C1', 2, 'sent-1', 1],
+      ['b2', 'C2', 2, 'sent-2', 1],
+    ])
+  })
+
   it('retries once on the codes it is told to', async () => {
     await start({ retryWhen: [22009] })
     let failed = false
@@ -412,7 +435,7 @@ describe('groups', () => {
     const events = collect()
     push('GROUP_MSG_RECEIVE', { group_openid: 'G1', op_member_openid: 'U1', timestamp: 1_800_000_000 }, 'EV9')
     await vi.waitFor(() => expect(events).toHaveLength(1))
-    expect(events[0]).toMatchObject({ type: 'group-msg-receive', guildId: 'G1' })
+    expect(events[0]).toMatchObject({ type: 'group-msg-receive', guildId: 'G1', event: { referrer: { event_id: 'EV9' } } })
     expect(internal[0].event).toMatchObject({ _type: 'qq/group-msg-receive', _data: { group_openid: 'G1' } })
     // A reply may cite the event
     await qq().sendMessage('G1', 'thanks')

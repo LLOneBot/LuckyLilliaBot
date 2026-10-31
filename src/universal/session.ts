@@ -68,11 +68,11 @@ export class Session implements SessionApi {
   }
 
   send(content: h.Fragment) {
-    return this.bot.sendMessage(this.requireChannel(), content)
+    return this.bot.sendMessage(this.requireChannel(), content, { referrer: this.event.referrer })
   }
 
   reply(content: h.Fragment) {
-    return this.bot.sendMessage(this.requireChannel(), content, { quote: this.messageId })
+    return this.bot.sendMessage(this.requireChannel(), content, { quote: this.messageId, referrer: this.event.referrer })
   }
 
   private requireChannel(): string {

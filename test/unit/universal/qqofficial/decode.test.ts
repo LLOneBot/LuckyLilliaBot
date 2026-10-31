@@ -119,7 +119,7 @@ describe('decodeDispatch', () => {
   it('maps group and friend events, remembering their event ids for a passive reply', () => {
     const bot = host()
     const added = decodeDispatch(bot, dispatch('GROUP_ADD_ROBOT', { timestamp: Date.now() / 1000, group_openid: 'G2', op_member_openid: 'U1' }, 'EV1'))
-    expect(added).toMatchObject({ type: 'guild-added', guild: { id: 'G2' }, operator: { id: 'U1' } })
+    expect(added).toMatchObject({ type: 'guild-added', guild: { id: 'G2' }, operator: { id: 'U1' }, referrer: { event_id: 'EV1' } })
     expect(bot.passive.claim(bot.passive.pick('G2')!)).toEqual({ event_id: 'EV1', msg_seq: 1 })
 
     const friend = decodeDispatch(bot, dispatch('FRIEND_ADD', { timestamp: Date.now() / 1000, openid: 'U4' }, 'EV2'))

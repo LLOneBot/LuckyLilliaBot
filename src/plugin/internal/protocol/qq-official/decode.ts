@@ -67,8 +67,9 @@ export function decodeDispatch(host: DecodeHost, payload: GatewayPayload): Sator
       const data: GroupEvent = payload.d
       const added = payload.t === 'GROUP_ADD_ROBOT'
       // A welcome message replies to this event
-      if (added) rememberEvent(host, payload, 'group', data.group_openid, data.timestamp)
+      const referrer = added ? rememberEvent(host, payload, 'group', data.group_openid, data.timestamp) : undefined
       return host.event(added ? 'guild-added' : 'guild-removed', {
+        referrer,
         guild: { id: data.group_openid },
         channel: { id: data.group_openid, type: Channel.Type.TEXT },
         operator: data.op_member_openid ? { id: data.op_member_openid } : undefined,
@@ -78,8 +79,9 @@ export function decodeDispatch(host: DecodeHost, payload: GatewayPayload): Sator
     case 'GROUP_MSG_REJECT': {
       const data: GroupEvent = payload.d
       const receive = payload.t === 'GROUP_MSG_RECEIVE'
-      if (receive) rememberEvent(host, payload, 'group', data.group_openid, data.timestamp)
+      const referrer = receive ? rememberEvent(host, payload, 'group', data.group_openid, data.timestamp) : undefined
       return host.event(receive ? 'group-msg-receive' : 'group-msg-reject', {
+        referrer,
         guild: { id: data.group_openid },
         channel: { id: data.group_openid, type: Channel.Type.TEXT },
         operator: data.op_member_openid ? { id: data.op_member_openid } : undefined,
@@ -90,8 +92,9 @@ export function decodeDispatch(host: DecodeHost, payload: GatewayPayload): Sator
       const data: UserEvent = payload.d
       const added = payload.t === 'FRIEND_ADD'
       const channelId = privateChannel(data.openid)
-      if (added) rememberEvent(host, payload, 'c2c', channelId, data.timestamp)
+      const referrer = added ? rememberEvent(host, payload, 'c2c', channelId, data.timestamp) : undefined
       return host.event(added ? 'friend-added' : 'friend-deleted', {
+        referrer,
         user: decodeUser(host, data.openid),
         channel: { id: channelId, type: Channel.Type.DIRECT },
       })
@@ -210,6 +213,7 @@ function decodeGroupMessage(host: DecodeHost, data: UserMessage, atBot: boolean)
   const userId = data.author.member_openid ?? data.author.id
   const user = decodeUser(host, userId, data.author.username, data.author.bot)
   return host.event('message-created', {
+    referrer: { msg_id: data.id },
     message: { id: data.id, content: elements.join(''), created_at: at },
     user,
     member: {
@@ -233,6 +237,7 @@ function decodePrivateMessage(host: DecodeHost, data: UserMessage): SatoriEvent 
   const quote = decodeQuote(host, data)
   if (quote) elements.unshift(quote)
   return host.event('message-created', {
+    referrer: { msg_id: data.id },
     message: { id: data.id, content: elements.join(''), created_at: at },
     user: decodeUser(host, userId, data.author.username, data.author.bot),
     channel: { id: channelId, type: Channel.Type.DIRECT },
@@ -295,6 +300,7 @@ function decodeInteraction(host: DecodeHost, payload: GatewayPayload): SatoriEve
     })
   }
   return host.event('interaction/button', {
+    referrer: payload.id ? { event_id: payload.id } : undefined,
     button: { id: resolved.button_id ?? '', data: resolved.button_data } as SatoriEvent['button'],
     user: userId ? decodeUser(host, userId) : undefined,
     channel: { id: channelId, type: group ? Channel.Type.TEXT : Channel.Type.DIRECT },
@@ -333,6 +339,7 @@ function decodeGuildMessage(host: GuildDecodeHost, data: GuildMessage): SatoriEv
   for (const attachment of data.attachments ?? []) elements.push(decodeAttachment(attachment))
   const user = guildUser(host, data.author)
   return host.event('message-created', {
+    referrer: { msg_id: data.id },
     message: { id: data.id, content: elements.join(''), created_at: at },
     user,
     member: data.member ? { user, nick: data.member.nick, roles: data.member.roles?.map(id => ({ id })) } : undefined,
@@ -481,9 +488,11 @@ function rememberRef(host: DecodeHost, data: UserMessage) {
   if (ref) host.passive.rememberRef(data.id, ref)
 }
 
+/** Lets replies cite the event; the referrer naming it */
 function rememberEvent(host: DecodeHost, payload: GatewayPayload, scope: 'group' | 'c2c', channelId: string, timestamp?: number) {
   if (!payload.id) return
   host.passive.remember({ id: payload.id, kind: 'event', scope, channelId, at: timestamp ? timestamp * 1000 : Date.now() })
+  return { event_id: payload.id }
 }
 
 function learnSelf(host: DecodeHost, mentions: Mention[] | undefined) {

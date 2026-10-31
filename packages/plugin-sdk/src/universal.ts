@@ -18,6 +18,11 @@ export interface SendOptions {
   /** Id of the message to quote. */
   quote?: string
   /**
+   * The `referrer` of the event this answers, as in Satori: QQ official bots reply passively to that message or
+   * event instead of the latest one in the channel. `session.send()` and `session.reply()` pass it.
+   */
+  referrer?: unknown
+  /**
    * Sent for a protocol client (the Satori adapter): `bot/before-send` and `bot/fallback` are skipped, so plugins
    * cannot rewrite what a client sends; the built-in fallbacks still apply.
    */

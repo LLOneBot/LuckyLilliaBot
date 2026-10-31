@@ -153,7 +153,7 @@ export class SatoriServer {
     if (method.name === 'getLogin') return this.adapter.login(bot)
     if (method.name === 'createMessage') {
       const content = neutralContent(String(payload.content ?? ''), bot.platform)
-      return toWire(await bot.sendMessage(payload.channel_id, content, { relay: true }), bot.platform)
+      return toWire(await bot.sendMessage(payload.channel_id, content, { relay: true, referrer: payload.referrer }), bot.platform)
     }
     const call = (bot as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>)[method.name]
     return toWire(await call.apply(bot, method.fields.map(field => payload[field.name])), bot.platform)

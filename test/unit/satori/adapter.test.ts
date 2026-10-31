@@ -171,6 +171,14 @@ describe('API', () => {
     expect(sent.content).toContain('<llonebot:ark ')
   })
 
+  it('hands the referrer a client sends with a message to the bot, for a passive reply', async () => {
+    const send = vi.spyOn(official, 'sendMessage')
+    await ctx.plugin({ inject: ['bots'], apply: (ctx: Context) => { ctx.bots.register(official) } })
+    expect((await request('message.create', 'qq', 'APPID', { channel_id: 'G1', content: 'hi', referrer: { msg_id: 'M1' } })).status).toBe(200)
+    expect(send).toHaveBeenCalledExactlyOnceWith('G1', 'hi', { relay: true, referrer: { msg_id: 'M1' } })
+    send.mockRestore()
+  })
+
   it('answers login.get with the methods the bot has and what it can send, and 404 for a method it lacks', async () => {
     await ctx.plugin({ inject: ['bots'], apply: (ctx: Context) => { ctx.bots.register(official) } })
     const login = await (await request('login.get', 'llonebot', '123456', {})).json()
