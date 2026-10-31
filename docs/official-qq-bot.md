@@ -22,8 +22,12 @@
 - 和 crack 有意不同的地方：
   - 按 openid 查昵称的第三方接口（crack 默认打 `https://oiapi.net/api/Openid`）**默认关闭**，要在设置页填地址：它会把用户 openid 和 AppID 发给第三方。先查缓存，查不到才问接口（crack 是每个缺名字的事件都先问接口）
   - 用户名 crack 写进 Koishi 的用户表；这里写到插件数据目录的 `usernames-<AppID>.json`（`ctx.storage.dir()`，最多 2 万条，5 秒防抖）
-  - 群里的 @ 默认还用纯文本的 `<qqbot-at-user />`；`useMarkdownIfAt` 打开才像 crack 那样把消息改成 markdown、写 `<@openid>`（crack 默认开）。改成 markdown 时会先转义已有的文本（crack 不转义）
-  - `<a href>` 发出链接本身（crack 同；之前发的是链接文字）
+  - 群里 @ 某人像 crack 一样把消息改成 markdown（`useMarkdownIfAt`，默认开），但写新格式 `<qqbot-at-user id="openid" />`（crack 写 `<@openid>`，官方标了即将弃用）；关掉时写成纯文本"@名字"（crack 是丢掉）。改成 markdown 时会先转义已有的文本（crack 不转义），平台渲染的标签除外
+  - markdown 转义用 HTML 实体（crack 用反斜杠，QQ 会把反斜杠原样显示出来），见 §6
+  - `<a href>` 写成"文字 ( 链接 )"，和 NT 一样（crack 只发链接，卡片降级时标题就丢了）
+  - 中立层的 `<card>` 在群聊、单聊发成 markdown（owner 2026-10-31：官方机器人没有 ark 权限，ark 模板要申请）
+  - 流式（owner 2026-10-31 定）：单聊一段流从第二片起不占被动回复次数；群里没有流式，各片攒成一条，结束时发出；`<markdown stream="end">` 结束一段流，最后一片之后 10 秒没新片自动结束。crack 每片都占一次回复，也从不自动结束
+  - 发送优先回复事件的 `referrer`（`session.send()` 带回来的触发消息），crack 靠 Koishi 会话；没有 referrer 时才回复频道里最近一条
   - crack 的频道消息解析丢了正文（`message.content` 没赋值就用），按上游 adapter-qq 修正
   - h() 会把属性名驼峰化（`render_data` → `renderData`），crack 只读下划线写法，所以它的 `qq:button` 的 `render_data`、`qq:markdown` 的 `custom_template_id` 写在顶层属性时其实不生效；这里两种写法都认
   - `INTERACTION_CREATE` 没有 `data.resolved`（不是按钮 / 菜单类的互动）时只发 internal 事件；crack 会读空字段抛错
@@ -40,10 +44,10 @@
 | `gateway.ts` | WS 网关：identify / resume、心跳、断线重连；`gatewayUrl` 覆盖、把平台网关换到 API 的域名上、调试日志；事件处理抛错只记日志 |
 | `bot.ts` | `QQOfficialBot` / `QQGuildBot`：信封、发消息、`deliver()` 选被动回复目标、群 / 频道管理方法、`Audits`（等审核结果） |
 | `sender.ts` | `h[]` → 平台消息：`MessageSender`（群 / 单聊）、`GuildMessageSender`（子频道 / 频道私信），共用 markdown、按钮、平台载荷的处理 |
-| `elements.ts` | 平台元素：`qq:ark*`、`qq:json` / `qq:markdown` / `qq:rawmarkdown*` 的解析，按钮转换，markdown 转义，markdown 里的 `data:` 图片拆分 |
-| `media.ts` | 富媒体上传：URL、`file_data`、分片；语音转 silk |
+| `elements.ts` | 平台元素：`qq:ark*`、`qq:json` / `qq:markdown` / `qq:rawmarkdown*` 的解析，按钮转换，markdown 转义（`escapeMarkdown` / `textToMarkdown`），卡片转 markdown，markdown 里的 `data:` 图片拆分 |
+| `media.ts` | 富媒体上传：URL、`file_data`、分片；语音转 silk；网络图片的尺寸（卡片的 markdown 图片要） |
 | `passive.ts` | 被动回复记账（群 / 单聊 / 频道）、`REFIDX_` 引用索引 |
-| `stream.ts` | 流式回复的状态，按回复的目标记 |
+| `stream.ts` | 流式回复，按回复的目标记：单聊接着同一条消息发，群里攒着；空闲 10 秒自动结束 |
 | `decode.ts` | 网关事件 → Satori 事件：`decodeDispatch`（`qq`）、`decodeGuildDispatch`（`qqguild`） |
 | `internal.ts` | 全部 REST 接口，按 Koishi QQ 适配器的方法名（`bot.internal`） |
 | `menu.ts` | 单聊自定义菜单、群聊指令面板的同步 |
@@ -93,6 +97,7 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 | 论坛、音频、音视频子频道成员 | — | 只有 internal 事件（crack 也不解码） |
 
 - **id**：`qq` 的 `selfId` = AppID。群和单聊的用户 id 用 `author.member_openid`（群）/ `user_openid`（单聊），实测和 `author.id` 相同，同一个 app 下跨群不变。头像 `https://q.qlogo.cn/qqapp/<appid>/<openid>/640`。频道私信：guild `<来源频道>_<私信频道>`、channel `<私信频道>_<子频道>`（同 Koishi）
+- **referrer**：群聊、单聊、频道消息的事件带 `referrer: { msg_id }`，`GROUP_ADD_ROBOT` / `GROUP_MSG_RECEIVE` / `FRIEND_ADD` / 互动带 `{ event_id }`。`session.send()` / `reply()` 和 Satori 客户端的 `message.create` 把它带回来，发送时优先回复它（§6 选目标）
 - **@ 自己归一**：平台用 bot 的 openid 表示 @ 它，而 `selfId` 是 AppID，不归一的话 `dispatch` 的回声判断和插件的 @ 前缀匹配都会失效。`mentions[]` 里 `is_you: true` 的那项就是 bot，第一次见到就记下它的 openid（`botOpenid`，`/users/@me` 的 `union_openid` 兜底），之后没带 `is_you` 的 `<@botOpenid>` 也认。不在 `mentions` 里的 `<@xxx>` 当普通文本
 - **附件**：`image/*` → `img`（带宽高），`voice` → `audio`（优先用平台转好的 `voice_wav_url`，原文件是 silk），`video/*` → `video`，其余 → `file`（`title` 是文件名）。url 可能不带协议，补 `https://`
 - **QQ 表情** → `face`（和 NT 的同一套 id）：群、单聊的 content 里是 `<faceType=1,faceId="13",ext="…">`，`ext` 是 `{"text":"[呲牙]"}` 的 base64，名字去掉方括号放进 `name`（有的不带方括号，有的没有 `ext`）。这个格式官方文档没写，来自别的项目的实测（Diana、Eve.aic、dsh-im 的 PR），crack 也不解析。频道是官方文档写的 `<emoji:id>`
@@ -103,8 +108,10 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 ## 6. 发消息
 
 - `POST /v2/groups/{group_openid}/messages`、`/v2/users/{openid}/messages`；`msg_type` 0 文本 / 2 markdown / 3 ark / 7 富媒体。返回 `{ id, timestamp, ext_info: { ref_idx } }`，要审核时返回 `{ audit_id }`
-- **@**：发送用 `<qqbot-at-user id="openid" />`，@全体 `<qqbot-at-everyone />`（2026-10-26 起，要 bot 是群管理，每群每天一次）。`useMarkdownIfAt` 时消息改 markdown，写 `<@openid>` / `@everyone`。旧的 `<@!openid>` 平台已经不认。单聊里的 @ 退化成 `@名字`
-- **一条消息最多一个媒体**，媒体显示在文字上面：媒体之前的文字先单独发一条，媒体和它后面的文字合成一条（`msg_type` 7 + `content`）；视频、语音、文件不带文字，单独发
+- **@**：群里 @ 某人只在 markdown 里渲染（官方"文本交互"文档；2026-10-31 实测纯文本里 `<qqbot-at-user />` 原样显示），所以消息改成 markdown，写 `<qqbot-at-user id="openid" />`，实测是真的 @。`useMarkdownIfAt` 关掉时写纯文本"@名字"（`name` 属性或用户名缓存，都没有就丢掉），对方收不到提醒。@全体 `<qqbot-at-everyone />` 文本和 markdown 都行（2026-10-26 起，要 bot 是群管理，每群每天一次），不用改 markdown。旧的 `<@openid>` / `@everyone` 官方标了即将弃用，`<@!openid>` 平台已经不认。单聊里的 @ 退化成 `@名字`
+- **一条消息最多一个媒体**，媒体显示在文字上面：媒体之前的文字先单独发一条，媒体和它后面的文字合成一条（`msg_type` 7 + `content`）；视频、语音、文件不带文字，单独发。媒体只带得了纯文字：后面跟着 markdown、按钮或 `<qqbot-at-everyone />` 时，媒体单独发一条，后面的另发
+- **markdown 转义**（2026-10-31 实测）：QQ 不认反斜杠转义（`\[` 原样显示），HTML 实体显示成原字符、不当语法（`&#42;&#42;x&#42;&#42;` 显示 `**x**`）。所以 `` * _ ~ ` [ ] # $ < > & `` 写成实体，`- + =` 和 `1.` / `1)` 只在行首写成实体（列表、分割线、标题下划线）；构不成语法的符号（`a-b`、括号、`!`）原样。实体后面紧跟的空格会被吃掉（`&#32;`、两个空格也一样），`&nbsp;` 不会，所以那个空格写成 `&nbsp;`（副作用：那里不能折行，长行折行时符号可能挤到下一行开头；零宽字符加空格也保得住空格、能折行，但复制出来的文字会带上看不见的字符，没用）。零宽字符隔不开 `**`（星号被当成斜体吃掉）。消息改成 markdown 时平台渲染的标签（`<qqbot-at-user />`、`<qqbot-at-everyone />`、`<@id>`、`<#id>`、`<emoji:id>`）原样保留（`textToMarkdown()`）
+- **markdown 的换行**（2026-10-31 实测）：单个换行就另起一行，和空一行、行尾两空格一样带段距；`<br>` 是紧凑换行；正文后面直接接列表能识别
 - **富媒体上传**（`/v2/groups|users/{id}/files`，返回的 `file_info` 原样填进 `media`）：
   - http(s) URL 交给平台去下载 `{ file_type, url, srv_send_msg: false }`；平台下载失败（850026）时改为自己下载后传字节
   - 其余（`data:` / `base64://` / `file://` / 本地路径）读成字节：≤ 5 MB 用 `file_data`（base64），更大的走分片：`upload_prepare`（md5 / sha1 / 前 10002432 字节的 md5）→ 逐块 PUT 到预签名 URL → `upload_part_finish`（40093001 在 `retry_timeout` 内重试）→ 带 `upload_id` 调 `/files`。crack 对所有本地文件都走分片
@@ -125,12 +132,15 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 | `<qq:markdown>` | markdown 模板（`custom_template_id` + `params`），可带 `keyboard` |
 | `<qq:rawmarkdown>` / `<qq:rawmarkdown-without-keyboard>` | 原生 markdown，前者可带 `keyboard` |
 | `<passive messageId seq eventId>` | 指定这次回复挂在哪条消息 / 事件上 |
-| `<card title url desc image prompt>` | 中立层的卡片（plugin-system.md"扩展元素和降级"）：有 `image` 是 ark 24（`#SUBTITLE#` 用链接的域名），没有是只有一项的 ark 23（描述带链接）；缺 `title` 或 `url` 就发它的降级内容。单独一条 |
+| `<card title url desc image prompt>` | 中立层的卡片（plugin-system.md"扩展元素和降级"）。群聊、单聊发成 markdown（ark 要申请，没权限是 `40034126 无ark模板权限`）：加粗的标题（有 `url` 是链接）、描述、网络图片 `![标题 #宽px #高px](url)`（宽高下载图片读出来，10 秒内读不到就不写），每样一行，跟前后的文字合成一条；本地 / `data:` 图片放不进 markdown，跟在后面单独发一张。频道是 ark：有 `image` 是 24（`#SUBTITLE#` 用链接的域名），没有是只有一项的 23（描述带链接），缺 `title` 或 `url` 就发它的降级内容，单独一条 |
 | `<face id>` | 频道写成 `<emoji:id>`；群和单聊发表情官方没写，不声明 `message.face`，中立层先降级成 `[名字]` |
 
 - 最后一段 `<p>` 留下的换行在发送前去掉（`dropParagraphBreak()`，NT 的编码器也是这样）：中立层的降级内容全是段落，不去掉每条消息会多一个空行
 
-- **流式**（`autoStreamText` 勾了的会话类型）：没有 markdown、按钮、媒体、平台载荷的纯文本回复，转义后作为 markdown 带 `stream: { state: 1, id, index }` 发；对同一条消息的后续回复接着第一条的 id、index + 1。crack 按 Koishi 会话记，这里按回复的那条消息 / 事件记（中立层的 `send()` 不带会话）。平台载荷带 `stream: true` 也由这里填。频道只有勾了才带 `stream`（官方没写频道支持）
+- **流式**：一段流的片是 `<markdown stream>`（`stream` 为 `true` 的平台载荷同理），或 `autoStreamText` 勾了的会话里的纯文本回复（没有 markdown、按钮、媒体、平台载荷，转义后当 markdown 发）；`<markdown stream="end">` 是最后一片。按回复的那条消息 / 事件记（crack 按 Koishi 会话记）。最后一片发出 `STREAM_IDLE`（10 秒）后还没新片就自动结束；一段流开着时同一条消息上要发普通消息，先结束这段流
+  - 单聊：照 crack 在 `/messages` 上带 `stream: { state, id, index }`，第一片不带 `id`，之后带第一片返回的消息 id、index + 1，结束片 `state: 10`；自动结束补一个内容是空格的结束片。2026-10-31 实测：6 片都接在一个气泡里、返回同一个消息 id，所以第二片起只加 `msg_seq` 不计回复次数（单聊每条消息 4 次也够长流用）；不结束的流气泡末尾一直挂着"生成中"的点。官方文档已经不写这个字段了，单聊另有 `POST /v2/users/{openid}/stream_messages`（2026-07：`input_mode` append / replace、`input_state` 1 / 10、`index`、`stream_msg_id`、整段流同一个 `msg_seq`、返回 `remain_msg_len`），同样实测能用，暂时没换
+  - 群聊：没有流式（实测每片各成一条消息）。各片攒在 `StreamStates` 里不发，结束时合成一条 markdown 发出，只占一次回复；攒着的那几次 `send()` 返回没有 id 的资源
+  - 频道只有勾了 `autoStreamText` 的 `guild` 才带 `stream`（官方没写频道支持），没有攒片和自动结束
 - **重试**：`retryWhen` 里的错误码重试一次（频道只对 URL 图片：改成自己下载后 multipart 重发）
 - **审核**：返回 `audit_id`（频道是 `code` 304023 + `data.message_audit.audit_id`）且订了 `MESSAGE_AUDIT` 时，等 `MESSAGE_AUDIT_PASS` 拿真正的消息 id，`_REJECT` 或 5 分钟没结果就返回没有 id 的资源
 
@@ -140,7 +150,7 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 
 - **限额**：群 5 分钟内最多回 5 次，单聊 60 分钟内最多 4 次，频道 5 分钟内不计次数（crack 如此）。窗口从消息的 `timestamp` 起算（不是本地收到的时刻），留 10 秒余量
 - **msg_seq 按 msg_id 计数**，从 1 开始，同一个 `msg_id` + `msg_seq` 重复会被去重（40054005）。按频道计数不行：引用一条旧消息的同时群里来了新消息，就会张冠李戴。频道消息不带 `msg_seq`
-- **选目标**：`<passive>` 指定的优先；然后 `session.reply()` 把触发消息当 quote 传进来，优先回复它；`session.send()` 和没有 quote 的发送回复该频道最近一条还能回复的消息 / 事件。这样插件用 `send()` 也能发出去
+- **选目标**：`<passive>` 指定的优先；然后发送带的 `referrer` 指的消息 / 事件（`session.send()` / `reply()` 带上触发它的那条，§5）；然后 quote；都没有（插件直接调 `bot.sendMessage`）就回复该频道最近一条还能回复的消息 / 事件。流的片优先接在开着这段流的那条消息上，回复次数用完了也接（单聊）；指名了别的消息就不去接别人的流。2026-10-31 实测以前只按"最近一条"选时，同一私聊里两段流同时进行会串成一段
 - **失败处理**：40054005 → `msg_seq` + 1 重发；304103 / 40034005 / 40034024~40034027 / 40034128（过期、用完、无效）→ 这个目标作废，换下一个还能回复的，都没有就作为主动消息发（多半被 40034105 拒，除非群开了主动消息）。最多试 3 次
 - 富媒体不能回复事件（crack 的经验），带 `event_id` 的媒体消息会去掉 `event_id` 按主动消息发
 - 不自动用 `is_wakeup`：它消耗用户的召回额度，得由插件显式决定（目前 SDK 表达不了）
@@ -153,7 +163,7 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
 
 ## 7. bot 的方法
 
-- `features`：`qq` 是 `message.markdown` / `button` / `card` / `stream` / `proactive` 和 `guild.plain`，`qqguild` 是 `markdown` / `button` / `card` / `face`（频道的流式、主动消息官方没写）。都没有 `message.forward`
+- `features`：`qq` 是 `message.markdown` / `button` / `card`（markdown 写的）/ `stream`（群里攒成一条）/ `proactive` 和 `guild.plain`，`qqguild` 是 `markdown` / `button` / `card` / `face`（频道的流式、主动消息官方没写）。都没有 `message.forward`
 - 中立层（`packages/plugin-sdk` 的 `Bot`，可选方法）：`qq` 有 `getUser`（缓存 → 查询接口）、`getGuild` / `getChannel`（`GET /v2/groups/{id}/info` 的群名；`private:` 频道给用户名）、`getChannelList`、`getGuildMember` / `getGuildMemberList`（`/v2/groups/{id}/members`，`next_cursor` 翻页）、`kickGuildMember`（`batch_remove_members`，`permanent` 时加黑名单）、`muteGuildMember`（`restrict_chat_setting`：已禁言的 `update`、没有的 `add`、时长 0 `del`）、`handleGuildMemberRequest`、`createDirectChannel`、`deleteMessage`
 - `qq` 另有 `refreshBotGroupState(groupId)`（机器人在群里的身份、能否主动发消息、收哪些消息，身份写进 `bot.user.role`）、`updateCommands(commands)`（§8）、`internal`
 - `qqguild`：`getGuildList` / `getGuild`、`getChannelList` / `getChannel` / `createChannel` / `updateChannel` / `deleteChannel`、`muteChannel`（QQ 没有子频道禁言，是整个频道 30 天）、`getChannelOnlineNums`、子频道的成员 / 身份组权限、上下麦和音频控制、`getGuildMemberList` / `getGuildMember` / `kickGuildMember` / `muteGuildMember`、表态 `createReaction` / `deleteReaction` / `getReactionList`（表情写成 `<类型>:<id>`）、`getMessage` / `deleteMessage`、`createDirectChannel`、`internal`
@@ -181,17 +191,22 @@ WebUI 设置页（页面 id `qqofficial`）是插件自己的界面 `client/`，
   - 中立层扩展元素的共用用例（`test/unit/universal/crossPlatform.ts`）在 `features.test.ts` 里断言发成什么；频道的 `<emoji:id>` 收发、卡片缺字段时的降级也在那里
 - `examples/plugins/echo` 会先去掉开头对 bot 的 @：官方 bot 在群里只收得到 @ 它的消息
 - 不登录 QQ 的 WebUI 端到端验证照 [plugin-system.md](plugin-system.md) 的方法即可。用假 AppID 启用会真的请求腾讯的 token 接口，返回 `[10004] 机器人不存在`，卡片显示失败原因
-- **真机联调要一个开放平台机器人**（沙箱即可，沙箱群 / 沙箱用户在开放平台配置），用它确认：群 @ 和单聊的收发、引用、图片 / 语音 / 视频上传、全量群消息的 `mentions` 是否真带 `is_you`
+- **真机联调**：一个开放平台机器人加一个测试群。做法：
+  - 起一个临时实例（独立目录，`--plugin-dir` 指向一个测试插件，WebUI / Satori 换非默认端口），`plugins.json` 里关掉 `builtin:nt-protocol`、开 `builtin:qq-official`。凭证从别处读进配置，不打印、不进仓库，测完连目录删掉
+  - 测试插件按触发词跑一批发送，每一步的结果写进 jsonl。官方 bot 的 `debug`（隐藏选项）打开后，日志里有每次 API 调用的请求和响应（取 token 那次不记）
+  - 每条触发消息群里只能被动回复 5 次、单聊 4 次，超了会退成主动消息（每月有额度）；一批别超，失败的发送也算一次。流的后续片不算（单聊）
+  - 渲染效果只能看截图：日志只说明平台收下了
+- **2026-10-31 真机实测**（群聊 + 单聊）：
+  - 能用：token、网关（换到 `api.bot.qq.com` 的地址）、READY、跑满一小时被 4009 断开后 resume；群 @ 消息和单聊的收发；文字、markdown（加粗、斜体、删除线、代码、列表都渲染）、按钮（指令按钮点了以"@bot 文字"发进群，回调按钮来 `interaction/button`）、引用回复、markdown 里 @ 某人（真的 @）；网络图片、本地图片、语音（wav 转 silk）、视频、文件上传；纯文字里带网址；卡片的 markdown（标题加粗带链接、描述、图片各占一行，图片铺满气泡宽度）、带符号的文字原样显示；单聊流式、群里攒成一条、`stream="end"` 和 10 秒自动结束；只读接口（群信息、入群申请列表、禁言设置、菜单、面板、`getGatewayBot`）；外部 Satori 客户端看得到 `qq` login 和上面这些事件
+  - 平台权限：ark 23 / 24 / 37 返回 `40034126 无ark模板权限`；群成员列表、群黑名单返回 `40012010 应用无接口访问权限`
+  - 因此改掉的：纯文本里的 `<qqbot-at-user />` 原样显示（改成 markdown）；反斜杠转义原样显示、实体后的空格被吃（改成实体 + `&nbsp;`）；卡片的 ark 发不出（改成 markdown）；群里没有流式（攒成一条）；流不结束就一直挂着"生成中"（加 `stream="end"` 和空闲结束）；每片流都占回复次数（单聊不算）；同一频道两段回复同时进行会串（按 `referrer` 回复）
 
-## 11. 未验证（没有真机）
+## 11. 未验证
 
-- 网关域名换成 `api.bot.qq.com` 后能否连上（照 crack 做的；不行就在设置页填 `gatewayUrl`）
-- markdown、按钮、ark 的真实渲染；流式回复的实际效果（群聊有资料说不支持 `stream`）
-- `GROUP_MEMBER_EVENT`、`INTERACTION` 不申请能不能订；频道的全部功能（没有频道机器人）
-- 审核流程、菜单 / 面板接口、入群申请审批、禁言接口的真实返回
-- 富媒体回复事件是否真的不行（只有 crack 的经验）
-- 带 `event_id` 的回复配 `msg_seq` 是否必要 / 允许（现在都带）
-- 群的 `<qqbot-at-user />` 是否也对纯文本（`msg_type` 0）生效：changelog 只明说了 `<qqbot-at-everyone />` 文本和 markdown 都能用
-- `GROUP_AT_MESSAGE_CREATE` 里 @ 了别人时，那些 @ 在 content 里的写法
+- `GROUP_MEMBER_EVENT`、`INTERACTION` 不申请能不能订；频道的全部功能（没有频道机器人），包括频道的 ark 卡片、`<emoji:id>` 收发和流式
+- 审核流程、入群申请审批、禁言接口的真实返回（只测了只读接口）
+- 富媒体回复事件是否真的不行（只有 crack 的经验）；带 `event_id` 的回复配 `msg_seq` 是否必要 / 允许（现在都带）
+- `<qqbot-at-everyone />`（会提醒全群，没测）
+- `GROUP_MESSAGE_CREATE`（全量群消息）的 `mentions` 是否真带 `is_you`；`GROUP_AT_MESSAGE_CREATE` 里 @ 了别人时，那些 @ 在 content 里的写法
 - `<faceType=…>` 的格式和 `ext` 里名字带不带方括号（别的项目实测过，我们没有）；群和单聊能不能发表情、怎么写
-- `<card>` 映射成的 ark 23 / 24 的实际样子；频道 `<emoji:id>` 的收发
+- 官方文档里有、还没接的：单聊 `msg_type` 6（输入中状态，`input_notify`）、`msg_type` 8（图文卡片 `card`，也许不用申请 ark）、`stream_messages` 新流式接口（实测能用）、素材管理（`/v2/media-images` 上传图片后在 markdown 里用 `qqbot-media://` 引用，存 100 张，本地图片就能放进 markdown 了）

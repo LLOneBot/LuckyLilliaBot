@@ -64,7 +64,7 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - `inject` 只有 `bots`，条目也不等 NT 登录（`adapterEntry(..., account = false)`）：`ctx.bots` 里的每个 bot 都是一个 Satori login，官方机器人（`qq` / `qqguild`）也给外部客户端用
 - 事件：订阅 `bot/session`，经 `wire.ts` 的 `toWire()` 换成对外的名字（`platform`、消息 `content` 里的 `luckylillia:` 元素换成 `llonebot:`，NT 的表情补回 `platform="llonebot"`，去掉值为 undefined 的字段），再补上线上格式：适配器自己数的 `sn` 和同值的 `id`，`login` 只带 `sn` / `user` / `platform`。login 的 `sn` 也是适配器按第一次见到的顺序分的。`bot/status` 发 `login-added`（第一次）/ `login-updated`
 - API：按 `Satori-Platform`（对外的名字；内部名 `luckylillia` 不认）+ `Satori-User-ID` 找到 bot，按 `@satorijs/protocol` 的 `Methods` 查方法名，参数按它的字段顺序传给 bot 同名的方法，结果同样 `toWire()`。bot 没有的方法回 404。`login.get` 和 READY 的 `logins` 用 `adapter.login(bot)`，`features` 是 bot 有的方法加 `bot.features`
-- `message.create` 调 `bot.sendMessage(..., { relay: true })`：内容先把 `llonebot:` 换回 `luckylillia:`，不经过 `bot/before-send` 和 `bot/fallback`（插件不能改写下游客户端的消息），只做内置降级
+- `message.create` 调 `bot.sendMessage(..., { relay: true, referrer })`：内容先把 `llonebot:` 换回 `luckylillia:`，不经过 `bot/before-send` 和 `bot/fallback`（插件不能改写下游客户端的消息），只做内置降级；客户端从事件里拿到的 `referrer` 原样传给 bot（官方机器人靠它被动回复）
 - `/v1/internal/onebot11/:action` 照旧转给 OneBot 适配器的 action
 - 搬过来时修掉的：`channel.mute` 读的是 `duration` 而 Satori 传的是 `enable`，一调用就全员禁言；角色列表的 id（1 / 2 / 0）和成员身上的（NT 的 4 / 3 / 2）对不上，拿成员的 3 去设置管理员反而会撤掉管理员，现在统一用 NT 的值；`message.list` 的 `next` 是消息 id 却被当数字用，翻第二页是 NaN
 
@@ -77,7 +77,8 @@ qq/raw ─► dispatcher ─► nt/*（28 个，平台原生层）
 - 默认降级里的 markdown 解析是自己写的一小段（标题、粗斜体、删除线、行内代码、代码块、链接、图片、列表、引用、分隔线），不引依赖；不认识的语法原样当文字
 - 按钮按官方适配器的读法分类（`qq-official/elements.ts` 的 `decodeButton`）：`link` / 平台 `action.type` 0 是跳转，`action` / 平台类型 1 是回调，其余是指令（发出 `data`，没有就是 `text`、按钮上的字、`id`）
 - 经 `bot.sendMessage` 发的消息都走这里，Satori 客户端发的（`relay`）只做内置降级；OneBot / Milky 不用 Satori 元素，不经过中立层
-- SDK 只加了类型（`Feature`、`CardAttrs` / `FaceAttrs` / `ButtonAttrs`、`Session.stripped`、`bot/fallback`、`SendOptions.relay`、`Bot.user` 和 Satori 的那些可选方法），仍然没有自己的运行时代码
+- SDK 只加了类型（`Feature`、`CardAttrs` / `FaceAttrs` / `ButtonAttrs`、`Session.stripped`、`bot/fallback`、`SendOptions.relay` / `referrer`、`Bot.user` 和 Satori 的那些可选方法），仍然没有自己的运行时代码
+- `Session.send()` / `reply()` 把事件的 `referrer`（Satori 的被动回复信息，消息源自己定的不透明值）传给 `sendMessage`：只能被动回复的平台（QQ 官方）据此回复触发它的那条消息，而不是频道里最近一条；NT 不用它。流式回复（`<markdown stream>`、`stream="end"`）的约定在 SDK `Feature` 的 `message.stream` 上
 - 收消息也归一到这套元素：NT 收到的 markdown（别的官方机器人发的）解成 `markdown`、按钮键盘解成 `button-group` / `button`（0 → `link`，1 → `action`，2 → `input`），卡片的 `luckylillia:ark` 带上 JSON 里的 `prompt` 当子元素，表情带上名字（`face_config.json` 的 `QDes`），不再带 `platform` 属性（表情 id 两边是同一套）；官方的表情见 official-qq-bot.md §5
 - `Session.stripped`（`src/universal/session.ts`）：去掉开头的 `quote`、对 `selfId` 的 `at` 和其后的空白，给按前缀匹配指令的插件用
 

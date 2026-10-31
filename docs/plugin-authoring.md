@@ -192,7 +192,7 @@ ctx.on('bot/before-send', (bot, channelId, content, next) => {
 | `bot/before-send` | waterfall | 只拦截插件经 `bot.sendMessage` / `session.send` 发出的消息，OneBot / Milky / Satori 客户端发的不经过这里 |
 | `bot/status` | parallel | bot 注册、上线、离线 |
 
-`Session` 常用字段：`type`、`userId`、`channelId`、`guildId`（私聊为空）、`messageId`、`isDirect`、`content`（元素标记字符串）、`elements`（解析后的元素，取 @ 可以用 `h.select(session.elements, 'at')`）、`event`（原始 Satori 事件，snake_case），以及 `send()` / `reply()`（引用回复）。
+`Session` 常用字段：`type`、`userId`、`channelId`、`guildId`（私聊为空）、`messageId`、`isDirect`、`content`（元素标记字符串）、`elements`（解析后的元素，取 @ 可以用 `h.select(session.elements, 'at')`）、`event`（原始 Satori 事件，snake_case），以及 `send()` / `reply()`（引用回复）。两者都带上事件的 `referrer`（Satori 的被动回复信息）：QQ 官方机器人只能被动回复，靠它回复触发的那条消息；自己调 `bot.sendMessage()` 时可以传 `{ referrer: session.event.referrer }` 达到同样效果。
 
 `ctx.bots` 里是已登录的账号（`Bot`）。`sendMessage` 一定有，其它能力（`deleteMessage`、`getGuild`、`getGuildMember`、`muteGuildMember`、`kickGuildMember`、`handleGuildMemberRequest`、`createReaction`……）按平台支持情况提供，用之前先判断 `if (bot.muteGuildMember)`。这些可选方法和 Satori 的 API 同名、参数顺序也一样（好友、群、成员、角色、消息列表、表态……，见 SDK 的 `Bot`）。QQ 账号的 `platform` 是 `luckylillia`（外部 Satori 客户端看到的是 `llonebot`，由 Satori 适配器换），私聊的 channelId 形如 `private:<QQ号>`，群的 channelId 就是群号。
 
@@ -208,11 +208,12 @@ ctx.on('bot/before-send', (bot, channelId, content, next) => {
 |---|---|---|---|
 | markdown | `h('markdown', {}, '# 标题\n**粗体**')` | 官方机器人 | 去掉标记的文字：粗体、链接、代码、图片照样是元素，列表写成"• "、引用写成"｜" |
 | 按钮 | `h('button', { text: '/sign' }, '签到')`，一行用 `h('button-group', {}, [...])` 包起来 | 官方机器人 | 一行字：指令按钮写成"签到（发送「/sign」）"，文字和指令相同时写成"「签到」"；跳转按钮写成链接；回调按钮丢掉 |
-| 卡片 | `h('card', { title, url, desc, image, prompt })` | 官方机器人（有图是 ark 24，没图是 ark 23） | 标题带链接、描述、图片 |
+| 卡片 | `h('card', { title, url, desc, image, prompt })` | 官方机器人：群聊、单聊发成 markdown（加粗的标题链接、描述、图片，ark 要申请），频道是 ark | 标题带链接、描述、图片 |
 | QQ 表情 | `h('face', { id: '13', name: '呲牙' })` | QQ 账号、官方频道 | `[呲牙]`，没写 `name` 是 `[表情]` |
 
 - 按钮分三种：没写 `type`（或 `input`）是**指令按钮**，点了就发出 `text`（默认是按钮上的字）；`type: 'link'` + `href` 是跳转按钮；`type: 'action'` + `id` 是回调按钮，点了不发消息，只来一个 `interaction/button` 事件（`session.event.button.id`）。要两边都能用就写指令按钮：降级后用户照着发，插件当普通消息处理，一份代码
 - `bot.features` 说这个 bot 原生能发什么：`message.markdown` / `message.button` / `message.card` / `message.face` 对应上表；另外 `message.forward`（合并转发）、`message.stream`（`<markdown stream>` 流式回复）、`message.proactive`（没有消息可回复时也能发，官方机器人基本不行）只是告诉你，不会替你降级。想"能发按钮就发按钮，不能就换个说法"时看它：`if (session.bot.features.includes('message.button'))`
+- 流式回复：对同一条消息多次发 `h('markdown', { stream: true }, '一段')`，官方机器人在单聊里把它们接成一个气泡，最后一片写 `{ stream: 'end' }`；不写也行，最后一片发出 10 秒后自动结束，只是这 10 秒里气泡上挂着"生成中"的点。群里平台没有流式，各片先攒着，结束时合成一条发出（攒着的那几次 `send()` 返回的结果没有 `id`）。要用 `session.send()` / `session.reply()` 发：它们带着事件的 `referrer`，官方机器人据此回复触发它的那条消息，同一频道里几段回复同时进行也不会串。没有 `message.stream` 的 bot（QQ 账号）每片就是一条普通 markdown 消息
 - 降级可以自己做：`bot/fallback` 事件对每个发不了的 markdown / 卡片 / 表情和每一行按钮各问一次，返回要发的内容就用它（原样发出，不再降级），什么都不返回就用上面的默认降级，返回 `''` 是丢掉。最先返回内容的监听者生效。比如装了 puppeteer 时把 markdown 渲染成图片：
 
 ```ts
