@@ -3,10 +3,10 @@ import type { NeutralResource } from '@luckylillia/plugin-sdk'
 import { privateTarget } from './decode'
 import { fallback } from '../../../../universal/fallback'
 import {
-  CustomPayload, decodeButton, escapeMarkdown, extractMarkdownText, parseArkElement, parseCardElement, parseCustomElement, splitDataImages,
-  textToMarkdown,
+  cardMarkdown, CustomPayload, decodeButton, escapeMarkdown, extractMarkdownText, isWebUrl, parseArkElement, parseCardElement,
+  parseCustomElement, splitDataImages, textToMarkdown,
 } from './elements'
-import { loadMedia, uploadMedia } from './media'
+import { loadMedia, uploadMedia, webImageSize } from './media'
 import { Button, ChannelSendRequest, FileType, MessageType, SendRequest } from './types'
 import type { DeliverOptions, QQGuildBot, QQOfficialBot } from './bot'
 
@@ -93,10 +93,7 @@ abstract class Encoder {
     }
     const ark = parseArkElement(element)
     if (ark) return this.sendCustom({ request: ark })
-    if (type === 'card') {
-      const card = parseCardElement(element)
-      return card ? this.sendCustom({ request: card }) : this.render(fallback(element))
-    }
+    if (type === 'card') return this.card(element)
     const custom = parseCustomElement(element)
     if (custom) return this.sendCustom(custom)
     if (type === 'text') {
@@ -167,6 +164,22 @@ abstract class Encoder {
     await this.flush()
     this.custom = payload
     await this.flush()
+  }
+
+  /** As ark 24 (with an image) or 23; the fallback when it lacks a title or a link */
+  protected async card(element: h) {
+    const card = parseCardElement(element)
+    return card ? this.sendCustom({ request: card }) : this.render(fallback(element))
+  }
+
+  /** Markdown on lines of its own, as a paragraph is */
+  protected appendBlock(markdown: string, markup: string) {
+    if (this.plain && !this.plain.endsWith('\n')) this.appendText('\n')
+    this.enterMarkdown()
+    this.content += markdown + '\n'
+    this.plain += markdown + '\n'
+    this.markup += markup
+    this.paragraphEnd = this.content.length
   }
 
   private lastRow(): Button[] {
@@ -249,6 +262,16 @@ export class MessageSender extends Encoder {
     this.fileMarkup = h(MEDIA_TAGS[fileType], { src }).toString()
     if (fileType !== FileType.Image) await this.flush()
     return true
+  }
+
+  // Ark templates take an application, markdown is open to every bot (bot.q.qq.com, 2026-04). An image that is not
+  // on the web cannot go into markdown: it follows as a medium
+  protected async card(element: h) {
+    const image = element.attrs.image
+    const web = typeof image === 'string' && isWebUrl(image)
+    const markdown = cardMarkdown(element.attrs, web ? await webImageSize(image) : undefined)
+    if (markdown) this.appendBlock(markdown, element.toString())
+    if (image && !web) await this.media('img', { src: image })
   }
 
   // Inline data: images cannot stay in markdown: they go out as media around the text

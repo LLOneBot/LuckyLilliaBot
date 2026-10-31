@@ -342,6 +342,31 @@ export function parseCardElement(element: h): CustomRequest | undefined {
   })
 }
 
+export const isWebUrl = (src: string) => /^https?:\/\//i.test(src)
+
+// Parentheses and blanks would end the link early
+const markdownUrl = (url: string) => url.replace(/[()\s]/g, char => '%' + char.charCodeAt(0).toString(16).toUpperCase().padStart(2, '0'))
+
+/**
+ * `<card>` as markdown, which takes no application, unlike ark templates: the title in bold, linked when there is a
+ * link, the description, then an image on the web, which QQ markdown sizes as `#<width>px #<height>px`.
+ */
+export function cardMarkdown(attrs: Attrs, size?: { width: number; height: number }): string {
+  const title = field(attrs, 'title')
+  const url = field(attrs, 'url')
+  const desc = field(attrs, 'desc')
+  const image = field(attrs, 'image')
+  const link = (text: string) => url ? `[${escapeMarkdown(text)}](${markdownUrl(url)})` : escapeMarkdown(text)
+  const lines: string[] = []
+  if (title) lines.push(`**${link(title)}**`)
+  else if (url) lines.push(link(url))
+  if (desc) lines.push(escapeMarkdown(desc))
+  if (image && isWebUrl(image)) {
+    lines.push(`![${escapeMarkdown(title || 'img')}${size ? ` #${size.width}px #${size.height}px` : ''}](${markdownUrl(image)})`)
+  }
+  return lines.join('\n')
+}
+
 function field(source: Attrs, ...keys: string[]): string | undefined {
   for (const key of keys) {
     if (typeof source[key] === 'string') return source[key]

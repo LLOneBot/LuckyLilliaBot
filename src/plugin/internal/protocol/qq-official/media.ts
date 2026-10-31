@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { Context } from 'cordis'
 import { getWavFileInfo, isSilk, isWav, encode } from 'silk-wasm'
 import { TEMP_DIR } from '@/common/globalVars'
+import { imageSize } from '@/common/image-size/lib'
 import { encodeSilk } from '@/common/utils/audio'
 import { ApiError, QQOfficialApi } from './api'
 import { FileType, UploadResponse } from './types'
@@ -48,6 +49,16 @@ export async function uploadMedia(ctx: Context, api: QQOfficialApi, base: string
     })).file_info
   }
   return await uploadChunked(api, base, type, media.data, fileName)
+}
+
+/** The size of an image on the web, read from its bytes; undefined when it cannot be read in time */
+export async function webImageSize(url: string): Promise<{ width: number; height: number } | undefined> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(10_000) })
+    if (!res.ok) return
+    const { width, height } = imageSize(new Uint8Array(await res.arrayBuffer()))
+    return width && height ? { width, height } : undefined
+  } catch {}
 }
 
 export async function loadMedia(src: string): Promise<MediaData> {

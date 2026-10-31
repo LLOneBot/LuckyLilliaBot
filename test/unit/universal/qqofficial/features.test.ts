@@ -67,6 +67,7 @@ beforeEach(async () => {
     }
     calls.push(call)
     const custom = reply(call)
+    if (custom?.body instanceof Uint8Array) return new Response(custom.body, { status: custom.status ?? 200 })
     if (custom) return json(custom.status ?? 200, custom.body)
     if (call.path === '/gateway') return json(200, { url: `ws://127.0.0.1:${port}` })
     if (call.path === '/users/@me') return json(200, { id: 'B', username: 'TestBot' })
@@ -112,6 +113,17 @@ function groupAt(id: string, content: string) {
 }
 
 const messages = () => calls.filter(call => call.method === 'POST' && call.path.endsWith('/messages'))
+
+/** The bytes of a PNG its size is read from */
+function pngHeader(width: number, height: number) {
+  const png = Buffer.alloc(24)
+  Buffer.from('89504e470d0a1a0a', 'hex').copy(png)
+  png.writeUInt32BE(13, 8)
+  png.write('IHDR', 12, 'latin1')
+  png.writeUInt32BE(width, 16)
+  png.writeUInt32BE(height, 20)
+  return png
+}
 
 /** Events other than messages, internal ones aside */
 function collect() {
@@ -527,22 +539,8 @@ describe('what the official bot sends of the cross-platform elements', () => {
         },
       },
     }],
-    card: [{
-      msg_type: 3,
-      content: ' ',
-      ark: {
-        template_id: 24,
-        kv: [
-          { key: '#DESC#', value: '描述' },
-          { key: '#PROMPT#', value: '标题' },
-          { key: '#TITLE#', value: '标题' },
-          { key: '#METADESC#', value: '描述' },
-          { key: '#IMG#', value: image },
-          { key: '#LINK#', value: 'https://example.com/a' },
-          { key: '#SUBTITLE#', value: 'example.com' },
-        ],
-      },
-    }],
+    // Markdown rather than ark, which takes an application; the image sized as read from it
+    card: [{ msg_type: 2, markdown: { content: `**[标题](https://example.com/a)**\n描述\n![标题 #640px #360px](${image})` } }],
     // Sending faces is documented for guilds only
     face: [{ msg_type: 0, content: '好的[呲牙]' }],
   }
@@ -561,6 +559,7 @@ describe('what the official bot sends of the cross-platform elements', () => {
   for (const [name, content] of Object.entries(crossPlatform(image))) {
     it(name, async () => {
       await start()
+      reply = call => call.path === '/a.png' ? { body: pngHeader(640, 360) } : undefined
       groupAt('M1', ' x')
       await settle()
       await qq().sendMessage('G1', content)
@@ -568,12 +567,32 @@ describe('what the official bot sends of the cross-platform elements', () => {
     })
   }
 
-  it('sends what it cannot make a card of as the fallback', async () => {
+  it('writes a card into the markdown around it, whatever fields it has', async () => {
     await start()
-    groupAt('M1', ' x')
-    await settle()
-    await qq().sendMessage('G1', h('card', { title: '标题', desc: '描述' }))
-    expect(bodies()).toEqual([{ msg_type: 0, content: '标题\n描述' }])
+    await qq().sendMessage('G1', ['前面的字', h('card', { title: '标_题', desc: '描述' }), '后面的字'])
+    await qq().sendMessage('G1', h('card', { url: 'https://example.com/a(1)' }))
+    expect(messages().map(call => call.body)).toEqual([
+      { msg_type: 2, markdown: { content: '前面的字\n**标&#95;题**\n描述\n后面的字' } },
+      { msg_type: 2, markdown: { content: '[https://example.com/a(1)](https://example.com/a%281%29)' } },
+    ])
+  })
+
+  it('sends the image of a card after it when it is not on the web, unsized when it cannot be read', async () => {
+    await start()
+    reply = call => call.path === '/gone.png' ? { status: 404, body: {} } : undefined
+    await qq().sendMessage('G1', h('card', { title: '标题', url: 'https://example.com/a', image: 'data:image/png;base64,AAAA' }))
+    await qq().sendMessage('G1', h('card', { title: '标题', image: 'https://example.com/gone.png' }))
+    expect(messages().map(call => call.body)).toEqual([
+      { msg_type: 2, markdown: { content: '**[标题](https://example.com/a)**' } },
+      { msg_type: 7, media: { file_info: 'info:data' } },
+      { msg_type: 2, markdown: { content: '**标题**\n![标题](https://example.com/gone.png)' } },
+    ])
+  })
+
+  it('sends a card to a guild as ark', async () => {
+    await start({ intents: ['PUBLIC_GUILD_MESSAGES'] })
+    await guild().sendMessage('CH1', h('card', { title: '标题', url: 'https://example.com/a', desc: '描述' }))
+    expect(messages()[0]).toMatchObject({ path: '/channels/CH1/messages', body: { ark: { template_id: 23 } } })
   })
 })
 
