@@ -222,6 +222,8 @@ interface Runtime {
 
 const LISTENER_NOTICE_INTERVAL = 1_000
 
+const requireCache = createRequire(import.meta.url).cache
+
 const SCAN_LOCK = '#scan'
 
 const FIBER_STATES: Record<FiberState, PluginState> = {
@@ -336,6 +338,16 @@ class PluginService extends Service {
     return this.status(this.runtime(id))
   }
 
+  /** The plugin packages the last scan found */
+  packageList(): PluginPackage[] {
+    return [...this.packages.values()]
+  }
+
+  /** The @luckylillia/plugin-sdk version plugins' peerDependencies are checked against */
+  hostSdk(): string | undefined {
+    return this.sdkVersion
+  }
+
   scan() {
     return this.lock(SCAN_LOCK, () => this.rescan())
   }
@@ -361,6 +373,27 @@ class PluginService extends Service {
     this.data.entries = this.data.entries.filter(entry => entry.id !== id)
     if (this.data.messageOrder?.includes(id)) this.data.messageOrder = this.data.messageOrder.filter(item => item !== id)
     await this.save()
+    this.changed()
+  }
+
+  /**
+   * Drops what the user granted a package: trust, its WebUI's approval, where they put or hid its contributions. For
+   * a package that is gone: installing it again asks again.
+   */
+  async forget(name: string): Promise<void> {
+    const ui = this.data.ui
+    const prefix = `${name}|`
+    const granted = this.data.trusted?.includes(name) || ui?.approved.includes(name)
+      || ui?.hidden.some(key => key.startsWith(prefix)) || Object.keys(ui?.order ?? {}).some(key => key.startsWith(prefix))
+    if (!granted) return
+    if (this.data.trusted) this.data.trusted = this.data.trusted.filter(item => item !== name)
+    if (ui) {
+      ui.approved = ui.approved.filter(item => item !== name)
+      ui.hidden = ui.hidden.filter(key => !key.startsWith(prefix))
+      for (const key of Object.keys(ui.order)) if (key.startsWith(prefix)) delete ui.order[key]
+    }
+    await this.save()
+    this.ctx.emit('plugins/ui', this.uiPrefs())
     this.changed()
   }
 
@@ -825,6 +858,10 @@ class PluginService extends Service {
     const pkg = (await readPluginPackage(known.root)) ?? known
     this.packages.set(name, pkg)
     this.bumpWebui(name)
+    // ?v= re-imports the package's ES modules; CommonJS ones (dependencies, mostly) sit in require.cache by path
+    for (const file of Object.keys(requireCache)) {
+      if (isInside(pkg.root, file)) delete requireCache[file]
+    }
     const mod = await this.load(pkg, true)
     const targets = this.entriesOf(name).filter(rt => !this.isDisabled(rt))
     if (!mod.plugin) {
@@ -1035,7 +1072,7 @@ namespace PluginService {
     file: string
     /** Root of the plugins' data directories (ctx.storage, ctx.baseUrl). Omitted = neither is provided. */
     dataDir?: string
-    /** Directories whose child packages are plugins. */
+    /** Directories whose child packages are plugins. The market installs into the first. */
     roots: string[]
     /** Watch the roots and reload changed packages. plugins.json `hmr: true` also turns it on. */
     hmr?: boolean

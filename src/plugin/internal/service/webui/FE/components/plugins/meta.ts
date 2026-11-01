@@ -1,8 +1,8 @@
 import {
   Bell, Book, BookOpen, Bot, Brain, Calendar, Clock, Cloud, Code, Cpu, Database, Dice5, FileText, Gamepad2, Gift,
   Globe, Hand, Heart, Image, Info, Languages, LayoutDashboard, LucideIcon, Mail, MessageSquare, Milk, Music, Network,
-  Puzzle, Radio, Repeat, Search, Send, Settings, ShieldBan, Sliders, Smartphone, Smile, Sparkles, Star, Terminal, Timer,
-  Trophy, Users, Wrench, Zap,
+  Puzzle, Radio, Repeat, Search, Send, Settings, ShieldBan, Sliders, Smartphone, Smile, Sparkles, Star, Store, Terminal,
+  Timer, Trophy, Users, Wrench, Zap,
 } from 'lucide-react'
 import { EntryScope, PluginState, PluginStatus } from '../../types/plugins'
 
@@ -14,7 +14,8 @@ const ICONS: Record<string, LucideIcon> = {
   languages: Languages, 'layout-dashboard': LayoutDashboard, mail: Mail, 'message-square': MessageSquare, milk: Milk,
   music: Music, network: Network, puzzle: Puzzle, radio: Radio, repeat: Repeat, search: Search, send: Send,
   settings: Settings, 'shield-ban': ShieldBan, sliders: Sliders, smartphone: Smartphone, smile: Smile,
-  sparkles: Sparkles, star: Star, terminal: Terminal, timer: Timer, trophy: Trophy, users: Users, wrench: Wrench, zap: Zap,
+  sparkles: Sparkles, star: Star, store: Store, terminal: Terminal, timer: Timer, trophy: Trophy, users: Users,
+  wrench: Wrench, zap: Zap,
 }
 
 export function iconByName(name: string | undefined): LucideIcon {

@@ -25,6 +25,11 @@ describe('resolvePluginSpecifier', () => {
   it('copies the reload epoch to modules inside the same package', () => {
     expect(resolvePluginSpecifier(state, './lib/util.js', context('file:///data/plugins/foo/index.js?v=3'), nextResolve).url)
       .toBe('file:///data/plugins/foo/lib/util.js?v=3')
+    // Its own node_modules too: the market updates them in place. Vitest loads plugins through its own module
+    // runner, which never asks this hook, so market.test.ts cannot see it
+    const ownDependency = (specifier: string) => ({ url: `file:///data/plugins/foo/node_modules/${specifier}/index.js` })
+    expect(resolvePluginSpecifier(state, 'a', context('file:///data/plugins/foo/index.js?v=3'), ownDependency).url)
+      .toBe('file:///data/plugins/foo/node_modules/a/index.js?v=3')
   })
 
   it('leaves imports outside the package alone', () => {
