@@ -11,7 +11,7 @@ import { decodeMessageId } from './utils'
 export type Internal = Record<string, (params?: Record<string, unknown>) => Promise<any>>
 
 // About a OneBot connection, not the account: the quick reply to an HTTP post, the event queue of HTTP polling
-const CONNECTION_ONLY = ['.handle_quick_operation', 'get_event']
+export const CONNECTION_ONLY = ['.handle_quick_operation', 'get_event']
 
 /** `set_group_card` as setGroupCard, `_send_group_notice` as sendGroupNotice. */
 export const internalName = (action: string) => action.replace(/^[._]+/, '').replace(/_([a-z0-9])/g, (_, char: string) => char.toUpperCase())

@@ -1,18 +1,13 @@
 import { Context, Service } from 'cordis'
+import type { Account } from '@luckylillia/plugin-sdk'
 import type { SelfInfo } from './ntqqapi/types'
-
-declare module 'cordis' {
-  interface Context {
-    account: AccountService
-  }
-}
 
 /**
  * The logged-in account, as other plugins see it: the protocol's record of it (QQProtocolBase.selfInfo), which
  * nothing outside this plugin holds. Plugins that inject it stay pending until the first qq/online and are not
  * taken down by later disconnects, so upper layers ride out short network drops; `online` says how it is right now.
  */
-class AccountService extends Service {
+class AccountService extends Service implements Account {
   static inject = ['qqProtocol']
 
   // Taken here: read through ctx.account, the getters run on the caller's context
