@@ -10,7 +10,7 @@
   "scripts": {
     "dev": "tsx watch --exclude \"./data/**\" --exclude \"./examples/**\" src/main/main.ts",
     "build": "npm run build:sdk && vite build",
-    "build:sdk": "tsc -p packages/plugin-sdk",
+    "build:sdk": "tsc -p packages/plugin-sdk && node packages/plugin-sdk/scripts/build-testing.mjs",
     "dev-webui": "npm --prefix src/plugin/internal/service/webui/FE run dev",
     "build-webui": "npm --prefix src/plugin/internal/service/webui/FE run build",
     "postinstall": "npm --prefix src/plugin/internal/service/webui/FE install && npm run build:sdk",

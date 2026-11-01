@@ -14,14 +14,18 @@
       "types": "./lib/webui.d.ts",
       "default": "./lib/webui.js"
     },
+    "./testing": {
+      "types": "./lib/testing.d.ts",
+      "default": "./lib/testing.js"
+    },
     "./package.json": "./package.json"
   },
   "files": [
     "lib"
   ],
   "scripts": {
-    "build": "tsc -p .",
-    "prepack": "tsc -p ."
+    "build": "tsc -p . && node scripts/build-testing.mjs",
+    "prepack": "tsc -p . && node scripts/build-testing.mjs"
   },
   "repository": {
     "type": "git",
